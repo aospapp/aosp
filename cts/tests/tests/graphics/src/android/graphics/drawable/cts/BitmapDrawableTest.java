@@ -559,4 +559,19 @@ public class BitmapDrawableTest {
             resources.getDrawable(R.drawable.testimage).setAlpha(restoreAlpha);
         }
     }
+
+    @Test
+    public void testSetBitmap() {
+        Resources resources = mContext.getResources();
+        Bitmap source = BitmapFactory.decodeResource(resources, R.raw.testimage);
+        BitmapDrawable bitmapDrawable = new BitmapDrawable(resources, source);
+        assertSame(source, bitmapDrawable.getBitmap());
+
+        Bitmap bm = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        bitmapDrawable.setBitmap(bm);
+        assertSame(bm, bitmapDrawable.getBitmap());
+
+        bitmapDrawable.setBitmap(null);
+        assertNull(bitmapDrawable.getBitmap());
+    }
 }

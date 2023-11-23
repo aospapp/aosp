@@ -44,7 +44,6 @@ static enum a4xx_state_block imgsb[] = {
 struct fd5_image {
 	enum pipe_format pfmt;
 	enum a5xx_tex_fmt fmt;
-	enum a5xx_tex_fetchsize fetchsize;
 	enum a5xx_tex_type type;
 	bool srgb;
 	uint32_t cpp;
@@ -71,10 +70,9 @@ static void translate_image(struct fd5_image *img, struct pipe_image_view *pimg)
 
 	img->pfmt      = format;
 	img->fmt       = fd5_pipe2tex(format);
-	img->fetchsize = fd5_pipe2fetchsize(format);
 	img->type      = fd5_tex_type(prsc->target);
 	img->srgb      = util_format_is_srgb(format);
-	img->cpp       = rsc->cpp;
+	img->cpp       = rsc->layout.cpp;
 	img->bo        = rsc->bo;
 
 	if (prsc->target == PIPE_BUFFER) {
@@ -84,7 +82,7 @@ static void translate_image(struct fd5_image *img, struct pipe_image_view *pimg)
 	} else {
 		lvl = pimg->u.tex.level;
 		img->offset = fd_resource_offset(rsc, lvl, pimg->u.tex.first_layer);
-		img->pitch  = rsc->slices[lvl].pitch * rsc->cpp;
+		img->pitch  = fd_resource_pitch(rsc, lvl);
 	}
 
 	img->width     = u_minify(prsc->width0, lvl);
@@ -96,21 +94,21 @@ static void translate_image(struct fd5_image *img, struct pipe_image_view *pimg)
 	case PIPE_TEXTURE_RECT:
 	case PIPE_TEXTURE_1D:
 	case PIPE_TEXTURE_2D:
-		img->array_pitch = rsc->layer_size;
+		img->array_pitch = rsc->layout.layer_size;
 		img->depth = 1;
 		break;
 	case PIPE_TEXTURE_1D_ARRAY:
 	case PIPE_TEXTURE_2D_ARRAY:
-		img->array_pitch = rsc->layer_size;
+		img->array_pitch = rsc->layout.layer_size;
 		img->depth = layers;
 		break;
 	case PIPE_TEXTURE_CUBE:
 	case PIPE_TEXTURE_CUBE_ARRAY:
-		img->array_pitch = rsc->layer_size;
+		img->array_pitch = rsc->layout.layer_size;
 		img->depth = layers;
 		break;
 	case PIPE_TEXTURE_3D:
-		img->array_pitch = rsc->slices[lvl].size0;
+		img->array_pitch = fd_resource_slice(rsc, lvl)->size0;
 		img->depth = u_minify(prsc->depth0, lvl);
 		break;
 	default:
@@ -138,8 +136,7 @@ static void emit_image_tex(struct fd_ringbuffer *ring, unsigned slot,
 		COND(img->srgb, A5XX_TEX_CONST_0_SRGB));
 	OUT_RING(ring, A5XX_TEX_CONST_1_WIDTH(img->width) |
 		A5XX_TEX_CONST_1_HEIGHT(img->height));
-	OUT_RING(ring, A5XX_TEX_CONST_2_FETCHSIZE(img->fetchsize) |
-		A5XX_TEX_CONST_2_TYPE(img->type) |
+	OUT_RING(ring, A5XX_TEX_CONST_2_TYPE(img->type) |
 		A5XX_TEX_CONST_2_PITCH(img->pitch));
 	OUT_RING(ring, A5XX_TEX_CONST_3_ARRAY_PITCH(img->array_pitch));
 	if (img->bo) {
@@ -182,7 +179,7 @@ static void emit_image_ssbo(struct fd_ringbuffer *ring, unsigned slot,
 		CP_LOAD_STATE4_1_EXT_SRC_ADDR(0));
 	OUT_RING(ring, CP_LOAD_STATE4_2_EXT_SRC_ADDR_HI(0));
 	if (img->bo) {
-		OUT_RELOCW(ring, img->bo, img->offset, 0, 0);
+		OUT_RELOC(ring, img->bo, img->offset, 0, 0);
 	} else {
 		OUT_RING(ring, 0x00000000);
 		OUT_RING(ring, 0x00000000);
@@ -208,6 +205,6 @@ fd5_emit_images(struct fd_context *ctx, struct fd_ringbuffer *ring,
 		translate_image(&img, &so->si[index]);
 
 		emit_image_tex(ring, m->image_to_tex[index] + m->tex_base, &img, shader);
-		emit_image_ssbo(ring, m->image_to_ibo[index], &img, shader);
+		emit_image_ssbo(ring, v->shader->nir->info.num_ssbos + index, &img, shader);
 	}
 }

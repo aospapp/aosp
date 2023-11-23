@@ -146,6 +146,8 @@ public class BluetoothDevicePairer {
         "gpio-keypad", "cec_keyboard", "Virtual", "athome_remote"
     };
 
+    private static final int SCAN_MODE_NOT_SET = 0;
+
     private final BluetoothScanner.Listener mBtListener = new BluetoothScanner.Listener() {
         @Override
         public void onDeviceAdded(BluetoothScanner.Device device) {
@@ -270,6 +272,7 @@ public class BluetoothDevicePairer {
     private boolean mLinkReceiverRegistered = false;
     private final ArrayList<BluetoothDeviceCriteria> mBluetoothDeviceCriteria = new ArrayList<>();
     private InputDeviceCriteria mInputDeviceCriteria;
+    private int mDefaultScanMode = SCAN_MODE_NOT_SET;
 
     /**
      * Should be instantiated on a thread with a Looper, perhaps the main thread!
@@ -349,6 +352,17 @@ public class BluetoothDevicePairer {
             }
         }
 
+        // Another device may initiate pairing. To accommodate this, turn on discoverability
+        // if it isn't already.
+        final int scanMode = bluetoothAdapter.getScanMode();
+        if (scanMode != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+            Log.d(TAG, "Turning on discoverability, default scan mode: " + scanMode);
+            mDefaultScanMode = scanMode;
+            bluetoothAdapter.setScanMode(
+                    BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE,
+                    0 /* no timeout */);
+        }
+
         // set status to scanning before we start listening since
         // startListening may result in a transition to STATUS_WAITING_TO_PAIR
         // which might seem odd from a client perspective
@@ -382,6 +396,13 @@ public class BluetoothDevicePairer {
      * Stop doing anything we're doing, release any resources.
      */
     public void dispose() {
+        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mDefaultScanMode != SCAN_MODE_NOT_SET
+                && mDefaultScanMode != bluetoothAdapter.getScanMode()) {
+            Log.d(TAG, "Resetting discoverability to: " + mDefaultScanMode);
+            bluetoothAdapter.setScanMode(mDefaultScanMode);
+        }
+
         mHandler.removeCallbacksAndMessages(null);
         if (mLinkReceiverRegistered) {
             unregisterLinkStatusReceiver();

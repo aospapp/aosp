@@ -16,6 +16,8 @@
 
 package com.android.phone;
 
+import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -74,7 +76,7 @@ public class EmergencyCallbackModeExitDialog extends Activity implements OnCance
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        getWindow().addPrivateFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
         mPhone = PhoneGlobals.getInstance().getPhoneInEcm();
         // Check if phone is in Emergency Callback Mode. If not, exit.
         if (mPhone == null || !mPhone.isInEcm()) {

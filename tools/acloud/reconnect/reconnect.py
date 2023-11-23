@@ -19,21 +19,81 @@ Reconnect will:
  - restart vnc for remote/local instances
 """
 
+import logging
+import os
 import re
 
 from acloud import errors
 from acloud.internal import constants
 from acloud.internal.lib import auth
 from acloud.internal.lib import android_compute_client
+from acloud.internal.lib import cvd_runtime_config
 from acloud.internal.lib import utils
+from acloud.internal.lib import ssh as ssh_object
 from acloud.internal.lib.adb_tools import AdbTools
 from acloud.list import list as list_instance
 from acloud.public import config
 from acloud.public import report
 
 
+logger = logging.getLogger(__name__)
+
 _RE_DISPLAY = re.compile(r"([\d]+)x([\d]+)\s.*")
 _VNC_STARTED_PATTERN = "ssvnc vnc://127.0.0.1:%(vnc_port)d"
+_WEBRTC_PORTS_SEARCH = "".join(
+    [utils.PORT_MAPPING % {"local_port":port["local"],
+                           "target_port":port["target"]}
+     for port in utils.WEBRTC_PORTS_MAPPING])
+
+
+def _IsWebrtcEnable(instance, host_user, host_ssh_private_key_path,
+                    extra_args_ssh_tunnel):
+    """Check local/remote instance webRTC is enable.
+
+    Args:
+        instance: Local/Remote Instance object.
+        host_user: String of user login into the instance.
+        host_ssh_private_key_path: String of host key for logging in to the
+                                   host.
+        extra_args_ssh_tunnel: String, extra args for ssh tunnel connection.
+
+    Returns:
+        Boolean: True if cf_runtime_cfg.enable_webrtc is True.
+    """
+    if instance.islocal:
+        return instance.cf_runtime_cfg.enable_webrtc
+    ssh = ssh_object.Ssh(ip=ssh_object.IP(ip=instance.ip), user=host_user,
+                         ssh_private_key_path=host_ssh_private_key_path,
+                         extra_args_ssh_tunnel=extra_args_ssh_tunnel)
+    remote_cuttlefish_config = os.path.join(constants.REMOTE_LOG_FOLDER,
+                                            constants.CUTTLEFISH_CONFIG_FILE)
+    raw_data = ssh.GetCmdOutput("cat " + remote_cuttlefish_config)
+    try:
+        cf_runtime_cfg = cvd_runtime_config.CvdRuntimeConfig(
+            raw_data=raw_data.strip())
+        return cf_runtime_cfg.enable_webrtc
+    except errors.ConfigError:
+        logger.debug("No cuttlefish config[%s] found!",
+                     remote_cuttlefish_config)
+    return False
+
+
+def _WebrtcPortOccupied():
+    """To decide whether need to release port.
+
+    Remote webrtc instance will create a ssh tunnel which may conflict with
+    local webrtc instance default port. Searching process cmd in the pattern
+    of _WEBRTC_PORTS_SEARCH to decide whether to release port.
+
+    Return:
+        True if need to release port.
+    """
+    process_output = utils.CheckOutput(constants.COMMAND_PS)
+    for line in process_output.splitlines():
+        match = re.search(_WEBRTC_PORTS_SEARCH, line)
+        if match:
+            return True
+    return False
 
 
 def StartVnc(vnc_port, display):
@@ -112,6 +172,7 @@ def ReconnectInstance(ssh_private_key_path,
     adb_cmd = AdbTools(instance.adb_port)
     vnc_port = instance.vnc_port
     adb_port = instance.adb_port
+    webrtc_port = instance.webrtc_port
     # ssh tunnel is up but device is disconnected on adb
     if instance.ssh_tunnel_is_connected and not adb_cmd.IsAdbConnectionAlive():
         adb_cmd.DisconnectAdb()
@@ -128,8 +189,29 @@ def ReconnectInstance(ssh_private_key_path,
             extra_args_ssh_tunnel=extra_args_ssh_tunnel)
         vnc_port = forwarded_ports.vnc_port
         adb_port = forwarded_ports.adb_port
-
-    if vnc_port and connect_vnc:
+    if _IsWebrtcEnable(instance,
+                       constants.GCE_USER,
+                       ssh_private_key_path,
+                       extra_args_ssh_tunnel):
+        if instance.islocal:
+            if _WebrtcPortOccupied():
+                raise errors.PortOccupied("\nReconnect to a local webrtc instance "
+                                          "is not work because remote webrtc "
+                                          "instance has established ssh tunnel "
+                                          "which occupied local webrtc instance "
+                                          "port. If you want to connect to a "
+                                          "local-instance of webrtc. please run "
+                                          "'acloud create --local-instance "
+                                          "--autoconnect webrtc' directly.")
+        else:
+            utils.EstablishWebRTCSshTunnel(
+                ip_addr=instance.ip,
+                rsa_key_file=ssh_private_key_path,
+                ssh_user=constants.GCE_USER,
+                extra_args_ssh_tunnel=extra_args_ssh_tunnel)
+        utils.LaunchBrowser(constants.WEBRTC_LOCAL_HOST,
+                            webrtc_port)
+    elif(vnc_port and connect_vnc):
         StartVnc(vnc_port, instance.display)
 
     device_dict = {
@@ -138,6 +220,9 @@ def ReconnectInstance(ssh_private_key_path,
         constants.VNC_PORT: vnc_port,
         constants.ADB_PORT: adb_port
     }
+    if adb_port and not instance.islocal:
+        device_dict[constants.DEVICE_SERIAL] = (
+            constants.REMOTE_INSTANCE_ADB_SERIAL % adb_port)
 
     if vnc_port and adb_port:
         reconnect_report.AddData(key="devices", value=device_dict)

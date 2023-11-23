@@ -20,7 +20,6 @@
 
 #include <hwbinder/Binder.h>
 #include <hwbinder/BpHwBinder.h>
-#include <hwbinder/TextOutput.h>
 
 #include <android-base/macros.h>
 #include <utils/CallStack.h>
@@ -30,6 +29,7 @@
 
 #include "binder_kernel.h"
 #include <hwbinder/Static.h>
+#include "TextOutput.h"
 
 #include <atomic>
 #include <errno.h>
@@ -88,6 +88,8 @@ static const char *kReturnStrings[] = {
     "BR_DEAD_BINDER",
     "BR_CLEAR_DEATH_NOTIFICATION_DONE",
     "BR_FAILED_REPLY",
+    "BR_FROZEN_REPLY",
+    "BR_ONEWAY_SPAM_SUSPECT",
     "BR_TRANSACTION_SEC_CTX",
 };
 
@@ -407,7 +409,7 @@ void IPCThreadState::clearCaller()
 
 void IPCThreadState::flushCommands()
 {
-    if (mProcess->mDriverFD <= 0)
+    if (mProcess->mDriverFD < 0)
         return;
     talkWithDriver(false);
     // The flush could have caused post-write refcount decrements to have
@@ -419,18 +421,6 @@ void IPCThreadState::flushCommands()
     if (mOut.dataSize() > 0) {
         ALOGW("mOut.dataSize() > 0 after flushCommands()");
     }
-}
-
-void IPCThreadState::blockUntilThreadAvailable()
-{
-    pthread_mutex_lock(&mProcess->mThreadCountLock);
-    while (mProcess->mExecutingThreadsCount >= mProcess->mMaxThreads) {
-        ALOGW("Waiting for thread to be free. mExecutingThreadsCount=%lu mMaxThreads=%lu\n",
-                static_cast<unsigned long>(mProcess->mExecutingThreadsCount),
-                static_cast<unsigned long>(mProcess->mMaxThreads));
-        pthread_cond_wait(&mProcess->mThreadCountDecrement, &mProcess->mThreadCountLock);
-    }
-    pthread_mutex_unlock(&mProcess->mThreadCountLock);
 }
 
 status_t IPCThreadState::getAndExecuteCommand()
@@ -472,7 +462,6 @@ status_t IPCThreadState::getAndExecuteCommand()
             }
             mProcess->mStarvationStartTimeMs = 0;
         }
-        pthread_cond_broadcast(&mProcess->mThreadCountDecrement);
         pthread_mutex_unlock(&mProcess->mThreadCountLock);
     }
 
@@ -580,7 +569,7 @@ void IPCThreadState::joinThreadPool(bool isMain)
 
 int IPCThreadState::setupPolling(int* fd)
 {
-    if (mProcess->mDriverFD <= 0) {
+    if (mProcess->mDriverFD < 0) {
         return -EBADF;
     }
 
@@ -815,6 +804,11 @@ status_t IPCThreadState::waitForResponse(Parcel *reply, status_t *acquireResult)
         }
 
         switch (cmd) {
+        case BR_ONEWAY_SPAM_SUSPECT:
+            ALOGE("Process seems to be sending too many oneway calls.");
+            CallStack::logStack("oneway spamming", CallStack::getCurrent().get(),
+                    ANDROID_LOG_ERROR);
+            [[fallthrough]];
         case BR_TRANSACTION_COMPLETE:
             if (!reply && !acquireResult) goto finish;
             break;
@@ -889,7 +883,7 @@ finish:
 
 status_t IPCThreadState::talkWithDriver(bool doReceive)
 {
-    if (mProcess->mDriverFD <= 0) {
+    if (mProcess->mDriverFD < 0) {
         return -EBADF;
     }
 
@@ -946,7 +940,7 @@ status_t IPCThreadState::talkWithDriver(bool doReceive)
 #else
         err = INVALID_OPERATION;
 #endif
-        if (mProcess->mDriverFD <= 0) {
+        if (mProcess->mDriverFD < 0) {
             err = -EBADF;
         }
         IF_LOG_COMMANDS() {
@@ -1183,6 +1177,8 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
                     << reinterpret_cast<const size_t*>(tr.data.ptr.offsets) << endl;
             }
 
+            constexpr size_t kForwardReplyFlags = TF_CLEAR_BUF;
+
             auto reply_callback = [&] (auto &replyParcel) {
                 if (reply_sent) {
                     // Reply was sent earlier, ignore it.
@@ -1192,7 +1188,7 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
                 reply_sent = true;
                 if ((tr.flags & TF_ONE_WAY) == 0) {
                     replyParcel.setError(NO_ERROR);
-                    sendReply(replyParcel, 0);
+                    sendReply(replyParcel, (tr.flags & kForwardReplyFlags));
                 } else {
                     ALOGE("Not sending reply in one-way transaction");
                 }
@@ -1219,7 +1215,7 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
                     // Should have been a reply but there wasn't, so there
                     // must have been an error instead.
                     reply.setError(error);
-                    sendReply(reply, 0);
+                    sendReply(reply, (tr.flags & kForwardReplyFlags));
                 } else {
                     if (error != NO_ERROR) {
                         ALOGE("transact() returned error after sending reply.");
@@ -1297,7 +1293,7 @@ void IPCThreadState::threadDestructor(void *st)
         if (self) {
                 self->flushCommands();
 #if defined(__ANDROID__)
-        if (self->mProcess->mDriverFD > 0) {
+        if (self->mProcess->mDriverFD >= 0) {
             ioctl(self->mProcess->mDriverFD, BINDER_THREAD_EXIT, 0);
         }
 #endif

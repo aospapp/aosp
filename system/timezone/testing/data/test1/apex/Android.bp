@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "system_timezone_license":
+    //   legacy_notice
+    default_applicable_licenses: ["system_timezone_license"],
+}
+
 // A test version of apex.tzdata that contains test1 data (2030a).
 // It has a version code that should beat a "real" APEX and enables
 // end-to-end installation testing on devices with the latests real
@@ -31,4 +39,3 @@ apex {
     // image.
     installable: false,
 }
-

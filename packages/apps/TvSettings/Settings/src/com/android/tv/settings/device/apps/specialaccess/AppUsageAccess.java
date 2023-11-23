@@ -28,7 +28,6 @@ import androidx.preference.PreferenceGroup;
 import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
 
@@ -40,11 +39,6 @@ public class AppUsageAccess extends ManageAppOp
         implements ManageApplicationsController.Callback {
 
     private AppOpsManager mAppOpsManager;
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.USAGE_ACCESS;
-    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {

@@ -14,30 +14,34 @@
 // limitations under the License.
 //
 
+#include <map>
 #include <string>
 #include <vector>
 
+#include <base/bind.h>
 #include <base/files/file_path.h>
 #include <base/files/file_util.h>
 #include <base/logging.h>
 #include <base/strings/string_number_conversions.h>
 #include <base/strings/string_split.h>
+#include <base/strings/string_util.h>
 #include <brillo/flag_helper.h>
 #include <brillo/key_value_store.h>
 #include <brillo/message_loops/base_message_loop.h>
 #include <xz.h>
 
+#include "update_engine/common/download_action.h"
 #include "update_engine/common/fake_boot_control.h"
 #include "update_engine/common/fake_hardware.h"
 #include "update_engine/common/file_fetcher.h"
 #include "update_engine/common/prefs.h"
 #include "update_engine/common/terminator.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/payload_consumer/download_action.h"
 #include "update_engine/payload_consumer/filesystem_verifier_action.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_generator/delta_diff_generator.h"
 #include "update_engine/payload_generator/payload_generation_config.h"
+#include "update_engine/payload_generator/payload_properties.h"
 #include "update_engine/payload_generator/payload_signer.h"
 #include "update_engine/payload_generator/xz.h"
 #include "update_engine/update_metadata.pb.h"
@@ -46,12 +50,16 @@
 // and an output file as arguments and the path to an output file and
 // generates a delta that can be sent to Chrome OS clients.
 
+using std::map;
 using std::string;
 using std::vector;
 
 namespace chromeos_update_engine {
 
 namespace {
+
+constexpr char kPayloadPropertiesFormatKeyValue[] = "key-value";
+constexpr char kPayloadPropertiesFormatJson[] = "json";
 
 void ParseSignatureSizes(const string& signature_sizes_flag,
                          vector<size_t>* signature_sizes) {
@@ -65,38 +73,6 @@ void ParseSignatureSizes(const string& signature_sizes_flag,
 
     signature_sizes->push_back(size);
   }
-}
-
-bool ParseImageInfo(const string& channel,
-                    const string& board,
-                    const string& version,
-                    const string& key,
-                    const string& build_channel,
-                    const string& build_version,
-                    ImageInfo* image_info) {
-  // All of these arguments should be present or missing.
-  bool empty = channel.empty();
-
-  CHECK_EQ(channel.empty(), empty);
-  CHECK_EQ(board.empty(), empty);
-  CHECK_EQ(version.empty(), empty);
-  CHECK_EQ(key.empty(), empty);
-
-  if (empty)
-    return false;
-
-  image_info->set_channel(channel);
-  image_info->set_board(board);
-  image_info->set_version(version);
-  image_info->set_key(key);
-
-  image_info->set_build_channel(build_channel.empty() ? channel
-                                                      : build_channel);
-
-  image_info->set_build_version(build_version.empty() ? version
-                                                      : build_version);
-
-  return true;
 }
 
 void CalculateHashForSigning(const vector<size_t>& sizes,
@@ -207,8 +183,11 @@ bool ApplyPayload(const string& payload_file,
   install_plan.source_slot =
       config.is_delta ? 0 : BootControlInterface::kInvalidSlot;
   install_plan.target_slot = 1;
-  payload.type =
-      config.is_delta ? InstallPayloadType::kDelta : InstallPayloadType::kFull;
+  // For partial updates, we always write kDelta to the payload. Make it
+  // consistent for host simulation.
+  payload.type = config.is_delta || config.is_partial_update
+                     ? InstallPayloadType::kDelta
+                     : InstallPayloadType::kFull;
   payload.size = utils::FileSize(payload_file);
   // TODO(senj): This hash is only correct for unsigned payload, need to support
   // signed payload using PayloadSigner.
@@ -245,11 +224,10 @@ bool ApplyPayload(const string& payload_file,
       std::make_unique<DownloadAction>(&prefs,
                                        &fake_boot_control,
                                        &fake_hardware,
-                                       nullptr,
                                        new FileFetcher(),
                                        true /* interactive */);
-  auto filesystem_verifier_action =
-      std::make_unique<FilesystemVerifierAction>();
+  auto filesystem_verifier_action = std::make_unique<FilesystemVerifierAction>(
+      fake_boot_control.GetDynamicPartitionControl());
 
   BondActions(install_plan_action.get(), download_action.get());
   BondActions(download_action.get(), filesystem_verifier_action.get());
@@ -259,7 +237,9 @@ bool ApplyPayload(const string& payload_file,
   processor.EnqueueAction(std::move(install_plan_action));
   processor.EnqueueAction(std::move(download_action));
   processor.EnqueueAction(std::move(filesystem_verifier_action));
-  processor.StartProcessing();
+  loop.PostTask(FROM_HERE,
+                base::Bind(&ActionProcessor::StartProcessing,
+                           base::Unretained(&processor)));
   loop.Run();
   CHECK_EQ(delegate.code_, ErrorCode::kSuccess);
   LOG(INFO) << "Completed applying " << (config.is_delta ? "delta" : "full")
@@ -267,15 +247,58 @@ bool ApplyPayload(const string& payload_file,
   return true;
 }
 
-int ExtractProperties(const string& payload_path, const string& props_file) {
-  brillo::KeyValueStore properties;
-  TEST_AND_RETURN_FALSE(
-      PayloadSigner::ExtractPayloadProperties(payload_path, &properties));
-  if (props_file == "-") {
-    printf("%s", properties.SaveToString().c_str());
+bool ExtractProperties(const string& payload_path,
+                       const string& props_file,
+                       const string& props_format) {
+  string properties;
+  PayloadProperties payload_props(payload_path);
+  if (props_format == kPayloadPropertiesFormatKeyValue) {
+    TEST_AND_RETURN_FALSE(payload_props.GetPropertiesAsKeyValue(&properties));
+  } else if (props_format == kPayloadPropertiesFormatJson) {
+    TEST_AND_RETURN_FALSE(payload_props.GetPropertiesAsJson(&properties));
   } else {
-    properties.Save(base::FilePath(props_file));
+    LOG(FATAL) << "Invalid option " << props_format
+               << " for --properties_format flag.";
+  }
+  if (props_file == "-") {
+    printf("%s", properties.c_str());
+  } else {
+    utils::WriteFile(
+        props_file.c_str(), properties.c_str(), properties.length());
     LOG(INFO) << "Generated properties file at " << props_file;
+  }
+  return true;
+}
+
+template <typename Key, typename Val>
+string ToString(const map<Key, Val>& map) {
+  vector<string> result;
+  result.reserve(map.size());
+  for (const auto& it : map) {
+    result.emplace_back(it.first + ": " + it.second);
+  }
+  return "{" + base::JoinString(result, ",") + "}";
+}
+
+bool ParsePerPartitionTimestamps(const string& partition_timestamps,
+                                 PayloadGenerationConfig* config) {
+  base::StringPairs pairs;
+  CHECK(base::SplitStringIntoKeyValuePairs(
+      partition_timestamps, ':', ',', &pairs))
+      << "--partition_timestamps accepts commad "
+         "separated pairs. e.x. system:1234,vendor:5678";
+  map<string, string> partition_timestamps_map{
+      std::move_iterator(pairs.begin()), std::move_iterator(pairs.end())};
+  for (auto&& partition : config->target.partitions) {
+    auto&& it = partition_timestamps_map.find(partition.name);
+    if (it != partition_timestamps_map.end()) {
+      partition.version = std::move(it->second);
+      partition_timestamps_map.erase(it);
+    }
+  }
+  if (!partition_timestamps_map.empty()) {
+    LOG(ERROR) << "Unused timestamps: " << ToString(partition_timestamps_map);
+    return false;
   }
   return true;
 }
@@ -361,57 +384,21 @@ int Main(int argc, char** argv) {
   DEFINE_string(properties_file,
                 "",
                 "If passed, dumps the payload properties of the payload passed "
-                "in --in_file and exits.");
+                "in --in_file and exits. Look at --properties_format.");
+  DEFINE_string(properties_format,
+                kPayloadPropertiesFormatKeyValue,
+                "Defines the format of the --properties_file. The acceptable "
+                "values are: key-value (default) and json");
   DEFINE_int64(max_timestamp,
                0,
                "The maximum timestamp of the OS allowed to apply this "
                "payload.");
-
-  DEFINE_string(old_channel,
-                "",
-                "The channel for the old image. 'dev-channel', 'npo-channel', "
-                "etc. Ignored, except during delta generation.");
-  DEFINE_string(old_board,
-                "",
-                "The board for the old image. 'x86-mario', 'lumpy', "
-                "etc. Ignored, except during delta generation.");
   DEFINE_string(
-      old_version, "", "The build version of the old image. 1.2.3, etc.");
-  DEFINE_string(old_key,
-                "",
-                "The key used to sign the old image. 'premp', 'mp', 'mp-v3',"
-                " etc");
-  DEFINE_string(old_build_channel,
-                "",
-                "The channel for the build of the old image. 'dev-channel', "
-                "etc, but will never contain special channels such as "
-                "'npo-channel'. Ignored, except during delta generation.");
-  DEFINE_string(old_build_version,
-                "",
-                "The version of the build containing the old image.");
+      partition_timestamps,
+      "",
+      "The per-partition maximum timestamps which the OS allowed to apply this "
+      "payload. Passed in comma separated pairs, e.x. system:1234,vendor:5678");
 
-  DEFINE_string(new_channel,
-                "",
-                "The channel for the new image. 'dev-channel', 'npo-channel', "
-                "etc. Ignored, except during delta generation.");
-  DEFINE_string(new_board,
-                "",
-                "The board for the new image. 'x86-mario', 'lumpy', "
-                "etc. Ignored, except during delta generation.");
-  DEFINE_string(
-      new_version, "", "The build version of the new image. 1.2.3, etc.");
-  DEFINE_string(new_key,
-                "",
-                "The key used to sign the new image. 'premp', 'mp', 'mp-v3',"
-                " etc");
-  DEFINE_string(new_build_channel,
-                "",
-                "The channel for the build of the new image. 'dev-channel', "
-                "etc, but will never contain special channels such as "
-                "'npo-channel'. Ignored, except during delta generation.");
-  DEFINE_string(new_build_version,
-                "",
-                "The version of the build containing the new image.");
   DEFINE_string(new_postinstall_config_file,
                 "",
                 "A config file specifying postinstall related metadata. "
@@ -423,10 +410,23 @@ int Main(int argc, char** argv) {
   DEFINE_bool(disable_fec_computation,
               false,
               "Disables the fec data computation on device.");
+  DEFINE_bool(disable_verity_computation,
+              false,
+              "Disables the verity data computation on device.");
   DEFINE_string(
       out_maximum_signature_size_file,
       "",
       "Path to the output maximum signature size given a private key.");
+  DEFINE_bool(is_partial_update,
+              false,
+              "The payload only targets a subset of partitions on the device,"
+              "e.g. generic kernel image update.");
+  DEFINE_bool(
+      disable_vabc,
+      false,
+      "Whether to disable Virtual AB Compression when installing the OTA");
+  DEFINE_string(
+      apex_info_file, "", "Path to META/apex_info.pb found in target build");
 
   brillo::FlagHelper::Init(
       argc,
@@ -438,7 +438,11 @@ int Main(int argc, char** argv) {
   Terminator::Init();
 
   logging::LoggingSettings log_settings;
+#if BASE_VER < 780000
   log_settings.log_file = "delta_generator.log";
+#else
+  log_settings.log_file_path = "delta_generator.log";
+#endif
   log_settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
   log_settings.lock_log = logging::LOCK_LOG_FILE;
   log_settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
@@ -500,7 +504,10 @@ int Main(int argc, char** argv) {
     return VerifySignedPayload(FLAGS_in_file, FLAGS_public_key);
   }
   if (!FLAGS_properties_file.empty()) {
-    return ExtractProperties(FLAGS_in_file, FLAGS_properties_file) ? 0 : 1;
+    return ExtractProperties(
+               FLAGS_in_file, FLAGS_properties_file, FLAGS_properties_format)
+               ? 0
+               : 1;
   }
 
   // A payload generation was requested. Convert the flags to a
@@ -521,16 +528,19 @@ int Main(int argc, char** argv) {
   partition_names = base::SplitString(
       FLAGS_partition_names, ":", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
   CHECK(!partition_names.empty());
-  if (FLAGS_major_version == kChromeOSMajorPayloadVersion ||
-      FLAGS_new_partitions.empty()) {
-    LOG_IF(FATAL, partition_names.size() != 2)
-        << "To support more than 2 partitions, please use the "
-        << "--new_partitions flag and major version 2.";
-    LOG_IF(FATAL,
-           partition_names[0] != kPartitionNameRoot ||
-               partition_names[1] != kPartitionNameKernel)
-        << "To support non-default partition name, please use the "
-        << "--new_partitions flag and major version 2.";
+  if (FLAGS_major_version < kMinSupportedMajorPayloadVersion ||
+      FLAGS_major_version > kMaxSupportedMajorPayloadVersion) {
+    LOG(FATAL) << "Unsupported major version " << FLAGS_major_version;
+    return 1;
+  }
+
+  if (!FLAGS_apex_info_file.empty()) {
+    // apex_info_file should point to a regular file(or symlink to a regular
+    // file)
+    CHECK(utils::FileExists(FLAGS_apex_info_file.c_str()));
+    CHECK(utils::IsRegFile(FLAGS_apex_info_file.c_str()) ||
+          utils::IsSymlink(FLAGS_apex_info_file.c_str()));
+    payload_config.apex_info_file = FLAGS_apex_info_file;
   }
 
   if (!FLAGS_new_partitions.empty()) {
@@ -586,13 +596,15 @@ int Main(int argc, char** argv) {
     }
   }
 
+  if (FLAGS_is_partial_update) {
+    payload_config.is_partial_update = true;
+  }
+
   if (!FLAGS_in_file.empty()) {
     return ApplyPayload(FLAGS_in_file, payload_config) ? 0 : 1;
   }
 
   if (!FLAGS_new_postinstall_config_file.empty()) {
-    LOG_IF(FATAL, FLAGS_major_version == kChromeOSMajorPayloadVersion)
-        << "Postinstall config is only allowed in major version 2 or newer.";
     brillo::KeyValueStore store;
     CHECK(store.Load(base::FilePath(FLAGS_new_postinstall_config_file)));
     CHECK(payload_config.target.LoadPostInstallConfig(store));
@@ -610,34 +622,19 @@ int Main(int argc, char** argv) {
   CHECK(payload_config.target.LoadImageSize());
 
   if (!FLAGS_dynamic_partition_info_file.empty()) {
-    LOG_IF(FATAL, FLAGS_major_version == kChromeOSMajorPayloadVersion)
-        << "Dynamic partition info is only allowed in major version 2 or "
-           "newer.";
     brillo::KeyValueStore store;
     CHECK(store.Load(base::FilePath(FLAGS_dynamic_partition_info_file)));
     CHECK(payload_config.target.LoadDynamicPartitionMetadata(store));
     CHECK(payload_config.target.ValidateDynamicPartitionMetadata());
+    if (FLAGS_disable_vabc) {
+      LOG(INFO) << "Disabling VABC";
+      payload_config.target.dynamic_partition_metadata->set_vabc_enabled(false);
+      payload_config.target.dynamic_partition_metadata
+          ->set_vabc_compression_param("");
+    }
   }
 
   CHECK(!FLAGS_out_file.empty());
-
-  // Ignore failures. These are optional arguments.
-  ParseImageInfo(FLAGS_new_channel,
-                 FLAGS_new_board,
-                 FLAGS_new_version,
-                 FLAGS_new_key,
-                 FLAGS_new_build_channel,
-                 FLAGS_new_build_version,
-                 &payload_config.target.image_info);
-
-  // Ignore failures. These are optional arguments.
-  ParseImageInfo(FLAGS_old_channel,
-                 FLAGS_old_board,
-                 FLAGS_old_version,
-                 FLAGS_old_key,
-                 FLAGS_old_build_channel,
-                 FLAGS_old_build_version,
-                 &payload_config.source.image_info);
 
   payload_config.rootfs_partition_size = FLAGS_rootfs_partition_size;
 
@@ -656,28 +653,49 @@ int Main(int argc, char** argv) {
     // Autodetect minor_version by looking at the update_engine.conf in the old
     // image.
     if (payload_config.is_delta) {
-      payload_config.version.minor = kInPlaceMinorPayloadVersion;
       brillo::KeyValueStore store;
       uint32_t minor_version;
+      bool minor_version_found = false;
       for (const PartitionConfig& part : payload_config.source.partitions) {
         if (part.fs_interface && part.fs_interface->LoadSettings(&store) &&
             utils::GetMinorVersion(store, &minor_version)) {
           payload_config.version.minor = minor_version;
+          minor_version_found = true;
+          LOG(INFO) << "Auto-detected minor_version="
+                    << payload_config.version.minor;
           break;
         }
       }
+      if (!minor_version_found) {
+        LOG(FATAL) << "Failed to detect the minor version.";
+        return 1;
+      }
     } else {
       payload_config.version.minor = kFullPayloadMinorVersion;
+      LOG(INFO) << "Using non-delta minor_version="
+                << payload_config.version.minor;
     }
-    LOG(INFO) << "Auto-detected minor_version=" << payload_config.version.minor;
   } else {
     payload_config.version.minor = FLAGS_minor_version;
     LOG(INFO) << "Using provided minor_version=" << FLAGS_minor_version;
   }
 
-  payload_config.max_timestamp = FLAGS_max_timestamp;
+  if (payload_config.version.minor != kFullPayloadMinorVersion &&
+      (payload_config.version.minor < kMinSupportedMinorPayloadVersion ||
+       payload_config.version.minor > kMaxSupportedMinorPayloadVersion)) {
+    LOG(FATAL) << "Unsupported minor version " << payload_config.version.minor;
+    return 1;
+  }
 
-  if (payload_config.version.minor >= kVerityMinorPayloadVersion)
+  payload_config.max_timestamp = FLAGS_max_timestamp;
+  if (!FLAGS_partition_timestamps.empty()) {
+    CHECK(ParsePerPartitionTimestamps(FLAGS_partition_timestamps,
+                                      &payload_config));
+  }
+
+  if (payload_config.is_delta &&
+      payload_config.version.minor >= kVerityMinorPayloadVersion &&
+      !FLAGS_disable_verity_computation)
     CHECK(payload_config.target.LoadVerityConfig());
 
   LOG(INFO) << "Generating " << (payload_config.is_delta ? "delta" : "full")

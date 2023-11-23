@@ -60,25 +60,25 @@ bool show_wss = false;
 
 static void print_separator(std::stringstream& ss) {
     if (show_wss) {
-        ss << ::android::base::StringPrintf("%7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %s\n",
+        ss << ::android::base::StringPrintf("%7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %s\n",
                                             "-------", "-------", "-------", "-------", "-------",
-                                            "-------", "-------", "-------", "");
+                                            "-------", "-------", "-------", "-------", "");
         return;
     }
-    ss << ::android::base::StringPrintf("%7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %s\n",
+    ss << ::android::base::StringPrintf("%7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %s\n",
                                         "-------", "-------", "-------", "-------", "-------",
-                                        "-------", "-------", "-------", "-------", "");
+                                        "-------", "-------", "-------", "-------", "-------", "");
 }
 
 static void print_header(std::stringstream& ss) {
     if (show_wss) {
-        ss << ::android::base::StringPrintf("%7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %s\n", "WRss",
-                                            "WPss", "WUss", "WShCl", "WShDi", "WPrCl", "WPrDi",
-                                            "Flags", "Name");
-    } else {
         ss << ::android::base::StringPrintf("%7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %s\n",
-                                            "Vss", "Rss", "Pss", "Uss", "ShCl", "ShDi", "PrCl",
-                                            "PrDi", "Flags", "Name");
+                                            "WRss", "WPss", "WUss", "WShCl", "WShDi", "WPrCl",
+                                            "WPrDi", "THP", "Flags", "Name");
+    } else {
+        ss << ::android::base::StringPrintf(
+                "%7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %7s  %s\n", "Vss", "Rss", "Pss",
+                "Uss", "ShCl", "ShDi", "PrCl", "PrDi", "THP", "Flags", "Name");
     }
     print_separator(ss);
 }
@@ -88,11 +88,12 @@ static void print_stats(std::stringstream& ss, const MemUsage& stats) {
         ss << ::android::base::StringPrintf("%6" PRIu64 "K  ", stats.vss / 1024);
     }
 
-    ss << ::android::base::StringPrintf("%6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64
-                                        "K  %6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  ",
-                                        stats.rss / 1024, stats.pss / 1024, stats.uss / 1024,
-                                        stats.shared_clean / 1024, stats.shared_dirty / 1024,
-                                        stats.private_clean / 1024, stats.private_dirty / 1024);
+    ss << ::android::base::StringPrintf(
+            "%6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64
+            "K  %6" PRIu64 "K  %6" PRIu64 "K ",
+            stats.rss / 1024, stats.pss / 1024, stats.uss / 1024, stats.shared_clean / 1024,
+            stats.shared_dirty / 1024, stats.private_clean / 1024, stats.private_dirty / 1024,
+            stats.thp / 1024);
 }
 
 static int show(const MemUsage& proc_stats, const std::vector<Vma>& maps) {

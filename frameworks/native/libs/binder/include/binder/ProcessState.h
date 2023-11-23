@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_PROCESS_STATE_H
-#define ANDROID_PROCESS_STATE_H
+#pragma once
 
 #include <binder/IBinder.h>
 #include <utils/KeyedVector.h>
@@ -42,20 +41,16 @@ public:
      * any call to ProcessState::self(). The default is /dev/vndbinder
      * for processes built with the VNDK and /dev/binder for those
      * which are not.
+     *
+     * If this is called with nullptr, the behavior is the same as selfOrNull.
      */
     static  sp<ProcessState>    initWithDriver(const char *driver);
 
             sp<IBinder>         getContextObject(const sp<IBinder>& caller);
 
             void                startThreadPool();
-                        
-    typedef bool (*context_check_func)(const String16& name,
-                                       const sp<IBinder>& caller,
-                                       void* userData);
 
-            bool                becomeContextManager(
-                                    context_check_func checkFunc,
-                                    void* userData);
+            bool                becomeContextManager();
 
             sp<IBinder>         getStrongProxyForHandle(int32_t handle);
             void                expungeHandle(int32_t handle, IBinder* binder);
@@ -63,6 +58,7 @@ public:
             void                spawnPooledThread(bool isMain);
             
             status_t            setThreadPoolMaxThreadCount(size_t maxThreads);
+            status_t            enableOnewaySpamDetection(bool enable);
             void                giveThreadPoolName();
 
             String8             getDriverName();
@@ -75,7 +71,7 @@ public:
                                 // 2. Temporary strong references held by the kernel during a
                                 //    transaction on the node.
                                 // It does NOT include local strong references to the node
-            ssize_t             getStrongRefCountForNodeByHandle(int32_t handle);
+            ssize_t             getStrongRefCountForNode(const sp<BpBinder>& binder);
 
             enum class CallRestriction {
                 // all calls okay
@@ -90,8 +86,11 @@ public:
             void setCallRestriction(CallRestriction restriction);
 
 private:
+    static  sp<ProcessState>    init(const char *defaultDriver, bool requireDefault);
+
     friend class IPCThreadState;
-    
+    friend class sp<ProcessState>;
+
             explicit            ProcessState(const char* driver);
                                 ~ProcessState();
 
@@ -110,11 +109,14 @@ private:
             int                 mDriverFD;
             void*               mVMStart;
 
-            // Protects thread count variable below.
+            // Protects thread count and wait variables below.
             pthread_mutex_t     mThreadCountLock;
+            // Broadcast whenever mWaitingForThreads > 0
             pthread_cond_t      mThreadCountDecrement;
             // Number of binder threads current executing a command.
             size_t              mExecutingThreadsCount;
+            // Number of threads calling IPCThreadState::blockUntilThreadAvailable()
+            size_t              mWaitingForThreads;
             // Maximum number for binder threads allowed for this process.
             size_t              mMaxThreads;
             // Time when thread pool was emptied
@@ -124,10 +126,6 @@ private:
 
             Vector<handle_entry>mHandleToObject;
 
-            context_check_func  mBinderContextCheckFunc;
-            void*               mBinderContextUserData;
-
-            String8             mRootDir;
             bool                mThreadPoolStarted;
     volatile int32_t            mThreadPoolSeq;
 
@@ -137,5 +135,3 @@ private:
 } // namespace android
 
 // ---------------------------------------------------------------------------
-
-#endif // ANDROID_PROCESS_STATE_H

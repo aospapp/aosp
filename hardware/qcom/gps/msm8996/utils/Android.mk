@@ -46,6 +46,8 @@ LOCAL_C_INCLUDES:= \
 
 
 LOCAL_MODULE := libgps.utils
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_MODULE_TAGS := optional
 
@@ -59,6 +61,8 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libgps.utils_headers
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_HEADER_LIBRARIES := libhardware_headers
 LOCAL_EXPORT_HEADER_LIBRARY_HEADERS := libhardware_headers
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH) $(LOCAL_PATH)/platform_lib_abstractions

@@ -72,7 +72,7 @@ public class AppMimeGroups {
 
         mContext.sendBroadcast(getRequestIntent(mimeGroup, mimeTypes, request));
 
-        Intent response = receiver.awaitForBroadcast(TimeUnit.SECONDS.toMillis(5L));
+        Intent response = receiver.awaitForBroadcast(TimeUnit.SECONDS.toMillis(60L));
 
         mContext.unregisterReceiver(receiver);
 
@@ -85,6 +85,7 @@ public class AppMimeGroups {
         Intent intent = new Intent(ACTION_REQUEST);
         intent.setPackage(mTargetPackage);
         intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
 
         intent.putExtra(EXTRA_GROUP, mimeGroup);
         intent.putExtra(EXTRA_MIMES, mimeTypes);

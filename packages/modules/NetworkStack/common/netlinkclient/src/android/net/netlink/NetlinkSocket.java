@@ -65,7 +65,7 @@ public class NetlinkSocket {
             sendMessage(fd, msg, 0, msg.length, IO_TIMEOUT);
             final ByteBuffer bytes = recvMessage(fd, DEFAULT_RECV_BUFSIZE, IO_TIMEOUT);
             // recvMessage() guaranteed to not return null if it did not throw.
-            final NetlinkMessage response = NetlinkMessage.parse(bytes);
+            final NetlinkMessage response = NetlinkMessage.parse(bytes, nlProto);
             if (response != null && response instanceof NetlinkErrorMessage &&
                     (((NetlinkErrorMessage) response).getNlMsgError() != null)) {
                 final int errno = ((NetlinkErrorMessage) response).getNlMsgError().error;

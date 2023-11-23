@@ -20,6 +20,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/blueprint/proptools"
+
 	"android/soong/android"
 	"android/soong/cc/config"
 )
@@ -35,6 +37,18 @@ type FuzzConfig struct {
 	Componentid *int64 `json:"componentid,omitempty"`
 	// Hotlists in Google's bug tracking system that bugs should be marked with.
 	Hotlists []string `json:"hotlists,omitempty"`
+	// Specify whether this fuzz target was submitted by a researcher. Defaults
+	// to false.
+	Researcher_submitted *bool `json:"researcher_submitted,omitempty"`
+	// Specify who should be acknowledged for CVEs in the Android Security
+	// Bulletin.
+	Acknowledgement []string `json:"acknowledgement,omitempty"`
+	// Additional options to be passed to libfuzzer when run in Haiku.
+	Libfuzzer_options []string `json:"libfuzzer_options,omitempty"`
+	// Additional options to be passed to HWASAN when running on-device in Haiku.
+	Hwasan_options []string `json:"hwasan_options,omitempty"`
+	// Additional options to be passed to HWASAN when running on host in Haiku.
+	Asan_options []string `json:"asan_options,omitempty"`
 }
 
 func (f *FuzzConfig) String() string {
@@ -126,7 +140,7 @@ func (fuzz *fuzzBinary) linkerFlags(ctx ModuleContext, flags Flags) Flags {
 func collectAllSharedDependencies(ctx android.SingletonContext, module android.Module) android.Paths {
 	var fringe []android.Module
 
-	seen := make(map[android.Module]bool)
+	seen := make(map[string]bool)
 
 	// Enumerate the first level of dependencies, as we discard all non-library
 	// modules in the BFS loop below.
@@ -140,15 +154,15 @@ func collectAllSharedDependencies(ctx android.SingletonContext, module android.M
 
 	for i := 0; i < len(fringe); i++ {
 		module := fringe[i]
-		if seen[module] {
+		if seen[module.Name()] {
 			continue
 		}
-		seen[module] = true
+		seen[module.Name()] = true
 
 		ccModule := module.(*Module)
 		sharedLibraries = append(sharedLibraries, ccModule.UnstrippedOutputFile())
 		ctx.VisitDirectDeps(module, func(dep android.Module) {
-			if isValidSharedDependency(dep) && !seen[dep] {
+			if isValidSharedDependency(dep) && !seen[dep.Name()] {
 				fringe = append(fringe, dep)
 			}
 		})
@@ -160,18 +174,33 @@ func collectAllSharedDependencies(ctx android.SingletonContext, module android.M
 // This function takes a module and determines if it is a unique shared library
 // that should be installed in the fuzz target output directories. This function
 // returns true, unless:
-//  - The module is not a shared library, or
-//  - The module is a header, stub, or vendor-linked library.
+//  - The module is not an installable shared library, or
+//  - The module is a header, stub, or vendor-linked library, or
+//  - The module is a prebuilt and its source is available, or
+//  - The module is a versioned member of an SDK snapshot.
 func isValidSharedDependency(dependency android.Module) bool {
 	// TODO(b/144090547): We should be parsing these modules using
 	// ModuleDependencyTag instead of the current brute-force checking.
 
-	if linkable, ok := dependency.(LinkableInterface); !ok || // Discard non-linkables.
-		!linkable.CcLibraryInterface() || !linkable.Shared() || // Discard static libs.
-		linkable.UseVndk() || // Discard vendor linked libraries.
+	linkable, ok := dependency.(LinkableInterface)
+	if !ok || !linkable.CcLibraryInterface() {
+		// Discard non-linkables.
+		return false
+	}
+
+	if !linkable.Shared() {
+		// Discard static libs.
+		return false
+	}
+
+	if linkable.UseVndk() {
+		// Discard vendor linked libraries.
+		return false
+	}
+
+	if lib := moduleLibraryInterface(dependency); lib != nil && lib.buildStubs() && linkable.CcLibrary() {
 		// Discard stubs libs (only CCLibrary variants). Prebuilt libraries should not
 		// be excluded on the basis of they're not CCLibrary()'s.
-		(linkable.CcLibrary() && linkable.BuildStubs()) {
 		return false
 	}
 
@@ -182,6 +211,24 @@ func isValidSharedDependency(dependency android.Module) bool {
 		if _, isLLndkStubLibrary := ccLibrary.linker.(*stubDecorator); isLLndkStubLibrary {
 			return false
 		}
+		// Discard installable:false libraries because they are expected to be absent
+		// in runtime.
+		if !proptools.BoolDefault(ccLibrary.Properties.Installable, true) {
+			return false
+		}
+	}
+
+	// If the same library is present both as source and a prebuilt we must pick
+	// only one to avoid a conflict. Always prefer the source since the prebuilt
+	// probably won't be built with sanitizers enabled.
+	if prebuilt := android.GetEmbeddedPrebuilt(dependency); prebuilt != nil && prebuilt.SourceExists() {
+		return false
+	}
+
+	// Discard versioned members of SDK snapshots, because they will conflict with
+	// unversioned ones.
+	if sdkMember, ok := dependency.(android.SdkAware); ok && !sdkMember.ContainingSdk().Unversioned() {
+		return false
 	}
 
 	return true
@@ -198,6 +245,11 @@ func sharedLibraryInstallLocation(
 	return installLocation
 }
 
+// Get the device-only shared library symbols install directory.
+func sharedLibrarySymbolsInstallLocation(libraryPath android.Path, archString string) string {
+	return filepath.Join("$(PRODUCT_OUT)/symbols/data/fuzz/", archString, "/lib/", libraryPath.Base())
+}
+
 func (fuzz *fuzzBinary) install(ctx ModuleContext, file android.Path) {
 	fuzz.binaryDecorator.baseInstaller.dir = filepath.Join(
 		"fuzz", ctx.Target().Arch.ArchType.String(), ctx.ModuleName())
@@ -206,25 +258,25 @@ func (fuzz *fuzzBinary) install(ctx ModuleContext, file android.Path) {
 	fuzz.binaryDecorator.baseInstaller.install(ctx, file)
 
 	fuzz.corpus = android.PathsForModuleSrc(ctx, fuzz.Properties.Corpus)
-	builder := android.NewRuleBuilder()
+	builder := android.NewRuleBuilder(pctx, ctx)
 	intermediateDir := android.PathForModuleOut(ctx, "corpus")
 	for _, entry := range fuzz.corpus {
 		builder.Command().Text("cp").
 			Input(entry).
 			Output(intermediateDir.Join(ctx, entry.Base()))
 	}
-	builder.Build(pctx, ctx, "copy_corpus", "copy corpus")
+	builder.Build("copy_corpus", "copy corpus")
 	fuzz.corpusIntermediateDir = intermediateDir
 
 	fuzz.data = android.PathsForModuleSrc(ctx, fuzz.Properties.Data)
-	builder = android.NewRuleBuilder()
+	builder = android.NewRuleBuilder(pctx, ctx)
 	intermediateDir = android.PathForModuleOut(ctx, "data")
 	for _, entry := range fuzz.data {
 		builder.Command().Text("cp").
 			Input(entry).
 			Output(intermediateDir.Join(ctx, entry.Rel()))
 	}
-	builder.Build(pctx, ctx, "copy_data", "copy data")
+	builder.Build("copy_data", "copy data")
 	fuzz.dataIntermediateDir = intermediateDir
 
 	if fuzz.Properties.Dictionary != nil {
@@ -238,25 +290,18 @@ func (fuzz *fuzzBinary) install(ctx ModuleContext, file android.Path) {
 
 	if fuzz.Properties.Fuzz_config != nil {
 		configPath := android.PathForModuleOut(ctx, "config").Join(ctx, "config.json")
-		ctx.Build(pctx, android.BuildParams{
-			Rule:        android.WriteFile,
-			Description: "fuzzer infrastructure configuration",
-			Output:      configPath,
-			Args: map[string]string{
-				"content": fuzz.Properties.Fuzz_config.String(),
-			},
-		})
+		android.WriteFileRule(ctx, configPath, fuzz.Properties.Fuzz_config.String())
 		fuzz.config = configPath
 	}
 
 	// Grab the list of required shared libraries.
-	seen := make(map[android.Module]bool)
+	seen := make(map[string]bool)
 	var sharedLibraries android.Paths
 	ctx.WalkDeps(func(child, parent android.Module) bool {
-		if seen[child] {
+		if seen[child.Name()] {
 			return false
 		}
-		seen[child] = true
+		seen[child.Name()] = true
 
 		if isValidSharedDependency(child) {
 			sharedLibraries = append(sharedLibraries, child.(*Module).UnstrippedOutputFile())
@@ -269,6 +314,12 @@ func (fuzz *fuzzBinary) install(ctx ModuleContext, file android.Path) {
 		fuzz.installedSharedDeps = append(fuzz.installedSharedDeps,
 			sharedLibraryInstallLocation(
 				lib, ctx.Host(), ctx.Arch().ArchType.String()))
+
+		// Also add the dependency on the shared library symbols dir.
+		if !ctx.Host() {
+			fuzz.installedSharedDeps = append(fuzz.installedSharedDeps,
+				sharedLibrarySymbolsInstallLocation(lib, ctx.Arch().ArchType.String()))
+		}
 	}
 }
 
@@ -276,7 +327,7 @@ func NewFuzz(hod android.HostOrDeviceSupported) *Module {
 	module, binary := NewBinary(hod)
 
 	binary.baseInstaller = NewFuzzInstaller()
-	module.sanitize.SetSanitizer(fuzzer, true)
+	module.sanitize.SetSanitizer(Fuzzer, true)
 
 	fuzz := &fuzzBinary{
 		binaryDecorator: binary,
@@ -355,10 +406,10 @@ func (s *fuzzPackager) GenerateBuildActions(ctx android.SingletonContext) {
 			return
 		}
 
-		// Discard vendor-NDK-linked + ramdisk + recovery modules, they're duplicates of
+		// Discard ramdisk + vendor_ramdisk + recovery modules, they're duplicates of
 		// fuzz targets we're going to package anyway.
 		if !ccModule.Enabled() || ccModule.Properties.PreventInstall ||
-			ccModule.UseVndk() || ccModule.InRamdisk() || ccModule.InRecovery() {
+			ccModule.InRamdisk() || ccModule.InVendorRamdisk() || ccModule.InRecovery() {
 			return
 		}
 
@@ -366,8 +417,6 @@ func (s *fuzzPackager) GenerateBuildActions(ctx android.SingletonContext) {
 		if !ccModule.ExportedToMake() {
 			return
 		}
-
-		s.fuzzTargets[module.Name()] = true
 
 		hostOrTargetString := "target"
 		if ccModule.Host() {
@@ -382,22 +431,23 @@ func (s *fuzzPackager) GenerateBuildActions(ctx android.SingletonContext) {
 		sharedLibraries := collectAllSharedDependencies(ctx, module)
 
 		var files []fileToZip
-		builder := android.NewRuleBuilder()
+		builder := android.NewRuleBuilder(pctx, ctx)
 
 		// Package the corpora into a zipfile.
 		if fuzzModule.corpus != nil {
 			corpusZip := archDir.Join(ctx, module.Name()+"_seed_corpus.zip")
-			command := builder.Command().BuiltTool(ctx, "soong_zip").
+			command := builder.Command().BuiltTool("soong_zip").
 				Flag("-j").
 				FlagWithOutput("-o ", corpusZip)
-			command.FlagWithRspFileInputList("-l ", fuzzModule.corpus)
+			rspFile := corpusZip.ReplaceExtension(ctx, "rsp")
+			command.FlagWithRspFileInputList("-r ", rspFile, fuzzModule.corpus)
 			files = append(files, fileToZip{corpusZip, ""})
 		}
 
 		// Package the data into a zipfile.
 		if fuzzModule.data != nil {
 			dataZip := archDir.Join(ctx, module.Name()+"_data.zip")
-			command := builder.Command().BuiltTool(ctx, "soong_zip").
+			command := builder.Command().BuiltTool("soong_zip").
 				FlagWithOutput("-o ", dataZip)
 			for _, f := range fuzzModule.data {
 				intermediateDir := strings.TrimSuffix(f.String(), f.Rel())
@@ -421,12 +471,24 @@ func (s *fuzzPackager) GenerateBuildActions(ctx android.SingletonContext) {
 				continue
 			}
 			sharedLibraryInstalled[installDestination] = true
+
 			// Escape all the variables, as the install destination here will be called
 			// via. $(eval) in Make.
 			installDestination = strings.ReplaceAll(
 				installDestination, "$", "$$")
 			s.sharedLibInstallStrings = append(s.sharedLibInstallStrings,
 				library.String()+":"+installDestination)
+
+			// Ensure that on device, the library is also reinstalled to the /symbols/
+			// dir. Symbolized DSO's are always installed to the device when fuzzing, but
+			// we want symbolization tools (like `stack`) to be able to find the symbols
+			// in $ANDROID_PRODUCT_OUT/symbols automagically.
+			if !ccModule.Host() {
+				symbolsInstallDestination := sharedLibrarySymbolsInstallLocation(library, archString)
+				symbolsInstallDestination = strings.ReplaceAll(symbolsInstallDestination, "$", "$$")
+				s.sharedLibInstallStrings = append(s.sharedLibInstallStrings,
+					library.String()+":"+symbolsInstallDestination)
+			}
 		}
 
 		// The executable.
@@ -443,7 +505,7 @@ func (s *fuzzPackager) GenerateBuildActions(ctx android.SingletonContext) {
 		}
 
 		fuzzZip := archDir.Join(ctx, module.Name()+".zip")
-		command := builder.Command().BuiltTool(ctx, "soong_zip").
+		command := builder.Command().BuiltTool("soong_zip").
 			Flag("-j").
 			FlagWithOutput("-o ", fuzzZip)
 		for _, file := range files {
@@ -455,9 +517,20 @@ func (s *fuzzPackager) GenerateBuildActions(ctx android.SingletonContext) {
 			command.FlagWithInput("-f ", file.SourceFilePath)
 		}
 
-		builder.Build(pctx, ctx, "create-"+fuzzZip.String(),
+		builder.Build("create-"+fuzzZip.String(),
 			"Package "+module.Name()+" for "+archString+"-"+hostOrTargetString)
 
+		// Don't add modules to 'make haiku' that are set to not be exported to the
+		// fuzzing infrastructure.
+		if config := fuzzModule.Properties.Fuzz_config; config != nil {
+			if ccModule.Host() && !BoolDefault(config.Fuzz_on_haiku_host, true) {
+				return
+			} else if !BoolDefault(config.Fuzz_on_haiku_device, true) {
+				return
+			}
+		}
+
+		s.fuzzTargets[module.Name()] = true
 		archDirs[archOs] = append(archDirs[archOs], fileToZip{fuzzZip, ""})
 	})
 
@@ -471,11 +544,11 @@ func (s *fuzzPackager) GenerateBuildActions(ctx android.SingletonContext) {
 		filesToZip := archDirs[archOs]
 		arch := archOs.arch
 		hostOrTarget := archOs.hostOrTarget
-		builder := android.NewRuleBuilder()
+		builder := android.NewRuleBuilder(pctx, ctx)
 		outputFile := android.PathForOutput(ctx, "fuzz-"+hostOrTarget+"-"+arch+".zip")
 		s.packages = append(s.packages, outputFile)
 
-		command := builder.Command().BuiltTool(ctx, "soong_zip").
+		command := builder.Command().BuiltTool("soong_zip").
 			Flag("-j").
 			FlagWithOutput("-o ", outputFile).
 			Flag("-L 0") // No need to try and re-compress the zipfiles.
@@ -489,7 +562,7 @@ func (s *fuzzPackager) GenerateBuildActions(ctx android.SingletonContext) {
 			command.FlagWithInput("-f ", fileToZip.SourceFilePath)
 		}
 
-		builder.Build(pctx, ctx, "create-fuzz-package-"+arch+"-"+hostOrTarget,
+		builder.Build("create-fuzz-package-"+arch+"-"+hostOrTarget,
 			"Create fuzz target packages for "+arch+"-"+hostOrTarget)
 	}
 }

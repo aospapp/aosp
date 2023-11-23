@@ -17,23 +17,20 @@
 package android.net.ipsec.ike;
 
 import android.annotation.NonNull;
-import android.annotation.SystemApi;
-
-import com.android.internal.net.ipsec.ike.exceptions.AuthenticationFailedException;
+import android.net.InetAddresses;
+import android.net.ipsec.ike.exceptions.AuthenticationFailedException;
+import android.os.PersistableBundle;
 
 import java.net.Inet6Address;
 import java.net.UnknownHostException;
 import java.security.cert.X509Certificate;
 import java.util.Objects;
 
-/**
- * IkeIpv6AddrIdentification represents an IKE entity identification based on IPv6 address.
- *
- * @hide
- */
-@SystemApi
+/** IkeIpv6AddrIdentification represents an IKE entity identification based on IPv6 address. */
 public class IkeIpv6AddrIdentification extends IkeIdentification {
-    /** The IPv6 Address. */
+    private static final String IP_ADDRESS_KEY = "ipv6Address";
+
+    /** The IPv6 address. */
     @NonNull public final Inet6Address ipv6Address;
 
     /**
@@ -53,13 +50,38 @@ public class IkeIpv6AddrIdentification extends IkeIdentification {
     }
 
     /**
-     * Construct an instance of {@link IkeIpv6AddrIdentification} with a IPv6 address.
+     * Construct an instance of {@link IkeIpv6AddrIdentification} with an IPv6 address.
      *
      * @param address the IPv6 address.
      */
     public IkeIpv6AddrIdentification(@NonNull Inet6Address address) {
         super(ID_TYPE_IPV6_ADDR);
         ipv6Address = address;
+    }
+
+    /**
+     * Constructs this object by deserializing a PersistableBundle
+     *
+     * @hide
+     */
+    @NonNull
+    public static IkeIpv6AddrIdentification fromPersistableBundle(@NonNull PersistableBundle in) {
+        Objects.requireNonNull(in, "PersistableBundle is null");
+
+        return new IkeIpv6AddrIdentification(
+                (Inet6Address) InetAddresses.parseNumericAddress(in.getString(IP_ADDRESS_KEY)));
+    }
+    /**
+     * Serializes this object to a PersistableBundle
+     *
+     * @hide
+     */
+    @Override
+    @NonNull
+    public PersistableBundle toPersistableBundle() {
+        final PersistableBundle result = super.toPersistableBundle();
+        result.putString(IP_ADDRESS_KEY, ipv6Address.getHostAddress());
+        return result;
     }
 
     /** @hide */

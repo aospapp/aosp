@@ -22,8 +22,9 @@ import javax.xml.namespace.QName;
 
 public class XsdAttribute extends XsdTag {
     final private XsdType type;
+    final private boolean required;
 
-    public XsdAttribute(String name, QName ref, XsdType type)
+    public XsdAttribute(String name, QName ref, XsdType type, boolean required)
             throws XsdParserException {
         super(name, ref);
         if (name == null && ref == null) {
@@ -33,9 +34,14 @@ public class XsdAttribute extends XsdTag {
             throw new XsdParserException("type definition should exist");
         }
         this.type = type;
+        this.required = required;
     }
 
     public XsdType getType() {
         return type;
+    }
+
+    public boolean isRequired() {
+        return required;
     }
 }

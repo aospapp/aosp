@@ -108,18 +108,23 @@ struct dumper *mem_dumper_create()
 	struct dumper *dumper = calloc(1, sizeof(struct dumper));
 	struct mem_data *data = calloc(1, sizeof(struct mem_data));
 	if (!dumper || !data)
-		return NULL;
+		goto error;
 	data->size = 0;
 	data->capacity = 80;
 	data->buf = malloc(data->capacity);
-	if (!data->buf) {
-		free(data);
-		return NULL;
-	}
+	if (!data->buf)
+		goto error;
 	data->buf[0] = '\0';
 	dumper->data = data;
 	dumper->vprintf = &mem_vprintf;
 	return dumper;
+
+error:
+	if (dumper)
+		free(dumper);
+	if (data)
+		free(data);
+	return NULL;
 }
 
 void mem_dumper_free(struct dumper *dumper)

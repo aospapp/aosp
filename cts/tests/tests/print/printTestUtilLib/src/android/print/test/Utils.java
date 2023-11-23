@@ -16,7 +16,7 @@
 
 package android.print.test;
 
-import static android.print.test.BasePrintTest.getInstrumentation;
+import static android.print.test.BasePrintTest.getUiAutomation;
 
 import android.content.Context;
 import android.os.Handler;
@@ -170,7 +170,7 @@ public class Utils {
      * Get the {@link PrintServiceDumpProto}
      */
     public static PrintServiceDumpProto getProtoDump() throws Exception {
-        ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation()
+        ParcelFileDescriptor pfd = getUiAutomation()
                 .executeShellCommand("dumpsys print --proto");
 
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {

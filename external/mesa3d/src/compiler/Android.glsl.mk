@@ -48,8 +48,10 @@ LOCAL_STATIC_LIBRARIES := \
 	libmesa_nir
 
 LOCAL_MODULE := libmesa_glsl
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 include $(LOCAL_PATH)/Android.glsl.gen.mk
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
-

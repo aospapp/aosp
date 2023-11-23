@@ -23,8 +23,8 @@
 
 #include <android-base/file.h>
 
-#include <android/frameworks/stats/1.0/IStats.h>
 #include <pixelstats/BatteryCapacityReporter.h>
+#include <pixelstats/StatsHelper.h>
 
 #include <hardware/google/pixel/pixelstats/pixelatoms.pb.h>
 
@@ -33,10 +33,13 @@ namespace hardware {
 namespace google {
 namespace pixel {
 
+using aidl::android::frameworks::stats::IStats;
+using aidl::android::frameworks::stats::VendorAtom;
+using aidl::android::frameworks::stats::VendorAtomValue;
 using android::base::ReadFileToString;
-using android::frameworks::stats::V1_0::IStats;
-using android::frameworks::stats::V1_0::VendorAtom;
 using android::hardware::google::pixel::PixelAtoms::BatteryCapacityFG;
+
+#define ONE_HOUR_SECS (60 * 60)
 
 BatteryCapacityReporter::BatteryCapacityReporter() {
     // Remove the need for a translation function/table, while removing the dependency on the
@@ -55,10 +58,11 @@ BatteryCapacityReporter::BatteryCapacityReporter() {
                   static_cast<int>(BatteryCapacityFG::LOG_REASON_DIVERGING_FG));
 }
 
-void BatteryCapacityReporter::checkAndReport(const std::string &path) {
+void BatteryCapacityReporter::checkAndReport(const std::shared_ptr<IStats> &stats_client,
+                                             const std::string &path) {
     if (parse(path)) {
-        if (check()) {
-            report();
+        if (checkLogEvent()) {
+            reportEvent(stats_client);
         }
     }
 }
@@ -91,18 +95,42 @@ bool BatteryCapacityReporter::parse(const std::string &path) {
     return true;
 }
 
-bool BatteryCapacityReporter::check(void) {
-    if (unexpected_event_timer_active_) {
-        // A 30 minute timer with a boolean gate helps prevent uninitialized timers and potential
-        // overflows.
-        // - Active when the timer is less than 30 minutes, thus continues checking the elapsed
-        //   time.
-        // - Once expired (> 30 min), active becomes false and the timer no longer needs to check
-        //   the elapsed time.
-        unexpected_event_timer_active_ =
-                (getTimeSecs() - unexpected_event_timer_secs_) <= (30 * 60);
+bool BatteryCapacityReporter::shouldReportEvent(void) {
+    const int64_t current_time = getTimeSecs();
+    if (current_time == 0) {
+        ALOGE("Current boot time is zero!");
+        return false;
     }
 
+    /* Perform cleanup of events that are older than 1 hour */
+    for (int i = 0; i < MAX_LOG_EVENTS_PER_HOUR; i++) {
+        if (log_event_time_secs_[i] != 0 && /* Non-empty */
+            log_event_time_secs_[i] + ONE_HOUR_SECS < current_time) {
+            log_event_time_secs_[i] = 0;
+            num_events_in_last_hour_--;
+        }
+    }
+
+    /* Log event if there hasn't been many events in the past hour */
+    if (num_events_in_last_hour_ < MAX_LOG_EVENTS_PER_HOUR) {
+        for (int i = 0; i < MAX_LOG_EVENTS_PER_HOUR; i++) {
+            if (log_event_time_secs_[i] == 0) { /* Empty */
+                log_event_time_secs_[i] = current_time;
+                num_events_in_last_hour_++;
+                return true;
+            }
+        }
+    } else {
+        ALOGD("Too many log events in past hour; event ignored.");
+    }
+
+    return false;
+}
+
+/**
+ * @return true if a log should be reported, else false
+ */
+bool BatteryCapacityReporter::checkLogEvent(void) {
     LogReason log_reason = LOG_REASON_UNKNOWN;
     if (status_previous_ != status_) {
         // Handle nominal events
@@ -119,59 +147,54 @@ bool BatteryCapacityReporter::check(void) {
 
         status_previous_ = status_;
 
-    } else if (unexpected_event_timer_active_ == false) {
-        // Handle abnormal events at a minimum period
-
+    } else {
+        // Handle abnormal events
         const float diff = fabsf(ssoc_ - gdf_);
 
         if (fabsf(ssoc_ - ssoc_previous_) >= 2.0f) {
-            unexpected_event_timer_secs_ = getTimeSecs();
-            unexpected_event_timer_active_ = true;
             log_reason = LOG_REASON_PERCENT_SKIP;
 
             // Every +- 1% when above a 4% SOC difference (w/ timer)
         } else if (static_cast<int>(round(ssoc_gdf_diff_previous_)) !=
                            static_cast<int>(round(diff)) &&
                    diff >= 4.0f) {
-            unexpected_event_timer_secs_ = getTimeSecs();
-            unexpected_event_timer_active_ = true;
             log_reason = LOG_REASON_DIVERGING_FG;
 
             ssoc_gdf_diff_previous_ = diff;
         }
     }
     ssoc_previous_ = ssoc_;
-
     log_reason_ = log_reason;
-    return (log_reason != LOG_REASON_UNKNOWN);
-}
 
-void BatteryCapacityReporter::report(void) {
-    sp<IStats> stats_client = IStats::tryGetService();
-    if (!stats_client) {
-        ALOGD("Couldn't connect to IStats service");
-        return;
+    if (log_reason != LOG_REASON_UNKNOWN) {
+        /* Found new log event! */
+        /* Check if we should actually report the event */
+        return shouldReportEvent();
     }
 
+    return false;
+}
+
+void BatteryCapacityReporter::reportEvent(const std::shared_ptr<IStats> &stats_client) {
     // Load values array
-    std::vector<VendorAtom::Value> values(5);
-    VendorAtom::Value tmp;
-    tmp.intValue(log_reason_);
+    std::vector<VendorAtomValue> values(5);
+    VendorAtomValue tmp;
+    tmp.set<VendorAtomValue::intValue>(log_reason_);
     values[BatteryCapacityFG::kCapacityLogReasonFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.floatValue(gdf_);
+    tmp.set<VendorAtomValue::floatValue>(gdf_);
     values[BatteryCapacityFG::kCapacityGdfFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.floatValue(ssoc_);
+    tmp.set<VendorAtomValue::floatValue>(ssoc_);
     values[BatteryCapacityFG::kCapacitySsocFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.floatValue(gdf_curve_);
+    tmp.set<VendorAtomValue::floatValue>(gdf_curve_);
     values[BatteryCapacityFG::kCapacityGdfCurveFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.floatValue(ssoc_curve_);
+    tmp.set<VendorAtomValue::floatValue>(ssoc_curve_);
     values[BatteryCapacityFG::kCapacitySsocCurveFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
     VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
-                        .atomId = PixelAtoms::Ids::FG_CAPACITY,
-                        .values = values};
-    Return<void> ret = stats_client->reportVendorAtom(event);
+                        .atomId = PixelAtoms::Atom::kFgCapacity,
+                        .values = std::move(values)};
+    const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
     if (!ret.isOk())
         ALOGE("Unable to report to IStats service");
 }

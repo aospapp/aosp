@@ -26,6 +26,8 @@ import android.util.Log;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 
+import java.util.Objects;
+
 import javax.annotation.Nullable;
 
 /** Calls the default dialer with an optional access code. */
@@ -93,6 +95,19 @@ public class Dialer {
                     .add("mNumber", mNumber)
                     .add("mAccess", mAccess)
                     .toString();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            NumberAndAccess that = (NumberAndAccess) o;
+            return mNumber.equals(that.mNumber) && Objects.equals(mAccess, that.mAccess);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(mNumber, mAccess);
         }
     }
 }

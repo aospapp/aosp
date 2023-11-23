@@ -17,12 +17,14 @@ package com.android.car.storagemonitoring;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.util.Log;
+import android.util.Slog;
+
 import com.android.car.CarLog;
 import com.android.internal.annotations.VisibleForTesting;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.BufferedReader;
 import java.io.IOException;
 
 /**
@@ -54,7 +56,7 @@ public class EMmcWearInformationProvider implements WearInformationProvider {
 
     private String readLineFromFile(File f) {
         if (!f.exists() || !f.isFile()) {
-            Log.i(CarLog.TAG_STORAGE, f + " does not exist or is not a file");
+            Slog.i(CarLog.TAG_STORAGE, f + " does not exist or is not a file");
             return null;
         }
 
@@ -64,7 +66,7 @@ public class EMmcWearInformationProvider implements WearInformationProvider {
             reader.close();
             return data;
         } catch (IOException e) {
-            Log.w(CarLog.TAG_STORAGE, f + " cannot be read from", e);
+            Slog.w(CarLog.TAG_STORAGE, f + " cannot be read from", e);
             return null;
         }
     }
@@ -81,8 +83,13 @@ public class EMmcWearInformationProvider implements WearInformationProvider {
 
         String[] lifetimes = lifetimeData.split(" ");
         if (lifetimes.length != 2) {
-            Log.w(CarLog.TAG_STORAGE, "lifetime data not in expected format: " + lifetimeData);
+            Slog.w(CarLog.TAG_STORAGE, "lifetime data not in expected format: " + lifetimeData);
             return null;
+        }
+
+        // Some kernels already add 0x prefix
+        if (!eolData.startsWith("0x")) {
+            eolData = "0x" + eolData;
         }
 
         int lifetimeA;
@@ -92,10 +99,9 @@ public class EMmcWearInformationProvider implements WearInformationProvider {
         try {
             lifetimeA = Integer.decode(lifetimes[0]);
             lifetimeB = Integer.decode(lifetimes[1]);
-            eol = Integer.decode("0x" + eolData);
+            eol = Integer.decode(eolData);
         } catch (NumberFormatException e) {
-            Log.w(CarLog.TAG_STORAGE,
-                    "lifetime data not in expected format: " + lifetimeData, e);
+            Slog.w(CarLog.TAG_STORAGE, "lifetime data not in expected format: " + lifetimeData);
             return null;
         }
 

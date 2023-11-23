@@ -14,7 +14,6 @@ allow vold iso9660:filesystem unmount;
 # Purpose : vold will traverse /proc when remountUid().
 #           It will trigger violation if mtk customize some label in /proc.
 #           However, we should ignore the violation if the processes never access the storage.
-dontaudit vold proc_battery_cmd:dir { read open };
 dontaudit vold proc_mtkcooler:dir { read open };
 dontaudit vold proc_mtktz:dir { read open };
 dontaudit vold proc_thermal:dir { read open };

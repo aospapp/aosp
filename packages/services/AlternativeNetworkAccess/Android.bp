@@ -13,8 +13,12 @@
 // limitations under the License.
 
 //
-// Mms service
+// Opportunistic Network Service
 //
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_app {
     name: "ONS",
     platform_apis: true,

@@ -41,10 +41,6 @@ static inline bool IsTrailByte(char x) {
 // Returns true iff src points to a well-formed UTF-8 string.
 bool IsValidUTF8(const char *src, int size);
 
-// Returns byte length of the first valid codepoint in the string, otherwise -1
-// if pointing to an ill-formed UTF-8 character.
-int ValidUTF8CharLength(const char *src, int size);
-
 // Helper to ensure that strings are not truncated in the middle of
 // multi-byte UTF-8 characters.
 // Given a string, and a position at which to truncate, returns the
@@ -54,6 +50,10 @@ int SafeTruncateLength(const char *str, int truncate_at);
 
 // Gets a unicode codepoint from a valid utf8 encoding.
 char32 ValidCharToRune(const char *str);
+
+// Checks whether a utf8 encoding is a valid codepoint and returns the number of
+// bytes of the codepoint.
+bool IsValidChar(const char *str, int size, int *num_bytes);
 
 // Converts a valid codepoint to utf8.
 // Returns the length of the encoding.

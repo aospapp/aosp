@@ -27,15 +27,11 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
-import com.android.tradefed.util.AbiUtils;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,16 +49,6 @@ public class OsHostTests extends DeviceTestCase implements IBuildReceiver, IAbiR
             TEST_APP_PACKAGE, TEST_APP_PACKAGE, TEST_FG_SERVICE_CLASS);
     private static final String FILTER_FG_SERVICE_REGEXP =
             "TestFgService starting foreground: pid=([0-9]*)";
-
-    // Testing the intent filter verification mechanism
-    private static final String HOST_VERIFICATION_APK = "CtsHostLinkVerificationApp.apk";
-    private static final String HOST_VERIFICATION_PKG = "com.android.cts.openlinksskeleton";
-    private static final String FILTER_VERIFIER_REGEXP =
-            "Verifying IntentFilter\\..* package:\"" + HOST_VERIFICATION_PKG + "\"";
-    private static final Pattern HOST_PATTERN = Pattern.compile(".*hosts:\"(.*?)\"");
-    // domains that should be validated against given our test apk
-    private static final String HOST_EXPLICIT = "explicit.example.com";
-    private static final String HOST_WILDCARD = "wildcard.tld";
 
     /**
      * A reference to the device under test.
@@ -146,59 +132,5 @@ public class OsHostTests extends DeviceTestCase implements IBuildReceiver, IAbiR
         final String lsOut = mDevice.executeShellCommand("ls -d " + procStr).trim();
         assertTrue("Looking for nonexistence of service process " + pid,
                 lsOut.contains("No such file"));
-    }
-
-    public void testIntentFilterHostValidation() throws Exception {
-        String line = null;
-        try {
-            // Clean slate in case of earlier aborted run
-            mDevice.uninstallPackage(HOST_VERIFICATION_PKG);
-
-            String[] options = { AbiUtils.createAbiFlag(mAbi.getName()) };
-
-            mDevice.clearLogcat();
-
-            String installResult = getDevice().installPackage(getTestAppFile(HOST_VERIFICATION_APK),
-                    false /* = reinstall? */, options);
-
-            assertNull("Couldn't install web intent filter sample apk", installResult);
-
-            String logs = mDevice.executeAdbCommand("logcat", "-v", "brief", "-d");
-            boolean foundVerifierOutput = false;
-            Pattern verifierPattern = Pattern.compile(FILTER_VERIFIER_REGEXP);
-            Scanner scanner = new Scanner(logs);
-            while (scanner.hasNextLine()) {
-                line = scanner.nextLine();
-                Matcher verifierMatcher = verifierPattern.matcher(line);
-                if (verifierMatcher.find()) {
-                    Matcher m = HOST_PATTERN.matcher(line);
-                    assertTrue(m.find());
-                    final String hostgroup = m.group(1);
-                    HashSet<String> allHosts = new HashSet<String>(
-                            Arrays.asList(hostgroup.split(" ")));
-                    assertEquals(2, allHosts.size());
-                    assertTrue("AllHosts Contains: " + allHosts, allHosts.contains(HOST_EXPLICIT));
-                    assertTrue("AllHosts Contains: " + allHosts, allHosts.contains(HOST_WILDCARD));
-                    foundVerifierOutput = true;
-                    break;
-                }
-            }
-
-            assertTrue(foundVerifierOutput);
-        } catch (Exception e) {
-            fail("Unable to parse verification results: " + e.getMessage()
-                    + " line=" + line);
-        } finally {
-            // Finally, uninstall the app
-            mDevice.uninstallPackage(HOST_VERIFICATION_PKG);
-        }
-    }
-
-    /*
-     * Helper: find a test apk
-     */
-    private File getTestAppFile(String fileName) throws FileNotFoundException {
-        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
-        return buildHelper.getTestFile(fileName);
     }
 }

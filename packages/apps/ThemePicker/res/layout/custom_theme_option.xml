@@ -15,16 +15,23 @@
      limitations under the License.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
-    android:layout_height="match_parent"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="@dimen/option_padding_horizontal"
+    android:paddingBottom="@dimen/option_bottom_margin"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:orientation="vertical">
 
     <TextView
         android:id="@+id/option_label"
-        android:layout_width="wrap_content"
+        android:layout_width="@dimen/option_tile_width"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:layout_marginBottom="@dimen/theme_option_label_margin"
+        android:ellipsize="end"
+        android:gravity="center_horizontal"
+        android:maxLines="1"
         android:textAppearance="@style/OptionTitleTextAppearance"/>
     <FrameLayout
         android:id="@+id/option_tile"
@@ -35,8 +42,8 @@
         android:paddingVertical="@dimen/option_tile_padding_vertical"
         android:background="@drawable/option_border_custom">
         <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="@dimen/option_icon_size"
+            android:layout_height="@dimen/option_icon_size"
             android:layout_gravity="center"
             android:src="@drawable/ic_add_24px"
             android:tint="?android:attr/colorAccent" />

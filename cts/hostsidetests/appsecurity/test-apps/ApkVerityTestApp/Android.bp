@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsApkVerityTestApp",
     manifest: "AndroidManifest.xml",
@@ -33,6 +37,12 @@ android_test_helper_app {
     use_embedded_native_libs: true,
     sdk_version: "current",
     certificate: ":cts-testkey1",
+    dist: {
+        targets: [
+            "cts",
+        ],
+    },
+    v4_signature: true,
 }
 
 android_test_helper_app {
@@ -48,6 +58,11 @@ android_test_helper_app {
     },
     sdk_version: "current",
     certificate: ":cts-testkey1",
+    dist: {
+        targets: [
+            "cts",
+        ],
+    },
 }
 
 cc_library_shared {

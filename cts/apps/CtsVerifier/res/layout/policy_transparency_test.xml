@@ -19,7 +19,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:descendantFocusability="beforeDescendants"
-        android:focusableInTouchMode="true">
+        android:focusableInTouchMode="true"
+        android:nextFocusDown="@+id/switch_widget">
     <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -51,31 +52,36 @@
                 android:layout_height="wrap_content"
                 android:paddingStart="8dp"
                 android:paddingEnd="16dp"
-                android:visibility="gone" />
+                android:visibility="gone"
+                android:nextFocusDown="@+id/edit_text_widget"/>
         <EditText android:id="@+id/edit_text_widget"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:ems="6"
                 android:singleLine="true"
                 android:gravity="center"
-                android:visibility="gone" />
+                android:visibility="gone"
+                android:nextFocusDown="@+id/update_button"/>
         <Button android:id="@+id/update_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/policy_transparency_update_button_label"
                 android:paddingStart="8dp"
                 android:paddingEnd="16dp"
-                android:visibility="gone" />
+                android:visibility="gone"
+                android:nextFocusDown="@+id/spinner_widget"/>
         <Spinner android:id="@+id/spinner_widget"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:visibility="gone" />
+                android:visibility="gone"
+                android:nextFocusDown="@+id/open_settings_button"/>
     </LinearLayout>
 
     <Button android:id="@+id/open_settings_button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/policy_transparency_open_settings_label" />
+            android:text="@string/policy_transparency_open_settings_label"
+            android:nextFocusUp="@+id/switch_widget"/>
 
     <include layout="@layout/pass_fail_buttons"/>
 </LinearLayout>

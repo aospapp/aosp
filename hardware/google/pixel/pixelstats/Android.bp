@@ -13,6 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library {
     name: "pixelatoms-cpp",
     vendor: true,
@@ -37,27 +41,43 @@ java_library {
     sdk_version: "current",
 }
 
+java_library_host {
+    name: "pixelatoms-java_host",
+    proto: {
+        type: "full",
+    },
+    srcs: [
+        "pixelatoms.proto",
+    ],
+}
+
 cc_library {
   name: "libpixelstats",
   vendor: true,
   export_include_dirs: ["include"],
 
   srcs: [
+    "BatteryCapacityReporter.cpp",
+    "BatteryEEPROMReporter.cpp",
     "DropDetect.cpp",
+    "MmMetricsReporter.cpp",
+    "MitigationStatsReporter.cpp",
     "OrientationCollector.cpp",
+    "PcaChargeStats.cpp",
+    "StatsHelper.cpp",
     "SysfsCollector.cpp",
     "UeventListener.cpp",
+    "WirelessChargeStats.cpp",
     "WlcReporter.cpp",
-    "BatteryCapacityReporter.cpp",
   ],
   cflags: [
     "-Wall",
     "-Werror",
   ],
   shared_libs: [
-    "android.frameworks.stats@1.0",
+    "android.frameworks.stats-V1-ndk_platform",
     "libbase",
-    "libbinder",
+    "libbinder_ndk",
     "libcutils",
     "libhidlbase",
     "liblog",
@@ -66,11 +86,11 @@ cc_library {
     "pixelatoms-cpp",
   ],
   export_shared_lib_headers: [
-    "android.frameworks.stats@1.0",
+    "android.frameworks.stats-V1-ndk_platform",
+    "pixelatoms-cpp",
   ],
   static_libs: [
     "chre_client",
   ],
   header_libs: ["chre_api"],
 }
-

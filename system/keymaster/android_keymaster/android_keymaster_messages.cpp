@@ -19,27 +19,29 @@
 
 namespace keymaster {
 
+namespace {
+
 /*
  * Helper functions for working with key blobs.
  */
 
-static void set_key_blob(keymaster_key_blob_t* key_blob, const void* key_material, size_t length) {
+void set_key_blob(keymaster_key_blob_t* key_blob, const void* key_material, size_t length) {
     delete[] key_blob->key_material;
     key_blob->key_material = dup_buffer(key_material, length);
     key_blob->key_material_size = length;
 }
 
-static size_t key_blob_size(const keymaster_key_blob_t& key_blob) {
+size_t key_blob_size(const keymaster_key_blob_t& key_blob) {
     return sizeof(uint32_t) /* key size */ + key_blob.key_material_size;
 }
 
-static uint8_t* serialize_key_blob(const keymaster_key_blob_t& key_blob, uint8_t* buf,
-                                   const uint8_t* end) {
+uint8_t* serialize_key_blob(const keymaster_key_blob_t& key_blob, uint8_t* buf,
+                            const uint8_t* end) {
     return append_size_and_data_to_buf(buf, end, key_blob.key_material, key_blob.key_material_size);
 }
 
-static bool deserialize_key_blob(keymaster_key_blob_t* key_blob, const uint8_t** buf_ptr,
-                                 const uint8_t* end) {
+bool deserialize_key_blob(keymaster_key_blob_t* key_blob, const uint8_t** buf_ptr,
+                          const uint8_t* end) {
     delete[] key_blob->key_material;
     key_blob->key_material = nullptr;
     UniquePtr<uint8_t[]> deserialized_key_material;
@@ -50,15 +52,23 @@ static bool deserialize_key_blob(keymaster_key_blob_t* key_blob, const uint8_t**
     return true;
 }
 
-static size_t blob_size(const keymaster_blob_t& blob) {
+void set_blob(keymaster_blob_t* blob, const void* data, size_t length) {
+    assert(blob);
+    assert(data);
+    delete[] blob->data;
+    blob->data = dup_buffer(data, length);
+    blob->data_length = length;
+}
+
+size_t blob_size(const keymaster_blob_t& blob) {
     return sizeof(uint32_t) /* data size */ + blob.data_length;
 }
 
-static uint8_t* serialize_blob(const keymaster_blob_t& blob, uint8_t* buf, const uint8_t* end) {
+uint8_t* serialize_blob(const keymaster_blob_t& blob, uint8_t* buf, const uint8_t* end) {
     return append_size_and_data_to_buf(buf, end, blob.data, blob.data_length);
 }
 
-static bool deserialize_blob(keymaster_blob_t* blob, const uint8_t** buf_ptr, const uint8_t* end) {
+bool deserialize_blob(keymaster_blob_t* blob, const uint8_t** buf_ptr, const uint8_t* end) {
     delete[] blob->data;
     *blob = {};
     UniquePtr<uint8_t[]> deserialized_blob;
@@ -66,6 +76,87 @@ static bool deserialize_blob(keymaster_blob_t* blob, const uint8_t** buf_ptr, co
         return false;
     blob->data = deserialized_blob.release();
     return true;
+}
+
+/*
+ * Helper functions for working with certificate chains.
+ */
+const size_t kMaxChainEntryCount = 10;
+
+size_t chain_size(const keymaster_cert_chain_t& certificate_chain) {
+    size_t result = sizeof(uint32_t); /* certificate_chain.entry_count */
+    for (size_t i = 0; i < certificate_chain.entry_count; ++i) {
+        result += sizeof(uint32_t); /* certificate_chain.entries[i].data_length */
+        result += certificate_chain.entries[i].data_length;
+    }
+    return result;
+}
+
+uint8_t* serialize_chain(const keymaster_cert_chain_t& certificate_chain, uint8_t* buf,
+                         const uint8_t* end) {
+    buf = append_uint32_to_buf(buf, end, certificate_chain.entry_count);
+    for (size_t i = 0; i < certificate_chain.entry_count; ++i) {
+        buf = append_size_and_data_to_buf(buf, end, certificate_chain.entries[i].data,
+                                          certificate_chain.entries[i].data_length);
+    }
+    return buf;
+}
+
+CertificateChain deserialize_chain(const uint8_t** buf_ptr, const uint8_t* end) {
+    size_t entry_count;
+    if (!copy_uint32_from_buf(buf_ptr, end, &entry_count) || entry_count > kMaxChainEntryCount) {
+        return {};
+    }
+
+    CertificateChain certificate_chain(entry_count);
+    if (!certificate_chain.entries) return {};
+
+    for (size_t i = 0; i < certificate_chain.entry_count; ++i) {
+        UniquePtr<uint8_t[]> data;
+        size_t data_length;
+        if (!copy_size_and_data_from_buf(buf_ptr, end, &data_length, &data)) return {};
+        certificate_chain.entries[i].data = data.release();
+        certificate_chain.entries[i].data_length = data_length;
+    }
+
+    return certificate_chain;
+}
+
+}  // namespace
+
+int32_t NegotiateMessageVersion(const GetVersionResponse& response, keymaster_error_t* error) {
+    switch (response.major_ver) {
+    case 1:  // KM1
+        switch (response.minor_ver) {
+        case 0:
+            return MessageVersion(KmVersion::KEYMASTER_1, 0 /* km_date */);
+        case 1:
+            return MessageVersion(KmVersion::KEYMASTER_1_1, 0 /* km_date */);
+        }
+        break;
+    case 2:
+        return MessageVersion(KmVersion::KEYMASTER_2, 0 /* km_date */);
+    case 3:
+        return MessageVersion(KmVersion::KEYMASTER_3, 0 /* km_date */);
+    case 4:
+        switch (response.minor_ver) {
+        case 0:
+            return MessageVersion(KmVersion::KEYMASTER_4, 0 /* km_date */);
+        case 1:
+            return MessageVersion(KmVersion::KEYMASTER_4_1, 0 /* km_date */);
+        }
+        break;
+    }
+
+    *error = KM_ERROR_UNKNOWN_ERROR;
+    return -1;
+}
+
+int32_t NegotiateMessageVersion(const GetVersion2Request& request,
+                                const GetVersion2Response& response) {
+    return request.max_message_version < response.max_message_version
+               ? request.max_message_version
+               : response.max_message_version;
 }
 
 size_t KeymasterResponse::SerializedSize() const {
@@ -77,36 +168,146 @@ size_t KeymasterResponse::SerializedSize() const {
 
 uint8_t* KeymasterResponse::Serialize(uint8_t* buf, const uint8_t* end) const {
     buf = append_uint32_to_buf(buf, end, static_cast<uint32_t>(error));
-    if (error == KM_ERROR_OK)
-        buf = NonErrorSerialize(buf, end);
+    if (error == KM_ERROR_OK) buf = NonErrorSerialize(buf, end);
     return buf;
 }
 
 bool KeymasterResponse::Deserialize(const uint8_t** buf_ptr, const uint8_t* end) {
-    if (!copy_uint32_from_buf(buf_ptr, end, &error))
-        return false;
-    if (error != KM_ERROR_OK)
-        return true;
+    if (!copy_uint32_from_buf(buf_ptr, end, &error)) return false;
+    if (error != KM_ERROR_OK) return true;
     return NonErrorDeserialize(buf_ptr, end);
 }
 
-GenerateKeyResponse::~GenerateKeyResponse() {
-    delete[] key_blob.key_material;
+size_t GenerateKeyRequest::SerializedSize() const {
+    size_t size = key_description.SerializedSize();
+    if (message_version < 4) return size;
+    return size                                           //
+           + key_blob_size(attestation_signing_key_blob)  //
+           + attest_key_params.SerializedSize()           //
+           + blob_size(issuer_subject);
+}
+
+uint8_t* GenerateKeyRequest::Serialize(uint8_t* buf, const uint8_t* end) const {
+    buf = key_description.Serialize(buf, end);
+    if (message_version < 4) return buf;
+    buf = serialize_key_blob(attestation_signing_key_blob, buf, end);
+    buf = attest_key_params.Serialize(buf, end);
+    return serialize_blob(issuer_subject, buf, end);
+}
+
+bool GenerateKeyRequest::Deserialize(const uint8_t** buf_ptr, const uint8_t* end) {
+    if (!key_description.Deserialize(buf_ptr, end)) return false;
+    if (message_version < 4) return true;
+    return deserialize_key_blob(&attestation_signing_key_blob, buf_ptr, end)  //
+           && attest_key_params.Deserialize(buf_ptr, end)                     //
+           && deserialize_blob(&issuer_subject, buf_ptr, end);
 }
 
 size_t GenerateKeyResponse::NonErrorSerializedSize() const {
-    return key_blob_size(key_blob) + enforced.SerializedSize() + unenforced.SerializedSize();
+    size_t result =
+        key_blob_size(key_blob) + enforced.SerializedSize() + unenforced.SerializedSize();
+    if (message_version < 4) return result;
+    return result + chain_size(certificate_chain);
 }
 
 uint8_t* GenerateKeyResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
     buf = serialize_key_blob(key_blob, buf, end);
     buf = enforced.Serialize(buf, end);
-    return unenforced.Serialize(buf, end);
+    buf = unenforced.Serialize(buf, end);
+    if (message_version < 4) return buf;
+    return serialize_chain(certificate_chain, buf, end);
 }
 
 bool GenerateKeyResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
-    return deserialize_key_blob(&key_blob, buf_ptr, end) && enforced.Deserialize(buf_ptr, end) &&
-           unenforced.Deserialize(buf_ptr, end);
+    if (!deserialize_key_blob(&key_blob, buf_ptr, end) ||  //
+        !enforced.Deserialize(buf_ptr, end) ||             //
+        !unenforced.Deserialize(buf_ptr, end)) {
+        return false;
+    }
+    if (message_version < 4) return true;
+    certificate_chain = deserialize_chain(buf_ptr, end);
+    return !!certificate_chain.entries;
+}
+
+size_t GenerateRkpKeyResponse::NonErrorSerializedSize() const {
+    return key_blob_size(key_blob) + blob_size(maced_public_key);
+}
+
+uint8_t* GenerateRkpKeyResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
+    buf = serialize_key_blob(key_blob, buf, end);
+    return serialize_blob(maced_public_key, buf, end);
+}
+
+bool GenerateRkpKeyResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
+    return deserialize_key_blob(&key_blob, buf_ptr, end) &&
+           deserialize_blob(&maced_public_key, buf_ptr, end);
+}
+
+size_t GenerateCsrRequest::SerializedSize() const {
+    size_t size = sizeof(uint8_t); /* test_mode */
+    size += sizeof(uint32_t);      /* num_keys */
+    for (size_t i = 0; i < num_keys; i++) {
+        size += blob_size(keys_to_sign_array[i]);
+    }
+    size += blob_size(endpoint_enc_cert_chain);
+    size += blob_size(challenge);
+    return size;
+}
+
+uint8_t* GenerateCsrRequest::Serialize(uint8_t* buf, const uint8_t* end) const {
+    buf = append_to_buf(buf, end, &test_mode, sizeof(uint8_t));
+    buf = append_uint32_to_buf(buf, end, num_keys);
+    for (size_t i = 0; i < num_keys; i++) {
+        buf = serialize_blob(keys_to_sign_array[i], buf, end);
+    }
+    buf = serialize_blob(endpoint_enc_cert_chain, buf, end);
+    return serialize_blob(challenge, buf, end);
+}
+
+bool GenerateCsrRequest::Deserialize(const uint8_t** buf_ptr, const uint8_t* end) {
+    if (!copy_from_buf(buf_ptr, end, &test_mode, sizeof(uint8_t)) ||
+        !copy_from_buf(buf_ptr, end, &num_keys, sizeof(uint32_t))) {
+        return false;
+    }
+    keys_to_sign_array = new (std::nothrow) KeymasterBlob[num_keys];
+    if (!keys_to_sign_array) return false;
+    for (size_t i = 0; i < num_keys; i++) {
+        if (!deserialize_blob(&keys_to_sign_array[i], buf_ptr, end)) return false;
+    }
+    return deserialize_blob(&endpoint_enc_cert_chain, buf_ptr, end) &&
+           deserialize_blob(&challenge, buf_ptr, end);
+}
+
+void GenerateCsrRequest::SetKeyToSign(uint32_t index, const void* data, size_t length) {
+    if (index >= num_keys) {
+        return;
+    }
+    set_blob(&keys_to_sign_array[index], data, length);
+}
+
+void GenerateCsrRequest::SetEndpointEncCertChain(const void* data, size_t length) {
+    set_blob(&endpoint_enc_cert_chain, data, length);
+}
+
+void GenerateCsrRequest::SetChallenge(const void* data, size_t length) {
+    set_blob(&challenge, data, length);
+}
+
+size_t GenerateCsrResponse::NonErrorSerializedSize() const {
+    return blob_size(keys_to_sign_mac) + blob_size(device_info_blob) +
+           blob_size(protected_data_blob);
+}
+
+uint8_t* GenerateCsrResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
+    buf = serialize_blob(keys_to_sign_mac, buf, end);
+    buf = serialize_blob(device_info_blob, buf, end);
+    return serialize_blob(protected_data_blob, buf, end);
+}
+
+bool GenerateCsrResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
+    return deserialize_blob(&keys_to_sign_mac, buf_ptr, end) &&
+           deserialize_blob(&device_info_blob, buf_ptr, end) &&
+           deserialize_blob(&protected_data_blob, buf_ptr, end);
 }
 
 GetKeyCharacteristicsRequest::~GetKeyCharacteristicsRequest() {
@@ -175,15 +376,13 @@ size_t BeginOperationResponse::NonErrorSerializedSize() const {
 
 uint8_t* BeginOperationResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
     buf = append_uint64_to_buf(buf, end, op_handle);
-    if (message_version > 0)
-        buf = output_params.Serialize(buf, end);
+    if (message_version > 0) buf = output_params.Serialize(buf, end);
     return buf;
 }
 
 bool BeginOperationResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
     bool retval = copy_uint64_from_buf(buf_ptr, end, &op_handle);
-    if (retval && message_version > 0)
-        retval = output_params.Deserialize(buf_ptr, end);
+    if (retval && message_version > 0) retval = output_params.Deserialize(buf_ptr, end);
     return retval;
 }
 
@@ -197,21 +396,20 @@ size_t UpdateOperationRequest::SerializedSize() const {
 uint8_t* UpdateOperationRequest::Serialize(uint8_t* buf, const uint8_t* end) const {
     buf = append_uint64_to_buf(buf, end, op_handle);
     buf = input.Serialize(buf, end);
-    if (message_version > 0)
-        buf = additional_params.Serialize(buf, end);
+    if (message_version > 0) buf = additional_params.Serialize(buf, end);
     return buf;
 }
 
 bool UpdateOperationRequest::Deserialize(const uint8_t** buf_ptr, const uint8_t* end) {
     bool retval = copy_uint64_from_buf(buf_ptr, end, &op_handle) && input.Deserialize(buf_ptr, end);
-    if (retval && message_version > 0)
-        retval = additional_params.Deserialize(buf_ptr, end);
+    if (retval && message_version > 0) retval = additional_params.Deserialize(buf_ptr, end);
     return retval;
 }
 
 size_t UpdateOperationResponse::NonErrorSerializedSize() const {
     size_t size = 0;
     switch (message_version) {
+    case 4:
     case 3:
     case 2:
         size += output_params.SerializedSize();
@@ -232,25 +430,22 @@ size_t UpdateOperationResponse::NonErrorSerializedSize() const {
 
 uint8_t* UpdateOperationResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
     buf = output.Serialize(buf, end);
-    if (message_version > 0)
-        buf = append_uint32_to_buf(buf, end, input_consumed);
-    if (message_version > 1)
-        buf = output_params.Serialize(buf, end);
+    if (message_version > 0) buf = append_uint32_to_buf(buf, end, input_consumed);
+    if (message_version > 1) buf = output_params.Serialize(buf, end);
     return buf;
 }
 
 bool UpdateOperationResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
     bool retval = output.Deserialize(buf_ptr, end);
-    if (retval && message_version > 0)
-        retval = copy_uint32_from_buf(buf_ptr, end, &input_consumed);
-    if (retval && message_version > 1)
-        retval = output_params.Deserialize(buf_ptr, end);
+    if (retval && message_version > 0) retval = copy_uint32_from_buf(buf_ptr, end, &input_consumed);
+    if (retval && message_version > 1) retval = output_params.Deserialize(buf_ptr, end);
     return retval;
 }
 
 size_t FinishOperationRequest::SerializedSize() const {
     size_t size = 0;
     switch (message_version) {
+    case 4:
     case 3:
         size += input.SerializedSize();
         FALLTHROUGH;
@@ -272,20 +467,16 @@ size_t FinishOperationRequest::SerializedSize() const {
 uint8_t* FinishOperationRequest::Serialize(uint8_t* buf, const uint8_t* end) const {
     buf = append_uint64_to_buf(buf, end, op_handle);
     buf = signature.Serialize(buf, end);
-    if (message_version > 0)
-        buf = additional_params.Serialize(buf, end);
-    if (message_version > 2)
-        buf = input.Serialize(buf, end);
+    if (message_version > 0) buf = additional_params.Serialize(buf, end);
+    if (message_version > 2) buf = input.Serialize(buf, end);
     return buf;
 }
 
 bool FinishOperationRequest::Deserialize(const uint8_t** buf_ptr, const uint8_t* end) {
     bool retval =
         copy_uint64_from_buf(buf_ptr, end, &op_handle) && signature.Deserialize(buf_ptr, end);
-    if (retval && message_version > 0)
-        retval = additional_params.Deserialize(buf_ptr, end);
-    if (retval && message_version > 2)
-        retval = input.Deserialize(buf_ptr, end);
+    if (retval && message_version > 0) retval = additional_params.Deserialize(buf_ptr, end);
+    if (retval && message_version > 2) retval = input.Deserialize(buf_ptr, end);
     return retval;
 }
 
@@ -298,15 +489,13 @@ size_t FinishOperationResponse::NonErrorSerializedSize() const {
 
 uint8_t* FinishOperationResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
     buf = output.Serialize(buf, end);
-    if (message_version > 1)
-        buf = output_params.Serialize(buf, end);
+    if (message_version > 1) buf = output_params.Serialize(buf, end);
     return buf;
 }
 
 bool FinishOperationResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
     bool retval = output.Deserialize(buf_ptr, end);
-    if (retval && message_version > 1)
-        retval = output_params.Deserialize(buf_ptr, end);
+    if (retval && message_version > 1) retval = output_params.Deserialize(buf_ptr, end);
     return retval;
 }
 
@@ -322,33 +511,38 @@ bool AddEntropyRequest::Deserialize(const uint8_t** buf_ptr, const uint8_t* end)
     return random_data.Deserialize(buf_ptr, end);
 }
 
-void ImportKeyRequest::SetKeyMaterial(const void* key_material, size_t length) {
-    delete[] key_data;
-    key_data = dup_buffer(key_material, length);
-    key_data_length = length;
-}
-
 size_t ImportKeyRequest::SerializedSize() const {
-    return key_description.SerializedSize() + sizeof(uint32_t) /* key_format */ +
-           sizeof(uint32_t) /* key_data_length */ + key_data_length;
+    size_t size = key_description.SerializedSize()     //
+                  + sizeof(uint32_t) /* key_format */  //
+                  + key_blob_size(key_data);
+    if (message_version < 4) return size;
+    return size                                           //
+           + key_blob_size(attestation_signing_key_blob)  //
+           + attest_key_params.SerializedSize()           //
+           + blob_size(issuer_subject);
 }
 
 uint8_t* ImportKeyRequest::Serialize(uint8_t* buf, const uint8_t* end) const {
     buf = key_description.Serialize(buf, end);
     buf = append_uint32_to_buf(buf, end, key_format);
-    return append_size_and_data_to_buf(buf, end, key_data, key_data_length);
+    buf = serialize_key_blob(key_data, buf, end);
+    if (message_version < 4) return buf;
+    buf = serialize_key_blob(attestation_signing_key_blob, buf, end);
+    buf = attest_key_params.Serialize(buf, end);
+    return serialize_blob(issuer_subject, buf, end);
 }
 
 bool ImportKeyRequest::Deserialize(const uint8_t** buf_ptr, const uint8_t* end) {
-    delete[] key_data;
-    key_data = nullptr;
-    UniquePtr<uint8_t[]> deserialized_key_material;
-    if (!key_description.Deserialize(buf_ptr, end) ||
-        !copy_uint32_from_buf(buf_ptr, end, &key_format) ||
-        !copy_size_and_data_from_buf(buf_ptr, end, &key_data_length, &deserialized_key_material))
+    if (!(key_description.Deserialize(buf_ptr, end) &&
+          copy_uint32_from_buf(buf_ptr, end, &key_format) &&
+          deserialize_key_blob(&key_data, buf_ptr, end))) {
         return false;
-    key_data = deserialized_key_material.release();
-    return true;
+    }
+    if (message_version < 4) return true;
+
+    return deserialize_key_blob(&attestation_signing_key_blob, buf_ptr, end)  //
+           && attest_key_params.Deserialize(buf_ptr, end)                     //
+           && deserialize_blob(&issuer_subject, buf_ptr, end);
 }
 
 void ImportKeyResponse::SetKeyMaterial(const void* key_material, size_t length) {
@@ -356,18 +550,29 @@ void ImportKeyResponse::SetKeyMaterial(const void* key_material, size_t length) 
 }
 
 size_t ImportKeyResponse::NonErrorSerializedSize() const {
-    return key_blob_size(key_blob) + enforced.SerializedSize() + unenforced.SerializedSize();
+    size_t result =
+        key_blob_size(key_blob) + enforced.SerializedSize() + unenforced.SerializedSize();
+    if (message_version < 4) return result;
+    return result + chain_size(certificate_chain);
 }
 
 uint8_t* ImportKeyResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
     buf = serialize_key_blob(key_blob, buf, end);
     buf = enforced.Serialize(buf, end);
-    return unenforced.Serialize(buf, end);
+    buf = unenforced.Serialize(buf, end);
+    if (message_version < 4) return buf;
+    return serialize_chain(certificate_chain, buf, end);
 }
 
 bool ImportKeyResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
-    return deserialize_key_blob(&key_blob, buf_ptr, end) && enforced.Deserialize(buf_ptr, end) &&
-           unenforced.Deserialize(buf_ptr, end);
+    if (!deserialize_key_blob(&key_blob, buf_ptr, end) ||  //
+        !enforced.Deserialize(buf_ptr, end) ||             //
+        !unenforced.Deserialize(buf_ptr, end)) {
+        return false;
+    }
+    if (message_version < 4) return true;
+    certificate_chain = deserialize_chain(buf_ptr, end);
+    return !!certificate_chain.entries;
 }
 
 void ExportKeyRequest::SetKeyMaterial(const void* key_material, size_t length) {
@@ -447,8 +652,7 @@ uint8_t* GetVersionResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end)
 }
 
 bool GetVersionResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
-    if (*buf_ptr + NonErrorSerializedSize() > end)
-        return false;
+    if (*buf_ptr + NonErrorSerializedSize() > end) return false;
     const uint8_t* tmp = *buf_ptr;
     major_ver = *tmp++;
     minor_ver = *tmp++;
@@ -478,67 +682,17 @@ bool AttestKeyRequest::Deserialize(const uint8_t** buf_ptr, const uint8_t* end) 
     return deserialize_key_blob(&key_blob, buf_ptr, end) && attest_params.Deserialize(buf_ptr, end);
 }
 
-AttestKeyResponse::~AttestKeyResponse() {
-    for (size_t i = 0; i < certificate_chain.entry_count; ++i)
-        delete[] certificate_chain.entries[i].data;
-    delete[] certificate_chain.entries;
-}
-
-const size_t kMaxChainEntryCount = 10;
-bool AttestKeyResponse::AllocateChain(size_t entry_count) {
-    if (entry_count > kMaxChainEntryCount)
-        return false;
-
-    if (certificate_chain.entries) {
-        for (size_t i = 0; i < certificate_chain.entry_count; ++i)
-            delete[] certificate_chain.entries[i].data;
-        delete[] certificate_chain.entries;
-    }
-
-    certificate_chain.entry_count = entry_count;
-    certificate_chain.entries = new (std::nothrow) keymaster_blob_t[entry_count];
-    if (!certificate_chain.entries) {
-        certificate_chain.entry_count = 0;
-        return false;
-    }
-
-    memset(certificate_chain.entries, 0, sizeof(certificate_chain.entries[0]) * entry_count);
-    return true;
-}
-
 size_t AttestKeyResponse::NonErrorSerializedSize() const {
-    size_t result = sizeof(uint32_t); /* certificate_chain.entry_count */
-    for (size_t i = 0; i < certificate_chain.entry_count; ++i) {
-        result += sizeof(uint32_t); /* certificate_chain.entries[i].data_length */
-        result += certificate_chain.entries[i].data_length;
-    }
-    return result;
+    return chain_size(certificate_chain);
 }
 
 uint8_t* AttestKeyResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
-    buf = append_uint32_to_buf(buf, end, certificate_chain.entry_count);
-    for (size_t i = 0; i < certificate_chain.entry_count; ++i) {
-        buf = append_size_and_data_to_buf(buf, end, certificate_chain.entries[i].data,
-                                          certificate_chain.entries[i].data_length);
-    }
-    return buf;
+    return serialize_chain(certificate_chain, buf, end);
 }
 
 bool AttestKeyResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
-    size_t entry_count;
-    if (!copy_uint32_from_buf(buf_ptr, end, &entry_count) || !AllocateChain(entry_count))
-        return false;
-
-    for (size_t i = 0; i < certificate_chain.entry_count; ++i) {
-        UniquePtr<uint8_t[]> data;
-        size_t data_length;
-        if (!copy_size_and_data_from_buf(buf_ptr, end, &data_length, &data))
-            return false;
-        certificate_chain.entries[i].data = data.release();
-        certificate_chain.entries[i].data_length = data_length;
-    }
-
-    return true;
+    certificate_chain = deserialize_chain(buf_ptr, end);
+    return !!certificate_chain.entries;
 }
 
 UpgradeKeyRequest::~UpgradeKeyRequest() {
@@ -632,11 +786,9 @@ bool ComputeSharedHmacResponse::NonErrorDeserialize(const uint8_t** buf_ptr, con
 }
 
 size_t ImportWrappedKeyRequest::SerializedSize() const {
-    return sizeof(uint32_t) /* wrapped_key_data_length */ + wrapped_key.key_material_size +
-           sizeof(uint32_t) /* wrapping_key_data_length */ + wrapping_key.key_material_size +
-           sizeof(uint32_t) /* masking_key_data_length */ + masking_key.key_material_size +
-           additional_params.SerializedSize() + sizeof(uint64_t) /* password_sid */ +
-           sizeof(uint64_t) /* biometric_sid */;
+    return key_blob_size(wrapped_key) + key_blob_size(wrapping_key) + key_blob_size(masking_key) +
+           additional_params.SerializedSize() + sizeof(uint64_t)  // password_sid
+           + sizeof(uint64_t);                                    // biometric_sid
 }
 
 uint8_t* ImportWrappedKeyRequest::Serialize(uint8_t* buf, const uint8_t* end) const {
@@ -674,18 +826,29 @@ void ImportWrappedKeyResponse::SetKeyMaterial(const void* key_material, size_t l
 }
 
 size_t ImportWrappedKeyResponse::NonErrorSerializedSize() const {
-    return key_blob_size(key_blob) + enforced.SerializedSize() + unenforced.SerializedSize();
+    size_t result =
+        key_blob_size(key_blob) + enforced.SerializedSize() + unenforced.SerializedSize();
+    if (message_version < 4) return result;
+    return result + chain_size(certificate_chain);
 }
 
 uint8_t* ImportWrappedKeyResponse::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
     buf = serialize_key_blob(key_blob, buf, end);
     buf = enforced.Serialize(buf, end);
-    return unenforced.Serialize(buf, end);
+    buf = unenforced.Serialize(buf, end);
+    if (message_version < 4) return buf;
+    return serialize_chain(certificate_chain, buf, end);
 }
 
 bool ImportWrappedKeyResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
-    return deserialize_key_blob(&key_blob, buf_ptr, end) && enforced.Deserialize(buf_ptr, end) &&
-           unenforced.Deserialize(buf_ptr, end);
+    if (!deserialize_key_blob(&key_blob, buf_ptr, end) ||  //
+        !enforced.Deserialize(buf_ptr, end) ||             //
+        !unenforced.Deserialize(buf_ptr, end)) {
+        return false;
+    }
+    if (message_version < 4) return true;
+    certificate_chain = deserialize_chain(buf_ptr, end);
+    return !!certificate_chain.entries;
 }
 
 size_t HardwareAuthToken::SerializedSize() const {
@@ -730,6 +893,24 @@ bool VerificationToken::Deserialize(const uint8_t** buf_ptr, const uint8_t* end)
            parameters_verified.Deserialize(buf_ptr, end) &&
            copy_uint32_from_buf(buf_ptr, end, &security_level) &&
            deserialize_blob(&mac, buf_ptr, end);
+}
+
+size_t GetVersion2Response::NonErrorSerializedSize() const {
+    return sizeof(max_message_version) +  //
+           sizeof(km_version) +           //
+           sizeof(km_date);
+}
+
+uint8_t* GetVersion2Response::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
+    buf = append_uint32_to_buf(buf, end, max_message_version);
+    buf = append_uint32_to_buf(buf, end, km_version);
+    return append_uint32_to_buf(buf, end, km_date);
+}
+
+bool GetVersion2Response::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
+    return copy_uint32_from_buf(buf_ptr, end, &max_message_version) &&
+           copy_uint32_from_buf(buf_ptr, end, &km_version) &&
+           copy_uint32_from_buf(buf_ptr, end, &km_date);
 }
 
 }  // namespace keymaster

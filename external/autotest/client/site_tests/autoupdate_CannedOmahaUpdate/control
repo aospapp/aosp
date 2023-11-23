@@ -4,19 +4,15 @@
 
 TIME='MEDIUM'
 AUTHOR = 'Chromium OS'
-BUG_TEMPLATE = {
-    'cc': ['chromeos-installer-alerts@google.com'],
-    'components': ['Internals>Installer'],
-}
 
 DOC = """
 Client-side mechanism to update a DUT with a given image. It is used
-in server-side tests such as server/autoupdate_CatchBadSignatures.
+in server-side tests such as autoupdate_CatchBadSignatures.
 """
 
 NAME = 'autoupdate_CannedOmahaUpdate'
 PURPOSE = 'Update client with a canned Omaha response.'
-CRITERIA = 'Do not run this test. See server/autoupdate_CatchBadSignatures.'
+CRITERIA = 'Do not run this test. See autoupdate_CatchBadSignatures.'
 TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'client'

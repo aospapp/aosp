@@ -31,17 +31,48 @@ namespace android {
 
 using google_camera_hal::CameraDeviceHwl;
 using google_camera_hal::CameraDeviceSessionHwl;
+using google_camera_hal::CaptureRequest;
+using google_camera_hal::CaptureResult;
+using google_camera_hal::Dimension;
 using google_camera_hal::HalStream;
 using google_camera_hal::HwlOfflinePipelineRole;
 using google_camera_hal::HwlPipelineCallback;
 using google_camera_hal::HwlPipelineRequest;
 using google_camera_hal::HwlSessionCallback;
 using google_camera_hal::IMulticamCoordinatorHwl;
-using google_camera_hal::StreamConfiguration;
 using google_camera_hal::RequestTemplate;
 using google_camera_hal::SessionDataKey;
 using google_camera_hal::Stream;
 using google_camera_hal::StreamConfiguration;
+using google_camera_hal::ZoomRatioMapperHwl;
+
+class EmulatedCameraZoomRatioMapperHwlImpl : public ZoomRatioMapperHwl {
+ public:
+  EmulatedCameraZoomRatioMapperHwlImpl(
+      const std::unordered_map<uint32_t, std::pair<Dimension, Dimension>>& dims);
+  virtual ~EmulatedCameraZoomRatioMapperHwlImpl() = default;
+
+  // Limit zoom ratio if concurrent mode is on
+  virtual void LimitZoomRatioIfConcurrent(float*) const override{};
+
+  // Get the array dimensions to be used for this capture request / result
+  virtual bool GetActiveArrayDimensionToBeUsed(
+      uint32_t camera_id, const HalCameraMetadata* settings,
+      Dimension* active_array_dimension) const override;
+  // Apply zoom ratio to capture request
+  virtual void UpdateCaptureRequest(CaptureRequest*) override{};
+
+  // Apply zoom ratio to capture result
+  virtual void UpdateCaptureResult(CaptureResult*) override{};
+
+  static std::unique_ptr<EmulatedCameraZoomRatioMapperHwlImpl> Create(
+      const std::unordered_map<uint32_t, std::pair<Dimension, Dimension>>& dims);
+
+ private:
+  // camera id -> {max res dimension (array size), default dimension }
+  std::unordered_map<uint32_t, std::pair<Dimension, Dimension>>
+      camera_ids_to_dimensions_;
+};
 
 // Implementation of CameraDeviceSessionHwl interface
 class EmulatedCameraDeviceSessionHwlImpl : public CameraDeviceSessionHwl {
@@ -88,9 +119,8 @@ class EmulatedCameraDeviceSessionHwlImpl : public CameraDeviceSessionHwl {
 
   void DestroyPipelines() override;
 
-  status_t SubmitRequests(
-      uint32_t frame_number,
-      const std::vector<HwlPipelineRequest>& requests) override;
+  status_t SubmitRequests(uint32_t frame_number,
+                          std::vector<HwlPipelineRequest>& requests) override;
 
   status_t Flush() override;
 
@@ -117,8 +147,7 @@ class EmulatedCameraDeviceSessionHwlImpl : public CameraDeviceSessionHwl {
   }  // Noop for now
 
   void SetSessionCallback(
-      const HwlSessionCallback& /*hwl_session_callback*/) override {
-  }
+      const HwlSessionCallback& hwl_session_callback) override;
 
   status_t FilterResultMetadata(HalCameraMetadata* /*metadata*/) const override {
     return OK;
@@ -142,13 +171,20 @@ class EmulatedCameraDeviceSessionHwlImpl : public CameraDeviceSessionHwl {
 
   std::unique_ptr<google_camera_hal::ZoomRatioMapperHwl> GetZoomRatioMapperHwl()
       override {
-    return nullptr;
+    return std::move(zoom_ratio_mapper_hwl_impl_);
   }
   // End override functions in CameraDeviceSessionHwl
 
  private:
   status_t Initialize(uint32_t camera_id,
                       std::unique_ptr<HalCameraMetadata> static_meta);
+  status_t InitializeRequestProcessor();
+
+  status_t CheckOutputFormatsForInput(
+      const HwlPipelineRequest& request,
+      const std::unordered_map<uint32_t, EmulatedStream>& streams,
+      const std::unique_ptr<StreamConfigurationMap>& stream_configuration_map,
+      android_pixel_format_t input_format);
 
   EmulatedCameraDeviceSessionHwlImpl(
       PhysicalDeviceMapPtr physical_devices,
@@ -164,13 +200,21 @@ class EmulatedCameraDeviceSessionHwlImpl : public CameraDeviceSessionHwl {
   uint32_t camera_id_ = 0;
   bool error_state_ = false;
   bool pipelines_built_ = false;
+  bool has_raw_stream_ = false;
   std::unique_ptr<HalCameraMetadata> static_metadata_;
   std::vector<EmulatedPipeline> pipelines_;
   std::unique_ptr<EmulatedRequestProcessor> request_processor_;
-  std::unique_ptr<StreamConfigurationMap> stream_coniguration_map_;
+  std::unique_ptr<StreamConfigurationMap> stream_configuration_map_;
+  PhysicalStreamConfigurationMap physical_stream_configuration_map_;
+  PhysicalStreamConfigurationMap physical_stream_configuration_map_max_resolution_;
+  std::unique_ptr<StreamConfigurationMap> stream_configuration_map_max_resolution_;
   SensorCharacteristics sensor_chars_;
   std::shared_ptr<EmulatedTorchState> torch_state_;
   PhysicalDeviceMapPtr physical_device_map_;
+  LogicalCharacteristics logical_chars_;
+  HwlSessionCallback session_callback_;
+  DynamicStreamIdMapType dynamic_stream_id_map_;
+  std::unique_ptr<EmulatedCameraZoomRatioMapperHwlImpl> zoom_ratio_mapper_hwl_impl_;
 };
 
 }  // namespace android

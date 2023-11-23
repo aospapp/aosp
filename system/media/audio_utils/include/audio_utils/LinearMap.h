@@ -307,7 +307,7 @@ protected:
             return startValue;  // nothing yet
         }
         ssize_t previous = 0;
-        int32_t diff = 0;
+        int64_t diff = 0;
         for (ssize_t i = 0; i < (ssize_t)mSamples; ++i) {
             size_t current = previousPosition(i);
 
@@ -333,7 +333,7 @@ protected:
                 T u = uStep <= 0 || vStep <= 0 ?  // we do not permit negative ustep or vstep
                         uArray[current]
                       : ((int64_t)diff * uStep + (vStep >> 1)) / vStep + uArray[current];
-                // ALOGD("u:%u  diff:%d  uStep:%d  vStep:%d  u_current:%d",
+                // ALOGD("u:%u  diff:%lld  uStep:%d  vStep:%d  u_current:%d",
                 //         u, diff, uStep, vStep, uArray[current]);
                 if (method != NULL) {
                     *method = (diff >= 0) ?

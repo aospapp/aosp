@@ -109,14 +109,16 @@ if [[ "${BISECT_MODE}" == "OBJECT_MODE" ]]; then
 
   echo
   echo "DEPLOYING"
-  if [[ ${PACKAGE} == sys-kernel/chromeos-kernel-* ]]; then
-    echo "/mnt/host/source/src/scripts/update_kernel.sh \
-      --remote=${BISECT_REMOTE}"
-    /mnt/host/source/src/scripts/update_kernel.sh --remote=${BISECT_REMOTE}
-  else
-    echo "cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE}"
-    cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE} --log-level=info
+
+  if [[ ${BISECT_PACKAGE} == sys-kernel/chromeos-kernel-* ]]; then
+    echo "/mnt/host/source/src/scripts/update_kernel.sh " \
+      "--remote=${BISECT_REMOTE} --board=${BISECT_BOARD}"
+    # exec the command to make sure it always exit after
+    exec /mnt/host/source/src/scripts/update_kernel.sh --remote=${BISECT_REMOTE} --board=${BISECT_BOARD}
   fi
+
+  echo "cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE}"
+  cros deploy ${BISECT_REMOTE} ${BISECT_PACKAGE} --log-level=info
 
   deploy_status=$?
 

@@ -1,0 +1,9 @@
+service eth_mac_addr /system/bin/eth_mac_addr.sh
+    class core
+    user root
+    group system
+    disabled
+    oneshot
+
+on post-fs-data
+    start eth_mac_addr

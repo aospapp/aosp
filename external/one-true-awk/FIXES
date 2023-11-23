@@ -25,6 +25,109 @@ THIS SOFTWARE.
 This file lists all bug fixes, changes, etc., made since the AWK book
 was sent to the printers in August, 1987.
 
+February 15, 2021:
+	Small fix so that awk will compile again with g++. Thanks to
+	Arnold Robbins.
+
+January 06, 2021:
+	Fix a decision bug with trailing stuff in lib.c:is_valid_number
+	after recent changes. Thanks to Ozan Yigit.
+
+December 18, 2020:
+	Fix problems converting inf and NaN values in lib.c:is_valid_number.
+	Enhance number to string conversion to do the right thing for
+	NaN and inf values.  Things are now pretty much the same as in
+	gawk.  (Found a gawk bug while we're at it.) Added a torture
+	test for these values.  Thanks to Arnold Robbins.  Allows closing
+	of PR #101.
+
+December 15, 2020:
+	Merge PR #99, which gets the right header for strcasecmp.
+	Thanks to GitHub user michaelforney.
+
+December 8, 2020:
+	Merge PR #98: Disallow hex data. Allow only +nan, -nan,
+	+inf, -inf (case independent) to give NaN and infinity values.
+	Improve things so that string to double conversion is only
+	done once, yielding something of a speedup.  This obviate
+	PR #95. Thanks to Arnold Robbins.
+
+December 3, 2020:
+	Fix to argument parsing to avoid printing spurious newlines.
+	Thanks to Todd Miller. Merges PR #97.
+
+October 13, 2020:
+	Add casts before all the calls to malloc/calloc/realloc in order
+	to get it to compile with g++. Thanks to Arnold Robbins.
+
+August 16, 2020:
+	Additional fixes for DJGPP. Thanks to Eli Zaretskii for
+	the testing.
+
+August 7, 2020:
+	Merge PR #93, which adds casts to (void*) for debug prints
+	using the %p format specifier. Thanks to GitHub user YongHaoWu
+	("Chris") for the fixes.
+
+August 4, 2020:
+	In run.c, use non-restartable multibyte routines to attain
+	portability to DJGPP. Should fix Issue 92. Thanks to Albert Wik
+	for the report and to Todd Miller for the suggested fix.
+
+July 30, 2020:
+	Merge PRs 88-91 which fix small bugs. Thanks to Todd Miller and
+	Tim van der Molen for the fixes.
+
+	In order to make life easier, we move exclusively to bison
+	as the parser generator.
+
+July 2, 2020:
+	Merge PRs 85 and 86 which fix regressions. Thanks to
+	Tim van der Molen for the fixes.
+
+June 25, 2020:
+	Merge PRs 82 and 84. The latter fixes issue #83. Thanks to
+	Todd Miller and awkfan77.
+
+June 12, 2020:
+	Clear errno before calling errcheck to avoid any spurious errors
+	left over from previous calls that may have set it. Thanks to
+	Todd Miller for the fix, from PR #80.
+
+	Fix Issue #78 by allowing \r to follow floating point numbers in
+	lib.c:is_number. Thanks to GitHub user ajcarr for the report
+	and to Arnold Robbins for the fix.
+
+June 5, 2020:
+	In fldbld(), make sure that inputFS is set before trying to
+	use it. Thanks to  Steffen Nurpmeso <steffen@sdaoden.eu>
+	for the report.
+
+May 5, 2020:
+	Fix checks for compilers that can handle noreturn. Thanks to
+	GitHub user enh-google for pointing it out. Closes Issue #79.
+
+April 16, 2020:
+	Handle old compilers that don't support C11 (for noreturn).
+	Thanks to Arnold Robbins.
+
+April 5, 2020:
+	Use <stdnoreturn.h> and noreturn instead of GCC attributes.
+	Thanks to GitHub user awkfan77. Closes PR #77.
+
+February 28, 2020:
+	More cleanups from Christos Zoulas: notably backslash continuation
+	inside strings removes the newline and a fix for RS = "^a".
+	Fix for address sanitizer-found problem. Thanks to GitHub user
+	enh-google.
+
+February 19, 2020:
+	More small cleanups from Christos Zoulas.
+
+February 18, 2020:
+	Additional cleanups from Christos Zoulas. It's no longer necessary
+	to use the -y flag to bison.
+
 February 6, 2020:
 	Additional small cleanups from Christos Zoulas. awk is now
 	a little more robust about reporting I/O errors upon exit.

@@ -43,31 +43,35 @@ struct freq_info {
 
 struct cpu_info {
     long unsigned utime, ntime, stime, itime, iowtime, irqtime, sirqtime;
-    struct freq_info *freqs;
+    struct freq_info* freqs;
     int freq_count;
 };
 
-#define die(...) { fprintf(stderr, __VA_ARGS__); exit(EXIT_FAILURE); }
+#define die(...)                      \
+    {                                 \
+        fprintf(stderr, __VA_ARGS__); \
+        exit(EXIT_FAILURE);           \
+    }
 
 static struct cpu_info old_total_cpu, new_total_cpu, *old_cpus, *new_cpus;
 static int cpu_count, delay, iterations;
 static char minimal, aggregate_freq_stats;
 
 static int get_cpu_count();
-static int get_cpu_count_from_file(char *filename);
-static long unsigned get_cpu_total_time(struct cpu_info *cpu);
+static int get_cpu_count_from_file(char* filename);
+static long unsigned get_cpu_total_time(struct cpu_info* cpu);
 static int get_freq_scales_count(int cpu);
 static void print_stats();
-static void print_cpu_stats(char *label, struct cpu_info *new_cpu, struct cpu_info *old_cpu,
-        char print_freq);
-static void print_freq_stats(struct cpu_info *new_cpu, struct cpu_info *old_cpu);
+static void print_cpu_stats(char* label, struct cpu_info* new_cpu, struct cpu_info* old_cpu,
+                            char print_freq);
+static void print_freq_stats(struct cpu_info* new_cpu, struct cpu_info* old_cpu);
 static void read_stats();
 static void read_freq_stats(int cpu);
 static char should_aggregate_freq_stats();
 static char should_print_freq_stats();
-static void usage(char *cmd);
+static void usage(char* cmd);
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     struct cpu_info *tmp_cpus, tmp_total_cpu;
     int i, freq_count;
 
@@ -187,8 +191,8 @@ static int get_cpu_count() {
 /*
  * Get the number of CPUs from a given filename.
  */
-static int get_cpu_count_from_file(char *filename) {
-    FILE *file;
+static int get_cpu_count_from_file(char* filename) {
+    FILE* file;
     char line[MAX_BUF_SIZE];
     int cpu_count;
 
@@ -213,7 +217,7 @@ static int get_cpu_count_from_file(char *filename) {
  * Get the number of frequency states a given CPU can be scaled to.
  */
 static int get_freq_scales_count(int cpu) {
-    FILE *file;
+    FILE* file;
     char filename[MAX_BUF_SIZE];
     long unsigned freq;
     int count = 0;
@@ -225,7 +229,7 @@ static int get_freq_scales_count(int cpu) {
         freq = 0;
         fscanf(file, "%lu %*d\n", &freq);
         if (freq) count++;
-    } while(freq);
+    } while (freq);
     fclose(file);
 
     return count;
@@ -235,15 +239,15 @@ static int get_freq_scales_count(int cpu) {
  * Read the CPU and frequency stats for all cpus.
  */
 static void read_stats() {
-    FILE *file;
+    FILE* file;
     char scanline[MAX_BUF_SIZE];
     int i;
 
     file = fopen("/proc/stat", "r");
     if (!file) die("Could not open /proc/stat.\n");
-    fscanf(file, "cpu  %lu %lu %lu %lu %lu %lu %lu %*d %*d %*d\n",
-           &new_total_cpu.utime, &new_total_cpu.ntime, &new_total_cpu.stime, &new_total_cpu.itime,
-           &new_total_cpu.iowtime, &new_total_cpu.irqtime, &new_total_cpu.sirqtime);
+    fscanf(file, "cpu  %lu %lu %lu %lu %lu %lu %lu %*d %*d %*d\n", &new_total_cpu.utime,
+           &new_total_cpu.ntime, &new_total_cpu.stime, &new_total_cpu.itime, &new_total_cpu.iowtime,
+           &new_total_cpu.irqtime, &new_total_cpu.sirqtime);
     if (aggregate_freq_stats) {
         for (i = 0; i < new_total_cpu.freq_count; i++) {
             new_total_cpu.freqs[i].time = 0;
@@ -264,7 +268,7 @@ static void read_stats() {
  * Read the frequency stats for a given cpu.
  */
 static void read_freq_stats(int cpu) {
-    FILE *file;
+    FILE* file;
     char filename[MAX_BUF_SIZE];
     int i;
 
@@ -272,8 +276,7 @@ static void read_freq_stats(int cpu) {
     file = fopen(filename, "r");
     for (i = 0; i < new_cpus[cpu].freq_count; i++) {
         if (file) {
-            fscanf(file, "%u %lu\n", &new_cpus[cpu].freqs[i].freq,
-               &new_cpus[cpu].freqs[i].time);
+            fscanf(file, "%u %lu\n", &new_cpus[cpu].freqs[i].freq, &new_cpus[cpu].freqs[i].time);
         } else {
             /* The CPU has been off lined for some reason */
             new_cpus[cpu].freqs[i].freq = old_cpus[cpu].freqs[i].freq;
@@ -284,14 +287,13 @@ static void read_freq_stats(int cpu) {
             new_total_cpu.freqs[i].time += new_cpus[cpu].freqs[i].time;
         }
     }
-    if (file)
-        fclose(file);
+    if (file) fclose(file);
 }
 
 /*
  * Get the sum of the cpu time from all categories.
  */
-static long unsigned get_cpu_total_time(struct cpu_info *cpu) {
+static long unsigned get_cpu_total_time(struct cpu_info* cpu) {
     return (cpu->utime + cpu->ntime + cpu->stime + cpu->itime + cpu->iowtime + cpu->irqtime +
             cpu->sirqtime);
 }
@@ -317,34 +319,26 @@ static void print_stats() {
 /*
  * Print the stats for a single CPU.
  */
-static void print_cpu_stats(char *label, struct cpu_info *new_cpu, struct cpu_info *old_cpu,
-        char print_freq) {
+static void print_cpu_stats(char* label, struct cpu_info* new_cpu, struct cpu_info* old_cpu,
+                            char print_freq) {
     long int total_delta_time;
 
     if (!minimal) {
         total_delta_time = get_cpu_total_time(new_cpu) - get_cpu_total_time(old_cpu);
         printf("%s: User %ld + Nice %ld + Sys %ld + Idle %ld + IOW %ld + IRQ %ld + SIRQ %ld = "
-                "%ld\n", label,
-                new_cpu->utime - old_cpu->utime,
-                new_cpu->ntime - old_cpu->ntime,
-                new_cpu->stime - old_cpu->stime,
-                new_cpu->itime - old_cpu->itime,
-                new_cpu->iowtime - old_cpu->iowtime,
-                new_cpu->irqtime - old_cpu->irqtime,
-                new_cpu->sirqtime - old_cpu->sirqtime,
-                total_delta_time);
+               "%ld\n",
+               label, new_cpu->utime - old_cpu->utime, new_cpu->ntime - old_cpu->ntime,
+               new_cpu->stime - old_cpu->stime, new_cpu->itime - old_cpu->itime,
+               new_cpu->iowtime - old_cpu->iowtime, new_cpu->irqtime - old_cpu->irqtime,
+               new_cpu->sirqtime - old_cpu->sirqtime, total_delta_time);
         if (print_freq) {
             print_freq_stats(new_cpu, old_cpu);
         }
     } else {
-        printf("%s,%ld,%ld,%ld,%ld,%ld,%ld,%ld", label,
-                new_cpu->utime - old_cpu->utime,
-                new_cpu->ntime - old_cpu->ntime,
-                new_cpu->stime - old_cpu->stime,
-                new_cpu->itime - old_cpu->itime,
-                new_cpu->iowtime - old_cpu->iowtime,
-                new_cpu->irqtime - old_cpu->irqtime,
-                new_cpu->sirqtime - old_cpu->sirqtime);
+        printf("%s,%ld,%ld,%ld,%ld,%ld,%ld,%ld", label, new_cpu->utime - old_cpu->utime,
+               new_cpu->ntime - old_cpu->ntime, new_cpu->stime - old_cpu->stime,
+               new_cpu->itime - old_cpu->itime, new_cpu->iowtime - old_cpu->iowtime,
+               new_cpu->irqtime - old_cpu->irqtime, new_cpu->sirqtime - old_cpu->sirqtime);
         print_freq_stats(new_cpu, old_cpu);
         printf("\n");
     }
@@ -353,7 +347,7 @@ static void print_cpu_stats(char *label, struct cpu_info *new_cpu, struct cpu_in
 /*
  * Print the CPU stats for a single CPU.
  */
-static void print_freq_stats(struct cpu_info *new_cpu, struct cpu_info *old_cpu) {
+static void print_freq_stats(struct cpu_info* new_cpu, struct cpu_info* old_cpu) {
     long int delta_time, total_delta_time;
     int i;
 
@@ -375,7 +369,7 @@ static void print_freq_stats(struct cpu_info *new_cpu, struct cpu_info *old_cpu)
         } else {
             for (i = 0; i < new_cpu->freq_count; i++) {
                 printf(",%u,%ld", new_cpu->freqs[i].freq,
-                        new_cpu->freqs[i].time - old_cpu->freqs[i].time);
+                       new_cpu->freqs[i].time - old_cpu->freqs[i].time);
             }
         }
     }
@@ -394,7 +388,7 @@ static char should_print_freq_stats() {
     for (i = 1; i < cpu_count; i++) {
         for (j = 0; j < new_cpus[i].freq_count; j++) {
             if (new_cpus[i].freqs[j].time - old_cpus[i].freqs[j].time !=
-                    new_cpus[0].freqs[j].time - old_cpus[0].freqs[j].time) {
+                new_cpus[0].freqs[j].time - old_cpus[0].freqs[j].time) {
                 return 1;
             }
         }
@@ -429,8 +423,9 @@ static char should_aggregate_freq_stats() {
 /*
  * Print the usage message.
  */
-static void usage(char *cmd) {
-    fprintf(stderr, "Usage %s [ -n iterations ] [ -d delay ] [ -c cpu ] [ -m ] [ -h ]\n"
+static void usage(char* cmd) {
+    fprintf(stderr,
+            "Usage %s [ -n iterations ] [ -d delay ] [ -c cpu ] [ -m ] [ -h ]\n"
             "    -n num  Updates to show before exiting.\n"
             "    -d num  Seconds to wait between updates.\n"
             "    -m      Display minimal output.\n"

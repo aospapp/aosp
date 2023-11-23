@@ -17,7 +17,7 @@
 package android.security.cts;
 
 import android.test.AndroidTestCase;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.security.cts.R;
 
 import android.content.Context;
@@ -30,10 +30,9 @@ import android.util.Log;
 import java.io.File;
 import java.lang.reflect.Field;
 
-@SecurityTest
 public class ParcelableExceptionTest extends AndroidTestCase {
 
-    @SecurityTest(minPatchLevel = "2017-12")
+    @AsbSecurityTest(cveBugId = 65281159)
     public void test_CVE_2017_0871() throws Exception {
         String filePath = "/data/system/" + System.currentTimeMillis();
         File file = new File(filePath);

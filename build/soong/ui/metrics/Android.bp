@@ -12,17 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 bootstrap_go_package {
     name: "soong-ui-metrics",
     pkgPath: "android/soong/ui/metrics",
     deps: [
         "golang-protobuf-proto",
+        "soong-ui-metrics_upload_proto",
         "soong-ui-metrics_proto",
         "soong-ui-tracer",
     ],
     srcs: [
         "metrics.go",
-        "time.go",
+        "event.go",
+    ],
+    testSrcs: [
+        "event_test.go",
     ],
 }
 
@@ -35,3 +43,11 @@ bootstrap_go_package {
     ],
 }
 
+bootstrap_go_package {
+    name: "soong-ui-metrics_upload_proto",
+    pkgPath: "android/soong/ui/metrics/upload_proto",
+    deps: ["golang-protobuf-proto"],
+    srcs: [
+        "upload_proto/upload.pb.go",
+    ],
+}

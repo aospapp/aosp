@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"ਤੁਸੀਂ ਬਾਹਰੀ ਸਟੋਰੇਜ ਵਿੱਚ ਸਥਿਤ ਇੱਕ %1$s ਜਾਂ ਇੱਕ %2$s ਐਕਸਟੈਂਸ਼ਨ ਨਾਲ ਇੱਕ PKCS#12 ਫ਼ਾਈਲ ਵਿੱਚੋਂ ਪ੍ਰਮਾਣ-ਪੱਤਰ ਸਥਾਪਤ ਕਰ ਸਕਦੇ ਹੋ।"</string>
     <string name="allow_button" msgid="3030990695030371561">"ਚੁਣੋ"</string>
     <string name="deny_button" msgid="3766539809121892584">"ਅਸਵੀਕਾਰ ਕਰੋ"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"ਪ੍ਰਮਾਣ-ਪੱਤਰਾਂ ਨੂੰ ਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s ਵੱਲੋਂ ਪ੍ਰਮਾਣ-ਪੱਤਰ ਦੀ ਜਾਂਚ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ…"</string>
 </resources>

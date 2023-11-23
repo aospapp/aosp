@@ -2,9 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import division
+
 import logging
 import random
 import string
+import time
 
 from autotest_lib.server.cros.network import frame_sender
 from autotest_lib.server.cros.network import hostap_config
@@ -25,8 +28,11 @@ class network_WiFi_ChannelScanDwellTime(wifi_cell_test_base.WiFiCellTestBase):
     SCAN_RETRY_TIMEOUT_SECONDS = 10
     NUM_BSS = 1024
     MISSING_BEACON_THRESHOLD = 2
+    MAX_DWELL_TIME_MS = 250
+    MIN_DWELL_TIME_MS = 5
     FREQUENCY_MHZ = 2412
     MSEC_PER_SEC = 1000
+    SCAN_START_DELAY_MS = 200
 
     def _build_ssid_prefix(self):
         """Build ssid prefix."""
@@ -141,6 +147,10 @@ class network_WiFi_ChannelScanDwellTime(wifi_cell_test_base.WiFiCellTestBase):
                 frequencies = [self.FREQUENCY_MHZ]
             else:
                 frequencies = []
+            # Don't immediately start the scan, wait a bit so the AP has enough
+            # time to start actually sending beacon frames before the scan
+            # starts.
+            time.sleep(self.SCAN_START_DELAY_MS / self.MSEC_PER_SEC)
             # Perform scan
             try:
                 utils.poll_for_condition(
@@ -188,9 +198,18 @@ class network_WiFi_ChannelScanDwellTime(wifi_cell_test_base.WiFiCellTestBase):
         try:
             # Get channel dwell time for single-channel scan
             dwell_time = self._channel_dwell_time_test(True)
+            # Ensure that the measured value is sane, so a glitch doesn't
+            # pollute the perf dataset.
+            if (dwell_time < self.MIN_DWELL_TIME_MS or
+                    dwell_time > self.MAX_DWELL_TIME_MS):
+                raise error.TestFail(
+                        'Dwell time %d ms is not within range [%dms,%dms]' %
+                        (dwell_time, self.MIN_DWELL_TIME_MS,
+                            self.MAX_DWELL_TIME_MS))
             logging.info('Channel dwell time for single-channel scan: %d ms',
                          dwell_time)
-            self.write_perf_keyval(
-                    {'dwell_time_single_channel_scan': dwell_time})
+            self.output_perf_value(
+                    'dwell_time_single_channel_scan', dwell_time, units='ms',
+                    higher_is_better=False)
         finally:
             self.context.client.release_wifi_if()

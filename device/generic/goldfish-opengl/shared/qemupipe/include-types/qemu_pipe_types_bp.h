@@ -18,22 +18,9 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#ifdef HOST_BUILD
-
-typedef void* QEMU_PIPE_HANDLE;
-#define QEMU_PIPE_INVALID_HANDLE NULL
-
-inline bool qemu_pipe_valid(QEMU_PIPE_HANDLE h) {
-    return h != QEMU_PIPE_INVALID_HANDLE;
-}
-
-#else  // ifdef HOST_BUILD
-
 typedef int QEMU_PIPE_HANDLE;
 #define QEMU_PIPE_INVALID_HANDLE (-1)
 
 inline bool qemu_pipe_valid(QEMU_PIPE_HANDLE h) {
     return h > QEMU_PIPE_INVALID_HANDLE;
 }
-
-#endif // ifdef HOST_BUILD

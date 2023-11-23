@@ -245,6 +245,11 @@ def unregister(registration_id):
     Args:
         registration_id: the Subscription or registration_id to unsubscribe.
     """
+    # null check for the corner case where the _event_bus is destroyed before
+    # the subscribers unregister. In such case there is nothing else to
+    # be done.
+    if _event_bus is None:
+        return True
     return _event_bus.unregister(registration_id)
 
 

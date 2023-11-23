@@ -40,6 +40,7 @@ class Manager {
     GNSS_LOCATION,
     GNSS_MEASUREMENT,
     WWAN_CELL_INFO,
+    AUDIO,
   };
 
   enum class FeatureState : uint8_t {
@@ -142,6 +143,19 @@ class Manager {
    * @param result The WiFi scan event result.
    */
   void handleWifiScanResult(const chreWifiScanEvent *result);
+
+  /**
+   * @param event CHRE Audio Source Status Event
+   */
+  void handleAudioSourceStatusEvent(
+      const struct chreAudioSourceStatusEvent *event);
+
+  /**
+   * @param event CHRE Audio Data Event
+   */
+  void handleAudioDataEvent(const struct chreAudioDataEvent *event);
+
+  void handleTimeout();
 
   /**
    * End the current test session and sends result to host.

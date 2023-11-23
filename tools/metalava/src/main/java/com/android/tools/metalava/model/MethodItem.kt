@@ -17,7 +17,7 @@
 package com.android.tools.metalava.model
 
 import com.android.tools.metalava.compatibility
-import com.android.tools.metalava.doclava1.TextCodebase
+import com.android.tools.metalava.model.text.TextCodebase
 import com.android.tools.metalava.model.visitors.ItemVisitor
 import com.android.tools.metalava.model.visitors.TypeVisitor
 import java.util.LinkedHashSet
@@ -79,7 +79,7 @@ interface MethodItem : MemberItem {
     fun typeParameterList(): TypeParameterList
 
     /** Returns the classes that are part of the type parameters of this method, if any */
-    fun typeArgumentClasses(): List<ClassItem> = TODO("Not yet implemented")
+    fun typeArgumentClasses(): List<ClassItem> = codebase.unsupported()
 
     /** Types of exceptions that this method can throw */
     fun throwsTypes(): List<ClassItem>
@@ -298,7 +298,7 @@ interface MethodItem : MemberItem {
             }
 
             assert(parameterList1.size == parameterList2.size)
-            for (i in 0 until parameterList1.size) {
+            for (i in parameterList1.indices) {
                 val p1 = parameterList1[i]
                 val p2 = parameterList2[i]
                 val pt1 = p1.type()
@@ -327,7 +327,7 @@ interface MethodItem : MemberItem {
             }
 
             assert(throwsList12.size == throwsList2.size)
-            for (i in 0 until throwsList12.size) {
+            for (i in throwsList12.indices) {
                 val p1 = throwsList12[i]
                 val p2 = throwsList2[i]
                 val pt1 = p1.qualifiedName()
@@ -349,7 +349,7 @@ interface MethodItem : MemberItem {
         }
         val sb = StringBuilder()
         for (parameter in parameters()) {
-            if (!sb.isEmpty()) {
+            if (sb.isNotEmpty()) {
                 sb.append(", ")
             }
             sb.append(parameter.type().toTypeString())
@@ -440,7 +440,7 @@ interface MethodItem : MemberItem {
             return false
         }
 
-        for (i in 0 until parameters1.size) {
+        for (i in parameters1.indices) {
             val parameter1 = parameters1[i]
             val parameter2 = parameters2[i]
             val typeString1 = parameter1.type().toString()
@@ -456,11 +456,13 @@ interface MethodItem : MemberItem {
                 // parameters: if we see a mismatch here which looks like a failure to erase say T into
                 // java.lang.Object, don't treat that as a mismatch. (Similar common case: T[] and Object[])
                 if (typeString1[0].isUpperCase() && typeString1.length == 1 &&
-                    parameter1.codebase is TextCodebase) {
+                    parameter1.codebase is TextCodebase
+                ) {
                     continue
                 }
                 if (typeString2.length >= 2 && !typeString2[1].isLetterOrDigit() &&
-                    parameter1.codebase is TextCodebase) {
+                    parameter1.codebase is TextCodebase
+                ) {
                     continue
                 }
                 return false
@@ -512,6 +514,32 @@ interface MethodItem : MemberItem {
         return false
     }
 
+    override fun hasShowAnnotationInherited(): Boolean {
+        if (super.hasShowAnnotationInherited()) {
+            return true
+        }
+        return superMethods().any {
+            it.hasShowAnnotationInherited()
+        }
+    }
+
+    override fun onlyShowForStubPurposesInherited(): Boolean {
+        if (super.onlyShowForStubPurposesInherited()) {
+            return true
+        }
+        return superMethods().any {
+            it.onlyShowForStubPurposesInherited()
+        }
+    }
+
     /** Whether this method is a getter/setter for an underlying Kotlin property (val/var) */
     fun isKotlinProperty(): Boolean = false
+
+    /** Returns true if this is a synthetic enum method */
+    fun isEnumSyntheticMethod(): Boolean {
+        return containingClass().isEnum() &&
+            (name() == "values" && parameters().isEmpty() ||
+                name() == "valueOf" && parameters().size == 1 &&
+                parameters()[0].type().isString())
+    }
 }

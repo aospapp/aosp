@@ -96,7 +96,7 @@
     <string name="fail_add_contact" msgid="6511490846952942291">"Չհաջողվեց կարդալ կոնտակտային տվյալները"</string>
     <string name="remove" msgid="1243949503772376064">"Հեռացնել"</string>
     <string name="cancel" msgid="7401575239009060939">"Չեղարկել"</string>
-    <string name="ok" msgid="163967937451981024">"Հաստատել"</string>
+    <string name="ok" msgid="163967937451981024">"Եղավ"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Հեռախոսի սեփականատիրոջ մասին տեղեկություններ չկան"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Եթե սա ձեր հեռախոսն է, ապա հպեք մատիտի պատկերակին և ավելացրեք տեղեկություններ, որոնք կցուցադրվեն այստեղ արտակարգ իրավիճակի դեպքում"</string>

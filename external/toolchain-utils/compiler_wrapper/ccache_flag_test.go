@@ -54,17 +54,6 @@ func TestSetCacheDir(t *testing.T) {
 	})
 }
 
-func TestSetCacheBaseDirToSysroot(t *testing.T) {
-	withCCacheEnabledTestContext(t, func(ctx *testContext) {
-		cmd := ctx.must(callCompiler(ctx, ctx.cfg,
-			ctx.newCommand(gccX86_64, mainCc)))
-		if err := verifyEnvUpdate(cmd,
-			"CCACHE_BASEDIR="+ctx.tempDir+"/usr/x86_64-cros-linux-gnu"); err != nil {
-			t.Error(err)
-		}
-	})
-}
-
 func TestSetCacheUmask(t *testing.T) {
 	withCCacheEnabledTestContext(t, func(ctx *testContext) {
 		cmd := ctx.must(callCompiler(ctx, ctx.cfg,

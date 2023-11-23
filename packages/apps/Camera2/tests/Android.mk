@@ -10,6 +10,8 @@ LOCAL_SDK_VERSION := 16
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := Camera2Tests
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_INSTRUMENTATION_FOR := Camera2
 

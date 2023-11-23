@@ -67,6 +67,9 @@ void PlatformDebugDumpManager::sendDebugDump(const char *debugStr,
 #endif  // CHRE_ENABLE_ASH_DEBUG_DUMP
 }
 
+void PlatformDebugDumpManager::logStateToBuffer(
+    DebugDumpWrapper & /* debugDump */) {}
+
 PlatformDebugDumpManagerBase::PlatformDebugDumpManagerBase() {
 #ifdef CHRE_ENABLE_ASH_DEBUG_DUMP
   if (!ashRegisterDebugDumpCallback("CHRE", onDebugDumpTriggered,

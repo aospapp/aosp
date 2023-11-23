@@ -17,6 +17,7 @@
 
 #define LOG_TAG "libvintf"
 #include <android-base/logging.h>
+#include <android-base/strings.h>
 
 #include "RuntimeInfo.h"
 
@@ -40,6 +41,8 @@
 #define PROC_CONFIG "/proc/config.gz"
 #define BUFFER_SIZE sysconf(_SC_PAGESIZE)
 
+static constexpr char kMainline[] = "-mainline-";
+
 namespace android {
 namespace vintf {
 
@@ -48,18 +51,18 @@ struct RuntimeInfoFetcher {
     status_t fetchAllInformation(RuntimeInfo::FetchFlags flags);
 
    private:
-    status_t fetchVersion();
-    status_t fetchKernelConfigs();
-    status_t fetchCpuInfo();
-    status_t fetchKernelSepolicyVers();
-    status_t fetchAvb();
+    status_t fetchVersion(RuntimeInfo::FetchFlags flags);
+    status_t fetchKernelConfigs(RuntimeInfo::FetchFlags flags);
+    status_t fetchCpuInfo(RuntimeInfo::FetchFlags flags);
+    status_t fetchKernelSepolicyVers(RuntimeInfo::FetchFlags flags);
+    status_t fetchAvb(RuntimeInfo::FetchFlags flags);
     status_t parseKernelVersion();
     RuntimeInfo *mRuntimeInfo;
     KernelConfigParser mConfigParser;
 };
 
 // decompress /proc/config.gz and read its contents.
-status_t RuntimeInfoFetcher::fetchKernelConfigs() {
+status_t RuntimeInfoFetcher::fetchKernelConfigs(RuntimeInfo::FetchFlags) {
     gzFile f = gzopen(PROC_CONFIG, "rb");
     if (f == NULL) {
         LOG(ERROR) << "Could not open /proc/config.gz: " << errno;
@@ -84,7 +87,7 @@ status_t RuntimeInfoFetcher::fetchKernelConfigs() {
     return err;
 }
 
-status_t RuntimeInfoFetcher::fetchCpuInfo() {
+status_t RuntimeInfoFetcher::fetchCpuInfo(RuntimeInfo::FetchFlags) {
     // TODO implement this; 32-bit and 64-bit has different format.
     std::ifstream in{"/proc/cpuinfo"};
     if (!in.is_open()) {
@@ -97,7 +100,7 @@ status_t RuntimeInfoFetcher::fetchCpuInfo() {
     return OK;
 }
 
-status_t RuntimeInfoFetcher::fetchKernelSepolicyVers() {
+status_t RuntimeInfoFetcher::fetchKernelSepolicyVers(RuntimeInfo::FetchFlags) {
     int pv;
 #ifdef LIBVINTF_TARGET
     pv = security_policyvers();
@@ -111,7 +114,7 @@ status_t RuntimeInfoFetcher::fetchKernelSepolicyVers() {
     return OK;
 }
 
-status_t RuntimeInfoFetcher::fetchVersion() {
+status_t RuntimeInfoFetcher::fetchVersion(RuntimeInfo::FetchFlags flags) {
     struct utsname buf;
     if (uname(&buf)) {
         return -errno;
@@ -122,7 +125,14 @@ status_t RuntimeInfoFetcher::fetchVersion() {
     mRuntimeInfo->mOsVersion = buf.version;
     mRuntimeInfo->mHardwareId = buf.machine;
 
-    status_t err = parseKernelVersion();
+    mRuntimeInfo->mIsMainline = mRuntimeInfo->mOsRelease.find(kMainline) != std::string::npos;
+
+    status_t err = RuntimeInfo::parseGkiKernelRelease(flags, mRuntimeInfo->mOsRelease,
+                                                      &mRuntimeInfo->mKernel.mVersion,
+                                                      &mRuntimeInfo->mKernel.mLevel);
+    if (err == OK) return OK;
+
+    err = parseKernelVersion();
     if (err != OK) {
         LOG(ERROR) << "Could not parse kernel version from \""
                    << mRuntimeInfo->mOsRelease << "\"";
@@ -147,7 +157,7 @@ status_t RuntimeInfoFetcher::parseKernelVersion() {
     return OK;
 }
 
-status_t RuntimeInfoFetcher::fetchAvb() {
+status_t RuntimeInfoFetcher::fetchAvb(RuntimeInfo::FetchFlags) {
     std::string prop = android::base::GetProperty("ro.boot.vbmeta.avb_version", "0.0");
     if (!parse(prop, &mRuntimeInfo->mBootVbmetaAvbVersion)) {
         return UNKNOWN_ERROR;
@@ -159,24 +169,29 @@ status_t RuntimeInfoFetcher::fetchAvb() {
     return OK;
 }
 
-status_t RuntimeInfoFetcher::fetchAllInformation(RuntimeInfo::FetchFlags flags) {
+struct FetchFunction {
+    RuntimeInfo::FetchFlags flags;
+    std::function<status_t(RuntimeInfoFetcher*, RuntimeInfo::FetchFlags)> fetch;
+    std::string description;
+};
 
+status_t RuntimeInfoFetcher::fetchAllInformation(RuntimeInfo::FetchFlags flags) {
     using F = RuntimeInfo::FetchFlag;
     using RF = RuntimeInfoFetcher;
-    using FetchFunction = status_t(RF::*)();
-    const static std::vector<std::tuple<F, FetchFunction, std::string>> gFetchFunctions({
-        // flag          fetch function                 description
-        {F::CPU_VERSION, &RF::fetchVersion,             "/proc/version"},
-        {F::CONFIG_GZ,   &RF::fetchKernelConfigs,       "/proc/config.gz"},
-        {F::CPU_INFO,    &RF::fetchCpuInfo,             "/proc/cpuinfo"},
-        {F::POLICYVERS,  &RF::fetchKernelSepolicyVers,  "kernel sepolicy version"},
-        {F::AVB,         &RF::fetchAvb,                 "avb version"},
+    // clang-format off
+    const static std::vector<FetchFunction> gFetchFunctions({
+        {F::CPU_VERSION | F::KERNEL_FCM, &RF::fetchVersion,            "/proc/version"},
+        {F::CONFIG_GZ,                   &RF::fetchKernelConfigs,      "/proc/config.gz"},
+        {F::CPU_INFO,                    &RF::fetchCpuInfo,            "/proc/cpuinfo"},
+        {F::POLICYVERS,                  &RF::fetchKernelSepolicyVers, "kernel sepolicy version"},
+        {F::AVB,                         &RF::fetchAvb,                "avb version"},
     });
+    // clang-format on
 
     status_t err;
-    for (const auto& tuple : gFetchFunctions)
-        if ((flags & std::get<0>(tuple)) && (err = (*this.*std::get<1>(tuple))()) != OK)
-            LOG(WARNING) << "Cannot fetch or parse " << std::get<2>(tuple) << ": "
+    for (const auto& fetchFunction : gFetchFunctions)
+        if ((flags & fetchFunction.flags) && ((err = fetchFunction.fetch(this, flags)) != OK))
+            LOG(WARNING) << "Cannot fetch or parse " << fetchFunction.description << ": "
                          << strerror(-err);
 
     return OK;

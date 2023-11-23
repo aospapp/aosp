@@ -16,17 +16,18 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.haslauncheractivityapp">
-    <uses-permission android:name="android.permission.INTERNET" />
+     package="com.android.cts.haslauncheractivityapp">
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application android:testOnly="true">
-        <activity android:name="com.android.cts.haslauncheractivityapp.MainActivity">
+        <activity android:name="com.android.cts.haslauncheractivityapp.MainActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <service android:name=".EmptyService" android:enabled="true"></service>
+        <service android:name=".EmptyService"
+             android:enabled="true"/>
     </application>
 
 </manifest>
-

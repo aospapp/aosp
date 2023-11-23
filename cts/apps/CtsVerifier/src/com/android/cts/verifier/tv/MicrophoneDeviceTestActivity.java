@@ -16,20 +16,19 @@
 
 package com.android.cts.verifier.tv;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.hardware.input.InputManager;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.View;
 import android.widget.Toast;
 
 import com.android.cts.verifier.R;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 
 /**
  * Tests for verifying that all input devices report correct hasMicrophone() states.
@@ -93,11 +92,11 @@ public class MicrophoneDeviceTestActivity extends TvAppVerifierActivity
 
     @Override
     protected void createTestItems() {
-        mPreparationYesItem = createUserItem(
+        mPreparationYesItem = createAndAttachUserItem(
                 R.string.tv_microphone_device_test_prep_question,
                 R.string.tv_yes, this);
         setButtonEnabled(mPreparationYesItem, true);
-        mPreparationNoItem = createButtonItem(R.string.tv_no, this);
+        mPreparationNoItem = createAndAttachButtonItem(R.string.tv_no, this);
         setButtonEnabled(mPreparationNoItem, true);
     }
 
@@ -123,9 +122,10 @@ public class MicrophoneDeviceTestActivity extends TvAppVerifierActivity
             final CharSequence micQuestion =
                 getString(R.string.tv_microphone_device_test_mic_question, inputDevice.getName());
 
-            final View inputDeviceYesItem = createUserItem(micQuestion, R.string.tv_yes, this);
+            final View inputDeviceYesItem =
+                    createAndAttachUserItem(micQuestion, R.string.tv_yes, this);
             setButtonEnabled(inputDeviceYesItem, true);
-            final View inputDeviceNoItem = createButtonItem(R.string.tv_no, this);
+            final View inputDeviceNoItem = createAndAttachButtonItem(R.string.tv_no, this);
             setButtonEnabled(inputDeviceNoItem, true);
             mInputDeviceItems.put(
                 inputDeviceYesItem, Arrays.asList(true, hasMicrophone, inputDeviceNoItem));

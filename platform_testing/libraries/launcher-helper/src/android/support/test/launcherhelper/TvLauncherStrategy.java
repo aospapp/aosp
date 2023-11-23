@@ -197,6 +197,18 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
         return mDevice.wait(Until.findObject(getAllAppsSelector()), UI_WAIT_TIME_MS);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void openOverview() {
+        throw new TvLauncherUnsupportedOperationException("No Overview");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean clearRecentAppsFromOverview() {
+        throw new TvLauncherUnsupportedOperationException("No Recent apps");
+    }
+
     public boolean openSettings() {
         Assert.assertNotNull(selectTopRow());
         Assert.assertNotNull(selectBidirect(By.res(getSupportedLauncherPackage(), "settings"),
@@ -996,6 +1008,12 @@ public class TvLauncherStrategy implements ILeanbackLauncherStrategy {
     @Override
     public BySelector getHotSeatSelector() {
         throw new TvLauncherUnsupportedOperationException("No Hot seat");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BySelector getOverviewSelector() {
+        throw new TvLauncherUnsupportedOperationException("No Overview");
     }
 
     @SuppressWarnings("unused")

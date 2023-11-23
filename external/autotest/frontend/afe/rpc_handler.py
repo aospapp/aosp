@@ -75,15 +75,15 @@ class RpcValidator(object):
         return rpc_methods
 
 
-    def validate_rpc_only_called_by_master(self, meth_name, remote_ip):
+    def validate_rpc_only_called_by_main(self, meth_name, remote_ip):
         """Validate whether the method name can be called by remote_ip.
 
         This funcion checks whether the given method (meth_name) belongs to
         _shard_rpc_module.
 
         If True, it then checks whether the caller's IP (remote_ip) is autotest
-        master. An RPCException will be raised if an RPC method from
-        _shard_rpc_module is called by a caller that is not autotest master.
+        main. An RPCException will be raised if an RPC method from
+        _shard_rpc_module is called by a caller that is not autotest main.
 
         @param meth_name: the RPC method name which is called.
         @param remote_ip: the caller's IP.
@@ -222,7 +222,7 @@ class RpcHandler(object):
         try:
             meth_id = decoded_request['id']
             meth_name = decoded_request['method']
-            self._rpc_validator.validate_rpc_only_called_by_master(
+            self._rpc_validator.validate_rpc_only_called_by_main(
                     meth_name, remote_ip)
         except KeyError:
             raise serviceHandler.BadServiceRequest(decoded_request)

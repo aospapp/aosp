@@ -77,6 +77,7 @@ ExecutorRegistration: android.car.hardware.cabin.CarCabinManager#registerCallbac
     Registration methods should have overload that accepts delivery Executor: `registerCallback`
 ExecutorRegistration: android.car.hardware.hvac.CarHvacManager#registerCallback(android.car.hardware.hvac.CarHvacManager.CarHvacEventCallback):
     Registration methods should have overload that accepts delivery Executor: `registerCallback`
+
 ExecutorRegistration: android.car.storagemonitoring.CarStorageMonitoringManager#registerListener(android.car.storagemonitoring.CarStorageMonitoringManager.IoStatsListener):
     Registration methods should have overload that accepts delivery Executor: `registerListener`
 ExecutorRegistration: android.car.trust.CarTrustAgentEnrollmentManager#setBleCallback(android.car.trust.CarTrustAgentEnrollmentManager.CarTrustAgentBleCallback):

@@ -19,6 +19,8 @@
 #include <log/log.h>
 #include <utils/misc.h>
 
+#include <algorithm>
+
 #include <media/hardware/VideoAPI.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
@@ -26,6 +28,7 @@
 #include <media/stagefright/foundation/AUtils.h>
 
 #include <C2Debug.h>
+#include <Codec2Mapper.h>
 #include <C2PlatformSupport.h>
 #include <Codec2BufferUtils.h>
 #include <SimpleC2Interface.h>
@@ -121,6 +124,19 @@ public:
                 .build());
 
         addParameter(
+                DefineParam(mPictureQuantization, C2_PARAMKEY_PICTURE_QUANTIZATION)
+                .withDefault(C2StreamPictureQuantizationTuning::output::AllocShared(
+                        0 /* flexCount */, 0u /* stream */))
+                .withFields({C2F(mPictureQuantization, m.values[0].type_).oneOf(
+                                {C2Config::picture_type_t(I_FRAME),
+                                  C2Config::picture_type_t(P_FRAME),
+                                  C2Config::picture_type_t(B_FRAME)}),
+                             C2F(mPictureQuantization, m.values[0].min).any(),
+                             C2F(mPictureQuantization, m.values[0].max).any()})
+                .withSetter(PictureQuantizationSetter)
+                .build());
+
+        addParameter(
                 DefineParam(mActualInputDelay, C2_PARAMKEY_INPUT_DELAY)
                 .withDefault(new C2PortActualDelayTuning::input(DEFAULT_B_FRAMES))
                 .withFields({C2F(mActualInputDelay, value).inRange(0, MAX_B_FRAMES)})
@@ -198,6 +214,42 @@ public:
                 .withFields({C2F(mSyncFramePeriod, value).any()})
                 .withSetter(Setter<decltype(*mSyncFramePeriod)>::StrictValueWithNoDeps)
                 .build());
+
+        addParameter(
+                DefineParam(mColorAspects, C2_PARAMKEY_COLOR_ASPECTS)
+                .withDefault(new C2StreamColorAspectsInfo::input(
+                        0u, C2Color::RANGE_UNSPECIFIED, C2Color::PRIMARIES_UNSPECIFIED,
+                        C2Color::TRANSFER_UNSPECIFIED, C2Color::MATRIX_UNSPECIFIED))
+                .withFields({
+                    C2F(mColorAspects, range).inRange(
+                                C2Color::RANGE_UNSPECIFIED,     C2Color::RANGE_OTHER),
+                    C2F(mColorAspects, primaries).inRange(
+                                C2Color::PRIMARIES_UNSPECIFIED, C2Color::PRIMARIES_OTHER),
+                    C2F(mColorAspects, transfer).inRange(
+                                C2Color::TRANSFER_UNSPECIFIED,  C2Color::TRANSFER_OTHER),
+                    C2F(mColorAspects, matrix).inRange(
+                                C2Color::MATRIX_UNSPECIFIED,    C2Color::MATRIX_OTHER)
+                })
+                .withSetter(ColorAspectsSetter)
+                .build());
+
+        addParameter(
+                DefineParam(mCodedColorAspects, C2_PARAMKEY_VUI_COLOR_ASPECTS)
+                .withDefault(new C2StreamColorAspectsInfo::output(
+                        0u, C2Color::RANGE_LIMITED, C2Color::PRIMARIES_UNSPECIFIED,
+                        C2Color::TRANSFER_UNSPECIFIED, C2Color::MATRIX_UNSPECIFIED))
+                .withFields({
+                    C2F(mCodedColorAspects, range).inRange(
+                                C2Color::RANGE_UNSPECIFIED,     C2Color::RANGE_OTHER),
+                    C2F(mCodedColorAspects, primaries).inRange(
+                                C2Color::PRIMARIES_UNSPECIFIED, C2Color::PRIMARIES_OTHER),
+                    C2F(mCodedColorAspects, transfer).inRange(
+                                C2Color::TRANSFER_UNSPECIFIED,  C2Color::TRANSFER_OTHER),
+                    C2F(mCodedColorAspects, matrix).inRange(
+                                C2Color::MATRIX_UNSPECIFIED,    C2Color::MATRIX_OTHER)
+                })
+                .withSetter(CodedColorAspectsSetter, mColorAspects)
+                .build());
     }
 
     static C2R InputDelaySetter(
@@ -219,6 +271,7 @@ public:
         }
         return res;
     }
+
 
     static C2R SizeSetter(bool mayBlock, const C2P<C2StreamPictureSizeInfo::input> &oldMe,
                           C2P<C2StreamPictureSizeInfo::input> &me) {
@@ -336,6 +389,95 @@ public:
         return C2R::Ok();
     }
 
+    static C2R PictureQuantizationSetter(bool mayBlock,
+                                         C2P<C2StreamPictureQuantizationTuning::output> &me) {
+        (void)mayBlock;
+        (void)me;
+
+        // TODO: refactor with same algorithm in the SetQp()
+        int32_t iMin = DEFAULT_I_QP_MIN, pMin = DEFAULT_P_QP_MIN, bMin = DEFAULT_B_QP_MIN;
+        int32_t iMax = DEFAULT_I_QP_MAX, pMax = DEFAULT_P_QP_MAX, bMax = DEFAULT_B_QP_MAX;
+
+        for (size_t i = 0; i < me.v.flexCount(); ++i) {
+            const C2PictureQuantizationStruct &layer = me.v.m.values[i];
+
+            if (layer.type_ == C2Config::picture_type_t(I_FRAME)) {
+                iMax = layer.max;
+                iMin = layer.min;
+                ALOGV("iMin %d iMax %d", iMin, iMax);
+            } else if (layer.type_ == C2Config::picture_type_t(P_FRAME)) {
+                pMax = layer.max;
+                pMin = layer.min;
+                ALOGV("pMin %d pMax %d", pMin, pMax);
+            } else if (layer.type_ == C2Config::picture_type_t(B_FRAME)) {
+                bMax = layer.max;
+                bMin = layer.min;
+                ALOGV("bMin %d bMax %d", bMin, bMax);
+            }
+        }
+
+        ALOGV("PictureQuantizationSetter(entry): i %d-%d p %d-%d b %d-%d",
+              iMin, iMax, pMin, pMax, bMin, bMax);
+
+        // ensure we have legal values
+        iMax = std::clamp(iMax, CODEC_QP_MIN, CODEC_QP_MAX);
+        iMin = std::clamp(iMin, CODEC_QP_MIN, CODEC_QP_MAX);
+        pMax = std::clamp(pMax, CODEC_QP_MIN, CODEC_QP_MAX);
+        pMin = std::clamp(pMin, CODEC_QP_MIN, CODEC_QP_MAX);
+        bMax = std::clamp(bMax, CODEC_QP_MIN, CODEC_QP_MAX);
+        bMin = std::clamp(bMin, CODEC_QP_MIN, CODEC_QP_MAX);
+
+        // put them back into the structure
+        for (size_t i = 0; i < me.v.flexCount(); ++i) {
+            const C2PictureQuantizationStruct &layer = me.v.m.values[i];
+
+            if (layer.type_ == C2Config::picture_type_t(I_FRAME)) {
+                me.set().m.values[i].max = iMax;
+                me.set().m.values[i].min = iMin;
+            }
+            if (layer.type_ == C2Config::picture_type_t(P_FRAME)) {
+                me.set().m.values[i].max = pMax;
+                me.set().m.values[i].min = pMin;
+            }
+            if (layer.type_ == C2Config::picture_type_t(B_FRAME)) {
+                me.set().m.values[i].max = bMax;
+                me.set().m.values[i].min = bMin;
+            }
+        }
+
+        ALOGV("PictureQuantizationSetter(exit): i %d-%d p %d-%d b %d-%d",
+              iMin, iMax, pMin, pMax, bMin, bMax);
+
+        return C2R::Ok();
+    }
+
+    static C2R ColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsInfo::input> &me) {
+        (void)mayBlock;
+        if (me.v.range > C2Color::RANGE_OTHER) {
+                me.set().range = C2Color::RANGE_OTHER;
+        }
+        if (me.v.primaries > C2Color::PRIMARIES_OTHER) {
+                me.set().primaries = C2Color::PRIMARIES_OTHER;
+        }
+        if (me.v.transfer > C2Color::TRANSFER_OTHER) {
+                me.set().transfer = C2Color::TRANSFER_OTHER;
+        }
+        if (me.v.matrix > C2Color::MATRIX_OTHER) {
+                me.set().matrix = C2Color::MATRIX_OTHER;
+        }
+        return C2R::Ok();
+    }
+
+    static C2R CodedColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsInfo::output> &me,
+                                       const C2P<C2StreamColorAspectsInfo::input> &coded) {
+        (void)mayBlock;
+        me.set().range = coded.v.range;
+        me.set().primaries = coded.v.primaries;
+        me.set().transfer = coded.v.transfer;
+        me.set().matrix = coded.v.matrix;
+        return C2R::Ok();
+    }
+
     IV_PROFILE_T getProfile_l() const {
         switch (mProfileLevel->profile) {
         case PROFILE_AVC_CONSTRAINED_BASELINE:  [[fallthrough]];
@@ -393,6 +535,11 @@ public:
     std::shared_ptr<C2StreamBitrateInfo::output> getBitrate_l() const { return mBitrate; }
     std::shared_ptr<C2StreamRequestSyncFrameTuning::output> getRequestSync_l() const { return mRequestSync; }
     std::shared_ptr<C2StreamGopTuning::output> getGop_l() const { return mGop; }
+    std::shared_ptr<C2StreamPictureQuantizationTuning::output> getPictureQuantization_l() const
+    { return mPictureQuantization; }
+    std::shared_ptr<C2StreamColorAspectsInfo::output> getCodedColorAspects_l() const {
+        return mCodedColorAspects;
+    }
 
 private:
     std::shared_ptr<C2StreamUsageTuning::input> mUsage;
@@ -404,6 +551,9 @@ private:
     std::shared_ptr<C2StreamProfileLevelInfo::output> mProfileLevel;
     std::shared_ptr<C2StreamSyncFrameIntervalTuning::output> mSyncFramePeriod;
     std::shared_ptr<C2StreamGopTuning::output> mGop;
+    std::shared_ptr<C2StreamPictureQuantizationTuning::output> mPictureQuantization;
+    std::shared_ptr<C2StreamColorAspectsInfo::input> mColorAspects;
+    std::shared_ptr<C2StreamColorAspectsInfo::output> mCodedColorAspects;
 };
 
 #define ive_api_function  ih264e_api_function
@@ -664,20 +814,52 @@ c2_status_t C2SoftAvcEnc::setQp() {
     ive_ctl_set_qp_op_t s_qp_op;
     IV_STATUS_T status;
 
+    ALOGV("in setQp()");
+
+    // set the defaults
     s_qp_ip.e_cmd = IVE_CMD_VIDEO_CTL;
     s_qp_ip.e_sub_cmd = IVE_CMD_CTL_SET_QP;
 
-    s_qp_ip.u4_i_qp = DEFAULT_I_QP;
-    s_qp_ip.u4_i_qp_max = DEFAULT_QP_MAX;
-    s_qp_ip.u4_i_qp_min = DEFAULT_QP_MIN;
+    // TODO: refactor with same algorithm in the PictureQuantizationSetter()
+    int32_t iMin = DEFAULT_I_QP_MIN, pMin = DEFAULT_P_QP_MIN, bMin = DEFAULT_B_QP_MIN;
+    int32_t iMax = DEFAULT_I_QP_MAX, pMax = DEFAULT_P_QP_MAX, bMax = DEFAULT_B_QP_MAX;
 
-    s_qp_ip.u4_p_qp = DEFAULT_P_QP;
-    s_qp_ip.u4_p_qp_max = DEFAULT_QP_MAX;
-    s_qp_ip.u4_p_qp_min = DEFAULT_QP_MIN;
+    IntfImpl::Lock lock = mIntf->lock();
 
-    s_qp_ip.u4_b_qp = DEFAULT_P_QP;
-    s_qp_ip.u4_b_qp_max = DEFAULT_QP_MAX;
-    s_qp_ip.u4_b_qp_min = DEFAULT_QP_MIN;
+    std::shared_ptr<C2StreamPictureQuantizationTuning::output> qp =
+                    mIntf->getPictureQuantization_l();
+    for (size_t i = 0; i < qp->flexCount(); ++i) {
+        const C2PictureQuantizationStruct &layer = qp->m.values[i];
+
+        if (layer.type_ == C2Config::picture_type_t(I_FRAME)) {
+            iMax = layer.max;
+            iMin = layer.min;
+            ALOGV("iMin %d iMax %d", iMin, iMax);
+        } else if (layer.type_ == C2Config::picture_type_t(P_FRAME)) {
+            pMax = layer.max;
+            pMin = layer.min;
+            ALOGV("pMin %d pMax %d", pMin, pMax);
+        } else if (layer.type_ == C2Config::picture_type_t(B_FRAME)) {
+            bMax = layer.max;
+            bMin = layer.min;
+            ALOGV("bMin %d bMax %d", bMin, bMax);
+        }
+    }
+
+    s_qp_ip.u4_i_qp_max = iMax;
+    s_qp_ip.u4_i_qp_min = iMin;
+    s_qp_ip.u4_p_qp_max = pMax;
+    s_qp_ip.u4_p_qp_min = pMin;
+    s_qp_ip.u4_b_qp_max = bMax;
+    s_qp_ip.u4_b_qp_min = bMin;
+
+    // ensure initial qp values are within our newly configured bounds...
+    s_qp_ip.u4_i_qp = std::clamp(DEFAULT_I_QP, iMin, iMax);
+    s_qp_ip.u4_p_qp = std::clamp(DEFAULT_P_QP, pMin, pMax);
+    s_qp_ip.u4_b_qp = std::clamp(DEFAULT_B_QP, bMin, bMax);
+
+    ALOGV("setQp(): i %d-%d p %d-%d b %d-%d", iMin, iMax, pMin, pMax, bMin, bMax);
+
 
     s_qp_ip.u4_timestamp_high = -1;
     s_qp_ip.u4_timestamp_low = -1;
@@ -907,6 +1089,55 @@ void C2SoftAvcEnc::logVersion() {
     return;
 }
 
+c2_status_t C2SoftAvcEnc::setVuiParams()
+{
+    ColorAspects sfAspects;
+    if (!C2Mapper::map(mColorAspects->primaries, &sfAspects.mPrimaries)) {
+        sfAspects.mPrimaries = android::ColorAspects::PrimariesUnspecified;
+    }
+    if (!C2Mapper::map(mColorAspects->range, &sfAspects.mRange)) {
+        sfAspects.mRange = android::ColorAspects::RangeUnspecified;
+    }
+    if (!C2Mapper::map(mColorAspects->matrix, &sfAspects.mMatrixCoeffs)) {
+        sfAspects.mMatrixCoeffs = android::ColorAspects::MatrixUnspecified;
+    }
+    if (!C2Mapper::map(mColorAspects->transfer, &sfAspects.mTransfer)) {
+        sfAspects.mTransfer = android::ColorAspects::TransferUnspecified;
+    }
+    int32_t primaries, transfer, matrixCoeffs;
+    bool range;
+    ColorUtils::convertCodecColorAspectsToIsoAspects(sfAspects,
+            &primaries,
+            &transfer,
+            &matrixCoeffs,
+            &range);
+    ih264e_vui_ip_t s_vui_params_ip {};
+    ih264e_vui_op_t s_vui_params_op {};
+
+    s_vui_params_ip.e_cmd = IVE_CMD_VIDEO_CTL;
+    s_vui_params_ip.e_sub_cmd = IVE_CMD_CTL_SET_VUI_PARAMS;
+
+    s_vui_params_ip.u1_video_signal_type_present_flag = 1;
+    s_vui_params_ip.u1_colour_description_present_flag = 1;
+    s_vui_params_ip.u1_colour_primaries = primaries;
+    s_vui_params_ip.u1_transfer_characteristics = transfer;
+    s_vui_params_ip.u1_matrix_coefficients = matrixCoeffs;
+    s_vui_params_ip.u1_video_full_range_flag = range;
+
+    s_vui_params_ip.u4_size = sizeof(ih264e_vui_ip_t);
+    s_vui_params_op.u4_size = sizeof(ih264e_vui_op_t);
+
+    IV_STATUS_T status = ih264e_api_function(mCodecCtx, &s_vui_params_ip,
+                                             &s_vui_params_op);
+    if(status != IV_SUCCESS)
+    {
+        ALOGE("Unable to set vui params = 0x%x\n",
+                s_vui_params_op.u4_error_code);
+        return C2_CORRUPTED;
+    }
+    return C2_OK;
+}
+
 c2_status_t C2SoftAvcEnc::initEncoder() {
     IV_STATUS_T status;
     WORD32 level;
@@ -926,6 +1157,7 @@ c2_status_t C2SoftAvcEnc::initEncoder() {
         mIInterval = mIntf->getSyncFramePeriod_l();
         mIDRInterval = mIntf->getSyncFramePeriod_l();
         gop = mIntf->getGop_l();
+        mColorAspects = mIntf->getCodedColorAspects_l();
     }
     if (gop && gop->flexCount() > 0) {
         uint32_t syncInterval = 1;
@@ -1009,29 +1241,31 @@ c2_status_t C2SoftAvcEnc::initEncoder() {
 
     /* Getting MemRecords Attributes */
     {
-        iv_fill_mem_rec_ip_t s_fill_mem_rec_ip;
-        iv_fill_mem_rec_op_t s_fill_mem_rec_op;
+        ih264e_fill_mem_rec_ip_t s_ih264e_mem_rec_ip = {};
+        ih264e_fill_mem_rec_op_t s_ih264e_mem_rec_op = {};
+        iv_fill_mem_rec_ip_t *ps_fill_mem_rec_ip = &s_ih264e_mem_rec_ip.s_ive_ip;
+        iv_fill_mem_rec_op_t *ps_fill_mem_rec_op = &s_ih264e_mem_rec_op.s_ive_op;
 
-        s_fill_mem_rec_ip.u4_size = sizeof(iv_fill_mem_rec_ip_t);
-        s_fill_mem_rec_op.u4_size = sizeof(iv_fill_mem_rec_op_t);
+        ps_fill_mem_rec_ip->u4_size = sizeof(ih264e_fill_mem_rec_ip_t);
+        ps_fill_mem_rec_op->u4_size = sizeof(ih264e_fill_mem_rec_op_t);
 
-        s_fill_mem_rec_ip.e_cmd = IV_CMD_FILL_NUM_MEM_REC;
-        s_fill_mem_rec_ip.ps_mem_rec = mMemRecords;
-        s_fill_mem_rec_ip.u4_num_mem_rec = mNumMemRecords;
-        s_fill_mem_rec_ip.u4_max_wd = width;
-        s_fill_mem_rec_ip.u4_max_ht = height;
-        s_fill_mem_rec_ip.u4_max_level = mAVCEncLevel;
-        s_fill_mem_rec_ip.e_color_format = DEFAULT_INP_COLOR_FORMAT;
-        s_fill_mem_rec_ip.u4_max_ref_cnt = DEFAULT_MAX_REF_FRM;
-        s_fill_mem_rec_ip.u4_max_reorder_cnt = DEFAULT_MAX_REORDER_FRM;
-        s_fill_mem_rec_ip.u4_max_srch_rng_x = DEFAULT_MAX_SRCH_RANGE_X;
-        s_fill_mem_rec_ip.u4_max_srch_rng_y = DEFAULT_MAX_SRCH_RANGE_Y;
+        ps_fill_mem_rec_ip->e_cmd = IV_CMD_FILL_NUM_MEM_REC;
+        ps_fill_mem_rec_ip->ps_mem_rec = mMemRecords;
+        ps_fill_mem_rec_ip->u4_num_mem_rec = mNumMemRecords;
+        ps_fill_mem_rec_ip->u4_max_wd = width;
+        ps_fill_mem_rec_ip->u4_max_ht = height;
+        ps_fill_mem_rec_ip->u4_max_level = mAVCEncLevel;
+        ps_fill_mem_rec_ip->e_color_format = DEFAULT_INP_COLOR_FORMAT;
+        ps_fill_mem_rec_ip->u4_max_ref_cnt = DEFAULT_MAX_REF_FRM;
+        ps_fill_mem_rec_ip->u4_max_reorder_cnt = DEFAULT_MAX_REORDER_FRM;
+        ps_fill_mem_rec_ip->u4_max_srch_rng_x = DEFAULT_MAX_SRCH_RANGE_X;
+        ps_fill_mem_rec_ip->u4_max_srch_rng_y = DEFAULT_MAX_SRCH_RANGE_Y;
 
-        status = ive_api_function(nullptr, &s_fill_mem_rec_ip, &s_fill_mem_rec_op);
+        status = ive_api_function(nullptr, &s_ih264e_mem_rec_ip, &s_ih264e_mem_rec_op);
 
         if (status != IV_SUCCESS) {
             ALOGE("Fill memory records failed = 0x%x\n",
-                    s_fill_mem_rec_op.u4_error_code);
+                    ps_fill_mem_rec_op->u4_error_code);
             return C2_CORRUPTED;
         }
     }
@@ -1060,48 +1294,51 @@ c2_status_t C2SoftAvcEnc::initEncoder() {
 
     /* Codec Instance Creation */
     {
-        ive_init_ip_t s_init_ip;
-        ive_init_op_t s_init_op;
+        ih264e_init_ip_t s_enc_ip = {};
+        ih264e_init_op_t s_enc_op = {};
+
+        ive_init_ip_t *ps_init_ip = &s_enc_ip.s_ive_ip;
+        ive_init_op_t *ps_init_op = &s_enc_op.s_ive_op;
 
         mCodecCtx = (iv_obj_t *)mMemRecords[0].pv_base;
         mCodecCtx->u4_size = sizeof(iv_obj_t);
         mCodecCtx->pv_fxns = (void *)ive_api_function;
 
-        s_init_ip.u4_size = sizeof(ive_init_ip_t);
-        s_init_op.u4_size = sizeof(ive_init_op_t);
+        ps_init_ip->u4_size = sizeof(ih264e_init_ip_t);
+        ps_init_op->u4_size = sizeof(ih264e_init_op_t);
 
-        s_init_ip.e_cmd = IV_CMD_INIT;
-        s_init_ip.u4_num_mem_rec = mNumMemRecords;
-        s_init_ip.ps_mem_rec = mMemRecords;
-        s_init_ip.u4_max_wd = width;
-        s_init_ip.u4_max_ht = height;
-        s_init_ip.u4_max_ref_cnt = DEFAULT_MAX_REF_FRM;
-        s_init_ip.u4_max_reorder_cnt = DEFAULT_MAX_REORDER_FRM;
-        s_init_ip.u4_max_level = mAVCEncLevel;
-        s_init_ip.e_inp_color_fmt = mIvVideoColorFormat;
+        ps_init_ip->e_cmd = IV_CMD_INIT;
+        ps_init_ip->u4_num_mem_rec = mNumMemRecords;
+        ps_init_ip->ps_mem_rec = mMemRecords;
+        ps_init_ip->u4_max_wd = width;
+        ps_init_ip->u4_max_ht = height;
+        ps_init_ip->u4_max_ref_cnt = DEFAULT_MAX_REF_FRM;
+        ps_init_ip->u4_max_reorder_cnt = DEFAULT_MAX_REORDER_FRM;
+        ps_init_ip->u4_max_level = mAVCEncLevel;
+        ps_init_ip->e_inp_color_fmt = mIvVideoColorFormat;
 
         if (mReconEnable || mPSNREnable) {
-            s_init_ip.u4_enable_recon = 1;
+            ps_init_ip->u4_enable_recon = 1;
         } else {
-            s_init_ip.u4_enable_recon = 0;
+            ps_init_ip->u4_enable_recon = 0;
         }
-        s_init_ip.e_recon_color_fmt = DEFAULT_RECON_COLOR_FORMAT;
-        s_init_ip.e_rc_mode = DEFAULT_RC_MODE;
-        s_init_ip.u4_max_framerate = DEFAULT_MAX_FRAMERATE;
-        s_init_ip.u4_max_bitrate = DEFAULT_MAX_BITRATE;
-        s_init_ip.u4_num_bframes = mBframes;
-        s_init_ip.e_content_type = IV_PROGRESSIVE;
-        s_init_ip.u4_max_srch_rng_x = DEFAULT_MAX_SRCH_RANGE_X;
-        s_init_ip.u4_max_srch_rng_y = DEFAULT_MAX_SRCH_RANGE_Y;
-        s_init_ip.e_slice_mode = mSliceMode;
-        s_init_ip.u4_slice_param = mSliceParam;
-        s_init_ip.e_arch = mArch;
-        s_init_ip.e_soc = DEFAULT_SOC;
+        ps_init_ip->e_recon_color_fmt = DEFAULT_RECON_COLOR_FORMAT;
+        ps_init_ip->e_rc_mode = DEFAULT_RC_MODE;
+        ps_init_ip->u4_max_framerate = DEFAULT_MAX_FRAMERATE;
+        ps_init_ip->u4_max_bitrate = DEFAULT_MAX_BITRATE;
+        ps_init_ip->u4_num_bframes = mBframes;
+        ps_init_ip->e_content_type = IV_PROGRESSIVE;
+        ps_init_ip->u4_max_srch_rng_x = DEFAULT_MAX_SRCH_RANGE_X;
+        ps_init_ip->u4_max_srch_rng_y = DEFAULT_MAX_SRCH_RANGE_Y;
+        ps_init_ip->e_slice_mode = mSliceMode;
+        ps_init_ip->u4_slice_param = mSliceParam;
+        ps_init_ip->e_arch = mArch;
+        ps_init_ip->e_soc = DEFAULT_SOC;
 
-        status = ive_api_function(mCodecCtx, &s_init_ip, &s_init_op);
+        status = ive_api_function(mCodecCtx, &s_enc_ip, &s_enc_op);
 
         if (status != IV_SUCCESS) {
-            ALOGE("Init encoder failed = 0x%x\n", s_init_op.u4_error_code);
+            ALOGE("Init encoder failed = 0x%x\n", ps_init_op->u4_error_code);
             return C2_CORRUPTED;
         }
     }
@@ -1144,6 +1381,9 @@ c2_status_t C2SoftAvcEnc::initEncoder() {
 
     /* Video control Set Profile params */
     setProfileParams();
+
+    /* Video control Set VUI params */
+    setVuiParams();
 
     /* Video control Set in Encode header mode */
     setEncMode(IVE_ENC_MODE_HEADER);
@@ -1328,13 +1568,13 @@ c2_status_t C2SoftAvcEnc::setEncodeArgs(
             ps_inp_raw_buf->apv_bufs[1] = uPlane;
             ps_inp_raw_buf->apv_bufs[2] = vPlane;
 
-            ps_inp_raw_buf->au4_wd[0] = input->width();
-            ps_inp_raw_buf->au4_wd[1] = input->width() / 2;
-            ps_inp_raw_buf->au4_wd[2] = input->width() / 2;
+            ps_inp_raw_buf->au4_wd[0] = mSize->width;
+            ps_inp_raw_buf->au4_wd[1] = mSize->width / 2;
+            ps_inp_raw_buf->au4_wd[2] = mSize->width / 2;
 
-            ps_inp_raw_buf->au4_ht[0] = input->height();
-            ps_inp_raw_buf->au4_ht[1] = input->height() / 2;
-            ps_inp_raw_buf->au4_ht[2] = input->height() / 2;
+            ps_inp_raw_buf->au4_ht[0] = mSize->height;
+            ps_inp_raw_buf->au4_ht[1] = mSize->height / 2;
+            ps_inp_raw_buf->au4_ht[2] = mSize->height / 2;
 
             ps_inp_raw_buf->au4_strd[0] = yStride;
             ps_inp_raw_buf->au4_strd[1] = uStride;
@@ -1359,11 +1599,11 @@ c2_status_t C2SoftAvcEnc::setEncodeArgs(
             ps_inp_raw_buf->apv_bufs[0] = yPlane;
             ps_inp_raw_buf->apv_bufs[1] = uPlane;
 
-            ps_inp_raw_buf->au4_wd[0] = input->width();
-            ps_inp_raw_buf->au4_wd[1] = input->width();
+            ps_inp_raw_buf->au4_wd[0] = mSize->width;
+            ps_inp_raw_buf->au4_wd[1] = mSize->width;
 
-            ps_inp_raw_buf->au4_ht[0] = input->height();
-            ps_inp_raw_buf->au4_ht[1] = input->height() / 2;
+            ps_inp_raw_buf->au4_ht[0] = mSize->height;
+            ps_inp_raw_buf->au4_ht[1] = mSize->height / 2;
 
             ps_inp_raw_buf->au4_strd[0] = yStride;
             ps_inp_raw_buf->au4_strd[1] = uStride;
@@ -1429,15 +1669,17 @@ void C2SoftAvcEnc::process(
     }
     // while (!mSawOutputEOS && !outQueue.empty()) {
     c2_status_t error;
-    ive_video_encode_ip_t s_encode_ip;
-    ive_video_encode_op_t s_encode_op;
-    memset(&s_encode_op, 0, sizeof(s_encode_op));
+    ih264e_video_encode_ip_t s_video_encode_ip = {};
+    ih264e_video_encode_op_t s_video_encode_op = {};
+    ive_video_encode_ip_t *ps_encode_ip = &s_video_encode_ip.s_ive_ip;
+    ive_video_encode_op_t *ps_encode_op = &s_video_encode_op.s_ive_op;
+    memset(ps_encode_op, 0, sizeof(*ps_encode_op));
 
     if (!mSpsPpsHeaderReceived) {
         constexpr uint32_t kHeaderLength = MIN_STREAM_SIZE;
         uint8_t header[kHeaderLength];
         error = setEncodeArgs(
-                &s_encode_ip, &s_encode_op, nullptr, header, kHeaderLength, workIndex);
+                ps_encode_ip, ps_encode_op, nullptr, header, kHeaderLength, workIndex);
         if (error != C2_OK) {
             ALOGE("setEncodeArgs failed: %d", error);
             mSignalledError = true;
@@ -1445,22 +1687,22 @@ void C2SoftAvcEnc::process(
             work->workletsProcessed = 1u;
             return;
         }
-        status = ive_api_function(mCodecCtx, &s_encode_ip, &s_encode_op);
+        status = ive_api_function(mCodecCtx, ps_encode_ip, ps_encode_op);
 
         if (IV_SUCCESS != status) {
             ALOGE("Encode header failed = 0x%x\n",
-                    s_encode_op.u4_error_code);
+                    ps_encode_op->u4_error_code);
             work->workletsProcessed = 1u;
             return;
         } else {
             ALOGV("Bytes Generated in header %d\n",
-                    s_encode_op.s_out_buf.u4_bytes);
+                    ps_encode_op->s_out_buf.u4_bytes);
         }
 
         mSpsPpsHeaderReceived = true;
 
         std::unique_ptr<C2StreamInitDataInfo::output> csd =
-            C2StreamInitDataInfo::output::AllocUnique(s_encode_op.s_out_buf.u4_bytes, 0u);
+            C2StreamInitDataInfo::output::AllocUnique(ps_encode_op->s_out_buf.u4_bytes, 0u);
         if (!csd) {
             ALOGE("CSD allocation failed");
             mSignalledError = true;
@@ -1468,7 +1710,7 @@ void C2SoftAvcEnc::process(
             work->workletsProcessed = 1u;
             return;
         }
-        memcpy(csd->m.value, header, s_encode_op.s_out_buf.u4_bytes);
+        memcpy(csd->m.value, header, ps_encode_op->s_out_buf.u4_bytes);
         work->worklets.front()->output.configUpdate.push_back(std::move(csd));
 
         DUMP_TO_FILE(
@@ -1562,7 +1804,7 @@ void C2SoftAvcEnc::process(
         }
 
         error = setEncodeArgs(
-                &s_encode_ip, &s_encode_op, view.get(), wView.base(), wView.capacity(), workIndex);
+                ps_encode_ip, ps_encode_op, view.get(), wView.base(), wView.capacity(), workIndex);
         if (error != C2_OK) {
             ALOGE("setEncodeArgs failed : %d", error);
             mSignalledError = true;
@@ -1579,17 +1821,17 @@ void C2SoftAvcEnc::process(
         /* Compute time elapsed between end of previous decode()
          * to start of current decode() */
         TIME_DIFF(mTimeEnd, mTimeStart, timeDelay);
-        status = ive_api_function(mCodecCtx, &s_encode_ip, &s_encode_op);
+        status = ive_api_function(mCodecCtx, &s_video_encode_ip, &s_video_encode_op);
 
         if (IV_SUCCESS != status) {
-            if ((s_encode_op.u4_error_code & 0xFF) == IH264E_BITSTREAM_BUFFER_OVERFLOW) {
+            if ((ps_encode_op->u4_error_code & 0xFF) == IH264E_BITSTREAM_BUFFER_OVERFLOW) {
                 // TODO: use IVE_CMD_CTL_GETBUFINFO for proper max input size?
                 mOutBufferSize *= 2;
                 mOutBlock.reset();
                 continue;
             }
             ALOGE("Encode Frame failed = 0x%x\n",
-                    s_encode_op.u4_error_code);
+                    ps_encode_op->u4_error_code);
             mSignalledError = true;
             work->result = C2_CORRUPTED;
             work->workletsProcessed = 1u;
@@ -1599,7 +1841,7 @@ void C2SoftAvcEnc::process(
 
     // Hold input buffer reference
     if (inputBuffer) {
-        mBuffers[s_encode_ip.s_inp_buf.apv_bufs[0]] = inputBuffer;
+        mBuffers[ps_encode_ip->s_inp_buf.apv_bufs[0]] = inputBuffer;
     }
 
     GETTIME(&mTimeEnd, nullptr);
@@ -1607,9 +1849,9 @@ void C2SoftAvcEnc::process(
     TIME_DIFF(mTimeStart, mTimeEnd, timeTaken);
 
     ALOGV("timeTaken=%6d delay=%6d numBytes=%6d", timeTaken, timeDelay,
-            s_encode_op.s_out_buf.u4_bytes);
+            ps_encode_op->s_out_buf.u4_bytes);
 
-    void *freed = s_encode_op.s_inp_buf.apv_bufs[0];
+    void *freed = ps_encode_op->s_inp_buf.apv_bufs[0];
     /* If encoder frees up an input buffer, mark it as free */
     if (freed != nullptr) {
         if (mBuffers.count(freed) == 0u) {
@@ -1621,17 +1863,17 @@ void C2SoftAvcEnc::process(
         }
     }
 
-    if (s_encode_op.output_present) {
-        if (!s_encode_op.s_out_buf.u4_bytes) {
+    if (ps_encode_op->output_present) {
+        if (!ps_encode_op->s_out_buf.u4_bytes) {
             ALOGE("Error: Output present but bytes generated is zero");
             mSignalledError = true;
             work->result = C2_CORRUPTED;
             work->workletsProcessed = 1u;
             return;
         }
-        uint64_t workId = ((uint64_t)s_encode_op.u4_timestamp_high << 32) |
-                      s_encode_op.u4_timestamp_low;
-        finishWork(workId, work, &s_encode_op);
+        uint64_t workId = ((uint64_t)ps_encode_op->u4_timestamp_high << 32) |
+                      ps_encode_op->u4_timestamp_low;
+        finishWork(workId, work, ps_encode_op);
     }
     if (mSawInputEOS) {
         drainInternal(DRAIN_COMPONENT_WITH_EOS, pool, work);
@@ -1671,9 +1913,11 @@ c2_status_t C2SoftAvcEnc::drainInternal(
             ALOGE("graphic view map failed %d", wView.error());
             return C2_CORRUPTED;
         }
-        ive_video_encode_ip_t s_encode_ip;
-        ive_video_encode_op_t s_encode_op;
-        if (C2_OK != setEncodeArgs(&s_encode_ip, &s_encode_op, nullptr,
+        ih264e_video_encode_ip_t s_video_encode_ip = {};
+        ih264e_video_encode_op_t s_video_encode_op = {};
+        ive_video_encode_ip_t *ps_encode_ip = &s_video_encode_ip.s_ive_ip;
+        ive_video_encode_op_t *ps_encode_op = &s_video_encode_op.s_ive_op;
+        if (C2_OK != setEncodeArgs(ps_encode_ip, ps_encode_op, nullptr,
                                    wView.base(), wView.capacity(), 0)) {
             ALOGE("setEncodeArgs failed for drainInternal");
             mSignalledError = true;
@@ -1681,9 +1925,9 @@ c2_status_t C2SoftAvcEnc::drainInternal(
             work->workletsProcessed = 1u;
             return C2_CORRUPTED;
         }
-        (void)ive_api_function(mCodecCtx, &s_encode_ip, &s_encode_op);
+        (void)ive_api_function(mCodecCtx, &s_video_encode_ip, &s_video_encode_op);
 
-        void *freed = s_encode_op.s_inp_buf.apv_bufs[0];
+        void *freed = ps_encode_op->s_inp_buf.apv_bufs[0];
         /* If encoder frees up an input buffer, mark it as free */
         if (freed != nullptr) {
             if (mBuffers.count(freed) == 0u) {
@@ -1695,10 +1939,10 @@ c2_status_t C2SoftAvcEnc::drainInternal(
             }
         }
 
-        if (s_encode_op.output_present) {
-            uint64_t workId = ((uint64_t)s_encode_op.u4_timestamp_high << 32) |
-                          s_encode_op.u4_timestamp_low;
-            finishWork(workId, work, &s_encode_op);
+        if (ps_encode_op->output_present) {
+            uint64_t workId = ((uint64_t)ps_encode_op->u4_timestamp_high << 32) |
+                          ps_encode_op->u4_timestamp_low;
+            finishWork(workId, work, ps_encode_op);
         } else {
             if (work->workletsProcessed != 1u) {
                 work->worklets.front()->output.flags = work->input.flags;
@@ -1756,11 +2000,13 @@ private:
 
 }  // namespace android
 
+__attribute__((cfi_canonical_jump_table))
 extern "C" ::C2ComponentFactory* CreateCodec2Factory() {
     ALOGV("in %s", __func__);
     return new ::android::C2SoftAvcEncFactory();
 }
 
+__attribute__((cfi_canonical_jump_table))
 extern "C" void DestroyCodec2Factory(::C2ComponentFactory* factory) {
     ALOGV("in %s", __func__);
     delete factory;

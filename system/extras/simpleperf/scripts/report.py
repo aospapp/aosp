@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2015 The Android Open Source Project
 #
@@ -39,7 +39,7 @@ except ImportError:
     from tkFont import Font
     from ttk import *
 
-from utils import *
+from simpleperf_utils import *
 
 PAD_X = 3
 PAD_Y = 3
@@ -47,224 +47,225 @@ PAD_Y = 3
 
 class CallTreeNode(object):
 
-  """Representing a node in call-graph."""
+    """Representing a node in call-graph."""
 
-  def __init__(self, percentage, function_name):
-    self.percentage = percentage
-    self.call_stack = [function_name]
-    self.children = []
+    def __init__(self, percentage, function_name):
+        self.percentage = percentage
+        self.call_stack = [function_name]
+        self.children = []
 
-  def add_call(self, function_name):
-    self.call_stack.append(function_name)
+    def add_call(self, function_name):
+        self.call_stack.append(function_name)
 
-  def add_child(self, node):
-    self.children.append(node)
+    def add_child(self, node):
+        self.children.append(node)
 
-  def __str__(self):
-    strs = self.dump()
-    return '\n'.join(strs)
+    def __str__(self):
+        strs = self.dump()
+        return '\n'.join(strs)
 
-  def dump(self):
-    strs = []
-    strs.append('CallTreeNode percentage = %.2f' % self.percentage)
-    for function_name in self.call_stack:
-      strs.append(' %s' % function_name)
-    for child in self.children:
-      child_strs = child.dump()
-      strs.extend(['  ' + x for x in child_strs])
-    return strs
+    def dump(self):
+        strs = []
+        strs.append('CallTreeNode percentage = %.2f' % self.percentage)
+        for function_name in self.call_stack:
+            strs.append(' %s' % function_name)
+        for child in self.children:
+            child_strs = child.dump()
+            strs.extend(['  ' + x for x in child_strs])
+        return strs
 
 
 class ReportItem(object):
 
-  """Representing one item in report, may contain a CallTree."""
+    """Representing one item in report, may contain a CallTree."""
 
-  def __init__(self, raw_line):
-    self.raw_line = raw_line
-    self.call_tree = None
+    def __init__(self, raw_line):
+        self.raw_line = raw_line
+        self.call_tree = None
 
-  def __str__(self):
-    strs = []
-    strs.append('ReportItem (raw_line %s)' % self.raw_line)
-    if self.call_tree is not None:
-      strs.append('%s' % self.call_tree)
-    return '\n'.join(strs)
+    def __str__(self):
+        strs = []
+        strs.append('ReportItem (raw_line %s)' % self.raw_line)
+        if self.call_tree is not None:
+            strs.append('%s' % self.call_tree)
+        return '\n'.join(strs)
+
 
 class EventReport(object):
 
-  """Representing report for one event attr."""
+    """Representing report for one event attr."""
 
-  def __init__(self, common_report_context):
-    self.context = common_report_context[:]
-    self.title_line = None
-    self.report_items = []
+    def __init__(self, common_report_context):
+        self.context = common_report_context[:]
+        self.title_line = None
+        self.report_items = []
 
 
 def parse_event_reports(lines):
-  # Parse common report context
-  common_report_context = []
-  line_id = 0
-  while line_id < len(lines):
-    line = lines[line_id]
-    if not line or line.find('Event:') == 0:
-      break
-    common_report_context.append(line)
-    line_id += 1
+    # Parse common report context
+    common_report_context = []
+    line_id = 0
+    while line_id < len(lines):
+        line = lines[line_id]
+        if not line or line.find('Event:') == 0:
+            break
+        common_report_context.append(line)
+        line_id += 1
 
-  event_reports = []
-  in_report_context = True
-  cur_event_report = EventReport(common_report_context)
-  cur_report_item = None
-  call_tree_stack = {}
-  vertical_columns = []
-  last_node = None
+    event_reports = []
+    in_report_context = True
+    cur_event_report = EventReport(common_report_context)
+    cur_report_item = None
+    call_tree_stack = {}
+    vertical_columns = []
+    last_node = None
 
-  has_skipped_callgraph = False
+    has_skipped_callgraph = False
 
-  for line in lines[line_id:]:
-    if not line:
-      in_report_context = not in_report_context
-      if in_report_context:
-        cur_event_report = EventReport(common_report_context)
-      continue
+    for line in lines[line_id:]:
+        if not line:
+            in_report_context = not in_report_context
+            if in_report_context:
+                cur_event_report = EventReport(common_report_context)
+            continue
 
-    if in_report_context:
-      cur_event_report.context.append(line)
-      if line.find('Event:') == 0:
-        event_reports.append(cur_event_report)
-      continue
+        if in_report_context:
+            cur_event_report.context.append(line)
+            if line.find('Event:') == 0:
+                event_reports.append(cur_event_report)
+            continue
 
-    if cur_event_report.title_line is None:
-      cur_event_report.title_line = line
-    elif not line[0].isspace():
-      cur_report_item = ReportItem(line)
-      cur_event_report.report_items.append(cur_report_item)
-      # Each report item can have different column depths.
-      vertical_columns = []
-    else:
-      for i in range(len(line)):
-        if line[i] == '|':
-          if not vertical_columns or vertical_columns[-1] < i:
-            vertical_columns.append(i)
-
-      if not line.strip('| \t'):
-        continue
-      if 'skipped in brief callgraph mode' in line:
-        has_skipped_callgraph = True
-        continue
-
-      if line.find('-') == -1:
-        line = line.strip('| \t')
-        function_name = line
-        last_node.add_call(function_name)
-      else:
-        pos = line.find('-')
-        depth = -1
-        for i in range(len(vertical_columns)):
-          if pos >= vertical_columns[i]:
-            depth = i
-        assert depth != -1
-
-        line = line.strip('|- \t')
-        m = re.search(r'^([\d\.]+)%[-\s]+(.+)$', line)
-        if m:
-          percentage = float(m.group(1))
-          function_name = m.group(2)
+        if cur_event_report.title_line is None:
+            cur_event_report.title_line = line
+        elif not line[0].isspace():
+            cur_report_item = ReportItem(line)
+            cur_event_report.report_items.append(cur_report_item)
+            # Each report item can have different column depths.
+            vertical_columns = []
         else:
-          percentage = 100.0
-          function_name = line
+            for i in range(len(line)):
+                if line[i] == '|':
+                    if not vertical_columns or vertical_columns[-1] < i:
+                        vertical_columns.append(i)
 
-        node = CallTreeNode(percentage, function_name)
-        if depth == 0:
-          cur_report_item.call_tree = node
-        else:
-          call_tree_stack[depth - 1].add_child(node)
-        call_tree_stack[depth] = node
-        last_node = node
+            if not line.strip('| \t'):
+                continue
+            if 'skipped in brief callgraph mode' in line:
+                has_skipped_callgraph = True
+                continue
 
-  if has_skipped_callgraph:
-      log_warning('some callgraphs are skipped in brief callgraph mode')
+            if line.find('-') == -1:
+                line = line.strip('| \t')
+                function_name = line
+                last_node.add_call(function_name)
+            else:
+                pos = line.find('-')
+                depth = -1
+                for i in range(len(vertical_columns)):
+                    if pos >= vertical_columns[i]:
+                        depth = i
+                assert depth != -1
 
-  return event_reports
+                line = line.strip('|- \t')
+                m = re.search(r'^([\d\.]+)%[-\s]+(.+)$', line)
+                if m:
+                    percentage = float(m.group(1))
+                    function_name = m.group(2)
+                else:
+                    percentage = 100.0
+                    function_name = line
+
+                node = CallTreeNode(percentage, function_name)
+                if depth == 0:
+                    cur_report_item.call_tree = node
+                else:
+                    call_tree_stack[depth - 1].add_child(node)
+                call_tree_stack[depth] = node
+                last_node = node
+
+    if has_skipped_callgraph:
+        log_warning('some callgraphs are skipped in brief callgraph mode')
+
+    return event_reports
 
 
 class ReportWindow(object):
 
-  """A window used to display report file."""
+    """A window used to display report file."""
 
-  def __init__(self, master, report_context, title_line, report_items):
-    frame = Frame(master)
-    frame.pack(fill=BOTH, expand=1)
+    def __init__(self, main, report_context, title_line, report_items):
+        frame = Frame(main)
+        frame.pack(fill=BOTH, expand=1)
 
-    font = Font(family='courier', size=12)
+        font = Font(family='courier', size=12)
 
-    # Report Context
-    for line in report_context:
-      label = Label(frame, text=line, font=font)
-      label.pack(anchor=W, padx=PAD_X, pady=PAD_Y)
+        # Report Context
+        for line in report_context:
+            label = Label(frame, text=line, font=font)
+            label.pack(anchor=W, padx=PAD_X, pady=PAD_Y)
 
-    # Space
-    label = Label(frame, text='', font=font)
-    label.pack(anchor=W, padx=PAD_X, pady=PAD_Y)
+        # Space
+        label = Label(frame, text='', font=font)
+        label.pack(anchor=W, padx=PAD_X, pady=PAD_Y)
 
-    # Title
-    label = Label(frame, text='  ' + title_line, font=font)
-    label.pack(anchor=W, padx=PAD_X, pady=PAD_Y)
+        # Title
+        label = Label(frame, text='  ' + title_line, font=font)
+        label.pack(anchor=W, padx=PAD_X, pady=PAD_Y)
 
-    # Report Items
-    report_frame = Frame(frame)
-    report_frame.pack(fill=BOTH, expand=1)
+        # Report Items
+        report_frame = Frame(frame)
+        report_frame.pack(fill=BOTH, expand=1)
 
-    yscrollbar = Scrollbar(report_frame)
-    yscrollbar.pack(side=RIGHT, fill=Y)
-    xscrollbar = Scrollbar(report_frame, orient=HORIZONTAL)
-    xscrollbar.pack(side=BOTTOM, fill=X)
+        yscrollbar = Scrollbar(report_frame)
+        yscrollbar.pack(side=RIGHT, fill=Y)
+        xscrollbar = Scrollbar(report_frame, orient=HORIZONTAL)
+        xscrollbar.pack(side=BOTTOM, fill=X)
 
-    tree = Treeview(report_frame, columns=[title_line], show='')
-    tree.pack(side=LEFT, fill=BOTH, expand=1)
-    tree.tag_configure('set_font', font=font)
+        tree = Treeview(report_frame, columns=[title_line], show='')
+        tree.pack(side=LEFT, fill=BOTH, expand=1)
+        tree.tag_configure('set_font', font=font)
 
-    tree.config(yscrollcommand=yscrollbar.set)
-    yscrollbar.config(command=tree.yview)
-    tree.config(xscrollcommand=xscrollbar.set)
-    xscrollbar.config(command=tree.xview)
+        tree.config(yscrollcommand=yscrollbar.set)
+        yscrollbar.config(command=tree.yview)
+        tree.config(xscrollcommand=xscrollbar.set)
+        xscrollbar.config(command=tree.xview)
 
-    self.display_report_items(tree, report_items)
+        self.display_report_items(tree, report_items)
 
-  def display_report_items(self, tree, report_items):
-    for report_item in report_items:
-      prefix_str = '+ ' if report_item.call_tree is not None else '  '
-      id = tree.insert(
-          '',
-          'end',
-          None,
-          values=[
-              prefix_str +
-              report_item.raw_line],
-          tag='set_font')
-      if report_item.call_tree is not None:
-        self.display_call_tree(tree, id, report_item.call_tree, 1)
+    def display_report_items(self, tree, report_items):
+        for report_item in report_items:
+            prefix_str = '+ ' if report_item.call_tree is not None else '  '
+            id = tree.insert(
+                '',
+                'end',
+                None,
+                values=[
+                    prefix_str +
+                    report_item.raw_line],
+                tag='set_font')
+            if report_item.call_tree is not None:
+                self.display_call_tree(tree, id, report_item.call_tree, 1)
 
-  def display_call_tree(self, tree, parent_id, node, indent):
-    id = parent_id
-    indent_str = '    ' * indent
+    def display_call_tree(self, tree, parent_id, node, indent):
+        id = parent_id
+        indent_str = '    ' * indent
 
-    if node.percentage != 100.0:
-      percentage_str = '%.2f%% ' % node.percentage
-    else:
-      percentage_str = ''
+        if node.percentage != 100.0:
+            percentage_str = '%.2f%% ' % node.percentage
+        else:
+            percentage_str = ''
 
-    for i in range(len(node.call_stack)):
-      s = indent_str
-      s += '+ ' if node.children and i == len(node.call_stack) - 1 else '  '
-      s += percentage_str if i == 0 else ' ' * len(percentage_str)
-      s += node.call_stack[i]
-      child_open = False if i == len(node.call_stack) - 1 and indent > 1 else True
-      id = tree.insert(id, 'end', None, values=[s], open=child_open,
-                       tag='set_font')
+        for i in range(len(node.call_stack)):
+            s = indent_str
+            s += '+ ' if node.children and i == len(node.call_stack) - 1 else '  '
+            s += percentage_str if i == 0 else ' ' * len(percentage_str)
+            s += node.call_stack[i]
+            child_open = False if i == len(node.call_stack) - 1 and indent > 1 else True
+            id = tree.insert(id, 'end', None, values=[s], open=child_open,
+                             tag='set_font')
 
-    for child in node.children:
-      self.display_call_tree(tree, id, child, indent + 1)
+        for child in node.children:
+            self.display_call_tree(tree, id, child, indent + 1)
 
 
 def display_report_file(report_file, self_kill_after_sec):

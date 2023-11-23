@@ -112,6 +112,31 @@ Handle allocateHandle (const CreateInfo* pCreateInfo, const VkAllocationCallback
 	return reinterpret_cast<Handle>(obj);
 }
 
+template<typename Object, typename Handle, typename Parent>
+Handle allocateHandle (Parent parent, const VkAllocationCallbacks* pAllocator)
+{
+	Object* obj = DE_NULL;
+
+	if (pAllocator)
+	{
+		void* mem = allocateSystemMem<Object>(pAllocator, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+		try
+		{
+			obj = new (mem) Object(parent);
+			DE_ASSERT(obj == mem);
+		}
+		catch (...)
+		{
+			pAllocator->pfnFree(pAllocator->pUserData, mem);
+			throw;
+		}
+	}
+	else
+		obj = new Object(parent);
+
+	return reinterpret_cast<Handle>(obj);
+}
+
 template<typename Object, typename Handle>
 void freeHandle (Handle handle, const VkAllocationCallbacks* pAllocator)
 {
@@ -137,6 +162,13 @@ template<typename Object, typename Handle, typename Parent, typename CreateInfo>
 Handle allocateNonDispHandle (Parent parent, const CreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator)
 {
 	return allocateNonDispHandle<Object, Object, Handle, Parent, CreateInfo>(parent, pCreateInfo, pAllocator);
+}
+
+template<typename Object, typename Handle, typename Parent>
+Handle allocateNonDispHandle (Parent parent, const VkAllocationCallbacks* pAllocator)
+{
+	Object* const	obj		= allocateHandle<Object, Object*>(parent, pAllocator);
+	return Handle((deUint64)(deUintptr)obj);
 }
 
 template<typename Object, typename Handle>
@@ -244,6 +276,7 @@ public:
 	Pipeline (VkDevice, const VkGraphicsPipelineCreateInfo*) {}
 	Pipeline (VkDevice, const VkComputePipelineCreateInfo*) {}
 	Pipeline (VkDevice, const VkRayTracingPipelineCreateInfoNV*) {}
+	Pipeline (VkDevice, const VkRayTracingPipelineCreateInfoKHR*) {}
 };
 
 class RenderPass
@@ -477,17 +510,10 @@ private:
 };
 #endif // defined(USE_ANDROID_O_HARDWARE_BUFFER)
 
-class IndirectCommandsLayoutNVX
+class IndirectCommandsLayoutNV
 {
 public:
-						IndirectCommandsLayoutNVX	(VkDevice, const VkIndirectCommandsLayoutCreateInfoNVX*)
-						{}
-};
-
-class ObjectTableNVX
-{
-public:
-						ObjectTableNVX				(VkDevice, const VkObjectTableCreateInfoNVX*)
+						IndirectCommandsLayoutNV	(VkDevice, const VkIndirectCommandsLayoutCreateInfoNV*)
 						{}
 };
 
@@ -502,6 +528,34 @@ class AccelerationStructureNV
 {
 public:
 						AccelerationStructureNV		(VkDevice, const VkAccelerationStructureCreateInfoNV*)
+						{}
+};
+
+class AccelerationStructureKHR
+{
+public:
+						AccelerationStructureKHR	(VkDevice, const VkAccelerationStructureCreateInfoKHR*)
+						{}
+};
+
+class DeferredOperationKHR
+{
+public:
+						DeferredOperationKHR		(VkDevice)
+						{}
+};
+
+class VideoSessionKHR
+{
+public:
+						VideoSessionKHR				(VkDevice, const VkVideoSessionCreateInfoKHR*)
+						{}
+};
+
+class VideoSessionParametersKHR
+{
+public:
+						VideoSessionParametersKHR	(VkDevice, const VkVideoSessionParametersCreateInfoKHR*)
 						{}
 };
 
@@ -526,6 +580,12 @@ public:
 						{}
 };
 
+class PrivateDataSlotEXT
+{
+public:
+						PrivateDataSlotEXT			(VkDevice, const VkPrivateDataSlotCreateInfoEXT*)
+						{}
+};
 
 class CommandPool
 {
@@ -722,7 +782,33 @@ VKAPI_ATTR VkResult VKAPI_CALL createComputePipelines (VkDevice device, VkPipeli
 	}
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL createRayTracingPipelinesNV (VkDevice device, VkPipelineCache, deUint32 count, const VkRayTracingPipelineCreateInfoNV* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
+VKAPI_ATTR VkResult VKAPI_CALL createRayTracingPipelinesNV (VkDevice device, VkPipelineCache, deUint32 count, const VkRayTracingPipelineCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
+{
+	deUint32 allocNdx;
+	try
+	{
+		for (allocNdx = 0; allocNdx < count; allocNdx++)
+			pPipelines[allocNdx] = allocateNonDispHandle<Pipeline, VkPipeline>(device, pCreateInfos+allocNdx, pAllocator);
+
+		return VK_SUCCESS;
+	}
+	catch (const std::bad_alloc&)
+	{
+		for (deUint32 freeNdx = 0; freeNdx < allocNdx; freeNdx++)
+			freeNonDispHandle<Pipeline, VkPipeline>(pPipelines[freeNdx], pAllocator);
+
+		return VK_ERROR_OUT_OF_HOST_MEMORY;
+	}
+	catch (VkResult err)
+	{
+		for (deUint32 freeNdx = 0; freeNdx < allocNdx; freeNdx++)
+			freeNonDispHandle<Pipeline, VkPipeline>(pPipelines[freeNdx], pAllocator);
+
+		return err;
+	}
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL createRayTracingPipelinesKHR (VkDevice device, VkPipelineCache, deUint32 count, const VkRayTracingPipelineCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
 {
 	deUint32 allocNdx;
 	try
@@ -1171,7 +1257,7 @@ VKAPI_ATTR VkResult VKAPI_CALL allocateMemory (VkDevice device, const VkMemoryAl
 #if defined(USE_ANDROID_O_HARDWARE_BUFFER)
 		VK_NULL_RETURN((*pMemory = allocateNonDispHandle<ExternalDeviceMemoryAndroid, DeviceMemory, VkDeviceMemory>(device, pAllocateInfo, pAllocator)));
 #else
-		return VK_ERROR_INVALID_EXTERNAL_HANDLE_KHR;
+		return VK_ERROR_INVALID_EXTERNAL_HANDLE;
 #endif
 	}
 	else
@@ -1319,7 +1405,7 @@ VKAPI_ATTR void VKAPI_CALL getPhysicalDeviceExternalBufferPropertiesKHR (VkPhysi
 
 	if (pExternalBufferInfo->handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)
 	{
-		pExternalBufferProperties->externalMemoryProperties.externalMemoryFeatures = VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT_KHR | VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT_KHR;
+		pExternalBufferProperties->externalMemoryProperties.externalMemoryFeatures = VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT | VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
 		pExternalBufferProperties->externalMemoryProperties.exportFromImportedHandleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
 		pExternalBufferProperties->externalMemoryProperties.compatibleHandleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
 	}
@@ -1362,8 +1448,8 @@ VKAPI_ATTR VkResult VKAPI_CALL getPhysicalDeviceImageFormatProperties2KHR (VkPhy
 		}
 
 		if ((pImageFormatInfo->flags & ~(VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT
-										/*| VK_IMAGE_CREATE_PROTECTED_BIT_KHR*/
-										/*| VK_IMAGE_CREATE_EXTENDED_USAGE_BIT_KHR*/))
+										/*| VK_IMAGE_CREATE_PROTECTED_BIT*/
+										/*| VK_IMAGE_CREATE_EXTENDED_USAGE_BIT*/))
 			!= 0)
 		{
 			return VK_ERROR_FORMAT_NOT_SUPPORTED;
@@ -1371,9 +1457,9 @@ VKAPI_ATTR VkResult VKAPI_CALL getPhysicalDeviceImageFormatProperties2KHR (VkPhy
 
 		if (externalProperties)
 		{
-			externalProperties->externalMemoryProperties.externalMemoryFeatures			= VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT_KHR
-																						| VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT_KHR
-																						| VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT_KHR;
+			externalProperties->externalMemoryProperties.externalMemoryFeatures			= VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT
+																						| VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT
+																						| VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
 			externalProperties->externalMemoryProperties.exportFromImportedHandleTypes	= VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
 			externalProperties->externalMemoryProperties.compatibleHandleTypes			= VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
 		}

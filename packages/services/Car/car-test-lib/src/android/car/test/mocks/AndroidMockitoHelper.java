@@ -17,42 +17,46 @@ package android.car.test.mocks;
 
 import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
 
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.when;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
+import android.app.Activity;
 import android.app.ActivityManager;
 import android.car.test.util.UserTestingHelper;
 import android.car.test.util.UserTestingHelper.UserInfoBuilder;
+import android.car.test.util.Visitor;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
 import android.content.pm.UserInfo.UserInfoFlag;
+import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.IInterface;
+import android.os.Looper;
 import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.os.UserManager.RemoveResult;
+import android.util.Log;
 
-import com.android.internal.infra.AndroidFuture;
-
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Provides common Mockito calls for core Android classes.
  */
 public final class AndroidMockitoHelper {
 
-    private static final long ASYNC_TIMEOUT_MS = 500;
+    private static final String TAG = AndroidMockitoHelper.class.getSimpleName();
 
     /**
      * Mocks a call to {@link ActivityManager#getCurrentUser()}.
@@ -112,47 +116,37 @@ public final class AndroidMockitoHelper {
     }
 
     /**
-     * Mocks {@code UserManager#getUsers()}, {@code UserManager#getUsers(excludeDying)}, and
-     * {@code UserManager#getUsers(excludePartial, excludeDying, excludeDying)} to return the given
-     * users.
+     * Mocks {@code UserManager#getAliveUsers()} to return the given users.
      */
-    public static void mockUmGetUsers(@NonNull UserManager um, @NonNull UserInfo... users) {
+    public static void mockUmGetAliveUsers(@NonNull UserManager um, @NonNull UserInfo... users) {
         Objects.requireNonNull(um);
-        List<UserInfo> testUsers = Arrays.stream(users).collect(Collectors.toList());
-        when(um.getUsers()).thenReturn(testUsers);
-        when(um.getUsers(anyBoolean())).thenReturn(testUsers);
-        when(um.getUsers(anyBoolean(), anyBoolean(), anyBoolean())).thenReturn(testUsers);
+        when(um.getAliveUsers()).thenReturn(UserTestingHelper.toList(users));
     }
 
     /**
-     * Mocks {@code UserManager#getUsers()}, {@code UserManager#getUsers(excludeDying)}, and
-     * {@code UserManager#getUsers(excludePartial, excludeDying, excludeDying)} to return simple
-     * users with the given ids.
+     * Mocks {@code UserManager#getAliveUsers()} to return the simple users with the given ids.
      */
-    public static void mockUmGetUsers(@NonNull UserManager um, @NonNull @UserIdInt int... userIds) {
+    public static void mockUmGetAliveUsers(@NonNull UserManager um,
+            @NonNull @UserIdInt int... userIds) {
         List<UserInfo> users = UserTestingHelper.newUsers(userIds);
-        when(um.getUsers()).thenReturn(users);
-        when(um.getUsers(anyBoolean())).thenReturn(users);
-        when(um.getUsers(anyBoolean(), anyBoolean(), anyBoolean())).thenReturn(users);
+        when(um.getAliveUsers()).thenReturn(users);
+    }
+
+    /**
+     * Mocks {@code UserManager#getUsers(excludePartial, excludeDying, excludeDying)} to return the
+     * given users.
+     */
+    public static void mockUmGetUsers(@NonNull UserManager um, boolean excludePartial,
+            boolean excludeDying, boolean excludePreCreated, @NonNull List<UserInfo> users) {
+        Objects.requireNonNull(um);
+        when(um.getUsers(excludePartial, excludeDying, excludePreCreated)).thenReturn(users);
     }
 
     /**
      * Mocks a call to {@code UserManager#getUsers()}, which includes dying users.
      */
-    public static void mockUmGetAllUsers(@NonNull UserManager um,
-            @NonNull List<UserInfo> userInfos) {
-        when(um.getUsers()).thenReturn(userInfos);
-    }
-
-    /**
-     * Mocks {@code UserManager#getUsers()}, {@code UserManager#getUsers(excludeDying)}, and
-     * {@code UserManager#getUsers(excludePartial, excludeDying, excludeDying)} to return given
-     * userInfos.
-     */
-    public static void mockUmGetUsers(@NonNull UserManager um, @NonNull List<UserInfo> userInfos) {
-        when(um.getUsers()).thenReturn(userInfos);
-        when(um.getUsers(anyBoolean())).thenReturn(userInfos);
-        when(um.getUsers(anyBoolean(), anyBoolean(), anyBoolean())).thenReturn(userInfos);
+    public static void mockUmGetAllUsers(@NonNull UserManager um, @NonNull UserInfo... userInfos) {
+        when(um.getUsers()).thenReturn(UserTestingHelper.toList(userInfos));
     }
 
     /**
@@ -190,6 +184,23 @@ public final class AndroidMockitoHelper {
     }
 
     /**
+     * Mocks a successful call to {@code UserManager#removeUserOrSetEphemeral(int)}, and notifies
+     * {@code listener} when it's called.
+     */
+    public static void mockUmRemoveUserOrSetEphemeral(@NonNull UserManager um,
+            @NonNull UserInfo user, boolean evenWhenDisallowed, @RemoveResult int result,
+            @Nullable Visitor<UserInfo> listener) {
+        int userId = user.id;
+        when(um.removeUserOrSetEphemeral(userId, evenWhenDisallowed)).thenAnswer((inv) -> {
+            if (listener != null) {
+                Log.v(TAG, "mockUmRemoveUserOrSetEphemeral(" + user + "): notifying " + listener);
+                listener.visit(user);
+            }
+            return result;
+        });
+    }
+
+    /**
      * Mocks a call to {@link ServiceManager#getService(name)}.
      *
      * <p><b>Note: </b>it must be made inside a
@@ -221,6 +232,19 @@ public final class AndroidMockitoHelper {
     }
 
     /**
+     * Mocks a call to {@link Binder.getCallingUserHandle()}.
+     *
+     * <p><b>Note: </b>it must be made inside a
+     * {@link com.android.dx.mockito.inline.extended.StaticMockitoSession} built with
+     * {@code spyStatic(Binder.class)}.
+     *
+     * @param userId identifier of the {@link UserHandle} that will be returned.
+     */
+    public static void mockBinderGetCallingUserHandle(@UserIdInt int userId) {
+        doReturn(UserHandle.of(userId)).when(() -> Binder.getCallingUserHandle());
+    }
+
+    /**
      * Mocks a call to {@link Context#getSystemService(Class)}.
      */
     public static <T> void mockContextGetService(@NonNull Context context,
@@ -231,27 +255,79 @@ public final class AndroidMockitoHelper {
         }
     }
 
+    // TODO(b/192307581): add unit tests
     /**
-     * Gets the result of a future, or throw a {@link IllegalStateException} if it times out after
-     * {@value #ASYNC_TIMEOUT_MS} ms.
+     * Returns the result of the giving {@code callable} in the main thread, preparing the
+     * {@link Looper} if needed and using a default timeout.
      */
-    @NonNull
-    public static <T> T getResult(@NonNull AndroidFuture<T> future)
-            throws InterruptedException, ExecutionException {
-        return getResult(future, ASYNC_TIMEOUT_MS);
+    public static <T> T syncCallOnMainThread(Callable<T> c) throws Exception {
+        return syncCallOnMainThread(JavaMockitoHelper.ASYNC_TIMEOUT_MS, c);
     }
 
+    // TODO(b/192307581): add unit tests
     /**
-     * Gets the result of a future, or throw a {@link IllegalStateException} if it times out.
+     * Returns the result of the giving {@code callable} in the main thread, preparing the
+     * {@link Looper} if needed.
      */
-    @NonNull
-    public static <T> T getResult(@NonNull AndroidFuture<T> future, long timeoutMs)
-            throws InterruptedException, ExecutionException {
-        try {
-            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            throw new IllegalStateException("not called in " + ASYNC_TIMEOUT_MS + "ms", e);
+    public static <T> T syncCallOnMainThread(long timeoutMs, Callable<T> callable)
+            throws Exception {
+        boolean quitLooper = false;
+        Looper looper = Looper.getMainLooper();
+        if (looper == null) {
+            Log.i(TAG, "preparing main looper");
+            Looper.prepareMainLooper();
+            looper = Looper.getMainLooper();
+            assertWithMessage("Looper.getMainLooper()").that(looper).isNotNull();
+            quitLooper = true;
         }
+        Log.i(TAG, "looper: " + looper);
+        AtomicReference<Exception> exception = new AtomicReference<>();
+        AtomicReference<T> ref = new AtomicReference<>();
+        try {
+            Handler handler = new Handler(looper);
+            CountDownLatch latch = new CountDownLatch(1);
+            handler.post(() -> {
+                T result = null;
+                try {
+                    result = callable.call();
+                } catch (Exception e) {
+                    exception.set(e);
+                }
+                ref.set(result);
+                latch.countDown();
+            });
+            JavaMockitoHelper.await(latch, timeoutMs);
+            Exception e = exception.get();
+            if (e != null) throw e;
+            return ref.get();
+        } finally {
+            if (quitLooper) {
+                Log.i(TAG, "quitting looper: " + looper);
+                looper.quitSafely();
+            }
+        }
+    }
+
+    // TODO(b/192307581): add unit tests
+    /**
+     * Runs the giving {@code runnable} in the activity's UI thread, using a default timeout.
+     */
+    public static void syncRunOnUiThread(Activity activity, Runnable runnable) throws Exception {
+        syncRunOnUiThread(JavaMockitoHelper.ASYNC_TIMEOUT_MS, activity, runnable);
+    }
+
+    // TODO(b/192307581): add unit tests
+    /**
+     * Runs the giving {@code runnable} in the activity's UI thread.
+     */
+    public static void syncRunOnUiThread(long timeoutMs, Activity activity, Runnable runnable)
+            throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        activity.runOnUiThread(() -> {
+            runnable.run();
+            latch.countDown();
+        });
+        JavaMockitoHelper.await(latch, timeoutMs);
     }
 
     private AndroidMockitoHelper() {

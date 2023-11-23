@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Налады галасавой пошты можа мяняць толькі першасны карыстальнік."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Ваша SIM-карта была разблакаваная. Ваш тэлефон разблакоўваецца..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"PIN-код разблакавання сеткі SIM"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"Можна выкарыстоўваць толькі SIM-карту аператара"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Разблакаваць"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Адхіліць"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Запыт разблакавання сеткі..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Пераадрасацыя на <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Выключаны"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Ваш аператар не падтрымлівае адключэнне пераадрасацыi выклікаў, калі тэлефон недаступны."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Ваш аператар не падтрымлівае пераадрасацыю выкліку."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Уключыць чаканне выкліку?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Вы будзеце атрымліваць апавяшчэнні аб уваходных выкліках падчас бягучых размоў"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Уключыць"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Скасаваць"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"Чаканне выкліку па тэхналогіі CDMA (IMS) уключана"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Чаканне выкліку па тэхналогіі CDMA (IMS) выключана"</string>
     <string name="updating_title" msgid="6130548922615719689">"Налады выклікаў"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Налады выклікаў можа мяняць толькі адміністратар."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Налады (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Абмежаваныя функцыі SIM-карты"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Выклікі і перадача даных праз <xliff:g id="CARRIER_NAME">%1$s</xliff:g> могуць блакіравацца пры выкарыстанні нумара <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Выклікі і перадача даных праз <xliff:g id="CARRIER_NAME">%1$s</xliff:g> блакіруюцца пры выкарыстанні іншай SIM-карты."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Знойдзены і выдалены састарэлыя ўліковыя запісы SIP"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"На платформе Android больш не падтрымліваецца SIP-тэлефанія.\nВашы існуючыя ўліковыя запісы SIP (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>) выдалены.\nПацвердзіце стандартны ўліковы запіс для выклікаў."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Перайсці ў налады"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Выкарыстанне трафіка"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> мабільнага трафіку выкарыстана ў перыяд <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Пашыраныя налады"</string>
@@ -302,7 +313,7 @@
     <string name="video_calling_settings_title" msgid="342829454913266078">"Відэавыклікі праз аператара"</string>
     <string name="gsm_umts_options" msgid="4968446771519376808">"Параметры GSM/UMTS"</string>
     <string name="cdma_options" msgid="3669592472226145665">"Параметры CDMA"</string>
-    <string name="throttle_data_usage" msgid="1944145350660420711">"Выкарыстанне трафіку"</string>
+    <string name="throttle_data_usage" msgid="1944145350660420711">"Выкарыстанне трафіка"</string>
     <string name="throttle_current_usage" msgid="7483859109708658613">"Выкарыстанне даных у бягучы перыяд"</string>
     <string name="throttle_time_frame" msgid="1813452485948918791">"Перыяд выкарыстання дадзеных"</string>
     <string name="throttle_rate" msgid="7641913901133634905">"Палітыка хуткасці перадачы дадзеных"</string>
@@ -442,7 +453,7 @@
     <string name="sum_fdn_manage_list" msgid="3311397063233992907">"Кіраванне спісам тэлефонных нумароў"</string>
     <string name="voice_privacy" msgid="7346935172372181951">"Палiтыка прыватнасцi Voice"</string>
     <string name="voice_privacy_summary" msgid="3556460926168473346">"Уключыць пашыраны рэжым прыватнасці"</string>
-    <string name="tty_mode_option_title" msgid="3843817710032641703">"Рэжым тэлетайпа"</string>
+    <string name="tty_mode_option_title" msgid="3843817710032641703">"Рэжым TTY"</string>
     <string name="tty_mode_option_summary" msgid="4770510287236494371">"Задаць рэжым TTY"</string>
     <string name="auto_retry_mode_title" msgid="2985801935424422340">"Аўтаматычны паўтор"</string>
     <string name="auto_retry_mode_summary" msgid="2863919925349511402">"Уключыць рэжым аўтаматычнага паўтору"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Пароль няправільны. Зараз SIM-карта заблакіравана. Увядзіце код PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"Код PUK2 заблакіраваны назаўжды."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"У вас засталося спроб: <xliff:g id="NUMBER">%d</xliff:g>."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"Код PUK2 заблакіраваны. Для разблакіроўкі звярніцеся да пастаўшчыка паслуг."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"Код PIN2 больш не заблакіраваны"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Памылка сеткі або SIM-карты"</string>
     <string name="doneButton" msgid="7371209609238460207">"Гатова"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Каб пазваніць, уключыце мабільную сетку, выключыце рэжым палёту або рэжым эканоміі зараду."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Адключыце рэжым палёту, каб зрабіць выклік."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Адключыце рэжым палёту або падлучыцеся да бесправадной сеткі, каб зрабіць выклік."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Тэлефон перагрэўся"</b>\n\n"Не ўдалося зрабіць выклік. Паўтарыце спробу, калі тэлефон астыне.\n\nВы ўсё роўна можаце рабіць экстранныя выклікі."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Каб зрабіць звычайны выклік, выйдзіце з рэжыму экстранных зваротных выклікаў."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Не зарэгістраваны ў сетцы."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Мабільная сетка недаступная."</string>
@@ -586,10 +599,10 @@
     <string name="rtt_mode_more_information" msgid="587500128658756318">"Функцыя RTT дапамагае абанентам з парушэннямі слыху і маўлення.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;Даведацца больш&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT-выклікі захоўваюцца ў выглядзе расшыфроўкі паведамленняў\n       &lt;br&gt; - Функцыя RTT недаступная для відэавыклікаў"</string>
     <string name="no_rtt_when_roaming" msgid="5268008247378355389">"Заўвага. Функцыя RTT недаступная ў роўмінгу."</string>
   <string-array name="tty_mode_entries">
-    <item msgid="3238070884803849303">"Тэлетайп выключаны"</item>
-    <item msgid="1449091874731375214">"Поўнафункцыянальны тэлетайп"</item>
-    <item msgid="1044179293199519425">"Тэлетайп HCO"</item>
-    <item msgid="2131559553795606483">"Тэлетайп VCO"</item>
+    <item msgid="3238070884803849303">"TTY выключаны"</item>
+    <item msgid="1449091874731375214">"Поўнафункцыянальны TTY"</item>
+    <item msgid="1044179293199519425">"TTY з магчымасцю чуць суразмоўніка"</item>
+    <item msgid="2131559553795606483">"TTY з магчымасцю перадачы голасу"</item>
   </string-array>
     <string name="dtmf_tones_title" msgid="7874845461117175236">"Сігналы DTMF"</string>
     <string name="dtmf_tones_summary" msgid="2294822239899471201">"Задаць даўжыню тонаў DTMF"</string>
@@ -617,7 +630,7 @@
     <string name="ota_unsuccessful" msgid="8531037653803955754">"Ваш тэлефон не актываваны. \nМагчыма, вам спатрэбіцца знайсці вобласць з лепшым пакрыццём (каля акна ці на вуліцы). \n\nПаўтарыце спробу ці звярнiцеся ў цэнтр абслугоўвання кліентаў, каб атрымаць дадатковую інфармацыю."</string>
     <string name="ota_spc_failure" msgid="904092035241370080">"ПАМЫЛКІ ПЕРАВЫШЭННЯ SPC"</string>
     <string name="ota_call_end" msgid="8657746378290737034">"Назад"</string>
-    <string name="ota_try_again" msgid="6914781945599998550">"Паспрабаваць яшчэ раз"</string>
+    <string name="ota_try_again" msgid="6914781945599998550">"Паўтарыць спробу"</string>
     <string name="ota_next" msgid="2041016619313475914">"Далей"</string>
     <string name="ecm_exit_dialog" msgid="4200691880721429078">"EcmExitDialog"</string>
     <string name="phone_entered_ecm_text" msgid="8431238297843035842">"У рэжыме экстранных зваротных выклікаў"</string>
@@ -873,7 +886,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"SubID стандартнай SIM-карты для перадачы даных:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Прапускная здольнасць канала спампоўвання (кбіт/с):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Прапускная здольнасць канала запампоўвання (кбіт/с):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Інфармацыя пра месцазнаходжанне сотавай ячэйкі (састарэлая):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Канфігурацыя фізічнага канала LTE:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Частата абнаўлення даных сотавай сеткі:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Усе паказчыкі сотавай сеткі:"</string>
@@ -904,6 +916,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Абнавіць"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Уключыць/выключыць праверку DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Інфармацыя/налады пастаўшчыка"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"Даступнасць EN-DC:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"Абмежаванне DCNR:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"Даступнасць NR:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"Стан NR:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Частата NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Задаць рэжым радыёдыяпазону"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Загружаецца спіс дыяпазонаў…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Задаць"</string>
@@ -913,4 +930,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Звесткі аб тэлефоне"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Звесткі аб аператары"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Запусціць сінхранізацыю з аператарам"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Сігнал Bluetooth слабы. Паспрабуйце пераключыцца на гучную сувязь."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Апавяшчэнне пра якасць выкліку"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Састарэлыя ўліковыя запісы SIP"</string>
 </resources>

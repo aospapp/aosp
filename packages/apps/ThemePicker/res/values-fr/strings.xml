@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Styles et fonds d\'écran"</string>
+    <string name="app_name" msgid="1647136562008520313">"Fond d\'écran et style"</string>
     <string name="theme_title" msgid="2144932106319405101">"Style"</string>
     <string name="clock_title" msgid="2126046720254613991">"Horloge"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Grille"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Fond d\'écran"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Grille appli"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Appliquer"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Appuyer pour modifier"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Conserver le fond d\'écran actuel"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Appliquer"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Page <xliff:g id="ID_1">%1$d</xliff:g> sur <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Suivant"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Précédent"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Aperçu du style"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Aperçu de la grille"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Aperçu de la police"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Aperçu de l\'icône"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Aperçu de la couleur"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Aperçu de la forme"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, option appliquée actuellement"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g> (option actuellement appliquée et prévisualisée)"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g> (option actuellement prévisualisée)"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Fond d\'écran"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Ajoutez vos polices préférées sur chaque écran"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Choisir une taille de grille"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g> x <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Le style a bien été appliqué"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Horloge appliquée"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Le style a bien été défini"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"L\'horloge a bien été réglée"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"La grille a bien été définie"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Un problème est survenu au moment d\'appliquer le style"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Suivant"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Précédent"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Personnalisé"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Personnalisé<xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Style personnalisé"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Supprimer"</string>
@@ -61,9 +66,21 @@
     <string name="cancel" msgid="4651030493668562067">"Annuler"</string>
     <string name="set_theme_wallpaper_dialog_message" msgid="2179661027350908003">"Définir le fond d\'écran du style"</string>
     <string name="use_style_instead_title" msgid="1578754995763917502">"Utiliser <xliff:g id="ID_1">%1$s</xliff:g> à la place ?"</string>
-    <string name="use_style_instead_body" msgid="3051937045807471496">"Les composants que vous choisissez correspondent au style <xliff:g id="ID_1">%1$s</xliff:g>. Voulez-vous utiliser <xliff:g id="ID_2">%1$s</xliff:g> à la place ?"</string>
+    <string name="use_style_instead_body" msgid="3051937045807471496">"Les composants que vous avez choisi correspondent au style <xliff:g id="ID_1">%1$s</xliff:g>. Voulez-vous utiliser le style <xliff:g id="ID_2">%1$s</xliff:g> à la place ?"</string>
     <string name="use_style_button" msgid="1754493078383627019">"Utiliser <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="no_thanks" msgid="7286616980115687627">"Non, merci"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> aperçu d\'horloge"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Petit problème… Une erreur s\'est produite."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Couleur/Icônes"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Aperçu de la police, des icônes, de la forme de l\'application et de la couleur"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Police personnalisée"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Icône personnalisée"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Couleur personnalisée"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Forme personnalisée"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Nom du style personnalisé"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Thème sombre"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Temporairement désactivé par l\'économiseur de batterie"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Icônes à thème"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Bêta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Modifier la grille d\'applis"</string>
 </resources>

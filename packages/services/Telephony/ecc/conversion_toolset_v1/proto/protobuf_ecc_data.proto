@@ -13,6 +13,10 @@ message EccInfo {
         POLICE = 1;
         AMBULANCE = 2;
         FIRE = 3;
+        MARINE_GUARD = 4;
+        MOUNTAIN_RESCUE = 5;
+        MIEC = 6;
+        AIEC = 7;
     }
 
     // Required: Every EccInfo shall contain a phone number.

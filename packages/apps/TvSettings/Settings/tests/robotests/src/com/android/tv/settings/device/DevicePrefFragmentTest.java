@@ -113,7 +113,7 @@ public class DevicePrefFragmentTest {
 
         final ApplicationInfo applicationInfo = new ApplicationInfo();
         applicationInfo.flags = ApplicationInfo.FLAG_SYSTEM;
-        applicationInfo.packageName = "com.test.CastPackage";
+        applicationInfo.packageName = "com.android.tv.settings";
 
         final ActivityInfo activityInfo = mock(ActivityInfo.class);
         doReturn("Test Name").when(activityInfo).loadLabel(any(PackageManager.class));
@@ -123,11 +123,11 @@ public class DevicePrefFragmentTest {
         final ResolveInfo resolveInfo = new ResolveInfo();
         resolveInfo.activityInfo = activityInfo;
         resolveInfo.iconResourceId = R.drawable.ic_cast;
-        resolveInfo.resolvePackageName = "com.test.CastPackage";
+        resolveInfo.resolvePackageName = "com.android.tv.settings";
 
         final PackageInfo packageInfo = new PackageInfo();
         packageInfo.applicationInfo = applicationInfo;
-        packageInfo.packageName = "com.test.CastPackage";
+        packageInfo.packageName = "com.android.tv.settings";
 
         final ShadowPackageManager shadowPackageManager = shadowOf(
                 RuntimeEnvironment.application.getPackageManager());

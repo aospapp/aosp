@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka.attributes;
+package com.android.internal.net.eap.test.message.simaka.attributes;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
 
 import org.junit.Test;
 
@@ -37,13 +37,13 @@ public class EapSimAkaAttributeTest {
 
     @Test
     public void testEncode() throws Exception {
-        EapSimAkaAttribute eapSimAkaAttribute = new EapSimAkaAttribute(
-                EXPECTED_ATTRIBUTE_TYPE,
-                EXPECTED_LENGTH_IN_BYTES) {
-            public void encode(ByteBuffer byteBuffer) {
-                encodeAttributeHeader(byteBuffer);
-            }
-        };
+        EapSimAkaAttribute eapSimAkaAttribute =
+                new EapSimAkaAttribute(EXPECTED_ATTRIBUTE_TYPE, EXPECTED_LENGTH_IN_BYTES) {
+                    @Override
+                    public void encode(ByteBuffer byteBuffer) {
+                        encodeAttributeHeader(byteBuffer);
+                    }
+                };
 
         ByteBuffer result = ByteBuffer.allocate(BUFFER_LENGTH);
         eapSimAkaAttribute.encode(result);

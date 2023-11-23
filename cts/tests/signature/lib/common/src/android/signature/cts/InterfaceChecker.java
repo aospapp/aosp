@@ -44,24 +44,39 @@ import java.util.stream.Stream;
  */
 class InterfaceChecker {
 
-    private static final Set<String> HIDDEN_INTERFACE_METHOD_WHITELIST = new HashSet<>();
+    private static final Set<String> HIDDEN_INTERFACE_METHOD_ALLOW_LIST = new HashSet<>();
     static {
         // Interfaces that define @hide or @SystemApi or @TestApi methods will by definition contain
-        // methods that do not appear in current.txt. Interfaces added to this
-        // list are probably not meant to be implemented in an application.
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract boolean android.companion.DeviceFilter.matches(D)");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public static <D> boolean android.companion.DeviceFilter.matches(android.companion.DeviceFilter<D>,D)");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract java.lang.String android.companion.DeviceFilter.getDeviceDisplayName(D)");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract int android.companion.DeviceFilter.getMediumType()");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract void android.nfc.tech.TagTechnology.reconnect() throws java.io.IOException");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract void android.os.IBinder.shellCommand(java.io.FileDescriptor,java.io.FileDescriptor,java.io.FileDescriptor,java.lang.String[],android.os.ShellCallback,android.os.ResultReceiver) throws android.os.RemoteException");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract int android.text.ParcelableSpan.getSpanTypeIdInternal()");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract void android.text.ParcelableSpan.writeToParcelInternal(android.os.Parcel,int)");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract void android.view.WindowManager.requestAppKeyboardShortcuts(android.view.WindowManager$KeyboardShortcutsReceiver,int)");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract boolean javax.microedition.khronos.egl.EGL10.eglReleaseThread()");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract void org.w3c.dom.ls.LSSerializer.setFilter(org.w3c.dom.ls.LSSerializerFilter)");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract org.w3c.dom.ls.LSSerializerFilter org.w3c.dom.ls.LSSerializer.getFilter()");
-        HIDDEN_INTERFACE_METHOD_WHITELIST.add("public abstract android.graphics.Region android.view.WindowManager.getCurrentImeTouchRegion()");
+        // methods that do not appear in current.txt but do appear at runtime. That means that those
+        // interfaces will fail compatibility checking because a developer could never implement all
+        // the methods in the interface. However, some interfaces are not intended to be implemented
+        // by a developer and so additional methods in the runtime class will not cause
+        // compatibility errors. Unfortunately, this checker has no way to determine from the
+        // interface whether an interface is intended to be implemented by a developer and for
+        // safety's sake assumes that all interfaces are.
+        //
+        // Additional methods that are provided by the runtime but are not in the API specification
+        // must be listed here to prevent them from being reported as errors.
+        //
+        // TODO(b/71886491): Avoid the need for this allow list.
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract boolean android.companion.DeviceFilter.matches(D)");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public static <D> boolean android.companion.DeviceFilter.matches(android.companion.DeviceFilter<D>,D)");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract java.lang.String android.companion.DeviceFilter.getDeviceDisplayName(D)");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract int android.companion.DeviceFilter.getMediumType()");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.nfc.tech.TagTechnology.reconnect() throws java.io.IOException");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.os.IBinder.shellCommand(java.io.FileDescriptor,java.io.FileDescriptor,java.io.FileDescriptor,java.lang.String[],android.os.ShellCallback,android.os.ResultReceiver) throws android.os.RemoteException");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract int android.text.ParcelableSpan.getSpanTypeIdInternal()");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.text.ParcelableSpan.writeToParcelInternal(android.os.Parcel,int)");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.WindowManager.requestAppKeyboardShortcuts(android.view.WindowManager$KeyboardShortcutsReceiver,int)");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract boolean javax.microedition.khronos.egl.EGL10.eglReleaseThread()");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void org.w3c.dom.ls.LSSerializer.setFilter(org.w3c.dom.ls.LSSerializerFilter)");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract org.w3c.dom.ls.LSSerializerFilter org.w3c.dom.ls.LSSerializer.getFilter()");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract android.graphics.Region android.view.WindowManager.getCurrentImeTouchRegion()");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract java.util.Set<android.media.AudioMetadata$Key<?>> android.media.AudioMetadataReadMap.keySet()");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract android.view.InsetsState android.view.WindowInsetsController.getState()");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract boolean android.view.WindowInsetsController.isRequestedVisible(int)");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.WindowInsetsController.setAnimationsDisabled(boolean)");
+        HIDDEN_INTERFACE_METHOD_ALLOW_LIST.add("public abstract void android.view.inputmethod.InputMethod.hideSoftInputWithToken(int,android.os.ResultReceiver,android.os.IBinder)");
     }
 
     private final ResultObserver resultObserver;
@@ -84,7 +99,9 @@ class InterfaceChecker {
             if (methods.size() > 0) {
                 resultObserver.notifyFailure(FailureType.MISMATCH_INTERFACE_METHOD,
                         classDescription.getAbsoluteClassName(), "Interfaces cannot be modified: "
-                                + classDescription.getAbsoluteClassName() + ": " + methods);
+                                + classDescription.getAbsoluteClassName()
+                                + " has the following methods that are not present in the API specification:\n\t"
+                                + methods.stream().map(Method::toGenericString).collect(Collectors.joining("\n\t")));
             }
         }
     }
@@ -107,7 +124,7 @@ class InterfaceChecker {
                 .filter(not(Method::isSynthetic))
                 .filter(not(Method::isBridge))
                 .filter(m -> !Modifier.isStatic(m.getModifiers()))
-                .filter(m -> !HIDDEN_INTERFACE_METHOD_WHITELIST.contains(m.toGenericString()))
+                .filter(m -> !HIDDEN_INTERFACE_METHOD_ALLOW_LIST.contains(m.toGenericString()))
                 .filter(m -> !findMethod(classDescription, m))
                 .collect(Collectors.toCollection(ArrayList::new));
     }

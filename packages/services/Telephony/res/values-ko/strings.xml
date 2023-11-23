@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"기본 사용자만 음성사서함 설정을 변경할 수 있습니다."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"SIM 카드의 잠금이 해제되었습니다. 휴대전화의 잠금해제 중..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"SIM 네트워크 잠금해제 PIN"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"이동통신사 전용으로 SIM 잠김"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"잠금해제"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"취소"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"네트워크 잠금해제 요청 중..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g>(으)로 착신전환"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"사용 안함"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"이동통신사에서 전화를 받을 수 없을 때 착신전환 사용 중지를 지원하지 않습니다."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"사용 중인 이동통신사에서는 착신전환 기능을 지원하지 않습니다."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"통화중 대기를 사용 설정하시겠습니까?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"통화 중 다른 전화가 걸려 오면 알림을 받습니다."</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"사용 설정"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"취소"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS에서 CDMA 통화중 대기 사용"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS에서 CDMA 통화중 대기 사용 안함"</string>
     <string name="updating_title" msgid="6130548922615719689">"통화 설정"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"관리자만 통화 설정을 변경할 수 있습니다."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"설정(<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"제한된 SIM 기능"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g>번을 사용하는 동안 <xliff:g id="CARRIER_NAME">%1$s</xliff:g> 통화 및 데이터 서비스가 차단될 수 있습니다."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"다른 SIM을 사용하는 동안 <xliff:g id="CARRIER_NAME">%1$s</xliff:g> 통화 및 데이터 서비스가 차단될 수 있습니다."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"지원 중단된 SIP 계정 발견 및 삭제됨"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP 통화가 더 이상 Android 플랫폼에서 지원되지 않습니다.\n기존 SIP 계정(<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>)이 삭제되었습니다.\n기본 통화 계정 설정을 확인해 주세요."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"설정으로 이동"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"앱 데이터 사용량"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g>에 사용된 모바일 데이터: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"고급"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"비밀번호가 잘못되어 SIM이 잠겼습니다. PUK2를 입력하세요."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2가 완전히 차단되었습니다."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"<xliff:g id="NUMBER">%d</xliff:g>번의 기회가 남았습니다."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2로 잠금 설정되었습니다. 모든 통신사에서 사용할 수 있도록 하려면 서비스 제공업체에 문의하세요."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 차단이 해제되었습니다."</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"네트워크 또는 SIM 카드 오류"</string>
     <string name="doneButton" msgid="7371209609238460207">"완료"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"전화를 걸려면 모바일 네트워크를 사용 설정하고 비행기 모드 또는 절전 모드를 사용 중지하세요."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"전화를 걸려면 비행기 모드를 사용 중지하세요."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"전화를 걸려면 비행기 모드를 사용 중지하거나 무선 네트워크에 연결하세요."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"휴대전화의 온도가 너무 높습니다."</b>\n\n"현재 전화를 걸 수 없습니다. 휴대전화의 온도가 내려가면 다시 시도해 보세요.\n\n긴급 전화 기능은 계속해서 사용할 수 있습니다."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"일반 전화를 걸려면 긴급 콜백 모드를 해제하세요."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"네트워크에서 등록되지 않았습니다."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"모바일 네트워크를 사용할 수 없습니다."</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"기본 데이터 SIM의 subId:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL 대역폭(kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL 대역폭(kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"셀 위치 정보(사용 중단됨):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE 물리적 채널 구성:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"셀 정보 새로고침 빈도:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"모든 셀 측정 정보:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"새로고침"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS 확인 전환"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM별 정보/설정"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC 사용 가능:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR 제한됨:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR 사용 가능:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR 상태:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR 빈도:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"무선 주파수 대역 모드 설정"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"대역 목록 로드 중…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"설정"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"휴대전화 정보"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"이동통신사 프로비저닝 정보"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"이동통신사 프로비저닝 실행"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"블루투스 신호 강도가 약합니다. 스피커폰으로 전환해 보세요."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"통화 품질 알림"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"지원 중단된 SIP 계정"</string>
 </resources>

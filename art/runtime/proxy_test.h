@@ -22,7 +22,7 @@
 
 #include "art_method-inl.h"
 #include "class_linker-inl.h"
-#include "class_root.h"
+#include "class_root-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/method.h"
 #include "obj_ptr-inl.h"
@@ -33,11 +33,11 @@ namespace proxy_test {
 // Generate a proxy class with the given name and interfaces. This is a simplification from what
 // libcore does to fit to our test needs. We do not check for duplicated interfaces or methods and
 // we do not declare exceptions.
-ObjPtr<mirror::Class> GenerateProxyClass(ScopedObjectAccess& soa,
-                                         jobject jclass_loader,
-                                         ClassLinker* class_linker,
-                                         const char* className,
-                                         const std::vector<Handle<mirror::Class>>& interfaces)
+inline ObjPtr<mirror::Class> GenerateProxyClass(ScopedObjectAccess& soa,
+                                                jobject jclass_loader,
+                                                ClassLinker* class_linker,
+                                                const char* className,
+                                                const std::vector<Handle<mirror::Class>>& interfaces)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::Class> javaLangObject = hs.NewHandle(GetClassRoot<mirror::Object>());
@@ -76,14 +76,14 @@ ObjPtr<mirror::Class> GenerateProxyClass(ScopedObjectAccess& soa,
   DCHECK(!Runtime::Current()->IsActiveTransaction());
   soa.Env()->SetObjectArrayElement(
       proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
-          mirror::Method::CreateFromArtMethod<kRuntimePointerSize, false>(soa.Self(), method)));
+          mirror::Method::CreateFromArtMethod<kRuntimePointerSize>(soa.Self(), method)));
   method = javaLangObject->FindClassMethod("hashCode", "()I", kRuntimePointerSize);
   CHECK(method != nullptr);
   CHECK(!method->IsDirect());
   CHECK(method->GetDeclaringClass() == javaLangObject.Get());
   soa.Env()->SetObjectArrayElement(
       proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
-          mirror::Method::CreateFromArtMethod<kRuntimePointerSize, false>(soa.Self(), method)));
+          mirror::Method::CreateFromArtMethod<kRuntimePointerSize>(soa.Self(), method)));
   method = javaLangObject->FindClassMethod(
       "toString", "()Ljava/lang/String;", kRuntimePointerSize);
   CHECK(method != nullptr);
@@ -91,13 +91,13 @@ ObjPtr<mirror::Class> GenerateProxyClass(ScopedObjectAccess& soa,
   CHECK(method->GetDeclaringClass() == javaLangObject.Get());
   soa.Env()->SetObjectArrayElement(
       proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
-          mirror::Method::CreateFromArtMethod<kRuntimePointerSize, false>(soa.Self(), method)));
+          mirror::Method::CreateFromArtMethod<kRuntimePointerSize>(soa.Self(), method)));
   // Now adds all interfaces virtual methods.
   for (Handle<mirror::Class> interface : interfaces) {
     for (auto& m : interface->GetDeclaredVirtualMethods(kRuntimePointerSize)) {
       soa.Env()->SetObjectArrayElement(
           proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
-              mirror::Method::CreateFromArtMethod<kRuntimePointerSize, false>(soa.Self(), &m)));
+              mirror::Method::CreateFromArtMethod<kRuntimePointerSize>(soa.Self(), &m)));
     }
   }
   CHECK_EQ(array_index, methods_count);

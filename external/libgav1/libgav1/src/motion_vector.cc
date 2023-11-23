@@ -20,109 +20,69 @@
 #include <cstdlib>
 #include <memory>
 
+#include "src/dsp/dsp.h"
 #include "src/utils/bit_mask_set.h"
 #include "src/utils/common.h"
+#include "src/utils/constants.h"
 #include "src/utils/logging.h"
 
 namespace libgav1 {
 namespace {
 
-constexpr int kMvBorder = 128;
-constexpr int kProjectionMvClamp = 16383;
-constexpr int kProjectionMvMaxVerticalOffset = 0;
-constexpr int kProjectionMvMaxHorizontalOffset = 8;
-constexpr int kInvalidMvValue = -32768;
-
-// Applies the sign of |sign_value| to |value| (and does so without a branch).
-int ApplySign(int value, int sign_value) {
-  static_assert(sizeof(int) == 4, "");
-  // The next three lines are the branch free equivalent of:
-  // return (sign_value > 0) ? value : -value;
-  const int a = sign_value >> 31;
-  const int b = value ^ a;
-  return b - a;
-}
+// Entry at index i is computed as:
+// Clip3(std::max(kBlockWidthPixels[i], kBlockHeightPixels[i], 16, 112)).
+constexpr int kWarpValidThreshold[kMaxBlockSizes] = {
+    16, 16, 16, 16, 16, 16, 32, 16, 16,  16,  32,
+    64, 32, 32, 32, 64, 64, 64, 64, 112, 112, 112};
 
 // 7.10.2.10.
-void LowerMvPrecision(const Tile::Block& block, int* const mv) {
-  assert(mv != nullptr);
-  if (block.tile.frame_header().allow_high_precision_mv) return;
-  for (int i = 0; i < 2; ++i) {
-    if (block.tile.frame_header().force_integer_mv != 0) {
-      mv[i] = ApplySign(MultiplyBy8(DivideBy8(std::abs(mv[i]) + 3)), mv[i]);
-    } else {
-      if ((mv[i] & 1) != 0) {
-        // The next line is equivalent to:
-        // if (mv[i] > 0) { --mv[i]; } else { ++mv[i]; }
-        mv[i] += ApplySign(-1, mv[i]);
-      }
+void LowerMvPrecision(const ObuFrameHeader& frame_header,
+                      MotionVector* const mvs) {
+  if (frame_header.allow_high_precision_mv) return;
+  if (frame_header.force_integer_mv != 0) {
+    for (auto& mv : mvs->mv) {
+      // The next line is equivalent to:
+      // const int value = (std::abs(static_cast<int>(mv)) + 3) & ~7;
+      // const int sign = mv >> 15;
+      // mv = ApplySign(value, sign);
+      mv = (mv + 3 - (mv >> 15)) & ~7;
     }
-  }
-}
-
-constexpr int16_t kDivisionLookup[32] = {
-    0,    16384, 8192, 5461, 4096, 3276, 2730, 2340, 2048, 1820, 1638,
-    1489, 1365,  1260, 1170, 1092, 1024, 963,  910,  862,  819,  780,
-    744,  712,   682,  655,  630,  606,  585,  564,  546,  528};
-
-// 7.9.3.
-void GetMvProjection(const MotionVector& mv, int numerator, int denominator,
-                     MotionVector* const projection_mv) {
-  denominator = std::min(denominator, static_cast<int>(kMaxFrameDistance));
-  numerator = Clip3(numerator, -kMaxFrameDistance, kMaxFrameDistance);
-  for (int i = 0; i < 2; ++i) {
-    projection_mv->mv[i] =
-        Clip3(RightShiftWithRoundingSigned(
-                  mv.mv[i] * numerator * kDivisionLookup[denominator], 14),
-              -kProjectionMvClamp, kProjectionMvClamp);
-  }
-}
-
-// 7.9.3. (without the Clip3).
-void GetMvProjectionNoClamp(const MotionVector& mv, int numerator,
-                            int denominator,
-                            MotionVector* const projection_mv) {
-  assert(std::abs(numerator) <= kMaxFrameDistance);
-  assert(denominator <= kMaxFrameDistance);
-  for (int i = 0; i < 2; ++i) {
-    projection_mv->mv[i] = RightShiftWithRoundingSigned(
-        mv.mv[i] * numerator * kDivisionLookup[denominator], 14);
+  } else {
+    for (auto& mv : mvs->mv) {
+      // The next line is equivalent to:
+      // if ((mv & 1) != 0) mv += (mv > 0) ? -1 : 1;
+      mv = (mv - (mv >> 15)) & ~1;
+    }
   }
 }
 
 // 7.10.2.1.
 void SetupGlobalMv(const Tile::Block& block, int index,
                    MotionVector* const mv) {
-  const auto& bp = block.parameters();
+  const BlockParameters& bp = *block.bp;
+  const ObuFrameHeader& frame_header = block.tile.frame_header();
   ReferenceFrameType reference_type = bp.reference_frame[index];
-  const auto& gm = block.tile.frame_header().global_motion[reference_type];
-  GlobalMotionTransformationType global_motion_type =
-      (reference_type != kReferenceFrameIntra)
-          ? gm.type
-          : kNumGlobalMotionTransformationTypes;
+  const auto& gm = frame_header.global_motion[reference_type];
   if (reference_type == kReferenceFrameIntra ||
-      global_motion_type == kGlobalMotionTransformationTypeIdentity) {
-    mv->mv[MotionVector::kRow] = 0;
-    mv->mv[MotionVector::kColumn] = 0;
+      gm.type == kGlobalMotionTransformationTypeIdentity) {
+    mv->mv32 = 0;
     return;
   }
-  if (global_motion_type == kGlobalMotionTransformationTypeTranslation) {
+  if (gm.type == kGlobalMotionTransformationTypeTranslation) {
     for (int i = 0; i < 2; ++i) {
       mv->mv[i] = gm.params[i] >> (kWarpedModelPrecisionBits - 3);
     }
-    LowerMvPrecision(block, mv->mv);
+    LowerMvPrecision(frame_header, mv);
     return;
   }
-  const int x = MultiplyBy4(block.column4x4) +
-                DivideBy2(kBlockWidthPixels[block.size]) - 1;
-  const int y =
-      MultiplyBy4(block.row4x4) + DivideBy2(kBlockHeightPixels[block.size]) - 1;
+  const int x = MultiplyBy4(block.column4x4) + DivideBy2(block.width) - 1;
+  const int y = MultiplyBy4(block.row4x4) + DivideBy2(block.height) - 1;
   const int xc = (gm.params[2] - (1 << kWarpedModelPrecisionBits)) * x +
                  gm.params[3] * y + gm.params[0];
   const int yc = gm.params[4] * x +
                  (gm.params[5] - (1 << kWarpedModelPrecisionBits)) * y +
                  gm.params[1];
-  if (block.tile.frame_header().allow_high_precision_mv) {
+  if (frame_header.allow_high_precision_mv) {
     mv->mv[MotionVector::kRow] =
         RightShiftWithRoundingSigned(yc, kWarpedModelPrecisionBits - 3);
     mv->mv[MotionVector::kColumn] =
@@ -132,7 +92,7 @@ void SetupGlobalMv(const Tile::Block& block, int index,
         RightShiftWithRoundingSigned(yc, kWarpedModelPrecisionBits - 2));
     mv->mv[MotionVector::kColumn] = MultiplyBy2(
         RightShiftWithRoundingSigned(xc, kWarpedModelPrecisionBits - 2));
-    LowerMvPrecision(block, mv->mv);
+    LowerMvPrecision(frame_header, mv);
   }
 }
 
@@ -144,255 +104,284 @@ constexpr BitMaskSet kPredictionModeNewMvMask(kPredictionModeNewMv,
                                               kPredictionModeNewNearestMv);
 
 // 7.10.2.8.
-void SearchStackSingle(const Tile::Block& block, int row, int column, int index,
-                       int weight, MotionVector global_mv_candidate[2],
-                       bool* const found_new_mv, bool* const found_match,
-                       int* const num_mv_found,
-                       CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
-  const auto& bp = block.tile.Parameters(row, column);
-  const PredictionMode candidate_mode = bp.y_mode;
-  const BlockSize candidate_size = bp.size;
+void SearchStack(const Tile::Block& block, const BlockParameters& mv_bp,
+                 int index, int weight, bool* const found_new_mv,
+                 bool* const found_match, int* const num_mv_found) {
+  const BlockParameters& bp = *block.bp;
+  const std::array<GlobalMotion, kNumReferenceFrameTypes>& global_motion =
+      block.tile.frame_header().global_motion;
+  PredictionParameters& prediction_parameters = *bp.prediction_parameters;
   MotionVector candidate_mv;
-  const auto global_motion_type =
-      block.tile.frame_header()
-          .global_motion[block.parameters().reference_frame[0]]
-          .type;
-  if (IsGlobalMvBlock(candidate_mode, global_motion_type, candidate_size)) {
-    candidate_mv = global_mv_candidate[0];
+  // LowerMvPrecision() is not necessary, since the values in
+  // |prediction_parameters.global_mv| and |mv_bp.mv| were generated by it.
+  const auto global_motion_type = global_motion[bp.reference_frame[0]].type;
+  if (IsGlobalMvBlock(mv_bp.is_global_mv_block, global_motion_type)) {
+    candidate_mv = prediction_parameters.global_mv[0];
   } else {
-    candidate_mv = bp.mv[index];
+    candidate_mv = mv_bp.mv.mv[index];
   }
-  LowerMvPrecision(block, candidate_mv.mv);
-  *found_new_mv |= kPredictionModeNewMvMask.Contains(candidate_mode);
+  *found_new_mv |= kPredictionModeNewMvMask.Contains(mv_bp.y_mode);
   *found_match = true;
-  for (int i = 0; i < *num_mv_found; ++i) {
-    if (ref_mv_stack[i].mv[0] == candidate_mv) {
-      ref_mv_stack[i].weight += weight;
-      return;
-    }
+  MotionVector* const ref_mv_stack = prediction_parameters.ref_mv_stack;
+  const int num_found = *num_mv_found;
+  const auto result = std::find_if(ref_mv_stack, ref_mv_stack + num_found,
+                                   [&candidate_mv](const MotionVector& ref_mv) {
+                                     return ref_mv == candidate_mv;
+                                   });
+  if (result != ref_mv_stack + num_found) {
+    prediction_parameters.IncreaseWeight(std::distance(ref_mv_stack, result),
+                                         weight);
+    return;
   }
-  if (*num_mv_found >= kMaxRefMvStackSize) return;
-  ref_mv_stack[*num_mv_found] = {{candidate_mv, {}}, weight};
+  if (num_found >= kMaxRefMvStackSize) return;
+  ref_mv_stack[num_found] = candidate_mv;
+  prediction_parameters.SetWeightIndexStackEntry(num_found, weight);
   ++*num_mv_found;
 }
 
 // 7.10.2.9.
-void SearchStackCompound(
-    const Tile::Block& block, int row, int column, int weight,
-    MotionVector global_mv_candidate[2], bool* const found_new_mv,
-    bool* const found_match, int* const num_mv_found,
-    CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
-  const auto& bp = block.tile.Parameters(row, column);
-  const PredictionMode candidate_mode = bp.y_mode;
-  const BlockSize candidate_size = bp.size;
-  MotionVector candidate_mv[2];
+void CompoundSearchStack(const Tile::Block& block, const BlockParameters& mv_bp,
+                         int weight, bool* const found_new_mv,
+                         bool* const found_match, int* const num_mv_found) {
+  const BlockParameters& bp = *block.bp;
+  const std::array<GlobalMotion, kNumReferenceFrameTypes>& global_motion =
+      block.tile.frame_header().global_motion;
+  PredictionParameters& prediction_parameters = *bp.prediction_parameters;
+  // LowerMvPrecision() is not necessary, since the values in
+  // |prediction_parameters.global_mv| and |mv_bp.mv| were generated by it.
+  CompoundMotionVector candidate_mv = mv_bp.mv;
   for (int i = 0; i < 2; ++i) {
-    const auto global_motion_type =
-        block.tile.frame_header()
-            .global_motion[block.parameters().reference_frame[i]]
-            .type;
-    if (IsGlobalMvBlock(candidate_mode, global_motion_type, candidate_size)) {
-      candidate_mv[i] = global_mv_candidate[i];
-    } else {
-      candidate_mv[i] = bp.mv[i];
+    const auto global_motion_type = global_motion[bp.reference_frame[i]].type;
+    if (IsGlobalMvBlock(mv_bp.is_global_mv_block, global_motion_type)) {
+      candidate_mv.mv[i] = prediction_parameters.global_mv[i];
     }
-    LowerMvPrecision(block, candidate_mv[i].mv);
   }
-  *found_new_mv |= kPredictionModeNewMvMask.Contains(candidate_mode);
+  *found_new_mv |= kPredictionModeNewMvMask.Contains(mv_bp.y_mode);
   *found_match = true;
-  for (int i = 0; i < *num_mv_found; ++i) {
-    if (ref_mv_stack[i].mv[0] == candidate_mv[0] &&
-        ref_mv_stack[i].mv[1] == candidate_mv[1]) {
-      ref_mv_stack[i].weight += weight;
-      return;
-    }
+  CompoundMotionVector* const compound_ref_mv_stack =
+      prediction_parameters.compound_ref_mv_stack;
+  const int num_found = *num_mv_found;
+  const auto result =
+      std::find_if(compound_ref_mv_stack, compound_ref_mv_stack + num_found,
+                   [&candidate_mv](const CompoundMotionVector& ref_mv) {
+                     return ref_mv == candidate_mv;
+                   });
+  if (result != compound_ref_mv_stack + num_found) {
+    prediction_parameters.IncreaseWeight(
+        std::distance(compound_ref_mv_stack, result), weight);
+    return;
   }
-  if (*num_mv_found >= kMaxRefMvStackSize) return;
-  ref_mv_stack[*num_mv_found] = {{candidate_mv[0], candidate_mv[1]}, weight};
+  if (num_found >= kMaxRefMvStackSize) return;
+  compound_ref_mv_stack[num_found] = candidate_mv;
+  prediction_parameters.SetWeightIndexStackEntry(num_found, weight);
   ++*num_mv_found;
 }
 
 // 7.10.2.7.
-void AddReferenceMvCandidate(
-    const Tile::Block& block, int row, int column, bool is_compound, int weight,
-    MotionVector global_mv[2], bool* const found_new_mv,
-    bool* const found_match, int* const num_mv_found,
-    CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
-  const auto& bp = block.tile.Parameters(row, column);
-  if (!bp.is_inter) return;
+void AddReferenceMvCandidate(const Tile::Block& block,
+                             const BlockParameters& mv_bp, bool is_compound,
+                             int weight, bool* const found_new_mv,
+                             bool* const found_match, int* const num_mv_found) {
+  if (!mv_bp.is_inter) return;
+  const BlockParameters& bp = *block.bp;
   if (is_compound) {
-    if (bp.reference_frame[0] == block.parameters().reference_frame[0] &&
-        bp.reference_frame[1] == block.parameters().reference_frame[1]) {
-      SearchStackCompound(block, row, column, weight, global_mv, found_new_mv,
-                          found_match, num_mv_found, ref_mv_stack);
+    if (mv_bp.reference_frame[0] == bp.reference_frame[0] &&
+        mv_bp.reference_frame[1] == bp.reference_frame[1]) {
+      CompoundSearchStack(block, mv_bp, weight, found_new_mv, found_match,
+                          num_mv_found);
     }
     return;
   }
   for (int i = 0; i < 2; ++i) {
-    if (bp.reference_frame[i] == block.parameters().reference_frame[0]) {
-      SearchStackSingle(block, row, column, i, weight, global_mv, found_new_mv,
-                        found_match, num_mv_found, ref_mv_stack);
+    if (mv_bp.reference_frame[i] == bp.reference_frame[0]) {
+      SearchStack(block, mv_bp, i, weight, found_new_mv, found_match,
+                  num_mv_found);
     }
   }
 }
 
+int GetMinimumStep(int block_width_or_height4x4, int delta_row_or_column) {
+  assert(delta_row_or_column < 0);
+  if (block_width_or_height4x4 >= 16) return 4;
+  if (delta_row_or_column < -1) return 2;
+  return 0;
+}
+
 // 7.10.2.2.
-void ScanRow(const Tile::Block& block, int delta_row, bool is_compound,
-             MotionVector global_mv[2], bool* const found_new_mv,
-             bool* const found_match, int* const num_mv_found,
-             CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
-  const int block_width4x4 = kNum4x4BlocksWide[block.size];
-  int delta_column = 0;
-  if (std::abs(delta_row) > 1) {
-    delta_row += block.row4x4 & 1;
-    delta_column = 1 - (block.column4x4 & 1);
-  }
-  const int end_mv_column =
-      block.column4x4 + delta_column +
-      std::min({block_width4x4,
-                block.tile.frame_header().columns4x4 - block.column4x4, 16});
+void ScanRow(const Tile::Block& block, int mv_column, int delta_row,
+             bool is_compound, bool* const found_new_mv,
+             bool* const found_match, int* const num_mv_found) {
   const int mv_row = block.row4x4 + delta_row;
-  for (int step, mv_column = block.column4x4 + delta_column;
-       mv_column < end_mv_column; mv_column += step) {
-    if (!block.tile.IsInside(mv_row, mv_column)) break;
-    step = std::min(
-        block_width4x4,
-        static_cast<int>(
-            kNum4x4BlocksWide[block.tile.Parameters(mv_row, mv_column).size]));
-    if (std::abs(delta_row) > 1) step = std::max(step, 2);
-    if (block_width4x4 >= 16) step = std::max(step, 4);
-    AddReferenceMvCandidate(block, mv_row, mv_column, is_compound,
-                            MultiplyBy2(step), global_mv, found_new_mv,
-                            found_match, num_mv_found, ref_mv_stack);
-  }
+  const Tile& tile = block.tile;
+  if (!tile.IsTopInside(mv_row + 1)) return;
+  const int width4x4 = block.width4x4;
+  const int min_step = GetMinimumStep(width4x4, delta_row);
+  BlockParameters** bps = tile.BlockParametersAddress(mv_row, mv_column);
+  BlockParameters** const end_bps =
+      bps + std::min({static_cast<int>(width4x4),
+                      tile.frame_header().columns4x4 - block.column4x4, 16});
+  do {
+    const BlockParameters& mv_bp = **bps;
+    const int step = std::max(
+        std::min(width4x4, static_cast<int>(kNum4x4BlocksWide[mv_bp.size])),
+        min_step);
+    AddReferenceMvCandidate(block, mv_bp, is_compound, MultiplyBy2(step),
+                            found_new_mv, found_match, num_mv_found);
+    bps += step;
+  } while (bps < end_bps);
 }
 
 // 7.10.2.3.
-void ScanColumn(const Tile::Block& block, int delta_column, bool is_compound,
-                MotionVector global_mv[2], bool* const found_new_mv,
-                bool* const found_match, int* const num_mv_found,
-                CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
-  const int block_height4x4 = kNum4x4BlocksHigh[block.size];
-  int delta_row = 0;
-  if (std::abs(delta_column) > 1) {
-    delta_row = 1 - (block.row4x4 & 1);
-    delta_column += block.column4x4 & 1;
-  }
-  const int end_mv_row =
-      block.row4x4 + delta_row +
-      std::min({block_height4x4,
-                block.tile.frame_header().rows4x4 - block.row4x4, 16});
+void ScanColumn(const Tile::Block& block, int mv_row, int delta_column,
+                bool is_compound, bool* const found_new_mv,
+                bool* const found_match, int* const num_mv_found) {
   const int mv_column = block.column4x4 + delta_column;
-  for (int step, mv_row = block.row4x4 + delta_row; mv_row < end_mv_row;
-       mv_row += step) {
-    if (!block.tile.IsInside(mv_row, mv_column)) break;
-    step = std::min(
-        block_height4x4,
-        static_cast<int>(
-            kNum4x4BlocksHigh[block.tile.Parameters(mv_row, mv_column).size]));
-    if (std::abs(delta_column) > 1) step = std::max(step, 2);
-    if (block_height4x4 >= 16) step = std::max(step, 4);
-    AddReferenceMvCandidate(block, mv_row, mv_column, is_compound,
-                            MultiplyBy2(step), global_mv, found_new_mv,
-                            found_match, num_mv_found, ref_mv_stack);
-  }
+  const Tile& tile = block.tile;
+  if (!tile.IsLeftInside(mv_column + 1)) return;
+  const int height4x4 = block.height4x4;
+  const int min_step = GetMinimumStep(height4x4, delta_column);
+  const ptrdiff_t stride = tile.BlockParametersStride();
+  BlockParameters** bps = tile.BlockParametersAddress(mv_row, mv_column);
+  BlockParameters** const end_bps =
+      bps + stride * std::min({static_cast<int>(height4x4),
+                               tile.frame_header().rows4x4 - block.row4x4, 16});
+  do {
+    const BlockParameters& mv_bp = **bps;
+    const int step = std::max(
+        std::min(height4x4, static_cast<int>(kNum4x4BlocksHigh[mv_bp.size])),
+        min_step);
+    AddReferenceMvCandidate(block, mv_bp, is_compound, MultiplyBy2(step),
+                            found_new_mv, found_match, num_mv_found);
+    bps += step * stride;
+  } while (bps < end_bps);
 }
 
 // 7.10.2.4.
 void ScanPoint(const Tile::Block& block, int delta_row, int delta_column,
-               bool is_compound, MotionVector global_mv[2],
-               bool* const found_new_mv, bool* const found_match,
-               int* const num_mv_found,
-               CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
+               bool is_compound, bool* const found_new_mv,
+               bool* const found_match, int* const num_mv_found) {
   const int mv_row = block.row4x4 + delta_row;
   const int mv_column = block.column4x4 + delta_column;
-  if (!block.tile.IsInside(mv_row, mv_column) ||
-      !block.tile.HasParameters(mv_row, mv_column) ||
-      block.tile.Parameters(mv_row, mv_column).reference_frame[0] ==
-          kReferenceFrameNone) {
+  const Tile& tile = block.tile;
+  if (!tile.IsInside(mv_row, mv_column) ||
+      !tile.HasParameters(mv_row, mv_column)) {
     return;
   }
-  AddReferenceMvCandidate(block, mv_row, mv_column, is_compound, 4, global_mv,
-                          found_new_mv, found_match, num_mv_found,
-                          ref_mv_stack);
+  const BlockParameters& mv_bp = tile.Parameters(mv_row, mv_column);
+  if (mv_bp.reference_frame[0] == kReferenceFrameNone) return;
+  AddReferenceMvCandidate(block, mv_bp, is_compound, 4, found_new_mv,
+                          found_match, num_mv_found);
 }
 
 // 7.10.2.6.
-//
-// The |zero_mv_context| output parameter may be null. If |zero_mv_context| is
-// not null, the function may set |*zero_mv_context|.
 void AddTemporalReferenceMvCandidate(
-    const Tile::Block& block, int delta_row, int delta_column, bool is_compound,
-    MotionVector global_mv[2],
-    const Array2D<TemporalMotionVector>& motion_field_mv,
+    const ObuFrameHeader& frame_header, const int reference_offsets[2],
+    const MotionVector* const temporal_mvs,
+    const int8_t* const temporal_reference_offsets, int count, bool is_compound,
     int* const zero_mv_context, int* const num_mv_found,
-    CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
-  const int mv_row = (block.row4x4 + delta_row) | 1;
-  const int mv_column = (block.column4x4 + delta_column) | 1;
-  if (!block.tile.IsInside(mv_row, mv_column)) return;
-  const int x8 = mv_column >> 1;
-  const int y8 = mv_row >> 1;
-  if (zero_mv_context != nullptr && delta_row == 0 && delta_column == 0) {
-    *zero_mv_context = 1;
-  }
-  const auto& bp = block.parameters();
-  const TemporalMotionVector& temporal_mv = motion_field_mv[y8][x8];
-  if (temporal_mv.mv.mv[0] == kInvalidMvValue) return;
+    PredictionParameters* const prediction_parameters) {
+  const int mv_projection_function_index =
+      frame_header.allow_high_precision_mv ? 2 : frame_header.force_integer_mv;
+  const MotionVector* const global_mv = prediction_parameters->global_mv;
   if (is_compound) {
-    MotionVector candidate_mv[2];
-    for (int i = 0; i < 2; ++i) {
-      const int reference_offset = GetRelativeDistance(
-          block.tile.frame_header().order_hint,
-          block.tile.current_frame().order_hint(bp.reference_frame[i]),
-          block.tile.sequence_header().enable_order_hint,
-          block.tile.sequence_header().order_hint_bits);
-      GetMvProjection(temporal_mv.mv, reference_offset,
-                      temporal_mv.reference_offset, &candidate_mv[i]);
-      LowerMvPrecision(block, candidate_mv[i].mv);
+    CompoundMotionVector candidate_mvs[kMaxTemporalMvCandidatesWithPadding];
+    const dsp::Dsp& dsp = *dsp::GetDspTable(8);
+    dsp.mv_projection_compound[mv_projection_function_index](
+        temporal_mvs, temporal_reference_offsets, reference_offsets, count,
+        candidate_mvs);
+    if (*zero_mv_context == -1) {
+      int max_difference =
+          std::max(std::abs(candidate_mvs[0].mv[0].mv[0] - global_mv[0].mv[0]),
+                   std::abs(candidate_mvs[0].mv[0].mv[1] - global_mv[0].mv[1]));
+      max_difference =
+          std::max(max_difference,
+                   std::abs(candidate_mvs[0].mv[1].mv[0] - global_mv[1].mv[0]));
+      max_difference =
+          std::max(max_difference,
+                   std::abs(candidate_mvs[0].mv[1].mv[1] - global_mv[1].mv[1]));
+      *zero_mv_context = static_cast<int>(max_difference >= 16);
     }
-    if (zero_mv_context != nullptr && delta_row == 0 && delta_column == 0) {
-      *zero_mv_context = static_cast<int>(
-          std::abs(candidate_mv[0].mv[0] - global_mv[0].mv[0]) >= 16 ||
-          std::abs(candidate_mv[0].mv[1] - global_mv[0].mv[1]) >= 16 ||
-          std::abs(candidate_mv[1].mv[0] - global_mv[1].mv[0]) >= 16 ||
-          std::abs(candidate_mv[1].mv[1] - global_mv[1].mv[1]) >= 16);
-    }
-    for (int i = 0; i < *num_mv_found; ++i) {
-      if (ref_mv_stack[i].mv[0] == candidate_mv[0] &&
-          ref_mv_stack[i].mv[1] == candidate_mv[1]) {
-        ref_mv_stack[i].weight += 2;
-        return;
+    CompoundMotionVector* const compound_ref_mv_stack =
+        prediction_parameters->compound_ref_mv_stack;
+    int num_found = *num_mv_found;
+    int index = 0;
+    do {
+      const CompoundMotionVector& candidate_mv = candidate_mvs[index];
+      const auto result =
+          std::find_if(compound_ref_mv_stack, compound_ref_mv_stack + num_found,
+                       [&candidate_mv](const CompoundMotionVector& ref_mv) {
+                         return ref_mv == candidate_mv;
+                       });
+      if (result != compound_ref_mv_stack + num_found) {
+        prediction_parameters->IncreaseWeight(
+            std::distance(compound_ref_mv_stack, result), 2);
+        continue;
       }
+      if (num_found >= kMaxRefMvStackSize) continue;
+      compound_ref_mv_stack[num_found] = candidate_mv;
+      prediction_parameters->SetWeightIndexStackEntry(num_found, 2);
+      ++num_found;
+    } while (++index < count);
+    *num_mv_found = num_found;
+    return;
+  }
+  MotionVector* const ref_mv_stack = prediction_parameters->ref_mv_stack;
+  if (reference_offsets[0] == 0) {
+    if (*zero_mv_context == -1) {
+      const int max_difference =
+          std::max(std::abs(global_mv[0].mv[0]), std::abs(global_mv[0].mv[1]));
+      *zero_mv_context = static_cast<int>(max_difference >= 16);
     }
-    if (*num_mv_found >= kMaxRefMvStackSize) return;
-    ref_mv_stack[*num_mv_found] = {{candidate_mv[0], candidate_mv[1]}, 2};
+    const MotionVector candidate_mv = {};
+    const int num_found = *num_mv_found;
+    const auto result =
+        std::find_if(ref_mv_stack, ref_mv_stack + num_found,
+                     [&candidate_mv](const MotionVector& ref_mv) {
+                       return ref_mv == candidate_mv;
+                     });
+    if (result != ref_mv_stack + num_found) {
+      prediction_parameters->IncreaseWeight(std::distance(ref_mv_stack, result),
+                                            2 * count);
+      return;
+    }
+    if (num_found >= kMaxRefMvStackSize) return;
+    ref_mv_stack[num_found] = candidate_mv;
+    prediction_parameters->SetWeightIndexStackEntry(num_found, 2 * count);
     ++*num_mv_found;
     return;
   }
-  assert(!is_compound);
-  MotionVector candidate_mv;
-  const int reference_offset = GetRelativeDistance(
-      block.tile.frame_header().order_hint,
-      block.tile.current_frame().order_hint(bp.reference_frame[0]),
-      block.tile.sequence_header().enable_order_hint,
-      block.tile.sequence_header().order_hint_bits);
-  GetMvProjection(temporal_mv.mv, reference_offset,
-                  temporal_mv.reference_offset, &candidate_mv);
-  LowerMvPrecision(block, candidate_mv.mv);
-  if (zero_mv_context != nullptr && delta_row == 0 && delta_column == 0) {
-    *zero_mv_context = static_cast<int>(
-        std::abs(candidate_mv.mv[0] - global_mv[0].mv[0]) >= 16 ||
-        std::abs(candidate_mv.mv[1] - global_mv[0].mv[1]) >= 16);
+  alignas(kMaxAlignment)
+      MotionVector candidate_mvs[kMaxTemporalMvCandidatesWithPadding];
+  const dsp::Dsp& dsp = *dsp::GetDspTable(8);
+  dsp.mv_projection_single[mv_projection_function_index](
+      temporal_mvs, temporal_reference_offsets, reference_offsets[0], count,
+      candidate_mvs);
+  if (*zero_mv_context == -1) {
+    const int max_difference =
+        std::max(std::abs(candidate_mvs[0].mv[0] - global_mv[0].mv[0]),
+                 std::abs(candidate_mvs[0].mv[1] - global_mv[0].mv[1]));
+    *zero_mv_context = static_cast<int>(max_difference >= 16);
   }
-  for (int i = 0; i < *num_mv_found; ++i) {
-    if (ref_mv_stack[i].mv[0] == candidate_mv) {
-      ref_mv_stack[i].weight += 2;
-      return;
+  int num_found = *num_mv_found;
+  int index = 0;
+  do {
+    const MotionVector& candidate_mv = candidate_mvs[index];
+    const auto result =
+        std::find_if(ref_mv_stack, ref_mv_stack + num_found,
+                     [&candidate_mv](const MotionVector& ref_mv) {
+                       return ref_mv == candidate_mv;
+                     });
+    if (result != ref_mv_stack + num_found) {
+      prediction_parameters->IncreaseWeight(std::distance(ref_mv_stack, result),
+                                            2);
+      continue;
     }
-  }
-  if (*num_mv_found >= kMaxRefMvStackSize) return;
-  ref_mv_stack[*num_mv_found] = {{candidate_mv, {}}, 2};
-  ++*num_mv_found;
+    if (num_found >= kMaxRefMvStackSize) continue;
+    ref_mv_stack[num_found] = candidate_mv;
+    prediction_parameters->SetWeightIndexStackEntry(num_found, 2);
+    ++num_found;
+  } while (++index < count);
+  *num_mv_found = num_found;
 }
 
 // Part of 7.10.2.5.
@@ -400,63 +389,142 @@ bool IsWithinTheSame64x64Block(const Tile::Block& block, int delta_row,
                                int delta_column) {
   const int row = (block.row4x4 & 15) + delta_row;
   const int column = (block.column4x4 & 15) + delta_column;
-  return row >= 0 && row < 16 && column >= 0 && column < 16;
+  // |block.height4x4| is at least 2 for all elements in |kTemporalScanMask|.
+  // So |row| are all non-negative.
+  assert(row >= 0);
+  return row < 16 && column >= 0 && column < 16;
 }
 
+constexpr BitMaskSet kTemporalScanMask(kBlock8x8, kBlock8x16, kBlock8x32,
+                                       kBlock16x8, kBlock16x16, kBlock16x32,
+                                       kBlock32x8, kBlock32x16, kBlock32x32);
+
 // 7.10.2.5.
-//
-// The |zero_mv_context| output parameter may be null. If |zero_mv_context| is
-// not null, the function may set |*zero_mv_context|.
 void TemporalScan(const Tile::Block& block, bool is_compound,
-                  MotionVector global_mv[2],
-                  const Array2D<TemporalMotionVector>& motion_field_mv,
-                  int* const zero_mv_context, int* const num_mv_found,
-                  CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
-  const int block_width4x4 = kNum4x4BlocksWide[block.size];
-  const int block_height4x4 = kNum4x4BlocksHigh[block.size];
-  const int step_w = (block_width4x4 >= 16) ? 4 : 2;
-  const int step_h = (block_height4x4 >= 16) ? 4 : 2;
-  for (int row = 0; row < std::min(block_height4x4, 16); row += step_h) {
-    for (int column = 0; column < std::min(block_width4x4, 16);
-         column += step_w) {
-      AddTemporalReferenceMvCandidate(
-          block, row, column, is_compound, global_mv, motion_field_mv,
-          zero_mv_context, num_mv_found, ref_mv_stack);
+                  int* const zero_mv_context, int* const num_mv_found) {
+  const int step_w = (block.width4x4 >= 16) ? 4 : 2;
+  const int step_h = (block.height4x4 >= 16) ? 4 : 2;
+  const int row_start = block.row4x4 | 1;
+  const int column_start = block.column4x4 | 1;
+  const int row_end =
+      row_start + std::min(static_cast<int>(block.height4x4), 16);
+  const int column_end =
+      column_start + std::min(static_cast<int>(block.width4x4), 16);
+  const Tile& tile = block.tile;
+  const TemporalMotionField& motion_field = tile.motion_field();
+  const int stride = motion_field.mv.columns();
+  const MotionVector* motion_field_mv = motion_field.mv[0];
+  const int8_t* motion_field_reference_offset =
+      motion_field.reference_offset[0];
+  alignas(kMaxAlignment)
+      MotionVector temporal_mvs[kMaxTemporalMvCandidatesWithPadding];
+  int8_t temporal_reference_offsets[kMaxTemporalMvCandidatesWithPadding];
+  int count = 0;
+  int offset = stride * (row_start >> 1);
+  int mv_row = row_start;
+  do {
+    int mv_column = column_start;
+    do {
+      // Both horizontal and vertical offsets are positive. Only bottom and
+      // right boundaries need to be checked.
+      if (tile.IsBottomRightInside(mv_row, mv_column)) {
+        const int x8 = mv_column >> 1;
+        const MotionVector temporal_mv = motion_field_mv[offset + x8];
+        if (temporal_mv.mv[0] == kInvalidMvValue) {
+          if (mv_row == row_start && mv_column == column_start) {
+            *zero_mv_context = 1;
+          }
+        } else {
+          temporal_mvs[count] = temporal_mv;
+          temporal_reference_offsets[count++] =
+              motion_field_reference_offset[offset + x8];
+        }
+      }
+      mv_column += step_w;
+    } while (mv_column < column_end);
+    offset += stride * step_h >> 1;
+    mv_row += step_h;
+  } while (mv_row < row_end);
+  if (kTemporalScanMask.Contains(block.size)) {
+    const int temporal_sample_positions[3][2] = {
+        {block.height4x4, -2},
+        {block.height4x4, block.width4x4},
+        {block.height4x4 - 2, block.width4x4}};
+    // Getting the address of an element in Array2D is slow. Precalculate the
+    // offsets.
+    int temporal_sample_offsets[3];
+    temporal_sample_offsets[0] = stride * ((row_start + block.height4x4) >> 1) +
+                                 ((column_start - 2) >> 1);
+    temporal_sample_offsets[1] =
+        temporal_sample_offsets[0] + ((block.width4x4 + 2) >> 1);
+    temporal_sample_offsets[2] = temporal_sample_offsets[1] - stride;
+    for (int i = 0; i < 3; i++) {
+      const int row = temporal_sample_positions[i][0];
+      const int column = temporal_sample_positions[i][1];
+      if (!IsWithinTheSame64x64Block(block, row, column)) continue;
+      const int mv_row = row_start + row;
+      const int mv_column = column_start + column;
+      // IsWithinTheSame64x64Block() guarantees the reference block is inside
+      // the top and left boundary.
+      if (!tile.IsBottomRightInside(mv_row, mv_column)) continue;
+      const MotionVector temporal_mv =
+          motion_field_mv[temporal_sample_offsets[i]];
+      if (temporal_mv.mv[0] != kInvalidMvValue) {
+        temporal_mvs[count] = temporal_mv;
+        temporal_reference_offsets[count++] =
+            motion_field_reference_offset[temporal_sample_offsets[i]];
+      }
     }
   }
-  if (block_height4x4 >= kNum4x4BlocksHigh[kBlock8x8] &&
-      block_height4x4 < kNum4x4BlocksHigh[kBlock64x64] &&
-      block_width4x4 >= kNum4x4BlocksWide[kBlock8x8] &&
-      block_width4x4 < kNum4x4BlocksWide[kBlock64x64]) {
-    const int temporal_sample_positions[3][2] = {
-        {block_height4x4, -2},
-        {block_height4x4, block_width4x4},
-        {block_height4x4 - 2, block_width4x4}};
-    for (const auto& temporal_sample_position : temporal_sample_positions) {
-      const int row = temporal_sample_position[0];
-      const int column = temporal_sample_position[1];
-      if (!IsWithinTheSame64x64Block(block, row, column)) continue;
-      AddTemporalReferenceMvCandidate(
-          block, row, column, is_compound, global_mv, motion_field_mv,
-          zero_mv_context, num_mv_found, ref_mv_stack);
+  if (count != 0) {
+    BlockParameters* const bp = block.bp;
+    int reference_offsets[2];
+    const int offset_0 = tile.current_frame()
+                             .reference_info()
+                             ->relative_distance_to[bp->reference_frame[0]];
+    reference_offsets[0] =
+        Clip3(offset_0, -kMaxFrameDistance, kMaxFrameDistance);
+    if (is_compound) {
+      const int offset_1 = tile.current_frame()
+                               .reference_info()
+                               ->relative_distance_to[bp->reference_frame[1]];
+      reference_offsets[1] =
+          Clip3(offset_1, -kMaxFrameDistance, kMaxFrameDistance);
+      // Pad so that SIMD implementations won't read uninitialized memory.
+      if ((count & 1) != 0) {
+        temporal_mvs[count].mv32 = 0;
+        temporal_reference_offsets[count] = 0;
+      }
+    } else {
+      // Pad so that SIMD implementations won't read uninitialized memory.
+      for (int i = count; i < ((count + 3) & ~3); ++i) {
+        temporal_mvs[i].mv32 = 0;
+        temporal_reference_offsets[i] = 0;
+      }
     }
+    AddTemporalReferenceMvCandidate(
+        tile.frame_header(), reference_offsets, temporal_mvs,
+        temporal_reference_offsets, count, is_compound, zero_mv_context,
+        num_mv_found, &(*bp->prediction_parameters));
   }
 }
 
 // Part of 7.10.2.13.
-void AddExtraCompoundMvCandidate(
-    const Tile::Block& block, int mv_row, int mv_column,
-    const std::array<bool, kNumReferenceFrameTypes>& reference_frame_sign_bias,
-    int* const ref_id_count, MotionVector ref_id[2][2],
-    int* const ref_diff_count, MotionVector ref_diff[2][2]) {
+void AddExtraCompoundMvCandidate(const Tile::Block& block, int mv_row,
+                                 int mv_column, int* const ref_id_count,
+                                 MotionVector ref_id[2][2],
+                                 int* const ref_diff_count,
+                                 MotionVector ref_diff[2][2]) {
   const auto& bp = block.tile.Parameters(mv_row, mv_column);
+  const std::array<bool, kNumReferenceFrameTypes>& reference_frame_sign_bias =
+      block.tile.reference_frame_sign_bias();
   for (int i = 0; i < 2; ++i) {
     const ReferenceFrameType candidate_reference_frame = bp.reference_frame[i];
     if (candidate_reference_frame <= kReferenceFrameIntra) continue;
     for (int j = 0; j < 2; ++j) {
-      MotionVector candidate_mv = bp.mv[i];
+      MotionVector candidate_mv = bp.mv.mv[i];
       const ReferenceFrameType block_reference_frame =
-          block.parameters().reference_frame[j];
+          block.bp->reference_frame[j];
       if (candidate_reference_frame == block_reference_frame &&
           ref_id_count[j] < 2) {
         ref_id[j][ref_id_count[j]] = candidate_mv;
@@ -475,140 +543,153 @@ void AddExtraCompoundMvCandidate(
 }
 
 // Part of 7.10.2.13.
-void AddExtraSingleMvCandidate(
-    const Tile::Block& block, int mv_row, int mv_column,
-    const std::array<bool, kNumReferenceFrameTypes>& reference_frame_sign_bias,
-    int* const num_mv_found,
-    CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
+void AddExtraSingleMvCandidate(const Tile::Block& block, int mv_row,
+                               int mv_column, int* const num_mv_found) {
   const auto& bp = block.tile.Parameters(mv_row, mv_column);
-  const ReferenceFrameType block_reference_frame =
-      block.parameters().reference_frame[0];
+  const std::array<bool, kNumReferenceFrameTypes>& reference_frame_sign_bias =
+      block.tile.reference_frame_sign_bias();
+  const ReferenceFrameType block_reference_frame = block.bp->reference_frame[0];
+  PredictionParameters& prediction_parameters =
+      *block.bp->prediction_parameters;
+  MotionVector* const ref_mv_stack = prediction_parameters.ref_mv_stack;
+  int num_found = *num_mv_found;
   for (int i = 0; i < 2; ++i) {
     const ReferenceFrameType candidate_reference_frame = bp.reference_frame[i];
     if (candidate_reference_frame <= kReferenceFrameIntra) continue;
-    MotionVector candidate_mv = bp.mv[i];
+    MotionVector candidate_mv = bp.mv.mv[i];
     if (reference_frame_sign_bias[candidate_reference_frame] !=
         reference_frame_sign_bias[block_reference_frame]) {
       candidate_mv.mv[0] *= -1;
       candidate_mv.mv[1] *= -1;
     }
-    int j = 0;
-    for (; j < *num_mv_found; ++j) {
-      if (candidate_mv == ref_mv_stack[j].mv[0]) {
-        break;
-      }
+    assert(num_found <= 2);
+    if ((num_found != 0 && ref_mv_stack[0] == candidate_mv) ||
+        (num_found == 2 && ref_mv_stack[1] == candidate_mv)) {
+      continue;
     }
-    if (j == *num_mv_found) {
-      ref_mv_stack[*num_mv_found] = {{candidate_mv, {}}, 2};
-      ++*num_mv_found;
-    }
+    ref_mv_stack[num_found] = candidate_mv;
+    prediction_parameters.SetWeightIndexStackEntry(num_found, 0);
+    ++num_found;
   }
+  *num_mv_found = num_found;
 }
 
 // 7.10.2.12.
-void ExtraSearch(
-    const Tile::Block& block, bool is_compound, MotionVector global_mv[2],
-    const std::array<bool, kNumReferenceFrameTypes>& reference_frame_sign_bias,
-    int* const num_mv_found,
-    CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
-  const int num4x4 =
-      std::min({static_cast<int>(kNum4x4BlocksWide[block.size]),
-                block.tile.frame_header().columns4x4 - block.column4x4,
-                static_cast<int>(kNum4x4BlocksHigh[block.size]),
-                block.tile.frame_header().rows4x4 - block.row4x4, 16});
+void ExtraSearch(const Tile::Block& block, bool is_compound,
+                 int* const num_mv_found) {
+  const Tile& tile = block.tile;
+  const int num4x4 = std::min({static_cast<int>(block.width4x4),
+                               tile.frame_header().columns4x4 - block.column4x4,
+                               static_cast<int>(block.height4x4),
+                               tile.frame_header().rows4x4 - block.row4x4, 16});
   int ref_id_count[2] = {};
   MotionVector ref_id[2][2] = {};
   int ref_diff_count[2] = {};
   MotionVector ref_diff[2][2] = {};
+  PredictionParameters& prediction_parameters =
+      *block.bp->prediction_parameters;
   for (int pass = 0; pass < 2 && *num_mv_found < 2; ++pass) {
     for (int i = 0; i < num4x4;) {
       const int mv_row = block.row4x4 + ((pass == 0) ? -1 : i);
       const int mv_column = block.column4x4 + ((pass == 0) ? i : -1);
-      if (!block.tile.IsInside(mv_row, mv_column)) break;
+      if (!tile.IsTopLeftInside(mv_row + 1, mv_column + 1)) break;
       if (is_compound) {
-        AddExtraCompoundMvCandidate(block, mv_row, mv_column,
-                                    reference_frame_sign_bias, ref_id_count,
+        AddExtraCompoundMvCandidate(block, mv_row, mv_column, ref_id_count,
                                     ref_id, ref_diff_count, ref_diff);
       } else {
-        AddExtraSingleMvCandidate(block, mv_row, mv_column,
-                                  reference_frame_sign_bias, num_mv_found,
-                                  ref_mv_stack);
+        AddExtraSingleMvCandidate(block, mv_row, mv_column, num_mv_found);
         if (*num_mv_found >= 2) break;
       }
-      const auto& bp = block.tile.Parameters(mv_row, mv_column);
+      const auto& bp = tile.Parameters(mv_row, mv_column);
       i +=
           (pass == 0) ? kNum4x4BlocksWide[bp.size] : kNum4x4BlocksHigh[bp.size];
     }
   }
   if (is_compound) {
     // Merge compound mode extra search into mv stack.
-    MotionVector combined_mvs[2][2] = {};
+    CompoundMotionVector* const compound_ref_mv_stack =
+        prediction_parameters.compound_ref_mv_stack;
+    CompoundMotionVector combined_mvs[2] = {};
     for (int i = 0; i < 2; ++i) {
       int count = 0;
       assert(ref_id_count[i] <= 2);
       for (int j = 0; j < ref_id_count[i]; ++j, ++count) {
-        combined_mvs[count][i] = ref_id[i][j];
+        combined_mvs[count].mv[i] = ref_id[i][j];
       }
       for (int j = 0; j < ref_diff_count[i] && count < 2; ++j, ++count) {
-        combined_mvs[count][i] = ref_diff[i][j];
+        combined_mvs[count].mv[i] = ref_diff[i][j];
       }
       for (; count < 2; ++count) {
-        combined_mvs[count][i] = global_mv[i];
+        combined_mvs[count].mv[i] = prediction_parameters.global_mv[i];
       }
     }
     if (*num_mv_found == 1) {
-      if (combined_mvs[0][0] == ref_mv_stack[0].mv[0] &&
-          combined_mvs[0][1] == ref_mv_stack[0].mv[1]) {
-        ref_mv_stack[1] = {{combined_mvs[1][0], combined_mvs[1][1]}, 2};
+      if (combined_mvs[0] == compound_ref_mv_stack[0]) {
+        compound_ref_mv_stack[1] = combined_mvs[1];
       } else {
-        ref_mv_stack[1] = {{combined_mvs[0][0], combined_mvs[0][1]}, 2};
+        compound_ref_mv_stack[1] = combined_mvs[0];
       }
-      ++*num_mv_found;
+      prediction_parameters.SetWeightIndexStackEntry(1, 0);
     } else {
       assert(*num_mv_found == 0);
-      *num_mv_found = 2;
       for (int i = 0; i < 2; ++i) {
-        ref_mv_stack[i] = {{combined_mvs[i][0], combined_mvs[i][1]}, 2};
+        compound_ref_mv_stack[i] = combined_mvs[i];
+        prediction_parameters.SetWeightIndexStackEntry(i, 0);
       }
     }
+    *num_mv_found = 2;
   } else {
     // single prediction mode
+    MotionVector* const ref_mv_stack = prediction_parameters.ref_mv_stack;
     for (int i = *num_mv_found; i < 2; ++i) {
-      ref_mv_stack[i].mv[0] = global_mv[0];
+      ref_mv_stack[i] = prediction_parameters.global_mv[0];
+      prediction_parameters.SetWeightIndexStackEntry(i, 0);
     }
   }
 }
 
-// 7.10.2.14 (part 1).
-void ClampMotionVectors(
-    const Tile::Block& block, bool is_compound, int num_mv_found,
-    CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize]) {
-  const int block_height4x4 = kNum4x4BlocksHigh[block.size];
-  const int block_width4x4 = kNum4x4BlocksWide[block.size];
-  const int row_border = kMvBorder + MultiplyBy32(block_height4x4);
-  const int column_border = kMvBorder + MultiplyBy32(block_width4x4);
-  for (int i = 0; i < num_mv_found; ++i) {
-    for (int mv_index = 0; mv_index < 1 + static_cast<int>(is_compound);
-         ++mv_index) {
-      // Clamp row (5.11.53).
-      const int macroblocks_to_top_edge = -MultiplyBy32(block.row4x4);
-      const int macroblocks_to_bottom_edge = MultiplyBy32(
-          block.tile.frame_header().rows4x4 - block_height4x4 - block.row4x4);
-      ref_mv_stack[i].mv[mv_index].mv[MotionVector::kRow] =
-          Clip3(ref_mv_stack[i].mv[mv_index].mv[MotionVector::kRow],
-                macroblocks_to_top_edge - row_border,
-                macroblocks_to_bottom_edge + row_border);
-      // Clamp column (5.11.54).
-      const int macroblocks_to_left_edge = -MultiplyBy32(block.column4x4);
-      const int macroblocks_to_right_edge =
-          MultiplyBy32(block.tile.frame_header().columns4x4 - block_width4x4 -
-                       block.column4x4);
-      ref_mv_stack[i].mv[mv_index].mv[MotionVector::kColumn] =
-          Clip3(ref_mv_stack[i].mv[mv_index].mv[MotionVector::kColumn],
-                macroblocks_to_left_edge - column_border,
-                macroblocks_to_right_edge + column_border);
-    }
+void DescendingOrderTwo(int* const a, int* const b) {
+  if (*a < *b) {
+    std::swap(*a, *b);
   }
+}
+
+// Comparator used for sorting candidate motion vectors in descending order of
+// their weights (as specified in 7.10.2.11).
+bool CompareCandidateMotionVectors(const int16_t& lhs, const int16_t& rhs) {
+  return lhs > rhs;
+}
+
+void SortWeightIndexStack(const int size, const int sort_to_n,
+                          int16_t* const weight_index_stack) {
+  if (size <= 1) return;
+  if (size <= 3) {
+    // Specialize small sort sizes to speed up.
+    int weight_index_0 = weight_index_stack[0];
+    int weight_index_1 = weight_index_stack[1];
+    DescendingOrderTwo(&weight_index_0, &weight_index_1);
+    if (size == 3) {
+      int weight_index_2 = weight_index_stack[2];
+      DescendingOrderTwo(&weight_index_1, &weight_index_2);
+      DescendingOrderTwo(&weight_index_0, &weight_index_1);
+      weight_index_stack[2] = weight_index_2;
+    }
+    weight_index_stack[0] = weight_index_0;
+    weight_index_stack[1] = weight_index_1;
+    return;
+  }
+  if (sort_to_n == 1) {
+    // std::max_element() is not efficient. Find the max element in a loop.
+    int16_t max_element = weight_index_stack[0];
+    int i = 1;
+    do {
+      max_element = std::max(max_element, weight_index_stack[i]);
+    } while (++i < size);
+    weight_index_stack[0] = max_element;
+    return;
+  }
+  std::partial_sort(&weight_index_stack[0], &weight_index_stack[sort_to_n],
+                    &weight_index_stack[size], CompareCandidateMotionVectors);
 }
 
 // 7.10.2.14 (part 2).
@@ -637,30 +718,30 @@ void AddSample(const Tile::Block& block, int delta_row, int delta_column,
   if (*num_samples_scanned >= kMaxLeastSquaresSamples) return;
   const int mv_row = block.row4x4 + delta_row;
   const int mv_column = block.column4x4 + delta_column;
-  if (!block.tile.IsInside(mv_row, mv_column) ||
-      !block.tile.HasParameters(mv_row, mv_column)) {
+  const Tile& tile = block.tile;
+  if (!tile.IsInside(mv_row, mv_column) ||
+      !tile.HasParameters(mv_row, mv_column)) {
     return;
   }
-  const BlockParameters& bp = block.tile.Parameters(mv_row, mv_column);
-  if (bp.reference_frame[0] != block.parameters().reference_frame[0] ||
-      bp.reference_frame[1] != kReferenceFrameNone) {
+  const BlockParameters& bp = *block.bp;
+  const BlockParameters& mv_bp = tile.Parameters(mv_row, mv_column);
+  if (mv_bp.reference_frame[0] != bp.reference_frame[0] ||
+      mv_bp.reference_frame[1] != kReferenceFrameNone) {
     return;
   }
   ++*num_samples_scanned;
-  const int candidate_height4x4 = kNum4x4BlocksHigh[bp.size];
+  const int candidate_height4x4 = kNum4x4BlocksHigh[mv_bp.size];
   const int candidate_row = mv_row & ~(candidate_height4x4 - 1);
-  const int candidate_width4x4 = kNum4x4BlocksWide[bp.size];
+  const int candidate_width4x4 = kNum4x4BlocksWide[mv_bp.size];
   const int candidate_column = mv_column & ~(candidate_width4x4 - 1);
   const BlockParameters& candidate_bp =
-      block.tile.Parameters(candidate_row, candidate_column);
-  const int threshold = Clip3(
-      std::max(kBlockWidthPixels[block.size], kBlockHeightPixels[block.size]),
-      16, 112);
+      tile.Parameters(candidate_row, candidate_column);
   const int mv_diff_row =
-      std::abs(candidate_bp.mv[0].mv[0] - block.parameters().mv[0].mv[0]);
+      std::abs(candidate_bp.mv.mv[0].mv[0] - bp.mv.mv[0].mv[0]);
   const int mv_diff_column =
-      std::abs(candidate_bp.mv[0].mv[1] - block.parameters().mv[0].mv[1]);
-  const bool is_valid = mv_diff_row + mv_diff_column <= threshold;
+      std::abs(candidate_bp.mv.mv[0].mv[1] - bp.mv.mv[0].mv[1]);
+  const bool is_valid =
+      mv_diff_row + mv_diff_column <= kWarpValidThreshold[block.size];
   if (!is_valid && *num_samples_scanned > 1) {
     return;
   }
@@ -671,243 +752,164 @@ void AddSample(const Tile::Block& block, int delta_row, int delta_column,
   candidates[*num_warp_samples][0] = MultiplyBy8(mid_y);
   candidates[*num_warp_samples][1] = MultiplyBy8(mid_x);
   candidates[*num_warp_samples][2] =
-      MultiplyBy8(mid_y) + candidate_bp.mv[0].mv[0];
+      MultiplyBy8(mid_y) + candidate_bp.mv.mv[0].mv[0];
   candidates[*num_warp_samples][3] =
-      MultiplyBy8(mid_x) + candidate_bp.mv[0].mv[1];
+      MultiplyBy8(mid_x) + candidate_bp.mv.mv[0].mv[1];
   if (is_valid) ++*num_warp_samples;
 }
 
-// Comparator used for sorting candidate motion vectors in descending order of
-// their weights (as specified in 7.10.2.11).
-bool CompareCandidateMotionVectors(const CandidateMotionVector& lhs,
-                                   const CandidateMotionVector& rhs) {
-  return lhs.weight > rhs.weight;
-}
-
-// Part of 7.9.4.
-bool Project(int value, int delta, int dst_sign, int max_value, int max_offset,
-             int* const projected_value) {
-  const int base_value = value & ~7;
-  const int offset = (delta >= 0) ? DivideBy64(delta) : -DivideBy64(-delta);
-  value += ApplySign(offset, dst_sign);
-  if (value < 0 || value >= max_value || value < base_value - max_offset ||
-      value >= base_value + 8 + max_offset) {
-    return false;
-  }
-  *projected_value = value;
-  return true;
-}
-
-// 7.9.4.
-bool GetBlockPosition(int x8, int y8, int dst_sign, int rows4x4, int columns4x4,
-                      const MotionVector& projection_mv, int* const position_y8,
-                      int* const position_x8) {
-  return Project(y8, projection_mv.mv[0], dst_sign, DivideBy2(rows4x4),
-                 kProjectionMvMaxVerticalOffset, position_y8) &&
-         Project(x8, projection_mv.mv[1], dst_sign, DivideBy2(columns4x4),
-                 kProjectionMvMaxHorizontalOffset, position_x8);
-}
-
 // 7.9.2.
+// In the spec, |dst_sign| is either 1 or -1. Here we set |dst_sign| to either 0
+// or -1 so that it can be XORed and subtracted directly in ApplySign() and
+// corresponding SIMD implementations.
 bool MotionFieldProjection(
-    ReferenceFrameType source, int dst_sign,
-    const ObuSequenceHeader& sequence_header,
-    const ObuFrameHeader& frame_header, const RefCountedBuffer& current_frame,
+    const ObuFrameHeader& frame_header,
     const std::array<RefCountedBufferPtr, kNumReferenceFrameTypes>&
         reference_frames,
-    Array2D<TemporalMotionVector>* const motion_field_mv, int y8_start,
-    int y8_end, int x8_start, int x8_end) {
+    ReferenceFrameType source, int reference_to_current_with_sign, int dst_sign,
+    int y8_start, int y8_end, int x8_start, int x8_end,
+    TemporalMotionField* const motion_field) {
   const int source_index =
       frame_header.reference_frame_index[source - kReferenceFrameLast];
   auto* const source_frame = reference_frames[source_index].get();
   assert(source_frame != nullptr);
+  assert(dst_sign == 0 || dst_sign == -1);
   if (source_frame->rows4x4() != frame_header.rows4x4 ||
       source_frame->columns4x4() != frame_header.columns4x4 ||
       IsIntraFrame(source_frame->frame_type())) {
     return false;
   }
-  const int reference_to_current_with_sign =
-      GetRelativeDistance(
-          current_frame.order_hint(source), frame_header.order_hint,
-          sequence_header.enable_order_hint, sequence_header.order_hint_bits) *
-      dst_sign;
-  if (std::abs(reference_to_current_with_sign) > kMaxFrameDistance) return true;
-  // Index 0 of these two arrays are never used.
-  int reference_offsets[kNumReferenceFrameTypes];
-  bool skip_reference[kNumReferenceFrameTypes];
-  for (int source_reference_type = kReferenceFrameLast;
-       source_reference_type <= kNumInterReferenceFrameTypes;
-       ++source_reference_type) {
-    const int reference_offset = GetRelativeDistance(
-        current_frame.order_hint(source),
-        source_frame->order_hint(
-            static_cast<ReferenceFrameType>(source_reference_type)),
-        sequence_header.enable_order_hint, sequence_header.order_hint_bits);
-    skip_reference[source_reference_type] =
-        std::abs(reference_offset) > kMaxFrameDistance || reference_offset <= 0;
-    reference_offsets[source_reference_type] = reference_offset;
-  }
-  // The column range has to be offset by kProjectionMvMaxHorizontalOffset since
-  // coordinates in that range could end up being position_x8 because of
-  // projection.
-  const int adjusted_x8_start =
-      std::max(x8_start - kProjectionMvMaxHorizontalOffset, 0);
-  const int adjusted_x8_end =
-      std::min(x8_end + kProjectionMvMaxHorizontalOffset,
-               DivideBy2(frame_header.columns4x4));
-  for (int y8 = y8_start; y8 < y8_end; ++y8) {
-    for (int x8 = adjusted_x8_start; x8 < adjusted_x8_end; ++x8) {
-      const ReferenceFrameType source_reference =
-          *source_frame->motion_field_reference_frame(y8, x8);
-      if (source_reference <= kReferenceFrameIntra ||
-          skip_reference[source_reference]) {
-        continue;
-      }
-      const int reference_offset = reference_offsets[source_reference];
-      const MotionVector& mv = *source_frame->motion_field_mv(y8, x8);
-      MotionVector projection_mv;
-      GetMvProjectionNoClamp(mv, reference_to_current_with_sign,
-                             reference_offset, &projection_mv);
-      int position_y8;
-      int position_x8;
-      if (!GetBlockPosition(x8, y8, dst_sign, frame_header.rows4x4,
-                            frame_header.columns4x4, projection_mv,
-                            &position_y8, &position_x8) ||
-          position_x8 < x8_start || position_x8 >= x8_end) {
-        // Do not update the motion vector if the block position is not valid or
-        // if position_x8 is outside the current range of x8_start and x8_end.
-        // Note that position_y8 will always be within the range of y8_start and
-        // y8_end.
-        continue;
-      }
-      TemporalMotionVector& temporal_mv =
-          (*motion_field_mv)[position_y8][position_x8];
-      temporal_mv.mv = mv;
-      temporal_mv.reference_offset = reference_offset;
-    }
-  }
+  assert(reference_to_current_with_sign >= -kMaxFrameDistance);
+  if (reference_to_current_with_sign > kMaxFrameDistance) return true;
+  const ReferenceInfo& reference_info = *source_frame->reference_info();
+  const dsp::Dsp& dsp = *dsp::GetDspTable(8);
+  dsp.motion_field_projection_kernel(
+      reference_info, reference_to_current_with_sign, dst_sign, y8_start,
+      y8_end, x8_start, x8_end, motion_field);
   return true;
 }
 
 }  // namespace
 
-void FindMvStack(
-    const Tile::Block& block, bool is_compound,
-    const std::array<bool, kNumReferenceFrameTypes>& reference_frame_sign_bias,
-    const Array2D<TemporalMotionVector>& motion_field_mv,
-    CandidateMotionVector ref_mv_stack[kMaxRefMvStackSize],
-    int* const num_mv_found, MvContexts* const contexts,
-    MotionVector global_mv[2]) {
-  const int block_width4x4 = kNum4x4BlocksWide[block.size];
-  const int block_height4x4 = kNum4x4BlocksHigh[block.size];
-  SetupGlobalMv(block, 0, &global_mv[0]);
-  if (is_compound) SetupGlobalMv(block, 1, &global_mv[1]);
+void FindMvStack(const Tile::Block& block, bool is_compound,
+                 MvContexts* const contexts) {
+  PredictionParameters& prediction_parameters =
+      *block.bp->prediction_parameters;
+  SetupGlobalMv(block, 0, &prediction_parameters.global_mv[0]);
+  if (is_compound) SetupGlobalMv(block, 1, &prediction_parameters.global_mv[1]);
   bool found_new_mv = false;
   bool found_row_match = false;
-  *num_mv_found = 0;
-  ScanRow(block, -1, is_compound, global_mv, &found_new_mv, &found_row_match,
-          num_mv_found, ref_mv_stack);
+  int num_mv_found = 0;
+  ScanRow(block, block.column4x4, -1, is_compound, &found_new_mv,
+          &found_row_match, &num_mv_found);
   bool found_column_match = false;
-  ScanColumn(block, -1, is_compound, global_mv, &found_new_mv,
-             &found_column_match, num_mv_found, ref_mv_stack);
-  if (std::max(block_width4x4, block_height4x4) <= 16) {
-    ScanPoint(block, -1, block_width4x4, is_compound, global_mv, &found_new_mv,
-              &found_row_match, num_mv_found, ref_mv_stack);
+  ScanColumn(block, block.row4x4, -1, is_compound, &found_new_mv,
+             &found_column_match, &num_mv_found);
+  if (std::max(block.width4x4, block.height4x4) <= 16) {
+    ScanPoint(block, -1, block.width4x4, is_compound, &found_new_mv,
+              &found_row_match, &num_mv_found);
   }
   const int nearest_matches =
       static_cast<int>(found_row_match) + static_cast<int>(found_column_match);
-  const int nearest_mv_count = *num_mv_found;
-  for (int i = 0; i < nearest_mv_count; ++i) {
-    ref_mv_stack[i].weight += kExtraWeightForNearestMvs;
-  }
-  if (contexts != nullptr) contexts->zero_mv = 0;
+  prediction_parameters.nearest_mv_count = num_mv_found;
   if (block.tile.frame_header().use_ref_frame_mvs) {
-    TemporalScan(block, is_compound, global_mv, motion_field_mv,
-                 (contexts != nullptr) ? &contexts->zero_mv : nullptr,
-                 num_mv_found, ref_mv_stack);
+    // Initialize to invalid value, and it will be set when temporal mv is zero.
+    contexts->zero_mv = -1;
+    TemporalScan(block, is_compound, &contexts->zero_mv, &num_mv_found);
+  } else {
+    contexts->zero_mv = 0;
   }
   bool dummy_bool = false;
-  ScanPoint(block, -1, -1, is_compound, global_mv, &dummy_bool,
-            &found_row_match, num_mv_found, ref_mv_stack);
-  const int deltas[2] = {-3, -5};
+  ScanPoint(block, -1, -1, is_compound, &dummy_bool, &found_row_match,
+            &num_mv_found);
+  static constexpr int deltas[2] = {-3, -5};
   for (int i = 0; i < 2; ++i) {
-    if (i == 0 || block_height4x4 > 1) {
-      ScanRow(block, deltas[i], is_compound, global_mv, &dummy_bool,
-              &found_row_match, num_mv_found, ref_mv_stack);
+    if (i == 0 || block.height4x4 > 1) {
+      ScanRow(block, block.column4x4 | 1, deltas[i] + (block.row4x4 & 1),
+              is_compound, &dummy_bool, &found_row_match, &num_mv_found);
     }
-    if (i == 0 || block_width4x4 > 1) {
-      ScanColumn(block, deltas[i], is_compound, global_mv, &dummy_bool,
-                 &found_column_match, num_mv_found, ref_mv_stack);
+    if (i == 0 || block.width4x4 > 1) {
+      ScanColumn(block, block.row4x4 | 1, deltas[i] + (block.column4x4 & 1),
+                 is_compound, &dummy_bool, &found_column_match, &num_mv_found);
     }
   }
-  std::stable_sort(&ref_mv_stack[0], &ref_mv_stack[nearest_mv_count],
-                   CompareCandidateMotionVectors);
-  std::stable_sort(&ref_mv_stack[nearest_mv_count],
-                   &ref_mv_stack[*num_mv_found], CompareCandidateMotionVectors);
-  if (*num_mv_found < 2) {
-    ExtraSearch(block, is_compound, global_mv, reference_frame_sign_bias,
-                num_mv_found, ref_mv_stack);
+  if (num_mv_found < 2) {
+    ExtraSearch(block, is_compound, &num_mv_found);
+  } else {
+    // The sort of |weight_index_stack| could be moved to Tile::AssignIntraMv()
+    // and Tile::AssignInterMv(), and only do a partial sort to the max index we
+    // need. However, the speed gain is trivial.
+    // For intra case, only the first 1 or 2 mvs in the stack will be used.
+    // For inter case, |prediction_parameters.ref_mv_index| is at most 3.
+    // We only need to do the partial sort up to the first 4 mvs.
+    SortWeightIndexStack(prediction_parameters.nearest_mv_count, 4,
+                         prediction_parameters.weight_index_stack);
+    // When there are 4 or more nearest mvs, the other mvs will not be used.
+    if (prediction_parameters.nearest_mv_count < 4) {
+      SortWeightIndexStack(
+          num_mv_found - prediction_parameters.nearest_mv_count,
+          4 - prediction_parameters.nearest_mv_count,
+          prediction_parameters.weight_index_stack +
+              prediction_parameters.nearest_mv_count);
+    }
   }
+  prediction_parameters.ref_mv_count = num_mv_found;
   const int total_matches =
       static_cast<int>(found_row_match) + static_cast<int>(found_column_match);
-  if (contexts != nullptr) {
-    ComputeContexts(found_new_mv, nearest_matches, total_matches,
-                    &contexts->new_mv, &contexts->reference_mv);
-  }
-  ClampMotionVectors(block, is_compound, *num_mv_found, ref_mv_stack);
+  ComputeContexts(found_new_mv, nearest_matches, total_matches,
+                  &contexts->new_mv, &contexts->reference_mv);
+  // The mv stack clamping process is in Tile::AssignIntraMv() and
+  // Tile::AssignInterMv(), and only up to two mvs are clamped.
 }
 
 void FindWarpSamples(const Tile::Block& block, int* const num_warp_samples,
                      int* const num_samples_scanned,
                      int candidates[kMaxLeastSquaresSamples][4]) {
+  const Tile& tile = block.tile;
   bool top_left = true;
   bool top_right = true;
-  const int block_width4x4 = kNum4x4BlocksWide[block.size];
-  const int block_height4x4 = kNum4x4BlocksHigh[block.size];
   int step = 1;
-  if (block.top_available) {
+  if (block.top_available[kPlaneY]) {
     BlockSize source_size =
-        block.tile.Parameters(block.row4x4 - 1, block.column4x4).size;
+        tile.Parameters(block.row4x4 - 1, block.column4x4).size;
     const int source_width4x4 = kNum4x4BlocksWide[source_size];
-    if (block_width4x4 <= source_width4x4) {
-      // The & here is equivalent to % since source_width4x4 is a power of
-      // two.
+    if (block.width4x4 <= source_width4x4) {
+      // The & here is equivalent to % since source_width4x4 is a power of two.
       const int column_offset = -(block.column4x4 & (source_width4x4 - 1));
       if (column_offset < 0) top_left = false;
-      if (column_offset + source_width4x4 > block_width4x4) top_right = false;
+      if (column_offset + source_width4x4 > block.width4x4) top_right = false;
       AddSample(block, -1, 0, num_warp_samples, num_samples_scanned,
                 candidates);
     } else {
       for (int i = 0;
-           i < std::min(block_width4x4,
-                        block.tile.frame_header().columns4x4 - block.column4x4);
+           i < std::min(static_cast<int>(block.width4x4),
+                        tile.frame_header().columns4x4 - block.column4x4);
            i += step) {
         source_size =
-            block.tile.Parameters(block.row4x4 - 1, block.column4x4 + i).size;
-        step = std::min(block_width4x4,
+            tile.Parameters(block.row4x4 - 1, block.column4x4 + i).size;
+        step = std::min(static_cast<int>(block.width4x4),
                         static_cast<int>(kNum4x4BlocksWide[source_size]));
         AddSample(block, -1, i, num_warp_samples, num_samples_scanned,
                   candidates);
       }
     }
   }
-  if (block.left_available) {
+  if (block.left_available[kPlaneY]) {
     BlockSize source_size =
-        block.tile.Parameters(block.row4x4, block.column4x4 - 1).size;
+        tile.Parameters(block.row4x4, block.column4x4 - 1).size;
     const int source_height4x4 = kNum4x4BlocksHigh[source_size];
-    if (block_height4x4 <= source_height4x4) {
+    if (block.height4x4 <= source_height4x4) {
       const int row_offset = -(block.row4x4 & (source_height4x4 - 1));
       if (row_offset < 0) top_left = false;
       AddSample(block, 0, -1, num_warp_samples, num_samples_scanned,
                 candidates);
     } else {
-      for (int i = 0;
-           i < std::min(block_height4x4,
-                        block.tile.frame_header().rows4x4 - block.row4x4);
+      for (int i = 0; i < std::min(static_cast<int>(block.height4x4),
+                                   tile.frame_header().rows4x4 - block.row4x4);
            i += step) {
         source_size =
-            block.tile.Parameters(block.row4x4 + i, block.column4x4 - 1).size;
-        step = std::min(block_height4x4,
+            tile.Parameters(block.row4x4 + i, block.column4x4 - 1).size;
+        step = std::min(static_cast<int>(block.height4x4),
                         static_cast<int>(kNum4x4BlocksHigh[source_size]));
         AddSample(block, i, -1, num_warp_samples, num_samples_scanned,
                   candidates);
@@ -917,78 +919,82 @@ void FindWarpSamples(const Tile::Block& block, int* const num_warp_samples,
   if (top_left) {
     AddSample(block, -1, -1, num_warp_samples, num_samples_scanned, candidates);
   }
-  if (top_right && std::max(block_width4x4, block_height4x4) <= 16) {
-    AddSample(block, -1, block_width4x4, num_warp_samples, num_samples_scanned,
+  if (top_right && block.size <= kBlock64x64) {
+    AddSample(block, -1, block.width4x4, num_warp_samples, num_samples_scanned,
               candidates);
   }
   if (*num_warp_samples == 0 && *num_samples_scanned > 0) *num_warp_samples = 1;
 }
 
 void SetupMotionField(
-    const ObuSequenceHeader& sequence_header,
     const ObuFrameHeader& frame_header, const RefCountedBuffer& current_frame,
     const std::array<RefCountedBufferPtr, kNumReferenceFrameTypes>&
         reference_frames,
-    Array2D<TemporalMotionVector>* const motion_field_mv, int row4x4_start,
-    int row4x4_end, int column4x4_start, int column4x4_end) {
+    int row4x4_start, int row4x4_end, int column4x4_start, int column4x4_end,
+    TemporalMotionField* const motion_field) {
   assert(frame_header.use_ref_frame_mvs);
-  assert(sequence_header.enable_order_hint);
   const int y8_start = DivideBy2(row4x4_start);
   const int y8_end = DivideBy2(std::min(row4x4_end, frame_header.rows4x4));
   const int x8_start = DivideBy2(column4x4_start);
   const int x8_end =
-      std::min(DivideBy2(column4x4_end), DivideBy2(frame_header.columns4x4));
-  for (int y8 = y8_start; y8 < y8_end; ++y8) {
-    for (int x8 = x8_start; x8 < x8_end; ++x8) {
-      (*motion_field_mv)[y8][x8].mv.mv[0] = kInvalidMvValue;
+      DivideBy2(std::min(column4x4_end, frame_header.columns4x4));
+  const int last_index = frame_header.reference_frame_index[0];
+  const ReferenceInfo& reference_info = *current_frame.reference_info();
+  if (!IsIntraFrame(reference_frames[last_index]->frame_type())) {
+    const int last_alternate_order_hint =
+        reference_frames[last_index]
+            ->reference_info()
+            ->order_hint[kReferenceFrameAlternate];
+    const int current_gold_order_hint =
+        reference_info.order_hint[kReferenceFrameGolden];
+    if (last_alternate_order_hint != current_gold_order_hint) {
+      const int reference_offset_last =
+          -reference_info.relative_distance_from[kReferenceFrameLast];
+      if (std::abs(reference_offset_last) <= kMaxFrameDistance) {
+        MotionFieldProjection(frame_header, reference_frames,
+                              kReferenceFrameLast, reference_offset_last, -1,
+                              y8_start, y8_end, x8_start, x8_end, motion_field);
+      }
     }
   }
-  const int current_gold_order_hint =
-      current_frame.order_hint(kReferenceFrameGolden);
-  const int last_index = frame_header.reference_frame_index[0];
-  const int last_alternate_order_hint =
-      reference_frames[last_index]->order_hint(kReferenceFrameAlternate);
-  if (last_alternate_order_hint != current_gold_order_hint) {
-    MotionFieldProjection(kReferenceFrameLast, -1, sequence_header,
-                          frame_header, current_frame, reference_frames,
-                          motion_field_mv, y8_start, y8_end, x8_start, x8_end);
-  }
   int ref_stamp = 1;
-  if (GetRelativeDistance(current_frame.order_hint(kReferenceFrameBackward),
-                          frame_header.order_hint,
-                          sequence_header.enable_order_hint,
-                          sequence_header.order_hint_bits) > 0 &&
-      MotionFieldProjection(kReferenceFrameBackward, 1, sequence_header,
-                            frame_header, current_frame, reference_frames,
-                            motion_field_mv, y8_start, y8_end, x8_start,
-                            x8_end)) {
+  const int reference_offset_backward =
+      reference_info.relative_distance_from[kReferenceFrameBackward];
+  if (reference_offset_backward > 0 &&
+      MotionFieldProjection(frame_header, reference_frames,
+                            kReferenceFrameBackward, reference_offset_backward,
+                            0, y8_start, y8_end, x8_start, x8_end,
+                            motion_field)) {
     --ref_stamp;
   }
-  if (GetRelativeDistance(current_frame.order_hint(kReferenceFrameAlternate2),
-                          frame_header.order_hint,
-                          sequence_header.enable_order_hint,
-                          sequence_header.order_hint_bits) > 0 &&
-      MotionFieldProjection(kReferenceFrameAlternate2, 1, sequence_header,
-                            frame_header, current_frame, reference_frames,
-                            motion_field_mv, y8_start, y8_end, x8_start,
-                            x8_end)) {
-    --ref_stamp;
-  }
-  if (ref_stamp >= 0 &&
-      GetRelativeDistance(current_frame.order_hint(kReferenceFrameAlternate),
-                          frame_header.order_hint,
-                          sequence_header.enable_order_hint,
-                          sequence_header.order_hint_bits) > 0 &&
-      MotionFieldProjection(kReferenceFrameAlternate, 1, sequence_header,
-                            frame_header, current_frame, reference_frames,
-                            motion_field_mv, y8_start, y8_end, x8_start,
-                            x8_end)) {
+  const int reference_offset_alternate2 =
+      reference_info.relative_distance_from[kReferenceFrameAlternate2];
+  if (reference_offset_alternate2 > 0 &&
+      MotionFieldProjection(frame_header, reference_frames,
+                            kReferenceFrameAlternate2,
+                            reference_offset_alternate2, 0, y8_start, y8_end,
+                            x8_start, x8_end, motion_field)) {
     --ref_stamp;
   }
   if (ref_stamp >= 0) {
-    MotionFieldProjection(kReferenceFrameLast2, -1, sequence_header,
-                          frame_header, current_frame, reference_frames,
-                          motion_field_mv, y8_start, y8_end, x8_start, x8_end);
+    const int reference_offset_alternate =
+        reference_info.relative_distance_from[kReferenceFrameAlternate];
+    if (reference_offset_alternate > 0 &&
+        MotionFieldProjection(frame_header, reference_frames,
+                              kReferenceFrameAlternate,
+                              reference_offset_alternate, 0, y8_start, y8_end,
+                              x8_start, x8_end, motion_field)) {
+      --ref_stamp;
+    }
+  }
+  if (ref_stamp >= 0) {
+    const int reference_offset_last2 =
+        -reference_info.relative_distance_from[kReferenceFrameLast2];
+    if (std::abs(reference_offset_last2) <= kMaxFrameDistance) {
+      MotionFieldProjection(frame_header, reference_frames,
+                            kReferenceFrameLast2, reference_offset_last2, -1,
+                            y8_start, y8_end, x8_start, x8_end, motion_field);
+    }
   }
 }
 

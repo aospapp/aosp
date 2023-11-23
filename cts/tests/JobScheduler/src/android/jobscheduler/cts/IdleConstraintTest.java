@@ -18,20 +18,17 @@ package android.jobscheduler.cts;
 
 import static com.android.compatibility.common.util.TestUtils.waitUntil;
 
+import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.UiModeManager;
 import android.app.job.JobInfo;
-import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
-import android.os.PowerManager;
 import android.os.UserHandle;
 import android.support.test.uiautomator.UiDevice;
-import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
-import com.android.compatibility.common.util.BatteryUtils;
+import com.android.compatibility.common.util.SystemUtil;
 
 /**
  * Make sure the state of {@link android.app.job.JobScheduler} is correct.
@@ -41,7 +38,6 @@ public class IdleConstraintTest extends BaseJobSchedulerTest {
     private static final int STATE_JOB_ID = IdleConstraintTest.class.hashCode();
     private static final String TAG = "IdleConstraintTest";
 
-    private PowerManager mPowerManager;
     private JobInfo.Builder mBuilder;
     private UiDevice mUiDevice;
 
@@ -52,7 +48,6 @@ public class IdleConstraintTest extends BaseJobSchedulerTest {
         super.setUp();
         mBuilder = new JobInfo.Builder(STATE_JOB_ID, kJobServiceComponent);
         mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        mPowerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
 
         // Make sure the screen doesn't turn off when the test turns it on.
         mInitialDisplayTimeout = mUiDevice.executeShellCommand(
@@ -65,8 +60,8 @@ public class IdleConstraintTest extends BaseJobSchedulerTest {
         mJobScheduler.cancel(STATE_JOB_ID);
         // Put device back in to normal operation.
         toggleScreenOn(true);
-        if (isCarModeSupported()) {
-            setCarMode(false);
+        if (isAutomotiveProjectionSupported()) {
+            setAutomotiveProjection(false);
         }
 
         mUiDevice.executeShellCommand(
@@ -94,15 +89,6 @@ public class IdleConstraintTest extends BaseJobSchedulerTest {
         mUiDevice.executeShellCommand("cmd jobscheduler trigger-dock-state "
                 + (idle ? "idle" : "active"));
         // Wait a moment to let that happen before proceeding.
-        Thread.sleep(2_000);
-    }
-
-    /**
-     * Set the screen state.
-     */
-    private void toggleScreenOn(final boolean screenon) throws Exception {
-        BatteryUtils.turnOnScreen(screenon);
-        // Wait a little bit for the broadcasts to be processed.
         Thread.sleep(2_000);
     }
 
@@ -165,20 +151,30 @@ public class IdleConstraintTest extends BaseJobSchedulerTest {
         verifyActiveState();
     }
 
-    private boolean isCarModeSupported() {
-        // TVs don't support car mode.
-        return !getContext().getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_LEANBACK_ONLY)
-                && !getContext().getSystemService(UiModeManager.class).isUiModeLocked();
+    /**
+     * Check if the device is an auto.
+     */
+    private boolean isAutomotive() {
+        return getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+    }
+
+    /**
+     * Check if automotive projection is supported.
+     */
+    private boolean isAutomotiveProjectionSupported() {
+        // Auto doesn't support automotive projection.
+        return !isAutomotive();
     }
 
     /**
      * Check if dock state is supported.
      */
     private boolean isDockStateSupported() {
-        // Car does not support dock state.
-        return !getContext().getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_AUTOMOTIVE);
+        final boolean isLeanback = getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_LEANBACK_ONLY);
+
+        // Auto and Leanback do not support dock state.
+        return !isAutomotive() && !isLeanback;
     }
 
     /**
@@ -218,54 +214,40 @@ public class IdleConstraintTest extends BaseJobSchedulerTest {
         verifyIdleState();
     }
 
-    private void setCarMode(boolean on) throws Exception {
+    private void setAutomotiveProjection(boolean on) throws Exception {
         UiModeManager uiModeManager = getContext().getSystemService(UiModeManager.class);
-        final boolean wasScreenOn = mPowerManager.isInteractive();
         if (on) {
-            uiModeManager.enableCarMode(0);
-            waitUntil("UI mode didn't change to " + Configuration.UI_MODE_TYPE_CAR,
-                    () -> Configuration.UI_MODE_TYPE_CAR ==
-                            (getContext().getResources().getConfiguration().uiMode
-                                    & Configuration.UI_MODE_TYPE_MASK));
+            assertTrue(SystemUtil.callWithShellPermissionIdentity(
+                    () -> uiModeManager.requestProjection(UiModeManager.PROJECTION_TYPE_AUTOMOTIVE),
+                    Manifest.permission.TOGGLE_AUTOMOTIVE_PROJECTION));
         } else {
-            uiModeManager.disableCarMode(0);
-            waitUntil("UI mode didn't change from " + Configuration.UI_MODE_TYPE_CAR,
-                    () -> Configuration.UI_MODE_TYPE_CAR !=
-                            (getContext().getResources().getConfiguration().uiMode
-                                    & Configuration.UI_MODE_TYPE_MASK));
+            SystemUtil.callWithShellPermissionIdentity(
+                    () -> uiModeManager.releaseProjection(UiModeManager.PROJECTION_TYPE_AUTOMOTIVE),
+                    Manifest.permission.TOGGLE_AUTOMOTIVE_PROJECTION);
         }
         Thread.sleep(2_000);
-        if (mPowerManager.isInteractive() != wasScreenOn) {
-            // Apparently setting the car mode can change the screen state >.<
-            Log.d(TAG, "Screen state changed");
-            toggleScreenOn(wasScreenOn);
-        }
     }
 
     /**
-     * Ensure car mode is considered active.
+     * Ensure automotive projection is considered active.
      */
-    public void testCarModePreventsIdle() throws Exception {
-        if (!isCarModeSupported()) {
+    public void testAutomotiveProjectionPreventsIdle() throws Exception {
+        if (!isAutomotiveProjectionSupported()) {
             return;
         }
 
         toggleScreenOn(false);
 
-        setCarMode(true);
+        setAutomotiveProjection(true);
         triggerIdleMaintenance();
         verifyActiveState();
 
-        setCarMode(false);
+        setAutomotiveProjection(false);
         triggerIdleMaintenance();
         verifyIdleState();
     }
 
     private void runIdleJobStartsOnlyWhenIdle() throws Exception {
-        if (!isCarModeSupported()) {
-            return;
-        }
-
         toggleScreenOn(true);
 
         kTestEnvironment.setExpectedExecutions(0);
@@ -278,45 +260,58 @@ public class IdleConstraintTest extends BaseJobSchedulerTest {
         runSatisfiedJob();
         assertFalse("Job fired when the device was active.", kTestEnvironment.awaitExecution(500));
 
-        kTestEnvironment.setExpectedExecutions(0);
-        kTestEnvironment.setExpectedWaitForRun();
-        setCarMode(true);
-        toggleScreenOn(false);
-        triggerIdleMaintenance();
-        assertJobWaiting();
-        assertJobNotReady();
-        kTestEnvironment.readyToRun();
-        runSatisfiedJob();
-        assertFalse("Job fired when the device was active.", kTestEnvironment.awaitExecution(500));
+        if (isAutomotiveProjectionSupported()) {
+            kTestEnvironment.setExpectedExecutions(0);
+            kTestEnvironment.setExpectedWaitForRun();
+            setAutomotiveProjection(true);
+            toggleScreenOn(false);
+            triggerIdleMaintenance();
+            assertJobWaiting();
+            assertJobNotReady();
+            kTestEnvironment.readyToRun();
+            runSatisfiedJob();
+            assertFalse("Job fired when the device was active.",
+                    kTestEnvironment.awaitExecution(500));
 
-        kTestEnvironment.setExpectedExecutions(1);
-        kTestEnvironment.setExpectedWaitForRun();
-        kTestEnvironment.setContinueAfterStart();
-        kTestEnvironment.setExpectedStopped();
-        setCarMode(false);
-        triggerIdleMaintenance();
-        assertJobReady();
-        kTestEnvironment.readyToRun();
-        runSatisfiedJob();
-        assertTrue("Job didn't fire when the device became idle.",
-                kTestEnvironment.awaitExecution());
+            kTestEnvironment.setExpectedExecutions(1);
+            kTestEnvironment.setExpectedWaitForRun();
+            kTestEnvironment.setContinueAfterStart();
+            kTestEnvironment.setExpectedStopped();
+            setAutomotiveProjection(false);
+            triggerIdleMaintenance();
+            assertJobReady();
+            kTestEnvironment.readyToRun();
+            runSatisfiedJob();
+            assertTrue("Job didn't fire when the device became idle.",
+                    kTestEnvironment.awaitExecution());
+        } else {
+            kTestEnvironment.setExpectedExecutions(1);
+            kTestEnvironment.setExpectedWaitForRun();
+            kTestEnvironment.setContinueAfterStart();
+            kTestEnvironment.setExpectedStopped();
+            toggleScreenOn(false);
+            triggerIdleMaintenance();
+            assertJobReady();
+            kTestEnvironment.readyToRun();
+            runSatisfiedJob();
+            assertTrue("Job didn't fire when the device became idle.",
+                    kTestEnvironment.awaitExecution());
+        }
     }
 
-    public void testIdleJobStartsOnlyWhenIdle_carEndsIdle() throws Exception {
-        if (!isCarModeSupported()) {
+    public void testIdleJobStartsOnlyWhenIdle_settingProjectionEndsIdle() throws Exception {
+        if (!isAutomotiveProjectionSupported()) {
             return;
         }
+
         runIdleJobStartsOnlyWhenIdle();
 
-        setCarMode(true);
+        setAutomotiveProjection(true);
         assertTrue("Job didn't stop when the device became active.",
                 kTestEnvironment.awaitStopped());
     }
 
     public void testIdleJobStartsOnlyWhenIdle_screenEndsIdle() throws Exception {
-        if (!isCarModeSupported()) {
-            return;
-        }
         runIdleJobStartsOnlyWhenIdle();
 
         toggleScreenOn(true);

@@ -52,6 +52,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.heifwriter.HeifWriter;
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
@@ -171,21 +172,26 @@ public class HeifWriterTest extends AndroidTestCase {
         doTestForVariousNumberImages(builder);
     }
 
+    // TODO: b/186001256
+    @FlakyTest
     public void testInputSurface_NoGrid_NoHandler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_SURFACE, false, false);
         doTestForVariousNumberImages(builder);
     }
 
+    @FlakyTest
     public void testInputSurface_Grid_NoHandler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_SURFACE, true, false);
         doTestForVariousNumberImages(builder);
     }
 
+    @FlakyTest
     public void testInputSurface_NoGrid_Handler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_SURFACE, false, true);
         doTestForVariousNumberImages(builder);
     }
 
+    @FlakyTest
     public void testInputSurface_Grid_Handler() throws Throwable {
         TestConfig.Builder builder = new TestConfig.Builder(INPUT_MODE_SURFACE, true, true);
         doTestForVariousNumberImages(builder);
@@ -531,7 +537,7 @@ public class HeifWriterTest extends AndroidTestCase {
                 }
             }
 
-            heifWriter.stop(3000);
+            heifWriter.stop(5000);
             // The test sets the primary index to the last image.
             // However, if we're testing early abort, the last image will not be
             // present and the muxer is supposed to set it to 0 by default.

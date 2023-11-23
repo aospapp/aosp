@@ -28,6 +28,7 @@ import android.os.IBinder;
 import android.print.PrintJobInfo;
 import android.print.PrinterId;
 import android.printservice.PrintService;
+import android.util.Log;
 import android.view.MenuItem;
 
 import com.android.bips.BuiltInPrintService;
@@ -41,17 +42,30 @@ import java.net.UnknownHostException;
  * Launched by system in response to a "More Options" request while tracking a printer.
  */
 public class MoreOptionsActivity extends Activity implements ServiceConnection, Discovery.Listener {
+    private static final String TAG = MoreOptionsActivity.class.getSimpleName();
+    private static final boolean DEBUG = false;
+
     private BuiltInPrintService mPrintService;
     PrinterId mPrinterId;
     DiscoveredPrinter mPrinter;
     InetAddress mPrinterAddress;
 
+    public static final String EXTRA_PRINTER_ID = "EXTRA_PRINTER_ID";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        PrintJobInfo jobInfo = getIntent().getParcelableExtra(PrintService.EXTRA_PRINT_JOB_INFO);
-        mPrinterId = jobInfo.getPrinterId();
-
+        if (getIntent().hasExtra(PrintService.EXTRA_PRINT_JOB_INFO)) {
+            PrintJobInfo jobInfo =
+                    getIntent().getParcelableExtra(PrintService.EXTRA_PRINT_JOB_INFO);
+            mPrinterId = jobInfo.getPrinterId();
+        } else if (getIntent().hasExtra(EXTRA_PRINTER_ID)) {
+            mPrinterId = getIntent().getParcelableExtra(EXTRA_PRINTER_ID);
+        } else {
+            if (DEBUG) Log.i(TAG, "No job info or printer info to show. Exiting.");
+            finish();
+            return;
+        }
         ActionBar actionBar = getActionBar();
         if (actionBar != null) {
             actionBar.setDisplayHomeAsUpEnabled(true);

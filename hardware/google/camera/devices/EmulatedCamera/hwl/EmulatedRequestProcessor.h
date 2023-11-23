@@ -29,24 +29,10 @@
 namespace android {
 
 using google_camera_hal::HalCameraMetadata;
-using google_camera_hal::HalStream;
-using google_camera_hal::HwlPipelineCallback;
 using google_camera_hal::HwlPipelineRequest;
+using google_camera_hal::HwlSessionCallback;
 using google_camera_hal::RequestTemplate;
 using google_camera_hal::StreamBuffer;
-
-struct EmulatedStream : public HalStream {
-  uint32_t width, height;
-  size_t buffer_size;
-  bool is_input;
-};
-
-struct EmulatedPipeline {
-  HwlPipelineCallback cb;
-  // stream id -> stream map
-  std::unordered_map<uint32_t, EmulatedStream> streams;
-  uint32_t physical_camera_id, pipeline_id;
-};
 
 struct PendingRequest {
   std::unique_ptr<HalCameraMetadata> settings;
@@ -56,14 +42,17 @@ struct PendingRequest {
 
 class EmulatedRequestProcessor {
  public:
-  EmulatedRequestProcessor(uint32_t camera_id, sp<EmulatedSensor> sensor);
+  EmulatedRequestProcessor(uint32_t camera_id, sp<EmulatedSensor> sensor,
+                           const HwlSessionCallback& session_callback);
   virtual ~EmulatedRequestProcessor();
 
   // Process given pipeline requests and invoke the respective callback in a
   // separate thread
   status_t ProcessPipelineRequests(
-      uint32_t frame_number, const std::vector<HwlPipelineRequest>& requests,
-      const std::vector<EmulatedPipeline>& pipelines);
+      uint32_t frame_number, std::vector<HwlPipelineRequest>& requests,
+      const std::vector<EmulatedPipeline>& pipelines,
+      const DynamicStreamIdMapType& dynamic_stream_id_map,
+      bool use_default_physical_camera);
 
   status_t GetDefaultRequest(
       RequestTemplate type,
@@ -73,6 +62,8 @@ class EmulatedRequestProcessor {
 
   status_t Initialize(std::unique_ptr<HalCameraMetadata> static_meta,
                       PhysicalDeviceMapPtr physical_devices);
+
+  void SetSessionCallback(const HwlSessionCallback& hwl_session_callback);
 
  private:
   void RequestProcessorLoop();
@@ -86,22 +77,22 @@ class EmulatedRequestProcessor {
     return (delta == 0) ? value : (value + (alignment - delta));
   }
 
+  // Return buffer size and row stride in bytes
   status_t GetBufferSizeAndStride(const EmulatedStream& stream,
-                                  uint32_t* size /*out*/,
+                                  buffer_handle_t buffer, uint32_t* size /*out*/,
                                   uint32_t* stride /*out*/);
   status_t LockSensorBuffer(const EmulatedStream& stream,
-                            HandleImporter& importer /*in*/,
-                            buffer_handle_t buffer,
-                            SensorBuffer* sensor_buffer /*out*/);
+                            buffer_handle_t buffer, int32_t width,
+                            int32_t height, SensorBuffer* sensor_buffer /*out*/);
   std::unique_ptr<Buffers> CreateSensorBuffers(
       uint32_t frame_number, const std::vector<StreamBuffer>& buffers,
       const std::unordered_map<uint32_t, EmulatedStream>& streams,
-      uint32_t pipeline_id, HwlPipelineCallback cb);
-  std::unique_ptr<SensorBuffer> CreateSensorBuffer(uint32_t frame_number,
-                                                   const EmulatedStream& stream,
-                                                   uint32_t pipeline_id,
-                                                   HwlPipelineCallback callback,
-                                                   StreamBuffer stream_buffer);
+      uint32_t pipeline_id, HwlPipelineCallback cb, int32_t override_width,
+      int32_t override_height);
+  std::unique_ptr<SensorBuffer> CreateSensorBuffer(
+      uint32_t frame_number, const EmulatedStream& stream, uint32_t pipeline_id,
+      HwlPipelineCallback callback, StreamBuffer stream_buffer,
+      int32_t override_width, int32_t override_height);
   std::unique_ptr<Buffers> AcquireBuffers(Buffers* buffers);
   void NotifyFailedRequest(const PendingRequest& request);
 
@@ -110,9 +101,11 @@ class EmulatedRequestProcessor {
   std::queue<PendingRequest> pending_requests_;
   uint32_t camera_id_;
   sp<EmulatedSensor> sensor_;
+  HwlSessionCallback session_callback_;
   std::unique_ptr<EmulatedLogicalRequestState>
       request_state_;  // Stores and handles 3A and related camera states.
   std::unique_ptr<HalCameraMetadata> last_settings_;
+  std::shared_ptr<HandleImporter> importer_;
 
   EmulatedRequestProcessor(const EmulatedRequestProcessor&) = delete;
   EmulatedRequestProcessor& operator=(const EmulatedRequestProcessor&) = delete;

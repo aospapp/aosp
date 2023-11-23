@@ -15,6 +15,8 @@
 -->
 
 <resources>
+    <!-- Whether to show main switch settings at the top -->
+    <bool name="show_main_switch_settings">false</bool>
     <!-- Values that are active in the ListPreference.
          These must be a subset of the alert_reminder_interval_values list above. -->
     <string-array name="alert_reminder_interval_active_values" translatable="false">
@@ -48,4 +50,14 @@
         <item>500</item>
         <item>500</item>
      </integer-array>
+    <!-- Do not interrupt active voice call -->
+    <bool name="enable_alert_handling_during_call">true</bool>
+
+    <!-- CA has 4396~4399 reserved for future use-->
+    <string-array name="additional_cbs_channels_strings" translatable="false">
+        <item>0x112C-0x112F:rat=gsm, emergency=true</item>
+    </string-array>
+
+    <!-- Whether enabling copy message text into clipboard by long press -->
+    <bool name="enable_text_copy">false</bool>
 </resources>

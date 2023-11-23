@@ -31,11 +31,12 @@ public class DataStallUtils {
     /** Detect data stall using tcp connection fail rate. */
     public static final int DATA_STALL_EVALUATION_TYPE_TCP = 1 << 1;
 
-    @IntDef(prefix = { "DATA_STALL_EVALUATION_TYPE_" }, value = {
-        DATA_STALL_EVALUATION_TYPE_NONE,
-        DATA_STALL_EVALUATION_TYPE_DNS,
-        DATA_STALL_EVALUATION_TYPE_TCP,
-    })
+    @IntDef(prefix = { "DATA_STALL_EVALUATION_TYPE_" },
+        flag = true,
+        value = {
+            DATA_STALL_EVALUATION_TYPE_NONE,
+            DATA_STALL_EVALUATION_TYPE_DNS,
+            DATA_STALL_EVALUATION_TYPE_TCP, })
     @Retention(RetentionPolicy.SOURCE)
     public @interface EvaluationType {
     }

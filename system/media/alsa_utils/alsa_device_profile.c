@@ -234,7 +234,30 @@ static bool profile_test_sample_rate(const alsa_device_profile* profile, unsigne
 {
     struct pcm_config config = profile->default_config;
     config.rate = rate;
-
+    // This method tests whether a sample rate is supported by the USB device
+    // by attempting to open it.
+    //
+    // The profile default_config currently contains the minimum channel count.
+    // As some usb devices cannot sustain the sample rate across all its supported
+    // channel counts, we try the largest usable channel count.  This is
+    // bounded by FCC_LIMIT.
+    //
+    // If config.channels > FCC_LIMIT then we still test it for sample rate compatibility.
+    // It is possible that the USB device does not support less than a certain number
+    // of channels, and that minimum number is > FCC_LIMIT.  Then the default_config
+    // channels will be > FCC_LIMIT (and we still proceed with the test).
+    //
+    // For example, the FocusRite Scarlett 18i20 supports between 16 to 20 playback
+    // channels and between 14 to 18 capture channels.
+    // If FCC_LIMIT is 8, we still need to use and test 16 output channels for playback
+    // and 14 input channels for capture, as that will be the ALSA opening configuration.
+    // The Android USB audio HAL layer will automatically zero pad to accommodate the
+    // 16 playback or 14 capture channel configuration from the (up to FCC_LIMIT)
+    // channels delivered by AudioFlinger.
+    if (config.channels < FCC_LIMIT) {
+        config.channels = profile->max_channel_count;
+        if (config.channels > FCC_LIMIT) config.channels = FCC_LIMIT;
+    }
     bool works = false; /* let's be pessimistic */
     struct pcm * pcm = pcm_open(profile->card, profile->device,
                                 profile->direction, &config);
@@ -264,7 +287,8 @@ static unsigned profile_enum_sample_rates(alsa_device_profile* profile, unsigned
     return num_entries; /* return # of supported rates */
 }
 
-static unsigned profile_enum_sample_formats(alsa_device_profile* profile, struct pcm_mask * mask)
+static unsigned profile_enum_sample_formats(alsa_device_profile* profile,
+        const struct pcm_mask * mask)
 {
     const int num_slots = ARRAY_SIZE(mask->bits);
     const int bits_per_slot = sizeof(mask->bits[0]) * 8;
@@ -304,26 +328,42 @@ static unsigned profile_enum_channel_counts(alsa_device_profile* profile, unsign
         unsigned max)
 {
     /* modify alsa_device_profile.h if you change the std_channel_counts[] array. */
-    static const unsigned std_channel_counts[] = {8, 7, 6, 5, 4, 3, 2, 1};
+    // The order of this array controls the order for channel mask generation.
+    // In general, this is just counting from max to min not skipping anything,
+    // but need not be that way.
+    static const unsigned std_channel_counts[FCC_24] = {
+        24, 23, 22, 21, 20, 19, 18, 17,
+        16, 15, 14, 13, 12, 11, 10, 9,
+        8, 7, 6, 5, 4, 3, 2, 1
+    };
 
     unsigned num_counts = 0;
     unsigned index;
+    int max_allowed_index = -1; // index of maximum allowed channel count reported by device.
     /* TODO write a profile_test_channel_count() */
     /* Ensure there is at least one invalid channel count to terminate the channel counts array */
     for (index = 0; index < ARRAY_SIZE(std_channel_counts) &&
                     num_counts < ARRAY_SIZE(profile->channel_counts) - 1;
          index++) {
+        const unsigned test_count = std_channel_counts[index];
         /* TODO Do we want a channel counts test? */
-        if (std_channel_counts[index] >= min && std_channel_counts[index] <= max /* &&
-            profile_test_channel_count(profile, channel_counts[index])*/) {
-            profile->channel_counts[num_counts++] = std_channel_counts[index];
+        if (test_count <= FCC_LIMIT) {
+            if (test_count >= min && test_count <= max /* &&
+                    profile_test_channel_count(profile, channel_counts[index])*/) {
+                profile->channel_counts[num_counts++] = test_count;
+            }
+            if (max_allowed_index < 0 ||
+                    std_channel_counts[max_allowed_index] < test_count) {
+                max_allowed_index = index;
+            }
         }
     }
     // if we have no match with the standard counts, we use the largest (preferred) std count.
-    if (num_counts == 0) {
+    // Note: the usb hal will adjust channel data properly to fit.
+    if (num_counts == 0 && max_allowed_index >= 0) {
         ALOGW("usb device does not match std channel counts, setting to %d",
-                std_channel_counts[0]);
-        profile->channel_counts[num_counts++] = std_channel_counts[0];
+                std_channel_counts[max_allowed_index]);
+        profile->channel_counts[num_counts++] = std_channel_counts[max_allowed_index];
     }
     profile->channel_counts[num_counts] = 0;
     return num_counts; /* return # of supported counts */
@@ -414,7 +454,7 @@ bool profile_read_device_info(alsa_device_profile* profile)
     }
 
     /* Formats */
-    struct pcm_mask * format_mask = pcm_params_get_mask(alsa_hw_params, PCM_PARAM_FORMAT);
+    const struct pcm_mask * format_mask = pcm_params_get_mask(alsa_hw_params, PCM_PARAM_FORMAT);
     profile_enum_sample_formats(profile, format_mask);
 
     /* Channels */
@@ -499,51 +539,71 @@ char * profile_get_format_strs(const alsa_device_profile* profile)
 
 char * profile_get_channel_count_strs(const alsa_device_profile* profile)
 {
-    // FIXME implicit fixed channel count assumption here (FCC_8).
     // we use only the canonical even number channel position masks.
     static const char * const out_chans_strs[] = {
-        /* 0 */"AUDIO_CHANNEL_NONE", /* will never be taken as this is a terminator */
-        /* 1 */"AUDIO_CHANNEL_OUT_MONO",
-        /* 2 */"AUDIO_CHANNEL_OUT_STEREO",
-        /* 3 */ /* "AUDIO_CHANNEL_OUT_STEREO|AUDIO_CHANNEL_OUT_FRONT_CENTER" */ NULL,
-        /* 4 */"AUDIO_CHANNEL_OUT_QUAD",
-        /* 5 */ /* "AUDIO_CHANNEL_OUT_QUAD|AUDIO_CHANNEL_OUT_FRONT_CENTER" */ NULL,
-        /* 6 */"AUDIO_CHANNEL_OUT_5POINT1",
-        /* 7 */ /* "AUDIO_CHANNEL_OUT_5POINT1|AUDIO_CHANNEL_OUT_BACK_CENTER" */ NULL,
-        /* 8 */"AUDIO_CHANNEL_OUT_7POINT1",
-        /* channel counts greater than this not considered */
+        [0] = "AUDIO_CHANNEL_NONE", /* will never be taken as this is a terminator */
+        [1] = "AUDIO_CHANNEL_OUT_MONO",
+        [2] = "AUDIO_CHANNEL_OUT_STEREO",
+        [4] = "AUDIO_CHANNEL_OUT_QUAD",
+        [6] = "AUDIO_CHANNEL_OUT_5POINT1",
+        [FCC_8] = "AUDIO_CHANNEL_OUT_7POINT1",
+        [FCC_12] = "AUDIO_CHANNEL_OUT_7POINT1POINT4",
+        [FCC_24] = "AUDIO_CHANNEL_OUT_22POINT2",
     };
 
     static const char * const in_chans_strs[] = {
-        /* 0 */"AUDIO_CHANNEL_NONE", /* will never be taken as this is a terminator */
-        /* 1 */"AUDIO_CHANNEL_IN_MONO",
-        /* 2 */"AUDIO_CHANNEL_IN_STEREO",
+        [0] = "AUDIO_CHANNEL_NONE", /* will never be taken as this is a terminator */
+        [1] = "AUDIO_CHANNEL_IN_MONO",
+        [2] = "AUDIO_CHANNEL_IN_STEREO",
         /* channel counts greater than this not considered */
     };
 
     static const char * const index_chans_strs[] = {
-        /* 0 */"AUDIO_CHANNEL_NONE", /* will never be taken as this is a terminator */
-        /* 1 */"AUDIO_CHANNEL_INDEX_MASK_1",
-        /* 2 */"AUDIO_CHANNEL_INDEX_MASK_2",
-        /* 3 */"AUDIO_CHANNEL_INDEX_MASK_3",
-        /* 4 */"AUDIO_CHANNEL_INDEX_MASK_4",
-        /* 5 */"AUDIO_CHANNEL_INDEX_MASK_5",
-        /* 6 */"AUDIO_CHANNEL_INDEX_MASK_6",
-        /* 7 */"AUDIO_CHANNEL_INDEX_MASK_7",
-        /* 8 */"AUDIO_CHANNEL_INDEX_MASK_8",
+        [0] = "AUDIO_CHANNEL_NONE", /* will never be taken as this is a terminator */
+
+        [1] = "AUDIO_CHANNEL_INDEX_MASK_1",
+        [2] = "AUDIO_CHANNEL_INDEX_MASK_2",
+        [3] = "AUDIO_CHANNEL_INDEX_MASK_3",
+        [4] = "AUDIO_CHANNEL_INDEX_MASK_4",
+        [5] = "AUDIO_CHANNEL_INDEX_MASK_5",
+        [6] = "AUDIO_CHANNEL_INDEX_MASK_6",
+        [7] = "AUDIO_CHANNEL_INDEX_MASK_7",
+        [8] = "AUDIO_CHANNEL_INDEX_MASK_8",
+
+        [9] = "AUDIO_CHANNEL_INDEX_MASK_9",
+        [10] = "AUDIO_CHANNEL_INDEX_MASK_10",
+        [11] = "AUDIO_CHANNEL_INDEX_MASK_11",
+        [12] = "AUDIO_CHANNEL_INDEX_MASK_12",
+        [13] = "AUDIO_CHANNEL_INDEX_MASK_13",
+        [14] = "AUDIO_CHANNEL_INDEX_MASK_14",
+        [15] = "AUDIO_CHANNEL_INDEX_MASK_15",
+        [16] = "AUDIO_CHANNEL_INDEX_MASK_16",
+
+        [17] = "AUDIO_CHANNEL_INDEX_MASK_17",
+        [18] = "AUDIO_CHANNEL_INDEX_MASK_18",
+        [19] = "AUDIO_CHANNEL_INDEX_MASK_19",
+        [20] = "AUDIO_CHANNEL_INDEX_MASK_20",
+        [21] = "AUDIO_CHANNEL_INDEX_MASK_21",
+        [22] = "AUDIO_CHANNEL_INDEX_MASK_22",
+        [23] = "AUDIO_CHANNEL_INDEX_MASK_23",
+        [24] = "AUDIO_CHANNEL_INDEX_MASK_24",
     };
 
     const bool isOutProfile = profile->direction == PCM_OUT;
 
     const char * const * const chans_strs = isOutProfile ? out_chans_strs : in_chans_strs;
-    const size_t chans_strs_size =
+    size_t chans_strs_size =
             isOutProfile ? ARRAY_SIZE(out_chans_strs) : ARRAY_SIZE(in_chans_strs);
+    if (chans_strs_size > FCC_LIMIT + 1) chans_strs_size = FCC_LIMIT + 1; // starts with 0.
 
     /*
-     * If we assume each channel string is 26 chars ("AUDIO_CHANNEL_INDEX_MASK_8" is 26) + 1 for,
-     * the "|" delimiter, then we allocate room for 16 strings.
+     * MAX_CHANNEL_NAME_LEN: The longest channel name so far is "AUDIO_CHANNEL_OUT_7POINT1POINT4"
+     * at 31 chars, add 1 for the "|" delimiter, so we allocate 48 chars to be safe.
+     *
+     * We allocate room for channel index and channel position strings (2x).
      */
-    char buffer[27 * 16 + 1]; /* caution, may need to be expanded */
+    const size_t MAX_CHANNEL_NAME_LEN = 48;
+    char buffer[MAX_CHANNEL_NAME_LEN * (FCC_LIMIT * 2) + 1];
     buffer[0] = '\0';
     size_t buffSize = ARRAY_SIZE(buffer);
     size_t curStrLen = 0;
@@ -565,6 +625,8 @@ char * profile_get_channel_count_strs(const alsa_device_profile* profile)
          (channel_count = profile->channel_counts[index]) != 0;
          index++) {
 
+        if (channel_count > FCC_LIMIT) continue;
+
         /* we only show positional information for mono (stereo handled already) */
         if (channel_count < chans_strs_size
                 && chans_strs[channel_count] != NULL
@@ -577,7 +639,7 @@ char * profile_get_channel_count_strs(const alsa_device_profile* profile)
                 break;
             }
 
-            strlcat(buffer, "|", buffSize);
+            if (curStrLen != 0) strlcat(buffer, "|", buffSize);
             curStrLen = strlcat(buffer, chans_strs[channel_count], buffSize);
         }
 
@@ -590,7 +652,7 @@ char * profile_get_channel_count_strs(const alsa_device_profile* profile)
              break;
          }
 
-         strlcat(buffer, "|", buffSize);
+         if (curStrLen != 0) strlcat(buffer, "|", buffSize);
          curStrLen = strlcat(buffer, index_chans_strs[channel_count], buffSize);
     }
 

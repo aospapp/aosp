@@ -61,6 +61,12 @@
     <declare-styleable name="Preference">
         <!-- Classname of a PreferenceController corresponding to the preference -->
         <attr name="controller" format="string"/>
+        <!-- Whether or not the preference is searchable, by default it's true. -->
+        <attr name="searchable" format="boolean" />
+    </declare-styleable>
+
+    <declare-styleable name="PreferenceGroup">
+        <attr name="showChevron" format="boolean"/>
     </declare-styleable>
 
     <declare-styleable name="ProgressBarPreference">
@@ -71,14 +77,51 @@
         <attr name="maxLabel" format="string"/>
     </declare-styleable>
 
+    <declare-styleable name="ColoredPreference">
+        <attr name="titleColor" format="color"/>
+        <attr name="iconColor" format="color"/>
+    </declare-styleable>
+
+    <declare-styleable name="ColoredSwitchPreference">
+        <attr name="disabledTitleColor" format="color"/>
+        <attr name="enabledTitleColor" format="color"/>
+    </declare-styleable>
+
+    <declare-styleable name="MultiActionPreference">
+        <!-- Determines the first action item -->
+        <attr name="action_item_one" format="enum">
+            <enum name="toggleButton" value="0"/>
+        </attr>
+        <!-- Determines the second action item -->
+        <attr name="action_item_two" format="enum">
+            <enum name="toggleButton" value="0"/>
+        </attr>
+        <!-- Determines the third action item -->
+        <attr name="action_item_three" format="enum">
+            <enum name="toggleButton" value="0"/>
+        </attr>
+        <!-- Determines if the first action item is initially shown -->
+        <attr name="action_item_one_shown" format="boolean"/>
+        <!-- Determines if the first action item is initially enabled -->
+        <attr name="action_item_one_enabled" format="boolean"/>
+        <!-- Determines if the second action item is initially shown -->
+        <attr name="action_item_two_shown" format="boolean"/>
+        <!-- Determines if the second action item is initially enabled -->
+        <attr name="action_item_two_enabled" format="boolean"/>
+        <!-- Determines if the third action item is initially shown -->
+        <attr name="action_item_three_shown" format="boolean"/>
+        <!-- Determines if the third action item is initially enabled -->
+        <attr name="action_item_three_enabled" format="boolean"/>
+    </declare-styleable>
+
     <attr name="wifiSignalColor" format="color"/>
     <attr name="iconColor" format="color"/>
     <attr name="dividerColor" format="color"/>
-    <attr name="userSwitcherBackground" format="reference"/>
-    <attr name="userSwitcherCurrentUserColor" format="color"/>
-    <attr name="userSwitcherAddIconColor" format="color"/>
-    <attr name="userSwitcherNameTextAppearance" format="reference"/>
-    <attr name="userSwitcherAddIconBackgroundColor" format="color"/>
+    <attr name="profileSwitcherBackground" format="reference"/>
+    <attr name="profileSwitcherCurrentProfileColor" format="color"/>
+    <attr name="profileSwitcherAddIconColor" format="color"/>
+    <attr name="profileSwitcherNameTextAppearance" format="reference"/>
+    <attr name="profileSwitcherAddIconBackgroundColor" format="color"/>
     <attr name="quickSettingsEnabledColor" format="color"/>
     <attr name="quickSettingsDisabledColor" format="color"/>
     <attr name="quickSettingsIconEnabledColor" format="color"/>

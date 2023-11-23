@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_binary {
     name: "android.hardware.automotive.audiocontrol@1.0-service",
     defaults: ["hidl_defaults"],
@@ -19,7 +28,7 @@ cc_binary {
     relative_install_path: "hw",
     srcs: [
         "AudioControl.cpp",
-        "service.cpp"
+        "service.cpp",
     ],
     init_rc: ["android.hardware.automotive.audiocontrol@1.0-service.rc"],
 
@@ -30,4 +39,17 @@ cc_binary {
         "libutils",
     ],
     vintf_fragments: ["audiocontrol_manifest.xml"],
+}
+
+filegroup {
+    name: "audiocontrolV1.0_source",
+    srcs: [
+        "AudioControl.cpp",
+    ],
+}
+
+cc_library_headers {
+    name: "audiocontrolV1.0_header",
+    host_supported: true,
+    export_include_dirs: ["."],
 }

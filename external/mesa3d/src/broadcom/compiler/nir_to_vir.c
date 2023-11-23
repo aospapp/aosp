@@ -22,7 +22,8 @@
  */
 
 #include <inttypes.h>
-#include "util/u_format.h"
+#include "util/format/u_format.h"
+#include "util/u_helpers.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
 #include "util/ralloc.h"
@@ -32,18 +33,15 @@
 #include "common/v3d_device_info.h"
 #include "v3d_compiler.h"
 
+/* We don't do any address packing. */
+#define __gen_user_data void
+#define __gen_address_type uint32_t
+#define __gen_address_offset(reloc) (*reloc)
+#define __gen_emit_reloc(cl, reloc)
+#include "cle/v3d_packet_v41_pack.h"
+
 #define GENERAL_TMU_LOOKUP_PER_QUAD                 (0 << 7)
 #define GENERAL_TMU_LOOKUP_PER_PIXEL                (1 << 7)
-#define GENERAL_TMU_READ_OP_PREFETCH                (0 << 3)
-#define GENERAL_TMU_READ_OP_CACHE_CLEAR             (1 << 3)
-#define GENERAL_TMU_READ_OP_CACHE_FLUSH             (3 << 3)
-#define GENERAL_TMU_READ_OP_CACHE_CLEAN             (3 << 3)
-#define GENERAL_TMU_READ_OP_CACHE_L1T_CLEAR         (4 << 3)
-#define GENERAL_TMU_READ_OP_CACHE_L1T_FLUSH_AGGREGATION (5 << 3)
-#define GENERAL_TMU_READ_OP_ATOMIC_INC              (8 << 3)
-#define GENERAL_TMU_READ_OP_ATOMIC_DEC              (9 << 3)
-#define GENERAL_TMU_READ_OP_ATOMIC_NOT              (10 << 3)
-#define GENERAL_TMU_READ_OP_READ                    (15 << 3)
 #define GENERAL_TMU_LOOKUP_TYPE_8BIT_I              (0 << 0)
 #define GENERAL_TMU_LOOKUP_TYPE_16BIT_I             (1 << 0)
 #define GENERAL_TMU_LOOKUP_TYPE_VEC2                (2 << 0)
@@ -52,19 +50,6 @@
 #define GENERAL_TMU_LOOKUP_TYPE_8BIT_UI             (5 << 0)
 #define GENERAL_TMU_LOOKUP_TYPE_16BIT_UI            (6 << 0)
 #define GENERAL_TMU_LOOKUP_TYPE_32BIT_UI            (7 << 0)
-
-#define GENERAL_TMU_WRITE_OP_ATOMIC_ADD_WRAP         (0 << 3)
-#define GENERAL_TMU_WRITE_OP_ATOMIC_SUB_WRAP         (1 << 3)
-#define GENERAL_TMU_WRITE_OP_ATOMIC_XCHG             (2 << 3)
-#define GENERAL_TMU_WRITE_OP_ATOMIC_CMPXCHG          (3 << 3)
-#define GENERAL_TMU_WRITE_OP_ATOMIC_UMIN             (4 << 3)
-#define GENERAL_TMU_WRITE_OP_ATOMIC_UMAX             (5 << 3)
-#define GENERAL_TMU_WRITE_OP_ATOMIC_SMIN             (6 << 3)
-#define GENERAL_TMU_WRITE_OP_ATOMIC_SMAX             (7 << 3)
-#define GENERAL_TMU_WRITE_OP_ATOMIC_AND              (8 << 3)
-#define GENERAL_TMU_WRITE_OP_ATOMIC_OR               (9 << 3)
-#define GENERAL_TMU_WRITE_OP_ATOMIC_XOR              (10 << 3)
-#define GENERAL_TMU_WRITE_OP_WRITE                   (15 << 3)
 
 #define V3D_TSY_SET_QUORUM          0
 #define V3D_TSY_INC_WAITERS         1
@@ -107,6 +92,29 @@ resize_qreg_array(struct v3d_compile *c,
                 (*regs)[i] = c->undef;
 }
 
+static void
+resize_interp_array(struct v3d_compile *c,
+                    struct v3d_interp_input **regs,
+                    uint32_t *size,
+                    uint32_t decl_size)
+{
+        if (*size >= decl_size)
+                return;
+
+        uint32_t old_size = *size;
+        *size = MAX2(*size * 2, decl_size);
+        *regs = reralloc(c, *regs, struct v3d_interp_input, *size);
+        if (!*regs) {
+                fprintf(stderr, "Malloc failure\n");
+                abort();
+        }
+
+        for (uint32_t i = old_size; i < *size; i++) {
+                (*regs)[i].vp = c->undef;
+                (*regs)[i].C = c->undef;
+        }
+}
+
 void
 vir_emit_thrsw(struct v3d_compile *c)
 {
@@ -122,6 +130,27 @@ vir_emit_thrsw(struct v3d_compile *c)
         c->last_thrsw = vir_NOP(c);
         c->last_thrsw->qpu.sig.thrsw = true;
         c->last_thrsw_at_top_level = !c->in_control_flow;
+
+        /* We need to lock the scoreboard before any tlb acess happens. If this
+         * thread switch comes after we have emitted a tlb load, then it means
+         * that we can't lock on the last thread switch any more.
+         */
+        if (c->emitted_tlb_load)
+                c->lock_scoreboard_on_first_thrsw = true;
+}
+
+uint32_t
+v3d_get_op_for_atomic_add(nir_intrinsic_instr *instr, unsigned src)
+{
+        if (nir_src_is_const(instr->src[src])) {
+                int64_t add_val = nir_src_as_int(instr->src[src]);
+                if (add_val == 1)
+                        return V3D_TMU_OP_WRITE_AND_READ_INC;
+                else if (add_val == -1)
+                        return V3D_TMU_OP_WRITE_OR_READ_DEC;
+        }
+
+        return V3D_TMU_OP_WRITE_ADD_READ_PREFETCH;
 }
 
 static uint32_t
@@ -133,41 +162,41 @@ v3d_general_tmu_op(nir_intrinsic_instr *instr)
         case nir_intrinsic_load_uniform:
         case nir_intrinsic_load_shared:
         case nir_intrinsic_load_scratch:
-                return GENERAL_TMU_READ_OP_READ;
         case nir_intrinsic_store_ssbo:
         case nir_intrinsic_store_shared:
         case nir_intrinsic_store_scratch:
-                return GENERAL_TMU_WRITE_OP_WRITE;
+                return V3D_TMU_OP_REGULAR;
         case nir_intrinsic_ssbo_atomic_add:
+                return v3d_get_op_for_atomic_add(instr, 2);
         case nir_intrinsic_shared_atomic_add:
-                return GENERAL_TMU_WRITE_OP_ATOMIC_ADD_WRAP;
+                return v3d_get_op_for_atomic_add(instr, 1);
         case nir_intrinsic_ssbo_atomic_imin:
         case nir_intrinsic_shared_atomic_imin:
-                return GENERAL_TMU_WRITE_OP_ATOMIC_SMIN;
+                return V3D_TMU_OP_WRITE_SMIN;
         case nir_intrinsic_ssbo_atomic_umin:
         case nir_intrinsic_shared_atomic_umin:
-                return GENERAL_TMU_WRITE_OP_ATOMIC_UMIN;
+                return V3D_TMU_OP_WRITE_UMIN_FULL_L1_CLEAR;
         case nir_intrinsic_ssbo_atomic_imax:
         case nir_intrinsic_shared_atomic_imax:
-                return GENERAL_TMU_WRITE_OP_ATOMIC_SMAX;
+                return V3D_TMU_OP_WRITE_SMAX;
         case nir_intrinsic_ssbo_atomic_umax:
         case nir_intrinsic_shared_atomic_umax:
-                return GENERAL_TMU_WRITE_OP_ATOMIC_UMAX;
+                return V3D_TMU_OP_WRITE_UMAX;
         case nir_intrinsic_ssbo_atomic_and:
         case nir_intrinsic_shared_atomic_and:
-                return GENERAL_TMU_WRITE_OP_ATOMIC_AND;
+                return V3D_TMU_OP_WRITE_AND_READ_INC;
         case nir_intrinsic_ssbo_atomic_or:
         case nir_intrinsic_shared_atomic_or:
-                return GENERAL_TMU_WRITE_OP_ATOMIC_OR;
+                return V3D_TMU_OP_WRITE_OR_READ_DEC;
         case nir_intrinsic_ssbo_atomic_xor:
         case nir_intrinsic_shared_atomic_xor:
-                return GENERAL_TMU_WRITE_OP_ATOMIC_XOR;
+                return V3D_TMU_OP_WRITE_XOR_READ_NOT;
         case nir_intrinsic_ssbo_atomic_exchange:
         case nir_intrinsic_shared_atomic_exchange:
-                return GENERAL_TMU_WRITE_OP_ATOMIC_XCHG;
+                return V3D_TMU_OP_WRITE_XCHG_READ_FLUSH;
         case nir_intrinsic_ssbo_atomic_comp_swap:
         case nir_intrinsic_shared_atomic_comp_swap:
-                return GENERAL_TMU_WRITE_OP_ATOMIC_CMPXCHG;
+                return V3D_TMU_OP_WRITE_CMPXCHG_READ_FLUSH;
         default:
                 unreachable("unknown intrinsic op");
         }
@@ -181,46 +210,46 @@ static void
 ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
                      bool is_shared_or_scratch)
 {
-        /* XXX perf: We should turn add/sub of 1 to inc/dec.  Perhaps NIR
-         * wants to have support for inc/dec?
-         */
-
         uint32_t tmu_op = v3d_general_tmu_op(instr);
+
+        /* If we were able to replace atomic_add for an inc/dec, then we
+         * need/can to do things slightly different, like not loading the
+         * amount to add/sub, as that is implicit.
+         */
+        bool atomic_add_replaced =
+                ((instr->intrinsic == nir_intrinsic_ssbo_atomic_add ||
+                  instr->intrinsic == nir_intrinsic_shared_atomic_add) &&
+                 (tmu_op == V3D_TMU_OP_WRITE_AND_READ_INC ||
+                  tmu_op == V3D_TMU_OP_WRITE_OR_READ_DEC));
+
         bool is_store = (instr->intrinsic == nir_intrinsic_store_ssbo ||
                          instr->intrinsic == nir_intrinsic_store_scratch ||
                          instr->intrinsic == nir_intrinsic_store_shared);
+
+        bool is_load = (instr->intrinsic == nir_intrinsic_load_uniform ||
+                        instr->intrinsic == nir_intrinsic_load_ubo ||
+                        instr->intrinsic == nir_intrinsic_load_ssbo ||
+                        instr->intrinsic == nir_intrinsic_load_scratch ||
+                        instr->intrinsic == nir_intrinsic_load_shared);
+
+        if (!is_load)
+                c->tmu_dirty_rcl = true;
+
         bool has_index = !is_shared_or_scratch;
 
         int offset_src;
-        int tmu_writes = 1; /* address */
         if (instr->intrinsic == nir_intrinsic_load_uniform) {
                 offset_src = 0;
         } else if (instr->intrinsic == nir_intrinsic_load_ssbo ||
                    instr->intrinsic == nir_intrinsic_load_ubo ||
                    instr->intrinsic == nir_intrinsic_load_scratch ||
-                   instr->intrinsic == nir_intrinsic_load_shared) {
+                   instr->intrinsic == nir_intrinsic_load_shared ||
+                   atomic_add_replaced) {
                 offset_src = 0 + has_index;
         } else if (is_store) {
                 offset_src = 1 + has_index;
-                for (int i = 0; i < instr->num_components; i++) {
-                        vir_MOV_dest(c,
-                                     vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUD),
-                                     ntq_get_src(c, instr->src[0], i));
-                        tmu_writes++;
-                }
         } else {
                 offset_src = 0 + has_index;
-                vir_MOV_dest(c,
-                             vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUD),
-                             ntq_get_src(c, instr->src[1 + has_index], 0));
-                tmu_writes++;
-                if (tmu_op == GENERAL_TMU_WRITE_OP_ATOMIC_CMPXCHG) {
-                        vir_MOV_dest(c,
-                                     vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUD),
-                                     ntq_get_src(c, instr->src[2 + has_index],
-                                                 0));
-                        tmu_writes++;
-                }
         }
 
         bool dynamic_src = !nir_src_is_const(instr->src[offset_src]);
@@ -228,25 +257,23 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
         if (!dynamic_src)
                 const_offset = nir_src_as_uint(instr->src[offset_src]);
 
-        /* Make sure we won't exceed the 16-entry TMU fifo if each thread is
-         * storing at the same time.
-         */
-        while (tmu_writes > 16 / c->threads)
-                c->threads /= 2;
-
-        struct qreg offset;
+        struct qreg base_offset;
         if (instr->intrinsic == nir_intrinsic_load_uniform) {
                 const_offset += nir_intrinsic_base(instr);
-                offset = vir_uniform(c, QUNIFORM_UBO_ADDR,
-                                     v3d_unit_data_create(0, const_offset));
+                base_offset = vir_uniform(c, QUNIFORM_UBO_ADDR,
+                                          v3d_unit_data_create(0, const_offset));
                 const_offset = 0;
         } else if (instr->intrinsic == nir_intrinsic_load_ubo) {
-                uint32_t index = nir_src_as_uint(instr->src[0]) + 1;
-                /* Note that QUNIFORM_UBO_ADDR takes a UBO index shifted up by
-                 * 1 (0 is gallium's constant buffer 0).
-                 */
-                offset = vir_uniform(c, QUNIFORM_UBO_ADDR,
-                                     v3d_unit_data_create(index, const_offset));
+                uint32_t index = nir_src_as_uint(instr->src[0]);
+		/* On OpenGL QUNIFORM_UBO_ADDR takes a UBO index
+		 * shifted up by 1 (0 is gallium's constant buffer 0).
+		 */
+                if (c->key->environment == V3D_ENVIRONMENT_OPENGL)
+                        index++;
+
+                base_offset =
+                        vir_uniform(c, QUNIFORM_UBO_ADDR,
+                                    v3d_unit_data_create(index, const_offset));
                 const_offset = 0;
         } else if (is_shared_or_scratch) {
                 /* Shared and scratch variables have no buffer index, and all
@@ -255,81 +282,152 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
                  */
                 if (instr->intrinsic == nir_intrinsic_load_scratch ||
                     instr->intrinsic == nir_intrinsic_store_scratch) {
-                        offset = c->spill_base;
+                        base_offset = c->spill_base;
                 } else {
-                        offset = c->cs_shared_offset;
+                        base_offset = c->cs_shared_offset;
                         const_offset += nir_intrinsic_base(instr);
                 }
         } else {
-                offset = vir_uniform(c, QUNIFORM_SSBO_OFFSET,
-                                     nir_src_as_uint(instr->src[is_store ?
-                                                                1 : 0]));
+                base_offset = vir_uniform(c, QUNIFORM_SSBO_OFFSET,
+                                          nir_src_as_uint(instr->src[is_store ?
+                                                                      1 : 0]));
         }
 
-        /* The spec says that for atomics, the TYPE field is ignored, but that
-         * doesn't seem to be the case for CMPXCHG.  Just use the number of
-         * tmud writes we did to decide the type (or choose "32bit" for atomic
-         * reads, which has been fine).
-         */
-        int num_components;
-        if (tmu_op == GENERAL_TMU_WRITE_OP_ATOMIC_CMPXCHG)
-                num_components = 2;
-        else
-                num_components = instr->num_components;
+        struct qreg tmud = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUD);
+        unsigned writemask = is_store ? nir_intrinsic_write_mask(instr) : 0;
+        uint32_t base_const_offset = const_offset;
+        int first_component = -1;
+        int last_component = -1;
+        do {
+                int tmu_writes = 1; /* address */
 
-        uint32_t config = (0xffffff00 |
-                           tmu_op |
-                           GENERAL_TMU_LOOKUP_PER_PIXEL);
-        if (num_components == 1) {
-                config |= GENERAL_TMU_LOOKUP_TYPE_32BIT_UI;
-        } else {
-                config |= GENERAL_TMU_LOOKUP_TYPE_VEC2 + num_components - 2;
-        }
+                if (is_store) {
+                        /* Find the first set of consecutive components that
+                         * are enabled in the writemask and emit the TMUD
+                         * instructions for them.
+                         */
+                        first_component = ffs(writemask) - 1;
+                        last_component = first_component;
+                        while (writemask & BITFIELD_BIT(last_component + 1))
+                                last_component++;
 
-        if (vir_in_nonuniform_control_flow(c)) {
-                vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), c->execute),
-                           V3D_QPU_PF_PUSHZ);
-        }
+                        assert(first_component >= 0 &&
+                               first_component <= last_component &&
+                               last_component < instr->num_components);
 
-        struct qreg tmua;
-        if (config == ~0)
-                tmua = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUA);
-        else
-                tmua = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUAU);
+                        struct qreg tmud = vir_reg(QFILE_MAGIC,
+                                                   V3D_QPU_WADDR_TMUD);
+                        for (int i = first_component; i <= last_component; i++) {
+                                struct qreg data =
+                                        ntq_get_src(c, instr->src[0], i);
+                                vir_MOV_dest(c, tmud, data);
+                                tmu_writes++;
+                        }
 
-        struct qinst *tmu;
-        if (dynamic_src) {
-                if (const_offset != 0) {
-                        offset = vir_ADD(c, offset,
-                                         vir_uniform_ui(c, const_offset));
+                        /* Update the offset for the TMU write based on the
+                         * the first component we are writing.
+                         */
+                        const_offset = base_const_offset + first_component * 4;
+
+                        /* Clear these components from the writemask */
+                        uint32_t written_mask =
+                                BITFIELD_RANGE(first_component, tmu_writes - 1);
+                        writemask &= ~written_mask;
+                } else if (!is_load && !atomic_add_replaced) {
+                        struct qreg data =
+                                ntq_get_src(c, instr->src[1 + has_index], 0);
+                        vir_MOV_dest(c, tmud, data);
+                        tmu_writes++;
+                        if (tmu_op == V3D_TMU_OP_WRITE_CMPXCHG_READ_FLUSH) {
+                                data = ntq_get_src(c, instr->src[2 + has_index],
+                                                   0);
+                                vir_MOV_dest(c, tmud, data);
+                                tmu_writes++;
+                        }
                 }
-                tmu = vir_ADD_dest(c, tmua, offset,
-                                   ntq_get_src(c, instr->src[offset_src], 0));
-        } else {
-                if (const_offset != 0) {
-                        tmu = vir_ADD_dest(c, tmua, offset,
-                                           vir_uniform_ui(c, const_offset));
+
+                /* Make sure we won't exceed the 16-entry TMU fifo if each
+                 * thread is storing at the same time.
+                 */
+                while (tmu_writes > 16 / c->threads)
+                        c->threads /= 2;
+
+                /* The spec says that for atomics, the TYPE field is ignored,
+                 * but that doesn't seem to be the case for CMPXCHG.  Just use
+                 * the number of tmud writes we did to decide the type (or
+                 * choose "32bit" for atomic reads, which has been fine).
+                 */
+                uint32_t num_components;
+                if (is_load || atomic_add_replaced) {
+                        num_components = instr->num_components;
                 } else {
-                        tmu = vir_MOV_dest(c, tmua, offset);
+                        assert(tmu_writes > 1);
+                        num_components = tmu_writes - 1;
                 }
-        }
 
-        if (config != ~0) {
-                tmu->uniform = vir_get_uniform_index(c, QUNIFORM_CONSTANT,
-                                                     config);
-        }
+                uint32_t perquad = is_load
+                   ? GENERAL_TMU_LOOKUP_PER_QUAD
+                   : GENERAL_TMU_LOOKUP_PER_PIXEL;
+                uint32_t config = (0xffffff00 |
+                                   tmu_op << 3|
+                                   perquad);
+                if (num_components == 1) {
+                        config |= GENERAL_TMU_LOOKUP_TYPE_32BIT_UI;
+                } else {
+                        config |= GENERAL_TMU_LOOKUP_TYPE_VEC2 +
+                                  num_components - 2;
+                }
 
-        if (vir_in_nonuniform_control_flow(c))
-                vir_set_cond(tmu, V3D_QPU_COND_IFA);
+                if (vir_in_nonuniform_control_flow(c)) {
+                        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), c->execute),
+                                   V3D_QPU_PF_PUSHZ);
+                }
 
-        vir_emit_thrsw(c);
+                struct qreg tmua;
+                if (config == ~0)
+                        tmua = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUA);
+                else
+                        tmua = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_TMUAU);
 
-        /* Read the result, or wait for the TMU op to complete. */
-        for (int i = 0; i < nir_intrinsic_dest_components(instr); i++)
-                ntq_store_dest(c, &instr->dest, i, vir_MOV(c, vir_LDTMU(c)));
+                struct qinst *tmu;
+                if (dynamic_src) {
+                        struct qreg offset = base_offset;
+                        if (const_offset != 0) {
+                                offset = vir_ADD(c, offset,
+                                                 vir_uniform_ui(c, const_offset));
+                        }
+                        struct qreg data =
+                                ntq_get_src(c, instr->src[offset_src], 0);
+                        tmu = vir_ADD_dest(c, tmua, offset, data);
+                } else {
+                        if (const_offset != 0) {
+                                tmu = vir_ADD_dest(c, tmua, base_offset,
+                                                   vir_uniform_ui(c, const_offset));
+                        } else {
+                                tmu = vir_MOV_dest(c, tmua, base_offset);
+                        }
+                }
 
-        if (nir_intrinsic_dest_components(instr) == 0)
-                vir_TMUWT(c);
+                if (config != ~0) {
+                        tmu->uniform =
+                                vir_get_uniform_index(c, QUNIFORM_CONSTANT,
+                                                      config);
+                }
+
+                if (vir_in_nonuniform_control_flow(c))
+                        vir_set_cond(tmu, V3D_QPU_COND_IFA);
+
+                vir_emit_thrsw(c);
+
+                /* Read the result, or wait for the TMU op to complete. */
+                for (int i = 0; i < nir_intrinsic_dest_components(instr); i++) {
+                        ntq_store_dest(c, &instr->dest, i,
+                                       vir_MOV(c, vir_LDTMU(c)));
+                }
+
+                if (nir_intrinsic_dest_components(instr) == 0)
+                        vir_TMUWT(c);
+        } while (is_store && writemask != 0);
 }
 
 static struct qreg *
@@ -339,6 +437,20 @@ ntq_init_ssa_def(struct v3d_compile *c, nir_ssa_def *def)
                                           def->num_components);
         _mesa_hash_table_insert(c->def_ht, def, qregs);
         return qregs;
+}
+
+static bool
+is_ld_signal(const struct v3d_qpu_sig *sig)
+{
+        return (sig->ldunif ||
+                sig->ldunifa ||
+                sig->ldunifrf ||
+                sig->ldunifarf ||
+                sig->ldtmu ||
+                sig->ldvary ||
+                sig->ldvpm ||
+                sig->ldtlb ||
+                sig->ldtlbu);
 }
 
 /**
@@ -361,7 +473,7 @@ ntq_store_dest(struct v3d_compile *c, nir_dest *dest, int chan,
                struct qreg result)
 {
         struct qinst *last_inst = NULL;
-        if (!list_empty(&c->cur_block->instructions))
+        if (!list_is_empty(&c->cur_block->instructions))
                 last_inst = (struct qinst *)c->cur_block->instructions.prev;
 
         assert((result.file == QFILE_TEMP &&
@@ -388,11 +500,12 @@ ntq_store_dest(struct v3d_compile *c, nir_dest *dest, int chan,
                         _mesa_hash_table_search(c->def_ht, reg);
                 struct qreg *qregs = entry->data;
 
-                /* Insert a MOV if the source wasn't an SSA def in the
-                 * previous instruction.
+                /* If the previous instruction can't be predicated for
+                 * the store into the nir_register, then emit a MOV
+                 * that can be.
                  */
-                if ((vir_in_nonuniform_control_flow(c) &&
-                     c->defs[last_inst->dst.index]->qpu.sig.ldunif)) {
+                if (vir_in_nonuniform_control_flow(c) &&
+                    is_ld_signal(&c->defs[last_inst->dst.index]->qpu.sig)) {
                         result = vir_MOV(c, result);
                         last_inst = c->defs[result.index];
                 }
@@ -487,6 +600,7 @@ ntq_emit_txs(struct v3d_compile *c, nir_tex_instr *instr)
                 case GLSL_SAMPLER_DIM_MS:
                 case GLSL_SAMPLER_DIM_3D:
                 case GLSL_SAMPLER_DIM_CUBE:
+                case GLSL_SAMPLER_DIM_BUF:
                         /* Don't minify the array size. */
                         if (!(instr->is_array && i == dest_size - 1)) {
                                 size = ntq_minify(c, size, lod);
@@ -518,6 +632,10 @@ ntq_emit_tex(struct v3d_compile *c, nir_tex_instr *instr)
         case nir_texop_query_levels:
                 ntq_store_dest(c, &instr->dest, 0,
                                vir_uniform(c, QUNIFORM_TEXTURE_LEVELS, unit));
+                return;
+        case nir_texop_texture_samples:
+                ntq_store_dest(c, &instr->dest, 0,
+                               vir_uniform(c, QUNIFORM_TEXTURE_SAMPLES, unit));
                 return;
         case nir_texop_txs:
                 ntq_emit_txs(c, instr);
@@ -570,7 +688,7 @@ emit_fragcoord_input(struct v3d_compile *c, int attr)
 
 static struct qreg
 emit_fragment_varying(struct v3d_compile *c, nir_variable *var,
-                      uint8_t swizzle, int array_index)
+                      int8_t input_idx, uint8_t swizzle, int array_index)
 {
         struct qreg r3 = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_R3);
         struct qreg r5 = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_R5);
@@ -586,11 +704,22 @@ emit_fragment_varying(struct v3d_compile *c, nir_variable *var,
                 vary = r3;
         }
 
+        /* Store the input value before interpolation so we can implement
+         * GLSL's interpolateAt functions if the shader uses them.
+         */
+        if (input_idx >= 0) {
+           assert(var);
+           c->interp[input_idx].vp = vary;
+           c->interp[input_idx].C = vir_MOV(c, r5);
+           c->interp[input_idx].mode = var->data.interpolation;
+        }
+
         /* For gl_PointCoord input or distance along a line, we'll be called
          * with no nir_variable, and we don't count toward VPM size so we
          * don't track an input slot.
          */
         if (!var) {
+                assert(input_idx < 0);
                 return vir_FADD(c, vir_FMUL(c, vary, c->payload_w), r5);
         }
 
@@ -599,6 +728,7 @@ emit_fragment_varying(struct v3d_compile *c, nir_variable *var,
                 v3d_slot_from_slot_and_component(var->data.location +
                                                  array_index, swizzle);
 
+        struct qreg result;
         switch (var->data.interpolation) {
         case INTERP_MODE_NONE:
                 /* If a gl_FrontColor or gl_BackColor input has no interp
@@ -613,11 +743,12 @@ emit_fragment_varying(struct v3d_compile *c, nir_variable *var,
                         if (c->fs_key->shade_model_flat) {
                                 BITSET_SET(c->flat_shade_flags, i);
                                 vir_MOV_dest(c, c->undef, vary);
-                                return vir_MOV(c, r5);
+                                result = vir_MOV(c, r5);
                         } else {
-                                return vir_FADD(c, vir_FMUL(c, vary,
-                                                            c->payload_w), r5);
+                                result = vir_FADD(c, vir_FMUL(c, vary,
+                                                              c->payload_w), r5);
                         }
+                        goto done;
                 default:
                         break;
                 }
@@ -625,32 +756,56 @@ emit_fragment_varying(struct v3d_compile *c, nir_variable *var,
         case INTERP_MODE_SMOOTH:
                 if (var->data.centroid) {
                         BITSET_SET(c->centroid_flags, i);
-                        return vir_FADD(c, vir_FMUL(c, vary,
-                                                    c->payload_w_centroid), r5);
+                        result = vir_FADD(c, vir_FMUL(c, vary,
+                                                      c->payload_w_centroid), r5);
                 } else {
-                        return vir_FADD(c, vir_FMUL(c, vary, c->payload_w), r5);
+                        result = vir_FADD(c, vir_FMUL(c, vary, c->payload_w), r5);
                 }
+                break;
+
         case INTERP_MODE_NOPERSPECTIVE:
                 BITSET_SET(c->noperspective_flags, i);
-                return vir_FADD(c, vir_MOV(c, vary), r5);
+                result = vir_FADD(c, vir_MOV(c, vary), r5);
+                break;
+
         case INTERP_MODE_FLAT:
                 BITSET_SET(c->flat_shade_flags, i);
                 vir_MOV_dest(c, c->undef, vary);
-                return vir_MOV(c, r5);
+                result = vir_MOV(c, r5);
+                break;
+
         default:
                 unreachable("Bad interp mode");
+        }
+
+done:
+        if (input_idx >= 0)
+                c->inputs[input_idx] = result;
+        return result;
+}
+
+static void
+emit_fragment_input(struct v3d_compile *c, int base_attr, nir_variable *var,
+                    int array_index, unsigned nelem)
+{
+        for (int i = 0; i < nelem ; i++) {
+                int chan = var->data.location_frac + i;
+                int input_idx = (base_attr + array_index) * 4 + chan;
+                emit_fragment_varying(c, var, input_idx, chan, array_index);
         }
 }
 
 static void
-emit_fragment_input(struct v3d_compile *c, int attr, nir_variable *var,
-                    int array_index)
+emit_compact_fragment_input(struct v3d_compile *c, int attr, nir_variable *var,
+                            int array_index)
 {
-        for (int i = 0; i < glsl_get_vector_elements(var->type); i++) {
-                int chan = var->data.location_frac + i;
-                c->inputs[attr * 4 + chan] =
-                        emit_fragment_varying(c, var, chan, array_index);
-        }
+        /* Compact variables are scalar arrays where each set of 4 elements
+         * consumes a single location.
+         */
+        int loc_offset = array_index / 4;
+        int chan = var->data.location_frac + array_index % 4;
+        int input_idx = (attr + loc_offset) * 4  + chan;
+        emit_fragment_varying(c, var, input_idx, chan, loc_offset);
 }
 
 static void
@@ -700,7 +855,7 @@ ntq_emit_comparison(struct v3d_compile *c,
                 vir_set_pf(vir_XOR_dest(c, nop, src0, src1), V3D_QPU_PF_PUSHZ);
                 break;
 
-        case nir_op_fne32:
+        case nir_op_fneu32:
         case nir_op_sne:
                 vir_set_pf(vir_FCMP_dest(c, nop, src0, src1), V3D_QPU_PF_PUSHZ);
                 cond_invert = true;
@@ -827,8 +982,7 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr)
         struct qreg result;
 
         switch (instr->op) {
-        case nir_op_fmov:
-        case nir_op_imov:
+        case nir_op_mov:
                 result = vir_MOV(c, src[0]);
                 break;
 
@@ -934,7 +1088,7 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr)
         case nir_op_sge:
         case nir_op_slt: {
                 enum v3d_qpu_cond cond;
-                MAYBE_UNUSED bool ok = ntq_emit_comparison(c, instr, &cond);
+                ASSERTED bool ok = ntq_emit_comparison(c, instr, &cond);
                 assert(ok);
                 result = vir_MOV(c, vir_SEL(c, cond,
                                             vir_uniform_f(c, 1.0),
@@ -945,7 +1099,7 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr)
         case nir_op_i2b32:
         case nir_op_f2b32:
         case nir_op_feq32:
-        case nir_op_fne32:
+        case nir_op_fneu32:
         case nir_op_fge32:
         case nir_op_flt32:
         case nir_op_ieq32:
@@ -955,7 +1109,7 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr)
         case nir_op_ilt32:
         case nir_op_ult32: {
                 enum v3d_qpu_cond cond;
-                MAYBE_UNUSED bool ok = ntq_emit_comparison(c, instr, &cond);
+                ASSERTED bool ok = ntq_emit_comparison(c, instr, &cond);
                 assert(ok);
                 result = vir_MOV(c, vir_SEL(c, cond,
                                             vir_uniform_ui(c, ~0),
@@ -1058,6 +1212,27 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr)
                 vir_set_unpack(c->defs[result.index], 0, V3D_QPU_UNPACK_H);
                 break;
 
+        case nir_op_fquantize2f16: {
+                /* F32 -> F16 -> F32 conversion */
+                struct qreg tmp = vir_FMOV(c, src[0]);
+                vir_set_pack(c->defs[tmp.index], V3D_QPU_PACK_L);
+                tmp = vir_FMOV(c, tmp);
+                vir_set_unpack(c->defs[tmp.index], 0, V3D_QPU_UNPACK_L);
+
+                /* Check for denorm */
+                struct qreg abs_src = vir_FMOV(c, src[0]);
+                vir_set_unpack(c->defs[abs_src.index], 0, V3D_QPU_UNPACK_ABS);
+                struct qreg threshold = vir_uniform_f(c, ldexpf(1.0, -14));
+                vir_set_pf(vir_FCMP_dest(c, vir_nop_reg(), abs_src, threshold),
+                                         V3D_QPU_PF_PUSHC);
+
+                /* Return +/-0 for denorms */
+                struct qreg zero =
+                        vir_AND(c, src[0], vir_uniform_ui(c, 0x80000000));
+                result = vir_FMOV(c, vir_SEL(c, V3D_QPU_COND_IFNA, tmp, zero));
+                break;
+        }
+
         default:
                 fprintf(stderr, "unknown NIR ALU inst: ");
                 nir_print_instr(&instr->instr, stderr);
@@ -1102,13 +1277,115 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr)
 #define TLB_TYPE_STENCIL_ALPHA     ((2 << 6) | (1 << 4))
 
 static void
+vir_emit_tlb_color_write(struct v3d_compile *c, unsigned rt)
+{
+        if (!(c->fs_key->cbufs & (1 << rt)) || !c->output_color_var[rt])
+                return;
+
+        struct qreg tlb_reg = vir_magic_reg(V3D_QPU_WADDR_TLB);
+        struct qreg tlbu_reg = vir_magic_reg(V3D_QPU_WADDR_TLBU);
+
+        nir_variable *var = c->output_color_var[rt];
+        int num_components = glsl_get_vector_elements(var->type);
+        uint32_t conf = 0xffffff00;
+        struct qinst *inst;
+
+        conf |= c->msaa_per_sample_output ? TLB_SAMPLE_MODE_PER_SAMPLE :
+                                            TLB_SAMPLE_MODE_PER_PIXEL;
+        conf |= (7 - rt) << TLB_RENDER_TARGET_SHIFT;
+
+        if (c->fs_key->swap_color_rb & (1 << rt))
+                num_components = MAX2(num_components, 3);
+        assert(num_components != 0);
+
+        enum glsl_base_type type = glsl_get_base_type(var->type);
+        bool is_int_format = type == GLSL_TYPE_INT || type == GLSL_TYPE_UINT;
+        bool is_32b_tlb_format = is_int_format ||
+                                 (c->fs_key->f32_color_rb & (1 << rt));
+
+        if (is_int_format) {
+                /* The F32 vs I32 distinction was dropped in 4.2. */
+                if (c->devinfo->ver < 42)
+                        conf |= TLB_TYPE_I32_COLOR;
+                else
+                        conf |= TLB_TYPE_F32_COLOR;
+                conf |= ((num_components - 1) << TLB_VEC_SIZE_MINUS_1_SHIFT);
+        } else {
+                if (c->fs_key->f32_color_rb & (1 << rt)) {
+                        conf |= TLB_TYPE_F32_COLOR;
+                        conf |= ((num_components - 1) <<
+                                TLB_VEC_SIZE_MINUS_1_SHIFT);
+                } else {
+                        conf |= TLB_TYPE_F16_COLOR;
+                        conf |= TLB_F16_SWAP_HI_LO;
+                        if (num_components >= 3)
+                                conf |= TLB_VEC_SIZE_4_F16;
+                        else
+                                conf |= TLB_VEC_SIZE_2_F16;
+                }
+        }
+
+        int num_samples = c->msaa_per_sample_output ? V3D_MAX_SAMPLES : 1;
+        for (int i = 0; i < num_samples; i++) {
+                struct qreg *color = c->msaa_per_sample_output ?
+                        &c->sample_colors[(rt * V3D_MAX_SAMPLES + i) * 4] :
+                        &c->outputs[var->data.driver_location * 4];
+
+                struct qreg r = color[0];
+                struct qreg g = color[1];
+                struct qreg b = color[2];
+                struct qreg a = color[3];
+
+                if (c->fs_key->swap_color_rb & (1 << rt))  {
+                        r = color[2];
+                        b = color[0];
+                }
+
+                if (c->fs_key->sample_alpha_to_one)
+                        a = vir_uniform_f(c, 1.0);
+
+                if (is_32b_tlb_format) {
+                        if (i == 0) {
+                                inst = vir_MOV_dest(c, tlbu_reg, r);
+                                inst->uniform =
+                                        vir_get_uniform_index(c,
+                                                              QUNIFORM_CONSTANT,
+                                                              conf);
+                        } else {
+                                inst = vir_MOV_dest(c, tlb_reg, r);
+                        }
+
+                        if (num_components >= 2)
+                                vir_MOV_dest(c, tlb_reg, g);
+                        if (num_components >= 3)
+                                vir_MOV_dest(c, tlb_reg, b);
+                        if (num_components >= 4)
+                                vir_MOV_dest(c, tlb_reg, a);
+                } else {
+                        inst = vir_VFPACK_dest(c, tlb_reg, r, g);
+                        if (conf != ~0 && i == 0) {
+                                inst->dst = tlbu_reg;
+                                inst->uniform =
+                                        vir_get_uniform_index(c,
+                                                              QUNIFORM_CONSTANT,
+                                                              conf);
+                        }
+
+                        if (num_components >= 3)
+                                inst = vir_VFPACK_dest(c, tlb_reg, b, a);
+                }
+        }
+}
+
+static void
 emit_frag_end(struct v3d_compile *c)
 {
-        /* XXX
         if (c->output_sample_mask_index != -1) {
-                vir_MS_MASK(c, c->outputs[c->output_sample_mask_index]);
+                vir_SETMSF_dest(c, vir_nop_reg(),
+                                vir_AND(c,
+                                        vir_MSF(c),
+                                        c->outputs[c->output_sample_mask_index]));
         }
-        */
 
         bool has_any_tlb_color_write = false;
         for (int rt = 0; rt < V3D_MAX_DRAW_BUFFERS; rt++) {
@@ -1126,7 +1403,6 @@ emit_frag_end(struct v3d_compile *c)
                                         vir_FTOC(c, color[3])));
         }
 
-        struct qreg tlb_reg = vir_magic_reg(V3D_QPU_WADDR_TLB);
         struct qreg tlbu_reg = vir_magic_reg(V3D_QPU_WADDR_TLBU);
         if (c->output_position_index != -1) {
                 struct qinst *inst = vir_MOV_dest(c, tlbu_reg,
@@ -1181,107 +1457,24 @@ emit_frag_end(struct v3d_compile *c)
         /* XXX: Performance improvement: Merge Z write and color writes TLB
          * uniform setup
          */
+        for (int rt = 0; rt < V3D_MAX_DRAW_BUFFERS; rt++)
+                vir_emit_tlb_color_write(c, rt);
+}
 
-        for (int rt = 0; rt < V3D_MAX_DRAW_BUFFERS; rt++) {
-                if (!(c->fs_key->cbufs & (1 << rt)) || !c->output_color_var[rt])
-                        continue;
-
-                nir_variable *var = c->output_color_var[rt];
-                struct qreg *color = &c->outputs[var->data.driver_location * 4];
-                int num_components = glsl_get_vector_elements(var->type);
-                uint32_t conf = 0xffffff00;
-                struct qinst *inst;
-
-                conf |= TLB_SAMPLE_MODE_PER_PIXEL;
-                conf |= (7 - rt) << TLB_RENDER_TARGET_SHIFT;
-
-                if (c->fs_key->swap_color_rb & (1 << rt))
-                        num_components = MAX2(num_components, 3);
-
-                assert(num_components != 0);
-                switch (glsl_get_base_type(var->type)) {
-                case GLSL_TYPE_UINT:
-                case GLSL_TYPE_INT:
-                        /* The F32 vs I32 distinction was dropped in 4.2. */
-                        if (c->devinfo->ver < 42)
-                                conf |= TLB_TYPE_I32_COLOR;
-                        else
-                                conf |= TLB_TYPE_F32_COLOR;
-                        conf |= ((num_components - 1) <<
-                                 TLB_VEC_SIZE_MINUS_1_SHIFT);
-
-                        inst = vir_MOV_dest(c, tlbu_reg, color[0]);
-                        inst->uniform = vir_get_uniform_index(c,
-                                                              QUNIFORM_CONSTANT,
-                                                              conf);
-
-                        for (int i = 1; i < num_components; i++) {
-                                inst = vir_MOV_dest(c, tlb_reg, color[i]);
-                        }
-                        break;
-
-                default: {
-                        struct qreg r = color[0];
-                        struct qreg g = color[1];
-                        struct qreg b = color[2];
-                        struct qreg a = color[3];
-
-                        if (c->fs_key->f32_color_rb & (1 << rt)) {
-                                conf |= TLB_TYPE_F32_COLOR;
-                                conf |= ((num_components - 1) <<
-                                         TLB_VEC_SIZE_MINUS_1_SHIFT);
-                        } else {
-                                conf |= TLB_TYPE_F16_COLOR;
-                                conf |= TLB_F16_SWAP_HI_LO;
-                                if (num_components >= 3)
-                                        conf |= TLB_VEC_SIZE_4_F16;
-                                else
-                                        conf |= TLB_VEC_SIZE_2_F16;
-                        }
-
-                        if (c->fs_key->swap_color_rb & (1 << rt))  {
-                                r = color[2];
-                                b = color[0];
-                        }
-
-                        if (c->fs_key->sample_alpha_to_one)
-                                a = vir_uniform_f(c, 1.0);
-
-                        if (c->fs_key->f32_color_rb & (1 << rt)) {
-                                inst = vir_MOV_dest(c, tlbu_reg, r);
-                                inst->uniform = vir_get_uniform_index(c,
-                                                                      QUNIFORM_CONSTANT,
-                                                                      conf);
-
-                                if (num_components >= 2)
-                                        vir_MOV_dest(c, tlb_reg, g);
-                                if (num_components >= 3)
-                                        vir_MOV_dest(c, tlb_reg, b);
-                                if (num_components >= 4)
-                                        vir_MOV_dest(c, tlb_reg, a);
-                        } else {
-                                inst = vir_VFPACK_dest(c, tlb_reg, r, g);
-                                if (conf != ~0) {
-                                        inst->dst = tlbu_reg;
-                                        inst->uniform = vir_get_uniform_index(c,
-                                                                              QUNIFORM_CONSTANT,
-                                                                              conf);
-                                }
-
-                                if (num_components >= 3)
-                                        inst = vir_VFPACK_dest(c, tlb_reg, b, a);
-                        }
-                        break;
-                }
-                }
-        }
+static inline void
+vir_VPM_WRITE_indirect(struct v3d_compile *c,
+                       struct qreg val,
+                       struct qreg vpm_index)
+{
+        assert(c->devinfo->ver >= 40);
+        vir_STVPMV(c, vpm_index, val);
 }
 
 static void
 vir_VPM_WRITE(struct v3d_compile *c, struct qreg val, uint32_t vpm_index)
 {
         if (c->devinfo->ver >= 40) {
-                vir_STVPMV(c, vir_uniform_ui(c, vpm_index), val);
+                vir_VPM_WRITE_indirect(c, val, vir_uniform_ui(c, vpm_index));
         } else {
                 /* XXX: v3d33_vir_vpm_write_setup(c); */
                 vir_MOV_dest(c, vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_VPM), val);
@@ -1297,16 +1490,29 @@ emit_vert_end(struct v3d_compile *c)
                 vir_VPMWT(c);
 }
 
+static void
+emit_geom_end(struct v3d_compile *c)
+{
+        /* GFXH-1684: VPM writes need to be complete by the end of the shader.
+         */
+        if (c->devinfo->ver >= 40 && c->devinfo->ver <= 42)
+                vir_VPMWT(c);
+}
+
 void
 v3d_optimize_nir(struct nir_shader *s)
 {
         bool progress;
+        unsigned lower_flrp =
+                (s->options->lower_flrp16 ? 16 : 0) |
+                (s->options->lower_flrp32 ? 32 : 0) |
+                (s->options->lower_flrp64 ? 64 : 0);
 
         do {
                 progress = false;
 
                 NIR_PASS_V(s, nir_lower_vars_to_ssa);
-                NIR_PASS(progress, s, nir_lower_alu_to_scalar);
+                NIR_PASS(progress, s, nir_lower_alu_to_scalar, NULL, NULL);
                 NIR_PASS(progress, s, nir_lower_phis_to_scalar);
                 NIR_PASS(progress, s, nir_copy_prop);
                 NIR_PASS(progress, s, nir_opt_remove_phis);
@@ -1316,10 +1522,28 @@ v3d_optimize_nir(struct nir_shader *s)
                 NIR_PASS(progress, s, nir_opt_peephole_select, 8, true, true);
                 NIR_PASS(progress, s, nir_opt_algebraic);
                 NIR_PASS(progress, s, nir_opt_constant_folding);
+
+                if (lower_flrp != 0) {
+                        bool lower_flrp_progress = false;
+
+                        NIR_PASS(lower_flrp_progress, s, nir_lower_flrp,
+                                 lower_flrp,
+                                 false /* always_precise */);
+                        if (lower_flrp_progress) {
+                                NIR_PASS(progress, s, nir_opt_constant_folding);
+                                progress = true;
+                        }
+
+                        /* Nothing should rematerialize any flrps, so we only
+                         * need to do this lowering once.
+                         */
+                        lower_flrp = 0;
+                }
+
                 NIR_PASS(progress, s, nir_opt_undef);
         } while (progress);
 
-        NIR_PASS(progress, s, nir_opt_move_load_ubo);
+        NIR_PASS(progress, s, nir_opt_move, nir_move_load_ubo);
 }
 
 static int
@@ -1327,6 +1551,9 @@ driver_location_compare(const void *in_a, const void *in_b)
 {
         const nir_variable *const *a = in_a;
         const nir_variable *const *b = in_b;
+
+        if ((*a)->data.driver_location == (*b)->data.driver_location)
+                return (*a)->data.location_frac - (*b)->data.location_frac;
 
         return (*a)->data.driver_location - (*b)->data.driver_location;
 }
@@ -1361,15 +1588,19 @@ ntq_emit_vpm_read(struct v3d_compile *c,
 }
 
 static void
-ntq_setup_vpm_inputs(struct v3d_compile *c)
+ntq_setup_vs_inputs(struct v3d_compile *c)
 {
         /* Figure out how many components of each vertex attribute the shader
          * uses.  Each variable should have been split to individual
          * components and unused ones DCEed.  The vertex fetcher will load
          * from the start of the attribute to the number of components we
          * declare we need in c->vattr_sizes[].
+         *
+         * BGRA vertex attributes are a bit special: since we implement these
+         * as RGBA swapping R/B components we always need at least 3 components
+         * if component 0 is read.
          */
-        nir_foreach_variable(var, &c->s->inputs) {
+        nir_foreach_shader_in_variable(var, c->s) {
                 /* No VS attribute array support. */
                 assert(MAX2(glsl_get_length(var->type), 1) == 1);
 
@@ -1379,15 +1610,29 @@ ntq_setup_vpm_inputs(struct v3d_compile *c)
 
                 c->vattr_sizes[loc] = MAX2(c->vattr_sizes[loc],
                                            start_component + num_components);
+
+                /* Handle BGRA inputs */
+                if (start_component == 0 &&
+                    c->vs_key->va_swap_rb_mask & (1 << var->data.location)) {
+                        c->vattr_sizes[loc] = MAX2(3, c->vattr_sizes[loc]);
+                }
         }
 
         unsigned num_components = 0;
         uint32_t vpm_components_queued = 0;
-        bool uses_iid = c->s->info.system_values_read &
-                (1ull << SYSTEM_VALUE_INSTANCE_ID);
-        bool uses_vid = c->s->info.system_values_read &
-                (1ull << SYSTEM_VALUE_VERTEX_ID);
+        bool uses_iid = BITSET_TEST(c->s->info.system_values_read,
+                                    SYSTEM_VALUE_INSTANCE_ID) ||
+                        BITSET_TEST(c->s->info.system_values_read,
+                                    SYSTEM_VALUE_INSTANCE_INDEX);
+        bool uses_biid = BITSET_TEST(c->s->info.system_values_read,
+                                     SYSTEM_VALUE_BASE_INSTANCE);
+        bool uses_vid = BITSET_TEST(c->s->info.system_values_read,
+                                    SYSTEM_VALUE_VERTEX_ID) ||
+                        BITSET_TEST(c->s->info.system_values_read,
+                                    SYSTEM_VALUE_VERTEX_ID_ZERO_BASE);
+
         num_components += uses_iid;
+        num_components += uses_biid;
         num_components += uses_vid;
 
         for (int i = 0; i < ARRAY_SIZE(c->vattr_sizes); i++)
@@ -1396,6 +1641,11 @@ ntq_setup_vpm_inputs(struct v3d_compile *c)
         if (uses_iid) {
                 c->iid = ntq_emit_vpm_read(c, &vpm_components_queued,
                                            &num_components, ~0);
+        }
+
+        if (uses_biid) {
+                c->biid = ntq_emit_vpm_read(c, &vpm_components_queued,
+                                            &num_components, ~0);
         }
 
         if (uses_vid) {
@@ -1431,49 +1681,113 @@ ntq_setup_vpm_inputs(struct v3d_compile *c)
         }
 }
 
-static void
-ntq_setup_fs_inputs(struct v3d_compile *c)
+static bool
+program_reads_point_coord(struct v3d_compile *c)
 {
-        unsigned num_entries = 0;
-        unsigned num_components = 0;
-        nir_foreach_variable(var, &c->s->inputs) {
-                num_entries++;
-                num_components += glsl_get_components(var->type);
+        nir_foreach_shader_in_variable(var, c->s) {
+                if (util_varying_is_point_coord(var->data.location,
+                                                c->fs_key->point_sprite_mask)) {
+                        return true;
+                }
         }
 
-        nir_variable *vars[num_entries];
+        return false;
+}
+
+static void
+get_sorted_input_variables(struct v3d_compile *c,
+                           unsigned *num_entries,
+                           nir_variable ***vars)
+{
+        *num_entries = 0;
+        nir_foreach_shader_in_variable(var, c->s)
+                (*num_entries)++;
+
+        *vars = ralloc_array(c, nir_variable *, *num_entries);
 
         unsigned i = 0;
-        nir_foreach_variable(var, &c->s->inputs)
-                vars[i++] = var;
+        nir_foreach_shader_in_variable(var, c->s)
+                (*vars)[i++] = var;
 
         /* Sort the variables so that we emit the input setup in
          * driver_location order.  This is required for VPM reads, whose data
          * is fetched into the VPM in driver_location (TGSI register index)
          * order.
          */
-        qsort(&vars, num_entries, sizeof(*vars), driver_location_compare);
+        qsort(*vars, *num_entries, sizeof(**vars), driver_location_compare);
+}
+
+static void
+ntq_setup_gs_inputs(struct v3d_compile *c)
+{
+        nir_variable **vars;
+        unsigned num_entries;
+        get_sorted_input_variables(c, &num_entries, &vars);
 
         for (unsigned i = 0; i < num_entries; i++) {
                 nir_variable *var = vars[i];
-                unsigned array_len = MAX2(glsl_get_length(var->type), 1);
+
+                /* All GS inputs are arrays with as many entries as vertices
+                 * in the input primitive, but here we only care about the
+                 * per-vertex input type.
+                 */
+                const struct glsl_type *type = glsl_without_array(var->type);
+                unsigned array_len = MAX2(glsl_get_length(type), 1);
                 unsigned loc = var->data.driver_location;
 
                 resize_qreg_array(c, &c->inputs, &c->inputs_array_size,
                                   (loc + array_len) * 4);
 
+                for (unsigned j = 0; j < array_len; j++) {
+                        unsigned num_elements = glsl_get_vector_elements(type);
+                        for (unsigned k = 0; k < num_elements; k++) {
+                                unsigned chan = var->data.location_frac + k;
+                                unsigned input_idx = c->num_inputs++;
+                                struct v3d_varying_slot slot =
+                                        v3d_slot_from_slot_and_component(var->data.location + j, chan);
+                                c->input_slots[input_idx] = slot;
+                        }
+                }
+        }
+}
+
+
+static void
+ntq_setup_fs_inputs(struct v3d_compile *c)
+{
+        nir_variable **vars;
+        unsigned num_entries;
+        get_sorted_input_variables(c, &num_entries, &vars);
+
+        for (unsigned i = 0; i < num_entries; i++) {
+                nir_variable *var = vars[i];
+                unsigned var_len = glsl_count_vec4_slots(var->type, false, false);
+                unsigned loc = var->data.driver_location;
+
+                uint32_t inputs_array_size = c->inputs_array_size;
+                uint32_t inputs_array_required_size = (loc + var_len) * 4;
+                resize_qreg_array(c, &c->inputs, &c->inputs_array_size,
+                                  inputs_array_required_size);
+                resize_interp_array(c, &c->interp, &inputs_array_size,
+                                    inputs_array_required_size);
+
                 if (var->data.location == VARYING_SLOT_POS) {
                         emit_fragcoord_input(c, loc);
-                } else if (var->data.location == VARYING_SLOT_PNTC ||
-                           (var->data.location >= VARYING_SLOT_VAR0 &&
-                            (c->fs_key->point_sprite_mask &
-                             (1 << (var->data.location -
-                                    VARYING_SLOT_VAR0))))) {
+                } else if (util_varying_is_point_coord(var->data.location,
+                                                       c->fs_key->point_sprite_mask)) {
                         c->inputs[loc * 4 + 0] = c->point_x;
                         c->inputs[loc * 4 + 1] = c->point_y;
+                } else if (var->data.compact) {
+                        for (int j = 0; j < var_len; j++)
+                                emit_compact_fragment_input(c, loc, var, j);
+                } else if (glsl_type_is_struct(var->type)) {
+                        for (int j = 0; j < var_len; j++) {
+                           emit_fragment_input(c, loc, var, j, 4);
+                        }
                 } else {
-                        for (int j = 0; j < array_len; j++)
-                                emit_fragment_input(c, loc + j, var, j);
+                        for (int j = 0; j < var_len; j++) {
+                                emit_fragment_input(c, loc, var, j, glsl_get_vector_elements(var->type));
+                        }
                 }
         }
 }
@@ -1484,7 +1798,7 @@ ntq_setup_outputs(struct v3d_compile *c)
         if (c->s->info.stage != MESA_SHADER_FRAGMENT)
                 return;
 
-        nir_foreach_variable(var, &c->s->outputs) {
+        nir_foreach_shader_out_variable(var, c->s) {
                 unsigned array_len = MAX2(glsl_get_length(var->type), 1);
                 unsigned loc = var->data.driver_location * 4;
 
@@ -1571,17 +1885,19 @@ ntq_emit_ssa_undef(struct v3d_compile *c, nir_ssa_undef_instr *instr)
 static void
 ntq_emit_image_size(struct v3d_compile *c, nir_intrinsic_instr *instr)
 {
-        assert(instr->intrinsic == nir_intrinsic_image_deref_size);
-        nir_variable *var = nir_intrinsic_get_var(instr, 0);
-        unsigned image_index = var->data.driver_location;
-        const struct glsl_type *sampler_type = glsl_without_array(var->type);
-        bool is_array = glsl_sampler_type_is_array(sampler_type);
+        unsigned image_index = nir_src_as_uint(instr->src[0]);
+        bool is_array = nir_intrinsic_image_array(instr);
+
+        assert(nir_src_as_uint(instr->src[1]) == 0);
 
         ntq_store_dest(c, &instr->dest, 0,
                        vir_uniform(c, QUNIFORM_IMAGE_WIDTH, image_index));
         if (instr->num_components > 1) {
                 ntq_store_dest(c, &instr->dest, 1,
-                               vir_uniform(c, QUNIFORM_IMAGE_HEIGHT,
+                               vir_uniform(c,
+                                           instr->num_components == 2 && is_array ?
+                                                   QUNIFORM_IMAGE_ARRAY_SIZE :
+                                                   QUNIFORM_IMAGE_HEIGHT,
                                            image_index));
         }
         if (instr->num_components > 2) {
@@ -1595,26 +1911,452 @@ ntq_emit_image_size(struct v3d_compile *c, nir_intrinsic_instr *instr)
 }
 
 static void
+vir_emit_tlb_color_read(struct v3d_compile *c, nir_intrinsic_instr *instr)
+{
+        assert(c->s->info.stage == MESA_SHADER_FRAGMENT);
+
+        int rt = nir_src_as_uint(instr->src[0]);
+        assert(rt < V3D_MAX_DRAW_BUFFERS);
+
+        int sample_index = nir_intrinsic_base(instr) ;
+        assert(sample_index < V3D_MAX_SAMPLES);
+
+        int component = nir_intrinsic_component(instr);
+        assert(component < 4);
+
+        /* We need to emit our TLB reads after we have acquired the scoreboard
+         * lock, or the GPU will hang. Usually, we do our scoreboard locking on
+         * the last thread switch to improve parallelism, however, that is only
+         * guaranteed to happen before the tlb color writes.
+         *
+         * To fix that, we make sure we always emit a thread switch before the
+         * first tlb color read. If that happens to be the last thread switch
+         * we emit, then everything is fine, but otherwsie, if any code after
+         * this point needs to emit additional thread switches, then we will
+         * switch the strategy to locking the scoreboard on the first thread
+         * switch instead -- see vir_emit_thrsw().
+         */
+        if (!c->emitted_tlb_load) {
+                if (!c->last_thrsw_at_top_level) {
+                        assert(c->devinfo->ver >= 41);
+                        vir_emit_thrsw(c);
+                }
+
+                c->emitted_tlb_load = true;
+        }
+
+        struct qreg *color_reads_for_sample =
+                &c->color_reads[(rt * V3D_MAX_SAMPLES + sample_index) * 4];
+
+        if (color_reads_for_sample[component].file == QFILE_NULL) {
+                enum pipe_format rt_format = c->fs_key->color_fmt[rt].format;
+                int num_components =
+                        util_format_get_nr_components(rt_format);
+
+                const bool swap_rb = c->fs_key->swap_color_rb & (1 << rt);
+                if (swap_rb)
+                        num_components = MAX2(num_components, 3);
+
+                nir_variable *var = c->output_color_var[rt];
+                enum glsl_base_type type = glsl_get_base_type(var->type);
+
+                bool is_int_format = type == GLSL_TYPE_INT ||
+                                     type == GLSL_TYPE_UINT;
+
+                bool is_32b_tlb_format = is_int_format ||
+                                         (c->fs_key->f32_color_rb & (1 << rt));
+
+                int num_samples = c->fs_key->msaa ? V3D_MAX_SAMPLES : 1;
+
+                uint32_t conf = 0xffffff00;
+                conf |= c->fs_key->msaa ? TLB_SAMPLE_MODE_PER_SAMPLE :
+                                          TLB_SAMPLE_MODE_PER_PIXEL;
+                conf |= (7 - rt) << TLB_RENDER_TARGET_SHIFT;
+
+                if (is_32b_tlb_format) {
+                        /* The F32 vs I32 distinction was dropped in 4.2. */
+                        conf |= (c->devinfo->ver < 42 && is_int_format) ?
+                                TLB_TYPE_I32_COLOR : TLB_TYPE_F32_COLOR;
+
+                        conf |= ((num_components - 1) <<
+                                 TLB_VEC_SIZE_MINUS_1_SHIFT);
+                } else {
+                        conf |= TLB_TYPE_F16_COLOR;
+                        conf |= TLB_F16_SWAP_HI_LO;
+
+                        if (num_components >= 3)
+                                conf |= TLB_VEC_SIZE_4_F16;
+                        else
+                                conf |= TLB_VEC_SIZE_2_F16;
+                }
+
+
+                for (int i = 0; i < num_samples; i++) {
+                        struct qreg r, g, b, a;
+                        if (is_32b_tlb_format) {
+                                r = conf != 0xffffffff && i == 0?
+                                        vir_TLBU_COLOR_READ(c, conf) :
+                                        vir_TLB_COLOR_READ(c);
+                                if (num_components >= 2)
+                                        g = vir_TLB_COLOR_READ(c);
+                                if (num_components >= 3)
+                                        b = vir_TLB_COLOR_READ(c);
+                                if (num_components >= 4)
+                                        a = vir_TLB_COLOR_READ(c);
+                        } else {
+                                struct qreg rg = conf != 0xffffffff && i == 0 ?
+                                        vir_TLBU_COLOR_READ(c, conf) :
+                                        vir_TLB_COLOR_READ(c);
+                                r = vir_FMOV(c, rg);
+                                vir_set_unpack(c->defs[r.index], 0,
+                                               V3D_QPU_UNPACK_L);
+                                g = vir_FMOV(c, rg);
+                                vir_set_unpack(c->defs[g.index], 0,
+                                               V3D_QPU_UNPACK_H);
+
+                                if (num_components > 2) {
+                                    struct qreg ba = vir_TLB_COLOR_READ(c);
+                                    b = vir_FMOV(c, ba);
+                                    vir_set_unpack(c->defs[b.index], 0,
+                                                   V3D_QPU_UNPACK_L);
+                                    a = vir_FMOV(c, ba);
+                                    vir_set_unpack(c->defs[a.index], 0,
+                                                   V3D_QPU_UNPACK_H);
+                                }
+                        }
+
+                        struct qreg *color_reads =
+                                &c->color_reads[(rt * V3D_MAX_SAMPLES + i) * 4];
+
+                        color_reads[0] = swap_rb ? b : r;
+                        if (num_components >= 2)
+                                color_reads[1] = g;
+                        if (num_components >= 3)
+                                color_reads[2] = swap_rb ? r : b;
+                        if (num_components >= 4)
+                                color_reads[3] = a;
+                }
+        }
+
+        assert(color_reads_for_sample[component].file != QFILE_NULL);
+        ntq_store_dest(c, &instr->dest, 0,
+                       vir_MOV(c, color_reads_for_sample[component]));
+}
+
+static void
+ntq_emit_load_uniform(struct v3d_compile *c, nir_intrinsic_instr *instr)
+{
+        if (nir_src_is_const(instr->src[0])) {
+                int offset = (nir_intrinsic_base(instr) +
+                             nir_src_as_uint(instr->src[0]));
+                assert(offset % 4 == 0);
+                /* We need dwords */
+                offset = offset / 4;
+                for (int i = 0; i < instr->num_components; i++) {
+                        ntq_store_dest(c, &instr->dest, i,
+                                       vir_uniform(c, QUNIFORM_UNIFORM,
+                                                   offset + i));
+                }
+        } else {
+               ntq_emit_tmu_general(c, instr, false);
+        }
+}
+
+static void
+ntq_emit_load_input(struct v3d_compile *c, nir_intrinsic_instr *instr)
+{
+        /* XXX: Use ldvpmv (uniform offset) or ldvpmd (non-uniform offset)
+         * and enable PIPE_SHADER_CAP_INDIRECT_INPUT_ADDR.
+         */
+        unsigned offset =
+                nir_intrinsic_base(instr) + nir_src_as_uint(instr->src[0]);
+
+        if (c->s->info.stage != MESA_SHADER_FRAGMENT && c->devinfo->ver >= 40) {
+               /* Emit the LDVPM directly now, rather than at the top
+                * of the shader like we did for V3D 3.x (which needs
+                * vpmsetup when not just taking the next offset).
+                *
+                * Note that delaying like this may introduce stalls,
+                * as LDVPMV takes a minimum of 1 instruction but may
+                * be slower if the VPM unit is busy with another QPU.
+                */
+               int index = 0;
+               if (BITSET_TEST(c->s->info.system_values_read,
+                               SYSTEM_VALUE_INSTANCE_ID)) {
+                      index++;
+               }
+               if (BITSET_TEST(c->s->info.system_values_read,
+                               SYSTEM_VALUE_BASE_INSTANCE)) {
+                      index++;
+               }
+               if (BITSET_TEST(c->s->info.system_values_read,
+                               SYSTEM_VALUE_VERTEX_ID)) {
+                      index++;
+               }
+               for (int i = 0; i < offset; i++)
+                      index += c->vattr_sizes[i];
+               index += nir_intrinsic_component(instr);
+               for (int i = 0; i < instr->num_components; i++) {
+                      struct qreg vpm_offset = vir_uniform_ui(c, index++);
+                      ntq_store_dest(c, &instr->dest, i,
+                                     vir_LDVPMV_IN(c, vpm_offset));
+                }
+        } else {
+                for (int i = 0; i < instr->num_components; i++) {
+                        int comp = nir_intrinsic_component(instr) + i;
+                        ntq_store_dest(c, &instr->dest, i,
+                                       vir_MOV(c, c->inputs[offset * 4 + comp]));
+                }
+        }
+}
+
+static void
+ntq_emit_per_sample_color_write(struct v3d_compile *c,
+                                nir_intrinsic_instr *instr)
+{
+        assert(instr->intrinsic == nir_intrinsic_store_tlb_sample_color_v3d);
+
+        unsigned rt = nir_src_as_uint(instr->src[1]);
+        assert(rt < V3D_MAX_DRAW_BUFFERS);
+
+        unsigned sample_idx = nir_intrinsic_base(instr);
+        assert(sample_idx < V3D_MAX_SAMPLES);
+
+        unsigned offset = (rt * V3D_MAX_SAMPLES + sample_idx) * 4;
+        for (int i = 0; i < instr->num_components; i++) {
+                c->sample_colors[offset + i] =
+                        vir_MOV(c, ntq_get_src(c, instr->src[0], i));
+        }
+}
+
+static void
+ntq_emit_color_write(struct v3d_compile *c,
+                     nir_intrinsic_instr *instr)
+{
+        unsigned offset = (nir_intrinsic_base(instr) +
+                           nir_src_as_uint(instr->src[1])) * 4 +
+                          nir_intrinsic_component(instr);
+        for (int i = 0; i < instr->num_components; i++) {
+                c->outputs[offset + i] =
+                        vir_MOV(c, ntq_get_src(c, instr->src[0], i));
+        }
+}
+
+static void
+emit_store_output_gs(struct v3d_compile *c, nir_intrinsic_instr *instr)
+{
+        assert(instr->num_components == 1);
+
+        struct qreg offset = ntq_get_src(c, instr->src[1], 0);
+
+        uint32_t base_offset = nir_intrinsic_base(instr);
+
+        if (base_offset)
+                offset = vir_ADD(c, vir_uniform_ui(c, base_offset), offset);
+
+        /* Usually, for VS or FS, we only emit outputs once at program end so
+         * our VPM writes are never in non-uniform control flow, but this
+         * is not true for GS, where we are emitting multiple vertices.
+         */
+        if (vir_in_nonuniform_control_flow(c)) {
+                vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), c->execute),
+                           V3D_QPU_PF_PUSHZ);
+        }
+
+        struct qreg val = ntq_get_src(c, instr->src[0], 0);
+
+        /* The offset isn’t necessarily dynamically uniform for a geometry
+         * shader. This can happen if the shader sometimes doesn’t emit one of
+         * the vertices. In that case subsequent vertices will be written to
+         * different offsets in the VPM and we need to use the scatter write
+         * instruction to have a different offset for each lane.
+         */
+        if (nir_src_is_dynamically_uniform(instr->src[1]))
+                vir_VPM_WRITE_indirect(c, val, offset);
+        else
+                vir_STVPMD(c, offset, val);
+
+        if (vir_in_nonuniform_control_flow(c)) {
+                struct qinst *last_inst =
+                        (struct qinst *)c->cur_block->instructions.prev;
+                vir_set_cond(last_inst, V3D_QPU_COND_IFA);
+        }
+}
+
+static void
+ntq_emit_store_output(struct v3d_compile *c, nir_intrinsic_instr *instr)
+{
+        /* XXX perf: Use stvpmv with uniform non-constant offsets and
+         * stvpmd with non-uniform offsets and enable
+         * PIPE_SHADER_CAP_INDIRECT_OUTPUT_ADDR.
+         */
+        if (c->s->info.stage == MESA_SHADER_FRAGMENT) {
+               ntq_emit_color_write(c, instr);
+        } else if (c->s->info.stage == MESA_SHADER_GEOMETRY)  {
+               emit_store_output_gs(c, instr);
+        } else {
+               assert(c->s->info.stage == MESA_SHADER_VERTEX);
+               assert(instr->num_components == 1);
+
+               uint32_t base = nir_intrinsic_base(instr);
+               if (nir_src_is_const(instr->src[1])) {
+                  vir_VPM_WRITE(c,
+                                ntq_get_src(c, instr->src[0], 0),
+                                base + nir_src_as_uint(instr->src[1]));
+               } else {
+                  vir_VPM_WRITE_indirect(c,
+                                         ntq_get_src(c, instr->src[0], 0),
+                                         vir_ADD(c,
+                                                 ntq_get_src(c, instr->src[1], 1),
+                                                 vir_uniform_ui(c, base)));
+               }
+        }
+}
+
+/**
+ * This implementation is based on v3d_sample_{x,y}_offset() from
+ * v3d_sample_offset.h.
+ */
+static void
+ntq_get_sample_offset(struct v3d_compile *c, struct qreg sample_idx,
+                      struct qreg *sx, struct qreg *sy)
+{
+        sample_idx = vir_ITOF(c, sample_idx);
+
+        struct qreg offset_x =
+                vir_FADD(c, vir_uniform_f(c, -0.125f),
+                            vir_FMUL(c, sample_idx,
+                                        vir_uniform_f(c, 0.5f)));
+        vir_set_pf(vir_FCMP_dest(c, vir_nop_reg(),
+                                    vir_uniform_f(c, 2.0f), sample_idx),
+                   V3D_QPU_PF_PUSHC);
+        offset_x = vir_SEL(c, V3D_QPU_COND_IFA,
+                              vir_FSUB(c, offset_x, vir_uniform_f(c, 1.25f)),
+                              offset_x);
+
+        struct qreg offset_y =
+                   vir_FADD(c, vir_uniform_f(c, -0.375f),
+                               vir_FMUL(c, sample_idx,
+                                           vir_uniform_f(c, 0.25f)));
+        *sx = offset_x;
+        *sy = offset_y;
+}
+
+/**
+ * This implementation is based on get_centroid_offset() from fep.c.
+ */
+static void
+ntq_get_barycentric_centroid(struct v3d_compile *c,
+                             struct qreg *out_x,
+                             struct qreg *out_y)
+{
+        struct qreg sample_mask;
+        if (c->output_sample_mask_index != -1)
+                sample_mask = c->outputs[c->output_sample_mask_index];
+        else
+                sample_mask = vir_MSF(c);
+
+        struct qreg i0 = vir_uniform_ui(c, 0);
+        struct qreg i1 = vir_uniform_ui(c, 1);
+        struct qreg i2 = vir_uniform_ui(c, 2);
+        struct qreg i3 = vir_uniform_ui(c, 3);
+        struct qreg i4 = vir_uniform_ui(c, 4);
+        struct qreg i8 = vir_uniform_ui(c, 8);
+
+        /* sN = TRUE if sample N enabled in sample mask, FALSE otherwise */
+        struct qreg F = vir_uniform_ui(c, 0);
+        struct qreg T = vir_uniform_ui(c, ~0);
+        struct qreg s0 = vir_XOR(c, vir_AND(c, sample_mask, i1), i1);
+        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), s0), V3D_QPU_PF_PUSHZ);
+        s0 = vir_SEL(c, V3D_QPU_COND_IFA, T, F);
+        struct qreg s1 = vir_XOR(c, vir_AND(c, sample_mask, i2), i2);
+        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), s1), V3D_QPU_PF_PUSHZ);
+        s1 = vir_SEL(c, V3D_QPU_COND_IFA, T, F);
+        struct qreg s2 = vir_XOR(c, vir_AND(c, sample_mask, i4), i4);
+        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), s2), V3D_QPU_PF_PUSHZ);
+        s2 = vir_SEL(c, V3D_QPU_COND_IFA, T, F);
+        struct qreg s3 = vir_XOR(c, vir_AND(c, sample_mask, i8), i8);
+        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), s3), V3D_QPU_PF_PUSHZ);
+        s3 = vir_SEL(c, V3D_QPU_COND_IFA, T, F);
+
+        /* sample_idx = s0 ? 0 : s2 ? 2 : s1 ? 1 : 3 */
+        struct qreg sample_idx = i3;
+        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), s1), V3D_QPU_PF_PUSHZ);
+        sample_idx = vir_SEL(c, V3D_QPU_COND_IFNA, i1, sample_idx);
+        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), s2), V3D_QPU_PF_PUSHZ);
+        sample_idx = vir_SEL(c, V3D_QPU_COND_IFNA, i2, sample_idx);
+        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), s0), V3D_QPU_PF_PUSHZ);
+        sample_idx = vir_SEL(c, V3D_QPU_COND_IFNA, i0, sample_idx);
+
+        /* Get offset at selected sample index */
+        struct qreg offset_x, offset_y;
+        ntq_get_sample_offset(c, sample_idx, &offset_x, &offset_y);
+
+        /* Select pixel center [offset=(0,0)] if two opposing samples (or none)
+         * are selected.
+         */
+        struct qreg s0_and_s3 = vir_AND(c, s0, s3);
+        struct qreg s1_and_s2 = vir_AND(c, s1, s2);
+
+        struct qreg use_center = vir_XOR(c, sample_mask, vir_uniform_ui(c, 0));
+        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), use_center), V3D_QPU_PF_PUSHZ);
+        use_center = vir_SEL(c, V3D_QPU_COND_IFA, T, F);
+        use_center = vir_OR(c, use_center, s0_and_s3);
+        use_center = vir_OR(c, use_center, s1_and_s2);
+
+        struct qreg zero = vir_uniform_f(c, 0.0f);
+        vir_set_pf(vir_MOV_dest(c, vir_nop_reg(), use_center), V3D_QPU_PF_PUSHZ);
+        offset_x = vir_SEL(c, V3D_QPU_COND_IFNA, zero, offset_x);
+        offset_y = vir_SEL(c, V3D_QPU_COND_IFNA, zero, offset_y);
+
+        *out_x = offset_x;
+        *out_y = offset_y;
+}
+
+static struct qreg
+ntq_emit_load_interpolated_input(struct v3d_compile *c,
+                                 struct qreg p,
+                                 struct qreg C,
+                                 struct qreg offset_x,
+                                 struct qreg offset_y,
+                                 unsigned mode)
+{
+        if (mode == INTERP_MODE_FLAT)
+                return C;
+
+        struct qreg sample_offset_x =
+                vir_FSUB(c, vir_FXCD(c), vir_ITOF(c, vir_XCD(c)));
+        struct qreg sample_offset_y =
+                vir_FSUB(c, vir_FYCD(c), vir_ITOF(c, vir_YCD(c)));
+
+        struct qreg scaleX =
+                vir_FADD(c, vir_FSUB(c, vir_uniform_f(c, 0.5f), sample_offset_x),
+                            offset_x);
+        struct qreg scaleY =
+                vir_FADD(c, vir_FSUB(c, vir_uniform_f(c, 0.5f), sample_offset_y),
+                            offset_y);
+
+        struct qreg pInterp =
+                vir_FADD(c, p, vir_FADD(c, vir_FMUL(c, vir_FDX(c, p), scaleX),
+                                           vir_FMUL(c, vir_FDY(c, p), scaleY)));
+
+        if (mode == INTERP_MODE_NOPERSPECTIVE)
+                return vir_FADD(c, pInterp, C);
+
+        struct qreg w = c->payload_w;
+        struct qreg wInterp =
+                vir_FADD(c, w, vir_FADD(c, vir_FMUL(c, vir_FDX(c, w), scaleX),
+                                           vir_FMUL(c, vir_FDY(c, w), scaleY)));
+
+        return vir_FADD(c, vir_FMUL(c, pInterp, wInterp), C);
+}
+
+static void
 ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
 {
-        unsigned offset;
-
         switch (instr->intrinsic) {
         case nir_intrinsic_load_uniform:
-                if (nir_src_is_const(instr->src[0])) {
-                        int offset = (nir_intrinsic_base(instr) +
-                                      nir_src_as_uint(instr->src[0]));
-                        assert(offset % 4 == 0);
-                        /* We need dwords */
-                        offset = offset / 4;
-                        for (int i = 0; i < instr->num_components; i++) {
-                                ntq_store_dest(c, &instr->dest, i,
-                                               vir_uniform(c, QUNIFORM_UNIFORM,
-                                                           offset + i));
-                        }
-                } else {
-                        ntq_emit_tmu_general(c, instr, false);
-                }
+                ntq_emit_load_uniform(c, instr);
                 break;
 
         case nir_intrinsic_load_ubo:
@@ -1653,27 +2395,35 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                 ntq_emit_tmu_general(c, instr, true);
                 break;
 
-        case nir_intrinsic_image_deref_load:
-        case nir_intrinsic_image_deref_store:
-        case nir_intrinsic_image_deref_atomic_add:
-        case nir_intrinsic_image_deref_atomic_min:
-        case nir_intrinsic_image_deref_atomic_max:
-        case nir_intrinsic_image_deref_atomic_and:
-        case nir_intrinsic_image_deref_atomic_or:
-        case nir_intrinsic_image_deref_atomic_xor:
-        case nir_intrinsic_image_deref_atomic_exchange:
-        case nir_intrinsic_image_deref_atomic_comp_swap:
+        case nir_intrinsic_image_load:
+        case nir_intrinsic_image_store:
+        case nir_intrinsic_image_atomic_add:
+        case nir_intrinsic_image_atomic_imin:
+        case nir_intrinsic_image_atomic_umin:
+        case nir_intrinsic_image_atomic_imax:
+        case nir_intrinsic_image_atomic_umax:
+        case nir_intrinsic_image_atomic_and:
+        case nir_intrinsic_image_atomic_or:
+        case nir_intrinsic_image_atomic_xor:
+        case nir_intrinsic_image_atomic_exchange:
+        case nir_intrinsic_image_atomic_comp_swap:
                 v3d40_vir_emit_image_load_store(c, instr);
                 break;
 
-        case nir_intrinsic_get_buffer_size:
+        case nir_intrinsic_get_ssbo_size:
                 ntq_store_dest(c, &instr->dest, 0,
-                               vir_uniform(c, QUNIFORM_GET_BUFFER_SIZE,
+                               vir_uniform(c, QUNIFORM_GET_SSBO_SIZE,
                                            nir_src_as_uint(instr->src[0])));
                 break;
 
+        case nir_intrinsic_get_ubo_size:
+                ntq_store_dest(c, &instr->dest, 0,
+                               vir_uniform(c, QUNIFORM_GET_UBO_SIZE,
+                                           nir_src_comp_as_uint(instr->src[0], 0)));
+                break;
+
         case nir_intrinsic_load_user_clip_plane:
-                for (int i = 0; i < instr->num_components; i++) {
+                for (int i = 0; i < nir_intrinsic_dest_components(instr); i++) {
                         ntq_store_dest(c, &instr->dest, i,
                                        vir_uniform(c, QUNIFORM_USER_CLIP_PLANE,
                                                    nir_intrinsic_ucp_id(instr) *
@@ -1701,9 +2451,18 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                                vir_uniform(c, QUNIFORM_VIEWPORT_Z_OFFSET, 0));
                 break;
 
-        case nir_intrinsic_load_alpha_ref_float:
+        case nir_intrinsic_load_line_coord:
+                ntq_store_dest(c, &instr->dest, 0, vir_MOV(c, c->line_x));
+                break;
+
+        case nir_intrinsic_load_line_width:
                 ntq_store_dest(c, &instr->dest, 0,
-                               vir_uniform(c, QUNIFORM_ALPHA_REF, 0));
+                               vir_uniform(c, QUNIFORM_LINE_WIDTH, 0));
+                break;
+
+        case nir_intrinsic_load_aa_line_width:
+                ntq_store_dest(c, &instr->dest, 0,
+                               vir_uniform(c, QUNIFORM_AA_LINE_WIDTH, 0));
                 break;
 
         case nir_intrinsic_load_sample_mask_in:
@@ -1728,6 +2487,10 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                                        vir_REVF(c)));
                 break;
 
+        case nir_intrinsic_load_base_instance:
+                ntq_store_dest(c, &instr->dest, 0, vir_MOV(c, c->biid));
+                break;
+
         case nir_intrinsic_load_instance_id:
                 ntq_store_dest(c, &instr->dest, 0, vir_MOV(c, c->iid));
                 break;
@@ -1736,75 +2499,23 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                 ntq_store_dest(c, &instr->dest, 0, vir_MOV(c, c->vid));
                 break;
 
+        case nir_intrinsic_load_tlb_color_v3d:
+                vir_emit_tlb_color_read(c, instr);
+                break;
+
         case nir_intrinsic_load_input:
-                /* Use ldvpmv (uniform offset) or ldvpmd (non-uniform offset)
-                 * and enable PIPE_SHADER_CAP_INDIRECT_INPUT_ADDR.
-                 */
-                offset = (nir_intrinsic_base(instr) +
-                          nir_src_as_uint(instr->src[0]));
-                if (c->s->info.stage != MESA_SHADER_FRAGMENT &&
-                    c->devinfo->ver >= 40) {
-                        /* Emit the LDVPM directly now, rather than at the top
-                         * of the shader like we did for V3D 3.x (which needs
-                         * vpmsetup when not just taking the next offset).
-                         *
-                         * Note that delaying like this may introduce stalls,
-                         * as LDVPMV takes a minimum of 1 instruction but may
-                         * be slower if the VPM unit is busy with another QPU.
-                         */
-                        int index = 0;
-                        if (c->s->info.system_values_read &
-                            (1ull << SYSTEM_VALUE_INSTANCE_ID)) {
-                                index++;
-                        }
-                        if (c->s->info.system_values_read &
-                            (1ull << SYSTEM_VALUE_VERTEX_ID)) {
-                                index++;
-                        }
-                        for (int i = 0; i < offset; i++)
-                                index += c->vattr_sizes[i];
-                        index += nir_intrinsic_component(instr);
-                        for (int i = 0; i < instr->num_components; i++) {
-                                struct qreg vpm_offset =
-                                        vir_uniform_ui(c, index++);
-                                ntq_store_dest(c, &instr->dest, i,
-                                               vir_LDVPMV_IN(c, vpm_offset));
-                        }
-                } else {
-                        for (int i = 0; i < instr->num_components; i++) {
-                                int comp = nir_intrinsic_component(instr) + i;
-                                ntq_store_dest(c, &instr->dest, i,
-                                               vir_MOV(c, c->inputs[offset * 4 +
-                                                                    comp]));
-                        }
-                }
+                ntq_emit_load_input(c, instr);
                 break;
 
-        case nir_intrinsic_store_output:
-                /* XXX perf: Use stvpmv with uniform non-constant offsets and
-                 * stvpmd with non-uniform offsets and enable
-                 * PIPE_SHADER_CAP_INDIRECT_OUTPUT_ADDR.
-                 */
-                if (c->s->info.stage == MESA_SHADER_FRAGMENT) {
-                        offset = ((nir_intrinsic_base(instr) +
-                                   nir_src_as_uint(instr->src[1])) * 4 +
-                                  nir_intrinsic_component(instr));
-                        for (int i = 0; i < instr->num_components; i++) {
-                                c->outputs[offset + i] =
-                                        vir_MOV(c,
-                                                ntq_get_src(c,
-                                                            instr->src[0], i));
-                        }
-                } else {
-                        assert(instr->num_components == 1);
+        case nir_intrinsic_store_tlb_sample_color_v3d:
+               ntq_emit_per_sample_color_write(c, instr);
+               break;
 
-                        vir_VPM_WRITE(c,
-                                      ntq_get_src(c, instr->src[0], 0),
-                                      nir_intrinsic_base(instr));
-                }
+       case nir_intrinsic_store_output:
+                ntq_emit_store_output(c, instr);
                 break;
 
-        case nir_intrinsic_image_deref_size:
+        case nir_intrinsic_image_size:
                 ntq_emit_image_size(c, instr);
                 break;
 
@@ -1842,10 +2553,10 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
         }
 
         case nir_intrinsic_memory_barrier:
-        case nir_intrinsic_memory_barrier_atomic_counter:
         case nir_intrinsic_memory_barrier_buffer:
         case nir_intrinsic_memory_barrier_image:
         case nir_intrinsic_memory_barrier_shared:
+        case nir_intrinsic_memory_barrier_tcs_patch:
         case nir_intrinsic_group_memory_barrier:
                 /* We don't do any instruction scheduling of these NIR
                  * instructions between each other, so we just need to make
@@ -1856,7 +2567,7 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                  */
                 break;
 
-        case nir_intrinsic_barrier:
+        case nir_intrinsic_control_barrier:
                 /* Emit a TSY op to get all invocations in the workgroup
                  * (actually supergroup) to block until the last invocation
                  * reaches the TSY op.
@@ -1912,6 +2623,142 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
         case nir_intrinsic_load_subgroup_id:
                 ntq_store_dest(c, &instr->dest, 0, vir_EIDX(c));
                 break;
+
+        case nir_intrinsic_load_per_vertex_input: {
+                /* col: vertex index, row = varying index */
+                struct qreg col = ntq_get_src(c, instr->src[0], 0);
+                uint32_t row_idx = nir_intrinsic_base(instr) * 4 +
+                                   nir_intrinsic_component(instr);
+                for (int i = 0; i < instr->num_components; i++) {
+                        struct qreg row = vir_uniform_ui(c, row_idx++);
+                        ntq_store_dest(c, &instr->dest, i,
+                                       vir_LDVPMG_IN(c, row, col));
+                }
+                break;
+        }
+
+        case nir_intrinsic_emit_vertex:
+        case nir_intrinsic_end_primitive:
+                unreachable("Should have been lowered in v3d_nir_lower_io");
+                break;
+
+        case nir_intrinsic_load_primitive_id: {
+                /* gl_PrimitiveIdIn is written by the GBG in the first word of
+                 * VPM output header. According to docs, we should read this
+                 * using ldvpm(v,d)_in (See Table 71).
+                 */
+                ntq_store_dest(c, &instr->dest, 0,
+                               vir_LDVPMV_IN(c, vir_uniform_ui(c, 0)));
+                break;
+        }
+
+        case nir_intrinsic_load_invocation_id:
+                ntq_store_dest(c, &instr->dest, 0, vir_IID(c));
+                break;
+
+        case nir_intrinsic_load_fb_layers_v3d:
+                ntq_store_dest(c, &instr->dest, 0,
+                               vir_uniform(c, QUNIFORM_FB_LAYERS, 0));
+                break;
+
+        case nir_intrinsic_load_sample_id:
+                ntq_store_dest(c, &instr->dest, 0, vir_SAMPID(c));
+                break;
+
+        case nir_intrinsic_load_sample_pos:
+                ntq_store_dest(c, &instr->dest, 0,
+                               vir_FSUB(c, vir_FXCD(c), vir_ITOF(c, vir_XCD(c))));
+                ntq_store_dest(c, &instr->dest, 1,
+                               vir_FSUB(c, vir_FYCD(c), vir_ITOF(c, vir_YCD(c))));
+                break;
+
+        case nir_intrinsic_load_barycentric_at_offset:
+                ntq_store_dest(c, &instr->dest, 0,
+                               vir_MOV(c, ntq_get_src(c, instr->src[0], 0)));
+                ntq_store_dest(c, &instr->dest, 1,
+                               vir_MOV(c, ntq_get_src(c, instr->src[0], 1)));
+                break;
+
+        case nir_intrinsic_load_barycentric_pixel:
+                ntq_store_dest(c, &instr->dest, 0, vir_uniform_f(c, 0.0f));
+                ntq_store_dest(c, &instr->dest, 1, vir_uniform_f(c, 0.0f));
+                break;
+
+        case nir_intrinsic_load_barycentric_at_sample: {
+                if (!c->fs_key->msaa) {
+                        ntq_store_dest(c, &instr->dest, 0, vir_uniform_f(c, 0.0f));
+                        ntq_store_dest(c, &instr->dest, 1, vir_uniform_f(c, 0.0f));
+                        return;
+                }
+
+                struct qreg offset_x, offset_y;
+                struct qreg sample_idx = ntq_get_src(c, instr->src[0], 0);
+                ntq_get_sample_offset(c, sample_idx, &offset_x, &offset_y);
+
+                ntq_store_dest(c, &instr->dest, 0, vir_MOV(c, offset_x));
+                ntq_store_dest(c, &instr->dest, 1, vir_MOV(c, offset_y));
+                break;
+        }
+
+        case nir_intrinsic_load_barycentric_sample: {
+                struct qreg offset_x =
+                        vir_FSUB(c, vir_FXCD(c), vir_ITOF(c, vir_XCD(c)));
+                struct qreg offset_y =
+                        vir_FSUB(c, vir_FYCD(c), vir_ITOF(c, vir_YCD(c)));
+
+                ntq_store_dest(c, &instr->dest, 0,
+                                  vir_FSUB(c, offset_x, vir_uniform_f(c, 0.5f)));
+                ntq_store_dest(c, &instr->dest, 1,
+                                  vir_FSUB(c, offset_y, vir_uniform_f(c, 0.5f)));
+                break;
+        }
+
+        case nir_intrinsic_load_barycentric_centroid: {
+                struct qreg offset_x, offset_y;
+                ntq_get_barycentric_centroid(c, &offset_x, &offset_y);
+                ntq_store_dest(c, &instr->dest, 0, vir_MOV(c, offset_x));
+                ntq_store_dest(c, &instr->dest, 1, vir_MOV(c, offset_y));
+                break;
+        }
+
+        case nir_intrinsic_load_interpolated_input: {
+                assert(nir_src_is_const(instr->src[1]));
+                const uint32_t offset = nir_src_as_uint(instr->src[1]);
+
+                for (int i = 0; i < instr->num_components; i++) {
+                        const uint32_t input_idx =
+                                (nir_intrinsic_base(instr) + offset) * 4 +
+                                nir_intrinsic_component(instr) + i;
+
+                        /* If we are not in MSAA or if we are not interpolating
+                         * a user varying, just return the pre-computed
+                         * interpolated input.
+                         */
+                        if (!c->fs_key->msaa ||
+                            c->interp[input_idx].vp.file == QFILE_NULL) {
+                                ntq_store_dest(c, &instr->dest, i,
+                                               vir_MOV(c, c->inputs[input_idx]));
+                                continue;
+                        }
+
+                        /* Otherwise compute interpolation at the specified
+                         * offset.
+                         */
+                        struct qreg p = c->interp[input_idx].vp;
+                        struct qreg C = c->interp[input_idx].C;
+                        unsigned interp_mode =  c->interp[input_idx].mode;
+
+                        struct qreg offset_x = ntq_get_src(c, instr->src[0], 0);
+                        struct qreg offset_y = ntq_get_src(c, instr->src[0], 1);
+
+                        struct qreg result =
+                              ntq_emit_load_interpolated_input(c, p, C,
+                                                               offset_x, offset_y,
+                                                               interp_mode);
+                        ntq_store_dest(c, &instr->dest, i, result);
+                }
+                break;
+        }
 
         default:
                 fprintf(stderr, "Unknown intrinsic: ");
@@ -1977,7 +2824,6 @@ ntq_emit_uniform_if(struct v3d_compile *c, nir_if *if_stmt)
 
                 /* Emit the else block. */
                 vir_set_emit_block(c, else_block);
-                ntq_activate_execute_for_block(c);
                 ntq_emit_cf_list(c, &if_stmt->else_list);
         }
 
@@ -2109,6 +2955,12 @@ ntq_emit_jump(struct v3d_compile *c, nir_jump_instr *jump)
 
         case nir_jump_return:
                 unreachable("All returns shouold be lowered\n");
+                break;
+
+        case nir_jump_goto:
+        case nir_jump_goto_if:
+                unreachable("not supported\n");
+                break;
         }
 }
 
@@ -2116,10 +2968,6 @@ static void
 ntq_emit_instr(struct v3d_compile *c, nir_instr *instr)
 {
         switch (instr->type) {
-        case nir_instr_type_deref:
-                /* ignored, will be walked by the intrinsic using it. */
-                break;
-
         case nir_instr_type_alu:
                 ntq_emit_alu(c, nir_instr_as_alu(instr));
                 break;
@@ -2273,16 +3121,28 @@ nir_to_vir(struct v3d_compile *c)
                 c->payload_w_centroid = vir_MOV(c, vir_reg(QFILE_REG, 1));
                 c->payload_z = vir_MOV(c, vir_reg(QFILE_REG, 2));
 
-                /* XXX perf: We could set the "disable implicit point/line
-                 * varyings" field in the shader record and not emit these, if
-                 * they're not going to be used.
+                /* V3D 4.x can disable implicit point coordinate varyings if
+                 * they are not used.
                  */
-                if (c->fs_key->is_points) {
-                        c->point_x = emit_fragment_varying(c, NULL, 0, 0);
-                        c->point_y = emit_fragment_varying(c, NULL, 0, 0);
-                } else if (c->fs_key->is_lines) {
-                        c->line_x = emit_fragment_varying(c, NULL, 0, 0);
+                if (c->fs_key->is_points &&
+                    (c->devinfo->ver < 40 || program_reads_point_coord(c))) {
+                        c->point_x = emit_fragment_varying(c, NULL, -1, 0, 0);
+                        c->point_y = emit_fragment_varying(c, NULL, -1, 0, 0);
+                        c->uses_implicit_point_line_varyings = true;
+                } else if (c->fs_key->is_lines &&
+                           (c->devinfo->ver < 40 ||
+                            BITSET_TEST(c->s->info.system_values_read,
+                                        SYSTEM_VALUE_LINE_COORD))) {
+                        c->line_x = emit_fragment_varying(c, NULL, -1, 0, 0);
+                        c->uses_implicit_point_line_varyings = true;
                 }
+
+                c->force_per_sample_msaa =
+                   c->s->info.fs.uses_sample_qualifier ||
+                   BITSET_TEST(c->s->info.system_values_read,
+                               SYSTEM_VALUE_SAMPLE_ID) ||
+                   BITSET_TEST(c->s->info.system_values_read,
+                               SYSTEM_VALUE_SAMPLE_POS);
                 break;
         case MESA_SHADER_COMPUTE:
                 /* Set up the TSO for barriers, assuming we do some. */
@@ -2334,10 +3194,21 @@ nir_to_vir(struct v3d_compile *c)
                 c->spill_size += V3D_CHANNELS * c->s->scratch_size;
         }
 
-        if (c->s->info.stage == MESA_SHADER_FRAGMENT)
+        switch (c->s->info.stage) {
+        case MESA_SHADER_VERTEX:
+                ntq_setup_vs_inputs(c);
+                break;
+        case MESA_SHADER_GEOMETRY:
+                ntq_setup_gs_inputs(c);
+                break;
+        case MESA_SHADER_FRAGMENT:
                 ntq_setup_fs_inputs(c);
-        else
-                ntq_setup_vpm_inputs(c);
+                break;
+        case MESA_SHADER_COMPUTE:
+                break;
+        default:
+                unreachable("unsupported shader stage");
+        }
 
         ntq_setup_outputs(c);
 
@@ -2353,13 +3224,13 @@ const nir_shader_compiler_options v3d_nir_options = {
         .lower_all_io_to_temps = true,
         .lower_extract_byte = true,
         .lower_extract_word = true,
-        .lower_bfm = true,
         .lower_bitfield_insert_to_shifts = true,
         .lower_bitfield_extract_to_shifts = true,
         .lower_bitfield_reverse = true,
         .lower_bit_count = true,
         .lower_cs_local_id_from_index = true,
         .lower_ffract = true,
+        .lower_fmod = true,
         .lower_pack_unorm_2x16 = true,
         .lower_pack_snorm_2x16 = true,
         .lower_pack_unorm_4x8 = true,
@@ -2370,7 +3241,9 @@ const nir_shader_compiler_options v3d_nir_options = {
         .lower_unpack_half_2x16 = true,
         .lower_fdiv = true,
         .lower_find_lsb = true,
-        .lower_ffma = true,
+	.lower_ffma16 = true,
+	.lower_ffma32 = true,
+	.lower_ffma64 = true,
         .lower_flrp32 = true,
         .lower_fpow = true,
         .lower_fsat = true,
@@ -2380,7 +3253,8 @@ const nir_shader_compiler_options v3d_nir_options = {
         .lower_ldexp = true,
         .lower_mul_high = true,
         .lower_wpos_pntc = true,
-        .native_integers = true,
+        .lower_rotate = true,
+        .lower_to_scalar = true,
 };
 
 /**
@@ -2459,7 +3333,6 @@ vir_check_payload_w(struct v3d_compile *c)
                         }
                 }
         }
-
 }
 
 void
@@ -2481,6 +3354,9 @@ v3d_nir_to_vir(struct v3d_compile *c)
         switch (c->s->info.stage) {
         case MESA_SHADER_FRAGMENT:
                 emit_frag_end(c);
+                break;
+        case MESA_SHADER_GEOMETRY:
+                emit_geom_end(c);
                 break;
         case MESA_SHADER_VERTEX:
                 emit_vert_end(c);
@@ -2536,14 +3412,36 @@ v3d_nir_to_vir(struct v3d_compile *c)
                 if (temp_registers)
                         break;
 
-                if (c->threads == min_threads) {
-                        fprintf(stderr, "Failed to register allocate at %d threads:\n",
-                                c->threads);
+                if (c->threads == min_threads &&
+                    (V3D_DEBUG & V3D_DEBUG_RA)) {
+                        fprintf(stderr,
+                                "Failed to register allocate using %s\n",
+                                c->fallback_scheduler ? "the fallback scheduler:" :
+                                "the normal scheduler: \n");
+
                         vir_dump(c);
-                        c->failed = true;
+
+                        char *shaderdb;
+                        int ret = v3d_shaderdb_dump(c, &shaderdb);
+                        if (ret > 0) {
+                                fprintf(stderr, "%s\n", shaderdb);
+                                free(shaderdb);
+                        }
+                }
+
+                if (c->threads == min_threads) {
+                        if (c->fallback_scheduler) {
+                                fprintf(stderr,
+                                        "Failed to register allocate at %d "
+                                        "threads with any strategy.\n",
+                                        c->threads);
+                        }
+                        c->compilation_result =
+                                V3D_COMPILATION_FAILED_REGISTER_ALLOCATION;
                         return;
                 }
 
+                c->spill_count = 0;
                 c->threads /= 2;
 
                 if (c->threads == 1)

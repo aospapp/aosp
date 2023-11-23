@@ -14,22 +14,29 @@
  * limitations under the License.
  */
 
+#include <aidl/test_package/BnCompatTest.h>
 #include <aidl/test_package/BnTest.h>
-
+#include <aidl/test_package/MyExt.h>
+#include <aidl/test_package/SimpleUnion.h>
 #include <stdio.h>
 #include <unistd.h>
+
 #include <condition_variable>
 #include <mutex>
 
 #include "utilities.h"
 
-using Bar = ::aidl::test_package::Bar;
-using ByteEnum = ::aidl::test_package::ByteEnum;
-using Foo = ::aidl::test_package::Foo;
-using IEmpty = ::aidl::test_package::IEmpty;
-using IntEnum = ::aidl::test_package::IntEnum;
-using LongEnum = ::aidl::test_package::LongEnum;
-using RegularPolygon = ::aidl::test_package::RegularPolygon;
+using ::aidl::test_package::Bar;
+using ::aidl::test_package::Baz;
+using ::aidl::test_package::ByteEnum;
+using ::aidl::test_package::ExtendableParcelable;
+using ::aidl::test_package::Foo;
+using ::aidl::test_package::IEmpty;
+using ::aidl::test_package::IntEnum;
+using ::aidl::test_package::LongEnum;
+using ::aidl::test_package::MyExt;
+using ::aidl::test_package::RegularPolygon;
+using ::aidl::test_package::SimpleUnion;
 
 class MyTest : public ::aidl::test_package::BnTest,
                public ThisShouldBeDestroyed {
@@ -224,9 +231,9 @@ class MyTest : public ::aidl::test_package::BnTest,
     *_aidl_return = in_value;
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
-  ::ndk::ScopedAStatus RepeatByteArray(
-      const std::vector<int8_t>& in_value, std::vector<int8_t>* out_repeated,
-      std::vector<int8_t>* _aidl_return) override {
+  ::ndk::ScopedAStatus RepeatByteArray(const std::vector<uint8_t>& in_value,
+                                       std::vector<uint8_t>* out_repeated,
+                                       std::vector<uint8_t>* _aidl_return) override {
     *out_repeated = in_value;
     *_aidl_return = in_value;
     return ::ndk::ScopedAStatus(AStatus_newOk());
@@ -341,8 +348,8 @@ class MyTest : public ::aidl::test_package::BnTest,
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
   ::ndk::ScopedAStatus RepeatNullableByteArray(
-      const std::optional<std::vector<int8_t>>& in_value,
-      std::optional<std::vector<int8_t>>* _aidl_return) override {
+      const std::optional<std::vector<uint8_t>>& in_value,
+      std::optional<std::vector<uint8_t>>* _aidl_return) override {
     *_aidl_return = in_value;
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
@@ -410,28 +417,68 @@ class MyTest : public ::aidl::test_package::BnTest,
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
 
+  ::ndk::ScopedAStatus getICompatTest(::ndk::SpAIBinder* _aidl_return) {
+    class MyCompatTest : public ::aidl::test_package::BnCompatTest {
+     public:
+      ::ndk::ScopedAStatus repeatBaz(const ::aidl::test_package::Baz& in_inBaz,
+                                     ::aidl::test_package::Baz* _aidl_return) override {
+        *_aidl_return = in_inBaz;
+        return ::ndk::ScopedAStatus(AStatus_newOk());
+      }
+
 #ifdef USING_VERSION_1
-  ::ndk::ScopedAStatus RepeatStringNullableLater(const std::string& in_value,
-                                                 std::string* _aidl_return) override {
-    *_aidl_return = in_value;
-    return ::ndk::ScopedAStatus(AStatus_newOk());
-  }
+      ::ndk::ScopedAStatus RepeatStringNullableLater(const std::string& in_value,
+                                                     std::string* _aidl_return) override {
+        *_aidl_return = in_value;
+        return ::ndk::ScopedAStatus(AStatus_newOk());
+      }
 #else
-  ::ndk::ScopedAStatus RepeatStringNullableLater(
-      const std::optional<std::string>& in_value,
-      std::optional<std::string>* _aidl_return) override {
-    *_aidl_return = in_value;
-    return ::ndk::ScopedAStatus(AStatus_newOk());
-  }
+      ::ndk::ScopedAStatus RepeatStringNullableLater(
+          const std::optional<std::string>& in_value,
+          std::optional<std::string>* _aidl_return) override {
+        *_aidl_return = in_value;
+        return ::ndk::ScopedAStatus(AStatus_newOk());
+      }
 #endif
 
 #ifndef USING_VERSION_1
-  // All methods added from now on should be within this macro
-  ::ndk::ScopedAStatus NewMethodThatReturns10(int32_t* _aidl_return) override {
-    *_aidl_return = 10;
+      ::ndk::ScopedAStatus NewMethodThatReturns10(int32_t* _aidl_return) override {
+        *_aidl_return = 10;
+        return ::ndk::ScopedAStatus(AStatus_newOk());
+      }
+#endif
+    };
+    *_aidl_return = SharedRefBase::make<MyCompatTest>()->asBinder();
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
-#endif
+
+  ::ndk::ScopedAStatus RepeatExtendableParcelable(
+      const ::aidl::test_package::ExtendableParcelable& in_input,
+      ::aidl::test_package::ExtendableParcelable* out_output) {
+    RepeatExtendableParcelableWithoutExtension(in_input, out_output);
+    std::optional<MyExt> ext;
+    in_input.ext.getParcelable(&ext);
+    MyExt ext2;
+    ext2.a = ext->a;
+    ext2.b = ext->b;
+    out_output->ext.setParcelable(ext2);
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+
+  ::ndk::ScopedAStatus RepeatExtendableParcelableWithoutExtension(
+      const ::aidl::test_package::ExtendableParcelable& in_input,
+      ::aidl::test_package::ExtendableParcelable* out_output) {
+    out_output->a = in_input.a;
+    out_output->b = in_input.b;
+    out_output->c = in_input.c;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+
+  ::ndk::ScopedAStatus RepeatSimpleUnion(const SimpleUnion& in_u,
+                                         SimpleUnion* _aidl_return) override {
+    *_aidl_return = in_u;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
 
   ::ndk::ScopedAStatus repeatFoo(const Foo& in_inFoo, Foo* _aidl_return) {
     *_aidl_return = in_inFoo;
@@ -450,6 +497,12 @@ class MyTest : public ::aidl::test_package::BnTest,
 
   ::ndk::ScopedAStatus getF(const Foo& foo, int32_t* _aidl_return) {
     *_aidl_return = foo.f;
+    return ::ndk::ScopedAStatus(AStatus_newOk());
+  }
+
+  ::ndk::ScopedAStatus repeatGenericBar(const ::aidl::test_package::GenericBar<int32_t>& in_inFoo,
+                                        ::aidl::test_package::GenericBar<int32_t>* _aidl_return) {
+    *_aidl_return = in_inFoo;
     return ::ndk::ScopedAStatus(AStatus_newOk());
   }
 };

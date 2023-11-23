@@ -13,6 +13,9 @@ libarbitrarybytes-inc  += $(LOCAL_PATH)/../mm-video-v4l2/vidc/common/inc/
 libarbitrarybytes-inc  += $(LOCAL_PATH)/../mm-core/inc
 
 LOCAL_MODULE           := libarbitrarybytes
+LOCAL_LICENSE_KINDS    := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE      := $(LOCAL_PATH)/../LICENSE
 
 LOCAL_PRELINK_MODULE   := false
 LOCAL_VENDOR_MODULE    := true

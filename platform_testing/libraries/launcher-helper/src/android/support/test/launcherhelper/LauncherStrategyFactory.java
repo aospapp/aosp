@@ -15,6 +15,7 @@
  */
 package android.support.test.launcherhelper;
 
+import android.app.Instrumentation;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 
@@ -42,7 +43,6 @@ public class LauncherStrategyFactory {
         mKnownLauncherStrategies = new HashSet<>();
         registerLauncherStrategy(AospLauncherStrategy.class);
         registerLauncherStrategy(AutoLauncherStrategy.class);
-        registerLauncherStrategy(VolvoLauncherStrategy.class);
         registerLauncherStrategy(GoogleExperienceLauncherStrategy.class);
         registerLauncherStrategy(Launcher3Strategy.class);
         registerLauncherStrategy(NexusLauncherStrategy.class);
@@ -50,6 +50,16 @@ public class LauncherStrategyFactory {
         registerLauncherStrategy(LeanbackLauncherStrategy.class);
         registerLauncherStrategy(WearLauncherStrategy.class);
         registerLauncherStrategy(TvLauncherStrategy.class);
+    }
+
+    /**
+     * Retrieves an instance of the {@link LauncherStrategyFactory}
+     *
+     * @param instrumentation
+     * @return
+     */
+    public static LauncherStrategyFactory getInstance(Instrumentation instrumentation) {
+        return getInstance(UiDevice.getInstance(instrumentation));
     }
 
     /**
@@ -76,6 +86,7 @@ public class LauncherStrategyFactory {
             try {
                 ILauncherStrategy strategy = launcherStrategy.newInstance();
                 mInstanceMap.put(strategy.getSupportedLauncherPackage(), strategy);
+                mKnownLauncherStrategies.add(launcherStrategy);
             } catch (InstantiationException | IllegalAccessException e) {
                 Log.e(LOG_TAG, "exception while creating instance: "
                         + launcherStrategy.getCanonicalName());

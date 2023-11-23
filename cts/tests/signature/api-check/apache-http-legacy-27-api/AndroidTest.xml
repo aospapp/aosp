@@ -30,5 +30,7 @@
         <option name="instrumentation-arg" key="base-api-files" value="current.api.gz" />
         <option name="instrumentation-arg" key="expected-api-files" value="apache-http-legacy-current.api.gz" />
         <option name="runtime-hint" value="5s" />
+        <!-- Disable hidden API checks (http://b/171459260). -->
+        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

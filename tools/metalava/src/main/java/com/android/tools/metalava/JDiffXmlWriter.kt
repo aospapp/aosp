@@ -66,6 +66,9 @@ class JDiffXmlWriter(
             writer.print("\"")
         }
 
+        // Specify metalava schema used for metalava:enumConstant
+        writer.print(" xmlns:metalava=\"http://www.android.com/metalava/\"")
+
         writer.println(">")
     }
 

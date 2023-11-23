@@ -4,26 +4,34 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.junit.Rule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
 /**
- * The RuleChain rule allows ordering of TestRules. You create a
+ * The {@code RuleChain} can be used for creating composite rules. You create a
  * {@code RuleChain} with {@link #outerRule(TestRule)} and subsequent calls of
  * {@link #around(TestRule)}:
  *
  * <pre>
- * public static class UseRuleChain {
- * 	&#064;Rule
- * 	public RuleChain chain= RuleChain
- * 	                       .outerRule(new LoggingRule("outer rule")
- * 	                       .around(new LoggingRule("middle rule")
- * 	                       .around(new LoggingRule("inner rule");
+ * public abstract class CompositeRules {
+ *   public static TestRule extendedLogging() {
+ *     return RuleChain.outerRule(new LoggingRule("outer rule"))
+ *                     .around(new LoggingRule("middle rule"))
+ *                     .around(new LoggingRule("inner rule"));
+ *   }
+ * }
+ * </pre>
  *
- * 	&#064;Test
- * 	public void example() {
- * 		assertTrue(true);
- *     }
+ * <pre>
+ * public class UseRuleChain {
+ *   &#064;Rule
+ *   public final TestRule extendedLogging = CompositeRules.extendedLogging();
+ *
+ *   &#064;Test
+ *   public void example() {
+ *     assertTrue(true);
+ *   }
  * }
  * </pre>
  *
@@ -38,6 +46,13 @@ import org.junit.runners.model.Statement;
  * finished outer rule
  * </pre>
  *
+ * In older versions of JUnit (before 4.13) {@code RuleChain} was used for
+ * ordering rules. We recommend to not use it for this purpose anymore. You can
+ * use the attribute {@code order} of the annotation {@link Rule#order() Rule}
+ * or {@link org.junit.ClassRule#order() ClassRule} for ordering rules.
+ *
+ * @see org.junit.Rule#order()
+ * @see org.junit.ClassRule#order()
  * @since 4.10
  */
 public class RuleChain implements TestRule {
@@ -72,13 +87,17 @@ public class RuleChain implements TestRule {
     }
 
     /**
-     * Create a new {@code RuleChain}, which encloses the {@code nextRule} with
+     * Create a new {@code RuleChain}, which encloses the given {@link TestRule} with
      * the rules of the current {@code RuleChain}.
      *
-     * @param enclosedRule the rule to enclose.
+     * @param enclosedRule the rule to enclose; must not be {@code null}.
      * @return a new {@code RuleChain}.
+     * @throws NullPointerException if the argument {@code enclosedRule} is {@code null}
      */
     public RuleChain around(TestRule enclosedRule) {
+        if (enclosedRule == null) {
+            throw new NullPointerException("The enclosed rule must not be null");
+        }
         List<TestRule> rulesOfNewChain = new ArrayList<TestRule>();
         rulesOfNewChain.add(enclosedRule);
         rulesOfNewChain.addAll(rulesStartingWithInnerMost);
@@ -89,9 +108,6 @@ public class RuleChain implements TestRule {
      * {@inheritDoc}
      */
     public Statement apply(Statement base, Description description) {
-        for (TestRule each : rulesStartingWithInnerMost) {
-            base = each.apply(base, description);
-        }
-        return base;
+        return new RunRules(base, rulesStartingWithInnerMost, description);
     }
 }

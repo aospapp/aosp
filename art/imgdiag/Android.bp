@@ -16,6 +16,15 @@
 
 // Build variants {target,host} x {debug,ndebug} x {32,64}
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "art_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["art_license"],
+}
+
 cc_defaults {
     name: "imgdiag-defaults",
     host_supported: true,
@@ -58,7 +67,7 @@ art_cc_binary {
         "libart-compiler",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
 }
@@ -85,4 +94,9 @@ art_cc_test {
         "art_gtest_defaults",
     ],
     srcs: ["imgdiag_test.cc"],
+    target: {
+        host: {
+            required: ["imgdiagd"],
+        },
+    },
 }

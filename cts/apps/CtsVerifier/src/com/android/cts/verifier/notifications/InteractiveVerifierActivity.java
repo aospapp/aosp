@@ -16,7 +16,9 @@
 
 package com.android.cts.verifier.notifications;
 
+import static android.provider.Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS;
 import static android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS;
+import static android.provider.Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME;
 
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -257,8 +259,8 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
         return item;
     }
 
-    protected View createAutoItem(ViewGroup parent, int stringId) {
-        View item = mInflater.inflate(R.layout.nls_item, parent, false);
+    protected ViewGroup createAutoItem(ViewGroup parent, int stringId) {
+        ViewGroup item = (ViewGroup) mInflater.inflate(R.layout.nls_item, parent, false);
         TextView instructions = item.findViewById(R.id.nls_instructions);
         instructions.setText(stringId);
         View button = item.findViewById(R.id.nls_action_button);
@@ -415,7 +417,15 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
         Intent intent = new Intent(tag);
         intent.setComponent(new ComponentName(mContext, DismissService.class));
         PendingIntent pi = PendingIntent.getService(mContext, code, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+        return pi;
+    }
+
+    protected PendingIntent makeBroadcastIntent(int code, String tag) {
+        Intent intent = new Intent(tag);
+        intent.setComponent(new ComponentName(mContext, ActionTriggeredReceiver.class));
+        PendingIntent pi = PendingIntent.getBroadcast(mContext, code, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         return pi;
     }
 
@@ -497,8 +507,8 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
         @Override
         protected void test() {
             mNm.cancelAll();
-            Intent settings = new Intent(ACTION_NOTIFICATION_LISTENER_SETTINGS);
-            if (settings.resolveActivity(mPackageManager) == null) {
+
+            if (getIntent().resolveActivity(mPackageManager) == null) {
                 logFail("no settings activity");
                 status = FAIL;
             } else {
@@ -521,7 +531,10 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
 
         @Override
         protected Intent getIntent() {
-            return new Intent(ACTION_NOTIFICATION_LISTENER_SETTINGS);
+            Intent settings = new Intent(ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS);
+            settings.putExtra(EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                    MockListener.COMPONENT_NAME.flattenToString());
+            return settings;
         }
     }
 

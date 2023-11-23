@@ -27,6 +27,7 @@
 namespace android {
 
 using android::hardware::camera::common::V1_0::helper::HandleImporter;
+using android::hardware::graphics::common::V1_1::PixelFormat;
 using google_camera_hal::HwlPipelineCallback;
 using google_camera_hal::StreamBuffer;
 
@@ -37,11 +38,12 @@ struct YCbCrPlanes {
   uint32_t y_stride = 0;
   uint32_t cbcr_stride = 0;
   uint32_t cbcr_step = 0;
+  size_t bytesPerPixel = 1;
 };
 
 struct SinglePlane {
   uint8_t* img = nullptr;
-  uint32_t stride = 0;
+  uint32_t stride_in_bytes = 0;
   uint32_t buffer_size = 0;
 };
 
@@ -50,10 +52,10 @@ struct SensorBuffer {
   uint32_t frame_number;
   uint32_t pipeline_id;
   uint32_t camera_id;
-  android_pixel_format_t format;
+  PixelFormat format;
   android_dataspace_t dataSpace;
   StreamBuffer stream_buffer;
-  HandleImporter importer;
+  std::shared_ptr<HandleImporter> importer;
   HwlPipelineCallback callback;
   int acquire_fence_fd;
   bool is_input;
@@ -64,14 +66,15 @@ struct SensorBuffer {
     YCbCrPlanes img_y_crcb;
   } plane;
 
-  SensorBuffer()
+  SensorBuffer(std::shared_ptr<HandleImporter> handle_importer)
       : width(0),
         height(0),
         frame_number(0),
         pipeline_id(0),
         camera_id(0),
-        format(HAL_PIXEL_FORMAT_RGBA_8888),
+        format(PixelFormat::RGBA_8888),
         dataSpace(HAL_DATASPACE_UNKNOWN),
+        importer(handle_importer),
         acquire_fence_fd(-1),
         is_input(false),
         is_failed_request(false),
@@ -97,12 +100,11 @@ struct std::default_delete<android::SensorBuffer> {
   inline void operator()(android::SensorBuffer* buffer) const {
     if (buffer != nullptr) {
       if (buffer->stream_buffer.buffer != nullptr) {
-        buffer->importer.unlock(buffer->stream_buffer.buffer);
-        buffer->importer.freeBuffer(buffer->stream_buffer.buffer);
+        buffer->importer->unlock(buffer->stream_buffer.buffer);
       }
 
       if (buffer->acquire_fence_fd >= 0) {
-        buffer->importer.closeFence(buffer->acquire_fence_fd);
+        buffer->importer->closeFence(buffer->acquire_fence_fd);
       }
 
       if ((buffer->stream_buffer.status != BufferStatus::kOk) &&

@@ -103,7 +103,7 @@ void SendEventStressTest::handleEvent(uint32_t senderInstanceId,
     sendFatalFailureToHost("handleEvent got event from unexpected sender:",
                            &senderInstanceId);
   }
-  sanityCheck(eventType, eventData, 0);
+  verifyEvent(eventType, eventData, 0);
 
   --sEventsLeft;
   if (sEventsLeft < 0) {
@@ -113,7 +113,7 @@ void SendEventStressTest::handleEvent(uint32_t senderInstanceId,
   sInMethod = false;
 }
 
-void SendEventStressTest::sanityCheck(uint16_t eventType, const void *data,
+void SendEventStressTest::verifyEvent(uint16_t eventType, const void *data,
                                       uint32_t num) {
   if (eventType != kEventType) {
     unexpectedEvent(eventType);
@@ -130,7 +130,7 @@ void SendEventStressTest::completeCallback(uint16_t eventType, void *data) {
     // chreSendEvent(), after it failed.  We only allow a
     // single one of these calls.
     sInitTime = false;
-    sanityCheck(eventType, data, 1);
+    verifyEvent(eventType, data, 1);
     sCompleteCallbacksLeft--;
     return;
   }
@@ -139,7 +139,7 @@ void SendEventStressTest::completeCallback(uint16_t eventType, void *data) {
     sendFatalFailureToHost(
         "completeCallback invoked while another nanoapp method is running");
   }
-  sanityCheck(eventType, data, 1);
+  verifyEvent(eventType, data, 1);
 
   --sCompleteCallbacksLeft;
   if (sCompleteCallbacksLeft == 0) {

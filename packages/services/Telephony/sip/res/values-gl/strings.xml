@@ -57,7 +57,7 @@
     <string name="proxy_address_title" msgid="4120361943254795287">"Enderezo proxy saínte"</string>
     <string name="port_title" msgid="1703586046264385110">"Número de porto"</string>
     <string name="transport_title" msgid="1661659138226029178">"Tipo de transporte"</string>
-    <string name="send_keepalive_title" msgid="5319788151608946049">"Enviar sinal conexión"</string>
+    <string name="send_keepalive_title" msgid="5319788151608946049">"Enviar sinal de conexión permanente"</string>
     <string name="advanced_settings" msgid="2704644977548662872">"Configuración opcional"</string>
     <string name="auth_username_title" msgid="9002505242616662698">"Nome de usuario da autenticación"</string>
     <string name="auth_username_summary" msgid="6346313945275377230">"Nome de usuario utilizado para a autenticación"</string>

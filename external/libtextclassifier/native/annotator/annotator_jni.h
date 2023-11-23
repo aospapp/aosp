@@ -29,13 +29,13 @@ extern "C" {
 
 // SmartSelection.
 TC3_JNI_METHOD(jlong, TC3_ANNOTATOR_CLASS_NAME, nativeNewAnnotator)
-(JNIEnv* env, jobject thiz, jint fd);
+(JNIEnv* env, jobject clazz, jint fd);
 
 TC3_JNI_METHOD(jlong, TC3_ANNOTATOR_CLASS_NAME, nativeNewAnnotatorFromPath)
-(JNIEnv* env, jobject thiz, jstring path);
+(JNIEnv* env, jobject clazz, jstring path);
 
 TC3_JNI_METHOD(jlong, TC3_ANNOTATOR_CLASS_NAME, nativeNewAnnotatorWithOffset)
-(JNIEnv* env, jobject thiz, jint fd, jlong offset, jlong size);
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size);
 
 TC3_JNI_METHOD(jboolean, TC3_ANNOTATOR_CLASS_NAME,
                nativeInitializeKnowledgeEngine)
@@ -68,8 +68,7 @@ TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME, nativeClassifyText)
  jint selection_end, jobject options, jobject app_context,
  jstring device_locales);
 
-TC3_JNI_METHOD(jobjectArray, TC3_ANNOTATOR_CLASS_NAME,
-               nativeAnnotateStructuredInput)
+TC3_JNI_METHOD(jobject, TC3_ANNOTATOR_CLASS_NAME, nativeAnnotateStructuredInput)
 (JNIEnv* env, jobject thiz, jlong ptr, jobjectArray jinput_fragments,
  jobject options);
 
@@ -91,19 +90,19 @@ TC3_JNI_METHOD(jstring, TC3_ANNOTATOR_CLASS_NAME, nativeGetLocales)
 (JNIEnv* env, jobject clazz, jint fd);
 
 TC3_JNI_METHOD(jstring, TC3_ANNOTATOR_CLASS_NAME, nativeGetLocalesWithOffset)
-(JNIEnv* env, jobject thiz, jint fd, jlong offset, jlong size);
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size);
 
 TC3_JNI_METHOD(jint, TC3_ANNOTATOR_CLASS_NAME, nativeGetVersion)
 (JNIEnv* env, jobject clazz, jint fd);
 
 TC3_JNI_METHOD(jint, TC3_ANNOTATOR_CLASS_NAME, nativeGetVersionWithOffset)
-(JNIEnv* env, jobject thiz, jint fd, jlong offset, jlong size);
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size);
 
 TC3_JNI_METHOD(jstring, TC3_ANNOTATOR_CLASS_NAME, nativeGetName)
 (JNIEnv* env, jobject clazz, jint fd);
 
 TC3_JNI_METHOD(jstring, TC3_ANNOTATOR_CLASS_NAME, nativeGetNameWithOffset)
-(JNIEnv* env, jobject thiz, jint fd, jlong offset, jlong size);
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size);
 
 #ifdef __cplusplus
 }
@@ -114,13 +113,13 @@ namespace libtextclassifier3 {
 // Given a utf8 string and a span expressed in Java BMP (basic multilingual
 // plane) codepoints, converts it to a span expressed in utf8 codepoints.
 libtextclassifier3::CodepointSpan ConvertIndicesBMPToUTF8(
-    const std::string& utf8_str, libtextclassifier3::CodepointSpan bmp_indices);
+    const std::string& utf8_str, const std::pair<int, int>& bmp_indices);
 
 // Given a utf8 string and a span expressed in utf8 codepoints, converts it to a
 // span expressed in Java BMP (basic multilingual plane) codepoints.
-libtextclassifier3::CodepointSpan ConvertIndicesUTF8ToBMP(
+std::pair<int, int> ConvertIndicesUTF8ToBMP(
     const std::string& utf8_str,
-    libtextclassifier3::CodepointSpan utf8_indices);
+    const libtextclassifier3::CodepointSpan& utf8_indices);
 
 }  // namespace libtextclassifier3
 

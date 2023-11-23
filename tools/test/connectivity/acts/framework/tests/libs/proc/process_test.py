@@ -13,12 +13,13 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+import subprocess
 import unittest
 
-import mock
-import subprocess
 from acts.libs.proc.process import Process
 from acts.libs.proc.process import ProcessError
+import mock
+
 
 class FakeThread(object):
     def __init__(self, target=None):
@@ -136,6 +137,31 @@ class ProcessTest(unittest.TestCase):
         process.wait(0)
 
         self.assertEqual(process._kill_process.called, True)
+
+    @mock.patch('os.getpgid', side_effect=lambda id: id)
+    @mock.patch('os.killpg')
+    def test_sends_signal(self, mock_os, *_):
+        """Tests that signal is sent to process.."""
+        process = Process('cmd')
+        mock_process = mock.Mock()
+        mock_process.pid = -1
+        process._process = mock_process
+
+        process.signal(51641)
+
+        mock_os.assert_called_with(-1, 51641)
+
+    def test_signal_raises_error_on_windows(self, *_):
+        """Tests that signaling is unsupported in windows with appropriate
+        error msg."""
+        process = Process('cmd')
+        mock_inner_process = mock.Mock()
+        mock_inner_process.pid = -1
+        process._process = mock_inner_process
+
+        with mock.patch('acts.libs.proc.process._on_windows', True):
+            with self.assertRaises(ProcessError):
+                process.signal(51641)
 
     @mock.patch.object(Process, '_kill_process')
     def test_wait_sets_stopped_to_true_before_process_kill(self, *_):
@@ -318,9 +344,9 @@ class ProcessTest(unittest.TestCase):
 
         self.assertEqual(Process._Process__start_process.call_count, 2)
         self.assertEqual(Process._Process__start_process.call_args_list[0][0],
-                         (['1st'], ))
+                         (['1st'],))
         self.assertEqual(Process._Process__start_process.call_args_list[1][0],
-                         (['2nd'], ))
+                         (['2nd'],))
 
     def test_exec_loop_does_not_loop_if_stopped(self):
         process = Process('1st')

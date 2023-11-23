@@ -39,4 +39,5 @@
       <item quantity="other">សារថ្មី <xliff:g id="COUNT">%d</xliff:g></item>
       <item quantity="one">សារថ្មី 1</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"គ្រប់គ្រង"</string>
 </resources>

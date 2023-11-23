@@ -54,6 +54,8 @@ typedef enum {
   HAL_WRAPPER_STATE_EXIT_HIBERNATE_INTERNAL,
   HAL_WRAPPER_STATE_UPDATE,
   HAL_WRAPPER_STATE_APPLY_CUSTOM_PARAM,
+  HAL_WRAPPER_STATE_APPLY_UWB_PARAM,
+  HAL_WRAPPER_STATE_SET_ACTIVERW_TIMER,
 } hal_wrapper_state_e;
 
 /* callback function to communicate from HAL Core with the outside world */

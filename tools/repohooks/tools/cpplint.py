@@ -52,6 +52,12 @@ import sre_compile
 import string
 import sys
 import unicodedata
+import sysconfig
+
+try:
+  xrange          # Python 2
+except NameError:
+  xrange = range  # Python 3
 
 
 _USAGE = """
@@ -570,7 +576,7 @@ def ProcessHppHeadersOption(val):
     # Automatically append to extensions list so it does not have to be set 2 times
     _valid_extensions.update(_hpp_headers)
   except ValueError:
-    PrintUsage('Header extensions must be comma seperated list.')
+    PrintUsage('Header extensions must be comma separated list.')
 
 def IsHeaderExtension(file_extension):
   return file_extension in _hpp_headers
@@ -1378,7 +1384,7 @@ def FindNextMultiLineCommentEnd(lines, lineix):
 
 def RemoveMultiLineCommentsFromRange(lines, begin, end):
   """Clears a range of lines for multi-line comments."""
-  # Having // dummy comments makes the lines non-empty, so we will not get
+  # Having // <empty> comments makes the lines non-empty, so we will not get
   # unnecessary blank line warnings later in the code.
   for i in range(begin, end):
     lines[i] = '/**/'
@@ -1752,7 +1758,7 @@ def CheckForCopyright(filename, lines, error):
   """Logs an error if no Copyright message appears at the top of the file."""
 
   # We'll say it should occur by line 10. Don't forget there's a
-  # dummy line at the front.
+  # placeholder line at the front.
   for line in xrange(1, min(len(lines), 11)):
     if re.search(r'Copyright', lines[line], re.I): break
   else:                       # means no copyright line was found
@@ -1847,8 +1853,8 @@ def GetHeaderGuardCPPVariable(filename):
                                  PathSplitToList(_root))
 
     if _root_debug:
-      sys.stderr.write("_root lstrip (maybe_path=%s, file_path_from_root=%s," +
-          " _root=%s)\n" %(maybe_path, file_path_from_root, _root))
+      sys.stderr.write(("_root lstrip (maybe_path=%s, file_path_from_root=%s," +
+          " _root=%s)\n") %(maybe_path, file_path_from_root, _root))
 
     if maybe_path:
       return os.path.join(*maybe_path)
@@ -1861,8 +1867,8 @@ def GetHeaderGuardCPPVariable(filename):
                                  PathSplitToList(root_abspath))
 
     if _root_debug:
-      sys.stderr.write("_root prepend (maybe_path=%s, full_path=%s, " +
-          "root_abspath=%s)\n" %(maybe_path, full_path, root_abspath))
+      sys.stderr.write(("_root prepend (maybe_path=%s, full_path=%s, " +
+          "root_abspath=%s)\n") %(maybe_path, full_path, root_abspath))
 
     if maybe_path:
       return os.path.join(*maybe_path)
@@ -3278,8 +3284,8 @@ def CheckSpacing(filename, clean_lines, linenum, nesting_state, error):
   line = clean_lines.elided[linenum]
 
   # You shouldn't have spaces before your brackets, except maybe after
-  # 'delete []' or 'return []() {};'
-  if Search(r'\w\s+\[', line) and not Search(r'(?:delete|return)\s+\[', line):
+  # 'delete []', 'return []() {};', or 'auto [abc, ...] = ...;'.
+  if Search(r'\w\s+\[', line) and not Search(r'(?:auto&?|delete|return)\s+\[', line):
     error(filename, linenum, 'whitespace/braces', 5,
           'Extra space before [')
 
@@ -3861,9 +3867,9 @@ def CheckTrailingSemicolon(filename, clean_lines, linenum, error):
 
   # Block bodies should not be followed by a semicolon.  Due to C++11
   # brace initialization, there are more places where semicolons are
-  # required than not, so we use a whitelist approach to check these
-  # rather than a blacklist.  These are the places where "};" should
-  # be replaced by just "}":
+  # required than not, so we explicitly list the allowed rules rather
+  # than listing the disallowed ones.  These are the places where "};"
+  # should be replaced by just "}":
   # 1. Some flavor of block following closing parenthesis:
   #    for (;;) {};
   #    while (...) {};
@@ -3919,11 +3925,11 @@ def CheckTrailingSemicolon(filename, clean_lines, linenum, error):
     #  - INTERFACE_DEF
     #  - EXCLUSIVE_LOCKS_REQUIRED, SHARED_LOCKS_REQUIRED, LOCKS_EXCLUDED:
     #
-    # We implement a whitelist of safe macros instead of a blacklist of
+    # We implement a list of safe macros instead of a list of
     # unsafe macros, even though the latter appears less frequently in
     # google code and would have been easier to implement.  This is because
-    # the downside for getting the whitelist wrong means some extra
-    # semicolons, while the downside for getting the blacklist wrong
+    # the downside for getting the allowed checks wrong means some extra
+    # semicolons, while the downside for getting disallowed checks wrong
     # would result in compile errors.
     #
     # In addition to macros, we also don't want to warn on
@@ -4287,6 +4293,16 @@ def GetLineWidth(line):
       if unicodedata.east_asian_width(uc) in ('W', 'F'):
         width += 2
       elif not unicodedata.combining(uc):
+        # Issue 337
+        # https://mail.python.org/pipermail/python-list/2012-August/628809.html
+        if (sys.version_info.major, sys.version_info.minor) <= (3, 2):
+          # https://github.com/python/cpython/blob/2.7/Include/unicodeobject.h#L81
+          is_wide_build = sysconfig.get_config_var("Py_UNICODE_SIZE") >= 4
+          # https://github.com/python/cpython/blob/2.7/Objects/unicodeobject.c#L564
+          is_low_surrogate = 0xDC00 <= ord(uc) <= 0xDFFF
+          if not is_wide_build and is_low_surrogate:
+            width -= 1
+          
         width += 1
     return width
   else:
@@ -5109,19 +5125,19 @@ def CheckForNonConstReference(filename, clean_lines, linenum,
   #
   # We also accept & in static_assert, which looks like a function but
   # it's actually a declaration expression.
-  whitelisted_functions = (r'(?:[sS]wap(?:<\w:+>)?|'
+  allowed_functions = (r'(?:[sS]wap(?:<\w:+>)?|'
                            r'operator\s*[<>][<>]|'
                            r'static_assert|COMPILE_ASSERT'
                            r')\s*\(')
-  if Search(whitelisted_functions, line):
+  if Search(allowed_functions, line):
     return
   elif not Search(r'\S+\([^)]*$', line):
-    # Don't see a whitelisted function on this line.  Actually we
+    # Don't see an allowed function on this line.  Actually we
     # didn't see any function name on this line, so this is likely a
     # multi-line parameter list.  Try a bit harder to catch this case.
     for i in xrange(2):
       if (linenum > i and
-          Search(whitelisted_functions, clean_lines.elided[linenum - i - 1])):
+          Search(allowed_functions, clean_lines.elided[linenum - i - 1])):
         return
 
   decls = ReplaceAll(r'{[^}]*}', ' ', line)  # exclude function body
@@ -6189,7 +6205,7 @@ def ParseArguments(args):
       try:
           _valid_extensions = set(val.split(','))
       except ValueError:
-          PrintUsage('Extensions must be comma seperated list.')
+          PrintUsage('Extensions must be comma separated list.')
     elif opt == '--headers':
       ProcessHppHeadersOption(val)
 

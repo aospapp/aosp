@@ -40,4 +40,5 @@
       <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> jauns ziņojums</item>
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> jauni ziņojumi</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Pārvaldīt"</string>
 </resources>

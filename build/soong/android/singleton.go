@@ -29,6 +29,16 @@ type SingletonContext interface {
 	ModuleType(module blueprint.Module) string
 	BlueprintFile(module blueprint.Module) string
 
+	// ModuleProvider returns the value, if any, for the provider for a module.  If the value for the
+	// provider was not set it returns the zero value of the type of the provider, which means the
+	// return value can always be type-asserted to the type of the provider.  The return value should
+	// always be considered read-only.  It panics if called before the appropriate mutator or
+	// GenerateBuildActions pass for the provider on the module.
+	ModuleProvider(module blueprint.Module, provider blueprint.ProviderKey) interface{}
+
+	// ModuleHasProvider returns true if the provider for the given module has been set.
+	ModuleHasProvider(module blueprint.Module, provider blueprint.ProviderKey) bool
+
 	ModuleErrorf(module blueprint.Module, format string, args ...interface{})
 	Errorf(format string, args ...interface{})
 	Failed() bool
@@ -158,6 +168,10 @@ func (s *singletonContextAdaptor) Build(pctx PackageContext, params BuildParams)
 		s.buildParams = append(s.buildParams, params)
 	}
 	bparams := convertBuildParams(params)
+	err := validateBuildParams(bparams)
+	if err != nil {
+		s.Errorf("%s: build parameter validation failed: %s", s.Name(), err.Error())
+	}
 	s.SingletonContext.Build(pctx.PackageContext, bparams)
 
 }

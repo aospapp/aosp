@@ -23,6 +23,8 @@ import android.annotation.Nullable;
 import android.car.Car;
 import android.car.VehicleHvacFanDirection;
 import android.car.hardware.property.VehicleVendorPermission;
+import android.hardware.automotive.vehicle.V2_0.ElectronicTollCollectionCardStatus;
+import android.hardware.automotive.vehicle.V2_0.ElectronicTollCollectionCardType;
 import android.hardware.automotive.vehicle.V2_0.EvConnectorType;
 import android.hardware.automotive.vehicle.V2_0.FuelType;
 import android.hardware.automotive.vehicle.V2_0.PortLocationType;
@@ -39,9 +41,11 @@ import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
 import android.hardware.automotive.vehicle.V2_0.VehicleSeatOccupancyState;
 import android.hardware.automotive.vehicle.V2_0.VehicleTurnSignal;
 import android.hardware.automotive.vehicle.V2_0.VehicleUnit;
-import android.util.Log;
 import android.util.Pair;
+import android.util.Slog;
 import android.util.SparseArray;
+
+import com.android.car.CarLog;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -67,7 +71,7 @@ public class PropertyHalServiceIds {
     // Key: propId, Value: possible value for the property
     private final HashMap<Integer, Set<Integer>> mPropToValidValue;
     private final HashMap<Integer, Integer> mPropToValidBitFlag;
-    private static final String TAG = "PropertyHalServiceIds";
+    private static final String TAG = CarLog.tagFor(PropertyHalServiceIds.class);
     // Enums are used as return value in Vehicle HAL.
     private static final Set<Integer> FUEL_TYPE =
             new HashSet<>(getIntegersFromDataEnums(FuelType.class));
@@ -95,6 +99,10 @@ public class PropertyHalServiceIds {
             new HashSet<>(getIntegersFromDataEnums(VehicleLightSwitch.class));
     private static final int HVAC_FAN_DIRECTION_COMBINATIONS =
             generateAllCombination(VehicleHvacFanDirection.class);
+    private static final Set<Integer> ETC_CARD_TYPE =
+            new HashSet<>(getIntegersFromDataEnums(ElectronicTollCollectionCardType.class));
+    private static final Set<Integer> ETC_CARD_STATUS =
+            new HashSet<>(getIntegersFromDataEnums(ElectronicTollCollectionCardStatus.class));
 
     // default vendor permission
     private static final int PERMISSION_CAR_VENDOR_DEFAULT = 0x00000000;
@@ -290,6 +298,9 @@ public class PropertyHalServiceIds {
         mProps.put(VehicleProperty.HVAC_TEMPERATURE_SET, new Pair<>(
                     Car.PERMISSION_CONTROL_CAR_CLIMATE,
                     Car.PERMISSION_CONTROL_CAR_CLIMATE));
+        mProps.put(VehicleProperty.HVAC_TEMPERATURE_VALUE_SUGGESTION, new Pair<>(
+                    Car.PERMISSION_CONTROL_CAR_CLIMATE,
+                    Car.PERMISSION_CONTROL_CAR_CLIMATE));
         mProps.put(VehicleProperty.HVAC_DEFROSTER, new Pair<>(
                     Car.PERMISSION_CONTROL_CAR_CLIMATE,
                     Car.PERMISSION_CONTROL_CAR_CLIMATE));
@@ -334,7 +345,7 @@ public class PropertyHalServiceIds {
                     Car.PERMISSION_CONTROL_CAR_CLIMATE));
         mProps.put(VehicleProperty.HVAC_FAN_DIRECTION_AVAILABLE, new Pair<>(
                     Car.PERMISSION_CONTROL_CAR_CLIMATE,
-                    Car.PERMISSION_CONTROL_CAR_CLIMATE));
+                    null));
         mProps.put(VehicleProperty.HVAC_AUTO_RECIRC_ON, new Pair<>(
                     Car.PERMISSION_CONTROL_CAR_CLIMATE,
                     Car.PERMISSION_CONTROL_CAR_CLIMATE));
@@ -432,6 +443,9 @@ public class PropertyHalServiceIds {
         mProps.put(VehicleProperty.TIRE_PRESSURE, new Pair<>(
                 Car.PERMISSION_TIRES,
                 null));
+        mProps.put(VehicleProperty.CRITICALLY_LOW_TIRE_PRESSURE, new Pair<>(
+                Car.PERMISSION_TIRES,
+                null));
         mProps.put(VehicleProperty.PERF_STEERING_ANGLE, new Pair<>(
                 Car.PERMISSION_READ_STEERING_STATE,
                 null));
@@ -507,6 +521,12 @@ public class PropertyHalServiceIds {
         mProps.put(VehicleProperty.CABIN_LIGHTS_SWITCH, new Pair<>(
                 Car.PERMISSION_CONTROL_INTERIOR_LIGHTS,
                 Car.PERMISSION_CONTROL_INTERIOR_LIGHTS));
+        mProps.put(VehicleProperty.EPOCH_TIME, new Pair<>(
+                Car.PERMISSION_CAR_EPOCH_TIME,
+                Car.PERMISSION_CAR_EPOCH_TIME));
+        mProps.put(VehicleProperty.STORAGE_ENCRYPTION_BINDING_SEED, new Pair<>(
+                Car.PERMISSION_STORAGE_ENCRYPTION_BINDING_SEED,
+                Car.PERMISSION_STORAGE_ENCRYPTION_BINDING_SEED));
         // Display_Units
         mProps.put(VehicleProperty.DISTANCE_DISPLAY_UNITS, new Pair<>(
                 Car.PERMISSION_READ_DISPLAY_UNITS,
@@ -536,7 +556,12 @@ public class PropertyHalServiceIds {
         mProps.put(VehicleProperty.SUPPORT_CUSTOMIZE_VENDOR_PERMISSION, new Pair<>(
                 Car.PERMISSION_READ_CAR_VENDOR_PERMISSION_INFO,
                 null));
-
+        mProps.put(VehicleProperty.ELECTRONIC_TOLL_COLLECTION_CARD_TYPE, new Pair<>(
+                Car.PERMISSION_CAR_INFO,
+                null));
+        mProps.put(VehicleProperty.ELECTRONIC_TOLL_COLLECTION_CARD_STATUS, new Pair<>(
+                Car.PERMISSION_CAR_INFO,
+                null));
         // mPropToValidValue should contain all properties which has @data_enum in types.hal
         mPropToValidValue.put(VehicleProperty.INFO_FUEL_TYPE, FUEL_TYPE);
         mPropToValidValue.put(VehicleProperty.INFO_EV_CONNECTOR_TYPE, EV_CONNECTOR_TYPE);
@@ -566,7 +591,10 @@ public class PropertyHalServiceIds {
         mPropToValidValue.put(VehicleProperty.HAZARD_LIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
         mPropToValidValue.put(VehicleProperty.CABIN_LIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
         mPropToValidValue.put(VehicleProperty.READING_LIGHTS_SWITCH, VEHICLE_LIGHT_SWITCH);
-
+        mPropToValidValue.put(VehicleProperty.ELECTRONIC_TOLL_COLLECTION_CARD_TYPE,
+                ETC_CARD_STATUS);
+        mPropToValidValue.put(VehicleProperty.ELECTRONIC_TOLL_COLLECTION_CARD_STATUS,
+                ETC_CARD_TYPE);
         // mPropToValidBitFlag contains all properties which return values are combinations of bits
         mPropToValidBitFlag.put(VehicleProperty.HVAC_FAN_DIRECTION_AVAILABLE,
                 HVAC_FAN_DIRECTION_COMBINATIONS);
@@ -585,7 +613,7 @@ public class PropertyHalServiceIds {
         if (p != null) {
             // Property ID exists.  Return read permission.
             if (p.first == null) {
-                Log.e(TAG, "propId is not available for reading : 0x" + toHexString(propId));
+                Slog.e(TAG, "propId is not available for reading : 0x" + toHexString(propId));
             }
             return p.first;
         } else if (isVendorProperty(propId)) {
@@ -607,7 +635,7 @@ public class PropertyHalServiceIds {
         if (p != null) {
             // Property ID exists.  Return write permission.
             if (p.second == null) {
-                Log.e(TAG, "propId is not writable : 0x" + toHexString(propId));
+                Slog.e(TAG, "propId is not writable : 0x" + toHexString(propId));
             }
             return p.second;
         } else if (isVendorProperty(propId)) {
@@ -765,7 +793,7 @@ public class PropertyHalServiceIds {
             return true;
         }
         if (!checkFormatForAllProperties(propValue)) {
-            Log.e(TAG, "Property value" + propValue + "has an invalid data format");
+            Slog.e(TAG, "Property value" + propValue + "has an invalid data format");
             return false;
         }
         if (mPropToValidValue.containsKey(propValue.prop)) {
@@ -795,7 +823,7 @@ public class PropertyHalServiceIds {
                 + rawValue.int64Values.size() + rawValue.bytes.size()
                 + rawValue.stringValue.length();
         if (sizeOfAllValue == 0) {
-            Log.e(TAG, "Property value is empty: " + propValue);
+            Slog.e(TAG, "Property value is empty: " + propValue);
             return false;
         }
         switch (propId & VehiclePropertyType.MASK) {
@@ -840,8 +868,8 @@ public class PropertyHalServiceIds {
             if (f.getType() == int.class) {
                 try {
                     integerList.add(f.getInt(clazz));
-                } catch (Exception e) {
-                    Log.w(TAG, "Failed to get value");
+                } catch (IllegalAccessException | RuntimeException e) {
+                    Slog.w(TAG, "Failed to get value");
                 }
             }
         }

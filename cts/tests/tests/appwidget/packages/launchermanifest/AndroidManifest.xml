@@ -16,15 +16,16 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.appwidget.cts.packages"
-          android:targetSandboxVersion="2">
+     package="android.appwidget.cts.packages"
+     android:targetSandboxVersion="2">
 
     <application>
-        <activity android:name="Launcher">
+        <activity android:name="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.HOME" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.HOME"/>
             </intent-filter>
         </activity>
     </application>

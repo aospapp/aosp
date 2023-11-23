@@ -1,6 +1,5 @@
 /*
  * Copyright 2015 The Android Open Source Project
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -55,7 +54,7 @@ DeviceProperties::DeviceProperties(const std::string& file_name)
       lmp_pal_subversion_(0),
       le_data_packet_length_(27),
       num_le_data_packets_(15),
-      le_white_list_size_(15),
+      le_connect_list_size_(15),
       le_resolving_list_size_(15) {
   std::string properties_raw;
 
@@ -66,10 +65,10 @@ DeviceProperties::DeviceProperties(const std::string& file_name)
   supported_codecs_ = {0};  // Only SBC is supported.
   vendor_specific_codecs_ = {};
 
-  for (int i = 0; i < 35; i++) supported_commands_.push_back(0xff);
+  for (int i = 0; i < 35; i++) supported_commands_[i] = 0xff;
   // Mark HCI_LE_Transmitter_Test[v2] and newer commands as unsupported
-  // TODO: Implement a better mapping.
-  for (int i = 35; i < 64; i++) supported_commands_.push_back(0x00);
+  // Use SetSupportedComands() to change what's supported.
+  for (int i = 35; i < 64; i++) supported_commands_[i] = 0x00;
 
   le_supported_features_ = 0x1f;
   le_supported_states_ = 0x3ffffffffff;
@@ -84,12 +83,17 @@ DeviceProperties::DeviceProperties(const std::string& file_name)
     return;
   }
 
-  std::unique_ptr<base::Value> properties_value_ptr = base::JSONReader::Read(properties_raw);
-  if (properties_value_ptr.get() == nullptr) LOG_INFO("Error controller properties may consist of ill-formed JSON.");
+  auto properties_value = base::JSONReader::Read(properties_raw);
+  if (!properties_value) {
+    LOG_ERROR(
+        "Error controller properties may consist of ill-formed JSON, no "
+        "properties read.");
+      return;
+  }
 
   // Get the underlying base::Value object, which is of type
   // base::Value::TYPE_DICTIONARY, and read it into member variables.
-  base::Value& properties_dictionary = *(properties_value_ptr.get());
+  base::Value& properties_dictionary = *properties_value;
   base::JSONValueConverter<DeviceProperties> converter;
 
   if (!converter.Convert(properties_dictionary, this))

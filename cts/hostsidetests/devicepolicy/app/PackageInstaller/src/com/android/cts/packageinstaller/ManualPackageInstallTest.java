@@ -27,13 +27,17 @@ import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
+import android.util.Log;
 
 import java.util.regex.Pattern;
 
 /**
  * This class tests manual package install and uninstall by a device owner.
  */
-public class ManualPackageInstallTest extends BasePackageInstallTest {
+public final class ManualPackageInstallTest extends BasePackageInstallTest {
+
+    private static final String TAG = ManualPackageInstallTest.class.getSimpleName();
+
     private static final int AUTOMATOR_WAIT_TIMEOUT = 5000;
     private static final int INSTALL_WAIT_TIME = 5000;
 
@@ -41,11 +45,13 @@ public class ManualPackageInstallTest extends BasePackageInstallTest {
             Pattern.CASE_INSENSITIVE));
 
     private UiAutomation mUiAutomation;
+    private boolean mIsAutomotive;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mUiAutomation = getInstrumentation().getUiAutomation();
+        mIsAutomotive = mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 
     public void testManualInstallSucceeded() throws Exception {
@@ -58,17 +64,21 @@ public class ManualPackageInstallTest extends BasePackageInstallTest {
             mCallbackStatus = PACKAGE_INSTALLER_STATUS_UNDEFINED;
         }
         // Calls the original installPackage which does not click through the install button.
+        Log.d(TAG, "Installing " + TEST_APP_LOCATION);
         super.installPackage(TEST_APP_LOCATION);
         synchronized (mPackageInstallerTimeoutLock) {
             try {
                 mPackageInstallerTimeoutLock.wait(PACKAGE_INSTALLER_TIMEOUT_MS);
             } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                Log.e(TAG, "Interrupted", e);
             }
             assertTrue(mCallbackReceived);
             assertEquals(PackageInstaller.STATUS_PENDING_USER_ACTION, mCallbackStatus);
         }
 
         mCallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        Log.d(TAG, "Starting " + mCallbackIntent + " on user " + UserHandle.myUserId());
         mContext.startActivity(mCallbackIntent);
 
         automateDismissInstallBlockedDialog();
@@ -111,9 +121,10 @@ public class ManualPackageInstallTest extends BasePackageInstallTest {
     }
 
     private void automateDismissInstallBlockedDialog() {
-        mDevice.wait(Until.hasObject(getPopUpImageSelector()), AUTOMATOR_WAIT_TIMEOUT);
-        UiObject2 icon = mDevice.findObject(getPopUpImageSelector());
-        assertNotNull("Policy transparency dialog icon not found", icon);
+        BySelector selector = getPopUpImageSelector();
+        mDevice.wait(Until.hasObject(selector), AUTOMATOR_WAIT_TIMEOUT);
+        UiObject2 icon = mDevice.findObject(selector);
+        assertNotNull("Policy transparency dialog icon not found: " + selector, icon);
         // "OK" button only present in the dialog if it is blocked by policy.
         UiObject2 button = mDevice.findObject(getPopUpButtonSelector());
         assertNotNull("OK button not found", button);
@@ -121,9 +132,11 @@ public class ManualPackageInstallTest extends BasePackageInstallTest {
     }
 
     private String getSettingsPackageName() {
-        String settingsPackageName = "com.android.settings";
+        String settingsPackageName = mIsAutomotive
+                ? "com.android.car.settings"
+                : "com.android.settings";
+        mUiAutomation.adoptShellPermissionIdentity("android.permission.INTERACT_ACROSS_USERS");
         try {
-            mUiAutomation.adoptShellPermissionIdentity("android.permission.INTERACT_ACROSS_USERS");
             ResolveInfo resolveInfo = mPackageManager.resolveActivityAsUser(
                     new Intent(Settings.ACTION_SETTINGS), PackageManager.MATCH_SYSTEM_ONLY,
                     UserHandle.USER_SYSTEM);
@@ -133,6 +146,7 @@ public class ManualPackageInstallTest extends BasePackageInstallTest {
         } finally {
             mUiAutomation.dropShellPermissionIdentity();
         }
+        Log.d(TAG, "getSettingsPackageName(): returning " + settingsPackageName);
         return settingsPackageName;
     }
 
@@ -144,8 +158,9 @@ public class ManualPackageInstallTest extends BasePackageInstallTest {
 
     private BySelector getPopUpImageSelector() {
         final String settingsPackageName = getSettingsPackageName();
+        final String resId = mIsAutomotive ? "car_ui_alert_icon" : "admin_support_icon";
         return By.clazz(android.widget.ImageView.class.getName())
-                .res(settingsPackageName + ":id/admin_support_icon")
+                .res(settingsPackageName + ":id/" + resId)
                 .pkg(settingsPackageName);
     }
 }

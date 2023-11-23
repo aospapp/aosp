@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 subdirs = [
     "tests",
 ]
@@ -36,4 +40,3 @@ cc_library_shared {
     export_include_dirs: ["include"],
     static_libs: ["libbase"],
 }
-

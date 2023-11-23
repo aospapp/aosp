@@ -131,7 +131,7 @@ public class NotificationBot extends BroadcastReceiver {
                         new Intent(ACTION_INLINE_REPLY)
                                 .setComponent(new ComponentName(context, NotificationBot.class))
                                 .putExtra(EXTRA_RESET_REQUEST_INTENT, intent),
-                        PendingIntent.FLAG_UPDATE_CURRENT);
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
         final RemoteInput ri = new RemoteInput.Builder("result")
                 .setLabel("Type something here and press send button").build();
 

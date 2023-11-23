@@ -17,17 +17,29 @@
 package com.google.turbine.main;
 
 import static com.google.common.base.StandardSystemProperty.JAVA_CLASS_VERSION;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.turbine.testing.TestClassPaths.optionsWithBootclasspath;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.MoreFiles;
+import com.google.protobuf.ExtensionRegistry;
 import com.google.turbine.diag.TurbineError;
 import com.google.turbine.options.TurbineOptions;
+import com.google.turbine.proto.ManifestProto;
+import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -35,16 +47,27 @@ import java.time.ZoneId;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
+import java.util.stream.Stream;
+import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.annotation.processing.RoundEnvironment;
+import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.lang.model.SourceVersion;
+import javax.lang.model.element.TypeElement;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 @RunWith(JUnit4.class)
 public class MainTest {
@@ -84,13 +107,11 @@ public class MainTest {
 
     Path output = temporaryFolder.newFile("output.jar").toPath();
 
-    boolean ok =
-        Main.compile(
-            optionsWithBootclasspath()
-                .addSources(ImmutableList.of(src.toString()))
-                .setOutput(output.toString())
-                .build());
-    assertThat(ok).isTrue();
+    Main.compile(
+        optionsWithBootclasspath()
+            .setSources(ImmutableList.of(src.toString()))
+            .setOutput(output.toString())
+            .build());
 
     Map<String, byte[]> data = readJar(output);
     assertThat(data.keySet()).containsExactly("test/package-info.class");
@@ -106,13 +127,11 @@ public class MainTest {
 
     Path output = temporaryFolder.newFile("output.jar").toPath();
 
-    boolean ok =
-        Main.compile(
-            optionsWithBootclasspath()
-                .setSourceJars(ImmutableList.of(srcjar.toString()))
-                .setOutput(output.toString())
-                .build());
-    assertThat(ok).isTrue();
+    Main.compile(
+        optionsWithBootclasspath()
+            .setSourceJars(ImmutableList.of(srcjar.toString()))
+            .setOutput(output.toString())
+            .build());
 
     Map<String, byte[]> data = readJar(output);
     assertThat(data.keySet()).containsExactly("test/package-info.class");
@@ -150,15 +169,13 @@ public class MainTest {
 
     Path output = temporaryFolder.newFile("output.jar").toPath();
 
-    boolean ok =
-        Main.compile(
-            TurbineOptions.builder()
-                .setRelease("9")
-                .addSources(ImmutableList.of(src.toString()))
-                .setSourceJars(ImmutableList.of(srcjar.toString()))
-                .setOutput(output.toString())
-                .build());
-    assertThat(ok).isTrue();
+    Main.compile(
+        TurbineOptions.builder()
+            .setRelease("9")
+            .setSources(ImmutableList.of(src.toString()))
+            .setSourceJars(ImmutableList.of(srcjar.toString()))
+            .setOutput(output.toString())
+            .build());
 
     Map<String, byte[]> data = readJar(output);
     assertThat(data.keySet())
@@ -171,25 +188,47 @@ public class MainTest {
     MoreFiles.asCharSink(src, UTF_8).write("class Foo {}");
 
     Path output = temporaryFolder.newFile("output.jar").toPath();
+    Path gensrcOutput = temporaryFolder.newFile("gensrcOutput.jar").toPath();
 
-    boolean ok =
-        Main.compile(
-            optionsWithBootclasspath()
-                .addSources(ImmutableList.of(src.toString()))
-                .setTargetLabel("//foo:foo")
-                .setInjectingRuleKind("foo_library")
-                .setOutput(output.toString())
-                .build());
-    assertThat(ok).isTrue();
+    Main.compile(
+        optionsWithBootclasspath()
+            .setSources(ImmutableList.of(src.toString()))
+            .setTargetLabel("//foo:foo")
+            .setInjectingRuleKind("foo_library")
+            .setOutput(output.toString())
+            .setGensrcOutput(gensrcOutput.toString())
+            .build());
 
     try (JarFile jarFile = new JarFile(output.toFile())) {
+      try (Stream<JarEntry> entries = jarFile.stream()) {
+        assertThat(entries.map(JarEntry::getName))
+            .containsAtLeast("META-INF/", "META-INF/MANIFEST.MF");
+      }
       Manifest manifest = jarFile.getManifest();
       Attributes attributes = manifest.getMainAttributes();
-      assertThat(attributes.getValue("Target-Label")).isEqualTo("//foo:foo");
-      assertThat(attributes.getValue("Injecting-Rule-Kind")).isEqualTo("foo_library");
+      ImmutableMap<String, ?> entries =
+          attributes.entrySet().stream()
+              .collect(toImmutableMap(e -> e.getKey().toString(), Map.Entry::getValue));
+      assertThat(entries)
+          .containsExactly(
+              "Created-By", "bazel",
+              "Manifest-Version", "1.0",
+              "Target-Label", "//foo:foo",
+              "Injecting-Rule-Kind", "foo_library");
       assertThat(jarFile.getEntry(JarFile.MANIFEST_NAME).getLastModifiedTime().toInstant())
           .isEqualTo(
               LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneId.systemDefault()).toInstant());
+    }
+    try (JarFile jarFile = new JarFile(gensrcOutput.toFile())) {
+      Manifest manifest = jarFile.getManifest();
+      Attributes attributes = manifest.getMainAttributes();
+      ImmutableMap<String, ?> entries =
+          attributes.entrySet().stream()
+              .collect(toImmutableMap(e -> e.getKey().toString(), Map.Entry::getValue));
+      assertThat(entries)
+          .containsExactly(
+              "Created-By", "bazel",
+              "Manifest-Version", "1.0");
     }
   }
 
@@ -201,13 +240,11 @@ public class MainTest {
 
     Path output = temporaryFolder.newFile("output.jar").toPath();
 
-    boolean ok =
-        Main.compile(
-            TurbineOptions.builder()
-                .addSources(ImmutableList.of(src.toString()))
-                .setOutput(output.toString())
-                .build());
-    assertThat(ok).isTrue();
+    Main.compile(
+        TurbineOptions.builder()
+            .setSources(ImmutableList.of(src.toString()))
+            .setOutput(output.toString())
+            .build());
 
     Map<String, byte[]> data = readJar(output);
     assertThat(data.keySet()).containsExactly("java/lang/Object.class");
@@ -223,7 +260,7 @@ public class MainTest {
     try {
       Main.compile(
           TurbineOptions.builder()
-              .addSources(ImmutableList.of(src.toString()))
+              .setSources(ImmutableList.of(src.toString()))
               .setOutput(output.toString())
               .build());
       fail();
@@ -238,10 +275,200 @@ public class MainTest {
     MoreFiles.asCharSink(src, UTF_8).write("public class Test {}");
 
     try {
-      Main.compile(optionsWithBootclasspath().addSources(ImmutableList.of(src.toString())).build());
+      Main.compile(optionsWithBootclasspath().setSources(ImmutableList.of(src.toString())).build());
       fail();
     } catch (UsageException expected) {
-      assertThat(expected).hasMessageThat().contains("--output is required");
+      assertThat(expected)
+          .hasMessageThat()
+          .contains("at least one of --output, --gensrc_output, or --resource_output is required");
+    }
+  }
+
+  @Test
+  public void noSources() throws IOException {
+    // Compilations with no sources (or source jars) are accepted, and create empty for requested
+    // outputs. This is helpful for the Bazel integration, which allows java_library rules to be
+    // declared without sources.
+    File gensrc = temporaryFolder.newFile("gensrc.jar");
+    Main.compile(optionsWithBootclasspath().setGensrcOutput(gensrc.toString()).build());
+    try (JarFile jarFile = new JarFile(gensrc);
+        Stream<JarEntry> entries = jarFile.stream()) {
+      assertThat(entries.map(JarEntry::getName))
+          .containsExactly("META-INF/", "META-INF/MANIFEST.MF");
+    }
+  }
+
+  @SupportedAnnotationTypes("*")
+  public static class SourceGeneratingProcessor extends AbstractProcessor {
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+      return SourceVersion.latestSupported();
+    }
+
+    private boolean first = true;
+
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+      if (first) {
+        try (Writer writer = processingEnv.getFiler().createSourceFile("g.Gen").openWriter()) {
+          writer.write("package g; class Gen {}");
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);
+        }
+        first = false;
+      }
+      return false;
+    }
+  }
+
+  @Test
+  public void testManifestProto() throws IOException {
+    Path src = temporaryFolder.newFile("Foo.java").toPath();
+    MoreFiles.asCharSink(src, UTF_8).write("package f; @Deprecated class Foo {}");
+
+    Path output = temporaryFolder.newFile("output.jar").toPath();
+    Path gensrcOutput = temporaryFolder.newFile("gensrcOutput.jar").toPath();
+    Path manifestProtoOutput = temporaryFolder.newFile("manifest.proto").toPath();
+
+    Main.compile(
+        optionsWithBootclasspath()
+            .setSources(ImmutableList.of(src.toString()))
+            .setTargetLabel("//foo:foo")
+            .setInjectingRuleKind("foo_library")
+            .setOutput(output.toString())
+            .setGensrcOutput(gensrcOutput.toString())
+            .setOutputManifest(manifestProtoOutput.toString())
+            .setProcessors(ImmutableList.of(SourceGeneratingProcessor.class.getName()))
+            .build());
+
+    assertThat(readManifestProto(manifestProtoOutput))
+        .isEqualTo(
+            ManifestProto.Manifest.newBuilder()
+                .addCompilationUnit(
+                    ManifestProto.CompilationUnit.newBuilder()
+                        .setPkg("f")
+                        .addTopLevel("Foo")
+                        .setPath(src.toString())
+                        .setGeneratedByAnnotationProcessor(false)
+                        .build())
+                .addCompilationUnit(
+                    ManifestProto.CompilationUnit.newBuilder()
+                        .setPkg("g")
+                        .addTopLevel("Gen")
+                        .setPath("g/Gen.java")
+                        .setGeneratedByAnnotationProcessor(true)
+                        .build())
+                .build());
+  }
+
+  private static ManifestProto.Manifest readManifestProto(Path manifestProtoOutput)
+      throws IOException {
+    ManifestProto.Manifest.Builder manifest = ManifestProto.Manifest.newBuilder();
+    try (InputStream is = new BufferedInputStream(Files.newInputStream(manifestProtoOutput))) {
+      manifest.mergeFrom(is, ExtensionRegistry.getEmptyRegistry());
+    }
+    return manifest.build();
+  }
+
+  @SupportedAnnotationTypes("*")
+  public static class CrashyProcessor extends AbstractProcessor {
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+      return SourceVersion.latestSupported();
+    }
+
+    @Override
+    public synchronized void init(ProcessingEnvironment processingEnv) {
+      throw new AssertionError();
+    }
+
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+      return false;
+    }
+  }
+
+  @Test
+  public void noSourcesProcessing() throws IOException {
+    // Compilations with no sources shouldn't initialize annotation processors.
+    File gensrc = temporaryFolder.newFile("gensrc.jar");
+    Main.compile(
+        optionsWithBootclasspath()
+            .setProcessors(ImmutableList.of(CrashyProcessor.class.getName()))
+            .setGensrcOutput(gensrc.toString())
+            .build());
+    try (JarFile jarFile = new JarFile(gensrc);
+        Stream<JarEntry> entries = jarFile.stream()) {
+      assertThat(entries.map(JarEntry::getName))
+          .containsExactly("META-INF/", "META-INF/MANIFEST.MF");
+    }
+  }
+
+  @SupportedAnnotationTypes("*")
+  public static class ClassGeneratingProcessor extends AbstractProcessor {
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+      return SourceVersion.latestSupported();
+    }
+
+    private boolean first = true;
+
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+      if (first) {
+        try (OutputStream outputStream =
+            processingEnv.getFiler().createClassFile("g.Gen").openOutputStream()) {
+          outputStream.write(dump());
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);
+        }
+        first = false;
+      }
+      return false;
+    }
+
+    public static byte[] dump() {
+      ClassWriter classWriter = new ClassWriter(0);
+      classWriter.visit(
+          Opcodes.V1_8,
+          Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
+          "g/Gen",
+          null,
+          "java/lang/Object",
+          null);
+      {
+        MethodVisitor methodVisitor =
+            classWriter.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        methodVisitor.visitCode();
+        methodVisitor.visitVarInsn(Opcodes.ALOAD, 0);
+        methodVisitor.visitMethodInsn(
+            Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        methodVisitor.visitInsn(Opcodes.RETURN);
+        methodVisitor.visitMaxs(1, 1);
+        methodVisitor.visitEnd();
+      }
+      classWriter.visitEnd();
+      return classWriter.toByteArray();
+    }
+  }
+
+  @Test
+  public void classGeneration() throws IOException {
+    Path src = temporaryFolder.newFile("package-info.jar").toPath();
+    MoreFiles.asCharSink(src, UTF_8).write("@Deprecated package test;");
+    File resources = temporaryFolder.newFile("resources.jar");
+    Main.compile(
+        optionsWithBootclasspath()
+            .setProcessors(ImmutableList.of(ClassGeneratingProcessor.class.getName()))
+            .setSources(ImmutableList.of(src.toString()))
+            .setResourceOutput(resources.toString())
+            .build());
+    try (JarFile jarFile = new JarFile(resources);
+        Stream<JarEntry> entries = jarFile.stream()) {
+      assertThat(entries.map(JarEntry::getName)).containsExactly("g/Gen.class");
     }
   }
 }

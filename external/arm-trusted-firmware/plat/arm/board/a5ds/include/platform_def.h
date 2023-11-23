@@ -11,6 +11,7 @@
 #include <lib/utils_def.h>
 #include <lib/xlat_tables/xlat_tables_defs.h>
 #include <plat/arm/board/common/v2m_def.h>
+#include <plat/arm/common/smccc_def.h>
 #include <plat/common/common_def.h>
 
 /* Memory location options for TSP */
@@ -151,10 +152,18 @@
 #endif
 
 /*
+ * Map the region for device tree configuration with read and write permissions
+ */
+#define ARM_MAP_BL_CONFIG_REGION	MAP_REGION_FLAT(ARM_BL_RAM_BASE,	\
+						(ARM_FW_CONFIGS_LIMIT		\
+							- ARM_BL_RAM_BASE),	\
+						MT_MEMORY | MT_RW | MT_SECURE)
+
+/*
  * The max number of regions like RO(code), coherent and data required by
  * different BL stages which need to be mapped in the MMU.
  */
-#define ARM_BL_REGIONS			5
+#define ARM_BL_REGIONS			6
 
 #define MAX_MMAP_REGIONS		(PLAT_ARM_MMAP_ENTRIES +	\
 					 ARM_BL_REGIONS)
@@ -187,11 +196,17 @@
 #define CACHE_WRITEBACK_GRANULE		(U(1) << ARM_CACHE_WRITEBACK_SHIFT)
 
 /*
- * To enable TB_FW_CONFIG to be loaded by BL1, define the corresponding base
+ * To enable FW_CONFIG to be loaded by BL1, define the corresponding base
  * and limit. Leave enough space of BL2 meminfo.
  */
-#define ARM_TB_FW_CONFIG_BASE		(ARM_BL_RAM_BASE + sizeof(meminfo_t))
-#define ARM_TB_FW_CONFIG_LIMIT		(ARM_BL_RAM_BASE + PAGE_SIZE)
+#define ARM_FW_CONFIG_BASE		(ARM_BL_RAM_BASE + sizeof(meminfo_t))
+#define ARM_FW_CONFIG_LIMIT		(ARM_BL_RAM_BASE + PAGE_SIZE)
+
+/*
+ * Define limit of firmware configuration memory:
+ * ARM_FW_CONFIG + ARM_BL2_MEM_DESC memory
+ */
+#define ARM_FW_CONFIGS_LIMIT		(ARM_BL_RAM_BASE + (PAGE_SIZE * 2))
 
 /*******************************************************************************
  * BL1 specific defines.
@@ -219,7 +234,9 @@
 #define BL2_LIMIT			BL1_RW_BASE
 
 /* Put BL32 below BL2 in NS DRAM.*/
-#define ARM_BL2_MEM_DESC_BASE		ARM_TB_FW_CONFIG_LIMIT
+#define ARM_BL2_MEM_DESC_BASE		ARM_FW_CONFIG_LIMIT
+#define ARM_BL2_MEM_DESC_LIMIT		(ARM_BL2_MEM_DESC_BASE \
+					+ (PAGE_SIZE / 2U))
 
 #define BL32_BASE			((ARM_BL_RAM_BASE + ARM_BL_RAM_SIZE)\
 						- PLAT_ARM_MAX_BL32_SIZE)

@@ -35,22 +35,9 @@ struct HalGroup {
 
    public:
     virtual ~HalGroup() {}
-    // Move all hals from another HalGroup to this.
-    bool addAllHals(HalGroup* other, std::string* error = nullptr) {
-        for (auto& pair : other->mHals) {
-            if (!add(std::move(pair.second))) {
-                if (error) {
-                    *error = "HAL \"" + pair.first + "\" has a conflict.";
-                }
-                return false;
-            }
-        }
-        other->mHals.clear();
-        return true;
-    }
 
     // Add an hal to this HalGroup so that it can be constructed programatically.
-    virtual bool add(Hal&& hal) { return addInternal(std::move(hal)) != nullptr; }
+    virtual bool add(Hal&& hal, std::string* error = nullptr) = 0;
 
    protected:
     // Get all hals with the given name (e.g "android.hardware.camera").
@@ -186,9 +173,6 @@ struct HalGroup {
     // The component name looks like: android.hardware.foo
     std::multimap<std::string, Hal> mHals;
 
-    // override this to filter for add.
-    virtual bool shouldAdd(const Hal&) const { return true; }
-
     // Return an iterable to all Hal objects. Call it as follows:
     // for (const auto& e : vm.getHals()) { }
     ConstMultiMapValueIterable<std::string, Hal> getHals() const { return iterateValues(mHals); }
@@ -210,13 +194,23 @@ struct HalGroup {
         return &(it->second);
     }
 
+    // Helper for "add(Hal)". Returns pointer to inserted object. Never null.
     Hal* addInternal(Hal&& hal) {
-        if (!shouldAdd(hal)) {
-            return nullptr;
-        }
         std::string name = hal.getName();
         auto it = mHals.emplace(std::move(name), std::move(hal));  // always succeeds
         return &it->second;
+    }
+
+    // Remove if shouldRemove(hal).
+    void removeHalsIf(const std::function<bool(const Hal&)>& shouldRemove) {
+        for (auto it = mHals.begin(); it != mHals.end();) {
+            const Hal& value = it->second;
+            if (shouldRemove(value)) {
+                it = mHals.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
 
    private:

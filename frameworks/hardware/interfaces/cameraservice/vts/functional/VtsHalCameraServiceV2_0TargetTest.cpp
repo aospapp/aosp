@@ -18,6 +18,7 @@
 //#define LOG_NDEBUG 0
 
 #include <android/frameworks/cameraservice/device/2.0/ICameraDeviceUser.h>
+#include <android/frameworks/cameraservice/device/2.1/ICameraDeviceUser.h>
 #include <android/frameworks/cameraservice/service/2.0/ICameraService.h>
 #include <android/frameworks/cameraservice/service/2.1/ICameraService.h>
 #include <system/camera_metadata.h>
@@ -334,10 +335,22 @@ class VtsHalCameraServiceV2_0TargetTest : public ::testing::TestWithParam<std::s
         return false;
     }
 
-    // Return the first advertised available depth stream sizes
-    StreamConfiguration getDepthStreamConfiguration(const CameraMetadata& characteristics) {
+    bool isSecureOnlyDevice(const CameraMetadata& characteristics) {
         camera_metadata_ro_entry rawEntry =
-            characteristics.find(ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS);
+            characteristics.find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
+        EXPECT_TRUE(rawEntry.count > 0);
+        if (rawEntry.count == 1 &&
+            rawEntry.data.u8[0] == ANDROID_REQUEST_AVAILABLE_CAPABILITIES_SECURE_IMAGE_DATA) {
+            return true;
+        }
+        return false;
+    }
+
+    // Return the first advertised available stream sizes for the given format
+    // and use-case.
+    StreamConfiguration getStreamConfiguration(const CameraMetadata& characteristics, uint32_t tag,
+                                               int32_t chosenUse, int32_t chosenFormat) {
+        camera_metadata_ro_entry rawEntry = characteristics.find(tag);
         StreamConfiguration streamConfig;
         const size_t STREAM_FORMAT_OFFSET = 0;
         const size_t STREAM_WIDTH_OFFSET = 1;
@@ -351,8 +364,7 @@ class VtsHalCameraServiceV2_0TargetTest : public ::testing::TestWithParam<std::s
         for (size_t i = 0; i < rawEntry.count; i += STREAM_CONFIG_SIZE) {
             int32_t format = rawEntry.data.i32[i + STREAM_FORMAT_OFFSET];
             int32_t use = rawEntry.data.i32[i + STREAM_INOUT_OFFSET];
-            if (format == HAL_PIXEL_FORMAT_Y16 &&
-                use == ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS_OUTPUT) {
+            if (format == chosenFormat && use == chosenUse) {
                 streamConfig.width = rawEntry.data.i32[i + STREAM_WIDTH_OFFSET];
                 streamConfig.height = rawEntry.data.i32[i + STREAM_HEIGHT_OFFSET];
                 return streamConfig;
@@ -413,17 +425,38 @@ TEST_P(VtsHalCameraServiceV2_0TargetTest, BasicCameraLifeCycleTest) {
         int chosenImageFormat = AIMAGE_FORMAT_YUV_420_888;
         int chosenImageWidth = kVGAImageWidth;
         int chosenImageHeight = kVGAImageHeight;
-        if (isDepthOnlyDevice) {
-            StreamConfiguration depthStreamConfig = getDepthStreamConfiguration(rawMetadata);
-            EXPECT_TRUE(depthStreamConfig.width != -1);
-            EXPECT_TRUE(depthStreamConfig.height != -1);
-            chosenImageFormat = AIMAGE_FORMAT_DEPTH16;
-            chosenImageWidth = depthStreamConfig.width;
-            chosenImageHeight = depthStreamConfig.height;
+        bool isSecureOnlyCamera = isSecureOnlyDevice(rawMetadata);
+        status_t mStatus = OK;
+        if (isSecureOnlyCamera) {
+            StreamConfiguration secureStreamConfig =
+                getStreamConfiguration(rawMetadata, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
+                                       ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+                                       HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
+            EXPECT_TRUE(secureStreamConfig.width != -1);
+            EXPECT_TRUE(secureStreamConfig.height != -1);
+            chosenImageFormat = AIMAGE_FORMAT_PRIVATE;
+            chosenImageWidth = secureStreamConfig.width;
+            chosenImageHeight = secureStreamConfig.height;
+            mStatus = AImageReader_newWithUsage(
+                chosenImageWidth, chosenImageHeight, chosenImageFormat,
+                AHARDWAREBUFFER_USAGE_PROTECTED_CONTENT, kCaptureRequestCount, &reader);
+
+        } else {
+            if (isDepthOnlyDevice) {
+                StreamConfiguration depthStreamConfig = getStreamConfiguration(
+                    rawMetadata, ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS,
+                    ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS_OUTPUT,
+                    HAL_PIXEL_FORMAT_Y16);
+                EXPECT_TRUE(depthStreamConfig.width != -1);
+                EXPECT_TRUE(depthStreamConfig.height != -1);
+                chosenImageFormat = AIMAGE_FORMAT_DEPTH16;
+                chosenImageWidth = depthStreamConfig.width;
+                chosenImageHeight = depthStreamConfig.height;
+            }
+            mStatus = AImageReader_new(chosenImageWidth, chosenImageHeight, chosenImageFormat,
+                                       kCaptureRequestCount, &reader);
         }
 
-        auto mStatus = AImageReader_new(chosenImageWidth, chosenImageHeight, chosenImageFormat,
-                                        kCaptureRequestCount, &reader);
         EXPECT_EQ(mStatus, AMEDIA_OK);
         native_handle_t* wh = nullptr;
         mStatus = AImageReader_getWindowNativeHandle(reader, &wh);
@@ -504,6 +537,33 @@ TEST_P(VtsHalCameraServiceV2_0TargetTest, BasicCameraLifeCycleTest) {
         statusRet = deviceRemote->deleteStream(streamId);
         EXPECT_TRUE(statusRet.isOk() && statusRet == Status::NO_ERROR);
 
+        /**
+         * For camera device V2.1, test newly added functions.
+         * TODO: Refactor the device 2.1 test into a separate test for service 2.2.
+         */
+        auto castResult =
+            android::frameworks::cameraservice::device::V2_1::ICameraDeviceUser::castFrom(
+                deviceRemote);
+        sp<android::frameworks::cameraservice::device::V2_1::ICameraDeviceUser> deviceRemote2_1;
+        if (castResult.isOk()) {
+            deviceRemote2_1 = castResult;
+        }
+        if (deviceRemote2_1 != nullptr) {
+            // Reconfigure a capture session using v2.1 version of the device
+            ret = deviceRemote2_1->beginConfigure();
+            EXPECT_TRUE(ret.isOk() && ret == Status::NO_ERROR);
+            remoteRet =
+                deviceRemote2_1->createStream(output, [&status, &streamId](Status s, auto sId) {
+                    status = s;
+                    streamId = sId;
+                });
+            EXPECT_TRUE(remoteRet.isOk() && status == Status::NO_ERROR);
+            EXPECT_TRUE(streamId >= 0);
+            ret = deviceRemote2_1->endConfigure_2_1(StreamConfigurationMode::NORMAL_MODE,
+                                                    hidlParams, systemTime());
+            EXPECT_TRUE(ret.isOk() && ret == Status::NO_ERROR);
+        }
+
         remoteRet = deviceRemote->disconnect();
         EXPECT_TRUE(remoteRet.isOk());
     }
@@ -571,6 +631,7 @@ TEST_P(VtsHalCameraServiceV2_0TargetTest, CameraServiceListener2_1Test) {
     EXPECT_TRUE(remoteStatus.isOk() && remoteStatus == Status::NO_ERROR);
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VtsHalCameraServiceV2_0TargetTest);
 INSTANTIATE_TEST_SUITE_P(
         PerInstance, VtsHalCameraServiceV2_0TargetTest,
         testing::ValuesIn(android::hardware::getAllHalInstanceNames(ICameraService::descriptor)),

@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef TBBR_OID_H
 #define TBBR_OID_H
+
+#define	MAX_OID_NAME_LEN	30
 
 /*
  * The following is a list of OID values defined and reserved by ARM, which
@@ -43,6 +45,7 @@
 #define TRUSTED_BOOT_FW_HASH_OID		"1.3.6.1.4.1.4128.2100.201"
 #define TRUSTED_BOOT_FW_CONFIG_HASH_OID		"1.3.6.1.4.1.4128.2100.202"
 #define HW_CONFIG_HASH_OID			"1.3.6.1.4.1.4128.2100.203"
+#define FW_CONFIG_HASH_OID			"1.3.6.1.4.1.4128.2100.204"
 
 /*
  * Trusted Key Certificate
@@ -144,5 +147,17 @@
 #define NON_TRUSTED_WORLD_BOOTLOADER_HASH_OID	"1.3.6.1.4.1.4128.2100.1201"
 /* NonTrustedFirmwareConfigHash - NT_FW_CONFIG */
 #define NON_TRUSTED_FW_CONFIG_HASH_OID		"1.3.6.1.4.1.4128.2100.1202"
+
+/*
+ * Secure Partitions Content Certificate
+ */
+#define SP_PKG1_HASH_OID			"1.3.6.1.4.1.4128.2100.1301"
+#define SP_PKG2_HASH_OID			"1.3.6.1.4.1.4128.2100.1302"
+#define SP_PKG3_HASH_OID			"1.3.6.1.4.1.4128.2100.1303"
+#define SP_PKG4_HASH_OID			"1.3.6.1.4.1.4128.2100.1304"
+#define SP_PKG5_HASH_OID			"1.3.6.1.4.1.4128.2100.1305"
+#define SP_PKG6_HASH_OID			"1.3.6.1.4.1.4128.2100.1306"
+#define SP_PKG7_HASH_OID			"1.3.6.1.4.1.4128.2100.1307"
+#define SP_PKG8_HASH_OID			"1.3.6.1.4.1.4128.2100.1308"
 
 #endif /* TBBR_OID_H */

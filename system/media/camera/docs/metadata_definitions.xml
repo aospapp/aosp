@@ -143,6 +143,9 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
     <typedef name="capability">
       <language name="java">android.hardware.camera2.params.Capability</language>
     </typedef>
+    <typedef name="multiResolutionStreamConfigurationMap">
+      <language name="java">android.hardware.camera2.params.MultiResolutionStreamConfigurationMap</language>
+    </typedef>
   </types>
 
   <namespace name="android">
@@ -763,6 +766,14 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               scene as they do before. See android.control.zoomRatio for details. Whether to use
               activeArraySize or preCorrectionActiveArraySize still depends on distortion correction
               mode.
+
+              For camera devices with the
+              {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+              capability,
+              android.sensor.info.activeArraySizeMaximumResolution /
+              android.sensor.info.preCorrectionActiveArraySizeMaximumResolution must be used as the
+              coordinate system for requests where android.sensor.pixelMode is set to
+              {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
           </details>
           <ndk_details>
               The data representation is `int[5 * area_count]`.
@@ -1080,6 +1091,13 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               scene as they do before. See android.control.zoomRatio for details. Whether to use
               activeArraySize or preCorrectionActiveArraySize still depends on distortion correction
               mode.
+
+              For camera devices with the
+              {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+              capability, android.sensor.info.activeArraySizeMaximumResolution /
+              android.sensor.info.preCorrectionActiveArraySizeMaximumResolution must be used as the
+              coordinate system for requests where android.sensor.pixelMode is set to
+              {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
           </details>
           <ndk_details>
               The data representation is `int[5 * area_count]`.
@@ -1326,7 +1344,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           <details>
           This control is only effective if android.control.mode is AUTO.
 
-          When set to the ON mode, the camera device's auto-white balance
+          When set to the AUTO mode, the camera device's auto-white balance
           routine is enabled, overriding the application's selected
           android.colorCorrection.transform, android.colorCorrection.gains and
           android.colorCorrection.mode. Note that when android.control.aeMode
@@ -1421,6 +1439,13 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               the scene as they do before. See android.control.zoomRatio for details. Whether to use
               activeArraySize or preCorrectionActiveArraySize still depends on distortion correction
               mode.
+
+              For camera devices with the
+              {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+              capability, android.sensor.info.activeArraySizeMaximumResolution /
+              android.sensor.info.preCorrectionActiveArraySizeMaximumResolution must be used as the
+              coordinate system for requests where android.sensor.pixelMode is set to
+              {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
           </details>
           <ndk_details>
               The data representation is `int[5 * area_count]`.
@@ -1777,7 +1802,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               barcode value.
               </notes>
             </value>
-            <value deprecated="true" optional="true" ndk_hidden="true">HIGH_SPEED_VIDEO
+            <value deprecated="true" optional="true" visibility="java_public">HIGH_SPEED_VIDEO
               <notes>
               This is deprecated, please use {@link
               android.hardware.camera2.CameraDevice#createConstrainedHighSpeedCaptureSession}
@@ -1901,7 +1926,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               the SCENE_MODE was not enabled at all.
               </notes>
             </value>
-            <value optional="true" hidden="true">FACE_PRIORITY_LOW_LIGHT
+            <value optional="true" visibility="hidden">FACE_PRIORITY_LOW_LIGHT
               <notes>Same as FACE_PRIORITY scene mode, except that the camera
               device will choose higher sensitivity values (android.sensor.sensitivity)
               under low light conditions.
@@ -1927,14 +1952,14 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               remain active when FACE_PRIORITY_LOW_LIGHT is set.
               </notes>
             </value>
-            <value optional="true" hidden="true" id="100">DEVICE_CUSTOM_START
+            <value optional="true" visibility="hidden" id="100">DEVICE_CUSTOM_START
               <notes>
                 Scene mode values within the range of
                 `[DEVICE_CUSTOM_START, DEVICE_CUSTOM_END]` are reserved for device specific
                 customized scene modes.
               </notes>
             </value>
-            <value optional="true" hidden="true" id="127">DEVICE_CUSTOM_END
+            <value optional="true" visibility="hidden" id="127">DEVICE_CUSTOM_END
               <notes>
                 Scene mode values within the range of
                 `[DEVICE_CUSTOM_START, DEVICE_CUSTOM_END]` are reserved for device specific
@@ -3130,7 +3155,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             are supported by this camera device, and each extended scene mode's capabilities such
             as maximum streaming size, and supported zoom ratio ranges.</description>
           <details>
-            For DISABLED mode, the camera behaves normally with no extended scene mdoe enabled.
+            For DISABLED mode, the camera behaves normally with no extended scene mode enabled.
 
             For BOKEH_STILL_CAPTURE mode, the maximum streaming dimension specifies the limit
             under which bokeh is effective when capture intent is PREVIEW. Note that when capture
@@ -3175,7 +3200,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               priority, such as video recording.
               </notes>
             </value>
-            <value hidden="true" id="0x40">VENDOR_START
+            <value visibility="hidden" id="0x40">VENDOR_START
               <notes>
                 Vendor defined extended scene modes. These depend on vendor implementation.
               </notes>
@@ -3196,7 +3221,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           * If the camera device has BURST_CAPTURE capability, the frame rate requirement of
           BURST_CAPTURE must still be met.
           * All streams not larger than the maximum streaming dimension for BOKEH_STILL_CAPTURE mode
-          (queried via {@link android.hardware.camera2.CameraCharacteristics#CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_CAPABILITIES|ACAMERA_CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_CAPABILITIES})
+          (queried via {@link android.hardware.camera2.CameraCharacteristics#CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_CAPABILITIES|ACAMERA_CONTROL_AVAILABLE_EXTENDED_SCENE_MODE_MAX_SIZES})
           will have preview bokeh effect applied.
 
           When set to BOKEH_CONTINUOUS mode, configured streams dimension should not exceed this mode's
@@ -3239,12 +3264,11 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             of view.
           </details>
           <hal_details>
-            When the key is reported, the camera device must be setting
-            android.scaler.availableMaxDigitalZoom to be the same as maxZoom. The camera framework
-            makes sure to always controls zoom via android.control.zoomRatio. The
-            android.scaler.cropRegion tag is only used to do horizontal or vertical cropping (but
-            not both) to achieve aspect ratio different than the camera sensor's native aspect
-            ratio.
+            When the key is reported, the camera device's android.scaler.availableMaxDigitalZoom
+            must be less than or equal to maxZoom. The camera framework makes sure to always
+            control zoom via android.control.zoomRatio. The android.scaler.cropRegion tag is only
+            used to do horizontal or vertical cropping (but not both) to achieve aspect ratio
+            different than the camera sensor's native aspect ratio.
 
             For a logical multi-camera device, this key must either be reported for both the logical
             camera device and all its physical sub-cameras, or none of them.
@@ -3262,10 +3286,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </description>
           <range>android.control.zoomRatioRange</range>
           <details>
-            Instead of using android.scaler.cropRegion with dual purposes of crop and zoom, the
-            application can now choose to use this tag to specify the desired zoom level. The
-            android.scaler.cropRegion can still be used to specify the horizontal or vertical
-            crop to achieve aspect ratios different than the native camera sensor.
+            Instead of using android.scaler.cropRegion for zoom, the application can now choose to
+            use this tag to specify the desired zoom level.
 
             By using this control, the application gains a simpler way to control zoom, which can
             be a combination of optical and digital zoom. For example, a multi-camera system may
@@ -3324,7 +3346,22 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
 
             One limitation of controlling zoom using zoomRatio is that the android.scaler.cropRegion
             must only be used for letterboxing or pillarboxing of the sensor active array, and no
-            FREEFORM cropping can be used with android.control.zoomRatio other than 1.0.
+            FREEFORM cropping can be used with android.control.zoomRatio other than 1.0. If
+            android.control.zoomRatio is not 1.0, and android.scaler.cropRegion is set to be
+            windowboxing, the camera framework will override the android.scaler.cropRegion to be
+            the active array.
+
+            In the capture request, if the application sets android.control.zoomRatio to a
+            value != 1.0, the android.control.zoomRatio tag in the capture result reflects the
+            effective zoom ratio achieved by the camera device, and the android.scaler.cropRegion
+            adjusts for additional crops that are not zoom related. Otherwise, if the application
+            sets android.control.zoomRatio to 1.0, or does not set it at all, the
+            android.control.zoomRatio tag in the result metadata will also be 1.0.
+
+            When the application requests a physical stream for a logical multi-camera, the
+            android.control.zoomRatio in the physical camera result metadata will be 1.0, and
+            the android.scaler.cropRegion tag reflects the amount of zoom and crop done by the
+            physical camera device.
           </details>
           <hal_details>
             For all capture request templates, this field must be set to 1.0 in order to have
@@ -3336,6 +3373,106 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
         <clone entry="android.control.zoomRatio" kind="controls">
         </clone>
       </dynamic>
+    <static>
+      <entry name="availableHighSpeedVideoConfigurationsMaximumResolution" type="int32"
+        visibility="hidden" container="array" typedef="highSpeedVideoConfiguration"
+        hal_version="3.6">
+        <array>
+          <size>5</size>
+          <size>n</size>
+        </array>
+        <description>
+        List of available high speed video size, fps range and max batch size configurations
+        supported by the camera device, in the format of
+        (width, height, fps_min, fps_max, batch_size_max),
+        when android.sensor.pixelMode is set to
+        {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+        </description>
+        <range>
+        For each configuration, the fps_max &amp;gt;= 120fps.
+        </range>
+        <details>
+        Analogous to android.control.availableHighSpeedVideoConfigurations, for configurations
+        which are applicable when android.sensor.pixelMode is set to
+        {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+        </details>
+        <hal_details>
+        Refer to hal details for android.control.availableHighSpeedVideoConfigurations.
+        </hal_details>
+        <tag id="V1" />
+      </entry>
+    </static>
+    <controls>
+        <entry name="afRegionsSet" type="byte" visibility="fwk_only"
+               enum="true" typedef="boolean">
+          <enum>
+            <value>TRUE
+            <notes>AF regions (android.control.afRegions) have been set by the camera client.
+            </notes>
+            </value>
+            <value>FALSE
+            <notes>
+              AF regions (android.control.afRegions) have not been set by the camera client.
+            </notes>
+            </value>
+          </enum>
+          <description>
+            Framework-only private key which informs camera fwk that the AF regions has been set
+            by the client and those regions need not be corrected when android.sensor.pixelMode is
+            set to MAXIMUM_RESOLUTION.
+          </description>
+          <details>
+            This must be set to TRUE by the camera2 java fwk when the camera client sets
+            android.control.afRegions.
+          </details>
+        </entry>
+        <entry name="aeRegionsSet" type="byte" visibility="fwk_only"
+          enum="true" typedef="boolean">
+          <enum>
+            <value>TRUE
+            <notes> AE regions (android.control.aeRegions) have been set by the camera client.
+            </notes>
+            </value>
+            <value>FALSE
+            <notes>
+              AE regions (android.control.aeRegions) have not been set by the camera client.
+            </notes>
+            </value>
+          </enum>
+          <description>
+            Framework-only private key which informs camera fwk that the AE regions has been set
+            by the client and those regions need not be corrected when android.sensor.pixelMode is
+            set to MAXIMUM_RESOLUTION.
+          </description>
+          <details>
+            This must be set to TRUE by the camera2 java fwk when the camera client sets
+            android.control.aeRegions.
+          </details>
+        </entry>
+        <entry name="awbRegionsSet" type="byte" visibility="fwk_only"
+          enum="true" typedef="boolean">
+          <enum>
+            <value>TRUE
+            <notes> AWB regions (android.control.awbRegions) have been set by the camera client.
+            </notes>
+            </value>
+            <value>FALSE
+            <notes>
+              AWB regions (android.control.awbRegions) have not been set by the camera client.
+            </notes>
+            </value>
+          </enum>
+          <description>
+            Framework-only private key which informs camera fwk that the AF regions has been set
+            by the client and those regions need not be corrected when android.sensor.pixelMode is
+            set to MAXIMUM_RESOLUTION.
+          </description>
+          <details>
+            This must be set to TRUE by the camera2 java fwk when the camera client sets
+            android.control.awbRegions.
+          </details>
+        </entry>
+    </controls>
     </section>
     <section name="demosaic">
       <controls>
@@ -3875,7 +4012,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
         </entry>
         <entry name="maxSize" type="int32" visibility="system">
           <description>Maximum size in bytes for the compressed
-          JPEG buffer</description>
+          JPEG buffer, in default sensor pixel mode (see android.sensor.pixelMode)</description>
           <range>Must be large enough to fit any JPEG produced by
           the camera</range>
           <details>This is used for sizing the gralloc buffers for
@@ -4670,6 +4807,47 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </details>
           <tag id="DEPTH" />
         </entry>
+        <entry name="distortionMaximumResolution" type="float" visibility="public" container="array"
+               permission_needed="true" hal_version="3.6" >
+          <array>
+            <size>5</size>
+          </array>
+          <description>
+            The correction coefficients to correct for this camera device's
+            radial and tangential lens distortion for a
+            CaptureRequest with android.sensor.pixelMode set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <units>
+            Unitless coefficients.
+          </units>
+          <details>
+            Analogous to android.lens.distortion, when android.sensor.pixelMode is set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </details>
+          <tag id="DEPTH" />
+        </entry>
+        <entry name="intrinsicCalibrationMaximumResolution" type="float" visibility="public"
+               container="array" permission_needed="true" hal_version="3.6">
+          <array>
+            <size>5</size>
+          </array>
+          <description>
+            The parameters for this camera device's intrinsic
+            calibration when android.sensor.pixelMode is set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <units>
+            Pixels in the
+            android.sensor.info.preCorrectionActiveArraySizeMaximumResolution
+            coordinate system.
+          </units>
+          <details>
+            Analogous to android.lens.intrinsicCalibration, when android.sensor.pixelMode is set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </details>
+          <tag id="DEPTH" />
+        </entry>
       </static>
       <dynamic>
         <clone entry="android.lens.distortion" kind="static">
@@ -5403,7 +5581,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
                 by the camera device.
               </notes>
             </value>
-            <value optional="true" ndk_hidden="true">PRIVATE_REPROCESSING
+            <value optional="true" visibility="java_public">PRIVATE_REPROCESSING
               <notes>
               The camera device supports the Zero Shutter Lag reprocessing use case.
 
@@ -5414,7 +5592,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
                 android.hardware.camera2.params.StreamConfigurationMap#getInputFormats} and {@link
                 android.hardware.camera2.params.StreamConfigurationMap#getOutputFormats}.
               * {@link android.hardware.camera2.params.StreamConfigurationMap#getValidOutputFormatsForInput}
-                returns non empty int[] for each supported input format returned by {@link
+                returns non-empty int[] for each supported input format returned by {@link
                 android.hardware.camera2.params.StreamConfigurationMap#getInputFormats}.
               * Each size returned by {@link
                 android.hardware.camera2.params.StreamConfigurationMap#getInputSizes
@@ -5531,7 +5709,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               consistent image output.
               </ndk_notes>
             </value>
-            <value optional="true" ndk_hidden="true">YUV_REPROCESSING
+            <value optional="true" visibility="java_public">YUV_REPROCESSING
               <notes>
               The camera device supports the YUV_420_888 reprocessing use case, similar as
               PRIVATE_REPROCESSING, This capability requires the camera device to support the
@@ -5611,7 +5789,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               rate, including depth stall time.
               </notes>
             </value>
-            <value optional="true" ndk_hidden="true">CONSTRAINED_HIGH_SPEED_VIDEO
+            <value optional="true" visibility="java_public">CONSTRAINED_HIGH_SPEED_VIDEO
               <notes>
               The device supports constrained high speed video recording (frame rate >=120fps) use
               case. The camera device will support high speed capture session created by {@link
@@ -5827,14 +6005,27 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               ultrawide lens will be the same as the logical stream, by making the crop region
               smaller than its active array size to compensate for the smaller focal length.
 
-              Even if the underlying physical cameras have different RAW characteristics (such as
-              size or CFA pattern), a logical camera can still advertise RAW capability. In this
-              case, when the application configures a RAW stream, the camera device will make sure
-              the active physical camera will remain active to ensure consistent RAW output
-              behavior, and not switch to other physical cameras.
+              There are two ways for the application to capture RAW images from a logical camera
+              with RAW capability:
+
+              * Because the underlying physical cameras may have different RAW capabilities (such
+              as resolution or CFA pattern), to maintain backward compatibility, when a RAW stream
+              is configured, the camera device makes sure the default active physical camera remains
+              active and does not switch to other physical cameras. (One exception is that, if the
+              logical camera consists of identical image sensors and advertises multiple focalLength
+              due to different lenses, the camera device may generate RAW images from different
+              physical cameras based on the focalLength being set by the application.) This
+              backward-compatible approach usually results in loss of optical zoom, to telephoto
+              lens or to ultrawide lens.
+              * Alternatively, to take advantage of the full zoomRatio range of the logical camera,
+              the application should use {@link android.hardware.camera2.MultiResolutionImageReader}
+              to capture RAW images from the currently active physical camera. Because different
+              physical camera may have different RAW characteristics, the application needs to use
+              the characteristics and result metadata of the active physical camera for the
+              relevant RAW metadata.
 
               The capture request and result metadata tags required for backward compatible camera
-              functionalities will be solely based on the logical camera capabiltity. On the other
+              functionalities will be solely based on the logical camera capability. On the other
               hand, the use of manual capture controls (sensor or post-processing) with a
               logical camera may result in unexpected behavior when the HAL decides to switch
               between physical cameras with different characteristics under the hood. For example,
@@ -5874,7 +6065,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
                 addition to android.permission.CAMERA in order to connect to this camera device.
               </notes>
             </value>
-            <value optional="true" ndk_hidden="true" hal_version="3.5">OFFLINE_PROCESSING
+            <value optional="true" visibility="java_public" hal_version="3.5">OFFLINE_PROCESSING
               <notes>
               The camera device supports the OFFLINE_PROCESSING use case.
 
@@ -5914,6 +6105,66 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
                   1. Picture size, any resolution: the camera device is
                       allowed to slow down JPEG output speed by 50% if there is any ongoing offline
                       session.
+              </notes>
+            </value>
+            <value optional="true" hal_version="3.6" >ULTRA_HIGH_RESOLUTION_SENSOR
+              <notes>
+                This camera device is capable of producing ultra high resolution images in
+                addition to the image sizes described in the
+                android.scaler.streamConfigurationMap.
+                It can operate in 'default' mode and 'max resolution' mode. It generally does this
+                by binning pixels in 'default' mode and not binning them in 'max resolution' mode.
+                `android.scaler.streamConfigurationMap` describes the streams supported in 'default'
+                mode.
+                The stream configurations supported in 'max resolution' mode are described by
+                `android.scaler.streamConfigurationMapMaximumResolution`.
+                The maximum resolution mode pixel array size of a camera device
+                (`android.sensor.info.pixelArraySize`) with this capability,
+                will be at least 24 megapixels.
+              </notes>
+            </value>
+            <value optional="true" visibility="java_public" hal_version="3.6">REMOSAIC_REPROCESSING
+              <notes>
+              The device supports reprocessing from the `RAW_SENSOR` format with a bayer pattern
+              given by android.sensor.info.binningFactor (m x n group of pixels with the same
+              color filter) to a remosaiced regular bayer pattern.
+
+              This capability will only be present for devices with
+              {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+              capability. When
+              {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+              devices do not advertise this capability,
+              {@link android.graphics.ImageFormat#RAW_SENSOR} images will already have a
+              regular bayer pattern.
+
+              If a `RAW_SENSOR` stream is requested along with another non-RAW stream in a
+              {@link android.hardware.camera2.CaptureRequest} (if multiple streams are supported
+              when android.sensor.pixelMode is set to
+              {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}),
+              the `RAW_SENSOR` stream will have a regular bayer pattern.
+
+              This capability requires the camera device to support the following :
+              * The {@link android.hardware.camera2.params.StreamConfigurationMap} mentioned below
+                refers to the one, described by
+                `android.scaler.streamConfigurationMapMaximumResolution`.
+              * One input stream is supported, that is, `android.request.maxNumInputStreams == 1`.
+              * {@link android.graphics.ImageFormat#RAW_SENSOR} is supported as an output/input
+                format, that is, {@link android.graphics.ImageFormat#RAW_SENSOR} is included in the
+                lists of formats returned by {@link
+                android.hardware.camera2.params.StreamConfigurationMap#getInputFormats} and {@link
+                android.hardware.camera2.params.StreamConfigurationMap#getOutputFormats}.
+              * {@link android.hardware.camera2.params.StreamConfigurationMap#getValidOutputFormatsForInput}
+                returns non-empty int[] for each supported input format returned by {@link
+                android.hardware.camera2.params.StreamConfigurationMap#getInputFormats}.
+              * Each size returned by {@link
+                android.hardware.camera2.params.StreamConfigurationMap#getInputSizes
+                getInputSizes(ImageFormat.RAW_SENSOR)} is also included in {@link
+                android.hardware.camera2.params.StreamConfigurationMap#getOutputSizes
+                getOutputSizes(ImageFormat.RAW_SENSOR)}
+              * Using {@link android.graphics.ImageFormat#RAW_SENSOR} does not cause a frame rate
+                drop relative to the sensor's maximum capture rate (at that resolution).
+              * No CaptureRequest controls will be applicable when a request has an input target
+                with {@link android.graphics.ImageFormat#RAW_SENSOR} format.
               </notes>
             </value>
           </enum>
@@ -6374,14 +6625,29 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             The camera device may adjust the crop region to account for rounding and other hardware
             requirements; the final crop region used will be included in the output capture result.
 
+            The camera sensor output aspect ratio depends on factors such as output stream
+            combination and android.control.aeTargetFpsRange, and shouldn't be adjusted by using
+            this control. And the camera device will treat different camera sensor output sizes
+            (potentially with in-sensor crop) as the same crop of
+            android.sensor.info.activeArraySize. As a result, the application shouldn't assume the
+            maximum crop region always maps to the same aspect ratio or field of view for the
+            sensor output.
+
             Starting from API level 30, it's strongly recommended to use android.control.zoomRatio
             to take advantage of better support for zoom with logical multi-camera. The benefits
             include better precision with optical-digital zoom combination, and ability to do
             zoom-out from 1.0x. When using android.control.zoomRatio for zoom, the crop region in
-            the capture request must be either letterboxing or pillarboxing (but not both). The
+            the capture request should be left as the default activeArray size. The
             coordinate system is post-zoom, meaning that the activeArraySize or
             preCorrectionActiveArraySize covers the camera device's field of view "after" zoom.  See
             android.control.zoomRatio for details.
+
+            For camera devices with the
+            {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+            capability, android.sensor.info.activeArraySizeMaximumResolution /
+            android.sensor.info.preCorrectionActiveArraySizeMaximumResolution must be used as the
+            coordinate system for requests where android.sensor.pixelMode is set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
           </details>
           <ndk_details>
             The data representation is int[4], which maps to (left, top, width, height).
@@ -6395,40 +6661,6 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             rounded to nearest larger supportable width, especially
             for raw output, where only a few fixed scales may be
             possible.
-
-            For a set of output streams configured, if the sensor output is cropped to a smaller
-            size than pre-correction active array size, the HAL need follow below cropping rules:
-
-            * The HAL need to handle the cropRegion as if the sensor crop size is the effective
-            pre-correction active array size. More specifically, the HAL must transform the request
-            cropRegion from android.sensor.info.preCorrectionActiveArraySize to the sensor cropped
-            pixel area size in this way:
-                1. If android.control.zoomRatio is set to value x, scale the requested cropRegion
-                with 1.0/x in relation to its center as the origin. For example, say the requested
-                cropRegion is (crX, crY, crWidth, crHeight), override it with
-                    `crX' = crX + crWidth * (1.0 - 1.0 / x) / 2`,
-                    `crY' = crY + crHeight * (1.0 - 1.0 / x) / 2`,
-                    `crWidth' = crWidth / x`, and
-                    `crHeight' = crHeight / x`.
-                2. Translate the requested cropRegion w.r.t., the left top corner of the sensor
-                cropped pixel area by (tx, ty),
-                where `ty = sensorCrop.top * (sensorCrop.height / preCorrectionActiveArraySize.height)`
-                and `tx = sensorCrop.left * (sensorCrop.width / preCorrectionActiveArraySize.width)`.
-                The (sensorCrop.top, sensorCrop.left) is the coordinate based off the
-                android.sensor.info.activeArraySize.
-                3. Scale the width and height of requested cropRegion with scaling factor of
-                sensorCrop.width/preCorrectionActiveArraySize.width and sensorCrop.height/preCorrectionActiveArraySize.height
-                respectively.
-            Once this new cropRegion is calculated, the HAL must use this region to crop the image
-            with regard to the sensor crop size (effective pre-correction active array size). The
-            HAL still need follow the general cropping rule for this new cropRegion and effective
-            pre-correction active array size.
-
-            * The HAL must report the cropRegion with regard to android.sensor.info.preCorrectionActiveArraySize.
-            The HAL need convert the new cropRegion generated above w.r.t., full pre-correction
-            active array size. The reported cropRegion may be slightly different with the requested
-            cropRegion since the HAL may adjust the crop region to account for rounding, conversion
-            error, or other hardware limitations.
 
             If android.control.zoomRatio is supported by the HAL, the HAL must report the zoom
             ratio via android.control.zoomRatio, and change the coordinate system such that
@@ -6544,7 +6776,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </details>
           <hal_details>
           These format values are from HAL_PIXEL_FORMAT_* in
-          system/core/include/system/graphics.h.
+          system/core/libsystem/include/system/graphics-base.h.
 
           When IMPLEMENTATION_DEFINED is used, the platform
           gralloc module will select a format based on the usage flags provided
@@ -6632,8 +6864,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           maximum zoom ratio.
           </details>
           <hal_details>
-          If the HAL supports android.control.zoomRatio, this value must be equal to the maximum
-          supported zoomRatio specified in android.control.zoomRatioRange.
+          If the HAL supports android.control.zoomRatio, this value must be equal to or less than
+          the maximum supported zoomRatio specified in android.control.zoomRatioRange.
           </hal_details>
           <tag id="BC" />
         </entry>
@@ -6788,8 +7020,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
 
           </details>
           <hal_details>
-          For the formats, see `system/core/include/system/graphics.h` for a definition
-          of the image format enumerations. The PRIVATE format refers to the
+          For the formats, see `system/core/libsystem/include/system/graphics-base.h` for a
+          definition of the image format enumerations. The PRIVATE format refers to the
           HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED format. The HAL could determine
           the actual format by using the gralloc usage flags.
           For ZSL use case in particular, the HAL could choose appropriate format (partially
@@ -6863,8 +7095,8 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           an input stream of a particular format. For more details, see
           android.scaler.availableInputOutputFormatsMap.
 
-          The following table describes the minimum required output stream
-          configurations based on the hardware level
+          For applications targeting SDK version older than 31, the following table
+          describes the minimum required output stream configurations based on the hardware level
           (android.info.supportedHardwareLevel):
 
           Format         | Size                                         | Hardware Level | Notes
@@ -6877,6 +7109,31 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           YUV_420_888    | all output sizes available for JPEG          | FULL           |
           YUV_420_888    | all output sizes available for JPEG, up to the maximum video size | LIMITED        |
           IMPLEMENTATION_DEFINED | same as YUV_420_888                  | Any            |
+
+          For applications targeting SDK version 31 or newer, if the mobile device declares to be
+          {@link android.os.Build.VERSION_CDOES.MEDIA_PERFORMANCE_CLASS media performance class} S,
+          the primary camera devices (first rear/front camera in the camera ID list) will not
+          support JPEG sizes smaller than 1080p. If the application configures a JPEG stream
+          smaller than 1080p, the camera device will round up the JPEG image size to at least
+          1080p. The requirements for IMPLEMENTATION_DEFINED and YUV_420_888 stay the same.
+          This new minimum required output stream configurations are illustrated by the table below:
+
+          Format         | Size                                         | Hardware Level | Notes
+          :-------------:|:--------------------------------------------:|:--------------:|:--------------:
+          JPEG           | android.sensor.info.activeArraySize          | Any            |
+          JPEG           | 1920x1080 (1080p)                            | Any            | if 1080p &lt;= activeArraySize
+          YUV_420_888    | android.sensor.info.activeArraySize          | FULL           |
+          YUV_420_888    | 1920x1080 (1080p)                            | FULL           | if 1080p &lt;= activeArraySize
+          YUV_420_888    | 1280x720 (720)                               | FULL           | if 720p &lt;= activeArraySize
+          YUV_420_888    | 640x480 (480p)                               | FULL           | if 480p &lt;= activeArraySize
+          YUV_420_888    | 320x240 (240p)                               | FULL           | if 240p &lt;= activeArraySize
+          YUV_420_888    | all output sizes available for FULL hardware level, up to the maximum video size | LIMITED        |
+          IMPLEMENTATION_DEFINED | same as YUV_420_888                  | Any            |
+
+          For applications targeting SDK version 31 or newer, if the mobile device doesn't declare
+          to be media performance class S, or if the camera device isn't a primary rear/front
+          camera, the minimum required output stream configurations are the same as for applications
+          targeting SDK version older than 31.
 
           Refer to android.request.availableCapabilities for additional
           mandatory stream configurations on a per-capability basis.
@@ -6926,6 +7183,11 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           * 720p (1280 x 720)
           * 1080p (1920 x 1080)
 
+          Note that for Performance Class 12 primary cameras (first rear/front facing camera in the
+          camera ID list), camera framework filters out JPEG sizes smaller than 1080p depending on
+          applications' targetSdkLevel. The camera HAL must still support the smaller JPEG sizes
+          to maintain backward comopatibility.
+
           For LIMITED capability devices
           (`android.info.supportedHardwareLevel == LIMITED`),
           the HAL only has to list up to the maximum video size
@@ -6957,9 +7219,6 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
 
           When multiple streams are used in a request, the minimum frame
           duration will be max(individual stream min durations).
-
-          The minimum frame duration of a stream (of a particular format, size)
-          is the same regardless of whether the stream is input or output.
 
           See android.sensor.frameDuration and
           android.scaler.availableStallDurations for more details about
@@ -7196,7 +7455,9 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               the field of view vertically (letterboxing) or horizontally (pillarboxing), but not
               windowboxing.
           * Setting android.control.zoomRatio to values different than 1.0 and
-          android.scaler.cropRegion to be windowboxing at the same time is undefined behavior.
+          android.scaler.cropRegion to be windowboxing at the same time are not supported. In this
+          case, the camera framework will override the android.scaler.cropRegion to be the active
+          array.
 
           LEGACY capability devices will only support CENTER_ONLY cropping.
           </details>
@@ -7435,8 +7696,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           (it is synthetic and will not be available at the HAL layer).
           </hal_details>
         </entry>
-
-        <entry name="availableRotateAndCropModes" type="byte" visibility="hidden"
+        <entry name="availableRotateAndCropModes" type="byte" visibility="public"
                type_notes="list of enums" container="array" typedef="enumList"
                hal_version="3.5">
           <array>
@@ -7449,14 +7709,14 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           <details>
             This entry lists the valid modes for android.scaler.rotateAndCrop for this camera device.
 
-            Starting at some future API level, all devices will list at least `ROTATE_AND_CROP_NONE`.
+            Starting with API level 30, all devices will list at least `ROTATE_AND_CROP_NONE`.
             Devices with support for rotate-and-crop will additionally list at least
             `ROTATE_AND_CROP_AUTO` and `ROTATE_AND_CROP_90`.
           </details>
         </entry>
       </static>
       <controls>
-        <entry name="rotateAndCrop" type="byte" visibility="hidden" enum="true"
+        <entry name="rotateAndCrop" type="byte" visibility="public" enum="true"
                hal_version="3.5">
           <enum>
             <value>NONE
@@ -7568,8 +7828,6 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             * 1280x720 stream: top-left: `(711, 375)` on active array, size: `(1280, 720)`, upscaled 1.71x from sensor pixels
           </details>
           <hal_details>
-            Not ready for use in Android 11.
-
             ROTATE_AND_CROP_AUTO will never be sent to the HAL, though it must be set as the default
             value in all the capture request templates by the HAL.  The camera service will
             translate AUTO to a specific rotation value based on the current application's
@@ -7586,6 +7844,349 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
         <clone entry="android.scaler.rotateAndCrop" kind="controls" hal_version="3.5">
         </clone>
       </dynamic>
+      <static>
+        <entry name="defaultSecureImageSize" type="int32" visibility="public"
+               type_notes="width/height for the default secure image data size" container="array"
+               typedef="size" hal_version="3.6">
+          <array>
+            <size>2</size>
+          </array>
+          <description>
+            Default YUV/PRIVATE size to use for requesting secure image buffers.
+          </description>
+          <units>Pixels</units>
+          <details>
+            This entry lists the default size supported in the secure camera mode. This entry is
+            optional on devices support the SECURE_IMAGE_DATA capability. This entry will be null
+            if the camera device does not list SECURE_IMAGE_DATA capability.
+
+            When the key is present, only a PRIVATE/YUV output of the specified size is guaranteed
+            to be supported by the camera HAL in the secure camera mode. Any other format or
+            resolutions might not be supported. Use
+            {@link CameraDevice#isSessionConfigurationSupported|ACameraDevice_isSessionConfigurationSupported}
+            API to query if a secure session configuration is supported if the device supports this
+            API.
+
+            If this key returns null on a device with SECURE_IMAGE_DATA capability, the application
+            can assume all output sizes listed in the
+            {@link
+            android.hardware.camera2.params.StreamConfigurationMap|ACAMERA_SCALER_AVAILABLE_MIN_FRAME_DURATIONS}
+            are supported.
+          </details>
+        </entry>
+        <entry name="physicalCameraMultiResolutionStreamConfigurations" type="int32"
+               visibility="ndk_public" optional="true" enum="true" container="array"
+               typedef="streamConfiguration" hwlevel="limited" hal_version="3.6">
+          <array>
+            <size>n</size>
+            <size>4</size>
+          </array>
+          <enum>
+            <value>OUTPUT</value>
+            <value>INPUT</value>
+          </enum>
+          <description>The available multi-resolution stream configurations that this
+          physical camera device supports
+          (i.e. format, width, height, output/input stream).
+          </description>
+          <details>
+          This list contains a subset of the parent logical camera's multi-resolution stream
+          configurations which belong to this physical camera, and it will advertise and will only
+          advertise the maximum supported resolutions for a particular format.
+
+          If this camera device isn't a physical camera device constituting a logical camera,
+          but a standalone {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+          camera, this field represents the multi-resolution input/output stream configurations of
+          default mode and max resolution modes. The sizes will be the maximum resolution of a
+          particular format for default mode and max resolution mode.
+
+          This field will only be advertised if the device is a physical camera of a
+          logical multi-camera device or an ultra high resolution sensor camera. For a logical
+          multi-camera, the camera API will derive the logical camera’s multi-resolution stream
+          configurations from all physical cameras. For an ultra high resolution sensor camera, this
+          is used directly as the camera’s multi-resolution stream configurations.
+          </details>
+          <hal_details>
+          If this field contains input stream configurations, and the camera device is a physical
+          camera (not a standalone ultra-high resolution camera), the
+          android.logicalMultiCamera.activePhysicalId tag must be set to the physical camera Id in
+          the physical camera result metadata. This is to make sure during multi-resolution
+          reprocessing, the camera HAL is notified of which physical camera the reprocessing
+          request comes from.
+          </hal_details>
+        </entry>
+        <entry name="multiResolutionStreamConfigurationMap" type="int32" visibility="java_public"
+               synthetic="true" optional="true" typedef="multiResolutionStreamConfigurationMap">
+          <description>The multi-resolution stream configurations supported by this logical camera
+          or ultra high resolution sensor camera device.
+          </description>
+          <details>
+          Multi-resolution streams can be used by a LOGICAL_MULTI_CAMERA or an
+          ULTRA_HIGH_RESOLUTION_SENSOR camera where the images sent or received can vary in
+          resolution per frame. This is useful in cases where the camera device's effective full
+          resolution changes depending on factors such as the current zoom level, lighting
+          condition, focus distance, or pixel mode.
+
+          * For a logical multi-camera implementing optical zoom, at different zoom level, a
+          different physical camera may be active, resulting in different full-resolution image
+          sizes.
+          * For an ultra high resolution camera, depending on whether the camera operates in default
+          mode, or maximum resolution mode, the output full-size images may be of either binned
+          resolution or maximum resolution.
+
+          To use multi-resolution output streams, the supported formats can be queried by {@link
+          android.hardware.camera2.params.MultiResolutionStreamConfigurationMap#getOutputFormats}.
+          A {@link android.hardware.camera2.MultiResolutionImageReader} can then be created for a
+          supported format with the MultiResolutionStreamInfo group queried by {@link
+          android.hardware.camera2.params.MultiResolutionStreamConfigurationMap#getOutputInfo}.
+
+          If a camera device supports multi-resolution output streams for a particular format, for
+          each of its mandatory stream combinations, the camera device will support using a
+          MultiResolutionImageReader for the MAXIMUM stream of supported formats. Refer to
+          {@link android.hardware.camera2.CameraDevice#createCaptureSession} for additional details.
+
+          To use multi-resolution input streams, the supported formats can be queried by {@link
+          android.hardware.camera2.params.MultiResolutionStreamConfigurationMap#getInputFormats}.
+          A reprocessable CameraCaptureSession can then be created using an {@link
+          android.hardware.camera2.params.InputConfiguration InputConfiguration} constructed with
+          the input MultiResolutionStreamInfo group, queried by {@link
+          android.hardware.camera2.params.MultiResolutionStreamConfigurationMap#getInputInfo}.
+
+          If a camera device supports multi-resolution {@code YUV} input and multi-resolution
+          {@code YUV} output, or multi-resolution {@code PRIVATE} input and multi-resolution
+          {@code PRIVATE} output, {@code JPEG} and {@code YUV} are guaranteed to be supported
+          multi-resolution output stream formats. Refer to
+          {@link android.hardware.camera2.CameraDevice#createCaptureSession} for
+          details about the additional mandatory stream combinations in this case.
+          </details>
+          <hal_details>
+          Do not set this property directly
+          (it is synthetic and will not be available at the HAL layer).
+          </hal_details>
+        </entry>
+        <entry name="availableStreamConfigurationsMaximumResolution" type="int32"
+              visibility="ndk_public" enum="true" container="array" typedef="streamConfiguration"
+              hal_version="3.6">
+          <array>
+            <size>n</size>
+            <size>4</size>
+          </array>
+          <enum>
+            <value>OUTPUT</value>
+            <value>INPUT</value>
+          </enum>
+          <description>The available stream configurations that this
+            camera device supports (i.e. format, width, height, output/input stream) for a
+            CaptureRequest with android.sensor.pixelMode set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <details>
+          Analogous to android.scaler.availableStreamConfigurations, for configurations
+          which are applicable when android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+
+          Not all output formats may be supported in a configuration with
+          an input stream of a particular format. For more details, see
+          android.scaler.availableInputOutputFormatsMapMaximumResolution.
+          </details>
+          <hal_details>
+            Refer to hal_details for android.scaler.availableStreamConfigurations.
+          </hal_details>
+        </entry>
+        <entry name="availableMinFrameDurationsMaximumResolution" type="int64" visibility="ndk_public"
+               container="array" typedef="streamConfigurationDuration" hal_version="3.6">
+          <array>
+            <size>4</size>
+            <size>n</size>
+          </array>
+          <description>This lists the minimum frame duration for each
+            format/size combination when the camera device is sent a CaptureRequest with
+            android.sensor.pixelMode set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <units>(format, width, height, ns) x n</units>
+          <details>
+          Analogous to android.scaler.availableMinFrameDurations, for configurations
+          which are applicable when android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+
+          When multiple streams are used in a request (if supported, when android.sensor.pixelMode
+          is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}), the
+          minimum frame duration will be max(individual stream min durations).
+
+          See android.sensor.frameDuration and
+          android.scaler.availableStallDurationsMaximumResolution for more details about
+          calculating the max frame rate.
+          </details>
+        </entry>
+        <entry name="availableStallDurationsMaximumResolution" type="int64" visibility="ndk_public"
+               container="array" typedef="streamConfigurationDuration" hal_version="3.6">
+          <array>
+            <size>4</size>
+            <size>n</size>
+          </array>
+          <description>This lists the maximum stall duration for each
+            output format/size combination when CaptureRequests are submitted with
+            android.sensor.pixelMode set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}
+          </description>
+          <units>(format, width, height, ns) x n</units>
+          <details>
+          Analogous to android.scaler.availableMinFrameDurations, for configurations
+          which are applicable when android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </details>
+          <hal_details>
+          If possible, it is recommended that all non-JPEG formats
+          (such as RAW16) should not have a stall duration. RAW10, RAW12, RAW_OPAQUE
+          and IMPLEMENTATION_DEFINED must not have stall durations.
+          </hal_details>
+        </entry>
+        <entry name="streamConfigurationMapMaximumResolution" type="int32" visibility="java_public"
+               synthetic="true" typedef="streamConfigurationMap">
+          <description>The available stream configurations that this
+            camera device supports when given a CaptureRequest with android.sensor.pixelMode
+            set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION};
+            also includes the minimum frame durations
+            and the stall durations for each format/size combination.
+          </description>
+          <details>
+          Analogous to android.scaler.streamConfigurationMap for CaptureRequests where
+          android.sensor.pixelMode is
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </details>
+          <hal_details>
+          Do not set this property directly
+          (it is synthetic and will not be available at the HAL layer);
+          set the android.scaler.availableStreamConfigurationsMaximumResolution instead.
+
+          Not all output formats may be supported in a configuration with
+          an input stream of a particular format. For more details, see
+          android.scaler.availableInputOutputFormatsMapMaximumResolution.
+          </hal_details>
+        </entry>
+        <entry name="availableInputOutputFormatsMapMaximumResolution" type="int32"
+          visibility="hidden" typedef="reprocessFormatsMap" hal_version="3.6">
+          <description>The mapping of image formats that are supported by this
+          camera device for input streams, to their corresponding output formats, when
+          android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <details>
+          Analogous to android.scaler.availableInputOutputFormatsMap for CaptureRequests where
+          android.sensor.pixelMode is
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </details>
+          <hal_details>
+          Refer to hal details for android.scaler.availableInputOutputFormatsMapMaximumResolution.
+          </hal_details>
+          <tag id="REPROC" />
+        </entry>
+        <entry name="mandatoryMaximumResolutionStreamCombinations" type="int32"
+          visibility="java_public" synthetic="true" container="array"
+          typedef="mandatoryStreamCombination">
+          <array>
+            <size>n</size>
+          </array>
+          <description>
+          An array of mandatory stream combinations which are applicable when
+          {@link android.hardware.camera2.CaptureRequest} has android.sensor.pixelMode set
+          to {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          This is an app-readable conversion of the maximum resolution mandatory stream combination
+          {@link android.hardware.camera2.CameraDevice#createCaptureSession tables}.
+          </description>
+          <details>
+          The array of
+          {@link android.hardware.camera2.params.MandatoryStreamCombination combinations} is
+          generated according to the documented
+          {@link android.hardware.camera2.CameraDevice#createCaptureSession guideline} for each
+          device which has the
+          {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+          capability.
+          Clients can use the array as a quick reference to find an appropriate camera stream
+          combination.
+          The mandatory stream combination array will be {@code null} in case the device is not an
+          {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+          device.
+          </details>
+          <hal_details>
+          Do not set this property directly
+          (it is synthetic and will not be available at the HAL layer).
+          </hal_details>
+        </entry>
+        <entry name="multiResolutionStreamSupported" type="byte" visibility="ndk_public" enum="true"
+          typedef="boolean" hwlevel="limited" hal_version="3.6">
+          <enum>
+            <value>FALSE</value>
+            <value>TRUE</value>
+          </enum>
+          <description>Whether the camera device supports multi-resolution input or output streams
+          </description>
+          <details>
+          A logical multi-camera or an ultra high resolution camera may support multi-resolution
+          input or output streams. With multi-resolution output streams, the camera device is able
+          to output different resolution images depending on the current active physical camera or
+          pixel mode. With multi-resolution input streams, the camera device can reprocess images
+          of different resolutions from different physical cameras or sensor pixel modes.
+
+          When set to TRUE:
+          * For a logical multi-camera, the camera framework derives
+          android.scaler.multiResolutionStreamConfigurationMap by combining the
+          android.scaler.physicalCameraMultiResolutionStreamConfigurations from its physical
+          cameras.
+          * For an ultra-high resolution sensor camera, the camera framework directly copies
+          the value of android.scaler.physicalCameraMultiResolutionStreamConfigurations to
+          android.scaler.multiResolutionStreamConfigurationMap.
+          </details>
+          <hal_details>
+          For the HAL to claim support for multi-resolution streams:
+          * The HAL must support the buffer management API by setting
+          supportedBufferManagementVersion to HIDL_DEVICE_3_5.
+          * For a logical multi-camera, when combined from all its physical cameras, there must be
+          at a minimum one input or output stream format with at least two different
+          physicalCameraMultiResolutionStreamConfigurations entries for that format.
+          * For an ultra high resolution sensor camera, for each supported multi-resolution format,
+          the physicalCameraMultiResolutionStreamConfigurations must contain both the largest stream
+          configuration within the android.scaler.streamConfigurationMap and the largest stream
+          configuration within the android.scaler.streamConfigurationMapMaximumResolution.
+          * If the HAL advertises multi-resolution input stream support for a particular format
+          (namely PRIVATE, or YUV), the logical multi-camera or ultra high resolution sensor camera
+          must have the corresponding reprocessing capabilities (PRIVATE_REPROCESSING,
+          or YUV_REPROCESSING respectively). The camera HAL must support reprocessing the
+          multi-resolution input stream to the output formats specified in the camera's
+          android.scaler.availableInputOutputFormatsMap.
+          </hal_details>
+        </entry>
+      </static>
+      <controls>
+        <entry name="cropRegionSet" type="byte" visibility="fwk_only"
+               enum="true" typedef="boolean">
+          <enum>
+            <value>TRUE
+            <notes>Crop region (android.scaler.cropRegion) has been set by the
+              camera client.
+            </notes>
+            </value>
+            <value>FALSE
+            <notes>
+              Scaler crop regions (android.scaler.cropRegion) has not been set by the camera
+              client.
+            </notes>
+            </value>
+          </enum>
+          <description>
+            Framework-only private key which informs camera fwk that the scaler crop region
+            (android.scaler.cropRegion) has been set by the client and it need
+            not be corrected when android.sensor.pixelMode is set to MAXIMUM_RESOLUTION.
+          </description>
+          <details>
+            This must be set to TRUE by the camera2 java fwk when the camera client sets
+            android.scaler.cropRegion.
+          </details>
+        </entry>
+      </controls>
     </section>
     <section name="sensor">
       <controls>
@@ -8056,7 +8657,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
 
             E.g. to calculate position of a pixel, (x,y), in a processed YUV output image with the
             dimensions in android.sensor.info.activeArraySize given the position of a pixel,
-            (x', y'), in the raw pixel array with dimensions give in
+            (x', y'), in the raw pixel array with dimensions given in
             android.sensor.info.pixelArraySize:
 
             1. Choose a pixel (x', y') within the active array region of the raw buffer given in
@@ -8109,6 +8710,123 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
             </hal_details>
             <tag id="RAW" />
           </entry>
+          <entry name="activeArraySizeMaximumResolution" type="int32" visibility="public"
+            type_notes="Four ints defining the active pixel rectangle"
+            container="array" typedef="rectangle" hal_version="3.6">
+            <array>
+              <size>4</size>
+            </array>
+            <description>
+            The area of the image sensor which corresponds to active pixels after any geometric
+            distortion correction has been applied, when the sensor runs in maximum resolution mode.
+            </description>
+            <units>Pixel coordinates on the image sensor</units>
+            <details>
+            Analogous to android.sensor.info.activeArraySize, when android.sensor.pixelMode
+            is set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+            Refer to android.sensor.info.activeArraySize for details, with sensor array related keys
+            replaced with their
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}
+            counterparts.
+            This key will only be present for devices which advertise the
+            {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+            capability.
+            </details>
+            <ndk_details>
+            The data representation is `int[4]`, which maps to `(left, top, width, height)`.
+            </ndk_details>
+            <hal_details>
+            This array contains `(xmin, ymin, width, height)`. The `(xmin, ymin)` must be
+            &amp;gt;= `(0,0)`.
+            The `(width, height)` must be &amp;lt;= `android.sensor.info.pixelArraySizeMaximumResolution`.
+            </hal_details>
+            <tag id="RAW" />
+          </entry>
+          <entry name="pixelArraySizeMaximumResolution" type="int32" visibility="public"
+            container="array" typedef="size" hal_version="3.6">
+            <array>
+              <size>2</size>
+            </array>
+            <description>Dimensions of the full pixel array, possibly
+            including black calibration pixels, when the sensor runs in maximum resolution mode.
+            Analogous to android.sensor.info.pixelArraySize, when android.sensor.pixelMode is
+            set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+            </description>
+            <units>Pixels</units>
+            <details>
+            The pixel count of the full pixel array of the image sensor, which covers
+            android.sensor.info.physicalSize area. This represents the full pixel dimensions of
+            the raw buffers produced by this sensor, when it runs in maximum resolution mode. That
+            is, when android.sensor.pixelMode is set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+            This key will only be present for devices which advertise the
+            {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+            capability.
+            </details>
+            <tag id="RAW" />
+          </entry>
+          <entry name="preCorrectionActiveArraySizeMaximumResolution" type="int32"
+            visibility="public" type_notes="Four ints defining the active pixel rectangle"
+            container="array" typedef="rectangle" hal_version="3.6">
+            <array>
+              <size>4</size>
+            </array>
+            <description>
+            The area of the image sensor which corresponds to active pixels prior to the
+            application of any geometric distortion correction, when the sensor runs in maximum
+            resolution mode. This key must be used for crop / metering regions, only when
+            android.sensor.pixelMode is set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+            </description>
+            <units>Pixel coordinates on the image sensor</units>
+            <details>
+            Analogous to android.sensor.info.preCorrectionActiveArraySize,
+            when android.sensor.pixelMode is set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+            This key will only be present for devices which advertise the
+            {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+            capability.
+            </details>
+            <ndk_details>
+            The data representation is `int[4]`, which maps to `(left, top, width, height)`.
+            </ndk_details>
+            <hal_details>
+            This array contains `(xmin, ymin, width, height)`. The `(xmin, ymin)` must be
+            &amp;gt;= `(0,0)`.
+            The `(width, height)` must be &amp;lt;= `android.sensor.info.pixelArraySizeMaximumResolution`.
+
+            If omitted by the HAL implementation, the camera framework will assume that this is
+            the same as the post-correction active array region given in
+            android.sensor.info.activeArraySizeMaximumResolution.
+            </hal_details>
+            <tag id="RAW" />
+          </entry>
+          <entry name="binningFactor" type="int32" visibility="public"
+                container="array" typedef="size" hal_version="3.6">
+          <array>
+            <size>2</size>
+          </array>
+          <description> Dimensions of the group of pixels which are under the same color filter.
+            This specifies the width and height (pair of integers) of the group of pixels which fall
+            under the same color filter for ULTRA_HIGH_RESOLUTION sensors.
+          </description>
+          <units>Pixels</units>
+          <details> Sensors can have pixels grouped together under the same color filter in order
+            to improve various aspects of imaging such as noise reduction, low light
+            performance etc. These groups can be of various sizes such as 2X2 (quad bayer),
+            3X3 (nona-bayer). This key specifies the length and width of the pixels grouped under
+            the same color filter.
+
+            This key will not be present if REMOSAIC_REPROCESSING is not supported, since RAW images
+            will have a regular bayer pattern.
+
+            This key will not be present for sensors which don't have the
+            {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+            capability.
+          </details>
+        </entry>
         </namespace>
         <entry name="referenceIlluminant1" type="byte" visibility="public"
                enum="true" permission_needed="true" >
@@ -8779,11 +9497,11 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
 
               For example:
 
-                  android.testPatternData = [0, 0xFFFFFFFF, 0xFFFFFFFF, 0]
+                  android.sensor.testPatternData = [0, 0xFFFFFFFF, 0xFFFFFFFF, 0]
 
               All green pixels are 100% green. All red/blue pixels are black.
 
-                  android.testPatternData = [0xFFFFFFFF, 0, 0xFFFFFFFF, 0]
+                  android.sensor.testPatternData = [0xFFFFFFFF, 0, 0xFFFFFFFF, 0]
 
               All red pixels are 100% red. Only the odd green pixels
               are 100% green. All blue pixels are 100% black.
@@ -8859,6 +9577,16 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
               The generator should be reset at the beginning of each frame,
               and thus each subsequent raw frame with this test pattern should
               be exactly the same as the last.
+              </notes>
+            </value>
+            <value visibility="test" hal_version="3.6">BLACK
+              <notes>
+              All pixel data is replaced by 0% intensity (black) values.
+
+              This test pattern is identical to SOLID_COLOR with a value of `[0, 0, 0, 0]` for
+              android.sensor.testPatternData.  It is recommended that devices implement full
+              SOLID_COLOR support instead, but BLACK can be used to provide minimal support for a
+              test pattern suitable for privacy use cases.
               </notes>
             </value>
             <value id="256">CUSTOM1
@@ -9099,7 +9827,106 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           between rows.
           </hal_details>
         </entry>
+        <entry name="opaqueRawSizeMaximumResolution" type="int32" visibility="system"
+          container="array" hal_version="3.6">
+          <array>
+            <size>n</size>
+            <size>3</size>
+          </array>
+          <description>Size in bytes for all the listed opaque RAW buffer sizes when
+            android.sensor.pixelMode is set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <range>Must be large enough to fit the opaque RAW of corresponding size produced by
+          the camera</range>
+          <details>
+          Refer to android.sensor.opaqueRawSize for details.
+          </details>
+          <hal_details>
+          Refer to android.sensor.opaqueRawSize for details.
+          </hal_details>
+        </entry>
       </static>
+      <controls>
+        <entry name="pixelMode" type="byte" visibility="public" enum="true"
+               hal_version="3.6">
+          <enum>
+            <value>DEFAULT
+            <notes> This is the default sensor pixel mode. This is the only sensor pixel mode
+              supported unless a camera device advertises
+              {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}.
+              </notes>
+            </value>
+            <value>MAXIMUM_RESOLUTION
+            <notes> This sensor pixel mode is offered by devices with capability
+              {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}.
+              In this mode, sensors typically do not bin pixels, as a result can offer larger
+              image sizes.
+            </notes>
+            </value>
+          </enum>
+          <description>
+           Switches sensor pixel mode between maximum resolution mode and default mode.
+          </description>
+          <details>
+            This key controls whether the camera sensor operates in
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}
+            mode or not. By default, all camera devices operate in
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_DEFAULT} mode.
+            When operating in
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_DEFAULT} mode, sensors
+            with {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+            capability would typically perform pixel binning in order to improve low light
+            performance, noise reduction etc. However, in
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}
+            mode (supported only
+            by {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+            sensors), sensors typically operate in unbinned mode allowing for a larger image size.
+            The stream configurations supported in
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}
+            mode are also different from those of
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_DEFAULT} mode.
+            They can be queried through
+            {@link android.hardware.camera2.CameraCharacteristics#get} with
+            {@link CameraCharacteristics#SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION)}.
+            Unless reported by both
+            {@link android.hardware.camera2.params.StreamConfigurationMap}s, the outputs from
+            `android.scaler.streamConfigurationMapMaximumResolution` and
+            `android.scaler.streamConfigurationMap`
+            must not be mixed in the same CaptureRequest. In other words, these outputs are
+            exclusive to each other.
+            This key does not need to be set for reprocess requests.
+          </details>
+        </entry>
+      </controls>
+      <dynamic>
+        <clone entry="android.sensor.pixelMode" kind="controls">
+        </clone>
+        <entry name="rawBinningFactorUsed" type="byte" visibility="public" enum="true"
+          typedef="boolean" hal_version="3.6">
+          <enum>
+            <value>TRUE
+            <notes> The `RAW` targets in this capture have android.sensor.info.binningFactor as the
+              bayer pattern.
+              </notes>
+            </value>
+            <value>FALSE
+            <notes> The `RAW` targets have a regular bayer pattern in this capture.
+            </notes>
+            </value>
+          </enum>
+          <description>
+            Whether `RAW` images requested have their bayer pattern as described by
+            android.sensor.info.binningFactor.
+          </description>
+          <details>
+            This key will only be present in devices advertisting the
+            {@link android.hardware.camera2.CameraMetadata#REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}
+            capability which also advertise `REMOSAIC_REPROCESSING` capability. On all other devices
+            RAW targets will have a regular bayer pattern.
+          </details>
+        </entry>
+      </dynamic>
     </section>
     <section name="shading">
       <controls>
@@ -9890,7 +10717,7 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           <range>android.statistics.info.availableOisDataModes</range>
           <details>
           Since optical image stabilization generally involves motion much faster than the duration
-          of individualq image exposure, multiple OIS samples can be included for a single capture
+          of individual image exposure, multiple OIS samples can be included for a single capture
           result. For example, if the OIS reporting operates at 200 Hz, a typical camera operating
           at 30fps may have 6-7 OIS samples per capture result. This information can be combined
           with the rolling shutter skew to account for lens motion during image exposure in
@@ -11235,6 +12062,152 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
           </hal_details>
           <tag id="DEPTH" />
         </entry>
+        <entry name="availableDepthStreamConfigurationsMaximumResolution" type="int32"
+          visibility="ndk_public" enum="true" container="array" typedef="streamConfiguration"
+          hal_version="3.6">
+          <array>
+            <size>n</size>
+            <size>4</size>
+          </array>
+          <enum>
+            <value>OUTPUT</value>
+            <value>INPUT</value>
+          </enum>
+          <description>The available depth dataspace stream
+          configurations that this camera device supports
+          (i.e. format, width, height, output/input stream) when a CaptureRequest is submitted with
+          android.sensor.pixelMode set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <details>
+            Analogous to android.depth.availableDepthStreamConfigurations, for configurations which
+            are applicable when android.sensor.pixelMode is set to
+            {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </details>
+          <tag id="DEPTH" />
+        </entry>
+        <entry name="availableDepthMinFrameDurationsMaximumResolution" type="int64"
+          visibility="ndk_public" container="array" typedef="streamConfigurationDuration"
+          hal_version="3.6">
+          <array>
+            <size>4</size>
+            <size>n</size>
+          </array>
+          <description>This lists the minimum frame duration for each
+          format/size combination for depth output formats when a CaptureRequest is submitted with
+          android.sensor.pixelMode set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <units>(format, width, height, ns) x n</units>
+          <details>
+          Analogous to android.depth.availableDepthMinFrameDurations, for configurations which
+          are applicable when android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+
+          See android.sensor.frameDuration and
+          android.scaler.availableStallDurationsMaximumResolution for more details about
+          calculating the max frame rate.
+          </details>
+          <tag id="DEPTH" />
+        </entry>
+        <entry name="availableDepthStallDurationsMaximumResolution" type="int64"
+          visibility="ndk_public" container="array" typedef="streamConfigurationDuration"
+          hal_version="3.6">
+          <array>
+            <size>4</size>
+            <size>n</size>
+          </array>
+          <description>This lists the maximum stall duration for each
+          output format/size combination for depth streams for CaptureRequests where
+          android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <units>(format, width, height, ns) x n</units>
+          <details>
+          Analogous to android.depth.availableDepthStallDurations, for configurations which
+          are applicable when android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </details>
+          <tag id="DEPTH" />
+        </entry>
+        <entry name="availableDynamicDepthStreamConfigurationsMaximumResolution" type="int32"
+          visibility="ndk_public" enum="true" container="array" typedef="streamConfiguration"
+          hal_version="3.6">
+          <array>
+            <size>n</size>
+            <size>4</size>
+          </array>
+          <enum>
+            <value>OUTPUT</value>
+            <value>INPUT</value>
+          </enum>
+          <description>The available dynamic depth dataspace stream
+          configurations that this camera device supports (i.e. format, width, height,
+          output/input stream) for CaptureRequests where android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <details>
+          Analogous to android.depth.availableDynamicDepthStreamConfigurations, for configurations
+          which are applicable when android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </details>
+          <hal_details>
+            Do not set this property directly.
+            It is populated by camera framework and must not be set
+            at the HAL layer.
+          </hal_details>
+          <tag id="DEPTH" />
+        </entry>
+        <entry name="availableDynamicDepthMinFrameDurationsMaximumResolution" type="int64"
+          visibility="ndk_public" container="array" typedef="streamConfigurationDuration"
+          hal_version="3.6">
+          <array>
+            <size>4</size>
+            <size>n</size>
+          </array>
+          <description>This lists the minimum frame duration for each
+          format/size combination for dynamic depth output streams  for CaptureRequests where
+          android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <units>(format, width, height, ns) x n</units>
+          <details>
+          Analogous to android.depth.availableDynamicDepthMinFrameDurations, for configurations
+          which are applicable when android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </details>
+          <hal_details>
+            Do not set this property directly.
+            It is populated by camera framework and must not be set
+            at the HAL layer.
+          </hal_details>
+          <tag id="DEPTH" />
+        </entry>
+        <entry name="availableDynamicDepthStallDurationsMaximumResolution" type="int64"
+               visibility="ndk_public" container="array" typedef="streamConfigurationDuration"
+               hal_version="3.6">
+          <array>
+            <size>4</size>
+            <size>n</size>
+          </array>
+          <description>This lists the maximum stall duration for each
+          output format/size combination for dynamic depth streams for CaptureRequests where
+          android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <units>(format, width, height, ns) x n</units>
+          <details>
+          Analogous to android.depth.availableDynamicDepthStallDurations, for configurations
+          which are applicable when android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </details>
+          <hal_details>
+            Do not set this property directly.
+            It is populated by camera framework and must not be set
+            at the HAL layer.
+          </hal_details>
+          <tag id="DEPTH" />
+        </entry>
       </static>
     </section>
     <section name="logicalMultiCamera">
@@ -11601,6 +12574,80 @@ xsi:schemaLocation="http://schemas.android.com/service/camera/metadata/ metadata
 
           All HEIC output stream formats may have a nonzero stall
           duration.
+          </details>
+          <hal_details>
+          Do not set this property directly. It is populated by camera framework and must not be
+          set by the HAL layer.
+          </hal_details>
+          <tag id="HEIC" />
+        </entry>
+        <entry name="availableHeicStreamConfigurationsMaximumResolution" type="int32"
+          visibility="ndk_public" enum="true" container="array" typedef="streamConfiguration"
+          hal_version="3.6">
+          <array>
+            <size>n</size>
+            <size>4</size>
+          </array>
+          <enum>
+            <value>OUTPUT</value>
+            <value>INPUT</value>
+          </enum>
+          <description>The available HEIC (ISO/IEC 23008-12) stream
+          configurations that this camera device supports
+          (i.e. format, width, height, output/input stream).
+          </description>
+          <details>
+          Refer to android.heic.availableHeicStreamConfigurations for details.
+          </details>
+          <ndk_details>
+          All the configuration tuples `(format, width, height, input?)` will contain
+          AIMAGE_FORMAT_HEIC format as OUTPUT only.
+          </ndk_details>
+          <hal_details>
+          These are output stream configurations for use with dataSpace HAL_DATASPACE_HEIF.
+
+          Do not set this property directly. It is populated by camera framework and must not be
+          set by the HAL layer.
+          </hal_details>
+         <tag id="HEIC" />
+        </entry>
+        <entry name="availableHeicMinFrameDurationsMaximumResolution" type="int64"
+          visibility="ndk_public" container="array" typedef="streamConfigurationDuration"
+          hal_version="3.6">
+          <array>
+            <size>4</size>
+            <size>n</size>
+          </array>
+          <description>This lists the minimum frame duration for each
+          format/size combination for HEIC output formats for CaptureRequests where
+          android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <units>(format, width, height, ns) x n</units>
+          <details>
+          Refer to android.heic.availableHeicMinFrameDurations for details.
+          </details>
+          <hal_details>
+          Do not set this property directly. It is populated by camera framework and must not be
+          set by the HAL layer.
+          </hal_details>
+          <tag id="HEIC" />
+        </entry>
+        <entry name="availableHeicStallDurationsMaximumResolution" type="int64"
+          visibility="ndk_public" container="array" typedef="streamConfigurationDuration"
+          hal_version="3.6">
+          <array>
+            <size>4</size>
+            <size>n</size>
+          </array>
+          <description>This lists the maximum stall duration for each
+          output format/size combination for HEIC streams for CaptureRequests where
+          android.sensor.pixelMode is set to
+          {@link android.hardware.camera2.CameraMetadata#SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION}.
+          </description>
+          <units>(format, width, height, ns) x n</units>
+          <details>
+          Refer to android.heic.availableHeicStallDurations for details.
           </details>
           <hal_details>
           Do not set this property directly. It is populated by camera framework and must not be

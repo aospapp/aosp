@@ -553,7 +553,7 @@ expected_fail_demarshal(struct marshal_data *data, const char *format,
 	assert(errno == expected_error);
 }
 
-/* These tests are verifying that the demarshaling code will gracefuly handle
+/* These tests are verifying that the demarshaling code will gracefully handle
  * clients lying about string and array lengths and giving values near
  * UINT32_MAX. Before fixes f7fdface and f5b9e3b9 this test would crash on
  * 32bit systems.

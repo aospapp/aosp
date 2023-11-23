@@ -29,7 +29,7 @@ from vts.testcases.template.binary_test import binary_test
 from vts.testcases.template.binary_test import binary_test_case
 from vts.testcases.template.gtest_binary_test import gtest_test_case
 
-_GTEST_RESULT_ATTRIBUTE_WHITE_LIST = ('properties',)
+_GTEST_RESULT_ATTRIBUTE_ALLOW_LIST = ('properties',)
 
 
 class GtestBinaryTest(binary_test.BinaryTest):
@@ -256,7 +256,7 @@ class GtestBinaryTest(binary_test.BinaryTest):
                         failure_message = sub.get('message')
 
                 test_case_filtered = filter(
-                    lambda sub: sub.tag not in _GTEST_RESULT_ATTRIBUTE_WHITE_LIST, test_case)
+                    lambda sub: sub.tag not in _GTEST_RESULT_ATTRIBUTE_ALLOW_LIST, test_case)
                 if len(test_case_filtered) and not failure_message:
                     failure_message = 'Error: %s\n' % test_case.attrib
                     for sub in test_case_filtered:

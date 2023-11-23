@@ -20,6 +20,7 @@
  */
 
 #include "cups-private.h"
+#include "debug-internal.h"
 #include "http.h"
 #include "thread-private.h"
 #include <openssl/err.h>

@@ -30,7 +30,7 @@
 #include <media/EffectsFactoryApi.h>
 
 namespace android {
-// This is a dummy proxy descriptor just to return to Factory during the initial
+// This is a stub proxy descriptor just to return to Factory during the initial
 // GetDescriptor call. Later in the factory, it is replaced with the
 // SW sub effect descriptor
 // proxy UUID af8da7e0-2ca1-11e3-b71d-0002a5d5c51b
@@ -116,6 +116,16 @@ int EffectProxyCreate(const effect_uuid_t *uuid,
         pContext->sube[SUB_FX_OFFLOAD] = sube[1];
         pContext->desc[SUB_FX_OFFLOAD] = desc[1];
         pContext->aeli[SUB_FX_OFFLOAD] = aeli[1];
+    } else {
+        ALOGE("Both effects have (or don't have) EFFECT_FLAG_HW_ACC_TUNNEL flag");
+        delete[] sube;
+        delete[] desc;
+        delete[] aeli;
+        delete[] pContext->sube;
+        delete[] pContext->desc;
+        delete[] pContext->aeli;
+        delete pContext;
+        return -EINVAL;
     }
     delete[] desc;
     delete[] aeli;

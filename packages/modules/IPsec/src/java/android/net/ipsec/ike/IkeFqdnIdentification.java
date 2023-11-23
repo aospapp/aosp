@@ -17,9 +17,8 @@
 package android.net.ipsec.ike;
 
 import android.annotation.NonNull;
-import android.annotation.SystemApi;
-
-import com.android.internal.net.ipsec.ike.exceptions.AuthenticationFailedException;
+import android.net.ipsec.ike.exceptions.AuthenticationFailedException;
+import android.os.PersistableBundle;
 
 import java.nio.charset.Charset;
 import java.security.cert.X509Certificate;
@@ -28,12 +27,11 @@ import java.util.Objects;
 /**
  * IkeFqdnIdentification represents an IKE entity identification based on a fully-qualified domain
  * name (FQDN). An example might be ike.android.com
- *
- * @hide
  */
-@SystemApi
 public class IkeFqdnIdentification extends IkeIdentification {
     private static final Charset ASCII = Charset.forName("US-ASCII");
+
+    private static final String FQDN_KEY = "fqdn";
 
     /** The fully-qualified domain name(FQDN). */
     @NonNull public final String fqdn;
@@ -62,6 +60,30 @@ public class IkeFqdnIdentification extends IkeIdentification {
         }
 
         this.fqdn = fqdn;
+    }
+
+    /**
+     * Constructs this object by deserializing a PersistableBundle
+     *
+     * @hide
+     */
+    @NonNull
+    public static IkeFqdnIdentification fromPersistableBundle(@NonNull PersistableBundle in) {
+        Objects.requireNonNull(in, "PersistableBundle is null");
+
+        return new IkeFqdnIdentification(in.getString(FQDN_KEY));
+    }
+    /**
+     * Serializes this object to a PersistableBundle
+     *
+     * @hide
+     */
+    @Override
+    @NonNull
+    public PersistableBundle toPersistableBundle() {
+        final PersistableBundle result = super.toPersistableBundle();
+        result.putString(FQDN_KEY, fqdn);
+        return result;
     }
 
     /** @hide */

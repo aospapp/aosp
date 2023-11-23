@@ -44,6 +44,17 @@ using std::vector;
 #	endif // DEQP_SUPPORT_XCB
 #endif // DEQP_SUPPORT_X11
 
+#if defined (DEQP_SUPPORT_WAYLAND)
+#	include "tcuLnxWayland.hpp"
+#	define WAYLAND_DISPLAY DE_NULL
+#endif // DEQP_SUPPORT_WAYLAND
+
+#if ( DE_OS == DE_OS_WIN32 )
+	#define NOMINMAX
+	#define WIN32_LEAN_AND_MEAN
+	#include <windows.h>
+#endif
+
 namespace vk
 {
 namespace wsi
@@ -60,6 +71,7 @@ const char* getName (Type wsiType)
 		"android",
 		"win32",
 		"macos",
+		"headless"
 	};
 	return de::getSizedArrayElement<TYPE_LAST>(s_names, wsiType);
 }
@@ -73,7 +85,8 @@ const char* getExtensionName (Type wsiType)
 		"VK_KHR_wayland_surface",
 		"VK_KHR_android_surface",
 		"VK_KHR_win32_surface",
-		"VK_MVK_macos_surface"
+		"VK_MVK_macos_surface",
+		"VK_EXT_headless_surface"
 	};
 	return de::getSizedArrayElement<TYPE_LAST>(s_extNames, wsiType);
 }
@@ -132,6 +145,13 @@ const PlatformProperties& getPlatformProperties (Type wsiType)
 			noDisplayLimit,
 			noWindowLimit,
 		},
+		// VK_EXT_headless_surface
+		{
+			0u,
+			PlatformProperties::SWAPCHAIN_EXTENT_SETS_WINDOW_SIZE,
+			noDisplayLimit,
+			noWindowLimit,
+		},
 	};
 
 	return de::getSizedArrayElement<TYPE_LAST>(s_properties, wsiType);
@@ -146,7 +166,7 @@ VkResult createSurface (const InstanceInterface&		vki,
 						VkSurfaceKHR*					pSurface)
 {
 	// Update this function if you add more WSI implementations
-	DE_STATIC_ASSERT(TYPE_LAST == 6);
+	DE_STATIC_ASSERT(TYPE_LAST == 7);
 
 	switch (wsiType)
 	{
@@ -242,6 +262,18 @@ VkResult createSurface (const InstanceInterface&		vki,
 			return vki.createMacOSSurfaceMVK(instance, &createInfo, pAllocator, pSurface);
 		}
 
+		case TYPE_HEADLESS:
+		{
+			const VkHeadlessSurfaceCreateInfoEXT	createInfo		=
+			{
+				VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT,
+				DE_NULL,
+				(VkHeadlessSurfaceCreateFlagsEXT)0
+			};
+
+			return vki.createHeadlessSurfaceEXT(instance, &createInfo, pAllocator, pSurface);
+		}
+
 		default:
 			DE_FATAL("Unknown WSI type");
 			return VK_ERROR_SURFACE_LOST_KHR;
@@ -310,6 +342,7 @@ VkBool32 getPhysicalDevicePresentationSupport (const InstanceInterface&	vki,
 		{
 			return vki.getPhysicalDeviceWin32PresentationSupportKHR(physicalDevice, queueFamilyIndex);
 		}
+		case TYPE_HEADLESS:
 		case TYPE_ANDROID:
 		case TYPE_MACOS:
 		{
@@ -489,6 +522,77 @@ std::vector<deUint32> getCompatibleQueueFamilyIndices (const InstanceInterface& 
 	}
 
 	return indices;
+}
+
+tcu::UVec2 getFullScreenSize (const vk::wsi::Type wsiType, const vk::wsi::Display& display, const tcu::UVec2& fallbackSize)
+{
+	tcu::UVec2 result = fallbackSize;
+
+	switch (wsiType)
+	{
+		case TYPE_XLIB:
+		{
+#if defined (DEQP_SUPPORT_X11)
+			const XlibDisplayInterface&			xlibDisplay		= dynamic_cast<const XlibDisplayInterface&>(display);
+			::Display*							displayPtr		= (::Display*)(xlibDisplay.getNative().internal);
+			const Screen*						screen			= ScreenOfDisplay(displayPtr, 0);
+			result.x()											= deUint32(screen->width);
+			result.y()											= deUint32(screen->height);
+#endif
+			break;
+		}
+		case TYPE_XCB:
+		{
+#if defined (DEQP_SUPPORT_XCB)
+//			const XcbDisplayInterface&			xcbDisplay		= dynamic_cast<const XcbDisplayInterface&>(display);
+//			xcb_connection_t*					connPtr			= (xcb_connection_t*)(xcbDisplay.getNative().internal);
+//			xcb_screen_t*						screen			= xcb_setup_roots_iterator(xcb_get_setup(connPtr)).data;
+//			result.x()											= deUint32(screen->width_in_pixels);
+//			result.y()											= deUint32(screen->height_in_pixels);
+#endif
+			break;
+		}
+		case TYPE_WAYLAND:
+		{
+#if defined (DEQP_SUPPORT_WAYLAND)
+#endif
+			break;
+		}
+		case TYPE_ANDROID:
+		{
+#if ( DE_OS == DE_OS_ANDROID )
+#endif
+			break;
+		}
+		case TYPE_WIN32:
+		{
+#if ( DE_OS == DE_OS_WIN32 )
+			de::MovePtr<Window>					nullWindow		(display.createWindow(tcu::nothing<tcu::UVec2>()));
+			const Win32WindowInterface&			win32Window		= dynamic_cast<const Win32WindowInterface&>(*nullWindow);
+			HMONITOR							hMonitor		= (HMONITOR)MonitorFromWindow((HWND)win32Window.getNative().internal, MONITOR_DEFAULTTONEAREST);
+			MONITORINFO							monitorInfo;
+			monitorInfo.cbSize									= sizeof(MONITORINFO);
+			GetMonitorInfo(hMonitor, &monitorInfo);
+			result.x()											= deUint32(abs(monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left));
+			result.y()											= deUint32(abs(monitorInfo.rcMonitor.top - monitorInfo.rcMonitor.bottom));
+#endif
+			break;
+		}
+
+		case TYPE_MACOS:
+		{
+#if ( DE_OS == DE_OS_OSX )
+#endif
+			break;
+		}
+
+		default:
+			DE_FATAL("Unknown WSI type");
+			break;
+	}
+
+	DE_UNREF(display);
+	return result;
 }
 
 Move<VkRenderPass> WsiTriangleRenderer::createRenderPass (const DeviceInterface&	vkd,
@@ -770,12 +874,17 @@ void WsiTriangleRenderer::recordFrame (VkCommandBuffer	cmdBuffer,
 
 	if (m_explicitLayoutTransitions || m_attachmentLayouts[imageNdx] == VK_IMAGE_LAYOUT_UNDEFINED)
 	{
-		VkImageSubresourceRange range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		const VkImageMemoryBarrier	barrier	= makeImageMemoryBarrier	(0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-																		 m_attachmentLayouts[imageNdx], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-																		 m_aliasImages[imageNdx], range);
-		m_vkd.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0u, 0u, DE_NULL, 0u, DE_NULL, 1u, &barrier);
-		m_attachmentLayouts[imageNdx] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		const auto range		= makeImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u);
+		const auto newLayout	= (m_explicitLayoutTransitions ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		const auto srcStage		= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		const auto srcMask		= 0u;
+		const auto dstStage		= (m_explicitLayoutTransitions ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		const auto dstMask		= (m_explicitLayoutTransitions ? VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT : 0);
+
+		const auto barrier = makeImageMemoryBarrier(srcMask, dstMask, m_attachmentLayouts[imageNdx], newLayout, m_aliasImages[imageNdx], range);
+		m_vkd.cmdPipelineBarrier(cmdBuffer, srcStage, dstStage, 0u, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+
+		m_attachmentLayouts[imageNdx] = newLayout;
 	}
 
 	beginRenderPass(m_vkd, cmdBuffer, *m_renderPass, curFramebuffer, makeRect2D(0, 0, m_renderSize.x(), m_renderSize.y()), tcu::Vec4(0.125f, 0.25f, 0.75f, 1.0f));
@@ -817,12 +926,17 @@ void WsiTriangleRenderer::recordDeviceGroupFrame (VkCommandBuffer	cmdBuffer,
 
 	if (m_explicitLayoutTransitions || m_attachmentLayouts[imageNdx] == VK_IMAGE_LAYOUT_UNDEFINED)
 	{
-		VkImageSubresourceRange range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		const VkImageMemoryBarrier	barrier	= makeImageMemoryBarrier	(0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-																		 m_attachmentLayouts[imageNdx], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-																		 m_aliasImages[imageNdx], range);
-		m_vkd.cmdPipelineBarrier(cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0u, 0u, DE_NULL, 0u, DE_NULL, 1u, &barrier);
-		m_attachmentLayouts[imageNdx] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		const auto range		= makeImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u);
+		const auto newLayout	= (m_explicitLayoutTransitions ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		const auto srcStage		= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		const auto srcMask		= 0u;
+		const auto dstStage		= (m_explicitLayoutTransitions ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		const auto dstMask		= (m_explicitLayoutTransitions ? VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT : 0);
+
+		const auto barrier = makeImageMemoryBarrier(srcMask, dstMask, m_attachmentLayouts[imageNdx], newLayout, m_aliasImages[imageNdx], range);
+		m_vkd.cmdPipelineBarrier(cmdBuffer, srcStage, dstStage, 0u, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+
+		m_attachmentLayouts[imageNdx] = newLayout;
 	}
 
 	// begin renderpass

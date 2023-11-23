@@ -54,4 +54,21 @@ public interface CategoryProvider {
      */
     @Nullable
     Category getCategory(String collectionId);
+
+    /**
+     * Checks if the categories are fetched.
+     */
+    boolean isCategoriesFetched();
+
+    /**
+     * Resets the fetched categories if needed.
+     *
+     * @return {@code true} if the fetched categories are reset; {@code false} otherwise.
+     */
+    boolean resetIfNeeded();
+
+    /**
+     * Checks if featured collection available.
+     */
+    boolean isFeaturedCollectionAvailable();
 }

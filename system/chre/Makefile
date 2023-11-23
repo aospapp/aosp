@@ -42,6 +42,11 @@ ifeq ($(CHRE_GNSS_SUPPORT_ENABLED), true)
 COMMON_CFLAGS += -DCHRE_GNSS_SUPPORT_ENABLED
 endif
 
+# Optional sensors support.
+ifeq ($(CHRE_SENSORS_SUPPORT_ENABLED), true)
+COMMON_CFLAGS += -DCHRE_SENSORS_SUPPORT_ENABLED
+endif
+
 # Optional Wi-Fi support.
 ifeq ($(CHRE_WIFI_SUPPORT_ENABLED), true)
 COMMON_CFLAGS += -DCHRE_WIFI_SUPPORT_ENABLED
@@ -51,6 +56,9 @@ endif
 ifeq ($(CHRE_WWAN_SUPPORT_ENABLED), true)
 COMMON_CFLAGS += -DCHRE_WWAN_SUPPORT_ENABLED
 endif
+
+# Optional on-device unit tests support
+include $(CHRE_PREFIX)/test/test.mk
 
 # Determine the CHRE_HOST_OS to resolve build discrepancies across Darwin and
 # Linux.
@@ -81,7 +89,6 @@ include $(CHRE_PREFIX)/build/common.mk
 
 # CHRE Implementation includes.
 include $(CHRE_PREFIX)/apps/apps.mk
-include $(CHRE_PREFIX)/ash/ash.mk
 include $(CHRE_PREFIX)/chre_api/chre_api.mk
 include $(CHRE_PREFIX)/core/core.mk
 include $(CHRE_PREFIX)/external/external.mk
@@ -92,6 +99,9 @@ include $(CHRE_PREFIX)/util/util.mk
 # Supported Variants Includes. Not all CHRE variants are supported by this
 # implementation of CHRE. Example: this CHRE implementation is never built for
 # google_cm4_nanohub as Nanohub itself is a CHRE implementation.
+ifneq ($(CHRE_TARGET_EXTENSION),)
+include $(CHRE_TARGET_EXTENSION)
+endif
 include $(CHRE_PREFIX)/build/variant/google_arm64_android.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv55_slpi-see.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv60_slpi.mk
@@ -105,5 +115,6 @@ include $(CHRE_PREFIX)/build/variant/google_hexagonv66_adsp-see.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv66_adsp-see-uimg.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv66_slpi-see.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv66_slpi-see-uimg.mk
+include $(CHRE_PREFIX)/build/variant/google_hexagonv66_slpi-qsh.mk
 include $(CHRE_PREFIX)/build/variant/google_x86_linux.mk
 include $(CHRE_PREFIX)/build/variant/google_x86_googletest.mk

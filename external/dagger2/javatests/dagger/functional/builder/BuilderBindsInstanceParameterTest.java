@@ -18,6 +18,7 @@ package dagger.functional.builder;
 
 import static com.google.common.truth.Truth.assertThat;
 
+
 import dagger.BindsInstance;
 import dagger.Component;
 import org.junit.Test;

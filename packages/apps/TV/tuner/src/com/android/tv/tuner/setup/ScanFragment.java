@@ -62,7 +62,7 @@ public class ScanFragment extends SetupFragment {
     private static final boolean DEBUG = false;
 
     // In the fake mode, the connection to antenna or cable is not necessary.
-    // Instead dummy channels are added.
+    // Instead fake channels are added.
     private static final boolean FAKE_MODE = false;
 
     private static final String VCTLESS_CHANNEL_NAME_FORMAT = "RF%d-%d";

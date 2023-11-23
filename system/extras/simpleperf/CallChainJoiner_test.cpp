@@ -23,8 +23,7 @@
 using namespace simpleperf;
 using namespace simpleperf::call_chain_joiner_impl;
 
-static bool JoinCallChain(LRUCache& cache, uint32_t tid,
-                          const std::vector<uint64_t>& input_ip,
+static bool JoinCallChain(LRUCache& cache, uint32_t tid, const std::vector<uint64_t>& input_ip,
                           const std::vector<uint64_t>& input_sp,
                           const std::vector<uint64_t>& expected_output_ip,
                           const std::vector<uint64_t>& expected_output_sp) {
@@ -87,10 +86,10 @@ TEST(LRUCache, extend_chains) {
   // d -> c -> b
   // c -> b -> a  =>  d -> c -> b -> a
   LRUCache cache3(sizeof(CacheNode) * 4, 2);
-  ASSERT_TRUE(JoinCallChain(cache3, 0, {0xb, 0xc, 0xd}, {0xb, 0xc, 0xd},
-                            {0xb, 0xc, 0xd}, {0xb, 0xc, 0xd}));
-  ASSERT_TRUE(JoinCallChain(cache3, 0, {0xa, 0xb, 0xc}, {0xa, 0xb, 0xc},
-                            {0xa, 0xb, 0xc, 0xd}, {0xa, 0xb, 0xc, 0xd}));
+  ASSERT_TRUE(
+      JoinCallChain(cache3, 0, {0xb, 0xc, 0xd}, {0xb, 0xc, 0xd}, {0xb, 0xc, 0xd}, {0xb, 0xc, 0xd}));
+  ASSERT_TRUE(JoinCallChain(cache3, 0, {0xa, 0xb, 0xc}, {0xa, 0xb, 0xc}, {0xa, 0xb, 0xc, 0xd},
+                            {0xa, 0xb, 0xc, 0xd}));
   ASSERT_EQ(cache3.Stat().used_node_count, 4u);
 }
 
@@ -158,7 +157,7 @@ class CallChainJoinerTest : public ::testing::Test {
 #else
     std::string tmpdir = "/tmp";
 #endif
-    scoped_temp_files_.reset(new ScopedTempFiles(tmpdir));
+    scoped_temp_files_ = ScopedTempFiles::Create(tmpdir);
   }
 
  private:
@@ -168,12 +167,11 @@ class CallChainJoinerTest : public ::testing::Test {
 TEST_F(CallChainJoinerTest, smoke) {
   CallChainJoiner joiner(sizeof(CacheNode) * 1024, 1, true);
   for (pid_t pid = 0; pid < 10; ++pid) {
-    ASSERT_TRUE(joiner.AddCallChain(pid, pid, CallChainJoiner::ORIGINAL_OFFLINE,
-                                    {1, 2, 3}, {1, 2, 3}));
-    ASSERT_TRUE(joiner.AddCallChain(pid, pid, CallChainJoiner::ORIGINAL_REMOTE,
-                                    {3, 4, 5}, {3, 4, 5}));
-    ASSERT_TRUE(joiner.AddCallChain(pid, pid, CallChainJoiner::ORIGINAL_OFFLINE,
-                                    {1, 4}, {1, 4}));
+    ASSERT_TRUE(
+        joiner.AddCallChain(pid, pid, CallChainJoiner::ORIGINAL_OFFLINE, {1, 2, 3}, {1, 2, 3}));
+    ASSERT_TRUE(
+        joiner.AddCallChain(pid, pid, CallChainJoiner::ORIGINAL_REMOTE, {3, 4, 5}, {3, 4, 5}));
+    ASSERT_TRUE(joiner.AddCallChain(pid, pid, CallChainJoiner::ORIGINAL_OFFLINE, {1, 4}, {1, 4}));
   }
   ASSERT_TRUE(joiner.JoinCallChains());
   pid_t pid;
@@ -200,8 +198,7 @@ TEST_F(CallChainJoinerTest, smoke) {
       ASSERT_TRUE(joiner.GetNextCallChain(pid, tid, type, ips, sps));
       ASSERT_EQ(pid, expected_pid);
       ASSERT_EQ(tid, expected_pid);
-      ASSERT_EQ(type, i == 0u ? CallChainJoiner::ORIGINAL_REMOTE
-                              : CallChainJoiner::JOINED_REMOTE);
+      ASSERT_EQ(type, i == 0u ? CallChainJoiner::ORIGINAL_REMOTE : CallChainJoiner::JOINED_REMOTE);
       ASSERT_EQ(ips, std::vector<uint64_t>({3, 4, 5}));
       ASSERT_EQ(sps, std::vector<uint64_t>({3, 4, 5}));
     }

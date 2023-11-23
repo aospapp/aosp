@@ -19,31 +19,47 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/scopeguard.h>
+#include <android-base/strings.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <libavb/libavb.h>
 #include <ziparchive/zip_archive.h>
 
 #include "apex_file.h"
-#include "apex_preinstalled_data.h"
+#include "apexd_test_utils.h"
+#include "apexd_utils.h"
 
+using android::base::GetExecutableDirectory;
 using android::base::Result;
 
-static std::string testDataDir = android::base::GetExecutableDirectory() + "/";
+static const std::string kTestDataDir = GetExecutableDirectory() + "/";
 
 namespace android {
 namespace apex {
 namespace {
 
-TEST(ApexFileTest, GetOffsetOfSimplePackage) {
-  const std::string filePath = testDataDir + "apex.apexd_test.apex";
-  Result<ApexFile> apexFile = ApexFile::Open(filePath);
-  ASSERT_TRUE(apexFile.ok());
+struct ApexFileTestParam {
+  const char* type;
+  const char* prefix;
+};
+
+constexpr const ApexFileTestParam kParameters[] = {
+    {"ext4", "apex.apexd_test"}, {"f2fs", "apex.apexd_test_f2fs"}};
+
+class ApexFileTest : public ::testing::TestWithParam<ApexFileTestParam> {};
+
+INSTANTIATE_TEST_SUITE_P(Apex, ApexFileTest, ::testing::ValuesIn(kParameters));
+
+TEST_P(ApexFileTest, GetOffsetOfSimplePackage) {
+  const std::string file_path = kTestDataDir + GetParam().prefix + ".apex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_TRUE(apex_file.ok());
 
   int32_t zip_image_offset;
   size_t zip_image_size;
   {
     ZipArchiveHandle handle;
-    int32_t rc = OpenArchive(filePath.c_str(), &handle);
+    int32_t rc = OpenArchive(file_path.c_str(), &handle);
     ASSERT_EQ(0, rc);
     auto close_guard =
         android::base::make_scope_guard([&handle]() { CloseArchive(handle); });
@@ -58,34 +74,33 @@ TEST(ApexFileTest, GetOffsetOfSimplePackage) {
     EXPECT_EQ(zip_image_size, entry.compressed_length);
   }
 
-  EXPECT_EQ(zip_image_offset, apexFile->GetImageOffset());
-  EXPECT_EQ(zip_image_size, apexFile->GetImageSize());
+  EXPECT_EQ(zip_image_offset, apex_file->GetImageOffset().value());
+  EXPECT_EQ(zip_image_size, apex_file->GetImageSize().value());
 }
 
 TEST(ApexFileTest, GetOffsetMissingFile) {
-  const std::string filePath = testDataDir + "missing.apex";
-  Result<ApexFile> apexFile = ApexFile::Open(filePath);
-  ASSERT_FALSE(apexFile.ok());
-  EXPECT_NE(std::string::npos,
-            apexFile.error().message().find("Failed to open package"))
-      << apexFile.error();
+  const std::string file_path = kTestDataDir + "missing.apex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_FALSE(apex_file.ok());
+  ASSERT_THAT(apex_file.error().message(),
+              ::testing::HasSubstr("Failed to open package"));
 }
 
-TEST(ApexFileTest, GetApexManifest) {
-  const std::string filePath = testDataDir + "apex.apexd_test.apex";
-  Result<ApexFile> apexFile = ApexFile::Open(filePath);
-  ASSERT_RESULT_OK(apexFile);
-  EXPECT_EQ("com.android.apex.test_package", apexFile->GetManifest().name());
-  EXPECT_EQ(1u, apexFile->GetManifest().version());
+TEST_P(ApexFileTest, GetApexManifest) {
+  const std::string file_path = kTestDataDir + GetParam().prefix + ".apex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_RESULT_OK(apex_file);
+  EXPECT_EQ("com.android.apex.test_package", apex_file->GetManifest().name());
+  EXPECT_EQ(1u, apex_file->GetManifest().version());
 }
 
-TEST(ApexFileTest, VerifyApexVerity) {
-  ASSERT_RESULT_OK(collectPreinstalledData({"/system_ext/apex"}));
-  const std::string filePath = testDataDir + "apex.apexd_test.apex";
-  Result<ApexFile> apexFile = ApexFile::Open(filePath);
-  ASSERT_RESULT_OK(apexFile);
+TEST_P(ApexFileTest, VerifyApexVerity) {
+  const std::string file_path = kTestDataDir + GetParam().prefix + ".apex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_RESULT_OK(apex_file);
 
-  auto verity_or = apexFile->VerifyApexVerity();
+  auto verity_or =
+      apex_file->VerifyApexVerity(apex_file->GetBundledPublicKey());
   ASSERT_RESULT_OK(verity_or);
 
   const ApexVerityData& data = *verity_or;
@@ -93,52 +108,229 @@ TEST(ApexFileTest, VerifyApexVerity) {
   EXPECT_EQ(std::string("368a22e64858647bc45498e92f749f85482ac468"
                         "50ca7ec8071f49dfa47a243c"),
             data.salt);
-  EXPECT_EQ(
-      std::string(
-          "8e841019e41e8c40bca6dd6304cbf163ea257ba0a268304832c4105eba1c2747"),
-      data.root_digest);
+
+  const std::string digest_path =
+      kTestDataDir + GetParam().prefix + "_digest.txt";
+  std::string root_digest;
+  ASSERT_TRUE(android::base::ReadFileToString(digest_path, &root_digest))
+      << "Failed to read " << digest_path;
+  root_digest = android::base::Trim(root_digest);
+
+  EXPECT_EQ(std::string(root_digest), data.root_digest);
 }
 
-// TODO: May consider packaging a debug key in debug builds (again).
-TEST(ApexFileTest, DISABLED_VerifyApexVerityNoKeyDir) {
-  const std::string filePath = testDataDir + "apex.apexd_test.apex";
-  Result<ApexFile> apexFile = ApexFile::Open(filePath);
-  ASSERT_RESULT_OK(apexFile);
+TEST_P(ApexFileTest, VerifyApexVerityWrongKey) {
+  const std::string file_path = kTestDataDir + GetParam().prefix + ".apex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_RESULT_OK(apex_file);
 
-  auto verity_or = apexFile->VerifyApexVerity();
+  auto verity_or = apex_file->VerifyApexVerity("wrong-key");
   ASSERT_FALSE(verity_or.ok());
 }
 
-TEST(ApexFileTest, VerifyApexVerityNoKeyInst) {
-  const std::string filePath = testDataDir + "apex.apexd_test_no_inst_key.apex";
-  Result<ApexFile> apexFile = ApexFile::Open(filePath);
-  ASSERT_RESULT_OK(apexFile);
+TEST_P(ApexFileTest, GetBundledPublicKey) {
+  const std::string file_path = kTestDataDir + GetParam().prefix + ".apex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_RESULT_OK(apex_file);
 
-  auto verity_or = apexFile->VerifyApexVerity();
-  ASSERT_FALSE(verity_or.ok());
+  const std::string key_path =
+      kTestDataDir + "apexd_testdata/com.android.apex.test_package.avbpubkey";
+  std::string key_content;
+  ASSERT_TRUE(android::base::ReadFileToString(key_path, &key_content))
+      << "Failed to read " << key_path;
+
+  EXPECT_EQ(key_content, apex_file->GetBundledPublicKey());
 }
 
-TEST(ApexFileTest, GetBundledPublicKey) {
-  const std::string filePath = testDataDir + "apex.apexd_test.apex";
-  Result<ApexFile> apexFile = ApexFile::Open(filePath);
-  ASSERT_RESULT_OK(apexFile);
-
-  const std::string keyPath =
-      testDataDir + "apexd_testdata/com.android.apex.test_package.avbpubkey";
-  std::string keyContent;
-  ASSERT_TRUE(android::base::ReadFileToString(keyPath, &keyContent))
-      << "Failed to read " << keyPath;
-
-  EXPECT_EQ(keyContent, apexFile->GetBundledPublicKey());
-}
-
-TEST(ApexFileTest, CorrutedApex_b146895998) {
-  const std::string apex_path = testDataDir + "corrupted_b146895998.apex";
+TEST(ApexFileTest, CorrutedApexB146895998) {
+  const std::string apex_path = kTestDataDir + "corrupted_b146895998.apex";
   Result<ApexFile> apex = ApexFile::Open(apex_path);
   ASSERT_RESULT_OK(apex);
-  ASSERT_FALSE(apex->VerifyApexVerity());
+  ASSERT_FALSE(apex->VerifyApexVerity("ignored").ok());
 }
 
+TEST_P(ApexFileTest, RetrieveFsType) {
+  const std::string file_path = kTestDataDir + GetParam().prefix + ".apex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_TRUE(apex_file.ok());
+
+  EXPECT_EQ(std::string(GetParam().type), apex_file->GetFsType().value());
+}
+
+TEST(ApexFileTest, OpenInvalidFilesystem) {
+  const std::string file_path =
+      kTestDataDir + "apex.apexd_test_corrupt_superblock_apex.apex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_FALSE(apex_file.ok());
+  ASSERT_THAT(apex_file.error().message(),
+              ::testing::HasSubstr("Failed to retrieve filesystem type"));
+}
+
+TEST(ApexFileTest, OpenCompressedApexFile) {
+  const std::string file_path =
+      kTestDataDir + "com.android.apex.compressed.v1.capex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_TRUE(apex_file.ok());
+
+  ASSERT_TRUE(apex_file->IsCompressed());
+  ASSERT_FALSE(apex_file->GetImageOffset().has_value());
+  ASSERT_FALSE(apex_file->GetImageSize().has_value());
+  ASSERT_FALSE(apex_file->GetFsType().has_value());
+}
+
+TEST(ApexFileTest, OpenFailureForCompressedApexWithoutApex) {
+  const std::string file_path =
+      kTestDataDir + "com.android.apex.compressed.v1_without_apex.capex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_FALSE(apex_file.ok());
+  ASSERT_THAT(apex_file.error().message(),
+              ::testing::HasSubstr("Could not find entry"));
+}
+
+TEST(ApexFileTest, GetCompressedApexManifest) {
+  const std::string file_path =
+      kTestDataDir + "com.android.apex.compressed.v1.capex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_RESULT_OK(apex_file);
+  EXPECT_EQ("com.android.apex.compressed", apex_file->GetManifest().name());
+  EXPECT_EQ(1u, apex_file->GetManifest().version());
+}
+
+TEST(ApexFileTest, GetBundledPublicKeyOfCompressedApex) {
+  const std::string file_path =
+      kTestDataDir + "com.android.apex.compressed.v1.capex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_RESULT_OK(apex_file);
+
+  const std::string key_path =
+      kTestDataDir + "apexd_testdata/com.android.apex.compressed.avbpubkey";
+  std::string key_content;
+  ASSERT_TRUE(android::base::ReadFileToString(key_path, &key_content))
+      << "Failed to read " << key_path;
+
+  EXPECT_EQ(key_content, apex_file->GetBundledPublicKey());
+}
+
+TEST(ApexFileTest, CannotVerifyApexVerityForCompressedApex) {
+  const std::string file_path =
+      kTestDataDir + "com.android.apex.compressed.v1.capex";
+  auto apex = ApexFile::Open(file_path);
+  ASSERT_RESULT_OK(apex);
+  auto result = apex->VerifyApexVerity(apex->GetBundledPublicKey());
+  ASSERT_FALSE(result.ok());
+  ASSERT_THAT(
+      result.error().message(),
+      ::testing::HasSubstr("Cannot verify ApexVerity of compressed APEX"));
+}
+
+TEST(ApexFileTest, DecompressCompressedApex) {
+  const std::string file_path =
+      kTestDataDir + "com.android.apex.compressed.v1.capex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_RESULT_OK(apex_file);
+
+  // Create a temp dir for decompression
+  TemporaryDir tmp_dir;
+
+  const std::string package_name = apex_file->GetManifest().name();
+  const std::string decompression_file_path =
+      tmp_dir.path + package_name + ".capex";
+
+  auto result = apex_file->Decompress(decompression_file_path);
+  ASSERT_RESULT_OK(result);
+
+  // Assert output path is not empty
+  auto exists = PathExists(decompression_file_path);
+  ASSERT_RESULT_OK(exists);
+  ASSERT_TRUE(*exists) << decompression_file_path << " does not exist";
+
+  // Assert that decompressed apex is same as original apex
+  const std::string original_apex_file_path =
+      kTestDataDir + "com.android.apex.compressed.v1_original.apex";
+  auto comparison_result =
+      CompareFiles(original_apex_file_path, decompression_file_path);
+  ASSERT_RESULT_OK(comparison_result);
+  ASSERT_TRUE(*comparison_result);
+}
+
+TEST(ApexFileTest, DecompressFailForNormalApex) {
+  const std::string file_path =
+      kTestDataDir + "com.android.apex.compressed.v1_original.apex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+  ASSERT_RESULT_OK(apex_file);
+
+  TemporaryFile decompression_file;
+
+  auto result = apex_file->Decompress(decompression_file.path);
+  ASSERT_FALSE(result.ok());
+  ASSERT_THAT(result.error().message(),
+              ::testing::HasSubstr("Cannot decompress an uncompressed APEX"));
+}
+
+TEST(ApexFileTest, DecompressFailIfDecompressionPathExists) {
+  const std::string file_path =
+      kTestDataDir + "com.android.apex.compressed.v1.capex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+
+  // Attempt to decompress in a path that already exists
+  TemporaryFile decompression_file;
+  auto exists = PathExists(decompression_file.path);
+  ASSERT_RESULT_OK(exists);
+  ASSERT_TRUE(*exists) << decompression_file.path << " does not exist";
+
+  auto result = apex_file->Decompress(decompression_file.path);
+  ASSERT_FALSE(result.ok());
+  ASSERT_THAT(result.error().message(),
+              ::testing::HasSubstr("Failed to open decompression destination"));
+}
+
+TEST(ApexFileTest, GetPathReturnsRealpath) {
+  const std::string real_path = kTestDataDir + "apex.apexd_test.apex";
+  const std::string symlink_path =
+      kTestDataDir + "apex.apexd_test.symlink.apex";
+
+  // In case the link already exists
+  int ret = unlink(symlink_path.c_str());
+  ASSERT_TRUE(ret == 0 || errno == ENOENT)
+      << "failed to unlink " << symlink_path;
+
+  ret = symlink(real_path.c_str(), symlink_path.c_str());
+  ASSERT_EQ(0, ret) << "failed to create symlink at " << symlink_path;
+
+  // Open with the symlink. Realpath is expected.
+  Result<ApexFile> apex_file = ApexFile::Open(symlink_path);
+  ASSERT_RESULT_OK(apex_file);
+  ASSERT_EQ(real_path, apex_file->GetPath());
+}
+
+TEST(ApexFileTest, CompressedSharedLibsApexIsRejected) {
+  const std::string file_path =
+      kTestDataDir + "com.android.apex.compressed_sharedlibs.capex";
+  Result<ApexFile> apex_file = ApexFile::Open(file_path);
+
+  ASSERT_FALSE(apex_file.ok());
+  ASSERT_THAT(apex_file.error().message(),
+              ::testing::HasSubstr("Apex providing sharedlibs shouldn't "
+                                   "be compressed"));
+}
+
+// Check if CAPEX contains originalApexDigest in its manifest
+TEST(ApexFileTest, OriginalApexDigest) {
+  const std::string capex_path =
+      kTestDataDir + "com.android.apex.compressed.v1.capex";
+  auto capex = ApexFile::Open(capex_path);
+  ASSERT_TRUE(capex.ok());
+  const std::string decompressed_apex_path =
+      kTestDataDir + "com.android.apex.compressed.v1_original.apex";
+  auto decompressed_apex = ApexFile::Open(decompressed_apex_path);
+  ASSERT_TRUE(decompressed_apex.ok());
+  // Validate root digest
+  auto digest = decompressed_apex->VerifyApexVerity(
+      decompressed_apex->GetBundledPublicKey());
+  ASSERT_TRUE(digest.ok());
+  ASSERT_EQ(digest->root_digest,
+            capex->GetManifest().capexmetadata().originalapexdigest());
+}
 }  // namespace
 }  // namespace apex
 }  // namespace android

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, STMicroelectronics - All Rights Reserved
+ * Copyright (c) 2019-2020, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -51,6 +51,7 @@
 #define SHA224_DIGEST_SIZE		28U
 #define SHA256_DIGEST_SIZE		32U
 
+#define RESET_TIMEOUT_US_1MS		1000U
 #define HASH_TIMEOUT_US			10000U
 
 enum stm32_hash_data_format {
@@ -251,6 +252,8 @@ int stm32_hash_final(uint8_t *digest)
 		mmio_clrsetbits_32(hash_base() + HASH_STR, HASH_STR_NBLW_MASK,
 				   8U * stm32_remain.length);
 		zeromem(&stm32_remain, sizeof(stm32_remain));
+	} else {
+		mmio_clrbits_32(hash_base() + HASH_STR, HASH_STR_NBLW_MASK);
 	}
 
 	mmio_setbits_32(hash_base() + HASH_STR, HASH_STR_DCAL);
@@ -299,7 +302,9 @@ int stm32_hash_register(void)
 			break;
 		}
 #else
+		/* BL32 uses hash if it is assigned only to secure world */
 		if (hash_info.status == DT_SECURE) {
+			stm32mp_register_secure_periph_iomem(hash_info.base);
 			break;
 		}
 #endif
@@ -319,9 +324,15 @@ int stm32_hash_register(void)
 	stm32mp_clk_enable(stm32_hash.clock);
 
 	if (hash_info.reset >= 0) {
-		stm32mp_reset_assert((unsigned long)hash_info.reset);
+		uint32_t id = (uint32_t)hash_info.reset;
+
+		if (stm32mp_reset_assert(id, RESET_TIMEOUT_US_1MS) != 0) {
+			panic();
+		}
 		udelay(20);
-		stm32mp_reset_deassert((unsigned long)hash_info.reset);
+		if (stm32mp_reset_deassert(id, RESET_TIMEOUT_US_1MS) != 0) {
+			panic();
+		}
 	}
 
 	stm32mp_clk_disable(stm32_hash.clock);

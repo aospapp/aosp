@@ -83,6 +83,7 @@ public class KeyGeneratorTest extends AndroidTestCase {
     }
 
     static final int[] AES_SUPPORTED_KEY_SIZES = new int[] {128, 192, 256};
+    static final int[] AES_STRONGBOX_SUPPORTED_KEY_SIZES = new int[] {128, 256};
     static final int[] DES_SUPPORTED_KEY_SIZES = new int[] {168};
 
     public void testAlgorithmList() {
@@ -277,13 +278,17 @@ public class KeyGeneratorTest extends AndroidTestCase {
                     }
                 }
                 rng.resetCounters();
-                if (TestUtils.contains(AES_SUPPORTED_KEY_SIZES, i)) {
+                if (TestUtils.contains(useStrongbox ?
+                        AES_STRONGBOX_SUPPORTED_KEY_SIZES : AES_SUPPORTED_KEY_SIZES, i)) {
                     keyGenerator.init(spec, rng);
                     SecretKey key = keyGenerator.generateKey();
                     assertEquals(i, TestUtils.getKeyInfo(key).getKeySize());
                     assertEquals((i + 7) / 8, rng.getOutputSizeBytes());
                 } else {
                     try {
+                        if (useStrongbox && (i == 192))
+                            throw new InvalidAlgorithmParameterException("Strongbox does not"
+                                    + " support key size 192.");
                         keyGenerator.init(spec, rng);
                         fail();
                     } catch (InvalidAlgorithmParameterException expected) {}
@@ -719,6 +724,30 @@ public class KeyGeneratorTest extends AndroidTestCase {
                         keyInfo.getKeyValidityForConsumptionEnd());
                 assertFalse(keyInfo.isUserAuthenticationRequired());
                 assertFalse(keyInfo.isUserAuthenticationRequirementEnforcedBySecureHardware());
+            } catch (Throwable e) {
+                throw new RuntimeException("Failed for " + algorithm, e);
+            }
+        }
+    }
+
+    public void testLimitedUseKey() throws Exception {
+        testLimitedUseKey(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testLimitedUseKey(true /* useStrongbox */);
+        }
+    }
+
+    private void testLimitedUseKey(boolean useStrongbox) throws Exception {
+        int maxUsageCount = 1;
+        for (String algorithm :
+                (useStrongbox ? EXPECTED_STRONGBOX_ALGORITHMS : EXPECTED_ALGORITHMS)) {
+            try {
+                int expectedSizeBits = DEFAULT_KEY_SIZES.get(algorithm);
+                KeyGenerator keyGenerator = getKeyGenerator(algorithm);
+                keyGenerator.init(getWorkingSpec().setMaxUsageCount(maxUsageCount).build());
+                SecretKey key = keyGenerator.generateKey();
+                assertEquals(expectedSizeBits, TestUtils.getKeyInfo(key).getKeySize());
+                assertEquals(maxUsageCount, TestUtils.getKeyInfo(key).getRemainingUsageCount());
             } catch (Throwable e) {
                 throw new RuntimeException("Failed for " + algorithm, e);
             }

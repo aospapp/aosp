@@ -1,5 +1,9 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 
 argparser = argparse.ArgumentParser(
@@ -28,8 +32,8 @@ TEMPERATURE_TYPE = {
 
 def print_temperature(temperature_type):
     if args.verbose:
-        print temperature_type,
-    print TEMPERATURE_TYPE.get(temperature_type)()
+        print(temperature_type, end=' ')
+    print(TEMPERATURE_TYPE.get(temperature_type)())
 
 if args.temperature_type == 'all':
     for temperature_type in TEMPERATURE_TYPE.keys():

@@ -186,7 +186,7 @@ public class DirectoryAddonsAdapterTest extends AndroidTestCase {
         assertTrue(mAdapter.getItemViewType(index) == type);
     }
 
-    private static class DummyAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+    private static class StubAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
         @Override
         public int getItemCount() {

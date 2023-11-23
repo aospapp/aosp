@@ -21,7 +21,12 @@ import android.util.SparseArray;
 /**
  * The parent class for all executable scripts. This should not be used by
  * applications.
+ *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public class Script extends BaseObj {
     /**
      * Determine if Incremental Intrinsic Support is needed
@@ -42,17 +47,17 @@ public class Script extends BaseObj {
     long getDummyAlloc(Allocation ain) {
         long dInElement = 0;
         long dInType = 0;
-        long dummyAlloc = 0;
+        long placeholderAlloc = 0;
         if (ain != null) {
             Type inType = ain.getType();
             dInElement = inType.getElement().getDummyElement(mRS);
             dInType = inType.getDummyType(mRS, dInElement);
             int xBytesSize = inType.getX() * inType.getElement().getBytesSize();
-            dummyAlloc = mRS.nIncAllocationCreateTyped(ain.getID(mRS), dInType, xBytesSize);
-            ain.setIncAllocID(dummyAlloc);
+            placeholderAlloc = mRS.nIncAllocationCreateTyped(ain.getID(mRS), dInType, xBytesSize);
+            ain.setIncAllocID(placeholderAlloc);
         }
 
-        return dummyAlloc;
+        return placeholderAlloc;
     }
     /**
      * KernelID is an identifier for a Script + root function pair. It is used
@@ -305,7 +310,7 @@ public class Script extends BaseObj {
         if (mUseIncSupp) {
             long ainInc = getDummyAlloc(ain);
             long aoutInc = getDummyAlloc(aout);
-            mRS.nScriptForEachClipped(getID(mRS), slot, ainInc, aoutInc, params, sc.xstart, sc.xend, sc.ystart, sc.yend, sc.zstart, sc.zend, mUseIncSupp);        
+            mRS.nScriptForEachClipped(getID(mRS), slot, ainInc, aoutInc, params, sc.xstart, sc.xend, sc.ystart, sc.yend, sc.zstart, sc.zend, mUseIncSupp);
         } else {
             mRS.nScriptForEachClipped(getID(mRS), slot, in_id, out_id, params, sc.xstart, sc.xend, sc.ystart, sc.yend, sc.zstart, sc.zend, mUseIncSupp);
         }
@@ -481,7 +486,7 @@ public class Script extends BaseObj {
     public void setVar(int index, BaseObj o) {
         if (mUseIncSupp) {
             long oInc = getDummyAlloc((Allocation)o);
-            mRS.nScriptSetVarObj(getID(mRS), index, (o == null) ? 0 : oInc, mUseIncSupp);            
+            mRS.nScriptSetVarObj(getID(mRS), index, (o == null) ? 0 : oInc, mUseIncSupp);
         } else {
             mRS.nScriptSetVarObj(getID(mRS), index, (o == null) ? 0 : o.getID(mRS), mUseIncSupp);
         }

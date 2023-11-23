@@ -25,8 +25,8 @@ allow mtk_hal_imsa rild_imsm_socket:sock_file write;
 # Date : 2017/06/08
 # Operation : IMSA sanity
 # Purpose : Add permission for IMSA connect to hwservicemanager
-allow mtk_hal_imsa hwservicemanager_prop:file { read open };
-allow mtk_hal_imsa hwservicemanager_prop:file getattr;
+get_prop(mtk_hal_imsa, hwservicemanager_prop)
+get_prop(mtk_hal_imsa, hwservicemanager_prop)
 
 # Date : 2017/06/13
 # Operation : IMSA sanity

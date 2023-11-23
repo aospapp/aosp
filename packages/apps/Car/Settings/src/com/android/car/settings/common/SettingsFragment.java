@@ -16,8 +16,7 @@
 
 package com.android.car.settings.common;
 
-import static com.android.car.ui.core.CarUi.requireInsets;
-import static com.android.car.ui.core.CarUi.requireToolbar;
+import static com.android.car.settings.common.BaseCarSettingsActivity.META_DATA_KEY_SINGLE_PANE;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
@@ -29,7 +28,10 @@ import android.util.ArrayMap;
 import android.util.SparseArray;
 import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
+import android.view.LayoutInflater;
+import android.view.ViewGroup;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
@@ -39,13 +41,16 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.settings.R;
-import com.android.car.ui.preference.DisabledPreferenceCallback;
+import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.preference.PreferenceFragment;
+import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import com.android.car.ui.toolbar.MenuItem;
-import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.NavButtonMode;
 import com.android.car.ui.toolbar.ToolbarController;
+import com.android.car.ui.utils.ViewUtils;
 import com.android.settingslib.search.Indexable;
 
 import java.util.ArrayList;
@@ -81,8 +86,8 @@ public abstract class SettingsFragment extends PreferenceFragment implements
             new SparseArray<>();
 
     private CarUxRestrictions mUxRestrictions;
+    private HighlightablePreferenceGroupAdapter mAdapter;
     private int mCurrentRequestIndex = 0;
-    private String mRestrictedWhileDrivingMessage;
 
     /**
      * Returns the resource id for the preference XML of this fragment.
@@ -91,7 +96,7 @@ public abstract class SettingsFragment extends PreferenceFragment implements
     protected abstract int getPreferenceScreenResId();
 
     protected ToolbarController getToolbar() {
-        return requireToolbar(requireActivity());
+        return getFragmentHost().getToolbar();
     }
     /**
      * Returns the MenuItems to display in the toolbar. Subclasses should override this to
@@ -132,6 +137,20 @@ public abstract class SettingsFragment extends PreferenceFragment implements
         return null;
     }
 
+    /**
+     * Enables rotary scrolling for the {@link CarUiRecyclerView} in this fragment.
+     * <p>
+     * Rotary scrolling should be enabled for scrolling views which contain content which the user
+     * may want to see but can't interact with, either alone or along with interactive (focusable)
+     * content.
+     */
+    protected void enableRotaryScroll() {
+        CarUiRecyclerView recyclerView = getView().findViewById(R.id.settings_recycler_view);
+        if (recyclerView != null) {
+            ViewUtils.setRotaryScrollEnabled(recyclerView, /* isVertical= */ true);
+        }
+    }
+
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
@@ -165,14 +184,6 @@ public abstract class SettingsFragment extends PreferenceFragment implements
             mPreferenceControllersLookup.computeIfAbsent(controller.getClass(),
                     k -> new ArrayList<>(/* initialCapacity= */ 1)).add(controller);
         });
-
-        mRestrictedWhileDrivingMessage = context.getString(R.string.restricted_while_driving);
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-        onCarUiInsetsChanged(requireInsets(requireActivity()));
     }
 
     /**
@@ -192,32 +203,32 @@ public abstract class SettingsFragment extends PreferenceFragment implements
             Preference pref = screen.findPreference(controller.getPreferenceKey());
 
             controller.setPreference(pref);
-
-            if (pref instanceof DisabledPreferenceCallback && controller.getAvailabilityStatus()
-                    != PreferenceController.AVAILABLE_FOR_VIEWING) {
-                ((DisabledPreferenceCallback) pref).setMessageToShowWhenDisabledPreferenceClicked(
-                        mRestrictedWhileDrivingMessage);
-            }
         }
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        ToolbarController toolbar = getToolbar();
-        if (toolbar != null) {
-            List<MenuItem> items = getToolbarMenuItems();
-            if (items != null) {
-                if (items.size() == 1) {
-                    items.get(0).setId(R.id.toolbar_menu_item_0);
-                } else if (items.size() == 2) {
-                    items.get(0).setId(R.id.toolbar_menu_item_0);
-                    items.get(1).setId(R.id.toolbar_menu_item_1);
-                }
+    public RecyclerView onCreateRecyclerView(LayoutInflater inflater, ViewGroup parent,
+            Bundle savedInstanceState) {
+        inflater.inflate(R.layout.settings_recyclerview_default, parent, /* attachToRoot= */ true);
+        return parent.requireViewById(R.id.settings_recycler_view);
+    }
+
+    @Override
+    protected void setupToolbar(@NonNull ToolbarController toolbar) {
+        List<MenuItem> items = getToolbarMenuItems();
+        if (items != null) {
+            if (items.size() == 1) {
+                items.get(0).setId(R.id.toolbar_menu_item_0);
+            } else if (items.size() == 2) {
+                items.get(0).setId(R.id.toolbar_menu_item_0);
+                items.get(1).setId(R.id.toolbar_menu_item_1);
             }
-            toolbar.setTitle(getPreferenceScreen().getTitle());
-            toolbar.setMenuItems(items);
-            toolbar.setNavButtonMode(Toolbar.NavButtonMode.BACK);
+        }
+        toolbar.setTitle(getPreferenceScreen().getTitle());
+        toolbar.setMenuItems(items);
+        toolbar.setLogo(null);
+        if (getActivity().getIntent().getBooleanExtra(META_DATA_KEY_SINGLE_PANE, false)) {
+            toolbar.setNavButtonMode(NavButtonMode.BACK);
         }
     }
 
@@ -227,6 +238,34 @@ public abstract class SettingsFragment extends PreferenceFragment implements
         Lifecycle lifecycle = getLifecycle();
         mPreferenceControllers.forEach(lifecycle::removeObserver);
         mActivityResultCallbackMap.clear();
+    }
+
+    @Override
+    protected RecyclerView.Adapter onCreateAdapter(PreferenceScreen preferenceScreen) {
+        mAdapter = createHighlightableAdapter(preferenceScreen);
+        return mAdapter;
+    }
+
+    /**
+     * Returns a HighlightablePreferenceGroupAdapter to be used as the RecyclerView.Adapter for
+     * this fragment. Subclasses can override this method to return their own
+     * HighlightablePreferenceGroupAdapter instance.
+     */
+    protected HighlightablePreferenceGroupAdapter createHighlightableAdapter(
+            PreferenceScreen preferenceScreen) {
+        return new HighlightablePreferenceGroupAdapter(preferenceScreen);
+    }
+
+    protected void requestPreferenceHighlight(String key) {
+        if (mAdapter != null) {
+            mAdapter.requestHighlight(getView(), getListView(), key);
+        }
+    }
+
+    protected void clearPreferenceHighlight() {
+        if (mAdapter != null) {
+            mAdapter.clearHighlight(getView());
+        }
     }
 
     /**
@@ -283,6 +322,11 @@ public abstract class SettingsFragment extends PreferenceFragment implements
         dialogFragment.show(getFragmentManager(), tag);
     }
 
+    @Override
+    public void showProgressBar(boolean visible) {
+        getToolbar().getProgressBar().setVisible(visible);
+    }
+
     @Nullable
     @Override
     public DialogFragment findDialogByTag(String tag) {
@@ -291,6 +335,12 @@ public abstract class SettingsFragment extends PreferenceFragment implements
             return (DialogFragment) fragment;
         }
         return null;
+    }
+
+    @NonNull
+    @Override
+    public Lifecycle getSettingsLifecycle() {
+        return getLifecycle();
     }
 
     @Override
@@ -326,9 +376,19 @@ public abstract class SettingsFragment extends PreferenceFragment implements
         }
     }
 
+    @Override
+    protected ToolbarController getPreferenceToolbar(@NonNull Fragment fragment) {
+        return getToolbar();
+    }
+
+    @Override
+    protected Insets getPreferenceInsets(@NonNull Fragment fragment) {
+        return null;
+    }
+
     // Allocates the next available startActivityForResult request index.
     private int allocateRequestIndex(ActivityResultCallback callback) {
-        // Sanity check that we haven't exhausted the request index space.
+        // Check that we haven't exhausted the request index space.
         if (mActivityResultCallbackMap.size() >= MAX_NUM_PENDING_ACTIVITY_RESULT_CALLBACKS) {
             throw new IllegalStateException(
                     "Too many pending activity result callbacks.");

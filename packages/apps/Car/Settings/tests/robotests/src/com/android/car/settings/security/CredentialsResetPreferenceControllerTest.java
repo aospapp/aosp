@@ -19,7 +19,7 @@ package com.android.car.settings.security;
 import static android.os.UserManager.DISALLOW_CONFIG_CREDENTIALS;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
-import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_USER;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -71,7 +71,7 @@ public class CredentialsResetPreferenceControllerTest {
 
 
         assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
-                DISABLED_FOR_USER);
+                DISABLED_FOR_PROFILE);
     }
 
     private ShadowUserManager getShadowUserManager() {

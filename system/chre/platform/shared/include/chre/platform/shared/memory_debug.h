@@ -88,7 +88,7 @@ inline void *debugAlloc(MemoryAllocFunction *allocFunc, size_t size) {
 
 /**
  * Free memory previously allocated from debugAlloc, but first perform some
- * sanity checks, triggering ERR_FATAL if they fail.
+ * consistency checks, triggering ERR_FATAL if they fail.
  *
  * @param freeFunc Function to call to actually free memory (e.g. free)
  * @param pointer Pointer previously returned by debugAlloc

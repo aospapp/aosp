@@ -3,6 +3,9 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := android.hardware.gnss@1.1-impl-qti
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_SANITIZE += $(GNSS_SANITIZE)
 # activate the following line for debug purposes only, comment out for production
 #LOCAL_SANITIZE_DIAG += $(GNSS_SANITIZE_DIAG)
@@ -60,6 +63,9 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := android.hardware.gnss@1.1-service-qti
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_SANITIZE += $(GNSS_SANITIZE)
 # activate the following line for debug purposes only, comment out for production
 #LOCAL_SANITIZE_DIAG += $(GNSS_SANITIZE_DIAG)

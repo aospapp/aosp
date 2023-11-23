@@ -14,6 +14,29 @@
 //
 //
 
+package {
+    default_applicable_licenses: ["external_junit_license"],
+}
+
+// Added automatically by a large-scale-change
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_junit_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-EPL",
+    ],
+    license_text: [
+        "LICENSE-junit.txt",
+        "NOTICE.txt",
+    ],
+}
+
 java_library_static {
     name: "junit",
     host_supported: true,
@@ -21,11 +44,6 @@ java_library_static {
     srcs: ["src/main/java/**/*.java"],
     sdk_version: "core_current",
     static_libs: ["hamcrest"],
-
-    // Pin to Java language level 8. It is loaded by an OpenJDK 8 runtime from
-    // prebuilts/studio/jdk in frameworks/layoutlib/bridge/tests/run_tests.sh.
-    // See b/141970724.
-    java_version: "1.8",
 }
 
 // Legacy junit-host jar until references are updated

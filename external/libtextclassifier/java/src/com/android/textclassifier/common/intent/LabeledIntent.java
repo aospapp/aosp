@@ -29,6 +29,7 @@ import androidx.core.app.RemoteActionCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.IconCompat;
 import com.android.textclassifier.common.base.TcLog;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import javax.annotation.Nullable;
 
@@ -94,8 +95,26 @@ public final class LabeledIntent {
     final ResolveInfo resolveInfo = pm.resolveActivity(intent, 0);
 
     if (resolveInfo == null || resolveInfo.activityInfo == null) {
-      TcLog.w(TAG, "resolveInfo or activityInfo is null");
-      return null;
+      // Failed to resolve the intent. It could be because there are no apps to handle
+      // the intent. It could be also because the calling app has no visibility to the target app
+      // due to the app visibility feature introduced on R. For privacy reason, we don't want to
+      // force users of our library to ask for the visibility to the http/https view intent.
+      // Getting visibility to this intent effectively means getting visibility of ~70% of apps.
+      // This defeats the purpose of the app visibility feature. Practically speaking, all devices
+      // are very likely to have a browser installed. Thus, if it is a web intent, we assume we
+      // failed to resolve the intent just because of the app visibility feature. In which case, we
+      // return an implicit intent without an icon.
+      if (isWebIntent()) {
+        IconCompat icon = IconCompat.createWithResource(context, android.R.drawable.ic_menu_more);
+        RemoteActionCompat action =
+            createRemoteAction(
+                context, intent, icon, /* shouldShowIcon= */ false, resolveInfo, titleChooser);
+        // Create a clone so that the client does not modify the original intent.
+        return new Result(new Intent(intent), action);
+      } else {
+        TcLog.w(TAG, "resolveInfo or activityInfo is null");
+        return null;
+      }
     }
     if (!hasPermission(context, resolveInfo.activityInfo)) {
       TcLog.d(TAG, "No permission to access: " + resolveInfo.activityInfo);
@@ -126,6 +145,19 @@ public final class LabeledIntent {
       // RemoteAction requires that there be an icon.
       icon = IconCompat.createWithResource(context, android.R.drawable.ic_menu_more);
     }
+    RemoteActionCompat action =
+        createRemoteAction(
+            context, resolvedIntent, icon, shouldShowIcon, resolveInfo, titleChooser);
+    return new Result(resolvedIntent, action);
+  }
+
+  private RemoteActionCompat createRemoteAction(
+      Context context,
+      Intent resolvedIntent,
+      IconCompat icon,
+      boolean shouldShowIcon,
+      @Nullable ResolveInfo resolveInfo,
+      @Nullable TitleChooser titleChooser) {
     final PendingIntent pendingIntent = createPendingIntent(context, resolvedIntent, requestCode);
     titleChooser = titleChooser == null ? DEFAULT_TITLE_CHOOSER : titleChooser;
     CharSequence title = titleChooser.chooseTitle(this, resolveInfo);
@@ -134,12 +166,25 @@ public final class LabeledIntent {
       title = DEFAULT_TITLE_CHOOSER.chooseTitle(this, resolveInfo);
     }
     final RemoteActionCompat action =
-        new RemoteActionCompat(icon, title, resolveDescription(resolveInfo, pm), pendingIntent);
+        new RemoteActionCompat(
+            icon,
+            title,
+            resolveDescription(resolveInfo, context.getPackageManager()),
+            pendingIntent);
     action.setShouldShowIcon(shouldShowIcon);
-    return new Result(resolvedIntent, action);
+    return action;
   }
 
-  private String resolveDescription(ResolveInfo resolveInfo, PackageManager packageManager) {
+  private boolean isWebIntent() {
+    if (!Intent.ACTION_VIEW.equals(intent.getAction())) {
+      return false;
+    }
+    final String scheme = intent.getScheme();
+    return Objects.equal(scheme, "http") || Objects.equal(scheme, "https");
+  }
+
+  private String resolveDescription(
+      @Nullable ResolveInfo resolveInfo, PackageManager packageManager) {
     if (!TextUtils.isEmpty(descriptionWithAppName)) {
       // Example string format of descriptionWithAppName: "Use %1$s to open map".
       String applicationName = getApplicationName(resolveInfo, packageManager);
@@ -165,12 +210,16 @@ public final class LabeledIntent {
   private static PendingIntent createPendingIntent(
       final Context context, final Intent intent, int requestCode) {
     return PendingIntent.getActivity(
-        context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        context,
+        requestCode,
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
   }
 
   @Nullable
-  private static String getApplicationName(ResolveInfo resolveInfo, PackageManager packageManager) {
-    if (resolveInfo.activityInfo == null) {
+  private static String getApplicationName(
+      @Nullable ResolveInfo resolveInfo, PackageManager packageManager) {
+    if (resolveInfo == null || resolveInfo.activityInfo == null) {
       return null;
     }
     if ("android".equals(resolveInfo.activityInfo.packageName)) {
@@ -214,6 +263,6 @@ public final class LabeledIntent {
      * is guaranteed to have a non-null {@code activityInfo}.
      */
     @Nullable
-    CharSequence chooseTitle(LabeledIntent labeledIntent, ResolveInfo resolveInfo);
+    CharSequence chooseTitle(LabeledIntent labeledIntent, @Nullable ResolveInfo resolveInfo);
   }
 }

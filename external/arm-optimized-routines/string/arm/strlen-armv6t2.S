@@ -1,9 +1,11 @@
 /*
  * strlen - calculate the length of a string
  *
- * Copyright (c) 2010, Arm Limited.
+ * Copyright (c) 2010-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
+
+#if __ARM_ARCH >= 6 && __ARM_ARCH_ISA_THUMB == 2
 
 /*
    Assumes:
@@ -118,3 +120,5 @@ L(misaligned8):
 	b	L(start_realigned)
 
 END (__strlen_armv6t2)
+
+#endif /* __ARM_ARCH >= 6 && __ARM_ARCH_ISA_THUMB == 2  */

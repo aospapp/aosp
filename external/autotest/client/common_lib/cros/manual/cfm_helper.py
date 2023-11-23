@@ -11,6 +11,7 @@ import re
 import time
 import common
 from autotest_lib.client.common_lib.cros.manual import get_usb_devices
+from autotest_lib.client.common_lib.cros import cros_config
 from autotest_lib.client.common_lib.cros import power_cycle_usb_util
 
 CORE_DIR_LINES = 3
@@ -60,9 +61,10 @@ def check_is_platform(dut, name):
     @returns: True, if CfM's platform is same as expected.
               False, if not.
     """
-    cmd = "mosys platform name"
-    output = dut.run(cmd, ignore_status=True).stdout.strip()
-    logging.info('---cmd: %s', cmd)
+    cros_config_args = '/identity platform-name'
+    output = cros_config.call_cros_config_get_output(cros_config_args,
+            dut.run, ignore_status=True)
+    logging.info('---cmd: cros_config %s', cros_config_args)
     logging.info('---output: %s', output.lower())
     return output.lower() == name
 

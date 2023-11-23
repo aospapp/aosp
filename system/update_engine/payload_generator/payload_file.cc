@@ -25,6 +25,7 @@
 #include <base/strings/stringprintf.h>
 
 #include "update_engine/common/hash_calculator.h"
+#include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/delta_performer.h"
 #include "update_engine/payload_consumer/file_writer.h"
 #include "update_engine/payload_consumer/payload_constants.h"
@@ -64,40 +65,46 @@ bool PayloadFile::Init(const PayloadGenerationConfig& config) {
   TEST_AND_RETURN_FALSE(config.version.Validate());
   major_version_ = config.version.major;
   manifest_.set_minor_version(config.version.minor);
-
-  if (!config.source.ImageInfoIsEmpty())
-    *(manifest_.mutable_old_image_info()) = config.source.image_info;
-
-  if (!config.target.ImageInfoIsEmpty())
-    *(manifest_.mutable_new_image_info()) = config.target.image_info;
-
   manifest_.set_block_size(config.block_size);
   manifest_.set_max_timestamp(config.max_timestamp);
 
-  if (major_version_ == kBrilloMajorPayloadVersion) {
-    if (config.target.dynamic_partition_metadata != nullptr)
-      *(manifest_.mutable_dynamic_partition_metadata()) =
-          *(config.target.dynamic_partition_metadata);
+  if (config.target.dynamic_partition_metadata != nullptr)
+    *(manifest_.mutable_dynamic_partition_metadata()) =
+        *(config.target.dynamic_partition_metadata);
+
+  if (config.is_partial_update) {
+    manifest_.set_partial_update(true);
   }
 
+  if (!config.apex_info_file.empty()) {
+    ApexMetadata apex_metadata;
+    int fd = open(config.apex_info_file.c_str(), O_RDONLY);
+    if (fd < 0) {
+      PLOG(FATAL) << "Failed to open " << config.apex_info_file << " for read.";
+    }
+    ScopedFdCloser closer{&fd};
+    CHECK(apex_metadata.ParseFromFileDescriptor(fd));
+    if (apex_metadata.apex_info_size() > 0) {
+      *manifest_.mutable_apex_info() =
+          std::move(*apex_metadata.mutable_apex_info());
+    }
+  }
   return true;
 }
 
 bool PayloadFile::AddPartition(const PartitionConfig& old_conf,
                                const PartitionConfig& new_conf,
-                               const vector<AnnotatedOperation>& aops) {
-  // Check partitions order for Chrome OS
-  if (major_version_ == kChromeOSMajorPayloadVersion) {
-    const vector<const char*> part_order = {kPartitionNameRoot,
-                                            kPartitionNameKernel};
-    TEST_AND_RETURN_FALSE(part_vec_.size() < part_order.size());
-    TEST_AND_RETURN_FALSE(new_conf.name == part_order[part_vec_.size()]);
-  }
+                               vector<AnnotatedOperation> aops,
+                               vector<CowMergeOperation> merge_sequence,
+                               size_t cow_size) {
   Partition part;
+  part.cow_size = cow_size;
   part.name = new_conf.name;
-  part.aops = aops;
+  part.aops = std::move(aops);
+  part.cow_merge_sequence = std::move(merge_sequence);
   part.postinstall = new_conf.postinstall;
   part.verity = new_conf.verity;
+  part.version = new_conf.version;
   // Initialize the PartitionInfo objects if present.
   if (!old_conf.path.empty())
     TEST_AND_RETURN_FALSE(
@@ -113,11 +120,9 @@ bool PayloadFile::WritePayload(const string& payload_file,
                                const string& private_key_path,
                                uint64_t* metadata_size_out) {
   // Reorder the data blobs with the manifest_.
-  string ordered_blobs_path;
-  TEST_AND_RETURN_FALSE(utils::MakeTempFile(
-      "CrAU_temp_data.ordered.XXXXXX", &ordered_blobs_path, nullptr));
-  ScopedPathUnlinker ordered_blobs_unlinker(ordered_blobs_path);
-  TEST_AND_RETURN_FALSE(ReorderDataBlobs(data_blobs_path, ordered_blobs_path));
+  ScopedTempFile ordered_blobs_file("CrAU_temp_data.ordered.XXXXXX");
+  TEST_AND_RETURN_FALSE(
+      ReorderDataBlobs(data_blobs_path, ordered_blobs_file.path()));
 
   // Check that install op blobs are in order.
   uint64_t next_blob_offset = 0;
@@ -134,75 +139,61 @@ bool PayloadFile::WritePayload(const string& payload_file,
   }
 
   // Copy the operations and partition info from the part_vec_ to the manifest.
-  manifest_.clear_install_operations();
-  manifest_.clear_kernel_install_operations();
   manifest_.clear_partitions();
   for (const auto& part : part_vec_) {
-    if (major_version_ == kBrilloMajorPayloadVersion) {
-      PartitionUpdate* partition = manifest_.add_partitions();
-      partition->set_partition_name(part.name);
-      if (part.postinstall.run) {
-        partition->set_run_postinstall(true);
-        if (!part.postinstall.path.empty())
-          partition->set_postinstall_path(part.postinstall.path);
-        if (!part.postinstall.filesystem_type.empty())
-          partition->set_filesystem_type(part.postinstall.filesystem_type);
-        partition->set_postinstall_optional(part.postinstall.optional);
+    PartitionUpdate* partition = manifest_.add_partitions();
+    partition->set_partition_name(part.name);
+    if (!part.version.empty()) {
+      partition->set_version(part.version);
+    }
+    if (part.cow_size > 0) {
+      partition->set_estimate_cow_size(part.cow_size);
+    }
+    if (part.postinstall.run) {
+      partition->set_run_postinstall(true);
+      if (!part.postinstall.path.empty())
+        partition->set_postinstall_path(part.postinstall.path);
+      if (!part.postinstall.filesystem_type.empty())
+        partition->set_filesystem_type(part.postinstall.filesystem_type);
+      partition->set_postinstall_optional(part.postinstall.optional);
+    }
+    if (!part.verity.IsEmpty()) {
+      if (part.verity.hash_tree_extent.num_blocks() != 0) {
+        *partition->mutable_hash_tree_data_extent() =
+            part.verity.hash_tree_data_extent;
+        *partition->mutable_hash_tree_extent() = part.verity.hash_tree_extent;
+        partition->set_hash_tree_algorithm(part.verity.hash_tree_algorithm);
+        if (!part.verity.hash_tree_salt.empty())
+          partition->set_hash_tree_salt(part.verity.hash_tree_salt.data(),
+                                        part.verity.hash_tree_salt.size());
       }
-      if (!part.verity.IsEmpty()) {
-        if (part.verity.hash_tree_extent.num_blocks() != 0) {
-          *partition->mutable_hash_tree_data_extent() =
-              part.verity.hash_tree_data_extent;
-          *partition->mutable_hash_tree_extent() = part.verity.hash_tree_extent;
-          partition->set_hash_tree_algorithm(part.verity.hash_tree_algorithm);
-          if (!part.verity.hash_tree_salt.empty())
-            partition->set_hash_tree_salt(part.verity.hash_tree_salt.data(),
-                                          part.verity.hash_tree_salt.size());
-        }
-        if (part.verity.fec_extent.num_blocks() != 0) {
-          *partition->mutable_fec_data_extent() = part.verity.fec_data_extent;
-          *partition->mutable_fec_extent() = part.verity.fec_extent;
-          partition->set_fec_roots(part.verity.fec_roots);
-        }
-      }
-      for (const AnnotatedOperation& aop : part.aops) {
-        *partition->add_operations() = aop.op;
-      }
-      if (part.old_info.has_size() || part.old_info.has_hash())
-        *(partition->mutable_old_partition_info()) = part.old_info;
-      if (part.new_info.has_size() || part.new_info.has_hash())
-        *(partition->mutable_new_partition_info()) = part.new_info;
-    } else {
-      // major_version_ == kChromeOSMajorPayloadVersion
-      if (part.name == kPartitionNameKernel) {
-        for (const AnnotatedOperation& aop : part.aops)
-          *manifest_.add_kernel_install_operations() = aop.op;
-        if (part.old_info.has_size() || part.old_info.has_hash())
-          *manifest_.mutable_old_kernel_info() = part.old_info;
-        if (part.new_info.has_size() || part.new_info.has_hash())
-          *manifest_.mutable_new_kernel_info() = part.new_info;
-      } else {
-        for (const AnnotatedOperation& aop : part.aops)
-          *manifest_.add_install_operations() = aop.op;
-        if (part.old_info.has_size() || part.old_info.has_hash())
-          *manifest_.mutable_old_rootfs_info() = part.old_info;
-        if (part.new_info.has_size() || part.new_info.has_hash())
-          *manifest_.mutable_new_rootfs_info() = part.new_info;
+      if (part.verity.fec_extent.num_blocks() != 0) {
+        *partition->mutable_fec_data_extent() = part.verity.fec_data_extent;
+        *partition->mutable_fec_extent() = part.verity.fec_extent;
+        partition->set_fec_roots(part.verity.fec_roots);
       }
     }
+    for (const AnnotatedOperation& aop : part.aops) {
+      *partition->add_operations() = aop.op;
+    }
+    for (const auto& merge_op : part.cow_merge_sequence) {
+      *partition->add_merge_operations() = merge_op;
+    }
+
+    if (part.old_info.has_size() || part.old_info.has_hash())
+      *(partition->mutable_old_partition_info()) = part.old_info;
+    if (part.new_info.has_size() || part.new_info.has_hash())
+      *(partition->mutable_new_partition_info()) = part.new_info;
   }
 
   // Signatures appear at the end of the blobs. Note the offset in the
-  // manifest_.
+  // |manifest_|.
   uint64_t signature_blob_length = 0;
   if (!private_key_path.empty()) {
     TEST_AND_RETURN_FALSE(PayloadSigner::SignatureBlobLength(
         {private_key_path}, &signature_blob_length));
     PayloadSigner::AddSignatureToManifest(
-        next_blob_offset,
-        signature_blob_length,
-        major_version_ == kChromeOSMajorPayloadVersion,
-        &manifest_);
+        next_blob_offset, signature_blob_length, &manifest_);
   }
 
   // Serialize protobuf
@@ -229,18 +220,14 @@ bool PayloadFile::WritePayload(const string& payload_file,
   TEST_AND_RETURN_FALSE(
       WriteUint64AsBigEndian(&writer, serialized_manifest.size()));
 
-  // Write metadata signature size.
-  uint32_t metadata_signature_size = 0;
-  if (major_version_ == kBrilloMajorPayloadVersion) {
-    // Metadata signature has the same size as payload signature, because they
-    // are both the same kind of signature for the same kind of hash.
-    uint32_t metadata_signature_size = htobe32(signature_blob_length);
-    TEST_AND_RETURN_FALSE_ERRNO(writer.Write(&metadata_signature_size,
-                                             sizeof(metadata_signature_size)));
-    metadata_size += sizeof(metadata_signature_size);
-    // Set correct size instead of big endian size.
-    metadata_signature_size = signature_blob_length;
-  }
+  // Metadata signature has the same size as payload signature, because they
+  // are both the same kind of signature for the same kind of hash.
+  uint32_t metadata_signature_size = htobe32(signature_blob_length);
+  TEST_AND_RETURN_FALSE_ERRNO(
+      writer.Write(&metadata_signature_size, sizeof(metadata_signature_size)));
+  metadata_size += sizeof(metadata_signature_size);
+  // Set correct size instead of big endian size.
+  metadata_signature_size = signature_blob_length;
 
   // Write protobuf
   LOG(INFO) << "Writing final delta file protobuf... "
@@ -249,8 +236,7 @@ bool PayloadFile::WritePayload(const string& payload_file,
       writer.Write(serialized_manifest.data(), serialized_manifest.size()));
 
   // Write metadata signature blob.
-  if (major_version_ == kBrilloMajorPayloadVersion &&
-      !private_key_path.empty()) {
+  if (!private_key_path.empty()) {
     brillo::Blob metadata_hash;
     TEST_AND_RETURN_FALSE(HashCalculator::RawHashOfFile(
         payload_file, metadata_size, &metadata_hash));
@@ -261,9 +247,9 @@ bool PayloadFile::WritePayload(const string& payload_file,
         writer.Write(metadata_signature.data(), metadata_signature.size()));
   }
 
-  // Append the data blobs
+  // Append the data blobs.
   LOG(INFO) << "Writing final delta file data blobs...";
-  int blobs_fd = open(ordered_blobs_path.c_str(), O_RDONLY, 0);
+  int blobs_fd = open(ordered_blobs_file.path().c_str(), O_RDONLY, 0);
   ScopedFdCloser blobs_fd_closer(&blobs_fd);
   TEST_AND_RETURN_FALSE(blobs_fd >= 0);
   for (;;) {

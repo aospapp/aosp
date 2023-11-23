@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -251,7 +252,7 @@ class _SpecialTaskAction(object):
         if name in cls._priorities:
             return cls._priorities.index(name)
         else:
-            return sys.maxint
+            return sys.maxsize
 
 
 class Verify(_SpecialTaskAction):
@@ -297,23 +298,28 @@ class Provision(_SpecialTaskAction):
     # Create some way to discover and register provisioning tests so that we
     # don't need to hand-maintain a list of all of them.
     _actions = {
-        CROS_VERSION_PREFIX: actionables.TestActionable(
-                'provision_AutoUpdate',
-                extra_kwargs={'disable_sysinfo': False,
-                              'disable_before_test_sysinfo': False,
-                              'disable_before_iteration_sysinfo': True,
-                              'disable_after_test_sysinfo': True,
-                              'disable_after_iteration_sysinfo': True}),
-        CROS_ANDROID_VERSION_PREFIX : actionables.TestActionable(
-                'provision_CheetsUpdate'),
-        FW_RO_VERSION_PREFIX: actionables.TestActionable(
-                'provision_FirmwareUpdate'),
-        FW_RW_VERSION_PREFIX: actionables.TestActionable(
-                'provision_FirmwareUpdate',
-                extra_kwargs={'rw_only': True,
-                              'tag': 'rw_only'}),
-        FW_CR50_RW_VERSION_PREFIX: actionables.TestActionable(
-                'provision_Cr50TOT')
+            CROS_VERSION_PREFIX:
+            actionables.TestActionable(
+                    'provision_QuickProvision',
+                    extra_kwargs={
+                            'disable_sysinfo': False,
+                            'disable_before_test_sysinfo': False,
+                            'disable_before_iteration_sysinfo': True,
+                            'disable_after_test_sysinfo': True,
+                            'disable_after_iteration_sysinfo': True
+                    }),
+            CROS_ANDROID_VERSION_PREFIX:
+            actionables.TestActionable('provision_CheetsUpdate'),
+            FW_RO_VERSION_PREFIX:
+            actionables.TestActionable('provision_FirmwareUpdate'),
+            FW_RW_VERSION_PREFIX:
+            actionables.TestActionable('provision_FirmwareUpdate',
+                                       extra_kwargs={
+                                               'rw_only': True,
+                                               'tag': 'rw_only'
+                                       }),
+            FW_CR50_RW_VERSION_PREFIX:
+            actionables.TestActionable('provision_Cr50TOT')
     }
 
     name = 'provision'

@@ -261,6 +261,51 @@ public class ImsMmTelManagerTest {
     }
 
     /**
+     * Set the cross SIM setting and ensure it is queried successfully.
+     * Also ensure the ContentObserver is triggered properly.
+     */
+    @Test
+    public void testCrossSIMSetting() throws Exception {
+        PersistableBundle bundle = new PersistableBundle();
+        // Do not worry about provisioning for this test
+        bundle.putBoolean(KEY_CARRIER_VOLTE_OVERRIDE_WFC_PROVISIONING_BOOL, false);
+        bundle.putBoolean(CarrierConfigManager.KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL, false);
+        overrideCarrierConfig(bundle);
+        // Register Observer
+        Uri callingUri = Uri.withAppendedPath(
+                SubscriptionManager.CROSS_SIM_ENABLED_CONTENT_URI, "" + sTestSub);
+        CountDownLatch contentObservedLatch = new CountDownLatch(1);
+        ContentObserver observer = createObserver(callingUri, contentObservedLatch);
+
+        ImsManager imsManager = getContext().getSystemService(ImsManager.class);
+        ImsMmTelManager mMmTelManager = imsManager.getImsMmTelManager(sTestSub);
+
+        boolean isEnabled = ShellIdentityUtils.invokeThrowableMethodWithShellPermissions(
+                mMmTelManager, ImsMmTelManager::isCrossSimCallingEnabled, ImsException.class,
+                "android.permission.READ_PRIVILEGED_PHONE_STATE");
+        ShellIdentityUtils.invokeThrowableMethodWithShellPermissionsNoReturn(mMmTelManager,
+                (m) -> m.setCrossSimCallingEnabled(!isEnabled),  ImsException.class,
+                "android.permission.MODIFY_PHONE_STATE");
+
+        waitForLatch(contentObservedLatch, observer);
+        boolean isEnabledResult = ShellIdentityUtils.invokeThrowableMethodWithShellPermissions(
+                mMmTelManager,
+                ImsMmTelManager::isCrossSimCallingEnabled,
+                ImsException.class,
+                "android.permission.READ_PRIVILEGED_PHONE_STATE");
+        assertEquals("isCrossSimCallingEnabled did not match"
+                        + "value set by setCrossSimCallingEnabled",
+                !isEnabled, isEnabledResult);
+
+        // Set back to default
+        ShellIdentityUtils.invokeThrowableMethodWithShellPermissionsNoReturn(mMmTelManager,
+                (m) -> m.setCrossSimCallingEnabled(isEnabled),
+                ImsException.class,
+                "android.permission.MODIFY_PHONE_STATE");
+        overrideCarrierConfig(null);
+    }
+
+    /**
      * Set the VoWiFi roaming setting and ensure it is queried successfully. Also ensure the
      * ContentObserver is triggered properly.
      */

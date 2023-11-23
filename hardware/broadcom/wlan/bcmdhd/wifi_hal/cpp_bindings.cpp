@@ -619,7 +619,7 @@ int WifiCommand::requestResponse() {
 
 int WifiCommand::requestResponse(WifiRequest& request) {
     pthread_mutex_lock(&ResponseMutex);
-    int err = 0, res = 0;
+    int err = 0;
 
     struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb)

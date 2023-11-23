@@ -34,7 +34,7 @@
 #include <sys/user.h>
 
 #include "client/linux/dump_writer_common/raw_context_cpu.h"
-#include "common/memory.h"
+#include "common/memory_allocator.h"
 #include "google_breakpad/common/minidump_format.h"
 
 namespace google_breakpad {
@@ -65,15 +65,12 @@ struct ThreadInfo {
   struct user_regs regs;
   struct user_fpregs fpregs;
 #elif defined(__aarch64__)
-  // Use the structures defined in <asm/ptrace.h>
-  struct user_pt_regs regs;
-  struct user_fpsimd_state fpregs;
+  // Use the structures defined in <sys/user.h>
+  struct user_regs_struct regs;
+  struct user_fpsimd_struct fpregs;
 #elif defined(__mips__)
-  user_regs_struct regs;
-  user_fpregs_struct fpregs;
-  uint32_t hi[3];
-  uint32_t lo[3];
-  uint32_t dsp_control;
+  // Use the structure defined in <sys/ucontext.h>.
+  mcontext_t mcontext;
 #endif
 
   // Returns the instruction pointer (platform-dependent impl.).
@@ -81,6 +78,12 @@ struct ThreadInfo {
 
   // Fills a RawContextCPU using the context in the ThreadInfo object.
   void FillCPUContext(RawContextCPU* out) const;
+
+  // Returns the pointer and size of general purpose register area.
+  void GetGeneralPurposeRegisters(void** gp_regs, size_t* size);
+
+  // Returns the pointer and size of float point register area.
+  void GetFloatingPointRegisters(void** fp_regs, size_t* size);
 };
 
 }  // namespace google_breakpad

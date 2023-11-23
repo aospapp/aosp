@@ -30,6 +30,9 @@ include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_MODULE := gtest
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE $(LOCAL_PATH)/../../PATENTS
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/third_party/googletest/src/
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/third_party/googletest/src/include/
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/third_party/googletest/src/include/
@@ -40,6 +43,9 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE := libvpx_test
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE $(LOCAL_PATH)/../../PATENTS
 LOCAL_STATIC_LIBRARIES := gtest libwebm
 
 ifeq ($(ENABLE_SHARED),1)

@@ -109,10 +109,17 @@ class IdeUtilCommonUnittests(unittest.TestCase):
         test_project_path = 'xyz/.idea'
         test_result = ' '.join([
             constant.NOHUP, test_script_path, test_project_path,
-            constant.IGNORE_STD_OUT_ERR_CMD
+            constant.IGNORE_STD_OUT_ERR_CMD, '&'
         ])
         self.assertEqual(test_result, ide_common_util.get_run_ide_cmd(
             test_script_path, test_project_path))
+        folk_new_process = False
+        test_result = ' '.join([
+            constant.NOHUP, test_script_path, test_project_path,
+            constant.IGNORE_STD_OUT_ERR_CMD, ''
+        ])
+        self.assertEqual(test_result, ide_common_util.get_run_ide_cmd(
+            test_script_path, test_project_path, folk_new_process))
 
     @mock.patch('builtins.sorted')
     @mock.patch('glob.glob')

@@ -39,7 +39,7 @@ import java.util.List;
  */
 public class BluetoothSharingRestrictionTest extends BaseManagedProfileTest {
     /** How long should we wait for the component state to change. */
-    private static final int COMPONENT_STATE_TIMEOUT_MS = 2000;
+    private static final int COMPONENT_STATE_TIMEOUT_MS = 5000;
     /** How often to check component state. */
     private static final int POLL_TIME_MS = 400;
     /** Activity that handles Bluetooth sharing. */

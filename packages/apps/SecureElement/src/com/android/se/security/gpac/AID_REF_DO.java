@@ -114,7 +114,7 @@ public class AID_REF_DO extends BerTlv {
             }
         } else if (getTag() == TAG) {
 
-            // sanity checks
+            // quick checks
             if ((getValueLength() < 5 || getValueLength() > 16) && getValueLength() != 0) {
                 throw new ParserException("Invalid value length for AID-REF-DO!");
             }
@@ -151,7 +151,7 @@ public class AID_REF_DO extends BerTlv {
             stream.write(0x00);
         } else if (getTag() == TAG) {
 
-            // sanity check
+            // quick check
             if (getValueLength() != 0) {
                 if (getValueLength() < 5 || getValueLength() > 16) {
                     throw new DO_Exception("Invalid length of AID!");

@@ -16,11 +16,11 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.GridActivity.ID_L1C1;
-import static android.autofillservice.cts.GridActivity.ID_L1C2;
-import static android.autofillservice.cts.Helper.assertEqualsIgnoreSession;
-import static android.autofillservice.cts.Helper.assertTextIsSanitized;
-import static android.autofillservice.cts.Helper.findNodeByResourceId;
+import static android.autofillservice.cts.activities.GridActivity.ID_L1C1;
+import static android.autofillservice.cts.activities.GridActivity.ID_L1C2;
+import static android.autofillservice.cts.testcore.Helper.assertEqualsIgnoreSession;
+import static android.autofillservice.cts.testcore.Helper.assertTextIsSanitized;
+import static android.autofillservice.cts.testcore.Helper.findNodeByResourceId;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -29,10 +29,12 @@ import static org.testng.Assert.assertThrows;
 
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
-import android.autofillservice.cts.CannedFillResponse.CannedDataset;
-import android.autofillservice.cts.GridActivity.FillExpectation;
-import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
-import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
+import android.autofillservice.cts.activities.GridActivity.FillExpectation;
+import android.autofillservice.cts.commontests.AbstractGridActivityTestCase;
+import android.autofillservice.cts.testcore.CannedFillResponse;
+import android.autofillservice.cts.testcore.CannedFillResponse.CannedDataset;
+import android.autofillservice.cts.testcore.InstrumentedAutoFillService.FillRequest;
+import android.autofillservice.cts.testcore.InstrumentedAutoFillService.SaveRequest;
 import android.service.autofill.FillContext;
 import android.support.test.uiautomator.UiObject2;
 import android.util.Log;

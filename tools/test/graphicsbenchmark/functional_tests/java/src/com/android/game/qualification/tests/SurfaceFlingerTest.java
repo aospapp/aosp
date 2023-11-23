@@ -73,9 +73,9 @@ public class SurfaceFlingerTest {
             // because the latch time is slightly before the actual condition check in the
             // surface flinger.
             assertWithMessage(
-                    "SurfaceFlinger must latch after GPU work is completed for the frame")
+                    "latch time: SurfaceFlinger must latch after GPU work is completed for the "
+                        + "frame")
                     .that(latchTimes[i])
-                    .named("latch time")
                     .isGreaterThan(readyTimes[i] - 100_000);
         }
     }

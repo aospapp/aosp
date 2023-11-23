@@ -17,7 +17,7 @@
 package android.security.cts;
 
 import android.graphics.BitmapFactory;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 
 import android.security.cts.R;
@@ -25,7 +25,6 @@ import android.security.cts.R;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 
-@SecurityTest
 public class BitmapFactoryDecodeStreamTest extends AndroidTestCase {
     /*
      * This test case reproduces the bug in CVE-2015-1532.
@@ -33,7 +32,7 @@ public class BitmapFactoryDecodeStreamTest extends AndroidTestCase {
      * to heap corruption by trying to open a crafted PNG image with incorrect
      * npTc chunk.
      */
-    @SecurityTest(minPatchLevel = "2015-01")
+    @AsbSecurityTest(cveBugId = 19151999)
     public void testNinePatchHeapOverflow() throws Exception {
         InputStream inStream = new BufferedInputStream(mContext.getResources().openRawResource(
                 R.raw.cve_2015_1532));
@@ -41,14 +40,14 @@ public class BitmapFactoryDecodeStreamTest extends AndroidTestCase {
 
     }
 
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 36724453)
     public void testPocCVE_2017_0691() throws Exception {
         InputStream exploitImage = new BufferedInputStream(mContext.getResources().openRawResource(
                 R.raw.cve_2017_0691));
         BitmapFactory.decodeStream(exploitImage);
     }
 
-    @SecurityTest(minPatchLevel = "2017-12")
+    @AsbSecurityTest(cveBugId = 65290323)
     public void test_b65290323() throws Exception {
         InputStream exploitImage = new BufferedInputStream(mContext.getResources().openRawResource(
                 R.raw.b65290323));

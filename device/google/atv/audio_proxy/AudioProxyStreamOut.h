@@ -24,7 +24,7 @@
 #include "public/audio_proxy.h"
 
 namespace audio_proxy {
-namespace CPP_VERSION {
+namespace AUDIO_PROXY_CPP_VERSION {
 
 using ::android::hardware::hidl_bitfield;
 using ::android::hardware::hidl_string;
@@ -86,5 +86,5 @@ class AudioProxyStreamOut final {
   audio_proxy_device_t* const mDevice;
 };
 
-}  // namespace CPP_VERSION
+}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

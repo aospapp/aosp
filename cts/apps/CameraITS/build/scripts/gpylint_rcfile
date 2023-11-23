@@ -13,10 +13,12 @@ confidence=
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
-disable=design,similarities,no-self-use,attribute-defined-outside-init,locally-disabled,star-args,pointless-except,bad-option-value,global-statement,fixme,suppressed-message,useless-suppression, F0401, C6304, C0111
+disable=design,similarities,no-self-use,attribute-defined-outside-init,locally-disabled,star-args,pointless-except,bad-option-value,global-statement,fixme,suppressed-message,useless-suppression, F0401, C6304, C0111, C6115, C6203
 # F0401 ignores import errors since gpylint does not have the python paths
 # C6304 ignore Copyright line errors.
 # C0111 ignore Docstring at top of file.
+# C6115 ignore Raises documentation requirements.
+# C6203 ignore import order
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -224,9 +226,9 @@ overgeneral-exceptions=StandardError,Exception
 # Regexp for a line that is allowed to be longer than the limit.
 ignore-long-lines=(^\s*(import|from)\s|^__version__\s=\s['"]\$Id:|^\s*(# )?<?https?://\S+>?$)
 
-# String used as indentation unit. This is usually " " (4 spaces) or "\t" (1
+# String used as indentation unit. This is usually " " (2 spaces) or "\t" (1
 # tab).
-indent-string='    '
+indent-string='  '
 
 # Maximum number of characters on a single line.
 max-line-length=80
@@ -282,7 +284,7 @@ good-todo=# ?TODO\((?P<uid>[a-z][a-z0-9-]*)|b/(?P<bugid>[0-9]+)\):?
 
 # Number of spaces of indent required when the last token on the preceding line
 # is an open (, [, or {.
-indent-after-paren=8
+indent-after-paren=4
 
 # Minimum number of spaces between the end of a line and an inline comment.
 min-comment-space=2
@@ -378,14 +380,3 @@ zope=no
 
 
 [VARIABLES]
-
-# List of additional names supposed to be defined in builtins. Remember that
-# you should avoid to define new builtins when possible.
-additional-builtins=
-
-# A regular expression matching the beginning of the name of dummy variables
-# (i.e. not used).
-dummy-variables-rgx=^\*{0,2}(_$|unused_|dummy_)
-
-# Tells whether we should check for unused import in __init__ files.
-init-import=no

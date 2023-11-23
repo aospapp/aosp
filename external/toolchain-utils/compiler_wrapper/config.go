@@ -14,6 +14,8 @@ type config struct {
 	isAndroidWrapper bool
 	// Whether to use ccache.
 	useCCache bool
+	// Whether llvmNext wrapper.
+	useLlvmNext bool
 	// Flags to add to gcc and clang.
 	commonFlags []string
 	// Flags to add to gcc only.
@@ -27,6 +29,10 @@ type config struct {
 	rootRelPath string
 	// Directory to store errors that were prevented with -Wno-error.
 	newWarningsDir string
+	// Directory to store nits in when using `WITH_TIDY=tricium`.
+	triciumNitsDir string
+	// Directory to store crash artifacts in.
+	crashArtifactsDir string
 	// Version. Only used for printing via -print-cmd.
 	version string
 }
@@ -68,6 +74,10 @@ func getRealConfig() (*config, error) {
 	return config, nil
 }
 
+func isAndroidConfig() bool {
+	return ConfigName == "android"
+}
+
 func getConfig(configName string, useCCache bool, useLlvmNext bool, version string) (*config, error) {
 	cfg := config{}
 	switch configName {
@@ -83,17 +93,14 @@ func getConfig(configName string, useCCache bool, useLlvmNext bool, version stri
 		return nil, newErrorwithSourceLocf("unknown config name: %s", configName)
 	}
 	cfg.useCCache = useCCache
+	cfg.useLlvmNext = useLlvmNext
 	if useLlvmNext {
 		cfg.clangFlags = append(cfg.clangFlags, llvmNextFlags...)
+		cfg.clangPostFlags = append(cfg.clangPostFlags, llvmNextPostFlags...)
 	}
 	cfg.version = version
 	return &cfg, nil
 }
-
-// TODO: Enable test in config_test.go, once we have new llvm-next flags.
-var llvmNextFlags = []string{}
-
-var llvmNextPostFlags = []string{}
 
 // Full hardening.
 // Temporarily disable function splitting because of chromium:434751.
@@ -115,25 +122,33 @@ var crosHardenedConfig = &config{
 	// Temporarily add no-unknown-warning-option to deal with old clang versions.
 	// Temporarily disable Wsection since kernel gets a bunch of these. chromium:778867
 	// Disable "-faddrsig" since it produces object files that strip doesn't understand, chromium:915742.
+	// Pass "-fcommon" till the packages are fixed to work with new clang default
+	// "-fno-common", crbug.com/1060413.
+	// crbug.com/1103065: -grecord-gcc-switches pollutes the Goma cache;
+	//   removed that flag for now.
 	clangFlags: []string{
 		"-Qunused-arguments",
-		"-grecord-gcc-switches",
 		"-fno-addrsig",
+		"-fcommon",
 		"-Wno-tautological-constant-compare",
 		"-Wno-tautological-unsigned-enum-zero-compare",
 		"-Wno-unknown-warning-option",
 		"-Wno-section",
 		"-static-libgcc",
 		"-fuse-ld=lld",
-		"-Wno-reorder-init-list",
 		"-Wno-final-dtor-non-final-class",
-		"-Wno-return-stack-address",
 		"-Werror=poison-system-directories",
+		"-fexperimental-new-pass-manager",
+		"-Wno-compound-token-split-by-macro",
 	},
 	clangPostFlags: []string{
 		"-Wno-implicit-int-float-conversion",
+		"-Wno-compound-token-split-by-space",
+		"-Wno-string-concatenation",
 	},
-	newWarningsDir: "/tmp/fatal_clang_warnings",
+	newWarningsDir:    "/tmp/fatal_clang_warnings",
+	triciumNitsDir:    "/tmp/linting_output/clang-tidy",
+	crashArtifactsDir: "/tmp/clang_crash_diagnostics",
 }
 
 // Flags to be added to non-hardened toolchain.
@@ -156,15 +171,19 @@ var crosNonHardenedConfig = &config{
 		"-Wno-unknown-warning-option",
 		"-Wno-section",
 		"-static-libgcc",
-		"-Wno-reorder-init-list",
 		"-Wno-final-dtor-non-final-class",
-		"-Wno-return-stack-address",
 		"-Werror=poison-system-directories",
+		"-fexperimental-new-pass-manager",
+		"-Wno-compound-token-split-by-macro",
 	},
 	clangPostFlags: []string{
 		"-Wno-implicit-int-float-conversion",
+		"-Wno-compound-token-split-by-space",
+		"-Wno-string-concatenation",
 	},
-	newWarningsDir: "/tmp/fatal_clang_warnings",
+	newWarningsDir:    "/tmp/fatal_clang_warnings",
+	triciumNitsDir:    "/tmp/linting_output/clang-tidy",
+	crashArtifactsDir: "/tmp/clang_crash_diagnostics",
 }
 
 // Flags to be added to host toolchain.
@@ -179,34 +198,44 @@ var crosHostConfig = &config{
 	},
 	// Temporarily disable tautological-*-compare chromium:778316.
 	// Temporarily add no-unknown-warning-option to deal with old clang versions.
+	// Pass "-fcommon" till the packages are fixed to work with new clang default
+	// "-fno-common", crbug.com/1060413.
+	// crbug.com/1103065: -grecord-gcc-switches pollutes the Goma cache;
+	//   removed that flag for now.
 	clangFlags: []string{
 		"-Qunused-arguments",
-		"-grecord-gcc-switches",
 		"-fno-addrsig",
+		"-fcommon",
 		"-fuse-ld=lld",
 		"-Wno-unused-local-typedefs",
 		"-Wno-deprecated-declarations",
 		"-Wno-tautological-constant-compare",
 		"-Wno-tautological-unsigned-enum-zero-compare",
-		"-Wno-reorder-init-list",
 		"-Wno-final-dtor-non-final-class",
-		"-Wno-return-stack-address",
 		"-Werror=poison-system-directories",
 		"-Wno-unknown-warning-option",
+		"-fexperimental-new-pass-manager",
+		"-Wno-compound-token-split-by-macro",
 	},
 	clangPostFlags: []string{
 		"-Wno-implicit-int-float-conversion",
+		"-Wno-compound-token-split-by-space",
+		"-Wno-string-concatenation",
 	},
-	newWarningsDir: "/tmp/fatal_clang_warnings",
+	newWarningsDir:    "/tmp/fatal_clang_warnings",
+	triciumNitsDir:    "/tmp/linting_output/clang-tidy",
+	crashArtifactsDir: "/tmp/clang_crash_diagnostics",
 }
 
 var androidConfig = &config{
-	isHostWrapper:    false,
-	isAndroidWrapper: true,
-	rootRelPath:      "./",
-	commonFlags:      []string{},
-	gccFlags:         []string{},
-	clangFlags:       []string{},
-	clangPostFlags:   []string{},
-	newWarningsDir:   "/tmp/fatal_clang_warnings",
+	isHostWrapper:     false,
+	isAndroidWrapper:  true,
+	rootRelPath:       "./",
+	commonFlags:       []string{},
+	gccFlags:          []string{},
+	clangFlags:        []string{},
+	clangPostFlags:    []string{},
+	newWarningsDir:    "",
+	triciumNitsDir:    "",
+	crashArtifactsDir: "",
 }

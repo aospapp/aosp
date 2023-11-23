@@ -15,9 +15,9 @@
 -->
 <resources>
     <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
-    <bool name="override_dnd_default">true</bool>
-    <!-- Whether to append date-time to the alert title -->
-    <bool name="show_date_time_title">true</bool>
+    <bool name="override_dnd">true</bool>
+    <!-- Append date-time to the alert title -->
+    <string name="date_time_format" translatable="false">MMM dd, HH:mm a</string>
     <!-- 4371, 4384 -->
     <!-- 4375, 4388 -->
     <!-- 4379, 4392 -->

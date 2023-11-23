@@ -45,7 +45,7 @@
 #include "util_double_list.h"
 
 #include "etnaviv_drmif.h"
-#include "etnaviv_drm.h"
+#include <drm/etnaviv_drm.h>
 
 struct etna_bo_bucket {
 	uint32_t size;

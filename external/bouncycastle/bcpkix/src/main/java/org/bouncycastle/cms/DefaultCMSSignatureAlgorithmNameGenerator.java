@@ -9,6 +9,7 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 // import org.bouncycastle.asn1.cryptopro.CryptoProObjectIdentifiers;
 import org.bouncycastle.asn1.eac.EACObjectIdentifiers;
 // import org.bouncycastle.asn1.gm.GMObjectIdentifiers;
+// import org.bouncycastle.asn1.edec.EdECObjectIdentifiers;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -94,12 +95,22 @@ public class DefaultCMSSignatureAlgorithmNameGenerator
         addEntries(EACObjectIdentifiers.id_TA_RSA_PSS_SHA_1, "SHA1", "RSAandMGF1");
         addEntries(EACObjectIdentifiers.id_TA_RSA_PSS_SHA_256, "SHA256", "RSAandMGF1");
         // BEGIN Android-removed: Unsupported algorithms
-        // addEntries(BSIObjectIdentifiers.ecdsa_plain_SHA1, "SHA1", "PLAIN-ECDSA");
-        // addEntries(BSIObjectIdentifiers.ecdsa_plain_SHA224, "SHA224", "PLAIN-ECDSA");
-        // addEntries(BSIObjectIdentifiers.ecdsa_plain_SHA256, "SHA256", "PLAIN-ECDSA");
-        // addEntries(BSIObjectIdentifiers.ecdsa_plain_SHA384, "SHA384", "PLAIN-ECDSA");
-        // addEntries(BSIObjectIdentifiers.ecdsa_plain_SHA512, "SHA512", "PLAIN-ECDSA");
-        // addEntries(BSIObjectIdentifiers.ecdsa_plain_RIPEMD160, "RIPEMD160", "PLAIN-ECDSA");
+        /*
+        addEntries(BSIObjectIdentifiers.ecdsa_plain_SHA1, "SHA1", "PLAIN-ECDSA");
+        addEntries(BSIObjectIdentifiers.ecdsa_plain_SHA224, "SHA224", "PLAIN-ECDSA");
+        addEntries(BSIObjectIdentifiers.ecdsa_plain_SHA256, "SHA256", "PLAIN-ECDSA");
+        addEntries(BSIObjectIdentifiers.ecdsa_plain_SHA384, "SHA384", "PLAIN-ECDSA");
+        addEntries(BSIObjectIdentifiers.ecdsa_plain_SHA512, "SHA512", "PLAIN-ECDSA");
+        addEntries(BSIObjectIdentifiers.ecdsa_plain_RIPEMD160, "RIPEMD160", "PLAIN-ECDSA");
+
+        addEntries(GMObjectIdentifiers.sm2sign_with_rmd160, "RIPEMD160", "SM2");
+        addEntries(GMObjectIdentifiers.sm2sign_with_sha1, "SHA1", "SM2");
+        addEntries(GMObjectIdentifiers.sm2sign_with_sha224, "SHA224", "SM2");
+        addEntries(GMObjectIdentifiers.sm2sign_with_sha256, "SHA256", "SM2");
+        addEntries(GMObjectIdentifiers.sm2sign_with_sha384, "SHA384", "SM2");
+        addEntries(GMObjectIdentifiers.sm2sign_with_sha512, "SHA512", "SM2");
+        addEntries(GMObjectIdentifiers.sm2sign_with_sm3, "SM3", "SM2");
+        */
         // END Android-removed: Unsupported algorithms
 
         encryptionAlgs.put(X9ObjectIdentifiers.id_dsa, "DSA");
@@ -119,7 +130,6 @@ public class DefaultCMSSignatureAlgorithmNameGenerator
         encryptionAlgs.put(CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_94, "GOST3410");
         encryptionAlgs.put(RosstandartObjectIdentifiers.id_tc26_signwithdigest_gost_3410_12_256, "ECGOST3410-2012-256");
         encryptionAlgs.put(RosstandartObjectIdentifiers.id_tc26_signwithdigest_gost_3410_12_512, "ECGOST3410-2012-512");
-        encryptionAlgs.put(GMObjectIdentifiers.sm2sign_with_sm3, "SM2");
 
         digestAlgs.put(PKCSObjectIdentifiers.md2, "MD2");
         digestAlgs.put(PKCSObjectIdentifiers.md4, "MD4");
@@ -210,6 +220,19 @@ public class DefaultCMSSignatureAlgorithmNameGenerator
 
     public String getSignatureName(AlgorithmIdentifier digestAlg, AlgorithmIdentifier encryptionAlg)
     {
+        // BEGIN Android-removed: unsupported algorithms
+        /*
+        if (EdECObjectIdentifiers.id_Ed25519.equals(encryptionAlg.getAlgorithm()))
+        {
+            return "Ed25519";
+        }
+        if (EdECObjectIdentifiers.id_Ed448.equals(encryptionAlg.getAlgorithm()))
+        {
+            return "Ed448";
+        }
+        */
+        // END Android-removed: unsupported algorithms
+
         String digestName = getDigestAlgName(encryptionAlg.getAlgorithm());
 
         if (!digestName.equals(encryptionAlg.getAlgorithm().getId()))

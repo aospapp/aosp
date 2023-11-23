@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 python_binary_host {
     name: "update_apn",
     main: "python/update_apn.py",
@@ -62,11 +66,13 @@ java_binary_host {
         canonical_path_from_root: false,
     },
     plugins: [
-        "dagger2-auto-value",
+        "auto_value_plugin",
+    ],
+    libs: [
+        "auto_value_annotations",
     ],
     static_libs: [
-        "dagger2-auto-value",
-        "guava-21.0",
+        "guava",
         "jcommander",
         "libprotobuf-java-full",
     ],
@@ -85,7 +91,7 @@ java_binary_host {
         canonical_path_from_root: false,
     },
     static_libs: [
-        "guava-21.0",
+        "guava",
         "jcommander",
         "libprotobuf-java-full",
     ],
@@ -104,7 +110,7 @@ java_binary_host {
         canonical_path_from_root: false,
     },
     static_libs: [
-        "guava-21.0",
+        "guava",
         "jcommander",
         "libprotobuf-java-full",
     ],

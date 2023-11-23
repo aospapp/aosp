@@ -168,7 +168,7 @@ public class ServerSocket implements java.io.Closeable {
 
     private boolean created = false;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private static java.net.SocketImplFactory factory;
 
     private java.net.SocketImpl impl;

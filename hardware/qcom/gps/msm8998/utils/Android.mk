@@ -73,6 +73,8 @@ LOCAL_COPY_HEADERS:= \
    loc_gps.h
 
 LOCAL_MODULE := libgps.utils
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_OWNER := qti
 LOCAL_MODULE_TAGS := optional

@@ -922,6 +922,11 @@ size_t NuPlayer::Renderer::fillAudioBuffer(void *buffer, size_t size) {
             firstEntry = false;
             int64_t mediaTimeUs;
             CHECK(entry->mBuffer->meta()->findInt64("timeUs", &mediaTimeUs));
+            if (mediaTimeUs < 0) {
+                ALOGD("fillAudioBuffer: reset negative media time %.2f secs to zero",
+                       mediaTimeUs / 1E6);
+                mediaTimeUs = 0;
+            }
             ALOGV("fillAudioBuffer: rendering audio at media time %.2f secs", mediaTimeUs / 1E6);
             setAudioFirstAnchorTimeIfNeeded_l(mediaTimeUs);
         }
@@ -1928,11 +1933,12 @@ status_t NuPlayer::Renderer::onOpenAudioSink(
     int32_t numChannels;
     CHECK(format->findInt32("channel-count", &numChannels));
 
-    int32_t channelMask;
-    if (!format->findInt32("channel-mask", &channelMask)) {
-        // signal to the AudioSink to derive the mask from count.
-        channelMask = CHANNEL_MASK_USE_CHANNEL_ORDER;
-    }
+    int32_t rawChannelMask;
+    audio_channel_mask_t channelMask =
+            format->findInt32("channel-mask", &rawChannelMask) ?
+                    static_cast<audio_channel_mask_t>(rawChannelMask)
+                    // signal to the AudioSink to derive the mask from count.
+                    : CHANNEL_MASK_USE_CHANNEL_ORDER;
 
     int32_t sampleRate;
     CHECK(format->findInt32("sample-rate", &sampleRate));
@@ -1956,7 +1962,7 @@ status_t NuPlayer::Renderer::onOpenAudioSink(
             ALOGV("Mime \"%s\" mapped to audio_format 0x%x",
                     mime.c_str(), audioFormat);
 
-            int avgBitRate = -1;
+            int avgBitRate = 0;
             format->findInt32("bitrate", &avgBitRate);
 
             int32_t aacProfile = -1;

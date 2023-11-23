@@ -3,8 +3,10 @@
 
 noinst_DATA = \
               xml/Client/index.xml \
+              xml/Cursor/index.xml \
               xml/Server/index.xml \
               html/Client/index.html \
+              html/Cursor/index.html \
               html/Server/index.html
 dist_noinst_DATA = wayland.doxygen.in
 
@@ -16,6 +18,10 @@ scanned_src_files_Client = 				\
 	$(top_srcdir)/src/wayland-client.c	\
 	$(top_srcdir)/src/wayland-client.h	\
 	$(top_srcdir)/src/wayland-client-core.h
+
+scanned_src_files_Cursor = 				\
+	$(top_srcdir)/cursor/wayland-cursor.c	\
+	$(top_srcdir)/cursor/wayland-cursor.h
 
 scanned_src_files_Server = 				\
 	$(scanned_src_files_shared)			\
@@ -42,6 +48,9 @@ extra_doxygen_Client = \
 	$(top_builddir)/protocol/wayland-client-protocol.h \
 	$(extra_doxygen)
 
+extra_doxygen_Cursor = \
+	$(extra_doxygen)
+
 diagramsdir := $(srcdir)/dot
 diagramssrc := $(wildcard $(diagramsdir)/*.gv)
 diagrams := $(patsubst $(diagramsdir)/%,xml/%,$(diagramssrc:.gv=.png))
@@ -53,20 +62,21 @@ diagram_maps := $(patsubst $(diagramsdir)/%,xml/%,$(diagramssrc:.gv=.map))
 dist_man3_MANS = $(shell test -d man && find man/man3 -name "wl_*.3" -printf "man/man3/%P\n")
 
 # Listing various directories that might need to be created.
-alldirs := xml xml/Client xml/Server man/man3 html/Client html/Server
+alldirsrel := xml xml/Client xml/Server xml/Cursor man/man3 html/Client html/Server html/Cursor
+alldirs := $(patsubst %,$(CURDIR)/%,$(alldirsrel))
 
 $(diagrams): $(diagramssrc)
 
 $(diagram_maps):  $(diagramssrc)
 
-xml/%/index.xml: $(top_srcdir)/src/scanner.c $(scanned_src_files_%) wayland.doxygen $(diagrams) $(diagram_maps) | xml/%
+xml/%/index.xml: $(top_srcdir)/src/scanner.c $(scanned_src_files_%) wayland.doxygen $(diagrams) $(diagram_maps) | $(CURDIR)/xml/%
 	$(AM_V_GEN)(cat wayland.doxygen; \
           echo "GENERATE_XML=YES"; \
           echo "XML_OUTPUT=xml/$*"; \
           echo "INPUT= $(scanned_src_files_$*)"; \
           ) | $(DOXYGEN) -
 
-html/%/index.html: $(scanned_src_files_%) wayland.doxygen $(diagrams) $(diagram_maps) | html/%
+html/%/index.html: $(scanned_src_files_%) wayland.doxygen $(diagrams) $(diagram_maps) | $(CURDIR)/html/%
 	$(AM_V_GEN)(cat wayland.doxygen; \
           echo "PROJECT_NAME=\"Wayland $* API\""; \
           echo "GENERATE_HTML=YES"; \
@@ -74,7 +84,7 @@ html/%/index.html: $(scanned_src_files_%) wayland.doxygen $(diagrams) $(diagram_
           echo "INPUT= $(scanned_src_files_$*) $(extra_doxygen_$*)"; \
           ) | $(DOXYGEN) -
 
-man/man3/wl_display.3: $(top_srcdir)/src/scanner.c $(scanned_src_files_man) wayland.doxygen | man/man3
+man/man3/wl_display.3: $(top_srcdir)/src/scanner.c $(scanned_src_files_man) wayland.doxygen | $(CURDIR)/man/man3
 	$(AM_V_GEN)(cat wayland.doxygen; \
           echo "GENERATE_MAN=YES"; \
           echo "MAN_OUTPUT=man"; \
@@ -82,10 +92,10 @@ man/man3/wl_display.3: $(top_srcdir)/src/scanner.c $(scanned_src_files_man) wayl
           echo "INPUT= $(scanned_src_files_man)"; \
           ) | $(DOXYGEN) -
 
-xml/%.png: $(diagramsdir)/%.gv | xml
+xml/%.png: $(diagramsdir)/%.gv | $(CURDIR)/xml
 	$(AM_V_GEN)$(DOT) -Tpng -o$@ $<
 
-xml/%.map: $(diagramsdir)/%.gv | xml
+xml/%.map: $(diagramsdir)/%.gv | $(CURDIR)/xml
 	$(AM_V_GEN)$(DOT) -Tcmapx_np -o$@ $<
 
 # general rule to create one of the listed directories.

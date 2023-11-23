@@ -14,4 +14,10 @@
  * limitations under the License.
  */
 
+// You need to have car-ui-lib project in place. See tools/git_clone_projects.sh for example.
+include ':car-ui-lib'
+project(':car-ui-lib').projectDir= new File('../libs/car-ui-lib/car-ui-lib')
+
 include ':TestMediaApp'
+include ':RotaryPlayground'
+include ':RotaryIME'

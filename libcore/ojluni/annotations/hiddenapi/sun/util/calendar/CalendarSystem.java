@@ -34,7 +34,7 @@ public abstract class CalendarSystem {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public static sun.util.calendar.Gregorian getGregorianCalendar() {
         throw new RuntimeException("Stub!");
     }
@@ -62,10 +62,10 @@ public abstract class CalendarSystem {
 
     public abstract sun.util.calendar.CalendarDate newCalendarDate();
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public abstract sun.util.calendar.CalendarDate newCalendarDate(java.util.TimeZone zone);
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public abstract long getTime(sun.util.calendar.CalendarDate date);
 
     public abstract int getYearLength(sun.util.calendar.CalendarDate date);
@@ -88,7 +88,7 @@ public abstract class CalendarSystem {
     public abstract sun.util.calendar.CalendarDate setTimeOfDay(
             sun.util.calendar.CalendarDate date, int timeOfDay);
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public abstract boolean validate(sun.util.calendar.CalendarDate date);
 
     public abstract boolean normalize(sun.util.calendar.CalendarDate date);

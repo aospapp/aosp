@@ -21,6 +21,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 
+import com.android.managedprovisioning.common.TransitionHelper;
+
 
 /**
  * A trampoline activity that starts a real activity in a new task. This is used so that we can call
@@ -30,20 +32,20 @@ import android.os.Bundle;
  */
 public class TrampolineActivity extends Activity {
     private static final String EXTRA_INTENT = "intent";
+    private final TransitionHelper mTransitionHelper = new TransitionHelper();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        mTransitionHelper.applyContentScreenTransitions(this);
         super.onCreate(savedInstanceState);
         Intent target = (Intent) getIntent().getParcelableExtra(EXTRA_INTENT);
         if (target != null) {
             // So that the target activity can get caller information via
             // {@link Activity#getCallingPackage}.
-            startActivityForResult(target, 0);
+            mTransitionHelper.startActivityForResultWithTransition(
+                    this, target, /* requestCode= */ 0);
         }
-        finish();
-    }
-
-    public static void startActivity(Context context, Intent target) {
-        context.startActivity(createIntent(context, target));
+        mTransitionHelper.finishActivity(this);
     }
 
     public static Intent createIntent(Context context, Intent target) {

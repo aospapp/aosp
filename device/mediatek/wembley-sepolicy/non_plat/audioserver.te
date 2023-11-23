@@ -54,4 +54,5 @@ allow audioserver crash_dump:unix_stream_socket connectto;
 
 # Date: 2019/06/14
 # Operation : Migration
-get_prop(audioserver, vendor_default_prop)
+# GOOGLE: Commented out for b/169606103
+#get_prop(audioserver, vendor_default_prop)

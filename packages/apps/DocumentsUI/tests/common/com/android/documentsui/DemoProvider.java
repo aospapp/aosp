@@ -95,7 +95,8 @@ public class DemoProvider extends TestRootProvider {
             case DIR_AUTH:
                 Intent intent = new Intent("com.android.documentsui.test.action.AUTHENTICATE");
                 PendingIntent pIntent = PendingIntent.getActivity(getContext(),
-                        AbstractActionHandler.CODE_AUTHENTICATION, intent, 0);
+                        AbstractActionHandler.CODE_AUTHENTICATION, intent,
+                        PendingIntent.FLAG_IMMUTABLE);
                 throw new AuthenticationRequiredException(new UnsupportedOperationException(),
                         pIntent);
 

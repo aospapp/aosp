@@ -41,7 +41,6 @@ allow netdiag fwmarkd_socket:sock_file write;
 allow netdiag netd:unix_stream_socket connectto;
 allow netdiag self:udp_socket connect;
 
-
 # Purpose : for service permission
 typeattribute netdiag mlstrustedsubject;
 allow netdiag connectivity_service:service_manager find;
@@ -58,10 +57,10 @@ allow netdiag network_management_service:service_manager find;
 allow netdiag settings_service:service_manager find;
 
 # Purpose : for acess /system/bin/toybox, mmc_prop,proc_net and safemode_prop
-allow netdiag device_logging_prop:file { getattr open };
-allow netdiag mmc_prop:file { getattr open };
+get_prop(netdiag, device_logging_prop)
+get_prop(netdiag, mmc_prop)
 allow netdiag proc_net:dir { read open };
-allow netdiag safemode_prop:file { getattr open };
+get_prop(netdiag, safemode_prop)
 allow netdiag toolbox_exec:file rx_file_perms;
 
 # purpose: allow netdiag to access storage in new version
@@ -75,6 +74,7 @@ allow netdiag self:netlink_xfrm_socket { write getattr setopt read bind create n
 allow netdiag self:packet_socket { read getopt create setopt };
 allowxperm netdiag self:packet_socket ioctl {SIOCGIFINDEX SIOCGSTAMP};
 allow netdiag self:packet_socket { write ioctl map };
+allow netdiag proc_net_tcp_udp:file r_file_perms;
 
 # Purpose: for ip
 allow netdiag self:netlink_route_socket { write getattr setopt read bind create nlmsg_read };
@@ -84,14 +84,20 @@ allow netdiag kernel:system module_request;
 allow netdiag self:rawip_socket { getopt create };
 allow netdiag self:udp_socket { ioctl create };
 
+#Purpose : for network log property
+set_prop(netdiag, system_mtk_debug_netlog_prop)
+set_prop(netdiag, system_mtk_persist_mtklog_prop)
+set_prop(netdiag, system_mtk_debug_mtklog_prop)
+
+# Purpose : for acess /system/bin/toybox, mmc_prop,proc_net and safemode_prop
+get_prop(netdiag, device_logging_prop)
+get_prop(netdiag, mmc_prop)
+
 ## Android P migration
-#avc: denied { open } for path="/dev/__properties__/u:object_r:atm_ipaddr_prop:s0"
-#avc: denied { getattr } for path="/dev/__properties__/u:object_r:atm_ipaddr_prop:s0"
-#avc: denied { open } for path="/dev/__properties__/u:object_r:atm_mdmode_prop:s0"
 allow netdiag proc_qtaguid_stat:dir { read open search };
 allow netdiag proc_qtaguid_stat:file { read getattr open };
-#allow netdiag vendor_default_prop:file  { read getattr open map };
-get_prop(netdiag, vendor_default_prop)
+# GOOGLE: Commented out for b/169606103
+#get_prop(netdiag, vendor_default_prop)
 allow netdiag proc_net_tcp_udp:file getattr;
 allow netdiag netd:binder call;
 get_prop(netdiag, apexd_prop)
@@ -99,3 +105,4 @@ get_prop(netdiag, apexd_prop)
 # Q save log into /data/debuglogger
 allow netdiag debuglog_data_file:dir {relabelto create_dir_perms};
 allow netdiag debuglog_data_file:file create_file_perms;
+

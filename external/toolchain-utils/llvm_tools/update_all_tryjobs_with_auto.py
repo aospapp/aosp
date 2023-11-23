@@ -12,9 +12,8 @@ import argparse
 import json
 import os
 
-from assert_not_in_chroot import VerifyOutsideChroot
-from update_tryjob_status import GetAutoResult
-from update_tryjob_status import TryjobStatus
+import chroot
+import update_tryjob_status
 
 
 def GetPathToUpdateAllTryjobsWithAutoScript():
@@ -59,7 +58,7 @@ def GetCommandLineArgs():
 def main():
   """Updates the status of a tryjob."""
 
-  VerifyOutsideChroot()
+  chroot.VerifyOutsideChroot()
 
   args_output = GetCommandLineArgs()
 
@@ -67,9 +66,9 @@ def main():
     bisect_contents = json.load(tryjobs)
 
   for tryjob in bisect_contents['jobs']:
-    if tryjob['status'] == TryjobStatus.PENDING.value:
-      tryjob['status'] = GetAutoResult(args_output.chroot_path,
-                                       tryjob['buildbucket_id'])
+    if tryjob['status'] == update_tryjob_status.TryjobStatus.PENDING.value:
+      tryjob['status'] = update_tryjob_status.GetAutoResult(
+          args_output.chroot_path, tryjob['buildbucket_id'])
 
   new_file = '%s.new' % args_output.last_tested
   with open(new_file, 'w') as update_tryjobs:

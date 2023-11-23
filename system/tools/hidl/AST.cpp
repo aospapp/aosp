@@ -376,6 +376,12 @@ status_t AST::checkForwardReferenceRestrictions() const {
 }
 
 bool AST::importFQName(const FQName& fqName) {
+    if (!fqName.valueName().empty()) {
+        std::cerr << "WARNING: must import type, but importing value: " << fqName.string()
+                  << ". Did you mean to use '::' instead of ':'?" << std::endl;
+        // TODO(b/146215188): consider as error
+    }
+
     if (fqName.name().empty()) {
         // import a package
 
@@ -841,6 +847,23 @@ void AST::getAllImportedNamesGranular(std::set<FQName> *allImportNames) const {
 }
 
 bool AST::isJavaCompatible() const {
+    static const std::vector<std::string> keywords({
+            "abstract",  "continue",  "for",      "new",          "switch",  "assert",
+            "default",   "goto",      "package",  "synchronized", "boolean", "do",
+            "if",        "private",   "this",     "break",        "double",  "implements",
+            "protected", "throw",     "byte",     "else",         "import",  "public",
+            "throws",    "case",      "enum",     "instanceof",   "return",  "transient",
+            "catch",     "extends",   "int",      "short",        "try",     "char",
+            "final",     "interface", "static",   "void",         "class",   "finally",
+            "long",      "strictfp",  "volatile", "const",        "float",   "native",
+            "super",     "while",
+    });
+    // java package shouldn't contain java keywords
+    for (const auto& comp : mPackage.getPackageComponents()) {
+        if (std::find(keywords.begin(), keywords.end(), comp) != keywords.end()) {
+            return false;
+        }
+    }
     return mRootScope.isJavaCompatible();
 }
 

@@ -149,6 +149,7 @@ import com.android.tv.ui.sidepanel.parentalcontrols.RatingsFragment;
 import com.android.tv.util.AsyncDbTask;
 import com.android.tv.util.AsyncDbTask.DbExecutor;
 import com.android.tv.util.CaptionSettings;
+import com.android.tv.util.GtvUtils;
 import com.android.tv.util.OnboardingUtils;
 import com.android.tv.util.SetupUtils;
 import com.android.tv.util.TvInputManagerHelper;
@@ -230,20 +231,20 @@ public class MainActivity extends Activity
     private static final String SCREEN_BEHIND_NAME = "Behind";
 
     private static final float REFRESH_RATE_EPSILON = 0.01f;
-    private static final HashSet<Integer> BLACKLIST_KEYCODE_TO_TIS;
+    private static final HashSet<Integer> BLOCKLIST_KEYCODE_TO_TIS;
     // These keys won't be passed to TIS in addition to gamepad buttons.
     static {
-        BLACKLIST_KEYCODE_TO_TIS = new HashSet<>();
-        BLACKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_TV_INPUT);
-        BLACKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_MENU);
-        BLACKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_CHANNEL_UP);
-        BLACKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_CHANNEL_DOWN);
-        BLACKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_VOLUME_UP);
-        BLACKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_VOLUME_DOWN);
-        BLACKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_VOLUME_MUTE);
-        BLACKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_MUTE);
-        BLACKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_SEARCH);
-        BLACKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_WINDOW);
+        BLOCKLIST_KEYCODE_TO_TIS = new HashSet<>();
+        BLOCKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_TV_INPUT);
+        BLOCKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_MENU);
+        BLOCKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_CHANNEL_UP);
+        BLOCKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_CHANNEL_DOWN);
+        BLOCKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_VOLUME_UP);
+        BLOCKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_VOLUME_DOWN);
+        BLOCKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_VOLUME_MUTE);
+        BLOCKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_MUTE);
+        BLOCKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_SEARCH);
+        BLOCKLIST_KEYCODE_TO_TIS.add(KeyEvent.KEYCODE_WINDOW);
     }
 
     private static final IntentFilter SYSTEM_INTENT_FILTER = new IntentFilter();
@@ -330,7 +331,7 @@ public class MainActivity extends Activity
     private boolean mActivityResumed;
     private boolean mActivityStarted;
     private boolean mShouldTuneToTunerChannel;
-    private boolean mUseKeycodeBlacklist;
+    private boolean mUseKeycodeBlocklist;
     private boolean mShowLockedChannelsTemporarily;
     private boolean mBackKeyPressed;
     private boolean mNeedShowBackKeyGuide;
@@ -456,7 +457,11 @@ public class MainActivity extends Activity
                 }
 
                 @Override
-                public void onChannelChanged(Channel previousChannel, Channel currentChannel) {}
+                public void onChannelChanged(Channel previousChannel, Channel currentChannel) {
+                    if (currentChannel != null) {
+                        GtvUtils.broadcastInputId(MainActivity.this, currentChannel.getInputId());
+                    }
+                }
             };
 
     private final Runnable mRestoreMainViewRunnable = this::restoreMainTvView;
@@ -1441,16 +1446,16 @@ public class MainActivity extends Activity
                 || mOverlayManager.getSideFragmentManager().isActive()) {
             return super.dispatchKeyEvent(event);
         }
-        if (BLACKLIST_KEYCODE_TO_TIS.contains(event.getKeyCode())
+        if (BLOCKLIST_KEYCODE_TO_TIS.contains(event.getKeyCode())
                 || KeyEvent.isGamepadButton(event.getKeyCode())) {
-            // If the event is in blacklisted or gamepad key, do not pass it to session.
-            // Gamepad keys are blacklisted to support TV UIs and here's the detail.
+            // If the event is in blocklisted or gamepad key, do not pass it to session.
+            // Gamepad keys are blocklisted to support TV UIs and here's the detail.
             // If there's a TIS granted RECEIVE_INPUT_EVENT, TIF sends key events to TIS
             // and return immediately saying that the event is handled.
             // In this case, fallback key will be injected but with FLAG_CANCELED
             // while gamepads support DPAD_CENTER and BACK by fallback.
             // Since we don't expect that TIS want to handle gamepad buttons now,
-            // blacklist gamepad buttons and wait for next fallback keys.
+            // blocklist gamepad buttons and wait for next fallback keys.
             // TODO: Need to consider other fallback keys (e.g. ESCAPE)
             return super.dispatchKeyEvent(event);
         }
@@ -2215,7 +2220,7 @@ public class MainActivity extends Activity
                     if (event.isCanceled()) {
                         // Ignore canceled key.
                         // Note that if there's a TIS granted RECEIVE_INPUT_EVENT,
-                        // fallback keys not blacklisted will have FLAG_CANCELED.
+                        // fallback keys not blocklisted will have FLAG_CANCELED.
                         // See dispatchKeyEvent() for detail.
                         return true;
                     }
@@ -2330,7 +2335,7 @@ public class MainActivity extends Activity
                     return true;
                 case KeyEvent.KEYCODE_CTRL_LEFT:
                 case KeyEvent.KEYCODE_CTRL_RIGHT:
-                    mUseKeycodeBlacklist = !mUseKeycodeBlacklist;
+                    mUseKeycodeBlocklist = !mUseKeycodeBlocklist;
                     return true;
                 case KeyEvent.KEYCODE_O:
                     mOverlayManager.getSideFragmentManager().show(new DisplayModeFragment());

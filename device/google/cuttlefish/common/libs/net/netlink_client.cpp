@@ -22,9 +22,9 @@
 #include <sys/socket.h>
 
 #include "common/libs/fs/shared_fd.h"
-#include "common/libs/glog/logging.h"
+#include "android-base/logging.h"
 
-namespace cvd {
+namespace cuttlefish {
 namespace {
 // NetlinkClient implementation.
 // Talks to libnetlink to apply network changes.
@@ -165,4 +165,4 @@ NetlinkClientFactory* NetlinkClientFactory::Default() {
   return &factory;
 }
 
-}  // namespace cvd
+}  // namespace cuttlefish

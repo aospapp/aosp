@@ -76,6 +76,15 @@ components that have it enabled.
 additional security-sensitive userspace components as explained in
 [CFI](https://source.android.com/devices/tech/debug/cfi) and
 [IntSan](https://source.android.com/devices/tech/debug/intsan).
+*   [C-SR] Are STRONGLY RECOMMENDED to enable stack initialization in the kernel
+to prevent uses of uninitialized local variables (`CONFIG_INIT_STACK_ALL` or
+`CONFIG_INIT_STACK_ALL_ZERO`).
+Also, device implementations SHOULD NOT assume the value used by the compiler to
+initialize the locals.
+*   [C-SR] Are STRONGLY RECOMMENDED to enable heap initialization in the kernel
+to prevent uses of uninitialized heap allocations
+(`CONFIG_INIT_ON_ALLOC_DEFAULT_ON`) and they SHOULD NOT assume the value used by
+the kernel to initialize those allocations.
 
 If device implementations use a Linux kernel, they:
 

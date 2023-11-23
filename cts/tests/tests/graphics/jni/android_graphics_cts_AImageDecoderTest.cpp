@@ -91,6 +91,10 @@ static void testNullDecoder(JNIEnv* env, jclass, jobject jAssets, jstring jFile)
     ASSERT_NE(asset, nullptr);
     AssetCloser assetCloser(asset, AAsset_close);
 
+    AImageDecoder_delete(nullptr);
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
     {
         int result = AImageDecoder_createFromAAsset(asset, nullptr);
         ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
@@ -166,6 +170,14 @@ static void testNullDecoder(JNIEnv* env, jclass, jobject jAssets, jstring jFile)
         int result = AImageDecoder_setDataSpace(nullptr, dataSpace);
         ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
     }
+
+    ASSERT_FALSE(AImageDecoder_isAnimated(nullptr));
+
+    {
+        int result = AImageDecoder_getRepeatCount(nullptr);
+        ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
+    }
+#pragma clang diagnostic pop
 }
 
 static void testInfo(JNIEnv* env, jclass, jlong imageDecoderPtr, jint width, jint height,
@@ -532,8 +544,11 @@ static void testDecode(JNIEnv* env, jclass, jlong imageDecoderPtr,
 
     {
         // Try some invalid parameters.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
         result = AImageDecoder_decodeImage(decoder, nullptr, minStride, size);
         ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
+#pragma clang diagnostic pop
 
         result = AImageDecoder_decodeImage(decoder, pixels, minStride - 1, size);
         ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
@@ -850,8 +865,11 @@ static void testDecodeScaled(JNIEnv* env, jclass, jlong imageDecoderPtr,
 
     {
         // Try some invalid parameters.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
         result = AImageDecoder_decodeImage(decoder, nullptr, minStride, size);
         ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
+#pragma clang diagnostic pop
 
         result = AImageDecoder_decodeImage(decoder, pixels, minStride - 1, size);
         ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
@@ -1067,8 +1085,11 @@ static void testDecodeCrop(JNIEnv* env, jclass, jlong imageDecoderPtr,
 
     {
         // Try some invalid parameters.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
         result = AImageDecoder_decodeImage(decoder, nullptr, minStride, size);
         ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
+#pragma clang diagnostic pop
 
         result = AImageDecoder_decodeImage(decoder, pixels, minStride - 1, size);
         ASSERT_EQ(ANDROID_IMAGE_DECODER_BAD_PARAMETER, result);
@@ -1211,6 +1232,26 @@ static void testDecodeSetDataSpace(JNIEnv* env, jclass, jlong imageDecoderPtr,
     free(pixels);
 }
 
+static void testIsAnimated(JNIEnv* env, jclass, jlong imageDecoderPtr, jboolean animated) {
+    AImageDecoder* decoder = reinterpret_cast<AImageDecoder*>(imageDecoderPtr);
+    DecoderDeleter decoderDeleter(decoder, AImageDecoder_delete);
+
+    ASSERT_TRUE(decoder);
+    ASSERT_EQ(animated, AImageDecoder_isAnimated(decoder));
+}
+
+static void testRepeatCount(JNIEnv* env, jclass, jlong imageDecoderPtr, jint repeatCount) {
+    AImageDecoder* decoder = reinterpret_cast<AImageDecoder*>(imageDecoderPtr);
+    DecoderDeleter decoderDeleter(decoder, AImageDecoder_delete);
+
+    if (repeatCount == -1) { // AnimatedImageDrawable.REPEAT_INFINITE
+        repeatCount = ANDROID_IMAGE_DECODER_INFINITE;
+    }
+
+    ASSERT_TRUE(decoder);
+    ASSERT_EQ(repeatCount, AImageDecoder_getRepeatCount(decoder));
+}
+
 #define ASSET_MANAGER "Landroid/content/res/AssetManager;"
 #define STRING "Ljava/lang/String;"
 #define BITMAP "Landroid/graphics/Bitmap;"
@@ -1239,6 +1280,8 @@ static JNINativeMethod gMethods[] = {
     { "nTestDecodeCrop", "(J" BITMAP "IIIIII)V", (void*) testDecodeCrop },
     { "nTestScalePlusUnpremul", "(J)V", (void*) testScalePlusUnpremul },
     { "nTestDecode", "(J" BITMAP "I)V", (void*) testDecodeSetDataSpace },
+    { "nTestIsAnimated", "(JZ)V", (void*) testIsAnimated },
+    { "nTestRepeatCount", "(JI)V", (void*) testRepeatCount },
 };
 
 int register_android_graphics_cts_AImageDecoderTest(JNIEnv* env) {

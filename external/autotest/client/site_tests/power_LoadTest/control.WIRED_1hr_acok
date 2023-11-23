@@ -4,7 +4,7 @@
 
 AUTHOR = "Chrome OS Team"
 NAME = "power_LoadTest.WIRED_1hr_acok"
-ATTRIBUTES = "suite:power_daily"
+ATTRIBUTES = "suite:power_daily, suite:debug_kernel_testing"
 PURPOSE = "Measure power draw when system is under load."
 CRITERIA = "This test is a benchmark."
 TIME = "LONG"

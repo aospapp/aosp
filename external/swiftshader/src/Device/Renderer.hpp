@@ -17,12 +17,11 @@
 
 #include "Blitter.hpp"
 #include "PixelProcessor.hpp"
-#include "Plane.hpp"
 #include "Primitive.hpp"
 #include "SetupProcessor.hpp"
 #include "VertexProcessor.hpp"
-#include "Device/Config.hpp"
 #include "Vulkan/VkDescriptorSet.hpp"
+#include "Vulkan/VkPipeline.hpp"
 
 #include "marl/finally.h"
 #include "marl/pool.h"
@@ -38,16 +37,17 @@ namespace vk {
 class DescriptorSet;
 class Device;
 class Query;
+class PipelineLayout;
 
 }  // namespace vk
 
 namespace sw {
 
+class CountedEvent;
 struct DrawCall;
 class PixelShader;
 class VertexShader;
 struct Task;
-class TaskEvents;
 class Resource;
 struct Constants;
 
@@ -87,9 +87,12 @@ struct DrawData
 	float4 halfPixelX;
 	float4 halfPixelY;
 	float viewportHeight;
-	float slopeDepthBias;
 	float depthRange;
 	float depthNear;
+	float minimumResolvableDepthDifference;
+	float constantDepthBias;
+	float slopeDepthBias;
+	float depthBiasClamp;
 
 	unsigned int *colorBuffer[RENDERTARGETS];
 	int colorPitchB[RENDERTARGETS];
@@ -111,7 +114,7 @@ struct DrawData
 	float4 a2c2;
 	float4 a2c3;
 
-	PushConstantStorage pushConstants;
+	vk::Pipeline::PushConstantStorage pushConstants;
 };
 
 struct DrawCall
@@ -158,14 +161,18 @@ struct DrawCall
 	VertexProcessor::RoutineType vertexRoutine;
 	SetupProcessor::RoutineType setupRoutine;
 	PixelProcessor::RoutineType pixelRoutine;
+	bool containsImageWrite;
 
 	SetupFunction setupPrimitives;
 	SetupProcessor::State setupState;
 
+	vk::Device *device;
 	vk::ImageView *renderTarget[RENDERTARGETS];
 	vk::ImageView *depthBuffer;
 	vk::ImageView *stencilBuffer;
-	TaskEvents *events;
+	vk::DescriptorSet::Array descriptorSetObjects;
+	const vk::PipelineLayout *pipelineLayout;
+	sw::CountedEvent *events;
 
 	vk::Query *occlusionQuery;
 
@@ -190,7 +197,7 @@ struct DrawCall
 	static bool setupPoint(Primitive &primitive, Triangle &triangle, const DrawCall &draw);
 };
 
-class alignas(16) Renderer : public VertexProcessor, public PixelProcessor, public SetupProcessor
+class alignas(16) Renderer
 {
 public:
 	Renderer(vk::Device *device);
@@ -202,25 +209,16 @@ public:
 
 	bool hasOcclusionQuery() const { return occlusionQuery != nullptr; }
 
-	void draw(const sw::Context *context, VkIndexType indexType, unsigned int count, int baseVertex,
-	          TaskEvents *events, int instanceID, int viewID, void *indexBuffer, const VkExtent3D &framebufferExtent,
-	          PushConstantStorage const &pushConstants, bool update = true);
-
-	// Viewport & Clipper
-	void setViewport(const VkViewport &viewport);
-	void setScissor(const VkRect2D &scissor);
+	void draw(const vk::GraphicsPipeline *pipeline, const vk::DynamicState &dynamicState, unsigned int count, int baseVertex,
+	          CountedEvent *events, int instanceID, int viewID, void *indexBuffer, const VkExtent3D &framebufferExtent,
+	          vk::Pipeline::PushConstantStorage const &pushConstants, bool update = true);
 
 	void addQuery(vk::Query *query);
 	void removeQuery(vk::Query *query);
 
-	void advanceInstanceAttributes(Stream *inputs);
-
 	void synchronize();
 
 private:
-	VkViewport viewport;
-	VkRect2D scissor;
-
 	DrawCall::Pool drawCallPool;
 	DrawCall::BatchData::Pool batchDataPool;
 
@@ -229,6 +227,10 @@ private:
 	vk::Query *occlusionQuery = nullptr;
 	marl::Ticket::Queue drawTickets;
 	marl::Ticket::Queue clusterQueues[MaxClusterCount];
+
+	VertexProcessor vertexProcessor;
+	PixelProcessor pixelProcessor;
+	SetupProcessor setupProcessor;
 
 	VertexProcessor::State vertexState;
 	SetupProcessor::State setupState;

@@ -170,7 +170,7 @@ VkResult SwapchainKHR::getImages(uint32_t *pSwapchainImageCount, VkImage *pSwapc
 	return VK_SUCCESS;
 }
 
-VkResult SwapchainKHR::getNextImage(uint64_t timeout, Semaphore *semaphore, Fence *fence, uint32_t *pImageIndex)
+VkResult SwapchainKHR::getNextImage(uint64_t timeout, BinarySemaphore *semaphore, Fence *fence, uint32_t *pImageIndex)
 {
 	for(uint32_t i = 0; i < imageCount; i++)
 	{
@@ -194,7 +194,7 @@ VkResult SwapchainKHR::getNextImage(uint64_t timeout, Semaphore *semaphore, Fenc
 		}
 	}
 
-	return VK_NOT_READY;
+	return (timeout > 0) ? VK_TIMEOUT : VK_NOT_READY;
 }
 
 VkResult SwapchainKHR::present(uint32_t index)

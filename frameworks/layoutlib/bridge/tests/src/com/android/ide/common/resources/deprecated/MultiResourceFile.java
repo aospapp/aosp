@@ -52,7 +52,7 @@ public final class MultiResourceFile extends ResourceFile implements IValueResou
 
     private Collection<ResourceType> mResourceTypeList = null;
 
-    public MultiResourceFile(IAbstractFile file, ResourceFolder folder) {
+    public MultiResourceFile(TestFileWrapper file, ResourceFolder folder) {
         super(file, folder);
     }
 

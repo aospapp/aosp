@@ -21,10 +21,8 @@ import android.content.Context;
 
 import androidx.annotation.Keep;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.core.lifecycle.Lifecycle;
-import com.android.settingslib.deviceinfo.AbstractSimStatusImeiInfoPreferenceController;
 import com.android.tv.settings.NopePreferenceController;
 import com.android.tv.settings.PreferenceControllerFragment;
 import com.android.tv.settings.R;
@@ -40,16 +38,9 @@ public class StatusFragment extends PreferenceControllerFragment {
 
     private static final String KEY_BATTERY_STATUS = "battery_status";
     private static final String KEY_BATTERY_LEVEL = "battery_level";
-    private static final String KEY_SIM_STATUS = "sim_status";
-    private static final String KEY_IMEI_INFO = "imei_info";
 
     public static StatusFragment newInstance() {
         return new StatusFragment();
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.DEVICEINFO_STATUS;
     }
 
     @Override
@@ -60,7 +51,7 @@ public class StatusFragment extends PreferenceControllerFragment {
     @Override
     protected List<AbstractPreferenceController> onCreatePreferenceControllers(Context context) {
         final List<AbstractPreferenceController> controllers = new ArrayList<>(10);
-        final Lifecycle lifecycle = getLifecycle();
+        final Lifecycle lifecycle = getSettingsLifecycle();
 
         // TODO: detect if we have a battery or not
         controllers.add(new NopePreferenceController(context, KEY_BATTERY_LEVEL));
@@ -73,29 +64,10 @@ public class StatusFragment extends PreferenceControllerFragment {
         controllers.add(new WifiMacAddressPreferenceController(context, lifecycle));
         controllers.add(new ImsStatusPreferenceController(context, lifecycle));
 
-        controllers.add(new AdminUserAndPhoneOnlyPreferenceController(context, KEY_SIM_STATUS));
-        controllers.add(new AdminUserAndPhoneOnlyPreferenceController(context, KEY_IMEI_INFO));
-
         return controllers;
     }
 
     protected int getPageId() {
         return TvSettingsEnums.SYSTEM_ABOUT_STATUS;
-    }
-
-    private static class AdminUserAndPhoneOnlyPreferenceController
-            extends AbstractSimStatusImeiInfoPreferenceController {
-
-        private final String mKey;
-
-        private AdminUserAndPhoneOnlyPreferenceController(Context context, String key) {
-            super(context);
-            mKey = key;
-        }
-
-        @Override
-        public String getPreferenceKey() {
-            return mKey;
-        }
     }
 }

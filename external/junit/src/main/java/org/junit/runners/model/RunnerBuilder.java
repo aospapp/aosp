@@ -6,7 +6,11 @@ import java.util.List;
 import java.util.Set;
 
 import org.junit.internal.runners.ErrorReportingRunner;
+import org.junit.runner.Description;
+import org.junit.runner.OrderWith;
 import org.junit.runner.Runner;
+import org.junit.runner.manipulation.InvalidOrderingException;
+import org.junit.runner.manipulation.Ordering;
 
 /**
  * A RunnerBuilder is a strategy for constructing runners for classes.
@@ -49,16 +53,36 @@ public abstract class RunnerBuilder {
     public abstract Runner runnerForClass(Class<?> testClass) throws Throwable;
 
     /**
-     * Always returns a runner, even if it is just one that prints an error instead of running tests.
+     * Always returns a runner for the given test class.
+     *
+     * <p>In case of an exception a runner will be returned that prints an error instead of running
+     * tests.
+     *
+     * <p>Note that some of the internal JUnit implementations of RunnerBuilder will return
+     * {@code null} from this method, but no RunnerBuilder passed to a Runner constructor will
+     * return {@code null} from this method.
      *
      * @param testClass class to be run
      * @return a Runner
      */
     public Runner safeRunnerForClass(Class<?> testClass) {
         try {
-            return runnerForClass(testClass);
+            Runner runner = runnerForClass(testClass);
+            if (runner != null) {
+                configureRunner(runner);
+            }
+            return runner;
         } catch (Throwable e) {
             return new ErrorReportingRunner(testClass, e);
+        }
+    }
+
+    private void configureRunner(Runner runner) throws InvalidOrderingException {
+        Description description = runner.getDescription();
+        OrderWith orderWith = description.getAnnotation(OrderWith.class);
+        if (orderWith != null) {
+            Ordering ordering = Ordering.definedBy(orderWith.value(), description);
+            ordering.apply(runner);
         }
     }
 
@@ -96,7 +120,7 @@ public abstract class RunnerBuilder {
     }
 
     private List<Runner> runners(Class<?>[] children) {
-        ArrayList<Runner> runners = new ArrayList<Runner>();
+        List<Runner> runners = new ArrayList<Runner>();
         for (Class<?> each : children) {
             Runner childRunner = safeRunnerForClass(each);
             if (childRunner != null) {

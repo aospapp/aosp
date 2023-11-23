@@ -34,7 +34,10 @@ static const struct {
 	{ DRM_FORMAT_XBGR8888, __DRI_IMAGE_FORMAT_XBGR8888 },
 	{ DRM_FORMAT_ABGR8888, __DRI_IMAGE_FORMAT_ABGR8888 },
 	{ DRM_FORMAT_XRGB2101010, __DRI_IMAGE_FORMAT_XRGB2101010 },
+	{ DRM_FORMAT_XBGR2101010, __DRI_IMAGE_FORMAT_XBGR2101010 },
 	{ DRM_FORMAT_ARGB2101010, __DRI_IMAGE_FORMAT_ARGB2101010 },
+	{ DRM_FORMAT_ABGR2101010, __DRI_IMAGE_FORMAT_ABGR2101010 },
+	{ DRM_FORMAT_ABGR16161616F, __DRI_IMAGE_FORMAT_ABGR16161616F },
 };
 
 static int drm_format_to_dri_format(uint32_t drm_format)
@@ -69,10 +72,9 @@ static bool lookup_extension(const __DRIextension *const *extensions, const char
  */
 static void close_gem_handle(uint32_t handle, int fd)
 {
-	struct drm_gem_close gem_close;
+	struct drm_gem_close gem_close = { 0 };
 	int ret = 0;
 
-	memset(&gem_close, 0, sizeof(gem_close));
 	gem_close.handle = handle;
 	ret = drmIoctl(fd, DRM_IOCTL_GEM_CLOSE, &gem_close);
 	if (ret)
@@ -93,27 +95,20 @@ static int import_into_minigbm(struct dri_driver *dri, struct bo *bo)
 	if (dri->image_extension->queryImage(bo->priv, __DRI_IMAGE_ATTRIB_MODIFIER_UPPER,
 					     &modifier_upper) &&
 	    dri->image_extension->queryImage(bo->priv, __DRI_IMAGE_ATTRIB_MODIFIER_LOWER,
-					     &modifier_lower)) {
-		bo->meta.format_modifiers[0] =
+					     &modifier_lower))
+		bo->meta.format_modifier =
 		    ((uint64_t)modifier_upper << 32) | (uint32_t)modifier_lower;
-	} else {
-		bo->meta.format_modifiers[0] = DRM_FORMAT_MOD_INVALID;
-	}
+	else
+		bo->meta.format_modifier = DRM_FORMAT_MOD_INVALID;
 
-	if (!dri->image_extension->queryImage(bo->priv, __DRI_IMAGE_ATTRIB_NUM_PLANES,
-					      &num_planes)) {
+	if (!dri->image_extension->queryImage(bo->priv, __DRI_IMAGE_ATTRIB_NUM_PLANES, &num_planes))
 		return -errno;
-	}
 
 	bo->meta.num_planes = num_planes;
-
 	for (i = 0; i < num_planes; ++i) {
 		int prime_fd, stride, offset;
 		plane_image = dri->image_extension->fromPlanar(bo->priv, i, NULL);
 		__DRIimage *image = plane_image ? plane_image : bo->priv;
-
-		if (i)
-			bo->meta.format_modifiers[i] = bo->meta.format_modifiers[0];
 
 		if (!dri->image_extension->queryImage(image, __DRI_IMAGE_ATTRIB_STRIDE, &stride) ||
 		    !dri->image_extension->queryImage(image, __DRI_IMAGE_ATTRIB_OFFSET, &offset)) {
@@ -317,9 +312,8 @@ int dri_bo_create_with_modifiers(struct bo *bo, uint32_t width, uint32_t height,
 	int ret, dri_format;
 	struct dri_driver *dri = bo->drv->priv;
 
-	if (!dri->image_extension->createImageWithModifiers) {
+	if (!dri->image_extension->createImageWithModifiers)
 		return -ENOENT;
-	}
 
 	dri_format = drm_format_to_dri_format(format);
 
@@ -346,7 +340,7 @@ int dri_bo_import(struct bo *bo, struct drv_import_fd_data *data)
 	int ret;
 	struct dri_driver *dri = bo->drv->priv;
 
-	if (data->format_modifiers[0] != DRM_FORMAT_MOD_INVALID) {
+	if (data->format_modifier != DRM_FORMAT_MOD_INVALID) {
 		unsigned error;
 
 		if (!dri->image_extension->createImageFromDmaBufs2)
@@ -354,8 +348,8 @@ int dri_bo_import(struct bo *bo, struct drv_import_fd_data *data)
 
 		// clang-format off
 		bo->priv = dri->image_extension->createImageFromDmaBufs2(dri->device, data->width, data->height,
-									 data->format,
-									 data->format_modifiers[0],
+									 drv_get_standard_fourcc(data->format),
+									 data->format_modifier,
 									 data->fds,
 									 bo->meta.num_planes,
 									 (int *)data->strides,
@@ -373,7 +367,7 @@ int dri_bo_import(struct bo *bo, struct drv_import_fd_data *data)
 	} else {
 		// clang-format off
 		bo->priv = dri->image_extension->createImageFromFds(dri->device, data->width, data->height,
-								    data->format, data->fds,
+								    drv_get_standard_fourcc(data->format), data->fds,
 								    bo->meta.num_planes,
 								    (int *)data->strides,
 								    (int *)data->offsets, NULL);

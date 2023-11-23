@@ -18,6 +18,8 @@ package com.android.car.settings.common;
 
 import androidx.fragment.app.Fragment;
 
+import com.android.car.ui.toolbar.ToolbarController;
+
 /**
  * Implemented by Settings {@link android.app.Activity} instances to host Settings {@link Fragment}
  * instances.
@@ -37,4 +39,9 @@ public interface FragmentHost {
      * Shows a message to inform the user that the current feature is not available when driving.
      */
     void showBlockingMessage();
+
+    /**
+     * Returns the currently modifiable toolbar for the activity.
+     */
+    ToolbarController getToolbar();
 }

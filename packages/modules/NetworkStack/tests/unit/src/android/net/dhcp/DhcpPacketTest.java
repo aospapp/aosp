@@ -55,6 +55,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.util.HexDump;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -85,6 +86,7 @@ public class DhcpPacketTest {
     // doesn't use == instead of equals when comparing addresses.
     private static final Inet4Address ANY = v4Address("0.0.0.0");
     private static final byte[] TEST_EMPTY_OPTIONS_SKIP_LIST = new byte[0];
+    private static final int TEST_IPV6_ONLY_WAIT_S = 1800; // 30 min
 
     private static final byte[] CLIENT_MAC = new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 
@@ -95,6 +97,11 @@ public class DhcpPacketTest {
     @Before
     public void setUp() {
         DhcpPacket.testOverrideVendorId = "android-dhcp-???";
+    }
+
+    @After
+    public void tearDown() {
+        DhcpPacket.testOverrideVendorId = null;
     }
 
     class TestDhcpPacket extends DhcpPacket {
@@ -482,6 +489,53 @@ public class DhcpPacketTest {
         // Output URL will be garbled because some characters do not exist in the target charset,
         // but the parser should not crash.
         assertTrue(dhcpResults.captivePortalApiUrl.length() > 0);
+    }
+
+    private void runIPv6OnlyPreferredOption(boolean enabled) throws Exception {
+        // CHECKSTYLE:OFF Generated code
+        final ByteBuffer packet = ByteBuffer.wrap(HexDump.hexStringToByteArray(
+                // IP header.
+                "45100158000040004011B5CEC0A80164C0A80102" +
+                // UDP header
+                "004300440144CE63" +
+                // BOOTP header
+                "02010600B8BF41E60000000000000000C0A80102C0A8016400000000" +
+                // MAC address.
+                "22B3614EE01200000000000000000000" +
+                // Server name and padding.
+                "0000000000000000000000000000000000000000000000000000000000000000" +
+                "0000000000000000000000000000000000000000000000000000000000000000" +
+                // File.
+                "0000000000000000000000000000000000000000000000000000000000000000" +
+                "0000000000000000000000000000000000000000000000000000000000000000" +
+                "0000000000000000000000000000000000000000000000000000000000000000" +
+                "0000000000000000000000000000000000000000000000000000000000000000" +
+                // Options
+                "638253633501023604C0A80164330400000E103A04000007083B0400000C4E01" +
+                "04FFFFFF001C04C0A801FF0304C0A801640604C0A801640C0C74657374686F73" +
+                "746E616D651A0205DC" +
+                // Option 108 (0x6c, IPv6-Only preferred option), length 4 (0x04), 1800s
+                "6C0400000708" +
+                // End of options.
+                "FF"));
+        // CHECKSTYLE:ON Generated code
+
+        final DhcpPacket offerPacket = DhcpPacket.decodeFullPacket(packet, ENCAP_L3,
+                enabled ? TEST_EMPTY_OPTIONS_SKIP_LIST
+                        : new byte[] { DhcpPacket.DHCP_IPV6_ONLY_PREFERRED });
+        assertTrue(offerPacket instanceof DhcpOfferPacket);
+        assertEquals(offerPacket.mIpv6OnlyWaitTime,
+                enabled ? new Integer(TEST_IPV6_ONLY_WAIT_S) : null);
+    }
+
+    @Test
+    public void testIPv6OnlyPreferredOption() throws Exception {
+        runIPv6OnlyPreferredOption(true /* enabled */);
+    }
+
+    @Test
+    public void testIPv6OnlyPreferredOption_Disable() throws Exception {
+        runIPv6OnlyPreferredOption(false /* enabled */);
     }
 
     @Test
@@ -1066,7 +1120,7 @@ public class DhcpPacketTest {
         ByteBuffer packet = DhcpPacket.buildDiscoverPacket(
                 DhcpPacket.ENCAP_L2, transactionId, secs, hwaddr,
                 false /* do unicast */, DhcpClient.DEFAULT_REQUESTED_PARAMS,
-                false /* rapid commit */, testHostname);
+                false /* rapid commit */, testHostname, null /* customized DHCP options */);
 
         final byte[] headers = new byte[] {
             // Ethernet header.

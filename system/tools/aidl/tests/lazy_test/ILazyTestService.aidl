@@ -16,4 +16,11 @@
 
 interface ILazyTestService {
     void forcePersist(boolean persist);
+    /**
+     * Ask the process hosting the service to install a callback that notifies if there are
+	 * services with clients.
+     * For testing purposes, this callback exercises the code to unregister/re-register
+     * the services and eventually shuts down the process.
+     */
+    void setCustomActiveServicesCallback();
 }

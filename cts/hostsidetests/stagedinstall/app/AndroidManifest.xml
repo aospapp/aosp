@@ -15,38 +15,28 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.tests.stagedinstall" >
+     package="com.android.tests.stagedinstall">
 
     <queries>
-        <package android:name="com.android.cts.ctsshim" />
+        <package android:name="com.android.cts.ctsshim"/>
     </queries>
 
     <application>
-        <receiver android:name="com.android.cts.install.lib.LocalIntentSender"
-                  android:exported="true" />
-
         <!-- This activity is necessary to register the test app as the default home activity (i.e.
-             to receive SESSION_COMMITTED broadcasts.) -->
-        <activity android:name=".LauncherActivity">
+                         to receive SESSION_COMMITTED broadcasts.) -->
+        <activity android:name=".LauncherActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.HOME"/>
-                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-        <receiver android:name="com.android.tests.stagedinstall.SessionUpdateBroadcastReceiver">
-            <intent-filter>
-                <action android:name="android.content.pm.action.SESSION_UPDATED"/>
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.content.pm.action.SESSION_COMMITTED"/>
-            </intent-filter>
-        </receiver>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
     </application>
 
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.tests.stagedinstall"
-                     android:label="StagedInstall Test"/>
+         android:targetPackage="com.android.tests.stagedinstall"
+         android:label="StagedInstall Test"/>
 </manifest>

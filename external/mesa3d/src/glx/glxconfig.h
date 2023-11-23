@@ -33,14 +33,12 @@
 struct glx_config {
     struct glx_config * next;
 
-    GLboolean rgbMode;
-    GLboolean floatMode;
-    GLboolean colorIndexMode;
     GLuint doubleBufferMode;
     GLuint stereoMode;
 
     GLint redBits, greenBits, blueBits, alphaBits;	/* bits per comp */
     GLuint redMask, greenMask, blueMask, alphaMask;
+    GLuint redShift, greenShift, blueShift, alphaShift;
     GLint rgbBits;		/* total bits for rgb */
     GLint indexBits;		/* total bits for colorindex */
 
@@ -51,8 +49,6 @@ struct glx_config {
     GLint numAuxBuffers;
 
     GLint level;
-
-    GLint pixmapMode;
 
     /* GLX */
     GLint visualID;

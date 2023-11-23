@@ -21,6 +21,7 @@
 #include <netlink/netlink.h>
 #include <netlink/route/cls/ematch.h>
 #include <netlink/route/cls/ematch/nbyte.h>
+#include <linux/tc_ematch/tc_em_nbyte.h>
 
 struct nbyte_data
 {
@@ -93,7 +94,7 @@ static int nbyte_parse(struct rtnl_ematch *e, void *data, size_t len)
 		if (!(n->pattern = calloc(1, plen)))
 			return -NLE_NOMEM;
 
-		memcpy(n->pattern, data + hdrlen, plen);
+		memcpy(n->pattern, (char *) data + hdrlen, plen);
 	}
 
 	return 0;

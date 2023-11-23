@@ -44,6 +44,8 @@
     <dimen name="textview_padding_top">2dip</dimen>
     <dimen name="textview_padding_bottom">4dip</dimen>
     <dimen name="textview_drawable_padding">2dip</dimen>
+    <dimen name="textview_fixed_width">100dp</dimen>
+    <dimen name="textview_fixed_height">200dp</dimen>
 
     <dimen name="textview_firstBaselineToTopHeight">100dp</dimen>
     <dimen name="textview_lastBaselineToBottomHeight">30dp</dimen>
@@ -58,4 +60,8 @@
 
     <dimen name="listviewfixed_layout_width">300dp</dimen>
     <dimen name="listviewfixed_layout_height">300dp</dimen>
+
+    <dimen name="remoteviews_float_dimen">4.5dp</dimen>
+    <dimen name="remoteviews_theme_dimen">7.5123dp</dimen>
+
 </resources>

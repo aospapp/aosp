@@ -70,7 +70,7 @@ public class RequestPinAppWidgetTest extends AppWidgetTestCase {
         extras.putString("dummy", launcherPkg + "-dummy");
 
         PendingIntent pinResult = PendingIntent.getBroadcast(context, 0,
-                new Intent(ACTION_PIN_RESULT), PendingIntent.FLAG_ONE_SHOT);
+                new Intent(ACTION_PIN_RESULT), PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         AppWidgetManager.getInstance(context).requestPinAppWidget(
                 getFirstWidgetComponent(), extras, pinResult);
 

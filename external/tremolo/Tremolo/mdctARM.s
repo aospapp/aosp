@@ -43,10 +43,25 @@
 	.global mdct_unroll_part3
 	.global mdct_unroll_postlap
 
+	.type mdct_backwardARM, %function
+	.type mdct_shift_right, %function
+	.type mdct_unroll_prelap, %function
+	.type mdct_unroll_part2, %function
+	.type mdct_unroll_part3, %function
+	.type mdct_unroll_postlap, %function
+
 	.extern	sincos_lookup0
 	.extern	sincos_lookup1
 	.hidden	sincos_lookup0
 	.hidden	sincos_lookup1
+
+	@ clang doesn't support ADRL.
+	@ Workaround based on that at https://bugs.llvm.org/show_bug.cgi?id=24350.
+	.macro ADRL reg:req, label:req
+	add \reg, pc, #((\label - .L_adrl_\@) & 0xff00)
+	add \reg, \reg, #((\label - .L_adrl_\@) - ((\label - .L_adrl_\@) & 0xff00))
+	.L_adrl_\@:
+	.endm
 
 mdct_unroll_prelap:
 	@ r0 = out

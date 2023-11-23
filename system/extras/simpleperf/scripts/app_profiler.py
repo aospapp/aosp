@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -29,13 +29,16 @@ import subprocess
 import sys
 import time
 
-from utils import AdbHelper, bytes_to_str, extant_dir, get_script_dir, get_target_binary_path
-from utils import log_debug, log_info, log_exit, ReadElf, remove, set_log_level, str_to_bytes
+from simpleperf_utils import (
+    AdbHelper, bytes_to_str, extant_dir, get_script_dir, get_target_binary_path, log_debug,
+    log_info, log_exit, ReadElf, remove, set_log_level, str_to_bytes)
 
 NATIVE_LIBS_DIR_ON_DEVICE = '/data/local/tmp/native_libs/'
 
+
 class HostElfEntry(object):
     """Represent a native lib on host in NativeLibDownloader."""
+
     def __init__(self, path, name, score):
         self.path = path
         self.name = name
@@ -55,6 +58,7 @@ class NativeLibDownloader(object):
     2. Check the available native libs in /data/local/tmp/native_libs on device.
     3. Sync native libs on device.
     """
+
     def __init__(self, ndk_path, device_arch, adb):
         self.adb = adb
         self.readelf = ReadElf(ndk_path)
@@ -169,8 +173,7 @@ class NativeLibDownloader(object):
             target = self.dir_on_device + entry.name
 
             # Skip download if we have a file with the same name and size on device.
-            result, output = self.adb.run_and_return_output(
-                ['shell', 'ls', '-l', target], log_output=False, log_stderr=False)
+            result, output = self.adb.run_and_return_output(['shell', 'ls', '-l', target])
             if result:
                 items = output.split()
                 if len(items) > 5:
@@ -185,6 +188,7 @@ class NativeLibDownloader(object):
 
 class ProfilerBase(object):
     """Base class of all Profilers."""
+
     def __init__(self, args):
         self.args = args
         self.adb = AdbHelper(enable_switch_to_root=not args.disable_adb_root)
@@ -230,7 +234,7 @@ class ProfilerBase(object):
         """Start simpleperf reocrd process on device."""
         args = ['/data/local/tmp/simpleperf', 'record', '-o', '/data/local/tmp/perf.data',
                 self.args.record_options]
-        if self.adb.run(['shell', 'ls', NATIVE_LIBS_DIR_ON_DEVICE, '>/dev/null', '2>&1']):
+        if self.adb.run(['shell', 'ls', NATIVE_LIBS_DIR_ON_DEVICE]):
             args += ['--symfs', NATIVE_LIBS_DIR_ON_DEVICE]
         args += ['--log', self.args.log]
         args += target_args
@@ -284,6 +288,7 @@ class ProfilerBase(object):
 
 class AppProfiler(ProfilerBase):
     """Profile an Android app."""
+
     def prepare(self):
         super(AppProfiler, self).prepare()
         if self.args.compile_java_code:
@@ -320,7 +325,7 @@ class AppProfiler(ProfilerBase):
             adb_args = ['shell', 'cd /data/data/' + self.args.app + ' && ' + (' '.join(args))]
         else:
             adb_args = ['shell', 'run-as', self.args.app] + args
-        return self.adb.run_and_return_output(adb_args, log_output=False)
+        return self.adb.run_and_return_output(adb_args)
 
     def start(self):
         if self.args.activity or self.args.test:
@@ -350,32 +355,44 @@ class AppProfiler(ProfilerBase):
 
 class NativeProgramProfiler(ProfilerBase):
     """Profile a native program."""
+
     def start(self):
-        pid = int(self.adb.check_run_and_return_output(['shell', 'pidof',
-                                                        self.args.native_program]))
-        self.start_profiling(['-p', str(pid)])
+        log_info('Waiting for native process %s' % self.args.native_program)
+        while True:
+            (result, pid) = self.adb.run_and_return_output(['shell', 'pidof',
+                                                            self.args.native_program])
+            if not result:
+                # Wait for 1 millisecond.
+                time.sleep(0.001)
+            else:
+                self.start_profiling(['-p', str(int(pid))])
+                break
 
 
 class NativeCommandProfiler(ProfilerBase):
     """Profile running a native command."""
+
     def start(self):
         self.start_profiling([self.args.cmd])
 
 
 class NativeProcessProfiler(ProfilerBase):
     """Profile processes given their pids."""
+
     def start(self):
         self.start_profiling(['-p', ','.join(self.args.pid)])
 
 
 class NativeThreadProfiler(ProfilerBase):
     """Profile threads given their tids."""
+
     def start(self):
         self.start_profiling(['-t', ','.join(self.args.tid)])
 
 
 class SystemWideProfiler(ProfilerBase):
     """Profile system wide."""
+
     def start(self):
         self.start_profiling(['-a'])
 
@@ -385,7 +402,7 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
     target_group = parser.add_argument_group(title='Select profiling target'
-                                            ).add_mutually_exclusive_group(required=True)
+                                             ).add_mutually_exclusive_group(required=True)
     target_group.add_argument('-p', '--app', help="""Profile an Android app, given the package name.
                               Like `-p com.example.android.myapp`.""")
 
@@ -476,6 +493,7 @@ def main():
     elif args.system_wide:
         profiler = SystemWideProfiler(args)
     profiler.profile()
+
 
 if __name__ == '__main__':
     main()

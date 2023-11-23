@@ -25,6 +25,7 @@
     Bug: 78574873 android.intent.action.EPHEMERAL_RESOLVER_SETTINGS
     Bug: 150153196 android.intent.action.LOAD_DATA (system in API 30)
     Bug: 150153196 android.intent.action.PACKAGE_UNSUSPENDED_MANUALLY (system in API 30)
+    Bug: 186495404 android.intent.action.REBOOT_READY
 -->
 <dynamicConfig>
     <entry key ="intent_whitelist">
@@ -38,5 +39,6 @@
       <value>android.intent.action.EPHEMERAL_RESOLVER_SETTINGS</value>
       <value>android.intent.action.LOAD_DATA</value>
       <value>android.intent.action.PACKAGE_UNSUSPENDED_MANUALLY</value>
+      <value>android.intent.action.REBOOT_READY</value>
     </entry>
 </dynamicConfig>

@@ -18,7 +18,7 @@ namespace brillo {
 BRILLO_EXPORT void MessageLoopRunUntil(
     MessageLoop* loop,
     base::TimeDelta timeout,
-    base::Callback<bool()> terminate);
+    base::RepeatingCallback<bool()> terminate);
 
 // Run the MessageLoop |loop| for up to |iterations| times without blocking.
 // Return the number of tasks run.

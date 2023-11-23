@@ -9,11 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/cabo/cn-cbor.git"
   }
-  version: "f1cf9ffdf5cfab935a45900556f9b68af925c256"
+  version: "c2e53733a895587c2910d2b2a1312d4224e5a474"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2019
-    month: 2
-    day: 1
+    year: 2020
+    month: 4
+    day: 13
   }
 }

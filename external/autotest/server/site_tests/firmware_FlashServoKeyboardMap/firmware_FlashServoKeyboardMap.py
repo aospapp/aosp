@@ -48,6 +48,7 @@ class firmware_FlashServoKeyboardMap(test.test):
                                'sleep:%f' % self._ATMEGA_RESET_DELAY,
                                'at_hwb:off'])
 
+            time.sleep(self._USB_PRESENT_DELAY)
             result = host.run(lsusb_cmd).stdout.strip()
             if not 'Atmel Corp. atmega32u4 DFU bootloader' in result:
                 message = 'Not an expected chip: %s' % result

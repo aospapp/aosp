@@ -27,14 +27,15 @@ import android.util.ArrayMap;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 
 public class MockInCallService extends InCallService {
     private static String LOG_TAG = "MockInCallService";
-    private ArrayList<Call> mCalls = new ArrayList<>();
-    private ArrayList<Call> mConferenceCalls = new ArrayList<>();
+    private final List<Call> mCalls = Collections.synchronizedList(new ArrayList<>());
+    private final List<Call> mConferenceCalls = Collections.synchronizedList(new ArrayList<>());
     private static InCallServiceCallbacks sCallbacks;
     private Map<Call, MockVideoCallCallback> mVideoCallCallbacks =
             new ArrayMap<Call, MockVideoCallCallback>();
@@ -74,6 +75,10 @@ public class MockInCallService extends InCallService {
 
         final public void setService(MockInCallService service) {
             mService = service;
+        }
+
+        public void resetLock() {
+            lock = new Semaphore(0);
         }
     }
 
@@ -349,20 +354,18 @@ public class MockInCallService extends InCallService {
     }
 
     public void disconnectAllCalls() {
-        for (final Call call: mCalls) {
-            call.disconnect();
-        }
-    }
-
-    public void rejectAllCalls() {
-        for (final Call call: mCalls) {
-            call.reject(false, null);
+        synchronized (mCalls) {
+            for (final Call call : mCalls) {
+                call.disconnect();
+            }
         }
     }
 
     public void disconnectAllConferenceCalls() {
-        for (final Call call: mConferenceCalls) {
-            call.disconnect();
+        synchronized (mConferenceCalls) {
+            for (final Call call : mConferenceCalls) {
+                call.disconnect();
+            }
         }
     }
 

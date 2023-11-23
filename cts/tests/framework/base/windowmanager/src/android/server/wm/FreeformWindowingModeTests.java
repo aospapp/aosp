@@ -24,6 +24,7 @@ import static android.server.wm.app.Components.NON_RESIZEABLE_ACTIVITY;
 import static android.server.wm.app.Components.NO_RELAUNCH_ACTIVITY;
 import static android.server.wm.app.Components.TEST_ACTIVITY;
 
+import static android.server.wm.app.Components.TestActivity.TEST_ACTIVITY_ACTION_FINISH_SELF;
 import static org.junit.Assert.assertEquals;
 
 import android.graphics.Rect;
@@ -82,15 +83,27 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
 
     @Test
     public void testNonResizeableActivityHasFullDisplayBounds() throws Exception {
+        createManagedDevEnableNonResizableMultiWindowSession().set(0);
+        launchActivity(TEST_ACTIVITY);
+
+        mWmState.computeState(TEST_ACTIVITY);
+
+        final ActivityTask testActivityTask =
+                mWmState.getTaskByActivity(TEST_ACTIVITY);
+        Rect expectedBounds = testActivityTask.getBounds();
+        mBroadcastActionTrigger.doAction(TEST_ACTIVITY_ACTION_FINISH_SELF);
+        mWmState.waitFor((wmState) ->
+                        !wmState.containsActivity(TEST_ACTIVITY),
+                "Waiting for test activity to finish...");
+
         launchActivity(NON_RESIZEABLE_ACTIVITY, WINDOWING_MODE_FREEFORM);
 
         mWmState.computeState(NON_RESIZEABLE_ACTIVITY);
 
-        final ActivityTask task =
+        final ActivityTask nonResizeableActivityTask =
                 mWmState.getTaskByActivity(NON_RESIZEABLE_ACTIVITY);
-        final ActivityTask stack = mWmState.getRootTask(task.mRootTaskId);
 
-        if (task.isFullscreen()) {
+        if (nonResizeableActivityTask.isFullscreen()) {
             // If the task is on the fullscreen stack, then we know that it will have bounds that
             // fill the entire display.
             return;
@@ -98,8 +111,7 @@ public class FreeformWindowingModeTests extends MultiDisplayTestBase {
 
         // If the task is not on the fullscreen stack, then compare the task bounds to the display
         // bounds.
-        assertEquals(mWmState.getDisplay(stack.mDisplayId).getDisplayRect(),
-                task.getBounds());
+        assertEquals(expectedBounds, nonResizeableActivityTask.getBounds());
     }
 
     @Test

@@ -18,12 +18,11 @@ package android.security.cts;
 
 import android.app.ActivityManager;
 import android.content.Context;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 
 import java.util.List;
 
-@SecurityTest
 public class RunningAppProcessInfoTest extends AndroidTestCase {
     /*
      * This test verifies severity vulnerability: apps can bypass the L restrictions in
@@ -31,6 +30,7 @@ public class RunningAppProcessInfoTest extends AndroidTestCase {
      * the test if it is not able to get other process information.
      */
 
+    @AsbSecurityTest(cveBugId = 20034603)
     public void testRunningAppProcessInfo() {
         ActivityManager amActivityManager =
                 (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);

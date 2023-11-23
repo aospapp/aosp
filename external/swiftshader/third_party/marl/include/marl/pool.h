@@ -17,9 +17,9 @@
 
 #include "conditionvariable.h"
 #include "memory.h"
+#include "mutex.h"
 
 #include <atomic>
-#include <mutex>
 
 namespace marl {
 
@@ -53,17 +53,17 @@ class Pool {
   // item to the pool when the final Loan reference is dropped.
   class Loan {
    public:
-    inline Loan() = default;
-    inline Loan(Item*, const std::shared_ptr<Storage>&);
-    inline Loan(const Loan&);
-    inline Loan(Loan&&);
-    inline ~Loan();
-    inline Loan& operator=(const Loan&);
-    inline Loan& operator=(Loan&&);
-    inline T& operator*();
-    inline T* operator->() const;
-    inline T* get() const;
-    void reset();
+    MARL_NO_EXPORT inline Loan() = default;
+    MARL_NO_EXPORT inline Loan(Item*, const std::shared_ptr<Storage>&);
+    MARL_NO_EXPORT inline Loan(const Loan&);
+    MARL_NO_EXPORT inline Loan(Loan&&);
+    MARL_NO_EXPORT inline ~Loan();
+    MARL_NO_EXPORT inline Loan& operator=(const Loan&);
+    MARL_NO_EXPORT inline Loan& operator=(Loan&&);
+    MARL_NO_EXPORT inline T& operator*();
+    MARL_NO_EXPORT inline T* operator->() const;
+    MARL_NO_EXPORT inline T* get() const;
+    MARL_NO_EXPORT inline void reset();
 
    private:
     Item* item = nullptr;
@@ -83,13 +83,13 @@ class Pool {
   // The backing data of a single item in the pool.
   struct Item {
     // get() returns a pointer to the item's data.
-    inline T* get();
+    MARL_NO_EXPORT inline T* get();
 
     // construct() calls the constructor on the item's data.
-    inline void construct();
+    MARL_NO_EXPORT inline void construct();
 
     // destruct() calls the destructor on the item's data.
-    inline void destruct();
+    MARL_NO_EXPORT inline void destruct();
 
     using Data = typename aligned_storage<sizeof(T), alignof(T)>::type;
     Data data;
@@ -192,7 +192,7 @@ T* Pool<T>::Loan::operator->() const {
 
 template <typename T>
 T* Pool<T>::Loan::get() const {
-  return item->get();
+  return item ? item->get() : nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -210,34 +210,34 @@ class BoundedPool : public Pool<T> {
   using Item = typename Pool<T>::Item;
   using Loan = typename Pool<T>::Loan;
 
-  inline BoundedPool(Allocator* allocator = Allocator::Default);
+  MARL_NO_EXPORT inline BoundedPool(Allocator* allocator = Allocator::Default);
 
   // borrow() borrows a single item from the pool, blocking until an item is
   // returned if the pool is empty.
-  inline Loan borrow() const;
+  MARL_NO_EXPORT inline Loan borrow() const;
 
   // borrow() borrows count items from the pool, blocking until there are at
   // least count items in the pool. The function f() is called with each
   // borrowed item.
   // F must be a function with the signature: void(T&&)
   template <typename F>
-  inline void borrow(size_t count, const F& f) const;
+  MARL_NO_EXPORT inline void borrow(size_t count, const F& f) const;
 
   // tryBorrow() attempts to borrow a single item from the pool without
   // blocking.
   // The boolean of the returned pair is true on success, or false if the pool
   // is empty.
-  inline std::pair<Loan, bool> tryBorrow() const;
+  MARL_NO_EXPORT inline std::pair<Loan, bool> tryBorrow() const;
 
  private:
   class Storage : public Pool<T>::Storage {
    public:
-    inline Storage();
-    inline ~Storage();
-    inline void return_(Item*) override;
+    MARL_NO_EXPORT inline Storage(Allocator* allocator);
+    MARL_NO_EXPORT inline ~Storage();
+    MARL_NO_EXPORT inline void return_(Item*) override;
 
     Item items[N];
-    std::mutex mutex;
+    marl::mutex mutex;
     ConditionVariable returned;
     Item* free = nullptr;
   };
@@ -245,7 +245,8 @@ class BoundedPool : public Pool<T> {
 };
 
 template <typename T, int N, PoolPolicy POLICY>
-BoundedPool<T, N, POLICY>::Storage::Storage() {
+BoundedPool<T, N, POLICY>::Storage::Storage(Allocator* allocator)
+    : returned(allocator) {
   for (int i = 0; i < N; i++) {
     if (POLICY == PoolPolicy::Preserve) {
       items[i].construct();
@@ -267,7 +268,7 @@ BoundedPool<T, N, POLICY>::Storage::~Storage() {
 template <typename T, int N, PoolPolicy POLICY>
 BoundedPool<T, N, POLICY>::BoundedPool(
     Allocator* allocator /* = Allocator::Default */)
-    : storage(allocator->make_shared<Storage>()) {}
+    : storage(allocator->make_shared<Storage>(allocator)) {}
 
 template <typename T, int N, PoolPolicy POLICY>
 typename BoundedPool<T, N, POLICY>::Loan BoundedPool<T, N, POLICY>::borrow()
@@ -280,7 +281,7 @@ typename BoundedPool<T, N, POLICY>::Loan BoundedPool<T, N, POLICY>::borrow()
 template <typename T, int N, PoolPolicy POLICY>
 template <typename F>
 void BoundedPool<T, N, POLICY>::borrow(size_t n, const F& f) const {
-  std::unique_lock<std::mutex> lock(storage->mutex);
+  marl::lock lock(storage->mutex);
   for (size_t i = 0; i < n; i++) {
     storage->returned.wait(lock, [&] { return storage->free != nullptr; });
     auto item = storage->free;
@@ -295,14 +296,16 @@ void BoundedPool<T, N, POLICY>::borrow(size_t n, const F& f) const {
 template <typename T, int N, PoolPolicy POLICY>
 std::pair<typename BoundedPool<T, N, POLICY>::Loan, bool>
 BoundedPool<T, N, POLICY>::tryBorrow() const {
-  std::unique_lock<std::mutex> lock(storage->mutex);
-  if (storage->free == nullptr) {
-    return std::make_pair(Loan(), false);
+  Item* item = nullptr;
+  {
+    marl::lock lock(storage->mutex);
+    if (storage->free == nullptr) {
+      return std::make_pair(Loan(), false);
+    }
+    item = storage->free;
+    storage->free = storage->free->next;
+    item->pool = this;
   }
-  auto item = storage->free;
-  storage->free = storage->free->next;
-  item->pool = this;
-  lock.unlock();
   if (POLICY == PoolPolicy::Reconstruct) {
     item->construct();
   }
@@ -314,10 +317,11 @@ void BoundedPool<T, N, POLICY>::Storage::return_(Item* item) {
   if (POLICY == PoolPolicy::Reconstruct) {
     item->destruct();
   }
-  std::unique_lock<std::mutex> lock(mutex);
-  item->next = free;
-  free = item;
-  lock.unlock();
+  {
+    marl::lock lock(mutex);
+    item->next = free;
+    free = item;
+  }
   returned.notify_one();
 }
 
@@ -336,30 +340,31 @@ class UnboundedPool : public Pool<T> {
   using Item = typename Pool<T>::Item;
   using Loan = typename Pool<T>::Loan;
 
-  inline UnboundedPool(Allocator* allocator = Allocator::Default);
+  MARL_NO_EXPORT inline UnboundedPool(
+      Allocator* allocator = Allocator::Default);
 
   // borrow() borrows a single item from the pool, automatically allocating
   // more items if the pool is empty.
   // This function does not block.
-  inline Loan borrow() const;
+  MARL_NO_EXPORT inline Loan borrow() const;
 
   // borrow() borrows count items from the pool, calling the function f() with
   // each borrowed item.
   // F must be a function with the signature: void(T&&)
   // This function does not block.
   template <typename F>
-  inline void borrow(size_t n, const F& f) const;
+  MARL_NO_EXPORT inline void borrow(size_t n, const F& f) const;
 
  private:
   class Storage : public Pool<T>::Storage {
    public:
-    inline Storage(Allocator* allocator);
-    inline ~Storage();
-    inline void return_(Item*) override;
+    MARL_NO_EXPORT inline Storage(Allocator* allocator);
+    MARL_NO_EXPORT inline ~Storage();
+    MARL_NO_EXPORT inline void return_(Item*) override;
 
     Allocator* allocator;
-    std::mutex mutex;
-    std::vector<Item*> items;
+    marl::mutex mutex;
+    containers::vector<Item*, 4> items;
     Item* free = nullptr;
   };
 
@@ -369,7 +374,7 @@ class UnboundedPool : public Pool<T> {
 
 template <typename T, PoolPolicy POLICY>
 UnboundedPool<T, POLICY>::Storage::Storage(Allocator* allocator)
-    : allocator(allocator) {}
+    : allocator(allocator), items(allocator) {}
 
 template <typename T, PoolPolicy POLICY>
 UnboundedPool<T, POLICY>::Storage::~Storage() {
@@ -397,7 +402,7 @@ Loan<T> UnboundedPool<T, POLICY>::borrow() const {
 template <typename T, PoolPolicy POLICY>
 template <typename F>
 inline void UnboundedPool<T, POLICY>::borrow(size_t n, const F& f) const {
-  std::unique_lock<std::mutex> lock(storage->mutex);
+  marl::lock lock(storage->mutex);
   for (size_t i = 0; i < n; i++) {
     if (storage->free == nullptr) {
       auto count = std::max<size_t>(storage->items.size(), 32);
@@ -426,10 +431,9 @@ void UnboundedPool<T, POLICY>::Storage::return_(Item* item) {
   if (POLICY == PoolPolicy::Reconstruct) {
     item->destruct();
   }
-  std::unique_lock<std::mutex> lock(mutex);
+  marl::lock lock(mutex);
   item->next = free;
   free = item;
-  lock.unlock();
 }
 
 }  // namespace marl

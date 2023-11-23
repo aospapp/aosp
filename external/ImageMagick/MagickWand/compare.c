@@ -17,7 +17,7 @@
 %                               December 2003                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -192,7 +192,7 @@ static MagickBooleanType CompareUsage(void)
   (void) printf(
     "image type as the filename suffix (i.e. image.ps).  Specify 'file' as\n");
   (void) printf("'-' for standard input or output.\n");
-  return(MagickFalse);
+  return(MagickTrue);
 }
 
 WandExport MagickBooleanType CompareImagesCommand(ImageInfo *image_info,
@@ -265,7 +265,7 @@ WandExport MagickBooleanType CompareImagesCommand(ImageInfo *image_info,
   RectangleInfo
     offset;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -702,7 +702,10 @@ WandExport MagickBooleanType CompareImagesCommand(ImageInfo *image_info,
       {
         if ((LocaleCompare("help",option+1) == 0) ||
             (LocaleCompare("-help",option+1) == 0))
-          return(CompareUsage());
+          {
+            DestroyCompare();
+            return(CompareUsage());
+          }
         if (LocaleCompare("highlight-color",option+1) == 0)
           {
             if (*option == '+')

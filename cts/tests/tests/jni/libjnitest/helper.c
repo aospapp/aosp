@@ -87,3 +87,30 @@ char *runJniTests(JNIEnv *env, ...) {
 
     return result;
 }
+
+int registerJniMethods(JNIEnv* env, const char* className, const JNINativeMethod* methods,
+                       int numMethods)
+{
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG,
+                        "Registering %s's %d native methods...", className, numMethods);
+    jclass clazz = (*env)->FindClass(env, className);
+    int result = (*env)->RegisterNatives(env, clazz, methods, numMethods);
+    (*env)->DeleteLocalRef(env, clazz);
+    if (result == 0) {
+        return 0;
+    }
+
+    __android_log_print(ANDROID_LOG_FATAL, LOG_TAG,
+                        "Failed to register JNI methods for %s: %d\n", className, result);
+    return result;
+}
+
+void throwException(JNIEnv* env, const char* className, const char* message) {
+    jclass clazz = (*env)->FindClass(env, className);
+    int result = (*env)->ThrowNew(env, clazz, message);
+    if (result != 0) {
+        __android_log_print(ANDROID_LOG_FATAL, LOG_TAG,
+                            "Failed to throw %s: d\n", className, result);
+
+    }
+}

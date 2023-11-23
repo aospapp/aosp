@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Runs MTS">
+<configuration description="Runs all the tests in MTS">
 
     <include name="everything" />
     <option name="plan" value="mts" />

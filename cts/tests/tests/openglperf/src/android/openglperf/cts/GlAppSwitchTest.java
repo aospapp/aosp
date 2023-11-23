@@ -69,6 +69,10 @@ public class GlAppSwitchTest extends
         Instrumentation instrument = getInstrumentation();
         Context context = instrument.getContext();
 
+        // This is needed so that |mActivityManager.getRunningTasks(...)| is able to
+        // see tasks from |REPLICA_ISLAND_PACKAGE|.
+        instrument.getUiAutomation().adoptShellPermissionIdentity();
+
         mActivityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
 
         Intent intentPlanets = new Intent();

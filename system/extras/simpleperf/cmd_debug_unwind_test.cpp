@@ -29,48 +29,63 @@
 #include "record_file.h"
 #include "test_util.h"
 
+using namespace simpleperf;
+
 static std::unique_ptr<Command> DebugUnwindCmd() {
   return CreateCommandInstance("debug-unwind");
 }
 
-TEST(cmd_debug_unwind, smoke) {
+TEST(cmd_debug_unwind, unwind_sample_option) {
   std::string input_data = GetTestData(PERF_DATA_NO_UNWIND);
   CaptureStdout capture;
-  TemporaryFile tmp_file;
-  ASSERT_TRUE(capture.Start());
-  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", input_data, "-o", tmp_file.path}));
-  ASSERT_NE(capture.Finish().find("Unwinding sample count: 8"), std::string::npos);
 
   ASSERT_TRUE(capture.Start());
-  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", input_data, "-o", tmp_file.path, "--time",
-                                     "1516379654300997"}));
-  ASSERT_NE(capture.Finish().find("Unwinding sample count: 1"), std::string::npos);
+  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", input_data, "--unwind-sample"}));
+  ASSERT_NE(capture.Finish().find("sample_time: 1516379654300997"), std::string::npos);
+}
+
+TEST(cmd_debug_unwind, sample_time_option) {
+  std::string input_data = GetTestData(PERF_DATA_NO_UNWIND);
+  CaptureStdout capture;
+
+  ASSERT_TRUE(capture.Start());
+  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", input_data, "--unwind-sample", "--sample-time",
+                                     "1516379654300997", "--sample-time",
+                                     "1516379654363914,1516379655959122"}));
+  std::string output = capture.Finish();
+  ASSERT_NE(output.find("sample_time: 1516379654300997"), std::string::npos);
+  ASSERT_NE(output.find("sample_time: 1516379654363914"), std::string::npos);
+  ASSERT_NE(output.find("sample_time: 1516379655959122"), std::string::npos);
+}
+
+TEST(cmd_debug_unwind, output_option) {
+  std::string input_data = GetTestData(PERF_DATA_NO_UNWIND);
+  TemporaryFile tmpfile;
+  close(tmpfile.release());
+  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", input_data, "--unwind-sample", "--sample-time",
+                                     "1516379654300997", "-o", tmpfile.path}));
+  std::string output;
+  ASSERT_TRUE(android::base::ReadFileToString(tmpfile.path, &output));
+  ASSERT_NE(output.find("sample_time: 1516379654300997"), std::string::npos);
 }
 
 TEST(cmd_debug_unwind, symfs_option) {
   std::string input_data = GetTestData(NATIVELIB_IN_APK_PERF_DATA);
   CaptureStdout capture;
-  TemporaryFile tmp_file;
   ASSERT_TRUE(capture.Start());
-  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", input_data, "-o", tmp_file.path, "--symfs",
-                                     GetTestDataDir()}));
-  ASSERT_NE(capture.Finish().find("Unwinding sample count: 55"), std::string::npos);
-  std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmp_file.path);
-  ASSERT_TRUE(reader);
-  const std::map<int, PerfFileFormat::SectionDesc>& features = reader->FeatureSectionDescriptors();
-  ASSERT_NE(features.find(PerfFileFormat::FEAT_FILE), features.end());
-  ASSERT_NE(features.find(PerfFileFormat::FEAT_META_INFO), features.end());
-  auto meta_info = reader->GetMetaInfoFeature();
-  ASSERT_EQ(meta_info["debug_unwind"], "true");
+  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", input_data, "--symfs", GetTestDataDir(),
+                                     "--unwind-sample", "--sample-time", "500329355223"}));
+  ASSERT_NE(capture.Finish().find(
+                "dso_4: /data/app/com.example.hellojni-1/base.apk!/lib/arm64-v8a/libhello-jni.so"),
+            std::string::npos);
 }
 
 TEST(cmd_debug_unwind, unwind_with_ip_zero_in_callchain) {
-  TemporaryFile tmp_file;
   CaptureStdout capture;
   ASSERT_TRUE(capture.Start());
   ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", GetTestData(PERF_DATA_WITH_IP_ZERO_IN_CALLCHAIN),
-                                     "-o", tmp_file.path}));
-  ASSERT_NE(capture.Finish().find("Unwinding sample count: 1"), std::string::npos);
+                                     "--unwind-sample", "--sample-time", "152526249937103"}));
+  ASSERT_NE(capture.Finish().find("sample_time: 152526249937103"), std::string::npos);
 }
 
 TEST(cmd_debug_unwind, unwind_embedded_lib_in_apk) {
@@ -78,14 +93,66 @@ TEST(cmd_debug_unwind, unwind_embedded_lib_in_apk) {
   // file, there is a sample with ip address pointing to
   // /data/app/simpleperf.demo.cpp_api/base.apk!/lib/arm64-v8a/libnative-lib.so.
   // If unwound successfully, it can reach a function in libc.so.
-  TemporaryFile tmp_file;
-  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", GetTestData("perf_unwind_embedded_lib_in_apk.data"),
-                                     "--symfs", GetTestDataDir(), "-o", tmp_file.path}));
   CaptureStdout capture;
   ASSERT_TRUE(capture.Start());
-  ASSERT_TRUE(CreateCommandInstance("report-sample")->Run(
-      {"--show-callchain", "-i", tmp_file.path}));
+  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", GetTestData("perf_unwind_embedded_lib_in_apk.data"),
+                                     "--symfs", GetTestDataDir(), "--unwind-sample",
+                                     "--sample-time", "20345907755421"}));
   std::string output = capture.Finish();
-  ASSERT_NE(output.find("libnative-lib.so"), std::string::npos);
-  ASSERT_NE(output.find("libc.so"), std::string::npos);
+  ASSERT_NE(
+      output.find(
+          "dso_1: /data/app/simpleperf.demo.cpp_api/base.apk!/lib/arm64-v8a/libnative-lib.so"),
+      std::string::npos)
+      << output;
+  ASSERT_NE(output.find("dso_2: /bionic/lib64/libc.so"), std::string::npos) << output;
+}
+
+TEST(cmd_debug_unwind, unwind_sample_in_unwinding_debug_info_file) {
+  CaptureStdout capture;
+  ASSERT_TRUE(capture.Start());
+  ASSERT_TRUE(DebugUnwindCmd()->Run(
+      {"-i", GetTestData("perf_with_failed_unwinding_debug_info.data"), "--unwind-sample"}));
+  std::string output = capture.Finish();
+  ASSERT_NE(output.find("symbol_5: android.os.Handler.post"), std::string::npos) << output;
+}
+
+TEST(cmd_debug_unwind, generate_test_file) {
+  TemporaryFile tmpfile;
+  close(tmpfile.release());
+  ASSERT_TRUE(DebugUnwindCmd()->Run(
+      {"-i", GetTestData("perf_with_failed_unwinding_debug_info.data"), "--generate-test-file",
+       "--sample-time", "626968783364202", "-o", tmpfile.path, "--keep-binaries-in-test-file",
+       "perf.data_jit_app_cache:255984-259968,perf.data_jit_app_cache:280144-283632"}));
+
+  CaptureStdout capture;
+  ASSERT_TRUE(capture.Start());
+  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", tmpfile.path, "--unwind-sample"}));
+  std::string output = capture.Finish();
+  ASSERT_NE(output.find("symbol_2: android.os.Handler.enqueueMessage"), std::string::npos);
+}
+
+TEST(cmd_debug_unwind, generate_test_file_with_build_id) {
+  TemporaryFile tmpfile;
+  close(tmpfile.release());
+  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", GetTestData("perf_display_bitmaps.data"),
+                                     "--generate-test-file", "--sample-time", "684943450156904",
+                                     "-o", tmpfile.path, "--keep-binaries-in-test-file",
+                                     "/apex/com.android.runtime/lib64/bionic/libc.so"}));
+  auto reader = RecordFileReader::CreateInstance(tmpfile.path);
+  ASSERT_TRUE(reader);
+  auto build_ids = reader->ReadBuildIdFeature();
+  ASSERT_EQ(build_ids.size(), 1);
+  ASSERT_STREQ(build_ids[0].filename, "/apex/com.android.runtime/lib64/bionic/libc.so");
+}
+
+TEST(cmd_debug_unwind, generate_report) {
+  TemporaryFile tmpfile;
+  close(tmpfile.release());
+  ASSERT_TRUE(
+      DebugUnwindCmd()->Run({"-i", GetTestData("perf_with_failed_unwinding_debug_info.data"),
+                             "--generate-report", "-o", tmpfile.path}));
+  std::string output;
+  ASSERT_TRUE(android::base::ReadFileToString(tmpfile.path, &output));
+  ASSERT_NE(output.find("unwinding_error_code: 4"), std::string::npos);
+  ASSERT_NE(output.find("symbol_2: android.os.Handler.enqueueMessage"), std::string::npos);
 }

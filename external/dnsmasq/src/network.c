@@ -180,7 +180,7 @@ static int iface_allowed(struct irec** irecp, int if_index, union mysockaddr* ad
 #ifdef HAVE_IPV6
 static int iface_allowed_v6(struct in6_addr* local, int scope, int if_index, void* vparam) {
     union mysockaddr addr;
-    struct in_addr netmask; /* dummy */
+    struct in_addr netmask; /* unused */
 
     netmask.s_addr = 0;
 
@@ -360,7 +360,6 @@ void create_bound_listener(struct listener** listeners, struct irec* iface) {
     new->next = *listeners;
     new->tcpfd = -1;
     new->fd = -1;
-    *listeners = new;
 
     if (daemon->port != 0) {
         if ((new->tcpfd = socket(iface->addr.sa.sa_family, SOCK_STREAM, 0)) == -1 ||
@@ -378,12 +377,17 @@ void create_bound_listener(struct listener** listeners, struct irec* iface) {
         }
 #endif
 
+        /* Unless the IPv6 address is added with IFA_F_NODAD, bind() can fail even if DAD
+           is disabled on the interface. This is because without IFA_F_NODAD the IPv6
+           address creation call moves the IPv6 address to tentative. A timer will
+           fire to immediately remove the tentative flag, but this is not sufficient to
+           avoid a race condition (see comments in tun_interface.cpp and iproute.py). */
         while (1) {
             if ((rc = bind(new->fd, &iface->addr.sa, sa_len(&iface->addr))) != -1) break;
 
 #ifdef HAVE_IPV6
             /* An interface may have an IPv6 address which is still undergoing DAD.
-               If so, the bind will fail until the DAD completes, so we try over 20 seconds
+               If so, the bind will fail until the DAD completes, so we try again
                before failing. */
             /* TODO: What to do here? 20 seconds is way too long. We use optimistic addresses, so
                bind() will only fail if the address has already failed DAD, in which case retrying
@@ -399,7 +403,11 @@ void create_bound_listener(struct listener** listeners, struct irec* iface) {
 
         if (rc == -1 || bind(new->tcpfd, &iface->addr.sa, sa_len(&iface->addr)) == -1) {
             prettyprint_addr(&iface->addr, daemon->namebuff);
-            die(_("failed to bind listening socket for %s: %s"), daemon->namebuff, EC_BADNET);
+            close(new->fd);
+            close(new->tcpfd);
+            free(new);
+            syslog(LOG_ERR, _("failed to bind listening socket for %s"), daemon->namebuff);
+            return;
         }
 
         uint32_t mark = daemon->listen_mark;
@@ -409,6 +417,7 @@ void create_bound_listener(struct listener** listeners, struct irec* iface) {
 
         if (listen(new->tcpfd, 5) == -1) die(_("failed to listen on socket: %s"), NULL, EC_BADNET);
     }
+    *listeners = new;
 }
 
 /**

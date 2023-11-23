@@ -34,6 +34,7 @@
 #include "l2c_api.h"
 #include "l2cdefs.h"
 #include "osi/include/osi.h"
+#include "stack/btm/btm_sec.h"
 
 AvdtpScb* AvdtpAdaptationLayer::LookupAvdtpScb(
     const AvdtpTransportChannel& tc) {
@@ -192,14 +193,11 @@ AvdtpTransportChannel* avdt_ad_tc_tbl_by_st(uint8_t type, AvdtpCcb* p_ccb,
  *
  ******************************************************************************/
 AvdtpTransportChannel* avdt_ad_tc_tbl_by_lcid(uint16_t lcid) {
-  uint8_t idx;
-
-  idx = avdtp_cb.ad.lcid_tbl[lcid - L2CAP_BASE_APPL_CID];
-
-  if (idx < AVDT_NUM_TC_TBL) {
+  if (avdtp_cb.ad.lcid_tbl.count(lcid) != 0) {
+    uint8_t idx = avdtp_cb.ad.lcid_tbl[lcid];
     return &avdtp_cb.ad.tc_tbl[idx];
   } else {
-    return NULL;
+    return nullptr;
   }
 }
 
@@ -297,8 +295,7 @@ uint8_t avdt_ad_tc_tbl_to_idx(AvdtpTransportChannel* p_tbl) {
  * Returns          Nothing.
  *
  ******************************************************************************/
-void avdt_ad_tc_close_ind(AvdtpTransportChannel* p_tbl,
-                          UNUSED_ATTR uint16_t reason) {
+void avdt_ad_tc_close_ind(AvdtpTransportChannel* p_tbl) {
   AvdtpCcb* p_ccb;
   AvdtpScb* p_scb;
   tAVDT_SCB_TC_CLOSE close;
@@ -527,12 +524,10 @@ void avdt_ad_open_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb,
 
   if (type == AVDT_CHAN_SIG) {
     /* if signaling, get mtu from registration control block */
-    p_tbl->my_mtu = avdtp_cb.rcb.ctrl_mtu;
-    p_tbl->my_flush_to = L2CAP_DEFAULT_FLUSH_TO;
+    p_tbl->my_mtu = kAvdtpMtu;
   } else {
     /* otherwise get mtu from scb */
-    p_tbl->my_mtu = p_scb->stream_config.mtu;
-    p_tbl->my_flush_to = p_scb->stream_config.flush_to;
+    p_tbl->my_mtu = kAvdtpMtu;
 
     /* also set scb_hdl in rt_tbl */
     avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].scb_hdl =
@@ -551,13 +546,12 @@ void avdt_ad_open_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb,
     p_tbl->state = AVDT_AD_ST_CONN;
 
     /* call l2cap connect req */
-    lcid = L2CA_ConnectReq(AVDT_PSM, p_ccb->peer_addr);
+    lcid =
+        L2CA_ConnectReq2(AVDT_PSM, p_ccb->peer_addr, BTM_SEC_OUT_AUTHENTICATE);
     if (lcid != 0) {
       /* if connect req ok, store tcid in lcid table  */
-      avdtp_cb.ad.lcid_tbl[lcid - L2CAP_BASE_APPL_CID] =
-          avdt_ad_tc_tbl_to_idx(p_tbl);
-      AVDT_TRACE_DEBUG("avdtp_cb.ad.lcid_tbl[%d] = %d",
-                       (lcid - L2CAP_BASE_APPL_CID),
+      avdtp_cb.ad.lcid_tbl[lcid] = avdt_ad_tc_tbl_to_idx(p_tbl);
+      AVDT_TRACE_DEBUG("avdtp_cb.ad.lcid_tbl[%d] = %d", (lcid),
                        avdt_ad_tc_tbl_to_idx(p_tbl));
 
       avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][p_tbl->tcid].lcid = lcid;
@@ -565,7 +559,7 @@ void avdt_ad_open_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb,
                        avdt_ccb_to_idx(p_ccb), p_tbl->tcid, lcid);
     } else {
       /* if connect req failed, call avdt_ad_tc_close_ind() */
-      avdt_ad_tc_close_ind(p_tbl, 0);
+      avdt_ad_tc_close_ind(p_tbl);
     }
   }
 }
@@ -595,13 +589,14 @@ void avdt_ad_close_req(uint8_t type, AvdtpCcb* p_ccb, AvdtpScb* p_scb) {
       break;
     case AVDT_AD_ST_ACP:
       /* if we're listening on this channel, send ourselves a close ind */
-      avdt_ad_tc_close_ind(p_tbl, 0);
+      avdt_ad_tc_close_ind(p_tbl);
       break;
     default:
       /* get tcid from type, scb */
       tcid = avdt_ad_type_to_tcid(type, p_scb);
 
       /* call l2cap disconnect req */
-      L2CA_DisconnectReq(avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][tcid].lcid);
+      avdt_l2c_disconnect(
+          avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][tcid].lcid);
   }
 }

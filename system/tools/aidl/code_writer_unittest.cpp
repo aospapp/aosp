@@ -44,5 +44,17 @@ TEST(CodeWriterTest, AppendOperatorCascade) {
   EXPECT_EQ(str, "Write this and that");
 }
 
+TEST(CodeWriterTest, WorksWithNonAscii) {
+  // Due to b/174366536(basic_stringbuf implicit-conversion), the following snippet crashes
+  //   std::stringstream s;
+  //   s << "가";
+  std::string str;
+  CodeWriterPtr ptr = CodeWriter::ForString(&str);
+  CodeWriter& writer = *ptr;
+  writer << "가";
+  writer.Close();
+  EXPECT_EQ(str, "가");
+}
+
 }  // namespace aidl
 }  // namespace android

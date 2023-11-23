@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 subdirs = ["cmd"]
 
 bootstrap_go_package {
@@ -21,13 +25,13 @@ bootstrap_go_package {
         "android-archive-zip",
         "blueprint-pathtools",
         "soong-jar",
+        "soong-response",
     ],
     srcs: [
         "zip.go",
         "rate_limit.go",
     ],
     testSrcs: [
-      "zip_test.go",
+        "zip_test.go",
     ],
 }
-

@@ -11,16 +11,15 @@
 #include <optional>
 
 #include <base/callback.h>
-#include <base/files/scoped_file.h>
 #include <base/memory/weak_ptr.h>
 
-#include <rect.h>
-#include <size.h>
+#include <ui/Rect.h>
+#include <ui/Size.h>
+#include <v4l2_codec2/common/V4L2Device.h>
+#include <v4l2_codec2/common/VideoTypes.h>
 #include <v4l2_codec2/components/VideoDecoder.h>
 #include <v4l2_codec2/components/VideoFrame.h>
 #include <v4l2_codec2/components/VideoFramePool.h>
-#include <v4l2_codec2/components/VideoTypes.h>
-#include <v4l2_device.h>
 
 namespace android {
 
@@ -50,7 +49,6 @@ private:
               : buffer(std::move(buffer)), decodeCb(std::move(decodeCb)) {}
         DecodeRequest(DecodeRequest&&) = default;
         ~DecodeRequest() = default;
-        DecodeRequest& operator=(DecodeRequest&&);
 
         std::unique_ptr<BitstreamBuffer> buffer;  // nullptr means Drain
         DecodeCB decodeCb;
@@ -63,17 +61,16 @@ private:
     void pumpDecodeRequest();
 
     void serviceDeviceTask(bool event);
-    void sendOutputBuffer(media::V4L2ReadableBufferRef buffer);
     bool dequeueResolutionChangeEvent();
     bool changeResolution();
+    bool setupOutputFormat(const ui::Size& size);
 
     void tryFetchVideoFrame();
-    void onVideoFrameReady(media::V4L2WritableBufferRef outputBuffer,
-                           std::unique_ptr<VideoFrame> block);
+    void onVideoFrameReady(std::optional<VideoFramePool::FrameWithBlockId> frameWithBlockId);
 
     std::optional<size_t> getNumOutputBuffers();
     std::optional<struct v4l2_format> getFormatInfo();
-    media::Rect getVisibleRect(const media::Size& codedSize);
+    Rect getVisibleRect(const ui::Size& codedSize);
     bool sendV4L2DecoderCmd(bool start);
 
     void setState(State newState);
@@ -81,9 +78,9 @@ private:
 
     std::unique_ptr<VideoFramePool> mVideoFramePool;
 
-    scoped_refptr<media::V4L2Device> mDevice;
-    scoped_refptr<media::V4L2Queue> mInputQueue;
-    scoped_refptr<media::V4L2Queue> mOutputQueue;
+    scoped_refptr<V4L2Device> mDevice;
+    scoped_refptr<V4L2Queue> mInputQueue;
+    scoped_refptr<V4L2Queue> mOutputQueue;
 
     std::queue<DecodeRequest> mDecodeRequests;
     std::map<int32_t, DecodeCB> mPendingDecodeCbs;
@@ -93,10 +90,15 @@ private:
     DecodeCB mDrainCb;
     ErrorCB mErrorCb;
 
-    media::Size mCodedSize;
-    media::Rect mVisibleRect;
+    ui::Size mCodedSize;
+    Rect mVisibleRect;
 
     std::map<size_t, std::unique_ptr<VideoFrame>> mFrameAtDevice;
+
+    // Block IDs can be arbitrarily large, but we only have a limited number of
+    // buffers. This maintains an association between a block ID and a specific
+    // V4L2 buffer index.
+    std::map<size_t, size_t> mBlockIdToV4L2Id;
 
     State mState = State::Idle;
 

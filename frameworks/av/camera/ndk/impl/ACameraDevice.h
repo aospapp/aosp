@@ -167,7 +167,7 @@ class CameraDevice final : public RefBase {
     void notifySessionEndOfLifeLocked(ACameraCaptureSession* session);
 
     camera_status_t configureStreamsLocked(const ACaptureSessionOutputContainer* outputs,
-           const ACaptureRequest* sessionParameters);
+           const ACaptureRequest* sessionParameters, nsecs_t startTimeNs);
 
     // Input message will be posted and cleared after this returns
     void postSessionMsgAndCleanup(sp<AMessage>& msg);
@@ -354,6 +354,7 @@ class CameraDevice final : public RefBase {
     void checkRepeatingSequenceCompleteLocked(const int sequenceId, const int64_t lastFrameNumber);
     void checkAndFireSequenceCompleteLocked();
     void removeCompletedCallbackHolderLocked(int64_t lastCompletedRegularFrameNumber);
+    void sendCaptureSequenceCompletedLocked(int sequenceId, int64_t lastFrameNumber);
 
     // Misc variables
     int32_t mShadingMapSize[2];   // const after constructor

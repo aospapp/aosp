@@ -17,21 +17,40 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.car.rotary">
 
-    <!-- Allows input events to be monitored by us. -->
-    <uses-permission android:name="android.permission.MONITOR_INPUT"
-                     android:protectionLevel="signature"/>
+    <!-- Allows car input events to be monitored by us. -->
+    <uses-permission android:name="android.car.permission.CAR_MONITOR_INPUT"/>
 
     <!-- Allows us to inject input events (such as KeyEvent and MotionEvent) into the event stream
          and deliver them. -->
-    <uses-permission android:name="android.permission.INJECT_EVENTS"
-                     android:protectionLevel="signature"/>
+    <uses-permission android:name="android.permission.INJECT_EVENTS"/>
+
+    <!-- Allows us to toggle between touch and rotary IME. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
+
+    <!-- Allows us to have an overlay to capture touch events. -->
+    <uses-permission android:name="android.permission.INTERNAL_SYSTEM_WINDOW"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+
+    <!-- Allows us to get the username of the current user. -->
+    <uses-permission android:name="android.permission.GET_ACCOUNTS_PRIVILEGED"/>
+
+    <!-- Allows us to read the current activity's metadata for custom nudge actions. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+
+    <!-- Ensures the host app is visible to RotaryService. -->
+    <queries>
+        <intent>
+            <action android:name="android.car.template.host.RendererService" />
+        </intent>
+    </queries>
 
     <!-- RotaryService needs to be directBootAware so that it can start before the user is unlocked. -->
     <application>
         <service
             android:name=".RotaryService"
             android:directBootAware="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>

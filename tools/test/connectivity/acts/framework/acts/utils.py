@@ -23,6 +23,8 @@ import ipaddress
 import json
 import logging
 import os
+import platform
+import psutil
 import random
 import re
 import signal
@@ -34,9 +36,10 @@ import threading
 import traceback
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
+from zeroconf import IPVersion, Zeroconf
 
 from acts import signals
-from acts.controllers import adb
+from acts.controllers.adb_lib.error import AdbError
 from acts.libs.proc import job
 
 # File name length is limited to 255 chars on some OS, so we need to make sure
@@ -864,7 +867,7 @@ def bypass_setup_wizard(ad):
         ad.adb.shell("am start -n \"com.google.android.setupwizard/"
                      ".SetupWizardExitActivity\"")
         logging.debug("No error during default bypass call.")
-    except adb.AdbError as adb_error:
+    except AdbError as adb_error:
         if adb_error.stdout == "ADB_CMD_OUTPUT:0":
             if adb_error.stderr and \
                     not adb_error.stderr.startswith("Error type 3\n"):
@@ -881,7 +884,7 @@ def bypass_setup_wizard(ad):
                 ad.adb.shell("am start -n \"com.google.android.setupwizard/"
                              ".SetupWizardExitActivity\"")
                 logging.debug("No error during rooted bypass call.")
-            except adb.AdbError as adb_error:
+            except AdbError as adb_error:
                 if adb_error.stdout == "ADB_CMD_OUTPUT:0":
                     if adb_error.stderr and \
                             not adb_error.stderr.startswith("Error type 3\n"):
@@ -1386,38 +1389,89 @@ def get_interface_ip_addresses(comm_channel, interface):
 
     Returns:
         A list of dictionaries of the the various IP addresses:
-            ipv4_private_local_addresses: Any 192.168, 172.16, or 10
+            ipv4_private_local_addresses: Any 192.168, 172.16, 10, or 169.254
                 addresses
             ipv4_public_addresses: Any IPv4 public addresses
             ipv6_link_local_addresses: Any fe80:: addresses
             ipv6_private_local_addresses: Any fd00:: addresses
             ipv6_public_addresses: Any publicly routable addresses
     """
+    # Local imports are used here to prevent cyclic dependency.
+    from acts.controllers.android_device import AndroidDevice
+    from acts.controllers.fuchsia_device import FuchsiaDevice
+    from acts.controllers.utils_lib.ssh.connection import SshConnection
     ipv4_private_local_addresses = []
     ipv4_public_addresses = []
     ipv6_link_local_addresses = []
     ipv6_private_local_addresses = []
     ipv6_public_addresses = []
-    all_interfaces_and_addresses = comm_channel.run(
-        'ip -o addr | awk \'!/^[0-9]*: ?lo|link\/ether/ {gsub("/", " "); '
-        'print $2" "$4}\'').stdout
-    ifconfig_output = comm_channel.run('ifconfig %s' % interface).stdout
+    is_local = comm_channel == job
+    if type(comm_channel) is AndroidDevice:
+        all_interfaces_and_addresses = comm_channel.adb.shell(
+            'ip -o addr | awk \'!/^[0-9]*: ?lo|link\/ether/ {gsub("/", " "); '
+            'print $2" "$4}\'')
+        ifconfig_output = comm_channel.adb.shell('ifconfig %s' % interface)
+    elif (type(comm_channel) is SshConnection or is_local):
+        all_interfaces_and_addresses = comm_channel.run(
+            'ip -o addr | awk \'!/^[0-9]*: ?lo|link\/ether/ {gsub("/", " "); '
+            'print $2" "$4}\'').stdout
+        ifconfig_output = comm_channel.run('ifconfig %s' % interface).stdout
+    elif type(comm_channel) is FuchsiaDevice:
+        all_interfaces_and_addresses = []
+        comm_channel.netstack_lib.init()
+        interfaces = comm_channel.netstack_lib.netstackListInterfaces()
+        if interfaces.get('error') is not None:
+            raise ActsUtilsError('Failed with {}'.format(
+                interfaces.get('error')))
+        for item in interfaces.get('result'):
+            for ipv4_address in item['ipv4_addresses']:
+                ipv4_address = '.'.join(map(str, ipv4_address))
+                all_interfaces_and_addresses.append(
+                    '%s %s' % (item['name'], ipv4_address))
+            for ipv6_address in item['ipv6_addresses']:
+                converted_ipv6_address = []
+                for octet in ipv6_address:
+                    converted_ipv6_address.append(format(octet, 'x').zfill(2))
+                ipv6_address = ''.join(converted_ipv6_address)
+                ipv6_address = (':'.join(
+                    ipv6_address[i:i + 4]
+                    for i in range(0, len(ipv6_address), 4)))
+                all_interfaces_and_addresses.append(
+                    '%s %s' %
+                    (item['name'], str(ipaddress.ip_address(ipv6_address))))
+        all_interfaces_and_addresses = '\n'.join(all_interfaces_and_addresses)
+        ifconfig_output = all_interfaces_and_addresses
+    else:
+        raise ValueError('Unsupported method to send command to device.')
+
     for interface_line in all_interfaces_and_addresses.split('\n'):
         if interface != interface_line.split()[0]:
             continue
         on_device_ip = ipaddress.ip_address(interface_line.split()[1])
-        if on_device_ip.version() == 4:
-            if on_device_ip.is_private():
-                ipv4_private_local_addresses.append(str(on_device_ip))
-            elif on_device_ip.is_global():
-                ipv4_public_addresses.append(str(on_device_ip))
-        elif on_device_ip.version() == 6:
-            if on_device_ip.is_link_local():
-                ipv6_link_local_addresses.append(str(on_device_ip))
-            elif on_device_ip.is_private():
-                ipv6_private_local_addresses.append(str(on_device_ip))
-            elif on_device_ip.is_global():
-                ipv6_public_addresses.append(str(on_device_ip))
+        if on_device_ip.version == 4:
+            if on_device_ip.is_private:
+                if str(on_device_ip) in ifconfig_output:
+                    ipv4_private_local_addresses.append(str(on_device_ip))
+            elif on_device_ip.is_global or (
+                    # Carrier private doesn't have a property, so we check if
+                    # all other values are left unset.
+                    not on_device_ip.is_reserved
+                    and not on_device_ip.is_unspecified
+                    and not on_device_ip.is_link_local
+                    and not on_device_ip.is_loopback
+                    and not on_device_ip.is_multicast):
+                if str(on_device_ip) in ifconfig_output:
+                    ipv4_public_addresses.append(str(on_device_ip))
+        elif on_device_ip.version == 6:
+            if on_device_ip.is_link_local:
+                if str(on_device_ip) in ifconfig_output:
+                    ipv6_link_local_addresses.append(str(on_device_ip))
+            elif on_device_ip.is_private:
+                if str(on_device_ip) in ifconfig_output:
+                    ipv6_private_local_addresses.append(str(on_device_ip))
+            elif on_device_ip.is_global:
+                if str(on_device_ip) in ifconfig_output:
+                    ipv6_public_addresses.append(str(on_device_ip))
     return {
         'ipv4_private': ipv4_private_local_addresses,
         'ipv4_public': ipv4_public_addresses,
@@ -1462,3 +1516,281 @@ def renew_linux_ip_address(comm_channel, interface):
     comm_channel.run('sudo ifconfig %s up' % interface)
     comm_channel.run('sudo dhclient -r %s' % interface)
     comm_channel.run('sudo dhclient %s' % interface)
+
+
+def get_ping_command(dest_ip,
+                     count=3,
+                     interval=1000,
+                     timeout=1000,
+                     size=56,
+                     os_type='Linux',
+                     additional_ping_params=None):
+    """Builds ping command string based on address type, os, and params.
+
+    Args:
+        dest_ip: string, address to ping (ipv4 or ipv6)
+        count: int, number of requests to send
+        interval: int, time in seconds between requests
+        timeout: int, time in seconds to wait for response
+        size: int, number of bytes to send,
+        os_type: string, os type of the source device (supports 'Linux',
+            'Darwin')
+        additional_ping_params: string, command option flags to
+            append to the command string
+
+    Returns:
+        List of string, represetning the ping command.
+    """
+    if is_valid_ipv4_address(dest_ip):
+        ping_binary = 'ping'
+    elif is_valid_ipv6_address(dest_ip):
+        ping_binary = 'ping6'
+    else:
+        raise ValueError('Invalid ip addr: %s' % dest_ip)
+
+    if os_type == 'Darwin':
+        if is_valid_ipv6_address(dest_ip):
+            # ping6 on MacOS doesn't support timeout
+            logging.warn(
+                'Ignoring timeout, as ping6 on MacOS does not support it.')
+            timeout_flag = []
+        else:
+            timeout_flag = ['-t', str(timeout / 1000)]
+    elif os_type == 'Linux':
+        timeout_flag = ['-W', str(timeout / 1000)]
+    else:
+        raise ValueError('Invalid OS.  Only Linux and MacOS are supported.')
+
+    if not additional_ping_params:
+        additional_ping_params = ''
+
+    ping_cmd = [
+        ping_binary, *timeout_flag, '-c',
+        str(count), '-i',
+        str(interval / 1000), '-s',
+        str(size), additional_ping_params, dest_ip
+    ]
+    return ' '.join(ping_cmd)
+
+
+def ping(comm_channel,
+         dest_ip,
+         count=3,
+         interval=1000,
+         timeout=1000,
+         size=56,
+         additional_ping_params=None):
+    """ Generic linux ping function, supports local (acts.libs.proc.job) and
+    SshConnections (acts.libs.proc.job over ssh) to Linux based OSs and MacOS.
+
+    NOTES: This will work with Android over SSH, but does not function over ADB
+    as that has a unique return format.
+
+    Args:
+        comm_channel: communication channel over which to send ping command.
+            Must have 'run' function that returns at least command, stdout,
+            stderr, and exit_status (see acts.libs.proc.job)
+        dest_ip: address to ping (ipv4 or ipv6)
+        count: int, number of packets to send
+        interval: int, time in milliseconds between pings
+        timeout: int, time in milliseconds to wait for response
+        size: int, size of packets in bytes
+        additional_ping_params: string, command option flags to
+            append to the command string
+
+    Returns:
+        Dict containing:
+            command: string
+            exit_status: int (0 or 1)
+            stdout: string
+            stderr: string
+            transmitted: int, number of packets transmitted
+            received: int, number of packets received
+            packet_loss: int, percentage packet loss
+            time: int, time of ping command execution (in milliseconds)
+            rtt_min: float, minimum round trip time
+            rtt_avg: float, average round trip time
+            rtt_max: float, maximum round trip time
+            rtt_mdev: float, round trip time standard deviation
+
+        Any values that cannot be parsed are left as None
+    """
+    from acts.controllers.utils_lib.ssh.connection import SshConnection
+    is_local = comm_channel == job
+    os_type = platform.system() if is_local else 'Linux'
+    ping_cmd = get_ping_command(dest_ip,
+                                count=count,
+                                interval=interval,
+                                timeout=timeout,
+                                size=size,
+                                os_type=os_type,
+                                additional_ping_params=additional_ping_params)
+
+    if (type(comm_channel) is SshConnection or is_local):
+        logging.debug(
+            'Running ping with parameters (count: %s, interval: %s, timeout: '
+            '%s, size: %s)' % (count, interval, timeout, size))
+        ping_result = comm_channel.run(ping_cmd, ignore_status=True)
+    else:
+        raise ValueError('Unsupported comm_channel: %s' % type(comm_channel))
+
+    if isinstance(ping_result, job.Error):
+        ping_result = ping_result.result
+
+    transmitted = None
+    received = None
+    packet_loss = None
+    time = None
+    rtt_min = None
+    rtt_avg = None
+    rtt_max = None
+    rtt_mdev = None
+
+    summary = re.search(
+        '([0-9]+) packets transmitted.*?([0-9]+) received.*?([0-9]+)% packet '
+        'loss.*?time ([0-9]+)', ping_result.stdout)
+    if summary:
+        transmitted = summary[1]
+        received = summary[2]
+        packet_loss = summary[3]
+        time = summary[4]
+
+    rtt_stats = re.search('= ([0-9.]+)/([0-9.]+)/([0-9.]+)/([0-9.]+)',
+                          ping_result.stdout)
+    if rtt_stats:
+        rtt_min = rtt_stats[1]
+        rtt_avg = rtt_stats[2]
+        rtt_max = rtt_stats[3]
+        rtt_mdev = rtt_stats[4]
+
+    return {
+        'command': ping_result.command,
+        'exit_status': ping_result.exit_status,
+        'stdout': ping_result.stdout,
+        'stderr': ping_result.stderr,
+        'transmitted': transmitted,
+        'received': received,
+        'packet_loss': packet_loss,
+        'time': time,
+        'rtt_min': rtt_min,
+        'rtt_avg': rtt_avg,
+        'rtt_max': rtt_max,
+        'rtt_mdev': rtt_mdev
+    }
+
+
+def can_ping(comm_channel,
+             dest_ip,
+             count=1,
+             interval=1000,
+             timeout=1000,
+             size=56,
+             additional_ping_params=None):
+    """Returns whether device connected via comm_channel can ping a dest
+    address"""
+    ping_results = ping(comm_channel,
+                        dest_ip,
+                        count=count,
+                        interval=interval,
+                        timeout=timeout,
+                        size=size,
+                        additional_ping_params=additional_ping_params)
+
+    return ping_results['exit_status'] == 0
+
+
+def ip_in_subnet(ip, subnet):
+    """Validate that ip is in a given subnet.
+
+    Args:
+        ip: string, ip address to verify (eg. '192.168.42.158')
+        subnet: string, subnet to check (eg. '192.168.42.0/24')
+
+    Returns:
+        True, if ip in subnet, else False
+    """
+    return ipaddress.ip_address(ip) in ipaddress.ip_network(subnet)
+
+
+def mac_address_str_to_list(mac_addr_str):
+    """Converts mac address string to list of decimal octets.
+
+    Args:
+        mac_addr_string: string, mac address
+            e.g. '12:34:56:78:9a:bc'
+
+    Returns
+        list, representing mac address octets in decimal
+            e.g. [18, 52, 86, 120, 154, 188]
+    """
+    return [int(octet, 16) for octet in mac_addr_str.split(':')]
+
+
+def mac_address_list_to_str(mac_addr_list):
+    """Converts list of decimal octets represeting mac address to string.
+
+    Args:
+        mac_addr_list: list, representing mac address octets in decimal
+            e.g. [18, 52, 86, 120, 154, 188]
+
+    Returns:
+        string, mac address
+            e.g. '12:34:56:78:9a:bc'
+    """
+    hex_list = []
+    for octet in mac_addr_list:
+        hex_octet = hex(octet)[2:]
+        if octet < 16:
+            hex_list.append('0%s' % hex_octet)
+        else:
+            hex_list.append(hex_octet)
+
+    return ':'.join(hex_list)
+
+
+def get_fuchsia_mdns_ipv6_address(device_mdns_name):
+    """Gets the ipv6 link local address from a fuchsia device over mdns
+
+    Args:
+        device_mdns_name: name of fuchsia device, ie gig-clone-sugar-slash
+
+    Returns:
+        string, ipv6 link local address
+    """
+    if not device_mdns_name:
+        return None
+    mdns_type = '_fuchsia._udp.local.'
+    interface_list = psutil.net_if_addrs()
+    for interface in interface_list:
+        interface_ipv6_link_local = \
+            get_interface_ip_addresses(job, interface)['ipv6_link_local']
+        if 'fe80::1' in interface_ipv6_link_local:
+            logging.info('Removing IPv6 loopback IP from %s interface list.'
+                         '  Not modifying actual system IP addresses.' %
+                         interface)
+            # This is needed as the Zeroconf library crashes if you try to
+            # instantiate it on a IPv6 loopback IP address.
+            interface_ipv6_link_local.remove('fe80::1')
+
+        if interface_ipv6_link_local:
+            zeroconf = Zeroconf(ip_version=IPVersion.V6Only,
+                                interfaces=interface_ipv6_link_local)
+            device_records = (zeroconf.get_service_info(
+                mdns_type, device_mdns_name + '.' + mdns_type))
+            if device_records:
+                for device_ip_address in device_records.parsed_addresses():
+                    device_ip_address = ipaddress.ip_address(device_ip_address)
+                    if (device_ip_address.version == 6
+                            and device_ip_address.is_link_local):
+                        if ping(job,
+                                dest_ip='%s%%%s' %
+                                (str(device_ip_address),
+                                 interface))['exit_status'] == 0:
+                            zeroconf.close()
+                            del zeroconf
+                            return ('%s%%%s' %
+                                    (str(device_ip_address), interface))
+            zeroconf.close()
+            del zeroconf
+    logging.error('Unable to get ip address for %s' % device_mdns_name)
+    return None

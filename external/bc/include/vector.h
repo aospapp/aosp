@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -62,8 +62,10 @@ typedef struct BcVec {
 
 void bc_vec_init(BcVec *restrict v, size_t esize, BcVecFree dtor);
 void bc_vec_expand(BcVec *restrict v, size_t req);
+void bc_vec_grow(BcVec *restrict v, size_t n);
 
 void bc_vec_npop(BcVec *restrict v, size_t n);
+void bc_vec_npopAt(BcVec *restrict v, size_t n, size_t idx);
 
 void bc_vec_push(BcVec *restrict v, const void *data);
 void bc_vec_npush(BcVec *restrict v, size_t n, const void *data);
@@ -74,20 +76,22 @@ void bc_vec_concat(BcVec *restrict v, const char *restrict str);
 void bc_vec_empty(BcVec *restrict v);
 
 #if BC_ENABLE_HISTORY
-void bc_vec_popAt(BcVec *restrict v, size_t idx);
 void bc_vec_replaceAt(BcVec *restrict v, size_t idx, const void *data);
 #endif // BC_ENABLE_HISTORY
 
 void* bc_vec_item(const BcVec *restrict v, size_t idx);
 void* bc_vec_item_rev(const BcVec *restrict v, size_t idx);
 
+void bc_vec_clear(BcVec *restrict v);
+
 void bc_vec_free(void *vec);
 
-bool bc_map_insert(BcVec *restrict v, const struct BcId *restrict ptr,
-                   size_t *restrict i);
-size_t bc_map_index(const BcVec *restrict v, const struct BcId *restrict ptr);
+bool bc_map_insert(BcVec *restrict v, const char *name,
+                   size_t idx, size_t *restrict i);
+size_t bc_map_index(const BcVec *restrict v, const char *name);
 
 #define bc_vec_pop(v) (bc_vec_npop((v), 1))
+#define bc_vec_popAll(v) (bc_vec_npop((v), (v)->len))
 #define bc_vec_top(v) (bc_vec_item_rev((v), 0))
 
 #ifndef NDEBUG

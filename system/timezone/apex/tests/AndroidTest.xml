@@ -30,7 +30,9 @@
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
         <!-- This module is found on Q devices. -->
         <option name="mainline-module-package-name" value="com.google.android.tzdata" />
-        <!-- This module is found on R+ devices. -->
+        <!-- This module is found on R devices. -->
         <option name="mainline-module-package-name" value="com.google.android.tzdata2" />
+        <!-- This module is found on S devices. -->
+        <option name="mainline-module-package-name" value="com.google.android.tzdata3" />
     </object>
 </configuration>

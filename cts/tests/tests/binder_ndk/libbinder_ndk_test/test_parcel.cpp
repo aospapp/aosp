@@ -367,3 +367,58 @@ TEST_F(NdkBinderTest_AParcel, RewritePositions) {
 
   AIBinder_decStrong(binder);
 }
+
+TEST_F(NdkBinderTest_AParcel, CreateParcelTest) {
+  AParcel* p = AParcel_create();
+  EXPECT_TRUE(p);
+  EXPECT_EQ(0, AParcel_getDataSize(p));
+  EXPECT_EQ(0, AParcel_getDataPosition(p));
+  AParcel_delete(p);
+}
+
+TEST_F(NdkBinderTest_AParcel, AppendFromTest) {
+  AParcel* p1 = AParcel_create();
+  AParcel* p2 = AParcel_create();
+
+  AParcel_writeInt32(p1, 42);
+
+  AParcel_appendFrom(p1, p2, 0, AParcel_getDataSize(p1));
+  EXPECT_EQ(AParcel_getDataSize(p1), AParcel_getDataSize(p1));
+
+  int32_t actual = 0;
+  AParcel_setDataPosition(p2, 0);
+  AParcel_readInt32(p2, &actual);
+
+  EXPECT_EQ(42, actual);
+
+  AParcel_delete(p1);
+  AParcel_delete(p2);
+}
+
+TEST_F(NdkBinderTest_AParcel, ResetTest) {
+  AParcel* p = AParcel_create();
+
+  AParcel_writeInt32(p, 42);
+  AParcel_reset(p);
+  EXPECT_EQ(0, AParcel_getDataSize(p));
+  EXPECT_EQ(0, AParcel_getDataPosition(p));
+
+  AParcel_writeInt32(p, 24);
+  AParcel_setDataPosition(p, 0);
+  int actual = 0;
+  AParcel_readInt32(p, &actual);
+
+  EXPECT_EQ(24, actual);
+  EXPECT_EQ(AParcel_getDataSize(p), AParcel_getDataPosition(p));
+
+  AParcel_delete(p);
+}
+
+TEST_F(NdkBinderTest_AParcel, GetDataSizeTest) {
+  AParcel* p = AParcel_create();
+
+  AParcel_writeInt32(p, 42);
+  EXPECT_EQ(AParcel_getDataSize(p), AParcel_getDataPosition(p));
+
+  AParcel_delete(p);
+}

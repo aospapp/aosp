@@ -81,37 +81,47 @@ static const std::vector<DrmHalTestParam> kAllInstances = [] {
     return allInstanceUuidCombos;
 }();
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DrmHalVendorFactoryTest);
 INSTANTIATE_TEST_CASE_P(PerInstanceUuidV1_0, DrmHalVendorFactoryTest,
                         testing::ValuesIn(kAllInstances),
                         drm_vts::PrintParamInstanceToString);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DrmHalVendorPluginTest);
 INSTANTIATE_TEST_CASE_P(PerInstanceUuidV1_0, DrmHalVendorPluginTest,
                         testing::ValuesIn(kAllInstances),
                         drm_vts::PrintParamInstanceToString);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DrmHalVendorDecryptTest);
 INSTANTIATE_TEST_CASE_P(PerInstanceUuidV1_0, DrmHalVendorDecryptTest,
                         testing::ValuesIn(kAllInstances),
                         drm_vts::PrintParamInstanceToString);
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DrmHalClearkeyFactoryTest);
 INSTANTIATE_TEST_SUITE_P(PerInstanceUuidV1_0, DrmHalClearkeyFactoryTest,
                          testing::ValuesIn(kAllInstances),
                          drm_vts::PrintParamInstanceToString);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DrmHalClearkeyPluginTest);
 INSTANTIATE_TEST_SUITE_P(PerInstanceUuidV1_0, DrmHalClearkeyPluginTest,
                          testing::ValuesIn(kAllInstances),
                          drm_vts::PrintParamInstanceToString);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DrmHalClearkeyDecryptTest);
 INSTANTIATE_TEST_SUITE_P(PerInstanceUuidV1_0, DrmHalClearkeyDecryptTest,
                          testing::ValuesIn(kAllInstances),
                          drm_vts::PrintParamInstanceToString);
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DrmHalClearkeyTest);
 INSTANTIATE_TEST_SUITE_P(PerInstanceUuidV1_1, DrmHalClearkeyTest,
                          testing::ValuesIn(kAllInstances),
                          PrintParamInstanceToString);
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DrmHalTest);
 INSTANTIATE_TEST_SUITE_P(PerInstanceUuidV1_2, DrmHalTest,
                          testing::ValuesIn(kAllInstances),
                          PrintParamInstanceToString);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DrmHalClearkeyTestV1_2);
 INSTANTIATE_TEST_SUITE_P(PerInstanceUuidV1_2, DrmHalClearkeyTestV1_2,
                          testing::ValuesIn(kAllInstances),
                          PrintParamInstanceToString);
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DrmHalTestV1_3);
 INSTANTIATE_TEST_SUITE_P(PerInstanceUuidV1_3, DrmHalTestV1_3,
                          testing::ValuesIn(kAllInstances),
                          PrintParamInstanceToString);

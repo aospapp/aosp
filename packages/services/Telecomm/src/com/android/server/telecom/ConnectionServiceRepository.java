@@ -79,6 +79,13 @@ public class ConnectionServiceRepository {
         return service;
     }
 
+    @VisibleForTesting
+    public void setService(ComponentName componentName, UserHandle userHandle,
+            ConnectionServiceWrapper service) {
+        Pair<ComponentName, UserHandle> cacheKey = Pair.create(componentName, userHandle);
+        mServiceCache.put(cacheKey, service);
+    }
+
     /**
      * Dumps the state of the {@link ConnectionServiceRepository}.
      *

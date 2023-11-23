@@ -64,8 +64,8 @@ public class ControlBarHelper {
 
         model.getProgress().observe(owner,
                 progress -> {
-                    progressBar.setProgress((int) progress.getProgress());
                     progressBar.setMax((int) progress.getMaxProgress());
+                    progressBar.setProgress((int) progress.getProgress());
                 });
     }
 }

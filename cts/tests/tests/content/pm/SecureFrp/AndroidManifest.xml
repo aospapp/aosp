@@ -18,10 +18,9 @@
           package="com.android.tests.securefrpinstall" >
 
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <application>
-        <receiver android:name="com.android.cts.install.lib.LocalIntentSender"
-                  android:exported="true" />
         <uses-library android:name="android.test.runner" />
     </application>
 

@@ -19,13 +19,16 @@
 
 #include <cutils/native_handle.h>
 
+#include <UuidUtils.h>
+#include <util/EffectUtils.h>
+
 #include "ConversionHelperHidl.h"
 #include "EffectBufferHalHidl.h"
 #include "EffectHalHidl.h"
 #include "EffectsFactoryHalHidl.h"
-#include "HidlUtils.h"
 
-using ::android::hardware::audio::common::CPP_VERSION::implementation::HidlUtils;
+using ::android::hardware::audio::common::CPP_VERSION::implementation::UuidUtils;
+using ::android::hardware::audio::effect::CPP_VERSION::implementation::EffectUtils;
 using ::android::hardware::Return;
 
 namespace android {
@@ -37,7 +40,7 @@ using namespace ::android::hardware::audio::effect::CPP_VERSION;
 
 EffectsFactoryHalHidl::EffectsFactoryHalHidl(sp<IEffectsFactory> effectsFactory)
         : ConversionHelperHidl("EffectsFactory") {
-    ALOG_ASSERT(effectsFactory != nullptr, "Provided IDevicesFactory service is NULL");
+    ALOG_ASSERT(effectsFactory != nullptr, "Provided IEffectsFactory service is NULL");
     mEffectsFactory = effectsFactory;
 }
 
@@ -76,7 +79,7 @@ status_t EffectsFactoryHalHidl::getDescriptor(
         if (queryResult != OK) return queryResult;
     }
     if (index >= mLastDescriptors.size()) return NAME_NOT_FOUND;
-    EffectHalHidl::effectDescriptorToHal(mLastDescriptors[index], pDescriptor);
+    EffectUtils::effectDescriptorToHal(mLastDescriptors[index], pDescriptor);
     return OK;
 }
 
@@ -85,13 +88,13 @@ status_t EffectsFactoryHalHidl::getDescriptor(
     // TODO: check for nullptr
     if (mEffectsFactory == 0) return NO_INIT;
     Uuid hidlUuid;
-    HidlUtils::uuidFromHal(*pEffectUuid, &hidlUuid);
+    UuidUtils::uuidFromHal(*pEffectUuid, &hidlUuid);
     Result retval = Result::NOT_INITIALIZED;
     Return<void> ret = mEffectsFactory->getDescriptor(hidlUuid,
             [&](Result r, const EffectDescriptor& result) {
                 retval = r;
                 if (retval == Result::OK) {
-                    EffectHalHidl::effectDescriptorToHal(result, pDescriptor);
+                    EffectUtils::effectDescriptorToHal(result, pDescriptor);
                 }
             });
     if (ret.isOk()) {
@@ -107,7 +110,7 @@ status_t EffectsFactoryHalHidl::createEffect(
         int32_t deviceId __unused, sp<EffectHalInterface> *effect) {
     if (mEffectsFactory == 0) return NO_INIT;
     Uuid hidlUuid;
-    HidlUtils::uuidFromHal(*pEffectUuid, &hidlUuid);
+    UuidUtils::uuidFromHal(*pEffectUuid, &hidlUuid);
     Result retval = Result::NOT_INITIALIZED;
     Return<void> ret;
 #if MAJOR_VERSION >= 6

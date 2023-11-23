@@ -20,18 +20,30 @@ class desktopui_CheckRlzPingSent(test.test):
 
     _RLZ_DATA_FILE = "/home/chronos/user/RLZ Data"
 
-    def _verify_rlz_data(self, expect_caf_ping=True):
+    def _verify_rlz_data(self, expect_caf_ping=True, guest=False):
         """
         Checks the RLZ data file for CAI and CAF ping events.
 
         @param expect_caf_ping: True if expecting the CAF event to be in the
                                 RLZ data file, False if not expecting it.
+        @param guest: True if checking in guest mode. The guest mode user
+                      mount may not be in the root mount namespace, so the RLZ
+                      data file path must be adjusted accordingly.
 
         """
+        rlz_data_cmd = []
+        if guest:
+            mounter_pid = utils.run(
+                ['pgrep', '-f', '/usr/sbin/cryptohome-namespace-mount']).stdout
+            if mounter_pid is not None:
+                ns_path = '/proc/%s/ns/mnt' % mounter_pid.rstrip()
+                rlz_data_cmd.extend(['nsenter', '--mount=%s' % ns_path])
+
+        rlz_data_cmd.extend(['cat', self._RLZ_DATA_FILE])
+
         def rlz_data_exists():
             """Check rlz data exists."""
-            rlz_data = json.loads(utils.run('cat "%s"' %
-                                            self._RLZ_DATA_FILE).stdout)
+            rlz_data = json.loads(utils.run(rlz_data_cmd).stdout)
             logging.debug('rlz data: %s', rlz_data)
             if 'stateful_events' in rlz_data:
                 cai_present = 'CAI' in rlz_data['stateful_events']['C']['_']
@@ -76,8 +88,8 @@ class desktopui_CheckRlzPingSent(test.test):
     def _wait_for_rlz_lock(self):
         """Waits for the DUT to get into locked state after login."""
         def get_install_lockbox_finalized_status():
-            status = cryptohome.get_tpm_more_status()
-            return status.get('install_lockbox_finalized')
+            status = cryptohome.get_install_attribute_status()
+            return status == 'VALID'
 
         try:
             utils.poll_for_condition(
@@ -88,7 +100,8 @@ class desktopui_CheckRlzPingSent(test.test):
             raise error.TestFail('Timed out trying to lock the device')
 
 
-    def run_once(self, ping_timeout=30, logged_in=True, expect_caf_ping=True):
+    def run_once(self, ping_timeout=30, expect_caf_ping=True, username=None,
+                 pre_login=None, pre_login_username=None):
         """
         Tests whether or not the RLZ install event (CAI) and first-use event
         (CAF) pings are sent. After the first user login, the CAI ping will
@@ -101,7 +114,6 @@ class desktopui_CheckRlzPingSent(test.test):
         in the /home/chronos/user/'RLZ Data' file, which will contain entries
         for CAI and CAF pings in the 'stateful_events' section.
 
-        @param logged_in: True for real login or False for guest mode.
         @param ping_timeout: Delay time (seconds) before any RLZ pings are
                              sent.
         @param expect_caf_ping: True if expecting the first-use event (CAF)
@@ -109,19 +121,58 @@ class desktopui_CheckRlzPingSent(test.test):
                                 The ping would not be expected if the relevant
                                 RW_VPD settings do not have the right
                                 combination of values.
+        @param username: Username to log in with during the main RLZ check.
+                         None to sign in with the default test user account.
+                         Specifying a username will log in with a profile
+                         distinct from the test user.
+        @param pre_login: Whether or not to login before the main RLZ ping
+                          test, and for how long. Should be one of
+                          ['lock', 'no_lock', None]. 'lock' is meant for guest
+                          mode testing, where a non-guest user must login to
+                          'lock' the device for RLZ before the ping can be
+                          sent in guest mode. 'no_lock' is to log and log out
+                          immediately to ensure no ping is sent. Used to
+                          verify that the ping can be sent from subsequent
+                          user logins if it has not already been sent.
+        @param pre_login_username: The username to sign in with for the
+                                   pre-login step. None to use the default
+                                   test user account.
 
         """
         # Browser arg to make DUT send rlz ping after a short delay.
-        rlz_flag = '--rlz-ping-delay=%d' % ping_timeout
+        browser_args = ['--rlz-ping-delay=%d' % ping_timeout]
 
-        # If we are testing the ping is sent in guest mode (logged_in=False),
+        # TODO(crbug/1103298): keyboard input doesn't work in guest mode
+        # without disabling this flag. Remove when bug is fixed.
+        if pre_login == 'lock':
+            browser_args.append('--disable-features=ImeInputLogicFst')
+
+        # If we are testing the ping is sent in guest mode (pre_login='lock'),
         # we need to first do a real login and wait for the DUT to become
         # 'locked' for rlz. Then logout and enter guest mode.
-        if not logged_in:
-            with chrome.Chrome(logged_in=True, extra_browser_args=rlz_flag):
-                self._wait_for_rlz_lock()
+        # If we are testing the ping can be sent by the second user to use the
+        # device, we will login and immediately logout (pre_login='no_lock').
+        if pre_login is not None:
+            logging.debug("Logging in before main RLZ test with username "
+                          "flag: %s", pre_login_username)
+            with chrome.Chrome(logged_in=True, username=pre_login_username,
+                               extra_browser_args=browser_args):
+                if pre_login is 'lock':
+                    logging.debug("Waiting for device to be 'locked' for RLZ")
+                    self._wait_for_rlz_lock()
 
-        with chrome.Chrome(logged_in=logged_in,
-                           extra_browser_args=rlz_flag) as cr:
+        logging.debug("Starting RLZ check with username flag: %s", username)
+        # Pass clear_enterprise_policy=False in guest mode to avoid deleting
+        # /home/chronos/'Local State' between logins. Deleting it will cause
+        # the guest mode test to fail on boards that do not have rlz_brand_code
+        # in the VPD (mainly unibuild models). This file is normally not
+        # deleted between logins anyways.
+        with chrome.Chrome(
+                logged_in=pre_login is not 'lock',
+                clear_enterprise_policy=pre_login is not 'lock',
+                extra_browser_args=browser_args,
+                username=username,
+                dont_override_profile=True) as cr:
             self._check_url_for_rlz(cr)
-            self._verify_rlz_data(expect_caf_ping=expect_caf_ping)
+            self._verify_rlz_data(expect_caf_ping=expect_caf_ping,
+                                  guest=pre_login is 'lock')

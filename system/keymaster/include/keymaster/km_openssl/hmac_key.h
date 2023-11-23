@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_HMAC_KEY_H_
-#define SYSTEM_KEYMASTER_HMAC_KEY_H_
+#pragma once
 
 #include "symmetric_key.h"
 
@@ -27,14 +26,13 @@ const size_t kMaxHmacKeyLengthBits = 2048;  // Some RFC test cases require >1024
 
 class HmacKeyFactory : public SymmetricKeyFactory {
   public:
-    explicit HmacKeyFactory(const SoftwareKeyBlobMaker* blob_maker,
-                            const RandomSource* random_source) :
-                                    SymmetricKeyFactory(blob_maker, random_source) {}
+    explicit HmacKeyFactory(const SoftwareKeyBlobMaker& blob_maker,
+                            const RandomSource& random_source)
+        : SymmetricKeyFactory(blob_maker, random_source) {}
 
     keymaster_error_t LoadKey(KeymasterKeyBlob&& key_material,
                               const AuthorizationSet& additional_params,
-                              AuthorizationSet&& hw_enforced,
-                              AuthorizationSet&& sw_enforced,
+                              AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                               UniquePtr<Key>* key) const override;
 
     OperationFactory* GetOperationFactory(keymaster_purpose_t purpose) const override;
@@ -56,5 +54,3 @@ class HmacKey : public SymmetricKey {
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_HMAC_KEY_H_

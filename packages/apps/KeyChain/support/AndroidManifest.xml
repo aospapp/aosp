@@ -18,7 +18,8 @@
           package="com.android.keychain.tests.support"
 	  android:sharedUserId="android.uid.system">
     <application android:process="system">
-        <service android:name="com.android.keychain.tests.support.KeyChainServiceTestSupport">
+        <service android:name="com.android.keychain.tests.support.KeyChainServiceTestSupport"
+            android:exported="true">
             <intent-filter>
                 <action android:name="com.android.keychain.tests.support.IKeyChainServiceTestSupport"/>
             </intent-filter>

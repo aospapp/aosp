@@ -17,11 +17,22 @@
 package com.google.android.setupdesign.util;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import androidx.annotation.NonNull;
+import androidx.annotation.StyleRes;
+import com.google.android.setupcompat.PartnerCustomizationLayout;
+import com.google.android.setupcompat.partnerconfig.PartnerConfigHelper;
+import com.google.android.setupcompat.util.BuildCompatUtils;
+import com.google.android.setupcompat.util.Logger;
 import com.google.android.setupcompat.util.WizardManagerHelper;
+import com.google.android.setupdesign.R;
+import java.util.Objects;
 
 /** The helper class holds the constant names of themes and util functions */
-public class ThemeHelper {
+public final class ThemeHelper {
+
+  private static final Logger LOG = new Logger("ThemeHelper");
 
   /**
    * Passed in a setup wizard intent as {@link WizardManagerHelper#EXTRA_THEME}. This is the dark
@@ -59,6 +70,16 @@ public class ThemeHelper {
    */
   public static final String THEME_GLIF_V3_LIGHT = "glif_v3_light";
 
+  /**
+   * Placeholder, not avirailed yet.
+   */
+  public static final String THEME_GLIF_V4 = "glif_v4";
+
+  /**
+   * Placeholder, not avirailed yet.
+   */
+  public static final String THEME_GLIF_V4_LIGHT = "glif_v4_light";
+
   public static final String THEME_HOLO = "holo";
   public static final String THEME_HOLO_LIGHT = "holo_light";
   public static final String THEME_MATERIAL = "material";
@@ -92,13 +113,15 @@ public class ThemeHelper {
         || THEME_MATERIAL_LIGHT.equals(theme)
         || THEME_GLIF_LIGHT.equals(theme)
         || THEME_GLIF_V2_LIGHT.equals(theme)
-        || THEME_GLIF_V3_LIGHT.equals(theme)) {
+        || THEME_GLIF_V3_LIGHT.equals(theme)
+        || THEME_GLIF_V4_LIGHT.equals(theme)) {
       return true;
     } else if (THEME_HOLO.equals(theme)
         || THEME_MATERIAL.equals(theme)
         || THEME_GLIF.equals(theme)
         || THEME_GLIF_V2.equals(theme)
-        || THEME_GLIF_V3.equals(theme)) {
+        || THEME_GLIF_V3.equals(theme)
+        || THEME_GLIF_V4.equals(theme)) {
       return false;
     } else {
       return def;
@@ -125,4 +148,127 @@ public class ThemeHelper {
   public static void applyTheme(Activity activity) {
     ThemeResolver.getDefault().applyTheme(activity);
   }
+
+  /**
+   * Checks whether SetupWizard supports the DayNight theme during setup flow; if it returns false,
+   * setup flow is always light theme.
+   *
+   * @return true if the SetupWizard is listening to system DayNight theme setting.
+   */
+  public static boolean isSetupWizardDayNightEnabled(@NonNull Context context) {
+    return PartnerConfigHelper.isSetupWizardDayNightEnabled(context);
+  }
+
+  /**
+   * Returns true if the partner provider of SetupWizard is ready to support more partner configs.
+   */
+  public static boolean shouldApplyExtendedPartnerConfig(@NonNull Context context) {
+    return PartnerConfigHelper.shouldApplyExtendedPartnerConfig(context);
+  }
+
+  /**
+   * Returns {@code true} if the partner provider of SetupWizard is ready to support dynamic color.
+   */
+  public static boolean isSetupWizardDynamicColorEnabled(@NonNull Context context) {
+    return PartnerConfigHelper.isSetupWizardDynamicColorEnabled(context);
+  }
+
+  /** Returns {@code true} if this {@code context} should apply dynamic color. */
+  public static boolean shouldApplyDynamicColor(@NonNull Context context) {
+    return shouldApplyExtendedPartnerConfig(context) && isSetupWizardDynamicColorEnabled(context);
+  }
+
+  /**
+   * Returns a theme resource id if the {@link com.google.android.setupdesign.GlifLayout} should
+   * apply dynamic color.
+   *
+   * <p>Otherwise returns {@code 0}.
+   */
+  @StyleRes
+  public static int getDynamicColorTheme(@NonNull Context context) {
+    @StyleRes int resId = 0;
+
+    Activity activity;
+    try {
+      activity = PartnerCustomizationLayout.lookupActivityFromContext(context);
+    } catch (IllegalArgumentException ex) {
+      LOG.e(Objects.requireNonNull(ex.getMessage()));
+      return resId;
+    }
+
+    boolean isSetupFlow = WizardManagerHelper.isAnySetupWizard(activity.getIntent());
+    boolean isDayNightEnabled = isSetupWizardDayNightEnabled(context);
+
+    if (isSetupFlow) {
+      // return theme for inside setup flow
+      resId =
+          isDayNightEnabled
+              ? R.style.SudDynamicColorThemeGlifV3_DayNight
+              : R.style.SudDynamicColorThemeGlifV3_Light;
+    } else {
+      // return theme for outside setup flow
+      resId =
+          isDayNightEnabled
+              ? R.style.SudFullDynamicColorThemeGlifV3_DayNight
+              : R.style.SudFullDynamicColorThemeGlifV3_Light;
+      LOG.atInfo(
+          "Return "
+              + (isDayNightEnabled
+                  ? "SudFullDynamicColorThemeGlifV3_DayNight"
+                  : "SudFullDynamicColorThemeGlifV3_Light"));
+    }
+
+    LOG.atDebug(
+        "Gets the dynamic accentColor: [Light] "
+            + colorIntToHex(context, R.color.sud_dynamic_color_accent_glif_v3_light)
+            + ", "
+            + (BuildCompatUtils.isAtLeastS()
+                ? colorIntToHex(context, android.R.color.system_accent1_600)
+                : "n/a")
+            + ", [Dark] "
+            + colorIntToHex(context, R.color.sud_dynamic_color_accent_glif_v3_dark)
+            + ", "
+            + (BuildCompatUtils.isAtLeastS()
+                ? colorIntToHex(context, android.R.color.system_accent1_100)
+                : "n/a"));
+
+    return resId;
+  }
+
+  /** Returns {@code true} if the dynamic color is set. */
+  public static boolean trySetDynamicColor(@NonNull Context context) {
+    if (!shouldApplyExtendedPartnerConfig(context)) {
+      LOG.w("SetupWizard does not supports the extended partner configs.");
+      return false;
+    }
+
+    if (!isSetupWizardDynamicColorEnabled(context)) {
+      LOG.w("SetupWizard does not support the dynamic color or supporting status unknown.");
+      return false;
+    }
+
+    Activity activity;
+    try {
+      activity = PartnerCustomizationLayout.lookupActivityFromContext(context);
+    } catch (IllegalArgumentException ex) {
+      LOG.e(Objects.requireNonNull(ex.getMessage()));
+      return false;
+    }
+
+    @StyleRes int resId = getDynamicColorTheme(context);
+    if (resId != 0) {
+      activity.setTheme(resId);
+    } else {
+      LOG.w("Error occurred on getting dynamic color theme.");
+      return false;
+    }
+
+    return true;
+  }
+
+  private static String colorIntToHex(Context context, int colorInt) {
+    return String.format("#%06X", (0xFFFFFF & context.getResources().getColor(colorInt)));
+  }
+
+  private ThemeHelper() {}
 }

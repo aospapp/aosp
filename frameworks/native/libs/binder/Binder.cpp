@@ -24,9 +24,20 @@
 #include <binder/IShellCallback.h>
 #include <binder/Parcel.h>
 
+#include <linux/sched.h>
 #include <stdio.h>
 
 namespace android {
+
+// Service implementations inherit from BBinder and IBinder, and this is frozen
+// in prebuilts.
+#ifdef __LP64__
+static_assert(sizeof(IBinder) == 24);
+static_assert(sizeof(BBinder) == 40);
+#else
+static_assert(sizeof(IBinder) == 12);
+static_assert(sizeof(BBinder) == 20);
+#endif
 
 // ---------------------------------------------------------------------------
 
@@ -132,7 +143,10 @@ class BBinder::Extras
 public:
     // unlocked objects
     bool mRequestingSid = false;
+    bool mInheritRt = false;
     sp<IBinder> mExtension;
+    int mPolicy = SCHED_NORMAL;
+    int mPriority = 0;
 
     // for below objects
     Mutex mLock;
@@ -169,6 +183,10 @@ status_t BBinder::transact(
     uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
 {
     data.setDataPosition(0);
+
+    if (reply != nullptr && (flags & FLAG_CLEAR_BUF)) {
+        reply->markSensitive();
+    }
 
     status_t err = NO_ERROR;
     switch (code) {
@@ -277,6 +295,68 @@ sp<IBinder> BBinder::getExtension() {
     Extras* e = mExtras.load(std::memory_order_acquire);
     if (e == nullptr) return nullptr;
     return e->mExtension;
+}
+
+void BBinder::setMinSchedulerPolicy(int policy, int priority) {
+    switch (policy) {
+    case SCHED_NORMAL:
+      LOG_ALWAYS_FATAL_IF(priority < -20 || priority > 19, "Invalid priority for SCHED_NORMAL: %d", priority);
+      break;
+    case SCHED_RR:
+    case SCHED_FIFO:
+      LOG_ALWAYS_FATAL_IF(priority < 1 || priority > 99, "Invalid priority for sched %d: %d", policy, priority);
+      break;
+    default:
+      LOG_ALWAYS_FATAL("Unrecognized scheduling policy: %d", policy);
+    }
+
+    Extras* e = mExtras.load(std::memory_order_acquire);
+
+    if (e == nullptr) {
+        // Avoid allocations if called with default.
+        if (policy == SCHED_NORMAL && priority == 0) {
+            return;
+        }
+
+        e = getOrCreateExtras();
+        if (!e) return; // out of memory
+    }
+
+    e->mPolicy = policy;
+    e->mPriority = priority;
+}
+
+int BBinder::getMinSchedulerPolicy() {
+    Extras* e = mExtras.load(std::memory_order_acquire);
+    if (e == nullptr) return SCHED_NORMAL;
+    return e->mPolicy;
+}
+
+int BBinder::getMinSchedulerPriority() {
+    Extras* e = mExtras.load(std::memory_order_acquire);
+    if (e == nullptr) return 0;
+    return e->mPriority;
+}
+
+bool BBinder::isInheritRt() {
+    Extras* e = mExtras.load(std::memory_order_acquire);
+
+    return e && e->mInheritRt;
+}
+
+void BBinder::setInheritRt(bool inheritRt) {
+    Extras* e = mExtras.load(std::memory_order_acquire);
+
+    if (!e) {
+        if (!inheritRt) {
+            return;
+        }
+
+        e = getOrCreateExtras();
+        if (!e) return; // out of memory
+    }
+
+    e->mInheritRt = inheritRt;
 }
 
 pid_t BBinder::getDebugPid() {

@@ -139,6 +139,7 @@ PKG_CONFIG_PATH="$FFMPEG_DEPS_PATH/lib/pkgconfig" ./configure \
     --enable-nonfree \
     --disable-muxers \
     --disable-protocols \
+    --disable-demuxer=rtp,rtsp,sdp \
     --disable-devices \
     --disable-shared
 make clean
@@ -149,8 +150,8 @@ make -j$(nproc) install
 # TODO: implement a better way to maintain a minimized seed corpora
 # for all targets. As of 2017-05-04 now the combined size of corpora
 # is too big for ClusterFuzz (over 10Gb compressed data).
-# export TEST_SAMPLES_PATH=$SRC/ffmpeg/fate-suite/
-# make fate-rsync SAMPLES=$TEST_SAMPLES_PATH
+export TEST_SAMPLES_PATH=$SRC/ffmpeg/fate-suite/
+make fate-rsync SAMPLES=$TEST_SAMPLES_PATH
 
 # Build the fuzzers.
 cd $SRC/ffmpeg
@@ -184,6 +185,56 @@ fuzzer_name=ffmpeg_DEMUXER_fuzzer
 echo -en "[libfuzzer]\nmax_len = 1000000\n" > $OUT/${fuzzer_name}.options
 make tools/target_dem_fuzzer
 mv tools/target_dem_fuzzer $OUT/${fuzzer_name}
+
+# We do not need raw reference files for the muxer
+rm `find fate-suite -name '*.s16'`
+rm `find fate-suite -name '*.dec'`
+rm `find fate-suite -name '*.pcm'`
+
+zip -r $OUT/${fuzzer_name}_seed_corpus.zip fate-suite
+
+# Build fuzzer for demuxer fed at IO level
+fuzzer_name=ffmpeg_IO_DEMUXER_fuzzer
+make tools/target_io_dem_fuzzer
+mv tools/target_io_dem_fuzzer $OUT/${fuzzer_name}
+
+#Build fuzzers for individual demuxers
+PKG_CONFIG_PATH="$FFMPEG_DEPS_PATH/lib/pkgconfig" ./configure \
+    --cc=$CC --cxx=$CXX --ld="$CXX $CXXFLAGS -std=c++11" \
+    --extra-cflags="-I$FFMPEG_DEPS_PATH/include" \
+    --extra-ldflags="-L$FFMPEG_DEPS_PATH/lib" \
+    --prefix="$FFMPEG_DEPS_PATH" \
+    --pkg-config-flags="--static" \
+    --enable-ossfuzz \
+    --libfuzzer=$LIB_FUZZING_ENGINE \
+    --optflags=-O1 \
+    --enable-gpl \
+    --disable-muxers \
+    --disable-protocols \
+    --disable-devices \
+    --disable-shared \
+    --disable-encoders \
+    --disable-filters \
+    --disable-muxers  \
+    --disable-parsers  \
+    --disable-decoders  \
+    --disable-hwaccels  \
+    --disable-bsfs  \
+    --disable-vaapi  \
+    --disable-vdpau    \
+    --disable-crystalhd  \
+    --disable-v4l2_m2m  \
+    --disable-cuda_llvm  \
+    --enable-demuxers \
+    --disable-demuxer=rtp,rtsp,sdp \
+
+CONDITIONALS=`grep 'DEMUXER 1$' config.h | sed 's/#define CONFIG_\(.*\)_DEMUXER 1/\1/'`
+for c in $CONDITIONALS ; do
+  fuzzer_name=ffmpeg_dem_${c}_fuzzer
+  symbol=`echo $c | sed "s/.*/\L\0/"`
+  make tools/target_dem_${symbol}_fuzzer
+  mv tools/target_dem_${symbol}_fuzzer $OUT/${fuzzer_name}
+done
 
 # Find relevant corpus in test samples and archive them for every fuzzer.
 #cd $SRC

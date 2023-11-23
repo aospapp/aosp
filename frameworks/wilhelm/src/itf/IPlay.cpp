@@ -75,7 +75,7 @@ static SLresult IPlay_SetPlayState(SLPlayItf self, SLuint32 state)
 
             case (SL_PLAYSTATE_STOPPING << 2) | SL_PLAYSTATE_PAUSED:
             case (SL_PLAYSTATE_STOPPING << 2) | SL_PLAYSTATE_PLAYING:
-                // wait for other guy to finish his transition, then retry ours
+                // wait for someone else to finish their transition, then retry ours
                 continue;
 
             case (SL_PLAYSTATE_PAUSED   << 2) | SL_PLAYSTATE_STOPPED:

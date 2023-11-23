@@ -30,20 +30,26 @@ namespace bluetooth {
 namespace root_canal {
 
 using test_vendor_lib::AsyncTaskId;
-using test_vendor_lib::DualModeController;
 using test_vendor_lib::TaskCallback;
 
 void TestEnvironment::initialize(std::promise<void> barrier) {
-  LOG_INFO("%s", __func__);
+  LOG_INFO();
 
   barrier_ = std::move(barrier);
 
-  test_channel_transport_.RegisterCommandHandler([this](const std::string& name, const std::vector<std::string>& args) {
-    async_manager_.ExecAsync(std::chrono::milliseconds(0),
-                             [this, name, args]() { test_channel_.HandleCommand(name, args); });
-  });
-
-  test_model_.Reset();
+  auto user_id = async_manager_.GetNextUserId();
+  test_channel_transport_.RegisterCommandHandler(
+      [this, user_id](const std::string& name,
+                      const std::vector<std::string>& args) {
+        async_manager_.ExecAsync(user_id, std::chrono::milliseconds(0),
+                                 [this, name, args]() {
+                                   if (name == "END_SIMULATION") {
+                                     barrier_.set_value();
+                                   } else {
+                                     test_channel_.HandleCommand(name, args);
+                                   }
+                                 });
+      });
 
   SetUpTestChannel();
   SetUpHciServer([this](int fd) { test_model_.IncomingHciConnection(fd); });
@@ -59,6 +65,7 @@ void TestEnvironment::initialize(std::promise<void> barrier) {
 
 void TestEnvironment::close() {
   LOG_INFO("%s", __func__);
+  test_model_.Reset();
 }
 
 void TestEnvironment::SetUpHciServer(const std::function<void(int)>& connection_callback) {
@@ -126,7 +133,7 @@ int TestEnvironment::ConnectToRemoteServer(const std::string& server, int port) 
     return -1;
   }
 
-  struct sockaddr_in serv_addr;
+  struct sockaddr_in serv_addr {};
   memset((void*)&serv_addr, 0, sizeof(serv_addr));
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_addr.s_addr = INADDR_ANY;
@@ -147,13 +154,15 @@ int TestEnvironment::ConnectToRemoteServer(const std::string& server, int port) 
 
 void TestEnvironment::SetUpTestChannel() {
   int socket_fd = test_channel_transport_.SetUp(test_port_);
+  test_channel_.RegisterSendResponse([](const std::string& response) {
+    LOG_INFO("No test channel: %s", response.c_str());
+  });
   test_channel_.AddPhy({"BR_EDR"});
   test_channel_.AddPhy({"LOW_ENERGY"});
-  test_channel_.SetTimerPeriod({"10"});
+  test_channel_.SetTimerPeriod({"5"});
   test_channel_.StartTimer({});
 
-  test_channel_.RegisterSendResponse(
-      [](const std::string& response) { LOG_INFO("No test channel: %s", response.c_str()); });
+  test_channel_.FromFile(default_commands_file_);
 
   if (socket_fd == -1) {
     LOG_ERROR("Test channel SetUp(%d) failed.", test_port_);
@@ -169,13 +178,22 @@ void TestEnvironment::SetUpTestChannel() {
       return;
     }
     LOG_INFO("Test channel connection accepted.");
+    if (test_channel_open_) {
+      LOG_WARN("Only one connection at a time is supported");
+      async_manager_.StopWatchingFileDescriptor(conn_fd);
+      test_channel_transport_.SendResponse(conn_fd, "The connection is broken");
+      return;
+    }
+    test_channel_open_ = true;
     test_channel_.RegisterSendResponse(
-        [this, conn_fd](const std::string& response) { test_channel_transport_.SendResponse(conn_fd, response); });
+        [this, conn_fd](const std::string& response) {
+          test_channel_transport_.SendResponse(conn_fd, response);
+        });
 
     async_manager_.WatchFdForNonBlockingReads(conn_fd, [this](int conn_fd) {
       test_channel_transport_.OnCommandReady(conn_fd, [this, conn_fd]() {
         async_manager_.StopWatchingFileDescriptor(conn_fd);
-        barrier_.set_value();
+        test_channel_open_ = false;
       });
     });
   });

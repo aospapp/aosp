@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"Nội dung nghe nhìn"</string>
     <string name="search_hint" msgid="5401750426238148416">"Tìm bài hát, nghệ sĩ, v.v."</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"Phát hiện nhạc"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"Đã xảy ra lỗi. Hãy thử lại sau."</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"Không thể thực hiện yêu cầu đó ngay bây giờ"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"Ứng dụng này không thể thực hiện yêu cầu đó"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"Hãy đăng nhập để dùng ứng dụng này"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"Yêu cầu quyền truy cập đặc biệt"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"Đang nghe trên quá nhiều thiết bị"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"Nội dung đó đã bị chặn"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"Không thể xem nội dung đó tại đây"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"Đang phát nội dung đó rồi"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"Không thể bỏ qua bản nhạc nào nữa"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"Không thể hoàn tất hành động. Hãy thử lại."</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"Không có nội dung nào khác trong hàng đợi"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"Đang kết nối với nội dung nghe nhìn"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"Cài đặt âm thanh"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"Chuyển đổi ứng dụng"</string>

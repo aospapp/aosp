@@ -468,7 +468,7 @@
   "TRUE"
  ], 
  "android.sensor.info.maxFrameDuration": [
-  "199985184"
+  "200000000"
  ], 
  "android.sensor.info.physicalSize": [
   "0.67199999", 

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsTextTestCases",
     defaults: ["cts_defaults"],
@@ -30,11 +34,12 @@ android_test {
         "mockito-target-minus-junit4",
         "androidx.test.rules",
         "ub-uiautomator",
+        "junit-params",
     ],
 
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
 
     jni_libs: [
@@ -47,8 +52,8 @@ android_test {
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
         "mts",
+        "sts",
     ],
 }

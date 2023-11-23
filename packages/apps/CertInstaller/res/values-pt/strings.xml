@@ -29,7 +29,7 @@
     <string name="one_userkey" msgid="3500697912370644881">"uma chave de usuário"</string>
     <string name="userkey_type" msgid="6214833257030657106">"Algoritmo:"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"um certificado de usuário"</string>
-    <string name="one_cacrt" msgid="2667950425420663146">"um certificado CA"</string>
+    <string name="one_cacrt" msgid="2667950425420663146">"um certificado de CA"</string>
     <string name="n_cacrts" msgid="2141498640685639208">"%d certificados CA"</string>
     <string name="password_error" msgid="2042471639556516356">"Digite a senha correta."</string>
     <string name="password_empty_error" msgid="591713406761723025">"Digite a senha."</string>

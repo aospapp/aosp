@@ -42,6 +42,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -426,8 +427,8 @@ public class SmartSuggestionsHelperTest {
       long expectedReferenceTime) {
     assertThat(subject.getText().toString()).isEqualTo(expectedMessage);
     assertThat(subject.getAuthor()).isEqualTo(expectedAuthor);
-    assertThat(subject.getReferenceTime().toInstant().toEpochMilli())
-        .isEqualTo(expectedReferenceTime);
+    assertThat(subject.getReferenceTime().toInstant())
+        .isEqualTo(Instant.ofEpochMilli(expectedReferenceTime));
   }
 
   private static void assertAdjustmentWithSmartReply(SmartSuggestions smartSuggestions) {

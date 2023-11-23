@@ -16,10 +16,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="1090682794607161063">"आपतकालीन सूचना"</string>
+    <string name="app_label" msgid="1090682794607161063">"आपत्‌कालीन सूचना"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"चिकित्सकीय जानकारी"</string>
     <string name="add_medical_info" msgid="483921612415907139">"जानकारी थप्नुहोस्"</string>
-    <string name="edit_info" msgid="5973929805855224805">"आपतकालीन जानकारीलाई सम्पादन गर्नुहोस्"</string>
+    <string name="edit_info" msgid="5973929805855224805">"आपत्‌कालीन जानकारीलाई सम्पादन गर्नुहोस्"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"जानकारी"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"सम्पर्कहरू"</string>
     <string name="name" msgid="4286267457738861977">"नाम"</string>
@@ -87,11 +87,11 @@
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
-    <string name="emergency_contacts_title" msgid="5462202017417821030">"आपतकालीन सम्पर्कहरू"</string>
+    <string name="emergency_contacts_title" msgid="5462202017417821030">"आपत्‌कालीन सम्पर्कहरू"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"सम्पर्कलाई थप्नुहोस्"</string>
     <string name="fail_load_contact_picker" msgid="817205483833876726">"सम्पर्क ठेगानाहरूको चयनकर्ता भेट्टाउन सकिएन"</string>
     <string name="fail_display_contact" msgid="4128854688897045879">"उक्त सम्पर्क देखाउन सकिँदैन"</string>
-    <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g> लाई आपतकालीन सम्पर्कहरूबाट हटाउने हो?"</string>
+    <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g> लाई आपत्‌कालीन सम्पर्कहरूबाट हटाउने हो?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"सम्पर्कलाई हटाउनुहोस्"</string>
     <string name="fail_add_contact" msgid="6511490846952942291">"सम्पर्कको जानकारी राम्ररी पढ्न सकिएन"</string>
     <string name="remove" msgid="1243949503772376064">"हटाउनुहोस्"</string>
@@ -99,15 +99,15 @@
     <string name="ok" msgid="163967937451981024">"ठिक छ"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"यस फोनको मालिक बारे कुनै जानकारी छैन"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"यदि यो तपाईँको फोन हो भने आपतकालीन अवस्थामा यहाँ प्रदर्शन गरिने जानकारी थप्न पेन्सिलको आइकनमा ट्याप गर्नुहोस्"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"यदि यो तपाईँको फोन हो भने आपत्‌कालीन अवस्थामा यहाँ प्रदर्शन गरिने जानकारी थप्न पेन्सिलको आइकनमा ट्याप गर्नुहोस्"</string>
     <string name="clear_all" msgid="8899013032870561633">"सबै हटाउनुहोस्"</string>
     <string name="clear" msgid="3648880442502887163">"खाली गर्नुहोस्"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"सबै जानकारी र सम्पर्कहरूलाई मेटाउने हो?"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"चिकित्सकीय जानकारी तथा आपतकालीन सम्पर्क नम्बरहरू थप्नुले कुनै आपतकालीन अवस्थामा पहिलो प्रतिक्रिया दिने व्यक्तिहरूलाई मद्दत गर्नसक्छ।\n\nतपाईंको लक स्क्रिनबाट जोसुकैले पनि यो जानकारी पढ्न र तपाईंको फोन अनलक नगरिकनै तपाईंको सम्पर्क सूचीमा रहेका व्यक्तिहरूलाई उनीहरूको नाममा ट्याप गरेर कल गर्नसक्छ।"</string>
-    <string name="settings_suggestion_title" msgid="2503369576806243476">"आपतकालीन जानकारी थप्नुहोस्‌"</string>
-    <string name="settings_suggestion_body" msgid="5559349261345837716">"तपाईंको जानकारी आपतकालीन अवस्थामा सहयोग पुर्‍याउने पहिला मान्छेहरूलाई हेर्न दिनुहोस्‌"</string>
-    <string name="user_image_take_photo" msgid="2779924488370750102">"तस्बिर खिच्नुहोस्"</string>
-    <string name="user_image_choose_photo" msgid="2442095378052415700">"कुनै तस्बिर छनौट गर्नुहोस्"</string>
-    <string name="user_image_photo_selector" msgid="8941966433899876760">"तस्बिर चयन गर्नुहोस्‌"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"चिकित्सकीय जानकारी तथा आपत्‌कालीन सम्पर्क नम्बरहरू थप्नुले कुनै आपत्‌कालीन अवस्थामा पहिलो प्रतिक्रिया दिने व्यक्तिहरूलाई मद्दत गर्नसक्छ।\n\nतपाईंको लक स्क्रिनबाट जोसुकैले पनि यो जानकारी पढ्न र तपाईंको फोन अनलक नगरिकनै तपाईंको सम्पर्क सूचीमा रहेका व्यक्तिहरूलाई उनीहरूको नाममा ट्याप गरेर कल गर्नसक्छ।"</string>
+    <string name="settings_suggestion_title" msgid="2503369576806243476">"आपत्‌कालीन जानकारी थप्नुहोस्‌"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"तपाईंको जानकारी आपत्‌कालीन अवस्थामा सहयोग पुर्‍याउने पहिला मान्छेहरूलाई हेर्न दिनुहोस्‌"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"फोटो खिच्नुहोस्"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"कुनै फोटो छनौट गर्नुहोस्"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"फोटो चयन गर्नुहोस्‌"</string>
     <string name="user_nickname" msgid="7956055372443961161">"उपनाम"</string>
 </resources>

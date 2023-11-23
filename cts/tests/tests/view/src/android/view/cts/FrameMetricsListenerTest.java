@@ -175,27 +175,45 @@ public class FrameMetricsListenerTest {
     }
 
     private void callGetMetric(FrameMetrics frameMetrics) {
-        // The return values for non-boolean metrics do not have expected values. Here we
-        // are verifying that calling getMetrics does not crash
-        frameMetrics.getMetric(FrameMetrics.UNKNOWN_DELAY_DURATION);
-        frameMetrics.getMetric(FrameMetrics.INPUT_HANDLING_DURATION);
-        frameMetrics.getMetric(FrameMetrics.ANIMATION_DURATION);
-        frameMetrics.getMetric(FrameMetrics.LAYOUT_MEASURE_DURATION);
-        frameMetrics.getMetric(FrameMetrics.DRAW_DURATION);
-        frameMetrics.getMetric(FrameMetrics.SYNC_DURATION);
-        frameMetrics.getMetric(FrameMetrics.COMMAND_ISSUE_DURATION);
-        frameMetrics.getMetric(FrameMetrics.SWAP_BUFFERS_DURATION);
-        frameMetrics.getMetric(FrameMetrics.TOTAL_DURATION);
 
         // Perform basic checks on timestamp values.
+        long unknownDelay = frameMetrics.getMetric(FrameMetrics.UNKNOWN_DELAY_DURATION);
+        long input = frameMetrics.getMetric(FrameMetrics.INPUT_HANDLING_DURATION);
+        long animation = frameMetrics.getMetric(FrameMetrics.ANIMATION_DURATION);
+        long layoutMeasure = frameMetrics.getMetric(FrameMetrics.LAYOUT_MEASURE_DURATION);
+        long draw = frameMetrics.getMetric(FrameMetrics.DRAW_DURATION);
+        long sync = frameMetrics.getMetric(FrameMetrics.SYNC_DURATION);
+        long commandIssue = frameMetrics.getMetric(FrameMetrics.COMMAND_ISSUE_DURATION);
+        long swapBuffers = frameMetrics.getMetric(FrameMetrics.SWAP_BUFFERS_DURATION);
+        long gpuDuration = frameMetrics.getMetric(FrameMetrics.GPU_DURATION);
+        long deadline = frameMetrics.getMetric(FrameMetrics.DEADLINE);
+        long totalDuration = frameMetrics.getMetric(FrameMetrics.TOTAL_DURATION);
         long intended_vsync = frameMetrics.getMetric(FrameMetrics.INTENDED_VSYNC_TIMESTAMP);
         long vsync = frameMetrics.getMetric(FrameMetrics.VSYNC_TIMESTAMP);
-        long now = System.nanoTime();
+
+        assertTrue(unknownDelay > 0);
+        assertTrue(input > 0);
+        assertTrue(animation > 0);
+        assertTrue(layoutMeasure > 0);
+        assertTrue(draw > 0);
+        assertTrue(sync > 0);
+        assertTrue(commandIssue > 0);
+        assertTrue(swapBuffers > 0);
         assertTrue(intended_vsync > 0);
         assertTrue(vsync > 0);
+        assertTrue(gpuDuration > 0);
+        assertTrue(totalDuration > 0);
+        assertTrue(deadline > 0);
+
+        long now = System.nanoTime();
         assertTrue(intended_vsync < now);
         assertTrue(vsync < now);
         assertTrue(vsync >= intended_vsync);
+
+        // swapBuffers and gpuDuration may happen in parallel, so instead of counting both we need
+        // to take the longer of the two.
+        assertTrue(totalDuration >= unknownDelay + input + animation + layoutMeasure + draw + sync
+                + commandIssue + Math.max(gpuDuration, swapBuffers));
 
         // This is the only boolean metric so far
         final long firstDrawFrameMetric = frameMetrics.getMetric(FrameMetrics.FIRST_DRAW_FRAME);

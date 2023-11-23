@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDUTFCHARS_H_
-#define LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDUTFCHARS_H_
+#pragma once
 
 #include "JNIHelp.h"
 #include <nativehelper/scoped_utf_chars.h>
 
-#endif  // LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDUTFCHARS_H_

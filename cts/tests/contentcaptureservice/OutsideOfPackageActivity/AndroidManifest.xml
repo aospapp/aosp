@@ -14,31 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.contentcaptureservice.cts2"
-          android:targetSandboxVersion="2">
+     package="android.contentcaptureservice.cts2"
+     android:targetSandboxVersion="2">
 
     <application>
 
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
         <activity android:name=".OutsideOfPackageActivity"
-                  android:label="OutsideOfPackage"
-                  android:taskAffinity=".OutsideOfPackageActivity"
-                  android:theme="@android:style/Theme.NoTitleBar">
+             android:label="OutsideOfPackage"
+             android:taskAffinity=".OutsideOfPackageActivity"
+             android:theme="@android:style/Theme.NoTitleBar"
+             android:exported="true">
             <intent-filter>
                 <!-- This intent filter is not really needed by CTS, but it makes easier to launch
-                     this app during CTS development... -->
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                                         this app during CTS development... -->
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:label="CTS tests for the AutoFill Framework APIs."
-        android:targetPackage="android.contentcaptureservice.cts2" >
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:label="CTS tests for the AutoFill Framework APIs."
+         android:targetPackage="android.contentcaptureservice.cts2">
     </instrumentation>
 
 </manifest>

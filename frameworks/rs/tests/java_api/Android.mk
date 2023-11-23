@@ -36,7 +36,11 @@ my_package_name := RSUnbundledTests19
 
 include $(BUILD_SYSTEM)/tasks/tools/package-modules.mk
 
+.PHONY: RSUnbundledTests19
+RSUnbundledTests19: $(my_package_zip)
+
 $(call dist-for-goals,RSUnbundledTests,$(my_package_zip):$(my_package_name).zip)
+$(call dist-for-goals,RSUnbundledTests19,$(my_package_zip):$(my_package_name).zip)
 
 
 # RSTests

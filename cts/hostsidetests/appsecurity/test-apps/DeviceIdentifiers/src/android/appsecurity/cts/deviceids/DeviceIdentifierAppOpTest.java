@@ -22,6 +22,7 @@ import static junit.framework.Assert.fail;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -45,6 +46,7 @@ public class DeviceIdentifierAppOpTest  {
                     + "granted when invoking %s.";
 
     @Test
+    @AsbSecurityTest(cveBugId = 173421434)
     public void testAccessToDeviceIdentifiersWithAppOp() throws Exception {
         Context context = InstrumentationRegistry.getContext();
         TelephonyManager telephonyManager =

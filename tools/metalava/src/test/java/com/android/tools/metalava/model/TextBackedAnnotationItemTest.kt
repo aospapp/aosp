@@ -24,8 +24,8 @@ import org.junit.Test
 import java.io.File
 
 class TextBackedAnnotationItemTest {
-    // Dummy for use in test where we don't need codebase functionality
-    private val dummyCodebase = object : DefaultCodebase(File("").canonicalFile) {
+    // Placeholder for use in test where we don't need codebase functionality
+    private val placeholderCodebase = object : DefaultCodebase(File("").canonicalFile) {
         override fun supportsDocumentation(): Boolean = false
         override var description: String = ""
         override fun getPackages(): PackageList = unsupported()
@@ -38,7 +38,7 @@ class TextBackedAnnotationItemTest {
     @Test
     fun testSimple() {
         val annotation = TextBackedAnnotationItem(
-            dummyCodebase,
+            placeholderCodebase,
             "@androidx.annotation.Nullable"
         )
         assertEquals("@androidx.annotation.Nullable", annotation.toSource())
@@ -49,7 +49,7 @@ class TextBackedAnnotationItemTest {
     @Test
     fun testIntRange() {
         val annotation = TextBackedAnnotationItem(
-            dummyCodebase,
+            placeholderCodebase,
             "@androidx.annotation.IntRange(from = 20, to = 40)"
         )
         assertEquals("@androidx.annotation.IntRange(from = 20, to = 40)", annotation.toSource())
@@ -64,7 +64,7 @@ class TextBackedAnnotationItemTest {
     @Test
     fun testIntDef() {
         val annotation = TextBackedAnnotationItem(
-            dummyCodebase,
+            placeholderCodebase,
             "@androidx.annotation.IntDef({STYLE_NORMAL, STYLE_NO_TITLE, STYLE_NO_FRAME, STYLE_NO_INPUT})"
         )
         assertEquals(

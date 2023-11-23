@@ -249,7 +249,8 @@ class AndroidApiChecksTest : DriverTest() {
                     }
                     """
                 ),
-                intDefAnnotationSource
+                intDefAnnotationSource,
+                nullableSource
             )
         )
     }

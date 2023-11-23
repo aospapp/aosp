@@ -1,8 +1,0 @@
-{
-  "presubmit": [
-    {
-      "name": "sysprop_test",
-      "host": true
-    }
-  ]
-}

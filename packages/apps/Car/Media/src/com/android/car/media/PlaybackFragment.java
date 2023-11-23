@@ -21,9 +21,11 @@ import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_BROWSE;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
-import android.graphics.Bitmap;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
@@ -51,8 +53,16 @@ import com.android.car.media.common.MetadataController;
 import com.android.car.media.common.PlaybackControlsActionBar;
 import com.android.car.media.common.playback.PlaybackViewModel;
 import com.android.car.media.common.source.MediaSourceViewModel;
+import com.android.car.media.widgets.AppBarController;
+import com.android.car.ui.core.CarUi;
+import com.android.car.ui.recyclerview.ContentLimiting;
+import com.android.car.ui.recyclerview.ScrollingLimitedViewHolder;
 import com.android.car.ui.toolbar.MenuItem;
 import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.ToolbarController;
+import com.android.car.ui.utils.DirectManipulationHelper;
+import com.android.car.uxr.LifeCycleObserverUxrContentLimiter;
+import com.android.car.uxr.UxrContentLimiterImpl;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -68,7 +78,9 @@ import java.util.Objects;
 public class PlaybackFragment extends Fragment {
     private static final String TAG = "PlaybackFragment";
 
+    private LifeCycleObserverUxrContentLimiter mUxrContentLimiter;
     private ImageBinder<MediaItemMetadata.ArtworkRef> mAlbumArtBinder;
+    private AppBarController mAppBarController;
     private BackgroundImageView mAlbumBackground;
     private View mBackgroundScrim;
     private View mControlBarScrim;
@@ -77,7 +89,6 @@ public class PlaybackFragment extends Fragment {
     private RecyclerView mQueue;
     private ViewGroup mSeekBarContainer;
     private SeekBar mSeekBar;
-    private Toolbar mToolbar;
     private List<View> mViewsToHideForCustomActions;
     private List<View> mViewsToHideWhenQueueIsVisible;
     private List<View> mViewsToShowWhenQueueIsVisible;
@@ -105,6 +116,8 @@ public class PlaybackFragment extends Fragment {
     private int mFadeDuration;
 
     private MediaActivity.ViewModel mViewModel;
+
+    private MenuItem mQueueMenuItem;
 
     /**
      * PlaybackFragment listener
@@ -199,13 +212,47 @@ public class PlaybackFragment extends Fragment {
     }
 
 
-    private class QueueItemsAdapter extends RecyclerView.Adapter<QueueViewHolder> {
+    private class QueueItemsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
+            implements ContentLimiting {
 
+        private static final int CLAMPED_MESSAGE_VIEW_TYPE = -1;
+        private static final int QUEUE_ITEM_VIEW_TYPE = 0;
+
+        private UxrPivotFilter mUxrPivotFilter;
         private List<MediaItemMetadata> mQueueItems = Collections.emptyList();
         private String mCurrentTimeText = "";
         private String mMaxTimeText = "";
-        private Integer mActiveItemPos;
+        /** Index in {@link #mQueueItems}. */
+        private Integer mActiveItemIndex;
         private boolean mTimeVisible;
+        private Integer mScrollingLimitedMessageResId;
+
+        QueueItemsAdapter() {
+            mUxrPivotFilter = UxrPivotFilter.PASS_THROUGH;
+        }
+
+        @Override
+        public void setMaxItems(int maxItems) {
+            if (maxItems >= 0) {
+                mUxrPivotFilter = new UxrPivotFilterImpl(this, maxItems);
+            } else {
+                mUxrPivotFilter = UxrPivotFilter.PASS_THROUGH;
+            }
+            applyFilterToQueue();
+        }
+
+        @Override
+        public void setScrollingLimitedMessageResId(int resId) {
+            if (mScrollingLimitedMessageResId == null || mScrollingLimitedMessageResId != resId) {
+                mScrollingLimitedMessageResId = resId;
+                mUxrPivotFilter.invalidateMessagePositions();
+            }
+        }
+
+        @Override
+        public int getConfigurationId() {
+            return R.id.playback_fragment_now_playing_list_uxr_config;
+        }
 
         void setItems(@Nullable List<MediaItemMetadata> items) {
             List<MediaItemMetadata> newQueueItems =
@@ -214,62 +261,97 @@ public class PlaybackFragment extends Fragment {
                 return;
             }
             mQueueItems = newQueueItems;
-            updateActiveItem();
+            updateActiveItem(/* listIsNew */ true);
+        }
+
+        private int getActiveItemIndex() {
+            return mActiveItemIndex != null ? mActiveItemIndex : 0;
+        }
+
+        private int getQueueSize() {
+            return (mQueueItems != null) ? mQueueItems.size() : 0;
+        }
+
+
+        /**
+         * Returns the position of the active item if there is one, otherwise returns
+         * @link UxrPivotFilter#INVALID_POSITION}.
+         */
+        private int getActiveItemPosition() {
+            if (mActiveItemIndex == null) {
+                return UxrPivotFilter.INVALID_POSITION;
+            }
+            return mUxrPivotFilter.indexToPosition(mActiveItemIndex);
+        }
+
+        private void invalidateActiveItemPosition() {
+            int position = getActiveItemPosition();
+            if (position != UxrPivotFilterImpl.INVALID_POSITION) {
+                notifyItemChanged(position);
+            }
+        }
+
+        private void scrollToActiveItemPosition() {
+            int position = getActiveItemPosition();
+            if (position != UxrPivotFilterImpl.INVALID_POSITION) {
+                mQueue.scrollToPosition(position);
+            }
+        }
+
+        private void applyFilterToQueue() {
+            mUxrPivotFilter.recompute(getQueueSize(), getActiveItemIndex());
             notifyDataSetChanged();
         }
 
         // Updates mActiveItemPos, then scrolls the queue to mActiveItemPos.
         // It should be called when the active item (mActiveQueueItemId) changed or
         // the queue items (mQueueItems) changed.
-        void updateActiveItem() {
+        void updateActiveItem(boolean listIsNew) {
             if (mQueueItems == null || mActiveQueueItemId == null) {
-                mActiveItemPos = null;
+                mActiveItemIndex = null;
+                applyFilterToQueue();
                 return;
             }
             Integer activeItemPos = null;
             for (int i = 0; i < mQueueItems.size(); i++) {
-                if (mQueueItems.get(i).getQueueId() == mActiveQueueItemId) {
+                if (Objects.equals(mQueueItems.get(i).getQueueId(), mActiveQueueItemId)) {
                     activeItemPos = i;
                     break;
                 }
             }
 
-            if (mActiveItemPos != activeItemPos) {
-                if (mActiveItemPos != null) {
-                    notifyItemChanged(mActiveItemPos.intValue());
-                }
-                mActiveItemPos = activeItemPos;
-                if (mActiveItemPos != null) {
-                    mQueue.scrollToPosition(mActiveItemPos.intValue());
-                    notifyItemChanged(mActiveItemPos.intValue());
-                }
+            // Invalidate the previous active item so it gets redrawn as a normal one.
+            invalidateActiveItemPosition();
+
+            mActiveItemIndex = activeItemPos;
+            if (listIsNew) {
+                applyFilterToQueue();
+            } else {
+                mUxrPivotFilter.updatePivotIndex(getActiveItemIndex());
             }
+
+            scrollToActiveItemPosition();
+            invalidateActiveItemPosition();
         }
 
         void setCurrentTime(String currentTime) {
             if (!mCurrentTimeText.equals(currentTime)) {
                 mCurrentTimeText = currentTime;
-                if (mActiveItemPos != null) {
-                    notifyItemChanged(mActiveItemPos.intValue());
-                }
+                invalidateActiveItemPosition();
             }
         }
 
         void setMaxTime(String maxTime) {
             if (!mMaxTimeText.equals(maxTime)) {
                 mMaxTimeText = maxTime;
-                if (mActiveItemPos != null) {
-                    notifyItemChanged(mActiveItemPos.intValue());
-                }
+                invalidateActiveItemPosition();
             }
         }
 
         void setTimeVisible(boolean visible) {
             if (mTimeVisible != visible) {
                 mTimeVisible = visible;
-                if (mActiveItemPos != null) {
-                    notifyItemChanged(mActiveItemPos.intValue());
-                }
+                invalidateActiveItemPosition();
             }
         }
 
@@ -286,51 +368,83 @@ public class PlaybackFragment extends Fragment {
         }
 
         @Override
-        public QueueViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        public final int getItemViewType(int position) {
+            if (mUxrPivotFilter.positionToIndex(position) == UxrPivotFilterImpl.INVALID_INDEX) {
+                return CLAMPED_MESSAGE_VIEW_TYPE;
+            } else {
+                return QUEUE_ITEM_VIEW_TYPE;
+            }
+        }
+
+        @Override
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            if (viewType == CLAMPED_MESSAGE_VIEW_TYPE) {
+                return ScrollingLimitedViewHolder.create(parent);
+            }
             LayoutInflater inflater = LayoutInflater.from(parent.getContext());
             return new QueueViewHolder(inflater.inflate(R.layout.queue_list_item, parent, false));
         }
 
         @Override
-        public void onBindViewHolder(QueueViewHolder holder, int position) {
-            int size = mQueueItems.size();
-            if (0 <= position && position < size) {
-                holder.bind(mQueueItems.get(position));
+        public void onBindViewHolder(RecyclerView.ViewHolder vh, int position) {
+            if (vh instanceof QueueViewHolder) {
+                int index = mUxrPivotFilter.positionToIndex(position);
+                if (index != UxrPivotFilterImpl.INVALID_INDEX) {
+                    int size = mQueueItems.size();
+                    if (0 <= index && index < size) {
+                        QueueViewHolder holder = (QueueViewHolder) vh;
+                        holder.bind(mQueueItems.get(index));
+                    } else {
+                        Log.e(TAG, "onBindViewHolder pos: " + position + " gave index: " + index +
+                                " out of bounds size: " + size + " " + mUxrPivotFilter.toString());
+                    }
+                } else {
+                    Log.e(TAG, "onBindViewHolder invalid position " + position + " " +
+                            mUxrPivotFilter.toString());
+                }
+            } else if (vh instanceof ScrollingLimitedViewHolder) {
+                ScrollingLimitedViewHolder holder = (ScrollingLimitedViewHolder) vh;
+                holder.bind(mScrollingLimitedMessageResId);
             } else {
-                Log.e(TAG, "onBindViewHolder invalid position " + position + " of " + size);
+                throw new IllegalArgumentException("unknown holder class " + vh.getClass());
             }
         }
 
         @Override
-        public void onViewAttachedToWindow(@NonNull QueueViewHolder holder) {
-            super.onViewAttachedToWindow(holder);
-            holder.onViewAttachedToWindow();
+        public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder vh) {
+            super.onViewAttachedToWindow(vh);
+            if (vh instanceof QueueViewHolder) {
+                QueueViewHolder holder = (QueueViewHolder) vh;
+                holder.onViewAttachedToWindow();
+            }
         }
 
         @Override
-        public void onViewDetachedFromWindow(@NonNull QueueViewHolder holder) {
-            super.onViewDetachedFromWindow(holder);
-            holder.onViewDetachedFromWindow();
+        public void onViewDetachedFromWindow(@NonNull RecyclerView.ViewHolder vh) {
+            super.onViewDetachedFromWindow(vh);
+            if (vh instanceof QueueViewHolder) {
+                QueueViewHolder holder = (QueueViewHolder) vh;
+                holder.onViewDetachedFromWindow();
+            }
         }
 
         @Override
         public int getItemCount() {
-            return mQueueItems.size();
-        }
-
-        void refresh() {
-            // TODO: Perform a diff between current and new content and trigger the proper
-            // RecyclerView updates.
-            this.notifyDataSetChanged();
+            return mUxrPivotFilter.getFilteredCount();
         }
 
         @Override
         public long getItemId(int position) {
-            return mQueueItems.get(position).getQueueId();
+            int index = mUxrPivotFilter.positionToIndex(position);
+            if (index != UxrPivotFilterImpl.INVALID_INDEX) {
+                return mQueueItems.get(position).getQueueId();
+            } else {
+                return RecyclerView.NO_ID;
+            }
         }
     }
 
-    private class QueueTopItemDecoration extends RecyclerView.ItemDecoration {
+    private static class QueueTopItemDecoration extends RecyclerView.ItemDecoration {
         int mHeight;
         int mDecorationPosition;
 
@@ -352,31 +466,33 @@ public class PlaybackFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, final ViewGroup container,
             Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_playback, container, false);
+        return inflater.inflate(R.layout.fragment_playback, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         mAlbumBackground = view.findViewById(R.id.playback_background);
         mQueue = view.findViewById(R.id.queue_list);
-        mSeekBarContainer = view.findViewById(R.id.seek_bar_container);
-        mSeekBar = view.findViewById(R.id.seek_bar);
-        mToolbar = view.findViewById(R.id.toolbar);
-        if (mToolbar != null) {
-            mToolbar.setBackgroundShown(false);
-            mToolbar.setNavButtonMode(Toolbar.NavButtonMode.DOWN);
+        mSeekBarContainer = view.findViewById(R.id.playback_seek_bar_container);
+        mSeekBar = view.findViewById(R.id.playback_seek_bar);
+        DirectManipulationHelper.setSupportsRotateDirectly(mSeekBar, true);
 
-            // Notify listeners when toolbar's down button is pressed.
-            mToolbar.registerOnBackListener(() -> {
-                if (mListener != null) {
-                    mListener.onCollapse();
-                }
-                return true;
-            });
+        GuidelinesUpdater updater = new GuidelinesUpdater(view);
+        ToolbarController toolbarController = CarUi.installBaseLayoutAround(view, updater, true);
+        mAppBarController = new AppBarController(view.getContext(), toolbarController);
 
-            // Update toolbar's logo
-            MediaSourceViewModel mediaSourceViewModel = getMediaSourceViewModel();
-            mediaSourceViewModel.getPrimaryMediaSource().observe(this, mediaSource ->
-                mToolbar.setLogo(mediaSource != null
-                        ? new BitmapDrawable(getResources(), mediaSource.getCroppedPackageIcon())
-                        : null));
-        }
+        mAppBarController.setTitle(R.string.fragment_playback_title);
+        mAppBarController.setBackgroundShown(false);
+        mAppBarController.setNavButtonMode(Toolbar.NavButtonMode.DOWN);
+        mAppBarController.setState(Toolbar.State.SUBPAGE);
+
+        // Update toolbar's logo
+        MediaSourceViewModel mediaSourceViewModel = getMediaSourceViewModel();
+        mediaSourceViewModel.getPrimaryMediaSource().observe(this, mediaSource ->
+                mAppBarController.setLogo(mediaSource != null
+                    ? new BitmapDrawable(getResources(), mediaSource.getCroppedPackageIcon())
+                    : null));
+
         mBackgroundScrim = view.findViewById(R.id.background_scrim);
         ViewUtils.setVisible(mBackgroundScrim, false);
         mControlBarScrim = view.findViewById(R.id.control_bar_scrim);
@@ -406,15 +522,13 @@ public class PlaybackFragment extends Fragment {
                 if (useMediaSourceColor) {
                     getPlaybackViewModel().getMediaSourceColors().observe(getViewLifecycleOwner(),
                             sourceColors -> {
-                                int color = sourceColors != null ? sourceColors.getAccentColor(
-                                        defaultColor)
+                                int color = sourceColors != null
+                                        ? sourceColors.getAccentColor(defaultColor)
                                         : defaultColor;
-                                mSeekBar.setThumbTintList(ColorStateList.valueOf(color));
-                                mSeekBar.setProgressTintList(ColorStateList.valueOf(color));
+                                setSeekBarColor(color);
                             });
                 } else {
-                    mSeekBar.setThumbTintList(ColorStateList.valueOf(defaultColor));
-                    mSeekBar.setProgressTintList(ColorStateList.valueOf(defaultColor));
+                    setSeekBarColor(defaultColor);
                 }
             } else {
                 mSeekBar.setVisibility(View.GONE);
@@ -453,7 +567,10 @@ public class PlaybackFragment extends Fragment {
                 item -> mAlbumArtBinder.setImage(PlaybackFragment.this.getContext(),
                         item != null ? item.getArtworkKey() : null));
 
-        return view;
+        mUxrContentLimiter = new LifeCycleObserverUxrContentLimiter(
+                new UxrContentLimiterImpl(getContext(), R.xml.uxr_config));
+        mUxrContentLimiter.setAdapter(mQueueAdapter);
+        getLifecycle().addObserver(mUxrContentLimiter);
     }
 
     @Override
@@ -519,7 +636,7 @@ public class PlaybackFragment extends Fragment {
                     Long itemId = (state != null) ? state.getActiveQueueItemId() : null;
                     if (!Objects.equals(mActiveQueueItemId, itemId)) {
                         mActiveQueueItemId = itemId;
-                        mQueueAdapter.updateActiveItem();
+                        mQueueAdapter.updateActiveItem(/* listIsNew */ false);
                     }
                 });
         mQueue.setAdapter(mQueueAdapter);
@@ -529,12 +646,19 @@ public class PlaybackFragment extends Fragment {
         mItemAnimator.setSupportsChangeAnimations(false);
         mQueue.setItemAnimator(mItemAnimator);
 
+        // Make sure the AppBar menu reflects the initial state of playback fragment.
+        updateAppBarMenu(mHasQueue);
+        if (mQueueMenuItem != null) {
+            mQueueMenuItem.setActivated(mQueueIsVisible);
+        }
+
         getPlaybackViewModel().getQueue().observe(this, this::setQueue);
 
         getPlaybackViewModel().hasQueue().observe(getViewLifecycleOwner(), hasQueue -> {
             boolean enableQueue = (hasQueue != null) && hasQueue;
-            mQueueIsVisible = mViewModel.getQueueVisible();
-            setHasQueue(enableQueue);
+            boolean isQueueVisible = enableQueue && mViewModel.getQueueVisible();
+
+            setQueueState(enableQueue, isQueueVisible);
         });
         getPlaybackViewModel().getProgress().observe(getViewLifecycleOwner(),
                 playbackProgress ->
@@ -571,7 +695,7 @@ public class PlaybackFragment extends Fragment {
      */
     private void toggleQueueVisibility() {
         boolean updatedQueueVisibility = !mQueueIsVisible;
-        setQueueVisible(updatedQueueVisibility);
+        setQueueState(mHasQueue, updatedQueueVisibility);
 
         // When the visibility of queue is changed by the user, save the visibility into ViewModel
         // so that we can restore PlaybackFragment properly when needed. If it's changed by media
@@ -580,39 +704,39 @@ public class PlaybackFragment extends Fragment {
         mViewModel.setQueueVisible(updatedQueueVisibility);
     }
 
-    private void setQueueVisible(boolean visible) {
-        mQueueIsVisible = visible;
-
-        if (mToolbar != null) {
-            if (mHasQueue) {
-                MenuItem queueMenuItem = MenuItem.builder(getContext())
-                        .setIcon(R.drawable.ic_queue_button)
-                        .setActivated(mQueueIsVisible)
-                        .setOnClickListener(button -> toggleQueueVisibility())
-                        .build();
-                mToolbar.setMenuItems(Collections.singletonList(queueMenuItem));
-            } else {
-                mToolbar.setMenuItems(Collections.emptyList());
-            }
+    private void updateAppBarMenu(boolean hasQueue) {
+        if (hasQueue && mQueueMenuItem == null) {
+            mQueueMenuItem = MenuItem.builder(getContext())
+                    .setIcon(R.drawable.ic_queue_button)
+                    .setActivatable()
+                    .setOnClickListener(button -> toggleQueueVisibility())
+                    .build();
         }
-
-        if (mQueueIsVisible) {
-            ViewUtils.showViewsAnimated(mViewsToShowWhenQueueIsVisible, mFadeDuration);
-            ViewUtils.hideViewsAnimated(mViewsToHideWhenQueueIsVisible, mFadeDuration);
-            ViewUtils.setVisible(mViewsToShowImmediatelyWhenQueueIsVisible, true);
-            ViewUtils.setVisible(mViewsToHideImmediatelyWhenQueueIsVisible, false);
-        } else {
-            ViewUtils.hideViewsAnimated(mViewsToShowWhenQueueIsVisible, mFadeDuration);
-            ViewUtils.showViewsAnimated(mViewsToHideWhenQueueIsVisible, mFadeDuration);
-            ViewUtils.setVisible(mViewsToShowImmediatelyWhenQueueIsVisible, false);
-            ViewUtils.setVisible(mViewsToHideImmediatelyWhenQueueIsVisible, true);
-        }
+        mAppBarController.setMenuItems(
+                hasQueue ? Collections.singletonList(mQueueMenuItem) : Collections.emptyList());
     }
 
-    /** Sets whether the source has a queue. */
-    private void setHasQueue(boolean hasQueue) {
-        mHasQueue = hasQueue;
-        setQueueVisible(hasQueue && mQueueIsVisible);
+    private void setQueueState(boolean hasQueue, boolean visible) {
+        if (mHasQueue != hasQueue) {
+            mHasQueue = hasQueue;
+            updateAppBarMenu(hasQueue);
+        }
+        if (mQueueMenuItem != null) {
+            mQueueMenuItem.setActivated(visible);
+        }
+
+        if (mQueueIsVisible != visible) {
+            mQueueIsVisible = visible;
+            if (mQueueIsVisible) {
+                ViewUtils.showViewsAnimated(mViewsToShowWhenQueueIsVisible, mFadeDuration);
+                ViewUtils.hideViewsAnimated(mViewsToHideWhenQueueIsVisible, mFadeDuration);
+            } else {
+                ViewUtils.hideViewsAnimated(mViewsToShowWhenQueueIsVisible, mFadeDuration);
+                ViewUtils.showViewsAnimated(mViewsToHideWhenQueueIsVisible, mFadeDuration);
+            }
+            ViewUtils.setVisible(mViewsToShowImmediatelyWhenQueueIsVisible, mQueueIsVisible);
+            ViewUtils.setVisible(mViewsToHideImmediatelyWhenQueueIsVisible, !mQueueIsVisible);
+        }
     }
 
     private void onQueueItemClicked(MediaItemMetadata item) {
@@ -640,6 +764,24 @@ public class PlaybackFragment extends Fragment {
 
     private MediaSourceViewModel getMediaSourceViewModel() {
         return MediaSourceViewModel.get(getActivity().getApplication(), MEDIA_SOURCE_MODE_BROWSE);
+    }
+
+    private void setSeekBarColor(int color) {
+        mSeekBar.setProgressTintList(ColorStateList.valueOf(color));
+
+        // If the thumb drawable consists of a center drawable, only change the color of the center
+        // drawable. Otherwise change the color of the entire thumb drawable.
+        Drawable thumb = mSeekBar.getThumb();
+        if (thumb instanceof LayerDrawable) {
+            LayerDrawable thumbDrawable = (LayerDrawable) thumb;
+            Drawable thumbCenter = thumbDrawable.findDrawableByLayerId(R.id.thumb_center);
+            if (thumbCenter != null) {
+                thumbCenter.setColorFilter(color, PorterDuff.Mode.SRC);
+                thumbDrawable.setDrawableByLayerId(R.id.thumb_center, thumbCenter);
+                return;
+            }
+        }
+        mSeekBar.setThumbTintList(ColorStateList.valueOf(color));
     }
 
     /**

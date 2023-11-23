@@ -16,7 +16,6 @@
 
 #if defined(__ANDROID__)
 
-#include "Loader.h"
 #include "egl_angle_platform.h"
 
 #pragma GCC diagnostic push
@@ -24,13 +23,19 @@
 #include <EGL/Platform.h>
 #pragma GCC diagnostic pop
 
+#include <android-base/properties.h>
 #include <android/dlext.h>
 #include <dlfcn.h>
 #include <graphicsenv/GraphicsEnv.h>
-#include <time.h>
 #include <log/log.h>
+#include <time.h>
+#include <vndksupport/linker.h>
+
+#include "Loader.h"
 
 namespace angle {
+
+constexpr int kAngleDlFlags = RTLD_LOCAL | RTLD_NOW;
 
 static GetDisplayPlatformFunc angleGetDisplayPlatform = nullptr;
 static ResetDisplayPlatformFunc angleResetDisplayPlatform = nullptr;
@@ -101,11 +106,40 @@ static void assignAnglePlatformMethods(PlatformMethods* platformMethods) {
 bool initializeAnglePlatform(EGLDisplay dpy) {
     // Since we're inside libEGL, use dlsym to lookup fptr for ANGLEGetDisplayPlatform
     android_namespace_t* ns = android::GraphicsEnv::getInstance().getAngleNamespace();
-    const android_dlextinfo dlextinfo = {
-            .flags = ANDROID_DLEXT_USE_NAMESPACE,
-            .library_namespace = ns,
-    };
-    void* so = android_dlopen_ext("libGLESv2_angle.so", RTLD_LOCAL | RTLD_NOW, &dlextinfo);
+    void* so = nullptr;
+    if (ns) {
+        // Loading from an APK, so hard-code the suffix to "_angle".
+        constexpr char kAngleEs2Lib[] = "libGLESv2_angle.so";
+        const android_dlextinfo dlextinfo = {
+                .flags = ANDROID_DLEXT_USE_NAMESPACE,
+                .library_namespace = ns,
+        };
+        so = android_dlopen_ext(kAngleEs2Lib, kAngleDlFlags, &dlextinfo);
+        if (so) {
+            ALOGD("dlopen_ext from APK (%s) success at %p", kAngleEs2Lib, so);
+        } else {
+            ALOGE("dlopen_ext(\"%s\") failed: %s", kAngleEs2Lib, dlerror());
+            return false;
+        }
+    } else {
+        // If we are here, ANGLE is loaded as built-in gl driver in the sphal.
+        // Get the specified ANGLE library filename suffix.
+        std::string angleEs2LibSuffix = android::base::GetProperty("ro.hardware.egl", "");
+        if (angleEs2LibSuffix.empty()) {
+            ALOGE("%s failed to get valid ANGLE library filename suffix!", __FUNCTION__);
+            return false;
+        }
+
+        std::string angleEs2LibName = "libGLESv2_" + angleEs2LibSuffix + ".so";
+        so = android_load_sphal_library(angleEs2LibName.c_str(), kAngleDlFlags);
+        if (so) {
+            ALOGD("dlopen (%s) success at %p", angleEs2LibName.c_str(), so);
+        } else {
+            ALOGE("%s failed to dlopen %s!", __FUNCTION__, angleEs2LibName.c_str());
+            return false;
+        }
+    }
+
     angleGetDisplayPlatform =
             reinterpret_cast<GetDisplayPlatformFunc>(dlsym(so, "ANGLEGetDisplayPlatform"));
 
@@ -115,13 +149,11 @@ bool initializeAnglePlatform(EGLDisplay dpy) {
     }
 
     angleResetDisplayPlatform =
-            reinterpret_cast<ResetDisplayPlatformFunc>(
-                    eglGetProcAddress("ANGLEResetDisplayPlatform"));
+            reinterpret_cast<ResetDisplayPlatformFunc>(dlsym(so, "ANGLEResetDisplayPlatform"));
 
     PlatformMethods* platformMethods = nullptr;
-    if (!((angleGetDisplayPlatform)(dpy, g_PlatformMethodNames,
-                                                              g_NumPlatformMethods, nullptr,
-                                                              &platformMethods))) {
+    if (!((angleGetDisplayPlatform)(dpy, g_PlatformMethodNames, g_NumPlatformMethods, nullptr,
+                                    &platformMethods))) {
         ALOGE("ANGLEGetDisplayPlatform call failed!");
         return false;
     }

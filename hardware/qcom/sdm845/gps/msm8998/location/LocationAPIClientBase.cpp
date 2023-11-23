@@ -33,7 +33,7 @@
 #include <loc_cfg.h>
 #include "LocationAPIClientBase.h"
 
-#define FLP_CONF_FILE "/vendor/etc/flp.conf"
+#define BATCHING_CONF_FILE "/vendor/etc/flp.conf"
 #define GEOFENCE_SESSION_ID -1
 
 LocationAPIClientBase::LocationAPIClientBase() :
@@ -201,11 +201,11 @@ void LocationAPIClientBase::locAPIUpdateTrackingOptions(LocationOptions& options
 int32_t LocationAPIClientBase::locAPIGetBatchSize()
 {
     if (mBatchSize == -1) {
-        const loc_param_s_type flp_conf_param_table[] =
+        const loc_param_s_type batching_conf_param_table[] =
         {
             {"BATCH_SIZE", &mBatchSize, nullptr, 'n'},
         };
-        UTIL_READ_CONF(FLP_CONF_FILE, flp_conf_param_table);
+        UTIL_READ_CONF(BATCHING_CONF_FILE, batching_conf_param_table);
         if (mBatchSize < 0) {
             // set mBatchSize to 0 if we got an illegal value from config file
             mBatchSize = 0;

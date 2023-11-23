@@ -16,15 +16,15 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.app.usage.app">
+     package="android.app.usage.app">
 
     <application>
-        <activity android:name="android.app.usage.app.TestActivity">
+        <activity android:name="android.app.usage.app.TestActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
     </application>
 </manifest>
-

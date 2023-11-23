@@ -19,13 +19,13 @@ package com.android.tv.settings.device.apps.specialaccess;
 import android.app.ActivityManager;
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 
 import androidx.annotation.Keep;
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 
@@ -48,11 +48,6 @@ public class SpecialAppAccess extends SettingsPreferenceFragment {
         updatePreferenceStates();
     }
 
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.SPECIAL_ACCESS;
-    }
-
     @VisibleForTesting
     void updatePreferenceStates() {
         ActivityManager activityManager = (ActivityManager) getContext()
@@ -61,6 +56,10 @@ public class SpecialAppAccess extends SettingsPreferenceFragment {
             for (String disabledFeature : DISABLED_FEATURES_LOW_RAM_TV) {
                 removePreference(disabledFeature);
             }
+        }
+        PackageManager packageManager = getActivity().getPackageManager();
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+            removePreference(KEY_FEATURE_PIP);
         }
     }
 

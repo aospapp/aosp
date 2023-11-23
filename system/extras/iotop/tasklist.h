@@ -19,12 +19,12 @@
 #define _IOTOP_TASKLIST_H
 
 class TaskList {
-public:
+ public:
   static bool Scan(std::map<pid_t, std::vector<pid_t>>&);
 
-private:
+ private:
   TaskList() {}
   static bool ScanPid(pid_t pid, std::vector<pid_t>&);
 };
 
-#endif // _IOTOP_TASKLIST_H
+#endif  // _IOTOP_TASKLIST_H

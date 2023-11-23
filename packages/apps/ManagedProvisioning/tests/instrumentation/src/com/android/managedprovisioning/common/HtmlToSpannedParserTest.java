@@ -35,9 +35,9 @@ public class HtmlToSpannedParserTest {
     @Before
     public void setUp() throws Exception {
         mHtmlToSpannedParser =
-                new HtmlToSpannedParser(new ClickableSpanFactory(SAMPLE_COLOR),
+                new HtmlToSpannedParser(new ClickableSpanFactory(SAMPLE_COLOR, intent -> {}),
                         url -> WebActivity.createIntent(InstrumentationRegistry.getTargetContext(),
-                                url, SAMPLE_COLOR));
+                                url));
     }
 
     @Test(expected = IllegalArgumentException.class)

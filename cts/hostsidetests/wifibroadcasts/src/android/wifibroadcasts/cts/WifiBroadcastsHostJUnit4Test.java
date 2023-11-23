@@ -111,8 +111,8 @@ public class WifiBroadcastsHostJUnit4Test implements IDeviceTest {
         }
         // Clear activity
         device.executeShellCommand(CLEAR_COMMAND);
-        // No mobile data or wifi or bluetooth to start with
-        device.executeShellCommand("svc data disable; svc wifi disable; svc bluetooth disable");
+        // No mobile data or wifi to start with
+        device.executeShellCommand("svc data disable; svc wifi disable");
         // Clear logcat.
         device.executeAdbCommand("logcat", "-c");
         // Ensure the screen is on, so that rssi polling happens

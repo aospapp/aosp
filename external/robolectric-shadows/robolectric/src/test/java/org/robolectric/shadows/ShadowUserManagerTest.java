@@ -83,6 +83,12 @@ public class ShadowUserManagerTest {
   }
 
   @Test
+  @Config(minSdk = JELLY_BEAN_MR2)
+  public void verifyNoUserRestrictions() {
+    assertThat(userManager.getUserRestrictions().size()).isEqualTo(0);
+  }
+
+  @Test
   @Config(minSdk = LOLLIPOP)
   public void hasUserRestriction() {
     assertThat(userManager.hasUserRestriction(UserManager.ENSURE_VERIFY_APPS)).isFalse();
@@ -96,8 +102,6 @@ public class ShadowUserManagerTest {
   @Test
   @Config(minSdk = JELLY_BEAN_MR2)
   public void getUserRestrictions() {
-    assertThat(userManager.getUserRestrictions().size()).isEqualTo(0);
-
     UserHandle userHandle = Process.myUserHandle();
     shadowOf(userManager).setUserRestriction(userHandle, UserManager.ENSURE_VERIFY_APPS, true);
 
@@ -117,8 +121,17 @@ public class ShadowUserManagerTest {
 
   @Test
   @Config(minSdk = JELLY_BEAN_MR2)
+  public void setUserRestrictions() {
+    userManager.setUserRestriction(UserManager.ENSURE_VERIFY_APPS, true);
+
+    Bundle restrictions = userManager.getUserRestrictions();
+    assertThat(restrictions.size()).isEqualTo(1);
+    assertThat(restrictions.getBoolean(UserManager.ENSURE_VERIFY_APPS)).isTrue();
+  }
+
+  @Test
+  @Config(minSdk = JELLY_BEAN_MR2)
   public void clearUserRestrictions() {
-    assertThat(userManager.getUserRestrictions().size()).isEqualTo(0);
     shadowOf(userManager)
         .setUserRestriction(Process.myUserHandle(), UserManager.ENSURE_VERIFY_APPS, true);
     assertThat(userManager.getUserRestrictions().size()).isEqualTo(1);

@@ -24,7 +24,7 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.ActivityManager.RunningTaskInfo;
 import android.app.AlertDialog;
-import android.app.HomeVisibilityObserver;
+import android.app.HomeVisibilityListener;
 import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -119,7 +119,6 @@ public class StkAppService extends Service implements Runnable {
         protected LinkedList<DelayedCmd> mCmdsQ = null;
         protected boolean mCmdInProgress = false;
         protected int mStkServiceState = STATE_UNKNOWN;
-        protected int mSetupMenuState = STATE_NOT_EXIST;
         protected int mMenuState = StkMenuActivity.STATE_INIT;
         protected int mOpCode = -1;
         private Activity mActivityInstance = null;
@@ -171,7 +170,7 @@ public class StkAppService extends Service implements Runnable {
     private AppInterface[] mStkService = null;
     private StkContext[] mStkContext = null;
     private int mSimCount = 0;
-    private HomeVisibilityObserver mHomeVisibilityObserver = null;
+    private HomeVisibilityListener mHomeVisibilityListener = null;
     private BroadcastReceiver mLocaleChangeReceiver = null;
     private TonePlayer mTonePlayer = null;
     private Vibrator mVibrator = null;
@@ -299,6 +298,7 @@ public class StkAppService extends Service implements Runnable {
     // The reason based on Intent.ACTION_CLOSE_SYSTEM_DIALOGS.
     private static final String SYSTEM_DIALOG_REASON_KEY = "reason";
     private static final String SYSTEM_DIALOG_REASON_HOME_KEY = "homekey";
+    private static final String SYSTEM_DIALOG_REASON_RECENTAPPS_KEY = "recentapps";
     private BroadcastReceiver mHomeKeyEventReceiver = null;
 
     @Override
@@ -368,7 +368,7 @@ public class StkAppService extends Service implements Runnable {
             }
             if (i == mSimCount) {
                 stopSelf();
-                StkAppInstaller.unInstall(mContext);
+                StkAppInstaller.uninstall(this);
                 return;
             }
         }
@@ -497,7 +497,7 @@ public class StkAppService extends Service implements Runnable {
         CatLog.d(LOG_TAG, "StkAppService, getMainMenu, sim id: " + slotId);
         if (slotId >=0 && slotId < mSimCount && (mStkContext[slotId].mMainCmd != null)) {
             Menu menu = mStkContext[slotId].mMainCmd.getMenu();
-            if (menu != null && mSimCount > PhoneConstants.MAX_PHONE_COUNT_SINGLE_SIM) {
+            if (menu != null) {
                 // If alpha identifier or icon identifier with the self-explanatory qualifier is
                 // specified in SET-UP MENU command, it should be more prioritized than preset ones.
                 if (menu.title == null
@@ -626,15 +626,7 @@ public class StkAppService extends Service implements Runnable {
                 break;
             case OP_BOOT_COMPLETED:
                 CatLog.d(LOG_TAG, " OP_BOOT_COMPLETED");
-                int i = 0;
-                for (i = 0; i < mSimCount; i++) {
-                    if (mStkContext[i].mMainCmd != null) {
-                        break;
-                    }
-                }
-                if (i == mSimCount) {
-                    StkAppInstaller.unInstall(mContext);
-                }
+                uninstallIfUnnecessary();
                 break;
             case OP_DELAYED_MSG:
                 handleDelayedCmd(slotId);
@@ -735,9 +727,11 @@ public class StkAppService extends Service implements Runnable {
                         == AppInterface.CommandType.PLAY_TONE.value()) {
                     terminateTone(slotId);
                 }
+                if (!uninstallIfUnnecessary()) {
+                    addToMenuSystemOrUpdateLabel();
+                }
                 if (isAllOtherCardsAbsent(slotId)) {
                     CatLog.d(LOG_TAG, "All CARDs are ABSENT");
-                    StkAppInstaller.unInstall(mContext);
                     stopSelf();
                 }
             } else {
@@ -828,10 +822,12 @@ public class StkAppService extends Service implements Runnable {
         }
         mHomeKeyEventReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context context, Intent intent) {
-                if (SYSTEM_DIALOG_REASON_HOME_KEY.equals(
-                        intent.getStringExtra(SYSTEM_DIALOG_REASON_KEY))) {
-                    Message message = mServiceHandler.obtainMessage();
-                    message.arg1 = OP_HOME_KEY_PRESSED;
+                final String reason = intent.getStringExtra(SYSTEM_DIALOG_REASON_KEY);
+                // gesture-based launchers may interpret swipe-up as "recent apps" instead of
+                // "home" so we accept both here
+                if (SYSTEM_DIALOG_REASON_HOME_KEY.equals(reason)
+                    || SYSTEM_DIALOG_REASON_RECENTAPPS_KEY.equals(reason)) {
+                    Message message = mServiceHandler.obtainMessage(OP_HOME_KEY_PRESSED);
                     mServiceHandler.sendMessage(message);
                 }
             }
@@ -1085,13 +1081,6 @@ public class StkAppService extends Service implements Runnable {
         case DISPLAY_TEXT:
             TextMessage msg = cmdMsg.geTextMessage();
             waitForUsersResponse = msg.responseNeeded;
-            if (mStkContext[slotId].lastSelectedItem != null) {
-                msg.title = mStkContext[slotId].lastSelectedItem;
-            } else if (mStkContext[slotId].mMainCmd != null){
-                if (!getResources().getBoolean(R.bool.show_menu_title_only_on_menu)) {
-                    msg.title = mStkContext[slotId].mMainCmd.getMenu().title;
-                }
-            }
             //If we receive a low priority Display Text and the device is
             // not displaying any STK related activity and the screen is not idle
             // ( that is, device is in an interactive state), then send a screen busy
@@ -1124,24 +1113,14 @@ public class StkAppService extends Service implements Runnable {
             CatLog.d(LOG_TAG, "SET_UP_MENU [" + removeMenu(slotId) + "]");
 
             if (removeMenu(slotId)) {
-                int i = 0;
-                CatLog.d(LOG_TAG, "removeMenu() - Uninstall App");
                 mStkContext[slotId].mCurrentMenu = null;
                 mStkContext[slotId].mMainCmd = null;
                 //Check other setup menu state. If all setup menu are removed, uninstall apk.
-                for (i = 0; i < mSimCount; i++) {
-                    if (i != slotId && mStkContext[i].mSetupMenuState != STATE_NOT_EXIST) {
-                        CatLog.d(LOG_TAG, "Not Uninstall App:" + i + ","
-                                + mStkContext[i].mSetupMenuState);
-                        break;
-                    }
-                }
-                if (i == mSimCount) {
-                    StkAppInstaller.unInstall(mContext);
+                if (!uninstallIfUnnecessary()) {
+                    addToMenuSystemOrUpdateLabel();
                 }
             } else {
-                CatLog.d(LOG_TAG, "install App");
-                StkAppInstaller.install(mContext);
+                addToMenuSystemOrUpdateLabel();
             }
             if (mStkContext[slotId].mMenuIsVisible) {
                 launchMenuActivity(null, slotId);
@@ -1267,6 +1246,32 @@ public class StkAppService extends Service implements Runnable {
                 mStkContext[slotId].mCmdInProgress = false;
             }
         }
+    }
+
+    private void addToMenuSystemOrUpdateLabel() {
+        String candidateLabel = null;
+
+        for (int slotId = 0; slotId < mSimCount; slotId++) {
+            Menu menu = getMainMenu(slotId);
+            if (menu != null) {
+                if (!TextUtils.isEmpty(candidateLabel)) {
+                    if (!TextUtils.equals(menu.title, candidateLabel)) {
+                        // We should not display the alpha identifier of SET-UP MENU command
+                        // as the application label on the application launcher
+                        // if different alpha identifiers are provided by multiple SIMs.
+                        candidateLabel = null;
+                        break;
+                    }
+                } else {
+                    if (TextUtils.isEmpty(menu.title)) {
+                        break;
+                    }
+                    candidateLabel = menu.title;
+                }
+            }
+        }
+
+        StkAppInstaller.installOrUpdate(this, candidateLabel);
     }
 
     @SuppressWarnings("FallThrough")
@@ -1677,7 +1682,7 @@ public class StkAppService extends Service implements Runnable {
 
         Menu menu = getMainMenu(slotId);
         if (menu == null || TextUtils.isEmpty(menu.title)) {
-            builder.setContentTitle(getResources().getString(R.string.app_name));
+            builder.setContentTitle("");
         } else {
             builder.setContentTitle(menu.title);
         }
@@ -1845,8 +1850,8 @@ public class StkAppService extends Service implements Runnable {
     }
 
     private synchronized void registerHomeVisibilityObserver() {
-        if (mHomeVisibilityObserver == null) {
-            mHomeVisibilityObserver = new HomeVisibilityObserver() {
+        if (mHomeVisibilityListener == null) {
+            mHomeVisibilityListener = new HomeVisibilityListener() {
                 @Override
                 public void onHomeVisibilityChanged(boolean isHomeActivityVisible) {
                     if (isHomeActivityVisible) {
@@ -1857,7 +1862,7 @@ public class StkAppService extends Service implements Runnable {
                 }
             };
             ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
-            am.registerHomeVisibilityObserver(mHomeVisibilityObserver);
+            am.addHomeVisibilityListener(Runnable::run, mHomeVisibilityListener);
             CatLog.d(LOG_TAG, "Started to observe the foreground activity");
         }
     }
@@ -1889,11 +1894,11 @@ public class StkAppService extends Service implements Runnable {
     }
 
     private synchronized void unregisterHomeVisibilityObserver() {
-        if (mHomeVisibilityObserver != null) {
+        if (mHomeVisibilityListener != null) {
             ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
-            am.unregisterHomeVisibilityObserver(mHomeVisibilityObserver);
+            am.removeHomeVisibilityListener(mHomeVisibilityListener);
             CatLog.d(LOG_TAG, "Stopped to observe the foreground activity");
-            mHomeVisibilityObserver = null;
+            mHomeVisibilityListener = null;
         }
     }
 
@@ -2138,7 +2143,7 @@ public class StkAppService extends Service implements Runnable {
                     + "] icon[" + msg.icon + "], sim id: " + slotId);
             CatLog.d(LOG_TAG, "Add IdleMode text");
             PendingIntent pendingIntent = PendingIntent.getService(mContext, 0,
-                    new Intent(mContext, StkAppService.class), 0);
+                    new Intent(mContext, StkAppService.class), PendingIntent.FLAG_IMMUTABLE);
             createAllChannels();
             final Notification.Builder notificationBuilder = new Notification.Builder(
                     StkAppService.this, STK_NOTIFICATION_CHANNEL_ID);
@@ -2324,6 +2329,10 @@ public class StkAppService extends Service implements Runnable {
         }
     }
 
+    boolean isNoTonePlaying() {
+        return mTonePlayer == null ? true : false;
+    }
+
     private void launchOpenChannelDialog(final int slotId) {
         TextMessage msg = mStkContext[slotId].mCurrentCmd.geTextMessage();
         if (msg == null) {
@@ -2427,16 +2436,24 @@ public class StkAppService extends Service implements Runnable {
         try {
             if (mStkContext[slotId].mCurrentMenu.items.size() == 1 &&
                 mStkContext[slotId].mCurrentMenu.items.get(0) == null) {
-                mStkContext[slotId].mSetupMenuState = STATE_NOT_EXIST;
                 return true;
             }
         } catch (NullPointerException e) {
             CatLog.d(LOG_TAG, "Unable to get Menu's items size");
-            mStkContext[slotId].mSetupMenuState = STATE_NOT_EXIST;
             return true;
         }
-        mStkContext[slotId].mSetupMenuState = STATE_EXIST;
         return false;
+    }
+
+    private boolean uninstallIfUnnecessary() {
+        for (int slot = 0; slot < mSimCount; slot++) {
+            if (mStkContext[slot].mMainCmd != null) {
+                return false;
+            }
+        }
+        CatLog.d(LOG_TAG, "Uninstall App");
+        StkAppInstaller.uninstall(this);
+        return true;
     }
 
     synchronized StkContext getStkContext(int slotId) {

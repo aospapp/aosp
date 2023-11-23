@@ -16,6 +16,7 @@ package android.accessibilityservice.cts.utils;
 
 import static android.accessibility.cts.common.ShellCommandBuilder.execShellCommand;
 import static android.accessibilityservice.cts.utils.AsyncUtils.DEFAULT_TIMEOUT_MS;
+import static android.content.pm.PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
@@ -47,8 +48,10 @@ import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.TestUtils;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
@@ -60,6 +63,8 @@ public class ActivityLaunchUtils {
     private static final String LOG_TAG = "ActivityLaunchUtils";
     private static final String AM_START_HOME_ACTIVITY_COMMAND =
             "am start -a android.intent.action.MAIN -c android.intent.category.HOME";
+    public static final String AM_BROADCAST_CLOSE_SYSTEM_DIALOG_COMMAND =
+            "am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS";
 
     // Using a static variable so it can be used in lambdas. Not preserving state in it.
     private static Activity mTempActivity;
@@ -133,7 +138,10 @@ public class ActivityLaunchUtils {
         try {
             executeAndWaitOn(
                     uiAutomation,
-                    () -> execShellCommand(uiAutomation, AM_START_HOME_ACTIVITY_COMMAND),
+                    () -> {
+                        execShellCommand(uiAutomation, AM_START_HOME_ACTIVITY_COMMAND);
+                        execShellCommand(uiAutomation, AM_BROADCAST_CLOSE_SYSTEM_DIALOG_COMMAND);
+                    },
                     () -> isHomeScreenShowing(context, uiAutomation),
                     DEFAULT_TIMEOUT_MS,
                     "home screen");
@@ -152,6 +160,11 @@ public class ActivityLaunchUtils {
 
             fail("Unable to reach home screen");
         }
+    }
+
+    public static boolean supportsMultiDisplay(Context context) {
+        return context.getPackageManager().hasSystemFeature(
+                FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS);
     }
 
     private static boolean isHomeScreenShowing(Context context, UiAutomation uiAutomation) {
@@ -244,6 +257,7 @@ public class ActivityLaunchUtils {
         final StringBuilder activityPackage = new StringBuilder();
         final Rect bounds = new Rect();
         final StringBuilder activityTitle = new StringBuilder();
+        final StringBuilder timeoutExceptionRecords = new StringBuilder();
         // Make sure we get window events, so we'll know when the window appears
         AccessibilityServiceInfo info = uiAutomation.getServiceInfo();
         info.flags |= AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
@@ -254,36 +268,40 @@ public class ActivityLaunchUtils {
             homeScreenOrBust(instrumentation.getContext(), uiAutomation);
         }
 
-        final AccessibilityEvent awaitedEvent = uiAutomation.executeAndWaitForEvent(
-                () -> {
-                    mTempActivity = activityLauncher.launchActivity();
-                    instrumentation.runOnMainSync(() -> {
+        try {
+            final AccessibilityEvent awaitedEvent = uiAutomation.executeAndWaitForEvent(
+                    () -> {
+                        mTempActivity = activityLauncher.launchActivity();
+                        instrumentation.runOnMainSync(() -> {
+                            mTempActivity.getWindow().getDecorView().getLocationOnScreen(location);
+                            activityPackage.append(mTempActivity.getPackageName());
+                        });
+                        instrumentation.waitForIdleSync();
+                        activityTitle.append(getActivityTitle(instrumentation, mTempActivity));
+                    },
+                    (event) -> {
+                        final AccessibilityWindowInfo window =
+                                findWindowByTitleAndDisplay(uiAutomation, activityTitle, displayId);
+                        if (window == null) return false;
+                        if (window.getRoot() == null) return false;
+
+                        window.getBoundsInScreen(bounds);
                         mTempActivity.getWindow().getDecorView().getLocationOnScreen(location);
-                        activityPackage.append(mTempActivity.getPackageName());
-                    });
-                    instrumentation.waitForIdleSync();
-                    activityTitle.append(getActivityTitle(instrumentation, mTempActivity));
-                },
-                (event) -> {
-                    AccessibilityNodeInfo node = event.getSource();
-                    if (node != null) {
-                        final AccessibilityWindowInfo window = node.getWindow();
-                        if(TextUtils.equals(activityTitle, window.getTitle())) {
-                            return  true;
-                        }
-                    }
-                    final AccessibilityWindowInfo window =
-                            findWindowByTitleAndDisplay(uiAutomation, activityTitle, displayId);
-                    if (window == null) return false;
-                    window.getBoundsInScreen(bounds);
-                    mTempActivity.getWindow().getDecorView().getLocationOnScreen(location);
-                    if (bounds.isEmpty()) {
-                        return false;
-                    }
-                    return (!bounds.isEmpty())
-                            && (bounds.left == location[0]) && (bounds.top == location[1]);
-                }, DEFAULT_TIMEOUT_MS);
-        assertNotNull(awaitedEvent);
+
+                        // Stores the related information including event, location and window
+                        // as a timeout exception record.
+                        timeoutExceptionRecords.append(String.format("{Received event: %s \n"
+                                + "Window location: %s \nA11y window: %s}\n",
+                                event, Arrays.toString(location), window));
+
+                        return (!bounds.isEmpty())
+                                && (bounds.left == location[0]) && (bounds.top == location[1]);
+                    }, DEFAULT_TIMEOUT_MS);
+            assertNotNull(awaitedEvent);
+        } catch (TimeoutException timeout) {
+            throw new TimeoutException(timeout.getMessage() + "\n\nTimeout exception records : \n"
+                    + timeoutExceptionRecords);
+        }
         return (T) mTempActivity;
     }
 

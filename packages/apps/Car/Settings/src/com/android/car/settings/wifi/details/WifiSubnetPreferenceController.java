@@ -19,13 +19,11 @@ import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.net.LinkAddress;
 import android.net.LinkProperties;
-import android.net.NetworkUtils;
 
 import com.android.car.settings.common.FragmentController;
+import com.android.net.module.util.Inet4AddressUtils;
 
 import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 
 /**
  * Shows info about Wifi subnet.
@@ -65,10 +63,8 @@ public class WifiSubnetPreferenceController extends
 
     private static String ipv4PrefixLengthToSubnetMask(int prefixLength) {
         try {
-            InetAddress all = InetAddress.getByAddress(
-                    new byte[]{(byte) 255, (byte) 255, (byte) 255, (byte) 255});
-            return NetworkUtils.getNetworkPart(all, prefixLength).getHostAddress();
-        } catch (UnknownHostException e) {
+            return Inet4AddressUtils.getPrefixMaskAsInet4Address(prefixLength).getHostAddress();
+        } catch (IllegalArgumentException e) {
             return null;
         }
     }

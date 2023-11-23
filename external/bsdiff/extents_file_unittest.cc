@@ -178,8 +178,9 @@ TEST_F(ExtentsFileTest, ReadFailureFails) {
   // A second read that fails will succeed if there was partial data read.
   EXPECT_CALL(*mock_file_, Read(_, 10, _)).WillOnce(Return(false));
 
+  char* buf = reinterpret_cast<char*>(0x1234);
   size_t bytes_read = 0;
-  EXPECT_TRUE(file.Read(nullptr, 100, &bytes_read));
+  EXPECT_TRUE(file.Read(buf, 100, &bytes_read));
   EXPECT_EQ(1U, bytes_read);
 }
 

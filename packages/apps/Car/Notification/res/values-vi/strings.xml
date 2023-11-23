@@ -39,4 +39,5 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> tin nhắn mới</item>
       <item quantity="one">1 tin nhắn mới</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Quản lý"</string>
 </resources>

@@ -32,6 +32,10 @@ COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG
 COMMON_SRCS += audio_stress_test.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/audio.cc
 
+# Permission declarations ######################################################
+
+CHRE_NANOAPP_USES_AUDIO = true
+
 # Makefile Includes ############################################################
 
 include $(CHRE_PREFIX)/build/nanoapp/app.mk

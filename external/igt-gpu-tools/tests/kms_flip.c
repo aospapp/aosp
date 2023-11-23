@@ -1153,7 +1153,7 @@ static void calibrate_ts(struct test_output *o, int crtc_idx)
 			 * be interrupted with -EINTR, handle this by restarting
 			 * until we poll timeout or success.
 			 */
-			poll_ret = poll(&(struct pollfd){drm_fd, POLLIN}, 1, -1);
+			poll_ret = poll(&(struct pollfd){drm_fd, POLLIN}, 1, 1000);
 
 			if (poll_ret == 1)
 				break;

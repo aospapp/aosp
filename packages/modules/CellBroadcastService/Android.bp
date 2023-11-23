@@ -1,7 +1,12 @@
 // Copyright 2019 The Android Open Source Project
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_defaults {
     name: "CellBroadcastServiceCommon",
-    min_sdk_version: "29",
+    min_sdk_version: "30",
+    target_sdk_version: "31",
     srcs: [
       "src/**/*.java",
       ":framework-annotations",
@@ -20,6 +25,9 @@ java_defaults {
     },
     jarjar_rules: "cellbroadcast-jarjar-rules.txt",
     plugins: ["java_api_finder"],
+    lint: {
+        strict_updatability_linting: true,
+    },
 }
 
 android_app {
@@ -43,7 +51,9 @@ android_app {
 genrule {
   name: "statslog-cellbroadcast-java-gen",
   tools: ["stats-log-api-gen"],
-  cmd: "$(location stats-log-api-gen) --java $(out) --module cellbroadcast --javaPackage com.android.cellbroadcastservice --javaClass CellBroadcastStatsLog",
+  cmd: "$(location stats-log-api-gen) --java $(out) --module cellbroadcast" +
+       " --javaPackage com.android.cellbroadcastservice --javaClass CellBroadcastStatsLog" +
+       " --minApiLevel 30",
   out: ["com/android/cellbroadcastservice/CellBroadcastStatsLog.java"],
 }
 

@@ -18,8 +18,6 @@
 #define TOOLS_TRACE_TO_TEXT_UTILS_H_
 
 #include <stdio.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
 
 #include <functional>
 #include <iostream>
@@ -29,7 +27,7 @@
 #include "perfetto/base/build_config.h"
 #include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/paged_memory.h"
-#include "perfetto/profiling/deobfuscator.h"
+#include "src/profiling/deobfuscator.h"
 
 #if PERFETTO_BUILDFLAG(PERFETTO_ZLIB)
 #include <zlib.h>
@@ -59,19 +57,10 @@ void ForEachPacketBlobInTrace(
     std::istream* input,
     const std::function<void(std::unique_ptr<char[]>, size_t)>&);
 
-base::Optional<std::string> GetPerfettoProguardMapPath();
 
 bool ReadTrace(trace_processor::TraceProcessor* tp, std::istream* input);
-
-void WriteTracePacket(const std::string& str, std::ostream* output);
-
-// Generate ObfuscationMapping protos for all obfuscated java names in the
-// database.
-// Wrap them in proto-encoded TracePackets messages and call callback.
-void DeobfuscateDatabase(
-    trace_processor::TraceProcessor* tp,
-    const std::map<std::string, profiling::ObfuscatedClass>& mapping,
-    std::function<void(const std::string&)> callback);
+void IngestTraceOrDie(trace_processor::TraceProcessor* tp,
+                      const std::string& trace_proto);
 
 class TraceWriter {
  public:

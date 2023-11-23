@@ -15,8 +15,9 @@ Virtual filesystem
 ------------------
 
 The core functionality lies in a virtual file system based on a 9p file server
-interface (`Notes on the Plan 9 Kernel Source`_). The implementation permits
-exposing virtual files, firmware drivers, and file blobs.
+interface (`Notes on the Plan 9 Kernel Source`_ and
+`Linux 9p remote filesystem protocol`_).
+The implementation permits exposing virtual files, firmware drivers, and file blobs.
 
 Namespace
 ~~~~~~~~~
@@ -77,10 +78,10 @@ SMC interface
 -------------
 
 The communication with the 9p layer in BL31 is made through an SMC conduit
-(`SMC Calling Convention PDD`_), using a specific SiP Function Id. An NS shared
-buffer is used to pass path string parameters, or e.g. to exchange data on a
-read operation. Refer to `ARM SiP Services`_ for a description of the SMC
-interface.
+(`SMC Calling Convention`_), using a specific SiP Function Id. An NS
+shared buffer is used to pass path string parameters, or e.g. to exchange
+data on a read operation. Refer to :ref:`ARM SiP Services <arm sip services>`
+for a description of the SMC interface.
 
 Security considerations
 -----------------------
@@ -114,19 +115,11 @@ The SMC interface is accessible from an NS environment, that is:
 - a Linux kernel driver running at NS-EL1
 - a Linux userspace application through the kernel driver
 
-References
-----------
-
-.. [#] `SMC Calling Convention PDD`_
-.. [#] `Notes on the Plan 9 Kernel Source`_
-.. [#] `Linux 9p remote filesystem protocol`_
-.. [#] `ARM SiP Services`_
-
 --------------
 
-*Copyright (c) 2019, Arm Limited and Contributors. All rights reserved.*
+*Copyright (c) 2019-2020, Arm Limited and Contributors. All rights reserved.*
 
-.. _SMC Calling Convention PDD: http://infocenter.arm.com/help/topic/com.arm.doc.den0028b/
+.. _SMC Calling Convention: https://developer.arm.com/docs/den0028/latest
 .. _Notes on the Plan 9 Kernel Source: http://lsub.org/who/nemo/9.pdf
 .. _Linux 9p remote filesystem protocol: https://www.kernel.org/doc/Documentation/filesystems/9p.txt
 .. _ARM SiP Services: arm-sip-service.rst

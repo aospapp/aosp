@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2019, ARM Limited and Contributors. All rights reserved.
- * Copyright (c) 2019, Intel Corporation. All rights reserved.
+ * Copyright (c) 2019-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2019-2020, Intel Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -16,6 +16,7 @@
 #include <plat/common/platform.h>
 #include <platform_def.h>
 
+#include "socfpga_mailbox.h"
 #include "socfpga_private.h"
 #include "socfpga_reset_manager.h"
 #include "socfpga_system_manager.h"
@@ -44,7 +45,9 @@ entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 				u_register_t arg2, u_register_t arg3)
 {
-	static console_16550_t console;
+	static console_t console;
+
+	mmio_write_64(PLAT_SEC_ENTRY, PLAT_SEC_WARM_ENTRY);
 
 	console_16550_register(PLAT_UART0_BASE, PLAT_UART_CLOCK, PLAT_BAUDRATE,
 		&console);
@@ -106,6 +109,8 @@ static const gicv2_driver_data_t plat_gicv2_gic_data = {
  ******************************************************************************/
 void bl31_platform_setup(void)
 {
+	socfpga_delay_timer_init();
+
 	/* Initialize the gic cpu and distributor interfaces */
 	gicv2_driver_init(&plat_gicv2_gic_data);
 	gicv2_distif_init();
@@ -115,6 +120,8 @@ void bl31_platform_setup(void)
 	/* Signal secondary CPUs to jump to BL31 (BL2 = U-boot SPL) */
 	mmio_write_64(PLAT_CPU_RELEASE_ADDR,
 		(uint64_t)plat_secondary_cpus_bl31_entry);
+
+	mailbox_hps_stage_notify(HPS_EXECUTION_STATE_SSBL);
 }
 
 const mmap_region_t plat_stratix10_mmap[] = {

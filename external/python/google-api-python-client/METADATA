@@ -9,10 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/google/google-api-python-client"
   }
-  version: "v1.7.11"
+  version: "v1.7.12"
+  license_type: NOTICE
   last_upgrade_date {
-    year: 2019
-    month: 8
-    day: 19
+    year: 2020
+    month: 3
+    day: 11
   }
 }

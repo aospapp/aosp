@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <functional>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -129,10 +130,10 @@ class SigmoidOperatorTester {
     return this->iterations_;
   }
 
-  void TestQ8() const {
+  void TestQU8() const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto u8rng = std::bind(std::uniform_int_distribution<uint8_t>(), rng);
+    auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), rng);
 
     std::vector<uint8_t> input((batch_size() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES / sizeof(uint8_t));
     std::vector<uint8_t> output((batch_size() - 1) * output_stride() + channels());
@@ -160,7 +161,7 @@ class SigmoidOperatorTester {
       xnn_operator_t sigmoid_op = nullptr;
 
       ASSERT_EQ(xnn_status_success,
-        xnn_create_sigmoid_nc_q8(
+        xnn_create_sigmoid_nc_qu8(
           channels(), input_stride(), output_stride(),
           input_zero_point(), input_scale(),
           output_zero_point(), output_scale(),
@@ -172,7 +173,7 @@ class SigmoidOperatorTester {
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_sigmoid_op(sigmoid_op, xnn_delete_operator);
 
       ASSERT_EQ(xnn_status_success,
-        xnn_setup_sigmoid_nc_q8(
+        xnn_setup_sigmoid_nc_qu8(
           sigmoid_op,
           batch_size(),
           input.data(), output.data(),

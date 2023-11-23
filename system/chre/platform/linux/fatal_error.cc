@@ -16,7 +16,7 @@
 
 #include "chre/target_platform/fatal_error.h"
 
-#include "chre/platform/shared/platform_log.h"
+#include "chre/platform/linux/platform_log.h"
 
 namespace chre {
 

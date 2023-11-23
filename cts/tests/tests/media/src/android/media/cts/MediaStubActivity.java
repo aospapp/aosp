@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.WindowManager;
 
 public class MediaStubActivity extends Activity {
     private static final String TAG = "MediaStubActivity";
@@ -31,6 +32,11 @@ public class MediaStubActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setTurnScreenOn(true);
+        setShowWhenLocked(true);
+
         setContentView(R.layout.mediaplayer);
 
         SurfaceView surfaceV = (SurfaceView)findViewById(R.id.surface);

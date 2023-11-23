@@ -16,16 +16,16 @@
 
 package com.android.tv.settings.system;
 
-import android.app.Fragment;
+import androidx.fragment.app.Fragment;
 
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 public class LanguageActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
-        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
             .newSettingsFragment(LanguageFragment.class.getName(), null);
     }
 }

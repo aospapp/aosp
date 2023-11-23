@@ -3480,20 +3480,11 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 
 				// Copy data to memory.
 				{
-					const VkMappedMemoryRange		range					=
-					{
-						VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,				//	VkStructureType	sType;
-						DE_NULL,											//	const void*		pNext;
-						resourceMemory->getMemory(),						//	VkDeviceMemory	mem;
-						0,													//	VkDeviceSize	offset;
-						VK_WHOLE_SIZE,										//	VkDeviceSize	size;
-					};
-
 					vector<deUint8>					resourceBytes;
 					resource.getBytes(resourceBytes);
 
 					deMemcpy(resourceMemory->getHostPtr(), &resourceBytes.front(), resourceBytes.size());
-					VK_CHECK(vk.flushMappedMemoryRanges(device, 1u, &range));
+					flushAlloc(vk, device, *resourceMemory);
 				}
 
 				inResourceMemories.push_back(AllocationSp(resourceMemory.release()));
@@ -3509,20 +3500,11 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 
 				// Copy data to memory.
 				{
-					const VkMappedMemoryRange		range					=
-					{
-						VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,				//	VkStructureType	sType;
-						DE_NULL,											//	const void*		pNext;
-						resourceMemory->getMemory(),						//	VkDeviceMemory	mem;
-						0,													//	VkDeviceSize	offset;
-						VK_WHOLE_SIZE,										//	VkDeviceSize	size;
-					};
-
 					vector<deUint8>					resourceBytes;
 					resource.getBytes(resourceBytes);
 
 					deMemcpy(resourceMemory->getHostPtr(), &resourceBytes.front(), resourceBytes.size());
-					VK_CHECK(vk.flushMappedMemoryRanges(device, 1u, &range));
+					flushAlloc(vk, device, *resourceMemory);
 				}
 
 				Move<VkImage>					resourceImage			= createImageForResource(vk, device, resource, instance.resources.inputFormat, queueFamilyIndex);
@@ -3568,18 +3550,9 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 			VK_CHECK(vk.bindBufferMemory(device, *resourceBuffer, resourceMemory->getMemory(), resourceMemory->getOffset()));
 
 			// Fill memory with all ones.
-			const VkMappedMemoryRange		range					=
-			{
-				VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,				//	VkStructureType	sType;
-				DE_NULL,											//	const void*		pNext;
-				resourceMemory->getMemory(),						//	VkDeviceMemory	mem;
-				0,													//	VkDeviceSize	offset;
-				VK_WHOLE_SIZE,										//	VkDeviceSize	size;
-			};
-
 			resource.getBytes(resourceBytes);
 			deMemset((deUint8*)resourceMemory->getHostPtr(), 0xff, resourceBytes.size());
-			VK_CHECK(vk.flushMappedMemoryRanges(device, 1u, &range));
+			flushAlloc(vk, device, *resourceMemory);
 
 			outResourceMemories.push_back(AllocationSp(resourceMemory.release()));
 			outResourceBuffers.push_back(BufferHandleSp(new BufferHandleUp(resourceBuffer)));
@@ -4223,6 +4196,7 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 			// Record commands
 			beginCommandBuffer(vk, *cmdBuf);
 
+			if (firstPass)
 			{
 				const VkMemoryBarrier			vertFlushBarrier	=
 				{
@@ -4308,43 +4282,43 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 			vk.cmdDraw(*cmdBuf, deUint32(vertexCount), 1u /*run pipeline once*/, 0u /*first vertex*/, 0u /*first instanceIndex*/);
 			endRenderPass(vk, *cmdBuf);
 
+			if (x == numRenderSegments - 1 && y == numRenderSegments - 1)
 			{
-				vector<VkImageMemoryBarrier>	renderFinishBarrier;
-				VkImageMemoryBarrier			imgBarrier				=
 				{
-					VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		//	VkStructureType			sType;
-					DE_NULL,									//	const void*				pNext;
-					VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,		//	VkMemoryOutputFlags		outputMask;
-					VK_ACCESS_TRANSFER_READ_BIT,				//	VkMemoryInputFlags		inputMask;
-					VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,	//	VkImageLayout			oldLayout;
-					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,		//	VkImageLayout			newLayout;
-					queueFamilyIndex,							//	deUint32				srcQueueFamilyIndex;
-					queueFamilyIndex,							//	deUint32				destQueueFamilyIndex;
-					*image,										//	VkImage					image;
+					vector<VkImageMemoryBarrier>	renderFinishBarrier;
+					VkImageMemoryBarrier			imgBarrier				=
 					{
-						VK_IMAGE_ASPECT_COLOR_BIT,					//	VkImageAspectFlags	aspectMask;
-						0u,											//	deUint32			baseMipLevel;
-						1u,											//	deUint32			mipLevels;
-						0u,											//	deUint32			baseArraySlice;
-						1u,											//	deUint32			arraySize;
-					}											//	VkImageSubresourceRange	subresourceRange;
-				};
-				renderFinishBarrier.push_back(imgBarrier);
-
-				if (needInterface)
-				{
-					imgBarrier.image = *fragOutputImage;
+						VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,		//	VkStructureType			sType;
+						DE_NULL,									//	const void*				pNext;
+						VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,		//	VkMemoryOutputFlags		outputMask;
+						VK_ACCESS_TRANSFER_READ_BIT,				//	VkMemoryInputFlags		inputMask;
+						VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,	//	VkImageLayout			oldLayout;
+						VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,		//	VkImageLayout			newLayout;
+						queueFamilyIndex,							//	deUint32				srcQueueFamilyIndex;
+						queueFamilyIndex,							//	deUint32				destQueueFamilyIndex;
+						*image,										//	VkImage					image;
+						{
+							VK_IMAGE_ASPECT_COLOR_BIT,					//	VkImageAspectFlags	aspectMask;
+							0u,											//	deUint32			baseMipLevel;
+							1u,											//	deUint32			mipLevels;
+							0u,											//	deUint32			baseArraySlice;
+							1u,											//	deUint32			arraySize;
+						}											//	VkImageSubresourceRange	subresourceRange;
+					};
 					renderFinishBarrier.push_back(imgBarrier);
-					vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 2, renderFinishBarrier.data());
-				}
-				else
-				{
-					vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 1, renderFinishBarrier.data());
-				}
-			}
 
-			if ( x ==  numRenderSegments -1 && y == numRenderSegments - 1)
-			{
+					if (needInterface)
+					{
+						imgBarrier.image = *fragOutputImage;
+						renderFinishBarrier.push_back(imgBarrier);
+						vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 2, renderFinishBarrier.data());
+					}
+					else
+					{
+						vk.cmdPipelineBarrier(*cmdBuf, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, (VkDependencyFlags)0, 0, (const VkMemoryBarrier*)DE_NULL, 0, (const VkBufferMemoryBarrier*)DE_NULL, 1, renderFinishBarrier.data());
+					}
+				}
+
 				{
 					const VkBufferImageCopy	copyParams	=
 					{
@@ -4364,7 +4338,7 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 
 					if (needInterface)
 					{
-					vk.cmdCopyImageToBuffer(*cmdBuf, *fragOutputImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *fragOutputBuffer, 1u, &copyParams);
+						vk.cmdCopyImageToBuffer(*cmdBuf, *fragOutputImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, *fragOutputBuffer, 1u, &copyParams);
 					}
 				}
 
@@ -4437,16 +4411,8 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 
 					deMemcpy(vertexInputMemory->getHostPtr(), data.data(), data.size());
 
-					const VkMappedMemoryRange	range			=
-					{
-						VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,	//	VkStructureType	sType;
-						DE_NULL,								//	const void*		pNext;
-						vertexInputMemory->getMemory(),			//	VkDeviceMemory	mem;
-						0,										//	VkDeviceSize	offset;
-						VK_WHOLE_SIZE,							//	VkDeviceSize	size;
-					};
+					flushAlloc(vk, device, *vertexInputMemory);
 
-					VK_CHECK(vk.flushMappedMemoryRanges(device, 1u, &range));
 				}
 				firstPass = false;
 			}
@@ -4464,35 +4430,11 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 	context.getTestContext().getLog() << TestLog::Image("Result", "Result", pixelBuffer);
 
 	if (needInterface)
-	{
-		const VkDeviceSize			fragOutputImgSize	= (VkDeviceSize)(instance.interfaces.getOutputType().getNumBytes() * renderSize.x() * renderSize.y());
-		const VkMappedMemoryRange	range				=
-		{
-			VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,	//	VkStructureType	sType;
-			DE_NULL,								//	const void*		pNext;
-			fragOutputMemory->getMemory(),			//	VkDeviceMemory	mem;
-			0,										//	VkDeviceSize	offset;
-			fragOutputImgSize,						//	VkDeviceSize	size;
-		};
+		invalidateAlloc(vk, device, *fragOutputMemory);
 
-		VK_CHECK(vk.invalidateMappedMemoryRanges(device, 1u, &range));
-	}
-
-	{ // Make sure all output resources are ready.
-		for (deUint32 outputNdx = 0; outputNdx < numOutResources; ++outputNdx)
-		{
-			const VkMappedMemoryRange	range	=
-			{
-				VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,			//	VkStructureType	sType;
-				DE_NULL,										//	const void*		pNext;
-				outResourceMemories[outputNdx]->getMemory(),	//	VkDeviceMemory	mem;
-				0,												//	VkDeviceSize	offset;
-				VK_WHOLE_SIZE,									//	VkDeviceSize	size;
-			};
-
-			VK_CHECK(vk.invalidateMappedMemoryRanges(device, 1u, &range));
-		}
-	}
+	// Make sure all output resources are ready.
+	for (deUint32 outputNdx = 0; outputNdx < numOutResources; ++outputNdx)
+		invalidateAlloc(vk, device, *outResourceMemories[outputNdx]);
 
 	const RGBA threshold(1, 1, 1, 1);
 
@@ -4649,30 +4591,42 @@ TestStatus runAndVerifyDefaultPipeline (Context& context, InstanceContext instan
 
 			if (deMemCmp(&expectedBytes.front(), outResourceMemories[outputNdx]->getHostPtr(), expectedBytes.size()))
 			{
-				// Some *variable_pointers* tests store counters in buffer
-				// whose value may vary if the same vertex shader may be executed for multiple times
-				// in this case the output value can be expected value + non-negative integer N
-				if (instance.customizedStages == VK_SHADER_STAGE_VERTEX_BIT)
-				{
-					const size_t	numExpectedEntries	= expectedBytes.size() / sizeof(float);
-					const float*	expectedFloats		= reinterpret_cast<const float*>(&expectedBytes.front());
-					const float*	outputFloats		= reinterpret_cast<const float*>(outResourceMemories[outputNdx]->getHostPtr());
-					float			diff				= 0.0f;
+				const size_t	numExpectedEntries	= expectedBytes.size() / sizeof(float);
+				float*			expectedFloats		= reinterpret_cast<float*>(&expectedBytes.front());
+				float*			outputFloats		= reinterpret_cast<float*>(outResourceMemories[outputNdx]->getHostPtr());
+				float			diff				= 0.0f;
+				deUint32		bitDiff				= 0;
 
-					for (size_t expectedNdx = 0; expectedNdx < numExpectedEntries; ++expectedNdx)
+				for (size_t expectedNdx = 0; expectedNdx < numExpectedEntries; ++expectedNdx)
+				{
+					// RTZ and RNE can introduce a difference of a single ULP
+					// The RTZ output will always be either equal or lower than the RNE expected,
+					// so perform a bitwise subtractraction and check for the ULP difference
+					bitDiff = *reinterpret_cast<deUint32*>(&expectedFloats[expectedNdx]) - *reinterpret_cast<deUint32*>(&outputFloats[expectedNdx]);
+
+					// Allow a maximum of 1 ULP difference to account for RTZ rounding
+					if (bitDiff & (~0x1))
 					{
-						if (deFloatIsInf(outputFloats[expectedNdx]) || deFloatIsNaN(outputFloats[expectedNdx]))
-							return tcu::TestStatus::fail("Value returned is invalid");
+						// Note: RTZ/RNE rounding leniency isn't applied for the checks below:
 
-						diff = outputFloats[expectedNdx] - expectedFloats[expectedNdx];
+						// Some *variable_pointers* tests store counters in buffer
+						// whose value may vary if the same vertex shader may be executed for multiple times
+						// in this case the output value can be expected value + non-negative integer N
+						if (instance.customizedStages == VK_SHADER_STAGE_VERTEX_BIT)
+						{
+							if (deFloatIsInf(outputFloats[expectedNdx]) || deFloatIsNaN(outputFloats[expectedNdx]))
+								return tcu::TestStatus::fail("Value returned is invalid");
 
-						if ((diff < 0.0f) || (deFloatFloor(diff) != diff))
-							return tcu::TestStatus::fail("Value returned should be equal to expected value plus non-negative integer");
+							diff = outputFloats[expectedNdx] - expectedFloats[expectedNdx];
+
+							if ((diff < 0.0f) || (deFloatFloor(diff) != diff))
+								return tcu::TestStatus::fail("Value returned should be equal to expected value plus non-negative integer");
+						}
+						else
+						{
+							return tcu::TestStatus::fail("Resource returned should be equal to expected, allowing for RTZ/RNE rounding");
+						}
 					}
-				}
-				else
-				{
-					return tcu::TestStatus::fail("Resource returned doesn't match bitwisely with expected");
 				}
 			}
 

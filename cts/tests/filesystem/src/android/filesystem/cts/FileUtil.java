@@ -267,9 +267,10 @@ public class FileUtil {
      * @param report
      * @param fileSize
      * @param bufferSize should be power of two
+     * @return write throughput in MBPS
      * @throws IOException
      */
-    public static void doRandomReadTest(Context context, String dirName, ReportLog report,
+    public static double doRandomReadTest(Context context, String dirName, ReportLog report,
             long fileSize, int bufferSize) throws Exception {
         File file = FileUtil.createNewFilledFile(context,
                 dirName, fileSize);
@@ -312,6 +313,8 @@ public class FileUtil {
 
         report.setSummary("read_throughput_average", stat.mAverage, ResultType.HIGHER_BETTER,
                 ResultUnit.MBPS);
+        Log.v(TAG, "random read " + stat.mAverage + " MBPS");
+        return stat.mAverage;
     }
 
     /**
@@ -321,9 +324,10 @@ public class FileUtil {
      * @param report
      * @param fileSize
      * @param bufferSize should be power of two
+     * @return write throughput in MBPS
      * @throws IOException
      */
-    public static void doRandomWriteTest(Context context, String dirName, ReportLog report,
+    public static double doRandomWriteTest(Context context, String dirName, ReportLog report,
             long fileSize, int bufferSize) throws Exception {
         File file = FileUtil.createNewFilledFile(context,
                 dirName, fileSize);
@@ -363,6 +367,8 @@ public class FileUtil {
 
         report.setSummary("write_throughput_average", stat.mAverage, ResultType.HIGHER_BETTER,
                 ResultUnit.MBPS);
+        Log.v(TAG, "random write " + stat.mAverage + " MBPS");
+        return stat.mAverage;
     }
 
     /**

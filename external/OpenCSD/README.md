@@ -27,10 +27,11 @@ Releases will appear on the master branch in the git repository with an appropri
 CoreSight Trace Component Support.
 ----------------------------------
 
-_Current Version 0.14.0_
+_Current Version 1.0.0_
 
 ### Current support:
 
+- ETE   (v1.1) instruction trace - packet processing and packet decode.
 - ETMv4 (v4.5 [A/R profile] v4.4 [M profile]) instruction trace - packet processing and packet decode.
 - PTM   (v1.1) instruction trace - packet processing and packet decode.
 - ETMv3 (v3.5) instruction trace - packet processing and packet decode.
@@ -141,51 +142,102 @@ Version and Modification Information
                     AutoFDO: update documentation for AutoFDO usage and add in "record.sh" script
 - _Version 0.9.3_:  Bugfix: Test snapshot library not handling 'offset' parameters in dump file sections.
                     Install: ocsd_if_version.h moved to opencsd/include to allow installation on OS & use in compiling client apps.
-- _Version 0.10.0_: __Updates__: Add additional information about the last instruction to the generic output packet.
-                    __Docs__: update docs for updated output packet.
-                    __Bugfix__: typecast removed from OCSD_VER_NUM in ocsd_if_version.h to allow use in C pre-processor.
-                    __Bugfix__: ETMV4: Interworking ISA change between A32-T32 occasionally missed during instruction decode.
-- _Version 0.10.1_: __Updates__: Build update - allow multi-thread make (make -j<N>).
-                    __Docs__: Minor update to AutoFDO documentation.
-- _Version 0.11.0_: __Update__: ETM v4 decoder updated to support ETM version up to v4.4
-                    __Update__: Memory access callback function - added new callback signature to provide TraceID to client when requesting memory.
-                    __Update__: Created new example program to demonstrate using memory buffer in APIs.
-                    __Bugfix__: Typos in docs and source.
-                    __Bugfix__: Memory accessor - validate callback return values.
-- _Version 0.11.1_: __Update__: build:- change -fpic to -fPIC to allow Debian build on sparc.
-                    __Bugfix__: build:- remove unused variable
-- _Version 0.11.2_: __Update__: docs:- HOWTO.md update to match new perf build requirements.
-                    __Bugfix__: Minor spelling typos fixed.
-- _Version 0.12.0_: __Update__: Frame deformatter - TPIU FSYNC and HSYNC support added.
-                    __Update__: ETM v4: Bugfix & clarification on Exception trace handling. Where exception occurs at a branch target before any instructions
-                    have been executed, the preferred return address is also the target address of the branch instruction. This case now includes as specific flag in
-                    the packet. Additionally any context change associated with this target address was being applied incorrectly.
-                    __Update__: Core / Architecture mapping to core names as used by test programs / snapshots updated to include additional recent ARM cores.
-                    __Update__: Docs: Update to reflect new exception flag. Update test program example to reflect latest output.
-                    __Bugfix__: ETM v4: Valid trace info packet was not handled correctly (0x01, 0x00).
-                    __Bugfix__: ETM v4: Error messaging on commit stack overflow.
-- _Version 0.12.1_: __Update__: build: remove -g option from release build.
-                    __Update__: tests: Snapshots can now use generic arch+profile names rather than core names, e.g. ARMv8-A
-                    __Bugfix__: Instruction decode - v8.3 B[L]A{A|B}[Z] instructions mis-identified.
-                    __Bugfix__: Transition from A64 to A32 can be mis-decoded if the trace implementation represents the transition 
-                    as an individual address packet followed by a context packet. 
-- _Version 0.12.2_: __Bugfix__: Clean up memory leaks.
-                    __Bugfix__: ETMv4: Ensure addressing history zeroed after TINFO.
-                    __Update__: Allow GCC version to be included in build output path.
-                    __Bugfix__: Packet printing update when WFI/WFE is P0 element.
+- _Version 0.10.0_: 
+    - __Updates__: Add additional information about the last instruction to the generic output packet.
+    - __Docs__: update docs for updated output packet.
+    - __Bugfix__: typecast removed from OCSD_VER_NUM in ocsd_if_version.h to allow use in C pre-processor.
+    - __Bugfix__: ETMV4: Interworking ISA change between A32-T32 occasionally missed during instruction decode.
+
+- _Version 0.10.1_: 
+    - __Updates__: Build update - allow multi-thread make (make -j<N>).
+    - __Docs__: Minor update to AutoFDO documentation.
+
+- _Version 0.11.0_: 
+    - __Update__: ETM v4 decoder updated to support ETM version up to v4.4
+    - __Update__: Memory access callback function - added new callback signature to provide TraceID to client when requesting memory.
+    - __Update__: Created new example program to demonstrate using memory buffer in APIs.
+    - __Bugfix__: Typos in docs and source.
+    - __Bugfix__: Memory accessor - validate callback return values.
+
+- _Version 0.11.1_: 
+    - __Update__: build:- change -fpic to -fPIC to allow Debian build on sparc.
+    - __Bugfix__: build:- remove unused variable
+
+- _Version 0.11.2_: 
+    - __Update__: docs:- HOWTO.md update to match new perf build requirements.
+    - __Bugfix__: Minor spelling typos fixed.
+
+- _Version 0.12.0_: 
+    - __Update__: Frame deformatter - TPIU FSYNC and HSYNC support added.
+    - __Update__: ETM v4: Bugfix & clarification on Exception trace handling. Where exception occurs at a branch target before any instructions
+                  have been executed, the preferred return address is also the target address of the branch instruction. This case now includes as specific flag in
+                  the packet. Additionally any context change associated with this target address was being applied incorrectly.
+    - _Update__: Core / Architecture mapping to core names as used by test programs / snapshots updated to include additional recent ARM cores.
+    - __Update__: Docs: Update to reflect new exception flag. Update test program example to reflect latest output.
+    - __Bugfix__: ETM v4: Valid trace info packet was not handled correctly (0x01, 0x00).
+    - __Bugfix__: ETM v4: Error messaging on commit stack overflow.
+
+- _Version 0.12.1_: 
+    - __Update__: build: remove -g option from release build.
+    - __Update__: tests: Snapshots can now use generic arch+profile names rather than core names, e.g. ARMv8-A
+    - __Bugfix__: Instruction decode - v8.3 B[L]A{A|B}[Z] instructions mis-identified.
+     -__Bugfix__: Transition from A64 to A32 can be mis-decoded if the trace implementation represents the transition 
+                  as an individual address packet followed by a context packet. 
+
+- _Version 0.12.2_:
+    - __Bugfix__: Clean up memory leaks.
+    - __Bugfix__: ETMv4: Ensure addressing history zeroed after TINFO.
+    - __Update__: Allow GCC version to be included in build output path.
+    - __Bugfix__: Packet printing update when WFI/WFE is P0 element.
 
 - _Version 0.13.x_ : Intermediate development version.
 
-- _Version 0.14.0_: __Update__: ETMv4 - decoder update & simplification to handle advanced trace features.
-                    __Update__: ETMv4 - decoder support for speculative trace.
-                    __Update__: Generic Elements: Additional information in EOT, UNSYNC, ON packets to give reason.
-                    __Update__: Memaccess: Add EL2 secure memory space flag.
-                    __Update__: Documentation: Updated for release changes and to reflect latest kernel version support for CoreSight.
-                    __Update__: Perf helper scripts updated to reflect latest build flow.
-                    __Bugfix__: Fix for component operational flag inputs.
-                    
+- _Version 0.14.0_: 
+    - __Update__: ETMv4 - decoder update & simplification to handle advanced trace features.
+    - __Update__: ETMv4 - decoder support for speculative trace.
+    - __Update__: Generic Elements: Additional information in EOT, UNSYNC, ON packets to give reason.
+    - __Update__: Memaccess: Add EL2 secure memory space flag.
+    - __Update__: Documentation: Updated for release changes and to reflect latest kernel version support for CoreSight.
+    - __Update__: Perf helper scripts updated to reflect latest build flow.
+    - __Bugfix__: Fix for component operational flag inputs.
 
+- _Version 0.14.1_: 
+    - __Update__: ETMv4 - Add support for Q elements.
+    - __Bugfix__: build: fix logic issue for && operator. (github issue #23, sumitted by yabinc)
 
+- _Version 0.14.2_: 
+    - __Update__: Architecture versioning. Set enum tag values to make conversion to numeric version easier.
+    - __Update__: I-decode: remove global temporary decode state data and replace with local instance data
+                  to make library more easily usable in multi-threaded programs.
+    - __Bugfix__: I-decode: Some Thumb instructions not correctly reported as implied returns.
+                  (github issue #24, submitted by kongy).
+
+- _Version 0.14.3_:
+    - __Update__: Fix makefile to be compliant with RPM base distros. (github issue #26, submitted by jlinton)
+    - __Update__: Add section to autofdo document.
+    - __Bugfix__: STM: fix bug that was missing ASYNC packets. (github issue #27, reported by subhasish Karmakar)
+
+- _Version 0.14.4_:
+    - __Update__: makefile: Add DESTDIR to install targets. (github issue #30)
+    - __Update__: tests: add script to run single test only.
+    - __Update__: docs: update to location of ARM coresight driver backports directory.
+    - __Bugfix__: ETMv3: Fix missing comma in string list. (github issue #31)
+    - __Bugfix__: makefile: tests: Fix build race problem (github issue #32)
+    - __Bugfix__: tests: fix ignore tpiu command line options (github issue #28)
+
+- _Version 1.0.0_:
+    - __New Decode Protocol__: Support added for the ETE protocol, used by ARM PEs that implement the FEAT_ETE 
+                               feature. Supports new architectural features in this trace, including FEAT_TME. 
+    - __Update__: Output Elememts: New protocol defines two new output elements. 
+    - __Update__: Add support for WFIT / WFET instructions traced as P0 elements.
+    - __Update__: Architecture versioning. Arch v8 + PEs may add features in a flexible manner, and ARM also
+                  declares future features ahead of architecture versions to allow support to be added. 
+                  APIs requiring an architecture version can now use ARCH_AA64 to declare a version of v8.3 +
+                  additional features. This relaxes the strict versionnig rules that the decoder uses when
+                  looking for Opcodes as trace waypoints.
+    - __Update__: docs: Add linux 'man' file and installation.				  
+    - __Bugfix__: build: Fix clean install, and remove static lib build test from main makefile to 
+                  dev makefile only. (github issue #33)
 
 
 Licence Information

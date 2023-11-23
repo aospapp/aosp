@@ -31,6 +31,8 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#include <limits.h>
+#include <log/log.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -1376,7 +1378,10 @@ exif_entry_get_value (ExifEntry *e, char *val, unsigned int maxlen)
 	case EXIF_TAG_XP_SUBJECT:
 	{
 		/* Sanity check the size to prevent overflow */
-		if (e->size+sizeof(unsigned short) < e->size) break;
+		if (e->size > UINT_MAX - sizeof(unsigned short)) {
+			android_errorWriteLog(0x534e4554, "159625731");
+			break;
+		}
 
 		/* The tag may not be U+0000-terminated , so make a local
 		   U+0000-terminated copy before converting it */

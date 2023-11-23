@@ -6,6 +6,10 @@
 
 /* $Header: /tmp_amd/presto/export/kbs/jutta/src/gsm/RCS/add_test.c,v 1.2 1994/05/10 20:18:17 jutta Exp $ */
 
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

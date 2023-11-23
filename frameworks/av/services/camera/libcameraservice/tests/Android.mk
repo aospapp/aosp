@@ -33,9 +33,11 @@ LOCAL_SHARED_LIBRARIES := \
     android.hardware.camera.provider@2.4 \
     android.hardware.camera.provider@2.5 \
     android.hardware.camera.provider@2.6 \
+    android.hardware.camera.provider@2.7 \
     android.hardware.camera.device@1.0 \
     android.hardware.camera.device@3.2 \
     android.hardware.camera.device@3.4 \
+    android.hardware.camera.device@3.7 \
     android.hidl.token@1.0-utils
 
 LOCAL_STATIC_LIBRARIES := \
@@ -51,6 +53,9 @@ LOCAL_CFLAGS += -Wall -Wextra -Werror
 LOCAL_SANITIZE := address
 
 LOCAL_MODULE:= cameraservice_test
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/../NOTICE
 LOCAL_COMPATIBILITY_SUITE := device-tests
 LOCAL_MODULE_TAGS := tests
 

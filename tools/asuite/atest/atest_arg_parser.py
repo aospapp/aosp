@@ -32,6 +32,7 @@ HELP_DESC = ('A command line tool that allows users to build, install, and run '
              ' options.')
 
 # Constants used for arg help message(sorted in alphabetic)
+ACLOUD_CREATE = 'Create AVD(s) via acloud command.'
 ALL_ABI = 'Set to run tests for all abis.'
 BUILD = 'Run a build.'
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test.'
@@ -40,11 +41,13 @@ COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
+FLAKES_INFO = 'Test result with flakes info.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
 HOST = ('Run the test completely on the host without a device. '
         '(Note: running a host test that requires a device without '
         '--host will fail.)')
+HOST_UNIT_TEST_ONLY = ('Run all host unit tests under the current directory.')
 INCLUDE_SUBDIRS = 'Search TEST_MAPPING files in subdirs as well.'
 INFO = 'Show module information.'
 INSTALL = 'Install an APK.'
@@ -55,30 +58,42 @@ ITERATION = 'Loop-run tests until the max iteration is reached. (10 by default)'
 LATEST_RESULT = 'Print latest test result.'
 LIST_MODULES = 'List testable modules for the given suite.'
 NO_METRICS = 'Do not send metrics.'
+NO_MODULES_IN = ('Do not include MODULES-IN-* as build targets. Warning: This '
+                 'may result in missing dependencies issue.')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
+REQUEST_UPLOAD_RESULT = 'Request permission to upload test result or not.'
 RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
                        'iteration is reached. (10 by default)')
 RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
                      'is reached. (10 by default)')
 SERIAL = 'The device to run the test on.'
+SHARDING = 'Option to specify sharding count. The default value is 2'
+START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
-        'after test run. In this case, "-d" must be used in previous test run to '
-        'disable cleanup for "-t" to work. Otherwise, device will need to be '
-        'setup again with "-i".')
+        'after test run. In this case, "-d" must be used in previous test run '
+        'to disable cleanup for "-t" to work. Otherwise, device will need to '
+        'be setup again with "-i".')
 TEST_MAPPING = 'Run tests defined in TEST_MAPPING files.'
+TEST_CONFIG_SELECTION = ('If multiple test config belong to same test module '
+                         'pop out a selection menu on console.')
+TF_DEBUG = ('Enable tradefed debug mode with a specify port. Default value is '
+            '10888.')
+TF_EARLY_DEVICE_RELEASE = ('Tradefed flag to release the device as soon as '
+                           'done with it.')
 TF_TEMPLATE = ('Add extra tradefed template for ATest suite, '
                'e.g. atest <test> --tf-template <template_key>=<template_path>')
-TF_DEBUG = 'Enable tradefed debug mode with a specify port. Default value is 10888.'
-SHARDING = 'Option to specify sharding count. The default value is 2'
 UPDATE_CMD_MAPPING = ('Update the test command of input tests. Warning: result '
-                      'will be saved under tools/tradefederation/core/atest/test_data.')
-USER_TYPE = 'Run test with specific user type, e.g. atest <test> --user-type secondary_user'
+                      'will be saved under '
+                      'tools/asuite/atest/test_data.')
+USER_TYPE = ('Run test with specific user type, e.g. atest <test> --user-type '
+             'secondary_user')
 VERBOSE = 'Display DEBUG level logging.'
 VERIFY_CMD_MAPPING = 'Verify the test command of input tests.'
 VERSION = 'Display version string.'
-WAIT_FOR_DEBUGGER = 'Wait for debugger prior to execution (Instrumentation tests only).'
+WAIT_FOR_DEBUGGER = ('Wait for debugger prior to execution (Instrumentation '
+                     'tests only).')
 
 def _positive_int(value):
     """Verify value by whether or not a positive integer.
@@ -96,8 +111,8 @@ def _positive_int(value):
         if converted_value < 1:
             raise argparse.ArgumentTypeError(err_msg)
         return converted_value
-    except ValueError:
-        raise argparse.ArgumentTypeError(err_msg)
+    except ValueError as value_err:
+        raise argparse.ArgumentTypeError(err_msg) from value_err
 
 
 class AtestArgParser(argparse.ArgumentParser):
@@ -105,9 +120,9 @@ class AtestArgParser(argparse.ArgumentParser):
 
     def __init__(self):
         """Initialise an ArgumentParser instance."""
-        super(AtestArgParser, self).__init__(
-            description=HELP_DESC, add_help=False)
+        super().__init__(description=HELP_DESC, add_help=False)
 
+    # pylint: disable=too-many-statements
     def add_atest_args(self):
         """A function that does ArgumentParser.add_argument()"""
         self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
@@ -123,7 +138,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=INSTALL)
         self.add_argument('-m', constants.REBUILD_MODULE_INFO_FLAG,
                           action='store_true', help=REBUILD_MODULE_INFO)
-        self.add_argument('-s', '--serial', help=SERIAL)
+        self.add_argument('--no-modules-in', help=NO_MODULES_IN,
+                          action='store_true')
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
@@ -131,6 +147,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           const=constants.TEST_STEP, help=TEST)
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
+        self.add_argument('--request-upload-result', action='store_true',
+                          help=REQUEST_UPLOAD_RESULT)
 
         # Options related to Test Mapping
         self.add_argument('-p', '--test-mapping', action='store_true',
@@ -141,6 +159,10 @@ class AtestArgParser(argparse.ArgumentParser):
         # file-patterns in TEST_MAPPING by default.
         self.add_argument('--enable-file-patterns', action='store_true',
                           help=ENABLE_FILE_PATTERNS)
+
+        # Options related to Host Unit Test.
+        self.add_argument('--host-unit-test-only', action='store_true',
+                          help=HOST_UNIT_TEST_ONLY)
 
         # Options for information queries and dry-runs:
         # A group of options for dry-runs. They are mutually exclusive
@@ -155,6 +177,27 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-L', '--list-modules', help=LIST_MODULES)
         self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
         self.add_argument('-V', '--version', action='store_true', help=VERSION)
+
+        # Options that to do with acloud/AVDs.
+        agroup = self.add_mutually_exclusive_group()
+        agroup.add_argument('--acloud-create', nargs=argparse.REMAINDER, type=str,
+                            help=ACLOUD_CREATE)
+        agroup.add_argument('--start-avd', action='store_true',
+                            help=START_AVD)
+        agroup.add_argument('-s', '--serial', help=SERIAL)
+
+        # Options that to query flakes info in test result
+        self.add_argument('--flakes-info', action='store_true',
+                          help=FLAKES_INFO)
+
+        # Options for tradefed to release test device earlier.
+        self.add_argument('--tf-early-device-release', action='store_true',
+                          help=TF_EARLY_DEVICE_RELEASE)
+
+        # Options to enable selection menu is multiple test config belong to
+        # same test module.
+        self.add_argument('--test-config-select', action='store_true',
+                          help=TEST_CONFIG_SELECTION)
 
         # Obsolete options that will be removed soon.
         self.add_argument('--generate-baseline', nargs='?',
@@ -244,39 +287,48 @@ def print_epilog_text():
     Returns:
         STDOUT from pydoc.pager().
     """
-    epilog_text = EPILOG_TEMPLATE.format(ALL_ABI=ALL_ABI,
-                                         BUILD=BUILD,
-                                         CLEAR_CACHE=CLEAR_CACHE,
-                                         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
-                                         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
-                                         DRY_RUN=DRY_RUN,
-                                         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
-                                         HELP_DESC=HELP_DESC,
-                                         HISTORY=HISTORY,
-                                         HOST=HOST,
-                                         INCLUDE_SUBDIRS=INCLUDE_SUBDIRS,
-                                         INFO=INFO,
-                                         INSTALL=INSTALL,
-                                         INSTANT=INSTANT,
-                                         ITERATION=ITERATION,
-                                         LATEST_RESULT=LATEST_RESULT,
-                                         LIST_MODULES=LIST_MODULES,
-                                         NO_METRICS=NO_METRICS,
-                                         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
-                                         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
-                                         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
-                                         SERIAL=SERIAL,
-                                         SHARDING=SHARDING,
-                                         TEST=TEST,
-                                         TEST_MAPPING=TEST_MAPPING,
-                                         TF_DEBUG=TF_DEBUG,
-                                         TF_TEMPLATE=TF_TEMPLATE,
-                                         USER_TYPE=USER_TYPE,
-                                         UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
-                                         VERBOSE=VERBOSE,
-                                         VERSION=VERSION,
-                                         VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
-                                         WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER)
+    epilog_text = EPILOG_TEMPLATE.format(
+        ACLOUD_CREATE=ACLOUD_CREATE,
+        ALL_ABI=ALL_ABI,
+        BUILD=BUILD,
+        CLEAR_CACHE=CLEAR_CACHE,
+        COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
+        DISABLE_TEARDOWN=DISABLE_TEARDOWN,
+        DRY_RUN=DRY_RUN,
+        ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
+        FLAKES_INFO=FLAKES_INFO,
+        HELP_DESC=HELP_DESC,
+        HISTORY=HISTORY,
+        HOST=HOST,
+        HOST_UNIT_TEST_ONLY=HOST_UNIT_TEST_ONLY,
+        INCLUDE_SUBDIRS=INCLUDE_SUBDIRS,
+        INFO=INFO,
+        INSTALL=INSTALL,
+        INSTANT=INSTANT,
+        ITERATION=ITERATION,
+        LATEST_RESULT=LATEST_RESULT,
+        LIST_MODULES=LIST_MODULES,
+        NO_METRICS=NO_METRICS,
+        NO_MODULES_IN=NO_MODULES_IN,
+        REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
+        REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
+        RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
+        RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
+        SERIAL=SERIAL,
+        SHARDING=SHARDING,
+        START_AVD=START_AVD,
+        TEST=TEST,
+        TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
+        TEST_MAPPING=TEST_MAPPING,
+        TF_DEBUG=TF_DEBUG,
+        TF_EARLY_DEVICE_RELEASE=TF_EARLY_DEVICE_RELEASE,
+        TF_TEMPLATE=TF_TEMPLATE,
+        USER_TYPE=USER_TYPE,
+        UPDATE_CMD_MAPPING=UPDATE_CMD_MAPPING,
+        VERBOSE=VERBOSE,
+        VERSION=VERSION,
+        VERIFY_CMD_MAPPING=VERIFY_CMD_MAPPING,
+        WAIT_FOR_DEBUGGER=WAIT_FOR_DEBUGGER)
     return pydoc.pager(epilog_text)
 
 
@@ -297,26 +349,33 @@ OPTIONS
         -a, --all-abi
             {ALL_ABI}
 
+            If only need to run tests for a specific abi, please use:
+                atest <test> -- --abi arm64-v8a   # ARM 64-bit
+                atest <test> -- --abi armeabi-v7a # ARM 32-bit
+
         -b, --build:
             {BUILD} (default)
 
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
 
-        -D --tf-debug
+        -D, --tf-debug
             {TF_DEBUG}
-
-        --history
-            {HISTORY}
 
         --host
             {HOST}
+
+        --host-unit-test-only
+            {HOST_UNIT_TEST_ONLY}
 
         -i, --install
             {INSTALL} (default)
 
         -m, --rebuild-module-info
             {REBUILD_MODULE_INFO} (default)
+
+        --no-modules-in
+            {NO_MODULES_IN}
 
         -s, --serial
             {SERIAL}
@@ -327,12 +386,20 @@ OPTIONS
         -t, --test
             {TEST} (default)
 
+        --test-config-select
+            {TEST_CONFIG_SELECTION}
+
+        --tf-early-device-release
+            {TF_EARLY_DEVICE_RELEASE}
+
         --tf-template
             {TF_TEMPLATE}
 
         -w, --wait-for-debugger
             {WAIT_FOR_DEBUGGER}
 
+        --request-upload-result
+            {REQUEST_UPLOAD_RESULT}
 
         [ Test Mapping ]
         -p, --test-mapping
@@ -348,6 +415,9 @@ OPTIONS
         [ Information/Queries ]
         --collect-tests-only
             {COLLECT_TESTS_ONLY}
+
+        --history
+            {HISTORY}
 
         --info
             {INFO}
@@ -396,6 +466,20 @@ OPTIONS
 
         --retry-any-failure
             {RETRY_ANY_FAILURE}
+
+
+        [ Testing With AVDs ]
+        --start-avd
+            {START_AVD}
+
+        --acloud-create
+            {ACLOUD_CREATE}
+
+
+        [ Testing With Flakes Info ]
+        --flakes-info
+            {FLAKES_INFO}
+
 
         [ Metrics ]
         --no-metrics
@@ -603,8 +687,34 @@ EXAMPLES
         atest <test> --retry-any-failure 20
 
 
+    - - - - - - - - - - - -
+    RUNNING TESTS ON AVD(s)
+    - - - - - - - - - - - -
+
+    Atest is able to run tests with the newly created AVD. Atest can build and 'acloud create' simultanously, and run tests after the AVD has been created successfully.
+
+    Examples:
+    - Start an AVD before running tests on that newly created device.
+
+        acloud create && atest <test>
+
+    can be simplified by:
+
+        atest <test> --start-avd
+
+    - Start AVD(s) by specifing 'acloud create' arguments and run tests on that newly created device.
+
+        atest <test> --acloud-create "--build-id 6509363 --build-target aosp_cf_x86_phone-userdebug --branch aosp_master"
+
+    To know detail about the argument, please run 'acloud create --help'.
+
+    [WARNING]
+    * --acloud-create must be the LAST optional argument: the remainder args will be consumed as its positional args.
+    * --acloud-create/--start-avd do not delete newly created AVDs. The users will be deleting them manually.
+
+
     - - - - - - - - - - - - - - - -
-    REGRESSION DETECTION (obsolute)
+    REGRESSION DETECTION (obsolete)
     - - - - - - - - - - - - - - - -
 
     ********************** Warning **********************
@@ -684,6 +794,14 @@ EXAMPLES
     Example:
         atest -v <test> -- <custom_args1> <custom_args2>
 
+    Examples of passing options to the modules:
+        atest <test> -- --module-arg <module-name>:<option-name>:<option-value>
+        atest GtsPermissionTestCases -- --module-arg GtsPermissionTestCases:ignore-business-logic-failure:true
 
-                                                     2019-12-19
+    Examples of passing options to the runner type or class:
+        atest <test> -- --test-arg <test-class>:<option-name>:<option-value>
+        atest CtsVideoTestCases -- --test-arg com.android.tradefed.testtype.JarHosttest:collect-tests-only:true
+
+
+                                                     2021-04-22
 '''

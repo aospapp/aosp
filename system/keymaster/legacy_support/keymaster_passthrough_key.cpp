@@ -19,21 +19,18 @@
 
 namespace keymaster {
 
-keymaster_error_t
-KeymasterPassthroughKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
-                          const AuthorizationSet& additional_params,
-                          AuthorizationSet&& hw_enforced,
-                          AuthorizationSet&& sw_enforced,
-                          UniquePtr<Key>* key) const {
+keymaster_error_t KeymasterPassthroughKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
+                                                          const AuthorizationSet& additional_params,
+                                                          AuthorizationSet&& hw_enforced,
+                                                          AuthorizationSet&& sw_enforced,
+                                                          UniquePtr<Key>* key) const {
     keymaster_error_t error = KM_ERROR_OK;
-    if (!key)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+    if (!key) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
-    key->reset(new (std::nothrow) KeymasterPassthroughKey(move(key_material), move(hw_enforced),
-                                                          move(sw_enforced), this, &error,
-                                                          additional_params, engine_));
-    if (!key->get())
-        error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    key->reset(new (std::nothrow)
+                   KeymasterPassthroughKey(move(key_material), move(hw_enforced), move(sw_enforced),
+                                           this, &error, additional_params, engine_));
+    if (!key->get()) error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     return error;
 }
@@ -49,11 +46,9 @@ KeymasterPassthroughKeyFactory::SupportedExportFormats(size_t* format_count) con
     return nullptr;
 }
 
-
-keymaster_error_t
-KeymasterPassthroughKey::formatted_key_material(keymaster_key_format_t format,
-                                                UniquePtr<uint8_t[]>* material,
-                                                size_t* size) const {
+keymaster_error_t KeymasterPassthroughKey::formatted_key_material(keymaster_key_format_t format,
+                                                                  UniquePtr<uint8_t[]>* material,
+                                                                  size_t* size) const {
     if (!material || !size) {
         return KM_ERROR_OUTPUT_PARAMETER_NULL;
     }
@@ -71,8 +66,8 @@ KeymasterPassthroughKey::formatted_key_material(keymaster_key_format_t format,
 
     KeymasterBlob export_data;
 
-    keymaster_error_t error = engine_->ExportKey(format, key_material(), client_id, app_data,
-                                                 &export_data);
+    keymaster_error_t error =
+        engine_->ExportKey(format, key_material(), client_id, app_data, &export_data);
     if (error == KM_ERROR_OK) {
         keymaster_blob_t export_blob = export_data.release();
         material->reset(const_cast<uint8_t*>(export_blob.data));

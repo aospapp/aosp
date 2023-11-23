@@ -18,9 +18,11 @@
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/util/macros.h"
+#include "chre/util/system/napp_permissions.h"
 
 using chre::EventLoopManager;
 using chre::EventLoopManagerSingleton;
+using chre::NanoappPermissions;
 
 DLL_EXPORT uint32_t chreWwanGetCapabilities() {
 #ifdef CHRE_WWAN_SUPPORT_ENABLED
@@ -35,9 +37,10 @@ DLL_EXPORT uint32_t chreWwanGetCapabilities() {
 DLL_EXPORT bool chreWwanGetCellInfoAsync(const void *cookie) {
 #ifdef CHRE_WWAN_SUPPORT_ENABLED
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
-  return chre::EventLoopManagerSingleton::get()
-      ->getWwanRequestManager()
-      .requestCellInfo(nanoapp, cookie);
+  return nanoapp->permitPermissionUse(NanoappPermissions::CHRE_PERMS_WWAN) &&
+         chre::EventLoopManagerSingleton::get()
+             ->getWwanRequestManager()
+             .requestCellInfo(nanoapp, cookie);
 #else
   return false;
 #endif  // CHRE_WWAN_SUPPORT_ENABLED

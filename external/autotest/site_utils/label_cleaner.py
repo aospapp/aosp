@@ -52,9 +52,9 @@ RESPECT_STATIC_LABELS = global_config.global_config.get_config_value(
         'SKYLAB', 'respect_static_labels', type=bool, default=False)
 
 # Per-prefix metrics are generated only for the following prefixes. This
-# whitelist is a second level defence against populating the 'label_prefix'
+# allowlist is a second level defence against populating the 'label_prefix'
 # field with arbitrary values provided on the commandline.
-_LABEL_PREFIX_METRICS_WHITELIST = (
+_LABEL_PREFIX_METRICS_ALLOWLIST = (
         'cros-version',
         'fwro-version',
         'fwrw-version',
@@ -196,7 +196,7 @@ def clean_labels(options):
     labels = fetch_labels(conn, options.label, options.prefix)
     logging.info('Found total %d labels matching %s', len(labels),
                  options.label)
-    if options.prefix and options.label in _LABEL_PREFIX_METRICS_WHITELIST:
+    if options.prefix and options.label in _LABEL_PREFIX_METRICS_ALLOWLIST:
         metrics.Gauge(_METRICS_PREFIX + '/total_labels_count').set(
                 len(labels),
                 fields={

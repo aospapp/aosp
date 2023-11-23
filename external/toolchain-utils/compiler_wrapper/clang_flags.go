@@ -47,15 +47,7 @@ func processClangFlags(builder *commandBuilder) error {
 	// Use of -Qunused-arguments allows this set to be small, just those
 	// that clang still warns about.
 	unsupported := map[string]bool{
-		"-mno-movbe":                  true,
-		"-pass-exit-codes":            true,
-		"-Wclobbered":                 true,
-		"-Wno-psabi":                  true,
-		"-Wlogical-op":                true,
-		"-Wmissing-parameter-type":    true,
-		"-Wold-style-declaration":     true,
-		"-Woverride-init":             true,
-		"-Wunsafe-loop-optimizations": true,
+		"-pass-exit-codes": true,
 	}
 
 	unsupportedPrefixes := []string{"-Wstrict-aliasing=", "-finline-limit="}

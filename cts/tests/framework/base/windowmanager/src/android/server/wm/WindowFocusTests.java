@@ -42,6 +42,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
@@ -58,7 +59,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager.LayoutParams;
 
-import androidx.test.filters.FlakyTest;
+import androidx.annotation.NonNull;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -100,23 +101,27 @@ public class WindowFocusTests extends WindowManagerTestBase {
                 target.getKeyEventCount());
     }
 
-    private static void tapOnCenterOfDisplay(int displayId) {
-        final Point point = new Point();
-        getInstrumentation().getTargetContext()
-                .getSystemService(DisplayManager.class)
-                .getDisplay(displayId)
-                .getSize(point);
-        final int x = point.x / 2;
-        final int y = point.y / 2;
+    private static void tapOn(@NonNull Activity activity) {
+        final Point p = getCenterOfActivityOnScreen(activity);
+        final int displayId = activity.getDisplayId();
+
         final long downTime = SystemClock.elapsedRealtime();
         final MotionEvent downEvent = MotionEvent.obtain(downTime, downTime,
-                MotionEvent.ACTION_DOWN, x, y, 0 /* metaState */);
+                MotionEvent.ACTION_DOWN, p.x, p.y, 0 /* metaState */);
         downEvent.setDisplayId(displayId);
         getInstrumentation().sendPointerSync(downEvent);
         final MotionEvent upEvent = MotionEvent.obtain(downTime, SystemClock.elapsedRealtime(),
-                MotionEvent.ACTION_UP, x, y, 0 /* metaState */);
+                MotionEvent.ACTION_UP, p.x, p.y, 0 /* metaState */);
         upEvent.setDisplayId(displayId);
         getInstrumentation().sendPointerSync(upEvent);
+    }
+
+    private static Point getCenterOfActivityOnScreen(@NonNull Activity activity) {
+        final View decorView = activity.getWindow().getDecorView();
+        final int[] location = new int[2];
+        decorView.getLocationOnScreen(location);
+        return new Point(location[0] + decorView.getWidth() / 2,
+                location[1] + decorView.getHeight() / 2);
     }
 
     /**
@@ -160,7 +165,7 @@ public class WindowFocusTests extends WindowManagerTestBase {
         secondaryActivity.assertAndConsumeKeyEvent(ACTION_DOWN, KEYCODE_6, 0 /* flags */);
         secondaryActivity.assertAndConsumeKeyEvent(ACTION_DOWN, KEYCODE_7, 0 /* flags */);
 
-        tapOnCenterOfDisplay(DEFAULT_DISPLAY);
+        tapOn(primaryActivity);
 
         // Assert only display-unspecified key would be cancelled after secondary activity is
         // not top focused if per-display focus is enabled. Otherwise, assert all non-released
@@ -219,7 +224,6 @@ public class WindowFocusTests extends WindowManagerTestBase {
      * - The window which lost top-focus can be notified about pointer-capture lost.
      */
     @Test
-    @FlakyTest(bugId = 135574991)
     public void testPointerCapture() {
         final PrimaryActivity primaryActivity = startActivity(PrimaryActivity.class,
                 DEFAULT_DISPLAY);
@@ -239,11 +243,40 @@ public class WindowFocusTests extends WindowManagerTestBase {
         getInstrumentation().runOnMainSync(secondaryActivity::requestPointerCapture);
         secondaryActivity.waitAndAssertPointerCaptureState(true /* hasCapture */);
 
-        tapOnCenterOfDisplay(DEFAULT_DISPLAY);
+        tapOn(primaryActivity);
         primaryActivity.waitAndAssertWindowFocusState(true);
 
         // Assert secondary activity lost pointer capture when it is not top focused.
         secondaryActivity.waitAndAssertPointerCaptureState(false /* hasCapture */);
+    }
+
+    /**
+     * Pointer capture could be requested after activity regains focus.
+     */
+    @Test
+    public void testPointerCaptureWhenFocus() {
+        final AutoEngagePointerCaptureActivity primaryActivity =
+                startActivity(AutoEngagePointerCaptureActivity.class, DEFAULT_DISPLAY);
+
+        // Assert primary activity can have pointer capture before we have multiple focused windows.
+        primaryActivity.waitAndAssertPointerCaptureState(true /* hasCapture */);
+
+        assumeTrue(supportsMultiDisplay());
+
+        // This test only makes sense if `config_perDisplayFocusEnabled` is disabled.
+        assumeFalse(perDisplayFocusEnabled());
+
+        final SecondaryActivity secondaryActivity =
+                createManagedInvisibleDisplaySession().startActivityAndFocus();
+
+        primaryActivity.waitAndAssertWindowFocusState(false /* hasFocus */);
+        // Assert primary activity lost pointer capture when it is not top focused.
+        primaryActivity.waitAndAssertPointerCaptureState(false /* hasCapture */);
+        secondaryActivity.waitAndAssertPointerCaptureState(false /* hasCapture */);
+
+        tapOn(primaryActivity);
+        primaryActivity.waitAndAssertWindowFocusState(true /* hasFocus */);
+        primaryActivity.waitAndAssertPointerCaptureState(true /* hasCapture */);
     }
 
     /**
@@ -282,7 +315,7 @@ public class WindowFocusTests extends WindowManagerTestBase {
         final SecondaryActivity secondaryActivity =
                 createManagedInvisibleDisplaySession().startActivityAndFocus();
 
-        tapOnCenterOfDisplay(DEFAULT_DISPLAY);
+        tapOn(primaryActivity);
         // Ensure primary activity got focus
         primaryActivity.waitAndAssertWindowFocusState(true);
         secondaryActivity.waitAndAssertWindowFocusState(false);
@@ -311,7 +344,7 @@ public class WindowFocusTests extends WindowManagerTestBase {
         });
         getInstrumentation().waitForIdleSync();
 
-        tapOnCenterOfDisplay(DEFAULT_DISPLAY);
+        tapOn(primaryActivity);
         // Ensure secondary activity still has focus
         secondaryActivity.waitAndAssertWindowFocusState(true);
         primaryActivity.waitAndAssertWindowFocusState(false);
@@ -393,7 +426,7 @@ public class WindowFocusTests extends WindowManagerTestBase {
                 mKeyEventList.add(event);
                 mLockKeyEvent.notify();
             }
-            return super.dispatchKeyEvent(event);
+            return true;
         }
 
         int getKeyEventCount() {
@@ -467,6 +500,16 @@ public class WindowFocusTests extends WindowManagerTestBase {
             synchronized (this) {
                 return mLosesFocusWhenNewFocusIsNotDrawn;
             }
+        }
+    }
+
+    public static class AutoEngagePointerCaptureActivity extends InputTargetActivity {
+        @Override
+        public void onWindowFocusChanged(boolean hasFocus) {
+            if (hasFocus) {
+                requestPointerCapture();
+            }
+            super.onWindowFocusChanged(hasFocus);
         }
     }
 
@@ -545,7 +588,7 @@ public class WindowFocusTests extends WindowManagerTestBase {
         // An untrusted virtual display won't have focus until the display is touched.
         final SecondaryActivity activity = WindowManagerTestBase.startActivity(
                 SecondaryActivity.class, displayId, hasFocus);
-        tapOnCenterOfDisplay(displayId);
+        tapOn(activity);
         activity.waitAndAssertWindowFocusState(true);
         return activity;
     }

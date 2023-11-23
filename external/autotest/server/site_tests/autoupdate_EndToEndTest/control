@@ -3,25 +3,15 @@
 # found in the LICENSE file.
 
 import logging
-from autotest_lib.client.bin import sysinfo
-from autotest_lib.client.common_lib import error, utils
-from autotest_lib.client.cros import constants
-from autotest_lib.server import host_attributes
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 
-AUTHOR = "Chromium OS"
+AUTHOR = "dhaddock@, ahassani@"
 NAME = "autoupdate_EndToEndTest"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-JOB_RETRIES = 1
-BUG_TEMPLATE = {
-    'cc': ['chromeos-installer-alerts@google.com'],
-    'components': ['Internals>Installer'],
-}
-
-# Skip provision special task for AU tests.
-DEPENDENCIES = "skip_provision"
 
 # Disable server-side packaging support for this test.
 # This control file is used as the template for paygen_au_canary suite, which
@@ -118,7 +108,7 @@ To run locally:
     You should now be able to ssh into DUTs in the lab without a password.
 
     Follow these instructions to setup the ssh access to lab devservers:
-    https://sites.google.com/a/google.com/chromeos/for-team-members/infrastructure/chromeos-admin/devserver-access
+    http://go/cros-sites-archive/for-team-members/infrastructure/chromeos-admin/devserver-access
         You'll need appropriate group membership to be able to access the
         Valentine secret for the devserver file.
 
@@ -172,9 +162,6 @@ for key in TEST_CONF_KEYS:
 def run_test(machine):
     """Execute a test configuration on a given machine."""
     host = hosts.create_host(machine)
-    # Save preserved log after autoupdate is completed.
-    job.sysinfo.add_logdir(
-        sysinfo.logdir(constants.AUTOUPDATE_PRESERVE_LOG))
     try:
         job.run_test(
                 "autoupdate_EndToEndTest",
@@ -185,7 +172,6 @@ def run_test(machine):
             error_msg = 'Received test error: %s' % e
             logging.error(error_msg)
             raise error.TestError(error_msg)
-
         raise
 
 

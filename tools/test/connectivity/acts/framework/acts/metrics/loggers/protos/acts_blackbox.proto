@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@ package acts.metrics.blackbox;
 option java_package = "com.android.acts.metrics.blackbox";
 
 message ActsBlackboxMetricResult {
-
   optional string test_identifier = 1;
-
   required string metric_key = 3;
-
   required double metric_value = 4;
+}
 
+message ActsBlackboxMetricResultsBundle {
+  repeated ActsBlackboxMetricResult acts_blackbox_metric_results = 1;
 }

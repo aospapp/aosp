@@ -1,0 +1,8 @@
+type mediadrm_vendor_data_file, file_type, data_file_type;
+
+# /data
+type nanohub_lock_file, file_type, data_file_type;
+type sensor_vendor_data_file, file_type, data_file_type, mlstrustedobject;
+
+# /sys
+type sysfs_nanoapp_cmd, sysfs_type, fs_type;

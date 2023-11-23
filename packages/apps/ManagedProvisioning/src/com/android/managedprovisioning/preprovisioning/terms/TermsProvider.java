@@ -17,21 +17,22 @@ package com.android.managedprovisioning.preprovisioning.terms;
 
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMER_CONTENT;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMER_HEADER;
-import static android.content.pm.PackageManager.GET_META_DATA;
-import static android.content.pm.PackageManager.MATCH_SYSTEM_ONLY;
+
+import static java.util.Objects.requireNonNull;
 
 import android.annotation.IntDef;
-import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.StoreUtils;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.DisclaimersParam;
 import com.android.managedprovisioning.model.ProvisioningParams;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Retention;
@@ -52,7 +53,9 @@ import java.util.stream.Collectors;
 public class TermsProvider {
     private final Context mContext;
     private final StoreUtils.TextFileReader mTextFileReader;
+    private final ProvisioningParams mParams;
     private final Utils mUtils;
+    private final Injector mInjector;
 
     /**
      * Sources all available {@link TermsDocument}s:
@@ -62,10 +65,13 @@ public class TermsProvider {
      * <li> terms passed from DPC.
      * </ul>
      */
-    public TermsProvider(Context context, StoreUtils.TextFileReader textFileReader, Utils utils) {
-        mContext = context;
-        mTextFileReader = textFileReader;
-        mUtils = utils;
+    public TermsProvider(Context context, StoreUtils.TextFileReader textFileReader,
+            ProvisioningParams params, Utils utils, Injector injector) {
+        mContext = requireNonNull(context);
+        mTextFileReader = requireNonNull(textFileReader);
+        mParams = requireNonNull(params);
+        mUtils = requireNonNull(utils);
+        mInjector = requireNonNull(injector);
     }
 
     /**
@@ -76,49 +82,43 @@ public class TermsProvider {
      * <li> terms passed from DPC.
      * </ul>
      */
-    public List<TermsDocument> getTerms(ProvisioningParams params, @Flags int flags) {
+    public List<TermsDocument> getTerms() {
         List<TermsDocument> result = new ArrayList<>();
-        int provisioningCase = determineProvisioningCase(params);
-
-        if ((flags & Flags.SKIP_GENERAL_DISCLAIMER) == 0) {
-            result.add(getGeneralDisclaimer(provisioningCase));
-        }
+        int provisioningCase = determineProvisioningCase(mParams);
 
         if (provisioningCase == ProvisioningCase.DEVICE_OWNER) {
             result.addAll(getSystemAppTerms());
         }
 
-        result.addAll(getExtraDisclaimers(params));
+        result.addAll(getExtraDisclaimers(mParams));
 
         return result.stream().filter(Objects::nonNull).collect(Collectors.toList());
     }
 
-    private int determineProvisioningCase(ProvisioningParams params) {
-        if (mUtils.isDeviceOwnerAction(params.provisioningAction)) {
-            return ProvisioningCase.DEVICE_OWNER;
-        }
-
-        // TODO: move somewhere more general
-        boolean isComp = ((DevicePolicyManager) mContext
-            .getSystemService(Context.DEVICE_POLICY_SERVICE)).isDeviceManaged();
-
-        return isComp ? ProvisioningCase.COMP : ProvisioningCase.PROFILE_OWNER;
-    }
-
-    private TermsDocument getGeneralDisclaimer(@ProvisioningCase int provisioningCase) {
+    /**
+     * Returns a generic disclaimer relative to the provisioning mode.
+     */
+    public TermsDocument getGeneralDisclaimer() {
+        int provisioningCase = determineProvisioningCase(mParams);
         String heading = mContext.getString(provisioningCase == ProvisioningCase.PROFILE_OWNER
-            ? R.string.work_profile_info
-            : R.string.managed_device_info);
+                ? R.string.work_profile_info
+                : R.string.managed_device_info);
         String content = mContext.getString(provisioningCase == ProvisioningCase.PROFILE_OWNER
                 ? R.string.admin_has_ability_to_monitor_profile
                 : R.string.admin_has_ability_to_monitor_device);
         return TermsDocument.createInstance(heading, content);
     }
 
+    private int determineProvisioningCase(ProvisioningParams params) {
+        if (mUtils.isDeviceOwnerAction(params.provisioningAction)) {
+            return ProvisioningCase.DEVICE_OWNER;
+        }
+        return ProvisioningCase.PROFILE_OWNER;
+    }
+
     private List<TermsDocument> getSystemAppTerms() {
         List<TermsDocument> terms = new ArrayList<>();
-        List<ApplicationInfo> appInfos = mContext.getPackageManager().getInstalledApplications(
-                MATCH_SYSTEM_ONLY | GET_META_DATA);
+        List<ApplicationInfo> appInfos = mInjector.getInstalledApplications();
         for (ApplicationInfo appInfo : appInfos) {
             String header = getStringMetaData(appInfo, EXTRA_PROVISIONING_DISCLAIMER_HEADER);
             String content = getStringMetaData(appInfo, EXTRA_PROVISIONING_DISCLAIMER_CONTENT);
@@ -168,20 +168,14 @@ public class TermsProvider {
     @IntDef(value = {
             ProvisioningCase.PROFILE_OWNER,
             ProvisioningCase.DEVICE_OWNER,
-            ProvisioningCase.COMP,
     })
     @Retention(RetentionPolicy.SOURCE)
     private @interface ProvisioningCase {
         int PROFILE_OWNER = 1;
         int DEVICE_OWNER = 2;
-        int COMP = 4;
     }
 
-    @IntDef(flag = true, value = {
-            Flags.SKIP_GENERAL_DISCLAIMER,
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface Flags {
-        int SKIP_GENERAL_DISCLAIMER = 1;
+    interface Injector {
+        List<ApplicationInfo> getInstalledApplications();
     }
 }

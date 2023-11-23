@@ -14,13 +14,12 @@
 
 package android
 
-import (
-	"fmt"
-	"io"
-)
-
 func init() {
-	RegisterModuleType("csuite_config", CSuiteConfigFactory)
+	registerCSuiteBuildComponents(InitRegistrationContext)
+}
+
+func registerCSuiteBuildComponents(ctx RegistrationContext) {
+	ctx.RegisterModuleType("csuite_config", CSuiteConfigFactory)
 }
 
 type csuiteConfigProperties struct {
@@ -38,22 +37,21 @@ func (me *CSuiteConfig) GenerateAndroidBuildActions(ctx ModuleContext) {
 	me.OutputFilePath = PathForModuleOut(ctx, me.BaseModuleName()).OutputPath
 }
 
-func (me *CSuiteConfig) AndroidMk() AndroidMkData {
-	androidMkData := AndroidMkData{
+func (me *CSuiteConfig) AndroidMkEntries() []AndroidMkEntries {
+	androidMkEntries := AndroidMkEntries{
 		Class:      "FAKE",
 		Include:    "$(BUILD_SYSTEM)/suite_host_config.mk",
 		OutputFile: OptionalPathForPath(me.OutputFilePath),
 	}
-	androidMkData.Extra = []AndroidMkExtraFunc{
-		func(w io.Writer, outputFile Path) {
+	androidMkEntries.ExtraEntries = []AndroidMkExtraEntriesFunc{
+		func(ctx AndroidMkExtraEntriesContext, entries *AndroidMkEntries) {
 			if me.properties.Test_config != nil {
-				fmt.Fprintf(w, "LOCAL_TEST_CONFIG := %s\n",
-					*me.properties.Test_config)
+				entries.SetString("LOCAL_TEST_CONFIG", *me.properties.Test_config)
 			}
-			fmt.Fprintln(w, "LOCAL_COMPATIBILITY_SUITE := csuite")
+			entries.AddCompatibilityTestSuites("csuite")
 		},
 	}
-	return androidMkData
+	return []AndroidMkEntries{androidMkEntries}
 }
 
 func InitCSuiteConfigModule(me *CSuiteConfig) {

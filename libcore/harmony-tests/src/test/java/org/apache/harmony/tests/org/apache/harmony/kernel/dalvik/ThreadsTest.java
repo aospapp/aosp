@@ -81,6 +81,7 @@ public class ThreadsTest extends TestCase {
     public void test_parkFor_3() throws Exception {
         CyclicBarrier barrier = new CyclicBarrier(1);
         Parker parker = new Parker(barrier, false, 1000);
+        parker.disableRetry();
         Thread parkerThread = new Thread(parker);
 
         UNSAFE.unpark(parkerThread);
@@ -123,6 +124,7 @@ public class ThreadsTest extends TestCase {
     public void test_parkUntil_3() throws Exception {
         CyclicBarrier barrier = new CyclicBarrier(1);
         Parker parker = new Parker(barrier, true, 1000);
+        parker.disableRetry();
         Thread parkerThread = new Thread(parker);
 
         UNSAFE.unpark(parkerThread);
@@ -139,12 +141,16 @@ public class ThreadsTest extends TestCase {
      */
     private static class Parker implements Runnable {
 
+        private static final long NANOS_PER_MILLI = 1_000_000L;
+
         private final CyclicBarrier barrier;
 
         /** whether {@link #amount} is milliseconds to wait in an
          * absolute fashion (<code>true</code>) or nanoseconds to wait
          * in a relative fashion (<code>false</code>) */
         private final boolean absolute;
+
+        private boolean retryDisabled;
 
         /** amount to wait (see above) */
         private final long amount;
@@ -153,10 +159,10 @@ public class ThreadsTest extends TestCase {
         private boolean completed;
 
         /** recorded start time */
-        private long startMillis;
+        private long startNanos;
 
         /** recorded end time */
-        private long endMillis;
+        private long endNanos;
 
         /**
          * Construct an instance.
@@ -168,9 +174,17 @@ public class ThreadsTest extends TestCase {
         public Parker(CyclicBarrier barrier, boolean absolute, long parkMillis) {
             this.barrier = barrier;
             this.absolute = absolute;
-
+            // this.retryDisabled = false;
+            if (parkMillis < 10) {
+              // Doesn't work well with our retry logic, and likely to be flakey.
+              throw new AssertionError("Unexpectedly short park timeout.");
+            }
             // Multiply by 1000000 because parkFor() takes nanoseconds.
-            this.amount = absolute ? parkMillis : parkMillis * 1000000;
+            this.amount = absolute ? parkMillis : parkMillis * NANOS_PER_MILLI;
+        }
+
+        public void disableRetry() {
+          retryDisabled = true;
         }
 
         public void run() {
@@ -181,20 +195,29 @@ public class ThreadsTest extends TestCase {
             }
             boolean absolute = this.absolute;
             long amount = this.amount;
-            long startNanos = System.nanoTime();
+            long startNs = System.nanoTime();
             long start = System.currentTimeMillis();
 
-            if (absolute) {
-                UNSAFE.park(true, start + amount);
-            } else {
-                UNSAFE.park(false, amount);
+            for (int i = 0; i < 2; ++i) {
+                if (absolute) {
+                    UNSAFE.park(true, start + amount);
+                } else {
+                    UNSAFE.park(false, amount);
+                }
+                // park() may wake up spuriously. For our implementation, this
+                // should be unlikely, except there are cases in which the
+                // initial attempt returns immediately. Try a second time, but
+                // only in that case.
+                if (retryDisabled || System.currentTimeMillis() - start > 1L) {
+                  break;
+                }
             }
 
-            long endNanos = System.nanoTime();
+            long endNs = System.nanoTime();
 
             synchronized (this) {
-                startMillis = startNanos / 1000000;
-                endMillis = endNanos / 1000000;
+                startNanos = startNs;
+                endNanos = endNs;
                 completed = true;
                 notifyAll();
             }
@@ -219,25 +242,23 @@ public class ThreadsTest extends TestCase {
                     }
                 }
 
-                return endMillis - startMillis;
+                return (endNanos - startNanos) / NANOS_PER_MILLI;
             }
         }
 
         /**
-         * Asserts that the actual duration is within 10% of the
+         * Asserts that the actual duration is within 150-200 msecs of the
          * given expected time.
+         * Observe that small errors in either direction are normal here; for a
+         * number of tests the value will be too small if the Parker thread
+         * starts late, e.g. because it doesn't get a time slice soon enough.
          *
          * @param expectedMillis the expected duration, in milliseconds
          */
         public void assertDurationIsInRange(long expectedMillis) {
-            /*
-             * Allow a bit more slop for the maximum on "expected
-             * instantaneous" results.
-             */
-            long minimum = (long) ((double) expectedMillis * 0.80);
-            long maximum =
-                Math.max((long) ((double) expectedMillis * 1.20), 10);
-            long waitMillis = Math.max(expectedMillis * 10, 1000);
+            long minimum = Math.max(expectedMillis - 150L, 0L);
+            long maximum = expectedMillis + 200L;
+            long waitMillis = Math.max(expectedMillis * 10L, 1000L);
             long duration = getDurationMillis(waitMillis);
 
             if (duration < minimum) {

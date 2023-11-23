@@ -1,11 +1,14 @@
 package org.junit.rules;
 
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import org.junit.function.ThrowingRunnable;
+import org.junit.internal.AssumptionViolatedException;
 import org.hamcrest.Matcher;
 import org.junit.runners.model.MultipleFailureException;
 
@@ -43,6 +46,21 @@ public class ErrorCollector extends Verifier {
      * Adds a Throwable to the table.  Execution continues, but the test will fail at the end.
      */
     public void addError(Throwable error) {
+        if (error == null) {
+            throw new NullPointerException("Error cannot be null");
+        }
+        // BEGIN Android-changed: Don't convert assumption failures to errors. b/181123057
+        // Submitted upstream: https://github.com/junit-team/junit4/issues/1703
+        /*
+        if (error instanceof AssumptionViolatedException) {
+            AssertionError e = new AssertionError(error.getMessage());
+            e.initCause(error);
+            errors.add(e);
+        } else {
+            errors.add(error);
+        }
+        */
+        // END Android-changed: Don't convert assumption failures to errors. b/181123057
         errors.add(error);
     }
 
@@ -76,9 +94,33 @@ public class ErrorCollector extends Verifier {
     public <T> T checkSucceeds(Callable<T> callable) {
         try {
             return callable.call();
+        } catch (AssumptionViolatedException e) {
+            AssertionError error = new AssertionError("Callable threw AssumptionViolatedException");
+            error.initCause(e);
+            addError(error);
+            return null;
         } catch (Throwable e) {
             addError(e);
             return null;
         }
     }
+
+    /**
+     * Adds a failure to the table if {@code runnable} does not throw an
+     * exception of type {@code expectedThrowable} when executed.
+     * Execution continues, but the test will fail at the end if the runnable
+     * does not throw an exception, or if it throws a different exception.
+     *
+     * @param expectedThrowable the expected type of the exception
+     * @param runnable       a function that is expected to throw an exception when executed
+     * @since 4.13
+     */
+    public void checkThrows(Class<? extends Throwable> expectedThrowable, ThrowingRunnable runnable) {
+        try {
+            assertThrows(expectedThrowable, runnable);
+        } catch (AssertionError e) {
+            addError(e);
+        }
+    }
+
 }

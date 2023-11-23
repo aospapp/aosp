@@ -1,26 +1,26 @@
 [package]
 name = "proc-macro2"
-version = "1.0.4" # remember to update html_root_url
-authors = ["Alex Crichton <alex@alexcrichton.com>"]
+version = "1.0.26" # remember to update html_root_url
+authors = ["Alex Crichton <alex@alexcrichton.com>", "David Tolnay <dtolnay@gmail.com>"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 keywords = ["macros"]
 repository = "https://github.com/alexcrichton/proc-macro2"
-homepage = "https://github.com/alexcrichton/proc-macro2"
 documentation = "https://docs.rs/proc-macro2"
+categories = ["development-tools::procedural-macro-helpers"]
 edition = "2018"
 description = """
-A stable implementation of the upcoming new `proc_macro` API. Comes with an
-option, off by default, to also reimplement itself in terms of the upstream
-unstable API.
+A substitute implementation of the compiler's `proc_macro` API to decouple
+token-based libraries from the procedural macro use case.
 """
-
-[lib]
-name = "proc_macro2"
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "procmacro2_semver_exempt"]
-rustdoc-args = ["--cfg", "procmacro2_semver_exempt"]
+rustdoc-args = ["--cfg", "procmacro2_semver_exempt", "--cfg", "doc_cfg"]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[package.metadata.playground]
+features = ["span-locations"]
 
 [dependencies]
 unicode-xid = "0.2"
@@ -39,8 +39,8 @@ span-locations = []
 # This feature no longer means anything.
 nightly = []
 
-[badges]
-travis-ci = { repository = "alexcrichton/proc-macro2" }
+[workspace]
+members = ["benches/bench-libproc-macro", "tests/ui"]
 
 [patch.crates-io]
 # Our doc tests depend on quote which depends on proc-macro2. Without this line,
@@ -49,9 +49,9 @@ travis-ci = { repository = "alexcrichton/proc-macro2" }
 # meaning impls would be missing when tested against types from the local
 # proc-macro2.
 #
-# Travis builds that are in progress at the time that you publish may spuriously
-# fail. This is because they'll be building a local proc-macro2 which carries
-# the second-most-recent version number, pulling in quote which resolves to a
-# dependency on the just-published most recent version number. Thus the patch
-# will fail to apply because the version numbers are different.
+# GitHub Actions builds that are in progress at the time that you publish may
+# spuriously fail. This is because they'll be building a local proc-macro2 which
+# carries the second-most-recent version number, pulling in quote which resolves
+# to a dependency on the just-published most recent version number. Thus the
+# patch will fail to apply because the version numbers are different.
 proc-macro2 = { path = "." }

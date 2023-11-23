@@ -358,7 +358,7 @@ class ImgObjectVisitor : public ObjectVisitor {
   ~ImgObjectVisitor() override { }
 
   void Visit(mirror::Object* object) override REQUIRES_SHARED(Locks::mutator_lock_) {
-    // Sanity check that we are reading a real mirror::Object
+    // Check that we are reading a real mirror::Object
     CHECK(object->GetClass() != nullptr) << "Image object at address "
                                          << object
                                          << " has null class";
@@ -514,7 +514,8 @@ class RegionSpecializedBase<mirror::Object> : public RegionCommon<mirror::Object
   void DumpDirtyObjects() REQUIRES_SHARED(Locks::mutator_lock_) {
     for (mirror::Object* obj : dirty_objects_) {
       if (obj->IsClass()) {
-        os_ << "Private dirty object: " << obj->AsClass()->PrettyDescriptor() << "\n";
+        std::string temp;
+        os_ << "Private dirty object: " << obj->AsClass()->GetDescriptor(&temp) << "\n";
       }
     }
   }
@@ -1471,7 +1472,7 @@ class ImgDiagDumper {
       return false;
     }
     backtrace_map_t boot_map = maybe_boot_map.value_or(backtrace_map_t{});
-    // Sanity check boot_map_.
+    // Check the validity of the boot_map_.
     CHECK(boot_map.end >= boot_map.start);
 
     // Adjust the `end` of the mapping. Some other mappings may have been
@@ -1777,7 +1778,7 @@ class ImgDiagDumper {
     return str.substr(idx + 1);
   }
 
-  // Return the image location, stripped of any directories, e.g. "boot.art" or "core.art"
+  // Return the image location, stripped of any directories, e.g. "boot.art"
   static std::string GetImageLocationBaseName(const std::string& image_location) {
     return BaseName(std::string(image_location));
   }

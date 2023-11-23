@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -18,8 +18,8 @@
 #ifndef MAGICKCORE_XML_TREE_PRIVATE_H
 #define MAGICKCORE_XML_TREE_PRIVATE_H
 
-#include "MagickCore/exception.h"
 #include "MagickCore/splay-tree.h"
+#include "MagickCore/xml-tree.h"
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {

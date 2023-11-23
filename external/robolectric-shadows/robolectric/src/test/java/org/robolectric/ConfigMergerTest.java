@@ -434,9 +434,9 @@ public class ConfigMergerTest {
     assertThat(config.qualifiers()).isEqualTo(qualifiers);
     assertThat(config.resourceDir()).isEqualTo(resourceDir);
     assertThat(config.assetDir()).isEqualTo(assetsDir);
-    assertThat(config.shadows()).asList().containsAllIn(shadows).inOrder();
-    assertThat(config.instrumentedPackages()).asList().containsAllIn(instrumentedPackages);
-    assertThat(config.libraries()).asList().containsAllIn(libraries);
+    assertThat(config.shadows()).asList().containsAtLeastElementsIn(shadows).inOrder();
+    assertThat(config.instrumentedPackages()).asList().containsAtLeastElementsIn(instrumentedPackages);
+    assertThat(config.libraries()).asList().containsAtLeastElementsIn(libraries);
   }
 
   @Ignore

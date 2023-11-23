@@ -21,11 +21,13 @@
 namespace android {
 namespace linkerconfig {
 namespace generator {
-std::string GetLibrariesString(std::string library_file_path);
-std::string GetPublicLibrariesString(std::string library_file_path,
-                                     std::string private_library_file_path);
-std::string GetPrivateLibrariesString(std::string library_file_path,
-                                      std::string private_library_file_path);
+std::string GetLibrariesString(const std::string& library_file_path);
+std::string GetPublicLibrariesString(
+    const std::string& library_file_path,
+    const std::string& private_library_file_path);
+std::string GetPrivateLibrariesString(
+    const std::string& library_file_path,
+    const std::string& private_library_file_path);
 }  // namespace generator
 }  // namespace linkerconfig
 }  // namespace android

@@ -22,6 +22,8 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Enable multi-user. -->
     <bool name="config_enableMultiUserUI">true</bool>
+    <!--  Maximum number of supported users -->
+    <integer name="config_multiuserMaximumUsers">4</integer>
     <!-- Maximum number of users we allow to be running at a time.
          For automotive, background user will be immediately stopped upon user switching but
          up to this many users can be running in garage mode.
@@ -60,6 +62,9 @@
     <integer name="config_jobSchedulerInactivityIdleThreshold">0</integer>
     <integer name="config_jobSchedulerIdleWindowSlop">0</integer>
 
+    <!-- Set the default number of allowed connected Bluetooth AVRCP/A2DP devices -->
+    <integer name="config_bluetooth_max_connected_audio_devices">1</integer>
+
     <!-- Automotive Bluetooth pairing option -->
     <bool name="enable_pbap_pce_profile">true</bool>
 
@@ -97,8 +102,6 @@
 
     <string name="config_dataUsageSummaryComponent">com.android.car.settings/com.android.car.settings.datausage.DataWarningAndLimitActivity</string>
 
-    <string name="config_defaultTrustAgent" translatable="false">com.android.car.companiondevicesupport/.feature.trust.TrustedDeviceAgentService</string>
-
     <!-- Controls whether system buttons use all caps for text -->
     <bool name="config_buttonTextAllCaps">false</bool>
 
@@ -107,23 +110,45 @@
     <!-- Turn off Wallpaper service -->
     <bool name="config_enableWallpaperService">false</bool>
 
-    <!-- Whether to only install system packages on a user if they're whitelisted for that user
+    <!-- Whether to only install system packages on a user if they're allowlisted for that user
          type. Override the default value in framework config file.
-         0  - disable whitelist (install all system packages; no logging)
-         1  - enforce (only install system packages if they are whitelisted)
-         2  - log (log when a non-whitelisted package is run)
-         4  - any package not mentioned in the whitelist file is implicitly whitelisted on all users
+         0  - disable allowlist (install all system packages; no logging)
+         1  - enforce (only install system packages if they are allowlisted)
+         2  - log (log when a non-allowlisted package is run)
+         4  - any package not mentioned in the allowlist file is implicitly allowlisted on all users
          8  - same as 4, but just for the SYSTEM user
          16 - ignore OTAs (don't install system packages during OTAs)
 
          Common scenarios for auto:
-          - to enable feature (fully enforced) for a complete whitelist: 1
-          - to enable feature for an incomplete whitelist (so use implicit whitelist mode): 5 -->
+          - to enable feature (fully enforced) for a complete allowlist: 1
+          - to enable feature for an incomplete allowlist (so use implicit allowlist mode): 5 -->
     <integer name="config_userTypePackageWhitelistMode">5</integer> <!-- 1+4 -->
 
     <!-- Default user restrictions for system user 0. -->
     <string-array translatable="false" name="config_defaultFirstUserRestrictions">
         <item>"no_modify_accounts"</item>
     </string-array>
+
+    <!-- Specifies priority of automatic time sources. Suggestions from higher entries in the list
+         take precedence over lower ones.
+         See com.android.server.timedetector.TimeDetectorStrategy for available sources. -->
+    <string-array name="config_autoTimeSourcesPriority">
+        <item>telephony</item>
+        <item>network</item>
+        <item>gnss</item>
+    </string-array>
+    <!-- Enables the GnssTimeUpdate service. This is a switch for enabling Gnss time based
+         suggestions to TimeDetector service. -->
+    <bool name="config_enableGnssTimeUpdateService">true</bool>
+
+    <!-- Use a car-specific activity resolver that supports rotary. -->
+    <string name="config_customResolverActivity" translatable="false"
+        >com.android.car.activityresolver/.CarResolverActivity</string>
+
+    <!-- The name of the package that will hold the system cluster service role. -->
+    <string name="config_systemAutomotiveCluster" translatable="false">android.car.cluster</string>
+
+    <!-- Whether this device is supporting the microphone toggle -->
+    <bool name="config_supportsMicToggle">true</bool>
 
 </resources>

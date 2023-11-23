@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Kritikus vészjelzés"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"Az esetleges természeti katasztrófák során telefonja fontos értesítéseket, például evakuációs utasításokat küldhet Önnek. Ez a szolgáltatás a National Emergency Management Agency, a mobilhálózati szolgáltatók és az eszközgyártók összefogásával működik.\n\nAz eszközzel kapcsolatos problémák és a gyenge hálózati viszonyok megakadályozhatják az értesítések fogadását."</string>
 </resources>

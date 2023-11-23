@@ -6,7 +6,8 @@
 *.iml
 *.o
 *.a
-*.so*
+*.so
+*.so.*
 *.dylib
 *.dll
 *.orig
@@ -33,6 +34,7 @@ TAGS
 gmon.out
 .coverage
 .mypy_cache/
+.pytest_cache/
 
 *.exe
 !Lib/distutils/command/*.exe
@@ -69,6 +71,7 @@ Programs/_freeze_importlib
 Programs/_testembed
 PC/python_nt*.h
 PC/pythonnt_rc*.h
+Modules/python.exp
 PC/*/*.exp
 PC/*/*.lib
 PC/*/*.bsc
@@ -92,6 +95,7 @@ PCbuild/arm32/
 PCbuild/arm64/
 PCbuild/obj/
 PCbuild/win32/
+Tools/unicode/data/
 /autom4te.cache
 /build/
 /config.cache
@@ -99,6 +103,8 @@ PCbuild/win32/
 /config.status
 /config.status.lineno
 /platform
+/profile-clean-stamp
+/profile-run-stamp
 /pybuilddir.txt
 /pyconfig.h
 /python-config

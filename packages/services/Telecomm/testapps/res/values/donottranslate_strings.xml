@@ -44,6 +44,8 @@
 
     <string name="startCallWithRtt">Start call with RTT</string>
 
+    <string name="addComposerAttachments">Add call composer attachments</string>
+
     <string name="rttIfaceButton">RTT</string>
 
     <string name="endRttButton">End RTT</string>

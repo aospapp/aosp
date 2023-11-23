@@ -17,7 +17,7 @@
 package com.android.layoutlib.bridge.impl;
 
 import com.android.ide.common.rendering.api.HardwareConfig;
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.RenderParams;
 import com.android.ide.common.rendering.api.RenderResources;
 import com.android.ide.common.rendering.api.Result;
@@ -252,7 +252,7 @@ public abstract class RenderAction<T extends RenderParams> {
                 getContext().getMetrics(), Surface.ROTATION_0, hasNavigationBar);
         WindowManagerGlobal_Delegate.setWindowManagerService(iwm);
 
-        LayoutLog currentLog = mParams.getLog();
+        ILayoutLog currentLog = mParams.getLog();
         Bridge.setLog(currentLog);
         mContext.getRenderResources().setLogger(currentLog);
     }
@@ -307,7 +307,7 @@ public abstract class RenderAction<T extends RenderParams> {
      * Returns the log associated with the session.
      * @return the log or null if there are none.
      */
-    public LayoutLog getLog() {
+    public ILayoutLog getLog() {
         if (mParams != null) {
             return mParams.getLog();
         }

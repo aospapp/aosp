@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"গ্ৰহণ কৰক"</string>
     <string name="reject" msgid="24751635160440693">"প্ৰত্যাখ্যান কৰক"</string>
     <string name="connections" msgid="8895413761760117180">"সংযোগসমূহ"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"ডিফ’ল্ট প্ৰিণ্ট সেৱাই ৱাই-ফাই ডাইৰেক্ট প্ৰিণ্টাৰ বিচাৰি পোৱা নাই"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"ৱাই-ফাই ডাইৰেক্ট অক্ষম কৰক"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ডিফ\'ল্ট প্ৰিণ্ট সেৱাক নিকটৱৰ্তী ডিভাইচসমূহ বিচাৰিবলৈ অৱস্থানৰ অনুমতিৰ আৱশ্যক।"</string>
     <string name="fix" msgid="7784394272611365393">"পর্যালোচনাৰ অনুমতি"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"নিকটৱৰ্তী ডিভাইচ বিচাৰিবলৈ ডিফ’ল্ট প্ৰিণ্ট সেৱাৰ বাবে অৱস্থান সেৱা সক্ষম হৈ থকাৰ আৱশ্যক।"</string>
+    <string name="enable_location" msgid="3627841004298863140">"অৱস্থান সক্ষম কৰক"</string>
     <string name="print" msgid="7851318072404916362">"প্ৰিণ্ট কৰক"</string>
 </resources>

@@ -17,6 +17,8 @@ package android.platform.test.rule;
 
 import android.os.Trace;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.google.common.base.Strings;
 
 import org.junit.runner.Description;
@@ -25,6 +27,9 @@ import org.junit.runner.Description;
  * This rule will create a trace section that captures the start and end of each test method.
  */
 public class TracePointRule extends TestWatcher {
+    // Matches android.os.Trace#MAX_SECTION_NAME_LEN
+    private static final int MAX_SECTION_NAME_LEN = 127;
+
     private final String mSectionTag;
 
     public TracePointRule() {
@@ -63,10 +68,15 @@ public class TracePointRule extends TestWatcher {
      * Returns the section name used for the applied {@code TestWatcher}.
      */
     protected String getSectionName(Description description) {
-        if (Strings.isNullOrEmpty(mSectionTag)) {
-            return description.getDisplayName();
-        } else {
-            return mSectionTag;
+        String name = mSectionTag;
+        if (Strings.isNullOrEmpty(name)) {
+            name = description.getDisplayName();
         }
+        return name.substring(Math.max(0, name.length() - getMaxSectionLength()));
+    }
+
+    @VisibleForTesting
+    int getMaxSectionLength() {
+        return MAX_SECTION_NAME_LEN;
     }
 }

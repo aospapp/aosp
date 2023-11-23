@@ -768,7 +768,7 @@ public class QuickContactActivity extends ContactsActivity {
         final boolean deletedOrSplit = requestCode == REQUEST_CODE_CONTACT_EDITOR_ACTIVITY &&
                 (resultCode == ContactDeletionInteraction.RESULT_CODE_DELETED ||
                 resultCode == ContactEditorActivity.RESULT_CODE_SPLIT);
-        setResult(resultCode, data);
+        setResult(resultCode);
         if (deletedOrSplit) {
             finish();
         } else if (requestCode == REQUEST_CODE_CONTACT_SELECTION_ACTIVITY &&
@@ -1431,10 +1431,10 @@ public class QuickContactActivity extends ContactsActivity {
         } else if (dataItem instanceof OrganizationDataItem) {
             final OrganizationDataItem organization = (OrganizationDataItem) dataItem;
             header = res.getString(R.string.header_organization_entry);
-            subHeader = organization.getCompany();
             entryContextMenuInfo = new EntryContextMenuInfo(subHeader, header,
-                    dataItem.getMimeType(), dataItem.getId(), dataItem.isSuperPrimary());
-            text = organization.getTitle();
+                dataItem.getMimeType(), dataItem.getId(), dataItem.isSuperPrimary());
+            text = ContactDisplayUtils
+                .getFormattedCompanyString(context, (OrganizationDataItem) dataItem, false);
         } else if (dataItem instanceof NicknameDataItem) {
             final NicknameDataItem nickname = (NicknameDataItem) dataItem;
             // Build nickname entries

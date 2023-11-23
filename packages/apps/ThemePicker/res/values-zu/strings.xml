@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Izitayela nezithombe zangemuva"</string>
+    <string name="app_name" msgid="1647136562008520313">"Isithombe sangemuva nesitayela"</string>
     <string name="theme_title" msgid="2144932106319405101">"Isitayela"</string>
     <string name="clock_title" msgid="2126046720254613991">"Iwashi"</string>
-    <string name="grid_title" msgid="2825094404523390773">"I-Grid"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Isithombe sangemuva"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Igridi ye-app"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Faka"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Thepha ukuze uhlele"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Gcina isithombe sangemuva samanje"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Faka"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Ikhasi elingu-<xliff:g id="ID_1">%1$d</xliff:g> kwangu-<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Okulandelayo"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Okwangaphambilini"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Ukubuka kuqala kwesitayela"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Ukubuka kuqala kwe-grid"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Ukubuka kuqala ifonti"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Ukubuka kuqala isithonjana"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Ukubuka kuqala umbala"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Ukubuka kuqala umumo"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, okufakwe manje"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, manje isetshenzisiwe yaphinde yabukwa kuqala"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, manje ibukwe kuqala"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Isithombe sangemuva"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Engeza amafonti akho owathandayo kuso sonke isikrini"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Khetha usayizi we-grid"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Isitayela sifakiwe"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Iwashi lifakiwe"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Isitayela sisethwe ngokuphumelelayo"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Iwashi lisethwe ngokuphumelelayo"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"I-Grid isethwe ngempumelelo"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Kube nenkinga ukufaka isitayela"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Okulandelayo"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Okwangaphambilini"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Ngokwezifiso"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Ngokwezifiso <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Isitayela sangokwezifiso"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Susa"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"Cha, ngiyabonga"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> ukubuka kuqala iwashi"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Hawu! Kukhona okungahambile kahle."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Umbala / Izithonjana"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Ukubuka kuqala kwefonti, izithonjana, umumo wohlelo lokusebenza, nombala"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Ifonti engokwezifiso"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Isithonjana esingokwezifiso"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Umbala ongokwezifiso"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Umumo ongokwezifiso"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Igama lesitayela esingokwezifiso"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Itimu emnyama"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Kukhutshaziwe okwesikhashana ngenxa Yesilondolozi Sebhethri"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Izithonjana ezinetimu"</string>
+    <string name="beta_title" msgid="8703819523760746458">"I-beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Shintsha igridi ye-app"</string>
 </resources>

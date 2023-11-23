@@ -17,12 +17,10 @@
 
 #include <string>
 
-#include "hci/acl_manager.h"
 #include "hci/address_with_type.h"
 #include "l2cap/cid.h"
 #include "l2cap/le/fixed_channel.h"
 #include "l2cap/le/fixed_channel_service.h"
-#include "l2cap/security_policy.h"
 #include "os/handler.h"
 
 namespace bluetooth {
@@ -115,19 +113,17 @@ class FixedChannelManager {
    *   FixedChannelService object. The registered service can be managed from that object.
    * - If a CID is already registered or some other error happens, on_registration_complete will be triggered with a
    *   non-SUCCESS value
-   * - After a service is registered, any classic ACL connection will create a FixedChannel object that is
+   * - After a service is registered, any LE ACL connection will create a FixedChannel object that is
    *   delivered through on_open_callback
    * - on_open_callback, will only be triggered after on_service_registered callback
    *
    * @param cid:  cid used to receive incoming connections
-   * @param security_policy: The security policy used for the connection.
    * @param on_registration_complete: A callback to indicate the service setup has completed. If the return status is
    *        not SUCCESS, it means service is not registered due to reasons like CID already take
    * @param on_open_callback: A callback to indicate success of a connection initiated from a remote device.
    * @param handler: The handler context in which to execute the @callback parameter.
    */
-  bool RegisterService(Cid cid, const SecurityPolicy& security_policy,
-                       OnRegistrationCompleteCallback on_registration_complete,
+  bool RegisterService(Cid cid, OnRegistrationCompleteCallback on_registration_complete,
                        OnConnectionOpenCallback on_connection_open, os::Handler* handler);
 
   friend class L2capLeModule;

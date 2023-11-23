@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "BootCompletedUserspaceRebootTestApp",
     srcs:  ["src/**/*.java"],
@@ -24,6 +28,6 @@ android_test_helper_app {
         "truth-prebuilt",
     ],
     min_sdk_version: "29",
-    sdk_version: "29",
+    sdk_version: "30",
     target_sdk_version: "29",
 }

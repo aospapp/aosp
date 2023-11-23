@@ -7,7 +7,9 @@
           "include-filter": "libcore.java.time"
         }
       ]
-    },
+    }
+  ],
+  "presubmit-large": [
     {
       "name": "CtsLibcoreOjTestCases",
       "options": [

@@ -27,7 +27,7 @@ import android.text.TextUtils;
 import android.util.ArrayMap;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
@@ -39,7 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class BackupAppsStepFragment extends GuidedStepFragment implements
+public class BackupAppsStepFragment extends GuidedStepSupportFragment implements
         ApplicationsState.Callbacks {
 
     private static final int ACTION_NO_APPS = 0;

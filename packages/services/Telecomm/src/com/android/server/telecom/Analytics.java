@@ -208,6 +208,9 @@ public class Analytics {
 
         public void setCallSource(int callSource) {
         }
+
+        public void setMissedReason(long missedReason) {
+        }
     }
 
     /**
@@ -242,6 +245,7 @@ public class Analytics {
         public List<TelecomLogClass.InCallServiceInfo> inCallServiceInfos;
         public int callProperties = 0;
         public int callSource = CALL_SOURCE_UNSPECIFIED;
+        public long missedReason;
 
         private long mTimeOfLastVideoEvent = -1;
 
@@ -254,6 +258,7 @@ public class Analytics {
             connectionService = "";
             videoEvents = new LinkedList<>();
             inCallServiceInfos = new LinkedList<>();
+            missedReason = 0;
         }
 
         CallInfoImpl(CallInfoImpl other) {
@@ -272,6 +277,7 @@ public class Analytics {
             this.videoEvents = other.videoEvents;
             this.callProperties = other.callProperties;
             this.callSource = other.callSource;
+            this.missedReason = other.missedReason;
 
             if (other.callTerminationReason != null) {
                 this.callTerminationReason = new DisconnectCause(
@@ -342,6 +348,13 @@ public class Analytics {
         }
 
         @Override
+        public void setMissedReason(long missedReason) {
+            Log.d(TAG, "setting missedReason for call " + callId + ": "
+                    + missedReason);
+            this.missedReason = missedReason;
+        }
+
+        @Override
         public void setCallEvents(EventManager.EventRecord records) {
             this.callEvents = records;
         }
@@ -399,6 +412,7 @@ public class Analytics {
                     + "    isEmergency: " + isEmergency + '\n'
                     + "    callTechnologies: " + getCallTechnologiesAsString() + '\n'
                     + "    callTerminationReason: " + getCallDisconnectReasonString() + '\n'
+                    + "    missedReason: " + getMissedReasonString() + '\n'
                     + "    connectionService: " + connectionService + '\n'
                     + "    isVideoCall: " + isVideo + '\n'
                     + "    inCallServices: " + getInCallServicesString() + '\n'
@@ -526,20 +540,27 @@ public class Analytics {
             }
         }
 
+        private String getMissedReasonString() {
+            //TODO: Implement this
+            return null;
+        }
+
         private String getInCallServicesString() {
             StringBuilder s = new StringBuilder();
             s.append("[\n");
-            for (TelecomLogClass.InCallServiceInfo service : inCallServiceInfos) {
-                s.append("    ");
-                s.append("name: ");
-                s.append(service.getInCallServiceName());
-                s.append(" type: ");
-                s.append(service.getInCallServiceType());
-                s.append(" is crashed: ");
-                s.append(service.getIsNullBinding());
-                s.append(" service last time in ms: ");
-                s.append(service.getBoundDurationMillis());
-                s.append("\n");
+            if (inCallServiceInfos != null) {
+                for (TelecomLogClass.InCallServiceInfo service : inCallServiceInfos) {
+                    s.append("    ");
+                    s.append("name: ");
+                    s.append(service.getInCallServiceName());
+                    s.append(" type: ");
+                    s.append(service.getInCallServiceType());
+                    s.append(" is crashed: ");
+                    s.append(service.getIsNullBinding());
+                    s.append(" service last time in ms: ");
+                    s.append(service.getBoundDurationMillis());
+                    s.append("\n");
+                }
             }
             s.append("]");
             return s.toString();
@@ -612,7 +633,7 @@ public class Analytics {
     }
 
     public static CallInfo initiateCallAnalytics(String callId, int direction) {
-        Log.d(TAG, "Starting analytics for call " + callId);
+        Log.i(TAG, "Starting analytics for call " + callId);
         CallInfoImpl callInfo = new CallInfoImpl(callId, direction);
         synchronized (sLock) {
             while (sActiveCallIds.size() >= MAX_NUM_CALLS_TO_STORE) {

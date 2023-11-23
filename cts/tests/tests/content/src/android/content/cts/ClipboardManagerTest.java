@@ -16,12 +16,16 @@
 
 package android.content.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipData.Item;
@@ -31,6 +35,7 @@ import android.content.ClipboardManager.OnPrimaryClipChangedListener;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
@@ -39,6 +44,7 @@ import android.support.test.uiautomator.Until;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,17 +55,23 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 //@AppModeFull // TODO(Instant) Should clip board data be visible?
 public class ClipboardManagerTest {
-    private Context mContext;
+    private final Context mContext = InstrumentationRegistry.getTargetContext();
     private ClipboardManager mClipboardManager;
     private UiDevice mUiDevice;
 
     @Before
     public void setUp() throws Exception {
-        mContext = InstrumentationRegistry.getTargetContext();
+        assumeTrue("Skipping Test: Wear-Os does not support ClipboardService", hasAutoFillFeature());
         mClipboardManager = mContext.getSystemService(ClipboardManager.class);
         mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         mUiDevice.wakeUp();
         launchActivity(MockActivity.class);
+    }
+
+    @After
+    public void cleanUp() {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .dropShellPermissionIdentity();
     }
 
     @Test
@@ -251,7 +263,7 @@ public class ClipboardManagerTest {
 
         // Press the home button to unfocus the app.
         mUiDevice.pressHome();
-        mUiDevice.wait(Until.gone(By.clazz(MockActivity.class)), 5000);
+        mUiDevice.wait(Until.gone(By.pkg(MockActivity.class.getPackageName())), 5000);
 
         // We should see an empty clipboard now.
         assertFalse(mClipboardManager.hasPrimaryClip());
@@ -269,7 +281,6 @@ public class ClipboardManagerTest {
         // Launch an activity to get back in focus.
         launchActivity(MockActivity.class);
 
-
         // Verify clipboard access is restored.
         assertNotNull(mClipboardManager.getPrimaryClip());
         assertNotNull(mClipboardManager.getPrimaryClipDescription());
@@ -281,12 +292,35 @@ public class ClipboardManagerTest {
                 new ExpectedClipItem("Text2", null, null));
     }
 
+    @Test
+    public void testClipSourceRecordedWhenClipSet() {
+        ClipData clipData = ClipData.newPlainText("TextLabel", "Text1");
+        mClipboardManager.setPrimaryClip(clipData);
+
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.SET_CLIP_SOURCE);
+        assertThat(
+                mClipboardManager.getPrimaryClipSource()).isEqualTo("android.content.cts");
+    }
+
+    @Test
+    public void testSetPrimaryClipAsPackage() {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.SET_CLIP_SOURCE);
+
+        ClipData clipData = ClipData.newPlainText("TextLabel", "Text1");
+        mClipboardManager.setPrimaryClipAsPackage(clipData, "test.package");
+
+        assertThat(
+                mClipboardManager.getPrimaryClipSource()).isEqualTo("test.package");
+    }
+
     private void launchActivity(Class<? extends Activity> clazz) {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.setClassName(mContext.getPackageName(), clazz.getName());
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
-        mUiDevice.wait(Until.hasObject(By.clazz(clazz)), 5000);
+        mUiDevice.wait(Until.hasObject(By.pkg(clazz.getPackageName())), 15000);
     }
 
     private class ExpectedClipItem {
@@ -364,5 +398,10 @@ public class ClipboardManagerTest {
         } else {
             assertNull(item.getUri());
         }
+    }
+
+    private boolean hasAutoFillFeature() {
+        return mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_AUTOFILL);
     }
 }

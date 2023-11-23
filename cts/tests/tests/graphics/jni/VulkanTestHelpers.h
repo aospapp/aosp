@@ -36,13 +36,15 @@ public:
   VkQueue queue() { return mQueue; }
   VkPhysicalDevice gpu() { return mGpu; }
   uint32_t queueFamilyIndex() { return mQueueFamilyIndex; }
-  PFN_vkGetAndroidHardwareBufferPropertiesANDROID
-    getHardwareBufferPropertiesFn() {
-      return mPfnGetAndroidHardwareBufferPropertiesANDROID;
-    }
-
   uint32_t findMemoryType(uint32_t memoryTypeBitsRequirement,
                           VkFlags requirementsMask);
+
+  PFN_vkBindImageMemory2 mPfnBindImageMemory2 = nullptr;
+  PFN_vkGetImageMemoryRequirements2 mPfnGetImageMemoryRequirements2 = nullptr;
+  PFN_vkCreateSamplerYcbcrConversion mPfnCreateSamplerYcbcrConversion = nullptr;
+  PFN_vkDestroySamplerYcbcrConversion mPfnDestroySamplerYcbcrConversion = nullptr;
+  PFN_vkImportSemaphoreFdKHR mPfnImportSemaphoreFd = nullptr;
+  PFN_vkGetAndroidHardwareBufferPropertiesANDROID mPfnGetAndroidHardwareBufferProperties = nullptr;
 
 private:
   VkInstance mInstance = VK_NULL_HANDLE;
@@ -51,8 +53,6 @@ private:
   VkQueue mQueue = VK_NULL_HANDLE;
   uint32_t mQueueFamilyIndex = 0;
   VkPhysicalDeviceMemoryProperties mMemoryProperties = {};
-  PFN_vkGetAndroidHardwareBufferPropertiesANDROID
-      mPfnGetAndroidHardwareBufferPropertiesANDROID = nullptr;
 };
 
 // Provides import of AHardwareBuffer.

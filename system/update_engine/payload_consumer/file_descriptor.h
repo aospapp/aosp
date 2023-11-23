@@ -21,7 +21,7 @@
 #include <sys/types.h>
 #include <memory>
 
-#include <base/logging.h>
+#include <base/macros.h>
 
 // Abstraction for managing opening, reading, writing and closing of file
 // descriptors. This includes an abstract class and one standard implementation
@@ -111,6 +111,7 @@ class FileDescriptor {
 class EintrSafeFileDescriptor : public FileDescriptor {
  public:
   EintrSafeFileDescriptor() : fd_(-1) {}
+  ~EintrSafeFileDescriptor();
 
   // Interface methods.
   bool Open(const char* path, int flags, mode_t mode) override;

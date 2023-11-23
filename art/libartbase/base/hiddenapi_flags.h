@@ -81,27 +81,28 @@ namespace helper {
 class ApiList {
  private:
   // Number of bits reserved for Value in dex flags, and the corresponding bit mask.
-  static constexpr uint32_t kValueBitSize = 3;
+  static constexpr uint32_t kValueBitSize = 4;
   static constexpr uint32_t kValueBitMask = helper::BitMask(kValueBitSize);
 
   enum class Value : uint32_t {
     // Values independent of target SDK version of app
-    kWhitelist =    0,
-    kGreylist =     1,
-    kBlacklist =    2,
+    kSdk =    0,
+    kUnsupported =     1,
+    kBlocked =    2,
 
     // Values dependent on target SDK version of app. Put these last as
     // their list will be extended in future releases.
     // The max release code implicitly includes all maintenance releases,
-    // e.g. GreylistMaxO is accessible to targetSdkVersion <= 27 (O_MR1).
-    kGreylistMaxO = 3,
-    kGreylistMaxP = 4,
-    kGreylistMaxQ = 5,
+    // e.g. MaxTargetO is accessible to targetSdkVersion <= 27 (O_MR1).
+    kMaxTargetO = 3,
+    kMaxTargetP = 4,
+    kMaxTargetQ = 5,
+    kMaxTargetR = 6,
 
     // Special values
     kInvalid =      (static_cast<uint32_t>(-1) & kValueBitMask),
-    kMin =          kWhitelist,
-    kMax =          kGreylistMaxQ,
+    kMin =          kSdk,
+    kMax =          kMaxTargetR,
   };
 
   // Additional bit flags after the first kValueBitSize bits in dex flags.
@@ -122,7 +123,7 @@ class ApiList {
   static_assert(kValueBitSize >= MinimumBitsToStore(helper::ToUint(Value::kMax)),
                 "Not enough bits to store all ApiList values");
 
-  // Sanity checks that all Values are covered by kValueBitMask.
+  // Checks that all Values are covered by kValueBitMask.
   static_assert(helper::MatchesBitMask(Value::kMin, kValueBitMask));
   static_assert(helper::MatchesBitMask(Value::kMax, kValueBitMask));
 
@@ -131,13 +132,18 @@ class ApiList {
 
   // Names corresponding to Values.
   static constexpr const char* kValueNames[] = {
-    "whitelist",
-    "greylist",
-    "blacklist",
-    "greylist-max-o",
-    "greylist-max-p",
-    "greylist-max-q",
+    "sdk",
+    "unsupported",
+    "blocked",
+    "max-target-o",
+    "max-target-p",
+    "max-target-q",
+    "max-target-r",
   };
+
+  // A magic marker used by tests to mimic a hiddenapi list which doesn't exist
+  // yet.
+  static constexpr const char* kFutureValueName = "max-target-future";
 
   // Names corresponding to DomainApis.
   static constexpr const char* kDomainApiNames[] {
@@ -147,12 +153,13 @@ class ApiList {
 
   // Maximum SDK versions allowed to access ApiList of given Value.
   static constexpr SdkVersion kMaxSdkVersions[] {
-    /* whitelist */ SdkVersion::kMax,
-    /* greylist */ SdkVersion::kMax,
-    /* blacklist */ SdkVersion::kMin,
-    /* greylist-max-o */ SdkVersion::kO_MR1,
-    /* greylist-max-p */ SdkVersion::kP,
-    /* greylist-max-q */ SdkVersion::kQ,
+    /* sdk */ SdkVersion::kMax,
+    /* unsupported */ SdkVersion::kMax,
+    /* blocklist */ SdkVersion::kMin,
+    /* max-target-o */ SdkVersion::kO_MR1,
+    /* max-target-p */ SdkVersion::kP,
+    /* max-target-q */ SdkVersion::kQ,
+    /* max-target-r */ SdkVersion::kR,
   };
 
   explicit ApiList(Value val, uint32_t domain_apis = 0u)
@@ -169,9 +176,11 @@ class ApiList {
     // Treat all ones as invalid value
     if (value == helper::ToUint(Value::kInvalid)) {
       return Value::kInvalid;
+    } else if (value > helper::ToUint(Value::kMax)) {
+      // For future unknown flag values, return unsupported.
+      return Value::kUnsupported;
     } else {
       DCHECK_GE(value, helper::ToUint(Value::kMin));
-      DCHECK_LE(value, helper::ToUint(Value::kMax));
       return static_cast<Value>(value);
     }
   }
@@ -188,12 +197,13 @@ class ApiList {
   }
 
   // Helpers for conveniently constructing ApiList instances.
-  static ApiList Whitelist() { return ApiList(Value::kWhitelist); }
-  static ApiList Greylist() { return ApiList(Value::kGreylist); }
-  static ApiList Blacklist() { return ApiList(Value::kBlacklist); }
-  static ApiList GreylistMaxO() { return ApiList(Value::kGreylistMaxO); }
-  static ApiList GreylistMaxP() { return ApiList(Value::kGreylistMaxP); }
-  static ApiList GreylistMaxQ() { return ApiList(Value::kGreylistMaxQ); }
+  static ApiList Sdk() { return ApiList(Value::kSdk); }
+  static ApiList Unsupported() { return ApiList(Value::kUnsupported); }
+  static ApiList Blocked() { return ApiList(Value::kBlocked); }
+  static ApiList MaxTargetO() { return ApiList(Value::kMaxTargetO); }
+  static ApiList MaxTargetP() { return ApiList(Value::kMaxTargetP); }
+  static ApiList MaxTargetQ() { return ApiList(Value::kMaxTargetQ); }
+  static ApiList MaxTargetR() { return ApiList(Value::kMaxTargetR); }
   static ApiList CorePlatformApi() { return ApiList(DomainApi::kCorePlatformApi); }
   static ApiList TestApi() { return ApiList(DomainApi::kTestApi); }
 
@@ -211,6 +221,10 @@ class ApiList {
       if (str == kDomainApiNames[i]) {
         return ApiList(helper::GetEnumAt<DomainApi>(i));
       }
+    }
+    if (str == kFutureValueName) {
+      static_assert(helper::ToUint(Value::kMax) + 1 < helper::ToUint(Value::kInvalid));
+      return ApiList(helper::ToUint(Value::kMax) + 1);
     }
     return ApiList();
   }
@@ -240,9 +254,26 @@ class ApiList {
     return true;
   }
 
+  // Clamp a max-target-* up to the given maxSdk; if the given api list is higher than
+  // maxSdk, return unsupported instead.
+  static std::string CoerceAtMost(const std::string& name, const std::string& maxSdk) {
+    const auto apiListToClamp = FromName(name);
+    // If the api list is a domain instead, return it unmodified.
+    if (!apiListToClamp.IsValid()) {
+      return name;
+    }
+    const auto maxApiList = FromName(maxSdk);
+    CHECK(maxApiList.IsValid()) << "invalid api list name " << maxSdk;
+    if (apiListToClamp > maxApiList) {
+      return kValueNames[Unsupported().GetIntValue()];
+    }
+    return name;
+  }
+
   bool operator==(const ApiList& other) const { return dex_flags_ == other.dex_flags_; }
   bool operator!=(const ApiList& other) const { return !(*this == other); }
   bool operator<(const ApiList& other) const { return dex_flags_ < other.dex_flags_; }
+  bool operator>(const ApiList& other) const { return dex_flags_ > other.dex_flags_; }
 
   // Returns true if combining this ApiList with `other` will succeed.
   bool CanCombineWith(const ApiList& other) const {
@@ -290,9 +321,9 @@ class ApiList {
   // Returns true when no ApiList is specified and no domain_api flags either.
   bool IsEmpty() const { return (GetValue() == Value::kInvalid) && (GetDomainApis() == 0); }
 
-  // Returns true if the ApiList is on blacklist.
-  bool IsBlacklisted() const {
-    return GetValue() == Value::kBlacklist;
+  // Returns true if the ApiList is on blocklist.
+  bool IsBlocked() const {
+    return GetValue() == Value::kBlocked;
   }
 
   // Returns true if the ApiList is a test API.

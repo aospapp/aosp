@@ -32,17 +32,17 @@
     <PreferenceCategory
         android:key="cec"
         android:title="@string/inputs_header_cec">
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="hdmi_control"
             android:persistent="true"
             android:title="@string/inputs_hdmi_control"
             android:summary="@string/inputs_hdmi_control_desc" />
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="device_auto_off"
             android:persistent="true"
             android:title="@string/inputs_device_auto_off"
             android:summary="@string/inputs_device_auto_off_desc" />
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="tv_auto_on"
             android:persistent="true"
             android:title="@string/inputs_tv_auto_on"

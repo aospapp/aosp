@@ -34,6 +34,7 @@ import androidx.fragment.app.FragmentActivity;
 import com.android.car.settings.R;
 import com.android.car.settings.common.ConfirmationDialogFragment;
 import com.android.car.settings.common.Logger;
+import com.android.settingslib.core.lifecycle.HideNonSystemOverlayMixin;
 
 /**
  * Code drop from {@link com.android.settings.wifi.RequestToggleWiFiActivity}.
@@ -100,8 +101,9 @@ public class WifiRequestToggleActivity extends FragmentActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getLifecycle().addObserver(new HideNonSystemOverlayMixin(this));
 
-        mCarWifiManager = new CarWifiManager(getApplicationContext());
+        mCarWifiManager = new CarWifiManager(getApplicationContext(), getLifecycle());
 
         setResult(Activity.RESULT_CANCELED);
 

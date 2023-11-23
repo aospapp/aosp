@@ -12,12 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// soong_zip is a utility used during the build to create a zip archive by pulling the entries from
+// various sources:
+//  * explicitly specified files
+//  * files whose paths are read from a file
+//  * directories traversed recursively
+// It can optionally change the recorded path of an entry.
+
 package main
 
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -25,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 
+	"android/soong/response"
 	"android/soong/zip"
 )
 
@@ -59,6 +66,15 @@ func (listFiles) String() string { return `""` }
 
 func (listFiles) Set(s string) error {
 	fileArgsBuilder.List(s)
+	return nil
+}
+
+type rspFiles struct{}
+
+func (rspFiles) String() string { return `""` }
+
+func (rspFiles) Set(s string) error {
+	fileArgsBuilder.RspFile(s)
 	return nil
 }
 
@@ -109,12 +125,18 @@ func main() {
 	var expandedArgs []string
 	for _, arg := range os.Args {
 		if strings.HasPrefix(arg, "@") {
-			bytes, err := ioutil.ReadFile(strings.TrimPrefix(arg, "@"))
+			f, err := os.Open(strings.TrimPrefix(arg, "@"))
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err.Error())
 				os.Exit(1)
 			}
-			respArgs := zip.ReadRespFile(bytes)
+
+			respArgs, err := response.ReadRspFile(f)
+			f.Close()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err.Error())
+				os.Exit(1)
+			}
 			expandedArgs = append(expandedArgs, respArgs...)
 		} else {
 			expandedArgs = append(expandedArgs, arg)
@@ -143,7 +165,8 @@ func main() {
 	traceFile := flags.String("trace", "", "write trace to file")
 
 	flags.Var(&rootPrefix{}, "P", "path prefix within the zip at which to place files")
-	flags.Var(&listFiles{}, "l", "file containing list of .class files")
+	flags.Var(&listFiles{}, "l", "file containing list of files to zip")
+	flags.Var(&rspFiles{}, "r", "file containing list of files to zip with Ninja rsp file escaping")
 	flags.Var(&dir{}, "D", "directory to include in zip")
 	flags.Var(&file{}, "f", "file to include in zip")
 	flags.Var(&nonDeflatedFiles, "s", "file path to be stored within the zip without compression")

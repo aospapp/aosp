@@ -437,28 +437,6 @@ public class SignatureTest extends TestCaseWithRules {
         }
     }
 
-    // NetscapeCertRequest looks up Signature algorithms by OID from
-    // BC but BC version 1.47 had registration bugs and MD5withRSA was
-    // overlooked.  http://b/7453821
-    public void testGetInstanceFromOID() throws Exception {
-        if (StandardNames.IS_RI) {
-            return;
-        }
-        assertBouncyCastleSignatureFromOID("1.2.840.113549.1.1.4");  // MD5withRSA
-        assertBouncyCastleSignatureFromOID("1.2.840.113549.1.1.5");  // SHA1withRSA
-        assertBouncyCastleSignatureFromOID("1.3.14.3.2.29");         // SHA1withRSA
-        assertBouncyCastleSignatureFromOID("1.2.840.113549.1.1.11"); // SHA256withRSA
-        assertBouncyCastleSignatureFromOID("1.2.840.113549.1.1.12"); // SHA384withRSA
-        assertBouncyCastleSignatureFromOID("1.2.840.113549.1.1.13"); // SHA512withRSA
-        assertBouncyCastleSignatureFromOID("1.2.840.10040.4.3");     // SHA1withDSA
-    }
-
-    private void assertBouncyCastleSignatureFromOID(String oid) throws Exception {
-        Signature signature = Signature.getInstance(oid, "BC");
-        assertNotNull(oid, signature);
-        assertEquals(oid, signature.getAlgorithm());
-    }
-
     /**
      * When an instance of a Signature is obtained, it's actually wrapped in an
      * implementation that makes sure the correct SPI is selected and then calls

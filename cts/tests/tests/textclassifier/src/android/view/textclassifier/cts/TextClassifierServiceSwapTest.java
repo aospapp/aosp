@@ -19,6 +19,8 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assume.assumeTrue;
+
 import android.app.Instrumentation;
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -32,7 +34,9 @@ import android.view.textclassifier.TextClassificationManager;
 import android.view.textclassifier.TextClassificationSessionId;
 import android.view.textclassifier.TextClassifier;
 import android.view.textclassifier.TextLanguage;
+import android.view.textclassifier.TextSelection;
 
+import androidx.core.os.BuildCompat;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.runner.AndroidJUnit4;
@@ -120,7 +124,7 @@ public class TextClassifierServiceSwapTest {
     }
 
     @Test
-    public void testResourceIconsRewrittenToContentUriIcons() throws Exception {
+    public void testResourceIconsRewrittenToContentUriIcons_classifyText() throws Exception {
         final TextClassifier tc = ApplicationProvider.getApplicationContext()
                 .getSystemService(TextClassificationManager.class)
                 .getTextClassifier();
@@ -129,6 +133,24 @@ public class TextClassifierServiceSwapTest {
 
         final TextClassification classification = tc.classifyText(request);
         final Icon icon = classification.getActions().get(0).getIcon();
+        assertThat(icon.getType()).isEqualTo(Icon.TYPE_URI);
+        assertThat(icon.getUri()).isEqualTo(CtsTextClassifierService.ICON_URI.getUri());
+    }
+
+    @Test
+    public void testResourceIconsRewrittenToContentUriIcons_suggestSelection() throws Exception {
+        assumeTrue(BuildCompat.isAtLeastS());
+
+        final TextClassifier tc = ApplicationProvider.getApplicationContext()
+                .getSystemService(TextClassificationManager.class)
+                .getTextClassifier();
+        final TextSelection.Request request =
+                new TextSelection.Request.Builder("0800 123 4567", 0, 12)
+                        .setIncludeTextClassification(true)
+                        .build();
+
+        final TextSelection textSelection = tc.suggestSelection(request);
+        final Icon icon = textSelection.getTextClassification().getActions().get(0).getIcon();
         assertThat(icon.getType()).isEqualTo(Icon.TYPE_URI);
         assertThat(icon.getUri()).isEqualTo(CtsTextClassifierService.ICON_URI.getUri());
     }
@@ -154,8 +176,12 @@ public class TextClassifierServiceSwapTest {
                 "android.textclassifier.cts2.QueryTextClassifierServiceActivity"));
         outsideActivity.setFlags(FLAG_ACTIVITY_NEW_TASK);
         final Intent broadcastIntent = new Intent(actionQueryActivityFinish);
-        final PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, broadcastIntent,
-                0);
+        final PendingIntent pendingIntent =
+                PendingIntent.getBroadcast(
+                    context,
+                    0,
+                    broadcastIntent,
+                    PendingIntent.FLAG_IMMUTABLE);
         outsideActivity.putExtra("finishBroadcast", pendingIntent);
         context.startActivity(outsideActivity);
 

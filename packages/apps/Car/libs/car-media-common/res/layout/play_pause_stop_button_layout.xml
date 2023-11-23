@@ -20,11 +20,9 @@
     android:focusable="false"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">
-    <!-- The invisible foreground ripple stops Android O from drawing an ugly square over the play button -->
     <com.android.car.media.common.PlayPauseStopImageView
         android:id="@+id/play_pause_stop"
         style="@style/Widget.ActionButton"
-        android:foreground="@drawable/fab_empty_foreground"
         android:src="@drawable/ic_play_pause_stop_animated"/>
     <ProgressBar
         android:id="@+id/circular_progress_bar"

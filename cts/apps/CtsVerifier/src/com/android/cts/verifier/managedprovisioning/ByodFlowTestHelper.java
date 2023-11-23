@@ -4,8 +4,13 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.UserManager;
+import android.util.Log;
 
 public class ByodFlowTestHelper {
+
+    private static final String TAG = ByodFlowTestHelper.class.getSimpleName();
+
     private Context mContext;
     private PackageManager mPackageManager;
 
@@ -39,7 +44,12 @@ public class ByodFlowTestHelper {
      * Clean up things. This has to be working even it is called multiple times.
      */
     public void tearDown() {
-        Utils.requestDeleteManagedProfile(mContext);
+        if (!UserManager.isHeadlessSystemUserMode()) {
+            // TODO(b/177554984): figure out how to use it on headless system user mode - right now,
+            // it removes the current user on teardown
+            Log.i(TAG, "tearDown(): not deleting managed profile on headless system user mode");
+            Utils.requestDeleteManagedProfile(mContext);
+        }
         setComponentsEnabledState(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT);
     }
 
@@ -63,7 +73,8 @@ public class ByodFlowTestHelper {
                 CommandReceiverActivity.class.getName(),
                 SetSupportMessageActivity.class.getName(),
                 KeyChainTestActivity.class.getName(),
-                WorkProfileWidgetActivity.class.getName()
+                WorkProfileWidgetActivity.class.getName(),
+                LocationCheckerActivity.WORK_ACTIVITY_ALIAS
         };
         for (String component : components) {
             mPackageManager.setComponentEnabledSetting(new ComponentName(mContext, component),

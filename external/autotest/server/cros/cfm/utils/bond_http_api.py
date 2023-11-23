@@ -13,7 +13,7 @@ from oauth2client.client import GoogleCredentials
 
 
 _BOND_API_URL = 'https://bond-pa.sandbox.googleapis.com'
-_HANGOUTS_API_URL = 'https://www.googleapis.com/hangouts/v1_meetings_preprod/'
+_HANGOUTS_API_URL = 'https://preprod-hangouts.googleapis.com/hangouts/v1_meetings/'
 _MEETINGS_API_URL = 'https://preprod-meetings.sandbox.googleapis.com'
 
 _TOKEN_TTL_SECONDS = 3500
@@ -99,7 +99,14 @@ class BondHttpApi(object):
     return json_response['success']
 
 
-  def AddBotsRequest(self, meeting_code, number_of_bots, ttl_secs):
+  def AddBotsRequest(self,
+                     meeting_code,
+                     number_of_bots,
+                     ttl_secs,
+                     send_fps=24,
+                     requested_layout='BRADY_BUNCH_4_4',
+                     allow_vp9=True,
+                     send_vp9=True):
     """Adds a number of bots to a meeting for a specified period of time.
 
     Args:
@@ -107,22 +114,34 @@ class BondHttpApi(object):
       number_of_bots: The number of bots to add to the meeting.
       ttl_secs: The time in seconds that the bots will stay in the meeting after
         joining.
+      send_fps: FPS the bots are sending.
+      requested_layout: The type of layout the bots are requesting. Valid values
+        include CLASSIC, BRADY_BUNCH_4_4 and BRADY_BUNCH_7_7.
+      allow_vp9: If set, VP9 will be negotiated for devices where support is
+        available. This only activates receiving VP9. See `send_vp9` for sending
+      send_vp9: If set, VP9 will be preferred over VP8 when sending.
+        `allow_vp9` must also be set for VP9 to be negotiated.
 
     Returns:
       List of IDs of the started bots.
     """
+    # Not allowing VP9, but sending it is an invalid combination.
+    assert(allow_vp9 or not send_vp9)
     token = self._GetAccessToken()
 
     request_data = {
       'num_of_bots': number_of_bots,
       'ttl_secs': ttl_secs,
-      'video_call_options': {},
+      'video_call_options': {
+        'allow_vp9': allow_vp9,
+        'send_vp9': send_vp9,
+      },
       'media_options': {
         'audio_file_path': "audio_32bit_48k_stereo.raw",
         'mute_audio': True,
-        'video_file_path': "jamboard_two_far_video_hd.1280_720.yuv",
-        'video_fps': 30,
-        'mute_video': False
+        'video_fps': send_fps,
+        'mute_video': False,
+        'requested_layout': requested_layout,
       },
       'backend_options': {
         'mesi_apiary_url': _HANGOUTS_API_URL,
@@ -131,7 +150,8 @@ class BondHttpApi(object):
       'conference': {
         'conference_code': meeting_code
       },
-      'bot_type': "MEETINGS"
+      'bot_type': "MEETINGS",
+      'use_random_video_file_for_playback': True
     }
 
     resp = requests.post(

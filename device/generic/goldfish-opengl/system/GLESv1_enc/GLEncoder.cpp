@@ -989,7 +989,7 @@ void GLEncoder::s_glFramebufferTexture2DOES(void*self,
     GLEncoder* ctx = (GLEncoder*)self;
     GLClientState* state = ctx->m_state;
 
-    state->attachTextureObject(target, attachment, texture);
+    state->attachTextureObject(target, attachment, texture, level, 0);
 
     ctx->m_glFramebufferTexture2DOES_enc(self, target, attachment, textarget, texture, level);
 }
@@ -1000,7 +1000,7 @@ void GLEncoder::s_glFramebufferTexture2DMultisampleIMG(void* self,
     GLEncoder* ctx = (GLEncoder*)self;
     GLClientState* state = ctx->m_state;
 
-    state->attachTextureObject(target, attachment, texture);
+    state->attachTextureObject(target, attachment, texture, level, 0);
 
     ctx->m_glFramebufferTexture2DMultisampleIMG_enc(self, target, attachment, textarget, texture, level, samples);
 }

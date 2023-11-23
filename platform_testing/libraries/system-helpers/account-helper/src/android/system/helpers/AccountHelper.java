@@ -19,20 +19,18 @@ package android.system.helpers;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.content.Context;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
-import android.system.helpers.ActivityHelper;
-import android.system.helpers.DeviceHelper;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
+import androidx.test.InstrumentationRegistry;
+
 import junit.framework.Assert;
 
-/**
- * Implement common helper methods for account.
- */
+import java.util.regex.Pattern;
+
+/** Implement common helper methods for account. */
 public class AccountHelper {
     private static final String TAG = AccountHelper.class.getSimpleName();
     public static final int TIMEOUT = 1000;

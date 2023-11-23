@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"Ana ekran"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Kilit ekranı"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Ana Ekran ve Kilit Ekranı"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Duvar kağıdını ayarlayın"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Duvar kağıdı ayarla:"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Ana ekran"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Kilit ekranı"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Ana ekran ve kilit ekranı"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Ana ekran ve kilit ekranı"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Değişen Resimli Duvar Kağıdı"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Geçerli duvar kağıdını burada görüntülemek için <xliff:g id="APP_NAME">%1$s</xliff:g> uygulamasının cihazınızın depolama alanına erişmesi gerekiyor."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Geçerli duvar kağıdını burada görüntülemek için Wallpapers uygulamasının, cihazınızın depolama alanına erişmesi gerekiyor.\n\nBu ayarı değiştirmek için Wallpapers\'ın uygulama bilgisindeki İzinler alanına gidin."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Günlük duvar kağıdını yenile"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Günlük duvar kağıdı yenileniyor…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Günlük duvar kağıdı yenilenemedi. Lütfen ağ bağlantınızı kontrol edip tekrar deneyin."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Duvar kağıdı bilgi panelini daralt"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Duvar kağıdı bilgi panelini genişlet"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Cihazdaki duvar kağıtları"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"Cihazda"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Android duvar kağıdı"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Ortalayarak kırp"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"Genişlet"</string>
     <string name="preview" msgid="1774602101743861071">"Önizle"</string>
+    <string name="tab_info" msgid="818614080690111416">"Bilgi"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Özelleştir"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Ayarlar…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Sil"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Bu duvar kağıdı telefonunuzdan silinsin mi?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Geri"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Düzenle"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"İndir"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Duvar Kağıdı Slayt Gösterisi"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Uygula"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"Sayfa <xliff:g id="ID_1">%1$d</xliff:g>/<xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Sonraki"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Önceki"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Duvar kağıdı"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Duvar kağıdı ön izleme"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Koleksiyon mevcut değil"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Arayüz Önizlemesini Gizle"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Arayüz Önizlemesini Göster"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Duvar kağıdını değiştir"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Kilit ekranı duvar kağıdı önizlemesi"</string>
 </resources>

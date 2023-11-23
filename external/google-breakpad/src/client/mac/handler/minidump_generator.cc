@@ -133,25 +133,47 @@ void MinidumpGenerator::GatherSystemInformation() {
                                   vers_path,
                                   kCFURLPOSIXPathStyle,
                                   false);
-  CFDataRef data;
-  SInt32 error;
-  CFURLCreateDataAndPropertiesFromResource(NULL, sys_vers, &data, NULL, NULL,
-                                           &error);
-
+  CFReadStreamRef read_stream = CFReadStreamCreateWithFile(NULL, sys_vers);
+  CFRelease(sys_vers);
+  if (!read_stream) {
+    return;
+  }
+  if (!CFReadStreamOpen(read_stream)) {
+    CFRelease(read_stream);
+    return;
+  }
+  CFMutableDataRef data = NULL;
+  while (true) {
+    // Actual data file tests: Mac at 480 bytes and iOS at 413 bytes.
+    const CFIndex kMaxBufferLength = 1024;
+    UInt8 data_bytes[kMaxBufferLength];
+    CFIndex num_bytes_read =
+      CFReadStreamRead(read_stream, data_bytes, kMaxBufferLength);
+    if (num_bytes_read < 0) {
+      if (data) {
+        CFRelease(data);
+        data = NULL;
+      }
+      break;
+    } else if (num_bytes_read == 0) {
+      break;
+    } else if (!data) {
+      data = CFDataCreateMutable(NULL, 0);
+    }
+    CFDataAppendBytes(data, data_bytes, num_bytes_read);
+  }
+  CFReadStreamClose(read_stream);
+  CFRelease(read_stream);
   if (!data) {
-    CFRelease(sys_vers);
     return;
   }
-
-  CFDictionaryRef list = static_cast<CFDictionaryRef>
-    (CFPropertyListCreateFromXMLData(NULL, data, kCFPropertyListImmutable,
-                                     NULL));
+  CFDictionaryRef list =
+      static_cast<CFDictionaryRef>(CFPropertyListCreateWithData(
+          NULL, data, kCFPropertyListImmutable, NULL, NULL));
+  CFRelease(data);
   if (!list) {
-    CFRelease(sys_vers);
-    CFRelease(data);
     return;
   }
-
   CFStringRef build_version = static_cast<CFStringRef>
     (CFDictionaryGetValue(list, CFSTR("ProductBuildVersion")));
   CFStringRef product_version = static_cast<CFStringRef>
@@ -160,8 +182,6 @@ void MinidumpGenerator::GatherSystemInformation() {
   string product_str = ConvertToString(product_version);
 
   CFRelease(list);
-  CFRelease(sys_vers);
-  CFRelease(data);
 
   strlcpy(build_string_, build_str.c_str(), sizeof(build_string_));
 
@@ -525,7 +545,7 @@ bool
 MinidumpGenerator::WriteContextARM64(breakpad_thread_state_data_t state,
                                      MDLocationDescriptor *register_location)
 {
-  TypedMDRVA<MDRawContextARM64> context(&writer_);
+  TypedMDRVA<MDRawContextARM64_Old> context(&writer_);
   arm_thread_state64_t *machine_state =
       reinterpret_cast<arm_thread_state64_t *>(state);
 
@@ -533,11 +553,11 @@ MinidumpGenerator::WriteContextARM64(breakpad_thread_state_data_t state,
     return false;
 
   *register_location = context.location();
-  MDRawContextARM64 *context_ptr = context.get();
-  context_ptr->context_flags = MD_CONTEXT_ARM64_FULL;
+  MDRawContextARM64_Old *context_ptr = context.get();
+  context_ptr->context_flags = MD_CONTEXT_ARM64_FULL_OLD;
 
-#define AddGPR(a) context_ptr->iregs[a] = \
-    REGISTER_FROM_THREADSTATE(machine_state, x[a])
+#define AddGPR(a)                                                              \
+  context_ptr->iregs[a] = ARRAY_REGISTER_FROM_THREADSTATE(machine_state, x, a)
 
   context_ptr->iregs[29] = REGISTER_FROM_THREADSTATE(machine_state, fp);
   context_ptr->iregs[30] = REGISTER_FROM_THREADSTATE(machine_state, lr);
@@ -1171,7 +1191,7 @@ bool MinidumpGenerator::WriteSystemInfoStream(
 #endif
 #ifdef HAS_ARM64_SUPPORT
     case CPU_TYPE_ARM64:
-      info_ptr->processor_architecture = MD_CPU_ARCHITECTURE_ARM64;
+      info_ptr->processor_architecture = MD_CPU_ARCHITECTURE_ARM64_OLD;
       break;
 #endif
 #ifdef HAS_PPC_SUPPORT

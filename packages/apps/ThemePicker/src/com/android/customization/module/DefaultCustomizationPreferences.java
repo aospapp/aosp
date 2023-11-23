@@ -46,4 +46,14 @@ public class DefaultCustomizationPreferences extends DefaultWallpaperPreferences
     public void setTabVisited(String id) {
         mSharedPrefs.edit().putBoolean(KEY_VISITED_PREFIX + id, true).apply();
     }
+
+    @Override
+    public boolean getThemedIconEnabled() {
+        return mSharedPrefs.getBoolean(KEY_THEMED_ICON_ENABLED, false);
+    }
+
+    @Override
+    public void setThemedIconEnabled(boolean enabled) {
+        mSharedPrefs.edit().putBoolean(KEY_THEMED_ICON_ENABLED, enabled).apply();
+    }
 }

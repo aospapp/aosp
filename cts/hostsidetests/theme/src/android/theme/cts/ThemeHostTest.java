@@ -16,6 +16,8 @@
 
 package android.theme.cts;
 
+import android.platform.test.annotations.RequiresDevice;
+
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.device.CollectingOutputReceiver;
@@ -64,9 +66,6 @@ public class ThemeHostTest extends DeviceTestCase {
 
     private static final String CLEAR_GENERATED_CMD = "rm -rf %s/*.png";
     private static final String STOP_CMD = String.format("am force-stop %s", APP_PACKAGE_NAME);
-    private static final String HARDWARE_TYPE_CMD = "dumpsys | grep android.hardware.type";
-    private static final String DENSITY_PROP_DEVICE = "ro.sf.lcd_density";
-    private static final String DENSITY_PROP_EMULATOR = "qemu.sf.lcd_density";
 
     /** Shell command used to obtain current device density. */
     private static final String WM_DENSITY = "wm density";
@@ -125,7 +124,7 @@ public class ThemeHostTest extends DeviceTestCase {
                 fail("Failed to unzip assets: " + zipFile);
             }
         } else {
-            if (checkHardwareTypeSkipTest(mDevice.executeShellCommand(HARDWARE_TYPE_CMD).trim())) {
+            if (checkHardwareTypeSkipTest()) {
                 Log.logAndDisplay(LogLevel.WARN, LOG_TAG,
                         "Could not obtain resources for skipped themes test: " + zipFile);
             } else {
@@ -149,11 +148,10 @@ public class ThemeHostTest extends DeviceTestCase {
     }
 
     public void testThemes() throws Exception {
-        if (checkHardwareTypeSkipTest(mDevice.executeShellCommand(HARDWARE_TYPE_CMD).trim())) {
+        if (checkHardwareTypeSkipTest()) {
             Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Skipped themes test for watch / TV / automotive");
             return;
         }
-
         if (mReferences.isEmpty()) {
             Log.logAndDisplay(LogLevel.INFO, LOG_TAG,
                     "Skipped themes test due to missing reference images");
@@ -294,19 +292,26 @@ public class ThemeHostTest extends DeviceTestCase {
     }
 
     private static int getDensityForDevice(ITestDevice device) throws DeviceNotAvailableException {
-        final String densityProp;
-        if (isEmulator(device)) {
-            densityProp = DENSITY_PROP_EMULATOR;
-        } else {
-            densityProp = DENSITY_PROP_DEVICE;
+        final String output = device.executeShellCommand(WM_DENSITY);
+        final Pattern p = Pattern.compile("Physical density: (\\d+)");
+        final Matcher m = p.matcher(output);
+        if (m.find()) {
+            return Integer.parseInt(m.group(1));
         }
-        return Integer.parseInt(device.getProperty(densityProp));
+        throw new RuntimeException("Failed to detect device density");
     }
 
-    private static boolean checkHardwareTypeSkipTest(String hardwareTypeString) {
-        return hardwareTypeString.contains("android.hardware.type.watch")
-                || hardwareTypeString.contains("android.hardware.type.television")
-                || hardwareTypeString.contains("android.hardware.type.automotive");
+    private boolean checkHardwareTypeSkipTest() {
+        try {
+         if( mDevice.hasFeature("feature:android.hardware.type.watch")
+                 || mDevice.hasFeature("feature:android.hardware.type.television")
+                 || mDevice.hasFeature("feature:android.hardware.type.automotive")) {
+             return true;
+         }
+        } catch (DeviceNotAvailableException ex) {
+             return false;
+        }
+        return false;
     }
 
     private static boolean isEmulator(ITestDevice device) {

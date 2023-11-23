@@ -41,8 +41,8 @@ END
   ASSERT_EQ(1U, pipelines.size());
 
   const auto* pipeline = pipelines[0].get();
-  EXPECT_EQ(250, pipeline->GetFramebufferWidth());
-  EXPECT_EQ(250, pipeline->GetFramebufferHeight());
+  EXPECT_EQ(250u, pipeline->GetFramebufferWidth());
+  EXPECT_EQ(250u, pipeline->GetFramebufferHeight());
 }
 
 TEST_F(AmberScriptParserTest, FramebufferSize) {
@@ -67,8 +67,8 @@ END
   ASSERT_EQ(1U, pipelines.size());
 
   const auto* pipeline = pipelines[0].get();
-  EXPECT_EQ(256, pipeline->GetFramebufferWidth());
-  EXPECT_EQ(246, pipeline->GetFramebufferHeight());
+  EXPECT_EQ(256u, pipeline->GetFramebufferWidth());
+  EXPECT_EQ(246u, pipeline->GetFramebufferHeight());
 }
 
 TEST_F(AmberScriptParserTest, FramebufferSizeMissingSize) {
@@ -128,7 +128,8 @@ END
   Result r = parser.Parse(in);
   ASSERT_FALSE(r.IsSuccess());
 
-  EXPECT_EQ("9: extra parameters after FRAMEBUFFER_SIZE command", r.Error());
+  EXPECT_EQ("9: extra parameters after FRAMEBUFFER_SIZE command: INVALID",
+            r.Error());
 }
 
 TEST_F(AmberScriptParserTest, FramebufferInvalidWidth) {

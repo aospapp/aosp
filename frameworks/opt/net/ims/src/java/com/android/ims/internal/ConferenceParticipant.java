@@ -119,7 +119,6 @@ public class ConferenceParticipant implements Parcelable {
                                     callDirection);
                     participant.setConnectTime(connectTime);
                     participant.setConnectElapsedTime(elapsedRealTime);
-                    participant.setCallDirection(callDirection);
                     return participant;
                 }
 

@@ -4929,13 +4929,11 @@ void ihevce_rc_store_retrive_update_info(
             &ps_rc_ctxt->as_rc_lap_out[i4_enc_frm_id_rc],
             ps_rc_lap_out,
             sizeof(rc_lap_out_params_t));
-        //BUG_FIX related to the releasing of the next lap out buffers and retrieving of the data for the delayed update.
 
         {
-            rc_lap_out_params_t *ps_rc_lap_out_next_encode;
-            ps_rc_lap_out_next_encode =
-                (rc_lap_out_params_t *)((rc_lap_out_params_t *)ps_rc_lap_out)
-                    ->ps_rc_lap_out_next_encode;
+            rc_lap_out_params_t *ps_rc_lap_out_curr = (rc_lap_out_params_t *)ps_rc_lap_out;
+            rc_lap_out_params_t *ps_rc_lap_out_next_encode =
+                (rc_lap_out_params_t *)ps_rc_lap_out_curr->ps_rc_lap_out_next_encode;
 
             if(NULL != ps_rc_lap_out_next_encode)
             {
@@ -4946,12 +4944,20 @@ void ihevce_rc_store_retrive_update_info(
             }
             else
             {
-                ps_rc_ctxt->as_rc_lap_out[i4_enc_frm_id_rc].i4_next_pic_type = -1;
+                if(ps_rc_ctxt->u4_intra_frame_interval <= 1 ||
+                   (ps_rc_lap_out_curr->i4_rc_display_num &&
+                    (ps_rc_lap_out_curr->i4_rc_display_num %
+                     (ps_rc_ctxt->u4_intra_frame_interval - 1)) == 0))
+                {
+                    ps_rc_ctxt->as_rc_lap_out[i4_enc_frm_id_rc].i4_next_pic_type = IV_I_FRAME;
+                }
+                else
+                {
+                    ps_rc_ctxt->as_rc_lap_out[i4_enc_frm_id_rc].i4_next_pic_type = -1;
+                }
                 ps_rc_ctxt->as_rc_lap_out[i4_enc_frm_id_rc].i4_next_scene_type = -1;
             }
-
-            ps_rc_ctxt->as_rc_lap_out[i4_enc_frm_id_rc].ps_rc_lap_out_next_encode =
-                NULL;  //RC_BUG_FIX
+            ps_rc_ctxt->as_rc_lap_out[i4_enc_frm_id_rc].ps_rc_lap_out_next_encode = NULL;
         }
     }
     else if(2 == i4_store_retrive)

@@ -16,13 +16,16 @@
 
 package android.app.stubs;
 
+import static org.junit.Assert.assertTrue;
+
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
+import android.content.res.Resources;
+import android.view.DisplayInfo;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.Assert.assertTrue;
 
 public class OrientationTestUtils {
     /**
@@ -49,17 +52,41 @@ public class OrientationTestUtils {
     }
 
     /**
-     * Returns original orientation and toggled orientation.
-     * @param activity whose orienetaion will be returned
-     * @return The first element is original orientation adn the second element is toggled
+     * Returns display original orientation and toggled orientation.
+     * @param activity context to get the display info
+     * @return The first element is original orientation and the second element is toggled
      *     orientation.
      */
     private static int[] getOrientations(final Activity activity) {
-        final int originalOrientation = activity.getResources().getConfiguration().orientation;
+        // Check the display dimension to get the current device orientation.
+        final DisplayInfo displayInfo = new DisplayInfo();
+        activity.getDisplay().getDisplayInfo(displayInfo);
+        final int originalOrientation = displayInfo.logicalWidth > displayInfo.logicalHeight
+                ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
         final int newOrientation = originalOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+                ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
         return new int[] { originalOrientation, newOrientation };
+    }
+
+    /** Checks whether the display dimension is close to square. */
+    public static boolean isCloseToSquareDisplay(final Activity activity) {
+        final Resources resources = activity.getResources();
+        final float closeToSquareMaxAspectRatio;
+        try {
+            closeToSquareMaxAspectRatio = resources.getFloat(resources.getIdentifier(
+                    "config_closeToSquareDisplayMaxAspectRatio", "dimen", "android"));
+        } catch (Resources.NotFoundException e) {
+            // Assume device is not close to square.
+            return false;
+        }
+        final DisplayInfo displayInfo = new DisplayInfo();
+        activity.getDisplay().getDisplayInfo(displayInfo);
+        final int w = displayInfo.logicalWidth;
+        final int h = displayInfo.logicalHeight;
+        final float aspectRatio = Math.max(w, h) / (float) Math.min(w, h);
+        return aspectRatio <= closeToSquareMaxAspectRatio;
     }
 
     /**

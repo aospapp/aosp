@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2019 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.impl;
 
 import java.text.AttributedCharacterIterator;
@@ -9,7 +9,9 @@ import java.text.FieldPosition;
 import java.text.Format.Field;
 
 import android.icu.text.ConstrainedFieldPosition;
+import android.icu.text.ListFormatter;
 import android.icu.text.NumberFormat;
+import android.icu.text.UFormat;
 import android.icu.text.UnicodeSet;
 
 /**
@@ -26,6 +28,34 @@ import android.icu.text.UnicodeSet;
  */
 public class FormattedValueStringBuilderImpl {
 
+    /**
+     * Placeholder field used for calculating spans.
+     * Does not currently support nested fields beyond one level.
+     * @hide Only a subset of ICU is exposed in Android
+     */
+    public static class SpanFieldPlaceholder {
+        public UFormat.SpanField spanField;
+        public Field normalField;
+        public Object value;
+    }
+
+    /**
+     * Finds the index at which a span field begins.
+     *
+     * @param value The value of the span field to search for.
+     * @return The index, or -1 if not found.
+     */
+    public static int findSpan(FormattedStringBuilder self, Object value) {
+        for (int i = self.zero; i < self.zero + self.length; i++) {
+            if (!(self.fields[i] instanceof SpanFieldPlaceholder)) {
+                continue;
+            }
+            if (((SpanFieldPlaceholder) self.fields[i]).value.equals(value)) {
+                return i - self.zero;
+            }
+        }
+        return -1;
+    }
 
     public static boolean nextFieldPosition(FormattedStringBuilder self, FieldPosition fp) {
         java.text.Format.Field rawField = fp.getFieldAttribute();
@@ -80,7 +110,11 @@ public class FormattedValueStringBuilderImpl {
         AttributedString as = new AttributedString(self.toString());
         while (nextPosition(self, cfpos, numericField)) {
             // Backwards compatibility: field value = field
-            as.addAttribute(cfpos.getField(), cfpos.getField(), cfpos.getStart(), cfpos.getLimit());
+            Object value = cfpos.getFieldValue();
+            if (value == null) {
+                value = cfpos.getField();
+            }
+            as.addAttribute(cfpos.getField(), value, cfpos.getStart(), cfpos.getLimit());
         }
         return as.getIterator();
     }
@@ -104,15 +138,21 @@ public class FormattedValueStringBuilderImpl {
      */
     public static boolean nextPosition(FormattedStringBuilder self, ConstrainedFieldPosition cfpos, Field numericField) {
         int fieldStart = -1;
-        Field currField = null;
+        Object currField = null;
         for (int i = self.zero + cfpos.getLimit(); i <= self.zero + self.length; i++) {
-            Field _field = (i < self.zero + self.length) ? self.fields[i] : NullField.END;
+            Object _field = (i < self.zero + self.length) ? self.fields[i] : NullField.END;
             // Case 1: currently scanning a field.
             if (currField != null) {
                 if (currField != _field) {
                     int end = i - self.zero;
+                    // Handle span fields; don't trim them
+                    if (currField instanceof SpanFieldPlaceholder) {
+                        boolean handleResult = handleSpan(currField, cfpos, fieldStart, end);
+                        assert handleResult;
+                        return true;
+                    }
                     // Grouping separators can be whitespace; don't throw them out!
-                    if (currField != NumberFormat.Field.GROUPING_SEPARATOR) {
+                    if (isTrimmable(currField)) {
                         end = trimBack(self, end);
                     }
                     if (end <= fieldStart) {
@@ -123,10 +163,10 @@ public class FormattedValueStringBuilderImpl {
                         continue;
                     }
                     int start = fieldStart;
-                    if (currField != NumberFormat.Field.GROUPING_SEPARATOR) {
+                    if (isTrimmable(currField)) {
                         start = trimFront(self, start);
                     }
-                    cfpos.setState(currField, null, start, end);
+                    cfpos.setState((Field) currField, null, start, end);
                     return true;
                 }
                 continue;
@@ -156,6 +196,15 @@ public class FormattedValueStringBuilderImpl {
                 cfpos.setState(numericField, null, j - self.zero + 1, i - self.zero);
                 return true;
             }
+            // Special case: emit normalField if we are pointing at the end of spanField.
+            if (i > self.zero
+                    && self.fields[i-1] instanceof SpanFieldPlaceholder) {
+                int j = i - 1;
+                for (; j >= self.zero && self.fields[j] == self.fields[i-1]; j--) {}
+                if (handleSpan(self.fields[i-1], cfpos, j - self.zero + 1, i - self.zero)) {
+                    return true;
+                }
+            }
             // Special case: skip over INTEGER; will be coalesced later.
             if (_field == NumberFormat.Field.INTEGER) {
                 _field = null;
@@ -165,22 +214,42 @@ public class FormattedValueStringBuilderImpl {
                 continue;
             }
             // Case 3: check for field starting at this position
-            if (cfpos.matchesField(_field, null)) {
+            // Case 3a: SpanField placeholder
+            if (_field instanceof SpanFieldPlaceholder) {
+                SpanFieldPlaceholder ph = (SpanFieldPlaceholder) _field;
+                if (cfpos.matchesField(ph.normalField, null) || cfpos.matchesField(ph.spanField, ph.value)) {
+                    fieldStart = i - self.zero;
+                    currField = _field;
+                }
+            }
+            // Case 3b: No SpanField
+            else if (cfpos.matchesField((Field) _field, null)) {
                 fieldStart = i - self.zero;
                 currField = _field;
             }
         }
 
         assert currField == null;
+        // Always set the position to the end so that we don't revisit previous sections
+        cfpos.setState(
+            cfpos.getField(),
+            cfpos.getFieldValue(),
+            self.length,
+            self.length);
         return false;
     }
 
-    private static boolean isIntOrGroup(Field field) {
+    private static boolean isIntOrGroup(Object field) {
         return field == NumberFormat.Field.INTEGER || field == NumberFormat.Field.GROUPING_SEPARATOR;
     }
 
-    private static boolean isNumericField(Field field) {
+    private static boolean isNumericField(Object field) {
         return field == null || NumberFormat.Field.class.isAssignableFrom(field.getClass());
+    }
+
+    private static boolean isTrimmable(Object field) {
+        return field != NumberFormat.Field.GROUPING_SEPARATOR
+                && !(field instanceof ListFormatter.Field);
     }
 
     private static int trimBack(FormattedStringBuilder self, int limit) {
@@ -191,5 +260,20 @@ public class FormattedValueStringBuilderImpl {
     private static int trimFront(FormattedStringBuilder self, int start) {
         return StaticUnicodeSets.get(StaticUnicodeSets.Key.DEFAULT_IGNORABLES)
                 .span(self, start, UnicodeSet.SpanCondition.CONTAINED);
+    }
+
+    private static boolean handleSpan(Object field, ConstrainedFieldPosition cfpos, int start, int limit) {
+        SpanFieldPlaceholder ph = (SpanFieldPlaceholder) field;
+        if (cfpos.matchesField(ph.spanField, ph.value)
+                && cfpos.getLimit() < limit) {
+            cfpos.setState(ph.spanField, ph.value, start, limit);
+            return true;
+        }
+        if (cfpos.matchesField(ph.normalField, null)
+                && (cfpos.getLimit() < limit || cfpos.getField() != ph.normalField)) {
+            cfpos.setState(ph.normalField, null, start, limit);
+            return true;
+        }
+        return false;
     }
 }

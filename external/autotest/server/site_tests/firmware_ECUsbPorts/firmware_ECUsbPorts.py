@@ -21,9 +21,6 @@ class firmware_ECUsbPorts(FirmwareTest):
     # Delay between turning off and on USB ports
     REBOOT_DELAY = 6
 
-    # Timeout range for waiting system to shutdown
-    SHUTDOWN_TIMEOUT = 10
-
     # USB charge modes, copied from ec/include/usb_charge.h
     USB_CHARGE_MODE_DISABLED       = 0
     USB_CHARGE_MODE_SDP2           = 1
@@ -65,81 +62,51 @@ class firmware_ECUsbPorts(FirmwareTest):
         port_enable_param = (self.USB_CHARGE_MODE_SDP2
             if self._smart_usb_charge else self.USB_CHARGE_MODE_ENABLED)
         ports_on_cmd = for_all_ports_cmd % (self._port_count, port_enable_param)
-        cmd = ("(sleep %d; %s; sleep %d; %s)&" %
-                (self.RPC_DELAY, ports_off_cmd,
-                 self.REBOOT_DELAY,
-                 ports_on_cmd))
-        self.faft_client.system.run_shell_command(cmd)
+        cmd = ("sleep %d; %s; sleep %d; %s" %
+               (self.RPC_DELAY, ports_off_cmd, self.REBOOT_DELAY,
+                ports_on_cmd))
+        block = False
+        self.faft_client.system.run_shell_command(cmd, block)
         self.faft_client.disconnect()
 
-    def __get_usb_enable_name(self, idx):
-      """Returns the USB enable signal name for a given index"""
-      if hasattr(self.faft_config, 'custom_usb_enable_names'):
-        if idx >= len(self.faft_config.custom_usb_enable_names):
-          raise error.TestFail('No USB enable for index %d' % idx)
-        return self.faft_config.custom_usb_enable_names[idx]
-      else:
-        return "USB%d_ENABLE" % (idx + 1)
+    def __check_usb_enabled(self, idx):
+        """Returns True if USB-A enable signal is high for a given index"""
+        is_ioex = False
+        gpio_name = 'USB%d_ENABLE' % (idx + 1)
+        if self.faft_config.custom_usb_enable_pins:
+            if idx >= len(self.faft_config.custom_usb_enable_pins):
+                raise error.TestFail('No USB enable for index %d' % idx)
+            is_ioex = self.faft_config.custom_usb_enable_pins[idx].get(
+                    'ioex', False)
+            gpio_name = self.faft_config.custom_usb_enable_pins[idx]['name']
+        _, val = self.ec.send_command_get_output(
+                '%sget %s' % (('gpio', 'ioex')[is_ioex], gpio_name),
+                ['([01])[^\n\r]*\s%s' % gpio_name])[0]
+        return val == '1'
 
     def get_port_count(self):
         """Get the number of USB ports."""
-        cnt = 0
-        limit = 10
-        while limit > 0:
+        for cnt in xrange(10):
             try:
-              gpio_name = self.__get_usb_enable_name(cnt)
-              self.ec.send_command_get_output(
-                      "gpioget %s" % gpio_name,
-                      ["[01].\s*%s" % gpio_name])
-              cnt = cnt + 1
-              limit = limit - 1
+                self.__check_usb_enabled(cnt)
             except error.TestFail:
                 logging.info("Found %d USB ports", cnt)
                 return cnt
-
         # Limit reached. Probably something went wrong.
         raise error.TestFail("Unexpected error while trying to determine " +
                              "number of USB ports")
 
 
-    def wait_port_disabled(self, port_count, timeout):
-        """
-        Wait for all USB ports to be disabled.
-
-        Args:
-          @param port_count: Number of USB ports.
-          @param timeout: Timeout range.
-        """
-        logging.info('Waiting for %d USB ports to be disabled.', port_count)
-        while timeout > 0:
-            try:
-                timeout = timeout - 1
-                for idx in xrange(0, port_count):
-                    gpio_name = self.__get_usb_enable_name(idx)
-                    self.ec.send_command_get_output(
-                            "gpioget %s" % gpio_name,
-                            ["0.\s*%s" % gpio_name])
-                return True
-            except error.TestFail:
-                # USB ports not disabled. Retry.
-                pass
-        return False
-
-
     def check_power_off_mode(self):
         """Shutdown the system and check USB ports are disabled."""
-        self._failed = False
-        self.faft_client.system.run_shell_command("shutdown -P now")
-        self.switcher.wait_for_client_offline()
-        if not self.wait_port_disabled(self._port_count, self.SHUTDOWN_TIMEOUT):
-            logging.info("Fails to wait for USB port disabled")
-            self._failed = True
+        self.run_shutdown_cmd()
+        self.wait_for('shutdown', 'Checking that all USB-A ports are disabled')
+        # Check that all USB-A ports are disabled
+        for idx in xrange(self._port_count):
+            if self.__check_usb_enabled(idx):
+                raise error.TestFail(
+                        'Not all USB-A ports are disabled after shutdown')
         self.servo.power_short_press()
-
-
-    def check_failure(self):
-        """Returns true if failure has been encountered."""
-        return not self._failed
 
 
     def run_once(self):
@@ -154,6 +121,14 @@ class firmware_ECUsbPorts(FirmwareTest):
 
         if self.servo.main_device_is_ccd():
             logging.info("Using CCD, ignore checking USB port connection.")
+        elif (self.servo.has_control('servo_v4_type') and
+              self.servo.get('servo_v4_type') == 'type-c'):
+            logging.info("Using type-c servo, ignore checking USB port connection.")
+        elif (self.servo.has_control('servo_v4_type') and
+              self.servo.get('servo_v4_type') != 'type-c'):
+            # When only one USB-A port control is available, turning off the
+            # USB-A port disconnects the network connection from the DUT.
+            raise error.TestNAError("Only one USB-A port control; servo v4 type-C required")
         else:
             logging.info("Turn off all USB ports and then turn them on again.")
             self.switcher.mode_aware_reboot(
@@ -161,6 +136,3 @@ class firmware_ECUsbPorts(FirmwareTest):
 
         logging.info("Check USB ports are disabled when powered off.")
         self.switcher.mode_aware_reboot('custom', self.check_power_off_mode)
-
-        logging.info("Check if failure occurred.")
-        self.check_state(self.check_failure)

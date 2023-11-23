@@ -42,5 +42,9 @@ echo "FLASH-ALL-AOSP: Flash super/dynamic image"
 fastboot flash super "${ANDROID_PRODUCT_OUT}"/super.img
 echo "FLASH-ALL-AOSP: Flash userdata image"
 fastboot flash userdata "${ANDROID_PRODUCT_OUT}"/userdata.img
+echo "FLASH-ALL-AOSP: Flash vendor_boot image"
+fastboot flash vendor_boot "${ANDROID_PRODUCT_OUT}"/vendor_boot.img
+echo "FLASH-ALL-AOSP: Formatting metadata"
+fastboot format:ext4 metadata
 
 fastboot reboot

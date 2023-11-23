@@ -22,19 +22,18 @@
  * A customized version of the FlatBuffers implementation header file targeted
  * for use within CHRE. This file differs from the mainline FlatBuffers release
  * via the introduction of the feature flag FLATBUFFERS_CHRE. When defined,
- * standard library features not used in CHRE are removed or remapped to their
- * CHRE-specific alternatives. This includes removing support for strings,
- * replacing std::vector with chre::DynamicVector, use of CHRE_ASSERT, removal
- * of uses of std::function, etc.
+ * standard library features not used in CHRE are removed. This includes
+ * removing most support for strings and std::vector, removal of std::function,
+ * etc.
+ *
+ * Any user of this header, including CHRE, must make use of a custom Allocator
+ * class when using the FlatBufferBuilder. This ensures that alloc / free
+ * functions specific to the platform are used as new / delete are not
+ * supported, but are used by the DefaultAllocator. Additionally,
+ * FLATBUFFERS_ASSERT must be defined to be the assert function that flatbuffers
+ * should use and FLATBUFFERS_ASSERT_INCLUDE must be the include path to the
+ * file that defines that assert function.
  */
-
-#ifdef FLATBUFFERS_CHRE
-#include "chre/util/container_support.h"
-#include "chre/util/dynamic_vector.h"
-
-// Before the flatbuffers/base.h include where it's used
-#define FLATBUFFERS_ASSERT CHRE_ASSERT
-#endif
 
 #include "flatbuffers/base.h"
 
@@ -250,9 +249,7 @@ struct VectorReverseIterator : public std::reverse_iterator<Iterator> {
   }
 };
 
-#ifndef FLATBUFFERS_CHRE
 struct String;
-#endif
 
 // This is used as a helper type for accessing vectors.
 // Vector::data() assumes the vector elements start after the length field.
@@ -567,7 +564,6 @@ template<typename T, uint16_t length> class Array<Offset<T>, length> {
   uint8_t data_[1];
 };
 
-#ifndef FLATBUFFERS_CHRE
 // Lexicographically compare two strings (possibly containing nulls), and
 // return true if the first is less than the second.
 static inline bool StringLessThan(const char *a_data, uoffset_t a_size,
@@ -578,7 +574,9 @@ static inline bool StringLessThan(const char *a_data, uoffset_t a_size,
 
 struct String : public Vector<char> {
   const char *c_str() const { return reinterpret_cast<const char *>(Data()); }
+  #ifndef FLATBUFFERS_CHRE
   std::string str() const { return std::string(c_str(), size()); }
+  #endif  // !FLATBUFFERS_CHRE
 
   // clang-format off
   #ifdef FLATBUFFERS_HAS_STRING_VIEW
@@ -593,18 +591,19 @@ struct String : public Vector<char> {
   }
 };
 
+#ifndef FLATBUFFERS_CHRE
 // Convenience function to get std::string from a String returning an empty
 // string on null pointer.
 static inline std::string GetString(const String *str) {
   return str ? str->str() : "";
 }
+#endif  // !FLATBUFFERS_CHRE
 
 // Convenience function to get char* from a String returning an empty string on
 // null pointer.
 static inline const char *GetCstring(const String *str) {
   return str ? str->c_str() : "";
 }
-#endif  // !FLATBUFFERS_CHRE
 
 // Allocator interface. This is flatbuffers-specific and meant only for
 // `vector_downward` usage.
@@ -648,51 +647,73 @@ class Allocator {
   }
 };
 
+#ifndef FLATBUFFERS_CHRE
 // DefaultAllocator uses new/delete to allocate memory regions
 class DefaultAllocator : public Allocator {
  public:
   uint8_t *allocate(size_t size) FLATBUFFERS_OVERRIDE {
-    #ifndef FLATBUFFERS_CHRE
-      return new uint8_t[size];
-    #else
-      return static_cast<uint8_t *>(chre::memoryAlloc(size));
-    #endif
+    return new uint8_t[size];
   }
 
   void deallocate(uint8_t *p, size_t) FLATBUFFERS_OVERRIDE {
-    #ifndef FLATBUFFERS_CHRE
-      delete[] p;
-    #else
-      return chre::memoryFree(p);
-    #endif
+    delete[] p;
   }
 
-  static void dealloc(void *p, size_t) { delete[] static_cast<uint8_t *>(p); }
+  static void dealloc(void *p, size_t) {
+    delete[] static_cast<uint8_t *>(p);
+  }
 };
+#endif
 
 // These functions allow for a null allocator to mean use the default allocator,
 // as used by DetachedBuffer and vector_downward below.
 // This is to avoid having a statically or dynamically allocated default
 // allocator, or having to move it between the classes that may own it.
 inline uint8_t *Allocate(Allocator *allocator, size_t size) {
-  return allocator ? allocator->allocate(size)
-                   : DefaultAllocator().allocate(size);
+  #ifndef FLATBUFFERS_CHRE
+    return allocator ? allocator->allocate(size)
+                     : DefaultAllocator().allocate(size);
+  #else
+    if (allocator)
+      return allocator->allocate(size);
+    else {
+      FLATBUFFERS_ASSERT(false);
+      return nullptr;
+    }
+  #endif // FLATBUFFERS_CHRE
 }
 
 inline void Deallocate(Allocator *allocator, uint8_t *p, size_t size) {
-  if (allocator)
-    allocator->deallocate(p, size);
-  else
-    DefaultAllocator().deallocate(p, size);
+  #ifndef FLATBUFFERS_CHRE
+    if (allocator)
+      allocator->deallocate(p, size);
+    else
+      DefaultAllocator().deallocate(p, size);
+  #else
+    if (allocator)
+      allocator->deallocate(p, size);
+    else
+      FLATBUFFERS_ASSERT(false);
+  #endif // FLATBUFFERS_CHRE
 }
 
 inline uint8_t *ReallocateDownward(Allocator *allocator, uint8_t *old_p,
                                    size_t old_size, size_t new_size,
                                    size_t in_use_back, size_t in_use_front) {
-  return allocator ? allocator->reallocate_downward(old_p, old_size, new_size,
-                                                    in_use_back, in_use_front)
-                   : DefaultAllocator().reallocate_downward(
-                         old_p, old_size, new_size, in_use_back, in_use_front);
+  #ifndef FLATBUFFERS_CHRE
+    return allocator ? allocator->reallocate_downward(old_p, old_size, new_size,
+                                                      in_use_back, in_use_front)
+                     : DefaultAllocator().reallocate_downward(
+                        old_p, old_size, new_size, in_use_back, in_use_front);
+  #else
+    if (allocator)
+      return allocator->reallocate_downward(old_p, old_size, new_size,
+                                            in_use_back, in_use_front);
+    else {
+      FLATBUFFERS_ASSERT(false);
+      return nullptr;
+    }
+  #endif // FLATBUFFERS_CHRE
 }
 
 // DetachedBuffer is a finished flatbuffer memory region, detached from its
@@ -1494,7 +1515,6 @@ class FlatBufferBuilder {
   }
   /// @endcond
 
-  #ifndef FLATBUFFERS_CHRE
   /// @brief Store a string in the buffer, which can contain any binary data.
   /// @param[in] str A const char pointer to the data to be stored as a string.
   /// @param[in] len The number of bytes that should be stored from `str`.
@@ -1522,6 +1542,7 @@ class FlatBufferBuilder {
     return CreateString(str, strlen(str));
   }
 
+  #ifndef FLATBUFFERS_CHRE
   /// @brief Store a string in the buffer, which can contain any binary data.
   /// @param[in] str A const reference to a std::string to store in the buffer.
   /// @return Returns the offset in the buffer where the string starts.
@@ -1703,17 +1724,6 @@ class FlatBufferBuilder {
     // std::vector use by FlatBuffers is not supported in CHRE.
     FLATBUFFERS_ASSERT(false);
     return 0;
-  }
-
-  /// @brief Serialize a `chre::DynamicVector` into a FlatBuffer `vector`.
-  /// @tparam T The data type of the `chre::DynamicVector` elements.
-  /// @param v A const reference to the `chre::DynamicVector` to serialize into
-  /// the buffer as a `vector`.
-  /// @return Returns a typed `Offset` into the serialized data indicating
-  /// where the vector is stored.
-  template<typename T> Offset<Vector<T>> CreateVector(
-      const chre::DynamicVector<T> &v) {
-    return CreateVector(v.data(), v.size());
   }
   #endif  // FLATBUFFERS_CHRE
 
@@ -2289,7 +2299,6 @@ class Verifier FLATBUFFERS_FINAL_CLASS {
     return VerifyVector(reinterpret_cast<const Vector<T> *>(vec));
   }
 
-  #ifndef FLATBUFFERS_CHRE
   // Verify a pointer (may be NULL) to string.
   bool VerifyString(const String *str) const {
     size_t end;
@@ -2298,7 +2307,6 @@ class Verifier FLATBUFFERS_FINAL_CLASS {
                     Verify(end, 1) &&           // Must have terminator
                     Check(buf_[end] == '\0'));  // Terminating byte must be 0.
   }
-  #endif
 
   // Common code between vectors and strings.
   bool VerifyVectorOrString(const uint8_t *vec, size_t elem_size,

@@ -63,8 +63,7 @@
         <SeekBar
             android:id="@+id/seek_bar"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/seek_bar_background">
+            android:layout_height="wrap_content">
         </SeekBar>
         <RadialTimePickerView
             android:id="@+id/radial_time_picker"

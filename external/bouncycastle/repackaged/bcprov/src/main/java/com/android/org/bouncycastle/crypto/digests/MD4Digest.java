@@ -12,7 +12,6 @@ import com.android.org.bouncycastle.util.Memoable;
  * with legacy applications, it's not secure, don't use it for anything new!
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.CorePlatformApi
 public class MD4Digest
         extends GeneralDigest
 {
@@ -26,7 +25,6 @@ public class MD4Digest
     /**
      * Standard constructor
      */
-    @libcore.api.CorePlatformApi
     public MD4Digest()
     {
         reset();
@@ -102,7 +100,6 @@ public class MD4Digest
         out[outOff + 3] = (byte)(word >>> 24);
     }
 
-    @libcore.api.CorePlatformApi
     public int doFinal(
             byte[]  out,
             int     outOff)

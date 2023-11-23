@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike.crypto;
+package com.android.internal.net.ipsec.test.ike.crypto;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.net.IpSecAlgorithm;
-import android.net.ipsec.ike.SaProposal;
+import android.net.ipsec.test.ike.SaProposal;
 
 import com.android.internal.net.TestUtils;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.EncryptionTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.EncryptionTransform;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -61,14 +62,26 @@ public final class IkeNormalModeCipherTest {
 
     private static final String ENCR_KEY_FROM_INIT_TO_RESP = "5cbfd33f75796c0188c4a3a546aec4a1";
 
+    private static final String AES_CTR_IV = "C0543B59DA48D90B";
+    private static final String AES_CTR_ENCRYPT_DATA =
+            "5104A106168A72D9790D41EE8EDAD388EB2E1EFC46DA57C8FCE630DF9141BE28";
+    private static final String AES_CTR_UNENCRYPTED_DATA =
+            "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
+    private static final String AES_CTR_KEY = "7E24067817FAE0D743D6CE1F32539163006CB6DB";
+
     private static final int AES_BLOCK_SIZE = 16;
 
     private IkeNormalModeCipher mAesCbcCipher;
     private byte[] mAesCbcKey;
-
     private byte[] mIv;
     private byte[] mEncryptedPaddedData;
     private byte[] mUnencryptedPaddedData;
+
+    private IkeNormalModeCipher mAesCtrCipher;
+    private byte[] mAesCtrKey;
+    private byte[] mAesCtrIv;
+    private byte[] mAesCtrEncryptedData;
+    private byte[] mAesCtrUnencryptedData;
 
     @Before
     public void setUp() throws Exception {
@@ -79,12 +92,22 @@ public final class IkeNormalModeCipherTest {
                                         SaProposal.ENCRYPTION_ALGORITHM_AES_CBC,
                                         SaProposal.KEY_LEN_AES_128));
         mAesCbcKey = TestUtils.hexStringToByteArray(ENCR_KEY_FROM_INIT_TO_RESP);
-
         mIv = TestUtils.hexStringToByteArray(IKE_AUTH_INIT_REQUEST_IV);
         mEncryptedPaddedData =
                 TestUtils.hexStringToByteArray(IKE_AUTH_INIT_REQUEST_ENCRYPT_PADDED_DATA);
         mUnencryptedPaddedData =
                 TestUtils.hexStringToByteArray(IKE_AUTH_INIT_REQUEST_UNENCRYPTED_PADDED_DATA);
+
+        mAesCtrCipher =
+                (IkeNormalModeCipher)
+                        IkeCipher.create(
+                                new EncryptionTransform(
+                                        SaProposal.ENCRYPTION_ALGORITHM_AES_CTR,
+                                        SaProposal.KEY_LEN_AES_128));
+        mAesCtrKey = TestUtils.hexStringToByteArray(AES_CTR_KEY);
+        mAesCtrIv = TestUtils.hexStringToByteArray(AES_CTR_IV);
+        mAesCtrEncryptedData = TestUtils.hexStringToByteArray(AES_CTR_ENCRYPT_DATA);
+        mAesCtrUnencryptedData = TestUtils.hexStringToByteArray(AES_CTR_UNENCRYPTED_DATA);
     }
 
     @Test
@@ -100,16 +123,30 @@ public final class IkeNormalModeCipherTest {
     }
 
     @Test
-    public void testEncryptWithNormalCipher() throws Exception {
+    public void testEncryptWithAesCbc() throws Exception {
         byte[] calculatedData = mAesCbcCipher.encrypt(mUnencryptedPaddedData, mAesCbcKey, mIv);
 
         assertArrayEquals(mEncryptedPaddedData, calculatedData);
     }
 
     @Test
-    public void testDecryptWithNormalCipher() throws Exception {
+    public void testDecryptWithAesCbc() throws Exception {
         byte[] calculatedData = mAesCbcCipher.decrypt(mEncryptedPaddedData, mAesCbcKey, mIv);
         assertArrayEquals(mUnencryptedPaddedData, calculatedData);
+    }
+
+    @Test
+    public void testEncryptWithAesCtr() throws Exception {
+        byte[] calculatedData =
+                mAesCtrCipher.encrypt(mAesCtrUnencryptedData, mAesCtrKey, mAesCtrIv);
+
+        assertArrayEquals(mAesCtrEncryptedData, calculatedData);
+    }
+
+    @Test
+    public void testDecryptWithAesCtr() throws Exception {
+        byte[] calculatedData = mAesCtrCipher.decrypt(mAesCtrEncryptedData, mAesCtrKey, mAesCtrIv);
+        assertArrayEquals(mAesCtrUnencryptedData, calculatedData);
     }
 
     @Test
@@ -148,7 +185,7 @@ public final class IkeNormalModeCipherTest {
     }
 
     @Test
-    public void buildIpSecAlgorithmWithInvalidKey() throws Exception {
+    public void testBuildIpSecAlgorithmWithInvalidKey() throws Exception {
         byte[] encryptionKey = TestUtils.hexStringToByteArray(ENCR_KEY_FROM_INIT_TO_RESP + "00");
 
         try {
@@ -158,5 +195,28 @@ public final class IkeNormalModeCipherTest {
         } catch (IllegalArgumentException expected) {
 
         }
+    }
+
+    @Test
+    public void testGetIpSecAlgorithmName() throws Exception {
+        assertEquals(
+                IpSecAlgorithm.CRYPT_AES_CBC,
+                IkeCipher.getIpSecAlgorithmName(SaProposal.ENCRYPTION_ALGORITHM_AES_CBC));
+        assertEquals(
+                IpSecAlgorithm.CRYPT_AES_CTR,
+                IkeCipher.getIpSecAlgorithmName(SaProposal.ENCRYPTION_ALGORITHM_AES_CTR));
+        assertEquals(
+                IpSecAlgorithm.AUTH_CRYPT_AES_GCM,
+                IkeCipher.getIpSecAlgorithmName(SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_8));
+        assertEquals(
+                IpSecAlgorithm.AUTH_CRYPT_AES_GCM,
+                IkeCipher.getIpSecAlgorithmName(SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_12));
+        assertEquals(
+                IpSecAlgorithm.AUTH_CRYPT_AES_GCM,
+                IkeCipher.getIpSecAlgorithmName(SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_16));
+        assertEquals(
+                IpSecAlgorithm.AUTH_CRYPT_CHACHA20_POLY1305,
+                IkeCipher.getIpSecAlgorithmName(SaProposal.ENCRYPTION_ALGORITHM_CHACHA20_POLY1305));
+        assertNull(IkeCipher.getIpSecAlgorithmName(SaProposal.ENCRYPTION_ALGORITHM_3DES));
     }
 }

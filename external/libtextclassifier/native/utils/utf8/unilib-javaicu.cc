@@ -25,9 +25,8 @@
 #include "utils/base/logging.h"
 #include "utils/base/statusor.h"
 #include "utils/java/jni-base.h"
-#include "utils/java/string_utils.h"
+#include "utils/java/jni-helper.h"
 #include "utils/utf8/unicodetext.h"
-#include "utils/utf8/unilib-common.h"
 
 namespace libtextclassifier3 {
 
@@ -82,6 +81,20 @@ char32 UniLibBase::GetPairedBracket(char32 codepoint) const {
 // Implementations that call out to JVM. Behold the beauty.
 // -----------------------------------------------------------------------------
 
+StatusOr<int32> UniLibBase::Length(const UnicodeText& text) const {
+  TC3_ASSIGN_OR_RETURN(ScopedLocalRef<jstring> text_java,
+                       jni_cache_->ConvertToJavaString(text));
+
+  JNIEnv* jenv = jni_cache_->GetEnv();
+  TC3_ASSIGN_OR_RETURN(int utf16_length,
+                       JniHelper::CallIntMethod(jenv, text_java.get(),
+                                                jni_cache_->string_length));
+
+  return JniHelper::CallIntMethod(jenv, text_java.get(),
+                                  jni_cache_->string_code_point_count, 0,
+                                  utf16_length);
+}
+
 bool UniLibBase::ParseInt32(const UnicodeText& text, int32* result) const {
   return ParseInt(text, result);
 }
@@ -95,29 +108,23 @@ bool UniLibBase::ParseDouble(const UnicodeText& text, double* result) const {
     return false;
   }
 
-  JNIEnv* env = jni_cache_->GetEnv();
   auto it_dot = text.begin();
   for (; it_dot != text.end() && !IsDot(*it_dot); it_dot++) {
   }
 
-  int64 integer_part;
+  int32 integer_part;
   if (!ParseInt(UnicodeText::Substring(text.begin(), it_dot, /*do_copy=*/false),
                 &integer_part)) {
     return false;
   }
 
-  int64 fractional_part = 0;
+  int32 fractional_part = 0;
   if (it_dot != text.end()) {
-    std::string fractional_part_str =
-        UnicodeText::UTF8Substring(++it_dot, text.end());
-    TC3_ASSIGN_OR_RETURN_FALSE(
-        const ScopedLocalRef<jstring> fractional_text_java,
-        jni_cache_->ConvertToJavaString(fractional_part_str));
-    TC3_ASSIGN_OR_RETURN_FALSE(
-        fractional_part,
-        JniHelper::CallStaticIntMethod<int64>(
-            env, jni_cache_->integer_class.get(), jni_cache_->integer_parse_int,
-            fractional_text_java.get()));
+    if (!ParseInt(
+            UnicodeText::Substring(++it_dot, text.end(), /*do_copy=*/false),
+            &fractional_part)) {
+      return false;
+    }
   }
 
   double factional_part_double = fractional_part;
@@ -420,14 +427,14 @@ UnicodeText UniLibBase::RegexMatcher::Group(int* status) const {
       return UTF8ToUnicodeText("", /*do_copy=*/false);
     }
 
-    std::string result;
-    if (!JStringToUtf8String(jenv, status_or_java_result.ValueOrDie().get(),
-                             &result)) {
+    StatusOr<std::string> status_or_result =
+        JStringToUtf8String(jenv, status_or_java_result.ValueOrDie().get());
+    if (!status_or_result.ok()) {
       *status = kError;
       return UTF8ToUnicodeText("", /*do_copy=*/false);
     }
     *status = kNoError;
-    return UTF8ToUnicodeText(result, /*do_copy=*/true);
+    return UTF8ToUnicodeText(status_or_result.ValueOrDie(), /*do_copy=*/true);
   } else {
     *status = kError;
     return UTF8ToUnicodeText("", /*do_copy=*/false);
@@ -455,14 +462,14 @@ UnicodeText UniLibBase::RegexMatcher::Group(int group_idx, int* status) const {
       return UTF8ToUnicodeText("", /*do_copy=*/false);
     }
 
-    std::string result;
-    if (!JStringToUtf8String(jenv, status_or_java_result.ValueOrDie().get(),
-                             &result)) {
+    StatusOr<std::string> status_or_result =
+        JStringToUtf8String(jenv, status_or_java_result.ValueOrDie().get());
+    if (!status_or_result.ok()) {
       *status = kError;
       return UTF8ToUnicodeText("", /*do_copy=*/false);
     }
     *status = kNoError;
-    return UTF8ToUnicodeText(result, /*do_copy=*/true);
+    return UTF8ToUnicodeText(status_or_result.ValueOrDie(), /*do_copy=*/true);
   } else {
     *status = kError;
     return UTF8ToUnicodeText("", /*do_copy=*/false);

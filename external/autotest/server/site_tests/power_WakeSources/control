@@ -12,7 +12,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 ATTRIBUTES = "suite:power_build"
 
 DOC = """

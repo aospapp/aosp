@@ -11,6 +11,12 @@
 
 #include <cstdint>
 
+#if defined(ANGLE_PLATFORM_ANDROID) && __ANDROID_API__ >= 26
+#    define ANGLE_AHARDWARE_BUFFER_SUPPORT
+// NDK header file for access to Android Hardware Buffers
+#    include <android/hardware_buffer.h>
+#endif
+
 // Taken from cutils/native_handle.h:
 // https://android.googlesource.com/platform/system/core/+/master/libcutils/include/cutils/native_handle.h
 typedef struct native_handle
@@ -18,7 +24,19 @@ typedef struct native_handle
     int version; /* sizeof(native_handle_t) */
     int numFds;  /* number of file-descriptors at &data[0] */
     int numInts; /* number of ints at &data[numFds] */
+#if defined(__clang__)
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wzero-length-array"
+#elif defined(_MSC_VER)
+#    pragma warning(push)
+#    pragma warning(disable : 4200)
+#endif
     int data[0]; /* numFds + numInts ints */
+#if defined(__clang__)
+#    pragma clang diagnostic pop
+#elif defined(_MSC_VER)
+#    pragma warning(pop)
+#endif
 } native_handle_t;
 
 // Taken from nativebase/nativebase.h
@@ -66,6 +84,8 @@ typedef struct ANativeWindowBuffer
  * Buffer pixel formats.
  */
 enum {
+
+#ifndef ANGLE_AHARDWARE_BUFFER_SUPPORT
     /**
      * Corresponding formats:
      *   Vulkan: VK_FORMAT_R8G8B8A8_UNORM
@@ -95,10 +115,13 @@ enum {
      *   OpenGL ES: GL_RGB565
      */
     AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM             = 4,
+#endif  // ANGLE_AHARDWARE_BUFFER_SUPPORT
 
     AHARDWAREBUFFER_FORMAT_B8G8R8A8_UNORM           = 5,
     AHARDWAREBUFFER_FORMAT_B5G5R5A1_UNORM           = 6,
     AHARDWAREBUFFER_FORMAT_B4G4R4A4_UNORM           = 7,
+
+#ifndef ANGLE_AHARDWARE_BUFFER_SUPPORT
     /**
      * Corresponding formats:
      *   Vulkan: VK_FORMAT_R16G16B16A16_SFLOAT
@@ -168,6 +191,8 @@ enum {
      * cube-maps or multi-layered textures.
      */
     AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420             = 0x23,
+
+#endif  // ANGLE_AHARDWARE_BUFFER_SUPPORT
 };
 // clang-format on
 
@@ -194,34 +219,9 @@ T1 *offsetPointer(T2 *ptr, int bytes)
     return reinterpret_cast<T1 *>(reinterpret_cast<intptr_t>(ptr) + bytes);
 }
 
-}  // anonymous namespace
-
-namespace angle
+GLenum getPixelFormatInfo(int pixelFormat, bool *isYUV)
 {
-
-namespace android
-{
-
-ANativeWindowBuffer *ClientBufferToANativeWindowBuffer(EGLClientBuffer clientBuffer)
-{
-    return reinterpret_cast<ANativeWindowBuffer *>(clientBuffer);
-}
-
-void GetANativeWindowBufferProperties(const ANativeWindowBuffer *buffer,
-                                      int *width,
-                                      int *height,
-                                      int *depth,
-                                      int *pixelFormat)
-{
-    *width       = buffer->width;
-    *height      = buffer->height;
-    *depth       = static_cast<int>(buffer->layerCount);
-    *height      = buffer->height;
-    *pixelFormat = buffer->format;
-}
-
-GLenum NativePixelFormatToGLInternalFormat(int pixelFormat)
-{
+    *isYUV = false;
     switch (pixelFormat)
     {
         case AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM:
@@ -257,13 +257,96 @@ GLenum NativePixelFormatToGLInternalFormat(int pixelFormat)
         case AHARDWAREBUFFER_FORMAT_S8_UINT:
             return GL_STENCIL_INDEX8;
         case AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420:
+            *isYUV = true;
             return GL_RGB8;
         default:
             // Treat unknown formats as RGB. They are vendor-specific YUV formats that would sample
             // as RGB.
             WARN() << "Unknown pixelFormat: " << pixelFormat << ". Treating as RGB8";
+            *isYUV = true;
             return GL_RGB8;
     }
+}
+
+}  // anonymous namespace
+
+namespace angle
+{
+
+namespace android
+{
+
+ANativeWindowBuffer *ClientBufferToANativeWindowBuffer(EGLClientBuffer clientBuffer)
+{
+    return reinterpret_cast<ANativeWindowBuffer *>(clientBuffer);
+}
+
+uint64_t GetAHBUsage(int eglNativeBufferUsage)
+{
+    uint64_t ahbUsage = 0;
+#if defined(ANGLE_AHARDWARE_BUFFER_SUPPORT)
+    if (eglNativeBufferUsage & EGL_NATIVE_BUFFER_USAGE_PROTECTED_BIT_ANDROID)
+    {
+        ahbUsage |= AHARDWAREBUFFER_USAGE_PROTECTED_CONTENT;
+    }
+    if (eglNativeBufferUsage & EGL_NATIVE_BUFFER_USAGE_RENDERBUFFER_BIT_ANDROID)
+    {
+        ahbUsage |= AHARDWAREBUFFER_USAGE_GPU_FRAMEBUFFER;
+    }
+    if (eglNativeBufferUsage & EGL_NATIVE_BUFFER_USAGE_TEXTURE_BIT_ANDROID)
+    {
+        ahbUsage |= AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
+    }
+#endif  // ANGLE_AHARDWARE_BUFFER_SUPPORT
+    return ahbUsage;
+}
+
+EGLClientBuffer CreateEGLClientBufferFromAHardwareBuffer(int width,
+                                                         int height,
+                                                         int depth,
+                                                         int androidFormat,
+                                                         int usage)
+{
+#if defined(ANGLE_AHARDWARE_BUFFER_SUPPORT)
+
+    // The height and width are number of pixels of size format
+    AHardwareBuffer_Desc aHardwareBufferDescription = {};
+    aHardwareBufferDescription.width                = static_cast<uint32_t>(width);
+    aHardwareBufferDescription.height               = static_cast<uint32_t>(height);
+    aHardwareBufferDescription.layers               = static_cast<uint32_t>(depth);
+    aHardwareBufferDescription.format               = androidFormat;
+    aHardwareBufferDescription.usage                = GetAHBUsage(usage);
+
+    // Allocate memory from Android Hardware Buffer
+    AHardwareBuffer *aHardwareBuffer = nullptr;
+    int res = AHardwareBuffer_allocate(&aHardwareBufferDescription, &aHardwareBuffer);
+    if (res != 0)
+    {
+        return nullptr;
+    }
+
+    return AHardwareBufferToClientBuffer(aHardwareBuffer);
+#endif  // ANGLE_AHARDWARE_BUFFER_SUPPORT
+    return nullptr;
+}
+
+void GetANativeWindowBufferProperties(const ANativeWindowBuffer *buffer,
+                                      int *width,
+                                      int *height,
+                                      int *depth,
+                                      int *pixelFormat)
+{
+    *width       = buffer->width;
+    *height      = buffer->height;
+    *depth       = static_cast<int>(buffer->layerCount);
+    *height      = buffer->height;
+    *pixelFormat = buffer->format;
+}
+
+GLenum NativePixelFormatToGLInternalFormat(int pixelFormat)
+{
+    bool isYuv = false;
+    return getPixelFormatInfo(pixelFormat, &isYuv);
 }
 
 int GLInternalFormatToNativePixelFormat(GLenum internalFormat)
@@ -306,6 +389,13 @@ int GLInternalFormatToNativePixelFormat(GLenum internalFormat)
     }
 }
 
+bool NativePixelFormatIsYUV(int pixelFormat)
+{
+    bool isYuv = false;
+    getPixelFormatInfo(pixelFormat, &isYuv);
+    return isYuv;
+}
+
 AHardwareBuffer *ANativeWindowBufferToAHardwareBuffer(ANativeWindowBuffer *windowBuffer)
 {
     return offsetPointer<AHardwareBuffer>(windowBuffer,
@@ -318,5 +408,10 @@ EGLClientBuffer AHardwareBufferToClientBuffer(const AHardwareBuffer *hardwareBuf
                                           kAHardwareBufferToANativeWindowBufferOffset);
 }
 
+AHardwareBuffer *ClientBufferToAHardwareBuffer(EGLClientBuffer clientBuffer)
+{
+    return offsetPointer<AHardwareBuffer>(clientBuffer,
+                                          -kAHardwareBufferToANativeWindowBufferOffset);
+}
 }  // namespace android
 }  // namespace angle

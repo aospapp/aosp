@@ -12,6 +12,7 @@
 #include <base/files/scoped_file.h>
 #include <base/files/scoped_temp_dir.h>
 #include <base/macros.h>
+#include <base/stl_util.h>
 #include <base/strings/string_number_conversions.h>
 #include <base/strings/stringprintf.h>
 #include <gtest/gtest.h>
@@ -109,7 +110,7 @@ TEST_F(LibcontainerTargetTest, AddHookRedirectTest) {
   // Preserve stdout/stderr to get the output from the container.
   int stdio_fds[] = {STDOUT_FILENO, STDERR_FILENO};
   ASSERT_EQ(0, container_config_inherit_fds(config(), stdio_fds,
-                                            arraysize(stdio_fds)));
+                                            base::size(stdio_fds)));
 
   static const char* kPreChrootArgv[] = {
       "/bin/cat",
@@ -117,7 +118,7 @@ TEST_F(LibcontainerTargetTest, AddHookRedirectTest) {
   int stdin_fd;
   ASSERT_EQ(0, container_config_add_hook(
                    config(), MINIJAIL_HOOK_EVENT_PRE_CHROOT, kPreChrootArgv[0],
-                   kPreChrootArgv, arraysize(kPreChrootArgv), &stdin_fd,
+                   kPreChrootArgv, base::size(kPreChrootArgv), &stdin_fd,
                    nullptr, nullptr));
   EXPECT_EQ(1, write(stdin_fd, "1", 1));
   close(stdin_fd);
@@ -128,7 +129,7 @@ TEST_F(LibcontainerTargetTest, AddHookRedirectTest) {
       "2",
   };
   ASSERT_EQ(0, container_config_program_argv(config(), kProgramArgv,
-                                             arraysize(kProgramArgv)));
+                                             base::size(kProgramArgv)));
 
   std::string output;
   {
@@ -144,7 +145,7 @@ TEST_F(LibcontainerTargetTest, AddHookOrderTest) {
   // Preserve stdout/stderr to get the output from the container.
   int stdio_fds[] = {STDOUT_FILENO, STDERR_FILENO};
   ASSERT_EQ(0, container_config_inherit_fds(config(), stdio_fds,
-                                            arraysize(stdio_fds)));
+                                            base::size(stdio_fds)));
 
   static const char* kProgramArgv[] = {
       "/bin/echo",
@@ -152,7 +153,7 @@ TEST_F(LibcontainerTargetTest, AddHookOrderTest) {
       "3",
   };
   ASSERT_EQ(0, container_config_program_argv(config(), kProgramArgv,
-                                             arraysize(kProgramArgv)));
+                                             base::size(kProgramArgv)));
 
   // Hooks are run in the following order: pre-chroot, pre-dropcaps, pre-execve
   static const char* kPreExecveArgv[] = {
@@ -162,7 +163,7 @@ TEST_F(LibcontainerTargetTest, AddHookOrderTest) {
   };
   ASSERT_EQ(0, container_config_add_hook(
                    config(), MINIJAIL_HOOK_EVENT_PRE_EXECVE, kPreExecveArgv[0],
-                   kPreExecveArgv, arraysize(kPreExecveArgv), nullptr, nullptr,
+                   kPreExecveArgv, base::size(kPreExecveArgv), nullptr, nullptr,
                    nullptr));
 
   static const char* kPreChrootArgv[] = {
@@ -172,7 +173,7 @@ TEST_F(LibcontainerTargetTest, AddHookOrderTest) {
   };
   ASSERT_EQ(0, container_config_add_hook(
                    config(), MINIJAIL_HOOK_EVENT_PRE_CHROOT, kPreChrootArgv[0],
-                   kPreChrootArgv, arraysize(kPreChrootArgv), nullptr, nullptr,
+                   kPreChrootArgv, base::size(kPreChrootArgv), nullptr, nullptr,
                    nullptr));
 
   std::string output;
@@ -189,13 +190,13 @@ TEST_F(LibcontainerTargetTest, AddHookPidArgument) {
   // Preserve stdout/stderr to get the output from the container.
   int stdio_fds[] = {STDOUT_FILENO, STDERR_FILENO};
   ASSERT_EQ(0, container_config_inherit_fds(config(), stdio_fds,
-                                            arraysize(stdio_fds)));
+                                            base::size(stdio_fds)));
 
   static const char* kProgramArgv[] = {
       "/bin/true",
   };
   ASSERT_EQ(0, container_config_program_argv(config(), kProgramArgv,
-                                             arraysize(kProgramArgv)));
+                                             base::size(kProgramArgv)));
 
   static const char* kPreExecveArgv[] = {
       "/bin/echo",
@@ -204,7 +205,7 @@ TEST_F(LibcontainerTargetTest, AddHookPidArgument) {
   };
   ASSERT_EQ(0, container_config_add_hook(
                    config(), MINIJAIL_HOOK_EVENT_PRE_EXECVE, kPreExecveArgv[0],
-                   kPreExecveArgv, arraysize(kPreExecveArgv), nullptr, nullptr,
+                   kPreExecveArgv, base::size(kPreExecveArgv), nullptr, nullptr,
                    nullptr));
 
   std::string output;
@@ -216,7 +217,7 @@ TEST_F(LibcontainerTargetTest, AddHookPidArgument) {
     EXPECT_EQ(0, container_wait(container()));
     output = capture_stdout.GetContents();
   }
-  EXPECT_EQ(base::IntToString(pid), output);
+  EXPECT_EQ(base::NumberToString(pid), output);
 }
 
 }  // namespace libcontainer

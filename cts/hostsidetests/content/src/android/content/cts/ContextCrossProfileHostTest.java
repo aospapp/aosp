@@ -18,7 +18,6 @@ package android.content.cts;
 
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsNotLogged;
-import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.isStatsdEnabled;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
@@ -414,7 +413,6 @@ public class ContextCrossProfileHostTest extends BaseContextCrossProfileTest
     @Test
     public void testBindServiceAsUser_sameProfileGroup_reportsMetric()
             throws Exception {
-        assumeTrue(isStatsdEnabled(getDevice()));
         assumeTrue(supportsManagedUsers());
         int userInSameProfileGroup = createProfile(mParentUserId);
         getDevice().startUser(userInSameProfileGroup, /* waitFlag= */ true);
@@ -455,7 +453,6 @@ public class ContextCrossProfileHostTest extends BaseContextCrossProfileTest
     @Test
     public void testBindServiceAsUser_differentProfileGroup_doesNotReportMetric()
             throws Exception {
-        assumeTrue(isStatsdEnabled(getDevice()));
         int userInDifferentProfileGroup = createUser();
         getDevice().startUser(userInDifferentProfileGroup, /* waitFlag= */ true);
         mTestArgs.put("testUser", Integer.toString(userInDifferentProfileGroup));
@@ -492,8 +489,6 @@ public class ContextCrossProfileHostTest extends BaseContextCrossProfileTest
     @Test
     public void testBindServiceAsUser_sameUser_doesNotReportMetric()
             throws Exception {
-        assumeTrue(isStatsdEnabled(getDevice()));
-
         mTestArgs.put("testUser", Integer.toString(mParentUserId));
 
         assertMetricsNotLogged(getDevice(), () -> {

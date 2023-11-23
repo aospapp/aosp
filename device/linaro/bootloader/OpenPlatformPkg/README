@@ -1,5 +1,0 @@
-This repository holds support for UEFI ports for various platforms,
-until such a time as a complete solution for platform support in
-Tianocore EDK2 is available.
-
-The "upstream" for this project is https://git.linaro.org/uefi/OpenPlatformPkg.git

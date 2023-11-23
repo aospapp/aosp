@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsInstantAppTests",
     srcs: [ "src/**/*.kt" ],
@@ -30,8 +34,8 @@ android_test {
     ],
     test_suites: [
         "cts",
+        "general-tests",
         "vts",
-        "vts10",
         "device-tests",
     ],
 }

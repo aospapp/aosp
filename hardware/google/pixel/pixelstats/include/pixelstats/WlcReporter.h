@@ -17,42 +17,77 @@
 #ifndef HARDWARE_GOOGLE_PIXEL_PIXELSTATS_WLCREPORTER_H
 #define HARDWARE_GOOGLE_PIXEL_PIXELSTATS_WLCREPORTER_H
 
-#include <android/frameworks/stats/1.0/IStats.h>
-#include <hardware/google/pixel/pixelstats/pixelatoms.pb.h>
+#include <aidl/android/frameworks/stats/IStats.h>
+#include <utils/RefBase.h>
 
-using android::frameworks::stats::V1_0::IStats;
+#include <cstdint>
 
 namespace android {
 namespace hardware {
 namespace google {
 namespace pixel {
 
+using aidl::android::frameworks::stats::IStats;
+
 /**
  * A class to upload wireless metrics
  */
 class WlcReporter : public RefBase {
   public:
-    /* checkAndReport
-     * isWirelessChargingLast: last wireless charge state
-     *                             true, for wireless charging
-     * Return: current wireless charge state
-     */
-    bool checkAndReport(bool isWirelessChargingLast);
-    bool isWlcSupported();
+    void checkAndReport(const std::shared_ptr<IStats> &stats_client, const bool online,
+                        const char *ptmc_uevent);
+
+    WlcReporter(const char *ptmc_path);
 
   private:
-    bool isWlcOnline();
-    bool readFileToInt(const char *path, int *val);
+    struct WlcStatus {
+        bool is_charging;
+        bool check_charger_vendor_id;
+        bool check_charger_vendor_id_scheduled;
+        int check_vendor_id_attempts;
+        WlcStatus();
+    };
+    WlcStatus wlc_status_;
+    struct ReportRecord {
+        char const *name;
+        int64_t last_reported_time_in_sec_today;
+        int64_t last_reported_time_in_sec;
+        int count_today;
+        ReportRecord(char const *name_);
+    };
+    ReportRecord rec_wlc_vendor_{"wlc_vendor"};
+    ReportRecord rec_orientation_{"orientation"};
 
-    void doLog();
+    void checkVendorId(const std::shared_ptr<IStats> &stats_client, const char *ptmc_uevent);
+    void scheduleReportVendorId(const std::shared_ptr<IStats> &stats_client);
+    void reportOrientation(const std::shared_ptr<IStats> &stats_client);
+    void reportVendor(const std::shared_ptr<IStats> &stats_client, const int ptmcId);
+    bool reportVendorMayRetry(const std::shared_ptr<IStats> &stats_client, const char *ptmc_uevent);
     // Translate device orientation value from sensor Hal to atom enum value
     int translateDeviceOrientationToAtomValue(int orientation);
+    void reportInBackground(const std::shared_ptr<IStats> &stats_client, const char *ptmc_path);
+    /*
+     * Wait timer for make delay before read ptmc path, return false on error
+     * timerfd: fd create by timerfd_create, need create/close by caller
+     **/
+    bool ptmcWaitTimer(int timerfd);
+    /* For some case (ex if wireless charger was connect to a low power PTMC AC
+     * adapter), the wireless charger keep restaring (it might casuse will
+     * check and update data in a not reasonable rare).
+     * return: true, it has not hit upload rare limit
+     *         false, it has hit rate litmit, we should drop current
+     *                upload atom
+     **/
+    bool checkRateLimit(int64_t minSecond, int maxCount, ReportRecord *rec);
 
     // Proto messages are 1-indexed and VendorAtom field numbers start at 2, so
     // store everything in the values array at the index of the field number
     // -2.
     const int kVendorAtomOffset = 2;
-    int readPtmcId();
+    const int kMaxVendorIdAttempts = 5;
+    const char *kWirelessChargerPtmcPath;
+
+    int readPtmcId(const char *ptmc_str);
 };
 
 }  // namespace pixel

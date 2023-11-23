@@ -12,8 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_app {
     name: "KeyChain",
+    static_libs: [
+        "bouncycastle-unbundled",
+        "com.google.android.material_material",
+    ],
     srcs: ["src/**/*.java"],
     platform_apis: true,
     certificate: "platform",

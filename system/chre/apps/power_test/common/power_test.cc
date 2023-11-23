@@ -17,6 +17,7 @@
 #include <chre.h>
 #include <cinttypes>
 
+#include "chre/util/flatbuffers/helpers.h"
 #include "chre/util/nanoapp/callbacks.h"
 #include "chre/util/unique_ptr.h"
 #include "common.h"
@@ -29,7 +30,6 @@ namespace {
 #endif  // CHRE_NANOAPP_INTERNAL
 
 using chre::power_test::MessageType;
-using flatbuffers::FlatBufferBuilder;
 
 /**
  * Responds to a host request indicating whether the request was successfully
@@ -39,16 +39,16 @@ using flatbuffers::FlatBufferBuilder;
  * @param hostEndpoint the host endpoint that sent the request to the nanoapp
  */
 void sendResponseMessageToHost(bool success, uint16_t hostEndpoint) {
-  auto builder = chre::MakeUnique<FlatBufferBuilder>();
+  auto builder = chre::MakeUnique<chre::ChreFlatBufferBuilder>();
   if (builder.isNull()) {
     LOG_OOM();
   } else {
     builder->Finish(
         chre::power_test::CreateNanoappResponseMessage(*builder, success));
 
-    // CHRE's version of flatbuffers doesn't allow releasing the underlying
-    // buffer from the builder so copy it into a new buffer to be sent to the
-    // host.
+    // TODO: Modify this logic to remove the buffer copy now that the latest
+    // version of flatbuffers allows releasing the underlying buffer from the
+    // builder.
     size_t bufferCopySize = builder->GetSize();
     void *buffer = chreHeapAlloc(bufferCopySize);
     if (buffer == nullptr) {
@@ -96,7 +96,9 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
     case CHRE_EVENT_WIFI_SCAN_RESULT: {
       const struct chreWifiScanEvent *event =
           static_cast<const struct chreWifiScanEvent *>(eventData);
-      LOGD("Wifi scan received with %" PRIu8 " results", event->resultCount);
+      LOGD("Wifi scan received with %" PRIu8 " results, scanType %" PRIu8
+           ", radioChainPref %" PRIu8,
+           event->resultCount, event->scanType, event->radioChainPref);
       break;
     }
     case CHRE_EVENT_GNSS_ASYNC_RESULT: {
@@ -108,6 +110,9 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
     }
     case CHRE_EVENT_GNSS_LOCATION:
       LOGD("GNSS location received");
+      break;
+    case CHRE_EVENT_GNSS_DATA:
+      LOGD("GNSS measurement received");
       break;
     case CHRE_EVENT_WWAN_CELL_INFO_RESULT:
       LOGD("Cell info received");
@@ -137,7 +142,7 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
     default:
       // TODO: Make this log less as sensor events will spam the logcat if debug
       // logging is enabled.
-      LOGD("Received event type %" PRIu16, eventType);
+      LOGV("Received event type %" PRIu16, eventType);
   }
 }
 
@@ -152,6 +157,13 @@ void nanoappEnd() {
 
 #include "chre/platform/static_nanoapp_init.h"
 #include "chre/util/nanoapp/app_id.h"
+#include "chre/util/system/napp_permissions.h"
 
-CHRE_STATIC_NANOAPP_INIT(PowerTest, chre::kPowerTestAppId, 0);
+using chre::NanoappPermissions;
+
+CHRE_STATIC_NANOAPP_INIT(PowerTest, chre::kPowerTestAppId, 0,
+                         NanoappPermissions::CHRE_PERMS_AUDIO |
+                             NanoappPermissions::CHRE_PERMS_GNSS |
+                             NanoappPermissions::CHRE_PERMS_WIFI |
+                             NanoappPermissions::CHRE_PERMS_WWAN);
 #endif  // CHRE_NANOAPP_INTERNAL

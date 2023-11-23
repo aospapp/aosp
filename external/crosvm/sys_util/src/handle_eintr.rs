@@ -17,19 +17,13 @@ pub trait InterruptibleResult {
 
 impl<T> InterruptibleResult for crate::Result<T> {
     fn is_interrupted(&self) -> bool {
-        match self {
-            Err(e) if e.errno() == EINTR => true,
-            _ => false,
-        }
+        matches!(self, Err(e) if e.errno() == EINTR)
     }
 }
 
 impl<T> InterruptibleResult for io::Result<T> {
     fn is_interrupted(&self) -> bool {
-        match self {
-            Err(e) if e.kind() == io::ErrorKind::Interrupted => true,
-            _ => false,
-        }
+        matches!(self, Err(e) if e.kind() == io::ErrorKind::Interrupted)
     }
 }
 
@@ -178,8 +172,23 @@ macro_rules! handle_eintr_errno {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::errno::set_errno;
     use crate::Error as SysError;
+
+    // Sets errno to the given error code.
+    fn set_errno(e: i32) {
+        #[cfg(target_os = "android")]
+        unsafe fn errno_location() -> *mut libc::c_int {
+            libc::__errno()
+        }
+        #[cfg(target_os = "linux")]
+        unsafe fn errno_location() -> *mut libc::c_int {
+            libc::__errno_location()
+        }
+
+        unsafe {
+            *errno_location() = e;
+        }
+    }
 
     #[test]
     fn i32_eintr_rc() {

@@ -278,7 +278,7 @@ static int eap_tls_init_connection(struct eap_sm *sm,
 	}
 	if (res) {
 		wpa_printf(MSG_INFO, "TLS: Failed to set TLS connection "
-			   "parameters");
+			   "parameters, error code: %d", res);
 		tls_connection_deinit(data->ssl_ctx, data->conn);
 		data->conn = NULL;
 		return -1;
@@ -413,9 +413,9 @@ u8 * eap_peer_tls_derive_session_id(struct eap_sm *sm,
 	struct tls_random keys;
 	u8 *out;
 
-	if (eap_type == EAP_TYPE_TLS && data->tls_v13) {
+	if (data->tls_v13) {
 		u8 *id, *method_id;
-		const u8 context[] = { EAP_TYPE_TLS };
+		const u8 context[] = { eap_type };
 
 		/* Session-Id = <EAP-Type> || Method-Id
 		 * Method-Id = TLS-Exporter("EXPORTER_EAP_TLS_Method-Id",

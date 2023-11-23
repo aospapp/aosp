@@ -63,7 +63,6 @@ struct aub_file {
    /* Device state */
    struct gen_device_info devinfo;
    struct gen_spec *spec;
-   struct gen_disasm *disasm;
 };
 
 static void
@@ -126,12 +125,11 @@ handle_info(void *user_data, int pci_id, const char *app_name)
    file->pci_id = pci_id;
    snprintf(file->app_name, sizeof(app_name), "%s", app_name);
 
-   if (!gen_get_device_info(file->pci_id, &file->devinfo)) {
+   if (!gen_get_device_info_from_pci_id(file->pci_id, &file->devinfo)) {
       fprintf(stderr, "can't find device information: pci_id=0x%x\n", file->pci_id);
       exit(EXIT_FAILURE);
    }
    file->spec = gen_spec_load(&file->devinfo);
-   file->disasm = gen_disasm_create(&file->devinfo);
 }
 
 static void
@@ -380,7 +378,7 @@ new_shader_window(struct aub_mem *mem, uint64_t address, const char *desc)
    struct shader_window *window = xtzalloc(*window);
 
    snprintf(window->base.name, sizeof(window->base.name),
-            "%s (0x%lx)##%p", desc, address, window);
+            "%s (0x%" PRIx64 ")##%p", desc, address, window);
 
    list_inithead(&window->base.parent_link);
    window->base.position = ImVec2(-1, -1);
@@ -394,9 +392,9 @@ new_shader_window(struct aub_mem *mem, uint64_t address, const char *desc)
    if (shader_bo.map) {
       FILE *f = open_memstream(&window->shader, &window->shader_size);
       if (f) {
-         gen_disasm_disassemble(context.file->disasm,
-                                (const uint8_t *) shader_bo.map +
-                                (address - shader_bo.addr), 0, f);
+         gen_disassemble(&context.file->devinfo,
+                         (const uint8_t *) shader_bo.map +
+                         (address - shader_bo.addr), 0, f);
          fclose(f);
       }
    }
@@ -443,7 +441,7 @@ new_urb_window(struct aub_viewer_decode_ctx *decode_ctx, uint64_t address)
    struct urb_window *window = xtzalloc(*window);
 
    snprintf(window->base.name, sizeof(window->base.name),
-            "URB view (0x%lx)##%p", address, window);
+            "URB view (0x%" PRIx64 ")##%p", address, window);
 
    list_inithead(&window->base.parent_link);
    window->base.position = ImVec2(-1, -1);
@@ -495,7 +493,7 @@ display_edit_window(struct window *win)
                                   window->address);
       ImGui::EndChild();
    } else {
-      ImGui::Text("Memory view at 0x%lx not available", window->address);
+      ImGui::Text("Memory view at 0x%" PRIx64 " not available", window->address);
    }
 }
 
@@ -515,7 +513,7 @@ new_edit_window(struct aub_mem *mem, uint64_t address, uint32_t len)
    struct edit_window *window = xtzalloc(*window);
 
    snprintf(window->base.name, sizeof(window->base.name),
-            "Editing aub at 0x%lx##%p", address, window);
+            "Editing aub at 0x%" PRIx64 "##%p", address, window);
 
    list_inithead(&window->base.parent_link);
    window->base.position = ImVec2(-1, -1);
@@ -577,7 +575,7 @@ display_pml4_level(struct aub_mem *mem, uint64_t table_addr, uint64_t table_virt
          uint64_t entry_virt_addr = table_virt_addr + e * addr_increment;
          if (!available)
             continue;
-         ImGui::Text("Entry%03i - phys_addr=0x%lx - virt_addr=0x%lx",
+         ImGui::Text("Entry%03i - phys_addr=0x%" PRIx64 " - virt_addr=0x%" PRIx64,
                      e, table[e], entry_virt_addr);
       }
    } else {
@@ -587,7 +585,7 @@ display_pml4_level(struct aub_mem *mem, uint64_t table_addr, uint64_t table_virt
          if (available &&
              ImGui::TreeNodeEx(&table[e],
                                available ? ImGuiTreeNodeFlags_Framed : 0,
-                               "Entry%03i - phys_addr=0x%lx - virt_addr=0x%lx",
+                               "Entry%03i - phys_addr=0x%" PRIx64 " - virt_addr=0x%" PRIx64,
                                e, table[e], entry_virt_addr)) {
             display_pml4_level(mem, table[e] & ~0xffful, entry_virt_addr, level -1);
             ImGui::TreePop();
@@ -601,7 +599,7 @@ display_pml4_window(struct window *win)
 {
    struct pml4_window *window = (struct pml4_window *) win;
 
-   ImGui::Text("pml4: %lx", window->mem->pml4);
+   ImGui::Text("pml4: %" PRIx64, window->mem->pml4);
    ImGui::BeginChild(ImGui::GetID("##block"));
    display_pml4_level(window->mem, window->mem->pml4, 0, 4);
    ImGui::EndChild();
@@ -818,8 +816,8 @@ new_batch_window(int exec_idx)
    aub_viewer_decode_ctx_init(&window->decode_ctx,
                               &context.cfg,
                               &window->decode_cfg,
+                              &context.file->devinfo,
                               context.file->spec,
-                              context.file->disasm,
                               batch_get_bo,
                               NULL,
                               window);
@@ -1085,7 +1083,7 @@ display_windows(void)
          window->destroy(window);
    }
 
-   list_for_each_entry(struct window, window, &context.windows, link) {
+   list_for_each_entry_safe(struct window, window, &context.windows, link) {
       ImGui::SetNextWindowPos(window->position, ImGuiCond_FirstUseEver);
       ImGui::SetNextWindowSize(window->size, ImGuiCond_FirstUseEver);
       if (ImGui::Begin(window->name, &window->opened)) {

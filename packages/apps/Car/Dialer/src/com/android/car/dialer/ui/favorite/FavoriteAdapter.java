@@ -20,13 +20,17 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.dialer.R;
 import com.android.car.dialer.log.L;
+import com.android.car.dialer.ui.common.DialerUtils;
 import com.android.car.dialer.ui.common.OnItemClickedListener;
 import com.android.car.dialer.ui.common.entity.Header;
 import com.android.car.telephony.common.Contact;
+import com.android.car.ui.recyclerview.DelegatingContentLimitingAdapter;
 
 import java.util.Collections;
 import java.util.List;
@@ -34,11 +38,16 @@ import java.util.List;
 /**
  * Adapter class for binding favorite contacts.
  */
-public class FavoriteAdapter extends RecyclerView.Adapter<FavoriteContactViewHolder> {
+public class FavoriteAdapter extends RecyclerView.Adapter<FavoriteContactViewHolder> implements
+        DelegatingContentLimitingAdapter.ContentLimiting {
     private static final String TAG = "CD.FavoriteAdapter";
     static final int TYPE_CONTACT = 0;
     static final int TYPE_HEADER = 1;
     static final int TYPE_ADD_FAVORITE = 2;
+
+    private Integer mSortMethod;
+    private LinearLayoutManager mLayoutManager;
+    private int mLimitingAnchorIndex = 0;
 
     /**
      * Listener interface for when the add favorite button is clicked
@@ -61,6 +70,13 @@ public class FavoriteAdapter extends RecyclerView.Adapter<FavoriteContactViewHol
         L.d(TAG, "setFavoriteContacts %s", favoriteContacts);
         mFavoriteContacts = (favoriteContacts != null) ? favoriteContacts : Collections.emptyList();
         notifyDataSetChanged();
+    }
+
+    /**
+     * Sets the sorting method for the list.
+     */
+    public void setSortMethod(Integer sortMethod) {
+        mSortMethod = sortMethod;
     }
 
     @Override
@@ -101,13 +117,14 @@ public class FavoriteAdapter extends RecyclerView.Adapter<FavoriteContactViewHol
         switch (itemViewType) {
             case TYPE_CONTACT:
                 Contact contact = (Contact) mFavoriteContacts.get(position);
-                viewHolder.onBind(contact);
+                viewHolder.bind(contact, mSortMethod);
                 viewHolder.itemView.setOnClickListener(v -> onItemViewClicked(contact));
                 break;
             case TYPE_HEADER:
                 Header header = (Header) mFavoriteContacts.get(position);
                 viewHolder.onBind(header);
                 viewHolder.itemView.setOnClickListener(null);
+                viewHolder.itemView.setFocusable(false);
                 break;
             case TYPE_ADD_FAVORITE:
                 viewHolder.itemView.setOnClickListener(v -> {
@@ -117,6 +134,37 @@ public class FavoriteAdapter extends RecyclerView.Adapter<FavoriteContactViewHol
                 });
                 break;
         }
+    }
+
+    @Override
+    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
+        super.onAttachedToRecyclerView(recyclerView);
+        mLayoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+    }
+
+    @Override
+    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
+        mLayoutManager = null;
+        super.onDetachedFromRecyclerView(recyclerView);
+    }
+
+    @Override
+    public int getScrollToPositionWhenRestricted() {
+        // Not scrolling.
+        return -1;
+    }
+
+    @Override
+    public int computeAnchorIndexWhenRestricting() {
+        mLimitingAnchorIndex = DialerUtils.getFirstVisibleItemPosition(mLayoutManager);
+        return mLimitingAnchorIndex;
+    }
+
+    /**
+     * Returns the previous list limiting anchor position.
+     */
+    public int getLastLimitingAnchorIndex() {
+        return mLimitingAnchorIndex;
     }
 
     private void onItemViewClicked(Contact contact) {

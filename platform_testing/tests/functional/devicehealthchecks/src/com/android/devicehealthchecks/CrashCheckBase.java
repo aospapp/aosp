@@ -31,14 +31,19 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.InputMismatchException;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Scanner;
 
 abstract class CrashCheckBase {
 
     private static final int MAX_DROPBOX_READ = 4096; // read up to 4K from a dropbox entry
+    private static final int MAX_DROPBOX_READ_ANR = 40960; // read up to 40K for ANR
     private static final int MAX_CRASH_SNIPPET_LINES = 40;
     private static final String INCLUDE_KNOWN_FAILURES = "include_known_failures";
+    private static final Pattern ANR_SUBJECT = Pattern.compile("Subject:");
     private static final String LOG_TAG = CrashCheckBase.class.getSimpleName();
     private Context mContext;
     private KnownFailures mKnownFailures = new KnownFailures();
@@ -69,27 +74,59 @@ abstract class CrashCheckBase {
         long timestamp = 0;
         DropBoxManager.Entry entry;
         int crashCount = 0;
-        StringBuilder errorDetails = new StringBuilder("Error details:\n");
+        StringBuilder errorDetails = new StringBuilder("\nPlease triage this boot crash:\n");
+        errorDetails.append("go/how-to-triage-devicehealthchecks\n");
+        errorDetails.append("Error Details:\n");
         while (null != (entry = dropbox.getNextEntry(label, timestamp))) {
             String dropboxSnippet;
             try {
-                dropboxSnippet = entry.getText(MAX_DROPBOX_READ);
+                if (label.equals("system_app_anr")) {
+                    dropboxSnippet = entry.getText(MAX_DROPBOX_READ_ANR);
+                } else {
+                    dropboxSnippet = entry.getText(MAX_DROPBOX_READ);
+                }
             } finally {
                 entry.close();
             }
-            KnownFailureItem k = mKnownFailures.findMatchedKnownFailure(label, dropboxSnippet);
-            if (k != null && !mIncludeKnownFailures) {
-                Log.i(
-                        LOG_TAG,
-                        String.format(
-                                "Ignored a known failure, type: %s, pattern: %s, bug: b/%s",
-                                label, k.failurePattern, k.bugNumber));
-            } else {
+            if (dropboxSnippet == null) {
                 crashCount++;
+
                 errorDetails.append(label);
-                errorDetails.append(": ");
-                errorDetails.append(truncate(dropboxSnippet, MAX_CRASH_SNIPPET_LINES));
-                errorDetails.append("    ...\n");
+                errorDetails.append(": (missing details)\n");
+            }
+            else {
+              KnownFailureItem k = mKnownFailures.findMatchedKnownFailure(label, dropboxSnippet);
+              if (k != null && !mIncludeKnownFailures) {
+                  Log.i(
+                          LOG_TAG,
+                          String.format(
+                                  "Ignored a known failure, type: %s, pattern: %s, bug: b/%s",
+                                  label, k.failurePattern, k.bugNumber));
+              } else {
+                  crashCount++;
+                  errorDetails.append(label);
+                  errorDetails.append(": ");
+                    if (label.equals("system_app_anr")) {
+                        // Read Snippet line by line until Subject is found
+                        try (Scanner scanner = new Scanner(dropboxSnippet)) {
+                            while (scanner.hasNextLine()) {
+                                String line = scanner.nextLine();
+                                Matcher matcher = ANR_SUBJECT.matcher(line);
+                                if (matcher.find()) {
+                                    errorDetails.append(line);
+                                    if (scanner.hasNextLine()) {
+                                        errorDetails.append(scanner.nextLine());
+                                    }
+                                    break;
+                                }
+                            }
+                        } catch (InputMismatchException e) {
+                            Log.e(LOG_TAG, "Unable to parse system_app_anr using Scanner");
+                        }
+                    }
+                    errorDetails.append(truncate(dropboxSnippet, MAX_CRASH_SNIPPET_LINES));
+                    errorDetails.append("    ...\n");
+              }
             }
             timestamp = entry.getTimeMillis();
         }

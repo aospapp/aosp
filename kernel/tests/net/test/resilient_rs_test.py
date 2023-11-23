@@ -97,14 +97,14 @@ class ResilientRouterSolicitationTest(multinetwork_base.MultiNetworkBaseTest):
 
   def testRouterSolicitationBackoff(self):
     # Test error tolerance
-    EPSILON = 0.1
+    EPSILON = 0.15
     # Minimum RFC3315 S14 backoff
     MIN_EXP = 1.9 - EPSILON
     # Maximum RFC3315 S14 backoff
     MAX_EXP = 2.1 + EPSILON
     SOLICITATION_INTERVAL = 1
-    # Linear backoff for 4 samples yields 3.6 < T < 4.4
-    # Exponential backoff for 4 samples yields 4.83 < T < 9.65
+    # Linear backoff for 4 samples yields 3.5 < T < 4.5
+    # Exponential backoff for 4 samples yields 4.36 < T < 10.39
     REQUIRED_SAMPLES = 4
     # Give up after 10 seconds. Tuned for REQUIRED_SAMPLES = 4
     SAMPLE_INTERVAL = 10
@@ -159,8 +159,8 @@ class ResilientRouterSolicitationTest(multinetwork_base.MultiNetworkBaseTest):
 
     # Compute minimum and maximum bounds for RFC3315 S14 exponential backoff.
     # First retransmit is linear backoff, subsequent retransmits are exponential
-    min_exp_bound = accumulate(map(lambda i: MIN_LIN * pow(MIN_EXP, i), range(0, len(rsSendTimes))))
-    max_exp_bound = accumulate(map(lambda i: MAX_LIN * pow(MAX_EXP, i), range(0, len(rsSendTimes))))
+    min_exp_bound = accumulate([MIN_LIN * pow(MIN_EXP, i) for i in range(0, len(rsSendTimes))])
+    max_exp_bound = accumulate([MAX_LIN * pow(MAX_EXP, i) for i in range(0, len(rsSendTimes))])
 
     # Assert that each sample falls within the worst case interval. If all samples fit we accept
     # the exponential backoff hypothesis

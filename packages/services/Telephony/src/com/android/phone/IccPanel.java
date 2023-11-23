@@ -74,13 +74,13 @@ public class IccPanel extends Dialog {
     @Override
     protected void onStart() {
         super.onStart();
-        mStatusBarManager.setDisabledForSimNetworkLock(true);
+        mStatusBarManager.setExpansionDisabledForSimNetworkLock(true);
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        mStatusBarManager.setDisabledForSimNetworkLock(false);
+        mStatusBarManager.setExpansionDisabledForSimNetworkLock(false);
     }
 
     public boolean onKeyDown(int keyCode, KeyEvent event) {

@@ -13,6 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_defaults {
     name: "dmabufinfo_defaults",
     static_libs: [
@@ -33,12 +37,14 @@ cc_defaults {
 cc_library_static {
     name: "libdmabufinfo",
     vendor_available: true,
+    product_available: true,
     host_supported: true,
     native_bridge_supported: true,
     defaults: ["dmabufinfo_defaults"],
     export_include_dirs: ["include"],
     srcs: [
          "dmabufinfo.cpp",
+         "dmabuf_sysfs_stats.cpp",
     ],
     target: {
         darwin: {
@@ -48,9 +54,10 @@ cc_library_static {
 
     apex_available: [
         "//apex_available:platform",
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
+    min_sdk_version: "S",
 }
 
 cc_test {
@@ -66,4 +73,10 @@ cc_test {
         "libion",
         "libmeminfo",
     ],
+
+    shared_libs: [
+        "libcutils",
+    ],
+    test_suites: ["device-tests"],
+    require_root: true,
 }

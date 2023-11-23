@@ -90,12 +90,12 @@ public @interface Parameter {
   /**
    * Validate the parameter found on the command line.
    */
-  Class<? extends IParameterValidator> validateWith() default NoValidator.class;
+  Class<? extends IParameterValidator>[] validateWith() default NoValidator.class;
 
   /**
    * Validate the value for this parameter.
    */
-  Class<? extends IValueValidator> validateValueWith() default NoValueValidator.class;
+  Class<? extends IValueValidator>[] validateValueWith() default NoValueValidator.class;
 
   /**
    * @return true if this parameter has a variable arity. See @{IVariableArity}
@@ -122,9 +122,14 @@ public @interface Parameter {
   
   /**
    * If true, this parameter can be overwritten through a file or another appearance of the parameter
-   * @return 
+   * @return nc
    */
   boolean forceNonOverwritable() default false;
 
+  /**
+   * If specified, this number will be used to order the description of this parameter when usage() is invoked.
+   * @return
+   */
+  int order() default -1;
   
 }

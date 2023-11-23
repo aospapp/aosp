@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library {
     name: "libctssecurity_jni",
     srcs: [
@@ -20,6 +24,7 @@ cc_library {
         "android_security_cts_NativeCodeTest.cpp",
         "android_security_cts_MMapExecutableTest.cpp",
         "android_security_cts_EncryptionTest.cpp",
+        "android_security_cts_cve_2021_0394.cpp",
     ],
     shared_libs: [
         "libcrypto",

@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"ແອັບຯ​ຕໍ່​ໄປ​ນີ້​ຈະຄຸ້ມ​ຄອງ​ອຸ​ປະ​ກອນ:"</string>
     <string name="next" msgid="1004321437324424398">"ຕໍ່ໄປ"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"ກຳລັງຕັ້ງໂປຣໄຟລ໌ບ່ອນເຮັດວຽກ..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານມີຄວາມສາມາດໃນການຕິດຕາມ ແລະ ຈັດການການຕັ້ງຄ່າ, ການເຂົ້າເຖິງຂອງອົງກອນ, ແອັບ, ສິດອະນຸຍາດ ແລະ ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບໂປຣໄຟລ໌ນີ້, ຮວມທັງການເຄື່ອນໄຫວໃນເຄືອຂ່າຍຂອງທ່ານ ແລະ ສະຖານທີ່ຂອງອຸປະກອນທ່ານ, ປະຫວັດການໂທ ແລະ ປະຫວັດການຊອກຫາລາຍຊື່ຜູ້ຕິດຕໍ່.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສຳລັບຂໍ້ມູນເພີ່ມເຕີມ, ຮວມທັງນະໂຍບາຍຄວາມເປັນສ່ວນຕົວຂອງອົງການທ່ານ."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານມີຄວາມສາມາດໃນການຕິດຕາມ ແລະ ຈັດການການຕັ້ງຄ່າ, ການເຂົ້າເຖິງຂອງອົງກອນ, ແອັບ, ສິດອະນຸຍາດ ແລະ ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບອຸປະກອນນີ້, ຮວມທັງການເຄື່ອນໄຫວໃນເຄືອຂ່າຍຂອງທ່ານ ແລະ ສະຖານທີ່ຂອງອຸປະກອນທ່ານ, ປະຫວັດການໂທ ແລະ ປະຫວັດການຊອກຫາລາຍຊື່ຜູ້ຕິດຕໍ່.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>ໃຫ້ຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສຳລັບຂໍ້ມູນເພີ່ມເຕີມ, ຮວມທັງນະໂຍບາຍຄວາມເປັນສ່ວນຕົວຂອງອົງການທ່ານນຳ."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານມີຄວາມສາມາດໃນການຕິດຕາມ ແລະ ຈັດການການຕັ້ງຄ່າ, ການເຂົ້າເຖິງຂອງອົງກອນ, ແອັບ, ສິດອະນຸຍາດ ແລະ ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບໂປຣໄຟລ໌ນີ້, ຮວມທັງການເຄື່ອນໄຫວໃນເຄືອຂ່າຍຂອງທ່ານ ແລະ ສະຖານທີ່ຂອງອຸປະກອນທ່ານ, ປະຫວັດການໂທ ແລະ ປະຫວັດການຊອກຫາລາຍຊື່ຜູ້ຕິດຕໍ່.<xliff:g id="LINE_BREAK">
+
+</xliff:g>ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສຳລັບຂໍ້ມູນເພີ່ມເຕີມ, ຮວມທັງນະໂຍບາຍຄວາມເປັນສ່ວນຕົວຂອງອົງການທ່ານ."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານມີຄວາມສາມາດໃນການຕິດຕາມ ແລະ ຈັດການການຕັ້ງຄ່າ, ການເຂົ້າເຖິງຂອງອົງກອນ, ແອັບ, ສິດອະນຸຍາດ ແລະ ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບອຸປະກອນນີ້, ຮວມທັງການເຄື່ອນໄຫວໃນເຄືອຂ່າຍຂອງທ່ານ ແລະ ສະຖານທີ່ຂອງອຸປະກອນທ່ານ, ປະຫວັດການໂທ ແລະ ປະຫວັດການຊອກຫາລາຍຊື່ຜູ້ຕິດຕໍ່.<xliff:g id="LINE_BREAK">
+
+</xliff:g>ໃຫ້ຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສຳລັບຂໍ້ມູນເພີ່ມເຕີມ, ຮວມທັງນະໂຍບາຍຄວາມເປັນສ່ວນຕົວຂອງອົງການທ່ານນຳ."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"ເພື່ອໃຊ້ຄຸນສົມບັດປ້ອງກັນໂຈນ, ທ່ານຕ້ອງເປີດໃຊ້ໜ້າຈໍລັອກແບບໃຊ້ລະຫັດຜ່ານໃນອຸປະກອນຂອງທ່ານກ່ອນ."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"ໃຫ້ຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສຳລັບຂໍ້ມູນເພີ່ມເຕີມ, ຮວມໄປເຖິງນະໂຍບາຍຄວາມເປັນສ່ວນຕົວຂອງອົງການທ່ານ."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ສຶກ​ສາ​ເພີ່ມ​ເຕີມ"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"ຕົກລົງ"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"ຂ້ອຍ​ຍິນຍອມ"</string>
     <string name="url_error" msgid="5958494012986243186">"This link cannot be displayed."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"ເລື່ອນຂຶ້ນ"</string>
     <string name="terms" msgid="8295436105384703903">"ຂໍ້ກຳນົດ"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"ຂໍ້ມູນໂປຣໄຟລ໌ບ່ອນເຮັດວຽກ"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"ຂໍ້ມູນອຸປະກອນທີ່ມີການຈັດການ"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"​ໂປຣ​ໄຟລ໌​ບ່ອນ​ເຮັດ​ວຽກ"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"ຜູ້​ໃຊ້​ຕົ້ນ​ຕໍ"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"ລຶບໂປຣໄຟລ໌ທີ່ມີຢູ່ແລ້ວອອກບໍ?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"ທ່ານມີໂປຣໄຟລ໌ບ່ອນເຮັດວຽກຢູ່ກ່ອນແລ້ວ. ມັນຖືກຈັດການໂດຍໃຊ້ແອັບຕໍ່ໄປນີ້:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"ກ່ອນດຳເນີນການ, "<a href="#read_this_link">"ໃຫ້ອ່ານ"</a>" ນີ້."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"ການ​ຕັ້ງ​ຜູ້​ໃຊ້​ບໍ່​ສຳ​ເລັດ"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"​​ຜູ່​ໃຊ້​ອຸ​ປະ​ກອນ​ບ່ອນ​ເຮັດ​ວຽກ"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"ກຳລັງຕັ້ງຄ່າອຸປະກອນບ່ອນເຮັດວຽກ..."</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"ກຳ​ລັງ​ປະ​ມວນ​ຜົນ​ຂໍ້​ມູນ​ການ​ຕັ້ງ​ຄ່າ..."</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"ກຳ​ລັງ​ເຊື່ອມ​ຕໍ່​ກັ​ບ Wi-Fi..."</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"ກຳລັງເຊື່ອມຕໍ່ຫາເຄືອຂ່າຍມືຖື…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"ກຳ​ລັງ​ດາວ​ໂຫລດ​ແອັບຯ​ຜູ້ຄວບ​ຄຸມ​ລະ​ບົບ..."</string>
-    <string name="progress_install" msgid="2258045670385866183">"ກຳ​ລັງ​ຕິດ​ຕັ້ງ​ແອັບຯ​ຜູ້​ຄວບ​ຄຸມ​ລະ​ບົບ..."</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"ກຳລັງລຶບແອັບລະບົບທີ່ບໍ່ຕ້ອງໃຊ້ອອກ…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"ກຳລັງດຳເນີນຂັ້ນຕອນສຸດທ້າຍ…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"ກຳ​ລັງ​ຕັ້ງ​ຄ່າ​ເຈົ້າ​ຂອງ​ອຸ​ປະ​ກອນ..."</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"ກຳລັງເລີ່ມຕົ້ນອຸປະກອນ…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"ອຸປະກອນນີ້ບໍ່ອະນຸຍາດໃຫ້ເຂົ້າລະຫັດ, ເຊິ່ງຈຳເປັນຕ້ອງໃຊ້ສຳລັບການຕັ້ງຄ່າ. ສຳລັບຄວາມຊ່ວຍເຫຼືອ, ໃຫ້ຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານ."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"ຢຸດການຕັ້ງຄ່າ ແລ້ວຣີເຊັດອຸປະກອນບໍ?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"ນີ້ຈະເປັນການຣີເຊັດອຸປະກອນຂອງທ່ານ ແລະ ພາທ່ານໄປໜ້າຈໍຫຼັກ"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"ອຸປະກອນນີ້ຈະຖືກເກັບຮັກສາໄວ້ຢ່າງປອດໄພ ແລະ ຖືກຈັດການໂດຍອົງກອນຂອງທ່ານ"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"ກຳລັງກະກຽມຕັ້ງຄ່າອຸປະກອນບ່ອນເຮັດວຽກ…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"ກຳລັງຕັ້ງຄ່າແອັບຜູ້ເບິ່ງແຍງລະບົບ"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"ຕັ້ງຄ່າທຸກຢ່າງທີ່ເຫຼືອ"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"ເພີ່ມບັນຊີສ່ວນຕົວເພື່ອໃຊ້ປະໂຫຍດເພີ່ມເຕີມຈາກອຸປະກອນຂອງທ່ານ"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"ຕອນນີ້ໂປຣໄຟລ໌ບ່ອນເຮັດວຽກຂອງທ່ານພ້ອມແລ້ວ, ທ່ານສາມາດເພີ່ມບັນຊີ Google ສ່ວນຕົວໃສ່ໄດ້ເພື່ອເຂົ້າເຖິງແອັບ ແລະ ເນື້ອຫາຂອງທ່ານ."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"ອຸປະກອນນີ້ເປັນຂອງອົງການທ່ານ"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"ແອັບຕໍ່ໄປນີ້ຈະຖືກໃຊ້ເພື່ອຈັດການ ແລະ ຕິດຕາມໂທລະສັບໜ່ວຍນີ້"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"ບັນຊີຂອງທ່ານມີການຈັດການ"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານໃຊ້ການຈັດການອຸປະກອນມືຖືເພື່ອບັງຄັບໃຊ້ນະໂຍບາຍຄວາມປອດໄພ"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"ກຳລັງກຽມພ້ອມສຳລັບການຕັ້ງຄ່າວຽກ…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ມາຕັ້ງຄ່າໂປຣໄຟລ໌ບ່ອນເຮັດວຽກຂອງທ່ານກັນ"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"ແອັບວຽກແມ່ນຖືກເກັບໄວ້ໃນໂປຣໄຟລ໌ວຽກຂອງທ່ານ"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"ເກັບຮັກສາແອັບວຽກຂອງທ່ານໄວ້ປາຍນິ້ວຂອງທ່ານ"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ອຸປະກອນນີ້ບໍ່ແມ່ນອຸປະກອນສ່ວນຕົວ"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສາມາດເບິ່ງຂໍ້ມູນ ແລະ ການເຄື່ອນໄຫວຂອງທ່ານຢູ່ອຸປະກອນນີ້ໄດ້."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"ການເຄື່ອນໄຫວ ແລະ ຂໍ້ມູນຂອງທ່ານ"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"ການອະນຸຍາດແອັບ"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສາມາດຕັ້ງການອະນຸຍາດສຳລັບແອັບຕ່າງໆຢູ່ອຸປະກອນນີ້ໄດ້ ເຊັ່ນ: ໄມໂຄຣໂຟນ, ກ້ອງຖ່າຍຮູບ ແລະ ການອະນຸຍາດສະຖານທີ່."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"ການຕັ້ງອຸປະກອນຂອງທ່ານ…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"ໃຊ້ອຸປະກອນນີ້ເພື່ອເຂົ້າເຖິງແອັບວຽກຂອງທ່ານໄດ້ຢ່າງງ່າຍດາຍ. ອຸປະກອນນີ້ບໍ່ແມ່ນອຸປະກອນສ່ວນຕົວ, ດັ່ງນັ້ນຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານສາມາດເບິ່ງເຫັນຂໍ້ມູນ ແລະ ການເຄື່ອນໄຫວຂອງທ່ານໄດ້. ເພື່ອສຶກສາເພີ່ມເຕີມ, ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານ."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"ໃຊ້ອຸປະກອນນີ້ເພື່ອເຂົ້າເຖິງແອັບວຽກຂອງທ່ານໄດ້ຢ່າງງ່າຍດາຍ. ອຸປະກອນນີ້ບໍ່ແມ່ນອຸປະກອນສ່ວນຕົວ, ດັ່ງນັ້ນຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານອາດສາມາດເບິ່ງເຫັນຂໍ້ມູນ ແລະ ການເຄື່ອນໄຫວຂອງທ່ານໄດ້."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"ໃຊ້ອຸປະກອນນີ້ເພື່ອເຂົ້າເຖິງແອັບວຽກຂອງທ່ານໄດ້ຢ່າງງ່າຍດາຍ. ອຸປະກອນນີ້ບໍ່ແມ່ນອຸປະກອນສ່ວນຕົວ, ດັ່ງນັ້ນຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານອາດສາມາດເບິ່ງເຫັນການເຄື່ອນໄຫວ ແລະ ຂໍ້ມູນຂອງທ່ານໄດ້. ນອກຈາກນັ້ນ, ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານຍັງສາມາດຕັ້ງການອະນຸຍາດສຳລັບແອັບຕ່າງໆຢູ່ອຸປະກອນນີ້ໄດ້ ເຊັ່ນ: ໄມໂຄຣໂຟນ, ກ້ອງຖ່າຍຮູບ ແລະ ການອະນຸຍາດສະຖານທີ່."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"ສົ່ງອຸປະກອນນີ້ຄືນໃຫ້ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານ"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"ກະລຸນາກັບໄປໜ້າຈໍກ່ອນໜ້າ ຫຼື ຣີເຊັດອຸປະກອນນີ້ແລ້ວສົ່ງມັນຄືນໃຫ້ຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານ."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"ຍົກເລີກການຕັ້ງຄ່າ"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"ຣີເຊັດ ແລະ ຄືນອຸປະກອນ"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"ແອັບວຽກຈະຖືກເກັບໄວ້ໃນໂປຣໄຟລ໌ວຽກຂອງທ່ານ ແລະ ຈັດການໂດຍຜູ້ເບິ່ງແຍງລະບົບໄອທີຂອງທ່ານ"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"ແອັບສ່ວນຕົວແມ່ນແຍກກັນ ແລະ ຖືກເຊື່ອງໄວ້ຈາກແອັບວຽກ"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"ຜູ້ເບິ່ງແຍງລະບົບໄອທີຂອງທ່ານສາມາດຄວບຄຸມອຸປະກອນນີ້ ແລະ ບລັອກບາງແອັບໄດ້"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"ກະລຸນາລໍຖ້າ…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"ການເຕືອນຄວາມເປັນສ່ວນຕົວ"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ມີພຽງຜູ້ເບິ່ງແຍງໄອທີຂອງທ່ານທີ່ສາມາດເບິ່ງເຫັນຂໍ້ມູນ ແລະ ການເຄື່ອນໄຫວຂອງທ່ານຢູ່ອຸປະກອນນີ້ໄດ້"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"ອຸປະກອນຂອງທ່ານພ້ອມແລ້ວ!"</string>
-    <string name="done" msgid="7755227776955952318">"ແລ້ວໆ"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"ອຸປະກອນນີ້ຖືກຊື້ໂດຍໃຊ້ເຄຣດິດຈາກ <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ສາມາດ:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"ຕິດຕັ້ງແອັບ <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ເພື່ອໃຫ້ທ່ານສາມາດຈ່າຍເງິນສຳລັບອຸປະກອນນີ້ໄດ້"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"ຈຳກັດສິດເຂົ້າເຖິງຫາອຸປະກອນນີ້ຫາກທ່ານບໍ່ຕ້ອງການຈ່າຍເງິນ"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"ອຸປະກອນນີ້ແມ່ນສະໜອງໃຫ້ໂດຍ <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"ຈ່າຍເງິນສຳລັບອຸປະກອນນີ້"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> ສາມາດຕິດຕັ້ງແອັບ <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ເພື່ອໃຫ້ທ່ານສາມາດຈ່າຍເງິນສຳລັບອຸປະກອນນີ້ໄດ້."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"ສາມາດຈຳກັດອຸປະກອນນີ້ໄດ້"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ສາມາດຈຳກັດການເຂົ້າເຖິງອຸປະກອນນີ້ໄດ້ຫາກທ່ານບໍ່ຈ່າຍເງິນ."</string>
 </resources>

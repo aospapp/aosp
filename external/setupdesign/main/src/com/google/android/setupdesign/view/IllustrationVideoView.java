@@ -28,15 +28,16 @@ import android.media.MediaPlayer.OnPreparedListener;
 import android.media.MediaPlayer.OnSeekCompleteListener;
 import android.net.Uri;
 import android.os.Build.VERSION_CODES;
-import androidx.annotation.Nullable;
-import androidx.annotation.RawRes;
-import androidx.annotation.VisibleForTesting;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.TextureView.SurfaceTextureListener;
 import android.view.View;
+import androidx.annotation.Nullable;
+import androidx.annotation.RawRes;
+import androidx.annotation.VisibleForTesting;
+import com.google.android.setupcompat.util.BuildCompatUtils;
 import com.google.android.setupdesign.R;
 import java.io.IOException;
 
@@ -76,6 +77,8 @@ public class IllustrationVideoView extends TextureView
 
   private boolean prepared;
 
+  private boolean shouldPauseVideoWhenFinished = true;
+
   /**
    * The visibility of this view as set by the user. This view combines this with {@link
    * #isMediaPlayerLoading} to determine the final visibility.
@@ -92,9 +95,24 @@ public class IllustrationVideoView extends TextureView
 
   public IllustrationVideoView(Context context, AttributeSet attrs) {
     super(context, attrs);
+    if (!isInEditMode()) {
+      init(context, attrs);
+    }
+  }
+
+  private void init(Context context, AttributeSet attrs) {
     final TypedArray a =
         context.obtainStyledAttributes(attrs, R.styleable.SudIllustrationVideoView);
     final int videoResId = a.getResourceId(R.styleable.SudIllustrationVideoView_sudVideo, 0);
+
+    // TODO: remove the usage of BuildCompatUtils#isAtLeatestS if VERSION_CODE.S is
+    // support by system.
+    if (BuildCompatUtils.isAtLeastS()) {
+      boolean shouldPauseVideo =
+          a.getBoolean(R.styleable.SudIllustrationVideoView_sudPauseVideoWhenFinished, true);
+      setPauseVideoWhenFinished(shouldPauseVideo);
+    }
+
     a.recycle();
     setVideoResource(videoResId);
 
@@ -143,10 +161,41 @@ public class IllustrationVideoView extends TextureView
   /**
    * Set the video to be played by this view.
    *
+   * @param resourceEntry the {@link com.google.android.setupdesign.util.Partner.ResourceEntry} of
+   *     the video, typically an MP4 under res/raw.
+   */
+  public void setVideoResourceEntry(
+      com.google.android.setupdesign.util.Partner.ResourceEntry resourceEntry) {
+    setVideoResource(resourceEntry.id, resourceEntry.packageName);
+  }
+
+  /**
+   * Set the video to be played by this view.
+   *
+   * @param resourceEntry the {@link com.google.android.setupcompat.partnerconfig.ResourceEntry} of
+   *     the video, typically an MP4 under res/raw.
+   */
+  public void setVideoResourceEntry(
+      com.google.android.setupcompat.partnerconfig.ResourceEntry resourceEntry) {
+    setVideoResource(resourceEntry.getResourceId(), resourceEntry.getPackageName());
+  }
+
+  /**
+   * Set the video to be played by this view.
+   *
    * @param resId Resource ID of the video, typically an MP4 under res/raw.
    */
   public void setVideoResource(@RawRes int resId) {
     setVideoResource(resId, getContext().getPackageName());
+  }
+
+  /**
+   * Sets whether the video pauses during the screen transition.
+   *
+   * @param paused Whether the video pauses.
+   */
+  public void setPauseVideoWhenFinished(boolean paused) {
+    shouldPauseVideoWhenFinished = paused;
   }
 
   @Override
@@ -304,8 +353,12 @@ public class IllustrationVideoView extends TextureView
 
   @Override
   public void stop() {
-    if (prepared && mediaPlayer != null) {
-      mediaPlayer.pause();
+    if (shouldPauseVideoWhenFinished) {
+      if (prepared && mediaPlayer != null) {
+        mediaPlayer.pause();
+      }
+    } else {
+      // do not pause the media player.
     }
   }
 

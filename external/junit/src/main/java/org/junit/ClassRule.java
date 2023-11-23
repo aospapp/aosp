@@ -28,7 +28,10 @@ import java.lang.annotation.Target;
  * annotated {@link ClassRule}s on a class, they will be applied in an order
  * that depends on your JVM's implementation of the reflection API, which is
  * undefined, in general. However, Rules defined by fields will always be applied
- * before Rules defined by methods.
+ * after Rules defined by methods, i.e. the Statements returned by the former will
+ * be executed around those returned by the latter.
+ *
+ * <h3>Usage</h3>
  * <p>
  * For example, here is a test suite that connects to a server once before
  * all the test classes run, and disconnects after they are finished:
@@ -79,9 +82,37 @@ import java.lang.annotation.Target;
  * <p>
  * For more information and more examples, see {@link org.junit.rules.TestRule}.
  *
+ * <h3>Ordering</h3>
+ * <p>
+ * You can use {@link #order()} if you want to have control over the order in
+ * which the Rules are applied.
+ *
+ * <pre>
+ * public class ThreeClassRules {
+ *     &#064;ClassRule(order = 0)
+ *     public static LoggingRule outer = new LoggingRule("outer rule");
+ *
+ *     &#064;ClassRule(order = 1)
+ *     public static LoggingRule middle = new LoggingRule("middle rule");
+ *
+ *     &#064;ClassRule(order = 2)
+ *     public static LoggingRule inner = new LoggingRule("inner rule");
+ *
+ *     // ...
+ * }
+ * </pre>
+ *
  * @since 4.9
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.METHOD})
 public @interface ClassRule {
+
+    /**
+     * Specifies the order in which rules are applied. The rules with a higher value are inner.
+     *
+     * @since 4.13
+     */
+    int order() default Rule.DEFAULT_ORDER;
+
 }

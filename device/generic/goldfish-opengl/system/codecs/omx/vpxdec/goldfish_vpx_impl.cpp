@@ -50,6 +50,10 @@ static void sendVpxOperation(vpx_codec_ctx_t* ctx, MediaOperation op) {
 
 int vpx_codec_destroy(vpx_codec_ctx_t* ctx) {
     DDD("%s %d", __func__, __LINE__);
+    if (!ctx) {
+      ALOGE("ERROR: Failed %s %d: ctx is nullptr", __func__, __LINE__);
+      return -1;
+    }
     auto transport = GoldfishMediaTransport::getInstance();
     transport->writeParam(ctx->id, 0, ctx->address_offset);
     sendVpxOperation(ctx, MediaOperation::DestroyContext);
@@ -71,7 +75,7 @@ int vpx_codec_dec_init(vpx_codec_ctx_t* ctx) {
     }
     ctx->id = applyForOneId();
     ctx->memory_slot = slot;
-    ctx->address_offset = static_cast<unsigned int>(slot) * 8 * (1 << 20);
+    ctx->address_offset = static_cast<unsigned int>(ctx->memory_slot) * (1 << 20);
     DDD("got address offset 0x%x version %d", (int)(ctx->address_offset),
         ctx->version);
 
@@ -108,6 +112,10 @@ static void getVpxFrame(uint8_t* ptr, vpx_image_t& myImg) {
 //TODO: we might not need to do the putting all the time
 vpx_image_t* vpx_codec_get_frame(vpx_codec_ctx_t* ctx, int hostColorBufferId) {
     DDD("%s %d %p", __func__, __LINE__);
+    if (!ctx) {
+      ALOGE("ERROR: Failed %s %d: ctx is nullptr", __func__, __LINE__);
+      return nullptr;
+    }
     auto transport = GoldfishMediaTransport::getInstance();
 
     transport->writeParam(ctx->id, 0, ctx->address_offset);
@@ -134,6 +142,10 @@ vpx_image_t* vpx_codec_get_frame(vpx_codec_ctx_t* ctx, int hostColorBufferId) {
 
 int vpx_codec_flush(vpx_codec_ctx_t* ctx) {
     DDD("%s %d", __func__, __LINE__);
+    if (!ctx) {
+      ALOGE("ERROR: Failed %s %d: ctx is nullptr", __func__, __LINE__);
+      return -1;
+    }
     auto transport = GoldfishMediaTransport::getInstance();
     transport->writeParam(ctx->id, 0, ctx->address_offset);
     sendVpxOperation(ctx, MediaOperation::Flush);
@@ -145,6 +157,10 @@ int vpx_codec_decode(vpx_codec_ctx_t *ctx,
                      unsigned int data_sz,
                      void* user_priv,
                      long deadline) {
+    if (!ctx) {
+      ALOGE("ERROR: Failed %s %d: ctx is nullptr", __func__, __LINE__);
+      return -1;
+    }
     DDD("%s %d data size %d userpriv %p", __func__, __LINE__, (int)data_sz,
         user_priv);
     auto transport = GoldfishMediaTransport::getInstance();

@@ -21,20 +21,25 @@
 #include <thread>
 #include <utility>
 
-#include "common/libs/tcp_socket/tcp_socket.h"
+#include "common/libs/utils/tcp_socket.h"
 #include "host/frontend/vnc_server/blackboard.h"
 #include "host/frontend/vnc_server/frame_buffer_watcher.h"
 #include "host/frontend/vnc_server/jpeg_compressor.h"
 #include "host/frontend/vnc_server/virtual_inputs.h"
 #include "host/frontend/vnc_server/vnc_client_connection.h"
 #include "host/frontend/vnc_server/vnc_utils.h"
+#include "host/libs/confui/host_mode_ctrl.h"
+#include "host/libs/confui/host_virtual_input.h"
+#include "host/libs/screen_connector/screen_connector.h"
 
-namespace cvd {
+namespace cuttlefish {
 namespace vnc {
 
 class VncServer {
  public:
-  explicit VncServer(int port, bool aggressive);
+  explicit VncServer(int port, bool aggressive,
+                     ScreenConnector& screen_connector,
+                     cuttlefish::confui::HostVirtualInput& confui_input);
 
   VncServer(const VncServer&) = delete;
   VncServer& operator=(const VncServer&) = delete;
@@ -47,11 +52,13 @@ class VncServer {
   void StartClientThread(ClientSocket sock);
 
   ServerSocket server_;
+
   std::shared_ptr<VirtualInputs> virtual_inputs_;
   BlackBoard bb_;
+
   FrameBufferWatcher frame_buffer_watcher_;
   bool aggressive_{};
 };
 
 }  // namespace vnc
-}  // namespace cvd
+}  // namespace cuttlefish

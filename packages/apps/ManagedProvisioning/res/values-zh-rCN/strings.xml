@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"以下应用将管理您的设备："</string>
     <string name="next" msgid="1004321437324424398">"下一步"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"正在设置工作资料…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"您的 IT 管理员可以监控和管理与此资料相关的设置、企业权限、应用、权限以及数据（其中包括您的网络活动以及您设备的位置信息、通话记录和联系人搜索记录）。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如需了解详情（包括贵组织的隐私权政策），请与您的 IT 管理员联系。"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"您的 IT 管理员可以监控和管理与此设备相关的设置、企业权限、应用、权限以及数据（其中包括您的网络活动以及您设备的位置信息、通话记录和联系人搜索记录）。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如需了解详情（包括贵组织的隐私权政策），请与您的 IT 管理员联系。"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"您的 IT 管理员可以监控和管理与此资料相关的设置、企业权限、应用、权限以及数据（其中包括您的网络活动以及您设备的位置信息、通话记录和联系人搜索记录）。<xliff:g id="LINE_BREAK">
+
+</xliff:g>如需了解详情（包括贵组织的隐私权政策），请与您的 IT 管理员联系。"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"您的 IT 管理员可以监控和管理与此设备相关的设置、企业权限、应用、权限以及数据（其中包括您的网络活动以及您设备的位置信息、通话记录和联系人搜索记录）。<xliff:g id="LINE_BREAK">
+
+</xliff:g>如需了解详情（包括贵组织的隐私权政策），请与您的 IT 管理员联系。"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"要使用防盗保护功能，您必须为您的设备设置一种采用密码保护的屏幕锁定方式。"</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"如需了解详情（包括贵组织的隐私权政策），请与您的 IT 管理员联系。"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"了解详情"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"确定"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"我同意"</string>
     <string name="url_error" msgid="5958494012986243186">"无法显示此链接。"</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"转到上一层级"</string>
     <string name="terms" msgid="8295436105384703903">"条款"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"工作资料信息"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"受管理设备的信息"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"工作资料"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"主用户"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"要删除现有的工作资料吗？"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"您已拥有可通过以下应用管理的工作资料："</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"请先"<a href="#read_this_link">"阅读此文"</a>"，然后再继续。"</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"用户设置未完成"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"工作设备的用户"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"正在设置工作设备…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"正在处理设置数据…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"正在连接到 WLAN 网络…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"正在连接到移动网络…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"正在下载管理应用…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"正在安装管理应用…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"正在移除不需要的系统应用…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"正在进行最后几项设置…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"正在设置设备所有者…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"正在初始化设备…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"此设备不支持加密功能，但如果不进行加密就无法完成设置。如需帮助，请与您的 IT 管理员联系。"</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"要停止设置并重置设备吗？"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"此操作将重置您的设备，您将会回到首屏画面"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"此设备将由贵单位确保其安全并负责管理"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"正在准备设置工作设备…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"设置管理应用"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"设置所有其他内容"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"添加个人帐号即可更充分地利用您的设备"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"您的工作资料已设置完毕，您还可以添加个人 Google 帐号，以便访问您的应用和内容。"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"此设备归贵单位所有"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"以下应用将用于管理和监控此手机"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"您的帐号是受管理的帐号"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"您的 IT 管理员使用移动设备管理服务强制执行安全政策"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"正在准备工作设置…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"请设置您的工作资料"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"工作应用位于您的工作资料中"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"让您的工作应用触手可及"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"此设备并非私人设备"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"您的 IT 管理员或许可以查看您在此设备上的数据和活动。"</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"您的活动和数据"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"应用权限"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"您的 IT 管理员可为此设备上的应用设置权限，例如麦克风、相机和位置权限。"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"正在设置您的设备…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"使用此设备可轻松访问您的工作应用。此设备并非私人设备，因此，您的 IT 管理员或许可以查看您的数据和活动。如需了解详情，请与您的 IT 管理员联系。"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"使用此设备可轻松访问您的工作应用。此设备并非私人设备，因此，您的 IT 管理员或许可以查看您的数据和活动。"</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"使用此设备可轻松访问您的工作应用。此设备并非私人设备，因此，您的 IT 管理员或许可以查看您的活动和数据。IT 管理员还可为此设备上的应用设置权限，例如麦克风、相机和位置权限。"</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"将此设备交还给 IT 管理员"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"返回到上一屏幕，或重置此设备并将其交还给 IT 管理员。"</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"取消设置"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"重置并交还设备"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"工作应用会保存在您的工作资料中，并由您的 IT 管理员管理"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"个人应用与工作应用相互独立，两者不会同时显示"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"您的 IT 管理员可以控制此设备并屏蔽特定应用"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"请稍候…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"隐私权提醒"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"您的 IT 管理员或许可以查看您在此设备上的数据和活动"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"您的设备已准备就绪！"</string>
-    <string name="done" msgid="7755227776955952318">"完成"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"此设备是您向<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>赊购的"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>可以执行以下操作："</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"在此设备上安装<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>应用，以便您付款"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"如果您未付款，就会限制您使用此设备"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"此设备由<xliff:g id="CREDITOR_NAME">%s</xliff:g>提供"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"为此设备付款"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g>可以安装<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>应用，以便您为此设备付款。"</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"此设备可能会受到限制"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"如果您未付款，<xliff:g id="CREDITOR_NAME">%1$s</xliff:g>可以限制您使用此设备。"</string>
 </resources>

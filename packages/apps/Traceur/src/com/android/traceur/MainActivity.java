@@ -19,7 +19,9 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.provider.Settings;
 
-public class MainActivity extends Activity {
+import com.android.settingslib.collapsingtoolbar.CollapsingToolbarBaseActivity;
+
+public class MainActivity extends CollapsingToolbarBaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

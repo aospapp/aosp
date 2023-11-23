@@ -122,6 +122,7 @@ public class SeccompDeviceTest {
                 case IsolatedService.MSG_SECCOMP_RESULT:
                     mAppZygoteResult = (msg.arg1 == 1);
                     mResultCondition.open();
+                    break;
                 default:
                     super.handleMessage(msg);
             }
@@ -198,12 +199,8 @@ public class SeccompDeviceTest {
             return "x86_64";
         } else if (CpuFeatures.isX86Cpu()) {
             return "x86";
-        } else if (CpuFeatures.isMips64Cpu()) {
-            return "mips64";
-        } else if (CpuFeatures.isMipsCpu()) {
-            return "mips";
         } else {
-            Assert.fail("Unsupported OS");
+            Assert.fail("Unsupported architecture");
             return null;
         }
     }

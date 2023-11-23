@@ -1,4 +1,4 @@
-; Check that the unexpanded accumulator functions and the dummy variables are deleted.
+; Check that the unexpanded accumulator functions and the temp variables are deleted.
 ; There doesn't seem to be any way to compute the basename of %s, hence the unfortunate
 ;   explicit uses of "test_reduce_general_cleanup" below.
 ; There doesn't seem to be a way to write a CHECK-NOT pattern that matches only at the

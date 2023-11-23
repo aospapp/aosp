@@ -34,6 +34,9 @@
     <dimen name="bt_secure_pair_hint_top_margin">3dp</dimen>
 
     <integer name="captioning_preview_default_font_size">48</integer>
+    <dimen name="caption_preference_two_panel_width">399dp</dimen>
+    <dimen name="caption_preference_two_panel_padding_start">46dp</dimen>
+    <dimen name="caption_preference_two_panel_padding_end">29dp</dimen>
 
     <dimen name="browse_item_title_font_size">16sp</dimen>
     <dimen name="browse_item_description_font_size">14sp</dimen>
@@ -221,4 +224,45 @@
     <!-- FIXME: should use the new theme/style attribute instead of overlaying values-->
     <dimen name="lb_preference_decor_title_margin_start">24dp</dimen>
     <dimen name="lb_preference_decor_title_margin_end">56dp</dimen>
+
+    <item name="description_with_inline_icon_line_spacing_multiplier" format="float" type="dimen">1.1</item>
+
+    <!-- Common-->
+    <dimen name="guidance_group_margin_start_two_panel">129.5dp</dimen>
+    <dimen name="guidance_group_margin_end_two_panel">92dp</dimen>
+    <dimen name="guidance_title_text_size_two_panel">32sp</dimen>
+    <item name="animation_description_vertical_guideline_percent_two_panel" format="float" type="dimen">0.5</item>
+    <dimen name="rounded_button_background_radius_two_panel">36dp</dimen>
+    <dimen name="rounded_button_text_size_two_panel">17sp</dimen>
+    <item name="guidedstep_keyline_two_panel" format="float" type="string">32.45</item>
+    <dimen name="guidedstep_edge_fade_height_two_panel">122dp</dimen>
+    <item name="guidedstep_edge_fade_opacity_factor" format="float" type="dimen">.8</item>
+
+    <dimen name="guided_action_text_size_two_panel">16sp</dimen>
+    <dimen name="guided_action_description_text_size_two_panel">9sp</dimen>
+    <dimen name="guided_action_height_two_panel">60dp</dimen>
+    <dimen name="guided_actions_list_width_two_panel">268dp</dimen>
+    <dimen name="guided_actions_list_vertical_spacing_two_panel">8dp</dimen>
+    <dimen name="guided_actions_list_button_vertical_spacing_two_panel">12dp</dimen>
+    <dimen name="guided_actions_short_list_accept_button_extra_spacing">16dp</dimen>
+    <item name="guided_action_width_weight_two_panel" format="float" type="string">0.645</item>
+    <item name="guided_action_button_scale_ratio_start_two_panel" format="float" type="dimen">1.0</item>
+    <item name="guided_action_button_scale_ratio_end_two_panel" format="float" type="dimen">1.10</item>
+
+    <dimen name="guidance_icon_margin_bottom_two_panel">18dp</dimen>
+
+    <dimen name="guided_action_content_elevation">2dp</dimen>
+    <dimen name="guided_action_height">48dp</dimen>
+    <dimen name="guided_action_icon_margin_end">12dp</dimen>
+    <dimen name="guided_action_icon_height">24dp</dimen>
+    <dimen name="guided_action_icon_width">24dp</dimen>
+    <dimen name="guided_action_start_end_padding">16dp</dimen>
+    <dimen name="guided_action_top_bottom_padding">0dp</dimen>
+    <dimen name="guided_action_text_size">16sp</dimen>
+    <dimen name="guided_action_background_radius">2dp</dimen>
+    <dimen name="guided_action_text_input_margin_top">195dp</dimen>
+    <dimen name="guidance_icon_margin_bottom">18dp</dimen>
+    <dimen name="guided_actions_vertical_offset">195dp</dimen>
+    <dimen name="guided_actions_vertical_offset_bottom">61dp</dimen>
+    <dimen name="guided_actions_list_elevation">0dp</dimen>
 </resources>

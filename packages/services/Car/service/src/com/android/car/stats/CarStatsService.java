@@ -21,16 +21,16 @@ import android.app.StatsManager.PullAtomMetadata;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.util.ArrayMap;
-import android.util.Log;
+import android.util.IndentingPrintWriter;
+import android.util.Slog;
 import android.util.StatsEvent;
 
+import com.android.car.CarLog;
 import com.android.car.CarStatsLog;
 import com.android.car.stats.VmsClientLogger.ConnectionState;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.ConcurrentUtils;
 
-import java.io.FileDescriptor;
-import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -46,7 +46,7 @@ import java.util.function.Function;
  */
 public class CarStatsService {
     private static final boolean DEBUG = false;
-    private static final String TAG = "CarStatsService";
+    private static final String TAG = CarLog.tagFor(CarStatsService.class);
     private static final String VMS_CONNECTION_STATS_DUMPSYS_HEADER =
             "uid,packageName,attempts,connected,disconnected,terminated,errors";
 
@@ -117,21 +117,24 @@ public class CarStatsService {
                     uid -> {
                         String packageName = mPackageManager.getNameForUid(uid);
                         if (DEBUG) {
-                            Log.d(TAG, "Created VmsClientLog: " + packageName);
+                            Slog.d(TAG, "Created VmsClientLog: " + packageName);
                         }
                         return new VmsClientLogger(uid, packageName);
                     });
         }
     }
 
-    public void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
+    /**
+     * Dump its state.
+     */
+    public void dump(IndentingPrintWriter writer, String[] args) {
         List<String> flags = Arrays.asList(args);
         if (args.length == 0 || flags.contains("--vms-client")) {
             dumpVmsStats(writer);
         }
     }
 
-    private void dumpVmsStats(PrintWriter writer) {
+    private void dumpVmsStats(IndentingPrintWriter writer) {
         synchronized (mVmsClientStats) {
             writer.println(VMS_CONNECTION_STATS_DUMPSYS_HEADER);
             mVmsClientStats.values().stream()
@@ -151,27 +154,24 @@ public class CarStatsService {
 
     private int pullVmsClientStats(int atomTag, List<StatsEvent> pulledData) {
         if (atomTag != CarStatsLog.VMS_CLIENT_STATS) {
-            Log.w(TAG, "Unexpected atom tag: " + atomTag);
+            Slog.w(TAG, "Unexpected atom tag: " + atomTag);
             return StatsManager.PULL_SKIP;
         }
 
         dumpVmsClientStats((entry) -> {
-            StatsEvent e = StatsEvent.newBuilder()
-                    .setAtomId(atomTag)
-                    .writeInt(entry.getUid())
-                    .addBooleanAnnotation(CarStatsLog.ANNOTATION_ID_IS_UID, true)
-
-                    .writeInt(entry.getLayerType())
-                    .writeInt(entry.getLayerChannel())
-                    .writeInt(entry.getLayerVersion())
-
-                    .writeLong(entry.getTxBytes())
-                    .writeLong(entry.getTxPackets())
-                    .writeLong(entry.getRxBytes())
-                    .writeLong(entry.getRxPackets())
-                    .writeLong(entry.getDroppedBytes())
-                    .writeLong(entry.getDroppedPackets())
-                    .build();
+            StatsEvent e = CarStatsLog.buildStatsEvent(
+                    atomTag,
+                    entry.getUid(),
+                    entry.getLayerType(),
+                    entry.getLayerChannel(),
+                    entry.getLayerVersion(),
+                    entry.getTxBytes(),
+                    entry.getTxPackets(),
+                    entry.getRxBytes(),
+                    entry.getRxPackets(),
+                    entry.getDroppedBytes(),
+                    entry.getDroppedPackets()
+                    );
             pulledData.add(e);
         });
         return StatsManager.PULL_SUCCESS;

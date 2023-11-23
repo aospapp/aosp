@@ -133,18 +133,6 @@ class test(object):
         raise NotImplementedError
 
 
-    @staticmethod
-    def load_perf_values(perf_values_file):
-        """Loads perf values from a perf measurements file.
-
-        @param perf_values_file: The string path to a perf measurements file.
-
-        @return A list of perf_value_iteration objects.
-
-        """
-        raise NotImplementedError
-
-
     @classmethod
     def parse_test(cls, job, subdir, testname, status, reason, test_kernel,
                    started_time, finished_time, existing_instance=None):
@@ -446,17 +434,6 @@ class perf_value_iteration(object):
         """
         self.index = index
         self.perf_measurements = perf_measurements
-
-
-    def add_measurement(self, measurement):
-        """
-        Appends to the list of perf measurements for this iteration.
-
-        @param measurement: A dictionary containing information for a measured
-            perf metric.
-
-        """
-        self.perf_measurements.append(measurement)
 
 
     @staticmethod

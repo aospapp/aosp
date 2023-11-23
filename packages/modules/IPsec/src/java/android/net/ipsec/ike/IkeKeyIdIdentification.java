@@ -17,11 +17,13 @@
 package android.net.ipsec.ike;
 
 import android.annotation.NonNull;
-import android.annotation.SystemApi;
+import android.net.ipsec.ike.exceptions.AuthenticationFailedException;
+import android.os.PersistableBundle;
 
-import com.android.internal.net.ipsec.ike.exceptions.AuthenticationFailedException;
+import com.android.server.vcn.util.PersistableBundleUtils;
 
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -29,11 +31,9 @@ import java.util.Objects;
  *
  * <p>Key ID is an octet stream that may be used to pass vendor-specific information necessary to do
  * certain proprietary types of identification.
- *
- * @hide
  */
-@SystemApi
 public final class IkeKeyIdIdentification extends IkeIdentification {
+    private static final String KEY_ID_KEY = "keyId";
     /** The KEY ID in octet stream. */
     @NonNull public final byte[] keyId;
 
@@ -47,11 +47,38 @@ public final class IkeKeyIdIdentification extends IkeIdentification {
         this.keyId = keyId;
     }
 
+    /**
+     * Constructs this object by deserializing a PersistableBundle
+     *
+     * @hide
+     */
+    @NonNull
+    public static IkeKeyIdIdentification fromPersistableBundle(@NonNull PersistableBundle in) {
+        Objects.requireNonNull(in, "PersistableBundle is null");
+
+        PersistableBundle keyIdBundle = in.getPersistableBundle(KEY_ID_KEY);
+        Objects.requireNonNull(in, "Key ID bundle is null");
+
+        return new IkeKeyIdIdentification(PersistableBundleUtils.toByteArray(keyIdBundle));
+    }
+    /**
+     * Serializes this object to a PersistableBundle
+     *
+     * @hide
+     */
+    @Override
+    @NonNull
+    public PersistableBundle toPersistableBundle() {
+        final PersistableBundle result = super.toPersistableBundle();
+        result.putPersistableBundle(KEY_ID_KEY, PersistableBundleUtils.fromByteArray(keyId));
+        return result;
+    }
+
     /** @hide */
     @Override
     public int hashCode() {
         // idType is also hashed to prevent collisions with other IkeAuthentication subtypes
-        return Objects.hash(idType, keyId);
+        return Objects.hash(idType, Arrays.hashCode(keyId));
     }
 
     /** @hide */
@@ -60,7 +87,7 @@ public final class IkeKeyIdIdentification extends IkeIdentification {
         if (!(o instanceof IkeKeyIdIdentification)) return false;
 
         // idType already verified based on class type; no need to check again.
-        return keyId.equals(((IkeKeyIdIdentification) o).keyId);
+        return Arrays.equals(keyId, ((IkeKeyIdIdentification) o).keyId);
     }
 
     /** @hide */

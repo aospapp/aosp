@@ -46,7 +46,7 @@ typedef enum {
 
   // Disable automatic pairing with headsets/car-kits
   // Some car kits do not react kindly to a failed pairing attempt and
-  // do not allow immediate re-pairing. Blacklist these so that the initial
+  // do not allow immediate re-pairing. Rejectlist these so that the initial
   // pairing attempt makes it to the user instead.
   INTEROP_DISABLE_AUTO_PAIRING,
 
@@ -80,7 +80,7 @@ typedef enum {
   // but fail to play the reconfigured audio stream.
   INTEROP_DISABLE_AVDTP_RECONFIGURE,
 
-  // Create dynamic blacklist to disable role switch.
+  // Create dynamic rejectlist to disable role switch.
   // Some car kits indicate that role switch is supported, but then reject
   // role switch attempts. After rejecting several role switch attempts,
   // such car kits will go into bad state.
@@ -99,7 +99,23 @@ typedef enum {
   // The public address of these devices are same as the Random address in ADV.
   // Then will get name by LE_Create_connection, actually fails,
   // but will block pairing.
-  INTEROP_DISABLE_NAME_REQUEST
+  INTEROP_DISABLE_NAME_REQUEST,
+
+  // Respond AVRCP profile version only 1.4 for some device.
+  INTEROP_AVRCP_1_4_ONLY,
+
+  // Disable sniff mode for headsets/car-kits
+  // Some car kits supports sniff mode but when DUT initiates sniff req
+  // Remote will go to bad state and its leads to LMP time out.
+  INTEROP_DISABLE_SNIFF,
+
+  // Do not send AVDTP SUSPEND while the playback is paused.
+  // Some older A2DP Sink devices might not support to pause the streaming.
+  INTEROP_DISABLE_AVDTP_SUSPEND,
+
+  // Some car kits do not send the AT+BIND command while establishing the SLC
+  // which causes an HFP profile connection failure
+  INTEROP_SLC_SKIP_BIND_COMMAND
 } interop_feature_t;
 
 // Check if a given |addr| matches a known interoperability workaround as

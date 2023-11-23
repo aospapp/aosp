@@ -27,7 +27,7 @@
 #include "pipe/p_screen.h"
 #include "renderonly/renderonly.h"
 #include "os/os_thread.h"
-#include "state_tracker/drm_driver.h"
+#include "frontend/drm_driver.h"
 #include "util/list.h"
 #include "util/slab.h"
 #include "broadcom/common/v3d_debug.h"
@@ -71,13 +71,15 @@ struct v3d_screen {
 
         const struct v3d_compiler *compiler;
 
-        struct util_hash_table *bo_handles;
+        struct hash_table *bo_handles;
         mtx_t bo_handles_mutex;
 
         uint32_t bo_size;
         uint32_t bo_count;
 
         bool has_csd;
+        bool has_cache_flush;
+        bool nonmsaa_texture_size_limit;
 
         struct v3d_simulator_file *sim_file;
 };
@@ -88,7 +90,9 @@ v3d_screen(struct pipe_screen *screen)
         return (struct v3d_screen *)screen;
 }
 
-struct pipe_screen *v3d_screen_create(int fd, struct renderonly *ro);
+struct pipe_screen *v3d_screen_create(int fd,
+                                      const struct pipe_screen_config *config,
+                                      struct renderonly *ro);
 
 void
 v3d_fence_init(struct v3d_screen *screen);

@@ -19,4 +19,7 @@
     <string name="send_text_button">Send Outgoing Text Now.</string>
     <string name="send_text_service_button">Send Outgoing Text after 5 sec.</string>
     <string name="get_sub_for_result_button">Ask user for sub id.</string>
+    <string name="enable_persistent_service">Enable Persistent Service</string>
+    <string name="disable_persistent_service">Disable Persistent Service</string>
+    <string name="check_single_reg_permission">Check RCS Single Reg Perm</string>
 </resources>

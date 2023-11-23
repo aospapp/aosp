@@ -63,8 +63,7 @@ public abstract class OrderedTestActivity extends PassFailButtons.Activity {
     @Override
     protected void onStart() {
         super.onStart();
-
-        mTests[mTestIndex].run();
+        processCurrentTest();
     }
 
     /** Returns a list of tests to run in order. */
@@ -80,21 +79,28 @@ public abstract class OrderedTestActivity extends PassFailButtons.Activity {
     protected void succeed() {
         runOnUiThread(() -> {
             mTestIndex++;
-            if (mTestIndex < mTests.length) {
-                mTests[mTestIndex].run();
-            } else {
-                // On test completion, hide "next" and "fail" buttons, and show "pass" button
-                // instead.
-                mInstructions.setText(R.string.tests_completed_successfully);
-                mNextButton.setVisibility(View.GONE);
-                findViewById(R.id.pass_button).setVisibility(View.VISIBLE);
-                findViewById(R.id.fail_button).setVisibility(View.GONE);
-            }
+            processCurrentTest();
         });
     }
 
     protected void error(int stringResId) {
         Toast.makeText(this, stringResId, Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Must be invoked on the main thread
+     */
+    private void processCurrentTest() {
+        if (mTestIndex < mTests.length) {
+            mTests[mTestIndex].run();
+        } else {
+            // On test completion, hide "next" and "fail" buttons, and show "pass" button
+            // instead.
+            mInstructions.setText(R.string.tests_completed_successfully);
+            mNextButton.setVisibility(View.GONE);
+            findViewById(R.id.pass_button).setVisibility(View.VISIBLE);
+            findViewById(R.id.fail_button).setVisibility(View.GONE);
+        }
     }
 
     protected abstract class Test {

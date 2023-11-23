@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 """
 Lockstat is the basic tool used to control the kernel's Lockmeter
 functionality:  e.g., turning the kernel's data gathering on or off, and
@@ -9,6 +10,10 @@ NOTE: if you get compile errors from config.h, referring you to a FAQ,
 you might need to do 'cat < /dev/null > /usr/include/linux/config.h'.
 But read the FAQ first.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 from autotest_lib.client.bin import utils, profiler
 
@@ -35,7 +40,7 @@ class lockmeter(profiler.profiler):
         if not os.path.exists('/proc/lockmeter'):
             msg = ('Lockmeter is not compiled into your kernel'
                    'Please fix and try again')
-            print msg
+            print(msg)
             raise AssertionError(msg)
 
 

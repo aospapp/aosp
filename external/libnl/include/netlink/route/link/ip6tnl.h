@@ -22,6 +22,8 @@ extern "C" {
 	extern struct rtnl_link *rtnl_link_ip6_tnl_alloc(void);
 	extern int rtnl_link_ip6_tnl_add(struct nl_sock *sk, const char *name);
 
+	extern int rtnl_link_is_ip6_tnl(struct rtnl_link *link);
+
 	extern int rtnl_link_ip6_tnl_set_link(struct rtnl_link *link,  uint32_t index);
 	extern uint32_t rtnl_link_ip6_tnl_get_link(struct rtnl_link *link);
 
@@ -49,7 +51,7 @@ extern "C" {
 	extern int rtnl_link_ip6_tnl_set_proto(struct rtnl_link *link, uint8_t proto);
 	extern uint8_t rtnl_link_ip6_tnl_get_proto(struct rtnl_link *link);
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

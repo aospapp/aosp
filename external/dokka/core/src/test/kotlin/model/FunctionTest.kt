@@ -234,4 +234,18 @@ Documentation""", content.description.toTestString())
             }
         }
     }
+
+    // Test for b/159470920, to ensure that we correctly parse annotated function types without resolving 'ERROR CLASS'
+    // types. Note that the actual annotation is not included in the type information, this is tracked in b/145517104.
+    @Test fun functionWithAnnotatedLambdaParam() {
+        verifyModel("testdata/functions/functionWithAnnotatedLambdaParam.kt") { model ->
+            with(model.members.single().members.single { it.name == "function" }) {
+                with(details(NodeKind.Parameter).first()) {
+                    with(details(NodeKind.Type).first()) {
+                        assertEquals("Function0", name)
+                    }
+                }
+            }
+        }
+    }
 }

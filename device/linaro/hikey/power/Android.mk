@@ -24,6 +24,8 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE := android.hardware.power@1.1-service.hikey-common
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_INIT_RC := android.hardware.power@1.1-service.hikey-common.rc
 LOCAL_SRC_FILES := service.cpp Power.cpp power_hikey.c
 

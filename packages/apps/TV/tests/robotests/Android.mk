@@ -5,6 +5,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := TvRoboTests
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 
 BASE_DIR = src/com/android/tv
@@ -50,6 +52,8 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 #############################################################
 include $(CLEAR_VARS)
 LOCAL_MODULE := RunTvRoboTests
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 BASE_DIR = com/android/tv
 EXCLUDE_FILES := \

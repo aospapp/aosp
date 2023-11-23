@@ -1,4 +1,4 @@
-// -target-api 22
+// -target-api 22 -Wdeprecated-declarations
 #pragma version(1)
 #pragma rs java_package_name(foo)
 

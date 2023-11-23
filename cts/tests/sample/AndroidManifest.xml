@@ -16,25 +16,24 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.sample.cts"
-    android:targetSandboxVersion="2">
+     package="android.sample.cts"
+     android:targetSandboxVersion="2">
 
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <application>
-        <uses-library android:name="android.test.runner" />
-        <activity android:name="android.sample.SampleDeviceActivity" >
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name="android.sample.SampleDeviceActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 
     <!--  self-instrumenting test package. -->
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:label="CTS sample tests"
-        android:targetPackage="android.sample.cts" >
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:label="CTS sample tests"
+         android:targetPackage="android.sample.cts">
     </instrumentation>
 </manifest>
-

@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import logging
-import time
 
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 from autotest_lib.server.cros.servo import chrome_ec
@@ -22,44 +21,16 @@ class firmware_DevMode(FirmwareTest):
         self.switcher.setup_mode('normal')
         self.setup_usbkey(usbkey=False)
 
-    def bypass_dev_mode_menu_navigation(self):
-        """On tablets/detachables, bypassing the developer warning screen
-        using menu option navigation method.
-        """
-        logging.info("-[bypass_dev_mode]-")
-        logging.info("Bypassing developer warning screen using Menu "
-                     "navigation method.")
-        time.sleep(self.faft_config.firmware_screen)
-        self.servo.set_nocheck('volume_up_hold', 100)
-        time.sleep(self.faft_config.confirm_screen)
-        self.servo.set_nocheck('volume_up_hold', 100)
-        time.sleep(self.faft_config.confirm_screen)
-        self.servo.set_nocheck('volume_up_hold', 100)
-        time.sleep(self.faft_config.confirm_screen)
-        logging.info("Selecting power button as enter key to select "
-                     "'Developer Options'.")
-        self.servo.power_short_press()
-        time.sleep(self.faft_config.firmware_screen)
-        logging.info("Selecting power button as enter key to select "
-                     "'Boot Developer Image'.")
-        self.servo.power_short_press()
-
     def run_once(self):
         """Method which actually runs the test."""
-        logging.info("Enable dev mode.")
         self.check_state((self.checkers.crossystem_checker, {
                 'devsw_boot': '0',
                 'mainfw_type': 'normal',
         }))
 
-        self.switcher._enable_dev_mode_and_reboot()
-        # To validate the Menu navigation method to bypass the developer
-        # warning screen on tablets/detachables.
-        if self.faft_config.mode_switcher_type == 'tablet_detachable_switcher':
-            self.bypass_dev_mode_menu_navigation()
-        else:
-            self.switcher.bypass_dev_mode()
-        self.switcher.wait_for_client()
+        logging.info("Enable dev mode.")
+        self.switcher.reboot_to_mode(
+                'dev', from_mode='normal', sync_before_boot=False)
 
         logging.info("Expected developer mode boot and enable normal mode.")
         self.check_state((self.checkers.crossystem_checker, {
@@ -74,9 +45,9 @@ class firmware_DevMode(FirmwareTest):
                 'mainfw_type': 'normal',
         }))
 
-        if self.check_ec_capability() and \
-                self.faft_config.mode_switcher_type not in (
-                    'keyboard_dev_switcher', 'tablet_detachable_switcher'):
+        if (
+                self.check_ec_capability() and
+                self.faft_config.mode_switcher_type == 'jetstream_switcher'):
             if self.gbb_flags & vboot.GBB_FLAG_DISABLE_EC_SOFTWARE_SYNC:
                 # In order to test that entering dev mode does not work when
                 # EC_IN_RW=1, EC software sync must be enabled.  If EC software
@@ -85,7 +56,7 @@ class firmware_DevMode(FirmwareTest):
                 return
 
             logging.info("Rebooting into fake recovery mode (EC still in RW).")
-            self.servo.get_power_state_controller().power_off()
+            self._client.power_off_via_servo()
             self.ec.set_hostevent(chrome_ec.HOSTEVENT_KEYBOARD_RECOVERY)
             self.servo.power_short_press()
 

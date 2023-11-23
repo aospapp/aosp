@@ -62,7 +62,7 @@ class AidegenProjectConfigUnittests(unittest.TestCase):
         """Test __init__ method without launching IDE."""
         args = aidegen_main._parse_args(['a', '-n', '-s'])
         config = project_config.ProjectConfig(args)
-        self.assertEqual(config.ide_name, constant.IDE_INTELLIJ)
+        self.assertEqual(config.ide_name, constant.IDE_UNDEFINED)
         self.assertFalse(config.is_launch_ide)
         self.assertEqual(config.depth, 0)
         self.assertFalse(config.full_repo)
@@ -73,7 +73,7 @@ class AidegenProjectConfigUnittests(unittest.TestCase):
         self.assertFalse(config.config_reset)
         self.assertEqual(config.exclude_paths, None)
         config_obj = project_config.ProjectConfig.get_instance()
-        self.assertEqual(config_obj.ide_name, constant.IDE_INTELLIJ)
+        self.assertEqual(config_obj.ide_name, constant.IDE_UNDEFINED)
         self.assertFalse(config_obj.is_launch_ide)
         self.assertEqual(config_obj.depth, 0)
         self.assertFalse(config_obj.full_repo)
@@ -88,11 +88,11 @@ class AidegenProjectConfigUnittests(unittest.TestCase):
         """Test __init__ method with different arguments."""
         args = aidegen_main._parse_args([])
         config = project_config.ProjectConfig(args)
-        self.assertEqual(config.ide_name, constant.IDE_INTELLIJ)
+        self.assertEqual(config.ide_name, constant.IDE_UNDEFINED)
         self.assertEqual(config.targets, [''])
         config_obj = project_config.ProjectConfig.get_instance()
         self.assertEqual(config_obj.targets, [''])
-        self.assertEqual(config_obj.ide_name, constant.IDE_INTELLIJ)
+        self.assertEqual(config_obj.ide_name, constant.IDE_UNDEFINED)
         target = 'tradefed'
         args = aidegen_main._parse_args([target])
         config = project_config.ProjectConfig(args)
@@ -174,6 +174,11 @@ class AidegenProjectConfigUnittests(unittest.TestCase):
         self.assertTrue(mock_get_atest.called)
         self.assertTrue(mock_trans.called)
         self.assertTrue(mock_check_whole.called)
+        mock_get_atest.mock_reset()
+        args = aidegen_main._parse_args(['-i', 'c'])
+        config = project_config.ProjectConfig(args)
+        config.init_environment()
+        mock_get_atest.assert_called_with(None)
 
     @mock.patch('builtins.print')
     def test_show_skip_build_msg_with_skip(self, mock_print):

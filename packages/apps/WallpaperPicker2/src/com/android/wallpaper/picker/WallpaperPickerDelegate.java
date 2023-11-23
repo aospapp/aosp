@@ -79,6 +79,8 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
     private List<PermissionChangedListener> mPermissionChangedListeners;
     private PackageStatusNotifier.Listener mLiveWallpaperStatusListener;
     private PackageStatusNotifier.Listener mThirdPartyStatusListener;
+    private PackageStatusNotifier.Listener mDownloadableWallpaperStatusListener;
+    private String mDownloadableIntentAction;
     private CategoryProvider mCategoryProvider;
     private WallpaperPersister mWallpaperPersister;
     private static final String READ_PERMISSION = permission.READ_EXTERNAL_STORAGE;
@@ -101,6 +103,7 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
         mFormFactor = formFactorChecker.getFormFactor();
 
         mPermissionChangedListeners = new ArrayList<>();
+        mDownloadableIntentAction = injector.getDownloadableIntentAction();
     }
 
     public void initialize(boolean forceCategoryRefresh) {
@@ -111,6 +114,15 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
                 mLiveWallpaperStatusListener,
                 WallpaperService.SERVICE_INTERFACE);
         mPackageStatusNotifier.addListener(mThirdPartyStatusListener, Intent.ACTION_SET_WALLPAPER);
+        if (mDownloadableIntentAction != null) {
+            mDownloadableWallpaperStatusListener = (packageName, status) -> {
+                if (status != PackageStatusNotifier.PackageStatus.REMOVED) {
+                    populateCategories(/* forceRefresh= */ true);
+                }
+            };
+            mPackageStatusNotifier.addListener(
+                    mDownloadableWallpaperStatusListener, mDownloadableIntentAction);
+        }
     }
 
     @Override
@@ -194,7 +206,7 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
             }
         } else {
             // CHANGED package, let's reload all categories as we could have more or fewer now
-            populateCategories(true);
+            populateCategories(/* forceRefresh= */ true);
         }
     }
 
@@ -247,6 +259,25 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
     }
 
     /**
+     * Fetch the wallpaper categories but don't call any callbacks on the result, just so that
+     * they're cached when loading later.
+     */
+    public void prefetchCategories() {
+        boolean forceRefresh = mCategoryProvider.resetIfNeeded();
+        mCategoryProvider.fetchCategories(new CategoryReceiver() {
+            @Override
+            public void onCategoryReceived(Category category) {
+                // Do nothing
+            }
+
+            @Override
+            public void doneFetchingCategories() {
+                // Do nothing
+            }
+        }, forceRefresh);
+    }
+
+    /**
      * Populates the categories appropriately depending on the device form factor.
      *
      * @param forceRefresh        Whether to force a refresh of categories from the
@@ -255,10 +286,10 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
      */
     public void populateCategories(boolean forceRefresh) {
 
-        final CategoryFragment categoryFragment = getCategoryPickerFragment();
+        final CategorySelectorFragment categorySelectorFragment = getCategorySelectorFragment();
 
-        if (forceRefresh && categoryFragment != null) {
-            categoryFragment.clearCategories();
+        if (forceRefresh && categorySelectorFragment != null) {
+            categorySelectorFragment.clearCategories();
         }
 
         mCategoryProvider.fetchCategories(new CategoryReceiver() {
@@ -276,9 +307,9 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
 
     private void notifyDoneFetchingCategories() {
         if (mFormFactor == FormFactorChecker.FORM_FACTOR_MOBILE) {
-            CategoryFragment categoryFragment = getCategoryPickerFragment();
-            if (categoryFragment != null) {
-                categoryFragment.doneFetchingCategories();
+            CategorySelectorFragment categorySelectorFragment = getCategorySelectorFragment();
+            if (categorySelectorFragment != null) {
+                categorySelectorFragment.doneFetchingCategories();
             }
         } else {
             mContainer.doneFetchingCategories();
@@ -286,35 +317,37 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
     }
 
     public void addCategory(Category category, boolean fetchingAll) {
-        CategoryFragment categoryFragment = getCategoryPickerFragment();
-        if (categoryFragment != null) {
-            categoryFragment.addCategory(category, fetchingAll);
+        CategorySelectorFragment categorySelectorFragment = getCategorySelectorFragment();
+        if (categorySelectorFragment != null) {
+            categorySelectorFragment.addCategory(category, fetchingAll);
         }
     }
 
     public void removeCategory(Category category) {
-        CategoryFragment categoryFragment = getCategoryPickerFragment();
-        if (categoryFragment != null) {
-            categoryFragment.removeCategory(category);
+        CategorySelectorFragment categorySelectorFragment = getCategorySelectorFragment();
+        if (categorySelectorFragment != null) {
+            categorySelectorFragment.removeCategory(category);
         }
     }
 
     public void updateCategory(Category category) {
-        CategoryFragment categoryFragment = getCategoryPickerFragment();
-        if (categoryFragment != null) {
-            categoryFragment.updateCategory(category);
+        CategorySelectorFragment categorySelectorFragment = getCategorySelectorFragment();
+        if (categorySelectorFragment != null) {
+            categorySelectorFragment.updateCategory(category);
         }
     }
 
     @Nullable
-    private CategoryFragment getCategoryPickerFragment() {
-        return mContainer.getCategoryFragment();
+    private CategorySelectorFragment getCategorySelectorFragment() {
+        return mContainer.getCategorySelectorFragment();
     }
 
     /**
      * Shows the view-only preview activity for the given wallpaper.
      */
-    public void showViewOnlyPreview(WallpaperInfo wallpaperInfo) {
+    public void showViewOnlyPreview(WallpaperInfo wallpaperInfo, boolean isViewAsHome) {
+        ((ViewOnlyPreviewActivityIntentFactory) mViewOnlyPreviewIntentFactory).setAsHomePreview(
+                /* isHomeAndLockPreviews= */ true, isViewAsHome);
         wallpaperInfo.showPreview(
                 mActivity, mViewOnlyPreviewIntentFactory,
                 VIEW_ONLY_PREVIEW_WALLPAPER_REQUEST_CODE);
@@ -394,6 +427,7 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
         if (mPackageStatusNotifier != null) {
             mPackageStatusNotifier.removeListener(mLiveWallpaperStatusListener);
             mPackageStatusNotifier.removeListener(mThirdPartyStatusListener);
+            mPackageStatusNotifier.removeListener(mDownloadableWallpaperStatusListener);
         }
     }
 
@@ -449,13 +483,18 @@ public class WallpaperPickerDelegate implements MyPhotosStarter {
                 // image.
                 ImageWallpaperInfo imageWallpaper = new ImageWallpaperInfo(imageUri);
 
+                mWallpaperPersister.setWallpaperInfoInPreview(imageWallpaper);
                 imageWallpaper.showPreview(mActivity, getPreviewIntentFactory(),
                         PREVIEW_WALLPAPER_REQUEST_CODE);
                 return false;
-            case PREVIEW_WALLPAPER_REQUEST_CODE:
             case PREVIEW_LIVE_WALLPAPER_REQUEST_CODE:
-                // User previewed and selected a wallpaper, so finish this activity.
                 mWallpaperPersister.onLiveWallpaperSet();
+                populateCategories(/* forceRefresh= */ true);
+                // Fall through.
+            case VIEW_ONLY_PREVIEW_WALLPAPER_REQUEST_CODE:
+                // Fall through.
+            case PREVIEW_WALLPAPER_REQUEST_CODE:
+                // User previewed and selected a wallpaper, so finish this activity.
                 return true;
             default:
                 return false;

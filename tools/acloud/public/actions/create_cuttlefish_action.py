@@ -55,8 +55,9 @@ class CuttlefishDeviceFactory(base_device_factory.BaseDeviceFactory):
                  kernel_build_id=None, kernel_branch=None,
                  kernel_build_target=None, system_branch=None,
                  system_build_id=None, system_build_target=None,
-                 boot_timeout_secs=None, ins_timeout_secs=None,
-                 report_internal_ip=None, gpu=None):
+                 bootloader_branch=None, bootloader_build_id=None,
+                 bootloader_build_target=None, boot_timeout_secs=None,
+                 ins_timeout_secs=None, report_internal_ip=None, gpu=None):
 
         self.credentials = auth.CreateCredentials(cfg)
 
@@ -90,6 +91,8 @@ class CuttlefishDeviceFactory(base_device_factory.BaseDeviceFactory):
             kernel_branch)
         self.system_build_info = self._build_client.GetBuildInfo(
             system_build_target or build_target, system_build_id, system_branch)
+        self.bootloader_build_info = self._build_client.GetBuildInfo(
+            bootloader_build_target, bootloader_build_id, bootloader_branch)
 
     def GetBuildInfoDict(self):
         """Get build info dictionary.
@@ -107,6 +110,10 @@ class CuttlefishDeviceFactory(base_device_factory.BaseDeviceFactory):
         build_info_dict.update(
             {"system_%s" % key: val
              for key, val in utils.GetDictItems(self.system_build_info) if val}
+        )
+        build_info_dict.update(
+            {"bootloader_%s" % key: val
+             for key, val in utils.GetDictItems(self.bootloader_build_info) if val}
         )
         return build_info_dict
 
@@ -161,10 +168,14 @@ class CuttlefishDeviceFactory(base_device_factory.BaseDeviceFactory):
             remote_system_build_id = self._GetGcsBucketBuildId(
                 self.system_build_info.build_id, self.system_build_info.release_build_id)
 
+        host_image_name = self._compute_client.GetHostImageName(
+            self._cfg.stable_host_image_name,
+            self._cfg.stable_host_image_family,
+            self._cfg.stable_host_image_project)
         # Create an instance from Stable Host Image
         self._compute_client.CreateInstance(
             instance=instance,
-            image_name=self._cfg.stable_host_image_name,
+            image_name=host_image_name,
             image_project=self._cfg.stable_host_image_project,
             build_target=self.build_info.build_target,
             branch=self.build_info.branch,
@@ -176,7 +187,10 @@ class CuttlefishDeviceFactory(base_device_factory.BaseDeviceFactory):
             extra_scopes=self._extra_scopes,
             system_build_target=self.system_build_info.build_target,
             system_branch=self.system_build_info.branch,
-            system_build_id=remote_system_build_id)
+            system_build_id=remote_system_build_id,
+            bootloader_build_target=self.bootloader_build_info.build_target,
+            bootloader_branch=self.bootloader_build_info.branch,
+            bootloader_build_id=self.bootloader_build_info.build_id)
 
         return instance
 
@@ -192,6 +206,9 @@ def CreateDevices(cfg,
                   system_branch=None,
                   system_build_id=None,
                   system_build_target=None,
+                  bootloader_branch=None,
+                  bootloader_build_id=None,
+                  bootloader_build_target=None,
                   gpu=None,
                   num=1,
                   serial_log_file=None,
@@ -212,6 +229,9 @@ def CreateDevices(cfg,
         system_branch: Branch name to consume the system.img from, a string.
         system_build_id: System branch build id, a string.
         system_build_target: System image build target, a string.
+        bootloader_branch: String of the bootloader branch name.
+        bootloader_build_id: String of the bootloader build id.
+        bootloader_build_target: String of the bootloader target name.
         gpu: String, GPU to attach to the device or None. e.g. "nvidia-tesla-k80"
         num: Integer, Number of devices to create.
         serial_log_file: String, A path to a tar file where serial output should
@@ -242,14 +262,18 @@ def CreateDevices(cfg,
         "system_branch: %s, "
         "system_build_id: %s, "
         "system_build_target: %s, "
+        "bootloader_branch: %s, "
+        "bootloader_build_id: %s, "
+        "bootloader_build_target: %s, "
         "gpu: %s"
         "num: %s, "
         "serial_log_file: %s, "
         "autoconnect: %s, "
         "report_internal_ip: %s", cfg.project, build_target,
         build_id, branch, kernel_build_id, kernel_branch, kernel_build_target,
-        system_branch, system_build_id, system_build_target, gpu, num,
-        serial_log_file, autoconnect, report_internal_ip)
+        system_branch, system_build_id, system_build_target, bootloader_branch,
+        bootloader_build_id, bootloader_build_target, gpu, num, serial_log_file,
+        autoconnect, report_internal_ip)
     # If multi_stage enable, launch_cvd don't write serial log to instance. So
     # it doesn't go WaitForBoot function.
     if cfg.enable_multi_stage:
@@ -260,6 +284,9 @@ def CreateDevices(cfg,
         kernel_build_target=kernel_build_target, system_branch=system_branch,
         system_build_id=system_build_id,
         system_build_target=system_build_target,
+        bootloader_branch=bootloader_branch,
+        bootloader_build_id=bootloader_build_id,
+        bootloader_build_target=bootloader_build_target,
         boot_timeout_secs=boot_timeout_secs,
         ins_timeout_secs=ins_timeout_secs,
         report_internal_ip=report_internal_ip,

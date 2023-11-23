@@ -21,9 +21,14 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="token" value="SIM_CARD" />
     <target_preparer class="android.telephony.cts.preconditions.TelephonyPreparer">
         <option name="apk" value="CtsTelephonyPreparerApp.apk" />
-        <option name="package" value="android.telephony.cts.preconditions.app" />
+        <option name="package" value="android.telephony.cts.preconditions.preparerApp" />
+    </target_preparer>
+    <target_preparer class="android.telephony.cts.preconditions.TelephonyCleaner">
+        <option name="apk" value="CtsTelephonyCleanerApp.apk" />
+        <option name="package" value="android.telephony.cts.preconditions.cleanerApp" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />

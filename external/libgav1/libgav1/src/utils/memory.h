@@ -34,8 +34,9 @@ namespace libgav1 {
 enum {
 // The byte alignment required for buffers used with SIMD code to be read or
 // written with aligned operations.
-#if defined(__i386__) || defined(_M_IX86)
-  kMaxAlignment = 16,  // extended alignment is safe on x86.
+#if defined(__i386__) || defined(_M_IX86) || defined(__x86_64__) || \
+    defined(_M_X64)
+  kMaxAlignment = 32,  // extended alignment is safe on x86.
 #else
   kMaxAlignment = alignof(max_align_t),
 #endif
@@ -139,10 +140,48 @@ struct Allocable {
   // Class-specific non-throwing allocation functions
   static void* operator new(size_t size, const std::nothrow_t& tag) noexcept {
     if (size > 0x40000000) return nullptr;
+    return ::operator new(size, tag);
+  }
+  static void* operator new[](size_t size, const std::nothrow_t& tag) noexcept {
+    if (size > 0x40000000) return nullptr;
+    return ::operator new[](size, tag);
+  }
+
+  // Class-specific deallocation functions.
+  static void operator delete(void* ptr) noexcept { ::operator delete(ptr); }
+  static void operator delete[](void* ptr) noexcept {
+    ::operator delete[](ptr);
+  }
+
+  // Only called if new (std::nothrow) is used and the constructor throws an
+  // exception.
+  static void operator delete(void* ptr, const std::nothrow_t& tag) noexcept {
+    ::operator delete(ptr, tag);
+  }
+  // Only called if new[] (std::nothrow) is used and the constructor throws an
+  // exception.
+  static void operator delete[](void* ptr, const std::nothrow_t& tag) noexcept {
+    ::operator delete[](ptr, tag);
+  }
+};
+
+// A variant of Allocable that forces allocations to be aligned to
+// kMaxAlignment bytes. This is intended for use with classes that use
+// alignas() with this value. C++17 aligned new/delete are used if available,
+// otherwise we use AlignedAlloc/Free.
+struct MaxAlignedAllocable {
+  // Class-specific allocation functions.
+  static void* operator new(size_t size) = delete;
+  static void* operator new[](size_t size) = delete;
+
+  // Class-specific non-throwing allocation functions
+  static void* operator new(size_t size, const std::nothrow_t& tag) noexcept {
+    if (size > 0x40000000) return nullptr;
 #ifdef __cpp_aligned_new
     return ::operator new(size, std::align_val_t(kMaxAlignment), tag);
 #else
-    return ::operator new(size, tag);
+    static_cast<void>(tag);
+    return AlignedAlloc(kMaxAlignment, size);
 #endif
   }
   static void* operator new[](size_t size, const std::nothrow_t& tag) noexcept {
@@ -150,7 +189,8 @@ struct Allocable {
 #ifdef __cpp_aligned_new
     return ::operator new[](size, std::align_val_t(kMaxAlignment), tag);
 #else
-    return ::operator new[](size, tag);
+    static_cast<void>(tag);
+    return AlignedAlloc(kMaxAlignment, size);
 #endif
   }
 
@@ -159,14 +199,14 @@ struct Allocable {
 #ifdef __cpp_aligned_new
     ::operator delete(ptr, std::align_val_t(kMaxAlignment));
 #else
-    ::operator delete(ptr);
+    AlignedFree(ptr);
 #endif
   }
   static void operator delete[](void* ptr) noexcept {
 #ifdef __cpp_aligned_new
     ::operator delete[](ptr, std::align_val_t(kMaxAlignment));
 #else
-    ::operator delete[](ptr);
+    AlignedFree(ptr);
 #endif
   }
 
@@ -176,7 +216,8 @@ struct Allocable {
 #ifdef __cpp_aligned_new
     ::operator delete(ptr, std::align_val_t(kMaxAlignment), tag);
 #else
-    ::operator delete(ptr, tag);
+    static_cast<void>(tag);
+    AlignedFree(ptr);
 #endif
   }
   // Only called if new[] (std::nothrow) is used and the constructor throws an
@@ -185,7 +226,8 @@ struct Allocable {
 #ifdef __cpp_aligned_new
     ::operator delete[](ptr, std::align_val_t(kMaxAlignment), tag);
 #else
-    ::operator delete[](ptr, tag);
+    static_cast<void>(tag);
+    AlignedFree(ptr);
 #endif
   }
 };

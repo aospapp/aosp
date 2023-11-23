@@ -29,67 +29,62 @@ import android.provider.DocumentsContract.Document;
 import android.util.Log;
 
 /**
- * Cursor wrapper that filters MIME types not matching given list.
+ * Cursor wrapper that filters cursor results by given conditions.
  */
 public class FilteringCursorWrapper extends AbstractCursor {
     private final Cursor mCursor;
 
-    private final int[] mPosition;
+    private int[] mPositions;
     private int mCount;
 
-    public FilteringCursorWrapper(Cursor cursor, String[] acceptMimes) {
-        this(cursor, acceptMimes, null, Long.MIN_VALUE);
-    }
-
-    public FilteringCursorWrapper(Cursor cursor, String[] acceptMimes, String[] rejectMimes) {
-        this(cursor, acceptMimes, rejectMimes, Long.MIN_VALUE);
-    }
-
-    public FilteringCursorWrapper(
-            Cursor cursor, String[] acceptMimes, String[] rejectMimes, long rejectBefore) {
+    public FilteringCursorWrapper(Cursor cursor) {
         mCursor = cursor;
+        mCount = cursor.getCount();
+        mPositions = new int[mCount];
+        for (int i = 0; i < mCount; i++) {
+            mPositions[i] = i;
+        }
+    }
 
-        final int count = cursor.getCount();
-        mPosition = new int[count];
-
-        cursor.moveToPosition(-1);
-        while (cursor.moveToNext() && mCount < count) {
+    /**
+     * Filters cursor according to mimes. If both lists are empty, all mimes will be rejected.
+     *
+     * @param acceptMimes allowed list of mimes
+     * @param rejectMimes blocked list of mimes
+     */
+    public void filterMimes(String[] acceptMimes, String[] rejectMimes) {
+        filterByCondition((cursor) -> {
             final String mimeType = getCursorString(cursor, Document.COLUMN_MIME_TYPE);
-            final long lastModified = getCursorLong(cursor, Document.COLUMN_LAST_MODIFIED);
             if (rejectMimes != null && MimeTypes.mimeMatches(rejectMimes, mimeType)) {
-                continue;
+                return false;
             }
-            if (lastModified < rejectBefore) {
-                continue;
-            }
-            if (MimeTypes.mimeMatches(acceptMimes, mimeType)) {
-                mPosition[mCount++] = cursor.getPosition();
-            }
-        }
-
-        if (DEBUG && mCount != cursor.getCount()) {
-            Log.d(TAG, "Before filtering " + cursor.getCount() + ", after " + mCount);
-        }
+            return MimeTypes.mimeMatches(acceptMimes, mimeType);
+        });
     }
 
-    public FilteringCursorWrapper(Cursor cursor, boolean showHiddenFiles) {
-        mCursor = cursor;
+    /** Filters cursor according to last modified time, and reject earlier than given timestamp. */
+    public void filterLastModified(long rejectBeforeTimestamp) {
+        filterByCondition((cursor) -> {
+            final long lastModified = getCursorLong(cursor, Document.COLUMN_LAST_MODIFIED);
+            return lastModified >= rejectBeforeTimestamp;
+        });
+    }
 
-        final int count = cursor.getCount();
-        mPosition = new int[count];
+    /** Filter hidden files based on preference. */
+    public void filterHiddenFiles(boolean showHiddenFiles) {
+        if (showHiddenFiles) {
+            return;
+        }
 
-        cursor.moveToPosition(-1);
-        while (cursor.moveToNext() && mCount < count) {
+        filterByCondition((cursor) -> {
+            // Judge by name and documentId separately because for some providers
+            // e.g. DownloadProvider, documentId may not contain file name.
             final String name = getCursorString(cursor, Document.COLUMN_DISPLAY_NAME);
-            if (!showHiddenFiles && name != null && name.startsWith(".")) {
-                continue;
-            }
-            mPosition[mCount++] = cursor.getPosition();
-        }
-
-        if (DEBUG && mCount != cursor.getCount()) {
-            Log.d(TAG, "Before filtering " + cursor.getCount() + ", after " + mCount);
-        }
+            final String documentId = getCursorString(cursor, Document.COLUMN_DOCUMENT_ID);
+            boolean documentIdHidden = documentId != null && documentId.contains("/.");
+            boolean fileNameHidden = name != null && name.startsWith(".");
+            return !(documentIdHidden || fileNameHidden);
+        });
     }
 
     @Override
@@ -105,7 +100,7 @@ public class FilteringCursorWrapper extends AbstractCursor {
 
     @Override
     public boolean onMove(int oldPosition, int newPosition) {
-        return mCursor.moveToPosition(mPosition[newPosition]);
+        return mCursor.moveToPosition(mPositions[newPosition]);
     }
 
     @Override
@@ -166,5 +161,28 @@ public class FilteringCursorWrapper extends AbstractCursor {
     @Override
     public void unregisterContentObserver(ContentObserver observer) {
         mCursor.unregisterContentObserver(observer);
+    }
+
+    private interface FilteringCondition {
+        boolean accept(Cursor cursor);
+    }
+
+    private void filterByCondition(FilteringCondition condition) {
+        final int oldCount = this.getCount();
+        int[] newPositions = new int[oldCount];
+        int newCount = 0;
+
+        this.moveToPosition(-1);
+        while (this.moveToNext() && newCount < oldCount) {
+            if (condition.accept(mCursor)) {
+                newPositions[newCount++] = mPositions[this.getPosition()];
+            }
+        }
+
+        if (DEBUG && newCount != this.getCount()) {
+            Log.d(TAG, "Before filtering " + oldCount + ", after " + newCount);
+        }
+        mCount = newCount;
+        mPositions = newPositions;
     }
 }

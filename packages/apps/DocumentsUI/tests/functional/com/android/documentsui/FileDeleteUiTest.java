@@ -49,7 +49,7 @@ import java.util.concurrent.TimeUnit;
 public class FileDeleteUiTest extends ActivityTest<FilesActivity> {
     private static final String TAG = "FileDeleteUiTest";
 
-    private static final int DUMMY_FILE_COUNT = 1000;
+    private static final int STUB_FILE_COUNT = 1000;
 
     private static final int WAIT_TIME_SECONDS = 60;
 
@@ -126,17 +126,17 @@ public class FileDeleteUiTest extends ActivityTest<FilesActivity> {
     @Override
     public void initTestFiles() throws RemoteException {
         try {
-            createDummyFiles();
+            createStubFiles();
         } catch (Exception e) {
             fail("Initialization failed");
         }
     }
 
-    private void createDummyFiles() throws Exception {
+    private void createStubFiles() throws Exception {
         final ThreadPoolExecutor exec = new ThreadPoolExecutor(
                 5, 5, 1000L, TimeUnit.MILLISECONDS,
                         new ArrayBlockingQueue<Runnable>(100, true));
-        for (int i = 0; i < DUMMY_FILE_COUNT; i++) {
+        for (int i = 0; i < STUB_FILE_COUNT; i++) {
             final String fileName = "file" + String.format("%04d", i) + ".log";
             if (exec.getQueue().size() >= 80) {
                 Thread.sleep(50);

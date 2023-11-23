@@ -752,7 +752,8 @@ public class ApfGenerator {
 
     /**
      * Add an instruction to the end of the program to jump to {@code target} if the bytes of the
-     * packet at an offset specified by {@code register} match {@code bytes}.
+     * packet at an offset specified by {@code register} don't match {@code bytes}, {@code register}
+     * must be R0.
      */
     public ApfGenerator addJumpIfBytesNotEqual(Register register, byte[] bytes, String target)
             throws IllegalInstructionException {

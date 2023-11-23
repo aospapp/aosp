@@ -16,15 +16,16 @@
 
 package com.android.tv.settings.accessories;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.fragment.app.FragmentActivity;
+
 import com.android.tv.settings.R;
 
-public class BluetoothDevicePickerActivity extends Activity {
+public class BluetoothDevicePickerActivity extends FragmentActivity {
 
     public static final String TAG = "BtDevicePickerActivity";
     private static final boolean DEBUG = false;

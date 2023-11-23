@@ -4,7 +4,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
+from six.moves import range
 import socket
 import sys
 import time
@@ -49,7 +54,7 @@ def bin2hex(byte_str, justification=20):
     """
     chars = ["x" + (hex(ord(c))[2:].zfill(2)) for c in byte_str]
     groups = []
-    for i in xrange(0, len(chars), justification):
+    for i in range(0, len(chars), justification):
         groups.append("".join(chars[i:i+justification]))
     return "\n".join(groups)
 
@@ -62,25 +67,25 @@ def test_packet_serialization():
         return False
     generated_string = discovery_packet.to_binary_string()
     if generated_string is None:
-        print "Failed to generate string from packet object."
+        print("Failed to generate string from packet object.")
         return False
     if generated_string != binary_discovery_packet:
-        print "Packets didn't match: "
-        print "Generated: \n%s" % bin2hex(generated_string)
-        print "Expected: \n%s" % bin2hex(binary_discovery_packet)
+        print("Packets didn't match: ")
+        print("Generated: \n%s" % bin2hex(generated_string))
+        print("Expected: \n%s" % bin2hex(binary_discovery_packet))
         return False
-    print "test_packet_serialization PASSED"
+    print("test_packet_serialization PASSED")
     return True
 
 def test_classless_static_route_parsing():
     parsed_routes = dhcp_packet.ClasslessStaticRoutesOption.unpack(
             TEST_CLASSLESS_STATIC_ROUTE_DATA)
     if parsed_routes != TEST_CLASSLESS_STATIC_ROUTE_LIST_PARSED:
-        print ("Parsed binary domain list and got %s but expected %s" %
+        print("Parsed binary domain list and got %s but expected %s" %
                (repr(parsed_routes),
                 repr(TEST_CLASSLESS_STATIC_ROUTE_LIST_PARSED)))
         return False
-    print "test_classless_static_route_parsing PASSED"
+    print("test_classless_static_route_parsing PASSED")
     return True
 
 def test_classless_static_route_serialization():
@@ -90,11 +95,11 @@ def test_classless_static_route_serialization():
         # Turn the strings into printable hex strings on a single line.
         pretty_actual = bin2hex(byte_string, 100)
         pretty_expected = bin2hex(TEST_CLASSLESS_STATIC_ROUTE_DATA, 100)
-        print ("Expected to serialize %s to %s but instead got %s." %
+        print("Expected to serialize %s to %s but instead got %s." %
                (repr(TEST_CLASSLESS_STATIC_ROUTE_LIST_PARSED), pretty_expected,
                      pretty_actual))
         return False
-    print "test_classless_static_route_serialization PASSED"
+    print("test_classless_static_route_serialization PASSED")
     return True
 
 def test_domain_search_list_parsing():
@@ -103,10 +108,10 @@ def test_domain_search_list_parsing():
     # Order matters too.
     parsed_domains = tuple(parsed_domains)
     if parsed_domains != TEST_DOMAIN_SEARCH_LIST_PARSED:
-        print ("Parsed binary domain list and got %s but expected %s" %
+        print("Parsed binary domain list and got %s but expected %s" %
                (parsed_domains, TEST_DOMAIN_SEARCH_LIST_EXPECTED))
         return False
-    print "test_domain_search_list_parsing PASSED"
+    print("test_domain_search_list_parsing PASSED")
     return True
 
 def test_domain_search_list_serialization():
@@ -116,24 +121,24 @@ def test_domain_search_list_serialization():
         # Turn the strings into printable hex strings on a single line.
         pretty_actual = bin2hex(byte_string, 100)
         pretty_expected = bin2hex(TEST_DOMAIN_SEARCH_LIST_EXPECTED, 100)
-        print ("Expected to serialize %s to %s but instead got %s." %
+        print("Expected to serialize %s to %s but instead got %s." %
                (TEST_DOMAIN_SEARCH_LIST_PARSED, pretty_expected, pretty_actual))
         return False
-    print "test_domain_search_list_serialization PASSED"
+    print("test_domain_search_list_serialization PASSED")
     return True
 
 def test_broken_domain_search_list_parsing():
     byte_string = '\x00' * 240 + TEST_DOMAIN_SEARCH_LIST1 + TEST_DOMAIN_SEARCH_LIST2 + '\xff'
     packet = dhcp_packet.DhcpPacket(byte_str=byte_string)
     if len(packet._options) != 1:
-        print "Expected domain list of length 1"
+        print("Expected domain list of length 1")
         return False
     for k, v in packet._options.items():
         if tuple(v) != TEST_DOMAIN_SEARCH_LIST_PARSED:
-            print ("Expected binary domain list and got %s but expected %s" %
+            print("Expected binary domain list and got %s but expected %s" %
                     (tuple(v), TEST_DOMAIN_SEARCH_LIST_PARSED))
             return False
-    print "test_broken_domain_search_list_parsing PASSED"
+    print("test_broken_domain_search_list_parsing PASSED")
     return True
 
 def receive_packet(a_socket, timeout_seconds=1.0):
@@ -145,13 +150,13 @@ def receive_packet(a_socket, timeout_seconds=1.0):
         except socket.timeout:
             pass # We expect many timeouts.
     if data is None:
-        print "Timed out before we received a response from the server."
+        print("Timed out before we received a response from the server.")
         return None
 
-    print "Client received a packet of length %d from the server." % len(data)
+    print("Client received a packet of length %d from the server." % len(data))
     packet = dhcp_packet.DhcpPacket(byte_str=data)
     if not packet.is_valid:
-        print "Received an invalid response from DHCP server."
+        print("Received an invalid response from DHCP server.")
         return None
 
     return packet
@@ -211,14 +216,14 @@ def test_simple_server_exchange(server):
         return False
 
     if (offer_packet.message_type != dhcp_packet.MESSAGE_TYPE_OFFER):
-        print "Type of DHCP response is not offer."
+        print("Type of DHCP response is not offer.")
         return False
 
     if offer_packet.get_field(dhcp_packet.FIELD_YOUR_IP) != intended_ip:
-        print "Server didn't offer the IP we expected."
+        print("Server didn't offer the IP we expected.")
         return False
 
-    print "Offer looks good to the client, sending request."
+    print("Offer looks good to the client, sending request.")
     # In real tests, dhcpcd formats all the DISCOVERY and REQUEST messages.  In
     # our unit test, we have to do this ourselves.
     request_message.set_option(
@@ -241,21 +246,21 @@ def test_simple_server_exchange(server):
         return False
 
     if (ack_packet.message_type != dhcp_packet.MESSAGE_TYPE_ACK):
-        print "Type of DHCP response is not acknowledgement."
+        print("Type of DHCP response is not acknowledgement.")
         return False
 
     if ack_packet.get_field(dhcp_packet.FIELD_YOUR_IP) != intended_ip:
-        print "Server didn't give us the IP we expected."
+        print("Server didn't give us the IP we expected.")
         return False
 
-    print "Waiting for the server to finish."
+    print("Waiting for the server to finish.")
     server.wait_for_test_to_finish()
-    print "Server agrees that the test is over."
+    print("Server agrees that the test is over.")
     if not server.last_test_passed:
-        print "Server is unhappy with the test result."
+        print("Server is unhappy with the test result.")
         return False
 
-    print "test_simple_server_exchange PASSED."
+    print("test_simple_server_exchange PASSED.")
     return True
 
 def test_server_dialogue():
@@ -268,10 +273,10 @@ def test_server_dialogue():
     if server.is_healthy:
         ret = test_simple_server_exchange(server)
     else:
-        print "Server isn't healthy, aborting."
-    print "Sending server stop() signal."
+        print("Server isn't healthy, aborting.")
+    print("Sending server stop() signal.")
     server.stop()
-    print "Stop signal sent."
+    print("Stop signal sent.")
     return ret
 
 def run_tests():
@@ -288,10 +293,10 @@ def run_tests():
     retval &= test_broken_domain_search_list_parsing()
     retval &= test_server_dialogue()
     if retval:
-        print "All tests PASSED."
+        print("All tests PASSED.")
         return 0
     else:
-        print "Some tests FAILED"
+        print("Some tests FAILED")
         return -1
 
 if __name__ == "__main__":

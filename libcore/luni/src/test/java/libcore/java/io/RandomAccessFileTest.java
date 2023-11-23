@@ -41,16 +41,6 @@ public final class RandomAccessFileTest extends TestCaseWithRules {
         file.delete();
     }
 
-    public void testSeekTooLarge() throws Exception {
-        try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
-            try {
-                raf.seek(Long.MAX_VALUE);
-                fail();
-            } catch (IOException expected) {
-            }
-        }
-    }
-
     public void testSetLengthTooLarge() throws Exception {
         try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
             try {

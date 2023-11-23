@@ -220,8 +220,13 @@ void ImageSparseResidencyCase::initPrograms (SourceCollections&	sourceCollection
 		const tcu::UVec3	workGroupSize		= computeWorkGroupSize(shaderExtent);
 
 		std::ostringstream src;
-		src << versionDecl << "\n"
-			<< "layout (local_size_x = " << workGroupSize.x() << ", local_size_y = " << workGroupSize.y() << ", local_size_z = " << workGroupSize.z() << ") in; \n"
+		src << versionDecl << "\n";
+		if (formatIsR64(m_format))
+		{
+			src << "#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require\n"
+				<< "#extension GL_EXT_shader_image_int64 : require\n";
+		}
+		src << "layout (local_size_x = " << workGroupSize.x() << ", local_size_y = " << workGroupSize.y() << ", local_size_z = " << workGroupSize.z() << ") in; \n"
 			<< "layout (binding = 0, " << formatQualifierStr << ") writeonly uniform highp " << imageTypeStr << " u_image;\n"
 			<< "void main (void)\n"
 			<< "{\n"
@@ -235,7 +240,8 @@ void ImageSparseResidencyCase::initPrograms (SourceCollections&	sourceCollection
 			<< "}\n";
 		std::ostringstream shaderName;
 		shaderName << "comp" << planeNdx;
-		sourceCollections.glslSources.add(shaderName.str()) << glu::ComputeSource(src.str());
+		sourceCollections.glslSources.add(shaderName.str()) << glu::ComputeSource(src.str())
+			<< vk::ShaderBuildOptions(sourceCollections.usedVulkanVersion, vk::SPIRV_VERSION_1_3, vk::ShaderBuildOptions::FLAG_ALLOW_SCALAR_OFFSETS);
 	}
 }
 
@@ -256,6 +262,21 @@ void ImageSparseResidencyCase::checkSupport(Context& context) const
 	const VkFormatProperties	formatProperties = getPhysicalDeviceFormatProperties(instance, physicalDevice, m_format);
 	if ((formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) == 0)
 		TCU_THROW(NotSupportedError, "Storage images are not supported for this format");
+
+	if (formatIsR64(m_format))
+	{
+		context.requireDeviceFunctionality("VK_EXT_shader_image_atomic_int64");
+
+		if (context.getShaderImageAtomicInt64FeaturesEXT().shaderImageInt64Atomics == VK_FALSE)
+		{
+			TCU_THROW(NotSupportedError, "shaderImageInt64Atomics is not supported");
+		}
+
+		if (context.getShaderImageAtomicInt64FeaturesEXT().sparseImageInt64Atomics == VK_FALSE)
+		{
+			TCU_THROW(NotSupportedError, "sparseImageInt64Atomics is not supported for device");
+		}
+	}
 }
 
 class ImageSparseResidencyInstance : public SparseResourcesBaseInstance
@@ -774,7 +795,6 @@ tcu::TestStatus ImageSparseResidencyInstance::iterate (void)
 			tcu::ConstPixelBufferAccess		pixelBuffer					= vk::getChannelAccess(compatibleFormatDescription, compatibleShaderGridSize, planeRowPitches, (const void* const*)planePointers, channelNdx);
 			VkExtent3D						planeExtent					= getPlaneExtent(compatibleFormatDescription, compatibleImageSize, planeNdx, 0u);
 			tcu::IVec3						pixelDivider				= pixelBuffer.getDivider();
-			float							fixedPointError				= tcu::TexVerifierUtil::computeFixedPointError(formatDescription.channels[channelNdx].sizeBits);
 
 			if( aspectRequirements.imageMipTailFirstLod > 0u )
 			{
@@ -848,6 +868,7 @@ tcu::TestStatus ImageSparseResidencyInstance::iterate (void)
 									case tcu::TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT:
 									case tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT:
 									{
+                                        float fixedPointError = tcu::TexVerifierUtil::computeFixedPointError(formatDescription.channels[channelNdx].sizeBits);
 										acceptableError += fixedPointError;
 										const tcu::Vec4 outputValue = pixelBuffer.getPixel(offsetX * pixelDivider.x(), offsetY * pixelDivider.y(), offsetZ * pixelDivider.z());
 
@@ -892,6 +913,7 @@ tcu::TestStatus ImageSparseResidencyInstance::iterate (void)
 									case tcu::TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT:
 									case tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT:
 									{
+										float fixedPointError = tcu::TexVerifierUtil::computeFixedPointError(formatDescription.channels[channelNdx].sizeBits);
 										acceptableError += fixedPointError;
 										const tcu::Vec4 outputValue = pixelBuffer.getPixel(offsetX * pixelDivider.x(), offsetY * pixelDivider.y(), offsetZ * pixelDivider.z());
 
@@ -961,6 +983,7 @@ tcu::TestStatus ImageSparseResidencyInstance::iterate (void)
 						case tcu::TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT:
 						case tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT:
 						{
+							float fixedPointError = tcu::TexVerifierUtil::computeFixedPointError(formatDescription.channels[channelNdx].sizeBits);
 							acceptableError += fixedPointError;
 							const tcu::Vec4 outputValue = pixelBuffer.getPixel(offsetX * pixelDivider.x(), offsetY * pixelDivider.y(), offsetZ * pixelDivider.z());
 

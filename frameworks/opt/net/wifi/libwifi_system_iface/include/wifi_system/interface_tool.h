@@ -50,6 +50,20 @@ class InterfaceTool {
   // Get the factory MAC address of the |if_name| interface.
   // Returns all-zero address on error.
   virtual std::array<uint8_t, ETH_ALEN> GetFactoryMacAddress(const char* if_name);
+
+  // Create a bridge
+  virtual bool createBridge(const std::string& br_name);
+
+  // Delete a bridge
+  virtual bool deleteBridge(const std::string& br_name);
+
+  // Add interface to bridge
+  virtual bool addIfaceToBridge(const std::string& br_name,
+                                const std::string& if_name);
+
+  // Remove interface from bridge
+  virtual bool removeIfaceFromBridge(const std::string& br_name,
+                                     const std::string& if_name);
 };  // class InterfaceTool
 
 }  // namespace wifi_system

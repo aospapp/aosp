@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "system_timezone_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_timezone_license"],
+}
+
 // Proto library
 java_library_host {
     name: "telephonylookupprotos",
@@ -42,6 +50,9 @@ java_test_host {
     name: "telephonylookup_generator_tests",
 
     srcs: ["src/test/java/**/*.java"],
+    test_options: {
+        unit_test: true,
+    },
     static_libs: [
         "junit",
         "telephonylookup_generator",

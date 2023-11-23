@@ -16,13 +16,24 @@
 
 package com.android.bluetooth.btservice;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
+import android.annotation.RequiresPermission;
+import android.annotation.Nullable;
+import android.app.Activity;
+import android.app.ActivityThread;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothProtoEnums;
 import android.bluetooth.OobData;
+import android.content.Attributable;
+import android.content.BroadcastReceiver;
 import android.content.Intent;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
 import android.os.Message;
 import android.os.UserHandle;
 import android.util.Log;
@@ -76,7 +87,8 @@ final class BondStateMachine extends StateMachine {
     private PendingCommandState mPendingCommandState = new PendingCommandState();
     private StableState mStableState = new StableState();
 
-    public static final String OOBDATA = "oobdata";
+    public static final String OOBDATAP192 = "oobdatap192";
+    public static final String OOBDATAP256 = "oobdatap256";
 
     @VisibleForTesting Set<BluetoothDevice> mPendingBondedDevices = new HashSet<>();
 
@@ -125,16 +137,17 @@ final class BondStateMachine extends StateMachine {
         public synchronized boolean processMessage(Message msg) {
 
             BluetoothDevice dev = (BluetoothDevice) msg.obj;
+            Attributable.setAttributionSource(dev,
+                    ActivityThread.currentAttributionSource());
 
             switch (msg.what) {
 
                 case CREATE_BOND:
-                    OobData oobData = null;
-                    if (msg.getData() != null) {
-                        oobData = msg.getData().getParcelable(OOBDATA);
-                    }
-
-                    createBond(dev, msg.arg1, oobData, true);
+                    OobData p192Data = (msg.getData() != null)
+                            ? msg.getData().getParcelable(OOBDATAP192) : null;
+                    OobData p256Data = (msg.getData() != null)
+                            ? msg.getData().getParcelable(OOBDATAP256) : null;
+                    createBond(dev, msg.arg1, p192Data, p256Data, true);
                     break;
                 case REMOVE_BOND:
                     removeBond(dev, true);
@@ -174,12 +187,14 @@ final class BondStateMachine extends StateMachine {
         @Override
         public void enter() {
             infoLog("Entering PendingCommandState State");
-            BluetoothDevice dev = (BluetoothDevice) getCurrentMessage().obj;
         }
 
         @Override
         public synchronized boolean processMessage(Message msg) {
             BluetoothDevice dev = (BluetoothDevice) msg.obj;
+            Attributable.setAttributionSource(dev,
+                    ActivityThread.currentAttributionSource());
+
             DeviceProperties devProp = mRemoteDevices.getDeviceProperties(dev);
             boolean result = false;
             if (mDevices.contains(dev) && msg.what != CANCEL_BOND
@@ -191,12 +206,11 @@ final class BondStateMachine extends StateMachine {
 
             switch (msg.what) {
                 case CREATE_BOND:
-                    OobData oobData = null;
-                    if (msg.getData() != null) {
-                        oobData = msg.getData().getParcelable(OOBDATA);
-                    }
-
-                    result = createBond(dev, msg.arg1, oobData, false);
+                    OobData p192Data = (msg.getData() != null)
+                            ? msg.getData().getParcelable(OOBDATAP192) : null;
+                    OobData p256Data = (msg.getData() != null)
+                            ? msg.getData().getParcelable(OOBDATAP256) : null;
+                    result = createBond(dev, msg.arg1, p192Data, p256Data, false);
                     break;
                 case REMOVE_BOND:
                     result = removeBond(dev, false);
@@ -214,14 +228,11 @@ final class BondStateMachine extends StateMachine {
                     }
                     sendIntent(dev, newState, reason);
                     if (newState != BluetoothDevice.BOND_BONDING) {
-                        /* this is either none/bonded, remove and transition */
-                        result = !mDevices.remove(dev);
+                        // This is either none/bonded, remove and transition, and also set
+                        // result=false to avoid adding the device to mDevices.
+                        mDevices.remove(dev);
+                        result = false;
                         if (mDevices.isEmpty()) {
-                            // Whenever mDevices is empty, then we need to
-                            // set result=false. Else, we will end up adding
-                            // the device to the list again. This prevents us
-                            // from pairing with a device that we just unpaired
-                            result = false;
                             transitionTo(mStableState);
                         }
                         if (newState == BluetoothDevice.BOND_NONE) {
@@ -297,7 +308,8 @@ final class BondStateMachine extends StateMachine {
     }
 
     private boolean removeBond(BluetoothDevice dev, boolean transition) {
-        if (dev.getBondState() == BluetoothDevice.BOND_BONDED) {
+        DeviceProperties devProp = mRemoteDevices.getDeviceProperties(dev);
+        if (devProp != null && devProp.getBondState() == BluetoothDevice.BOND_BONDED) {
             byte[] addr = Utils.getBytesFromAddress(dev.getAddress());
             if (!mAdapterService.removeBondNative(addr)) {
                 Log.e(TAG, "Unexpected error while removing bond:");
@@ -312,23 +324,27 @@ final class BondStateMachine extends StateMachine {
         return false;
     }
 
-    private boolean createBond(BluetoothDevice dev, int transport, OobData oobData,
-            boolean transition) {
+    private boolean createBond(BluetoothDevice dev, int transport, OobData remoteP192Data,
+            OobData remoteP256Data, boolean transition) {
         if (dev.getBondState() == BluetoothDevice.BOND_NONE) {
             infoLog("Bond address is:" + dev);
             byte[] addr = Utils.getBytesFromAddress(dev.getAddress());
             boolean result;
-            if (oobData != null) {
-                result = mAdapterService.createBondOutOfBandNative(addr, transport, oobData);
+            // If we have some data
+            if (remoteP192Data != null || remoteP256Data != null) {
+                result = mAdapterService.createBondOutOfBandNative(addr, transport,
+                    remoteP192Data, remoteP256Data);
             } else {
                 result = mAdapterService.createBondNative(addr, transport);
             }
             BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
                     mAdapterService.obfuscateAddress(dev), transport, dev.getType(),
                     BluetoothDevice.BOND_BONDING,
-                    oobData == null ? BluetoothProtoEnums.BOND_SUB_STATE_UNKNOWN
+                    remoteP192Data == null && remoteP256Data == null
+                            ? BluetoothProtoEnums.BOND_SUB_STATE_UNKNOWN
                             : BluetoothProtoEnums.BOND_SUB_STATE_LOCAL_OOB_DATA_PROVIDED,
                     BluetoothProtoEnums.UNBOND_REASON_UNKNOWN);
+
             if (!result) {
                 BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
                         mAdapterService.obfuscateAddress(dev), transport, dev.getType(),
@@ -355,7 +371,10 @@ final class BondStateMachine extends StateMachine {
         intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         // Workaround for Android Auto until pre-accepting pairing requests is added.
         intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-        mAdapterService.sendOrderedBroadcast(intent, AdapterService.BLUETOOTH_ADMIN_PERM);
+        mAdapterService.sendOrderedBroadcast(intent, BLUETOOTH_CONNECT,
+                Utils.getTempAllowlistBroadcastOptions(), null/* resultReceiver */,
+                null/* scheduler */, Activity.RESULT_OK/* initialCode */, null/* initialData */,
+                null/* initialExtras */);
     }
 
     @VisibleForTesting
@@ -419,7 +438,8 @@ final class BondStateMachine extends StateMachine {
         if (newState == BluetoothDevice.BOND_NONE) {
             intent.putExtra(BluetoothDevice.EXTRA_REASON, reason);
         }
-        mAdapterService.sendBroadcastAsUser(intent, UserHandle.ALL, AdapterService.BLUETOOTH_PERM);
+        mAdapterService.sendBroadcastAsUser(intent, UserHandle.ALL, BLUETOOTH_CONNECT,
+                Utils.getTempAllowlistBroadcastOptions());
         infoLog("Bond State Change Intent:" + device + " " + state2str(oldState) + " => "
                 + state2str(newState));
     }
@@ -459,7 +479,7 @@ final class BondStateMachine extends StateMachine {
             mRemoteDevices.addDeviceProperties(address);
         }
         infoLog("sspRequestCallback: " + address + " name: " + name + " cod: " + cod
-                + " pairingVariant " + pairingVariant + " passkey: " + passkey);
+                + " pairingVariant " + pairingVariant + " passkey: " + (Build.IS_DEBUGGABLE ? passkey : "******"));
         int variant;
         boolean displayPasskey = false;
         switch (pairingVariant) {
@@ -522,7 +542,7 @@ final class BondStateMachine extends StateMachine {
                 BluetoothProtoEnums.BOND_SUB_STATE_LOCAL_PIN_REQUESTED, 0);
 
         infoLog("pinRequestCallback: " + bdDevice.getAddress()
-                + " name:" + bdDevice.getName() + " cod:" + new BluetoothClass(cod));
+                + " name:" + Utils.getName(bdDevice) + " cod:" + new BluetoothClass(cod));
 
         Message msg = obtainMessage(PIN_REQUEST);
         msg.obj = bdDevice;
@@ -531,6 +551,10 @@ final class BondStateMachine extends StateMachine {
         sendMessage(msg);
     }
 
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_PRIVILEGED,
+            android.Manifest.permission.MODIFY_PHONE_STATE,
+    })
     private void clearProfilePriority(BluetoothDevice device) {
         HidHostService hidService = HidHostService.getHidHostService();
         A2dpService a2dpService = A2dpService.getA2dpService();

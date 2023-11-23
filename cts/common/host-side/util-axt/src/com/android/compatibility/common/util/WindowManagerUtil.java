@@ -37,6 +37,7 @@ import java.util.List;
 
 public class WindowManagerUtil {
     private static final String SHELL_DUMPSYS_WINDOW = "dumpsys window --proto";
+    private static final String STATE_RESUMED = "RESUMED";
 
     @Nonnull
     public static WindowManagerServiceDumpProto getDump(@Nonnull ITestDevice device)
@@ -59,12 +60,40 @@ public class WindowManagerUtil {
         return windows;
     }
 
+    @Nonnull
+    public static List<ActivityRecordProto> getActivityRecords(@Nonnull ITestDevice device)
+            throws Exception {
+        final WindowManagerServiceDumpProto windowManagerServiceDump = getDump(device);
+        final RootWindowContainerProto rootWindowContainer =
+                windowManagerServiceDump.getRootWindowContainer();
+        final WindowContainerProto windowContainer = rootWindowContainer.getWindowContainer();
+
+        final List<ActivityRecordProto> activityRecords = new ArrayList<>();
+        collectActivityRecords(windowContainer, activityRecords);
+
+        return activityRecords;
+    }
+
+    @Nonnull
+    public static List<String> getResumedActivities(@Nonnull ITestDevice device) throws Exception {
+        List<String> resumedActivities = new ArrayList<>();
+        List<ActivityRecordProto> activityRecords = getActivityRecords(device);
+        for (ActivityRecordProto activityRecord : activityRecords) {
+            if (STATE_RESUMED.equals(activityRecord.getState())) {
+                resumedActivities.add(activityRecord.getName());
+            }
+        }
+
+        return resumedActivities;
+    }
+
     @Nullable
     public static WindowStateProto getWindowWithTitle(@Nonnull ITestDevice device,
             @Nonnull String expectedTitle) throws Exception {
         List<WindowStateProto> windows = getWindows(device);
         for (WindowStateProto window : windows) {
-            if (expectedTitle.equals(window.getIdentifier().getTitle())) {
+            String title = window.getWindowContainer().getIdentifier().getTitle(); 
+            if (expectedTitle.equals(title)) {
                 return window;
             }
         }
@@ -137,6 +166,47 @@ public class WindowManagerUtil {
                 out.add(window);
                 // ... but still aren't done
                 collectWindowStates(window.getWindowContainer(), out);
+            }
+        }
+    }
+
+    private static void collectActivityRecords(@Nullable WindowContainerProto windowContainer,
+            @Nonnull List<ActivityRecordProto> out) {
+        if (windowContainer == null) return;
+
+        final List<WindowContainerChildProto> children = windowContainer.getChildrenList();
+        for (WindowContainerChildProto child : children) {
+            if (child.hasWindowContainer()) {
+                collectActivityRecords(child.getWindowContainer(), out);
+            } else if (child.hasDisplayContent()) {
+                final DisplayContentProto displayContent = child.getDisplayContent();
+                for (WindowTokenProto windowToken : displayContent.getOverlayWindowsList()) {
+                    collectActivityRecords(windowToken.getWindowContainer(), out);
+                }
+                if (displayContent.hasRootDisplayArea()) {
+                    final DisplayAreaProto displayArea = displayContent.getRootDisplayArea();
+                    collectActivityRecords(displayArea.getWindowContainer(), out);
+                }
+                collectActivityRecords(displayContent.getWindowContainer(), out);
+            } else if (child.hasDisplayArea()) {
+                final DisplayAreaProto displayArea = child.getDisplayArea();
+                collectActivityRecords(displayArea.getWindowContainer(), out);
+            } else if (child.hasTask()) {
+                final TaskProto task = child.getTask();
+                collectActivityRecords(task.getWindowContainer(), out);
+            } else if (child.hasActivity()) {
+                final ActivityRecordProto activity = child.getActivity();
+                out.add(activity);
+                if (activity.hasWindowToken()) {
+                    final WindowTokenProto windowToken = activity.getWindowToken();
+                    collectActivityRecords(windowToken.getWindowContainer(), out);
+                }
+            } else if (child.hasWindowToken()) {
+                final WindowTokenProto windowToken = child.getWindowToken();
+                collectActivityRecords(windowToken.getWindowContainer(), out);
+            } else if (child.hasWindow()) {
+                final WindowStateProto window = child.getWindow();
+                collectActivityRecords(window.getWindowContainer(), out);
             }
         }
     }

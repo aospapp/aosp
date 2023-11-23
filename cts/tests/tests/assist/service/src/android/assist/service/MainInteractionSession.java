@@ -20,6 +20,7 @@ import android.app.assist.AssistContent;
 import android.app.assist.AssistStructure;
 import android.assist.common.Utils;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -31,6 +32,7 @@ import android.os.RemoteCallback;
 import android.service.voice.VoiceInteractionSession;
 import android.util.Log;
 import android.view.Display;
+import android.view.DisplayCutout;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewTreeObserver;
@@ -43,6 +45,7 @@ public class MainInteractionSession extends VoiceInteractionSession {
 
     private boolean hasReceivedAssistData = false;
     private boolean hasReceivedScreenshot = false;
+    private boolean mScreenshotNeeded = true;
     private int mCurColor;
     private int mDisplayHeight;
     private int mDisplayWidth;
@@ -103,9 +106,11 @@ public class MainInteractionSession extends VoiceInteractionSession {
 
     @Override
     public void onShow(Bundle args, int showFlags) {
-        if ((showFlags & SHOW_WITH_ASSIST) == 0) {
+        if (args == null) {
+            Log.e(TAG, "onshow() received null args");
             return;
         }
+        mScreenshotNeeded = (showFlags & SHOW_WITH_SCREENSHOT) != 0;
         mTestName = args.getString(Utils.TESTCASE_TYPE, "");
         mCurColor = args.getInt(Utils.SCREENSHOT_COLOR_KEY);
         mDisplayHeight = args.getInt(Utils.DISPLAY_HEIGHT_KEY);
@@ -121,6 +126,17 @@ public class MainInteractionSession extends VoiceInteractionSession {
                     Display d = mContentView.getDisplay();
                     Point displayPoint = new Point();
                     d.getRealSize(displayPoint);
+                    DisplayCutout dc = d.getCutout();
+                    if (dc != null) {
+                        // Means the device has a cutout area
+                        android.graphics.Insets wi = d.getCutout().getWaterfallInsets();
+
+                        if (wi != android.graphics.Insets.NONE) {
+                            // Waterfall cutout. Considers only the display
+                            // useful area discarding the cutout.
+                            displayPoint.x -= (wi.left + wi.right);
+                        }
+                    }
                     Bundle bundle = new Bundle();
                     bundle.putString(Utils.EXTRA_REMOTE_CALLBACK_ACTION, Utils.BROADCAST_CONTENT_VIEW_HEIGHT);
                     bundle.putInt(Utils.EXTRA_CONTENT_VIEW_HEIGHT, mContentView.getHeight());
@@ -133,27 +149,33 @@ public class MainInteractionSession extends VoiceInteractionSession {
     }
 
     @Override
-    @SuppressWarnings("deprecation")
-    public void onHandleAssist(/*@Nullable */Bundle data, /*@Nullable*/ AssistStructure structure,
-        /*@Nullable*/ AssistContent content) {
-        Log.i(TAG, "onHandleAssist");
-        Log.i(TAG,
-                String.format("Bundle: %s, Structure: %s, Content: %s", data, structure, content));
-        super.onHandleAssist(data, structure, content);
+    public void onHandleAssist(AssistState state) {
+        super.onHandleAssist(state);
+        Bundle data = state.getAssistData();
+        AssistStructure structure = state.getAssistStructure();
+        AssistContent content = state.getAssistContent();
+        ComponentName activity = structure == null ? null : structure.getActivityComponent();
+        Log.i(TAG, "onHandleAssist()");
+        Log.i(TAG, String.format("Bundle: %s, Activity: %s, Structure: %s, Content: %s",
+                data, activity, structure, content));
+
+        if (activity != null && Utils.isAutomotive(mContext)
+                && !activity.getPackageName().equals("android.assist.testapp")) {
+            // TODO: automotive has multiple activities / displays, so the test might fail if it
+            // receives one of them (like the cluster activity) instead of what's expecting. This is
+            // a quick fix for the issue; a better solution would be refactoring the infra to
+            // either send all events, or let the test specifify which activity it's waiting for
+            Log.i(TAG, "Ignoring " + activity.flattenToShortString() + " on automotive");
+            return;
+        }
 
         // send to test to verify that this is accurate.
+        mAssistData.putBoolean(Utils.ASSIST_IS_ACTIVITY_ID_NULL, state.getActivityId() == null);
         mAssistData.putParcelable(Utils.ASSIST_STRUCTURE_KEY, structure);
         mAssistData.putParcelable(Utils.ASSIST_CONTENT_KEY, content);
         mAssistData.putBundle(Utils.ASSIST_BUNDLE_KEY, data);
         hasReceivedAssistData = true;
         maybeBroadcastResults();
-    }
-
-    @Override
-    @SuppressWarnings("deprecation")
-    public void onHandleAssistSecondary(Bundle data, AssistStructure structure,
-            AssistContent content, int index, int count) {
-        Log.e(TAG, "onHandleAssistSecondary() called instead of onHandleAssist()");
     }
 
     @Override
@@ -213,7 +235,7 @@ public class MainInteractionSession extends VoiceInteractionSession {
     private void maybeBroadcastResults() {
         if (!hasReceivedAssistData) {
             Log.i(TAG, "waiting for assist data before broadcasting results");
-        } else if (!hasReceivedScreenshot) {
+        } else if (mScreenshotNeeded && !hasReceivedScreenshot) {
             Log.i(TAG, "waiting for screenshot before broadcasting results");
         } else {
             Bundle bundle = new Bundle();

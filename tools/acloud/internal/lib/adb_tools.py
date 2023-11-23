@@ -40,7 +40,7 @@ _WAIT_ADB_RETRY_BACKOFF_FACTOR = 1.5
 _WAIT_ADB_SLEEP_MULTIPLIER = 2
 
 
-class AdbTools(object):
+class AdbTools:
     """Adb tools.
 
     Attributes:
@@ -54,6 +54,8 @@ class AdbTools(object):
         _device_information: Dict, will be added to adb information include usb,
                             product model, device and transport_id
     """
+    _adb_command = None
+
     def __init__(self, adb_port=None, device_serial=""):
         """Initialize.
 
@@ -61,7 +63,6 @@ class AdbTools(object):
             adb_port: String of adb port number.
             device_serial: String, adb device's serial number.
         """
-        self._adb_command = ""
         self._adb_port = adb_port
         self._device_address = ""
         self._device_serial = ""
@@ -83,14 +84,17 @@ class AdbTools(object):
         self._device_serial = (device_serial if device_serial else
                                self._device_address)
 
-    def _CheckAdb(self):
+    @classmethod
+    def _CheckAdb(cls):
         """Find adb bin path.
 
         Raises:
             errors.NoExecuteCmd: Can't find the execute adb bin.
         """
-        self._adb_command = utils.FindExecutable(constants.ADB_BIN)
-        if not self._adb_command:
+        if cls._adb_command:
+            return
+        cls._adb_command = utils.FindExecutable(constants.ADB_BIN)
+        if not cls._adb_command:
             raise errors.NoExecuteCmd("Can't find the adb command.")
 
     def GetAdbConnectionStatus(self):
@@ -145,7 +149,7 @@ class AdbTools(object):
                                    "transport_id":None}
         """
         adb_cmd = [self._adb_command, _ADB_DEVICE, _ADB_STATUS_DEVICE_ARGS]
-        device_info = subprocess.check_output(adb_cmd)
+        device_info = utils.CheckOutput(adb_cmd)
         self._device_information = {
             attribute: None for attribute in _DEVICE_ATTRIBUTES}
 
@@ -155,6 +159,22 @@ class AdbTools(object):
                 self._device_information = {
                     attribute: match.group(attribute) if match.group(attribute)
                                else None for attribute in _DEVICE_ATTRIBUTES}
+
+    @classmethod
+    def GetDeviceSerials(cls):
+        """Get the serial numbers of connected devices."""
+        cls._CheckAdb()
+        adb_cmd = [cls._adb_command, _ADB_DEVICE]
+        device_info = utils.CheckOutput(adb_cmd)
+        serials = []
+        # Skip the first line which is "List of devices attached". Each of the
+        # following lines consists of the serial number, a tab character, and
+        # the state. The last line is empty.
+        for line in device_info.splitlines()[1:]:
+            serial_state = line.split()
+            if len(serial_state) > 1:
+                serials.append(serial_state[0])
+        return serials
 
     def IsAdbConnectionAlive(self):
         """Check devices connect alive.

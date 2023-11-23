@@ -4,7 +4,7 @@
 
 AUTHOR = "Chrome OS Team"
 NAME = "power_FlashVideoSuspend"
-ATTRIBUTES = "suite:bvt-perbuild"
+#ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
@@ -15,7 +15,7 @@ TEST_TYPE = "client"
 # must be power cycled.  Servo can do that automatically, so we
 # restrict testing to devices that have a servo, to avoid needing
 # manual repair.
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Suspends the system with a Youtube video playing in HTML5 mode.

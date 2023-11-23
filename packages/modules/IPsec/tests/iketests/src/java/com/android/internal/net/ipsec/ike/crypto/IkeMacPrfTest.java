@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike.crypto;
+package com.android.internal.net.ipsec.test.ike.crypto;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 
-import android.net.ipsec.ike.SaProposal;
+import android.net.ipsec.test.ike.SaProposal;
+
+import androidx.test.filters.SdkSuppress;
 
 import com.android.internal.net.TestUtils;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.PrfTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.PrfTransform;
+import com.android.modules.utils.build.SdkLevel;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -145,9 +148,28 @@ public final class IkeMacPrfTest {
     private static final String PRF_AES128XCBC_CALCULATED_MAC_HEX_STRING3 =
             "8cd3c93ae598a9803006ffb67c40e9e4";
 
+    // Test vectors from RFC 4615 Section 4
+    private static final String PRF_AES128_CMAC_KEY_HEX_STRING = "000102030405060708090a0b0c0d0e0f";
+    private static final String PRF_AES128_CMAC_DATA_TO_SIGN_HEX_STRING =
+            "000102030405060708090a0b0c0d0e0f10111213";
+    private static final String PRF_AES128_CMAC_CALCULATED_MAC_HEX_STRING =
+            "980ae87b5f4c9c5214f5b6a8455e4c2d";
+    private static final String PRF_AES128_CMAC_KEY_HEX_STRING1 = "00010203040506070809";
+    private static final String PRF_AES128_CMAC_DATA_TO_SIGN_HEX_STRING1 =
+            "000102030405060708090a0b0c0d0e0f10111213";
+    private static final String PRF_AES128_CMAC_CALCULATED_MAC_HEX_STRING1 =
+            "290d9e112edb09ee141fcf64c0b72f3d";
+    private static final String PRF_AES128_CMAC_KEY_HEX_STRING2 =
+            "000102030405060708090a0b0c0d0e0fedcb";
+    private static final String PRF_AES128_CMAC_DATA_TO_SIGN_HEX_STRING2 =
+            "000102030405060708090a0b0c0d0e0f10111213";
+    private static final String PRF_AES128_CMAC_CALCULATED_MAC_HEX_STRING2 =
+            "84a348a4a45d235babfffc0d2b4da09a";
+
     private IkeMacPrf mIkeHmacSha1Prf;
     private IkeMacPrf mIkeHmacSha256Prf;
     private IkeMacPrf mIkeAes128XCbcPrf;
+    private IkeMacPrf mIkeAes128CmacPrf;
 
     @Before
     public void setUp() throws Exception {
@@ -157,6 +179,12 @@ public final class IkeMacPrfTest {
                 IkeMacPrf.create(new PrfTransform(SaProposal.PSEUDORANDOM_FUNCTION_SHA2_256));
         mIkeAes128XCbcPrf =
                 IkeMacPrf.create(new PrfTransform(SaProposal.PSEUDORANDOM_FUNCTION_AES128_XCBC));
+
+        if (SdkLevel.isAtLeastS()) {
+            mIkeAes128CmacPrf =
+                    IkeMacPrf.create(
+                            new PrfTransform(SaProposal.PSEUDORANDOM_FUNCTION_AES128_CMAC));
+        }
     }
 
     @Test
@@ -307,6 +335,46 @@ public final class IkeMacPrfTest {
 
         byte[] expectedBytes =
                 TestUtils.hexStringToByteArray(PRF_AES128XCBC_CALCULATED_MAC_HEX_STRING3);
+        assertArrayEquals(expectedBytes, calculatedBytes);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 31, codeName = "S")
+    public void testSignBytesPrfAes128Cmac() throws Exception {
+        // 16-byte is a multiple of aes block size. Hence key2 will be used instead of key3
+        byte[] skpBytes = TestUtils.hexStringToByteArray(PRF_AES128_CMAC_KEY_HEX_STRING);
+        byte[] dataBytes = TestUtils.hexStringToByteArray(PRF_AES128_CMAC_DATA_TO_SIGN_HEX_STRING);
+
+        byte[] calculatedBytes = mIkeAes128CmacPrf.signBytes(skpBytes, dataBytes);
+
+        byte[] expectedBytes =
+                TestUtils.hexStringToByteArray(PRF_AES128_CMAC_CALCULATED_MAC_HEX_STRING);
+        assertArrayEquals(expectedBytes, calculatedBytes);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 31, codeName = "S")
+    public void testSignBytesPrfAes128CmacWithKeyShorterThan16Bytes() throws Exception {
+        byte[] skpBytes = TestUtils.hexStringToByteArray(PRF_AES128_CMAC_KEY_HEX_STRING1);
+        byte[] dataBytes = TestUtils.hexStringToByteArray(PRF_AES128_CMAC_DATA_TO_SIGN_HEX_STRING1);
+
+        byte[] calculatedBytes = mIkeAes128CmacPrf.signBytes(skpBytes, dataBytes);
+
+        byte[] expectedBytes =
+                TestUtils.hexStringToByteArray(PRF_AES128_CMAC_CALCULATED_MAC_HEX_STRING1);
+        assertArrayEquals(expectedBytes, calculatedBytes);
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 31, codeName = "S")
+    public void testSignBytesPrfAes128CmacWithKeyLongerThan16Bytes() throws Exception {
+        byte[] skpBytes = TestUtils.hexStringToByteArray(PRF_AES128_CMAC_KEY_HEX_STRING2);
+        byte[] dataBytes = TestUtils.hexStringToByteArray(PRF_AES128_CMAC_DATA_TO_SIGN_HEX_STRING2);
+
+        byte[] calculatedBytes = mIkeAes128CmacPrf.signBytes(skpBytes, dataBytes);
+
+        byte[] expectedBytes =
+                TestUtils.hexStringToByteArray(PRF_AES128_CMAC_CALCULATED_MAC_HEX_STRING2);
         assertArrayEquals(expectedBytes, calculatedBytes);
     }
 

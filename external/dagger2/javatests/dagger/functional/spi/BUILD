@@ -15,18 +15,19 @@
 # Description:
 #   Functional tests for the experimental Dagger SPI
 
-package(default_visibility = ["//:src"])
-
+load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
 load("//:test_defs.bzl", "GenJavaTests")
+
+package(default_visibility = ["//:src"])
 
 java_plugin(
     name = "test_plugin",
     srcs = ["TestPlugin.java"],
     deps = [
-        "//java/dagger/model",
+        "//java/dagger/internal/guava:base",
+        "//java/dagger/internal/guava:collect",
         "//java/dagger/spi",
         "@google_bazel_common//third_party/java/auto:service",
-        "@google_bazel_common//third_party/java/guava",
         "@google_bazel_common//third_party/java/javapoet",
     ],
 )

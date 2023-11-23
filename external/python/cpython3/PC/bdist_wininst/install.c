@@ -2541,7 +2541,7 @@ int DoUninstall(int argc, char **argv)
     if (!lines)
         return SystemError(0, "Out of memory");
 
-    /* Read the whole logfile, realloacting the buffer */
+    /* Read the whole logfile, reallocating the buffer */
     while (fgets(buffer, sizeof(buffer), logfile)) {
         int len = strlen(buffer);
         /* remove trailing white space */

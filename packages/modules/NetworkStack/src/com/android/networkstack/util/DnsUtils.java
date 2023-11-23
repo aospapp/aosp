@@ -29,7 +29,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.android.internal.util.TrafficStatsConstants;
+import com.android.net.module.util.NetworkStackConstants;
 import com.android.server.connectivity.NetworkMonitor.DnsLogFunc;
 
 import java.net.InetAddress;
@@ -126,7 +126,7 @@ public class DnsUtils {
         // look at the tag at all. Given that this is a library, the tag should be passed in by the
         // caller.
         final int oldTag = TrafficStats.getAndSetThreadStatsTag(
-                TrafficStatsConstants.TAG_SYSTEM_PROBE);
+                NetworkStackConstants.TAG_SYSTEM_PROBE);
 
         if (type == TYPE_ADDRCONFIG) {
             dnsResolver.query(network, host, flag, r -> r.run(), null /* cancellationSignal */,

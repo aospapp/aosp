@@ -22,6 +22,7 @@
 
 #include "chre/target_platform/platform_debug_dump_manager_base.h"
 #include "chre/util/non_copyable.h"
+#include "chre/util/system/debug_dump.h"
 #include "chre_api/chre/re.h"
 
 namespace chre {
@@ -43,6 +44,14 @@ class PlatformDebugDumpManager : public PlatformDebugDumpManagerBase,
    * @param complete true if no more debug data is expected.
    */
   void sendDebugDump(const char *debugStr, bool complete);
+
+  /**
+   * A function to log platform-specific debug dumps. Must only be called from
+   * the context of the main CHRE thread.
+   *
+   * @param debugDump Reference to the debug dump wrapper to print logs.
+   */
+  void logStateToBuffer(DebugDumpWrapper &debugDump);
 
  private:
   //! kDebugDumpStrMaxSize must be provided by PlatformDebugDumpManagerBase.

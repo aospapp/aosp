@@ -21,25 +21,41 @@
         android:versionCode="300000000"
         android:versionName="R-initial">
 
-    <original-package android:name="com.android.cellbroadcastreceiver" />
+    <!-- Needed for TTS when targetSdkVersion is 30 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
+    <!-- Needed for TTS when targetSdkVersion is 30 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
+    <uses-permission android:name="android.permission.BROADCAST_CLOSE_SYSTEM_DIALOGS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_EMERGENCY_BROADCAST" />
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
+    <uses-permission android:name="android.permission.MODIFY_CELL_BROADCASTS" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
-    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS_TO_TELEPHONY_DEFAULTS" />
     <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />
     <uses-permission android:name="android.permission.READ_CELL_BROADCASTS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS"/>
     <uses-permission android:name="com.android.cellbroadcastservice.FULL_ACCESS_CELL_BROADCAST_HISTORY" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-    <uses-sdk android:minSdkVersion="21"/>
+    <uses-sdk android:minSdkVersion="30" />
 
     <application android:name="com.android.cellbroadcastreceiver.CellBroadcastReceiverApp"
             android:label="@string/app_label"
@@ -72,7 +88,9 @@
 
         <activity android:name="com.android.cellbroadcastreceiver.CellBroadcastListActivity"
                   android:label="@string/app_label"
-                  android:theme="@style/CellBroadcastSettingsTheme"
+                  android:launchMode="singleTask"
+                  android:theme="@style/CellBroadcastListActivityTheme"
+                  android:exported="true"
                   android:configChanges="orientation|keyboardHidden" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -104,15 +122,16 @@
         <!-- Settings opened by ListActivity menu, Settings app link or opt-out dialog. -->
         <activity android:name="com.android.cellbroadcastreceiver.CellBroadcastSettings"
                   android:theme="@style/CellBroadcastSettingsTheme"
+                  android:launchMode="singleTask"
                   android:label="@string/sms_cb_settings"
                   android:exported="true" />
 
         <activity android:name="com.android.cellbroadcastreceiver.CellBroadcastAlertDialog"
                   android:theme="@style/CellBroadcastAlertTheme"
-                  android:launchMode="singleTask"
+                  android:launchMode="singleInstance"
                   android:exported="false"
                   android:excludeFromRecents="true"
-                  android:configChanges="orientation|keyboardHidden|keyboard|navigation">
+                  android:configChanges="orientation|keyboardHidden|screenSize|keyboard|navigation">
             <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_CB_RECEIVED" />
             </intent-filter>
@@ -120,9 +139,12 @@
 
         <!-- Container activity for CMAS opt-in/opt-out dialog. -->
         <activity android:name="com.android.cellbroadcastreceiver.CellBroadcastOptOutActivity"
+                  android:launchMode="singleInstance"
+                  android:theme="@style/CellBroadcastOptOutTheme"
                   android:exported="false" />
 
-        <receiver android:name="com.android.cellbroadcastreceiver.CellBroadcastReceiver">
+        <receiver android:name="com.android.cellbroadcastreceiver.CellBroadcastReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.telephony.action.DEFAULT_SMS_SUBSCRIPTION_CHANGED" />
                 <action android:name="android.telephony.action.CARRIER_CONFIG_CHANGED" />
@@ -132,12 +154,19 @@
                 <action android:name="android.provider.Telephony.SMS_SERVICE_CATEGORY_PROGRAM_DATA_RECEIVED" />
                 <action android:name="android.intent.action.LOCALE_CHANGED" />
                 <action android:name="android.intent.action.SERVICE_STATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.telephony.action.SIM_CARD_STATE_CHANGED" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.telephony.action.SECRET_CODE" />
                 <!-- CMAS: To toggle test mode for cell broadcast testing on userdebug build -->
                 <data android:scheme="android_secret_code" android:host="2627" />
             </intent-filter>
+        </receiver>
+
+        <receiver android:name="com.android.cellbroadcastreceiver.CellBroadcastInternalReceiver"
+                  android:exported="false">
+            <!-- No intent filter on purpose: this should only receive explicit intents -->
         </receiver>
 
         <provider

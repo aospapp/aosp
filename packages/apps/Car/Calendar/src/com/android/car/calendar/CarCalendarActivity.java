@@ -20,6 +20,7 @@ import android.content.ContentResolver;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.StrictMode;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -58,7 +59,10 @@ public class CarCalendarActivity extends FragmentActivity {
         // Tests can set fake dependencies before onCreate.
         if (mDependencies == null) {
             mDependencies = new Dependencies(
-                    Locale.getDefault(), Clock.systemDefaultZone(), getContentResolver());
+                    Locale.getDefault(),
+                    Clock.systemDefaultZone(),
+                    getContentResolver(),
+                    getSystemService(TelephonyManager.class));
         }
 
         CarCalendarViewModel carCalendarViewModel =
@@ -67,6 +71,7 @@ public class CarCalendarActivity extends FragmentActivity {
                                 new CarCalendarViewModelFactory(
                                         mDependencies.mResolver,
                                         mDependencies.mLocale,
+                                        mDependencies.mTelephonyManager,
                                         mDependencies.mClock))
                         .get(CarCalendarViewModel.class);
 
@@ -142,12 +147,18 @@ public class CarCalendarActivity extends FragmentActivity {
 
     private static class CarCalendarViewModelFactory implements ViewModelProvider.Factory {
         private final ContentResolver mResolver;
+        private final TelephonyManager mTelephonyManager;
         private final Locale mLocale;
         private final Clock mClock;
 
-        CarCalendarViewModelFactory(ContentResolver resolver, Locale locale, Clock clock) {
+        CarCalendarViewModelFactory(
+                ContentResolver resolver,
+                Locale locale,
+                TelephonyManager telephonyManager,
+                Clock clock) {
             mResolver = resolver;
             mLocale = locale;
+            mTelephonyManager = telephonyManager;
             mClock = clock;
         }
 
@@ -155,7 +166,7 @@ public class CarCalendarActivity extends FragmentActivity {
         @NonNull
         @Override
         public <T extends ViewModel> T create(@NonNull Class<T> aClass) {
-            return (T) new CarCalendarViewModel(mResolver, mLocale, mClock);
+            return (T) new CarCalendarViewModel(mResolver, mLocale, mTelephonyManager, mClock);
         }
     }
 
@@ -163,11 +174,17 @@ public class CarCalendarActivity extends FragmentActivity {
         private final Locale mLocale;
         private final Clock mClock;
         private final ContentResolver mResolver;
+        private final TelephonyManager mTelephonyManager;
 
-        Dependencies(Locale locale, Clock clock, ContentResolver resolver) {
+        Dependencies(
+                Locale locale,
+                Clock clock,
+                ContentResolver resolver,
+                TelephonyManager telephonyManager) {
             mLocale = locale;
             mClock = clock;
             mResolver = resolver;
+            mTelephonyManager = telephonyManager;
         }
     }
 }

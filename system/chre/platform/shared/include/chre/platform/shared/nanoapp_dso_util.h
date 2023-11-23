@@ -22,16 +22,19 @@
 namespace chre {
 
 /**
- * Performs sanity checks on the app info structure included in a dynamically
- * loaded nanoapp.
+ * Performs consistency checks on the app info structure included in a
+ * dynamically loaded nanoapp.
  *
  * @param expectedAppId The app ID passed alongside the binary
  * @param expectedAppVersion The app version number passed alongside the binary
+ * @param expectedTargetApiVersion The app target API version number passed
+ *        alongside the binary
  * @param appInfo App info structure included in the nanoapp binary
  *
  * @return true if validation was successful
  */
 bool validateAppInfo(uint64_t expectedAppId, uint32_t expectedAppVersion,
+                     uint32_t expectedTargetApiVersion,
                      const struct chreNslNanoappInfo *appInfo);
 
 }  // namespace chre

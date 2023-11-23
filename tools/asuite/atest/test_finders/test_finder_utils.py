@@ -17,6 +17,7 @@ Utils for finder classes.
 """
 
 # pylint: disable=line-too-long
+# pylint: disable=too-many-lines
 
 from __future__ import print_function
 
@@ -32,6 +33,7 @@ import xml.etree.ElementTree as ET
 import atest_decorator
 import atest_error
 import atest_enum
+import atest_utils
 import constants
 
 from metrics import metrics_utils
@@ -41,12 +43,15 @@ from metrics import metrics_utils
 # We want to make sure we don't grab apks with paths in their name since we
 # assume the apk name is the build target.
 _APK_RE = re.compile(r'^[^/]+\.apk$', re.I)
-# RE for checking if TEST or TEST_F is in a cc file or not.
-_CC_CLASS_RE = re.compile(r'^[ ]*TEST(_F|_P)?[ ]*\(', re.I)
-# RE for checking if there exists one of the methods in java file.
-_JAVA_METHODS_PATTERN = r'.*[ ]+({0})\(.*'
-# RE for checking if there exists one of the methods in cc file.
-_CC_METHODS_PATTERN = r'^[ ]*TEST(_F|_P)?[ ]*\(.*,[ ]*({0})\).*'
+# Group matches "class" of line "TEST_F(class, "
+_CC_CLASS_METHOD_RE = re.compile(
+    r'^\s*TEST(_F|_P)?\s*\(\s*(?P<class>\w+)\s*,\s*(?P<method>\w+)\s*\)', re.M)
+# Group matches parameterized "class" of line "INSTANTIATE_TEST_CASE_P( ,class "
+_PARA_CC_CLASS_RE = re.compile(
+    r'^\s*INSTANTIATE[_TYPED]*_TEST_(SUITE|CASE)_P\s*\(\s*(?P<instantiate>\w+)\s*,'
+    r'\s*(?P<class>\w+)\s*\,', re.M)
+# Group that matches java/kt method.
+_JAVA_METHODS_RE = r'.*\s+(fun|void)\s+(?P<methods>\w+)\(\)'
 # Parse package name from the package declaration line of a java or
 # a kotlin file.
 # Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
@@ -54,6 +59,12 @@ _PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
 # Matches install paths in module_info to install location(host or device).
 _HOST_PATH_RE = re.compile(r'.*\/host\/.*', re.I)
 _DEVICE_PATH_RE = re.compile(r'.*\/target\/.*', re.I)
+# RE for checking if parameterized java class.
+_PARAMET_JAVA_CLASS_RE = re.compile(
+    r'^\s*@RunWith\s*\(\s*(Parameterized|TestParameterInjector|'
+    r'JUnitParamsRunner|DataProviderRunner|JukitoRunner|Theories|BedsteadJUnit4'
+    r').class\s*\)', re.I)
+_PARENT_CLS_RE = re.compile(r'.*class\s+\w+\s+extends\s+(?P<parent>[\w\.]+.*)\s\{')
 
 # Explanation of FIND_REFERENCE_TYPEs:
 # ----------------------------------
@@ -109,8 +120,18 @@ _COMPATIBILITY_PACKAGE_PREFIX = "com.android.compatibility"
 _CTS_JAR = "cts-tradefed"
 _XML_PUSH_DELIM = '->'
 _APK_SUFFIX = '.apk'
+DALVIK_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.DalvikTest'
+LIBCORE_TEST_RUNNER_CLASS = 'com.android.compatibility.testtype.LibcoreTest'
+DALVIK_TESTRUNNER_JAR_CLASSES = [DALVIK_TEST_RUNNER_CLASS,
+                                 LIBCORE_TEST_RUNNER_CLASS]
+DALVIK_DEVICE_RUNNER_JAR = 'cts-dalvik-device-test-runner'
+DALVIK_HOST_RUNNER_JAR = 'cts-dalvik-host-test-runner'
+DALVIK_TEST_DEPS = {DALVIK_DEVICE_RUNNER_JAR,
+                    DALVIK_HOST_RUNNER_JAR,
+                    _CTS_JAR}
 # Setup script for device perf tests.
 _PERF_SETUP_LABEL = 'perf-setup.sh'
+_PERF_SETUP_TARGET = 'perf-setup'
 
 # XML tags.
 _XML_NAME = 'name'
@@ -208,7 +229,7 @@ def has_cc_class(test_path):
     """
     with open(test_path) as class_file:
         for line in class_file:
-            match = _CC_CLASS_RE.match(line)
+            match = _CC_CLASS_METHOD_RE.match(line)
             if match:
                 return True
     return False
@@ -222,7 +243,7 @@ def get_package_name(file_name):
 
     Returns:
         A string of the package name or None
-      """
+    """
     with open(file_name) as data:
         for line in data:
             match = _PACKAGE_RE.match(line)
@@ -230,11 +251,26 @@ def get_package_name(file_name):
                 return match.group('package')
 
 
-def has_method_in_file(test_path, methods):
-    """Find out if there is at least one method in the file.
+def get_parent_cls_name(file_name):
+    """Parse the parent class name from a java file.
 
-    Note: This method doesn't handle if method is in comment sections or not.
-    If the file has any method(even in comment sections), it will return True.
+    Args:
+        file_name: A string of the absolute path to the java file.
+
+    Returns:
+        A string of the parent class name or None
+    """
+    with open(file_name) as data:
+        for line in data:
+            match = _PARENT_CLS_RE.match(line)
+            if match:
+                return match.group('parent')
+
+# pylint: disable=too-many-branches
+def has_method_in_file(test_path, methods):
+    """Find out if every method can be found in the file.
+
+    Note: This method doesn't handle if method is in comment sections.
 
     Args:
         test_path: A string of absolute path to the test file.
@@ -245,19 +281,40 @@ def has_method_in_file(test_path, methods):
     """
     if not os.path.isfile(test_path):
         return False
-    methods_re = None
     if constants.JAVA_EXT_RE.match(test_path):
-        methods_re = re.compile(_JAVA_METHODS_PATTERN.format(
-            '|'.join([r'%s' % x for x in methods])))
-    elif constants.CC_EXT_RE.match(test_path):
-        methods_re = re.compile(_CC_METHODS_PATTERN.format(
-            '|'.join([r'%s' % x for x in methods])))
-    if methods_re:
-        with open(test_path) as test_file:
-            for line in test_file:
-                match = re.match(methods_re, line)
-                if match:
-                    return True
+        # omit parameterized pattern: method[0]
+        _methods = set(re.sub(r'\[\S+\]', '', x) for x in methods)
+        if _methods.issubset(get_java_methods(test_path)):
+            return True
+        parent = get_parent_cls_name(test_path)
+        package = get_package_name(test_path)
+        if parent and package:
+            # Remove <Generics> when needed.
+            parent_cls = re.sub(r'\<\w+\>', '', parent)
+            # Use Full Qualified Class Name for searching precisely.
+            # package org.gnome;
+            # public class Foo extends com.android.Boo -> com.android.Boo
+            # public class Foo extends Boo -> org.gnome.Boo
+            if '.' in parent_cls:
+                parent_fqcn = parent_cls
+            else:
+                parent_fqcn = package + '.' + parent_cls
+            try:
+                logging.debug('Searching methods in %s', parent_fqcn)
+                return has_method_in_file(
+                    run_find_cmd(FIND_REFERENCE_TYPE.QUALIFIED_CLASS,
+                                os.environ.get(constants.ANDROID_BUILD_TOP),
+                                parent_fqcn,
+                                methods)[0], methods)
+            except TypeError:
+                logging.debug('Out of searching range: no test found.')
+                return False
+    if constants.CC_EXT_RE.match(test_path):
+        # omit parameterized pattern: method/argument
+        _methods = set(re.sub(r'\/.*', '', x) for x in methods)
+        _, cc_methods, _ = get_cc_test_classes_methods(test_path)
+        if _methods.issubset(cc_methods):
+            return True
     return False
 
 
@@ -280,25 +337,19 @@ def extract_test_path(output, methods=None):
     if isinstance(output, str):
         output = output.splitlines()
     for test in output:
-        # compare CC_OUTPUT_RE with output
         match_obj = constants.CC_OUTPUT_RE.match(test)
+        # Legacy "find" cc output (with TEST_P() syntax):
         if match_obj:
-            # cc/cpp
             fpath = match_obj.group('file_path')
             if not methods or match_obj.group('method_name') in methods:
                 verified_tests.add(fpath)
-        else:
-            # TODO (b/138997521) - Atest checks has_method_in_file of a class
-            #  without traversing its parent classes. A workaround for this is
-            #  do not check has_method_in_file. Uncomment below when a solution
-            #  to it is applied.
-            # java/kt
-            #if not methods or has_method_in_file(test, methods):
+        # "locate" output path for both java/cc.
+        elif not methods or has_method_in_file(test, methods):
             verified_tests.add(test)
     return extract_test_from_tests(sorted(list(verified_tests)))
 
 
-def extract_test_from_tests(tests):
+def extract_test_from_tests(tests, default_all=False):
     """Extract the test path from the tests.
 
     Return the test to run from tests. If more than one option, prompt the user
@@ -315,7 +366,7 @@ def extract_test_from_tests(tests):
         A string list of paths.
     """
     count = len(tests)
-    if count <= 1:
+    if default_all or count <= 1:
         return tests if count else None
     mtests = set()
     try:
@@ -425,7 +476,10 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
         return None
     ref_name = FIND_REFERENCE_TYPE[ref_type]
     start = time.time()
-    if os.path.isfile(FIND_INDEXES[ref_type]):
+    # Validate mlocate.db before using 'locate' or 'find'.
+    # TODO: b/187146540 record abnormal mlocate.db in Metrics.
+    is_valid_mlocate = atest_utils.check_md5(constants.LOCATE_CACHE_MD5)
+    if os.path.isfile(FIND_INDEXES[ref_type]) and is_valid_mlocate:
         _dict, out = {}, None
         with open(FIND_INDEXES[ref_type], 'rb') as index:
             try:
@@ -436,8 +490,8 @@ def run_find_cmd(ref_type, search_dir, target, methods=None):
                     constants.ACCESS_CACHE_FAILURE)
                 os.remove(FIND_INDEXES[ref_type])
         if _dict.get(target):
-            logging.debug('Found %s in %s', target, FIND_INDEXES[ref_type])
             out = [path for path in _dict.get(target) if search_dir in path]
+            logging.debug('Found %s in %s', target, out)
     else:
         prune_cond = _get_prune_cond_of_ignored_dirs()
         if '.' in target:
@@ -517,15 +571,20 @@ def find_parent_module_dir(root_dir, start_dir, module_info):
         # TODO (b/112904944) - migrate module_finder functions to here and
         # reuse them.
         rel_dir = os.path.relpath(current_dir, root_dir)
-        # Check if actual config file here
-        if os.path.isfile(os.path.join(current_dir, constants.MODULE_CONFIG)):
+        # Check if actual config file here but need to make sure that there
+        # exist module in module-info with the parent dir.
+        if (os.path.isfile(os.path.join(current_dir, constants.MODULE_CONFIG))
+                and module_info.get_module_names(current_dir)):
             return rel_dir
         # Check module_info if auto_gen config or robo (non-config) here
         for mod in module_info.path_to_module_info.get(rel_dir, []):
             if module_info.is_robolectric_module(mod):
                 return rel_dir
             for test_config in mod.get(constants.MODULE_TEST_CONFIG, []):
-                if os.path.isfile(os.path.join(root_dir, test_config)):
+                # If the test config doesn's exist until it was auto-generated
+                # in the build time(under <android_root>/out), atest still
+                # recognizes it testable.
+                if test_config:
                     return rel_dir
             if mod.get('auto_test_config'):
                 auto_gen_dir = rel_dir
@@ -616,8 +675,7 @@ def get_targets_from_xml_root(xml_root, module_info):
         if _is_apk_target(name, value):
             target_to_add = _get_apk_target(value)
         elif _PERF_SETUP_LABEL in value:
-            targets.add(_PERF_SETUP_LABEL)
-            continue
+            target_to_add = _PERF_SETUP_TARGET
 
         # Let's make sure we can actually build the target.
         if target_to_add and module_info.is_module(target_to_add):
@@ -633,6 +691,8 @@ def get_targets_from_xml_root(xml_root, module_info):
         fqcn = class_attr.attrib['class'].strip()
         if fqcn.startswith(_COMPATIBILITY_PACKAGE_PREFIX):
             targets.add(_CTS_JAR)
+        if fqcn in DALVIK_TESTRUNNER_JAR_CLASSES:
+            targets.update(DALVIK_TEST_DEPS)
     logging.debug('Targets found in config file: %s', targets)
     return targets
 
@@ -997,3 +1057,164 @@ def is_test_from_kernel_xml(xml_file, test_name):
             if option_tag.attrib['key'] == test_name:
                 return True
     return False
+
+
+def is_parameterized_java_class(test_path):
+    """Find out if input test path is a parameterized java class.
+
+    Args:
+        test_path: A string of absolute path to the java file.
+
+    Returns:
+        Boolean: Is parameterized class or not.
+    """
+    with open(test_path) as class_file:
+        for line in class_file:
+            match = _PARAMET_JAVA_CLASS_RE.match(line)
+            if match:
+                return True
+    return False
+
+
+def get_java_methods(test_path):
+    """Find out the java test class of input test_path.
+
+    Args:
+        test_path: A string of absolute path to the java file.
+
+    Returns:
+        A set of methods.
+    """
+    with open(test_path) as class_file:
+        content = class_file.read()
+    matches = re.findall(_JAVA_METHODS_RE, content)
+    if matches:
+        methods = {match[1] for match in matches}
+        logging.debug('Available methods: %s', methods)
+        return methods
+    return set()
+
+
+def get_cc_test_classes_methods(test_path):
+    """Find out the cc test class of input test_path.
+
+    Args:
+        test_path: A string of absolute path to the cc file.
+
+    Returns:
+        A tuple of sets: classes, methods and para_classes.
+    """
+    classes = set()
+    methods = set()
+    para_classes = set()
+    with open(test_path) as class_file:
+        content = class_file.read()
+        # Search matched CC CLASS/METHOD
+        matches = re.findall(_CC_CLASS_METHOD_RE, content)
+        logging.debug('Found cc classes: %s', matches)
+        for match in matches:
+            # The elements of `matches` will be "Group 1"(_F),
+            # "Group class"(MyClass1) and "Group method"(MyMethod1)
+            classes.update([match[1]])
+            methods.update([match[2]])
+        # Search matched parameterized CC CLASS.
+        matches = re.findall(_PARA_CC_CLASS_RE, content)
+        logging.debug('Found parameterized classes: %s', matches)
+        for match in matches:
+            # The elements of `matches` will be "Group 1"(_F),
+            # "Group instantiate class"(MyInstantClass1)
+            # and "Group class"(MyClass1)
+            para_classes.update([match[2]])
+    return classes, methods, para_classes
+
+def find_host_unit_tests(module_info, path):
+    """Find host unit tests for the input path.
+
+    Args:
+        module_info: ModuleInfo obj.
+        path: A string of the relative path from $BUILD_TOP we want to search.
+
+    Returns:
+        A list that includes the module name of unit tests, otherwise an empty
+        list.
+    """
+    logging.debug('finding unit tests under %s', path)
+    found_unit_tests = []
+    unit_test_names = module_info.get_all_unit_tests()
+    logging.debug('All the unit tests: %s', unit_test_names)
+    for unit_test_name in unit_test_names:
+        for test_path in module_info.get_paths(unit_test_name):
+            if test_path.find(path) == 0:
+                found_unit_tests.append(unit_test_name)
+    return found_unit_tests
+
+def get_annotated_methods(annotation, file_path):
+    """Find all the methods annotated by the input annotation in the file_path.
+
+    Args:
+        annotation: A string of the annotation class.
+        file_path: A string of the file path.
+
+    Returns:
+        A set of all the methods annotated.
+    """
+    methods = set()
+    annotation_name = '@' + str(annotation).split('.')[-1]
+    with open(file_path) as class_file:
+        enter_annotation_block = False
+        for line in class_file:
+            if str(line).strip().startswith(annotation_name):
+                enter_annotation_block = True
+                continue
+            if enter_annotation_block:
+                matches = re.findall(_JAVA_METHODS_RE, line)
+                if matches:
+                    methods.update({match[1] for match in matches})
+                    enter_annotation_block = False
+                    continue
+    return methods
+
+def get_test_config_and_srcs(test_info, module_info):
+    """Get the test config path for the input test_info.
+
+    The search rule will be:
+    Check if test name in test_info could be found in module_info
+      1. AndroidTest.xml under module path if no test config be set.
+      2. The first test config defined in Android.bp if test config be set.
+    If test name could not found matched module in module_info, search all the
+    test config name if match.
+
+    Args:
+        test_info: TestInfo obj.
+        module_info: ModuleInfo obj.
+
+    Returns:
+        A string of the config path and list of srcs, None if test config not
+        exist.
+    """
+    android_root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+    test_name = test_info.test_name
+    mod_info = module_info.get_module_info(test_name)
+    if mod_info:
+        test_configs = mod_info.get(constants.MODULE_TEST_CONFIG, [])
+        if len(test_configs) == 0:
+            # Check for AndroidTest.xml at the module path.
+            for path in mod_info.get(constants.MODULE_PATH, []):
+                config_path = os.path.join(
+                    android_root_dir, path, constants.MODULE_CONFIG)
+                if os.path.isfile(config_path):
+                    return config_path, mod_info.get(constants.MODULE_SRCS, [])
+        if len(test_configs) >= 1:
+            test_config = test_configs[0]
+            config_path = os.path.join(android_root_dir, test_config)
+            if os.path.isfile(config_path):
+                return config_path, mod_info.get(constants.MODULE_SRCS, [])
+    else:
+        for _, info in module_info.name_to_module_info.items():
+            test_configs = info.get(constants.MODULE_TEST_CONFIG, [])
+            for test_config in test_configs:
+                config_path = os.path.join(android_root_dir, test_config)
+                config_name = os.path.splitext(os.path.basename(config_path))[0]
+                if config_name == test_name and os.path.isfile(config_path):
+                    return config_path, info.get(constants.MODULE_SRCS, [])
+    return None, None

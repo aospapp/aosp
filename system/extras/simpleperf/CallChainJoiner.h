@@ -72,9 +72,7 @@ class LRUCache {
   // Add a call chain in the cache, and extend it if possible.
   void AddCallChain(pid_t tid, std::vector<uint64_t>& ips, std::vector<uint64_t>& sps);
 
-  const LRUCacheStat& Stat() {
-    return cache_stat_;
-  }
+  const LRUCacheStat& Stat() { return cache_stat_; }
 
   CacheNode* FindNode(uint32_t tid, uint64_t ip, uint64_t sp) {
     CacheNode key;
@@ -96,9 +94,7 @@ class LRUCache {
     return node->parent_index == 0u ? nullptr : nodes_ + node->parent_index;
   }
 
-  int GetNodeIndex(CacheNode* node) {
-    return node - nodes_;
-  }
+  int GetNodeIndex(CacheNode* node) { return node - nodes_; }
 
   void RemoveNodeFromLRUList(CacheNode* node) {
     CacheNode* prev = &nodes_[node->leaf_link_prev];
@@ -168,15 +164,10 @@ class CallChainJoiner {
     size_t after_join_max_chain_length = 0u;
   };
   void DumpStat();
-  const Stat& GetStat() {
-    return stat_;
-  }
-  const call_chain_joiner_impl::LRUCacheStat& GetCacheStat() {
-    return cache_stat_;
-  }
+  const Stat& GetStat() { return stat_; }
+  const call_chain_joiner_impl::LRUCacheStat& GetCacheStat() { return cache_stat_; }
 
  private:
-
   bool keep_original_callchains_;
   FILE* original_chains_fp_;
   FILE* joined_chains_fp_;

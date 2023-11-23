@@ -72,11 +72,6 @@ class TetherController {
         int sendAllState(int daemonFd) const;
     } mDnsmasqState{};
 
-    // BPF maps, initialized by maybeInitMaps.
-    bpf::BpfMap<TetherIngressKey, TetherIngressValue> mBpfIngressMap;
-    bpf::BpfMap<uint32_t, TetherStatsValue> mBpfStatsMap;
-    bpf::BpfMap<uint32_t, uint64_t> mBpfLimitMap;
-
   public:
     TetherController();
     ~TetherController() = default;
@@ -104,11 +99,6 @@ class TetherController {
     int enableNat(const char* intIface, const char* extIface);
     int disableNat(const char* intIface, const char* extIface);
     int setupIptablesHooks();
-
-    base::Result<void> addOffloadRule(const TetherOffloadRuleParcel& rule);
-    base::Result<void> removeOffloadRule(const TetherOffloadRuleParcel& rule);
-
-    int setTetherOffloadInterfaceQuota(int ifIndex, int64_t maxBytes);
 
     class TetherStats {
       public:
@@ -138,20 +128,9 @@ class TetherController {
         }
     };
 
-    struct TetherOffloadStats {
-        int ifIndex;
-        int64_t rxBytes;
-        int64_t rxPackets;
-        int64_t txBytes;
-        int64_t txPackets;
-    };
-
     typedef std::vector<TetherStats> TetherStatsList;
-    typedef std::vector<TetherOffloadStats> TetherOffloadStatsList;
 
     netdutils::StatusOr<TetherStatsList> getTetherStats();
-    netdutils::StatusOr<TetherOffloadStatsList> getTetherOffloadStats();
-    base::Result<TetherOffloadStats> getAndClearTetherOffloadStats(int ifIndex);
 
     /*
      * extraProcessingInfo: contains raw parsed data, and error info.
@@ -173,7 +152,6 @@ class TetherController {
 
     void dump(netdutils::DumpWriter& dw);
     void dumpIfaces(netdutils::DumpWriter& dw);
-    void dumpBpf(netdutils::DumpWriter& dw);
 
   private:
     bool setIpFwdEnabled();
@@ -194,11 +172,6 @@ class TetherController {
     int setTetherGlobalAlertRule();
     int setForwardRules(bool set, const char *intIface, const char *extIface);
     int setTetherCountingRules(bool add, const char *intIface, const char *extIface);
-
-    base::Result<void> setBpfLimit(uint32_t ifIndex, uint64_t limit);
-    void maybeInitMaps();
-    void maybeStartBpf(const char* extIface);
-    void maybeStopBpf(const char* extIface);
 
     static void addStats(TetherStatsList& statsList, const TetherStats& stats);
 

@@ -45,6 +45,7 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
@@ -52,6 +53,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Insets;
+import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Bundle;
@@ -227,6 +229,31 @@ public class DisplayCutoutTests {
                         a.getDisplay().getCutout(), equalTo(displayCutout));
             }
         });
+    }
+
+    @Test
+    public void testDisplayCutout_CutoutPaths() {
+        runTest(LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS, (a, insets, displayCutout, which) -> {
+            if (displayCutout == null) {
+                return;
+            }
+            final Path cutoutPath = displayCutout.getCutoutPath();
+            assertCutoutPath(LEFT, displayCutout.getBoundingRectLeft(), cutoutPath);
+            assertCutoutPath(TOP, displayCutout.getBoundingRectTop(), cutoutPath);
+            assertCutoutPath(RIGHT, displayCutout.getBoundingRectRight(), cutoutPath);
+            assertCutoutPath(BOTTOM, displayCutout.getBoundingRectBottom(), cutoutPath);
+        });
+    }
+
+    private void assertCutoutPath(String position, Rect cutoutRect, Path cutoutPath) {
+        if (cutoutRect.isEmpty()) {
+            return;
+        }
+        final Path intersected = new Path();
+        intersected.addRect(cutoutRect.left, cutoutRect.top, cutoutRect.right, cutoutRect.bottom,
+                Path.Direction.CCW);
+        intersected.op(cutoutPath, Path.Op.INTERSECT);
+        assertFalse("Must have cutout path on " + position, intersected.isEmpty());
     }
 
     private void runTest(int cutoutMode, TestDef test) {
@@ -556,7 +583,9 @@ public class DisplayCutoutTests {
         public void onWindowFocusChanged(boolean hasFocus) {
             if (hasFocus) {
                 getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
             }
         }
 

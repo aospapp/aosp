@@ -40,6 +40,9 @@ class TestCommandHandler {
   // Dispatches the action corresponding to the command specified by |name|.
   void HandleCommand(const std::string& name, const std::vector<std::string>& args);
 
+  // Dispatches the action from a file
+  void FromFile(const std::string& file_name);
+
   // Dispatches the action corresponding to the command specified by |name|.
   void RegisterSendResponse(const std::function<void(const std::string&)> callback);
 
@@ -78,6 +81,8 @@ class TestCommandHandler {
   void StartTimer(const std::vector<std::string>& args);
 
   void StopTimer(const std::vector<std::string>& args);
+
+  void Reset(const std::vector<std::string>& args);
 
   // For manual testing
   void AddDefaults();

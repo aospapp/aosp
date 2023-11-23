@@ -15,6 +15,8 @@ LOCAL_STATIC_JAVA_LIBRARIES += glide
 LOCAL_STATIC_JAVA_LIBRARIES += guava
 LOCAL_STATIC_JAVA_LIBRARIES += jsr305
 
+LOCAL_USES_LIBRARIES := org.apache.http.legacy
+
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_SRC_FILES += $(call all-java-files-under, src_pd)
 LOCAL_SRC_FILES += $(call all-java-files-under, src_pd_gcam)
@@ -33,6 +35,8 @@ LOCAL_AAPT_FLAGS := \
 LOCAL_USE_AAPT2 := true
 
 LOCAL_PACKAGE_NAME := Camera2
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_SDK_VERSION := current
 

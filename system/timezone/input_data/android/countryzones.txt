@@ -25,7 +25,7 @@
 # a time zone for an Android device.
 
 # ianaVersion: The version of the IANA rules this file matches.
-ianaVersion:"2020a"
+ianaVersion:"2021a"
 
 # countries:
 #
@@ -69,10 +69,11 @@ ianaVersion:"2020a"
 # timeZoneMappings:
 # Time zones associated with the country and associated metadata.
 #
-# The ordering of TimeZoneMapping elements is important because it influence
+# The ordering of TimeZoneMapping elements is important because it influences
 # the order that time zones in a country are considered when the device is
-# trying to detect a time zone and has a known local time, offset from UTC,
-# and whether the local zone is currently observing DST.
+# trying to detect a time zone from incomplete / ambiguous information, i.e.
+# when the device doesn't know time zone ID but knows local time, offset from
+# UTC, and whether the local zone is currently observing DST.
 #
 # There will often be several time zones within a country that could match
 # at any given instant, but the first zone that matches a user's country,
@@ -80,18 +81,36 @@ ianaVersion:"2020a"
 # that the time zones with the highest likelihood of matching the user's
 # needs are first.
 #
-# For example, a sensible ordering for TimeZoneMapping entries for a country
-# would be by population of users that observe the offset/DST to maximize
-# the probability of matching the truth for an arbitrary user in that country.
+# For example, a sensible ordering for TimeZoneMapping entries within a
+# country's data for a given set of criteria would be by the population of
+# users that observe the offset/DST. Matching the entries with the highest
+# population first maximizes the probability of getting the right answer for
+# an arbitrarily chosen user in that country.
 #
-# Currently the TimeZoneMapping entries are mostly ordered by raw (non-DST)
-# offset and then an ill-defined "desirability". This ordering is an historical
-# artifact that is likely to change in future.
+# The TimeZoneMapping entries for a country are primarily ordered by raw
+# (non-DST) offset.
+#
+# Generally, the secondary ordering is such that "in use" zones for a country
+# appear before legacy zones, and then legacy zones appear in reverse priority
+# order (see priority below). This is for easier maintenance and validation
+# of the generated tzlookup.xml, i.e. it helps if an unused mapping always
+# references a zone declared above it in a file, and if all zones that are have
+# been superseded by the same zone are listed together in reverse priority
+# order.
+#
 
 # TimeZoneMapping:
 #
 # id:
-# The ID of the time zone.
+# The ID of the time zone to use on device. See also aliasId.
+#
+# aliasId:
+# (Optional) Used to identify the modern Olson ID when the id property is
+# using an obsoleted time zone ID. A legacy time zone ID may be used on device
+# to avoid problems if the zone ID is widely used. This is intentionally
+# explicit to make it clear the use of an old ID is intentional rather than an
+# accident. The id must also link to the aliasId in IANA's data (see the IANA
+# "backward" file).
 #
 # utcOffset:
 # The expected non-DST offset for the time zone. Used as a form of
@@ -115,7 +134,8 @@ ianaVersion:"2020a"
 # where it makes sense. Different criteria can be used for different
 # countries but within a country it should be consistent.
 # Often the exact priority assigned doesn't matter and zone priorities are
-# only used when there is otherwise a tie. See comments below for details.
+# only used when there is otherwise a tie. See comments for each country below
+# for details.
 
 # ANDORRA
 countries:<
@@ -204,7 +224,7 @@ countries:<
   >
 
   timeZoneMappings:<
-    utcOffset:"08:00"
+    utcOffset:"11:00"
     id:"Antarctica/Casey"
   >
 
@@ -276,21 +296,33 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
-    id:"America/Argentina/Salta"
-    # 1.21M
-    priority:1210
-  >
-  timeZoneMappings:<
-    utcOffset:"-3:00"
-    id:"America/Argentina/Jujuy"
-    # 673K
-    priority:673
+    id:"America/Argentina/Mendoza"
+    # 1.74M
+    priority:1740
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
     id:"America/Argentina/Tucuman"
     # 1.45M
     priority:1450
+  >
+  timeZoneMappings:<
+    utcOffset:"-3:00"
+    id:"America/Argentina/Salta"
+    # 1.21M
+    priority:1210
+  >
+  timeZoneMappings:<
+    utcOffset:"-3:00"
+    id:"America/Argentina/San_Juan"
+    # 681K
+    priority:681
+  >
+  timeZoneMappings:<
+    utcOffset:"-3:00"
+    id:"America/Argentina/Jujuy"
+    # 673K
+    priority:673
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
@@ -306,24 +338,6 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
-    id:"America/Argentina/San_Juan"
-    # 681K
-    priority:681
-  >
-  timeZoneMappings:<
-    utcOffset:"-3:00"
-    id:"America/Argentina/Mendoza"
-    # 1.74M
-    priority:1740
-  >
-  timeZoneMappings:<
-    utcOffset:"-3:00"
-    id:"America/Argentina/San_Luis"
-    # 432K
-    priority:432
-  >
-  timeZoneMappings:<
-    utcOffset:"-3:00"
     id:"America/Argentina/Rio_Gallegos"
     # 247K (Santa Cruz Province)
     priority:247
@@ -333,6 +347,12 @@ countries:<
     id:"America/Argentina/Ushuaia"
     # 127K (Tierra del Fuego)
     priority:127
+  >
+  timeZoneMappings:<
+    utcOffset:"-3:00"
+    id:"America/Argentina/San_Luis"
+    # 432K
+    priority:432
   >
 >
 
@@ -376,21 +396,15 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"10:00"
-    id:"Australia/Brisbane"
-    # 2.36M
-    priority:2360
-  >
-  timeZoneMappings:<
-    utcOffset:"10:00"
     id:"Australia/Hobart"
     # 224K
     priority:224
   >
   timeZoneMappings:<
     utcOffset:"10:00"
-    id:"Australia/Currie"
-    # < 1K
-    priority:1
+    id:"Australia/Brisbane"
+    # 2.36M
+    priority:2360
   >
   timeZoneMappings:<
     utcOffset:"10:00"
@@ -400,7 +414,7 @@ countries:<
   >
 
   timeZoneMappings:<
-    utcOffset:"11:00"
+    utcOffset:"10:00"
     id:"Antarctica/Macquarie"
     # Unknown
     priority:1
@@ -623,36 +637,6 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-3:00"
-    id:"America/Belem"
-    # City: 1.44M, State: 7.78M
-    priority:7780
-  >
-  timeZoneMappings:<
-    utcOffset:"-3:00"
-    id:"America/Fortaleza"
-    # City: 2.61M, State: 8.61M
-    priority:8610
-  >
-  timeZoneMappings:<
-    utcOffset:"-3:00"
-    id:"America/Recife"
-    # City: 1.63M, State: 8.93M
-    priority:8930
-  >
-  timeZoneMappings:<
-    utcOffset:"-3:00"
-    id:"America/Araguaina"
-    # City: 173K, State: 1.50M
-    priority:1500
-  >
-  timeZoneMappings:<
-    utcOffset:"-3:00"
-    id:"America/Maceio"
-    # City: 1.02M, State:3.17M
-    priority:3170
-  >
-  timeZoneMappings:<
-    utcOffset:"-3:00"
     id:"America/Bahia"
     # City (Salvador): 2.94M, State: 15.2M
     priority:15200
@@ -663,6 +647,36 @@ countries:<
     # City: 294K, State:7.79M (Same state as Belem)
     priority:7789
   >
+  timeZoneMappings:<
+    utcOffset:"-3:00"
+    id:"America/Recife"
+    # City: 1.63M, State: 8.93M
+    priority:8930
+  >
+  timeZoneMappings:<
+    utcOffset:"-3:00"
+    id:"America/Fortaleza"
+    # City: 2.61M, State: 8.61M
+    priority:8610
+  >
+  timeZoneMappings:<
+    utcOffset:"-3:00"
+    id:"America/Belem"
+    # City: 1.44M, State: 7.78M
+    priority:7780
+  >
+  timeZoneMappings:<
+    utcOffset:"-3:00"
+    id:"America/Maceio"
+    # City: 1.02M, State:3.17M
+    priority:3170
+  >
+  timeZoneMappings:<
+    utcOffset:"-3:00"
+    id:"America/Araguaina"
+    # City: 173K, State: 1.50M
+    priority:1500
+  >
 
   timeZoneMappings:<
     utcOffset:"-4:00"
@@ -672,15 +686,15 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-4:00"
-    id:"America/Campo_Grande"
-    # City: 854K, State: 2.51M
-    priority:2510
-  >
-  timeZoneMappings:<
-    utcOffset:"-4:00"
     id:"America/Cuiaba"
     # City: 585K, State: 3.34M
     priority:3340
+  >
+  timeZoneMappings:<
+    utcOffset:"-4:00"
+    id:"America/Campo_Grande"
+    # City: 854K, State: 2.51M
+    priority:2510
   >
   timeZoneMappings:<
     utcOffset:"-4:00"
@@ -697,17 +711,17 @@ countries:<
 
   timeZoneMappings:<
     utcOffset:"-5:00"
+    id:"America/Rio_Branco"
+    # City: 320K, State: 759K
+    priority:759
+  >
+  timeZoneMappings:<
+    utcOffset:"-5:00"
     id:"America/Eirunepe"
     # City: 30.9K, State: 4.00M
     # This is the same state as Manaus, most of which uses a different zone, so the
     # priority is set to let Rio_Branco "win".
     priority:758
-  >
-  timeZoneMappings:<
-    utcOffset:"-5:00"
-    id:"America/Rio_Branco"
-    # City: 320K, State: 759K
-    priority:759
   >
 >
 
@@ -809,15 +823,15 @@ countries:<
 
   timeZoneMappings:<
     utcOffset:"-4:00"
-    id:"America/Glace_Bay"
-    # 19.0K
-    priority:19
-  >
-  timeZoneMappings:<
-    utcOffset:"-4:00"
     id:"America/Moncton"
     # 71.9K
     priority:72
+  >
+  timeZoneMappings:<
+    utcOffset:"-4:00"
+    id:"America/Glace_Bay"
+    # 19.0K
+    priority:19
   >
   timeZoneMappings:<
     utcOffset:"-4:00"
@@ -834,12 +848,6 @@ countries:<
 
   timeZoneMappings:<
     utcOffset:"-5:00"
-    id:"America/Nipigon"
-    # 1.63K
-    priority:1
-  >
-  timeZoneMappings:<
-    utcOffset:"-5:00"
     id:"America/Thunder_Bay"
     # 108K
     priority:108
@@ -849,6 +857,12 @@ countries:<
     id:"America/Iqaluit"
     # 7.74K
     priority:8
+  >
+  timeZoneMappings:<
+    utcOffset:"-5:00"
+    id:"America/Nipigon"
+    # 1.63K
+    priority:1
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
@@ -871,6 +885,12 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
+    id:"America/Swift_Current"
+    # 16.6K
+    priority:16
+  >
+  timeZoneMappings:<
+    utcOffset:"-6:00"
     id:"America/Rankin_Inlet"
     # 2.84K
     priority:3
@@ -883,12 +903,6 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
-    id:"America/Swift_Current"
-    # 16.6K
-    priority:16
-  >
-  timeZoneMappings:<
-    utcOffset:"-6:00"
     id:"America/Resolute"
     # 0.20K
     priority:1
@@ -896,27 +910,9 @@ countries:<
 
   timeZoneMappings:<
     utcOffset:"-7:00"
-    id:"America/Cambridge_Bay"
-    # 1.77K
-    priority:2
-  >
-  timeZoneMappings:<
-    utcOffset:"-7:00"
     id:"America/Yellowknife"
     # 19.6K
     priority:20
-  >
-  timeZoneMappings:<
-    utcOffset:"-7:00"
-    id:"America/Inuvik"
-    # 3.24K
-    priority:3
-  >
-  timeZoneMappings:<
-    utcOffset:"-7:00"
-    id:"America/Whitehorse"
-    # 25.1K
-    priority:251
   >
   timeZoneMappings:<
     utcOffset:"-7:00"
@@ -938,9 +934,27 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-7:00"
+    id:"America/Inuvik"
+    # 3.24K
+    priority:3
+  >
+  timeZoneMappings:<
+    utcOffset:"-7:00"
+    id:"America/Cambridge_Bay"
+    # 1.77K
+    priority:2
+  >
+  timeZoneMappings:<
+    utcOffset:"-7:00"
     id:"America/Dawson"
     # 1.38K
     priority:1
+  >
+  timeZoneMappings:<
+    utcOffset:"-7:00"
+    id:"America/Whitehorse"
+    # 25.1K
+    priority:251
   >
 >
 
@@ -1861,12 +1875,13 @@ countries:<
 
   timeZoneMappings:<
     utcOffset:"5:00"
-    id:"Asia/Aqtau"
+    id:"Asia/Oral"
+    priority:2
   >
   timeZoneMappings:<
     utcOffset:"5:00"
-    id:"Asia/Oral"
-    priority:2
+    id:"Asia/Aqtau"
+    priority:1
   >
   timeZoneMappings:<
     utcOffset:"5:00"
@@ -2085,21 +2100,32 @@ countries:<
 >
 
 # MONGOLIA
+#
+# Priorities assigned on 20210105 using:
+# https://en.wikipedia.org/wiki/List_of_cities_in_Mongolia
+# ... etc.
+# Priority is related to the population of the province.
 countries:<
   isoCode:"mn"
   defaultTimeZoneId:"Asia/Ulaanbaatar"
   timeZoneMappings:<
     utcOffset:"8:00"
     id:"Asia/Choibalsan"
+    # 38K
+    priority:38
   >
   timeZoneMappings:<
     utcOffset:"8:00"
     id:"Asia/Ulaanbaatar"
+    # 1.145M
+    priority:1145
   >
 
   timeZoneMappings:<
     utcOffset:"7:00"
     id:"Asia/Hovd"
+    # 29K
+    priority:29
   >
 >
 
@@ -2212,15 +2238,15 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
-    id:"America/Matamoros"
-    # 520K
-    priority:520
-  >
-  timeZoneMappings:<
-    utcOffset:"-6:00"
     id:"America/Bahia_Banderas"
     # 83.7K
     priority:84
+  >
+  timeZoneMappings:<
+    utcOffset:"-6:00"
+    id:"America/Matamoros"
+    # 520K
+    priority:520
   >
 
   timeZoneMappings:<
@@ -2238,15 +2264,15 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-7:00"
-    id:"America/Hermosillo"
-    # 812K
-    priority:812
-  >
-  timeZoneMappings:<
-    utcOffset:"-7:00"
     id:"America/Mazatlan"
     # 658K
     priority:658
+  >
+  timeZoneMappings:<
+    utcOffset:"-7:00"
+    id:"America/Hermosillo"
+    # 812K
+    priority:812
   >
   timeZoneMappings:<
     utcOffset:"-7:00"
@@ -2538,15 +2564,15 @@ countries:<
   defaultTimeZoneId:"Asia/Gaza"
   timeZoneMappings:<
     utcOffset:"2:00"
-    id:"Asia/Gaza"
-    # Territory: 1.85M
-    priority:1850
-  >
-  timeZoneMappings:<
-    utcOffset:"2:00"
     id:"Asia/Hebron"
     # Territory: 3.28M
     priority:3280
+  >
+  timeZoneMappings:<
+    utcOffset:"2:00"
+    id:"Asia/Gaza"
+    # Territory: 1.85M
+    priority:1850
   >
 >
 
@@ -2687,15 +2713,15 @@ countries:<
 
   timeZoneMappings:<
     utcOffset:"9:00"
-    id:"Asia/Yakutsk"
-    # 959K (Sakha Republic)
-    priority:959
-  >
-  timeZoneMappings:<
-    utcOffset:"9:00"
     id:"Asia/Chita"
     # 1.11M
     priority:1110
+  >
+  timeZoneMappings:<
+    utcOffset:"9:00"
+    id:"Asia/Yakutsk"
+    # 959K (Sakha Republic)
+    priority:959
   >
   timeZoneMappings:<
     utcOffset:"9:00"
@@ -2719,6 +2745,12 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"7:00"
+    id:"Asia/Novokuznetsk"
+    # 2.76M
+    priority:2760
+  >
+  timeZoneMappings:<
+    utcOffset:"7:00"
     id:"Asia/Novosibirsk"
     # 2.67M
     priority:2670
@@ -2728,12 +2760,6 @@ countries:<
     id:"Asia/Barnaul"
     # 2.42M
     priority:2420
-  >
-  timeZoneMappings:<
-    utcOffset:"7:00"
-    id:"Asia/Novokuznetsk"
-    # 2.76M
-    priority:2760
   >
   timeZoneMappings:<
     utcOffset:"7:00"
@@ -2764,9 +2790,9 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"4:00"
-    id:"Europe/Astrakhan"
-    # 1.01M
-    priority:1010
+    id:"Europe/Saratov"
+    # 2.52M
+    priority:2520
   >
   timeZoneMappings:<
     utcOffset:"4:00"
@@ -2776,21 +2802,21 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"4:00"
-    id:"Europe/Saratov"
-    # 2.52M
-    priority:2520
-  >
-  timeZoneMappings:<
-    utcOffset:"4:00"
-    id:"Europe/Volgograd"
-    # 2.61M
-    priority:2610
+    id:"Europe/Astrakhan"
+    # 1.01M
+    priority:1010
   >
   timeZoneMappings:<
     utcOffset:"3:00"
     id:"Europe/Moscow"
     # 7.10M
     priority:7100
+  >
+  timeZoneMappings:<
+    utcOffset:"3:00"
+    id:"Europe/Volgograd"
+    # 2.61M
+    priority:2610
   >
   timeZoneMappings:<
     utcOffset:"3:00"
@@ -2954,7 +2980,7 @@ countries:<
 countries:<
   isoCode:"ss"
   timeZoneMappings:<
-    utcOffset:"3:00"
+    utcOffset:"2:00"
     id:"Africa/Juba"
   >
 >
@@ -3163,13 +3189,13 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"2:00"
-    id:"Europe/Uzhgorod"
-    priority:1
+    id:"Europe/Zaporozhye"
+    priority:2
   >
   timeZoneMappings:<
     utcOffset:"2:00"
-    id:"Europe/Zaporozhye"
-    priority:2
+    id:"Europe/Uzhgorod"
+    priority:1
   >
   timeZoneMappings:<
     utcOffset:"3:00"
@@ -3223,21 +3249,15 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
-    id:"America/Detroit"
-    # 673K
-    priority:673
-  >
-  timeZoneMappings:<
-    utcOffset:"-5:00"
     id:"America/Kentucky/Louisville"
     # 760K
     priority:760
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
-    id:"America/Kentucky/Monticello"
-    # 6.19K
-    priority:6
+    id:"America/Detroit"
+    # 673K
+    priority:673
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
@@ -3253,15 +3273,9 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
-    id:"America/Indiana/Winamac"
-    # 2.49K
-    priority:2
-  >
-  timeZoneMappings:<
-    utcOffset:"-5:00"
-    id:"America/Indiana/Marengo"
-    # 0.83K
-    priority:1
+    id:"America/Kentucky/Monticello"
+    # 6.19K
+    priority:6
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
@@ -3271,9 +3285,21 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-5:00"
+    id:"America/Indiana/Winamac"
+    # 2.49K
+    priority:2
+  >
+  timeZoneMappings:<
+    utcOffset:"-5:00"
     id:"America/Indiana/Vevay"
     # 1.68K
     priority:2
+  >
+  timeZoneMappings:<
+    utcOffset:"-5:00"
+    id:"America/Indiana/Marengo"
+    # 0.83K
+    priority:1
   >
 
   timeZoneMappings:<
@@ -3284,27 +3310,9 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
-    id:"America/Indiana/Knox"
-    # 3.70K
-    priority:4
-  >
-  timeZoneMappings:<
-    utcOffset:"-6:00"
     id:"America/Menominee"
     # 8.60K
     priority:9
-  >
-  timeZoneMappings:<
-    utcOffset:"-6:00"
-    id:"America/North_Dakota/Center"
-    # 0.57K
-    priority:1
-  >
-  timeZoneMappings:<
-    utcOffset:"-6:00"
-    id:"America/North_Dakota/New_Salem"
-    # 0.95K
-    priority:1
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
@@ -3314,9 +3322,27 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-6:00"
+    id:"America/Indiana/Knox"
+    # 3.70K
+    priority:4
+  >
+  timeZoneMappings:<
+    utcOffset:"-6:00"
     id:"America/North_Dakota/Beulah"
     # 3.12K
     priority:3
+  >
+  timeZoneMappings:<
+    utcOffset:"-6:00"
+    id:"America/North_Dakota/New_Salem"
+    # 0.95K
+    priority:1
+  >
+  timeZoneMappings:<
+    utcOffset:"-6:00"
+    id:"America/North_Dakota/Center"
+    # 0.57K
+    priority:1
   >
 
   timeZoneMappings:<
@@ -3327,15 +3353,15 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-7:00"
-    id:"America/Boise"
-    # 206K
-    priority:206
-  >
-  timeZoneMappings:<
-    utcOffset:"-7:00"
     id:"America/Phoenix"
     # 1.45M
     priority:1450
+  >
+  timeZoneMappings:<
+    utcOffset:"-7:00"
+    id:"America/Boise"
+    # 206K
+    priority:206
   >
 
   timeZoneMappings:<
@@ -3359,9 +3385,9 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-9:00"
-    id:"America/Yakutat"
-    # 0.66K
-    priority:1
+    id:"America/Sitka"
+    # 8.88K
+    priority:9
   >
   timeZoneMappings:<
     utcOffset:"-9:00"
@@ -3377,9 +3403,9 @@ countries:<
   >
   timeZoneMappings:<
     utcOffset:"-9:00"
-    id:"America/Sitka"
-    # 8.88K
-    priority:9
+    id:"America/Yakutat"
+    # 0.66K
+    priority:1
   >
 
   timeZoneMappings:<

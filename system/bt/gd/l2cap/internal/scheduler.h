@@ -54,6 +54,17 @@ class Scheduler {
    */
   virtual void OnPacketsReady(Cid cid, int number_packets) {}
 
+  /**
+   * Let the scheduler send the specified cid first.
+   * Used by A2dp software encoding.
+   */
+  virtual void SetChannelTxPriority(Cid cid, bool high_priority) {}
+
+  /**
+   * Called by data controller to indicate that a channel is closed and packets should be dropped
+   */
+  virtual void RemoveChannel(Cid cid) {}
+
   virtual ~Scheduler() = default;
 };
 

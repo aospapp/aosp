@@ -105,7 +105,7 @@ public class TimeoutTest {
         final Timeout timeout = new Timeout(mSleeper, NAME, 100, 2, 500);
         final Object result = new Object();
         when(mJob.call()).thenReturn(result);
-        assertThat(timeout.run(DESC, 1, mJob)).isSameAs(result);
+        assertThat(timeout.run(DESC, 1, mJob)).isSameInstanceAs(result);
         assertThat(mSleeper.totalSleepingTime).isEqualTo(0);
     }
 
@@ -114,7 +114,7 @@ public class TimeoutTest {
         final Timeout timeout = new Timeout(mSleeper, NAME, 100, 2, 500);
         final Object result = new Object();
         when(mJob.call()).thenReturn((Object) null, result);
-        assertThat(timeout.run(DESC, 10, mJob)).isSameAs(result);
+        assertThat(timeout.run(DESC, 10, mJob)).isSameInstanceAs(result);
         assertThat(mSleeper.totalSleepingTime).isEqualTo(10);
     }
 
@@ -124,7 +124,7 @@ public class TimeoutTest {
         final RetryableException e = expectThrows(RetryableException.class,
                 () -> timeout.run(DESC, 10, mJob));
         assertThat(e.getMessage()).contains(DESC);
-        assertThat(e.getTimeout()).isSameAs(timeout);
+        assertThat(e.getTimeout()).isSameInstanceAs(timeout);
         assertThat(mSleeper.totalSleepingTime).isEqualTo(100);
     }
 

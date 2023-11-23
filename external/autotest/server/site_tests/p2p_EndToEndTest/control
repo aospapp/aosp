@@ -24,11 +24,11 @@ DOC = """
 End-to-end test of the peer-to-peer (p2p) file sharing system.
 
 The test runs over a set of N machines generating a random file in one of
-them (called the "master") and sharing it with the rest of the machines. The
+them (called the "main") and sharing it with the rest of the machines. The
 success condition of this test occurs when all the N machines have the same
 generated file before a certain timeout.
 
-To simulate a progressive download of the shared file in the master, the
+To simulate a progressive download of the shared file in the main, the
 file becomes available in two parts. The first part of the file is available
 at the beginning of the test, while the second part appears later.
 """
@@ -39,7 +39,7 @@ def run(machine):
     job.run_test('p2p_EndToEndTest',
                  dut=dut,
                  file_id=file_id,
-                 is_master=(machine == master),
+                 is_main=(machine == main),
                  peers=machines,
                  barrier=barrier)
 
@@ -52,7 +52,7 @@ file_id = "%s-%s" % (time.strftime("%Y%m%d-%H%M"), uuid.uuid4())
 # Create the shared QueueBarrier to synchronize the processes.
 barrier = queue_barrier.QueueBarrier(len(machines)-1)
 
-# Pick any DUT as the master.
-master = machines[0]
+# Pick any DUT as the main.
+main = machines[0]
 
 job.parallel_simple(run, machines)

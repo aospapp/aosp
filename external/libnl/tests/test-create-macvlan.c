@@ -1,6 +1,10 @@
+#include <netinet/ether.h>
+
 #include <netlink/netlink.h>
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
+
+#include <linux/netlink.h>
 
 int main(int argc, char *argv[])
 {

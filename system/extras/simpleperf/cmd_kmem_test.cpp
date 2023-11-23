@@ -27,6 +27,8 @@
 #include "record_file.h"
 #include "test_util.h"
 
+using namespace simpleperf;
+
 static std::unique_ptr<Command> KmemCmd() {
   return CreateCommandInstance("kmem");
 }
@@ -42,14 +44,13 @@ static void KmemReportRawFile(const std::string& perf_data,
                               ReportResult* result) {
   result->success = false;
   TemporaryFile tmp_file;
-  std::vector<std::string> args = {"report", "-i", perf_data, "-o",
-                                   tmp_file.path};
+  close(tmp_file.release());
+  std::vector<std::string> args = {"report", "-i", perf_data, "-o", tmp_file.path};
   args.insert(args.end(), additional_args.begin(), additional_args.end());
   ASSERT_TRUE(KmemCmd()->Run(args));
   ASSERT_TRUE(android::base::ReadFileToString(tmp_file.path, &result->content));
   ASSERT_TRUE(!result->content.empty());
-  std::vector<std::string> raw_lines =
-      android::base::Split(result->content, "\n");
+  std::vector<std::string> raw_lines = android::base::Split(result->content, "\n");
   result->lines.clear();
   for (const auto& line : raw_lines) {
     std::string s = android::base::Trim(line);
@@ -62,22 +63,21 @@ static void KmemReportRawFile(const std::string& perf_data,
 }
 
 static void KmemReportFile(const std::string& perf_data,
-                           const std::vector<std::string>& additional_args,
-                           ReportResult* result) {
+                           const std::vector<std::string>& additional_args, ReportResult* result) {
   KmemReportRawFile(GetTestData(perf_data), additional_args, result);
 }
 
 #if defined(__linux__)
 #include "environment.h"
 
-static bool RunKmemRecordCmd(std::vector<std::string> v,
-                             const char* output_file = nullptr) {
+static bool RunKmemRecordCmd(std::vector<std::string> v, const char* output_file = nullptr) {
   std::unique_ptr<TemporaryFile> tmpfile;
   std::string out_file;
   if (output_file != nullptr) {
     out_file = output_file;
   } else {
     tmpfile.reset(new TemporaryFile);
+    close(tmpfile->release());
     out_file = tmpfile->path;
   }
   v.insert(v.begin(), "record");
@@ -128,9 +128,7 @@ TEST(kmem_cmd, report_all_sort_options) {
   ReportResult result;
   KmemReportFile(
       PERF_DATA_WITH_KMEM_SLAB_CALLGRAPH_RECORD,
-      {"--slab-sort",
-       "hit,caller,ptr,bytes_req,bytes_alloc,fragment,gfp_flags,pingpong"},
-      &result);
+      {"--slab-sort", "hit,caller,ptr,bytes_req,bytes_alloc,fragment,gfp_flags,pingpong"}, &result);
   ASSERT_TRUE(result.success);
   ASSERT_NE(result.content.find("Ptr"), std::string::npos);
   ASSERT_NE(result.content.find("GfpFlags"), std::string::npos);

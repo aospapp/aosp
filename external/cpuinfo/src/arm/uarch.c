@@ -58,7 +58,9 @@ void cpuinfo_arm_decode_vendor_uarch(
 					*uarch = cpuinfo_uarch_cortex_a35;
 					break;
 				case 0xD05:
-					*uarch = cpuinfo_uarch_cortex_a55;
+					// Note: use Variant, not Revision, field
+					*uarch = (midr & CPUINFO_ARM_MIDR_VARIANT_MASK) == 0 ?
+						cpuinfo_uarch_cortex_a55r0 : cpuinfo_uarch_cortex_a55;
 					break;
 				case 0xD06:
 					*uarch = cpuinfo_uarch_cortex_a65;
@@ -86,8 +88,14 @@ void cpuinfo_arm_decode_vendor_uarch(
 				case 0xD0D:
 					*uarch = cpuinfo_uarch_cortex_a77;
 					break;
-				case 0xD0E:
-					*uarch = cpuinfo_uarch_cortex_a76ae;
+				case 0xD0E: /* Cortex-A76AE */
+					*uarch = cpuinfo_uarch_cortex_a76;
+					break;
+				case 0xD41: /* Cortex-A78 */
+					*uarch = cpuinfo_uarch_cortex_a78;
+					break;
+				case 0xD44: /* Cortex-X1 */
+					*uarch = cpuinfo_uarch_cortex_x1;
 					break;
 #if CPUINFO_ARCH_ARM64 && !defined(__ANDROID__)
 				case 0xD4A:
@@ -153,6 +161,11 @@ void cpuinfo_arm_decode_vendor_uarch(
 		case 'H':
 			*vendor = cpuinfo_vendor_huawei;
 			switch (midr_get_part(midr)) {
+#if CPUINFO_ARCH_ARM64 && !defined(__ANDROID__)
+				case 0xD01: /* Kunpeng 920 series */
+					*uarch = cpuinfo_uarch_taishan_v110;
+					break;
+#endif
 				case 0xD40: /* Kirin 980 Big/Medium cores -> Cortex-A76 */
 					*vendor = cpuinfo_vendor_arm;
 					*uarch = cpuinfo_uarch_cortex_a76;
@@ -257,9 +270,9 @@ void cpuinfo_arm_decode_vendor_uarch(
 					*vendor = cpuinfo_vendor_arm;
 					*uarch = cpuinfo_uarch_cortex_a75;
 					break;
-				case 0x803: /* Low-power Kryo 385 "Silver" -> Cortex-A55 */
+				case 0x803: /* Low-power Kryo 385 "Silver" -> Cortex-A55r0 */
 					*vendor = cpuinfo_vendor_arm;
-					*uarch = cpuinfo_uarch_cortex_a55;
+					*uarch = cpuinfo_uarch_cortex_a55r0;
 					break;
 				case 0x804: /* High-performance Kryo 485 "Gold" / "Gold Prime" -> Cortex-A76 */
 					*vendor = cpuinfo_vendor_arm;

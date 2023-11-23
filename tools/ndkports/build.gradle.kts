@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.3.50"
+    kotlin("jvm") version "1.3.72"
     application
 }
 
@@ -16,13 +16,12 @@ repositories {
 }
 
 dependencies {
-    implementation(kotlin("stdlib", "1.3.50"))
-    implementation(kotlin("reflect", "1.3.50"))
+    implementation(kotlin("stdlib", "1.3.72"))
+    implementation(kotlin("reflect", "1.3.72"))
 
-    implementation("com.google.prefab:api:1.0.0-alpha2")
+    implementation("com.google.prefab:api:1.0.0")
 
     implementation("com.github.ajalt:clikt:2.2.0")
-    implementation("com.squareup.okhttp3:okhttp:4.2.2")
     implementation("de.swirtz:ktsRunner:0.0.7")
     implementation("org.apache.maven:maven-core:3.6.2")
     implementation("org.redundent:kotlin-xml-builder:1.5.3")
@@ -46,6 +45,10 @@ tasks.withType<KotlinCompile> {
     )
 }
 
+val portsBuildDir = buildDir.resolve("ports")
+
+val allPorts = listOf("openssl", "curl", "jsoncpp")
+
 // Can be specified in ~/.gradle/gradle.properties:
 //
 //     ndkPath=/path/to/ndk
@@ -55,6 +58,56 @@ tasks.withType<KotlinCompile> {
 //     ./gradlew -PndkPath=/path/to/ndk run
 val ndkPath: String by project
 tasks.named<JavaExec>("run") {
-    val allPorts = File("ports").listFiles()!!.map { it.name }
-    args = listOf("--ndk", ndkPath, "-o", "out") + allPorts
+    // Order matters since we don't do any dependency sorting, so we can't just
+    // use the directory list.
+    args = listOf("--ndk", ndkPath, "-o", portsBuildDir.toString()) + allPorts
+}
+
+for (port in allPorts) {
+    distributions {
+        create(port) {
+            contents {
+                includeEmptyDirs = false
+                from(portsBuildDir.resolve(port)) {
+                    include("**/*.aar")
+                    include("**/*.pom")
+                }
+            }
+        }
+    }
+
+    tasks.named("${port}DistTar") {
+        dependsOn(":run")
+    }
+
+    tasks.named("${port}DistZip") {
+        dependsOn(":run")
+    }
+}
+
+distributions {
+    create("all") {
+        contents {
+            includeEmptyDirs = false
+            from(portsBuildDir) {
+                include("**/*.aar")
+                include("**/*.pom")
+            }
+        }
+    }
+}
+
+tasks.named("allDistTar") {
+    dependsOn(":run")
+}
+
+tasks.named("allDistZip") {
+    dependsOn(":run")
+}
+
+tasks.register("release") {
+    dependsOn(":allDistZip")
+    for (port in allPorts) {
+        dependsOn(":${port}DistZip")
+    }
 }

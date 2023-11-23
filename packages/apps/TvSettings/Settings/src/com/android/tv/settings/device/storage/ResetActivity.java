@@ -17,22 +17,28 @@
 package com.android.tv.settings.device.storage;
 
 import android.annotation.Nullable;
-import android.app.Activity;
 import android.app.ActivityManager;
+import android.content.Context;
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.UserHandle;
+import android.service.oemlock.OemLockManager;
+import android.service.persistentdata.PersistentDataBlockManager;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
 import com.android.tv.settings.R;
+import com.android.tv.settings.util.GuidedActionsAlignUtil;
 
 import java.util.List;
 
-public class ResetActivity extends Activity {
+public class ResetActivity extends FragmentActivity {
 
     private static final String TAG = "ResetActivity";
 
@@ -48,11 +54,12 @@ public class ResetActivity extends Activity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState == null) {
-            GuidedStepFragment.addAsRoot(this, ResetFragment.newInstance(), android.R.id.content);
+            GuidedStepSupportFragment
+                    .addAsRoot(this, ResetFragment.newInstance(), android.R.id.content);
         }
     }
 
-    public static class ResetFragment extends GuidedStepFragment {
+    public static class ResetFragment extends GuidedStepSupportFragment {
 
         public static ResetFragment newInstance() {
 
@@ -95,9 +102,14 @@ public class ResetActivity extends Activity {
                 Log.wtf(TAG, "Unknown action clicked");
             }
         }
+
+        @Override
+        public GuidanceStylist onCreateGuidanceStylist() {
+            return GuidedActionsAlignUtil.createGuidanceStylist();
+        }
     }
 
-    public static class ResetConfirmFragment extends GuidedStepFragment {
+    public static class ResetConfirmFragment extends GuidedStepSupportFragment {
 
         public static ResetConfirmFragment newInstance() {
 
@@ -131,26 +143,73 @@ public class ResetActivity extends Activity {
         }
 
         @Override
+        public GuidanceStylist onCreateGuidanceStylist() {
+            return GuidedActionsAlignUtil.createGuidanceStylist();
+        }
+
+        @Override
         public void onGuidedActionClicked(GuidedAction action) {
             if (action.getId() == GuidedAction.ACTION_ID_OK) {
                 if (ActivityManager.isUserAMonkey()) {
                     Log.v(TAG, "Monkey tried to erase the device. Bad monkey, bad!");
                     getActivity().finish();
                 } else {
-                    Intent resetIntent = new Intent(Intent.ACTION_FACTORY_RESET);
-                    resetIntent.setPackage("android");
-                    resetIntent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-                    resetIntent.putExtra(Intent.EXTRA_REASON, "ResetConfirmFragment");
-                    if (getActivity().getIntent().getBooleanExtra(SHUTDOWN_INTENT_EXTRA, false)) {
-                        resetIntent.putExtra(SHUTDOWN_INTENT_EXTRA, true);
-                    }
-                    getContext().sendBroadcast(resetIntent);
+                    performFactoryReset();
                 }
             } else if (action.getId() == GuidedAction.ACTION_ID_CANCEL) {
                 getActivity().finish();
             } else {
                 Log.wtf(TAG, "Unknown action clicked");
             }
+        }
+
+        private void performFactoryReset() {
+            final PersistentDataBlockManager pdbManager = (PersistentDataBlockManager)
+                    getContext().getSystemService(Context.PERSISTENT_DATA_BLOCK_SERVICE);
+
+            if (shouldWipePersistentDataBlock(pdbManager)) {
+                new AsyncTask<Void, Void, Void>() {
+                    @Override
+                    protected Void doInBackground(Void... params) {
+                        pdbManager.wipe();
+                        return null;
+                    }
+
+                    @Override
+                    protected void onPostExecute(Void aVoid) {
+                        doMainClear();
+                    }
+                }.execute();
+            } else {
+                doMainClear();
+            }
+        }
+
+        private boolean shouldWipePersistentDataBlock(PersistentDataBlockManager pdbManager) {
+            if (pdbManager == null) {
+                return false;
+            }
+            // If OEM unlock is allowed, the persistent data block will be wiped during FR.
+            // If disabled, it will be wiped here instead.
+            if (((OemLockManager) getActivity().getSystemService(Context.OEM_LOCK_SERVICE))
+                    .isOemUnlockAllowed()) {
+                return false;
+            }
+            return true;
+        }
+
+        private void doMainClear() {
+            if (getActivity() == null) {
+                return;
+            }
+            Intent resetIntent = new Intent(Intent.ACTION_FACTORY_RESET);
+            resetIntent.setPackage("android");
+            resetIntent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+            resetIntent.putExtra(Intent.EXTRA_REASON, "ResetConfirmFragment");
+            if (getActivity().getIntent().getBooleanExtra(SHUTDOWN_INTENT_EXTRA, false)) {
+                resetIntent.putExtra(SHUTDOWN_INTENT_EXTRA, true);
+            }
+            getActivity().sendBroadcastAsUser(resetIntent, UserHandle.SYSTEM);
         }
     }
 }

@@ -11,7 +11,7 @@ TIME = "LONG"
 TEST_CATEGORY = "General"
 TEST_CLASS = "enterprise"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Test that verifies DeviceBootOnAcEnabled policy.

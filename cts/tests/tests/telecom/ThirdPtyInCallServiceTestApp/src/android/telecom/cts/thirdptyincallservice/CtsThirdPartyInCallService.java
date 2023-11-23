@@ -32,8 +32,8 @@ public class CtsThirdPartyInCallService extends MockInCallService {
     private static final String TAG = CtsThirdPartyInCallService.class.getSimpleName();
     protected static final int TIMEOUT = 10000;
 
-    private static CountDownLatch sServiceBoundLatch;
-    private static CountDownLatch sServiceUnboundlatch;
+    private static CountDownLatch sServiceBoundLatch = new CountDownLatch(1);
+    private static CountDownLatch sServiceUnboundlatch = new CountDownLatch(1);
 
     private static Set<Call> sCalls = new HashSet<>();
 

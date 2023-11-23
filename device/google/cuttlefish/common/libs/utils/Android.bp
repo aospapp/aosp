@@ -13,6 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library {
     name: "libcuttlefish_utils",
     srcs: [
@@ -23,14 +27,15 @@ cc_library {
         "files.cpp",
         "users.cpp",
         "network.cpp",
-    ],
-    header_libs: [
-        "cuttlefish_glog",
+        "base64.cpp",
+        "tcp_socket.cpp",
+        "tee_logging.cpp",
     ],
     shared: {
         shared_libs: [
             "libbase",
             "libcuttlefish_fs",
+            "libcrypto",
         ],
     },
     static: {
@@ -38,6 +43,9 @@ cc_library {
             "libbase",
             "libcuttlefish_fs",
         ],
+        shared_libs: [
+          "libcrypto", // libcrypto_static is not accessible from all targets
+        ],
     },
-    defaults: ["cuttlefish_host_and_guest"],
+    defaults: ["cuttlefish_host"],
 }

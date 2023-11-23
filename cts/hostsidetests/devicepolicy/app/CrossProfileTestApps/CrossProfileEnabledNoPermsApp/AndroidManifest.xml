@@ -16,25 +16,26 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.crossprofileenablednopermsapp">
+     package="com.android.cts.crossprofileenablednopermsapp">
 
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
+    <uses-sdk android:minSdkVersion="29"
+         android:targetSdkVersion="29"/>
 
     <!-- We need to request the permission, which is denied in the test. -->
     <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES"/>
 
-    <application
-        android:crossProfile="true">
-        <receiver android:name=".CrossProfileEnabledNoPermsAppReceiver">
+    <application android:crossProfile="true">
+        <receiver android:name=".CrossProfileEnabledNoPermsAppReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MANAGED_PROFILE_UNAVAILABLE" />
-                <action android:name="android.intent.action.MANAGED_PROFILE_AVAILABLE" />
-                <action android:name="android.intent.action.MANAGED_PROFILE_ADDED" />
-                <action android:name="android.intent.action.MANAGED_PROFILE_REMOVED" />
+                <action android:name="android.intent.action.MANAGED_PROFILE_UNAVAILABLE"/>
+                <action android:name="android.intent.action.MANAGED_PROFILE_AVAILABLE"/>
+                <action android:name="android.intent.action.MANAGED_PROFILE_ADDED"/>
+                <action android:name="android.intent.action.MANAGED_PROFILE_REMOVED"/>
             </intent-filter>
         </receiver>
     </application>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.crossprofileenablednopermsapp"
-                     android:label="Launcher Apps CTS Tests"/>
+         android:targetPackage="com.android.cts.crossprofileenablednopermsapp"
+         android:label="Launcher Apps CTS Tests"/>
 </manifest>

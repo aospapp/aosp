@@ -6,7 +6,8 @@ Amber lets you capture and communicate shader bugs with the fluidity and ease of
 a scripting flow:
 
 * No graphics API programming is required.
-  * WIP: Supports Vulkan and [Dawn][Dawn] graphics APIs.
+  * Supports Vulkan graphics API
+  * WIP: Supports [Dawn][Dawn] graphics API
 * A single text string (or file) maps to a single graphics API pipeline test
   case. The text includes:
   * Input data, including buffers and images.
@@ -116,7 +117,7 @@ Alternatives:
 
 ### Android
 
-* Android build needs Android SDK 28, Android NDK 16, Java 8. If you prefer
+* Android build needs Android SDK 28, Android NDK r21, Java 8. If you prefer
   other versions of Android SDK, Android NDK, Java, then you can change
   `ANDROID_PLATFORM` and `ANDROID_BUILD_TOOL_VERSION` in
   `tools/build-amber-sample.sh`.
@@ -255,40 +256,9 @@ CMake variables when configuring Amber:
   * `Dawn_LIBRARY_DIR`: The directory containing the `dawn_native` library (in
     the build output tree).
 
-## Amber Samples
-
-The build will generate an `out/Debug/amber` executable which can be used to
-run amber scripts. The script can be used as
-`out/Debug/amber <path to amber file>`. Where, currently, the amber file is
-in the [VkScript](docs/vk_script.md) format.
-
-```
-out/Debug/amber tests/cases/clear.amber
-```
-
-The sample app returns a value of 0 on success or non-zero on error. Any issues
-encountered should be displayed on the console.
-
-By default, `out/Debug/amber` supports saving the output image into '.png'
-file. You can disable this by passing `-DAMBER_SKIP_LODEPNG=true` to cmake.
-
-The `image_diff` program will also be created. This allows comparing two images
-using the Amber buffer comparison methods.
-
-## Contributing
-
-Please see the [CONTRIBUTING](CONTRIBUTING.md) and
-[CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) files on how to contribute to Amber.
-
-
-[Dawn]: https://dawn.googlesource.com/dawn/
-[Talvos]: https://talvos.github.io/
-[Vulkan-Headers]: https://github.com/KhronosGroup/Vulkan-Headers
-[VkRunner]: https://github.com/igalia/vkrunner
-
 ### Using SwiftShader as a backend
 
-SwiftShader if installed it can be used by by exporting the `VK_ICD_FILENAMES`
+SwiftShader, if available, can be used by by exporting the `VK_ICD_FILENAMES`
 environment variable and using it directly. If SwiftShader is not installed it
 can be built with Amber by setting `AMBER_ENABLE_SWIFTSHADER` during the
 configure step of CMake.
@@ -303,3 +273,45 @@ export VK_ICD_FILENAMES=$PWD/Linux/vk_swiftshader_icd.json
 ./amber -d -V    # Should see SwiftShader listed as device
 ./amber -d ../../tests/cases/clear.amber
 ```
+
+## Amber Samples
+
+The build will generate an `out/Debug/amber` executable which can be used to
+run amber scripts. The script can be used as
+`out/Debug/amber <path to amber file>`.
+
+```
+out/Debug/amber tests/cases/clear.amber
+```
+
+The sample app returns a value of 0 on success or non-zero on error. Any issues
+encountered should be displayed on the console.
+
+Run `out/Debug/amber -h` to see a description of the program's command line options.
+
+Example AmberScript files can be found in the [tests/cases](tests/cases)
+directory in this repository.
+Also the [Vulkan Conformance Test
+Suite](https://github.com/KhronosGroup/VK-GL-CTS) contains many real-world
+examples in its
+[external/vulkancts/data/vulkan/amber](https://github.com/KhronosGroup/VK-GL-CTS/tree/master/external/vulkancts/data/vulkan/amber)
+subdirectory.
+
+By default, `out/Debug/amber` supports saving the output image into '.png'
+file. You can disable this by passing `-DAMBER_SKIP_LODEPNG=true` to cmake.
+
+The `image_diff` program will also be created. This allows comparing two images
+using the Amber buffer comparison methods.
+
+## Contributing
+
+Please see the [CONTRIBUTING](CONTRIBUTING.md) and
+[CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) files on how to contribute to Amber.
+
+
+## References
+[Dawn]: https://dawn.googlesource.com/dawn/
+[Talvos]: https://talvos.github.io/
+[Vulkan-Headers]: https://github.com/KhronosGroup/Vulkan-Headers
+[VkRunner]: https://github.com/igalia/vkrunner
+

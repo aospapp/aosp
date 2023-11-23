@@ -30,19 +30,25 @@
 #include "MatrixHal.h"
 #include "MatrixInstance.h"
 #include "MatrixKernel.h"
-#include "Named.h"
 #include "SchemaType.h"
 #include "Sepolicy.h"
 #include "SystemSdk.h"
 #include "VendorNdk.h"
 #include "Vndk.h"
+#include "WithFileName.h"
 #include "XmlFileGroup.h"
 
 namespace android {
 namespace vintf {
 
+namespace details {
+class CheckVintfUtils;
+}  // namespace details
+
 // Compatibility matrix defines what hardware does the framework requires.
-struct CompatibilityMatrix : public HalGroup<MatrixHal>, public XmlFileGroup<MatrixXmlFile> {
+struct CompatibilityMatrix : public HalGroup<MatrixHal>,
+                             public XmlFileGroup<MatrixXmlFile>,
+                             public WithFileName {
     // Create a framework compatibility matrix.
     CompatibilityMatrix() : mType(SchemaType::FRAMEWORK) {}
 
@@ -62,6 +68,12 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>, public XmlFileGroup<Mat
 
     std::string getVendorNdkVersion() const;
 
+    std::vector<VersionRange> getSepolicyVersions() const;
+
+    bool add(MatrixHal&&, std::string* error = nullptr) override;
+    // Move all hals from another CompatibilityMatrix to this.
+    bool addAllHals(CompatibilityMatrix* other, std::string* error = nullptr);
+
    protected:
     bool forEachInstanceOfVersion(
         HalFormat format, const std::string& package, const Version& expectVersion,
@@ -69,7 +81,7 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>, public XmlFileGroup<Mat
 
    private:
     // Add everything in inputMatrix to "this" as requirements.
-    bool addAll(Named<CompatibilityMatrix>* inputMatrix, std::string* error);
+    bool addAll(CompatibilityMatrix* inputMatrix, std::string* error);
 
     // Add all <kernel> from other to "this". Error if there is a conflict.
     bool addAllKernels(CompatibilityMatrix* other, std::string* error);
@@ -93,7 +105,7 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>, public XmlFileGroup<Mat
     bool addSystemSdk(CompatibilityMatrix* other, std::string* error);
 
     // Add everything in inputMatrix to "this" as optional.
-    bool addAllAsOptional(Named<CompatibilityMatrix>* inputMatrix, std::string* error);
+    bool addAllAsOptional(CompatibilityMatrix* inputMatrix, std::string* error);
 
     // Add all HALs as optional HALs from "other". This function moves MatrixHal objects
     // from "other".
@@ -114,12 +126,13 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>, public XmlFileGroup<Mat
     //     with lower level()
     //   - <sepolicy>, <avb><vbmeta-version> is ignored
     // Return the combined matrix, nullptr if any error (e.g. conflict of information).
-    static std::unique_ptr<CompatibilityMatrix> combine(
-        Level deviceLevel, std::vector<Named<CompatibilityMatrix>>* matrices, std::string* error);
+    static std::unique_ptr<CompatibilityMatrix> combine(Level deviceLevel,
+                                                        std::vector<CompatibilityMatrix>* matrices,
+                                                        std::string* error);
 
     // Combine a set of device compatibility matrices.
     static std::unique_ptr<CompatibilityMatrix> combineDeviceMatrices(
-        std::vector<Named<CompatibilityMatrix>>* matrices, std::string* error);
+        std::vector<CompatibilityMatrix>* matrices, std::string* error);
 
     status_t fetchAllInformation(const FileSystem* fileSystem, const std::string& path,
                                  std::string* error = nullptr);
@@ -145,6 +158,7 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>, public XmlFileGroup<Mat
     friend class VintfObject;
     friend class AssembleVintfImpl;
     friend class KernelInfo;
+    friend class details::CheckVintfUtils;
     friend bool operator==(const CompatibilityMatrix &, const CompatibilityMatrix &);
 
     SchemaType mType;

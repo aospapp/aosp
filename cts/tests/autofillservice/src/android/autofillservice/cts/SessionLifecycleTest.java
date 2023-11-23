@@ -16,17 +16,17 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.Helper.ID_LOGIN;
-import static android.autofillservice.cts.Helper.ID_PASSWORD;
-import static android.autofillservice.cts.Helper.ID_USERNAME;
-import static android.autofillservice.cts.Helper.assertTextAndValue;
-import static android.autofillservice.cts.Helper.findNodeByResourceId;
-import static android.autofillservice.cts.Helper.getContext;
-import static android.autofillservice.cts.OutOfProcessLoginActivity.getDestroyedMarker;
-import static android.autofillservice.cts.OutOfProcessLoginActivity.getStartedMarker;
-import static android.autofillservice.cts.OutOfProcessLoginActivity.getStoppedMarker;
-import static android.autofillservice.cts.UiBot.LANDSCAPE;
-import static android.autofillservice.cts.UiBot.PORTRAIT;
+import static android.autofillservice.cts.activities.OutOfProcessLoginActivity.getDestroyedMarker;
+import static android.autofillservice.cts.activities.OutOfProcessLoginActivity.getStartedMarker;
+import static android.autofillservice.cts.activities.OutOfProcessLoginActivity.getStoppedMarker;
+import static android.autofillservice.cts.testcore.Helper.ID_LOGIN;
+import static android.autofillservice.cts.testcore.Helper.ID_PASSWORD;
+import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
+import static android.autofillservice.cts.testcore.Helper.assertTextAndValue;
+import static android.autofillservice.cts.testcore.Helper.findNodeByResourceId;
+import static android.autofillservice.cts.testcore.Helper.getContext;
+import static android.autofillservice.cts.testcore.UiBot.LANDSCAPE;
+import static android.autofillservice.cts.testcore.UiBot.PORTRAIT;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_USERNAME;
 
@@ -41,6 +41,16 @@ import static org.junit.Assume.assumeTrue;
 import android.app.ActivityManager;
 import android.app.PendingIntent;
 import android.app.assist.AssistStructure;
+import android.autofillservice.cts.activities.EmptyActivity;
+import android.autofillservice.cts.activities.LoginActivity;
+import android.autofillservice.cts.activities.ManualAuthenticationActivity;
+import android.autofillservice.cts.activities.OutOfProcessLoginActivity;
+import android.autofillservice.cts.commontests.AutoFillServiceTestCase;
+import android.autofillservice.cts.testcore.CannedFillResponse;
+import android.autofillservice.cts.testcore.Helper;
+import android.autofillservice.cts.testcore.InstrumentedAutoFillService;
+import android.autofillservice.cts.testcore.Timeouts;
+import android.autofillservice.cts.testcore.UiBot;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
@@ -108,8 +118,9 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivity
 
     @After
     public void finishLoginActivityOnAnotherProcess() throws Exception {
-        runShellCommand("am broadcast --receiver-foreground "
-                + "-n android.autofillservice.cts/.OutOfProcessLoginActivityFinisherReceiver");
+        runShellCommand(
+                "am broadcast --receiver-foreground -n android.autofillservice.cts/.testcore"
+                        + ".OutOfProcessLoginActivityFinisherReceiver");
         mUiBot.assertGoneByRelativeId(ID_USERNAME, Timeouts.ACTIVITY_RESURRECTION);
 
         if (!OutOfProcessLoginActivity.hasInstance()) {
@@ -133,7 +144,7 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivity
 
         // Kill activity that is in the background
         runShellCommand("am broadcast --receiver-foreground "
-                + "-n android.autofillservice.cts/.SelfDestructReceiver");
+                + "-n android.autofillservice.cts/.testcore.SelfDestructReceiver");
     }
 
     private void startAndWaitExternalActivity() throws Exception {
@@ -173,7 +184,7 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivity
             // Create the authentication intent (launching a full screen activity)
             IntentSender authentication = PendingIntent.getActivity(getContext(), 0,
                     new Intent(getContext(), ManualAuthenticationActivity.class),
-                    0).getIntentSender();
+                    PendingIntent.FLAG_MUTABLE).getIntentSender();
 
             // Prepare the authenticated response
             ManualAuthenticationActivity.setResponse(new CannedFillResponse.Builder()
@@ -284,7 +295,7 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivity
         // Create the authentication intent (launching a full screen activity)
         IntentSender authentication = PendingIntent.getActivity(getContext(), 0,
                 new Intent(getContext(), ManualAuthenticationActivity.class),
-                0).getIntentSender();
+                PendingIntent.FLAG_IMMUTABLE).getIntentSender();
 
         CannedFillResponse response = new CannedFillResponse.Builder()
                 .setAuthentication(authentication, ID_USERNAME, ID_PASSWORD)

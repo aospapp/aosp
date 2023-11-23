@@ -29,9 +29,7 @@ namespace libtextclassifier3 {
 
 class ZlibDecompressor {
  public:
-  static std::unique_ptr<ZlibDecompressor> Instance(
-      const unsigned char* dictionary = nullptr,
-      unsigned int dictionary_size = 0);
+  static std::unique_ptr<ZlibDecompressor> Instance();
   ~ZlibDecompressor();
 
   bool Decompress(const uint8* buffer, const int buffer_size,
@@ -48,28 +46,21 @@ class ZlibDecompressor {
       const CompressedBuffer* compressed_buffer, std::string* out);
 
  private:
-  ZlibDecompressor(const unsigned char* dictionary,
-                   const unsigned int dictionary_size);
+  explicit ZlibDecompressor();
   z_stream stream_;
   bool initialized_;
 };
 
 class ZlibCompressor {
  public:
-  static std::unique_ptr<ZlibCompressor> Instance(
-      const unsigned char* dictionary = nullptr,
-      unsigned int dictionary_size = 0);
+  static std::unique_ptr<ZlibCompressor> Instance();
   ~ZlibCompressor();
 
   void Compress(const std::string& uncompressed_content,
                 CompressedBufferT* out);
 
-  bool GetDictionary(std::vector<unsigned char>* dictionary);
-
  private:
-  explicit ZlibCompressor(const unsigned char* dictionary = nullptr,
-                          const unsigned int dictionary_size = 0,
-                          const int level = Z_BEST_COMPRESSION,
+  explicit ZlibCompressor(const int level = Z_BEST_COMPRESSION,
                           // Tmp. buffer size was set based on the current set
                           // of patterns to be compressed.
                           const int tmp_buffer_size = 64 * 1024);

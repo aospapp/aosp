@@ -182,6 +182,18 @@ public class BaseRemoteTelecomTest extends BaseTelecomTestWithMockServices {
         return conference;
     }
 
+    MockConference verifyConferenceOnRemoteCS(int permit) {
+        try {
+            if (!remoteConnectionService.lock.tryAcquire(permit, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                    TimeUnit.MILLISECONDS)) {
+                fail("No conference requested by Telecom");
+            }
+        } catch (InterruptedException e) {
+            Log.i(TAG, "Test interrupted!");
+        }
+        return remoteConnectionService.conferences.get(0);
+    }
+
     void assertRemoteConnectionState(final RemoteConnection connection, final int state) {
         waitUntilConditionIsTrueOrTimeout(
                 new Condition() {

@@ -16,37 +16,37 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.server.wm.backgroundactivity.appa">
+     package="android.server.wm.backgroundactivity.appa">
 
     <!-- To enable the app to start activities from the background. -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
     <application android:testOnly="true">
-        <receiver
-            android:name=".StartBackgroundActivityReceiver"
-            android:exported="true"/>
-        <receiver
-            android:name=".SendPendingIntentReceiver"
-            android:exported="true"/>
-        <receiver
-            android:name=".SimpleAdminReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+        <receiver android:name=".StartBackgroundActivityReceiver"
+             android:exported="true"/>
+        <receiver android:name=".SendPendingIntentReceiver"
+             android:exported="true"/>
+        <receiver android:name=".SimpleAdminReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                       android:resource="@xml/device_admin" />
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
-        <activity
-            android:name=".ForegroundActivity"
-            android:taskAffinity=".am_cts_bg_task_a"
-            android:exported="true" />
-        <activity
-            android:name=".BackgroundActivity"
-            android:taskAffinity=".am_cts_bg_task_b"
-            android:exported="true" />
-        <activity
-            android:name=".SecondBackgroundActivity"
-            android:exported="true" />
+        <activity android:name=".ForegroundActivity"
+             android:taskAffinity=".am_cts_bg_task_a"
+             android:exported="true"/>
+        <activity android:name=".BackgroundActivity"
+             android:taskAffinity=".am_cts_bg_task_b"
+             android:exported="true"/>
+        <activity android:name=".SecondBackgroundActivity"
+             android:exported="true"/>
+        <activity android:name=".RelaunchingActivity"
+                  android:exported="true"/>
+        <activity android:name=".PipActivity"
+                  android:exported="true"
+                  android:supportsPictureInPicture="true"/>
     </application>
 </manifest>

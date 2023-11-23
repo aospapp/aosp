@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2017 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.dev.impl.number;
 
 import java.math.BigDecimal;
@@ -10,6 +10,7 @@ import java.text.FieldPosition;
 
 import android.icu.impl.StandardPlural;
 import android.icu.impl.number.DecimalQuantity;
+import android.icu.impl.number.Modifier.Signum;
 import android.icu.text.PluralRules;
 import android.icu.text.PluralRules.Operand;
 import android.icu.text.UFieldPosition;
@@ -97,6 +98,8 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
     1000000000000000000L
   };
 
+  private int origPrimaryScale;
+
   @Override
   public int maxRepresentableDigits() {
     return Integer.MAX_VALUE;
@@ -112,6 +115,7 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
     primaryScale = 0;
     primaryPrecision = computePrecision(primary);
     fallback = null;
+    origPrimaryScale = primaryScale;
   }
 
   /**
@@ -191,6 +195,8 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
       primary = -1;
       fallback = new BigDecimal(temp);
     }
+
+    origPrimaryScale = primaryScale;
   }
 
   static final double LOG_2_OF_TEN = 3.32192809489;
@@ -281,6 +287,7 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
     primaryPrecision = _other.primaryPrecision;
     fallback = _other.fallback;
     flags = _other.flags;
+    origPrimaryScale = _other.origPrimaryScale;
   }
 
   @Override
@@ -520,8 +527,18 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
   }
 
   @Override
-  public int signum() {
-      return isNegative() ? -1 : isZeroish() ? 0 : 1;
+  public Signum signum() {
+      boolean isZero = (isZeroish() && !isInfinite());
+      boolean isNeg = isNegative();
+      if (isZero && isNeg) {
+          return Signum.NEG_ZERO;
+      } else if (isZero) {
+          return Signum.POS_ZERO;
+      } else if (isNeg) {
+          return Signum.NEG;
+      } else {
+          return Signum.POS;
+      }
   }
 
   private void setNegative(boolean isNegative) {
@@ -884,9 +901,17 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
       if (isNegative()) {
           sb.append('-');
       }
-      for (int m = getUpperDisplayMagnitude(); m >= getLowerDisplayMagnitude(); m--) {
-        sb.append(getDigit(m));
-        if (m == 0) sb.append('.');
+      int upper = getUpperDisplayMagnitude();
+      int lower = getLowerDisplayMagnitude();
+      int p = upper;
+      for (; p >= 0; p--) {
+          sb.append((char) ('0' + getDigit(p)));
+      }
+      if (lower < 0) {
+          sb.append('.');
+      }
+      for(; p >= lower; p--) {
+          sb.append((char) ('0' + getDigit(p)));
       }
       return sb.toString();
   }
@@ -907,5 +932,15 @@ public class DecimalQuantity_SimpleStorage implements DecimalQuantity {
       ((UFieldPosition) fp)
           .setFractionDigits((int) getPluralOperand(Operand.v), (long) getPluralOperand(Operand.f));
     }
+  }
+
+  @Override
+  public int getExponent() {
+    return origPrimaryScale;
+  }
+
+  @Override
+  public void adjustExponent(int delta) {
+      origPrimaryScale = origPrimaryScale + delta;
   }
 }

@@ -15,6 +15,10 @@
 // Build an APK which contains the device-side libraries and their tests,
 // this then gets instrumented in order to test the aforementioned libraries.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CompatibilityTestApp",
 

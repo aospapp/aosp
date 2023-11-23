@@ -46,6 +46,7 @@ import android.database.MatrixCursor;
 import android.provider.SearchIndexablesProvider;
 
 import com.android.car.settings.common.Logger;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.settingslib.search.SearchIndexableData;
 import com.android.settingslib.search.SearchIndexableRaw;
 import com.android.settingslib.search.SearchIndexableResources;
@@ -97,7 +98,9 @@ public class CarSettingsSearchIndexablesProvider extends SearchIndexablesProvide
                 .map(p -> p.getRawDataToIndex(getContext(), true))
                 .filter(Objects::nonNull)
                 .forEach(list -> list.forEach(
-                        raw -> cursor.addRow(createIndexableRawColumnObjects(raw))));
+                        raw -> {
+                            cursor.addRow(createIndexableRawColumnObjects(raw));
+                        }));
 
         return cursor;
     }
@@ -156,5 +159,10 @@ public class CarSettingsSearchIndexablesProvider extends SearchIndexablesProvide
             mSearchIndexableResources = new SearchIndexableResourcesAuto();
         }
         return mSearchIndexableResources;
+    }
+
+    @VisibleForTesting
+    void setResources(SearchIndexableResources resources) {
+        mSearchIndexableResources = resources;
     }
 }

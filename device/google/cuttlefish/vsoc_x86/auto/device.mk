@@ -15,14 +15,18 @@
 #
 
 $(call inherit-product, device/google/cuttlefish/shared/auto/device.mk)
-$(call inherit-product, device/google/cuttlefish/vsoc_x86/device.mk)
+$(call inherit-product, device/google/cuttlefish/vsoc_x86_64/kernel.mk)
+$(call inherit-product, device/google/cuttlefish/vsoc_x86_64/bootloader.mk)
 
 PRODUCT_NAME := aosp_cf_x86_auto
 PRODUCT_DEVICE := vsoc_x86
+PRODUCT_MANUFACTURER := Google
 PRODUCT_MODEL := Cuttlefish x86 auto
-PRODUCT_PACKAGE_OVERLAYS += device/google/cuttlefish/vsoc_x86/auto/overlay
-
 
 # Whitelisted packages per user type
 PRODUCT_COPY_FILES += \
     device/google/cuttlefish/vsoc_x86/auto/preinstalled-packages-product-car-cuttlefish.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/preinstalled-packages-product-car-cuttlefish.xml
+
+PRODUCT_VENDOR_PROPERTIES += \
+    ro.soc.manufacturer=$(PRODUCT_MANUFACTURER) \
+    ro.soc.model=$(PRODUCT_DEVICE)

@@ -17,7 +17,7 @@
     <string name="ssl_error_date_invalid" msgid="8113750623774526439">"Сертификатов има неважечки датум."</string>
     <string name="ssl_error_invalid" msgid="5977636322438777389">"Сертификатов е неважечки."</string>
     <string name="ssl_error_unknown" msgid="3751419329218834886">"Непозната грешка на сертификатот."</string>
-    <string name="ssl_security_warning_title" msgid="7912335118289529802">"Предупредување за безбедност"</string>
+    <string name="ssl_security_warning_title" msgid="7912335118289529802">"Безбедносно предупредување"</string>
     <string name="ssl_error_view_certificate" msgid="3447891108083278449">"Прикажи го сертификатот"</string>
     <string name="custom_scheme_warning" msgid="1809266150423969087">"Мрежата на којашто се обидувате да се придружите бара отворање на друга апликација."</string>
     <string name="custom_scheme_example" msgid="7126568152528588592">"На пример, страницата за најавување може да побара конкретна апликација за проверка"</string>

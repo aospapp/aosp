@@ -20,6 +20,7 @@
 
 #include <limits>
 #include <string>
+#include <vector>
 
 #include <base/files/file_util.h>
 #include <base/files/scoped_temp_dir.h>
@@ -30,8 +31,11 @@
 #include <gtest/gtest.h>
 
 using std::string;
+using std::vector;
 using testing::_;
+using testing::ElementsAre;
 using testing::Eq;
+using testing::UnorderedElementsAre;
 
 namespace {
 // Test key used along the tests.
@@ -40,12 +44,109 @@ const char kKey[] = "test-key";
 
 namespace chromeos_update_engine {
 
-class PrefsTest : public ::testing::Test {
+class BasePrefsTest : public ::testing::Test {
+ protected:
+  void MultiNamespaceKeyTest() {
+    ASSERT_TRUE(common_prefs_);
+    auto key0 = common_prefs_->CreateSubKey({"ns1", "key"});
+    // Corner case for "ns1".
+    auto key0corner = common_prefs_->CreateSubKey({"ns11", "key"});
+    auto key1A = common_prefs_->CreateSubKey({"ns1", "nsA", "keyA"});
+    auto key1B = common_prefs_->CreateSubKey({"ns1", "nsA", "keyB"});
+    auto key2 = common_prefs_->CreateSubKey({"ns1", "nsB", "key"});
+    // Corner case for "ns1/nsB".
+    auto key2corner = common_prefs_->CreateSubKey({"ns1", "nsB1", "key"});
+    EXPECT_FALSE(common_prefs_->Exists(key0));
+    EXPECT_FALSE(common_prefs_->Exists(key1A));
+    EXPECT_FALSE(common_prefs_->Exists(key1B));
+    EXPECT_FALSE(common_prefs_->Exists(key2));
+
+    EXPECT_TRUE(common_prefs_->SetString(key0, ""));
+    EXPECT_TRUE(common_prefs_->SetString(key0corner, ""));
+    EXPECT_TRUE(common_prefs_->SetString(key1A, ""));
+    EXPECT_TRUE(common_prefs_->SetString(key1B, ""));
+    EXPECT_TRUE(common_prefs_->SetString(key2, ""));
+    EXPECT_TRUE(common_prefs_->SetString(key2corner, ""));
+
+    EXPECT_TRUE(common_prefs_->Exists(key0));
+    EXPECT_TRUE(common_prefs_->Exists(key0corner));
+    EXPECT_TRUE(common_prefs_->Exists(key1A));
+    EXPECT_TRUE(common_prefs_->Exists(key1B));
+    EXPECT_TRUE(common_prefs_->Exists(key2));
+    EXPECT_TRUE(common_prefs_->Exists(key2corner));
+
+    vector<string> keys2;
+    EXPECT_TRUE(common_prefs_->GetSubKeys("ns1/nsB/", &keys2));
+    EXPECT_THAT(keys2, ElementsAre(key2));
+    for (const auto& key : keys2)
+      EXPECT_TRUE(common_prefs_->Delete(key));
+    EXPECT_TRUE(common_prefs_->Exists(key0));
+    EXPECT_TRUE(common_prefs_->Exists(key0corner));
+    EXPECT_TRUE(common_prefs_->Exists(key1A));
+    EXPECT_TRUE(common_prefs_->Exists(key1B));
+    EXPECT_FALSE(common_prefs_->Exists(key2));
+    EXPECT_TRUE(common_prefs_->Exists(key2corner));
+
+    vector<string> keys2corner;
+    EXPECT_TRUE(common_prefs_->GetSubKeys("ns1/nsB", &keys2corner));
+    EXPECT_THAT(keys2corner, ElementsAre(key2corner));
+    for (const auto& key : keys2corner)
+      EXPECT_TRUE(common_prefs_->Delete(key));
+    EXPECT_FALSE(common_prefs_->Exists(key2corner));
+
+    vector<string> keys1;
+    EXPECT_TRUE(common_prefs_->GetSubKeys("ns1/nsA/", &keys1));
+    EXPECT_THAT(keys1, UnorderedElementsAre(key1A, key1B));
+    for (const auto& key : keys1)
+      EXPECT_TRUE(common_prefs_->Delete(key));
+    EXPECT_TRUE(common_prefs_->Exists(key0));
+    EXPECT_TRUE(common_prefs_->Exists(key0corner));
+    EXPECT_FALSE(common_prefs_->Exists(key1A));
+    EXPECT_FALSE(common_prefs_->Exists(key1B));
+
+    vector<string> keys0;
+    EXPECT_TRUE(common_prefs_->GetSubKeys("ns1/", &keys0));
+    EXPECT_THAT(keys0, ElementsAre(key0));
+    for (const auto& key : keys0)
+      EXPECT_TRUE(common_prefs_->Delete(key));
+    EXPECT_FALSE(common_prefs_->Exists(key0));
+    EXPECT_TRUE(common_prefs_->Exists(key0corner));
+
+    vector<string> keys0corner;
+    EXPECT_TRUE(common_prefs_->GetSubKeys("ns1", &keys0corner));
+    EXPECT_THAT(keys0corner, ElementsAre(key0corner));
+    for (const auto& key : keys0corner)
+      EXPECT_TRUE(common_prefs_->Delete(key));
+    EXPECT_FALSE(common_prefs_->Exists(key0corner));
+
+    // Test sub directory namespace.
+    const string kDlcPrefsSubDir = "foo-dir";
+    key1A = common_prefs_->CreateSubKey({kDlcPrefsSubDir, "dlc1", "keyA"});
+    EXPECT_TRUE(common_prefs_->SetString(key1A, "fp_1A"));
+    key1B = common_prefs_->CreateSubKey({kDlcPrefsSubDir, "dlc1", "keyB"});
+    EXPECT_TRUE(common_prefs_->SetString(key1B, "fp_1B"));
+    auto key2A = common_prefs_->CreateSubKey({kDlcPrefsSubDir, "dlc2", "keyA"});
+    EXPECT_TRUE(common_prefs_->SetString(key2A, "fp_A2"));
+
+    vector<string> fpKeys;
+    EXPECT_TRUE(common_prefs_->GetSubKeys(kDlcPrefsSubDir, &fpKeys));
+    EXPECT_EQ(fpKeys.size(), 3UL);
+    EXPECT_TRUE(common_prefs_->Delete(fpKeys[0]));
+    EXPECT_TRUE(common_prefs_->Delete(fpKeys[1]));
+    EXPECT_TRUE(common_prefs_->Delete(fpKeys[2]));
+    EXPECT_FALSE(common_prefs_->Exists(key1A));
+  }
+
+  PrefsInterface* common_prefs_;
+};
+
+class PrefsTest : public BasePrefsTest {
  protected:
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     prefs_dir_ = temp_dir_.GetPath();
     ASSERT_TRUE(prefs_.Init(prefs_dir_));
+    common_prefs_ = &prefs_;
   }
 
   bool SetValue(const string& key, const string& value) {
@@ -58,6 +159,31 @@ class PrefsTest : public ::testing::Test {
   base::FilePath prefs_dir_;
   Prefs prefs_;
 };
+
+TEST(Prefs, Init) {
+  Prefs prefs;
+  const string ns1 = "ns1";
+  const string ns2A = "ns2A";
+  const string ns2B = "ns2B";
+  const string sub_pref = "sp";
+
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  auto ns1_path = temp_dir.GetPath().Append(ns1);
+  auto ns2A_path = ns1_path.Append(ns2A);
+  auto ns2B_path = ns1_path.Append(ns2B);
+  auto sub_pref_path = ns2A_path.Append(sub_pref);
+
+  EXPECT_TRUE(base::CreateDirectory(ns2B_path));
+  EXPECT_TRUE(base::PathExists(ns2B_path));
+
+  EXPECT_TRUE(base::CreateDirectory(sub_pref_path));
+  EXPECT_TRUE(base::PathExists(sub_pref_path));
+
+  EXPECT_TRUE(base::PathExists(ns1_path));
+  ASSERT_TRUE(prefs.Init(temp_dir.GetPath()));
+  EXPECT_FALSE(base::PathExists(ns1_path));
+}
 
 TEST_F(PrefsTest, GetFileNameForKey) {
   const char kAllvalidCharsKey[] =
@@ -75,6 +201,18 @@ TEST_F(PrefsTest, GetFileNameForKeyBadCharacter) {
 TEST_F(PrefsTest, GetFileNameForKeyEmpty) {
   base::FilePath path;
   EXPECT_FALSE(prefs_.file_storage_.GetFileNameForKey("", &path));
+}
+
+TEST_F(PrefsTest, CreateSubKey) {
+  const string name_space = "ns";
+  const string sub_pref1 = "sp1";
+  const string sub_pref2 = "sp2";
+  const string sub_key = "sk";
+
+  EXPECT_EQ(PrefsInterface::CreateSubKey({name_space, sub_pref1, sub_key}),
+            "ns/sp1/sk");
+  EXPECT_EQ(PrefsInterface::CreateSubKey({name_space, sub_pref2, sub_key}),
+            "ns/sp2/sk");
 }
 
 TEST_F(PrefsTest, GetString) {
@@ -279,6 +417,94 @@ TEST_F(PrefsTest, DeleteWorks) {
   EXPECT_FALSE(prefs_.Exists(kKey));
 }
 
+TEST_F(PrefsTest, SetDeleteSubKey) {
+  const string name_space = "ns";
+  const string sub_pref = "sp";
+  const string sub_key1 = "sk1";
+  const string sub_key2 = "sk2";
+  auto key1 = prefs_.CreateSubKey({name_space, sub_pref, sub_key1});
+  auto key2 = prefs_.CreateSubKey({name_space, sub_pref, sub_key2});
+  base::FilePath sub_pref_path = prefs_dir_.Append(name_space).Append(sub_pref);
+
+  ASSERT_TRUE(prefs_.SetInt64(key1, 0));
+  ASSERT_TRUE(prefs_.SetInt64(key2, 0));
+  EXPECT_TRUE(base::PathExists(sub_pref_path.Append(sub_key1)));
+  EXPECT_TRUE(base::PathExists(sub_pref_path.Append(sub_key2)));
+
+  ASSERT_TRUE(prefs_.Delete(key1));
+  EXPECT_FALSE(base::PathExists(sub_pref_path.Append(sub_key1)));
+  EXPECT_TRUE(base::PathExists(sub_pref_path.Append(sub_key2)));
+  ASSERT_TRUE(prefs_.Delete(key2));
+  EXPECT_FALSE(base::PathExists(sub_pref_path.Append(sub_key2)));
+  prefs_.Init(prefs_dir_);
+  EXPECT_FALSE(base::PathExists(prefs_dir_.Append(name_space)));
+}
+
+TEST_F(PrefsTest, DeletePrefs) {
+  const string kPrefsSubDir = "foo-dir";
+  const string kFpKey = "kPrefFp";
+  const string kNotFpKey = "NotkPrefFp";
+  const string kOtherKey = "kPrefNotFp";
+
+  EXPECT_TRUE(prefs_.SetString(kFpKey, "3.000"));
+  EXPECT_TRUE(prefs_.SetString(kOtherKey, "not_fp_val"));
+
+  auto key1_fp = prefs_.CreateSubKey({kPrefsSubDir, "id-1", kFpKey});
+  EXPECT_TRUE(prefs_.SetString(key1_fp, "3.7"));
+  auto key_not_fp = prefs_.CreateSubKey({kPrefsSubDir, "id-1", kOtherKey});
+  EXPECT_TRUE(prefs_.SetString(key_not_fp, "not_fp_val"));
+  auto key2_fp = prefs_.CreateSubKey({kPrefsSubDir, "id-2", kFpKey});
+  EXPECT_TRUE(prefs_.SetString(key2_fp, "3.9"));
+  auto key3_fp = prefs_.CreateSubKey({kPrefsSubDir, "id-3", kFpKey});
+  EXPECT_TRUE(prefs_.SetString(key3_fp, "3.45"));
+
+  // Pref key does not match full subkey at end, should not delete.
+  auto key_middle_fp = prefs_.CreateSubKey({kPrefsSubDir, kFpKey, kOtherKey});
+  EXPECT_TRUE(prefs_.SetString(key_middle_fp, "not_fp_val"));
+  auto key_end_not_fp = prefs_.CreateSubKey({kPrefsSubDir, "id-1", kNotFpKey});
+  EXPECT_TRUE(prefs_.SetString(key_end_not_fp, "not_fp_val"));
+
+  // Delete key in platform and one namespace.
+  prefs_.Delete(kFpKey, {kPrefsSubDir});
+
+  EXPECT_FALSE(prefs_.Exists(kFpKey));
+  EXPECT_FALSE(prefs_.Exists(key1_fp));
+  EXPECT_FALSE(prefs_.Exists(key2_fp));
+  EXPECT_FALSE(prefs_.Exists(key3_fp));
+
+  // Check other keys are not deleted.
+  EXPECT_TRUE(prefs_.Exists(kOtherKey));
+  EXPECT_TRUE(prefs_.Exists(key_not_fp));
+  EXPECT_TRUE(prefs_.Exists(key_middle_fp));
+  EXPECT_TRUE(prefs_.Exists(key_end_not_fp));
+}
+
+TEST_F(PrefsTest, DeleteMultipleNamespaces) {
+  const string kFirstSubDir = "foo-dir";
+  const string kSecondarySubDir = "bar-dir";
+  const string kTertiarySubDir = "ter-dir";
+  const string kFpKey = "kPrefFp";
+
+  EXPECT_TRUE(prefs_.SetString(kFpKey, "3.000"));
+  // Set pref key in different namespaces.
+  auto key1_fp = prefs_.CreateSubKey({kFirstSubDir, "id-1", kFpKey});
+  EXPECT_TRUE(prefs_.SetString(key1_fp, "3.7"));
+  auto key2_fp = prefs_.CreateSubKey({kSecondarySubDir, "id-3", kFpKey});
+  EXPECT_TRUE(prefs_.SetString(key2_fp, "7.45"));
+  auto key3_fp = prefs_.CreateSubKey({kTertiarySubDir, "id-3", kFpKey});
+  EXPECT_TRUE(prefs_.SetString(key3_fp, "7.45"));
+
+  // Delete key in platform and given namespaces.
+  prefs_.Delete(kFpKey, {kFirstSubDir, kSecondarySubDir});
+
+  EXPECT_FALSE(prefs_.Exists(kFpKey));
+  EXPECT_FALSE(prefs_.Exists(key1_fp));
+  EXPECT_FALSE(prefs_.Exists(key2_fp));
+
+  // Tertiary namespace not given to delete. Key should still exist.
+  EXPECT_TRUE(prefs_.Exists(key3_fp));
+}
+
 class MockPrefsObserver : public PrefsInterface::ObserverInterface {
  public:
   MOCK_METHOD1(OnPrefSet, void(const string&));
@@ -297,6 +523,19 @@ TEST_F(PrefsTest, ObserversCalled) {
   EXPECT_CALL(mock_obserser, OnPrefSet(_)).Times(0);
   EXPECT_CALL(mock_obserser, OnPrefDeleted(Eq(kKey)));
   prefs_.Delete(kKey);
+  testing::Mock::VerifyAndClearExpectations(&mock_obserser);
+
+  auto key1 = prefs_.CreateSubKey({"ns", "sp1", "key1"});
+  prefs_.AddObserver(key1, &mock_obserser);
+
+  EXPECT_CALL(mock_obserser, OnPrefSet(key1));
+  EXPECT_CALL(mock_obserser, OnPrefDeleted(_)).Times(0);
+  prefs_.SetString(key1, "value");
+  testing::Mock::VerifyAndClearExpectations(&mock_obserser);
+
+  EXPECT_CALL(mock_obserser, OnPrefSet(_)).Times(0);
+  EXPECT_CALL(mock_obserser, OnPrefDeleted(Eq(key1)));
+  prefs_.Delete(key1);
   testing::Mock::VerifyAndClearExpectations(&mock_obserser);
 
   prefs_.RemoveObserver(kKey, &mock_obserser);
@@ -341,8 +580,14 @@ TEST_F(PrefsTest, UnsuccessfulCallsNotObserved) {
   prefs_.RemoveObserver(kInvalidKey, &mock_obserser);
 }
 
-class MemoryPrefsTest : public ::testing::Test {
+TEST_F(PrefsTest, MultiNamespaceKeyTest) {
+  MultiNamespaceKeyTest();
+}
+
+class MemoryPrefsTest : public BasePrefsTest {
  protected:
+  void SetUp() override { common_prefs_ = &prefs_; }
+
   MemoryPrefs prefs_;
 };
 
@@ -358,7 +603,16 @@ TEST_F(MemoryPrefsTest, BasicTest) {
 
   EXPECT_TRUE(prefs_.Delete(kKey));
   EXPECT_FALSE(prefs_.Exists(kKey));
-  EXPECT_FALSE(prefs_.Delete(kKey));
+  EXPECT_TRUE(prefs_.Delete(kKey));
+
+  auto key = prefs_.CreateSubKey({"ns", "sp", "sk"});
+  ASSERT_TRUE(prefs_.SetInt64(key, 0));
+  EXPECT_TRUE(prefs_.Exists(key));
+  EXPECT_TRUE(prefs_.Delete(kKey));
+}
+
+TEST_F(MemoryPrefsTest, MultiNamespaceKeyTest) {
+  MultiNamespaceKeyTest();
 }
 
 }  // namespace chromeos_update_engine

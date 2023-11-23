@@ -15,21 +15,18 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.comp" >
+     package="com.android.cts.comp">
     <!-- package="com.android.cts.comp2"
-         We have com.android.cts.comp2 that have the exact same source but with different package
-         name, see Android.mk for details. -->
-    <application
-        android:testOnly="true">
+                 We have com.android.cts.comp2 that have the exact same source but with different package
+                 name, see Android.mk for details. -->
+    <application android:testOnly="true">
 
-        <uses-library android:name="android.test.runner" />
-        <receiver
-                android:name="com.android.cts.comp.AdminReceiver"
-                android:exported="true"
-                android:permission="android.permission.BIND_DEVICE_ADMIN">
-            <meta-data
-                    android:name="android.app.device_admin"
-                    android:resource="@xml/device_admin"/>
+        <uses-library android:name="android.test.runner"/>
+        <receiver android:name="com.android.cts.comp.AdminReceiver"
+             android:exported="true"
+             android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data android:name="android.app.device_admin"
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
                 <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE"/>
@@ -38,22 +35,23 @@
         <activity android:name="com.android.compatibility.common.util.devicepolicy.provisioning.StartProvisioningActivity"/>
 
         <service android:name=".ProtectedCrossUserService"
-                android:exported="true"
-                android:permission="android.permission.BIND_DEVICE_ADMIN">
+             android:exported="true"
+             android:permission="android.permission.BIND_DEVICE_ADMIN">
         </service>
 
         <service android:name=".UnprotectedCrossUserService"
-                android:exported="true">
+             android:exported="true">
         </service>
 
-        <receiver android:name=".WipeDataReceiver">
+        <receiver android:name=".WipeDataReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.comp.WIPE_DATA" />
+                <action android:name="com.android.cts.comp.WIPE_DATA"/>
             </intent-filter>
         </receiver>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-            android:targetPackage="com.android.cts.comp"
-            android:label="Corp owned managed profile CTS tests"/>
+         android:targetPackage="com.android.cts.comp"
+         android:label="Corp owned managed profile CTS tests"/>
 </manifest>

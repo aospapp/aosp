@@ -16,6 +16,8 @@
 
 package com.android.bluetooth.btservice;
 
+import android.bluetooth.OobData;
+
 final class JniCallbacks {
 
     private RemoteDevices mRemoteDevices;
@@ -65,8 +67,8 @@ final class JniCallbacks {
         mBondStateMachine.bondStateChangeCallback(status, address, newState);
     }
 
-    void aclStateChangeCallback(int status, byte[] address, int newState) {
-        mRemoteDevices.aclStateChangeCallback(status, address, newState);
+    void aclStateChangeCallback(int status, byte[] address, int newState, int hciReason) {
+        mRemoteDevices.aclStateChangeCallback(status, address, newState, hciReason);
     }
 
     void stateChangeCallback(int status) {
@@ -79,6 +81,23 @@ final class JniCallbacks {
 
     void adapterPropertyChangedCallback(int[] types, byte[][] val) {
         mAdapterProperties.adapterPropertyChangedCallback(types, val);
+    }
+
+    void oobDataReceivedCallback(int transport, OobData oobData) {
+        mAdapterService.notifyOobDataCallback(transport, oobData);
+    }
+
+    void linkQualityReportCallback(
+            long timestamp,
+            int report_id,
+            int rssi,
+            int snr,
+            int retransmission_count,
+            int packets_not_receive_count,
+            int negative_acknowledgement_count) {
+        mAdapterService.linkQualityReportCallback(
+                timestamp, report_id, rssi, snr, retransmission_count,
+                packets_not_receive_count, negative_acknowledgement_count);
     }
 
 }

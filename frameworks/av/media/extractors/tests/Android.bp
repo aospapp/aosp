@@ -14,9 +14,19 @@
  * limitations under the License.
  */
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_av_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_av_license"],
+}
+
 cc_test {
     name: "ExtractorUnitTest",
     gtest: true,
+    test_suites: ["device-tests"],
 
     srcs: ["ExtractorUnitTest.cpp"],
 
@@ -41,6 +51,7 @@ cc_test {
         "libstagefright_esds",
         "libstagefright_mpeg2support",
         "libstagefright_mpeg2extractor",
+        "libstagefright_foundation_colorutils_ndk",
         "libstagefright_foundation",
         "libstagefright_metadatautils",
 

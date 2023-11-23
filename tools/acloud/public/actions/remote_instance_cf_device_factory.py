@@ -19,24 +19,26 @@ import glob
 import logging
 import os
 import shutil
+import subprocess
 import tempfile
 
 from acloud import errors
-from acloud.create import create_common
 from acloud.internal import constants
-from acloud.internal.lib import auth
-from acloud.internal.lib import cvd_compute_client_multi_stage
 from acloud.internal.lib import utils
 from acloud.internal.lib import ssh
-from acloud.public.actions import base_device_factory
+from acloud.public.actions import gce_device_factory
 
 
 logger = logging.getLogger(__name__)
+_ALL_FILES = "*"
+# bootloader and kernel are files required to launch AVD.
+_BOOTLOADER = "bootloader"
+_KERNEL = "kernel"
+_ARTIFACT_FILES = ["*.img", _BOOTLOADER, _KERNEL]
+_HOME_FOLDER = os.path.expanduser("~")
 
-_USER_BUILD = "userbuild"
 
-
-class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
+class RemoteInstanceDeviceFactory(gce_device_factory.GCEDeviceFactory):
     """A class that can produce a cuttlefish device.
 
     Attributes:
@@ -52,23 +54,10 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
     """
     def __init__(self, avd_spec, local_image_artifact=None,
                  cvd_host_package_artifact=None):
-        """Constructs a new remote instance device factory."""
-        self._avd_spec = avd_spec
-        self._cfg = avd_spec.cfg
-        self._local_image_artifact = local_image_artifact
+        super().__init__(avd_spec, local_image_artifact)
         self._cvd_host_package_artifact = cvd_host_package_artifact
-        self._report_internal_ip = avd_spec.report_internal_ip
-        self.credentials = auth.CreateCredentials(avd_spec.cfg)
-        # Control compute_client with enable_multi_stage
-        compute_client = cvd_compute_client_multi_stage.CvdComputeClient(
-            acloud_config=avd_spec.cfg,
-            oauth2_credentials=self.credentials,
-            ins_timeout_secs=avd_spec.ins_timeout_secs,
-            report_internal_ip=avd_spec.report_internal_ip,
-            gpu=avd_spec.gpu)
-        super(RemoteInstanceDeviceFactory, self).__init__(compute_client)
-        self._ssh = None
 
+    # pylint: disable=broad-except
     def CreateInstance(self):
         """Create a single configured cuttlefish device.
 
@@ -90,7 +79,7 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
             instance = self._InitRemotehost()
             self._ProcessRemoteHostArtifacts()
             self._LaunchCvd(instance=instance,
-                            decompress_kernel=True,
+                            decompress_kernel=None,
                             boot_timeout_secs=self._avd_spec.boot_timeout_secs)
         else:
             instance = self._CreateGceInstance()
@@ -101,7 +90,7 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
                 self._ProcessArtifacts(self._avd_spec.image_source)
                 self._LaunchCvd(instance=instance,
                                 boot_timeout_secs=self._avd_spec.boot_timeout_secs)
-            except errors.DeviceConnectionError as e:
+            except Exception as e:
                 self._SetFailures(instance, e)
 
         return instance
@@ -125,7 +114,7 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
             self._local_image_artifact) if self._local_image_artifact else ""
         build_target = (os.environ.get(constants.ENV_BUILD_TARGET) if "-" not
                         in image_name else image_name.split("-")[0])
-        build_id = _USER_BUILD
+        build_id = self._USER_BUILD
         if self._avd_spec.image_source == constants.IMAGE_SRC_REMOTE:
             build_id = self._avd_spec.remote_image[constants.BUILD_ID]
 
@@ -148,25 +137,46 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
     def _DownloadArtifacts(self, extract_path):
         """Download the CF image artifacts and process them.
 
-        - Download image from the Android Build system, then decompress it.
+        - Download images from the Android Build system.
         - Download cvd host package from the Android Build system.
 
         Args:
             extract_path: String, a path include extracted files.
+
+        Raises:
+            errors.GetRemoteImageError: Fails to download rom images.
         """
         cfg = self._avd_spec.cfg
         build_id = self._avd_spec.remote_image[constants.BUILD_ID]
+        build_branch = self._avd_spec.remote_image[constants.BUILD_BRANCH]
         build_target = self._avd_spec.remote_image[constants.BUILD_TARGET]
 
-        # Image zip
-        remote_image = "%s-img-%s.zip" % (build_target.split('-')[0], build_id)
-        create_common.DownloadRemoteArtifact(
-            cfg, build_target, build_id, remote_image, extract_path, decompress=True)
-
-        # Cvd host package
-        create_common.DownloadRemoteArtifact(
-            cfg, build_target, build_id, constants.CVD_HOST_PACKAGE,
-            extract_path)
+        # Download images with fetch_cvd
+        fetch_cvd = os.path.join(extract_path, constants.FETCH_CVD)
+        self._compute_client.build_api.DownloadFetchcvd(fetch_cvd,
+                                                        cfg.fetch_cvd_version)
+        fetch_cvd_build_args = self._compute_client.build_api.GetFetchBuildArgs(
+            build_id, build_branch, build_target,
+            self._avd_spec.system_build_info.get(constants.BUILD_ID),
+            self._avd_spec.system_build_info.get(constants.BUILD_BRANCH),
+            self._avd_spec.system_build_info.get(constants.BUILD_TARGET),
+            self._avd_spec.kernel_build_info.get(constants.BUILD_ID),
+            self._avd_spec.kernel_build_info.get(constants.BUILD_BRANCH),
+            self._avd_spec.kernel_build_info.get(constants.BUILD_TARGET),
+            self._avd_spec.bootloader_build_info.get(constants.BUILD_ID),
+            self._avd_spec.bootloader_build_info.get(constants.BUILD_BRANCH),
+            self._avd_spec.bootloader_build_info.get(constants.BUILD_TARGET))
+        creds_cache_file = os.path.join(_HOME_FOLDER, cfg.creds_cache_file)
+        fetch_cvd_cert_arg = self._compute_client.build_api.GetFetchCertArg(
+            creds_cache_file)
+        fetch_cvd_args = [fetch_cvd, "-directory=%s" % extract_path,
+                          fetch_cvd_cert_arg]
+        fetch_cvd_args.extend(fetch_cvd_build_args)
+        logger.debug("Download images command: %s", fetch_cvd_args)
+        try:
+            subprocess.check_call(fetch_cvd_args)
+        except subprocess.CalledProcessError as e:
+            raise errors.GetRemoteImageError("Fails to download images: %s" % e)
 
     def _ProcessRemoteHostArtifacts(self):
         """Process remote host artifacts.
@@ -177,8 +187,9 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
           build to local and unzip it then upload to remote host, because there
           is no permission to fetch build rom on the remote host.
         """
+        self._compute_client.SetStage(constants.STAGE_ARTIFACT)
         if self._avd_spec.image_source == constants.IMAGE_SRC_LOCAL:
-            self._UploadArtifacts(
+            self._UploadLocalImageArtifacts(
                 self._local_image_artifact, self._cvd_host_package_artifact,
                 self._avd_spec.local_image_dir)
         else:
@@ -186,10 +197,7 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
                 artifacts_path = tempfile.mkdtemp()
                 logger.debug("Extracted path of artifacts: %s", artifacts_path)
                 self._DownloadArtifacts(artifacts_path)
-                self._UploadArtifacts(
-                    None,
-                    os.path.join(artifacts_path, constants.CVD_HOST_PACKAGE),
-                    artifacts_path)
+                self._UploadRemoteImageArtifacts(artifacts_path)
             finally:
                 shutil.rmtree(artifacts_path)
 
@@ -206,92 +214,38 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
             image_source: String, the type of image source is remote or local.
         """
         if image_source == constants.IMAGE_SRC_LOCAL:
-            self._UploadArtifacts(self._local_image_artifact,
-                                  self._cvd_host_package_artifact,
-                                  self._avd_spec.local_image_dir)
+            self._UploadLocalImageArtifacts(self._local_image_artifact,
+                                            self._cvd_host_package_artifact,
+                                            self._avd_spec.local_image_dir)
         elif image_source == constants.IMAGE_SRC_REMOTE:
             self._compute_client.UpdateFetchCvd()
-            self._FetchBuild(
-                self._avd_spec.remote_image[constants.BUILD_ID],
-                self._avd_spec.remote_image[constants.BUILD_BRANCH],
-                self._avd_spec.remote_image[constants.BUILD_TARGET],
-                self._avd_spec.system_build_info[constants.BUILD_ID],
-                self._avd_spec.system_build_info[constants.BUILD_BRANCH],
-                self._avd_spec.system_build_info[constants.BUILD_TARGET],
-                self._avd_spec.kernel_build_info[constants.BUILD_ID],
-                self._avd_spec.kernel_build_info[constants.BUILD_BRANCH],
-                self._avd_spec.kernel_build_info[constants.BUILD_TARGET])
+            self._FetchBuild(self._avd_spec)
 
-    def _FetchBuild(self, build_id, branch, build_target, system_build_id,
-                    system_branch, system_build_target, kernel_build_id,
-                    kernel_branch, kernel_build_target):
+    def _FetchBuild(self, avd_spec):
         """Download CF artifacts from android build.
 
         Args:
-            build_branch: String, git branch name. e.g. "aosp-master"
-            build_target: String, the build target, e.g. cf_x86_phone-userdebug
-            build_id: String, build id, e.g. "2263051", "P2804227"
-            kernel_branch: Kernel branch name, e.g. "kernel-common-android-4.14"
-            kernel_build_id: Kernel build id, a string, e.g. "223051", "P280427"
-            kernel_build_target: String, Kernel build target name.
-            system_build_target: Target name for the system image,
-                                 e.g. "cf_x86_phone-userdebug"
-            system_branch: A String, branch name for the system image.
-            system_build_id: A string, build id for the system image.
-
+            avd_spec: AVDSpec object that tells us what we're going to create.
         """
         self._compute_client.FetchBuild(
-            build_id, branch, build_target, system_build_id,
-            system_branch, system_build_target, kernel_build_id,
-            kernel_branch, kernel_build_target)
-
-    def _CreateGceInstance(self):
-        """Create a single configured cuttlefish device.
-
-        Override method from parent class.
-        build_target: The format is like "aosp_cf_x86_phone". We only get info
-                      from the user build image file name. If the file name is
-                      not custom format (no "-"), we will use $TARGET_PRODUCT
-                      from environment variable as build_target.
-
-        Returns:
-            A string, representing instance name.
-        """
-        image_name = os.path.basename(
-            self._local_image_artifact) if self._local_image_artifact else ""
-        build_target = (os.environ.get(constants.ENV_BUILD_TARGET) if "-" not
-                        in image_name else image_name.split("-")[0])
-        build_id = _USER_BUILD
-        if self._avd_spec.image_source == constants.IMAGE_SRC_REMOTE:
-            build_id = self._avd_spec.remote_image[constants.BUILD_ID]
-            build_target = self._avd_spec.remote_image[constants.BUILD_TARGET]
-
-        if self._avd_spec.instance_name_to_reuse:
-            instance = self._avd_spec.instance_name_to_reuse
-        else:
-            instance = self._compute_client.GenerateInstanceName(
-                build_target=build_target, build_id=build_id)
-
-        # Create an instance from Stable Host Image
-        self._compute_client.CreateInstance(
-            instance=instance,
-            image_name=self._cfg.stable_host_image_name,
-            image_project=self._cfg.stable_host_image_project,
-            blank_data_disk_size_gb=self._cfg.extra_data_disk_size_gb,
-            avd_spec=self._avd_spec)
-        ip = self._compute_client.GetInstanceIP(instance)
-        self._ssh = ssh.Ssh(ip=ip,
-                            user=constants.GCE_USER,
-                            ssh_private_key_path=self._cfg.ssh_private_key_path,
-                            extra_args_ssh_tunnel=self._cfg.extra_args_ssh_tunnel,
-                            report_internal_ip=self._report_internal_ip)
-        return instance
+            avd_spec.remote_image[constants.BUILD_ID],
+            avd_spec.remote_image[constants.BUILD_BRANCH],
+            avd_spec.remote_image[constants.BUILD_TARGET],
+            avd_spec.system_build_info[constants.BUILD_ID],
+            avd_spec.system_build_info[constants.BUILD_BRANCH],
+            avd_spec.system_build_info[constants.BUILD_TARGET],
+            avd_spec.kernel_build_info[constants.BUILD_ID],
+            avd_spec.kernel_build_info[constants.BUILD_BRANCH],
+            avd_spec.kernel_build_info[constants.BUILD_TARGET],
+            avd_spec.bootloader_build_info[constants.BUILD_ID],
+            avd_spec.bootloader_build_info[constants.BUILD_BRANCH],
+            avd_spec.bootloader_build_info[constants.BUILD_TARGET])
 
     @utils.TimeExecute(function_description="Processing and uploading local images")
-    def _UploadArtifacts(self,
-                         local_image_zip,
-                         cvd_host_package_artifact,
-                         images_dir):
+    def _UploadLocalImageArtifacts(self,
+                                   local_image_zip,
+                                   cvd_host_package_artifact,
+                                   images_dir):
         """Upload local images and avd local host package to instance.
 
         There are two ways to upload local images.
@@ -312,8 +266,18 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
             self._ssh.Run(remote_cmd)
         else:
             # Compress image files for faster upload.
-            artifact_files = [os.path.basename(image) for image in glob.glob(
-                os.path.join(images_dir, "*.img"))]
+            try:
+                images_path = os.path.join(images_dir, "required_images")
+                with open(images_path, "r") as images:
+                    artifact_files = images.read().splitlines()
+            except IOError:
+                # Older builds may not have a required_images file. In this case
+                # we fall back to *.img.
+                artifact_files = []
+                for file_name in _ARTIFACT_FILES:
+                    artifact_files.extend(
+                        os.path.basename(image) for image in glob.glob(
+                            os.path.join(images_dir, file_name)))
             cmd = ("tar -cf - --lzop -S -C {images_dir} {artifact_files} | "
                    "{ssh_cmd} -- tar -xf - --lzop -S".format(
                        images_dir=images_dir,
@@ -327,6 +291,26 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
         logger.debug("remote_cmd:\n %s", remote_cmd)
         self._ssh.Run(remote_cmd)
 
+    @utils.TimeExecute(function_description="Uploading remote image artifacts")
+    def _UploadRemoteImageArtifacts(self, images_dir):
+        """Upload remote image artifacts to instance.
+
+        Args:
+            images_dir: String, directory of local artifacts downloaded by fetch_cvd.
+        """
+        artifact_files = [
+            os.path.basename(image)
+            for image in glob.glob(os.path.join(images_dir, _ALL_FILES))
+        ]
+        # TODO(b/182259589): Refactor upload image command into a function.
+        cmd = ("tar -cf - --lzop -S -C {images_dir} {artifact_files} | "
+                "{ssh_cmd} -- tar -xf - --lzop -S".format(
+                    images_dir=images_dir,
+                    artifact_files=" ".join(artifact_files),
+                    ssh_cmd=self._ssh.GetBaseCmd(constants.SSH_BIN)))
+        logger.debug("cmd:\n %s", cmd)
+        ssh.ShellCmdWithRetry(cmd)
+
     def _LaunchCvd(self, instance, decompress_kernel=None,
                    boot_timeout_secs=None):
         """Launch CVD.
@@ -336,41 +320,13 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
             boot_timeout_secs: Integer, the maximum time to wait for the
                                command to respond.
         """
-        kernel_build = None
         # TODO(b/140076771) Support kernel image for local image mode.
-        if self._avd_spec.image_source == constants.IMAGE_SRC_REMOTE:
-            kernel_build = self._compute_client.GetKernelBuild(
-                self._avd_spec.kernel_build_info[constants.BUILD_ID],
-                self._avd_spec.kernel_build_info[constants.BUILD_BRANCH],
-                self._avd_spec.kernel_build_info[constants.BUILD_TARGET])
         self._compute_client.LaunchCvd(
             instance,
             self._avd_spec,
             self._cfg.extra_data_disk_size_gb,
-            kernel_build,
             decompress_kernel,
             boot_timeout_secs)
-
-    def GetFailures(self):
-        """Get failures from all devices.
-
-        Returns:
-            A dictionary that contains all the failures.
-            The key is the name of the instance that fails to boot,
-            and the value is an errors.DeviceBootError object.
-        """
-        return self._compute_client.all_failures
-
-    def _SetFailures(self, instance, error_msg):
-        """Set failures from this device.
-
-        Record the failures for any steps in AVD creation.
-
-        Args:
-            instance: String of instance name.
-            error_msg: String of error message.
-        """
-        self._compute_client.all_failures[instance] = error_msg
 
     def GetBuildInfoDict(self):
         """Get build info dictionary.
@@ -394,5 +350,9 @@ class RemoteInstanceDeviceFactory(base_device_factory.BaseDeviceFactory):
         build_info_dict.update(
             {"system_%s" % key: val
              for key, val in self._avd_spec.system_build_info.items() if val}
+        )
+        build_info_dict.update(
+            {"bootloader_%s" % key: val
+             for key, val in self._avd_spec.bootloader_build_info.items() if val}
         )
         return build_info_dict

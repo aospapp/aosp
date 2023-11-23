@@ -14,23 +14,31 @@
 
 package {
     default_visibility: [":__subpackages__"],
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 apex {
     name: "com.android.sdkext",
-    defaults: [ "com.android.sdkext-defaults" ],
-    binaries: [ "derive_sdk" ],
-    java_libs: [ "framework-sdkextensions" ],
-    prebuilts: [ "cur_sdkinfo" ],
+    defaults: ["com.android.sdkext-defaults"],
+    bootclasspath_fragments: ["com.android.sdkext-bootclasspath-fragment"],
+    binaries: [
+        "derive_classpath",
+        "derive_sdk",
+    ],
+    prebuilts: [
+        "current_sdkinfo",
+        "extensions_db",
+    ],
     manifest: "manifest.json",
-    min_sdk_version: "current",
+    min_sdk_version: "30",
 }
 
 apex_defaults {
     name: "com.android.sdkext-defaults",
     updatable: true,
-    min_sdk_version: "R",
+    min_sdk_version: "30",
     prebuilts: [
+        "derive_classpath.rc",
         "derive_sdk.rc",
     ],
     key: "com.android.sdkext.key",
@@ -48,32 +56,22 @@ android_app_certificate {
     certificate: "com.android.sdkext",
 }
 
-python_binary_host {
-    name: "gen_sdkinfo",
-    srcs: [
-        "sdk.proto",
-        "gen_sdkinfo.py",
-    ],
-    proto: {
-        canonical_path_from_root: false,
-    },
-    version: {
-        py3: {
-            embedded_launcher: true,
+sdk {
+    name: "sdkextensions-sdk",
+    bootclasspath_fragments: ["com.android.sdkext-bootclasspath-fragment"],
+}
+
+// Encapsulate the contributions made by the com.android.sdkext to the bootclasspath.
+bootclasspath_fragment {
+    name: "com.android.sdkext-bootclasspath-fragment",
+    contents: ["framework-sdkextensions"],
+    apex_available: ["com.android.sdkext"],
+
+    // The bootclasspath_fragments that provide APIs on which this depends.
+    fragments: [
+        {
+            apex: "com.android.art",
+            module: "art-bootclasspath-fragment",
         },
-    },
-}
-
-gensrcs {
-    name: "cur_sdkinfo_src",
-    srcs: [""],
-    tools: [ "gen_sdkinfo" ],
-    cmd: "$(location) -v 0 -o $(out)",
-}
-
-prebuilt_etc {
-    name: "cur_sdkinfo",
-    src: ":cur_sdkinfo_src",
-    filename: "sdkinfo.binarypb",
-    installable: false,
+    ],
 }

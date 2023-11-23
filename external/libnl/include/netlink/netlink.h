@@ -16,7 +16,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/time.h>
@@ -38,6 +38,7 @@
 extern "C" {
 #endif
 
+struct nlmsghdr;
 struct ucred;
 struct nl_cache_ops;
 struct nl_parser_param;
@@ -87,6 +88,11 @@ extern int			nl_pickup(struct nl_sock *,
 						struct nlmsghdr *,
 						struct nl_parser_param *),
 					  struct nl_object **);
+extern int                      nl_pickup_keep_syserr(struct nl_sock *sk,
+                                                      int (*parser)(struct nl_cache_ops *, struct sockaddr_nl *,
+                                                                    struct nlmsghdr *, struct nl_parser_param *),
+                                                      struct nl_object **result,
+                                                      int *syserror);
 /* Netlink Family Translations */
 extern char *			nl_nlfamily2str(int, char *, size_t);
 extern int			nl_str2nlfamily(const char *);

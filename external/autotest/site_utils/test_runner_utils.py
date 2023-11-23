@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import errno
 import os
@@ -31,6 +36,7 @@ from autotest_lib.server import autoserv_utils
 from autotest_lib.server import server_logging_config
 from autotest_lib.server import utils
 from autotest_lib.utils import labellib
+from six.moves import range
 
 
 _autoserv_proc = None
@@ -39,6 +45,7 @@ _sigint_handler_lock = threading.Lock()
 _AUTOSERV_SIGINT_TIMEOUT_SECONDS = 5
 NO_BOARD = 'ad_hoc_board'
 NO_BUILD = 'ad_hoc_build'
+NO_MODEL = 'ad_hoc_model'
 _SUITE_REGEX = r'suite:(.*)'
 
 _TEST_KEY_FILENAME = 'testing_rsa'
@@ -298,7 +305,7 @@ def run_provisioning_job(provision_label, host, info, autotest_path,
     """
     # TODO(fdeng): When running against a local DUT, autoserv
     # is still hitting the AFE in the lab.
-    # provision_AutoUpdate checks the current build of DUT by
+    # provision_QuickProvision checks the current build of DUT by
     # retrieving build info from AFE. crosbug.com/295178
     results_directory = os.path.join(results_directory, 'results-provision')
     _write_host_info(results_directory, _HOST_INFO_SUBDIR, host, info)
@@ -462,7 +469,7 @@ def add_ssh_identity(temp_directory, ssh_private_key=TEST_KEY_PATH):
     @param ssh_private_key: Path to the ssh private key to use for testing.
     """
     # Add the testing key to the current ssh agent.
-    if os.environ.has_key('SSH_AGENT_PID'):
+    if 'SSH_AGENT_PID' in os.environ:
         # Copy the testing key to the temp directory and make it NOT
         # world-readable. Otherwise, ssh-add complains.
         shutil.copy(ssh_private_key, temp_directory)
@@ -507,11 +514,20 @@ def _auto_detect_labels(afe, remote):
     return labels_to_add_to_afe_host
 
 
-def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
-                      build=NO_BUILD, board=NO_BOARD, args=None,
-                      pretend=False, no_experimental=False,
+def perform_local_run(afe,
+                      autotest_path,
+                      tests,
+                      remote,
+                      fast_mode,
+                      build=NO_BUILD,
+                      board=NO_BOARD,
+                      model=NO_MODEL,
+                      args=None,
+                      pretend=False,
+                      no_experimental=False,
                       ignore_deps=True,
-                      results_directory=None, ssh_verbosity=0,
+                      results_directory=None,
+                      ssh_verbosity=0,
                       ssh_options=None,
                       autoserv_verbose=False,
                       iterations=1,
@@ -530,7 +546,8 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
     @param remote: Remote hostname.
     @param fast_mode: bool to use fast mode (disables slow autotest features).
     @param build: String specifying build for local run.
-    @param board: String specifyinb board for local run.
+    @param board: String specifying board for local run.
+    @param model: String specifying model for local run.
     @param args: String that should be passed as args parameter to autoserv,
                  and then ultimitely to test itself.
     @param pretend: If True, will print out autoserv commands rather than
@@ -558,7 +575,8 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
 
     build_label = afe.create_label(cros_version_label)
     board_label = afe.create_label(constants.BOARD_PREFIX + board)
-    labels = [build_label.name, board_label.name]
+    model_label = afe.create_label(constants.MODEL_PREFIX + model)
+    labels = [build_label.name, board_label.name, model_label.name]
 
     new_host = afe.create_host(remote)
     new_host.add_labels(labels)
@@ -634,39 +652,41 @@ def perform_local_run(afe, autotest_path, tests, remote, fast_mode,
     job_queue = afe.get_jobs()
     completed_job_ids = set()
     while job_queue:
-      logging.info('%s jobs in job queue', len(job_queue))
-      for job in job_queue:
-          suite = jobs_to_suites.get(job.id)
-          if not suite:
-              logging.error('Job %s not run, no associated suite.', job.id)
-          else:
-              logging.debug('Running job %s of test %s',
-                            job.id, suite.test_name_from_job(job.id))
-              code, abs_dir = run_job(
-                  job,
-                  remote,
-                  info,
-                  autotest_path,
-                  results_directory,
-                  fast_mode,
-                  job_id_digits,
-                  ssh_verbosity,
-                  ssh_options,
-                  args,
-                  pretend,
-                  autoserv_verbose,
-              )
-              codes.append(code)
-              logging.debug("Code: %s, Results in %s", code, abs_dir)
-              new_id = suite.handle_local_result(job.id, abs_dir, null_logger)
-              if new_id:
-                  jobs_to_suites[new_id] = jobs_to_suites[job.id]
-          completed_job_ids.add(job.id)
-      all_jobs = afe.get_jobs(not_yet_run=True, running=True)
-      new_jobs = set(job for job in all_jobs if job.id not in completed_job_ids)
-      logging.debug('%s incomplete jobs, %s jobs total',
-                    len(new_jobs), len(all_jobs))
-      job_queue = list(new_jobs)
+        logging.info('%s jobs in job queue', len(job_queue))
+        for job in job_queue:
+            suite = jobs_to_suites.get(job.id)
+            if not suite:
+                logging.error('Job %s not run, no associated suite.', job.id)
+            else:
+                logging.debug('Running job %s of test %s', job.id,
+                              suite.test_name_from_job(job.id))
+                code, abs_dir = run_job(
+                        job,
+                        remote,
+                        info,
+                        autotest_path,
+                        results_directory,
+                        fast_mode,
+                        job_id_digits,
+                        ssh_verbosity,
+                        ssh_options,
+                        args,
+                        pretend,
+                        autoserv_verbose,
+                )
+                codes.append(code)
+                logging.debug("Code: %s, Results in %s", code, abs_dir)
+                new_id = suite.handle_local_result(job.id, abs_dir,
+                                                   null_logger)
+                if new_id:
+                    jobs_to_suites[new_id] = jobs_to_suites[job.id]
+            completed_job_ids.add(job.id)
+        all_jobs = afe.get_jobs(not_yet_run=True, running=True)
+        new_jobs = set(job for job in all_jobs
+                       if job.id not in completed_job_ids)
+        logging.debug('%s incomplete jobs, %s jobs total', len(new_jobs),
+                      len(all_jobs))
+        job_queue = list(new_jobs)
     return codes
 
 
@@ -766,12 +786,13 @@ def create_results_directory(results_directory=None, board_name=None):
     return results_directory
 
 def generate_report(directory,
-                    whitelist_chrome_crashes=False,
-                    just_status_code=False, html_report=False):
+                    allow_chrome_crashes=False,
+                    just_status_code=False,
+                    html_report=False):
     """Parse the test result files in the given directory into a report
 
     @param directory: string, the absolute path of the directory to look in
-    @param whitelist_chrome_crashes: boolean, ignore Chrome crashes in the
+    @param allow_chrome_crashes: boolean, ignore Chrome crashes in the
     report. Default: False, report Chrome crashes.
     @param just_status_code: boolean, skip the report and only parse the files
     to determine whether there were failures. Default: False, generate report.
@@ -783,8 +804,8 @@ def generate_report(directory,
     if html_report:
         test_report_command.append('--html')
         test_report_command.append('--html-report-dir=%s' % directory)
-    if whitelist_chrome_crashes:
-        test_report_command.append('--whitelist_chrome_crashes')
+    if allow_chrome_crashes:
+        test_report_command.append('--allow_chrome_crashes')
     if just_status_code:
         test_report_command.append('--just_status_code')
     test_report_command.append(directory)
@@ -796,15 +817,26 @@ def generate_report(directory,
     return status_code
 
 
-def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
-                                   build=NO_BUILD, board=NO_BOARD, args=None,
-                                   pretend=False, no_experimental=False,
+def perform_run_from_autotest_root(autotest_path,
+                                   argv,
+                                   tests,
+                                   remote,
+                                   build=NO_BUILD,
+                                   board=NO_BOARD,
+                                   model=NO_MODEL,
+                                   args=None,
+                                   pretend=False,
+                                   no_experimental=False,
                                    ignore_deps=True,
-                                   results_directory=None, ssh_verbosity=0,
+                                   results_directory=None,
+                                   ssh_verbosity=0,
                                    ssh_options=None,
-                                   iterations=1, fast_mode=False, debug=False,
-                                   whitelist_chrome_crashes=False,
-                                   host_attributes={}, job_retry=True):
+                                   iterations=1,
+                                   fast_mode=False,
+                                   debug=False,
+                                   allow_chrome_crashes=False,
+                                   host_attributes={},
+                                   job_retry=True):
     """
     Perform a test_that run, from the |autotest_path|.
 
@@ -819,6 +851,7 @@ def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
     @param remote: Remote hostname.
     @param build: String specifying build for local run.
     @param board: String specifying board for local run.
+    @param model: String specifying model for local run.
     @param args: String that should be passed as args parameter to autoserv,
                  and then ultimitely to test itself.
     @param pretend: If True, will print out autoserv commands rather than
@@ -835,7 +868,7 @@ def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
     @param iterations: int number of times to schedule tests.
     @param fast_mode: bool to use fast mode (disables slow autotest features).
     @param debug: Logging and autoserv verbosity.
-    @param whitelist_chrome_crashes: If True, whitelist chrome crashes.
+    @param allow_chrome_crashes: If True, allow chrome crashes.
     @param host_attributes: Dict of host attributes to pass into autoserv.
     @param job_retry: If False, tests will not be retried at all.
 
@@ -859,26 +892,32 @@ def perform_run_from_autotest_root(autotest_path, argv, tests, remote,
     signal.signal(signal.SIGTERM, sigint_handler)
 
     afe = setup_local_afe()
-    codes = perform_local_run(afe, autotest_path, tests, remote, fast_mode,
-                      build, board,
-                      args=args,
-                      pretend=pretend,
-                      no_experimental=no_experimental,
-                      ignore_deps=ignore_deps,
-                      results_directory=results_directory,
-                      ssh_verbosity=ssh_verbosity,
-                      ssh_options=ssh_options,
-                      autoserv_verbose=debug,
-                      iterations=iterations,
-                      host_attributes=host_attributes,
-                      job_retry=job_retry)
+    codes = perform_local_run(afe,
+                              autotest_path,
+                              tests,
+                              remote,
+                              fast_mode,
+                              build,
+                              board,
+                              model,
+                              args=args,
+                              pretend=pretend,
+                              no_experimental=no_experimental,
+                              ignore_deps=ignore_deps,
+                              results_directory=results_directory,
+                              ssh_verbosity=ssh_verbosity,
+                              ssh_options=ssh_options,
+                              autoserv_verbose=debug,
+                              iterations=iterations,
+                              host_attributes=host_attributes,
+                              job_retry=job_retry)
     if pretend:
         logging.info('Finished pretend run. Exiting.')
         return 0
 
-    final_result = generate_report(
-        results_directory,
-        whitelist_chrome_crashes=whitelist_chrome_crashes, html_report=True)
+    final_result = generate_report(results_directory,
+                                   allow_chrome_crashes=allow_chrome_crashes,
+                                   html_report=True)
     try:
         os.unlink(_LATEST_RESULTS_DIRECTORY)
     except OSError:

@@ -24,4 +24,6 @@
         <item value="UNACCEPTABLE_NETWORK_PARAMETER"/>
         <item value="SIGNAL_LOST"/>
     </string-array>
+    <boolean name="display_no_data_notification_on_permanent_failure_bool" value="true"/>
+    <boolean name="unthrottle_data_retry_when_tac_changes_bool" value="true"/>
 </carrier_config>

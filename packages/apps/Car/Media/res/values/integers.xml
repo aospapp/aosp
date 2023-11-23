@@ -38,13 +38,13 @@
 
     <!-- Views to hide when opening the custom actions when the queue isn't visible. -->
     <integer-array name="playback_views_to_hide_when_showing_custom_actions">
-        <item>@id/seek_bar_container</item>
+        <item>@id/playback_seek_bar_container</item>
     </integer-array>
 
     <!-- Views to hide when the queue is visible (to show when the queue becomes invisible). -->
     <integer-array name="playback_views_to_hide_when_queue_is_visible">
         <item>@id/metadata_container</item>
-        <item>@id/seek_bar_container</item>
+        <item>@id/playback_seek_bar_container</item>
     </integer-array>
 
     <!-- Views to show when the queue is visible (to hide when the queue becomes invisible). -->

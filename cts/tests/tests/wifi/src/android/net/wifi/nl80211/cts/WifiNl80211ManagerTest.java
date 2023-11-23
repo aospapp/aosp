@@ -20,29 +20,69 @@ import static android.net.wifi.nl80211.WifiNl80211Manager.OemSecurityType;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.wifi.ScanResult;
+import android.net.wifi.WifiManager;
 import android.net.wifi.cts.WifiFeature;
 import android.net.wifi.nl80211.WifiNl80211Manager;
+import android.os.Build;
+import android.platform.test.annotations.AppModeFull;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Arrays;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
+
 
 /** CTS tests for {@link WifiNl80211Manager}. */
 @SmallTest
 @RunWith(AndroidJUnit4.class)
+@AppModeFull(reason = "Cannot get WifiManager/WifiNl80211Manager in instant app mode")
 public class WifiNl80211ManagerTest {
 
     private Context mContext;
+
+    private static class TestExecutor implements Executor {
+        private ConcurrentLinkedQueue<Runnable> tasks = new ConcurrentLinkedQueue<>();
+
+        @Override
+        public void execute(Runnable task) {
+            tasks.add(task);
+        }
+
+        private void runAll() {
+            Runnable task = tasks.poll();
+            while (task != null) {
+                task.run();
+                task = tasks.poll();
+            }
+        }
+    }
+
+    private class TestCountryCodeChangeListener implements
+            WifiNl80211Manager.CountryCodeChangedListener {
+        private String mCurrentCountryCode;
+
+        public String getCurrentCountryCode() {
+            return mCurrentCountryCode;
+        }
+
+        @Override
+        public void onCountryCodeChanged(String country) {
+            mCurrentCountryCode = country;
+        }
+    }
 
     @Before
     public void setUp() {
@@ -96,5 +136,24 @@ public class WifiNl80211ManagerTest {
             WifiNl80211Manager manager = mContext.getSystemService(WifiNl80211Manager.class);
             manager.setOnServiceDeadCallback(() -> {});
         } catch (Exception ignore) {}
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
+    @Test
+    public void testCountryCodeChangeListener() {
+        TestCountryCodeChangeListener testCountryCodeChangeListener =
+                new TestCountryCodeChangeListener();
+        TestExecutor executor = new TestExecutor();
+        WifiManager wifiManager = mContext.getSystemService(WifiManager.class);
+        // Enable wifi to trigger country code change
+        wifiManager.setWifiEnabled(true);
+        WifiNl80211Manager manager = mContext.getSystemService(WifiNl80211Manager.class);
+        // Register listener and unregister listener for API coverage only.
+        // Since current cts don't have sufficient permission to call WifiNl80211Manager API.
+        // Assert register fail because the CTS don't have sufficient permission to call
+        // WifiNl80211Manager API which are guarded by selinux.
+        assertFalse(manager.registerCountryCodeChangedListener(executor,
+                testCountryCodeChangeListener));
+        manager.unregisterCountryCodeChangedListener(testCountryCodeChangeListener);
     }
 }

@@ -1,9 +1,15 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 __author__ = """Copyright Andy Whitcroft, Martin J. Bligh - 2006, 2007"""
 
-import sys, os, signal, time, cPickle, logging
+import sys, os, signal, time, six.moves.cPickle, logging
 
 from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.common_lib.cros import retry
+from six.moves import zip
 
 
 # entry points that use subcommand must set this to their logging manager
@@ -41,7 +47,7 @@ def parallel(tasklist, timeout=None, return_results=False):
             if status != 0:
                 run_error = True
 
-        results.append(cPickle.load(task.result_pickle))
+        results.append(six.moves.cPickle.load(task.result_pickle))
         task.result_pickle.close()
 
     if return_results:
@@ -91,7 +97,7 @@ def parallel_simple(function, arglist, subdir_name_constructor=lambda x: str(x),
         if return_results:
             try:
                 result = function(arg)
-            except Exception, e:
+            except Exception as e:
                 return [e]
             return [result]
         else:
@@ -178,12 +184,12 @@ class subcommand(object):
             for hook in self.fork_hooks:
                 hook(self)
             result = self.func(*self.args)
-            os.write(w, cPickle.dumps(result, cPickle.HIGHEST_PROTOCOL))
+            os.write(w, six.moves.cPickle.dumps(result, six.moves.cPickle.HIGHEST_PROTOCOL))
             exit_code = 0
-        except Exception, e:
+        except Exception as e:
             logging.exception('function failed')
             exit_code = 1
-            os.write(w, cPickle.dumps(e, cPickle.HIGHEST_PROTOCOL))
+            os.write(w, six.moves.cPickle.dumps(e, six.moves.cPickle.HIGHEST_PROTOCOL))
 
         os.close(w)
 
@@ -209,16 +215,16 @@ class subcommand(object):
             raise RuntimeError("Unknown child exit status!")
 
         if self.returncode != 0:
-            print "subcommand failed pid %d" % self.pid
-            print "%s" % (self.func,)
-            print "rc=%d" % self.returncode
-            print
+            print("subcommand failed pid %d" % self.pid)
+            print("%s" % (self.func,))
+            print("rc=%d" % self.returncode)
+            print()
             if self.debug:
                 stderr_file = os.path.join(self.debug, 'autoserv.stderr')
                 if os.path.exists(stderr_file):
                     for line in open(stderr_file).readlines():
-                        print line,
-            print "\n--------------------------------------------\n"
+                        print(line, end=' ')
+            print("\n--------------------------------------------\n")
             raise error.AutoservSubcommandError(self.func, self.returncode)
 
 
@@ -254,10 +260,10 @@ class subcommand(object):
 
             if result is None:
                 utils.nuke_pid(self.pid)
-                print "subcommand failed pid %d" % self.pid
-                print "%s" % (self.func,)
-                print "timeout after %ds" % timeout
-                print
+                print("subcommand failed pid %d" % self.pid)
+                print("%s" % (self.func,))
+                print("timeout after %ds" % timeout)
+                print()
                 result = self.wait()
 
             return result

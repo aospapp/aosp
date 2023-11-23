@@ -20,15 +20,23 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <fragment
-        android:id="@+id/dialpad_fragment"
-        android:name="com.android.car.dialer.ui.dialpad.KeypadFragment"
-        android:layout_height="wrap_content"
-        android:layout_width="wrap_content"
+    <com.android.car.ui.FocusArea
+        android:id="@+id/dialpad_focus_area"
+        android:layout_height="0dp"
+        android:layout_width="0dp"
+        android:gravity="center"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/divider"/>
+        app:layout_constraintEnd_toStartOf="@+id/divider">
+
+        <fragment
+            android:id="@+id/dialpad_fragment"
+            android:name="com.android.car.dialer.ui.dialpad.KeypadFragment"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"/>
+
+    </com.android.car.ui.FocusArea>
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/divider"
@@ -42,8 +50,8 @@
         android:layout_width="0dp"
         android:id="@+id/dialpad_info_boundaries"
         app:layout_constraintDimensionRatio="W, 1:1"
-        app:layout_constraintTop_toTopOf="@id/dialpad_fragment"
-        app:layout_constraintBottom_toBottomOf="@id/dialpad_fragment"
+        app:layout_constraintTop_toTopOf="@id/dialpad_focus_area"
+        app:layout_constraintBottom_toBottomOf="@id/dialpad_focus_area"
         app:layout_constraintStart_toEndOf="@id/divider"
         app:layout_constraintEnd_toEndOf="parent"/>
 

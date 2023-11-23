@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "PerformanceAppTest",
 
@@ -21,7 +25,7 @@ android_test {
     sdk_version: "current",
     certificate: "platform",
     libs: ["android.test.base.stubs"],
-    static_libs: ["android-support-test"],
+    static_libs: ["androidx.test.rules"],
 
     test_suites: ["device-tests"],
 }

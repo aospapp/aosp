@@ -362,6 +362,46 @@ int cras_bt_register_profile(DBusConnection *conn,
 	return 0;
 }
 
+int cras_bt_unregister_profile(DBusConnection *conn,
+			       struct cras_bt_profile *profile)
+{
+	DBusMessage *method_call;
+	DBusMessageIter message_iter;
+	DBusError dbus_error;
+	DBusMessage *reply;
+
+	method_call = dbus_message_new_method_call(BLUEZ_SERVICE,
+						   PROFILE_MANAGER_OBJ_PATH,
+						   BLUEZ_PROFILE_MGMT_INTERFACE,
+						   "UnregisterProfile");
+
+	if (!method_call)
+		return -ENOMEM;
+	dbus_error_init(&dbus_error);
+	dbus_message_iter_init_append(method_call, &message_iter);
+	dbus_message_iter_append_basic(&message_iter, DBUS_TYPE_OBJECT_PATH,
+				       &profile->object_path);
+	reply = dbus_connection_send_with_reply_and_block(
+		conn, method_call, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+
+	if (!reply) {
+		dbus_error_free(&dbus_error);
+		dbus_message_unref(method_call);
+		return -EIO;
+	}
+
+	dbus_message_unref(method_call);
+
+	if (dbus_message_get_type(reply) == DBUS_MESSAGE_TYPE_ERROR) {
+		syslog(LOG_ERR, "Unregister profile returned error: %s",
+		       dbus_message_get_error_name(reply));
+		dbus_message_unref(reply);
+		return -EIO;
+	}
+	dbus_message_unref(reply);
+	return 0;
+}
+
 int cras_bt_register_profiles(DBusConnection *conn)
 {
 	struct cras_bt_profile *profile;
@@ -396,6 +436,19 @@ int cras_bt_add_profile(DBusConnection *conn, struct cras_bt_profile *profile)
 
 	DL_APPEND(profiles, profile);
 
+	return 0;
+}
+
+int cras_bt_rm_profile(DBusConnection *conn, struct cras_bt_profile *profile)
+{
+	DL_DELETE(profiles, profile);
+
+	if (!dbus_connection_unregister_object_path(conn,
+						    profile->object_path)) {
+		syslog(LOG_ERR, "Could not unregister BT profile %s",
+		       profile->object_path);
+		return -ENOMEM;
+	}
 	return 0;
 }
 

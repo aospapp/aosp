@@ -12,7 +12,6 @@ from autotest_lib.server import test
 from autotest_lib.server.cros.crosperf import device_setup_utils
 
 WAIT_TIME_LOG = 'wait_time.log'
-RESULTS_CHART_JSON = 'results-chart.json'
 
 class crosperf_Wrapper(test.test):
     """

@@ -18,6 +18,7 @@
 #define ART_COMPILER_OPTIMIZING_CODE_GENERATOR_ARM64_H_
 
 #include "base/bit_field.h"
+#include "class_root.h"
 #include "code_generator.h"
 #include "common_arm64.h"
 #include "dex/dex_file_types.h"
@@ -228,6 +229,31 @@ class InvokeDexCallingConventionVisitorARM64 : public InvokeDexCallingConvention
   DISALLOW_COPY_AND_ASSIGN(InvokeDexCallingConventionVisitorARM64);
 };
 
+class CriticalNativeCallingConventionVisitorARM64 : public InvokeDexCallingConventionVisitor {
+ public:
+  explicit CriticalNativeCallingConventionVisitorARM64(bool for_register_allocation)
+      : for_register_allocation_(for_register_allocation) {}
+
+  virtual ~CriticalNativeCallingConventionVisitorARM64() {}
+
+  Location GetNextLocation(DataType::Type type) override;
+  Location GetReturnLocation(DataType::Type type) const override;
+  Location GetMethodLocation() const override;
+
+  size_t GetStackOffset() const { return stack_offset_; }
+
+ private:
+  // Register allocator does not support adjusting frame size, so we cannot provide final locations
+  // of stack arguments for register allocation. We ask the register allocator for any location and
+  // move these arguments to the right place after adjusting the SP when generating the call.
+  const bool for_register_allocation_;
+  size_t gpr_index_ = 0u;
+  size_t fpr_index_ = 0u;
+  size_t stack_offset_ = 0u;
+
+  DISALLOW_COPY_AND_ASSIGN(CriticalNativeCallingConventionVisitorARM64);
+};
+
 class FieldAccessCallingConventionARM64 : public FieldAccessCallingConvention {
  public:
   FieldAccessCallingConventionARM64() {}
@@ -262,7 +288,7 @@ class InstructionCodeGeneratorARM64 : public InstructionCodeGenerator {
 #define DECLARE_VISIT_INSTRUCTION(name, super) \
   void Visit##name(H##name* instr) override;
 
-  FOR_EACH_CONCRETE_INSTRUCTION_COMMON(DECLARE_VISIT_INSTRUCTION)
+  FOR_EACH_CONCRETE_INSTRUCTION_SCALAR_COMMON(DECLARE_VISIT_INSTRUCTION)
   FOR_EACH_CONCRETE_INSTRUCTION_ARM64(DECLARE_VISIT_INSTRUCTION)
   FOR_EACH_CONCRETE_INSTRUCTION_SHARED(DECLARE_VISIT_INSTRUCTION)
 
@@ -276,7 +302,19 @@ class InstructionCodeGeneratorARM64 : public InstructionCodeGenerator {
   Arm64Assembler* GetAssembler() const { return assembler_; }
   vixl::aarch64::MacroAssembler* GetVIXLAssembler() { return GetAssembler()->GetVIXLAssembler(); }
 
- private:
+  // SIMD helpers.
+  virtual Location AllocateSIMDScratchLocation(vixl::aarch64::UseScratchRegisterScope* scope) = 0;
+  virtual void FreeSIMDScratchLocation(Location loc,
+                                       vixl::aarch64::UseScratchRegisterScope* scope)  = 0;
+  virtual void LoadSIMDRegFromStack(Location destination, Location source) = 0;
+  virtual void MoveSIMDRegToSIMDReg(Location destination, Location source) = 0;
+  virtual void MoveToSIMDStackSlot(Location destination, Location source) = 0;
+  virtual void SaveLiveRegistersHelper(LocationSummary* locations,
+                                       int64_t spill_offset) = 0;
+  virtual void RestoreLiveRegistersHelper(LocationSummary* locations,
+                                          int64_t spill_offset) = 0;
+
+ protected:
   void GenerateClassInitializationCheck(SlowPathCodeARM64* slow_path,
                                         vixl::aarch64::Register class_reg);
   void GenerateBitstringTypeCheckCompare(HTypeCheckInstruction* check,
@@ -331,7 +369,18 @@ class InstructionCodeGeneratorARM64 : public InstructionCodeGenerator {
                              vixl::aarch64::Label* false_target);
   void DivRemOneOrMinusOne(HBinaryOperation* instruction);
   void DivRemByPowerOfTwo(HBinaryOperation* instruction);
-  void GenerateDivRemWithAnyConstant(HBinaryOperation* instruction);
+  void GenerateIncrementNegativeByOne(vixl::aarch64::Register out,
+                                      vixl::aarch64::Register in, bool use_cond_inc);
+  void GenerateResultRemWithAnyConstant(vixl::aarch64::Register out,
+                                        vixl::aarch64::Register dividend,
+                                        vixl::aarch64::Register quotient,
+                                        int64_t divisor,
+                                        // This function may acquire a scratch register.
+                                        vixl::aarch64::UseScratchRegisterScope* temps_scope);
+  void GenerateInt64UnsignedDivRemWithAnyPositiveConstant(HBinaryOperation* instruction);
+  void GenerateInt64DivRemWithAnyConstant(HBinaryOperation* instruction);
+  void GenerateInt32DivRemWithAnyConstant(HBinaryOperation* instruction);
+  void GenerateDivRemWithAnyConstant(HBinaryOperation* instruction, int64_t divisor);
   void GenerateIntDiv(HDiv* instruction);
   void GenerateIntDivForConstDenom(HDiv *instruction);
   void GenerateIntDivForPower2Denom(HDiv *instruction);
@@ -340,7 +389,19 @@ class InstructionCodeGeneratorARM64 : public InstructionCodeGenerator {
   void GenerateIntRemForPower2Denom(HRem *instruction);
   void HandleGoto(HInstruction* got, HBasicBlock* successor);
 
-  vixl::aarch64::MemOperand VecAddress(
+  // Helpers to set up locations for vector memory operations. Returns the memory operand and,
+  // if used, sets the output parameter scratch to a temporary register used in this operand,
+  // so that the client can release it right after the memory operand use.
+  // Neon version.
+  vixl::aarch64::MemOperand VecNEONAddress(
+      HVecMemoryOperation* instruction,
+      // This function may acquire a scratch register.
+      vixl::aarch64::UseScratchRegisterScope* temps_scope,
+      size_t size,
+      bool is_string_char_at,
+      /*out*/ vixl::aarch64::Register* scratch);
+  // SVE version.
+  vixl::aarch64::SVEMemOperand VecSVEAddress(
       HVecMemoryOperation* instruction,
       // This function may acquire a scratch register.
       vixl::aarch64::UseScratchRegisterScope* temps_scope,
@@ -362,7 +423,7 @@ class LocationsBuilderARM64 : public HGraphVisitor {
 #define DECLARE_VISIT_INSTRUCTION(name, super) \
   void Visit##name(H##name* instr) override;
 
-  FOR_EACH_CONCRETE_INSTRUCTION_COMMON(DECLARE_VISIT_INSTRUCTION)
+  FOR_EACH_CONCRETE_INSTRUCTION_SCALAR_COMMON(DECLARE_VISIT_INSTRUCTION)
   FOR_EACH_CONCRETE_INSTRUCTION_ARM64(DECLARE_VISIT_INSTRUCTION)
   FOR_EACH_CONCRETE_INSTRUCTION_SHARED(DECLARE_VISIT_INSTRUCTION)
 
@@ -373,7 +434,7 @@ class LocationsBuilderARM64 : public HGraphVisitor {
                << " (id " << instruction->GetId() << ")";
   }
 
- private:
+ protected:
   void HandleBinaryOp(HBinaryOperation* instr);
   void HandleFieldSet(HInstruction* instruction);
   void HandleFieldGet(HInstruction* instruction, const FieldInfo& field_info);
@@ -385,6 +446,89 @@ class LocationsBuilderARM64 : public HGraphVisitor {
   InvokeDexCallingConventionVisitorARM64 parameter_visitor_;
 
   DISALLOW_COPY_AND_ASSIGN(LocationsBuilderARM64);
+};
+
+class InstructionCodeGeneratorARM64Neon : public InstructionCodeGeneratorARM64 {
+ public:
+  InstructionCodeGeneratorARM64Neon(HGraph* graph, CodeGeneratorARM64* codegen) :
+      InstructionCodeGeneratorARM64(graph, codegen) {}
+
+#define DECLARE_VISIT_INSTRUCTION(name, super) \
+  void Visit##name(H##name* instr) override;
+
+  FOR_EACH_CONCRETE_INSTRUCTION_VECTOR_COMMON(DECLARE_VISIT_INSTRUCTION)
+
+#undef DECLARE_VISIT_INSTRUCTION
+
+  Location AllocateSIMDScratchLocation(vixl::aarch64::UseScratchRegisterScope* scope) override;
+  void FreeSIMDScratchLocation(Location loc,
+                               vixl::aarch64::UseScratchRegisterScope* scope) override;
+  void LoadSIMDRegFromStack(Location destination, Location source) override;
+  void MoveSIMDRegToSIMDReg(Location destination, Location source) override;
+  void MoveToSIMDStackSlot(Location destination, Location source) override;
+  void SaveLiveRegistersHelper(LocationSummary* locations, int64_t spill_offset) override;
+  void RestoreLiveRegistersHelper(LocationSummary* locations, int64_t spill_offset) override;
+};
+
+class LocationsBuilderARM64Neon : public LocationsBuilderARM64 {
+ public:
+  LocationsBuilderARM64Neon(HGraph* graph, CodeGeneratorARM64* codegen) :
+      LocationsBuilderARM64(graph, codegen) {}
+
+#define DECLARE_VISIT_INSTRUCTION(name, super) \
+  void Visit##name(H##name* instr) override;
+
+  FOR_EACH_CONCRETE_INSTRUCTION_VECTOR_COMMON(DECLARE_VISIT_INSTRUCTION)
+
+#undef DECLARE_VISIT_INSTRUCTION
+};
+
+class InstructionCodeGeneratorARM64Sve : public InstructionCodeGeneratorARM64 {
+ public:
+  InstructionCodeGeneratorARM64Sve(HGraph* graph, CodeGeneratorARM64* codegen) :
+      InstructionCodeGeneratorARM64(graph, codegen) {}
+
+#define DECLARE_VISIT_INSTRUCTION(name, super) \
+  void Visit##name(H##name* instr) override;
+
+  FOR_EACH_CONCRETE_INSTRUCTION_VECTOR_COMMON(DECLARE_VISIT_INSTRUCTION)
+
+#undef DECLARE_VISIT_INSTRUCTION
+
+  Location AllocateSIMDScratchLocation(vixl::aarch64::UseScratchRegisterScope* scope) override;
+  void FreeSIMDScratchLocation(Location loc,
+                               vixl::aarch64::UseScratchRegisterScope* scope) override;
+  void LoadSIMDRegFromStack(Location destination, Location source) override;
+  void MoveSIMDRegToSIMDReg(Location destination, Location source) override;
+  void MoveToSIMDStackSlot(Location destination, Location source) override;
+  void SaveLiveRegistersHelper(LocationSummary* locations, int64_t spill_offset) override;
+  void RestoreLiveRegistersHelper(LocationSummary* locations, int64_t spill_offset) override;
+
+ private:
+  // Validate that instruction vector length and packed type are compliant with the SIMD
+  // register size (full SIMD register is used).
+  void ValidateVectorLength(HVecOperation* instr) const;
+
+  // Returns default predicate register which is used as governing vector predicate
+  // to implement predicated loop execution.
+  //
+  // TODO: This is a hack to be addressed when register allocator supports SIMD types.
+  static vixl::aarch64::PRegister LoopPReg() {
+    return vixl::aarch64::p0;
+  }
+};
+
+class LocationsBuilderARM64Sve : public LocationsBuilderARM64 {
+ public:
+  LocationsBuilderARM64Sve(HGraph* graph, CodeGeneratorARM64* codegen) :
+      LocationsBuilderARM64(graph, codegen) {}
+
+#define DECLARE_VISIT_INSTRUCTION(name, super) \
+  void Visit##name(H##name* instr) override;
+
+  FOR_EACH_CONCRETE_INSTRUCTION_VECTOR_COMMON(DECLARE_VISIT_INSTRUCTION)
+
+#undef DECLARE_VISIT_INSTRUCTION
 };
 
 class ParallelMoveResolverARM64 : public ParallelMoveResolverNoSwap {
@@ -435,9 +579,11 @@ class CodeGeneratorARM64 : public CodeGenerator {
     return kArm64WordSize;
   }
 
+  bool SupportsPredicatedSIMD() const override { return ShouldUseSVE(); }
+
   size_t GetSlowPathFPWidth() const override {
     return GetGraph()->HasSIMD()
-        ? vixl::aarch64::kQRegSizeInBytes
+        ? GetSIMDRegisterWidth()
         : vixl::aarch64::kDRegSizeInBytes;
   }
 
@@ -445,14 +591,19 @@ class CodeGeneratorARM64 : public CodeGenerator {
     return vixl::aarch64::kDRegSizeInBytes;
   }
 
+  size_t GetSIMDRegisterWidth() const override;
+
   uintptr_t GetAddressOf(HBasicBlock* block) override {
     vixl::aarch64::Label* block_entry_label = GetLabelOf(block);
     DCHECK(block_entry_label->IsBound());
     return block_entry_label->GetLocation();
   }
 
-  HGraphVisitor* GetLocationBuilder() override { return &location_builder_; }
-  HGraphVisitor* GetInstructionVisitor() override { return &instruction_visitor_; }
+  HGraphVisitor* GetLocationBuilder() override { return location_builder_; }
+  InstructionCodeGeneratorARM64* GetInstructionCodeGeneratorArm64() {
+    return instruction_visitor_;
+  }
+  HGraphVisitor* GetInstructionVisitor() override { return GetInstructionCodeGeneratorArm64(); }
   Arm64Assembler* GetAssembler() override { return &assembler_; }
   const Arm64Assembler& GetAssembler() const override { return assembler_; }
   vixl::aarch64::MacroAssembler* GetVIXLAssembler() { return GetAssembler()->GetVIXLAssembler(); }
@@ -520,6 +671,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
              vixl::aarch64::CPURegister src,
              const vixl::aarch64::MemOperand& dst);
   void LoadAcquire(HInstruction* instruction,
+                   DataType::Type type,
                    vixl::aarch64::CPURegister dst,
                    const vixl::aarch64::MemOperand& src,
                    bool needs_null_check);
@@ -563,15 +715,13 @@ class CodeGeneratorARM64 : public CodeGenerator {
       const HInvokeStaticOrDirect::DispatchInfo& desired_dispatch_info,
       ArtMethod* method) override;
 
+  void LoadMethod(MethodLoadKind load_kind, Location temp, HInvoke* invoke);
   void GenerateStaticOrDirectCall(
       HInvokeStaticOrDirect* invoke, Location temp, SlowPathCode* slow_path = nullptr) override;
   void GenerateVirtualCall(
       HInvokeVirtual* invoke, Location temp, SlowPathCode* slow_path = nullptr) override;
 
-  void MoveFromReturnRegister(Location trg ATTRIBUTE_UNUSED,
-                              DataType::Type type ATTRIBUTE_UNUSED) override {
-    UNIMPLEMENTED(FATAL);
-  }
+  void MoveFromReturnRegister(Location trg, DataType::Type type) override;
 
   // Add a new boot image intrinsic patch for an instruction and return the label
   // to be bound before the instruction. The instruction will be either the
@@ -613,8 +763,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
   // to be bound before the instruction. The instruction will be either the
   // ADRP (pass `adrp_label = null`) or the ADD (pass `adrp_label` pointing
   // to the associated ADRP patch label).
-  vixl::aarch64::Label* NewBssEntryTypePatch(const DexFile& dex_file,
-                                             dex::TypeIndex type_index,
+  vixl::aarch64::Label* NewBssEntryTypePatch(HLoadClass* load_class,
                                              vixl::aarch64::Label* adrp_label = nullptr);
 
   // Add a new boot image string patch for an instruction and return the label
@@ -632,6 +781,13 @@ class CodeGeneratorARM64 : public CodeGenerator {
   vixl::aarch64::Label* NewStringBssEntryPatch(const DexFile& dex_file,
                                                dex::StringIndex string_index,
                                                vixl::aarch64::Label* adrp_label = nullptr);
+
+  // Add a new boot image JNI entrypoint patch for an instruction and return the label
+  // to be bound before the instruction. The instruction will be either the
+  // ADRP (pass `adrp_label = null`) or the LDR (pass `adrp_label` pointing
+  // to the associated ADRP patch label).
+  vixl::aarch64::Label* NewBootImageJniEntrypointPatch(MethodReference target_method,
+                                                       vixl::aarch64::Label* adrp_label = nullptr);
 
   // Emit the BL instruction for entrypoint thunk call and record the associated patch for AOT.
   void EmitEntrypointThunkCall(ThreadOffset64 entrypoint_offset);
@@ -657,7 +813,9 @@ class CodeGeneratorARM64 : public CodeGenerator {
                                 vixl::aarch64::Register base);
 
   void LoadBootImageAddress(vixl::aarch64::Register reg, uint32_t boot_image_reference);
-  void AllocateInstanceForIntrinsic(HInvokeStaticOrDirect* invoke, uint32_t boot_image_offset);
+  void LoadTypeForBootImageIntrinsic(vixl::aarch64::Register reg, TypeReference type_reference);
+  void LoadIntrinsicDeclaringClass(vixl::aarch64::Register reg, HInvoke* invoke);
+  void LoadClassRootForIntrinsic(vixl::aarch64::Register reg, ClassRoot class_root);
 
   void EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* linker_patches) override;
   bool NeedsThunkCode(const linker::LinkerPatch& patch) const override;
@@ -678,9 +836,9 @@ class CodeGeneratorARM64 : public CodeGenerator {
                                uint32_t offset,
                                vixl::aarch64::Label* fixup_label,
                                ReadBarrierOption read_barrier_option);
-  // Generate MOV for the `old_value` in UnsafeCASObject and mark it with Baker read barrier.
-  void GenerateUnsafeCasOldValueMovWithBakerReadBarrier(vixl::aarch64::Register marked,
-                                                        vixl::aarch64::Register old_value);
+  // Generate MOV for the `old_value` in intrinsic CAS and mark it with Baker read barrier.
+  void GenerateIntrinsicCasMoveWithBakerReadBarrier(vixl::aarch64::Register marked_old_value,
+                                                    vixl::aarch64::Register old_value);
   // Fast path implementation of ReadBarrier::Barrier for a heap
   // reference field load when Baker's read barriers are used.
   // Overload suitable for Unsafe.getObject/-Volatile() intrinsic.
@@ -723,6 +881,18 @@ class CodeGeneratorARM64 : public CodeGenerator {
   // scratch pool.
   virtual void MaybeGenerateMarkingRegisterCheck(int code,
                                                  Location temp_loc = Location::NoLocation());
+
+  // Create slow path for a read barrier for a heap reference within `instruction`.
+  //
+  // This is a helper function for GenerateReadBarrierSlow() that has the same
+  // arguments. The creation and adding of the slow path is exposed for intrinsics
+  // that cannot use GenerateReadBarrierSlow() from their own slow paths.
+  SlowPathCodeARM64* AddReadBarrierSlowPath(HInstruction* instruction,
+                                            Location out,
+                                            Location ref,
+                                            Location obj,
+                                            uint32_t offset,
+                                            Location index);
 
   // Generate a read barrier for a heap reference within `instruction`
   // using a slow path.
@@ -771,6 +941,9 @@ class CodeGeneratorARM64 : public CodeGenerator {
   // The `out` location contains the value returned by
   // artReadBarrierForRootSlow.
   void GenerateReadBarrierForRootSlow(HInstruction* instruction, Location out, Location root);
+
+  void IncreaseFrame(size_t adjustment) override;
+  void DecreaseFrame(size_t adjustment) override;
 
   void GenerateNop() override;
 
@@ -895,14 +1068,22 @@ class CodeGeneratorARM64 : public CodeGenerator {
   static void EmitPcRelativeLinkerPatches(const ArenaDeque<PcRelativePatchInfo>& infos,
                                           ArenaVector<linker::LinkerPatch>* linker_patches);
 
+  // Returns whether SVE features are supported and should be used.
+  bool ShouldUseSVE() const;
+
   // Labels for each block that will be compiled.
   // We use a deque so that the `vixl::aarch64::Label` objects do not move in memory.
   ArenaDeque<vixl::aarch64::Label> block_labels_;  // Indexed by block id.
   vixl::aarch64::Label frame_entry_label_;
   ArenaVector<std::unique_ptr<JumpTableARM64>> jump_tables_;
 
-  LocationsBuilderARM64 location_builder_;
-  InstructionCodeGeneratorARM64 instruction_visitor_;
+  LocationsBuilderARM64Neon location_builder_neon_;
+  InstructionCodeGeneratorARM64Neon instruction_visitor_neon_;
+  LocationsBuilderARM64Sve location_builder_sve_;
+  InstructionCodeGeneratorARM64Sve instruction_visitor_sve_;
+
+  LocationsBuilderARM64* location_builder_;
+  InstructionCodeGeneratorARM64* instruction_visitor_;
   ParallelMoveResolverARM64 move_resolver_;
   Arm64Assembler assembler_;
 
@@ -914,10 +1095,16 @@ class CodeGeneratorARM64 : public CodeGenerator {
   ArenaDeque<PcRelativePatchInfo> boot_image_type_patches_;
   // PC-relative type patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> type_bss_entry_patches_;
+  // PC-relative public type patch info for kBssEntryPublic.
+  ArenaDeque<PcRelativePatchInfo> public_type_bss_entry_patches_;
+  // PC-relative package type patch info for kBssEntryPackage.
+  ArenaDeque<PcRelativePatchInfo> package_type_bss_entry_patches_;
   // PC-relative String patch info for kBootImageLinkTimePcRelative.
   ArenaDeque<PcRelativePatchInfo> boot_image_string_patches_;
   // PC-relative String patch info for kBssEntry.
   ArenaDeque<PcRelativePatchInfo> string_bss_entry_patches_;
+  // PC-relative method patch info for kBootImageLinkTimePcRelative+kCallCriticalNative.
+  ArenaDeque<PcRelativePatchInfo> boot_image_jni_entrypoint_patches_;
   // PC-relative patch info for IntrinsicObjects for the boot image,
   // and for method/type/string patches for kBootImageRelRo otherwise.
   ArenaDeque<PcRelativePatchInfo> boot_image_other_patches_;

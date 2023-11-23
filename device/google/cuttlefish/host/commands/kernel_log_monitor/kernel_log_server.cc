@@ -19,38 +19,42 @@
 #include <map>
 #include <utility>
 
-#include <glog/logging.h>
+#include <android-base/logging.h>
+#include <android-base/strings.h>
 #include <netinet/in.h>
 #include "common/libs/fs/shared_select.h"
 #include "host/libs/config/cuttlefish_config.h"
 
-using cvd::SharedFD;
+using cuttlefish::SharedFD;
 
 namespace {
 static const std::map<std::string, std::string> kInformationalPatterns = {
+    {"U-Boot ", "GUEST_UBOOT_VERSION: "},
     {"] Linux version ", "GUEST_KERNEL_VERSION: "},
     {"GUEST_BUILD_FINGERPRINT: ", "GUEST_BUILD_FINGERPRINT: "},
 };
 
-static const std::map<std::string, monitor::BootEvent> kStageToEventMap = {
-    {vsoc::kBootStartedMessage, monitor::BootEvent::BootStarted},
-    {vsoc::kBootCompletedMessage, monitor::BootEvent::BootCompleted},
-    {vsoc::kBootFailedMessage, monitor::BootEvent::BootFailed},
-    {vsoc::kMobileNetworkConnectedMessage,
-     monitor::BootEvent::MobileNetworkConnected},
-    {vsoc::kWifiConnectedMessage, monitor::BootEvent::WifiNetworkConnected},
+static const std::map<std::string, monitor::Event> kStageToEventMap = {
+    {cuttlefish::kBootStartedMessage, monitor::Event::BootStarted},
+    {cuttlefish::kBootCompletedMessage, monitor::Event::BootCompleted},
+    {cuttlefish::kBootFailedMessage, monitor::Event::BootFailed},
+    {cuttlefish::kMobileNetworkConnectedMessage,
+     monitor::Event::MobileNetworkConnected},
+    {cuttlefish::kWifiConnectedMessage, monitor::Event::WifiNetworkConnected},
+    {cuttlefish::kEthernetConnectedMessage, monitor::Event::EthernetNetworkConnected},
     // TODO(b/131864854): Replace this with a string less likely to change
-    {"init: starting service 'adbd'", monitor::BootEvent::AdbdStarted},
+    {"init: starting service 'adbd'...", monitor::Event::AdbdStarted},
+    {cuttlefish::kScreenChangedMessage, monitor::Event::ScreenChanged},
 };
 
 void ProcessSubscriptions(
-    monitor::BootEvent evt,
-    std::vector<monitor::BootEventCallback>* subscribers) {
+    Json::Value message,
+    std::vector<monitor::EventCallback>* subscribers) {
   auto active_subscription_count = subscribers->size();
   std::size_t idx = 0;
   while (idx < active_subscription_count) {
     // Call the callback
-    auto action = (*subscribers)[idx](evt);
+    auto action = (*subscribers)[idx](message);
     if (action == monitor::SubscriptionAction::ContinueSubscription) {
       ++idx;
     } else {
@@ -66,25 +70,24 @@ void ProcessSubscriptions(
 }  // namespace
 
 namespace monitor {
-KernelLogServer::KernelLogServer(cvd::SharedFD pipe_fd,
+KernelLogServer::KernelLogServer(cuttlefish::SharedFD pipe_fd,
                                  const std::string& log_name,
                                  bool deprecated_boot_completed)
     : pipe_fd_(pipe_fd),
-      log_fd_(cvd::SharedFD::Open(log_name.c_str(), O_CREAT | O_RDWR, 0666)),
+      log_fd_(cuttlefish::SharedFD::Open(log_name.c_str(), O_CREAT | O_RDWR | O_APPEND, 0666)),
       deprecated_boot_completed_(deprecated_boot_completed) {}
 
-void KernelLogServer::BeforeSelect(cvd::SharedFDSet* fd_read) const {
+void KernelLogServer::BeforeSelect(cuttlefish::SharedFDSet* fd_read) const {
   fd_read->Set(pipe_fd_);
 }
 
-void KernelLogServer::AfterSelect(const cvd::SharedFDSet& fd_read) {
+void KernelLogServer::AfterSelect(const cuttlefish::SharedFDSet& fd_read) {
   if (fd_read.IsSet(pipe_fd_)) {
     HandleIncomingMessage();
   }
 }
 
-void KernelLogServer::SubscribeToBootEvents(
-    monitor::BootEventCallback callback) {
+void KernelLogServer::SubscribeToEvents(monitor::EventCallback callback) {
   subscribers_.push_back(callback);
 }
 
@@ -117,10 +120,35 @@ bool KernelLogServer::HandleIncomingMessage() {
       for (auto& stage_kv : kStageToEventMap) {
         auto& stage = stage_kv.first;
         auto event = stage_kv.second;
-        if (std::string::npos != line_.find(stage)) {
+        auto pos = line_.find(stage);
+        if (std::string::npos != pos) {
           // Log the stage
           LOG(INFO) << stage;
-          ProcessSubscriptions(event, &subscribers_);
+
+          Json::Value message;
+          message["event"] = event;
+          Json::Value metadata;
+          // Expect space-separated key=value pairs in the log message.
+          const auto& fields = android::base::Split(
+              line_.substr(pos + stage.size()), " ");
+          for (std::string field : fields) {
+            field = android::base::Trim(field);
+            if (field.empty()) {
+              // Expected; android::base::Split() always returns at least
+              // one (possibly empty) string.
+              LOG(DEBUG) << "Empty field for line: " << line_;
+              continue;
+            }
+            const auto& keyvalue = android::base::Split(field, "=");
+            if (keyvalue.size() != 2) {
+              LOG(WARNING) << "Field is not in key=value format: " << field;
+              continue;
+            }
+            metadata[keyvalue[0]] = keyvalue[1];
+          }
+          message["metadata"] = metadata;
+          ProcessSubscriptions(message, &subscribers_);
+
           //TODO(b/69417553) Remove this when our clients have transitioned to the
           // new boot completed
           if (deprecated_boot_completed_) {

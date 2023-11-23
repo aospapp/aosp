@@ -6,7 +6,9 @@ AUTHOR = 'zmarcus'
 NAME = 'network_WiFi_AssocConfigPerformance'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-# ATTRIBUTES = ('suite:wifi_perf')
+# TODO(crbug.com/855884): resolve caching effects to get consistent performance
+# metrics, and move this back to suite:wifi_perf.
+ATTRIBUTES = ('suite:wifi_flaky')
 DEPENDENCIES = 'wificell'
 
 DOC = """

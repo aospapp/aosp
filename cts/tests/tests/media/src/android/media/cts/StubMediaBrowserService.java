@@ -16,6 +16,7 @@
 
 package android.media.cts;
 
+import android.annotation.NonNull;
 import android.media.MediaDescription;
 import android.media.browse.MediaBrowser.MediaItem;
 import android.media.session.MediaSession;
@@ -27,7 +28,9 @@ import junit.framework.Assert;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Stub implementation of (@link android.service.media.MediaBrowserService}.
@@ -55,6 +58,7 @@ public class StubMediaBrowserService extends MediaBrowserService {
     private Result<List<MediaItem>> mPendingLoadChildrenResult;
     private Result<MediaItem> mPendingLoadItemResult;
     private Bundle mPendingRootHints;
+    private final Map<String, List<MediaItem>> mChildrenMap = new HashMap<>();
 
     public static void clearBrowserInfo() {
         sBrowserInfo = null;
@@ -102,6 +106,8 @@ public class StubMediaBrowserService extends MediaBrowserService {
             result.detach();
         } else if (MEDIA_ID_INVALID.equals(parentMediaId)) {
             result.sendResult(null);
+        } else if (mChildrenMap.containsKey(parentMediaId)) {
+            result.sendResult(mChildrenMap.get(parentMediaId));
         }
     }
 
@@ -125,6 +131,14 @@ public class StubMediaBrowserService extends MediaBrowserService {
         }
 
         super.onLoadItem(itemId, result);
+    }
+
+    public void putChildrenToMap(@NonNull String parentMediaId, @NonNull List<MediaItem> children) {
+        mChildrenMap.put(parentMediaId, children);
+    }
+
+    public void removeChildrenFromMap(@NonNull String parentMediaId) {
+        mChildrenMap.remove(parentMediaId);
     }
 
     public void sendDelayedNotifyChildrenChanged() {

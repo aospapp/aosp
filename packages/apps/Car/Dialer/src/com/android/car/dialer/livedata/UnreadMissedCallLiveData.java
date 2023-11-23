@@ -16,9 +16,11 @@
 
 package com.android.car.dialer.livedata;
 
+import android.Manifest;
 import android.content.Context;
 import android.database.Cursor;
 import android.provider.CallLog;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.LiveData;
@@ -36,13 +38,19 @@ public class UnreadMissedCallLiveData extends AsyncQueryLiveData<List<PhoneCallL
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     /** Get the {@link UnreadMissedCallLiveData} instance. */
-    public static UnreadMissedCallLiveData newInstance(Context context) {
+    public static UnreadMissedCallLiveData newInstance(Context context, String phoneAccountId) {
         StringBuilder where = new StringBuilder();
         List<String> selectionArgs = new ArrayList<>();
-        where.append(String.format("(%s = ?)", CallLog.Calls.TYPE));
-        where.append(String.format("AND (%s = 1)", CallLog.Calls.NEW));
-        where.append(String.format("AND (%s IS NOT 1)", CallLog.Calls.IS_READ));
+        where.append(String.format("%s = ?", CallLog.Calls.TYPE));
         selectionArgs.add(Integer.toString(CallLog.Calls.MISSED_TYPE));
+        where.append(String.format(" AND %s = 1", CallLog.Calls.NEW));
+        where.append(String.format(" AND %s IS NOT 1", CallLog.Calls.IS_READ));
+        if (TextUtils.isEmpty(phoneAccountId)) {
+            where.append(String.format(" AND %s IS NULL", CallLog.Calls.PHONE_ACCOUNT_ID));
+        } else {
+            where.append(String.format(" AND %s = ?", CallLog.Calls.PHONE_ACCOUNT_ID));
+            selectionArgs.add(phoneAccountId);
+        }
 
         String selection = where.length() > 0 ? where.toString() : null;
 
@@ -51,7 +59,8 @@ public class UnreadMissedCallLiveData extends AsyncQueryLiveData<List<PhoneCallL
                 null,
                 selection,
                 selectionArgs.toArray(EMPTY_STRING_ARRAY),
-                CallLog.Calls.DEFAULT_SORT_ORDER);
+                CallLog.Calls.DEFAULT_SORT_ORDER,
+                Manifest.permission.READ_CALL_LOG);
         return new UnreadMissedCallLiveData(context, queryParam);
     }
 

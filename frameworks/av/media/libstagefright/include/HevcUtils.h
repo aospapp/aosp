@@ -30,6 +30,10 @@
 namespace android {
 
 enum {
+    kHevcNalUnitTypeCodedSliceIdr = 19,
+    kHevcNalUnitTypeCodedSliceIdrNoLP = 20,
+    kHevcNalUnitTypeCodedSliceCra = 21,
+
     kHevcNalUnitTypeVps = 32,
     kHevcNalUnitTypeSps = 33,
     kHevcNalUnitTypePps = 34,
@@ -90,8 +94,11 @@ public:
     // Note that this method does not write the start code.
     bool write(size_t index, uint8_t* dest, size_t size);
     status_t makeHvcc(uint8_t *hvcc, size_t *hvccSize, size_t nalSizeLength);
+    void FindHEVCDimensions(
+            const sp<ABuffer> &SpsBuffer, int32_t *width, int32_t *height);
 
     Info getInfo() const { return mInfo; }
+    static bool IsHevcIDR(const uint8_t *data, size_t size);
 
 private:
     status_t parseVps(const uint8_t* data, size_t size);

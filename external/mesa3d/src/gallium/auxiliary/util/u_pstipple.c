@@ -45,7 +45,7 @@
 #include "pipe/p_shader_tokens.h"
 #include "util/u_inlines.h"
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_memory.h"
 #include "util/u_pstipple.h"
 #include "util/u_sampler.h"
@@ -70,7 +70,7 @@ util_pstipple_update_stipple_texture(struct pipe_context *pipe,
 
    /* map texture memory */
    data = pipe_transfer_map(pipe, tex, 0, 0,
-                            PIPE_TRANSFER_WRITE, 0, 0, 32, 32, &transfer);
+                            PIPE_MAP_WRITE, 0, 0, 32, 32, &transfer);
 
    /*
     * Load alpha texture.

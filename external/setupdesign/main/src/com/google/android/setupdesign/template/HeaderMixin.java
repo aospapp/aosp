@@ -16,19 +16,30 @@
 
 package com.google.android.setupdesign.template;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
+import android.os.Build;
+import android.util.AttributeSet;
+import android.util.Log;
+import android.util.TypedValue;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewParent;
+import android.view.ViewTreeObserver;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import androidx.annotation.AttrRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import android.util.AttributeSet;
-import android.view.ViewParent;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import androidx.annotation.VisibleForTesting;
 import com.google.android.setupcompat.internal.TemplateLayout;
+import com.google.android.setupcompat.partnerconfig.PartnerConfig;
+import com.google.android.setupcompat.partnerconfig.PartnerConfigHelper;
 import com.google.android.setupcompat.template.Mixin;
 import com.google.android.setupdesign.R;
 import com.google.android.setupdesign.util.HeaderAreaStyler;
+import com.google.android.setupdesign.util.LayoutStyler;
 import com.google.android.setupdesign.util.PartnerStyleHelper;
 
 /**
@@ -37,11 +48,19 @@ import com.google.android.setupdesign.util.PartnerStyleHelper;
 public class HeaderMixin implements Mixin {
 
   private final TemplateLayout templateLayout;
+  @VisibleForTesting boolean autoTextSizeEnabled = false;
+  private float headerAutoSizeMaxTextSizeInPx;
+  private float headerAutoSizeMinTextSizeInPx;
+  private float headerAutoSizeLineExtraSpacingInPx;
+  private int headerAutoSizeMaxLineOfMaxSize;
+  private static final int AUTO_SIZE_DEFAULT_MAX_LINES = 6;
 
   /**
-   * @param layout The layout this Mixin belongs to.
-   * @param attrs XML attributes given to the layout.
-   * @param defStyleAttr The default style attribute as given to the constructor of the layout.
+   * A {@link com.google.android.setupcompat.template.Mixin} for setting and getting the Header.
+   *
+   * @param layout The layout this Mixin belongs to
+   * @param attrs XML attributes given to the layout
+   * @param defStyleAttr The default style attribute as given to the constructor of the layout
    */
   public HeaderMixin(
       @NonNull TemplateLayout layout, @Nullable AttributeSet attrs, @AttrRes int defStyleAttr) {
@@ -52,41 +71,103 @@ public class HeaderMixin implements Mixin {
             .getContext()
             .obtainStyledAttributes(attrs, R.styleable.SucHeaderMixin, defStyleAttr, 0);
 
-    // Set the header text
     final CharSequence headerText = a.getText(R.styleable.SucHeaderMixin_sucHeaderText);
+    final ColorStateList headerTextColor =
+        a.getColorStateList(R.styleable.SucHeaderMixin_sucHeaderTextColor);
+
+    a.recycle();
+
+    // overlay the Auto size config settings
+    updateAutoTextSizeWithPartnerConfig();
+
+    // Set the header text
     if (headerText != null) {
       setText(headerText);
     }
     // Set the header text color
-    final ColorStateList headerTextColor =
-        a.getColorStateList(R.styleable.SucHeaderMixin_sucHeaderTextColor);
     if (headerTextColor != null) {
       setTextColor(headerTextColor);
     }
-
-    a.recycle();
   }
 
-  /**
-   * Tries to apply the partner customizations to the header text and background if the layout of
-   * this {@link HeaderMixin} is set to apply partner heavy theme resource.
-   */
-  public void tryApplyPartnerCustomizationStyle() {
-    if (!PartnerStyleHelper.isPartnerHeavyThemeLayout(templateLayout)) {
+  private void updateAutoTextSizeWithPartnerConfig() {
+    Context context = templateLayout.getContext();
+    if (!PartnerStyleHelper.isPartnerHeavyThemeLayout(templateLayout)
+        || !PartnerConfigHelper.shouldApplyExtendedPartnerConfig(context)) {
+      autoTextSizeEnabled = false;
+      return;
+    }
+    // overridden by partner resource
+    if (PartnerConfigHelper.get(context)
+        .isPartnerConfigAvailable(PartnerConfig.CONFIG_HEADER_AUTO_SIZE_ENABLED)) {
+      autoTextSizeEnabled =
+          PartnerConfigHelper.get(context)
+              .getBoolean(
+                  context, PartnerConfig.CONFIG_HEADER_AUTO_SIZE_ENABLED, autoTextSizeEnabled);
+    }
+    if (!autoTextSizeEnabled) {
       return;
     }
 
-    TextView header = templateLayout.findManagedViewById(R.id.suc_layout_title);
-    if (header != null) {
-      HeaderAreaStyler.applyPartnerCustomizationHeaderStyle(header);
+    if (PartnerConfigHelper.get(context)
+        .isPartnerConfigAvailable(PartnerConfig.CONFIG_HEADER_AUTO_SIZE_MAX_TEXT_SIZE)) {
+      headerAutoSizeMaxTextSizeInPx =
+          PartnerConfigHelper.get(context)
+              .getDimension(context, PartnerConfig.CONFIG_HEADER_AUTO_SIZE_MAX_TEXT_SIZE);
     }
-    LinearLayout headerLayout = templateLayout.findManagedViewById(R.id.sud_layout_header);
-    if (headerLayout != null) {
-      HeaderAreaStyler.applyPartnerCustomizationHeaderAreaStyle(headerLayout);
+    if (PartnerConfigHelper.get(context)
+        .isPartnerConfigAvailable(PartnerConfig.CONFIG_HEADER_AUTO_SIZE_MIN_TEXT_SIZE)) {
+      headerAutoSizeMinTextSizeInPx =
+          PartnerConfigHelper.get(context)
+              .getDimension(context, PartnerConfig.CONFIG_HEADER_AUTO_SIZE_MIN_TEXT_SIZE);
+    }
+    if (PartnerConfigHelper.get(context)
+        .isPartnerConfigAvailable(PartnerConfig.CONFIG_HEADER_AUTO_SIZE_LINE_SPACING_EXTRA)) {
+      headerAutoSizeLineExtraSpacingInPx =
+          PartnerConfigHelper.get(context)
+              .getDimension(context, PartnerConfig.CONFIG_HEADER_AUTO_SIZE_LINE_SPACING_EXTRA);
+    }
+    if (PartnerConfigHelper.get(context)
+        .isPartnerConfigAvailable(PartnerConfig.CONFIG_HEADER_AUTO_SIZE_MAX_LINE_OF_MAX_SIZE)) {
+      headerAutoSizeMaxLineOfMaxSize =
+          PartnerConfigHelper.get(context)
+              .getInteger(context, PartnerConfig.CONFIG_HEADER_AUTO_SIZE_MAX_LINE_OF_MAX_SIZE, 0);
+    }
+    if ((headerAutoSizeMaxLineOfMaxSize < 1)
+        || (headerAutoSizeMinTextSizeInPx <= 0)
+        || (headerAutoSizeMaxTextSizeInPx < headerAutoSizeMinTextSizeInPx)) {
+      Log.w("HeaderMixin", "Invalid configs, disable auto text size.");
+      autoTextSizeEnabled = false;
     }
   }
 
-  /** @return The TextView displaying the header. */
+  /**
+   * Applies the partner customizations to the header text (contains text alignment), background,
+   * and margin. If apply heavy theme resource, it will apply all partner customizations, otherwise,
+   * only apply alignment style. In addition, if only enable extended customized flag, the margin
+   * style will be applied.
+   */
+  public void tryApplyPartnerCustomizationStyle() {
+    TextView header = templateLayout.findManagedViewById(R.id.suc_layout_title);
+    boolean partnerLightThemeLayout = PartnerStyleHelper.isPartnerLightThemeLayout(templateLayout);
+    boolean partnerHeavyThemeLayout = PartnerStyleHelper.isPartnerHeavyThemeLayout(templateLayout);
+    if (partnerHeavyThemeLayout) {
+      View headerAreaView = templateLayout.findManagedViewById(R.id.sud_layout_header);
+      HeaderAreaStyler.applyPartnerCustomizationHeaderHeavyStyle(header);
+      HeaderAreaStyler.applyPartnerCustomizationHeaderAreaStyle((ViewGroup) headerAreaView);
+      LayoutStyler.applyPartnerCustomizationExtraPaddingStyle(headerAreaView);
+      // overlay the Auto size config settings
+      updateAutoTextSizeWithPartnerConfig();
+    } else if (partnerLightThemeLayout) {
+      HeaderAreaStyler.applyPartnerCustomizationHeaderLightStyle(header);
+    }
+    if (autoTextSizeEnabled) {
+      // Override the text size setting of the header
+      autoAdjustTextSize(header);
+    }
+  }
+
+  /** Returns the TextView displaying the header. */
   public TextView getTextView() {
     return (TextView) templateLayout.findManagedViewById(R.id.suc_layout_title);
   }
@@ -94,11 +175,15 @@ public class HeaderMixin implements Mixin {
   /**
    * Sets the header text. This can also be set via the XML attribute {@code app:sucHeaderText}.
    *
-   * @param title The resource ID of the text to be set as header.
+   * @param title The resource ID of the text to be set as header
    */
   public void setText(int title) {
     final TextView titleView = getTextView();
     if (titleView != null) {
+      if (autoTextSizeEnabled) {
+        // Override the text size setting of the header
+        autoAdjustTextSize(titleView);
+      }
       titleView.setText(title);
     }
   }
@@ -106,16 +191,58 @@ public class HeaderMixin implements Mixin {
   /**
    * Sets the header text. This can also be set via the XML attribute {@code app:sucHeaderText}.
    *
-   * @param title The text to be set as header.
+   * @param title The text to be set as header
    */
   public void setText(CharSequence title) {
     final TextView titleView = getTextView();
     if (titleView != null) {
+      if (autoTextSizeEnabled) {
+        // Override the text size setting of the header
+        autoAdjustTextSize(titleView);
+      }
       titleView.setText(title);
     }
   }
 
-  /** @return The current header text. */
+  private void autoAdjustTextSize(TextView titleView) {
+    if (titleView == null) {
+      return;
+    }
+    // preset as the max size
+    titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, headerAutoSizeMaxTextSizeInPx);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      titleView.setLineHeight(
+          Math.round(headerAutoSizeLineExtraSpacingInPx + headerAutoSizeMaxTextSizeInPx));
+    }
+    titleView.setMaxLines(AUTO_SIZE_DEFAULT_MAX_LINES);
+
+    // reset text size if the line count for max text size > headerAutoSizeMaxLineOfMaxTextSize
+    titleView
+        .getViewTreeObserver()
+        .addOnPreDrawListener(
+            new ViewTreeObserver.OnPreDrawListener() {
+              @Override
+              public boolean onPreDraw() {
+                // Remove listener to avoid this called every frame
+                titleView.getViewTreeObserver().removeOnPreDrawListener(this);
+                int lineCount = titleView.getLineCount();
+                if (lineCount > headerAutoSizeMaxLineOfMaxSize) {
+                  // reset text size
+                  titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, headerAutoSizeMinTextSizeInPx);
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    titleView.setLineHeight(
+                        Math.round(
+                            headerAutoSizeLineExtraSpacingInPx + headerAutoSizeMinTextSizeInPx));
+                  }
+                  titleView.invalidate();
+                  return false; // false to skip this frame
+                }
+                return true;
+              }
+            });
+  }
+
+  /** Returns the current header text. */
   public CharSequence getText() {
     final TextView titleView = getTextView();
     return titleView != null ? titleView.getText() : null;
@@ -133,7 +260,7 @@ public class HeaderMixin implements Mixin {
    * Sets the color of the header text. This can also be set via XML using {@code
    * app:sucHeaderTextColor}.
    *
-   * @param color The text color of the header.
+   * @param color The text color of the header
    */
   public void setTextColor(ColorStateList color) {
     final TextView titleView = getTextView();
@@ -142,7 +269,11 @@ public class HeaderMixin implements Mixin {
     }
   }
 
-  /** Sets the background color of the header's parent LinearLayout */
+  /**
+   * Sets the background color of the header's parent LinearLayout.
+   *
+   * @param color The background color of the header's parent LinearLayout
+   */
   public void setBackgroundColor(int color) {
     final TextView titleView = getTextView();
     if (titleView != null) {

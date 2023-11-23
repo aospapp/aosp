@@ -16,33 +16,48 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.systemui.cts"
-    android:targetSandboxVersion="2">
-    <uses-permission android:name="android.permission.INJECT_EVENTS" />
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+     package="android.systemui.cts"
+     android:targetSandboxVersion="2">
+    <uses-permission android:name="android.permission.INJECT_EVENTS"/>
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.READ_DREAM_STATE"/>
+    <uses-permission android:name="android.permission.WRITE_DREAM_STATE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+    <!-- Required by flickerlib to dump window states -->
+    <uses-permission android:name="android.permission.DUMP"/>
+
     <application android:requestLegacyExternalStorage="true">
         <activity android:name=".LightBarActivity"
-                android:theme="@android:style/Theme.Material.NoActionBar"
-                android:screenOrientation="portrait"></activity>
+             android:theme="@android:style/Theme.Material.NoActionBar"
+             android:screenOrientation="portrait"/>
         <activity android:name=".LightBarThemeActivity"
-                android:theme="@style/LightBarTheme"
-                android:screenOrientation="portrait"></activity>
+             android:theme="@style/LightBarTheme"
+             android:screenOrientation="portrait"/>
         <activity android:name=".WindowInsetsActivity"
-                android:theme="@android:style/Theme.Material"
-                android:screenOrientation="portrait">
+             android:theme="@android:style/Theme.Material"
+             android:screenOrientation="portrait"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <uses-library android:name="android.test.runner" />
+
+        <service android:name=".NotificationListener"
+                 android:exported="true"
+                 android:label="TestNotificationListenerService"
+                 android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <uses-library android:name="android.test.runner"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.systemui.cts">
+         android:targetPackage="android.systemui.cts">
     </instrumentation>
 
 </manifest>
-

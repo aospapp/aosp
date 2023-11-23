@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.mschapv2;
+package com.android.internal.net.eap.test.message.mschapv2;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
 

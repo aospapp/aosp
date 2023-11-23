@@ -20,12 +20,15 @@
 #include "bt_target.h"
 
 #include "bt_types.h"
-#include "bt_utils.h"
 #include "btm_ble_api.h"
 #include "btm_int.h"
 #include "btu.h"
 #include "hcidefs.h"
 #include "hcimsgs.h"
+#include "stack/btm/btm_int_types.h"
+#include "utils/include/bt_utils.h"
+
+extern tBTM_CB btm_cb;
 
 tBTM_BLE_ENERGY_INFO_CB ble_energy_info_cb;
 
@@ -40,10 +43,9 @@ tBTM_BLE_ENERGY_INFO_CB ble_energy_info_cb;
  * Returns          void
  *
  ******************************************************************************/
-void btm_ble_cont_energy_cmpl_cback(tBTM_VSC_CMPL* p_params) {
+static void btm_ble_cont_energy_cmpl_cback(tBTM_VSC_CMPL* p_params) {
   uint8_t* p = p_params->p_param_buf;
   uint16_t len = p_params->param_len;
-  uint8_t status = 0;
   uint32_t total_tx_time = 0, total_rx_time = 0, total_idle_time = 0,
            total_energy_used = 0;
 
@@ -52,7 +54,9 @@ void btm_ble_cont_energy_cmpl_cback(tBTM_VSC_CMPL* p_params) {
     return;
   }
 
-  STREAM_TO_UINT8(status, p);
+  uint8_t raw_status;
+  STREAM_TO_UINT8(raw_status, p);
+  tHCI_STATUS status = to_hci_status_code(raw_status);
   STREAM_TO_UINT32(total_tx_time, p);
   STREAM_TO_UINT32(total_rx_time, p);
   STREAM_TO_UINT32(total_idle_time, p);
@@ -64,7 +68,8 @@ void btm_ble_cont_energy_cmpl_cback(tBTM_VSC_CMPL* p_params) {
 
   if (NULL != ble_energy_info_cb.p_ener_cback)
     ble_energy_info_cb.p_ener_cback(total_tx_time, total_rx_time,
-                                    total_idle_time, total_energy_used, status);
+                                    total_idle_time, total_energy_used,
+                                    static_cast<tHCI_STATUS>(status));
 
   return;
 }

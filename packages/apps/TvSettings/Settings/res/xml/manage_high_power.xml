@@ -20,5 +20,6 @@
     <Preference
             android:key="header"
             android:title="@string/high_power_apps_description"
-            android:singleLineTitle="false"/>
+            android:singleLineTitle="false"
+            android:selectable="false" />
 </PreferenceScreen>

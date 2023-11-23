@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2019, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -14,8 +14,8 @@
 #define SUNXI_SRAM_SIZE			0x00044000
 #define SUNXI_SRAM_A1_BASE		0x00010000
 #define SUNXI_SRAM_A1_SIZE		0x00008000
-#define SUNXI_SRAM_A2_BASE		0x00044000
-#define SUNXI_SRAM_A2_SIZE		0x00010000
+#define SUNXI_SRAM_A2_BASE		0x00040000
+#define SUNXI_SRAM_A2_SIZE		0x00014000
 #define SUNXI_SRAM_C_BASE		0x00018000
 #define SUNXI_SRAM_C_SIZE		0x0001c000
 #define SUNXI_DEV_BASE			0x01000000
@@ -36,7 +36,6 @@
 #define SUNXI_MSGBOX_BASE		0x01c17000
 #define SUNXI_SPINLOCK_BASE		0x01c18000
 #define SUNXI_CCU_BASE			0x01c20000
-#define SUNXI_CCU_SEC_SWITCH_REG	(SUNXI_CCU_BASE + 0x2f0)
 #define SUNXI_PIO_BASE			0x01c20800
 #define SUNXI_TIMER_BASE		0x01c20c00
 #define SUNXI_WDOG_BASE			0x01c20ca0

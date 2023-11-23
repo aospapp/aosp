@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"สื่อ"</string>
     <string name="search_hint" msgid="5401750426238148416">"ค้นหาเพลง ศิลปิน และอื่นๆ..."</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"กำลังเล่น"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"มีข้อผิดพลาดเกิดขึ้น ลองอีกครั้งในภายหลัง"</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"ดำเนินการดังกล่าวไม่ได้ในขณะนี้"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"แอปนี้ดำเนินการดังกล่าวไม่ได้"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"ลงชื่อเข้าใช้เพื่อใช้แอปนี้"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"ต้องมีสิทธิ์เข้าถึงระดับพรีเมียม"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"กำลังเปิดฟังจากหลายอุปกรณ์เกินไป"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"เนื้อหาดังกล่าวถูกบล็อก"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"เปิดเนื้อหาดังกล่าวไม่ได้ที่นี่"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"กำลังเล่นเนื้อหาดังกล่าวอยู่แล้ว"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"ข้ามแทร็กอื่นอีกไม่ได้แล้ว"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"ดำเนินการไม่สำเร็จ ลองอีกครั้ง"</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"ไม่มีรายการอื่นในคิว"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"กำลังเชื่อมต่อสื่อ"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"การตั้งค่าเสียง"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"เปลี่ยนแอป"</string>

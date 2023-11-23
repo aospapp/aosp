@@ -5,7 +5,6 @@
     <bool name="profile_supported_map">false</bool>
     <bool name="profile_supported_hdp">false</bool>
     <bool name="profile_supported_opp">false</bool>
-    <bool name="enable_phone_policy">false</bool>
 
     <bool name="profile_supported_hfpclient">false</bool>
     <bool name="hfp_client_connection_service_enabled">false</bool>

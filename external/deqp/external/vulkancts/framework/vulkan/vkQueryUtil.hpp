@@ -47,6 +47,7 @@ std::vector<VkPhysicalDeviceGroupProperties>	enumeratePhysicalDeviceGroups					(
 std::vector<VkQueueFamilyProperties>			getPhysicalDeviceQueueFamilyProperties			(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
 VkPhysicalDeviceFeatures						getPhysicalDeviceFeatures						(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
 VkPhysicalDeviceFeatures2						getPhysicalDeviceFeatures2						(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
+VkPhysicalDeviceVulkan11Features				getPhysicalDeviceVulkan11Features				(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
 VkPhysicalDeviceVulkan12Features				getPhysicalDeviceVulkan12Features				(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
 VkPhysicalDeviceVulkan11Properties				getPhysicalDeviceVulkan11Properties				(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
 VkPhysicalDeviceVulkan12Properties				getPhysicalDeviceVulkan12Properties				(const InstanceInterface& vk, VkPhysicalDevice physicalDevice);
@@ -230,6 +231,9 @@ private:
 	const InstanceInterface&	m_vki;
 	const VkPhysicalDevice		m_physicalDevice;
 };
+
+// Walks through chain to find empty pNext and assigns what to found pNext
+void appendStructurePtrToVulkanChain (const void**	chainHead, const void*	structurePtr);
 
 namespace ValidateQueryBits
 {

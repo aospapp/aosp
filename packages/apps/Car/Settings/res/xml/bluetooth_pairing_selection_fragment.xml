@@ -20,17 +20,21 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/bluetooth_pair_new_device"
     android:key="@string/psk_bluetooth_pairing_selection">
-    <Preference
+    <com.android.car.ui.preference.CarUiPreference
         android:key="@string/pk_bluetooth_name"
         android:title="@string/bluetooth_name"
-        settings:controller="com.android.car.settings.bluetooth.BluetoothNamePreferenceController"/>
-    <PreferenceCategory
+        android:icon="@drawable/ic_car"
+        settings:controller="com.android.car.settings.bluetooth.BluetoothNamePreferenceController"
+        settings:showChevron="false"/>
+    <com.android.car.settings.common.SettingsPreferenceCategory
         android:key="@string/pk_bluetooth_available_devices"
         android:title="@string/bluetooth_available_devices"
-        settings:controller="com.android.car.settings.bluetooth.BluetoothUnbondedDevicesPreferenceController"/>
-    <Preference
+        settings:controller="com.android.car.settings.bluetooth.BluetoothUnbondedDevicesPreferenceController"
+        settings:showChevron="false"/>
+    <com.android.car.ui.preference.CarUiPreference
         android:icon="@drawable/ic_settings_about"
         android:key="@string/pk_bluetooth_address"
         android:selectable="false"
-        settings:controller="com.android.car.settings.bluetooth.BluetoothAddressPreferenceController"/>
+        settings:controller="com.android.car.settings.bluetooth.BluetoothAddressPreferenceController"
+        settings:showChevron="false"/>
 </PreferenceScreen>

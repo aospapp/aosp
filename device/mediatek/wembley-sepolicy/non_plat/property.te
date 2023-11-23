@@ -10,244 +10,169 @@
 # vendor_restricted_prop    -- Properties which can't be written outside vendor
 # vendor_public_prop        -- Properties with no restrictions
 
-# Properties used only in /vendor
-vendor_internal_prop(ctl_gsm0710muxd_prop)
-vendor_internal_prop(ctl_gsm0710muxd-s_prop)
-vendor_internal_prop(ctl_gsm0710muxd-d_prop)
-vendor_internal_prop(ctl_viarild_prop)
-vendor_internal_prop(ctl_ril-daemon-mtk_prop)
-vendor_internal_prop(ctl_fusion_ril_mtk_prop)
-vendor_internal_prop(ctl_ril-daemon-s_prop)
-vendor_internal_prop(ctl_ril-daemon-d_prop)
-vendor_internal_prop(ctl_ril-proxy_prop)
-vendor_internal_prop(ctl_ccci_fsd_prop)
-vendor_internal_prop(ctl_ccci2_fsd_prop)
-vendor_internal_prop(ctl_ccci3_fsd_prop)
+# TODO: Remove after fixing Modem SEPolicy
+vendor_internal_prop(ril_mux_report_case_prop)
 vendor_internal_prop(ctl_muxreport-daemon_prop)
-vendor_internal_prop(ctl_emcsmdlogger_prop)
-vendor_internal_prop(ctl_eemcs_fsd_prop)
-vendor_internal_prop(mtk_powerhal_prop)
-vendor_internal_prop(mtk_wfc_serv_prop)
-vendor_internal_prop(ctl_mdlogger_prop)
-vendor_internal_prop(ctl_emdlogger1_prop)
-vendor_internal_prop(ctl_emdlogger2_prop)
-vendor_internal_prop(ctl_emdlogger3_prop)
-vendor_internal_prop(ctl_dualmdlogger_prop)
-vendor_internal_prop(init_svc_emdlogger1_prop)
-vendor_internal_prop(init_svc_aee_aedv_prop)
+vendor_internal_prop(usp_prop)
+vendor_internal_prop(mtk_default_prop)
+
+# Properties used only in /vendor
+vendor_internal_prop(vendor_mtk_ctl_ccci2_fsd_prop)
+vendor_internal_prop(vendor_mtk_ctl_ccci3_fsd_prop)
+vendor_internal_prop(vendor_mtk_ctl_ccci_fsd_prop)
+vendor_internal_prop(vendor_mtk_ctl_fusion_ril_mtk_prop)
+vendor_internal_prop(vendor_mtk_ctl_gsm0710muxd_prop)
+vendor_internal_prop(vendor_mtk_ctl_muxreport-daemon_prop)
+vendor_internal_prop(vendor_mtk_ctl_ril-daemon-mtk_prop)
+vendor_internal_prop(vendor_mtk_ctl_ril-proxy_prop)
+vendor_internal_prop(vendor_mtk_ctl_viarild_prop)
+vendor_internal_prop(vendor_mtk_powerhal_prop)
+vendor_internal_prop(vendor_mtk_wfc_serv_prop)
 
 # Properties which can't be written outside vendor
-vendor_restricted_prop(mtk_nn_option_prop)
-vendor_restricted_prop(mtk_volte_prop)
-vendor_restricted_prop(mtk_cxp_vendor_prop)
-vendor_restricted_prop(mtk_antutu_prop)
-vendor_restricted_prop(mtk_ss_vendor_prop)
-vendor_restricted_prop(atm_ipaddr_prop)
-vendor_restricted_prop(mtkcam_prop)
-vendor_restricted_prop(graphics_hwc_hdr_prop)
-vendor_restricted_prop(graphics_hwc_latch_unsignaled_prop)
-vendor_restricted_prop(graphics_hwc_pid_prop)
-vendor_restricted_prop(mtk_thermal_config_prop)
-vendor_restricted_prop(mtk_telephony_sensitive_prop)
-vendor_restricted_prop(meta_connecttype_prop)
-vendor_restricted_prop(mtk_debug_md_reset_prop)
-vendor_restricted_prop(wmt_prop)
-vendor_restricted_prop(ril_active_md_prop)
-vendor_restricted_prop(vendor_usb_prop)
-vendor_restricted_prop(tel_switch_prop)
-vendor_restricted_prop(mtk_nvram_ready_prop)
-vendor_restricted_prop(mtk_wifi_hotspot_prop)
-vendor_restricted_prop(mtk_hdmi_prop)
-vendor_restricted_prop(mtk_default_prop)
-vendor_restricted_prop(vendor_ril_ipo_prop)
-vendor_restricted_prop(gsm0710muxd_prop)
-vendor_restricted_prop(mtk_wifi_prop)
-vendor_restricted_prop(persist_mtk_aeev_prop)
-vendor_restricted_prop(persist_aeev_prop)
-vendor_restricted_prop(debug_mtk_aeev_prop)
-vendor_restricted_prop(ro_mtk_aee_prop)
-vendor_restricted_prop(ril_mux_report_case_prop)
-vendor_restricted_prop(ril_cdma_report_prop)
-vendor_restricted_prop(mtk_md_prop)
-vendor_restricted_prop(mnld_prop)
-vendor_restricted_prop(audiohal_prop)
-vendor_restricted_prop(coredump_prop)
-vendor_restricted_prop(net_cdma_mdmstat)
-vendor_restricted_prop(persist_bt_prop)
-vendor_restricted_prop(vendor_factory_idle_state_prop)
-vendor_restricted_prop(service_nvram_init_prop)
-vendor_restricted_prop(wifi_5g_prop)
-vendor_restricted_prop(mtk_em_prop)
-vendor_restricted_prop(mediatek_prop)
-vendor_restricted_prop(mtk_em_hidl_prop)
-vendor_restricted_prop(mtk_operator_id_prop)
-vendor_restricted_prop(mtk_simswitch_emmode_prop)
-vendor_restricted_prop(mtk_dsbp_support_prop)
-vendor_restricted_prop(mtk_imstestmode_prop)
-vendor_restricted_prop(mtk_smsformat_prop)
-vendor_restricted_prop(mtk_gprs_prefer_prop)
-vendor_restricted_prop(mtk_testsim_cardtype_prop)
-vendor_restricted_prop(mtk_ct_ir_engmode_prop)
-vendor_restricted_prop(mtk_disable_c2k_cap_prop)
-vendor_restricted_prop(mtk_omx_log_prop)
-vendor_restricted_prop(mtk_vdec_log_prop)
-vendor_restricted_prop(mtk_vdectlc_log_prop)
-vendor_restricted_prop(mtk_venc_h264_showlog_prop)
-vendor_restricted_prop(mtk_modem_warning_prop)
-vendor_restricted_prop(ctl_mobile_log_d_prop)
-vendor_restricted_prop(ctl_mnld_prop)
-vendor_restricted_prop(ctl_mobicore_prop)
-vendor_restricted_prop(atm_mdmode_prop)
-vendor_restricted_prop(vendor_radio_prop)
-vendor_restricted_prop(mtk_ct_volte_prop)
-vendor_restricted_prop(mtk_ril_mode_prop)
-vendor_restricted_prop(mtk_gps_support_prop)
-vendor_restricted_prop(mtk_rat_config_prop)
-vendor_restricted_prop(mtk_aal_ro_prop)
-vendor_restricted_prop(mtk_pq_ro_prop)
-vendor_restricted_prop(mtk_pq_prop)
-vendor_restricted_prop(mtk_emmc_support_prop)
-vendor_restricted_prop(vendor_em_usb_prop)
-vendor_restricted_prop(vendor_usb_otg_switch)
-vendor_restricted_prop(mtk_anr_support_prop)
-vendor_restricted_prop(mtk_appresolutiontuner_prop)
-vendor_restricted_prop(mtk_fullscreenswitch_prop)
-vendor_restricted_prop(mtk_malloc_debug_backtrace_prop)
-vendor_restricted_prop(mtk_voicerecgnize_prop)
-vendor_restricted_prop(persist_service_atci_prop)
-vendor_restricted_prop(mtk_atci_prop)
-vendor_restricted_prop(mtk_net_ipv6_prop)
-vendor_restricted_prop(usp_prop)
-vendor_restricted_prop(mtk_md_version_prop)
-vendor_restricted_prop(mtk_bt_sap_enable_prop)
-
-# Properties used only in /system
-system_internal_prop(debug_mtklog_prop)
-system_internal_prop(persist_mtklog_prop)
-system_internal_prop(debug_netlog_prop)
-system_internal_prop(debug_mdlogger_prop)
-system_internal_prop(vendor_mdl_prop)
-system_internal_prop(vendor_mdl_start_prop)
-system_internal_prop(persist_mdlog_prop)
-system_internal_prop(vendor_mdl_pulllog_prop)
-system_internal_prop(persist_aee_prop)
-system_internal_prop(debug_mtk_aee_prop)
-system_internal_prop(debug_bq_dump_prop)
-system_internal_prop(bootani_prop)
-system_internal_prop(mobile_log_prop)
-system_internal_prop(mtk_em_sys_prop)
-system_internal_prop(mtk_em_net_auto_tethering_prop)
-system_internal_prop(mtk_bgdata_disabled)
-system_internal_prop(mtk_telecom_vibrate)
-system_internal_prop(mtk_gprs_attach_type)
-system_internal_prop(mtk_power_off_md_type)
-system_internal_prop(vendor_connsysfw_prop)
-system_internal_prop(vendor_bluetooth_prop)
-system_internal_prop(vendor_sim_system_prop)
-system_internal_prop(persist_xcap_rawurl_prop)
-system_internal_prop(usp_srv_prop)
-system_internal_prop(logmuch_prop)
-
-# Properties with no restrictions
-system_public_prop(persist_mtk_aee_prop)
-system_public_prop(mtk_amslog_prop)
+vendor_restricted_prop(vendor_mtk_aal_ro_prop)
+vendor_restricted_prop(vendor_mtk_anr_support_prop)
+vendor_restricted_prop(vendor_mtk_antutu_prop)
+vendor_restricted_prop(vendor_mtk_appresolutiontuner_prop)
+vendor_restricted_prop(vendor_mtk_atci_prop)
+vendor_restricted_prop(vendor_mtk_atm_ipaddr_prop)
+vendor_restricted_prop(vendor_mtk_atm_mdmode_prop)
+vendor_restricted_prop(vendor_mtk_audiohal_prop)
+vendor_restricted_prop(vendor_mtk_bt_sap_enable_prop)
+vendor_restricted_prop(vendor_mtk_coredump_prop)
+vendor_restricted_prop(vendor_mtk_ct_ir_engmode_prop)
+vendor_restricted_prop(vendor_mtk_ct_volte_prop)
+vendor_restricted_prop(vendor_mtk_cxp_vendor_prop)
+vendor_restricted_prop(vendor_mtk_debug_md_reset_prop)
+vendor_restricted_prop(vendor_mtk_debug_mtk_aeev_prop)
+vendor_restricted_prop(vendor_mtk_default_prop)
+vendor_restricted_prop(vendor_mtk_disable_c2k_cap_prop)
+vendor_restricted_prop(vendor_mtk_dsbp_support_prop)
+vendor_restricted_prop(vendor_mtk_em_hidl_prop)
+vendor_restricted_prop(vendor_mtk_emmc_support_prop)
+vendor_restricted_prop(vendor_mtk_em_prop)
+vendor_restricted_prop(vendor_mtk_em_usb_prop)
+vendor_restricted_prop(vendor_mtk_factory_idle_state_prop)
+vendor_restricted_prop(vendor_mtk_fullscreenswitch_prop)
+vendor_restricted_prop(vendor_mtk_gprs_prefer_prop)
+vendor_restricted_prop(vendor_mtk_gps_support_prop)
+vendor_restricted_prop(vendor_mtk_graphics_hwc_hdr_prop)
+vendor_restricted_prop(vendor_mtk_graphics_hwc_latch_unsignaled_prop)
+vendor_restricted_prop(vendor_mtk_graphics_hwc_pid_prop)
+vendor_restricted_prop(vendor_mtk_graphics_hwc_validate_separate_prop)
+vendor_restricted_prop(vendor_mtk_gsm0710muxd_prop)
+vendor_restricted_prop(vendor_mtk_hdmi_prop)
+vendor_restricted_prop(vendor_mtk_imstestmode_prop)
+vendor_restricted_prop(vendor_mtk_malloc_debug_backtrace_prop)
+vendor_restricted_prop(vendor_mtk_md_prop)
+vendor_restricted_prop(vendor_mtk_md_version_prop)
+vendor_restricted_prop(vendor_mtk_mediatek_prop)
+vendor_restricted_prop(vendor_mtk_meta_connecttype_prop)
+vendor_restricted_prop(vendor_mtk_mnld_prop)
+vendor_restricted_prop(vendor_mtk_modem_warning_prop)
+vendor_restricted_prop(vendor_mtk_net_cdma_mdmstat_prop)
+vendor_restricted_prop(vendor_mtk_nn_option_prop)
+vendor_restricted_prop(vendor_mtk_gbe_prop)
+vendor_restricted_prop(vendor_mtk_nvram_ready_prop)
+vendor_restricted_prop(vendor_mtk_omx_log_prop)
+vendor_restricted_prop(vendor_mtk_operator_id_prop)
+vendor_restricted_prop(vendor_mtk_persist_aeev_prop)
+vendor_restricted_prop(vendor_mtk_persist_mtk_aeev_prop)
+vendor_restricted_prop(vendor_mtk_persist_service_atci_prop)
+vendor_restricted_prop(vendor_mtk_pq_prop)
+vendor_restricted_prop(vendor_mtk_pq_ro_prop)
+vendor_restricted_prop(vendor_mtk_radio_prop)
+vendor_restricted_prop(vendor_mtk_rat_config_prop)
+vendor_restricted_prop(vendor_mtk_ril_active_md_prop)
+vendor_restricted_prop(vendor_mtk_ril_cdma_report_prop)
+vendor_restricted_prop(vendor_mtk_ril_ipo_prop)
+vendor_restricted_prop(vendor_mtk_ril_mode_prop)
+vendor_restricted_prop(vendor_mtk_ril_mux_report_case_prop)
+vendor_restricted_prop(vendor_mtk_ro_aee_prop)
+vendor_restricted_prop(vendor_mtk_service_nvram_init_prop)
+vendor_restricted_prop(vendor_mtk_simswitch_emmode_prop)
+vendor_restricted_prop(vendor_mtk_smsformat_prop)
+vendor_restricted_prop(vendor_mtk_ss_vendor_prop)
+vendor_restricted_prop(vendor_mtk_telephony_sensitive_prop)
+vendor_restricted_prop(vendor_mtk_tel_switch_prop)
+vendor_restricted_prop(vendor_mtk_testsim_cardtype_prop)
+vendor_restricted_prop(vendor_mtk_thermal_config_prop)
+vendor_restricted_prop(vendor_mtk_usb_otg_switch_prop)
+vendor_restricted_prop(vendor_mtk_usb_prop)
+vendor_restricted_prop(vendor_mtk_vdec_log_prop)
+vendor_restricted_prop(vendor_mtk_vdectlc_log_prop)
+vendor_restricted_prop(vendor_mtk_venc_h264_showlog_prop)
+vendor_restricted_prop(vendor_mtk_voicerecgnize_prop)
+vendor_restricted_prop(vendor_mtk_volte_prop)
+vendor_restricted_prop(vendor_mtk_wifi_hotspot_prop)
+vendor_restricted_prop(vendor_mtk_wmt_prop)
+vendor_restricted_prop(vendor_mtk_gpu_prop)
+vendor_restricted_prop(vendor_mtk_sensor_prop)
 
 # Properties with can be read by all domains
-typeattribute mtk_default_prop                mtk_core_property_type;
-typeattribute vendor_ril_ipo_prop             mtk_core_property_type;
-typeattribute gsm0710muxd_prop                mtk_core_property_type;
-typeattribute mtk_wifi_prop                   mtk_core_property_type;
-typeattribute persist_mtk_aeev_prop           mtk_core_property_type;
-typeattribute persist_aeev_prop               mtk_core_property_type;
-typeattribute debug_mtk_aeev_prop             mtk_core_property_type;
-typeattribute ro_mtk_aee_prop                 mtk_core_property_type;
-typeattribute ril_active_md_prop              mtk_core_property_type;
-typeattribute ril_mux_report_case_prop        mtk_core_property_type;
-typeattribute ril_cdma_report_prop            mtk_core_property_type;
-typeattribute mtk_md_prop                     mtk_core_property_type;
-typeattribute tel_switch_prop                 mtk_core_property_type;
-typeattribute mnld_prop                       mtk_core_property_type;
-typeattribute audiohal_prop                   mtk_core_property_type;
-typeattribute wmt_prop                        mtk_core_property_type;
-typeattribute coredump_prop                   mtk_core_property_type;
-typeattribute net_cdma_mdmstat                mtk_core_property_type;
-typeattribute persist_bt_prop                 mtk_core_property_type;
-typeattribute vendor_factory_idle_state_prop  mtk_core_property_type;
-typeattribute service_nvram_init_prop         mtk_core_property_type;
-typeattribute wifi_5g_prop                    mtk_core_property_type;
-typeattribute mtk_em_prop                     mtk_core_property_type;
-typeattribute mediatek_prop                   mtk_core_property_type;
-typeattribute mtk_em_hidl_prop                mtk_core_property_type;
-typeattribute mtk_operator_id_prop            mtk_core_property_type;
-typeattribute mtk_simswitch_emmode_prop       mtk_core_property_type;
-typeattribute mtk_dsbp_support_prop           mtk_core_property_type;
-typeattribute mtk_imstestmode_prop            mtk_core_property_type;
-typeattribute mtk_smsformat_prop              mtk_core_property_type;
-typeattribute mtk_gprs_prefer_prop            mtk_core_property_type;
-typeattribute mtk_testsim_cardtype_prop       mtk_core_property_type;
-typeattribute mtk_ct_ir_engmode_prop          mtk_core_property_type;
-typeattribute mtk_disable_c2k_cap_prop        mtk_core_property_type;
-typeattribute mtk_debug_md_reset_prop         mtk_core_property_type;
-typeattribute mtk_omx_log_prop                mtk_core_property_type;
-typeattribute mtk_vdec_log_prop               mtk_core_property_type;
-typeattribute mtk_vdectlc_log_prop            mtk_core_property_type;
-typeattribute mtk_venc_h264_showlog_prop      mtk_core_property_type;
-typeattribute mtk_modem_warning_prop          mtk_core_property_type;
-typeattribute vendor_radio_prop               mtk_core_property_type;
-typeattribute mtk_ct_volte_prop               mtk_core_property_type;
-typeattribute mtk_ril_mode_prop               mtk_core_property_type;
-typeattribute mtk_ss_vendor_prop              mtk_core_property_type;
-typeattribute mtk_gps_support_prop            mtk_core_property_type;
-typeattribute mtk_rat_config_prop             mtk_core_property_type;
-typeattribute mtk_aal_ro_prop                 mtk_core_property_type;
-typeattribute mtk_pq_ro_prop                  mtk_core_property_type;
-typeattribute mtk_pq_prop                     mtk_core_property_type;
-typeattribute mtk_emmc_support_prop           mtk_core_property_type;
-typeattribute vendor_em_usb_prop              mtk_core_property_type;
-typeattribute vendor_usb_otg_switch           mtk_core_property_type;
-typeattribute mtk_anr_support_prop            mtk_core_property_type;
-typeattribute mtk_appresolutiontuner_prop     mtk_core_property_type;
-typeattribute mtk_fullscreenswitch_prop       mtk_core_property_type;
-typeattribute mtk_antutu_prop                 mtk_core_property_type;
-typeattribute mtk_malloc_debug_backtrace_prop mtk_core_property_type;
-typeattribute mtk_voicerecgnize_prop          mtk_core_property_type;
-typeattribute persist_service_atci_prop       mtk_core_property_type;
-typeattribute mtk_atci_prop                   mtk_core_property_type;
-typeattribute mtk_net_ipv6_prop               mtk_core_property_type;
-typeattribute usp_prop                        mtk_core_property_type;
-typeattribute mtk_cxp_vendor_prop             mtk_core_property_type;
-typeattribute mtk_md_version_prop             mtk_core_property_type;
-typeattribute mtk_volte_prop                  mtk_core_property_type;
-typeattribute mtk_bt_sap_enable_prop          mtk_core_property_type;
-typeattribute mtk_nvram_ready_prop            mtk_core_property_type;
-typeattribute mtk_wifi_hotspot_prop           mtk_core_property_type;
-typeattribute mtk_hdmi_prop                   mtk_core_property_type;
-
-# Properties with can't be accessed by device-sepcific domains
-typeattribute debug_mtklog_prop              extended_core_property_type;
-typeattribute persist_mtklog_prop            extended_core_property_type;
-typeattribute debug_netlog_prop              extended_core_property_type;
-typeattribute debug_mdlogger_prop            extended_core_property_type;
-typeattribute vendor_mdl_prop                extended_core_property_type;
-typeattribute vendor_mdl_start_prop          extended_core_property_type;
-typeattribute persist_mdlog_prop             extended_core_property_type;
-typeattribute vendor_mdl_pulllog_prop        extended_core_property_type;
-typeattribute persist_mtk_aee_prop           extended_core_property_type;
-typeattribute persist_aee_prop               extended_core_property_type;
-typeattribute debug_mtk_aee_prop             extended_core_property_type;
-typeattribute debug_bq_dump_prop             extended_core_property_type;
-typeattribute bootani_prop                   extended_core_property_type;
-typeattribute mobile_log_prop                extended_core_property_type;
-typeattribute mtk_em_sys_prop                extended_core_property_type;
-typeattribute mtk_em_net_auto_tethering_prop extended_core_property_type;
-typeattribute mtk_bgdata_disabled            extended_core_property_type;
-typeattribute mtk_telecom_vibrate            extended_core_property_type;
-typeattribute mtk_gprs_attach_type           extended_core_property_type;
-typeattribute mtk_power_off_md_type          extended_core_property_type;
-typeattribute vendor_connsysfw_prop          extended_core_property_type;
-typeattribute vendor_bluetooth_prop          extended_core_property_type;
-typeattribute vendor_sim_system_prop         extended_core_property_type;
-typeattribute persist_xcap_rawurl_prop       extended_core_property_type;
-typeattribute usp_srv_prop                   extended_core_property_type;
-typeattribute mtk_amslog_prop                extended_core_property_type;
-typeattribute logmuch_prop                   extended_core_property_type;
+typeattribute vendor_mtk_aal_ro_prop                 mtk_core_property_type;
+typeattribute vendor_mtk_anr_support_prop            mtk_core_property_type;
+typeattribute vendor_mtk_antutu_prop                 mtk_core_property_type;
+typeattribute vendor_mtk_appresolutiontuner_prop     mtk_core_property_type;
+typeattribute vendor_mtk_atci_prop                   mtk_core_property_type;
+typeattribute vendor_mtk_audiohal_prop               mtk_core_property_type;
+typeattribute vendor_mtk_bt_sap_enable_prop          mtk_core_property_type;
+typeattribute vendor_mtk_coredump_prop               mtk_core_property_type;
+typeattribute vendor_mtk_ct_ir_engmode_prop          mtk_core_property_type;
+typeattribute vendor_mtk_ct_volte_prop               mtk_core_property_type;
+typeattribute vendor_mtk_cxp_vendor_prop             mtk_core_property_type;
+typeattribute vendor_mtk_debug_md_reset_prop         mtk_core_property_type;
+typeattribute vendor_mtk_debug_mtk_aeev_prop         mtk_core_property_type;
+typeattribute vendor_mtk_default_prop                mtk_core_property_type;
+typeattribute vendor_mtk_disable_c2k_cap_prop        mtk_core_property_type;
+typeattribute vendor_mtk_dsbp_support_prop           mtk_core_property_type;
+typeattribute vendor_mtk_em_hidl_prop                mtk_core_property_type;
+typeattribute vendor_mtk_emmc_support_prop           mtk_core_property_type;
+typeattribute vendor_mtk_em_prop                     mtk_core_property_type;
+typeattribute vendor_mtk_em_usb_prop                 mtk_core_property_type;
+typeattribute vendor_mtk_factory_idle_state_prop     mtk_core_property_type;
+typeattribute vendor_mtk_fullscreenswitch_prop       mtk_core_property_type;
+typeattribute vendor_mtk_gprs_prefer_prop            mtk_core_property_type;
+typeattribute vendor_mtk_gps_support_prop            mtk_core_property_type;
+typeattribute vendor_mtk_gsm0710muxd_prop            mtk_core_property_type;
+typeattribute vendor_mtk_hdmi_prop                   mtk_core_property_type;
+typeattribute vendor_mtk_imstestmode_prop            mtk_core_property_type;
+typeattribute vendor_mtk_malloc_debug_backtrace_prop mtk_core_property_type;
+typeattribute vendor_mtk_md_prop                     mtk_core_property_type;
+typeattribute vendor_mtk_md_version_prop             mtk_core_property_type;
+typeattribute vendor_mtk_mediatek_prop               mtk_core_property_type;
+typeattribute vendor_mtk_mnld_prop                   mtk_core_property_type;
+typeattribute vendor_mtk_modem_warning_prop          mtk_core_property_type;
+typeattribute vendor_mtk_net_cdma_mdmstat_prop       mtk_core_property_type;
+typeattribute vendor_mtk_nvram_ready_prop            mtk_core_property_type;
+typeattribute vendor_mtk_omx_log_prop                mtk_core_property_type;
+typeattribute vendor_mtk_operator_id_prop            mtk_core_property_type;
+typeattribute vendor_mtk_persist_aeev_prop           mtk_core_property_type;
+typeattribute vendor_mtk_persist_mtk_aeev_prop       mtk_core_property_type;
+typeattribute vendor_mtk_persist_service_atci_prop   mtk_core_property_type;
+typeattribute vendor_mtk_pq_prop                     mtk_core_property_type;
+typeattribute vendor_mtk_pq_ro_prop                  mtk_core_property_type;
+typeattribute vendor_mtk_radio_prop                  mtk_core_property_type;
+typeattribute vendor_mtk_rat_config_prop             mtk_core_property_type;
+typeattribute vendor_mtk_ril_active_md_prop          mtk_core_property_type;
+typeattribute vendor_mtk_ril_cdma_report_prop        mtk_core_property_type;
+typeattribute vendor_mtk_ril_ipo_prop                mtk_core_property_type;
+typeattribute vendor_mtk_ril_mode_prop               mtk_core_property_type;
+typeattribute vendor_mtk_ril_mux_report_case_prop    mtk_core_property_type;
+typeattribute vendor_mtk_ro_aee_prop                 mtk_core_property_type;
+typeattribute vendor_mtk_service_nvram_init_prop     mtk_core_property_type;
+typeattribute vendor_mtk_simswitch_emmode_prop       mtk_core_property_type;
+typeattribute vendor_mtk_smsformat_prop              mtk_core_property_type;
+typeattribute vendor_mtk_ss_vendor_prop              mtk_core_property_type;
+typeattribute vendor_mtk_tel_switch_prop             mtk_core_property_type;
+typeattribute vendor_mtk_testsim_cardtype_prop       mtk_core_property_type;
+typeattribute vendor_mtk_usb_otg_switch_prop         mtk_core_property_type;
+typeattribute vendor_mtk_vdec_log_prop               mtk_core_property_type;
+typeattribute vendor_mtk_vdectlc_log_prop            mtk_core_property_type;
+typeattribute vendor_mtk_venc_h264_showlog_prop      mtk_core_property_type;
+typeattribute vendor_mtk_voicerecgnize_prop          mtk_core_property_type;
+typeattribute vendor_mtk_volte_prop                  mtk_core_property_type;
+typeattribute vendor_mtk_wifi_hotspot_prop           mtk_core_property_type;
+typeattribute vendor_mtk_wmt_prop                    mtk_core_property_type;
+typeattribute vendor_mtk_gpu_prop                    mtk_core_property_type;
+typeattribute vendor_mtk_sensor_prop                 mtk_core_property_type;

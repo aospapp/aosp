@@ -524,7 +524,7 @@ public final class MenuManagerTest {
         }
 
         DirectoryResult r = new DirectoryResult();
-        r.cursor = c;
+        r.setCursor(c);
         Model model = new Model(new TestFeatures());
         model.update(r);
 

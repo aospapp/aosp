@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 AUTHOR = "Chrome OS Team"
-NAME = "unit_test_server"
+NAME = "example_UnitTestServer"
 TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "example"

@@ -134,6 +134,7 @@ public class TestAll extends TestGroup {
             millis = (int) (m - (seconds * 1000));
         }
 
+        @Override
         public String toString() {
             StringBuilder sb = new StringBuilder();
             if (hours > 0) {
@@ -157,6 +158,16 @@ public class TestAll extends TestGroup {
     }
 
     public static void main(String[] args) {
+        int errCount = runTests(args);
+        if (errCount != 0) {
+            System.exit(1);
+        }
+    }
+
+    /**
+     * Run all tests, but do not System.exit at the end.
+     */
+    public static int runTests(String[] args) {
         final boolean doTimeStamps = false;
         TimeStampingPrintWriter tspw = new TimeStampingPrintWriter(System.out);
         if (!doTimeStamps) {
@@ -171,9 +182,7 @@ public class TestAll extends TestGroup {
         sb.append("Tests took ");
         sb.append(dispBean.toString());
         System.out.println(sb.toString());
-        if (errCount != 0) {
-            System.exit(1);
-        }
+        return errCount;
     }
 
     public TestAll() {
@@ -225,6 +234,9 @@ public class TestAll extends TestGroup {
             "org.unicode.cldr.unittest.TestDtdData",
             "org.unicode.cldr.unittest.TestCldrFactory",
             "org.unicode.cldr.unittest.TestUnContainment",
+            "org.unicode.cldr.unittest.TestUnits",
+            "org.unicode.cldr.unittest.TestNumbers",
+            "org.unicode.cldr.unittest.TestLocaleCanonicalizer",
             //            "org.unicode.cldr.unittest.TestCollators" See Ticket #8288
             "org.unicode.cldr.api.AllTests",
         },

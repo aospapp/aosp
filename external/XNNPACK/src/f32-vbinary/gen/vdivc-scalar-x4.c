@@ -19,13 +19,14 @@ void xnn_f32_vdivc_ukernel__scalar_x4(
     const float* a,
     const float* b,
     float* y,
-    const union xnn_f32_output_params params[restrict static 1])
+    const union xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(n != 0);
   assert(n % sizeof(float) == 0);
+  assert(a != NULL);
+  assert(b != NULL);
+  assert(y != NULL);
 
-  const float vy_min = params->scalar.min;
-  const float vy_max = params->scalar.max;
 
   const float vb = *b;
   for (; n >= 4 * sizeof(float); n -= 4 * sizeof(float)) {
@@ -40,15 +41,7 @@ void xnn_f32_vdivc_ukernel__scalar_x4(
     float vy2 = va2 / vb;
     float vy3 = va3 / vb;
 
-    vy0 = math_max_f32(vy0, vy_min);
-    vy1 = math_max_f32(vy1, vy_min);
-    vy2 = math_max_f32(vy2, vy_min);
-    vy3 = math_max_f32(vy3, vy_min);
 
-    vy0 = math_min_f32(vy0, vy_max);
-    vy1 = math_min_f32(vy1, vy_max);
-    vy2 = math_min_f32(vy2, vy_max);
-    vy3 = math_min_f32(vy3, vy_max);
 
     y[0] = vy0;
     y[1] = vy1;
@@ -60,8 +53,6 @@ void xnn_f32_vdivc_ukernel__scalar_x4(
     do {
       const float va = *a++;
       float vy = va / vb;
-      vy = math_max_f32(vy, vy_min);
-      vy = math_min_f32(vy, vy_max);
       *y++ = vy;
       n -= sizeof(float);
     } while (n != 0);

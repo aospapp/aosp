@@ -21,32 +21,59 @@ void xnn_f32_dwconv_ukernel_up1x9__scalar_acc2(
     float* output,
     size_t input_stride,
     size_t output_increment,
-    const union xnn_f32_output_params params[restrict static 1])
+    size_t input_offset,
+    const float* zero,
+    const union xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(channels != 0);
   assert(output_width != 0);
 
-  const float vmin = params->scalar.min;
-  const float vmax = params->scalar.max;
   do {
     const float* i0 = input[0];
     assert(i0 != NULL);
+    if XNN_UNPREDICTABLE(i0 != zero) {
+      i0 = (const float*) ((uintptr_t) i0 + input_offset);
+    }
     const float* i1 = input[1];
     assert(i1 != NULL);
+    if XNN_UNPREDICTABLE(i1 != zero) {
+      i1 = (const float*) ((uintptr_t) i1 + input_offset);
+    }
     const float* i2 = input[2];
     assert(i2 != NULL);
+    if XNN_UNPREDICTABLE(i2 != zero) {
+      i2 = (const float*) ((uintptr_t) i2 + input_offset);
+    }
     const float* i3 = input[3];
     assert(i3 != NULL);
+    if XNN_UNPREDICTABLE(i3 != zero) {
+      i3 = (const float*) ((uintptr_t) i3 + input_offset);
+    }
     const float* i4 = input[4];
     assert(i4 != NULL);
+    if XNN_UNPREDICTABLE(i4 != zero) {
+      i4 = (const float*) ((uintptr_t) i4 + input_offset);
+    }
     const float* i5 = input[5];
     assert(i5 != NULL);
+    if XNN_UNPREDICTABLE(i5 != zero) {
+      i5 = (const float*) ((uintptr_t) i5 + input_offset);
+    }
     const float* i6 = input[6];
     assert(i6 != NULL);
+    if XNN_UNPREDICTABLE(i6 != zero) {
+      i6 = (const float*) ((uintptr_t) i6 + input_offset);
+    }
     const float* i7 = input[7];
     assert(i7 != NULL);
+    if XNN_UNPREDICTABLE(i7 != zero) {
+      i7 = (const float*) ((uintptr_t) i7 + input_offset);
+    }
     const float* i8 = input[8];
     assert(i8 != NULL);
+    if XNN_UNPREDICTABLE(i8 != zero) {
+      i8 = (const float*) ((uintptr_t) i8 + input_offset);
+    }
     input = (const float**) ((uintptr_t) input + input_stride);
 
     size_t c = channels;
@@ -94,10 +121,7 @@ void xnn_f32_dwconv_ukernel_up1x9__scalar_acc2(
 
       vacc0p0 += vacc0p1;
 
-      float vacc0 = math_max_f32(vacc0p0, vmin);
-      vacc0 = math_min_f32(vacc0, vmax);
-
-      *output++ = vacc0;
+      *output++ = vacc0p0;
     } while (--c != 0);
 
     output = (float*) ((uintptr_t) output + output_increment);

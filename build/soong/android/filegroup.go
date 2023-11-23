@@ -15,13 +15,57 @@
 package android
 
 import (
-	"io"
+	"android/soong/bazel"
 	"strings"
-	"text/template"
 )
 
 func init() {
 	RegisterModuleType("filegroup", FileGroupFactory)
+	RegisterBp2BuildMutator("filegroup", FilegroupBp2Build)
+}
+
+var PrepareForTestWithFilegroup = FixtureRegisterWithContext(func(ctx RegistrationContext) {
+	ctx.RegisterModuleType("filegroup", FileGroupFactory)
+})
+
+// https://docs.bazel.build/versions/master/be/general.html#filegroup
+type bazelFilegroupAttributes struct {
+	Srcs bazel.LabelListAttribute
+}
+
+type bazelFilegroup struct {
+	BazelTargetModuleBase
+	bazelFilegroupAttributes
+}
+
+func BazelFileGroupFactory() Module {
+	module := &bazelFilegroup{}
+	module.AddProperties(&module.bazelFilegroupAttributes)
+	InitBazelTargetModule(module)
+	return module
+}
+
+func (bfg *bazelFilegroup) Name() string {
+	return bfg.BaseModuleName()
+}
+
+func (bfg *bazelFilegroup) GenerateAndroidBuildActions(ctx ModuleContext) {}
+
+func FilegroupBp2Build(ctx TopDownMutatorContext) {
+	fg, ok := ctx.Module().(*fileGroup)
+	if !ok || !fg.ConvertWithBp2build(ctx) {
+		return
+	}
+
+	srcs := bazel.MakeLabelListAttribute(
+		BazelLabelForModuleSrcExcludes(ctx, fg.properties.Srcs, fg.properties.Exclude_srcs))
+	attrs := &bazelFilegroupAttributes{
+		Srcs: srcs,
+	}
+
+	props := bazel.BazelTargetModuleProperties{Rule_class: "filegroup"}
+
+	ctx.CreateBazelTargetModule(BazelFileGroupFactory, fg.Name(), props, attrs)
 }
 
 type fileGroupProperties struct {
@@ -43,6 +87,7 @@ type fileGroupProperties struct {
 
 type fileGroup struct {
 	ModuleBase
+	BazelModuleBase
 	properties fileGroupProperties
 	srcs       Paths
 }
@@ -56,12 +101,38 @@ func FileGroupFactory() Module {
 	module := &fileGroup{}
 	module.AddProperties(&module.properties)
 	InitAndroidModule(module)
+	InitBazelModule(module)
 	return module
 }
 
-func (fg *fileGroup) GenerateAndroidBuildActions(ctx ModuleContext) {
-	fg.srcs = PathsForModuleSrcExcludes(ctx, fg.properties.Srcs, fg.properties.Exclude_srcs)
+func (fg *fileGroup) generateBazelBuildActions(ctx ModuleContext) bool {
+	if !fg.MixedBuildsEnabled(ctx) {
+		return false
+	}
 
+	bazelCtx := ctx.Config().BazelContext
+	filePaths, ok := bazelCtx.GetOutputFiles(fg.GetBazelLabel(ctx, fg), ctx.Arch().ArchType)
+	if !ok {
+		return false
+	}
+
+	bazelOuts := make(Paths, 0, len(filePaths))
+	for _, p := range filePaths {
+		src := PathForBazelOut(ctx, p)
+		bazelOuts = append(bazelOuts, src)
+	}
+
+	fg.srcs = bazelOuts
+
+	return true
+}
+
+func (fg *fileGroup) GenerateAndroidBuildActions(ctx ModuleContext) {
+	if fg.generateBazelBuildActions(ctx) {
+		return
+	}
+
+	fg.srcs = PathsForModuleSrcExcludes(ctx, fg.properties.Srcs, fg.properties.Exclude_srcs)
 	if fg.properties.Path != nil {
 		fg.srcs = PathsWithModuleSrcSubDir(ctx, fg.srcs, String(fg.properties.Path))
 	}
@@ -71,23 +142,8 @@ func (fg *fileGroup) Srcs() Paths {
 	return append(Paths{}, fg.srcs...)
 }
 
-var androidMkTemplate = template.Must(template.New("filegroup").Parse(`
-ifdef {{.makeVar}}
-  $(error variable {{.makeVar}} set by soong module is already set in make)
-endif
-{{.makeVar}} := {{.value}}
-.KATI_READONLY := {{.makeVar}}
-`))
-
-func (fg *fileGroup) AndroidMk() AndroidMkData {
-	return AndroidMkData{
-		Custom: func(w io.Writer, name, prefix, moduleDir string, data AndroidMkData) {
-			if makeVar := String(fg.properties.Export_to_make_var); makeVar != "" {
-				androidMkTemplate.Execute(w, map[string]string{
-					"makeVar": makeVar,
-					"value":   strings.Join(fg.srcs.Strings(), " "),
-				})
-			}
-		},
+func (fg *fileGroup) MakeVars(ctx MakeVarsModuleContext) {
+	if makeVar := String(fg.properties.Export_to_make_var); makeVar != "" {
+		ctx.StrictRaw(makeVar, strings.Join(fg.srcs.Strings(), " "))
 	}
 }

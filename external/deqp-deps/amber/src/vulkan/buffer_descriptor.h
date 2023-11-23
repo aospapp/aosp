@@ -23,6 +23,7 @@
 #include "amber/vulkan_header.h"
 #include "src/buffer.h"
 #include "src/engine.h"
+#include "src/vulkan/buffer_backed_descriptor.h"
 #include "src/vulkan/transfer_buffer.h"
 
 namespace amber {
@@ -31,53 +32,32 @@ namespace vulkan {
 class CommandBuffer;
 class Device;
 
-enum class DescriptorType : uint8_t {
-  kStorageBuffer = 0,
-  kUniformBuffer,
-};
-
 /// Stores descriptor set and binding information for storage and uniform
 /// buffers.
-class BufferDescriptor {
+class BufferDescriptor : public BufferBackedDescriptor {
  public:
   BufferDescriptor(Buffer* buffer,
                    DescriptorType type,
                    Device* device,
                    uint32_t desc_set,
                    uint32_t binding);
-  ~BufferDescriptor();
+  ~BufferDescriptor() override;
 
-  uint32_t GetDescriptorSet() const { return descriptor_set_; }
-  uint32_t GetBinding() const { return binding_; }
-
-  VkDescriptorType GetVkDescriptorType() const;
-
-  bool IsStorageBuffer() const {
-    return type_ == DescriptorType::kStorageBuffer;
+  void UpdateDescriptorSetIfNeeded(VkDescriptorSet descriptor_set) override;
+  Result CreateResourceIfNeeded() override;
+  Result MoveResourceToBufferOutput() override;
+  std::vector<uint32_t> GetDynamicOffsets() override {
+    return dynamic_offsets_;
   }
-  bool IsUniformBuffer() const {
-    return type_ == DescriptorType::kUniformBuffer;
-  }
+  void AddDynamicOffset(uint32_t offset) { dynamic_offsets_.push_back(offset); }
+  BufferDescriptor* AsBufferDescriptor() override { return this; }
 
-  Result CreateResourceIfNeeded();
-  void RecordCopyDataToResourceIfNeeded(CommandBuffer* command);
-  Result RecordCopyDataToHost(CommandBuffer* command);
-  Result MoveResourceToBufferOutput();
-  void UpdateDescriptorSetIfNeeded(VkDescriptorSet descriptor_set);
-
-  Result SetSizeInElements(uint32_t element_count);
-  Result AddToBuffer(const std::vector<Value>& values, uint32_t offset);
+ protected:
+  std::vector<Resource*> GetResources() override;
 
  private:
-  Device* device_ = nullptr;
-  Buffer* amber_buffer_ = nullptr;
-  std::unique_ptr<TransferBuffer> transfer_buffer_;
-
-  DescriptorType type_ = DescriptorType::kStorageBuffer;
-
-  bool is_descriptor_set_update_needed_ = false;
-  uint32_t descriptor_set_ = 0;
-  uint32_t binding_ = 0;
+  std::vector<std::unique_ptr<TransferBuffer>> transfer_buffers_;
+  std::vector<uint32_t> dynamic_offsets_;
 };
 
 }  // namespace vulkan

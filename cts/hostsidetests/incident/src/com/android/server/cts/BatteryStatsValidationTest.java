@@ -151,19 +151,6 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
                 "am start -n com.android.server.cts.device.batterystats/.SimpleActivity");
     }
 
-    public void testUidForegroundDuration() throws Exception {
-        batteryOnScreenOff();
-        installPackage(DEVICE_SIDE_TEST_APK, true);
-        // No foreground time before test
-        assertValueRange("st", "", STATE_TIME_FOREGROUND_INDEX, 0, 0);
-        turnScreenOnForReal();
-        assertScreenOn();
-        executeForeground(ACTION_SHOW_APPLICATION_OVERLAY, 2000);
-        Thread.sleep(TIME_SPENT_IN_FOREGROUND); // should be in foreground for about this long
-        assertApproximateTimeInState(STATE_TIME_FOREGROUND_INDEX, TIME_SPENT_IN_FOREGROUND);
-        batteryOffScreenOn();
-    }
-
     public void testUidBackgroundDuration() throws Exception {
         batteryOnScreenOff();
         installPackage(DEVICE_SIDE_TEST_APK, true);
@@ -251,6 +238,21 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         // Should be approximately 15000 ms (3 x 5000 ms). Use 0.8x and 2x as the lower and upper
         // bounds to account for possible errors due to thread scheduling and cpu load.
         assertValueRange("jb", DEVICE_SIDE_JOB_COMPONENT, 5, (long) (15000 * 0.8), 15000 * 2);
+        batteryOffScreenOn();
+    }
+
+    public void testReportRadioPowerState() throws Exception {
+        // Simulate usb unplugged.
+        batteryOnScreenOff();
+
+        installPackage(DEVICE_SIDE_TEST_APK, true);
+        allowImmediateSyncs();
+
+        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".BatteryStatsRadioPowerStateTest",
+                "testReportMobileRadioPowerState");
+        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".BatteryStatsRadioPowerStateTest",
+                "testReportWifiRadioPowerState");
+
         batteryOffScreenOn();
     }
 

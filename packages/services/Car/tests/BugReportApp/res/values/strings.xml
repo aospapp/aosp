@@ -20,6 +20,7 @@
     <string name="bugreport_info_quit">Close</string>
     <string name="bugreport_info_start">Start Bug Report</string>
     <string name="bugreport_info_status">Status:</string>
+    <string name="bugreport_info_expires_soon_notice">This bug report will expire soon</string>
 
     <string name="bugreport_dialog_submit">Submit</string>
     <string name="bugreport_dialog_cancel">Cancel</string>

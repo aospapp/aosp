@@ -1,8 +1,13 @@
+# Lint as: python2, python3
 # Copyright (c) 2016 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Server side audio utilities functions for Brillo."""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import contextlib
 import logging
@@ -14,6 +19,8 @@ import tempfile
 import wave
 
 from autotest_lib.client.common_lib import error
+from six.moves import map
+from six.moves import range
 
 
 _BITS_PER_BYTE=8
@@ -99,7 +106,7 @@ def check_wav_file(filename, num_channels=None, sample_rate=None,
 
     peaks = []
     for i in range(chk_file.getnchannels()):
-        peaks.append(max(map(abs, frames[i::chk_file.getnchannels()])))
+        peaks.append(max(list(map(abs, frames[i::chk_file.getnchannels()]))))
     return peaks;
 
 

@@ -16,21 +16,21 @@
 
 package com.android.cts.intent.receiver;
 
-import android.app.admin.DevicePolicyManager;
 import android.app.Activity;
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
-import android.util.Log;
-
 import android.os.Bundle;
+import android.util.Log;
 
 /**
  * An activity that receives an intent and returns immediately, indicating its own name and if it is
  * running in a managed profile.
  */
 public class SimpleIntentReceiverActivity extends Activity {
-    private static final String TAG = "SimpleIntentReceiverActivity";
+    private static final String TAG = SimpleIntentReceiverActivity.class.getSimpleName();
 
+    @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         String className = getIntent().getComponent().getClassName();
@@ -41,8 +41,14 @@ public class SimpleIntentReceiverActivity extends Activity {
                 (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
         boolean inManagedProfile = dpm.isProfileOwnerApp("com.android.cts.managedprofile");
 
-        Log.i(TAG, "activity " + className + " started, is in managed profile: "
-                + inManagedProfile);
+        try {
+            Log.i(TAG, "activity " + className + " started on user " + getUserId()
+                    + ", is in managed profile: " + inManagedProfile);
+        } catch (NoSuchMethodError e) {
+            // TODO(b/183427655): figure out why it's failing...
+            Log.i(TAG, "activity " + className + ", is in managed profile: " + inManagedProfile
+                    + " (could not infer user id: " + e + ")");
+        }
         Intent result = new Intent();
         result.putExtra("extra_receiver_class", className);
         result.putExtra("extra_in_managed_profile", inManagedProfile);

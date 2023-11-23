@@ -27,11 +27,22 @@ parser.set_defaults(defines=list())
 
 
 def split_ukernel_name(name):
-  match = re.match(r"^xnn_(f16|f32)_(sigmoid)_(fact_)?ukernel__(.+)_x(\d+)$", name)
+  match = re.match(r"^xnn_(f16|f32)_(relu|sigmoid|vabs|velu|vlrelu|vneg|vsqr|vrndne|vrndz|vrndd|vrndu|vsqrt)_(fact_)?ukernel__(.+)_x(\d+)$", name)
   if match is None:
     raise ValueError("Unexpected microkernel name: " + name)
   op_type = {
+    "relu": "ReLU",
+    "vabs": "Abs",
+    "velu": "ELU",
+    "vlrelu": "LeakyReLU",
+    "vneg": "Negate",
     "sigmoid": "Sigmoid",
+    "vrndne": "RoundToNearestEven",
+    "vrndz": "RoundTowardsZero",
+    "vrndu": "RoundUp",
+    "vrndd": "RoundDown",
+    "vsqr": "Square",
+    "vsqrt": "SquareRoot",
   }[match.group(2)]
   batch_tile = int(match.group(5))
 
@@ -89,6 +100,60 @@ TEST(${TEST_NAME}, inplace) {
       .Test(${", ".join(TEST_ARGS)});
   }
 }
+
+$if OP_TYPE == "LeakyReLU":
+  TEST(${TEST_NAME}, slope) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (float slope : std::vector<float>({-0.7f, 0.3f, 1.3f})) {
+      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+        VUnOpMicrokernelTester()
+          .batch_size(batch_size)
+          .slope(slope)
+          .Test(${", ".join(TEST_ARGS)});
+      }
+    }
+  }
+
+$if OP_TYPE == "ELU":
+  TEST(${TEST_NAME}, prescale) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (float prescale : std::vector<float>({0.1f, 10.0f})) {
+      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+        VUnOpMicrokernelTester()
+          .batch_size(batch_size)
+          .prescale(prescale)
+          .Test(${", ".join(TEST_ARGS)});
+      }
+    }
+  }
+
+  TEST(${TEST_NAME}, alpha) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (float alpha : std::vector<float>({0.3f, 3.0f})) {
+      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+        VUnOpMicrokernelTester()
+          .batch_size(batch_size)
+          .alpha(alpha)
+          .Test(${", ".join(TEST_ARGS)});
+      }
+    }
+  }
+
+  TEST(${TEST_NAME}, beta) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (float beta : std::vector<float>({0.3f, 3.0f})) {
+      for (size_t batch_size = 1; batch_size <= ${BATCH_TILE*5}; batch_size += ${max(1, BATCH_TILE-1)}) {
+        VUnOpMicrokernelTester()
+          .batch_size(batch_size)
+          .beta(beta)
+          .Test(${", ".join(TEST_ARGS)});
+      }
+    }
+  }
 """
 
 
@@ -109,10 +174,10 @@ def generate_test_cases(ukernel, op_type, batch_tile, isa):
   _, test_name = ukernel.split("_", 1)
   _, datatype, _ = ukernel.split("_", 2)
   test_args = [
-    ukernel,
+    "xnn_f32_vunary_ukernel_function(%s)" % ukernel,
     "VUnOpMicrokernelTester::OpType::%s" % op_type,
   ]
-  if not isa or isa == "psimd":
+  if not isa:
     test_args.append("VUnOpMicrokernelTester::Variant::Scalar")
   return xngen.preprocess(BINOP_TEST_TEMPLATE, {
       "TEST_NAME": test_name.upper().replace("UKERNEL_", ""),

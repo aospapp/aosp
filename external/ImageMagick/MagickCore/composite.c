@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -333,13 +333,13 @@ static MagickBooleanType CompositeOverImage(Image *image,
       canvas_pixel,
       source_pixel;
 
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -391,7 +391,7 @@ static MagickBooleanType CompositeOverImage(Image *image,
         Sc,
         Sca;
 
-      register ssize_t
+      ssize_t
         i;
 
       size_t
@@ -579,24 +579,6 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
   source_image=CloneImage(composite,0,0,MagickTrue,exception);
   if (source_image == (const Image *) NULL)
     return(MagickFalse);
-  switch (compose)
-  {
-    case CopyCompositeOp:
-    case CopyRedCompositeOp:
-    case CopyGreenCompositeOp:
-    case CopyBlueCompositeOp:
-    case CopyCyanCompositeOp:
-    case CopyMagentaCompositeOp:
-    case CopyYellowCompositeOp:
-    case CopyBlackCompositeOp:
-      break;
-    default:
-    {
-      if (IsGrayColorspace(image->colorspace) == MagickFalse)
-        (void) SetImageColorspace(image,sRGBColorspace,exception);
-      break;
-    }
-  }
   (void) SetImageColorspace(source_image,image->colorspace,exception);
   if ((compose == OverCompositeOp) || (compose == SrcOverCompositeOp))
     {
@@ -642,13 +624,13 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         MagickBooleanType
           sync;
 
-        register const Quantum
+        const Quantum
           *p;
 
-        register Quantum
+        Quantum
           *q;
 
-        register ssize_t
+        ssize_t
           x;
 
         if (status == MagickFalse)
@@ -664,7 +646,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           }
         for (x=0; x < (ssize_t) source_image->columns; x++)
         {
-          register ssize_t
+          ssize_t
             i;
 
           if (GetPixelReadMask(source_image,p) <= (QuantumRange/2))
@@ -726,13 +708,13 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         MagickBooleanType
           sync;
 
-        register const Quantum
+        const Quantum
           *p;
 
-        register Quantum
+        Quantum
           *q;
 
-        register ssize_t
+        ssize_t
           x;
 
         if (status == MagickFalse)
@@ -795,7 +777,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       CacheView
         *canvas_view;
 
-      MagickRealType
+      double
         angle_range,
         angle_start,
         height,
@@ -811,13 +793,11 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         blur;
 
       /*
-        Blur Image by resampling.
-
-        Blur Image dictated by an overlay gradient map: X = red_channel;
-          Y = green_channel; compose:args =  x_scale[,y_scale[,angle]].
+        Blur Image by resampling dictated by an overlay gradient map:
+          X = red_channel; Y = green_channel; compose:args =
+          x_scale[,y_scale[,angle]].
       */
-      canvas_image=CloneImage(image,0,0,MagickTrue,
-        exception);
+      canvas_image=CloneImage(image,0,0,MagickTrue,exception);
       if (canvas_image == (Image *) NULL)
         {
           source_image=DestroyImage(source_image);
@@ -840,12 +820,13 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         }
       /*
         Users input sigma now needs to be converted to the EWA ellipse size.
-        The filter defaults to a sigma of 0.5 so to make this match the
-        users input the ellipse size needs to be doubled.
+        The filter defaults to a sigma of 0.5 so to make this match the users
+        input the ellipse size needs to be doubled.
       */
-      width=height=geometry_info.rho*2.0;
-      if ((flags & HeightValue) != 0 )
-        height=geometry_info.sigma*2.0;
+      width=2.0*geometry_info.rho;
+      height=width;
+      if ((flags & HeightValue) != 0)
+        height=2.0*geometry_info.sigma;
       /*
         Default the unrotated ellipse width and height axis vectors.
       */
@@ -853,23 +834,27 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       blur.x2=0.0;
       blur.y1=0.0;
       blur.y2=height;
-      /* rotate vectors if a rotation angle is given */
       if ((flags & XValue) != 0 )
         {
           MagickRealType
             angle;
 
+          /*
+            Rotate vectors if a rotation angle is given.
+          */
           angle=DegreesToRadians(geometry_info.xi);
           blur.x1=width*cos(angle);
           blur.x2=width*sin(angle);
           blur.y1=(-height*sin(angle));
           blur.y2=height*cos(angle);
         }
-      /* Otherwise lets set a angle range and calculate in the loop */
       angle_start=0.0;
       angle_range=0.0;
       if ((flags & YValue) != 0 )
         {
+          /*
+            Lets set a angle range and calculate in the loop.
+          */
           angle_start=DegreesToRadians(geometry_info.xi);
           angle_range=DegreesToRadians(geometry_info.psi)-angle_start;
         }
@@ -878,16 +863,15 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
 
         As the minimum ellipse radius of support*1.0 the EWA algorithm
         can only produce a minimum blur of 0.5 for Gaussian (support=2.0)
-        This means that even 'No Blur' will be still a little blurry!
-
-        The solution (as well as the problem of preventing any user
-        expert filter settings, is to set our own user settings, then
-        restore them afterwards.
+        This means that even 'No Blur' will be still a little blurry! The
+        solution (as well as the problem of preventing any user expert filter
+        settings, is to set our own user settings, restore them afterwards.
       */
       resample_filter=AcquireResampleFilter(image,exception);
       SetResampleFilter(resample_filter,GaussianFilter);
-
-      /* do the variable blurring of each pixel in image */
+      /*
+        Perform the variable blurring of each pixel in image.
+      */
       GetPixelInfo(image,&pixel);
       source_view=AcquireVirtualCacheView(source_image,exception);
       canvas_view=AcquireAuthenticCacheView(canvas_image,exception);
@@ -896,13 +880,13 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         MagickBooleanType
           sync;
 
-        register const Quantum
+        const Quantum
           *magick_restrict p;
 
-        register Quantum
+        Quantum
           *magick_restrict q;
 
-        register ssize_t
+        ssize_t
           x;
 
         if (((y+y_offset) < 0) || ((y+y_offset) >= (ssize_t) image->rows))
@@ -920,7 +904,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
               p+=GetPixelChannels(source_image);
               continue;
             }
-          if (fabs((double) angle_range) > MagickEpsilon)
+          if (fabs(angle_range) > MagickEpsilon)
             {
               MagickRealType
                 angle;
@@ -932,13 +916,6 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
               blur.y1=(-height*sin(angle));
               blur.y2=height*cos(angle);
             }
-#if 0
-          if ( x == 10 && y == 60 ) {
-            (void) fprintf(stderr, "blur.x=%lf,%lf, blur.y=%lf,%lf\n",blur.x1,
-              blur.x2,blur.y1, blur.y2);
-            (void) fprintf(stderr, "scaled by=%lf,%lf\n",QuantumScale*
-              GetPixelRed(p),QuantumScale*GetPixelGreen(p));
-#endif
           ScaleResampleFilter(resample_filter,
             blur.x1*QuantumScale*GetPixelRed(source_image,p),
             blur.y1*QuantumScale*GetPixelGreen(source_image,p),
@@ -983,8 +960,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           X = red_channel;  Y = green_channel;
           compose:args = x_scale[,y_scale[,center.x,center.y]]
       */
-      canvas_image=CloneImage(image,0,0,MagickTrue,
-        exception);
+      canvas_image=CloneImage(image,0,0,MagickTrue,exception);
       if (canvas_image == (Image *) NULL)
         {
           source_image=DestroyImage(source_image);
@@ -1075,13 +1051,13 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         MagickBooleanType
           sync;
 
-        register const Quantum
+        const Quantum
           *magick_restrict p;
 
-        register Quantum
+        Quantum
           *magick_restrict q;
 
-        register ssize_t
+        ssize_t
           x;
 
         if (((y+y_offset) < 0) || ((y+y_offset) >= (ssize_t) image->rows))
@@ -1255,13 +1231,13 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
       canvas_pixel,
       source_pixel;
 
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
@@ -1318,7 +1294,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         Sc,
         Sca;
 
-      register ssize_t
+      ssize_t
         i;
 
       size_t
@@ -1430,21 +1406,28 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         case DivideDstCompositeOp:
         case DivideSrcCompositeOp:
         case ExclusionCompositeOp:
+        case FreezeCompositeOp:
         case HardLightCompositeOp:
         case HardMixCompositeOp:
+        case InterpolateCompositeOp:
+        case LightenCompositeOp:
         case LinearBurnCompositeOp:
         case LinearDodgeCompositeOp:
         case LinearLightCompositeOp:
-        case LightenCompositeOp:
         case MathematicsCompositeOp:
         case MinusDstCompositeOp:
         case MinusSrcCompositeOp:
         case MultiplyCompositeOp:
+        case NegateCompositeOp:
         case OverlayCompositeOp:
         case PegtopLightCompositeOp:
         case PinLightCompositeOp:
+        case ReflectCompositeOp:
         case ScreenCompositeOp:
+        case SoftBurnCompositeOp:
+        case SoftDodgeCompositeOp:
         case SoftLightCompositeOp:
+        case StampCompositeOp:
         case VividLightCompositeOp:
         {
           alpha=RoundToUnity(Sa+Da-Sa*Da);
@@ -1525,6 +1508,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
         case HueCompositeOp:
         case LuminizeCompositeOp:
         case ModulateCompositeOp:
+        case RMSECompositeOp:
         case SaturateCompositeOp:
         {
           GetPixelInfoPixel(source_image,p,&source_pixel);
@@ -1598,6 +1582,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
               case ColorizeCompositeOp:
               case HueCompositeOp:
               case LuminizeCompositeOp:
+              case RMSECompositeOp:
               case SaturateCompositeOp:
               {
                 if (fabs((double) (QuantumRange*Sa-TransparentAlpha)) < MagickEpsilon)
@@ -1626,6 +1611,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
                   pixel=QuantumRange*Sa;
                 break;
               }
+              case BlurCompositeOp:
               case CopyCompositeOp:
               case DisplaceCompositeOp:
               case DistortCompositeOp:
@@ -1644,7 +1630,21 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
               }
               case DifferenceCompositeOp:
               {
-                pixel=QuantumRange*fabs(Sa-Da);
+                pixel=QuantumRange*fabs((double) (Sa-Da));
+                break;
+              }
+              case FreezeCompositeOp:
+              {
+                pixel=QuantumRange*(1.0-(1.0-Sa)*(1.0-Sa)*
+                  PerceptibleReciprocal(Da));
+                if (pixel < 0.0)
+                  pixel=0.0;
+                break;
+              }
+              case InterpolateCompositeOp:
+              {
+                pixel=QuantumRange*(0.5-0.25*cos(MagickPI*Sa)-0.25*
+                  cos(MagickPI*Da));
                 break;
               }
               case LightenIntensityCompositeOp:
@@ -1661,6 +1661,23 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
               case MultiplyCompositeOp:
               {
                 pixel=QuantumRange*Sa*Da;
+                break;
+              }
+              case NegateCompositeOp:
+              {
+                pixel=QuantumRange*((1.0-Sa-Da));
+                break;
+              }
+              case ReflectCompositeOp:
+              {
+                pixel=QuantumRange*(Sa*Sa*PerceptibleReciprocal(1.0-Da));
+                if (pixel > QuantumRange)
+                  pixel=QuantumRange;
+                break;
+              }
+              case StampCompositeOp:
+              {
+                pixel=QuantumRange*(Sa+Da*Da-1.0);
                 break;
               }
               case StereoCompositeOp:
@@ -1737,7 +1754,6 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
             pixel=gamma*(source_dissolve*Sa*Sc+canvas_dissolve*Da*Dc);
             break;
           }
-          case BlurCompositeOp:
           case CopyCompositeOp:
           case ReplaceCompositeOp:
           case SrcCompositeOp:
@@ -1745,6 +1761,7 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
             pixel=QuantumRange*Sca;
             break;
           }
+          case BlurCompositeOp:
           case DisplaceCompositeOp:
           case DistortCompositeOp:
           {
@@ -1950,6 +1967,14 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
               Dca*(1.0-Sa));
             break;
           }
+          case FreezeCompositeOp:
+          {
+            pixel=QuantumRange*gamma*(1.0-(1.0-Sca)*(1.0-Sca)*
+              PerceptibleReciprocal(Dca));
+            if (pixel < 0.0)
+              pixel=0.0;
+            break;
+          }
           case HardLightCompositeOp:
           {
             if ((2.0*Sca) < Sa)
@@ -1997,6 +2022,12 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
           case SrcInCompositeOp:
           {
             pixel=QuantumRange*(Sca*Da);
+            break;
+          }
+          case InterpolateCompositeOp:
+          {
+            pixel=QuantumRange*(0.5-0.25*cos(MagickPI*Sca)-0.25*
+              cos(MagickPI*Dca));
             break;
           }
           case LinearBurnCompositeOp:
@@ -2169,6 +2200,11 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
             pixel=QuantumRange*gamma*(Sca*Dca+Sca*(1.0-Da)+Dca*(1.0-Sa));
             break;
           }
+          case NegateCompositeOp:
+          {
+            pixel=QuantumRange*(1.0-fabs(1.0-Sca-Dca));
+            break;
+          }
           case OutCompositeOp:
           case SrcOutCompositeOp:
           {
@@ -2238,6 +2274,44 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
             pixel=QuantumRange*(Sca+Dca);
             break;
           }
+          case ReflectCompositeOp:
+          {
+            pixel=QuantumRange*gamma*(Sca*Sca*PerceptibleReciprocal(1.0-Dca));
+            if (pixel > QuantumRange)
+              pixel=QuantumRange;
+            break;
+          }
+          case RMSECompositeOp:
+          {
+            double
+              gray;
+
+            if (fabs((double) (QuantumRange*Sa-TransparentAlpha)) < MagickEpsilon)
+              {
+                pixel=Dc;
+                break;
+              }
+            if (fabs((double) (QuantumRange*Da-TransparentAlpha)) < MagickEpsilon)
+              {
+                pixel=Sc;
+                break;
+              }
+            gray=sqrt(
+              (canvas_pixel.red-source_pixel.red)*
+              (canvas_pixel.red-source_pixel.red)+
+              (canvas_pixel.green-source_pixel.green)*
+              (canvas_pixel.green-source_pixel.green)+
+              (canvas_pixel.blue-source_pixel.blue)*
+              (canvas_pixel.blue-source_pixel.blue)/3.0);
+            switch (channel)
+            {
+              case RedPixelChannel: pixel=gray; break;
+              case GreenPixelChannel: pixel=gray; break;
+              case BluePixelChannel: pixel=gray; break;
+              default: pixel=Dc; break;
+            }
+            break;
+          }
           case SaturateCompositeOp:
           {
             if (fabs((double) (QuantumRange*Sa-TransparentAlpha)) < MagickEpsilon)
@@ -2274,6 +2348,24 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
             pixel=QuantumRange*gamma*(Sca+Dca-Sca*Dca);
             break;
           }
+          case SoftBurnCompositeOp:
+          {
+            if ((Sca+Dca) < 1.0)
+              pixel=QuantumRange*gamma*(0.5*Dca*PerceptibleReciprocal(1.0-Sca));
+            else
+              pixel=QuantumRange*gamma*(1.0-0.5*(1.0-Sca)*
+                PerceptibleReciprocal(Dca));
+            break;
+          }
+          case SoftDodgeCompositeOp:
+          {
+            if ((Sca+Dca) < 1.0)
+              pixel=QuantumRange*gamma*(0.5*Sca*PerceptibleReciprocal(1.0-Dca));
+            else
+              pixel=QuantumRange*gamma*(1.0-0.5*(1.0-Dca)*
+                PerceptibleReciprocal(Sca));
+            break;
+          }
           case SoftLightCompositeOp:
           {
             if ((2.0*Sca) < Sa)
@@ -2291,6 +2383,11 @@ MagickExport MagickBooleanType CompositeImage(Image *image,
               }
             pixel=QuantumRange*gamma*(Dca*Sa+Da*(2.0*Sca-Sa)*(pow(DcaDa,0.5)-
               DcaDa)+Sca*(1.0-Da)+Dca*(1.0-Sa));
+            break;
+          }
+          case StampCompositeOp:
+          {
+            pixel=QuantumRange*(Sca+Dca*Dca-1.0);
             break;
           }
           case StereoCompositeOp:
@@ -2450,7 +2547,7 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
       */
       for (y=0; y < (ssize_t) image->rows; y+=(ssize_t) texture_image->rows)
       {
-        register ssize_t
+        ssize_t
           x;
 
         if (status == MagickFalse)
@@ -2500,14 +2597,14 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
     MagickBooleanType
       sync;
 
-    register const Quantum
+    const Quantum
       *p,
       *pixels;
 
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *q;
 
     size_t
@@ -2526,7 +2623,7 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
       }
     for (x=0; x < (ssize_t) image->columns; x+=(ssize_t) texture_image->columns)
     {
-      register ssize_t
+      ssize_t
         j;
 
       p=pixels;
@@ -2535,7 +2632,7 @@ MagickExport MagickBooleanType TextureImage(Image *image,const Image *texture,
         width=image->columns-x;
       for (j=0; j < (ssize_t) width; j++)
       {
-        register ssize_t
+        ssize_t
           i;
 
         for (i=0; i < (ssize_t) GetPixelChannels(texture_image); i++)

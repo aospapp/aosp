@@ -108,7 +108,7 @@ public class OrientationManagerImpl implements OrientationManager {
 
     @Override
     public DeviceOrientation getDisplayRotation() {
-        return DeviceOrientation.from((360 - CameraUtil.getDisplayRotation()) % 360);
+        return DeviceOrientation.from((360 - CameraUtil.getDisplayRotation(mActivity)) % 360);
     }
 
     @Override
@@ -270,8 +270,8 @@ public class OrientationManagerImpl implements OrientationManager {
      * @param context current context
      * @return whether the default orientation of the device is portrait
      */
-    private static boolean isDefaultToPortrait(Context context) {
-        Display currentDisplay = AndroidServices.instance().provideWindowManager()
+    private static boolean isDefaultToPortrait(Activity context) {
+        Display currentDisplay = AndroidServices.instance().provideWindowManager(context)
                 .getDefaultDisplay();
         Point displaySize = new Point();
         currentDisplay.getSize(displaySize);

@@ -3,7 +3,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2014, 2015, 2016, 2017, 2018
+ *		 2011, 2012, 2014, 2015, 2016, 2017, 2018, 2019
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -27,7 +27,7 @@
 #include <sys/file.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/histrap.c,v 1.167 2018/04/28 17:16:54 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/histrap.c,v 1.169 2019/09/16 21:10:33 tg Exp $");
 
 Trap sigtraps[ksh_NSIG + 1];
 static struct sigaction Sigact_ign;
@@ -504,6 +504,8 @@ findhist(int start, int fwd, const char *str, bool anchored)
 void
 sethistsize(mksh_ari_t n)
 {
+	if (n > 65535)
+		n = 65535;
 	if (n > 0 && n != histsize) {
 		int cursize = histptr - history;
 

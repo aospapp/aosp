@@ -14,32 +14,38 @@
  * limitations under the License.
  */
 
-package android.net.eap;
+package android.net.eap.test;
 
-import static android.net.eap.EapSessionConfig.DEFAULT_IDENTITY;
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_AKA;
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_AKA_PRIME;
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_MSCHAP_V2;
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_SIM;
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_TTLS;
 import static android.telephony.TelephonyManager.APPTYPE_USIM;
-
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_AKA;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_AKA_PRIME;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_MSCHAP_V2;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_SIM;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import android.net.eap.EapSessionConfig.EapAkaConfig;
-import android.net.eap.EapSessionConfig.EapAkaPrimeConfig;
-import android.net.eap.EapSessionConfig.EapMethodConfig;
-import android.net.eap.EapSessionConfig.EapMsChapV2Config;
-import android.net.eap.EapSessionConfig.EapSimConfig;
+import android.net.eap.test.EapSessionConfig.EapAkaConfig;
+import android.net.eap.test.EapSessionConfig.EapAkaPrimeConfig;
+import android.net.eap.test.EapSessionConfig.EapMethodConfig;
+import android.net.eap.test.EapSessionConfig.EapMsChapV2Config;
+import android.net.eap.test.EapSessionConfig.EapSimConfig;
+import android.net.eap.test.EapSessionConfig.EapTtlsConfig;
+import android.os.PersistableBundle;
+
+import com.android.internal.net.ipsec.test.ike.testutils.CertUtils;
 
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.security.cert.X509Certificate;
 
 public class EapSessionConfigTest {
+    private static final byte[] DEFAULT_IDENTITY = new byte[0];
     private static final byte[] EAP_IDENTITY =
             "test@android.net".getBytes(StandardCharsets.US_ASCII);
     private static final int SUB_ID = 1;
@@ -48,6 +54,20 @@ public class EapSessionConfigTest {
     private static final String USERNAME = "username";
     private static final String PASSWORD = "password";
 
+    private static void verifyPersistableBundleEncodeDecodeIsLossless(EapMethodConfig config) {
+        PersistableBundle bundle = config.toPersistableBundle();
+        EapMethodConfig resultConfig = EapMethodConfig.fromPersistableBundle(bundle);
+
+        assertEquals(config, resultConfig);
+    }
+
+    private static void verifyPersistableBundleEncodeDecodeIsLossless(EapSessionConfig config) {
+        PersistableBundle bundle = config.toPersistableBundle();
+        EapSessionConfig resultConfig = EapSessionConfig.fromPersistableBundle(bundle);
+
+        assertEquals(config, resultConfig);
+    }
+
     @Test
     public void testBuildEapSim() {
         EapSessionConfig result = new EapSessionConfig.Builder()
@@ -55,13 +75,18 @@ public class EapSessionConfigTest {
                 .setEapSimConfig(SUB_ID, APPTYPE_USIM)
                 .build();
 
-        assertArrayEquals(EAP_IDENTITY, result.eapIdentity);
+        assertArrayEquals(EAP_IDENTITY, result.getEapIdentity());
 
-        EapMethodConfig eapMethodConfig = result.eapConfigs.get(EAP_TYPE_SIM);
-        assertEquals(EAP_TYPE_SIM, eapMethodConfig.methodType);
+        EapMethodConfig eapMethodConfig = result.getEapConfigs().get(EAP_TYPE_SIM);
+        assertEquals(EAP_TYPE_SIM, eapMethodConfig.getMethodType());
         EapSimConfig eapSimConfig = (EapSimConfig) eapMethodConfig;
-        assertEquals(SUB_ID, eapSimConfig.subId);
-        assertEquals(APPTYPE_USIM, eapSimConfig.apptype);
+        assertEquals(SUB_ID, eapSimConfig.getSubId());
+        assertEquals(APPTYPE_USIM, eapSimConfig.getAppType());
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeEapSim() throws Exception {
+        verifyPersistableBundleEncodeDecodeIsLossless(new EapSimConfig(SUB_ID, APPTYPE_USIM));
     }
 
     @Test
@@ -70,12 +95,17 @@ public class EapSessionConfigTest {
                 .setEapAkaConfig(SUB_ID, APPTYPE_USIM)
                 .build();
 
-        assertArrayEquals(DEFAULT_IDENTITY, result.eapIdentity);
-        EapMethodConfig eapMethodConfig = result.eapConfigs.get(EAP_TYPE_AKA);
-        assertEquals(EAP_TYPE_AKA, eapMethodConfig.methodType);
+        assertArrayEquals(DEFAULT_IDENTITY, result.getEapIdentity());
+        EapMethodConfig eapMethodConfig = result.getEapConfigs().get(EAP_TYPE_AKA);
+        assertEquals(EAP_TYPE_AKA, eapMethodConfig.getMethodType());
         EapAkaConfig eapAkaConfig = (EapAkaConfig) eapMethodConfig;
-        assertEquals(SUB_ID, eapAkaConfig.subId);
-        assertEquals(APPTYPE_USIM, eapAkaConfig.apptype);
+        assertEquals(SUB_ID, eapAkaConfig.getSubId());
+        assertEquals(APPTYPE_USIM, eapAkaConfig.getAppType());
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeEapAka() throws Exception {
+        verifyPersistableBundleEncodeDecodeIsLossless(new EapAkaConfig(SUB_ID, APPTYPE_USIM));
     }
 
     @Test
@@ -86,14 +116,21 @@ public class EapSessionConfigTest {
                                 SUB_ID, APPTYPE_USIM, NETWORK_NAME, ALLOW_MISMATCHED_NETWORK_NAMES)
                         .build();
 
-        assertEquals(DEFAULT_IDENTITY, result.eapIdentity);
-        EapMethodConfig eapMethodConfig = result.eapConfigs.get(EAP_TYPE_AKA_PRIME);
-        assertEquals(EAP_TYPE_AKA_PRIME, eapMethodConfig.methodType);
+        assertArrayEquals(DEFAULT_IDENTITY, result.getEapIdentity());
+        EapMethodConfig eapMethodConfig = result.getEapConfigs().get(EAP_TYPE_AKA_PRIME);
+        assertEquals(EAP_TYPE_AKA_PRIME, eapMethodConfig.getMethodType());
         EapAkaPrimeConfig eapAkaPrimeConfig = (EapAkaPrimeConfig) eapMethodConfig;
-        assertEquals(SUB_ID, eapAkaPrimeConfig.subId);
-        assertEquals(APPTYPE_USIM, eapAkaPrimeConfig.apptype);
-        assertEquals(NETWORK_NAME, eapAkaPrimeConfig.networkName);
-        assertTrue(eapAkaPrimeConfig.allowMismatchedNetworkNames);
+        assertEquals(SUB_ID, eapAkaPrimeConfig.getSubId());
+        assertEquals(APPTYPE_USIM, eapAkaPrimeConfig.getAppType());
+        assertEquals(NETWORK_NAME, eapAkaPrimeConfig.getNetworkName());
+        assertTrue(eapAkaPrimeConfig.allowsMismatchedNetworkNames());
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeEapAkaPrime() throws Exception {
+        verifyPersistableBundleEncodeDecodeIsLossless(
+                new EapAkaPrimeConfig(
+                        SUB_ID, APPTYPE_USIM, NETWORK_NAME, ALLOW_MISMATCHED_NETWORK_NAMES));
     }
 
     @Test
@@ -101,10 +138,127 @@ public class EapSessionConfigTest {
         EapSessionConfig result =
                 new EapSessionConfig.Builder().setEapMsChapV2Config(USERNAME, PASSWORD).build();
 
-        EapMsChapV2Config config = (EapMsChapV2Config) result.eapConfigs.get(EAP_TYPE_MSCHAP_V2);
-        assertEquals(EAP_TYPE_MSCHAP_V2, config.methodType);
-        assertEquals(USERNAME, config.username);
-        assertEquals(PASSWORD, config.password);
+        EapMsChapV2Config config =
+                (EapMsChapV2Config) result.getEapConfigs().get(EAP_TYPE_MSCHAP_V2);
+        assertEquals(EAP_TYPE_MSCHAP_V2, config.getMethodType());
+        assertEquals(USERNAME, config.getUsername());
+        assertEquals(PASSWORD, config.getPassword());
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeEapMsChapV2() throws Exception {
+        verifyPersistableBundleEncodeDecodeIsLossless(new EapMsChapV2Config(USERNAME, PASSWORD));
+    }
+
+    @Test
+    public void testBuildEapTtls() throws Exception {
+        EapSessionConfig innerConfig =
+                new EapSessionConfig.Builder().setEapMsChapV2Config(USERNAME, PASSWORD).build();
+        X509Certificate trustedCa = CertUtils.createCertFromPemFile("self-signed-ca-a.pem");
+
+        EapSessionConfig result =
+                new EapSessionConfig.Builder().setEapTtlsConfig(trustedCa, innerConfig).build();
+
+        assertArrayEquals(DEFAULT_IDENTITY, result.getEapIdentity());
+        EapTtlsConfig config = (EapTtlsConfig) result.getEapConfigs().get(EAP_TYPE_TTLS);
+        assertEquals(EAP_TYPE_TTLS, config.getMethodType());
+        assertEquals(innerConfig, config.getInnerEapSessionConfig());
+        assertEquals(trustedCa, config.getServerCaCert());
+    }
+
+    @Test
+    public void testEqualsEapTtls() throws Exception {
+        EapSessionConfig innerConfig =
+                new EapSessionConfig.Builder().setEapMsChapV2Config(USERNAME, PASSWORD).build();
+        X509Certificate trustedCa = CertUtils.createCertFromPemFile("self-signed-ca-a.pem");
+
+        assertEquals(
+                new EapTtlsConfig(trustedCa, innerConfig),
+                new EapTtlsConfig(trustedCa, innerConfig));
+        assertEquals(new EapTtlsConfig(null, innerConfig), new EapTtlsConfig(null, innerConfig));
+        assertNotEquals(
+                new EapTtlsConfig(trustedCa, innerConfig), new EapTtlsConfig(null, innerConfig));
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeEapTtls() throws Exception {
+        EapSessionConfig innerConfig =
+                new EapSessionConfig.Builder().setEapMsChapV2Config(USERNAME, PASSWORD).build();
+        X509Certificate trustedCa = CertUtils.createCertFromPemFile("self-signed-ca-a.pem");
+
+        verifyPersistableBundleEncodeDecodeIsLossless(new EapTtlsConfig(trustedCa, innerConfig));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testSetEapIdentityNull() {
+        new EapSessionConfig.Builder().setEapIdentity(null);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testBuildEapAkaPrimeNullNetworkName() {
+        new EapSessionConfig.Builder()
+                .setEapAkaPrimeConfig(SUB_ID, APPTYPE_USIM, null, ALLOW_MISMATCHED_NETWORK_NAMES);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testBuildEapMsChapV2NullUsername() {
+        new EapSessionConfig.Builder().setEapMsChapV2Config(null, PASSWORD);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testBuildEapMsChapV2NullPassword() {
+        new EapSessionConfig.Builder().setEapMsChapV2Config(USERNAME, null);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuildEapTtls_invalidInnerConfig() throws Exception {
+        EapSessionConfig msChapConfig =
+                new EapSessionConfig.Builder().setEapMsChapV2Config(USERNAME, PASSWORD).build();
+        EapSessionConfig innerTtlsConfig =
+                new EapSessionConfig.Builder()
+                        .setEapTtlsConfig(null /* trustedCa */, msChapConfig)
+                        .build();
+        X509Certificate trustedCa = CertUtils.createCertFromPemFile("self-signed-ca-a.pem");
+
+        EapSessionConfig result =
+                new EapSessionConfig.Builder().setEapTtlsConfig(trustedCa, innerTtlsConfig).build();
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testBuildEapTtls_missingInnerConfig() throws Exception {
+        X509Certificate trustedCa = CertUtils.createCertFromPemFile("self-signed-ca-a.pem");
+
+        EapSessionConfig result =
+                new EapSessionConfig.Builder().setEapTtlsConfig(trustedCa, null).build();
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeEapSessioConfig() throws Exception {
+        EapSessionConfig config =
+                new EapSessionConfig.Builder()
+                        .setEapIdentity(EAP_IDENTITY)
+                        .setEapSimConfig(SUB_ID, APPTYPE_USIM)
+                        .setEapAkaConfig(SUB_ID, APPTYPE_USIM)
+                        .setEapAkaPrimeConfig(
+                                SUB_ID, APPTYPE_USIM, NETWORK_NAME, ALLOW_MISMATCHED_NETWORK_NAMES)
+                        .setEapMsChapV2Config(USERNAME, PASSWORD)
+                        .build();
+
+        verifyPersistableBundleEncodeDecodeIsLossless(config);
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeEapSessioConfigWithoutId() throws Exception {
+        EapSessionConfig config =
+                new EapSessionConfig.Builder()
+                        .setEapSimConfig(SUB_ID, APPTYPE_USIM)
+                        .setEapAkaConfig(SUB_ID, APPTYPE_USIM)
+                        .setEapAkaPrimeConfig(
+                                SUB_ID, APPTYPE_USIM, NETWORK_NAME, ALLOW_MISMATCHED_NETWORK_NAMES)
+                        .setEapMsChapV2Config(USERNAME, PASSWORD)
+                        .build();
+
+        verifyPersistableBundleEncodeDecodeIsLossless(config);
     }
 
     @Test

@@ -24,9 +24,11 @@
 
 #include <base/bind.h>
 #include <base/location.h>
-#include <base/message_loop/message_loop.h>
 #include <base/run_loop.h>
 #include <base/threading/platform_thread.h>
+#include "src/message_loop_thread.rs.h"
+
+#include "abstract_message_loop.h"
 
 namespace bluetooth {
 
@@ -44,6 +46,7 @@ class MessageLoopThread final {
    * @param thread_name name of this worker thread
    */
   explicit MessageLoopThread(const std::string& thread_name);
+  explicit MessageLoopThread(const std::string& thread_name, bool is_main);
 
   /**
    * Destroys the message loop thread automatically when it goes out of scope
@@ -133,20 +136,7 @@ class MessageLoopThread final {
    * @return message loop associated with this thread, nullptr if thread is not
    * running
    */
-  base::MessageLoop* message_loop() const;
-
- private:
-  /**
-   * Static method to run the thread
-   *
-   * This is used instead of a C++ lambda because of the use of std::shared_ptr
-   *
-   * @param context needs to be a pointer to an instance of MessageLoopThread
-   * @param start_up_promise a std::promise that is used to notify calling
-   * thread the completion of message loop start-up
-   */
-  static void RunThread(MessageLoopThread* context,
-                        std::promise<void> start_up_promise);
+  btbase::AbstractMessageLoop* message_loop() const;
 
   /**
    * Post a task to run on this thread after a specified delay. If the task
@@ -176,8 +166,18 @@ class MessageLoopThread final {
   bool DoInThreadDelayed(const base::Location& from_here,
                          base::OnceClosure task, const base::TimeDelta& delay);
 
-  friend class RepeatingTimer;  // allow Timer to use DoInThreadDelayed()
-  friend class OnceTimer;       // allow OnceTimer to use DoInThreadDelayed()
+ private:
+  /**
+   * Static method to run the thread
+   *
+   * This is used instead of a C++ lambda because of the use of std::shared_ptr
+   *
+   * @param context needs to be a pointer to an instance of MessageLoopThread
+   * @param start_up_promise a std::promise that is used to notify calling
+   * thread the completion of message loop start-up
+   */
+  static void RunThread(MessageLoopThread* context,
+                        std::promise<void> start_up_promise);
 
   /**
    * Actual method to run the thread, blocking until ShutDown() is called
@@ -189,7 +189,7 @@ class MessageLoopThread final {
 
   mutable std::recursive_mutex api_mutex_;
   const std::string thread_name_;
-  base::MessageLoop* message_loop_;
+  btbase::AbstractMessageLoop* message_loop_;
   base::RunLoop* run_loop_;
   std::thread* thread_;
   base::PlatformThreadId thread_id_;
@@ -197,6 +197,8 @@ class MessageLoopThread final {
   pid_t linux_tid_;
   base::WeakPtrFactory<MessageLoopThread> weak_ptr_factory_;
   bool shutting_down_;
+  bool is_main_;
+  ::rust::Box<shim::rust::MessageLoopThread>* rust_thread_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(MessageLoopThread);
 };

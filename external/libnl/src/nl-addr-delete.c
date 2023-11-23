@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * src/nl-addr-delete.c     Delete addresses
  *
@@ -11,6 +12,8 @@
 #include <netlink/cli/utils.h>
 #include <netlink/cli/addr.h>
 #include <netlink/cli/link.h>
+
+#include <linux/netlink.h>
 
 static struct nl_sock *sock;
 static int interactive = 0, default_yes = 0, quiet = 0;
@@ -108,7 +111,7 @@ int main(int argc, char *argv[])
 			{ "valid", 1, 0, ARG_VALID },
 			{ 0, 0, 0, 0 }
 		};
-	
+
 		c = getopt_long(argc, argv, "iqhva:d:", long_opts, &optidx);
 		if (c == -1)
 			break;
@@ -129,7 +132,7 @@ int main(int argc, char *argv[])
 		case ARG_PREFERRED: nl_cli_addr_parse_preferred(addr, optarg); break;
 		case ARG_VALID: nl_cli_addr_parse_valid(addr, optarg); break;
 		}
- 	}
+	}
 
 	nl_cache_foreach_filter(addr_cache, OBJ_CAST(addr), delete_cb, NULL);
 

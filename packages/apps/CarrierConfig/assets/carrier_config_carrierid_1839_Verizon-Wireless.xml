@@ -36,8 +36,10 @@
     <boolean name="gps.persist_lpp_mode_bool" value="true"/>
     <boolean name="prefer_2g_bool" value="false"/>
     <boolean name="rtt_supported_bool" value="true"/>
+    <boolean name="rtt_upgrade_supported_for_downgraded_vt_call" value="false"/>
+    <boolean name="vt_upgrade_supported_for_downgraded_rtt_call" value="false"/>
     <boolean name="show_apn_setting_cdma_bool" value="true"/>
-    <boolean name="use_rcs_presence_bool" value="true"/>
+    <boolean name="ims.enable_presence_publish_bool" value="true"/>
     <boolean name="sms_requires_destination_number_conversion_bool" value="true"/>
     <boolean name="support_3gpp_call_forwarding_while_roaming_bool" value="false"/>
     <boolean name="support_downgrade_vt_to_audio_bool" value="false"/>
@@ -145,6 +147,10 @@
         <item value="mvno_type"/>
         <item value="mvno_match_data"/>
     </string-array>
+    <string-array name="carrier_certificate_string_array" num="2">
+        <item value="FF82050BF6BED1F152AC1A12DC83CACBAD401775161882872C6665FC5E15C8F2"/>
+        <item value="AE23A03436DF07B0CD70FE881CDA2EC1D21215D7B7B0CC68E67B67F5DF89526A"/>
+    </string-array>
     <int-array name="lte_rsrp_thresholds_int_array" num="4">
         <item value="-115"/>
         <item value="-105"/>
@@ -164,8 +170,25 @@
         <item value="82"/>
         <item value="83"/>
     </int-array>
-    <string name="5g_icon_display_grace_period_string"
-        value="connected_mmwave,any,3;not_restricted_rrc_idle,not_restricted_rrc_con,2"/>
-    <string name="5g_icon_display_secondary_grace_period_string"
-        value="connected_mmwave,not_restricted_rrc_idle,60"/>
+    <string name="5g_icon_configuration_string">connected_mmwave:5G_Plus,connected:5G,not_restricted_rrc_idle:5G,not_restricted_rrc_con:5G</string>
+    <string name="5g_icon_display_grace_period_string">connected_mmwave,any,3;not_restricted_rrc_idle,not_restricted_rrc_con,2</string>
+    <string name="5g_icon_display_secondary_grace_period_string">connected_mmwave,not_restricted_rrc_idle,60</string>
+    <boolean name="unmetered_nr_nsa_mmwave_bool" value="true" />
+    <boolean name="unmetered_nr_sa_mmwave_bool" value="true" />
+    <boolean name="inflate_signal_strength_bool" value="true" />
+    <int-array name="additional_nr_advanced_bands_int_array" num="1">
+        <item value="77"/>
+    </int-array>
+
+    <!--The value is 0xFF03 -->
+    <int name="nr_advanced_capable_pco_id_int" value="65283"/>
+
+    <int-array name="nrarfcns_rsrp_boost_int_array" num="1">
+        <item value="6"/>
+    </int-array>
+    <string-array name="boosted_nrarfcns_string_array" num="1">
+        <item value="200000-866666"/>
+    </string-array>
+
+    <int name="carrier_data_call_retry_network_requested_max_count_int" value="20"/>
 </carrier_config>

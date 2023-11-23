@@ -42,6 +42,8 @@ public class TestGnssStatusCallback extends GnssStatus.Callback {
     // Store list of Satellites including Gnss Band, constellation & SvId
     private Set<String> mGnssUsedSvStringIds;
 
+    private final Set<Float> mCarrierFrequencies;
+
     public TestGnssStatusCallback(String tag, int gpsStatusCountToCollect) {
         this.mTag = tag;
         mLatchStart = new CountDownLatch(1);
@@ -49,6 +51,7 @@ public class TestGnssStatusCallback extends GnssStatus.Callback {
         mLatchTtff = new CountDownLatch(1);
         mLatchStop = new CountDownLatch(1);
         mGnssUsedSvStringIds = new HashSet<>();
+        mCarrierFrequencies = new HashSet<>();
     }
 
     @Override
@@ -74,6 +77,7 @@ public class TestGnssStatusCallback extends GnssStatus.Callback {
         Log.i(mTag, "Gnss Status Listener Received Status Update");
         mGnssStatus = status;
         for (int i = 0; i < status.getSatelliteCount(); i++) {
+            mCarrierFrequencies.add(status.getCarrierFrequencyHz(i));
             if (!status.usedInFix(i)) {
                 continue;
             }
@@ -97,6 +101,20 @@ public class TestGnssStatusCallback extends GnssStatus.Callback {
      */
     public Set<String> getGnssUsedSvStringIds() {
         return mGnssUsedSvStringIds;
+    }
+
+    /**
+     * Returns the list of carrier frequencies of the received GnssStatus.
+     *
+     * @return mCarrierFrequencies - a set of carrier frequencies
+     */
+    public float[] getCarrierFrequencies() {
+        float[] result = new float[mCarrierFrequencies.size()];
+        int i = 0;
+        for (Float freq : mCarrierFrequencies) {
+            result[i++] = freq;
+        }
+        return result;
     }
 
     /**

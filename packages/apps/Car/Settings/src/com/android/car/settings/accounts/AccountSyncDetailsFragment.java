@@ -17,10 +17,7 @@
 package com.android.car.settings.accounts;
 
 import android.accounts.Account;
-import android.content.ContentResolver;
 import android.content.Context;
-import android.content.SyncAdapterType;
-import android.content.SyncStatusObserver;
 import android.os.Bundle;
 import android.os.UserHandle;
 
@@ -28,12 +25,6 @@ import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
-import com.android.car.ui.toolbar.MenuItem;
-import com.android.settingslib.utils.ThreadUtils;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
 
 /**
  * Shows details for syncing an account.
@@ -41,17 +32,6 @@ import java.util.Set;
 public class AccountSyncDetailsFragment extends SettingsFragment {
     private static final String EXTRA_ACCOUNT = "extra_account";
     private static final String EXTRA_USER_HANDLE = "extra_user_handle";
-    private boolean mIsStarted = false;
-    private Object mStatusChangeListenerHandle;
-    private MenuItem mSyncButton;
-    private SyncStatusObserver mSyncStatusObserver =
-            which -> ThreadUtils.postOnMainThread(() -> {
-                // The observer call may occur even if the fragment hasn't been started, so
-                // only force an update if the fragment hasn't been stopped.
-                if (mIsStarted) {
-                    updateSyncButton();
-                }
-            });
 
     /**
      * Creates a new AccountSyncDetailsFragment.
@@ -74,19 +54,6 @@ public class AccountSyncDetailsFragment extends SettingsFragment {
     }
 
     @Override
-    public List<MenuItem> getToolbarMenuItems() {
-        return Collections.singletonList(mSyncButton);
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        mSyncButton = new MenuItem.Builder(getContext()).build();
-        updateSyncButton();
-    }
-
-    @Override
     public void onAttach(Context context) {
         super.onAttach(context);
 
@@ -104,69 +71,5 @@ public class AccountSyncDetailsFragment extends SettingsFragment {
                 .setAccount(account);
         use(AccountSyncDetailsPreferenceController.class, R.string.pk_account_sync_details)
                 .setUserHandle(userHandle);
-    }
-
-    @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        updateSyncButton();
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-        mIsStarted = true;
-        mStatusChangeListenerHandle = ContentResolver.addStatusChangeListener(
-                ContentResolver.SYNC_OBSERVER_TYPE_ACTIVE
-                        | ContentResolver.SYNC_OBSERVER_TYPE_STATUS
-                        | ContentResolver.SYNC_OBSERVER_TYPE_SETTINGS, mSyncStatusObserver);
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        mIsStarted = false;
-        if (mStatusChangeListenerHandle != null) {
-            ContentResolver.removeStatusChangeListener(mStatusChangeListenerHandle);
-        }
-    }
-
-    private void updateSyncButton() {
-        // Set the button to either request or cancel sync, depending on the current state
-        UserHandle userHandle = getArguments().getParcelable(EXTRA_USER_HANDLE);
-        boolean hasActiveSyncs = !ContentResolver.getCurrentSyncsAsUser(
-                userHandle.getIdentifier()).isEmpty();
-
-        // If there are active syncs, clicking the button with cancel them. Otherwise, clicking the
-        // button will start them.
-        mSyncButton.setTitle(
-                hasActiveSyncs ? R.string.sync_button_sync_cancel : R.string.sync_button_sync_now);
-        mSyncButton.setOnClickListener(hasActiveSyncs
-                ? i -> cancelSyncForEnabledProviders()
-                : i -> requestSyncForEnabledProviders());
-    }
-
-    private void requestSyncForEnabledProviders() {
-        Account account = getArguments().getParcelable(EXTRA_ACCOUNT);
-        UserHandle userHandle = getArguments().getParcelable(EXTRA_USER_HANDLE);
-        int userId = userHandle.getIdentifier();
-
-        Set<SyncAdapterType> adapters = AccountSyncHelper.getSyncableSyncAdaptersForAccount(account,
-                userHandle);
-        for (SyncAdapterType adapter : adapters) {
-            AccountSyncHelper.requestSyncIfAllowed(account, adapter.authority, userId);
-        }
-    }
-
-    private void cancelSyncForEnabledProviders() {
-        Account account = getArguments().getParcelable(EXTRA_ACCOUNT);
-        UserHandle userHandle = getArguments().getParcelable(EXTRA_USER_HANDLE);
-        int userId = userHandle.getIdentifier();
-
-        Set<SyncAdapterType> adapters = AccountSyncHelper.getSyncableSyncAdaptersForAccount(account,
-                userHandle);
-        for (SyncAdapterType adapter : adapters) {
-            ContentResolver.cancelSyncAsUser(account, adapter.authority, userId);
-        }
     }
 }

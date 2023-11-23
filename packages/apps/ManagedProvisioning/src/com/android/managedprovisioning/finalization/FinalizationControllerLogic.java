@@ -28,12 +28,6 @@ import com.android.managedprovisioning.model.ProvisioningParams;
  * {@link FinalizationController} is constructed.
  */
 public interface FinalizationControllerLogic {
-    /**
-     * Return true if all preconditions for {@link FinalizationController#provisioningFinalized()}
-     * to execute have been satisfied.  If false is returned,
-     * {@link FinalizationController#provisioningFinalized()} will need to be attempted again later.
-     */
-    boolean isReadyForFinalization(ProvisioningParams params);
 
     /**
      * Notify the DPC for a managed profile that provisioning is completed.

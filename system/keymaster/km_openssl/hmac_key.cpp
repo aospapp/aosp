@@ -16,8 +16,6 @@
 
 #include <keymaster/km_openssl/hmac_key.h>
 
-#include <keymaster/new.h>
-
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
@@ -44,8 +42,7 @@ keymaster_error_t HmacKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
                                           AuthorizationSet&& hw_enforced,
                                           AuthorizationSet&& sw_enforced,
                                           UniquePtr<Key>* key) const {
-    if (!key)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+    if (!key) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     uint32_t min_mac_length;
     if (!hw_enforced.GetTagValue(TAG_MIN_MAC_LENGTH, &min_mac_length) &&
@@ -54,10 +51,9 @@ keymaster_error_t HmacKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
         return KM_ERROR_INVALID_KEY_BLOB;
     }
 
-    key->reset(new (std::nothrow) HmacKey(move(key_material), move(hw_enforced), move(sw_enforced),
-                                          this));
-    if (!key->get())
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    key->reset(new (std::nothrow)
+                   HmacKey(move(key_material), move(hw_enforced), move(sw_enforced), this));
+    if (!key->get()) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     return KM_ERROR_OK;
 }
 
@@ -105,8 +101,7 @@ keymaster_error_t HmacKeyFactory::validate_algorithm_specific_new_key_params(
     if (min_mac_length_bits % 8 != 0 || min_mac_length_bits > hash_size_bits)
         return KM_ERROR_UNSUPPORTED_MIN_MAC_LENGTH;
 
-    if (min_mac_length_bits < kMinHmacLengthBits)
-        return KM_ERROR_UNSUPPORTED_MIN_MAC_LENGTH;
+    if (min_mac_length_bits < kMinHmacLengthBits) return KM_ERROR_UNSUPPORTED_MIN_MAC_LENGTH;
 
     return KM_ERROR_OK;
 }

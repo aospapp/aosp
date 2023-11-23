@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"የ%1$s ወይም %2$s ቅጥያቸው ውጫዊ ማከማቻ ላይ የሚገኝ የPKCS#12 ፋይል የእውቅና ማረጋገጫ ምስክር ወረቀቶችን መጫን ይችላሉ።"</string>
     <string name="allow_button" msgid="3030990695030371561">"ምረጥ"</string>
     <string name="deny_button" msgid="3766539809121892584">"ከልክል"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"የእውቅና ማረጋገጫ በመጫን ላይ..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s የእውቅና ማረጋገጫን በመፈተሽ ላይ ነው…"</string>
 </resources>

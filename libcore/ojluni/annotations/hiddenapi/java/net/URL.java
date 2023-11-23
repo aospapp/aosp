@@ -257,7 +257,7 @@ public final class URL implements java.io.Serializable {
 
     private int port = -1; // 0xffffffff
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private java.lang.String protocol;
 
     private static final java.lang.String protocolPathProp = "java.protocol.handler.pkgs";

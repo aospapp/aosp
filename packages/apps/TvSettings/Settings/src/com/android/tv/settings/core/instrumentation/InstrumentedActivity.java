@@ -20,25 +20,14 @@ import android.os.Bundle;
 
 import androidx.fragment.app.FragmentActivity;
 
-import com.android.settingslib.core.instrumentation.Instrumentable;
-import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
-import com.android.settingslib.core.instrumentation.VisibilityLoggerMixin;
 
 /**
  * Instrumented activity that logs visibility state.
  */
-public abstract class InstrumentedActivity extends FragmentActivity implements Instrumentable {
-
-    protected MetricsFeatureProvider mMetricsFeatureProvider;
-    protected VisibilityLoggerMixin mVisibilityLoggerMixin;
+public abstract class InstrumentedActivity extends FragmentActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Mixin that logs visibility change for activity.
-        mMetricsFeatureProvider = new MetricsFeatureProvider();
-        mVisibilityLoggerMixin = new VisibilityLoggerMixin(getMetricsCategory(),
-            mMetricsFeatureProvider);
-        getLifecycle().addObserver(mVisibilityLoggerMixin);
     }
 }

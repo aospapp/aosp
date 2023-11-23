@@ -12,6 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["external_FP16_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_FP16_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-MIT",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_library_headers {
     name: "fp16_headers",
     export_include_dirs: ["include"],
@@ -110,4 +127,3 @@ cc_test {
         "general-tests",
     ],
 }
-

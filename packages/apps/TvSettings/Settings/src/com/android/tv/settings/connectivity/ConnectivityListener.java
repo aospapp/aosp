@@ -21,6 +21,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.EthernetManager;
 import android.net.LinkAddress;
@@ -36,6 +37,7 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 
 import com.android.settingslib.core.lifecycle.Lifecycle;
@@ -281,7 +283,7 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
      * Return whether Ethernet port is available.
      */
     public boolean isEthernetAvailable() {
-        return mConnectivityManager.isNetworkSupported(ConnectivityManager.TYPE_ETHERNET)
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_ETHERNET)
                 && mEthernetManager.getAvailableInterfaces().length > 0;
     }
 
@@ -460,9 +462,22 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
         if (wifiInfo != null) {
             ssid = wifiInfo.getSSID();
             if (ssid != null) {
-                ssid = WifiInfo.sanitizeSsid(ssid);
+                ssid = sanitizeSsid(ssid);
             }
         }
         return ssid;
+    }
+
+    public static String sanitizeSsid(@Nullable String string) {
+        return removeDoubleQuotes(string);
+    }
+
+    public static String removeDoubleQuotes(@Nullable String string) {
+        if (string == null) return null;
+        final int length = string.length();
+        if ((length > 1) && (string.charAt(0) == '"') && (string.charAt(length - 1) == '"')) {
+            return string.substring(1, length - 1);
+        }
+        return string;
     }
 }

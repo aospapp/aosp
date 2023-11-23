@@ -17,10 +17,6 @@
 from acts.base_test import BaseTestClass
 
 import importlib
-import logging
-import os
-import signal
-import subprocess
 
 
 class PTSBaseTestClass(BaseTestClass):
@@ -30,5 +26,4 @@ class PTSBaseTestClass(BaseTestClass):
 
         gd_devices = self.controller_configs.get("GdDevice")
 
-        self.register_controller(
-            importlib.import_module('cert.gd_device'), builtin=True)
+        self.register_controller(importlib.import_module('cert.gd_device'), builtin=True)

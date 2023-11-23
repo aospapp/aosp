@@ -16,6 +16,10 @@
 
 package dalvik.system;
 
+import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
+
+import android.annotation.SystemApi;
+
 import sun.misc.CompoundEnumeration;
 
 import java.io.IOException;
@@ -104,9 +108,32 @@ public final class DelegateLastClassLoader extends PathClassLoader {
     }
 
     /**
+     * Creates a {@code DelegateLastClassLoader} that operates on a given {@code dexPath}
+     * and a {@code librarySearchPath}.
+     *
+     * The {@code dexPath} should consist of one or more of the following, separated by
+     * {@code File.pathSeparator}, which is {@code ":"} on Android.
+     *
+     * <ul>
+     * <li>JAR/ZIP/APK files, possibly containing a "classes.dex" file as well as arbitrary
+     * resources.
+     * <li>Raw ".dex" files (not inside a zip file).
+     * </ul>
+     *
+     * @param dexPath the list of jar/apk files containing classes and resources, delimited by
+     *                {@code File.pathSeparator}, which defaults to {@code ":"} on Android.
+     * @param librarySearchPath the list of directories containing native libraries, delimited
+     *                          by {@code File.pathSeparator}; may be {@code null}.
+     * @param parent the parent class loader. May be {@code null} for the boot classloader.
+     * @param sharedLibraryLoaders class loaders of Java shared libraries
+     *                             used by this new class loader. The shared library loaders are
+     *                             always checked before the {@code dexPath} when looking
+     *                             up classes and resources.
+     *
      * @hide
      */
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    @SystemApi(client = MODULE_LIBRARIES)
     public DelegateLastClassLoader(
             String dexPath, String librarySearchPath, ClassLoader parent,
             ClassLoader[] sharedLibraryLoaders) {

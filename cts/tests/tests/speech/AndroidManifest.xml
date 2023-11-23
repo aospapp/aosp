@@ -16,27 +16,38 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.speech.tts.cts">
+     package="android.speech.tts.cts">
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <service android:name="android.speech.tts.cts.StubTextToSpeechService">
+        <service android:name="android.speech.tts.cts.StubTextToSpeechService"
+             android:enabled="true"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.TTS_SERVICE" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.TTS_SERVICE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </service>
+
+        <service android:name="android.speech.tts.cts.ConnectionTestTextToSpeechService"
+            android:exported="true"
+            android:process=":ConnectionTest"
+            android:enabled="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TTS_SERVICE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </service>
 
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.speech.tts.cts"
-                     android:label="CTS tests of android.speech">
+         android:targetPackage="android.speech.tts.cts"
+         android:label="CTS tests of android.speech">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>
-

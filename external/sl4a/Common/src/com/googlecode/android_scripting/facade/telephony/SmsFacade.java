@@ -741,7 +741,7 @@ public class SmsFacade extends RpcReceiver {
 
     private PendingIntent createBroadcastPendingIntent(String intentAction, Uri messageUri) {
         Intent intent = new Intent(intentAction, messageUri);
-        return PendingIntent.getBroadcast(mService, 0, intent, 0);
+        return PendingIntent.getBroadcast(mService, 0, intent, PendingIntent.FLAG_MUTABLE);
     }
 
     private static String getSmsFailureReason(int resultCode) {

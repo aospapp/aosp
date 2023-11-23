@@ -16,13 +16,13 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"કૉલ સંચાલન"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Phone Calls"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"ફોન"</string>
     <string name="unknown" msgid="6993977514360123431">"અજાણ્યું"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"ચૂકી ગયેલો કૉલ"</string>
     <string name="notification_missedWorkCallTitle" msgid="6965463282259034953">"ચૂકી ગયેલ કાર્ય કૉલ"</string>
-    <string name="notification_missedCallsTitle" msgid="3910479625507893809">"છૂટેલા કૉલ્સ"</string>
-    <string name="notification_missedCallsMsg" msgid="5055782736170916682">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> છૂટેલા કૉલ્સ"</string>
+    <string name="notification_missedCallsTitle" msgid="3910479625507893809">"ચૂકી ગયેલા કૉલ"</string>
+    <string name="notification_missedCallsMsg" msgid="5055782736170916682">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> ચૂકી ગયેલા કૉલ"</string>
     <string name="notification_missedCallTicker" msgid="6731461957487087769">"<xliff:g id="MISSED_CALL_FROM">%s</xliff:g> નો કૉલ ચૂકી ગયાં"</string>
     <string name="notification_missedCall_call_back" msgid="7900333283939789732">"કૉલ બેક"</string>
     <string name="notification_missedCall_message" msgid="4054698824390076431">"સંદેશ"</string>
@@ -95,7 +95,7 @@
     <string name="cant_call_due_to_ongoing_calls" msgid="6379163795277824868">"તમારા <xliff:g id="OTHER_CALL">%1$s</xliff:g> કૉલને કારણે કૉલ કરી શકતાં નથી."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="8243532328969433172">"અન્ય ઍપ્લિકેશનમાં કૉલને કારણે કૉલ કરી શકતાં નથી."</string>
     <string name="notification_channel_incoming_call" msgid="5245550964701715662">"ઇનકમિંગ કૉલ"</string>
-    <string name="notification_channel_missed_call" msgid="7168893015283909012">"છૂટેલા કૉલ"</string>
+    <string name="notification_channel_missed_call" msgid="7168893015283909012">"ચૂકી ગયેલા કૉલ"</string>
     <string name="notification_channel_call_blocking" msgid="2028807677868598710">"કૉલ બ્લૉક કરી રહ્યાં છીએ"</string>
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"બૅકગ્રાઉન્ડ કૉલ"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"ડિસ્કનેક્ટ કરેલા કૉલ"</string>

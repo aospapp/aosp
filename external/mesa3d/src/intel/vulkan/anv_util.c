@@ -46,11 +46,11 @@ anv_loge(const char *format, ...)
 void
 anv_loge_v(const char *format, va_list va)
 {
-   intel_loge_v(format, va);
+   mesa_loge_v(format, va);
 }
 
 void anv_printflike(6, 7)
-__anv_perf_warn(struct anv_instance *instance, const void *object,
+__anv_perf_warn(struct anv_device *device, const void *object,
                 VkDebugReportObjectTypeEXT type,
                 const char *file, int line, const char *format, ...)
 {
@@ -64,7 +64,7 @@ __anv_perf_warn(struct anv_instance *instance, const void *object,
 
    snprintf(report, sizeof(report), "%s: %s", file, buffer);
 
-   vk_debug_report(&instance->debug_report_callbacks,
+   vk_debug_report(&device->physical->instance->debug_report_callbacks,
                    VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT,
                    type,
                    (uint64_t) (uintptr_t) object,
@@ -73,7 +73,7 @@ __anv_perf_warn(struct anv_instance *instance, const void *object,
                    "anv",
                    report);
 
-   intel_logw("%s:%d: PERF: %s", file, line, buffer);
+   mesa_logw("%s:%d: PERF: %s", file, line, buffer);
 }
 
 VkResult
@@ -106,7 +106,7 @@ __vk_errorv(struct anv_instance *instance, const void *object,
                       report);
    }
 
-   intel_loge("%s", report);
+   mesa_loge("%s", report);
 
    return error;
 }

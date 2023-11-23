@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"गंभीर आणीबाणीच्या सूचना"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"तुमचा फोन तुम्हाला नैसर्गिक आपत्तीच्या वेळी निर्वासनासंबंधित सूचनांसारख्या सूचना पाठवू शकतो. ही सेवा राष्ट्रीय आणीबाणी व्यवस्थापन एजन्सी, नेटवर्क पुरवठादार आणि डिव्हाइस उत्पादक यांच्यामधील सहयोगाने काम करते. \n\n तुमच्या डिव्हाइसमध्ये काही समस्या असल्यास किंवा नेटवर्कची स्थिती खराब असल्यास, तुम्हाला कदाचित सूचना मिळणार नाहीत."</string>
 </resources>

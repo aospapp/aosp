@@ -17,6 +17,8 @@
 #ifndef HARDWARE_GOOGLE_PIXEL_HEALTH_BATTERYDEFENDER_H
 #define HARDWARE_GOOGLE_PIXEL_HEALTH_BATTERYDEFENDER_H
 
+#include <batteryservice/BatteryService.h>
+
 #include <stdbool.h>
 #include <time.h>
 #include <string>
@@ -31,26 +33,33 @@ const uint32_t ONE_HOUR_IN_MINUTES = 60;
 const uint32_t ONE_DAY_IN_HOURS = 24;
 const uint32_t ONE_DAY_IN_SECONDS = ONE_DAY_IN_HOURS * ONE_HOUR_IN_MINUTES * ONE_MIN_IN_SECONDS;
 
-const uint32_t DEFAULT_TIME_TO_ACTIVATE_SECONDS = (14 * ONE_DAY_IN_SECONDS);
+const uint32_t DEFAULT_TIME_TO_ACTIVATE_SECONDS = (4 * ONE_DAY_IN_SECONDS);
 const uint32_t DEFAULT_TIME_TO_CLEAR_SECONDS = (5 * ONE_MIN_IN_SECONDS);
 const int DEFAULT_CHARGE_LEVEL_START = 0;
 const int DEFAULT_CHARGE_LEVEL_STOP = 100;
-const int DEFAULT_CHARGE_LEVEL_DEFENDER_START = 60;
-const int DEFAULT_CHARGE_LEVEL_DEFENDER_STOP = 70;
+const int DEFAULT_CHARGE_LEVEL_DEFENDER_START = 70;
+const int DEFAULT_CHARGE_LEVEL_DEFENDER_STOP = 80;
 const int DEFAULT_CAPACITY_LEVEL = 100;
+const int WRITE_DELAY_SECS = 2 * ONE_MIN_IN_SECONDS;
+
+const char *const PATH_NOT_SUPPORTED = "";
 
 class BatteryDefender {
   public:
     // Set default google charger paths - can be overridden for other devices
-    BatteryDefender(const char *pathChargeLevelStart =
+    BatteryDefender(const std::string pathWirelessPresent = PATH_NOT_SUPPORTED,
+                    const std::string pathChargeLevelStart =
                             "/sys/devices/platform/soc/soc:google,charger/charge_start_level",
-                    const char *pathChargeLevelStop =
+                    const std::string pathChargeLevelStop =
                             "/sys/devices/platform/soc/soc:google,charger/charge_stop_level",
                     const int32_t timeToActivateSecs = DEFAULT_TIME_TO_ACTIVATE_SECONDS,
                     const int32_t timeToClearTimerSecs = DEFAULT_TIME_TO_CLEAR_SECONDS);
 
     // This function shall be called periodically in HealthService
-    void update(void);
+    void update(struct android::BatteryProperties *props);
+
+    // Set wireless not supported if this is not a device with a wireless charger
+    void setWirelessNotSupported(void);
 
   private:
     enum state_E {
@@ -61,7 +70,7 @@ class BatteryDefender {
         STATE_ACTIVE,
         STATE_COUNT,
     };
-    const char *const stateStringMap[STATE_COUNT] = {
+    const char *const kStateStringMap[STATE_COUNT] = {
             [STATE_INIT] = "INIT",
             [STATE_DISABLED] = "DISABLED",
             [STATE_DISCONNECTED] = "DISCONNECTED",
@@ -69,18 +78,17 @@ class BatteryDefender {
             [STATE_ACTIVE] = "ACTIVE",
     };
 
-    const char *const kPathChargeLevelStart;
-    const char *const kPathChargeLevelStop;
+    std::string mPathWirelessPresent;
+    const std::string kPathChargeLevelStart;
+    const std::string kPathChargeLevelStop;
     const int32_t kTimeToActivateSecs;
     const int32_t kTimeToClearTimerSecs;
 
     // Sysfs
-    const char *const kPathWirelessChargerOnline = "/sys/class/power_supply/wireless/online";
-    const char *const kPathWiredChargerPresent = "/sys/class/power_supply/usb/present";
-    const char *const kPathBatteryCapacity = "/sys/class/power_supply/battery/capacity";
-    const char *const kPathPersistChargerPresentTime =
+    const std::string kPathUSBChargerPresent = "/sys/class/power_supply/usb/present";
+    const std::string kPathPersistChargerPresentTime =
             "/mnt/vendor/persist/battery/defender_charger_time";
-    const char *const kPathPersistDefenderActiveTime =
+    const std::string kPathPersistDefenderActiveTime =
             "/mnt/vendor/persist/battery/defender_active_time";
 
     // Properties
@@ -89,19 +97,35 @@ class BatteryDefender {
     const char *const kPropBatteryDefenderState = "vendor.battery.defender.state";
     const char *const kPropBatteryDefenderDisable = "vendor.battery.defender.disable";
     const char *const kPropBatteryDefenderThreshold = "vendor.battery.defender.threshold";
-    const char *const kPropDebuggable = "ro.debuggable";
     const char *const kPropBootmode = "ro.bootmode";
 
+    const char *const kPropBatteryDefenderCtrlEnable = "vendor.battery.defender.ctrl.enable";
+    const char *const kPropBatteryDefenderCtrlActivateTime =
+            "vendor.battery.defender.ctrl.trigger_time";
+    const char *const kPropBatteryDefenderCtrlResumeTime =
+            "vendor.battery.defender.ctrl.resume_time";
+    const char *const kPropBatteryDefenderCtrlStartSOC =
+            "vendor.battery.defender.ctrl.recharge_soc_start";
+    const char *const kPropBatteryDefenderCtrlStopSOC =
+            "vendor.battery.defender.ctrl.recharge_soc_stop";
+    const char *const kPropBatteryDefenderCtrlTriggerSOC =
+            "vendor.battery.defender.ctrl.trigger_soc";
+    const char *const kPropBatteryDefenderCtrlClear = "vendor.battery.defender.ctrl.clear";
+
     // Default thresholds
+    const bool kDefaultEnable = true;
     const int kChargeLevelDefaultStart = DEFAULT_CHARGE_LEVEL_START;
     const int kChargeLevelDefaultStop = DEFAULT_CHARGE_LEVEL_STOP;
     const int kChargeLevelDefenderStart = DEFAULT_CHARGE_LEVEL_DEFENDER_START;
     const int kChargeLevelDefenderStop = DEFAULT_CHARGE_LEVEL_DEFENDER_STOP;
     const int kChargeHighCapacityLevel = DEFAULT_CAPACITY_LEVEL;
+    const int kWriteDelaySecs = WRITE_DELAY_SECS;
 
     // Inputs
     int64_t mTimeBetweenUpdateCalls = 0;
     int64_t mTimePreviousSecs;
+    bool mIsUsbPresent = false;
+    bool mIsWirelessPresent = false;
     bool mIsPowerAvailable = false;
     bool mIsDefenderDisabled = false;
     int32_t mTimeToActivateSecsModified;
@@ -116,20 +140,29 @@ class BatteryDefender {
     int mChargeLevelStartPrevious = DEFAULT_CHARGE_LEVEL_START;
     int mChargeLevelStopPrevious = DEFAULT_CHARGE_LEVEL_STOP;
     bool mHasReachedHighCapacityLevel = false;
+    bool mWasAcOnline = false;
+    bool mWasUsbOnline = true; /* Default; in case neither AC/USB online becomes 1 */
 
-    void stateMachine_runAction(const state_E state);        // Process state actions
-    state_E stateMachine_getNextState(const state_E state);  // Check transitions
-    void stateMachine_firstAction(const state_E state);      // Process entry actions
+    // Process state actions
+    void stateMachine_runAction(const state_E state,
+                                const struct android::BatteryProperties *props);
 
+    // Check state transitions
+    state_E stateMachine_getNextState(const state_E state);
+
+    // Process state entry actions
+    void stateMachine_firstAction(const state_E state);
+
+    void updateDefenderProperties(struct android::BatteryProperties *props);
     void clearStateData(void);
     void loadPersistentStorage(void);
     int64_t getTime(void);
     int64_t getDeltaTimeSeconds(int64_t *timeStartSecs);
     int32_t getTimeToActivate(void);
     void removeLineEndings(std::string *str);
-    int readFileToInt(const char *path);
-    bool writeIntToFile(const char *path, const int value);
-    void writeTimeToFile(const char *path, const int value, int64_t *previous);
+    int readFileToInt(const std::string &path);
+    bool writeIntToFile(const std::string &path, const int value);
+    void writeTimeToFile(const std::string &path, const int value, int64_t *previous);
     void writeChargeLevelsToFile(const int vendorStart, const int vendorStop);
     bool isChargePowerAvailable(void);
     bool isDefaultChargeLevel(const int start, const int stop);

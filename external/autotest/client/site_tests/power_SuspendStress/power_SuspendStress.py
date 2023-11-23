@@ -16,7 +16,8 @@ class power_SuspendStress(test.test):
 
     def initialize(self, duration, idle=False, init_delay=0, min_suspend=0,
                    min_resume=5, max_resume_window=3, check_connection=True,
-                   suspend_iterations=None, suspend_state=''):
+                   suspend_iterations=None, suspend_state='',
+                   modemfwd_workaround=False):
         """
         Entry point.
 
@@ -38,6 +39,8 @@ class power_SuspendStress(test.test):
         @param suspend_state: Force to suspend to a specific
                 state ("mem" or "freeze"). If the string is empty, suspend
                 state is left to the default pref on the system.
+        @param modemfwd_workaround: disable the modemfwd daemon as a workaround
+                for its bad behavior during modem firmware update.
         """
         self._endtime = time.time()
         if duration:
@@ -49,6 +52,7 @@ class power_SuspendStress(test.test):
         self._check_connection = check_connection
         self._suspend_iterations = suspend_iterations
         self._suspend_state = suspend_state
+        self._modemfwd_workaround = modemfwd_workaround
         self._method = sys_power.idle_suspend if idle else sys_power.suspend_for
 
     def _done(self):
@@ -68,6 +72,9 @@ class power_SuspendStress(test.test):
         self._suspender = power_suspend.Suspender(
                 self.resultsdir, method=self._method,
                 suspend_state=self._suspend_state)
+        # TODO(b/164255562) Temporary workaround for misbehaved modemfwd
+        if self._modemfwd_workaround:
+            utils.stop_service('modemfwd', ignore_status=True)
         # Find the interface which is used for most communication.
         # We assume the interface connects to the gateway and has the lowest
         # metric.
@@ -133,3 +140,5 @@ class power_SuspendStress(test.test):
         Clean this up before we wait ages for all the log copying to finish...
         """
         self._suspender.finalize()
+        if self._modemfwd_workaround:
+            utils.start_service('modemfwd', ignore_status=True)

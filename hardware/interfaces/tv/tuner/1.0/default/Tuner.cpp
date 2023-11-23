@@ -37,7 +37,6 @@ Tuner::Tuner() {
     // Static Frontends array to maintain local frontends information
     // Array index matches their FrontendId in the default impl
     mFrontendSize = 8;
-    mFrontends.resize(mFrontendSize);
     mFrontends[0] = new Frontend(FrontendType::DVBT, 0, this);
     mFrontends[1] = new Frontend(FrontendType::ATSC, 1, this);
     mFrontends[2] = new Frontend(FrontendType::DVBC, 2, this);
@@ -48,7 +47,6 @@ Tuner::Tuner() {
     mFrontends[7] = new Frontend(FrontendType::ATSC, 7, this);
 
     FrontendInfo::FrontendCapabilities caps;
-    mFrontendCaps.resize(mFrontendSize);
     caps = FrontendInfo::FrontendCapabilities();
     caps.dvbtCaps(FrontendDvbtCapabilities());
     mFrontendCaps[0] = caps;
@@ -141,6 +139,8 @@ Return<void> Tuner::getDemuxCaps(getDemuxCaps_cb _hidl_cb) {
 
     // IP filter can be an MMTP filter's data source.
     caps.linkCaps = {0x00, 0x00, 0x02, 0x00, 0x00};
+    // Support time filter testing
+    caps.bTimeFilter = true;
     _hidl_cb(Result::SUCCESS, caps);
     return Void();
 }
@@ -234,6 +234,21 @@ void Tuner::setFrontendAsDemuxSource(uint32_t frontendId, uint32_t demuxId) {
     if (mFrontends[frontendId] != nullptr && mFrontends[frontendId]->isLocked()) {
         mDemuxes[demuxId]->startFrontendInputLoop();
     }
+}
+
+void Tuner::removeDemux(uint32_t demuxId) {
+    map<uint32_t, uint32_t>::iterator it;
+    for (it = mFrontendToDemux.begin(); it != mFrontendToDemux.end(); it++) {
+        if (it->second == demuxId) {
+            it = mFrontendToDemux.erase(it);
+            break;
+        }
+    }
+    mDemuxes.erase(demuxId);
+}
+
+void Tuner::removeFrontend(uint32_t frontendId) {
+    mFrontendToDemux.erase(frontendId);
 }
 
 void Tuner::frontendStopTune(uint32_t frontendId) {

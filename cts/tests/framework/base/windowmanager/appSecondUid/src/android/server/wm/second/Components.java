@@ -48,6 +48,11 @@ public class Components extends ComponentsBase {
     public static final String SECOND_LAUNCH_BROADCAST_ACTION =
             getPackageName() + ".LAUNCH_BROADCAST_ACTION";
 
+    public static final String IMPLICIT_TARGET_SECOND_TEST_ACTION =
+            "android.server.wm.second.TEST_ACTION";
+    public static final ComponentName IMPLICIT_TARGET_SECOND_ACTIVITY =
+            component(Components.class, "ImplicitTargetActivity");
+
     private static ComponentName component(String className) {
         return component(Components.class, className);
     }

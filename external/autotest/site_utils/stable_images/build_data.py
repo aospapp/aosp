@@ -45,8 +45,8 @@ _OMAHA_STATUS = 'gs://chromeos-build-release-console/omaha_status.json'
 _BUILD_METADATA_PATTERN = 'gs://chromeos-image-archive/%s/metadata.json'
 
 
-# _FIRMWARE_UPGRADE_BLACKLIST - a set of boards that are exempt from
-# automatic stable firmware version assignment.  This blacklist is
+# _FIRMWARE_UPGRADE_DENYLIST - a set of boards that are exempt from
+# automatic stable firmware version assignment.  This denylist is
 # here out of an abundance of caution, on the general principle of "if
 # it ain't broke, don't fix it."  Specifically, these are old, legacy
 # boards and:
@@ -60,19 +60,19 @@ _BUILD_METADATA_PATTERN = 'gs://chromeos-image-archive/%s/metadata.json'
 #     impossible to replace.  In some cases, they are also already in
 #     short supply.
 #
-# N.B.  HARDCODED BOARD NAMES ARE EVIL!!!  This blacklist uses hardcoded
+# N.B.  HARDCODED BOARD NAMES ARE EVIL!!!  This denylist uses hardcoded
 # names because it's meant to define a list of legacies that will shrivel
 # and die over time.
 #
 # DO NOT ADD TO THIS LIST.  If there's a new use case that requires
-# extending the blacklist concept, you should find a maintainable
+# extending the denylist concept, you should find a maintainable
 # solution that deletes this code.
 #
 # TODO(jrbarnette):  When any board is past EOL, and removed from the
-# lab, it can be removed from the blacklist.  When all the boards are
-# past EOL, the blacklist should be removed.
+# lab, it can be removed from the denylist.  When all the boards are
+# past EOL, the denylist should be removed.
 
-_FIRMWARE_UPGRADE_BLACKLIST = set([
+_FIRMWARE_UPGRADE_DENYLIST = set([
         'butterfly',
         'daisy',
         'daisy_skate',
@@ -87,7 +87,7 @@ _FIRMWARE_UPGRADE_BLACKLIST = set([
         'x86-alex',
         'x86-mario',
         'x86-zgb',
-    ])
+])
 
 
 def _read_gs_json_data(gs_uri):
@@ -244,7 +244,7 @@ def get_firmware_versions(board, cros_version):
 
     The returned firmware version value will be `None` if the build
     isn't found in storage, if there is no firmware found for the build,
-    or if the board is blacklisted from firmware updates in the test
+    or if the board is denylisted from firmware updates in the test
     lab.
 
     @param board          The board for the firmware version to be
@@ -255,7 +255,7 @@ def get_firmware_versions(board, cros_version):
             versions for a unibuild board (see return type of
             _get_model_firmware_versions)
     """
-    if board in _FIRMWARE_UPGRADE_BLACKLIST:
+    if board in _FIRMWARE_UPGRADE_DENYLIST:
         return {board: None}
     try:
         metadata_json = _read_build_metadata(board, cros_version)

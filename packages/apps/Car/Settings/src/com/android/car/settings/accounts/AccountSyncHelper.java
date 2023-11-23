@@ -28,6 +28,8 @@ import android.os.Bundle;
 import android.os.UserHandle;
 import android.text.TextUtils;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.car.settings.common.Logger;
 
 import java.util.HashSet;
@@ -87,15 +89,18 @@ class AccountSyncHelper {
      *
      * <p>Derived from
      * {@link com.android.settings.accounts.AccountSyncSettings#requestOrCancelSync}.
+     *
+     * @return {@code true} if sync was requested, {@code false} otherwise.
      */
-    static void requestSyncIfAllowed(Account account, String authority, int userId) {
+    static boolean requestSyncIfAllowed(Account account, String authority, int userId) {
         if (!syncIsAllowed(account, authority, userId)) {
-            return;
+            return false;
         }
 
         Bundle extras = new Bundle();
         extras.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
         ContentResolver.requestSyncAsUser(account, authority, userId, extras);
+        return true;
     }
 
     /**
@@ -142,7 +147,8 @@ class AccountSyncHelper {
         return SyncState.NONE;
     }
 
-    private static boolean syncIsAllowed(Account account, String authority, int userId) {
+    @VisibleForTesting
+    static boolean syncIsAllowed(Account account, String authority, int userId) {
         boolean oneTimeSyncMode = !ContentResolver.getMasterSyncAutomaticallyAsUser(userId);
         boolean syncEnabled = ContentResolver.getSyncAutomaticallyAsUser(account, authority,
                 userId);

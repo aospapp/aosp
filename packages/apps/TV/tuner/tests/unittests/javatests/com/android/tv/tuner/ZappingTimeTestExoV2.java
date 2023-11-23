@@ -21,32 +21,39 @@ import android.graphics.SurfaceTexture;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
-import android.support.annotation.Nullable;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
+import android.util.Pair;
 import android.view.Surface;
 
 import androidx.test.filters.LargeTest;
 
+import com.android.tv.tuner.api.Tuner;
+import com.android.tv.tuner.api.TunerFactory;
 import com.android.tv.tuner.data.Cea708Data;
 import com.android.tv.tuner.data.Channel.AudioStreamType;
 import com.android.tv.tuner.data.Channel.VideoStreamType;
 import com.android.tv.tuner.data.PsiData;
 import com.android.tv.tuner.data.PsipData;
 import com.android.tv.tuner.data.TunerChannel;
-import com.android.tv.tuner.exoplayer.MpegTsPlayer;
-import com.android.tv.tuner.exoplayer.MpegTsRendererBuilder;
-import com.android.tv.tuner.exoplayer.MpegTsSampleExtractor;
-import com.android.tv.tuner.exoplayer.buffer.BufferManager;
-import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
-import com.android.tv.tuner.exoplayer.buffer.TrickplayStorageManager;
+import com.android.tv.tuner.exoplayer2.ExoPlayerSampleExtractor;
+import com.android.tv.tuner.exoplayer2.MpegTsMediaSource;
+import com.android.tv.tuner.exoplayer2.MpegTsPlayerV2;
+import com.android.tv.tuner.exoplayer2.MpegTsSampleExtractor;
+import com.android.tv.tuner.exoplayer2.SampleExtractor;
+import com.android.tv.tuner.exoplayer2.buffer.BufferManager;
+import com.android.tv.tuner.exoplayer2.buffer.PlaybackBufferListener;
+import com.android.tv.tuner.exoplayer2.buffer.RecordingSampleBuffer;
+import com.android.tv.tuner.exoplayer2.buffer.SampleChunkIoHelper;
+import com.android.tv.tuner.exoplayer2.buffer.TrickplayStorageManager;
+import com.android.tv.tuner.source.TsDataSource;
 import com.android.tv.tuner.source.TsDataSourceManager;
 import com.android.tv.tuner.source.TsDataSourceManager.Factory;
 import com.android.tv.tuner.source.TunerTsStreamerManager;
 import com.android.tv.tuner.ts.EventDetector.EventListener;
 
-import com.google.android.exoplayer.ExoPlayer;
-import com.google.android.exoplayer2.upstream.DataSource;
+import com.google.android.exoplayer2.ExoPlayer;
+import com.google.android.exoplayer2.source.MediaSource;
 
 import javax.inject.Provider;
 import org.junit.Ignore;
@@ -86,7 +93,7 @@ public class ZappingTimeTestExoV2 extends InstrumentationTestCase {
 
     private TunerChannel mChannel;
     private FileTunerHal mTunerHal;
-    private MpegTsPlayer mPlayer;
+    private MpegTsPlayerV2 mPlayer;
     private TsDataSourceManager mSourceManager;
     private Handler mHandler;
     private Context mTargetContext;
@@ -99,6 +106,7 @@ public class ZappingTimeTestExoV2 extends InstrumentationTestCase {
     private MockMpegTsPlayerListener mMpegTsPlayerListener = new MockMpegTsPlayerListener();
     private MockPlaybackBufferListener mPlaybackBufferListener = new MockPlaybackBufferListener();
     private MockChannelScanListener mEventListener = new MockChannelScanListener();
+    private ExoPlayerSampleExtractor.Factory mExoPlayerSampleExtractorFactory;
 
     @Override
     protected void setUp() throws Exception {
@@ -126,31 +134,27 @@ public class ZappingTimeTestExoV2 extends InstrumentationTestCase {
         mChannel.setModulation(MODULATION);
         mTunerHal = new FileTunerHal(context, tsCacheFile);
         mTunerHal.openFirstAvailable();
+        TunerFactory tunerFactory = new TunerFactory() {
+            @Override
+            public Tuner createInstance(Context context) {
+                return null;
+            }
+
+            @Override
+            public boolean useBuiltInTuner(Context context) {
+                return false;
+            }
+
+            @Override
+            public Pair<Integer, Integer> getTunerTypeAndCount(Context context) {
+                return null;
+            }
+        };
         Provider<TunerTsStreamerManager> tsStreamerManagerProvider =
-                () -> new TunerTsStreamerManager(null);
+                () -> new TunerTsStreamerManager(tunerFactory);
         TsDataSourceManager.Factory tsFactory = new Factory(tsStreamerManagerProvider);
         mSourceManager = tsFactory.create(false);
         mSourceManager.addTunerHalForTest(mTunerHal);
-        MpegTsSampleExtractor.Factory mpegTsSampleExtractorFactory =
-                new MpegTsSampleExtractor.Factory() {
-                    @Override
-                    public MpegTsSampleExtractor create(
-                            BufferManager bufferManager, PlaybackBufferListener bufferListener) {
-                        return null;
-                    }
-
-                    @Override
-                    public MpegTsSampleExtractor create(
-                            DataSource source,
-                            @Nullable BufferManager bufferManager,
-                            PlaybackBufferListener bufferListener) {
-                        return new MpegTsSampleExtractor(
-                                source,
-                                bufferManager,
-                                bufferListener,
-                                (uri, source1, manager, listener, isRecording) -> null);
-                    }
-                };
         mHandler =
                 new Handler(
                         handlerThread.getLooper(),
@@ -160,48 +164,7 @@ public class ZappingTimeTestExoV2 extends InstrumentationTestCase {
                                 switch (msg.what) {
                                     case MSG_START_PLAYBACK:
                                         {
-                                            mHandler.removeCallbacksAndMessages(null);
-                                            stopPlayback();
-                                            mOnDrawnToSurfaceTimeMs.set(0);
-                                            mDrawnToSurfaceLatch = new CountDownLatch(1);
-                                            if (mWaitTuneExecuteLatch != null) {
-                                                mWaitTuneExecuteLatch.countDown();
-                                            }
-                                            int frequency = msg.arg1;
-                                            boolean useSimpleSampleBuffer = (msg.arg2 == 1);
-                                            BufferManager bufferManager = null;
-                                            if (!useSimpleSampleBuffer) {
-                                                bufferManager =
-                                                        new BufferManager(
-                                                                new TrickplayStorageManager(
-                                                                        mTargetContext,
-                                                                        mTrickplayBufferDir,
-                                                                        1024L
-                                                                                * 1024L
-                                                                                * BUFFER_SIZE_DEF));
-                                            }
-                                            mChannel.setFrequency(frequency);
-                                            mSourceManager.setKeepTuneStatus(true);
-
-                                            mPlayer =
-                                                    new MpegTsPlayer(
-                                                            new MpegTsRendererBuilder(
-                                                                    mTargetContext,
-                                                                    bufferManager,
-                                                                    mPlaybackBufferListener,
-                                                                    mpegTsSampleExtractorFactory),
-                                                            mHandler,
-                                                            mSourceManager,
-                                                            null,
-                                                            mMpegTsPlayerListener);
-                                            mPlayer.setCaptionServiceNumber(
-                                                    Cea708Data.EMPTY_SERVICE_NUMBER);
-                                            mPlayer.prepare(
-                                                    mTargetContext,
-                                                    mChannel,
-                                                    false,
-                                                    mEventListener);
-                                            return true;
+                                            handleMessageStartPlayback(msg.arg1, msg.arg2 == 1);
                                         }
                                     default:
                                         {
@@ -211,6 +174,70 @@ public class ZappingTimeTestExoV2 extends InstrumentationTestCase {
                                 }
                             }
                         });
+        SampleChunkIoHelper.Factory sampleChunkIoHelperFactory =
+                (ids, mediaFormats, bufferReason, bufferManager, samplePool, ioCallback) ->
+                        new SampleChunkIoHelper(
+                                ids,
+                                mediaFormats,
+                                bufferReason,
+                                bufferManager,
+                                samplePool,
+                                ioCallback);
+        RecordingSampleBuffer.Factory recordingSampleBufferFactory =
+                (bufferManager, bufferListener, enableTrickplay, bufferReason) ->
+                        new RecordingSampleBuffer(
+                            bufferManager,
+                            bufferListener,
+                            enableTrickplay,
+                            bufferReason,
+                            sampleChunkIoHelperFactory);
+        mExoPlayerSampleExtractorFactory =
+                (uri, source, bufferManager, bufferListener, isRecording) ->
+                        new ExoPlayerSampleExtractor(
+                            uri,
+                            source,
+                            bufferManager,
+                            bufferListener,
+                            isRecording,
+                            recordingSampleBufferFactory);
+    }
+
+    private boolean handleMessageStartPlayback(int frequency, boolean useSimpleSampleBuffer) {
+        mHandler.removeCallbacksAndMessages(null);
+        stopPlayback();
+        mOnDrawnToSurfaceTimeMs.set(0);
+        mDrawnToSurfaceLatch = new CountDownLatch(1);
+        if (mWaitTuneExecuteLatch != null) {
+            mWaitTuneExecuteLatch.countDown();
+        }
+        BufferManager bufferManager = null;
+        if (!useSimpleSampleBuffer) {
+            bufferManager =
+                    new BufferManager(
+                            new TrickplayStorageManager(
+                                    mTargetContext,
+                                    mTrickplayBufferDir,
+                                    1024L * 1024L * BUFFER_SIZE_DEF));
+        }
+        mChannel.setFrequency(frequency);
+        mSourceManager.setKeepTuneStatus(true);
+        mPlayer = new MpegTsPlayerV2(mTargetContext, mMpegTsPlayerListener);
+        mPlayer.setCaptionServiceNumber(
+                Cea708Data.EMPTY_SERVICE_NUMBER);
+        TsDataSource source =
+                mSourceManager.createDataSource(mTargetContext, mChannel, mEventListener);
+        if (source == null) {
+            return false;
+        }
+        SampleExtractor extractor =
+                        new MpegTsSampleExtractor(
+                                source,
+                                bufferManager,
+                                mPlaybackBufferListener,
+                                mExoPlayerSampleExtractorFactory);
+        MediaSource mediaSource = new MpegTsMediaSource(extractor);
+        mPlayer.prepare(source, mediaSource);
+        return true;
     }
 
     @Override
@@ -345,12 +372,12 @@ public class ZappingTimeTestExoV2 extends InstrumentationTestCase {
         }
     }
 
-    private class MockMpegTsPlayerListener implements MpegTsPlayer.Listener {
+    private class MockMpegTsPlayerListener implements MpegTsPlayerV2.Callback {
 
         @Override
-        public void onStateChanged(boolean playWhenReady, int playbackState) {
+        public void onStateChanged(int playbackState) {
             if (DEBUG) {
-                Log.d(TAG, "ExoPlayer state change: " + playbackState + " " + playWhenReady);
+                Log.d(TAG, "ExoPlayer state change: " + playbackState);
             }
             if (playbackState == ExoPlayer.STATE_READY) {
                 mPlayer.setSurface(mSurface);
@@ -377,7 +404,7 @@ public class ZappingTimeTestExoV2 extends InstrumentationTestCase {
         }
 
         @Override
-        public void onDrawnToSurface(MpegTsPlayer player, Surface surface) {
+        public void onRenderedFirstFrame() {
             if (DEBUG) {
                 Log.d(TAG, "onDrawnToSurface");
             }

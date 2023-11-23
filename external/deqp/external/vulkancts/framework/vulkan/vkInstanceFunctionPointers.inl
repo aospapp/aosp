@@ -55,11 +55,11 @@ GetPhysicalDeviceDisplayProperties2KHRFunc							getPhysicalDeviceDisplayPropert
 GetPhysicalDeviceDisplayPlaneProperties2KHRFunc						getPhysicalDeviceDisplayPlaneProperties2KHR;
 GetDisplayModeProperties2KHRFunc									getDisplayModeProperties2KHR;
 GetDisplayPlaneCapabilities2KHRFunc									getDisplayPlaneCapabilities2KHR;
+GetPhysicalDeviceFragmentShadingRatesKHRFunc						getPhysicalDeviceFragmentShadingRatesKHR;
 CreateDebugReportCallbackEXTFunc									createDebugReportCallbackEXT;
 DestroyDebugReportCallbackEXTFunc									destroyDebugReportCallbackEXT;
 DebugReportMessageEXTFunc											debugReportMessageEXT;
 GetPhysicalDeviceExternalImageFormatPropertiesNVFunc				getPhysicalDeviceExternalImageFormatPropertiesNV;
-GetPhysicalDeviceGeneratedCommandsPropertiesNVXFunc					getPhysicalDeviceGeneratedCommandsPropertiesNVX;
 ReleaseDisplayEXTFunc												releaseDisplayEXT;
 GetPhysicalDeviceSurfaceCapabilities2EXTFunc						getPhysicalDeviceSurfaceCapabilities2EXT;
 CreateDebugUtilsMessengerEXTFunc									createDebugUtilsMessengerEXT;
@@ -71,7 +71,11 @@ GetPhysicalDeviceToolPropertiesEXTFunc								getPhysicalDeviceToolPropertiesEXT
 GetPhysicalDeviceCooperativeMatrixPropertiesNVFunc					getPhysicalDeviceCooperativeMatrixPropertiesNV;
 GetPhysicalDeviceSupportedFramebufferMixedSamplesCombinationsNVFunc	getPhysicalDeviceSupportedFramebufferMixedSamplesCombinationsNV;
 CreateHeadlessSurfaceEXTFunc										createHeadlessSurfaceEXT;
+AcquireWinrtDisplayNVFunc											acquireWinrtDisplayNV;
+GetWinrtDisplayNVFunc												getWinrtDisplayNV;
 CreateAndroidSurfaceKHRFunc											createAndroidSurfaceKHR;
+GetPhysicalDeviceVideoCapabilitiesKHRFunc							getPhysicalDeviceVideoCapabilitiesKHR;
+GetPhysicalDeviceVideoFormatPropertiesKHRFunc						getPhysicalDeviceVideoFormatPropertiesKHR;
 CreateImagePipeSurfaceFUCHSIAFunc									createImagePipeSurfaceFUCHSIA;
 CreateStreamDescriptorSurfaceGGPFunc								createStreamDescriptorSurfaceGGP;
 CreateIOSSurfaceMVKFunc												createIOSSurfaceMVK;

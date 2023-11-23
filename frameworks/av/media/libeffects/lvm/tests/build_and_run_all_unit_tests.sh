@@ -23,7 +23,7 @@ testdir="/data/local/tmp/lvmTest"
 echo "========================================"
 echo "testing lvm"
 adb shell mkdir -p $testdir
-adb push $ANDROID_BUILD_TOP/cts/tests/tests/media/res/raw/sinesweepraw.raw $testdir
+adb push $ANDROID_BUILD_TOP/frameworks/av/media/libeffects/res/raw/sinesweepraw.raw $testdir
 adb push $OUT/testcases/snr/arm64/snr $testdir
 
 E_VAL=1
@@ -53,16 +53,16 @@ fi
 flags_arr=(
     "-csE"
     "-eqE"
-    "-tE"
-    "-csE -tE -eqE"
+    "-tE -trebleLvl:15"
+    "-csE -tE -trebleLvl:15 -eqE"
     "-bE -M"
-    "-csE -tE"
-    "-csE -eqE" "-tE -eqE"
-    "-csE -tE -bE -M -eqE"
-    "-tE -eqE -vcBal:96 -M"
-    "-tE -eqE -vcBal:-96 -M"
-    "-tE -eqE -vcBal:0 -M"
-    "-tE -eqE -bE -vcBal:30 -M"
+    "-csE -tE -trebleLvl:15"
+    "-csE -eqE" "-tE -trebleLvl:15 -eqE"
+    "-csE -tE -trebleLvl:15 -bE -M -eqE"
+    "-tE -trebleLvl:15 -eqE -vcBal:96 -M"
+    "-tE -trebleLvl:15 -eqE -vcBal:-96 -M"
+    "-tE -trebleLvl:15 -eqE -vcBal:0 -M"
+    "-tE -trebleLvl:15 -eqE -bE -vcBal:30 -M"
 )
 
 fs_arr=(
@@ -91,7 +91,7 @@ do
     do
         for fs in ${fs_arr[*]}
         do
-            for chMask in {0..22}
+            for chMask in {0..38}
             do
                 adb shell $testdir/lvmtest -i:$testdir/sinesweepraw.raw \
                     -o:$testdir/sinesweep_$((chMask))_$((fs)).raw -chMask:$chMask -fs:$fs $flags
@@ -102,6 +102,11 @@ do
                     ((++error_count))
                 fi
 
+                # Do not compare cases where -vcBal is in flags and chMask is 0 (due to
+                # stereo computation)
+                if [[ $flags == *"-vcBal:"* ]] && [[ $chMask -eq 0 ]]; then
+                    continue
+                fi
 
                 # two channel files should be identical to higher channel
                 # computation (first 2 channels).

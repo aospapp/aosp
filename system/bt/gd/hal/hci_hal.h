@@ -40,13 +40,17 @@ class HciHalCallbacks {
   // @param event is the HCI event to be sent to the Bluetooth stack
   virtual void hciEventReceived(HciPacket event) = 0;
 
-  // Send an ACL data packet form the controller to the host
+  // Send an ACL data packet from the controller to the host
   // @param data the ACL HCI packet to be passed to the host stack
   virtual void aclDataReceived(HciPacket data) = 0;
 
-  // Send a SCO data packet form the controller to the host
+  // Send a SCO data packet from the controller to the host
   // @param data the SCO HCI packet to be passed to the host stack
   virtual void scoDataReceived(HciPacket data) = 0;
+
+  // Send an ISO data packet from the controller to the host
+  // @param data the ISO HCI packet to be passed to the host stack
+  virtual void isoDataReceived(HciPacket data) = 0;
 };
 
 // Mirrors hardware/interfaces/bluetooth/1.0/IBluetoothHci.hal in Android
@@ -56,6 +60,7 @@ class HciHalCallbacks {
 // Abstraction Layer (HAL). Dealing only in HCI packets and events simplifies
 // the stack and abstracts away power management, initialization, and other
 // implementation-specific details related to the hardware.
+// LINT.IfChange
 class HciHal : public ::bluetooth::Module {
  public:
   static const ModuleFactory Factory;
@@ -87,7 +92,13 @@ class HciHal : public ::bluetooth::Module {
   // V4.2, Vol 2, Part 5, Section 5.4.3) to the Bluetooth controller.
   // Packets must be processed in order.
   virtual void sendScoData(HciPacket data) = 0;
+
+  // Send an HCI ISO data packet (as specified in the Bluetooth Specification
+  // V5.2, Vol 4, Part E, Section 5.4.5) to the Bluetooth controller.
+  // Packets must be processed in order.
+  virtual void sendIsoData(HciPacket data) = 0;
 };
+// LINT.ThenChange(fuzz/fuzz_hci_hal.h)
 
 }  // namespace hal
 }  // namespace bluetooth

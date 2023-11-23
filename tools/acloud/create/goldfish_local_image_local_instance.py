@@ -30,8 +30,7 @@ required.
   should be an unzipped SDK image repository, i.e.,
   sdk-repo-<os>-system-images-<build>.zip.
 - If the instance requires mixed images, the local image directory should
-  contain both the unzipped update package and the unzipped extra image
-  package, i.e., <target>-img-<build>.zip and
+  be an unzipped extra image package, i.e.,
   emu-extra-<os>-system-images-<build>.zip.
 - If the instance requires mixed images, one of the local tool directories
   should be an unzipped OTA tools package, i.e., otatools.zip.
@@ -45,8 +44,8 @@ import sys
 
 from acloud import errors
 from acloud.create import base_avd_create
+from acloud.create import create_common
 from acloud.internal import constants
-from acloud.internal.lib import adb_tools
 from acloud.internal.lib import ota_tools
 from acloud.internal.lib import utils
 from acloud.list import instance
@@ -57,18 +56,15 @@ logger = logging.getLogger(__name__)
 
 # Input and output file names
 _EMULATOR_BIN_NAME = "emulator"
+_EMULATOR_BIN_DIR_NAMES = ("bin64", "qemu")
 _SDK_REPO_EMULATOR_DIR_NAME = "emulator"
 _SYSTEM_IMAGE_NAME = "system.img"
+_SYSTEM_IMAGE_NAME_PATTERN = r"system\.img"
 _SYSTEM_QEMU_IMAGE_NAME = "system-qemu.img"
 _NON_MIXED_BACKUP_IMAGE_EXT = ".bak-non-mixed"
 _BUILD_PROP_FILE_NAME = "build.prop"
 _MISC_INFO_FILE_NAME = "misc_info.txt"
 _SYSTEM_QEMU_CONFIG_FILE_NAME = "system-qemu-config.txt"
-
-# Partition names
-_SYSTEM_PARTITION_NAME = "system"
-_SUPER_PARTITION_NAME = "super"
-_VBMETA_PARTITION_NAME = "vbmeta"
 
 # Timeout
 _DEFAULT_EMULATOR_TIMEOUT_SECS = 150
@@ -85,62 +81,9 @@ _MISSING_EMULATOR_MSG = ("Emulator binary is not found. Check "
                          "or set --local-tool to an unzipped SDK emulator "
                          "repository.")
 
-
-def _GetImageForLogicalPartition(partition_name, system_image_path, image_dir):
-    """Map a logical partition name to an image path.
-
-    Args:
-        partition_name: String. On emulator, the logical partitions include
-                        "system", "vendor", and "product".
-        system_image_path: String. The path to system image.
-        image_dir: String. The directory containing the other images.
-
-    Returns:
-        system_image_path if the partition is "system".
-        Otherwise, this method returns the path under image_dir.
-
-    Raises
-        errors.GetLocalImageError if the image does not exist.
-    """
-    if partition_name == _SYSTEM_PARTITION_NAME:
-        image_path = system_image_path
-    else:
-        image_path = os.path.join(image_dir, partition_name + ".img")
-    if not os.path.isfile(image_path):
-        raise errors.GetLocalImageError(
-            "Cannot find image for logical partition %s" % partition_name)
-    return image_path
-
-
-def _GetImageForPhysicalPartition(partition_name, super_image_path,
-                                  vbmeta_image_path, image_dir):
-    """Map a physical partition name to an image path.
-
-    Args:
-        partition_name: String. On emulator, the physical partitions include
-                        "super" and "vbmeta".
-        super_image_path: String. The path to super image.
-        vbmeta_image_path: String. The path to vbmeta image.
-        image_dir: String. The directory containing the other images.
-
-    Returns:
-        super_image_path if the partition is "super".
-        vbmeta_image_path if the partition is "vbmeta".
-        Otherwise, this method returns the path under image_dir.
-
-    Raises:
-        errors.GetLocalImageError if the image does not exist.
-    """
-    if partition_name == _SUPER_PARTITION_NAME:
-        image_path = super_image_path
-    elif partition_name == _VBMETA_PARTITION_NAME:
-        image_path = vbmeta_image_path
-    else:
-        image_path = os.path.join(image_dir, partition_name + ".img")
-    if not os.path.isfile(image_path):
-        raise errors.GetLocalImageError(
-            "Unexpected physical partition: %s" % partition_name)
-    return image_path
+_INSTANCES_IN_USE_MSG = ("All instances are in use. Try resetting an instance "
+                         "by specifying --local-instance and an id between 1 "
+                         "and %(max_id)d.")
 
 
 class GoldfishLocalImageLocalInstance(base_avd_create.BaseAVDCreate):
@@ -155,29 +98,86 @@ class GoldfishLocalImageLocalInstance(base_avd_create.BaseAVDCreate):
 
         Returns:
             A Report instance.
-
-        Raises:
-            errors.GetSdkRepoPackageError if emulator binary is not found.
-            errors.GetLocalImageError if the local image directory does not
-            contain required files.
-            errors.CreateError if an instance exists and cannot be deleted.
-            errors.CheckPathError if OTA tools are not found.
         """
         if not utils.IsSupportedPlatform(print_warning=True):
             result_report = report.Report(command="create")
             result_report.SetStatus(report.Status.FAIL)
             return result_report
 
+        try:
+            ins_id, ins_lock = self._LockInstance(avd_spec)
+        except errors.CreateError as e:
+            result_report = report.Report(command="create")
+            result_report.AddError(str(e))
+            result_report.SetStatus(report.Status.FAIL)
+            return result_report
+
+        try:
+            ins = instance.LocalGoldfishInstance(ins_id,
+                                                 avd_flavor=avd_spec.flavor)
+            if not self._CheckRunningEmulator(ins.adb, no_prompts):
+                # Mark as in-use so that it won't be auto-selected again.
+                ins_lock.SetInUse(True)
+                sys.exit(constants.EXIT_BY_USER)
+
+            result_report = self._CreateAVDForInstance(ins, avd_spec)
+            # The infrastructure is able to delete the instance only if the
+            # instance name is reported. This method changes the state to
+            # in-use after creating the report.
+            ins_lock.SetInUse(True)
+            return result_report
+        finally:
+            ins_lock.Unlock()
+
+    @staticmethod
+    def _LockInstance(avd_spec):
+        """Select an id and lock the instance.
+
+        Args:
+            avd_spec: AVDSpec for the device.
+
+        Returns:
+            The instance id and the LocalInstanceLock that is locked by this
+            process.
+
+        Raises:
+            errors.CreateError if fails to select or lock the instance.
+        """
+        if avd_spec.local_instance_id:
+            ins_id = avd_spec.local_instance_id
+            ins_lock = instance.LocalGoldfishInstance.GetLockById(ins_id)
+            if ins_lock.Lock():
+                return ins_id, ins_lock
+            raise errors.CreateError("Instance %d is locked by another "
+                                     "process." % ins_id)
+
+        max_id = instance.LocalGoldfishInstance.GetMaxNumberOfInstances()
+        for ins_id in range(1, max_id + 1):
+            ins_lock = instance.LocalGoldfishInstance.GetLockById(ins_id)
+            if ins_lock.LockIfNotInUse(timeout_secs=0):
+                logger.info("Selected instance id: %d", ins_id)
+                return ins_id, ins_lock
+        raise errors.CreateError(_INSTANCES_IN_USE_MSG % {"max_id": max_id})
+
+    def _CreateAVDForInstance(self, ins, avd_spec):
+        """Create an emulator process for the goldfish instance.
+
+        Args:
+            ins: LocalGoldfishInstance to be initialized.
+            avd_spec: AVDSpec for the device.
+
+        Returns:
+            A Report instance.
+
+        Raises:
+            errors.GetSdkRepoPackageError if emulator binary is not found.
+            errors.GetLocalImageError if the local image directory does not
+            contain required files.
+            errors.CheckPathError if OTA tools are not found.
+        """
         emulator_path = self._FindEmulatorBinary(avd_spec.local_tool_dirs)
-        emulator_path = os.path.abspath(emulator_path)
 
-        image_dir = os.path.abspath(avd_spec.local_image_dir)
-
-        if not (os.path.isfile(os.path.join(image_dir, _SYSTEM_IMAGE_NAME)) or
-                os.path.isfile(os.path.join(image_dir,
-                                            _SYSTEM_QEMU_IMAGE_NAME))):
-            raise errors.GetLocalImageError("No system image in %s." %
-                                            image_dir)
+        image_dir = self._FindImageDir(avd_spec.local_image_dir)
 
         # TODO(b/141898893): In Android build environment, emulator gets build
         # information from $ANDROID_PRODUCT_OUT/system/build.prop.
@@ -186,54 +186,44 @@ class GoldfishLocalImageLocalInstance(base_avd_create.BaseAVDCreate):
         # image_dir/system/build.prop.
         self._CopyBuildProp(image_dir)
 
-        instance_id = avd_spec.local_instance_id
-        inst = instance.LocalGoldfishInstance(instance_id,
-                                              avd_flavor=avd_spec.flavor)
-        adb = adb_tools.AdbTools(adb_port=inst.adb_port,
-                                 device_serial=inst.device_serial)
-
-        self._CheckRunningEmulator(adb, no_prompts)
-
-        instance_dir = inst.instance_dir
-        shutil.rmtree(instance_dir, ignore_errors=True)
-        os.makedirs(instance_dir)
+        instance_dir = ins.instance_dir
+        create_common.PrepareLocalInstanceDir(instance_dir, avd_spec)
 
         extra_args = self._ConvertAvdSpecToArgs(avd_spec, instance_dir)
 
         logger.info("Instance directory: %s", instance_dir)
         proc = self._StartEmulatorProcess(emulator_path, instance_dir,
-                                          image_dir, inst.console_port,
-                                          inst.adb_port, extra_args)
+                                          image_dir, ins.console_port,
+                                          ins.adb_port, extra_args)
 
         boot_timeout_secs = (avd_spec.boot_timeout_secs or
                              _DEFAULT_EMULATOR_TIMEOUT_SECS)
         result_report = report.Report(command="create")
         try:
-            self._WaitForEmulatorToStart(adb, proc, boot_timeout_secs)
+            self._WaitForEmulatorToStart(ins.adb, proc, boot_timeout_secs)
         except (errors.DeviceBootTimeoutError, errors.SubprocessFail) as e:
             result_report.SetStatus(report.Status.BOOT_FAIL)
-            result_report.AddDeviceBootFailure(inst.name, inst.ip,
-                                               inst.adb_port, vnc_port=None,
-                                               error=str(e))
+            result_report.AddDeviceBootFailure(ins.name, ins.ip,
+                                               ins.adb_port, vnc_port=None,
+                                               error=str(e),
+                                               device_serial=ins.device_serial)
         else:
             result_report.SetStatus(report.Status.SUCCESS)
-            result_report.AddDevice(inst.name, inst.ip, inst.adb_port,
-                                    vnc_port=None)
-
-        if proc.poll() is None:
-            inst.WriteCreationTimestamp()
+            result_report.AddDevice(ins.name, ins.ip, ins.adb_port,
+                                    vnc_port=None,
+                                    device_serial=ins.device_serial)
 
         return result_report
 
     @staticmethod
-    def _MixImages(output_dir, image_dir, system_image_dir, ota):
+    def _MixImages(output_dir, image_dir, system_image_path, ota):
         """Mix emulator images and a system image into a disk image.
 
         Args:
             output_dir: The path to the output directory.
             image_dir: The input directory that provides images except
                        system.img.
-            system_image_dir: The input directory that provides system.img.
+            system_image_path: The path to the system image.
             ota: An instance of ota_tools.OtaTools.
 
         Returns:
@@ -241,11 +231,11 @@ class GoldfishLocalImageLocalInstance(base_avd_create.BaseAVDCreate):
         """
         # Create the super image.
         mixed_super_image_path = os.path.join(output_dir, "mixed_super.img")
-        system_image_path = os.path.join(system_image_dir, _SYSTEM_IMAGE_NAME)
-        ota.BuildSuperImage(mixed_super_image_path,
-                            os.path.join(image_dir, _MISC_INFO_FILE_NAME),
-                            lambda partition: _GetImageForLogicalPartition(
-                                partition, system_image_path, image_dir))
+        ota.BuildSuperImage(
+            mixed_super_image_path,
+            os.path.join(image_dir, _MISC_INFO_FILE_NAME),
+            lambda partition: ota_tools.GetImageForPartition(
+                partition, image_dir, system=system_image_path))
 
         # Create the vbmeta image.
         disabled_vbmeta_image_path = os.path.join(output_dir,
@@ -254,37 +244,96 @@ class GoldfishLocalImageLocalInstance(base_avd_create.BaseAVDCreate):
 
         # Create the disk image.
         combined_image = os.path.join(output_dir, "combined.img")
-        ota.MkCombinedImg(combined_image,
-                          os.path.join(image_dir,
-                                       _SYSTEM_QEMU_CONFIG_FILE_NAME),
-                          lambda partition: _GetImageForPhysicalPartition(
-                              partition, mixed_super_image_path,
-                              disabled_vbmeta_image_path, image_dir))
+        ota.MkCombinedImg(
+            combined_image,
+            os.path.join(image_dir, _SYSTEM_QEMU_CONFIG_FILE_NAME),
+            lambda partition: ota_tools.GetImageForPartition(
+                partition, image_dir, super=mixed_super_image_path,
+                vbmeta=disabled_vbmeta_image_path))
         return combined_image
 
     @staticmethod
     def _FindEmulatorBinary(search_paths):
-        """Return the path to the emulator binary."""
+        """Find emulator binary in the directories.
+
+        The directories may be extracted from zip archives without preserving
+        file permissions. When this method finds the emulator binary and its
+        dependencies, it sets the files to be executable.
+
+        Args:
+            search_paths: Collection of strings, the directories to search for
+                          emulator binary.
+
+        Returns:
+            The path to the emulator binary.
+
+        Raises:
+            errors.GetSdkRepoPackageError if emulator binary is not found.
+        """
+        emulator_dir = None
         # Find in unzipped sdk-repo-*.zip.
         for search_path in search_paths:
-            path = os.path.join(search_path, _EMULATOR_BIN_NAME)
-            if os.path.isfile(path):
-                return path
+            if os.path.isfile(os.path.join(search_path, _EMULATOR_BIN_NAME)):
+                emulator_dir = search_path
+                break
 
-            path = os.path.join(search_path, _SDK_REPO_EMULATOR_DIR_NAME,
-                                _EMULATOR_BIN_NAME)
-            if os.path.isfile(path):
-                return path
+            sdk_repo_dir = os.path.join(search_path,
+                                        _SDK_REPO_EMULATOR_DIR_NAME)
+            if os.path.isfile(os.path.join(sdk_repo_dir, _EMULATOR_BIN_NAME)):
+                emulator_dir = sdk_repo_dir
+                break
 
         # Find in build environment.
-        prebuilt_emulator_dir = os.environ.get(
-            constants.ENV_ANDROID_EMULATOR_PREBUILTS)
-        if prebuilt_emulator_dir:
-            path = os.path.join(prebuilt_emulator_dir, _EMULATOR_BIN_NAME)
-            if os.path.isfile(path):
-                return path
+        if not emulator_dir:
+            prebuilt_emulator_dir = os.environ.get(
+                constants.ENV_ANDROID_EMULATOR_PREBUILTS)
+            if (prebuilt_emulator_dir and os.path.isfile(
+                    os.path.join(prebuilt_emulator_dir, _EMULATOR_BIN_NAME))):
+                emulator_dir = prebuilt_emulator_dir
 
-        raise errors.GetSdkRepoPackageError(_MISSING_EMULATOR_MSG)
+        if not emulator_dir:
+            raise errors.GetSdkRepoPackageError(_MISSING_EMULATOR_MSG)
+
+        emulator_dir = os.path.abspath(emulator_dir)
+        # Set the binaries to be executable.
+        for subdir_name in _EMULATOR_BIN_DIR_NAMES:
+            subdir_path = os.path.join(emulator_dir, subdir_name)
+            if os.path.isdir(subdir_path):
+                utils.SetDirectoryTreeExecutable(subdir_path)
+
+        emulator_path = os.path.join(emulator_dir, _EMULATOR_BIN_NAME)
+        utils.SetExecutable(emulator_path)
+        return emulator_path
+
+    @staticmethod
+    def _FindImageDir(image_dir):
+        """Find emulator images in the directory.
+
+        In build environment, the images are in $ANDROID_PRODUCT_OUT.
+        In an extracted SDK repository, the images are in the subdirectory
+        named after the CPU architecture.
+
+        Args:
+            image_dir: The path given by the environment variable or the user.
+
+        Returns:
+            The directory containing the emulator images.
+
+        Raises:
+            errors.GetLocalImageError if the images are not found.
+        """
+        image_dir = os.path.abspath(image_dir)
+        entries = os.listdir(image_dir)
+        if len(entries) == 1:
+            first_entry = os.path.join(image_dir, entries[0])
+            if os.path.isdir(first_entry):
+                image_dir = first_entry
+
+        if (os.path.isfile(os.path.join(image_dir, _SYSTEM_QEMU_IMAGE_NAME)) or
+                os.path.isfile(os.path.join(image_dir, _SYSTEM_IMAGE_NAME))):
+            return image_dir
+
+        raise errors.GetLocalImageError("No device image in %s." % image_dir)
 
     @staticmethod
     def _IsEmulatorRunning(adb):
@@ -305,18 +354,21 @@ class GoldfishLocalImageLocalInstance(base_avd_create.BaseAVDCreate):
             adb: adb_tools.AdbTools initialized with the emulator's serial.
             no_prompts: Boolean, True to skip all prompts.
 
+        Returns:
+            Whether the user wants to continue.
+
         Raises:
             errors.CreateError if the emulator isn't deleted.
         """
         if not self._IsEmulatorRunning(adb):
-            return
+            return True
         logger.info("Goldfish AVD is already running.")
         if no_prompts or utils.GetUserAnswerYes(_CONFIRM_RELAUNCH):
             if adb.EmuCommand("kill") != 0:
                 raise errors.CreateError("Cannot kill emulator.")
             self._WaitForEmulatorToStop(adb)
-        else:
-            sys.exit(constants.EXIT_BY_USER)
+            return True
+        return False
 
     @staticmethod
     def _CopyBuildProp(image_dir):
@@ -335,7 +387,7 @@ class GoldfishLocalImageLocalInstance(base_avd_create.BaseAVDCreate):
         build_prop_src_path = os.path.join(image_dir, _BUILD_PROP_FILE_NAME)
         if not os.path.isfile(build_prop_src_path):
             raise errors.GetLocalImageError("No %s in %s." %
-                                            _BUILD_PROP_FILE_NAME, image_dir)
+                                            (_BUILD_PROP_FILE_NAME, image_dir))
         build_prop_dir = os.path.dirname(build_prop_path)
         logger.info("Copy %s to %s", _BUILD_PROP_FILE_NAME, build_prop_path)
         if not os.path.exists(build_prop_dir):
@@ -394,18 +446,22 @@ class GoldfishLocalImageLocalInstance(base_avd_create.BaseAVDCreate):
         if not avd_spec.autoconnect:
             args.append("-no-window")
 
-        if avd_spec.local_system_image_dir:
+        if avd_spec.local_system_image:
             mixed_image_dir = os.path.join(instance_dir, "mixed_images")
+            if os.path.exists(mixed_image_dir):
+                shutil.rmtree(mixed_image_dir)
             os.mkdir(mixed_image_dir)
 
-            image_dir = os.path.abspath(avd_spec.local_image_dir)
+            image_dir = self._FindImageDir(avd_spec.local_image_dir)
+
+            system_image_path = create_common.FindLocalImage(
+                avd_spec.local_system_image, _SYSTEM_IMAGE_NAME_PATTERN)
 
             ota_tools_dir = ota_tools.FindOtaTools(avd_spec.local_tool_dirs)
             ota_tools_dir = os.path.abspath(ota_tools_dir)
 
             mixed_image = self._MixImages(
-                mixed_image_dir, image_dir,
-                os.path.abspath(avd_spec.local_system_image_dir),
+                mixed_image_dir, image_dir, system_image_path,
                 ota_tools.OtaTools(ota_tools_dir))
 
             # TODO(b/142228085): Use -system instead of modifying image_dir.

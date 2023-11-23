@@ -19,7 +19,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="premium_sms_access_values">
     <item msgid="1035030245423608806">"Soʻrash"</item>
-    <item msgid="933409503308401889">"Hech qachon ruxsat berilmasin"</item>
+    <item msgid="933409503308401889">"Ruxsat berilmasin"</item>
     <item msgid="1154273129608299386">"Har doim ruxsat berilsin"</item>
   </string-array>
 </resources>

@@ -16,6 +16,8 @@
 
 package com.android.car.settings.wifi;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -81,5 +83,41 @@ public class ButtonPasswordEditTextPreferenceTest {
 
         mButtonPreference.performButtonClick();
         verify(listener, never()).onButtonClick(mButtonPreference);
+    }
+
+    @Test
+    public void onBindViewHolder_buttonShown() {
+        mButtonPreference.showButton(true);
+        View containerWithoutWidget = mViewHolder.findViewById(
+                com.android.car.ui.R.id.car_ui_preference_container_without_widget);
+        View actionContainer = mButtonPreference.getWidgetActionContainer(mViewHolder);
+        View widgetFrame = mViewHolder.findViewById(android.R.id.widget_frame);
+
+        mButtonPreference.onBindViewHolder(mViewHolder);
+
+        assertThat(mViewHolder.itemView.isFocusable()).isFalse();
+        assertThat(containerWithoutWidget.isClickable()).isTrue();
+        assertThat(containerWithoutWidget.isFocusable()).isTrue();
+        assertThat(actionContainer.getVisibility()).isEqualTo(View.VISIBLE);
+        assertThat(widgetFrame.isClickable()).isTrue();
+        assertThat(widgetFrame.isFocusable()).isTrue();
+    }
+
+    @Test
+    public void onBindViewHolder_buttonNotShown() {
+        mButtonPreference.showButton(false);
+        View containerWithoutWidget = mViewHolder.findViewById(
+                com.android.car.ui.R.id.car_ui_preference_container_without_widget);
+        View actionContainer = mButtonPreference.getWidgetActionContainer(mViewHolder);
+        View widgetFrame = mViewHolder.findViewById(android.R.id.widget_frame);
+
+        mButtonPreference.onBindViewHolder(mViewHolder);
+
+        assertThat(mViewHolder.itemView.isFocusable()).isTrue();
+        assertThat(containerWithoutWidget.isClickable()).isFalse();
+        assertThat(containerWithoutWidget.isFocusable()).isFalse();
+        assertThat(actionContainer.getVisibility()).isEqualTo(View.GONE);
+        assertThat(widgetFrame.hasOnClickListeners()).isFalse();
+        assertThat(widgetFrame.isFocusable()).isFalse();
     }
 }

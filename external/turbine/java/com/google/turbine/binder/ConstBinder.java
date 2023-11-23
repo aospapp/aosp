@@ -33,6 +33,7 @@ import com.google.turbine.binder.env.Env;
 import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.binder.sym.FieldSymbol;
 import com.google.turbine.binder.sym.TyVarSymbol;
+import com.google.turbine.diag.TurbineLog.TurbineLogWithSource;
 import com.google.turbine.model.Const;
 import com.google.turbine.model.Const.ArrayInitValue;
 import com.google.turbine.model.Const.Kind;
@@ -63,19 +64,29 @@ public class ConstBinder {
   private final SourceTypeBoundClass base;
   private final CompoundEnv<ClassSymbol, TypeBoundClass> env;
   private final ConstEvaluator constEvaluator;
+  private final TurbineLogWithSource log;
 
   public ConstBinder(
       Env<FieldSymbol, Value> constantEnv,
       ClassSymbol origin,
       CompoundEnv<ClassSymbol, TypeBoundClass> env,
-      SourceTypeBoundClass base) {
+      SourceTypeBoundClass base,
+      TurbineLogWithSource log) {
     this.constantEnv = constantEnv;
     this.origin = origin;
     this.base = base;
     this.env = env;
+    this.log = log;
     this.constEvaluator =
         new ConstEvaluator(
-            origin, origin, base.memberImports(), base.source(), base.scope(), constantEnv, env);
+            origin,
+            origin,
+            base.memberImports(),
+            base.source(),
+            base.scope(),
+            constantEnv,
+            env,
+            log);
   }
 
   public SourceTypeBoundClass bind() {
@@ -87,7 +98,8 @@ public class ConstBinder {
                 base.source(),
                 base.enclosingScope(),
                 constantEnv,
-                env)
+                env,
+                log)
             .evaluateAnnotations(base.annotations());
     ImmutableList<TypeBoundClass.FieldInfo> fields = fields(base.fields());
     ImmutableList<MethodInfo> methods = bindMethods(base.methods());
@@ -149,7 +161,7 @@ public class ConstBinder {
 
   private ParamInfo bindParameter(ParamInfo base) {
     ImmutableList<AnnoInfo> annos = constEvaluator.evaluateAnnotations(base.annotations());
-    return new ParamInfo(bindType(base.type()), base.name(), annos, base.access());
+    return new ParamInfo(base.sym(), bindType(base.type()), annos, base.access());
   }
 
   static AnnotationMetadata bindAnnotationMetadata(
@@ -161,7 +173,11 @@ public class ConstBinder {
     ImmutableSet<TurbineElementType> target = null;
     ClassSymbol repeatable = null;
     for (AnnoInfo annotation : annotations) {
-      switch (annotation.sym().binaryName()) {
+      ClassSymbol sym = annotation.sym();
+      if (sym == null) {
+        continue;
+      }
+      switch (sym.binaryName()) {
         case "java/lang/annotation/Retention":
           retention = bindRetention(annotation);
           break;
@@ -286,7 +302,8 @@ public class ConstBinder {
       result.put(
           entry.getKey(),
           new TyVarInfo(
-              (IntersectionTy) bindType(info.bound()),
+              (IntersectionTy) bindType(info.upperBound()),
+              /* lowerBound= */ null,
               constEvaluator.evaluateAnnotations(info.annotations())));
     }
     return result.build();
@@ -318,12 +335,12 @@ public class ConstBinder {
               return WildLowerBoundedTy.create(
                   bindType(wildTy.bound()),
                   constEvaluator.evaluateAnnotations(wildTy.annotations()));
-            default:
-              throw new AssertionError(wildTy.boundKind());
           }
+          throw new AssertionError(wildTy.boundKind());
         }
       case PRIM_TY:
       case VOID_TY:
+      case ERROR_TY:
         return type;
       case INTERSECTION_TY:
         return IntersectionTy.create(bindTypes(((IntersectionTy) type).bounds()));

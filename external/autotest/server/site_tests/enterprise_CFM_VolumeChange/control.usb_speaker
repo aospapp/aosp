@@ -10,8 +10,8 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "enterprise"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:hotrod"
-DEPENDENCIES = "atrus, meet_app"
+ATTRIBUTES = "suite:hotrod-remora"
+DEPENDENCIES = "atrus"
 JOB_RETRIES = 3
 
 DOC = """

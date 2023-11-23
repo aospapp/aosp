@@ -14,59 +14,59 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.statemachine;
+package com.android.internal.net.eap.test.statemachine;
 
-import static com.android.internal.net.eap.message.EapData.EAP_IDENTITY;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_SIM;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_FAILURE;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_REQUEST;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_SUCCESS;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_SIM_IDENTITY;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_SIM_RESPONSE_WITHOUT_IDENTITY;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.ID_INT;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.IMSI;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_ANY_ID_REQ;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_ENCR_DATA;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_IV;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_PERMANENT_ID_REQ;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_VERSION_LIST;
-import static com.android.internal.net.eap.message.simaka.EapSimTypeData.EAP_SIM_CHALLENGE;
-import static com.android.internal.net.eap.message.simaka.EapSimTypeData.EAP_SIM_START;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.NONCE_MT;
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_SIM;
+
+import static com.android.internal.net.eap.test.message.EapData.EAP_IDENTITY;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_FAILURE;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_REQUEST;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_SUCCESS;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_IDENTITY;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_RESPONSE_WITHOUT_IDENTITY;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.ID_INT;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.IMSI;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_ANY_ID_REQ;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_ENCR_DATA;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_IV;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_PERMANENT_ID_REQ;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_VERSION_LIST;
+import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_CHALLENGE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_START;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.NONCE_MT;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
-import com.android.internal.net.eap.EapResult;
-import com.android.internal.net.eap.EapResult.EapError;
-import com.android.internal.net.eap.EapResult.EapFailure;
-import com.android.internal.net.eap.EapResult.EapResponse;
-import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaIdentityUnavailableException;
-import com.android.internal.net.eap.message.EapData;
-import com.android.internal.net.eap.message.EapMessage;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtAnyIdReq;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtIdentity;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtMac;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtNonceMt;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtPermanentIdReq;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtVersionList;
-import com.android.internal.net.eap.message.simaka.EapSimAkaTypeData.DecodeResult;
-import com.android.internal.net.eap.message.simaka.EapSimTypeData;
-import com.android.internal.net.eap.statemachine.EapMethodStateMachine.FinalState;
-import com.android.internal.net.eap.statemachine.EapSimMethodStateMachine.ChallengeState;
-import com.android.internal.net.eap.statemachine.EapSimMethodStateMachine.StartState;
-import com.android.internal.net.utils.Log;
+import com.android.internal.net.eap.test.EapResult;
+import com.android.internal.net.eap.test.EapResult.EapError;
+import com.android.internal.net.eap.test.EapResult.EapFailure;
+import com.android.internal.net.eap.test.EapResult.EapResponse;
+import com.android.internal.net.eap.test.exceptions.EapInvalidRequestException;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaIdentityUnavailableException;
+import com.android.internal.net.eap.test.message.EapData;
+import com.android.internal.net.eap.test.message.EapMessage;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtAnyIdReq;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtIdentity;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtMac;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNonceMt;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtPermanentIdReq;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtVersionList;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaTypeData.DecodeResult;
+import com.android.internal.net.eap.test.message.simaka.EapSimTypeData;
+import com.android.internal.net.eap.test.statemachine.EapMethodStateMachine.FinalState;
+import com.android.internal.net.eap.test.statemachine.EapSimMethodStateMachine.ChallengeState;
+import com.android.internal.net.eap.test.statemachine.EapSimMethodStateMachine.StartState;
+import com.android.internal.net.utils.test.Log;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -79,6 +79,7 @@ public class EapSimStartStateTest extends EapSimStateTest {
     private StartState mStartState;
     private LinkedHashMap<Integer, EapSimAkaAttribute> mAttributes;
 
+    @Override
     @Before
     public void setUp() {
         super.setUp();
@@ -87,7 +88,7 @@ public class EapSimStartStateTest extends EapSimStateTest {
         try {
             atNonceMt = new AtNonceMt(NONCE_MT);
         } catch (Exception e) {
-            fail("Failed to create AtNonceMt attribute in setUp()");
+            throw new AssertionError("Failed to create AtNonceMt attribute in setUp()", e);
         }
 
         mStartState = mEapSimMethodStateMachine.new StartState(atNonceMt);

@@ -21,6 +21,7 @@
 #include <android-base/macros.h>
 #include <utils/Condition.h>
 #include <utils/Mutex.h>
+#include <utils/RefBase.h>
 
 #include <set>
 
@@ -29,18 +30,18 @@ struct ASensorEventQueue;
 struct ALooper {
     ALooper();
 
-    void signalSensorEvents(ASensorEventQueue *queue);
+    void signalSensorEvents(android::wp<ASensorEventQueue> queue);
     void wake();
 
     int pollOnce(int timeoutMillis, int *outFd, int *outEvents, void **outData);
 
-    void invalidateSensorQueue(ASensorEventQueue *queue);
+    void invalidateSensorQueue(android::wp<ASensorEventQueue> queue);
 
-private:
+   private:
     android::Mutex mLock;
     android::Condition mCondition;
 
-    std::set<ASensorEventQueue *> mReadyQueues;
+    std::set<android::wp<ASensorEventQueue>> mReadyQueues;
     bool mAwoken;
 
     DISALLOW_COPY_AND_ASSIGN(ALooper);

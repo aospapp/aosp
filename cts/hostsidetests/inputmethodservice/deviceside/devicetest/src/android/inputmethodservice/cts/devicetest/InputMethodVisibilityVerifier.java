@@ -17,6 +17,7 @@
 package android.inputmethodservice.cts.devicetest;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
 import android.app.UiAutomation;
@@ -89,6 +90,16 @@ final class InputMethodVisibilityVerifier {
      */
     static void assertIme1Visible(long timeout) {
         assertTrue(waitUntilWatermarkBecomesVisible(timeout, Watermark.IME1));
+    }
+
+    /**
+     * Assumes that IME1 is visible to the user.
+     *
+     * @param message message to be shown when the assumption is not satisfied.
+     * @param timeout timeout in milliseconds.
+     */
+    static void assumeIme1Visible(String message, long timeout) {
+        assumeTrue(message, waitUntilWatermarkBecomesVisible(timeout, Watermark.IME1));
     }
 
     /**

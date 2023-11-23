@@ -24,7 +24,7 @@
 __BEGIN_DECLS
 
 void native_bridge_trace(const char* format, ...);
-uintptr_t native_bridge_find_proxy_library_symbol(const char* library, const char* function);
+void native_bridge_intercept_symbol(void* addr, const char* library, const char* symbol);
 void native_bridge_post_init();
 
 __END_DECLS

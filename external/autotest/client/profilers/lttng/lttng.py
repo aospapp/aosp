@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 """
 Trace kernel events with Linux Tracing Toolkit (lttng).
 You need to install the lttng patched kernel in order to use the profiler.
@@ -20,7 +21,12 @@ or
     localmachine$ lttv-gui -t /home/tmp/lttng &
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os, shutil, time
+
 from autotest_lib.client.bin import utils, profiler
 from autotest_lib.client.common_lib import error
 
@@ -86,7 +92,7 @@ class lttng(profiler.profiler):
                     channel = 'modules'
                 else:
                     channel = ''
-                print 'Connecting ' + tracepoint
+                print('Connecting ' + tracepoint)
                 utils.write_one_line('/proc/ltt', 'connect ' + tracepoint
                                      + ' default dynamic ' + channel)
 

@@ -21,7 +21,23 @@
 
 class ArgmaxPoolingOperatorTester {
  public:
+  inline ArgmaxPoolingOperatorTester& padding_tf_same(bool padding_same) {
+    if (padding_same) {
+      assert(padding_top() == 0);
+      assert(padding_left() == 0);
+      assert(padding_bottom() == 0);
+      assert(padding_right() == 0);
+    }
+    this->padding_tf_same_ = padding_same;
+    return *this;
+  }
+
+  inline bool padding_tf_same() const {
+    return this->padding_tf_same_;
+  }
+
   inline ArgmaxPoolingOperatorTester& padding(uint32_t padding) {
+    assert(!padding_tf_same());
     this->padding_top_ = padding;
     this->padding_right_ = padding;
     this->padding_bottom_ = padding;
@@ -29,52 +45,87 @@ class ArgmaxPoolingOperatorTester {
     return *this;
   }
 
+  inline ArgmaxPoolingOperatorTester& padding(uint32_t padding_height, uint32_t padding_width) {
+    assert(!padding_tf_same());
+    this->padding_top_ = padding_height;
+    this->padding_right_ = padding_width;
+    this->padding_bottom_ = padding_height;
+    this->padding_left_ = padding_width;
+    return *this;
+  }
+
   inline ArgmaxPoolingOperatorTester& padding_height(uint32_t padding_height) {
+    assert(!padding_tf_same());
     this->padding_top_ = padding_height;
     this->padding_bottom_ = padding_height;
     return *this;
   }
 
   inline ArgmaxPoolingOperatorTester& padding_width(uint32_t padding_width) {
+    assert(!padding_tf_same());
     this->padding_right_ = padding_width;
     this->padding_left_ = padding_width;
     return *this;
   }
 
   inline ArgmaxPoolingOperatorTester& padding_top(uint32_t padding_top) {
+    assert(!padding_tf_same());
     this->padding_top_ = padding_top;
     return *this;
   }
 
   inline uint32_t padding_top() const {
-    return this->padding_top_;
-  }
-
-  inline ArgmaxPoolingOperatorTester& padding_right(uint32_t padding_right) {
-    this->padding_right_ = padding_right;
-    return *this;
-  }
-
-  inline uint32_t padding_right() const {
-    return this->padding_right_;
-  }
-
-  inline ArgmaxPoolingOperatorTester& padding_bottom(uint32_t padding_bottom) {
-    this->padding_bottom_ = padding_bottom;
-    return *this;
-  }
-
-  inline uint32_t padding_bottom() const {
-    return this->padding_bottom_;
+    if (padding_tf_same()) {
+      const uint32_t total_padding_height = output_height() * pooling_height() - input_height();
+      return total_padding_height / 2;
+    } else {
+      return this->padding_top_;
+    }
   }
 
   inline ArgmaxPoolingOperatorTester& padding_left(uint32_t padding_left) {
+    assert(!padding_tf_same());
     this->padding_left_ = padding_left;
     return *this;
   }
 
   inline uint32_t padding_left() const {
-    return this->padding_left_;
+    if (padding_tf_same()) {
+      const uint32_t total_padding_width = output_width() * pooling_width() - input_width();
+      return total_padding_width / 2;
+    } else {
+      return this->padding_left_;
+    }
+  }
+
+  inline ArgmaxPoolingOperatorTester& padding_bottom(uint32_t padding_bottom) {
+    assert(!padding_tf_same());
+    this->padding_bottom_ = padding_bottom;
+    return *this;
+  }
+
+  inline uint32_t padding_bottom() const {
+    if (padding_tf_same()) {
+      const uint32_t total_padding_height = output_height() * pooling_height() - input_height();
+      return total_padding_height - total_padding_height / 2;
+    } else {
+      return this->padding_bottom_;
+    }
+  }
+
+  inline ArgmaxPoolingOperatorTester& padding_right(uint32_t padding_right) {
+    assert(!padding_tf_same());
+    this->padding_right_ = padding_right;
+    return *this;
+  }
+
+  inline uint32_t padding_right() const {
+    if (padding_tf_same()) {
+      const uint32_t total_padding_width = output_width() * pooling_width() - input_width();
+      return total_padding_width - total_padding_width / 2;
+    } else {
+      return this->padding_right_;
+    }
   }
 
   inline ArgmaxPoolingOperatorTester& input_size(size_t input_height, size_t input_width) {
@@ -161,13 +212,21 @@ class ArgmaxPoolingOperatorTester {
   }
 
   inline size_t output_height() const {
-    const size_t padded_input_height = padding_top() + input_height() + padding_bottom();
-    return padded_input_height / pooling_height();
+    if (padding_tf_same()) {
+      return (input_height() + pooling_height() - 1) / pooling_height();
+    } else {
+      const size_t padded_input_height = padding_top() + input_height() + padding_bottom();
+      return padded_input_height / pooling_height();
+    }
   }
 
   inline size_t output_width() const {
-    const size_t padded_input_width = padding_left() + input_width() + padding_right();
-    return padded_input_width / pooling_width();
+    if (padding_tf_same()) {
+      return (input_width() + pooling_width() - 1) / pooling_width();
+    } else {
+      const size_t padded_input_width = padding_left() + input_width() + padding_right();
+      return padded_input_width / pooling_width();
+    }
   }
 
   inline ArgmaxPoolingOperatorTester& input_pixel_stride(size_t input_pixel_stride) {
@@ -260,24 +319,6 @@ class ArgmaxPoolingOperatorTester {
     }
   }
 
-  inline ArgmaxPoolingOperatorTester& qmin(uint8_t qmin) {
-    this->qmin_ = qmin;
-    return *this;
-  }
-
-  inline uint8_t qmin() const {
-    return this->qmin_;
-  }
-
-  inline ArgmaxPoolingOperatorTester& qmax(uint8_t qmax) {
-    this->qmax_ = qmax;
-    return *this;
-  }
-
-  inline uint8_t qmax() const {
-    return this->qmax_;
-  }
-
   inline ArgmaxPoolingOperatorTester& iterations(size_t iterations) {
     this->iterations_ = iterations;
     return *this;
@@ -331,33 +372,18 @@ class ArgmaxPoolingOperatorTester {
         }
       }
 
-      // Compute clamping parameters.
-      const float accumulated_min = *std::min_element(output_ref.cbegin(), output_ref.cend());
-      const float accumulated_max = *std::max_element(output_ref.cbegin(), output_ref.cend());
-      const float accumulated_range = accumulated_max - accumulated_min;
-      const float output_min = accumulated_range == 0.0f ?
-        -std::numeric_limits<float>::infinity() :
-        accumulated_min + accumulated_range / 255.0f * float(qmin());
-      const float output_max = accumulated_range == 0.0f ?
-        +std::numeric_limits<float>::infinity() :
-        accumulated_max - accumulated_range / 255.0f * float(255 - qmax());
-
-      // Clamp reference results.
-      for (float& value : output_ref) {
-        value = std::max(std::min(value, output_max), output_min);
-      }
-
       // Create, setup, run, and destroy Argmax Pooling operator.
       ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
       xnn_operator_t argmax_pooling_op = nullptr;
 
       ASSERT_EQ(xnn_status_success,
         xnn_create_argmax_pooling2d_nhwc_f32(
-          padding_top(), padding_right(), padding_bottom(), padding_left(),
+          padding_tf_same() ? 0 : padding_top(), padding_tf_same() ? 0 : padding_right(),
+          padding_tf_same() ? 0 : padding_bottom(), padding_tf_same() ? 0 : padding_left(),
           pooling_height(), pooling_width(),
           channels(), input_pixel_stride(), output_pixel_stride(),
-          output_min, output_max,
-          0, &argmax_pooling_op));
+          padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0,
+          &argmax_pooling_op));
       ASSERT_NE(nullptr, argmax_pooling_op);
 
       // Smart pointer to automatically delete argmax_pooling_op.
@@ -378,10 +404,6 @@ class ArgmaxPoolingOperatorTester {
         for (size_t y = 0; y < output_height(); y++) {
           for (size_t x = 0; x < output_width(); x++) {
             for (size_t c = 0; c < channels(); c++) {
-              ASSERT_LE(output[((i * output_height() + y) * output_width() + x) * output_pixel_stride() + c], output_max) <<
-                "in batch index " << i << ", pixel (" << y << ", " << x << "), channel " << c;
-              ASSERT_GE(output[((i * output_height() + y) * output_width() + x) * output_pixel_stride() + c], output_min) <<
-                "in batch index " << i << ", pixel (" << y << ", " << x << "), channel " << c;
               ASSERT_EQ(output_ref[((i * output_height() + y) * output_width() + x) * channels() + c],
                 output[((i * output_height() + y) * output_width() + x) * output_pixel_stride() + c]) <<
                 "in batch index " << i << ", pixel (" << y << ", " << x << "), channel " << c;
@@ -447,22 +469,6 @@ class ArgmaxPoolingOperatorTester {
         }
       }
 
-      // Compute clamping parameters.
-      const float accumulated_min = *std::min_element(output_ref.cbegin(), output_ref.cend());
-      const float accumulated_max = *std::max_element(output_ref.cbegin(), output_ref.cend());
-      const float accumulated_range = accumulated_max - accumulated_min;
-      const float output_min = accumulated_range == 0.0f ?
-        -std::numeric_limits<float>::infinity() :
-        accumulated_min + accumulated_range / 255.0f * float(qmin());
-      const float output_max = accumulated_range == 0.0f ?
-        +std::numeric_limits<float>::infinity() :
-        accumulated_max - accumulated_range / 255.0f * float(255 - qmax());
-
-      // Clamp reference results.
-      for (float& value : output_ref) {
-        value = std::max(std::min(value, output_max), output_min);
-      }
-
       // Create, setup, and run Argmax Pooling operator once.
       ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
       xnn_operator_t argmax_pooling_op = nullptr;
@@ -472,7 +478,6 @@ class ArgmaxPoolingOperatorTester {
           padding_top(), padding_right(), padding_bottom(), padding_left(),
           pooling_height(), pooling_width(),
           channels(), input_pixel_stride(), output_pixel_stride(),
-          output_min, output_max,
           0, &argmax_pooling_op));
       ASSERT_NE(nullptr, argmax_pooling_op);
 
@@ -491,10 +496,6 @@ class ArgmaxPoolingOperatorTester {
         for (size_t y = 0; y < output_height(); y++) {
           for (size_t x = 0; x < output_width(); x++) {
             for (size_t c = 0; c < channels(); c++) {
-              ASSERT_LE(output[((i * output_height() + y) * output_width() + x) * output_pixel_stride() + c], output_max)
-                << "in batch index " << i << ", pixel (" << y << ", " << x << "), channel " << c;
-              ASSERT_GE(output[((i * output_height() + y) * output_width() + x) * output_pixel_stride() + c], output_min)
-                << "in batch index " << i << ", pixel (" << y << ", " << x << "), channel " << c;
               ASSERT_EQ(
                   output_ref[((i * output_height() + y) * output_width() + x) * channels() + c],
                   output[((i * output_height() + y) * output_width() + x) * output_pixel_stride() + c])
@@ -535,8 +536,6 @@ class ArgmaxPoolingOperatorTester {
                   }
                 }
               }
-              max_value = std::min(max_value, output_max);
-              max_value = std::max(max_value, output_min);
               next_output_ref[((i * next_output_height() + oy) * next_output_width() + ox) * channels() + c] = max_value;
               next_index_ref[((i * next_output_height() + oy) * next_output_width() + ox) * channels() + c] = max_index;
             }
@@ -564,10 +563,6 @@ class ArgmaxPoolingOperatorTester {
         for (size_t y = 0; y < next_output_height(); y++) {
           for (size_t x = 0; x < next_output_width(); x++) {
             for (size_t c = 0; c < channels(); c++) {
-              ASSERT_LE(output[((i * next_output_height() + y) * next_output_width() + x) * output_pixel_stride() + c], output_max)
-                << "in batch index " << i << ", pixel (" << y << ", " << x << "), channel " << c;;
-              ASSERT_GE(output[((i * next_output_height() + y) * next_output_width() + x) * output_pixel_stride() + c], output_min)
-                << "in batch index " << i << ", pixel (" << y << ", " << x << "), channel " << c;;
               ASSERT_EQ(
                   next_output_ref[((i * next_output_height() + y) * next_output_width() + x) * channels() + c],
                   output[((i * next_output_height() + y) * next_output_width() + x) * output_pixel_stride() + c])
@@ -588,6 +583,7 @@ class ArgmaxPoolingOperatorTester {
   uint32_t padding_right_{0};
   uint32_t padding_bottom_{0};
   uint32_t padding_left_{0};
+  bool padding_tf_same_{false};
   size_t input_height_{1};
   size_t input_width_{1};
   size_t channels_{1};

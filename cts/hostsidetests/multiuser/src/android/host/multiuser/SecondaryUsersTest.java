@@ -15,29 +15,37 @@
  */
 package android.host.multiuser;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import android.host.multiuser.BaseMultiUserTest.SupportsMultiUserRule;
+
 import com.android.compatibility.common.util.CddTest;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-import java.util.concurrent.TimeUnit;
-
-import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Run: atest SecondaryUsersTest
+ */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class SecondaryUsersTest extends BaseMultiUserTest {
+public final class SecondaryUsersTest extends BaseMultiUserTest {
 
     // Extra time to give the system to switch into secondary user after boot complete.
     private static final long SECONDARY_USER_BOOT_COMPLETE_TIMEOUT_MS = 30000;
 
     private static final long POLL_INTERVAL_MS = 100;
 
+    @Rule
+    public final SupportsMultiUserRule mSupportsMultiUserRule = new SupportsMultiUserRule(this);
+
     @CddTest(requirement="9.5/A-1-2")
     @Test
     public void testSwitchToSecondaryUserBeforeBootComplete() throws Exception {
-        if (!isAutomotiveDevice() || !mSupportsMultiUser) {
-            return;
-        }
+        assumeIsAutomotive();
 
         getDevice().nonBlockingReboot();
         getDevice().waitForBootComplete(TimeUnit.MINUTES.toMillis(2));
@@ -58,6 +66,7 @@ public class SecondaryUsersTest extends BaseMultiUserTest {
             }
             Thread.sleep(POLL_INTERVAL_MS);
         }
-        Assert.assertTrue("Must switch to secondary user before boot complete", isUserSecondary);
+        assertWithMessage("Must switch to secondary user before boot complete")
+                .that(isUserSecondary).isTrue();
     }
 }

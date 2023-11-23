@@ -16,26 +16,42 @@
 
 package com.android.cts.deviceowner;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.app.admin.DevicePolicyManager;
 import android.provider.Telephony;
+import android.util.Log;
 
 public class DefaultSmsApplicationTest extends BaseDeviceOwnerTest {
 
+    private static final String TAG = DefaultSmsApplicationTest.class.getSimpleName();
+
     public void testSetDefaultSmsApplication() {
+        // Must use a DPM associated with the current user because the Telephony.Sms methods will
+        // return the app for the calling user, and on headless system user, mDevicePolicyManager
+        // wraps the calls to the DeviceOwner user (which fails the test because the value didn't
+        // change as expected).
+        DevicePolicyManager dpm = mContext.getSystemService(DevicePolicyManager.class);
+
         String previousSmsAppName = Telephony.Sms.getDefaultSmsPackage(mContext);
         String newSmsAppName = "android.telephony.cts.sms.simplesmsapp";
+        Log.v(TAG, "testSetDefaultSmsApplication(): previous=" + previousSmsAppName
+                + ", new=" + newSmsAppName + ", user=" + mContext.getUserId()
+                + ", isAffiliated=" + dpm.isAffiliatedUser());
 
-        mDevicePolicyManager.setDefaultSmsApplication(getWho(), newSmsAppName);
+        dpm.setDefaultSmsApplication(getWho(), newSmsAppName);
         String defaultSmsApp = Telephony.Sms.getDefaultSmsPackage(mContext);
-        assertThat(defaultSmsApp).isNotNull();
-        assertThat(defaultSmsApp).isEqualTo(newSmsAppName);
+        assertWithMessage("default app returned by Telephony.Sms after set by DPM")
+                .that(defaultSmsApp).isNotNull();
+        assertWithMessage("default app returned by Telephony.Sms after set by DPM")
+                .that(defaultSmsApp).isEqualTo(newSmsAppName);
 
         // Restore previous default sms application
-        mDevicePolicyManager.setDefaultSmsApplication(getWho(), previousSmsAppName);
+        dpm.setDefaultSmsApplication(getWho(), previousSmsAppName);
         defaultSmsApp = Telephony.Sms.getDefaultSmsPackage(mContext);
-        assertThat(defaultSmsApp).isNotNull();
-        assertThat(defaultSmsApp).isEqualTo(previousSmsAppName);
+        assertWithMessage("default app returned by Telephony.Sms after restored by DPM")
+                .that(defaultSmsApp).isNotNull();
+        assertWithMessage("default app returned by Telephony.Sms after restored by DPM")
+                .that(defaultSmsApp).isEqualTo(previousSmsAppName);
     }
-
 }

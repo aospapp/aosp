@@ -17,8 +17,8 @@
 #ifndef LIBGAV1_SRC_DSP_ARM_AVERAGE_BLEND_NEON_H_
 #define LIBGAV1_SRC_DSP_ARM_AVERAGE_BLEND_NEON_H_
 
-#include "src/dsp/cpu.h"
 #include "src/dsp/dsp.h"
+#include "src/utils/cpu.h"
 
 namespace libgav1 {
 namespace dsp {
@@ -30,7 +30,7 @@ void AverageBlendInit_NEON();
 }  // namespace libgav1
 
 #if LIBGAV1_ENABLE_NEON
-#define LIBGAV1_Dsp8bpp_AverageBlend LIBGAV1_DSP_NEON
+#define LIBGAV1_Dsp8bpp_AverageBlend LIBGAV1_CPU_NEON
 #endif  // LIBGAV1_ENABLE_NEON
 
 #endif  // LIBGAV1_SRC_DSP_ARM_AVERAGE_BLEND_NEON_H_

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library_static {
     name: "common-platform-scenarios",
     min_sdk_version: "24",
@@ -23,5 +27,6 @@ java_library_static {
         "platform-test-options",
         "platform-test-rules",
         "ub-uiautomator",
+        "microbenchmark-device-lib",
     ],
 }

@@ -19,45 +19,70 @@ class MockMinijail : public brillo::Minijail {
   MockMinijail() {}
   virtual ~MockMinijail() {}
 
-  MOCK_METHOD0(New, struct minijail*());
-  MOCK_METHOD1(Destroy, void(struct minijail*));
+  MOCK_METHOD(struct minijail*, New, (), (override));
+  MOCK_METHOD(void, Destroy, (struct minijail*), (override));
 
-  MOCK_METHOD3(DropRoot,
-               bool(struct minijail* jail,
-                    const char* user,
-                    const char* group));
-  MOCK_METHOD2(UseSeccompFilter, void(struct minijail* jail, const char* path));
-  MOCK_METHOD2(UseCapabilities, void(struct minijail* jail, uint64_t capmask));
-  MOCK_METHOD1(ResetSignalMask, void(struct minijail* jail));
-  MOCK_METHOD1(Enter, void(struct minijail* jail));
-  MOCK_METHOD3(Run,
-               bool(struct minijail* jail,
-                    std::vector<char*> args,
-                    pid_t* pid));
-  MOCK_METHOD3(RunSync,
-               bool(struct minijail* jail,
-                    std::vector<char*> args,
-                    int* status));
-  MOCK_METHOD3(RunAndDestroy,
-               bool(struct minijail* jail,
-                    std::vector<char*> args,
-                    pid_t* pid));
-  MOCK_METHOD3(RunSyncAndDestroy,
-               bool(struct minijail* jail,
-                    std::vector<char*> args,
-                    int* status));
-  MOCK_METHOD4(RunPipeAndDestroy,
-               bool(struct minijail* jail,
-                    std::vector<char*> args,
-                    pid_t* pid,
-                    int* stdin));
-  MOCK_METHOD6(RunPipesAndDestroy,
-               bool(struct minijail* jail,
-                    std::vector<char*> args,
-                    pid_t* pid,
-                    int* stdin,
-                    int* stdout,
-                    int* stderr));
+  MOCK_METHOD(bool,
+              DropRoot,
+              (struct minijail*, const char*, const char*),
+              (override));
+  MOCK_METHOD(void,
+              UseSeccompFilter,
+              (struct minijail*, const char*),
+              (override));
+  MOCK_METHOD(void, UseCapabilities, (struct minijail*, uint64_t), (override));
+  MOCK_METHOD(void, ResetSignalMask, (struct minijail*), (override));
+  MOCK_METHOD(void, CloseOpenFds, (struct minijail*), (override));
+  MOCK_METHOD(void, PreserveFd, (struct minijail*, int, int), (override));
+  MOCK_METHOD(void, Enter, (struct minijail*), (override));
+  MOCK_METHOD(bool,
+              Run,
+              (struct minijail*, std::vector<char*>, pid_t*),
+              (override));
+  MOCK_METHOD(bool,
+              RunSync,
+              (struct minijail*, std::vector<char*>, int*),
+              (override));
+  MOCK_METHOD(bool,
+              RunPipes,
+              (struct minijail*, std::vector<char*>, pid_t*, int*, int*, int*),
+              (override));
+  MOCK_METHOD(bool,
+              RunEnvPipes,
+              (struct minijail*,
+               std::vector<char*>,
+               std::vector<char*>,
+               pid_t*,
+               int*,
+               int*,
+               int*),
+              (override));
+  MOCK_METHOD(bool,
+              RunAndDestroy,
+              (struct minijail*, std::vector<char*>, pid_t*),
+              (override));
+  MOCK_METHOD(bool,
+              RunSyncAndDestroy,
+              (struct minijail*, std::vector<char*>, int*),
+              (override));
+  MOCK_METHOD(bool,
+              RunPipeAndDestroy,
+              (struct minijail*, std::vector<char*>, pid_t*, int*),
+              (override));
+  MOCK_METHOD(bool,
+              RunPipesAndDestroy,
+              (struct minijail*, std::vector<char*>, pid_t*, int*, int*, int*),
+              (override));
+  MOCK_METHOD(bool,
+              RunEnvPipesAndDestroy,
+              (struct minijail*,
+               std::vector<char*>,
+               std::vector<char*>,
+               pid_t*,
+               int*,
+               int*,
+               int*),
+              (override));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockMinijail);

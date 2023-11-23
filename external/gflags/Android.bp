@@ -1,8 +1,34 @@
+package {
+    default_applicable_licenses: ["external_gflags_license"],
+}
+
+// Added automatically by a large-scale-change
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_gflags_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "COPYING.txt",
+        "LICENSE",
+    ],
+}
+
 cc_library {
     name: "libgflags",
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
+    ramdisk_available: true,
+    vendor_ramdisk_available: true,
     srcs: [
         "src/gflags.cc",
         "src/gflags_completions.cc",
@@ -21,4 +47,10 @@ cc_library {
     export_include_dirs: [
         "android",
     ],
+    static: {
+        apex_available: [
+            "com.android.gki.*",
+            "com.android.virt",
+        ],
+    },
 }

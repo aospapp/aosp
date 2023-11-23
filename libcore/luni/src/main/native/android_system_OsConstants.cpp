@@ -69,6 +69,7 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "AF_PACKET", AF_PACKET);
     initConstant(env, c, "AF_NETLINK", AF_NETLINK);
     initConstant(env, c, "AF_UNIX", AF_UNIX);
+    initConstant(env, c, "AF_VSOCK", AF_VSOCK);
     initConstant(env, c, "AF_UNSPEC", AF_UNSPEC);
     initConstant(env, c, "AI_ADDRCONFIG", AI_ADDRCONFIG);
     initConstant(env, c, "AI_ALL", AI_ALL);
@@ -80,6 +81,10 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "AI_PASSIVE", AI_PASSIVE);
     initConstant(env, c, "AI_V4MAPPED", AI_V4MAPPED);
     initConstant(env, c, "ARPHRD_ETHER", ARPHRD_ETHER);
+    initConstant(env, c, "VMADDR_PORT_ANY", VMADDR_PORT_ANY);
+    initConstant(env, c, "VMADDR_CID_ANY", VMADDR_CID_ANY);
+    initConstant(env, c, "VMADDR_CID_LOCAL", VMADDR_CID_LOCAL);
+    initConstant(env, c, "VMADDR_CID_HOST", VMADDR_CID_HOST);
     initConstant(env, c, "ARPHRD_LOOPBACK", ARPHRD_LOOPBACK);
 #if defined(CAP_LAST_CAP)
     initConstant(env, c, "CAP_AUDIT_CONTROL", CAP_AUDIT_CONTROL);
@@ -522,6 +527,9 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "SOCK_SEQPACKET", SOCK_SEQPACKET);
     initConstant(env, c, "SOCK_STREAM", SOCK_STREAM);
     initConstant(env, c, "SOL_SOCKET", SOL_SOCKET);
+#if defined(SOL_UDP)
+    initConstant(env, c, "SOL_UDP", SOL_UDP);
+#endif
 #if defined(SO_BINDTODEVICE)
     initConstant(env, c, "SO_BINDTODEVICE", SO_BINDTODEVICE);
 #endif
@@ -598,6 +606,12 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "UDP_ENCAP", UDP_ENCAP);
     initConstant(env, c, "UDP_ENCAP_ESPINUDP_NON_IKE", UDP_ENCAP_ESPINUDP_NON_IKE);
     initConstant(env, c, "UDP_ENCAP_ESPINUDP", UDP_ENCAP_ESPINUDP);
+#if defined(UDP_GRO)
+    initConstant(env, c, "UDP_GRO", UDP_GRO);
+#endif
+#if defined(UDP_SEGMENT)
+    initConstant(env, c, "UDP_SEGMENT", UDP_SEGMENT);
+#endif
     // UNIX_PATH_MAX is mentioned in some versions of unix(7), but not actually declared.
     initConstant(env, c, "UNIX_PATH_MAX", sizeof(sockaddr_un::sun_path));
     initConstant(env, c, "WCONTINUED", WCONTINUED);

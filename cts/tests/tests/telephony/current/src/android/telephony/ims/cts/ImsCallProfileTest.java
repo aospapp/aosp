@@ -21,6 +21,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import android.location.Location;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.telecom.VideoProfile;
@@ -28,6 +30,8 @@ import android.telephony.TelephonyManager;
 import android.telephony.emergency.EmergencyNumber;
 import android.telephony.ims.ImsCallProfile;
 import android.telephony.ims.ImsStreamMediaProfile;
+import android.telephony.ims.RtpHeaderExtensionType;
+import android.util.ArraySet;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
@@ -36,9 +40,14 @@ import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
 public class ImsCallProfileTest {
+    private static final RtpHeaderExtensionType EXTENSION_TYPE_1 = new RtpHeaderExtensionType(1,
+            Uri.parse("http://developer.android.com/092020/test1"));
+    private static final RtpHeaderExtensionType EXTENSION_TYPE_2 = new RtpHeaderExtensionType(2,
+            Uri.parse("http://developer.android.com/092020/test2"));
 
     @Test
     public void testParcelUnparcel() {
@@ -337,5 +346,96 @@ public class ImsCallProfileTest {
         assertEquals("unparceled data for EXTRA_CALL_NETWORK_TYPE is not valid!",
                 data.getCallExtraInt(ImsCallProfile.EXTRA_CALL_NETWORK_TYPE),
                 unparceledData.getCallExtraInt(ImsCallProfile.EXTRA_CALL_NETWORK_TYPE));
+    }
+
+    @Test
+    public void testCallComposerExtras() {
+        if (!ImsUtils.shouldTestImsService()) {
+            return;
+        }
+
+        ImsCallProfile data = new ImsCallProfile();
+
+        // EXTRA_PRIORITY
+        data.setCallExtraInt(ImsCallProfile.EXTRA_PRIORITY,
+                ImsCallProfile.PRIORITY_URGENT);
+        assertEquals(ImsCallProfile.PRIORITY_URGENT,
+                data.getCallExtraInt(ImsCallProfile.EXTRA_PRIORITY));
+        data.setCallExtraInt(ImsCallProfile.EXTRA_PRIORITY,
+                ImsCallProfile.PRIORITY_NORMAL);
+        assertEquals(ImsCallProfile.PRIORITY_NORMAL,
+                data.getCallExtraInt(ImsCallProfile.EXTRA_PRIORITY));
+
+        // EXTRA_CALL_SUBJECT
+        String testCallSubject = "TEST_CALL_SUBJECT";
+        data.setCallExtra(ImsCallProfile.EXTRA_CALL_SUBJECT, testCallSubject);
+        assertEquals(testCallSubject, data.getCallExtra(ImsCallProfile.EXTRA_CALL_SUBJECT));
+
+        // EXTRA_CALL_LOCATION
+        Location testLocation = new Location("ImsCallProfileTest");
+        double latitude = 123;
+        double longitude = 456;
+        testLocation.setLatitude(latitude);
+        testLocation.setLongitude(longitude);
+        data.setCallExtraParcelable(ImsCallProfile.EXTRA_LOCATION, testLocation);
+        Location testGetLocation = (Location) data.getCallExtraParcelable(
+                ImsCallProfile.EXTRA_LOCATION);
+        assertEquals(latitude, testGetLocation.getLatitude(), 0);
+        assertEquals(longitude, testGetLocation.getLongitude(), 0);
+
+        // EXTRA_PICTURE_URL
+        String testPictureUrl = "TEST_PICTURE_URL";
+        data.setCallExtra(ImsCallProfile.EXTRA_PICTURE_URL, testPictureUrl);
+        assertEquals(testPictureUrl, data.getCallExtra(ImsCallProfile.EXTRA_PICTURE_URL));
+
+        // Test the whole Parcel ImsCallProfile
+        Parcel dataParceled = Parcel.obtain();
+        data.writeToParcel(dataParceled, 0);
+        dataParceled.setDataPosition(0);
+        ImsCallProfile unparceledData = ImsCallProfile.CREATOR.createFromParcel(dataParceled);
+        dataParceled.recycle();
+
+        assertEquals("unparceled data for EXTRA_PRIORITY is not valid!",
+                data.getCallExtraInt(ImsCallProfile.EXTRA_PRIORITY),
+                        unparceledData.getCallExtraInt(ImsCallProfile.EXTRA_PRIORITY));
+
+        assertEquals("unparceled data for EXTRA_CALL_SUBJECT is not valid!",
+                data.getCallExtra(ImsCallProfile.EXTRA_CALL_SUBJECT),
+                        unparceledData.getCallExtra(ImsCallProfile.EXTRA_CALL_SUBJECT));
+
+        Location locationFromData = data.getCallExtraParcelable(ImsCallProfile.EXTRA_LOCATION);
+        Location locationFromUnparceledData = unparceledData.getCallExtraParcelable(
+                ImsCallProfile.EXTRA_LOCATION);
+        assertEquals("unparceled data for EXTRA_LOCATION latitude is not valid!",
+                locationFromData.getLatitude(), locationFromUnparceledData.getLatitude(), 0);
+        assertEquals("unparceled data for EXTRA_LOCATION Longitude is not valid!",
+                locationFromData.getLongitude(), locationFromUnparceledData.getLongitude(), 0);
+
+        assertEquals("unparceled data for EXTRA_PICTURE_URL is not valid!",
+                data.getCallExtra(ImsCallProfile.EXTRA_PICTURE_URL),
+                        unparceledData.getCallExtra(ImsCallProfile.EXTRA_PICTURE_URL));
+    }
+
+    /**
+     * Verifies basic RTP header extension type parcelling in the {@link ImsCallProfile} class.
+     */
+    @Test
+    public void testParcelUnparcelRtpHeaderExtensionTypes() {
+        ImsCallProfile data = new ImsCallProfile(ImsCallProfile.SERVICE_TYPE_NORMAL,
+                ImsCallProfile.CALL_TYPE_VOICE_N_VIDEO, new Bundle(),
+                new ImsStreamMediaProfile(1, 1, 1, 1, 1));
+        Set<RtpHeaderExtensionType> accepted = new ArraySet<>();
+        accepted.add(EXTENSION_TYPE_1);
+        data.setAcceptedRtpHeaderExtensionTypes(accepted);
+        assertEquals(accepted, data.getAcceptedRtpHeaderExtensionTypes());
+
+        Parcel dataParceled = Parcel.obtain();
+        data.writeToParcel(dataParceled, 0);
+        dataParceled.setDataPosition(0);
+        ImsCallProfile unparceledData =
+                ImsCallProfile.CREATOR.createFromParcel(dataParceled);
+        dataParceled.recycle();
+
+        assertEquals(accepted, unparceledData.getAcceptedRtpHeaderExtensionTypes());
     }
 }

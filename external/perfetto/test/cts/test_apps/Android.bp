@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_perfetto_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_perfetto_license"],
+}
+
 android_test_helper_app {
     name: "CtsPerfettoDebuggableApp",
     // tag this module as a cts test artifact
@@ -28,7 +37,6 @@ android_test_helper_app {
     sdk_version: "current",
     jni_libs: [
         "libperfettocts_native",
-        "libnativehelper_compat_libc++",
     ],
     jni_uses_platform_apis: true,
 }
@@ -49,7 +57,6 @@ android_test_helper_app {
     sdk_version: "current",
     jni_libs: [
         "libperfettocts_native",
-        "libnativehelper_compat_libc++",
     ],
     jni_uses_platform_apis: true,
 }
@@ -70,7 +77,26 @@ android_test_helper_app {
     sdk_version: "current",
     jni_libs: [
         "libperfettocts_native",
-        "libnativehelper_compat_libc++",
+    ],
+    jni_uses_platform_apis: true,
+}
+
+android_test_helper_app {
+    name: "CtsPerfettoNonProfileableApp",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+
+    manifest: "AndroidManifest_nonprofileable.xml",
+
+    compile_multilib: "both",
+    srcs: ["src/**/*.java"],
+    sdk_version: "current",
+    jni_libs: [
+        "libperfettocts_native",
     ],
     jni_uses_platform_apis: true,
 }

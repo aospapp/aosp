@@ -16,26 +16,38 @@
 
 package com.android.managedprovisioning.provisioning;
 
+import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_DEVICE_OWNER;
+import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_ORGANIZATION_OWNED;
+import static android.app.admin.DevicePolicyManager.FLAG_SUPPORTED_MODES_PERSONALLY_OWNED;
+
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.intent.Intents.intended;
 import static androidx.test.espresso.intent.Intents.times;
 import static androidx.test.espresso.intent.matcher.IntentMatchers.hasComponent;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.managedprovisioning.model.ProvisioningParams.EXTRA_PROVISIONING_PARAMS;
 
 import android.content.ComponentName;
 import android.content.Intent;
+import android.os.RemoteException;
+import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.espresso.intent.rule.IntentsTestRule;
 import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.TestUtils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.WifiInfo;
 
+import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,11 +67,16 @@ public class LandingActivityTest {
     public IntentsTestRule<LandingActivity> mActivityRule =
             new IntentsTestRule(LandingActivity.class, true, false);
 
+    @Before
+    public void setup() throws RemoteException {
+        TestUtils.wakeupDeviceAndPressHome(UiDevice.getInstance(getInstrumentation()));
+    }
 
+    @Ignore("b/181323689")
     @Test
     public void onNextButtonClicked_shouldRunPrepareActivity_runsPrepareActivity() {
         ProvisioningParams params = generateProvisioningParamsThatShouldRunPrepareActivity();
-        launchProvisioningActivityWithParams(params);
+        launchLandingActivityWithParams(params);
 
         onView(withText(R.string.next)).perform(click());
 
@@ -67,10 +84,11 @@ public class LandingActivityTest {
         intended(hasComponent(AdminIntegratedFlowPrepareActivity.class.getName()));
     }
 
+    @Ignore("b/181323689")
     @Test
     public void onNextButtonClicked_shouldNotRunPrepareActivity_doesNotRunPrepareActivity() {
         ProvisioningParams params = generateProvisioningParamsThatShouldNotRunPrepareActivity();
-        launchProvisioningActivityWithParams(params);
+        launchLandingActivityWithParams(params);
 
         onView(withText(R.string.next)).perform(click());
 
@@ -78,11 +96,70 @@ public class LandingActivityTest {
         intended(hasComponent(AdminIntegratedFlowPrepareActivity.class.getName()), times(0));
     }
 
-    private void launchProvisioningActivityWithParams(ProvisioningParams params) {
+    @Ignore("b/181323689")
+    @Test
+    public void onCreate_personallyOwned_showsAccountManagementDisclaimer() {
+        ProvisioningParams params = generateProvisioningParamsWithRequestedProvisioningModes(
+                FLAG_SUPPORTED_MODES_PERSONALLY_OWNED);
+        launchLandingActivityWithParams(params);
+
+        assertAccountManagementDisclaimerShown();
+    }
+
+    @Ignore("b/181323689")
+    @Test
+    public void onCreate_organizationAndPersonallyOwned_showsAccountManagementDisclaimer() {
+        ProvisioningParams params = generateProvisioningParamsWithRequestedProvisioningModes(
+                FLAG_SUPPORTED_MODES_ORGANIZATION_OWNED | FLAG_SUPPORTED_MODES_PERSONALLY_OWNED);
+        launchLandingActivityWithParams(params);
+
+        assertAccountManagementDisclaimerShown();
+    }
+
+    @Ignore("b/181323689")
+    @Test
+    public void onCreate_organizationOwned_showsOwnershipDisclaimer() {
+        ProvisioningParams params = generateProvisioningParamsWithRequestedProvisioningModes(
+                FLAG_SUPPORTED_MODES_ORGANIZATION_OWNED);
+        launchLandingActivityWithParams(params);
+
+        assertOwnershipDisclaimerShown();
+    }
+
+    @Ignore("b/181323689")
+    @Test
+    public void onCreate_deviceOwner_showsOwnershipDisclaimer() {
+        ProvisioningParams params = generateProvisioningParamsWithRequestedProvisioningModes(
+                FLAG_SUPPORTED_MODES_DEVICE_OWNER);
+        launchLandingActivityWithParams(params);
+
+        assertOwnershipDisclaimerShown();
+    }
+
+    private void assertAccountManagementDisclaimerShown() {
+        onView(withText(R.string.account_management_disclaimer_header))
+                .check(matches(isDisplayed()));
+        onView(withText(R.string.account_management_disclaimer_subheader))
+                .check(matches(isDisplayed()));
+    }
+
+    private void assertOwnershipDisclaimerShown() {
+        onView(withText(R.string.brand_screen_header))
+                .check(matches(isDisplayed()));
+    }
+
+    private void launchLandingActivityWithParams(ProvisioningParams params) {
         Intent intent = new Intent();
         intent.putExtra(EXTRA_PROVISIONING_PARAMS, params);
         mActivityRule.launchActivity(intent);
         onView(withId(R.id.setup_wizard_layout));
+    }
+
+    private ProvisioningParams generateProvisioningParamsWithRequestedProvisioningModes(
+            int requestedProvisioningModes) {
+        return createDefaultProvisioningParamsBuilder()
+                .setInitiatorRequestedProvisioningModes(requestedProvisioningModes)
+                .build();
     }
 
     private ProvisioningParams generateProvisioningParamsThatShouldRunPrepareActivity() {

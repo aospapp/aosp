@@ -8,3 +8,8 @@
 # compileOnly dependency, optional in runtime.
 -dontwarn androidx.paging.PositionalDataSource
 -dontwarn androidx.lifecycle.LiveData
+
+#keep enums
+-keepclassmembers enum * {
+    public static **[] values();
+}

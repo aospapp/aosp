@@ -71,31 +71,32 @@ $if CBLOCK > 1:
     }
   }
 
-  TEST(${TEST_NAME}, c_div_${CBLOCK}_with_qmin) {
-    $if ISA_CHECK:
-      ${ISA_CHECK};
-    for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
-      DWConvMicrokernelTester()
-        .cr(${CR})
-        .kr(${KR})
-        .channels(channels)
-        .qmin(128)
-        .Test(${", ".join(TEST_ARGS)});
+  $if ACTIVATION == "MINMAX":
+    TEST(${TEST_NAME}, c_div_${CBLOCK}_with_qmin) {
+      $if ISA_CHECK:
+        ${ISA_CHECK};
+      for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
+        DWConvMicrokernelTester()
+          .cr(${CR})
+          .kr(${KR})
+          .channels(channels)
+          .qmin(128)
+          .Test(${", ".join(TEST_ARGS)});
+      }
     }
-  }
 
-  TEST(${TEST_NAME}, c_div_${CBLOCK}_with_qmax) {
-    $if ISA_CHECK:
-      ${ISA_CHECK};
-    for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
-      DWConvMicrokernelTester()
-        .cr(${CR})
-        .kr(${KR})
-        .channels(channels)
-        .qmax(128)
-        .Test(${", ".join(TEST_ARGS)});
+    TEST(${TEST_NAME}, c_div_${CBLOCK}_with_qmax) {
+      $if ISA_CHECK:
+        ${ISA_CHECK};
+      for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
+        DWConvMicrokernelTester()
+          .cr(${CR})
+          .kr(${KR})
+          .channels(channels)
+          .qmax(128)
+          .Test(${", ".join(TEST_ARGS)});
+      }
     }
-  }
 
   TEST(${TEST_NAME}, c_lt_${ADJCBLOCK}) {
     $if ISA_CHECK:
@@ -121,31 +122,32 @@ TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}) {
   }
 }
 
-TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_with_qmin) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
-    DWConvMicrokernelTester()
-      .cr(${CR})
-      .kr(${KR})
-      .channels(channels)
-      .qmin(128)
-      .Test(${", ".join(TEST_ARGS)});
+$if ACTIVATION == "MINMAX":
+  TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_with_qmin) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
+      DWConvMicrokernelTester()
+        .cr(${CR})
+        .kr(${KR})
+        .channels(channels)
+        .qmin(128)
+        .Test(${", ".join(TEST_ARGS)});
+    }
   }
-}
 
-TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_with_qmax) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
-    DWConvMicrokernelTester()
-      .cr(${CR})
-      .kr(${KR})
-      .channels(channels)
-      .qmax(128)
-      .Test(${", ".join(TEST_ARGS)});
+  TEST(${TEST_NAME}, c_gt_${ADJCBLOCK}_with_qmax) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (uint32_t channels = ${ADJCBLOCK + 1}; channels < ${10 if CBLOCK == 1 else ADJCBLOCK + CBLOCK}; channels++) {
+      DWConvMicrokernelTester()
+        .cr(${CR})
+        .kr(${KR})
+        .channels(channels)
+        .qmax(128)
+        .Test(${", ".join(TEST_ARGS)});
+    }
   }
-}
 
 TEST(${TEST_NAME}, multipixel) {
   $if ISA_CHECK:
@@ -190,35 +192,36 @@ TEST(${TEST_NAME}, multipixel_with_output_stride) {
   }
 }
 
-TEST(${TEST_NAME}, multipixel_with_qmin) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
-    DWConvMicrokernelTester()
-      .cr(${CR})
-      .kr(${KR})
-      .channels(channels)
-      .width(3)
-      .qmin(128)
-      .Test(${", ".join(TEST_ARGS)});
+$if ACTIVATION == "MINMAX":
+  TEST(${TEST_NAME}, multipixel_with_qmin) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
+      DWConvMicrokernelTester()
+        .cr(${CR})
+        .kr(${KR})
+        .channels(channels)
+        .width(3)
+        .qmin(128)
+        .Test(${", ".join(TEST_ARGS)});
+    }
   }
-}
 
-TEST(${TEST_NAME}, multipixel_with_qmax) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
-    DWConvMicrokernelTester()
-      .cr(${CR})
-      .kr(${KR})
-      .channels(channels)
-      .width(3)
-      .qmax(128)
-      .Test(${", ".join(TEST_ARGS)});
+  TEST(${TEST_NAME}, multipixel_with_qmax) {
+    $if ISA_CHECK:
+      ${ISA_CHECK};
+    for (size_t channels = 1; channels <= ${CBLOCK * 5}; channels += ${max(1, CBLOCK - 1)}) {
+      DWConvMicrokernelTester()
+        .cr(${CR})
+        .kr(${KR})
+        .channels(channels)
+        .width(3)
+        .qmax(128)
+        .Test(${", ".join(TEST_ARGS)});
+    }
   }
-}
 
-$if DATATYPE == "q8":
+$if DATATYPE == "qu8":
   TEST(${TEST_NAME}, input_zero_point_only) {
     $if ISA_CHECK:
       ${ISA_CHECK};
@@ -248,8 +251,36 @@ $if DATATYPE == "q8":
         .Test(${", ".join(TEST_ARGS)});
     }
   }
-"""
 
+TEST(${TEST_NAME}, input_offset) {
+  $if ISA_CHECK:
+    ${ISA_CHECK};
+  for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
+    DWConvMicrokernelTester()
+      .cr(${CR})
+      .kr(${KR})
+      .channels(channels)
+      .input_offset(${next_prime(CR + 1) * 16})
+      .Test(${", ".join(TEST_ARGS)});
+  }
+}
+
+TEST(${TEST_NAME}, zero) {
+  $if ISA_CHECK:
+    ${ISA_CHECK};
+  for (uint32_t mz = 0; mz < ${KR}; mz++) {
+    for (uint32_t channels = ${ADJCBLOCK + CBLOCK}; channels < ${CR * 16}; channels += ${CR * 3}) {
+      DWConvMicrokernelTester()
+        .cr(${CR})
+        .kr(${KR})
+        .channels(channels)
+        .input_offset(${next_prime(CR + 1) * 16})
+        .zero_index(mz)
+        .Test(${", ".join(TEST_ARGS)});
+    }
+  }
+}
+"""
 
 def generate_test_cases(ukernel, cr, kr, c_block, is_pipelined, isa):
   """Generates all tests cases for a DWCONV micro-kernel.
@@ -271,15 +302,18 @@ def generate_test_cases(ukernel, cr, kr, c_block, is_pipelined, isa):
     Code for the test case.
   """
   _, test_name = ukernel.split("_", 1)
-  _, datatype, ukernel_type, _ = ukernel.split("_", 3)
+  _, datatype, ukernel_type, activation, _ = ukernel.split("_", 4)
+  if activation == "ukernel":
+    activation = "linear"
   test_args = [ukernel]
-  if not isa or isa == "psimd":
+  if activation != "linear" and not isa:
     test_args.append("DWConvMicrokernelTester::Variant::Scalar")
   return xngen.preprocess(DWCONV_TEST_CODE, {
       "TEST_NAME": test_name.upper().replace("UKERNEL_", ""),
       "TEST_ARGS": test_args,
       "UKERNEL_TYPE": ukernel_type.upper(),
       "DATATYPE": datatype,
+      "ACTIVATION": activation.upper(),
       "CR": cr,
       "KR": kr,
       "CBLOCK": c_block,

@@ -1,7 +1,9 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import logging
 import re
 import time
 
@@ -31,10 +33,21 @@ class PDTester(chrome_ec.ChromeEC):
     # USB charging command delays in seconds.
     USBC_COMMAND_DELAY = 0.5
     # PDTester USBC commands.
-    USBC_ROLE = 'usbc_role'
+    USBC_ROLE= 'usbc_role' # TODO(b:140256624): deprecate by USBC_PR
+    USBC_PR= 'usbc_pr'
     USBC_MUX = 'usbc_mux'
     RE_USBC_ROLE_VOLTAGE = r'src(\d+)v'
+    USBC_SRC_CAPS = 'ada_srccaps'
     USBC_CHARGING_VOLTAGES = {
+        0: 'sink',
+        5: 'src5v',
+        9: 'src9v',
+        10: 'src10v',
+        12: 'src12v',
+        15: 'src15v',
+        20: 'src20v'}
+    # TODO(b:140256624): deprecate by USBC_CHARGING_VOLTAGES
+    USBC_CHARGING_VOLTAGES_LEGACY = {
         0: 'sink',
         5: 'src5v',
         12: 'src12v',
@@ -114,36 +127,76 @@ class PDTester(chrome_ec.ChromeEC):
         """Gets PDTester charging power in watts."""
         return float(self.get(self.VBUS_POWER_MW)) / 1000.0
 
+    def get_adapter_source_caps(self):
+        """Gets a list of SourceCap Tuples in mV/mA."""
+        try:
+            res = self.get(self.USBC_SRC_CAPS)
+        except:
+            raise PDTesterError('Unsupported servov4 command(%s). '
+                                'Maybe firmware or servod too old? '
+                                'sudo servo_updater -b servo_v4; '
+                                'sudo emerge hdctools' % self.USBC_SRC_CAPS)
+
+        srccaps = []
+        for pdo_str in res:
+            m = re.match(r'\d: (\d+)mV/(\d+)mA', pdo_str)
+            srccaps.append((int(m.group(1)), int(m.group(2))))
+        return srccaps
 
     def get_charging_voltages(self):
-        """Gets the lists of available charging voltages."""
-        return self.USBC_CHARGING_VOLTAGES.keys()
+        """Gets the lists of available charging voltages of the adapter."""
+        try:
+            srccaps = self.get_adapter_source_caps()
+        except PDTesterError:
+            # htctools and servov4 is not updated, fallback to the old path.
+            logging.warn('hdctools or servov4 firmware too old, fallback to '
+                         'fixed charging voltages.')
+            return list(self.USBC_CHARGING_VOLTAGES_LEGACY.keys())
 
+        # insert 0 voltage for sink
+        vols = [0]
+        for pdo in srccaps:
+            vols.append(pdo[0]/1000)
+        return vols
 
     def charge(self, voltage):
         """Sets PDTester to provide power at specific voltage.
 
         @param voltage: Specified charging voltage in volts.
         """
-        if voltage not in self.USBC_CHARGING_VOLTAGES:
-            raise PDTesterError('Invalid charging voltage: %s' % voltage)
+        charging_voltages = self.get_charging_voltages()
+        if voltage not in charging_voltages:
+            logging.warning('Unsupported voltage(%s) of the adapter. '
+                            'Maybe firmware or servod too old? '
+                            'sudo servo_updater -b servo_v4; '
+                            'sudo emerge hdctools' % voltage)
 
-        self.set(self.USBC_ROLE, self.USBC_CHARGING_VOLTAGES[voltage])
+        try:
+            self.set(self.USBC_PR, self.USBC_CHARGING_VOLTAGES[voltage])
+        except:
+            self.set(self.USBC_ROLE,
+                     self.USBC_CHARGING_VOLTAGES_LEGACY[voltage])
         time.sleep(self.USBC_COMMAND_DELAY)
-
 
     @property
     def charging_voltage(self):
         """Gets current charging voltage."""
-        usbc_role = self.get(self.USBC_ROLE)
-        m = re.match(self.RE_USBC_ROLE_VOLTAGE, usbc_role)
+        try:
+            usbc_pr = self.get(self.USBC_PR)
+        except:
+            logging.warn('Unsupported control(%s). '
+                         'Maybe firmware or servod too old? '
+                         'sudo servo_updater -b servo_v4; '
+                         'sudo emerge hdctools' % self.USBC_PR)
+            usbc_pr = self.get(self.USBC_ROLE)
+        m = re.match(self.RE_USBC_ROLE_VOLTAGE, usbc_pr)
         if m:
             return int(m.group(1))
 
-        if usbc_role == self.USBC_CHARGING_VOLTAGES[0]:
+        if usbc_pr == self.USBC_CHARGING_VOLTAGES[0]:
             return 0
 
-        raise PDTesterError('Invalid USBC role: %s' % usbc_role)
+        raise PDTesterError('Invalid USBC power role: %s' % usbc_pr)
 
 
     def poll_pd_state(self, state):

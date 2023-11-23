@@ -48,6 +48,7 @@ public class ShellPermissionTest {
     private static final String[] BLACKLISTED_PERMISSIONS = {
             "android.permission.MANAGE_USERS",
             "android.permission.NETWORK_STACK",
+            "android.permission.MANAGE_WIFI_COUNTRY_CODE",
     };
 
     private static final Context sContext = InstrumentationRegistry.getTargetContext();

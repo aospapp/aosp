@@ -22,6 +22,11 @@ public class TestThemesUserEventLogger extends TestUserEventLogger
     }
 
     @Override
+    public void logColorApplied(int action, int colorIndex) {
+        // Do nothing.
+    }
+
+    @Override
     public void logClockSelected(Clockface clock) {
         // Do nothing.
     }

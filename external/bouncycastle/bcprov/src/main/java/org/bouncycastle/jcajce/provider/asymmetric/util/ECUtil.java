@@ -1,9 +1,13 @@
 package org.bouncycastle.jcajce.provider.asymmetric.util;
 
+import java.lang.reflect.Method;
 import java.math.BigInteger;
+import java.security.AccessController;
 import java.security.InvalidKeyException;
 import java.security.PrivateKey;
+import java.security.PrivilegedAction;
 import java.security.PublicKey;
+import java.security.spec.AlgorithmParameterSpec;
 import java.util.Enumeration;
 import java.util.Map;
 
@@ -27,6 +31,7 @@ import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
+import org.bouncycastle.math.ec.FixedPointCombMultiplier;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.Fingerprint;
 import org.bouncycastle.util.Strings;
@@ -150,7 +155,7 @@ public class ECUtil
 
                 ecP = (X9ECParameters)extraCurves.get(oid);
             }
-            domainParameters = new ECNamedDomainParameters(oid, ecP.getCurve(), ecP.getG(), ecP.getN(), ecP.getH(), ecP.getSeed());
+            domainParameters = new ECNamedDomainParameters(oid, ecP);
         }
         else if (params.isImplicitlyCA())
         {
@@ -184,9 +189,9 @@ public class ECUtil
         else if (key instanceof java.security.interfaces.ECPublicKey)
         {
             java.security.interfaces.ECPublicKey pubKey = (java.security.interfaces.ECPublicKey)key;
-            ECParameterSpec s = EC5Util.convertSpec(pubKey.getParams(), false);
+            ECParameterSpec s = EC5Util.convertSpec(pubKey.getParams());
             return new ECPublicKeyParameters(
-                EC5Util.convertPoint(pubKey.getParams(), pubKey.getW(), false),
+                EC5Util.convertPoint(pubKey.getParams(), pubKey.getW()),
                             new ECDomainParameters(s.getCurve(), s.getG(), s.getN(), s.getH(), s.getSeed()));
         }
         else
@@ -249,7 +254,7 @@ public class ECUtil
         else if (key instanceof java.security.interfaces.ECPrivateKey)
         {
             java.security.interfaces.ECPrivateKey privKey = (java.security.interfaces.ECPrivateKey)key;
-            ECParameterSpec s = EC5Util.convertSpec(privKey.getParams(), false);
+            ECParameterSpec s = EC5Util.convertSpec(privKey.getParams());
             return new ECPrivateKeyParameters(
                             privKey.getS(),
                             new ECDomainParameters(s.getCurve(), s.getG(), s.getN(), s.getH(), s.getSeed()));
@@ -384,7 +389,7 @@ public class ECUtil
         StringBuffer buf = new StringBuffer();
         String nl = Strings.lineSeparator();
 
-        org.bouncycastle.math.ec.ECPoint q = calculateQ(d, spec);
+        org.bouncycastle.math.ec.ECPoint q = new FixedPointCombMultiplier().multiply(spec.getG(), d).normalize();
 
         buf.append(algorithm);
         buf.append(" Private Key [").append(ECUtil.generateKeyFingerprint(q, spec)).append("]").append(nl);
@@ -392,11 +397,6 @@ public class ECUtil
         buf.append("            Y: ").append(q.getAffineYCoord().toBigInteger().toString(16)).append(nl);
 
         return buf.toString();
-    }
-
-    private static org.bouncycastle.math.ec.ECPoint calculateQ(BigInteger d, org.bouncycastle.jce.spec.ECParameterSpec spec)
-    {
-        return spec.getG().multiply(d).normalize();
     }
 
     public static String publicKeyToString(String algorithm, org.bouncycastle.math.ec.ECPoint q, org.bouncycastle.jce.spec.ECParameterSpec spec)
@@ -423,5 +423,27 @@ public class ECUtil
         }
 
         return new Fingerprint(publicPoint.getEncoded(false)).toString();
+    }
+
+    public static String getNameFrom(final AlgorithmParameterSpec paramSpec)
+    {
+        return (String)AccessController.doPrivileged(new PrivilegedAction()
+        {
+            public Object run()
+            {
+                try
+                {
+                    Method m = paramSpec.getClass().getMethod("getName");
+
+                    return m.invoke(paramSpec);
+                }
+                catch (Exception e)
+                {
+                    // ignore - maybe log?
+                }
+
+                return null;
+            }
+        });
     }
 }

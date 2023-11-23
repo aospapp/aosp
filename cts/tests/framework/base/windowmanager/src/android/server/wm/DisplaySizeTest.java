@@ -134,10 +134,12 @@ public class DisplaySizeTest extends ActivityManagerTestBase {
 
             executeShellCommand(String.format("wm size %sx%s -d %s",
                     newLength, newLength, targetDisplayId));
+
             synchronized (displayManager) {
                 if (!displayChanged[0]) {
-                    displayManager.wait(1000 /* milliseconds */);
+                    displayManager.wait(3000 /* milliseconds */);
                 }
+                assertTrue("DisplayManager must receive onDisplayChanged event", displayChanged[0]);
             }
 
             final Point expectedSize = new Point(newLength, newLength);

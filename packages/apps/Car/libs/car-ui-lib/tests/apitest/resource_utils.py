@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright 2019, The Android Open Source Project
 #
@@ -100,18 +100,27 @@ def get_resources_from_single_file(filename):
     # lxml installed
     import lxml.etree as etree
     doc = etree.parse(filename)
-    resourceTag = doc.getroot()
+    root = doc.getroot()
     result = set()
-    for resource in resourceTag:
+    for resource in root:
         if resource.tag == 'declare-styleable' or resource.tag is etree.Comment:
             continue
 
         resName = resource.get('name')
         resType = resource.tag
+        if resType == "string-array":
+            resType = "array"
         if resource.tag == 'item' or resource.tag == 'public':
             resType = resource.get('type')
 
-        if resType != 'overlayable':
+        if resType == 'overlayable':
+            for policy in resource:
+                for overlayable in policy:
+                    resName = overlayable.get('name')
+                    resType = overlayable.get('type')
+                    add_resource_to_set(result, Resource(resName, resType,
+                                                        ResourceLocation(filename, resource.sourceline)))
+        else:
             add_resource_to_set(result, Resource(resName, resType,
                                                  ResourceLocation(filename, resource.sourceline)))
 

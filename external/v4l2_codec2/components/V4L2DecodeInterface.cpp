@@ -14,8 +14,8 @@
 #include <media/stagefright/foundation/MediaDefs.h>
 
 #include <v4l2_codec2/common/V4L2ComponentCommon.h>
+#include <v4l2_codec2/common/V4L2Device.h>
 #include <v4l2_codec2/plugin_store/V4L2AllocatorId.h>
-#include <v4l2_device.h>
 
 namespace android {
 namespace {
@@ -26,13 +26,6 @@ constexpr size_t k4KArea = 3840 * 2160;
 constexpr size_t kInputBufferSizeFor1080p = 1024 * 1024;  // 1MB
 // Input bitstream buffer size for up to 4k streams.
 constexpr size_t kInputBufferSizeFor4K = 4 * kInputBufferSizeFor1080p;
-
-// Supported V4L2 input formats. Currently we only support stateful API.
-constexpr uint32_t kSupportedInputFourccs[] = {
-        V4L2_PIX_FMT_H264,
-        V4L2_PIX_FMT_VP8,
-        V4L2_PIX_FMT_VP9,
-};
 
 std::optional<VideoCodec> getCodecFromComponentName(const std::string& name) {
     if (name == V4L2ComponentName::kH264Decoder || name == V4L2ComponentName::kH264SecureDecoder)
@@ -56,22 +49,6 @@ size_t calculateInputBufferSize(size_t area) {
     if (area > k1080pArea) return kInputBufferSizeFor4K;
     return kInputBufferSizeFor1080p;
 }
-
-uint32_t getOutputDelay(VideoCodec codec) {
-    switch (codec) {
-    case VideoCodec::H264:
-        // Due to frame reordering an H264 decoder might need multiple additional input frames to be
-        // queued before being able to output the associated decoded buffers. We need to tell the
-        // codec2 framework that it should not stop queuing new work items until the maximum number
-        // of frame reordering is reached, to avoid stalling the decoder.
-        return 16;
-    case VideoCodec::VP8:
-        return 0;
-    case VideoCodec::VP9:
-        return 0;
-    }
-}
-
 }  // namespace
 
 // static
@@ -145,6 +122,10 @@ V4L2DecodeInterface::V4L2DecodeInterface(const std::string& name,
         return;
     }
 
+    addParameter(DefineParam(mKind, C2_PARAMKEY_COMPONENT_KIND)
+                         .withConstValue(new C2ComponentKindSetting(C2Component::KIND_DECODER))
+                         .build());
+
     std::string inputMime;
     switch (*mVideoCodec) {
     case VideoCodec::H264:
@@ -200,18 +181,6 @@ V4L2DecodeInterface::V4L2DecodeInterface(const std::string& name,
         break;
     }
 
-    auto device = media::V4L2Device::Create();
-    const auto supportedProfiles = device->GetSupportedDecodeProfiles(
-            base::size(kSupportedInputFourccs), kSupportedInputFourccs);
-    if (supportedProfiles.empty()) {
-        ALOGE("Failed to get supported profiles from V4L2 device.");
-        mInitStatus = C2_BAD_VALUE;
-        return;
-    }
-
-    mMinSize = supportedProfiles[0].min_resolution;
-    mMaxSize = supportedProfiles[0].max_resolution;
-
     addParameter(
             DefineParam(mInputFormat, C2_PARAMKEY_INPUT_STREAM_BUFFER_TYPE)
                     .withConstValue(new C2StreamBufferTypeSetting::input(0u, C2BufferData::LINEAR))
@@ -242,15 +211,17 @@ V4L2DecodeInterface::V4L2DecodeInterface(const std::string& name,
                                  MEDIA_MIMETYPE_VIDEO_RAW))
                          .build());
 
-    addParameter(
-            DefineParam(mSize, C2_PARAMKEY_PICTURE_SIZE)
-                    .withDefault(new C2StreamPictureSizeInfo::output(0u, 320, 240))
-                    .withFields({
-                            C2F(mSize, width).inRange(mMinSize.width(), mMaxSize.width(), 16),
-                            C2F(mSize, height).inRange(mMinSize.height(), mMaxSize.height(), 16),
-                    })
-                    .withSetter(SizeSetter)
-                    .build());
+    // Note(b/165826281): The check is not used at Android framework currently.
+    // In order to fasten the bootup time, we use the maximum supported size instead of querying the
+    // capability from the V4L2 device.
+    addParameter(DefineParam(mSize, C2_PARAMKEY_PICTURE_SIZE)
+                         .withDefault(new C2StreamPictureSizeInfo::output(0u, 320, 240))
+                         .withFields({
+                                 C2F(mSize, width).inRange(16, 4096, 16),
+                                 C2F(mSize, height).inRange(16, 4096, 16),
+                         })
+                         .withSetter(SizeSetter)
+                         .build());
 
     addParameter(
             DefineParam(mMaxInputSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
@@ -263,9 +234,9 @@ V4L2DecodeInterface::V4L2DecodeInterface(const std::string& name,
 
     bool secureMode = name.find(".secure") != std::string::npos;
     const C2Allocator::id_t inputAllocators[] = {secureMode ? V4L2AllocatorId::SECURE_LINEAR
-                                                            : C2PlatformAllocatorStore::BLOB};
+                                                            : C2AllocatorStore::DEFAULT_LINEAR};
 
-    const C2Allocator::id_t outputAllocators[] = {C2AllocatorStore::DEFAULT_GRAPHIC};
+    const C2Allocator::id_t outputAllocators[] = {V4L2AllocatorId::V4L2_BUFFERPOOL};
     const C2Allocator::id_t surfaceAllocator =
             secureMode ? V4L2AllocatorId::SECURE_GRAPHIC : V4L2AllocatorId::V4L2_BUFFERQUEUE;
     const C2BlockPool::local_id_t outputBlockPools[] = {C2BlockPool::BASIC_GRAPHIC};
@@ -351,7 +322,7 @@ V4L2DecodeInterface::V4L2DecodeInterface(const std::string& name,
 }
 
 size_t V4L2DecodeInterface::getInputBufferSize() const {
-    return calculateInputBufferSize(getMaxSize().GetArea());
+    return calculateInputBufferSize(mSize->width * mSize->height);
 }
 
 c2_status_t V4L2DecodeInterface::queryColorAspects(
@@ -365,6 +336,21 @@ c2_status_t V4L2DecodeInterface::queryColorAspects(
         *targetColorAspects = std::move(colorAspects);
     }
     return status;
+}
+
+uint32_t V4L2DecodeInterface::getOutputDelay(VideoCodec codec) {
+    switch (codec) {
+    case VideoCodec::H264:
+        // Due to frame reordering an H264 decoder might need multiple additional input frames to be
+        // queued before being able to output the associated decoded buffers. We need to tell the
+        // codec2 framework that it should not stop queuing new work items until the maximum number
+        // of frame reordering is reached, to avoid stalling the decoder.
+        return 16;
+    case VideoCodec::VP8:
+        return 0;
+    case VideoCodec::VP9:
+        return 0;
+    }
 }
 
 }  // namespace android

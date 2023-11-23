@@ -18,6 +18,7 @@
 #include <cstring>
 
 #include "src/utils/common.h"
+#include "src/utils/constants.h"
 #include "src/utils/logging.h"
 
 namespace libgav1 {
@@ -36,19 +37,28 @@ void CopySegmentationParameters(const Segmentation& from, Segmentation* to) {
 
 }  // namespace
 
-RefCountedBuffer::RefCountedBuffer() {
-  memset(&raw_frame_buffer_, 0, sizeof(raw_frame_buffer_));
-}
+RefCountedBuffer::RefCountedBuffer() = default;
 
 RefCountedBuffer::~RefCountedBuffer() = default;
 
 bool RefCountedBuffer::Realloc(int bitdepth, bool is_monochrome, int width,
                                int height, int subsampling_x, int subsampling_y,
-                               int border, int byte_alignment) {
-  return yuv_buffer_.Realloc(bitdepth, is_monochrome, width, height,
-                             subsampling_x, subsampling_y, border,
-                             byte_alignment, pool_->get_frame_buffer_,
-                             pool_->callback_private_data_, &raw_frame_buffer_);
+                               int left_border, int right_border,
+                               int top_border, int bottom_border) {
+  // The YuvBuffer::Realloc() could call the get frame buffer callback which
+  // will need to be thread safe. So we ensure that we only call Realloc() once
+  // at any given time.
+  std::lock_guard<std::mutex> lock(pool_->mutex_);
+  assert(!buffer_private_data_valid_);
+  if (!yuv_buffer_.Realloc(
+          bitdepth, is_monochrome, width, height, subsampling_x, subsampling_y,
+          left_border, right_border, top_border, bottom_border,
+          pool_->get_frame_buffer_, pool_->callback_private_data_,
+          &buffer_private_data_)) {
+    return false;
+  }
+  buffer_private_data_valid_ = true;
+  return true;
 }
 
 bool RefCountedBuffer::SetFrameDimensions(const ObuFrameHeader& frame_header) {
@@ -59,13 +69,13 @@ bool RefCountedBuffer::SetFrameDimensions(const ObuFrameHeader& frame_header) {
   render_height_ = frame_header.render_height;
   rows4x4_ = frame_header.rows4x4;
   columns4x4_ = frame_header.columns4x4;
-  const int rows4x4_half = DivideBy2(rows4x4_);
-  const int columns4x4_half = DivideBy2(columns4x4_);
-  if (!motion_field_reference_frame_.Reset(rows4x4_half, columns4x4_half,
-                                           /*zero_initialize=*/false) ||
-      !motion_field_mv_.Reset(rows4x4_half, columns4x4_half,
-                              /*zero_initialize=*/false)) {
-    return false;
+  if (frame_header.refresh_frame_flags != 0 &&
+      !IsIntraFrame(frame_header.frame_type)) {
+    const int rows4x4_half = DivideBy2(rows4x4_);
+    const int columns4x4_half = DivideBy2(columns4x4_);
+    if (!reference_info_.Reset(rows4x4_half, columns4x4_half)) {
+      return false;
+    }
   }
   return segmentation_map_.Allocate(rows4x4_, columns4x4_);
 }
@@ -103,55 +113,105 @@ void RefCountedBuffer::ReturnToBufferPool(RefCountedBuffer* ptr) {
   ptr->pool_->ReturnUnusedBuffer(ptr);
 }
 
-// static
-constexpr int BufferPool::kNumBuffers;
-
-BufferPool::BufferPool(const DecoderSettings& settings) {
-  if (settings.get != nullptr && settings.release != nullptr) {
-    get_frame_buffer_ = settings.get;
-    release_frame_buffer_ = settings.release;
-    callback_private_data_ = settings.callback_private_data;
+BufferPool::BufferPool(
+    FrameBufferSizeChangedCallback on_frame_buffer_size_changed,
+    GetFrameBufferCallback get_frame_buffer,
+    ReleaseFrameBufferCallback release_frame_buffer,
+    void* callback_private_data) {
+  if (get_frame_buffer != nullptr) {
+    // on_frame_buffer_size_changed may be null.
+    assert(release_frame_buffer != nullptr);
+    on_frame_buffer_size_changed_ = on_frame_buffer_size_changed;
+    get_frame_buffer_ = get_frame_buffer;
+    release_frame_buffer_ = release_frame_buffer;
+    callback_private_data_ = callback_private_data;
   } else {
-    internal_frame_buffers_ = InternalFrameBufferList::Create(kNumBuffers);
-    // GetInternalFrameBuffer checks whether its private_data argument is null,
-    // so we don't need to check whether internal_frame_buffers_ is null here.
+    on_frame_buffer_size_changed_ = OnInternalFrameBufferSizeChanged;
     get_frame_buffer_ = GetInternalFrameBuffer;
     release_frame_buffer_ = ReleaseInternalFrameBuffer;
-    callback_private_data_ = internal_frame_buffers_.get();
-  }
-  for (RefCountedBuffer& buffer : buffers_) {
-    buffer.SetBufferPool(this);
+    callback_private_data_ = &internal_frame_buffers_;
   }
 }
 
 BufferPool::~BufferPool() {
-  for (const RefCountedBuffer& buffer : buffers_) {
-    if (buffer.in_use_) {
-      assert(0 && "RefCountedBuffer still in use at destruction time.");
+  for (const auto* buffer : buffers_) {
+    if (buffer->in_use_) {
+      assert(false && "RefCountedBuffer still in use at destruction time.");
       LIBGAV1_DLOG(ERROR, "RefCountedBuffer still in use at destruction time.");
     }
+    delete buffer;
   }
+}
+
+bool BufferPool::OnFrameBufferSizeChanged(int bitdepth,
+                                          Libgav1ImageFormat image_format,
+                                          int width, int height,
+                                          int left_border, int right_border,
+                                          int top_border, int bottom_border) {
+  if (on_frame_buffer_size_changed_ == nullptr) return true;
+  return on_frame_buffer_size_changed_(callback_private_data_, bitdepth,
+                                       image_format, width, height, left_border,
+                                       right_border, top_border, bottom_border,
+                                       /*stride_alignment=*/16) == kStatusOk;
 }
 
 RefCountedBufferPtr BufferPool::GetFreeBuffer() {
-  for (RefCountedBuffer& buffer : buffers_) {
-    if (!buffer.in_use_) {
-      buffer.in_use_ = true;
-      return RefCountedBufferPtr(&buffer, RefCountedBuffer::ReturnToBufferPool);
+  // In frame parallel mode, the GetFreeBuffer() calls from ObuParser all happen
+  // from the same thread serially, but the GetFreeBuffer() call in
+  // DecoderImpl::ApplyFilmGrain can happen from multiple threads at the same
+  // time. So this function has to be thread safe.
+  // TODO(b/142583029): Investigate if the GetFreeBuffer() call in
+  // DecoderImpl::ApplyFilmGrain() call can be serialized so that this function
+  // need not be thread safe.
+  std::unique_lock<std::mutex> lock(mutex_);
+  for (auto buffer : buffers_) {
+    if (!buffer->in_use_) {
+      buffer->in_use_ = true;
+      buffer->progress_row_ = -1;
+      buffer->frame_state_ = kFrameStateUnknown;
+      lock.unlock();
+      return RefCountedBufferPtr(buffer, RefCountedBuffer::ReturnToBufferPool);
     }
   }
+  lock.unlock();
+  auto* const buffer = new (std::nothrow) RefCountedBuffer();
+  if (buffer == nullptr) {
+    LIBGAV1_DLOG(ERROR, "Failed to allocate a new reference counted buffer.");
+    return RefCountedBufferPtr();
+  }
+  buffer->SetBufferPool(this);
+  buffer->in_use_ = true;
+  buffer->progress_row_ = -1;
+  buffer->frame_state_ = kFrameStateUnknown;
+  lock.lock();
+  const bool ok = buffers_.push_back(buffer);
+  lock.unlock();
+  if (!ok) {
+    LIBGAV1_DLOG(
+        ERROR,
+        "Failed to push the new reference counted buffer into the vector.");
+    delete buffer;
+    return RefCountedBufferPtr();
+  }
+  return RefCountedBufferPtr(buffer, RefCountedBuffer::ReturnToBufferPool);
+}
 
-  // We should never run out of free buffers. If we reach here, there is a
-  // reference leak.
-  return RefCountedBufferPtr();
+void BufferPool::Abort() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  for (auto buffer : buffers_) {
+    if (buffer->in_use_) {
+      buffer->Abort();
+    }
+  }
 }
 
 void BufferPool::ReturnUnusedBuffer(RefCountedBuffer* buffer) {
+  std::lock_guard<std::mutex> lock(mutex_);
   assert(buffer->in_use_);
   buffer->in_use_ = false;
-  if (buffer->raw_frame_buffer_.data[0] != nullptr) {
-    release_frame_buffer_(callback_private_data_, &buffer->raw_frame_buffer_);
-    memset(&buffer->raw_frame_buffer_, 0, sizeof(buffer->raw_frame_buffer_));
+  if (buffer->buffer_private_data_valid_) {
+    release_frame_buffer_(callback_private_data_, buffer->buffer_private_data_);
+    buffer->buffer_private_data_valid_ = false;
   }
 }
 

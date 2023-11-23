@@ -24,14 +24,14 @@ import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_UNDEFINED;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
 import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
+import static android.app.WindowConfiguration.WINDOWING_MODE_MULTI_WINDOW;
 import static android.app.WindowConfiguration.WINDOWING_MODE_PINNED;
-import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_PRIMARY;
-import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_SECONDARY;
 import static android.app.WindowConfiguration.WINDOWING_MODE_UNDEFINED;
 import static android.server.wm.ComponentNameUtils.getActivityName;
 import static android.server.wm.ComponentNameUtils.getWindowName;
 
 import android.content.ComponentName;
+
 import androidx.annotation.Nullable;
 
 public class WaitForValidActivityState {
@@ -89,11 +89,10 @@ public class WaitForValidActivityState {
             case WINDOWING_MODE_UNDEFINED: return "UNDEFINED";
             case WINDOWING_MODE_FULLSCREEN: return "FULLSCREEN";
             case WINDOWING_MODE_PINNED: return "PINNED";
-            case WINDOWING_MODE_SPLIT_SCREEN_PRIMARY: return "SPLIT_SCREEN_PRIMARY";
-            case WINDOWING_MODE_SPLIT_SCREEN_SECONDARY: return "SPLIT_SCREEN_SECONDARY";
             case WINDOWING_MODE_FREEFORM: return "FREEFORM";
+            case WINDOWING_MODE_MULTI_WINDOW: return "MULTI_WINDOW";
             default:
-                throw new IllegalArgumentException("Unknown WINDOWING_MODE_: " + windowingMode);
+                return "Unknown WINDOWING_MODE_: " + windowingMode;
         }
     }
 

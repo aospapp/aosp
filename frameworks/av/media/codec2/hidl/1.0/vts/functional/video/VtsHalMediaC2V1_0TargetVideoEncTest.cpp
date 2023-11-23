@@ -23,14 +23,11 @@
 #include <stdio.h>
 #include <fstream>
 
-#include <C2AllocatorIon.h>
 #include <C2Buffer.h>
 #include <C2BufferPriv.h>
 #include <C2Config.h>
 #include <C2Debug.h>
 #include <codec2/hidl/client.h>
-
-using android::C2AllocatorIon;
 
 #include "media_c2_hidl_test_common.h"
 #include "media_c2_video_hidl_test_common.h"
@@ -41,13 +38,11 @@ class GraphicBuffer : public C2Buffer {
         : C2Buffer({block->share(C2Rect(block->width(), block->height()), ::C2Fence())}) {}
 };
 
-static std::vector<std::tuple<std::string, std::string, std::string, std::string, std::string>>
-        kEncodeTestParameters;
-static std::vector<std::tuple<std::string, std::string, std::string, std::string>>
-        kEncodeResolutionTestParameters;
+using EncodeTestParameters = std::tuple<std::string, std::string, bool, bool, bool>;
+static std::vector<EncodeTestParameters> gEncodeTestParameters;
 
-// Resource directory
-static std::string sResourceDir = "";
+using EncodeResolutionTestParameters = std::tuple<std::string, std::string, int32_t, int32_t>;
+static std::vector<EncodeResolutionTestParameters> gEncodeResolutionTestParameters;
 
 namespace {
 
@@ -78,26 +73,13 @@ class Codec2VideoEncHidlTestBase : public ::testing::Test {
         mGraphicPool = std::make_shared<C2PooledBlockPool>(mGraphicAllocator, mBlockPoolId++);
         ASSERT_NE(mGraphicPool, nullptr);
 
-        mCompName = unknown_comp;
-        struct StringToName {
-            const char* Name;
-            standardComp CompName;
-        };
+        std::vector<std::unique_ptr<C2Param>> queried;
+        mComponent->query({}, {C2PortMediaTypeSetting::output::PARAM_TYPE}, C2_DONT_BLOCK,
+                          &queried);
+        ASSERT_GT(queried.size(), 0);
 
-        const StringToName kStringToName[] = {
-                {"h263", h263}, {"avc", avc}, {"mpeg4", mpeg4},
-                {"hevc", hevc}, {"vp8", vp8}, {"vp9", vp9},
-        };
-
-        const size_t kNumStringToName = sizeof(kStringToName) / sizeof(kStringToName[0]);
-
-        // Find the component type
-        for (size_t i = 0; i < kNumStringToName; ++i) {
-            if (strcasestr(mComponentName.c_str(), kStringToName[i].Name)) {
-                mCompName = kStringToName[i].CompName;
-                break;
-            }
-        }
+        mMime = ((C2PortMediaTypeSetting::output*)queried[0].get())->m.value;
+        std::cout << "mime : " << mMime << "\n";
         mEos = false;
         mCsd = false;
         mConfigBPictures = false;
@@ -106,7 +88,26 @@ class Codec2VideoEncHidlTestBase : public ::testing::Test {
         mTimestampUs = 0u;
         mOutputSize = 0u;
         mTimestampDevTest = false;
-        if (mCompName == unknown_comp) mDisableTest = true;
+        mWidth = ENC_DEFAULT_FRAME_WIDTH;
+        mHeight = ENC_DEFAULT_FRAME_HEIGHT;
+        mMaxWidth = 0;
+        mMaxHeight = 0;
+        mMinWidth = INT32_MAX;
+        mMinHeight = INT32_MAX;
+
+        ASSERT_EQ(getMaxMinResolutionSupported(), C2_OK);
+        mWidth = std::max(std::min(mWidth, mMaxWidth), mMinWidth);
+        mHeight = std::max(std::min(mHeight, mMaxHeight), mMinHeight);
+        ALOGV("mWidth %d mHeight %d", mWidth, mHeight);
+
+        C2SecureModeTuning secureModeTuning{};
+        mComponent->query({&secureModeTuning}, {}, C2_MAY_BLOCK, nullptr);
+        if (secureModeTuning.value == C2Config::SM_READ_PROTECTED ||
+            secureModeTuning.value == C2Config::SM_READ_PROTECTED_WITH_ENCRYPTED) {
+            mDisableTest = true;
+        }
+
+        getFile();
         if (mDisableTest) std::cout << "[   WARN   ] Test Disabled \n";
     }
 
@@ -120,8 +121,9 @@ class Codec2VideoEncHidlTestBase : public ::testing::Test {
 
     // Get the test parameters from GetParam call.
     virtual void getParams() {}
-
+    void getFile();
     bool setupConfigParam(int32_t nWidth, int32_t nHeight, int32_t nBFrame = 0);
+    c2_status_t getMaxMinResolutionSupported();
 
     // callback function to process onWorkDone received by Listener
     void handleWorkDone(std::list<std::unique_ptr<C2Work>>& workItems) {
@@ -180,16 +182,7 @@ class Codec2VideoEncHidlTestBase : public ::testing::Test {
         }
     }
 
-    enum standardComp {
-        h263,
-        avc,
-        mpeg4,
-        hevc,
-        vp8,
-        vp9,
-        unknown_comp,
-    };
-
+    std::string mMime;
     std::string mInstanceName;
     std::string mComponentName;
     bool mEos;
@@ -197,11 +190,16 @@ class Codec2VideoEncHidlTestBase : public ::testing::Test {
     bool mDisableTest;
     bool mConfigBPictures;
     bool mTimestampDevTest;
-    standardComp mCompName;
     uint32_t mFramesReceived;
     uint32_t mFailedWorkReceived;
     uint64_t mTimestampUs;
     uint64_t mOutputSize;
+    int32_t mWidth;
+    int32_t mHeight;
+    int32_t mMaxWidth;
+    int32_t mMaxHeight;
+    int32_t mMinWidth;
+    int32_t mMinHeight;
 
     std::list<uint64_t> mTimestampUslist;
     std::list<uint64_t> mFlushedIndices;
@@ -218,15 +216,16 @@ class Codec2VideoEncHidlTestBase : public ::testing::Test {
     std::shared_ptr<android::Codec2Client::Listener> mListener;
     std::shared_ptr<android::Codec2Client::Component> mComponent;
 
+    std::string mInputFile;
+
   protected:
     static void description(const std::string& description) {
         RecordProperty("description", description);
     }
 };
 
-class Codec2VideoEncHidlTest
-    : public Codec2VideoEncHidlTestBase,
-      public ::testing::WithParamInterface<std::tuple<std::string, std::string>> {
+class Codec2VideoEncHidlTest : public Codec2VideoEncHidlTestBase,
+                               public ::testing::WithParamInterface<TestParameters> {
     void getParams() {
         mInstanceName = std::get<0>(GetParam());
         mComponentName = std::get<1>(GetParam());
@@ -234,7 +233,7 @@ class Codec2VideoEncHidlTest
 };
 
 void validateComponent(const std::shared_ptr<android::Codec2Client::Component>& component,
-                       Codec2VideoEncHidlTest::standardComp compName, bool& disableTest) {
+                       bool& disableTest) {
     // Validate its a C2 Component
     if (component->getName().find("c2") == std::string::npos) {
         ALOGE("Not a c2 component");
@@ -260,13 +259,6 @@ void validateComponent(const std::shared_ptr<android::Codec2Client::Component>& 
             disableTest = true;
             return;
         }
-    }
-
-    // Validates component name
-    if (compName == Codec2VideoEncHidlTest::unknown_comp) {
-        ALOGE("Component InValid");
-        disableTest = true;
-        return;
     }
     ALOGV("Component Valid");
 }
@@ -295,9 +287,39 @@ bool Codec2VideoEncHidlTestBase::setupConfigParam(int32_t nWidth, int32_t nHeigh
     return true;
 }
 
-// LookUpTable of clips for component testing
-void GetURLForComponent(char* URL) {
-    strcat(URL, "bbb_352x288_420p_30fps_32frames.yuv");
+void Codec2VideoEncHidlTestBase::getFile() {
+    mInputFile = sResourceDir + "bbb_352x288_420p_30fps_32frames.yuv";
+}
+
+void fillByteBuffer(char* inputBuffer, char* mInputData, uint32_t nWidth, int32_t nHeight) {
+    int width, height, tileWidth, tileHeight;
+    int offset = 0, frmOffset = 0;
+    int numOfPlanes = 3;
+    for (int plane = 0; plane < numOfPlanes; plane++) {
+        if (plane == 0) {
+            width = nWidth;
+            height = nHeight;
+            tileWidth = ENC_DEFAULT_FRAME_WIDTH;
+            tileHeight = ENC_DEFAULT_FRAME_HEIGHT;
+        } else {
+            width = nWidth / 2;
+            tileWidth = ENC_DEFAULT_FRAME_WIDTH / 2;
+            height = nHeight / 2;
+            tileHeight = ENC_DEFAULT_FRAME_HEIGHT / 2;
+        }
+        for (int k = 0; k < height; k += tileHeight) {
+            int rowsToCopy = std::min(height - k, tileHeight);
+            for (int j = 0; j < rowsToCopy; j++) {
+                for (int i = 0; i < width; i += tileWidth) {
+                    int colsToCopy = std::min(width - i, tileWidth);
+                    memcpy(inputBuffer + (offset + (k + j) * width + i),
+                           mInputData + (frmOffset + j * tileWidth), colsToCopy);
+                }
+            }
+        }
+        offset += width * height;
+        frmOffset += tileWidth * tileHeight;
+    }
 }
 
 void encodeNFrames(const std::shared_ptr<android::Codec2Client::Component>& component,
@@ -312,6 +334,12 @@ void encodeNFrames(const std::shared_ptr<android::Codec2Client::Component>& comp
     int bytesCount = nWidth * nHeight * 3 >> 1;
     int32_t timestampIncr = ENCODER_TIMESTAMP_INCREMENT;
     c2_status_t err = C2_OK;
+
+    // Query component's memory usage flags
+    std::vector<std::unique_ptr<C2Param>> params;
+    C2StreamUsageTuning::input compUsage(0u, 0u);
+    component->query({&compUsage}, {}, C2_DONT_BLOCK, &params);
+
     while (1) {
         if (nFrames == 0) break;
         uint32_t flags = 0;
@@ -343,16 +371,27 @@ void encodeNFrames(const std::shared_ptr<android::Codec2Client::Component>& comp
             ULock l(queueLock);
             flushedIndices.emplace_back(frameID);
         }
-        char* data = (char*)malloc(bytesCount);
-        ASSERT_NE(data, nullptr);
-        memset(data, 0, bytesCount);
-        if (eleStream.is_open()) {
-            eleStream.read(data, bytesCount);
-            ASSERT_EQ(eleStream.gcount(), bytesCount);
+        std::vector<uint8_t> buffer(bytesCount);
+        char* data = (char*)buffer.data();
+        if (nWidth != ENC_DEFAULT_FRAME_WIDTH || nHeight != ENC_DEFAULT_FRAME_HEIGHT) {
+            int defaultBytesCount = ENC_DEFAULT_FRAME_HEIGHT * ENC_DEFAULT_FRAME_WIDTH * 3 >> 1;
+            std::vector<uint8_t> srcBuffer(defaultBytesCount);
+            char* srcData = (char*)srcBuffer.data();
+            if (eleStream.is_open()) {
+                eleStream.read(srcData, defaultBytesCount);
+                ASSERT_EQ(eleStream.gcount(), defaultBytesCount);
+            }
+            fillByteBuffer(data, srcData, nWidth, nHeight);
+        } else {
+            if (eleStream.is_open()) {
+                eleStream.read(data, bytesCount);
+                ASSERT_EQ(eleStream.gcount(), bytesCount);
+            }
         }
         std::shared_ptr<C2GraphicBlock> block;
         err = graphicPool->fetchGraphicBlock(nWidth, nHeight, HAL_PIXEL_FORMAT_YV12,
-                                             {C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE},
+                                             {C2MemoryUsage::CPU_READ | compUsage.value,
+                                                 C2MemoryUsage::CPU_WRITE | compUsage.value},
                                              &block);
         if (err != C2_OK) {
             fprintf(stderr, "fetchGraphicBlock failed : %d\n", err);
@@ -381,7 +420,6 @@ void encodeNFrames(const std::shared_ptr<android::Codec2Client::Component>& comp
         work->input.buffers.emplace_back(new GraphicBuffer(block));
         work->worklets.clear();
         work->worklets.emplace_back(new C2Worklet);
-        free(data);
 
         std::list<std::unique_ptr<C2Work>> items;
         items.push_back(std::move(work));
@@ -398,39 +436,77 @@ void encodeNFrames(const std::shared_ptr<android::Codec2Client::Component>& comp
 TEST_P(Codec2VideoEncHidlTest, validateCompName) {
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
     ALOGV("Checks if the given component is a valid video component");
-    validateComponent(mComponent, mCompName, mDisableTest);
+    validateComponent(mComponent, mDisableTest);
     ASSERT_EQ(mDisableTest, false);
 }
 
-class Codec2VideoEncEncodeTest
-    : public Codec2VideoEncHidlTestBase,
-      public ::testing::WithParamInterface<
-              std::tuple<std::string, std::string, std::string, std::string, std::string>> {
+class Codec2VideoEncEncodeTest : public Codec2VideoEncHidlTestBase,
+                                 public ::testing::WithParamInterface<EncodeTestParameters> {
     void getParams() {
         mInstanceName = std::get<0>(GetParam());
         mComponentName = std::get<1>(GetParam());
     }
 };
 
+c2_status_t Codec2VideoEncHidlTestBase::getMaxMinResolutionSupported() {
+    std::unique_ptr<C2StreamPictureSizeInfo::input> param =
+            std::make_unique<C2StreamPictureSizeInfo::input>();
+    std::vector<C2FieldSupportedValuesQuery> validValueInfos = {
+            C2FieldSupportedValuesQuery::Current(
+                    C2ParamField(param.get(), &C2StreamPictureSizeInfo::width)),
+            C2FieldSupportedValuesQuery::Current(
+                    C2ParamField(param.get(), &C2StreamPictureSizeInfo::height))};
+    c2_status_t c2err = mComponent->querySupportedValues(validValueInfos, C2_MAY_BLOCK);
+    if (c2err != C2_OK || validValueInfos.size() != 2u) {
+        ALOGE("querySupportedValues_vb failed for pictureSize");
+        return c2err;
+    }
+
+    const auto& c2FSVWidth = validValueInfos[0].values;
+    const auto& c2FSVHeight = validValueInfos[1].values;
+    switch (c2FSVWidth.type) {
+        case C2FieldSupportedValues::type_t::RANGE: {
+            const auto& widthRange = c2FSVWidth.range;
+            const auto& heightRange = c2FSVHeight.range;
+            mMaxWidth = (uint32_t)(widthRange.max).ref<uint32_t>();
+            mMaxHeight = (uint32_t)(heightRange.max).ref<uint32_t>();
+            mMinWidth = (uint32_t)(widthRange.min).ref<uint32_t>();
+            mMinHeight = (uint32_t)(heightRange.min).ref<uint32_t>();
+            break;
+        }
+        case C2FieldSupportedValues::type_t::VALUES: {
+            int32_t curr = 0;
+            for (const C2Value::Primitive& prim : c2FSVWidth.values) {
+                curr = (uint32_t)prim.ref<uint32_t>();
+                mMaxWidth = std::max(curr, mMaxWidth);
+                mMinWidth = std::min(curr, mMinWidth);
+            }
+            for (const C2Value::Primitive& prim : c2FSVHeight.values) {
+                curr = (uint32_t)prim.ref<uint32_t>();
+                mMaxHeight = std::max(curr, mMaxHeight);
+                mMinHeight = std::min(curr, mMinHeight);
+            }
+            break;
+        }
+        default:
+            ALOGE("Non supported data");
+            return C2_BAD_VALUE;
+    }
+    return C2_OK;
+}
+
 TEST_P(Codec2VideoEncEncodeTest, EncodeTest) {
     description("Encodes input file");
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
 
-    char mURL[512];
-    int32_t nWidth = ENC_DEFAULT_FRAME_WIDTH;
-    int32_t nHeight = ENC_DEFAULT_FRAME_HEIGHT;
-    bool signalEOS = !std::get<2>(GetParam()).compare("true");
+    bool signalEOS = std::get<3>(GetParam());
     // Send an empty frame to receive CSD data from encoder.
-    bool sendEmptyFirstFrame = !std::get<3>(GetParam()).compare("true");
-    mConfigBPictures = !std::get<4>(GetParam()).compare("true");
-
-    strcpy(mURL, sResourceDir.c_str());
-    GetURLForComponent(mURL);
+    bool sendEmptyFirstFrame = std::get<3>(GetParam());
+    mConfigBPictures = std::get<4>(GetParam());
 
     std::ifstream eleStream;
-    eleStream.open(mURL, std::ifstream::binary);
-    ASSERT_EQ(eleStream.is_open(), true) << mURL << " file not found";
-    ALOGV("mURL : %s", mURL);
+    eleStream.open(mInputFile, std::ifstream::binary);
+    ASSERT_EQ(eleStream.is_open(), true) << mInputFile << " file not found";
 
     mTimestampUs = 0;
     mTimestampDevTest = true;
@@ -446,10 +522,6 @@ TEST_P(Codec2VideoEncEncodeTest, EncodeTest) {
         inputFrames--;
     }
 
-    if (!setupConfigParam(nWidth, nHeight, mConfigBPictures ? 1 : 0)) {
-        std::cout << "[   WARN   ] Test Skipped \n";
-        return;
-    }
     std::vector<std::unique_ptr<C2Param>> inParams;
     c2_status_t c2_status = mComponent->query({}, {C2StreamGopTuning::output::PARAM_TYPE},
                                               C2_DONT_BLOCK, &inParams);
@@ -469,6 +541,9 @@ TEST_P(Codec2VideoEncEncodeTest, EncodeTest) {
             mConfigBPictures = false;
         }
     }
+    if (!setupConfigParam(mWidth, mHeight, mConfigBPictures ? 1 : 0)) {
+        ASSERT_TRUE(false) << "Failed while configuring height and width for " << mComponentName;
+    }
 
     ASSERT_EQ(mComponent->start(), C2_OK);
 
@@ -478,7 +553,7 @@ TEST_P(Codec2VideoEncEncodeTest, EncodeTest) {
     }
     ASSERT_NO_FATAL_FAILURE(encodeNFrames(mComponent, mQueueLock, mQueueCondition, mWorkQueue,
                                           mFlushedIndices, mGraphicPool, eleStream, mDisableTest,
-                                          inputFrames, ENC_NUM_FRAMES, nWidth, nHeight, false,
+                                          inputFrames, ENC_NUM_FRAMES, mWidth, mHeight, false,
                                           signalEOS));
     // mDisableTest will be set if buffer was not fetched properly.
     // This may happen when resolution is not proper but config succeeded
@@ -510,9 +585,9 @@ TEST_P(Codec2VideoEncEncodeTest, EncodeTest) {
         ASSERT_TRUE(false);
     }
 
-    if (mCompName == vp8 || mCompName == h263) {
+    if ((mMime.find("vp8") != std::string::npos) || (mMime.find("3gpp") != std::string::npos)) {
         ASSERT_FALSE(mCsd) << "CSD Buffer not expected";
-    } else if (mCompName != vp9) {
+    } else if (mMime.find("vp9") == std::string::npos) {
         ASSERT_TRUE(mCsd) << "CSD Buffer not received";
     }
 
@@ -568,15 +643,8 @@ TEST_P(Codec2VideoEncHidlTest, FlushTest) {
     description("Test Request for flush");
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
 
-    char mURL[512];
-    int32_t nWidth = ENC_DEFAULT_FRAME_WIDTH;
-    int32_t nHeight = ENC_DEFAULT_FRAME_HEIGHT;
-    strcpy(mURL, sResourceDir.c_str());
-    GetURLForComponent(mURL);
-
-    if (!setupConfigParam(nWidth, nHeight)) {
-        std::cout << "[   WARN   ] Test Skipped \n";
-        return;
+    if (!setupConfigParam(mWidth, mHeight)) {
+        ASSERT_TRUE(false) << "Failed while configuring height and width for " << mComponentName;
     }
     ASSERT_EQ(mComponent->start(), C2_OK);
 
@@ -585,9 +653,9 @@ TEST_P(Codec2VideoEncHidlTest, FlushTest) {
     std::ifstream eleStream;
     uint32_t numFramesFlushed = 10;
     uint32_t numFrames = ENC_NUM_FRAMES;
-    eleStream.open(mURL, std::ifstream::binary);
+    eleStream.open(mInputFile, std::ifstream::binary);
     ASSERT_EQ(eleStream.is_open(), true);
-    ALOGV("mURL : %s", mURL);
+
     // flush
     std::list<std::unique_ptr<C2Work>> flushedWork;
     c2_status_t err = mComponent->flush(C2Component::FLUSH_COMPONENT, &flushedWork);
@@ -598,7 +666,7 @@ TEST_P(Codec2VideoEncHidlTest, FlushTest) {
 
     ASSERT_NO_FATAL_FAILURE(encodeNFrames(mComponent, mQueueLock, mQueueCondition, mWorkQueue,
                                           mFlushedIndices, mGraphicPool, eleStream, mDisableTest, 0,
-                                          numFramesFlushed, nWidth, nHeight, false, false));
+                                          numFramesFlushed, mWidth, mHeight, false, false));
     // mDisableTest will be set if buffer was not fetched properly.
     // This may happen when resolution is not proper but config succeeded
     // In this cases, we skip encoding the input stream
@@ -618,8 +686,8 @@ TEST_P(Codec2VideoEncHidlTest, FlushTest) {
     ASSERT_EQ(mWorkQueue.size(), MAX_INPUT_BUFFERS);
     ASSERT_NO_FATAL_FAILURE(encodeNFrames(mComponent, mQueueLock, mQueueCondition, mWorkQueue,
                                           mFlushedIndices, mGraphicPool, eleStream, mDisableTest,
-                                          numFramesFlushed, numFrames - numFramesFlushed, nWidth,
-                                          nHeight, true));
+                                          numFramesFlushed, numFrames - numFramesFlushed, mWidth,
+                                          mHeight, true));
     eleStream.close();
     // mDisableTest will be set if buffer was not fetched properly.
     // This may happen when resolution is not proper but config succeeded
@@ -690,8 +758,7 @@ TEST_P(Codec2VideoEncHidlTest, InvalidBufferTest) {
 
 class Codec2VideoEncResolutionTest
     : public Codec2VideoEncHidlTestBase,
-      public ::testing::WithParamInterface<
-              std::tuple<std::string, std::string, std::string, std::string>> {
+      public ::testing::WithParamInterface<EncodeResolutionTestParameters> {
     void getParams() {
         mInstanceName = std::get<0>(GetParam());
         mComponentName = std::get<1>(GetParam());
@@ -703,8 +770,8 @@ TEST_P(Codec2VideoEncResolutionTest, ResolutionTest) {
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
 
     std::ifstream eleStream;
-    int32_t nWidth = std::stoi(std::get<2>(GetParam()));
-    int32_t nHeight = std::stoi(std::get<3>(GetParam()));
+    int32_t nWidth = std::get<2>(GetParam());
+    int32_t nHeight = std::get<3>(GetParam());
     ALOGD("Trying encode for width %d height %d", nWidth, nHeight);
     mEos = false;
 
@@ -735,37 +802,30 @@ TEST_P(Codec2VideoEncResolutionTest, ResolutionTest) {
     ASSERT_EQ(mComponent->reset(), C2_OK);
 }
 
-INSTANTIATE_TEST_SUITE_P(PerInstance, Codec2VideoEncHidlTest, testing::ValuesIn(kTestParameters),
-                         android::hardware::PrintInstanceTupleNameToString<>);
+INSTANTIATE_TEST_SUITE_P(PerInstance, Codec2VideoEncHidlTest, testing::ValuesIn(gTestParameters),
+                         PrintInstanceTupleNameToString<>);
 
 INSTANTIATE_TEST_SUITE_P(NonStdSizes, Codec2VideoEncResolutionTest,
-                         ::testing::ValuesIn(kEncodeResolutionTestParameters));
+                         ::testing::ValuesIn(gEncodeResolutionTestParameters),
+                         PrintInstanceTupleNameToString<>);
 
 // EncodeTest with EOS / No EOS
 INSTANTIATE_TEST_SUITE_P(EncodeTestwithEOS, Codec2VideoEncEncodeTest,
-                         ::testing::ValuesIn(kEncodeTestParameters));
+                         ::testing::ValuesIn(gEncodeTestParameters),
+                         PrintInstanceTupleNameToString<>);
 
 TEST_P(Codec2VideoEncHidlTest, AdaptiveBitrateTest) {
     description("Encodes input file for different bitrates");
     if (mDisableTest) GTEST_SKIP() << "Test is disabled";
 
-    char mURL[512];
-
-    strcpy(mURL, sResourceDir.c_str());
-    GetURLForComponent(mURL);
-
     std::ifstream eleStream;
-    eleStream.open(mURL, std::ifstream::binary);
-    ASSERT_EQ(eleStream.is_open(), true) << mURL << " file not found";
-    ALOGV("mURL : %s", mURL);
+    eleStream.open(mInputFile, std::ifstream::binary);
+    ASSERT_EQ(eleStream.is_open(), true) << mInputFile << " file not found";
 
     mFlushedIndices.clear();
 
-    int32_t nWidth = ENC_DEFAULT_FRAME_WIDTH;
-    int32_t nHeight = ENC_DEFAULT_FRAME_HEIGHT;
-    if (!setupConfigParam(nWidth, nHeight)) {
-        std::cout << "[   WARN   ] Test Skipped \n";
-        return;
+    if (!setupConfigParam(mWidth, mHeight)) {
+        ASSERT_TRUE(false) << "Failed while configuring height and width for " << mComponentName;
     }
     ASSERT_EQ(mComponent->start(), C2_OK);
 
@@ -786,8 +846,8 @@ TEST_P(Codec2VideoEncHidlTest, AdaptiveBitrateTest) {
 
         ASSERT_NO_FATAL_FAILURE(encodeNFrames(mComponent, mQueueLock, mQueueCondition, mWorkQueue,
                                               mFlushedIndices, mGraphicPool, eleStream,
-                                              mDisableTest, inputFrameId, ENC_NUM_FRAMES, nWidth,
-                                              nHeight, false, false));
+                                              mDisableTest, inputFrameId, ENC_NUM_FRAMES, mWidth,
+                                              mHeight, false, false));
         // mDisableTest will be set if buffer was not fetched properly.
         // This may happen when resolution is not proper but config succeeded
         // In this cases, we skip encoding the input stream
@@ -834,38 +894,26 @@ TEST_P(Codec2VideoEncHidlTest, AdaptiveBitrateTest) {
 }  // anonymous namespace
 
 int main(int argc, char** argv) {
-    kTestParameters = getTestParameters(C2Component::DOMAIN_VIDEO, C2Component::KIND_ENCODER);
-    for (auto params : kTestParameters) {
-        constexpr char const* kBoolString[] = { "false", "true" };
+    parseArgs(argc, argv);
+    gTestParameters = getTestParameters(C2Component::DOMAIN_VIDEO, C2Component::KIND_ENCODER);
+    for (auto params : gTestParameters) {
         for (size_t i = 0; i < 1 << 3; ++i) {
-            kEncodeTestParameters.push_back(std::make_tuple(
-                    std::get<0>(params), std::get<1>(params),
-                    kBoolString[i & 1],
-                    kBoolString[(i >> 1) & 1],
-                    kBoolString[(i >> 2) & 1]));
+            gEncodeTestParameters.push_back(std::make_tuple(
+                    std::get<0>(params), std::get<1>(params), i & 1, (i >> 1) & 1, (i >> 2) & 1));
         }
 
-        kEncodeResolutionTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "52", "18"));
-        kEncodeResolutionTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "365", "365"));
-        kEncodeResolutionTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "484", "362"));
-        kEncodeResolutionTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "244", "488"));
-        kEncodeResolutionTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "852", "608"));
-        kEncodeResolutionTestParameters.push_back(
-                std::make_tuple(std::get<0>(params), std::get<1>(params), "1400", "442"));
-    }
-
-    // Set the resource directory based on command line args.
-    // Test will fail to set up if the argument is not set.
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-P") == 0 && i < argc - 1) {
-            sResourceDir = argv[i + 1];
-            break;
-        }
+        gEncodeResolutionTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), 52, 18));
+        gEncodeResolutionTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), 365, 365));
+        gEncodeResolutionTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), 484, 362));
+        gEncodeResolutionTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), 244, 488));
+        gEncodeResolutionTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), 852, 608));
+        gEncodeResolutionTestParameters.push_back(
+                std::make_tuple(std::get<0>(params), std::get<1>(params), 1400, 442));
     }
 
     ::testing::InitGoogleTest(&argc, argv);

@@ -7,6 +7,7 @@
 
 import json
 import logging
+import threading
 
 from autotest_lib.client.bin.input import input_event_recorder
 from autotest_lib.client.cros.input_playback import input_playback
@@ -24,7 +25,8 @@ class InputFacadeNative(object):
 
     def __init__(self):
         """Initializes the input facade."""
-        self.recorder = None
+        self.recorders_lock = threading.Lock()
+        self.recorders = dict()
 
     def initialize_input_playback(self, input_type='keyboard', property_file=None):
         """Initialize for input events simulation.
@@ -36,47 +38,74 @@ class InputFacadeNative(object):
         self._player.emulate(input_type=input_type, property_file=property_file)
         self._player.find_connected_inputs()
 
-    def initialize_input_recorder(self, device_name):
+    def initialize_input_recorder(self, device_name, uniq):
         """Initialize an input event recorder object.
+
+        @param device_name: the name of the input device to record.
+        @param uniq: Unique address of input device (None if not used)
+
+        """
+        with self.recorders_lock:
+            self.recorders[device_name] = \
+                input_event_recorder.InputEventRecorder(device_name, uniq)
+            logging.info('input event device: %s [uniq=%s] (%s)',
+                         self.recorders[device_name].device_name,
+                         self.recorders[device_name].uniq,
+                         self.recorders[device_name].device_node)
+
+
+    def clear_input_events(self, device_name):
+        """Clear the event list.
 
         @param device_name: the name of the input device to record.
 
         """
-        self.recorder = input_event_recorder.InputEventRecorder(device_name)
-        logging.info('input event device: %s (%s)',
-                     self.recorder.device_name, self.recorder.device_node)
+        with self.recorders_lock:
+            if self.recorders[device_name] is None:
+                raise error.TestError(
+                    'input facade: input device name not given')
+            self.recorders[device_name].clear_events()
 
 
-    def clear_input_events(self):
-        """Clear the event list."""
-        if self.recorder is None:
-            raise error.TestError('input facade: input device name not given')
-        self.recorder.clear_events()
+    def start_input_recorder(self, device_name):
+        """Start the recording thread.
+
+        @param device_name: the name of the input device to record.
+
+        """
+        with self.recorders_lock:
+            if self.recorders[device_name] is None:
+                raise error.TestError(
+                    'input facade: input device name not given')
+            self.recorders[device_name].start()
 
 
-    def start_input_recorder(self):
-        """Start the recording thread."""
-        if self.recorder is None:
-            raise error.TestError('input facade: input device name not given')
-        self.recorder.start()
+    def stop_input_recorder(self, device_name):
+        """Stop the recording thread.
+
+        @param device_name: the name of the input device to record.
+
+        """
+        with self.recorders_lock:
+            if self.recorders[device_name] is None:
+                raise error.TestError(
+                    'input facade: input device name not given')
+            self.recorders[device_name].stop()
 
 
-    def stop_input_recorder(self):
-        """Stop the recording thread."""
-        if self.recorder is None:
-            raise error.TestError('input facade: input device name not given')
-        self.recorder.stop()
-
-
-    def get_input_events(self):
+    def get_input_events(self, device_name):
         """Get the bluetooth device input events.
+
+        @param device_name: the name of the input device to record.
 
         @returns: the recorded input events.
 
         """
-        if self.recorder is None:
-            raise error.TestError('input facade: input device name not given')
-        events = self.recorder.get_events()
+        with self.recorders_lock:
+            if self.recorders[device_name] is None:
+                raise error.TestError(
+                    'input facade: input device name not given')
+            events = self.recorders[device_name].get_events()
         return json.dumps(events)
 
 

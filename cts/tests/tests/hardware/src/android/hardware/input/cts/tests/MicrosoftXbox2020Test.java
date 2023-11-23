@@ -26,7 +26,7 @@ import org.junit.runner.RunWith;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
-public class MicrosoftXbox2020Test extends InputTestCase {
+public class MicrosoftXbox2020Test extends InputHidTestCase {
 
     // Exercises the Bluetooth behavior of the Xbox One S controller
     public MicrosoftXbox2020Test() {

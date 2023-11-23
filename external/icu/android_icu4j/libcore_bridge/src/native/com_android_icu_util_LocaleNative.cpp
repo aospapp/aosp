@@ -17,9 +17,21 @@
 #include <nativehelper/JNIHelp.h>
 #include <nativehelper/jni_macros.h>
 
+#include "IcuUtilities.h"
 #include "ScopedIcuLocale.h"
 
 #include "unicode/locid.h"
+
+static void LocaleNative_setDefaultNative(JNIEnv* env, jclass, jstring javaLanguageTag) {
+  ScopedIcuLocale icuLocale(env, javaLanguageTag);
+  if (!icuLocale.valid()) {
+    return;
+  }
+
+  UErrorCode status = U_ZERO_ERROR;
+  icu::Locale::setDefault(icuLocale.locale(), status);
+  maybeThrowIcuException(env, "uloc_setDefault", status);
+}
 
 static jstring LocaleNative_getDisplayCountryNative(JNIEnv* env, jclass, jstring javaTargetLanguageTag, jstring javaLanguageTag) {
   ScopedIcuLocale icuLocale(env, javaLanguageTag);
@@ -86,6 +98,7 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(LocaleNative, getDisplayLanguageNative, "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"),
     NATIVE_METHOD(LocaleNative, getDisplayScriptNative, "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"),
     NATIVE_METHOD(LocaleNative, getDisplayVariantNative, "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"),
+    NATIVE_METHOD(LocaleNative, setDefaultNative, "(Ljava/lang/String;)V"),
 };
 
 void register_com_android_icu_util_LocaleNative(JNIEnv* env) {

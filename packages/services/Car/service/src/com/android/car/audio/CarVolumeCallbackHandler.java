@@ -15,12 +15,11 @@
  */
 package com.android.car.audio;
 
+import android.annotation.NonNull;
 import android.car.media.ICarVolumeCallback;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.util.Log;
-
-import androidx.annotation.NonNull;
+import android.util.Slog;
 
 import com.android.car.BinderInterfaceContainer;
 import com.android.car.CarLog;
@@ -42,7 +41,7 @@ class CarVolumeCallbackHandler {
             try {
                 callback.binderInterface.onGroupVolumeChanged(zoneId, groupId, flags);
             } catch (RemoteException e) {
-                Log.e(CarLog.TAG_AUDIO, "Failed to callback onGroupVolumeChanged", e);
+                Slog.e(CarLog.TAG_AUDIO, "Failed to callback onGroupVolumeChanged", e);
             }
         }
     }
@@ -53,7 +52,7 @@ class CarVolumeCallbackHandler {
             try {
                 callback.binderInterface.onMasterMuteChanged(zoneId, flags);
             } catch (RemoteException e) {
-                Log.e(CarLog.TAG_AUDIO, "Failed to callback onMasterMuteChanged", e);
+                Slog.e(CarLog.TAG_AUDIO, "Failed to callback onMasterMuteChanged", e);
             }
         }
     }
@@ -64,5 +63,16 @@ class CarVolumeCallbackHandler {
 
     public void unregisterCallback(@NonNull IBinder binder) {
         mVolumeCallbackContainer.removeBinder(ICarVolumeCallback.Stub.asInterface(binder));
+    }
+
+    public void onGroupMuteChange(int zoneId, int groupId, int flags) {
+        for (BinderInterfaceContainer.BinderInterface<ICarVolumeCallback> callback :
+                mVolumeCallbackContainer.getInterfaces()) {
+            try {
+                callback.binderInterface.onGroupMuteChanged(zoneId, groupId, flags);
+            } catch (RemoteException e) {
+                Slog.e(CarLog.TAG_AUDIO, "Failed to callback onGroupMuteChanged", e);
+            }
+        }
     }
 }

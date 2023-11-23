@@ -17,24 +17,23 @@
 // Shared utility sources to be used by multiple network modules
 // TODO: remove all frameworks/base dependencies on packages/modules/NetworkStack and
 // frameworks/base/packages/Tethering by moving these files to frameworks/libs/net.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 filegroup {
     name: "net-module-utils-srcs",
     srcs: [
         "src/android/net/util/SharedLog.java",
-        "src/android/net/shared/InitialConfiguration.java",
-        "src/android/net/shared/Layer2Information.java",
-        "src/android/net/shared/LinkPropertiesParcelableUtil.java",
-        "src/android/net/shared/ParcelableUtil.java",
         "src/android/net/shared/NetdUtils.java",
         "src/android/net/shared/NetworkMonitorUtils.java",
-        "src/android/net/shared/ParcelableUtil.java",
-        "src/android/net/shared/PrivateDnsConfig.java",
-        "src/android/net/shared/ProvisioningConfiguration.java",
         "src/android/net/shared/RouteUtils.java",
         "src/android/net/util/InterfaceParams.java",
     ],
     visibility: [
         "//frameworks/base/services/net",
+        "//frameworks/base/packages/Connectivity/service",
+        "//packages/modules/Connectivity/service",
     ]
 }
 
@@ -50,28 +49,18 @@ filegroup {
 filegroup {
     name: "tethering-module-utils-srcs",
     srcs: [
+        "src/android/net/ip/ConntrackMonitor.java",
         "src/android/net/ip/InterfaceController.java",
         "src/android/net/ip/IpNeighborMonitor.java",
         "src/android/net/ip/NetlinkMonitor.java",
         "src/android/net/netlink/*.java",
         "src/android/net/shared/NetdUtils.java",
         "src/android/net/shared/RouteUtils.java",
-        "src/android/net/util/FdEventsReader.java",
         "src/android/net/util/InterfaceParams.java",
-        "src/android/net/util/PacketReader.java",
-        "src/android/net/util/SharedLog.java"
+        "src/android/net/util/SharedLog.java",
     ],
-    visibility: ["//frameworks/base/packages/Tethering"],
-}
-
-// Utility sources used by test libraries.
-// This is its own group to limit indiscriminate dependency of test code on production code.
-// TODO: move these classes and NetworkStack/tests/lib to frameworks/libs/net, and remove this.
-filegroup {
-    name: "net-module-utils-srcs-for-tests",
-    visibility: ["//packages/modules/NetworkStack/tests/lib"],
-    srcs: [
-        "src/android/net/util/FdEventsReader.java",
-        "src/android/net/util/PacketReader.java",
+    visibility: [
+        "//frameworks/base/packages/Tethering",
+        "//packages/modules/Connectivity/Tethering"
     ],
 }

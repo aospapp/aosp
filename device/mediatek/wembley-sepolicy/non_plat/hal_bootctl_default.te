@@ -1,6 +1,5 @@
 # Add for bootctl
 #============= hal_bootctl_default ==============
-allow hal_bootctl_default para_block_device:blk_file { read open write};
 allow hal_bootctl_default rootfs:file { read getattr open };
 allow hal_bootctl_default sysfs:dir { read open };
 allow hal_bootctl_default sysfs_boot_type:file { read open };
@@ -12,4 +11,4 @@ allowxperm hal_bootctl_default bootdevice_block_device:blk_file ioctl UFS_IOCTLC
 allow hal_bootctl_default proc_cmdline:file r_file_perms;
 allow hal_bootctl_default sysfs_boot_type:file r_file_perms;
 allow hal_bootctl_default self:capability sys_rawio;
-allow hal_bootctl_default misc_block_device:blk_file rw_file_perms;
+allow hal_bootctl_default para_block_device:blk_file rw_file_perms;

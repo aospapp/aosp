@@ -1,6 +1,23 @@
 soong_namespace {
 }
 
+package {
+    default_applicable_licenses: ["hardware_qcom_bootctrl_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "hardware_qcom_bootctrl_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 filegroup {
     name: "bootctrl_hal_src",
     srcs: [

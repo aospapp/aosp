@@ -16,6 +16,10 @@
 // androidmk Android.mk to Blueprints translator
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 blueprint_go_binary {
     name: "bpfix",
     srcs: [
@@ -44,11 +48,9 @@ bootstrap_go_package {
         "bpfix/bpfix.go",
     ],
     testSrcs: [
-      "bpfix/bpfix_test.go",
+        "bpfix/bpfix_test.go",
     ],
     deps: [
         "blueprint-parser",
     ],
 }
-
-

@@ -19,6 +19,7 @@ package some_package.sub_package;
 import some_package.Thing;
 import some_package.sub_package.SubThing;
 
+@SuppressWarnings(value={"inout-parameter"})
 interface IFoo {
     void CanYouDealWithThisThing(inout Thing parcel);
     void CanYouDealWithThisSubThing(inout SubThing parcel);

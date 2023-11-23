@@ -14,32 +14,33 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<androidx.cardview.widget.CardView
+<com.android.car.ui.FocusArea
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_height="match_parent"
     android:layout_width="match_parent"
-    app:cardElevation="0dp"
-    app:cardCornerRadius="6dp">
+    android:layout_height="match_parent">
 
-    <com.android.car.apps.common.CrossfadeImageView
-        android:id="@+id/album_background"
-        android:foreground="?android:attr/selectableItemBackground"
-        android:layout_width="match_parent"
+    <androidx.cardview.widget.CardView
         android:layout_height="match_parent"
-        android:focusable="false"
-        android:scaleType="fitStart"/>
-
-    <View
-        android:id="@+id/playback_scrim"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/album_art_scrim"
-        android:alpha="@dimen/album_art_scrim_alpha"/>
+        app:cardElevation="0dp"
+        app:cardCornerRadius="6dp">
 
-    <com.android.car.ui.FocusArea
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        <com.android.car.apps.common.CrossfadeImageView
+            android:id="@+id/album_background"
+            android:foreground="?android:attr/selectableItemBackground"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:focusable="false"
+            android:scaleType="fitStart"/>
+
+        <View
+            android:id="@+id/playback_scrim"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/album_art_scrim"
+            android:focusable="true"
+            android:alpha="@dimen/album_art_scrim_alpha"/>
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/playback_container"
@@ -96,6 +97,29 @@
                 app:layout_constraintEnd_toStartOf="@+id/app_selector_container"
                 app:layout_constraintTop_toBottomOf="@+id/title"/>
 
+            <com.android.car.apps.common.UxrTextView
+                android:id="@+id/error_message"
+                style="@style/FullScreenErrorMessageStyle"
+                android:layout_marginHorizontal="@dimen/playback_fragment_text_margin_x"
+                android:maxLines="@integer/widget_error_text_max_lines"
+                app:layout_constraintVertical_chainStyle="packed"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/app_name"
+                app:layout_constraintBottom_toTopOf="@+id/error_button"
+            />
+
+            <com.android.car.apps.common.UxrButton
+                android:id="@+id/error_button"
+                style="@style/FullScreenErrorButtonStyle"
+                android:layout_marginTop="@dimen/playback_fragment_error_button_margin_top"
+                android:layout_marginBottom="@dimen/playback_fragment_error_button_margin_bottom"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/error_message"
+                app:layout_constraintBottom_toBottomOf="parent"
+            />
+
             <FrameLayout
                 android:id="@+id/app_selector_container"
                 xmlns:android="http://schemas.android.com/apk/res/android"
@@ -129,6 +153,6 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-    </com.android.car.ui.FocusArea>
+    </androidx.cardview.widget.CardView>
 
-</androidx.cardview.widget.CardView>
+</com.android.car.ui.FocusArea>

@@ -247,7 +247,7 @@ using Cmake.
 
 Requirements:
 - Visual Studio (2015 or newer recommended) or Windows SDK
-- CMake 2.8.x Windows native version (i.e. not Cygwin version)
+- CMake 3.10.2 Windows native version (i.e. not Cygwin version)
 - For GL/ES2/ES3.x tests: OpengGL, OpenGL ES 2 or ES 3.x libraries and headers
 
 To choose the backend build system for CMake, choose one of the following Generator Names for the
@@ -294,7 +294,7 @@ function wcmake () {
 
 Required tools:
 - Standard build utilities (make, gcc, etc.)
-- CMake 2.8.x
+- CMake 3.10.2
 - Necessary API libraries (OpenGL, GLES, EGL depending on configuration)
 
 Building ES2 or ES3.x conformance tests:
@@ -399,14 +399,20 @@ Most of the tests require at least 256x256 pixels resolution in order to run pro
 and produce stable results. It is, therefore, important to ensure that a port to a
 new platform can support surfaces that fulfill width and height requirements.
 
-### Other Allowable Porting Changes
+### Other Allowable Changes
 
-Other than changes needed for porting, the only changes that are permitted are
-changes to fix bugs in the conformance test. A bug in the conformance test is
-a behavior which causes clearly incorrect execution (e.g., hanging, crashing,
+Changes to fix bugs in the conformance test are allowed. A bug in the conformance
+test is a behavior which causes clearly incorrect execution (e.g., hanging, crashing,
 or memory corruption), OR which requires behavior which contradicts or exceeds
-the requirements of the relevant OpenGL or OpenGL ES Specification. Changes
-required to address either of these issues typically require [waivers](#waivers).
+the requirements of the relevant OpenGL or OpenGL ES Specification. Before
+being used for a submission, bugfixes must be accepted and merged into
+the CTS repository. `git cherry-pick` is strongly recommended as a method of
+applying bug fixes.
+
+Other changes must be accompanied by a [waiver](#waivers).
+
+NOTE: When cherry-picking patches on top of release tag, please use `git cherry-pick -x`
+to include original commit hash in the commit message.
 
 Running the Tests
 ------------------------
@@ -439,6 +445,7 @@ Full list of parameters for the `cts-runner` binary:
 --type=[esN[M]|glNM] Conformance test run type. Choose from
 					 ES: es2, es3, es31, es32
 					 GL: gl30, gl31, gl32, gl33, gl40, gl41, gl42, gl43, gl44, gl45, gl46
+--waivers=[path]     Path to xml file containing waived tests
 --logdir=[path]      Destination directory for log files
 --summary            Print summary without running the tests
 --verbose            Print out and log more information
@@ -461,6 +468,8 @@ the logs. Images will be embedded as PNG data into the`.qpa` log files.
 See Section [Test Logs](#test-logs) for instructions on how to view the images.
 
 To direct logs to a directory, add `--logdir=[path]` parameter.
+
+To specify waived tests, add `--waivers=[path]` parameter.
 
 **NOTE**: Due to the lack of support for run-time selection of API context in the
 Khronos Confidential CTS, a conformance run may fail if it is executed for an API
@@ -494,6 +503,10 @@ string extra. See the following example:
 
 	am start -n org.khronos.gl_cts/org.khronos.cts.ES32Activity -e logdir "/sdcard/logs" -e summary "true"
 
+Waivers can be specified by supplying a `waivers` string extra. See the following example:
+
+	am start -n org.khronos.gl_cts/org.khronos.cts.ES32Activity -e logdir "/sdcard/logs" -e waivers "/sdcard/waivers.xml"
+
 **NOTE**: Supplying a `summary` = `"true"` string extra will result in the `cts-run-summary.xml` file
 being written out but no tests will be executed.
 
@@ -507,7 +520,7 @@ In addition to the detailed `*.qpa` output files, the Android port of the CTS
 logs a summary of the test run, including the pass/fail status of each test.
 This summary can be viewed using the Android *logcat* utility.
 
-See Section [Running Subsets](#running-subsets) above for details on command
+See Section [Running Subsets](#running-subsets) below for details on command
 line parameters.
 
 ### Running Subsets
@@ -634,7 +647,7 @@ Full list of parameters for the `glcts` binary:
     Enable or disable logging of result images
     default: 'enable'
 
-  --deqp-log-shaders=[enable|disable]
+  --deqp-log-shader-sources=[enable|disable]
     Enable or disable logging of shaders
     default: 'enable'
 
@@ -656,6 +669,9 @@ Full list of parameters for the `glcts` binary:
 
   --deqp-egl-config-name=<value>
     Legacy name for --deqp-gl-config-name
+
+  --deqp-waiver-file=<value>
+    Path to xml file containing waived tests
 ```
 
 ### Understanding the Results
@@ -697,7 +713,7 @@ The CTS writes test logs in XML encapsulated in a simple plain-text container
 format. Each tested configuration listed in `cts-run-summary.xml`
 
 To analyse and process the log files, run the following scripts
-- `external/openglcts/scripts/verify_submission.py`: Script that verifies logs based on `cts-run-summary.xml` file.
+- `verify_submission.py` located in [VK-GL-CTS-Tools](https://github.com/KhronosGroup/VK-GL-CTS-Tools): Script that verifies logs based on `cts-run-summary.xml` file.
 - `scripts/log/log_to_csv.py`: This utility converts `.qpa` log into CSV format. This is
 useful for importing results into other systems.
 - `scripts/log/log_to_xml.py`: Converts `.qpa` into well-formed XML document. The document

@@ -28,4 +28,8 @@
         <option name="runtime-hint" value="9m" />
         <option name="hidden-api-checks" value="false" />
     </test>
+
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <option name="mainline-module-package-name" value="com.google.android.os.statsd" />
+    </object>
 </configuration>

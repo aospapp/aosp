@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka.attributes;
+package com.android.internal.net.eap.test.message.simaka.attributes;
 
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_KDF_INPUT;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_KDF_INPUT;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_KDF_INPUT_EMPTY_NETWORK_NAME;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.NETWORK_NAME_BYTES;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_KDF_INPUT;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_KDF_INPUT;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_KDF_INPUT_EMPTY_NETWORK_NAME;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.NETWORK_NAME_BYTES;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-import com.android.internal.net.eap.message.simaka.EapAkaPrimeAttributeFactory;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtKdfInput;
+import com.android.internal.net.eap.test.message.simaka.EapAkaPrimeAttributeFactory;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtKdfInput;
 
 import org.junit.Before;
 import org.junit.Test;

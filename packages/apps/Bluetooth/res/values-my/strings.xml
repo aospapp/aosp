@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"ဒေါင်းလုပ်မန်နေဂျာကို အသုံးပြုနိုင်မည်"</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"အပလီကေးရှင်းအား ဘလူးတုသ်မျှဝေမှု မန်နေဂျာကို အသုံးပြုခွင့်ပေးပြီး ဖိုင်လွှဲရန် အသုံးပြုပါ"</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"ဘလူးတုသ်ယာယီခွင့်ပြုစာရင်းကို အသုံးပြုခွင့်"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"အက်ပ်အား ဘလူးတုသ်စက်ကို ယာယီခွင့်ပြုစာရင်းထဲ ထည့်ရန်ခွင့်ပြုကာ အသုံးပြုသူ၏ အတည်ပြုချက်မရယူပဲ ဖိုင်များကို စက်ထဲသို့ ပို့ခွင့်ပြုမည်"</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"ဘလူးတုသ်ယာယီလက်ခံစာရင်းကို အသုံးပြုခွင့်။"</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"အက်ပ်အား ဘလူးတုသ်စက်ကို ယာယီလက်ခံစာရင်းထဲ ထည့်ရန်ခွင့်ပြုကာ အသုံးပြုသူ၏ အတည်ပြုချက်မရယူဘဲ ဖိုင်များကို စက်ထဲသို့ ပို့ခွင့်ပြုမည်။"</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"ဘလူးတုသ်"</string>
     <string name="unknown_device" msgid="9221903979877041009">"မသိသော စက်"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"မသိ"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\"မှ အဝင်ဖိုင်ကို လက်ခံနေစဥ် အချိန်ကုန်ဆုံးသွားပါပြီ"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"အဝင် ဖိုင်"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> က <xliff:g id="FILE">%2$s</xliff:g>ကို ပို့ရန် အသင့်ပါ"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> သည် ဤဖိုင်ကို ပို့ရန်အသင့်ဖြစ်ပါပြီ- <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"ဘလူးတုသ် ဝေမျှမှု - <xliff:g id="FILE">%1$s</xliff:g> လက်ခံနေသည်"</string>
     <string name="notification_received" msgid="3324588019186687985">"ဘလူးတုသ် ဝေမျှမှု - ရရှိပြီး<xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"ဘလူးတုသ် ဝေမျှမှု - ဖိုင် <xliff:g id="FILE">%1$s</xliff:g> မရရှိပါ"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"ထံသို့ ဖိုင်ကိုပို့ပါ"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g> ဖိုင်ကို \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\"ထံသို့ ပို့ပါ"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"ထံသို့ ဖိုင်ကိုပို့ခြင်းအား ရပ်ဆိုင်းပါ"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ထံမှ ဖိုင်ကိုသိမ်းရန် USB သိုလှောင်ခန်းတွင် နေရာမလုံလောက်ပါ"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ထံမှ ဖိုင်ကိုသိမ်းရန် SD ကတ်ထဲတွင် နေရာမလုံလောက်ပါ"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"ဖိုင်သိမ်းရန် USB သိုလှောင်ခန်းတွင် နေရာမလောက်ပါ။"</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"ဖိုင်သိမ်းရန် SD ကတ်ပေါ်တွင် နေရာမလောက်ပါ။"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"လိုအပ်သော နေရာပမာဏ - <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"တောင်းခံမှုများစွာကို ပြုလုပ်နေသည်၊ ခဏနေ ပြန်ကြိုးစားကြည့်ပါ"</string>
     <string name="status_pending" msgid="2503691772030877944">"ဖိုင်လွှဲပြောင်းခြင်း မစရသေးပါ"</string>
@@ -121,7 +121,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"ဖွင့်ရန်"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"စာရင်းမှ ရှင်းပစ်မည်"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"ရှင်းရန်"</string>
-    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"ယခု ဖွင့်နေသည်"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Now Playing"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"သိမ်းရန်"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"မလုပ်တော့"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"ဘလူးတုသ်မှ မျှဝေလိုသော အကောင့်များကို ရွေးပါ။ ချိတ်ဆက်သည့်အခါ အကောင့်များအား ဝင်ခွင့်ပြုဖို့ လက်ခံပေးရပါလိမ့်ဦးမည်။"</string>

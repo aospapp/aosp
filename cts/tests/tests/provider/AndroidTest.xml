@@ -27,6 +27,7 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsProviderTestCases.apk" />
         <option name="test-file-name" value="CtsProviderGalleryTestApp.apk" />
+        <option name="test-file-name" value="CtsProviderMultiAuthorityApp.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="sip_settings" msgid="7452587325305604702">"SIP સેટિંગ્સ"</string>
+    <string name="sip_settings" msgid="7452587325305604702">"SIP સેટિંગ"</string>
     <string name="sip_accounts" msgid="7297896885665783239">"SIP એકાઉન્ટ્સ"</string>
     <string name="sip_accounts_title" msgid="3061686404598143943">"એકાઉન્ટ"</string>
     <string name="sip_receive_calls" msgid="3403644006618369349">"આવનારા કૉલ્સ પ્રાપ્ત કરો"</string>
@@ -58,7 +58,7 @@
     <string name="port_title" msgid="1703586046264385110">"પોર્ટ નંબર"</string>
     <string name="transport_title" msgid="1661659138226029178">"સંક્રમણ પ્રકાર"</string>
     <string name="send_keepalive_title" msgid="5319788151608946049">"કીપ-અલાઇવ મોકલો"</string>
-    <string name="advanced_settings" msgid="2704644977548662872">"વૈકલ્પિક સેટિંગ્સ"</string>
+    <string name="advanced_settings" msgid="2704644977548662872">"વૈકલ્પિક સેટિંગ"</string>
     <string name="auth_username_title" msgid="9002505242616662698">"પ્રમાણીકરણ વપરાશકર્તાનામ"</string>
     <string name="auth_username_summary" msgid="6346313945275377230">"પ્રમાણીકરણ માટે ઉપયોગમાં લેવાયેલ વપરાશકર્તાનામ"</string>
     <string name="default_preference_summary_username" msgid="8788114717555599222">"&lt;સેટ કરેલ નથી&gt;"</string>
@@ -72,9 +72,9 @@
     <string name="empty_alert" msgid="3693655518612836718">"<xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> આવશ્યક છે અને ખાલી છોડી શકાતું નથી."</string>
     <string name="not_a_valid_port" msgid="3664668836663491376">"પોર્ટ નંબર 1000 અને 65534 ની અંદરનો હોવો જોઈએ."</string>
     <string name="no_internet_available" msgid="161720645084325479">"SIP કૉલ કરવા માટે, પ્રથમ તમારું ઇન્ટરનેટ કનેક્શન તપાસો."</string>
-    <string name="no_wifi_available" msgid="1179092018692306312">"SIP કૉલ્સ માટે તમારે Wi-Fi નેટવર્કથી કનેક્ટ હોવું જરૂરી છે (વાયરલેસ અને નેટવર્ક સેટિંગ્સનો ઉપયોગ કરો)."</string>
+    <string name="no_wifi_available" msgid="1179092018692306312">"SIP કૉલ માટે તમારે વાઇ-ફાઇ નેટવર્કથી કનેક્ટ હોવું જરૂરી છે (વાયરલેસ અને નેટવર્ક સેટિંગનો ઉપયોગ કરો)."</string>
     <string name="no_voip" msgid="3366395789297981738">"SIP કૉલિંગ સમર્થિત નથી"</string>
-    <string name="sip_system_decide" msgid="197230378376326430">"સ્વચલિત"</string>
+    <string name="sip_system_decide" msgid="197230378376326430">"ઑટોમૅટિક"</string>
     <string name="sip_always_send_keepalive" msgid="4986533673960084769">"હંમેશાં મોકલો"</string>
     <string name="sip_connection_service_label" msgid="8796284274240316006">"બિલ્ટ-ઇન SIP કૉલિંગ"</string>
 </resources>

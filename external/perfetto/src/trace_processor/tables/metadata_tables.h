@@ -91,7 +91,9 @@ PERFETTO_TP_TABLE(PERFETTO_TP_THREAD_TABLE_DEF);
   C(base::Optional<int64_t>, end_ts)                   \
   C(base::Optional<uint32_t>, parent_upid)             \
   C(base::Optional<uint32_t>, uid)                     \
-  C(base::Optional<uint32_t>, android_appid)
+  C(base::Optional<uint32_t>, android_appid)           \
+  C(base::Optional<StringPool::Id>, cmdline)           \
+  C(uint32_t, arg_set_id)
 
 PERFETTO_TP_TABLE(PERFETTO_TP_PROCESS_TABLE_DEF);
 
@@ -110,6 +112,28 @@ PERFETTO_TP_TABLE(PERFETTO_TP_CPU_TABLE_DEF);
   C(uint32_t, freq)
 
 PERFETTO_TP_TABLE(PERFETTO_TP_CPU_FREQ_TABLE_DEF);
+
+// Contains all the mapping between clock snapshots and trace time.
+//
+// NOTE: this table is not sorted by timestamp; this is why we omit the
+// sorted flag on the ts column.
+//
+// @param ts            timestamp of the snapshot in trace time.
+// @param clock_id      id of the clock (corresponds to the id in the trace).
+// @param clock_name    the name of the clock for builtin clocks or null
+//                      otherwise.
+// @param clock_value   timestamp of the snapshot in clock time.
+// @param snapshot_id   the index of this snapshot (only useful for debugging)
+#define PERFETTO_TP_CLOCK_SNAPSHOT_TABLE_DEF(NAME, PARENT, C) \
+  NAME(ClockSnapshotTable, "clock_snapshot")                  \
+  PERFETTO_TP_ROOT_TABLE(PARENT, C)                           \
+  C(int64_t, ts)                                              \
+  C(int64_t, clock_id)                                        \
+  C(base::Optional<StringPool::Id>, clock_name)               \
+  C(int64_t, clock_value)                                     \
+  C(uint32_t, snapshot_id)
+
+PERFETTO_TP_TABLE(PERFETTO_TP_CLOCK_SNAPSHOT_TABLE_DEF);
 
 }  // namespace tables
 }  // namespace trace_processor

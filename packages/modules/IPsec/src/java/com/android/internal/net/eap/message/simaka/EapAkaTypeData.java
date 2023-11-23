@@ -73,6 +73,13 @@ public class EapAkaTypeData extends EapSimAkaTypeData {
         super(eapSubType, attributeMap);
     }
 
+    protected EapAkaTypeData(
+            int eapSubType,
+            LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap,
+            byte[] reservedBytes) {
+        super(eapSubType, attributeMap, reservedBytes);
+    }
+
     /**
      * Creates and returns an EapAkaTypeData instance with the given subtype and attributes.
      *
@@ -130,8 +137,9 @@ public class EapAkaTypeData extends EapSimAkaTypeData {
         @Override
         protected EapAkaTypeData getInstance(
                 int eapSubtype,
-                LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap) {
-            return new EapAkaTypeData(eapSubtype, attributeMap);
+                LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap,
+                byte[] reservedBytes) {
+            return new EapAkaTypeData(eapSubtype, attributeMap, reservedBytes);
         }
     }
 }

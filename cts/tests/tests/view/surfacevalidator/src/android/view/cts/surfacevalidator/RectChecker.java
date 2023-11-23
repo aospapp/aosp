@@ -48,7 +48,7 @@ public class RectChecker extends PixelChecker {
         this(new Target(r, p));
     }
 
-    public boolean validatePlane(Image.Plane plane, Rect boundsToCheck,
+    public boolean validatePlane(Image.Plane plane, long framenumber, Rect boundsToCheck,
             int width, int height) {
         for (Target t : mTargets) {
             if (validatePlaneForTarget(t, plane, boundsToCheck, width, height) == false) {

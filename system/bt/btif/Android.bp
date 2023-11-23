@@ -1,5 +1,14 @@
 // Common variables
 // ========================================================
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_bt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bt_license"],
+}
+
 btifCommonIncludes = [
     "system/bt",
     "system/bt/bta/include",
@@ -49,8 +58,8 @@ cc_library_static {
         "src/btif_a2dp_control.cc",
         "src/btif_a2dp_sink.cc",
         "src/btif_a2dp_source.cc",
+        "src/btif_activity_attribution.cc",
         "src/btif_av.cc",
-        "src/btif_avrcp_audio_track.cc",
         "src/btif_ble_advertiser.cc",
         "src/btif_ble_scanner.cc",
         "src/btif_bqr.cc",
@@ -67,12 +76,14 @@ cc_library_static {
         "src/btif_gatt_server.cc",
         "src/btif_gatt_test.cc",
         "src/btif_gatt_util.cc",
+        "src/btif_vc.cc",
         "src/btif_hearing_aid.cc",
         "src/btif_hf.cc",
         "src/btif_hf_client.cc",
         "src/btif_hh.cc",
         "src/btif_hd.cc",
-        "src/btif_mce.cc",
+        "src/btif_le_audio.cc",
+        "src/btif_metrics_logging.cc",
         "src/btif_pan.cc",
         "src/btif_profile_queue.cc",
         "src/btif_rc.cc",
@@ -91,32 +102,40 @@ cc_library_static {
         "src/btif_keystore.cc",
         "src/stack_manager.cc",
     ],
-    header_libs: [
-        "libmedia_headers",
-    ],
     shared_libs: [
-        "libaaudio",
-        "libcutils",
-        "libfmq",
-        "liblog",
-        "libz",
-        "libtinyxml2",
         "android.hardware.bluetooth.a2dp@1.0",
         "android.hardware.bluetooth.audio@2.0",
-        "libhidlbase",
-        "libutils",
+        "android.hardware.bluetooth.audio@2.1",
         "libcrypto",
+        "libcutils",
+        "libhidlbase",
+        "liblog",
+        "libtinyxml2",
+        "libutils",
+        "libz",
     ],
+    target: {
+        android: {
+            shared_libs: [
+                "libaaudio",
+                "libfmq",
+            ],
+            srcs: ["src/btif_avrcp_audio_track.cc"],
+        },
+        host: {
+            srcs: ["src/btif_avrcp_audio_track_linux.cc"],
+        },
+    },
     whole_static_libs: [
         "avrcp-target-service",
-        "libaudio-a2dp-hw-utils",
         "lib-bt-packets",
         "libbt-audio-hal-interface",
+        "libaudio-a2dp-hw-utils",
     ],
     cflags: [
         "-DBUILDCFG",
     ],
-
+    host_supported: true,
 }
 
 // btif unit tests for target
@@ -133,8 +152,12 @@ cc_test {
     shared_libs: [
         "libaaudio",
         "android.hardware.bluetooth@1.0",
+        "android.hardware.bluetooth@1.1",
         "android.hardware.bluetooth.a2dp@1.0",
         "android.hardware.bluetooth.audio@2.0",
+        "android.hardware.bluetooth.audio@2.1",
+        "android.system.suspend.control-V1-ndk",
+        "libbinder_ndk",
         "libfmq",
         "libhidlbase",
         "liblog",
@@ -201,6 +224,9 @@ cc_test {
     defaults: ["fluoride_defaults"],
     test_suites: ["device-tests"],
     host_supported: true,
+    test_options: {
+        unit_test: true,
+    },
     include_dirs: btifCommonIncludes,
     srcs: [
         "test/btif_rc_test.cc",
@@ -234,6 +260,9 @@ cc_test {
     defaults: ["fluoride_defaults"],
     test_suites: ["device-tests"],
     host_supported: true,
+    test_options: {
+        unit_test: true,
+    },
     include_dirs: btifCommonIncludes,
     srcs: [
         "src/btif_config_cache.cc",
@@ -273,4 +302,82 @@ cc_test {
         "libosi",
     ],
     cflags: ["-DBUILDCFG"],
+}
+
+// Cycle stack test
+// ========================================================
+cc_test {
+    name: "net_test_btif_stack",
+    host_supported: true,
+    defaults: ["fluoride_defaults"],
+    test_suites: ["device-tests"],
+    include_dirs: [
+        "frameworks/av/media/libaaudio/include",
+        "system/bt",
+        "system/bt/bta/dm",
+        "system/bt/bta/include",
+        "system/bt/bta/sys",
+        "system/bt/btif/avrcp",
+        "system/bt/btif/co",
+        "system/bt/btif/include",
+        "system/bt/device/include",
+        "system/bt/embdrv/sbc/decoder/include",
+        "system/bt/embdrv/sbc/encoder/include",
+        "system/bt/gd",
+        "system/bt/hci/include",
+        "system/bt/include",
+        "system/bt/internal_include",
+        "system/bt/stack/a2dp",
+        "system/bt/stack/avdt",
+        "system/bt/stack/btm",
+        "system/bt/stack/include",
+        "system/bt/stack/l2cap",
+        "system/bt/udrv/include",
+        "system/bt/utils/include",
+        "system/bt/vnd/include",
+        "system/libfmq/include",
+        "system/libhwbinder/include",
+        ],
+      srcs: [
+          ":LibBluetoothSources",
+          ":TestMockAndroidHardware",
+          ":TestMockBta",
+          ":TestMockBtcore",
+          ":TestMockCommon",
+          ":TestMockFrameworks",
+          ":TestMockHci",
+          ":TestMockMainShim",
+          ":TestMockStack",
+          ":TestMockSystemLibfmq",
+          ":TestMockUdrv",
+          "test/btif_stack_test.cc",
+      ],
+      generated_headers: [
+        "BluetoothGeneratedBundlerSchema_h_bfbs",
+        "BluetoothGeneratedDumpsysDataSchema_h",
+        "BluetoothGeneratedDumpsysTestData_h",
+        "BluetoothGeneratedPackets_h",
+      ],
+      header_libs: ["libbluetooth_headers"],
+      shared_libs: [
+          "android.hardware.bluetooth.a2dp@1.0",
+          "android.hardware.bluetooth.audio@2.0",
+          "android.hardware.bluetooth.audio@2.1",
+          "libcrypto",
+          "libcutils",
+          "libflatbuffers-cpp",
+          "libhidlbase",
+          "liblog",
+          "libtinyxml2",
+      ],
+      whole_static_libs: [
+          "libbtif",
+      ],
+      static_libs: [
+          "libbluetooth-types",
+          "libbtdevice",
+          "libgmock",
+          "libosi",
+      ],
+      cflags: ["-DBUILDCFG"],
 }

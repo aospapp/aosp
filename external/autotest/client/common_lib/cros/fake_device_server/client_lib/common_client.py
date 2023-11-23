@@ -5,7 +5,7 @@
 """Module contains a simple client lib to the commands RPC."""
 
 import logging
-import urllib2
+from six.moves import urllib
 
 
 class CommonClient(object):
@@ -67,9 +67,9 @@ class CommonClient(object):
             params.setdefault('key', self.api_key)
 
         params_list = []
-        for kw, arg in params.iteritems():
-            params_list.append('='.join([urllib2.quote(kw),
-                                         urllib2.quote(arg)]))
+        for kw, arg in params.items():
+            params_list.append('='.join([urllib.parse.quote(kw),
+                                         urllib.parse.quote(arg)]))
 
         if params_list:
             params_str = '?' + '&'.join(params_list)

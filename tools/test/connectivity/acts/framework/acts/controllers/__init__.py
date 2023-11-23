@@ -26,5 +26,6 @@ def destroy(objs):
 __all__ = [
     "android_device", "attenuator", "bluetooth_pts_device", "monsoon",
     "access_point", "iperf_server", "packet_sender", "arduino_wifi_dongle",
-    "packet_capture", "fuchsia_device"
+    "packet_capture", "fuchsia_device", "pdu", "openwrt_ap", "tigertail",
+    "asus_axe11000_ap"
 ]

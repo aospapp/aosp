@@ -56,8 +56,7 @@ const keymaster_digest_t* EcdsaOperationFactory::SupportedDigests(size_t* digest
 }
 
 EcdsaOperation::~EcdsaOperation() {
-    if (ecdsa_key_ != nullptr)
-        EVP_PKEY_free(ecdsa_key_);
+    if (ecdsa_key_ != nullptr) EVP_PKEY_free(ecdsa_key_);
     EVP_MD_CTX_cleanup(&digest_ctx_);
 }
 
@@ -109,11 +108,9 @@ keymaster_error_t EcdsaSignOperation::Begin(const AuthorizationSet& /* input_par
     if (rc != KM_ERROR_OK) return rc;
 
     keymaster_error_t error = InitDigest();
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
-    if (digest_ == KM_DIGEST_NONE)
-        return KM_ERROR_OK;
+    if (digest_ == KM_DIGEST_NONE) return KM_ERROR_OK;
 
     EVP_PKEY_CTX* pkey_ctx;
     if (EVP_DigestSignInit(&digest_ctx_, &pkey_ctx, digest_algorithm_, nullptr /* engine */,
@@ -126,8 +123,7 @@ keymaster_error_t EcdsaSignOperation::Update(const AuthorizationSet& /* addition
                                              const Buffer& input,
                                              AuthorizationSet* /* output_params */,
                                              Buffer* /* output */, size_t* input_consumed) {
-    if (digest_ == KM_DIGEST_NONE)
-        return StoreData(input, input_consumed);
+    if (digest_ == KM_DIGEST_NONE) return StoreData(input, input_consumed);
 
     if (EVP_DigestSignUpdate(&digest_ctx_, input.peek_read(), input.available_read()) != 1)
         return TranslateLastOpenSslError();
@@ -139,18 +135,15 @@ keymaster_error_t EcdsaSignOperation::Finish(const AuthorizationSet& additional_
                                              const Buffer& input, const Buffer& /* signature */,
                                              AuthorizationSet* /* output_params */,
                                              Buffer* output) {
-    if (!output)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+    if (!output) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     keymaster_error_t error = UpdateForFinish(additional_params, input);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
     size_t siglen;
     if (digest_ == KM_DIGEST_NONE) {
         UniquePtr<EC_KEY, EC_KEY_Delete> ecdsa(EVP_PKEY_get1_EC_KEY(ecdsa_key_));
-        if (!ecdsa.get())
-            return TranslateLastOpenSslError();
+        if (!ecdsa.get()) return TranslateLastOpenSslError();
 
         output->Reinitialize(ECDSA_size(ecdsa.get()));
         unsigned int siglen_tmp;
@@ -161,13 +154,11 @@ keymaster_error_t EcdsaSignOperation::Finish(const AuthorizationSet& additional_
     } else {
         if (EVP_DigestSignFinal(&digest_ctx_, nullptr /* signature */, &siglen) != 1)
             return TranslateLastOpenSslError();
-        if (!output->Reinitialize(siglen))
-            return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+        if (!output->Reinitialize(siglen)) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
         if (EVP_DigestSignFinal(&digest_ctx_, output->peek_write(), &siglen) <= 0)
             return TranslateLastOpenSslError();
     }
-    if (!output->advance_write(siglen))
-        return KM_ERROR_UNKNOWN_ERROR;
+    if (!output->advance_write(siglen)) return KM_ERROR_UNKNOWN_ERROR;
     return KM_ERROR_OK;
 }
 
@@ -178,11 +169,9 @@ keymaster_error_t EcdsaVerifyOperation::Begin(const AuthorizationSet& /* input_p
     if (rc != KM_ERROR_OK) return rc;
 
     keymaster_error_t error = InitDigest();
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
-    if (digest_ == KM_DIGEST_NONE)
-        return KM_ERROR_OK;
+    if (digest_ == KM_DIGEST_NONE) return KM_ERROR_OK;
 
     EVP_PKEY_CTX* pkey_ctx;
     if (EVP_DigestVerifyInit(&digest_ctx_, &pkey_ctx, digest_algorithm_, nullptr /* engine */,
@@ -195,8 +184,7 @@ keymaster_error_t EcdsaVerifyOperation::Update(const AuthorizationSet& /* additi
                                                const Buffer& input,
                                                AuthorizationSet* /* output_params */,
                                                Buffer* /* output */, size_t* input_consumed) {
-    if (digest_ == KM_DIGEST_NONE)
-        return StoreData(input, input_consumed);
+    if (digest_ == KM_DIGEST_NONE) return StoreData(input, input_consumed);
 
     if (EVP_DigestVerifyUpdate(&digest_ctx_, input.peek_read(), input.available_read()) != 1)
         return TranslateLastOpenSslError();
@@ -209,13 +197,11 @@ keymaster_error_t EcdsaVerifyOperation::Finish(const AuthorizationSet& additiona
                                                AuthorizationSet* /* output_params */,
                                                Buffer* /* output */) {
     keymaster_error_t error = UpdateForFinish(additional_params, input);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
     if (digest_ == KM_DIGEST_NONE) {
         UniquePtr<EC_KEY, EC_KEY_Delete> ecdsa(EVP_PKEY_get1_EC_KEY(ecdsa_key_));
-        if (!ecdsa.get())
-            return TranslateLastOpenSslError();
+        if (!ecdsa.get()) return TranslateLastOpenSslError();
 
         int result =
             ECDSA_verify(0 /* type -- ignored */, data_.peek_read(), data_.available_read(),

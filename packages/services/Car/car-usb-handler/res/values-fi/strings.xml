@@ -21,7 +21,7 @@
     <string name="usb_pref_delete_title" msgid="3885061814853467483">"poistaa USB-laitteen käsittelysovelluksen"</string>
     <string name="usb_pref_delete_message" msgid="5849493572520646218">"Haluatko varmasti poistaa käsittelyn oletussovelluksen (%1$s)?"</string>
     <string name="usb_pref_delete_yes" msgid="7803356145103146036">"Kyllä"</string>
-    <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"Peruuta"</string>
+    <string name="usb_pref_delete_cancel" msgid="5999791462730255929">"Peru"</string>
     <string name="usb_resolving_handlers" msgid="1943100136172948686">"Haetaan tuettuja käsittelijöitä"</string>
     <string name="usb_unknown_device" msgid="4211439272338937095">"Tuntematon USB-laite"</string>
     <string name="usb_boot_service_notification" msgid="8519949189071048797">"Analysoidaan USB-laitteita"</string>

@@ -16,14 +16,15 @@
 
 package android.server.wm;
 
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.graphics.Insets.NONE;
 import static android.view.WindowInsets.Type.ime;
-import static android.view.WindowInsets.Type.navigationBars;
-import static android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+import static android.view.WindowInsets.Type.statusBars;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -33,16 +34,9 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.withSettings;
 
-import android.app.Instrumentation;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.platform.test.annotations.Presubmit;
 import android.view.WindowInsets;
-
-import androidx.test.platform.app.InstrumentationRegistry;
-
-import com.android.cts.mockime.ImeSettings;
-import com.android.cts.mockime.MockImeSession;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -62,37 +56,33 @@ public class WindowInsetsAnimationImeTests extends WindowInsetsAnimationTestBase
     @Before
     public void setup() throws Exception {
         super.setUp();
+        assumeFalse(
+                "Automotive is to skip this test until showing and hiding certain insets "
+                        + "simultaneously in a single request is supported",
+                mInstrumentation.getContext().getPackageManager().hasSystemFeature(
+                        PackageManager.FEATURE_AUTOMOTIVE));
         assumeTrue("MockIme cannot be used for devices that do not support installable IMEs",
                 mInstrumentation.getContext().getPackageManager().hasSystemFeature(
                         PackageManager.FEATURE_INPUT_METHODS));
     }
 
-    private void initActivity(boolean useFloating) throws Exception {
-        initMockImeSession(useFloating);
+    private void initActivity(boolean useFloating) {
+        MockImeHelper.createManagedMockImeSession(this, KEYBOARD_HEIGHT, useFloating);
 
-        mActivity = startActivity(TestActivity.class);
+        mActivity = startActivityInWindowingMode(TestActivity.class, WINDOWING_MODE_FULLSCREEN);
         mRootView = mActivity.getWindow().getDecorView();
     }
 
-    private MockImeSession initMockImeSession(boolean useFloating) throws Exception {
-        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-        return MockImeSession.create(
-                instrumentation.getContext(), instrumentation.getUiAutomation(),
-                useFloating ? getFloatingImeSettings()
-                        : new ImeSettings.Builder().setInputViewHeight(KEYBOARD_HEIGHT)
-                                .setDrawsBehindNavBar(true));
-    }
-
     @Test
-    public void testImeAnimationCallbacksShowAndHide() throws Exception {
+    public void testImeAnimationCallbacksShowAndHide() {
         initActivity(false /* useFloating */);
         testShowAndHide();
     }
 
     @Test
-    public void testAnimationCallbacks_overlapping_opposite() throws Exception {
+    public void testAnimationCallbacks_overlapping_opposite() {
         initActivity(false /* useFloating */);
-        assumeTrue(hasWindowInsets(mRootView, navigationBars()));
+        assumeTrue(hasWindowInsets(mRootView, statusBars()));
 
         WindowInsets before = mActivity.mLastWindowInsets;
 
@@ -105,7 +95,7 @@ public class WindowInsetsAnimationImeTests extends WindowInsetsAnimationTestBase
         mActivity.mView.setWindowInsetsAnimationCallback(callback);
 
         getInstrumentation().runOnMainSync(
-                () -> mRootView.getWindowInsetsController().hide(navigationBars()));
+                () -> mRootView.getWindowInsetsController().hide(statusBars()));
         getInstrumentation().runOnMainSync(
                 () -> mRootView.getWindowInsetsController().show(ime()));
 
@@ -120,15 +110,15 @@ public class WindowInsetsAnimationImeTests extends WindowInsetsAnimationTestBase
         InOrder inOrderBar = inOrder(callback, mActivity.mListener);
         InOrder inOrderIme = inOrder(callback, mActivity.mListener);
 
-        inOrderBar.verify(callback).onPrepare(eq(callback.navBarAnim));
+        inOrderBar.verify(callback).onPrepare(eq(callback.statusBarAnim));
 
         inOrderIme.verify(mActivity.mListener).onApplyWindowInsets(any(), argThat(
-                argument -> NONE.equals(argument.getInsets(navigationBars()))
+                argument -> NONE.equals(argument.getInsets(statusBars()))
                         && NONE.equals(argument.getInsets(ime()))));
 
-        inOrderBar.verify(callback).onStart(eq(callback.navBarAnim), argThat(
+        inOrderBar.verify(callback).onStart(eq(callback.statusBarAnim), argThat(
                 argument -> argument.getLowerBound().equals(NONE)
-                        && argument.getUpperBound().equals(before.getInsets(navigationBars()))));
+                        && argument.getUpperBound().equals(before.getInsets(statusBars()))));
 
         inOrderIme.verify(callback).onPrepare(eq(callback.imeAnim));
         inOrderIme.verify(mActivity.mListener).onApplyWindowInsets(
@@ -138,17 +128,17 @@ public class WindowInsetsAnimationImeTests extends WindowInsetsAnimationTestBase
                 argument -> argument.getLowerBound().equals(NONE)
                         && !argument.getUpperBound().equals(NONE)));
 
-        inOrderBar.verify(callback).onEnd(eq(callback.navBarAnim));
+        inOrderBar.verify(callback).onEnd(eq(callback.statusBarAnim));
         inOrderIme.verify(callback).onEnd(eq(callback.imeAnim));
 
-        assertAnimationSteps(callback.navAnimSteps, false /* showAnimation */);
+        assertAnimationSteps(callback.statusAnimSteps, false /* showAnimation */);
         assertAnimationSteps(callback.imeAnimSteps, true /* showAnimation */, ime());
 
-        assertEquals(before.getInsets(navigationBars()),
-                callback.navAnimSteps.get(0).insets.getInsets(navigationBars()));
-        assertEquals(after.getInsets(navigationBars()),
-                callback.navAnimSteps.get(callback.navAnimSteps.size() - 1).insets
-                        .getInsets(navigationBars()));
+        assertEquals(before.getInsets(statusBars()),
+                callback.statusAnimSteps.get(0).insets.getInsets(statusBars()));
+        assertEquals(after.getInsets(statusBars()),
+                callback.statusAnimSteps.get(callback.statusAnimSteps.size() - 1).insets
+                        .getInsets(statusBars()));
 
         assertEquals(before.getInsets(ime()),
                 callback.imeAnimSteps.get(0).insets.getInsets(ime()));
@@ -158,7 +148,7 @@ public class WindowInsetsAnimationImeTests extends WindowInsetsAnimationTestBase
     }
 
     @Test
-    public void testZeroInsetsImeAnimates() throws Exception {
+    public void testZeroInsetsImeAnimates() {
         initActivity(true /* useFloating */);
         testShowAndHide();
     }
@@ -180,15 +170,5 @@ public class WindowInsetsAnimationImeTests extends WindowInsetsAnimationTestBase
         waitForOrFail("Waiting until animation done", () -> mActivity.mCallback.animationDone);
 
         commonAnimationAssertions(mActivity, before, false /* show */, ime());
-    }
-
-    private static ImeSettings.Builder getFloatingImeSettings() {
-        final ImeSettings.Builder builder = new ImeSettings.Builder();
-        builder.setWindowFlags(0, FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        // As documented, Window#setNavigationBarColor() is actually ignored when the IME window
-        // does not have FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS.  We are calling setNavigationBarColor()
-        // to ensure it.
-        builder.setNavigationBarColor(Color.BLACK);
-        return builder;
     }
 }

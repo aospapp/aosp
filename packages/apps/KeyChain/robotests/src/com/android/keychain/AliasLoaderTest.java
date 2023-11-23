@@ -19,16 +19,12 @@ package com.android.keychain;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import android.security.Credentials;
-import android.security.KeyStore;
 import android.util.Base64;
+
 import com.android.keychain.internal.KeyInfoProvider;
-import java.util.ArrayList;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import javax.security.auth.x500.X500Principal;
+
+import com.google.common.collect.ImmutableList;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -37,6 +33,22 @@ import org.mockito.Mockito;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowApplication;
+
+import java.io.ByteArrayInputStream;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.KeyStoreSpi;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import javax.security.auth.x500.X500Principal;
 
 @RunWith(RobolectricTestRunner.class)
 public final class AliasLoaderTest {
@@ -125,9 +137,22 @@ public final class AliasLoaderTest {
     private byte[] mECCertOne;
     private byte[] mECCertTwo;
     private ArrayList<byte[]> mIssuers;
+    private KeyStoreSpi mKeyStoreSpi;
+    private KeyStore mKeyStore;
+    private KeyInfoProvider mInfoProvider;
+
+    private Certificate toCertificate(byte[] bytes) throws CertificateException {
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        return cf.generateCertificate(new ByteArrayInputStream(bytes));
+    }
+
+    private Certificate[] toCertificateChain(byte[] bytes) throws CertificateException {
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        return new Certificate[]{cf.generateCertificate(new ByteArrayInputStream(bytes))};
+    }
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         mRSACertOne = Base64.decode(SELF_SIGNED_RSA_CERT_1_B64, Base64.DEFAULT);
         mRSACertTwo = Base64.decode(SELF_SIGNED_RSA_CERT_2_B64, Base64.DEFAULT);
         mECCertOne = Base64.decode(SELF_SIGNED_EC_CERT_1_B64, Base64.DEFAULT);
@@ -143,18 +168,22 @@ public final class AliasLoaderTest {
 
         mDummyChecker = mock(KeyChainActivity.CertificateParametersFilter.class);
         when(mDummyChecker.shouldPresentCertificate(Mockito.anyString())).thenReturn(true);
+
+        mKeyStoreSpi = mock(KeyStoreSpi.class);
+        mKeyStore = new KeyStore(mKeyStoreSpi, null, "test") {};
+        mKeyStore.load(null);
+        mInfoProvider = mock(KeyInfoProvider.class);
     }
 
     @Test
     public void testAliasLoader_loadsAllAliases()
             throws InterruptedException, ExecutionException, CancellationException,
-                    TimeoutException {
-        KeyStore keyStore = mock(KeyStore.class);
-        when(keyStore.list(Credentials.USER_PRIVATE_KEY)).thenReturn(new String[] {"b", "c", "a"});
+            TimeoutException {
+        prepareKeyStoreWithAliases(ImmutableList.of("b", "c", "a"));
 
         KeyChainActivity.AliasLoader loader =
                 new KeyChainActivity.AliasLoader(
-                        keyStore,
+                        mKeyStore,
                         RuntimeEnvironment.application,
                         mDummyInfoProvider,
                         mDummyChecker);
@@ -173,12 +202,11 @@ public final class AliasLoaderTest {
     public void testAliasLoader_copesWithNoAliases()
             throws InterruptedException, ExecutionException, CancellationException,
                     TimeoutException {
-        KeyStore keyStore = mock(KeyStore.class);
-        when(keyStore.list(Credentials.USER_PRIVATE_KEY)).thenReturn(null);
+        when(mKeyStoreSpi.engineAliases()).thenReturn(Collections.enumeration(ImmutableList.of()));
 
         KeyChainActivity.AliasLoader loader =
                 new KeyChainActivity.AliasLoader(
-                        keyStore,
+                        mKeyStore,
                         RuntimeEnvironment.application,
                         mDummyInfoProvider,
                         mDummyChecker);
@@ -194,17 +222,14 @@ public final class AliasLoaderTest {
     public void testAliasLoader_filtersNonUserSelectableAliases()
             throws InterruptedException, ExecutionException, CancellationException,
                     TimeoutException {
-        KeyStore keyStore = mock(KeyStore.class);
-        when(keyStore.list(Credentials.USER_PRIVATE_KEY)).thenReturn(new String[] {"a", "b", "c"});
-
-        KeyInfoProvider infoProvider = mock(KeyInfoProvider.class);
-        when(infoProvider.isUserSelectable("a")).thenReturn(false);
-        when(infoProvider.isUserSelectable("b")).thenReturn(true);
-        when(infoProvider.isUserSelectable("c")).thenReturn(false);
+        prepareKeyStoreWithAliases(ImmutableList.of("b", "c", "a"));
+        when(mInfoProvider.isUserSelectable("a")).thenReturn(false);
+        when(mInfoProvider.isUserSelectable("b")).thenReturn(true);
+        when(mInfoProvider.isUserSelectable("c")).thenReturn(false);
 
         KeyChainActivity.AliasLoader loader =
                 new KeyChainActivity.AliasLoader(
-                        keyStore, RuntimeEnvironment.application, infoProvider, mDummyChecker);
+                        mKeyStore, RuntimeEnvironment.application, mInfoProvider, mDummyChecker);
         loader.execute();
 
         ShadowApplication.runBackgroundTasks();
@@ -217,16 +242,12 @@ public final class AliasLoaderTest {
     @Test
     public void testAliasLoader_filtersAliasesWithNonConformingParameters()
             throws InterruptedException, ExecutionException, CancellationException,
-                    TimeoutException {
-        KeyStore keyStore = mock(KeyStore.class);
-        when(keyStore.list(Credentials.USER_PRIVATE_KEY))
-                .thenReturn(new String[] {"a", "b", "c", "d"});
-
-        KeyInfoProvider infoProvider = mock(KeyInfoProvider.class);
-        when(infoProvider.isUserSelectable("a")).thenReturn(true);
-        when(infoProvider.isUserSelectable("b")).thenReturn(true);
-        when(infoProvider.isUserSelectable("c")).thenReturn(false);
-        when(infoProvider.isUserSelectable("d")).thenReturn(false);
+                    TimeoutException, KeyStoreException {
+        prepareKeyStoreWithAliases(ImmutableList.of("a", "b", "c", "d"));
+        when(mInfoProvider.isUserSelectable("a")).thenReturn(true);
+        when(mInfoProvider.isUserSelectable("b")).thenReturn(true);
+        when(mInfoProvider.isUserSelectable("c")).thenReturn(false);
+        when(mInfoProvider.isUserSelectable("d")).thenReturn(false);
 
         KeyChainActivity.CertificateParametersFilter checker =
                 mock(KeyChainActivity.CertificateParametersFilter.class);
@@ -241,7 +262,7 @@ public final class AliasLoaderTest {
 
         KeyChainActivity.AliasLoader loader =
                 new KeyChainActivity.AliasLoader(
-                        keyStore, RuntimeEnvironment.application, infoProvider, checker);
+                        mKeyStore, RuntimeEnvironment.application, mInfoProvider, checker);
         loader.execute();
 
         ShadowApplication.runBackgroundTasks();
@@ -251,40 +272,55 @@ public final class AliasLoaderTest {
         Assert.assertEquals("a", result.getItem(0));
     }
 
-    private KeyStore prepareKeyStoreWithCertificates() {
-        KeyStore keyStore = mock(KeyStore.class);
-        when(keyStore.get(Credentials.USER_CERTIFICATE + "rsa1")).thenReturn(mRSACertOne);
-        when(keyStore.get(Credentials.USER_CERTIFICATE + "ec1")).thenReturn(mECCertOne);
-        when(keyStore.get(Credentials.USER_CERTIFICATE + "rsa2")).thenReturn(mRSACertTwo);
-        when(keyStore.get(Credentials.USER_CERTIFICATE + "ec2")).thenReturn(mECCertTwo);
+    private void prepareKeyStoreWithAliases(ImmutableList<String> aliases) {
+        when(mKeyStoreSpi.engineAliases()).thenReturn(Collections.enumeration(aliases));
+        for (int i = 0; i < aliases.size(); i++) {
+            when(mKeyStoreSpi.engineIsKeyEntry(aliases.get(i))).thenReturn(true);
+        }
+    }
 
-        return keyStore;
+    private void prepareKeyStoreWithCertificates() throws CertificateException {
+        when(mKeyStoreSpi.engineGetCertificate("rsa1")).thenReturn(toCertificate(mRSACertOne));
+        when(mKeyStoreSpi.engineGetCertificate("ec1")).thenReturn(toCertificate(mECCertOne));
+        when(mKeyStoreSpi.engineGetCertificate("rsa2")).thenReturn(toCertificate(mRSACertTwo));
+        when(mKeyStoreSpi.engineGetCertificate("ec2")).thenReturn(toCertificate(mECCertTwo));
+
+        when(mKeyStoreSpi.engineGetCertificateChain("rsa1"))
+                .thenReturn(toCertificateChain(mRSACertOne));
+        when(mKeyStoreSpi.engineGetCertificateChain("ec1"))
+                .thenReturn(toCertificateChain(mECCertOne));
+        when(mKeyStoreSpi.engineGetCertificateChain("rsa2"))
+                .thenReturn(toCertificateChain(mRSACertTwo));
+        when(mKeyStoreSpi.engineGetCertificateChain("ec2"))
+                .thenReturn(toCertificateChain(mECCertTwo));
     }
 
     @Test
-    public void testCertificateParametersFilter_filtersByKey() throws CancellationException {
-        KeyStore keyStore = prepareKeyStoreWithCertificates();
+    public void testCertificateParametersFilter_filtersByKey()
+            throws CancellationException, CertificateException {
+        prepareKeyStoreWithCertificates();
 
         KeyChainActivity.CertificateParametersFilter ec_checker =
                 new KeyChainActivity.CertificateParametersFilter(
-                        keyStore, new String[] {"EC"}, new ArrayList<byte[]>());
+                        mKeyStore, new String[] {"EC"}, new ArrayList<byte[]>());
         Assert.assertFalse(ec_checker.shouldPresentCertificate("rsa1"));
         Assert.assertTrue(ec_checker.shouldPresentCertificate("ec1"));
 
         KeyChainActivity.CertificateParametersFilter rsa_and_ec_checker =
                 new KeyChainActivity.CertificateParametersFilter(
-                        keyStore, new String[] {"EC", "RSA"}, new ArrayList<byte[]>());
+                        mKeyStore, new String[] {"EC", "RSA"}, new ArrayList<byte[]>());
         Assert.assertTrue(rsa_and_ec_checker.shouldPresentCertificate("rsa1"));
         Assert.assertTrue(rsa_and_ec_checker.shouldPresentCertificate("ec1"));
     }
 
     @Test
-    public void testCertificateParametersFilter_filtersByIssuer() throws CancellationException {
-        KeyStore keyStore = prepareKeyStoreWithCertificates();
+    public void testCertificateParametersFilter_filtersByIssuer()
+            throws CancellationException, CertificateException {
+        prepareKeyStoreWithCertificates();
 
         KeyChainActivity.CertificateParametersFilter issuer_checker =
                 new KeyChainActivity.CertificateParametersFilter(
-                        keyStore, new String[] {}, mIssuers);
+                        mKeyStore, new String[] {}, mIssuers);
         Assert.assertTrue(issuer_checker.shouldPresentCertificate("rsa1"));
         Assert.assertTrue(issuer_checker.shouldPresentCertificate("ec1"));
         Assert.assertFalse(issuer_checker.shouldPresentCertificate("rsa2"));
@@ -293,13 +329,12 @@ public final class AliasLoaderTest {
 
     @Test
     public void testCertificateParametersFilter_filtersByIssuerAndKey()
-            throws InterruptedException, ExecutionException, CancellationException,
-                    TimeoutException {
-        KeyStore keyStore = prepareKeyStoreWithCertificates();
+            throws CancellationException, CertificateException {
+        prepareKeyStoreWithCertificates();
 
         KeyChainActivity.CertificateParametersFilter issuer_checker =
                 new KeyChainActivity.CertificateParametersFilter(
-                        keyStore, new String[] {"EC"}, mIssuers);
+                        mKeyStore, new String[] {"EC"}, mIssuers);
         Assert.assertFalse(issuer_checker.shouldPresentCertificate("rsa1"));
         Assert.assertTrue(issuer_checker.shouldPresentCertificate("ec1"));
         Assert.assertFalse(issuer_checker.shouldPresentCertificate("rsa2"));

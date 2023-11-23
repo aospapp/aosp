@@ -52,62 +52,73 @@ class MockDevicePolicy : public DevicePolicy {
   }
   ~MockDevicePolicy() override = default;
 
-  MOCK_METHOD0(LoadPolicy, bool(void));
+  MOCK_METHOD(bool, LoadPolicy, (), (override));
+  MOCK_METHOD(bool, IsEnterpriseEnrolled, (), (const, override));
 
-  MOCK_CONST_METHOD1(GetPolicyRefreshRate,
-                     bool(int*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetUserWhitelist, bool(std::vector<std::string>*));
-  MOCK_CONST_METHOD1(GetGuestModeEnabled,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetCameraEnabled,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetShowUserNames,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetDataRoamingEnabled,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetAllowNewUsers,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetMetricsEnabled,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetReportVersionInfo,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetReportActivityTimes,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetReportBootMode,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetEphemeralUsersEnabled,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetReleaseChannel, bool(std::string*));
-  MOCK_CONST_METHOD1(GetReleaseChannelDelegated,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetUpdateDisabled,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetTargetVersionPrefix, bool(std::string*));
-  MOCK_CONST_METHOD1(GetRollbackToTargetVersion, bool(int*));
-  MOCK_CONST_METHOD1(GetRollbackAllowedMilestones, bool(int*));
-  MOCK_CONST_METHOD1(GetScatterFactorInSeconds,
-                     bool(int64_t*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetAllowedConnectionTypesForUpdate,
-                     bool(std::set<std::string>*));
-  MOCK_CONST_METHOD1(GetOpenNetworkConfiguration, bool(std::string*));
-  MOCK_CONST_METHOD1(GetOwner, bool(std::string*));
-  MOCK_CONST_METHOD1(GetHttpDownloadsEnabled,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetAuP2PEnabled,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetAllowKioskAppControlChromeVersion,
-                     bool(bool*));  // NOLINT(readability/function)
-  MOCK_CONST_METHOD1(GetUsbDetachableWhitelist,
-                     bool(std::vector<DevicePolicy::UsbDeviceId>*));
-  MOCK_CONST_METHOD1(GetAutoLaunchedKioskAppId, bool(std::string*));
-  MOCK_CONST_METHOD0(IsEnterpriseManaged, bool());
-  MOCK_CONST_METHOD1(GetSecondFactorAuthenticationMode, bool(int*));
-  MOCK_CONST_METHOD1(GetDisallowedTimeIntervals,
-                     bool(std::vector<WeeklyTimeInterval>*));
-  MOCK_CONST_METHOD1(GetDeviceUpdateStagingSchedule,
-                     bool(std::vector<DayPercentagePair>*));
-  MOCK_METHOD0(VerifyPolicyFiles, bool(void));
-  MOCK_METHOD0(VerifyPolicySignature, bool(void));
+  MOCK_METHOD(bool, GetPolicyRefreshRate, (int*), (const, override));
+  MOCK_METHOD(bool,
+              GetUserWhitelist,
+              (std::vector<std::string>*),
+              (const, override));
+  MOCK_METHOD(bool, GetGuestModeEnabled, (bool*), (const, override));
+  MOCK_METHOD(bool, GetCameraEnabled, (bool*), (const, override));
+  MOCK_METHOD(bool, GetShowUserNames, (bool*), (const, override));
+  MOCK_METHOD(bool, GetDataRoamingEnabled, (bool*), (const, override));
+  MOCK_METHOD(bool, GetAllowNewUsers, (bool*), (const, override));
+  MOCK_METHOD(bool, GetMetricsEnabled, (bool*), (const, override));
+  MOCK_METHOD(bool, GetReportVersionInfo, (bool*), (const, override));
+  MOCK_METHOD(bool, GetReportActivityTimes, (bool*), (const, override));
+  MOCK_METHOD(bool, GetReportBootMode, (bool*), (const, override));
+  MOCK_METHOD(bool, GetEphemeralUsersEnabled, (bool*), (const, override));
+  MOCK_METHOD(bool, GetReleaseChannel, (std::string*), (const, override));
+  MOCK_METHOD(bool, GetReleaseChannelDelegated, (bool*), (const, override));
+  MOCK_METHOD(bool, GetUpdateDisabled, (bool*), (const, override));
+  MOCK_METHOD(bool, GetTargetVersionPrefix, (std::string*), (const, override));
+  MOCK_METHOD(bool, GetRollbackToTargetVersion, (int*), (const, override));
+  MOCK_METHOD(bool, GetRollbackAllowedMilestones, (int*), (const, override));
+  MOCK_METHOD(bool, GetScatterFactorInSeconds, (int64_t*), (const, override));
+  MOCK_METHOD(bool,
+              GetAllowedConnectionTypesForUpdate,
+              (std::set<std::string>*),
+              (const, override));
+  MOCK_METHOD(bool,
+              GetOpenNetworkConfiguration,
+              (std::string*),
+              (const, override));
+  MOCK_METHOD(bool, GetOwner, (std::string*), (const, override));
+  MOCK_METHOD(bool, GetHttpDownloadsEnabled, (bool*), (const, override));
+  MOCK_METHOD(bool, GetAuP2PEnabled, (bool*), (const, override));
+  MOCK_METHOD(bool,
+              GetAllowKioskAppControlChromeVersion,
+              (bool*),
+              (const, override));
+  MOCK_METHOD(bool,
+              GetUsbDetachableWhitelist,
+              (std::vector<DevicePolicy::UsbDeviceId>*),
+              (const, override));
+  MOCK_METHOD(bool,
+              GetAutoLaunchedKioskAppId,
+              (std::string*),
+              (const, override));
+  MOCK_METHOD(bool, IsEnterpriseManaged, (), (const, override));
+  MOCK_METHOD(bool,
+              GetSecondFactorAuthenticationMode,
+              (int*),
+              (const, override));
+  MOCK_METHOD(bool,
+              GetDisallowedTimeIntervals,
+              (std::vector<WeeklyTimeInterval>*),
+              (const, override));
+  MOCK_METHOD(bool,
+              GetDeviceUpdateStagingSchedule,
+              (std::vector<DayPercentagePair>*),
+              (const, override));
+  MOCK_METHOD(bool,
+              GetDeviceQuickFixBuildToken,
+              (std::string*),
+              (const, override));
+  MOCK_METHOD(bool, GetDeviceDirectoryApiId, (std::string*), (const, override));
+  MOCK_METHOD(bool, VerifyPolicySignature, (), (override));
 };
 }  // namespace policy
 

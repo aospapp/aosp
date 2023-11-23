@@ -32,6 +32,7 @@ The json format of a report dump looks like:
     "errors": [
       "Can't find instances: ['104.197.110.255']"
     ],
+    "error_type": "error_type_1",
     "status": "FAIL"
   }
 
@@ -65,7 +66,7 @@ from acloud.internal import constants
 logger = logging.getLogger(__name__)
 
 
-class Status(object):
+class Status():
     """Status of acloud command."""
 
     SUCCESS = "SUCCESS"
@@ -97,7 +98,7 @@ class Status(object):
         return cls.SEVERITY_ORDER[candidate] > cls.SEVERITY_ORDER[reference]
 
 
-class Report(object):
+class Report():
     """A class that stores and generates report."""
 
     def __init__(self, command):
@@ -109,6 +110,7 @@ class Report(object):
         self.command = command
         self.status = Status.UNKNOWN
         self.errors = []
+        self.error_type = ""
         self.data = {}
 
     def AddData(self, key, value):
@@ -119,6 +121,14 @@ class Report(object):
             value: A value of any json compatible type.
         """
         self.data.setdefault(key, []).append(value)
+
+    def UpdateData(self, dict_data):
+        """Update a dict data to the report.
+
+        Args:
+            dict_data: A dict of report data.
+        """
+        self.data.update(dict_data)
 
     def AddError(self, error):
         """Add error message.
@@ -136,6 +146,14 @@ class Report(object):
         """
         self.errors.extend(errors)
 
+    def SetErrorType(self, error_type):
+        """Set error type.
+
+        Args:
+            error_type: String of error type.
+        """
+        self.error_type = error_type
+
     def SetStatus(self, status):
         """Set status.
 
@@ -151,7 +169,7 @@ class Report(object):
                 self.status, status)
 
     def AddDevice(self, instance_name, ip_address, adb_port, vnc_port,
-                  key="devices"):
+                  webrtc_port=None, device_serial=None, key="devices"):
         """Add a record of a device.
 
         Args:
@@ -159,6 +177,8 @@ class Report(object):
             ip_address: A string.
             adb_port: An integer.
             vnc_port: An integer.
+            webrtc_port: An integer, the port to display device screen.
+            device_serial: String of device serial.
             key: A string, the data entry where the record is added.
         """
         device = {constants.INSTANCE_NAME: instance_name}
@@ -168,12 +188,19 @@ class Report(object):
         else:
             device[constants.IP] = ip_address
 
+        if device_serial:
+            device[constants.DEVICE_SERIAL] = device_serial
+
         if vnc_port:
             device[constants.VNC_PORT] = vnc_port
+
+        if webrtc_port:
+            device[constants.WEBRTC_PORT] = webrtc_port
         self.AddData(key=key, value=device)
 
     def AddDeviceBootFailure(self, instance_name, ip_address, adb_port,
-                             vnc_port, error):
+                             vnc_port, error, device_serial=None,
+                             webrtc_port=None):
         """Add a record of device boot failure.
 
         Args:
@@ -182,10 +209,24 @@ class Report(object):
             adb_port: An integer.
             vnc_port: An integer. Can be None if the device doesn't support it.
             error: A string, the error message.
+            device_serial: String of device serial.
+            webrtc_port: An integer.
         """
         self.AddDevice(instance_name, ip_address, adb_port, vnc_port,
-                       "devices_failing_boot")
+                       webrtc_port, device_serial, "devices_failing_boot")
         self.AddError(error)
+
+    def UpdateFailure(self, error, error_type=None):
+        """Update the falure information of report.
+
+        Args:
+            error: String, the error message.
+            error_type: String, the error type.
+        """
+        self.AddError(error)
+        self.SetStatus(Status.FAIL)
+        if error_type:
+            self.SetErrorType(error_type)
 
     def Dump(self, report_file):
         """Dump report content to a file.
@@ -198,6 +239,7 @@ class Report(object):
             command=self.command,
             status=self.status,
             errors=self.errors,
+            error_type=self.error_type,
             data=self.data)
         logger.info("Report: %s", json.dumps(result, indent=2, sort_keys=True))
         if not report_file:

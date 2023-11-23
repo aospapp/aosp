@@ -19,6 +19,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="android.media.mediaparser.cts">
 
+    <uses-sdk android:minSdkVersion="29"
+              android:targetSdkVersion="29"/>
     <application>
         <uses-library android:name="android.test.runner" />
     </application>

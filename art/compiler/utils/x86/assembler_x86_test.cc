@@ -34,6 +34,12 @@ TEST(AssemblerX86, CreateBuffer) {
   ASSERT_EQ(static_cast<size_t>(5), buffer.Size());
 }
 
+struct X86RegisterCompare {
+    bool operator()(const x86::Register& a, const x86::Register& b) const {
+        return static_cast<int32_t>(a) < static_cast<int32_t>(b);
+    }
+};
+
 //
 // Test fixture.
 //
@@ -51,16 +57,8 @@ class AssemblerX86Test : public AssemblerTest<x86::X86Assembler,
                              x86::Immediate>;
 
  protected:
-  std::string GetArchitectureString() override {
-    return "x86";
-  }
-
-  std::string GetAssemblerParameters() override {
-    return " --32";
-  }
-
-  std::string GetDisassembleParameters() override {
-    return " -D -bbinary -mi386 --no-show-raw-insn";
+  InstructionSet GetIsa() override {
+    return InstructionSet::kX86;
   }
 
   void SetUpHelpers() override {
@@ -89,6 +87,7 @@ class AssemblerX86Test : public AssemblerTest<x86::X86Assembler,
       addresses_.push_back(x86::Address(x86::ESP, 1));
       addresses_.push_back(x86::Address(x86::ESP, 987654321));
     }
+
     if (registers_.size() == 0) {
       registers_.insert(end(registers_),
                         {
@@ -101,6 +100,25 @@ class AssemblerX86Test : public AssemblerTest<x86::X86Assembler,
                           new x86::Register(x86::ESI),
                           new x86::Register(x86::EDI)
                         });
+
+      secondary_register_names_.emplace(x86::Register(x86::EAX), "ax");
+      secondary_register_names_.emplace(x86::Register(x86::EBX), "bx");
+      secondary_register_names_.emplace(x86::Register(x86::ECX), "cx");
+      secondary_register_names_.emplace(x86::Register(x86::EDX), "dx");
+      secondary_register_names_.emplace(x86::Register(x86::EBP), "bp");
+      secondary_register_names_.emplace(x86::Register(x86::ESP), "sp");
+      secondary_register_names_.emplace(x86::Register(x86::ESI), "si");
+      secondary_register_names_.emplace(x86::Register(x86::EDI), "di");
+
+      tertiary_register_names_.emplace(x86::Register(x86::EAX), "al");
+      tertiary_register_names_.emplace(x86::Register(x86::EBX), "bl");
+      tertiary_register_names_.emplace(x86::Register(x86::ECX), "cl");
+      tertiary_register_names_.emplace(x86::Register(x86::EDX), "dl");
+      // FIXME: Refactor RepeatAw() to only use the tertiary for EAX, EBX, ECX, EDX
+      tertiary_register_names_.emplace(x86::Register(x86::EBP), "ch");
+      tertiary_register_names_.emplace(x86::Register(x86::ESP), "ah");
+      tertiary_register_names_.emplace(x86::Register(x86::ESI), "dh");
+      tertiary_register_names_.emplace(x86::Register(x86::EDI), "bh");
     }
 
     if (fp_registers_.size() == 0) {
@@ -140,11 +158,23 @@ class AssemblerX86Test : public AssemblerTest<x86::X86Assembler,
     return x86::Immediate(imm_value);
   }
 
+  std::string GetSecondaryRegisterName(const x86::Register& reg) override {
+    CHECK(secondary_register_names_.find(reg) != secondary_register_names_.end());
+    return secondary_register_names_[reg];
+  }
+
+  std::string GetTertiaryRegisterName(const x86::Register& reg) override {
+    CHECK(tertiary_register_names_.find(reg) != tertiary_register_names_.end());
+    return tertiary_register_names_[reg];
+  }
+
   std::vector<x86::Address> addresses_singleton_;
 
  private:
   std::vector<x86::Address> addresses_;
   std::vector<x86::Register*> registers_;
+  std::map<x86::Register, std::string, X86RegisterCompare> secondary_register_names_;
+  std::map<x86::Register, std::string, X86RegisterCompare> tertiary_register_names_;
   std::vector<x86::XmmRegister*> fp_registers_;
 };
 
@@ -275,6 +305,14 @@ TEST_F(AssemblerX86Test, Addw) {
   DriverStr(RepeatAI(&x86::X86Assembler::addw, /*imm_bytes*/ 2U, "addw ${imm}, {mem}"), "addw");
 }
 
+TEST_F(AssemblerX86Test, Andw) {
+  DriverStr(RepeatAI(&x86::X86Assembler::andw, /*imm_bytes*/ 2U, "andw ${imm}, {mem}"), "andw");
+}
+
+TEST_F(AssemblerX86Test, MovwStore) {
+  DriverStr(RepeatAr(&x86::X86Assembler::movw, "movw %{reg}, {mem}"), "movw-store");
+}
+
 TEST_F(AssemblerX86Test, MovlStore) {
   DriverStr(RepeatAR(&x86::X86Assembler::movl, "movl %{reg}, {mem}"), "movl-store");
 }
@@ -293,6 +331,31 @@ TEST_F(AssemblerX86Test, LoadLongConstant) {
   DriverStr(expected, "LoadLongConstant");
 }
 
+TEST_F(AssemblerX86Test, Xchgb) {
+  DriverStr(RepeatwA(&x86::X86Assembler::xchgb,
+                     "xchgb {mem}, %{reg}"), "xchgb");
+}
+
+TEST_F(AssemblerX86Test, Xchgw) {
+  DriverStr(RepeatrA(&x86::X86Assembler::xchgw,
+                     "xchgw {mem}, %{reg}"), "xchgw");
+}
+
+TEST_F(AssemblerX86Test, Xchgl) {
+  DriverStr(RepeatRA(&x86::X86Assembler::xchgl,
+                     "xchgl {mem}, %{reg}"), "xchgl");
+}
+
+TEST_F(AssemblerX86Test, LockCmpxchgb) {
+  DriverStr(RepeatAw(&x86::X86Assembler::LockCmpxchgb,
+                     "lock cmpxchgb %{reg}, {mem}"), "lock_cmpxchgb");
+}
+
+TEST_F(AssemblerX86Test, LockCmpxchgw) {
+  DriverStr(RepeatAr(&x86::X86Assembler::LockCmpxchgw,
+                     "lock cmpxchgw %{reg}, {mem}"), "lock_cmpxchgw");
+}
+
 TEST_F(AssemblerX86Test, LockCmpxchgl) {
   DriverStr(RepeatAR(&x86::X86Assembler::LockCmpxchgl,
                      "lock cmpxchgl %{reg}, {mem}"), "lock_cmpxchgl");
@@ -301,6 +364,21 @@ TEST_F(AssemblerX86Test, LockCmpxchgl) {
 TEST_F(AssemblerX86Test, LockCmpxchg8b) {
   DriverStr(RepeatA(&x86::X86Assembler::LockCmpxchg8b,
                     "lock cmpxchg8b {mem}"), "lock_cmpxchg8b");
+}
+
+TEST_F(AssemblerX86Test, LockXaddb) {
+  DriverStr(RepeatAw(&x86::X86Assembler::LockXaddb,
+                     "lock xaddb %{reg}, {mem}"), "lock_xaddb");
+}
+
+TEST_F(AssemblerX86Test, LockXaddw) {
+  DriverStr(RepeatAr(&x86::X86Assembler::LockXaddw,
+                     "lock xaddw %{reg}, {mem}"), "lock_xaddw");
+}
+
+TEST_F(AssemblerX86Test, LockXaddl) {
+  DriverStr(RepeatAR(&x86::X86Assembler::LockXaddl,
+                     "lock xaddl %{reg}, {mem}"), "lock_xaddl");
 }
 
 TEST_F(AssemblerX86Test, FPUIntegerLoadS) {
@@ -1228,6 +1306,22 @@ TEST_F(AssemblerX86Test, Cmpb) {
 
 TEST_F(AssemblerX86Test, Cmpw) {
   DriverStr(RepeatAI(&x86::X86Assembler::cmpw, /*imm_bytes*/ 2U, "cmpw ${imm}, {mem}"), "cmpw");
+}
+
+TEST_F(AssemblerX86Test, Idiv) {
+  DriverStr(RepeatR(&x86::X86Assembler::idivl, "idivl %{reg}"), "idivl");
+}
+
+TEST_F(AssemblerX86Test, Div) {
+  DriverStr(RepeatR(&x86::X86Assembler::divl, "divl %{reg}"), "divl");
+}
+
+TEST_F(AssemblerX86Test, Negl) {
+  DriverStr(RepeatR(&x86::X86Assembler::negl, "negl %{reg}"), "negl");
+}
+
+TEST_F(AssemblerX86Test, Notl) {
+  DriverStr(RepeatR(&x86::X86Assembler::notl, "notl %{reg}"), "notl");
 }
 
 }  // namespace art

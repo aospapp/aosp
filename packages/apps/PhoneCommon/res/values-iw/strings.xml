@@ -23,14 +23,14 @@
     <string name="description_image_button_plus" msgid="5473715983314974482">"פלוס"</string>
     <string name="description_voicemail_button" msgid="3215317707268642855">"דואר קולי"</string>
     <string name="default_notification_description" msgid="7586091743351742205">"צליל ברירת מחדל (<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>)"</string>
-    <string name="callFailed_userBusy" msgid="8760595520859373561">"הקו לא פנוי"</string>
+    <string name="callFailed_userBusy" msgid="8760595520859373561">"הקו תפוס"</string>
     <string name="callFailed_congestion" msgid="660130739882090863">"רשת לא פנויה"</string>
     <string name="callFailed_timedOut" msgid="6780964135550644777">"אין תגובה, הזמן הקצוב פג"</string>
     <string name="callFailed_server_unreachable" msgid="7004372091099175338">"אין אפשרות ליצור קשר עם השרת"</string>
     <string name="callFailed_number_unreachable" msgid="2855741498610643943">"אין אפשרות להשיג את המספר"</string>
     <string name="callFailed_invalid_credentials" msgid="1915881596632385418">"שם משתמש או סיסמה שגויים"</string>
     <string name="callFailed_out_of_network" msgid="3725361800376129141">"שיחה מחוץ לרשת"</string>
-    <string name="callFailed_server_error" msgid="8449565039784274698">"שגיאת שרת. נסה שוב מאוחר יותר."</string>
+    <string name="callFailed_server_error" msgid="8449565039784274698">"שגיאת שרת. יש לנסות שוב מאוחר יותר."</string>
     <string name="callFailed_noSignal" msgid="7700332004458210245">"אין אות"</string>
     <string name="callFailed_limitExceeded" msgid="2877263157928717415">"‏חריגה ממגבלת ACM"</string>
     <string name="callFailed_powerOff" msgid="2212239757387143765">"רדיו כבוי"</string>
@@ -55,7 +55,7 @@
     <string name="callEnded_pulled" msgid="4824518546417807865">"השיחה מועברת למכשיר אחר."</string>
     <string name="ringtone_silent" msgid="1173111569760233645">"ללא"</string>
     <string name="ringtone_unknown" msgid="3036191370493284036">"רינגטון לא ידוע"</string>
-    <string name="callFailed_maximum_reached" msgid="6704266142192963900">"כל הקווים הזמינים תפוסים. כדי להתקשר, נתק את אחת מהשיחות במכשיר הזה או באחד מהמכשירים האחרים."</string>
+    <string name="callFailed_maximum_reached" msgid="6704266142192963900">"כל הקווים הזמינים תפוסים. כדי להתקשר, יש לנתק את אחת מהשיחות במכשיר הזה או באחד מהמכשירים האחרים."</string>
     <string name="callFailed_data_disabled" msgid="8592999219489448277">"השיחה הסתיימה מכיוון שהרשת של הנתונים הסלולריים הושבתה."</string>
     <string name="callFailed_data_limit_reached_description" msgid="3739097798746751739">"השיחה הסתיימה מכיוון שנגמרה חבילת הגלישה."</string>
     <string name="callFailed_data_limit_reached" msgid="3018609096563149722">"חבילת הגלישה שלך נגמרה. השיחה הסתיימה."</string>

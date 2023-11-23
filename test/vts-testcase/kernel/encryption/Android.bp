@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test {
     name: "vts_kernel_encryption_test",
     srcs: [
@@ -31,17 +35,18 @@ cc_test {
     ],
     shared_libs: [
         "libbase",
+        "libbinder_ndk",
         "libcrypto",
-        "libhidlbase",
-        "libkeymaster4_1support",
-        "libkeymaster4support",
         "liblog",
         "libutils",
     ],
     static_libs: [
+        "android.hardware.security.keymint-V1-ndk_platform",
+        "android.system.keystore2-V1-ndk_platform",
         "libdm",
         "libext4_utils",
         "libfs_mgr",
+        "libkeymint_support",
         "liblzma",
     ],
     test_suites: [
@@ -50,8 +55,4 @@ cc_test {
     ],
     require_root: true,
     auto_gen_config: true,
-}
-
-vts_config {
-    name: "VtsKernelEncryptionTest",
 }

@@ -299,12 +299,17 @@ void RoutingManager::disableRoutingToHost() {
 }
 
 bool RoutingManager::addAidRouting(const uint8_t* aid, uint8_t aidLen,
-                                   int route, int aidInfo) {
+                                   int route, int aidInfo, int power) {
   static const char fn[] = "RoutingManager::addAidRouting";
   DLOG_IF(INFO, nfc_debug_enabled) << fn << ": enter";
   uint8_t powerState = 0x01;
   if (!mSecureNfcEnabled) {
-    powerState = (route != 0x00) ? mOffHostAidRoutingPowerState : 0x11;
+    if (power == 0x00) {
+      powerState = (route != 0x00) ? mOffHostAidRoutingPowerState : 0x11;
+    } else {
+      powerState =
+          (route != 0x00) ? mOffHostAidRoutingPowerState & power : power;
+    }
   }
   SyncEventGuard guard(mRoutingEvent);
   mAidRoutingConfigured = false;
@@ -335,7 +340,7 @@ bool RoutingManager::removeAidRouting(const uint8_t* aid, uint8_t aidLen) {
     DLOG_IF(INFO, nfc_debug_enabled) << fn << ": removed AID";
     return true;
   } else {
-    LOG(ERROR) << fn << ": failed to remove AID";
+    LOG(WARNING) << fn << ": failed to remove AID";
     return false;
   }
 }
@@ -886,6 +891,13 @@ void RoutingManager::nfaEeCallback(tNFA_EE_EVT event,
       routingManager.mEeUpdateEvent.notifyOne();
     } break;
 
+    case NFA_EE_PWR_AND_LINK_CTRL_EVT: {
+      DLOG_IF(INFO, nfc_debug_enabled)
+          << StringPrintf("%s: NFA_EE_PWR_AND_LINK_CTRL_EVT", fn);
+      SyncEventGuard guard(routingManager.mEePwrAndLinkCtrlEvent);
+      routingManager.mEePwrAndLinkCtrlEvent.notifyOne();
+    } break;
+
     default:
       DLOG_IF(INFO, nfc_debug_enabled)
           << StringPrintf("%s: unknown event=%u ????", fn, event);
@@ -1038,6 +1050,40 @@ bool RoutingManager::setNfcSecure(bool enable) {
   mSecureNfcEnabled = enable;
   DLOG_IF(INFO, true) << "setNfcSecure NfcService " << enable;
   return true;
+}
+
+/*******************************************************************************
+**
+** Function:        eeSetPwrAndLinkCtrl
+**
+** Description:     Programs the NCI command NFCEE_POWER_AND_LINK_CTRL_CMD
+**
+** Returns:         None
+**
+*******************************************************************************/
+void RoutingManager::eeSetPwrAndLinkCtrl(uint8_t config) {
+  static const char fn[] = "RoutingManager::eeSetPwrAndLinkCtrl";
+  tNFA_STATUS status = NFA_STATUS_OK;
+
+  if (mOffHostRouteEse.size() > 0) {
+    DLOG_IF(INFO, nfc_debug_enabled)
+        << StringPrintf("%s - nfceeId: 0x%02X, config: 0x%02X", fn,
+                        mOffHostRouteEse[0], config);
+
+    SyncEventGuard guard(mEePwrAndLinkCtrlEvent);
+    status =
+        NFA_EePowerAndLinkCtrl(
+            ((uint8_t)mOffHostRouteEse[0] | NFA_HANDLE_GROUP_EE), config);
+    if (status != NFA_STATUS_OK) {
+      LOG(ERROR) << StringPrintf("%s: fail NFA_EePowerAndLinkCtrl; error=0x%X",
+                                 __FUNCTION__, status);
+      return;
+    } else {
+      mEePwrAndLinkCtrlEvent.wait();
+    }
+  } else {
+    LOG(ERROR) << StringPrintf("%s: No ESE specified", __FUNCTION__);
+  }
 }
 
 void RoutingManager::deinitialize() {

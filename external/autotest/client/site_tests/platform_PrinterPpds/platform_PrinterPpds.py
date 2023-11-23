@@ -35,13 +35,6 @@ _FIRST_PORT_NUMBER = 9000
 # Values are from platform/system_api/dbus/debugd/dbus-constants.h.
 _CUPS_SUCCESS = 0
 
-# Exceptions, cases that we want to omit/ignore
-# key: document; values: list of PPD files
-_EXCEPTIONS = { 'split_streams.pdf': ['HP-DeskJet_200-pcl3.ppd.gz',
-        'HP-DeskJet_310-pcl3.ppd.gz', 'HP-DeskJet_320-pcl3.ppd.gz',
-        'HP-DeskJet_340C-pcl3.ppd.gz', 'HP-DeskJet_540C-pcl3.ppd.gz',
-        'HP-DeskJet_560C-pcl3.ppd.gz'] }
-
 class platform_PrinterPpds(test.test):
     """
     This test gets a list of PPD files and a list of test documents. It tries
@@ -85,14 +78,16 @@ class platform_PrinterPpds(test.test):
         return os.path.join(path_current, path)
 
 
-    def initialize(
-            self, path_docs, path_ppds=None, path_digests=None,
-            debug_mode=False, threads_count=8):
+    def initialize(self,
+                   path_docs,
+                   path_ppds,
+                   path_digests=None,
+                   debug_mode=False,
+                   threads_count=8):
         """
         @param path_docs: path to local directory with documents to print
         @param path_ppds: path to local directory with PPD files to test;
-                if None is set then all PPD files from the SCS server are
-                downloaded and tested
+                the directory is supposed to be compressed as .tar.xz.
         @param path_digests: path to local directory with digests files for
                 test documents; if None is set then content of printed
                 documents is not verified
@@ -119,51 +114,49 @@ class platform_PrinterPpds(test.test):
         self._configurator = configurator.Configurator()
         self._configurator.configure(debug_mode)
 
-        # Reads list of test documents
+        # Read list of test documents
         self._docs = helpers.list_entries_from_directory(
                             path=self._location_of_test_docs,
                             with_suffixes=('.pdf'),
                             nonempty_results=True,
                             include_directories=False)
 
-        # Get list of PPD files ...
-        if self._location_of_PPD_files is None:
-            # ... from the SCS server
-            self._ppds = self._get_filenames_from_PPD_indexes()
-        else:
-            # ... from the given local directory
-            # Unpack archives with all PPD files:
-            path_archive = self._calculate_full_path('ppds_all.tar.xz')
-            path_target_dir = self._calculate_full_path('.')
-            file_utils.rm_dir_if_exists(
-                    os.path.join(path_target_dir,'ppds_all'))
-            subprocess.call(['tar', 'xJf', path_archive, '-C', path_target_dir])
-            path_archive = self._calculate_full_path('ppds_100.tar.xz')
-            file_utils.rm_dir_if_exists(
-                    os.path.join(path_target_dir,'ppds_100'))
-            subprocess.call(['tar', 'xJf', path_archive, '-C', path_target_dir])
-            # Load PPD files from the chosen directory
-            self._ppds = helpers.list_entries_from_directory(
-                            path=self._location_of_PPD_files,
-                            with_suffixes=('.ppd','.ppd.gz'),
-                            nonempty_results=True,
-                            include_directories=False)
+        # Load the list of PPD files to omit
+        do_not_test_path = self._calculate_full_path('do_not_test.txt')
+        do_not_test_set = set(helpers.load_lines_from_file(do_not_test_path))
+
+        # Unpack an archive with the PPD files:
+        path_archive = self._location_of_PPD_files + '.tar.xz'
+        path_target_dir = self._calculate_full_path('.')
+        file_utils.rm_dir_if_exists(os.path.join(path_target_dir, path_ppds))
+        subprocess.call(['tar', 'xJf', path_archive, '-C', path_target_dir])
+        # Load PPD files from the unpacked directory
+        self._ppds = helpers.list_entries_from_directory(
+                path=self._location_of_PPD_files,
+                with_suffixes=('.ppd', '.ppd.gz'),
+                nonempty_results=True,
+                include_directories=False)
+        # Remove from the list all PPD files to omit and sort it
+        self._ppds = list(set(self._ppds) - do_not_test_set)
         self._ppds.sort()
 
         # Load digests files
         self._digests = dict()
+        self._sizes = dict()
         if location_of_digests_files is None:
             for doc_name in self._docs:
                 self._digests[doc_name] = dict()
+                self._sizes[doc_name] = dict()
         else:
-            path_blacklist = os.path.join(location_of_digests_files,
-                    'blacklist.txt')
-            blacklist = helpers.load_blacklist(path_blacklist)
+            path_denylist = os.path.join(location_of_digests_files,
+                                         'denylist.txt')
+            denylist = helpers.load_lines_from_file(path_denylist)
             for doc_name in self._docs:
                 digests_name = doc_name + '.digests'
                 path = os.path.join(location_of_digests_files, digests_name)
-                self._digests[doc_name] = helpers.parse_digests_file(path,
-                        blacklist)
+                digests, sizes = helpers.parse_digests_file(path, denylist)
+                self._digests[doc_name] = digests
+                self._sizes[doc_name] = sizes
 
         # Prepare a working directory for pipelines
         if debug_mode:
@@ -217,8 +210,10 @@ class platform_PrinterPpds(test.test):
                         self._ppds, 50)
             # A place for new digests
             self._new_digests = dict()
+            self._new_sizes = dict()
             for doc_name in self._docs:
                 self._new_digests[doc_name] = dict()
+                self._new_sizes[doc_name] = dict()
 
         # Runs tests for all PPD files (in parallel)
         outputs = self._processor.run(self._thread_test_PPD, len(self._ppds))
@@ -241,7 +236,7 @@ class platform_PrinterPpds(test.test):
                 path = os.path.join(self._path_output_directory,
                         doc_name + '.digests')
                 helpers.save_digests_file(path, self._new_digests[doc_name],
-                        failures)
+                                          self._new_sizes[doc_name], failures)
 
         # Raises an exception if at least one test failed
         if len(failures) > 0:
@@ -345,13 +340,6 @@ class platform_PrinterPpds(test.test):
                 # Prints all test documents
                 try:
                     for doc_name in self._docs:
-                        # Omit exceptions
-                        if ( doc_name in _EXCEPTIONS and
-                                ppd_name in _EXCEPTIONS[doc_name] ):
-                            if self._path_output_directory is not None:
-                                self._new_digests[doc_name][ppd_name] = (
-                                        helpers.calculate_digest('\x00') )
-                            continue
                         # Full path to the test document
                         path_doc = os.path.join(
                                         self._location_of_test_docs, doc_name)
@@ -386,6 +374,7 @@ class platform_PrinterPpds(test.test):
                                         ppd_name, '.sh', pipeline)
                             # Set new digest
                             self._new_digests[doc_name][ppd_name] = digest
+                            self._new_sizes[doc_name][ppd_name] = len(doc)
                         # Fail if any of CUPS filters failed
                         if not no_errors:
                             raise Exception('One of the CUPS filters failed')
@@ -400,6 +389,10 @@ class platform_PrinterPpds(test.test):
                             digest_expected = self._digests[doc_name][ppd_name]
                             if digest_expected != digest:
                                 message = 'Document\'s digest does not match'
+                                if ppd_name in self._sizes[doc_name]:
+                                    message += ', old size: ' + \
+                                            str(self._sizes[doc_name][ppd_name])
+                                message += ', new size: ' + str(len(doc))
                                 raise Exception(message)
                         else:
                             # Simple validation

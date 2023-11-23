@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2019 The Android Open Source Project
 #
@@ -33,13 +33,15 @@ import os.path
 import shutil
 import zipfile
 
-from utils import AdbHelper, get_target_binary_path, log_exit, log_info, remove
+from simpleperf_utils import AdbHelper, get_target_binary_path, log_exit, log_info, remove
+
 
 def prepare_recording(args):
     adb = AdbHelper()
     enable_profiling_on_device(adb, args)
     upload_simpleperf_to_device(adb)
     run_simpleperf_prepare_cmd(adb)
+
 
 def enable_profiling_on_device(adb, args):
     android_version = adb.get_android_version()
@@ -49,11 +51,13 @@ def enable_profiling_on_device(adb, args):
         adb.set_property('debug.perf_event_mlock_kb', str(args.max_memory_in_kb[0]))
     adb.set_property('security.perf_harden', '0')
 
+
 def upload_simpleperf_to_device(adb):
     device_arch = adb.get_device_arch()
     simpleperf_binary = get_target_binary_path(device_arch, 'simpleperf')
     adb.check_run(['push', simpleperf_binary, '/data/local/tmp'])
     adb.check_run(['shell', 'chmod', 'a+x', '/data/local/tmp/simpleperf'])
+
 
 def run_simpleperf_prepare_cmd(adb):
     adb.check_run(['shell', '/data/local/tmp/simpleperf', 'api-prepare'])
@@ -66,6 +70,7 @@ def collect_data(args):
     download_recording_data(adb, args)
     unzip_recording_data(args)
 
+
 def download_recording_data(adb, args):
     """ download recording data to simpleperf_data.zip."""
     upload_simpleperf_to_device(adb)
@@ -73,6 +78,7 @@ def download_recording_data(adb, args):
                    '-o', '/data/local/tmp/simpleperf_data.zip'])
     adb.check_run(['pull', '/data/local/tmp/simpleperf_data.zip', args.out_dir])
     adb.check_run(['shell', 'rm', '-rf', '/data/local/tmp/simpleperf_data'])
+
 
 def unzip_recording_data(args):
     zip_file_path = os.path.join(args.out_dir, 'simpleperf_data.zip')
@@ -84,9 +90,11 @@ def unzip_recording_data(args):
             zip_fh.extract(name, args.out_dir)
     remove(zip_file_path)
 
+
 class ArgumentHelpFormatter(argparse.ArgumentDefaultsHelpFormatter,
                             argparse.RawDescriptionHelpFormatter):
     pass
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
@@ -112,6 +120,7 @@ def main():
     collect_parser.set_defaults(func=collect_data)
     args = parser.parse_args()
     args.func(args)
+
 
 if __name__ == '__main__':
     main()

@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Endast den primära användaren får ändra röstbrevlådans inställningar."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"SIM-kortets spärr har tagits bort. Låser upp telefonen…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"PIN-kod för upplåsning av SIM-nätverk"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"Operatörslåst SIM-kort"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Lås upp"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Ta bort permanent"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Försöker låsa upp nätverket…"</string>
@@ -74,7 +75,7 @@
     <string name="phone_accounts_configure_account_settings" msgid="6622119715253196586">"Konfigurera kontoinställningar"</string>
     <string name="phone_accounts_all_calling_accounts" msgid="1609600743500618823">"Alla konton för samtal"</string>
     <string name="phone_accounts_all_calling_accounts_summary" msgid="2214134955430107240">"Välj vilka konton som kan ringa samtal"</string>
-    <string name="wifi_calling" msgid="3650509202851355742">"Wi-Fi-samtal"</string>
+    <string name="wifi_calling" msgid="3650509202851355742">"wifi-samtal"</string>
     <string name="connection_service_default_label" msgid="7332739049855715584">"Inbyggd anslutningstjänst"</string>
     <string name="voicemail" msgid="7697769412804195032">"Röstbrevlåda"</string>
     <string name="voicemail_settings_with_label" msgid="4228431668214894138">"Röstbrevlåda (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Vidarebefordrar till <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Av"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Operatören stöder inte inaktivering av vidarebefordran av samtal när det inte går att nå telefonen."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Din operatör stöder inte vidarebefordran av samtal."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Aktivera Samtal väntar?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Du meddelas om inkommande samtal under samtal"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Aktivera"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Avbryt"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"CDMA samtal väntar under IMS på"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA samtal väntar under IMS av"</string>
     <string name="updating_title" msgid="6130548922615719689">"Samtalsinställningar"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Det är bara administratören som kan ändra samtalsinställningar."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Inställningar (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Begränsad SIM-funktionalitet"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Samtals- och datatjänster från <xliff:g id="CARRIER_NAME">%1$s</xliff:g> kan vara blockerade medan du använder <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Samtals- och datatjänster från <xliff:g id="CARRIER_NAME">%1$s</xliff:g> kan vara blockerade när annat SIM-kort används."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Hittade och tog bort utfasade SIP-konton"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Android-plattformen stöder inte längre SIP-samtal.\nDitt befintliga SIP-konto <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> har tagits bort.\nBekräfta kontoinställningen för standardsamtal."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Öppna inställningarna"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Appars dataanvändning"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> mobildata använt mellan <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Avancerat"</string>
@@ -298,7 +309,7 @@
     <string name="sim_selection_required_pref" msgid="6985901872978341314">"Du måste välja något"</string>
     <string name="sim_change_data_title" msgid="9142726786345906606">"Vill du ändra data-SIM?"</string>
     <string name="sim_change_data_message" msgid="3567358694255933280">"Vill du använda <xliff:g id="NEW_SIM">%1$s</xliff:g> i stället för <xliff:g id="OLD_SIM">%2$s</xliff:g> för mobildata?"</string>
-    <string name="wifi_calling_settings_title" msgid="5800018845662016507">"Wi-Fi-samtal"</string>
+    <string name="wifi_calling_settings_title" msgid="5800018845662016507">"wifi-samtal"</string>
     <string name="video_calling_settings_title" msgid="342829454913266078">"Videosamtal via operatören"</string>
     <string name="gsm_umts_options" msgid="4968446771519376808">"Alternativ för GSM/UMTS"</string>
     <string name="cdma_options" msgid="3669592472226145665">"CDMA-alternativ"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Felaktigt lösenord. SIM-kortet är nu låst. Ange PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK-kod 2 har blockerats permanent."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Du har <xliff:g id="NUMBER">%d</xliff:g> försök kvar."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 låst. Kontakta tjänsteleverantören för att låsa upp."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 är inte längre blockerad"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Nätverks- eller SIM-kortsfel"</string>
     <string name="doneButton" msgid="7371209609238460207">"Färdig"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Aktivera mobilt nätverk, stäng av flygplansläget eller batterisparläget för att ringa ett samtal."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Inaktivera flygplansläget om du vill ringa."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Inaktivera flygplansläget eller anslut till ett trådlöst nätverk om du vill ringa."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Telefonen för varm"</b>\n\n"Det går inte att genomföra samtalet. Försök igen när telefonen svalnar.\n\nDet går fortfarande att ringa nödsamtal."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Avsluta läget för återuppringning vid nödsamtal om du vill ringa ett vanligt samtal."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Inte registrerat på nätverk."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Inget mobilt nätverk är tillgängligt."</string>
@@ -542,7 +555,7 @@
     <string name="incall_error_supp_service_hangup" msgid="836524952243836735">"Det gick inte att släppa samtal."</string>
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Det går inte att hålla kvar samtal."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Anslut till ett trådlöst nätverk om du vill ringa."</string>
-    <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Aktivera Wi-Fi-samtal för att ringa."</string>
+    <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Aktivera wifi-samtal för att ringa."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Nödinformation"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Ägare"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Tryck igen för att visa information"</string>
@@ -604,7 +617,7 @@
     <string name="ota_hfa_activation_title" msgid="3300556778212729671">"Aktiveras ..."</string>
     <string name="ota_hfa_activation_dialog_message" msgid="7921718445773342996">"Din mobila datatjänst aktiveras av mobilen.\n\nDetta kan ta upp till fem minuter."</string>
     <string name="ota_skip_activation_dialog_title" msgid="7666611236789203797">"Vill du hoppa över aktiveringen?"</string>
-    <string name="ota_skip_activation_dialog_message" msgid="6691722887019708713">"Om du hoppar över aktiveringen kan du inte ringa samtal eller ansluta till mobila datanätverk (men du kan ansluta till Wi-Fi-nätverk). Du kommer att påminnas om att aktivera telefonen varje gång du sätter på den, tills du har aktiverat den."</string>
+    <string name="ota_skip_activation_dialog_message" msgid="6691722887019708713">"Om du hoppar över aktiveringen kan du inte ringa samtal eller ansluta till mobila datanätverk (men du kan ansluta till wifi-nätverk). Du kommer att påminnas om att aktivera telefonen varje gång du sätter på den, tills du har aktiverat den."</string>
     <string name="ota_skip_activation_dialog_skip_label" msgid="5908029466817825633">"Hoppa över"</string>
     <string name="ota_activate" msgid="7939695753665438357">"Aktivera"</string>
     <string name="ota_title_activate_success" msgid="1272135024761004889">"Telefonen är aktiverad."</string>
@@ -668,18 +681,18 @@
     <string name="sim_description_emergency_calls" msgid="5146872803938897296">"Endast nödsamtal"</string>
     <string name="sim_description_default" msgid="7474671114363724971">"SIM-kortsplats: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Tillgänglighet"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi-samtal från"</string>
-    <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi-samtal"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"wifi-samtal från"</string>
+    <string name="status_hint_label_wifi_call" msgid="942993035689809853">"wifi-samtal"</string>
     <string name="emergency_action_launch_hint" msgid="2762016865340891314">"Tryck igen för att öppna"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Ett fel inträffade när meddelandet avkodades."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"Ett SIM-kort har använts för att aktivera tjänsten och uppdatera roamingfunktionerna i mobilen."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Det finns för många aktiva samtal. Avsluta eller slå samman pågående samtal innan du ringer ett nytt."</string>
     <string name="callFailed_imei_not_accepted" msgid="7257903653685147251">"Det går inte att ansluta. Sätt i ett giltigt SIM-kort."</string>
-    <string name="callFailed_wifi_lost" msgid="1788036730589163141">"Wi-Fi-anslutningen bruten. Samtal avslutat."</string>
+    <string name="callFailed_wifi_lost" msgid="1788036730589163141">"wifi-anslutningen bruten. Samtal avslutat."</string>
     <string name="dialFailed_low_battery" msgid="6857904237423407056">"Det går inte att ringa videosamtal på grund av svagt batteri."</string>
     <string name="callFailed_low_battery" msgid="4056828320214416182">"Videosamtalet slutade på grund av svagt batteri."</string>
-    <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"Nödsamtal via Wi-Fi är inte tillgängligt på den här platsen."</string>
-    <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"Wi-Fi-samtal är inte tillgängligt på den här platsen."</string>
+    <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"Nödsamtal via wifi är inte tillgängligt på den här platsen."</string>
+    <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"wifi-samtal är inte tillgängligt på den här platsen."</string>
     <string name="change_pin_title" msgid="3564254326626797321">"Ändra röstbrevlådans pinkod"</string>
     <string name="change_pin_continue_label" msgid="5177011752453506371">"Fortsätt"</string>
     <string name="change_pin_cancel_label" msgid="2301711566758827936">"Avbryt"</string>
@@ -824,7 +837,7 @@
     <string name="radio_info_data_connection_disable" msgid="6404751291511368706">"Inaktivera dataanslutning"</string>
     <string name="volte_provisioned_switch_string" msgid="4812874990480336178">"VoLTE-administrerad"</string>
     <string name="vt_provisioned_switch_string" msgid="8295542122512195979">"Videosamtal tillhandahålls"</string>
-    <string name="wfc_provisioned_switch_string" msgid="3835004640321078988">"Wi-Fi-samtal tillhandahålls"</string>
+    <string name="wfc_provisioned_switch_string" msgid="3835004640321078988">"wifi-samtal tillhandahålls"</string>
     <string name="eab_provisioned_switch_string" msgid="4449676720736033035">"EAB/Presence tillhandahålls"</string>
     <string name="cbrs_data_switch_string" msgid="6060356430838077653">"Data via CBRS"</string>
     <string name="dsds_switch_string" msgid="7564769822086764796">"Aktivera DSDS"</string>
@@ -842,7 +855,7 @@
     <string name="radio_info_ims_reg_status_not_registered" msgid="8045821447288876085">"Inte registrerad"</string>
     <string name="radio_info_ims_feature_status_available" msgid="6493200914756969292">"Tillgänglig"</string>
     <string name="radio_info_ims_feature_status_unavailable" msgid="8930391136839759778">"Inte tillgängligt"</string>
-    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS-registrering: <xliff:g id="STATUS">%1$s</xliff:g>\nRöst via LTE: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nRöst via Wi-Fi: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nVideosamtal: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT-gränssnitt: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
+    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS-registrering: <xliff:g id="STATUS">%1$s</xliff:g>\nRöst via LTE: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nRöst via wifi: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nVideosamtal: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT-gränssnitt: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
     <string name="radioInfo_service_in" msgid="45753418231446400">"I tjänst"</string>
     <string name="radioInfo_service_out" msgid="287972405416142312">"Ur funktion"</string>
     <string name="radioInfo_service_emergency" msgid="4763879891415016848">"Endast nödsamtal"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"SubId för standarddata på SIM-kortet:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Bandbredd för nedladdning (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Bandbredd för uppladdning (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Platsinformation för mast (utfasad):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Fysisk kanalkonfiguration för LTE:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Frekvens för uppdatering av mastinformation:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Alla information om mastmätning:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Uppdatera"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Aktivera och inaktivera DNS-kontroll"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-specifik information/inställningar"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC tillgänglig:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR begränsad:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR tillgänglig:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR-status:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR-frekvens:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Konfigurera radiobandsläget"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Läser in bandlista …"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Ange"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Telefoninformation"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Information om operatörsadministration"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Aktivera operatörsadministration"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Svag Bluetooth-signal. Försök med att växla till högtalartelefon."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Avisering om samtalskvalitet"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Utfasade SIP-konton"</string>
 </resources>

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 genrule_defaults {
     name: "signature-cts-api-api-gz",
     cmd: "$(location metalava) --no-banner --compatible-output=no -convert2xmlnostrip $(in) $(genDir)/api.xml && gzip -c $(genDir)/api.xml > $(out)",

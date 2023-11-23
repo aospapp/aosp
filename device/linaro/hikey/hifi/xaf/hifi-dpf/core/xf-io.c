@@ -540,7 +540,7 @@ void * xf_output_port_data(xf_output_port_t *port)
     /* ...it is not permitted to access port data when port is being unrouted */
     BUG(xf_output_port_unrouting(port), _x("invalid transaction"));
 
-    /* ...make sure message length is sane */
+    /* ...make sure message length is valid */
     BUG(m->length < port->length, _x("Insufficient buffer length: %u < %u"), m->length, port->length);
         
     /* ...return access buffer pointer */

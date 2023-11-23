@@ -16,6 +16,10 @@
 -->
 
 <resources>
+    <!-- Whether all activities should be single pane views or not. -->
+    <bool name="config_global_force_single_pane">true</bool>
+    <!-- Fully qualified class name for the homepage fragment. -->
+    <string name="config_homepage_fragment_class" translatable="false">com.android.car.settings.home.HomepageFragment</string>
     <!-- Whether quick settings should be the root settings activity or not. -->
     <bool name="config_is_quick_settings_root">false</bool>
     <!-- Whether to show the launcher icon for settings home or not. -->
@@ -27,7 +31,7 @@
     <!-- Whether Wi-Fi Mac address should be shown or not. -->
     <bool name="config_show_wifi_mac_address">true</bool>
     <!-- Whether to show regulatory info or not. -->
-    <bool name="config_show_regulatory_info">true</bool>
+    <bool name="config_show_regulatory_info">false</bool>
     <!-- Whether premium SMS should be shown or not. -->
     <bool name="config_show_premium_sms">true</bool>
     <!-- Whether exit button in settings' root action bar should be shown or not -->
@@ -41,14 +45,14 @@
         filter will return all unbonded devices.
 
         Example usage:
-        <integer-array name="config_unbonded_device_filter_whitelist">
+        <integer-array name="config_unbonded_device_filter_allowlist">
             <item>0x0200</item>
         </integer-array>
 
         This filter would only return unbonded devices which correspond to the
         major class for PHONE.
     -->
-    <integer-array name="config_unbonded_device_filter_whitelist"/>
+    <integer-array name="config_unbonded_device_filter_allowlist"/>
     <!--
         Array of keys that should be used for determining how audio attribute
         usage should be mapped to ringtone uris.
@@ -100,8 +104,31 @@
         <item>@string/pk_bluetooth_paired_devices</item>
     </string-array>
 
+    <!--
+        Whether to allow chevrons on top-level preferences when enabled for
+        car-ui-lib preferences.
+    -->
+    <bool name="config_top_level_enable_chevrons">true</bool>
+    <!-- The shape for top-level icons: 0=RECTANGLE, 1=OVAL -->
+    <integer name="config_top_level_icon_shape" translatable="false">1</integer>
+    <!--
+        Whether to always override the background color of the injecting application in favor of
+        the default color.
+    -->
+    <bool name="config_top_level_injection_background_always_use_default">false</bool>
+    <!-- Whether to include the preference summaries of injected top-level preferences. -->
+    <bool name="config_top_level_injection_enable_summaries">true</bool>
+    <!-- Array of injected setting categories that appear in the top-level menu. -->
+    <string-array name="config_top_level_injection_categories">
+        <item>com.android.settings.category.wireless</item>
+        <item>com.android.settings.category.ia.device</item>
+        <item>com.android.settings.category.personal</item>
+    </string-array>
+
     <!-- The component which listens for the enabling of developer options. -->
-    <string name="config_dev_options_module" translatable="false">com.android.car.developeroptions/.Settings$DevelopmentSettingsDashboardActivity</string>
+    <string name="config_dev_options_module" translatable="false">
+        com.android.car.developeroptions/.CarDevelopmentSettingsDashboardActivity
+    </string>
 
     <!-- Settings intelligence package name -->
     <string name="config_settingsintelligence_package_name" translatable="false">

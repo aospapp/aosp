@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_app {
     name: "UniversalMediaPlayer",
     min_sdk_version: "24", // TODO(b/123716038) Sync min SDK version with build.gradle

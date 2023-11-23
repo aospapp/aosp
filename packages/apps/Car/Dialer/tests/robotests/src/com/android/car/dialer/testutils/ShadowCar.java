@@ -16,8 +16,11 @@
 
 package com.android.car.dialer.testutils;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.car.Car;
 import android.content.Context;
+import android.os.Handler;
 
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
@@ -31,10 +34,31 @@ public class ShadowCar {
     private static Car sCar;
 
     /**
-     * Returns a mocked version of a {@link Car} object.
+     * Returns a mocked version of a {@link Car} object. If sCar is not set, returns null.
      */
     @Implementation
-    protected static Car createCar(Context context) {
+    @Nullable
+    public static Car createCar(Context context) {
+        return sCar;
+    }
+
+    /**
+     * Returns a mocked version of a {@link Car} object. If sCar is not set, returns null.
+     */
+    @Implementation
+    @Nullable
+    public static Car createCar(@NonNull Context context,
+            @Nullable Handler handler, long waitTimeoutMs,
+            @NonNull Car.CarServiceLifecycleListener statusChangeListener) {
+        return sCar;
+    }
+
+    /**
+     * Returns a mocked version of a {@link Car} object. If sCar is not set, returns null.
+     */
+    @Implementation
+    @Nullable
+    public static Car createCar(Context context, @Nullable Handler handler) {
         return sCar;
     }
 

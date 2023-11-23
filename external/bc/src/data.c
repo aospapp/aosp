@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,21 +39,24 @@
 #include <bc.h>
 #include <dc.h>
 #include <num.h>
+#include <rand.h>
 #include <program.h>
 #include <vm.h>
 
-#if BC_ENABLE_SIGNALS
+#if !BC_ENABLE_LIBRARY
+
 #if BC_ENABLED
 const char bc_sig_msg[] = "\ninterrupt (type \"quit\" to exit)\n";
+const uchar bc_sig_msg_len = (uchar) (sizeof(bc_sig_msg) - 1);
 #endif // BC_ENABLED
 #if DC_ENABLED
 const char dc_sig_msg[] = "\ninterrupt (type \"q\" to exit)\n";
+const uchar dc_sig_msg_len = (uchar) (sizeof(dc_sig_msg) - 1);
 #endif // DC_ENABLED
-#endif // BC_ENABLE_SIGNALS
 
 const char bc_copyright[] =
-	"Copyright (c) 2018-2019 Gavin D. Howard and contributors\n"
-	"Report bugs at: https://github.com/gavinhoward/bc\n\n"
+	"Copyright (c) 2018-2021 Gavin D. Howard and contributors\n"
+	"Report bugs at: https://git.yzena.com/gavin/bc\n\n"
 	"This is free software with ABSOLUTELY NO WARRANTY.\n";
 
 const char* const bc_err_func_header = "Function:";
@@ -74,7 +77,7 @@ const uchar bc_err_ids[] = {
 	BC_ERR_IDX_MATH, BC_ERR_IDX_MATH, BC_ERR_IDX_MATH, BC_ERR_IDX_MATH,
 
 	BC_ERR_IDX_FATAL, BC_ERR_IDX_FATAL, BC_ERR_IDX_FATAL, BC_ERR_IDX_FATAL,
-	BC_ERR_IDX_FATAL, BC_ERR_IDX_FATAL,
+	BC_ERR_IDX_FATAL, BC_ERR_IDX_FATAL, BC_ERR_IDX_FATAL, BC_ERR_IDX_FATAL,
 
 	BC_ERR_IDX_EXEC, BC_ERR_IDX_EXEC, BC_ERR_IDX_EXEC, BC_ERR_IDX_EXEC,
 	BC_ERR_IDX_EXEC, BC_ERR_IDX_EXEC, BC_ERR_IDX_EXEC, BC_ERR_IDX_EXEC,
@@ -104,10 +107,12 @@ const char* const bc_err_msgs[] = {
 
 	"memory allocation failed",
 	"I/O error",
-	"could not open file: %s",
+	"cannot open file: %s",
 	"file is not ASCII: %s",
 	"path is a directory: %s",
-	"bad command-line option: '%c' (\"%s\")",
+	"bad command-line option: \"%s\"",
+	"option requires an argument: '%c' (\"%s\")",
+	"option takes no arguments: '%c' (\"%s\")",
 
 	"bad ibase: must be [%lu, %lu]",
 	"bad obase: must be [%lu, %lu]",
@@ -130,19 +135,19 @@ const char* const bc_err_msgs[] = {
 
 	"end of file",
 	"bad character '%c'",
-	"string end could not be found",
-	"comment end could not be found",
+	"string end cannot be found",
+	"comment end cannot be found",
 	"bad token",
 #if BC_ENABLED
 	"bad expression",
 	"empty expression",
 	"bad print statement",
 	"bad function definition",
-	"bad assignment: left side must be scale, ibase, "
-		"obase, last, var, or array element",
+	("bad assignment: left side must be scale, ibase, "
+		"obase, seed, last, var, or array element"),
 	"no auto variable found",
 	"function parameter or auto \"%s%s\" already exists",
-	"block end could not be found",
+	"block end cannot be found",
 	"cannot return a value from void function: %s()",
 	"var cannot be a reference: %s",
 
@@ -166,6 +171,12 @@ const char* const bc_err_msgs[] = {
 #endif // BC_ENABLED
 
 };
+
+#if BC_ENABLE_HISTORY
+const BcFlushType bc_flush_none = BC_FLUSH_NO_EXTRAS_NO_CLEAR;
+const BcFlushType bc_flush_err = BC_FLUSH_NO_EXTRAS_CLEAR;
+const BcFlushType bc_flush_save = BC_FLUSH_SAVE_EXTRAS_CLEAR;
+#endif // BC_ENABLE_HISTORY
 
 #if BC_ENABLE_HISTORY
 const char *bc_history_bad_terms[] = { "dumb", "cons25", "emacs", NULL };
@@ -504,7 +515,8 @@ const size_t bc_history_combo_chars_len =
 	sizeof(bc_history_combo_chars) / sizeof(bc_history_combo_chars[0]);
 
 #if BC_DEBUG_CODE
-FILE *bc_history_debug_fp = NULL;
+BcFile bc_history_debug_fp;
+char *bc_history_debug_buf;
 #endif // BC_DEBUG_CODE
 #endif // BC_ENABLE_HISTORY
 
@@ -515,10 +527,8 @@ const char bc_func_read[] = "(read)";
 const char* bc_inst_names[] = {
 
 #if BC_ENABLED
-	"BC_INST_INC_POST",
-	"BC_INST_DEC_POST",
-	"BC_INST_INC_PRE",
-	"BC_INST_DEC_PRE",
+	"BC_INST_INC",
+	"BC_INST_DEC",
 #endif // BC_ENABLED
 
 	"BC_INST_NEG",
@@ -565,9 +575,6 @@ const char* bc_inst_names[] = {
 #endif // BC_ENABLE_EXTRA_MATH
 	"BC_INST_ASSIGN",
 
-	"BC_INST_INC_NO_VAL",
-	"BC_INST_DEC_NO_VAL",
-
 	"BC_INST_ASSIGN_POWER_NO_VAL",
 	"BC_INST_ASSIGN_MULTIPLY_NO_VAL",
 	"BC_INST_ASSIGN_DIVIDE_NO_VAL",
@@ -589,6 +596,7 @@ const char* bc_inst_names[] = {
 	"BC_INST_ARRAY",
 #endif // BC_ENABLED
 
+	"BC_INST_ZERO",
 	"BC_INST_ONE",
 
 #if BC_ENABLED
@@ -597,14 +605,26 @@ const char* bc_inst_names[] = {
 	"BC_INST_IBASE",
 	"BC_INST_OBASE",
 	"BC_INST_SCALE",
+#if BC_ENABLE_EXTRA_MATH
+	"BC_INST_SEED",
+#endif // BC_ENABLE_EXTRA_MATH
 	"BC_INST_LENGTH",
 	"BC_INST_SCALE_FUNC",
 	"BC_INST_SQRT",
 	"BC_INST_ABS",
+#if BC_ENABLE_EXTRA_MATH
+	"BC_INST_IRAND",
+#endif // BC_ENABLE_EXTRA_MATH
 	"BC_INST_READ",
+#if BC_ENABLE_EXTRA_MATH
+	"BC_INST_RAND",
+#endif // BC_ENABLE_EXTRA_MATH
 	"BC_INST_MAXIBASE",
 	"BC_INST_MAXOBASE",
 	"BC_INST_MAXSCALE",
+#if BC_ENABLE_EXTRA_MATH
+	"BC_INST_MAXRAND",
+#endif // BC_ENABLE_EXTRA_MATH
 
 	"BC_INST_PRINT",
 	"BC_INST_PRINT_POP",
@@ -621,7 +641,7 @@ const char* bc_inst_names[] = {
 	"BC_INST_RET0",
 	"BC_INST_RET_VOID",
 
-	"BC_INST_HALT,"
+	"BC_INST_HALT",
 #endif // BC_ENABLED
 
 #if DC_ENABLED
@@ -652,6 +672,9 @@ const char* bc_inst_names[] = {
 };
 #endif // BC_DEBUG_CODE
 
+const char bc_parse_zero[2] = "0";
+const char bc_parse_one[2] = "1";
+
 #if BC_ENABLED
 const BcLexKeyword bc_lex_kws[] = {
 	BC_LEX_KW_ENTRY("auto", 4, true),
@@ -668,21 +691,31 @@ const BcLexKeyword bc_lex_kws[] = {
 	BC_LEX_KW_ENTRY("ibase", 5, true),
 	BC_LEX_KW_ENTRY("obase", 5, true),
 	BC_LEX_KW_ENTRY("scale", 5, true),
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_ENTRY("seed", 4, false),
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_LEX_KW_ENTRY("length", 6, true),
 	BC_LEX_KW_ENTRY("print", 5, false),
 	BC_LEX_KW_ENTRY("sqrt", 4, true),
 	BC_LEX_KW_ENTRY("abs", 3, false),
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_ENTRY("irand", 5, false),
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_LEX_KW_ENTRY("quit", 4, true),
 	BC_LEX_KW_ENTRY("read", 4, false),
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_ENTRY("rand", 4, false),
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_LEX_KW_ENTRY("maxibase", 8, false),
 	BC_LEX_KW_ENTRY("maxobase", 8, false),
 	BC_LEX_KW_ENTRY("maxscale", 8, false),
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_ENTRY("maxrand", 7, false),
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_LEX_KW_ENTRY("else", 4, false),
 };
 
 const size_t bc_lex_kws_len = sizeof(bc_lex_kws) / sizeof(BcLexKeyword);
-
-const char* const bc_parse_const1 = "1";
 
 // This is an array that corresponds to token types. An entry is
 // true if the token is valid in an expression, false otherwise.
@@ -690,14 +723,22 @@ const uint8_t bc_parse_exprs[] = {
 	BC_PARSE_EXPR_ENTRY(false, false, true, true, true, true, true, true),
 	BC_PARSE_EXPR_ENTRY(true, true, true, true, true, true, true, true),
 	BC_PARSE_EXPR_ENTRY(true, true, true, true, true, true, true, true),
-#if BC_ENABLE_EXTRA_MATH
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_PARSE_EXPR_ENTRY(true, true, true, true, true, true, true, true),
+	BC_PARSE_EXPR_ENTRY(true, true, false, false, true, true, false, false),
+	BC_PARSE_EXPR_ENTRY(false, false, false, false, false, true, true, false),
+	BC_PARSE_EXPR_ENTRY(false, false, false, false, false, false, false, false),
+	BC_PARSE_EXPR_ENTRY(false, true, true, true, true, true, true, false),
+	BC_PARSE_EXPR_ENTRY(true, true, true, false, true, true, true, true),
+	BC_PARSE_EXPR_ENTRY(true, true, false, 0, 0, 0, 0, 0)
+#elif BC_ENABLE_EXTRA_MATH // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_PARSE_EXPR_ENTRY(true, true, true, true, true, true, true, true),
 	BC_PARSE_EXPR_ENTRY(true, true, false, false, true, true, false, false),
 	BC_PARSE_EXPR_ENTRY(false, false, false, false, false, true, true, false),
 	BC_PARSE_EXPR_ENTRY(false, false, false, false, false, false, false, false),
 	BC_PARSE_EXPR_ENTRY(false, true, true, true, true, true, false, true),
 	BC_PARSE_EXPR_ENTRY(true, false, true, true, true, true, false, 0),
-#else // BC_ENABLE_EXTRA_MATH
+#else // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_PARSE_EXPR_ENTRY(true, true, true, false, false, true, true, false),
 	BC_PARSE_EXPR_ENTRY(false, false, false, false, false, false, true, true),
 	BC_PARSE_EXPR_ENTRY(false, false, false, false, false, false, false, false),
@@ -756,14 +797,25 @@ const uint8_t dc_lex_regs[] = {
 const size_t dc_lex_regs_len = sizeof(dc_lex_regs) / sizeof(uint8_t);
 
 const uchar dc_lex_tokens[] = {
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_IRAND,
+#else // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_INVALID,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_INVALID,
 #if BC_ENABLE_EXTRA_MATH
 	BC_LEX_OP_TRUNC,
 #else // BC_ENABLE_EXTRA_MATH
 	BC_LEX_INVALID,
 #endif // BC_ENABLE_EXTRA_MATH
-	BC_LEX_OP_MODULUS, BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_LPAREN,
-	BC_LEX_RPAREN, BC_LEX_OP_MULTIPLY, BC_LEX_OP_PLUS, BC_LEX_INVALID,
-	BC_LEX_OP_MINUS, BC_LEX_INVALID, BC_LEX_OP_DIVIDE,
+	BC_LEX_OP_MODULUS, BC_LEX_INVALID,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_RAND,
+#else // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_INVALID,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_LPAREN, BC_LEX_RPAREN, BC_LEX_OP_MULTIPLY, BC_LEX_OP_PLUS,
+	BC_LEX_INVALID, BC_LEX_OP_MINUS, BC_LEX_INVALID, BC_LEX_OP_DIVIDE,
 	BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_INVALID,
 	BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_INVALID,
 	BC_LEX_INVALID, BC_LEX_INVALID,
@@ -781,10 +833,21 @@ const uchar dc_lex_tokens[] = {
 #else // BC_ENABLE_EXTRA_MATH
 	BC_LEX_INVALID,
 #endif // BC_ENABLE_EXTRA_MATH
-	BC_LEX_KW_IBASE, BC_LEX_INVALID, BC_LEX_KW_SCALE, BC_LEX_LOAD_POP,
-	BC_LEX_OP_BOOL_AND, BC_LEX_OP_BOOL_NOT, BC_LEX_KW_OBASE,
-	BC_LEX_PRINT_STREAM, BC_LEX_NQUIT, BC_LEX_POP, BC_LEX_STORE_PUSH,
-	BC_LEX_KW_MAXIBASE, BC_LEX_KW_MAXOBASE, BC_LEX_KW_MAXSCALE, BC_LEX_INVALID,
+	BC_LEX_KW_IBASE,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_SEED,
+#else // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_INVALID,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_SCALE, BC_LEX_LOAD_POP, BC_LEX_OP_BOOL_AND, BC_LEX_OP_BOOL_NOT,
+	BC_LEX_KW_OBASE, BC_LEX_PRINT_STREAM, BC_LEX_NQUIT, BC_LEX_POP,
+	BC_LEX_STORE_PUSH, BC_LEX_KW_MAXIBASE, BC_LEX_KW_MAXOBASE,
+	BC_LEX_KW_MAXSCALE,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_MAXRAND,
+#else // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_INVALID,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_LEX_SCALE_FACTOR,
 	BC_LEX_INVALID, BC_LEX_KW_LENGTH, BC_LEX_INVALID, BC_LEX_INVALID,
 	BC_LEX_INVALID, BC_LEX_OP_POWER, BC_LEX_NEG, BC_LEX_INVALID,
@@ -795,7 +858,13 @@ const uchar dc_lex_tokens[] = {
 #else // BC_ENABLE_EXTRA_MATH
 	BC_LEX_INVALID,
 #endif // BC_ENABLE_EXTRA_MATH
-	BC_LEX_STORE_IBASE, BC_LEX_INVALID, BC_LEX_STORE_SCALE, BC_LEX_LOAD,
+	BC_LEX_STORE_IBASE,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_STORE_SEED,
+#else // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_INVALID,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_STORE_SCALE, BC_LEX_LOAD,
 	BC_LEX_OP_BOOL_OR, BC_LEX_PRINT_POP, BC_LEX_STORE_OBASE, BC_LEX_KW_PRINT,
 	BC_LEX_KW_QUIT, BC_LEX_SWAP, BC_LEX_OP_ASSIGN, BC_LEX_INVALID,
 	BC_LEX_INVALID, BC_LEX_KW_SQRT, BC_LEX_INVALID, BC_LEX_EXECUTE,
@@ -839,19 +908,76 @@ const uchar dc_parse_insts[] = {
 	BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID,
 	BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID,
 #endif // BC_ENABLED
-	BC_INST_IBASE, BC_INST_OBASE, BC_INST_SCALE, BC_INST_LENGTH, BC_INST_PRINT,
-	BC_INST_SQRT, BC_INST_ABS, BC_INST_QUIT, BC_INST_INVALID, BC_INST_MAXIBASE,
-	BC_INST_MAXOBASE, BC_INST_MAXSCALE, BC_INST_INVALID,
+	BC_INST_IBASE, BC_INST_OBASE, BC_INST_SCALE,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_INST_SEED,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_INST_LENGTH, BC_INST_PRINT,
+	BC_INST_SQRT, BC_INST_ABS,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_INST_IRAND,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_INST_QUIT, BC_INST_INVALID,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_INST_RAND,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_INST_MAXIBASE,
+	BC_INST_MAXOBASE, BC_INST_MAXSCALE,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_INST_MAXRAND,
+#endif // BC_ENABLE_EXTRA_MATH
+	BC_INST_INVALID,
 	BC_INST_REL_EQ, BC_INST_MODEXP, BC_INST_DIVMOD, BC_INST_INVALID,
 	BC_INST_EXECUTE, BC_INST_PRINT_STACK, BC_INST_CLEAR_STACK,
 	BC_INST_STACK_LEN, BC_INST_DUPLICATE, BC_INST_SWAP, BC_INST_POP,
-	BC_INST_ASCIIFY, BC_INST_PRINT_STREAM, BC_INST_INVALID, BC_INST_INVALID,
-	BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID,
+	BC_INST_ASCIIFY, BC_INST_PRINT_STREAM,
+	BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID,
+#if BC_ENABLE_EXTRA_MATH
+	BC_INST_INVALID,
+#endif // BC_ENABLE_EXTRA_MATH
+	BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID,
 	BC_INST_PRINT_POP, BC_INST_NQUIT, BC_INST_SCALE_FUNC,
 };
 #endif // DC_ENABLED
 
-const char bc_parse_one[] = "1";
+#endif // !BC_ENABLE_LIBRARY
+
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+
+const BcRandState bc_rand_multiplier = BC_RAND_MULTIPLIER;
+
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+
+#if BC_LONG_BIT >= 64
+const BcDig bc_num_bigdigMax[] = {
+	709551616U,
+	446744073U,
+	18U,
+};
+const BcDig bc_num_bigdigMax2[] = {
+	768211456U,
+	374607431U,
+	938463463U,
+	282366920U,
+	340U,
+};
+#else // BC_LONG_BIT >= 64
+const BcDig bc_num_bigdigMax[] = {
+	7296U,
+	9496U,
+	42U,
+};
+const BcDig bc_num_bigdigMax2[] = {
+	1616U,
+	955U,
+	737U,
+	6744U,
+	1844U,
+};
+#endif // BC_LONG_BIT >= 64
+
+const size_t bc_num_bigdigMax_size = sizeof(bc_num_bigdigMax) / sizeof(BcDig);
+const size_t bc_num_bigdigMax2_size = sizeof(bc_num_bigdigMax2) / sizeof(BcDig);
 
 const char bc_num_hex_digits[] = "0123456789ABCDEF";
 
@@ -870,6 +996,8 @@ const BcBigDig bc_num_pow10[BC_BASE_DIGS + 1] = {
 #endif // BC_BASE_DIGS > 4
 };
 
+#if !BC_ENABLE_LIBRARY
+
 const BcNumBinaryOp bc_program_ops[] = {
 	bc_num_pow, bc_num_mul, bc_num_div, bc_num_mod, bc_num_add, bc_num_sub,
 #if BC_ENABLE_EXTRA_MATH
@@ -878,7 +1006,7 @@ const BcNumBinaryOp bc_program_ops[] = {
 };
 
 const BcNumBinaryOpReq bc_program_opReqs[] = {
-	bc_num_powReq, bc_num_mulReq, bc_num_mulReq, bc_num_mulReq,
+	bc_num_powReq, bc_num_mulReq, bc_num_divReq, bc_num_divReq,
 	bc_num_addReq, bc_num_addReq,
 #if BC_ENABLE_EXTRA_MATH
 	bc_num_placesReq, bc_num_placesReq, bc_num_placesReq,
@@ -895,9 +1023,9 @@ const BcProgramUnary bc_program_unarys[] = {
 const char bc_program_exprs_name[] = "<exprs>";
 
 const char bc_program_stdin_name[] = "<stdin>";
-#if BC_ENABLE_SIGNALS
 const char bc_program_ready_msg[] = "ready for more input\n";
 const size_t bc_program_ready_msg_len = sizeof(bc_program_ready_msg) - 1;
-#endif // BC_ENABLE_SIGNALS
 const char bc_program_esc_chars[] = "ab\\efnqrt";
 const char bc_program_esc_seqs[] = "\a\b\\\\\f\n\"\r\t";
+
+#endif // !BC_ENABLE_LIBRARY

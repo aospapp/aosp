@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/route/rule.c          Routing Rules
  *
@@ -22,22 +23,28 @@
 #include <netlink/route/rtnl.h>
 #include <netlink/route/rule.h>
 #include <inttypes.h>
+#include <linux/fib_rules.h>
 
 /** @cond SKIP */
-#define RULE_ATTR_FAMILY	0x0001
-#define RULE_ATTR_TABLE		0x0002
-#define RULE_ATTR_ACTION	0x0004
-#define RULE_ATTR_FLAGS		0x0008
-#define RULE_ATTR_IIFNAME	0x0010
-#define RULE_ATTR_OIFNAME	0x0020
-#define RULE_ATTR_PRIO		0x0040
-#define RULE_ATTR_MARK		0x0080
-#define RULE_ATTR_MASK		0x0100
-#define RULE_ATTR_GOTO		0x0200
-#define RULE_ATTR_SRC		0x0400
-#define RULE_ATTR_DST		0x0800
-#define RULE_ATTR_DSFIELD	0x1000
-#define RULE_ATTR_FLOW		0x2000
+#define RULE_ATTR_FAMILY	0x000001
+#define RULE_ATTR_TABLE		0x000002
+#define RULE_ATTR_ACTION	0x000004
+#define RULE_ATTR_FLAGS		0x000008
+#define RULE_ATTR_IIFNAME	0x000010
+#define RULE_ATTR_OIFNAME	0x000020
+#define RULE_ATTR_PRIO		0x000040
+#define RULE_ATTR_MARK		0x000080
+#define RULE_ATTR_MASK		0x000100
+#define RULE_ATTR_GOTO		0x000200
+#define RULE_ATTR_SRC		0x000400
+#define RULE_ATTR_DST		0x000800
+#define RULE_ATTR_DSFIELD	0x001000
+#define RULE_ATTR_FLOW		0x002000
+#define RULE_ATTR_L3MDEV	0x004000
+#define RULE_ATTR_PROTOCOL	0x008000
+#define RULE_ATTR_IP_PROTO	0x010000
+#define RULE_ATTR_SPORT		0x020000
+#define RULE_ATTR_DPORT		0x040000
 
 static struct nl_cache_ops rtnl_rule_ops;
 static struct nl_object_ops rule_obj_ops;
@@ -79,6 +86,13 @@ static struct nla_policy rule_policy[FRA_MAX+1] = {
 	[FRA_FWMASK]	= { .type = NLA_U32 },
 	[FRA_GOTO]	= { .type = NLA_U32 },
 	[FRA_FLOW]	= { .type = NLA_U32 },
+	[FRA_L3MDEV]	= { .type = NLA_U8 },
+	[FRA_PROTOCOL]	= { .type = NLA_U8 },
+	[FRA_IP_PROTO]	= { .type = NLA_U8 },
+	[FRA_SPORT_RANGE] = { .minlen = sizeof(struct fib_rule_port_range),
+			      .maxlen = sizeof(struct fib_rule_port_range) },
+	[FRA_DPORT_RANGE] = { .minlen = sizeof(struct fib_rule_port_range),
+			      .maxlen = sizeof(struct fib_rule_port_range) },
 };
 
 static int rule_msg_parser(struct nl_cache_ops *ops, struct sockaddr_nl *who,
@@ -107,8 +121,9 @@ static int rule_msg_parser(struct nl_cache_ops *ops, struct sockaddr_nl *who,
 	rule->r_action = frh->action;
 	rule->r_flags = frh->flags;
 
-	rule->ce_mask = (RULE_ATTR_FAMILY | RULE_ATTR_TABLE | RULE_ATTR_ACTION |
-			 RULE_ATTR_FLAGS);
+	rule->ce_mask = (RULE_ATTR_FAMILY | RULE_ATTR_ACTION | RULE_ATTR_FLAGS);
+	if (rule->r_table)
+		rule->ce_mask |= RULE_ATTR_TABLE;
 
 	/* ipv4 only */
 	if (frh->tos) {
@@ -118,7 +133,8 @@ static int rule_msg_parser(struct nl_cache_ops *ops, struct sockaddr_nl *who,
 
 	if (tb[FRA_TABLE]) {
 		rule->r_table = nla_get_u32(tb[FRA_TABLE]);
-		rule->ce_mask |= RULE_ATTR_TABLE;
+		if (rule->r_table)
+			rule->ce_mask |= RULE_ATTR_TABLE;
 	}
 
 	if (tb[FRA_IIFNAME]) {
@@ -172,6 +188,37 @@ static int rule_msg_parser(struct nl_cache_ops *ops, struct sockaddr_nl *who,
 		rule->ce_mask |= RULE_ATTR_FLOW;
 	}
 
+	if (tb[FRA_L3MDEV]) {
+		rule->r_l3mdev = nla_get_u8(tb[FRA_L3MDEV]);
+		rule->ce_mask |= RULE_ATTR_L3MDEV;
+	}
+
+	if (tb[FRA_PROTOCOL]) {
+		rule->r_protocol = nla_get_u8(tb[FRA_PROTOCOL]);
+		rule->ce_mask |= RULE_ATTR_PROTOCOL;
+	}
+
+	if (tb[FRA_IP_PROTO]) {
+		rule->r_ip_proto = nla_get_u8(tb[FRA_IP_PROTO]);
+		rule->ce_mask |= RULE_ATTR_IP_PROTO;
+	}
+
+	if (tb[FRA_SPORT_RANGE]) {
+		struct fib_rule_port_range *pr;
+
+		pr = nla_data(tb[FRA_SPORT_RANGE]);
+		rule->r_sport = *pr;
+		rule->ce_mask |= RULE_ATTR_SPORT;
+	}
+
+	if (tb[FRA_DPORT_RANGE]) {
+		struct fib_rule_port_range *pr;
+
+		pr = nla_data(tb[FRA_DPORT_RANGE]);
+		rule->r_dport = *pr;
+		rule->ce_mask |= RULE_ATTR_DPORT;
+	}
+
 	err = pp->pp_cb((struct nl_object *) rule, pp);
 errout:
 	rtnl_rule_put(rule);
@@ -219,6 +266,33 @@ static void rule_dump_line(struct nl_object *o, struct nl_dump_params *p)
 		nl_dump(p, "lookup %s ",
 			rtnl_route_table2str(r->r_table, buf, sizeof(buf)));
 
+	if (r->ce_mask & RULE_ATTR_L3MDEV)
+		nl_dump(p, "lookup [l3mdev-table] ");
+
+	if (r->ce_mask & RULE_ATTR_IP_PROTO)
+		nl_dump(p, "ipproto %s ",
+			nl_ip_proto2str(r->r_ip_proto, buf, sizeof(buf)));
+
+	if (r->ce_mask & RULE_ATTR_SPORT) {
+		if (r->r_sport.start == r->r_sport.end)
+			nl_dump(p, "sport %u ", r->r_sport.start);
+		else
+			nl_dump(p, "sport %u-%u ",
+				r->r_sport.start, r->r_sport.end);
+	}
+
+	if (r->ce_mask & RULE_ATTR_DPORT) {
+		if (r->r_dport.start == r->r_dport.end)
+			nl_dump(p, "dport %u ", r->r_dport.start);
+		else
+			nl_dump(p, "dport %u-%u ",
+				r->r_dport.start, r->r_dport.end);
+	}
+
+	if (r->ce_mask & RULE_ATTR_PROTOCOL)
+		nl_dump(p, "protocol %s ",
+			rtnl_route_proto2str(r->r_protocol, buf, sizeof(buf)));
+
 	if (r->ce_mask & RULE_ATTR_FLOW)
 		nl_dump(p, "flow %s ",
 			rtnl_realms2str(r->r_flow, buf, sizeof(buf)));
@@ -243,14 +317,12 @@ static void rule_dump_stats(struct nl_object *obj, struct nl_dump_params *p)
 	rule_dump_details(obj, p);
 }
 
-#define RULE_ATTR_FLAGS		0x0008
-
-static int rule_compare(struct nl_object *_a, struct nl_object *_b,
-			uint32_t attrs, int flags)
+static uint64_t rule_compare(struct nl_object *_a, struct nl_object *_b,
+			     uint64_t attrs, int flags)
 {
 	struct rtnl_rule *a = (struct rtnl_rule *) _a;
 	struct rtnl_rule *b = (struct rtnl_rule *) _b;
-	int diff = 0;
+	uint64_t diff = 0;
 
 #define RULE_DIFF(ATTR, EXPR) ATTR_DIFF(attrs, RULE_ATTR_##ATTR, a, b, EXPR)
 
@@ -274,19 +346,19 @@ static int rule_compare(struct nl_object *_a, struct nl_object *_b,
 }
 
 static const struct trans_tbl rule_attrs[] = {
-	__ADD(RULE_ATTR_FAMILY, family)
-	__ADD(RULE_ATTR_TABLE, table)
-	__ADD(RULE_ATTR_ACTION, action)
-	__ADD(RULE_ATTR_IIFNAME, iifname)
-	__ADD(RULE_ATTR_OIFNAME, oifname)
-	__ADD(RULE_ATTR_PRIO, prio)
-	__ADD(RULE_ATTR_MARK, mark)
-	__ADD(RULE_ATTR_MASK, mask)
-	__ADD(RULE_ATTR_GOTO, goto)
-	__ADD(RULE_ATTR_SRC, src)
-	__ADD(RULE_ATTR_DST, dst)
-	__ADD(RULE_ATTR_DSFIELD, dsfield)
-	__ADD(RULE_ATTR_FLOW, flow)
+	__ADD(RULE_ATTR_FAMILY, family),
+	__ADD(RULE_ATTR_TABLE, table),
+	__ADD(RULE_ATTR_ACTION, action),
+	__ADD(RULE_ATTR_IIFNAME, iifname),
+	__ADD(RULE_ATTR_OIFNAME, oifname),
+	__ADD(RULE_ATTR_PRIO, prio),
+	__ADD(RULE_ATTR_MARK, mark),
+	__ADD(RULE_ATTR_MASK, mask),
+	__ADD(RULE_ATTR_GOTO, goto),
+	__ADD(RULE_ATTR_SRC, src),
+	__ADD(RULE_ATTR_DST, dst),
+	__ADD(RULE_ATTR_DSFIELD, dsfield),
+	__ADD(RULE_ATTR_FLOW, flow),
 };
 
 static char *rule_attrs2str(int attrs, char *buf, size_t len)
@@ -414,6 +486,22 @@ static int build_rule_msg(struct rtnl_rule *tmpl, int cmd, int flags,
 	if (tmpl->ce_mask & RULE_ATTR_FLOW)
 		NLA_PUT_U32(msg, FRA_FLOW, tmpl->r_flow);
 
+	if (tmpl->ce_mask & RULE_ATTR_L3MDEV)
+		NLA_PUT_U8(msg, FRA_L3MDEV, tmpl->r_l3mdev);
+
+	if (tmpl->ce_mask & RULE_ATTR_IP_PROTO)
+		NLA_PUT_U8(msg, FRA_IP_PROTO, tmpl->r_ip_proto);
+
+	if (tmpl->ce_mask & RULE_ATTR_SPORT)
+		NLA_PUT(msg, FRA_SPORT_RANGE, sizeof(tmpl->r_sport),
+			&tmpl->r_sport);
+
+	if (tmpl->ce_mask & RULE_ATTR_DPORT)
+		NLA_PUT(msg, FRA_DPORT_RANGE, sizeof(tmpl->r_dport),
+			&tmpl->r_dport);
+
+	if (tmpl->ce_mask & RULE_ATTR_PROTOCOL)
+		NLA_PUT_U8(msg, FRA_PROTOCOL, tmpl->r_protocol);
 
 	*result = msg;
 	return 0;
@@ -690,6 +778,152 @@ uint8_t rtnl_rule_get_action(struct rtnl_rule *rule)
 	return rule->r_action;
 }
 
+/**
+ * Set l3mdev value of the rule (FRA_L3MDEV)
+ * @arg rule		rule
+ * @arg value		value to set
+ *
+ * Set the l3mdev value to value. Currently supported values
+ * are only 1 (set it) and -1 (unset it). All other values
+ * are reserved.
+ */
+void rtnl_rule_set_l3mdev(struct rtnl_rule *rule, int value)
+{
+	if (value >= 0) {
+		rule->r_l3mdev = (uint8_t) value;
+		rule->ce_mask |= RULE_ATTR_L3MDEV;
+	} else {
+		rule->r_l3mdev = 0;
+		rule->ce_mask &= ~((uint32_t) RULE_ATTR_L3MDEV);
+	}
+}
+
+/**
+ * Get l3mdev value of the rule (FRA_L3MDEV)
+ * @arg rule		rule
+ *
+ * @return a negative error code, including -NLE_MISSING_ATTR
+ *   if the property is unset. Otherwise returns a non-negative
+ *   value. As FRA_L3MDEV is a boolean, the only expected
+ *   value at the moment is 1.
+ */
+int rtnl_rule_get_l3mdev(struct rtnl_rule *rule)
+{
+	if (!rule)
+		return -NLE_INVAL;
+	if (!(rule->ce_mask & RULE_ATTR_L3MDEV))
+		return -NLE_MISSING_ATTR;
+	return rule->r_l3mdev;
+}
+
+int rtnl_rule_set_protocol(struct rtnl_rule *rule, uint8_t protocol)
+{
+	if (protocol) {
+		rule->r_protocol = protocol;
+		rule->ce_mask |= RULE_ATTR_PROTOCOL;
+	} else {
+		rule->r_protocol = 0;
+		rule->ce_mask &= ~((uint32_t) RULE_ATTR_PROTOCOL);
+	}
+	return 0;
+}
+
+int rtnl_rule_get_protocol(struct rtnl_rule *rule, uint8_t *protocol)
+{
+	if (!(rule->ce_mask & RULE_ATTR_PROTOCOL))
+		return -NLE_INVAL;
+
+	*protocol = rule->r_protocol;
+	return 0;
+}
+
+int rtnl_rule_set_ipproto(struct rtnl_rule *rule, uint8_t ip_proto)
+{
+	if (ip_proto) {
+		rule->r_ip_proto = ip_proto;
+		rule->ce_mask |= RULE_ATTR_IP_PROTO;
+	} else {
+		rule->r_ip_proto = 0;
+		rule->ce_mask &= ~((uint32_t) RULE_ATTR_IP_PROTO);
+	}
+	return 0;
+}
+
+int rtnl_rule_get_ipproto(struct rtnl_rule *rule, uint8_t *ip_proto)
+{
+	if (!(rule->ce_mask & RULE_ATTR_IP_PROTO))
+		return -NLE_INVAL;
+
+	*ip_proto = rule->r_ip_proto;
+	return 0;
+}
+
+static int __rtnl_rule_set_port(struct fib_rule_port_range *prange,
+				uint16_t start, uint16_t end,
+				uint64_t attr, uint64_t *mask)
+{
+	if ((start && end < start) || (end && !start))
+		return -NLE_INVAL;
+
+	if (start) {
+		prange->start = start;
+		prange->end = end;
+		*mask |= attr;
+	} else {
+		prange->start = 0;
+		prange->end = 0;
+		*mask &= ~attr;
+
+	}
+	return 0;
+}
+
+int rtnl_rule_set_sport(struct rtnl_rule *rule, uint16_t sport)
+{
+	return __rtnl_rule_set_port(&rule->r_sport, sport, sport,
+				    RULE_ATTR_SPORT, &rule->ce_mask);
+}
+
+int rtnl_rule_set_sport_range(struct rtnl_rule *rule, uint16_t start,
+			      uint16_t end)
+{
+	return __rtnl_rule_set_port(&rule->r_sport, start, end,
+				    RULE_ATTR_SPORT, &rule->ce_mask);
+}
+
+int rtnl_rule_get_sport(struct rtnl_rule *rule, uint16_t *start, uint16_t *end)
+{
+	if (!(rule->ce_mask & RULE_ATTR_SPORT))
+		return -NLE_INVAL;
+
+	*start = rule->r_sport.start;
+	*end = rule->r_sport.end;
+	return 0;
+}
+
+int rtnl_rule_set_dport(struct rtnl_rule *rule, uint16_t dport)
+{
+	return __rtnl_rule_set_port(&rule->r_dport, dport, dport,
+				    RULE_ATTR_DPORT, &rule->ce_mask);
+}
+
+int rtnl_rule_set_dport_range(struct rtnl_rule *rule, uint16_t start,
+			      uint16_t end)
+{
+	return __rtnl_rule_set_port(&rule->r_dport, start, end,
+				    RULE_ATTR_DPORT, &rule->ce_mask);
+}
+
+int rtnl_rule_get_dport(struct rtnl_rule *rule, uint16_t *start, uint16_t *end)
+{
+	if (!(rule->ce_mask & RULE_ATTR_DPORT))
+		return -NLE_INVAL;
+
+	*start = rule->r_dport.start;
+	*end = rule->r_dport.end;
+	return 0;
+}
+
 void rtnl_rule_set_realms(struct rtnl_rule *rule, uint32_t realms)
 {
 	rule->r_flow = realms;
@@ -729,6 +963,12 @@ static struct nl_object_ops rule_obj_ops = {
 	.oo_id_attrs		= ~0,
 };
 
+static struct nl_af_group rule_groups[] = {
+	{ AF_INET,	RTNLGRP_IPV4_RULE },
+	{ AF_INET6,	RTNLGRP_IPV6_RULE },
+	{ END_OF_GROUP_LIST },
+};
+
 static struct nl_cache_ops rtnl_rule_ops = {
 	.co_name		= "route/rule",
 	.co_hdrsize		= sizeof(struct fib_rule_hdr),
@@ -742,6 +982,7 @@ static struct nl_cache_ops rtnl_rule_ops = {
 	.co_request_update	= rule_request_update,
 	.co_msg_parser		= rule_msg_parser,
 	.co_obj_ops		= &rule_obj_ops,
+	.co_groups		= rule_groups,
 };
 
 static void __init rule_init(void)

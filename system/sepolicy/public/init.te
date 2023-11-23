@@ -16,6 +16,12 @@ allow init kmsg_device:chr_file { getattr write relabelto };
 userdebug_or_eng(`
   allow init kmsg_debug_device:chr_file { open write relabelto };
 ')
+
+# allow init to mount and unmount debugfs in debug builds
+userdebug_or_eng(`
+  allow init debugfs:dir mounton;
+')
+
 # /dev/__properties__
 allow init properties_device:dir relabelto;
 allow init properties_serial:file { write relabelto };
@@ -27,7 +33,7 @@ allow init property_info:file relabelto;
 allow init device:file relabelfrom;
 allow init runtime_event_log_tags_file:file { open write setattr relabelto create };
 # /dev/socket
-allow init { device socket_device }:dir relabelto;
+allow init { device socket_device dm_user_device }:dir relabelto;
 # allow init to establish connection and communicate with lmkd
 unix_socket_connect(init, lmkd, lmkd)
 # Relabel /dev nodes created in first stage init, /dev/null, /dev/ptmx, /dev/random, /dev/urandom
@@ -37,6 +43,7 @@ allow init tmpfs:{ chr_file blk_file } relabelfrom;
 allow init tmpfs:blk_file getattr;
 allow init block_device:{ dir blk_file lnk_file } relabelto;
 allow init dm_device:{ chr_file blk_file } relabelto;
+allow init dm_user_device:chr_file relabelto;
 allow init kernel:fd use;
 # restorecon for early mount device symlinks
 allow init tmpfs:lnk_file { getattr read relabelfrom };
@@ -96,7 +103,6 @@ allow init {
     postinstall_mnt_dir
     mirror_data_file
 }:dir mounton;
-allow init cgroup_bpf:dir { create mounton };
 
 # Mount bpf fs on sys/fs/bpf
 allow init fs_bpf:dir mounton;
@@ -123,7 +129,10 @@ allow init cgroup:dir create_dir_perms;
 allow init cgroup:file rw_file_perms;
 allow init cgroup_rc_file:file rw_file_perms;
 allow init cgroup_desc_file:file r_file_perms;
+allow init cgroup_desc_api_file:file r_file_perms;
 allow init vendor_cgroup_desc_file:file r_file_perms;
+allow init cgroup_v2:dir { mounton create_dir_perms};
+allow init cgroup_v2:file rw_file_perms;
 
 # /config
 allow init configfs:dir mounton;
@@ -153,7 +162,19 @@ allowxperm init dev_type:blk_file ioctl BLKROSET;
 # which should all be assigned the contextmount_type attribute.
 # This can be done in device-specific policy via type or typeattribute
 # declarations.
-allow init fs_type:filesystem ~relabelto;
+allow init {
+  fs_type
+  enforce_debugfs_restriction(`-debugfs_type')
+}:filesystem ~relabelto;
+
+# Allow init to mount/unmount debugfs in non-user builds.
+enforce_debugfs_restriction(`
+  userdebug_or_eng(`allow init debugfs_type:filesystem { mount unmount };')
+')
+
+# Allow init to mount tracefs in /sys/kernel/tracing
+allow init debugfs_tracing_debug:filesystem mount;
+
 allow init unlabeled:filesystem ~relabelto;
 allow init contextmount_type:filesystem relabelto;
 
@@ -203,6 +224,7 @@ allow init {
 
 allow init {
   file_type
+  -apex_info_file
   -app_data_file
   -exec_type
   -gsi_data_file
@@ -218,7 +240,10 @@ allow init {
   -system_file_type
   -vendor_file_type
   -vold_data_file
+  enforce_debugfs_restriction(`-debugfs_type')
 }:file { create getattr open read write setattr relabelfrom unlink map };
+
+allow init tracefs_type:file { create_file_perms relabelfrom };
 
 allow init {
   file_type
@@ -268,8 +293,8 @@ allow init {
   -privapp_data_file
 }:dir_file_class_set relabelto;
 
-allow init { sysfs debugfs debugfs_tracing debugfs_tracing_debug }:{ dir file lnk_file } { getattr relabelfrom };
-allow init { sysfs_type debugfs_type }:{ dir file lnk_file } { relabelto getattr };
+allow init { sysfs no_debugfs_restriction(`debugfs') debugfs_tracing debugfs_tracing_debug }:{ dir file lnk_file } { getattr relabelfrom };
+allow init { sysfs_type no_debugfs_restriction(`debugfs_type') tracefs_type }:{ dir file lnk_file } { relabelto getattr };
 allow init dev_type:dir create_dir_perms;
 allow init dev_type:lnk_file create;
 
@@ -290,6 +315,7 @@ allow init {
   -sdcard_type
   -sysfs_type
   -rootfs
+  enforce_debugfs_restriction(`-debugfs_type')
 }:file { open read setattr };
 allow init { fs_type -contextmount_type -sdcard_type -rootfs }:dir  { open read setattr search };
 
@@ -299,7 +325,6 @@ allow init {
   devpts
   dm_device
   hwbinder_device
-  hw_random_device
   input_device
   kmsg_device
   null_device
@@ -310,13 +335,6 @@ allow init {
   tty_device
   zero_device
 }:chr_file { read open };
-
-# chown/chmod on devices.
-allow init {
-  dev_type
-  -keychord_device
-  -port_device
-}:chr_file setattr;
 
 # Unlabeled file access for upgrades from 4.2.
 allow init unlabeled:dir { create_dir_perms relabelfrom };
@@ -340,6 +358,7 @@ userdebug_or_eng(`
 
 allow init {
   proc # b/67049235 processes /proc/<pid>/* files are mislabeled.
+  proc_bootconfig
   proc_cmdline
   proc_diskstats
   proc_kmsg # Open /proc/kmsg for logd service.
@@ -373,8 +392,10 @@ allow init {
 # init chmod/chown access to /proc files.
 allow init {
   proc_cmdline
+  proc_bootconfig
   proc_kmsg
   proc_net
+  proc_pagetypeinfo
   proc_qtaguid_stat
   proc_slabinfo
   proc_sysrq
@@ -410,6 +431,7 @@ allowxperm init loop_device:blk_file ioctl {
   LOOP_CTL_GET_FREE
   LOOP_SET_BLOCK_SIZE
   LOOP_SET_DIRECT_IO
+  LOOP_GET_STATUS
 };
 
 # Allow init to write to vibrator/trigger
@@ -521,10 +543,6 @@ allow init kernel:process { getsched setsched };
 # system/core/fs_mgr/fs_mgr.c - fs_mgr_swapon_all
 allow init swap_block_device:blk_file rw_file_perms;
 
-# Read from /dev/hw_random if present.
-# system/core/init/init.c - mix_hwrng_into_linux_rng_action
-allow init hw_random_device:chr_file r_file_perms;
-
 # Create and access /dev files without a specific type,
 # e.g. /dev/.coldboot_done, /dev/.booting
 # TODO:  Move these files into their own type unless they are
@@ -538,6 +556,9 @@ allow init input_device:chr_file rw_file_perms;
 # Access device mapper for setting up dm-verity
 allow init dm_device:chr_file rw_file_perms;
 allow init dm_device:blk_file rw_file_perms;
+
+# Access dm-user for OTA boot
+allow init dm_user_device:chr_file rw_file_perms;
 
 # Access metadata block device for storing dm-verity state
 allow init metadata_block_device:blk_file rw_file_perms;
@@ -577,6 +598,7 @@ allow init vold_metadata_file:dir create_dir_perms;
 allow init vold_metadata_file:file getattr;
 allow init metadata_bootstat_file:dir create_dir_perms;
 allow init metadata_bootstat_file:file w_file_perms;
+allow init userspace_reboot_metadata_file:file w_file_perms;
 
 # Allow init to touch PSI monitors
 allow init proc_pressure_mem:file { rw_file_perms setattr };
@@ -587,6 +609,9 @@ allow init system_bootstrap_lib_file:file { execute read open getattr map };
 
 # stat the root dir of fuse filesystems (for the mount handler)
 allow init fuse:dir { search getattr };
+
+# allow filesystem tuning
+allow init userdata_sysdev:file create_file_perms;
 
 ###
 ### neverallow rules

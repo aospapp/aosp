@@ -18,21 +18,21 @@ package com.android.ims;
 
 import android.annotation.Nullable;
 import android.content.Context;
-import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.telephony.TelephonyManager;
+import android.telephony.ims.ImsService;
+import android.telephony.ims.aidl.IImsConfig;
 import android.telephony.ims.aidl.IImsRegistration;
+import android.telephony.ims.aidl.ISipTransport;
 import android.telephony.ims.feature.ImsFeature;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.util.Log;
 
-import com.android.ims.internal.IImsServiceFeatureCallback;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.telephony.util.HandlerExecutor;
 
-import java.util.concurrent.Executor;
+import java.util.NoSuchElementException;
 
 /**
  * Base class of MmTelFeatureConnection and RcsFeatureConnection.
@@ -40,50 +40,29 @@ import java.util.concurrent.Executor;
 public abstract class FeatureConnection {
     protected static final String TAG = "FeatureConnection";
 
-    public interface IFeatureUpdate {
-        /**
-         * Called when the ImsFeature has changed its state. Use
-         * {@link ImsFeature#getFeatureState()} to get the new state.
-         */
-        void notifyStateChanged();
-
-        /**
-         * Called when the ImsFeature has become unavailable due to the binder switching or app
-         * crashing. A new ImsServiceProxy should be requested for that feature.
-         */
-        void notifyUnavailable();
-    }
-
     protected static boolean sImsSupportedOnDevice = true;
 
     protected final int mSlotId;
     protected Context mContext;
     protected IBinder mBinder;
-    @VisibleForTesting
-    public Executor mExecutor;
 
     // We are assuming the feature is available when started.
     protected volatile boolean mIsAvailable = true;
     // ImsFeature Status from the ImsService. Cached.
     protected Integer mFeatureStateCached = null;
-    protected IFeatureUpdate mStatusCallback;
-    protected IImsRegistration mRegistrationBinder;
+    protected long mFeatureCapabilities;
+    private final IImsRegistration mRegistrationBinder;
+    private final IImsConfig mConfigBinder;
+    private final ISipTransport mSipTransportBinder;
     protected final Object mLock = new Object();
 
-    public FeatureConnection(Context context, int slotId) {
+    public FeatureConnection(Context context, int slotId, IImsConfig c, IImsRegistration r,
+            ISipTransport s) {
         mSlotId = slotId;
         mContext = context;
-
-        // Callbacks should be scheduled on the main thread.
-        if (context.getMainLooper() != null) {
-            mExecutor = context.getMainExecutor();
-        } else {
-            // Fallback to the current thread.
-            if (Looper.myLooper() == null) {
-                Looper.prepare();
-            }
-            mExecutor = new HandlerExecutor(new Handler(Looper.myLooper()));
-        }
+        mRegistrationBinder = r;
+        mConfigBinder = c;
+        mSipTransportBinder = s;
     }
 
     protected TelephonyManager getTelephonyManager() {
@@ -102,7 +81,8 @@ public abstract class FeatureConnection {
                     mBinder.linkToDeath(mDeathRecipient, 0);
                 }
             } catch (RemoteException e) {
-                // No need to do anything if the binder is already dead.
+                Log.w(TAG, "setBinder: linkToDeath on already dead Binder, setting null");
+                mBinder = null;
             }
         }
     }
@@ -126,57 +106,16 @@ public abstract class FeatureConnection {
         synchronized (mLock) {
             if (mIsAvailable) {
                 mIsAvailable = false;
-                mRegistrationBinder = null;
-                if (mBinder != null) {
-                    mBinder.unlinkToDeath(mDeathRecipient, 0);
-                }
-                if (mStatusCallback != null) {
-                    Log.d(TAG, "onRemovedOrDied: notifyUnavailable");
-                    mStatusCallback.notifyUnavailable();
-                    // Unlink because this FeatureConnection should no longer send callbacks.
-                    mStatusCallback = null;
+                try {
+                    if (mBinder != null) {
+                        mBinder.unlinkToDeath(mDeathRecipient, 0);
+                    }
+                } catch (NoSuchElementException e) {
+                    Log.w(TAG, "onRemovedOrDied: unlinkToDeath called on unlinked Binder.");
                 }
             }
         }
     }
-
-    /**
-     * The listener for ImsManger and RcsFeatureManager to receive IMS feature status changed.
-     * @param callback Callback that will fire when the feature status has changed.
-     */
-    public void setStatusCallback(IFeatureUpdate callback) {
-        mStatusCallback = callback;
-    }
-
-    @VisibleForTesting
-    public IImsServiceFeatureCallback getListener() {
-        return mListenerBinder;
-    }
-
-    /**
-     * The callback to receive ImsFeature status changed.
-     */
-    private final IImsServiceFeatureCallback mListenerBinder =
-        new IImsServiceFeatureCallback.Stub() {
-            @Override
-            public void imsFeatureCreated(int slotId, int feature) {
-                mExecutor.execute(() -> {
-                    handleImsFeatureCreatedCallback(slotId, feature);
-                });
-            }
-            @Override
-            public void imsFeatureRemoved(int slotId, int feature) {
-                mExecutor.execute(() -> {
-                    handleImsFeatureRemovedCallback(slotId, feature);
-                });
-            }
-            @Override
-            public void imsStatusChanged(int slotId, int feature, int status) {
-                mExecutor.execute(() -> {
-                    handleImsStatusChangedCallback(slotId, feature, status);
-                });
-            }
-        };
 
     public @ImsRegistrationImplBase.ImsRegistrationTech int getRegistrationTech()
             throws RemoteException {
@@ -190,22 +129,15 @@ public abstract class FeatureConnection {
     }
 
     public @Nullable IImsRegistration getRegistration() {
-        synchronized (mLock) {
-            // null if cache is invalid;
-            if (mRegistrationBinder != null) {
-                return mRegistrationBinder;
-            }
-        }
-        // We don't want to synchronize on a binder call to another process.
-        IImsRegistration regBinder = getRegistrationBinder();
-        synchronized (mLock) {
-            // mRegistrationBinder may have changed while we tried to get the registration
-            // interface.
-            if (mRegistrationBinder == null) {
-                mRegistrationBinder = regBinder;
-            }
-        }
         return mRegistrationBinder;
+    }
+
+    public @Nullable IImsConfig getConfig() {
+        return mConfigBinder;
+    }
+
+    public @Nullable ISipTransport getSipTransport() {
+        return mSipTransportBinder;
     }
 
     @VisibleForTesting
@@ -238,6 +170,35 @@ public abstract class FeatureConnection {
         return mIsAvailable && mBinder != null && mBinder.isBinderAlive();
     }
 
+    public void updateFeatureState(int state) {
+        synchronized (mLock) {
+            mFeatureStateCached = state;
+        }
+    }
+
+    public long getFeatureCapabilties() {
+        synchronized (mLock) {
+            return mFeatureCapabilities;
+        }
+    }
+
+    public void updateFeatureCapabilities(long caps) {
+        synchronized (mLock) {
+            if (mFeatureCapabilities != caps) {
+                mFeatureCapabilities = caps;
+                onFeatureCapabilitiesUpdated(caps);
+            }
+        }
+    }
+
+    public boolean isCapable(@ImsService.ImsServiceCapability long capabilities)
+            throws RemoteException {
+        if (!isBinderAlive()) {
+            throw new RemoteException("isCapable: ImsService is not alive");
+        }
+        return (getFeatureCapabilties() & capabilities) > 0;
+    }
+
     /**
      * @return an integer describing the current Feature Status, defined in
      * {@link ImsFeature.ImsState}.
@@ -263,36 +224,9 @@ public abstract class FeatureConnection {
     }
 
     /**
-     * An ImsFeature has been created for this FeatureConnection for the associated
-     * {@link ImsFeature.FeatureType}.
-     * @param slotId The slot ID associated with the event.
-     * @param feature The {@link ImsFeature.FeatureType} associated with the event.
-     */
-    protected abstract void handleImsFeatureCreatedCallback(int slotId, int feature);
-
-    /**
-     * An ImsFeature has been removed for this FeatureConnection for the associated
-     * {@link ImsFeature.FeatureType}.
-     * @param slotId The slot ID associated with the event.
-     * @param feature The {@link ImsFeature.FeatureType} associated with the event.
-     */
-    protected abstract void handleImsFeatureRemovedCallback(int slotId, int feature);
-
-    /**
-     * The status of an ImsFeature has changed for the associated {@link ImsFeature.FeatureType}.
-     * @param slotId The slot ID associated with the event.
-     * @param feature The {@link ImsFeature.FeatureType} associated with the event.
-     * @param status The new {@link ImsFeature.ImsState} associated with the ImsFeature
-     */
-    protected abstract void handleImsStatusChangedCallback(int slotId, int feature, int status);
-
-    /**
      * Internal method used to retrieve the feature status from the corresponding ImsService.
      */
     protected abstract Integer retrieveFeatureState();
 
-    /**
-     * @return The ImsRegistration instance associated with the FeatureConnection.
-     */
-    protected abstract IImsRegistration getRegistrationBinder();
+    protected abstract void onFeatureCapabilitiesUpdated(long capabilities);
 }

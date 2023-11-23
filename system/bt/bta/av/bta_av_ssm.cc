@@ -21,11 +21,11 @@
  *  This is the stream state machine for the BTA advanced audio/video.
  *
  ******************************************************************************/
-#include <string.h>
 
-#include "bt_target.h"
-#include "bta_av_co.h"
-#include "bta_av_int.h"
+#include "bt_target.h"  // Must be first to define build configuration
+
+#include "bta/av/bta_av_int.h"
+#include "osi/include/log.h"
 
 /*****************************************************************************
  * Constants and types
@@ -41,432 +41,402 @@ enum {
   BTA_AV_CLOSING_SST
 };
 
-/* state machine action enumeration list */
-enum {
-  BTA_AV_DO_DISC,
-  BTA_AV_CLEANUP,
-  BTA_AV_FREE_SDB,
-  BTA_AV_CONFIG_IND,
-  BTA_AV_DISCONNECT_REQ,
-  BTA_AV_SECURITY_REQ,
-  BTA_AV_SECURITY_RSP,
-  BTA_AV_SETCONFIG_RSP,
-  BTA_AV_ST_RC_TIMER,
-  BTA_AV_STR_OPENED,
-  BTA_AV_SECURITY_IND,
-  BTA_AV_SECURITY_CFM,
-  BTA_AV_DO_CLOSE,
-  BTA_AV_CONNECT_REQ,
-  BTA_AV_SDP_FAILED,
-  BTA_AV_DISC_RESULTS,
-  BTA_AV_DISC_RES_AS_ACP,
-  BTA_AV_OPEN_FAILED,
-  BTA_AV_GETCAP_RESULTS,
-  BTA_AV_SETCONFIG_REJ,
-  BTA_AV_DISCOVER_REQ,
-  BTA_AV_CONN_FAILED,
-  BTA_AV_DO_START,
-  BTA_AV_STR_STOPPED,
-  BTA_AV_RECONFIG,
-  BTA_AV_DATA_PATH,
-  BTA_AV_START_OK,
-  BTA_AV_START_FAILED,
-  BTA_AV_STR_CLOSED,
-  BTA_AV_CLR_CONG,
-  BTA_AV_SUSPEND_CFM,
-  BTA_AV_RCFG_STR_OK,
-  BTA_AV_RCFG_FAILED,
-  BTA_AV_RCFG_CONNECT,
-  BTA_AV_RCFG_DISCNTD,
-  BTA_AV_SUSPEND_CONT,
-  BTA_AV_RCFG_CFM,
-  BTA_AV_RCFG_OPEN,
-  BTA_AV_SECURITY_REJ,
-  BTA_AV_OPEN_RC,
-  BTA_AV_CHK_2ND_START,
-  BTA_AV_SAVE_CAPS,
-  BTA_AV_SET_USE_RC,
-  BTA_AV_CCO_CLOSE,
-  BTA_AV_SWITCH_ROLE,
-  BTA_AV_ROLE_RES,
-  BTA_AV_DELAY_CO,
-  BTA_AV_OPEN_AT_INC,
-  BTA_AV_OFFLOAD_REQ,
-  BTA_AV_OFFLOAD_RSP,
-  BTA_AV_NUM_SACTIONS
-};
+static void bta_av_better_stream_state_machine(tBTA_AV_SCB* p_scb,
+                                               uint16_t event,
+                                               tBTA_AV_DATA* p_data) {
+  uint8_t previous_state = p_scb->state;
+  tBTA_AV_ACT event_handler1 = nullptr;
+  tBTA_AV_ACT event_handler2 = nullptr;
+  switch (p_scb->state) {
+    case BTA_AV_INIT_SST:
+      switch (event) {
+        case BTA_AV_API_OPEN_EVT:
+          p_scb->state = BTA_AV_OPENING_SST;
+          event_handler1 = &bta_av_do_disc_a2dp;
+          break;
+        case BTA_AV_API_CLOSE_EVT:
+          event_handler1 = &bta_av_cleanup;
+          break;
+        case BTA_AV_SDP_DISC_OK_EVT:
+          event_handler1 = &bta_av_free_sdb;
+          break;
+        case BTA_AV_SDP_DISC_FAIL_EVT:
+          event_handler1 = &bta_av_free_sdb;
+          break;
+        case BTA_AV_STR_CONFIG_IND_EVT:
+          p_scb->state = BTA_AV_INCOMING_SST;
+          event_handler1 = &bta_av_config_ind;
+          break;
+        case BTA_AV_ACP_CONNECT_EVT:
+          p_scb->state = BTA_AV_INCOMING_SST;
+          break;
+        case BTA_AV_API_OFFLOAD_START_EVT:
+          event_handler1 = &bta_av_offload_req;
+          break;
+        case BTA_AV_API_OFFLOAD_START_RSP_EVT:
+          event_handler1 = &bta_av_offload_rsp;
+          break;
+      }
+      break;
+    case BTA_AV_INCOMING_SST:
+      switch (event) {
+        case BTA_AV_API_OPEN_EVT:
+          event_handler1 = &bta_av_open_at_inc;
+          break;
+        case BTA_AV_API_CLOSE_EVT:
+          p_scb->state = BTA_AV_CLOSING_SST;
+          event_handler1 = &bta_av_cco_close;
+          event_handler2 = &bta_av_disconnect_req;
+          break;
+        case BTA_AV_API_PROTECT_REQ_EVT:
+          event_handler1 = &bta_av_security_req;
+          break;
+        case BTA_AV_API_PROTECT_RSP_EVT:
+          event_handler1 = &bta_av_security_rsp;
+          break;
+        case BTA_AV_CI_SETCONFIG_OK_EVT:
+          event_handler1 = &bta_av_setconfig_rsp;
+          event_handler2 = &bta_av_st_rc_timer;
+          break;
+        case BTA_AV_CI_SETCONFIG_FAIL_EVT:
+          p_scb->state = BTA_AV_INIT_SST;
+          event_handler1 = &bta_av_setconfig_rej;
+          event_handler2 = &bta_av_cleanup;
+          break;
+        case BTA_AV_SDP_DISC_OK_EVT:
+          event_handler1 = &bta_av_free_sdb;
+          break;
+        case BTA_AV_SDP_DISC_FAIL_EVT:
+          event_handler1 = &bta_av_free_sdb;
+          break;
+        case BTA_AV_STR_DISC_OK_EVT:
+          event_handler1 = &bta_av_disc_res_as_acp;
+          break;
+        case BTA_AV_STR_GETCAP_OK_EVT:
+          event_handler1 = &bta_av_save_caps;
+          break;
+        case BTA_AV_STR_OPEN_OK_EVT:
+          p_scb->state = BTA_AV_OPEN_SST;
+          event_handler1 = &bta_av_str_opened;
+          break;
+        case BTA_AV_STR_CLOSE_EVT:
+          p_scb->state = BTA_AV_INIT_SST;
+          event_handler1 = &bta_av_cco_close;
+          event_handler2 = &bta_av_cleanup;
+          break;
+        case BTA_AV_STR_CONFIG_IND_EVT:
+          event_handler1 = &bta_av_config_ind;
+          break;
+        case BTA_AV_STR_SECURITY_IND_EVT:
+          event_handler1 = &bta_av_security_ind;
+          break;
+        case BTA_AV_STR_SECURITY_CFM_EVT:
+          event_handler1 = &bta_av_security_cfm;
+          break;
+        case BTA_AV_AVDT_DISCONNECT_EVT:
+          p_scb->state = BTA_AV_CLOSING_SST;
+          event_handler1 = &bta_av_cco_close;
+          event_handler2 = &bta_av_disconnect_req;
+          break;
+        case BTA_AV_AVDT_DELAY_RPT_EVT:
+          event_handler1 = &bta_av_delay_co;
+          break;
+        case BTA_AV_API_OFFLOAD_START_EVT:
+          event_handler1 = &bta_av_offload_req;
+          break;
+        case BTA_AV_API_OFFLOAD_START_RSP_EVT:
+          event_handler1 = &bta_av_offload_rsp;
+          break;
+      }
+      break;
+    case BTA_AV_OPENING_SST:
+      switch (event) {
+        case BTA_AV_API_CLOSE_EVT:
+          p_scb->state = BTA_AV_CLOSING_SST;
+          event_handler1 = &bta_av_do_close;
+          break;
+        case BTA_AV_API_PROTECT_REQ_EVT:
+          event_handler1 = &bta_av_security_req;
+          break;
+        case BTA_AV_API_PROTECT_RSP_EVT:
+          event_handler1 = &bta_av_security_rsp;
+          break;
+        case BTA_AV_SDP_DISC_OK_EVT:
+          event_handler1 = &bta_av_connect_req;
+          break;
+        case BTA_AV_SDP_DISC_FAIL_EVT:
+          event_handler1 = &bta_av_connect_req;
+          break;
+        case BTA_AV_STR_DISC_OK_EVT:
+          event_handler1 = &bta_av_disc_results;
+          break;
+        case BTA_AV_STR_DISC_FAIL_EVT:
+          p_scb->state = BTA_AV_CLOSING_SST;
+          event_handler1 = &bta_av_open_failed;
+          break;
+        case BTA_AV_STR_GETCAP_OK_EVT:
+          event_handler1 = &bta_av_getcap_results;
+          break;
+        case BTA_AV_STR_GETCAP_FAIL_EVT:
+          p_scb->state = BTA_AV_CLOSING_SST;
+          event_handler1 = &bta_av_open_failed;
+          break;
+        case BTA_AV_STR_OPEN_OK_EVT:
+          p_scb->state = BTA_AV_OPEN_SST;
+          event_handler1 = &bta_av_st_rc_timer;
+          event_handler2 = &bta_av_str_opened;
+          break;
+        case BTA_AV_STR_OPEN_FAIL_EVT:
+          p_scb->state = BTA_AV_CLOSING_SST;
+          event_handler1 = &bta_av_open_failed;
+          break;
+        case BTA_AV_STR_CONFIG_IND_EVT:
+          p_scb->state = BTA_AV_INCOMING_SST;
+          event_handler1 = &bta_av_config_ind;
+          break;
+        case BTA_AV_STR_SECURITY_IND_EVT:
+          event_handler1 = &bta_av_security_ind;
+          break;
+        case BTA_AV_STR_SECURITY_CFM_EVT:
+          event_handler1 = &bta_av_security_cfm;
+          break;
+        case BTA_AV_AVRC_TIMER_EVT:
+          event_handler1 = &bta_av_switch_role;
+          break;
+        case BTA_AV_AVDT_CONNECT_EVT:
+          event_handler1 = &bta_av_discover_req;
+          break;
+        case BTA_AV_AVDT_DISCONNECT_EVT:
+          p_scb->state = BTA_AV_INIT_SST;
+          event_handler1 = &bta_av_conn_failed;
+          break;
+        case BTA_AV_ROLE_CHANGE_EVT:
+          event_handler1 = &bta_av_role_res;
+          break;
+        case BTA_AV_AVDT_DELAY_RPT_EVT:
+          event_handler1 = &bta_av_delay_co;
+          break;
+        case BTA_AV_API_OFFLOAD_START_EVT:
+          event_handler1 = &bta_av_offload_req;
+          break;
+        case BTA_AV_API_OFFLOAD_START_RSP_EVT:
+          event_handler1 = &bta_av_offload_rsp;
+          break;
+      }
+      break;
+    case BTA_AV_OPEN_SST:
+      switch (event) {
+        case BTA_AV_API_CLOSE_EVT:
+          p_scb->state = BTA_AV_CLOSING_SST;
+          event_handler1 = &bta_av_do_close;
+          break;
+        case BTA_AV_AP_START_EVT:
+          event_handler1 = &bta_av_do_start;
+          break;
+        case BTA_AV_AP_STOP_EVT:
+          event_handler1 = &bta_av_str_stopped;
+          break;
+        case BTA_AV_API_RECONFIG_EVT:
+          p_scb->state = BTA_AV_RCFG_SST;
+          event_handler1 = &bta_av_reconfig;
+          break;
+        case BTA_AV_API_PROTECT_REQ_EVT:
+          event_handler1 = &bta_av_security_req;
+          break;
+        case BTA_AV_API_PROTECT_RSP_EVT:
+          event_handler1 = &bta_av_security_rsp;
+          break;
+        case BTA_AV_API_RC_OPEN_EVT:
+          event_handler1 = &bta_av_set_use_rc;
+          break;
+        case BTA_AV_SRC_DATA_READY_EVT:
+          event_handler1 = &bta_av_data_path;
+          break;
+        case BTA_AV_SDP_DISC_OK_EVT:
+          event_handler1 = &bta_av_free_sdb;
+          break;
+        case BTA_AV_SDP_DISC_FAIL_EVT:
+          event_handler1 = &bta_av_free_sdb;
+          break;
+        case BTA_AV_STR_GETCAP_OK_EVT:
+          event_handler1 = &bta_av_save_caps;
+          break;
+        case BTA_AV_STR_START_OK_EVT:
+          event_handler1 = &bta_av_start_ok;
+          break;
+        case BTA_AV_STR_START_FAIL_EVT:
+          event_handler1 = &bta_av_start_failed;
+          break;
+        case BTA_AV_STR_CLOSE_EVT:
+          p_scb->state = BTA_AV_INIT_SST;
+          event_handler1 = &bta_av_str_closed;
+          break;
+        case BTA_AV_STR_CONFIG_IND_EVT:
+          event_handler1 = &bta_av_setconfig_rej;
+          break;
+        case BTA_AV_STR_SECURITY_IND_EVT:
+          event_handler1 = &bta_av_security_ind;
+          break;
+        case BTA_AV_STR_SECURITY_CFM_EVT:
+          event_handler1 = &bta_av_security_cfm;
+          break;
+        case BTA_AV_STR_WRITE_CFM_EVT:
+          event_handler1 = &bta_av_clr_cong;
+          event_handler2 = &bta_av_data_path;
+          break;
+        case BTA_AV_STR_SUSPEND_CFM_EVT:
+          event_handler1 = &bta_av_suspend_cfm;
+          break;
+        case BTA_AV_AVRC_TIMER_EVT:
+          event_handler1 = &bta_av_open_rc;
+          break;
+        case BTA_AV_AVDT_DISCONNECT_EVT:
+          p_scb->state = BTA_AV_INIT_SST;
+          event_handler1 = &bta_av_str_closed;
+          break;
+        case BTA_AV_ROLE_CHANGE_EVT:
+          event_handler1 = &bta_av_role_res;
+          break;
+        case BTA_AV_AVDT_DELAY_RPT_EVT:
+          event_handler1 = &bta_av_delay_co;
+          break;
+        case BTA_AV_API_OFFLOAD_START_EVT:
+          event_handler1 = &bta_av_offload_req;
+          break;
+        case BTA_AV_API_OFFLOAD_START_RSP_EVT:
+          event_handler1 = &bta_av_offload_rsp;
+          break;
+      }
+      break;
+    case BTA_AV_RCFG_SST:
+      switch (event) {
+        case BTA_AV_API_CLOSE_EVT:
+          p_scb->state = BTA_AV_CLOSING_SST;
+          event_handler1 = &bta_av_disconnect_req;
+          break;
+        case BTA_AV_API_RECONFIG_EVT:
+          event_handler1 = &bta_av_reconfig;
+          break;
+        case BTA_AV_SDP_DISC_OK_EVT:
+          event_handler1 = &bta_av_free_sdb;
+          break;
+        case BTA_AV_SDP_DISC_FAIL_EVT:
+          event_handler1 = &bta_av_free_sdb;
+          break;
+        case BTA_AV_STR_DISC_OK_EVT:
+          event_handler1 = &bta_av_disc_results;
+          break;
+        case BTA_AV_STR_DISC_FAIL_EVT:
+          p_scb->state = BTA_AV_INIT_SST;
+          event_handler1 = &bta_av_str_closed;
+          break;
+        case BTA_AV_STR_GETCAP_OK_EVT:
+          event_handler1 = &bta_av_getcap_results;
+          break;
+        case BTA_AV_STR_GETCAP_FAIL_EVT:
+          p_scb->state = BTA_AV_INIT_SST;
+          event_handler1 = &bta_av_str_closed;
+          break;
+        case BTA_AV_STR_OPEN_OK_EVT:
+          p_scb->state = BTA_AV_OPEN_SST;
+          event_handler1 = &bta_av_rcfg_str_ok;
+          break;
+        case BTA_AV_STR_OPEN_FAIL_EVT:
+          event_handler1 = &bta_av_rcfg_failed;
+          break;
+        case BTA_AV_STR_CLOSE_EVT:
+          event_handler1 = &bta_av_rcfg_connect;
+          break;
+        case BTA_AV_STR_CONFIG_IND_EVT:
+          event_handler1 = &bta_av_setconfig_rej;
+          break;
+        case BTA_AV_STR_SUSPEND_CFM_EVT:
+          event_handler1 = &bta_av_suspend_cfm;
+          event_handler2 = &bta_av_suspend_cont;
+          break;
+        case BTA_AV_STR_RECONFIG_CFM_EVT:
+          event_handler1 = &bta_av_rcfg_cfm;
+          break;
+        case BTA_AV_AVDT_CONNECT_EVT:
+          event_handler1 = &bta_av_rcfg_open;
+          break;
+        case BTA_AV_AVDT_DISCONNECT_EVT:
+          event_handler1 = &bta_av_rcfg_discntd;
+          break;
+        case BTA_AV_AVDT_DELAY_RPT_EVT:
+          event_handler1 = &bta_av_delay_co;
+          break;
+        case BTA_AV_API_OFFLOAD_START_EVT:
+          event_handler1 = &bta_av_offload_req;
+          break;
+        case BTA_AV_API_OFFLOAD_START_RSP_EVT:
+          event_handler1 = &bta_av_offload_rsp;
+          break;
+      }
+      break;
+    case BTA_AV_CLOSING_SST:
+      switch (event) {
+        case BTA_AV_API_CLOSE_EVT:
+          event_handler1 = &bta_av_disconnect_req;
+          break;
+        case BTA_AV_SDP_DISC_OK_EVT:
+          p_scb->state = BTA_AV_INIT_SST;
+          event_handler1 = &bta_av_sdp_failed;
+          break;
+        case BTA_AV_SDP_DISC_FAIL_EVT:
+          p_scb->state = BTA_AV_INIT_SST;
+          event_handler1 = &bta_av_sdp_failed;
+          break;
+        case BTA_AV_STR_OPEN_OK_EVT:
+          event_handler1 = &bta_av_do_close;
+          break;
+        case BTA_AV_STR_OPEN_FAIL_EVT:
+          event_handler1 = &bta_av_disconnect_req;
+          break;
+        case BTA_AV_STR_CLOSE_EVT:
+          event_handler1 = &bta_av_disconnect_req;
+          break;
+        case BTA_AV_STR_CONFIG_IND_EVT:
+          event_handler1 = &bta_av_setconfig_rej;
+          break;
+        case BTA_AV_STR_SECURITY_IND_EVT:
+          event_handler1 = &bta_av_security_rej;
+          break;
+        case BTA_AV_AVDT_DISCONNECT_EVT:
+          p_scb->state = BTA_AV_INIT_SST;
+          event_handler1 = &bta_av_str_closed;
+          break;
+        case BTA_AV_API_OFFLOAD_START_EVT:
+          event_handler1 = &bta_av_offload_req;
+          break;
+        case BTA_AV_API_OFFLOAD_START_RSP_EVT:
+          event_handler1 = &bta_av_offload_rsp;
+          break;
+      }
+      break;
+  }
 
-#define BTA_AV_SIGNORE BTA_AV_NUM_SACTIONS
+  if (previous_state != p_scb->state) {
+    LOG_INFO("peer %s p_scb=%#x(%p) AV event=0x%x(%s) state=%d(%s) -> %d(%s)",
+             p_scb->PeerAddress().ToString().c_str(), p_scb->hndl, p_scb, event,
+             bta_av_evt_code(event), previous_state,
+             bta_av_sst_code(previous_state), p_scb->state,
+             bta_av_sst_code(p_scb->state));
 
-/* state table information */
-/* #define BTA_AV_SACTION_COL           0       position of actions */
-#define BTA_AV_SACTIONS 2    /* number of actions */
-#define BTA_AV_SNEXT_STATE 2 /* position of next state */
-#define BTA_AV_NUM_COLS 3    /* number of columns in state tables */
+  } else {
+    LOG_DEBUG("peer %s p_scb=%#x(%p) AV event=0x%x(%s) state=%d(%s)",
+              p_scb->PeerAddress().ToString().c_str(), p_scb->hndl, p_scb,
+              event, bta_av_evt_code(event), p_scb->state,
+              bta_av_sst_code(p_scb->state));
+  }
 
-/* state table for init state */
-static const uint8_t bta_av_sst_init[][BTA_AV_NUM_COLS] = {
-    /* Event                     Action 1               Action 2 Next state */
-    /* API_OPEN_EVT */ {BTA_AV_DO_DISC, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* API_CLOSE_EVT */ {BTA_AV_CLEANUP, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* AP_START_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* AP_STOP_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* API_RECONFIG_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* API_PROTECT_REQ_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* API_PROTECT_RSP_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* API_RC_OPEN_EVT  */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* SRC_DATA_READY_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* CI_SETCONFIG_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* CI_SETCONFIG_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* SDP_DISC_OK_EVT */ {BTA_AV_FREE_SDB, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* SDP_DISC_FAIL_EVT */ {BTA_AV_FREE_SDB, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_DISC_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_DISC_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_GETCAP_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_GETCAP_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_OPEN_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_OPEN_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_START_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_START_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_CLOSE_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_CONFIG_IND_EVT */
-    {BTA_AV_CONFIG_IND, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_SECURITY_IND_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_SECURITY_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_WRITE_CFM_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_SUSPEND_CFM_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_RECONFIG_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* AVRC_TIMER_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* AVDT_CONNECT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* AVDT_DISCONNECT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* ROLE_CHANGE_EVT*/ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* AVDT_DELAY_RPT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* ACP_CONNECT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* API_OFFLOAD_START_EVT */
-    {BTA_AV_OFFLOAD_REQ, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* API_OFFLOAD_START_RSP_EVT */
-    {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE, BTA_AV_INIT_SST}};
-
-/* state table for incoming state */
-static const uint8_t bta_av_sst_incoming[][BTA_AV_NUM_COLS] = {
-    /* Event                     Action 1               Action 2 Next state */
-    /* API_OPEN_EVT */ {BTA_AV_OPEN_AT_INC, BTA_AV_SIGNORE,
-                        BTA_AV_INCOMING_SST},
-    /* API_CLOSE_EVT */
-    {BTA_AV_CCO_CLOSE, BTA_AV_DISCONNECT_REQ, BTA_AV_CLOSING_SST},
-    /* AP_START_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* AP_STOP_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* API_RECONFIG_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* API_PROTECT_REQ_EVT */
-    {BTA_AV_SECURITY_REQ, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* API_PROTECT_RSP_EVT */
-    {BTA_AV_SECURITY_RSP, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* API_RC_OPEN_EVT  */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* SRC_DATA_READY_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* CI_SETCONFIG_OK_EVT */
-    {BTA_AV_SETCONFIG_RSP, BTA_AV_ST_RC_TIMER, BTA_AV_INCOMING_SST},
-    /* CI_SETCONFIG_FAIL_EVT */
-    {BTA_AV_SETCONFIG_REJ, BTA_AV_CLEANUP, BTA_AV_INIT_SST},
-    /* SDP_DISC_OK_EVT */
-    {BTA_AV_FREE_SDB, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* SDP_DISC_FAIL_EVT */
-    {BTA_AV_FREE_SDB, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_DISC_OK_EVT */
-    {BTA_AV_DISC_RES_AS_ACP, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_DISC_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_GETCAP_OK_EVT */
-    {BTA_AV_SAVE_CAPS, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_GETCAP_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_OPEN_OK_EVT */ {BTA_AV_STR_OPENED, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_OPEN_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_START_OK_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_START_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_CLOSE_EVT */ {BTA_AV_CCO_CLOSE, BTA_AV_CLEANUP, BTA_AV_INIT_SST},
-    /* STR_CONFIG_IND_EVT */
-    {BTA_AV_CONFIG_IND, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_SECURITY_IND_EVT */
-    {BTA_AV_SECURITY_IND, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_SECURITY_CFM_EVT */
-    {BTA_AV_SECURITY_CFM, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_WRITE_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_SUSPEND_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_RECONFIG_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* AVRC_TIMER_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* AVDT_CONNECT_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* AVDT_DISCONNECT_EVT */
-    {BTA_AV_CCO_CLOSE, BTA_AV_DISCONNECT_REQ, BTA_AV_CLOSING_SST},
-    /* ROLE_CHANGE_EVT*/ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* AVDT_DELAY_RPT_EVT */
-    {BTA_AV_DELAY_CO, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* ACP_CONNECT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* API_OFFLOAD_START_EVT */
-    {BTA_AV_OFFLOAD_REQ, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* API_OFFLOAD_START_RSP_EVT */
-    {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST}};
-
-/* state table for opening state */
-static const uint8_t bta_av_sst_opening[][BTA_AV_NUM_COLS] = {
-    /* Event                     Action 1               Action 2 Next state */
-    /* API_OPEN_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* API_CLOSE_EVT */ {BTA_AV_DO_CLOSE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* AP_START_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* AP_STOP_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* API_RECONFIG_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* API_PROTECT_REQ_EVT */
-    {BTA_AV_SECURITY_REQ, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* API_PROTECT_RSP_EVT */
-    {BTA_AV_SECURITY_RSP, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* API_RC_OPEN_EVT  */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* SRC_DATA_READY_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* CI_SETCONFIG_OK_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* CI_SETCONFIG_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* SDP_DISC_OK_EVT */
-    {BTA_AV_CONNECT_REQ, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* SDP_DISC_FAIL_EVT */
-    {BTA_AV_CONNECT_REQ, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* STR_DISC_OK_EVT */
-    {BTA_AV_DISC_RESULTS, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* STR_DISC_FAIL_EVT */
-    {BTA_AV_OPEN_FAILED, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_GETCAP_OK_EVT */
-    {BTA_AV_GETCAP_RESULTS, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* STR_GETCAP_FAIL_EVT */
-    {BTA_AV_OPEN_FAILED, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_OPEN_OK_EVT */
-    {BTA_AV_ST_RC_TIMER, BTA_AV_STR_OPENED, BTA_AV_OPEN_SST},
-    /* STR_OPEN_FAIL_EVT */
-    {BTA_AV_OPEN_FAILED, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_START_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* STR_START_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* STR_CLOSE_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* STR_CONFIG_IND_EVT */
-    {BTA_AV_CONFIG_IND, BTA_AV_SIGNORE, BTA_AV_INCOMING_SST},
-    /* STR_SECURITY_IND_EVT */
-    {BTA_AV_SECURITY_IND, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* STR_SECURITY_CFM_EVT */
-    {BTA_AV_SECURITY_CFM, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* STR_WRITE_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* STR_SUSPEND_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* STR_RECONFIG_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* AVRC_TIMER_EVT */
-    {BTA_AV_SWITCH_ROLE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* AVDT_CONNECT_EVT */
-    {BTA_AV_DISCOVER_REQ, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* AVDT_DISCONNECT_EVT */
-    {BTA_AV_CONN_FAILED, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* ROLE_CHANGE_EVT*/ {BTA_AV_ROLE_RES, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* AVDT_DELAY_RPT_EVT */
-    {BTA_AV_DELAY_CO, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* ACP_CONNECT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* API_OFFLOAD_START_EVT */
-    {BTA_AV_OFFLOAD_REQ, BTA_AV_SIGNORE, BTA_AV_OPENING_SST},
-    /* API_OFFLOAD_START_RSP_EVT */
-    {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE, BTA_AV_OPENING_SST}};
-
-/* state table for open state */
-static const uint8_t bta_av_sst_open[][BTA_AV_NUM_COLS] = {
-    /* Event                     Action 1               Action 2 Next state */
-    /* API_OPEN_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* API_CLOSE_EVT */ {BTA_AV_DO_CLOSE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* AP_START_EVT */ {BTA_AV_DO_START, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* AP_STOP_EVT */ {BTA_AV_STR_STOPPED, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* API_RECONFIG_EVT */ {BTA_AV_RECONFIG, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* API_PROTECT_REQ_EVT */
-    {BTA_AV_SECURITY_REQ, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* API_PROTECT_RSP_EVT */
-    {BTA_AV_SECURITY_RSP, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* API_RC_OPEN_EVT  */ {BTA_AV_SET_USE_RC, BTA_AV_OPEN_RC, BTA_AV_OPEN_SST},
-    /* SRC_DATA_READY_EVT */
-    {BTA_AV_DATA_PATH, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* CI_SETCONFIG_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* CI_SETCONFIG_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* SDP_DISC_OK_EVT */ {BTA_AV_FREE_SDB, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* SDP_DISC_FAIL_EVT */ {BTA_AV_FREE_SDB, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_DISC_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_DISC_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_GETCAP_OK_EVT */ {BTA_AV_SAVE_CAPS, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_GETCAP_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_OPEN_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_OPEN_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_START_OK_EVT */ {BTA_AV_START_OK, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_START_FAIL_EVT */
-    {BTA_AV_START_FAILED, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_CLOSE_EVT */ {BTA_AV_STR_CLOSED, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_CONFIG_IND_EVT */
-    {BTA_AV_SETCONFIG_REJ, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_SECURITY_IND_EVT */
-    {BTA_AV_SECURITY_IND, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_SECURITY_CFM_EVT */
-    {BTA_AV_SECURITY_CFM, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_WRITE_CFM_EVT */
-    {BTA_AV_CLR_CONG, BTA_AV_DATA_PATH, BTA_AV_OPEN_SST},
-    /* STR_SUSPEND_CFM_EVT */
-    {BTA_AV_SUSPEND_CFM, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_RECONFIG_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* AVRC_TIMER_EVT */
-    {BTA_AV_OPEN_RC, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* AVDT_CONNECT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* AVDT_DISCONNECT_EVT */
-    {BTA_AV_STR_CLOSED, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* ROLE_CHANGE_EVT*/ {BTA_AV_ROLE_RES, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* AVDT_DELAY_RPT_EVT */ {BTA_AV_DELAY_CO, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* ACP_CONNECT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* API_OFFLOAD_START_EVT */
-    {BTA_AV_OFFLOAD_REQ, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* API_OFFLOAD_START_RSP_EVT */
-    {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE, BTA_AV_OPEN_SST}};
-
-/* state table for reconfig state */
-static const uint8_t bta_av_sst_rcfg[][BTA_AV_NUM_COLS] = {
-    /* Event                     Action 1               Action 2 Next state */
-    /* API_OPEN_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* API_CLOSE_EVT */
-    {BTA_AV_DISCONNECT_REQ, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* AP_START_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* AP_STOP_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* API_RECONFIG_EVT */ {BTA_AV_RECONFIG, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* API_PROTECT_REQ_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* API_PROTECT_RSP_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* API_RC_OPEN_EVT  */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* SRC_DATA_READY_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* CI_SETCONFIG_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* CI_SETCONFIG_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* SDP_DISC_OK_EVT */ {BTA_AV_FREE_SDB, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* SDP_DISC_FAIL_EVT */ {BTA_AV_FREE_SDB, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_DISC_OK_EVT */
-    {BTA_AV_DISC_RESULTS, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_DISC_FAIL_EVT */
-    {BTA_AV_STR_CLOSED, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_GETCAP_OK_EVT */
-    {BTA_AV_GETCAP_RESULTS, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_GETCAP_FAIL_EVT */
-    {BTA_AV_STR_CLOSED, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_OPEN_OK_EVT */ {BTA_AV_RCFG_STR_OK, BTA_AV_SIGNORE, BTA_AV_OPEN_SST},
-    /* STR_OPEN_FAIL_EVT */
-    {BTA_AV_RCFG_FAILED, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_START_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_START_FAIL_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_CLOSE_EVT */ {BTA_AV_RCFG_CONNECT, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_CONFIG_IND_EVT */
-    {BTA_AV_SETCONFIG_REJ, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_SECURITY_IND_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_SECURITY_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_WRITE_CFM_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* STR_SUSPEND_CFM_EVT */
-    {BTA_AV_SUSPEND_CFM, BTA_AV_SUSPEND_CONT, BTA_AV_RCFG_SST},
-    /* STR_RECONFIG_CFM_EVT */
-    {BTA_AV_RCFG_CFM, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* AVRC_TIMER_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* AVDT_CONNECT_EVT */ {BTA_AV_RCFG_OPEN, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* AVDT_DISCONNECT_EVT */
-    {BTA_AV_RCFG_DISCNTD, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* ROLE_CHANGE_EVT*/ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* AVDT_DELAY_RPT_EVT */ {BTA_AV_DELAY_CO, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* ACP_CONNECT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* API_OFFLOAD_START_EVT */
-    {BTA_AV_OFFLOAD_REQ, BTA_AV_SIGNORE, BTA_AV_RCFG_SST},
-    /* API_OFFLOAD_START_RSP_EVT */
-    {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE, BTA_AV_RCFG_SST}};
-
-/* state table for closing state */
-static const uint8_t bta_av_sst_closing[][BTA_AV_NUM_COLS] = {
-    /* Event                     Action 1               Action 2 Next state */
-    /* API_OPEN_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* API_CLOSE_EVT */
-    {BTA_AV_DISCONNECT_REQ, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* AP_START_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* AP_STOP_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* API_RECONFIG_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* API_PROTECT_REQ_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* API_PROTECT_RSP_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* API_RC_OPEN_EVT  */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* SRC_DATA_READY_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* CI_SETCONFIG_OK_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* CI_SETCONFIG_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* SDP_DISC_OK_EVT */ {BTA_AV_SDP_FAILED, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* SDP_DISC_FAIL_EVT */
-    {BTA_AV_SDP_FAILED, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* STR_DISC_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_DISC_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_GETCAP_OK_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_GETCAP_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_OPEN_OK_EVT */ {BTA_AV_DO_CLOSE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_OPEN_FAIL_EVT */
-    {BTA_AV_DISCONNECT_REQ, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_START_OK_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_START_FAIL_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_CLOSE_EVT */
-    {BTA_AV_DISCONNECT_REQ, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_CONFIG_IND_EVT */
-    {BTA_AV_SETCONFIG_REJ, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_SECURITY_IND_EVT */
-    {BTA_AV_SECURITY_REJ, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_SECURITY_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_WRITE_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_SUSPEND_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* STR_RECONFIG_CFM_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* AVRC_TIMER_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* AVDT_CONNECT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* AVDT_DISCONNECT_EVT */
-    {BTA_AV_STR_CLOSED, BTA_AV_SIGNORE, BTA_AV_INIT_SST},
-    /* ROLE_CHANGE_EVT*/ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* AVDT_DELAY_RPT_EVT */
-    {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* ACP_CONNECT_EVT */ {BTA_AV_SIGNORE, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* API_OFFLOAD_START_EVT */
-    {BTA_AV_OFFLOAD_REQ, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST},
-    /* API_OFFLOAD_START_RSP_EVT */
-    {BTA_AV_OFFLOAD_RSP, BTA_AV_SIGNORE, BTA_AV_CLOSING_SST}};
-
-/* type for state table */
-typedef const uint8_t (*tBTA_AV_SST_TBL)[BTA_AV_NUM_COLS];
-
-/* state table */
-static const tBTA_AV_SST_TBL bta_av_sst_tbl[] = {
-    bta_av_sst_init, bta_av_sst_incoming, bta_av_sst_opening,
-    bta_av_sst_open, bta_av_sst_rcfg,     bta_av_sst_closing};
-
+  if (event_handler1 != nullptr) {
+    event_handler1(p_scb, p_data);
+  }
+  if (event_handler2 != nullptr) {
+    event_handler2(p_scb, p_data);
+  }
+}
 
 /*******************************************************************************
  *
@@ -486,41 +456,7 @@ void bta_av_ssm_execute(tBTA_AV_SCB* p_scb, uint16_t event,
     return;
   }
 
-  /* look up the state table for the current state */
-  tBTA_AV_SST_TBL state_table = bta_av_sst_tbl[p_scb->state];
-
-  /* set next state */
-  auto new_state =
-      state_table[event - BTA_AV_FIRST_SSM_EVT][BTA_AV_SNEXT_STATE];
-  if (p_scb->state != new_state) {
-    APPL_TRACE_WARNING(
-        "%s: peer %s AV event(0x%x)=0x%x(%s) state=%d(%s) -> %d(%s) p_scb=%p",
-        __func__, p_scb->PeerAddress().ToString().c_str(), p_scb->hndl, event,
-        bta_av_evt_code(event), p_scb->state, bta_av_sst_code(p_scb->state),
-        new_state, bta_av_sst_code(new_state), p_scb);
-  } else {
-    APPL_TRACE_VERBOSE(
-        "%s: peer %s AV event(0x%x)=0x%x(%s) state=%d(%s) p_scb=%p", __func__,
-        p_scb->PeerAddress().ToString().c_str(), p_scb->hndl, event,
-        bta_av_evt_code(event), p_scb->state, bta_av_sst_code(p_scb->state),
-        p_scb);
-  }
-  event -= BTA_AV_FIRST_SSM_EVT;
-  p_scb->state = state_table[event][BTA_AV_SNEXT_STATE];
-
-  APPL_TRACE_VERBOSE("%s: peer %s AV next state=%d(%s) p_scb=%p(0x%x)",
-                     __func__, p_scb->PeerAddress().ToString().c_str(),
-                     p_scb->state, bta_av_sst_code(p_scb->state), p_scb,
-                     p_scb->hndl);
-
-  /* execute action functions */
-  for (int i = 0; i < BTA_AV_SACTIONS; i++) {
-    uint8_t action = state_table[event][i];
-    if (action != BTA_AV_SIGNORE) {
-      (*p_scb->p_act_tbl[action])(p_scb, p_data);
-    } else
-      break;
-  }
+  bta_av_better_stream_state_machine(p_scb, event, p_data);
 }
 
 /*******************************************************************************

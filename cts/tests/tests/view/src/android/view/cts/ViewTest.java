@@ -50,6 +50,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.graphics.Insets;
 import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.PorterDuff;
@@ -58,7 +59,6 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.StateListDrawable;
-import android.hardware.display.DisplayManager;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.os.SystemClock;
@@ -90,6 +90,9 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.ViewTreeObserver;
+import android.view.WindowInsets;
+import android.view.WindowManager;
+import android.view.WindowMetrics;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
@@ -112,6 +115,7 @@ import androidx.test.rule.ActivityTestRule;
 import com.android.compatibility.common.util.CtsMouseUtil;
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -161,7 +165,7 @@ public class ViewTest {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mContext = mInstrumentation.getTargetContext();
         mActivity = mActivityRule.getActivity();
-        PollingCheck.waitFor(mActivity::hasWindowFocus);
+        WindowUtil.waitForFocus(mActivity);
         mResources = mActivity.getResources();
         mMockParent = new MockViewParent(mActivity);
         PollingCheck.waitFor(5 * DateUtils.SECOND_IN_MILLIS, mActivity::hasWindowFocus);
@@ -2343,6 +2347,65 @@ public class ViewTest {
     }
 
     @Test
+    public void testSetAllowClickWhenDisabled() throws Throwable {
+        MockView mockView = (MockView) mActivity.findViewById(R.id.mock_view);
+
+        mActivityRule.runOnUiThread(() -> {
+            mockView.setClickable(true);
+            mockView.setEnabled(false);
+        });
+
+        View.OnClickListener listener = mock(View.OnClickListener.class);
+        mockView.setOnClickListener(listener);
+
+        int[] xy = new int[2];
+        mockView.getLocationOnScreen(xy);
+
+        final int viewWidth = mockView.getWidth();
+        final int viewHeight = mockView.getHeight();
+        final float x = xy[0] + viewWidth / 2.0f;
+        final float y = xy[1] + viewHeight / 2.0f;
+
+        long downTime = SystemClock.uptimeMillis();
+        long eventTime = SystemClock.uptimeMillis();
+        MotionEvent downEvent = MotionEvent.obtain(downTime, eventTime, MotionEvent.ACTION_DOWN,
+                x, y, 0);
+        downTime = SystemClock.uptimeMillis();
+        eventTime = SystemClock.uptimeMillis();
+        MotionEvent upEvent = MotionEvent.obtain(downTime, eventTime, MotionEvent.ACTION_UP,
+                x, y, 0);
+
+        assertFalse(mockView.hasCalledOnTouchEvent());
+        mockView.dispatchTouchEvent(downEvent);
+        mockView.dispatchTouchEvent(upEvent);
+
+        mInstrumentation.waitForIdleSync();
+        assertTrue(mockView.hasCalledOnTouchEvent());
+
+        verifyZeroInteractions(listener);
+
+        mActivityRule.runOnUiThread(() -> {
+            mockView.setAllowClickWhenDisabled(true);
+        });
+
+        downTime = SystemClock.uptimeMillis();
+        eventTime = SystemClock.uptimeMillis();
+        downEvent = MotionEvent.obtain(downTime, eventTime, MotionEvent.ACTION_DOWN,
+                x, y, 0);
+        downTime = SystemClock.uptimeMillis();
+        eventTime = SystemClock.uptimeMillis();
+        upEvent = MotionEvent.obtain(downTime, eventTime, MotionEvent.ACTION_UP,
+                x, y, 0);
+
+        mockView.dispatchTouchEvent(downEvent);
+        mockView.dispatchTouchEvent(upEvent);
+
+        mInstrumentation.waitForIdleSync();
+
+        verify(listener, times(1)).onClick(mockView);
+    }
+
+    @Test
     public void testAddTouchables() {
         View view = new View(mActivity);
         ArrayList<View> result = new ArrayList<>();
@@ -3834,14 +3897,18 @@ public class ViewTest {
         Rect outRect = new Rect();
         View view = new View(mActivity);
         // mAttachInfo is null
-        DisplayManager dm = (DisplayManager) mActivity.getApplicationContext().getSystemService(
-                Context.DISPLAY_SERVICE);
-        Display d = dm.getDisplay(Display.DEFAULT_DISPLAY);
         view.getWindowVisibleDisplayFrame(outRect);
+        final WindowManager windowManager = mActivity.getWindowManager();
+        final WindowMetrics metrics = windowManager.getMaximumWindowMetrics();
+        final Insets insets =
+                metrics.getWindowInsets().getInsets(
+                        WindowInsets.Type.navigationBars() | WindowInsets.Type.displayCutout());
+        final int expectedWidth = metrics.getBounds().width() - insets.left - insets.right;
+        final int expectedHeight = metrics.getBounds().height() - insets.top - insets.bottom;
         assertEquals(0, outRect.left);
         assertEquals(0, outRect.top);
-        assertEquals(d.getWidth(), outRect.right);
-        assertEquals(d.getHeight(), outRect.bottom);
+        assertEquals(expectedWidth, outRect.right);
+        assertEquals(expectedHeight, outRect.bottom);
 
         // mAttachInfo is not null
         outRect = new Rect();
@@ -4882,7 +4949,7 @@ public class ViewTest {
         float[] newValues = new float[9];
         newMatrix.getValues(newValues);
         int[] location = new int[2];
-        view.getLocationInWindow(location);
+        view.getLocationOnScreen(location);
         boolean hasChanged = false;
         for (int i = 0; i < 9; ++i) {
             if (initialValues[i] != newValues[i]) {
@@ -4890,7 +4957,7 @@ public class ViewTest {
             }
         }
         assertTrue("Matrix should be changed", hasChanged);
-        assertEquals("Matrix should reflect position in window",
+        assertEquals("Matrix should reflect position on screen",
                 location[1], newValues[5], 0.001);
     }
 
@@ -5070,6 +5137,30 @@ public class ViewTest {
 
         // now that it is detached, it should be false.
         assertFalse(view.isShowingLayoutBounds());
+    }
+
+    @Test
+    public void testClipToOutline() {
+        View clipToOutlineUnsetView = mActivity.findViewById(R.id.clip_to_outline_unset);
+        assertFalse(clipToOutlineUnsetView.getClipToOutline());
+        clipToOutlineUnsetView.setClipToOutline(true);
+        assertTrue(clipToOutlineUnsetView.getClipToOutline());
+        clipToOutlineUnsetView.setClipToOutline(false);
+        assertFalse(clipToOutlineUnsetView.getClipToOutline());
+
+        View clipToOutlineFalseView = mActivity.findViewById(R.id.clip_to_outline_false);
+        assertFalse(clipToOutlineFalseView.getClipToOutline());
+        clipToOutlineFalseView.setClipToOutline(true);
+        assertTrue(clipToOutlineFalseView.getClipToOutline());
+        clipToOutlineFalseView.setClipToOutline(false);
+        assertFalse(clipToOutlineFalseView.getClipToOutline());
+
+        View clipToOutlineTrueView = mActivity.findViewById(R.id.clip_to_outline_true);
+        assertTrue(clipToOutlineTrueView.getClipToOutline());
+        clipToOutlineTrueView.setClipToOutline(false);
+        assertFalse(clipToOutlineTrueView.getClipToOutline());
+        clipToOutlineTrueView.setClipToOutline(true);
+        assertTrue(clipToOutlineTrueView.getClipToOutline());
     }
 
     private static class MockDrawable extends Drawable {

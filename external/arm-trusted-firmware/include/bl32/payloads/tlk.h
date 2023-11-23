@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -23,10 +24,13 @@
 #define TLK_SS_REGISTER_HANDLER	TLK_TOS_YIELD_FID(0x3)
 #define TLK_REGISTER_NS_DRAM_RANGES	TLK_TOS_YIELD_FID(0x4)
 #define TLK_SET_ROOT_OF_TRUST	TLK_TOS_YIELD_FID(0x5)
+#define TLK_SET_BL_VERSION	TLK_TOS_YIELD_FID(0x6)
+#define TLK_LOCK_BL_INTERFACE	TLK_TOS_YIELD_FID(0x7)
+#define TLK_BL_RPMB_SERVICE	TLK_TOS_YIELD_FID(0x8)
 #define TLK_RESUME_FID		TLK_TOS_YIELD_FID(0x100)
 #define TLK_SYSTEM_SUSPEND	TLK_TOS_YIELD_FID(0xE001)
 #define TLK_SYSTEM_RESUME	TLK_TOS_YIELD_FID(0xE002)
-#define TLK_SYSTEM_OFF		TLK_TOS_YIELD_FID(0xE003)
+#define TLK_IRQ_FIRED		TLK_TOS_YIELD_FID(0xE004)
 
 /*
  * SMC function IDs that TLK uses to signal various forms of completions
@@ -38,7 +42,7 @@
 #define TLK_VA_TRANSLATE	(0x32000004 | (ULL(1) << 31))
 #define TLK_SUSPEND_DONE	(0x32000005 | (ULL(1) << 31))
 #define TLK_RESUME_DONE		(0x32000006 | (ULL(1) << 31))
-#define TLK_SYSTEM_OFF_DONE	(0x32000007 | (ULL(1) << 31))
+#define TLK_IRQ_DONE		(0x32000008 | (ULL(1) << 31))
 
 /*
  * Trusted Application specific function IDs

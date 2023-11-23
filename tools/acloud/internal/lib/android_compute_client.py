@@ -41,9 +41,12 @@ from acloud import errors
 from acloud.internal import constants
 from acloud.internal.lib import gcompute_client
 from acloud.internal.lib import utils
+from acloud.public import config
 
 
 logger = logging.getLogger(__name__)
+_ZONE = "zone"
+_VERSION = "version"
 
 
 class AndroidComputeClient(gcompute_client.ComputeClient):
@@ -52,9 +55,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
     DATA_DISK_NAME_FMT = "data-{instance}"
     BOOT_COMPLETED_MSG = "VIRTUAL_DEVICE_BOOT_COMPLETED"
     BOOT_STARTED_MSG = "VIRTUAL_DEVICE_BOOT_STARTED"
-    BOOT_TIMEOUT_SECS = 5 * 60  # 5 mins, usually it should take ~2 mins
     BOOT_CHECK_INTERVAL_SECS = 10
-
     OPERATION_TIMEOUT_SECS = 20 * 60  # Override parent value, 20 mins
 
     NAME_LENGTH_LIMIT = 63
@@ -81,6 +82,23 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
         self._launch_args = acloud_config.launch_args
         self._instance_name_pattern = acloud_config.instance_name_pattern
         self._AddPerInstanceSshkey()
+        self._dict_report = {_ZONE: self._zone,
+                             _VERSION: config.GetVersion()}
+
+    # TODO(147047953): New args to contorl zone metrics check.
+    def _VerifyZoneByQuota(self):
+        """Verify the zone must have enough quota to create instance.
+
+        Returns:
+            Boolean, True if zone have enough quota to create instance.
+
+        Raises:
+            errors.CheckGCEZonesQuotaError: the zone doesn't have enough quota.
+        """
+        if self.EnoughMetricsInZone(self._zone):
+            return True
+        raise errors.CheckGCEZonesQuotaError(
+            "There is no enough quota in zone: %s" % self._zone)
 
     def _AddPerInstanceSshkey(self):
         """Add per-instance ssh key.
@@ -352,12 +370,12 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
             boot_timeout_secs: Integer, the maximum time in seconds used to
                                wait for the AVD to boot.
         """
-        boot_timeout_secs = boot_timeout_secs or self.BOOT_TIMEOUT_SECS
+        boot_timeout_secs = boot_timeout_secs or constants.DEFAULT_CF_BOOT_TIMEOUT
         logger.info("Waiting for instance to boot up %s for %s secs",
                     instance, boot_timeout_secs)
         timeout_exception = errors.DeviceBootTimeoutError(
             "Device %s did not finish on boot within timeout (%s secs)" %
-            (instance, boot_timeout_secs)),
+            (instance, boot_timeout_secs))
         utils.PollAndWait(
             func=self.CheckBoot,
             expected_return=True,
@@ -397,20 +415,16 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
         return super(AndroidComputeClient, self).GetSerialPortOutput(
             instance, zone or self._zone, port)
 
-    def GetInstanceNamesByIPs(self, ips, zone=None):
-        """Get Instance names by IPs.
-
-        This function will go through all instances, which
-        could be slow if there are too many instances.  However, currently
-        GCE doesn't support search for instance by IP.
+    def ExtendReportData(self, key, value):
+        """Extend the report data.
 
         Args:
-            ips: A set of IPs.
-            zone: String, representing zone name, e.g. "us-central1-f"
-
-        Returns:
-            A dictionary where key is ip and value is instance name or None
-            if instance is not found for the given IP.
+            key: string of key name.
+            value: string of data value.
         """
-        return super(AndroidComputeClient, self).GetInstanceNamesByIPs(
-            ips, zone or self._zone)
+        self._dict_report.update({key: value})
+
+    @property
+    def dict_report(self):
+        """Return dict_report"""
+        return self._dict_report

@@ -43,8 +43,8 @@ public class ResolutionSetting {
 
     private final SettingsManager mSettingsManager;
     private final OneCameraManager mOneCameraManager;
-    private final String mResolutionBlackListBack;
-    private final String mResolutionBlackListFront;
+    private final String mResolutionDisallowedListBack;
+    private final String mResolutionDisallowedListFront;
 
     public ResolutionSetting(SettingsManager settingsManager,
             OneCameraManager oneCameraManager,
@@ -52,8 +52,10 @@ public class ResolutionSetting {
         mSettingsManager = settingsManager;
         mOneCameraManager = oneCameraManager;
 
-        mResolutionBlackListBack = GservicesHelper.getBlacklistedResolutionsBack(contentResolver);
-        mResolutionBlackListFront = GservicesHelper.getBlacklistedResolutionsFront(contentResolver);
+        mResolutionDisallowedListBack = GservicesHelper.getDisallowedlistedResolutionsBack(
+                contentResolver);
+        mResolutionDisallowedListFront = GservicesHelper.getDisallowedlistedResolutionsFront(
+                contentResolver);
     }
 
     /**
@@ -74,8 +76,8 @@ public class ResolutionSetting {
         // the choice for front camera.
         final String pictureSizeSettingKey = cameraFacing == OneCamera.Facing.FRONT ?
                 Keys.KEY_PICTURE_SIZE_FRONT : Keys.KEY_PICTURE_SIZE_BACK;
-        final String blacklist = cameraFacing == OneCamera.Facing.FRONT ? mResolutionBlackListFront
-                : mResolutionBlackListBack;
+        final String disallowedlist = cameraFacing == OneCamera.Facing.FRONT ?
+                mResolutionDisallowedListFront : mResolutionDisallowedListBack;
 
         // All resolutions supported by the camera.
         List<Size> supportedPictureSizes = cameraCharacteristics
@@ -88,8 +90,8 @@ public class ResolutionSetting {
                 supportedPictureSizes, cameraFacing == OneCamera.Facing.BACK);
 
         // Filter the remaining sizes through our backlist.
-        supportedPictureSizes = ResolutionUtil.filterBlackListedSizes(supportedPictureSizes,
-                blacklist);
+        supportedPictureSizes = ResolutionUtil.filterDisallowedListedSizes(supportedPictureSizes,
+                disallowedlist);
 
         final Size chosenPictureSize =
                 ResolutionUtil.getLargestPictureSize(aspectRatio, supportedPictureSizes);
@@ -102,7 +104,7 @@ public class ResolutionSetting {
     /**
      * Reads the picture size setting for the cameras with specified facing.
      * This specifically avoids reading camera characteristics unless the size
-     * is blacklisted or is not cached to prevent a crash.
+     * is disallowedlisted or is not cached to prevent a crash.
      */
     public Size getPictureSize(CameraId cameraId, Facing cameraFacing)
             throws OneCameraAccessException {
@@ -111,47 +113,48 @@ public class ResolutionSetting {
 
         Size pictureSize = null;
 
-        String blacklist = "";
+        String disallowedlist = "";
         if (cameraFacing == OneCamera.Facing.BACK) {
-            blacklist = mResolutionBlackListBack;
+            disallowedlist = mResolutionDisallowedListBack;
         } else if (cameraFacing == OneCamera.Facing.FRONT) {
-            blacklist = mResolutionBlackListFront;
+            disallowedlist = mResolutionDisallowedListFront;
         }
 
         // If there is no saved picture size preference or the saved on is
-        // blacklisted., pick a largest size with 4:3 aspect
+        // disallowedlisted., pick a largest size with 4:3 aspect
         boolean isPictureSizeSettingSet =
                 mSettingsManager.isSet(SettingsManager.SCOPE_GLOBAL, pictureSizeSettingKey);
-        boolean isPictureSizeBlacklisted = false;
+        boolean isPictureSizeDisallowedlisted = false;
 
-        // If a picture size is set, check whether it's blacklisted.
+        // If a picture size is set, check whether it's disallowedlisted.
         if (isPictureSizeSettingSet) {
             pictureSize = SettingsUtil.sizeFromSettingString(
                     mSettingsManager.getString(SettingsManager.SCOPE_GLOBAL,
                             pictureSizeSettingKey));
-            isPictureSizeBlacklisted = pictureSize == null ||
-                    ResolutionUtil.isBlackListed(pictureSize, blacklist);
+            isPictureSizeDisallowedlisted = pictureSize == null ||
+                    ResolutionUtil.isDisallowedListed(pictureSize, disallowedlist);
         }
 
         // Due to b/21758681, it is possible that an invalid picture size has
         // been saved to the settings. Therefore, picture size is set AND is not
-        // blacklisted, but completely invalid. In these cases, need to take the
+        // disallowedlisted, but completely invalid. In these cases, need to take the
         // fallback, instead of the saved value. This logic should now save a
         // valid picture size to the settings and self-correct the state of the
         // settings.
         final boolean isPictureSizeFromSettingsValid = pictureSize != null &&
                 pictureSize.width() > 0 && pictureSize.height() > 0;
 
-        if (!isPictureSizeSettingSet || isPictureSizeBlacklisted || !isPictureSizeFromSettingsValid) {
+        if (!isPictureSizeSettingSet || isPictureSizeDisallowedlisted ||
+                    !isPictureSizeFromSettingsValid) {
             final Rational aspectRatio = ResolutionUtil.ASPECT_RATIO_4x3;
 
             OneCameraCharacteristics cameraCharacteristics =
                     mOneCameraManager.getOneCameraCharacteristics(cameraId);
 
             final List<Size> supportedPictureSizes =
-                    ResolutionUtil.filterBlackListedSizes(
+                    ResolutionUtil.filterDisallowedListedSizes(
                             cameraCharacteristics.getSupportedPictureSizes(ImageFormat.JPEG),
-                            blacklist);
+                            disallowedlist);
             final Size fallbackPictureSize =
                     ResolutionUtil.getLargestPictureSize(aspectRatio, supportedPictureSizes);
             mSettingsManager.set(

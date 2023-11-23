@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * src/nl-route-delete.c     Delete Routes
  *
@@ -12,6 +13,8 @@
 #include <netlink/cli/utils.h>
 #include <netlink/cli/route.h>
 #include <netlink/cli/link.h>
+
+#include <linux/netlink.h>
 
 static int interactive = 0, default_yes = 0, quiet = 0;
 static int deleted = 0;

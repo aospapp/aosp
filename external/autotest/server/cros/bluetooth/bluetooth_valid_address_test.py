@@ -2,17 +2,20 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+
 import logging
 
+import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.bluetooth import bluetooth_adapter_tests
 
 
-class bluetooth_Sanity_ValidAddressTest(
+class bluetooth_Health_ValidAddressTest(
         bluetooth_adapter_tests.BluetoothAdapterTests):
     """
     This class implements the valid address test.
-    It should be invoked by other classes e.g. BluetoothSanityValidAddress.
+    It should be invoked by other classes e.g. BluetoothHealthValidAddress.
     """
     version = 1
 
@@ -34,7 +37,7 @@ class bluetooth_Sanity_ValidAddressTest(
         address = controller_info[0]
         logging.debug('Bluetooth address of adapter is %s', address)
 
-        # Sanity check the address
+        # Health check the address
         if address == '00:00:00:00:00:00':
             raise error.TestFail('Adapter address is all zeros')
         if address.startswith('00:00:00:'):

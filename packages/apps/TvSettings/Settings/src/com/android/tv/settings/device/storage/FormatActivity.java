@@ -16,8 +16,6 @@
 
 package com.android.tv.settings.device.storage;
 
-import android.app.Activity;
-import android.app.Fragment;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -34,13 +32,15 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.android.tv.settings.R;
 
 import java.util.List;
 
-public class FormatActivity extends Activity
+public class FormatActivity extends FragmentActivity
         implements FormatAsPrivateStepFragment.Callback,
         FormatAsPublicStepFragment.Callback, SlowDriveStepFragment.Callback {
 
@@ -113,7 +113,7 @@ public class FormatActivity extends Activity
             } else {
                 throw new IllegalStateException("No known action specified");
             }
-            getFragmentManager().beginTransaction()
+            getSupportFragmentManager().beginTransaction()
                     .add(android.R.id.content, f)
                     .commit();
         }
@@ -165,7 +165,7 @@ public class FormatActivity extends Activity
 
             // TODO: better threshold
             if (privateBench > 2000000000) {
-                getFragmentManager().beginTransaction()
+                getSupportFragmentManager().beginTransaction()
                         .replace(android.R.id.content,
                                 SlowDriveStepFragment.newInstance())
                         .commit();
@@ -238,7 +238,7 @@ public class FormatActivity extends Activity
     @Override
     public void onRequestFormatAsPrivate(String diskId) {
         final FormattingProgressFragment fragment = FormattingProgressFragment.newInstance();
-        getFragmentManager().beginTransaction()
+        getSupportFragmentManager().beginTransaction()
                 .replace(android.R.id.content, fragment)
                 .commit();
 
@@ -281,7 +281,7 @@ public class FormatActivity extends Activity
     @Override
     public void onRequestFormatAsPublic(String diskId, String volumeId) {
         final FormattingProgressFragment fragment = FormattingProgressFragment.newInstance();
-        getFragmentManager().beginTransaction()
+        getSupportFragmentManager().beginTransaction()
                 .replace(android.R.id.content, fragment)
                 .commit();
 

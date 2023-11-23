@@ -15,19 +15,19 @@
     limitations under the License.
 -->
 
-<RelativeLayout
+<com.android.car.ui.FocusArea
     xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/settings_content_focus_area"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:gravity="center">
 
     <TimePicker
-        xmlns:android="http://schemas.android.com/apk/res/android"
         android:id="@+id/time_picker"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
+        android:focusable="true"
         android:scaleX="1.6"
         android:scaleY="1.6"
-        android:timePickerMode="spinner"/>
-
-</RelativeLayout>
+        android:timePickerMode="spinner" />
+</com.android.car.ui.FocusArea>

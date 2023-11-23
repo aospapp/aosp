@@ -24,28 +24,32 @@
 #include <string>
 #include <vector>
 
+namespace simpleperf {
+
+inline const std::string kETMEventName = "cs-etm";
+
 // EventType represents one type of event, like cpu_cycle_event, cache_misses_event.
 // The user knows one event type by its name, and the kernel knows one event type by its
 // (type, config) pair. EventType connects the two representations, and tells the user if
 // the event type is supported by the kernel.
 
 struct EventType {
-  EventType(const std::string& name, uint32_t type, uint64_t config,
-            const std::string& description, const std::string& limited_arch)
-      : name(name), type(type), config(config), description(description),
-        limited_arch(limited_arch) {
-  }
+  EventType(const std::string& name, uint32_t type, uint64_t config, const std::string& description,
+            const std::string& limited_arch)
+      : name(name),
+        type(type),
+        config(config),
+        description(description),
+        limited_arch(limited_arch) {}
 
-  EventType() : type(0), config(0) {
-  }
+  EventType() : type(0), config(0) {}
 
   bool operator<(const EventType& other) const {
     return strcasecmp(name.c_str(), other.name.c_str()) < 0;
   }
 
-  bool IsPmuEvent() const {
-    return name.find('/') != std::string::npos;
-  }
+  bool IsPmuEvent() const { return name.find('/') != std::string::npos; }
+  bool IsEtmEvent() const { return name == kETMEventName; }
 
   std::vector<int> GetPmuCpumask();
 
@@ -56,9 +60,6 @@ struct EventType {
   std::string limited_arch;
 };
 
-bool SetTracepointEventsFilePath(const std::string& filepath);
-std::string GetTracepointEvents();
-
 // Used to temporarily change event types returned by GetAllEventTypes().
 class ScopedEventTypes {
  public:
@@ -66,14 +67,7 @@ class ScopedEventTypes {
 
   ScopedEventTypes(const std::string& event_type_str);
   ~ScopedEventTypes();
-
- private:
-  std::set<EventType> saved_event_types_;
-  uint32_t saved_etm_event_type_;
 };
-
-const std::set<EventType>& GetAllEventTypes();
-const EventType* FindEventTypeByName(const std::string& name, bool report_error = true);
 
 struct EventTypeAndModifier {
   std::string name;
@@ -92,11 +86,46 @@ struct EventTypeAndModifier {
         exclude_hv(false),
         exclude_host(false),
         exclude_guest(false),
-        precise_ip(0) {
-  }
+        precise_ip(0) {}
 };
 
+enum class EventFinderType;
+class EventTypeFinder;
+class RawTypeFinder;
+class TracepointSystemFinder;
+
+class EventTypeManager {
+ public:
+  static EventTypeManager& Instance() { return instance_; }
+  ~EventTypeManager();
+
+  bool ReadTracepointsFromFile(const std::string& filepath);
+  bool WriteTracepointsToFile(const std::string& filepath);
+
+  // Iterate through all event types, and stop when callback returns false.
+  bool ForEachType(const std::function<bool(const EventType&)>& callback);
+  const EventType* FindType(const std::string& name);
+  const EventType* AddRawType(const std::string& name);
+  void RemoveProbeType(const std::string& name);
+  const EventTypeFinder* GetScopedFinder() { return scoped_finder_.get(); }
+  void SetScopedFinder(std::unique_ptr<EventTypeFinder>&& finder);
+
+ private:
+  EventTypeManager();
+  std::unique_ptr<EventTypeFinder>& GetFinder(EventFinderType type);
+  RawTypeFinder& GetRawTypeFinder();
+  TracepointSystemFinder& GetTracepointSystemFinder();
+
+  static EventTypeManager instance_;
+
+  std::vector<std::unique_ptr<EventTypeFinder>> type_finders_;
+  std::unique_ptr<EventTypeFinder> scoped_finder_;
+};
+
+const EventType* FindEventTypeByName(const std::string& name, bool report_error = true);
 std::unique_ptr<EventTypeAndModifier> ParseEventType(const std::string& event_type_str);
 bool IsEtmEventType(uint32_t type);
+
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_EVENT_H_

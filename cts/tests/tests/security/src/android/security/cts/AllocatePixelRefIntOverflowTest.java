@@ -18,21 +18,20 @@ package android.security.cts;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 
 import java.io.InputStream;
 
 import android.security.cts.R;
 
-@SecurityTest
 public class AllocatePixelRefIntOverflowTest extends AndroidTestCase {
 
     /**
      * Verifies that the device is not vulnerable to ANDROID-19270126: Android
      * BitmapFactory.decodeStream JPG allocPixelRef integer overflow
      */
-    @SecurityTest(minPatchLevel = "2015-03")
+    @AsbSecurityTest(cveBugId = 19394591)
     public void testAllocateJavaPixelRefIntOverflow() {
         InputStream exploitImage = mContext.getResources().openRawResource(
                 R.raw.cve_2015_1531_b_19270126);

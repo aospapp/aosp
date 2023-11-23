@@ -177,6 +177,7 @@ class QemuSensor: private Thread, public virtual RefBase {
     // Time of sensor startup (used for simulation zero-time point).
     nsecs_t mStartupTime;
     int32_t mHostCameraVer;
+    bool mIsMinigbm;
 
   private:
     /*

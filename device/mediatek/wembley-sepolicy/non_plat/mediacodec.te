@@ -114,9 +114,10 @@ allow mediacodec debugfs_ion:dir search;
 # Date : WK17.30
 # Operation : O Migration
 # Purpose: Allow mediacodec to access cmdq driver
-allow mediacodec mtk_cmdq_device:chr_file { read ioctl open };
-allow mediacodec mtk_mdp_device:chr_file rw_file_perms;
-allow mediacodec sw_sync_device:chr_file rw_file_perms;
+allow mediacodec mtk_cmdq_device:chr_file r_file_perms;
+allow mediacodec mtk_mdp_device:chr_file r_file_perms;
+allow mediacodec mtk_mdp_sync:chr_file r_file_perms;
+allow mediacodec sw_sync_device:chr_file r_file_perms;
 
 # Date : WK17.28
 # Operation : MT6757 SQC
@@ -125,15 +126,12 @@ allow mediacodec sw_sync_device:chr_file rw_file_perms;
 
 # Date : WK17.30
 # Purpose : For Power Hal
-allow mediacodec mtk_hal_power_hwservice:hwservice_manager find;
-allow mediacodec mtk_hal_power:binder call;
-allow mediacodec mtk_hal_power:unix_stream_socket connectto;
-
+hal_client_domain(mediacodec, hal_power)
 
 # Date : WK17.12
 # Operation : MT6799 SQC
 # Purpose : Change thermal config
-set_prop(mediacodec, mtk_thermal_config_prop)
+set_prop(mediacodec, vendor_mtk_thermal_config_prop)
 
 # Date : WK17.43
 # Operation : Migration

@@ -16,6 +16,10 @@
 
 package android.net.netlink;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+import android.system.OsConstants;
+
 import java.nio.ByteBuffer;
 
 
@@ -35,7 +39,12 @@ import java.nio.ByteBuffer;
 public class NetlinkMessage {
     private final static String TAG = "NetlinkMessage";
 
-    public static NetlinkMessage parse(ByteBuffer byteBuffer) {
+    /**
+     * Parsing netlink messages for reserved control message or specific netlink message. The
+     * netlink family is required for parsing specific netlink message. See man-pages/netlink.
+     */
+    @Nullable
+    public static NetlinkMessage parse(@NonNull ByteBuffer byteBuffer, int nlFamily) {
         final int startPosition = (byteBuffer != null) ? byteBuffer.position() : -1;
         final StructNlMsgHdr nlmsghdr = StructNlMsgHdr.parse(byteBuffer);
         if (nlmsghdr == null) {
@@ -50,31 +59,24 @@ public class NetlinkMessage {
             return null;
         }
 
-        switch (nlmsghdr.nlmsg_type) {
-            //case NetlinkConstants.NLMSG_NOOP:
-            case NetlinkConstants.NLMSG_ERROR:
-                return (NetlinkMessage) NetlinkErrorMessage.parse(nlmsghdr, byteBuffer);
-            case NetlinkConstants.NLMSG_DONE:
-                byteBuffer.position(byteBuffer.position() + payloadLength);
-                return new NetlinkMessage(nlmsghdr);
-            //case NetlinkConstants.NLMSG_OVERRUN:
-            case NetlinkConstants.RTM_NEWNEIGH:
-            case NetlinkConstants.RTM_DELNEIGH:
-            case NetlinkConstants.RTM_GETNEIGH:
-                return (NetlinkMessage) RtNetlinkNeighborMessage.parse(nlmsghdr, byteBuffer);
-            case NetlinkConstants.SOCK_DIAG_BY_FAMILY:
-                return (NetlinkMessage) InetDiagMessage.parse(nlmsghdr, byteBuffer);
-            case NetlinkConstants.RTM_NEWNDUSEROPT:
-                return (NetlinkMessage) NduseroptMessage.parse(nlmsghdr, byteBuffer);
-            default:
-                if (nlmsghdr.nlmsg_type <= NetlinkConstants.NLMSG_MAX_RESERVED) {
-                    // Netlink control message.  Just parse the header for now,
-                    // pretending the whole message was consumed.
-                    byteBuffer.position(byteBuffer.position() + payloadLength);
-                    return new NetlinkMessage(nlmsghdr);
-                }
-                return null;
+        // Reserved control messages. The netlink family is ignored.
+        // See NLMSG_MIN_TYPE in include/uapi/linux/netlink.h.
+        if (nlmsghdr.nlmsg_type <= NetlinkConstants.NLMSG_MAX_RESERVED) {
+            return parseCtlMessage(nlmsghdr, byteBuffer, payloadLength);
         }
+
+        // Netlink family messages. The netlink family is required. Note that the reason for using
+        // if-statement is that switch-case can't be used because the OsConstants.NETLINK_* are
+        // not constant.
+        if (nlFamily == OsConstants.NETLINK_ROUTE) {
+            return parseRtMessage(nlmsghdr, byteBuffer);
+        } else if (nlFamily == OsConstants.NETLINK_INET_DIAG) {
+            return parseInetDiagMessage(nlmsghdr, byteBuffer);
+        } else if (nlFamily == OsConstants.NETLINK_NETFILTER) {
+            return parseNfMessage(nlmsghdr, byteBuffer);
+        }
+
+        return null;
     }
 
     protected StructNlMsgHdr mHeader;
@@ -89,6 +91,63 @@ public class NetlinkMessage {
 
     @Override
     public String toString() {
+        // The netlink family is not provided to StructNlMsgHdr#toString because NetlinkMessage
+        // doesn't store the information. So the netlink message type can't be transformed into
+        // a string by StructNlMsgHdr#toString and just keep as an integer. The specific message
+        // which inherits NetlinkMessage could override NetlinkMessage#toString and provide the
+        // specific netlink family to StructNlMsgHdr#toString.
         return "NetlinkMessage{" + (mHeader == null ? "" : mHeader.toString()) + "}";
+    }
+
+    @NonNull
+    private static NetlinkMessage parseCtlMessage(@NonNull StructNlMsgHdr nlmsghdr,
+            @NonNull ByteBuffer byteBuffer, int payloadLength) {
+        switch (nlmsghdr.nlmsg_type) {
+            case NetlinkConstants.NLMSG_ERROR:
+                return (NetlinkMessage) NetlinkErrorMessage.parse(nlmsghdr, byteBuffer);
+            default: {
+                // Other netlink control messages. Just parse the header for now,
+                // pretending the whole message was consumed.
+                byteBuffer.position(byteBuffer.position() + payloadLength);
+                return new NetlinkMessage(nlmsghdr);
+            }
+        }
+    }
+
+    @Nullable
+    private static NetlinkMessage parseRtMessage(@NonNull StructNlMsgHdr nlmsghdr,
+            @NonNull ByteBuffer byteBuffer) {
+        switch (nlmsghdr.nlmsg_type) {
+            case NetlinkConstants.RTM_NEWNEIGH:
+            case NetlinkConstants.RTM_DELNEIGH:
+            case NetlinkConstants.RTM_GETNEIGH:
+                return (NetlinkMessage) RtNetlinkNeighborMessage.parse(nlmsghdr, byteBuffer);
+            case NetlinkConstants.RTM_NEWNDUSEROPT:
+                return (NetlinkMessage) NduseroptMessage.parse(nlmsghdr, byteBuffer);
+            default: return null;
+        }
+    }
+
+    @Nullable
+    private static NetlinkMessage parseInetDiagMessage(@NonNull StructNlMsgHdr nlmsghdr,
+            @NonNull ByteBuffer byteBuffer) {
+        switch (nlmsghdr.nlmsg_type) {
+            case NetlinkConstants.SOCK_DIAG_BY_FAMILY:
+                return (NetlinkMessage) InetDiagMessage.parse(nlmsghdr, byteBuffer);
+            default: return null;
+        }
+    }
+
+    @Nullable
+    private static NetlinkMessage parseNfMessage(@NonNull StructNlMsgHdr nlmsghdr,
+            @NonNull ByteBuffer byteBuffer) {
+        switch (nlmsghdr.nlmsg_type) {
+            case NetlinkConstants.NFNL_SUBSYS_CTNETLINK << 8
+                    | NetlinkConstants.IPCTNL_MSG_CT_NEW:
+            case NetlinkConstants.NFNL_SUBSYS_CTNETLINK << 8
+                    | NetlinkConstants.IPCTNL_MSG_CT_DELETE:
+                return (NetlinkMessage) ConntrackMessage.parse(nlmsghdr, byteBuffer);
+            default: return null;
+        }
     }
 }

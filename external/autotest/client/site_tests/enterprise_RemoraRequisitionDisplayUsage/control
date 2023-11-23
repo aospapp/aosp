@@ -9,7 +9,7 @@ TEST_CATEGORY = "Enterprise"
 TEST_CLASS = "enterprise"
 TEST_TYPE = "client"
 DEPENDENCIES='mimo'
-ATTRIBUTES="suite:hotrod"
+ATTRIBUTES="suite:hotrod-remora"
 
 DOC = """
 This test verifies that the Chrome enrollment window is shown on the correct

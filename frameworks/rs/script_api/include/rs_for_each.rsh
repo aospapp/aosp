@@ -40,7 +40,7 @@
  */
 typedef enum rs_for_each_strategy {
     RS_FOR_EACH_STRATEGY_SERIAL = 0, // Prefer contiguous memory regions.
-    RS_FOR_EACH_STRATEGY_DONT_CARE = 1, // No prefrences.
+    RS_FOR_EACH_STRATEGY_DONT_CARE = 1, // No preferences.
     RS_FOR_EACH_STRATEGY_DST_LINEAR = 2, // Prefer DST.
     RS_FOR_EACH_STRATEGY_TILE_SMALL = 3, // Prefer processing small rectangular regions.
     RS_FOR_EACH_STRATEGY_TILE_MEDIUM = 4, // Prefer processing medium rectangular regions.

@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"မီဒီယာ"</string>
     <string name="search_hint" msgid="5401750426238148416">"အရာများစွာ ရှာပါ..."</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"ယခု ဖွင့်နေသည်"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"တစ်ခုခု မှားနေသည်။ နောက်မှ စမ်းကြည့်ပါ။"</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"၎င်းကို ယခု မပြုလုပ်နိုင်ပါ"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"ဤအက်ပ်က ၎င်းကို မပြုလုပ်နိုင်ပါ"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"ဤအက်ပ်အသုံးပြုရန် လက်မှတ်ထိုးဝင်ပါ"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"ပရီမီယံ အသုံးပြုခွင့် လိုအပ်သည်"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"စက်ပစ္စည်းအများအပြားတွင် နားထောင်နေသည်"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"ထိုအကြောင်းအရာကို ပိတ်ထားသည်"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"ထိုအကြောင်းအရာကို ဤနေရာတွင် မရရှိနိုင်ပါ"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"ထိုအကြောင်းအရာကို ဖွင့်နေပြီဖြစ်သည်"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"နောက်ထပ်သီချင်းပုဒ်များ ကျော်၍မရတော့ပါ"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"အပြီးသတ်၍ မရပါ။ ထပ်စမ်းကြည့်ပါ။"</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"အခြားစီထားသည်များ မရှိပါ"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"မီဒီယာသို့ ချိတ်ဆက်ခြင်း"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"အသံဆက်တင်များ"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"အက်ပ်များပြောင်းခြင်း"</string>

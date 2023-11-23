@@ -20,9 +20,12 @@ import static android.provider.Settings.RESET_MODE_PACKAGE_DEFAULTS;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assume.assumeTrue;
 import static org.junit.Assert.fail;
 
+import android.content.Context;
 import android.os.SystemClock;
+import android.os.UserHandle;
 import android.provider.DeviceConfig;
 import android.provider.DeviceConfig.OnPropertiesChangedListener;
 import android.provider.DeviceConfig.Properties;
@@ -32,6 +35,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -70,7 +74,9 @@ public final class DeviceConfigApiTests {
     private static final float VALID_FLOAT = 456.789f;
     private static final String INVALID_FLOAT = "34343et";
 
-    private static final Executor EXECUTOR = InstrumentationRegistry.getContext().getMainExecutor();
+    private static final Context CONTEXT = InstrumentationRegistry.getContext();
+
+    private static final Executor EXECUTOR = CONTEXT.getMainExecutor();
 
 
     private static final long WAIT_FOR_PROPERTY_CHANGE_TIMEOUT_MILLIS = 2000; // 2 sec
@@ -83,13 +89,30 @@ public final class DeviceConfigApiTests {
     private static final String READ_DEVICE_CONFIG_PERMISSION =
             "android.permission.READ_DEVICE_CONFIG";
 
+    // String used to skip tests if not support.
+    // TODO: ideally it would be simpler to just use assumeTrue() in the @BeforeClass method, but
+    // then the test would crash - it might be an issue on atest / AndroidJUnit4
+    private static String sUnsupportedReason;
+
     /**
      * Get necessary permissions to access and modify properties through DeviceConfig API.
      */
     @BeforeClass
     public static void setUp() throws Exception {
+        if (CONTEXT.getUserId() != UserHandle.USER_SYSTEM
+                && CONTEXT.getPackageManager().isInstantApp()) {
+            sUnsupportedReason = "cannot run test as instant app on secondary user "
+                    + CONTEXT.getUserId();
+            return;
+        }
+
         InstrumentationRegistry.getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
                 WRITE_DEVICE_CONFIG_PERMISSION, READ_DEVICE_CONFIG_PERMISSION);
+    }
+
+    @Before
+    public void assumeSupported() {
+        assumeTrue(sUnsupportedReason, isSupported());
     }
 
     /**
@@ -97,6 +120,8 @@ public final class DeviceConfigApiTests {
      */
     @After
     public void cleanUp() throws Exception {
+        if (!isSupported()) return;
+
         // first wait to make sure callbacks for SetProperties/SetProperty
         // invoked in the test methods got emitted. So that the callbacks
         // won't interfere with setPropertiesAndAssertSuccessfulChange invoked
@@ -114,6 +139,8 @@ public final class DeviceConfigApiTests {
      */
     @AfterClass
     public static void cleanUpAfterAllTests() {
+        if (!isSupported()) return;
+
         deletePropertyThrowShell(NAMESPACE1, KEY1);
         deletePropertyThrowShell(NAMESPACE2, KEY1);
         deletePropertyThrowShell(NAMESPACE1, KEY2);
@@ -1064,6 +1091,10 @@ public final class DeviceConfigApiTests {
     private static void deletePropertyThrowShell(String namespace, String key) {
         InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
                 "device_config delete " + namespace + " " + key);
+    }
+
+    private static boolean isSupported() {
+        return sUnsupportedReason == null;
     }
 
     private static class PropertyUpdate {

@@ -4,6 +4,1088 @@ Change Log & Release Notes
 This document contains a summary of the new features, changes, fixes and known
 issues in each release of Trusted Firmware-A.
 
+Version 2.4
+-----------
+
+New Features
+^^^^^^^^^^^^
+
+- Architecture support
+    - Armv8.6-A
+        - Added support for Armv8.6 Enhanced Counter Virtualization (ECV)
+        - Added support for Armv8.6 Fine Grained Traps (FGT)
+        - Added support for Armv8.6 WFE trap delays
+
+- Bootloader images
+    - Added support for Measured Boot
+
+- Build System
+    - Added build option ``COT_DESC_IN_DTB`` to create Chain of Trust at runtime
+    - Added build option ``OPENSSL_DIR`` to direct tools to OpenSSL libraries
+    - Added build option ``RAS_TRAP_LOWER_EL_ERR_ACCESS`` to enable trapping RAS
+      register accesses from EL1/EL2 to EL3
+    - Extended build option ``BRANCH_PROTECTION`` to support branch target
+      identification
+
+- Common components
+    - Added support for exporting CPU nodes to the device tree
+    - Added support for single and dual-root Chains of Trust in secure
+      partitions
+
+- Drivers
+    - Added Broadcom RNG driver
+    - Added Marvell ``mg_conf_cm3`` driver
+    - Added System Control and Management Interface (SCMI) driver
+    - Added STMicroelectronics ETZPC driver
+
+    - Arm GICv3
+        - Added support for detecting topology at runtime
+
+    - Dual Root
+        - Added support for platform certificates
+
+    - Marvell Cache LLC
+        - Added support for mapping the entire LLC into SRAM
+
+    - Marvell CCU
+        - Added workaround for erratum 3033912
+
+    - Marvell CP110 COMPHY
+        - Added support for SATA COMPHY polarity inversion
+        - Added support for USB COMPHY polarity inversion
+        - Added workaround for erratum IPCE_COMPHY-1353
+
+    - STM32MP1 Clocks
+        - Added ``RTC`` as a gateable clock
+        - Added support for shifted clock selector bit masks
+        - Added support for using additional clocks as parents
+
+- Libraries
+    - C standard library
+        - Added support for hexadecimal and pointer format specifiers in
+          ``snprint()``
+        - Added assembly alternatives for various library functions
+
+    - CPU support
+        - Arm Cortex-A53
+            - Added workaround for erratum 1530924
+
+        - Arm Cortex-A55
+            - Added workaround for erratum 1530923
+
+        - Arm Cortex-A57
+            - Added workaround for erratum 1319537
+
+        - Arm Cortex-A76
+            - Added workaround for erratum 1165522
+            - Added workaround for erratum 1791580
+            - Added workaround for erratum 1868343
+
+        - Arm Cortex-A72
+            - Added workaround for erratum 1319367
+
+        - Arm Cortex-A77
+            - Added workaround for erratum 1508412
+            - Added workaround for erratum 1800714
+            - Added workaround for erratum 1925769
+
+        - Arm Neoverse N1
+            - Added workaround for erratum 1868343
+
+    - EL3 Runtime
+        - Added support for saving/restoring registers related to nested
+          virtualization in EL2 context switches if the architecture supports it
+
+    - FCONF
+        - Added support for Measured Boot
+        - Added support for populating Chain of Trust properties
+        - Added support for loading the ``fw_config`` image
+
+    - Measured Boot
+        - Added support for event logging
+
+- Platforms
+    - Added support for Arm Morello
+    - Added support for Arm TC0
+    - Added support for iEi PUZZLE-M801
+    - Added support for Marvell OCTEON TX2 T9130
+    - Added support for MediaTek MT8192
+    - Added support for NXP i.MX 8M Nano
+    - Added support for NXP i.MX 8M Plus
+    - Added support for QTI CHIP SC7180
+    - Added support for STM32MP151F
+    - Added support for STM32MP153F
+    - Added support for STM32MP157F
+    - Added support for STM32MP151D
+    - Added support for STM32MP153D
+    - Added support for STM32MP157D
+
+    - Arm
+        - Added support for platform-owned SPs
+        - Added support for resetting to BL31
+
+    - Arm FPGA
+        - Added support for Klein
+        - Added support for Matterhorn
+        - Added support for additional CPU clusters
+
+    - Arm FVP
+        - Added support for performing SDEI platform setup at runtime
+        - Added support for SMCCC's ``SMCCC_ARCH_SOC_ID`` command
+        - Added an ``id`` field under the NV-counter node in the device tree to
+          differentiate between trusted and non-trusted NV-counters
+        - Added support for extracting the clock frequency from the timer node
+          in the device tree
+
+    - Arm Juno
+        - Added support for SMCCC's ``SMCCC_ARCH_SOC_ID`` command
+
+    - Arm N1SDP
+        - Added support for cross-chip PCI-e
+
+    - Marvell
+        - Added support for AVS reduction
+
+    - Marvell ARMADA
+        - Added support for twin-die combined memory device
+
+    - Marvell ARMADA A8K
+        - Added support for DDR with 32-bit bus width (both ECC and non-ECC)
+
+    - Marvell AP806
+        - Added workaround for erratum FE-4265711
+
+    - Marvell AP807
+        - Added workaround for erratum 3033912
+
+    - Nvidia Tegra
+        - Added debug printouts indicating SC7 entry sequence completion
+        - Added support for SDEI
+        - Added support for stack protection
+        - Added support for GICv3
+        - Added support for SMCCC's ``SMCCC_ARCH_SOC_ID`` command
+
+    - Nvidia Tegra194
+        - Added support for RAS exception handling
+        - Added support for SPM
+
+    - NXP i.MX
+        - Added support for SDEI
+
+    - QEMU SBSA
+        - Added support for the Secure Partition Manager
+
+    - QTI
+        - Added RNG driver
+        - Added SPMI PMIC arbitrator driver
+        - Added support for SMCCC's ``SMCCC_ARCH_SOC_ID`` command
+
+    - STM32MP1
+        - Added support for exposing peripheral interfaces to the non-secure
+          world at runtime
+        - Added support for SCMI clock and reset services
+        - Added support for STM32MP15x CPU revision Z
+        - Added support for SMCCC services in ``SP_MIN``
+
+- Services
+    - Secure Payload Dispatcher
+        - Added a provision to allow clients to retrieve the service UUID
+
+    - SPMC
+        - Added secondary core endpoint information to the SPMC context
+          structure
+
+    - SPMD
+        - Added support for booting OP-TEE as a guest S-EL1 Secure Partition on
+          top of Hafnium in S-EL2
+        - Added a provision for handling SPMC messages to register secondary
+          core entry points
+        - Added support for power management operations
+
+- Tools
+    - CertCreate
+        - Added support for secure partitions
+
+    - CertTool
+        - Added support for the ``fw_config`` image
+
+    - FIPTool
+        - Added support for the ``fw_config`` image
+
+Changed
+^^^^^^^
+
+- Architecture support
+
+- Bootloader images
+
+- Build System
+    - The top-level Makefile now supports building FipTool on Windows
+    - The default value of ``KEY_SIZE`` has been changed to to 2048 when RSA is
+      in use
+    - The previously-deprecated macro ``__ASSEMBLY__`` has now been removed
+
+- Common components
+    - Certain functions that flush the console will no longer return error
+      information
+
+- Drivers
+    - Arm GIC
+        - Usage of ``drivers/arm/gic/common/gic_common.c`` has now been
+          deprecated in favour of ``drivers/arm/gic/vX/gicvX.mk``
+        - Added support for detecting the presence of a GIC600-AE
+        - Added support for detecting the presence of a GIC-Clayton
+
+    - Marvell MCI
+        - Now performs link tuning for all MCI interfaces to improve performance
+
+    - Marvell MoChi
+        - PIDI masters are no longer forced into a non-secure access level when
+          ``LLC_SRAM`` is enabled
+        - The SD/MMC controllers are now accessible from guest virtual machines
+
+    - Mbed TLS
+        - Migrated to Mbed TLS v2.24.0
+
+    - STM32 FMC2 NAND
+        - Adjusted FMC node bindings to include an EBI controller node
+
+    - STM32 Reset
+        - Added an optional timeout argument to assertion functions
+
+    - STM32MP1 Clocks
+        - Enabled several additional system clocks during initialization
+
+- Libraries
+    - C Standard Library
+        - Improved ``memset`` performance by avoiding single-byte writes
+        - Added optimized assembly variants of ``memset``
+
+    - CPU support
+        - Renamed Cortex-Hercules to Cortex-A78
+        - Renamed Cortex-Hercules AE to Cortex-A78 AE
+        - Renamed Neoverse Zeus to Neoverse V1
+
+    - Coreboot
+        - Updated ‘coreboot_get_memory_type’ API to take an extra argument as a
+          ’memory size’ that used to return a valid memory type.
+
+    - libfdt
+        - Updated to latest upstream version
+
+- Platforms
+    - Allwinner
+        - Disabled non-secure access to PRCM power control registers
+
+    - Arm
+        - ``BL32_BASE`` is now platform-dependent when ``SPD_spmd`` is enabled
+        - Added support for loading the Chain of Trust from the device tree
+        - The firmware update check is now executed only once
+        - NV-counter base addresses are now loaded from the device tree when
+          ``COT_DESC_IN_DTB`` is enabled
+        - Now loads and populates ``fw_config`` and ``tb_fw_config``
+        - FCONF population now occurs after caches have been enabled in order
+          to reduce boot times
+
+    - Arm Corstone-700
+        - Platform support has been split into both an FVP and an FPGA variant
+
+    - Arm FPGA
+        - DTB and BL33 load addresses have been given sensible default values
+        - Now reads generic timer counter frequency, GICD and GICR base
+          addresses, and UART address from DT
+        - Now treats the primary PL011 UART as an SBSA Generic UART
+
+    - Arm FVP
+        - Secure interrupt descriptions, UART parameters, clock frequencies and
+          GICv3 parameters are now queried through FCONF
+        - UART parameters are now queried through the device tree
+        - Added an owner field to Cactus secure partitions
+        - Increased the maximum size of BL2 when the Chain of Trust is loaded
+          from the device tree
+        - Reduces the maximum size of BL31
+        - The ``FVP_USE_SP804_TIMER`` and ``FVP_VE_USE_SP804_TIMER`` build
+          options have been removed in favour of a common ``USE_SP804_TIMER``
+          option
+        - Added a third Cactus partition to manifests
+        - Device tree nodes now store UUIDs in big-endian
+
+    - Arm Juno
+        - Increased the maximum size of BL2 when optimizations have not been
+          applied
+        - Reduced the maximum size of BL31 and BL32
+
+    - Marvell AP807
+        - Enabled snoop filters
+
+    - Marvell ARMADA A3K
+        - UART recovery images are now suffixed with ``.bin``
+
+    - Marvell ARMADA A8K
+        - Option ``BL31_CACHE_DISABLE`` is now disabled (``0``) by default
+
+    - Nvidia Tegra
+        - Added VPR resize supported check when processing video memory resize
+          requests
+        - Added SMMU verification to prevent potential issues caused by
+          undetected corruption of the SMMU configuration during boot
+        - The GIC CPU interface is now properly disabled after CPU off
+        - The GICv2 sources list and the ``BL31_SIZE`` definition have been made
+          platform-specific
+        - The SPE driver will no longer flush the console when writing
+          individual characters
+
+    - Nvidia Tegra194
+        - TZDRAM setup has been moved to platform-specific early boot handlers
+        - Increased verbosity of debug prints for RAS SErrors
+        - Support for powering down CPUs during CPU suspend has been removed
+        - Now verifies firewall settings before using resources
+
+    - TI K3
+        - The UART number has been made configurable through ``K3_USART``
+
+    - Rockchip RK3368
+        - The maximum number of memory map regions has been increased to 20
+
+    - Socionext Uniphier
+        - The maximum size of BL33 has been increased to support larger
+          bootloaders
+
+    - STM32
+        - Removed platform-specific DT functions in favour of using existing
+          generic alternatives
+
+    - STM32MP1
+        - Increased verbosity of exception reports in debug builds
+        - Device trees have been updated to align with the Linux kernel
+        - Now uses the ETZPC driver to configure secure-aware interfaces for
+          assignment to the non-secure world
+        - Finished good variants have been added to the board identifier
+          enumerations
+        - Non-secure access to clocks and reset domains now depends on their
+          state of registration
+        - NEON is now disabled in ``SP_MIN``
+        - The last page of ``SYSRAM`` is now used as SCMI shared memory
+        - Checks to verify platform compatibility have been added to verify that
+          an image is compatible with the chip ID of the running platform
+
+    - QEMU SBSA
+        - Removed support for Arm's Cortex-A53
+
+- Services
+    - Renamed SPCI to FF-A
+
+    - SPMD
+        - No longer forwards requests to the non-secure world when retrieving
+          partition information
+        - SPMC manifest size is now retrieved directly from SPMD instead of the
+          device tree
+        - The FF-A version handler now returns SPMD's version when the origin
+          of the call is secure, and SPMC's version when the origin of the call
+          is non-secure
+
+    - SPMC
+        - Updated the manifest to declare CPU nodes in descending order as per
+          the SPM (Hafnium) multicore requirement
+        - Updated the device tree to mark 2GB as device memory for the first
+          partition excluding trusted DRAM region (which is reserved for SPMC)
+        - Increased the number of EC contexts to the maximum number of PEs as
+          per the FF-A specification
+
+- Tools
+    - FIPTool
+        - Now returns ``0`` on ``help`` and ``help <command>``
+
+    - Marvell DoImage
+        - Updated Mbed TLS support to v2.8
+
+    - SPTool
+        - Now appends CertTool arguments
+
+Resolved Issues
+^^^^^^^^^^^^^^^
+
+- Bootloader images
+    - Fixed compilation errors for dual-root Chains of Trust caused by symbol
+      collision
+
+    - BL31
+        - Fixed compilation errors on platforms with fewer than 4 cores caused
+          by initialization code exceeding the end of the stacks
+        - Fixed compilation errors when building a position-independent image
+
+- Build System
+    - Fixed invalid empty version strings
+    - Fixed compilation errors on Windows caused by a non-portable architecture
+      revision comparison
+
+- Drivers
+    - Arm GIC
+        - Fixed spurious interrupts caused by a missing barrier
+
+    - STM32 Flexible Memory Controller 2 (FMC2) NAND driver
+        - Fixed runtime instability caused by incorrect error detection logic
+
+    - STM32MP1 Clock driver
+        - Fixed incorrectly-formatted log messages
+        - Fixed runtime instability caused by improper clock gating procedures
+
+    - STMicroelectronics Raw NAND driver
+        - Fixed runtime instability caused by incorrect unit conversion when
+          waiting for NAND readiness
+
+- Libraries
+    - AMU
+        - Fixed timeout errors caused by excess error logging
+
+    - EL3 Runtime
+        - Fixed runtime instability caused by improper register save/restore
+          routine in EL2
+
+    - FCONF
+        - Fixed failure to initialize GICv3 caused by overly-strict device tree
+          requirements
+
+    - Measured Boot
+        - Fixed driver errors caused by a missing default value for the
+          ``HASH_ALG`` build option
+
+    - SPE
+        - Fixed feature detection check that prevented CPUs supporting SVE from
+          detecting support for SPE in the non-secure world
+
+    - Translation Tables
+        - Fixed various MISRA-C 2012 static analysis violations
+
+- Platforms
+    - Allwinner A64
+        - Fixed USB issues on certain battery-powered device caused by
+          improperly activated USB power rail
+
+    - Arm
+        - Fixed compilation errors caused by increase in BL2 size
+        - Fixed compilation errors caused by missing Makefile dependencies to
+          generated files when building the FIP
+        - Fixed MISRA-C 2012 static analysis violations caused by unused
+          structures in include directives intended to be feature-gated
+
+    - Arm FPGA
+        - Fixed initialization issues caused by incorrect MPIDR topology mapping
+          logic
+
+    - Arm RD-N1-edge
+        - Fixed compilation errors caused by mismatched parentheses in Makefile
+
+    - Arm SGI
+        - Fixed crashes due to the flash memory used for cold reboot attack
+          protection not being mapped
+
+    - Intel Agilex
+        - Fixed initialization issues caused by several compounding bugs
+
+    - Marvell
+        - Fixed compilation warnings caused by multiple Makefile inclusions
+
+    - Marvell ARMADA A3K
+        - Fixed boot issue in debug builds caused by checks on the BL33 load
+          address that are not appropriate for this platform
+
+    - Nvidia Tegra
+        - Fixed incorrect delay timer reads
+        - Fixed spurious interrupts in the non-secure world during cold boot
+          caused by the arbitration bit in the memory controller not being
+          cleared
+        - Fixed faulty video memory resize sequence
+
+    - Nvidia Tegra194
+        - Fixed incorrect alignment of TZDRAM base address
+
+    - NXP iMX8M
+        - Fixed CPU hot-plug issues caused by race condition
+
+    - STM32MP1
+        - Fixed compilation errors in highly-parallel builds caused by incorrect
+          Makefile dependencies
+
+    - STM32MP157C-ED1
+        - Fixed initialization issues caused by missing device tree hash node
+
+    - Raspberry Pi 3
+        - Fixed compilation errors caused by incorrect dependency ordering in
+          Makefile
+
+    - Rockchip
+        - Fixed initialization issues caused by non-critical errors when parsing
+          FDT being treated as critical
+
+    - Rockchip RK3368
+        - Fixed runtime instability caused by incorrect CPUID shift value
+
+    - QEMU
+        - Fixed compilation errors caused by incorrect dependency ordering in
+          Makefile
+
+    - QEMU SBSA
+        - Fixed initialization issues caused by FDT exceeding reserved memory
+          size
+
+    - QTI
+        - Fixed compilation errors caused by inclusion of a non-existent file
+
+- Services
+    - FF-A (previously SPCI)
+        - Fixed SPMD aborts caused by incorrect behaviour when the manifest is
+          page-aligned
+
+- Tools
+    - Fixed compilation issues when compiling tools from within their respective
+      directories
+
+    - FIPTool
+        - Fixed command line parsing issues on Windows when using arguments
+          whose names also happen to be a subset of another's
+
+    - Marvell DoImage
+        - Fixed PKCS signature verification errors at boot on some platforms
+          caused by generation of misaligned images
+
+Known Issues
+^^^^^^^^^^^^
+
+- Platforms
+    - NVIDIA Tegra
+        - Signed comparison compiler warnings occurring in libfdt are currently
+          being worked around by disabling the warning for the platform until
+          the underlying issue is resolved in libfdt
+
+Version 2.3
+-----------
+
+New Features
+^^^^^^^^^^^^
+
+- Arm Architecture
+   - Add support for Armv8.4-SecEL2 extension through the SPCI defined SPMD/SPMC
+     components.
+
+   - Build option to support EL2 context save and restore in the secure world
+     (CTX_INCLUDE_EL2_REGS).
+
+   - Add support for SMCCC v1.2 (introducing the new SMCCC_ARCH_SOC_ID SMC).
+     Note that the support is compliant, but the SVE registers save/restore will
+     be done as part of future S-EL2/SPM development.
+
+- BL-specific
+   - Enhanced BL2 bootloader flow to load secure partitions based on firmware
+     configuration data (fconf).
+
+   - Changes necessary to support SEPARATE_NOBITS_REGION feature
+
+   - TSP and BL2_AT_EL3: Add Position Independent Execution ``PIE`` support
+
+- Build System
+   - Add support for documentation build as a target in Makefile
+
+   - Add ``COT`` build option to select the Chain of Trust to use when the
+     Trusted Boot feature is enabled (default: ``tbbr``).
+
+   - Added creation and injection of secure partition packages into the FIP.
+
+   - Build option to support SPMC component loading and run at S-EL1
+     or S-EL2 (SPMD_SPM_AT_SEL2).
+
+   - Enable MTE support
+
+   - Enable Link Time Optimization in GCC
+
+   - Enable -Wredundant-decls warning check
+
+   - Makefile: Add support to optionally encrypt BL31 and BL32
+
+   - Add support to pass the nt_fw_config DTB to OP-TEE.
+
+   - Introduce per-BL ``CPPFLAGS``, ``ASFLAGS``, and ``LDFLAGS``
+
+   - build_macros: Add CREATE_SEQ function to generate sequence of numbers
+
+- CPU Support
+   - cortex-a57: Enable higher performance non-cacheable load forwarding
+
+   - Hercules: Workaround for Errata 1688305
+
+   - Klein: Support added for Klein CPU
+
+   - Matterhorn: Support added for Matterhorn CPU
+
+- Drivers
+   - auth: Add ``calc_hash`` function for hash calculation. Used for
+     authentication of images when measured boot is enabled.
+
+   - cryptocell: Add authenticated decryption framework, and support
+     for CryptoCell-713 and CryptoCell-712 RSA 3K
+
+   - gic600: Add support for multichip configuration and Clayton
+   - gicv3: Introduce makefile, Add extended PPI and SPI range,
+     Add support for probing multiple GIC Redistributor frames
+   - gicv4: Add GICv4 extension for GIC driver
+
+   - io: Add an IO abstraction layer to load encrypted firmwares
+
+   - mhu: Derive doorbell base address
+
+   - mtd: Add SPI-NOR, SPI-NAND, SPI-MEM, and raw NAND framework
+
+   - scmi: Allow use of multiple SCMI channels
+
+   - scu: Add a driver for snoop control unit
+
+- Libraries
+   - coreboot: Add memory range parsing and use generic base address
+
+   - compiler_rt: Import popcountdi2.c and popcountsi2.c files,
+     aeabi_ldivmode.S file and dependencies
+
+   - debugFS: Add DebugFS functionality
+
+   - el3_runtime: Add support for enabling S-EL2
+
+   - fconf: Add Firmware Configuration Framework (fconf) (experimental).
+
+   - libc: Add memrchr function
+
+   - locks: bakery: Use is_dcache_enabled() helper and add a DMB to
+     the 'read_cache_op' macro
+
+   - psci: Add support to enable different personality of the same soc.
+
+   - xlat_tables_v2: Add support to pass shareability attribute for
+     normal memory region, use get_current_el_maybe_constant() in
+     is_dcache_enabled(), read-only xlat tables for BL31 memory, and
+     add enable_mmu()
+
+- New Platforms Support
+   - arm/arm_fpga: New platform support added for FPGA
+
+   - arm/rddaniel: New platform support added for rd-daniel platform
+
+   - brcm/stingray: New platform support added for Broadcom stingray platform
+
+   - nvidia/tegra194: New platform support for Nvidia Tegra194 platform
+
+- Platforms
+   - allwinner: Implement PSCI system suspend using SCPI, add a msgbox
+     driver for use with SCPI, and reserve and map space for the SCP firmware
+   - allwinner: axp: Add AXP805 support
+   - allwinner: power: Add DLDO4 power rail
+
+   - amlogic: axg: Add a build flag when using ATOS as BL32 and support for
+     the A113D (AXG) platform
+
+   - arm/a5ds: Add ethernet node and L2 cache node in devicetree
+
+   - arm/common: Add support for the new `dualroot` chain of trust
+   - arm/common: Add support for SEPARATE_NOBITS_REGION
+   - arm/common: Re-enable PIE when RESET_TO_BL31=1
+   - arm/common: Allow boards to specify second DRAM Base address
+     and to define PLAT_ARM_TZC_FILTERS
+
+   - arm/corstone700: Add support for mhuv2 and stack protector
+
+   - arm/fvp: Add support for fconf in BL31 and SP_MIN. Populate power
+     domain descriptor dynamically by leveraging fconf APIs.
+   - arm/fvp: Add Cactus/Ivy Secure Partition information and use two
+     instances of Cactus at S-EL1
+   - arm/fvp: Add support to run BL32 in TDRAM and BL31 in secure DRAM
+   - arm/fvp: Add support for GICv4 extension and BL2 hash calculation in BL1
+
+   - arm/n1sdp: Setup multichip gic routing table, update platform macros
+     for dual-chip setup, introduce platform information SDS region, add
+     support to update presence of External LLC, and enable the
+     NEOVERSE_N1_EXTERNAL_LLC flag
+
+   - arm/rdn1edge: Add support for dual-chip configuration and use
+     CREATE_SEQ helper macro to compare chip count
+
+   - arm/sgm: Always use SCMI for SGM platforms
+   - arm/sgm775: Add support for dynamic config using fconf
+
+   - arm/sgi: Add multi-chip mode parameter in HW_CONFIG dts, macros for
+     remote chip device region, chip_id and multi_chip_mode to platform
+     variant info, and introduce number of chips macro
+
+   - brcm: Add BL2 and BL31 support common across Broadcom platforms
+   - brcm: Add iproc SPI Nor flash support, spi driver, emmc driver,
+     and support to retrieve plat_toc_flags
+
+   - hisilicon: hikey960: Enable system power off callback
+
+   - intel: Enable bridge access, SiP SMC secure register access, and uboot
+     entrypoint support
+   - intel: Implement platform specific system reset 2
+   - intel: Introduce mailbox response length handling
+
+   - imx: console: Use CONSOLE_T_BASE for UART base address and generic console_t
+     data structure
+   - imx8mm: Provide uart base as build option and add the support for opteed spd
+     on imx8mq/imx8mm
+   - imx8qx: Provide debug uart num as build
+   - imx8qm: Apply clk/pinmux configuration for DEBUG_CONSOLE and provide debug
+     uart num as build param
+
+   - marvell: a8k: Implement platform specific power off and add support
+     for loading MG CM3 images
+
+   - mediatek: mt8183: Add Vmodem/Vcore DVS init level
+
+   - qemu: Support optional encryption of BL31 and BL32 images
+     and ARM_LINUX_KERNEL_AS_BL33 to pass FDT address
+   - qemu: Define ARMV7_SUPPORTS_VFP
+   - qemu: Implement PSCI_CPU_OFF and qemu_system_off via semihosting
+
+   - renesas: rcar_gen3: Add new board revision for M3ULCB
+
+   - rockchip: Enable workaround for erratum 855873, claim a macro to enable
+     hdcp feature for DP, enable power domains of rk3399 before reset, add
+     support for UART3 as serial output, and initialize reset and poweroff
+     GPIOs with known invalid value
+
+   - rpi: Implement PSCI CPU_OFF, use MMIO accessor, autodetect Mini-UART
+     vs. PL011 configuration, and allow using PL011 UART for RPi3/RPi4
+   - rpi3: Include GPIO driver in all BL stages and use same "clock-less"
+     setup scheme as RPi4
+   - rpi3/4: Add support for offlining CPUs
+
+   - st: stm32mp1: platform.mk: Support generating multiple images in one build,
+     migrate to implicit rules, derive map file name from target name, generate
+     linker script with fixed name, and use PHONY for the appropriate targets
+   - st: stm32mp1: Add support for SPI-NOR, raw NAND, and SPI-NAND boot device,
+     QSPI, FMC2 driver
+   - st: stm32mp1: Use stm32mp_get_ddr_ns_size() function, set XN attribute for
+     some areas in BL2, dynamically map DDR later and non-cacheable during its
+     test, add a function to get non-secure DDR size, add DT helper for reg by
+     name, and add compilation flags for boot devices
+
+   - socionext: uniphier: Turn on ENABLE_PIE
+
+   - ti: k3: Add PIE support
+
+   - xilinx: versal: Add set wakeup source, client wakeup, query data, request
+     wakeup, PM_INIT_FINALIZE, PM_GET_TRUSTZONE_VERSION, PM IOCTL, support for
+     suspend related, and Get_ChipID APIs
+   - xilinx: versal: Implement power down/restart related EEMI, SMC handler for
+     EEMI, PLL related PM, clock related PM, pin control related PM, reset related
+     PM, device related PM , APIs
+   - xilinx: versal: Enable ipi mailbox service
+   - xilinx: versal: Add get_api_version support and support to send PM API to PMC
+     using IPI
+   - xilinx: zynqmp: Add checksum support for IPI data, GET_CALLBACK_DATA
+     function, support to query max divisor, CLK_SET_RATE_PARENT in gem clock
+     node, support for custom type flags, LPD WDT clock to the pm_clock structure,
+     idcodes for new RFSoC silicons ZU48DR and ZU49DR, and id for new RFSoC device
+     ZU39DR
+
+- Security
+   - Use Speculation Barrier instruction for v8.5+ cores
+
+   - Add support for optional firmware encryption feature (experimental).
+
+   - Introduce a new `dualroot` chain of trust.
+
+   - aarch64: Prevent speculative execution past ERET
+   - aarch32: Stop speculative execution past exception returns.
+
+- SPCI
+   - Introduced the Secure Partition Manager Dispatcher (SPMD) component as a
+     new standard service.
+
+- Tools
+   - cert_create: Introduce CoT build option and TBBR CoT makefile,
+     and define the dualroot CoT
+
+   - encrypt_fw: Add firmware authenticated encryption tool
+
+   - memory: Add show_memory script that prints a representation
+     of the memory layout for the latest build
+
+Changed
+^^^^^^^
+
+- Arm Architecture
+   - PIE: Make call to GDT relocation fixup generalized
+
+- BL-Specific
+   - Increase maximum size of BL2 image
+
+   - BL31: Discard .dynsym .dynstr .hash sections to make ENABLE_PIE work
+   - BL31: Split into two separate memory regions
+
+   - Unify BL linker scripts and reduce code duplication.
+
+- Build System
+   - Changes to drive cert_create for dualroot CoT
+
+   - Enable -Wlogical-op always
+
+   - Enable -Wshadow always
+
+   - Refactor the warning flags
+
+   - PIE: Pass PIE options only to BL31
+
+   - Reduce space lost to object alignment
+
+   - Set lld as the default linker for Clang builds
+
+   - Remove -Wunused-const-variable and -Wpadded warning
+
+   - Remove -Wmissing-declarations warning from WARNING1 level
+
+- Drivers
+   - authentication: Necessary fix in drivers to upgrade to mbedtls-2.18.0
+
+   - console: Integrate UART base address in generic console_t
+
+   - gicv3: Change API for GICR_IPRIORITYR accessors and separate
+     GICD and GICR accessor functions
+
+   - io: Change seek offset to signed long long and panic in case
+     of io setup failure
+
+   - smmu: SMMUv3: Changed retry loop to delay timer
+
+   - tbbr: Reduce size of hash and ECDSA key buffers when possible
+
+- Library Code
+   - libc: Consolidate the size_t, unified, and NULL definitions,
+     and unify intmax_t and uintmax_t on AArch32/64
+
+   - ROMLIB: Optimize memory layout when ROMLIB is used
+
+   - xlat_tables_v2: Use ARRAY_SIZE in REGISTER_XLAT_CONTEXT_FULL_SPEC,
+     merge REGISTER_XLAT_CONTEXT_{FULL_SPEC,RO_BASE_TABLE},
+     and simplify end address checks in mmap_add_region_check()
+
+- Platforms
+   - allwinner: Adjust SRAM A2 base to include the ARISC vectors, clean up MMU
+     setup, reenable USE_COHERENT_MEM, remove unused include path, move the
+     NOBITS region to SRAM A1, convert AXP803 regulator setup code into a driver,
+     enable clock before resetting I2C/RSB
+   - allwinner: h6: power: Switch to using the AXP driver
+   - allwinner: a64: power: Use fdt_for_each_subnode, remove obsolete register
+     check, remove duplicate DT check, and make sunxi_turn_off_soc static
+   - allwinner: Build PMIC bus drivers only in BL31, clean up PMIC-related error
+     handling, and synchronize PMIC enumerations
+
+   - arm/a5ds: Change boot address to point to DDR address
+
+   - arm/common: Check for out-of-bound accesses in the platform io policies
+
+   - arm/corstone700: Updating the kernel arguments to support initramfs,
+     use fdts DDR memory and XIP rootfs, and set UART clocks to 32MHz
+
+   - arm/fvp: Modify multithreaded dts file of DynamIQ FVPs, slightly bump
+     the stack size for bl1 and bl2, remove re-definition of topology related
+     build options, stop reclaiming init code with Clang builds, and map only
+     the needed DRAM region statically in BL31/SP_MIN
+
+   - arm/juno: Maximize space allocated to SCP_BL2
+
+   - arm/sgi: Bump bl1 RW limit, mark remote chip shared ram as non-cacheable,
+     move GIC related constants to board files, include AFF3 affinity in core
+     position calculation, move bl31_platform_setup to board file, and move
+     topology information to board folder
+
+   - common: Refactor load_auth_image_internal().
+
+   - hisilicon: Remove uefi-tools in hikey and hikey960 documentation
+
+   - intel: Modify non secure access function, BL31 address mapping, mailbox's
+     get_config_status, and stratix10 BL31 parameter handling
+   - intel: Remove un-needed checks for qspi driver r/w and s10 unused source code
+   - intel: Change all global sip function to static
+   - intel: Refactor common platform code
+   - intel: Create SiP service header file
+
+
+   - marvell: armada: scp_bl2: Allow loading up to 8 images
+   - marvell: comphy-a3700: Support SGMII COMPHY power off and fix USB3
+     powering on when on lane 2
+   - marvell: Consolidate console register calls
+
+   - mediatek: mt8183: Protect 4GB~8GB dram memory, refine GIC driver for
+     low power scenarios, and switch PLL/CLKSQ/ck_off/axi_26m control to SPM
+
+   - qemu: Update flash address map to keep FIP in secure FLASH0
+
+   - renesas: rcar_gen3: Update IPL and Secure Monitor Rev.2.0.6, update DDR
+     setting for H3, M3, M3N, change fixed destination address of BL31 and BL32,
+     add missing #{address,size}-cells into generated DT, pass DT to OpTee OS,
+     and move DDR drivers out of staging
+
+   - rockchip: Make miniloader ddr_parameter handling optional, cleanup securing
+     of ddr regions, move secure init to separate file, use base+size for secure
+     ddr regions, bring TZRAM_SIZE values in lined, and prevent macro expansion
+     in paths
+
+   - rpi: Move plat_helpers.S to common
+   - rpi3: gpio: Simplify GPIO setup
+   - rpi4: Skip UART initialisation
+
+   - st: stm32m1: Use generic console_t data structure, remove second
+     QSPI flash instance, update for FMC2 pin muxing, and reduce MAX_XLAT_TABLES
+     to 4
+
+   - socionext: uniphier: Make on-chip SRAM and I/O register regions configurable
+   - socionext: uniphier: Make PSCI related, counter control, UART, pinmon, NAND
+     controller, and eMMC controller base addresses configurable
+   - socionext: uniphier: Change block_addressing flag and the return value type
+     of .is_usb_boot() to bool
+   - socionext: uniphier: Run BL33 at EL2, call uniphier_scp_is_running() only
+     when on-chip STM is supported, define PLAT_XLAT_TABLES_DYNAMIC only for BL2,
+     support read-only xlat tables, use enable_mmu() in common function, shrink
+     UNIPHIER_ROM_REGION_SIZE, prepare uniphier_soc_info() for next SoC, extend
+     boot device detection for future SoCs, make all BL images completely
+     position-independent, make uniphier_mmap_setup() work with PIE, pass SCP
+     base address as a function parameter, set buffer offset and length for
+     io_block dynamically, and use more mmap_add_dynamic_region() for loading
+     images
+
+   - spd/trusty: Disable error messages seen during boot, allow gic base to be
+     specified with GICD_BASE, and allow getting trusty memsize from BL32_MEM_SIZE
+     instead of TSP_SEC_MEM_SIZE
+
+   - ti: k3: common: Enable ARM cluster power down and rename device IDs to
+     be more consistent
+   - ti: k3: drivers: ti_sci: Put sequence number in coherent memory and
+     remove indirect structure of const data
+
+   - xilinx: Move ipi mailbox svc to xilinx common
+   - xilinx: zynqmp: Use GIC framework for warm restart
+   - xilinx: zynqmp: pm: Move custom clock flags to typeflags, remove
+     CLK_TOPSW_LSBUS from invalid clock list and rename FPD WDT clock ID
+   - xilinx: versal: Increase OCM memory size for DEBUG builds and adjust
+     cpu clock, Move versal_def.h and versal_private to include directory
+
+- Tools
+   - sptool: Updated sptool to accommodate building secure partition packages.
+
+Resolved Issues
+^^^^^^^^^^^^^^^
+
+- Arm Architecture
+   - Fix crash dump for lower EL
+
+- BL-Specific
+   - Bug fix: Protect TSP prints with lock
+
+   - Fix boot failures on some builds linked with ld.lld.
+
+- Build System
+   - Fix clang build if CC is not in the path.
+
+   - Fix 'BL stage' comment for build macros
+
+- Code Quality
+   - coverity: Fix various MISRA violations including null pointer violations,
+     C issues in BL1/BL2/BL31 and FDT helper functions, using boolean essential,
+     type, and removing unnecessary header file and comparisons to LONG_MAX in
+     debugfs devfip
+
+   - Based on coding guidelines, replace all `unsigned long` depending on if
+     fixed based on AArch32 or AArch64.
+
+   - Unify type of "cpu_idx" and Platform specific defines across PSCI module.
+
+- Drivers
+   - auth: Necessary fix in drivers to upgrade to mbedtls-2.18.0
+
+   - delay_timer: Fix non-standard frequency issue in udelay
+
+   - gicv3: Fix compiler dependent behavior
+   - gic600: Fix include ordering according to the coding style and power up sequence
+
+- Library Code
+   - el3_runtime: Fix stack pointer maintenance on EA handling path,
+     fixup 'cm_setup_context' prototype, and adds TPIDR_EL2 register
+     to the context save restore routines
+
+   - libc: Fix SIZE_MAX on AArch32
+
+   - locks: T589: Fix insufficient ordering guarantees in bakery lock
+
+   - pmf: Fix 'tautological-constant-compare' error, Make the runtime
+     instrumentation work on AArch32, and Simplify PMF helper macro
+     definitions across header files
+
+   - xlat_tables_v2: Fix assembler warning of PLAT_RO_XLAT_TABLES
+
+- Platforms
+   - allwinner: Fix H6 GPIO and CCU memory map addresses and incorrect ARISC
+     code patch offset check
+
+   - arm/a5ds: Correct system freq and Cache Writeback Granule, and cleanup
+     enable-method in devicetree
+
+   - arm/fvp: Fix incorrect GIC mapping, BL31 load address and image size
+     for RESET_TO_BL31=1, topology description of cpus for DynamIQ based
+     FVP, and multithreaded FVP power domain tree
+   - arm/fvp: spm-mm: Correcting instructions to build SPM for FVP
+
+   - arm/common: Fix ROTPK hash generation for ECDSA encryption, BL2 bug in
+     dynamic configuration initialisation, and current RECLAIM_INIT_CODE behavior
+
+   - arm/rde1edge: Fix incorrect topology tree description
+
+   - arm/sgi: Fix the incorrect check for SCMI channel ID
+
+   - common: Flush dcache when storing timestamp
+
+   - intel: Fix UEFI decompression issue, memory calibration, SMC SIP service,
+     mailbox config return status, mailbox driver logic, FPGA manager on
+     reconfiguration, and mailbox send_cmd issue
+
+   - imx: Fix shift-overflow errors, the rdc memory region slot's offset,
+     multiple definition of ipc_handle, missing inclusion of cdefs.h, and
+     correct the SGIs that used for secure interrupt
+
+   - mediatek: mt8183: Fix AARCH64 init fail on CPU0
+
+   - rockchip: Fix definition of struct param_ddr_usage
+
+   - rpi4: Fix documentation of armstub config entry
+
+   - st: Correct io possible NULL pointer dereference and device_size type,
+     nand xor_ecc.val assigned value, static analysis tool issues, and fix
+     incorrect return value and correctly check pwr-regulators node
+
+   - xilinx: zynqmp: Correct syscnt freq for QEMU and fix clock models
+     and IDs of GEM-related clocks
+
+Known Issues
+^^^^^^^^^^^^
+
+- Build System
+   - dtb: DTB creation not supported when building on a Windows host.
+
+     This step in the build process is skipped when running on a Windows host. A
+     known issue from the 1.6 release.
+
+   - Intermittent assertion firing `ASSERT: services/spd/tspd/tspd_main.c:105`
+
+- Coverity
+   - Intermittent Race condition in Coverity Jenkins Build Job
+
+- Platforms
+   - arm/juno: System suspend from Linux does not function as documented in the
+     user guide
+
+     Following the instructions provided in the user guide document does not
+     result in the platform entering system suspend state as expected. A message
+     relating to the hdlcd driver failing to suspend will be emitted on the
+     Linux terminal.
+
+   - mediatek/mt6795: This platform does not build in this release
+
 Version 2.2
 -----------
 
@@ -17,6 +1099,7 @@ New Features
 
    - Enable Memory Tagging Extension (MTE) support in both secure and non-secure
      worlds
+
        - Adds support for the new Memory Tagging Extension arriving in
          ARMv8.5. MTE support is now enabled by default on systems that
          support it at EL0.
@@ -84,6 +1167,7 @@ New Features
 
    - gicv3: Enabled multi-socket GIC redistributor frame discovery and migrated
      ARM platforms to the new API
+
        - Adds ``gicv3_rdistif_probe`` function that delegates the responsibility
          of discovering the corresponding redistributor base frame to each CPU
          itself.
@@ -2841,7 +3925,7 @@ releases of TF-A.
 
 --------------
 
-*Copyright (c) 2013-2019, Arm Limited and Contributors. All rights reserved.*
+*Copyright (c) 2013-2020, Arm Limited and Contributors. All rights reserved.*
 
 .. _SDEI Specification: http://infocenter.arm.com/help/topic/com.arm.doc.den0054a/ARM_DEN0054A_Software_Delegated_Exception_Interface.pdf
 .. _tf-issue#501: https://github.com/ARM-software/tf-issues/issues/501

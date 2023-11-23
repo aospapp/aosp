@@ -12,6 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_icu_icu4c_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-MIT
+    //   SPDX-license-identifier-Unicode-DFS
+    //   legacy_unencumbered
+    default_applicable_licenses: ["external_icu_icu4c_license"],
+}
+
 subdirs = [
     "cintltst",
     "intltest",
@@ -31,8 +42,9 @@ cc_defaults {
     c_std: "c11",
     cpp_std: "c++11",
     shared_libs: [
-        "libicuuc",
-        "libicui18n",
+        "libicu_cts_stub",
+        "libicuuc_cts_stub",
+        "libicui18n_cts_stub",
         "libbase",
         "liblog",
     ],
@@ -40,16 +52,15 @@ cc_defaults {
     static_libs: [
         "libicuctest",
         "libicutoolutil",
-        "libandroidicuinit",
     ],
-}
-
-genrule {
-    name: "icu4c_test_data",
-    srcs: [
-        "testdata/**/*",
-    ],
-    out: ["icu4c_test_data.zip"],
-    tools: ["soong_zip"],
-    cmd: "$(location soong_zip) -o $(out) -C external/icu/icu4c/source/test/testdata -D external/icu/icu4c/source/test/testdata",
+    target: {
+        android: {
+            cflags: [
+                // Required to link libicuuc_cts_stub
+                "-DANDROID_LINK_SHARED_ICU4C",
+                // Do not set the data directory explicitly on Android because libicuuc has set it.
+                "-DANDROID_USE_ICU_REG",
+            ],
+        },
+    },
 }

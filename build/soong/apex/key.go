@@ -27,8 +27,12 @@ import (
 var String = proptools.String
 
 func init() {
-	android.RegisterModuleType("apex_key", ApexKeyFactory)
-	android.RegisterSingletonType("apex_keys_text", apexKeysTextFactory)
+	registerApexKeyBuildComponents(android.InitRegistrationContext)
+}
+
+func registerApexKeyBuildComponents(ctx android.RegistrationContext) {
+	ctx.RegisterModuleType("apex_key", ApexKeyFactory)
+	ctx.RegisterSingletonType("apex_keys_text", apexKeysTextFactory)
 }
 
 type apexKey struct {
@@ -36,8 +40,8 @@ type apexKey struct {
 
 	properties apexKeyProperties
 
-	public_key_file  android.Path
-	private_key_file android.Path
+	publicKeyFile  android.Path
+	privateKeyFile android.Path
 
 	keyName string
 }
@@ -69,30 +73,30 @@ func (m *apexKey) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	// Otherwise, try to locate the key files in the default cert dir or
 	// in the local module dir
 	if android.SrcIsModule(String(m.properties.Public_key)) != "" {
-		m.public_key_file = android.PathForModuleSrc(ctx, String(m.properties.Public_key))
+		m.publicKeyFile = android.PathForModuleSrc(ctx, String(m.properties.Public_key))
 	} else {
-		m.public_key_file = ctx.Config().ApexKeyDir(ctx).Join(ctx, String(m.properties.Public_key))
+		m.publicKeyFile = ctx.Config().ApexKeyDir(ctx).Join(ctx, String(m.properties.Public_key))
 		// If not found, fall back to the local key pairs
-		if !android.ExistentPathForSource(ctx, m.public_key_file.String()).Valid() {
-			m.public_key_file = android.PathForModuleSrc(ctx, String(m.properties.Public_key))
+		if !android.ExistentPathForSource(ctx, m.publicKeyFile.String()).Valid() {
+			m.publicKeyFile = android.PathForModuleSrc(ctx, String(m.properties.Public_key))
 		}
 	}
 
 	if android.SrcIsModule(String(m.properties.Private_key)) != "" {
-		m.private_key_file = android.PathForModuleSrc(ctx, String(m.properties.Private_key))
+		m.privateKeyFile = android.PathForModuleSrc(ctx, String(m.properties.Private_key))
 	} else {
-		m.private_key_file = ctx.Config().ApexKeyDir(ctx).Join(ctx, String(m.properties.Private_key))
-		if !android.ExistentPathForSource(ctx, m.private_key_file.String()).Valid() {
-			m.private_key_file = android.PathForModuleSrc(ctx, String(m.properties.Private_key))
+		m.privateKeyFile = ctx.Config().ApexKeyDir(ctx).Join(ctx, String(m.properties.Private_key))
+		if !android.ExistentPathForSource(ctx, m.privateKeyFile.String()).Valid() {
+			m.privateKeyFile = android.PathForModuleSrc(ctx, String(m.properties.Private_key))
 		}
 	}
 
-	pubKeyName := m.public_key_file.Base()[0 : len(m.public_key_file.Base())-len(m.public_key_file.Ext())]
-	privKeyName := m.private_key_file.Base()[0 : len(m.private_key_file.Base())-len(m.private_key_file.Ext())]
+	pubKeyName := m.publicKeyFile.Base()[0 : len(m.publicKeyFile.Base())-len(m.publicKeyFile.Ext())]
+	privKeyName := m.privateKeyFile.Base()[0 : len(m.privateKeyFile.Base())-len(m.privateKeyFile.Ext())]
 
 	if m.properties.Public_key != nil && m.properties.Private_key != nil && pubKeyName != privKeyName {
 		ctx.ModuleErrorf("public_key %q (keyname:%q) and private_key %q (keyname:%q) do not have same keyname",
-			m.public_key_file.String(), pubKeyName, m.private_key_file, privKeyName)
+			m.publicKeyFile.String(), pubKeyName, m.privateKeyFile, privKeyName)
 		return
 	}
 	m.keyName = pubKeyName
@@ -107,34 +111,35 @@ type apexKeysText struct {
 func (s *apexKeysText) GenerateBuildActions(ctx android.SingletonContext) {
 	s.output = android.PathForOutput(ctx, "apexkeys.txt")
 	type apexKeyEntry struct {
-		name                  string
-		presigned             bool
-		public_key            string
-		private_key           string
-		container_certificate string
-		container_private_key string
-		partition             string
+		name                 string
+		presigned            bool
+		publicKey            string
+		privateKey           string
+		containerCertificate string
+		containerPrivateKey  string
+		partition            string
 	}
 	toString := func(e apexKeyEntry) string {
-		format := "name=%q public_key=%q private_key=%q container_certificate=%q container_private_key=%q partition=%q\\n"
+		format := "name=%q public_key=%q private_key=%q container_certificate=%q container_private_key=%q partition=%q\n"
 		if e.presigned {
 			return fmt.Sprintf(format, e.name, "PRESIGNED", "PRESIGNED", "PRESIGNED", "PRESIGNED", e.partition)
 		} else {
-			return fmt.Sprintf(format, e.name, e.public_key, e.private_key, e.container_certificate, e.container_private_key, e.partition)
+			return fmt.Sprintf(format, e.name, e.publicKey, e.privateKey, e.containerCertificate, e.containerPrivateKey, e.partition)
 		}
 	}
 
 	apexKeyMap := make(map[string]apexKeyEntry)
 	ctx.VisitAllModules(func(module android.Module) {
 		if m, ok := module.(*apexBundle); ok && m.Enabled() && m.installable() {
+			pem, key := m.getCertificateAndPrivateKey(ctx)
 			apexKeyMap[m.Name()] = apexKeyEntry{
-				name:                  m.Name() + ".apex",
-				presigned:             false,
-				public_key:            m.public_key_file.String(),
-				private_key:           m.private_key_file.String(),
-				container_certificate: m.container_certificate_file.String(),
-				container_private_key: m.container_private_key_file.String(),
-				partition:             m.PartitionTag(ctx.DeviceConfig()),
+				name:                 m.Name() + ".apex",
+				presigned:            false,
+				publicKey:            m.publicKeyFile.String(),
+				privateKey:           m.privateKeyFile.String(),
+				containerCertificate: pem.String(),
+				containerPrivateKey:  key.String(),
+				partition:            m.PartitionTag(ctx.DeviceConfig()),
 			}
 		}
 	})
@@ -173,17 +178,9 @@ func (s *apexKeysText) GenerateBuildActions(ctx android.SingletonContext) {
 
 	var filecontent strings.Builder
 	for _, name := range moduleNames {
-		fmt.Fprintf(&filecontent, "%s", toString(apexKeyMap[name]))
+		filecontent.WriteString(toString(apexKeyMap[name]))
 	}
-
-	ctx.Build(pctx, android.BuildParams{
-		Rule:        android.WriteFile,
-		Description: "apexkeys.txt",
-		Output:      s.output,
-		Args: map[string]string{
-			"content": filecontent.String(),
-		},
-	})
+	android.WriteFileRule(ctx, s.output, filecontent.String())
 }
 
 func apexKeysTextFactory() android.Singleton {

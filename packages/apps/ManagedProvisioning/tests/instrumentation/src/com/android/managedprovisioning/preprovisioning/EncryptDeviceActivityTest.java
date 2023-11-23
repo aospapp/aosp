@@ -34,7 +34,6 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.provider.Settings;
 
 import androidx.test.InstrumentationRegistry;
@@ -43,13 +42,13 @@ import androidx.test.rule.ActivityTestRule;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.TestInstrumentationRunner;
-import com.android.managedprovisioning.common.CustomizationVerifier;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -62,15 +61,12 @@ import org.mockito.MockitoAnnotations;
 public class EncryptDeviceActivityTest {
 
     private static final ComponentName ADMIN = new ComponentName("com.test.admin", ".Receiver");
-    private static final int SAMPLE_COLOR = Color.parseColor("#d40000");
     private static final ProvisioningParams PROFILE_OWNER_PARAMS = new ProvisioningParams.Builder()
             .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
-            .setMainColor(SAMPLE_COLOR)
             .setDeviceAdminComponentName(ADMIN)
             .build();
     private static final ProvisioningParams DEVICE_OWNER_PARAMS = new ProvisioningParams.Builder()
             .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
-            .setMainColor(SAMPLE_COLOR)
             .setDeviceAdminComponentName(ADMIN)
             .build();
     private static final Intent PROFILE_OWNER_INTENT = new Intent()
@@ -122,20 +118,18 @@ public class EncryptDeviceActivityTest {
         TestInstrumentationRunner.unregisterReplacedActivity(EncryptDeviceActivity.class);
     }
 
+    @Ignore("b/181323689")
     @Test
     public void testProfileOwner() {
         // WHEN launching EncryptDeviceActivity with a profile owner intent
         Activity activity = mActivityRule.launchActivity(PROFILE_OWNER_INTENT);
 
         // THEN the profile owner description should be present
-        onView(withId(R.id.encrypt_main_text))
+        onView(withId(R.id.sud_layout_subtitle))
                 .check(matches(withText(R.string.encrypt_device_text_for_profile_owner_setup)));
 
-        // status bar color matches the one from intent parameters
-        new CustomizationVerifier(activity).assertStatusBarColorCorrect(SAMPLE_COLOR);
-
         // WHEN pressing the encrypt button
-        onView(withId(R.id.encrypt_button)).perform(click());
+        onView(withText(R.string.encrypt)).perform(click());
 
         // THEN encryption reminder should be set
         verify(mController).setEncryptionReminder(PROFILE_OWNER_PARAMS);
@@ -145,20 +139,18 @@ public class EncryptDeviceActivityTest {
                 TestEncryptionActivity.sLastLaunchedIntent.getAction());
     }
 
+    @Ignore("b/181323689")
     @Test
     public void testDeviceOwner() {
         // WHEN launching EncryptDeviceActivity with a profile owner intent
         Activity activity = mActivityRule.launchActivity(DEVICE_OWNER_INTENT);
 
         // THEN the profile owner description should be present
-        onView(withId(R.id.encrypt_main_text))
+        onView(withId(R.id.sud_layout_subtitle))
                 .check(matches(withText(R.string.encrypt_device_text_for_device_owner_setup)));
 
-        // status bar color matches the one from intent parameters
-        new CustomizationVerifier(activity).assertStatusBarColorCorrect(SAMPLE_COLOR);
-
         // WHEN pressing the encrypt button
-        onView(withId(R.id.encrypt_button)).perform(click());
+        onView(withText(R.string.encrypt)).perform(click());
 
         // THEN encryption reminder should be set
         verify(mController).setEncryptionReminder(DEVICE_OWNER_PARAMS);
@@ -168,6 +160,7 @@ public class EncryptDeviceActivityTest {
                 TestEncryptionActivity.sLastLaunchedIntent.getAction());
     }
 
+    @Ignore("b/181323689")
     @Test
     public void testNoParams() {
         // WHEN launching EncryptDeviceActivity without a params object

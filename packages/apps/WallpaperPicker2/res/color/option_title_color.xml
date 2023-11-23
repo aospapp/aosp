@@ -17,11 +17,10 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:state_activated="true"
-        android:color="?android:colorAccent" />
+        android:color="?android:textColorPrimary" />
     <item
         android:state_activated="false"
-        android:alpha="0.54"
-        android:color="?android:colorForeground" />
+        android:color="?android:textColorSecondary" />
     <item
-        android:color="?android:colorForeground"/>
+        android:color="?android:textColorSecondary"/>
 </selector>

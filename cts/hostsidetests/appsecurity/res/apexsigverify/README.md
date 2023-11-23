@@ -13,9 +13,9 @@ bionic/apex/com.android.runtime.avbpubkey
 frameworks/av/apex/com.android.media.swcodec.avbpubkey
 frameworks/av/apex/com.android.media.avbpubkey
 frameworks/base/packages/Tethering/apex/com.android.tethering.avbpubkey
-frameworks/base/apex/sdkextensions/com.android.sdkext.avbpubkey
 frameworks/ml/nn/apex/com.android.neuralnetworks.avbpubkey
 frameworks/opt/net/ike/apex/com.android.ipsec.avbpubkey
+packages/modules/SdkExtensions/com.android.sdkext.avbpubkey
 system/apex/apexd/apexd_testdata/com.android.apex.test_package_2.avbpubkey
 system/apex/apexd/apexd_testdata/com.android.apex.test_package.no_inst_key.avbpubkey
 system/apex/apexd/apexd_testdata/com.android.apex.test_package.prepostinstall.fail.avbpubkey

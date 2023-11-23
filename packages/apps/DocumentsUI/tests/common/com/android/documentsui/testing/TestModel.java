@@ -64,7 +64,7 @@ public class TestModel extends Model {
 
     public void update() {
         DirectoryResult r = new DirectoryResult();
-        r.cursor = mCursor;
+        r.setCursor(mCursor);
         super.update(r);
     }
 

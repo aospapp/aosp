@@ -27,16 +27,7 @@
 #include <sys/mman.h>
 
 #include "aub_mem.h"
-
-#ifndef HAVE_MEMFD_CREATE
-#include <sys/syscall.h>
-
-static inline int
-memfd_create(const char *name, unsigned int flags)
-{
-   return syscall(SYS_memfd_create, name, flags);
-}
-#endif
+#include "util/anon_file.h"
 
 struct bo_map {
    struct list_head link;
@@ -96,9 +87,9 @@ static inline int
 cmp_uint64(uint64_t a, uint64_t b)
 {
    if (a < b)
-      return -1;
-   if (a > b)
       return 1;
+   if (a > b)
+      return -1;
    return 0;
 }
 
@@ -118,7 +109,7 @@ ensure_ggtt_entry(struct aub_mem *mem, uint64_t virt_addr)
    if (!node || (cmp = cmp_ggtt_entry(node, &virt_addr))) {
       struct ggtt_entry *new_entry = calloc(1, sizeof(*new_entry));
       new_entry->virt_addr = virt_addr;
-      rb_tree_insert_at(&mem->ggtt, node, &new_entry->node, cmp > 0);
+      rb_tree_insert_at(&mem->ggtt, node, &new_entry->node, cmp < 0);
       node = &new_entry->node;
    }
 
@@ -155,14 +146,14 @@ ensure_phys_mem(struct aub_mem *mem, uint64_t phys_addr)
       new_mem->phys_addr = phys_addr;
       new_mem->fd_offset = mem->mem_fd_len;
 
-      MAYBE_UNUSED int ftruncate_res = ftruncate(mem->mem_fd, mem->mem_fd_len += 4096);
+      ASSERTED int ftruncate_res = ftruncate(mem->mem_fd, mem->mem_fd_len += 4096);
       assert(ftruncate_res == 0);
 
       new_mem->data = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED,
                            mem->mem_fd, new_mem->fd_offset);
       assert(new_mem->data != MAP_FAILED);
 
-      rb_tree_insert_at(&mem->mem, node, &new_mem->node, cmp > 0);
+      rb_tree_insert_at(&mem->mem, node, &new_mem->node, cmp < 0);
       node = &new_mem->node;
    }
 
@@ -289,7 +280,7 @@ aub_mem_get_ggtt_bo(void *_mem, uint64_t address)
          continue;
 
       uint32_t map_offset = i->virt_addr - address;
-      MAYBE_UNUSED void *res =
+      ASSERTED void *res =
             mmap((uint8_t *)bo.map + map_offset, 4096, PROT_READ,
                   MAP_SHARED | MAP_FIXED, mem->mem_fd, phys_mem->fd_offset);
       assert(res != MAP_FAILED);
@@ -355,7 +346,7 @@ aub_mem_get_ppgtt_bo(void *_mem, uint64_t address)
    for (uint64_t page = address; page < end; page += 4096) {
       struct phys_mem *phys_mem = ppgtt_walk(mem, mem->pml4, page);
 
-      MAYBE_UNUSED void *res =
+      ASSERTED void *res =
             mmap((uint8_t *)bo.map + (page - bo.addr), 4096, PROT_READ,
                   MAP_SHARED | MAP_FIXED, mem->mem_fd, phys_mem->fd_offset);
       assert(res != MAP_FAILED);
@@ -373,7 +364,7 @@ aub_mem_init(struct aub_mem *mem)
 
    list_inithead(&mem->maps);
 
-   mem->mem_fd = memfd_create("phys memory", 0);
+   mem->mem_fd = os_create_anonymous_file(0, "phys memory");
 
    return mem->mem_fd != -1;
 }

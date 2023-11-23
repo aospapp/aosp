@@ -27,7 +27,9 @@ public interface Symbol {
     TY_PARAM,
     METHOD,
     FIELD,
-    MODULE
+    PARAMETER,
+    MODULE,
+    PACKAGE
   }
 
   /** The symbol kind. */

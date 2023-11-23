@@ -29,9 +29,7 @@ class BaseImage(object):
     associated snapshot clones.
     """
 
-    def __init__(self,
-                 container_path=constants.DEFAULT_CONTAINER_PATH,
-                 base_name=constants.BASE):
+    def __init__(self, container_path, base_name):
         """Creates a new BaseImage.
 
         If a valid base container already exists on this machine, the BaseImage
@@ -45,13 +43,12 @@ class BaseImage(object):
         self.base_name = base_name
         try:
             base_container = Container.create_from_existing_dir(
-                    container_path, base_name);
+                container_path, base_name)
             base_container.refresh_status()
             self.base_container = base_container
         except error.ContainerError as e:
             self.base_container = None
             self.base_container_error = e
-
 
     def setup(self, name=None, force_delete=False):
         """Download and setup the base container.
@@ -69,17 +66,17 @@ class BaseImage(object):
 
         if not self.container_path:
             raise error.ContainerError(
-                    'You must set a valid directory to store containers in '
-                    'global config "AUTOSERV/ container_path".')
+                'You must set a valid directory to store containers in '
+                'global config "AUTOSERV/ container_path".')
 
         if not os.path.exists(self.container_path):
             os.makedirs(self.container_path)
 
         if self.base_container and not force_delete:
             logging.error(
-                    'Base container already exists. Set force_delete to True '
-                    'to force to re-stage base container. Note that this '
-                    'action will destroy all running test containers')
+                'Base container already exists. Set force_delete to True '
+                'to force to re-stage base container. Note that this '
+                'action will destroy all running test containers')
             # Set proper file permission. base container in moblab may have
             # owner of not being root. Force to update the folder's owner.
             self._set_root_owner()
@@ -98,7 +95,7 @@ class BaseImage(object):
             if lxc_utils.path_exists(base_path):
                 exc_info = sys.exc_info()
                 container = Container.create_from_existing_dir(
-                        self.container_path, self.base_name)
+                    self.container_path, self.base_name)
                 # Attempt destroy.  Log but otherwise ignore errors.
                 try:
                     container.destroy()
@@ -110,8 +107,7 @@ class BaseImage(object):
                 raise
         else:
             self.base_container = Container.create_from_existing_dir(
-                    self.container_path, self.base_name)
-
+                self.container_path, self.base_name)
 
     def cleanup(self):
         """Destroys the base container.
@@ -126,7 +122,6 @@ class BaseImage(object):
                                                   self.base_name)
         base.destroy()
 
-
     def get(self):
         """Returns the base container.
 
@@ -136,7 +131,6 @@ class BaseImage(object):
             raise self.base_container_error
         else:
             return self.base_container
-
 
     def _download_and_install_base_container(self):
         """Downloads the base image, untars and configures it."""
@@ -177,7 +171,6 @@ class BaseImage(object):
         base_path = os.path.join(self.container_path, self.base_name)
         utils.run('sudo chown -R root "%s"' % base_path)
         utils.run('sudo chgrp -R root "%s"' % base_path)
-
 
     def _find_clones(self):
         """Finds snapshot clones of the current base container."""

@@ -16,6 +16,7 @@
 
 package com.android.camera;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.view.Surface;
@@ -33,9 +34,9 @@ import java.util.ArrayList;
 public class CaptureModuleUtil {
     private static final Tag TAG = new Tag("CaptureModuleUtil");
 
-    public static int getDeviceNaturalOrientation(Context context) {
+    public static int getDeviceNaturalOrientation(Activity context) {
         Configuration config = context.getResources().getConfiguration();
-        int rotation = CameraUtil.getDisplayRotation();
+        int rotation = CameraUtil.getDisplayRotation(context);
 
         if (((rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) &&
                 config.orientation == Configuration.ORIENTATION_LANDSCAPE) ||
@@ -52,8 +53,8 @@ public class CaptureModuleUtil {
      * {@link CameraUtil#getOptimalPreviewSize(java.util.List, double)}
      * method for the camera1 api.
      */
-    public static Size getOptimalPreviewSize(Size[] sizes,double targetRatio) {
-        return getOptimalPreviewSize(sizes, targetRatio, null);
+    public static Size getOptimalPreviewSize(Size[] sizes, double targetRatio, Activity context) {
+        return getOptimalPreviewSize(sizes, targetRatio, null, context);
     }
 
     /**
@@ -63,7 +64,7 @@ public class CaptureModuleUtil {
      * tolerance. If tolerance is 'null', a default tolerance will be used.
      */
     public static Size getOptimalPreviewSize(Size[] sizes,
-            double targetRatio, Double aspectRatioTolerance) {
+            double targetRatio, Double aspectRatioTolerance, Activity context) {
         // TODO(andyhuibers): Don't hardcode this but use device's measurements.
         final int MAX_ASPECT_HEIGHT = 1080;
 
@@ -85,7 +86,7 @@ public class CaptureModuleUtil {
 
         int optimalIndex = CameraUtil
                 .getOptimalPreviewSizeIndex(camera1Sizes, targetRatio,
-                        aspectRatioTolerance);
+                        aspectRatioTolerance, context);
 
         if (optimalIndex == -1) {
             return null;
@@ -106,9 +107,9 @@ public class CaptureModuleUtil {
      */
     public static Size pickBufferDimensions(Size[] supportedPreviewSizes,
             double bestPreviewAspectRatio,
-            Context context) {
+            Activity context) {
         // Swap dimensions if the device is not in its natural orientation.
-        boolean swapDimens = (CameraUtil.getDisplayRotation() % 180) == 90;
+        boolean swapDimens = (CameraUtil.getDisplayRotation(context) % 180) == 90;
         // Swap dimensions if the device's natural orientation doesn't match
         // the sensor orientation.
         if (CaptureModuleUtil.getDeviceNaturalOrientation(context)
@@ -121,7 +122,7 @@ public class CaptureModuleUtil {
         }
 
         Size pick = CaptureModuleUtil.getOptimalPreviewSize(supportedPreviewSizes,
-                bestPreviewAspectRatio, null);
+                bestPreviewAspectRatio, null, context);
         Log.d(TAG, "Picked buffer size: " + pick.toString());
         return pick;
     }

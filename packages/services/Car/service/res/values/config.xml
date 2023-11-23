@@ -26,9 +26,45 @@
           during initial development where audio hal does not support bus based addressing yet. -->
     <bool name="audioUseDynamicRouting">false</bool>
 
-    <!--  Configuration to persist master mute state. If this is set to true,
-          Android will restore the master mute state on boot. -->
+    <!--  Configuration to enable muting of individual volume groups. If this is set to
+          false, muting of individual volume groups is disabled, instead muting will toggle master
+          mute. If this is set to true, car volume group muting is enabled and each individual
+          volume group can be muted separately. -->
+    <bool name="audioUseCarVolumeGroupMuting">false</bool>
+
+    <!--  Configuration to enable IAudioControl#onDevicesToDuckChange API to inform HAL when to
+          duck. If this is set to true, the API will receive signals indicating which output devices
+          to duck as well as what usages are currently holding focus. If set to false, the API will
+          not be called. -->
+    <bool name="audioUseHalDuckingSignals">true</bool>
+
+    <!--  Configuration to select version of volume adjustment context priority list.
+          Version 1 includes all audio contexts arranged in the following order:
+            NAVIGATION, CALL, MUSIC, ANNOUNCEMENT, VOICE_COMMAND, CALL_RING, SYSTEM_SOUND, SAFETY,
+            ALARM, NOTIFICATION, VEHICLE_STATUS, EMERGENCY.
+          Version 2 is limited to the following contexts in order:
+            CALL, MUSIC, ANNOUNCEMENTS, VOICE_COMMAND
+
+          audioVolumeAdjustmentContextsVersion - Integer version number currently limited to
+                                                 numbers listed above. -->
+    <integer name="audioVolumeAdjustmentContextsVersion">2</integer>
+
+    <!--  Configuration to persist global mute state. If this is set to true,
+          Android will restore the global mute state on boot. If audioUseCarVolumeGroupMuting is
+          true, this will have no impact on persisting mute changes as mute changes will be based
+          on individual volume group.-->
     <bool name="audioPersistMasterMuteState">true</bool>
+
+    <!--  Configuration to indicate the timeout in milliseconds while a car volume group will be
+          considered active for volume control changes during volume key events. The configuration
+          will be used as follows:
+          - The timeout will be used to determine if a playback (audio context associated with the
+            playback's audio usage) can still be considered for automatic volume selection after it
+            has stopped playing.
+          - The timeout will also be used as the pause duration required in between automatic volume
+            adjustments to change what user is adjusting. -->
+    <integer name="audioVolumeKeyEventTimeoutMs">3000</integer>
+
     <!-- Whether to block other audio while media audio is muted with display off. When set to true,
          other sounds cannot be played either while display is off. If false, only media is muted
          and other sounds can be still played. -->
@@ -39,10 +75,11 @@
           connection process. Disable this default to implement your own policy. -->
     <bool name="useDefaultBluetoothConnectionPolicy">true</bool>
 
-    <string name="inputService" translatable="false">android.car.input.service/.DefaultInputService</string>
-
     <!--  Service responsible for displaying information on the car instrument cluster. -->
     <string name="instrumentClusterRendererService" translatable="false">android.car.cluster/.ClusterRenderingService</string>
+
+    <!--  The name of Activity who is in charge of ClusterHome. -->
+    <string name="config_clusterHomeActivity" translatable="false">com.android.car.cluster.home/.ClusterHomeActivity</string>
 
     <!--  Service responsible for handling the rotary controller input. This service will start
           on boot or on user switch. Set this string to empty if you don't want to start this
@@ -50,30 +87,30 @@
     <string name="rotaryService" translatable="false">com.android.car.rotary/com.android.car.rotary.RotaryService</string>
 
     <!--  Whether to enable Activity blocking for safety. When Activity blocking is enabled,
-          only whitelisted safe Activities will be allowed while car is not parked. -->
+          only allowlisted safe Activities will be allowed while car is not parked. -->
     <bool name="enableActivityBlockingForSafety">true</bool>
     <!--  Activity to be presented when un-safe activity is launched. Take a look at the javadoc of the
           default implementation. -->
     <string name="activityBlockingActivity" translatable="false">com.android.car/com.android.car.pm.ActivityBlockingActivity</string>
     <!--  Comma separated list of activities that need to be exempted from getting
           blocked in a UX restricted state.
-          Format of each entry is either to specify package name to whitelist the whole package or
+          Format of each entry is either to specify package name to allowlist the whole package or
           use format of "packagename/activity_classname" for tagging each activities.
           For general guidelines to design distraction optimized apps, please refer
           to Android Auto Driver Distraction Guidelines. -->
-    <string name="activityWhitelist" translatable="false"></string>
+    <string name="activityAllowlist" translatable="false"></string>
     <!--  Comma separated list of activities that need to be exempted from getting
           blocked in a UX restricted state.
-          Format of each entry is either to specify package name to whitelist the whole package or
+          Format of each entry is either to specify package name to allowlist the whole package or
           use format of "packagename/activity_classname" for tagging each activities.
           The current implementations expects the following system packages/activities to be
-          whitelisted. For general guidelines to design distraction optimized apps, please refer
+          allowlisted. For general guidelines to design distraction optimized apps, please refer
           to Android Auto Driver Distraction Guidelines. -->
-    <string name="systemActivityWhitelist" translatable="false">com.android.systemui,com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity,com.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity,android/com.android.internal.app.ResolverActivity,com.android.mtp/com.android.mtp.ReceiverActivity,com.android.server.telecom/com.android.server.telecom.components.UserCallActivity</string>
+    <string name="systemActivityAllowlist" translatable="false">com.android.systemui,com.google.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity,com.android.permissioncontroller/com.android.permissioncontroller.permission.ui.GrantPermissionsActivity,android/com.android.internal.app.ResolverActivity,com.android.mtp/com.android.mtp.ReceiverActivity,com.android.server.telecom/com.android.server.telecom.components.UserCallActivity</string>
     <!--  Comma separated list of activities that will be blocked during restricted state.
-          Format of each entry is either to specify package name to whitelist the whole package
+          Format of each entry is either to specify package name to allowlist the whole package
           or use format of "packagename/activity_classname" for tagging each activities.-->
-    <string name="activityBlacklist" translatable="false"></string>
+    <string name="activityDenylist" translatable="false"></string>
     <!-- List of play store package names that are allowed sources of app installation-->
     <string-array translatable="false" name="allowedAppInstallSources">
     </string-array>
@@ -140,8 +177,16 @@
     <string name="intentReceiverForUnacceptableIoMetrics" translatable="false">com.google.android.car.defaultstoragemonitoringcompanionapp/.ExcessiveIoIntentReceiver</string>
 
     <!-- The Model ID to advertise Bluetooth Fast Pair connections with.  Must be overlayed with
-         device specific model id. -->
+         device specific model id. A model id of 0 will disable Fast Pair-->
     <integer name="fastPairModelId">0x000000</integer>
+
+    <!-- The Anti Spoofing Public key associated with the advertised Fast Pair Model ID, base64
+         encoded. -->
+    <string name="fastPairAntiSpoofKey" translatable="false"></string>
+
+    <!-- Enable to allow Fast Pair to automatically accept incoming pairing requests with matching
+         Simple Secure Pairing codes without requiring further user input. -->
+    <bool name="fastPairAutomaticAcceptance">false</bool>
 
     <!-- Maximum allowed time to run garage mode. Note that 15 min (=900sec) is the minimum required
          duration and this should not be made shorter. -->
@@ -214,18 +259,6 @@
          TODO(b/139497602): Remove dependency on Media Center, handle in CarMediaService -->
     <string name="serviceMediaConnection" translatable="false">com.android.car.media</string>
 
-    <!-- service/characteristics uuid for adding new escrow token -->
-    <string name="enrollment_service_uuid" translatable="false">5e2a68a4-27be-43f9-8d1e-4546976fabd7</string>
-    <string name="enrollment_server_write_uuid" translatable="false">5e2a68a5-27be-43f9-8d1e-4546976fabd7</string>
-    <string name="enrollment_client_write_uuid" translatable="false">5e2a68a6-27be-43f9-8d1e-4546976fabd7</string>
-
-    <!-- service/characteristics uuid for unlocking a device -->
-    <string name="unlock_service_uuid" translatable="false">00003ac5-0000-1000-8000-00805f9b34fb</string>
-    <string name="unlock_client_write_uuid" translatable="false">5e2a68a2-27be-43f9-8d1e-4546976fabd7</string>
-    <string name="unlock_server_write_uuid" translatable="false">5e2a68a3-27be-43f9-8d1e-4546976fabd7</string>
-
-    <string name="token_handle_shared_preferences" translatable="false">com.android.car.trust.TOKEN_HANDLE</string>
-
     <!-- The package name of the default bugreport application that can use CarBugreportServiceManager.
          There is no default bugreporting app.-->
     <string name="config_car_bugreport_application" translatable="false"></string>
@@ -261,9 +294,13 @@
         <item>displayPort=1,displayType=INSTRUMENT_CLUSTER,occupantZoneId=0</item>
         <item>displayPort=2,displayType=MAIN,occupantZoneId=1</item>
         <item>displayPort=3,displayType=MAIN,occupantZoneId=2</item>
-        <item>displayPort=4,displayType=MAIN,occupantZoneId=3</item>
+        <item>displayUniqueId=virtual:com.example:MainD,displayType=MAIN,occupantZoneId=3</item>
 
-        displayPort: Unique port id for the display.
+        NOTE: each item should have displayPort or displayUniqueId, if it has both, displayPort
+          will be used.
+        displayPort: Unique Port id for the physical display.
+        displayUniqueId: Unique Id for the display.
+            The unique id of the virtual display will be the form of 'virtual:<PACKAGE>:<ID>'.
         displayType: Display type for the display. Use * part from
                        CarOccupantZoneManager.DISPLAY_TYPE_* like MAIN, INSTRUMENT_CLUSTER and
                        etc.
@@ -309,11 +346,6 @@
          source in the car, for both playback and browse. -->
     <bool name="config_mediaSourceIndependentPlayback">false</bool>
 
-
-    <!-- Disable switching the user while the system is resuming from Suspend to RAM.
-         This default says to prevent changing the user during Resume. -->
-    <bool name="config_disableUserSwitchDuringResume" translatable="false">true</bool>
-
     <!--
         Specifies optional features that can be enabled by this image. Note that vhal can disable
         them depending on product variation.
@@ -330,10 +362,13 @@
     -->
     <string-array translatable="false" name="config_allowed_optional_car_features">
         <item>car_navigation_service</item>
+        <item>cluster_service</item>
         <item>com.android.car.user.CarUserNoticeService</item>
         <item>diagnostic</item>
         <item>storage_monitoring</item>
         <item>vehicle_map_service</item>
+        <item>car_evs_service</item>
+        <item>car_telemetry_service</item>
     </string-array>
 
     <!-- Configuration to enable passenger support.
@@ -360,4 +395,22 @@
 
     <!-- The ComponentName of the media source that will be selected as the default -->
     <string name="config_defaultMediaSource">com.android.bluetooth/com.android.bluetooth.avrcpcontroller.BluetoothMediaBrowserService</string>
+
+    <!-- A configuration flag to enable ending an ongoing call using the physical Call button. -->
+    <bool name="config_callButtonEndsOngoingCall">false</bool>
+
+    <!-- Number of milliseconds to wait before the system goes into Suspend-to-RAM.
+         The valid range is 0 to 3 * 60 * 1000. The default duration is 3 min (= 3 * 60 * 1000). -->
+    <integer name="config_maxSuspendWaitDuration">180000</integer>
+
+    <!-- A name of a camera device that provides the rearview through EVS service -->
+    <string name="config_evsRearviewCameraId" translatable="false">/dev/video10</string>
+
+    <!-- The camera Activity name for EVS, if defined, the Activity will be launched by
+         CarEvsService. -->
+    <string name="config_evsCameraActivity" translatable="false"></string>
+
+    <!-- A configuration flag to adjust Wifi for suspend. -->
+    <bool name="config_wifiAdjustmentForSuspend">false</bool>
+
 </resources>

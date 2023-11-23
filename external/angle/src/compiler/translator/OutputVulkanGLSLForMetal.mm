@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2019 The ANGLE Project Authors. All rights reserved.
+// Copyright 2019 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -55,7 +55,6 @@ void TOutputVulkanGLSLForMetal::RemoveInvariantForTest(bool remove)
 }
 
 TOutputVulkanGLSLForMetal::TOutputVulkanGLSLForMetal(TInfoSinkBase &objSink,
-                                                     ShArrayIndexClampingStrategy clampingStrategy,
                                                      ShHashFunction64 hashFunction,
                                                      NameMap &nameMap,
                                                      TSymbolTable *symbolTable,
@@ -64,7 +63,6 @@ TOutputVulkanGLSLForMetal::TOutputVulkanGLSLForMetal(TInfoSinkBase &objSink,
                                                      ShShaderOutput output,
                                                      ShCompileOptions compileOptions)
     : TOutputVulkanGLSL(objSink,
-                        clampingStrategy,
                         hashFunction,
                         nameMap,
                         symbolTable,

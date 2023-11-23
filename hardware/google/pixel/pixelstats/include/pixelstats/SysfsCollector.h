@@ -17,17 +17,19 @@
 #ifndef HARDWARE_GOOGLE_PIXEL_PIXELSTATS_SYSFSCOLLECTOR_H
 #define HARDWARE_GOOGLE_PIXEL_PIXELSTATS_SYSFSCOLLECTOR_H
 
-#include <android/frameworks/stats/1.0/IStats.h>
-#include <utils/StrongPointer.h>
-
-using android::sp;
-using android::frameworks::stats::V1_0::IStats;
-using android::frameworks::stats::V1_0::SlowIo;
+#include <aidl/android/frameworks/stats/IStats.h>
+#include <hardware/google/pixel/pixelstats/pixelatoms.pb.h>
+#include "BatteryEEPROMReporter.h"
+#include "MitigationStatsReporter.h"
+#include "MmMetricsReporter.h"
 
 namespace android {
 namespace hardware {
 namespace google {
 namespace pixel {
+
+using aidl::android::frameworks::stats::IStats;
+using android::hardware::google::pixel::PixelAtoms::VendorSlowIo;
 
 class SysfsCollector {
   public:
@@ -46,10 +48,13 @@ class SysfsCollector {
         const char *const UFSLifetimeA;
         const char *const UFSLifetimeB;
         const char *const UFSLifetimeC;
+        const char *const UFSHostResetPath;
         const char *const F2fsStatsPath;
         const char *const UserdataBlockProp;
         const char *const ZramMmStatPath;
         const char *const ZramBdStatPath;
+        const char *const EEPROMPath;
+        const char *const MitigationPath;
     };
 
     SysfsCollector(const struct SysfsPaths &paths);
@@ -58,25 +63,30 @@ class SysfsCollector {
   private:
     bool ReadFileToInt(const std::string &path, int *val);
     bool ReadFileToInt(const char *path, int *val);
-    void logAll();
+    void logPerDay();
+    void logPerHour();
 
-    void logBatteryChargeCycles();
-    void logCodecFailed();
-    void logCodec1Failed();
-    void logSlowIO();
-    void logSpeakerImpedance();
-    void logSpeechDspStat();
-    void logBatteryCapacity();
-    void logUFSLifetime();
-    void logF2fsStats();
-    void logZramStats();
-    void logBootStats();
+    void logBatteryChargeCycles(const std::shared_ptr<IStats> &stats_client);
+    void logCodecFailed(const std::shared_ptr<IStats> &stats_client);
+    void logCodec1Failed(const std::shared_ptr<IStats> &stats_client);
+    void logSlowIO(const std::shared_ptr<IStats> &stats_client);
+    void logSpeakerImpedance(const std::shared_ptr<IStats> &stats_client);
+    void logSpeechDspStat(const std::shared_ptr<IStats> &stats_client);
+    void logBatteryCapacity(const std::shared_ptr<IStats> &stats_client);
+    void logUFSLifetime(const std::shared_ptr<IStats> &stats_client);
+    void logUFSErrorStats(const std::shared_ptr<IStats> &stats_client);
+    void logF2fsStats(const std::shared_ptr<IStats> &stats_client);
+    void logF2fsCompressionInfo(const std::shared_ptr<IStats> &stats_client);
+    void logF2fsGcSegmentInfo(const std::shared_ptr<IStats> &stats_client);
+    void logZramStats(const std::shared_ptr<IStats> &stats_client);
+    void logBootStats(const std::shared_ptr<IStats> &stats_client);
+    void logBatteryEEPROM(const std::shared_ptr<IStats> &stats_client);
 
-    void reportSlowIoFromFile(const char *path, const SlowIo::IoOperation &operation_s);
-    void reportZramMmStat();
-    void reportZramBdStat();
-
-    unsigned int getValueFromStatus(std::string &f2fsStatus, const char * key);
+    void reportSlowIoFromFile(const std::shared_ptr<IStats> &stats_client, const char *path,
+                              const VendorSlowIo::IoOperation &operation_s);
+    void reportZramMmStat(const std::shared_ptr<IStats> &stats_client);
+    void reportZramBdStat(const std::shared_ptr<IStats> &stats_client);
+    int getReclaimedSegments(const std::string &mode);
 
     const char *const kSlowioReadCntPath;
     const char *const kSlowioWriteCntPath;
@@ -92,11 +102,16 @@ class SysfsCollector {
     const char *const kUFSLifetimeA;
     const char *const kUFSLifetimeB;
     const char *const kUFSLifetimeC;
+    const char *const kUFSHostResetPath;
     const char *const kF2fsStatsPath;
-    const char *const kUserdataBlockProp;
     const char *const kZramMmStatPath;
     const char *const kZramBdStatPath;
-    sp<IStats> stats_;
+    const char *const kEEPROMPath;
+    const char *const kPowerMitigationStatsPath;
+
+    BatteryEEPROMReporter battery_EEPROM_reporter_;
+    MmMetricsReporter mm_metrics_reporter_;
+    MitigationStatsReporter mitigation_stats_reporter_;
 
     // Proto messages are 1-indexed and VendorAtom field numbers start at 2, so
     // store everything in the values array at the index of the field number
@@ -104,6 +119,7 @@ class SysfsCollector {
     const int kVendorAtomOffset = 2;
 
     bool log_once_reported = false;
+    int64_t prev_huge_pages_since_boot_ = -1;
 };
 
 }  // namespace pixel

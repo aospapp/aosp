@@ -16,11 +16,11 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="enable_public_safety_messages_title" msgid="94965677856528234">"荷蘭極嚴重警報"</string>
-    <string name="public_safety_message" msgid="4890528871594786094">"荷蘭極嚴重警報"</string>
-    <string name="cmas_presidential_level_alert" msgid="9058326958225367870">"荷蘭極嚴重警報"</string>
-    <string name="cmas_extreme_alert" msgid="4868712078881445059">"荷蘭極嚴重警報"</string>
-    <string name="cmas_extreme_immediate_observed_alert" msgid="6128062253192348686">"荷蘭極嚴重警報"</string>
-    <string name="cmas_extreme_immediate_likely_alert" msgid="207796247208986943">"荷蘭極嚴重警報"</string>
-    <string name="cmas_severe_alert" msgid="26776277057772591">"荷蘭極嚴重警報"</string>
+    <string name="enable_public_safety_messages_title" msgid="94965677856528234">"荷蘭極嚴重警示"</string>
+    <string name="public_safety_message" msgid="4890528871594786094">"荷蘭極嚴重警示"</string>
+    <string name="cmas_presidential_level_alert" msgid="9058326958225367870">"荷蘭極嚴重警示"</string>
+    <string name="cmas_extreme_alert" msgid="4868712078881445059">"荷蘭極嚴重警示"</string>
+    <string name="cmas_extreme_immediate_observed_alert" msgid="6128062253192348686">"荷蘭極嚴重警示"</string>
+    <string name="cmas_extreme_immediate_likely_alert" msgid="207796247208986943">"荷蘭極嚴重警示"</string>
+    <string name="cmas_severe_alert" msgid="26776277057772591">"荷蘭極嚴重警示"</string>
 </resources>

@@ -33,11 +33,46 @@ anv_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
    return anv_lookup_entrypoint(&physical_device->info, pName);
 }
 
-static uint64_t
-anv_wsi_image_get_modifier(VkImage _image)
+static void
+anv_wsi_signal_semaphore_for_memory(VkDevice _device,
+                                    VkSemaphore _semaphore,
+                                    VkDeviceMemory _memory)
 {
-   ANV_FROM_HANDLE(anv_image, image, _image);
-   return image->drm_format_mod;
+   ANV_FROM_HANDLE(anv_device, device, _device);
+   ANV_FROM_HANDLE(anv_semaphore, semaphore, _semaphore);
+   ANV_FROM_HANDLE(anv_device_memory, memory, _memory);
+
+   /* Put a BO semaphore with the image BO in the temporary.  For BO binary
+    * semaphores, we always set EXEC_OBJECT_WRITE so this creates a WaR
+    * hazard with the display engine's read to ensure that no one writes to
+    * the image before the read is complete.
+    */
+   anv_semaphore_reset_temporary(device, semaphore);
+
+   struct anv_semaphore_impl *impl = &semaphore->temporary;
+   impl->type = ANV_SEMAPHORE_TYPE_WSI_BO;
+   impl->bo = anv_bo_ref(memory->bo);
+}
+
+static void
+anv_wsi_signal_fence_for_memory(VkDevice _device,
+                                VkFence _fence,
+                                VkDeviceMemory _memory)
+{
+   ANV_FROM_HANDLE(anv_device, device, _device);
+   ANV_FROM_HANDLE(anv_fence, fence, _fence);
+   ANV_FROM_HANDLE(anv_device_memory, memory, _memory);
+
+   /* Put a BO fence with the image BO in the temporary.  For BO fences, we
+    * always just wait until the BO isn't busy and reads from the BO should
+    * count as busy.
+    */
+   anv_fence_reset_temporary(device, fence);
+
+   struct anv_fence_impl *impl = &fence->temporary;
+   impl->type = ANV_FENCE_TYPE_WSI_BO;
+   impl->bo.bo = anv_bo_ref(memory->bo);
+   impl->bo.state = ANV_BO_FENCE_STATE_SUBMITTED;
 }
 
 VkResult
@@ -50,12 +85,16 @@ anv_init_wsi(struct anv_physical_device *physical_device)
                             anv_wsi_proc_addr,
                             &physical_device->instance->alloc,
                             physical_device->master_fd,
-                            NULL);
+                            &physical_device->instance->dri_options,
+                            false);
    if (result != VK_SUCCESS)
       return result;
 
    physical_device->wsi_device.supports_modifiers = true;
-   physical_device->wsi_device.image_get_modifier = anv_wsi_image_get_modifier;
+   physical_device->wsi_device.signal_semaphore_for_memory =
+      anv_wsi_signal_semaphore_for_memory;
+   physical_device->wsi_device.signal_fence_for_memory =
+      anv_wsi_signal_fence_for_memory;
 
    return VK_SUCCESS;
 }
@@ -175,13 +214,13 @@ VkResult anv_CreateSwapchainKHR(
     VkSwapchainKHR*                              pSwapchain)
 {
    ANV_FROM_HANDLE(anv_device, device, _device);
-   struct wsi_device *wsi_device = &device->instance->physicalDevice.wsi_device;
+   struct wsi_device *wsi_device = &device->physical->wsi_device;
    const VkAllocationCallbacks *alloc;
 
    if (pAllocator)
      alloc = pAllocator;
    else
-     alloc = &device->alloc;
+     alloc = &device->vk.alloc;
 
    return wsi_common_create_swapchain(wsi_device, _device,
                                       pCreateInfo, alloc, pSwapchain);
@@ -198,7 +237,7 @@ void anv_DestroySwapchainKHR(
    if (pAllocator)
      alloc = pAllocator;
    else
-     alloc = &device->alloc;
+     alloc = &device->vk.alloc;
 
    wsi_common_destroy_swapchain(_device, swapchain, alloc);
 }
@@ -240,22 +279,9 @@ VkResult anv_AcquireNextImage2KHR(
     uint32_t*                                    pImageIndex)
 {
    ANV_FROM_HANDLE(anv_device, device, _device);
-   struct anv_physical_device *pdevice = &device->instance->physicalDevice;
 
-   VkResult result = wsi_common_acquire_next_image2(&pdevice->wsi_device,
-                                                    _device,
-                                                    pAcquireInfo,
-                                                    pImageIndex);
-
-   /* Thanks to implicit sync, the image is ready immediately.  However, we
-    * should wait for the current GPU state to finish.
-    */
-   if (pAcquireInfo->fence != VK_NULL_HANDLE) {
-      anv_QueueSubmit(anv_queue_to_handle(&device->queue), 0, NULL,
-                      pAcquireInfo->fence);
-   }
-
-   return result;
+   return wsi_common_acquire_next_image2(&device->physical->wsi_device,
+                                         _device, pAcquireInfo, pImageIndex);
 }
 
 VkResult anv_QueuePresentKHR(
@@ -263,13 +289,72 @@ VkResult anv_QueuePresentKHR(
     const VkPresentInfoKHR*                  pPresentInfo)
 {
    ANV_FROM_HANDLE(anv_queue, queue, _queue);
-   struct anv_physical_device *pdevice =
-      &queue->device->instance->physicalDevice;
+   struct anv_device *device = queue->device;
 
-   return wsi_common_queue_present(&pdevice->wsi_device,
-                                   anv_device_to_handle(queue->device),
-                                   _queue, 0,
-                                   pPresentInfo);
+   if (device->debug_frame_desc) {
+      device->debug_frame_desc->frame_id++;
+      if (!device->info.has_llc) {
+         gen_clflush_range(device->debug_frame_desc,
+                           sizeof(*device->debug_frame_desc));
+      }
+   }
+
+   if (device->has_thread_submit &&
+       pPresentInfo->waitSemaphoreCount > 0) {
+      /* Make sure all of the dependency semaphores have materialized when
+       * using a threaded submission.
+       */
+      uint32_t *syncobjs = vk_alloc(&device->vk.alloc,
+                                    sizeof(*syncobjs) * pPresentInfo->waitSemaphoreCount, 8,
+                                    VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+
+      if (!syncobjs)
+         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+
+      uint32_t wait_count = 0;
+      for (uint32_t i = 0; i < pPresentInfo->waitSemaphoreCount; i++) {
+         ANV_FROM_HANDLE(anv_semaphore, semaphore, pPresentInfo->pWaitSemaphores[i]);
+         struct anv_semaphore_impl *impl =
+            semaphore->temporary.type != ANV_SEMAPHORE_TYPE_NONE ?
+            &semaphore->temporary : &semaphore->permanent;
+
+         if (impl->type == ANV_SEMAPHORE_TYPE_DUMMY)
+            continue;
+         assert(impl->type == ANV_SEMAPHORE_TYPE_DRM_SYNCOBJ);
+         syncobjs[wait_count++] = impl->syncobj;
+      }
+
+      int ret = 0;
+      if (wait_count > 0) {
+         ret =
+            anv_gem_syncobj_wait(device, syncobjs, wait_count,
+                                 anv_get_absolute_timeout(INT64_MAX),
+                                 true /* wait_all */);
+      }
+
+      vk_free(&device->vk.alloc, syncobjs);
+
+      if (ret)
+         return vk_error(VK_ERROR_DEVICE_LOST);
+   }
+
+   VkResult result = wsi_common_queue_present(&device->physical->wsi_device,
+                                              anv_device_to_handle(queue->device),
+                                              _queue, 0,
+                                              pPresentInfo);
+
+   for (uint32_t i = 0; i < pPresentInfo->waitSemaphoreCount; i++) {
+      ANV_FROM_HANDLE(anv_semaphore, semaphore, pPresentInfo->pWaitSemaphores[i]);
+      /* From the Vulkan 1.0.53 spec:
+       *
+       *    "If the import is temporary, the implementation must restore the
+       *    semaphore to its prior permanent state after submitting the next
+       *    semaphore wait operation."
+       */
+      anv_semaphore_reset_temporary(queue->device, semaphore);
+   }
+
+   return result;
 }
 
 VkResult anv_GetDeviceGroupPresentCapabilitiesKHR(

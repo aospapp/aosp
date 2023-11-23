@@ -17,7 +17,7 @@
 %                                October 2001                                 %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -120,10 +120,10 @@ MagickExport double GetImageTotalInkDensity(Image *image,
     double
       density;
 
-    register const Quantum
+    const Quantum
       *p;
 
-    register ssize_t
+    ssize_t
       x;
 
     p=GetCacheViewVirtualPixels(image_view,0,y,image->columns,1,exception);

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Copied from tools/base/laoyutlib-api
+// Copied from tools/base/layoutlib-api
 
 package com.android.resources;
 

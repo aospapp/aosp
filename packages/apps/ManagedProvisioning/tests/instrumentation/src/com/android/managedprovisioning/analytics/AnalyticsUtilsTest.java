@@ -18,21 +18,18 @@ package com.android.managedprovisioning.analytics;
 
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_MAIN_COLOR;
 import static android.app.admin.DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC;
+
 import static com.android.managedprovisioning.common.Globals.ACTION_RESUME_PROVISIONING;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
@@ -42,13 +39,12 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
 import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Properties;
-import java.util.function.LongSupplier;
-
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
 /**
  * Unit-tests for {@link AnalyticsUtils}.
@@ -142,7 +138,6 @@ public class AnalyticsUtilsTest extends AndroidTestCase {
         // GIVEN a Nfc intent with both valid and invalid provisioning extras
         Properties props = new Properties();
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        props.setProperty(EXTRA_PROVISIONING_MAIN_COLOR, "");
         props.setProperty(INVALID_PROVISIONING_EXTRA, "");
         props.setProperty(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, "");
         props.store(stream, "NFC provisioning intent" /* data description */);
@@ -159,9 +154,8 @@ public class AnalyticsUtilsTest extends AndroidTestCase {
         // WHEN getting provisioning extras using the intent
         List<String> provisioningExtras = AnalyticsUtils.getAllProvisioningExtras(intent);
         // THEN a list of valid provisioning extras should be returned.
-        assertEquals(2, provisioningExtras.size());
+        assertEquals(1, provisioningExtras.size());
         provisioningExtras.contains(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME);
-        provisioningExtras.contains(EXTRA_PROVISIONING_MAIN_COLOR);
     }
 
     public void testGetProvisioningTime_shouldReturnDiff() {

@@ -41,9 +41,6 @@
     <!--  need app that has CALL_PHONE but not PROCESS_OUTGOING_CALL -->
     <uses-permission android:name="android.permission.CALL_PHONE"/>
 
-
-    <uses-permission android:name="android.permission.WRITE_CONTACTS"/>
-
     <!-- need app that has RECORD_AUDIO but not CAPTURE_AUDIO_OUTPUT -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 

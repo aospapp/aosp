@@ -53,7 +53,7 @@ import com.android.customization.module.ThemesUserEventLogger;
 import com.android.customization.picker.theme.CustomThemeStepFragment.CustomThemeComponentStepHost;
 import com.android.wallpaper.R;
 import com.android.wallpaper.module.InjectorProvider;
-import com.android.wallpaper.module.WallpaperSetter;
+import com.android.wallpaper.picker.AppbarFragment.AppbarFragmentHost;
 
 import org.json.JSONException;
 
@@ -61,7 +61,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CustomThemeActivity extends FragmentActivity implements
-        CustomThemeComponentStepHost {
+        AppbarFragmentHost, CustomThemeComponentStepHost {
     public static final String EXTRA_THEME_ID = "CustomThemeActivity.ThemeId";
     public static final String EXTRA_THEME_TITLE = "CustomThemeActivity.ThemeTitle";
     public static final String EXTRA_THEME_PACKAGES = "CustomThemeActivity.ThemePackages";
@@ -84,12 +84,12 @@ public class CustomThemeActivity extends FragmentActivity implements
     protected void onCreate(Bundle savedInstanceState) {
         CustomizationInjector injector = (CustomizationInjector) InjectorProvider.getInjector();
         mUserEventLogger = (ThemesUserEventLogger) injector.getUserEventLogger(this);
+        ThemeBundleProvider themeProvider =
+                new DefaultThemeProvider(this, injector.getCustomizationPreferences(this));
         Intent intent = getIntent();
         CustomTheme customTheme = null;
         if (intent != null && intent.hasExtra(EXTRA_THEME_PACKAGES)
                 && intent.hasExtra(EXTRA_THEME_TITLE) && intent.hasExtra(EXTRA_THEME_ID)) {
-            ThemeBundleProvider themeProvider =
-                    new DefaultThemeProvider(this, injector.getCustomizationPreferences(this));
             try {
                 CustomTheme.Builder themeBuilder = themeProvider.parseCustomTheme(
                         intent.getStringExtra(EXTRA_THEME_PACKAGES));
@@ -106,12 +106,13 @@ public class CustomThemeActivity extends FragmentActivity implements
         mThemeManager = injector.getThemeManager(
                 new DefaultThemeProvider(this, injector.getCustomizationPreferences(this)),
                 this,
-                new WallpaperSetter(injector.getWallpaperPersister(this),
-                        injector.getPreferences(this), mUserEventLogger, false),
                 new OverlayManagerCompat(this),
                 mUserEventLogger);
         mThemeManager.fetchOptions(null, false);
         mCustomThemeManager = CustomThemeManager.create(customTheme, mThemeManager);
+        if (savedInstanceState != null) {
+            mCustomThemeManager.readCustomTheme(themeProvider, savedInstanceState);
+        }
 
         int currentStep = 0;
         if (savedInstanceState != null) {
@@ -138,6 +139,9 @@ public class CustomThemeActivity extends FragmentActivity implements
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putInt(KEY_STATE_CURRENT_STEP, mCurrentStep);
+        if (mCustomThemeManager != null) {
+            mCustomThemeManager.saveCustomTheme(this, outState);
+        }
     }
 
     private void navigateToStep(int i) {
@@ -223,7 +227,8 @@ public class CustomThemeActivity extends FragmentActivity implements
         mThemeManager.apply(themeToApply, new Callback() {
             @Override
             public void onSuccess() {
-                Toast.makeText(CustomThemeActivity.this, R.string.applied_theme_msg,
+                overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+                Toast.makeText(getApplicationContext(), R.string.applied_theme_msg,
                         Toast.LENGTH_LONG).show();
                 setResult(RESULT_THEME_APPLIED);
                 finish();
@@ -279,6 +284,19 @@ public class CustomThemeActivity extends FragmentActivity implements
         return mCustomThemeManager;
     }
 
+    @Override
+    public void onUpArrowPressed() {
+        // Skip it because CustomThemeStepFragment will implement cancel button
+        // (instead of up arrow) on action bar.
+    }
+
+    @Override
+    public boolean isUpArrowSupported() {
+        // Skip it because CustomThemeStepFragment will implement cancel button
+        // (instead of up arrow) on action bar.
+        return false;
+    }
+
     /**
      * Represents a step in selecting a custom theme, picking a particular component (eg font,
      * color, shape, etc).
@@ -286,13 +304,15 @@ public class CustomThemeActivity extends FragmentActivity implements
      */
     private static abstract class ComponentStep<T extends ThemeComponentOption> {
         @StringRes final int titleResId;
+        @StringRes final int accessibilityResId;
         final ThemeComponentOptionProvider<T> provider;
         final int position;
         private CustomThemeStepFragment mFragment;
 
-        protected ComponentStep(@StringRes int titleResId, ThemeComponentOptionProvider<T> provider,
-                                int position) {
+        protected ComponentStep(@StringRes int titleResId, @StringRes int accessibilityResId,
+                ThemeComponentOptionProvider<T> provider, int position) {
             this.titleResId = titleResId;
+            this.accessibilityResId = accessibilityResId;
             this.provider = provider;
             this.position = position;
         }
@@ -314,39 +334,8 @@ public class CustomThemeActivity extends FragmentActivity implements
 
         protected FontStep(ThemeComponentOptionProvider<FontOption> provider,
                 int position) {
-            super(R.string.font_component_title, provider, position);
-        }
-
-        @Override
-        CustomThemeComponentFragment createFragment(String title) {
-            return CustomThemeComponentFragment.newInstance(
-                    title,
-                    position,
-                    titleResId);
-        }
-    }
-
-    private class IconStep extends ComponentStep<IconOption> {
-
-        protected IconStep(ThemeComponentOptionProvider<IconOption> provider,
-                int position) {
-            super(R.string.icon_component_title, provider, position);
-        }
-
-        @Override
-        CustomThemeComponentFragment createFragment(String title) {
-            return CustomThemeComponentFragment.newInstance(
-                    title,
-                    position,
-                    titleResId);
-        }
-    }
-
-    private class ColorStep extends ComponentStep<ColorOption> {
-
-        protected ColorStep(ThemeComponentOptionProvider<ColorOption> provider,
-                int position) {
-            super(R.string.color_component_title, provider, position);
+            super(R.string.font_component_title, R.string.accessibility_custom_font_title, provider,
+                    position);
         }
 
         @Override
@@ -355,15 +344,16 @@ public class CustomThemeActivity extends FragmentActivity implements
                     title,
                     position,
                     titleResId,
-                    true);
+                    accessibilityResId);
         }
     }
 
-    private class ShapeStep extends ComponentStep<ShapeOption> {
+    private class IconStep extends ComponentStep<IconOption> {
 
-        protected ShapeStep(ThemeComponentOptionProvider<ShapeOption> provider,
+        protected IconStep(ThemeComponentOptionProvider<IconOption> provider,
                 int position) {
-            super(R.string.shape_component_title, provider, position);
+            super(R.string.icon_component_title, R.string.accessibility_custom_icon_title, provider,
+                    position);
         }
 
         @Override
@@ -371,14 +361,52 @@ public class CustomThemeActivity extends FragmentActivity implements
             return CustomThemeComponentFragment.newInstance(
                     title,
                     position,
-                    titleResId);
+                    titleResId,
+                    accessibilityResId);
+        }
+    }
+
+    private class ColorStep extends ComponentStep<ColorOption> {
+
+        protected ColorStep(ThemeComponentOptionProvider<ColorOption> provider,
+                int position) {
+            super(R.string.color_component_title, R.string.accessibility_custom_color_title,
+                    provider, position);
+        }
+
+        @Override
+        CustomThemeComponentFragment createFragment(String title) {
+            return CustomThemeComponentFragment.newInstance(
+                    title,
+                    position,
+                    titleResId,
+                    accessibilityResId);
+        }
+    }
+
+    private class ShapeStep extends ComponentStep<ShapeOption> {
+
+        protected ShapeStep(ThemeComponentOptionProvider<ShapeOption> provider,
+                int position) {
+            super(R.string.shape_component_title, R.string.accessibility_custom_shape_title,
+                    provider, position);
+        }
+
+        @Override
+        CustomThemeComponentFragment createFragment(String title) {
+            return CustomThemeComponentFragment.newInstance(
+                    title,
+                    position,
+                    titleResId,
+                    accessibilityResId);
         }
     }
 
     private class NameStep extends ComponentStep {
 
         protected NameStep(int position) {
-            super(R.string.name_component_title, null, position);
+            super(R.string.name_component_title, R.string.accessibility_custom_name_title, null,
+                    position);
         }
 
         @Override
@@ -386,7 +414,8 @@ public class CustomThemeActivity extends FragmentActivity implements
             return CustomThemeNameFragment.newInstance(
                     title,
                     position,
-                    titleResId);
+                    titleResId,
+                    accessibilityResId);
         }
     }
 }

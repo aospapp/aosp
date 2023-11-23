@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2019, ARM Limited and Contributors. All rights reserved.
- * Copyright (c) 2019, Intel Corporation. All rights reserved.
+ * Copyright (c) 2019-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2019-2020, Intel Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,8 +11,11 @@
 #include <common/bl_common.h>
 #include <drivers/arm/gicv2.h>
 #include <drivers/ti/uart/uart_16550.h>
+#include <lib/mmio.h>
 #include <lib/xlat_tables/xlat_tables.h>
 
+#include "socfpga_mailbox.h"
+#include "socfpga_private.h"
 
 static entry_point_info_t bl32_image_ep_info;
 static entry_point_info_t bl33_image_ep_info;
@@ -34,7 +37,9 @@ entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 				u_register_t arg2, u_register_t arg3)
 {
-	static console_16550_t console;
+	static console_t console;
+
+	mmio_write_64(PLAT_SEC_ENTRY, PLAT_SEC_WARM_ENTRY);
 
 	console_16550_register(PLAT_UART0_BASE, PLAT_UART_CLOCK, PLAT_BAUDRATE,
 		&console);
@@ -44,23 +49,33 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	void *from_bl2 = (void *) arg0;
 
 	bl_params_t *params_from_bl2 = (bl_params_t *)from_bl2;
-
 	assert(params_from_bl2 != NULL);
-	assert(params_from_bl2->h.type == PARAM_BL_PARAMS);
-	assert(params_from_bl2->h.version >= VERSION_2);
 
 	/*
 	 * Copy BL32 (if populated by BL31) and BL33 entry point information.
 	 * They are stored in Secure RAM, in BL31's address space.
 	 */
 
-	bl_params_node_t *bl_params = params_from_bl2->head;
+	if (params_from_bl2->h.type == PARAM_BL_PARAMS &&
+		params_from_bl2->h.version >= VERSION_2) {
 
-	while (bl_params) {
-		if (bl_params->image_id == BL33_IMAGE_ID)
-			bl33_image_ep_info = *bl_params->ep_info;
+		bl_params_node_t *bl_params = params_from_bl2->head;
 
-		bl_params = bl_params->next_params_info;
+		while (bl_params) {
+			if (bl_params->image_id == BL33_IMAGE_ID)
+				bl33_image_ep_info = *bl_params->ep_info;
+
+			bl_params = bl_params->next_params_info;
+		}
+	} else {
+		struct socfpga_bl31_params *arg_from_bl2 =
+			(struct socfpga_bl31_params *) from_bl2;
+
+		assert(arg_from_bl2->h.type == PARAM_BL31);
+		assert(arg_from_bl2->h.version >= VERSION_1);
+
+		bl32_image_ep_info = *arg_from_bl2->bl32_ep_info;
+		bl33_image_ep_info = *arg_from_bl2->bl33_ep_info;
 	}
 	SET_SECURITY_STATE(bl33_image_ep_info.h.attr, NON_SECURE);
 }
@@ -86,11 +101,19 @@ static const gicv2_driver_data_t plat_gicv2_gic_data = {
  ******************************************************************************/
 void bl31_platform_setup(void)
 {
+	socfpga_delay_timer_init();
+
 	/* Initialize the gic cpu and distributor interfaces */
 	gicv2_driver_init(&plat_gicv2_gic_data);
 	gicv2_distif_init();
 	gicv2_pcpu_distif_init();
 	gicv2_cpuif_enable();
+
+	/* Signal secondary CPUs to jump to BL31 (BL2 = U-boot SPL) */
+	mmio_write_64(PLAT_CPU_RELEASE_ADDR,
+		(uint64_t)plat_secondary_cpus_bl31_entry);
+
+	mailbox_hps_stage_notify(HPS_EXECUTION_STATE_SSBL);
 }
 
 const mmap_region_t plat_agilex_mmap[] = {

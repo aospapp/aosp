@@ -20,6 +20,7 @@
 #include <stdint.h>
 
 #include <string>
+#include <vector>
 
 namespace chromeos_update_engine {
 
@@ -51,7 +52,7 @@ class PrefsInterface {
 
   // Associates |key| with a string |value|. Returns true on success,
   // false otherwise.
-  virtual bool SetString(const std::string& key, const std::string& value) = 0;
+  virtual bool SetString(const std::string& key, std::string_view value) = 0;
 
   // Gets an int64_t |value| associated with |key|. Returns true on
   // success, false on failure (including when the |key| is not
@@ -79,6 +80,19 @@ class PrefsInterface {
   // this key. Calling with non-existent keys does nothing.
   virtual bool Delete(const std::string& key) = 0;
 
+  // Deletes the pref key from platform and given namespace subdirectories.
+  // Keys are matched against end of pref keys in each namespace.
+  // Returns true if all deletes were successful.
+  virtual bool Delete(const std::string& pref_key,
+                      const std::vector<std::string>& nss) = 0;
+
+  // Creates a key which is part of a sub preference.
+  static std::string CreateSubKey(const std::vector<std::string>& ns_with_key);
+
+  // Returns a list of keys within the namespace.
+  virtual bool GetSubKeys(const std::string& ns,
+                          std::vector<std::string>* keys) const = 0;
+
   // Add an observer to watch whenever the given |key| is modified. The
   // OnPrefSet() and OnPrefDelete() methods will be called whenever any of the
   // Set*() methods or the Delete() method are called on the given key,
@@ -90,6 +104,10 @@ class PrefsInterface {
   // anymore for future Set*() and Delete() method calls.
   virtual void RemoveObserver(const std::string& key,
                               ObserverInterface* observer) = 0;
+
+ protected:
+  // Key separator used to create sub key and get file names,
+  static const char kKeySeparator = '/';
 };
 
 }  // namespace chromeos_update_engine

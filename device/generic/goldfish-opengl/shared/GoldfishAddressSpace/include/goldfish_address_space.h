@@ -19,7 +19,7 @@
 #include <stddef.h>
 
 #ifdef __Fuchsia__
-#include <fuchsia/hardware/goldfish/cpp/fidl.h>
+#include <fuchsia/hardware/goldfish/llcpp/fidl.h>
 #endif
 
 class GoldfishAddressSpaceBlock;
@@ -49,6 +49,7 @@ enum GoldfishAddressSpaceSubdeviceType {
     Media = 1,
     HostMemoryAllocator = 5,
     SharedSlotsHostMemoryAllocator = 6,
+    VirtioGpuGraphics = 10,
 };
 
 class GoldfishAddressSpaceBlockProvider {
@@ -66,8 +67,12 @@ private:
     static void closeHandle(address_space_handle_t handle);
 
 #ifdef __Fuchsia__
-    fuchsia::hardware::goldfish::AddressSpaceDeviceSyncPtr m_device;
-    fuchsia::hardware::goldfish::AddressSpaceChildDriverSyncPtr m_child_driver;
+    std::unique_ptr<
+        ::fidl::WireSyncClient<fuchsia_hardware_goldfish::AddressSpaceDevice>>
+        m_device;
+    std::unique_ptr<
+        ::fidl::WireSyncClient<fuchsia_hardware_goldfish::AddressSpaceChildDriver>>
+        m_child_driver;
 #else // __Fuchsia__
     address_space_handle_t m_handle;
 #endif // !__Fuchsia__
@@ -99,7 +104,8 @@ private:
     GoldfishAddressSpaceBlock &operator=(const GoldfishAddressSpaceBlock &);
 
 #ifdef __Fuchsia__
-    fuchsia::hardware::goldfish::AddressSpaceChildDriverSyncPtr* m_driver;
+    ::fidl::WireSyncClient<fuchsia_hardware_goldfish::AddressSpaceChildDriver>*
+        m_driver;
     uint32_t  m_vmo;
 #else // __Fuchsia__
     address_space_handle_t m_handle;
@@ -135,7 +141,7 @@ private:
 // require different lifetime expectations versus GoldfishAddressSpaceBlock).
 
 // We also expose the ping info struct that is shared between host and guest.
-struct goldfish_address_space_ping {
+struct address_space_ping {
     uint64_t offset;
     uint64_t size;
     uint64_t metadata;
@@ -164,6 +170,97 @@ void* goldfish_address_space_map(
 void goldfish_address_space_unmap(void* ptr, uint64_t size);
 
 bool goldfish_address_space_set_subdevice_type(address_space_handle_t, GoldfishAddressSpaceSubdeviceType type, address_space_handle_t*);
-bool goldfish_address_space_ping(address_space_handle_t, struct goldfish_address_space_ping*);
+bool goldfish_address_space_ping(address_space_handle_t, struct address_space_ping*);
+
+// virtio-gpu version
+
+struct address_space_virtgpu_hostmem_info {
+    uint32_t id;
+    uint32_t bo;
+    void* ptr;
+};
+
+struct address_space_virtgpu_info {
+    int fd;
+    uint32_t resp_bo;
+    uint32_t resp_resid;
+    void* resp_mapped_ptr;
+};
+
+address_space_handle_t virtgpu_address_space_open();
+void virtgpu_address_space_close(address_space_handle_t);
+
+// Ping with no response
+bool virtgpu_address_space_ping(address_space_handle_t, struct address_space_ping*);
+
+bool virtgpu_address_space_create_context_with_subdevice(
+    address_space_handle_t,
+    uint32_t subdevice_type,
+    struct address_space_virtgpu_info* info_out);
+
+bool virtgpu_address_space_allocate_hostmem(
+    address_space_handle_t fd,
+    size_t size,
+    uint64_t hostmem_id,
+    struct address_space_virtgpu_hostmem_info* hostmem_info_out);
+
+// Ping with response
+bool virtgpu_address_space_ping_with_response(
+    struct address_space_virtgpu_info* info,
+    struct address_space_ping* ping);
+
+// typedef/struct to abstract over goldfish vs virtio-gpu implementations
+typedef address_space_handle_t (*address_space_open_t)(void);
+typedef void (*address_space_close_t)(address_space_handle_t);
+
+typedef bool (*address_space_allocate_t)(
+    address_space_handle_t, size_t size, uint64_t* phys_addr, uint64_t* offset);
+typedef bool (*address_space_free_t)(
+    address_space_handle_t, uint64_t offset);
+
+typedef bool (*address_space_claim_shared_t)(
+    address_space_handle_t, uint64_t offset, uint64_t size);
+typedef bool (*address_space_unclaim_shared_t)(
+    address_space_handle_t, uint64_t offset);
+
+// pgoff is the offset into the page to return in the result
+typedef void* (*address_space_map_t)(
+    address_space_handle_t, uint64_t offset, uint64_t size, uint64_t pgoff);
+typedef void (*address_space_unmap_t)(void* ptr, uint64_t size);
+
+typedef bool (*address_space_set_subdevice_type_t)(
+    address_space_handle_t, GoldfishAddressSpaceSubdeviceType type, address_space_handle_t*);
+typedef bool (*address_space_ping_t)(
+    address_space_handle_t, struct address_space_ping*);
+
+// Specific to virtio-gpu
+typedef bool (*address_space_create_context_with_subdevice_t)(
+    address_space_handle_t,
+    uint32_t subdevice_type,
+    struct address_space_virtgpu_info* info_out);
+
+typedef bool (*address_space_allocate_hostmem_t)(
+    address_space_handle_t fd,
+    size_t size,
+    uint64_t hostmem_id,
+    struct address_space_virtgpu_hostmem_info* hostmem_info_out);
+
+typedef bool (*address_space_ping_with_response_t)(
+    struct address_space_virtgpu_info* info,
+    struct address_space_ping* ping);
+
+struct address_space_ops {
+    address_space_open_t open;
+    address_space_close_t close;
+    address_space_claim_shared_t claim_shared;
+    address_space_unclaim_shared_t unclaim_shared;
+    address_space_map_t map;
+    address_space_unmap_t unmap;
+    address_space_set_subdevice_type_t set_subdevice_type;
+    address_space_ping_t ping;
+    address_space_create_context_with_subdevice_t create_context_with_subdevice;
+    address_space_allocate_hostmem_t allocate_hostmem;
+    address_space_ping_with_response_t ping_with_response;
+};
 
 #endif  // #ifndef ANDROID_INCLUDE_HARDWARE_GOLDFISH_ADDRESS_SPACE_H

@@ -18,6 +18,7 @@
 
 #include <condition_variable>
 #include <map>
+#include <queue>
 #include <utility>
 
 #include <android-base/thread_annotations.h>
@@ -38,6 +39,20 @@ namespace metrics {
 // verify the event count, the event change order, and so on.
 class DnsMetricsListener : public BaseMetricsListener {
   public:
+    struct DnsEvent {
+        int32_t netId;
+        int32_t eventType;
+        int32_t returnCode;
+        std::string hostname;
+        std::vector<std::string> ipAddresses;
+        int32_t ipAddressesCount;
+
+        bool operator==(const DnsEvent& o) const;
+
+        // Informative for debugging.
+        friend std::ostream& operator<<(std::ostream& os, const DnsEvent& data);
+    };
+
     DnsMetricsListener() = delete;
     DnsMetricsListener(int32_t netId) : mNetId(netId){};
 
@@ -49,6 +64,11 @@ class DnsMetricsListener : public BaseMetricsListener {
     ::ndk::ScopedAStatus onPrivateDnsValidationEvent(int32_t netId, const std::string& ipAddress,
                                                      const std::string& /*hostname*/,
                                                      bool validated) override;
+
+    ::ndk::ScopedAStatus onDnsEvent(int32_t netId, int32_t eventType, int32_t returnCode,
+                                    int32_t /*latencyMs*/, const std::string& hostname,
+                                    const std::vector<std::string>& ipAddresses,
+                                    int32_t ipAddressesCount, int32_t /*uid*/) override;
 
     // Wait for expected NAT64 prefix status until timeout.
     bool waitForNat64Prefix(ExpectNat64PrefixStatus status, std::chrono::milliseconds timeout)
@@ -70,10 +90,15 @@ class DnsMetricsListener : public BaseMetricsListener {
         return mValidationRecords.find({mNetId, serverAddr}) != mValidationRecords.end();
     }
 
+    std::optional<DnsEvent> popDnsEvent() EXCLUDES(mMutex);
+
     void reset() EXCLUDES(mMutex) {
         std::lock_guard lock(mMutex);
         mUnexpectedNat64PrefixUpdates = 0;
         mValidationRecords.clear();
+
+        std::queue<DnsEvent> emptyQueue;
+        std::swap(mDnsEventRecords, emptyQueue);
     }
 
   private:
@@ -98,6 +123,9 @@ class DnsMetricsListener : public BaseMetricsListener {
 
     // Used to store the data from onPrivateDnsValidationEvent.
     std::map<ServerKey, bool> mValidationRecords GUARDED_BY(mMutex);
+
+    // Used to store the data from onDnsEvent.
+    std::queue<DnsEvent> mDnsEventRecords GUARDED_BY(mMutex);
 
     mutable std::mutex mMutex;
     std::condition_variable mCv;

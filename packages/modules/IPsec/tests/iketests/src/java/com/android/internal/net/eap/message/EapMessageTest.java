@@ -14,29 +14,30 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message;
+package com.android.internal.net.eap.test.message;
+
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_SIM;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.EapData.EAP_IDENTITY;
-import static com.android.internal.net.eap.message.EapData.EAP_NAK;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_SIM;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_REQUEST;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_RESPONSE;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_SUCCESS;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_REQUEST_IDENTITY_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_REQUEST_IDENTITY_PACKET_TOO_LONG;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_REQUEST_SIM_START_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_REQUEST_SIM_TYPE_DATA;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_RESPONSE_NAK_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_RESPONSE_NOTIFICATION_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_SUCCESS_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.ID_INT;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.INCOMPLETE_HEADER_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.INVALID_CODE_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.LONG_SUCCESS_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.REQUEST_MISSING_TYPE_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.REQUEST_UNSUPPORTED_TYPE_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.SHORT_PACKET;
+import static com.android.internal.net.eap.test.message.EapData.EAP_IDENTITY;
+import static com.android.internal.net.eap.test.message.EapData.EAP_NAK;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_REQUEST;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_RESPONSE;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_SUCCESS;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_REQUEST_IDENTITY_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_REQUEST_IDENTITY_PACKET_TOO_LONG;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_REQUEST_SIM_START_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_REQUEST_SIM_TYPE_DATA;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_RESPONSE_NAK_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_RESPONSE_NOTIFICATION_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SUCCESS_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.ID_INT;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.INCOMPLETE_HEADER_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.INVALID_CODE_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.LONG_SUCCESS_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.REQUEST_MISSING_TYPE_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.REQUEST_UNSUPPORTED_TYPE_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.SHORT_PACKET;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -44,11 +45,11 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.EapResult;
-import com.android.internal.net.eap.EapResult.EapResponse;
-import com.android.internal.net.eap.exceptions.EapInvalidPacketLengthException;
-import com.android.internal.net.eap.exceptions.InvalidEapCodeException;
-import com.android.internal.net.eap.exceptions.UnsupportedEapTypeException;
+import com.android.internal.net.eap.test.EapResult;
+import com.android.internal.net.eap.test.EapResult.EapResponse;
+import com.android.internal.net.eap.test.exceptions.EapInvalidPacketLengthException;
+import com.android.internal.net.eap.test.exceptions.InvalidEapCodeException;
+import com.android.internal.net.eap.test.exceptions.UnsupportedEapTypeException;
 
 import org.junit.Test;
 

@@ -26,6 +26,7 @@
         <option name="test-file-name" value="CtsHostProcfsTestApp.apk" />
         <option name="test-file-name" value="CtsInattentiveSleepTestApp.apk" />
         <option name="test-file-name" value="CtsHostEnvironmentTestApp.apk" />
+        <option name="test-file-name" value="CtsStaticSharedLibTestApp.apk" />
     </target_preparer>
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsOsHostTestCases.jar" />

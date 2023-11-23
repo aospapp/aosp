@@ -19,7 +19,7 @@
     <string name="sip_settings" msgid="7452587325305604702">"ಎಸ್‌ಐಪಿ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="sip_accounts" msgid="7297896885665783239">"ಎಸ್‌ಐಪಿ ಖಾತೆಗಳು"</string>
     <string name="sip_accounts_title" msgid="3061686404598143943">"ಖಾತೆಗಳು"</string>
-    <string name="sip_receive_calls" msgid="3403644006618369349">"ಒಳಬರುವ ಕರೆಗಳನ್ನು ಸ್ವೀಕರಿಸು"</string>
+    <string name="sip_receive_calls" msgid="3403644006618369349">"ಒಳಬರುವ ಕರೆಗಳನ್ನು ಸ್ವೀಕರಿಸಿ"</string>
     <string name="sip_receive_calls_summary" msgid="5306603671778761443">"ಹೆಚ್ಚು ಬ್ಯಾಟರಿಯನ್ನು ಬಳಸುತ್ತದೆ"</string>
     <string name="sip_call_options_title" msgid="5027066677561068192">"ಎಸ್‌ಐಪಿ ಕರೆ ಮಾಡುವಿಕೆಯನ್ನು ಬಳಸಿ"</string>
     <string name="sip_call_options_wifi_only_title" msgid="6663105297927456484">"ಎಸ್‌ಐಪಿ ಕರೆ ಮಾಡುವಿಕೆಯನ್ನು ಬಳಸಿ (ವೈ-ಫೈ ಮಾತ್ರ)"</string>

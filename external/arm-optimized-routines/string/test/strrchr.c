@@ -1,7 +1,7 @@
 /*
  * strrchr test.
  *
- * Copyright (c) 2019, Arm Limited.
+ * Copyright (c) 2019-2021, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -10,88 +10,112 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include "mte.h"
 #include "stringlib.h"
+#include "stringtest.h"
+
+#define F(x, mte) {#x, x, mte},
 
 static const struct fun
 {
-	const char *name;
-	char *(*fun)(const char *s, int c);
+  const char *name;
+  char *(*fun) (const char *s, int c);
+  int test_mte;
 } funtab[] = {
-#define F(x) {#x, x},
-F(strrchr)
+  // clang-format off
+  F(strrchr, 0)
 #if __aarch64__
-F(__strrchr_aarch64)
+  F(__strrchr_aarch64, 0)
+  F(__strrchr_aarch64_mte, 1)
 # if __ARM_FEATURE_SVE
-F(__strrchr_aarch64_sve)
+  F(__strrchr_aarch64_sve, 1)
 # endif
 #endif
-#undef F
-	{0, 0}
+  {0, 0, 0}
+  // clang-format on
 };
+#undef F
 
-static int test_status;
-#define ERR(...) (test_status=1, printf(__VA_ARGS__))
+#define ALIGN 32
+#define LEN 512
+static char *sbuf;
 
-#define A 32
-#define SP 512
-#define LEN 250000
-static char sbuf[LEN+2*A];
-
-static void *alignup(void *p)
+static void *
+alignup (void *p)
 {
-	return (void*)(((uintptr_t)p + A-1) & -A);
+  return (void *) (((uintptr_t) p + ALIGN - 1) & -ALIGN);
 }
 
-static void test(const struct fun *fun, int align, int seekpos, int len)
+static void
+test (const struct fun *fun, int align, int seekpos, int len)
 {
-	char *src = alignup(sbuf);
-	char *s = src + align;
-	char *f = seekpos != -1 ? s + seekpos : 0;
-	int seekchar = 0x1;
-	void *p;
+  char *src = alignup (sbuf);
+  char *s = src + align;
+  char *f = seekpos != -1 ? s + seekpos : 0;
+  int seekchar = 0x1;
+  void *p;
 
-	if (len > LEN || seekpos >= len - 1 || align >= A)
-		abort();
-	if (seekchar >= 'a' && seekchar <= 'a' + 23)
-		abort();
+  if (err_count >= ERR_LIMIT)
+    return;
+  if (len > LEN || seekpos >= len || align >= ALIGN)
+    abort ();
 
-	for (int i = 0; i < len + A; i++)
-		src[i] = '?';
-	for (int i = 0; i < len - 2; i++)
-		s[i] = 'a' + i%23;
-	if (seekpos != -1)
-		s[seekpos/2] = s[seekpos] = seekchar;
-	s[len - 1] = '\0';
+  for (int i = 0; src + i < s; i++)
+    src[i] = (i + len) & 1 ? seekchar : 0;
+  for (int i = 1; i <= ALIGN; i++)
+    s[len + i] = (i + len) & 1 ? seekchar : 0;
+  for (int i = 0; i < len; i++)
+    s[i] = 'a' + (i & 31);
+  if (seekpos != -1)
+    s[seekpos / 2] = s[seekpos] = seekchar;
+  if (seekpos > 0 && (len + align) & 1)
+    s[seekpos - 1] = seekchar;
+  s[len] = '\0';
 
-	p = fun->fun(s, seekchar);
+  s = tag_buffer (s, len + 1, fun->test_mte);
+  p = fun->fun (s, seekchar);
+  untag_buffer (s, len + 1, fun->test_mte);
+  p = untag_pointer (p);
 
-	if (p != f) {
-		ERR("%s(%p,0x%02x,%d) returned %p\n", fun->name, s, seekchar, len, p);
-		ERR("expected: %p\n", f);
-		abort();
-	}
+  if (p != f)
+    {
+      ERR ("%s (%p, 0x%02x) len %d returned %p, expected %p pos %d\n",
+	   fun->name, s, seekchar, len, p, f, seekpos);
+      quote ("input", s, len);
+    }
+
+  s = tag_buffer (s, len + 1, fun->test_mte);
+  p = fun->fun (s, 0);
+  untag_buffer (s, len + 1, fun->test_mte);
+
+  if (p != s + len)
+    {
+      ERR ("%s (%p, 0x%02x) len %d returned %p, expected %p pos %d\n",
+	   fun->name, s, 0, len, p, s + len, len);
+      quote ("input", s, len);
+    }
 }
 
-int main()
+int
+main (void)
 {
-	int r = 0;
-	for (int i=0; funtab[i].name; i++) {
-		test_status = 0;
-		for (int a = 0; a < A; a++) {
-			int n;
-			for (n = 1; n < 100; n++) {
-				for (int sp = 0; sp < n - 1; sp++)
-					test(funtab+i, a, sp, n);
-				test(funtab+i, a, -1, n);
-			}
-			for (; n < LEN; n *= 2) {
-				test(funtab+i, a, -1, n);
-				test(funtab+i, a, n / 2, n);
-			}
-		}
-		printf("%s %s\n", test_status ? "FAIL" : "PASS", funtab[i].name);
-		if (test_status)
-			r = -1;
-	}
-	return r;
+  sbuf = mte_mmap (LEN + 3 * ALIGN);
+  int r = 0;
+  for (int i = 0; funtab[i].name; i++)
+    {
+      err_count = 0;
+      for (int a = 0; a < ALIGN; a++)
+	for (int n = 0; n < LEN; n++)
+	  {
+	    for (int sp = 0; sp < n; sp++)
+	      test (funtab + i, a, sp, n);
+	    test (funtab + i, a, -1, n);
+	  }
+
+      char *pass = funtab[i].test_mte && mte_enabled () ? "MTE PASS" : "PASS";
+      printf ("%s %s\n", err_count ? "FAIL" : pass, funtab[i].name);
+      if (err_count)
+	r = -1;
+    }
+  return r;
 }

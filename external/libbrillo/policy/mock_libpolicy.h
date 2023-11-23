@@ -20,10 +20,10 @@ class MockPolicyProvider : public PolicyProvider {
   MockPolicyProvider() = default;
   ~MockPolicyProvider() override = default;
 
-  MOCK_METHOD0(Reload, bool(void));
-  MOCK_CONST_METHOD0(device_policy_is_loaded, bool(void));
-  MOCK_CONST_METHOD0(GetDevicePolicy, const DevicePolicy&(void));
-  MOCK_CONST_METHOD0(IsConsumerDevice, bool(void));
+  MOCK_METHOD(bool, Reload, (), (override));
+  MOCK_METHOD(bool, device_policy_is_loaded, (), (const, override));
+  MOCK_METHOD(const DevicePolicy&, GetDevicePolicy, (), (const, override));
+  MOCK_METHOD(bool, IsConsumerDevice, (), (const, override));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockPolicyProvider);

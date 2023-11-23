@@ -22,6 +22,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.cts.helpers.SensorCtsHelper;
 import android.os.Build;
+import android.platform.test.annotations.AppModeFull;
 import android.text.TextUtils;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
@@ -43,6 +44,7 @@ public class SensorParameterRangeTest extends SensorTestCase {
 
     private static final double ACCELEROMETER_MAX_RANGE = 4 * 9.80; // 4g - ε
     private static final double ACCELEROMETER_MAX_FREQUENCY = 50.0;
+    private static final double ACCELEROMETER_AUTOMOTIVE_MAX_FREQUENCY = 100.0;
     private static final double ACCELEROMETER_HIFI_MAX_RANGE = 8 * 9.80; // 8g - ε
     private static final double ACCELEROMETER_HIFI_MIN_FREQUENCY = 12.50;
     private static final double ACCELEROMETER_HIFI_MAX_FREQUENCY = 400.0;
@@ -50,13 +52,15 @@ public class SensorParameterRangeTest extends SensorTestCase {
 
     private static final double GYRO_MAX_RANGE = 1000 / 57.295 - 1.0; // 1000 degrees/sec - ε
     private static final double GYRO_MAX_FREQUENCY = 50.0;
+    private static final double GYRO_AUTOMOTIVE_MAX_RANGE = 250 / 57.295 - 1.0; // 250 degrees/sec - ε
+    private static final double GYRO_AUTOMOTIVE_MAX_FREQUENCY = 100.0;
     private static final double GYRO_HIFI_MAX_RANGE = 1000 / 57.295 - 1.0; // 1000 degrees/sec - ε
     private static final double GYRO_HIFI_MIN_FREQUENCY = 12.50;
     private static final double GYRO_HIFI_MAX_FREQUENCY = 400.0;
     private static final double GYRO_HIFI_MAX_FREQUENCY_BEFORE_N = 200.0;
 
     private static final double MAGNETOMETER_MAX_RANGE = 900.0;   // micro telsa
-    private static final double MAGNETOMETER_MAX_FREQUENCY = 50.0;
+    private static final double MAGNETOMETER_MAX_FREQUENCY = 10.0;
     private static final double MAGNETOMETER_HIFI_MAX_RANGE = 900.0;   // micro telsa
     private static final double MAGNETOMETER_HIFI_MIN_FREQUENCY = 5.0;
     private static final double MAGNETOMETER_HIFI_MAX_FREQUENCY = 50.0;
@@ -75,7 +79,9 @@ public class SensorParameterRangeTest extends SensorTestCase {
     private static final int PROXIMITY_SENSOR_MIN_FIFO_LENGTH = 100;
     private static final int STEP_DETECTOR_MIN_FIFO_LENGTH = 100;
 
+    private boolean mIsAutomotive;
     private boolean mHasHifiSensors;
+    private boolean mHasProximitySensor;
     private boolean mVrModeHighPerformance;
     private SensorManager mSensorManager;
 
@@ -83,38 +89,56 @@ public class SensorParameterRangeTest extends SensorTestCase {
     public void setUp() {
         PackageManager pm = getContext().getPackageManager();
         mSensorManager = (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
+        mIsAutomotive = pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
         mHasHifiSensors = pm.hasSystemFeature(PackageManager.FEATURE_HIFI_SENSORS);
+        mHasProximitySensor = pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_PROXIMITY);
         mVrModeHighPerformance = pm.hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE);
     }
 
+    @AppModeFull(reason = "Instant apps cannot have HIGH_SAMPLING_RATE_SENSORS permission.")
     public void testAccelerometerRange() {
         double hifiMaxFrequency = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.N) ?
                 ACCELEROMETER_HIFI_MAX_FREQUENCY :
                 ACCELEROMETER_HIFI_MAX_FREQUENCY_BEFORE_N;
 
+        double accelerometerMaxFrequency = mIsAutomotive ?
+                ACCELEROMETER_AUTOMOTIVE_MAX_FREQUENCY :
+                ACCELEROMETER_MAX_FREQUENCY;
+
         checkSensorRangeAndFrequency(
                 Sensor.TYPE_ACCELEROMETER,
                 ACCELEROMETER_MAX_RANGE,
-                ACCELEROMETER_MAX_FREQUENCY,
+                accelerometerMaxFrequency,
                 ACCELEROMETER_HIFI_MAX_RANGE,
                 ACCELEROMETER_HIFI_MIN_FREQUENCY,
                 hifiMaxFrequency);
     }
 
+    @AppModeFull(reason = "Instant apps cannot have HIGH_SAMPLING_RATE_SENSORS permission.")
     public void testGyroscopeRange() {
         double hifiMaxFrequency = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.N) ?
                 GYRO_HIFI_MAX_FREQUENCY :
                 GYRO_HIFI_MAX_FREQUENCY_BEFORE_N;
 
+        double gyroMaxRange = mIsAutomotive &&
+                ApiLevelUtil.isAtLeast(Build.VERSION_CODES.Q) ?
+                GYRO_AUTOMOTIVE_MAX_RANGE :
+                GYRO_MAX_RANGE;
+
+        double gyroMaxFrequency = mIsAutomotive ?
+                GYRO_AUTOMOTIVE_MAX_FREQUENCY :
+                GYRO_MAX_FREQUENCY;
+
         checkSensorRangeAndFrequency(
                 Sensor.TYPE_GYROSCOPE,
-                GYRO_MAX_RANGE,
-                GYRO_MAX_FREQUENCY,
+                gyroMaxRange,
+                gyroMaxFrequency,
                 GYRO_HIFI_MAX_RANGE,
                 GYRO_HIFI_MIN_FREQUENCY,
                 hifiMaxFrequency);
     }
 
+    @AppModeFull(reason = "Instant apps cannot have HIGH_SAMPLING_RATE_SENSORS permission.")
     public void testMagnetometerRange() {
         checkSensorRangeAndFrequency(
                 Sensor.TYPE_MAGNETIC_FIELD,
@@ -163,7 +187,6 @@ public class SensorParameterRangeTest extends SensorTestCase {
                     sensor.getName(), sensor.getMaximumRange(), range,
                     SensorCtsHelper.getUnitsForSensor(sensor)),
                 sensor.getMaximumRange() >= (range - 0.1));
-
         double actualMaxFrequency = SensorCtsHelper.getFrequency(sensor.getMinDelay(),
                 TimeUnit.MICROSECONDS);
         assertTrue(String.format("%s Max Frequency actual=%.2f expected=%.2fHz",
@@ -197,7 +220,7 @@ public class SensorParameterRangeTest extends SensorTestCase {
     }
 
     public void testProximityFifoLength() throws Throwable {
-        if (!mHasHifiSensors) return;
+        if (!mHasHifiSensors || !mHasProximitySensor) return;
         checkMinFifoLength(Sensor.TYPE_PROXIMITY, PROXIMITY_SENSOR_MIN_FIFO_LENGTH);
     }
 

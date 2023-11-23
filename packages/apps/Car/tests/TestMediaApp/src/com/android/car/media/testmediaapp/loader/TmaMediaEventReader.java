@@ -21,8 +21,6 @@ import static com.android.car.media.testmediaapp.loader.TmaLoaderUtils.getEnum;
 import static com.android.car.media.testmediaapp.loader.TmaLoaderUtils.getInt;
 import static com.android.car.media.testmediaapp.loader.TmaLoaderUtils.getString;
 
-import android.util.Log;
-
 import androidx.annotation.Nullable;
 
 import com.android.car.media.testmediaapp.TmaMediaEvent;
@@ -57,7 +55,8 @@ class TmaMediaEventReader {
         ACTION,
         /** How long to wait before sending the event to the app. */
         POST_DELAY_MS,
-        THROW_EXCEPTION
+        THROW_EXCEPTION,
+        TOGGLE_ITEM,
     }
 
     private static TmaMediaEventReader sInstance;
@@ -92,6 +91,7 @@ class TmaMediaEventReader {
                 getEnum(json, Keys.INTENT, mResolutionIntents, ResolutionIntent.NONE),
                 getEnum(json, Keys.ACTION, mActions, Action.NONE),
                 getInt(json, Keys.POST_DELAY_MS),
-                getString(json, Keys.THROW_EXCEPTION));
+                getString(json, Keys.THROW_EXCEPTION),
+                getString(json, Keys.TOGGLE_ITEM));
     }
 }

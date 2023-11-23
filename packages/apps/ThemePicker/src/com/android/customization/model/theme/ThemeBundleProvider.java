@@ -43,6 +43,8 @@ public interface ThemeBundleProvider {
 
     void removeCustomTheme(CustomTheme theme);
 
+    @Nullable ThemeBundle.Builder parseThemeBundle(String serializedTheme) throws JSONException;
+
     @Nullable CustomTheme.Builder parseCustomTheme(String serializedTheme) throws JSONException;
 
     ThemeBundle findEquivalent(ThemeBundle other);

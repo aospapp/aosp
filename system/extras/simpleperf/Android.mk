@@ -18,26 +18,14 @@ LOCAL_PATH := $(call my-dir)
 # simpleperf_script.zip (for release in ndk)
 # ============================================================
 SIMPLEPERF_SCRIPT_LIST := \
-    $(filter-out scripts/update.py,$(call all-named-files-under,*.py,scripts)) \
-    scripts/inferno.sh \
-    scripts/inferno.bat \
-    scripts/inferno/inferno.b64 \
-    $(call all-named-files-under,*,scripts/script_testdata) \
-    $(call all-named-files-under,*.js,scripts) \
-    $(call all-named-files-under,*.css,scripts) \
-    $(call all-named-files-under,*,doc) \
-    $(call all-named-files-under,app-profiling.apk,demo) \
-    $(call all-named-files-under,*.so,demo) \
-    $(call all-cpp-files-under,demo) \
-    $(call all-java-files-under,demo) \
-    $(call all-named-files-under,*.kt,demo) \
-    testdata/perf_with_symbols.data \
-    testdata/perf_with_trace_offcpu.data \
-    testdata/perf_with_tracepoint_event.data \
-    testdata/perf_with_interpreter_frames.data \
-    $(call all-named-files-under,*,app_api)
+    app_api \
+    doc \
+    demo \
+    runtest \
+    scripts \
+    testdata
 
-SIMPLEPERF_SCRIPT_LIST := $(addprefix -f $(LOCAL_PATH)/,$(SIMPLEPERF_SCRIPT_LIST))
+SIMPLEPERF_SCRIPT_LIST := $(addprefix -D $(LOCAL_PATH)/,$(SIMPLEPERF_SCRIPT_LIST))
 
 SIMPLEPERF_SCRIPT_PATH := \
     $(call intermediates-dir-for,PACKAGING,simplerperf_script,HOST)/simpleperf_script.zip

@@ -18,6 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.ike.tests">
 
+    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30" />
+
     <!--Allow tests to create socket -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!--Allow tests to call ConnectivityManager#getActiveNetwork()-->
@@ -49,5 +51,3 @@
         android:targetPackage="com.android.ike.tests"
         android:label="Frameworks Ike Tests" />
 </manifest>
-
-

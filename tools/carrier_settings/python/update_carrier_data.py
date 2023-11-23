@@ -292,6 +292,9 @@ def add_apns_for_other_carriers_by_mccmnc(apns, tier1_carriers, other_carriers):
 
   Modifies others.textpb file in-place.
 
+  If a carriersettingstool.no_apn_for_mvno_bool is defined as true for a MVNO,
+  the APNs from the corresponding MNO(by MCC/MNC) will not be used.
+
   Args:
     apns: a list of CarrierSettings message with APNs only.
     tier1_carriers: parsed tier-1 carriers list; must not contain new carriers.
@@ -314,6 +317,15 @@ def add_apns_for_other_carriers_by_mccmnc(apns, tier1_carriers, other_carriers):
     if not setting.HasField('apns'):
       carrier_id = to_carrier_id(setting.canonical_name)
       if carrier_id.HasField('mvno_data'):
+        # in case we don't need MNO APN for this MVNO
+        skip_mno_apn = False
+        if setting.HasField('configs'):
+          for conf in setting.configs.config:
+            if conf.key == 'carriersettingstool.no_apn_for_mvno_bool':
+              skip_mno_apn = conf.bool_value
+              break
+        if skip_mno_apn:
+          continue
         carrier_id.ClearField('mvno_data')
         carrier_id_str_of_mccmnc = to_string(carrier_id)
         cname_of_mccmnc = tier1_carriers.get(
@@ -324,9 +336,20 @@ def add_apns_for_other_carriers_by_mccmnc(apns, tier1_carriers, other_carriers):
           if apn:
             setting.apns.CopyFrom(apn.apns)
 
+  sanitise_carrier_config(others.setting)
+
   with open(others_textpb, 'w', encoding='utf-8') as others_textpb_file:
     text_format.PrintMessage(others, others_textpb_file, as_utf8=True)
 
+def sanitise_carrier_config(setting):
+  """Remove temparary carrier config items that's only used for conversion tool"""
+  for carrier_setting in setting:
+    if carrier_setting.HasField('configs'):
+      configs = carrier_setting.configs.config[:]
+      del carrier_setting.configs.config[:]
+      for config in configs:
+        if not config.key.startswith('carriersettingstool.'):
+          carrier_setting.configs.config.append(config)
 
 def add_carrierconfig_for_new_carriers(cnames, tier1_carriers, other_carriers):
   """Add carrier configs for new (non-tier-1) carriers.

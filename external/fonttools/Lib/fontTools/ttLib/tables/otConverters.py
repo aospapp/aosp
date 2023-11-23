@@ -1,15 +1,22 @@
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
+from fontTools.misc.py23 import bytesjoin, tobytes, tostr
 from fontTools.misc.fixedTools import (
-	fixedToFloat as fi2fl, floatToFixed as fl2fi, ensureVersionIsLong as fi2ve,
-	versionToFixed as ve2fi)
+	fixedToFloat as fi2fl,
+	floatToFixed as fl2fi,
+	floatToFixedToStr as fl2str,
+	strToFixedToFloat as str2fl,
+	ensureVersionIsLong as fi2ve,
+	versionToFixed as ve2fi,
+)
 from fontTools.misc.textTools import pad, safeEval
 from fontTools.ttLib import getSearchRange
 from .otBase import (CountReference, FormatSwitchingBaseTable,
                      OTTableReader, OTTableWriter, ValueRecordFactory)
 from .otTables import (lookupTypes, AATStateTable, AATState, AATAction,
                        ContextualMorphAction, LigatureMorphAction,
-                       InsertionMorphAction, MorxSubtable)
+                       InsertionMorphAction, MorxSubtable, VariableFloat,
+                       VariableInt, ExtendMode as _ExtendMode,
+                       CompositeMode as _CompositeMode)
+from itertools import zip_longest
 from functools import partial
 import struct
 import logging
@@ -52,14 +59,20 @@ def buildConverters(tableSpec, tableNamespace):
 				converterClass = Struct
 			else:
 				converterClass = eval(tp, tableNamespace, converterMapping)
-		if tp in ('MortChain', 'MortSubtable', 'MorxChain'):
+
+		conv = converterClass(name, repeat, aux)
+
+		if conv.tableClass:
+			# A "template" such as OffsetTo(AType) knowss the table class already
+			tableClass = conv.tableClass
+		elif tp in ('MortChain', 'MortSubtable', 'MorxChain'):
 			tableClass = tableNamespace.get(tp)
 		else:
 			tableClass = tableNamespace.get(tableName)
-		if tableClass is not None:
-			conv = converterClass(name, repeat, aux, tableClass=tableClass)
-		else:
-			conv = converterClass(name, repeat, aux)
+
+		if not conv.tableClass:
+			conv.tableClass = tableClass
+
 		if name in ["SubTable", "ExtSubTable", "SubStruct"]:
 			conv.lookupTypes = tableNamespace['lookupTypes']
 			# also create reverse mapping
@@ -130,7 +143,22 @@ class BaseConverter(object):
 		self.tableClass = tableClass
 		self.isCount = name.endswith("Count") or name in ['DesignAxisRecordSize', 'ValueRecordSize']
 		self.isLookupType = name.endswith("LookupType") or name == "MorphType"
-		self.isPropagated = name in ["ClassCount", "Class2Count", "FeatureTag", "SettingsCount", "VarRegionCount", "MappingCount", "RegionAxisCount", 'DesignAxisCount', 'DesignAxisRecordSize', 'AxisValueCount', 'ValueRecordSize', 'AxisCount']
+		self.isPropagated = name in [
+			"ClassCount",
+			"Class2Count",
+			"FeatureTag",
+			"SettingsCount",
+			"VarRegionCount",
+			"MappingCount",
+			"RegionAxisCount",
+			"DesignAxisCount",
+			"DesignAxisRecordSize",
+			"AxisValueCount",
+			"ValueRecordSize",
+			"AxisCount",
+			"BaseGlyphRecordCount",
+			"LayerRecordCount",
+		]
 
 	def readArray(self, reader, font, tableDict, count):
 		"""Read an array of values from the reader."""
@@ -181,15 +209,22 @@ class BaseConverter(object):
 
 
 class SimpleValue(BaseConverter):
+	@staticmethod
+	def toString(value):
+		return value
+	@staticmethod
+	def fromString(value):
+		return value
 	def xmlWrite(self, xmlWriter, font, value, name, attrs):
-		xmlWriter.simpletag(name, attrs + [("value", value)])
+		xmlWriter.simpletag(name, attrs + [("value", self.toString(value))])
 		xmlWriter.newline()
 	def xmlRead(self, attrs, content, font):
-		return attrs["value"]
+		return self.fromString(attrs["value"])
 
 class IntValue(SimpleValue):
-	def xmlRead(self, attrs, content, font):
-		return int(attrs["value"], 0)
+	@staticmethod
+	def fromString(value):
+		return int(value, 0)
 
 class Long(IntValue):
 	staticSize = 4
@@ -206,9 +241,9 @@ class ULong(IntValue):
 		writer.writeULong(value)
 
 class Flags32(ULong):
-	def xmlWrite(self, xmlWriter, font, value, name, attrs):
-		xmlWriter.simpletag(name, attrs + [("value", "0x%08X" % value)])
-		xmlWriter.newline()
+	@staticmethod
+	def toString(value):
+		return "0x%08X" % value
 
 class Short(IntValue):
 	staticSize = 2
@@ -267,9 +302,10 @@ class Tag(SimpleValue):
 
 class GlyphID(SimpleValue):
 	staticSize = 2
+	typecode = "H"
 	def readArray(self, reader, font, tableDict, count):
 		glyphOrder = font.getGlyphOrder()
-		gids = reader.readUShortArray(count)
+		gids = reader.readArray(self.typecode, self.staticSize, count)
 		try:
 			l = [glyphOrder[gid] for gid in gids]
 		except IndexError:
@@ -277,9 +313,14 @@ class GlyphID(SimpleValue):
 			l = [font.getGlyphName(gid) for gid in gids]
 		return l
 	def read(self, reader, font, tableDict):
-		return font.getGlyphName(reader.readUShort())
+		return font.getGlyphName(reader.readValue(self.typecode, self.staticSize))
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
-		writer.writeUShort(font.getGlyphID(value))
+		writer.writeValue(self.typecode, font.getGlyphID(value))
+
+
+class GlyphID32(GlyphID):
+	staticSize = 4
+	typecode = "L"
 
 
 class NameID(UShort):
@@ -297,10 +338,23 @@ class NameID(UShort):
 					log.warning("name id %d missing from name table" % value)
 		xmlWriter.newline()
 
+class STATFlags(UShort):
+	def xmlWrite(self, xmlWriter, font, value, name, attrs):
+		xmlWriter.simpletag(name, attrs + [("value", value)])
+		flags = []
+		if value & 0x01:
+			flags.append("OlderSiblingFontAttribute")
+		if value & 0x02:
+			flags.append("ElidableAxisValueName")
+		if flags:
+			xmlWriter.write("  ")
+			xmlWriter.comment(" ".join(flags))
+		xmlWriter.newline()
 
 class FloatValue(SimpleValue):
-	def xmlRead(self, attrs, content, font):
-		return float(attrs["value"])
+	@staticmethod
+	def fromString(value):
+		return float(value)
 
 class DeciPoints(FloatValue):
 	staticSize = 2
@@ -316,6 +370,12 @@ class Fixed(FloatValue):
 		return  fi2fl(reader.readLong(), 16)
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeLong(fl2fi(value, 16))
+	@staticmethod
+	def fromString(value):
+		return str2fl(value, 16)
+	@staticmethod
+	def toString(value):
+		return fl2str(value, 16)
 
 class F2Dot14(FloatValue):
 	staticSize = 2
@@ -323,8 +383,14 @@ class F2Dot14(FloatValue):
 		return  fi2fl(reader.readShort(), 14)
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeShort(fl2fi(value, 14))
+	@staticmethod
+	def fromString(value):
+		return str2fl(value, 14)
+	@staticmethod
+	def toString(value):
+		return fl2str(value, 14)
 
-class Version(BaseConverter):
+class Version(SimpleValue):
 	staticSize = 4
 	def read(self, reader, font, tableDict):
 		value = reader.readLong()
@@ -334,16 +400,12 @@ class Version(BaseConverter):
 		value = fi2ve(value)
 		assert (value >> 16) == 1, "Unsupported version 0x%08x" % value
 		writer.writeLong(value)
-	def xmlRead(self, attrs, content, font):
-		value = attrs["value"]
-		value = ve2fi(value)
-		return value
-	def xmlWrite(self, xmlWriter, font, value, name, attrs):
-		value = fi2ve(value)
-		value = "0x%08x" % value
-		xmlWriter.simpletag(name, attrs + [("value", value)])
-		xmlWriter.newline()
-
+	@staticmethod
+	def fromString(value):
+		return ve2fi(value)
+	@staticmethod
+	def toString(value):
+		return "0x%08x" % value
 	@staticmethod
 	def fromFloat(v):
 		return fl2fi(v, 16)
@@ -362,8 +424,8 @@ class Char64(SimpleValue):
 		zeroPos = data.find(b"\0")
 		if zeroPos >= 0:
 			data = data[:zeroPos]
-		s = tounicode(data, encoding="ascii", errors="replace")
-		if s != tounicode(data, encoding="ascii", errors="ignore"):
+		s = tostr(data, encoding="ascii", errors="replace")
+		if s != tostr(data, encoding="ascii", errors="ignore"):
 			log.warning('replaced non-ASCII characters in "%s"' %
 			            s)
 		return s
@@ -482,17 +544,13 @@ class StructWithLength(Struct):
 
 class Table(Struct):
 
-	longOffset = False
 	staticSize = 2
 
 	def readOffset(self, reader):
 		return reader.readUShort()
 
 	def writeNullOffset(self, writer):
-		if self.longOffset:
-			writer.writeULong(0)
-		else:
-			writer.writeUShort(0)
+		writer.writeUShort(0)
 
 	def read(self, reader, font, tableDict):
 		offset = self.readOffset(reader)
@@ -511,8 +569,7 @@ class Table(Struct):
 		if value is None:
 			self.writeNullOffset(writer)
 		else:
-			subWriter = writer.getSubWriter()
-			subWriter.longOffset = self.longOffset
+			subWriter = writer.getSubWriter(offsetSize=self.staticSize)
 			subWriter.name = self.name
 			if repeatIndex is not None:
 				subWriter.repeatIndex = repeatIndex
@@ -521,11 +578,25 @@ class Table(Struct):
 
 class LTable(Table):
 
-	longOffset = True
 	staticSize = 4
 
 	def readOffset(self, reader):
 		return reader.readULong()
+
+	def writeNullOffset(self, writer):
+		writer.writeULong(0)
+
+
+# Table pointed to by a 24-bit, 3-byte long offset
+class Table24(Table):
+
+	staticSize = 3
+
+	def readOffset(self, reader):
+		return reader.readUInt24()
+
+	def writeNullOffset(self, writer):
+		writer.writeUInt24(0)
 
 
 # TODO Clean / merge the SubTable and SubStruct
@@ -862,13 +933,11 @@ class AATLookupWithDataOffset(BaseConverter):
 			offsetByGlyph[glyph] = offset
 		# For calculating the offsets to our AATLookup and data table,
 		# we can use the regular OTTableWriter infrastructure.
-		lookupWriter = writer.getSubWriter()
-		lookupWriter.longOffset = True
+		lookupWriter = writer.getSubWriter(offsetSize=4)
 		lookup = AATLookup('DataOffsets', None, None, UShort)
 		lookup.write(lookupWriter, font, tableDict, offsetByGlyph, None)
 
-		dataWriter = writer.getSubWriter()
-		dataWriter.longOffset = True
+		dataWriter = writer.getSubWriter(offsetSize=4)
 		writer.writeSubTable(lookupWriter)
 		writer.writeSubTable(dataWriter)
 		for d in compiledData:
@@ -1209,8 +1278,7 @@ class STXHeader(BaseConverter):
 				(len(table.PerGlyphLookups), numLookups))
 		writer = OTTableWriter()
 		for lookup in table.PerGlyphLookups:
-			lookupWriter = writer.getSubWriter()
-			lookupWriter.longOffset = True
+			lookupWriter = writer.getSubWriter(offsetSize=4)
 			self.perGlyphLookup.write(lookupWriter, font,
 			                          {}, lookup, None)
 			writer.writeSubTable(lookupWriter)
@@ -1555,12 +1623,139 @@ class VarDataValue(BaseConverter):
 	def xmlRead(self, attrs, content, font):
 		return safeEval(attrs["value"])
 
+class LookupFlag(UShort):
+	def xmlWrite(self, xmlWriter, font, value, name, attrs):
+		xmlWriter.simpletag(name, attrs + [("value", value)])
+		flags = []
+		if value & 0x01: flags.append("rightToLeft")
+		if value & 0x02: flags.append("ignoreBaseGlyphs")
+		if value & 0x04: flags.append("ignoreLigatures")
+		if value & 0x08: flags.append("ignoreMarks")
+		if value & 0x10: flags.append("useMarkFilteringSet")
+		if value & 0xff00: flags.append("markAttachmentType[%i]" % (value >> 8))
+		if flags:
+			xmlWriter.comment(" ".join(flags))
+		xmlWriter.newline()
+
+def _issubclass_namedtuple(x):
+	return (
+		issubclass(x, tuple)
+		and getattr(x, "_fields", None) is not None
+	)
+
+
+class _NamedTupleConverter(BaseConverter):
+	# subclasses must override this
+	tupleClass = NotImplemented
+	# List[SimpleValue]
+	converterClasses = NotImplemented
+
+	def __init__(self, name, repeat, aux, tableClass=None):
+		# we expect all converters to be subclasses of SimpleValue
+		assert all(issubclass(klass, SimpleValue) for klass in self.converterClasses)
+		assert _issubclass_namedtuple(self.tupleClass), repr(self.tupleClass)
+		assert len(self.tupleClass._fields) == len(self.converterClasses)
+		assert tableClass is None  # tableClass is unused by SimplValues
+		BaseConverter.__init__(self, name, repeat, aux)
+		self.converters = [
+			klass(name=name, repeat=None, aux=None)
+			for name, klass in zip(self.tupleClass._fields, self.converterClasses)
+		]
+		self.convertersByName = {conv.name: conv for conv in self.converters}
+		# returned by getRecordSize method
+		self.staticSize = sum(c.staticSize for c in self.converters)
+
+	def read(self, reader, font, tableDict):
+		kwargs = {
+			conv.name: conv.read(reader, font, tableDict)
+			for conv in self.converters
+		}
+		return self.tupleClass(**kwargs)
+
+	def write(self, writer, font, tableDict, value, repeatIndex=None):
+		for conv in self.converters:
+			v = getattr(value, conv.name)
+			# repeatIndex is unused for SimpleValues
+			conv.write(writer, font, tableDict, v, repeatIndex=None)
+
+	def xmlWrite(self, xmlWriter, font, value, name, attrs):
+		assert value is not None
+		defaults = value.__new__.__defaults__ or ()
+		assert len(self.converters) >= len(defaults)
+		values = {}
+		required = object()
+		for conv, default in zip_longest(
+			reversed(self.converters),
+			reversed(defaults),
+			fillvalue=required,
+		):
+			v = getattr(value, conv.name)
+			if default is required or v != default:
+				values[conv.name] = conv.toString(v)
+		if attrs is None:
+			attrs = []
+		attrs.extend(
+			(conv.name, values[conv.name])
+			for conv in self.converters
+			if conv.name in values
+		)
+		xmlWriter.simpletag(name, attrs)
+		xmlWriter.newline()
+
+	def xmlRead(self, attrs, content, font):
+		converters = self.convertersByName
+		kwargs = {
+			k: converters[k].fromString(v)
+			for k, v in attrs.items()
+		}
+		return self.tupleClass(**kwargs)
+
+
+class VarFixed(_NamedTupleConverter):
+	tupleClass = VariableFloat
+	converterClasses = [Fixed, ULong]
+
+
+class VarF2Dot14(_NamedTupleConverter):
+	tupleClass = VariableFloat
+	converterClasses = [F2Dot14, ULong]
+
+
+class VarInt16(_NamedTupleConverter):
+	tupleClass = VariableInt
+	converterClasses = [Short, ULong]
+
+
+class VarUInt16(_NamedTupleConverter):
+	tupleClass = VariableInt
+	converterClasses = [UShort, ULong]
+
+
+class _UInt8Enum(UInt8):
+	enumClass = NotImplemented
+
+	def read(self, reader, font, tableDict):
+		return self.enumClass(super().read(reader, font, tableDict))
+	@classmethod
+	def fromString(cls, value):
+		return getattr(cls.enumClass, value.upper())
+	@classmethod
+	def toString(cls, value):
+		return cls.enumClass(value).name.lower()
+
+
+class ExtendMode(_UInt8Enum):
+	enumClass = _ExtendMode
+
+
+class CompositeMode(_UInt8Enum):
+	enumClass = _CompositeMode
+
 
 converterMapping = {
 	# type		class
 	"int8":		Int8,
 	"int16":	Short,
-	"uint8":	UInt8,
 	"uint8":	UInt8,
 	"uint16":	UShort,
 	"uint24":	UInt24,
@@ -1570,6 +1765,7 @@ converterMapping = {
 	"Version":	Version,
 	"Tag":		Tag,
 	"GlyphID":	GlyphID,
+	"GlyphID32":	GlyphID32,
 	"NameID":	NameID,
 	"DeciPoints":	DeciPoints,
 	"Fixed":	Fixed,
@@ -1577,10 +1773,15 @@ converterMapping = {
 	"struct":	Struct,
 	"Offset":	Table,
 	"LOffset":	LTable,
+	"Offset24":	Table24,
 	"ValueRecord":	ValueRecord,
 	"DeltaValue":	DeltaValue,
 	"VarIdxMapValue":	VarIdxMapValue,
 	"VarDataValue":	VarDataValue,
+	"LookupFlag": LookupFlag,
+	"ExtendMode": ExtendMode,
+	"CompositeMode": CompositeMode,
+	"STATFlags": STATFlags,
 
 	# AAT
 	"CIDGlyphMap":	CIDGlyphMap,
@@ -1596,4 +1797,11 @@ converterMapping = {
 	"STXHeader":	lambda C: partial(STXHeader, tableClass=C),
 	"OffsetTo":	lambda C: partial(Table, tableClass=C),
 	"LOffsetTo":	lambda C: partial(LTable, tableClass=C),
+	"LOffset24To":	lambda C: partial(Table24, tableClass=C),
+
+	# Variable types
+	"VarFixed": VarFixed,
+	"VarF2Dot14": VarF2Dot14,
+	"VarInt16": VarInt16,
+	"VarUInt16": VarUInt16,
 }

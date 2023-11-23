@@ -26,7 +26,7 @@ object MyPreferences {
     private val SHARED_PREF_KEY = "com.example.android.autofillframework.service.settings.MyPreferences"
     private val RESPONSE_AUTH_KEY = "response_auth"
     private val DATASET_AUTH_KEY = "dataset_auth"
-    private val MASTER_PASSWORD_KEY = "master_password"
+    private val MAIN_PASSWORD_KEY = "main_password"
 
     private fun getPrefs(context: Context): SharedPreferences {
         return context.applicationContext.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE)
@@ -55,23 +55,23 @@ object MyPreferences {
     }
 
     /**
-     * Gets autofill master password.
+     * Gets autofill main password.
      */
-    fun getMasterPassword(context: Context): String? {
-        return getPrefs(context).getString(MASTER_PASSWORD_KEY, null)
+    fun getMainPassword(context: Context): String? {
+        return getPrefs(context).getString(MAIN_PASSWORD_KEY, null)
     }
 
     /**
-     * Sets autofill master password.
+     * Sets autofill main password.
      */
-    fun setMasterPassword(context: Context, masterPassword: String) {
-        getPrefs(context).edit().putString(MASTER_PASSWORD_KEY, masterPassword).apply()
+    fun setMainPassword(context: Context, mainPassword: String) {
+        getPrefs(context).edit().putString(MAIN_PASSWORD_KEY, mainPassword).apply()
     }
 
     /**
-     * Removes master password.
+     * Removes main password.
      */
     fun clearCredentials(context: Context) {
-        getPrefs(context).edit().remove(MASTER_PASSWORD_KEY).apply()
+        getPrefs(context).edit().remove(MAIN_PASSWORD_KEY).apply()
     }
 }

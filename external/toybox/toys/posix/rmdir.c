@@ -4,7 +4,7 @@
  *
  * See http://opengroup.org/onlinepubs/9699919799/utilities/rmdir.html
 
-USE_RMDIR(NEWTOY(rmdir, "<1(ignore-fail-on-non-empty)p", TOYFLAG_BIN))
+USE_RMDIR(NEWTOY(rmdir, "<1(ignore-fail-on-non-empty)p(parents)", TOYFLAG_BIN))
 
 config RMDIR
   bool "rmdir"
@@ -25,7 +25,7 @@ static void do_rmdir(char *name)
 {
   char *temp;
 
-  for (;;) {
+  do {
     if (rmdir(name)) {
       if (!FLAG(ignore_fail_on_non_empty) || errno != ENOTEMPTY)
         perror_msg_raw(name);
@@ -39,7 +39,7 @@ static void do_rmdir(char *name)
       if (!(temp = strrchr(name, '/'))) return;
       *temp = 0;
     } while (!temp[1]);
-  }
+  } while (*name);
 }
 
 void rmdir_main(void)

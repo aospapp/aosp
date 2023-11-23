@@ -33,7 +33,6 @@ import com.android.car.media.common.MediaConstants;
 import com.android.car.media.common.MediaItemMetadata;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -51,6 +50,17 @@ import java.util.function.Consumer;
  */
 public class BrowseAdapter extends ListAdapter<BrowseViewData, BrowseViewHolder> {
     private static final String TAG = "BrowseAdapter";
+
+    /**
+     * Listens to the list data changes.
+     */
+    public interface OnListChangedListener {
+        /**
+         * Called when {@link #onCurrentListChanged(List, List)} is called.
+         */
+        void onListChanged(List<BrowseViewData> previousList, List<BrowseViewData> currentList);
+    }
+
     @NonNull
     private final Context mContext;
     @NonNull
@@ -59,10 +69,11 @@ public class BrowseAdapter extends ListAdapter<BrowseViewData, BrowseViewHolder>
     private CharSequence mTitle;
     @Nullable
     private MediaItemMetadata mParentMediaItem;
-    private int mMaxSpanSize = 1;
 
     private BrowseItemViewType mRootBrowsableViewType = BrowseItemViewType.LIST_ITEM;
     private BrowseItemViewType mRootPlayableViewType = BrowseItemViewType.LIST_ITEM;
+
+    private OnListChangedListener mOnListChangedListener;
 
     private static final DiffUtil.ItemCallback<BrowseViewData> DIFF_CALLBACK =
             new DiffUtil.ItemCallback<BrowseViewData>() {
@@ -88,13 +99,13 @@ public class BrowseAdapter extends ListAdapter<BrowseViewData, BrowseViewHolder>
         /**
          * Callback invoked when a user clicks on a playable item.
          */
-        protected void onPlayableItemClicked(MediaItemMetadata item) {
+        protected void onPlayableItemClicked(@NonNull MediaItemMetadata item) {
         }
 
         /**
          * Callback invoked when a user clicks on a browsable item.
          */
-        protected void onBrowsableItemClicked(MediaItemMetadata item) {
+        protected void onBrowsableItemClicked(@NonNull MediaItemMetadata item) {
         }
 
         /**
@@ -133,16 +144,6 @@ public class BrowseAdapter extends ListAdapter<BrowseViewData, BrowseViewHolder>
         mObservers.remove(observer);
     }
 
-    /**
-     * Sets the number of columns that items can take. This method only needs to be used if the
-     * attached {@link RecyclerView} is NOT using a {@link GridLayoutManager}. This class will
-     * automatically determine this value on {@link #onAttachedToRecyclerView(RecyclerView)}
-     * otherwise.
-     */
-    public void setMaxSpanSize(int maxSpanSize) {
-        mMaxSpanSize = maxSpanSize;
-    }
-
     public void setRootBrowsableViewType(int hintValue) {
         mRootBrowsableViewType = fromMediaHint(hintValue);
     }
@@ -151,20 +152,16 @@ public class BrowseAdapter extends ListAdapter<BrowseViewData, BrowseViewHolder>
         mRootPlayableViewType = fromMediaHint(hintValue);
     }
 
+    public int getSpanSize(int position, int maxSpanSize) {
+        BrowseItemViewType viewType = getItem(position).mViewType;
+        return viewType.getSpanSize(maxSpanSize);
+    }
+
     /**
-     * @return a {@link GridLayoutManager.SpanSizeLookup} that can be used to obtain the span size
-     * of each item in this adapter. This method is only needed if the {@link RecyclerView} is NOT
-     * using a {@link GridLayoutManager}. This class will automatically use it on\ {@link
-     * #onAttachedToRecyclerView(RecyclerView)} otherwise.
+     * Sets a listener to listen for the list data changes.
      */
-    private GridLayoutManager.SpanSizeLookup getSpanSizeLookup() {
-        return new GridLayoutManager.SpanSizeLookup() {
-            @Override
-            public int getSpanSize(int position) {
-                BrowseItemViewType viewType = getItem(position).mViewType;
-                return viewType.getSpanSize(mMaxSpanSize);
-            }
-        };
+    public void setOnListChangedListener(OnListChangedListener onListChangedListener) {
+        mOnListChangedListener = onListChangedListener;
     }
 
     @NonNull
@@ -198,6 +195,15 @@ public class BrowseAdapter extends ListAdapter<BrowseViewData, BrowseViewHolder>
         return getItem(position).mViewType.ordinal();
     }
 
+    @Override
+    public void onCurrentListChanged(@NonNull List<BrowseViewData> previousList,
+            @NonNull List<BrowseViewData> currentList) {
+        super.onCurrentListChanged(previousList, currentList);
+        if (mOnListChangedListener != null) {
+            mOnListChangedListener.onListChanged(previousList, currentList);
+        }
+    }
+
     public void submitItems(@Nullable MediaItemMetadata parentItem,
             @Nullable List<MediaItemMetadata> children) {
         mParentMediaItem = parentItem;
@@ -211,15 +217,6 @@ public class BrowseAdapter extends ListAdapter<BrowseViewData, BrowseViewHolder>
     private void notify(Consumer<Observer> notification) {
         for (Observer observer : mObservers) {
             notification.accept(observer);
-        }
-    }
-
-    @Override
-    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
-        if (recyclerView.getLayoutManager() instanceof GridLayoutManager) {
-            GridLayoutManager manager = (GridLayoutManager) recyclerView.getLayoutManager();
-            mMaxSpanSize = manager.getSpanCount();
-            manager.setSpanSizeLookup(getSpanSizeLookup());
         }
     }
 

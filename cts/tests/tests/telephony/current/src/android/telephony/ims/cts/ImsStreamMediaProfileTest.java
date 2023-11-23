@@ -18,10 +18,13 @@ package android.telephony.ims.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import android.os.Parcel;
+import android.telephony.ims.AudioCodecAttributes;
 import android.telephony.ims.ImsStreamMediaProfile;
+import android.util.Range;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
@@ -50,6 +53,45 @@ public class ImsStreamMediaProfileTest {
         assertEquals(data.getRttMode(), unparceledData.getRttMode());
         assertEquals(data.getVideoDirection(), unparceledData.getVideoDirection());
         assertEquals(data.getVideoQuality(), unparceledData.getVideoQuality());
+
+        assertNull(unparceledData.getAudioCodecAttributes());
+    }
+
+    @Test
+    public void testParcelUnparcelForAudioCodecAttributes() {
+        if (!ImsUtils.shouldTestImsService()) {
+            return;
+        }
+        ImsStreamMediaProfile data = new ImsStreamMediaProfile(
+                ImsStreamMediaProfile.AUDIO_QUALITY_AMR_WB,
+                ImsStreamMediaProfile.DIRECTION_SEND_RECEIVE,
+                ImsStreamMediaProfile.VIDEO_QUALITY_QCIF,
+                ImsStreamMediaProfile.DIRECTION_RECEIVE,
+                ImsStreamMediaProfile.RTT_MODE_FULL);
+        data.setAudioCodecAttributes(
+                new AudioCodecAttributes(5.0f, new Range<Float>(1.0f, 10.0f), 15.0f,
+                        new Range<Float>(10.0f, 20.0f)));
+
+        ImsStreamMediaProfile unparceledData = (ImsStreamMediaProfile) parcelUnparcel(data);
+
+        assertEquals(data.getAudioDirection(), unparceledData.getAudioDirection());
+        assertEquals(data.getAudioQuality(), unparceledData.getAudioQuality());
+        assertEquals(data.getRttMode(), unparceledData.getRttMode());
+        assertEquals(data.getVideoDirection(), unparceledData.getVideoDirection());
+        assertEquals(data.getVideoQuality(), unparceledData.getVideoQuality());
+
+        assertEquals(data.getAudioCodecAttributes().getBitrateKbps(),
+                unparceledData.getAudioCodecAttributes().getBitrateKbps(), 0.1);
+        assertEquals(data.getAudioCodecAttributes().getBitrateRangeKbps().getLower(),
+                unparceledData.getAudioCodecAttributes().getBitrateRangeKbps().getLower(), 0.1);
+        assertEquals(data.getAudioCodecAttributes().getBitrateRangeKbps().getUpper(),
+                unparceledData.getAudioCodecAttributes().getBitrateRangeKbps().getUpper(), 0.1);
+        assertEquals(data.getAudioCodecAttributes().getBandwidthKhz(),
+                unparceledData.getAudioCodecAttributes().getBandwidthKhz(), 0.1);
+        assertEquals(data.getAudioCodecAttributes().getBandwidthRangeKhz().getLower(),
+                unparceledData.getAudioCodecAttributes().getBandwidthRangeKhz().getLower(), 0.1);
+        assertEquals(data.getAudioCodecAttributes().getBandwidthRangeKhz().getUpper(),
+                unparceledData.getAudioCodecAttributes().getBandwidthRangeKhz().getUpper(), 0.1);
     }
 
     @Test

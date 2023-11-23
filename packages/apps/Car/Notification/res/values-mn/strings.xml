@@ -36,7 +36,8 @@
     <string name="show_count_more" msgid="480555295700318609">"<xliff:g id="COUNT">%d</xliff:g>-г дэлгэрэнгүй харуулах"</string>
     <string name="message_unshown_count" msgid="2234421277246741233">" +<xliff:g id="COUNT">%d</xliff:g> бусад"</string>
     <plurals name="restricted_message_text" formatted="false" msgid="507312322886633308">
-      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> шинэ зурвас</item>
-      <item quantity="one">1 шинэ зурвас</item>
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> шинэ мессеж</item>
+      <item quantity="one">1 шинэ мессеж</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Удирдах"</string>
 </resources>

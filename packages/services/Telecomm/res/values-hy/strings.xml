@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Զանգերի կառավարում"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Հեռախոսազանգեր"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Հեռախոս"</string>
     <string name="unknown" msgid="6993977514360123431">"Անհայտ"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Բաց թողնված զանգ"</string>
@@ -115,7 +115,7 @@
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Անհայտ համարներ"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Արգելափակել անհայտ համարներից եկող զանգերը"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Զանգերի արգելափակում"</string>
-    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Զանգերի արգելափակումն անջատած է"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Զանգերի արգելափակումն անջատված է"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Կատարվեց շտապ կանչ"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Զանգերի արգելափակումն անջատվել է, որպեսզի արտակարգ ծառայությունները կարողանան ձեզ զանգել:"</string>
     <string name="developer_title" msgid="9146088855661672353">"Telecom-ի մշակողի ընտրացանկ"</string>

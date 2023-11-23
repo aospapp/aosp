@@ -1040,6 +1040,11 @@ GL_APICALL void GL_APIENTRY glGetnUniformivEXT (GLuint program, GLint location, 
 #define GL_SRGB_ALPHA_EXT                 0x8C42
 #define GL_SRGB8_ALPHA8_EXT               0x8C43
 #define GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING_EXT 0x8210
+#define GL_COMPRESSED_SRGB_S3TC_DXT1_EXT                        0x8C4C
+#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT                  0x8C4D
+#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT                  0x8C4E
+#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT                  0x8C4F
+
 #endif /* GL_EXT_sRGB */
 
 #ifndef GL_EXT_sRGB_write_control
@@ -1281,6 +1286,14 @@ GL_APICALL void GL_APIENTRY glTexBufferEXT (GLenum target, GLenum internalformat
 GL_APICALL void GL_APIENTRY glTexBufferRangeEXT (GLenum target, GLenum internalformat, GLuint buffer, GLintptr offset, GLsizeiptr size);
 #endif
 #endif /* GL_EXT_texture_buffer */
+
+#ifndef GL_EXT_texture_compression_bptc
+#define GL_EXT_texture_compression_bptc 1
+#define GL_COMPRESSED_RGBA_BPTC_UNORM_EXT 0x8E8C
+#define GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_EXT 0x8E8D
+#define GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_EXT 0x8E8E
+#define GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT 0x8E8F
+#endif /* GL_EXT_texture_compression_bptc */
 
 #ifndef GL_EXT_texture_compression_dxt1
 #define GL_EXT_texture_compression_dxt1 1

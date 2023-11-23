@@ -16,11 +16,13 @@
 
 package com.google.turbine.lower;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.turbine.testing.TestClassPaths.TURBINE_BOOTCLASSPATH;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -29,12 +31,13 @@ import com.google.common.io.MoreFiles;
 import com.google.common.jimfs.Configuration;
 import com.google.common.jimfs.Jimfs;
 import com.google.turbine.binder.Binder;
+import com.google.turbine.binder.Binder.BindingResult;
 import com.google.turbine.binder.ClassPath;
 import com.google.turbine.binder.ClassPathBinder;
 import com.google.turbine.diag.SourceFile;
 import com.google.turbine.parse.Parser;
 import com.google.turbine.testing.AsmUtils;
-import com.google.turbine.tree.Tree;
+import com.google.turbine.tree.Tree.CompUnit;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.JavacFileManager;
@@ -100,8 +103,11 @@ public class IntegrationTestSupport {
   public static Map<String, byte[]> canonicalize(Map<String, byte[]> in) {
     List<ClassNode> classes = toClassNodes(in);
 
-    // drop anonymous classes
-    classes = classes.stream().filter(n -> !isAnonymous(n)).collect(toCollection(ArrayList::new));
+    // drop local and anonymous classes
+    classes =
+        classes.stream()
+            .filter(n -> !isAnonymous(n) && !isLocal(n))
+            .collect(toCollection(ArrayList::new));
 
     // collect all inner classes attributes
     Map<String, InnerClassNode> infos = new HashMap<>();
@@ -121,6 +127,10 @@ public class IntegrationTestSupport {
     }
 
     return toByteCode(classes);
+  }
+
+  private static boolean isLocal(ClassNode n) {
+    return n.outerMethod != null;
   }
 
   private static boolean isAnonymous(ClassNode n) {
@@ -436,15 +446,41 @@ public class IntegrationTestSupport {
       ClassPath bootClassPath,
       Optional<String> moduleVersion)
       throws IOException {
-    List<Tree.CompUnit> units =
+    BindingResult bound = turbineAnalysis(input, classpath, bootClassPath, moduleVersion);
+    return Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv()).bytes();
+  }
+
+  public static BindingResult turbineAnalysis(
+      Map<String, String> input,
+      ImmutableList<Path> classpath,
+      ClassPath bootClassPath,
+      Optional<String> moduleVersion)
+      throws IOException {
+    ImmutableList<CompUnit> units =
         input.entrySet().stream()
             .map(e -> new SourceFile(e.getKey(), e.getValue()))
             .map(Parser::parse)
-            .collect(toList());
+            .collect(toImmutableList());
 
-    Binder.BindingResult bound =
-        Binder.bind(units, ClassPathBinder.bindClasspath(classpath), bootClassPath, moduleVersion);
-    return Lower.lowerAll(bound.units(), bound.modules(), bound.classPathEnv()).bytes();
+    return Binder.bind(
+        units, ClassPathBinder.bindClasspath(classpath), bootClassPath, moduleVersion);
+  }
+
+  public static JavacTask runJavacAnalysis(
+      Map<String, String> sources, Collection<Path> classpath, ImmutableList<String> options)
+      throws Exception {
+    return runJavacAnalysis(sources, classpath, options, new DiagnosticCollector<>());
+  }
+
+  public static JavacTask runJavacAnalysis(
+      Map<String, String> sources,
+      Collection<Path> classpath,
+      ImmutableList<String> options,
+      DiagnosticCollector<JavaFileObject> collector)
+      throws Exception {
+    FileSystem fs = Jimfs.newFileSystem(Configuration.unix());
+    Path out = fs.getPath("out");
+    return setupJavac(sources, classpath, options, collector, fs, out);
   }
 
   public static Map<String, byte[]> runJavac(
@@ -457,46 +493,15 @@ public class IntegrationTestSupport {
       Map<String, String> sources, Collection<Path> classpath, ImmutableList<String> options)
       throws Exception {
 
+    DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
     FileSystem fs = Jimfs.newFileSystem(Configuration.unix());
-
-    Path srcs = fs.getPath("srcs");
     Path out = fs.getPath("out");
 
-    Files.createDirectories(out);
+    JavacTask task = setupJavac(sources, classpath, options, collector, fs, out);
 
-    ArrayList<Path> inputs = new ArrayList<>();
-    for (Map.Entry<String, String> entry : sources.entrySet()) {
-      Path path = srcs.resolve(entry.getKey());
-      if (path.getParent() != null) {
-        Files.createDirectories(path.getParent());
-      }
-      MoreFiles.asCharSink(path, UTF_8).write(entry.getValue());
-      inputs.add(path);
+    if (!task.call()) {
+      fail(collector.getDiagnostics().stream().map(d -> d.toString()).collect(joining("\n")));
     }
-
-    JavacTool compiler = JavacTool.create();
-    DiagnosticCollector<JavaFileObject> collector = new DiagnosticCollector<>();
-    JavacFileManager fileManager = new JavacFileManager(new Context(), true, UTF_8);
-    fileManager.setLocationFromPaths(StandardLocation.CLASS_OUTPUT, ImmutableList.of(out));
-    fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, classpath);
-    fileManager.setLocationFromPaths(StandardLocation.locationFor("MODULE_PATH"), classpath);
-    if (inputs.stream().filter(i -> i.getFileName().toString().equals("module-info.java")).count()
-        > 1) {
-      // multi-module mode
-      fileManager.setLocationFromPaths(
-          StandardLocation.locationFor("MODULE_SOURCE_PATH"), ImmutableList.of(srcs));
-    }
-
-    JavacTask task =
-        compiler.getTask(
-            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)), true),
-            fileManager,
-            collector,
-            options,
-            ImmutableList.of(),
-            fileManager.getJavaFileObjectsFromPaths(inputs));
-
-    assertThat(task.call()).named(collector.getDiagnostics().toString()).isTrue();
 
     List<Path> classes = new ArrayList<>();
     Files.walkFileTree(
@@ -519,6 +524,49 @@ public class IntegrationTestSupport {
     return result;
   }
 
+  private static JavacTask setupJavac(
+      Map<String, String> sources,
+      Collection<Path> classpath,
+      ImmutableList<String> options,
+      DiagnosticCollector<JavaFileObject> collector,
+      FileSystem fs,
+      Path out)
+      throws IOException {
+    Path srcs = fs.getPath("srcs");
+
+    Files.createDirectories(out);
+
+    ArrayList<Path> inputs = new ArrayList<>();
+    for (Map.Entry<String, String> entry : sources.entrySet()) {
+      Path path = srcs.resolve(entry.getKey());
+      if (path.getParent() != null) {
+        Files.createDirectories(path.getParent());
+      }
+      MoreFiles.asCharSink(path, UTF_8).write(entry.getValue());
+      inputs.add(path);
+    }
+
+    JavacTool compiler = JavacTool.create();
+    JavacFileManager fileManager = new JavacFileManager(new Context(), true, UTF_8);
+    fileManager.setLocationFromPaths(StandardLocation.CLASS_OUTPUT, ImmutableList.of(out));
+    fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, classpath);
+    fileManager.setLocationFromPaths(StandardLocation.locationFor("MODULE_PATH"), classpath);
+    if (inputs.stream().filter(i -> i.getFileName().toString().equals("module-info.java")).count()
+        > 1) {
+      // multi-module mode
+      fileManager.setLocationFromPaths(
+          StandardLocation.locationFor("MODULE_SOURCE_PATH"), ImmutableList.of(srcs));
+    }
+
+    return compiler.getTask(
+        new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)), true),
+        fileManager,
+        collector,
+        options,
+        ImmutableList.of(),
+        fileManager.getJavaFileObjectsFromPaths(inputs));
+  }
+
   /** Normalizes and stringifies a collection of class files. */
   public static String dump(Map<String, byte[]> compiled) throws Exception {
     StringBuilder sb = new StringBuilder();
@@ -535,17 +583,17 @@ public class IntegrationTestSupport {
     return sb.toString();
   }
 
-  static class TestInput {
+  public static class TestInput {
 
-    final Map<String, String> sources;
-    final Map<String, String> classes;
+    public final Map<String, String> sources;
+    public final Map<String, String> classes;
 
     public TestInput(Map<String, String> sources, Map<String, String> classes) {
       this.sources = sources;
       this.classes = classes;
     }
 
-    static TestInput parse(String text) {
+    public static TestInput parse(String text) {
       Map<String, String> sources = new LinkedHashMap<>();
       Map<String, String> classes = new LinkedHashMap<>();
       String className = null;

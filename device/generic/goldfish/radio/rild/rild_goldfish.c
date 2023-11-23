@@ -163,12 +163,17 @@ int main(int argc, char **argv) {
         }
     }
 
+    // force to use libcuttlefish-ril-2.so
+    rilLibPath = "libcuttlefish-ril-2.so";
+
     dlHandle = dlopen(rilLibPath, RTLD_NOW);
 
     if (dlHandle == NULL) {
         RLOGE("dlopen failed: %s", dlerror());
         exit(EXIT_FAILURE);
     }
+
+    RLOGI("dlopen good: %s", rilLibPath);
 
     RIL_startEventLoop();
 

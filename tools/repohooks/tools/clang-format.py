@@ -1,5 +1,4 @@
-#!/usr/bin/python
-# -*- coding:utf-8 -*-
+#!/usr/bin/env python3
 # Copyright 2016 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +14,6 @@
 # limitations under the License.
 
 """Wrapper to run git-clang-format and parse its output."""
-
-from __future__ import print_function
 
 import argparse
 import os

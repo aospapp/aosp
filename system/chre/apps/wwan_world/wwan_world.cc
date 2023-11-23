@@ -27,7 +27,7 @@ namespace chre {
 namespace {
 #endif  // CHRE_NANOAPP_INTERNAL
 
-//! A dummy cookie to pass into the cell info request.
+//! A fake/unused cookie to pass into the cell info request.
 const uint32_t kCellInfoCookie = 0x1337;
 
 //! The interval for cell info requests.
@@ -210,6 +210,8 @@ void nanoappEnd() {
 
 #include "chre/platform/static_nanoapp_init.h"
 #include "chre/util/nanoapp/app_id.h"
+#include "chre/util/system/napp_permissions.h"
 
-CHRE_STATIC_NANOAPP_INIT(WwanWorld, chre::kWwanWorldAppId, 0);
+CHRE_STATIC_NANOAPP_INIT(WwanWorld, chre::kWwanWorldAppId, 0,
+                         chre::NanoappPermissions::CHRE_PERMS_WWAN);
 #endif  // CHRE_NANOAPP_INTERNAL

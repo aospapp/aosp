@@ -222,7 +222,7 @@ public class MediaRouterTest extends InstrumentationTestCase {
 
         Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
         PendingIntent mediaButtonIntent = PendingIntent.getBroadcast(
-                mContext, 0, intent, PendingIntent.FLAG_ONE_SHOT);
+                mContext, 0, intent, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         RemoteControlClient rcc = new RemoteControlClient(mediaButtonIntent);
         userRoute.setRemoteControlClient(rcc);
         assertEquals(rcc, userRoute.getRemoteControlClient());

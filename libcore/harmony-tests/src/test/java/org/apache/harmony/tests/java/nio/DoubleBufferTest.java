@@ -57,7 +57,7 @@ public class DoubleBufferTest extends AbstractBufferTest {
             long longBitsIn = nans[i];
             double dbl = Double.longBitsToDouble(longBitsIn);
             long longBitsOut = Double.doubleToRawLongBits(dbl);
-            // Sanity check
+            // Confidence check
             assertTrue(longBitsIn == longBitsOut);
 
             // Store the double and retrieve it
@@ -213,7 +213,7 @@ public class DoubleBufferTest extends AbstractBufferTest {
         double positiveZero = Double.parseDouble("+0");
         DoubleBuffer negativeZeroBuffer = DoubleBuffer.wrap(new double[] { negativeZero });
         DoubleBuffer positiveZeroBuffer = DoubleBuffer.wrap(new double[] { positiveZero });
-        assertTrue(Double.compare(negativeZero, positiveZero) < 0); // sanity check
+        assertTrue(Double.compare(negativeZero, positiveZero) < 0); // confidence check
 
         // Unlike Double.compare(), DoubleBuffer.compareTo() considers -0 == +0
         assertEquals(0, negativeZeroBuffer.compareTo(positiveZeroBuffer));

@@ -51,4 +51,23 @@
 
     <!-- Millisecond interval between app data update -->
     <integer name="millisecond_max_app_load_wait_interval">5000</integer>
+
+    <!-- Maximum number of networks to be shown in LimitedWifiEntryListPreferenceController -->
+    <integer name="limited_wifi_entry_list_count">3</integer>
+
+    <!-- Maximum number of networks to be shown in RecentNotificationsAppsPreferenceController -->
+    <integer name="recent_notifications_apps_list_count">3</integer>
+
+    <!-- Maximum number of days old for a notification to be shown in
+     RecentNotificationsAppsPreferenceController -->
+    <integer name="recent_notifications_days_threshold">3</integer>
+
+    <!-- Maximum number of apps to be shown in RecentAppsItemManager -->
+    <integer name="recent_apps_max_count">3</integer>
+
+    <!-- Maximum number of days old for an app to be shown in RecentAppsItemManager -->
+    <integer name="recent_apps_days_threshold">1</integer>
+
+    <!-- Maximum number of device policies to be shown on ADD_DEVICE_ADMIN screen -->
+    <integer name="max_device_policies_shown">3</integer>
 </resources>

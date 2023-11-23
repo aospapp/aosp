@@ -50,5 +50,12 @@ public class AndroidExceptionTest {
         } catch (AndroidException e) {
             assertEquals(CAUSE, e.getCause());
         }
+
+        try {
+            throw new AndroidException(NAME, CAUSE);
+        } catch (AndroidException e) {
+            assertEquals(NAME, e.getMessage());
+            assertEquals(CAUSE, e.getCause());
+        }
     }
 }

@@ -33,6 +33,7 @@ import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
 import com.android.wallpaper.asset.ContentUriAsset;
 import com.android.wallpaper.picker.MyPhotosStarter;
+import com.android.wallpaper.util.ResourceUtils;
 
 /**
  * ViewHolder for a "my photos" tile presented in an individual category grid.
@@ -150,7 +151,7 @@ public class MyPhotosViewHolder extends ViewHolder implements View.OnClickListen
                 }
 
                 thumbnail.loadDrawable(mActivity, mThumbnailView,
-                        mActivity.getResources().getColor(R.color.secondary_color));
+                        ResourceUtils.getColorAttr(mActivity, android.R.attr.colorSecondary));
             }
         });
     }

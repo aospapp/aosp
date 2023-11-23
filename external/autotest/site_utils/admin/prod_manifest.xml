@@ -13,6 +13,9 @@
   <project path="autotest"
            name="chromiumos/third_party/autotest" />
 
+  <project path="autotest/server/cros/faft/fw-testing-configs"
+           name="chromiumos/platform/fw-testing-configs" />
+
   <project remote="cros-internal" path="autotest/site_utils/autotest_private"
            name="chromeos/autotest-private" />
 

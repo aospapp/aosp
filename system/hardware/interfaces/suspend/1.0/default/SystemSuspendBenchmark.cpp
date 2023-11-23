@@ -15,14 +15,14 @@
  */
 
 #include <android/system/suspend/1.0/ISystemSuspend.h>
-#include <android/system/suspend/ISuspendControlService.h>
+#include <android/system/suspend/internal/ISuspendControlServiceInternal.h>
 #include <benchmark/benchmark.h>
 #include <binder/IServiceManager.h>
 
 using android::IBinder;
 using android::sp;
-using android::system::suspend::ISuspendControlService;
-using android::system::suspend::WakeLockInfo;
+using android::system::suspend::internal::ISuspendControlServiceInternal;
+using android::system::suspend::internal::WakeLockInfo;
 using android::system::suspend::V1_0::ISystemSuspend;
 using android::system::suspend::V1_0::IWakeLock;
 using android::system::suspend::V1_0::WakeLockType;
@@ -37,14 +37,14 @@ static void BM_acquireWakeLock(benchmark::State& state) {
 BENCHMARK(BM_acquireWakeLock);
 
 static void BM_getWakeLockStats(benchmark::State& state) {
-    static sp<IBinder> control =
-        android::defaultServiceManager()->getService(android::String16("suspend_control"));
-    static sp<ISuspendControlService> controlService =
-        android::interface_cast<ISuspendControlService>(control);
+    static sp<IBinder> controlInternal =
+        android::defaultServiceManager()->getService(android::String16("suspend_control_internal"));
+    static sp<ISuspendControlServiceInternal> controlServiceInternal =
+        android::interface_cast<ISuspendControlServiceInternal>(controlInternal);
 
     while (state.KeepRunning()) {
         std::vector<WakeLockInfo> wlStats;
-        controlService->getWakeLockStats(&wlStats);
+        controlServiceInternal->getWakeLockStats(&wlStats);
     }
 }
 BENCHMARK(BM_getWakeLockStats);

@@ -84,6 +84,13 @@ class PlatformGnss : public PlatformGnssBase {
    * @param event the event to release.
    */
   void releaseMeasurementDataEvent(chreGnssDataEvent *event);
+
+  /**
+   * @param enable true to enable the configuration.
+   *
+   * @return true if the request was received.
+   */
+  bool configurePassiveLocationListener(bool enable);
 };
 
 }  // namespace chre

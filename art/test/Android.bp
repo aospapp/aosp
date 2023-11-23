@@ -16,10 +16,56 @@
 
 // ART gtests.
 
-art_cc_defaults {
-    name: "art_test_defaults",
-    host_supported: true,
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "art_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["art_license"],
+}
+
+soong_config_module_type_import {
+    from: "art/build/SoongConfig.bp",
+    module_types: [
+        "art_module_cc_defaults",
+    ],
+}
+
+// Properties common to `art_test_defaults` and `art_standalone_test_defaults`.
+art_module_cc_defaults {
+    name: "art_test_common_defaults",
     target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+    cflags: [
+        "-Wno-frame-larger-than=",
+    ],
+}
+
+art_module_cc_defaults {
+    name: "art_test_defaults",
+    defaults: [
+        "art_test_common_defaults",
+    ],
+    host_supported: true,
+    soong_config_variables: {
+        source_build: {
+            target: {
+                android: {
+                    test_for: [
+                        "com.android.art",
+                        "com.android.art.debug",
+                    ],
+                },
+            },
+        },
+    },
+    target: {
+        // The following set of relative_install_paths installs the library in a
+        // location that will be available as java.library.path in run tests.
         android_arm: {
             relative_install_path: "art/arm",
         },
@@ -32,46 +78,73 @@ art_cc_defaults {
         android_x86_64: {
             relative_install_path: "art/x86_64",
         },
-        darwin: {
-            enabled: false,
-        },
     },
-    cflags: [
-        "-Wno-frame-larger-than=",
-    ],
+    // Tests aren't generally included in any APEX, but this is necessary to
+    // avoid duplicate install rules for them by making them unavailable to platform.
     apex_available: [
         "com.android.art.debug",
     ],
 }
 
+// Variant of art_test_defaults that installs the library in a location which
+// will be added to the default namespace, and hence also the com_android_art
+// namespace. That allows the library to have shared_libs dependencies on all
+// ART internal libraries.
+//
+// Currently this only works for run tests where run-test-jar sets
+// LD_LIBRARY_PATH and NATIVELOADER_DEFAULT_NAMESPACE_LIBS.
 art_cc_defaults {
-    name: "art_gtest_defaults",
-    test_per_src: true,
-    // These really are gtests, but the gtest library comes from libart-gtest.so
-    gtest: false,
-    defaults: [
-        "art_test_defaults",
-        "art_debug_defaults",
-        "art_defaults",
+    name: "art_test_internal_library_defaults",
+    defaults: ["art_test_defaults"],
+    target: {
+        android_arm: {
+            relative_install_path: "com.android.art/lib",
+        },
+        android_arm64: {
+            relative_install_path: "com.android.art/lib64",
+        },
+        android_x86: {
+            relative_install_path: "com.android.art/lib",
+        },
+        android_x86_64: {
+            relative_install_path: "com.android.art/lib64",
+        },
+    },
+}
+
+// Test configuration template for standalone ART gtests on target (not bundled with the ART APEX).
+filegroup {
+    name: "art-gtests-target-standalone-template",
+    srcs: [
+        "art-gtests-target-standalone-template.xml",
     ],
+}
+
+art_cc_defaults {
+    name: "art_standalone_test_defaults",
+    defaults: [
+        "art_test_common_defaults",
+    ],
+    // Standalone ART gtests are only supported on device for now.
+    // TODO: Add support for host standalone ART gtests. Note that they should not differ much
+    // from the original ("non-standalone") host gtests, as the latter are not really bundled with
+    // the host ART APEX / artifacts (unlike their device counterparts); but as we plan to remove
+    // the ART gtests bundled with the ART APEX, we'll have to support the host case here
+    // eventually.
+    host_supported: false,
+    test_config_template: ":art-gtests-target-standalone-template",
+}
+
+// Properties common to `art_gtest_defaults` and `art_standalone_gtest_defaults`.
+art_cc_defaults {
+    name: "art_gtest_common_defaults",
+    // These really are gtests, but the gtest library comes from `libart(d)-gtest.so`.
+    gtest: false,
 
     shared_libs: [
-        "libartd",
-        "libartd-disassembler",
-        "libvixld",
-        "libart-gtest",
-        "libdexfiled",
-        "libprofiled",
-        "libartbased",
-
         "libbase",
-        "libicuuc",
-        "libicui18n",
-        "libnativehelper",
+        "liblog",
         "libz",
-    ],
-    whole_static_libs: [
-        "libsigchain",
     ],
 
     target: {
@@ -96,30 +169,124 @@ art_cc_defaults {
                 "libziparchive",
             ],
         },
-        android: {
-            shared_libs: [
-                "liblog",
-            ],
-        },
     },
 }
 
 art_cc_defaults {
-    name: "libart-gtest-defaults",
-    host_supported: true,
+    name: "art_gtest_defaults",
     defaults: [
+        "art_test_defaults",
+        "art_gtest_common_defaults",
         "art_debug_defaults",
         "art_defaults",
     ],
+
+    test_suites: ["art-host-tests"],
+    test_options: {
+        test_suite_tag: ["art-host-gtest"],
+    },
+
     shared_libs: [
         "libartd",
-        "libartd-compiler",
+        "libartd-disassembler",
+        "libartd-gtest",
         "libdexfiled",
         "libprofiled",
         "libartbased",
+
+        // Library `libnativehelper` needs to appear after `libartd` here,
+        // otherwise the following tests from module `libartd-runtime-gtest`
+        // will fail because `art/runtime/jni/java_vm_ext.cc` and
+        // `libnativehelper/JniInvocation.c` define symbols with the same name
+        // (e.g. `JNI_GetDefaultJavaVMInitArgs`) and the link order does matter
+        // for these tests:
+        // - JavaVmExtTest#JNI_GetDefaultJavaVMInitArgs
+        // - JavaVmExtTest#JNI_GetCreatedJavaVMs
+        // - JavaVmExtTest#AttachCurrentThread
+        // - JavaVmExtTest#AttachCurrentThreadAsDaemon
+        // - JavaVmExtTest#AttachCurrentThread_SmallStack
+        "libnativehelper",
+    ],
+}
+
+art_cc_defaults {
+    name: "art_standalone_gtest_defaults",
+    defaults: [
+        // Note: We don't include "art_debug_defaults" here, as standalone ART
+        // gtests link with the "non-d" versions of the libraries contained in
+        // the ART APEX, so that they can be used with all ART APEX flavors
+        // (including the Release ART APEX).
+        "art_standalone_test_defaults",
+        "art_gtest_common_defaults",
+        "art_defaults",
+    ],
+
+    test_suites: [
+        "general-tests",
+        "mts-art",
+    ],
+
+    // Support multilib variants (using different suffix per sub-architecture), which is needed on
+    // build targets with secondary architectures, as the MTS test suite packaging logic flattens
+    // all test artifacts into a single `testcases` directory.
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+
+    // We use the "non-d" variants of libraries, as the Release ART APEX does
+    // not contain the "d" (debug) variants.
+    shared_libs: [
+        "libart",
+        "libart-disassembler",
+        "libdexfile",
+        "libprofile",
+        "libartbase",
+
+        // Library `libnativehelper` needs to appear after `libart` here,
+        // otherwise the following tests from module `libart-runtime-gtest`
+        // will fail because `art/runtime/jni/java_vm_ext.cc` and
+        // `libnativehelper/JniInvocation.c` define symbols with the same name
+        // (e.g. `JNI_GetDefaultJavaVMInitArgs`) and the link order does matter
+        // for these tests:
+        // - JavaVmExtTest#JNI_GetDefaultJavaVMInitArgs
+        // - JavaVmExtTest#JNI_GetCreatedJavaVMs
+        // - JavaVmExtTest#AttachCurrentThread
+        // - JavaVmExtTest#AttachCurrentThreadAsDaemon
+        // - JavaVmExtTest#AttachCurrentThread_SmallStack
+        "libnativehelper",
     ],
     static_libs: [
-        "libgtest",
+        // For now, link `libart-gtest` statically for simplicity, to save the
+        // added complexity to package it in test suites (along with other test
+        // artifacts) and install it on device during tests.
+        // TODO(b/192070541): Consider linking `libart-gtest` dynamically.
+        "libart-gtest",
+    ],
+
+    test_for: [
+        "com.android.art",
+        "com.android.art.debug",
+    ],
+}
+
+// Properties common to `libart-gtest-defaults` and `libartd-gtest-defaults`.
+art_cc_defaults {
+    name: "libart-gtest-common-defaults",
+    defaults: [
+        "art_defaults",
+    ],
+    host_supported: true,
+    shared_libs: [
+        "liblog",
+    ],
+    static_libs: [
+        "libgtest_isolated",
     ],
     target: {
         android32: {
@@ -142,17 +309,32 @@ art_cc_defaults {
     },
     apex_available: [
         "com.android.art.debug",
+        // TODO(b/183882457): This lib doesn't go into com.android.art, but
+        // apex_available lists need to be the same for internal libs to avoid
+        // stubs, and this depends on libdexfiled and others.
+        "com.android.art",
     ],
 }
 
-art_cc_library {
-    name: "libart-gtest",
-    host_supported: true,
-    whole_static_libs: [
-        "libart-compiler-gtest",
-        "libart-runtime-gtest",
-        "libartbase-art-gtest",
-        "libgtest",
+art_cc_defaults {
+    name: "libart-gtest-defaults",
+    defaults: [
+        "libart-gtest-common-defaults",
+    ],
+    shared_libs: [
+        "libart",
+        "libart-compiler",
+        "libdexfile",
+        "libprofile",
+        "libartbase",
+    ],
+}
+
+art_cc_defaults {
+    name: "libartd-gtest-defaults",
+    defaults: [
+        "art_debug_defaults",
+        "libart-gtest-common-defaults",
     ],
     shared_libs: [
         "libartd",
@@ -160,8 +342,26 @@ art_cc_library {
         "libdexfiled",
         "libprofiled",
         "libartbased",
+    ],
+}
+
+// Properties common to `libart-gtest` and `libartd-gtest`.
+art_cc_defaults {
+    name: "libart-gtest-common",
+    defaults: [
+        "art_defaults",
+    ],
+    host_supported: true,
+    srcs: [
+        "common/gtest_main.cc",
+    ],
+    whole_static_libs: [
+        "libgtest_isolated",
+    ],
+    shared_libs: [
         "libbase",
         "libbacktrace",
+        "liblog",
     ],
     target: {
         darwin: {
@@ -170,10 +370,102 @@ art_cc_library {
     },
     apex_available: [
         "com.android.art.debug",
+        // TODO(b/183882457): This lib doesn't go into com.android.art, but
+        // apex_available lists need to be the same for internal libs to avoid
+        // stubs, and this depends on libdexfiled and others.
+        "com.android.art",
+    ],
+}
+
+art_cc_library {
+    name: "libart-gtest",
+    defaults: [
+        "libart-gtest-common",
+    ],
+    whole_static_libs: [
+        "libart-compiler-gtest",
+        "libart-runtime-gtest",
+        "libartbase-art-gtest",
+    ],
+    shared_libs: [
+        "libart",
+        "libart-compiler",
+        "libdexfile",
+        "libprofile",
+        "libartbase",
+    ],
+}
+
+art_cc_library {
+    name: "libartd-gtest",
+    defaults: [
+        "art_debug_defaults",
+        "libart-gtest-common",
+    ],
+    whole_static_libs: [
+        "libartd-compiler-gtest",
+        "libartd-runtime-gtest",
+        "libartbased-art-gtest",
+    ],
+    shared_libs: [
+        "libartd",
+        "libartd-compiler",
+        "libdexfiled",
+        "libprofiled",
+        "libartbased",
     ],
 }
 
 // ART run-tests.
+
+// Test configuration template for ART run-tests on target expected to run
+// successfully, and as such tagged as part of TradeFed's `art-target-run-test`
+// test suite via the `test-suite-tag`.
+filegroup {
+    name: "art-run-test-target-template",
+    srcs: [
+        "art-run-test-target-template.xml",
+    ],
+}
+
+// Test configuration template for ART run-tests on target expected to run
+// successfully, and as such *not* tagged as part of TradeFed's
+// `art-target-run-test` test suite via the `test-suite-tag`. This is as
+// temporary measure, while we add proper support for all ART (target) run-tests
+// to TradeFed (b/147818031).
+filegroup {
+    name: "art-run-test-target-no-test-suite-tag-template",
+    srcs: [
+        "art-run-test-target-no-test-suite-tag-template.xml",
+    ],
+}
+
+java_defaults {
+    name: "art-run-test-defaults",
+
+    // Compile against the "core" bootclasspath, not the "default" one (current
+    // platform) -- use the same settings as Libcore tests (see e.g. the
+    // definition of module `core-tests` in libcore/JavaLibrary.bp).
+    //
+    // Note: The legacy way to build ART run-tests uses the
+    // `javac_with_bootclasspath` function defined in `test/etc/default-build`.
+    // See also `tools/javac-helper.sh`.
+    sdk_version: "none",
+    system_modules: "core-all-system-modules",
+
+    // Some ART run-tests contain constructs which break ErrorProne checks;
+    // disable them on `errorprone` builds.
+    errorprone: {
+        javacflags: ["-XepDisableAllChecks"],
+    },
+    test_suites: [
+        "general-tests",
+        "mts-art",
+    ],
+    host_required: [
+        "art-run-test-checker",
+    ],
+}
 
 art_cc_test_library {
     name: "libarttest",
@@ -232,12 +524,13 @@ art_cc_test_library {
 cc_defaults {
     name: "libartagent-defaults",
     defaults: [
-        "art_test_defaults",
+        "art_test_internal_library_defaults",
         "art_defaults",
     ],
     shared_libs: [
         "libbacktrace",
         "libbase",
+        "liblog",
         "libnativehelper",
     ],
 }
@@ -272,7 +565,7 @@ art_cc_test_library {
 art_cc_defaults {
     name: "libtiagent-base-defaults",
     defaults: [
-        "art_test_defaults",
+        "art_test_internal_library_defaults",
         "art_defaults",
         // Not derived from libartagent-defaults for NDK.
     ],
@@ -402,6 +695,7 @@ art_cc_defaults {
         "1963-add-to-dex-classloader-in-memory/check_memfd_create.cc",
         "2012-structural-redefinition-failures-jni-id/set-jni-id-used.cc",
         "2031-zygote-compiled-frame-deopt/native-wait.cc",
+        "2038-hiddenapi-jvmti-ext/hiddenapi_ext.cc",
     ],
     static_libs: [
         "libz",
@@ -437,6 +731,14 @@ art_cc_test_library {
 cc_library_static {
     name: "libctstiagent",
     defaults: ["libtiagent-base-defaults"],
+
+    // TODO(b/187288515): Providing this as a prebuilt introduces an issue with
+    // sdk_version propagation. Temporarily use the source library instead,
+    // which means we need to override the logic inherited from art_defaults and
+    // art_test_internal_library_defaults that disables sources when not
+    // building ART from sources.
+    enabled: true,
+
     visibility: [
         "//cts/hostsidetests/jvmti:__subpackages__",
     ],
@@ -536,7 +838,7 @@ art_cc_test_library {
 cc_defaults {
     name: "libarttest-defaults",
     defaults: [
-        "art_test_defaults",
+        "art_test_internal_library_defaults",
         "art_defaults",
     ],
     srcs: [
@@ -561,6 +863,7 @@ cc_defaults {
         "172-app-image-twice/debug_print_class.cc",
         "177-visibly-initialized-deadlock/visibly_initialized.cc",
         "178-app-image-native-method/native_methods.cc",
+        "179-nonvirtual-jni/nonvirtual-call.cc",
         "1945-proxy-method-arguments/get_args.cc",
         "203-multi-checkpoint/multi_checkpoint.cc",
         "305-other-fault-handler/fault_handler.cc",
@@ -589,6 +892,7 @@ cc_defaults {
         "708-jit-cache-churn/jit.cc",
         "720-thread-priority/thread_priority.cc",
         "800-smali/jni.cc",
+        "817-hiddenapi/test_native.cc",
         "909-attach-agent/disallow_debugging.cc",
         "1001-app-image-regions/app_image_regions.cc",
         "1002-notify-startup/startup_interface.cc",
@@ -597,19 +901,24 @@ cc_defaults {
         "1985-structural-redefine-stack-scope/stack_scope.cc",
         "2011-stack-walk-concurrent-instrument/stack_walk_concurrent.cc",
         "2031-zygote-compiled-frame-deopt/native-wait.cc",
+        "2033-shutdown-mechanics/native_shutdown.cc",
+        "2036-jni-filechannel/jni_filechannel.cc",
+        "2037-thread-name-inherit/thread_name_inherit.cc",
         "common/runtime_state.cc",
         "common/stack_inspect.cc",
     ],
     shared_libs: [
         "libbacktrace",
         "libbase",
+        "liblog",
         "libnativehelper",
     ],
 }
 
-filegroup {
+java_library {
     name: "art_cts_jvmti_test_library",
     visibility: [
+        "//art:__subpackages__",
         "//cts/hostsidetests/jvmti:__subpackages__",
     ],
     srcs: [
@@ -770,145 +1079,144 @@ filegroup {
         "2006-virtual-structural-finalizing/src-art/art/Test2006.java",
         "2007-virtual-structural-finalizable/src-art/art/Test2007.java",
     ],
+    sdk_version: "core_platform",
 }
 
 // CTS test runner in cts/hostsidetests/jvmti looks for an expected test
 // result for the test NN in the file results.NN.expected.txt while in the
-// source tree each expected test result is in the NN-xxxx/expected.txt.
+// source tree each expected test result is in the NN-xxxx/expected-stdout.txt.
 // Copy+rename them them to a temporary directory and them zip them.
 java_genrule {
-    name: "expected_cts_outputs",
-    visibility: [
-        "//cts/hostsidetests/jvmti:__subpackages__",
-    ],
+    name: "expected_cts_outputs_gen",
     srcs: [
-        "901-hello-ti-agent/expected.txt",
-        "902-hello-transformation/expected.txt",
-        "903-hello-tagging/expected.txt",
-        "904-object-allocation/expected.txt",
-        "905-object-free/expected.txt",
-        "906-iterate-heap/expected.txt",
-        "907-get-loaded-classes/expected.txt",
-        "908-gc-start-finish/expected.txt",
-        "910-methods/expected.txt",
+        "901-hello-ti-agent/expected-stdout.txt",
+        "902-hello-transformation/expected-stdout.txt",
+        "903-hello-tagging/expected-stdout.txt",
+        "904-object-allocation/expected-stdout.txt",
+        "905-object-free/expected-stdout.txt",
+        "906-iterate-heap/expected-stdout.txt",
+        "907-get-loaded-classes/expected-stdout.txt",
+        "908-gc-start-finish/expected-stdout.txt",
+        "910-methods/expected-stdout.txt",
         "911-get-stack-trace/expected-cts-version.txt",
-        "912-classes/expected.txt",
-        "913-heaps/expected.txt",
-        "914-hello-obsolescence/expected.txt",
-        "915-obsolete-2/expected.txt",
-        "917-fields-transformation/expected.txt",
-        "918-fields/expected.txt",
-        "919-obsolete-fields/expected.txt",
-        "920-objects/expected.txt",
-        "922-properties/expected.txt",
-        "923-monitors/expected.txt",
-        "924-threads/expected.txt",
-        "925-threadgroups/expected.txt",
-        "926-multi-obsolescence/expected.txt",
-        "927-timers/expected.txt",
-        "928-jni-table/expected.txt",
-        "930-hello-retransform/expected.txt",
-        "931-agent-thread/expected.txt",
-        "932-transform-saves/expected.txt",
-        "933-misc-events/expected.txt",
-        "940-recursive-obsolete/expected.txt",
-        "942-private-recursive/expected.txt",
-        "944-transform-classloaders/expected.txt",
-        "945-obsolete-native/expected.txt",
-        "947-reflect-method/expected.txt",
-        "951-threaded-obsolete/expected.txt",
-        "982-ok-no-retransform/expected.txt",
-        "983-source-transform-verify/expected.txt",
-        "984-obsolete-invoke/expected.txt",
-        "985-re-obsolete/expected.txt",
-        "986-native-method-bind/expected.txt",
-        "988-method-trace/expected.txt",
-        "989-method-trace-throw/expected.txt",
-        "990-field-trace/expected.txt",
-        "991-field-trace-2/expected.txt",
-        "992-source-data/expected.txt",
-        "993-breakpoints/expected.txt",
-        "994-breakpoint-line/expected.txt",
-        "995-breakpoints-throw/expected.txt",
-        "996-breakpoint-obsolete/expected.txt",
-        "997-single-step/expected.txt",
-        "1900-track-alloc/expected.txt",
-        "1901-get-bytecodes/expected.txt",
-        "1902-suspend/expected.txt",
-        "1903-suspend-self/expected.txt",
-        "1904-double-suspend/expected.txt",
-        "1906-suspend-list-me-first/expected.txt",
-        "1907-suspend-list-self-twice/expected.txt",
-        "1908-suspend-native-resume-self/expected.txt",
-        "1909-per-agent-tls/expected.txt",
-        "1910-transform-with-default/expected.txt",
-        "1911-get-local-var-table/expected.txt",
-        "1912-get-set-local-primitive/expected.txt",
-        "1913-get-set-local-objects/expected.txt",
-        "1914-get-local-instance/expected.txt",
-        "1915-get-set-local-current-thread/expected.txt",
-        "1916-get-set-current-frame/expected.txt",
-        "1917-get-stack-frame/expected.txt",
-        "1920-suspend-native-monitor/expected.txt",
-        "1921-suspend-native-recursive-monitor/expected.txt",
-        "1922-owned-monitors-info/expected.txt",
-        "1923-frame-pop/expected.txt",
-        "1924-frame-pop-toggle/expected.txt",
-        "1925-self-frame-pop/expected.txt",
-        "1926-missed-frame-pop/expected.txt",
-        "1927-exception-event/expected.txt",
-        "1928-exception-event-exception/expected.txt",
-        "1930-monitor-info/expected.txt",
-        "1931-monitor-events/expected.txt",
-        "1932-monitor-events-misc/expected.txt",
-        "1933-monitor-current-contended/expected.txt",
-        "1934-jvmti-signal-thread/expected.txt",
-        "1936-thread-end-events/expected.txt",
-        "1937-transform-soft-fail/expected.txt",
-        "1939-proxy-frames/expected.txt",
-        "1941-dispose-stress/expected.txt",
-        "1942-suspend-raw-monitor-exit/expected.txt",
-        "1943-suspend-raw-monitor-wait/expected.txt",
-        "1953-pop-frame/expected.txt",
-        "1958-transform-try-jit/expected.txt",
-        "1962-multi-thread-events/expected.txt",
-        "1963-add-to-dex-classloader-in-memory/expected.txt",
-        "1967-get-set-local-bad-slot/expected.txt",
-        "1968-force-early-return/expected.txt",
-        "1969-force-early-return-void/expected.txt",
-        "1970-force-early-return-long/expected.txt",
-        "1971-multi-force-early-return/expected.txt",
-        "1974-resize-array/expected.txt",
-        "1975-hello-structural-transformation/expected.txt",
-        "1976-hello-structural-static-methods/expected.txt",
-        "1977-hello-structural-obsolescence/expected.txt",
-        "1978-regular-obsolete-then-structural-obsolescence/expected.txt",
-        "1979-threaded-structural-transformation/expected.txt",
+        "912-classes/expected-stdout.txt",
+        "913-heaps/expected-stdout.txt",
+        "914-hello-obsolescence/expected-stdout.txt",
+        "915-obsolete-2/expected-stdout.txt",
+        "917-fields-transformation/expected-stdout.txt",
+        "918-fields/expected-stdout.txt",
+        "919-obsolete-fields/expected-stdout.txt",
+        "920-objects/expected-stdout.txt",
+        "922-properties/expected-stdout.txt",
+        "923-monitors/expected-stdout.txt",
+        "924-threads/expected-stdout.txt",
+        "925-threadgroups/expected-stdout.txt",
+        "926-multi-obsolescence/expected-stdout.txt",
+        "927-timers/expected-stdout.txt",
+        "928-jni-table/expected-stdout.txt",
+        "930-hello-retransform/expected-stdout.txt",
+        "931-agent-thread/expected-stdout.txt",
+        "932-transform-saves/expected-stdout.txt",
+        "933-misc-events/expected-stdout.txt",
+        "940-recursive-obsolete/expected-stdout.txt",
+        "942-private-recursive/expected-stdout.txt",
+        "944-transform-classloaders/expected-stdout.txt",
+        "945-obsolete-native/expected-stdout.txt",
+        "947-reflect-method/expected-stdout.txt",
+        "951-threaded-obsolete/expected-stdout.txt",
+        "982-ok-no-retransform/expected-stdout.txt",
+        "983-source-transform-verify/expected-stdout.txt",
+        "984-obsolete-invoke/expected-stdout.txt",
+        "985-re-obsolete/expected-stdout.txt",
+        "986-native-method-bind/expected-stdout.txt",
+        "988-method-trace/expected-stdout.txt",
+        "989-method-trace-throw/expected-stdout.txt",
+        "990-field-trace/expected-stdout.txt",
+        "991-field-trace-2/expected-stdout.txt",
+        "992-source-data/expected-stdout.txt",
+        // Need to avoid using hidden-apis
+        "993-breakpoints/expected_cts.txt",
+        "994-breakpoint-line/expected-stdout.txt",
+        "995-breakpoints-throw/expected-stdout.txt",
+        "996-breakpoint-obsolete/expected-stdout.txt",
+        "997-single-step/expected-stdout.txt",
+        "1900-track-alloc/expected-stdout.txt",
+        "1901-get-bytecodes/expected-stdout.txt",
+        "1902-suspend/expected-stdout.txt",
+        "1903-suspend-self/expected-stdout.txt",
+        "1904-double-suspend/expected-stdout.txt",
+        "1906-suspend-list-me-first/expected-stdout.txt",
+        "1907-suspend-list-self-twice/expected-stdout.txt",
+        "1908-suspend-native-resume-self/expected-stdout.txt",
+        "1909-per-agent-tls/expected-stdout.txt",
+        "1910-transform-with-default/expected-stdout.txt",
+        "1911-get-local-var-table/expected-stdout.txt",
+        "1912-get-set-local-primitive/expected-stdout.txt",
+        "1913-get-set-local-objects/expected-stdout.txt",
+        "1914-get-local-instance/expected-stdout.txt",
+        "1915-get-set-local-current-thread/expected-stdout.txt",
+        "1916-get-set-current-frame/expected-stdout.txt",
+        "1917-get-stack-frame/expected-stdout.txt",
+        "1920-suspend-native-monitor/expected-stdout.txt",
+        "1921-suspend-native-recursive-monitor/expected-stdout.txt",
+        "1922-owned-monitors-info/expected-stdout.txt",
+        "1923-frame-pop/expected-stdout.txt",
+        "1924-frame-pop-toggle/expected-stdout.txt",
+        "1925-self-frame-pop/expected-stdout.txt",
+        "1926-missed-frame-pop/expected-stdout.txt",
+        "1927-exception-event/expected-stdout.txt",
+        "1928-exception-event-exception/expected-stdout.txt",
+        "1930-monitor-info/expected-stdout.txt",
+        "1931-monitor-events/expected-stdout.txt",
+        "1932-monitor-events-misc/expected-stdout.txt",
+        "1933-monitor-current-contended/expected-stdout.txt",
+        "1934-jvmti-signal-thread/expected-stdout.txt",
+        "1936-thread-end-events/expected-stdout.txt",
+        "1937-transform-soft-fail/expected-stdout.txt",
+        "1939-proxy-frames/expected-stdout.txt",
+        "1941-dispose-stress/expected-stdout.txt",
+        "1942-suspend-raw-monitor-exit/expected-stdout.txt",
+        "1943-suspend-raw-monitor-wait/expected-stdout.txt",
+        "1953-pop-frame/expected-stdout.txt",
+        "1958-transform-try-jit/expected-stdout.txt",
+        "1962-multi-thread-events/expected-stdout.txt",
+        "1963-add-to-dex-classloader-in-memory/expected-stdout.txt",
+        "1967-get-set-local-bad-slot/expected-stdout.txt",
+        "1968-force-early-return/expected-stdout.txt",
+        "1969-force-early-return-void/expected-stdout.txt",
+        "1970-force-early-return-long/expected-stdout.txt",
+        "1971-multi-force-early-return/expected-stdout.txt",
+        "1974-resize-array/expected-stdout.txt",
+        "1975-hello-structural-transformation/expected-stdout.txt",
+        "1976-hello-structural-static-methods/expected-stdout.txt",
+        "1977-hello-structural-obsolescence/expected-stdout.txt",
+        "1978-regular-obsolete-then-structural-obsolescence/expected-stdout.txt",
+        "1979-threaded-structural-transformation/expected-stdout.txt",
         // TODO Requires VarHandles to be un-@hide. See b/64382372
-        // "test/1981-structural-redef-private-method-handles/expected.txt",
+        // "test/1981-structural-redef-private-method-handles/expected-stdout.txt",
         "1981-structural-redef-private-method-handles/expected_no_mh.txt",
-        "1982-no-virtuals-structural-redefinition/expected.txt",
+        "1982-no-virtuals-structural-redefinition/expected-stdout.txt",
         // JNI-id use can change the outcome of this test on device.
         "1983-structural-redefinition-failures/expected-cts.txt",
-        "1984-structural-redefine-field-trace/expected.txt",
-        "1988-multi-structural-redefine/expected.txt",
-        "1989-transform-bad-monitor/expected.txt",
-        "1990-structural-bad-verify/expected.txt",
-        "1991-hello-structural-retransform/expected.txt",
-        "1992-retransform-no-such-field/expected.txt",
-        "1994-final-virtual-structural/expected.txt",
-        "1995-final-virtual-structural-multithread/expected.txt",
-        "1996-final-override-virtual-structural/expected.txt",
-        "1997-structural-shadow-method/expected.txt",
-        "1998-structural-shadow-field/expected.txt",
-        "1999-virtual-structural/expected.txt",
-        "2001-virtual-structural-multithread/expected.txt",
-        "2002-virtual-structural-initializing/expected.txt",
-        "2003-double-virtual-structural/expected.txt",
-        "2004-double-virtual-structural-abstract/expected.txt",
-        "2005-pause-all-redefine-multithreaded/expected.txt",
-        "2006-virtual-structural-finalizing/expected.txt",
-        "2007-virtual-structural-finalizable/expected.txt",
+        "1984-structural-redefine-field-trace/expected-stdout.txt",
+        "1988-multi-structural-redefine/expected-stdout.txt",
+        "1989-transform-bad-monitor/expected-stdout.txt",
+        "1990-structural-bad-verify/expected-stdout.txt",
+        "1991-hello-structural-retransform/expected-stdout.txt",
+        "1992-retransform-no-such-field/expected-stdout.txt",
+        "1994-final-virtual-structural/expected-stdout.txt",
+        "1995-final-virtual-structural-multithread/expected-stdout.txt",
+        "1996-final-override-virtual-structural/expected-stdout.txt",
+        "1997-structural-shadow-method/expected-stdout.txt",
+        "1998-structural-shadow-field/expected-stdout.txt",
+        "1999-virtual-structural/expected-stdout.txt",
+        "2001-virtual-structural-multithread/expected-stdout.txt",
+        "2002-virtual-structural-initializing/expected-stdout.txt",
+        "2003-double-virtual-structural/expected-stdout.txt",
+        "2004-double-virtual-structural-abstract/expected-stdout.txt",
+        "2005-pause-all-redefine-multithreaded/expected-stdout.txt",
+        "2006-virtual-structural-finalizing/expected-stdout.txt",
+        "2007-virtual-structural-finalizable/expected-stdout.txt",
     ],
     out: ["expected_cts_outputs.jar"],
     tools: ["soong_zip"],
@@ -916,6 +1224,77 @@ java_genrule {
         "for f in $(in); do x=$${f#art/test/}; " +
         "cp $$f $(genDir)/res/results.$${x%%-*}.expected.txt; done && " +
         "$(location soong_zip) -o $(out) -C $(genDir)/res -D $(genDir)/res",
+}
+
+// Wrap the expected_cts_outputs_gen inside a java library to make it easy
+// to export as a member of a module_exports.
+java_library {
+    name: "expected_cts_outputs",
+    visibility: [
+        "//art/build/sdk",
+        "//cts/hostsidetests/jvmti:__subpackages__",
+    ],
+    static_libs: [
+        "expected_cts_outputs_gen",
+    ],
+    sdk_version: "core_current",
+}
+
+art_cc_test {
+    name: "ArtGtestsTargetInstallApex",
+    defaults: [
+        // Enable only in source builds, where com.android.art.testing is
+        // available.
+        "art_module_source_build_defaults",
+    ],
+    data: [
+        // We need the ART testing apex, which contains all gtest binaries.
+        // Note that due to build system and linker constraints the gtests must be in the apex.
+        ":com.android.art.testing",
+    ],
+    // It seems that only device-tests build can create a valid apex.
+    test_suites: [
+        "device-tests",
+        "mts-art",
+    ],
+    test_config: "art-gtests-target-install-apex.xml",
+
+    // Support multilib variants (using different suffix per sub-architecture), which is needed on
+    // build targets with secondary architectures, as the MTS test suite packaging logic flattens
+    // all test artifacts into a single `testcases` directory.
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+    test_for: [
+        "com.android.art",
+        "com.android.art.debug",
+    ],
+}
+
+art_cc_test {
+    name: "ArtGtestsTargetChroot",
+    defaults: [
+        // Enable only in source builds, where com.android.art.testing is
+        // available.
+        "art_module_source_build_defaults",
+    ],
+    data: [
+        // We need the ART testing apex, which contains all gtest binaries.
+        // Note that due to build system and linker constraints the gtests must be in the apex.
+        ":com.android.art.testing",
+    ],
+    test_suites: ["general-tests"],
+    test_config: "art-gtests-target-chroot.xml",
+    test_for: [
+        "com.android.art",
+        "com.android.art.debug",
+    ],
 }
 
 filegroup {
@@ -983,6 +1362,7 @@ java_defaults {
         enabled: false,
     },
     sdk_version: "core_platform",
+    uncompress_dex: false,
 }
 
 // The following modules are just trivial compilations (non-trivial cases are the end).
@@ -1233,6 +1613,12 @@ java_library {
     defaults: ["art-gtest-jars-defaults"],
 }
 
+java_library {
+    name: "art-gtest-jars-Dex2oatVdexTestDex",
+    srcs: ["Dex2oatVdexTestDex/**/*.java"],
+    defaults: ["art-gtest-jars-defaults"],
+}
+
 // The following cases are non-trivial.
 
 // Uncompress classes.dex files in the jar file.
@@ -1347,23 +1733,42 @@ java_library {
     ],
 }
 
+// Smali compiled files.
+// Since they are not compiled by javac, we use different extension for them.
+// The .jar extension for them would cause subtle failures in the test infra,
+// which finds and opens all jar files and expects them to be valid zip files.
+
 genrule {
     name: "art-gtest-jars-VerifierDeps",
     defaults: ["art-gtest-jars-smali-defaults"],
     srcs: ["VerifierDeps/**/*.smali"],
-    out: ["art-gtest-jars-VerifierDeps.jar"],
+    out: ["art-gtest-jars-VerifierDeps.dex"],
 }
 
 genrule {
     name: "art-gtest-jars-VerifierDepsMulti",
     defaults: ["art-gtest-jars-smali-defaults"],
     srcs: ["VerifierDepsMulti/**/*.smali"],
-    out: ["art-gtest-jars-VerifierDepsMulti.jar"],
+    out: ["art-gtest-jars-VerifierDepsMulti.dex"],
 }
 
 genrule {
     name: "art-gtest-jars-VerifySoftFailDuringClinit",
     defaults: ["art-gtest-jars-smali-defaults"],
     srcs: ["VerifySoftFailDuringClinit/**/*.smali"],
-    out: ["art-gtest-jars-VerifySoftFailDuringClinit.jar"],
+    out: ["art-gtest-jars-VerifySoftFailDuringClinit.dex"],
+}
+
+genrule {
+    name: "art-gtest-jars-LinkageTest",
+    defaults: ["art-gtest-jars-smali-defaults"],
+    srcs: ["LinkageTest/*.smali"],
+    out: ["art-gtest-jars-LinkageTest.dex"],
+}
+
+genrule {
+    name: "art-gtest-jars-Dex2oatVdexPublicSdkDex",
+    defaults: ["art-gtest-jars-smali-defaults"],
+    srcs: ["Dex2oatVdexPublicSdkDex/*.smali"],
+    out: ["art-gtest-jars-Dex2oatVdexPublicSdkDex.dex"],
 }

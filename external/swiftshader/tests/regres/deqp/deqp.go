@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -31,6 +32,7 @@ import (
 	"time"
 
 	"../cause"
+	"../cov"
 	"../shell"
 	"../testlist"
 	"../util"
@@ -40,7 +42,7 @@ const dataVersion = 1
 
 var (
 	// Regular expression to parse the output of a dEQP test.
-	deqpRE = regexp.MustCompile(`(Fail|Pass|NotSupported|CompatibilityWarning|QualityWarning) \(([^\)]*)\)`)
+	deqpRE = regexp.MustCompile(`(Fail|Pass|NotSupported|CompatibilityWarning|QualityWarning|InternalError) \(([^\)]*)\)`)
 	// Regular expression to parse a test that failed due to UNIMPLEMENTED()
 	unimplementedRE = regexp.MustCompile(`[^\n]*UNIMPLEMENTED:[^\n]*`)
 	// Regular expression to parse a test that failed due to UNSUPPORTED()
@@ -59,11 +61,14 @@ type Config struct {
 	ExeGles2         string
 	ExeGles3         string
 	ExeVulkan        string
+	TempDir          string // Directory for temporary log files, coverage output.
 	TestLists        testlist.Lists
 	Env              []string
 	LogReplacements  map[string]string
 	NumParallelTests int
+	CoverageEnv      *cov.Env
 	TestTimeout      time.Duration
+	ValidationLayer  bool
 }
 
 // Results holds the results of tests across all APIs.
@@ -72,6 +77,7 @@ type Results struct {
 	Version  int
 	Error    string
 	Tests    map[string]TestResult
+	Coverage *cov.Tree
 	Duration time.Duration
 }
 
@@ -81,6 +87,7 @@ type TestResult struct {
 	Status    testlist.Status
 	TimeTaken time.Duration
 	Err       string `json:",omitempty"`
+	Coverage  *cov.Coverage
 }
 
 func (r TestResult) String() string {
@@ -131,8 +138,15 @@ func (r *Results) Save(path string) error {
 
 // Run runs all the tests.
 func (c *Config) Run() (*Results, error) {
-
 	start := time.Now()
+
+	if c.TempDir == "" {
+		dir, err := ioutil.TempDir("", "deqp")
+		if err != nil {
+			return nil, cause.Wrap(err, "Could not generate temporary directory")
+		}
+		c.TempDir = dir
+	}
 
 	// Wait group that completes once all the tests have finished.
 	wg := sync.WaitGroup{}
@@ -145,7 +159,8 @@ func (c *Config) Run() (*Results, error) {
 	// For each API that we are testing
 	for _, list := range c.TestLists {
 		// Resolve the test runner
-		var exe string
+		exe, supportsCoverage := "", false
+
 		switch list.API {
 		case testlist.EGL:
 			exe = c.ExeEgl
@@ -154,7 +169,7 @@ func (c *Config) Run() (*Results, error) {
 		case testlist.GLES3:
 			exe = c.ExeGles3
 		case testlist.Vulkan:
-			exe = c.ExeVulkan
+			exe, supportsCoverage = c.ExeVulkan, true
 		default:
 			return nil, fmt.Errorf("Unknown API '%v'", list.API)
 		}
@@ -165,11 +180,23 @@ func (c *Config) Run() (*Results, error) {
 		// Build a chan for the test names to be run.
 		tests := make(chan string, len(list.Tests))
 
+		numParallelTests := c.NumParallelTests
+		if list.API != testlist.Vulkan {
+			// OpenGL tests attempt to open lots of X11 display connections,
+			// which may cause us to run out of handles. This maximum was
+			// determined experimentally on a 72-core system.
+			maxParallelGLTests := 16
+
+			if numParallelTests > maxParallelGLTests {
+				numParallelTests = maxParallelGLTests
+			}
+		}
+
 		// Start a number of go routines to run the tests.
-		wg.Add(c.NumParallelTests)
-		for i := 0; i < c.NumParallelTests; i++ {
+		wg.Add(numParallelTests)
+		for i := 0; i < numParallelTests; i++ {
 			go func(index int) {
-				c.TestRoutine(exe, tests, results, index)
+				c.TestRoutine(exe, tests, results, index, supportsCoverage)
 				wg.Done()
 			}(goroutineIndex)
 			goroutineIndex++
@@ -200,6 +227,11 @@ func (c *Config) Run() (*Results, error) {
 		Tests:   map[string]TestResult{},
 	}
 
+	if c.CoverageEnv != nil {
+		out.Coverage = &cov.Tree{}
+		out.Coverage.Add(cov.Path{}, c.CoverageEnv.AllSourceFiles())
+	}
+
 	// Collect the results.
 	finished := make(chan struct{})
 	lastUpdate := time.Now()
@@ -207,13 +239,18 @@ func (c *Config) Run() (*Results, error) {
 		start, i := time.Now(), 0
 		for r := range results {
 			i++
-			out.Tests[r.Test] = r
 			if time.Since(lastUpdate) > time.Minute {
 				lastUpdate = time.Now()
 				remaining := numTests - i
 				log.Printf("Ran %d/%d tests (%v%%). Estimated completion in %v.\n",
 					i, numTests, util.Percent(i, numTests),
 					(time.Since(start)/time.Duration(i))*time.Duration(remaining))
+			}
+			out.Tests[r.Test] = r
+			if r.Coverage != nil {
+				path := strings.Split(r.Test, ".")
+				out.Coverage.Add(cov.Path(path), r.Coverage)
+				r.Coverage = nil // Free memory
 			}
 		}
 		close(finished)
@@ -233,7 +270,7 @@ func (c *Config) Run() (*Results, error) {
 // is written to results.
 // TestRoutine only returns once the tests chan has been closed.
 // TestRoutine does not close the results chan.
-func (c *Config) TestRoutine(exe string, tests <-chan string, results chan<- TestResult, goroutineIndex int) {
+func (c *Config) TestRoutine(exe string, tests <-chan string, results chan<- TestResult, goroutineIndex int, supportsCoverage bool) {
 	// Context for the GCOV_PREFIX environment variable:
 	// If you compile SwiftShader with gcc and the --coverage flag, the build will contain coverage instrumentation.
 	// We can use this to get the code coverage of SwiftShader from running dEQP.
@@ -263,23 +300,52 @@ func (c *Config) TestRoutine(exe string, tests <-chan string, results chan<- Tes
 		env = append(env, v)
 	}
 
+	coverageFile := filepath.Join(c.TempDir, fmt.Sprintf("%v.profraw", goroutineIndex))
+	if supportsCoverage {
+		if c.CoverageEnv != nil {
+			env = cov.AppendRuntimeEnv(env, coverageFile)
+		}
+	}
+
+	logPath := "/dev/null" // TODO(bclayton): Try "nul" on windows.
+	if !util.IsFile(logPath) {
+		logPath = filepath.Join(c.TempDir, fmt.Sprintf("%v.log", goroutineIndex))
+	}
+
 nextTest:
 	for name := range tests {
 		// log.Printf("Running test '%s'\n", name)
 
 		start := time.Now()
+		// Set validation layer according to flag.
+		validation := "disable"
+		if c.ValidationLayer {
+			validation = "enable"
+		}
+
 		outRaw, err := shell.Exec(c.TestTimeout, exe, filepath.Dir(exe), env,
+			"--deqp-validation="+validation,
 			"--deqp-surface-type=pbuffer",
 			"--deqp-shadercache=disable",
 			"--deqp-log-images=disable",
 			"--deqp-log-shader-sources=disable",
 			"--deqp-log-flush=disable",
+			"--deqp-log-filename="+logPath,
 			"-n="+name)
 		duration := time.Since(start)
 		out := string(outRaw)
 		out = strings.ReplaceAll(out, exe, "<dEQP>")
 		for k, v := range c.LogReplacements {
 			out = strings.ReplaceAll(out, k, v)
+		}
+
+		var coverage *cov.Coverage
+		if c.CoverageEnv != nil && supportsCoverage {
+			coverage, err = c.CoverageEnv.Import(coverageFile)
+			if err != nil {
+				log.Printf("Warning: Failed to process test coverage for test '%v'. %v", name, err)
+			}
+			os.Remove(coverageFile)
 		}
 
 		for _, test := range []struct {
@@ -298,6 +364,7 @@ nextTest:
 					Status:    test.s,
 					TimeTaken: duration,
 					Err:       s,
+					Coverage:  coverage,
 				}
 				continue nextTest
 			}
@@ -319,6 +386,7 @@ nextTest:
 				Status:    testlist.Crash,
 				TimeTaken: duration,
 				Err:       out,
+				Coverage:  coverage,
 			}
 		case shell.ErrTimeout:
 			log.Printf("Timeout for test '%v'\n", name)
@@ -326,34 +394,41 @@ nextTest:
 				Test:      name,
 				Status:    testlist.Timeout,
 				TimeTaken: duration,
+				Coverage:  coverage,
 			}
 		case nil:
 			toks := deqpRE.FindStringSubmatch(out)
 			if len(toks) < 3 {
 				err := fmt.Sprintf("Couldn't parse test '%v' output:\n%s", name, out)
 				log.Println("Warning: ", err)
-				results <- TestResult{Test: name, Status: testlist.Fail, Err: err}
+				results <- TestResult{Test: name, Status: testlist.Fail, Err: err, Coverage: coverage}
 				continue
 			}
 			switch toks[1] {
 			case "Pass":
-				results <- TestResult{Test: name, Status: testlist.Pass, TimeTaken: duration}
+				results <- TestResult{Test: name, Status: testlist.Pass, TimeTaken: duration, Coverage: coverage}
 			case "NotSupported":
-				results <- TestResult{Test: name, Status: testlist.NotSupported, TimeTaken: duration}
+				results <- TestResult{Test: name, Status: testlist.NotSupported, TimeTaken: duration, Coverage: coverage}
 			case "CompatibilityWarning":
-				results <- TestResult{Test: name, Status: testlist.CompatibilityWarning, TimeTaken: duration}
+				results <- TestResult{Test: name, Status: testlist.CompatibilityWarning, TimeTaken: duration, Coverage: coverage}
 			case "QualityWarning":
-				results <- TestResult{Test: name, Status: testlist.QualityWarning, TimeTaken: duration}
+				results <- TestResult{Test: name, Status: testlist.QualityWarning, TimeTaken: duration, Coverage: coverage}
 			case "Fail":
 				var err string
 				if toks[2] != "Fail" {
 					err = toks[2]
 				}
-				results <- TestResult{Test: name, Status: testlist.Fail, Err: err, TimeTaken: duration}
+				results <- TestResult{Test: name, Status: testlist.Fail, Err: err, TimeTaken: duration, Coverage: coverage}
+			case "InternalError":
+				var err string
+				if toks[2] != "InternalError" {
+					err = toks[2]
+				}
+				results <- TestResult{Test: name, Status: testlist.InternalError, Err: err, TimeTaken: duration, Coverage: coverage}
 			default:
 				err := fmt.Sprintf("Couldn't parse test output:\n%s", out)
 				log.Println("Warning: ", err)
-				results <- TestResult{Test: name, Status: testlist.Fail, Err: err, TimeTaken: duration}
+				results <- TestResult{Test: name, Status: testlist.Fail, Err: err, TimeTaken: duration, Coverage: coverage}
 			}
 		}
 	}

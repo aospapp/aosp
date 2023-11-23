@@ -15,17 +15,17 @@
 #pragma once
 
 // clang-format off
-#include PATH(device/google/atv/audio_proxy/FILE_VERSION/IBusDevice.h)
+#include PATH(device/google/atv/audio_proxy/AUDIO_PROXY_FILE_VERSION/IBusDevice.h)
 // clang-format on
 
 #include "public/audio_proxy.h"
 
 namespace audio_proxy {
-namespace CPP_VERSION {
+namespace AUDIO_PROXY_CPP_VERSION {
 
 using ::android::hardware::hidl_bitfield;
 using ::android::hardware::Return;
-using ::device::google::atv::audio_proxy::CPP_VERSION::IBusDevice;
+using ::device::google::atv::audio_proxy::AUDIO_PROXY_CPP_VERSION::IBusDevice;
 using namespace ::android::hardware::audio::common::CPP_VERSION;
 using namespace ::android::hardware::audio::CPP_VERSION;
 
@@ -36,7 +36,7 @@ class BusDeviceImpl : public IBusDevice {
   explicit BusDeviceImpl(AudioProxyDevice* device);
   ~BusDeviceImpl() override;
 
-  // Methods from ::device::google::atv::audio_proxy::CPP_VERSION::IBusDevice:
+  // Methods from IBusDevice:
   Return<void> openOutputStream(int32_t ioHandle, const DeviceAddress& device,
                                 const AudioConfig& config,
                                 hidl_bitfield<AudioOutputFlag> flags,
@@ -47,5 +47,5 @@ class BusDeviceImpl : public IBusDevice {
   AudioProxyDevice* const mDevice;
 };
 
-}  // namespace CPP_VERSION
+}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

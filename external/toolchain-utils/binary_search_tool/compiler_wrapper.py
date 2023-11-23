@@ -37,7 +37,7 @@ BISECT_DIR = os.environ.get('BISECT_DIR') or DEFAULT_BISECT_DIR
 def ProcessArgFile(arg_file):
   args = []
   # Read in entire file at once and parse as if in shell
-  with open(arg_file, 'rb') as f:
+  with open(arg_file, 'r', encoding='utf-8') as f:
     args.extend(shlex.split(f.read()))
 
   return args

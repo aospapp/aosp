@@ -12,9 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "tools_treble_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["tools_treble_license"],
+}
+
 python_defaults {
     name: "treble_build_default",
-    pkg_path: "treble",
+    pkg_path: "treble/build",
     version: {
         py2: {
             enabled: false,
@@ -25,18 +34,36 @@ python_defaults {
     },
 }
 
+python_library_host {
+  name: "treble_build_lib",
+  defaults: ["treble_build_default"],
+  srcs: [
+      "sandbox/build_android_sandboxed.py",
+      "sandbox/config.py",
+      "sandbox/nsjail.py",
+      "sandbox/overlay.py",
+      "sandbox/rbe.py",
+  ],
+}
+
 python_test_host {
     name: "treble_build_test",
     main: "test.py",
     defaults: ["treble_build_default"],
     srcs: [
-        "sandbox/nsjail.py",
+        "sandbox/build_android_sandboxed_test.py",
+        "sandbox/config_test.py",
         "sandbox/nsjail_test.py",
-        "sandbox/overlay.py",
         "sandbox/overlay_test.py",
+        "sandbox/rbe_test.py",
         "test.py",
         "sample_test.py",
     ],
+    libs: [
+        "treble_build_lib",
+    ],
     test_config: "test.xml",
-    test_suites: ["general-tests"],
+    test_options: {
+        unit_test: true,
+    },
 }

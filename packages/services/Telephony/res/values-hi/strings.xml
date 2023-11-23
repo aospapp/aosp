@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"वॉइसमेल सेटिंग को केवल प्राथमिक उपयोगकर्ता ही बदल सकता है."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"आपका सिम कार्ड अनब्लॉक कर दिया गया है. आपका फ़ोन अनलॉक किया जा रहा है..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"सिम नेटवर्क अनलॉक पिन"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"ऑपरेटर के लिए सिम को लॉक किया गया"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"अनब्लॉक करें"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"खारिज करें"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"नेटवर्क अनलॉक के लिए अनुरोध कर रहा है..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> को अग्रेषित कर रहा है"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"बंद"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"जब आपका फ़ोन पहुंच योग्य न हो, तो आपका कैरियर कॉल अग्रेषण अक्षम करने का समर्थन नहीं करता."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"आपको मोबाइल और इंटरनेट सेवा देने वाली कंपनी, कॉल को दूसरे नंबर पर भेजने की सुविधा नहीं देती."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"क्या आप कॉल वेटिंग (कॉल के दौरान आ रहा दूसरा कॉल) की सुविधा चालू करना चाहते हैं?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"कॉल के दौरान, आपको आने वाले कॉल (इनकमिंग) के बारे में सूचना दी जाएगी"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"चालू करें"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"रद्द करें"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"आईएमएस में CDMA कॉल वेटिंग की सुविधा चालू है"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"आईएमएस में CDMA कॉल वेटिंग की सुविधा बंद है"</string>
     <string name="updating_title" msgid="6130548922615719689">"कॉल सेटिंग"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"कॉल सेटिंग केवल व्यवस्थापक उपयोगकर्ता द्वारा ही बदली जा सकती हैं."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"सेटिंग (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -178,9 +186,9 @@
     <string name="manual_mode_disallowed_summary" msgid="3970048592179890197">"%1$s से कनेक्ट किए जाने पर उपलब्ध नहीं है"</string>
     <string name="network_select_title" msgid="4117305053881611988">"नेटवर्क"</string>
     <string name="register_automatically" msgid="3907580547590554834">"स्वचालित पंजीकरण..."</string>
-    <string name="preferred_network_mode_title" msgid="5253395265169539830">"पसंदीदा नेटवर्क प्रकार"</string>
+    <string name="preferred_network_mode_title" msgid="5253395265169539830">"पसंदीदा नेटवर्क टाइप"</string>
     <string name="preferred_network_mode_summary" msgid="3787989000044330064">"नेटवर्क संचालन मोड बदलें"</string>
-    <string name="preferred_network_mode_dialogtitle" msgid="2781447433514459696">"पसंदीदा नेटवर्क प्रकार"</string>
+    <string name="preferred_network_mode_dialogtitle" msgid="2781447433514459696">"पसंदीदा नेटवर्क टाइप"</string>
     <string name="forbidden_network" msgid="5081729819561333023">"(मना है)"</string>
     <string name="choose_network_title" msgid="5335832663422653082">"नेटवर्क चुनें"</string>
     <string name="network_disconnected" msgid="8844141106841160825">"डिसकनेक्ट है"</string>
@@ -274,8 +282,8 @@
     <string name="data_enable_summary" msgid="696860063456536557">"डेटा उपयोग करने दें"</string>
     <string name="dialog_alert_title" msgid="5260471806940268478">"ध्यान दें"</string>
     <string name="roaming" msgid="1576180772877858949">"रोमिंग"</string>
-    <string name="roaming_enable" msgid="6853685214521494819">"रोमिंग के समय डेटा सेवाएं कनेक्ट करें"</string>
-    <string name="roaming_disable" msgid="8856224638624592681">"रोमिंग के समय डेटा सेवाएं कनेक्ट करें"</string>
+    <string name="roaming_enable" msgid="6853685214521494819">"रोमिंग में डेटा चालू करें"</string>
+    <string name="roaming_disable" msgid="8856224638624592681">"रोमिंग में डेटा चालू करें"</string>
     <string name="roaming_reenable_message" msgid="1951802463885727915">"डेटा रोमिंग बंद है. चालू करने के लिए टैप करें."</string>
     <string name="roaming_enabled_message" msgid="9022249120750897">"रोमिंग शुल्क लागू हो सकते हैं. बदलाव करने के लिए टैप करें."</string>
     <string name="roaming_notification_title" msgid="3590348480688047320">"मोबाइल डेटा कनेक्शन उपलब्ध नहीं है"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"सिम से सीमित सुविधाएं मिलेंगी"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> का इस्तेमाल करते समय <xliff:g id="CARRIER_NAME">%1$s</xliff:g> के कॉल और डेटा सेवाओं पर रोक लगाई जा सकती है."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"किसी और सिम का इस्तेमाल करते समय <xliff:g id="CARRIER_NAME">%1$s</xliff:g> की कॉल और डेटा सेवाएं ब्लॉक की जा सकती हैं."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"ऐसे SIP खाते मिले जिनका समर्थन रोक दिया गया है और उन्हें हटाया गया"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP कॉल की सुविधा, Android प्लैटफ़ॉर्म पर अब काम नहीं करेगी.\nआपके मौजूदा SIP खाते <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> हटा दिए गए हैं.\nकृपया कॉल करने की अपनी डिफ़ॉल्ट खाता सेटिंग की पुष्टि करें."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"सेटिंग पर जाएं"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"ऐप्लिकेशन का डेटा खर्च"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g> में <xliff:g id="ID_1">%1$s</xliff:g> मोबाइल डेटा का उपयोग किया गया"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"बेहतर विकल्प"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"पासवर्ड गलत है. सिम अब लॉक हो गई है. PUK2 डालें."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 स्थायी रूप से अवरोधित है."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"आपके पास <xliff:g id="NUMBER">%d</xliff:g> प्रयास शेष हैं."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"सिम कार्ड PUK2 से लॉक है. अनलॉक करने के लिए, सेवा देने वाली कंपनी से संपर्क करें."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 अब अवरोधित नहीं है"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"नेटवर्क या SIM कार्ड गड़बड़ी"</string>
     <string name="doneButton" msgid="7371209609238460207">"पूरा हो गया"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"कॉल करने के लिए मोबाइल नेटवर्क चालू करें, हवाई जहाज़ मोड या बैटरी सेवर मोड बंद करें."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"कॉल करने के लिए हवाई जहाज़ मोड बंद करें."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"कॉल करने के लिए हवाई जहाज़ मोड बंद करें या किसी वायरलेस नेटवर्क से कनेक्‍ट करें."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"आपका फ़ोन बहुत गर्म हो गया है"</b>\n\n"यह कॉल नहीं लगाया जा सकता. फ़ोन का तापमान कम होने के बाद, फिर से कोशिश करें.\n\nहालांकि, आप अब भी आपातकालीन कॉल कर सकते हैं."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"गैर-आपातकालीन कॉल करने के लिए आपातकालीन कॉलबैक मोड से बाहर निकलें."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"नेटवर्क पर पंजीकृत नहीं."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"मोबाइल नेटवर्क उपलब्ध नहीं."</string>
@@ -543,7 +556,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"कॉल होल्ड नहीं किए जा सकते."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"कॉल करने के लिए किसी वायरलेस नेटवर्क से कनेक्‍ट करें."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"कॉल करने के लिए वाई-फ़ाई कॉलिंग सक्षम करें."</string>
-    <string name="emergency_information_hint" msgid="9208897544917793012">"आपातकालीन जानकारी"</string>
+    <string name="emergency_information_hint" msgid="9208897544917793012">"आपातकाल में दिखने वाली जानकारी"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"मालिक"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"जानकारी देखने के लिए फिर से टैप करें"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="2667568200755388829">"आपातकालीन कॉल"</string>
@@ -648,7 +661,7 @@
     <string name="voicemail_number_not_set" msgid="8831561283386938155">"&lt;सेट नहीं है&gt;"</string>
     <string name="other_settings" msgid="8895088007393598447">"अन्य कॉल सेटिंग"</string>
     <string name="calling_via_template" msgid="1791323450703751750">"कॉल <xliff:g id="PROVIDER_NAME">%s</xliff:g> से जा रही है"</string>
-    <string name="contactPhoto" msgid="7885089213135154834">"संपर्क का फ़ोटो"</string>
+    <string name="contactPhoto" msgid="7885089213135154834">"संपर्क की फ़ोटो"</string>
     <string name="goPrivate" msgid="4645108311382209551">"निजी हो जाएं"</string>
     <string name="selectContact" msgid="1527612842599767382">"संपर्क को चुनें"</string>
     <string name="not_voice_capable" msgid="2819996734252084253">"ध्वनि कॉल करना समर्थित नहीं है"</string>
@@ -665,7 +678,7 @@
     <string name="enable_video_calling_dialog_settings" msgid="8697890611305307110">"नेटवर्क सेटिंग"</string>
     <string name="enable_video_calling_dialog_close" msgid="4298929725917045270">"बंद करें"</string>
     <string name="sim_label_emergency_calls" msgid="9078241989421522310">"आपातकालीन कॉल"</string>
-    <string name="sim_description_emergency_calls" msgid="5146872803938897296">"केवल आपातकालीन कॉल"</string>
+    <string name="sim_description_emergency_calls" msgid="5146872803938897296">"सिर्फ़ आपातकालीन कॉल"</string>
     <string name="sim_description_default" msgid="7474671114363724971">"सिम कार्ड, स्‍लॉट: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"सुलभता"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"इससे वाई-फ़ाई कॉल"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"डिफ़ॉल्ट डेटा सिम का सब-आईडी:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"डीएल बैंडविड्थ (केबीपीएस):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"यूएल बैंडविड्थ (केबीपीएस):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"सेल की जगह की जानकारी (रोकी गयी है):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"एलटीई की फ़िज़िकल चैनल कॉन्फ़िगरेशन:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"सेल की जानकारी रीफ़्रेश होने की दर:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"सभी सेल के माप की पूरी जानकारी:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"रीफ़्रेश करें"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"डीएनएस जांच टॉगल करें"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"ओईएम-खास जानकारी/सेटिंग"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC उपलब्ध है:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR प्रतिबंधित है:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR उपलब्ध है:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR की स्थिति:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR की फ़्रीक्वेंसी:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"\'रेडियो बैंड\' मोड सेट करें"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"बैंड सूची लोड की जा रही है…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"सेट करें"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"फ़ोन की जानकारी"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"मोबाइल और इंटरनेट सेवा देने वाली कंपनी के प्रावधान की जानकारी"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"मोबाइल और इंटरनेट सेवा देने वाली कंपनी के प्रावधान चालू करें"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"आपका ब्लूटूथ सिग्नल कमज़ोर है. स्पीकरफ़ोन की सुविधा का इस्तेमाल करें."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"कॉल की क्वालिटी की सूचना"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"ऐसे SIP खाते जिनका समर्थन रोक दिया गया है"</string>
 </resources>

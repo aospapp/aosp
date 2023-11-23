@@ -38,12 +38,14 @@
 
 #include <android-base/strings.h>
 #include <gflags/gflags.h>
-#include <glog/logging.h>
+#include <android-base/logging.h>
 
 #include "common/libs/fs/shared_fd.h"
 #include "common/libs/fs/shared_select.h"
 #include "common/libs/utils/environment.h"
 #include "host/commands/run_cvd/runner_defs.h"
+#include "host/libs/allocd/request.h"
+#include "host/libs/allocd/utils.h"
 #include "host/libs/config/cuttlefish_config.h"
 #include "host/libs/vm_manager/vm_manager.h"
 
@@ -51,11 +53,12 @@ DEFINE_int32(wait_for_launcher, 5,
              "How many seconds to wait for the launcher to respond to the stop "
              "command. A value of zero means wait indefinetly");
 
+namespace cuttlefish {
 namespace {
 
 std::set<std::string> FallbackPaths() {
   std::set<std::string> paths;
-  std::string parent_path = cvd::StringFromEnv("HOME", ".");
+  std::string parent_path = StringFromEnv("HOME", ".");
   paths.insert(parent_path + "/cuttlefish_assembly");
   paths.insert(parent_path + "/cuttlefish_assembly/*");
 
@@ -73,13 +76,15 @@ std::set<std::string> FallbackPaths() {
     // Add files in the tombstone directory
     paths.insert(instance_dir + "/tombstones/*");
     // Add files in the internal directory
-    paths.insert(instance_dir + "/" + std::string(vsoc::kInternalDirName) + "/*");
+    paths.insert(instance_dir + "/" + std::string(kInternalDirName) + "/*");
+    // Add files in the shared directory
+    paths.insert(instance_dir + "/" + std::string(kSharedDirName) + "/*");
   }
   return paths;
 }
 
-std::set<std::string> PathsForInstance(const vsoc::CuttlefishConfig& config,
-                                       const vsoc::CuttlefishConfig::InstanceSpecific instance) {
+std::set<std::string> PathsForInstance(const CuttlefishConfig& config,
+                                       const CuttlefishConfig::InstanceSpecific instance) {
   return {
     config.assembly_dir(),
     config.assembly_dir() + "/*",
@@ -89,6 +94,8 @@ std::set<std::string> PathsForInstance(const vsoc::CuttlefishConfig& config,
     instance.PerInstancePath("tombstones/*"),
     instance.instance_internal_dir(),
     instance.PerInstanceInternalPath("*"),
+    instance.PerInstancePath(kSharedDirName),
+    instance.PerInstancePath(kSharedDirName) + "/*",
   };
 }
 
@@ -138,20 +145,20 @@ int FallBackStop(const std::set<std::string>& paths) {
   return exit_code;
 }
 
-bool CleanStopInstance(const vsoc::CuttlefishConfig::InstanceSpecific& instance) {
+bool CleanStopInstance(const CuttlefishConfig::InstanceSpecific& instance) {
   auto monitor_path = instance.launcher_monitor_socket_path();
   if (monitor_path.empty()) {
     LOG(ERROR) << "No path to launcher monitor found";
     return false;
   }
-  auto monitor_socket = cvd::SharedFD::SocketLocalClient(monitor_path.c_str(),
-                                                         false, SOCK_STREAM);
+  auto monitor_socket = SharedFD::SocketLocalClient(
+      monitor_path.c_str(), false, SOCK_STREAM, FLAGS_wait_for_launcher);
   if (!monitor_socket->IsOpen()) {
     LOG(ERROR) << "Unable to connect to launcher monitor at " << monitor_path
                << ": " << monitor_socket->StrError();
     return false;
   }
-  auto request = cvd::LauncherAction::kStop;
+  auto request = LauncherAction::kStop;
   auto bytes_sent = monitor_socket->Send(&request, sizeof(request), 0);
   if (bytes_sent < 0) {
     LOG(ERROR) << "Error sending launcher monitor the stop command: "
@@ -159,11 +166,11 @@ bool CleanStopInstance(const vsoc::CuttlefishConfig::InstanceSpecific& instance)
     return false;
   }
   // Perform a select with a timeout to guard against launcher hanging
-  cvd::SharedFDSet read_set;
+  SharedFDSet read_set;
   read_set.Set(monitor_socket);
   struct timeval timeout = {FLAGS_wait_for_launcher, 0};
-  int selected = cvd::Select(&read_set, nullptr, nullptr,
-                             FLAGS_wait_for_launcher <= 0 ? nullptr : &timeout);
+  int selected = Select(&read_set, nullptr, nullptr,
+                        FLAGS_wait_for_launcher <= 0 ? nullptr : &timeout);
   if (selected < 0){
     LOG(ERROR) << "Failed communication with the launcher monitor: "
                << strerror(errno);
@@ -173,14 +180,14 @@ bool CleanStopInstance(const vsoc::CuttlefishConfig::InstanceSpecific& instance)
     LOG(ERROR) << "Timeout expired waiting for launcher monitor to respond";
     return false;
   }
-  cvd::LauncherResponse response;
+  LauncherResponse response;
   auto bytes_recv = monitor_socket->Recv(&response, sizeof(response), 0);
   if (bytes_recv < 0) {
     LOG(ERROR) << "Error receiving response from launcher monitor: "
                << monitor_socket->StrError();
     return false;
   }
-  if (response != cvd::LauncherResponse::kSuccess) {
+  if (response != LauncherResponse::kSuccess) {
     LOG(ERROR) << "Received '" << static_cast<char>(response)
                << "' response from launcher monitor";
     return false;
@@ -189,8 +196,8 @@ bool CleanStopInstance(const vsoc::CuttlefishConfig::InstanceSpecific& instance)
   return true;
 }
 
-int StopInstance(const vsoc::CuttlefishConfig& config,
-                 const vsoc::CuttlefishConfig::InstanceSpecific& instance) {
+int StopInstance(const CuttlefishConfig& config,
+                 const CuttlefishConfig::InstanceSpecific& instance) {
   bool res = CleanStopInstance(instance);
   if (!res) {
     return FallBackStop(PathsForInstance(config, instance));
@@ -198,13 +205,34 @@ int StopInstance(const vsoc::CuttlefishConfig& config,
   return 0;
 }
 
-}  // anonymous namespace
+/// Send a StopSession request to allocd
+void ReleaseAllocdResources(SharedFD allocd_sock, uint32_t session_id) {
+  if (!allocd_sock->IsOpen() || session_id == -1) {
+    return;
+  }
+  Json::Value config;
+  Json::Value request_list;
+  Json::Value req;
+  req["request_type"] =
+      ReqTyToStr(RequestType::StopSession);
+  req["session_id"] = session_id;
+  request_list.append(req);
+  config["config_request"]["request_list"] = request_list;
+  SendJsonMsg(allocd_sock, config);
+  auto resp_opt = RecvJsonMsg(allocd_sock);
+  if (!resp_opt.has_value()) {
+    LOG(ERROR) << "Bad response from allocd";
+    return;
+  }
+  auto resp = resp_opt.value();
+  LOG(INFO) << "Stop Session operation: " << resp["config_status"];
+}
 
-int main(int argc, char** argv) {
+int StopCvdMain(int argc, char** argv) {
   ::android::base::InitLogging(argv, android::base::StderrLogger);
   google::ParseCommandLineFlags(&argc, &argv, true);
 
-  auto config = vsoc::CuttlefishConfig::Get();
+  auto config = CuttlefishConfig::Get();
   if (!config) {
     LOG(ERROR) << "Failed to obtain config object";
     return FallBackStop(FallbackPaths());
@@ -212,8 +240,29 @@ int main(int argc, char** argv) {
 
   int ret = 0;
   for (const auto& instance : config->Instances()) {
-    ret |= StopInstance(*config, instance);
+    auto session_id = instance.session_id();
+    int exit_status = StopInstance(*config, instance);
+    if (exit_status == 0 && instance.use_allocd()) {
+      // only release session resources if the instance was stopped
+      SharedFD allocd_sock =
+          SharedFD::SocketLocalClient(kDefaultLocation, false, SOCK_STREAM);
+      if (!allocd_sock->IsOpen()) {
+        LOG(ERROR) << "Unable to connect to allocd on "
+                   << kDefaultLocation << ": "
+                   << allocd_sock->StrError();
+      }
+
+      ReleaseAllocdResources(allocd_sock, session_id);
+    }
+    ret |= exit_status;
   }
 
   return ret;
+}
+
+} // namespace
+} // namespace cuttlefish
+
+int main(int argc, char** argv) {
+  return cuttlefish::StopCvdMain(argc, argv);
 }

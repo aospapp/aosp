@@ -24,12 +24,14 @@
 
 #include <array>
 #include <fstream>
+#include <string>
 
 #include "NativeCodecTestBase.h"
 #include "NativeMediaCommon.h"
 
 class CodecDecoderTest final : public CodecTestBase {
   private:
+    bool mIsInterlaced;
     uint8_t* mRefData;
     size_t mRefLength;
     AMediaExtractor* mExtractor;
@@ -57,7 +59,7 @@ class CodecDecoderTest final : public CodecTestBase {
     ~CodecDecoderTest();
 
     bool testSimpleDecode(const char* decoder, const char* testFile, const char* refFile,
-                          float rmsError);
+                          float rmsError, uLong checksum);
     bool testFlush(const char* decoder, const char* testFile);
     bool testOnlyEos(const char* decoder, const char* testFile);
     bool testSimpleDecodeQueueCSD(const char* decoder, const char* testFile);
@@ -123,6 +125,8 @@ bool CodecDecoderTest::setUpExtractor(const char* srcFile) {
                                               COLOR_FormatYUV420Flexible);
                     }
                     mInpDecFormat = currFormat;
+                    // TODO: determine this from the extractor format when it becomes exposed.
+                    mIsInterlaced = strstr(srcFile, "_interlaced_") != nullptr;
                     break;
                 }
                 AMediaFormat_delete(currFormat);
@@ -206,7 +210,8 @@ bool CodecDecoderTest::enqueueInput(size_t bufferIndex) {
         }
         CHECK_STATUS(AMediaCodec_queueInputBuffer(mCodec, bufferIndex, 0, size, pts, flags),
                      "AMediaCodec_queueInputBuffer failed");
-        ALOGV("input: id: %zu  size: %zu  pts: %d  flags: %d", bufferIndex, size, (int)pts, flags);
+        ALOGV("input: id: %zu  size: %zu  pts: %" PRId64 "  flags: %d", bufferIndex, size, pts,
+              flags);
         if (size > 0) {
             mOutputBuff->saveInPTS(pts);
             mInputCount++;
@@ -223,14 +228,24 @@ bool CodecDecoderTest::dequeueOutput(size_t bufferIndex, AMediaCodecBufferInfo* 
         if (mSaveToMem) {
             size_t buffSize;
             uint8_t* buf = AMediaCodec_getOutputBuffer(mCodec, bufferIndex, &buffSize);
-            if (mIsAudio) mOutputBuff->saveToMemory(buf, info);
-            else mOutputBuff->saveChecksum(buf, info);
+            if (mIsAudio) {
+                mOutputBuff->saveToMemory(buf, info);
+                mOutputBuff->updateChecksum(buf, info);
+            } else {
+                AMediaFormat* format =
+                    mIsCodecInAsyncMode ? mAsyncHandle.getOutputFormat() : mOutFormat;
+                int32_t width, height, stride;
+                AMediaFormat_getInt32(format, "width", &width);
+                AMediaFormat_getInt32(format, "height", &height);
+                AMediaFormat_getInt32(format, "stride", &stride);
+                mOutputBuff->updateChecksum(buf, info, width, height, stride);
+            }
         }
         mOutputBuff->saveOutPTS(info->presentationTimeUs);
         mOutputCount++;
     }
-    ALOGV("output: id: %zu  size: %d  pts: %d  flags: %d", bufferIndex, info->size,
-          (int)info->presentationTimeUs, info->flags);
+    ALOGV("output: id: %zu  size: %d  pts: %" PRId64 "  flags: %d", bufferIndex, info->size,
+          info->presentationTimeUs, info->flags);
     CHECK_STATUS(AMediaCodec_releaseOutputBuffer(mCodec, bufferIndex, mWindow != nullptr),
                  "AMediaCodec_releaseOutputBuffer failed");
     return !hasSeenError();
@@ -253,7 +268,7 @@ bool CodecDecoderTest::queueCodecConfig() {
             if (bufferIndex >= 0) {
                 isOk = enqueueCodecConfig(bufferIndex);
             } else {
-                ALOGE("unexpected return value from *_dequeueInputBuffer: %d", (int)bufferIndex);
+                ALOGE("unexpected return value from *_dequeueInputBuffer: %d", bufferIndex);
                 return false;
             }
         }
@@ -284,7 +299,7 @@ bool CodecDecoderTest::decodeToMemory(const char* decoder, AMediaFormat* format,
 }
 
 bool CodecDecoderTest::testSimpleDecode(const char* decoder, const char* testFile,
-                                        const char* refFile, float rmsError) {
+                                        const char* refFile, float rmsError, uLong checksum) {
     bool isPass = true;
     if (!setUpExtractor(testFile)) return false;
     mSaveToMem = (mWindow == nullptr);
@@ -345,30 +360,40 @@ bool CodecDecoderTest::testSimpleDecode(const char* decoder, const char* testFil
             CHECK_ERR(
                     loopCounter == 0 && mIsAudio && (!ref->isPtsStrictlyIncreasing(mPrevOutputPts)),
                     log, "pts is not strictly increasing", isPass);
-            CHECK_ERR(loopCounter == 0 && !mIsAudio &&
-                      (!ref->isOutPtsListIdenticalToInpPtsList(false)),
-                      log, "input pts list and output pts list are not identical", isPass);
+            // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
+            // produce multiple progressive frames?) For now, do not verify timestamps.
+            if (!mIsInterlaced) {
+                CHECK_ERR(loopCounter == 0 && !mIsAudio &&
+                          (!ref->isOutPtsListIdenticalToInpPtsList(false)),
+                          log, "input pts list and output pts list are not identical", isPass);
+            }
             if (validateFormat) {
                 if (mIsCodecInAsyncMode ? !mAsyncHandle.hasOutputFormatChanged()
                                         : !mSignalledOutFormatChanged) {
-                    ALOGE(log, "not received format change");
+                    ALOGE("%s%s", log, "not received format change");
                     isPass = false;
                 } else if (!isFormatSimilar(mInpDecFormat, mIsCodecInAsyncMode
                                                                    ? mAsyncHandle.getOutputFormat()
                                                                    : mOutFormat)) {
-                    ALOGE(log, "configured format and output format are not similar");
+                    ALOGE("%s%s", log, "configured format and output format are not similar");
                     isPass = false;
                 }
+            }
+            if (checksum != ref->getChecksum()) {
+                ALOGE("%s%s", log, "sdk output and ndk output differ");
+                isPass = false;
             }
             loopCounter++;
         }
     }
     if (mSaveToMem && refFile && rmsError >= 0) {
         setUpAudioReference(refFile);
-        float error = ref->getRmsError(mRefData, mRefLength);
-        if (error > rmsError) {
+        float currError = ref->getRmsError(mRefData, mRefLength);
+        float errMargin = rmsError * kRmsErrorTolerance;
+        if (currError > errMargin) {
             isPass = false;
-            ALOGE("rms error too high for file %s, act/exp: %f/%f", testFile, error, rmsError);
+            ALOGE("rms error too high for file %s, ref/exp/got: %f/%f/%f", testFile, rmsError,
+                  errMargin, currError);
         }
     }
     return isPass;
@@ -396,8 +421,12 @@ bool CodecDecoderTest::testFlush(const char* decoder, const char* testFile) {
     }
     CHECK_ERR(mIsAudio && (!ref->isPtsStrictlyIncreasing(mPrevOutputPts)), "",
               "pts is not strictly increasing", isPass);
-    CHECK_ERR(!mIsAudio && (!ref->isOutPtsListIdenticalToInpPtsList(false)), "",
-              "input pts list and output pts list are not identical", isPass);
+    // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
+    // produce multiple progressive frames?) For now, do not verify timestamps.
+    if (!mIsInterlaced) {
+        CHECK_ERR(!mIsAudio && (!ref->isOutPtsListIdenticalToInpPtsList(false)), "",
+                  "input pts list and output pts list are not identical", isPass);
+    }
     if (!isPass) return false;
 
     auto test = &mTestBuff;
@@ -483,12 +512,12 @@ bool CodecDecoderTest::testFlush(const char* decoder, const char* testFile) {
         if (validateFormat) {
             if (mIsCodecInAsyncMode ? !mAsyncHandle.hasOutputFormatChanged()
                                     : !mSignalledOutFormatChanged) {
-                ALOGE(log, "not received format change");
+                ALOGE("%s%s", log, "not received format change");
                 isPass = false;
             } else if (!isFormatSimilar(mInpDecFormat, mIsCodecInAsyncMode
                                                                ? mAsyncHandle.getOutputFormat()
                                                                : mOutFormat)) {
-                ALOGE(log, "configured format and output format are not similar");
+                ALOGE("%s%s", log, "configured format and output format are not similar");
                 isPass = false;
             }
         }
@@ -615,12 +644,12 @@ bool CodecDecoderTest::testSimpleDecodeQueueCSD(const char* decoder, const char*
                 if (validateFormat) {
                     if (mIsCodecInAsyncMode ? !mAsyncHandle.hasOutputFormatChanged()
                                             : !mSignalledOutFormatChanged) {
-                        ALOGE(log, "not received format change");
+                        ALOGE("%s%s", log, "not received format change");
                         isPass = false;
                     } else if (!isFormatSimilar(mInpDecFormat,
                                                 mIsCodecInAsyncMode ? mAsyncHandle.getOutputFormat()
                                                                     : mOutFormat)) {
-                        ALOGE(log, "configured format and output format are not similar");
+                        ALOGE("%s%s", log, "configured format and output format are not similar");
                         isPass = false;
                     }
                 }
@@ -634,15 +663,17 @@ bool CodecDecoderTest::testSimpleDecodeQueueCSD(const char* decoder, const char*
 
 static jboolean nativeTestSimpleDecode(JNIEnv* env, jobject, jstring jDecoder, jobject surface,
                                        jstring jMime, jstring jtestFile, jstring jrefFile,
-                                       jfloat jrmsError) {
+                                       jfloat jrmsError, jlong jChecksum) {
     const char* cDecoder = env->GetStringUTFChars(jDecoder, nullptr);
     const char* cMime = env->GetStringUTFChars(jMime, nullptr);
     const char* cTestFile = env->GetStringUTFChars(jtestFile, nullptr);
     const char* cRefFile = env->GetStringUTFChars(jrefFile, nullptr);
     float cRmsError = jrmsError;
+    uLong cChecksum = jChecksum;
     ANativeWindow* window = surface ? ANativeWindow_fromSurface(env, surface) : nullptr;
     auto* codecDecoderTest = new CodecDecoderTest(cMime, window);
-    bool isPass = codecDecoderTest->testSimpleDecode(cDecoder, cTestFile, cRefFile, cRmsError);
+    bool isPass =
+            codecDecoderTest->testSimpleDecode(cDecoder, cTestFile, cRefFile, cRmsError, cChecksum);
     delete codecDecoderTest;
     if (window) {
         ANativeWindow_release(window);
@@ -706,7 +737,7 @@ int registerAndroidMediaV2CtsDecoderTest(JNIEnv* env) {
     const JNINativeMethod methodTable[] = {
             {"nativeTestSimpleDecode",
              "(Ljava/lang/String;Landroid/view/Surface;Ljava/lang/String;Ljava/lang/String;Ljava/"
-             "lang/String;F)Z",
+             "lang/String;FJ)Z",
              (void*)nativeTestSimpleDecode},
             {"nativeTestOnlyEos", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z",
              (void*)nativeTestOnlyEos},
@@ -725,7 +756,7 @@ int registerAndroidMediaV2CtsDecoderSurfaceTest(JNIEnv* env) {
     const JNINativeMethod methodTable[] = {
             {"nativeTestSimpleDecode",
              "(Ljava/lang/String;Landroid/view/Surface;Ljava/lang/String;Ljava/lang/String;Ljava/"
-             "lang/String;F)Z",
+             "lang/String;FJ)Z",
              (void*)nativeTestSimpleDecode},
             {"nativeTestFlush",
              "(Ljava/lang/String;Landroid/view/Surface;Ljava/lang/String;Ljava/lang/String;)Z",

@@ -88,10 +88,9 @@ void CachedFeatures::AppendClickContextFeaturesForClick(
   click_pos -= extraction_span_.first;
 
   AppendFeaturesInternal(
-      /*intended_span=*/ExpandTokenSpan(SingleTokenSpan(click_pos),
-                                        options_->context_size(),
-                                        options_->context_size()),
-      /*read_mask_span=*/{0, TokenSpanSize(extraction_span_)}, output_features);
+      /*intended_span=*/TokenSpan(click_pos).Expand(options_->context_size(),
+                                                    options_->context_size()),
+      /*read_mask_span=*/{0, extraction_span_.Size()}, output_features);
 }
 
 void CachedFeatures::AppendBoundsSensitiveFeaturesForSpan(
@@ -118,16 +117,15 @@ void CachedFeatures::AppendBoundsSensitiveFeaturesForSpan(
       /*intended_span=*/{selected_span.second -
                              config->num_tokens_inside_right(),
                          selected_span.second + config->num_tokens_after()},
-      /*read_mask_span=*/{selected_span.first, TokenSpanSize(extraction_span_)},
-      output_features);
+      /*read_mask_span=*/
+      {selected_span.first, extraction_span_.Size()}, output_features);
 
   if (config->include_inside_bag()) {
     AppendBagFeatures(selected_span, output_features);
   }
 
   if (config->include_inside_length()) {
-    output_features->push_back(
-        static_cast<float>(TokenSpanSize(selected_span)));
+    output_features->push_back(static_cast<float>(selected_span.Size()));
   }
 }
 
@@ -161,7 +159,7 @@ void CachedFeatures::AppendBagFeatures(
   for (int i = bag_span.first; i < bag_span.second; ++i) {
     for (int j = 0; j < NumFeaturesPerToken(); ++j) {
       (*output_features)[offset + j] +=
-          (*features_)[i * NumFeaturesPerToken() + j] / TokenSpanSize(bag_span);
+          (*features_)[i * NumFeaturesPerToken() + j] / bag_span.Size();
     }
   }
 }

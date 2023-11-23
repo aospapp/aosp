@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Pääs allalaadimishalduri juurde."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Võimaldab rakendusel pääseda BluetoothShare\'i haldurisse ja kasutada seda failide edastamiseks."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Lubage Bluetooth-seadme juurdepääs."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Lubab rakendusel lisada Bluetooth-seadme ajutiselt lubatud seadmete loendisse, mis võimaldab seadmel saata faile sellesse seadmesse ilma kasutaja kinnituseta."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Bluetooth-seadmele juurdepääsu andmine."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Lubab rakendusel lisada Bluetooth-seadme ajutiselt lubatud seadmete loendisse, mis võimaldab seadmel saata faile sellesse seadmesse ilma kasutaja kinnituseta."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Tundmatu seade"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Tundmatu"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Esines ajalõpp sissetuleva faili aktsepteerimisel saatjalt „<xliff:g id="SENDER">%1$s</xliff:g>”"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Sissetulev fail"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"Saatja <xliff:g id="SENDER">%1$s</xliff:g> on faili <xliff:g id="FILE">%2$s</xliff:g> saatmiseks valmis"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> on valmis faili <xliff:g id="FILE">%2$s</xliff:g> saatma"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetoothi jagamine: faili <xliff:g id="FILE">%1$s</xliff:g> vastuvõtmine"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetoothi jagamine: <xliff:g id="FILE">%1$s</xliff:g> vastu võetud"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetoothi jagamine: faili <xliff:g id="FILE">%1$s</xliff:g> pole saadud"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Faili saatmine saajale „<xliff:g id="RECIPIENT">%1$s</xliff:g>”"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g> faili saatmine saajale „<xliff:g id="RECIPIENT">%2$s</xliff:g>”"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Faili saatmine saajale „<xliff:g id="RECIPIENT">%1$s</xliff:g>” peatatud"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"USB-salvestusruumis pole saatjalt „<xliff:g id="SENDER">%1$s</xliff:g>” saadud faili salvestamiseks piisavalt ruumi"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"SD-kaardil pole saatjalt „<xliff:g id="SENDER">%1$s</xliff:g>” saadud faili salvestamiseks piisavalt ruumi"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"USB-salvestusseadmes pole faili salvestamiseks piisavalt ruumi."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"SD-kaardil pole faili salvestamiseks piisavalt ruumi."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Vajalik ruum: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Liiga palju taotlusi on töötlemisel. Proovige hiljem uuesti."</string>
     <string name="status_pending" msgid="2503691772030877944">"Failiedastust pole veel käivitatud."</string>

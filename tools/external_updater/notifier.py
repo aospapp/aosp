@@ -29,30 +29,28 @@ import re
 import subprocess
 import time
 
-import git_utils
+# pylint: disable=invalid-name
 
 def parse_args():
     """Parses commandline arguments."""
 
     parser = argparse.ArgumentParser(
         description='Check updates for third party projects in external/.')
-    parser.add_argument(
-        '--history',
-        help='Path of history file. If doesn'
-        't exist, a new one will be created.')
+    parser.add_argument('--history',
+                        help='Path of history file. If doesn'
+                        't exist, a new one will be created.')
     parser.add_argument(
         '--recipients',
         help='Comma separated recipients of notification email.')
     parser.add_argument(
         '--generate_change',
         help='If set, an upgrade change will be uploaded to Gerrit.',
-        action='store_true', required=False)
-    parser.add_argument(
-        'paths', nargs='*',
-        help='Paths of the project.')
-    parser.add_argument(
-        '--all', action='store_true',
-        help='Checks all projects.')
+        action='store_true',
+        required=False)
+    parser.add_argument('paths', nargs='*', help='Paths of the project.')
+    parser.add_argument('--all',
+                        action='store_true',
+                        help='Checks all projects.')
 
     return parser.parse_args()
 
@@ -75,12 +73,17 @@ def _read_owner_file(proj):
 
 def _send_email(proj, latest_ver, recipient, upgrade_log):
     print('Sending email for {}: {}'.format(proj, latest_ver))
-    msg = "New version: {}".format(latest_ver)
+    msg = ""
     match = CHANGE_URL_RE.search(upgrade_log)
     if match is not None:
-        msg += '\n\nAn upgrade change is generated at:\n{}'.format(
+        subject = "[Succeeded]"
+        msg = 'An upgrade change is generated at:\n{}'.format(
             match.group(1))
+    else:
+        subject = "[Failed]"
+        msg = 'Failed to generate upgrade change. See logs below for details.'
 
+    subject += f" {proj} {latest_ver}"
     owners = _read_owner_file(proj)
     if owners:
         msg += '\n\nOWNERS file: \n'
@@ -89,10 +92,31 @@ def _send_email(proj, latest_ver, recipient, upgrade_log):
     msg += '\n\n'
     msg += upgrade_log
 
-    subprocess.run(['sendgmr', '--to=' + recipient,
-                    '--subject=' + proj], check=True,
-                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                   input=msg, encoding='ascii')
+    cc_recipient = ''
+    for line in owners.splitlines():
+        line = line.strip()
+        if line.endswith('@google.com'):
+            cc_recipient += line
+            cc_recipient += ','
+
+    subprocess.run(['sendgmr',
+                    f'--to={recipient}',
+                    f'--cc={cc_recipient}',
+                    f'--subject={subject}'],
+                   check=True,
+                   stdout=subprocess.PIPE,
+                   stderr=subprocess.PIPE,
+                   input=msg,
+                   encoding='ascii')
+
+
+COMMIT_PATTERN = r'^[a-f0-9]{40}$'
+COMMIT_RE = re.compile(COMMIT_PATTERN)
+
+
+def is_commit(commit: str) -> bool:
+    """Whether a string looks like a SHA1 hash."""
+    return bool(COMMIT_RE.match(commit))
 
 
 NOTIFIED_TIME_KEY_NAME = 'latest_notified_time'
@@ -105,7 +129,7 @@ def _should_notify(latest_ver, proj_history):
 
     timestamp = proj_history.get(NOTIFIED_TIME_KEY_NAME, 0)
     time_diff = datetime.today() - datetime.fromtimestamp(timestamp)
-    if git_utils.is_commit(latest_ver) and time_diff <= timedelta(days=30):
+    if is_commit(latest_ver) and time_diff <= timedelta(days=30):
         return False
 
     return True
@@ -145,7 +169,7 @@ def send_notification(args):
     try:
         with open(args.history, 'r') as f:
             history = json.load(f)
-    except FileNotFoundError:
+    except (FileNotFoundError, json.decoder.JSONDecodeError):
         pass
 
     _process_results(args, history, results)
@@ -155,10 +179,13 @@ def send_notification(args):
 
 
 def _upgrade(proj):
-    out = subprocess.run(['out/soong/host/linux-x86/bin/external_updater',
-                          'update', '--branch_and_commit', '--push_change',
-                          proj],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    # pylint: disable=subprocess-run-check
+    out = subprocess.run([
+        'out/soong/host/linux-x86/bin/external_updater', 'update',
+        '--branch_and_commit', '--push_change', proj
+    ],
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE,
                          cwd=_get_android_top())
     stdout = out.stdout.decode('utf-8')
     stderr = out.stderr.decode('utf-8')
@@ -175,15 +202,17 @@ def _upgrade(proj):
 
 
 def _check_updates(args):
-    params = ['out/soong/host/linux-x86/bin/external_updater',
-              'check', '--json_output', RESULT_FILE_PATH,
-              '--delay', '30']
+    params = [
+        'out/soong/host/linux-x86/bin/external_updater', 'check',
+        '--json_output', RESULT_FILE_PATH, '--delay', '30'
+    ]
     if args.all:
         params.append('--all')
     else:
         params += args.paths
 
     print(_get_android_top())
+    # pylint: disable=subprocess-run-check
     subprocess.run(params, cwd=_get_android_top())
 
 

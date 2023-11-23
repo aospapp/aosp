@@ -27,6 +27,9 @@ libmm-vidc-inc      += $(QCOM_MEDIA_ROOT)/libc2dcolorconvert
 libmm-vidc-inc      += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 
 LOCAL_MODULE                    := libOmxVidcCommon
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
+LOCAL_NOTICE_FILE               := $(LOCAL_PATH)/../../../NOTICE
 LOCAL_MODULE_TAGS               := optional
 LOCAL_PROPRIETARY_MODULE        := true
 LOCAL_CFLAGS                    := $(libmm-vidc-def)

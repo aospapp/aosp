@@ -3,10 +3,12 @@
 # found in the LICENSE file.
 
 from autotest_lib.client.common_lib import error
+import os
 
 class FrameSender(object):
     """Context manager for sending management frames."""
 
+    _sender_count = 0
 
     def __init__(self, router, frame_type, channel, ssid_prefix=None,
                  num_bss=None, frame_count=None, delay=None, dest_addr=None,
@@ -40,6 +42,9 @@ class FrameSender(object):
         self._injection_interface = None
         self._pid = None
 
+        self._index = FrameSender._sender_count
+        FrameSender._sender_count += 1
+
 
     def __enter__(self):
         self._injection_interface = self._router.get_configured_interface(
@@ -57,4 +62,13 @@ class FrameSender(object):
         if self._injection_interface:
             self._router.release_interface(self._injection_interface)
         if self._pid:
-            self._router.host.run('kill %d' % self._pid, ignore_status=True)
+            # Kill process and wait for termination.
+            self._router.host.run(
+                'kill {pid};'
+                ' for i in $(seq 1 10); do'
+                ' kill -0 {pid} || break; sleep 0.2;'
+                ' done'.format(pid=self._pid), ignore_status=True)
+            self._router.host.get_file(
+                os.path.join(
+                    self._router.logdir, self._router.MGMT_FRAME_SENDER_LOG_FILE),
+                'debug/frame_sender_%d.log' % self._index)

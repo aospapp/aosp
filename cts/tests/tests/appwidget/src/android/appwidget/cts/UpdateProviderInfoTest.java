@@ -18,6 +18,7 @@ package android.appwidget.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.appwidget.AppWidgetHost;
 import android.appwidget.AppWidgetManager;
@@ -191,13 +192,15 @@ public class UpdateProviderInfoTest extends AppWidgetTestCase {
                     getInstrumentation().getTargetContext()).getInstalledProvidersForPackage(
                     PROVIDER_PACKAGE, Process.myUserHandle());
 
-            if (providers != null && !providers.isEmpty()) {
+            if (!providers.isEmpty()) {
                 return providers.get(0);
             }
 
             // Sometimes it could take time for the info to appear after the apk is just installed
             mProviderChangeNotifier.await(2, TimeUnit.SECONDS);
         }
-        return null;
+        fail("No providers appeared for " + PROVIDER_PACKAGE + " within " + (2 * RETRY_COUNT)
+                + " seconds");
+        throw new IllegalStateException();
     }
 }

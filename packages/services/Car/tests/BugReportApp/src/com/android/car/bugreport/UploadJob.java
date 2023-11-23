@@ -19,7 +19,7 @@ import android.app.job.JobParameters;
 import android.app.job.JobService;
 import android.util.Log;
 
-/** Executes a {@link SimpleUploaderAsyncTask}. */
+/** Executes a {@link SimpleUploaderAsyncTask}. Must be run under user0. */
 public class UploadJob extends JobService {
     private static final String TAG = UploadJob.class.getSimpleName();
 

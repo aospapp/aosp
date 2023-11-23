@@ -9,7 +9,7 @@ type atcid, domain;
 type atcid_exec, exec_type, file_type, vendor_file_type;
 
 init_daemon_domain(atcid)
-set_prop(atcid,persist_service_atci_prop)
+set_prop(atcid, vendor_mtk_persist_service_atci_prop)
 allow atcid block_device:dir search;
 allow atcid gsmrild_socket:sock_file write;
 
@@ -43,8 +43,8 @@ allow atcid sysfs_batteryinfo:file { read open };
 
 # Date : WK18.16
 # Operation: P migration
-# Purpose: Allow atcid to get tel_switch_prop
-get_prop(atcid, tel_switch_prop)
+# Purpose: Allow atcid to get vendor_mtk_tel_switch_prop
+get_prop(atcid, vendor_mtk_tel_switch_prop)
 
 # Date : WK18.21
 # Purpose: Allow to use HIDL
@@ -55,8 +55,8 @@ add_hwservice(hal_atci_server,hal_atci_hwservice)
 
 # Date : WK18.21
 # Purpose: For special command for customer
-set_prop(atcid, mtk_atci_prop);
-set_prop(atcid, powerctl_prop);
+set_prop(atcid, vendor_mtk_atci_prop)
+set_prop(atcid, powerctl_prop)
 allow atcid mnt_vendor_file:dir search;
 allow atcid nvdata_file:dir { open read write search add_name };
 allow atcid nvdata_file:file { open read write create getattr setattr };

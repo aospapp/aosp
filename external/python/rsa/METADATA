@@ -9,10 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/sybrenstuvel/python-rsa/"
   }
-  version: "version-4.0"
+  version: "version-4.7"
+  license_type: NOTICE
   last_upgrade_date {
-    year: 2019
-    month: 2
-    day: 1
+    year: 2021
+    month: 1
+    day: 11
   }
 }

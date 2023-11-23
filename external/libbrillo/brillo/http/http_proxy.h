@@ -32,13 +32,13 @@ using GetChromeProxyServersCallback =
 // Even if this function returns false, it will still set |proxies_out| to be
 // just the direct proxy. This function will only return false if there is an
 // error in the D-Bus communication itself.
-BRILLO_EXPORT bool GetChromeProxyServers(scoped_refptr<dbus::Bus> bus,
+BRILLO_EXPORT bool GetChromeProxyServers(scoped_refptr<::dbus::Bus> bus,
                                          const std::string& url,
                                          std::vector<std::string>* proxies_out);
 
 // Async version of GetChromeProxyServers.
 BRILLO_EXPORT void GetChromeProxyServersAsync(
-    scoped_refptr<dbus::Bus> bus,
+    scoped_refptr<::dbus::Bus> bus,
     const std::string& url,
     const GetChromeProxyServersCallback& callback);
 

@@ -16,18 +16,18 @@
 
 package com.android.cts.verifier.sample;
 
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+
 import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.TestResult;
-
-import android.content.Intent;
-import android.net.Uri;
-import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -83,7 +83,7 @@ public class SampleTestActivity extends PassFailButtons.Activity {
                 ResultUnit.FPS);
 
         // Alternatively, activities can invoke TestResult directly to record metrics
-        ReportLog reportLog = new PassFailButtons.CtsVerifierReportLog();
+        ReportLog reportLog = getReportLog();
         reportLog.setSummary("Sample Summary", 1.0, ResultType.HIGHER_BETTER, ResultUnit.BYTE);
         reportLog.addValues("Sample Values", metricValues, ResultType.NEUTRAL, ResultUnit.FPS);
         TestResult.setPassedResult(this, "manualSample", "manualDetails", reportLog);

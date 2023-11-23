@@ -13,8 +13,43 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+
 #include "ThreadInfo.h"
+
+#ifdef HOST_BUILD
+#include "android/base/threads/AndroidThread.h"
+#else
 #include "cutils/threads.h"
+#endif
+
+#include <pthread.h>
+
+#if defined(HOST_BUILD) || defined(GFXSTREAM)
+
+static thread_local EGLThreadInfo sEglThreadInfoThreadLocal;
+
+EGLThreadInfo *goldfish_get_egl_tls()
+{
+    return &sEglThreadInfoThreadLocal;
+}
+
+EGLThreadInfo* getEGLThreadInfo() {
+    return goldfish_get_egl_tls();
+}
+
+int32_t getCurrentThreadId() {
+#ifdef HOST_BUILD
+    return (int32_t)android::base::guest::getCurrentThreadId();
+#else
+    return (int32_t)gettid();
+#endif
+}
+
+void setTlsDestructor(tlsDtorCallback func) {
+    getEGLThreadInfo()->dtor = func;
+}
+
+#else // GFXSTREAM
 
 #ifdef __BIONIC__
 #include <bionic/tls.h>
@@ -26,10 +61,6 @@
 #include <bionic_tls.h>
 #endif
 #endif
-
-#include <pthread.h>
-
-thread_store_t s_tls = THREAD_STORE_INITIALIZER;
 
 static bool sDefaultTlsDestructorCallback(__attribute__((__unused__)) void* ptr) {
   return true;
@@ -45,7 +76,6 @@ static void tlsDestruct(void *ptr)
 #endif
         ) {
         EGLThreadInfo *ti = (EGLThreadInfo *)ptr;
-        delete ti->hostConn;
         delete ti;
 #ifdef __ANDROID__
         ((void **)__get_tls())[TLS_SLOT_OPENGL] = NULL;
@@ -57,16 +87,20 @@ void setTlsDestructor(tlsDtorCallback func) {
     sTlsDestructorCallback = func;
 }
 
+static pthread_key_t s_tls;
+
+static void init_key()
+{
+    pthread_key_create(&s_tls, tlsDestruct);
+    pthread_setspecific(s_tls, new EGLThreadInfo);
+}
+
 EGLThreadInfo *goldfish_get_egl_tls()
 {
-    EGLThreadInfo* ti = (EGLThreadInfo*)thread_store_get(&s_tls);
+   static pthread_once_t once = PTHREAD_ONCE_INIT;
+   pthread_once(&once, init_key);
 
-    if (ti) return ti;
-
-    ti = new EGLThreadInfo();
-    thread_store_set(&s_tls, ti, tlsDestruct);
-
-    return ti;
+   return (EGLThreadInfo *) pthread_getspecific(s_tls);
 }
 
 EGLThreadInfo* getEGLThreadInfo() {
@@ -86,3 +120,5 @@ EGLThreadInfo* getEGLThreadInfo() {
 int32_t getCurrentThreadId() {
     return (int32_t)gettid();
 }
+
+#endif // !GFXSTREAM

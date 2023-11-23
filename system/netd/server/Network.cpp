@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#define LOG_TAG "Netd"
 
 #include "Network.h"
 
-#define LOG_TAG "Netd"
+#include "RouteController.h"
+#include "SockDiag.h"
 #include "log/log.h"
 
 #include <android-base/strings.h>
@@ -59,25 +61,7 @@ std::string Network::toString() const {
     const char kSeparator[] = " ";
     std::stringstream repr;
 
-    repr << mNetId;
-
-    repr << kSeparator;
-    switch (getType()) {
-        case DUMMY:
-            repr << "DUMMY";
-            break;
-        case LOCAL:
-            repr << "LOCAL";
-            break;
-        case PHYSICAL:
-            repr << "PHYSICAL";
-            break;
-        case VIRTUAL:
-            repr << "VIRTUAL";
-            break;
-        default:
-            repr << "unknown";
-    }
+    repr << mNetId << kSeparator << getTypeString();
 
     if (mInterfaces.size() > 0) {
         repr << kSeparator << android::base::Join(mInterfaces, ",");
@@ -86,9 +70,73 @@ std::string Network::toString() const {
     return repr.str();
 }
 
+std::string Network::uidRangesToString() const {
+    if (mUidRangeMap.empty()) {
+        return "";
+    }
 
-Network::Network(unsigned netId) : mNetId(netId) {
+    std::ostringstream result;
+    for (auto it = mUidRangeMap.begin(); it != mUidRangeMap.end(); ++it) {
+        result << "prio " << it->first << " " << it->second.toString();
+        if (std::next(it) != mUidRangeMap.end()) result << "; ";
+    }
+    return result.str();
 }
+
+// Check if the user has been added to this network. If yes, the highest priority of matching
+// setting is returned by subPriority. Thus caller can make choice among several matching
+// networks.
+bool Network::appliesToUser(uid_t uid, uint32_t* subPriority) const {
+    for (const auto& [priority, uidRanges] : mUidRangeMap) {
+        if (uidRanges.hasUid(uid)) {
+            *subPriority = priority;
+            return true;
+        }
+    }
+    return false;
+}
+
+void Network::addToUidRangeMap(const UidRanges& uidRanges, uint32_t subPriority) {
+    auto iter = mUidRangeMap.find(subPriority);
+    if (iter != mUidRangeMap.end()) {
+        iter->second.add(uidRanges);
+    } else {
+        mUidRangeMap[subPriority] = uidRanges;
+    }
+}
+
+void Network::removeFromUidRangeMap(const UidRanges& uidRanges, uint32_t subPriority) {
+    auto iter = mUidRangeMap.find(subPriority);
+    if (iter != mUidRangeMap.end()) {
+        iter->second.remove(uidRanges);
+        if (iter->second.empty()) {
+            mUidRangeMap.erase(subPriority);
+        }
+    } else {
+        ALOGW("uidRanges with priority %u not found", subPriority);
+    }
+}
+
+bool Network::canAddUidRanges(const UidRanges& uidRanges, uint32_t subPriority) const {
+    if (uidRanges.overlapsSelf()) {
+        ALOGE("uid range %s overlaps self", uidRanges.toString().c_str());
+        return false;
+    }
+
+    auto iter = mUidRangeMap.find(subPriority);
+    if (iter != mUidRangeMap.end() && uidRanges.overlaps(iter->second)) {
+        ALOGE("uid range %s overlaps priority %u %s", uidRanges.toString().c_str(), subPriority,
+              iter->second.toString().c_str());
+        return false;
+    }
+    return true;
+}
+
+bool Network::isSecure() const {
+    return mSecure;
+}
+
+Network::Network(unsigned netId, bool secure) : mNetId(netId), mSecure(secure) {}
 
 }  // namespace net
 }  // namespace android

@@ -20,31 +20,41 @@ import static com.android.cts.deviceandprofileowner.BaseDeviceAdminTest.ADMIN_RE
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.app.UiAutomation;
 import android.app.admin.DevicePolicyManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
+
+import com.android.cts.devicepolicy.CameraUtils;
 
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 public class UserRestrictionsParentTest extends InstrumentationTestCase {
 
     private static final String TAG = "UserRestrictionsParentTest";
 
     protected Context mContext;
+    private ContentResolver mContentResolver;
+    private UiAutomation mUiAutomation;
     private DevicePolicyManager mDevicePolicyManager;
     private UserManager mUserManager;
 
     private CameraManager mCameraManager;
 
     private HandlerThread mBackgroundThread;
+    private static final long GET_UIAUTOMATION_TIMEOUT_NS = TimeUnit.SECONDS.toNanos(60);
 
     /**
      * A {@link Handler} for running tasks in the background.
@@ -55,6 +65,8 @@ public class UserRestrictionsParentTest extends InstrumentationTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mContext = getInstrumentation().getContext();
+        mContentResolver = mContext.getContentResolver();
+        mUiAutomation = getUiAutomation();
 
         mDevicePolicyManager = (DevicePolicyManager)
                 mContext.getSystemService(Context.DEVICE_POLICY_SERVICE);
@@ -71,8 +83,21 @@ public class UserRestrictionsParentTest extends InstrumentationTestCase {
 
     @Override
     protected void tearDown() throws Exception {
+        mUiAutomation.dropShellPermissionIdentity();
         stopBackgroundThread();
         super.tearDown();
+    }
+
+    private UiAutomation getUiAutomation() throws InterruptedException {
+        final long deadline = System.nanoTime() + GET_UIAUTOMATION_TIMEOUT_NS;
+        while (System.nanoTime() < deadline) {
+            UiAutomation ui = getInstrumentation().getUiAutomation();
+            if (ui != null) {
+                 return ui;
+            }
+            Thread.sleep(1000);
+        }
+        throw new AssertionError("Failed to get UiAutomation");
     }
 
     public void testAddUserRestrictionDisallowConfigDateTime_onParent() {
@@ -89,9 +114,15 @@ public class UserRestrictionsParentTest extends InstrumentationTestCase {
                 hasUserRestriction(UserManager.DISALLOW_CONFIG_DATE_TIME)).isTrue();
     }
 
-    public void testUserRestrictionDisallowConfigDateTimeIsNotPersisted() {
-        assertThat(mUserManager.
-                hasUserRestriction(UserManager.DISALLOW_CONFIG_DATE_TIME)).isFalse();
+    public void testUserRestrictionDisallowConfigDateTimeIsNotPersisted() throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        while (System.nanoTime() <= deadline) {
+            if (!mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_DATE_TIME)) {
+                return;
+            }
+            Thread.sleep(100);
+        }
+        fail("The restriction didn't go away.");
     }
 
     public void testAddUserRestrictionDisallowAddUser_onParent() {
@@ -154,8 +185,7 @@ public class UserRestrictionsParentTest extends InstrumentationTestCase {
         while (successToOpen != canOpen && retries > 0) {
             retries--;
             Thread.sleep(500);
-            successToOpen = CameraUtils
-                    .blockUntilOpenCamera(mCameraManager, mBackgroundHandler);
+            successToOpen = CameraUtils.blockUntilOpenCamera(mCameraManager, mBackgroundHandler);
         }
         assertEquals(String.format("Timed out waiting the value to change to %b (actual=%b)",
                 canOpen, successToOpen), canOpen, successToOpen);
@@ -185,10 +215,17 @@ public class UserRestrictionsParentTest extends InstrumentationTestCase {
                     // UserManager.DISALLOW_DEBUGGING_FEATURES
             );
 
-    public void testPerProfileUserRestriction_onParent() {
+    public void testPerProfileUserRestriction_onParent() throws Settings.SettingNotFoundException {
+        mUiAutomation.adoptShellPermissionIdentity(
+                "android.permission.INTERACT_ACROSS_USERS_FULL",
+                "android.permission.CREATE_USERS");
+
         DevicePolicyManager parentDevicePolicyManager =
                 mDevicePolicyManager.getParentProfileInstance(ADMIN_RECEIVER_COMPONENT);
         assertNotNull(parentDevicePolicyManager);
+
+        int locationMode = Settings.Secure.getIntForUser(mContentResolver,
+                Settings.Secure.LOCATION_MODE, UserHandle.USER_SYSTEM);
 
         for (String restriction : PROFILE_OWNER_ORGANIZATION_OWNED_LOCAL_RESTRICTIONS) {
             try {
@@ -207,6 +244,12 @@ public class UserRestrictionsParentTest extends InstrumentationTestCase {
                 assertThat(hasUserRestriction(restriction)).isFalse();
             }
         }
+
+        // Restore the location mode setting after adding and removing the
+        // DISALLOW_SHARE_LOCATION user restriction. This is because, modifying this user
+        // restriction causes the location mode setting to be turned off.
+        Settings.Secure.putIntForUser(mContentResolver, Settings.Secure.LOCATION_MODE, locationMode,
+                UserHandle.USER_SYSTEM);
     }
 
     private static final Set<String> PROFILE_OWNER_ORGANIZATION_OWNED_GLOBAL_RESTRICTIONS =

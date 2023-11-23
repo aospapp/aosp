@@ -17,7 +17,6 @@
 package com.android.tools.metalava
 
 import com.android.SdkConstants
-import com.android.tools.metalava.doclava1.ApiPredicate
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.FieldItem
@@ -246,7 +245,7 @@ class AnnotationStatistics(val api: Codebase) {
         )
         separator(printer, CLASS_COLUMN_WIDTH + 2, COUNT_COLUMN_WIDTH + 2, rightJustify = true)
 
-        for (i in 0 until items.size) {
+        for (i in items.indices) {
             val item = items[i]
             val label = getLabel(item)
             val count = getCount(item)

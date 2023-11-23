@@ -80,29 +80,6 @@ CommonRuntimeTestImpl::~CommonRuntimeTestImpl() {
   runtime_.reset();
 }
 
-std::string CommonRuntimeTestImpl::GetAndroidTargetToolsDir(InstructionSet isa) {
-  switch (isa) {
-    case InstructionSet::kArm:
-    case InstructionSet::kThumb2:
-      return GetAndroidToolsDir("prebuilts/gcc/linux-x86/arm",
-                                "arm-linux-androideabi",
-                                "arm-linux-androideabi");
-    case InstructionSet::kArm64:
-      return GetAndroidToolsDir("prebuilts/gcc/linux-x86/aarch64",
-                                "aarch64-linux-android",
-                                "aarch64-linux-android");
-    case InstructionSet::kX86:
-    case InstructionSet::kX86_64:
-      return GetAndroidToolsDir("prebuilts/gcc/linux-x86/x86",
-                                "x86_64-linux-android",
-                                "x86_64-linux-android");
-    default:
-      break;
-  }
-  ADD_FAILURE() << "Invalid isa " << isa;
-  return "";
-}
-
 void CommonRuntimeTestImpl::SetUp() {
   CommonArtTestImpl::SetUp();
 
@@ -155,8 +132,10 @@ void CommonRuntimeTestImpl::SetUp() {
 
   FinalizeSetup();
 
-  // Ensure that we're really running with debug checks enabled.
-  CHECK(gSlowDebugTestFlag);
+  if (kIsDebugBuild) {
+    // Ensure that we're really running with debug checks enabled.
+    CHECK(gSlowDebugTestFlag);
+  }
 }
 
 void CommonRuntimeTestImpl::FinalizeSetup() {
@@ -165,6 +144,8 @@ void CommonRuntimeTestImpl::FinalizeSetup() {
   if (!unstarted_initialized_) {
     interpreter::UnstartedRuntime::Initialize();
     unstarted_initialized_ = true;
+  } else {
+    interpreter::UnstartedRuntime::Reinitialize();
   }
 
   {
@@ -528,23 +509,13 @@ bool CommonRuntimeTestImpl::RunDex2Oat(const std::vector<std::string>& args,
   return res.StandardSuccess();
 }
 
-std::string CommonRuntimeTestImpl::GetImageDirectory() {
-  if (IsHost()) {
-    const char* host_dir = getenv("ANDROID_HOST_OUT");
-    CHECK(host_dir != nullptr);
-    return std::string(host_dir) + "/framework";
-  } else {
-    return std::string("/apex/com.android.art/javalib");
-  }
-}
-
 std::string CommonRuntimeTestImpl::GetImageLocation() {
-  return GetImageDirectory() + (IsHost() ? "/core.art" : "/boot.art");
+  return GetImageDirectory() + "/boot.art";
 }
 
 std::string CommonRuntimeTestImpl::GetSystemImageFile() {
   std::string isa = GetInstructionSetString(kRuntimeISA);
-  return GetImageDirectory() + "/" + isa + (IsHost() ? "/core.art" : "/boot.art");
+  return GetImageDirectory() + "/" + isa + "/boot.art";
 }
 
 void CommonRuntimeTestImpl::EnterTransactionMode() {
@@ -602,8 +573,9 @@ void CommonRuntimeTestImpl::VisitDexes(ArrayRef<const std::string> dexes,
 void CommonRuntimeTestImpl::GenerateProfile(ArrayRef<const std::string> dexes,
                                             File* out_file,
                                             size_t method_frequency,
-                                            size_t type_frequency) {
-  ProfileCompilationInfo profile;
+                                            size_t type_frequency,
+                                            bool for_boot_image) {
+  ProfileCompilationInfo profile(for_boot_image);
   VisitDexes(
       dexes,
       [&profile](MethodReference ref) {
@@ -650,25 +622,3 @@ void CheckJniAbortCatcher::Hook(void* data, const std::string& reason) {
 }
 
 }  // namespace art
-
-// Allow other test code to run global initialization/configuration before
-// gtest infra takes over.
-extern "C"
-__attribute__((visibility("default"))) __attribute__((weak))
-void ArtTestGlobalInit() {
-}
-
-int main(int argc, char **argv) {
-  // Gtests can be very noisy. For example, an executable with multiple tests will trigger native
-  // bridge warnings. The following line reduces the minimum log severity to ERROR and suppresses
-  // everything else. In case you want to see all messages, comment out the line.
-  setenv("ANDROID_LOG_TAGS", "*:e", 1);
-
-  art::Locks::Init();
-  art::InitLogging(argv, art::Runtime::Abort);
-  art::MemMap::Init();
-  LOG(INFO) << "Running main() from common_runtime_test.cc...";
-  testing::InitGoogleTest(&argc, argv);
-  ArtTestGlobalInit();
-  return RUN_ALL_TESTS();
-}

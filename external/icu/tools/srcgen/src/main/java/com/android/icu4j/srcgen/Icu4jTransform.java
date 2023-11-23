@@ -48,6 +48,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Applies Android's ICU4J source code transformation rules. If you make any changes to this class
@@ -134,12 +135,14 @@ public class Icu4jTransform {
       "android.icu.text.Collator$ReorderCodes",
       "android.icu.text.CompactDecimalFormat",
       "android.icu.text.CompactDecimalFormat$CompactStyle",
+      "android.icu.text.ConstrainedFieldPosition",
       "android.icu.text.CurrencyPluralInfo",
       "android.icu.text.DateFormat",
       "android.icu.text.DateFormat$BooleanAttribute",
       "android.icu.text.DateFormat$Field",
       "android.icu.text.DateFormatSymbols",
       "android.icu.text.DateIntervalFormat",
+      "android.icu.text.DateIntervalFormat$FormattedDateInterval",
       "android.icu.text.DateIntervalInfo",
       "android.icu.text.DateIntervalInfo$PatternInfo",
       "android.icu.text.DateTimePatternGenerator",
@@ -151,6 +154,7 @@ public class Icu4jTransform {
       "android.icu.text.DisplayContext$Type",
       "android.icu.text.Edits",
       "android.icu.text.Edits$Iterator",
+      "android.icu.text.FormattedValue",
       "android.icu.text.IDNA",
       "android.icu.text.IDNA$Error",
       "android.icu.text.IDNA$Info",
@@ -180,6 +184,7 @@ public class Icu4jTransform {
       "android.icu.text.RelativeDateTimeFormatter",
       "android.icu.text.RelativeDateTimeFormatter$AbsoluteUnit",
       "android.icu.text.RelativeDateTimeFormatter$Direction",
+      "android.icu.text.RelativeDateTimeFormatter$FormattedRelativeDateTime",
       "android.icu.text.RelativeDateTimeFormatter$RelativeDateTimeUnit",
       "android.icu.text.RelativeDateTimeFormatter$RelativeUnit",
       "android.icu.text.RelativeDateTimeFormatter$Style",
@@ -247,6 +252,7 @@ public class Icu4jTransform {
       "android.icu.util.TimeZone",
       "android.icu.util.TimeZone$SystemTimeZoneType",
       "android.icu.util.ULocale",
+      "android.icu.util.ULocale$AvailableType",
       "android.icu.util.ULocale$Builder",
       "android.icu.util.ULocale$Category",
       "android.icu.util.UniversalTimeScale",
@@ -670,10 +676,34 @@ public class Icu4jTransform {
       "field:android.icu.util.LocaleData#ES_INDEX",
       "field:android.icu.util.LocaleData#ES_PUNCTUATION",
       "field:android.icu.util.LocaleData#ES_STANDARD",
-      // Hide appendTo APIs until we find the value of these APIs.
-      // Particularly, the open question is throwing ICUUncheckedIOException/checked IOException.
-      "method:android.icu.number.FormattedNumber#appendTo(A)",
-      "method:android.icu.number.FormattedNumberRange#appendTo(A)",
+      // Hide new measure units until a clear use case on Android is found.
+      // The cost of these APIs is the storage due to the addtional locale data embedded
+      // in the ICU data file.
+      "field:android.icu.util.MeasureUnit#DUNAM",
+      "field:android.icu.util.MeasureUnit#MOLE",
+      "field:android.icu.util.MeasureUnit#PERMYRIAD",
+      "field:android.icu.util.MeasureUnit#DAY_PERSON",
+      "field:android.icu.util.MeasureUnit#MONTH_PERSON",
+      "field:android.icu.util.MeasureUnit#WEEK_PERSON",
+      "field:android.icu.util.MeasureUnit#YEAR_PERSON",
+      "field:android.icu.util.MeasureUnit#BRITISH_THERMAL_UNIT",
+      "field:android.icu.util.MeasureUnit#ELECTRONVOLT",
+      "field:android.icu.util.MeasureUnit#NEWTON",
+      "field:android.icu.util.MeasureUnit#POUND_FORCE",
+      "field:android.icu.util.MeasureUnit#SOLAR_RADIUS",
+      "field:android.icu.util.MeasureUnit#SOLAR_LUMINOSITY",
+      "field:android.icu.util.MeasureUnit#DALTON",
+      "field:android.icu.util.MeasureUnit#EARTH_MASS",
+      "field:android.icu.util.MeasureUnit#SOLAR_MASS",
+      "field:android.icu.util.MeasureUnit#KILOPASCAL",
+      "field:android.icu.util.MeasureUnit#MEGAPASCAL",
+      "field:android.icu.util.MeasureUnit#NEWTON_METER",
+      "field:android.icu.util.MeasureUnit#POUND_FOOT",
+      "field:android.icu.util.MeasureUnit#BARREL",
+      "field:android.icu.util.MeasureUnit#FLUID_OUNCE_IMPERIAL",
+      "field:android.icu.util.MeasureUnit#BAR",
+      "field:android.icu.util.MeasureUnit#PASCAL",
+      "field:android.icu.util.MeasureUnit#THERM_US",
       // Skeleton syntax can evolve over time. Currently, the skeleton APIs are not prioritized to
       // be public. Android developers could easily miss the API version check for new syntax and
       // cause app crashing on older devices.
@@ -689,6 +719,7 @@ public class Icu4jTransform {
       "method:android.icu.text.Collator#registerInstance(Collator,ULocale)",
       "method:android.icu.text.Collator#unregister(Object)",
       "method:android.icu.text.DecimalFormat#toNumberFormatter()",
+      "method:android.icu.text.DecimalFormatSymbols#getCurrencyPattern()",
       "method:android.icu.text.NumberFormat#registerFactory(NumberFormatFactory)",
       "method:android.icu.text.NumberFormat#unregister(Object)",
       "method:android.icu.text.RuleBasedCollator#getRawCollationKey(String,RawCollationKey)",
@@ -743,12 +774,16 @@ public class Icu4jTransform {
    * Entries are usually the result of Android mistakenly exposing an API, an ICU API problem,
    * and/or ICU's stability guarantees differing from Android's requirements.
    */
-  private static final String[] ANDROID_DEPRECATED_SET = {
+  private static final Map<String, String> ANDROID_DEPRECATED_SET = Map.of(
       /* ASCII order please. */
 
       // Unstable "constant" value - different values in different API levels. http://b/77850660.
       "field:android.icu.util.JapaneseCalendar#CURRENT_ERA",
-  };
+          "Use era constants, e.g. {@link #REIWA}, instead.",
+      // The method reads unstable .nrm file format. http://b/173821060
+      "method:android.icu.text.Normalizer2#getInstance(InputStream,String,Mode)",
+          "Don't use because the binary {@code data} format is not stable across API levels."
+  );
 
   /**
    * ICU APIs that are in the Android SDK API but are removed on Android and @stable in ICU.
@@ -781,6 +816,17 @@ public class Icu4jTransform {
       "android.icu.text.TimeZoneNames$DefaultTimeZoneNames$FactoryImpl",
   };
 
+  // Metalava disallows hidden abstract methods in public abstract classes because classes
+  // inheriting such class can cause runtime crashes instead of a compile error. Due to historic
+  // reason, we have such classes in the public SDK. This is the allowlist of hidden abstract
+  // methods, and @SuppressWarnings("HiddenAbstractMethod") annotation will be added into those
+  // methods. See http://b/147445486 for more details.
+  private static final String[] HIDDEN_ABSTRACT_METHODS = {
+      "method:android.icu.text.Collator#getRawCollationKey(String,RawCollationKey)",
+      "method:android.icu.text.Collator#setVariableTop(String)",
+      "method:android.icu.text.Collator#setVariableTop(int)",
+  };
+
   public static final String ANDROID_ICU4J_SAMPLE_DIR =
       "external/icu/android_icu4j/src/samples/java";
 
@@ -795,7 +841,7 @@ public class Icu4jTransform {
   /**
    * Usage: See {@link Icu4jRules#COMMAND_USAGE}
    *
-   * The option --hide-non-whitelisted-api can be used to explicitly describe the API surface to be
+   * The option --hide-non-allowlisted-api can be used to explicitly describe the API surface to be
    * exposed; anything not in the list will be hidden in additional to other rules. This is useful
    * when upgrading ICU when we haven't yet added new classes/methods to various hard-coded lists
    * described below.
@@ -809,8 +855,8 @@ public class Icu4jTransform {
    * 3) Types / fields / methods that we explicitly want to hide, listed in DECLARATIONS_TO_HIDE
    * 4) Types / fields / methods that are flagged with ICU javadoc as draft / provisional or
    *    internal.
-   * 5) If the --hide-non-whitelisted-api option is provided, types / fields / methods that are not
-   *    in the whitelisted-api-file.
+   * 5) If the --hide-non-allowlisted-api option is provided, types / fields / methods that are not
+   *    in the allowlisted-api-file.
    */
   public static void main(String[] args) throws Exception {
     Map<String, String> options = JavaCore.getOptions();
@@ -829,7 +875,7 @@ public class Icu4jTransform {
 
     private static final String SOURCE_CODE_HEADER = "/* GENERATED SOURCE. DO NOT MODIFY. */\n";
     private static final String COMMAND_USAGE = "Usage: " + Icu4jTransform.class.getCanonicalName()
-            + " [--hide-non-whitelisted-api <whitelisted-api-file>]"
+            + " [--hide-non-allowlisted-api <allowlisted-api-file>]"
             + " <source-dir>+ <target-dir> <core-platform-api-file> <intra-core-api-file>"
             + " <unsupported-app-usage-file>";
 
@@ -841,9 +887,9 @@ public class Icu4jTransform {
       if (args.length < 3) {
         throw new IllegalArgumentException(COMMAND_USAGE);
       }
-      Path whitelistedApiPath = null;
-      if ("--hide-non-whitelisted-api".equals(args[0])) {
-        whitelistedApiPath = Paths.get(args[1]);
+      Path allowlistedApiPath = null;
+      if ("--hide-non-allowlisted-api".equals(args[0])) {
+        allowlistedApiPath = Paths.get(args[1]);
         if (args.length < 6) {
           throw new IllegalArgumentException(COMMAND_USAGE);
         }
@@ -870,7 +916,7 @@ public class Icu4jTransform {
       }
 
       rules = createTransformRules(corePlatformApiFile, intraCoreApiFile,
-          unsupportedAppUsageFile, whitelistedApiPath);
+          unsupportedAppUsageFile, allowlistedApiPath);
       outputSourceFileGenerator = Icu4jTransformRules.createOutputFileGenerator(targetDir);
     }
 
@@ -909,7 +955,7 @@ public class Icu4jTransform {
     private static List<Rule> createTransformRules(Path corePlatformApiFile,
             Path intraCoreApiFile,
             Path unsupportedAppUsagePath,
-            Path whitelistedApiPath) {
+            Path allowlistedApiPath) {
       // The rules needed to repackage source code that declares or references com.ibm.icu code
       // so it references android.icu instead.
       Rule[] repackageRules = getRepackagingRules();
@@ -925,23 +971,23 @@ public class Icu4jTransform {
               new ReplaceTextCommentScanner(ORIGINAL_ICU_PACKAGE, ANDROID_ICU_PACKAGE)),
 
           // AST change: Hide all ICU public classes except those in the PUBLIC_API_CLASSES
-          // whitelist.
+          // allowlist.
           createHidePublicClassesRule(),
 
           // AST change: Hide ICU methods that are in INITIAL_DEPRECATED_SET and Android does not
           // want to make public.
           createHideOriginalDeprecatedClassesRule(),
-          // AST change: Explicitly hide blacklisted methods in DECLARATIONS_TO_HIDE such as those
+          // AST change: Explicitly hide blocklisted methods in DECLARATIONS_TO_HIDE such as those
           // that get/set static default values that might lead to confusion or strange interactions
           // between Android's ICU4J and java.text / java.util classes.
-          createHideBlacklistedDeclarationsRule(),
+          createHideBlocklistedDeclarationsRule(),
           // AST change: Explicitly hide any elements that are marked as
           // @draft / @provisional / @internal
           createOptionalRule(new HideDraftProvisionalInternal()),
 
-          // AST change: Hide new non-whitelisted API in Android temporarily
+          // AST change: Hide new non-allowlisted API in Android temporarily
           // Usually used for avoiding the new API introduced by upstream to show up in Android.
-          createHideNonWhitelistedRule(whitelistedApiPath),
+          createHideNonAllowlistedRule(allowlistedApiPath),
 
           // AST change: Add @Deprecated annotation and @deprecated doc to deprecated API in Android
           createMarkElementsWithDeprecatedAnnotationRule(),
@@ -978,6 +1024,9 @@ public class Icu4jTransform {
 
           // AST change: Add UnsupportedAppUsage to specified classes and members
           createOptionalRule(Annotations.addUnsupportedAppUsage(unsupportedAppUsagePath)),
+
+          // AST change: Add @SuppressWarnings("HiddenAbstractMethod") to specified methods
+          createHiddenAbstractMethodRule(),
       };
 
       List<Rule> rulesList = Lists.newArrayList(repackageRules);
@@ -986,32 +1035,35 @@ public class Icu4jTransform {
     }
 
     private static Rule createTranslateJciteInclusionRule() {
-      List<BodyDeclarationLocator> whitelist =
+      List<BodyDeclarationLocator> allowlist =
           BodyDeclarationLocators.createLocatorsFromStrings(JCITE_TRANSFORM_SET);
       TranslateJcite.InclusionHandler transformer =
-          new TranslateJcite.InclusionHandler(ANDROID_ICU4J_SAMPLE_DIR, whitelist);
+          new TranslateJcite.InclusionHandler(ANDROID_ICU4J_SAMPLE_DIR, allowlist);
       return createOptionalRule(transformer);
     }
 
     private static Rule createHideOriginalDeprecatedClassesRule() {
-      List<BodyDeclarationLocator> blacklist =
+      List<BodyDeclarationLocator> blocklist =
           BodyDeclarationLocators.createLocatorsFromStrings(INITIAL_DEPRECATED_SET);
       return createOptionalRule(
-          new TagMatchingDeclarations(blacklist, "@hide original deprecated declaration"));
+          new TagMatchingDeclarations(blocklist, "@hide original deprecated declaration"));
     }
 
     private static Rule createMarkElementsWithDeprecatedAnnotationRule() {
       List<BodyDeclarationLocator> locators =
-          BodyDeclarationLocators.createLocatorsFromStrings(ANDROID_DEPRECATED_SET);
+          BodyDeclarationLocators.createLocatorsFromStrings(
+                  ANDROID_DEPRECATED_SET.keySet().toArray(new String[0]));
       return createOptionalRule(AddAnnotation.markerAnnotationFromLocators(
           "Deprecated", locators));
     }
 
     private static Rule createMarkElementsWithDeprecatedJavadocTagRule() {
-      List<BodyDeclarationLocator> locators =
-          BodyDeclarationLocators.createLocatorsFromStrings(ANDROID_DEPRECATED_SET);
-      return createOptionalRule(new TagMatchingDeclarations(locators,
-          "@deprecated on Android but not deprecated in ICU"));
+      Map<BodyDeclarationLocator, String> locatorTags = ANDROID_DEPRECATED_SET.entrySet().stream()
+              .collect(Collectors.toMap(
+                      (entry) -> BodyDeclarationLocators.fromStringForm(entry.getKey()),
+                      (entry) -> "@deprecated " + entry.getValue())
+              );
+      return createOptionalRule(new TagMatchingDeclarations(locatorTags));
     }
 
     private static Rule createMarkElementsWithRemovedJavadocTagRule() {
@@ -1021,27 +1073,35 @@ public class Icu4jTransform {
           "@removed on Android but @stable in ICU"));
     }
 
-    private static Rule createHideBlacklistedDeclarationsRule() {
-      List<BodyDeclarationLocator> blacklist =
+    private static Rule createHideBlocklistedDeclarationsRule() {
+      List<BodyDeclarationLocator> blocklist =
           BodyDeclarationLocators.createLocatorsFromStrings(DECLARATIONS_TO_HIDE);
       return createOptionalRule(
-          new TagMatchingDeclarations(blacklist, "@hide unsupported on Android"));
+          new TagMatchingDeclarations(blocklist, "@hide unsupported on Android"));
     }
 
     private static Rule createHidePublicClassesRule() {
-      List<TypeLocator> whitelist = TypeLocator.createLocatorsFromStrings(PUBLIC_API_CLASSES);
+      List<TypeLocator> allowlist = TypeLocator.createLocatorsFromStrings(PUBLIC_API_CLASSES);
       return createOptionalRule(
-          new HidePublicClasses(whitelist, "Only a subset of ICU is exposed in Android"));
+          new HidePublicClasses(allowlist, "Only a subset of ICU is exposed in Android"));
+    }
+
+    private static Rule createHiddenAbstractMethodRule() {
+      List<BodyDeclarationLocator> loactors =
+              BodyDeclarationLocators.createLocatorsFromStrings(HIDDEN_ABSTRACT_METHODS);
+      return createOptionalRule(
+              AddAnnotation.markerAnnotationWithPropertyFromLocators("SuppressWarnings",
+                      "value", String.class, "HiddenAbstractMethod", loactors));
     }
   }
 
-  private static Rule createHideNonWhitelistedRule(Path whitelistedApiPath) {
+  private static Rule createHideNonAllowlistedRule(Path allowlistedApiPath) {
     List<BodyDeclarationLocator> bodyDeclarationLocators = null;
-    if (whitelistedApiPath != null) {
+    if (allowlistedApiPath != null) {
       bodyDeclarationLocators = BodyDeclarationLocators.readBodyDeclarationLocators(
-              whitelistedApiPath);
+              allowlistedApiPath);
     }
-    return createOptionalRule(new HideNonWhitelistedDeclarations(bodyDeclarationLocators,
+    return createOptionalRule(new HideNonAllowlistedDeclarations(bodyDeclarationLocators,
             "@hide Hide new API in Android temporarily"));
   }
 }

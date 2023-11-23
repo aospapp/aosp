@@ -276,7 +276,7 @@ final class SSLUtils {
      */
     static Set<String> getSupportedClientKeyTypes(byte[] clientCertificateTypes,
             int[] signatureAlgs) {
-        Set<String> fromClientCerts = new HashSet<String>(clientCertificateTypes.length);
+        Set<String> fromClientCerts = new HashSet<>(clientCertificateTypes.length);
         for (byte keyTypeCode : clientCertificateTypes) {
             String keyType = SSLUtils.getClientKeyType(keyTypeCode);
             if (keyType == null) {
@@ -286,7 +286,7 @@ final class SSLUtils {
             fromClientCerts.add(keyType);
         }
         // Signature algorithms are listed in preference order
-        Set<String> fromSigAlgs = new LinkedHashSet<String>(signatureAlgs.length);
+        Set<String> fromSigAlgs = new LinkedHashSet<>(signatureAlgs.length);
         for (int signatureAlg : signatureAlgs) {
             String keyType = SSLUtils.getClientKeyTypeFromSignatureAlg(signatureAlg);
             if (keyType == null) {
@@ -320,6 +320,7 @@ final class SSLUtils {
     /**
      * Converts the peer certificates into a cert chain.
      */
+    @SuppressWarnings("deprecation") // Used in public Conscrypt APIs
     static javax.security.cert.X509Certificate[] toCertificateChain(X509Certificate[] certificates)
             throws SSLPeerUnverifiedException {
         try {
@@ -333,11 +334,11 @@ final class SSLUtils {
             return chain;
         } catch (CertificateEncodingException e) {
             SSLPeerUnverifiedException exception = new SSLPeerUnverifiedException(e.getMessage());
-            exception.initCause(exception);
+            exception.initCause(e);
             throw exception;
         } catch (CertificateException e) {
             SSLPeerUnverifiedException exception = new SSLPeerUnverifiedException(e.getMessage());
-            exception.initCause(exception);
+            exception.initCause(e);
             throw exception;
         }
     }

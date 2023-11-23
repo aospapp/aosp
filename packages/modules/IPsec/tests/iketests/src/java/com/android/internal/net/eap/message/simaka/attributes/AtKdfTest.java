@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka.attributes;
+package com.android.internal.net.eap.test.message.simaka.attributes;
 
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_KDF;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_KDF;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_KDF_INVALID_LENGTH;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.KDF_VERSION;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_KDF;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_KDF;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_KDF_INVALID_LENGTH;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.KDF_VERSION;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAttributeException;
-import com.android.internal.net.eap.message.simaka.EapAkaPrimeAttributeFactory;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtKdf;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaInvalidAttributeException;
+import com.android.internal.net.eap.test.message.simaka.EapAkaPrimeAttributeFactory;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtKdf;
 
 import org.junit.Before;
 import org.junit.Test;

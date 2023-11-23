@@ -34,9 +34,6 @@
 using std::cout;
 using std::endl;
 
-using namespace fruit;
-using namespace fruit::impl;
-
 namespace fruit {
 namespace impl {
 
@@ -94,7 +91,7 @@ NormalizedComponentStorage::NormalizedComponentStorage(ComponentStorage&& compon
                                                         memory_pool);
 }
 
-NormalizedComponentStorage::~NormalizedComponentStorage() {
+NormalizedComponentStorage::~NormalizedComponentStorage() noexcept {
   for (auto& x : fully_expanded_components_with_args) {
     x.destroy();
   }

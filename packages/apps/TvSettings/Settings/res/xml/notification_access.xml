@@ -20,5 +20,6 @@
     <Preference
             android:key="header"
             android:title="@string/notification_listener_security_warning_summary"
-            android:singleLineTitle="false" />
+            android:singleLineTitle="false"
+            android:selectable="false" />
 </PreferenceScreen>

@@ -15,63 +15,80 @@
 #   limitations under the License.
 
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
-import multiprocessing
-
-
-def run_tests(test_suite, output_file):
-    # Redirects stdout and stderr to the given output file.
-    new_stdout = open(output_file, 'w+')
-    os.dup2(new_stdout.fileno(), 1)
-    test_run = unittest.TextTestRunner(stream=new_stdout, verbosity=2).run(test_suite)
-    return test_run.wasSuccessful()
 
 
 class TestResult(object):
-    def __init__(self, process_result, output_file, test_suite):
-        self.process_result = process_result
+    """
+    Attributes:
+        failures_future: The list of failed test cases during this test.
+        output_file: The file containing the stderr/stdout for this test.
+        test_suite: The unittest.TestSuite used. Useful for debugging.
+        test_filename: The *_test.py file that ran in this test.
+    """
+    def __init__(self, test_result, output_file, test_suite, test_filename):
+        self.test_result = test_result
         self.output_file = output_file
         self.test_suite = test_suite
+        self.test_filename = test_filename
 
 
 def run_all_unit_tests():
-    # Due to some incredibly powerful black magic, running this twice
-    # causes the metrics/, test_utils/ and test_runner_test.py tests to load
-    # properly. They do no load properly the first time.
-    suite = unittest.TestLoader().discover(
-        start_dir=os.path.dirname(__file__), pattern='*_test.py')
-    suite = unittest.TestLoader().discover(
-        start_dir=os.path.dirname(__file__), pattern='*_test.py')
+    suite = unittest.TestSuite()
+    test_files = []
+    loader = unittest.TestLoader()
+    for root, _, files in os.walk(os.path.dirname(__file__)):
+        for filename in files:
+            if filename.endswith('_test.py'):
+                test_files.append(os.path.join(root, filename))
+                try:
+                    suite.addTest(loader.discover(root, filename))
+                except ImportError as e:
+                    if 'Start directory is not importable' not in e.args[0]:
+                        raise
+                    message = '. Did you forget to add an __init__.py file?'
+                    raise ImportError(e.args[0] + message)
 
-    process_pool = multiprocessing.Pool(10)
     output_dir = tempfile.mkdtemp()
 
     results = []
 
     for index, test in enumerate(suite._tests):
         output_file = os.path.join(output_dir, 'test_%s.output' % index)
-        process_result = process_pool.apply_async(run_tests,
-                                                  args=(test, output_file))
-        results.append(TestResult(process_result, output_file, test))
 
-    success = True
+        test_result = subprocess.Popen([sys.executable, test_files[index]],
+                                       stdout=open(output_file, 'w+'),
+                                       stderr=subprocess.STDOUT)
+        results.append(
+            TestResult(test_result, output_file, test, test_files[index]))
+
+    all_failures = []
     for index, result in enumerate(results):
         try:
-            if not result.process_result.get(timeout=60):
-                success = False
-                print('Received the following test failure:')
+            failures = result.test_result.wait(timeout=60)
+            if failures:
+                print('Failure logs for %s:' % result.test_filename,
+                      file=sys.stderr)
                 with open(result.output_file, 'r') as out_file:
                     print(out_file.read(), file=sys.stderr)
-        except multiprocessing.TimeoutError:
-            success = False
-            print('The following test timed out: %r' % result.test_suite,
+                all_failures.append(result.test_filename + ' (failed)')
+        except subprocess.TimeoutExpired:
+            all_failures.append(result.test_filename + ' (timed out)')
+            print('The following test timed out: %r' % result.test_filename,
                   file=sys.stderr)
             with open(result.output_file, 'r') as out_file:
-                print(out_file.read())
+                print(out_file.read(), file=sys.stderr)
 
-    exit(not success)
+    # Prints a summary over all unit tests failed.
+    if all_failures:
+        print('The following tests failed:', file=sys.stderr)
+        for failure in all_failures:
+            print('    ', failure, file=sys.stderr)
+
+    exit(bool(all_failures))
 
 
 if __name__ == '__main__':

@@ -40,7 +40,7 @@ ifeq ($(LLVM_SA), true)
     common_flags += --compile-and-analyze --analyzer-perf --analyzer-Werror
 endif
 
-common_includes := system/core/base/include
+common_includes := system/libbase/include
 CHECK_VERSION_LE = $(shell if [ $(1) -le $(2) ] ; then echo true ; else echo false ; fi)
 PLATFORM_SDK_NOUGAT = 25
 ifeq "REL" "$(PLATFORM_VERSION_CODENAME)"
@@ -75,5 +75,6 @@ ifeq ($(TARGET_COMPILE_WITH_MSM_KERNEL),true)
 # If the macro is not present, the headers are picked from $(QC_HARDWARE_ROOT)/msmXXXX
 # failing which, they are picked from bionic.
     common_deps += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
-    kernel_includes += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
+    kernel_includes += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include \
+                       $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include/display
 endif

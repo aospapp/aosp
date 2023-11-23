@@ -19,8 +19,8 @@ package com.android.ims;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-
-import androidx.test.InstrumentationRegistry;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 
 import org.mockito.MockitoAnnotations;
 
@@ -32,11 +32,21 @@ import java.util.concurrent.TimeUnit;
  */
 public class ImsTestBase {
 
+    protected ContextFixture mContextFixture;
     protected Context mContext;
 
+    protected TelephonyManager mTelephonyManager;
+    protected SubscriptionManager mSubscriptionManager;
+
     public void setUp() throws Exception {
-        mContext = InstrumentationRegistry.getTargetContext();
         MockitoAnnotations.initMocks(this);
+        mContextFixture = new ContextFixture();
+        mContext = mContextFixture.getContext();
+
+        mTelephonyManager = (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
+        mSubscriptionManager = (SubscriptionManager) mContext.getSystemService(
+                Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+
         // Set up the looper if it does not exist on the test thread.
         if (Looper.myLooper() == null) {
             Looper.prepare();

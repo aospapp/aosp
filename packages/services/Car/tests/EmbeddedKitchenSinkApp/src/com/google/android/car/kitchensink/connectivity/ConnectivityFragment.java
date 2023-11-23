@@ -224,7 +224,7 @@ public class ConnectivityFragment extends Fragment {
         }
 
         Network def = mConnectivityManager.getBoundNetworkForProcess();
-        if (def != null && def.netId != netId) {
+        if (def != null && def.getNetId() != netId) {
             clearBoundNetwork();
         }
         mConnectivityManager.bindProcessToNetwork(network);
@@ -388,7 +388,7 @@ public class ConnectivityFragment extends Fragment {
         NetworkItem ni = new NetworkItem();
 
         // Row key
-        ni.mNetId = n.netId;
+        ni.mNetId = n.getNetId();
 
         // LinkProperties/NetworkInterface
         ni.mInterfaceName = "Interface: " + nLink.getInterfaceName()
@@ -414,7 +414,7 @@ public class ConnectivityFragment extends Fragment {
 
         // Other inferred values
         ni.mDefault = sameNetworkId(n, defNetwork);
-        ni.mRequested = (mNetworkCallbacks.get(n.netId) != null);
+        ni.mRequested = (mNetworkCallbacks.get(n.getNetId()) != null);
 
         return ni;
     }
@@ -439,7 +439,7 @@ public class ConnectivityFragment extends Fragment {
         // Add each network to the network info set, turning each field to a string
         for (int i = 0; i < networks.length; i++) {
             mNetworkItems[i] = getNetworkItem(networks[i]);
-            mNetworks.put(networks[i].netId, networks[i]);
+            mNetworks.put(networks[i].getNetId(), networks[i]);
         }
 
         // Check for callbacks that belong to networks that don't exist anymore
@@ -594,7 +594,7 @@ public class ConnectivityFragment extends Fragment {
     }
 
     private static boolean sameNetworkId(Network net1, Network net2) {
-        return net1 != null && net2 != null && net1.netId == net2.netId;
+        return net1 != null && net2 != null && net1.getNetId() == net2.getNetId();
     }
 
     private void setWifiEnabled(boolean enabled) {

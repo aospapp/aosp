@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"កម្មវិធីខាងក្រោមនឹងគ្រប់គ្រងឧបករណ៍របស់អ្នក៖"</string>
     <string name="next" msgid="1004321437324424398">"បន្ទាប់"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"កំពុង​រៀបចំ​កម្រងព័ត៌មាន​ការងារ…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"អ្នកគ្រប់គ្រងផ្នែកព័ត៌មានវិទ្យា​របស់អ្នកមានលទ្ធភាពតាមដាន និងគ្រប់គ្រងការកំណត់ ការចូលប្រើលក្ខណៈក្រុមហ៊ុន កម្មវិធី ការអនុញ្ញាត និងទិន្នន័យដែលពាក់ព័ន្ធនឹងកម្រងព័ត៌មាននេះ រួមទាំងសកម្មភាពបណ្តាញរបស់អ្នក ក៏ដូចជាទីតាំងឧបករណ៍ ប្រវត្តិហៅទូរសព្ទ និងប្រវត្តិស្វែងរកទំនាក់ទំនងរបស់អ្នកផងដែរ។<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>សូមទាក់ទងអ្នកគ្រប់គ្រងផ្នែកព័ត៌មាន​វិទ្យា​របស់អ្នក ដើម្បី​ទទួលបាន​ព័ត៌មានបន្ថែម រួម​ទាំងគោលការណ៍ឯកជនភាពរបស់ស្ថាប័នអ្នកផងដែរ។"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"អ្នកគ្រប់គ្រងផ្នែកព័ត៌មានវិទ្យា​របស់អ្នកមានលទ្ធភាពតាមដាន និងគ្រប់គ្រងការកំណត់ ការចូលប្រើលក្ខណៈក្រុមហ៊ុន កម្មវិធី ការអនុញ្ញាត និងទិន្នន័យដែលពាក់ព័ន្ធនឹងឧបករណ៍នេះ រួមទាំងសកម្មភាពបណ្តាញរបស់អ្នក ក៏ដូចជាទីតាំងឧបករណ៍ ប្រវត្តិហៅទូរសព្ទ និងប្រវត្តិស្វែងរកទំនាក់ទំនងរបស់អ្នកផងដែរ។<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>សូមទាក់ទងអ្នកគ្រប់គ្រងផ្នែកព័ត៌មាន​វិទ្យា​របស់អ្នក ដើម្បី​ទទួល​បាន​​ព័ត៌មានបន្ថែម រួម​ទាំងគោលការណ៍ឯកជនភាពរបស់ស្ថាប័នអ្នកផងដែរ។"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"អ្នកគ្រប់គ្រងផ្នែកព័ត៌មានវិទ្យា​របស់អ្នកមានលទ្ធភាពតាមដាន និងគ្រប់គ្រងការកំណត់ ការចូលប្រើលក្ខណៈក្រុមហ៊ុន កម្មវិធី ការអនុញ្ញាត និងទិន្នន័យដែលពាក់ព័ន្ធនឹងកម្រងព័ត៌មាននេះ រួមទាំងសកម្មភាពបណ្តាញរបស់អ្នក ក៏ដូចជាទីតាំងឧបករណ៍ ប្រវត្តិហៅទូរសព្ទ និងប្រវត្តិស្វែងរកទំនាក់ទំនងរបស់អ្នកផងដែរ។<xliff:g id="LINE_BREAK">
+
+</xliff:g>សូមទាក់ទងអ្នកគ្រប់គ្រងផ្នែកព័ត៌មាន​វិទ្យា​របស់អ្នក ដើម្បី​ទទួលបាន​ព័ត៌មានបន្ថែម រួម​ទាំងគោលការណ៍ឯកជនភាពរបស់ស្ថាប័នអ្នកផងដែរ។"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"អ្នកគ្រប់គ្រងផ្នែកព័ត៌មានវិទ្យា​របស់អ្នកមានលទ្ធភាពតាមដាន និងគ្រប់គ្រងការកំណត់ ការចូលប្រើលក្ខណៈក្រុមហ៊ុន កម្មវិធី ការអនុញ្ញាត និងទិន្នន័យដែលពាក់ព័ន្ធនឹងឧបករណ៍នេះ រួមទាំងសកម្មភាពបណ្តាញរបស់អ្នក ក៏ដូចជាទីតាំងឧបករណ៍ ប្រវត្តិហៅទូរសព្ទ និងប្រវត្តិស្វែងរកទំនាក់ទំនងរបស់អ្នកផងដែរ។<xliff:g id="LINE_BREAK">
+
+</xliff:g>សូមទាក់ទងអ្នកគ្រប់គ្រងផ្នែកព័ត៌មាន​វិទ្យា​របស់អ្នក ដើម្បី​ទទួល​បាន​​ព័ត៌មានបន្ថែម រួម​ទាំងគោលការណ៍ឯកជនភាពរបស់ស្ថាប័នអ្នកផងដែរ។"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"ដើម្បីប្រើលក្ខណៈពិសេសការពារពីការលួច អ្នកត្រូវមានសោអេក្រង់ដែលបានការពារដោយពាក្យសម្ងាត់សម្រាប់ឧបករណ៍របស់អ្នក។"</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"សូមទាក់ទងអ្នកគ្រប់គ្រងផ្នែក​ព័ត៌មានវិទ្យា​របស់អ្នក ដើម្បី​ទទួលបានព័ត៌មានបន្ថែម រួមទាំងគោលការណ៍ភាពឯកជនរបស់ស្ថាប័នអ្នកផងដែរ។"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ស្វែងយល់​បន្ថែម"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"យល់ព្រម"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"ខ្ញុំយល់ព្រម"</string>
     <string name="url_error" msgid="5958494012986243186">"មិន​អាច​បង្ហាញ​តំណ​នេះ​បាន​ទេ។"</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"រំកិលឡើងលើ"</string>
     <string name="terms" msgid="8295436105384703903">"លក្ខខណ្ឌ"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"ព័ត៌មាន​អំពី​កម្រងព័ត៌មាន​ការងារ"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"ព័ត៌មាន​អំពី​ឧបករណ៍​ដែល​ស្ថិតក្រោម​ការគ្រប់គ្រង"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"ប្រវត្តិរូប​ការងារ"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"អ្នកប្រើសំខាន់"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"លុប​កម្រង​ព័ត៌មាន​ដែល​មាន​ស្រាប់?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"អ្នក​មាន​កម្រងព័ត៌មាន​ការងារ​រួចហើយ។ វា​ត្រូវ​បានគ្រប់គ្រង​ដោយ​ប្រើ​កម្មវិធីខាងក្រោម៖"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"មុននឹងដំណើរការ "<a href="#read_this_link">"សូមអាន"</a>" នេះ។"</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"ការដំឡើងអ្នកប្រើមិនពេញលេញ"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"អ្នកប្រើ​ឧបករណ៍​ការងារ"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"កំពុង​រៀប​ចំ​ឧបករណ៍ការងារ…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"កំពុងដំណើរការទិន្នន័យដំឡើង…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"កំពុងភ្ជាប់ទៅ Wi-Fi…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"កំពុង​ភ្ជាប់ទៅ​បណ្ដាញ​​ទូរសព្ទ​ចល័ត…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"កំពុងទាញយកកម្មវិធីគ្រប់គ្រង…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"កំពុងដំឡើងកម្មវិធីគ្រប់គ្រង…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"កំពុងលុបកម្មវិធីប្រព័ន្ធដែលមិនចាំបាច់…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"កំពុងបន្ថែមចំណុចកែសម្រួលចុងក្រោយ…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"កំពុងកំណត់ម្ចាស់ឧបករណ៍…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"កំពុងចាប់ផ្តើមឧបករណ៍…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"ឧបករណ៍នេះ​មិន​អនុញ្ញាត​ការ​អ៊ីនគ្រីប ដែលចាំបាច់សម្រាប់ការរៀបចំទេ។ សូម​ទាក់ទង​អ្នក​គ្រប់គ្រងផ្នែកព័ត៌មានវិទ្យា​របស់​អ្នក ដើម្បី​ទទួល​បាន​ជំនួយ។"</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"បញ្ឈប់​ការរៀបចំ ហើយ​កំណត់​ឧបករណ៍​ឡើង​វិញ?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"វា​នឹង​កំណត់​ឧបករណ៍​របស់អ្នក​ឡើងវិញ រួច​នាំអ្នក​ត្រលប់​ទៅ​អេក្រង់​ដំបូង​វិញ"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"ឧបករណ៍​នេះនឹង​ត្រូវបាន​រក្សា​សុវត្ថិភាព និង​​គ្រប់គ្រង​ដោយ​​ស្ថាប័នរបស់​​អ្នក"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"កំពុង​ត្រៀម​រៀបចំ​ឧបករណ៍​នៅកន្លែង​ធ្វើការ…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"កំពុង​រៀបចំ​កម្មវិធី​អ្នកគ្រប់គ្រង"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"រៀបចំ​អ្វីៗ​ផ្សេងទៀត"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"បញ្ចូល​គណនី​ផ្ទាល់ខ្លួន​ ដើម្បី​ទទួលបានអត្ថប្រយោជន៍ជាច្រើនទៀតពីឧបករណ៍​របស់អ្នក"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"ឥឡូវនេះ កម្រងព័ត៌មានការងាររបស់អ្នក​អាចប្រើបានហើយ អ្នកក៏អាចបញ្ចូល​គណនី Google ផ្ទាល់ខ្លួន​ ដើម្បី​ចូលប្រើ​កម្មវិធី និងខ្លឹមសាររបស់អ្នកបានផងដែរ។"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"ឧបករណ៍​នេះគឺជា​កម្មសិទ្ធិរបស់​ស្ថាប័ន​អ្នក"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"កម្មវិធី​ខាងក្រោម​នឹងត្រូវ​បានប្រើប្រាស់​ដើម្បី​គ្រប់គ្រង និង​ត្រួតពិនិត្យ​ទូរសព្ទនេះ"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"គណនីរបស់អ្នក​ត្រូវបានគ្រប់គ្រង"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"អ្នកគ្រប់គ្រង​ផ្នែកព័ត៌មានវិទ្យា​របស់អ្នក​ប្រើ​ការគ្រប់គ្រង​ឧបករណ៍​ចល័ត ដើម្បីអនុវត្តគោលការណ៍​សុវត្ថិភាព"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"កំពុងត្រៀមរៀបចំការងារ…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"សូម​រៀបចំ​កម្រងព័ត៌មាន​ការងារ​របស់អ្នក"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"កម្មវិធី​ការងារ​ត្រូវបាន​រក្សាទុក​នៅក្នុងកម្រង​ព័ត៌មាន​ការងារ​របស់អ្នក"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"រក្សាកម្មវិធី​ការងារ​របស់អ្នកនៅចុងម្រាមដៃ"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ឧបករណ៍​នេះ​មិនមាន​លក្ខណៈឯកជនទេ"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"អ្នក​គ្រប់គ្រងផ្នែក​ព័ត៌មាន​វិទ្យា​របស់អ្នក​ប្រហែលជាអាច​មើលឃើញទិន្នន័យ និងសកម្មភាព​របស់អ្នក​នៅលើ​ឧបករណ៍​នេះ។"</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"ទិន្នន័យ និងសកម្មភាព​របស់អ្នក"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"ការអនុញ្ញាតកម្មវិធី"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"អ្នកគ្រប់គ្រងផ្នែក​ព័ត៌មានវិទ្យារបស់អ្នក​អាចកំណត់​ការអនុញ្ញាតសម្រាប់​កម្មវិធីនៅលើឧបករណ៍​នេះដូចជា ការអនុញ្ញាតឱ្យ​ប្រើទីតាំង មីក្រូហ្វូន និងកាមេរ៉ាជាដើម។"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"កំពុងរៀបចំឧបករណ៍របស់អ្នក…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"ប្រើ​ឧបករណ៍​នេះ ដើម្បី​ចូលប្រើ​កម្មវិធី​ការងារ​របស់អ្នក​បានងាយស្រួល។ ឧបករណ៍​នេះ​មិន​មានលក្ខណៈឯកជន​ទេ ដូច្នេះ​អ្នកគ្រប់គ្រង​ផ្នែកព័ត៌មាន​វិទ្យា​របស់អ្នក​ប្រហែលជាអាចមើលឃើញ​ទិន្នន័យ និងសកម្មភាព​របស់អ្នក។ ដើម្បី​ស្វែងយល់បន្ថែម សូមទាក់ទង​អ្នកគ្រប់គ្រងផ្នែកព័ត៌មានវិទ្យារបស់អ្នក។"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"ប្រើ​ឧបករណ៍​នេះ ដើម្បី​ចូលប្រើ​កម្មវិធី​ការងារ​របស់អ្នក​បានងាយស្រួល។ ឧបករណ៍​នេះ​មិន​មានលក្ខណៈឯកជន​ទេ ដូច្នេះ​អ្នកគ្រប់គ្រង​ផ្នែកព័ត៌មាន​វិទ្យា​របស់អ្នក​ប្រហែលជាអាចមើលឃើញ​ទិន្នន័យ និងសកម្មភាព​របស់អ្នក។"</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"ប្រើ​ឧបករណ៍​នេះ ដើម្បី​ចូលប្រើ​កម្មវិធី​ការងារ​របស់អ្នក​បានងាយស្រួល។ ឧបករណ៍​នេះ​មិន​មានលក្ខណៈឯកជន​ទេ ដូច្នេះ​អ្នកគ្រប់គ្រង​ផ្នែកព័ត៌មាន​វិទ្យា​របស់អ្នក​ប្រហែលជាអាចមើលឃើញ​ទិន្នន័យ និងសកម្មភាព​របស់អ្នក។ អ្នកគ្រប់គ្រងផ្នែក​ព័ត៌មានវិទ្យារបស់អ្នក​ក៏អាចកំណត់​ការអនុញ្ញាតសម្រាប់​កម្មវិធីនៅលើឧបករណ៍​នេះផងដែរ​ដូចជា ការអនុញ្ញាតឱ្យ​ប្រើទីតាំង មីក្រូហ្វូន និងកាមេរ៉ាជាដើម។"</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"ប្រគល់ឧបករណ៍នេះ​ទៅអ្នកគ្រប់គ្រងផ្នែកព័ត៌មានវិទ្យា​របស់អ្នក"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"ត្រឡប់ទៅ​អេក្រង់មុនវិញ ឬកំណត់​ឧបករណ៍នេះឡើងវិញ និងប្រគល់វាទៅ​អ្នកគ្រប់គ្រងផ្នែកព័ត៌មានវិទ្យា​របស់អ្នក។"</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"បោះបង់​ការរៀបចំ"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"កំណត់ឡើងវិញ និងប្រគល់​ឧបករណ៍"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"កម្មវិធីការងាររក្សាទុកក្នុងកម្រងព័ត៌មានការងារ និងគ្រប់គ្រងដោយអ្នកគ្រប់គ្រងព័ត៌មានវិទ្យា"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"កម្មវិធី​ផ្ទាល់ខ្លួន​ស្ថិតនៅ​ដោយឡែក និង​លាក់ពី​កម្មវិធី​ការងារ"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"អ្នកគ្រប់គ្រង​ផ្នែកព័ត៌មានវិទ្យាអាចគ្រប់គ្រង​ឧបករណ៍នេះ និង​ទប់ស្កាត់​កម្មវិធី​ខ្លះ"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"ចាំ​មួយ​ភ្លែត…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"ការរំលឹកអំពីឯកជនភាព"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"អ្នក​គ្រប់គ្រងផ្នែក​ព័ត៌មាន​វិទ្យា​របស់អ្នក​ប្រហែលជាអាច​មើលឃើញទិន្នន័យ និងសកម្មភាព​របស់អ្នក​នៅលើ​ឧបករណ៍​នេះ"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"ឧបករណ៍​របស់អ្នក​អាចប្រើបានហើយ!"</string>
-    <string name="done" msgid="7755227776955952318">"រួចរាល់"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"ឧបករណ៍នេះ​ត្រូវបានទិញ​ដោយប្រើ​ទឹកប្រាក់​ពី <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> អាច៖"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"ដំឡើង​កម្មវិធី <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ដើម្បីឱ្យ​អ្នក​អាចធ្វើការ​បង់ប្រាក់​សម្រាប់​ឧបករណ៍នេះ​បាន"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"ដាក់កំហិត​លើការចូលប្រើ​ឧបករណ៍​នេះ ប្រសិនបើ​អ្នក​មិនធ្វើការ​បង់ប្រាក់​ទេ"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"ឧបករណ៍នេះត្រូវបានផ្ដល់ដោយ <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"ធ្វើការបង់ប្រាក់​សម្រាប់​ឧបករណ៍​នេះ"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> អាចដំឡើង​កម្មវិធី <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ដើម្បីឱ្យអ្នកអាច​ធ្វើការបង់ប្រាក់​សម្រាប់ឧបករណ៍នេះ។"</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"ឧបករណ៍នេះ​អាចត្រូវបាន​ដាក់កំហិត"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> អាចដាក់កំហិតការចូលប្រើឧបករណ៍នេះ ប្រសិនបើអ្នកមិនធ្វើការបង់ប្រាក់។"</string>
 </resources>

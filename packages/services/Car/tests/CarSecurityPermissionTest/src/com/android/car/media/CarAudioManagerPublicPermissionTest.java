@@ -56,4 +56,30 @@ public final class CarAudioManagerPublicPermissionTest {
                 () -> mCarAudioManager.registerCarVolumeCallback(callback));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
+
+    @Test
+    public void isAudioFeatureEnabled_withVolumeGroupMuteFeature_succeeds() {
+        boolean volumeGroupMutingEnabled =
+                mCarAudioManager.isAudioFeatureEnabled(
+                        CarAudioManager.AUDIO_FEATURE_VOLUME_GROUP_MUTING);
+
+        assertThat(volumeGroupMutingEnabled).isAnyOf(true, false);
+    }
+
+    @Test
+    public void isAudioFeatureEnabled_withDynamicRoutingFeature_succeeds() {
+        boolean dynamicRoutingEnabled =
+                mCarAudioManager.isAudioFeatureEnabled(
+                        CarAudioManager.AUDIO_FEATURE_DYNAMIC_ROUTING);
+
+        assertThat(dynamicRoutingEnabled).isAnyOf(true, false);
+    }
+
+    @Test
+    public void isAudioFeatureEnabled_withNonAudioFeature_fails() {
+        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class,
+                () -> mCarAudioManager.isAudioFeatureEnabled(0));
+
+        assertThat(exception).hasMessageThat().contains("Unknown Audio Feature");
+    }
 }

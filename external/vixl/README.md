@@ -7,6 +7,7 @@ Contents:
  * Licence
  * Requirements
  * Known limitations
+ * Bug reports
  * Usage
 
 
@@ -43,7 +44,7 @@ To build VIXL the following software is required:
 
  1. Python 2.7
  2. SCons 2.0
- 3. GCC 4.8+ or Clang 3.4+
+ 3. GCC 4.8+ or Clang 4.0+
 
 A 64-bit host machine is required, implementing an LP64 data model. VIXL has
 been tested using GCC on AArch64 Debian, GCC and Clang on amd64 Ubuntu
@@ -54,13 +55,17 @@ software is also required:
 
  1. Git
  2. [Google's `cpplint.py`][cpplint]
- 3. clang-format-3.8
+ 3. clang-format-4.0
+ 4. clang-tidy-4.0
 
 Refer to the 'Usage' section for details.
 
+Note that in Ubuntu 18.04, clang-tidy-4.0 will only work if the clang-4.0
+package is also installed.
 
-Known Limitations for AArch64 code generation
-=============================================
+
+Known Limitations
+=================
 
 VIXL was developed for JavaScript engines so a number of features from A64 were
 deemed unnecessary:
@@ -78,11 +83,6 @@ The VIXL simulator was developed to run on 64-bit amd64 platforms. Whilst it
 builds and mostly works for 32-bit x86 platforms, there are a number of
 floating-point operations which do not work correctly, and a number of tests
 fail as a result.
-
-VIXL may not build using Clang 3.7, due to a compiler warning. A workaround is
-to disable conversion of warnings to errors, or to delete the offending
-`return` statement reported and rebuild. This problem will be fixed in the next
-release.
 
 Debug Builds
 ------------
@@ -125,6 +125,45 @@ Instructions affected by these limitations:
   `stlxrh`, `stlxr`, `ldaxrb`, `ldaxrh`, `ldaxr`, `stlxp`, `ldaxp`, `stlrb`,
   `stlrh`, `stlr`, `ldarb`, `ldarh`, `ldar`, `clrex`.
 
+Security Considerations
+-----------------------
+
+VIXL allows callers to generate any code they want. The generated code is
+arbitrary, and can therefore call back into any other component in the process.
+As with any self-modifying code, vulnerabilities in the client or in VIXL itself
+could lead to arbitrary code generation.
+
+For performance reasons, VIXL's Assembler only performs debug-mode checking of
+instruction operands (such as immediate field encodability). This can minimise
+code-generation overheads for advanced compilers that already model instructions
+accurately, and might consider the Assembler's checks to be redundant. The
+Assembler should only be used directly where encodability is independently
+checked, and where fine control over all generated code is required.
+
+The MacroAssembler synthesises multiple-instruction sequences to support _some_
+unencodable operand combinations. The MacroAssembler can provide a useful safety
+check in cases where the Assembler's precision is not required; an unexpected
+unencodable operand should result in a macro with the correct behaviour, rather
+than an invalid instruction.
+
+In general, the MacroAssembler handles operands which are likely to vary with
+user-supplied data, but does not usually handle inputs which are likely to be
+easily covered by tests. For example, move-immediate arguments are likely to be
+data-dependent, but register types (e.g. `x` vs `w`) are not.
+
+We recommend that _all_ users use the MacroAssembler, using `ExactAssemblyScope`
+to invoke the Assembler when specific instruction sequences are required. This
+approach is recommended even in cases where a compiler can model the
+instructions precisely, because, subject to the limitations described above, it
+offers an additional layer of protection against logic bugs in instruction
+selection.
+
+Bug reports
+===========
+
+Bug reports may be sent to vixl@arm.com. Please provide any steps required to
+recreate a bug, along with build environment and host system information.
+
 
 Usage
 =====
@@ -151,9 +190,10 @@ It is possible to tell `tools/test.py` to skip the linter stage by passing
 `--nolint`. This removes the dependency on `cpplint.py` and Git. The `--nolint`
 option is implied if the VIXL project is a snapshot (with no `.git` directory).
 
-Additionally, `tools/test.py` tests code formatting using `clang-format-3.8`.
-If you don't have `clang-format-3.8`, disable the test using the
-`--noclang-format` option.
+Additionally, `tools/test.py` tests code formatting using `clang-format-4.0`,
+and performs static analysis using `clang-tidy-4.0`. If you don't have these
+tools, disable the test using `--noclang-format` or `--noclang-tidy`,
+respectively.
 
 Also note that the tests for the tracing features depend upon external `diff`
 and `sed` tools. If these tools are not available in `PATH`, these tests will

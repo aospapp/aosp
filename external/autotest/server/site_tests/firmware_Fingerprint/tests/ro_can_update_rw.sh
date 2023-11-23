@@ -6,7 +6,8 @@
 
 set -e
 
-. $(dirname "$(readlink -f "${0}")")/common.sh
+# shellcheck source=./common.sh
+. "$(dirname "$(readlink -f "${0}")")/common.sh"
 
 echo "Running test to validate that RO can update the RW firmware"
 

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -22,7 +23,7 @@ us.
 Example usage:
 
 # Start up the DHCP server, which will ignore packets until a test is started
-server = DhcpTestServer(interface="veth_master")
+server = DhcpTestServer(interface=interface_name)
 server.start()
 
 # Given a list of handling rules, start a test with a 30 sec timeout.
@@ -48,7 +49,12 @@ Note that if you make changes, make sure that the tests in dhcp_unittest.py
 still pass.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
+from six.moves import range
 import socket
 import threading
 import time
@@ -134,7 +140,7 @@ class DhcpTestServer(threading.Thread):
             # Wait 100 ms for a packet, then return, thus keeping the thread
             # active but mostly idle.
             self._socket.settimeout(0.1)
-        except socket.error, socket_error:
+        except socket.error as socket_error:
             self._logger.error("Socket error: %s." % str(socket_error))
             self._logger.error(traceback.format_exc())
             if not self._socket is None:

@@ -13,7 +13,7 @@
 
     <!-- This package instrumentates itself, so the DocumentsUI process can be killed without
          killing the testing package. -->
-    <instrumentation android:name="android.test.InstrumentationTestRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.documentsui.appperftests"
         android:label="App performance tests for DocumentsUI" />
 

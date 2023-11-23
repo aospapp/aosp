@@ -21,6 +21,7 @@ import logging
 import os
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 import unittest
@@ -161,6 +162,7 @@ DEBUG_TEST = False
 class ApexerRebuildTest(unittest.TestCase):
     def setUp(self):
         self._to_cleanup = []
+        self._get_host_tools(os.path.join(get_current_dir(), "apexer_test_host_tools.zip"))
 
     def tearDown(self):
         if not DEBUG_TEST:
@@ -173,6 +175,37 @@ class ApexerRebuildTest(unittest.TestCase):
         else:
             print(self._to_cleanup)
 
+    def _get_host_tools(self, host_tools_file_path):
+        dir_name = tempfile.mkdtemp(prefix=self._testMethodName+"_host_tools_")
+        self._to_cleanup.append(dir_name)
+        if os.path.isfile(host_tools_file_path):
+            with ZipFile(host_tools_file_path, 'r') as zip_obj:
+                zip_obj.extractall(path=dir_name)
+
+        files = {}
+        for i in ["apexer", "deapexer", "avbtool", "mke2fs", "sefcontext_compile", "e2fsdroid",
+            "resize2fs", "soong_zip", "aapt2", "merge_zips", "zipalign", "debugfs_static",
+            "signapk.jar", "android.jar"]:
+            file_path = os.path.join(dir_name, "bin", i)
+            if os.path.exists(file_path):
+                os.chmod(file_path, stat.S_IRUSR | stat.S_IXUSR);
+                files[i] = file_path
+            else:
+                files[i] = i
+        self.host_tools = files
+        self.host_tools_path = os.path.join(dir_name, "bin")
+
+        path = os.path.join(dir_name, "bin")
+        if "PATH" in os.environ:
+            path += ":" + os.environ["PATH"]
+        os.environ["PATH"] = path
+
+        ld_library_path = os.path.join(dir_name, "lib64")
+        if "LD_LIBRARY_PATH" in os.environ:
+            ld_library_path += ":" + os.environ["LD_LIBRARY_PATH"]
+        if "ANDROID_HOST_OUT" in os.environ:
+            ld_library_path += ":" + os.path.join(os.environ["ANDROID_HOST_OUT"], "lib64")
+        os.environ["LD_LIBRARY_PATH"] = ld_library_path
 
     def _get_container_files(self, apex_file_path):
         dir_name = tempfile.mkdtemp(prefix=self._testMethodName+"_container_files_")
@@ -216,7 +249,8 @@ class ApexerRebuildTest(unittest.TestCase):
     def _extract_payload(self, apex_file_path):
         dir_name = tempfile.mkdtemp(prefix=self._testMethodName+"_extracted_payload_")
         self._to_cleanup.append(dir_name)
-        cmd = ["deapexer", "extract", apex_file_path, dir_name]
+        cmd = ["deapexer", "--debugfs_path", self.host_tools["debugfs_static"],
+            "extract", apex_file_path, dir_name]
         run_host_command(cmd)
 
         # Remove payload files added by apexer and e2fs tools.
@@ -235,9 +269,13 @@ class ApexerRebuildTest(unittest.TestCase):
         if unsigned_payload_only or "--payload_only" in args:
             payload_only = True
 
-        os.environ["APEXER_TOOL_PATH"] = (
-            "out/soong/host/linux-x86/bin:prebuilts/sdk/tools/linux/bin")
+        os.environ["APEXER_TOOL_PATH"] = (self.host_tools_path +
+            ":out/soong/host/linux-x86/bin:prebuilts/sdk/tools/linux/bin")
         cmd = ["apexer", "--force", "--include_build_info", "--do_not_check_keyname"]
+        if DEBUG_TEST:
+            cmd.append('-v')
+        cmd.extend(["--apexer_tool_path", os.environ["APEXER_TOOL_PATH"]])
+        cmd.extend(["--android_jar_path", self.host_tools["android.jar"]])
         cmd.extend(["--manifest", container_files["apex_manifest.pb"]])
         if "apex_manifest.json" in container_files:
             cmd.extend(["--manifest_json", container_files["apex_manifest.json"]])
@@ -261,14 +299,35 @@ class ApexerRebuildTest(unittest.TestCase):
         run_host_command(cmd)
         return fn
 
+    def _get_java_toolchain(self):
+        java_toolchain = "java"
+        if os.path.isfile("prebuilts/jdk/jdk11/linux-x86/bin/java"):
+            java_toolchain = "prebuilts/jdk/jdk11/linux-x86/bin/java"
+        elif "ANDROID_JAVA_TOOLCHAIN" in os.environ:
+            java_toolchain = os.path.join(os.environ["ANDROID_JAVA_TOOLCHAIN"], "java")
+        elif "ANDROID_JAVA_HOME" in os.environ:
+            java_toolchain = os.path.join(os.environ["ANDROID_JAVA_HOME"], "bin", "java")
+        elif "JAVA_HOME" in os.environ:
+            java_toolchain = os.path.join(os.environ["JAVA_HOME"], "bin", "java")
+
+        java_dep_lib = os.environ["LD_LIBRARY_PATH"]
+        if "ANDROID_HOST_OUT" in os.environ:
+            java_dep_lib += ":" + os.path.join(os.environ["ANDROID_HOST_OUT"], "lib64")
+        if "ANDROID_BUILD_TOP" in os.environ:
+            java_dep_lib += ":" + os.path.join(os.environ["ANDROID_BUILD_TOP"],
+                "out/soong/host/linux-x86/lib64")
+
+        return [java_toolchain, java_dep_lib]
+
     def _sign_apk_container(self, unsigned_apex):
         fd, fn = tempfile.mkstemp(prefix=self._testMethodName+"_repacked_", suffix=".apex")
         os.close(fd)
         self._to_cleanup.append(fn)
+        java_toolchain, java_dep_lib = self._get_java_toolchain()
         cmd = [
-            "prebuilts/jdk/jdk11/linux-x86/bin/java",
-            "-Djava.library.path=out/soong/host/linux-x86/lib64",
-            "-jar", "out/soong/host/linux-x86/framework/signapk.jar",
+            java_toolchain,
+            "-Djava.library.path=" + java_dep_lib,
+            "-jar", self.host_tools['signapk.jar'],
             "-a", "4096",
             os.path.join(get_current_dir(), TEST_X509_KEY),
             os.path.join(get_current_dir(), TEST_PK8_KEY),

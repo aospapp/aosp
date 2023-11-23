@@ -410,17 +410,22 @@ public class FileTest extends TestCase {
 
         // Test create an illegal file
         String sep = File.separator;
-        f1 = new File(sep + "..");
+        f1 = new File(sep + "a" + sep + ".." + sep + ".." + sep);
         try {
             f1.createNewFile();
             fail("should throw IOE");
         } catch (IOException e) {
             // expected;
         }
-        f1 = new File(sep + "a" + sep + ".." + sep + ".." + sep);
+
+        // Prior to kernel version 5.7, creating "/.." returns EISDIR, and in 5.7 or later,
+        // such syscall returns EEXIST. In the first case, IOException is thrown. In the second
+        // case, false is returned. The below test is modified to accept both of them.
+        // See http://b/176057454 for details.
+        f1 = new File(sep + "..");
         try {
-            f1.createNewFile();
-            fail("should throw IOE");
+            boolean result = f1.createNewFile();
+            assertFalse(result);
         } catch (IOException e) {
             // expected;
         }

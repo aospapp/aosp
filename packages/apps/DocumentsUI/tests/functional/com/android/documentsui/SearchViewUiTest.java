@@ -100,6 +100,23 @@ public class SearchViewUiTest extends ActivityTest<FilesActivity> {
         bots.search.assertInputExists(false);
     }
 
+    public void testSearchFragment_DismissedOnCloseAfterCancel() throws Exception {
+        bots.search.clickIcon();
+        bots.search.setInputText("query text");
+
+        // Cancel search
+        device.pressBack();
+        device.waitForIdle();
+
+        // Close search
+        device.pressBack();
+        device.waitForIdle();
+
+        bots.search.assertIconVisible(true);
+        bots.search.assertInputExists(false);
+        bots.search.assertSearchHistoryVisible(false);
+    }
+
     public void testSearchView_ClearsTextOnBack() throws Exception {
         bots.search.clickIcon();
         bots.search.setInputText("file2");
@@ -227,5 +244,23 @@ public class SearchViewUiTest extends ActivityTest<FilesActivity> {
 
         bots.search.assertInputExists(true);
         bots.search.assertInputFocused(true);
+        bots.search.assertSearchHistoryVisible(true);
+    }
+
+    public void testSearchView_focusClearedAfterSelectingSearchHistory() throws Exception {
+        String queryText = "history";
+        bots.search.clickIcon();
+        bots.search.setInputText(queryText);
+        bots.keyboard.pressEnter();
+        device.waitForIdle();
+
+        bots.search.clickSearchViewClearButton();
+        device.waitForIdle();
+        bots.search.assertInputFocused(true);
+        bots.search.assertSearchHistoryVisible(true);
+
+        bots.search.clickSearchHistory(queryText);
+        bots.search.assertInputFocused(false);
+        bots.search.assertSearchHistoryVisible(false);
     }
 }

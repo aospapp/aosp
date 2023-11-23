@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 1994, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1994, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,6 +25,7 @@
  */
 
 package java.lang;
+
 import dalvik.annotation.optimization.CriticalNative;
 import java.util.Random;
 
@@ -99,13 +100,13 @@ import sun.misc.DoubleConsts;
  * {@code subtractExact}, {@code multiplyExact}, and {@code toIntExact}
  * throw an {@code ArithmeticException} when the results overflow.
  * For other arithmetic operations such as divide, absolute value,
- * increment, decrement, and negation overflow occurs only with
+ * increment by one, decrement by one, and negation, overflow occurs only with
  * a specific minimum or maximum value and should be checked against
  * the minimum or maximum as appropriate.
  *
  * @author  unascribed
  * @author  Joseph D. Darcy
- * @since   JDK1.0
+ * @since   1.0
  */
 
 public final class Math {
@@ -130,6 +131,18 @@ public final class Math {
      * diameter.
      */
     public static final double PI = 3.14159265358979323846;
+
+    /**
+     * Constant by which to multiply an angular value in degrees to obtain an
+     * angular value in radians.
+     */
+    private static final double DEGREES_TO_RADIANS = 0.017453292519943295;
+
+    /**
+     * Constant by which to multiply an angular value in radians to obtain an
+     * angular value in degrees.
+     */
+    private static final double RADIANS_TO_DEGREES = 57.29577951308232;
 
     /**
      * Returns the trigonometric sine of an angle.  Special cases:
@@ -236,7 +249,7 @@ public final class Math {
      * @since   1.2
      */
     public static double toRadians(double angdeg) {
-        return angdeg / 180.0 * PI;
+        return angdeg * DEGREES_TO_RADIANS;
     }
 
     /**
@@ -252,7 +265,7 @@ public final class Math {
      * @since   1.2
      */
     public static double toDegrees(double angrad) {
-        return angrad * 180.0 / PI;
+        return angrad * RADIANS_TO_DEGREES;
     }
 
     /**
@@ -893,6 +906,20 @@ public final class Math {
     }
 
     /**
+     * Returns the product of the arguments, throwing an exception if the result
+     * overflows a {@code long}.
+     *
+     * @param x the first value
+     * @param y the second value
+     * @return the result
+     * @throws ArithmeticException if the result overflows a long
+     * @since 9
+     */
+    public static long multiplyExact(long x, int y) {
+        return multiplyExact(x, (long)y);
+    }
+
+    /**
      * Returns the product of the arguments,
      * throwing an exception if the result overflows a {@code long}.
      *
@@ -1037,17 +1064,66 @@ public final class Math {
     }
 
     /**
+     * Returns the exact mathematical product of the arguments.
+     *
+     * @param x the first value
+     * @param y the second value
+     * @return the result
+     * @since 9
+     */
+    public static long multiplyFull(int x, int y) {
+        return (long)x * (long)y;
+    }
+
+    /**
+     * Returns as a {@code long} the most significant 64 bits of the 128-bit
+     * product of two 64-bit factors.
+     *
+     * @param x the first value
+     * @param y the second value
+     * @return the result
+     * @since 9
+     */
+    public static long multiplyHigh(long x, long y) {
+        if (x < 0 || y < 0) {
+            // Use technique from section 8-2 of Henry S. Warren, Jr.,
+            // Hacker's Delight (2nd ed.) (Addison Wesley, 2013), 173-174.
+            long x1 = x >> 32;
+            long x2 = x & 0xFFFFFFFFL;
+            long y1 = y >> 32;
+            long y2 = y & 0xFFFFFFFFL;
+            long z2 = x2 * y2;
+            long t = x1 * y2 + (z2 >>> 32);
+            long z1 = t & 0xFFFFFFFFL;
+            long z0 = t >> 32;
+            z1 += x2 * y1;
+            return x1 * y1 + z0 + (z1 >> 32);
+        } else {
+            // Use Karatsuba technique with two base 2^32 digits.
+            long x1 = x >>> 32;
+            long y1 = y >>> 32;
+            long x2 = x & 0xFFFFFFFFL;
+            long y2 = y & 0xFFFFFFFFL;
+            long A = x1 * y1;
+            long B = x2 * y2;
+            long C = (x1 + x2) * (y1 + y2);
+            long K = C - A - B;
+            return (((B >>> 32) + K) >>> 32) + A;
+        }
+    }
+
+    /**
      * Returns the largest (closest to positive infinity)
      * {@code int} value that is less than or equal to the algebraic quotient.
      * There is one special case, if the dividend is the
      * {@linkplain Integer#MIN_VALUE Integer.MIN_VALUE} and the divisor is {@code -1},
      * then integer overflow occurs and
-     * the result is equal to the {@code Integer.MIN_VALUE}.
+     * the result is equal to {@code Integer.MIN_VALUE}.
      * <p>
      * Normal integer division operates under the round to zero rounding mode
      * (truncation).  This operation instead acts under the round toward
      * negative infinity (floor) rounding mode.
-     * The floor rounding mode gives different results than truncation
+     * The floor rounding mode gives different results from truncation
      * when the exact result is negative.
      * <ul>
      *   <li>If the signs of the arguments are the same, the results of
@@ -1086,12 +1162,41 @@ public final class Math {
      * There is one special case, if the dividend is the
      * {@linkplain Long#MIN_VALUE Long.MIN_VALUE} and the divisor is {@code -1},
      * then integer overflow occurs and
-     * the result is equal to the {@code Long.MIN_VALUE}.
+     * the result is equal to {@code Long.MIN_VALUE}.
      * <p>
      * Normal integer division operates under the round to zero rounding mode
      * (truncation).  This operation instead acts under the round toward
      * negative infinity (floor) rounding mode.
-     * The floor rounding mode gives different results than truncation
+     * The floor rounding mode gives different results from truncation
+     * when the exact result is negative.
+     * <p>
+     * For examples, see {@link #floorDiv(int, int)}.
+     *
+     * @param x the dividend
+     * @param y the divisor
+     * @return the largest (closest to positive infinity)
+     * {@code int} value that is less than or equal to the algebraic quotient.
+     * @throws ArithmeticException if the divisor {@code y} is zero
+     * @see #floorMod(long, int)
+     * @see #floor(double)
+     * @since 9
+     */
+    public static long floorDiv(long x, int y) {
+        return floorDiv(x, (long)y);
+    }
+
+    /**
+     * Returns the largest (closest to positive infinity)
+     * {@code long} value that is less than or equal to the algebraic quotient.
+     * There is one special case, if the dividend is the
+     * {@linkplain Long#MIN_VALUE Long.MIN_VALUE} and the divisor is {@code -1},
+     * then integer overflow occurs and
+     * the result is equal to {@code Long.MIN_VALUE}.
+     * <p>
+     * Normal integer division operates under the round to zero rounding mode
+     * (truncation).  This operation instead acts under the round toward
+     * negative infinity (floor) rounding mode.
+     * The floor rounding mode gives different results from truncation
      * when the exact result is negative.
      * <p>
      * For examples, see {@link #floorDiv(int, int)}.
@@ -1159,8 +1264,34 @@ public final class Math {
      * @since 1.8
      */
     public static int floorMod(int x, int y) {
-        int r = x - floorDiv(x, y) * y;
-        return r;
+        return x - floorDiv(x, y) * y;
+    }
+
+    /**
+     * Returns the floor modulus of the {@code long} and {@code int} arguments.
+     * <p>
+     * The floor modulus is {@code x - (floorDiv(x, y) * y)},
+     * has the same sign as the divisor {@code y}, and
+     * is in the range of {@code -abs(y) < r < +abs(y)}.
+     *
+     * <p>
+     * The relationship between {@code floorDiv} and {@code floorMod} is such that:
+     * <ul>
+     *   <li>{@code floorDiv(x, y) * y + floorMod(x, y) == x}
+     * </ul>
+     * <p>
+     * For examples, see {@link #floorMod(int, int)}.
+     *
+     * @param x the dividend
+     * @param y the divisor
+     * @return the floor modulus {@code x - (floorDiv(x, y) * y)}
+     * @throws ArithmeticException if the divisor {@code y} is zero
+     * @see #floorDiv(long, int)
+     * @since 9
+     */
+    public static int floorMod(long x, int y) {
+        // Result cannot overflow the range of int.
+        return (int)(x - floorDiv(x, y) * y);
     }
 
     /**

@@ -41,4 +41,5 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> הודעות חדשות</item>
       <item quantity="one">הודעה חדשה אחת</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"ניהול"</string>
 </resources>

@@ -18,12 +18,13 @@
 #include <sys/mount.h>
 #endif
 #include <time.h>
-#include <uuid/uuid.h>
+#include <uuid.h>
 #include <errno.h>
+#include <getopt.h>
 
 #include "config.h"
 #ifdef HAVE_LIBBLKID
-#  include <blkid/blkid.h>
+#  include <blkid.h>
 #endif
 
 #include "f2fs_fs.h"
@@ -52,15 +53,18 @@ static void mkfs_usage()
 	MSG(0, "  -g add default options\n");
 	MSG(0, "  -i extended node bitmap, node ratio is 20%% by default\n");
 	MSG(0, "  -l label\n");
+	MSG(0, "  -U uuid\n");
 	MSG(0, "  -m support zoned block device [default:0]\n");
 	MSG(0, "  -o overprovision percentage [default:auto]\n");
 	MSG(0, "  -O feature1[,feature2,...] e.g. \"encrypt\"\n");
 	MSG(0, "  -C [encoding[:flag1,...]] Support casefolding with optional flags\n");
 	MSG(0, "  -q quiet mode\n");
+	MSG(0, "  -r set checkpointing seed (srand()) to 0\n");
 	MSG(0, "  -R root_owner [default: 0:0]\n");
 	MSG(0, "  -s # of segments per section [default:1]\n");
 	MSG(0, "  -S sparse mode\n");
 	MSG(0, "  -t 0: nodiscard, 1: discard [default:1]\n");
+	MSG(0, "  -T timestamps\n");
 	MSG(0, "  -w wanted sector size\n");
 	MSG(0, "  -z # of sections per zone [default:1]\n");
 	MSG(0, "  -V print the version number and exit\n");
@@ -88,6 +92,15 @@ static void f2fs_show_info()
 
 	if (c.defset == CONF_ANDROID)
 		MSG(0, "Info: Set conf for android\n");
+
+	if (c.feature & le32_to_cpu(F2FS_FEATURE_CASEFOLD))
+		MSG(0, "Info: Enable %s with casefolding\n",
+					f2fs_encoding2str(c.s_encoding));
+	if (c.feature & le32_to_cpu(F2FS_FEATURE_PRJQUOTA))
+		MSG(0, "Info: Enable Project quota\n");
+
+	if (c.feature & le32_to_cpu(F2FS_FEATURE_COMPRESSION))
+		MSG(0, "Info: Enable Compression\n");
 }
 
 static void add_default_options(void)
@@ -104,16 +117,28 @@ static void add_default_options(void)
 		c.root_uid = c.root_gid = 0;
 		break;
 	}
+#ifdef CONF_CASEFOLD
+	c.s_encoding = F2FS_ENC_UTF8_12_1;
+	c.feature |= cpu_to_le32(F2FS_FEATURE_CASEFOLD);
+#endif
+#ifdef CONF_PROJID
+	c.feature |= cpu_to_le32(F2FS_FEATURE_PRJQUOTA);
+	c.feature |= cpu_to_le32(F2FS_FEATURE_EXTRA_ATTR);
+#endif
 }
 
 static void f2fs_parse_options(int argc, char *argv[])
 {
-	static const char *option_string = "qa:c:C:d:e:E:g:il:mo:O:R:s:S:z:t:Vfw:";
+	static const char *option_string = "qa:c:C:d:e:E:g:hil:mo:O:rR:s:S:z:t:T:U:Vfw:";
+	static const struct option long_opts[] = {
+		{ .name = "help", .has_arg = 0, .flag = NULL, .val = 'h' },
+		{ .name = NULL, .has_arg = 0, .flag = NULL, .val = 0 }
+	};
 	int32_t option=0;
 	int val;
 	char *token;
 
-	while ((option = getopt(argc,argv,option_string)) != EOF) {
+	while ((option = getopt_long(argc,argv,option_string,long_opts,NULL)) != EOF) {
 		switch (option) {
 		case 'q':
 			c.dbg_lv = -1;
@@ -147,6 +172,9 @@ static void f2fs_parse_options(int argc, char *argv[])
 			if (!strcmp(optarg, "android"))
 				c.defset = CONF_ANDROID;
 			break;
+		case 'h':
+			mkfs_usage();
+			break;
 		case 'i':
 			c.large_nat_bitmap = 1;
 			break;
@@ -168,6 +196,9 @@ static void f2fs_parse_options(int argc, char *argv[])
 			if (parse_feature(feature_table, optarg))
 				mkfs_usage();
 			break;
+		case 'r':
+			c.fake_seed = 1;
+			break;
 		case 'R':
 			if (parse_root_owner(optarg, &c.root_uid, &c.root_gid))
 				mkfs_usage();
@@ -185,6 +216,12 @@ static void f2fs_parse_options(int argc, char *argv[])
 			break;
 		case 't':
 			c.trim = atoi(optarg);
+			break;
+		case 'T':
+			c.fixed_time = strtoul(optarg, NULL, 0);
+			break;
+		case 'U':
+			c.vol_uuid = strdup(optarg);
 			break;
 		case 'f':
 			force_overwrite = 1;

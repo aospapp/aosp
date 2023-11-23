@@ -18,6 +18,7 @@ package android.voiceinteraction.common;
 import android.app.VoiceInteractor.PickOptionRequest.Option;
 import android.content.LocusId;
 import android.os.Bundle;
+import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Log;
 
@@ -44,6 +45,59 @@ public class Utils {
     private static final String TAG = Utils.class.getSimpleName();
 
     public static final long OPERATION_TIMEOUT_MS = 5000;
+
+    /** CDD restricts the max size of each successful hotword result is 100 bytes. */
+    public static final int MAX_HOTWORD_DETECTED_RESULT_SIZE = 100;
+
+    /**
+     * Limits the max value for the hotword offset.
+     *
+     * Note: Must match the definition in
+     * frameworks/base/core/java/android/service/voice/HotwordDetectedResult.java.
+     */
+    public static final int LIMIT_HOTWORD_OFFSET_MAX_VALUE = 60 * 60 * 1000; // 1 hour
+
+    /**
+     * Limits the max value for the triggered audio channel.
+     *
+     * Note: Must match the definition in
+     * frameworks/base/core/java/android/service/voice/HotwordDetectedResult.java.
+     */
+    public static final int LIMIT_AUDIO_CHANNEL_MAX_VALUE = 63;
+
+    /** Decide which VoiceInteractionService should be started for testing. */
+    public static final int HOTWORD_DETECTION_SERVICE_NONE = 0;
+    public static final int HOTWORD_DETECTION_SERVICE_BASIC = 1;
+    public static final int HOTWORD_DETECTION_SERVICE_INVALIDATION = 2;
+    public static final int HOTWORD_DETECTION_SERVICE_WITHOUT_ISOLATED_PROCESS = 3;
+    public static final int HOTWORD_DETECTION_SERVICE_WITHIN_ISOLATED_PROCESS = 4;
+
+    /**
+     * Indicate which test event for testing.
+     *
+     * Note: The VIS is the abbreviation of VoiceInteractionService
+     */
+    public static final int VIS_NORMAL_TEST = 0;
+    public static final int VIS_WITHOUT_MANAGE_HOTWORD_DETECTION_PERMISSION_TEST = 1;
+    public static final int VIS_HOLD_BIND_HOTWORD_DETECTION_PERMISSION_TEST = 2;
+
+    public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_TEST = 100;
+    public static final int HOTWORD_DETECTION_SERVICE_DSP_ONDETECT_TEST = 101;
+    public static final int HOTWORD_DETECTION_SERVICE_EXTERNAL_SOURCE_ONDETECT_TEST = 102;
+    public static final int HOTWORD_DETECTION_SERVICE_FROM_SOFTWARE_TRIGGER_TEST = 103;
+    public static final int HOTWORD_DETECTION_SERVICE_MIC_ONDETECT_TEST = 104;
+    public static final int HOTWORD_DETECTION_SERVICE_DSP_ONREJECT_TEST = 105;
+    public static final int HOTWORD_DETECTION_SERVICE_PROCESS_DIED_TEST = 106;
+    public static final int HOTWORD_DETECTION_SERVICE_CALL_STOP_RECOGNITION = 107;
+
+    public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_SUCCESS = 1;
+    public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_ILLEGAL_STATE_EXCEPTION = 2;
+    public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_SECURITY_EXCEPTION = 3;
+    public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_SHARED_MEMORY_NOT_READ_ONLY = 4;
+    public static final int HOTWORD_DETECTION_SERVICE_GET_ERROR = 5;
+
+    /** Indicate which test scenario for testing. */
+    public static final int HOTWORD_DETECTION_SERVICE_ON_UPDATE_STATE_CRASH = 1;
 
     public static final String TESTCASE_TYPE = "testcase_type";
     public static final String TESTINFO = "testinfo";
@@ -117,6 +171,15 @@ public class Utils {
     public static final String SERVICE_NAME =
             "android.voiceinteraction.service/.MainInteractionService";
 
+    public static final String HOTWORD_DETECTION_SERVICE_TRIGGER_RESULT_INTENT =
+            "android.intent.action.HOTWORD_DETECTION_SERVICE_TRIGGER_RESULT";
+    public static final String HOTWORD_DETECTION_SERVICE_ONDETECT_RESULT_INTENT =
+            "android.intent.action.HOTWORD_DETECTION_SERVICE_ONDETECT_RESULT";
+    public static final String KEY_SERVICE_TYPE = "serviceType";
+    public static final String KEY_TEST_EVENT = "testEvent";
+    public static final String KEY_TEST_RESULT = "testResult";
+    public static final String KEY_TEST_SCENARIO = "testScenario";
+
     public static final String toBundleString(Bundle bundle) {
         if (bundle == null) {
             return "null_bundle";
@@ -185,5 +248,23 @@ public class Utils {
             Log.e(TAG, "Interrupted", e);
         }
         return false;
+    }
+
+    public static int getParcelableSize(Parcelable parcelable) {
+        final Parcel p = Parcel.obtain();
+        parcelable.writeToParcel(p, 0);
+        p.setDataPosition(0);
+        final int size = p.dataSize();
+        p.recycle();
+        return size;
+    }
+
+    public static int bitCount(long value) {
+        int bits = 0;
+        while (value > 0) {
+            bits++;
+            value = value >> 1;
+        }
+        return bits;
     }
 }

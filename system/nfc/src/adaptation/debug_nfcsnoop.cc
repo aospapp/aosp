@@ -17,11 +17,16 @@
  ******************************************************************************/
 
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 #include <resolv.h>
 #include <zlib.h>
 #include <mutex>
 
 #include <ringbuffer.h>
+
+#include <cutils/properties.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #include "bt_types.h"
 #include "include/debug_nfcsnoop.h"
@@ -29,10 +34,15 @@
 
 #define USEC_PER_SEC 1000000ULL
 
+#define DEFAULT_NFCSNOOP_PATH "/data/misc/nfc/logs/nfcsnoop_nci_logs"
+#define DEFAULT_NFCSNOOP_FILE_SIZE 32 * 1024 * 1024
+
 // Total nfcsnoop memory log buffer size
 #ifndef NFCSNOOP_MEM_BUFFER_SIZE
 static const size_t NFCSNOOP_MEM_BUFFER_SIZE = (256 * 1024);
 #endif
+
+#define NFCSNOOP_MEM_BUFFER_THRESHOLD 1024
 
 // Block size for copying buffers (for compression/encoding etc.)
 static const size_t BLOCK_SIZE = 16384;
@@ -43,6 +53,9 @@ static const uint8_t MAX_LINE_LENGTH = 128;
 static std::mutex buffer_mutex;
 static ringbuffer_t* buffer = nullptr;
 static uint64_t last_timestamp_ms = 0;
+static bool isDebuggable = false;
+
+using android::base::StringPrintf;
 
 static void nfcsnoop_cb(const uint8_t* data, const size_t length,
                         bool is_received, const uint64_t timestamp_us) {
@@ -85,28 +98,27 @@ static bool nfcsnoop_compress(ringbuffer_t* rb_dst, ringbuffer_t* rb_src) {
   if (deflateInit(&zs, Z_DEFAULT_COMPRESSION) != Z_OK) return false;
 
   bool rc = true;
-  uint8_t block_src[BLOCK_SIZE];
-  uint8_t block_dst[BLOCK_SIZE];
+  std::unique_ptr<uint8_t> block_src(new uint8_t[BLOCK_SIZE]);
+  std::unique_ptr<uint8_t> block_dst(new uint8_t[BLOCK_SIZE]);
 
   const size_t num_blocks =
       (ringbuffer_size(rb_src) + BLOCK_SIZE - 1) / BLOCK_SIZE;
   for (size_t i = 0; i < num_blocks; ++i) {
     zs.avail_in =
-        ringbuffer_peek(rb_src, i * BLOCK_SIZE, block_src, BLOCK_SIZE);
-    zs.next_in = block_src;
+        ringbuffer_peek(rb_src, i * BLOCK_SIZE, block_src.get(), BLOCK_SIZE);
+    zs.next_in = block_src.get();
 
     do {
       zs.avail_out = BLOCK_SIZE;
-      zs.next_out = block_dst;
+      zs.next_out = block_dst.get();
 
       int err = deflate(&zs, (i == num_blocks - 1) ? Z_FINISH : Z_NO_FLUSH);
       if (err == Z_STREAM_ERROR) {
         rc = false;
         break;
       }
-
       const size_t length = BLOCK_SIZE - zs.avail_out;
-      ringbuffer_insert(rb_dst, block_dst, length);
+      ringbuffer_insert(rb_dst, block_dst.get(), length);
     } while (zs.avail_out == 0);
   }
 
@@ -121,7 +133,17 @@ void nfcsnoop_capture(const NFC_HDR* packet, bool is_received) {
                        static_cast<uint64_t>(tv.tv_usec);
   uint8_t* p = (uint8_t*)(packet + 1) + packet->offset;
   uint8_t mt = (*(p)&NCI_MT_MASK) >> NCI_MT_SHIFT;
-
+  if (isDebuggable &&
+      ringbuffer_available(buffer) < NFCSNOOP_MEM_BUFFER_THRESHOLD) {
+    if (storeNfcSnoopLogs(DEFAULT_NFCSNOOP_PATH, DEFAULT_NFCSNOOP_FILE_SIZE)) {
+      std::lock_guard<std::mutex> lock(buffer_mutex);
+      // Free the buffer after the content is stored in log file
+      ringbuffer_free(buffer);
+      buffer = nullptr;
+      // Allocate new buffer to store new NCI logs
+      debug_nfcsnoop_init();
+    }
+  }
   if (mt == NCI_MT_DATA) {
     nfcsnoop_cb(p, NCI_DATA_HDR_SIZE, is_received, timestamp);
   } else if (packet->len > 2) {
@@ -131,6 +153,7 @@ void nfcsnoop_capture(const NFC_HDR* packet, bool is_received) {
 
 void debug_nfcsnoop_init(void) {
   if (buffer == nullptr) buffer = ringbuffer_init(NFCSNOOP_MEM_BUFFER_SIZE);
+  isDebuggable = property_get_int32("ro.debuggable", 0);
 }
 
 void debug_nfcsnoop_dump(int fd) {
@@ -188,4 +211,36 @@ void debug_nfcsnoop_dump(int fd) {
 
 error:
   ringbuffer_free(ringbuffer);
+}
+
+bool storeNfcSnoopLogs(std::string filepath, off_t maxFileSize) {
+  int fileStream;
+  off_t fileSize;
+  // check file size
+  struct stat st;
+  if (stat(filepath.c_str(), &st) == 0) {
+    fileSize = st.st_size;
+  } else {
+    fileSize = 0;
+  }
+
+  mode_t prevmask = umask(0);
+  if (fileSize >= maxFileSize) {
+    fileStream = open(filepath.c_str(), O_RDWR | O_CREAT | O_TRUNC,
+                      S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+  } else {
+    fileStream = open(filepath.c_str(), O_RDWR | O_CREAT | O_APPEND,
+                      S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+  }
+  umask(prevmask);
+
+  if (fileStream >= 0) {
+    debug_nfcsnoop_dump(fileStream);
+    close(fileStream);
+    return true;
+  } else {
+    LOG(ERROR) << StringPrintf("%s: fail to create, error = %d", __func__,
+                               errno);
+    return false;
+  }
 }

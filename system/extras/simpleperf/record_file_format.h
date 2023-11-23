@@ -53,6 +53,7 @@ file feature section:
     uint32_t dex_file_offset_count;  // Only when file_type = DSO_DEX_FILE
     uint64_t dex_file_offsets[dex_file_offset_count];  // Only when file_type = DSO_DEX_FILE
     uint64_t file_offset_of_min_vaddr;  // Only when file_type = DSO_ELF_FILE
+    uint64_t memory_offset_of_min_vaddr;  // Only when file_type = DSO_KERNEL_MODULE
   };
 
 meta_info feature section:
@@ -65,8 +66,18 @@ meta_info feature section:
   keys in meta_info feature section include:
     simpleperf_version,
 
+debug_unwind feature section:
+  message DebugUnwindSection from record_file.proto
+
+debug_unwind_file feature section:
+  data for file 1
+  data for file 2
+  ...
+
+  The file list is stored in debug_unwind feature section.
 */
 
+namespace simpleperf {
 namespace PerfFileFormat {
 
 enum {
@@ -95,6 +106,8 @@ enum {
   FEAT_SIMPLEPERF_START = 128,
   FEAT_FILE = FEAT_SIMPLEPERF_START,
   FEAT_META_INFO,
+  FEAT_DEBUG_UNWIND,
+  FEAT_DEBUG_UNWIND_FILE,
   FEAT_MAX_NUM = 256,
 };
 
@@ -124,5 +137,6 @@ struct FileAttr {
 };
 
 }  // namespace PerfFileFormat
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_RECORD_FILE_FORMAT_H_

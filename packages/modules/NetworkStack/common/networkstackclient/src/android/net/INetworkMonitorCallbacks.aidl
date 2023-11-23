@@ -21,6 +21,7 @@ import android.net.DataStallReportParcelable;
 import android.net.INetworkMonitor;
 import android.net.NetworkTestResultParcelable;
 import android.net.PrivateDnsConfigParcel;
+import android.os.PersistableBundle;
 
 /** @hide */
 oneway interface INetworkMonitorCallbacks {

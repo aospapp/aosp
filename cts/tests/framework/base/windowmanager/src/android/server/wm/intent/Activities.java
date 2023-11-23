@@ -17,6 +17,7 @@
 package android.server.wm.intent;
 
 import android.app.Activity;
+import android.os.Bundle;
 
 /**
  * A collection of activities with various launch modes used in the intent tests.
@@ -27,60 +28,74 @@ import android.app.Activity;
  */
 public class Activities {
 
-    public static class TrackerActivity extends Activity {
+    private static class BaseActivity extends Activity {
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            setTitle(getClass().getSimpleName());
+        }
     }
 
-    public static class RegularActivity extends Activity {
+    public static class TrackerActivity extends BaseActivity {
     }
 
-    public static class SingleTopActivity extends Activity {
+    public static class RegularActivity extends BaseActivity {
     }
 
-    public static class SingleInstanceActivity extends Activity {
+    public static class SingleTopActivity extends BaseActivity {
     }
 
-    public static class SingleInstanceActivity2 extends Activity {
+    public static class SingleInstanceActivity extends BaseActivity {
     }
 
-    public static class SingleTaskActivity extends Activity {
+    public static class SingleInstanceActivity2 extends BaseActivity {
     }
 
-    public static class SingleTaskActivity2 extends Activity {
+    public static class SingleTaskActivity extends BaseActivity {
     }
 
-    public static class TaskAffinity1Activity extends Activity {
+    public static class SingleTaskActivity2 extends BaseActivity {
     }
 
-    public static class TaskAffinity1Activity2 extends Activity {
+    public static class SingleInstancePerTaskActivity extends BaseActivity {
     }
 
-    public static class TaskAffinity2Activity extends Activity {
+    public static class SingleInstancePerTaskDocumentNeverActivity extends BaseActivity {
     }
 
-    public static class TaskAffinity3Activity extends Activity {
+    public static class TaskAffinity1Activity extends BaseActivity {
     }
 
-    public static class ClearTaskOnLaunchActivity extends Activity {
+    public static class TaskAffinity1Activity2 extends BaseActivity {
     }
 
-    public static class DocumentLaunchIntoActivity extends Activity {
+    public static class TaskAffinity2Activity extends BaseActivity {
     }
 
-    public static class DocumentLaunchAlwaysActivity extends Activity {
+    public static class TaskAffinity3Activity extends BaseActivity {
     }
 
-    public static class DocumentLaunchNeverActivity extends Activity {
+    public static class ClearTaskOnLaunchActivity extends BaseActivity {
     }
 
-    public static class NoHistoryActivity extends Activity {
+    public static class DocumentLaunchIntoActivity extends BaseActivity {
     }
 
-    public static class LauncherActivity extends Activity {
+    public static class DocumentLaunchAlwaysActivity extends BaseActivity {
     }
 
-    public static class RelinquishTaskIdentityActivity extends Activity {
+    public static class DocumentLaunchNeverActivity extends BaseActivity {
     }
 
-    public static class TaskAffinity1RelinquishTaskIdentityActivity extends Activity {
+    public static class NoHistoryActivity extends BaseActivity {
+    }
+
+    public static class LauncherActivity extends BaseActivity {
+    }
+
+    public static class RelinquishTaskIdentityActivity extends BaseActivity {
+    }
+
+    public static class TaskAffinity1RelinquishTaskIdentityActivity extends BaseActivity {
     }
 }

@@ -17,12 +17,13 @@
 package android.media.tv.tuner.cts;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.tv.tuner.Tuner;
+import android.media.tv.tuner.TunerVersionChecker;
 import android.media.tv.tuner.filter.AlpFilterConfiguration;
 import android.media.tv.tuner.filter.AvSettings;
 import android.media.tv.tuner.filter.DownloadSettings;
@@ -40,9 +41,13 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.RequiredFeatureRule;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -50,6 +55,10 @@ import org.junit.runner.RunWith;
 @SmallTest
 public class TunerFilterTest {
     private static final String TAG = "MediaTunerFilterTest";
+
+    @Rule
+    public RequiredFeatureRule featureRule = new RequiredFeatureRule(
+            PackageManager.FEATURE_TUNER);
 
     private Context mContext;
     private Tuner mTuner;
@@ -59,7 +68,6 @@ public class TunerFilterTest {
         mContext = InstrumentationRegistry.getTargetContext();
         InstrumentationRegistry
                 .getInstrumentation().getUiAutomation().adoptShellPermissionIdentity();
-        if (!hasTuner()) return;
         mTuner = new Tuner(mContext, null, 100);
     }
 
@@ -73,19 +81,36 @@ public class TunerFilterTest {
 
     @Test
     public void testAvSettings() throws Exception {
-        if (!hasTuner()) return;
         AvSettings settings =
                 AvSettings
-                        .builder(Filter.TYPE_TS, true)
+                        .builder(Filter.TYPE_TS, true) // is Audio
                         .setPassthrough(false)
+                        .setAudioStreamType(AvSettings.AUDIO_STREAM_TYPE_MPEG1)
                         .build();
 
         assertFalse(settings.isPassthrough());
+        if (TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_1_1)) {
+            assertEquals(settings.getAudioStreamType(), AvSettings.AUDIO_STREAM_TYPE_MPEG1);
+        } else {
+            assertEquals(settings.getAudioStreamType(), AvSettings.AUDIO_STREAM_TYPE_UNDEFINED);
+        }
+
+        settings = AvSettings
+                .builder(Filter.TYPE_TS, false) // is Video
+                .setPassthrough(false)
+                .setVideoStreamType(AvSettings.VIDEO_STREAM_TYPE_MPEG1)
+                .build();
+
+        assertFalse(settings.isPassthrough());
+        if (TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_1_1)) {
+            assertEquals(settings.getVideoStreamType(), AvSettings.VIDEO_STREAM_TYPE_MPEG1);
+        } else {
+            assertEquals(settings.getVideoStreamType(), AvSettings.VIDEO_STREAM_TYPE_UNDEFINED);
+        }
     }
 
     @Test
     public void testDownloadSettings() throws Exception {
-        if (!hasTuner()) return;
         DownloadSettings settings =
                 DownloadSettings
                         .builder(Filter.TYPE_MMTP)
@@ -97,7 +122,6 @@ public class TunerFilterTest {
 
     @Test
     public void testPesSettings() throws Exception {
-        if (!hasTuner()) return;
         PesSettings settings =
                 PesSettings
                         .builder(Filter.TYPE_TS)
@@ -111,7 +135,6 @@ public class TunerFilterTest {
 
     @Test
     public void testRecordSettings() throws Exception {
-        if (!hasTuner()) return;
         RecordSettings settings =
                 RecordSettings
                         .builder(Filter.TYPE_TS)
@@ -119,28 +142,27 @@ public class TunerFilterTest {
                                 RecordSettings.TS_INDEX_FIRST_PACKET
                                         | RecordSettings.TS_INDEX_PRIVATE_DATA)
                         .setScIndexType(RecordSettings.INDEX_TYPE_SC)
-                        .setScIndexMask(RecordSettings.SC_INDEX_I_FRAME)
+                        .setScIndexMask(RecordSettings.SC_INDEX_B_SLICE)
                         .build();
 
         assertEquals(
                 RecordSettings.TS_INDEX_FIRST_PACKET | RecordSettings.TS_INDEX_PRIVATE_DATA,
                 settings.getTsIndexMask());
         assertEquals(RecordSettings.INDEX_TYPE_SC, settings.getScIndexType());
-        assertEquals(RecordSettings.SC_INDEX_I_FRAME, settings.getScIndexMask());
+        assertEquals(RecordSettings.SC_INDEX_B_SLICE, settings.getScIndexMask());
     }
 
     @Test
     public void testSectionSettingsWithSectionBits() throws Exception {
-        if (!hasTuner()) return;
         SectionSettingsWithSectionBits settings =
                 SectionSettingsWithSectionBits
                         .builder(Filter.TYPE_TS)
                         .setCrcEnabled(true)
                         .setRepeat(false)
                         .setRaw(false)
-                        .setFilter(new byte[] {2, 3, 4})
-                        .setMask(new byte[] {7, 6, 5, 4})
-                        .setMode(new byte[] {22, 55, 33})
+                        .setFilter(new byte[]{2, 3, 4})
+                        .setMask(new byte[]{7, 6, 5, 4})
+                        .setMode(new byte[]{22, 55, 33})
                         .build();
 
         assertTrue(settings.isCrcEnabled());
@@ -153,7 +175,6 @@ public class TunerFilterTest {
 
     @Test
     public void testSectionSettingsWithTableInfo() throws Exception {
-        if (!hasTuner()) return;
         SectionSettingsWithTableInfo settings =
                 SectionSettingsWithTableInfo
                         .builder(Filter.TYPE_TS)
@@ -173,7 +194,6 @@ public class TunerFilterTest {
 
     @Test
     public void testAlpFilterConfiguration() throws Exception {
-        if (!hasTuner()) return;
         AlpFilterConfiguration config =
                 AlpFilterConfiguration
                         .builder()
@@ -191,16 +211,16 @@ public class TunerFilterTest {
 
     @Test
     public void testIpFilterConfiguration() throws Exception {
-        if (!hasTuner()) return;
         IpFilterConfiguration config =
                 IpFilterConfiguration
                         .builder()
-                        .setSrcIpAddress(new byte[] {(byte) 0xC0, (byte) 0xA8, 0, 1})
-                        .setDstIpAddress(new byte[] {(byte) 0xC0, (byte) 0xA8, 3, 4})
+                        .setSrcIpAddress(new byte[]{(byte) 0xC0, (byte) 0xA8, 0, 1})
+                        .setDstIpAddress(new byte[]{(byte) 0xC0, (byte) 0xA8, 3, 4})
                         .setSrcPort(33)
                         .setDstPort(23)
                         .setPassthrough(false)
                         .setSettings(null)
+                        .setIpFilterContextId(1)
                         .build();
 
         assertEquals(Filter.TYPE_IP, config.getType());
@@ -212,11 +232,17 @@ public class TunerFilterTest {
         assertEquals(23, config.getDstPort());
         assertFalse(config.isPassthrough());
         assertEquals(null, config.getSettings());
+        if (!TunerVersionChecker.checkHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_1_1,
+                TAG + ": testIpFilterConfiguration.setIpFilterContextId")) {
+            assertEquals(IpFilterConfiguration.INVALID_IP_FILTER_CONTEXT_ID,
+                    config.getIpFilterContextId());
+        } else {
+            assertEquals(1, config.getIpFilterContextId());
+        }
     }
 
     @Test
     public void testMmtpFilterConfiguration() throws Exception {
-        if (!hasTuner()) return;
         MmtpFilterConfiguration config =
                 MmtpFilterConfiguration
                         .builder()
@@ -231,7 +257,6 @@ public class TunerFilterTest {
 
     @Test
     public void testTlvFilterConfiguration() throws Exception {
-        if (!hasTuner()) return;
         TlvFilterConfiguration config =
                 TlvFilterConfiguration
                         .builder()
@@ -250,8 +275,6 @@ public class TunerFilterTest {
 
     @Test
     public void testTsFilterConfiguration() throws Exception {
-        if (!hasTuner()) return;
-
         PesSettings settings =
                 PesSettings
                         .builder(Filter.TYPE_TS)

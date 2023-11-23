@@ -82,8 +82,8 @@ main ()
         Enumeration     Enum_Loc;
         Str_30          Str_1_Loc;
         Str_30          Str_2_Loc;
-  REG   int             Run_Index;
-  REG   int             Number_Of_Runs;
+  REG   long            Run_Index;
+  REG   long            Number_Of_Runs;
 
   /* Initializations */
 
@@ -103,8 +103,8 @@ main ()
         /* Arr_2_Glob [8][7] would have an undefined value.             */
         /* Warning: With 16-Bit processors and Number_Of_Runs > 32000,  */
         /* overflow may occur for this array element.                   */
-     int n;
-     scanf ("%d", &n);
+     long n;
+     scanf ("%ld", &n);
      Number_Of_Runs = n;
 
 

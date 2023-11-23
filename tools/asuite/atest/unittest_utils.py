@@ -81,7 +81,7 @@ def assert_equal_testinfo_sets(test_class, test_info_set_a, test_info_set_b):
             raise AssertionError('No matching TestInfo (%s) in [%s]' %
                                  (test_info_a, ';'.join([str(t) for t in test_info_set_b])))
 
-
+# pylint: disable=too-many-return-statements
 def isfile_side_effect(value):
     """Mock return values for os.path.isfile."""
     if value == '/%s/%s' % (uc.CC_MODULE_DIR, constants.MODULE_CONFIG):
@@ -99,6 +99,18 @@ def isfile_side_effect(value):
     if value.endswith(uc.INT_NAME + '.xml'):
         return True
     if value.endswith(uc.GTF_INT_NAME + '.xml'):
+        return True
+    if value.endswith(
+        '/%s/%s' % (uc.ANDTEST_CONFIG_PATH, constants.MODULE_CONFIG)):
+        return True
+    if value.endswith(
+        '/%s/%s' % (uc.SINGLE_CONFIG_PATH, uc.SINGLE_CONFIG_NAME)):
+        return True
+    if value.endswith(
+        '/%s/%s' % (uc.MULTIPLE_CONFIG_PATH, uc.MAIN_CONFIG_NAME)):
+        return True
+    if value.endswith(
+        '/%s/%s' % (uc.MULTIPLE_CONFIG_PATH, uc.SUB_CONFIG_NAME_2)):
         return True
     return False
 

@@ -17,14 +17,15 @@
 #define LOG_TAG "apexd"
 
 #include <strings.h>
+#include <sys/stat.h>
 
 #include <ApexProperties.sysprop.h>
 #include <android-base/logging.h>
 
 #include "apexd.h"
 #include "apexd_checkpoint_vold.h"
+#include "apexd_lifecycle.h"
 #include "apexd_prepostinstall.h"
-#include "apexd_prop.h"
 #include "apexservice.h"
 
 #include <android-base/properties.h>
@@ -44,12 +45,17 @@ int HandleSubcommand(char** argv) {
 
   if (strcmp("--bootstrap", argv[1]) == 0) {
     LOG(INFO) << "Bootstrap subcommand detected";
-    return android::apex::onBootstrap();
+    return android::apex::OnBootstrap();
   }
 
   if (strcmp("--unmount-all", argv[1]) == 0) {
     LOG(INFO) << "Unmount all subcommand detected";
-    return android::apex::unmountAll();
+    return android::apex::UnmountAll();
+  }
+
+  if (strcmp("--otachroot-bootstrap", argv[1]) == 0) {
+    LOG(INFO) << "OTA chroot bootstrap subcommand detected";
+    return android::apex::OnOtaChrootBootstrap();
   }
 
   if (strcmp("--snapshotde", argv[1]) == 0) {
@@ -62,16 +68,16 @@ int HandleSubcommand(char** argv) {
       LOG(ERROR) << "Could not retrieve vold service: "
                  << vold_service_st.error();
     } else {
-      android::apex::initializeVold(&*vold_service_st);
+      android::apex::InitializeVold(&*vold_service_st);
     }
 
-    int result = android::apex::snapshotOrRestoreDeUserData();
+    int result = android::apex::SnapshotOrRestoreDeUserData();
 
     if (result == 0) {
       // Notify other components (e.g. init) that all APEXs are ready to be used
       // Note that it's important that the binder service is registered at this
       // point, since other system services might depend on it.
-      android::apex::onAllPackagesReady();
+      android::apex::OnAllPackagesReady();
     }
     return result;
   }
@@ -98,20 +104,40 @@ void InstallSigtermSignalHandler() {
 
 int main(int /*argc*/, char** argv) {
   android::base::InitLogging(argv, &android::base::KernelLogger);
-  // TODO: add a -v flag or an external setting to change LogSeverity.
-  android::base::SetMinimumLogSeverity(android::base::VERBOSE);
+  // TODO(b/158468454): add a -v flag or an external setting to change severity.
+  android::base::SetMinimumLogSeverity(android::base::INFO);
+
+  // set umask to 022 so that files/dirs created are accessible to other
+  // processes e.g.) apex-info-file.xml is supposed to be read by other
+  // processes
+  umask(022);
 
   InstallSigtermSignalHandler();
 
+  android::apex::SetConfig(android::apex::kDefaultConfig);
+
+  android::apex::ApexdLifecycle& lifecycle =
+      android::apex::ApexdLifecycle::GetInstance();
+  bool booting = lifecycle.IsBooting();
+
   const bool has_subcommand = argv[1] != nullptr;
   if (!android::sysprop::ApexProperties::updatable().value_or(false)) {
-    LOG(INFO) << "This device does not support updatable APEX. Exiting";
     if (!has_subcommand) {
-      // mark apexd as activated so that init can proceed
-      android::apex::onAllPackagesActivated();
+      if (!booting) {
+        // We've finished booting, but for some reason somebody tried to start
+        // apexd. Simply exit.
+        return 0;
+      }
+
+      LOG(INFO) << "This device does not support updatable APEX. Exiting";
+      // Mark apexd as activated so that init can proceed.
+      android::apex::OnAllPackagesActivated(/*is_bootstrap=*/false);
     } else if (strcmp("--snapshotde", argv[1]) == 0) {
+      LOG(INFO) << "This device does not support updatable APEX. Exiting";
       // mark apexd as ready
-      android::apex::onAllPackagesReady();
+      android::apex::OnAllPackagesReady();
+    } else if (strcmp("--otachroot-bootstrap", argv[1]) == 0) {
+      return android::apex::OnOtaChrootBootstrapFlattenedApex();
     }
     return 0;
   }
@@ -129,12 +155,21 @@ int main(int /*argc*/, char** argv) {
   } else {
     vold_service = &*vold_service_st;
   }
-  android::apex::initialize(vold_service);
+  android::apex::Initialize(vold_service);
 
-  bool booting = android::apex::isBooting();
   if (booting) {
-    android::apex::migrateSessionsDirIfNeeded();
-    android::apex::onStart();
+    if (auto res = android::apex::MigrateSessionsDirIfNeeded(); !res.ok()) {
+      LOG(ERROR) << "Failed to migrate sessions to /metadata partition : "
+                 << res.error();
+    }
+    android::apex::OnStart();
+  } else {
+    // TODO(b/172911822): Trying to use data apex related ApexFileRepository
+    //  apis without initializing it should throw error. Also, unit tests should
+    //  not pass without initialization.
+    // TODO(b/172911822): Consolidate this with Initialize() when
+    //  ApexFileRepository can act as cache and re-scanning is not expensive
+    android::apex::InitializeDataApex();
   }
   android::apex::binder::CreateAndRegisterService();
   android::apex::binder::StartThreadPool();
@@ -146,10 +181,8 @@ int main(int /*argc*/, char** argv) {
     // themselves should wait for the ready status instead, which is set when
     // the "--snapshotde" subcommand is received and snapshot/restore is
     // complete.
-    android::apex::onAllPackagesActivated();
-    android::apex::waitForBootStatus(
-        android::apex::revertActiveSessionsAndReboot,
-        android::apex::bootCompletedCleanup);
+    android::apex::OnAllPackagesActivated(/*is_bootstrap=*/false);
+    lifecycle.WaitForBootStatus(android::apex::RevertActiveSessionsAndReboot);
   }
 
   android::apex::binder::AllowServiceShutdown();

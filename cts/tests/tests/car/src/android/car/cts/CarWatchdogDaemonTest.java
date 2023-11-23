@@ -85,14 +85,15 @@ public final class CarWatchdogDaemonTest {
     @Test
     public void testRecordsIoPerformanceData() throws Exception {
         String packageName = getContext().getPackageName();
-        runShellCommand("dumpsys " + CAR_WATCHDOG_SERVICE_NAME
-                + " --start_io --interval 5 --max_duration 120 --filter_packages " + packageName);
+        runShellCommand(
+                "dumpsys %s --start_perf --interval 5 --max_duration 120 --filter_packages %s",
+                CAR_WATCHDOG_SERVICE_NAME, packageName);
         long writtenBytes = writeToDisk(testDir);
         assertWithMessage("Failed to write data to dir '" + testDir.getAbsolutePath() + "'").that(
                 writtenBytes).isGreaterThan(0L);
         // Sleep twice the collection interval to capture the entire write.
         Thread.sleep(CAPTURE_WAIT_MS);
-        String contents = runShellCommand("dumpsys " + CAR_WATCHDOG_SERVICE_NAME + " --stop_io");
+        String contents = runShellCommand("dumpsys %s --stop_perf", CAR_WATCHDOG_SERVICE_NAME);
         Log.i(TAG, "stop results:" + contents);
         assertWithMessage("Failed to custom collect I/O performance data").that(
                 contents).isNotEmpty();

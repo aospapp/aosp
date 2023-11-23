@@ -355,19 +355,7 @@ class RootfsVerificationTool(DevTool):
 
 
 class BootFromUsbTool(DevTool):
-    """
-    USB boot configuration tool.
-
-    Certain boards have restrictions with USB booting. Mario can't
-    boot from USB at all, and Alex/ZGB can't disable USB booting
-    once it's been enabled. Any attempts to perform these operation
-    will raise a FeatureUnavailableError exception.
-    """
-
-
-    # Lists of which platforms can't enable or disable USB booting.
-    ENABLE_UNAVAILABLE_PLATFORMS = ('mario',)
-    DISABLE_UNAVAILABLE_PLATFORMS = ('mario', 'alex', 'zgb')
+    """USB boot configuration tool."""
 
 
     def is_enabled(self):
@@ -375,18 +363,10 @@ class BootFromUsbTool(DevTool):
 
 
     def enable(self):
-        platform = self._host.get_platform().lower()
-        if any(p in platform for p in self.ENABLE_UNAVAILABLE_PLATFORMS):
-            raise FeatureUnavailableError('USB boot unavilable on %s' %
-                                          platform)
         _send_debugd_command(self._host, 'EnableBootFromUsb')
 
 
     def disable(self):
-        platform = self._host.get_platform().lower()
-        if any(p in platform for p in self.DISABLE_UNAVAILABLE_PLATFORMS):
-            raise FeatureUnavailableError("Can't disable USB boot on %s" %
-                                          platform)
         self._host.run('crossystem dev_boot_usb=0')
 
 

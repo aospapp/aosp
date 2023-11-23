@@ -82,7 +82,7 @@ void TIntermediate::warn(TInfoSink& infoSink, const char* message)
 //
 void TIntermediate::merge(TInfoSink& infoSink, TIntermediate& unit)
 {
-#ifndef GLSLANG_WEB
+#if !defined(GLSLANG_WEB) && !defined(GLSLANG_ANGLE)
     mergeCallGraphs(infoSink, unit);
     mergeModes(infoSink, unit);
     mergeTrees(infoSink, unit);
@@ -104,7 +104,7 @@ void TIntermediate::mergeCallGraphs(TInfoSink& infoSink, TIntermediate& unit)
     callGraph.insert(callGraph.end(), unit.callGraph.begin(), unit.callGraph.end());
 }
 
-#ifndef GLSLANG_WEB
+#if !defined(GLSLANG_WEB) && !defined(GLSLANG_ANGLE)
 
 #define MERGE_MAX(member) member = std::max(member, unit.member)
 #define MERGE_TRUE(member) if (unit.member) member = unit.member;
@@ -153,7 +153,7 @@ void TIntermediate::mergeModes(TInfoSink& infoSink, TIntermediate& unit)
 
     if (vertices == TQualifier::layoutNotSet)
         vertices = unit.vertices;
-    else if (vertices != unit.vertices) {
+    else if (unit.vertices != TQualifier::layoutNotSet && vertices != unit.vertices) {
         if (language == EShLangGeometry || language == EShLangMeshNV)
             error(infoSink, "Contradictory layout max_vertices values");
         else if (language == EShLangTessControl)
@@ -172,12 +172,12 @@ void TIntermediate::mergeModes(TInfoSink& infoSink, TIntermediate& unit)
 
     if (inputPrimitive == ElgNone)
         inputPrimitive = unit.inputPrimitive;
-    else if (inputPrimitive != unit.inputPrimitive)
+    else if (unit.inputPrimitive != ElgNone && inputPrimitive != unit.inputPrimitive)
         error(infoSink, "Contradictory input layout primitives");
 
     if (outputPrimitive == ElgNone)
         outputPrimitive = unit.outputPrimitive;
-    else if (outputPrimitive != unit.outputPrimitive)
+    else if (unit.outputPrimitive != ElgNone && outputPrimitive != unit.outputPrimitive)
         error(infoSink, "Contradictory output layout primitives");
 
     if (originUpperLeft != unit.originUpperLeft || pixelCenterInteger != unit.pixelCenterInteger)
@@ -196,12 +196,14 @@ void TIntermediate::mergeModes(TInfoSink& infoSink, TIntermediate& unit)
     MERGE_TRUE(pointMode);
 
     for (int i = 0; i < 3; ++i) {
-        if (!localSizeNotDefault[i] && unit.localSizeNotDefault[i]) {
-            localSize[i] = unit.localSize[i];
-            localSizeNotDefault[i] = true;
+        if (unit.localSizeNotDefault[i]) {
+            if (!localSizeNotDefault[i]) {
+                localSize[i] = unit.localSize[i];
+                localSizeNotDefault[i] = true;
+            }
+            else if (localSize[i] != unit.localSize[i])
+                error(infoSink, "Contradictory local size");
         }
-        else if (localSize[i] != unit.localSize[i])
-            error(infoSink, "Contradictory local size");
 
         if (localSizeSpecId[i] == TQualifier::layoutNotSet)
             localSizeSpecId[i] = unit.localSizeSpecId[i];
@@ -533,7 +535,7 @@ void TIntermediate::mergeImplicitArraySizes(TType& type, const TType& unitType)
 //
 void TIntermediate::mergeErrorCheck(TInfoSink& infoSink, const TIntermSymbol& symbol, const TIntermSymbol& unitSymbol, bool crossStage)
 {
-#ifndef GLSLANG_WEB
+#if !defined(GLSLANG_WEB) && !defined(GLSLANG_ANGLE)
     bool writeTypeComparison = false;
 
     // Types have to match
@@ -651,6 +653,25 @@ void TIntermediate::mergeErrorCheck(TInfoSink& infoSink, const TIntermSymbol& sy
 #endif
 }
 
+void TIntermediate::sharedBlockCheck(TInfoSink& infoSink)
+{
+    bool has_shared_block = false;
+    bool has_shared_non_block = false;
+    TIntermSequence& linkObjects = findLinkerObjects()->getSequence();
+    for (size_t i = 0; i < linkObjects.size(); ++i) {
+        const TType& type = linkObjects[i]->getAsTyped()->getType();
+        const TQualifier& qualifier = type.getQualifier();
+        if (qualifier.storage == glslang::EvqShared) {
+            if (type.getBasicType() == glslang::EbtBlock)
+                has_shared_block = true;
+            else
+                has_shared_non_block = true;
+        }
+    }
+    if (has_shared_block && has_shared_non_block)
+        error(infoSink, "cannot mix use of shared variables inside and outside blocks");
+}
+
 //
 // Do final link-time error checking of a complete (merged) intermediate representation.
 // (Much error checking was done during merging).
@@ -736,10 +757,10 @@ void TIntermediate::finalCheck(TInfoSink& infoSink, bool keepUncalled)
 
         // "The resulting stride (implicit or explicit), when divided by 4, must be less than or equal to the
         // implementation-dependent constant gl_MaxTransformFeedbackInterleavedComponents."
-        if (xfbBuffers[b].stride > (unsigned int)(4 * resources.maxTransformFeedbackInterleavedComponents)) {
+        if (xfbBuffers[b].stride > (unsigned int)(4 * resources->maxTransformFeedbackInterleavedComponents)) {
             error(infoSink, "xfb_stride is too large:");
             infoSink.info.prefix(EPrefixError);
-            infoSink.info << "    xfb_buffer " << (unsigned int)b << ", components (1/4 stride) needed are " << xfbBuffers[b].stride/4 << ", gl_MaxTransformFeedbackInterleavedComponents is " << resources.maxTransformFeedbackInterleavedComponents << "\n";
+            infoSink.info << "    xfb_buffer " << (unsigned int)b << ", components (1/4 stride) needed are " << xfbBuffers[b].stride/4 << ", gl_MaxTransformFeedbackInterleavedComponents is " << resources->maxTransformFeedbackInterleavedComponents << "\n";
         }
     }
 
@@ -776,6 +797,7 @@ void TIntermediate::finalCheck(TInfoSink& infoSink, bool keepUncalled)
             error(infoSink, "post_depth_coverage requires early_fragment_tests");
         break;
     case EShLangCompute:
+        sharedBlockCheck(infoSink);
         break;
     case EShLangRayGen:
     case EShLangIntersect:
@@ -808,6 +830,7 @@ void TIntermediate::finalCheck(TInfoSink& infoSink, bool keepUncalled)
     case EShLangTaskNV:
         if (numTaskNVBlocks > 1)
             error(infoSink, "Only one taskNV interface block is allowed per shader");
+        sharedBlockCheck(infoSink);
         break;
     default:
         error(infoSink, "Unknown Stage.");
@@ -1055,8 +1078,8 @@ bool TIntermediate::userOutputUsed() const
     return found;
 }
 
-// Accumulate locations used for inputs, outputs, and uniforms, and check for collisions
-// as the accumulation is done.
+// Accumulate locations used for inputs, outputs, and uniforms, payload and callable data
+// and check for collisions as the accumulation is done.
 //
 // Returns < 0 if no collision, >= 0 if collision and the value returned is a colliding value.
 //
@@ -1068,6 +1091,7 @@ int TIntermediate::addUsedLocation(const TQualifier& qualifier, const TType& typ
     typeCollision = false;
 
     int set;
+    int setRT;
     if (qualifier.isPipeInput())
         set = 0;
     else if (qualifier.isPipeOutput())
@@ -1076,11 +1100,17 @@ int TIntermediate::addUsedLocation(const TQualifier& qualifier, const TType& typ
         set = 2;
     else if (qualifier.storage == EvqBuffer)
         set = 3;
+    else if (qualifier.isAnyPayload())
+        setRT = 0;
+    else if (qualifier.isAnyCallable())
+        setRT = 1;
     else
         return -1;
 
     int size;
-    if (qualifier.isUniformOrBuffer() || qualifier.isTaskMemory()) {
+    if (qualifier.isAnyPayload() || qualifier.isAnyCallable()) {
+        size = 1;
+    } else if (qualifier.isUniformOrBuffer() || qualifier.isTaskMemory()) {
         if (type.isSizedArray())
             size = type.getCumulativeArraySize();
         else
@@ -1108,10 +1138,17 @@ int TIntermediate::addUsedLocation(const TQualifier& qualifier, const TType& typ
     // (A vertex shader input will show using only one location, even for a dvec3/4.)
     //
     // So, for the case of dvec3, we need two independent ioRanges.
-
+    //
+    // For raytracing IO (payloads and callabledata) each declaration occupies a single
+    // slot irrespective of type.
     int collision = -1; // no collision
 #ifndef GLSLANG_WEB
-    if (size == 2 && type.getBasicType() == EbtDouble && type.getVectorSize() == 3 &&
+    if (qualifier.isAnyPayload() || qualifier.isAnyCallable()) {
+        TRange range(qualifier.layoutLocation, qualifier.layoutLocation);
+        collision = checkLocationRT(setRT, qualifier.layoutLocation);
+        if (collision < 0)
+            usedIoRT[setRT].push_back(range);
+    } else if (size == 2 && type.getBasicType() == EbtDouble && type.getVectorSize() == 3 &&
         (qualifier.isPipeInput() || qualifier.isPipeOutput())) {
         // Dealing with dvec3 in/out split across two locations.
         // Need two io-ranges.
@@ -1184,6 +1221,16 @@ int TIntermediate::checkLocationRange(int set, const TIoRange& range, const TTyp
         }
     }
 
+    return -1; // no collision
+}
+
+int TIntermediate::checkLocationRT(int set, int location) {
+    TRange range(location, location);
+    for (size_t r = 0; r < usedIoRT[set].size(); ++r) {
+        if (range.overlap(usedIoRT[set][r])) {
+            return range.start;
+        }
+    }
     return -1; // no collision
 }
 
@@ -1362,9 +1409,9 @@ unsigned int TIntermediate::computeTypeXfbSize(const TType& type, bool& contains
     // that component's size.  Aggregate types are flattened down to the component
     // level to get this sequence of components."
 
-    if (type.isArray()) {
+    if (type.isSizedArray()) {
         // TODO: perf: this can be flattened by using getCumulativeArraySize(), and a deref that discards all arrayness
-        assert(type.isSizedArray());
+        // Unsized array use to xfb should be a compile error.
         TType elementType(type, 0);
         return type.getOuterArraySize() * computeTypeXfbSize(elementType, contains64BitType, contains16BitType, contains16BitType);
     }
@@ -1550,7 +1597,9 @@ int TIntermediate::getBaseAlignment(const TType& type, int& size, int& stride, T
         RoundToPow2(size, alignment);
         stride = size;  // uses full matrix size for stride of an array of matrices (not quite what rule 6/8, but what's expected)
                         // uses the assumption for rule 10 in the comment above
-        size = stride * type.getOuterArraySize();
+        // use one element to represent the last member of SSBO which is unsized array
+        int arraySize = (type.isUnsizedArray() && (type.getOuterArraySize() == 0)) ? 1 : type.getOuterArraySize();
+        size = stride * arraySize;
         return alignment;
     }
 

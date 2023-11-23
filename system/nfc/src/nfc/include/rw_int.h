@@ -254,7 +254,7 @@ typedef struct {
 /* Maximum supported Lock control TLVS in the tag           */
 #define RW_T2T_MAX_LOCK_TLVS 0x05
 /* Maximum supported dynamic lock bytes                     */
-#define RW_T2T_MAX_LOCK_BYTES 0x1E
+#define RW_T2T_MAX_LOCK_BYTES 0x20
 #define RW_T2T_SEGMENT_BYTES 128
 #define RW_T2T_SEGMENT_SIZE 16
 
@@ -361,19 +361,17 @@ typedef uint8_t tRW_T2T_LOCK_STATUS;
 #define RW_T2T_SUBSTATE_WAIT_READ_DYN_LOCK_BYTE_BLOCK 0x1A
 /* waiting for response to set dynamic lock bits            */
 #define RW_T2T_SUBSTATE_WAIT_SET_DYN_LOCK_BITS 0x1B
-/* waiting for response to set static lock bits             */
-#define RW_T2T_SUBSTATE_WAIT_SET_ST_LOCK_BITS 0x1C
 
 typedef struct {
   uint16_t offset;              /* Offset of the lock byte in the Tag */
-  uint8_t num_bits;             /* Number of lock bits in the lock byte */
-  uint8_t bytes_locked_per_bit; /* No. of tag bytes gets locked by a bit in this
-                                   byte       */
+  uint16_t num_bits;            /* Number of lock bits in the lock byte */
+  uint16_t bytes_locked_per_bit; /* No. of tag bytes gets locked by a bit
+                                    in this byte */
 } tRW_T2T_LOCK_INFO;
 
 typedef struct {
   uint16_t offset;   /* Reserved bytes offset taken from Memory control TLV */
-  uint8_t num_bytes; /* Number of reserved bytes as per the TLV */
+  uint16_t num_bytes; /* Number of reserved bytes as per the TLV */
 } tRW_T2T_RES_INFO;
 
 typedef struct {
@@ -494,6 +492,8 @@ typedef struct {
 #define RW_T3T_FL_W4_FMT_FELICA_LITE_POLL_RSP 0x10
 /* Waiting for POLL response for RW_T3tSetReadOnly */
 #define RW_T3T_FL_W4_SRO_FELICA_LITE_POLL_RSP 0x20
+/* Waiting for POLL response for RW_T3tPoll */
+#define RW_T3T_FL_W4_USER_POLL_RSP 0x40
 
 typedef struct {
   uint32_t cur_tout; /* Current command timeout */
@@ -525,6 +525,8 @@ typedef struct {
   uint8_t cur_poll_rc; /* RC used in current POLL command */
 
   uint8_t flags; /* Flags see RW_T3T_FL_* */
+  /* Recall System Code used in last T3T polling command */
+  int32_t cur_active_sc;
 } tRW_T3T_CB;
 
 /*
@@ -538,16 +540,34 @@ typedef struct {
 
 /* Max data size using a single UpdateBinary. 6 bytes are for CLA, INS, P1, P2,
  * Lc */
+/* Use worst case where Extended Field Coding and ODO format are used */
 #define RW_T4T_MAX_DATA_PER_WRITE                              \
   (NFC_RW_POOL_BUF_SIZE - NFC_HDR_SIZE - NCI_MSG_OFFSET_SIZE - \
-   NCI_DATA_HDR_SIZE - T4T_CMD_MAX_HDR_SIZE)
+   NCI_DATA_HDR_SIZE - T4T_CMD_MAX_EXT_HDR_SIZE)
 
+#define RW_T4T_EXT_FIELD_CODING 0x01
+#define RW_T4T_DDO_LC_FIELD_CODING 0x02
+
+#define RW_T4T_BER_TLV_LENGTH_1_BYTE 0x01
+#define RW_T4T_BER_TLV_LENGTH_2_BYTES 0x02
+#define RW_T4T_BER_TLV_LENGTH_3_BYTES 0x03
+
+/* Minimum data header in command APDU data:
+ * ODO: 54 00 xxyyzz: tag '54' with 3-byte offset xxyyzz
+ * DDO: 53 Ld {data to be written to the ENDEF File}
+ * Ld (data length) can be 1, 2 or 3 bytes
+ */
+#define RW_T4T_ODO_DDO_HEADER_MIN_LENGTH 0x06 /* ODO + tag '53' */
+/* Ld encoded on two bytes with '81' tag and N=0 to 255
+ * for data field length coded on one byte */
+#define RW_T4T_ODO_DDO_HEADER_2BYTES_LENGTH 8 /* ODO + tag '53' + '81' + N */
 /* Mandatory NDEF file control */
 typedef struct {
   uint16_t file_id;       /* File Identifier          */
-  uint16_t max_file_size; /* Max NDEF file size       */
+  uint32_t max_file_size; /* Max NDEF file size       */
   uint8_t read_access;    /* read access condition    */
   uint8_t write_access;   /* write access condition   */
+  uint8_t nlen_size;      /* (E)NLEN size (2 or 4 bytes) */
 } tRW_T4T_NDEF_FC;
 
 /* Capability Container */
@@ -569,10 +589,11 @@ typedef struct {
   uint8_t version;               /* currently effective version      */
   TIMER_LIST_ENT timer;          /* timeout for each API call        */
 
-  uint16_t ndef_length;    /* length of NDEF data              */
-  uint8_t* p_update_data;  /* pointer of data to update        */
-  uint16_t rw_length;      /* remaining bytes to read/write    */
-  uint16_t rw_offset;      /* remaining offset to read/write   */
+  uint32_t ndef_length;   /* length of NDEF data              */
+  uint8_t* p_update_data; /* pointer of data to update        */
+  uint32_t rw_length;     /* remaining bytes to read/write    */
+  uint32_t rw_offset;     /* remaining offset to read/write   */
+
   NFC_HDR* p_data_to_free; /* GKI buffet to delete after done  */
 
   tRW_T4T_CC cc_file; /* Capability Container File        */
@@ -589,6 +610,7 @@ typedef struct {
   uint16_t max_update_size; /* max updating size per a command  */
   uint16_t card_size;
   uint8_t card_type;
+  uint8_t intl_flags; /* flags for internal information   */
 } tRW_T4T_CB;
 
 /* RW retransmission statistics */
@@ -663,6 +685,10 @@ typedef uint8_t tRW_I93_RW_SUBSTATE;
 #define RW_I93_FLAG_16BIT_NUM_BLOCK 0x10
 /* use extended commands */
 #define RW_I93_FLAG_EXT_COMMANDS 0x20
+/* use Special Frame in Write-Alike commands */
+#define RW_I93_FLAG_SPECIAL_FRAME 0x40
+/* use SMS bit in Selected state           */
+#define RW_I93_FLAG_SELECTED_STATE 0x80
 
 /* searching for type                      */
 #define RW_I93_TLV_DETECT_STATE_TYPE 0x01
@@ -674,6 +700,50 @@ typedef uint8_t tRW_I93_RW_SUBSTATE;
 #define RW_I93_TLV_DETECT_STATE_LENGTH_3 0x04
 /* reading value field                     */
 #define RW_I93_TLV_DETECT_STATE_VALUE 0x05
+#define RW_I93_GET_SYS_INFO_MEM_INFO 1
+#define RW_T5T_CC_READ_MEM_INFO 0
+
+/* capability Container CC Size */
+#define RW_I93_CC_SIZE 4
+
+/* main state */
+enum {
+  RW_I93_STATE_NOT_ACTIVATED, /* ISO15693 is not activated            */
+  RW_I93_STATE_IDLE,          /* waiting for upper layer API          */
+  RW_I93_STATE_BUSY,          /* waiting for response from tag        */
+
+  RW_I93_STATE_DETECT_NDEF,   /* performing NDEF detection precedure  */
+  RW_I93_STATE_READ_NDEF,     /* performing read NDEF procedure       */
+  RW_I93_STATE_UPDATE_NDEF,   /* performing update NDEF procedure     */
+  RW_I93_STATE_FORMAT,        /* performing format procedure          */
+  RW_I93_STATE_SET_READ_ONLY, /* performing set read-only procedure   */
+
+  RW_I93_STATE_PRESENCE_CHECK /* checking presence of tag             */
+};
+
+/* sub state */
+enum {
+  RW_I93_SUBSTATE_WAIT_UID,          /* waiting for response of inventory    */
+  RW_I93_SUBSTATE_WAIT_SYS_INFO,     /* waiting for response of get sys info */
+  RW_I93_SUBSTATE_WAIT_CC,           /* waiting for reading CC               */
+  RW_I93_SUBSTATE_WAIT_CC_EXT,       /* waiting for reading CC second byte   */
+  RW_I93_SUBSTATE_SEARCH_NDEF_TLV,   /* searching NDEF TLV                   */
+  RW_I93_SUBSTATE_CHECK_LOCK_STATUS, /* check if any NDEF TLV is locked      */
+
+  RW_I93_SUBSTATE_RESET_LEN,  /* set length to 0 to update NDEF TLV   */
+  RW_I93_SUBSTATE_WRITE_NDEF, /* writing NDEF and Terminator TLV      */
+  RW_I93_SUBSTATE_UPDATE_LEN, /* set length into NDEF TLV             */
+
+  RW_I93_SUBSTATE_WAIT_RESET_DSFID_AFI, /* reset DSFID and AFI */
+  RW_I93_SUBSTATE_CHECK_READ_ONLY,   /* check if any block is locked         */
+  RW_I93_SUBSTATE_WRITE_CC_NDEF_TLV, /* write CC and empty NDEF/Terminator TLV
+                                      */
+
+  RW_I93_SUBSTATE_WAIT_UPDATE_CC, /* updating CC as read-only             */
+  RW_I93_SUBSTATE_LOCK_NDEF_TLV,  /* lock blocks of NDEF TLV              */
+  RW_I93_SUBSTATE_WAIT_LOCK_CC,   /* lock block of CC                     */
+  RW_I93_SUBSTATE_LOCK_T5T_AREA   /* lock blocks of T5T_Area              */
+};
 
 enum {
   RW_I93_ICODE_SLI,                  /* ICODE SLI, SLIX                  */
@@ -690,6 +760,7 @@ enum {
   RW_I93_STM_M24LR64_R,              /* STM M24LR64-R                    */
   RW_I93_STM_M24LR04E_R,             /* STM M24LR04E-R                   */
   RW_I93_STM_M24LR16E_R,             /* STM M24LR16E-R                   */
+  RW_I93_STM_M24LR16D_W,             /* STM M24LR16D-W                   */
   RW_I93_STM_M24LR64E_R,             /* STM M24LR64E-R                   */
   RW_I93_STM_ST25DV04K,              /* STM ST25DV04K                    */
   RW_I93_STM_ST25DVHIK,              /* STM ST25DV 16K OR 64K            */
@@ -724,6 +795,16 @@ typedef struct {
 
   uint8_t tlv_detect_state; /* TLV detecting state              */
   uint8_t tlv_type;         /* currently detected type          */
+  uint8_t addr_mode;
+  uint8_t i93_t5t_mode;
+  uint8_t t5t_area_start_block;  /* offset of first block of T5T_Area  */
+  uint16_t t5t_area_last_offset; /* offset of last byte of T5T_Area  */
+
+  /* Greedy collection with NDEF Detection data */
+  uint8_t gre_validity;
+  uint8_t gre_cc_content[8];
+  uint16_t gre_ndef_tlv_pos;
+  uint16_t gre_ndef_tlv_length;
   uint16_t tlv_length;      /* currently detected length        */
 
   uint16_t ndef_tlv_start_offset; /* offset of first byte of NDEF TLV */
@@ -746,8 +827,19 @@ typedef union {
   tRW_MFC_CB mfc;
 } tRW_TCB;
 
+/* RW callback type */
+#define RW_CB_TYPE_UNKNOWN 0
+#define RW_CB_TYPE_T1T 1
+#define RW_CB_TYPE_T2T 2
+#define RW_CB_TYPE_T3T 3
+#define RW_CB_TYPE_T4T 4
+#define RW_CB_TYPE_T5T 5
+#define RW_CB_TYPE_MIFARE 6
+typedef uint8_t tRW_CB_TYPE;
+
 /* RW control blocks */
 typedef struct {
+  tRW_CB_TYPE tcb_type;
   tRW_TCB tcb;
   tRW_CBACK* p_cback;
   uint32_t cur_retry; /* Retry count for the current operation */
@@ -812,6 +904,12 @@ extern void rw_t4t_process_timeout(TIMER_LIST_ENT* p_tle);
 
 extern tNFC_STATUS rw_i93_select(uint8_t* p_uid);
 extern void rw_i93_process_timeout(TIMER_LIST_ENT* p_tle);
+extern std::string rw_i93_get_state_name(uint8_t state);
+extern std::string rw_i93_get_sub_state_name(uint8_t sub_state);
+extern void rw_t5t_sm_detect_ndef(NFC_HDR*);
+extern void rw_t5t_sm_update_ndef(NFC_HDR*);
+extern void rw_t5t_sm_set_read_only(NFC_HDR*);
+
 extern void rw_t4t_handle_isodep_nak_rsp(uint8_t status, bool is_ntf);
 
 extern tNFC_STATUS rw_mfc_select(uint8_t selres, uint8_t uid[T1T_CMD_UID_LEN]);

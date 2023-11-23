@@ -46,5 +46,50 @@
     </style>
     <style name="SplashscreenTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowSplashscreenContent">@drawable/red</item>
+        <item name="android:windowSplashScreenBackground">@drawable/blue</item>
+    </style>
+
+    <style name="BackgroundImage" parent="@android:style/Theme.Translucent.NoTitleBar.Fullscreen">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
+        <item name="android:windowSoftInputMode">stateHidden</item>
+    </style>
+
+    <style name="TranslucentDialog" parent="@android:style/Theme.Material.Dialog">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowBlurBehindEnabled">true</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowElevation">0dp</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
+        <item name="android:windowSoftInputMode">stateHidden</item>
+    </style>
+
+    <style name="BlurryDialog" parent="TranslucentDialog">
+        <item name="android:windowBackgroundBlurRadius">@dimen/test_background_blur_radius</item>
+        <item name="android:windowBlurBehindRadius">@dimen/test_blur_behind_radius</item>
+        <item name="android:windowBlurBehindEnabled">true</item>
+    </style>
+
+    <style name="BadBlurryDialog" parent="TranslucentDialog">
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowBlurBehindEnabled">false</item>
+    </style>
+
+    <style name="ReplaceIconTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowSplashScreenBackground">@drawable/blue</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/animationDrawable</item>
+        <item name="android:windowSplashScreenAnimationDuration">500</item>
+    </style>
+    <style name="ShowBrandingTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowSplashScreenBrandingImage">@drawable/branding</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/start</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@drawable/blue</item>
+    </style>
+
+    <style name="SplashScreenOverrideTheme" parent="ReplaceIconTheme">
+        <item name="android:windowSplashScreenBackground">@drawable/red</item>
     </style>
 </resources>

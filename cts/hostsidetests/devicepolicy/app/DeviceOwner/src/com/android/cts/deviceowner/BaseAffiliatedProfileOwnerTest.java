@@ -19,6 +19,12 @@ import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.test.AndroidTestCase;
 
+import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
+
+// TODO (b/174859111): evaluate and refactor dependency on this class to have only
+// affiliated profile-owner based tests depends on this class. Tests for Device Owner only,
+// e.g. PackageInstallTest should not depend on this class. Otherwise, tests can easily break
+// in multi-user setup.
 /**
  * Base class for affiliated profile-owner based tests.
  *
@@ -33,8 +39,10 @@ public abstract class BaseAffiliatedProfileOwnerTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-
-        mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
+        // In headless system user mode, affiliated PO is set on seceondary when DO is setup on
+        // user 0. Therefore, this test will run on user 0.
+        mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
+                BasicAdminReceiver.class);
         assertDeviceOrAffiliatedProfileOwner();
     }
 

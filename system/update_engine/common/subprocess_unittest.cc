@@ -28,9 +28,14 @@
 #include <base/bind.h>
 #include <base/files/scoped_temp_dir.h>
 #include <base/location.h>
+#if BASE_VER < 780000  // Android
 #include <base/message_loop/message_loop.h>
+#endif  // BASE_VER < 780000
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
+#if BASE_VER >= 780000  // Chrome OS
+#include <base/task/single_thread_task_executor.h>
+#endif  // BASE_VER >= 780000
 #include <base/time/time.h>
 #include <brillo/message_loops/base_message_loop.h>
 #include <brillo/message_loops/message_loop.h>
@@ -45,6 +50,7 @@
 using base::TimeDelta;
 using brillo::MessageLoop;
 using std::string;
+using std::unique_ptr;
 using std::vector;
 
 namespace {
@@ -69,10 +75,16 @@ class SubprocessTest : public ::testing::Test {
     subprocess_.Init(&async_signal_handler_);
   }
 
+#if BASE_VER < 780000  // Android
   base::MessageLoopForIO base_loop_;
   brillo::BaseMessageLoop loop_{&base_loop_};
+#else   // Chrome OS
+  base::SingleThreadTaskExecutor base_loop_{base::MessagePumpType::IO};
+  brillo::BaseMessageLoop loop_{base_loop_.task_runner()};
+#endif  // BASE_VER < 780000
   brillo::AsynchronousSignalHandler async_signal_handler_;
   Subprocess subprocess_;
+  unique_ptr<base::FileDescriptorWatcher::Controller> watcher_;
 };
 
 namespace {
@@ -193,7 +205,7 @@ TEST_F(SubprocessTest, EnvVarsAreFiltered) {
 TEST_F(SubprocessTest, SynchronousTrueSearchsOnPath) {
   int rc = -1;
   EXPECT_TRUE(Subprocess::SynchronousExecFlags(
-      {"true"}, Subprocess::kSearchPath, &rc, nullptr));
+      {"true"}, Subprocess::kSearchPath, &rc, nullptr, nullptr));
   EXPECT_EQ(0, rc);
 }
 
@@ -201,16 +213,17 @@ TEST_F(SubprocessTest, SynchronousEchoTest) {
   vector<string> cmd = {
       kBinPath "/sh", "-c", "echo -n stdout-here; echo -n stderr-there >&2"};
   int rc = -1;
-  string stdout;
-  ASSERT_TRUE(Subprocess::SynchronousExec(cmd, &rc, &stdout));
+  string stdout, stderr;
+  ASSERT_TRUE(Subprocess::SynchronousExec(cmd, &rc, &stdout, &stderr));
   EXPECT_EQ(0, rc);
-  EXPECT_EQ("stdout-herestderr-there", stdout);
+  EXPECT_EQ("stdout-here", stdout);
+  EXPECT_EQ("stderr-there", stderr);
 }
 
 TEST_F(SubprocessTest, SynchronousEchoNoOutputTest) {
   int rc = -1;
   ASSERT_TRUE(Subprocess::SynchronousExec(
-      {kBinPath "/sh", "-c", "echo test"}, &rc, nullptr));
+      {kBinPath "/sh", "-c", "echo test"}, &rc, nullptr, nullptr));
   EXPECT_EQ(0, rc);
 }
 
@@ -255,26 +268,28 @@ TEST_F(SubprocessTest, CancelTest) {
   int fifo_fd = HANDLE_EINTR(open(fifo_path.c_str(), O_RDONLY));
   EXPECT_GE(fifo_fd, 0);
 
-  loop_.WatchFileDescriptor(FROM_HERE,
-                            fifo_fd,
-                            MessageLoop::WatchMode::kWatchRead,
-                            false,
-                            base::Bind(
-                                [](int fifo_fd, uint32_t tag) {
-                                  char c;
-                                  EXPECT_EQ(1,
-                                            HANDLE_EINTR(read(fifo_fd, &c, 1)));
-                                  EXPECT_EQ('X', c);
-                                  LOG(INFO) << "Killing tag " << tag;
-                                  Subprocess::Get().KillExec(tag);
-                                },
-                                fifo_fd,
-                                tag));
+  watcher_ = base::FileDescriptorWatcher::WatchReadable(
+      fifo_fd,
+      base::Bind(
+          [](unique_ptr<base::FileDescriptorWatcher::Controller>* watcher,
+             int fifo_fd,
+             uint32_t tag) {
+            char c;
+            EXPECT_EQ(1, HANDLE_EINTR(read(fifo_fd, &c, 1)));
+            EXPECT_EQ('X', c);
+            LOG(INFO) << "Killing tag " << tag;
+            Subprocess::Get().KillExec(tag);
+            *watcher = nullptr;
+          },
+          // watcher_ is no longer used outside the clousure.
+          base::Unretained(&watcher_),
+          fifo_fd,
+          tag));
 
   // This test would leak a callback that runs when the child process exits
   // unless we wait for it to run.
   brillo::MessageLoopRunUntil(
-      &loop_, TimeDelta::FromSeconds(120), base::Bind([] {
+      &loop_, TimeDelta::FromSeconds(20), base::Bind([] {
         return Subprocess::Get().subprocess_records_.empty();
       }));
   EXPECT_TRUE(Subprocess::Get().subprocess_records_.empty());

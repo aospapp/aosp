@@ -164,29 +164,29 @@ struct pipe_screen {
     * drawing surface.
     * \param bindings  bitmask of PIPE_BIND_*
     */
-   boolean (*is_format_supported)( struct pipe_screen *,
-                                   enum pipe_format format,
-                                   enum pipe_texture_target target,
-                                   unsigned sample_count,
-                                   unsigned storage_sample_count,
-                                   unsigned bindings );
+   bool (*is_format_supported)( struct pipe_screen *,
+                                enum pipe_format format,
+                                enum pipe_texture_target target,
+                                unsigned sample_count,
+                                unsigned storage_sample_count,
+                                unsigned bindings );
 
    /**
     * Check if the given pipe_format is supported as output for this codec/profile.
     * \param profile  profile to check, may also be PIPE_VIDEO_PROFILE_UNKNOWN
     */
-   boolean (*is_video_format_supported)( struct pipe_screen *,
-                                         enum pipe_format format,
-                                         enum pipe_video_profile profile,
-                                         enum pipe_video_entrypoint entrypoint );
+   bool (*is_video_format_supported)( struct pipe_screen *,
+                                      enum pipe_format format,
+                                      enum pipe_video_profile profile,
+                                      enum pipe_video_entrypoint entrypoint );
 
    /**
     * Check if we can actually create the given resource (test the dimension,
     * overall size, etc).  Used to implement proxy textures.
     * \return TRUE if size is OK, FALSE if too large.
     */
-   boolean (*can_create_resource)(struct pipe_screen *screen,
-                                  const struct pipe_resource *templat);
+   bool (*can_create_resource)(struct pipe_screen *screen,
+                               const struct pipe_resource *templat);
 
    /**
     * Create a new texture object, using the given template info.
@@ -223,7 +223,7 @@ struct pipe_screen {
                                                        void *user_memory);
 
    /**
-    * Unlike pipe_resource::bind, which describes what state trackers want,
+    * Unlike pipe_resource::bind, which describes what gallium frontends want,
     * resources can have much greater capabilities in practice, often implied
     * by the tiling layout or memory placement. This function allows querying
     * whether a capability is supported beyond what was requested by state
@@ -250,17 +250,43 @@ struct pipe_screen {
     * the resource into a format compatible for sharing. The use case is
     * OpenGL-OpenCL interop. The context parameter is allowed to be NULL.
     *
+    * NOTE: for multi-planar resources (which may or may not have the planes
+    * chained through the pipe_resource next pointer) the frontend will
+    * always call this function with the first resource of the chain. It is
+    * the pipe drivers responsibility to walk the resources as needed when
+    * called with handle->plane != 0.
+    *
     * NOTE: in the case of WINSYS_HANDLE_TYPE_FD handles, the caller
     * takes ownership of the FD.  (This is consistent with
     * EGL_MESA_image_dma_buf_export)
     *
     * \param usage  A combination of PIPE_HANDLE_USAGE_* flags.
     */
-   boolean (*resource_get_handle)(struct pipe_screen *,
-                                  struct pipe_context *context,
-				  struct pipe_resource *tex,
-				  struct winsys_handle *handle,
-				  unsigned usage);
+   bool (*resource_get_handle)(struct pipe_screen *,
+                               struct pipe_context *context,
+                               struct pipe_resource *tex,
+                               struct winsys_handle *handle,
+                               unsigned usage);
+
+   /**
+    * Get info for the given pipe resource without the need to get a
+    * winsys_handle.
+    *
+    * The context parameter can optionally be used to flush the resource and
+    * the context to make sure the resource is coherent with whatever user
+    * will use it. Some drivers may also use the context to convert
+    * the resource into a format compatible for sharing. The context parameter
+    * is allowed to be NULL.
+    */
+   bool (*resource_get_param)(struct pipe_screen *screen,
+                              struct pipe_context *context,
+                              struct pipe_resource *resource,
+                              unsigned plane,
+                              unsigned layer,
+                              unsigned level,
+                              enum pipe_resource_param param,
+                              unsigned handle_usage,
+                              uint64_t *value);
 
    /**
     * Get stride and offset for the given pipe resource without the need to get
@@ -314,10 +340,10 @@ struct pipe_screen {
     *
     * \param timeout  in nanoseconds (may be PIPE_TIMEOUT_INFINITE).
     */
-   boolean (*fence_finish)(struct pipe_screen *screen,
-                           struct pipe_context *ctx,
-                           struct pipe_fence_handle *fence,
-                           uint64_t timeout);
+   bool (*fence_finish)(struct pipe_screen *screen,
+                        struct pipe_context *ctx,
+                        struct pipe_fence_handle *fence,
+                        uint64_t timeout);
 
    /**
     * For fences created with PIPE_FLUSH_FENCE_FD (exported fd) or
@@ -464,6 +490,75 @@ struct pipe_screen {
    bool (*is_parallel_shader_compilation_finished)(struct pipe_screen *screen,
                                                    void *shader,
                                                    unsigned shader_type);
+
+   /**
+    * Set the damage region (called when KHR_partial_update() is invoked).
+    * This function is passed an array of rectangles encoding the damage area.
+    * rects are using the bottom-left origin convention.
+    * nrects = 0 means 'reset the damage region'. What 'reset' implies is HW
+    * specific. For tile-based renderers, the damage extent is typically set
+    * to cover the whole resource with no damage rect (or a 0-size damage
+    * rect). This way, the existing resource content is reloaded into the
+    * local tile buffer for every tile thus making partial tile update
+    * possible. For HW operating in immediate mode, this reset operation is
+    * likely to be a NOOP.
+    */
+   void (*set_damage_region)(struct pipe_screen *screen,
+                             struct pipe_resource *resource,
+                             unsigned int nrects,
+                             const struct pipe_box *rects);
+
+   /**
+    * Run driver-specific NIR lowering and optimization passes.
+    *
+    * gallium frontends should call this before passing shaders to drivers,
+    * and ideally also before shader caching.
+    *
+    * \param optimize  Whether the input shader hasn't been optimized and
+    *                  should be.
+    */
+   void (*finalize_nir)(struct pipe_screen *screen, void *nir, bool optimize);
+
+   /*Separated memory/resource allocations interfaces for Vulkan */
+
+   /**
+    * Create a resource, and retrieve the required size for it but don't allocate
+    * any backing memory.
+    */
+   struct pipe_resource * (*resource_create_unbacked)(struct pipe_screen *,
+                                                      const struct pipe_resource *templat,
+                                                      uint64_t *size_required);
+
+   /**
+    * Allocate backing memory to be bound to resources.
+    */
+   struct pipe_memory_allocation *(*allocate_memory)(struct pipe_screen *screen,
+                                                     uint64_t size);
+   /**
+    * Free previously allocated backing memory.
+    */
+   void (*free_memory)(struct pipe_screen *screen,
+                       struct pipe_memory_allocation *);
+
+   /**
+    * Bind memory to a resource.
+    */
+   void (*resource_bind_backing)(struct pipe_screen *screen,
+                                 struct pipe_resource *pt,
+                                 struct pipe_memory_allocation *pmem,
+                                 uint64_t offset);
+
+   /**
+    * Map backing memory.
+    */
+   void *(*map_memory)(struct pipe_screen *screen,
+                       struct pipe_memory_allocation *pmem);
+
+   /**
+    * Unmap backing memory.
+    */
+   void (*unmap_memory)(struct pipe_screen *screen,
+                        struct pipe_memory_allocation *pmem);
 };
 
 

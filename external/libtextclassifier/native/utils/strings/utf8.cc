@@ -19,36 +19,16 @@
 #include "utils/base/logging.h"
 
 namespace libtextclassifier3 {
+
 bool IsValidUTF8(const char *src, int size) {
+  int char_length;
   for (int i = 0; i < size;) {
-    const int char_length = ValidUTF8CharLength(src + i, size - i);
-    if (char_length <= 0) {
+    if (!IsValidChar(src + i, size - i, &char_length)) {
       return false;
     }
     i += char_length;
   }
   return true;
-}
-
-int ValidUTF8CharLength(const char *src, int size) {
-  // Unexpected trail byte.
-  if (IsTrailByte(src[0])) {
-    return -1;
-  }
-
-  const int num_codepoint_bytes = GetNumBytesForUTF8Char(&src[0]);
-  if (num_codepoint_bytes <= 0 || num_codepoint_bytes > size) {
-    return -1;
-  }
-
-  // Check that remaining bytes in the codepoint are trailing bytes.
-  for (int k = 1; k < num_codepoint_bytes; k++) {
-    if (!IsTrailByte(src[k])) {
-      return -1;
-    }
-  }
-
-  return num_codepoint_bytes;
 }
 
 int SafeTruncateLength(const char *str, int truncate_at) {
@@ -86,6 +66,47 @@ char32 ValidCharToRune(const char *str) {
   // Four character sequence: 10000 - 1FFFF.
   return ((byte1 & 0x07) << 18) | ((byte2 & 0x3F) << 12) |
          ((byte3 & 0x3F) << 6) | (byte4 & 0x3F);
+}
+
+bool IsValidChar(const char *str, int size, int *num_bytes) {
+  // Unexpected trail byte.
+  if (IsTrailByte(str[0])) {
+    return false;
+  }
+
+  *num_bytes = GetNumBytesForUTF8Char(str);
+  if (*num_bytes <= 0 || *num_bytes > size) {
+    return false;
+  }
+
+  // Check that remaining bytes in the codepoint are trailing bytes.
+  for (int k = 1; k < *num_bytes; k++) {
+    if (!IsTrailByte(str[k])) {
+      return false;
+    }
+  }
+
+  // Exclude overlong encodings.
+  // Check that the codepoint is encoded with the minimum number of required
+  // bytes. An ascii value could be encoded in 4, 3 or 2 bytes but requires
+  // only 1. There is a unique valid encoding for each code point.
+  // This ensures that string comparisons and searches are well-defined.
+  // See: https://en.wikipedia.org/wiki/UTF-8
+  const char32 codepoint = ValidCharToRune(str);
+  switch (*num_bytes) {
+    case 1:
+      return true;
+    case 2:
+      // Everything below 128 can be encoded in one byte.
+      return (codepoint >= (1 << 7 /* num. payload bits in one byte */));
+    case 3:
+      return (codepoint >= (1 << 11 /* num. payload bits in two utf8 bytes */));
+    case 4:
+      return (codepoint >=
+              (1 << 16 /* num. payload bits in three utf8 bytes */)) &&
+             (codepoint < 0x10FFFF /* maximum rune value */);
+  }
+  return false;
 }
 
 int ValidRuneToChar(const char32 rune, char *dest) {

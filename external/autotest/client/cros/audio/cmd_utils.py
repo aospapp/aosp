@@ -208,7 +208,7 @@ def popen(args, stdin=None, stdout=TEE_TO_LOGS, stderr=TEE_TO_LOGS, env=None,
     @param env: the executed program's environment
     @param run_as: if not None, run the command as the given user
     """
-    command_id = _command_serial_number.next()
+    command_id = next(_command_serial_number)
     prefix = '[%04d] ' % command_id
 
     if stdout is TEE_TO_LOGS:

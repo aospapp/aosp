@@ -15,6 +15,10 @@
 //
 
 // Proto dependencies
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "LocalMediaPlayer-proto",
     srcs: ["proto/**/*.proto"],

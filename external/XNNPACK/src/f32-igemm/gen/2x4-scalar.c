@@ -25,7 +25,7 @@ void xnn_f32_igemm_ukernel_2x4__scalar(
     size_t cn_stride,
     size_t a_offset,
     const float* zero,
-    const union xnn_f32_output_params params[restrict static 1])
+    const union xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(mr != 0);
   assert(mr <= 2);
@@ -95,25 +95,6 @@ void xnn_f32_igemm_ukernel_2x4__scalar(
       p -= 2 * sizeof(void*);
     } while (p != 0);
 
-    const float vmin = params->scalar.min;
-    vacc00 = math_max_f32(vacc00, vmin);
-    vacc01 = math_max_f32(vacc01, vmin);
-    vacc02 = math_max_f32(vacc02, vmin);
-    vacc03 = math_max_f32(vacc03, vmin);
-    vacc10 = math_max_f32(vacc10, vmin);
-    vacc11 = math_max_f32(vacc11, vmin);
-    vacc12 = math_max_f32(vacc12, vmin);
-    vacc13 = math_max_f32(vacc13, vmin);
-
-    const float vmax = params->scalar.max;
-    vacc00 = math_min_f32(vacc00, vmax);
-    vacc01 = math_min_f32(vacc01, vmax);
-    vacc02 = math_min_f32(vacc02, vmax);
-    vacc03 = math_min_f32(vacc03, vmax);
-    vacc10 = math_min_f32(vacc10, vmax);
-    vacc11 = math_min_f32(vacc11, vmax);
-    vacc12 = math_min_f32(vacc12, vmax);
-    vacc13 = math_min_f32(vacc13, vmax);
 
     if XNN_LIKELY(nc >= 4) {
       c1[0] = vacc10;

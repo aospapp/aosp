@@ -15,13 +15,14 @@
  */
 #define LOG_TAG "bt_gd_neigh"
 
+#include "neighbor/discoverability.h"
+
 #include <memory>
 
 #include "common/bind.h"
 #include "hci/hci_layer.h"
 #include "hci/hci_packets.h"
 #include "module.h"
-#include "neighbor/discoverability.h"
 #include "neighbor/scan.h"
 #include "os/handler.h"
 #include "os/log.h"
@@ -91,10 +92,10 @@ void neighbor::DiscoverabilityModule::impl::OnCommandComplete(hci::CommandComple
 
 void neighbor::DiscoverabilityModule::impl::StartDiscoverability(std::vector<hci::Lap>& laps) {
   ASSERT(laps.size() <= num_supported_iac_);
-  hci_layer_->EnqueueCommand(hci::WriteCurrentIacLapBuilder::Create(laps),
-                             common::BindOnce(&impl::OnCommandComplete, common::Unretained(this)), handler_);
-  hci_layer_->EnqueueCommand(hci::ReadCurrentIacLapBuilder::Create(),
-                             common::BindOnce(&impl::OnCommandComplete, common::Unretained(this)), handler_);
+  hci_layer_->EnqueueCommand(
+      hci::WriteCurrentIacLapBuilder::Create(laps), handler_->BindOnceOn(this, &impl::OnCommandComplete));
+  hci_layer_->EnqueueCommand(
+      hci::ReadCurrentIacLapBuilder::Create(), handler_->BindOnceOn(this, &impl::OnCommandComplete));
   scan_module_->SetInquiryScan();
 }
 
@@ -115,19 +116,19 @@ void neighbor::DiscoverabilityModule::impl::Start() {
   scan_module_ = module_.GetDependency<neighbor::ScanModule>();
   handler_ = module_.GetHandler();
 
-  hci_layer_->EnqueueCommand(hci::ReadCurrentIacLapBuilder::Create(),
-                             common::BindOnce(&impl::OnCommandComplete, common::Unretained(this)), handler_);
+  hci_layer_->EnqueueCommand(
+      hci::ReadCurrentIacLapBuilder::Create(), handler_->BindOnceOn(this, &impl::OnCommandComplete));
 
-  hci_layer_->EnqueueCommand(hci::ReadNumberOfSupportedIacBuilder::Create(),
-                             common::BindOnce(&impl::OnCommandComplete, common::Unretained(this)), handler_);
-  LOG_DEBUG("Started discoverability module");
+  hci_layer_->EnqueueCommand(
+      hci::ReadNumberOfSupportedIacBuilder::Create(), handler_->BindOnceOn(this, &impl::OnCommandComplete));
+  LOG_INFO("Started discoverability module");
 }
 
 void neighbor::DiscoverabilityModule::impl::Dump() const {
-  LOG_DEBUG("Number of supported iacs:%hhd", num_supported_iac_);
-  LOG_DEBUG("Number of current iacs:%zd", laps_.size());
+  LOG_INFO("Number of supported iacs:%hhd", num_supported_iac_);
+  LOG_INFO("Number of current iacs:%zd", laps_.size());
   for (auto it : laps_) {
-    LOG_DEBUG("  discoverability lap:%x", it.lap_);
+    LOG_INFO("  discoverability lap:%x", it.lap_);
   }
 }
 

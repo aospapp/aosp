@@ -29,7 +29,7 @@
     <uses-permission android:name="android.permission.READ_LOGS" />
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:label="Android Calculator Functional Tests"
         android:targetPackage="com.android.calculator.functional" />
 

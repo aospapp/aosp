@@ -20,6 +20,7 @@ import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 import static android.text.format.DateUtils.SECOND_IN_MILLIS;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.AppOpsManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -38,7 +39,7 @@ import android.os.PersistableBundle;
 import android.os.RegistrantList;
 import android.os.RemoteException;
 import android.os.UserHandle;
-import android.permission.PermissionManager;
+import android.permission.LegacyPermissionManager;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.AccessNetworkConstants.TransportType;
 import android.telephony.AnomalyReporter;
@@ -50,6 +51,8 @@ import android.telephony.data.DataService;
 import android.telephony.data.DataServiceCallback;
 import android.telephony.data.IDataService;
 import android.telephony.data.IDataServiceCallback;
+import android.telephony.data.NetworkSliceInfo;
+import android.telephony.data.TrafficDescriptor;
 import android.text.TextUtils;
 
 import com.android.internal.telephony.Phone;
@@ -88,7 +91,7 @@ public class DataServiceManager extends Handler {
 
     private final CarrierConfigManager mCarrierConfigManager;
     private final AppOpsManager mAppOps;
-    private final PermissionManager mPermissionManager;
+    private final LegacyPermissionManager mPermissionManager;
 
     private final int mTransportType;
 
@@ -104,9 +107,24 @@ public class DataServiceManager extends Handler {
 
     private final RegistrantList mDataCallListChangedRegistrants = new RegistrantList();
 
+    private final RegistrantList mApnUnthrottledRegistrants = new RegistrantList();
+
     private String mTargetBindingPackageName;
 
     private CellularDataServiceConnection mServiceConnection;
+
+    private final UUID mAnomalyUUID = UUID.fromString("fc1956de-c080-45de-8431-a1faab687110");
+    private String mLastBoundPackageName;
+
+    /**
+     * Helpful for logging
+     * @return the tag name
+     *
+     * @hide
+     */
+    public String getTag() {
+        return mTag;
+    }
 
     private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
@@ -128,8 +146,10 @@ public class DataServiceManager extends Handler {
         @Override
         public void binderDied() {
             // TODO: try to rebind the service.
-            loge("DataService " + mTargetBindingPackageName +  ", transport type " + mTransportType
-                    + " died.");
+            String message = "Data service " + mLastBoundPackageName +  " for transport type "
+                    + AccessNetworkConstants.transportTypeToString(mTransportType) + " died.";
+            loge(message);
+            AnomalyReporter.reportAnomaly(mAnomalyUUID, message);
         }
     }
 
@@ -148,7 +168,9 @@ public class DataServiceManager extends Handler {
                     });
             TelephonyUtils.waitUntilReady(latch, CHANGE_PERMISSION_TIMEOUT_MS);
             mAppOps.setMode(AppOpsManager.OPSTR_MANAGE_IPSEC_TUNNELS,
-                UserHandle.myUserId(), pkgToGrant[0], AppOpsManager.MODE_ALLOWED);
+                    UserHandle.myUserId(), pkgToGrant[0], AppOpsManager.MODE_ALLOWED);
+            mAppOps.setMode(AppOpsManager.OPSTR_FINE_LOCATION,
+                    UserHandle.myUserId(), pkgToGrant[0], AppOpsManager.MODE_ALLOWED);
         } catch (RuntimeException e) {
             loge("Binder to package manager died, permission grant for DataService failed.");
             throw e;
@@ -183,6 +205,8 @@ public class DataServiceManager extends Handler {
             for (String pkg : dataServices) {
                 mAppOps.setMode(AppOpsManager.OPSTR_MANAGE_IPSEC_TUNNELS, UserHandle.myUserId(),
                         pkg, AppOpsManager.MODE_ERRORED);
+                mAppOps.setMode(AppOpsManager.OPSTR_FINE_LOCATION, UserHandle.myUserId(),
+                        pkg, AppOpsManager.MODE_ERRORED);
             }
         } catch (RuntimeException e) {
             loge("Binder to package manager died; failed to revoke DataService permissions.");
@@ -197,18 +221,20 @@ public class DataServiceManager extends Handler {
             mIDataService = IDataService.Stub.asInterface(service);
             mDeathRecipient = new DataServiceManagerDeathRecipient();
             mBound = true;
+            mLastBoundPackageName = getDataServicePackageName();
+            removeMessages(EVENT_WATCHDOG_TIMEOUT);
 
             try {
                 service.linkToDeath(mDeathRecipient, 0);
                 mIDataService.createDataServiceProvider(mPhone.getPhoneId());
                 mIDataService.registerForDataCallListChanged(mPhone.getPhoneId(),
                         new CellularDataServiceCallback("dataCallListChanged"));
+                mIDataService.registerForUnthrottleApn(mPhone.getPhoneId(),
+                        new CellularDataServiceCallback("unthrottleApn"));
             } catch (RemoteException e) {
-                mDeathRecipient.binderDied();
                 loge("Remote exception. " + e);
                 return;
             }
-            removeMessages(EVENT_WATCHDOG_TIMEOUT);
             mServiceBindingChangedRegistrants.notifyResult(true);
         }
         @Override
@@ -286,6 +312,31 @@ public class DataServiceManager extends Handler {
             mDataCallListChangedRegistrants.notifyRegistrants(
                     new AsyncResult(null, dataCallList, null));
         }
+
+        @Override
+        public void onHandoverStarted(@DataServiceCallback.ResultCode int resultCode) {
+            if (DBG) log("onHandoverStarted. resultCode = " + resultCode);
+            removeMessages(EVENT_WATCHDOG_TIMEOUT, CellularDataServiceCallback.this);
+            Message msg = mMessageMap.remove(asBinder());
+            sendCompleteMessage(msg, resultCode);
+        }
+
+        @Override
+        public void onHandoverCancelled(@DataServiceCallback.ResultCode int resultCode) {
+            if (DBG) log("onHandoverCancelled. resultCode = " + resultCode);
+            removeMessages(EVENT_WATCHDOG_TIMEOUT, CellularDataServiceCallback.this);
+            Message msg = mMessageMap.remove(asBinder());
+            sendCompleteMessage(msg, resultCode);
+        }
+
+        public void onApnUnthrottled(String apn) {
+            if (apn != null) {
+                mApnUnthrottledRegistrants.notifyRegistrants(
+                        new AsyncResult(null, apn, null));
+            } else {
+                loge("onApnUnthrottled: apn is null");
+            }
+        }
     }
 
     /**
@@ -305,8 +356,8 @@ public class DataServiceManager extends Handler {
         // NOTE: Do NOT use AppGlobals to retrieve the permission manager; AppGlobals
         // caches the service instance, but we need to explicitly request a new service
         // so it can be mocked out for tests
-        mPermissionManager =
-                (PermissionManager) phone.getContext().getSystemService(Context.PERMISSION_SERVICE);
+        mPermissionManager = (LegacyPermissionManager) phone.getContext().getSystemService(
+                Context.LEGACY_PERMISSION_SERVICE);
         mAppOps = (AppOpsManager) phone.getContext().getSystemService(Context.APP_OPS_SERVICE);
 
         IntentFilter intentFilter = new IntentFilter();
@@ -450,7 +501,7 @@ public class DataServiceManager extends Handler {
      *
      * @return package name of the data service package for the the current transportType.
      */
-    private String getDataServicePackageName() {
+    public String getDataServicePackageName() {
         return getDataServicePackageName(mTransportType);
     }
 
@@ -547,7 +598,7 @@ public class DataServiceManager extends Handler {
         return className;
     }
 
-    private void sendCompleteMessage(Message msg, int code) {
+    private void sendCompleteMessage(Message msg, @DataServiceCallback.ResultCode int code) {
         if (msg != null) {
             msg.arg1 = code;
             msg.sendToTarget();
@@ -568,15 +619,25 @@ public class DataServiceManager extends Handler {
      *        {@link DataService#REQUEST_REASON_HANDOVER}.
      * @param linkProperties If {@code reason} is {@link DataService#REQUEST_REASON_HANDOVER}, this
      *        is the link properties of the existing data connection, otherwise null.
+     * @param pduSessionId The pdu session id to be used for this data call.  A value of -1 means
+     *                     no pdu session id was attached to this call.
+     *                     Reference: 3GPP TS 24.007 Section 11.2.3.1b
+     * @param sliceInfo The slice that represents S-NSSAI.
+     *                  Reference: 3GPP TS 24.501
+     * @param trafficDescriptor The traffic descriptor for this data call, used for URSP matching.
+     *                          Reference: 3GPP TS TS 24.526 Section 5.2
+     * @param matchAllRuleAllowed True if using the default match-all URSP rule for this request is
+     *                            allowed.
      * @param onCompleteMessage The result message for this request. Null if the client does not
      *        care about the result.
      */
     public void setupDataCall(int accessNetworkType, DataProfile dataProfile, boolean isRoaming,
-                              boolean allowRoaming, int reason, LinkProperties linkProperties,
-                              Message onCompleteMessage) {
+            boolean allowRoaming, int reason, LinkProperties linkProperties, int pduSessionId,
+            @Nullable NetworkSliceInfo sliceInfo, @Nullable TrafficDescriptor trafficDescriptor,
+            boolean matchAllRuleAllowed, Message onCompleteMessage) {
         if (DBG) log("setupDataCall");
         if (!mBound) {
-            loge("Data service not bound.");
+            loge("setupDataCall: Data service not bound.");
             sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
             return;
         }
@@ -589,9 +650,10 @@ public class DataServiceManager extends Handler {
             sendMessageDelayed(obtainMessage(EVENT_WATCHDOG_TIMEOUT, callback),
                     REQUEST_UNRESPONDED_TIMEOUT);
             mIDataService.setupDataCall(mPhone.getPhoneId(), accessNetworkType, dataProfile,
-                    isRoaming, allowRoaming, reason, linkProperties, callback);
+                    isRoaming, allowRoaming, reason, linkProperties, pduSessionId, sliceInfo,
+                    trafficDescriptor, matchAllRuleAllowed, callback);
         } catch (RemoteException e) {
-            loge("Cannot invoke setupDataCall on data service.");
+            loge("setupDataCall: Cannot invoke setupDataCall on data service.");
             mMessageMap.remove(callback.asBinder());
             sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
         }
@@ -632,6 +694,91 @@ public class DataServiceManager extends Handler {
             mMessageMap.remove(callback.asBinder());
             sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
         }
+    }
+
+    /**
+     * Indicates that a handover has begun.  This is called on the source transport.
+     *
+     * Any resources being transferred cannot be released while a
+     * handover is underway.
+     *
+     * If a handover was unsuccessful, then the framework calls DataServiceManager#cancelHandover.
+     * The target transport retains ownership over any of the resources being transferred.
+     *
+     * If a handover was successful, the framework calls DataServiceManager#deactivateDataCall with
+     * reason HANDOVER. The target transport now owns the transferred resources and is
+     * responsible for releasing them.
+     *
+     * @param cid The identifier of the data call which is provided in DataCallResponse
+     * @param onCompleteMessage The result callback for this request.
+     */
+    public void startHandover(int cid, @NonNull Message onCompleteMessage) {
+        CellularDataServiceCallback callback =
+                setupCallbackHelper("startHandover", onCompleteMessage);
+        if (callback == null) {
+            loge("startHandover: callback == null");
+            sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
+            return;
+        }
+
+        try {
+            sendMessageDelayed(obtainMessage(EVENT_WATCHDOG_TIMEOUT, callback),
+                    REQUEST_UNRESPONDED_TIMEOUT);
+            mIDataService.startHandover(mPhone.getPhoneId(), cid, callback);
+        } catch (RemoteException e) {
+            loge("Cannot invoke startHandover on data service.");
+            mMessageMap.remove(callback.asBinder());
+            sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
+        }
+    }
+
+    /**
+     * Indicates that a handover was cancelled after a call to DataServiceManager#startHandover.
+     * This is called on the source transport.
+     *
+     * Since the handover was unsuccessful, the source transport retains ownership over any of
+     * the resources being transferred and is still responsible for releasing them.
+     *
+     * @param cid The identifier of the data call which is provided in DataCallResponse
+     * @param onCompleteMessage The result callback for this request.
+     */
+    public void cancelHandover(int cid, @NonNull Message onCompleteMessage) {
+        CellularDataServiceCallback callback =
+                setupCallbackHelper("cancelHandover", onCompleteMessage);
+        if (callback == null) {
+            sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
+            return;
+        }
+
+        try {
+            sendMessageDelayed(obtainMessage(EVENT_WATCHDOG_TIMEOUT, callback),
+                    REQUEST_UNRESPONDED_TIMEOUT);
+            mIDataService.cancelHandover(mPhone.getPhoneId(), cid, callback);
+        } catch (RemoteException e) {
+            loge("Cannot invoke cancelHandover on data service.");
+            mMessageMap.remove(callback.asBinder());
+            sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
+        }
+    }
+
+    @Nullable
+    private CellularDataServiceCallback setupCallbackHelper(
+            @NonNull final String operationName, @NonNull final Message onCompleteMessage) {
+        if (DBG) log(operationName);
+        if (!mBound) {
+            sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
+            return null;
+        }
+
+        CellularDataServiceCallback callback =
+                new CellularDataServiceCallback(operationName);
+        if (onCompleteMessage != null) {
+            if (DBG) log(operationName + ": onCompleteMessage set");
+            mMessageMap.put(callback.asBinder(), onCompleteMessage);
+        } else {
+            if (DBG) log(operationName + ": onCompleteMessage not set");
+        }
+        return callback;
     }
 
     /**
@@ -752,6 +899,29 @@ public class DataServiceManager extends Handler {
     }
 
     /**
+     * Register apn unthrottled event
+     *
+     * @param h The target to post the event message to.
+     * @param what The event.
+     */
+    public void registerForApnUnthrottled(Handler h, int what) {
+        if (h != null) {
+            mApnUnthrottledRegistrants.addUnique(h, what, null);
+        }
+    }
+
+    /**
+     * Unregister for apn unthrottled event
+     *
+     * @param h The handler
+     */
+    public void unregisterForApnUnthrottled(Handler h) {
+        if (h != null) {
+            mApnUnthrottledRegistrants.remove(h);
+        }
+    }
+
+    /**
      * Register for data service binding status changed event.
      *
      * @param h The target to post the event message to.
@@ -781,6 +951,7 @@ public class DataServiceManager extends Handler {
      *
      * @return
      */
+    @TransportType
     public int getTransportType() {
         return mTransportType;
     }

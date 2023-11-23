@@ -37,6 +37,7 @@
 #include "tcuResource.hpp"
 #include "tcuTestLog.hpp"
 #include "vkSpirVProgram.hpp"
+#include "vkImageUtil.hpp"
 
 namespace vkt
 {
@@ -58,14 +59,14 @@ AmberTestCase::~AmberTestCase (void)
 	delete m_recipe;
 }
 
-TestInstance* AmberTestCase::createInstance(Context& ctx) const
+TestInstance* AmberTestCase::createInstance (Context& ctx) const
 {
 	return new AmberTestInstance(ctx, m_recipe);
 }
 
-static amber::EngineConfig* createEngineConfig(Context& ctx)
+static amber::EngineConfig* createEngineConfig (Context& ctx)
 {
-	amber::EngineConfig*	vkConfig = GetVulkanConfig(ctx.getInstance(),
+	amber::EngineConfig* vkConfig = GetVulkanConfig(ctx.getInstance(),
 			ctx.getPhysicalDevice(), ctx.getDevice(), &ctx.getDeviceFeatures(),
 			&ctx.getDeviceFeatures2(), ctx.getInstanceExtensions(),
 			ctx.getDeviceExtensions(), ctx.getUniversalQueueFamilyIndex(),
@@ -86,12 +87,24 @@ static bool isFeatureSupported(const vkt::Context& ctx, const std::string& featu
 		return ctx.getDeviceFeatures().tessellationShader;
 	if (feature == "Features.geometryShader")
 		return ctx.getDeviceFeatures().geometryShader;
+	if (feature == "Features.fragmentStoresAndAtomics")
+		return ctx.getDeviceFeatures().fragmentStoresAndAtomics;
 	if (feature == "Features.vertexPipelineStoresAndAtomics")
 		return ctx.getDeviceFeatures().vertexPipelineStoresAndAtomics;
+	if (feature == "Features.fillModeNonSolid")
+		return ctx.getDeviceFeatures().fillModeNonSolid;
+	if (feature == "Features.shaderStorageImageMultisample")
+		return ctx.getDeviceFeatures().shaderStorageImageMultisample;
 	if (feature == "VariablePointerFeatures.variablePointersStorageBuffer")
 		return ctx.getVariablePointersFeatures().variablePointersStorageBuffer;
 	if (feature == "VariablePointerFeatures.variablePointers")
 		return ctx.getVariablePointersFeatures().variablePointers;
+	if (feature == "SubgroupProperties.supportedStages.fragment")
+		return (ctx.getSubgroupProperties().supportedStages & vk::VK_SHADER_STAGE_FRAGMENT_BIT) != 0;
+	if (feature == "SubgroupProperties.supportedOperations.vote")
+		return (ctx.getSubgroupProperties().supportedOperations & vk::VK_SUBGROUP_FEATURE_VOTE_BIT) != 0;
+	if (feature == "SubgroupProperties.supportedOperations.ballot")
+		return (ctx.getSubgroupProperties().supportedOperations & vk::VK_SUBGROUP_FEATURE_BALLOT_BIT) != 0;
 
 	std::string message = std::string("Unexpected feature name: ") + feature;
 	TCU_THROW(InternalError, message.c_str());
@@ -158,20 +171,111 @@ void AmberTestCase::checkSupport(Context& ctx) const
 			TCU_THROW(NotSupportedError, message.c_str());
 		}
 	}
+
+	for (auto req : m_imageRequirements)
+		checkImageSupport(ctx.getInstanceInterface(), ctx.getPhysicalDevice(), req);
+
+	for (auto req : m_bufferRequirements)
+	{
+		vk::VkFormatProperties prop;
+		ctx.getInstanceInterface().getPhysicalDeviceFormatProperties(ctx.getPhysicalDevice(), req.m_format, &prop);
+
+		if ((req.m_featureFlags & prop.bufferFeatures) != req.m_featureFlags)
+		{
+			TCU_THROW(NotSupportedError, "Buffer format doesn't support required feature flags");
+		}
+	}
+
+	if (m_name == "triangle_fan" &&
+		ctx.isDeviceFunctionalitySupported("VK_KHR_portability_subset") &&
+		!ctx.getPortabilitySubsetFeatures().triangleFans)
+	{
+		TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: Triangle fans are not supported by this implementation");
+	}
 }
 
-bool AmberTestCase::parse(const std::string& readFilename)
+class Delegate : public amber::Delegate
+{
+public:
+					Delegate				(tcu::TestContext& testCtx);
+
+	amber::Result	LoadBufferData			(const std::string			file_name,
+											 amber::BufferDataFileType	file_type,
+											 amber::BufferInfo*			buffer) const override;
+
+	void			Log						(const std::string& /*message*/) override	{ DE_FATAL("amber::Delegate::Log unimplemented"); }
+	bool			LogGraphicsCalls		(void) const override						{ return m_logGraphicsCalls; }
+	void			SetLogGraphicsCalls		(bool log_graphics_calls)					{ m_logGraphicsCalls = log_graphics_calls; }
+	bool			LogExecuteCalls			(void) const override						{ return m_logExecuteCalls; }
+	void			SetLogExecuteCalls		(bool log_execute_calls)					{ m_logExecuteCalls = log_execute_calls; }
+	bool			LogGraphicsCallsTime	(void) const override						{ return m_logGraphicsCallsTime; }
+	void			SetLogGraphicsCallsTime	(bool log_graphics_calls_time)				{ m_logGraphicsCallsTime = log_graphics_calls_time; }
+	deUint64		GetTimestampNs			(void) const override						{ DE_FATAL("amber::Delegate::GetTimestampNs unimplemented"); return 0; }
+	void			SetScriptPath			(std::string path)							{ m_path = path; }
+
+private:
+	tcu::TestContext&	m_testCtx;
+	std::string			m_path;
+	bool				m_logGraphicsCalls;
+	bool				m_logGraphicsCallsTime;
+	bool				m_logExecuteCalls;
+};
+
+Delegate::Delegate (tcu::TestContext& testCtx)
+	: m_testCtx					(testCtx)
+	, m_path					("")
+	, m_logGraphicsCalls		(false)
+	, m_logGraphicsCallsTime	(false)
+	, m_logExecuteCalls			(false)
+{
+}
+
+amber::Result Delegate::LoadBufferData (const std::string			file_name,
+										amber::BufferDataFileType	file_type,
+										amber::BufferInfo*			buffer) const
+{
+	const tcu::Archive&				archive		= m_testCtx.getArchive();
+	const de::FilePath				filePath	= de::FilePath(m_path).join(file_name);
+	de::UniquePtr<tcu::Resource>	file		(archive.getResource(filePath.getPath()));
+	int								numBytes	= file->getSize();
+	std::vector<deUint8>			bytes		(numBytes);
+
+	if (file_type == amber::BufferDataFileType::kPng)
+		return amber::Result("Amber PNG loading unimplemented");
+
+	file->read(bytes.data(), numBytes);
+
+	if (bytes.empty())
+		return amber::Result("Failed to load buffer data " + file_name);
+
+	for (deUint8 byte : bytes)
+	{
+		amber::Value value;
+		value.SetIntValue(static_cast<deUint64>(byte));
+		buffer->values.push_back(value);
+	}
+
+	buffer->width	= 1;
+	buffer->height	= 1;
+
+	return {};
+}
+
+bool AmberTestCase::parse (const std::string& readFilename)
 {
 	std::string script = ShaderSourceProvider::getSource(m_testCtx.getArchive(), readFilename.c_str());
 	if (script.empty())
 		return false;
 
+	Delegate delegate (m_testCtx);
+	delegate.SetScriptPath(de::FilePath(readFilename).getDirName());
+
 	m_recipe = new amber::Recipe();
 
-	amber::Amber am;
+	amber::Amber am (&delegate);
 	amber::Result r = am.Parse(script, m_recipe);
 
-	m_recipe->SetFenceTimeout(1000 * 60 * 10); // 10 minutes
+	m_recipe->SetFenceTimeout(~0u); // infinity of miliseconds
 
 	if (!r.IsSuccess())
 	{
@@ -190,12 +294,25 @@ bool AmberTestCase::parse(const std::string& readFilename)
 	return true;
 }
 
-void AmberTestCase::initPrograms(vk::SourceCollections& programCollection) const
+void AmberTestCase::initPrograms (vk::SourceCollections& programCollection) const
 {
 	std::vector<amber::ShaderInfo> shaders = m_recipe->GetShaderInfo();
 	for (size_t i = 0; i < shaders.size(); ++i)
 	{
 		const amber::ShaderInfo& shader = shaders[i];
+
+		vk::SpirvVersion spirvVersion = vk::SPIRV_VERSION_1_0;
+		DE_STATIC_ASSERT(vk::SPIRV_VERSION_LAST == vk::SPIRV_VERSION_1_5 + 1);
+		if (shader.target_env == "spv1.5")
+			spirvVersion = vk::SPIRV_VERSION_1_5;
+		else if (shader.target_env == "spv1.4")
+			spirvVersion = vk::SPIRV_VERSION_1_4;
+		else if (shader.target_env == "spv1.3")
+			spirvVersion = vk::SPIRV_VERSION_1_3;
+		else if (shader.target_env == "spv1.2")
+			spirvVersion = vk::SPIRV_VERSION_1_2;
+		else if (shader.target_env == "spv1.1")
+			spirvVersion = vk::SPIRV_VERSION_1_1;
 
 		/* Hex encoded shaders do not need to be pre-compiled */
 		if (shader.format == amber::kShaderFormatSpirvHex)
@@ -212,32 +329,32 @@ void AmberTestCase::initPrograms(vk::SourceCollections& programCollection) const
 				case amber::kShaderTypeCompute:
 					programCollection.glslSources.add(shader.shader_name)
 						<< glu::ComputeSource(shader.shader_source)
-						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_0, 0u);
+						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, spirvVersion, 0u);
 					break;
 				case amber::kShaderTypeGeometry:
 					programCollection.glslSources.add(shader.shader_name)
 						<< glu::GeometrySource(shader.shader_source)
-						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_0, 0u);
+						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, spirvVersion, 0u);
 					break;
 				case amber::kShaderTypeFragment:
 					programCollection.glslSources.add(shader.shader_name)
 						<< glu::FragmentSource(shader.shader_source)
-						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_0, 0u);
+						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, spirvVersion, 0u);
 					break;
 				case amber::kShaderTypeVertex:
 					programCollection.glslSources.add(shader.shader_name)
 						<< glu::VertexSource(shader.shader_source)
-						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_0, 0u);
+						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, spirvVersion, 0u);
 					break;
 				case amber::kShaderTypeTessellationControl:
 					programCollection.glslSources.add(shader.shader_name)
 						<< glu::TessellationControlSource(shader.shader_source)
-						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_0, 0u);
+						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, spirvVersion, 0u);
 					break;
 				case amber::kShaderTypeTessellationEvaluation:
 					programCollection.glslSources.add(shader.shader_name)
 						<< glu::TessellationEvaluationSource(shader.shader_source)
-						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, vk::SPIRV_VERSION_1_0, 0u);
+						<< vk::ShaderBuildOptions(programCollection.usedVulkanVersion, spirvVersion, 0u);
 					break;
 				case amber::kShaderTypeMulti:
 					DE_ASSERT(false && "Multi shaders not supported");
@@ -253,14 +370,13 @@ void AmberTestCase::initPrograms(vk::SourceCollections& programCollection) const
 
 tcu::TestStatus AmberTestInstance::iterate (void)
 {
-	amber::Amber		am;
+	amber::Amber		am (DE_NULL);
 	amber::Options		amber_options;
 	amber::ShaderMap	shaderMap;
 	amber::Result		r;
 
 	amber_options.engine			= amber::kEngineTypeVulkan;
 	amber_options.config			= createEngineConfig(m_context);
-	amber_options.delegate			= DE_NULL;
 	amber_options.execution_type	= amber::ExecutionType::kExecute;
 
 	// Check for extensions as declared by the Amber script itself.  Throw an internal
@@ -309,17 +425,27 @@ tcu::TestStatus AmberTestInstance::iterate (void)
 	return r.IsSuccess() ? tcu::TestStatus::pass("Pass") :tcu::TestStatus::fail("Fail");
 }
 
-void AmberTestCase::setSpirVAsmBuildOptions(const vk::SpirVAsmBuildOptions& asm_options)
+void AmberTestCase::setSpirVAsmBuildOptions (const vk::SpirVAsmBuildOptions& asm_options)
 {
 	m_asm_options = asm_options;
 }
 
-void AmberTestCase::addRequirement(const std::string& requirement)
+void AmberTestCase::addRequirement (const std::string& requirement)
 {
 	if (requirement.find(".") != std::string::npos)
 		m_required_features.insert(requirement);
 	else
 		m_required_extensions.insert(requirement);
+}
+
+void AmberTestCase::addImageRequirement (vk::VkImageCreateInfo info)
+{
+	m_imageRequirements.push_back(info);
+}
+
+void AmberTestCase::addBufferRequirement (BufferRequirement req)
+{
+	m_bufferRequirements.push_back(req);
 }
 
 } // cts_amber

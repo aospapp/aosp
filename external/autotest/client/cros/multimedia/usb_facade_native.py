@@ -188,10 +188,6 @@ class USBDeviceDriversManager(object):
             '/sys/bus/pci/drivers/*/%s',
             '/sys/bus/platform/drivers/*/%s']
 
-    # Skips auto HCD for issue crbug.com/537513.
-    # Skips s5p-echi for issue crbug.com/546651.
-    # This essentially means we can not control HCD on these boards.
-    _SKIP_HCD_BLACKLIST = ['daisy', 'peach_pit', 'peach_pi']
 
     def __init__(self):
         """Initializes the manager.
@@ -205,15 +201,6 @@ class USBDeviceDriversManager(object):
         self._hcds = None
         self._find_hcd_ids()
         self._create_hcds()
-
-
-    def _skip_hcd(self):
-        """Skips HCD controlling on some boards."""
-        board = utils.get_board()
-        if board in self._SKIP_HCD_BLACKLIST:
-            logging.info('Skip HCD controlling on board %s', board)
-            return True
-        return False
 
 
     def _find_hcd_ids(self):
@@ -238,10 +225,6 @@ class USBDeviceDriversManager(object):
         """
         def _get_dir_name(path):
             return os.path.basename(os.path.dirname(path))
-
-        if self._skip_hcd():
-            self._hcd_ids = set()
-            return
 
         hcd_ids = set()
 
@@ -298,7 +281,7 @@ class USBDeviceDriversManager(object):
         @raises: USBDeviceDriversManagerError if there is no HCD to control.
 
         """
-        if not self._hcds and not self._skip_hcd():
+        if not self._hcds:
             raise USBDeviceDriversManagerError('HCD is not found yet')
         for hcd in self._hcds:
             hcd.reset()

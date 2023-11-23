@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
   name: "signature-host-tests",
   srcs: ["src/**/*.java"],
@@ -19,5 +23,4 @@ java_test_host {
     "junit",
     "signature-hostside",
   ],
-  test_suites: ["general-tests"],
 }

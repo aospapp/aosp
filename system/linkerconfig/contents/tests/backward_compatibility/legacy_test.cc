@@ -20,8 +20,6 @@
 #include "linkerconfig/variables.h"
 #include "testbase.h"
 
-using android::linkerconfig::modules::AsanPath;
-
 TEST(linkerconfig_legacy_backward_compatibility, default_namespace) {
   MockVariables();
   android::linkerconfig::contents::Context ctx;
@@ -33,8 +31,6 @@ TEST(linkerconfig_legacy_backward_compatibility, default_namespace) {
   auto default_namespace = legacy_section->GetNamespace("default");
   ASSERT_TRUE(default_namespace);
 
-  ASSERT_TRUE(default_namespace->ContainsSearchPath("/vendor/${LIB}",
-                                                    AsanPath::WITH_DATA_ASAN));
-  ASSERT_TRUE(default_namespace->ContainsSearchPath("/odm/${LIB}",
-                                                    AsanPath::WITH_DATA_ASAN));
+  ASSERT_TRUE(ContainsSearchPath(default_namespace, "/vendor/${LIB}"));
+  ASSERT_TRUE(ContainsSearchPath(default_namespace, "/odm/${LIB}"));
 }

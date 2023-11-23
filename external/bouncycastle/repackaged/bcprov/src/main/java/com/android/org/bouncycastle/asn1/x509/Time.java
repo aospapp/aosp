@@ -21,7 +21,6 @@ import com.android.org.bouncycastle.asn1.DERUTCTime;
 /**
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.CorePlatformApi
 public class Time
     extends ASN1Object
     implements ASN1Choice
@@ -55,7 +54,6 @@ public class Time
      * @param time a date object representing the time of interest.
      */
     @android.compat.annotation.UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public Time(
         Date    time)
     {

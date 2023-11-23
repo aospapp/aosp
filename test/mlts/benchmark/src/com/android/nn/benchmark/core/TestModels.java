@@ -51,31 +51,47 @@ public class TestModels {
         /** Min SDK version that the model can run on. */
         public final int mMinSdkVersion;
 
+        /* Number of bytes per input data entry  */
+        public final int mInDataSize;
+
         public TestModelEntry(String modelName, float baselineSec, int[] inputShape,
-                              InferenceInOutSequence.FromAssets[] inOutAssets,
-                              InferenceInOutSequence.FromDataset[] inOutDatasets,
-                              String testName, String modelFile, EvaluatorConfig evaluator,
-                              int minSdkVersion) {
+                InferenceInOutSequence.FromAssets[] inOutAssets,
+                InferenceInOutSequence.FromDataset[] inOutDatasets, String testName,
+                String modelFile,
+                EvaluatorConfig evaluator, int minSdkVersion, int inDataSize) {
             mModelName = modelName;
             mBaselineSec = baselineSec;
             mInputShape = inputShape;
             mInOutAssets = inOutAssets;
-            mInOutDatasets  = inOutDatasets;
+            mInOutDatasets = inOutDatasets;
             mTestName = testName;
             mModelFile = modelFile;
             mEvaluator = evaluator;
             mMinSdkVersion = minSdkVersion;
+            mInDataSize = inDataSize;
         }
 
         public NNTestBase createNNTestBase() {
             return new NNTestBase(mModelName, mModelFile, mInputShape, mInOutAssets, mInOutDatasets,
-                mEvaluator, mMinSdkVersion);
+                    mEvaluator, mMinSdkVersion);
         }
 
-        public NNTestBase createNNTestBase(boolean useNNApi, boolean enableIntermediateTensorsDump) {
+        public NNTestBase createNNTestBase(TfLiteBackend tfLiteBackend, boolean enableIntermediateTensorsDump) {
+            return createNNTestBase(tfLiteBackend, enableIntermediateTensorsDump, /*mmapModel=*/false);
+        }
+
+        // Used by CTS tests.
+        public NNTestBase createNNTestBase(boolean useNNAPI, boolean enableIntermediateTensorsDump) {
+            TfLiteBackend tfLiteBackend = useNNAPI ? TfLiteBackend.NNAPI : TfLiteBackend.CPU;
+            return createNNTestBase(tfLiteBackend, enableIntermediateTensorsDump, /*mmapModel=*/false);
+        }
+
+        public NNTestBase createNNTestBase(TfLiteBackend tfLiteBackend, boolean enableIntermediateTensorsDump,
+                boolean mmapModel) {
             NNTestBase test = createNNTestBase();
-            test.useNNApi(useNNApi);
+            test.setTfLiteBackend(tfLiteBackend);
             test.enableIntermediateTensorsDump(enableIntermediateTensorsDump);
+            test.setMmapModel(mmapModel);
             return test;
         }
 
@@ -86,10 +102,19 @@ public class TestModels {
         public String getTestName() {
             return mTestName;
         }
+
+
+        public TestModelEntry withDisabledEvaluation() {
+            return new TestModelEntry(mModelName, mBaselineSec, mInputShape, mInOutAssets,
+                    mInOutDatasets, mTestName, mModelFile,
+                    null, // Disable evaluation.
+                    mMinSdkVersion, mInDataSize);
+        }
     }
 
     static private final List<TestModelEntry> sTestModelEntryList = new ArrayList<>();
-    static private final AtomicReference<List<TestModelEntry>> frozenEntries = new AtomicReference<>(null);
+    static private final AtomicReference<List<TestModelEntry>> frozenEntries =
+            new AtomicReference<>(null);
 
 
     /** Add new benchmark model. */
@@ -100,7 +125,12 @@ public class TestModels {
         sTestModelEntryList.add(model);
     }
 
-    /** Fetch list of test models.
+    public static boolean isListFrozen() {
+        return frozenEntries.get() != null;
+    }
+
+    /**
+     * Fetch list of test models.
      *
      * If this method was called at least once, then it's impossible to register new models.
      */
@@ -118,4 +148,5 @@ public class TestModels {
         }
         throw new IllegalArgumentException("Unknown TestModelEntry named " + name);
     }
+
 }

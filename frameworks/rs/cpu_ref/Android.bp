@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "libRSCpuRef",
     defaults: ["libbcc-targets"],
@@ -83,12 +87,6 @@ cc_library_shared {
 	    avx2: {
                 cflags: ["-DARCH_X86_HAVE_AVX2", "-mavx2", "-mfma"],
             },
-        },
-    },
-
-    target: {
-        arm_on_x86: {
-            cflags: ["-DBUILD_ARM_FOR_X86"],
         },
     },
 

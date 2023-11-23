@@ -514,6 +514,16 @@ void TestReturnAsObjectExitHook(std::shared_ptr<ir::DexFile> dex_ir) {
   SLICER_CHECK(mi.InstrumentMethod(method));
 }
 
+// Test slicer::MethodInstrumenter + Tweak::ReturnAsObject + Tweak::PassMethodSignature
+void TestPassMethodSignatureExitHook(std::shared_ptr<ir::DexFile> dex_ir) {
+  slicer::MethodInstrumenter mi(dex_ir);
+  mi.AddTransformation<slicer::ExitHook>(ir::MethodId("LTracer;", "onFooExit"),
+                                          slicer::ExitHook::Tweak::ReturnAsObject |
+                                          slicer::ExitHook::Tweak::PassMethodSignature);
+
+  auto method = ir::MethodId("LTarget;", "foo", "(I[[Ljava/lang/String;)Ljava/lang/Integer;");
+  SLICER_CHECK(mi.InstrumentMethod(method));
+}
 
 void ListExperiments(std::shared_ptr<ir::DexFile> dex_ir);
 
@@ -533,7 +543,7 @@ std::map<std::string, Experiment> experiments_registry = {
     { "code_coverage", &CodeCoverage },
     { "array_param_entry_hook", &TestArrayParamsEntryHook },
     { "return_obj_exit_hook", &TestReturnAsObjectExitHook },
-
+    { "pass_sign_exit_hook", &TestPassMethodSignatureExitHook },
 };
 
 // Lists all the registered experiments

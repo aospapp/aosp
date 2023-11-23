@@ -33,7 +33,10 @@ import com.google.android.material.tabs.TabLayout.ViewPagerOnTabSelectedListener
 import androidx.fragment.app.FragmentStatePagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 import androidx.preference.PreferenceManager;
+
+import android.provider.Settings;
 import android.text.TextUtils;
+import android.util.Log;
 import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -60,6 +63,9 @@ import java.util.ArrayList;
  * Activity for viewing emergency information.
  */
 public class ViewInfoActivity extends FragmentActivity {
+
+    private static final String TAG = "ViewInfoActivity";
+
     private ImageView mPersonalCardLargeIcon;
     private TextView mPersonalCardLargeItem;
     private SharedPreferences mSharedPreferences;
@@ -146,6 +152,12 @@ public class ViewInfoActivity extends FragmentActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
+        if (Settings.Secure.getInt(getContentResolver(),
+                Settings.Secure.USER_SETUP_COMPLETE, 0) == 0) {
+            Log.d(TAG, "Device setup not complete, not showing edit button.");
+            return super.onCreateOptionsMenu(menu);
+        }
+
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.view_info_menu, menu);
         mMenu = menu;

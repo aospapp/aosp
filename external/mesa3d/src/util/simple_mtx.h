@@ -25,10 +25,11 @@
 #define _SIMPLE_MTX_H
 
 #include "util/futex.h"
+#include "util/macros.h"
 
 #include "c11/threads.h"
 
-#if defined(__GNUC__) && defined(HAVE_LINUX_FUTEX_H)
+#if UTIL_FUTEX_SUPPORTED
 
 /* mtx_t - Fast, simple mutex
  *
@@ -60,8 +61,10 @@ typedef struct {
 
 #define _SIMPLE_MTX_INITIALIZER_NP { 0 }
 
+#define _SIMPLE_MTX_INVALID_VALUE 0xd0d0d0d0
+
 static inline void
-simple_mtx_init(simple_mtx_t *mtx, MAYBE_UNUSED int type)
+simple_mtx_init(simple_mtx_t *mtx, ASSERTED int type)
 {
    assert(type == mtx_plain);
 
@@ -69,8 +72,11 @@ simple_mtx_init(simple_mtx_t *mtx, MAYBE_UNUSED int type)
 }
 
 static inline void
-simple_mtx_destroy(UNUSED simple_mtx_t *mtx)
+simple_mtx_destroy(ASSERTED simple_mtx_t *mtx)
 {
+#ifndef NDEBUG
+   mtx->val = _SIMPLE_MTX_INVALID_VALUE;
+#endif
 }
 
 static inline void
@@ -79,6 +85,9 @@ simple_mtx_lock(simple_mtx_t *mtx)
    uint32_t c;
 
    c = __sync_val_compare_and_swap(&mtx->val, 0, 1);
+
+   assert(c != _SIMPLE_MTX_INVALID_VALUE);
+
    if (__builtin_expect(c != 0, 0)) {
       if (c != 2)
          c = __sync_lock_test_and_set(&mtx->val, 2);
@@ -95,10 +104,19 @@ simple_mtx_unlock(simple_mtx_t *mtx)
    uint32_t c;
 
    c = __sync_fetch_and_sub(&mtx->val, 1);
+
+   assert(c != _SIMPLE_MTX_INVALID_VALUE);
+
    if (__builtin_expect(c != 1, 0)) {
       mtx->val = 0;
       futex_wake(&mtx->val, 1);
    }
+}
+
+static inline void
+simple_mtx_assert_locked(simple_mtx_t *mtx)
+{
+   assert(mtx->val);
 }
 
 #else
@@ -129,6 +147,22 @@ static inline void
 simple_mtx_unlock(simple_mtx_t *mtx)
 {
    mtx_unlock(mtx);
+}
+
+static inline void
+simple_mtx_assert_locked(simple_mtx_t *mtx)
+{
+#ifdef DEBUG
+   /* NOTE: this would not work for recursive mutexes, but
+    * mtx_t doesn't support those
+    */
+   int ret = mtx_trylock(mtx);
+   assert(ret == thrd_busy);
+   if (ret == thrd_success)
+      mtx_unlock(mtx);
+#else
+   (void)mtx;
+#endif
 }
 
 #endif

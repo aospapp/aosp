@@ -34,13 +34,16 @@ using google_camera_hal::HwlPipelineResult;
 using google_camera_hal::MessageType;
 using google_camera_hal::NotifyMessage;
 
-EmulatedRequestProcessor::EmulatedRequestProcessor(uint32_t camera_id,
-                                                   sp<EmulatedSensor> sensor)
+EmulatedRequestProcessor::EmulatedRequestProcessor(
+    uint32_t camera_id, sp<EmulatedSensor> sensor,
+    const HwlSessionCallback& session_callback)
     : camera_id_(camera_id),
       sensor_(sensor),
+      session_callback_(session_callback),
       request_state_(std::make_unique<EmulatedLogicalRequestState>(camera_id)) {
   ATRACE_CALL();
   request_thread_ = std::thread([this] { this->RequestProcessorLoop(); });
+  importer_ = std::make_shared<HandleImporter>();
 }
 
 EmulatedRequestProcessor::~EmulatedRequestProcessor() {
@@ -56,13 +59,16 @@ EmulatedRequestProcessor::~EmulatedRequestProcessor() {
 }
 
 status_t EmulatedRequestProcessor::ProcessPipelineRequests(
-    uint32_t frame_number, const std::vector<HwlPipelineRequest>& requests,
-    const std::vector<EmulatedPipeline>& pipelines) {
+    uint32_t frame_number, std::vector<HwlPipelineRequest>& requests,
+    const std::vector<EmulatedPipeline>& pipelines,
+    const DynamicStreamIdMapType& dynamic_stream_id_map,
+    bool use_default_physical_camera) {
   ATRACE_CALL();
+  status_t res = OK;
 
   std::unique_lock<std::mutex> lock(process_mutex_);
 
-  for (const auto& request : requests) {
+  for (auto& request : requests) {
     if (request.pipeline_id >= pipelines.size()) {
       ALOGE("%s: Pipeline request with invalid pipeline id: %u", __FUNCTION__,
             request.pipeline_id);
@@ -74,19 +80,33 @@ status_t EmulatedRequestProcessor::ProcessPipelineRequests(
           lock, std::chrono::nanoseconds(
                     EmulatedSensor::kSupportedFrameDurationRange[1]));
       if (result == std::cv_status::timeout) {
-        ALOGE("%s Timed out waiting for a pending request slot", __FUNCTION__);
+        ALOGE("%s: Timed out waiting for a pending request slot", __FUNCTION__);
         return TIMED_OUT;
       }
+    }
+
+    res = request_state_->UpdateRequestForDynamicStreams(
+        &request, pipelines, dynamic_stream_id_map, use_default_physical_camera);
+    if (res != OK) {
+      ALOGE("%s: Failed to update request for dynamic streams: %s(%d)",
+            __FUNCTION__, strerror(-res), res);
+      return res;
     }
 
     auto output_buffers = CreateSensorBuffers(
         frame_number, request.output_buffers,
         pipelines[request.pipeline_id].streams, request.pipeline_id,
-        pipelines[request.pipeline_id].cb);
+        pipelines[request.pipeline_id].cb, /*override_width*/ 0,
+        /*override_height*/ 0);
+    if (output_buffers == nullptr) {
+      return NO_MEMORY;
+    }
+
     auto input_buffers = CreateSensorBuffers(
         frame_number, request.input_buffers,
         pipelines[request.pipeline_id].streams, request.pipeline_id,
-        pipelines[request.pipeline_id].cb);
+        pipelines[request.pipeline_id].cb, request.input_width,
+        request.input_height);
 
     pending_requests_.push(
         {.settings = HalCameraMetadata::Clone(request.settings.get()),
@@ -100,16 +120,55 @@ status_t EmulatedRequestProcessor::ProcessPipelineRequests(
 std::unique_ptr<Buffers> EmulatedRequestProcessor::CreateSensorBuffers(
     uint32_t frame_number, const std::vector<StreamBuffer>& buffers,
     const std::unordered_map<uint32_t, EmulatedStream>& streams,
-    uint32_t pipeline_id, HwlPipelineCallback cb) {
+    uint32_t pipeline_id, HwlPipelineCallback cb, int32_t override_width,
+    int32_t override_height) {
   if (buffers.empty()) {
     return nullptr;
   }
 
+  std::vector<StreamBuffer> requested_buffers;
+  for (auto& buffer : buffers) {
+    if (buffer.buffer != nullptr) {
+      requested_buffers.push_back(buffer);
+      continue;
+    }
+
+    if (session_callback_.request_stream_buffers != nullptr) {
+      std::vector<StreamBuffer> one_requested_buffer;
+      status_t res = session_callback_.request_stream_buffers(
+          buffer.stream_id, 1, &one_requested_buffer, frame_number);
+      if (res != OK) {
+        ALOGE("%s: request_stream_buffers failed: %s(%d)", __FUNCTION__,
+              strerror(-res), res);
+        continue;
+      }
+      if (one_requested_buffer.size() != 1 ||
+          one_requested_buffer[0].buffer == nullptr) {
+        ALOGE("%s: request_stream_buffers failed to return a valid buffer",
+              __FUNCTION__);
+        continue;
+      }
+      requested_buffers.push_back(one_requested_buffer[0]);
+    }
+  }
+
+  if (requested_buffers.size() < buffers.size()) {
+    ALOGE(
+        "%s: Failed to acquire all sensor buffers: %zu acquired, %zu requested",
+        __FUNCTION__, requested_buffers.size(), buffers.size());
+    // This only happens for HAL buffer manager use case.
+    if (session_callback_.return_stream_buffers != nullptr) {
+      session_callback_.return_stream_buffers(requested_buffers);
+    }
+    return nullptr;
+  }
+
   auto sensor_buffers = std::make_unique<Buffers>();
-  sensor_buffers->reserve(buffers.size());
-  for (const auto& buffer : buffers) {
+  sensor_buffers->reserve(requested_buffers.size());
+  for (auto& buffer : requested_buffers) {
     auto sensor_buffer = CreateSensorBuffer(
-        frame_number, streams.at(buffer.stream_id), pipeline_id, cb, buffer);
+        frame_number, streams.at(buffer.stream_id), pipeline_id, cb, buffer,
+        override_width, override_height);
     if (sensor_buffer.get() != nullptr) {
       sensor_buffers->push_back(std::move(sensor_buffer));
     }
@@ -152,8 +211,8 @@ status_t EmulatedRequestProcessor::Flush() {
 }
 
 status_t EmulatedRequestProcessor::GetBufferSizeAndStride(
-    const EmulatedStream& stream, uint32_t* size /*out*/,
-    uint32_t* stride /*out*/) {
+    const EmulatedStream& stream, buffer_handle_t buffer,
+    uint32_t* size /*out*/, uint32_t* stride /*out*/) {
   if (size == nullptr) {
     return BAD_VALUE;
   }
@@ -165,7 +224,6 @@ status_t EmulatedRequestProcessor::GetBufferSizeAndStride(
       break;
     case HAL_PIXEL_FORMAT_RGBA_8888:
       *stride = stream.width * 4;
-      ;
       *size = (*stride) * stream.height;
       break;
     case HAL_PIXEL_FORMAT_Y16:
@@ -185,7 +243,9 @@ status_t EmulatedRequestProcessor::GetBufferSizeAndStride(
       }
       break;
     case HAL_PIXEL_FORMAT_RAW16:
-      *stride = stream.width * 2;
+      if (importer_->getMonoPlanarStrideBytes(buffer, stride) != NO_ERROR) {
+        *stride = stream.width * 2;
+      }
       *size = (*stride) * stream.height;
       break;
     default:
@@ -196,18 +256,19 @@ status_t EmulatedRequestProcessor::GetBufferSizeAndStride(
 }
 
 status_t EmulatedRequestProcessor::LockSensorBuffer(
-    const EmulatedStream& stream, HandleImporter& importer /*in*/,
-    buffer_handle_t buffer, SensorBuffer* sensor_buffer /*out*/) {
+    const EmulatedStream& stream, buffer_handle_t buffer, int32_t width,
+    int32_t height, SensorBuffer* sensor_buffer /*out*/) {
   if (sensor_buffer == nullptr) {
     return BAD_VALUE;
   }
 
-  auto width = static_cast<int32_t>(stream.width);
-  auto height = static_cast<int32_t>(stream.height);
   auto usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
-  if (stream.override_format == HAL_PIXEL_FORMAT_YCBCR_420_888) {
+  bool isYUV_420_888 = stream.override_format == HAL_PIXEL_FORMAT_YCBCR_420_888;
+  bool isP010 = static_cast<android_pixel_format_v1_1_t>(
+                    stream.override_format) == HAL_PIXEL_FORMAT_YCBCR_P010;
+  if ((isYUV_420_888) || (isP010)) {
     IMapper::Rect map_rect = {0, 0, width, height};
-    auto yuv_layout = importer.lockYCbCr(buffer, usage, map_rect);
+    auto yuv_layout = importer_->lockYCbCr(buffer, usage, map_rect);
     if ((yuv_layout.y != nullptr) && (yuv_layout.cb != nullptr) &&
         (yuv_layout.cr != nullptr)) {
       sensor_buffer->plane.img_y_crcb.img_y =
@@ -219,7 +280,7 @@ status_t EmulatedRequestProcessor::LockSensorBuffer(
       sensor_buffer->plane.img_y_crcb.y_stride = yuv_layout.yStride;
       sensor_buffer->plane.img_y_crcb.cbcr_stride = yuv_layout.cStride;
       sensor_buffer->plane.img_y_crcb.cbcr_step = yuv_layout.chromaStep;
-      if ((yuv_layout.chromaStep == 2) &&
+      if (isYUV_420_888 && (yuv_layout.chromaStep == 2) &&
           std::abs(sensor_buffer->plane.img_y_crcb.img_cb -
                    sensor_buffer->plane.img_y_crcb.img_cr) != 1) {
         ALOGE("%s: Unsupported YUV layout, chroma step: %u U/V plane delta: %u",
@@ -229,13 +290,14 @@ status_t EmulatedRequestProcessor::LockSensorBuffer(
                            sensor_buffer->plane.img_y_crcb.img_cr)));
         return BAD_VALUE;
       }
+      sensor_buffer->plane.img_y_crcb.bytesPerPixel = isP010 ? 2 : 1;
     } else {
       ALOGE("%s: Failed to lock output buffer!", __FUNCTION__);
       return BAD_VALUE;
     }
   } else {
     uint32_t buffer_size = 0, stride = 0;
-    auto ret = GetBufferSizeAndStride(stream, &buffer_size, &stride);
+    auto ret = GetBufferSizeAndStride(stream, buffer, &buffer_size, &stride);
     if (ret != OK) {
       ALOGE("%s: Unsupported pixel format: 0x%x", __FUNCTION__,
             stream.override_format);
@@ -243,17 +305,17 @@ status_t EmulatedRequestProcessor::LockSensorBuffer(
     }
     if (stream.override_format == HAL_PIXEL_FORMAT_BLOB) {
       sensor_buffer->plane.img.img =
-          static_cast<uint8_t*>(importer.lock(buffer, usage, buffer_size));
+          static_cast<uint8_t*>(importer_->lock(buffer, usage, buffer_size));
     } else {
       IMapper::Rect region{0, 0, width, height};
       sensor_buffer->plane.img.img =
-          static_cast<uint8_t*>(importer.lock(buffer, usage, region));
+          static_cast<uint8_t*>(importer_->lock(buffer, usage, region));
     }
     if (sensor_buffer->plane.img.img == nullptr) {
       ALOGE("%s: Failed to lock output buffer!", __FUNCTION__);
       return BAD_VALUE;
     }
-    sensor_buffer->plane.img.stride = stride;
+    sensor_buffer->plane.img.stride_in_bytes = stride;
     sensor_buffer->plane.img.buffer_size = buffer_size;
   }
 
@@ -263,8 +325,9 @@ status_t EmulatedRequestProcessor::LockSensorBuffer(
 std::unique_ptr<SensorBuffer> EmulatedRequestProcessor::CreateSensorBuffer(
     uint32_t frame_number, const EmulatedStream& emulated_stream,
     uint32_t pipeline_id, HwlPipelineCallback callback,
-    StreamBuffer stream_buffer) {
-  auto buffer = std::make_unique<SensorBuffer>();
+    StreamBuffer stream_buffer, int32_t override_width,
+    int32_t override_height) {
+  auto buffer = std::make_unique<SensorBuffer>(importer_);
 
   auto stream = emulated_stream;
   // Make sure input stream formats are correctly mapped here
@@ -272,9 +335,14 @@ std::unique_ptr<SensorBuffer> EmulatedRequestProcessor::CreateSensorBuffer(
     stream.override_format =
         EmulatedSensor::OverrideFormat(stream.override_format);
   }
-  buffer->width = stream.width;
-  buffer->height = stream.height;
-  buffer->format = stream.override_format;
+  if (override_width > 0 && override_height > 0) {
+    buffer->width = override_width;
+    buffer->height = override_height;
+  } else {
+    buffer->width = stream.width;
+    buffer->height = stream.height;
+  }
+  buffer->format = static_cast<PixelFormat>(stream.override_format);
   buffer->dataSpace = stream.override_data_space;
   buffer->stream_buffer = stream_buffer;
   buffer->pipeline_id = pipeline_id;
@@ -287,15 +355,9 @@ std::unique_ptr<SensorBuffer> EmulatedRequestProcessor::CreateSensorBuffer(
   // In case buffer processing is successful, flip this flag accordingly
   buffer->stream_buffer.status = BufferStatus::kError;
 
-  if (!buffer->importer.importBuffer(buffer->stream_buffer.buffer)) {
-    ALOGE("%s: Failed importing stream buffer!", __FUNCTION__);
-    buffer.release();
-    buffer = nullptr;
-  }
-
-  if (buffer.get() != nullptr) {
-    auto ret = LockSensorBuffer(stream, buffer->importer,
-                                buffer->stream_buffer.buffer, buffer.get());
+  if (buffer->stream_buffer.buffer != nullptr) {
+    auto ret = LockSensorBuffer(stream, buffer->stream_buffer.buffer,
+                                buffer->width, buffer->height, buffer.get());
     if (ret != OK) {
       buffer.release();
       buffer = nullptr;
@@ -303,8 +365,8 @@ std::unique_ptr<SensorBuffer> EmulatedRequestProcessor::CreateSensorBuffer(
   }
 
   if ((buffer.get() != nullptr) && (stream_buffer.acquire_fence != nullptr)) {
-    auto fence_status = buffer->importer.importFence(
-        stream_buffer.acquire_fence, buffer->acquire_fence_fd);
+    auto fence_status = importer_->importFence(stream_buffer.acquire_fence,
+                                               buffer->acquire_fence_fd);
     if (!fence_status) {
       ALOGE("%s: Failed importing acquire fence!", __FUNCTION__);
       buffer.release();
@@ -434,6 +496,12 @@ status_t EmulatedRequestProcessor::Initialize(
   std::lock_guard<std::mutex> lock(process_mutex_);
   return request_state_->Initialize(std::move(static_meta),
                                     std::move(physical_devices));
+}
+
+void EmulatedRequestProcessor::SetSessionCallback(
+    const HwlSessionCallback& hwl_session_callback) {
+  std::lock_guard<std::mutex> lock(process_mutex_);
+  session_callback_ = hwl_session_callback;
 }
 
 status_t EmulatedRequestProcessor::GetDefaultRequest(

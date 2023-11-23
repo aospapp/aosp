@@ -87,6 +87,7 @@ class ScanUtils {
   // |SCAN_TYPE_HIGH_ACCURACY| (prioritize to increase accuracy over other scan
   // performance atrributes) OR
   // |SCAN_TYPE_DEFAULT| (no prioritization).
+  // - |enable_6ghz_rnr| Whether to scan for collocated 6Ghz APs reported by by 2.4/5Ghz APs.
   // - |ssids| is a vector of ssids we request to scan, which mostly is used
   // for hidden networks.
   // If |ssids| is an empty vector, it will do a passive scan.
@@ -98,6 +99,7 @@ class ScanUtils {
   virtual bool Scan(uint32_t interface_index,
                     bool request_random_mac,
                     int scan_type,
+                    bool enable_6ghz_rnr,
                     const std::vector<std::vector<uint8_t>>& ssids,
                     const std::vector<uint32_t>& freqs,
                     int* error_code);

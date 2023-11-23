@@ -21,6 +21,7 @@ import android.net.LinkProperties;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -37,6 +38,8 @@ import java.net.Inet4Address;
  */
 public class NetworkInformationShimImpl extends
         com.android.networkstack.apishim.api29.NetworkInformationShimImpl {
+    private static final String TAG = "api30.NetworkInformationShimImpl";
+
     protected NetworkInformationShimImpl() {}
 
     /**
@@ -104,5 +107,21 @@ public class NetworkInformationShimImpl extends
     public void setDhcpServerAddress(@NonNull LinkProperties lp,
             @NonNull Inet4Address serverAddress) {
         lp.setDhcpServerAddress(serverAddress);
+    }
+
+    @Override
+    public void setCaptivePortalData(@NonNull LinkProperties lp,
+            @Nullable CaptivePortalDataShim captivePortalData) {
+        if (lp == null) {
+            return;
+        }
+        if (!(captivePortalData instanceof CaptivePortalDataShimImpl)) {
+            // The caller passed in a subclass that is not a CaptivePortalDataShimImpl.
+            // This is a programming error, but don't crash with ClassCastException.
+            Log.wtf(TAG, "Expected CaptivePortalDataShimImpl, but got "
+                    + captivePortalData.getClass().getName());
+            return;
+        }
+        lp.setCaptivePortalData(((CaptivePortalDataShimImpl) captivePortalData).getData());
     }
 }

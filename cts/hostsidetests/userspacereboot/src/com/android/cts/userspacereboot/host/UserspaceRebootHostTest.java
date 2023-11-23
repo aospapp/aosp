@@ -68,7 +68,10 @@ public class UserspaceRebootHostTest extends BaseHostJUnit4Test  {
 
     private void installApk(String apkFileName) throws Exception {
         CompatibilityBuildHelper helper = new CompatibilityBuildHelper(getBuild());
-        getDevice().installPackage(helper.getTestFile(apkFileName), false, true);
+        getDevice().installPackage(helper.getTestFile(apkFileName), false, true,
+                getDevice().isAppEnumerationSupported()
+                        ? new String[]{"--force-queryable"}
+                        : new String[]{});
     }
 
     /**
@@ -182,6 +185,7 @@ public class UserspaceRebootHostTest extends BaseHostJUnit4Test  {
                     "testVerifyReceivedBootCompletedBroadcast", Duration.ofMinutes(6));
         } finally {
             getDevice().executeShellV2Command("cmd lock_settings clear --old 1543");
+            getDevice().executeShellV2Command("reboot");
         }
     }
 
@@ -215,6 +219,7 @@ public class UserspaceRebootHostTest extends BaseHostJUnit4Test  {
                     "testVerifyReceivedBootCompletedBroadcast", Duration.ofMinutes(6));
         } finally {
             getDevice().executeShellV2Command("cmd lock_settings clear --old 1543");
+            getDevice().executeShellV2Command("reboot");
         }
     }
 

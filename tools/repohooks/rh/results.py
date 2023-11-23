@@ -1,4 +1,3 @@
-# -*- coding:utf-8 -*-
 # Copyright 2016 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,8 +13,6 @@
 # limitations under the License.
 
 """Common errors thrown when repo preupload checks fail."""
-
-from __future__ import print_function
 
 import os
 import sys

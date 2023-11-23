@@ -40,6 +40,13 @@ std::unique_ptr<libtextclassifier3::mobile::lang_id::LangId> LoadFromDescriptor(
   return langid_model;
 }
 
+std::unique_ptr<libtextclassifier3::mobile::lang_id::LangId> LoadFromUnownedBuffer(
+    const char* buffer, int size) {
+  std::unique_ptr<libtextclassifier3::mobile::lang_id::LangId> langid_model =
+      libtextclassifier3::mobile::lang_id::GetLangIdFromFlatbufferBytes(buffer, size);
+  return langid_model;
+}
+
 std::vector<std::pair<std::string, float>> GetPredictions(
     const libtextclassifier3::mobile::lang_id::LangId* model, const std::string& text) {
   return GetPredictions(model, text.data(), text.size());

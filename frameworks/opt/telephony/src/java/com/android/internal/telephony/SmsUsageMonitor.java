@@ -16,6 +16,7 @@
 
 package com.android.internal.telephony;
 
+import android.app.role.RoleManager;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -24,12 +25,13 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.XmlResourceParser;
 import android.database.ContentObserver;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Process;
 import android.os.UserHandle;
 import android.provider.Settings;
-import android.telephony.PhoneNumberUtils;
 import android.telephony.SmsManager;
+import android.telephony.TelephonyManager;
 import android.util.AtomicFile;
 import android.util.Xml;
 
@@ -51,6 +53,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
@@ -124,6 +127,8 @@ public class SmsUsageMonitor {
 
     /** Last modified time for pattern file */
     private long mPatternFileLastModified = 0;
+
+    private RoleManager mRoleManager;
 
     /** Directory for per-app SMS permission XML file. */
     private static final String SMS_POLICY_FILE_DIRECTORY = "/data/misc/sms";
@@ -244,10 +249,11 @@ public class SmsUsageMonitor {
      * Create SMS usage monitor.
      * @param context the context to use to load resources and get TelephonyManager service
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public SmsUsageMonitor(Context context) {
         mContext = context;
         ContentResolver resolver = context.getContentResolver();
+        mRoleManager = (RoleManager) mContext.getSystemService(Context.ROLE_SERVICE);
 
         mMaxAllowed = Settings.Global.getInt(resolver,
                 Settings.Global.SMS_OUTGOING_CHECK_MAX_COUNT,
@@ -345,14 +351,14 @@ public class SmsUsageMonitor {
     /**
      * Check to see if an application is allowed to send new SMS messages, and confirm with
      * user if the send limit was reached or if a non-system app is potentially sending to a
-     * premium SMS short code or number.
+     * premium SMS short code or number. If the app is the default SMS app, there's no send limit.
      *
      * @param appName the package name of the app requesting to send an SMS
      * @param smsWaiting the number of new messages desired to send
      * @return true if application is allowed to send the requested number
      *  of new sms messages
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public boolean check(String appName, int smsWaiting) {
         synchronized (mSmsStamp) {
             removeExpiredTimestamps();
@@ -363,7 +369,12 @@ public class SmsUsageMonitor {
                 mSmsStamp.put(appName, sentList);
             }
 
-            return isUnderLimit(sentList, smsWaiting);
+            List<String> defaultApp = mRoleManager.getRoleHolders(RoleManager.ROLE_SMS);
+            if (defaultApp.contains(appName)) {
+                return true;
+            } else {
+                return isUnderLimit(sentList, smsWaiting);
+            }
         }
     }
 
@@ -386,8 +397,9 @@ public class SmsUsageMonitor {
      */
     public int checkDestination(String destAddress, String countryIso) {
         synchronized (mSettingsObserverHandler) {
+            TelephonyManager tm = mContext.getSystemService(TelephonyManager.class);
             // always allow emergency numbers
-            if (PhoneNumberUtils.isEmergencyNumber(destAddress, countryIso)) {
+            if (tm.isEmergencyNumber(destAddress)) {
                 if (DBG) Rlog.d(TAG, "isEmergencyNumber");
                 return SmsManager.SMS_CATEGORY_NOT_SHORT_CODE;
             }
@@ -580,16 +592,19 @@ public class SmsUsageMonitor {
         if (appId == Process.SYSTEM_UID || appId == Process.PHONE_UID || uid == 0) {
             return;
         }
+        // log string should be same in both exception scenarios below, otherwise it can be used to
+        // detect if a package is installed on the device which is a privacy/security issue
+        String errorLog = "Calling uid " + uid + " gave package " + pkg + " which is either "
+                + "unknown or owned by another uid";
         try {
             ApplicationInfo ai = mContext.getPackageManager().getApplicationInfoAsUser(
                     pkg, 0, UserHandle.getUserHandleForUid(uid));
 
-          if (UserHandle.getAppId(ai.uid) != UserHandle.getAppId(uid)) {
-                throw new SecurityException("Calling uid " + uid + " gave package"
-                        + pkg + " which is owned by uid " + ai.uid);
+            if (UserHandle.getAppId(ai.uid) != UserHandle.getAppId(uid)) {
+                throw new SecurityException(errorLog);
             }
         } catch (NameNotFoundException ex) {
-            throw new SecurityException("Unknown package " + pkg + "\n" + ex);
+            throw new SecurityException(errorLog);
         }
     }
 

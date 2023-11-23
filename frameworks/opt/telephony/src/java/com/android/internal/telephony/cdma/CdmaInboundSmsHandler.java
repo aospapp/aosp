@@ -188,10 +188,11 @@ public class CdmaInboundSmsHandler extends InboundSmsHandler {
      * Process Cell Broadcast, Voicemail Notification, and other 3GPP/3GPP2-specific messages.
      *
      * @param smsb the SmsMessageBase object from the RIL
+     * @param smsSource the source of the SMS message
      * @return true if the message was handled here; false to continue processing
      */
     @Override
-    protected int dispatchMessageRadioSpecific(SmsMessageBase smsb) {
+    protected int dispatchMessageRadioSpecific(SmsMessageBase smsb, @SmsSource int smsSource) {
         SmsMessage sms = (SmsMessage) smsb;
         boolean isBroadcastType = (SmsEnvelope.MESSAGE_TYPE_BROADCAST == sms.getMessageType());
 
@@ -217,7 +218,7 @@ public class CdmaInboundSmsHandler extends InboundSmsHandler {
             case SmsEnvelope.TELESERVICE_VMN:
             case SmsEnvelope.TELESERVICE_MWI:
                 // handle voicemail indication
-                handleVoicemailTeleservice(sms);
+                handleVoicemailTeleservice(sms, smsSource);
                 return Intents.RESULT_SMS_HANDLED;
 
             case SmsEnvelope.TELESERVICE_WMT:
@@ -258,10 +259,10 @@ public class CdmaInboundSmsHandler extends InboundSmsHandler {
         if (SmsEnvelope.TELESERVICE_WAP == teleService) {
             return processCdmaWapPdu(sms.getUserData(), sms.mMessageRef,
                     sms.getOriginatingAddress(), sms.getDisplayOriginatingAddress(),
-                    sms.getTimestampMillis());
+                    sms.getTimestampMillis(), smsSource);
         }
 
-        return dispatchNormalMessage(smsb);
+        return dispatchNormalMessage(smsb, smsSource);
     }
 
     /**
@@ -309,7 +310,7 @@ public class CdmaInboundSmsHandler extends InboundSmsHandler {
      *
      * @param sms the message to process
      */
-    private void handleVoicemailTeleservice(SmsMessage sms) {
+    private void handleVoicemailTeleservice(SmsMessage sms, @SmsSource int smsSource) {
         int voicemailCount = sms.getNumOfVoicemails();
         if (DBG) log("Voicemail count=" + voicemailCount);
 
@@ -324,7 +325,7 @@ public class CdmaInboundSmsHandler extends InboundSmsHandler {
         // update voice mail count in phone
         mPhone.setVoiceMessageCount(voicemailCount);
         // update metrics
-        addVoicemailSmsToMetrics();
+        addVoicemailSmsToMetrics(smsSource);
     }
 
     /**
@@ -338,7 +339,7 @@ public class CdmaInboundSmsHandler extends InboundSmsHandler {
      * to applications
      */
     private int processCdmaWapPdu(byte[] pdu, int referenceNumber, String address, String dispAddr,
-            long timestamp) {
+            long timestamp, @SmsSource int smsSource) {
         int index = 0;
 
         int msgType = (0xFF & pdu[index++]);
@@ -386,7 +387,8 @@ public class CdmaInboundSmsHandler extends InboundSmsHandler {
                         referenceNumber,
                         segment, totalSegments, true, HexDump.toHexString(userData),
                         false /* isClass0 */,
-                        mPhone.getSubId());
+                        mPhone.getSubId(),
+                        smsSource);
 
         // de-duping is done only for text messages
         return addTrackerToRawTableAndSendMessage(tracker, false /* don't de-dup */);
@@ -431,9 +433,10 @@ public class CdmaInboundSmsHandler extends InboundSmsHandler {
     /**
      * Add voicemail indication SMS 0 to metrics.
      */
-    private void addVoicemailSmsToMetrics() {
+    private void addVoicemailSmsToMetrics(@SmsSource int smsSource) {
         mMetrics.writeIncomingVoiceMailSms(mPhone.getPhoneId(),
                 android.telephony.SmsMessage.FORMAT_3GPP2);
+        mPhone.getSmsStats().onIncomingSmsVoicemail(true /* is3gpp2 */, smsSource);
     }
 
     /**
@@ -442,16 +445,16 @@ public class CdmaInboundSmsHandler extends InboundSmsHandler {
      *
      * adb shell am broadcast -a com.android.internal.telephony.cdma.TEST_TRIGGER_CELL_BROADCAST \
      * --ei service_category 4097 \
-     * --es bearer_data_string 00031303900801C00D0101015C02D00002BFD1931054D208119313D3D10815D05 \
-     * 493925391C81193D48814D3D555120810D3D0D3D3925393C810D3D5539516480B481393D495120810D1539514 \
-     * 9053081054925693D390481553951253080D0C4D481413481354D500
+     * --es bearer_data_string 0003104D200801C00D010101510278000260A34C834E4208D327CF8882BC1A53A \
+     * 4CE8E8234FA4829CFAB52420873E1CF9D2674F410E7D59D52CA05A8274FA5524208716754A506620834A4DA9F \
+     * 3A0A0AB3AA499881A316A8284D41369D40
      *
      * adb shell am broadcast -a com.android.internal.telephony.cdma.TEST_TRIGGER_CELL_BROADCAST \
      * --ei service_category 4097 \
-     * --es bearer_data_string 00031303900801C00D0101015C02D00002BFD1931054D208119313D3D10815D05 \
-     * 493925391C81193D48814D3D555120810D3D0D3D3925393C810D3D5539516480B481393D495120810D1539514 \
-     * 9053081054925693D390481553951253080D0C4D481413481354D500 \
-     * --ei phone_id 0 \
+     * --es bearer_data_string 0003104D200801C00D010101510278000260A34C834E4208D327CF8882BC1A53A \
+     * 4CE8E8234FA4829CFAB52420873E1CF9D2674F410E7D59D52CA05A8274FA5524208716754A506620834A4DA9F \
+     * 3A0A0AB3AA499881A316A8284D41369D40 \
+     * --ei phone_id 0
      */
     private class CdmaCbTestBroadcastReceiver extends CbTestBroadcastReceiver {
 

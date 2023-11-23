@@ -88,6 +88,8 @@ struct wl_subsurface;
 struct wl_surface;
 struct wl_touch;
 
+#ifndef WL_DISPLAY_INTERFACE
+#define WL_DISPLAY_INTERFACE
 /**
  * @page page_iface_wl_display wl_display
  * @section page_iface_wl_display_desc Description
@@ -104,6 +106,9 @@ struct wl_touch;
  * is used for internal Wayland protocol features.
  */
 extern const struct wl_interface wl_display_interface;
+#endif
+#ifndef WL_REGISTRY_INTERFACE
+#define WL_REGISTRY_INTERFACE
 /**
  * @page page_iface_wl_registry wl_registry
  * @section page_iface_wl_registry_desc Description
@@ -156,6 +161,9 @@ extern const struct wl_interface wl_display_interface;
  * the object.
  */
 extern const struct wl_interface wl_registry_interface;
+#endif
+#ifndef WL_CALLBACK_INTERFACE
+#define WL_CALLBACK_INTERFACE
 /**
  * @page page_iface_wl_callback wl_callback
  * @section page_iface_wl_callback_desc Description
@@ -172,6 +180,9 @@ extern const struct wl_interface wl_registry_interface;
  * the related request is done.
  */
 extern const struct wl_interface wl_callback_interface;
+#endif
+#ifndef WL_COMPOSITOR_INTERFACE
+#define WL_COMPOSITOR_INTERFACE
 /**
  * @page page_iface_wl_compositor wl_compositor
  * @section page_iface_wl_compositor_desc Description
@@ -190,6 +201,9 @@ extern const struct wl_interface wl_callback_interface;
  * surfaces into one displayable output.
  */
 extern const struct wl_interface wl_compositor_interface;
+#endif
+#ifndef WL_SHM_POOL_INTERFACE
+#define WL_SHM_POOL_INTERFACE
 /**
  * @page page_iface_wl_shm_pool wl_shm_pool
  * @section page_iface_wl_shm_pool_desc Description
@@ -216,6 +230,9 @@ extern const struct wl_interface wl_compositor_interface;
  * a surface or for many small buffers.
  */
 extern const struct wl_interface wl_shm_pool_interface;
+#endif
+#ifndef WL_SHM_INTERFACE
+#define WL_SHM_INTERFACE
 /**
  * @page page_iface_wl_shm wl_shm
  * @section page_iface_wl_shm_desc Description
@@ -246,6 +263,9 @@ extern const struct wl_interface wl_shm_pool_interface;
  * that can be used for buffers.
  */
 extern const struct wl_interface wl_shm_interface;
+#endif
+#ifndef WL_BUFFER_INTERFACE
+#define WL_BUFFER_INTERFACE
 /**
  * @page page_iface_wl_buffer wl_buffer
  * @section page_iface_wl_buffer_desc Description
@@ -268,6 +288,9 @@ extern const struct wl_interface wl_shm_interface;
  * updates the contents is defined by the buffer factory interface.
  */
 extern const struct wl_interface wl_buffer_interface;
+#endif
+#ifndef WL_DATA_OFFER_INTERFACE
+#define WL_DATA_OFFER_INTERFACE
 /**
  * @page page_iface_wl_data_offer wl_data_offer
  * @section page_iface_wl_data_offer_desc Description
@@ -292,6 +315,9 @@ extern const struct wl_interface wl_buffer_interface;
  * data directly from the source client.
  */
 extern const struct wl_interface wl_data_offer_interface;
+#endif
+#ifndef WL_DATA_SOURCE_INTERFACE
+#define WL_DATA_SOURCE_INTERFACE
 /**
  * @page page_iface_wl_data_source wl_data_source
  * @section page_iface_wl_data_source_desc Description
@@ -312,6 +338,9 @@ extern const struct wl_interface wl_data_offer_interface;
  * to requests to transfer the data.
  */
 extern const struct wl_interface wl_data_source_interface;
+#endif
+#ifndef WL_DATA_DEVICE_INTERFACE
+#define WL_DATA_DEVICE_INTERFACE
 /**
  * @page page_iface_wl_data_device wl_data_device
  * @section page_iface_wl_data_device_desc Description
@@ -334,6 +363,9 @@ extern const struct wl_interface wl_data_source_interface;
  * mechanisms such as copy-and-paste and drag-and-drop.
  */
 extern const struct wl_interface wl_data_device_interface;
+#endif
+#ifndef WL_DATA_DEVICE_MANAGER_INTERFACE
+#define WL_DATA_DEVICE_MANAGER_INTERFACE
 /**
  * @page page_iface_wl_data_device_manager wl_data_device_manager
  * @section page_iface_wl_data_device_manager_desc Description
@@ -366,6 +398,9 @@ extern const struct wl_interface wl_data_device_interface;
  * wl_data_offer.accept and wl_data_offer.finish for details.
  */
 extern const struct wl_interface wl_data_device_manager_interface;
+#endif
+#ifndef WL_SHELL_INTERFACE
+#define WL_SHELL_INTERFACE
 /**
  * @page page_iface_wl_shell wl_shell
  * @section page_iface_wl_shell_desc Description
@@ -388,6 +423,9 @@ extern const struct wl_interface wl_data_device_manager_interface;
  * a basic surface.
  */
 extern const struct wl_interface wl_shell_interface;
+#endif
+#ifndef WL_SHELL_SURFACE_INTERFACE
+#define WL_SHELL_SURFACE_INTERFACE
 /**
  * @page page_iface_wl_shell_surface wl_shell_surface
  * @section page_iface_wl_shell_surface_desc Description
@@ -422,6 +460,9 @@ extern const struct wl_interface wl_shell_interface;
  * the wl_surface object.
  */
 extern const struct wl_interface wl_shell_surface_interface;
+#endif
+#ifndef WL_SURFACE_INTERFACE
+#define WL_SURFACE_INTERFACE
 /**
  * @page page_iface_wl_surface wl_surface
  * @section page_iface_wl_surface_desc Description
@@ -512,6 +553,9 @@ extern const struct wl_interface wl_shell_surface_interface;
  * switching is not allowed).
  */
 extern const struct wl_interface wl_surface_interface;
+#endif
+#ifndef WL_SEAT_INTERFACE
+#define WL_SEAT_INTERFACE
 /**
  * @page page_iface_wl_seat wl_seat
  * @section page_iface_wl_seat_desc Description
@@ -532,6 +576,9 @@ extern const struct wl_interface wl_surface_interface;
  * maintains a keyboard focus and a pointer focus.
  */
 extern const struct wl_interface wl_seat_interface;
+#endif
+#ifndef WL_POINTER_INTERFACE
+#define WL_POINTER_INTERFACE
 /**
  * @page page_iface_wl_pointer wl_pointer
  * @section page_iface_wl_pointer_desc Description
@@ -560,6 +607,9 @@ extern const struct wl_interface wl_seat_interface;
  * and scrolling.
  */
 extern const struct wl_interface wl_pointer_interface;
+#endif
+#ifndef WL_KEYBOARD_INTERFACE
+#define WL_KEYBOARD_INTERFACE
 /**
  * @page page_iface_wl_keyboard wl_keyboard
  * @section page_iface_wl_keyboard_desc Description
@@ -576,6 +626,9 @@ extern const struct wl_interface wl_pointer_interface;
  * associated with a seat.
  */
 extern const struct wl_interface wl_keyboard_interface;
+#endif
+#ifndef WL_TOUCH_INTERFACE
+#define WL_TOUCH_INTERFACE
 /**
  * @page page_iface_wl_touch wl_touch
  * @section page_iface_wl_touch_desc Description
@@ -604,6 +657,9 @@ extern const struct wl_interface wl_keyboard_interface;
  * contact point can be identified by the ID of the sequence.
  */
 extern const struct wl_interface wl_touch_interface;
+#endif
+#ifndef WL_OUTPUT_INTERFACE
+#define WL_OUTPUT_INTERFACE
 /**
  * @page page_iface_wl_output wl_output
  * @section page_iface_wl_output_desc Description
@@ -628,6 +684,9 @@ extern const struct wl_interface wl_touch_interface;
  * as global during start up, or when a monitor is hotplugged.
  */
 extern const struct wl_interface wl_output_interface;
+#endif
+#ifndef WL_REGION_INTERFACE
+#define WL_REGION_INTERFACE
 /**
  * @page page_iface_wl_region wl_region
  * @section page_iface_wl_region_desc Description
@@ -648,6 +707,9 @@ extern const struct wl_interface wl_output_interface;
  * regions of a surface.
  */
 extern const struct wl_interface wl_region_interface;
+#endif
+#ifndef WL_SUBCOMPOSITOR_INTERFACE
+#define WL_SUBCOMPOSITOR_INTERFACE
 /**
  * @page page_iface_wl_subcompositor wl_subcompositor
  * @section page_iface_wl_subcompositor_desc Description
@@ -698,6 +760,9 @@ extern const struct wl_interface wl_region_interface;
  * processing to dedicated overlay hardware when possible.
  */
 extern const struct wl_interface wl_subcompositor_interface;
+#endif
+#ifndef WL_SUBSURFACE_INTERFACE
+#define WL_SUBSURFACE_INTERFACE
 /**
  * @page page_iface_wl_subsurface wl_subsurface
  * @section page_iface_wl_subsurface_desc Description
@@ -808,6 +873,7 @@ extern const struct wl_interface wl_subcompositor_interface;
  * unmapped.
  */
 extern const struct wl_interface wl_subsurface_interface;
+#endif
 
 #ifndef WL_DISPLAY_ERROR_ENUM
 #define WL_DISPLAY_ERROR_ENUM

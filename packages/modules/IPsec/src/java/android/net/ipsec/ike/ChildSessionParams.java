@@ -21,11 +21,15 @@ import android.annotation.NonNull;
 import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
 import android.net.InetAddresses;
+import android.os.PersistableBundle;
+
+import com.android.server.vcn.util.PersistableBundleUtils;
 
 import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -46,10 +50,8 @@ import java.util.concurrent.TimeUnit;
  * to have the same DH group as that of the IKE Session, then they need to explicitly set the same
  * DH Group in ChildSessionParams.
  *
- * @see {@link TunnelModeChildSessionParams} and {@link TransportModeChildSessionParams}
- * @hide
+ * <p>@see {@link TunnelModeChildSessionParams} and {@link TransportModeChildSessionParams}
  */
-@SystemApi
 public abstract class ChildSessionParams {
     /** @hide */
     protected static final int CHILD_HARD_LIFETIME_SEC_MINIMUM = 300; // 5 minutes
@@ -79,6 +81,18 @@ public abstract class ChildSessionParams {
                         IkeTrafficSelector.TRAFFIC_SELECTOR_TYPE_IPV6_ADDR_RANGE);
     }
 
+    private static final String IS_TRANPORT_KEY = "mIsTransport";
+    /** @hide */
+    protected static final String INBOUND_TS_KEY = "mInboundTrafficSelectors";
+    /** @hide */
+    protected static final String OUTBOUND_TS_KEY = "mOutboundTrafficSelectors";
+    /** @hide */
+    protected static final String SA_PROPOSALS_KEY = "mSaProposals";
+    /** @hide */
+    protected static final String HARD_LIFETIME_SEC_KEY = "mHardLifetimeSec";
+    /** @hide */
+    protected static final String SOFT_LIFETIME_SEC_KEY = "mSoftLifetimeSec";
+
     @NonNull private final IkeTrafficSelector[] mInboundTrafficSelectors;
     @NonNull private final IkeTrafficSelector[] mOutboundTrafficSelectors;
     @NonNull private final ChildSaProposal[] mSaProposals;
@@ -102,6 +116,71 @@ public abstract class ChildSessionParams {
         mHardLifetimeSec = hardLifetimeSec;
         mSoftLifetimeSec = softLifetimeSec;
         mIsTransport = isTransport;
+    }
+
+    /**
+     * Constructs this object by deserializing a PersistableBundle
+     *
+     * @hide
+     */
+    @NonNull
+    public static ChildSessionParams fromPersistableBundle(@NonNull PersistableBundle in) {
+        Objects.requireNonNull(in, "PersistableBundle is null");
+
+        if (in.getBoolean(IS_TRANPORT_KEY)) {
+            return TransportModeChildSessionParams.fromPersistableBundle(in);
+        } else {
+            return TunnelModeChildSessionParams.fromPersistableBundle(in);
+        }
+    }
+
+    /**
+     * Serializes this object to a PersistableBundle
+     *
+     * @hide
+     */
+    @NonNull
+    public PersistableBundle toPersistableBundle() {
+        final PersistableBundle result = new PersistableBundle();
+
+        result.putBoolean(IS_TRANPORT_KEY, mIsTransport);
+
+        PersistableBundle saProposalBundle =
+                PersistableBundleUtils.fromList(
+                        Arrays.asList(mSaProposals), ChildSaProposal::toPersistableBundle);
+        result.putPersistableBundle(SA_PROPOSALS_KEY, saProposalBundle);
+
+        PersistableBundle inTsBundle =
+                PersistableBundleUtils.fromList(
+                        Arrays.asList(mInboundTrafficSelectors),
+                        IkeTrafficSelector::toPersistableBundle);
+        result.putPersistableBundle(INBOUND_TS_KEY, inTsBundle);
+
+        PersistableBundle outTsBundle =
+                PersistableBundleUtils.fromList(
+                        Arrays.asList(mOutboundTrafficSelectors),
+                        IkeTrafficSelector::toPersistableBundle);
+        result.putPersistableBundle(OUTBOUND_TS_KEY, outTsBundle);
+
+        result.putInt(HARD_LIFETIME_SEC_KEY, mHardLifetimeSec);
+        result.putInt(SOFT_LIFETIME_SEC_KEY, mSoftLifetimeSec);
+        return result;
+    }
+
+    /** @hide */
+    protected static List<ChildSaProposal> getProposalsFromPersistableBundle(PersistableBundle in) {
+        PersistableBundle proposalBundle = in.getPersistableBundle(SA_PROPOSALS_KEY);
+        Objects.requireNonNull(proposalBundle, "Value for key " + SA_PROPOSALS_KEY + " was null");
+        return PersistableBundleUtils.toList(
+                proposalBundle, ChildSaProposal::fromPersistableBundle);
+    }
+
+    /** @hide */
+    protected static List<IkeTrafficSelector> getTsFromPersistableBundle(
+            PersistableBundle in, String key) {
+        PersistableBundle tsBundle = in.getPersistableBundle(key);
+        Objects.requireNonNull(tsBundle, "Value for key " + key + " was null");
+        return PersistableBundleUtils.toList(tsBundle, IkeTrafficSelector::fromPersistableBundle);
     }
 
     /**
@@ -130,9 +209,23 @@ public abstract class ChildSessionParams {
         return Arrays.asList(mOutboundTrafficSelectors);
     }
 
-    /** Retrieves all ChildSaProposals configured */
+    /**
+     * Retrieves all ChildSaProposals configured
+     *
+     * @deprecated Callers should use {@link #getChildSaProposals()}. This method is deprecated
+     *     because its name does not match the return type,
+     * @hide
+     */
+    @Deprecated
+    @SystemApi
     @NonNull
     public List<ChildSaProposal> getSaProposals() {
+        return getChildSaProposals();
+    }
+
+    /** Retrieves all ChildSaProposals configured */
+    @NonNull
+    public List<ChildSaProposal> getChildSaProposals() {
         return Arrays.asList(mSaProposals);
     }
 
@@ -154,17 +247,17 @@ public abstract class ChildSessionParams {
 
     /** @hide */
     public IkeTrafficSelector[] getInboundTrafficSelectorsInternal() {
-        return mInboundTrafficSelectors;
+        return Arrays.copyOf(mInboundTrafficSelectors, mInboundTrafficSelectors.length);
     }
 
     /** @hide */
     public IkeTrafficSelector[] getOutboundTrafficSelectorsInternal() {
-        return mOutboundTrafficSelectors;
+        return Arrays.copyOf(mOutboundTrafficSelectors, mOutboundTrafficSelectors.length);
     }
 
     /** @hide */
     public ChildSaProposal[] getSaProposalsInternal() {
-        return mSaProposals;
+        return Arrays.copyOf(mSaProposals, mSaProposals.length);
     }
 
     /** @hide */
@@ -182,6 +275,33 @@ public abstract class ChildSessionParams {
         return mIsTransport;
     }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                Arrays.hashCode(mInboundTrafficSelectors),
+                Arrays.hashCode(mOutboundTrafficSelectors),
+                Arrays.hashCode(mSaProposals),
+                mHardLifetimeSec,
+                mSoftLifetimeSec,
+                mIsTransport);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof ChildSessionParams)) {
+            return false;
+        }
+
+        ChildSessionParams other = (ChildSessionParams) o;
+
+        return Arrays.equals(mInboundTrafficSelectors, other.mInboundTrafficSelectors)
+                && Arrays.equals(mOutboundTrafficSelectors, other.mOutboundTrafficSelectors)
+                && Arrays.equals(mSaProposals, other.mSaProposals)
+                && mHardLifetimeSec == other.mHardLifetimeSec
+                && mSoftLifetimeSec == other.mSoftLifetimeSec
+                && mIsTransport == other.mIsTransport;
+    }
+
     /**
      * This class represents common information for Child Session Parameters Builders.
      *
@@ -194,6 +314,20 @@ public abstract class ChildSessionParams {
 
         protected int mHardLifetimeSec = CHILD_HARD_LIFETIME_SEC_DEFAULT;
         protected int mSoftLifetimeSec = CHILD_SOFT_LIFETIME_SEC_DEFAULT;
+
+        /** Package private constructor */
+        Builder() {}
+
+        /** Package private constructor */
+        Builder(@NonNull ChildSessionParams childParams) {
+            Objects.requireNonNull(childParams, "childParams was null");
+
+            mInboundTsList.addAll(childParams.getInboundTrafficSelectors());
+            mOutboundTsList.addAll(childParams.getOutboundTrafficSelectors());
+            mSaProposalList.addAll(childParams.getSaProposals());
+            mHardLifetimeSec = childParams.getHardLifetimeSeconds();
+            mSoftLifetimeSec = childParams.getSoftLifetimeSeconds();
+        }
 
         protected void addProposal(@NonNull ChildSaProposal proposal) {
             mSaProposalList.add(proposal);

@@ -276,7 +276,7 @@ bool RSContext::processExports() {
     }
   }
 
-  // Create a dummy root in slot 0 if a root kernel is not seen
+  // Create a placeholder root in slot 0 if a root kernel is not seen
   // and there exists a non-root kernel.
   if (valid && mExportForEach[0] == nullptr) {
     const size_t numExportedForEach = mExportForEach.size();
@@ -302,7 +302,7 @@ bool RSContext::processExports() {
 }
 
 bool RSContext::processReducePragmas(Backend *BE) {
-  // This is needed to ensure that the dummy variable is emitted into
+  // This is needed to ensure that the placeholder variable is emitted into
   // the bitcode -- which in turn forces the function to be emitted
   // into the bitcode.  We couldn't do this at
   // markUsedByReducePragma() time because we had to wait until the
@@ -346,7 +346,7 @@ void RSContext::markUsedByReducePragma(clang::FunctionDecl *FD, CheckName Check)
   // reduce).
   FD->setIsUsed();
 
-  // Each constituent function "f" of a reduction kernel gets a dummy variable generated for it:
+  // Each constituent function "f" of a reduction kernel gets a placeholder variable generated for it:
   //   void *.rs.reduce_fn.f = (void*)&f;
   // This is a trick to ensure that clang will not delete "f" as unused.
 

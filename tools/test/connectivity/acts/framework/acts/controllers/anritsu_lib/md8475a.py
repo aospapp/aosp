@@ -1582,6 +1582,14 @@ class MD8475A(object):
         self.send_trigger_message(TriggerMessageIDs.UE_CAPABILITY_ENQUIRY)
         time.sleep(SETTLING_TIME)
 
+    def get_measured_pusch_power(self):
+        """ Queries the PUSCH power.
+
+        Returns:
+            A string indicating PUSCH power in each input port.
+        """
+        return self.send_query("MONITOR? UL_PUSCH")
+
     def select_usim(self, usim):
         """ Select pre-defined Anritsu USIM models
 
@@ -1650,7 +1658,7 @@ class _AnritsuTestCases(object):
         Returns:
             None
         """
-        if not isinstance(direction, tuple) or len(direction) is not 2:
+        if not isinstance(direction, tuple) or len(direction) != 2:
             raise ValueError("Pass a tuple with two items")
         from_bts, to_bts = direction
         if (isinstance(from_bts, BtsNumber) and isinstance(to_bts, BtsNumber)):
@@ -3102,6 +3110,169 @@ class _BaseTransceiverStation(object):
             None
         """
         cmd = "TBSPATTERN {}, {}".format(pattern, self._bts_number)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def drx_connected_mode(self):
+        """ Gets the Connected DRX LTE cell parameter
+
+        Args:
+            None
+
+        Returns:
+            DRX connected mode (OFF, AUTO, MANUAL)
+        """
+        cmd = "DRXCONN? " + self._bts_number
+        return self._anritsu.send_query(cmd)
+
+    @drx_connected_mode.setter
+    def drx_connected_mode(self, mode):
+        """  Sets the Connected DRX LTE cell parameter
+
+        Args:
+            mode: OFF, AUTO, MANUAL
+
+        Returns:
+            None
+        """
+        cmd = "DRXCONN {}, {}".format(mode, self._bts_number)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def drx_on_duration_timer(self):
+        """ Gets the amount of PDCCH subframes to wait for data after
+            waking up from a DRX cycle
+
+        Args:
+            None
+
+        Returns:
+            DRX mode duration timer
+        """
+        cmd = "DRXDURATIONTIME? " + self._bts_number
+        return self._anritsu.send_query(cmd)
+
+    @drx_on_duration_timer.setter
+    def drx_on_duration_timer(self, time):
+        """ Sets the amount of PDCCH subframes to wait for data after
+            waking up from a DRX cycle
+
+        Args:
+            timer: Amount of PDCCH subframes to wait for user data
+                to be transmitted
+
+        Returns:
+            None
+        """
+        cmd = "DRXDURATIONTIME PSF{}, {}".format(time, self._bts_number)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def drx_inactivity_timer(self):
+        """ Gets the number of PDCCH subframes to wait before entering DRX mode
+
+        Args:
+            None
+
+        Returns:
+            DRX mode inactivity timer
+        """
+        cmd = "DRXINACTIVITYTIME? " + self._bts_number
+        return self._anritsu.send_query(cmd)
+
+    @drx_inactivity_timer.setter
+    def drx_inactivity_timer(self, time):
+        """ Sets the number of PDCCH subframes to wait before entering DRX mode
+
+        Args:
+            timer: Length of the interval to wait
+
+        Returns:
+            None
+        """
+        cmd = "DRXINACTIVITYTIME PSF{}, {}".format(time, self._bts_number)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def drx_retransmission_timer(self):
+        """ Gets the number of consecutive PDCCH subframes to wait
+        for retransmission
+
+        Args:
+            None
+
+        Returns:
+            Number of PDCCH subframes to wait for retransmission
+        """
+        cmd = "DRXRETRANSTIME? " + self._bts_number
+        return self._anritsu.send_query(cmd)
+
+    @drx_retransmission_timer.setter
+    def drx_retransmission_timer(self, time):
+        """ Sets the number of consecutive PDCCH subframes to wait
+        for retransmission
+
+        Args:
+            time: Number of PDCCH subframes to wait
+            for retransmission
+
+        Returns:
+            None
+        """
+        cmd = "DRXRETRANSTIME PSF{}, {}".format(time, self._bts_number)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def drx_long_cycle(self):
+        """ Gets the amount of subframes representing a DRX long cycle
+
+        Args:
+            None
+
+        Returns:
+            The amount of subframes representing one long DRX cycle.
+            One cycle consists of DRX sleep + DRX on duration
+        """
+        cmd = "DRXLONGCYCLE? " + self._bts_number
+        return self._anritsu.send_query(cmd)
+
+    @drx_long_cycle.setter
+    def drx_long_cycle(self, time):
+        """ Sets the amount of subframes representing a DRX long cycle
+
+        Args:
+            long_cycle: The amount of subframes representing one long DRX cycle.
+                One cycle consists of DRX sleep + DRX on duration
+
+        Returns:
+            None
+        """
+        cmd = "DRXLONGCYCLE SF{}, {}".format(time, self._bts_number)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def drx_long_cycle_offset(self):
+        """ Gets the offset used to determine long cycle starting
+        subframe
+
+        Args:
+            None
+
+        Returns:
+            Long cycle offset
+        """
+        cmd = "DRXLONGCYCLESTARTOFFSET? " + self._bts_number
+        return self._anritsu.send_query(cmd)
+
+    @drx_long_cycle_offset.setter
+    def drx_long_cycle_offset(self, offset):
+        """ Sets the offset used to determine long cycle starting
+        subframe
+
+        Args:
+            offset: Number in range 0...(long cycle - 1)
+        """
+        cmd = "DRXLONGCYCLESTARTOFFSET {}, {}".format(offset, self._bts_number)
         self._anritsu.send_command(cmd)
 
     @property

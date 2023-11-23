@@ -16,4 +16,5 @@
 
 <resources>
     <drawable name="red">#ff0000</drawable>
+    <drawable name="blue">#0000ff</drawable>
 </resources>

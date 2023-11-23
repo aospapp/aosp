@@ -15,9 +15,17 @@
  */
 package com.android.wallpaper.module;
 
+import static com.android.wallpaper.module.NetworkStatusNotifier.NETWORK_NOT_INITIALIZED;
+
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
+import android.content.res.XmlResourceParser;
 import android.os.AsyncTask;
+import android.util.Log;
+import android.util.Xml;
+
+import androidx.annotation.XmlRes;
 
 import com.android.wallpaper.R;
 import com.android.wallpaper.model.Category;
@@ -27,39 +35,62 @@ import com.android.wallpaper.model.DefaultWallpaperInfo;
 import com.android.wallpaper.model.DesktopCustomCategory;
 import com.android.wallpaper.model.ImageCategory;
 import com.android.wallpaper.model.LegacyPartnerWallpaperInfo;
-import com.android.wallpaper.model.LiveWallpaperCategory;
 import com.android.wallpaper.model.LiveWallpaperInfo;
 import com.android.wallpaper.model.PartnerWallpaperInfo;
+import com.android.wallpaper.model.SystemStaticWallpaperInfo;
 import com.android.wallpaper.model.ThirdPartyAppCategory;
+import com.android.wallpaper.model.ThirdPartyLiveWallpaperCategory;
 import com.android.wallpaper.model.WallpaperCategory;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.FormFactorChecker.FormFactor;
+import com.android.wallpaper.module.NetworkStatusNotifier.NetworkStatus;
 
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Default implementation of CategoryProvider.
  */
 public class DefaultCategoryProvider implements CategoryProvider {
 
+    private static final String TAG = "DefaultCategoryProvider";
+
     /**
      * Relative category priorities. Lower numbers correspond to higher priorities (i.e., should
      * appear higher in the categories list).
      */
-    private static final int PRIORITY_MY_PHOTOS = 100;
+    protected static final int PRIORITY_MY_PHOTOS = 1;
+    private static final int PRIORITY_SYSTEM = 100;
     private static final int PRIORITY_ON_DEVICE = 200;
     private static final int PRIORITY_LIVE = 300;
     private static final int PRIORITY_THIRD_PARTY = 400;
+    protected static List<Category> sSystemCategories;
 
     protected final Context mAppContext;
     protected ArrayList<Category> mCategories;
     protected boolean mFetchedCategories;
 
+    private NetworkStatusNotifier mNetworkStatusNotifier;
+    // The network status of the last fetch from the server.
+    @NetworkStatus
+    private int mNetworkStatus;
+    private Locale mLocale;
+
     public DefaultCategoryProvider(Context context) {
         mAppContext = context.getApplicationContext();
         mCategories = new ArrayList<>();
+        mNetworkStatusNotifier = InjectorProvider.getInjector().getNetworkStatusNotifier(context);
+        mNetworkStatus = NETWORK_NOT_INITIALIZED;
     }
 
     @Override
@@ -75,6 +106,8 @@ public class DefaultCategoryProvider implements CategoryProvider {
             mFetchedCategories = false;
         }
 
+        mNetworkStatus = mNetworkStatusNotifier.getNetworkStatus();
+        mLocale = getLocale();
         doFetch(receiver, forceRefresh);
     }
 
@@ -103,6 +136,27 @@ public class DefaultCategoryProvider implements CategoryProvider {
         return null;
     }
 
+    @Override
+    public boolean isCategoriesFetched() {
+        return mFetchedCategories;
+    }
+
+    @Override
+    public boolean resetIfNeeded() {
+        if (mNetworkStatus != mNetworkStatusNotifier.getNetworkStatus()
+                || mLocale != getLocale()) {
+            mCategories.clear();
+            mFetchedCategories = false;
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean isFeaturedCollectionAvailable() {
+        return false;
+    }
+
     protected void doFetch(final CategoryReceiver receiver, boolean forceRefresh) {
         CategoryReceiver delegatingReceiver = new CategoryReceiver() {
             @Override
@@ -121,12 +175,17 @@ public class DefaultCategoryProvider implements CategoryProvider {
         new FetchCategoriesTask(delegatingReceiver, mAppContext).execute();
     }
 
+    private Locale getLocale() {
+        return mAppContext.getResources().getConfiguration().getLocales().get(0);
+    }
+
     /**
      * AsyncTask subclass used for fetching all the categories and pushing them one at a time to
      * the receiver.
      */
     protected static class FetchCategoriesTask extends AsyncTask<Void, Category, Void> {
         private CategoryReceiver mReceiver;
+        private PartnerProvider mPartnerProvider;
         protected final Context mAppContext;
 
         public FetchCategoriesTask(CategoryReceiver receiver, Context context) {
@@ -136,6 +195,8 @@ public class DefaultCategoryProvider implements CategoryProvider {
 
         @Override
         protected Void doInBackground(Void... voids) {
+            mPartnerProvider = InjectorProvider.getInjector().getPartnerProvider(
+                    mAppContext);
             FormFactorChecker formFactorChecker =
                     InjectorProvider.getInjector().getFormFactorChecker(mAppContext);
             @FormFactor int formFactor = formFactorChecker.getFormFactor();
@@ -143,7 +204,10 @@ public class DefaultCategoryProvider implements CategoryProvider {
             // "My photos" wallpapers
             publishProgress(getMyPhotosCategory(formFactor));
 
-            publishDeviceCategories(formFactor);
+            publishDeviceCategories();
+
+            // Legacy On-device wallpapers. Only show if on mobile.
+            publishProgress(getOnDeviceCategory());
 
             // Live wallpapers -- if the device supports them.
             if (mAppContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LIVE_WALLPAPER)) {
@@ -151,7 +215,7 @@ public class DefaultCategoryProvider implements CategoryProvider {
                         mAppContext, getExcludedLiveWallpaperPackageNames());
                 if (liveWallpapers.size() > 0) {
                     publishProgress(
-                            new LiveWallpaperCategory(
+                            new ThirdPartyLiveWallpaperCategory(
                                     mAppContext.getString(R.string.live_wallpapers_category_title),
                                     mAppContext.getString(R.string.live_wallpaper_collection_id),
                                     liveWallpapers,
@@ -175,15 +239,29 @@ public class DefaultCategoryProvider implements CategoryProvider {
         /**
          * Publishes the device categories.
          */
-        protected void publishDeviceCategories(@FormFactor int formFactor) {
-            if (formFactor == FormFactorChecker.FORM_FACTOR_MOBILE) {
-                // On-device wallpapers. Only show if on mobile.
-                publishProgress(getOnDeviceCategory());
+        private void publishDeviceCategories() {
+            if (sSystemCategories != null) {
+                for (int i = 0; i < sSystemCategories.size(); i++) {
+                    publishProgress(sSystemCategories.get(i));
+                }
+                return;
             }
+            sSystemCategories = getSystemCategories();
         }
 
-        public List<String> getExcludedLiveWallpaperPackageNames() {
-            return new ArrayList<String>();
+        public Set<String> getExcludedLiveWallpaperPackageNames() {
+            Set<String> excluded = new HashSet<>();
+            if (sSystemCategories != null) {
+                excluded.addAll(sSystemCategories.stream()
+                        .filter(c -> c instanceof WallpaperCategory)
+                        .flatMap(c -> ((WallpaperCategory) c).getUnmodifiableWallpapers().stream()
+                                .filter(wallpaperInfo -> wallpaperInfo instanceof LiveWallpaperInfo)
+                                .map(wallpaperInfo ->
+                                        ((LiveWallpaperInfo) wallpaperInfo).getWallpaperComponent()
+                                                .getPackageName()))
+                        .collect(Collectors.toSet()));
+            }
+            return excluded;
         }
 
         protected List<String> getExcludedThirdPartyPackageNames() {
@@ -201,15 +279,83 @@ public class DefaultCategoryProvider implements CategoryProvider {
             return null;
         }
 
+        protected List<Category> getSystemCategories() {
+            Resources partnerRes = mPartnerProvider.getResources();
+            String packageName = mPartnerProvider.getPackageName();
+            List<Category> categories = new ArrayList<>();
+            if (partnerRes == null || packageName == null) {
+                return categories;
+            }
+
+            @XmlRes int wallpapersResId = partnerRes.getIdentifier(PartnerProvider.WALLPAPER_RES_ID,
+                    "xml", packageName);
+            // Certain partner configurations don't have wallpapers provided, so need to check;
+            // return early if they are missing.
+            if (wallpapersResId == 0) {
+                return categories;
+            }
+
+            try (XmlResourceParser parser = partnerRes.getXml(wallpapersResId)) {
+                final int depth = parser.getDepth();
+                int type;
+                int priorityTracker = 0;
+                while (((type = parser.next()) != XmlPullParser.END_TAG
+                        || parser.getDepth() > depth) && type != XmlPullParser.END_DOCUMENT) {
+                    if ((type == XmlPullParser.START_TAG)
+                            && WallpaperCategory.TAG_NAME.equals(parser.getName())) {
+
+                        WallpaperCategory.Builder categoryBuilder =
+                                new WallpaperCategory.Builder(mPartnerProvider.getResources(),
+                                        Xml.asAttributeSet(parser));
+                        categoryBuilder.setPriorityIfEmpty(PRIORITY_SYSTEM + priorityTracker++);
+                        final int categoryDepth = parser.getDepth();
+                        boolean publishedPlaceholder = false;
+                        while (((type = parser.next()) != XmlPullParser.END_TAG
+                                || parser.getDepth() > categoryDepth)
+                                && type != XmlPullParser.END_DOCUMENT) {
+                            if (type == XmlPullParser.START_TAG) {
+                                WallpaperInfo wallpaper = null;
+                                if (SystemStaticWallpaperInfo.TAG_NAME.equals(parser.getName())) {
+                                    wallpaper = SystemStaticWallpaperInfo
+                                            .fromAttributeSet(mPartnerProvider.getPackageName(),
+                                                    categoryBuilder.getId(),
+                                                    Xml.asAttributeSet(parser));
+
+                                } else if (LiveWallpaperInfo.TAG_NAME.equals(parser.getName())) {
+                                    wallpaper = LiveWallpaperInfo.fromAttributeSet(mAppContext,
+                                            categoryBuilder.getId(), Xml.asAttributeSet(parser));
+                                }
+                                if (wallpaper != null) {
+                                    categoryBuilder.addWallpaper(wallpaper);
+                                    // Publish progress only if there's at least one wallpaper
+                                    if (!publishedPlaceholder) {
+                                        publishProgress(categoryBuilder.buildPlaceholder());
+                                        publishedPlaceholder = true;
+                                    }
+                                }
+                            }
+                        }
+                        WallpaperCategory category = categoryBuilder.build();
+                        if (!category.getUnmodifiableWallpapers().isEmpty()) {
+                            categories.add(category);
+                            publishProgress(category);
+                        }
+                    }
+                }
+            } catch (IOException | XmlPullParserException e) {
+                Log.w(TAG, "Couldn't read system wallpapers definition", e);
+                return Collections.emptyList();
+            }
+            return categories;
+        }
+
         /**
          * Returns a category which incorporates both GEL and bundled wallpapers.
          */
-        private Category getOnDeviceCategory() {
+        protected Category getOnDeviceCategory() {
             List<WallpaperInfo> onDeviceWallpapers = new ArrayList<>();
 
-            PartnerProvider partnerProvider = InjectorProvider.getInjector().getPartnerProvider(
-                    mAppContext);
-            if (!partnerProvider.shouldHideDefaultWallpaper()) {
+            if (!mPartnerProvider.shouldHideDefaultWallpaper()) {
                 DefaultWallpaperInfo defaultWallpaperInfo = new DefaultWallpaperInfo();
                 onDeviceWallpapers.add(defaultWallpaperInfo);
             }
@@ -226,7 +372,7 @@ public class DefaultCategoryProvider implements CategoryProvider {
                 onDeviceWallpapers.addAll(privateWallpapers);
             }
 
-            return new WallpaperCategory(
+            return onDeviceWallpapers.isEmpty() ? null : new WallpaperCategory(
                     mAppContext.getString(R.string.on_device_wallpapers_category_title),
                     mAppContext.getString(R.string.on_device_wallpaper_collection_id),
                     onDeviceWallpapers,
@@ -265,7 +411,9 @@ public class DefaultCategoryProvider implements CategoryProvider {
 
             for (int i = 0; i < values.length; i++) {
                 Category category = values[i];
-                mReceiver.onCategoryReceived(category);
+                if (category != null) {
+                    mReceiver.onCategoryReceived(category);
+                }
             }
         }
 

@@ -58,7 +58,7 @@ public class TmaForegroundService extends Service {
             createNotificationChannel();
             Intent notificationIntent = new Intent(this, TmaPrefsActivity.class);
             PendingIntent pendingIntent = PendingIntent.getActivity(this,
-                    0, notificationIntent, 0);
+                    0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
             Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                     .setContentTitle("Foreground Service")
                     .setSmallIcon(R.drawable.ic_app_icon)

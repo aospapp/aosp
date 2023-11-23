@@ -19,6 +19,7 @@ package com.android.cts.storagestatsapp;
 import static android.os.storage.StorageManager.UUID_DEFAULT;
 
 import static com.android.cts.storageapp.Utils.CACHE_ALL;
+import static com.android.cts.storageapp.Utils.CACHE_EXT;
 import static com.android.cts.storageapp.Utils.CODE_ALL;
 import static com.android.cts.storageapp.Utils.DATA_ALL;
 import static com.android.cts.storageapp.Utils.MB_IN_BYTES;
@@ -80,7 +81,7 @@ public class StorageStatsTest extends InstrumentationTestCase {
      * option are enabled.
      */
     public void testVerify() throws Exception {
-        if (Build.VERSION.FIRST_SDK_INT >= Build.VERSION_CODES.P) {
+        if (Build.VERSION.DEVICE_INITIAL_SDK_INT >= Build.VERSION_CODES.P) {
             final StorageStatsManager stats = getContext()
                     .getSystemService(StorageStatsManager.class);
             assertTrue("Devices that first ship with P or newer must enable quotas to "
@@ -130,6 +131,12 @@ public class StorageStatsTest extends InstrumentationTestCase {
         final long deltaCache = CACHE_ALL;
         assertMostlyEquals(deltaCache, afterApp.getCacheBytes() - beforeApp.getCacheBytes());
         assertMostlyEquals(deltaCache, afterUser.getCacheBytes() - beforeUser.getCacheBytes());
+
+        final long deltaExternalCache = CACHE_EXT;
+        assertMostlyEquals(deltaExternalCache,
+                afterApp.getExternalCacheBytes() - beforeApp.getExternalCacheBytes());
+        assertMostlyEquals(deltaExternalCache,
+                afterUser.getExternalCacheBytes() - beforeUser.getExternalCacheBytes());
     }
 
     public void testVerifyStatsMultiple() throws Exception {
@@ -197,6 +204,9 @@ public class StorageStatsTest extends InstrumentationTestCase {
         // Rename to ensure that stats are updated
         video.renameTo(new File(dir, System.nanoTime() + ".PnG"));
 
+        // Since we have MANAGE_EXTERNAL_STORAGE, need to ask for a re-scan
+        MediaStore.scanFile(getContext().getContentResolver(), dir);
+        MediaStore.scanFile(getContext().getContentResolver(), downloadsDir);
         MediaStore.waitForIdle(getContext().getContentResolver());
 
         final ExternalStorageStats afterRename = stats.queryExternalStatsForUser(UUID_DEFAULT, user);
@@ -292,6 +302,8 @@ public class StorageStatsTest extends InstrumentationTestCase {
         final long targetA = doAllocateProvider(PKG_A, 0.5, 1262304000);
         final long targetB = doAllocateProvider(PKG_B, 2.0, 1420070400);
         final long totalAllocated = targetA + targetB;
+
+        MediaStore.waitForIdle(getContext().getContentResolver());
 
         // Apps using up some cache space shouldn't change how much we can
         // allocate, or how much we think is free; but it should decrease real

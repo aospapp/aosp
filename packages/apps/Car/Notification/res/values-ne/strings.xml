@@ -39,4 +39,5 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> नयाँ सन्देशहरू</item>
       <item quantity="one">१ नयाँ सन्देश</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"व्यवस्थापन गर्नुहोस्"</string>
 </resources>

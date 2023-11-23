@@ -20,7 +20,7 @@ import static android.net.netlink.StructNdOptPref64.getScaledLifetimePlc;
 import static android.net.netlink.StructNdOptPref64.plcToPrefixLength;
 import static android.net.netlink.StructNdOptPref64.prefixLengthToPlc;
 
-import static com.android.testutils.MiscAssertsKt.assertThrows;
+import static com.android.testutils.MiscAsserts.assertThrows;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;

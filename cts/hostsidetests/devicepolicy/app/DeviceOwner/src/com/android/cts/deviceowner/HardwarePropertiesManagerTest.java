@@ -16,12 +16,10 @@
 
 package com.android.cts.deviceowner;
 
-import android.content.Context;
 import android.os.CpuUsageInfo;
 import android.os.HardwarePropertiesManager;
-import android.os.SystemClock;
 
-import java.lang.Math;
+import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
 
 /**
  * Test {@link HardwarePropertiesManager}
@@ -116,8 +114,8 @@ public class HardwarePropertiesManagerTest extends BaseDeviceOwnerTest {
      */
     public void testHardwarePropertiesManager() throws InterruptedException,
             SecurityException {
-        HardwarePropertiesManager hm = (HardwarePropertiesManager) getContext().getSystemService(
-                Context.HARDWARE_PROPERTIES_SERVICE);
+        HardwarePropertiesManager hm = TestAppSystemServiceFactory
+                .getHardwarePropertiesManager(getContext(), BasicAdminReceiver.class);
 
         float[] oldFanSpeeds = hm.getFanSpeeds();
 

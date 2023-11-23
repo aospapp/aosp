@@ -37,8 +37,6 @@ import android.service.media.MediaBrowserService;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.car.media.common.source.MediaSourceViewModel;
-
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 
@@ -47,7 +45,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -157,7 +154,7 @@ class AppLauncherUtils {
      * Gets all the components that we want to see in the launcher in unsorted order, including
      * launcher activities and media services.
      *
-     * @param blackList             A (possibly empty) list of apps (package names) to hide
+     * @param appsToHide            A (possibly empty) list of apps (package names) to hide
      * @param customMediaComponents A (possibly empty) list of media components (component names)
      *                              that shouldn't be shown in Launcher because their applications'
      *                              launcher activities will be shown
@@ -171,7 +168,7 @@ class AppLauncherUtils {
      */
     @NonNull
     static LauncherAppsInfo getLauncherApps(
-            @NonNull Set<String> blackList,
+            @NonNull Set<String> appsToHide,
             @NonNull Set<String> customMediaComponents,
             @AppTypes int appTypes,
             boolean openMediaCenter,
@@ -202,7 +199,7 @@ class AppLauncherUtils {
                 String className = info.serviceInfo.name;
                 ComponentName componentName = new ComponentName(packageName, className);
                 mediaServicesMap.put(componentName, info);
-                if (shouldAddToLaunchables(componentName, blackList, customMediaComponents,
+                if (shouldAddToLaunchables(componentName, appsToHide, customMediaComponents,
                         appTypes, APP_TYPE_MEDIA_SERVICES)) {
                     final boolean isDistractionOptimized = true;
 
@@ -221,8 +218,15 @@ class AppLauncherUtils {
                                 selectMediaSourceAndFinish(context, componentName, carMediaManager);
                             }
                         },
-                        context -> AppLauncherUtils.launchApp(context,
-                            packageManager.getLaunchIntentForPackage(packageName)));
+                        context -> {
+                            // getLaunchIntentForPackage looks for a main activity in the category
+                            // Intent.CATEGORY_INFO, then Intent.CATEGORY_LAUNCHER, and returns null
+                            // if neither are found
+                            Intent packageLaunchIntent =
+                                    packageManager.getLaunchIntentForPackage(packageName);
+                            AppLauncherUtils.launchApp(context,
+                                    packageLaunchIntent != null ? packageLaunchIntent : intent);
+                        });
                     launchablesMap.put(componentName, appMetaData);
                 }
             }
@@ -233,7 +237,7 @@ class AppLauncherUtils {
             for (LauncherActivityInfo info : availableActivities) {
                 ComponentName componentName = info.getComponentName();
                 String packageName = componentName.getPackageName();
-                if (shouldAddToLaunchables(componentName, blackList, customMediaComponents,
+                if (shouldAddToLaunchables(componentName, appsToHide, customMediaComponents,
                         appTypes, APP_TYPE_LAUNCHABLES)) {
                     boolean isDistractionOptimized =
                         isActivityDistractionOptimized(carPackageManager, packageName,
@@ -260,11 +264,11 @@ class AppLauncherUtils {
     }
 
     private static boolean shouldAddToLaunchables(@NonNull ComponentName componentName,
-            @NonNull Set<String> blackList,
+            @NonNull Set<String> appsToHide,
             @NonNull Set<String> customMediaComponents,
             @AppTypes int appTypesToShow,
             @AppTypes int componentAppType) {
-        if (blackList.contains(componentName.getPackageName())) {
+        if (appsToHide.contains(componentName.getPackageName())) {
             return false;
         }
         switch (componentAppType) {

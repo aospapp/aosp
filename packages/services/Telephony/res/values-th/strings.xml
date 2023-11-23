@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"ผู้ใช้หลักเท่านั้นที่สามารถเปลี่ยนการตั้งค่าข้อความเสียงได้"</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"ยกเลิกการปิดกั้นซิมการ์ดแล้ว กำลังปลดล็อกโทรศัพท์ของคุณ..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"PIN ปลดล็อกเครือข่ายซิม"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"ล็อก SIM สำหรับโอเปอเรเตอร์แล้ว"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"ปลดล็อก"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"เลิกแสดง"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"กำลังขอปลดล็อกเครือข่าย..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"โอนสายไปที่ <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"ปิด"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"ผู้ให้บริการของคุณไม่สนับสนุนการปิดใช้งานการโอนสายเมื่อติดต่อไม่ได้"</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"ผู้ให้บริการของคุณไม่รองรับการโอนสาย"</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"เปิดใช้สายเรียกซ้อนไหม"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"ระบบจะแจ้งเตือนหากมีสายเรียกเข้าซ้อนระหว่างการโทร"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"เปิด"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"ยกเลิก"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"เปิดใช้สายเรียกซ้อนระบบ CDMA ภายใต้ IMS"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"ปิดใช้สายเรียกซ้อนระบบ CDMA ภายใต้ IMS"</string>
     <string name="updating_title" msgid="6130548922615719689">"การตั้งค่าการโทร"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"ผู้ใช้ระดับผู้ดูแลระบบเท่านั้นที่สามารถเปลี่ยนแปลงการตั้งค่าการโทรได้"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"การตั้งค่า (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"การใช้งาน SIM ถูกจำกัด"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"บริการโทรออกและอินเทอร์เน็ตของ <xliff:g id="CARRIER_NAME">%1$s</xliff:g> อาจถูกบล็อกขณะใช้ <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"บริการโทรออกและอินเทอร์เน็ตของ <xliff:g id="CARRIER_NAME">%1$s</xliff:g> อาจถูกบล็อกขณะใช้ SIM อื่น"</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"พบบัญชี SIP ที่เลิกใช้งานและนำออกแล้ว"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"แพลตฟอร์ม Android จะไม่รองรับการโทร SIP อีกต่อไป\nระบบนำบัญชี SIP ที่มีอยู่ของคุณ<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>ออกแล้ว\nโปรดยืนยันการตั้งค่าบัญชีการโทรเริ่มต้น"</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"ไปที่การตั้งค่า"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"การใช้อินเทอร์เน็ตของแอป"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"เน็ตมือถือ <xliff:g id="ID_1">%1$s</xliff:g> ที่ใช้ระหว่าง <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"ขั้นสูง"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"รหัสผ่านไม่ถูกต้อง ระบบล็อกซิมแล้ว โปรดป้อน PUK2"</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 ถูกบล็อกอย่างถาวร"</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"คุณพยายามได้อีก <xliff:g id="NUMBER">%d</xliff:g> ครั้ง"</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 ล็อกอยู่ ติดต่อผู้ให้บริการเพื่อปลดล็อก"</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"ไม่มีการบล็อก PIN2 อีกต่อไป"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"เครือข่ายหรือซิมการ์ดเกิดข้อผิดพลาด"</string>
     <string name="doneButton" msgid="7371209609238460207">"เสร็จสิ้น"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"เปิดเครือข่ายมือถือ ปิดโหมดบนเครื่องบิน หรือปิดโหมดประหยัดแบตเตอรี่เพื่อโทรออก"</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"ปิดโหมดบนเครื่องบินเพื่อโทรออก"</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"ปิดโหมดบนเครื่องบินหรือเชื่อมต่อเครือข่ายไร้สายเพื่อโทรออก"</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"โทรศัพท์ร้อนเกินไป"</b>\n\n"ไม่สามารถโทรได้ โปรดลองอีกครั้งเมื่อโทรศัพท์เย็นลงแล้ว\n\nคุณยังสามารถโทรหมายเลขฉุกเฉินได้อยู่"</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"โปรดออกจากโหมดการโทรกลับกรณีฉุกเฉินเพื่อโทรไปยังหมายเลขที่ไม่ใช่หมายเลขฉุกเฉิน"</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"ยังไม่ได้ลงทะเบียนบนเครือข่าย"</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"เครือข่ายมือถือใช้งานไม่ได้"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"SubId ของซิมอินเทอร์เน็ตเริ่มต้น:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"แบนด์วิดท์ดาวน์โหลด (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"แบนด์วิดท์อัปโหลด (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"ข้อมูลตำแหน่งของเครือข่ายมือถือ (เลิกใช้งานแล้ว):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"การกำหนดค่าแชเนลทางกายภาพของ LTE:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"อัตราการรีเฟรชข้อมูลมือถือ:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"ข้อมูลการวัดเครือข่ายมือถือทั้งหมด:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"รีเฟรช"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"สลับการตรวจสอบ DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"ข้อมูล/การตั้งค่าเฉพาะตาม OEM"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"มี EN-DC:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR ถูกจำกัด:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"มี NR:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"สถานะ NR:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"ความถี่ NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ตั้งค่าโหมดย่านความถี่วิทยุ"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"กำลังโหลดรายการย่านความถี่…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"ตั้งค่า"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"ข้อมูลโทรศัพท์"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"ข้อมูลการจัดสรรผู้ให้บริการ"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"ทริกเกอร์การจัดสรรผู้ให้บริการ"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"สัญญาณบลูทูธอ่อน ลองเปลี่ยนไปใช้ลำโพงแทน"</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"การแจ้งเตือนคุณภาพการโทร"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"บัญชี SIP ที่เลิกใช้งาน"</string>
 </resources>

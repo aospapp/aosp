@@ -1085,4 +1085,185 @@ TEST_F(EliminateDeadMemberTest, DontChangeOutputStructs) {
   EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
 }
 
+TEST_F(EliminateDeadMemberTest, UpdateSpecConstOpExtract) {
+  // Test that an extract in an OpSpecConstantOp is correctly updated.
+  const std::string text = R"(
+; CHECK: OpName
+; CHECK-NEXT: OpMemberName %type__Globals 0 "y"
+; CHECK-NOT: OpMemberName
+; CHECK: OpDecorate [[spec_const:%\w+]] SpecId 1
+; CHECK: OpMemberDecorate %type__Globals 0 Offset 4
+; CHECK: %type__Globals = OpTypeStruct %uint
+; CHECK: [[struct:%\w+]] = OpSpecConstantComposite %type__Globals [[spec_const]]
+; CHECK: OpSpecConstantOp %uint CompositeExtract [[struct]] 0
+               OpCapability Shader
+               OpCapability Addresses
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %main "main"
+               OpSource HLSL 600
+               OpName %type__Globals "type.$Globals"
+               OpMemberName %type__Globals 0 "x"
+               OpMemberName %type__Globals 1 "y"
+               OpMemberName %type__Globals 2 "z"
+               OpName %main "main"
+               OpDecorate %c_0 SpecId 0
+               OpDecorate %c_1 SpecId 1
+               OpDecorate %c_2 SpecId 2
+               OpMemberDecorate %type__Globals 0 Offset 0
+               OpMemberDecorate %type__Globals 1 Offset 4
+               OpMemberDecorate %type__Globals 2 Offset 16
+       %uint = OpTypeInt 32 0
+        %c_0 = OpSpecConstant %uint 0
+        %c_1 = OpSpecConstant %uint 1
+        %c_2 = OpSpecConstant %uint 2
+     %uint_0 = OpConstant %uint 0
+     %uint_1 = OpConstant %uint 1
+     %uint_2 = OpConstant %uint 2
+     %uint_3 = OpConstant %uint 3
+%type__Globals = OpTypeStruct %uint %uint %uint
+%spec_const_global = OpSpecConstantComposite %type__Globals %c_0 %c_1 %c_2
+%extract = OpSpecConstantOp %uint CompositeExtract %spec_const_global 1
+       %void = OpTypeVoid
+         %14 = OpTypeFunction %void
+       %main = OpFunction %void None %14
+         %16 = OpLabel
+               OpReturn
+               OpFunctionEnd
+)";
+
+  SinglePassRunAndMatch<opt::EliminateDeadMembersPass>(text, true);
+}
+
+TEST_F(EliminateDeadMemberTest, UpdateSpecConstOpInsert) {
+  // Test that an insert in an OpSpecConstantOp is correctly updated.
+  const std::string text = R"(
+; CHECK: OpName
+; CHECK-NEXT: OpMemberName %type__Globals 0 "y"
+; CHECK-NOT: OpMemberName
+; CHECK: OpDecorate [[spec_const:%\w+]] SpecId 1
+; CHECK: OpMemberDecorate %type__Globals 0 Offset 4
+; CHECK: %type__Globals = OpTypeStruct %uint
+; CHECK: [[struct:%\w+]] = OpSpecConstantComposite %type__Globals [[spec_const]]
+; CHECK: OpSpecConstantOp %type__Globals CompositeInsert %uint_3 [[struct]] 0
+               OpCapability Shader
+               OpCapability Addresses
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Vertex %main "main"
+               OpSource HLSL 600
+               OpName %type__Globals "type.$Globals"
+               OpMemberName %type__Globals 0 "x"
+               OpMemberName %type__Globals 1 "y"
+               OpMemberName %type__Globals 2 "z"
+               OpName %main "main"
+               OpDecorate %c_0 SpecId 0
+               OpDecorate %c_1 SpecId 1
+               OpDecorate %c_2 SpecId 2
+               OpMemberDecorate %type__Globals 0 Offset 0
+               OpMemberDecorate %type__Globals 1 Offset 4
+               OpMemberDecorate %type__Globals 2 Offset 16
+       %uint = OpTypeInt 32 0
+        %c_0 = OpSpecConstant %uint 0
+        %c_1 = OpSpecConstant %uint 1
+        %c_2 = OpSpecConstant %uint 2
+     %uint_0 = OpConstant %uint 0
+     %uint_1 = OpConstant %uint 1
+     %uint_2 = OpConstant %uint 2
+     %uint_3 = OpConstant %uint 3
+%type__Globals = OpTypeStruct %uint %uint %uint
+%spec_const_global = OpSpecConstantComposite %type__Globals %c_0 %c_1 %c_2
+%insert = OpSpecConstantOp %type__Globals CompositeInsert %uint_3 %spec_const_global 1
+%extract = OpSpecConstantOp %uint CompositeExtract %insert 1
+       %void = OpTypeVoid
+         %14 = OpTypeFunction %void
+       %main = OpFunction %void None %14
+         %16 = OpLabel
+               OpReturn
+               OpFunctionEnd
+)";
+
+  SinglePassRunAndMatch<opt::EliminateDeadMembersPass>(text, true);
+}
+
+TEST_F(EliminateDeadMemberTest, 8BitIndexNoChange) {
+  // Test that the pass does not crash when an 8 bit index is used in an
+  // OpAccessChain. No change is expected.
+  const std::string text = R"(
+               OpCapability ImageQuery
+               OpCapability Int8
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %1 "OpnSeman/" %2
+               OpExecutionMode %1 OriginUpperLeft
+       %void = OpTypeVoid
+          %4 = OpTypeFunction %void
+      %float = OpTypeFloat 32
+    %v4float = OpTypeVector %float 4
+  %_struct_7 = OpTypeStruct %v4float
+%_ptr_Function__struct_7 = OpTypePointer Function %_struct_7
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+         %10 = OpTypeFunction %v4float %_ptr_Function__struct_7
+       %char = OpTypeInt 8 1
+     %char_0 = OpConstant %char 0
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+          %2 = OpVariable %_ptr_Output_v4float Output
+          %1 = OpFunction %void None %4
+         %14 = OpLabel
+         %15 = OpVariable %_ptr_Function__struct_7 Function
+         %16 = OpFunctionCall %v4float %17 %15
+               OpReturn
+               OpFunctionEnd
+         %17 = OpFunction %v4float DontInline %10
+         %18 = OpFunctionParameter %_ptr_Function__struct_7
+         %19 = OpLabel
+         %20 = OpAccessChain %_ptr_Function_v4float %18 %char_0
+         %21 = OpLoad %v4float %20
+               OpReturnValue %21
+               OpFunctionEnd
+)";
+
+  auto result = SinglePassRunAndDisassemble<opt::EliminateDeadMembersPass>(
+      text, /* skip_nop = */ true, /* do_validation = */ true);
+  EXPECT_EQ(opt::Pass::Status::SuccessWithoutChange, std::get<1>(result));
+}
+
+TEST_F(EliminateDeadMemberTest, 8BitIndexWithChange) {
+  // Test that the pass does not crash when an 8 bit index is used in an
+  // OpAccessChain. The index in the access change should be changed to 0.
+  const std::string text = R"(
+               OpCapability ImageQuery
+               OpCapability Int8
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %1 "OpnSeman/" %2
+               OpExecutionMode %1 OriginUpperLeft
+       %void = OpTypeVoid
+          %4 = OpTypeFunction %void
+      %float = OpTypeFloat 32
+    %v4float = OpTypeVector %float 4
+  %_struct_7 = OpTypeStruct %v4float %v4float
+%_ptr_Function__struct_7 = OpTypePointer Function %_struct_7
+%_ptr_Output_v4float = OpTypePointer Output %v4float
+         %10 = OpTypeFunction %v4float %_ptr_Function__struct_7
+       %char = OpTypeInt 8 1
+     %char_1 = OpConstant %char 1
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+          %2 = OpVariable %_ptr_Output_v4float Output
+          %1 = OpFunction %void None %4
+         %14 = OpLabel
+         %15 = OpVariable %_ptr_Function__struct_7 Function
+         %16 = OpFunctionCall %v4float %17 %15
+               OpReturn
+               OpFunctionEnd
+         %17 = OpFunction %v4float DontInline %10
+; CHECK: [[param:%\w+]] = OpFunctionParameter
+         %18 = OpFunctionParameter %_ptr_Function__struct_7
+         %19 = OpLabel
+; CHECK: OpAccessChain %_ptr_Function_v4float [[param]] %uint_0
+         %20 = OpAccessChain %_ptr_Function_v4float %18 %char_1
+         %21 = OpLoad %v4float %20
+               OpReturnValue %21
+               OpFunctionEnd
+)";
+
+  SinglePassRunAndMatch<opt::EliminateDeadMembersPass>(text, true);
+}
+
 }  // namespace

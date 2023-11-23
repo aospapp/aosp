@@ -45,9 +45,9 @@ static void RFCOMM_ConnectInd(const RawAddress& bd_addr, uint16_t lcid,
                               uint16_t psm, uint8_t id);
 static void RFCOMM_ConnectCnf(uint16_t lcid, uint16_t err);
 static void RFCOMM_ConfigInd(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg);
-static void RFCOMM_ConfigCnf(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg);
+static void RFCOMM_ConfigCnf(uint16_t lcid, uint16_t result,
+                             tL2CAP_CFG_INFO* p_cfg);
 static void RFCOMM_DisconnectInd(uint16_t lcid, bool is_clear);
-static void RFCOMM_QoSViolationInd(UNUSED_ATTR const RawAddress& bd_addr);
 static void RFCOMM_BufDataInd(uint16_t lcid, BT_HDR* p_buf);
 static void RFCOMM_CongestionStatusInd(uint16_t lcid, bool is_congested);
 
@@ -64,17 +64,16 @@ void rfcomm_l2cap_if_init(void) {
 
   p_l2c->pL2CA_ConnectInd_Cb = RFCOMM_ConnectInd;
   p_l2c->pL2CA_ConnectCfm_Cb = RFCOMM_ConnectCnf;
-  p_l2c->pL2CA_ConnectPnd_Cb = NULL;
   p_l2c->pL2CA_ConfigInd_Cb = RFCOMM_ConfigInd;
   p_l2c->pL2CA_ConfigCfm_Cb = RFCOMM_ConfigCnf;
   p_l2c->pL2CA_DisconnectInd_Cb = RFCOMM_DisconnectInd;
-  p_l2c->pL2CA_DisconnectCfm_Cb = NULL;
-  p_l2c->pL2CA_QoSViolationInd_Cb = RFCOMM_QoSViolationInd;
   p_l2c->pL2CA_DataInd_Cb = RFCOMM_BufDataInd;
   p_l2c->pL2CA_CongestionStatus_Cb = RFCOMM_CongestionStatusInd;
   p_l2c->pL2CA_TxComplete_Cb = NULL;
+  p_l2c->pL2CA_Error_Cb = rfc_on_l2cap_error;
 
-  L2CA_Register(BT_PSM_RFCOMM, p_l2c, true /* enable_snoop */, nullptr);
+  L2CA_Register(BT_PSM_RFCOMM, rfc_cb.rfc.reg_info, true /* enable_snoop */,
+                nullptr, L2CAP_MTU_SIZE, 0, 0);
 }
 
 /*******************************************************************************
@@ -94,7 +93,6 @@ void RFCOMM_ConnectInd(const RawAddress& bd_addr, uint16_t lcid,
     /* if this is collision case */
     if ((p_mcb->is_initiator) && (p_mcb->state == RFC_MX_STATE_WAIT_CONN_CNF)) {
       p_mcb->pending_lcid = lcid;
-      p_mcb->pending_id = id;
 
       /* wait random timeout (2 - 12) to resolve collision */
       /* if peer gives up then local device rejects incoming connection and
@@ -121,7 +119,7 @@ void RFCOMM_ConnectInd(const RawAddress& bd_addr, uint16_t lcid,
   }
 
   if (p_mcb == nullptr) {
-    L2CA_ConnectRsp(bd_addr, id, lcid, L2CAP_CONN_NO_RESOURCES, 0);
+    L2CA_DisconnectReq(lcid);
     return;
   }
   p_mcb->lcid = lcid;
@@ -150,42 +148,14 @@ void RFCOMM_ConnectCnf(uint16_t lcid, uint16_t result) {
     /* if peer rejects our connect request but peer's connect request is pending
      */
     if (result != L2CAP_CONN_OK) {
-      RFCOMM_TRACE_DEBUG(
-          "RFCOMM_ConnectCnf retry as acceptor on pending LCID(0x%x)",
-          p_mcb->pending_lcid);
-
-      /* remove mcb from mapping table */
-      rfc_save_lcid_mcb(NULL, p_mcb->lcid);
-
-      p_mcb->lcid = p_mcb->pending_lcid;
-      p_mcb->is_initiator = false;
-      p_mcb->state = RFC_MX_STATE_IDLE;
-
-      /* store mcb into mapping table */
-      rfc_save_lcid_mcb(p_mcb, p_mcb->lcid);
-
-      /* update direction bit */
-      for (int i = 0; i < RFCOMM_MAX_DLCI; i += 2) {
-        uint8_t handle = p_mcb->port_handles[i];
-        if (handle != 0) {
-          p_mcb->port_handles[i] = 0;
-          p_mcb->port_handles[i + 1] = handle;
-          rfc_cb.port.port[handle - 1].dlci += 1;
-          RFCOMM_TRACE_DEBUG("RFCOMM MX, port_handle=%d, DLCI[%d->%d]", handle,
-                             i, rfc_cb.port.port[handle - 1].dlci);
-        }
-      }
-
-      rfc_mx_sm_execute(p_mcb, RFC_MX_EVENT_CONN_IND, &(p_mcb->pending_id));
       return;
     } else {
       RFCOMM_TRACE_DEBUG("RFCOMM_ConnectCnf peer gave up pending LCID(0x%x)",
                          p_mcb->pending_lcid);
 
-      /* Peer gave up his connection request, make sure cleaning up L2CAP
+      /* Peer gave up its connection request, make sure cleaning up L2CAP
        * channel */
-      L2CA_ConnectRsp(p_mcb->bd_addr, p_mcb->pending_id, p_mcb->pending_lcid,
-                      L2CAP_CONN_NO_RESOURCES, 0);
+      L2CA_DisconnectReq(p_mcb->pending_lcid);
 
       p_mcb->pending_lcid = 0;
     }
@@ -211,6 +181,14 @@ void RFCOMM_ConfigInd(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
 
   if (!p_mcb) {
     RFCOMM_TRACE_ERROR("RFCOMM_ConfigInd LCID:0x%x", lcid);
+    for (auto& [cid, mcb] : rfc_lcid_mcb) {
+      if (mcb != nullptr && mcb->pending_lcid == lcid) {
+        tL2CAP_CFG_INFO l2cap_cfg_info(*p_cfg);
+        mcb->pending_configure_complete = true;
+        mcb->pending_cfg_info = l2cap_cfg_info;
+        return;
+      }
+    }
     return;
   }
 
@@ -226,27 +204,19 @@ void RFCOMM_ConfigInd(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
  *                  event to the FSM.
  *
  ******************************************************************************/
-void RFCOMM_ConfigCnf(uint16_t lcid, tL2CAP_CFG_INFO* p_cfg) {
+void RFCOMM_ConfigCnf(uint16_t lcid, uint16_t initiator,
+                      tL2CAP_CFG_INFO* p_cfg) {
+  RFCOMM_ConfigInd(lcid, p_cfg);
+
   tRFC_MCB* p_mcb = rfc_find_lcid_mcb(lcid);
 
   if (!p_mcb) {
     RFCOMM_TRACE_ERROR("RFCOMM_ConfigCnf no MCB LCID:0x%x", lcid);
     return;
   }
-
-  rfc_mx_sm_execute(p_mcb, RFC_MX_EVENT_CONF_CNF, (void*)p_cfg);
+  uintptr_t result_as_ptr = L2CAP_CFG_OK;
+  rfc_mx_sm_execute(p_mcb, RFC_MX_EVENT_CONF_CNF, (void*)result_as_ptr);
 }
-
-/*******************************************************************************
- *
- * Function         RFCOMM_QoSViolationInd
- *
- * Description      This is a callback function called by L2CAP when
- *                  L2CA_QoSViolationIndInd received.  Dispatch event to the
- *                  FSM.
- *
- ******************************************************************************/
-void RFCOMM_QoSViolationInd(UNUSED_ATTR const RawAddress& bd_addr) {}
 
 /*******************************************************************************
  *
@@ -260,9 +230,6 @@ void RFCOMM_DisconnectInd(uint16_t lcid, bool is_conf_needed) {
   VLOG(1) << __func__ << ": lcid=" << loghex(lcid)
           << ", is_conf_needed=" << is_conf_needed;
   tRFC_MCB* p_mcb = rfc_find_lcid_mcb(lcid);
-  if (is_conf_needed) {
-    L2CA_DisconnectRsp(lcid);
-  }
   if (!p_mcb) {
     LOG(WARNING) << __func__ << ": no mcb for lcid " << loghex(lcid);
     return;
@@ -398,20 +365,15 @@ void RFCOMM_CongestionStatusInd(uint16_t lcid, bool is_congested) {
  *
  ******************************************************************************/
 tRFC_MCB* rfc_find_lcid_mcb(uint16_t lcid) {
-  if (lcid - L2CAP_BASE_APPL_CID >= MAX_L2CAP_CHANNELS) {
-    RFCOMM_TRACE_ERROR("rfc_find_lcid_mcb LCID:0x%x", lcid);
-    return nullptr;
-  } else {
-    tRFC_MCB* p_mcb = rfc_cb.rfc.p_rfc_lcid_mcb[lcid - L2CAP_BASE_APPL_CID];
-    if (p_mcb != nullptr) {
-      if (p_mcb->lcid != lcid) {
-        LOG(WARNING) << __func__ << "LCID reused lcid=:" << loghex(lcid)
-                     << ", current_lcid=" << loghex(p_mcb->lcid);
-        return nullptr;
-      }
+  tRFC_MCB* p_mcb = rfc_lcid_mcb[lcid];
+  if (p_mcb != nullptr) {
+    if (p_mcb->lcid != lcid) {
+      LOG(WARNING) << __func__ << "LCID reused lcid=:" << loghex(lcid)
+                   << ", current_lcid=" << loghex(p_mcb->lcid);
+      return nullptr;
     }
-    return p_mcb;
   }
+  return p_mcb;
 }
 
 /*******************************************************************************
@@ -422,14 +384,6 @@ tRFC_MCB* rfc_find_lcid_mcb(uint16_t lcid) {
  *
  ******************************************************************************/
 void rfc_save_lcid_mcb(tRFC_MCB* p_mcb, uint16_t lcid) {
-  if (lcid < L2CAP_BASE_APPL_CID) {
-    LOG(ERROR) << __func__ << ": LCID " << lcid << " is too small";
-    return;
-  }
-  auto mcb_index = static_cast<size_t>(lcid - L2CAP_BASE_APPL_CID);
-  if (mcb_index >= MAX_L2CAP_CHANNELS) {
-    LOG(ERROR) << __func__ << ": LCID " << lcid << " is too large";
-    return;
-  }
-  rfc_cb.rfc.p_rfc_lcid_mcb[mcb_index] = p_mcb;
+  auto mcb_index = static_cast<size_t>(lcid);
+  rfc_lcid_mcb[mcb_index] = p_mcb;
 }

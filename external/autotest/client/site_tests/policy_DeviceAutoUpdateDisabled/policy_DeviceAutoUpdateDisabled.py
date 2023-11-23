@@ -6,7 +6,6 @@ import logging
 import math
 import time
 
-from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros.update_engine import nebraska_wrapper
@@ -22,13 +21,14 @@ class policy_DeviceAutoUpdateDisabled(
     _POLICY = 'DeviceAutoUpdateDisabled'
 
 
-    def _test_update_disabled(self, port, should_update):
+    def _test_update_disabled(self, update_url, should_update):
         """
         Main test function.
 
         Try to update and poll for start (or lack of start) to the update.
         Check whether an update request was sent.
 
+        @param update_url: The URL to get an update from.
         @param should_update: True or False whether the device should update.
 
         """
@@ -38,7 +38,7 @@ class policy_DeviceAutoUpdateDisabled(
         logging.info('Update test start time: %s', start_time)
 
         try:
-            self._check_for_update(port=port, interactive=False)
+            self._check_for_update(update_url, interactive=False)
 
             utils.poll_for_condition(
                     self._is_update_started,
@@ -76,20 +76,14 @@ class policy_DeviceAutoUpdateDisabled(
 
         self.setup_case(device_policies={self._POLICY: case}, enroll=enroll)
 
-        metadata_dir = autotemp.tempdir()
-        self._get_payload_properties_file(image_url, metadata_dir.name,
-                                          target_version='999999.9.9')
-        base_url = ''.join(image_url.rpartition('/')[0:2])
         with nebraska_wrapper.NebraskaWrapper(
-                log_dir=self.resultsdir,
-                update_metadata_dir=metadata_dir.name,
-                update_payloads_address=base_url) as nebraska:
+            log_dir=self.resultsdir, payload_url=image_url,
+            target_version='999999.9.9') as nebraska:
 
-            update_url = nebraska.get_update_url()
-            self._create_custom_lsb_release(update_url, build='1.1.1')
+            self._create_custom_lsb_release(nebraska.get_update_url(),
+                                            build='1.1.1')
 
             # When policy is False or not set, user should update.
-            self._test_update_disabled(port=nebraska.get_port(),
+            self._test_update_disabled(nebraska.get_update_url(),
                                        should_update=case is not True)
 
-        self.cleanup()

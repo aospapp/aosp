@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef LIBNATIVEHELPER_TESTS_JNI_GTEST_BASE_NATIVEHELPER_JNI_GTEST_H_
-#define LIBNATIVEHELPER_TESTS_JNI_GTEST_BASE_NATIVEHELPER_JNI_GTEST_H_
+#pragma once
 
 #include <memory>
 
@@ -123,4 +122,3 @@ protected:
 
 }  // namespace android
 
-#endif  // LIBNATIVEHELPER_TESTS_JNI_GTEST_BASE_NATIVEHELPER_JNI_GTEST_H_

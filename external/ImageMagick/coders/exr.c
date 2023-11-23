@@ -17,7 +17,7 @@
 %                                 April 2007                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -169,7 +169,7 @@ static Image *ReadEXRImage(const ImageInfo *image_info,ExceptionInfo *exception)
   MagickBooleanType
     status;
 
-  register Quantum
+  Quantum
     *q;
 
   size_t
@@ -204,7 +204,7 @@ static Image *ReadEXRImage(const ImageInfo *image_info,ExceptionInfo *exception)
       return((Image *) NULL);
     }
   hdr_info=ImfInputHeader(file);
-  ImfHeaderDisplayWindow(hdr_info,&display_window.min_x,&display_window.min_y,
+  ImfHeaderDataWindow(hdr_info,&display_window.min_x,&display_window.min_y,
     &display_window.max_x,&display_window.max_y);
   image->columns=((size_t) display_window.max_x-display_window.min_x+1UL);
   image->rows=((size_t) display_window.max_y-display_window.min_y+1UL);
@@ -269,7 +269,7 @@ static Image *ReadEXRImage(const ImageInfo *image_info,ExceptionInfo *exception)
     int
       yy;
 
-    register ssize_t
+    ssize_t
       x;
 
     q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);
@@ -456,10 +456,10 @@ static MagickBooleanType WriteEXRImage(const ImageInfo *image_info,Image *image,
   MagickBooleanType
     status;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     x;
 
   ssize_t

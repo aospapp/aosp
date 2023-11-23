@@ -3,9 +3,14 @@
  * found in the LICENSE file.
  */
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
 #include <time.h>
+
+using testing::MatchesRegex;
+using testing::internal::CaptureStdout;
+using testing::internal::GetCapturedStdout;
 
 extern "C" {
 #include "cras_hfp_info.c"
@@ -38,7 +43,7 @@ namespace {
 TEST(HfpInfo, AddRmDev) {
   ResetStubData();
 
-  info = hfp_info_create(HFP_CODEC_ID_CVSD);
+  info = hfp_info_create();
   ASSERT_NE(info, (void*)NULL);
   dev.direction = CRAS_STREAM_OUTPUT;
 
@@ -56,7 +61,7 @@ TEST(HfpInfo, AddRmDev) {
 TEST(HfpInfo, AddRmDevInvalid) {
   ResetStubData();
 
-  info = hfp_info_create(HFP_CODEC_ID_CVSD);
+  info = hfp_info_create();
   ASSERT_NE(info, (void*)NULL);
 
   dev.direction = CRAS_STREAM_OUTPUT;
@@ -77,10 +82,10 @@ TEST(HfpInfo, AcquirePlaybackBuffer) {
 
   ResetStubData();
 
-  info = hfp_info_create(HFP_CODEC_ID_CVSD);
+  info = hfp_info_create();
   ASSERT_NE(info, (void*)NULL);
 
-  hfp_info_start(1, 48, info);
+  hfp_info_start(1, 48, HFP_CODEC_ID_CVSD, info);
   dev.direction = CRAS_STREAM_OUTPUT;
   ASSERT_EQ(0, hfp_info_add_iodev(info, dev.direction, dev.format));
 
@@ -125,10 +130,10 @@ TEST(HfpInfo, AcquireCaptureBuffer) {
 
   ResetStubData();
 
-  info = hfp_info_create(HFP_CODEC_ID_CVSD);
+  info = hfp_info_create();
   ASSERT_NE(info, (void*)NULL);
 
-  hfp_info_start(1, 48, info);
+  hfp_info_start(1, 48, HFP_CODEC_ID_CVSD, info);
   dev.direction = CRAS_STREAM_INPUT;
   ASSERT_EQ(0, hfp_info_add_iodev(info, dev.direction, dev.format));
 
@@ -173,11 +178,11 @@ TEST(HfpInfo, HfpReadWriteFD) {
 
   ASSERT_EQ(0, socketpair(AF_UNIX, SOCK_STREAM, 0, sock));
 
-  info = hfp_info_create(HFP_CODEC_ID_CVSD);
+  info = hfp_info_create();
   ASSERT_NE(info, (void*)NULL);
 
   dev.direction = CRAS_STREAM_INPUT;
-  hfp_info_start(sock[1], 48, info);
+  hfp_info_start(sock[1], 48, HFP_CODEC_ID_CVSD, info);
   ASSERT_EQ(0, hfp_info_add_iodev(info, dev.direction, dev.format));
 
   /* Mock the sco fd and send some fake data */
@@ -224,10 +229,10 @@ TEST(HfpInfo, StartHfpInfo) {
 
   ASSERT_EQ(0, socketpair(AF_UNIX, SOCK_STREAM, 0, sock));
 
-  info = hfp_info_create(HFP_CODEC_ID_CVSD);
+  info = hfp_info_create();
   ASSERT_NE(info, (void*)NULL);
 
-  hfp_info_start(sock[0], 48, info);
+  hfp_info_start(sock[0], 48, HFP_CODEC_ID_CVSD, info);
   ASSERT_EQ(1, hfp_info_running(info));
   ASSERT_EQ(cb_data, (void*)info);
 
@@ -247,16 +252,16 @@ TEST(HfpInfo, StartHfpInfoAndRead) {
 
   ASSERT_EQ(0, socketpair(AF_UNIX, SOCK_STREAM, 0, sock));
 
-  info = hfp_info_create(HFP_CODEC_ID_CVSD);
+  info = hfp_info_create();
   ASSERT_NE(info, (void*)NULL);
 
   /* Start and send two chunk of fake data */
-  hfp_info_start(sock[1], 48, info);
+  hfp_info_start(sock[1], 48, HFP_CODEC_ID_CVSD, info);
   send(sock[0], sample, 48, 0);
   send(sock[0], sample, 48, 0);
 
   /* Trigger thread callback */
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
 
   dev.direction = CRAS_STREAM_INPUT;
   ASSERT_EQ(0, hfp_info_add_iodev(info, dev.direction, dev.format));
@@ -268,7 +273,7 @@ TEST(HfpInfo, StartHfpInfoAndRead) {
   /* Trigger thread callback after idev added. */
   ts.tv_sec = 0;
   ts.tv_nsec = 5000000;
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
 
   rc = hfp_buf_queued(info, dev.direction);
   ASSERT_EQ(48 / 2, rc);
@@ -292,15 +297,15 @@ TEST(HfpInfo, StartHfpInfoAndWrite) {
 
   ASSERT_EQ(0, socketpair(AF_UNIX, SOCK_STREAM, 0, sock));
 
-  info = hfp_info_create(HFP_CODEC_ID_CVSD);
+  info = hfp_info_create();
   ASSERT_NE(info, (void*)NULL);
 
-  hfp_info_start(sock[1], 48, info);
+  hfp_info_start(sock[1], 48, HFP_CODEC_ID_CVSD, info);
   send(sock[0], sample, 48, 0);
   send(sock[0], sample, 48, 0);
 
   /* Trigger thread callback */
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
 
   /* Without odev in presence, zero packet should be sent. */
   rc = recv(sock[0], sample, 48, 0);
@@ -314,7 +319,7 @@ TEST(HfpInfo, StartHfpInfoAndWrite) {
 
   /* Put some fake data and trigger thread callback again */
   buf_increment_write(info->playback_buf, 1008);
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
 
   /* Assert some samples written */
   rc = recv(sock[0], sample, 48, 0);
@@ -326,30 +331,44 @@ TEST(HfpInfo, StartHfpInfoAndWrite) {
 }
 
 void send_mSBC_packet(int fd, unsigned seq, int broken_pkt) {
-  /* These three bytes are h2 header, frame count and mSBC sync word.
-   * The second octet of H2 header is composed by 4 bits fixed 0x8 and 4 bits
-   * sequence number 0000, 0011, 1100, 1111.
+  /* The first three bytes of hci_sco_buf are h2 header, frame count and mSBC
+   * sync word. The second octet of H2 header is composed by 4 bits fixed 0x8
+   * and 4 bits sequence number 0000, 0011, 1100, 1111.
    */
-  uint8_t headers[4][3] = {{0x01, 0x08, 0xAD},
-                           {0x01, 0x38, 0xAD},
-                           {0x01, 0xc8, 0xAD},
-                           {0x01, 0xf8, 0xAD}};
-  /* These three bytes are HCI SCO Data packet header, we only care the
-   * Packet_Status_Flag bits, which are the bit 4 to 5 in the second octet.
-   */
-  uint8_t sco_header[] = {0x01, 0x01, 0x3c};
-  uint8_t zero_frame[] = {
-      0xad, 0x00, 0x00, 0xc5, 0x00, 0x00, 0x00, 0x00, 0x77, 0x6d, 0xb6, 0xdd,
-      0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6d, 0xdd, 0xb6, 0xdb, 0x77, 0x6d, 0xb6,
-      0xdd, 0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6d, 0xdd, 0xb6, 0xdb, 0x77, 0x6d,
-      0xb6, 0xdd, 0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6d, 0xdd, 0xb6, 0xdb, 0x77,
-      0x6d, 0xb6, 0xdd, 0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6c};
-  if (broken_pkt)
-    sco_header[1] = 0x11;
+  uint8_t headers[4] = {0x08, 0x38, 0xc8, 0xf8};
+  uint8_t hci_sco_buf[] = {
+      0x01, 0x00, 0xAD, 0xad, 0x00, 0x00, 0xc5, 0x00, 0x00, 0x00, 0x00, 0x77,
+      0x6d, 0xb6, 0xdd, 0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6d, 0xdd, 0xb6, 0xdb,
+      0x77, 0x6d, 0xb6, 0xdd, 0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6d, 0xdd, 0xb6,
+      0xdb, 0x77, 0x6d, 0xb6, 0xdd, 0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6d, 0xdd,
+      0xb6, 0xdb, 0x77, 0x6d, 0xb6, 0xdd, 0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6c};
+  struct msghdr msg = {0};
+  struct iovec iov;
+  struct cmsghdr* cmsg;
+  const unsigned int control_size = CMSG_SPACE(sizeof(int));
+  char control[control_size] = {0};
+  uint8_t pkt_status = 0;
 
-  send(fd, sco_header, 3, 0);
-  send(fd, headers[seq % 4], 3, 0);
-  send(fd, zero_frame, 57, 0);
+  hci_sco_buf[1] = headers[seq % 4];
+
+  /* Assume typical 60 bytes case. */
+  msg.msg_iov = &iov;
+  msg.msg_iovlen = 1;
+  iov.iov_base = hci_sco_buf;
+  iov.iov_len = 60;
+  msg.msg_control = control;
+  msg.msg_controllen = control_size;
+
+  if (broken_pkt)
+    pkt_status = 0x11;
+
+  cmsg = CMSG_FIRSTHDR(&msg);
+  cmsg->cmsg_level = SOL_BLUETOOTH;
+  cmsg->cmsg_type = BT_SCM_PKT_STATUS;
+  cmsg->cmsg_len = CMSG_LEN(sizeof(pkt_status));
+  memcpy(CMSG_DATA(cmsg), &pkt_status, sizeof(pkt_status));
+
+  sendmsg(fd, &msg, 0);
 }
 
 TEST(HfpInfo, StartHfpInfoAndReadMsbc) {
@@ -363,17 +382,19 @@ TEST(HfpInfo, StartHfpInfoAndReadMsbc) {
 
   set_sbc_codec_decoded_out(MSBC_CODE_SIZE);
 
-  info = hfp_info_create(HFP_CODEC_ID_MSBC);
+  info = hfp_info_create();
   ASSERT_NE(info, (void*)NULL);
-  ASSERT_EQ(2, get_msbc_codec_create_called());
-  ASSERT_EQ(1, cras_msbc_plc_create_called);
+  ASSERT_EQ(0, get_msbc_codec_create_called());
+  ASSERT_EQ(0, cras_msbc_plc_create_called);
 
   /* Start and send an mSBC packets with all zero samples */
-  hfp_info_start(sock[1], 63, info);
+  hfp_info_start(sock[1], 63, HFP_CODEC_ID_MSBC, info);
+  ASSERT_EQ(2, get_msbc_codec_create_called());
+  ASSERT_EQ(1, cras_msbc_plc_create_called);
   send_mSBC_packet(sock[0], pkt_count++, 0);
 
   /* Trigger thread callback */
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
 
   /* Expect one empty mSBC packet is send, because no odev in presence. */
   rc = recv(sock[0], sample, MSBC_PKT_SIZE, 0);
@@ -388,7 +409,7 @@ TEST(HfpInfo, StartHfpInfoAndReadMsbc) {
   send_mSBC_packet(sock[0], pkt_count, 0);
 
   /* Trigger thread callback after idev added. */
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
   rc = recv(sock[0], sample, MSBC_PKT_SIZE, 0);
   ASSERT_EQ(MSBC_PKT_SIZE, rc);
 
@@ -401,7 +422,7 @@ TEST(HfpInfo, StartHfpInfoAndReadMsbc) {
    */
   pkt_count++;
   send_mSBC_packet(sock[0], pkt_count, 0);
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
   rc = recv(sock[0], sample, MSBC_PKT_SIZE, 0);
   ASSERT_EQ(MSBC_PKT_SIZE, rc);
 
@@ -418,7 +439,7 @@ TEST(HfpInfo, StartHfpInfoAndReadMsbc) {
 
   set_sbc_codec_decoded_fail(1);
 
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
   rc = recv(sock[0], sample, MSBC_PKT_SIZE, 0);
   ASSERT_EQ(MSBC_PKT_SIZE, rc);
 
@@ -434,7 +455,7 @@ TEST(HfpInfo, StartHfpInfoAndReadMsbc) {
 
   set_sbc_codec_decoded_fail(1);
 
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
   rc = recv(sock[0], sample, MSBC_PKT_SIZE, 0);
   ASSERT_EQ(MSBC_PKT_SIZE, rc);
 
@@ -459,14 +480,14 @@ TEST(HfpInfo, StartHfpInfoAndWriteMsbc) {
   set_sbc_codec_encoded_out(57);
   ASSERT_EQ(0, socketpair(AF_UNIX, SOCK_STREAM, 0, sock));
 
-  info = hfp_info_create(HFP_CODEC_ID_MSBC);
+  info = hfp_info_create();
   ASSERT_NE(info, (void*)NULL);
 
-  hfp_info_start(sock[1], 63, info);
+  hfp_info_start(sock[1], 63, HFP_CODEC_ID_MSBC, info);
   send(sock[0], sample, 63, 0);
 
   /* Trigger thread callback */
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
 
   dev.direction = CRAS_STREAM_OUTPUT;
   ASSERT_EQ(0, hfp_info_add_iodev(info, dev.direction, dev.format));
@@ -477,7 +498,7 @@ TEST(HfpInfo, StartHfpInfoAndWriteMsbc) {
   /* Put some fake data and trigger thread callback again */
   send(sock[0], sample, 63, 0);
   buf_increment_write(info->playback_buf, 240);
-  thread_cb((struct hfp_info*)cb_data);
+  thread_cb((struct hfp_info*)cb_data, POLLIN);
 
   /* Assert some samples written */
   rc = recv(sock[0], sample, 60, 0);
@@ -488,6 +509,26 @@ TEST(HfpInfo, StartHfpInfoAndWriteMsbc) {
   hfp_info_destroy(info);
 }
 
+TEST(HfpInfo, WBSLoggerPacketStatusDumpBinary) {
+  struct packet_status_logger logger;
+  char log_regex[64];
+  int num_wraps[5] = {0, 0, 0, 1, 1};
+  int wp[5] = {40, 150, 162, 100, 32};
+
+  /* Expect the log line wraps at correct length to avoid feedback redact. */
+  snprintf(log_regex, 64, "([01D]{%d}\n)*", PACKET_STATUS_LOG_LINE_WRAP);
+
+  packet_status_logger_init(&logger);
+  logger.size = PACKET_STATUS_LEN_BYTES * 8;
+  for (int i = 0; i < 5; i++) {
+    CaptureStdout();
+    logger.num_wraps = num_wraps[i];
+    logger.wp = wp[i];
+    packet_status_logger_dump_binary(&logger);
+    EXPECT_THAT(GetCapturedStdout(), MatchesRegex(log_regex));
+  }
+}
+
 }  // namespace
 
 extern "C" {
@@ -496,7 +537,10 @@ struct audio_thread* cras_iodev_list_get_audio_thread() {
   return NULL;
 }
 
-void audio_thread_add_callback(int fd, thread_callback cb, void* data) {
+void audio_thread_add_events_callback(int fd,
+                                      thread_callback cb,
+                                      void* data,
+                                      int events) {
   thread_cb = cb;
   cb_data = data;
   return;
@@ -530,6 +574,10 @@ int cras_msbc_plc_handle_good_frames(struct cras_msbc_plc* plc,
   cras_msbc_plc_handle_good_frames_called++;
   return MSBC_CODE_SIZE;
 }
+void packet_status_logger_init(struct packet_status_logger* logger) {}
+
+void packet_status_logger_update(struct packet_status_logger* logger,
+                                 bool val) {}
 }
 
 int main(int argc, char** argv) {

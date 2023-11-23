@@ -11,29 +11,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import List
+
+import networkx as nx
 
 
-def generate_files(injection_graph, generate_runtime_bench_code, use_normalized_component=False):
+def generate_files(injection_graph: nx.DiGraph, generate_runtime_bench_code: bool, use_normalized_component: bool=False):
     if use_normalized_component:
         assert not generate_runtime_bench_code
 
     file_content_by_name = dict()
 
-    for node_id in injection_graph.nodes_iter():
+    for node_id in injection_graph.nodes:
         file_content_by_name['component%s.h' % node_id] = _generate_component_header(node_id)
-        file_content_by_name['component%s.cpp' % node_id] = _generate_component_source(node_id, injection_graph.successors(node_id))
+        file_content_by_name['component%s.cpp' % node_id] = _generate_component_source(node_id, list(injection_graph.successors(node_id)))
 
     [toplevel_node] = [node_id
-                       for node_id in injection_graph.nodes_iter()
-                       if not injection_graph.predecessors(node_id)]
+                       for node_id in injection_graph.nodes
+                       if not any(True for p in injection_graph.predecessors(node_id))]
     file_content_by_name['main.cpp'] = _generate_main(toplevel_node, generate_runtime_bench_code)
 
     return file_content_by_name
 
-def _get_component_type(component_index):
+def _get_component_type(component_index: int):
     return 'fruit::Component<Interface{component_index}>'.format(**locals())
 
-def _generate_component_header(component_index):
+def _generate_component_header(component_index: int):
     component_type = _get_component_type(component_index)
     template = """
 #ifndef COMPONENT{component_index}_H
@@ -54,7 +57,7 @@ struct Interface{component_index} {{
 """
     return template.format(**locals())
 
-def _generate_component_source(component_index, deps):
+def _generate_component_source(component_index: int, deps: List[int]):
     include_directives = ''.join(['#include "component%s.h"\n' % index for index in deps + [component_index]])
 
     fields = ''.join(['Interface%s& x%s;\n' % (dep, dep)
@@ -95,7 +98,7 @@ struct X{component_index} : public Interface{component_index} {{
 
     return template.format(**locals())
 
-def _generate_main(toplevel_component, generate_runtime_bench_code):
+def _generate_main(toplevel_component: int, generate_runtime_bench_code: bool):
     if generate_runtime_bench_code:
         template = """
 #include "component{toplevel_component}.h"

@@ -112,10 +112,10 @@ public class BluetoothOppManager {
 
     // A list of devices that may send files over OPP to this device
     // without user confirmation. Used for connection handover from forex NFC.
-    private List<Pair<String, Long>> mWhitelist = new ArrayList<Pair<String, Long>>();
+    private List<Pair<String, Long>> mAcceptlist = new ArrayList<Pair<String, Long>>();
 
-    // The time for which the whitelist entries remain valid.
-    private static final int WHITELIST_DURATION_MS = 15000;
+    // The time for which the acceptlist entries remain valid.
+    private static final int ACCEPTLIST_DURATION_MS = 15000;
 
     /**
      * Get singleton instance.
@@ -156,37 +156,37 @@ public class BluetoothOppManager {
     }
 
 
-    private void cleanupWhitelist() {
+    private void cleanupAcceptlist() {
         // Removes expired entries
         long curTime = SystemClock.elapsedRealtime();
-        for (Iterator<Pair<String, Long>> iter = mWhitelist.iterator(); iter.hasNext(); ) {
+        for (Iterator<Pair<String, Long>> iter = mAcceptlist.iterator(); iter.hasNext(); ) {
             Pair<String, Long> entry = iter.next();
-            if (curTime - entry.second > WHITELIST_DURATION_MS) {
+            if (curTime - entry.second > ACCEPTLIST_DURATION_MS) {
                 if (V) {
-                    Log.v(TAG, "Cleaning out whitelist entry " + entry.first);
+                    Log.v(TAG, "Cleaning out acceptlist entry " + entry.first);
                 }
                 iter.remove();
             }
         }
     }
 
-    public synchronized void addToWhitelist(String address) {
+    public synchronized void addToAcceptlist(String address) {
         if (address == null) {
             return;
         }
         // Remove any existing entries
-        for (Iterator<Pair<String, Long>> iter = mWhitelist.iterator(); iter.hasNext(); ) {
+        for (Iterator<Pair<String, Long>> iter = mAcceptlist.iterator(); iter.hasNext(); ) {
             Pair<String, Long> entry = iter.next();
             if (entry.first.equals(address)) {
                 iter.remove();
             }
         }
-        mWhitelist.add(new Pair<String, Long>(address, SystemClock.elapsedRealtime()));
+        mAcceptlist.add(new Pair<String, Long>(address, SystemClock.elapsedRealtime()));
     }
 
-    public synchronized boolean isWhitelisted(String address) {
-        cleanupWhitelist();
-        for (Pair<String, Long> entry : mWhitelist) {
+    public synchronized boolean isAcceptlisted(String address) {
+        cleanupAcceptlist();
+        for (Pair<String, Long> entry : mAcceptlist) {
             if (entry.first.equals(address)) {
                 return true;
             }

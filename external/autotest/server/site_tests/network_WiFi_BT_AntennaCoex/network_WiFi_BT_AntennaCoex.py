@@ -5,7 +5,7 @@
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.server.cros.bluetooth import bluetooth_adapter_tests
-from autotest_lib.server.cros.multimedia import bluetooth_le_facade_adapter
+from autotest_lib.server.cros.multimedia import bluetooth_facade_adapter
 from autotest_lib.server.cros.network import hostap_config
 from autotest_lib.server.cros.network import wifi_test_context_manager
 
@@ -110,8 +110,8 @@ class network_WiFi_BT_AntennaCoex(
 
         # Initialize BT.
         self.ble_adapter = \
-                bluetooth_le_facade_adapter.BluetoothLEFacadeRemoteAdapter
-        self.bluetooth_facade = self.ble_adapter(self.host)
+                bluetooth_facade_adapter.BluetoothFacadeRemoteAdapter
+        self.bluetooth_facade = self.ble_adapter(self.host, None)
 
         # Initialize wifi
         self.wifi_context = wifi_test_context_manager.WiFiTestContextManager(

@@ -15,6 +15,10 @@ Usage:
   cleans up older dumps if there are more than 10 in that directory.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import datetime
 from distutils import version
 import logging
@@ -26,12 +30,11 @@ import common
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib import logging_manager
 from autotest_lib.client.common_lib import utils
-from autotest_lib.utils import test_importer
 
 from chromite.lib import metrics
 from chromite.lib import ts_mon_config
+from six.moves import range
 
 _ATTEMPTS = 3
 _GSUTIL_BIN = 'gsutil'
@@ -324,8 +327,6 @@ def parse_options():
 def main():
     """Runs the program."""
     options = parse_options()
-    logging_manager.configure_logging(test_importer.TestImporterLoggingConfig(),
-                                      verbose=options.verbose)
     backup_succeeded = False
 
     with ts_mon_config.SetupTsMonGlobalState(service_name='mysql_db_backup',

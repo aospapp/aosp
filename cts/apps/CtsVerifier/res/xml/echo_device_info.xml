@@ -15,7 +15,7 @@
 -->
 
 <devices>
-    <device manufacturer="AndroidCTS" product="MidiEcho" tags="echo,test">
+    <device manufacturer="AndroidCTSVerifier" product="VerifierMidiEcho" tags="echo,test">
         <input-port name="input" />
         <output-port name="output" />
     </device>

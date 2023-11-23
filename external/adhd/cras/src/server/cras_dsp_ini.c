@@ -9,10 +9,9 @@
 #include "cras_dsp_ini.h"
 #include "iniparser_wrapper.h"
 
-#define MAX_INI_KEY_LENGTH 64 /* names like "output_source:output_0" */
 #define MAX_NR_PORT 128 /* the max number of ports for a plugin */
 #define MAX_PORT_NAME_LENGTH 20 /* names like "output_32" */
-#define MAX_DUMMY_INI_CH 8 /* Max number of channels to create dummy ini */
+#define MAX_MOCK_INI_CH 20 /* Max number of channels to create mock ini */
 
 /* Format of the ini file (See dsp.ini.sample for an example).
 
@@ -63,7 +62,7 @@
 static const char *getstring(struct ini *ini, const char *sec_name,
 			     const char *key)
 {
-	char full_key[MAX_INI_KEY_LENGTH];
+	char full_key[MAX_INI_KEY_LENGTH + 1];
 	snprintf(full_key, sizeof(full_key), "%s:%s", sec_name, key);
 	return iniparser_getstring(ini->dict, full_key, NULL);
 }
@@ -306,19 +305,21 @@ static int insert_swap_lr_plugin(struct ini *ini)
 	return 0;
 }
 
-struct ini *create_dummy_ini(const char *purpose, unsigned int num_channels)
+struct ini *create_mock_ini(const char *purpose, unsigned int num_channels)
 {
-	static char dummy_flow_names[MAX_DUMMY_INI_CH][8] = {
-		"{tmp:0}", "{tmp:1}", "{tmp:2}", "{tmp:3}",
-		"{tmp:4}", "{tmp:5}", "{tmp:6}", "{tmp:7}",
+	static char mock_flow_names[MAX_MOCK_INI_CH][9] = {
+		"{tmp:0}",  "{tmp:1}",	"{tmp:2}",  "{tmp:3}",	"{tmp:4}",
+		"{tmp:5}",  "{tmp:6}",	"{tmp:7}",  "{tmp:8}",	"{tmp:9}",
+		"{tmp:10}", "{tmp:11}", "{tmp:12}", "{tmp:13}", "{tmp:14}",
+		"{tmp:15}", "{tmp:16}", "{tmp:17}", "{tmp:18}", "{tmp:19}",
 	};
 	struct ini *ini;
 	struct plugin *source, *sink;
-	int tmp_flow_ids[MAX_DUMMY_INI_CH];
+	int tmp_flow_ids[MAX_MOCK_INI_CH];
 	int i;
 
-	if (num_channels > MAX_DUMMY_INI_CH) {
-		syslog(LOG_ERR, "Unable to create %u channels of dummy ini",
+	if (num_channels > MAX_MOCK_INI_CH) {
+		syslog(LOG_ERR, "Unable to create %u channels of mock ini",
 		       num_channels);
 		return NULL;
 	}
@@ -330,7 +331,7 @@ struct ini *create_dummy_ini(const char *purpose, unsigned int num_channels)
 	}
 
 	for (i = 0; i < num_channels; i++)
-		tmp_flow_ids[i] = add_new_flow(ini, dummy_flow_names[i]);
+		tmp_flow_ids[i] = add_new_flow(ini, mock_flow_names[i]);
 
 	source = ARRAY_APPEND_ZERO(&ini->plugins);
 	source->title = "source";

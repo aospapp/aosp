@@ -39,6 +39,11 @@
 	.global	oggpack_readinit
 	.global	oggpack_read
 
+	.type	oggpack_look, %function
+	.type	oggpack_adv, %function
+	.type	oggpack_readinit, %function
+	.type	oggpack_read, %function
+
 oggpack_look:
 	@ r0 = oggpack_buffer *b
 	@ r1 = int             bits

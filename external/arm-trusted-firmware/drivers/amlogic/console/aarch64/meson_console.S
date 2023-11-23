@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -46,14 +46,14 @@
 	/* -----------------------------------------------
 	 * int console_meson_register(uintptr_t base,
 	 *     uint32_t clk, uint32_t baud,
-	 *     console_meson_t *console);
+	 *     console_t *console);
 	 * Function to initialize and register a new MESON
 	 * console. Storage passed in for the console struct
 	 * *must* be persistent (i.e. not from the stack).
 	 * In: x0 - UART register base address
 	 *     w1 - UART clock in Hz
 	 *     w2 - Baud rate
-	 *     x3 - pointer to empty console_meson_t struct
+	 *     x3 - pointer to empty console_t struct
 	 * Out: return 1 on success, 0 on error
 	 * Clobber list : x0, x1, x2, x6, x7, x14
 	 * -----------------------------------------------
@@ -62,7 +62,7 @@ func console_meson_register
 	mov	x7, x30
 	mov	x6, x3
 	cbz	x6, register_fail
-	str	x0, [x6, #CONSOLE_T_MESON_BASE]
+	str	x0, [x6, #CONSOLE_T_BASE]
 
 	bl	console_meson_init
 	cbz	x0, register_fail
@@ -128,7 +128,7 @@ init_fail:
 endfunc console_meson_init
 
 	/* --------------------------------------------------------
-	 * int console_meson_putc(int c, console_meson_t *console)
+	 * int console_meson_putc(int c, console_t *console)
 	 * Function to output a character over the console. It
 	 * returns the character printed on success or -1 on error.
 	 * In : w0 - character to be printed
@@ -142,7 +142,7 @@ func console_meson_putc
 	cmp	x1, #0
 	ASM_ASSERT(ne)
 #endif /* ENABLE_ASSERTIONS */
-	ldr	x1, [x1, #CONSOLE_T_MESON_BASE]
+	ldr	x1, [x1, #CONSOLE_T_BASE]
 	b	console_meson_core_putc
 endfunc console_meson_putc
 
@@ -179,7 +179,7 @@ func console_meson_core_putc
 endfunc console_meson_core_putc
 
 	/* ---------------------------------------------
-	 * int console_meson_getc(console_meson_t *console)
+	 * int console_meson_getc(console_t *console)
 	 * Function to get a character from the console.
 	 * It returns the character grabbed on success
 	 * or -1 if no character is available.
@@ -193,7 +193,7 @@ func console_meson_getc
 	cmp	x0, #0
 	ASM_ASSERT(ne)
 #endif /* ENABLE_ASSERTIONS */
-	ldr	x0, [x0, #CONSOLE_T_MESON_BASE]
+	ldr	x0, [x0, #CONSOLE_T_BASE]
 	b	console_meson_core_getc
 endfunc console_meson_getc
 
@@ -224,11 +224,11 @@ func console_meson_core_getc
 endfunc console_meson_core_getc
 
 	/* ---------------------------------------------
-	 * int console_meson_flush(console_meson_t *console)
+	 * void console_meson_flush(console_t *console)
 	 * Function to force a write of all buffered
 	 * data that hasn't been output.
 	 * In : x0 - pointer to console_t structure
-	 * Out : return -1 on error else return 0.
+	 * Out : void.
 	 * Clobber list : x0, x1
 	 * ---------------------------------------------
 	 */
@@ -237,16 +237,16 @@ func console_meson_flush
 	cmp	x0, #0
 	ASM_ASSERT(ne)
 #endif /* ENABLE_ASSERTIONS */
-	ldr	x0, [x0, #CONSOLE_T_MESON_BASE]
+	ldr	x0, [x0, #CONSOLE_T_BASE]
 	b	console_meson_core_flush
 endfunc console_meson_flush
 
 	/* ---------------------------------------------
-	 * int console_meson_core_flush(uintptr_t base_addr)
+	 * void console_meson_core_flush(uintptr_t base_addr)
 	 * Function to force a write of all buffered
 	 * data that hasn't been output.
 	 * In : x0 - console base address
-	 * Out : return -1 on error else return 0.
+	 * Out : void.
 	 * Clobber list : x0, x1
 	 * ---------------------------------------------
 	 */
@@ -258,6 +258,5 @@ func console_meson_core_flush
 	/* Wait until the transmit FIFO is empty */
 1:	ldr	w1, [x0, #MESON_STATUS_OFFSET]
 	tbz	w1, #MESON_STATUS_TX_EMPTY_BIT, 1b
-	mov	w0, #0
 	ret
 endfunc console_meson_core_flush

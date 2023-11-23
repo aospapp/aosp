@@ -16,7 +16,6 @@
 
 package com.android.tools.metalava
 
-import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.FieldItem
@@ -30,6 +29,7 @@ import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtObjectDeclaration
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
+import org.jetbrains.kotlin.psi.psiUtil.isPublic
 import org.jetbrains.uast.kotlin.KotlinUField
 
 // Enforces the interoperability guidelines outlined in
@@ -42,7 +42,9 @@ class KotlinInteropChecks(val reporter: Reporter) {
         codebase.accept(object : ApiVisitor(
             // Sort by source order such that warnings follow source line number order
             methodComparator = MethodItem.sourceOrderComparator,
-            fieldComparator = FieldItem.comparator
+            fieldComparator = FieldItem.comparator,
+            // No need to check "for stubs only APIs" (== "implicit" APIs)
+            includeApisForStubPurposes = false
         ) {
             private var isKotlin = false
 
@@ -155,13 +157,16 @@ class KotlinInteropChecks(val reporter: Reporter) {
                     // object that are not annotated with @JvmField or annotated with @JvmStatic
                     // https://developer.android.com/kotlin/interop#companion_constants
                     val ktProperties = sourcePsi.declarations.filter { declaration ->
-                        declaration is KtProperty && !declaration.isVar && !declaration.hasModifier(
-                            KtTokens.CONST_KEYWORD
-                        ) && declaration.annotationEntries.filter {
-                                annotationEntry -> annotationEntry.shortName!!.asString() == "JvmField"
-                        }.isEmpty() }
+                        declaration is KtProperty && declaration.isPublic && !declaration.isVar &&
+                            !declaration.hasModifier(KtTokens.CONST_KEYWORD) &&
+                            declaration.annotationEntries.none { annotationEntry ->
+                                annotationEntry.shortName?.asString() == "JvmField"
+                            }
+                    }
                     for (ktProperty in ktProperties) {
-                        if (ktProperty.annotationEntries.filter { annotationEntry -> annotationEntry.shortName!!.asString() == "JvmStatic" }.isEmpty()) {
+                        if (ktProperty.annotationEntries.none { annotationEntry ->
+                                annotationEntry.shortName?.asString() == "JvmStatic"
+                            }) {
                             reporter.report(
                                 Issues.MISSING_JVMSTATIC, ktProperty,
                                 "Companion object constants like ${ktProperty.name} should be marked @JvmField for Java interoperability; see https://developer.android.com/kotlin/interop#companion_constants"
@@ -273,13 +278,10 @@ class KotlinInteropChecks(val reporter: Reporter) {
         }
 
         var haveDefault = false
-        if (parameters.isNotEmpty() && method.isJava()) {
-            // Public java parameter names should also not use Kotlin keywords as names
-            for (parameter in parameters) {
-                if (parameter.hasDefaultValue()) {
-                    haveDefault = true
-                    break
-                }
+        for (parameter in parameters) {
+            if (parameter.hasDefaultValue()) {
+                haveDefault = true
+                break
             }
         }
 

@@ -15,17 +15,16 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.phone.testapps.embmsfrontend">
+     package="com.android.phone.testapps.embmsfrontend">
     <application android:label="EmbmsTestStreamingApp">
-        <activity
-            android:name=".EmbmsTestStreamingApp"
-            android:label="EmbmsStreamingFrontend">
+        <activity android:name=".EmbmsTestStreamingApp"
+             android:label="EmbmsStreamingFrontend"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 </manifest>
-

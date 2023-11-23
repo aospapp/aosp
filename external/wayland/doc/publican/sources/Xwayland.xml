@@ -78,11 +78,11 @@
     <figure>
       <title>Xwayland architecture diagram</title>
       <mediaobjectco>
-        <imageobjectco>
-          <imageobject>
-            <imagedata fileref="images/xwayland-architecture.png" format="PNG" />
-          </imageobject>
-        </imageobjectco>
+	<imageobjectco>
+	  <imageobject>
+	    <imagedata fileref="images/xwayland-architecture.png" format="PNG" />
+	  </imageobject>
+	</imageobjectco>
       </mediaobjectco>
     </figure>
     <para>
@@ -145,25 +145,25 @@
       Xwayland. It is often nearly impossible to prove that synchronous or
       blocking X11 calls from XWM cannot cause a deadlock, and therefore it is
       strongly recommended to make all X11 communications asynchronous. All
-      Wayland communications are already asynchonous by design.
+      Wayland communications are already asynchronous by design.
     </para>
     <section id="sect-X11-Application-Support-xwm-window-identification">
       <title>Window identification</title>
       <para>
-        In Xwayland, an X11 window may have a corresponding wl_surface object
-        in Wayland. The wl_surface object is used for input and output: it is
-        referenced by input events and used to provide the X11 window content
-        to the Wayland compositor. The X11 window and the wl_surface live in
-        different protocol streams, and they need to be matched for XWM to do
-        its job.
+	In Xwayland, an X11 window may have a corresponding wl_surface object
+	in Wayland. The wl_surface object is used for input and output: it is
+	referenced by input events and used to provide the X11 window content
+	to the Wayland compositor. The X11 window and the wl_surface live in
+	different protocol streams, and they need to be matched for XWM to do
+	its job.
       </para>
       <para>
-        When Xwayland creates a wl_surface on Wayland, it will also send an X11
-        ClientMessage of type atom "WL_SURFACE_ID" to the X11 window carrying
-        the wl_surface Wayland object ID as the first 32-bit data element. This
-        is how XWM can associate a wl_surface with an X11 window. Note that
-        the request to create a wl_surface and the ID message may arrive in any
-        order in the Wayland compositor.
+	When Xwayland creates a wl_surface on Wayland, it will also send an X11
+	ClientMessage of type atom "WL_SURFACE_ID" to the X11 window carrying
+	the wl_surface Wayland object ID as the first 32-bit data element. This
+	is how XWM can associate a wl_surface with an X11 window. Note that
+	the request to create a wl_surface and the ID message may arrive in any
+	order in the Wayland compositor.
       </para>
     </section>
   </section>

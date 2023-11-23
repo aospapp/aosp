@@ -16,78 +16,76 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.quickaccesswallet.cts"
-          android:targetSandboxVersion="2">
+     package="android.quickaccesswallet.cts"
+     android:targetSandboxVersion="2">
 
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <!-- Required for HostApduService -->
     <uses-permission android:name="android.permission.NFC"/>
     <!-- Required to test QuickAccessWalletClient feature availability -->
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
 
-    <application>
-        <uses-library android:name="android.test.runner" />
-        <activity android:name="android.quickaccesswallet.QuickAccessWalletActivity" >
+    <application android:testOnly="true">
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name="android.quickaccesswallet.QuickAccessWalletActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-        <activity android:name="android.quickaccesswallet.QuickAccessWalletSettingsActivity">
+        <activity android:name="android.quickaccesswallet.QuickAccessWalletSettingsActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.quickaccesswallet.action.VIEW_WALLET_SETTINGS" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.service.quickaccesswallet.action.VIEW_WALLET_SETTINGS"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
 
-        <service
-            android:name="android.quickaccesswallet.TestHostApduService"
-            android:exported="true"
-            android:permission="android.permission.BIND_NFC_SERVICE"
-            android:label="@string/app_name">
+        <service android:name="android.quickaccesswallet.TestHostApduService"
+             android:exported="true"
+             android:permission="android.permission.BIND_NFC_SERVICE"
+             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
-            <meta-data
-                android:name="android.nfc.cardemulation.host_apdu_service"
-                android:resource="@xml/hce_aids"/>
+            <meta-data android:name="android.nfc.cardemulation.host_apdu_service"
+                 android:resource="@xml/hce_aids"/>
         </service>
 
-        <service
-            android:name="android.quickaccesswallet.TestQuickAccessWalletService"
-            android:enabled="true"
-            android:label="@string/app_name"
-            android:icon="@drawable/android"
-            android:permission="android.permission.BIND_QUICK_ACCESS_WALLET_SERVICE">
+        <service android:name="android.quickaccesswallet.TestQuickAccessWalletService"
+             android:enabled="true"
+             android:label="@string/app_name"
+             android:icon="@drawable/android"
+             android:permission="android.permission.BIND_QUICK_ACCESS_WALLET_SERVICE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.quickaccesswallet.QuickAccessWalletService" />
+                <action android:name="android.service.quickaccesswallet.QuickAccessWalletService"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
             <meta-data android:name="android.quickaccesswallet"
-                       android:resource="@xml/quickaccesswallet_configuration" />;
+                 android:resource="@xml/quickaccesswallet_configuration"/>;
         </service>
 
-        <service
-            android:name="android.quickaccesswallet.NoPermissionQuickAccessWalletService"
-            android:enabled="false"
-            android:label="@string/app_name"
-            android:icon="@drawable/android">
+        <service android:name="android.quickaccesswallet.NoPermissionQuickAccessWalletService"
+             android:enabled="false"
+             android:label="@string/app_name"
+             android:icon="@drawable/android"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.quickaccesswallet.QuickAccessWalletService" />
+                <action android:name="android.service.quickaccesswallet.QuickAccessWalletService"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
             <meta-data android:name="android.quickaccesswallet"
-                       android:resource="@xml/quickaccesswallet_configuration" />;
+                 android:resource="@xml/quickaccesswallet_configuration"/>;
         </service>
     </application>
 
     <!--  self-instrumenting test package. -->
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:label="Quick Access Wallet tests"
-        android:targetPackage="android.quickaccesswallet.cts" >
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:label="Quick Access Wallet tests"
+         android:targetPackage="android.quickaccesswallet.cts">
     </instrumentation>
 </manifest>
-

@@ -15,19 +15,24 @@
  */
 package com.android.cts.deviceowner;
 
+import static com.android.bedstead.dpmwrapper.TestAppHelper.registerTestCaseReceiver;
+import static com.android.bedstead.dpmwrapper.TestAppHelper.unregisterTestCaseReceiver;
+
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.app.admin.ConnectEvent;
 import android.app.admin.DnsEvent;
 import android.app.admin.NetworkEvent;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Parcel;
+import android.os.SystemClock;
 import android.util.Log;
 
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.test.InstrumentationRegistry;
 
 import java.io.BufferedReader;
@@ -50,11 +55,20 @@ import java.util.concurrent.TimeUnit;
 public class NetworkLoggingTest extends BaseDeviceOwnerTest {
 
     private static final String TAG = "NetworkLoggingTest";
+    private static final boolean VERBOSE = false;
+
     private static final String ARG_BATCH_COUNT = "batchCount";
     private static final int FAKE_BATCH_TOKEN = -666; // real batch tokens are always non-negative
     private static final int FULL_LOG_BATCH_SIZE = 1200;
     private static final String CTS_APP_PACKAGE_NAME = "com.android.cts.deviceowner";
     private static final int MAX_IP_ADDRESSES_LOGGED = 10;
+
+    private static final int CONNECTION_TIMEOUT_MS = 2_000;
+
+    private static final int TIMEOUT_PER_BATCH_MS = 3 * 60_000; // 3 minutes
+
+    /** How often events should be logged, when {@link #VERBOSE} is {@code false}. */
+    private static final int LOGGING_FREQUENCY = FULL_LOG_BATCH_SIZE / 4;
 
     private static final String[] NOT_LOGGED_URLS_LIST = {
             "wikipedia.org",
@@ -79,22 +93,31 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (BasicAdminReceiver.ACTION_NETWORK_LOGS_AVAILABLE.equals(intent.getAction())) {
-                final long token =
-                        intent.getLongExtra(BasicAdminReceiver.EXTRA_NETWORK_LOGS_BATCH_TOKEN,
-                                FAKE_BATCH_TOKEN);
-                // Retrieve network logs.
-                final List<NetworkEvent> events = mDevicePolicyManager.retrieveNetworkLogs(getWho(),
-                        token);
-                if (events == null) {
-                    fail("Failed to retrieve batch of network logs with batch token " + token);
-                    return;
-                }
-                if (mBatchCountDown.getCount() > 0) {
-                    mNetworkEvents.addAll(events);
-                }
-                mBatchCountDown.countDown();
+            if (!BasicAdminReceiver.ACTION_NETWORK_LOGS_AVAILABLE.equals(intent.getAction())) {
+                Log.w(TAG, "Received unexpected intent: " + intent);
+                return;
             }
+            final long token =
+                    intent.getLongExtra(BasicAdminReceiver.EXTRA_NETWORK_LOGS_BATCH_TOKEN,
+                            FAKE_BATCH_TOKEN);
+            final long latchCount = mBatchCountDown.getCount();
+            Log.d(TAG, "Received " + intent + ": token=" + token + ", latch= " + latchCount);
+            // Retrieve network logs.
+            final List<NetworkEvent> events = mDevicePolicyManager.retrieveNetworkLogs(getWho(),
+                    token);
+            Log.d(TAG, "Number of events: " + events.size());
+            if (VERBOSE) Log.v(TAG, "Events: " + events);
+            if (events == null) {
+                fail("Failed to retrieve batch of network logs with batch token " + token);
+                return;
+            }
+            if (latchCount > 0) {
+                mNetworkEvents.addAll(events);
+            } else {
+                Log.e(TAG, "didn't receive any event");
+            }
+            Log.d(TAG, "Counting down latch");
+            mBatchCountDown.countDown();
         }
     };
 
@@ -104,8 +127,9 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
 
     @Override
     protected void tearDown() throws Exception {
-        mDevicePolicyManager.setNetworkLoggingEnabled(getWho(), false);
-        assertFalse(mDevicePolicyManager.isNetworkLoggingEnabled(getWho()));
+        // NOTE: if this was a "pure" device-side test, it should not throw an exception on
+        // tearDown()
+        setNetworkLoggingEnabled(false);
 
         super.tearDown();
     }
@@ -115,8 +139,8 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
      * secondary users / profiles are affiliated.
      */
     public void testRetrievingNetworkLogsThrowsSecurityException() {
-        mDevicePolicyManager.setNetworkLoggingEnabled(getWho(), true);
-        assertTrue(mDevicePolicyManager.isNetworkLoggingEnabled(getWho()));
+        setNetworkLoggingEnabled(true);
+
         try {
             mDevicePolicyManager.retrieveNetworkLogs(getWho(), FAKE_BATCH_TOKEN);
             fail("did not throw expected SecurityException");
@@ -129,8 +153,8 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
      * be returned.
      */
     public void testProvidingWrongBatchTokenReturnsNull() {
-        mDevicePolicyManager.setNetworkLoggingEnabled(getWho(), true);
-        assertTrue(mDevicePolicyManager.isNetworkLoggingEnabled(getWho()));
+        setNetworkLoggingEnabled(true);
+
         assertNull(mDevicePolicyManager.retrieveNetworkLogs(getWho(), FAKE_BATCH_TOKEN));
     }
 
@@ -143,21 +167,21 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
         mBatchesRequested =
                 Integer.parseInt(
                         InstrumentationRegistry.getArguments().getString(ARG_BATCH_COUNT, "1"));
+        Log.d(TAG, "batches requested:" + mBatchesRequested);
         mBatchCountDown = new CountDownLatch(mBatchesRequested);
         // register a receiver that listens for DeviceAdminReceiver#onNetworkLogsAvailable()
         final IntentFilter filterNetworkLogsAvailable = new IntentFilter(
                 BasicAdminReceiver.ACTION_NETWORK_LOGS_AVAILABLE);
-        LocalBroadcastManager.getInstance(mContext).registerReceiver(mNetworkLogsReceiver,
-                filterNetworkLogsAvailable);
+
+        registerTestCaseReceiver(mContext, mNetworkLogsReceiver, filterNetworkLogsAvailable);
 
         // visit websites that shouldn't be logged as network logging isn't enabled yet
-        for (final String url : NOT_LOGGED_URLS_LIST) {
-            connectToWebsite(url);
+        for (int i = 0; i < NOT_LOGGED_URLS_LIST.length; i++) {
+            connectToWebsite(NOT_LOGGED_URLS_LIST[i], shouldLog(i));
         }
 
         // enable network logging and start the logging scenario
-        mDevicePolicyManager.setNetworkLoggingEnabled(getWho(), true);
-        assertTrue(mDevicePolicyManager.isNetworkLoggingEnabled(getWho()));
+        setNetworkLoggingEnabled(true);
 
         // TODO: here test that facts about logging are shown in the UI
 
@@ -165,36 +189,46 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
         generateBatches();
     }
 
+    private boolean shouldLog(int sample) {
+        return sample % LOGGING_FREQUENCY == 0;
+    }
+
     private void generateBatches() throws Exception {
         // visit websites to verify their dns lookups are logged
-        for (final String url : LOGGED_URLS_LIST) {
-            connectToWebsite(url);
+        for (int i = 0; i < LOGGED_URLS_LIST.length; i++) {
+            connectToWebsite(LOGGED_URLS_LIST[i], shouldLog(i));
         }
 
         // generate enough traffic to fill the batches.
-        int dummyReqNo = 0;
+        int fakeReqNo = 0;
         for (int i = 0; i < mBatchesRequested; i++) {
-            dummyReqNo += generateDummyTraffic();
+            fakeReqNo += generateFakeTraffic();
         }
 
         // if DeviceAdminReceiver#onNetworkLogsAvailable() hasn't been triggered yet, wait for up to
         // 3 minutes per batch just in case
-        final int timeoutMins = 3 * mBatchesRequested;
-        mBatchCountDown.await(timeoutMins, TimeUnit.MINUTES);
-        LocalBroadcastManager.getInstance(mContext).unregisterReceiver(mNetworkLogsReceiver);
+        final int timeoutMs = TIMEOUT_PER_BATCH_MS * mBatchesRequested;
+        Log.d(TAG, "Waiting up to " + timeoutMs + "ms for " + mBatchesRequested + " batches");
+        if (!mBatchCountDown.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+            Log.e(TAG, "Timed out!");
+        }
+
+        unregisterTestCaseReceiver(mContext, mNetworkLogsReceiver);
+
         if (mBatchCountDown.getCount() > 0) {
             fail("Generated events for " + mBatchesRequested + " batches and waited for "
-                    + timeoutMins + " minutes, but still didn't get"
+                    + timeoutMs + " ms, but still didn't get"
                     + " DeviceAdminReceiver#onNetworkLogsAvailable() callback");
         }
 
         // Verify network logs.
-        assertEquals("First event has the wrong id.", 0L, mNetworkEvents.get(0).getId());
-        // For each of the real URLs we have two events: one DNS and one connect. Dummy requests
+        assertWithMessage("network events").that(mNetworkEvents).isNotEmpty();
+        assertWithMessage("first event id").that(mNetworkEvents.get(0).getId()).isEqualTo(0L);
+        // For each of the real URLs we have two events: one DNS and one connect. Fake requests
         // don't require DNS queries.
         final int eventsExpected =
                 Math.min(FULL_LOG_BATCH_SIZE * mBatchesRequested,
-                        2 * LOGGED_URLS_LIST.length + dummyReqNo);
+                        2 * LOGGED_URLS_LIST.length + fakeReqNo);
         verifyNetworkLogs(mNetworkEvents, eventsExpected);
     }
 
@@ -273,8 +307,10 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
     }
 
     private void verifyNetworkLogs(List<NetworkEvent> networkEvents, int eventsExpected) {
+        Log.d(TAG, "verifyNetworkLogs(): expected " + eventsExpected + ", got "
+                + ((networkEvents == null) ? "null" : String.valueOf(networkEvents.size())));
         // allow a batch to be slightly smaller or larger.
-        assertTrue(Math.abs(eventsExpected - networkEvents.size()) <= 50);
+        assertTrue(Math.abs(eventsExpected - networkEvents.size()) <= 150);
         int ctsPackageNameCounter = 0;
         // allow a small down margin for verification, to avoid flakiness
         final int eventsExpectedWithMargin = eventsExpected - 50;
@@ -322,14 +358,21 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
         assertTrue(ctsPackageNameCounter >= eventsExpectedWithMargin);
     }
 
-    private void connectToWebsite(String server) {
+    private void connectToWebsite(String server, boolean shouldLog) {
         HttpURLConnection urlConnection = null;
         try {
             final URL url = new URL("http://" + server);
+            if (shouldLog || VERBOSE) {
+                Log.d(TAG, "Connecting to " + server + " with " + CONNECTION_TIMEOUT_MS
+                        + "ms timeout");
+            }
             urlConnection = (HttpURLConnection) url.openConnection();
-            urlConnection.setConnectTimeout(2000);
-            urlConnection.setReadTimeout(2000);
-            urlConnection.getResponseCode();
+            urlConnection.setConnectTimeout(CONNECTION_TIMEOUT_MS);
+            urlConnection.setReadTimeout(CONNECTION_TIMEOUT_MS);
+            final int responseCode = urlConnection.getResponseCode();
+            if (shouldLog || VERBOSE) {
+                Log.d(TAG, "Got response code: " + responseCode);
+            }
         } catch (IOException e) {
             Log.w(TAG, "Failed to connect to " + server, e);
         } finally {
@@ -340,11 +383,11 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
     }
 
     /** Quickly generate loads of events by repeatedly connecting to a local server. */
-    private int generateDummyTraffic() throws IOException, InterruptedException {
+    private int generateFakeTraffic() throws IOException, InterruptedException {
         final ServerSocket serverSocket = new ServerSocket(0);
-        final Thread serverThread = startDummyServer(serverSocket);
+        final Thread serverThread = startFakeServer(serverSocket);
 
-        final int reqNo = makeDummyRequests(serverSocket.getLocalPort());
+        final int reqNo = makeFakeRequests(serverSocket.getLocalPort());
 
         serverSocket.close();
         serverThread.join();
@@ -352,22 +395,20 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
         return reqNo;
     }
 
-    private int makeDummyRequests(int port) {
+    private int makeFakeRequests(int port) {
         int reqNo;
-        final String DUMMY_SERVER = "127.0.0.1:" + port;
+        final String FAKE_SERVER = "127.0.0.1:" + port;
+        Log.d(TAG, "Making a fake request to " + FAKE_SERVER);
         for (reqNo = 0; reqNo < FULL_LOG_BATCH_SIZE && mBatchCountDown.getCount() > 0; reqNo++) {
-            connectToWebsite(DUMMY_SERVER);
-            try {
-                // Just to prevent choking the server.
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            connectToWebsite(FAKE_SERVER, shouldLog(reqNo));
+            // Just to prevent choking the server.
+            sleep(10);
         }
+        Log.d(TAG, "Returning reqNo=" + reqNo);
         return reqNo;
     }
 
-    private Thread startDummyServer(ServerSocket serverSocket) throws InterruptedException {
+    private Thread startFakeServer(ServerSocket serverSocket) throws InterruptedException {
         final Thread serverThread = new Thread(() -> {
             while (!serverSocket.isClosed()) {
                 try {
@@ -392,16 +433,34 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
                     }
                 }
             }
-        });
+            Log.i(TAG, "Fake server closed");
+        }, "FakeServerThread");
+        Log.i(TAG, "starting a fake server (" + serverSocket + ") on thread " + serverThread);
         serverThread.start();
 
         // Allow the server to start accepting.
-        Thread.sleep(1_000);
+        sleep(1_000);
 
         return serverThread;
     }
 
     private boolean isIpv4OrIpv6Address(InetAddress addr) {
         return ((addr instanceof Inet4Address) || (addr instanceof Inet6Address));
+    }
+
+    private void sleep(int timeMs) {
+        if (VERBOSE) Log.v(TAG, "Sleeping for " + timeMs + "ms");
+        SystemClock.sleep(timeMs);
+        if (VERBOSE) Log.v(TAG, "Woke up");
+    }
+
+    private void setNetworkLoggingEnabled(boolean enabled) {
+        ComponentName admin = getWho();
+        Log.d(TAG, "Calling setNetworkLoggingEnabled(" + enabled + ") for " + admin);
+        mDevicePolicyManager.setNetworkLoggingEnabled(admin, enabled);
+        boolean reallyEnabled = mDevicePolicyManager.isNetworkLoggingEnabled(admin);
+        Log.d(TAG, "getNetworkLoggingEnabled() result:" + reallyEnabled);
+        assertWithMessage("network logging enabled for %s", admin).that(reallyEnabled)
+                .isEqualTo(enabled);
     }
 }

@@ -5,7 +5,8 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018
+ *		 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018,
+ *		 2019, 2020
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -28,7 +29,7 @@
 
 #ifndef MKSH_NO_CMDLINE_EDITING
 
-__RCSID("$MirOS: src/bin/mksh/edit.c,v 1.343 2018/07/15 16:16:38 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/edit.c,v 1.351 2020/04/15 20:16:19 tg Exp $");
 
 /*
  * in later versions we might use libtermcap for this, but since external
@@ -176,7 +177,7 @@ x_getc(void)
 static void
 x_putcf(int c)
 {
-	shf_putc(c, shl_out);
+	shf_putc_i(c, shl_out);
 }
 
 /*********************************
@@ -353,7 +354,7 @@ x_glob_hlp_tilde_and_rem_qchar(char *s, bool magic_flag)
 			*--cp = '/';
 		} else {
 			/* ok, expand and replace */
-			cp = shf_smprintf(Tf_sSs, dp, cp);
+			strpathx(cp, dp, cp, 1);
 			if (magic_flag)
 				afree(s, ATEMP);
 			s = cp;
@@ -995,10 +996,7 @@ static int x_search_dir(int);
 static int x_match(char *, char *);
 static void x_redraw(int);
 static void x_push(size_t);
-static char *x_mapin(const char *, Area *);
-static char *x_mapout(int);
-static void x_mapout2(int, char **);
-static void x_print(int, int);
+static void x_bind_showone(int, int);
 static void x_e_ungetc(int);
 static int x_e_getc(void);
 static void x_e_putc2(int);
@@ -1145,6 +1143,7 @@ static struct x_defbindings const x_defbindings[] = {
 #ifndef MKSH_SMALL
 	/* more non-standard ones */
 	{ XFUNC_eval_region,		1,  CTRL_E	},
+	{ XFUNC_quote_region,		1,	'Q'	},
 	{ XFUNC_edit_line,		2,	'e'	}
 #endif
 };
@@ -2389,190 +2388,223 @@ x_vt_hack(int c)
 }
 #endif
 
-static char *
-x_mapin(const char *cp, Area *ap)
+int
+x_bind_check(void)
 {
-	char *news, *op;
+	return (x_tab == NULL);
+}
 
-	strdupx(news, cp, ap);
-	op = news;
-	while (*cp) {
-		switch (*cp) {
-		case '^':
-			cp++;
-			*op++ = ksh_toctrl(*cp);
-			break;
-		case '\\':
-			if (cp[1] == '\\' || cp[1] == '^')
-				++cp;
-			/* FALLTHROUGH */
-		default:
-			*op++ = *cp;
-		}
-		cp++;
+static XString x_bind_show_xs;
+static char *x_bind_show_xp;
+
+static void
+x_bind_show_ch(unsigned char ch)
+{
+	Xcheck(x_bind_show_xs, x_bind_show_xp);
+	switch (ch) {
+	case ORD('^'):
+	case ORD('\\'):
+	case ORD('='):
+		*x_bind_show_xp++ = '\\';
+		*x_bind_show_xp++ = ch;
+		break;
+	default:
+		if (ksh_isctrl(ch)) {
+			*x_bind_show_xp++ = '^';
+			*x_bind_show_xp++ = ksh_unctrl(ch);
+		} else
+			*x_bind_show_xp++ = ch;
+		break;
 	}
-	*op = '\0';
-
-	return (news);
 }
 
 static void
-x_mapout2(int c, char **buf)
+x_bind_showone(int prefix, int key)
 {
-	char *p = *buf;
+	unsigned char f = XFUNC_VALUE(x_tab[prefix][key]);
 
-	if (ksh_isctrl(c)) {
-		*p++ = '^';
-		*p++ = ksh_unctrl(c);
-	} else
-		*p++ = c;
-	*p = 0;
-	*buf = p;
-}
+	if (!x_bind_show_xs.areap)
+		XinitN(x_bind_show_xs, 16, AEDIT);
 
-static char *
-x_mapout(int c)
-{
-	static char buf[8];
-	char *bp = buf;
-
-	x_mapout2(c, &bp);
-	return (buf);
-}
-
-static void
-x_print(int prefix, int key)
-{
-	int f = x_tab[prefix][key];
-
-	if (prefix)
-		/* prefix == 1 || prefix == 2 || prefix == 3 */
-		shf_puts(x_mapout(prefix == 1 ? CTRL_BO :
-		    prefix == 2 ? CTRL_X : 0), shl_stdout);
-#ifdef MKSH_SMALL
-	shprintf("%s = ", x_mapout(key));
-#else
-	shprintf("%s%s = ", x_mapout(key), (f & 0x80) ? "~" : "");
-	if (XFUNC_VALUE(f) != XFUNC_ins_string)
-#endif
-		shprintf(Tf_sN, x_ftab[XFUNC_VALUE(f)].xf_name);
+	x_bind_show_xp = Xstring(x_bind_show_xs, x_bind_show_xp);
+	shf_puts("bind ", shl_stdout);
 #ifndef MKSH_SMALL
-	else
-		shprintf("'%s'\n", x_atab[prefix][key]);
+	if (f == XFUNC_ins_string)
+		shf_puts("-m ", shl_stdout);
 #endif
+	switch (prefix) {
+	case 1:
+		x_bind_show_ch(CTRL_BO);
+		break;
+	case 2:
+		x_bind_show_ch(CTRL_X);
+		break;
+	case 3:
+		x_bind_show_ch(0);
+		break;
+	}
+	x_bind_show_ch(key);
+#ifndef MKSH_SMALL
+	if (x_tab[prefix][key] & 0x80)
+		*x_bind_show_xp++ = '~';
+#endif
+	*x_bind_show_xp = '\0';
+	x_bind_show_xp = Xstring(x_bind_show_xs, x_bind_show_xp);
+	print_value_quoted(shl_stdout, x_bind_show_xp);
+	shf_putc('=', shl_stdout);
+#ifndef MKSH_SMALL
+	if (f == XFUNC_ins_string) {
+		const unsigned char *cp = (const void *)x_atab[prefix][key];
+		unsigned char c;
+
+		while ((c = *cp++))
+			x_bind_show_ch(c);
+		*x_bind_show_xp = '\0';
+		x_bind_show_xp = Xstring(x_bind_show_xs, x_bind_show_xp);
+		print_value_quoted(shl_stdout, x_bind_show_xp);
+	} else
+#endif
+	  shf_puts(x_ftab[f].xf_name, shl_stdout);
+	shf_putc('\n', shl_stdout);
 }
 
 int
-x_bind(const char *a1, const char *a2,
-#ifndef MKSH_SMALL
-    /* bind -m */
-    bool macro,
-#endif
-    /* bind -l */
-    bool list)
+x_bind_list(void)
 {
-	unsigned char f;
+	size_t f;
+
+	for (f = 0; f < NELEM(x_ftab); f++)
+		if (!(x_ftab[f].xf_flags & XF_NOBIND))
+			shprintf(Tf_sN, x_ftab[f].xf_name);
+	return (0);
+}
+
+int
+x_bind_showall(void)
+{
 	int prefix, key;
-	char *m1, *m2;
-#ifndef MKSH_SMALL
-	char *sp = NULL;
-	bool hastilde;
-#endif
 
-	if (x_tab == NULL) {
-		bi_errorf("can't bind, not a tty");
-		return (1);
-	}
-	/* List function names */
-	if (list) {
-		for (f = 0; f < NELEM(x_ftab); f++)
-			if (!(x_ftab[f].xf_flags & XF_NOBIND))
-				shprintf(Tf_sN, x_ftab[f].xf_name);
-		return (0);
-	}
-	if (a1 == NULL) {
-		for (prefix = 0; prefix < X_NTABS; prefix++)
-			for (key = 0; key < X_TABSZ; key++) {
-				f = XFUNC_VALUE(x_tab[prefix][key]);
-				if (f == XFUNC_insert || f == XFUNC_error
-#ifndef MKSH_SMALL
-				    || (macro && f != XFUNC_ins_string)
-#endif
-				    )
-					continue;
-				x_print(prefix, key);
-			}
-		return (0);
-	}
-	m2 = m1 = x_mapin(a1, ATEMP);
-	prefix = 0;
-	for (;; m1++) {
-		key = (unsigned char)*m1;
-		f = XFUNC_VALUE(x_tab[prefix][key]);
-		if (f == XFUNC_meta1)
-			prefix = 1;
-		else if (f == XFUNC_meta2)
-			prefix = 2;
-		else if (f == XFUNC_meta3)
-			prefix = 3;
-		else
-			break;
-	}
-	if (*++m1
-#ifndef MKSH_SMALL
-	    && ((*m1 != '~') || *(m1 + 1))
-#endif
-	    ) {
-		char msg[256];
-		const char *c = a1;
-		m1 = msg;
-		while (*c && (size_t)(m1 - msg) < sizeof(msg) - 3)
-			x_mapout2(*c++, &m1);
-		bi_errorf("too long key sequence: %s", msg);
-		return (1);
-	}
-#ifndef MKSH_SMALL
-	hastilde = tobool(*m1);
-#endif
-	afree(m2, ATEMP);
-
-	if (a2 == NULL) {
-		x_print(prefix, key);
-		return (0);
-	}
-	if (*a2 == 0) {
-		f = XFUNC_insert;
-#ifndef MKSH_SMALL
-	} else if (macro) {
-		f = XFUNC_ins_string;
-		sp = x_mapin(a2, AEDIT);
-#endif
-	} else {
-		for (f = 0; f < NELEM(x_ftab); f++)
-			if (!strcmp(x_ftab[f].xf_name, a2))
+	for (prefix = 0; prefix < X_NTABS; prefix++)
+		for (key = 0; key < X_TABSZ; key++)
+			switch (XFUNC_VALUE(x_tab[prefix][key])) {
+			case XFUNC_error:	/* unset */
+			case XFUNC_insert:	/* auto-insert */
 				break;
-		if (f == NELEM(x_ftab) || x_ftab[f].xf_flags & XF_NOBIND) {
-			bi_errorf("%s: no such function", a2);
+			default:
+				x_bind_showone(prefix, key);
+				break;
+			}
+	return (0);
+}
+
+static unsigned int
+x_bind_getc(const char **ccpp)
+{
+	unsigned int ch, ec;
+
+	if ((ch = ord(**ccpp)))
+		++(*ccpp);
+	switch (ch) {
+	case ORD('^'):
+		ch = ksh_toctrl(**ccpp) | 0x100U;
+		if (**ccpp)
+			++(*ccpp);
+		break;
+	case ORD('\\'):
+		switch ((ec = ord(**ccpp))) {
+		case ORD('^'):
+		case ORD('\\'):
+		case ORD('='):
+			ch = ec | 0x100U;
+			++(*ccpp);
+			break;
+		}
+		break;
+	}
+	return (ch);
+}
+
+int
+x_bind(const char *s SMALLP(bool macro))
+{
+	const char *ccp = s;
+	int prefix, key;
+	unsigned int c;
+#ifndef MKSH_SMALL
+	bool hastilde = false;
+	char *ms = NULL;
+#endif
+
+	prefix = 0;
+	c = x_bind_getc(&ccp);
+	if (!c || c == ORD('=')) {
+		bi_errorf("no key to bind");
+		return (1);
+	}
+	key = c & 0xFF;
+	while ((c = x_bind_getc(&ccp)) != ORD('=')) {
+		if (!c) {
+			x_bind_showone(prefix, key);
+			return (0);
+		}
+		switch (XFUNC_VALUE(x_tab[prefix][key])) {
+		case XFUNC_meta1:
+			prefix = 1;
+			if (0)
+				/* FALLTHROUGH */
+		case XFUNC_meta2:
+			  prefix = 2;
+			if (0)
+				/* FALLTHROUGH */
+		case XFUNC_meta3:
+			  prefix = 3;
+			key = c & 0xFF;
+			continue;
+		}
+#ifndef MKSH_SMALL
+		if (c == ORD('~')) {
+			hastilde = true;
+			continue;
+		}
+#endif
+		bi_errorf("too long key sequence: %s", s);
+		return (-1);
+	}
+
+#ifndef MKSH_SMALL
+	if (macro) {
+		char *cp;
+
+		cp = ms = alloc(strlen(ccp) + 1, AEDIT);
+		while ((c = x_bind_getc(&ccp)))
+			*cp++ = c;
+		*cp = '\0';
+		c = XFUNC_ins_string;
+	} else
+#endif
+	  if (!*ccp) {
+		c = XFUNC_insert;
+	} else {
+		for (c = 0; c < NELEM(x_ftab); ++c)
+			if (!strcmp(x_ftab[c].xf_name, ccp))
+				break;
+		if (c == NELEM(x_ftab) || x_ftab[c].xf_flags & XF_NOBIND) {
+			bi_errorf("%s: no such editing command", ccp);
 			return (1);
 		}
 	}
 
 #ifndef MKSH_SMALL
-	if (XFUNC_VALUE(x_tab[prefix][key]) == XFUNC_ins_string &&
-	    x_atab[prefix][key])
+	if (XFUNC_VALUE(x_tab[prefix][key]) == XFUNC_ins_string)
 		afree(x_atab[prefix][key], AEDIT);
+	x_atab[prefix][key] = ms;
+	if (hastilde)
+		c |= 0x80U;
 #endif
-	x_tab[prefix][key] = f
-#ifndef MKSH_SMALL
-	    | (hastilde ? 0x80 : 0)
-#endif
-	    ;
-#ifndef MKSH_SMALL
-	x_atab[prefix][key] = sp;
-#endif
+	x_tab[prefix][key] = c;
 
-	/* Track what the user has bound so x_mode(true) won't toast things */
-	if (f == XFUNC_insert)
+	/* track what the user has bound, so x_mode(true) won't toast things */
+	if (c == XFUNC_insert)
 		x_bound[(prefix * X_TABSZ + key) / 8] &=
 		    ~(1 << ((prefix * X_TABSZ + key) % 8));
 	else
@@ -3507,11 +3539,11 @@ static int inslen;			/* length of input buffer */
 static int srchlen;			/* length of current search pattern */
 static char *ybuf;			/* yank buffer */
 static int yanklen;			/* length of yank buffer */
-static int fsavecmd = ' ';		/* last find command */
+static uint8_t fsavecmd = ORD(' ');	/* last find command */
 static int fsavech;			/* character to find */
 static char lastcmd[MAXVICMD];		/* last non-move command */
 static int lastac;			/* argcnt for lastcmd */
-static int lastsearch = ' ';		/* last search command */
+static uint8_t lastsearch = ORD(' ');	/* last search command */
 static char srchpat[SRCHLEN];		/* last search pattern */
 static int insert;			/* <>0 in insert mode */
 static int hnum;			/* position in history */
@@ -3651,21 +3683,25 @@ vi_hook(int ch)
 
 	case VNORMAL:
 		/* PC scancodes */
-		if (!ch) switch (cmdlen = 0, (ch = x_getc())) {
-		case 71: ch = '0'; goto pseudo_vi_command;
-		case 72: ch = 'k'; goto pseudo_vi_command;
-		case 73: ch = 'A'; goto vi_xfunc_search_up;
-		case 75: ch = 'h'; goto pseudo_vi_command;
-		case 77: ch = 'l'; goto pseudo_vi_command;
-		case 79: ch = '$'; goto pseudo_vi_command;
-		case 80: ch = 'j'; goto pseudo_vi_command;
-		case 83: ch = 'x'; goto pseudo_vi_command;
-		default: ch = 0; goto vi_insert_failed;
+		if (!ch) {
+			cmdlen = 0;
+			switch (ch = x_getc()) {
+			case 71: ch = ORD('0'); goto pseudo_vi_command;
+			case 72: ch = ORD('k'); goto pseudo_vi_command;
+			case 73: ch = ORD('A'); goto vi_xfunc_search;
+			case 75: ch = ORD('h'); goto pseudo_vi_command;
+			case 77: ch = ORD('l'); goto pseudo_vi_command;
+			case 79: ch = ORD('$'); goto pseudo_vi_command;
+			case 80: ch = ORD('j'); goto pseudo_vi_command;
+			case 81: ch = ORD('B'); goto vi_xfunc_search;
+			case 83: ch = ORD('x'); goto pseudo_vi_command;
+			default: ch = 0; goto vi_insert_failed;
+			}
 		}
 		if (insert != 0) {
 			if (ch == CTRL_V) {
 				state = VLIT;
-				ch = '^';
+				ch = ORD('^');
 			}
 			switch (vi_insert(ch)) {
 			case -1:
@@ -3699,8 +3735,8 @@ vi_hook(int ch)
 					save_cbuf();
 					vs->cursor = 0;
 					vs->linelen = 0;
-					if (putbuf(ch == '/' ? "/" : "?", 1,
-					    false) != 0)
+					if (putbuf(ord(ch) == ORD('/') ?
+					    "/" : "?", 1, false) != 0)
 						return (-1);
 					refresh(0);
 				}
@@ -3861,10 +3897,11 @@ vi_hook(int ch)
 		break;
 
 	case VPREFIX2:
- vi_xfunc_search_up:
+ vi_xfunc_search:
 		state = VFAIL;
 		switch (ch) {
-		case 'A':
+		case ORD('A'):
+		case ORD('B'):
 			/* the cursor may not be at the BOL */
 			if (!vs->cursor)
 				break;
@@ -3873,13 +3910,14 @@ vi_hook(int ch)
 				vs->cursor = sizeof(srchpat) - 2;
 			/* anchor the search pattern */
 			srchpat[0] = '^';
-			/* take the current line up to the cursor */
-			memmove(srchpat + 1, vs->cbuf, vs->cursor);
+			/* take current line up to the cursor */
+			memcpy(srchpat + 1, vs->cbuf, vs->cursor);
 			srchpat[vs->cursor + 1] = '\0';
 			/* set a magic flag */
 			argc1 = 2 + (int)vs->cursor;
-			/* and emulate a backwards history search */
-			lastsearch = '/';
+			/* and emulate a history search */
+			/* search backwards if PgUp, forwards for PgDn */
+			lastsearch = ch == ORD('A') ? '/' : '?';
 			*curcmd = 'n';
 			goto pseudo_VCMD;
 		}
@@ -4442,9 +4480,9 @@ vi_cmd(int argcnt, const char *cmd)
 			/* FALLTHROUGH */
 		case ORD('n'):
 		case ORD('N'):
-			if (lastsearch == ' ')
+			if (lastsearch == ORD(' '))
 				return (-1);
-			if (lastsearch == '?')
+			if (lastsearch == ORD('?'))
 				c1 = 1;
 			else
 				c1 = 0;
@@ -4648,10 +4686,10 @@ domove(int argcnt, const char *cmd, int sub)
 		/* FALLTHROUGH */
 	case ORD(','):
 	case ORD(';'):
-		if (fsavecmd == ' ')
+		if (fsavecmd == ORD(' '))
 			return (-1);
 		i = ksh_eq(fsavecmd, 'F', 'f');
-		t = fsavecmd > 'a';
+		t = rtt2asc(fsavecmd) > rtt2asc('a');
 		if (*cmd == ',')
 			t = !t;
 		if ((ncursor = findch(fsavech, argcnt, tobool(t),
@@ -5565,9 +5603,19 @@ x_initterm(const char *termtype)
 {
 	/* default must be 0 (bss) */
 	x_term_mode = 0;
-	/* this is what tmux uses, don't ask me about it */
-	if (!strcmp(termtype, "screen") || !strncmp(termtype, "screen-", 7))
-		x_term_mode = 1;
+	/* catch any of the TERM types tmux uses, don’t ask m̲e̲ about it… */
+	switch (*termtype) {
+	case 's':
+		if (!strncmp(termtype, "screen", 6) &&
+		    (termtype[6] == '\0' || termtype[6] == '-'))
+			x_term_mode = 1;
+		break;
+	case 't':
+		if (!strncmp(termtype, "tmux", 4) &&
+		    (termtype[4] == '\0' || termtype[4] == '-'))
+			x_term_mode = 1;
+		break;
+	}
 }
 
 #ifndef MKSH_SMALL
@@ -5589,39 +5637,40 @@ x_eval_region_helper(const char *cmd, size_t len)
 		afree(wds, ATEMP);
 		strdupx(cp, cp, AEDIT);
 	} else
+		/* command cannot be parsed */
 		cp = NULL;
 	quitenv(NULL);
 	return (cp);
 }
 
 static int
-x_eval_region(int c MKSH_A_UNUSED)
+x_operate_region(char *(*helper)(const char *, size_t))
 {
-	char *evbeg, *evend, *cp;
+	char *rgbeg, *rgend, *cp;
 	size_t newlen;
 	/* only for LINE overflow checking */
 	size_t restlen;
 
 	if (xmp == NULL) {
-		evbeg = xbuf;
-		evend = xep;
+		rgbeg = xbuf;
+		rgend = xep;
 	} else if (xmp < xcp) {
-		evbeg = xmp;
-		evend = xcp;
+		rgbeg = xmp;
+		rgend = xcp;
 	} else {
-		evbeg = xcp;
-		evend = xmp;
+		rgbeg = xcp;
+		rgend = xmp;
 	}
 
 	x_e_putc2('\r');
 	x_clrtoeol(' ', false);
 	x_flush();
 	x_mode(false);
-	cp = x_eval_region_helper(evbeg, evend - evbeg);
+	cp = helper(rgbeg, rgend - rgbeg);
 	x_mode(true);
 
 	if (cp == NULL) {
-		/* command cannot be parsed */
+		/* error return from helper */
  x_eval_region_err:
 		x_e_putc2(KSH_BEL);
 		x_redraw('\r');
@@ -5629,20 +5678,49 @@ x_eval_region(int c MKSH_A_UNUSED)
 	}
 
 	newlen = strlen(cp);
-	restlen = xep - evend;
+	restlen = xep - rgend;
 	/* check for LINE overflow, until this is dynamically allocated */
-	if (evbeg + newlen + restlen >= xend)
+	if (rgbeg + newlen + restlen >= xend)
 		goto x_eval_region_err;
 
-	xmp = evbeg;
-	xcp = evbeg + newlen;
+	xmp = rgbeg;
+	xcp = rgbeg + newlen;
 	xep = xcp + restlen;
-	memmove(xcp, evend, restlen + /* NUL */ 1);
+	memmove(xcp, rgend, restlen + /* NUL */ 1);
 	memcpy(xmp, cp, newlen);
 	afree(cp, AEDIT);
 	x_adjust();
 	x_modified();
 	return (KSTD);
+}
+
+static int
+x_eval_region(int c MKSH_A_UNUSED)
+{
+	return (x_operate_region(x_eval_region_helper));
+}
+
+static char *
+x_quote_region_helper(const char *cmd, size_t len)
+{
+	char *s;
+	size_t newlen;
+	struct shf shf;
+
+	strndupx(s, cmd, len, ATEMP);
+	newlen = len < 256 ? 256 : 4096;
+	shf_sopen(alloc(newlen, AEDIT), newlen, SHF_WR | SHF_DYNAMIC, &shf);
+	shf.areap = AEDIT;
+	shf.flags |= SHF_ALLOCB;
+	print_value_quoted(&shf, s);
+	afree(s, ATEMP);
+	return (shf_sclose(&shf));
+}
+
+static int
+x_quote_region(int c MKSH_A_UNUSED)
+{
+	return (x_operate_region(x_quote_region_helper));
 }
 #endif /* !MKSH_SMALL */
 #endif /* !MKSH_NO_CMDLINE_EDITING */

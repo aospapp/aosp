@@ -22,6 +22,10 @@
 #define GL_APIENTRYP
 #endif
 
+#ifdef GFXSTREAM
+#include "StateTrackingSupport.h"
+#endif
+
 #include "TextureSharedData.h"
 
 #include <GLES/gl.h>
@@ -37,6 +41,36 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <string>
+
+// Caps of host driver that make it easy to validate stuff
+struct HostDriverCaps {
+    // ES 2
+    int max_vertex_attribs;
+    int max_combined_texture_image_units;
+    int max_color_attachments;
+
+    int max_texture_size;
+    int max_texture_size_cube_map;
+    int max_renderbuffer_size;
+
+    // ES 3.0
+    int max_draw_buffers;
+
+    int ubo_offset_alignment;
+    int max_uniform_buffer_bindings;
+    int max_transform_feedback_separate_attribs;
+
+    int max_texture_size_3d;
+    int max_array_texture_layers;
+
+    // ES 3.1
+    int max_atomic_counter_buffer_bindings;
+    int max_shader_storage_buffer_bindings;
+    int max_vertex_attrib_bindings;
+    int max_vertex_attrib_stride;
+    int ssbo_offset_alignment;
+};
 
 // Tracking framebuffer objects:
 // which framebuffer is bound,
@@ -45,7 +79,17 @@
 struct FboProps {
     GLuint name;
     bool previouslyBound;
+    bool completenessDirty;
+    GLenum cachedCompleteness;
     std::vector<GLuint> colorAttachmenti_textures;
+    std::vector<GLint> colorAttachmenti_texture_levels;
+    std::vector<GLint> colorAttachmenti_texture_layers;
+
+    GLint depthAttachment_texture_level;
+    GLint depthAttachment_texture_layer;
+    GLint stencilAttachment_texture_level;
+    GLint stencilAttachment_texture_layer;
+
     GLuint depthAttachment_texture;
     GLuint stencilAttachment_texture;
     GLuint depthstencilAttachment_texture;
@@ -64,15 +108,9 @@ struct FboProps {
     bool depthAttachment_hasRbo;
     bool stencilAttachment_hasRbo;
     bool depthstencilAttachment_hasRbo;
-};
 
-// Same for Rbo's
-struct RboProps {
-    GLenum target;
-    GLuint name;
-    GLenum format;
-    GLsizei multisamples;
-    bool previouslyBound;
+    GLuint defaultWidth;
+    GLuint defaultHeight;
 };
 
 // Enum for describing whether a framebuffer attachment
@@ -88,15 +126,27 @@ struct FboFormatInfo {
     FboAttachmentType type;
     GLenum rb_format;
     GLsizei rb_multisamples;
+    bool rb_external;
 
     GLint tex_internalformat;
     GLenum tex_format;
     GLenum tex_type;
     GLsizei tex_multisamples;
+    GLint tex_level;
+    GLint tex_layer;
+    bool tex_external;
 };
 
 class GLClientState {
 public:
+    // TODO: Unify everything in here
+    typedef enum {
+        Buffer,
+        TransformFeedback,
+        Sampler,
+        Query,
+    } ObjectType;
+
     typedef enum {
         VERTEX_LOCATION = 0,
         NORMAL_LOCATION = 1,
@@ -199,7 +249,7 @@ public:
     GLClientState();
     GLClientState(int majorVersion, int minorVersion);
     ~GLClientState();
-    int nLocations() { return m_nLocations; }
+    int nLocations() { return CODEC_MAX_VERTEX_ATTRIBUTES; }
     const PixelStoreState *pixelStoreState() { return &m_pixelStore; }
     int setPixelStore(GLenum param, GLint value);
     GLuint currentVertexArrayObject() const { return m_currVaoState.vaoId(); }
@@ -230,21 +280,51 @@ public:
     int getLocation(GLenum loc);
     void setActiveTexture(int texUnit) {m_activeTexture = texUnit; };
     int getActiveTexture() const { return m_activeTexture; }
-    void setMaxVertexAttribs(int val) {
-        m_maxVertexAttribs = val;
-        m_maxVertexAttribsDirty = false;
-    }
 
     void addBuffer(GLuint id);
     void removeBuffer(GLuint id);
     bool bufferIdExists(GLuint id) const;
     void unBindBuffer(GLuint id);
 
+    void setBufferHostMapDirty(GLuint id, bool dirty);
+    bool isBufferHostMapDirty(GLuint id) const;
+
+    void setExistence(ObjectType type, bool exists, GLsizei count, const GLuint* ids);
+    bool queryExistence(ObjectType type, GLuint id) const;
+    bool samplerExists(GLuint id) const;
+    bool tryBind(GLenum target, GLuint id);
+    bool isBoundTargetValid(GLenum target);
+    bool isQueryBound(GLenum target);
+    bool isQueryObjectActive(GLuint id);
+    void setLastQueryTarget(GLenum target, GLuint id);
+    GLenum getLastQueryTarget(GLuint id);
+
+    static void onFenceCreated(GLsync sync);
+    static void onFenceDestroyed(GLsync sync);
+    static bool fenceExists(GLsync sync);
+
+    void setBoundPixelPackBufferDirtyForHostMap();
+    void setBoundTransformFeedbackBuffersDirtyForHostMap();
+    void setBoundShaderStorageBuffersDirtyForHostMap();
+    void setBoundAtomicCounterBuffersDirtyForHostMap();
+
     int bindBuffer(GLenum target, GLuint id);
     void bindIndexedBuffer(GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size, GLintptr stride, GLintptr effectiveStride);
     int getMaxIndexedBufferBindings(GLenum target) const;
     bool isNonIndexedBindNoOp(GLenum target, GLuint buffer);
     bool isIndexedBindNoOp(GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size, GLintptr stride, GLintptr effectiveStride);
+
+    int getMaxTextureSize() const;
+    int getMaxTextureSize3D() const;
+    int getMaxTextureSizeCubeMap() const;
+    int getLog2MaxTextureSize() const;
+
+    void postDraw();
+    void postReadPixels();
+    void postDispatchCompute();
+
+    bool shouldSkipHostMapBuffer(GLenum target);
+    void onHostMappedBuffer(GLenum target);
 
     int getBuffer(GLenum target);
     GLuint getLastEncodedBufferBind(GLenum target);
@@ -313,7 +393,7 @@ public:
     // glDisable(GL_TEXTURE_(2D|EXTERNAL_OES))
     void disableTextureTarget(GLenum target);
 
-    void bindSampler(GLuint unit, GLuint sampler);
+    bool bindSampler(GLuint unit, GLuint sampler);
     bool isSamplerBindNoOp(GLuint unit, GLuint sampler);
     void onDeleteSamplers(GLsizei n, const GLuint* samplers);
 
@@ -334,10 +414,19 @@ public:
     // For accurate error detection, bindTexture should be called for *all*
     // targets, not just 2D and EXTERNAL_OES.
     GLenum bindTexture(GLenum target, GLuint texture, GLboolean* firstUse);
-    void setBoundEGLImage(GLenum target, GLeglImageOES image);
+    void setBoundEGLImage(GLenum target, GLeglImageOES image, int width, int height);
 
     // Return the texture currently bound to GL_TEXTURE_(2D|EXTERNAL_OES).
     GLuint getBoundTexture(GLenum target) const;
+    // Return bound framebuffer for target
+    GLuint getBoundFramebuffer(GLenum target) const;
+
+    // Check framebuffer completeness
+    GLenum checkFramebufferCompleteness(GLenum target);
+    // |currentSamples|: threads through the current sample count of attachments so far,
+    // for validating consistent number of samples across attachments
+    GLenum checkFramebufferAttachmentCompleteness(GLenum target, GLenum attachment, int* currentSamples) const;
+
     // Other publicly-visible texture queries
     GLenum queryTexLastBoundTarget(GLuint name) const;
     GLenum queryTexFormat(GLuint name) const;
@@ -364,12 +453,14 @@ public:
     void setBoundTextureInternalFormat(GLenum target, GLint format);
     void setBoundTextureFormat(GLenum target, GLenum format);
     void setBoundTextureType(GLenum target, GLenum type);
-    void setBoundTextureDims(GLenum target, GLsizei level, GLsizei width, GLsizei height, GLsizei depth);
+    void setBoundTextureDims(GLenum target, GLenum cubetarget, GLsizei level, GLsizei width, GLsizei height, GLsizei depth);
     void setBoundTextureSamples(GLenum target, GLsizei samples);
+    void addTextureCubeMapImage(GLenum stateTarget, GLenum cubeTarget);
 
     // glTexStorage2D disallows any change in texture format after it is set for a particular texture.
     void setBoundTextureImmutableFormat(GLenum target);
     bool isBoundTextureImmutableFormat(GLenum target) const;
+    bool isBoundTextureComplete(GLenum target) const;
 
     // glDeleteTextures(...)
     // Remove references to the to-be-deleted textures.
@@ -383,6 +474,8 @@ public:
     GLuint boundRenderbuffer() const;
     void setBoundRenderbufferFormat(GLenum format);
     void setBoundRenderbufferSamples(GLsizei samples);
+    void setBoundRenderbufferDimensions(GLsizei width, GLsizei height);
+    void setBoundRenderbufferEGLImageBacked();
 
     // Frame buffer objects
     void addFramebuffers(GLsizei n, GLuint* framebuffers);
@@ -390,11 +483,12 @@ public:
     bool usedFramebufferName(GLuint name) const;
     void bindFramebuffer(GLenum target, GLuint name);
     void setCheckFramebufferStatus(GLenum target, GLenum status);
+    void setFramebufferParameter(GLenum target, GLenum pname, GLint param);
     GLenum getCheckFramebufferStatus(GLenum target) const;
     GLuint boundFramebuffer(GLenum target) const;
 
     // Texture object -> FBO
-    void attachTextureObject(GLenum target, GLenum attachment, GLuint texture);
+    void attachTextureObject(GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer);
     GLuint getFboAttachmentTextureId(GLenum target, GLenum attachment) const;
 
     // RBO -> FBO
@@ -407,11 +501,29 @@ public:
     bool attachmentHasObject(GLenum target, GLenum attachment) const;
     GLuint objectOfAttachment(GLenum target, GLenum attachment) const;
 
+    // Dirty FBO completeness
+    void setFboCompletenessDirtyForTexture(GLuint texture);
+    void setFboCompletenessDirtyForRbo(GLuint rbo_name);
+
     // Transform feedback state
-    void setTransformFeedbackActiveUnpaused(bool activeUnpaused);
+    void setTransformFeedbackActive(bool active);
+    void setTransformFeedbackUnpaused(bool unpaused);
+    void setTransformFeedbackVaryingsCountForLinking(uint32_t count);
+    bool getTransformFeedbackActive() const;
+    bool getTransformFeedbackUnpaused() const;
     bool getTransformFeedbackActiveUnpaused() const;
+    uint32_t getTransformFeedbackVaryingsCountForLinking() const;
+
+    // Stencil state
+    void stencilFuncSeparate(GLenum face, GLenum func, GLint ref, GLuint mask);
+    void stencilMaskSeparate(GLenum face, GLuint mask);
+    void stencilOpSeparate(GLenum face, GLenum fail, GLenum zfail, GLenum zpass);
 
     void setTextureData(SharedTextureDataMap* sharedTexData);
+    void setRenderbufferInfo(RenderbufferInfo* rbInfo);
+    void setSamplerInfo(SamplerInfo* samplerInfo);
+
+    bool compressedTexImageSizeCompatible(GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLsizei imageSize);
     // set eglsurface property on default framebuffer
     // if coming from eglMakeCurrent
     void fromMakeCurrent();
@@ -420,14 +532,10 @@ public:
     // accurate values for indexed buffers
     // and # render targets.
     void initFromCaps(
-        int max_transform_feedback_separate_attribs,
-        int max_uniform_buffer_bindings,
-        int max_atomic_counter_buffer_bindings,
-        int max_shader_storage_buffer_bindings,
-        int max_vertex_attrib_bindings,
-        int max_color_attachments,
-        int max_draw_buffers);
+        const HostDriverCaps& caps);
     bool needsInitFromCaps() const;
+    void setExtensions(const std::string& extensions);
+    bool hasExtension(const char* ext) const;
 
     // Queries the format backing the current framebuffer.
     // Type differs depending on whether the attachment
@@ -441,12 +549,69 @@ public:
             GLenum attachment) const;
     int getMaxColorAttachments() const;
     int getMaxDrawBuffers() const;
+
+    // Uniform/attribute validation info
+    UniformValidationInfo currentUniformValidationInfo;
+    AttribValidationInfo currentAttribValidationInfo;;
+
+    // Uniform validation api
+    void validateUniform(bool isFloat, bool isUnsigned, GLint columns, GLint rows, GLint location, GLsizei count, GLenum* err);
+    // Attrib validation
+    bool isAttribIndexUsedByProgram(int attribIndex);
+
+    // Fast access to some enables and stencil related glGet's
+    bool state_GL_STENCIL_TEST;
+    GLenum state_GL_STENCIL_FUNC;
+    unsigned int state_GL_STENCIL_VALUE_MASK;
+    int state_GL_STENCIL_REF;
+    GLenum state_GL_STENCIL_FAIL;
+    GLenum state_GL_STENCIL_PASS_DEPTH_FAIL;
+    GLenum state_GL_STENCIL_PASS_DEPTH_PASS;
+    GLenum state_GL_STENCIL_BACK_FUNC;
+    unsigned int state_GL_STENCIL_BACK_VALUE_MASK;
+    int state_GL_STENCIL_BACK_REF;
+    GLenum state_GL_STENCIL_BACK_FAIL;
+    GLenum state_GL_STENCIL_BACK_PASS_DEPTH_FAIL;
+    GLenum state_GL_STENCIL_BACK_PASS_DEPTH_PASS;
+    unsigned int state_GL_STENCIL_WRITEMASK;
+    unsigned int state_GL_STENCIL_BACK_WRITEMASK;
+    int state_GL_STENCIL_CLEAR_VALUE;
 private:
     void init();
     bool m_initialized;
     PixelStoreState m_pixelStore;
 
+#ifdef GFXSTREAM
+    using DirtyMap = PredicateMap<uint32_t, true>;
+
+    ExistenceMap mBufferIds;
+    ExistenceMap mTransformFeedbackIds;
+    SamplerInfo* mSamplerInfo;
+    ExistenceMap mQueryIds;
+    LastQueryTargetInfo mLastQueryTargets;
+
+    // Bound query target validity and tracking
+    struct BoundTargetInfo {
+        GLuint id;
+        bool valid;
+    };
+   
+    // Transform feedback
+    BoundTargetInfo mBoundTransformFeedbackValidity;
+
+    // Queries
+    // GL_ANY_SAMPLES_PASSED
+    BoundTargetInfo mBoundQueryValidity_AnySamplesPassed;
+    // GL_ANY_SAMPLES_PASSED_CONSERVATIVE
+    BoundTargetInfo mBoundQueryValidity_AnySamplesPassedConservative;
+    // GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN
+    BoundTargetInfo mBoundQueryValidity_TransformFeedbackPrimitivesWritten;
+
+    // Dirty maps
+    DirtyMap mHostMappedBufferDirty;
+#else
     std::set<GLuint> mBufferIds;
+#endif
 
     // GL_ARRAY_BUFFER_BINDING is separate from VAO state
     GLuint m_arrayBuffer;
@@ -475,23 +640,23 @@ private:
     GLuint m_drawIndirectBuffer;
     GLuint m_shaderStorageBuffer;
 
-    bool m_transformFeedbackActiveUnpaused;
+    bool m_transformFeedbackActive;
+    bool m_transformFeedbackUnpaused;
+    uint32_t m_transformFeedbackVaryingsCountForLinking;
 
-    int m_max_transform_feedback_separate_attribs;
-    int m_max_uniform_buffer_bindings;
-    int m_max_atomic_counter_buffer_bindings;
-    int m_max_shader_storage_buffer_bindings;
-    int m_max_vertex_attrib_bindings;
+    HostDriverCaps m_hostDriverCaps;
+    bool m_extensions_set;
+    std::string m_extensions;
+    bool m_has_color_buffer_float_extension;
+    bool m_has_color_buffer_half_float_extension;
     std::vector<BufferBinding> m_indexedTransformFeedbackBuffers;
     std::vector<BufferBinding> m_indexedUniformBuffers;
     std::vector<BufferBinding> m_indexedAtomicCounterBuffers;
     std::vector<BufferBinding> m_indexedShaderStorageBuffers;
+    int m_log2MaxTextureSize;
 
     int m_glesMajorVersion;
     int m_glesMinorVersion;
-    int m_maxVertexAttribs;
-    bool m_maxVertexAttribsDirty;
-    int m_nLocations;
     int m_activeTexture;
     GLint m_currentProgram;
     GLint m_currentShaderProgram;
@@ -546,19 +711,14 @@ private:
     GLenum copyTexImageNeededTarget(GLenum target, GLint level,
                                     GLenum internalformat);
 
-    int m_max_color_attachments;
-    int m_max_draw_buffers;
     struct RboState {
         GLuint boundRenderbuffer;
-        size_t boundRenderbufferIndex;
-        std::vector<RboProps> rboData;
+        // Connects to share group.
+        // Expected that share group lifetime outlives this context.
+        RenderbufferInfo* rboData;
     };
     RboState mRboState;
     void addFreshRenderbuffer(GLuint name);
-    void setBoundRenderbufferIndex();
-    size_t getRboIndex(GLuint name) const;
-    RboProps& boundRboProps();
-    const RboProps& boundRboProps_const() const;
 
     struct FboState {
         GLuint boundDrawFramebuffer;
@@ -576,6 +736,9 @@ private:
     // Querying framebuffer format
     GLenum queryRboFormat(GLuint name) const;
     GLsizei queryRboSamples(GLuint name) const;
+    GLsizei queryRboWidth(GLuint name) const;
+    GLsizei queryRboHeight(GLuint name) const;
+    bool queryRboEGLImageBacked(GLuint name) const;
     GLenum queryTexType(GLuint name) const;
     GLsizei queryTexSamples(GLuint name) const;
 
@@ -584,6 +747,13 @@ private:
     TextureRec* getTextureRec(GLuint id) const;
 
 public:
+    bool isTexture(GLuint name) const;
+    bool isTextureWithStorage(GLuint name) const;
+    bool isTextureWithTarget(GLuint name) const;
+    bool isTextureCubeMap(GLuint name) const;
+    bool isRenderbuffer(GLuint name) const;
+    bool isRenderbufferThatWasBound(GLuint name) const;
+
     void getClientStatePointer(GLenum pname, GLvoid** params);
 
     template <class T>
@@ -815,14 +985,83 @@ public:
             break;
             }
         case GL_MAX_VERTEX_ATTRIBS: {
-            if (m_maxVertexAttribsDirty) {
-                isClientStateParam = false;
-            } else {
-                *out = m_maxVertexAttribs;
-                isClientStateParam = true;
-            }
+            *out = CODEC_MAX_VERTEX_ATTRIBUTES;
+            isClientStateParam = true;
             break;
         }
+        case GL_FRAMEBUFFER_BINDING:
+        // also case GL_DRAW_FRAMEBUFFER_BINDING:
+            *out = (T)mFboState.boundDrawFramebuffer;
+            isClientStateParam = true;
+            break;
+        case 0x8CAA: // GL_READ_FRAMEBUFFER_BINDING
+            *out = (T)mFboState.boundReadFramebuffer;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_TEST:
+            *out = (T)state_GL_STENCIL_TEST;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_FUNC:
+            *out = (T)state_GL_STENCIL_FUNC;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_VALUE_MASK:
+            *out = (T)state_GL_STENCIL_VALUE_MASK;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_REF:
+            *out = (T)state_GL_STENCIL_REF;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_FAIL:
+            *out = (T)state_GL_STENCIL_FAIL;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_PASS_DEPTH_FAIL:
+            *out = (T)state_GL_STENCIL_PASS_DEPTH_FAIL;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_PASS_DEPTH_PASS:
+            *out = (T)state_GL_STENCIL_PASS_DEPTH_PASS;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_BACK_FUNC:
+            *out = (T)state_GL_STENCIL_BACK_FUNC;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_BACK_VALUE_MASK:
+            *out = (T)state_GL_STENCIL_BACK_VALUE_MASK;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_BACK_REF:
+            *out = (T)state_GL_STENCIL_BACK_REF;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_BACK_FAIL:
+            *out = (T)state_GL_STENCIL_BACK_FAIL;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_BACK_PASS_DEPTH_FAIL:
+            *out = (T)state_GL_STENCIL_BACK_PASS_DEPTH_FAIL;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_BACK_PASS_DEPTH_PASS:
+            *out = (T)state_GL_STENCIL_BACK_PASS_DEPTH_PASS;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_WRITEMASK:
+            *out = (T)state_GL_STENCIL_WRITEMASK;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_BACK_WRITEMASK:
+            *out = (T)state_GL_STENCIL_BACK_WRITEMASK;
+            isClientStateParam = true;
+            break;
+        case GL_STENCIL_CLEAR_VALUE:
+            *out = (T)state_GL_STENCIL_CLEAR_VALUE;
+            isClientStateParam = true;
+            break;
         }
         return isClientStateParam;
     }

@@ -28,24 +28,24 @@ namespace android {
 namespace hardware {
 namespace camera {
 namespace provider {
-namespace V2_6 {
+namespace V2_7 {
 namespace implementation {
 
 namespace hidl_utils = ::android::hardware::camera::implementation::hidl_utils;
 
 using ::android::google_camera_hal::CameraDevice;
+using ::android::hardware::Void;
+using ::android::hardware::camera::common::V1_0::CameraDeviceStatus;
+using ::android::hardware::camera::common::V1_0::TorchModeStatus;
+using ::android::hardware::camera::common::V1_0::VendorTagSection;
 
 const std::string HidlCameraProvider::kProviderName = "internal";
 // "device@<version>/internal/<id>"
 const std::regex HidlCameraProvider::kDeviceNameRegex(
     "device@([0-9]+\\.[0-9]+)/internal/(.+)");
 
-std::unique_ptr<HidlCameraProvider> HidlCameraProvider::Create() {
-  auto provider = std::unique_ptr<HidlCameraProvider>(new HidlCameraProvider());
-  if (provider == nullptr) {
-    ALOGE("%s: Cannot create a HidlCameraProvider.", __FUNCTION__);
-    return nullptr;
-  }
+android::sp<HidlCameraProvider> HidlCameraProvider::Create() {
+  android::sp<HidlCameraProvider> provider = new HidlCameraProvider();
 
   status_t res = provider->Initialize();
   if (res != OK) {
@@ -85,7 +85,7 @@ status_t HidlCameraProvider::Initialize() {
             std::unique_lock<std::mutex> lock(callbacks_lock_);
             callbacks_->cameraDeviceStatusChange(
                 "device@" +
-                    device::V3_5::implementation::HidlCameraDevice::kDeviceVersion +
+                    device::V3_7::implementation::HidlCameraDevice::kDeviceVersion +
                     "/" + kProviderName + "/" + camera_id,
                 hidl_camera_device_status);
           }),
@@ -126,7 +126,7 @@ status_t HidlCameraProvider::Initialize() {
             std::unique_lock<std::mutex> lock(callbacks_lock_);
             callbacks_2_6_->physicalCameraDeviceStatusChange(
                 "device@" +
-                    device::V3_5::implementation::HidlCameraDevice::kDeviceVersion +
+                    device::V3_7::implementation::HidlCameraDevice::kDeviceVersion +
                     "/" + kProviderName + "/" + camera_id,
                 physical_camera_id, hidl_camera_device_status);
           }),
@@ -150,25 +150,37 @@ status_t HidlCameraProvider::Initialize() {
             std::unique_lock<std::mutex> lock(callbacks_lock_);
             callbacks_->torchModeStatusChange(
                 "device@" +
-                    device::V3_5::implementation::HidlCameraDevice::kDeviceVersion +
+                    device::V3_7::implementation::HidlCameraDevice::kDeviceVersion +
                     "/" + kProviderName + "/" + camera_id,
                 hidl_torch_status);
           }),
   };
 
   google_camera_provider_->SetCallback(&camera_provider_callback_);
+  // purge pending malloc pages after initialization
+  mallopt(M_PURGE, 0);
   return OK;
 }
 
 Return<Status> HidlCameraProvider::setCallback(
     const sp<ICameraProviderCallback>& callback) {
+  bool first_time = false;
   {
     std::unique_lock<std::mutex> lock(callbacks_lock_);
+    first_time = callbacks_ == nullptr;
     callbacks_ = callback;
   }
-
   google_camera_provider_->TriggerDeferredCallbacks();
-
+#ifdef __ANDROID_APEX__
+  if (first_time) {
+    std::string ready_property_name = "vendor.camera.hal.ready.count";
+    int ready_count = property_get_int32(ready_property_name.c_str(), 0);
+    property_set(ready_property_name.c_str(),
+                 std::to_string(++ready_count).c_str());
+    ALOGI("HidlCameraProvider::setCallback() first time ready count: %d ",
+          ready_count);
+  }
+#endif
   return Status::OK;
 }
 
@@ -201,7 +213,6 @@ Return<void> HidlCameraProvider::getVendorTags(getVendorTags_cb _hidl_cb) {
 Return<void> HidlCameraProvider::getCameraIdList(getCameraIdList_cb _hidl_cb) {
   std::vector<uint32_t> camera_ids;
   hidl_vec<hidl_string> hidl_camera_ids;
-
   status_t res = google_camera_provider_->GetCameraIdList(&camera_ids);
   if (res != OK) {
     ALOGE("%s: Getting camera ID list failed: %s(%d)", __FUNCTION__,
@@ -215,7 +226,7 @@ Return<void> HidlCameraProvider::getCameraIdList(getCameraIdList_cb _hidl_cb) {
     // camera ID is in the form of "device@<major>.<minor>/<type>/<id>"
     hidl_camera_ids[i] =
         "device@" +
-        device::V3_5::implementation::HidlCameraDevice::kDeviceVersion + "/" +
+        device::V3_7::implementation::HidlCameraDevice::kDeviceVersion + "/" +
         kProviderName + "/" + std::to_string(camera_ids[i]);
   }
 
@@ -254,6 +265,21 @@ Return<void> HidlCameraProvider::getConcurrentStreamingCameraIds(
 }
 
 Return<void> HidlCameraProvider::isConcurrentStreamCombinationSupported(
+    const hidl_vec<provider::V2_6::CameraIdAndStreamCombination>& configs,
+    isConcurrentStreamCombinationSupported_cb _hidl_cb) {
+  hidl_vec<CameraIdAndStreamCombination> configs2_7;
+  configs2_7.resize(configs.size());
+  for (size_t i = 0; i < configs.size(); i++) {
+    configs2_7[i].cameraId = configs[i].cameraId;
+
+    hidl_utils::ConvertStreamConfigurationV34ToV37(
+        configs[i].streamConfiguration, &configs2_7[i].streamConfiguration);
+  }
+
+  return isConcurrentStreamCombinationSupported_2_7(configs2_7, _hidl_cb);
+}
+
+Return<void> HidlCameraProvider::isConcurrentStreamCombinationSupported_2_7(
     const hidl_vec<CameraIdAndStreamCombination>& configs,
     isConcurrentStreamCombinationSupported_cb _hidl_cb) {
   std::vector<google_camera_hal::CameraIdAndStreamConfiguration>
@@ -343,7 +369,7 @@ Return<void> HidlCameraProvider::getCameraDeviceInterface_V3_x(
   }
 
   auto hidl_camera_device =
-      device::V3_5::implementation::HidlCameraDevice::Create(
+      device::V3_7::implementation::HidlCameraDevice::Create(
           std::move(google_camera_device));
   if (hidl_camera_device == nullptr) {
     ALOGE("%s: Creating HidlCameraDevice failed", __FUNCTION__);
@@ -360,24 +386,8 @@ Return<void> HidlCameraProvider::notifyDeviceStateChange(
   return Void();
 }
 
-ICameraProvider* HIDL_FETCH_ICameraProvider(const char* name) {
-  std::string provider_name = HidlCameraProvider::kProviderName + "/0";
-  if (provider_name.compare(name) != 0) {
-    ALOGE("%s: Unknown provider name: %s", __FUNCTION__, name);
-    return nullptr;
-  }
-
-  auto provider = HidlCameraProvider::Create();
-  if (provider == nullptr) {
-    ALOGE("%s: Cannot create a HidlCameraProvider.", __FUNCTION__);
-    return nullptr;
-  }
-
-  return provider.release();
-}
-
 }  // namespace implementation
-}  // namespace V2_6
+}  // namespace V2_7
 }  // namespace provider
 }  // namespace camera
 }  // namespace hardware

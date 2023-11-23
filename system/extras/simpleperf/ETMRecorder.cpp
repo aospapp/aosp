@@ -19,8 +19,8 @@
 #include <stdio.h>
 #include <sys/sysinfo.h>
 
-#include <memory>
 #include <limits>
+#include <memory>
 #include <string>
 
 #include <android-base/file.h>
@@ -28,6 +28,7 @@
 #include <android-base/parseint.h>
 #include <android-base/strings.h>
 
+#include "environment.h"
 #include "utils.h"
 
 namespace simpleperf {
@@ -80,6 +81,10 @@ bool ETMPerCpu::IsTimestampSupported() const {
   return GetBits(trcidr0, 24, 28) > 0;
 }
 
+bool ETMPerCpu::IsEnabled() const {
+  return GetBits(trcauthstatus, 0, 3) == 0xc;
+}
+
 ETMRecorder& ETMRecorder::GetInstance() {
   static ETMRecorder etm;
   return etm;
@@ -99,8 +104,8 @@ std::unique_ptr<EventType> ETMRecorder::BuildEventType() {
   if (etm_event_type == -1) {
     return nullptr;
   }
-  return std::make_unique<EventType>(
-      "cs-etm", etm_event_type, 0, "CoreSight ETM instruction tracing", "arm");
+  return std::make_unique<EventType>("cs-etm", etm_event_type, 0,
+                                     "CoreSight ETM instruction tracing", "arm");
 }
 
 bool ETMRecorder::CheckEtmSupport() {
@@ -121,6 +126,10 @@ bool ETMRecorder::CheckEtmSupport() {
       LOG(ERROR) << "etm device doesn't support contextID";
       return false;
     }
+    if (!p.second.IsEnabled()) {
+      LOG(ERROR) << "etm device isn't enabled by the bootloader";
+      return false;
+    }
   }
   if (!FindSinkConfig()) {
     LOG(ERROR) << "can't find etr device, which moves etm data to memory";
@@ -131,35 +140,49 @@ bool ETMRecorder::CheckEtmSupport() {
 }
 
 bool ETMRecorder::ReadEtmInfo() {
-  int cpu_count = get_nprocs_conf();
-  for (const auto &name : GetEntriesInDir(ETM_DIR)) {
+  std::vector<int> online_cpus = GetOnlineCpus();
+  for (const auto& name : GetEntriesInDir(ETM_DIR)) {
     int cpu;
     if (sscanf(name.c_str(), "cpu%d", &cpu) == 1) {
-      ETMPerCpu &cpu_info = etm_info_[cpu];
-      bool success =
-          ReadValueInEtmDir(name + "/trcidr/trcidr0", &cpu_info.trcidr0) &&
-          ReadValueInEtmDir(name + "/trcidr/trcidr1", &cpu_info.trcidr1) &&
-          ReadValueInEtmDir(name + "/trcidr/trcidr2", &cpu_info.trcidr2) &&
-          ReadValueInEtmDir(name + "/trcidr/trcidr4", &cpu_info.trcidr4) &&
-          ReadValueInEtmDir(name + "/trcidr/trcidr8", &cpu_info.trcidr8) &&
-          ReadValueInEtmDir(name + "/mgmt/trcauthstatus", &cpu_info.trcauthstatus);
+      // We can't read ETM registers for offline cpus. So skip them.
+      if (std::find(online_cpus.begin(), online_cpus.end(), cpu) == online_cpus.end()) {
+        continue;
+      }
+      ETMPerCpu& cpu_info = etm_info_[cpu];
+      bool success = ReadValueInEtmDir(name + "/trcidr/trcidr0", &cpu_info.trcidr0) &&
+                     ReadValueInEtmDir(name + "/trcidr/trcidr1", &cpu_info.trcidr1) &&
+                     ReadValueInEtmDir(name + "/trcidr/trcidr2", &cpu_info.trcidr2) &&
+                     ReadValueInEtmDir(name + "/trcidr/trcidr4", &cpu_info.trcidr4) &&
+                     ReadValueInEtmDir(name + "/trcidr/trcidr8", &cpu_info.trcidr8) &&
+                     ReadValueInEtmDir(name + "/mgmt/trcauthstatus", &cpu_info.trcauthstatus);
       if (!success) {
         return false;
       }
     }
   }
-  return (etm_info_.size() == cpu_count);
+  return (etm_info_.size() == online_cpus.size());
 }
 
 bool ETMRecorder::FindSinkConfig() {
-  for (const auto &name : GetEntriesInDir(ETM_DIR + "sinks")) {
-    if (name.find("etr") != -1) {
+  bool has_etr = false;
+  bool has_trbe = false;
+  for (const auto& name : GetEntriesInDir(ETM_DIR + "sinks")) {
+    if (!has_etr && name.find("etr") != -1) {
       if (ReadValueInEtmDir("sinks/" + name, &sink_config_)) {
-        return true;
+        has_etr = true;
       }
     }
+    if (name.find("trbe") != -1) {
+      has_trbe = true;
+      break;
+    }
   }
-  return false;
+  if (has_trbe) {
+    // When TRBE is present, let the driver choose the most suitable
+    // configuration.
+    sink_config_ = 0;
+  }
+  return has_trbe || has_etr;
 }
 
 void ETMRecorder::SetEtmPerfEventAttr(perf_event_attr* attr) {

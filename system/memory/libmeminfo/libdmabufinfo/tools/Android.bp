@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_binary {
     name: "dmabuf_dump",
     cflags: [
@@ -26,5 +30,5 @@ cc_binary {
     static_libs: [
         "libdmabufinfo",
     ],
-    product_specific: true,
+    vendor_available: true,
 }

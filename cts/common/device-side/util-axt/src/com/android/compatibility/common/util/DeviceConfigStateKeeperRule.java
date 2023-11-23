@@ -32,7 +32,7 @@ public class DeviceConfigStateKeeperRule extends StateKeeperRule<String> {
      *
      * @param context context used to retrieve the {@link DeviceConfig} provider.
      * @param namespace {@code DeviceConfig} namespace.
-     * @param key prefence key.
+     * @param key preference key.
      */
     public DeviceConfigStateKeeperRule(@NonNull Context context, @NonNull String namespace,
             @NonNull String key) {

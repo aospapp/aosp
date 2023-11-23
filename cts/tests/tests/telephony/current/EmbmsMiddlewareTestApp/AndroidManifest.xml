@@ -15,35 +15,37 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.telephony.cts.embmstestapp">
+     package="android.telephony.cts.embmstestapp">
   <permission android:name="android.telephony.cts.embmstestapp.CTS_DOWNLOAD_PERMISSION"
-              android.protectionLevel="signature"/>
+       android:protectionLevel="signature"/>
 
   <uses-permission android:name="android.telephony.cts.embms.permission.SEND_EMBMS_INTENTS"/>
   <uses-permission android:name="android.telephony.cts.embmstestapp.CTS_DOWNLOAD_PERMISSION"/>
 
   <application android:label="EmbmsCtsMiddleware">
     <service android:name="android.telephony.cts.embmstestapp.CtsStreamingService"
-            android:launchMode="singleInstance">
+         android:launchMode="singleInstance"
+         android:exported="true">
       <intent-filter>
-        <action android:name="android.telephony.action.EmbmsStreaming" />
-        <action android:name="android.telephony.cts.embmstestapp.ACTION_CONTROL_MIDDLEWARE" />
+        <action android:name="android.telephony.action.EmbmsStreaming"/>
+        <action android:name="android.telephony.cts.embmstestapp.ACTION_CONTROL_MIDDLEWARE"/>
       </intent-filter>
     </service>
     <service android:name="android.telephony.cts.embmstestapp.CtsGroupCallService"
-             android:launchMode="singleInstance">
+         android:launchMode="singleInstance"
+         android:exported="true">
       <intent-filter>
-        <action android:name="android.telephony.action.EmbmsGroupCall" />
-        <action android:name="android.telephony.cts.embmstestapp.ACTION_CONTROL_MIDDLEWARE" />
+        <action android:name="android.telephony.action.EmbmsGroupCall"/>
+        <action android:name="android.telephony.cts.embmstestapp.ACTION_CONTROL_MIDDLEWARE"/>
       </intent-filter>
     </service>
     <service android:name="android.telephony.cts.embmstestapp.CtsDownloadService"
-             android:launchMode="singleInstance">
+         android:launchMode="singleInstance"
+         android:exported="true">
       <intent-filter>
-        <action android:name="android.telephony.action.EmbmsDownload" />
-        <action android:name="android.telephony.cts.embmstestapp.ACTION_CONTROL_MIDDLEWARE" />
+        <action android:name="android.telephony.action.EmbmsDownload"/>
+        <action android:name="android.telephony.cts.embmstestapp.ACTION_CONTROL_MIDDLEWARE"/>
       </intent-filter>
     </service>
   </application>
 </manifest>
-

@@ -1,8 +1,18 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_native_license"],
+}
+
 cc_defaults {
     name: "surfaceflinger_defaults",
     cflags: [
         "-Wall",
         "-Werror",
+        "-Wextra",
         "-Wformat",
         "-Wthread-safety",
         "-Wunused",
@@ -13,14 +23,16 @@ cc_defaults {
 
 cc_defaults {
     name: "libsurfaceflinger_defaults",
-    defaults: ["surfaceflinger_defaults"],
+    defaults: [
+        "surfaceflinger_defaults",
+        "skia_renderengine_deps",
+    ],
     cflags: [
         "-DLOG_TAG=\"SurfaceFlinger\"",
         "-DGL_GLEXT_PROTOTYPES",
         "-DEGL_EGLEXT_PROTOTYPES",
     ],
     shared_libs: [
-        "android.frameworks.vr.composer@2.0",
         "android.hardware.configstore-utils",
         "android.hardware.configstore@1.0",
         "android.hardware.configstore@1.1",
@@ -33,10 +45,9 @@ cc_defaults {
         "android.hardware.graphics.composer@2.4",
         "android.hardware.power@1.0",
         "android.hardware.power@1.3",
-        "android.hardware.power-cpp",
+        "android.hardware.power-V1-cpp",
         "libbase",
         "libbinder",
-        "libbufferhubqueue",
         "libcutils",
         "libEGL",
         "libfmq",
@@ -47,10 +58,8 @@ cc_defaults {
         "liblayers_proto",
         "liblog",
         "libnativewindow",
-        "libpdx_default_transport",
         "libprocessgroup",
         "libprotobuf-cpp-lite",
-        "libstatslog",
         "libsync",
         "libtimestats",
         "libui",
@@ -58,21 +67,13 @@ cc_defaults {
         "libutils",
         "libSurfaceFlingerProp",
     ],
-    // VrComposer is not used when building surfaceflinger for vendors
-    target: {
-        vendor: {
-            exclude_shared_libs: [
-                "android.frameworks.vr.composer@2.0",
-            ],
-        },
-    },
     static_libs: [
         "libcompositionengine",
+        "libframetimeline",
         "libperfetto_client_experimental",
         "librenderengine",
         "libserviceutils",
         "libtrace_proto",
-        "libvrflinger",
     ],
     header_libs: [
         "android.hardware.graphics.composer@2.1-command-buffer",
@@ -108,10 +109,14 @@ cc_defaults {
     defaults: ["libsurfaceflinger_defaults"],
     cflags: [
         "-fvisibility=hidden",
-        "-fwhole-program-vtables", // requires ThinLTO
     ],
     lto: {
         thin: true,
+    },
+    whole_program_vtables: true, // Requires ThinLTO
+    pgo: {
+        sampling: true,
+        profile_file: "surfaceflinger/surfaceflinger.profdata",
     },
     // TODO(b/131771163): Fix broken fuzzer support with LTO.
     sanitize: {
@@ -145,76 +150,54 @@ filegroup {
         "DisplayHardware/HWComposer.cpp",
         "DisplayHardware/PowerAdvisor.cpp",
         "DisplayHardware/VirtualDisplaySurface.cpp",
+        "DisplayRenderArea.cpp",
         "Effects/Daltonizer.cpp",
         "EventLog/EventLog.cpp",
+        "FpsReporter.cpp",
         "FrameTracer/FrameTracer.cpp",
         "FrameTracker.cpp",
+        "HdrLayerInfoReporter.cpp",
         "Layer.cpp",
         "LayerProtoHelper.cpp",
         "LayerRejecter.cpp",
+        "LayerRenderArea.cpp",
         "LayerVector.cpp",
         "MonitoredProducer.cpp",
         "NativeWindowSurface.cpp",
         "RefreshRateOverlay.cpp",
         "RegionSamplingThread.cpp",
         "RenderArea.cpp",
-        "Scheduler/DispSync.cpp",
         "Scheduler/DispSyncSource.cpp",
-        "Scheduler/EventControlThread.cpp",
         "Scheduler/EventThread.cpp",
         "Scheduler/OneShotTimer.cpp",
         "Scheduler/LayerHistory.cpp",
-        "Scheduler/LayerHistoryV2.cpp",
         "Scheduler/LayerInfo.cpp",
-        "Scheduler/LayerInfoV2.cpp",
         "Scheduler/MessageQueue.cpp",
-        "Scheduler/PhaseOffsets.cpp",
         "Scheduler/RefreshRateConfigs.cpp",
         "Scheduler/Scheduler.cpp",
         "Scheduler/SchedulerUtils.cpp",
         "Scheduler/Timer.cpp",
         "Scheduler/VSyncDispatchTimerQueue.cpp",
         "Scheduler/VSyncPredictor.cpp",
-        "Scheduler/VSyncModulator.cpp",
+        "Scheduler/VsyncModulator.cpp",
         "Scheduler/VSyncReactor.cpp",
+        "Scheduler/VsyncConfiguration.cpp",
         "StartPropertySetThread.cpp",
         "SurfaceFlinger.cpp",
         "SurfaceFlingerDefaultFactory.cpp",
         "SurfaceInterceptor.cpp",
         "SurfaceTracing.cpp",
-        "TransactionCompletedThread.cpp",
+        "TransactionCallbackInvoker.cpp",
+        "TunnelModeEnabledReporter.cpp",
     ],
-}
-
-cc_library_shared {
-    // Please use libsurfaceflinger_defaults to configure how the sources are
-    // built, so the same settings can be used elsewhere.
-    name: "libsurfaceflinger",
-    defaults: ["libsurfaceflinger_production_defaults"],
-    srcs: [
-        ":libsurfaceflinger_sources",
-
-        // Note: SurfaceFlingerFactory is not in the default sources so that it
-        // can be easily replaced.
-        "SurfaceFlingerFactory.cpp",
-    ],
-    cflags: [
-        "-DUSE_VR_COMPOSER=1",
-    ],
-    // VrComposer is not used when building surfaceflinger for vendors
-    target: {
-        vendor: {
-            cflags: [
-                "-DUSE_VR_COMPOSER=0",
-            ],
-        },
-    },
-    logtags: ["EventLog/EventLogTags.logtags"],
 }
 
 cc_defaults {
     name: "libsurfaceflinger_binary",
-    defaults: ["surfaceflinger_defaults"],
+    defaults: [
+        "surfaceflinger_defaults",
+        "libsurfaceflinger_production_defaults",
+    ],
     cflags: [
         "-DLOG_TAG=\"SurfaceFlinger\"",
     ],
@@ -239,23 +222,31 @@ cc_defaults {
         "libserviceutils",
         "libtrace_proto",
     ],
-    ldflags: ["-Wl,--export-dynamic"],
 }
 
 filegroup {
     name: "surfaceflinger_binary_sources",
-    srcs: ["main_surfaceflinger.cpp"],
+    srcs: [
+        ":libsurfaceflinger_sources",
+        "main_surfaceflinger.cpp",
+    ],
 }
 
 cc_binary {
     name: "surfaceflinger",
     defaults: ["libsurfaceflinger_binary"],
     init_rc: ["surfaceflinger.rc"],
-    srcs: [":surfaceflinger_binary_sources"],
+    srcs: [
+        ":surfaceflinger_binary_sources",
+        // Note: SurfaceFlingerFactory is not in the filegroup so that it
+        // can be easily replaced.
+        "SurfaceFlingerFactory.cpp",
+    ],
     shared_libs: [
-        "libsurfaceflinger",
         "libSurfaceFlingerProp",
     ],
+
+     logtags: ["EventLog/EventLogTags.logtags"],
 }
 
 subdirs = [

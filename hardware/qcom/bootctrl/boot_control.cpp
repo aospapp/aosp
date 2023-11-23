@@ -518,6 +518,35 @@ error:
 	return -1;
 }
 
+unsigned get_active_boot_slot(struct boot_control_module *module)
+{
+	if (!module) {
+		ALOGE("%s: Invalid argument", __func__);
+		// The HAL spec requires that we return a number between
+		// 0 to num_slots - 1. Since something went wrong here we
+		// are just going to return the default slot.
+		return 0;
+	}
+
+	uint32_t num_slots = get_number_slots(module);
+	if (num_slots <= 1) {
+		//Slot 0 is the only slot around.
+		return 0;
+	}
+
+	for (uint32_t i = 0; i < num_slots; i++) {
+		char bootPartition[MAX_GPT_NAME_SIZE + 1] = {0};
+		snprintf(bootPartition, sizeof(bootPartition) - 1, "boot%s",
+		         slot_suffix_arr[i]);
+		if (get_partition_attribute(bootPartition, ATTR_SLOT_ACTIVE) == 1) {
+			return i;
+		}
+	}
+
+	ALOGE("%s: Failed to find the active boot slot", __func__);
+	return 0;
+}
+
 int set_active_boot_slot(struct boot_control_module *module, unsigned slot)
 {
 	map<string, vector<string>> ptn_map;
@@ -663,6 +692,7 @@ boot_control_module_t HAL_MODULE_INFO_SYM = {
 	.getNumberSlots = get_number_slots,
 	.getCurrentSlot = get_current_slot,
 	.markBootSuccessful = mark_boot_successful,
+	.getActiveBootSlot = get_active_boot_slot,
 	.setActiveBootSlot = set_active_boot_slot,
 	.setSlotAsUnbootable = set_slot_as_unbootable,
 	.isSlotBootable = is_slot_bootable,

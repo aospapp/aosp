@@ -16,8 +16,6 @@
 
 package com.android.tools.metalava
 
-import com.android.tools.metalava.doclava1.ApiPredicate
-import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.AnnotationAttributeValue
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Codebase
@@ -30,7 +28,6 @@ import com.android.tools.metalava.model.PackageList
 import com.android.tools.metalava.model.ParameterItem
 import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.VisibilityLevel
-import com.android.tools.metalava.model.psi.EXPAND_DOCUMENTATION
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import com.android.tools.metalava.model.visitors.ItemVisitor
 import java.util.ArrayList
@@ -196,7 +193,7 @@ class ApiAnalyzer(
 
             // Try and use a publicly accessible constructor first.
             val constructors = cls.filteredConstructors(filter).toList()
-            if (!constructors.isEmpty()) {
+            if (constructors.isNotEmpty()) {
                 // Try to pick the constructor, select first by fewest throwables, then fewest parameters,
                 // then based on order in listFilter.test(cls)
                 cls.stubConstructor = constructors.reduce { first, second -> pickBest(first, second) }
@@ -463,6 +460,17 @@ class ApiAnalyzer(
             }
         }
 
+        val existingMethodMap = HashMap<String, MutableList<MethodItem>>()
+        for (method in cls.methods()) {
+            val name = method.name()
+            val list = existingMethodMap[name] ?: run {
+                val newList = ArrayList<MethodItem>()
+                existingMethodMap[name] = newList
+                newList
+            }
+            list.add(method)
+        }
+
         // We're now left with concrete methods in hidden parents that are implementing methods in public
         // interfaces that are listed in this class. Create stubs for them:
         map.values.flatten().forEach {
@@ -475,12 +483,20 @@ class ApiAnalyzer(
             method.inheritedMethod = true
             method.inheritedFrom = it.containingClass()
 
-            // The documentation may use relative references to classes in import statements
-            // in the original class, so expand the documentation to be fully qualified.
-            @Suppress("ConstantConditionIf")
-            if (!EXPAND_DOCUMENTATION) {
-                method.documentation = it.fullyQualifiedDocumentation()
+            val name = method.name()
+            val candidates = existingMethodMap[name]
+            if (candidates != null) {
+                val iterator = candidates.listIterator()
+                while (iterator.hasNext()) {
+                    val inheritedMethod = iterator.next()
+                    if (method.matches(inheritedMethod)) {
+                        // If we already have an override of this method, do not add it to the
+                        // methods list
+                        return@forEach
+                    }
+                }
             }
+
             cls.addMethod(method)
         }
     }
@@ -490,7 +506,6 @@ class ApiAnalyzer(
         for (pkgName in options.hidePackages) {
             val pkg = codebase.findPackage(pkgName) ?: continue
             pkg.hidden = true
-            pkg.included = false // because included has already been initialized
         }
     }
 
@@ -507,14 +522,14 @@ class ApiAnalyzer(
      * from all configured sources.
      */
     fun mergeExternalQualifierAnnotations() {
-        if (!options.mergeQualifierAnnotations.isEmpty()) {
+        if (options.mergeQualifierAnnotations.isNotEmpty()) {
             AnnotationsMerger(codebase).mergeQualifierAnnotations(options.mergeQualifierAnnotations)
         }
     }
 
     /** Merge in external show/hide annotations from all configured sources */
     fun mergeExternalInclusionAnnotations() {
-        if (!options.mergeInclusionAnnotations.isEmpty()) {
+        if (options.mergeInclusionAnnotations.isNotEmpty()) {
             AnnotationsMerger(codebase).mergeInclusionAnnotations(options.mergeInclusionAnnotations)
         }
     }
@@ -642,15 +657,25 @@ class ApiAnalyzer(
 
             private fun ensureParentVisible(item: Item) {
                 val parent = item.parent() ?: return
-                if (parent.hidden && item.modifiers.hasShowSingleAnnotation()) {
-                    val annotation = item.modifiers.annotations().find {
+                if (!parent.hidden) {
+                    return
+                }
+                val violatingAnnotation = if (item.modifiers.hasShowAnnotation()) {
+                    item.modifiers.annotations().find {
+                        options.showAnnotations.matches(it)
+                    } ?: options.showAnnotations.firstQualifiedName()
+                } else if (item.modifiers.hasShowSingleAnnotation()) {
+                    item.modifiers.annotations().find {
                         options.showSingleAnnotations.matches(it)
                     } ?: options.showSingleAnnotations.firstQualifiedName()
+                } else {
+                    null
+                }
+                if (violatingAnnotation != null) {
                     reporter.report(
                         Issues.SHOWING_MEMBER_IN_HIDDEN_CLASS, item,
                         "Attempting to unhide ${item.describe()}, but surrounding ${parent.describe()} is " +
-                            "hidden and should also be annotated with $annotation"
-                    )
+                            "hidden and should also be annotated with $violatingAnnotation")
                 }
             }
         })
@@ -717,7 +742,7 @@ class ApiAnalyzer(
 
                 if (system.isEmpty() && nonSystem.isEmpty()) {
                     hasAnnotation = false
-                } else if (any && !nonSystem.isEmpty() || !any && system.isEmpty()) {
+                } else if (any && nonSystem.isNotEmpty() || !any && system.isEmpty()) {
                     reporter.report(
                         Issues.REQUIRES_PERMISSION, method, "Method '" + method.name() +
                             "' must be protected with a system permission; it currently" +
@@ -767,7 +792,7 @@ class ApiAnalyzer(
 
                 if (checkHiddenShowAnnotations &&
                     item.hasShowAnnotation() &&
-                    !item.documentation.contains("@hide") &&
+                    !item.originallyHidden &&
                     !item.modifiers.hasShowSingleAnnotation()
                 ) {
                     val annotationName = (item.modifiers.annotations().firstOrNull { annotation ->
@@ -918,8 +943,21 @@ class ApiAnalyzer(
         // be written, e.g. hidden things
         for (cl in notStrippable) {
             if (!cl.isHiddenOrRemoved()) {
+                val publiclyConstructable =
+                    cl.constructors().any { it.checkLevel() }
                 for (m in cl.methods()) {
                     if (!m.checkLevel()) {
+                        // TODO: enable this check for options.showSingleAnnotations
+                        if (options.showSingleAnnotations.isEmpty() &&
+                            publiclyConstructable && m.modifiers.isAbstract()
+                        ) {
+                            reporter.report(
+                                Issues.HIDDEN_ABSTRACT_METHOD, m,
+                                "${m.name()} cannot be hidden and abstract when " +
+                                    "${cl.simpleName()} has a visible constructor, in case a " +
+                                    "third-party attempts to subclass it."
+                            )
+                        }
                         continue
                     }
                     if (m.isHiddenOrRemoved()) {
@@ -1022,12 +1060,6 @@ class ApiAnalyzer(
             } else if (cl.deprecated) {
                 // not hidden, but deprecated
                 reporter.report(Issues.DEPRECATED, cl, "Class ${cl.qualifiedName()} is deprecated")
-            } else if (reporter.isSuppressed(Issues.REFERENCES_HIDDEN, cl)) {
-                // If we're not reporting hidden references, bring the type back
-                // Bring this class back
-                cl.hidden = false
-                cl.removed = false
-                cl.notStrippable = true
             }
         }
     }
@@ -1056,7 +1088,6 @@ class ApiAnalyzer(
                     false
                 )}"
             )
-            cl.notStrippable = true
         }
 
         if (!notStrippable.add(cl)) {

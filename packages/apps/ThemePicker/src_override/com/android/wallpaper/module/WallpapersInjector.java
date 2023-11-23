@@ -16,6 +16,8 @@
 package com.android.wallpaper.module;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 
 import androidx.fragment.app.Fragment;
 
@@ -23,6 +25,7 @@ import com.android.wallpaper.model.CategoryProvider;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.monitor.PerformanceMonitor;
 import com.android.wallpaper.picker.ImagePreviewFragment;
+import com.android.wallpaper.picker.TopLevelPickerActivity;
 
 /**
  * A concrete, real implementation of the dependency provider.
@@ -65,11 +68,22 @@ public class WallpapersInjector extends BaseWallpaperInjector {
 
     @Override
     public Fragment getPreviewFragment(
-        Context context,
-        WallpaperInfo wallpaperInfo,
-        int mode,
-        boolean testingModeEnabled) {
-        return ImagePreviewFragment.newInstance(wallpaperInfo, mode, testingModeEnabled);
+            Context context,
+            WallpaperInfo wallpaperInfo,
+            int mode,
+            boolean viewAsHome,
+            boolean testingModeEnabled) {
+        return ImagePreviewFragment.newInstance(wallpaperInfo, mode, viewAsHome,
+                testingModeEnabled);
+    }
+
+    @Override
+    public Intent getDeepLinkRedirectIntent(Context context, Uri uri) {
+        Intent intent = new Intent();
+        intent.setClass(context, TopLevelPickerActivity.class);
+        intent.setData(uri);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        return intent;
     }
 
     @Override
@@ -87,6 +101,11 @@ public class WallpapersInjector extends BaseWallpaperInjector {
 
     @Override
     public synchronized LoggingOptInStatusProvider getLoggingOptInStatusProvider(Context context) {
+        return null;
+    }
+
+    @Override
+    public String getDownloadableIntentAction() {
         return null;
     }
 }

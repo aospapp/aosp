@@ -32,7 +32,7 @@ from aidegen.idea import xml_gen
 from aidegen.lib import common_util
 from aidegen.lib import config
 from aidegen.lib import project_config
-from aidegen.project import source_splitter
+from aidegen.project import project_splitter
 
 # FACET_SECTION is a part of iml, which defines the framework of the project.
 _MODULE_SECTION = ('            <module fileurl="file:///$PROJECT_DIR$/%s.iml"'
@@ -109,7 +109,7 @@ class ProjectFileGenerator:
         """
         # Initialization
         iml.IMLGenerator.USED_NAME_CACHE.clear()
-        proj_splitter = source_splitter.ProjectSplitter(projects)
+        proj_splitter = project_splitter.ProjectSplitter(projects)
         proj_splitter.get_dependencies()
         proj_splitter.revise_source_folders()
         iml_paths = [proj_splitter.gen_framework_srcjars_iml()]
@@ -143,13 +143,12 @@ class ProjectFileGenerator:
             os.path.join(code_style_dir, _CODE_STYLE_CONFIG_XML),
             templates.XML_CODE_STYLE_CONFIG)
         code_style_target_path = os.path.join(code_style_dir, _PROJECT_XML)
-        if os.path.exists(code_style_target_path):
-            os.remove(code_style_target_path)
-        try:
-            shutil.copy2(_CODE_STYLE_SRC_PATH, code_style_target_path)
-        except (OSError, SystemError) as err:
-            logging.warning('%s can\'t copy the project files\n %s',
-                            code_style_target_path, err)
+        if not os.path.exists(code_style_target_path):
+            try:
+                shutil.copy2(_CODE_STYLE_SRC_PATH, code_style_target_path)
+            except (OSError, SystemError) as err:
+                logging.warning('%s can\'t copy the project files\n %s',
+                                code_style_target_path, err)
         # Create .gitignore if it doesn't exist.
         _generate_git_ignore(target_path)
         # Create jsonSchemas.xml for TEST_MAPPING.

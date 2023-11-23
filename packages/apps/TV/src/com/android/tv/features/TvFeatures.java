@@ -98,8 +98,8 @@ public final class TvFeatures extends CommonFeatures {
     /** Enable a conflict dialog between currently watched channel and upcoming recording. */
     public static final Feature SHOW_UPCOMING_CONFLICT_DIALOG = OFF;
 
-    /** Use input blacklist to disable partner's tuner input. */
-    public static final Feature USE_PARTNER_INPUT_BLACKLIST = ON;
+    /** Use input blocklist to disable partner's tuner input. */
+    public static final Feature USE_PARTNER_INPUT_BLOCKLIST = ON;
 
     private TvFeatures() {}
 }

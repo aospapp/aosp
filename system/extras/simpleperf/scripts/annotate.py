@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -25,8 +25,10 @@ import os.path
 import shutil
 
 from simpleperf_report_lib import ReportLib
-from utils import log_info, log_warning, log_exit
-from utils import Addr2Nearestline, extant_dir, flatten_arg_list, is_windows, SourceFileSearcher
+from simpleperf_utils import (
+    Addr2Nearestline, BinaryFinder, extant_dir, flatten_arg_list, is_windows, log_exit, log_info,
+    log_warning, ReadElf, SourceFileSearcher)
+
 
 class SourceLine(object):
     def __init__(self, file_id, function, line):
@@ -50,11 +52,13 @@ class SourceLine(object):
 class Addr2Line(object):
     """collect information of how to map [dso_name, vaddr] to [source_file:line].
     """
+
     def __init__(self, ndk_path, binary_cache_path, source_dirs):
-        self.addr2line = Addr2Nearestline(ndk_path, binary_cache_path, True)
+        binary_finder = BinaryFinder(binary_cache_path, ReadElf(ndk_path))
+        self.addr2line = Addr2Nearestline(ndk_path, binary_finder, True)
         self.source_searcher = SourceFileSearcher(source_dirs)
 
-    def add_addr(self, dso_path, func_addr, addr):
+    def add_addr(self, dso_path: str, build_id: str, func_addr: int, addr: int):
         self.addr2line.add_addr(dso_path, func_addr, addr)
 
     def convert_addrs_to_lines(self):
@@ -85,10 +89,10 @@ class Period(object):
        running that line and functions called by that line. Same thing applies
        when it is used for a function, a source file, or a binary.
     """
+
     def __init__(self, period=0, acc_period=0):
         self.period = period
         self.acc_period = acc_period
-
 
     def __iadd__(self, other):
         self.period += other.period
@@ -98,10 +102,10 @@ class Period(object):
 
 class DsoPeriod(object):
     """Period for each shared library"""
+
     def __init__(self, dso_name):
         self.dso_name = dso_name
         self.period = Period()
-
 
     def add_period(self, period):
         self.period += period
@@ -109,6 +113,7 @@ class DsoPeriod(object):
 
 class FilePeriod(object):
     """Period for each source file"""
+
     def __init__(self, file_id):
         self.file = file_id
         self.period = Period()
@@ -117,17 +122,14 @@ class FilePeriod(object):
         # Period for each function in the source file.
         self.function_dict = {}
 
-
     def add_period(self, period):
         self.period += period
-
 
     def add_line_period(self, line, period):
         a = self.line_dict.get(line)
         if a is None:
             self.line_dict[line] = a = Period()
         a += period
-
 
     def add_function_period(self, function_name, function_start_line, period):
         a = self.function_dict.get(function_name)
@@ -140,6 +142,7 @@ class FilePeriod(object):
 
 class SourceFileAnnotator(object):
     """group code for annotating source files"""
+
     def __init__(self, config):
         # check config variables
         config_names = ['perf_data_list', 'source_dirs', 'comm_filters',
@@ -175,12 +178,10 @@ class SourceFileAnnotator(object):
             shutil.rmtree(output_dir)
         os.makedirs(output_dir)
 
-
         self.addr2line = Addr2Line(self.config['ndk_path'], symfs_dir, config.get('source_dirs'))
         self.period = 0
         self.dso_periods = {}
         self.file_periods = {}
-
 
     def annotate(self):
         self._collect_addrs()
@@ -188,7 +189,6 @@ class SourceFileAnnotator(object):
         self._generate_periods()
         self._write_summary()
         self._annotate_files()
-
 
     def _collect_addrs(self):
         """Read perf.data, collect all addresses we need to convert to
@@ -215,11 +215,11 @@ class SourceFileAnnotator(object):
                     symbols.append(callchain.entries[i].symbol)
                 for symbol in symbols:
                     if self._filter_symbol(symbol):
-                        self.addr2line.add_addr(symbol.dso_name, symbol.symbol_addr,
+                        build_id = lib.GetBuildIdForPath(symbol.dso_name)
+                        self.addr2line.add_addr(symbol.dso_name, build_id, symbol.symbol_addr,
                                                 symbol.vaddr_in_file)
-                        self.addr2line.add_addr(symbol.dso_name, symbol.symbol_addr,
+                        self.addr2line.add_addr(symbol.dso_name, build_id, symbol.symbol_addr,
                                                 symbol.symbol_addr)
-
 
     def _filter_sample(self, sample):
         """Return true if the sample can be used."""
@@ -234,16 +234,13 @@ class SourceFileAnnotator(object):
                 return False
         return True
 
-
     def _filter_symbol(self, symbol):
         if not self.dso_filter or symbol.dso_name in self.dso_filter:
             return True
         return False
 
-
     def _convert_addrs_to_lines(self):
         self.addr2line.convert_addrs_to_lines()
-
 
     def _generate_periods(self):
         """read perf.data, collect Period for all types:
@@ -264,7 +261,6 @@ class SourceFileAnnotator(object):
                 if not self._filter_sample(sample):
                     continue
                 self._generate_periods_for_sample(lib, sample)
-
 
     def _generate_periods_for_sample(self, lib, sample):
         symbols = []
@@ -310,7 +306,6 @@ class SourceFileAnnotator(object):
         if is_sample_used:
             self.period += sample.period
 
-
     def _add_dso_period(self, dso_name, period, used_dso_dict):
         if dso_name not in used_dso_dict:
             used_dso_dict[dso_name] = True
@@ -318,7 +313,6 @@ class SourceFileAnnotator(object):
             if dso_period is None:
                 dso_period = self.dso_periods[dso_name] = DsoPeriod(dso_name)
             dso_period.add_period(period)
-
 
     def _add_file_period(self, source, period, used_file_dict):
         if source.file_key not in used_file_dict:
@@ -328,20 +322,17 @@ class SourceFileAnnotator(object):
                 file_period = self.file_periods[source.file] = FilePeriod(source.file)
             file_period.add_period(period)
 
-
     def _add_line_period(self, source, period, used_line_dict):
         if source.line_key not in used_line_dict:
             used_line_dict[source.line_key] = True
             file_period = self.file_periods[source.file]
             file_period.add_line_period(source.line, period)
 
-
     def _add_function_period(self, source, period, used_function_dict):
         if source.function_key not in used_function_dict:
             used_function_dict[source.function_key] = True
             file_period = self.file_periods[source.file]
             file_period.add_function_period(source.function, source.line, period)
-
 
     def _write_summary(self):
         summary = os.path.join(self.config['annotate_dest_dir'], 'summary')
@@ -375,11 +366,9 @@ class SourceFileAnnotator(object):
                     f.write('\tline %d: %s\n' % (
                         line, self._get_percentage_str(file_period.line_dict[line])))
 
-
     def _get_percentage_str(self, period, short=False):
         s = 'acc_p: %f%%, p: %f%%' if short else 'accumulated_period: %f%%, period: %f%%'
         return s % self._get_percentage(period)
-
 
     def _get_percentage(self, period):
         if self.period == 0:
@@ -387,7 +376,6 @@ class SourceFileAnnotator(object):
         acc_p = 100.0 * period.acc_period / self.period
         p = 100.0 * period.period / self.period
         return (acc_p, p)
-
 
     def _annotate_files(self):
         """Annotate Source files: add acc_period/period for each source file.
@@ -408,7 +396,6 @@ class SourceFileAnnotator(object):
                 to_path = os.path.join(dest_dir, from_path)
             is_java = from_path.endswith('.java')
             self._annotate_file(from_path, to_path, self.file_periods[key], is_java)
-
 
     def _annotate_file(self, from_path, to_path, file_period, is_java):
         """Annotate a source file.
@@ -457,6 +444,7 @@ class SourceFileAnnotator(object):
                 wf.write(annotate)
                 wf.write(lines[line-1])
 
+
 def main():
     parser = argparse.ArgumentParser(description="""
         Annotate source files based on profiling data. It reads line information from binary_cache
@@ -491,6 +479,7 @@ def main():
     annotator = SourceFileAnnotator(config)
     annotator.annotate()
     log_info('annotate finish successfully, please check result in annotated_files/.')
+
 
 if __name__ == '__main__':
     main()

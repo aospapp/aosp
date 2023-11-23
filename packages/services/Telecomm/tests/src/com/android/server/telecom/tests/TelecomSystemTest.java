@@ -38,6 +38,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.AppOpsManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -68,7 +69,6 @@ import android.text.TextUtils;
 
 import com.android.internal.telecom.IInCallAdapter;
 import com.android.server.telecom.AsyncRingtonePlayer;
-import com.android.server.telecom.BluetoothPhoneServiceImpl;
 import com.android.server.telecom.CallAudioManager;
 import com.android.server.telecom.CallAudioModeStateMachine;
 import com.android.server.telecom.CallAudioRouteStateMachine;
@@ -78,6 +78,7 @@ import com.android.server.telecom.CallsManagerListenerBase;
 import com.android.server.telecom.ClockProxy;
 import com.android.server.telecom.ConnectionServiceFocusManager;
 import com.android.server.telecom.ContactsAsyncHelper;
+import com.android.server.telecom.DeviceIdleControllerAdapter;
 import com.android.server.telecom.HeadsetMediaButton;
 import com.android.server.telecom.HeadsetMediaButtonFactory;
 import com.android.server.telecom.InCallWakeLockController;
@@ -94,8 +95,6 @@ import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.Timeouts;
 import com.android.server.telecom.WiredHeadsetManager;
 import com.android.server.telecom.bluetooth.BluetoothRouteManager;
-import com.android.server.telecom.callfiltering.CallFilterResultCallback;
-import com.android.server.telecom.callfiltering.IncomingCallFilter;
 import com.android.server.telecom.components.UserCallIntentProcessor;
 import com.android.server.telecom.ui.IncomingCallNotifier;
 
@@ -201,12 +200,12 @@ public class TelecomSystemTest extends TelecomTestCase {
     @Mock HeadsetMediaButton mHeadsetMediaButton;
     @Mock ProximitySensorManager mProximitySensorManager;
     @Mock InCallWakeLockController mInCallWakeLockController;
-    @Mock BluetoothPhoneServiceImpl mBluetoothPhoneServiceImpl;
     @Mock AsyncRingtonePlayer mAsyncRingtonePlayer;
     @Mock IncomingCallNotifier mIncomingCallNotifier;
     @Mock ClockProxy mClockProxy;
     @Mock RoleManagerAdapter mRoleManagerAdapter;
     @Mock ToneGenerator mToneGenerator;
+    @Mock DeviceIdleControllerAdapter mDeviceIdleControllerAdapter;
 
     final ComponentName mInCallServiceComponentNameX =
             new ComponentName(
@@ -348,6 +347,8 @@ public class TelecomSystemTest extends TelecomTestCase {
         doReturn(mSpyContext).when(mSpyContext).getApplicationContext();
         doNothing().when(mSpyContext).sendBroadcastAsUser(any(), any(), any());
 
+        doReturn(mock(AppOpsManager.class)).when(mSpyContext).getSystemService(AppOpsManager.class);
+
         mHandlerThread = new HandlerThread("TelecomHandlerThread");
         mHandlerThread.start();
 
@@ -364,7 +365,7 @@ public class TelecomSystemTest extends TelecomTestCase {
 
         // Next, create the TelecomSystem, our system under test
         setupTelecomSystem();
-        // Need to reset teseting tag here
+        // Need to reset testing tag here
         Log.setTag(TESTING_TAG);
 
         // Finally, register the ConnectionServices with the PhoneAccountRegistrar of the
@@ -400,11 +401,9 @@ public class TelecomSystemTest extends TelecomTestCase {
         mConnectionServiceFixtureA.waitForHandlerToClear();
         mConnectionServiceFixtureB.waitForHandlerToClear();
 
-        // Print out any incomplete sessions for debugging tests
-        String sessions = Log.getSessionManager().printActiveSessions();
-        if (!TextUtils.isEmpty(sessions)) {
-            Log.w(this, "Active Sessions:\n" + sessions);
-        }
+        // Forcefully clean all sessions at the end of the test, which will also log any stale
+        // sessions for debugging.
+        Log.getSessionManager().cleanupStaleSessions(0);
 
         mTelecomSystem = null;
         super.tearDown();
@@ -475,13 +474,13 @@ public class TelecomSystemTest extends TelecomTestCase {
         when(mRoleManagerAdapter.getDefaultCallScreeningApp()).thenReturn(null);
         mTelecomSystem = new TelecomSystem(
                 mComponentContextFixture.getTestDouble(),
-                (context, phoneAccountRegistrar, defaultDialerCache) -> mMissedCallNotifier,
+                (context, phoneAccountRegistrar, defaultDialerCache, mDeviceIdleControllerAdapter)
+                        -> mMissedCallNotifier,
                 mCallerInfoAsyncQueryFactoryFixture.getTestDouble(),
                 headsetMediaButtonFactory,
                 proximitySensorManagerFactory,
                 inCallWakeLockControllerFactory,
                 () -> mAudioService,
-                (context, lock, callsManager, phoneAccountRegistrar) -> mBluetoothPhoneServiceImpl,
                 mConnServFMFactory,
                 mTimeoutsAdapter,
                 mAsyncRingtonePlayer,
@@ -519,23 +518,13 @@ public class TelecomSystemTest extends TelecomTestCase {
                 },
                 mClockProxy,
                 mRoleManagerAdapter,
-                new IncomingCallFilter.Factory() {
-                    @Override
-                    public IncomingCallFilter create(Context context,
-                            CallFilterResultCallback listener, com.android.server.telecom.Call call,
-                            TelecomSystem.SyncRoot lock, Timeouts.Adapter timeoutsAdapter,
-                            List<IncomingCallFilter.CallFilter> filters) {
-                        return new IncomingCallFilter(context, listener, call, lock,
-                                timeoutsAdapter, filters, mHandlerThread.getThreadHandler());
-                    }
-                },
                 new ContactsAsyncHelper.Factory() {
                     @Override
                     public ContactsAsyncHelper create(
                             ContactsAsyncHelper.ContentResolverAdapter adapter) {
                         return new ContactsAsyncHelper(adapter, mHandlerThread.getLooper());
                     }
-                });
+                }, mDeviceIdleControllerAdapter);
 
         mComponentContextFixture.setTelecomManager(new TelecomManager(
                 mComponentContextFixture.getTestDouble(),
@@ -925,7 +914,12 @@ public class TelecomSystemTest extends TelecomTestCase {
         // Wait for the handler to start the CallerInfo lookup
         waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
 
+        // Wait a few more times to address flakiness due to timing issues.
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
+        waitForHandlerAction(new Handler(Looper.getMainLooper()), TEST_TIMEOUT);
+
         // Ensure callback to CS on successful creation happened.
+
         verify(connectionServiceFixture.getTestDouble(), timeout(TEST_TIMEOUT))
                 .createConnectionComplete(anyString(), any());
 
@@ -1108,6 +1102,54 @@ public class TelecomSystemTest extends TelecomTestCase {
         assertEquals(Call.STATE_DIALING, mInCallServiceFixtureX.getCall(ids.mCallId).getState());
         assertEquals(Call.STATE_DIALING, mInCallServiceFixtureY.getCall(ids.mCallId).getState());
 
+        return ids;
+    }
+
+    protected IdPair startAndMakeDialingOutgoingCall(
+            String number,
+            PhoneAccountHandle phoneAccountHandle,
+            ConnectionServiceFixture connectionServiceFixture) throws Exception {
+        IdPair ids = startOutgoingPhoneCall(number, phoneAccountHandle, connectionServiceFixture,
+                Process.myUserHandle(), VideoProfile.STATE_AUDIO_ONLY);
+
+        connectionServiceFixture.sendSetDialing(ids.mConnectionId);
+        if (phoneAccountHandle != mPhoneAccountSelfManaged.getAccountHandle()) {
+            assertEquals(Call.STATE_DIALING,
+                    mInCallServiceFixtureX.getCall(ids.mCallId).getState());
+            assertEquals(Call.STATE_DIALING,
+                    mInCallServiceFixtureY.getCall(ids.mCallId).getState());
+        }
+
+        return ids;
+    }
+
+    protected IdPair startAndMakeRingingIncomingCall(
+            String number,
+            PhoneAccountHandle phoneAccountHandle,
+            ConnectionServiceFixture connectionServiceFixture) throws Exception {
+        IdPair ids = startIncomingPhoneCall(number, phoneAccountHandle, connectionServiceFixture);
+
+        if (phoneAccountHandle != mPhoneAccountSelfManaged.getAccountHandle()) {
+            assertEquals(Call.STATE_RINGING,
+                    mInCallServiceFixtureX.getCall(ids.mCallId).getState());
+            assertEquals(Call.STATE_RINGING,
+                    mInCallServiceFixtureY.getCall(ids.mCallId).getState());
+
+            mInCallServiceFixtureX.mInCallAdapter
+                    .answerCall(ids.mCallId, VideoProfile.STATE_AUDIO_ONLY);
+
+            waitForHandlerAction(mTelecomSystem.getCallsManager()
+                    .getConnectionServiceFocusManager().getHandler(), TEST_TIMEOUT);
+
+            if (!VideoProfile.isVideo(VideoProfile.STATE_AUDIO_ONLY)) {
+                verify(connectionServiceFixture.getTestDouble(), timeout(TEST_TIMEOUT))
+                        .answer(eq(ids.mConnectionId), any());
+            } else {
+                verify(connectionServiceFixture.getTestDouble(), timeout(TEST_TIMEOUT))
+                        .answerVideo(eq(ids.mConnectionId), eq(VideoProfile.STATE_AUDIO_ONLY),
+                                any());
+            }
+        }
         return ids;
     }
 

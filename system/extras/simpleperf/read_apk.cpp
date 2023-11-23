@@ -33,6 +33,8 @@
 #include "read_elf.h"
 #include "utils.h"
 
+namespace simpleperf {
+
 std::unordered_map<std::string, ApkInspector::ApkNode> ApkInspector::embedded_elf_cache_;
 
 EmbeddedElf* ApkInspector::FindElfInApkByOffset(const std::string& apk_path, uint64_t file_offset) {
@@ -81,8 +83,7 @@ std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByOffsetWithoutCache(
   ZipEntry found_entry;
   std::string found_entry_name;
   bool result = ahelper->IterateEntries([&](ZipEntry& entry, const std::string& name) {
-    if (entry.method == kCompressStored &&
-        file_offset >= static_cast<uint64_t>(entry.offset) &&
+    if (entry.method == kCompressStored && file_offset >= static_cast<uint64_t>(entry.offset) &&
         file_offset < static_cast<uint64_t>(entry.offset) + entry.uncompressed_length) {
       found = true;
       found_entry = entry;
@@ -100,9 +101,8 @@ std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByOffsetWithoutCache(
     // Omit files that are not ELF files.
     return nullptr;
   }
-  return std::unique_ptr<EmbeddedElf>(new EmbeddedElf(apk_path, found_entry_name,
-                                                      found_entry.offset,
-                                                      found_entry.uncompressed_length));
+  return std::unique_ptr<EmbeddedElf>(new EmbeddedElf(
+      apk_path, found_entry_name, found_entry.offset, found_entry.uncompressed_length));
 }
 
 std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByNameWithoutCache(
@@ -118,11 +118,12 @@ std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByNameWithoutCache(
   if (zentry.method != kCompressStored || zentry.compressed_length != zentry.uncompressed_length) {
     return nullptr;
   }
-  return std::unique_ptr<EmbeddedElf>(new EmbeddedElf(apk_path, entry_name, zentry.offset,
-                                                      zentry.uncompressed_length));
+  return std::unique_ptr<EmbeddedElf>(
+      new EmbeddedElf(apk_path, entry_name, zentry.offset, zentry.uncompressed_length));
 }
 
-// Refer file in apk in compliance with http://developer.android.com/reference/java/net/JarURLConnection.html.
+// Refer file in apk in compliance with
+// http://developer.android.com/reference/java/net/JarURLConnection.html.
 std::string GetUrlInApk(const std::string& apk_path, const std::string& elf_filename) {
   return apk_path + "!/" + elf_filename;
 }
@@ -166,3 +167,5 @@ bool ParseExtractedInMemoryPath(const std::string& path, std::string* zip_path,
   }
   return false;
 }
+
+}  // namespace simpleperf

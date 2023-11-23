@@ -45,7 +45,7 @@ enum DexMemAccessType : uint8_t {
   kDexMemAccessTypeCount
 };
 
-std::ostream& operator<<(std::ostream& os, const DexMemAccessType& type);
+std::ostream& operator<<(std::ostream& os, DexMemAccessType type);
 
 // NOTE: The following functions disregard quickened instructions.
 
@@ -65,12 +65,7 @@ constexpr bool IsInstructionReturn(Instruction::Code opcode) {
 
 constexpr bool IsInstructionInvoke(Instruction::Code opcode) {
   return Instruction::INVOKE_VIRTUAL <= opcode && opcode <= Instruction::INVOKE_INTERFACE_RANGE &&
-      opcode != Instruction::RETURN_VOID_NO_BARRIER;
-}
-
-constexpr bool IsInstructionQuickInvoke(Instruction::Code opcode) {
-  return opcode == Instruction::INVOKE_VIRTUAL_QUICK ||
-      opcode == Instruction::INVOKE_VIRTUAL_RANGE_QUICK;
+      opcode != Instruction::UNUSED_73;
 }
 
 constexpr bool IsInstructionInvokeStatic(Instruction::Code opcode) {
@@ -115,11 +110,6 @@ constexpr bool IsInstructionAPut(Instruction::Code code) {
 
 constexpr bool IsInstructionIGetOrIPut(Instruction::Code code) {
   return Instruction::IGET <= code && code <= Instruction::IPUT_SHORT;
-}
-
-constexpr bool IsInstructionIGetQuickOrIPutQuick(Instruction::Code code) {
-  return (code >= Instruction::IGET_QUICK && code <= Instruction::IPUT_OBJECT_QUICK) ||
-      (code >= Instruction::IPUT_BOOLEAN_QUICK && code <= Instruction::IGET_SHORT_QUICK);
 }
 
 constexpr bool IsInstructionSGetOrSPut(Instruction::Code code) {
@@ -179,29 +169,6 @@ constexpr DexMemAccessType APutMemAccessType(Instruction::Code code) {
 constexpr DexMemAccessType IGetOrIPutMemAccessType(Instruction::Code code) {
   DCHECK(IsInstructionIGetOrIPut(code));
   return (code >= Instruction::IPUT) ? IPutMemAccessType(code) : IGetMemAccessType(code);
-}
-
-inline DexMemAccessType IGetQuickOrIPutQuickMemAccessType(Instruction::Code code) {
-  DCHECK(IsInstructionIGetQuickOrIPutQuick(code));
-  switch (code) {
-    case Instruction::IGET_QUICK: case Instruction::IPUT_QUICK:
-      return kDexMemAccessWord;
-    case Instruction::IGET_WIDE_QUICK: case Instruction::IPUT_WIDE_QUICK:
-      return kDexMemAccessWide;
-    case Instruction::IGET_OBJECT_QUICK: case Instruction::IPUT_OBJECT_QUICK:
-      return kDexMemAccessObject;
-    case Instruction::IGET_BOOLEAN_QUICK: case Instruction::IPUT_BOOLEAN_QUICK:
-      return kDexMemAccessBoolean;
-    case Instruction::IGET_BYTE_QUICK: case Instruction::IPUT_BYTE_QUICK:
-      return kDexMemAccessByte;
-    case Instruction::IGET_CHAR_QUICK: case Instruction::IPUT_CHAR_QUICK:
-      return kDexMemAccessChar;
-    case Instruction::IGET_SHORT_QUICK: case Instruction::IPUT_SHORT_QUICK:
-      return kDexMemAccessShort;
-    default:
-      LOG(FATAL) << code;
-      UNREACHABLE();
-  }
 }
 
 constexpr DexMemAccessType SGetOrSPutMemAccessType(Instruction::Code code) {

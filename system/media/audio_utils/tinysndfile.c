@@ -182,7 +182,7 @@ static SNDFILE *sf_open_read(const char *path, SF_INFO *info)
                 fseek(stream, (long) (chunkSize - minSize), SEEK_CUR);
             }
             unsigned channels = little2u(&fmt[2]);
-            if ((channels < 1) || (channels > FCC_8)) {
+            if ((channels < 1) || (channels > FCC_LIMIT)) {
 #ifdef HAVE_STDERR
                 fprintf(stderr, "unsupported channels %u\n", channels);
 #endif

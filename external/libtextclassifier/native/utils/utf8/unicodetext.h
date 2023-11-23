@@ -20,10 +20,12 @@
 #include <iterator>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "utils/base/integral_types.h"
 #include "utils/base/logging.h"
 #include "utils/strings/stringpiece.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 
@@ -174,6 +176,12 @@ class UnicodeText {
   UnicodeText& push_back(char32 ch);
   void clear();
 
+  // Returns an iterator for each codepoint.
+  std::vector<const_iterator> Codepoints() const;
+
+  // Returns the list of codepoints of the UnicodeText.
+  std::vector<char32> CodepointsChar32() const;
+
   std::string ToUTF8String() const;
   std::string UTF8Substring(int begin_codepoint, int end_codepoint) const;
   static std::string UTF8Substring(const const_iterator& it_begin,
@@ -230,6 +238,7 @@ UnicodeText UTF8ToUnicodeText(const char* utf8_buf, int len,
 UnicodeText UTF8ToUnicodeText(const char* utf8_buf, bool do_copy = true);
 UnicodeText UTF8ToUnicodeText(const std::string& str, bool do_copy = true);
 UnicodeText UTF8ToUnicodeText(StringPiece str, bool do_copy = true);
+UnicodeText UTF8ToUnicodeText(absl::string_view str, bool do_copy = true);
 
 inline logging::LoggingStringStream& operator<<(
     logging::LoggingStringStream& stream, const UnicodeText& message) {

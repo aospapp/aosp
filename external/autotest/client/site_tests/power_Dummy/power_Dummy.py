@@ -36,9 +36,6 @@ class power_Dummy(power_test.power_Test):
           time.sleep(self.loop_time)
           self.checkpoint_measurements('section%s' % i, tstart)
 
-        pdash = power_dashboard.SimplePowerLoggerDashboard(
-                self.loop * self.loop_time, self.dummy_result,
-                self.tagged_testname, start_ts, self.resultsdir,
-                note=self._pdash_note)
-        pdash.upload()
-
+        logger = power_dashboard.KeyvalLogger(start_ts, time.time())
+        logger.add_item('system', self.dummy_result, 'watt', 'power')
+        self._meas_logs.append(logger)

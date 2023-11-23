@@ -18,12 +18,17 @@ package android.media.cts;
 
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
+import android.util.Log;
 
 import java.util.ArrayList;
+
+import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.MediaUtils;
 
 /**
  * Test {@link android.media.session.PlaybackState}.
@@ -48,6 +53,10 @@ public class PlaybackStateTest extends AndroidTestCase {
 
     private static final String EXTRAS_KEY = "test-key";
     private static final String EXTRAS_VALUE = "test-value";
+
+    private static final String TAG = "PlaybackStateTest";
+
+    private static boolean sIsAtLeastS = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S);
 
     /**
      * Test default values of {@link PlaybackState}.
@@ -248,6 +257,73 @@ public class PlaybackStateTest extends AndroidTestCase {
         assertCustomActionEquals(customAction,
                 PlaybackState.CustomAction.CREATOR.createFromParcel(parcel));
         parcel.recycle();
+    }
+
+    /**
+     * Tests that each ACTION_* constant does not overlap.
+     */
+    public void testActionConstantDoesNotOverlap() {
+        long[] actionConstants = new long[] {
+                PlaybackState.ACTION_STOP,
+                PlaybackState.ACTION_PAUSE,
+                PlaybackState.ACTION_PLAY,
+                PlaybackState.ACTION_REWIND,
+                PlaybackState.ACTION_SKIP_TO_PREVIOUS,
+                PlaybackState.ACTION_SKIP_TO_NEXT,
+                PlaybackState.ACTION_FAST_FORWARD,
+                PlaybackState.ACTION_SET_RATING,
+                PlaybackState.ACTION_SEEK_TO,
+                PlaybackState.ACTION_PLAY_PAUSE,
+                PlaybackState.ACTION_PLAY_FROM_MEDIA_ID,
+                PlaybackState.ACTION_PLAY_FROM_SEARCH,
+                PlaybackState.ACTION_SKIP_TO_QUEUE_ITEM,
+                PlaybackState.ACTION_PLAY_FROM_URI,
+                PlaybackState.ACTION_PREPARE,
+                PlaybackState.ACTION_PREPARE_FROM_MEDIA_ID,
+                PlaybackState.ACTION_PREPARE_FROM_SEARCH,
+                PlaybackState.ACTION_PREPARE_FROM_URI,
+                PlaybackState.ACTION_SET_PLAYBACK_SPEED};
+
+        // Check that the values are not overlapped.
+        for (int i = 0; i < actionConstants.length; i++) {
+            for (int j = i + 1; j < actionConstants.length; j++) {
+                assertEquals(0, actionConstants[i] & actionConstants[j]);
+            }
+        }
+    }
+
+    public void testIsActive() {
+        if (!MediaUtils.check(sIsAtLeastS, "testIsActive() requires Android 12")) {
+            return;
+        }
+        int[] activeStates = new int[] {
+                PlaybackState.STATE_FAST_FORWARDING,
+                PlaybackState.STATE_REWINDING,
+                PlaybackState.STATE_SKIPPING_TO_PREVIOUS,
+                PlaybackState.STATE_SKIPPING_TO_NEXT,
+                PlaybackState.STATE_SKIPPING_TO_QUEUE_ITEM,
+                PlaybackState.STATE_BUFFERING,
+                PlaybackState.STATE_CONNECTING,
+                PlaybackState.STATE_PLAYING};
+
+        int[] nonActiveStates = new int[] {
+                PlaybackState.STATE_NONE,
+                PlaybackState.STATE_STOPPED,
+                PlaybackState.STATE_PAUSED,
+                PlaybackState.STATE_ERROR};
+
+        for (int i = 0; i < activeStates.length; i++) {
+            PlaybackState activePlaybackState = new PlaybackState.Builder()
+                    .setState(activeStates[i], 0, 1.0f)
+                    .build();
+            assertTrue(activePlaybackState.isActive());
+        }
+        for (int i = 0; i < nonActiveStates.length; i++) {
+            PlaybackState nonActivePlaybackState = new PlaybackState.Builder()
+                    .setState(nonActiveStates[i], 0, 1.0f)
+                    .build();
+            assertFalse(nonActivePlaybackState.isActive());
+        }
     }
 
     private void assertCustomActionEquals(PlaybackState.CustomAction action1,

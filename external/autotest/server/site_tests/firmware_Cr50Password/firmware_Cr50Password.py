@@ -9,7 +9,6 @@ from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 class firmware_Cr50Password(Cr50Test):
     """Verify cr50 set password."""
     version = 1
-    PASSWORD = 'Password'
     NEW_PASSWORD = 'robot'
 
 
@@ -17,46 +16,49 @@ class firmware_Cr50Password(Cr50Test):
         """Check we can set the cr50 password."""
         # Make sure to enable testlab mode, so we can guarantee the password
         # can be cleared.
-        self.fast_open(enable_testlab=True)
+        self.fast_ccd_open(enable_testlab=True)
         self.cr50.send_command('ccd reset')
 
-        # Set the password
-        self.set_ccd_password(self.PASSWORD)
+        # Set the password.
+        self.set_ccd_password(self.CCD_PASSWORD)
         if self.cr50.password_is_reset():
             raise error.TestFail('Failed to set password')
 
-        # Test 'ccd reset' clears the password
+        # Test 'ccd reset' clears the password.
         self.cr50.send_command('ccd reset')
         if not self.cr50.password_is_reset():
             raise error.TestFail('ccd reset did not clear the password')
 
-        # Set the password again while cr50 is open
-        self.set_ccd_password(self.PASSWORD)
+        # Set the password again while cr50 is open.
+        self.set_ccd_password(self.CCD_PASSWORD)
         if self.cr50.password_is_reset():
             raise error.TestFail('Failed to set password')
 
-        # Make sure we can't overwrite the password
+        # The password can't be changed once it's set.
+        # It needs to be cleared first.
         self.set_ccd_password(self.NEW_PASSWORD, expect_error=True)
 
         self.cr50.set_ccd_level('lock')
-        # Make sure you can't clear the password while the console is locked
-        self.set_ccd_password('clear:' + self.PASSWORD, expect_error=True)
+        # The password can't be cleared while the console is locked.
+        self.set_ccd_password('clear:' + self.CCD_PASSWORD, expect_error=True)
 
-        self.cr50.send_command('ccd unlock ' + self.PASSWORD)
-        # Make sure you can't clear the password while the console is unlocked
-        self.set_ccd_password('clear:' + self.PASSWORD, expect_error=True)
+        self.cr50.send_command('ccd unlock ' + self.CCD_PASSWORD)
+        # The password can be cleared while the console is unlocked.
+        self.set_ccd_password('clear:' + self.CCD_PASSWORD)
 
+        # Set the password again and lock the console.
         self.cr50.send_command('ccd testlab open')
+        self.set_ccd_password(self.CCD_PASSWORD)
 
-        # Make sure you can't clear the password with the wrong password
-        self.set_ccd_password('clear:' + self.PASSWORD.lower(),
+        # The password can't be cleared using the wrong password.
+        self.set_ccd_password('clear:' + self.CCD_PASSWORD.lower(),
                               expect_error=True)
-        # Make sure you can clear the password when the console is open
-        self.set_ccd_password('clear:' + self.PASSWORD)
+        # The password can be cleared using the correct password.
+        self.set_ccd_password('clear:' + self.CCD_PASSWORD)
         if not self.cr50.password_is_reset():
             raise error.TestFail('Failed to clear password')
 
-        # Make sure you can set some other password after it is cleared
+        # The password can be set to anything when there isn't one set.
         self.set_ccd_password(self.NEW_PASSWORD)
         if self.cr50.password_is_reset():
             raise error.TestFail('Failed to clear password')
@@ -66,20 +68,23 @@ class firmware_Cr50Password(Cr50Test):
         self.cr50.send_command('ccd reset')
         self.host.run('gsctool -a -U')
 
-        # Set the password when the console is unlocked
-        self.set_ccd_password(self.PASSWORD)
+        # Run through the same steps when the password was set with the console
+        # unlocked.
+
+        # Set the password when the console is unlocked.
+        self.set_ccd_password(self.CCD_PASSWORD)
 
         self.cr50.set_ccd_level('lock')
-        # Make sure you can't clear the password while the console is locked
-        self.set_ccd_password('clear:' + self.PASSWORD, expect_error=True)
+        # The password can't be cleared while the console is locked.
+        self.set_ccd_password('clear:' + self.CCD_PASSWORD, expect_error=True)
 
-        # unlock the console
-        self.ccd_unlock_from_ap(self.PASSWORD)
-        # Make sure you can clear the password when the console is unlocked
-        self.set_ccd_password('clear:' + self.PASSWORD)
-        # Set the password again when the console is unlocked
-        self.set_ccd_password(self.PASSWORD)
+        # Unlock the console.
+        self.ccd_unlock_from_ap(self.CCD_PASSWORD)
+        # The password can be cleared while the console is unlocked.
+        self.set_ccd_password('clear:' + self.CCD_PASSWORD)
+        # Set the password again when the console is unlocked.
+        self.set_ccd_password(self.CCD_PASSWORD)
 
         self.cr50.send_command('ccd testlab open')
-        # Make sure you can clear the password when the console is open
-        self.set_ccd_password('clear:' + self.PASSWORD)
+        # The password can be cleared when the console is open.
+        self.set_ccd_password('clear:' + self.CCD_PASSWORD)

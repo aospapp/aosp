@@ -16,7 +16,7 @@
 
 package android.car.encryptionrunner;
 
-import android.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;

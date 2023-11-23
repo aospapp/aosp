@@ -91,7 +91,7 @@ public class ShadowSubscriptionManagerTest {
     shadowSubscriptionManager.setActiveSubscriptionInfos(expectedSubscriptionInfo);
 
     assertThat(shadowSubscriptionManager.getActiveSubscriptionInfo(123))
-        .isSameAs(expectedSubscriptionInfo);
+        .isSameInstanceAs(expectedSubscriptionInfo);
   }
 
   @Test
@@ -101,7 +101,7 @@ public class ShadowSubscriptionManagerTest {
     shadowSubscriptionManager.setActiveSubscriptionInfos(expectedSubscriptionInfo);
 
     assertThat(shadowSubscriptionManager.getActiveSubscriptionInfoForSimSlotIndex(123))
-        .isSameAs(expectedSubscriptionInfo);
+        .isSameInstanceAs(expectedSubscriptionInfo);
   }
 
   @Test

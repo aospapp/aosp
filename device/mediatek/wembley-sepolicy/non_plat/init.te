@@ -140,3 +140,6 @@ allow init proc_cpu_alignment:file w_file_perms;
 # Purpose: Allow to relabelto for selinux_android_restorecon
 allow init boot_block_device:lnk_file relabelto;
 allow init vbmeta_block_device:lnk_file relabelto;
+
+# Purpose: Allow to write /proc/mtprintk
+allow init proc_mtprintk:file w_file_perms;

@@ -38,14 +38,20 @@ public class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback 
     private boolean filterByEventSize = false;
     // Timeout in sec for count down latch wait
     private static final int STATUS_TIMEOUT_IN_SEC = 10;
-    private static final int MEAS_TIMEOUT_IN_SEC = 75;
+    public static final int MEAS_TIMEOUT_IN_SEC = 75;
+    public static final int CORRELATION_VECTOR_TIMEOUT_IN_SEC = 10;
+    private static final int BIAS_UNCERTAINTY_TIMEOUT_IN_SEC = 10;
     private static final int C_TO_N0_THRESHOLD_DB_HZ = 18;
+    private static final double BIAS_UNCERTAINTY_THRESHOLD_NANOS = 1e6; // 1 millisecond
     private volatile int mStatus = -1;
 
     private final String mTag;
     private final List<GnssMeasurementsEvent> mMeasurementsEvents;
     private final CountDownLatch mCountDownLatch;
     private final CountDownLatch mCountDownLatchStatus;
+    private final CountDownLatch mCountDownLatchBiasUncertainty;
+    private final CountDownLatch mCountDownLatchSatellitePvt;
+    private final CountDownLatch mCountDownLatchCorrelationVector;
 
     /**
     * Constructor for TestGnssMeasurementListener
@@ -65,15 +71,19 @@ public class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback 
     }
 
     /**
-    * Constructor for TestGnssMeasurementListener
-    * @param tag for Logging.
-    * @param eventsToCollect wait until the number of events collected.
-    * @param filterByEventSize whether filter the GnssMeasurementsEvents when we collect them.
-    */
+     * Constructor for TestGnssMeasurementListener
+     *
+     * @param tag               tag for Logging.
+     * @param eventsToCollect   wait until this number of events collected.
+     * @param filterByEventSize whether to filter the GnssMeasurementsEvents when we collect them.
+     */
     public TestGnssMeasurementListener(String tag, int eventsToCollect, boolean filterByEventSize) {
         mTag = tag;
         mCountDownLatch = new CountDownLatch(eventsToCollect);
         mCountDownLatchStatus = new CountDownLatch(1);
+        mCountDownLatchBiasUncertainty = new CountDownLatch(1);
+        mCountDownLatchSatellitePvt = new CountDownLatch(1);
+        mCountDownLatchCorrelationVector = new CountDownLatch(1);
         mMeasurementsEvents = new ArrayList<>(eventsToCollect);
         this.filterByEventSize = filterByEventSize;
     }
@@ -114,12 +124,34 @@ public class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback 
                         return;
                     }
                 }
-            }
-            else {
+            } else {
                 synchronized(mMeasurementsEvents) {
                     mMeasurementsEvents.add(event);
                 }
                 mCountDownLatch.countDown();
+            }
+
+            if (mCountDownLatchSatellitePvt.getCount() > 0) {
+                for (GnssMeasurement measurement : event.getMeasurements()) {
+                    if (measurement.hasSatellitePvt()) {
+                        Log.i(mTag, "Found a GnssMeasurement with SatellitePvt.");
+                        mCountDownLatchSatellitePvt.countDown();
+                    }
+                }
+            }
+            if (mCountDownLatchCorrelationVector.getCount() > 0) {
+                for (GnssMeasurement measurement : event.getMeasurements()) {
+                    if (measurement.hasCorrelationVectors()) {
+                        Log.i(mTag, "Found a GnssMeasurement with CorrelationVector.");
+                        mCountDownLatchCorrelationVector.countDown();
+                    }
+                }
+            }
+            GnssClock gnssClock = event.getClock();
+            if (gnssClock.hasBiasUncertaintyNanos()) {
+                if (gnssClock.getBiasUncertaintyNanos() < BIAS_UNCERTAINTY_THRESHOLD_NANOS) {
+                    mCountDownLatchBiasUncertainty.countDown();
+                }
             }
         }
     }
@@ -138,6 +170,27 @@ public class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback 
         return TestUtils.waitFor(mCountDownLatch, MEAS_TIMEOUT_IN_SEC);
     }
 
+    /**
+     * Wait until {@link GnssClock#getBiasUncertaintyNanos()} becomes small enough.
+     */
+    public boolean awaitSmallBiasUncertainty() throws InterruptedException {
+        return TestUtils.waitFor(mCountDownLatchBiasUncertainty, BIAS_UNCERTAINTY_TIMEOUT_IN_SEC);
+    }
+
+    /**
+     * Wait until a measurement with {@link GnssMeasurement#hasSatellitePvt()} is found.
+     */
+    public boolean awaitSatellitePvt() throws InterruptedException {
+        return TestUtils.waitFor(mCountDownLatchSatellitePvt, MEAS_TIMEOUT_IN_SEC);
+    }
+
+    /**
+     * Wait until a measurement with {@link GnssMeasurement#hasCorrelationVectors()} is found.
+     */
+    public boolean awaitCorrelationVector() throws InterruptedException {
+        return TestUtils.waitFor(mCountDownLatchCorrelationVector,
+                CORRELATION_VECTOR_TIMEOUT_IN_SEC);
+    }
 
     /**
      * @return {@code true} if the state of the test ensures that data is expected to be collected,

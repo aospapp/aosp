@@ -16,17 +16,17 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.cts.backup.successnotificationapp">
+     package="android.cts.backup.successnotificationapp">
 
     <application>
-        <receiver android:name=".SuccessNotificationReceiver">
+        <receiver android:name=".SuccessNotificationReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.BACKUP_FINISHED" />
+                <action android:name="android.intent.action.BACKUP_FINISHED"/>
             </intent-filter>
         </receiver>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android.cts.backup.successnotificationapp" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="android.cts.backup.successnotificationapp"/>
 </manifest>

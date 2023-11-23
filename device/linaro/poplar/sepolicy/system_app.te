@@ -1,4 +1,3 @@
-set_prop(system_app, hisi_prop)
 allow system_app mali_device:chr_file { getattr ioctl open read write };
 allow system_app hi_vdec_device:chr_file { getattr read write open ioctl };
 

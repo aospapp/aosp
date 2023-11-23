@@ -38,10 +38,6 @@ int qemuSensortThreadRcvCommand(const int fd) {
 }
 }  // namespace
 
-void MultihalSensors::qemuSensorListenerThreadStart(MultihalSensors* that) {
-    that->qemuSensorListenerThread();
-}
-
 void MultihalSensors::qemuSensorListenerThread() {
     const unique_fd epollFd(epoll_create1(0));
     if (!epollFd.ok()) {

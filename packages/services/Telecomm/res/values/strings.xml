@@ -17,8 +17,10 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Official label of the Telecomm/Phone app, as seen in "Manage Applications"
          and other settings UIs. This is the "app name" used in notification, recents,
-         and app info screens. -->
-    <string name="telecommAppLabel" product="default">Call Management</string>
+         and app info screens. The term "phone calls" is used since an end user would more commonly
+         think of the stuff the Telecom framework deals with as having to do with "phone calls",
+         not "call management" (even though that is technically more accurate). -->
+    <string name="telecommAppLabel" product="default">Phone Calls</string>
 
     <!-- Title used for the activity for placing a call. This name appears
          in activity disambig dialogs -->

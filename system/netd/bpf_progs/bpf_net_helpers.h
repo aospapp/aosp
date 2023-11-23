@@ -26,8 +26,14 @@
 static uint64_t (*bpf_get_socket_cookie)(struct __sk_buff* skb) = (void*)BPF_FUNC_get_socket_cookie;
 
 static uint32_t (*bpf_get_socket_uid)(struct __sk_buff* skb) = (void*)BPF_FUNC_get_socket_uid;
+
+static int (*bpf_skb_pull_data)(struct __sk_buff* skb, __u32 len) = (void*)BPF_FUNC_skb_pull_data;
+
 static int (*bpf_skb_load_bytes)(struct __sk_buff* skb, int off, void* to,
                                  int len) = (void*)BPF_FUNC_skb_load_bytes;
+
+static int (*bpf_skb_store_bytes)(struct __sk_buff* skb, __u32 offset, const void* from, __u32 len,
+                                  __u64 flags) = (void*)BPF_FUNC_skb_store_bytes;
 
 static int64_t (*bpf_csum_diff)(__be32* from, __u32 from_size, __be32* to, __u32 to_size,
                                 __wsum seed) = (void*)BPF_FUNC_csum_diff;
@@ -41,6 +47,8 @@ static int (*bpf_l3_csum_replace)(struct __sk_buff* skb, __u32 offset, __u64 fro
 static int (*bpf_l4_csum_replace)(struct __sk_buff* skb, __u32 offset, __u64 from, __u64 to,
                                   __u64 flags) = (void*)BPF_FUNC_l4_csum_replace;
 static int (*bpf_redirect)(__u32 ifindex, __u64 flags) = (void*)BPF_FUNC_redirect;
+static int (*bpf_redirect_map)(const struct bpf_map_def* map, __u32 key,
+                               __u64 flags) = (void*)BPF_FUNC_redirect_map;
 
 static int (*bpf_skb_change_head)(struct __sk_buff* skb, __u32 head_room,
                                   __u64 flags) = (void*)BPF_FUNC_skb_change_head;
@@ -56,6 +64,12 @@ static int (*bpf_skb_adjust_room)(struct __sk_buff* skb, __s32 len_diff, __u32 m
 static inline __always_inline __unused bool is_received_skb(struct __sk_buff* skb) {
     return skb->pkt_type == PACKET_HOST || skb->pkt_type == PACKET_BROADCAST ||
            skb->pkt_type == PACKET_MULTICAST;
+}
+
+// try to make the first 'len' header bytes readable via direct packet access
+static inline __always_inline void try_make_readable(struct __sk_buff* skb, int len) {
+    if (len > skb->len) len = skb->len;
+    if (skb->data_end - skb->data < len) bpf_skb_pull_data(skb, len);
 }
 
 #endif  // NETDBPF_BPF_NET_HELPERS_H

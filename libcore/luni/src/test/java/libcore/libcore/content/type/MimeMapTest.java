@@ -70,7 +70,7 @@ public class MimeMapTest {
 
     @Test public void caseNormalization_key() {
         mimeMap = MimeMap.builder()
-                .put("application/msWord", Arrays.asList("Doc"))
+                .addMimeMapping("application/msWord", Arrays.asList("Doc"))
                 .build();
         assertEquals("application/msword", mimeMap.guessMimeTypeFromExtension("dOc"));
         assertEquals("doc", mimeMap.guessExtensionFromMimeType("appliCATion/mSWOrd"));
@@ -93,7 +93,7 @@ public class MimeMapTest {
 
         // Known keys for a custom map
         mimeMap = MimeMap.builder()
-                .put("application/msWord", Arrays.asList("Doc"))
+                .addMimeMapping("application/msWord", Arrays.asList("Doc"))
                 .build();
         assertEquals("doc", mimeMap.guessExtensionFromMimeType("Application/mSWord"));
         assertEquals("application/msword", mimeMap.guessMimeTypeFromExtension("DoC"));
@@ -105,7 +105,7 @@ public class MimeMapTest {
 
     @Test public void unmapped() {
         mimeMap = MimeMap.builder()
-                .put("mime/test", Arrays.asList("test", "tst"))
+                .addMimeMapping("mime/test", Arrays.asList("test", "tst"))
                 .build();
         assertNull(mimeMap.guessExtensionFromMimeType("mime/unknown"));
         assertFalse(mimeMap.hasMimeType("mime/unknown"));
@@ -122,7 +122,7 @@ public class MimeMapTest {
         MimeMap originalDefault = MimeMap.getDefault();
         try {
             // Constructs a new instance every time it is called
-            MimeMap.setDefaultSupplier(() -> MimeMap.builder().put("mime/sup", "sup").build());
+            MimeMap.setDefaultSupplier(() -> MimeMap.builder().addMimeMapping("mime/sup", "sup").build());
             // Same instance is returned both times
             assertSame(MimeMap.getDefault(), MimeMap.getDefault());
             // Check that the supplier is in effect
@@ -165,7 +165,7 @@ public class MimeMapTest {
                 mimeMap);
 
         mimeMap = mimeMap.buildUpon()
-                .put("text/plain", "txt")
+                .addMimeMapping("text/plain", "txt")
                 .build();
         assertMap(
                 makeMap("text/plain", "txt"),
@@ -173,7 +173,7 @@ public class MimeMapTest {
                 mimeMap);
 
         mimeMap = mimeMap.buildUpon()
-                .put("audio/mpeg", Arrays.asList("mp2", "mp3"))
+                .addMimeMapping("audio/mpeg", Arrays.asList("mp2", "mp3"))
                 .build();
         assertMap(
                 makeMap("audio/mpeg", "mp2",
@@ -184,7 +184,7 @@ public class MimeMapTest {
                 mimeMap);
 
         mimeMap = mimeMap.buildUpon()
-                .put("text/plain", "text")
+                .addMimeMapping("text/plain", "text")
                 .build();
         assertMap(
                 makeMap("audio/mpeg", "mp2",
@@ -198,12 +198,12 @@ public class MimeMapTest {
 
     @Test public void put() {
         MimeMap a = MimeMap.builder()
-                .put("text/plain", Arrays.asList("txt", "text"))
-                .put("application/msword", "doc")
+                .addMimeMapping("text/plain", Arrays.asList("txt", "text"))
+                .addMimeMapping("application/msword", "doc")
                 .build();
         MimeMap b = MimeMap.builder()
-                .put("text/plain", Arrays.asList("txt", "text"))
-                .put("application/msword", "doc")
+                .addMimeMapping("text/plain", Arrays.asList("txt", "text"))
+                .addMimeMapping("application/msword", "doc")
                 .build();
         assertEqualsButNotSame(a, b);
         assertEqualsButNotSame(a, a.buildUpon().build());
@@ -219,7 +219,7 @@ public class MimeMapTest {
 
     @Test public void put_noExtensions() {
         checkPut_noExtensions(emptyMap);
-        checkPut_noExtensions(MimeMap.builder().put("text/plain", "txt").build());
+        checkPut_noExtensions(MimeMap.builder().addMimeMapping("text/plain", "txt").build());
         checkPut_noExtensions(mimeMap);
     }
 
@@ -228,7 +228,7 @@ public class MimeMapTest {
      */
     private static void checkPut_noExtensions(MimeMap baseMap) {
         MimeMap mimeMap = baseMap.buildUpon()
-                .put("mime/type", Collections.emptyList())
+                .addMimeMapping("mime/type", Collections.emptyList())
                 .build();
         assertEquals(baseMap, mimeMap);
     }
@@ -249,11 +249,11 @@ public class MimeMapTest {
     }
 
     @Test public void put_String_String_nullOrEmpty() {
-        assertThrowsNpe(() -> MimeMap.builder().put(null, "ext"));
-        assertThrowsIae(() -> MimeMap.builder().put("", "ext"));
+        assertThrowsNpe(() -> MimeMap.builder().addMimeMapping(null, "ext"));
+        assertThrowsIae(() -> MimeMap.builder().addMimeMapping("", "ext"));
 
-        assertThrowsNpe(() -> MimeMap.builder().put("mime/type", (String) null));
-        assertThrowsIae(() -> MimeMap.builder().put("mime/type", ""));
+        assertThrowsNpe(() -> MimeMap.builder().addMimeMapping("mime/type", (String) null));
+        assertThrowsIae(() -> MimeMap.builder().addMimeMapping("mime/type", ""));
     }
 
     /**
@@ -262,8 +262,8 @@ public class MimeMapTest {
     @Test public void putIfAbsent() {
         // Starting from an empty mapping, add a bunch more, some with and some without '?'.
         mimeMap = MimeMap.builder()
-                .put("?text/plain", "?txt")
-                .put("audio/mpeg", Arrays.asList("mpga", "mpega", "?mp2", "mp3"))
+                .addMimeMapping("?text/plain", "?txt")
+                .addMimeMapping("audio/mpeg", Arrays.asList("mpga", "mpega", "?mp2", "mp3"))
                 .build();
         assertEquals("txt", mimeMap.guessExtensionFromMimeType("text/plain"));
         assertEquals("text/plain", mimeMap.guessMimeTypeFromExtension("txt"));
@@ -273,14 +273,14 @@ public class MimeMapTest {
 
         // Override a ext -> MIME mapping without overriding the MIME -> ext mapping.
         mimeMap = mimeMap.buildUpon()
-                .put("?audio/mpeg", "m4a")
+                .addMimeMapping("?audio/mpeg", "m4a")
                 .build();
         assertEquals("mpga", mimeMap.guessExtensionFromMimeType("audio/mpeg"));
         assertEquals("audio/mpeg", mimeMap.guessMimeTypeFromExtension("m4a"));
 
         // Override a MIME -> ext mapping without overriding the ext -> MIME mapping.
         mimeMap = mimeMap.buildUpon()
-                .put("audio/mpeg", "?txt")
+                .addMimeMapping("audio/mpeg", "?txt")
                 .build();
         assertEquals("txt", mimeMap.guessExtensionFromMimeType("audio/mpeg"));
         assertEquals("text/plain", mimeMap.guessMimeTypeFromExtension("txt"));
@@ -307,10 +307,10 @@ public class MimeMapTest {
     @Test public void extensions() {
         assertEquals(Collections.emptySet(), emptyMap.extensions());
         mimeMap = MimeMap.builder()
-                .put("text/plain", Arrays.asList("txt", "text"))
-                .put("audi/mpeg", "m4a")
-                .put("application/msword", "doc")
-                .put("text/plain", "tx")
+                .addMimeMapping("text/plain", Arrays.asList("txt", "text"))
+                .addMimeMapping("audi/mpeg", "m4a")
+                .addMimeMapping("application/msword", "doc")
+                .addMimeMapping("text/plain", "tx")
                 .build();
         Set<String> extensions = new HashSet<>(Arrays.asList(
                 "txt", "text", "m4a", "doc", "tx"));
@@ -326,10 +326,10 @@ public class MimeMapTest {
     @Test public void mimeTypes() {
         assertEquals(Collections.emptySet(), emptyMap.mimeTypes());
         mimeMap = MimeMap.builder()
-                .put("text/plain", Arrays.asList("txt", "text"))
-                .put("audio/mpeg", "m4a")
-                .put("application/msword", "doc")
-                .put("text/plain", "tx")
+                .addMimeMapping("text/plain", Arrays.asList("txt", "text"))
+                .addMimeMapping("audio/mpeg", "m4a")
+                .addMimeMapping("application/msword", "doc")
+                .addMimeMapping("text/plain", "tx")
                 .build();
         Set<String> mimeTypes = new HashSet<>(Arrays.asList(
                 "text/plain",
@@ -362,17 +362,17 @@ public class MimeMapTest {
         assertPutThrowsIae("invalidmime", "ext");
 
         // During lookups, wrong arguments return null rather than throwing.
-        mimeMap = MimeMap.builder().put("mime/type", "ext").build();
+        mimeMap = MimeMap.builder().addMimeMapping("mime/type", "ext").build();
         assertNull(mimeMap.guessExtensionFromMimeType("ext")); // ext is no mime type
         assertNull(mimeMap.guessMimeTypeFromExtension("mime/type")); // mime/type is no extension
     }
 
     private static void assertPutThrowsNpe(String mime, String... exts) {
-        assertThrowsNpe(() -> MimeMap.builder().put(mime, Arrays.asList(exts)));
+        assertThrowsNpe(() -> MimeMap.builder().addMimeMapping(mime, Arrays.asList(exts)));
     }
 
     private static void assertPutThrowsIae(final String mime, final String... exts) {
-        assertThrowsIae(() -> MimeMap.builder().put(mime, Arrays.asList(exts)));
+        assertThrowsIae(() -> MimeMap.builder().addMimeMapping(mime, Arrays.asList(exts)));
     }
 
     private static void assertThrowsNpe(Runnable runnable) {
@@ -393,8 +393,8 @@ public class MimeMapTest {
 
     @Test public void hashCodeValue() {
         assertEquals(0, emptyMap.hashCode());
-        MimeMap a = MimeMap.builder().put("mime/test", "test").build();
-        MimeMap b = a.buildUpon().put("foo/bar", "baz").build();
+        MimeMap a = MimeMap.builder().addMimeMapping("mime/test", "test").build();
+        MimeMap b = a.buildUpon().addMimeMapping("foo/bar", "baz").build();
         assertTrue(0 != a.hashCode());
         assertTrue((a.hashCode() != b.hashCode()));
     }
@@ -434,13 +434,13 @@ public class MimeMapTest {
             String ext = entry.getKey();
             String mime = entry.getValue();
             assertEquals(ext + ": " + mimeMap, mime, mimeMap.guessMimeTypeFromExtension(ext));
-            expectedBuilder.put("?" + mime, ext);
+            expectedBuilder.addMimeMapping("?" + mime, ext);
         }
         for (Map.Entry<String, String> entry : expectedMimeToExt.entrySet()) {
             String mime = entry.getKey();
             String ext = entry.getValue();
             assertEquals(mime + ": "  + mimeMap, ext, mimeMap.guessExtensionFromMimeType(mime));
-            expectedBuilder.put(mime, "?" + ext);
+            expectedBuilder.addMimeMapping(mime, "?" + ext);
         }
         // Check that there are no unexpected additional mappings.
         assertEqualsButNotSame(expectedBuilder.build(), mimeMap);

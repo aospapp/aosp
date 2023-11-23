@@ -39,4 +39,5 @@
       <item quantity="one"><xliff:g id="COUNT">%d</xliff:g>টি নতুন মেসেজ</item>
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g>টি নতুন মেসেজ</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"ম্যানেজ করুন"</string>
 </resources>

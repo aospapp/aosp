@@ -83,19 +83,25 @@ LINUX_FILE_TYPE_PATH = 'config/options/filetypes.xml'
 LINUX_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Android/Sdk')
 MAC_JDK_PATH = os.path.join(common_util.get_android_root_dir(),
                             'prebuilts/jdk/jdk8/darwin-x86')
-MAC_JDK_TABLE_PATH = 'options/jdk.table.xml'
-MAC_FILE_TYPE_XML_PATH = 'options/filetypes.xml'
+ALTERNAIVE_JDK_TABLE_PATH = 'options/jdk.table.xml'
+ALTERNAIVE_FILE_TYPE_XML_PATH = 'options/filetypes.xml'
 MAC_ANDROID_SDK_PATH = os.path.join(os.getenv('HOME'), 'Library/Android/sdk')
 PATTERN_KEY = 'pattern'
 TYPE_KEY = 'type'
-JSON_TYPE = 'JSON'
+_TEST_MAPPING_FILE_TYPE = 'JSON'
 TEST_MAPPING_NAME = 'TEST_MAPPING'
 _TEST_MAPPING_TYPE = '<mapping pattern="TEST_MAPPING" type="JSON" />'
 _XPATH_EXTENSION_MAP = 'component/extensionMap'
 _XPATH_MAPPING = _XPATH_EXTENSION_MAP + '/mapping'
+_SPECIFIC_INTELLIJ_VERSION = 2020.1
+_TEST_MAPPING_FILE_TYPE_ADDING_WARN = '\n{} {}\n'.format(
+    common_util.COLORED_INFO('WARNING:'),
+    ('TEST_MAPPING file type can\'t be added to filetypes.xml. The reason '
+     'might be: lack of the parent tag to add TEST_MAPPING file type.'))
 
 
 # pylint: disable=too-many-lines
+# pylint: disable=invalid-name
 class IdeUtil:
     """Provide a set of IDE operations, e.g., launch and configuration.
 
@@ -253,7 +259,7 @@ class IdeBase:
         """
         file_type_path = os.path.join(_config_path, self._IDE_FILE_TYPE_PATH)
         if not os.path.isfile(file_type_path):
-            logging.warning('Filetypes.xml is not found.')
+            logging.warning('The file: filetypes.xml is not found.')
             return
 
         file_type_xml = xml_util.parse_xml(file_type_path)
@@ -267,14 +273,17 @@ class IdeBase:
             attrib = mapping.attrib
             if PATTERN_KEY in attrib and TYPE_KEY in attrib:
                 if attrib[PATTERN_KEY] == TEST_MAPPING_NAME:
-                    if attrib[TYPE_KEY] != JSON_TYPE:
-                        attrib[TYPE_KEY] = JSON_TYPE
+                    if attrib[TYPE_KEY] != _TEST_MAPPING_FILE_TYPE:
+                        attrib[TYPE_KEY] = _TEST_MAPPING_FILE_TYPE
                         file_type_xml.write(file_type_path)
                     add_pattern = False
                     break
         if add_pattern:
-            root.find(_XPATH_EXTENSION_MAP).append(
-                ElementTree.fromstring(_TEST_MAPPING_TYPE))
+            ext_attrib = root.find(_XPATH_EXTENSION_MAP)
+            if not ext_attrib:
+                print(_TEST_MAPPING_FILE_TYPE_ADDING_WARN)
+                return
+            ext_attrib.append(ElementTree.fromstring(_TEST_MAPPING_TYPE))
             pretty_xml = common_util.to_pretty_xml(root)
             common_util.file_generate(file_type_path, pretty_xml)
 
@@ -514,8 +523,8 @@ class IdeIntelliJ(IdeBase):
             return
 
         show_hint = False
-        folder_path = os.path.join(os.getenv('HOME'), app_folder,
-                                   'config', 'plugins')
+        ide_version = self._get_ide_version(app_folder)
+        folder_path = self._get_config_dir(ide_version, app_folder)
         import_process = None
         while not os.path.isdir(folder_path):
             # Guide the user to go through the IDE flow.
@@ -525,16 +534,17 @@ class IdeIntelliJ(IdeBase):
                                            self.ide_name)))
                 try:
                     import_process = subprocess.Popen(
-                        ide_common_util.get_run_ide_cmd(run_script_path, ''),
-                        shell=True)
+                        ide_common_util.get_run_ide_cmd(run_script_path, '',
+                                                        False), shell=True)
                 except (subprocess.SubprocessError, ValueError):
                     logging.warning('\nSubprocess call gets the invalid input.')
                 finally:
                     show_hint = True
-        try:
-            import_process.wait(1)
-        except subprocess.TimeoutExpired:
-            import_process.terminate()
+        if import_process:
+            try:
+                import_process.wait(1)
+            except subprocess.TimeoutExpired:
+                import_process.terminate()
         return
 
     def _get_script_from_system(self):
@@ -579,6 +589,7 @@ class IdeIntelliJ(IdeBase):
             follows,
                 1. .IdeaIC2019.3
                 2. .IntelliJIdea2019.3
+                3. IntelliJIdea2020.1
         """
         if not run_script_path or not os.path.isfile(run_script_path):
             return None
@@ -586,20 +597,83 @@ class IdeIntelliJ(IdeBase):
         target_path = None if index == -1 else run_script_path[index:]
         if not target_path or '-' not in run_script_path:
             return None
+        return IdeIntelliJ._get_config_folder_name(target_path)
 
-        path_data = target_path.split('-')
+    @staticmethod
+    def _get_ide_version(config_folder_name):
+        """Gets IntelliJ version from the input app folder name.
+
+        Args:
+            config_folder_name: A string of the app folder name.
+
+        Returns:
+            A string of the IntelliJ version.
+        """
+        versions = re.findall(r'\d+', config_folder_name)
+        if not versions:
+            logging.warning('\nInvalid IntelliJ config folder name: %s.',
+                            config_folder_name)
+            return None
+        return '.'.join(versions)
+
+    @staticmethod
+    def _get_config_folder_name(script_folder_name):
+        """Gets IntelliJ config folder name from the IDE version.
+
+        The config folder name has been changed since 2020.1.
+
+        Args:
+            script_folder_name: A string of the script folder name of IntelliJ.
+
+        Returns:
+            A string of the IntelliJ config folder name.
+        """
+        path_data = script_folder_name.split('-')
         if not path_data or len(path_data) < 3:
             return None
-
-        config_folder = None
         ide_version = path_data[2].split(os.sep)[0]
+        numbers = ide_version.split('.')
+        if len(numbers) > 2:
+            ide_version = '.'.join([numbers[0], numbers[1]])
+        try:
+            version = float(ide_version)
+        except ValueError:
+            return None
+        pre_folder = '.IdeaIC'
+        if version < _SPECIFIC_INTELLIJ_VERSION:
+            if path_data[1] == 'ue':
+                pre_folder = '.IntelliJIdea'
+        else:
+            if path_data[1] == 'ce':
+                pre_folder = 'IdeaIC'
+            elif path_data[1] == 'ue':
+                pre_folder = 'IntelliJIdea'
+        return ''.join([pre_folder, ide_version])
 
-        if path_data[1] == 'ce':
-            config_folder = ''.join(['.IdeaIC', ide_version])
-        elif path_data[1] == 'ue':
-            config_folder = ''.join(['.IntelliJIdea', ide_version])
+    @staticmethod
+    def _get_config_dir(ide_version, config_folder_name):
+        """Gets IntelliJ config directory by the config folder name.
 
-        return config_folder
+        The IntelliJ config directory is changed from version 2020.1. Get the
+        version from app folder name and determine the config directory.
+        URL: https://intellij-support.jetbrains.com/hc/en-us/articles/206544519
+
+        Args:
+            ide_version: A string of the IntelliJ's version.
+            config_folder_name: A string of the IntelliJ's config folder name.
+
+        Returns:
+            A string of the IntelliJ config directory.
+        """
+        try:
+            version = float(ide_version)
+        except ValueError:
+            return None
+        if version < _SPECIFIC_INTELLIJ_VERSION:
+            return os.path.join(
+                os.getenv('HOME'), config_folder_name)
+        return os.path.join(
+            os.getenv('HOME'), '.config', 'JetBrains', config_folder_name)
 
 
 class IdeLinuxIntelliJ(IdeIntelliJ):
@@ -658,15 +732,24 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
             _config_folder = self._get_application_path(_path_data)
             if not _config_folder:
                 return None
+            ide_version = self._get_ide_version(_config_folder)
+            if not ide_version:
+                return None
+            try:
+                version = float(ide_version)
+            except ValueError:
+                return None
+            folder_path = self._get_config_dir(ide_version, _config_folder)
+            if version >= _SPECIFIC_INTELLIJ_VERSION:
+                self._IDE_JDK_TABLE_PATH = ALTERNAIVE_JDK_TABLE_PATH
+                self._IDE_FILE_TYPE_PATH = ALTERNAIVE_FILE_TYPE_XML_PATH
 
-            if not os.path.isdir(os.path.join(os.getenv('HOME'),
-                                              _config_folder)):
+            if not os.path.isdir(folder_path):
                 logging.debug("\nThe config folder: %s doesn't exist",
                               _config_folder)
                 self._setup_ide()
 
-            _config_folders.append(
-                os.path.join(os.getenv('HOME'), _config_folder))
+            _config_folders.append(folder_path)
         else:
             # TODO(b/123459239): For the case that the user provides the IDEA
             # binary path, we now collect all possible IDEA config root paths.
@@ -674,6 +757,9 @@ class IdeLinuxIntelliJ(IdeIntelliJ):
                 os.path.join(os.getenv('HOME'), '.IdeaI?20*'))
             _config_folders.extend(
                 glob.glob(os.path.join(os.getenv('HOME'), '.IntelliJIdea20*')))
+            _config_folders.extend(
+                glob.glob(os.path.join(os.getenv('HOME'), '.config',
+                                       'IntelliJIdea202*')))
             logging.debug('The config path list: %s.', _config_folders)
 
         return _config_folders
@@ -689,8 +775,8 @@ class IdeMacIntelliJ(IdeIntelliJ):
     """
 
     _JDK_PATH = MAC_JDK_PATH
-    _IDE_JDK_TABLE_PATH = MAC_JDK_TABLE_PATH
-    _IDE_FILE_TYPE_PATH = MAC_FILE_TYPE_XML_PATH
+    _IDE_JDK_TABLE_PATH = ALTERNAIVE_JDK_TABLE_PATH
+    _IDE_FILE_TYPE_PATH = ALTERNAIVE_FILE_TYPE_XML_PATH
     _JDK_CONTENT = templates.MAC_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = MAC_ANDROID_SDK_PATH
 
@@ -848,7 +934,7 @@ class IdeMacStudio(IdeStudio):
     """
 
     _JDK_PATH = MAC_JDK_PATH
-    _IDE_JDK_TABLE_PATH = MAC_JDK_TABLE_PATH
+    _IDE_JDK_TABLE_PATH = ALTERNAIVE_JDK_TABLE_PATH
     _JDK_CONTENT = templates.MAC_JDK_XML
     _DEFAULT_ANDROID_SDK_PATH = MAC_ANDROID_SDK_PATH
 
@@ -930,7 +1016,7 @@ class IdeEclipse(IdeBase):
         if (os.path.exists(os.path.expanduser(constant.ECLIPSE_WS))
                 or str(input(_ALERT_CREATE_WS)).lower() == 'y'):
             self.cmd.extend(['-data', constant.ECLIPSE_WS])
-        self.cmd.extend([constant.IGNORE_STD_OUT_ERR_CMD])
+        self.cmd.extend([constant.IGNORE_STD_OUT_ERR_CMD, '&'])
         return ' '.join(self.cmd)
 
     def apply_optional_config(self):

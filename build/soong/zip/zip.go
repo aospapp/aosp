@@ -29,7 +29,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"unicode"
+
+	"android/soong/response"
 
 	"github.com/google/blueprint/pathtools"
 
@@ -126,6 +127,7 @@ func (b *FileArgsBuilder) Dir(name string) *FileArgsBuilder {
 	return b
 }
 
+// List reads the file names from the given file and adds them to the source files list.
 func (b *FileArgsBuilder) List(name string) *FileArgsBuilder {
 	if b.err != nil {
 		return b
@@ -146,6 +148,32 @@ func (b *FileArgsBuilder) List(name string) *FileArgsBuilder {
 
 	arg := b.state
 	arg.SourceFiles = strings.Fields(string(list))
+	b.fileArgs = append(b.fileArgs, arg)
+	return b
+}
+
+// RspFile reads the file names from given .rsp file and adds them to the source files list.
+func (b *FileArgsBuilder) RspFile(name string) *FileArgsBuilder {
+	if b.err != nil {
+		return b
+	}
+
+	f, err := b.fs.Open(name)
+	if err != nil {
+		b.err = err
+		return b
+	}
+	defer f.Close()
+
+	arg := b.state
+	arg.SourceFiles, err = response.ReadRspFile(f)
+	if err != nil {
+		b.err = err
+		return b
+	}
+	for i := range arg.SourceFiles {
+		arg.SourceFiles[i] = pathtools.MatchEscape(arg.SourceFiles[i])
+	}
 	b.fileArgs = append(b.fileArgs, arg)
 	return b
 }
@@ -224,50 +252,7 @@ type ZipArgs struct {
 	Filesystem pathtools.FileSystem
 }
 
-const NOQUOTE = '\x00'
-
-func ReadRespFile(bytes []byte) []string {
-	var args []string
-	var arg []rune
-
-	isEscaping := false
-	quotingStart := NOQUOTE
-	for _, c := range string(bytes) {
-		switch {
-		case isEscaping:
-			if quotingStart == '"' {
-				if !(c == '"' || c == '\\') {
-					// '\"' or '\\' will be escaped under double quoting.
-					arg = append(arg, '\\')
-				}
-			}
-			arg = append(arg, c)
-			isEscaping = false
-		case c == '\\' && quotingStart != '\'':
-			isEscaping = true
-		case quotingStart == NOQUOTE && (c == '\'' || c == '"'):
-			quotingStart = c
-		case quotingStart != NOQUOTE && c == quotingStart:
-			quotingStart = NOQUOTE
-		case quotingStart == NOQUOTE && unicode.IsSpace(c):
-			// Current character is a space outside quotes
-			if len(arg) != 0 {
-				args = append(args, string(arg))
-			}
-			arg = arg[:0]
-		default:
-			arg = append(arg, c)
-		}
-	}
-
-	if len(arg) != 0 {
-		args = append(args, string(arg))
-	}
-
-	return args
-}
-
-func ZipTo(args ZipArgs, w io.Writer) error {
+func zipTo(args ZipArgs, w io.Writer) error {
 	if args.EmulateJar {
 		args.AddDirectoryEntriesToZip = true
 	}
@@ -307,11 +292,11 @@ func ZipTo(args ZipArgs, w io.Writer) error {
 				continue
 			}
 
-			globbed, _, err := z.fs.Glob(s, nil, followSymlinks)
+			result, err := z.fs.Glob(s, nil, followSymlinks)
 			if err != nil {
 				return err
 			}
-			if len(globbed) == 0 {
+			if len(result.Matches) == 0 {
 				err := &os.PathError{
 					Op:   "lstat",
 					Path: s,
@@ -323,7 +308,7 @@ func ZipTo(args ZipArgs, w io.Writer) error {
 					return err
 				}
 			}
-			srcs = append(srcs, globbed...)
+			srcs = append(srcs, result.Matches...)
 		}
 		if fa.GlobDir != "" {
 			if exists, isDir, err := z.fs.Exists(fa.GlobDir); err != nil {
@@ -351,11 +336,11 @@ func ZipTo(args ZipArgs, w io.Writer) error {
 					return err
 				}
 			}
-			globbed, _, err := z.fs.Glob(filepath.Join(fa.GlobDir, "**/*"), nil, followSymlinks)
+			result, err := z.fs.Glob(filepath.Join(fa.GlobDir, "**/*"), nil, followSymlinks)
 			if err != nil {
 				return err
 			}
-			srcs = append(srcs, globbed...)
+			srcs = append(srcs, result.Matches...)
 		}
 		for _, src := range srcs {
 			err := fillPathPairs(fa, src, &pathMappings, args.NonDeflatedFiles, noCompression)
@@ -368,6 +353,7 @@ func ZipTo(args ZipArgs, w io.Writer) error {
 	return z.write(w, pathMappings, args.ManifestSourcePath, args.EmulateJar, args.SrcJar, args.NumParallelJobs)
 }
 
+// Zip creates an output zip archive from given sources.
 func Zip(args ZipArgs) error {
 	if args.OutputFilePath == "" {
 		return fmt.Errorf("output file path must be nonempty")
@@ -375,6 +361,8 @@ func Zip(args ZipArgs) error {
 
 	buf := &bytes.Buffer{}
 	var out io.Writer = buf
+
+	var zipErr error
 
 	if !args.WriteIfChanged {
 		f, err := os.Create(args.OutputFilePath)
@@ -384,7 +372,7 @@ func Zip(args ZipArgs) error {
 
 		defer f.Close()
 		defer func() {
-			if err != nil {
+			if zipErr != nil {
 				os.Remove(args.OutputFilePath)
 			}
 		}()
@@ -392,9 +380,9 @@ func Zip(args ZipArgs) error {
 		out = f
 	}
 
-	err := ZipTo(args, out)
-	if err != nil {
-		return err
+	zipErr = zipTo(args, out)
+	if zipErr != nil {
+		return zipErr
 	}
 
 	if args.WriteIfChanged {
@@ -426,7 +414,6 @@ func fillPathPairs(fa FileArg, src string, pathMappings *[]pathMapping,
 				RelativeRoot: fa.SourcePrefixToStrip,
 			}
 		}
-
 	}
 	dest = filepath.Join(fa.PathPrefixInZip, dest)
 
@@ -441,10 +428,9 @@ func fillPathPairs(fa FileArg, src string, pathMappings *[]pathMapping,
 }
 
 func jarSort(mappings []pathMapping) {
-	less := func(i int, j int) (smaller bool) {
+	sort.SliceStable(mappings, func(i int, j int) bool {
 		return jar.EntryNamesLess(mappings[i].dest, mappings[j].dest)
-	}
-	sort.SliceStable(mappings, less)
+	})
 }
 
 func (z *ZipWriter) write(f io.Writer, pathMappings []pathMapping, manifest string, emulateJar, srcJar bool,
@@ -670,9 +656,11 @@ func (z *ZipWriter) addFile(dest, src string, method uint16, emulateJar, srcJar 
 			UncompressedSize64: uint64(fileSize),
 		}
 
+		mode := os.FileMode(0644)
 		if executable {
-			header.SetMode(0700)
+			mode = 0755
 		}
+		header.SetMode(mode)
 
 		err = createParentDirs(dest, src)
 		if err != nil {
@@ -685,7 +673,7 @@ func (z *ZipWriter) addFile(dest, src string, method uint16, emulateJar, srcJar 
 	}
 }
 
-func (z *ZipWriter) addManifest(dest string, src string, method uint16) error {
+func (z *ZipWriter) addManifest(dest string, src string, _ uint16) error {
 	if prev, exists := z.createdDirs[dest]; exists {
 		return fmt.Errorf("destination %q is both a directory %q and a file %q", dest, prev, src)
 	}
@@ -939,7 +927,7 @@ func (z *ZipWriter) writeDirectory(dir string, src string, emulateJar bool) erro
 	dir = filepath.Clean(dir)
 
 	// discover any uncreated directories in the path
-	zipDirs := []string{}
+	var zipDirs []string
 	for dir != "" && dir != "." {
 		if _, exists := z.createdDirs[dir]; exists {
 			break
@@ -967,7 +955,7 @@ func (z *ZipWriter) writeDirectory(dir string, src string, emulateJar bool) erro
 				dirHeader = &zip.FileHeader{
 					Name: cleanDir + "/",
 				}
-				dirHeader.SetMode(0700 | os.ModeDir)
+				dirHeader.SetMode(0755 | os.ModeDir)
 			}
 
 			dirHeader.SetModTime(z.time)

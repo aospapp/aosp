@@ -5,9 +5,6 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_C_INCLUDES := \
-	system/core/include \
-
 LOCAL_SRC_FILES := \
 	video_encoder_e2e_test.cpp \
 	video_decoder_e2e_test.cpp \
@@ -26,12 +23,17 @@ LOCAL_SHARED_LIBRARIES := \
 	libmediandk \
 	libandroid \
 
+LOCAL_HEADER_LIBRARIES := liblog_headers
+
 LOCAL_SDK_VERSION := 28
 LOCAL_NDK_STL_VARIANT := c++_static
 
 LOCAL_STATIC_LIBRARIES := libgtest_ndk_c++
 
 LOCAL_MODULE := libcodectest
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD legacy_unencumbered
+LOCAL_LICENSE_CONDITIONS := notice unencumbered
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../NOTICE
 
 # TODO(stevensd): Fix and reenable warnings
 LOCAL_CFLAGS += -Wno-everything

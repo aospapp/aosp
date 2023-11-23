@@ -58,8 +58,8 @@ extern "C" {
 #define PIPE_MAX_COLOR_BUFS        8
 #define PIPE_MAX_CONSTANT_BUFFERS 32
 #define PIPE_MAX_SAMPLERS         16
-#define PIPE_MAX_SHADER_INPUTS    32
-#define PIPE_MAX_SHADER_OUTPUTS   48 /* 32 GENERICs + POS, PSIZE, FOG, etc. */
+#define PIPE_MAX_SHADER_INPUTS    80 /* 32 GENERIC + 32 PATCH + 16 others */
+#define PIPE_MAX_SHADER_OUTPUTS   80 /* 32 GENERIC + 32 PATCH + 16 others */
 #define PIPE_MAX_SHADER_SAMPLER_VIEWS 32
 #define PIPE_MAX_SHADER_BUFFERS   32
 #define PIPE_MAX_SHADER_IMAGES    32
@@ -69,7 +69,7 @@ extern "C" {
 #define PIPE_MAX_VIEWPORTS        16
 #define PIPE_MAX_CLIP_OR_CULL_DISTANCE_COUNT 8
 #define PIPE_MAX_CLIP_OR_CULL_DISTANCE_ELEMENT_COUNT 2
-
+#define PIPE_MAX_HW_ATOMIC_BUFFERS 32
 
 struct pipe_reference
 {
@@ -208,6 +208,7 @@ struct pipe_stream_output_info
       unsigned output_buffer:3;   /**< 0 to PIPE_MAX_SO_BUFFERS */
       unsigned dst_offset:16;     /**< offset into the buffer in dwords */
       unsigned stream:2;
+      unsigned need_temp:1;
    } output[PIPE_MAX_SO_OUTPUTS];
 };
 

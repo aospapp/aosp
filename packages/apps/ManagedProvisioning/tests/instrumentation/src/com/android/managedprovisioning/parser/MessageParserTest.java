@@ -18,15 +18,13 @@ package com.android.managedprovisioning.parser;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_USER;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME;
 import static android.app.admin.DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC;
+
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
-import android.accounts.Account;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
@@ -38,13 +36,13 @@ import android.os.UserHandle;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.io.ByteArrayOutputStream;
-import java.util.Locale;
 import java.util.Properties;
 
 /** Tests {@link MessageParser} */
@@ -54,13 +52,6 @@ public class MessageParserTest extends AndroidTestCase {
     private static final ComponentName TEST_COMPONENT_NAME =
             ComponentName.unflattenFromString(
                     "com.afwsamples.testdpc/com.afwsamples.testdpc.DeviceAdminReceiver");
-    private static final long TEST_LOCAL_TIME = 1456939524713L;
-    private static final Locale TEST_LOCALE = Locale.UK;
-    private static final String TEST_TIME_ZONE = "GMT";
-    private static final Integer TEST_MAIN_COLOR = 65280;
-    private static final boolean TEST_SKIP_ENCRYPTION = true;
-    private static final Account TEST_ACCOUNT_TO_MIGRATE =
-            new Account("user@gmail.com", "com.google");
 
     @Mock
     private Context mContext;
@@ -75,8 +66,9 @@ public class MessageParserTest extends AndroidTestCase {
         System.setProperty("dexmaker.dexcache", getContext().getCacheDir().toString());
 
         MockitoAnnotations.initMocks(this);
-
-        mMessageParser = new MessageParser(mContext, mUtils = spy(new Utils()));
+        mUtils = spy(new Utils());
+        mMessageParser = new MessageParser(
+                mContext, mUtils, new ParserUtils(), new SettingsFacade());
     }
 
     public void test_correctParserUsedToParseNfcIntent() throws Exception {
@@ -113,9 +105,7 @@ public class MessageParserTest extends AndroidTestCase {
         String[] supportedProvisioningActions = new String[] {
                 ACTION_PROVISION_MANAGED_DEVICE,
                 ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE,
-                ACTION_PROVISION_MANAGED_USER,
-                ACTION_PROVISION_MANAGED_PROFILE,
-                ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE
+                ACTION_PROVISION_MANAGED_PROFILE
         };
 
         for (String provisioningAction : supportedProvisioningActions) {

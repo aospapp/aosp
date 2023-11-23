@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,6 +8,7 @@
 #define ARCH_HELPERS_H
 
 #include <cdefs.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -165,7 +166,7 @@ static inline void _op(void)						\
 #define DEFINE_SYSOP_TYPE_FUNC(_op, _type)				\
 static inline void _op ## _type(void)					\
 {									\
-	__asm__ (#_op " " #_type);					\
+	__asm__ (#_op " " #_type : : : "memory");			\
 }
 
 /* Define function for system instruction with register parameter */
@@ -178,6 +179,7 @@ static inline void _op ## _type(u_register_t v)				\
 void flush_dcache_range(uintptr_t addr, size_t size);
 void clean_dcache_range(uintptr_t addr, size_t size);
 void inv_dcache_range(uintptr_t addr, size_t size);
+bool is_dcache_enabled(void);
 
 void dcsw_op_louis(u_register_t op_type);
 void dcsw_op_all(u_register_t op_type);
@@ -298,11 +300,16 @@ DEFINE_COPROCR_RW_FUNCS(prrr, PRRR)
 DEFINE_COPROCR_RW_FUNCS(nmrr, NMRR)
 DEFINE_COPROCR_RW_FUNCS(dacr, DACR)
 
+/* Coproc registers for 32bit AMU support */
+DEFINE_COPROCR_READ_FUNC(amcfgr, AMCFGR)
+DEFINE_COPROCR_READ_FUNC(amcgcr, AMCGCR)
+
 DEFINE_COPROCR_RW_FUNCS(amcntenset0, AMCNTENSET0)
 DEFINE_COPROCR_RW_FUNCS(amcntenset1, AMCNTENSET1)
 DEFINE_COPROCR_RW_FUNCS(amcntenclr0, AMCNTENCLR0)
 DEFINE_COPROCR_RW_FUNCS(amcntenclr1, AMCNTENCLR1)
 
+/* Coproc registers for 64bit AMU support */
 DEFINE_COPROCR_RW_FUNCS_64(amevcntr00, AMEVCNTR00)
 DEFINE_COPROCR_RW_FUNCS_64(amevcntr01, AMEVCNTR01)
 DEFINE_COPROCR_RW_FUNCS_64(amevcntr02, AMEVCNTR02)
@@ -333,6 +340,11 @@ DEFINE_DCOP_PARAM_FUNC(cvac, DCCIMVAC)
 #else
 DEFINE_DCOP_PARAM_FUNC(cvac, DCCMVAC)
 #endif
+
+/*
+ * DynamIQ Shared Unit power management
+ */
+DEFINE_COPROCR_RW_FUNCS(clusterpwrdn, CLUSTERPWRDN)
 
 /* Previously defined accessor functions with incomplete register names  */
 #define dsb()			dsbsy()

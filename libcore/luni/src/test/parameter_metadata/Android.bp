@@ -19,6 +19,14 @@
 //
 // Included as a resource by //libcore:core-tests and loaded into its own
 // class loader by libcore.java.lang.reflect.ParameterTest.
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "libcore_luni_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["libcore_luni_license"],
+}
+
 java_library {
     name: "parameter-metadata-test",
     visibility: [

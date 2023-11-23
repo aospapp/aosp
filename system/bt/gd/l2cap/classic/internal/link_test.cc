@@ -18,6 +18,7 @@
 
 #include "hci/acl_manager_mock.h"
 #include "hci/address.h"
+#include "l2cap/classic/internal/dynamic_channel_service_impl_mock.h"
 #include "l2cap/classic/internal/dynamic_channel_service_manager_impl_mock.h"
 #include "l2cap/classic/internal/fixed_channel_service_manager_impl_mock.h"
 #include "l2cap/internal/parameter_provider_mock.h"
@@ -37,8 +38,9 @@ namespace {
 constexpr Psm kPsm = 123;
 constexpr Cid kCid = 456;
 
+using classic::internal::testing::MockDynamicChannelServiceImpl;
 using classic::internal::testing::MockDynamicChannelServiceManagerImpl;
-using hci::testing::MockAclConnection;
+using hci::testing::MockClassicAclConnection;
 using l2cap::internal::testing::MockParameterProvider;
 using testing::MockFixedChannelServiceManagerImpl;
 
@@ -74,10 +76,10 @@ class L2capClassicLinkTest : public ::testing::Test {
     handler_ = new os::Handler(thread_);
     signalling_handler_ = new os::Handler(thread_);
 
-    raw_acl_connection_ = new NiceMock<MockAclConnection>();
-    link_ = new Link(signalling_handler_, std::unique_ptr<MockAclConnection>(raw_acl_connection_),
+    raw_acl_connection_ = new NiceMock<MockClassicAclConnection>();
+    link_ = new Link(signalling_handler_, std::unique_ptr<MockClassicAclConnection>(raw_acl_connection_),
                      &mock_parameter_provider_, &mock_classic_dynamic_channel_service_manager_,
-                     &mock_classic_fixed_channel_service_manager_);
+                     &mock_classic_fixed_channel_service_manager_, nullptr);
   }
 
   void TearDown() override {
@@ -96,12 +98,13 @@ class L2capClassicLinkTest : public ::testing::Test {
   os::Handler* handler_ = nullptr;
   os::Handler* signalling_handler_ = nullptr;
 
-  MockAclConnection* raw_acl_connection_ = nullptr;
-  std::unique_ptr<MockAclConnection> acl_connection_;
+  MockClassicAclConnection* raw_acl_connection_ = nullptr;
+  std::unique_ptr<MockClassicAclConnection> acl_connection_;
 
   NiceMock<MockParameterProvider> mock_parameter_provider_;
   MockFixedChannelServiceManagerImpl mock_classic_fixed_channel_service_manager_;
   MockDynamicChannelServiceManagerImpl mock_classic_dynamic_channel_service_manager_;
+  SecurityEnforcementRejectAllImpl security_module_impl_;
 
   std::promise<void> on_open_promise_;
   std::promise<void> on_fail_promise_;
@@ -114,12 +117,20 @@ TEST_F(L2capClassicLinkTest, pending_channels_get_notified_on_acl_disconnect) {
   EnqueueCallbackForTest();
 
   Link::PendingDynamicChannelConnection pending_dynamic_channel_connection{
-      .handler_ = handler_,
-      .on_open_callback_ = common::Bind(&L2capClassicLinkTest::OnOpen, common::Unretained(this)),
-      .on_fail_callback_ = common::Bind(&L2capClassicLinkTest::OnFail, common::Unretained(this)),
+      .on_open_callback_ = handler_->BindOn(this, &L2capClassicLinkTest::OnOpen),
+      .on_fail_callback_ = handler_->BindOnceOn(this, &L2capClassicLinkTest::OnFail),
       .configuration_ = DynamicChannelConfigurationOption(),
   };
   auto future = on_fail_promise_.get_future();
+
+  MockDynamicChannelServiceImpl service;
+  ON_CALL(service, GetSecurityPolicy())
+      .WillByDefault(::testing::Return(SecurityPolicy::_SDP_ONLY_NO_SECURITY_WHATSOEVER_PLAINTEXT_TRANSPORT_OK));
+
+  EXPECT_CALL(mock_classic_dynamic_channel_service_manager_, GetSecurityEnforcementInterface())
+      .WillOnce(::testing::Return(&security_module_impl_));
+  EXPECT_CALL(mock_classic_dynamic_channel_service_manager_, GetService(::testing::_))
+      .WillRepeatedly(::testing::Return(&service));
 
   link_->SendConnectionRequest(kPsm, kCid, std::move(pending_dynamic_channel_connection));
   link_->OnAclDisconnected(hci::ErrorCode::UNKNOWN_HCI_COMMAND);

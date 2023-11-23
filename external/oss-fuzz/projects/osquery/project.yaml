@@ -1,4 +1,5 @@
 homepage: "https://osquery.io"
+language: c++
 primary_contact: "osquery@osquery.io"
 auto_ccs:
   - "theopolis@osquery.io"
@@ -14,3 +15,5 @@ sanitizers:
  - address
 fuzzing_engines:
  - libfuzzer
+ - afl
+main_repo: 'https://github.com/osquery/osquery'

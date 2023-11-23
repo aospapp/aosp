@@ -1,7 +1,0 @@
-# ==============================================
-# Policy File of /system/bin/emdlogger[x] Executable File
-
-# ==============================================
-# Type Declaration
-# ==============================================
-type emdlogger, domain;

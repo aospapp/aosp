@@ -7,13 +7,19 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <limits>
+#include <utility>
+#include <vector>
+
+#include <base/files/file_enumerator.h>
 #include <base/files/file_path.h>
 #include <base/files/file_util.h>
-#include <base/files/scoped_file.h>
 #include <base/logging.h>
 #include <base/posix/eintr_wrapper.h>
 #include <base/rand_util.h>
+#include <base/stl_util.h>
 #include <base/strings/string_number_conversions.h>
+#include <base/strings/stringprintf.h>
 #include <base/time/time.h>
 
 namespace brillo {
@@ -25,7 +31,8 @@ constexpr const base::TimeDelta kLongSync = base::TimeDelta::FromSeconds(10);
 
 enum {
   kPermissions600 = S_IRUSR | S_IWUSR,
-  kPermissions777 = S_IRWXU | S_IRWXG | S_IRWXO
+  kPermissions777 = S_IRWXU | S_IRWXG | S_IRWXO,
+  kPermissions755 = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
 };
 
 // Verify that base file permission enums are compatible with S_Ixxx. If these
@@ -135,7 +142,7 @@ bool TouchFileInternal(const base::FilePath& path,
 std::string GetRandomSuffix() {
   const int kBufferSize = 6;
   unsigned char buffer[kBufferSize];
-  base::RandBytes(buffer, arraysize(buffer));
+  base::RandBytes(buffer, base::size(buffer));
   std::string suffix;
   for (int i = 0; i < kBufferSize; ++i) {
     int random_value = buffer[i] % (2 * 26 + 10);
@@ -148,6 +155,80 @@ std::string GetRandomSuffix() {
     }
   }
   return suffix;
+}
+
+base::ScopedFD OpenPathComponentInternal(int parent_fd,
+                                         const std::string& file,
+                                         int flags,
+                                         mode_t mode) {
+  DCHECK(file == "/" || file.find("/") == std::string::npos);
+  base::ScopedFD fd;
+
+  // O_NONBLOCK is used to avoid hanging on edge cases (e.g. a serial port with
+  // flow control, or a FIFO without a writer).
+  if (parent_fd >= 0 || parent_fd == AT_FDCWD) {
+    fd.reset(HANDLE_EINTR(openat(parent_fd, file.c_str(),
+                                 flags | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC,
+                                 mode)));
+  } else if (file == "/") {
+    fd.reset(HANDLE_EINTR(open(
+        file.c_str(),
+        flags | O_RDONLY | O_DIRECTORY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC,
+        mode)));
+  }
+
+  if (!fd.is_valid()) {
+    // open(2) fails with ELOOP when the last component of the |path| is a
+    // symlink. It fails with ENXIO when |path| is a FIFO and |flags| is for
+    // writing because of the O_NONBLOCK flag added above.
+    if (errno == ELOOP || errno == ENXIO) {
+      PLOG(WARNING) << "Failed to open " << file << " safely.";
+    } else {
+      PLOG(WARNING) << "Failed to open " << file << ".";
+    }
+    return base::ScopedFD();
+  }
+
+  // Remove the O_NONBLOCK flag unless the original |flags| have it.
+  if ((flags & O_NONBLOCK) == 0) {
+    flags = fcntl(fd.get(), F_GETFL);
+    if (flags == -1) {
+      PLOG(ERROR) << "Failed to get fd flags for " << file;
+      return base::ScopedFD();
+    }
+    if (fcntl(fd.get(), F_SETFL, flags & ~O_NONBLOCK)) {
+      PLOG(ERROR) << "Failed to set fd flags for " << file;
+      return base::ScopedFD();
+    }
+  }
+
+  return fd;
+}
+
+base::ScopedFD OpenSafelyInternal(int parent_fd,
+                                  const base::FilePath& path,
+                                  int flags,
+                                  mode_t mode) {
+  std::vector<std::string> components;
+  path.GetComponents(&components);
+
+  auto itr = components.begin();
+  if (itr == components.end()) {
+    LOG(ERROR) << "A path is required.";
+    return base::ScopedFD();  // This is an invalid fd.
+  }
+
+  base::ScopedFD child_fd;
+  int parent_flags = flags | O_NONBLOCK | O_RDONLY | O_DIRECTORY | O_PATH;
+  for (; itr + 1 != components.end(); ++itr) {
+    child_fd = OpenPathComponentInternal(parent_fd, *itr, parent_flags, 0);
+    if (!child_fd.is_valid()) {
+      return base::ScopedFD();
+    }
+    parent_fd = child_fd.get();
+  }
+
+  return OpenPathComponentInternal(parent_fd, *itr, flags, mode);
 }
 
 }  // namespace
@@ -184,9 +265,129 @@ bool TouchFile(const base::FilePath& path) {
   return TouchFile(path, kPermissions600, geteuid(), getegid());
 }
 
-bool WriteBlobToFile(const base::FilePath& path, const Blob& blob) {
-  return WriteToFile(path, reinterpret_cast<const char*>(blob.data()),
-                     blob.size());
+base::ScopedFD OpenSafely(const base::FilePath& path, int flags, mode_t mode) {
+  if (!path.IsAbsolute()) {
+    LOG(ERROR) << "An absolute path is required.";
+    return base::ScopedFD();  // This is an invalid fd.
+  }
+
+  base::ScopedFD fd(OpenSafelyInternal(-1, path, flags, mode));
+  if (!fd.is_valid())
+    return base::ScopedFD();
+
+  // Ensure the opened file is a regular file or directory.
+  struct stat st;
+  if (fstat(fd.get(), &st) < 0) {
+    PLOG(ERROR) << "Failed to fstat " << path.value();
+    return base::ScopedFD();
+  }
+
+  // This detects a FIFO opened for reading, for example.
+  if (flags & O_DIRECTORY) {
+    if (!S_ISDIR(st.st_mode)) {
+      LOG(ERROR) << path.value() << " is not a directory: " << st.st_mode;
+      return base::ScopedFD();
+    }
+  } else if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
+    LOG(ERROR) << path.value()
+               << " is not a regular file or directory: " << st.st_mode;
+    return base::ScopedFD();
+  }
+
+  return fd;
+}
+
+base::ScopedFD OpenAtSafely(int parent_fd,
+                            const base::FilePath& path,
+                            int flags,
+                            mode_t mode) {
+  base::ScopedFD fd(OpenSafelyInternal(parent_fd, path, flags, mode));
+  if (!fd.is_valid())
+    return base::ScopedFD();
+
+  // Ensure the opened file is a regular file or directory.
+  struct stat st;
+  if (fstat(fd.get(), &st) < 0) {
+    PLOG(ERROR) << "Failed to fstat " << path.value();
+    return base::ScopedFD();
+  }
+
+  // This detects a FIFO opened for reading, for example.
+  if (flags & O_DIRECTORY) {
+    if (!S_ISDIR(st.st_mode)) {
+      LOG(ERROR) << path.value() << " is not a directory: " << st.st_mode;
+      return base::ScopedFD();
+    }
+  } else if (!S_ISREG(st.st_mode)) {
+    LOG(ERROR) << path.value() << " is not a regular file: " << st.st_mode;
+    return base::ScopedFD();
+  }
+
+  return fd;
+}
+
+base::ScopedFD OpenFifoSafely(const base::FilePath& path,
+                              int flags,
+                              mode_t mode) {
+  if (!path.IsAbsolute()) {
+    LOG(ERROR) << "An absolute path is required.";
+    return base::ScopedFD();  // This is an invalid fd.
+  }
+
+  base::ScopedFD fd(OpenSafelyInternal(-1, path, flags, mode));
+  if (!fd.is_valid())
+    return base::ScopedFD();
+
+  // Ensure the opened file is a FIFO.
+  struct stat st;
+  if (fstat(fd.get(), &st) < 0) {
+    PLOG(ERROR) << "Failed to fstat " << path.value();
+    return base::ScopedFD();
+  }
+
+  if (!S_ISFIFO(st.st_mode)) {
+    LOG(ERROR) << path.value() << " is not a FIFO: " << st.st_mode;
+    return base::ScopedFD();
+  }
+
+  return fd;
+}
+
+base::ScopedFD MkdirRecursively(const base::FilePath& full_path, mode_t mode) {
+  std::vector<std::string> components;
+  full_path.GetComponents(&components);
+
+  auto itr = components.begin();
+  if (!full_path.IsAbsolute() || itr == components.end()) {
+    LOG(ERROR) << "An absolute path is required.";
+    return base::ScopedFD();  // This is an invalid fd.
+  }
+
+  base::ScopedFD parent_fd;
+  int parent_flags = O_NONBLOCK | O_RDONLY | O_DIRECTORY | O_PATH;
+  while (itr + 1 != components.end()) {
+    base::ScopedFD child(
+        OpenPathComponentInternal(parent_fd.get(), *itr, parent_flags, 0));
+    if (!child.is_valid()) {
+      return base::ScopedFD();
+    }
+    parent_fd = std::move(child);
+
+    ++itr;
+
+    // Try to create the directory. Note that Chromium's MkdirRecursively() uses
+    // 0700, but we use 0755.
+    if (mkdirat(parent_fd.get(), itr->c_str(), mode) != 0) {
+      if (errno != EEXIST) {
+        PLOG(ERROR) << "Failed to mkdirat " << *itr
+                    << ": full_path=" << full_path.value();
+        return base::ScopedFD();
+      }
+    }
+  }
+
+  return OpenPathComponentInternal(parent_fd.get(), *itr,
+                                   O_RDONLY | O_DIRECTORY, 0);
 }
 
 bool WriteStringToFile(const base::FilePath& path, const std::string& data) {
@@ -306,11 +507,20 @@ bool WriteToFileAtomic(const base::FilePath& path,
   return true;
 }
 
-bool WriteBlobToFileAtomic(const base::FilePath& path,
-                           const Blob& blob,
-                           mode_t mode) {
-  return WriteToFileAtomic(path, reinterpret_cast<const char*>(blob.data()),
-                           blob.size(), mode);
+int64_t ComputeDirectoryDiskUsage(const base::FilePath& root_path) {
+  constexpr size_t S_BLKSIZE = 512;
+  int64_t running_blocks = 0;
+  base::FileEnumerator file_iter(root_path, true,
+                                 base::FileEnumerator::FILES |
+                                     base::FileEnumerator::DIRECTORIES |
+                                     base::FileEnumerator::SHOW_SYM_LINKS);
+  while (!file_iter.Next().empty()) {
+    // st_blocks in struct stat is the number of S_BLKSIZE (512) bytes sized
+    // blocks occupied by this file.
+    running_blocks += file_iter.GetInfo().stat().st_blocks;
+  }
+  // Each block is S_BLKSIZE (512) bytes so *S_BLKSIZE.
+  return running_blocks * S_BLKSIZE;
 }
 
 }  // namespace brillo

@@ -10,7 +10,7 @@ import org.junit.runner.Result;
  * <p>This class synchronizes all listener calls on a RunNotifier instance. This is done because
  * prior to JUnit 4.12, all listeners were called in a synchronized block in RunNotifier,
  * so no two listeners were ever called concurrently. If we instead made the methods here
- * sychronized, clients that added multiple listeners that called common code might see
+ * synchronized, clients that added multiple listeners that called common code might see
  * issues due to the reduced synchronization.
  *
  * @author Tibor Digana (tibor17)
@@ -40,6 +40,37 @@ final class SynchronizedRunListener extends RunListener {
     public void testRunFinished(Result result) throws Exception {
         synchronized (monitor) {
             listener.testRunFinished(result);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p/>
+     * Synchronized decorator for {@link RunListener#testSuiteStarted(Description)}.
+     * @param description the description of the test suite that is about to be run
+     *                    (generally a class name).
+     * @throws Exception if any occurs.
+     * @since 4.13
+     */
+    @Override
+    public void testSuiteStarted(Description description) throws Exception {
+        synchronized (monitor) {
+            listener.testSuiteStarted(description);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p/>
+     * Synchronized decorator for {@link RunListener#testSuiteFinished(Description)}.
+     * @param description the description of the test suite that just ran.
+     * @throws Exception
+     * @since 4.13
+     */
+    @Override
+    public void testSuiteFinished(Description description) throws Exception {
+        synchronized (monitor) {
+            listener.testSuiteFinished(description);
         }
     }
 

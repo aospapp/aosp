@@ -1,11 +1,6 @@
 # ==============================================
 # MTK Policy Rule
-# ============
-
-# Date : WK14.37
-# Operation : Migration
-# Purpose : for opetator
-allow mtkbootanimation bootani_prop:property_service set;
+# ==============================================
 
 # Date : WK14.46
 # Operation : Migration

@@ -14,19 +14,27 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_defaults {
     name: "VtsHalAudioTargetTest_defaults",
     defaults: ["VtsHalTargetTestDefaults"],
     static_libs: [
         "android.hardware.audio.common.test.utility",
-        "libaudiofoundation",
-        "libaudiopolicycomponents",
-        "libmedia_helper",
-        "libxml2",
+        "audioclient-types-aidl-cpp",
+        "libaudioclient_aidl_conversion",
     ],
     shared_libs: [
         "libbinder",
         "libfmq",
+        "libxml2",
     ],
     header_libs: [
         "android.hardware.audio.common.util@all-versions",
@@ -44,6 +52,9 @@ cc_test {
         "2.0/AudioPrimaryHidlHalTest.cpp",
     ],
     static_libs: [
+        "libaudiofoundation",
+        "libaudiopolicycomponents",
+        "libmedia_helper",
         "android.hardware.audio@2.0",
         "android.hardware.audio.common@2.0",
     ],
@@ -55,7 +66,7 @@ cc_test {
     data: [
         ":audio_policy_configuration_V2_0",
     ],
-    // Use test_config for vts-core suite.
+    // Use test_config for vts suite.
     // TODO(b/146104851): Add auto-gen rules and remove it.
     test_config: "VtsHalAudioV2_0TargetTest.xml",
 }
@@ -67,6 +78,9 @@ cc_test {
         "4.0/AudioPrimaryHidlHalTest.cpp",
     ],
     static_libs: [
+        "libaudiofoundation",
+        "libaudiopolicycomponents",
+        "libmedia_helper",
         "android.hardware.audio@4.0",
         "android.hardware.audio.common@4.0",
     ],
@@ -78,7 +92,7 @@ cc_test {
     data: [
         ":audio_policy_configuration_V4_0",
     ],
-    // Use test_config for vts-core suite.
+    // Use test_config for vts suite.
     // TODO(b/146104851): Add auto-gen rules and remove it.
     test_config: "VtsHalAudioV4_0TargetTest.xml",
 }
@@ -90,6 +104,9 @@ cc_test {
         "5.0/AudioPrimaryHidlHalTest.cpp",
     ],
     static_libs: [
+        "libaudiofoundation",
+        "libaudiopolicycomponents",
+        "libmedia_helper",
         "android.hardware.audio@5.0",
         "android.hardware.audio.common@5.0",
     ],
@@ -101,7 +118,7 @@ cc_test {
     data: [
         ":audio_policy_configuration_V5_0",
     ],
-    // Use test_config for vts-core suite.
+    // Use test_config for vts suite.
     // TODO(b/146104851): Add auto-gen rules and remove it.
     test_config: "VtsHalAudioV5_0TargetTest.xml",
 }
@@ -111,8 +128,12 @@ cc_test {
     defaults: ["VtsHalAudioTargetTest_defaults"],
     srcs: [
         "6.0/AudioPrimaryHidlHalTest.cpp",
+        "6.0/Generators.cpp",
     ],
     static_libs: [
+        "libaudiofoundation",
+        "libaudiopolicycomponents",
+        "libmedia_helper",
         "android.hardware.audio@6.0",
         "android.hardware.audio.common@6.0",
     ],
@@ -124,7 +145,100 @@ cc_test {
     data: [
         ":audio_policy_configuration_V6_0",
     ],
-    // Use test_config for vts-core suite.
+    // Use test_config for vts suite.
     // TODO(b/146104851): Add auto-gen rules and remove it.
     test_config: "VtsHalAudioV6_0TargetTest.xml",
+}
+
+cc_test {
+    name: "VtsHalAudioV7_0TargetTest",
+    defaults: ["VtsHalAudioTargetTest_defaults"],
+    srcs: [
+        "7.0/AudioPrimaryHidlHalTest.cpp",
+        "7.0/Generators.cpp",
+        "7.0/PolicyConfig.cpp",
+    ],
+    generated_headers: ["audio_policy_configuration_V7_0_parser"],
+    generated_sources: ["audio_policy_configuration_V7_0_parser"],
+    static_libs: [
+        "android.hardware.audio@7.0",
+        "android.hardware.audio.common@7.0",
+        "android.hardware.audio.common@7.0-enums",
+        "android.hardware.audio.common@7.0-util",
+    ],
+    cflags: [
+        "-DMAJOR_VERSION=7",
+        "-DMINOR_VERSION=0",
+        "-include common/all-versions/VersionMacro.h",
+    ],
+    data: [
+        ":audio_policy_configuration_V7_0",
+    ],
+    // Use test_config for vts suite.
+    // TODO(b/146104851): Add auto-gen rules and remove it.
+    test_config: "VtsHalAudioV7_0TargetTest.xml",
+}
+
+// Note: the following aren't VTS tests, but rather unit tests
+// to verify correctness of test utilities.
+cc_test {
+    name: "HalAudioStreamWorkerTest",
+    host_supported: true,
+    srcs: [
+        "tests/streamworker_tests.cpp",
+    ],
+}
+
+cc_test {
+    name: "HalAudioV6_0GeneratorTest",
+    defaults: ["VtsHalAudioTargetTest_defaults"],
+    srcs: [
+        "6.0/Generators.cpp",
+        "tests/generators_tests.cpp",
+    ],
+    static_libs: [
+        "android.hardware.audio@6.0",
+        "android.hardware.audio.common@6.0",
+        "libaudiofoundation",
+        "libaudiopolicycomponents",
+        "libmedia_helper",
+    ],
+    cflags: [
+        "-DMAJOR_VERSION=6",
+        "-DMINOR_VERSION=0",
+        "-include common/all-versions/VersionMacro.h",
+    ],
+    data: [
+        "tests/apm_config_no_vx.xml",
+        "tests/apm_config_with_vx.xml",
+    ],
+    test_config: "tests/HalAudioV6_0GeneratorTest.xml",
+}
+
+cc_test {
+    name: "HalAudioV7_0GeneratorTest",
+    defaults: ["VtsHalAudioTargetTest_defaults"],
+    srcs: [
+        "7.0/Generators.cpp",
+        "7.0/PolicyConfig.cpp",
+        "tests/generators_tests.cpp",
+    ],
+    generated_headers: ["audio_policy_configuration_V7_0_parser"],
+    generated_sources: ["audio_policy_configuration_V7_0_parser"],
+    static_libs: [
+        "android.hardware.audio@7.0",
+        "android.hardware.audio.common@7.0",
+        "android.hardware.audio.common@7.0-enums",
+        "android.hardware.audio.common@7.0-util",
+    ],
+    cflags: [
+        "-DMAJOR_VERSION=7",
+        "-DMINOR_VERSION=0",
+        "-include common/all-versions/VersionMacro.h",
+    ],
+    data: [
+        "tests/apm_config_no_vx_7_0.xml",
+        "tests/apm_config_with_vx_7_0.xml",
+    ],
+    test_config: "tests/HalAudioV7_0GeneratorTest.xml",
 }

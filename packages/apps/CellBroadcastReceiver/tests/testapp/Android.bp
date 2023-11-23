@@ -12,6 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "packages_apps_CellBroadcastReceiver_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: [
+        "packages_apps_CellBroadcastReceiver_license",
+    ],
+}
+
 android_test {
     name: "CellBroadcastReceiverTests",
     // We only want this apk build for tests.
@@ -33,4 +44,13 @@ android_test {
     // Apk must be signed with platform signature in order to send test broadcasts.
     certificate: "platform",
     instrumentation_for: "CellBroadcastApp",
+}
+
+// used to share src with sl4a test app
+filegroup {
+    name: "cellbroadcast-shared-with-sl4a",
+    srcs: [
+        "src/com/android/cellbroadcastreceiver/tests/SendTestMessages.java",
+        "src/com/android/cellbroadcastreceiver/tests/GsmSmsCbMessage.java",
+    ],
 }

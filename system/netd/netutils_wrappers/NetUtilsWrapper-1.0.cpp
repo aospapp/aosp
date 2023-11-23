@@ -73,8 +73,6 @@ const char *EXPECTED_REGEXPS[] = {
     // Other activities observed on current devices. In future releases, these should be supported
     // in a way that is less likely to interfere with general Android networking behaviour.
     CMD "tc qdisc del dev root",
-    CMD "ip( -4| -6)? rule .* goto 13000 prio 11999",
-    CMD "ip( -4| -6)? rule .* prio 25000",
     CMD "ip(6)?tables -w .* -j " VENDOR_CHAIN,
     CMD "iptables -w -t mangle -[AD] PREROUTING -m socket --nowildcard --restore-skmark -j ACCEPT",
     CMD "ndc network interface (add|remove) oem[0-9]+$",  // Invalid command: no interface removed.

@@ -14,6 +14,38 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["external_libcxx_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_libcxx_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-NCSA",
+    ],
+    license_text: [
+        "LICENSE.TXT",
+    ],
+}
+
 cc_defaults {
     name: "libc++ defaults",
     host_supported: true,
@@ -42,11 +74,6 @@ cc_defaults {
                 "-UWIN32_LEAN_AND_MEAN",
             ],
         },
-        windows_x86: {
-            cflags: [
-                "-fsjlj-exceptions",
-            ],
-        },
     },
 }
 
@@ -55,7 +82,9 @@ cc_library_static {
     name: "libc++_static",
     defaults: ["libc++ defaults"],
     vendor_available: true,
+    product_available: true,
     ramdisk_available: true,
+    vendor_ramdisk_available: true,
     recovery_available: true,
     apex_available: [
         "//apex_available:platform",
@@ -113,12 +142,14 @@ cc_library_shared {
     name: "libc++",
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     native_bridge_supported: true,
     vndk: {
         enabled: true,
         support_system_process: true,
     },
     ramdisk_available: true,
+    vendor_ramdisk_available: true,
     recovery_available: true,
     apex_available: [
         "//apex_available:platform",
@@ -129,7 +160,16 @@ cc_library_shared {
     whole_static_libs: ["libc++_static"],
     stl: "none",
 
+    pgo: {
+        sampling: true,
+    },
+
     target: {
+        android: {
+            pgo: {
+                profile_file: "libc++/libc++.profdata",
+            },
+        },
         darwin: {
             unexported_symbols_list: "lib/libc++unexp.exp",
             force_symbols_not_weak_list: "lib/notweak.exp",
@@ -153,6 +193,9 @@ cc_library_static {
     ],
 }
 
+// Not available to vendor modules until libc++ is updated and this library is
+// merged into libc++ proper.
+// https://issuetracker.google.com/147469372
 cc_library_static {
     name: "libc++fs",
     recovery_available: true,

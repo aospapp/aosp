@@ -25,7 +25,7 @@
 #include "sp_buffer.h"
 #include "sp_texture.h"
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 
 static bool
 get_dimensions(const struct pipe_shader_buffer *bview,
@@ -56,8 +56,6 @@ sp_tgsi_load(const struct tgsi_buffer *buffer,
    struct softpipe_resource *spr;
    unsigned width;
    int c, j;
-   unsigned char *data_ptr;
-   const struct util_format_description *format_desc = util_format_description(PIPE_FORMAT_R32_UINT);
 
    if (params->unit >= PIPE_MAX_SHADER_BUFFERS)
       goto fail_write_all_zero;
@@ -73,7 +71,6 @@ sp_tgsi_load(const struct tgsi_buffer *buffer,
    for (j = 0; j < TGSI_QUAD_SIZE; j++) {
       int s_coord;
       bool fill_zero = false;
-      uint32_t sdata[4];
 
       if (!(params->execmask & (1 << j)))
          fill_zero = true;
@@ -87,11 +84,10 @@ sp_tgsi_load(const struct tgsi_buffer *buffer,
             rgba[c][j] = 0;
          continue;
       }
-      data_ptr = (unsigned char *)spr->data + bview->buffer_offset + s_coord;
+      uint32_t *src = (uint32_t *)((unsigned char *)spr->data +
+                                   bview->buffer_offset + s_coord);
       for (c = 0; c < 4; c++) {
-         format_desc->fetch_rgba_uint(sdata, data_ptr, 0, 0);
-         ((uint32_t *)rgba[c])[j] = sdata[0];
-         data_ptr += 4;
+         memcpy(&rgba[c][j], &src[c], 4);
       }
    }
    return;
@@ -113,9 +109,7 @@ sp_tgsi_store(const struct tgsi_buffer *buffer,
    struct pipe_shader_buffer *bview;
    struct softpipe_resource *spr;
    unsigned width;
-   unsigned char *data_ptr;
    int j, c;
-   const struct util_format_description *format_desc = util_format_description(PIPE_FORMAT_R32_UINT);
 
    if (params->unit >= PIPE_MAX_SHADER_BUFFERS)
       return;
@@ -138,15 +132,12 @@ sp_tgsi_store(const struct tgsi_buffer *buffer,
       if (s_coord >= width)
          continue;
 
-      data_ptr = (unsigned char *)spr->data + bview->buffer_offset + s_coord;
+      uint32_t *dst = (uint32_t *)((unsigned char *)spr->data +
+                                   bview->buffer_offset + s_coord);
 
       for (c = 0; c < 4; c++) {
-         if (params->writemask & (1 << c)) {
-            unsigned temp[4];
-            unsigned char *dptr = data_ptr + (c * 4);
-            temp[0] = ((uint32_t *)rgba[c])[j];
-            format_desc->pack_rgba_uint(dptr, 0, temp, 0, 1, 1);
-         }
+         if (params->writemask & (1 << c))
+            memcpy(&dst[c], &rgba[c][j], 4);
       }
    }
 }
@@ -164,121 +155,97 @@ handle_op_atomic(const struct pipe_shader_buffer *bview,
                  float rgba[TGSI_NUM_CHANNELS][TGSI_QUAD_SIZE],
                  float rgba2[TGSI_NUM_CHANNELS][TGSI_QUAD_SIZE])
 {
-   uint c;
-   const struct util_format_description *format_desc = util_format_description(PIPE_FORMAT_R32_UINT);
-   unsigned sdata[4];
+   uint c = 0; /* SSBO atomics are always on the .x channel. */
+   unsigned sdata;
 
-   for (c = 0; c < 4; c++) {
-      unsigned temp[4];
-      unsigned char *dptr = data_ptr + (c * 4);
-      format_desc->fetch_rgba_uint(temp, dptr, 0, 0);
-      sdata[c] = temp[0];
-   }
+   memcpy(&sdata, data_ptr + (c * 4), 4);
 
    if (just_read) {
-      for (c = 0; c < 4; c++) {
-         ((uint32_t *)rgba[c])[qi] = sdata[c];
-      }
+      ((uint32_t *)rgba[c])[qi] = sdata;
       return;
    }
 
    switch (opcode) {
-   case TGSI_OPCODE_ATOMUADD:
-      for (c = 0; c < 4; c++) {
-         unsigned temp = sdata[c];
-         sdata[c] += ((uint32_t *)rgba[c])[qi];
-         ((uint32_t *)rgba[c])[qi] = temp;
-      }
+   case TGSI_OPCODE_ATOMUADD: {
+      unsigned temp = sdata;
+      sdata += ((uint32_t *)rgba[c])[qi];
+      ((uint32_t *)rgba[c])[qi] = temp;
       break;
-   case TGSI_OPCODE_ATOMXCHG:
-      for (c = 0; c < 4; c++) {
-         unsigned temp = sdata[c];
-         sdata[c] = ((uint32_t *)rgba[c])[qi];
-         ((uint32_t *)rgba[c])[qi] = temp;
-      }
+   }
+   case TGSI_OPCODE_ATOMXCHG: {
+      unsigned temp = sdata;
+      sdata = ((uint32_t *)rgba[c])[qi];
+      ((uint32_t *)rgba[c])[qi] = temp;
       break;
-   case TGSI_OPCODE_ATOMCAS:
-      for (c = 0; c < 4; c++) {
-         unsigned dst_x = sdata[c];
-         unsigned cmp_x = ((uint32_t *)rgba[c])[qi];
-         unsigned src_x = ((uint32_t *)rgba2[c])[qi];
-         unsigned temp = sdata[c];
-         sdata[c] = (dst_x == cmp_x) ? src_x : dst_x;
-         ((uint32_t *)rgba[c])[qi] = temp;
-      }
+   }
+   case TGSI_OPCODE_ATOMCAS: {
+      unsigned dst_x = sdata;
+      unsigned cmp_x = ((uint32_t *)rgba[c])[qi];
+      unsigned src_x = ((uint32_t *)rgba2[c])[qi];
+      unsigned temp = sdata;
+      sdata = (dst_x == cmp_x) ? src_x : dst_x;
+      ((uint32_t *)rgba[c])[qi] = temp;
       break;
-   case TGSI_OPCODE_ATOMAND:
-      for (c = 0; c < 4; c++) {
-         unsigned temp = sdata[c];
-         sdata[c] &= ((uint32_t *)rgba[c])[qi];
-         ((uint32_t *)rgba[c])[qi] = temp;
-      }
+   }
+   case TGSI_OPCODE_ATOMAND: {
+      unsigned temp = sdata;
+      sdata &= ((uint32_t *)rgba[c])[qi];
+      ((uint32_t *)rgba[c])[qi] = temp;
       break;
-   case TGSI_OPCODE_ATOMOR:
-      for (c = 0; c < 4; c++) {
-         unsigned temp = sdata[c];
-         sdata[c] |= ((uint32_t *)rgba[c])[qi];
-         ((uint32_t *)rgba[c])[qi] = temp;
-      }
+   }
+   case TGSI_OPCODE_ATOMOR: {
+      unsigned temp = sdata;
+      sdata |= ((uint32_t *)rgba[c])[qi];
+      ((uint32_t *)rgba[c])[qi] = temp;
       break;
-   case TGSI_OPCODE_ATOMXOR:
-      for (c = 0; c < 4; c++) {
-         unsigned temp = sdata[c];
-         sdata[c] ^= ((uint32_t *)rgba[c])[qi];
-         ((uint32_t *)rgba[c])[qi] = temp;
-      }
+   }
+   case TGSI_OPCODE_ATOMXOR: {
+      unsigned temp = sdata;
+      sdata ^= ((uint32_t *)rgba[c])[qi];
+      ((uint32_t *)rgba[c])[qi] = temp;
       break;
-   case TGSI_OPCODE_ATOMUMIN:
-      for (c = 0; c < 4; c++) {
-         unsigned dst_x = sdata[c];
-         unsigned src_x = ((uint32_t *)rgba[c])[qi];
-         sdata[c] = MIN2(dst_x, src_x);
-         ((uint32_t *)rgba[c])[qi] = dst_x;
-      }
+   }
+   case TGSI_OPCODE_ATOMUMIN: {
+      unsigned dst_x = sdata;
+      unsigned src_x = ((uint32_t *)rgba[c])[qi];
+      sdata = MIN2(dst_x, src_x);
+      ((uint32_t *)rgba[c])[qi] = dst_x;
       break;
-   case TGSI_OPCODE_ATOMUMAX:
-      for (c = 0; c < 4; c++) {
-         unsigned dst_x = sdata[c];
-         unsigned src_x = ((uint32_t *)rgba[c])[qi];
-         sdata[c] = MAX2(dst_x, src_x);
-         ((uint32_t *)rgba[c])[qi] = dst_x;
-      }
+   }
+   case TGSI_OPCODE_ATOMUMAX: {
+      unsigned dst_x = sdata;
+      unsigned src_x = ((uint32_t *)rgba[c])[qi];
+      sdata = MAX2(dst_x, src_x);
+      ((uint32_t *)rgba[c])[qi] = dst_x;
       break;
-   case TGSI_OPCODE_ATOMIMIN:
-      for (c = 0; c < 4; c++) {
-         int dst_x = sdata[c];
-         int src_x = ((uint32_t *)rgba[c])[qi];
-         sdata[c] = MIN2(dst_x, src_x);
-         ((uint32_t *)rgba[c])[qi] = dst_x;
-      }
+   }
+   case TGSI_OPCODE_ATOMIMIN: {
+      int dst_x = sdata;
+      int src_x = ((uint32_t *)rgba[c])[qi];
+      sdata = MIN2(dst_x, src_x);
+      ((uint32_t *)rgba[c])[qi] = dst_x;
       break;
-   case TGSI_OPCODE_ATOMIMAX:
-      for (c = 0; c < 4; c++) {
-         int dst_x = sdata[c];
-         int src_x = ((uint32_t *)rgba[c])[qi];
-         sdata[c] = MAX2(dst_x, src_x);
-         ((uint32_t *)rgba[c])[qi] = dst_x;
-      }
+   }
+   case TGSI_OPCODE_ATOMIMAX: {
+      int dst_x = sdata;
+      int src_x = ((uint32_t *)rgba[c])[qi];
+      sdata = MAX2(dst_x, src_x);
+      ((uint32_t *)rgba[c])[qi] = dst_x;
       break;
-   case TGSI_OPCODE_ATOMFADD:
-      for (c = 0; c < 4; c++) {
-         float temp = uif(sdata[c]);
-         sdata[c] = fui(temp + rgba[c][qi]);
-         rgba[c][qi] = temp;
-      }
+   }
+   case TGSI_OPCODE_ATOMFADD: {
+      float temp = uif(sdata);
+      sdata = fui(temp + rgba[c][qi]);
+      rgba[c][qi] = temp;
       break;
+   }
    default:
       assert(!"Unexpected TGSI opcode in sp_tgsi_op");
       break;
    }
 
-   for (c = 0; c < 4; c++) {
-      if (writemask & (1 << c)) {
-         unsigned temp[4];
-         unsigned char *dptr = data_ptr + (c * 4);
-         temp[0] = sdata[c];
-         format_desc->pack_rgba_uint(dptr, 0, temp, 0, 1, 1);
-      }
+   if (writemask & TGSI_WRITEMASK_X) {
+      memcpy(data_ptr + (c * 4), &sdata, 4);
    }
 }
 

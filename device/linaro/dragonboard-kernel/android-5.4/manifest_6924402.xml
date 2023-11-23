@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='UTF-8'?>
+
+<manifest>
+  <remote fetch="https://android-review.googlesource.com/" name="aosp" review="https://android-review.googlesource.com/" />
+
+  <default remote="aosp" revision="master" />
+
+  <project clone-depth="1" name="platform/prebuilts/clang/host/linux-x86" path="prebuilts-master/clang/host/linux-x86" revision="5db4d4502acfd638c9ba81829ccb74ca1dcee82a" />
+
+  <project name="kernel/common-modules/virtual-device" path="common-modules/virtual-device" revision="13de374ccc0a28695c47f7b17a08405ab09e7b02" />
+
+  <project name="kernel/configs" path="kernel/configs" revision="89ba434b0b7624d6085f22742f01a0d8502e7025" />
+
+  <project name="kernel/common-patches" path="kernel/common-patches" revision="1c59ede157abed7168db1a6161b8b64e0eea2741">
+    <linkfile dest="common/patches" src="android-5.4" />
+</project>
+
+  <project clone-depth="1" name="platform/prebuilts/build-tools" path="prebuilts/build-tools" revision="167903bfd32b60bcff841422710b7cf489c84fec" />
+
+  <project name="kernel/common" path="common" revision="d145279a1d71797906a4c805919408288fdd5259" />
+
+  <project name="kernel/hikey-modules" path="hikey-modules" revision="33d4b7f884500689a297df156b1c0a29e1c525da" />
+
+  <project name="kernel/build" path="build" revision="6eeca0ea35da517952643a3b0c5b2436df4d3230" />
+
+  <project clone-depth="1" name="platform/prebuilts/gas/linux-x86" path="prebuilts/gas/linux-x86" revision="35c247babfe7f20b41a39035f5499496e96ae020" />
+
+  <project name="kernel/tests" path="kernel/tests" revision="9e155c5f1646097bfa3e71017079b1caf1ba57d4" />
+
+  <project name="platform/system/tools/mkbootimg" path="tools/mkbootimg" revision="f59f25d67f55ea6ee879678cfa1bfdd0be5f4019" />
+
+  <project clone-depth="1" name="kernel/prebuilts/build-tools" path="prebuilts/kernel-build-tools" revision="96755e2ffffe500011eecd81b63eeaf2d484338e" />
+
+  <project name="platform/prebuilts/boot-artifacts" path="prebuilts/boot-artifacts" revision="45d30d07ad284018481ebb419b5d01b5de72ed02" />
+</manifest>

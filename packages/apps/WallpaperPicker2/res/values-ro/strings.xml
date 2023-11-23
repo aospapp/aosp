@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"Ecran de pornire"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Ecran de blocare"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"De pornire și de blocare"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Setați imaginea de fundal"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Setați ca imagine de fundal"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Ecran de pornire"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Ecran de blocare"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Ecranul de pornire și ecranul de blocare"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Ecranul de pornire și ecranul de blocare"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Rotirea imaginilor de fundal"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Pentru a afișa aici imaginea de fundal curentă, <xliff:g id="APP_NAME">%1$s</xliff:g> trebuie să poată accesa spațiul de stocare al dispozitivului."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Pentru a afișa imaginea de fundal actuală aici, aplicația Imagini de fundal trebuie să poată accesa spațiul de stocare al dispozitivului.\n\nPentru a schimba această setare, accesați zona Permisiuni din informațiile aplicației Imagini de fundal."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Actualizați imaginea de fundal zilnică"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Se actualizează imaginea de fundal zilnică…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Nu s-a putut actualiza imaginea de fundal zilnică. Verificați conexiunea la rețea și încercați din nou."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Restrângeți panoul de informații al imaginii de fundal"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Extindeți panoul de informații al imaginii de fundal"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Imagini fundal pe dispozitiv"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"Pe dispozitiv"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Imagine de fundal Android"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Decupare în centru"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"Extindeți"</string>
     <string name="preview" msgid="1774602101743861071">"Previzualizați"</string>
+    <string name="tab_info" msgid="818614080690111416">"Informații"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Personalizați"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Setări…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Ștergeți"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Ștergeți această imagine de fundal de pe telefon?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Înapoi"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Editați"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"Descărcați"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Imagine de fundal din slideshow"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Aplicați"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"Pagina <xliff:g id="ID_1">%1$d</xliff:g> din <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Înainte"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Înapoi"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Imagine de fundal"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Previzualizarea imaginii de fundal"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Colecția nu există"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Ascunde previzualizarea IU"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Afișează previzualizarea IU"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Schimbați imaginea de fundal"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Fundal pentru ecranul de blocare"</string>
 </resources>

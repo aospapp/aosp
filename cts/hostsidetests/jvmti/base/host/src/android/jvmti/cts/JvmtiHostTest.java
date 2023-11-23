@@ -77,9 +77,17 @@ public class JvmtiHostTest extends DeviceTestCase implements IBuildReceiver, IAb
         mAbi = arg0;
     }
 
+    // Constant returned to indicate get-current-user failed. See comment at/near
+    // https://cs.android.com/android/_/android/platform/tools/tradefederation/+/android11-release:device_build_interfaces/com/android/tradefed/device/ITestDevice.java;l=780
+    private static final int GET_USER_FAILURE = -10000;
+
+    // Try getting current user and throw an exception immediately if we fail.
     @Override
     protected void setUp() throws Exception {
         mCurrentUser = getDevice().getCurrentUser();
+        if (mCurrentUser == GET_USER_FAILURE) {
+            throw new RuntimeException("am get-current-user failed!");
+        }
     }
 
     public void testJvmti() throws Exception {

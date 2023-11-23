@@ -23,12 +23,14 @@ import android.provider.Settings;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
 import com.android.car.settings.search.CarBaseSearchIndexProvider;
+import com.android.car.ui.toolbar.ToolbarController;
 import com.android.internal.util.CollectionUtils;
 import com.android.settingslib.search.SearchIndexable;
 
@@ -69,7 +71,7 @@ public class MobileNetworkFragment extends SettingsFragment implements
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        mSubscriptionManager = context.getSystemService(SubscriptionManager.class);
+        mSubscriptionManager = getSubscriptionManager(context);
 
         int subId = getArguments() != null
                 ? getArguments().getInt(ARG_NETWORK_SUB_ID, MobileNetworkUpdateManager.SUB_ID_NULL)
@@ -89,11 +91,11 @@ public class MobileNetworkFragment extends SettingsFragment implements
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    protected void setupToolbar(@NonNull ToolbarController toolbar) {
+        super.setupToolbar(toolbar);
 
         if (mTitle != null) {
-            getToolbar().setTitle(mTitle);
+            toolbar.setTitle(mTitle);
         }
     }
 
@@ -117,12 +119,17 @@ public class MobileNetworkFragment extends SettingsFragment implements
 
         if (info != null) {
             // It is possible for this to be called before the activity is fully created. If so,
-            // cache the value so that it can be constructed onActivityCreated.
+            // cache the value so that it can be constructed when setupToolbar is called.
             mTitle = info.getDisplayName();
             if (getToolbar() != null) {
                 getToolbar().setTitle(mTitle);
             }
         }
+    }
+
+    @VisibleForTesting
+    SubscriptionManager getSubscriptionManager(Context context) {
+        return context.getSystemService(SubscriptionManager.class);
     }
 
     public static final CarBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =

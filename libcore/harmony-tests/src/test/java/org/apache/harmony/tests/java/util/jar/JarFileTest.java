@@ -495,7 +495,7 @@ public class JarFileTest extends TestCase {
             JarEntry entry = new JarEntry(entryName3);
             InputStream in = jar.getInputStream(entry);
             // BEGIN Android-added
-            byte[] dummy = getAllBytesFromStream(in);
+            byte[] fake = getAllBytesFromStream(in);
             // END Android-added
             assertNull("found certificates", entry.getCertificates());
         } catch (Exception e) {
@@ -507,7 +507,7 @@ public class JarFileTest extends TestCase {
             entry.setSize(1076);
             InputStream in = jar.getInputStream(entry);
             // BEGIN Android-added
-            byte[] dummy = getAllBytesFromStream(in);
+            byte[] fake = getAllBytesFromStream(in);
             // END Android-added
             fail("SecurityException should be thrown.");
         } catch (SecurityException e) {

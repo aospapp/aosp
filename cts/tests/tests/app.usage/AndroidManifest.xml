@@ -51,6 +51,10 @@
         <activity android:name=".FragmentTestActivity" />
         <activity android:name=".TaskRootActivity" />
         <service android:name=".TestService" />
+        <service android:name=".TestJob"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+        />
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

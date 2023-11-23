@@ -66,23 +66,7 @@ fd3_blend_state_create(struct pipe_context *pctx,
 
 	if (cso->logicop_enable) {
 		rop = cso->logicop_func;  /* maps 1:1 */
-
-		switch (cso->logicop_func) {
-		case PIPE_LOGICOP_NOR:
-		case PIPE_LOGICOP_AND_INVERTED:
-		case PIPE_LOGICOP_AND_REVERSE:
-		case PIPE_LOGICOP_INVERT:
-		case PIPE_LOGICOP_XOR:
-		case PIPE_LOGICOP_NAND:
-		case PIPE_LOGICOP_AND:
-		case PIPE_LOGICOP_EQUIV:
-		case PIPE_LOGICOP_NOOP:
-		case PIPE_LOGICOP_OR_INVERTED:
-		case PIPE_LOGICOP_OR_REVERSE:
-		case PIPE_LOGICOP_OR:
-			reads_dest = true;
-			break;
-		}
+		reads_dest = util_logicop_reads_dest(cso->logicop_func);
 	}
 
 	so = CALLOC_STRUCT(fd3_blend_stateobj);
@@ -98,20 +82,13 @@ fd3_blend_state_create(struct pipe_context *pctx,
 		else
 			rt = &cso->rt[0];
 
-		so->rb_mrt[i].blend_control_rgb =
+		so->rb_mrt[i].blend_control =
 				A3XX_RB_MRT_BLEND_CONTROL_RGB_SRC_FACTOR(fd_blend_factor(rt->rgb_src_factor)) |
 				A3XX_RB_MRT_BLEND_CONTROL_RGB_BLEND_OPCODE(blend_func(rt->rgb_func)) |
-				A3XX_RB_MRT_BLEND_CONTROL_RGB_DEST_FACTOR(fd_blend_factor(rt->rgb_dst_factor));
-
-		so->rb_mrt[i].blend_control_alpha =
+				A3XX_RB_MRT_BLEND_CONTROL_RGB_DEST_FACTOR(fd_blend_factor(rt->rgb_dst_factor)) |
 				A3XX_RB_MRT_BLEND_CONTROL_ALPHA_SRC_FACTOR(fd_blend_factor(rt->alpha_src_factor)) |
 				A3XX_RB_MRT_BLEND_CONTROL_ALPHA_BLEND_OPCODE(blend_func(rt->alpha_func)) |
 				A3XX_RB_MRT_BLEND_CONTROL_ALPHA_DEST_FACTOR(fd_blend_factor(rt->alpha_dst_factor));
-
-		so->rb_mrt[i].blend_control_no_alpha_rgb =
-				A3XX_RB_MRT_BLEND_CONTROL_RGB_SRC_FACTOR(fd_blend_factor(util_blend_dst_alpha_to_one(rt->rgb_src_factor))) |
-				A3XX_RB_MRT_BLEND_CONTROL_RGB_BLEND_OPCODE(blend_func(rt->rgb_func)) |
-				A3XX_RB_MRT_BLEND_CONTROL_RGB_DEST_FACTOR(fd_blend_factor(util_blend_dst_alpha_to_one(rt->rgb_dst_factor)));
 
 		so->rb_mrt[i].control =
 				A3XX_RB_MRT_CONTROL_ROP_CODE(rop) |

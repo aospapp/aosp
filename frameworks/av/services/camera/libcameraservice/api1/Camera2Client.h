@@ -87,6 +87,9 @@ public:
     virtual int32_t         getGlobalAudioRestriction();
     virtual status_t        setRotateAndCropOverride(uint8_t rotateAndCrop);
 
+    virtual bool            supportsCameraMute();
+    virtual status_t        setCameraMute(bool enabled);
+
     /**
      * Interface used by CameraService
      */
@@ -94,13 +97,15 @@ public:
     Camera2Client(const sp<CameraService>& cameraService,
             const sp<hardware::ICameraClient>& cameraClient,
             const String16& clientPackageName,
-            const std::unique_ptr<String16>& clientFeatureId,
+            const std::optional<String16>& clientFeatureId,
             const String8& cameraDeviceId,
             int api1CameraId,
             int cameraFacing,
+            int sensorOrientation,
             int clientPid,
             uid_t clientUid,
-            int servicePid);
+            int servicePid,
+            bool overrideForPerfClass);
 
     virtual ~Camera2Client();
 

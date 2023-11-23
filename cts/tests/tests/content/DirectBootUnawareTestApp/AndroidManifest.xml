@@ -22,5 +22,7 @@
 
     <application
         android:hasCode="false"
-        android:label="Direct Boot Unaware Test App" />
+        android:label="Direct Boot Unaware Test App"
+        android:appCategory="accessibility"
+    />
 </manifest>

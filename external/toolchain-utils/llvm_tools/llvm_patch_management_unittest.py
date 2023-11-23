@@ -4,20 +4,21 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# pylint: disable=protected-access
+
 """Unit tests when creating the arguments for the patch manager."""
 
 from __future__ import print_function
 from collections import namedtuple
-from failure_modes import FailureModes
-
-import get_llvm_hash
-import llvm_patch_management
 import os
-import patch_manager
-import subprocess
 import unittest
 import unittest.mock as mock
 
+from failure_modes import FailureModes
+import get_llvm_hash
+import llvm_patch_management
+import patch_manager
+import subprocess_helpers
 
 
 class LlvmPatchManagementTest(unittest.TestCase):
@@ -43,7 +44,7 @@ class LlvmPatchManagementTest(unittest.TestCase):
   # Simulate the behavior of 'os.path.isdir()' when a valid chroot path is
   # passed in.
   @mock.patch.object(os.path, 'isdir', return_value=True)
-  @mock.patch.object(llvm_patch_management, 'ChrootRunCommand')
+  @mock.patch.object(subprocess_helpers, 'ChrootRunCommand')
   @mock.patch.object(llvm_patch_management, '_GetRelativePathOfChrootPath')
   def testSuccessfullyGetPathToFilesDir(
       self, mock_get_relative_path_of_chroot_path, mock_chroot_cmd, mock_isdir):
@@ -149,7 +150,7 @@ class LlvmPatchManagementTest(unittest.TestCase):
       get_llvm_hash, 'GetGitHashFrom', return_value='a123testhash1')
   # Simulate `CreateTempLLVMRepo()` when successfully created a work tree from
   # the LLVM repo copy in `llvm_tools` directory.
-  @mock.patch.object(llvm_patch_management, 'CreateTempLLVMRepo')
+  @mock.patch.object(get_llvm_hash, 'CreateTempLLVMRepo')
   # Simulate behavior of `_MoveSrcTreeHEADToGitHash()` when successfully moved
   # the head pointer to the git hash of the revision.
   @mock.patch.object(llvm_patch_management, '_MoveSrcTreeHEADToGitHash')
@@ -222,7 +223,7 @@ class LlvmPatchManagementTest(unittest.TestCase):
       get_llvm_hash, 'GetGitHashFrom', return_value='a123testhash1')
   # Simulate `CreateTempLLVMRepo()` when successfully created a work tree from
   # the LLVM repo copy in `llvm_tools` directory.
-  @mock.patch.object(llvm_patch_management, 'CreateTempLLVMRepo')
+  @mock.patch.object(get_llvm_hash, 'CreateTempLLVMRepo')
   # Simulate behavior of `_MoveSrcTreeHEADToGitHash()` when successfully moved
   # the head pointer to the git hash of the revision.
   @mock.patch.object(llvm_patch_management, '_MoveSrcTreeHEADToGitHash')

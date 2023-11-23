@@ -46,6 +46,7 @@ public class ActionModeController extends SelectionObserver<String>
 
     private final Activity mActivity;
     private final SelectionTracker<String> mSelectionMgr;
+    private final NavigationViewManager mNavigator;
     private final MenuManager mMenuManager;
     private final MessageBuilder mMessages;
 
@@ -58,11 +59,13 @@ public class ActionModeController extends SelectionObserver<String>
     public ActionModeController(
             Activity activity,
             SelectionTracker<String> selectionMgr,
+            NavigationViewManager navigator,
             MenuManager menuManager,
             MessageBuilder messages) {
 
         mActivity = activity;
         mSelectionMgr = selectionMgr;
+        mNavigator = navigator;
         mMenuManager = menuManager;
         mMessages = messages;
     }
@@ -132,6 +135,8 @@ public class ActionModeController extends SelectionObserver<String>
         // Re-enable TalkBack for the toolbars, as they are no longer covered by action mode.
         mScope.accessibilityImportanceSetter.setAccessibilityImportance(
                 View.IMPORTANT_FOR_ACCESSIBILITY_AUTO, R.id.toolbar, R.id.roots_toolbar);
+
+        mNavigator.setActionModeActivated(false);
     }
 
     @Override
@@ -141,6 +146,7 @@ public class ActionModeController extends SelectionObserver<String>
         mode.setTitle(mActivity.getResources().getQuantityString(R.plurals.selected_count, size));
 
         if (size > 0) {
+            mNavigator.setActionModeActivated(true);
 
             // Hide the toolbars if action mode is enabled, so TalkBack doesn't navigate to
             // these controls when using linear navigation.

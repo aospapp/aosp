@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <android/system/suspend/ISuspendControlService.h>
+#include <android/system/suspend/internal/ISuspendControlServiceInternal.h>
 #include <binder/IServiceManager.h>
 #include <gtest/gtest.h>
 #include <hardware_legacy/power.h>
@@ -27,8 +27,8 @@
 #include <vector>
 
 using android::sp;
-using android::system::suspend::ISuspendControlService;
-using android::system::suspend::WakeLockInfo;
+using android::system::suspend::internal::ISuspendControlServiceInternal;
+using android::system::suspend::internal::WakeLockInfo;
 using namespace std::chrono_literals;
 
 namespace android {
@@ -94,13 +94,13 @@ class WakeLockTest : public ::testing::Test {
    public:
     virtual void SetUp() override {
         sp<IBinder> control =
-            android::defaultServiceManager()->getService(android::String16("suspend_control"));
-        ASSERT_NE(control, nullptr) << "failed to get the suspend control service";
-        controlService = interface_cast<ISuspendControlService>(control);
+            android::defaultServiceManager()->getService(android::String16("suspend_control_internal"));
+        ASSERT_NE(control, nullptr) << "failed to get the internal suspend control service";
+        controlService = interface_cast<ISuspendControlServiceInternal>(control);
     }
 
     // Returns true iff found.
-    bool findWakeLockInfoByName(const sp<ISuspendControlService>& service, const std::string& name,
+    bool findWakeLockInfoByName(const sp<ISuspendControlServiceInternal>& service, const std::string& name,
                                 WakeLockInfo* info) {
         std::vector<WakeLockInfo> wlStats;
         service->getWakeLockStats(&wlStats);
@@ -114,14 +114,17 @@ class WakeLockTest : public ::testing::Test {
     }
 
     // All userspace wake locks are registered with system suspend.
-    sp<ISuspendControlService> controlService;
+    sp<ISuspendControlServiceInternal> controlService;
 };
 
 // Test RAII properties of WakeLock destructor.
 TEST_F(WakeLockTest, WakeLockDestructor) {
     auto name = std::to_string(rand());
     {
-        android::wakelock::WakeLock wl{name};
+        auto wl = android::wakelock::WakeLock::tryGet(name);
+        if (!wl.has_value()) {
+            return;
+        }
 
         WakeLockInfo info;
         auto success = findWakeLockInfoByName(controlService, name, &info);

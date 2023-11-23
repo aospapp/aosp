@@ -32,8 +32,7 @@ class EcdsaKeymaster1WrappedOperation {
     EcdsaKeymaster1WrappedOperation(keymaster_purpose_t purpose, const Keymaster1Engine* engine)
         : purpose_(purpose), operation_handle_(0), engine_(engine) {}
     ~EcdsaKeymaster1WrappedOperation() {
-        if (operation_handle_)
-            Abort();
+        if (operation_handle_) Abort();
     }
 
     keymaster_error_t Begin(EVP_PKEY* ecdsa_key, const AuthorizationSet& input_params);
@@ -43,6 +42,7 @@ class EcdsaKeymaster1WrappedOperation {
     keymaster_error_t GetError(EVP_PKEY* ecdsa_key);
 
     keymaster_operation_handle_t GetOperationHandle() const { return operation_handle_; }
+
   protected:
     keymaster_purpose_t purpose_;
     keymaster_operation_handle_t operation_handle_;
@@ -66,8 +66,7 @@ template <typename BaseOperation> class EcdsaKeymaster1Operation : public BaseOp
     keymaster_error_t Begin(const AuthorizationSet& input_params,
                             AuthorizationSet* output_params) override {
         keymaster_error_t error = wrapped_operation_.Begin(super::ecdsa_key_, input_params);
-        if (error != KM_ERROR_OK)
-            return error;
+        if (error != KM_ERROR_OK) return error;
         return super::Begin(input_params, output_params);
     }
 
@@ -75,8 +74,7 @@ template <typename BaseOperation> class EcdsaKeymaster1Operation : public BaseOp
                              const Buffer& signature, AuthorizationSet* output_params,
                              Buffer* output) override {
         keymaster_error_t error = wrapped_operation_.PrepareFinish(super::ecdsa_key_, input_params);
-        if (error != KM_ERROR_OK)
-            return error;
+        if (error != KM_ERROR_OK) return error;
         error = super::Finish(input_params, input, signature, output_params, output);
         if (wrapped_operation_.GetError(super::ecdsa_key_) != KM_ERROR_OK)
             error = wrapped_operation_.GetError(super::ecdsa_key_);
@@ -85,14 +83,14 @@ template <typename BaseOperation> class EcdsaKeymaster1Operation : public BaseOp
 
     keymaster_error_t Abort() override {
         keymaster_error_t error = wrapped_operation_.Abort();
-        if (error != KM_ERROR_OK)
-            return error;
+        if (error != KM_ERROR_OK) return error;
         return super::Abort();
     }
 
     keymaster_operation_handle_t operation_handle() const override {
         return wrapped_operation_.GetOperationHandle();
     }
+
   private:
     EcdsaKeymaster1WrappedOperation wrapped_operation_;
 };

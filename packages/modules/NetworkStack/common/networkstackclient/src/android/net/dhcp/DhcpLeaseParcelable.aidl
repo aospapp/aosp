@@ -16,6 +16,7 @@
 
 package android.net.dhcp;
 
+@JavaDerive(toString=true)
 parcelable DhcpLeaseParcelable {
     // Client ID of the lease; may be null.
     byte[] clientId;

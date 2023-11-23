@@ -67,6 +67,7 @@ public class SpinnerTest {
     private Activity mActivity;
     private Spinner mSpinnerDialogMode;
     private Spinner mSpinnerDropdownMode;
+    private static final int SPINNER_HAS_FOCUS_DELAY_MS = 500;
 
     @Rule
     public ActivityTestRule<SpinnerCtsActivity> mActivityRule =
@@ -402,7 +403,7 @@ public class SpinnerTest {
         TestUtils.assertAllPixelsOfColor("Drop down should be blue", dropDownBackground,
                 dropDownBackground.getBounds().width(), dropDownBackground.getBounds().height(),
                 false, Color.BLUE, 1, true);
-
+        waitForHasFocusMS(SPINNER_HAS_FOCUS_DELAY_MS);
         // Dismiss the popup with the emulated back key
         mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
         // Verify that we're not showing the popup
@@ -460,5 +461,14 @@ public class SpinnerTest {
         PollingCheck.waitFor(() -> mSpinnerDialogMode.isPopupShowing());
         // And test that getPopupBackground returns null
         assertNull(mSpinnerDialogMode.getPopupBackground());
+    }
+
+    private void waitForHasFocusMS(int milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException e) {
+            fail("unexpected InterruptedException : "+ e);
+        }
+
     }
 }

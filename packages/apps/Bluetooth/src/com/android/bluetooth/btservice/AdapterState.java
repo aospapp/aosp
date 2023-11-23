@@ -17,9 +17,13 @@
 package com.android.bluetooth.btservice;
 
 import android.bluetooth.BluetoothAdapter;
+import android.content.ComponentName;
+import android.content.pm.PackageManager;
 import android.os.Message;
 import android.util.Log;
 
+import com.android.bluetooth.R;
+import com.android.bluetooth.telephony.BluetoothInCallService;
 import com.android.bluetooth.statemachine.State;
 import com.android.bluetooth.statemachine.StateMachine;
 
@@ -74,6 +78,10 @@ final class AdapterState extends StateMachine {
     static final int BLE_STOP_TIMEOUT_DELAY = 1000;
     static final int BREDR_START_TIMEOUT_DELAY = 4000;
     static final int BREDR_STOP_TIMEOUT_DELAY = 4000;
+
+    static final ComponentName BLUETOOTH_INCALLSERVICE_COMPONENT
+            = new ComponentName(R.class.getPackage().getName(),
+            BluetoothInCallService.class.getCanonicalName());
 
     private AdapterService mAdapterService;
     private TurningOnState mTurningOnState = new TurningOnState();
@@ -220,6 +228,24 @@ final class AdapterState extends StateMachine {
         @Override
         int getStateValue() {
             return BluetoothAdapter.STATE_ON;
+        }
+
+        @Override
+        public void enter() {
+            super.enter();
+            mAdapterService.getPackageManager().setComponentEnabledSetting(
+                    BLUETOOTH_INCALLSERVICE_COMPONENT,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP);
+        }
+
+        @Override
+        public void exit() {
+            mAdapterService.getPackageManager().setComponentEnabledSetting(
+                    BLUETOOTH_INCALLSERVICE_COMPONENT,
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP);
+            super.exit();
         }
 
         @Override

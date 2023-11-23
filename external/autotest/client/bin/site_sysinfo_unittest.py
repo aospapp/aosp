@@ -2,9 +2,14 @@
 
 """Tests for site_sysinfo."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+
 __author__ = 'dshi@google.com (Dan Shi)'
 
-import cPickle as pickle
+import six.moves.cPickle as pickle
 import filecmp
 import os
 import random
@@ -15,6 +20,8 @@ import unittest
 import common
 from autotest_lib.client.bin import site_sysinfo
 from autotest_lib.client.common_lib import autotemp
+from six.moves import range
+from six.moves import zip
 
 
 class diffable_logdir_test(unittest.TestCase):

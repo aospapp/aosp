@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit;
 public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
     private static final String TAG = "CancelFromNotificationUiTest";
 
-    private static final String TARGET_FILE = "dummy.data";
+    private static final String TARGET_FILE = "stub.data";
 
     private static final int BUFFER_SIZE = 10 * 1024 * 1024;
 
@@ -127,20 +127,20 @@ public class CancelFromNotificationUiTest extends ActivityTest<FilesActivity> {
     @Override
     public void initTestFiles() throws RemoteException {
         try {
-            createDummyFile();
+            createStubFile();
         } catch (Exception e) {
             fail("Initialization failed. " + e.toString());
         }
     }
 
-    private void createDummyFile() throws Exception {
+    private void createStubFile() throws Exception {
         Uri uri = mDocsHelper.createDocument(rootDir0, "*/*", TARGET_FILE);
-        byte[] dummyByte = new byte[BUFFER_SIZE];
-        mDocsHelper.writeDocument(uri, dummyByte);
+        byte[] stubByte = new byte[BUFFER_SIZE];
+        mDocsHelper.writeDocument(uri, stubByte);
         for (int i = 0; i < 49; i++) {
-            dummyByte = null;
-            dummyByte = new byte[BUFFER_SIZE];
-            mDocsHelper.writeAppendDocument(uri, dummyByte, dummyByte.length);
+            stubByte = null;
+            stubByte = new byte[BUFFER_SIZE];
+            mDocsHelper.writeAppendDocument(uri, stubByte, stubByte.length);
         }
     }
 

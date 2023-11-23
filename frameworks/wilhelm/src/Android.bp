@@ -1,3 +1,13 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_wilhelm_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-MIT
+    default_applicable_licenses: ["frameworks_wilhelm_license"],
+}
+
 cc_library_static {
     name: "libOpenSLESUT",
 
@@ -7,7 +17,10 @@ cc_library_static {
         "ut/slesutResult.c",
     ],
 
-    header_libs: ["libOpenSLES_headers"],
+    header_libs: [
+        "jni_headers",
+        "libOpenSLES_headers",
+    ],
     export_header_lib_headers: ["libOpenSLES_headers"],
     export_include_dirs: ["ut"],
 
@@ -195,12 +208,14 @@ cc_library_shared {
     ],
 
     header_libs: [
+        "jni_headers",
         "libmediametrics_headers",
         "libOpenSLES_headers",
         "media_plugin_headers",
     ],
 
     export_header_lib_headers: [
+        "jni_headers",
         "libOpenSLES_headers",
         "media_plugin_headers",
     ],
@@ -212,11 +227,13 @@ cc_library_shared {
     ],
 
     shared_libs: [
+        "framework-permission-aidl-cpp",
         "liblog",
         "libutils",
         "libmedia",
         "libmedia_codeclist",
         "libaudioclient",
+        "libaudioclient_aidl_conversion",
         "libaudiofoundation",
         "libaudiomanager",
         "libbinder",

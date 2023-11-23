@@ -14,10 +14,9 @@ import time
 import unittest
 from unittest import mock
 
-from device_setup_utils import DutWrapper
-
 from cros_utils import command_executer
 from cros_utils import logger
+from cros_utils.device_setup_utils import DutWrapper
 
 BIG_LITTLE_CPUINFO = """processor       : 0
 model name      : ARMv8 Processor rev 4 (v8l)

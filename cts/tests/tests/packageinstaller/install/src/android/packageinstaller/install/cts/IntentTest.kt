@@ -49,6 +49,8 @@ class IntentTest : PackageInstallerTestBase() {
      */
     @Test
     fun confirmInstallation() {
+        assumeNotWatch()
+
         val installation = startInstallationViaIntent()
         clickInstallerUIButton(INSTALL_BUTTON_ID)
 
@@ -63,6 +65,8 @@ class IntentTest : PackageInstallerTestBase() {
      */
     @Test
     fun cancelInstallation() {
+        assumeNotWatch()
+
         val installation = startInstallationViaIntent()
         clickInstallerUIButton(CANCEL_BUTTON_ID)
 
@@ -76,6 +80,8 @@ class IntentTest : PackageInstallerTestBase() {
      */
     @Test
     fun reinstallViaPackageUri() {
+        assumeNotWatch()
+
         // Regular install
         confirmInstallation()
 

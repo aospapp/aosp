@@ -13,13 +13,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_library {
     name: "android.hardware.tests.msgq@1.0-impl",
     defaults: ["hidl_defaults"],
     relative_install_path: "hw",
     srcs: [
         "TestMsgQ.cpp",
-        "BenchmarkMsgQ.cpp"
+        "BenchmarkMsgQ.cpp",
     ],
     shared_libs: [
         "libbase",
@@ -34,7 +43,7 @@ cc_library {
     // libs should be used on device.
     static_libs: [
         "android.hardware.tests.msgq@1.0",
-    ]
+    ],
 }
 
 cc_test {
@@ -49,7 +58,7 @@ cc_test {
         "libhidlbase",
         "liblog",
         "libutils",
-        "android.hardware.tests.msgq@1.0"
+        "android.hardware.tests.msgq@1.0",
     ],
     test_suites: ["general-tests"],
 }
@@ -67,14 +76,37 @@ cc_test {
         "libhidlbase",
         "liblog",
         "libutils",
+        "libbinder_ndk",
     ],
+
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+    test_suites: [
+        "general-tests",
+        "vts",
+    ],
+    auto_gen_config: false,
 
     // Allow dlsym'ing self for statically linked passthrough implementations
     ldflags: ["-rdynamic"],
 
     // These are static libs only for testing purposes and portability. Shared
     // libs should be used on device.
-    static_libs: ["android.hardware.tests.msgq@1.0"],
-    whole_static_libs: ["android.hardware.tests.msgq@1.0-impl"],
-    test_suites: ["general-tests"],
+    static_libs: [
+        "android.hardware.common-V2-ndk_platform",
+        "android.hardware.common.fmq-V1-ndk_platform",
+        "android.hardware.tests.msgq@1.0",
+        "android.fmq.test-ndk_platform",
+    ],
+    whole_static_libs: [
+        "android.hardware.tests.msgq@1.0-impl",
+        "android.fmq.test-impl",
+    ],
 }

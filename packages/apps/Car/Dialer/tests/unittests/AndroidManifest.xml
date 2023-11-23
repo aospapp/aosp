@@ -17,14 +17,15 @@
 
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.car.dialer">
+    package="com.android.car.dialer.unittests">
+    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="29" />
 
-    <application android:testOnly="true"
+    <application android:testOnly="false"
                  android:debuggable="true">
         <uses-library android:name="android.test.runner" />
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.car.dialer.tests.unittests"
+                     android:targetPackage="com.android.car.dialer"
                      android:label="Car Dialer Unit Tests" />
 </manifest>

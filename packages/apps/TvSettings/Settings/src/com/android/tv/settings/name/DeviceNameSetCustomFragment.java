@@ -26,7 +26,8 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 import androidx.leanback.widget.GuidedActionsStylist;
@@ -40,7 +41,7 @@ import java.util.List;
 /**
  * Fragment responsible for adding new device name.
  */
-public class DeviceNameSetCustomFragment extends GuidedStepFragment {
+public class DeviceNameSetCustomFragment extends GuidedStepSupportFragment {
 
     private GuidedAction mEditAction;
 
@@ -55,7 +56,12 @@ public class DeviceNameSetCustomFragment extends GuidedStepFragment {
 
     @Override
     public GuidedActionsStylist onCreateActionsStylist() {
-        return GuidedActionsAlignUtil.createNoBackgroundGuidedActionsStylist();
+        return new GuidedActionsStylist() {
+            @Override
+            public int onProvideItemLayoutId() {
+                return R.layout.guided_step_input_action;
+            }
+        };
     }
 
     @Override
@@ -112,17 +118,23 @@ public class DeviceNameSetCustomFragment extends GuidedStepFragment {
             getActivity().finish();
             return super.onGuidedActionEditedAndProceed(action);
         } else {
-            popBackStackToGuidedStepFragment(
+            popBackStackToGuidedStepSupportFragment(
                     DeviceNameSetCustomFragment.class, FragmentManager.POP_BACK_STACK_INCLUSIVE);
             return GuidedAction.ACTION_ID_CANCEL;
         }
     }
 
     @Override
+    protected void onAddSharedElementTransition(
+            FragmentTransaction ft, GuidedStepSupportFragment disappearing) {
+        // no-op
+    }
+
+    @Override
     public void onGuidedActionEditCanceled(GuidedAction action) {
         // We need to "pop to" current fragment with INCLUSIVE flag instead of popping to previous
         // fragment because DeviceNameSetFragment was set to be root and not added on backstack.
-        popBackStackToGuidedStepFragment(
+        popBackStackToGuidedStepSupportFragment(
                 DeviceNameSetCustomFragment.class, FragmentManager.POP_BACK_STACK_INCLUSIVE);
     }
 }

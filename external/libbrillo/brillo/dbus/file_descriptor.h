@@ -5,6 +5,8 @@
 #ifndef LIBBRILLO_BRILLO_DBUS_FILE_DESCRIPTOR_H_
 #define LIBBRILLO_BRILLO_DBUS_FILE_DESCRIPTOR_H_
 
+#include <utility>
+
 #include <base/files/scoped_file.h>
 #include <base/macros.h>
 

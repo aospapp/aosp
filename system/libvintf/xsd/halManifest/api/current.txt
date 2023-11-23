@@ -8,12 +8,14 @@ package hal.manifest {
     method public String getName();
     method public String getOverride();
     method public hal.manifest.Hal.Transport getTransport();
+    method public String getUpdatableViaApex();
     method public java.util.List<java.lang.String> getVersion();
     method public java.util.List<hal.manifest.Interface> get_interface();
     method public void setFormat(String);
     method public void setName(String);
     method public void setOverride(String);
     method public void setTransport(hal.manifest.Hal.Transport);
+    method public void setUpdatableViaApex(String);
   }
 
   public static class Hal.Transport {

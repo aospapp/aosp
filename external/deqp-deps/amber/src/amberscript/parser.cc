@@ -14,6 +14,7 @@
 
 #include "src/amberscript/parser.h"
 
+#include <algorithm>
 #include <cassert>
 #include <limits>
 #include <map>
@@ -21,7 +22,9 @@
 #include <utility>
 #include <vector>
 
+#include "src/image.h"
 #include "src/make_unique.h"
+#include "src/sampler.h"
 #include "src/shader_data.h"
 #include "src/tokenizer.h"
 #include "src/type_parser.h"
@@ -51,30 +54,41 @@ ProbeSSBOCommand::Comparator ToComparator(const std::string& in) {
   return ProbeSSBOCommand::Comparator::kLessOrEqual;
 }
 
-std::unique_ptr<type::Type> ToType(const std::string& str) {
-  TypeParser parser;
-  if (str == "int8")
-    return parser.Parse("R8_SINT");
-  if (str == "int16")
-    return parser.Parse("R16_SINT");
-  if (str == "int32")
-    return parser.Parse("R32_SINT");
-  if (str == "int64")
-    return parser.Parse("R64_SINT");
-  if (str == "uint8")
-    return parser.Parse("R8_UINT");
-  if (str == "uint16")
-    return parser.Parse("R16_UINT");
-  if (str == "uint32")
-    return parser.Parse("R32_UINT");
-  if (str == "uint64")
-    return parser.Parse("R64_UINT");
-  if (str == "float")
-    return parser.Parse("R32_SFLOAT");
-  if (str == "double")
-    return parser.Parse("R64_SFLOAT");
+std::unique_ptr<type::Type> ToType(const std::string& str_in) {
+  std::string str = str_in;
 
-  if (str.length() > 7 && str.substr(0, 3) == "vec") {
+  bool is_array = false;
+  if (str.length() > 2 && str[str.length() - 2] == '[' &&
+      str[str.length() - 1] == ']') {
+    is_array = true;
+    str = str.substr(0, str.length() - 2);
+  }
+
+  TypeParser parser;
+  std::unique_ptr<type::Type> type;
+  if (str == "int8") {
+    type = parser.Parse("R8_SINT");
+  } else if (str == "int16") {
+    type = parser.Parse("R16_SINT");
+  } else if (str == "int32") {
+    type = parser.Parse("R32_SINT");
+  } else if (str == "int64") {
+    type = parser.Parse("R64_SINT");
+  } else if (str == "uint8") {
+    type = parser.Parse("R8_UINT");
+  } else if (str == "uint16") {
+    type = parser.Parse("R16_UINT");
+  } else if (str == "uint32") {
+    type = parser.Parse("R32_UINT");
+  } else if (str == "uint64") {
+    type = parser.Parse("R64_UINT");
+  } else if (str == "float16") {
+    type = parser.Parse("R16_SFLOAT");
+  } else if (str == "float") {
+    type = parser.Parse("R32_SFLOAT");
+  } else if (str == "double") {
+    type = parser.Parse("R64_SFLOAT");
+  } else if (str.length() > 7 && str.substr(0, 3) == "vec") {
     if (str[4] != '<' || str[str.length() - 1] != '>')
       return nullptr;
 
@@ -82,7 +96,7 @@ std::unique_ptr<type::Type> ToType(const std::string& str) {
     if (component_count < 2 || component_count > 4)
       return nullptr;
 
-    auto type = ToType(str.substr(5, str.length() - 6));
+    type = ToType(str.substr(5, str.length() - 6));
     if (!type)
       return nullptr;
 
@@ -92,10 +106,7 @@ std::unique_ptr<type::Type> ToType(const std::string& str) {
     }
 
     type->SetRowCount(static_cast<uint32_t>(component_count));
-    return type;
-  }
-
-  if (str.length() > 9 && str.substr(0, 3) == "mat") {
+  } else if (str.length() > 9 && str.substr(0, 3) == "mat") {
     if (str[4] != 'x' || str[6] != '<' || str[str.length() - 1] != '>')
       return nullptr;
 
@@ -107,7 +118,7 @@ std::unique_ptr<type::Type> ToType(const std::string& str) {
     if (row_count < 2 || row_count > 4)
       return nullptr;
 
-    auto type = ToType(str.substr(7, str.length() - 8));
+    type = ToType(str.substr(7, str.length() - 8));
     if (!type)
       return nullptr;
     if (!type->IsNumber() || type->IsArray() || type->IsVec() ||
@@ -117,14 +128,153 @@ std::unique_ptr<type::Type> ToType(const std::string& str) {
 
     type->SetRowCount(static_cast<uint32_t>(row_count));
     type->SetColumnCount(static_cast<uint32_t>(column_count));
-    return type;
   }
-  return nullptr;
+
+  if (!type)
+    return nullptr;
+  if (is_array)
+    type->SetIsRuntimeArray();
+
+  return type;
+}
+
+AddressMode StrToAddressMode(std::string str) {
+  if (str == "repeat")
+    return AddressMode::kRepeat;
+  if (str == "mirrored_repeat")
+    return AddressMode::kMirroredRepeat;
+  if (str == "clamp_to_edge")
+    return AddressMode::kClampToEdge;
+  if (str == "clamp_to_border")
+    return AddressMode::kClampToBorder;
+  if (str == "mirror_clamp_to_edge")
+    return AddressMode::kMirrorClampToEdge;
+
+  return AddressMode::kUnknown;
+}
+
+CompareOp StrToCompareOp(const std::string& str) {
+  if (str == "never")
+    return CompareOp::kNever;
+  if (str == "less")
+    return CompareOp::kLess;
+  if (str == "equal")
+    return CompareOp::kEqual;
+  if (str == "less_or_equal")
+    return CompareOp::kLessOrEqual;
+  if (str == "greater")
+    return CompareOp::kGreater;
+  if (str == "not_equal")
+    return CompareOp::kNotEqual;
+  if (str == "greater_or_equal")
+    return CompareOp::kGreaterOrEqual;
+  if (str == "always")
+    return CompareOp::kAlways;
+
+  return CompareOp::kUnknown;
+}
+
+StencilOp StrToStencilOp(const std::string& str) {
+  if (str == "keep")
+    return StencilOp::kKeep;
+  if (str == "zero")
+    return StencilOp::kZero;
+  if (str == "replace")
+    return StencilOp::kReplace;
+  if (str == "increment_and_clamp")
+    return StencilOp::kIncrementAndClamp;
+  if (str == "decrement_and_clamp")
+    return StencilOp::kDecrementAndClamp;
+  if (str == "invert")
+    return StencilOp::kInvert;
+  if (str == "increment_and_wrap")
+    return StencilOp::kIncrementAndWrap;
+  if (str == "decrement_and_wrap")
+    return StencilOp::kDecrementAndWrap;
+
+  return StencilOp::kUnknown;
+}
+
+Result ParseBufferData(Buffer* buffer,
+                       Tokenizer* tokenizer,
+                       bool from_data_file) {
+  auto fmt = buffer->GetFormat();
+  const auto& segs = fmt->GetSegments();
+  size_t seg_idx = 0;
+  uint32_t value_count = 0;
+
+  std::vector<Value> values;
+  for (auto token = tokenizer->NextToken();; token = tokenizer->NextToken()) {
+    if (token->IsEOL())
+      continue;
+    if (token->IsEOS()) {
+      if (from_data_file) {
+        break;
+      } else {
+        return Result("missing BUFFER END command");
+      }
+    }
+    if (token->IsIdentifier() && token->AsString() == "END")
+      break;
+    if (!token->IsInteger() && !token->IsDouble() && !token->IsHex())
+      return Result("invalid BUFFER data value: " + token->ToOriginalString());
+
+    while (segs[seg_idx].IsPadding()) {
+      ++seg_idx;
+      if (seg_idx >= segs.size())
+        seg_idx = 0;
+    }
+
+    Value v;
+    if (type::Type::IsFloat(segs[seg_idx].GetFormatMode())) {
+      token->ConvertToDouble();
+
+      double val = token->IsHex() ? static_cast<double>(token->AsHex())
+                                  : token->AsDouble();
+      v.SetDoubleValue(val);
+      ++value_count;
+    } else {
+      if (token->IsDouble()) {
+        return Result("invalid BUFFER data value: " +
+                      token->ToOriginalString());
+      }
+
+      uint64_t val = token->IsHex() ? token->AsHex() : token->AsUint64();
+      v.SetIntValue(val);
+      ++value_count;
+    }
+    ++seg_idx;
+    if (seg_idx >= segs.size())
+      seg_idx = 0;
+
+    values.emplace_back(v);
+  }
+  // Write final padding bytes
+  while (segs[seg_idx].IsPadding()) {
+    ++seg_idx;
+    if (seg_idx >= segs.size())
+      break;
+  }
+
+  buffer->SetValueCount(value_count);
+  Result r = buffer->SetData(std::move(values));
+  if (!r.IsSuccess())
+    return r;
+
+  return {};
+}
+
+constexpr uint32_t valid_samples[] = {1, 2, 4, 8, 16, 32, 64};
+
+bool IsValidSampleCount(uint32_t samples) {
+  return (std::find(std::begin(valid_samples), std::end(valid_samples),
+                    samples) != std::end(valid_samples));
 }
 
 }  // namespace
 
-Parser::Parser() : amber::Parser() {}
+Parser::Parser() : amber::Parser(nullptr) {}
+Parser::Parser(Delegate* delegate) : amber::Parser(delegate) {}
 
 Parser::~Parser() = default;
 
@@ -139,8 +289,8 @@ Result Parser::Parse(const std::string& data) {
        token = tokenizer_->NextToken()) {
     if (token->IsEOL())
       continue;
-    if (!token->IsString())
-      return Result(make_error("expected string"));
+    if (!token->IsIdentifier())
+      return Result(make_error("expected identifier"));
 
     Result r;
     std::string tok = token->AsString();
@@ -154,6 +304,8 @@ Result Parser::Parse(const std::string& data) {
       r = ParseDeviceFeature();
     } else if (tok == "DEVICE_EXTENSION") {
       r = ParseDeviceExtension();
+    } else if (tok == "IMAGE") {
+      r = ParseImage();
     } else if (tok == "INSTANCE_EXTENSION") {
       r = ParseInstanceExtension();
     } else if (tok == "PIPELINE") {
@@ -166,6 +318,10 @@ Result Parser::Parse(const std::string& data) {
       r = ParseShaderBlock();
     } else if (tok == "STRUCT") {
       r = ParseStruct();
+    } else if (tok == "SAMPLER") {
+      r = ParseSampler();
+    } else if (tok == "VIRTUAL_FILE") {
+      r = ParseVirtualFile();
     } else {
       r = Result("unknown token: " + tok);
     }
@@ -189,7 +345,7 @@ Result Parser::Parse(const std::string& data) {
         if (!r.IsSuccess())
           return r;
       }
-      Result r = pipeline->AddColorAttachment(buf, 0);
+      Result r = pipeline->AddColorAttachment(buf, 0, 0);
       if (!r.IsSuccess())
         return r;
     }
@@ -207,8 +363,9 @@ Result Parser::Parse(const std::string& data) {
 }
 
 bool Parser::IsRepeatable(const std::string& name) const {
-  return name == "CLEAR" || name == "CLEAR_COLOR" || name == "COPY" ||
-         name == "EXPECT" || name == "RUN";
+  return name == "CLEAR" || name == "CLEAR_COLOR" || name == "CLEAR_DEPTH" ||
+         name == "CLEAR_STENCIL" || name == "COPY" || name == "EXPECT" ||
+         name == "RUN" || name == "DEBUG";
 }
 
 // The given |name| must be one of the repeatable commands or this method
@@ -218,12 +375,18 @@ Result Parser::ParseRepeatableCommand(const std::string& name) {
     return ParseClear();
   if (name == "CLEAR_COLOR")
     return ParseClearColor();
+  if (name == "CLEAR_DEPTH")
+    return ParseClearDepth();
+  if (name == "CLEAR_STENCIL")
+    return ParseClearStencil();
   if (name == "COPY")
     return ParseCopy();
   if (name == "EXPECT")
     return ParseExpect();
   if (name == "RUN")
     return ParseRun();
+  if (name == "DEBUG")
+    return ParseDebug();
 
   return Result("invalid repeatable command: " + name);
 }
@@ -284,12 +447,13 @@ Result Parser::ValidateEndOfStatement(const std::string& name) {
   auto token = tokenizer_->NextToken();
   if (token->IsEOL() || token->IsEOS())
     return {};
-  return Result("extra parameters after " + name);
+  return Result("extra parameters after " + name + ": " +
+                token->ToOriginalString());
 }
 
 Result Parser::ParseShaderBlock() {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid token when looking for shader type");
 
   ShaderType type = kShaderTypeVertex;
@@ -300,13 +464,13 @@ Result Parser::ParseShaderBlock() {
   auto shader = MakeUnique<Shader>(type);
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid token when looking for shader name");
 
   shader->SetName(token->AsString());
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid token when looking for shader format");
 
   std::string fmt = token->AsString();
@@ -318,6 +482,7 @@ Result Parser::ParseShaderBlock() {
     }
     shader->SetFormat(kShaderFormatSpirvAsm);
     shader->SetData(kPassThroughShader);
+    shader->SetTargetEnv("spv1.0");
 
     r = script_->AddShader(std::move(shader));
     if (!r.IsSuccess())
@@ -333,6 +498,40 @@ Result Parser::ParseShaderBlock() {
 
   shader->SetFormat(format);
 
+  token = tokenizer_->PeekNextToken();
+  if (token->IsIdentifier() && token->AsString() == "TARGET_ENV") {
+    tokenizer_->NextToken();
+    token = tokenizer_->NextToken();
+    if (!token->IsIdentifier() && !token->IsString())
+      return Result("expected target environment after TARGET_ENV");
+    shader->SetTargetEnv(token->AsString());
+  }
+
+  token = tokenizer_->PeekNextToken();
+  if (token->IsIdentifier() && token->AsString() == "VIRTUAL_FILE") {
+    tokenizer_->NextToken();  // Skip VIRTUAL_FILE
+
+    token = tokenizer_->NextToken();
+    if (!token->IsIdentifier() && !token->IsString())
+      return Result("expected virtual file path after VIRTUAL_FILE");
+
+    auto path = token->AsString();
+
+    std::string data;
+    r = script_->GetVirtualFile(path, &data);
+    if (!r.IsSuccess())
+      return r;
+
+    shader->SetData(data);
+    shader->SetFilePath(path);
+
+    r = script_->AddShader(std::move(shader));
+    if (!r.IsSuccess())
+      return r;
+
+    return ValidateEndOfStatement("SHADER command");
+  }
+
   r = ValidateEndOfStatement("SHADER command");
   if (!r.IsSuccess())
     return r;
@@ -343,8 +542,12 @@ Result Parser::ParseShaderBlock() {
 
   shader->SetData(data);
 
+  auto path = "embedded-shaders/" + shader->GetName();
+  script_->AddVirtualFile(path, data);
+  shader->SetFilePath(path);
+
   token = tokenizer_->NextToken();
-  if (!token->IsString() || token->AsString() != "END")
+  if (!token->IsIdentifier() || token->AsString() != "END")
     return Result("SHADER missing END command");
 
   r = script_->AddShader(std::move(shader));
@@ -356,7 +559,7 @@ Result Parser::ParseShaderBlock() {
 
 Result Parser::ParsePipelineBlock() {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid token when looking for pipeline type");
 
   PipelineType type = PipelineType::kCompute;
@@ -367,7 +570,7 @@ Result Parser::ParsePipelineBlock() {
   auto pipeline = MakeUnique<Pipeline>(type);
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid token when looking for pipeline name");
 
   pipeline->SetName(token->AsString());
@@ -386,8 +589,8 @@ Result Parser::ParsePipelineBody(const std::string& cmd_name,
        token = tokenizer_->NextToken()) {
     if (token->IsEOL())
       continue;
-    if (!token->IsString())
-      return Result("expected string");
+    if (!token->IsIdentifier())
+      return Result("expected identifier");
 
     Result r;
     std::string tok = token->AsString();
@@ -409,6 +612,14 @@ Result Parser::ParsePipelineBody(const std::string& cmd_name,
       r = ParsePipelineSet(pipeline.get());
     } else if (tok == "COMPILE_OPTIONS") {
       r = ParsePipelineShaderCompileOptions(pipeline.get());
+    } else if (tok == "POLYGON_MODE") {
+      r = ParsePipelinePolygonMode(pipeline.get());
+    } else if (tok == "DEPTH") {
+      r = ParsePipelineDepth(pipeline.get());
+    } else if (tok == "STENCIL") {
+      r = ParsePipelineStencil(pipeline.get());
+    } else if (tok == "SUBGROUP") {
+      r = ParsePipelineSubgroup(pipeline.get());
     } else {
       r = Result("unknown token in pipeline block: " + tok);
     }
@@ -416,7 +627,7 @@ Result Parser::ParsePipelineBody(const std::string& cmd_name,
       return r;
   }
 
-  if (!token->IsString() || token->AsString() != "END")
+  if (!token->IsIdentifier() || token->AsString() != "END")
     return Result(cmd_name + " missing END command");
 
   Result r = script_->AddPipeline(std::move(pipeline));
@@ -428,7 +639,7 @@ Result Parser::ParsePipelineBody(const std::string& cmd_name,
 
 Result Parser::ParsePipelineAttach(Pipeline* pipeline) {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid token in ATTACH command");
 
   auto* shader = script_->GetShader(token->AsString());
@@ -445,7 +656,7 @@ Result Parser::ParsePipelineAttach(Pipeline* pipeline) {
       return r;
     return {};
   }
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid token after ATTACH");
 
   bool set_shader_type = false;
@@ -453,7 +664,7 @@ Result Parser::ParsePipelineAttach(Pipeline* pipeline) {
   auto type = token->AsString();
   if (type == "TYPE") {
     token = tokenizer_->NextToken();
-    if (!token->IsString())
+    if (!token->IsIdentifier())
       return Result("invalid type in ATTACH");
 
     Result r = ToShaderType(token->AsString(), &shader_type);
@@ -463,7 +674,7 @@ Result Parser::ParsePipelineAttach(Pipeline* pipeline) {
     set_shader_type = true;
 
     token = tokenizer_->NextToken();
-    if (!token->IsString())
+    if (!token->IsIdentifier())
       return Result("ATTACH TYPE requires an ENTRY_POINT");
 
     type = token->AsString();
@@ -480,7 +691,7 @@ Result Parser::ParsePipelineAttach(Pipeline* pipeline) {
 
   if (type == "ENTRY_POINT") {
     token = tokenizer_->NextToken();
-    if (!token->IsString())
+    if (!token->IsIdentifier())
       return Result("missing shader name in ATTACH ENTRY_POINT command");
 
     r = pipeline->SetShaderEntryPoint(shader, token->AsString());
@@ -491,7 +702,7 @@ Result Parser::ParsePipelineAttach(Pipeline* pipeline) {
   }
 
   while (true) {
-    if (token->IsString() && token->AsString() == "SPECIALIZE") {
+    if (token->IsIdentifier() && token->AsString() == "SPECIALIZE") {
       r = ParseShaderSpecialization(pipeline);
       if (!r.IsSuccess())
         return r;
@@ -500,9 +711,10 @@ Result Parser::ParsePipelineAttach(Pipeline* pipeline) {
     } else {
       if (token->IsEOL() || token->IsEOS())
         return {};
-      if (token->IsString())
+      if (token->IsIdentifier())
         return Result("unknown ATTACH parameter: " + token->AsString());
-      return Result("extra parameters after ATTACH command");
+      return Result("extra parameters after ATTACH command: " +
+                    token->ToOriginalString());
     }
   }
 }
@@ -515,11 +727,11 @@ Result Parser::ParseShaderSpecialization(Pipeline* pipeline) {
   auto spec_id = token->AsUint32();
 
   token = tokenizer_->NextToken();
-  if (!token->IsString() || token->AsString() != "AS")
+  if (!token->IsIdentifier() || token->AsString() != "AS")
     return Result("expected AS as next token");
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("expected data type in SPECIALIZE subcommand");
 
   auto type = ToType(token->AsString());
@@ -558,7 +770,7 @@ Result Parser::ParseShaderSpecialization(Pipeline* pipeline) {
 
 Result Parser::ParsePipelineShaderOptimizations(Pipeline* pipeline) {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("missing shader name in SHADER_OPTIMIZATION command");
 
   auto* shader = script_->GetShader(token->AsString());
@@ -567,7 +779,8 @@ Result Parser::ParsePipelineShaderOptimizations(Pipeline* pipeline) {
 
   token = tokenizer_->NextToken();
   if (!token->IsEOL())
-    return Result("extra parameters after SHADER_OPTIMIZATION command");
+    return Result("extra parameters after SHADER_OPTIMIZATION command: " +
+                  token->ToOriginalString());
 
   std::vector<std::string> optimizations;
   while (true) {
@@ -576,8 +789,8 @@ Result Parser::ParsePipelineShaderOptimizations(Pipeline* pipeline) {
       continue;
     if (token->IsEOS())
       return Result("SHADER_OPTIMIZATION missing END command");
-    if (!token->IsString())
-      return Result("SHADER_OPTIMIZATION options must be strings");
+    if (!token->IsIdentifier())
+      return Result("SHADER_OPTIMIZATION options must be identifiers");
     if (token->AsString() == "END")
       break;
 
@@ -593,7 +806,7 @@ Result Parser::ParsePipelineShaderOptimizations(Pipeline* pipeline) {
 
 Result Parser::ParsePipelineShaderCompileOptions(Pipeline* pipeline) {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("missing shader name in COMPILE_OPTIONS command");
 
   auto* shader = script_->GetShader(token->AsString());
@@ -606,7 +819,8 @@ Result Parser::ParsePipelineShaderCompileOptions(Pipeline* pipeline) {
 
   token = tokenizer_->NextToken();
   if (!token->IsEOL())
-    return Result("extra parameters after COMPILE_OPTIONS command");
+    return Result("extra parameters after COMPILE_OPTIONS command: " +
+                  token->ToOriginalString());
 
   std::vector<std::string> options;
   while (true) {
@@ -626,6 +840,93 @@ Result Parser::ParsePipelineShaderCompileOptions(Pipeline* pipeline) {
     return r;
 
   return ValidateEndOfStatement("COMPILE_OPTIONS command");
+}
+
+Result Parser::ParsePipelineSubgroup(Pipeline* pipeline) {
+  auto token = tokenizer_->NextToken();
+  if (!token->IsIdentifier())
+    return Result("missing shader name in SUBGROUP command");
+
+  auto* shader = script_->GetShader(token->AsString());
+  if (!shader)
+    return Result("unknown shader in SUBGROUP command");
+
+  while (true) {
+    token = tokenizer_->NextToken();
+    if (token->IsEOL())
+      continue;
+    if (token->IsEOS())
+      return Result("SUBGROUP missing END command");
+    if (!token->IsIdentifier())
+      return Result("SUBGROUP options must be identifiers");
+    if (token->AsString() == "END")
+      break;
+
+    if (token->AsString() == "FULLY_POPULATED") {
+      if (!script_->IsRequiredFeature(
+              "SubgroupSizeControl.computeFullSubgroups"))
+        return Result(
+            "missing DEVICE_FEATURE SubgroupSizeControl.computeFullSubgroups");
+      token = tokenizer_->NextToken();
+      if (token->IsEOL() || token->IsEOS())
+        return Result("missing value for FULLY_POPULATED command");
+      bool isOn = false;
+      if (token->AsString() == "on") {
+        isOn = true;
+      } else if (token->AsString() == "off") {
+        isOn = false;
+      } else {
+        return Result("invalid value for FULLY_POPULATED command");
+      }
+      Result r = pipeline->SetShaderRequireFullSubgroups(shader, isOn);
+      if (!r.IsSuccess())
+        return r;
+
+    } else if (token->AsString() == "VARYING_SIZE") {
+      if (!script_->IsRequiredFeature(
+              "SubgroupSizeControl.subgroupSizeControl"))
+        return Result(
+            "missing DEVICE_FEATURE SubgroupSizeControl.subgroupSizeControl");
+      token = tokenizer_->NextToken();
+      if (token->IsEOL() || token->IsEOS())
+        return Result("missing value for VARYING_SIZE command");
+      bool isOn = false;
+      if (token->AsString() == "on") {
+        isOn = true;
+      } else if (token->AsString() == "off") {
+        isOn = false;
+      } else {
+        return Result("invalid value for VARYING_SIZE command");
+      }
+      Result r = pipeline->SetShaderVaryingSubgroupSize(shader, isOn);
+      if (!r.IsSuccess())
+        return r;
+    } else if (token->AsString() == "REQUIRED_SIZE") {
+      if (!script_->IsRequiredFeature(
+              "SubgroupSizeControl.subgroupSizeControl"))
+        return Result(
+            "missing DEVICE_FEATURE SubgroupSizeControl.subgroupSizeControl");
+      token = tokenizer_->NextToken();
+      if (token->IsEOL() || token->IsEOS())
+        return Result("missing size for REQUIRED_SIZE command");
+      Result r;
+      if (token->IsInteger()) {
+        r = pipeline->SetShaderRequiredSubgroupSize(shader, token->AsUint32());
+      } else if (token->AsString() == "MIN") {
+        r = pipeline->SetShaderRequiredSubgroupSizeToMinimum(shader);
+      } else if (token->AsString() == "MAX") {
+        r = pipeline->SetShaderRequiredSubgroupSizeToMaximum(shader);
+      } else {
+        return Result("invalid size for REQUIRED_SIZE command");
+      }
+      if (!r.IsSuccess())
+        return r;
+    } else {
+      return Result("SUBGROUP invalid value for SUBGROUP " + token->AsString());
+    }
+  }
+
+  return ValidateEndOfStatement("SUBGROUP command");
 }
 
 Result Parser::ParsePipelineFramebufferSize(Pipeline* pipeline) {
@@ -650,10 +951,30 @@ Result Parser::ParsePipelineFramebufferSize(Pipeline* pipeline) {
 
 Result Parser::ToBufferType(const std::string& name, BufferType* type) {
   assert(type);
-  if (name == "uniform")
+  if (name == "color")
+    *type = BufferType::kColor;
+  else if (name == "depth_stencil")
+    *type = BufferType::kDepthStencil;
+  else if (name == "push_constant")
+    *type = BufferType::kPushConstant;
+  else if (name == "uniform")
     *type = BufferType::kUniform;
+  else if (name == "uniform_dynamic")
+    *type = BufferType::kUniformDynamic;
   else if (name == "storage")
     *type = BufferType::kStorage;
+  else if (name == "storage_dynamic")
+    *type = BufferType::kStorageDynamic;
+  else if (name == "storage_image")
+    *type = BufferType::kStorageImage;
+  else if (name == "sampled_image")
+    *type = BufferType::kSampledImage;
+  else if (name == "combined_image_sampler")
+    *type = BufferType::kCombinedImageSampler;
+  else if (name == "uniform_texel_buffer")
+    *type = BufferType::kUniformTexelBuffer;
+  else if (name == "storage_texel_buffer")
+    *type = BufferType::kStorageTexelBuffer;
   else
     return Result("unknown buffer_type: " + name);
 
@@ -662,107 +983,300 @@ Result Parser::ToBufferType(const std::string& name, BufferType* type) {
 
 Result Parser::ParsePipelineBind(Pipeline* pipeline) {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
-    return Result("missing BUFFER in BIND command");
-  if (token->AsString() != "BUFFER")
-    return Result("missing BUFFER in BIND command");
 
-  token = tokenizer_->NextToken();
-  if (!token->IsString())
-    return Result("missing buffer name in BIND command");
-
-  auto* buffer = script_->GetBuffer(token->AsString());
-  if (!buffer)
-    return Result("unknown buffer: " + token->AsString());
-
-  token = tokenizer_->NextToken();
-  if (token->IsString() && token->AsString() == "AS") {
-    token = tokenizer_->NextToken();
-    if (!token->IsString())
-      return Result("invalid token for BUFFER type");
-
-    if (token->AsString() == "color") {
-      token = tokenizer_->NextToken();
-      if (!token->IsString() || token->AsString() != "LOCATION")
-        return Result("BIND missing LOCATION");
-
-      token = tokenizer_->NextToken();
-      if (!token->IsInteger())
-        return Result("invalid value for BIND LOCATION");
-
-      buffer->SetBufferType(BufferType::kColor);
-
-      Result r = pipeline->AddColorAttachment(buffer, token->AsUint32());
-      if (!r.IsSuccess())
-        return r;
-    } else if (token->AsString() == "depth_stencil") {
-      buffer->SetBufferType(BufferType::kDepth);
-      Result r = pipeline->SetDepthBuffer(buffer);
-      if (!r.IsSuccess())
-        return r;
-    } else if (token->AsString() == "push_constant") {
-      buffer->SetBufferType(BufferType::kPushConstant);
-      Result r = pipeline->SetPushConstantBuffer(buffer);
-      if (!r.IsSuccess())
-        return r;
-    } else {
-      BufferType type = BufferType::kColor;
-      Result r = ToBufferType(token->AsString(), &type);
-      if (!r.IsSuccess())
-        return r;
-
-      if (buffer->GetBufferType() == BufferType::kUnknown)
-        buffer->SetBufferType(type);
-      else if (buffer->GetBufferType() != type)
-        return Result("buffer type does not match intended usage");
-    }
+  if (!token->IsIdentifier()) {
+    return Result(
+        "missing BUFFER, BUFFER_ARRAY, SAMPLER, or SAMPLER_ARRAY in BIND "
+        "command");
   }
 
-  if (buffer->GetBufferType() == BufferType::kUnknown ||
-      buffer->GetBufferType() == BufferType::kStorage ||
-      buffer->GetBufferType() == BufferType::kUniform) {
-    // If AS was parsed above consume the next token.
-    if (buffer->GetBufferType() != BufferType::kUnknown)
+  auto object_type = token->AsString();
+
+  if (object_type == "BUFFER" || object_type == "BUFFER_ARRAY") {
+    bool is_buffer_array = object_type == "BUFFER_ARRAY";
+    token = tokenizer_->NextToken();
+    if (!token->IsIdentifier())
+      return Result("missing buffer name in BIND command");
+
+    auto* buffer = script_->GetBuffer(token->AsString());
+    if (!buffer)
+      return Result("unknown buffer: " + token->AsString());
+    std::vector<Buffer*> buffers = {buffer};
+
+    if (is_buffer_array) {
+      // Check for additional buffer names
+      token = tokenizer_->PeekNextToken();
+      while (token->IsIdentifier() && token->AsString() != "AS" &&
+             token->AsString() != "KERNEL" &&
+             token->AsString() != "DESCRIPTOR_SET") {
+        tokenizer_->NextToken();
+        buffer = script_->GetBuffer(token->AsString());
+        if (!buffer)
+          return Result("unknown buffer: " + token->AsString());
+        buffers.push_back(buffer);
+        token = tokenizer_->PeekNextToken();
+      }
+
+      if (buffers.size() < 2)
+        return Result("expecting multiple buffer names for BUFFER_ARRAY");
+    }
+
+    BufferType buffer_type = BufferType::kUnknown;
+    token = tokenizer_->NextToken();
+    if (token->IsIdentifier() && token->AsString() == "AS") {
       token = tokenizer_->NextToken();
-    // DESCRIPTOR_SET requires a buffer type to have been specified.
-    if (buffer->GetBufferType() != BufferType::kUnknown && token->IsString() &&
-        token->AsString() == "DESCRIPTOR_SET") {
+      if (!token->IsIdentifier())
+        return Result("invalid token for BUFFER type");
+
+      Result r = ToBufferType(token->AsString(), &buffer_type);
+      if (!r.IsSuccess())
+        return r;
+
+      if (buffer_type == BufferType::kColor) {
+        token = tokenizer_->NextToken();
+        if (!token->IsIdentifier() || token->AsString() != "LOCATION")
+          return Result("BIND missing LOCATION");
+
+        token = tokenizer_->NextToken();
+        if (!token->IsInteger())
+          return Result("invalid value for BIND LOCATION");
+        auto location = token->AsUint32();
+
+        uint32_t base_mip_level = 0;
+        token = tokenizer_->PeekNextToken();
+        if (token->IsIdentifier() && token->AsString() == "BASE_MIP_LEVEL") {
+          tokenizer_->NextToken();
+          token = tokenizer_->NextToken();
+
+          if (!token->IsInteger())
+            return Result("invalid value for BASE_MIP_LEVEL");
+
+          base_mip_level = token->AsUint32();
+
+          if (base_mip_level >= buffer->GetMipLevels())
+            return Result(
+                "base mip level (now " + token->AsString() +
+                ") needs to be larger than the number of buffer mip maps (" +
+                std::to_string(buffer->GetMipLevels()) + ")");
+        }
+
+        r = pipeline->AddColorAttachment(buffer, location, base_mip_level);
+        if (!r.IsSuccess())
+          return r;
+
+      } else if (buffer_type == BufferType::kDepthStencil) {
+        r = pipeline->SetDepthStencilBuffer(buffer);
+        if (!r.IsSuccess())
+          return r;
+
+      } else if (buffer_type == BufferType::kPushConstant) {
+        r = pipeline->SetPushConstantBuffer(buffer);
+        if (!r.IsSuccess())
+          return r;
+
+      } else if (buffer_type == BufferType::kCombinedImageSampler) {
+        token = tokenizer_->NextToken();
+        if (!token->IsIdentifier() || token->AsString() != "SAMPLER")
+          return Result("expecting SAMPLER for combined image sampler");
+
+        token = tokenizer_->NextToken();
+        if (!token->IsIdentifier())
+          return Result("missing sampler name in BIND command");
+
+        auto* sampler = script_->GetSampler(token->AsString());
+        if (!sampler)
+          return Result("unknown sampler: " + token->AsString());
+
+        for (auto& buf : buffers)
+          buf->SetSampler(sampler);
+      }
+    }
+
+    // The OpenCL bindings can be typeless which allows for the kUnknown
+    // buffer type.
+    if (buffer_type == BufferType::kUnknown ||
+        buffer_type == BufferType::kStorage ||
+        buffer_type == BufferType::kUniform ||
+        buffer_type == BufferType::kStorageDynamic ||
+        buffer_type == BufferType::kUniformDynamic ||
+        buffer_type == BufferType::kStorageImage ||
+        buffer_type == BufferType::kSampledImage ||
+        buffer_type == BufferType::kCombinedImageSampler ||
+        buffer_type == BufferType::kUniformTexelBuffer ||
+        buffer_type == BufferType::kStorageTexelBuffer) {
+      // If the buffer type is known, then we proccessed the AS block above
+      // and have to advance to the next token. Otherwise, we're already on
+      // the next token and don't want to advance.
+      if (buffer_type != BufferType::kUnknown)
+        token = tokenizer_->NextToken();
+
+      // DESCRIPTOR_SET requires a buffer type to have been specified.
+      if (token->IsIdentifier() && token->AsString() == "DESCRIPTOR_SET") {
+        token = tokenizer_->NextToken();
+        if (!token->IsInteger())
+          return Result("invalid value for DESCRIPTOR_SET in BIND command");
+        uint32_t descriptor_set = token->AsUint32();
+
+        token = tokenizer_->NextToken();
+        if (!token->IsIdentifier() || token->AsString() != "BINDING")
+          return Result("missing BINDING for BIND command");
+
+        token = tokenizer_->NextToken();
+        if (!token->IsInteger())
+          return Result("invalid value for BINDING in BIND command");
+
+        auto binding = token->AsUint32();
+        uint32_t base_mip_level = 0;
+
+        if (buffer_type == BufferType::kStorageImage ||
+            buffer_type == BufferType::kSampledImage ||
+            buffer_type == BufferType::kCombinedImageSampler) {
+          token = tokenizer_->PeekNextToken();
+          if (token->IsIdentifier() && token->AsString() == "BASE_MIP_LEVEL") {
+            tokenizer_->NextToken();
+            token = tokenizer_->NextToken();
+
+            if (!token->IsInteger())
+              return Result("invalid value for BASE_MIP_LEVEL");
+
+            base_mip_level = token->AsUint32();
+
+            if (base_mip_level >= buffer->GetMipLevels())
+              return Result("base mip level (now " + token->AsString() +
+                            ") needs to be larger than the number of buffer "
+                            "mip maps (" +
+                            std::to_string(buffer->GetMipLevels()) + ")");
+          }
+        }
+
+        std::vector<uint32_t> dynamic_offsets(buffers.size(), 0);
+        if (buffer_type == BufferType::kUniformDynamic ||
+            buffer_type == BufferType::kStorageDynamic) {
+          token = tokenizer_->NextToken();
+          if (!token->IsIdentifier() || token->AsString() != "OFFSET")
+            return Result("expecting an OFFSET for dynamic buffer type");
+
+          for (size_t i = 0; i < buffers.size(); i++) {
+            token = tokenizer_->NextToken();
+
+            if (!token->IsInteger()) {
+              if (i > 0) {
+                return Result(
+                    "expecting an OFFSET value for each buffer in the array");
+              } else {
+                return Result("expecting an integer value for OFFSET");
+              }
+            }
+
+            dynamic_offsets[i] = token->AsUint32();
+          }
+        }
+
+        pipeline->ClearBuffers(descriptor_set, binding);
+        for (size_t i = 0; i < buffers.size(); i++) {
+          pipeline->AddBuffer(buffers[i], buffer_type, descriptor_set, binding,
+                              base_mip_level, dynamic_offsets[i]);
+        }
+      } else if (token->IsIdentifier() && token->AsString() == "KERNEL") {
+        token = tokenizer_->NextToken();
+        if (!token->IsIdentifier())
+          return Result("missing kernel arg identifier");
+
+        if (token->AsString() == "ARG_NAME") {
+          token = tokenizer_->NextToken();
+          if (!token->IsIdentifier())
+            return Result("expected argument identifier");
+
+          pipeline->AddBuffer(buffer, buffer_type, token->AsString());
+        } else if (token->AsString() == "ARG_NUMBER") {
+          token = tokenizer_->NextToken();
+          if (!token->IsInteger())
+            return Result("expected argument number");
+
+          pipeline->AddBuffer(buffer, buffer_type, token->AsUint32());
+        } else {
+          return Result("missing ARG_NAME or ARG_NUMBER keyword");
+        }
+      } else {
+        return Result("missing DESCRIPTOR_SET or KERNEL for BIND command");
+      }
+    }
+  } else if (object_type == "SAMPLER" || object_type == "SAMPLER_ARRAY") {
+    bool is_sampler_array = object_type == "SAMPLER_ARRAY";
+    token = tokenizer_->NextToken();
+    if (!token->IsIdentifier())
+      return Result("missing sampler name in BIND command");
+
+    auto* sampler = script_->GetSampler(token->AsString());
+    if (!sampler)
+      return Result("unknown sampler: " + token->AsString());
+    std::vector<Sampler*> samplers = {sampler};
+
+    if (is_sampler_array) {
+      // Check for additional sampler names
+      token = tokenizer_->PeekNextToken();
+      while (token->IsIdentifier() && token->AsString() != "KERNEL" &&
+             token->AsString() != "DESCRIPTOR_SET") {
+        tokenizer_->NextToken();
+        sampler = script_->GetSampler(token->AsString());
+        if (!sampler)
+          return Result("unknown sampler: " + token->AsString());
+        samplers.push_back(sampler);
+        token = tokenizer_->PeekNextToken();
+      }
+
+      if (samplers.size() < 2)
+        return Result("expecting multiple sampler names for SAMPLER_ARRAY");
+    }
+
+    token = tokenizer_->NextToken();
+    if (!token->IsIdentifier())
+      return Result("expected a string token for BIND command");
+
+    if (token->AsString() == "DESCRIPTOR_SET") {
       token = tokenizer_->NextToken();
       if (!token->IsInteger())
         return Result("invalid value for DESCRIPTOR_SET in BIND command");
       uint32_t descriptor_set = token->AsUint32();
 
       token = tokenizer_->NextToken();
-      if (!token->IsString() || token->AsString() != "BINDING")
+      if (!token->IsIdentifier() || token->AsString() != "BINDING")
         return Result("missing BINDING for BIND command");
 
       token = tokenizer_->NextToken();
       if (!token->IsInteger())
         return Result("invalid value for BINDING in BIND command");
-      pipeline->AddBuffer(buffer, descriptor_set, token->AsUint32());
-    } else if (token->IsString() && token->AsString() == "KERNEL") {
+
+      uint32_t binding = token->AsUint32();
+      pipeline->ClearSamplers(descriptor_set, binding);
+      for (const auto& s : samplers) {
+        pipeline->AddSampler(s, descriptor_set, binding);
+      }
+    } else if (token->AsString() == "KERNEL") {
       token = tokenizer_->NextToken();
-      if (!token->IsString())
+      if (!token->IsIdentifier())
         return Result("missing kernel arg identifier");
 
       if (token->AsString() == "ARG_NAME") {
         token = tokenizer_->NextToken();
-        if (!token->IsString())
+        if (!token->IsIdentifier())
           return Result("expected argument identifier");
 
-        pipeline->AddBuffer(buffer, token->AsString());
+        pipeline->AddSampler(sampler, token->AsString());
       } else if (token->AsString() == "ARG_NUMBER") {
         token = tokenizer_->NextToken();
         if (!token->IsInteger())
           return Result("expected argument number");
 
-        pipeline->AddBuffer(buffer, token->AsUint32());
+        pipeline->AddSampler(sampler, token->AsUint32());
       } else {
         return Result("missing ARG_NAME or ARG_NUMBER keyword");
       }
     } else {
       return Result("missing DESCRIPTOR_SET or KERNEL for BIND command");
     }
+  } else {
+    return Result("missing BUFFER or SAMPLER in BIND command");
   }
 
   return ValidateEndOfStatement("BIND command");
@@ -770,7 +1284,7 @@ Result Parser::ParsePipelineBind(Pipeline* pipeline) {
 
 Result Parser::ParsePipelineVertexData(Pipeline* pipeline) {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("missing buffer name in VERTEX_DATA command");
 
   auto* buffer = script_->GetBuffer(token->AsString());
@@ -778,15 +1292,69 @@ Result Parser::ParsePipelineVertexData(Pipeline* pipeline) {
     return Result("unknown buffer: " + token->AsString());
 
   token = tokenizer_->NextToken();
-  if (!token->IsString() || token->AsString() != "LOCATION")
+  if (!token->IsIdentifier() || token->AsString() != "LOCATION")
     return Result("VERTEX_DATA missing LOCATION");
 
   token = tokenizer_->NextToken();
   if (!token->IsInteger())
     return Result("invalid value for VERTEX_DATA LOCATION");
+  const uint32_t location = token->AsUint32();
 
-  buffer->SetBufferType(BufferType::kVertex);
-  Result r = pipeline->AddVertexBuffer(buffer, token->AsUint32());
+  InputRate rate = InputRate::kVertex;
+  uint32_t offset = 0;
+  Format* format = buffer->GetFormat();
+  uint32_t stride = 0;
+
+  token = tokenizer_->PeekNextToken();
+  while (token->IsIdentifier()) {
+    if (token->AsString() == "RATE") {
+      tokenizer_->NextToken();
+      token = tokenizer_->NextToken();
+      if (!token->IsIdentifier())
+        return Result("missing input rate value for RATE");
+      if (token->AsString() == "instance") {
+        rate = InputRate::kInstance;
+      } else if (token->AsString() != "vertex") {
+        return Result("expecting 'vertex' or 'instance' for RATE value");
+      }
+    } else if (token->AsString() == "OFFSET") {
+      tokenizer_->NextToken();
+      token = tokenizer_->NextToken();
+      if (!token->IsInteger())
+        return Result("expected unsigned integer for OFFSET");
+      offset = token->AsUint32();
+    } else if (token->AsString() == "STRIDE") {
+      tokenizer_->NextToken();
+      token = tokenizer_->NextToken();
+      if (!token->IsInteger())
+        return Result("expected unsigned integer for STRIDE");
+      stride = token->AsUint32();
+      if (stride == 0)
+        return Result("STRIDE needs to be larger than zero");
+    } else if (token->AsString() == "FORMAT") {
+      tokenizer_->NextToken();
+      token = tokenizer_->NextToken();
+      if (!token->IsIdentifier())
+        return Result("vertex data FORMAT must be an identifier");
+      auto type = script_->ParseType(token->AsString());
+      if (!type)
+        return Result("invalid vertex data FORMAT");
+      auto fmt = MakeUnique<Format>(type);
+      format = fmt.get();
+      script_->RegisterFormat(std::move(fmt));
+    } else {
+      return Result("unexpected identifier for VERTEX_DATA command: " +
+                    token->ToOriginalString());
+    }
+
+    token = tokenizer_->PeekNextToken();
+  }
+
+  if (stride == 0)
+    stride = format->SizeInBytes();
+
+  Result r =
+      pipeline->AddVertexBuffer(buffer, location, rate, format, offset, stride);
   if (!r.IsSuccess())
     return r;
 
@@ -795,14 +1363,13 @@ Result Parser::ParsePipelineVertexData(Pipeline* pipeline) {
 
 Result Parser::ParsePipelineIndexData(Pipeline* pipeline) {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("missing buffer name in INDEX_DATA command");
 
   auto* buffer = script_->GetBuffer(token->AsString());
   if (!buffer)
     return Result("unknown buffer: " + token->AsString());
 
-  buffer->SetBufferType(BufferType::kIndex);
   Result r = pipeline->SetIndexBuffer(buffer);
   if (!r.IsSuccess())
     return r;
@@ -818,18 +1385,18 @@ Result Parser::ParsePipelineSet(Pipeline* pipeline) {
   }
 
   auto token = tokenizer_->NextToken();
-  if (!token->IsString() || token->AsString() != "KERNEL")
+  if (!token->IsIdentifier() || token->AsString() != "KERNEL")
     return Result("missing KERNEL in SET command");
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("expected ARG_NAME or ARG_NUMBER");
 
   std::string arg_name = "";
   uint32_t arg_no = std::numeric_limits<uint32_t>::max();
   if (token->AsString() == "ARG_NAME") {
     token = tokenizer_->NextToken();
-    if (!token->IsString())
+    if (!token->IsIdentifier())
       return Result("expected argument identifier");
 
     arg_name = token->AsString();
@@ -844,16 +1411,19 @@ Result Parser::ParsePipelineSet(Pipeline* pipeline) {
   }
 
   token = tokenizer_->NextToken();
-  if (!token->IsString() || token->AsString() != "AS")
+  if (!token->IsIdentifier() || token->AsString() != "AS")
     return Result("missing AS in SET command");
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("expected data type");
 
   auto type = ToType(token->AsString());
   if (!type)
     return Result("invalid data type '" + token->AsString() + "' provided");
+
+  if (type->IsVec() || type->IsMatrix() || type->IsArray() || type->IsStruct())
+    return Result("data type must be a scalar type");
 
   token = tokenizer_->NextToken();
   if (!token->IsInteger() && !token->IsDouble())
@@ -878,9 +1448,283 @@ Result Parser::ParsePipelineSet(Pipeline* pipeline) {
   return ValidateEndOfStatement("SET command");
 }
 
+Result Parser::ParsePipelinePolygonMode(Pipeline* pipeline) {
+  auto token = tokenizer_->NextToken();
+  if (!token->IsIdentifier())
+    return Result("missing mode in POLYGON_MODE command");
+
+  auto mode = token->AsString();
+
+  if (mode == "fill")
+    pipeline->GetPipelineData()->SetPolygonMode(PolygonMode::kFill);
+  else if (mode == "line")
+    pipeline->GetPipelineData()->SetPolygonMode(PolygonMode::kLine);
+  else if (mode == "point")
+    pipeline->GetPipelineData()->SetPolygonMode(PolygonMode::kPoint);
+  else
+    return Result("invalid polygon mode: " + mode);
+
+  return ValidateEndOfStatement("POLYGON_MODE command");
+}
+
+Result Parser::ParsePipelineDepth(Pipeline* pipeline) {
+  while (true) {
+    auto token = tokenizer_->NextToken();
+    if (token->IsEOL())
+      continue;
+    if (token->IsEOS())
+      return Result("DEPTH missing END command");
+    if (!token->IsIdentifier())
+      return Result("DEPTH options must be identifiers");
+    if (token->AsString() == "END")
+      break;
+
+    if (token->AsString() == "TEST") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("invalid value for TEST");
+
+      if (token->AsString() == "on")
+        pipeline->GetPipelineData()->SetEnableDepthTest(true);
+      else if (token->AsString() == "off")
+        pipeline->GetPipelineData()->SetEnableDepthTest(false);
+      else
+        return Result("invalid value for TEST: " + token->AsString());
+    } else if (token->AsString() == "CLAMP") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("invalid value for CLAMP");
+
+      if (token->AsString() == "on")
+        pipeline->GetPipelineData()->SetEnableDepthClamp(true);
+      else if (token->AsString() == "off")
+        pipeline->GetPipelineData()->SetEnableDepthClamp(false);
+      else
+        return Result("invalid value for CLAMP: " + token->AsString());
+    } else if (token->AsString() == "WRITE") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("invalid value for WRITE");
+
+      if (token->AsString() == "on")
+        pipeline->GetPipelineData()->SetEnableDepthWrite(true);
+      else if (token->AsString() == "off")
+        pipeline->GetPipelineData()->SetEnableDepthWrite(false);
+      else
+        return Result("invalid value for WRITE: " + token->AsString());
+    } else if (token->AsString() == "COMPARE_OP") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("invalid value for COMPARE_OP");
+
+      CompareOp compare_op = StrToCompareOp(token->AsString());
+      if (compare_op != CompareOp::kUnknown) {
+        pipeline->GetPipelineData()->SetDepthCompareOp(compare_op);
+      } else {
+        return Result("invalid value for COMPARE_OP: " + token->AsString());
+      }
+    } else if (token->AsString() == "BOUNDS") {
+      token = tokenizer_->NextToken();
+      if (!token->IsIdentifier() || token->AsString() != "min")
+        return Result("BOUNDS expecting min");
+
+      token = tokenizer_->NextToken();
+      if (!token->IsDouble())
+        return Result("BOUNDS invalid value for min");
+      pipeline->GetPipelineData()->SetMinDepthBounds(token->AsFloat());
+
+      token = tokenizer_->NextToken();
+      if (!token->IsIdentifier() || token->AsString() != "max")
+        return Result("BOUNDS expecting max");
+
+      token = tokenizer_->NextToken();
+      if (!token->IsDouble())
+        return Result("BOUNDS invalid value for max");
+      pipeline->GetPipelineData()->SetMaxDepthBounds(token->AsFloat());
+    } else if (token->AsString() == "BIAS") {
+      pipeline->GetPipelineData()->SetEnableDepthBias(true);
+
+      token = tokenizer_->NextToken();
+      if (!token->IsIdentifier() || token->AsString() != "constant")
+        return Result("BIAS expecting constant");
+
+      token = tokenizer_->NextToken();
+      if (!token->IsDouble())
+        return Result("BIAS invalid value for constant");
+      pipeline->GetPipelineData()->SetDepthBiasConstantFactor(token->AsFloat());
+
+      token = tokenizer_->NextToken();
+      if (!token->IsIdentifier() || token->AsString() != "clamp")
+        return Result("BIAS expecting clamp");
+
+      token = tokenizer_->NextToken();
+      if (!token->IsDouble())
+        return Result("BIAS invalid value for clamp");
+      pipeline->GetPipelineData()->SetDepthBiasClamp(token->AsFloat());
+
+      token = tokenizer_->NextToken();
+      if (!token->IsIdentifier() || token->AsString() != "slope")
+        return Result("BIAS expecting slope");
+
+      token = tokenizer_->NextToken();
+      if (!token->IsDouble())
+        return Result("BIAS invalid value for slope");
+      pipeline->GetPipelineData()->SetDepthBiasSlopeFactor(token->AsFloat());
+    } else {
+      return Result("invalid value for DEPTH: " + token->AsString());
+    }
+  }
+
+  return ValidateEndOfStatement("DEPTH command");
+}
+
+Result Parser::ParsePipelineStencil(Pipeline* pipeline) {
+  auto token = tokenizer_->NextToken();
+  if (!token->IsIdentifier())
+    return Result("STENCIL missing face");
+
+  bool setFront = false;
+  bool setBack = false;
+
+  if (token->AsString() == "front") {
+    setFront = true;
+  } else if (token->AsString() == "back") {
+    setBack = true;
+  } else if (token->AsString() == "front_and_back") {
+    setFront = true;
+    setBack = true;
+  } else {
+    return Result("STENCIL invalid face: " + token->AsString());
+  }
+
+  while (true) {
+    token = tokenizer_->NextToken();
+    if (token->IsEOL())
+      continue;
+    if (token->IsEOS())
+      return Result("STENCIL missing END command");
+    if (!token->IsIdentifier())
+      return Result("STENCIL options must be identifiers");
+    if (token->AsString() == "END")
+      break;
+
+    if (token->AsString() == "TEST") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("STENCIL invalid value for TEST");
+
+      if (token->AsString() == "on")
+        pipeline->GetPipelineData()->SetEnableStencilTest(true);
+      else if (token->AsString() == "off")
+        pipeline->GetPipelineData()->SetEnableStencilTest(false);
+      else
+        return Result("STENCIL invalid value for TEST: " + token->AsString());
+    } else if (token->AsString() == "FAIL_OP") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("STENCIL invalid value for FAIL_OP");
+
+      StencilOp stencil_op = StrToStencilOp(token->AsString());
+      if (stencil_op == StencilOp::kUnknown) {
+        return Result("STENCIL invalid value for FAIL_OP: " +
+                      token->AsString());
+      }
+      if (setFront)
+        pipeline->GetPipelineData()->SetFrontFailOp(stencil_op);
+      if (setBack)
+        pipeline->GetPipelineData()->SetBackFailOp(stencil_op);
+    } else if (token->AsString() == "PASS_OP") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("STENCIL invalid value for PASS_OP");
+
+      StencilOp stencil_op = StrToStencilOp(token->AsString());
+      if (stencil_op == StencilOp::kUnknown) {
+        return Result("STENCIL invalid value for PASS_OP: " +
+                      token->AsString());
+      }
+      if (setFront)
+        pipeline->GetPipelineData()->SetFrontPassOp(stencil_op);
+      if (setBack)
+        pipeline->GetPipelineData()->SetBackPassOp(stencil_op);
+    } else if (token->AsString() == "DEPTH_FAIL_OP") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("STENCIL invalid value for DEPTH_FAIL_OP");
+
+      StencilOp stencil_op = StrToStencilOp(token->AsString());
+      if (stencil_op == StencilOp::kUnknown) {
+        return Result("STENCIL invalid value for DEPTH_FAIL_OP: " +
+                      token->AsString());
+      }
+      if (setFront)
+        pipeline->GetPipelineData()->SetFrontDepthFailOp(stencil_op);
+      if (setBack)
+        pipeline->GetPipelineData()->SetBackDepthFailOp(stencil_op);
+    } else if (token->AsString() == "COMPARE_OP") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("STENCIL invalid value for COMPARE_OP");
+
+      CompareOp compare_op = StrToCompareOp(token->AsString());
+      if (compare_op == CompareOp::kUnknown) {
+        return Result("STENCIL invalid value for COMPARE_OP: " +
+                      token->AsString());
+      }
+      if (setFront)
+        pipeline->GetPipelineData()->SetFrontCompareOp(compare_op);
+      if (setBack)
+        pipeline->GetPipelineData()->SetBackCompareOp(compare_op);
+    } else if (token->AsString() == "COMPARE_MASK") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsInteger())
+        return Result("STENCIL invalid value for COMPARE_MASK");
+
+      if (setFront)
+        pipeline->GetPipelineData()->SetFrontCompareMask(token->AsUint32());
+      if (setBack)
+        pipeline->GetPipelineData()->SetBackCompareMask(token->AsUint32());
+    } else if (token->AsString() == "WRITE_MASK") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsInteger())
+        return Result("STENCIL invalid value for WRITE_MASK");
+
+      if (setFront)
+        pipeline->GetPipelineData()->SetFrontWriteMask(token->AsUint32());
+      if (setBack)
+        pipeline->GetPipelineData()->SetBackWriteMask(token->AsUint32());
+    } else if (token->AsString() == "REFERENCE") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsInteger())
+        return Result("STENCIL invalid value for REFERENCE");
+
+      if (setFront)
+        pipeline->GetPipelineData()->SetFrontReference(token->AsUint32());
+      if (setBack)
+        pipeline->GetPipelineData()->SetBackReference(token->AsUint32());
+    } else {
+      return Result("STENCIL invalid value for STENCIL: " + token->AsString());
+    }
+  }
+
+  return ValidateEndOfStatement("STENCIL command");
+}
+
 Result Parser::ParseStruct() {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid STRUCT name provided");
 
   auto struct_name = token->AsString();
@@ -895,7 +1739,7 @@ Result Parser::ParseStruct() {
     return r;
 
   token = tokenizer_->NextToken();
-  if (token->IsString()) {
+  if (token->IsIdentifier()) {
     if (token->AsString() != "STRIDE")
       return Result("invalid token in STRUCT definition");
 
@@ -916,7 +1760,7 @@ Result Parser::ParseStruct() {
   std::map<std::string, bool> seen;
   for (;;) {
     token = tokenizer_->NextToken();
-    if (!token->IsString())
+    if (!token->IsIdentifier())
       return Result("invalid type for STRUCT member");
     if (token->AsString() == "END")
       break;
@@ -939,7 +1783,7 @@ Result Parser::ParseStruct() {
     token = tokenizer_->NextToken();
     if (token->IsEOL())
       return Result("missing name for STRUCT member");
-    if (!token->IsString())
+    if (!token->IsIdentifier())
       return Result("invalid name for STRUCT member");
 
     auto member_name = token->AsString();
@@ -952,7 +1796,7 @@ Result Parser::ParseStruct() {
     m->name = member_name;
 
     token = tokenizer_->NextToken();
-    while (token->IsString()) {
+    while (token->IsIdentifier()) {
       if (token->AsString() == "OFFSET") {
         token = tokenizer_->NextToken();
         if (token->IsEOL())
@@ -998,7 +1842,7 @@ Result Parser::ParseStruct() {
 
 Result Parser::ParseBuffer() {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid BUFFER name provided");
 
   auto name = token->AsString();
@@ -1006,7 +1850,7 @@ Result Parser::ParseBuffer() {
     return Result("missing BUFFER name");
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid BUFFER command provided");
 
   std::unique_ptr<Buffer> buffer;
@@ -1019,8 +1863,8 @@ Result Parser::ParseBuffer() {
       return r;
   } else if (cmd == "FORMAT") {
     token = tokenizer_->NextToken();
-    if (!token->IsString())
-      return Result("BUFFER FORMAT must be a string");
+    if (!token->IsIdentifier())
+      return Result("BUFFER FORMAT must be an identifier");
 
     buffer = MakeUnique<Buffer>();
 
@@ -1031,6 +1875,39 @@ Result Parser::ParseBuffer() {
     auto fmt = MakeUnique<Format>(type);
     buffer->SetFormat(fmt.get());
     script_->RegisterFormat(std::move(fmt));
+
+    token = tokenizer_->PeekNextToken();
+    while (token->IsIdentifier()) {
+      if (token->AsString() == "MIP_LEVELS") {
+        tokenizer_->NextToken();
+        token = tokenizer_->NextToken();
+
+        if (!token->IsInteger())
+          return Result("invalid value for MIP_LEVELS");
+
+        buffer->SetMipLevels(token->AsUint32());
+      } else if (token->AsString() == "FILE") {
+        tokenizer_->NextToken();
+        Result r = ParseBufferInitializerFile(buffer.get());
+
+        if (!r.IsSuccess())
+          return r;
+      } else if (token->AsString() == "SAMPLES") {
+        tokenizer_->NextToken();
+        token = tokenizer_->NextToken();
+        if (!token->IsInteger())
+          return Result("expected integer value for SAMPLES");
+
+        const uint32_t samples = token->AsUint32();
+        if (!IsValidSampleCount(samples))
+          return Result("invalid sample count: " + token->ToOriginalString());
+
+        buffer->SetSamples(samples);
+      } else {
+        break;
+      }
+      token = tokenizer_->PeekNextToken();
+    }
   } else {
     return Result("unknown BUFFER command provided: " + cmd);
   }
@@ -1043,9 +1920,169 @@ Result Parser::ParseBuffer() {
   return {};
 }
 
+Result Parser::ParseImage() {
+  auto token = tokenizer_->NextToken();
+  if (!token->IsIdentifier())
+    return Result("invalid IMAGE name provided");
+
+  auto name = token->AsString();
+  if (name == "DATA_TYPE" || name == "FORMAT")
+    return Result("missing IMAGE name");
+
+  std::unique_ptr<Buffer> buffer = MakeUnique<Buffer>();
+  buffer->SetName(name);
+  bool width_set = false;
+  bool height_set = false;
+  bool depth_set = false;
+
+  token = tokenizer_->PeekNextToken();
+  while (token->IsIdentifier()) {
+    if (token->AsString() == "FILL" || token->AsString() == "SERIES_FROM" ||
+        token->AsString() == "DATA") {
+      break;
+    }
+
+    tokenizer_->NextToken();
+
+    if (token->AsString() == "DATA_TYPE") {
+      token = tokenizer_->NextToken();
+      if (!token->IsIdentifier())
+        return Result("IMAGE invalid data type");
+
+      auto type = script_->ParseType(token->AsString());
+      std::unique_ptr<Format> fmt;
+      if (type != nullptr) {
+        fmt = MakeUnique<Format>(type);
+        buffer->SetFormat(fmt.get());
+      } else {
+        auto new_type = ToType(token->AsString());
+        if (!new_type) {
+          return Result("invalid data type '" + token->AsString() +
+                        "' provided");
+        }
+
+        fmt = MakeUnique<Format>(new_type.get());
+        buffer->SetFormat(fmt.get());
+        script_->RegisterType(std::move(new_type));
+      }
+      script_->RegisterFormat(std::move(fmt));
+    } else if (token->AsString() == "FORMAT") {
+      token = tokenizer_->NextToken();
+      if (!token->IsIdentifier())
+        return Result("IMAGE FORMAT must be an identifier");
+
+      auto type = script_->ParseType(token->AsString());
+      if (!type)
+        return Result("invalid IMAGE FORMAT");
+
+      auto fmt = MakeUnique<Format>(type);
+      buffer->SetFormat(fmt.get());
+      script_->RegisterFormat(std::move(fmt));
+    } else if (token->AsString() == "MIP_LEVELS") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsInteger())
+        return Result("invalid value for MIP_LEVELS");
+
+      buffer->SetMipLevels(token->AsUint32());
+    } else if (token->AsString() == "DIM_1D") {
+      buffer->SetImageDimension(ImageDimension::k1D);
+    } else if (token->AsString() == "DIM_2D") {
+      buffer->SetImageDimension(ImageDimension::k2D);
+    } else if (token->AsString() == "DIM_3D") {
+      buffer->SetImageDimension(ImageDimension::k3D);
+    } else if (token->AsString() == "WIDTH") {
+      token = tokenizer_->NextToken();
+      if (!token->IsInteger() || token->AsUint32() == 0)
+        return Result("expected positive IMAGE WIDTH");
+
+      buffer->SetWidth(token->AsUint32());
+      width_set = true;
+    } else if (token->AsString() == "HEIGHT") {
+      token = tokenizer_->NextToken();
+      if (!token->IsInteger() || token->AsUint32() == 0)
+        return Result("expected positive IMAGE HEIGHT");
+
+      buffer->SetHeight(token->AsUint32());
+      height_set = true;
+    } else if (token->AsString() == "DEPTH") {
+      token = tokenizer_->NextToken();
+      if (!token->IsInteger() || token->AsUint32() == 0)
+        return Result("expected positive IMAGE DEPTH");
+
+      buffer->SetDepth(token->AsUint32());
+      depth_set = true;
+    } else if (token->AsString() == "SAMPLES") {
+      token = tokenizer_->NextToken();
+      if (!token->IsInteger())
+        return Result("expected integer value for SAMPLES");
+
+      const uint32_t samples = token->AsUint32();
+      if (!IsValidSampleCount(samples))
+        return Result("invalid sample count: " + token->ToOriginalString());
+
+      buffer->SetSamples(samples);
+    } else {
+      return Result("unknown IMAGE command provided: " +
+                    token->ToOriginalString());
+    }
+    token = tokenizer_->PeekNextToken();
+  }
+
+  if (buffer->GetImageDimension() == ImageDimension::k3D && !depth_set)
+    return Result("expected IMAGE DEPTH");
+
+  if ((buffer->GetImageDimension() == ImageDimension::k3D ||
+       buffer->GetImageDimension() == ImageDimension::k2D) &&
+      !height_set) {
+    return Result("expected IMAGE HEIGHT");
+  }
+  if (!width_set)
+    return Result("expected IMAGE WIDTH");
+
+  const uint32_t size_in_items =
+      buffer->GetWidth() * buffer->GetHeight() * buffer->GetDepth();
+  buffer->SetElementCount(size_in_items);
+
+  // Parse initializers.
+  token = tokenizer_->NextToken();
+  if (token->IsIdentifier()) {
+    if (token->AsString() == "DATA") {
+      Result r = ParseBufferInitializerData(buffer.get());
+      if (!r.IsSuccess())
+        return r;
+
+      if (size_in_items != buffer->ElementCount()) {
+        return Result(
+            "Elements provided in data does not match size specified: " +
+            std::to_string(size_in_items) + " specified vs " +
+            std::to_string(buffer->ElementCount()) + " provided");
+      }
+    } else if (token->AsString() == "FILL") {
+      Result r = ParseBufferInitializerFill(buffer.get(), size_in_items);
+      if (!r.IsSuccess())
+        return r;
+    } else if (token->AsString() == "SERIES_FROM") {
+      Result r = ParseBufferInitializerSeries(buffer.get(), size_in_items);
+      if (!r.IsSuccess())
+        return r;
+    } else {
+      return Result("unexpected IMAGE token: " + token->AsString());
+    }
+  } else if (!token->IsEOL() && !token->IsEOS()) {
+    return Result("unexpected IMAGE token: " + token->ToOriginalString());
+  }
+
+  Result r = script_->AddBuffer(std::move(buffer));
+  if (!r.IsSuccess())
+    return r;
+
+  return {};
+}
+
 Result Parser::ParseBufferInitializer(Buffer* buffer) {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("BUFFER invalid data type");
 
   auto type = script_->ParseType(token->AsString());
@@ -1066,7 +2103,7 @@ Result Parser::ParseBufferInitializer(Buffer* buffer) {
   script_->RegisterFormat(std::move(fmt));
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("BUFFER missing initializer");
 
   if (token->AsString() == "STD140") {
@@ -1077,11 +2114,41 @@ Result Parser::ParseBufferInitializer(Buffer* buffer) {
     token = tokenizer_->NextToken();
   }
 
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("BUFFER missing initializer");
 
   if (token->AsString() == "SIZE")
     return ParseBufferInitializerSize(buffer);
+  if (token->AsString() == "WIDTH") {
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("expected an integer for WIDTH");
+    const uint32_t width = token->AsUint32();
+    if (width == 0)
+      return Result("expected WIDTH to be positive");
+    buffer->SetWidth(width);
+    buffer->SetImageDimension(ImageDimension::k2D);
+
+    token = tokenizer_->NextToken();
+    if (token->AsString() != "HEIGHT")
+      return Result("BUFFER HEIGHT missing");
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("expected an integer for HEIGHT");
+    const uint32_t height = token->AsUint32();
+    if (height == 0)
+      return Result("expected HEIGHT to be positive");
+    buffer->SetHeight(height);
+
+    token = tokenizer_->NextToken();
+    uint32_t size_in_items = width * height;
+    buffer->SetElementCount(size_in_items);
+    if (token->AsString() == "FILL")
+      return ParseBufferInitializerFill(buffer, size_in_items);
+    if (token->AsString() == "SERIES_FROM")
+      return ParseBufferInitializerSeries(buffer, size_in_items);
+    return {};
+  }
   if (token->AsString() == "DATA")
     return ParseBufferInitializerData(buffer);
 
@@ -1099,13 +2166,15 @@ Result Parser::ParseBufferInitializerSize(Buffer* buffer) {
   buffer->SetElementCount(size_in_items);
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("BUFFER invalid initializer");
 
   if (token->AsString() == "FILL")
     return ParseBufferInitializerFill(buffer, size_in_items);
   if (token->AsString() == "SERIES_FROM")
     return ParseBufferInitializerSeries(buffer, size_in_items);
+  if (token->AsString() == "FILE")
+    return ParseBufferInitializerFile(buffer);
 
   return Result("invalid BUFFER initializer provided");
 }
@@ -1164,7 +2233,7 @@ Result Parser::ParseBufferInitializerSeries(Buffer* buffer,
   }
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("missing BUFFER series_from inc_by");
   if (token->AsString() != "INC_BY")
     return Result("BUFFER series_from invalid command");
@@ -1197,70 +2266,71 @@ Result Parser::ParseBufferInitializerSeries(Buffer* buffer,
 }
 
 Result Parser::ParseBufferInitializerData(Buffer* buffer) {
-  auto fmt = buffer->GetFormat();
-  const auto& segs = fmt->GetSegments();
-  size_t seg_idx = 0;
-  uint32_t value_count = 0;
+  Result r = ParseBufferData(buffer, tokenizer_.get(), false);
 
-  std::vector<Value> values;
-  for (auto token = tokenizer_->NextToken();; token = tokenizer_->NextToken()) {
-    if (token->IsEOL())
-      continue;
-    if (token->IsEOS())
-      return Result("missing BUFFER END command");
-    if (token->IsString() && token->AsString() == "END")
-      break;
-    if (!token->IsInteger() && !token->IsDouble() && !token->IsHex())
-      return Result("invalid BUFFER data value: " + token->ToOriginalString());
-
-    while (segs[seg_idx].IsPadding()) {
-      ++seg_idx;
-      if (seg_idx >= segs.size())
-        seg_idx = 0;
-    }
-
-    Value v;
-    if (type::Type::IsFloat(segs[seg_idx].GetFormatMode())) {
-      token->ConvertToDouble();
-
-      double val = token->IsHex() ? static_cast<double>(token->AsHex())
-                                  : token->AsDouble();
-      v.SetDoubleValue(val);
-      ++value_count;
-    } else {
-      if (token->IsDouble()) {
-        return Result("invalid BUFFER data value: " +
-                      token->ToOriginalString());
-      }
-
-      uint64_t val = token->IsHex() ? token->AsHex() : token->AsUint64();
-      v.SetIntValue(val);
-      ++value_count;
-    }
-    ++seg_idx;
-    if (seg_idx >= segs.size())
-      seg_idx = 0;
-
-    values.emplace_back(v);
-  }
-  // Write final padding bytes
-  while (segs[seg_idx].IsPadding()) {
-    ++seg_idx;
-    if (seg_idx >= segs.size())
-      break;
-  }
-
-  buffer->SetValueCount(value_count);
-  Result r = buffer->SetData(std::move(values));
   if (!r.IsSuccess())
     return r;
 
   return ValidateEndOfStatement("BUFFER data command");
 }
 
+Result Parser::ParseBufferInitializerFile(Buffer* buffer) {
+  auto token = tokenizer_->NextToken();
+
+  if (!token->IsIdentifier())
+    return Result("invalid value for FILE");
+
+  BufferDataFileType file_type = BufferDataFileType::kPng;
+
+  if (token->AsString() == "TEXT") {
+    file_type = BufferDataFileType::kText;
+    token = tokenizer_->NextToken();
+  } else if (token->AsString() == "BINARY") {
+    file_type = BufferDataFileType::kBinary;
+    token = tokenizer_->NextToken();
+  } else if (token->AsString() == "PNG") {
+    token = tokenizer_->NextToken();
+  }
+
+  if (!token->IsIdentifier())
+    return Result("missing file name for FILE");
+
+  if (!delegate_)
+    return Result("missing delegate");
+
+  BufferInfo info;
+  Result r = delegate_->LoadBufferData(token->AsString(), file_type, &info);
+
+  if (!r.IsSuccess())
+    return r;
+
+  std::vector<uint8_t>* data = buffer->ValuePtr();
+
+  data->clear();
+  data->reserve(info.values.size());
+  for (auto v : info.values) {
+    data->push_back(v.AsUint8());
+  }
+
+  if (file_type == BufferDataFileType::kText) {
+    auto s = std::string(data->begin(), data->end());
+    Tokenizer tok(s);
+    r = ParseBufferData(buffer, &tok, true);
+    if (!r.IsSuccess())
+      return r;
+  } else {
+    buffer->SetElementCount(static_cast<uint32_t>(data->size()) /
+                            buffer->GetFormat()->SizeInBytes());
+    buffer->SetWidth(info.width);
+    buffer->SetHeight(info.height);
+  }
+
+  return {};
+}
+
 Result Parser::ParseRun() {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("missing pipeline name for RUN command");
 
   size_t line = tokenizer_->GetCurrentLine();
@@ -1298,7 +2368,8 @@ Result Parser::ParseRun() {
     command_list_.push_back(std::move(cmd));
     return ValidateEndOfStatement("RUN command");
   }
-  if (!token->IsString())
+
+  if (!token->IsIdentifier())
     return Result("invalid token in RUN command: " + token->ToOriginalString());
 
   if (token->AsString() == "DRAW_RECT") {
@@ -1315,7 +2386,7 @@ Result Parser::ParseRun() {
     if (token->IsEOS() || token->IsEOL())
       return Result("RUN DRAW_RECT command requires parameters");
 
-    if (!token->IsString() || token->AsString() != "POS") {
+    if (!token->IsIdentifier() || token->AsString() != "POS") {
       return Result("invalid token in RUN command: " +
                     token->ToOriginalString() + "; expected POS");
     }
@@ -1324,7 +2395,8 @@ Result Parser::ParseRun() {
     if (!token->IsInteger())
       return Result("missing X position for RUN command");
 
-    auto cmd = MakeUnique<DrawRectCommand>(pipeline, PipelineData{});
+    auto cmd =
+        MakeUnique<DrawRectCommand>(pipeline, *pipeline->GetPipelineData());
     cmd->SetLine(line);
     cmd->EnableOrtho();
 
@@ -1343,7 +2415,7 @@ Result Parser::ParseRun() {
     cmd->SetY(token->AsFloat());
 
     token = tokenizer_->NextToken();
-    if (!token->IsString() || token->AsString() != "SIZE") {
+    if (!token->IsIdentifier() || token->AsString() != "SIZE") {
       return Result("invalid token in RUN command: " +
                     token->ToOriginalString() + "; expected SIZE");
     }
@@ -1370,6 +2442,93 @@ Result Parser::ParseRun() {
     return ValidateEndOfStatement("RUN command");
   }
 
+  if (token->AsString() == "DRAW_GRID") {
+    if (!pipeline->IsGraphics())
+      return Result("RUN command requires graphics pipeline");
+
+    if (pipeline->GetVertexBuffers().size() > 0) {
+      return Result(
+          "RUN DRAW_GRID is not supported in a pipeline with "
+          "vertex buffers attached");
+    }
+
+    token = tokenizer_->NextToken();
+    if (token->IsEOS() || token->IsEOL())
+      return Result("RUN DRAW_GRID command requires parameters");
+
+    if (!token->IsIdentifier() || token->AsString() != "POS") {
+      return Result("invalid token in RUN command: " +
+                    token->ToOriginalString() + "; expected POS");
+    }
+
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("missing X position for RUN command");
+
+    auto cmd =
+        MakeUnique<DrawGridCommand>(pipeline, *pipeline->GetPipelineData());
+    cmd->SetLine(line);
+
+    Result r = token->ConvertToDouble();
+    if (!r.IsSuccess())
+      return r;
+    cmd->SetX(token->AsFloat());
+
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("missing Y position for RUN command");
+
+    r = token->ConvertToDouble();
+    if (!r.IsSuccess())
+      return r;
+    cmd->SetY(token->AsFloat());
+
+    token = tokenizer_->NextToken();
+    if (!token->IsIdentifier() || token->AsString() != "SIZE") {
+      return Result("invalid token in RUN command: " +
+                    token->ToOriginalString() + "; expected SIZE");
+    }
+
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("missing width value for RUN command");
+
+    r = token->ConvertToDouble();
+    if (!r.IsSuccess())
+      return r;
+    cmd->SetWidth(token->AsFloat());
+
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("missing height value for RUN command");
+
+    r = token->ConvertToDouble();
+    if (!r.IsSuccess())
+      return r;
+    cmd->SetHeight(token->AsFloat());
+
+    token = tokenizer_->NextToken();
+    if (!token->IsIdentifier() || token->AsString() != "CELLS") {
+      return Result("invalid token in RUN command: " +
+                    token->ToOriginalString() + "; expected CELLS");
+    }
+
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("missing columns value for RUN command");
+
+    cmd->SetColumns(token->AsUint32());
+
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("missing rows value for RUN command");
+
+    cmd->SetRows(token->AsUint32());
+
+    command_list_.push_back(std::move(cmd));
+    return ValidateEndOfStatement("RUN command");
+  }
+
   if (token->AsString() == "DRAW_ARRAY") {
     if (!pipeline->IsGraphics())
       return Result("RUN command requires graphics pipeline");
@@ -1378,11 +2537,11 @@ Result Parser::ParseRun() {
       return Result("RUN DRAW_ARRAY requires attached vertex buffer");
 
     token = tokenizer_->NextToken();
-    if (!token->IsString() || token->AsString() != "AS")
+    if (!token->IsIdentifier() || token->AsString() != "AS")
       return Result("missing AS for RUN command");
 
     token = tokenizer_->NextToken();
-    if (!token->IsString()) {
+    if (!token->IsIdentifier()) {
       return Result("invalid topology for RUN command: " +
                     token->ToOriginalString());
     }
@@ -1391,37 +2550,37 @@ Result Parser::ParseRun() {
     if (topo == Topology::kUnknown)
       return Result("invalid topology for RUN command: " + token->AsString());
 
-    token = tokenizer_->NextToken();
     bool indexed = false;
-    if (token->IsString() && token->AsString() == "INDEXED") {
-      if (!pipeline->GetIndexBuffer())
-        return Result("RUN DRAW_ARRAYS INDEXED requires attached index buffer");
-
-      indexed = true;
-      token = tokenizer_->NextToken();
-    }
-
     uint32_t start_idx = 0;
     uint32_t count = 0;
-    if (!token->IsEOS() && !token->IsEOL()) {
-      if (!token->IsString() || token->AsString() != "START_IDX")
-        return Result("missing START_IDX for RUN command");
+    uint32_t start_instance = 0;
+    uint32_t instance_count = 1;
 
-      token = tokenizer_->NextToken();
-      if (!token->IsInteger()) {
-        return Result("invalid START_IDX value for RUN command: " +
-                      token->ToOriginalString());
-      }
-      if (token->AsInt32() < 0)
-        return Result("START_IDX value must be >= 0 for RUN command");
-      start_idx = token->AsUint32();
+    token = tokenizer_->PeekNextToken();
 
+    while (!token->IsEOS() && !token->IsEOL()) {
       token = tokenizer_->NextToken();
 
-      if (!token->IsEOS() && !token->IsEOL()) {
-        if (!token->IsString() || token->AsString() != "COUNT")
-          return Result("missing COUNT for RUN command");
+      if (!token->IsIdentifier())
+        return Result("expecting identifier for RUN command");
 
+      if (token->AsString() == "INDEXED") {
+        if (!pipeline->GetIndexBuffer()) {
+          return Result(
+              "RUN DRAW_ARRAYS INDEXED requires attached index buffer");
+        }
+
+        indexed = true;
+      } else if (token->AsString() == "START_IDX") {
+        token = tokenizer_->NextToken();
+        if (!token->IsInteger()) {
+          return Result("invalid START_IDX value for RUN command: " +
+                        token->ToOriginalString());
+        }
+        if (token->AsInt32() < 0)
+          return Result("START_IDX value must be >= 0 for RUN command");
+        start_idx = token->AsUint32();
+      } else if (token->AsString() == "COUNT") {
         token = tokenizer_->NextToken();
         if (!token->IsInteger()) {
           return Result("invalid COUNT value for RUN command: " +
@@ -1431,25 +2590,57 @@ Result Parser::ParseRun() {
           return Result("COUNT value must be > 0 for RUN command");
 
         count = token->AsUint32();
+      } else if (token->AsString() == "INSTANCE_COUNT") {
+        token = tokenizer_->NextToken();
+        if (!token->IsInteger()) {
+          return Result("invalid INSTANCE_COUNT value for RUN command: " +
+                        token->ToOriginalString());
+        }
+        if (token->AsInt32() <= 0)
+          return Result("INSTANCE_COUNT value must be > 0 for RUN command");
+
+        instance_count = token->AsUint32();
+      } else if (token->AsString() == "START_INSTANCE") {
+        token = tokenizer_->NextToken();
+        if (!token->IsInteger()) {
+          return Result("invalid START_INSTANCE value for RUN command: " +
+                        token->ToOriginalString());
+        }
+        if (token->AsInt32() < 0)
+          return Result("START_INSTANCE value must be >= 0 for RUN command");
+        start_instance = token->AsUint32();
+      } else {
+        return Result("Unexpected identifier for RUN command: " +
+                      token->ToOriginalString());
       }
+
+      token = tokenizer_->PeekNextToken();
     }
+
+    uint32_t vertex_count =
+        indexed ? pipeline->GetIndexBuffer()->ElementCount()
+                : pipeline->GetVertexBuffers()[0].buffer->ElementCount();
+
     // If we get here then we never set count, as if count was set it must
     // be > 0.
-    if (count == 0) {
-      count =
-          pipeline->GetVertexBuffers()[0].buffer->ElementCount() - start_idx;
+    if (count == 0)
+      count = vertex_count - start_idx;
+
+    if (start_idx + count > vertex_count) {
+      if (indexed)
+        return Result("START_IDX plus COUNT exceeds index buffer data size");
+      else
+        return Result("START_IDX plus COUNT exceeds vertex buffer data size");
     }
 
-    if (start_idx + count >
-        pipeline->GetVertexBuffers()[0].buffer->ElementCount()) {
-      return Result("START_IDX plus COUNT exceeds vertex buffer data size");
-    }
-
-    auto cmd = MakeUnique<DrawArraysCommand>(pipeline, PipelineData{});
+    auto cmd =
+        MakeUnique<DrawArraysCommand>(pipeline, *pipeline->GetPipelineData());
     cmd->SetLine(line);
     cmd->SetTopology(topo);
     cmd->SetFirstVertexIndex(start_idx);
     cmd->SetVertexCount(count);
+    cmd->SetInstanceCount(instance_count);
+    cmd->SetFirstInstance(start_instance);
 
     if (indexed)
       cmd->EnableIndexed();
@@ -1461,9 +2652,226 @@ Result Parser::ParseRun() {
   return Result("invalid token in RUN command: " + token->AsString());
 }
 
+Result Parser::ParseDebug() {
+  // DEBUG extends a RUN with debugger test cases
+  auto res = ParseRun();
+  if (!res.IsSuccess()) {
+    return res;
+  }
+
+  // As ParseRun() succeeded, we know it emplaced a run command at the back of
+  // the command_list_.
+  auto cmd = command_list_.back().get();
+
+  // We also know this command must derive from PipelineCommand, as it is
+  // runnable.
+  auto pipeline_cmd = static_cast<PipelineCommand*>(cmd);
+  auto pipeline = pipeline_cmd->GetPipeline();
+
+  auto dbg = debug::Script::Create();
+  for (auto token = tokenizer_->NextToken();; token = tokenizer_->NextToken()) {
+    if (token->IsEOL())
+      continue;
+    if (token->IsEOS())
+      return Result("missing DEBUG END command");
+    if (token->IsIdentifier() && token->AsString() == "END")
+      break;
+
+    if (token->AsString() == "THREAD") {
+      res = ParseDebugThread(dbg.get(), pipeline);
+      if (!res.IsSuccess()) {
+        return res;
+      }
+    } else {
+      return Result("invalid token in DEBUG command: " + token->AsString());
+    }
+  }
+
+  cmd->SetDebugScript(std::move(dbg));
+
+  return Result();
+}
+
+Result Parser::ParseDebugThread(debug::Events* dbg, Pipeline* pipeline) {
+  auto token = tokenizer_->NextToken();
+  if (token->AsString() == "GLOBAL_INVOCATION_ID") {
+    for (auto& shader : pipeline->GetShaders()) {
+      shader.SetEmitDebugInfo(true);
+    }
+
+    uint32_t invocation[3] = {};
+    for (int i = 0; i < 3; i++) {
+      token = tokenizer_->NextToken();
+      if (!token->IsInteger())
+        return Result("expected invocation index");
+      invocation[i] = token->AsUint32();
+    }
+
+    auto thread = debug::ThreadScript::Create();
+    auto result = ParseDebugThreadBody(thread.get());
+    if (!result.IsSuccess()) {
+      return result;
+    }
+
+    dbg->BreakOnComputeGlobalInvocation(invocation[0], invocation[1],
+                                        invocation[2], thread);
+  } else if (token->AsString() == "VERTEX_INDEX") {
+    for (auto& shader : pipeline->GetShaders()) {
+      if (shader.GetShaderType() == kShaderTypeVertex) {
+        shader.SetEmitDebugInfo(true);
+      }
+    }
+
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("expected vertex index");
+    auto vertex_index = token->AsUint32();
+
+    auto thread = debug::ThreadScript::Create();
+    auto result = ParseDebugThreadBody(thread.get());
+    if (!result.IsSuccess()) {
+      return result;
+    }
+
+    dbg->BreakOnVertexIndex(vertex_index, thread);
+  } else if (token->AsString() == "FRAGMENT_WINDOW_SPACE_POSITION") {
+    for (auto& shader : pipeline->GetShaders()) {
+      if (shader.GetShaderType() == kShaderTypeFragment) {
+        shader.SetEmitDebugInfo(true);
+      }
+    }
+
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("expected x unsigned integer coordinate");
+    auto x = token->AsUint32();
+
+    token = tokenizer_->NextToken();
+    if (!token->IsInteger())
+      return Result("expected y unsigned integer coordinate");
+    auto y = token->AsUint32();
+
+    auto thread = debug::ThreadScript::Create();
+    auto result = ParseDebugThreadBody(thread.get());
+    if (!result.IsSuccess()) {
+      return result;
+    }
+
+    dbg->BreakOnFragmentWindowSpacePosition(x, y, thread);
+  } else {
+    return Result("expected GLOBAL_INVOCATION_ID or VERTEX_INDEX");
+  }
+
+  return Result();
+}
+
+Result Parser::ParseDebugThreadBody(debug::Thread* thread) {
+  for (auto token = tokenizer_->NextToken();; token = tokenizer_->NextToken()) {
+    if (token->IsEOL()) {
+      continue;
+    }
+    if (token->IsEOS()) {
+      return Result("missing THREAD END command");
+    }
+    if (token->IsIdentifier() && token->AsString() == "END") {
+      break;
+    }
+
+    if (token->AsString() == "EXPECT") {
+      token = tokenizer_->NextToken();
+      if (token->AsString() == "LOCATION") {
+        debug::Location location;
+        token = tokenizer_->NextToken();
+        if (!token->IsString()) {
+          return Result("expected file name string");
+        }
+        location.file = token->AsString();
+
+        token = tokenizer_->NextToken();
+        if (!token->IsInteger()) {
+          return Result("expected line number");
+        }
+        location.line = token->AsUint32();
+
+        std::string line_source;
+        token = tokenizer_->NextToken();
+        if (token->IsString()) {
+          line_source = token->AsString();
+        }
+
+        thread->ExpectLocation(location, line_source);
+      } else if (token->AsString() == "LOCAL") {
+        auto name = tokenizer_->NextToken();
+        if (!name->IsString()) {
+          return Result("expected variable name");
+        }
+
+        if (tokenizer_->NextToken()->AsString() != "EQ") {
+          return Result("expected EQ");
+        }
+
+        auto value = tokenizer_->NextToken();
+        if (value->IsHex() || value->IsInteger()) {
+          thread->ExpectLocal(name->AsString(), value->AsInt64());
+        } else if (value->IsDouble()) {
+          thread->ExpectLocal(name->AsString(), value->AsDouble());
+        } else if (value->IsString()) {
+          thread->ExpectLocal(name->AsString(), value->AsString());
+        } else {
+          return Result("expected variable value");
+        }
+      } else if (token->AsString() == "CALLSTACK") {
+        std::vector<debug::StackFrame> stack;
+        for (auto tok = tokenizer_->NextToken(); tok->AsString() != "END";
+             tok = tokenizer_->NextToken()) {
+          if (tok->IsEOL()) {
+            continue;
+          }
+          debug::StackFrame frame;
+          if (!tok->IsString()) {
+            return Result("expected stack frame name");
+          }
+          frame.name = tok->AsString();
+
+          tok = tokenizer_->NextToken();
+          if (tok->IsString()) {
+            frame.location.file = tok->AsString();
+            tok = tokenizer_->NextToken();
+            if (tok->IsInteger()) {
+              frame.location.line = tok->AsUint32();
+            } else if (!tok->IsEOL()) {
+              return Result(
+                  "expected end of line or stack frame location number");
+            }
+          } else if (!tok->IsEOL()) {
+            return Result(
+                "expected end of line or stack frame location file name");
+          }
+
+          stack.emplace_back(frame);
+        }
+        thread->ExpectCallstack(stack);
+      } else {
+        return Result("expected LOCATION or LOCAL");
+      }
+    } else if (token->AsString() == "STEP_IN") {
+      thread->StepIn();
+    } else if (token->AsString() == "STEP_OUT") {
+      thread->StepOut();
+    } else if (token->AsString() == "STEP_OVER") {
+      thread->StepOver();
+    } else if (token->AsString() == "CONTINUE") {
+      thread->Continue();
+    } else {
+      return Result("invalid token in THREAD block: " + token->AsString());
+    }
+  }
+  return Result();
+}
+
 Result Parser::ParseClear() {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("missing pipeline name for CLEAR command");
 
   size_t line = tokenizer_->GetCurrentLine();
@@ -1499,7 +2907,7 @@ Result Parser::ParseValues(const std::string& name,
     }
 
     if (type::Type::IsFloat(segs[seg_idx].GetFormatMode())) {
-      if (!token->IsInteger() && !token->IsDouble()) {
+      if (!token->IsInteger() && !token->IsDouble() && !token->IsHex()) {
         return Result(std::string("Invalid value provided to ") + name +
                       " command: " + token->ToOriginalString());
       }
@@ -1510,12 +2918,13 @@ Result Parser::ParseValues(const std::string& name,
 
       v.SetDoubleValue(token->AsDouble());
     } else {
-      if (!token->IsInteger()) {
+      if (!token->IsInteger() && !token->IsHex()) {
         return Result(std::string("Invalid value provided to ") + name +
                       " command: " + token->ToOriginalString());
       }
 
-      v.SetIntValue(token->AsUint64());
+      uint64_t val = token->IsHex() ? token->AsHex() : token->AsUint64();
+      v.SetIntValue(val);
     }
     ++seg_idx;
     if (seg_idx >= segs.size())
@@ -1529,7 +2938,7 @@ Result Parser::ParseValues(const std::string& name,
 
 Result Parser::ParseExpect() {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid buffer name in EXPECT command");
 
   if (token->AsString() == "IDX")
@@ -1551,7 +2960,7 @@ Result Parser::ParseExpect() {
 
   token = tokenizer_->NextToken();
 
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid comparator in EXPECT command");
 
   if (token->AsString() == "EQ_BUFFER" || token->AsString() == "RMSE_BUFFER" ||
@@ -1559,7 +2968,7 @@ Result Parser::ParseExpect() {
     auto type = token->AsString();
 
     token = tokenizer_->NextToken();
-    if (!token->IsString())
+    if (!token->IsIdentifier())
       return Result("invalid buffer name in EXPECT " + type + " command");
 
     auto* buffer_2 = script_->GetBuffer(token->AsString());
@@ -1592,7 +3001,7 @@ Result Parser::ParseExpect() {
       cmd->SetComparator(CompareBufferCommand::Comparator::kRmse);
 
       token = tokenizer_->NextToken();
-      if (!token->IsString() && token->AsString() == "TOLERANCE")
+      if (!token->IsIdentifier() && token->AsString() == "TOLERANCE")
         return Result("missing TOLERANCE for EXPECT RMSE_BUFFER");
 
       token = tokenizer_->NextToken();
@@ -1608,7 +3017,7 @@ Result Parser::ParseExpect() {
       cmd->SetComparator(CompareBufferCommand::Comparator::kHistogramEmd);
 
       token = tokenizer_->NextToken();
-      if (!token->IsString() && token->AsString() == "TOLERANCE")
+      if (!token->IsIdentifier() && token->AsString() == "TOLERANCE")
         return Result("missing TOLERANCE for EXPECT EQ_HISTOGRAM_EMD_BUFFER");
 
       token = tokenizer_->NextToken();
@@ -1651,7 +3060,7 @@ Result Parser::ParseExpect() {
     token = tokenizer_->NextToken();
   }
 
-  if (token->IsString() && token->AsString() == "SIZE") {
+  if (token->IsIdentifier() && token->AsString() == "SIZE") {
     if (!has_y_val)
       return Result("invalid Y value in EXPECT command");
 
@@ -1674,7 +3083,7 @@ Result Parser::ParseExpect() {
     probe->SetHeight(token->AsFloat());
 
     token = tokenizer_->NextToken();
-    if (!token->IsString()) {
+    if (!token->IsIdentifier()) {
       return Result("invalid token in EXPECT command:" +
                     token->ToOriginalString());
     }
@@ -1712,43 +3121,63 @@ Result Parser::ParseExpect() {
       probe->SetA(token->AsFloat() / 255.f);
     }
 
+    token = tokenizer_->NextToken();
+    if (token->IsIdentifier() && token->AsString() == "TOLERANCE") {
+      std::vector<Probe::Tolerance> tolerances;
+
+      Result r = ParseTolerances(&tolerances);
+
+      if (!r.IsSuccess())
+        return r;
+
+      if (tolerances.empty())
+        return Result("TOLERANCE specified but no tolerances provided");
+
+      if (!probe->IsRGBA() && tolerances.size() > 3) {
+        return Result(
+            "TOLERANCE for an RGB comparison has a maximum of 3 values");
+      }
+
+      if (tolerances.size() > 4) {
+        return Result(
+            "TOLERANCE for an RGBA comparison has a maximum of 4 values");
+      }
+
+      probe->SetTolerances(std::move(tolerances));
+      token = tokenizer_->NextToken();
+    }
+
+    if (!token->IsEOL() && !token->IsEOS()) {
+      return Result("extra parameters after EXPECT command: " +
+                    token->ToOriginalString());
+    }
+
     command_list_.push_back(std::move(probe));
-    return ValidateEndOfStatement("EXPECT command");
+
+    return {};
   }
 
   auto probe = MakeUnique<ProbeSSBOCommand>(buffer);
   probe->SetLine(line);
 
-  if (token->IsString() && token->AsString() == "TOLERANCE") {
+  if (token->IsIdentifier() && token->AsString() == "TOLERANCE") {
     std::vector<Probe::Tolerance> tolerances;
 
-    token = tokenizer_->NextToken();
-    while (!token->IsEOL() && !token->IsEOS()) {
-      if (!token->IsInteger() && !token->IsDouble())
-        break;
+    Result r = ParseTolerances(&tolerances);
 
-      Result r = token->ConvertToDouble();
-      if (!r.IsSuccess())
-        return r;
+    if (!r.IsSuccess())
+      return r;
 
-      double value = token->AsDouble();
-      token = tokenizer_->NextToken();
-      if (token->IsString() && token->AsString() == "%") {
-        tolerances.push_back(Probe::Tolerance{true, value});
-        token = tokenizer_->NextToken();
-      } else {
-        tolerances.push_back(Probe::Tolerance{false, value});
-      }
-    }
     if (tolerances.empty())
       return Result("TOLERANCE specified but no tolerances provided");
     if (tolerances.size() > 4)
       return Result("TOLERANCE has a maximum of 4 values");
 
     probe->SetTolerances(std::move(tolerances));
+    token = tokenizer_->NextToken();
   }
 
-  if (!token->IsString() || !IsComparator(token->AsString())) {
+  if (!token->IsIdentifier() || !IsComparator(token->AsString())) {
     return Result("unexpected token in EXPECT command: " +
                   token->ToOriginalString());
   }
@@ -1786,7 +3215,7 @@ Result Parser::ParseCopy() {
   auto token = tokenizer_->NextToken();
   if (token->IsEOL() || token->IsEOS())
     return Result("missing buffer name after COPY");
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid buffer name after COPY");
 
   size_t line = tokenizer_->GetCurrentLine();
@@ -1802,7 +3231,7 @@ Result Parser::ParseCopy() {
   token = tokenizer_->NextToken();
   if (token->IsEOL() || token->IsEOS())
     return Result("missing 'TO' after COPY and buffer name");
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("expected 'TO' after COPY and buffer name");
 
   name = token->AsString();
@@ -1812,7 +3241,7 @@ Result Parser::ParseCopy() {
   token = tokenizer_->NextToken();
   if (token->IsEOL() || token->IsEOS())
     return Result("missing buffer name after TO");
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid buffer name after TO");
 
   name = token->AsString();
@@ -1820,16 +3249,11 @@ Result Parser::ParseCopy() {
   if (!buffer_to)
     return Result("COPY destination buffer was not declared");
 
-  if (buffer_to->GetBufferType() == amber::BufferType::kUnknown) {
-    // Set destination buffer to mirror origin buffer
-    buffer_to->SetBufferType(buffer_from->GetBufferType());
-    buffer_to->SetWidth(buffer_from->GetWidth());
-    buffer_to->SetHeight(buffer_from->GetHeight());
-    buffer_to->SetElementCount(buffer_from->ElementCount());
-  }
+  // Set destination buffer to mirror origin buffer
+  buffer_to->SetWidth(buffer_from->GetWidth());
+  buffer_to->SetHeight(buffer_from->GetHeight());
+  buffer_to->SetElementCount(buffer_from->ElementCount());
 
-  if (buffer_from->GetBufferType() != buffer_to->GetBufferType())
-    return Result("cannot COPY between buffers of different types");
   if (buffer_from == buffer_to)
     return Result("COPY origin and destination buffers are identical");
 
@@ -1842,7 +3266,7 @@ Result Parser::ParseCopy() {
 
 Result Parser::ParseClearColor() {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("missing pipeline name for CLEAR_COLOR command");
 
   size_t line = tokenizer_->GetCurrentLine();
@@ -1903,11 +3327,75 @@ Result Parser::ParseClearColor() {
   return ValidateEndOfStatement("CLEAR_COLOR command");
 }
 
+Result Parser::ParseClearDepth() {
+  auto token = tokenizer_->NextToken();
+  if (!token->IsIdentifier())
+    return Result("missing pipeline name for CLEAR_DEPTH command");
+
+  size_t line = tokenizer_->GetCurrentLine();
+
+  auto* pipeline = script_->GetPipeline(token->AsString());
+  if (!pipeline) {
+    return Result("unknown pipeline for CLEAR_DEPTH command: " +
+                  token->AsString());
+  }
+  if (!pipeline->IsGraphics()) {
+    return Result("CLEAR_DEPTH command requires graphics pipeline");
+  }
+
+  auto cmd = MakeUnique<ClearDepthCommand>(pipeline);
+  cmd->SetLine(line);
+
+  token = tokenizer_->NextToken();
+  if (token->IsEOL() || token->IsEOS())
+    return Result("missing value for CLEAR_DEPTH command");
+  if (!token->IsDouble()) {
+    return Result("invalid value for CLEAR_DEPTH command: " +
+                  token->ToOriginalString());
+  }
+  cmd->SetValue(token->AsFloat());
+
+  command_list_.push_back(std::move(cmd));
+  return ValidateEndOfStatement("CLEAR_DEPTH command");
+}
+
+Result Parser::ParseClearStencil() {
+  auto token = tokenizer_->NextToken();
+  if (!token->IsIdentifier())
+    return Result("missing pipeline name for CLEAR_STENCIL command");
+
+  size_t line = tokenizer_->GetCurrentLine();
+
+  auto* pipeline = script_->GetPipeline(token->AsString());
+  if (!pipeline) {
+    return Result("unknown pipeline for CLEAR_STENCIL command: " +
+                  token->AsString());
+  }
+  if (!pipeline->IsGraphics()) {
+    return Result("CLEAR_STENCIL command requires graphics pipeline");
+  }
+
+  auto cmd = MakeUnique<ClearStencilCommand>(pipeline);
+  cmd->SetLine(line);
+
+  token = tokenizer_->NextToken();
+  if (token->IsEOL() || token->IsEOS())
+    return Result("missing value for CLEAR_STENCIL command");
+  if (!token->IsInteger() || token->AsInt32() < 0 || token->AsInt32() > 255) {
+    return Result("invalid value for CLEAR_STENCIL command: " +
+                  token->ToOriginalString());
+  }
+  cmd->SetValue(token->AsUint32());
+
+  command_list_.push_back(std::move(cmd));
+  return ValidateEndOfStatement("CLEAR_STENCIL command");
+}
+
 Result Parser::ParseDeviceFeature() {
   auto token = tokenizer_->NextToken();
   if (token->IsEOS() || token->IsEOL())
     return Result("missing feature name for DEVICE_FEATURE command");
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("invalid feature name for DEVICE_FEATURE command");
   if (!script_->IsKnownFeature(token->AsString()))
     return Result("unknown feature name for DEVICE_FEATURE command");
@@ -1937,8 +3425,8 @@ Result Parser::ParseRepeat() {
        token = tokenizer_->NextToken()) {
     if (token->IsEOL())
       continue;
-    if (!token->IsString())
-      return Result("expected string");
+    if (!token->IsIdentifier())
+      return Result("expected identifier");
 
     std::string tok = token->AsString();
     if (tok == "END")
@@ -1950,7 +3438,7 @@ Result Parser::ParseRepeat() {
     if (!r.IsSuccess())
       return r;
   }
-  if (!token->IsString() || token->AsString() != "END")
+  if (!token->IsIdentifier() || token->AsString() != "END")
     return Result("missing END for REPEAT command");
 
   auto cmd = MakeUnique<RepeatCommand>(count);
@@ -1964,7 +3452,7 @@ Result Parser::ParseRepeat() {
 
 Result Parser::ParseDerivePipelineBlock() {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString() || token->AsString() == "FROM")
+  if (!token->IsIdentifier() || token->AsString() == "FROM")
     return Result("missing pipeline name for DERIVE_PIPELINE command");
 
   std::string name = token->AsString();
@@ -1972,11 +3460,11 @@ Result Parser::ParseDerivePipelineBlock() {
     return Result("duplicate pipeline name for DERIVE_PIPELINE command");
 
   token = tokenizer_->NextToken();
-  if (!token->IsString() || token->AsString() != "FROM")
+  if (!token->IsIdentifier() || token->AsString() != "FROM")
     return Result("missing FROM in DERIVE_PIPELINE command");
 
   token = tokenizer_->NextToken();
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("missing parent pipeline name in DERIVE_PIPELINE command");
 
   Pipeline* parent = script_->GetPipeline(token->AsString());
@@ -1997,7 +3485,7 @@ Result Parser::ParseDeviceExtension() {
   auto token = tokenizer_->NextToken();
   if (token->IsEOL() || token->IsEOS())
     return Result("DEVICE_EXTENSION missing name");
-  if (!token->IsString()) {
+  if (!token->IsIdentifier()) {
     return Result("DEVICE_EXTENSION invalid name: " +
                   token->ToOriginalString());
   }
@@ -2011,7 +3499,7 @@ Result Parser::ParseInstanceExtension() {
   auto token = tokenizer_->NextToken();
   if (token->IsEOL() || token->IsEOS())
     return Result("INSTANCE_EXTENSION missing name");
-  if (!token->IsString()) {
+  if (!token->IsIdentifier()) {
     return Result("INSTANCE_EXTENSION invalid name: " +
                   token->ToOriginalString());
   }
@@ -2023,14 +3511,14 @@ Result Parser::ParseInstanceExtension() {
 
 Result Parser::ParseSet() {
   auto token = tokenizer_->NextToken();
-  if (!token->IsString() || token->AsString() != "ENGINE_DATA")
+  if (!token->IsIdentifier() || token->AsString() != "ENGINE_DATA")
     return Result("SET missing ENGINE_DATA");
 
   token = tokenizer_->NextToken();
   if (token->IsEOS() || token->IsEOL())
     return Result("SET missing variable to be set");
 
-  if (!token->IsString())
+  if (!token->IsIdentifier())
     return Result("SET invalid variable to set: " + token->ToOriginalString());
 
   if (token->AsString() != "fence_timeout_ms")
@@ -2045,6 +3533,188 @@ Result Parser::ParseSet() {
   script_->GetEngineData().fence_timeout_ms = token->AsUint32();
 
   return ValidateEndOfStatement("SET command");
+}
+
+Result Parser::ParseSampler() {
+  auto token = tokenizer_->NextToken();
+  if (!token->IsIdentifier())
+    return Result("invalid token when looking for sampler name");
+
+  auto sampler = MakeUnique<Sampler>();
+  sampler->SetName(token->AsString());
+
+  token = tokenizer_->NextToken();
+  while (!token->IsEOS() && !token->IsEOL()) {
+    if (!token->IsIdentifier())
+      return Result("invalid token when looking for sampler parameters");
+
+    auto param = token->AsString();
+    if (param == "MAG_FILTER") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("invalid token when looking for MAG_FILTER value");
+
+      auto filter = token->AsString();
+
+      if (filter == "linear")
+        sampler->SetMagFilter(FilterType::kLinear);
+      else if (filter == "nearest")
+        sampler->SetMagFilter(FilterType::kNearest);
+      else
+        return Result("invalid MAG_FILTER value " + filter);
+    } else if (param == "MIN_FILTER") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("invalid token when looking for MIN_FILTER value");
+
+      auto filter = token->AsString();
+
+      if (filter == "linear")
+        sampler->SetMinFilter(FilterType::kLinear);
+      else if (filter == "nearest")
+        sampler->SetMinFilter(FilterType::kNearest);
+      else
+        return Result("invalid MIN_FILTER value " + filter);
+    } else if (param == "ADDRESS_MODE_U") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("invalid token when looking for ADDRESS_MODE_U value");
+
+      auto mode_str = token->AsString();
+      auto mode = StrToAddressMode(mode_str);
+
+      if (mode == AddressMode::kUnknown)
+        return Result("invalid ADDRESS_MODE_U value " + mode_str);
+
+      sampler->SetAddressModeU(mode);
+    } else if (param == "ADDRESS_MODE_V") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("invalid token when looking for ADDRESS_MODE_V value");
+
+      auto mode_str = token->AsString();
+      auto mode = StrToAddressMode(mode_str);
+
+      if (mode == AddressMode::kUnknown)
+        return Result("invalid ADDRESS_MODE_V value " + mode_str);
+
+      sampler->SetAddressModeV(mode);
+    } else if (param == "ADDRESS_MODE_W") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("invalid token when looking for ADDRESS_MODE_W value");
+
+      auto mode_str = token->AsString();
+      auto mode = StrToAddressMode(mode_str);
+
+      if (mode == AddressMode::kUnknown)
+        return Result("invalid ADDRESS_MODE_W value " + mode_str);
+
+      sampler->SetAddressModeW(mode);
+    } else if (param == "BORDER_COLOR") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsIdentifier())
+        return Result("invalid token when looking for BORDER_COLOR value");
+
+      auto color_str = token->AsString();
+
+      if (color_str == "float_transparent_black")
+        sampler->SetBorderColor(BorderColor::kFloatTransparentBlack);
+      else if (color_str == "int_transparent_black")
+        sampler->SetBorderColor(BorderColor::kIntTransparentBlack);
+      else if (color_str == "float_opaque_black")
+        sampler->SetBorderColor(BorderColor::kFloatOpaqueBlack);
+      else if (color_str == "int_opaque_black")
+        sampler->SetBorderColor(BorderColor::kIntOpaqueBlack);
+      else if (color_str == "float_opaque_white")
+        sampler->SetBorderColor(BorderColor::kFloatOpaqueWhite);
+      else if (color_str == "int_opaque_white")
+        sampler->SetBorderColor(BorderColor::kIntOpaqueWhite);
+      else
+        return Result("invalid BORDER_COLOR value " + color_str);
+    } else if (param == "MIN_LOD") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsDouble())
+        return Result("invalid token when looking for MIN_LOD value");
+
+      sampler->SetMinLOD(token->AsFloat());
+    } else if (param == "MAX_LOD") {
+      token = tokenizer_->NextToken();
+
+      if (!token->IsDouble())
+        return Result("invalid token when looking for MAX_LOD value");
+
+      sampler->SetMaxLOD(token->AsFloat());
+    } else if (param == "NORMALIZED_COORDS") {
+      sampler->SetNormalizedCoords(true);
+    } else if (param == "UNNORMALIZED_COORDS") {
+      sampler->SetNormalizedCoords(false);
+      sampler->SetMinLOD(0.0f);
+      sampler->SetMaxLOD(0.0f);
+    } else {
+      return Result("unexpected sampler parameter " + param);
+    }
+
+    token = tokenizer_->NextToken();
+  }
+
+  if (sampler->GetMaxLOD() < sampler->GetMinLOD()) {
+    return Result("max LOD needs to be greater than or equal to min LOD");
+  }
+
+  return script_->AddSampler(std::move(sampler));
+}
+
+Result Parser::ParseTolerances(std::vector<Probe::Tolerance>* tolerances) {
+  auto token = tokenizer_->PeekNextToken();
+  while (!token->IsEOL() && !token->IsEOS()) {
+    if (!token->IsInteger() && !token->IsDouble())
+      break;
+
+    token = tokenizer_->NextToken();
+    Result r = token->ConvertToDouble();
+    if (!r.IsSuccess())
+      return r;
+
+    double value = token->AsDouble();
+    token = tokenizer_->PeekNextToken();
+    if (token->IsIdentifier() && token->AsString() == "%") {
+      tolerances->push_back(Probe::Tolerance{true, value});
+      tokenizer_->NextToken();
+      token = tokenizer_->PeekNextToken();
+    } else {
+      tolerances->push_back(Probe::Tolerance{false, value});
+    }
+  }
+
+  return {};
+}
+
+Result Parser::ParseVirtualFile() {
+  auto token = tokenizer_->NextToken();
+  if (!token->IsIdentifier() && !token->IsString())
+    return Result("invalid virtual file path");
+
+  auto path = token->AsString();
+
+  auto r = ValidateEndOfStatement("VIRTUAL_FILE command");
+  if (!r.IsSuccess())
+    return r;
+
+  auto data = tokenizer_->ExtractToNext("END");
+
+  token = tokenizer_->NextToken();
+  if (!token->IsIdentifier() || token->AsString() != "END")
+    return Result("VIRTUAL_FILE missing END command");
+
+  return script_->AddVirtualFile(path, data);
 }
 
 }  // namespace amberscript

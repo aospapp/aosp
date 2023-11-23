@@ -19,11 +19,13 @@ package com.android.car.hal;
 import static com.android.car.CarServiceUtils.toByteArray;
 import static com.android.car.CarServiceUtils.toFloatArray;
 import static com.android.car.CarServiceUtils.toIntArray;
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import static java.lang.Integer.toHexString;
 
 import android.annotation.CheckResult;
 import android.annotation.Nullable;
+import android.car.VehiclePropertyIds;
 import android.car.hardware.property.CarPropertyManager;
 import android.content.Context;
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
@@ -42,11 +44,12 @@ import android.os.RemoteException;
 import android.os.ServiceSpecificException;
 import android.os.SystemClock;
 import android.util.ArraySet;
-import android.util.Log;
+import android.util.Slog;
 import android.util.SparseArray;
 
 import com.android.car.CarLog;
 import com.android.car.CarServiceUtils;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -60,6 +63,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -73,15 +78,24 @@ public class VehicleHal extends IVehicleCallback.Stub {
 
     private static final boolean DBG = false;
 
-    private static final int NO_AREA = -1;
+    /**
+     * Used in {@link VehicleHal#dumpVehiclePropValue} method when copying {@link VehiclePropValue}.
+     */
+    private static final int MAX_BYTE_SIZE = 20;
 
-    private final HandlerThread mHandlerThread;
+    public static final int NO_AREA = -1;
+    public static final float NO_SAMPLE_RATE = -1;
+
+    private final HandlerThread mHandlerThread = CarServiceUtils.getHandlerThread(
+            VehicleHal.class.getSimpleName());
     private final PowerHalService mPowerHal;
     private final PropertyHalService mPropertyHal;
     private final InputHalService mInputHal;
     private final VmsHalService mVmsHal;
     private final UserHalService mUserHal;
-    private DiagnosticHalService mDiagnosticHal = null;
+    private final DiagnosticHalService mDiagnosticHal;
+    private final ClusterHalService mClusterHalService;
+    private final EvsHalService mEvsHal;
 
     private final Object mLock = new Object();
 
@@ -105,48 +119,69 @@ public class VehicleHal extends IVehicleCallback.Stub {
     // Used by injectVHALEvent for testing purposes.  Delimiter for an array of data
     private static final String DATA_DELIMITER = ",";
 
+    /**
+     * Constructs a new {@link VehicleHal} object given the {@link Context} and {@link IVehicle}
+     * both passed as parameters.
+     */
     public VehicleHal(Context context, IVehicle vehicle) {
-        mHandlerThread = CarServiceUtils.getHandlerThread(VehicleHal.class.getSimpleName());
-        // passing this should be safe as long as it is just kept and not used in constructor
         mPowerHal = new PowerHalService(this);
         mPropertyHal = new PropertyHalService(this);
         mInputHal = new InputHalService(this);
         mVmsHal = new VmsHalService(context, this);
-        mDiagnosticHal = new DiagnosticHalService(this);
         mUserHal = new UserHalService(this);
+        mDiagnosticHal = new DiagnosticHalService(this);
+        mClusterHalService = new ClusterHalService(this);
+        mEvsHal = new EvsHalService(this);
         mAllServices.addAll(Arrays.asList(mPowerHal,
                 mInputHal,
                 mDiagnosticHal,
                 mVmsHal,
                 mUserHal,
+                mClusterHalService,
+                mEvsHal,
                 mPropertyHal)); // mPropertyHal should be the last.
-
-        mHalClient = new HalClient(vehicle, mHandlerThread.getLooper(), this /*IVehicleCallback*/);
+        mHalClient = new HalClient(vehicle, mHandlerThread.getLooper(),
+                /* callback= */ this);
     }
 
-    /** Dummy version only for testing */
+    /**
+     * Constructs a new {@link VehicleHal} object given the services and {@link HalClient} factory
+     * function passed as parameters. This method must be used by tests only.
+     */
     @VisibleForTesting
-    public VehicleHal(PowerHalService powerHal, DiagnosticHalService diagnosticHal,
-            HalClient halClient, PropertyHalService propertyHal) {
-        mHandlerThread = null;
+    VehicleHal(PowerHalService powerHal,
+            PropertyHalService propertyHal,
+            InputHalService inputHal,
+            VmsHalService vmsHal,
+            UserHalService userHal,
+            DiagnosticHalService diagnosticHal,
+            ClusterHalService clusterHalService,
+            HalClient halClient) {
         mPowerHal = powerHal;
         mPropertyHal = propertyHal;
+        mInputHal = inputHal;
+        mVmsHal = vmsHal;
+        mUserHal = userHal;
         mDiagnosticHal = diagnosticHal;
-        mInputHal = null;
-        mVmsHal = null;
+        mClusterHalService = clusterHalService;
+        mEvsHal = new EvsHalService(this);
+        mAllServices.addAll(Arrays.asList(mPowerHal,
+                mInputHal,
+                mDiagnosticHal,
+                mVmsHal,
+                mUserHal,
+                mEvsHal,
+                mPropertyHal));
         mHalClient = halClient;
-        mDiagnosticHal = diagnosticHal;
-        mUserHal = null;
     }
 
+    /** Called when connection to Vehicle HAL was restored. */
     public void vehicleHalReconnected(IVehicle vehicle) {
         synchronized (mLock) {
             mHalClient = new HalClient(vehicle, mHandlerThread.getLooper(),
                     this /*IVehicleCallback*/);
-
             SubscribeOptions[] options = mSubscribedProperties.values()
                     .toArray(new SubscribeOptions[0]);
-
             try {
                 mHalClient.subscribe(options);
             } catch (RemoteException e) {
@@ -158,7 +193,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
     private void fetchAllPropConfigs() {
         synchronized (mLock) {
             if (!mAllProperties.isEmpty()) { // already set
-                Log.i(CarLog.TAG_HAL, "fetchAllPropConfigs already fetched");
+                Slog.i(CarLog.TAG_HAL, "fetchAllPropConfigs already fetched");
                 return;
             }
         }
@@ -166,7 +201,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
         try {
             configs = mHalClient.getAllPropConfigs();
             if (configs == null || configs.size() == 0) {
-                Log.e(CarLog.TAG_HAL, "getAllPropConfigs returned empty configs");
+                Slog.e(CarLog.TAG_HAL, "getAllPropConfigs returned empty configs");
                 return;
             }
         } catch (RemoteException e) {
@@ -177,7 +212,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
             // Create map of all properties
             for (VehiclePropConfig p : configs) {
                 if (DBG) {
-                    Log.i(CarLog.TAG_HAL, "Add config for prop:" + Integer.toHexString(p.prop)
+                    Slog.i(CarLog.TAG_HAL, "Add config for prop:" + Integer.toHexString(p.prop)
                             + " config:" + p);
                 }
                 mAllProperties.put(p.prop, p);
@@ -225,6 +260,9 @@ public class VehicleHal extends IVehicleCallback.Stub {
         }
     }
 
+    /**
+     * Releases all connected services (power management service, input service, etc).
+     */
     public void release() {
         // release in reverse order from init
         for (int i = mAllServices.size() - 1; i >= 0; i--) {
@@ -236,7 +274,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
                     mHalClient.unsubscribe(p);
                 } catch (RemoteException e) {
                     //  Ignore exceptions on shutdown path.
-                    Log.w(CarLog.TAG_HAL, "Failed to unsubscribe", e);
+                    Slog.w(CarLog.TAG_HAL, "Failed to unsubscribe", e);
                 }
             }
             mSubscribedProperties.clear();
@@ -245,7 +283,9 @@ public class VehicleHal extends IVehicleCallback.Stub {
         // keep the looper thread as should be kept for the whole life cycle.
     }
 
-    public DiagnosticHalService getDiagnosticHal() { return mDiagnosticHal; }
+    public DiagnosticHalService getDiagnosticHal() {
+        return mDiagnosticHal;
+    }
 
     public PowerHalService getPowerHal() {
         return mPowerHal;
@@ -263,7 +303,17 @@ public class VehicleHal extends IVehicleCallback.Stub {
         return mUserHal;
     }
 
-    public VmsHalService getVmsHal() { return mVmsHal; }
+    public VmsHalService getVmsHal() {
+        return mVmsHal;
+    }
+
+    public ClusterHalService getClusterHal() {
+        return mClusterHalService;
+    }
+
+    public EvsHalService getEvsHal() {
+        return mEvsHal;
+    }
 
     private void assertServiceOwnerLocked(HalServiceBase service, int property) {
         if (service != mPropertyHandlers.get(property)) {
@@ -279,7 +329,8 @@ public class VehicleHal extends IVehicleCallback.Stub {
      */
     public void subscribeProperty(HalServiceBase service, int property)
             throws IllegalArgumentException {
-        subscribeProperty(service, property, 0f, SubscribeFlags.EVENTS_FROM_CAR);
+        subscribeProperty(service, property, /* samplingRateHz= */ 0f,
+                SubscribeFlags.EVENTS_FROM_CAR);
     }
 
     /**
@@ -304,8 +355,8 @@ public class VehicleHal extends IVehicleCallback.Stub {
     public void subscribeProperty(HalServiceBase service, int property,
             float samplingRateHz, int flags) throws IllegalArgumentException {
         if (DBG) {
-            Log.i(CarLog.TAG_HAL, "subscribeProperty, service:" + service
-                    + ", property: 0x" + toHexString(property));
+            Slog.i(CarLog.TAG_HAL, "subscribeProperty, service:" + service
+                    + ", " + toCarPropertyLog(property));
         }
         VehiclePropConfig config;
         synchronized (mLock) {
@@ -313,8 +364,8 @@ public class VehicleHal extends IVehicleCallback.Stub {
         }
 
         if (config == null) {
-            throw new IllegalArgumentException("subscribe error: config is null for property 0x" +
-                    toHexString(property));
+            throw new IllegalArgumentException("subscribe error: config is null for property 0x"
+                    + toHexString(property));
         } else if (isPropertySubscribable(config)) {
             SubscribeOptions opts = new SubscribeOptions();
             opts.propId = property;
@@ -327,17 +378,22 @@ public class VehicleHal extends IVehicleCallback.Stub {
             try {
                 mHalClient.subscribe(opts);
             } catch (RemoteException e) {
-                Log.e(CarLog.TAG_HAL, "Failed to subscribe to property: 0x" + property, e);
+                Slog.e(CarLog.TAG_HAL, "Failed to subscribe to " + toCarPropertyLog(property),
+                        e);
             }
         } else {
-            Log.e(CarLog.TAG_HAL, "Cannot subscribe to property: " + property);
+            Slog.e(CarLog.TAG_HAL, "Cannot subscribe to " + toCarPropertyLog(property));
         }
     }
 
+    /**
+     * Unsubscribes from receiving notifications for the property and HAL services passed
+     * as parameters.
+     */
     public void unsubscribeProperty(HalServiceBase service, int property) {
         if (DBG) {
-            Log.i(CarLog.TAG_HAL, "unsubscribeProperty, service:" + service
-                    + ", property: 0x" + toHexString(property));
+            Slog.i(CarLog.TAG_HAL, "unsubscribeProperty, service:" + service
+                    + ", " + toCarPropertyLog(property));
         }
         VehiclePropConfig config;
         synchronized (mLock) {
@@ -345,7 +401,8 @@ public class VehicleHal extends IVehicleCallback.Stub {
         }
 
         if (config == null) {
-            Log.e(CarLog.TAG_HAL, "unsubscribeProperty: property " + property + " does not exist");
+            Slog.e(CarLog.TAG_HAL, "unsubscribeProperty " + toCarPropertyLog(property)
+                    + " does not exist");
         } else if (isPropertySubscribable(config)) {
             synchronized (mLock) {
                 assertServiceOwnerLocked(service, property);
@@ -354,14 +411,17 @@ public class VehicleHal extends IVehicleCallback.Stub {
             try {
                 mHalClient.unsubscribe(property);
             } catch (RemoteException e) {
-                Log.e(CarLog.TAG_SERVICE, "Failed to unsubscribe from property: 0x"
-                        + toHexString(property), e);
+                Slog.e(CarLog.TAG_SERVICE, "Failed to unsubscribe: "
+                        + toCarPropertyLog(property), e);
             }
         } else {
-            Log.e(CarLog.TAG_HAL, "Cannot unsubscribe property: " + property);
+            Slog.e(CarLog.TAG_HAL, "Cannot unsubscribe " + toCarPropertyLog(property));
         }
     }
 
+    /**
+     * Indicates if the property passed as parameter is supported.
+     */
     public boolean isPropertySupported(int propertyId) {
         synchronized (mLock) {
             return mAllProperties.containsKey(propertyId);
@@ -384,10 +444,10 @@ public class VehicleHal extends IVehicleCallback.Stub {
             try {
                 return get(propertyId);
             } catch (ServiceSpecificException e) {
-                Log.e(CarLog.TAG_HAL, "Cannot get property:" + propertyId, e);
+                Slog.e(CarLog.TAG_HAL, "Cannot get " + toCarPropertyLog(propertyId), e);
             }
         }
-        throw new IllegalStateException("Cannot get property:" + propertyId
+        throw new IllegalStateException("Cannot get property: 0x" + toHexString(propertyId)
                 + " after " + numberOfRetries + " retries");
     }
 
@@ -405,29 +465,46 @@ public class VehicleHal extends IVehicleCallback.Stub {
         return getIfAvailableOrFail(propertyId, numberOfRetries);
     }
 
+    /**
+     * Returns the property's {@link VehiclePropValue} for the property id passed as parameter and
+     * not specified area.
+     */
     public VehiclePropValue get(int propertyId) {
         return get(propertyId, NO_AREA);
     }
 
+    /**
+     * Returns the property's {@link VehiclePropValue} for the property id and area id passed as
+     * parameters.
+     */
     public VehiclePropValue get(int propertyId, int areaId) {
         if (DBG) {
-            Log.i(CarLog.TAG_HAL, "get, property: 0x" + toHexString(propertyId)
-                    + ", areaId: 0x" + toHexString(areaId));
+            Slog.i(CarLog.TAG_HAL, "get, " + toCarPropertyLog(propertyId)
+                    + toCarAreaLog(areaId));
         }
-        VehiclePropValue propValue = new VehiclePropValue();
-        propValue.prop = propertyId;
-        propValue.areaId = areaId;
-        return mHalClient.getValue(propValue);
+        return mHalClient.getValue(createPropValue(propertyId, areaId));
     }
 
+    /**
+     * Returns the property object value for the class and property id passed as parameter and
+     * no area specified.
+     */
     public <T> T get(Class clazz, int propertyId) {
         return get(clazz, createPropValue(propertyId, NO_AREA));
     }
 
+    /**
+     * Returns the property object value for the class, property id, and area id passed as
+     * parameter.
+     */
     public <T> T get(Class clazz, int propertyId, int areaId) {
         return get(clazz, createPropValue(propertyId, areaId));
     }
 
+    /**
+     * Returns the property object value for the class and requested property value passed as
+     * parameter.
+     */
     @SuppressWarnings("unchecked")
     public <T> T get(Class clazz, VehiclePropValue requestedPropValue) {
         VehiclePropValue propValue;
@@ -458,22 +535,23 @@ public class VehicleHal extends IVehicleCallback.Stub {
         }
     }
 
+    /**
+     * Returns the vehicle's {@link VehiclePropValue} for the requested property value passed
+     * as parameter.
+     */
     public VehiclePropValue get(VehiclePropValue requestedPropValue) {
         return mHalClient.getValue(requestedPropValue);
     }
 
     /**
-     *
-     * @param propId Property ID to return the current sample rate for.
-     *
-     * @return float Returns the current sample rate of the specified propId, or -1 if the
-     *                  property is not currently subscribed.
+     * Returns the sample rate for a subscribed property. Returns {@link VehicleHal#NO_SAMPLE_RATE}
+     * if the property id passed as parameter is not linked to any subscribed property.
      */
     public float getSampleRate(int propId) {
         SubscribeOptions opts = mSubscribedProperties.get(propId);
         if (opts == null) {
             // No sample rate for this property
-            return -1;
+            return NO_SAMPLE_RATE;
         } else {
             return opts.sampleRate;
         }
@@ -494,17 +572,11 @@ public class VehicleHal extends IVehicleCallback.Stub {
     }
 
     static boolean isPropertySubscribable(VehiclePropConfig config) {
-        if ((config.access & VehiclePropertyAccess.READ) == 0 ||
-                (config.changeMode == VehiclePropertyChangeMode.STATIC)) {
+        if ((config.access & VehiclePropertyAccess.READ) == 0
+                || (config.changeMode == VehiclePropertyChangeMode.STATIC)) {
             return false;
         }
         return true;
-    }
-
-    static void dumpProperties(PrintWriter writer, Collection<VehiclePropConfig> configs) {
-        for (VehiclePropConfig config : configs) {
-            writer.println(String.format("property 0x%x", config.prop));
-        }
     }
 
     private final ArraySet<HalServiceBase> mServicesToDispatch = new ArraySet<>();
@@ -514,9 +586,9 @@ public class VehicleHal extends IVehicleCallback.Stub {
         synchronized (mLock) {
             for (VehiclePropValue v : propValues) {
                 HalServiceBase service = mPropertyHandlers.get(v.prop);
-                if(service == null) {
-                    Log.e(CarLog.TAG_HAL, "HalService not found for prop: 0x"
-                        + toHexString(v.prop));
+                if (service == null) {
+                    Slog.e(CarLog.TAG_HAL, "HalService not found for prop: 0x"
+                            + toHexString(v.prop));
                     continue;
                 }
                 service.getDispatchList().add(v);
@@ -545,7 +617,7 @@ public class VehicleHal extends IVehicleCallback.Stub {
     @Override
     public void onPropertySetError(@CarPropertyManager.CarSetPropertyErrorCode int errorCode,
             int propId, int areaId) {
-        Log.e(CarLog.TAG_HAL, String.format("onPropertySetError, errorCode: %d, prop: 0x%x, "
+        Slog.e(CarLog.TAG_HAL, String.format("onPropertySetError, errorCode: %d, prop: 0x%x, "
                 + "area: 0x%x", errorCode, propId, areaId));
         if (propId != VehicleProperty.INVALID) {
             HalServiceBase service = mPropertyHandlers.get(propId);
@@ -555,25 +627,30 @@ public class VehicleHal extends IVehicleCallback.Stub {
         }
     }
 
+    /**
+     * Dumps HAL service info using the print writer passed as parameter.
+     */
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void dump(PrintWriter writer) {
         writer.println("**dump HAL services**");
         for (HalServiceBase service: mAllServices) {
             service.dump(writer);
         }
         // Dump all VHAL property configure.
-        dumpPropertyConfigs(writer, "");
-        writer.println(String.format("**All Events, now ns:%d**",
-                SystemClock.elapsedRealtimeNanos()));
+        dumpPropertyConfigs(writer, -1);
+        writer.printf("**All Events, now ns:%d**\n",
+                SystemClock.elapsedRealtimeNanos());
         for (VehiclePropertyEventInfo info : mEventLog.values()) {
-            writer.println(String.format("event count:%d, lastEvent:%s",
-                    info.eventCount, dumpVehiclePropValue(info.lastEvent)));
+            writer.printf("event count:%d, lastEvent: ", info.mEventCount);
+            dumpVehiclePropValue(writer, info.mLastEvent);
         }
 
         writer.println("**Property handlers**");
         for (int i = 0; i < mPropertyHandlers.size(); i++) {
             int propId = mPropertyHandlers.keyAt(i);
             HalServiceBase service = mPropertyHandlers.valueAt(i);
-            writer.println(String.format("Prop: 0x%08X, service: %s", propId, service));
+            writer.printf("Property Id: %d // 0x%x name: %s, service: %s\n", propId, propId,
+                    VehiclePropertyIds.toString(propId), service);
         }
     }
 
@@ -609,50 +686,54 @@ public class VehicleHal extends IVehicleCallback.Stub {
      * @param areaId areaId of the property, dump the property for all areaIds in the config
      * if it is empty string.
      */
-    public void dumpPropertyValueByCommend(PrintWriter writer, String propId, String areaId) {
-        if (propId.equals("")) {
+    public void dumpPropertyValueByCommend(PrintWriter writer, int propId, int areaId) {
+        if (propId == -1) {
             writer.println("**All property values**");
             for (VehiclePropConfig config : mAllProperties.values()) {
                 dumpPropertyValueByConfig(writer, config);
             }
-        } else if (areaId.equals("")) {
-            VehiclePropConfig config = mAllProperties.get(Integer.parseInt(propId, 16));
+        } else if (areaId == -1) {
+            VehiclePropConfig config = mAllProperties.get(propId);
             if (config == null) {
-                writer.printf("Property 0x%s not supported by HAL\n", propId);
+                writer.print("Property ");
+                dumpPropHelper(writer, propId);
+                writer.print(" not supported by HAL\n");
                 return;
             }
             dumpPropertyValueByConfig(writer, config);
         } else {
-            int id = Integer.parseInt(propId, 16);
-            int area = Integer.parseInt(areaId);
             try {
-                VehiclePropValue value = get(id, area);
-                writer.println(dumpVehiclePropValue(value));
-            } catch (Exception e) {
-                writer.println("Can not get property value for propertyId: 0x"
-                        + propId + ", areaId: " + area);
+                VehiclePropValue value = get(propId, areaId);
+                dumpVehiclePropValue(writer, value);
+            } catch (RuntimeException e) {
+                writer.printf("Can not get property value for property: %d // 0x%x "
+                                + "in areaId: %d // 0x%x.\n", propId, propId, areaId, areaId);
             }
         }
+    }
+
+    private static void dumpPropHelper(PrintWriter pw, int propId) {
+        pw.printf("Id: %d // 0x%x, name: %s ", propId, propId, VehiclePropertyIds.toString(propId));
     }
 
     private void dumpPropertyValueByConfig(PrintWriter writer, VehiclePropConfig config) {
         if (config.areaConfigs.isEmpty()) {
             try {
                 VehiclePropValue value = get(config.prop);
-                writer.println(dumpVehiclePropValue(value));
-            } catch (Exception e) {
-                writer.println("Can not get property value for propertyId: 0x"
-                        + toHexString(config.prop) + ", areaId: 0");
+                dumpVehiclePropValue(writer, value);
+            } catch (RuntimeException e) {
+                writer.printf("Can not get property value for property: %d // 0x%x,"
+                                + " areaId: 0 \n", config.prop, config.prop);
             }
         } else {
             for (VehicleAreaConfig areaConfig : config.areaConfigs) {
                 int area = areaConfig.areaId;
                 try {
                     VehiclePropValue value = get(config.prop, area);
-                    writer.println(dumpVehiclePropValue(value));
-                } catch (Exception e) {
-                    writer.println("Can not get property value for propertyId: 0x"
-                            + toHexString(config.prop) + ", areaId: " + area);
+                    dumpVehiclePropValue(writer, value);
+                } catch (RuntimeException e) {
+                    writer.printf("Can not get property value for property: %d // 0x%x "
+                            + "in areaId: %d // 0x%x\n", config.prop, config.prop , area, area);
                 }
             }
         }
@@ -662,51 +743,45 @@ public class VehicleHal extends IVehicleCallback.Stub {
      * Dump VHAL property configs.
      *
      * @param writer
-     * @param propId Property ID in Hex. If propid is empty string, dump all properties.
+     * @param propId Property ID. If propid is empty string, dump all properties.
      */
-    public void dumpPropertyConfigs(PrintWriter writer, String propId) {
+    public void dumpPropertyConfigs(PrintWriter writer, int propId) {
         List<VehiclePropConfig> configList;
         synchronized (mLock) {
             configList = new ArrayList<>(mAllProperties.values());
         }
 
-        if (propId.equals("")) {
+        if (propId == -1) {
             writer.println("**All properties**");
             for (VehiclePropConfig config : configList) {
-                writer.println(dumpPropertyConfigsHelp(config));
+                dumpPropertyConfigsHelp(writer, config);
             }
             return;
         }
         for (VehiclePropConfig config : configList) {
-            if (toHexString(config.prop).equals(propId)) {
-                writer.println(dumpPropertyConfigsHelp(config));
+            if (config.prop == propId) {
+                dumpPropertyConfigsHelp(writer, config);
                 return;
             }
         }
 
     }
 
-    /** Use VehiclePropertyConfig to construct string for dumping */
-    private static String dumpPropertyConfigsHelp(VehiclePropConfig config) {
-        StringBuilder builder = new StringBuilder()
-                .append("Property:0x").append(toHexString(config.prop))
-                .append(", Property name:").append(VehicleProperty.toString(config.prop))
-                .append(", access:0x").append(toHexString(config.access))
-                .append(", changeMode:0x").append(toHexString(config.changeMode))
-                .append(", config:0x").append(Arrays.toString(config.configArray.toArray()))
-                .append(", fs min:").append(config.minSampleRate)
-                .append(", fs max:").append(config.maxSampleRate);
+    /** Dumps VehiclePropertyConfigs */
+    private static void dumpPropertyConfigsHelp(PrintWriter writer, VehiclePropConfig config) {
+        writer.printf("Property:0x%x, Property name:%s, access:0x%x, changeMode:0x%x, "
+                        + "config:%s, fs min:%f, fs max:%f\n",
+                config.prop, VehiclePropertyIds.toString(config.prop), config.access,
+                config.changeMode, Arrays.toString(config.configArray.toArray()),
+                config.minSampleRate, config.maxSampleRate);
         for (VehicleAreaConfig area : config.areaConfigs) {
-            builder.append("\n\tareaId:0x").append(toHexString(area.areaId))
-                    .append(", f min:").append(area.minFloatValue)
-                    .append(", f max:").append(area.maxFloatValue)
-                    .append(", i min:").append(area.minInt32Value)
-                    .append(", i max:").append(area.maxInt32Value)
-                    .append(", i64 min:").append(area.minInt64Value)
-                    .append(", i64 max:").append(area.maxInt64Value);
+            writer.printf("\tareaId:0x%x, f min:%f, f max:%f, i min:%d, i max:%d,"
+                    + " i64 min:%d, i64 max:%d\n",
+                    area.areaId, area.minFloatValue, area.maxFloatValue, area.minInt32Value,
+                    area.maxInt32Value, area.minInt64Value, area.maxInt64Value);
         }
-        return builder.toString();
     }
+
     /**
      * Inject a VHAL event
      *
@@ -715,21 +790,70 @@ public class VehicleHal extends IVehicleCallback.Stub {
      * @param value    Data value of the event
      * @param delayTime Add a certain duration to event timestamp
      */
-    public void injectVhalEvent(String property, String zone, String value, String delayTime)
+    public void injectVhalEvent(int property, int zone, String value, int delayTime)
             throws NumberFormatException {
-        if (value == null || zone == null || property == null) {
+
+        VehiclePropValue v = createPropValueForInjecting(property, zone,
+                Arrays.asList(value.split(DATA_DELIMITER)));
+        if (v == null) {
             return;
         }
-        int propId = Integer.decode(property);
-        int zoneId = Integer.decode(zone);
-        int duration = Integer.decode(delayTime);
+        // update timestamp
+        v.timestamp = SystemClock.elapsedRealtimeNanos() + TimeUnit.SECONDS.toNanos(delayTime);
+        onPropertyEvent(Lists.newArrayList(v));
+    }
+
+    /**
+     * Injects continuous VHAL events.
+     *
+     * @param property the Vehicle property Id as defined in the HAL
+     * @param zone Zone that this event services
+     * @param value Data value of the event
+     * @param sampleRate Sample Rate for events in Hz
+     * @param timeDurationInSec The duration for injecting events in seconds
+     */
+    public void injectContinuousVhalEvent(int property, int zone, String value,
+            float sampleRate, long timeDurationInSec) {
+
+        VehiclePropValue v = createPropValueForInjecting(property, zone,
+                new ArrayList<>(Arrays.asList(value.split(DATA_DELIMITER))));
+        if (v == null) {
+            return;
+        }
+        // rate in Hz
+        if (sampleRate <= 0) {
+            Slog.e(CarLog.TAG_HAL, "Inject events at an invalid sample rate: " + sampleRate);
+            return;
+        }
+        long period = (long) (1000 / sampleRate);
+        long stopTime = timeDurationInSec * 1000 + SystemClock.elapsedRealtime();
+        Timer timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                if (stopTime < SystemClock.elapsedRealtime()) {
+                    timer.cancel();
+                    timer.purge();
+                } else {
+                    // Avoid the fake events be covered by real Event
+                    v.timestamp = SystemClock.elapsedRealtimeNanos()
+                            + TimeUnit.SECONDS.toNanos(timeDurationInSec);
+                    onPropertyEvent(Lists.newArrayList(v));
+                }
+            }
+        }, /* delay= */0, period);
+    }
+
+    // Returns null if the property type is unsupported.
+    @Nullable
+    private static VehiclePropValue createPropValueForInjecting(int propId, int zoneId,
+            List<String> dataList) {
         VehiclePropValue v = createPropValue(propId, zoneId);
         int propertyType = propId & VehiclePropertyType.MASK;
         // Values can be comma separated list
-        List<String> dataList = new ArrayList<>(Arrays.asList(value.split(DATA_DELIMITER)));
         switch (propertyType) {
             case VehiclePropertyType.BOOLEAN:
-                boolean boolValue = Boolean.valueOf(value);
+                boolean boolValue = Boolean.parseBoolean(dataList.get(0));
                 v.value.int32Values.add(boolValue ? 1 : 0);
                 break;
             case VehiclePropertyType.INT32:
@@ -745,42 +869,24 @@ public class VehicleHal extends IVehicleCallback.Stub {
                 }
                 break;
             default:
-                Log.e(CarLog.TAG_HAL, "Property type unsupported:" + propertyType);
-                return;
+                Slog.e(CarLog.TAG_HAL, "Property type unsupported:" + propertyType);
+                return null;
         }
-        v.timestamp = SystemClock.elapsedRealtimeNanos() + TimeUnit.SECONDS.toNanos(duration);
-        onPropertyEvent(Lists.newArrayList(v));
-    }
-
-    /**
-     * Inject an error event.
-     *
-     * @param property the Vehicle property Id as defined in the HAL
-     * @param zone Zone for the event to inject
-     * @param errorCode Error code return from HAL
-     */
-    public void injectOnPropertySetError(String property, String zone, String errorCode) {
-        if (zone == null || property == null || errorCode == null) {
-            return;
-        }
-        int propId = Integer.decode(property);
-        int zoneId = Integer.decode(zone);
-        int errorId = Integer.decode(errorCode);
-        onPropertySetError(errorId, propId, zoneId);
+        return v;
     }
 
     private static class VehiclePropertyEventInfo {
-        private int eventCount;
-        private VehiclePropValue lastEvent;
+        private int mEventCount;
+        private VehiclePropValue mLastEvent;
 
         private VehiclePropertyEventInfo(VehiclePropValue event) {
-            eventCount = 1;
-            lastEvent = event;
+            mEventCount = 1;
+            mLastEvent = event;
         }
 
         private void addNewEvent(VehiclePropValue event) {
-            eventCount++;
-            lastEvent = event;
+            mEventCount++;
+            mLastEvent = event;
         }
     }
 
@@ -820,36 +926,30 @@ public class VehicleHal extends IVehicleCallback.Stub {
             HalClient client =  mClient.get();
             if (client != null) {
                 if (DBG) {
-                    Log.i(CarLog.TAG_HAL, "set, property: 0x" + toHexString(mPropValue.prop)
-                            + ", areaId: 0x" + toHexString(mPropValue.areaId));
+                    Slog.i(CarLog.TAG_HAL, "set, " + toCarPropertyLog(mPropValue.prop)
+                            + toCarAreaLog(mPropValue.areaId));
                 }
                 client.setValue(mPropValue);
             }
         }
     }
 
-    private static String dumpVehiclePropValue(VehiclePropValue value) {
-        final int MAX_BYTE_SIZE = 20;
-
-        StringBuilder sb = new StringBuilder()
-                .append("Property:0x").append(toHexString(value.prop))
-                .append(",status: ").append(value.status)
-                .append(",timestamp:").append(value.timestamp)
-                .append(",zone:0x").append(toHexString(value.areaId))
-                .append(",floatValues: ").append(Arrays.toString(value.value.floatValues.toArray()))
-                .append(",int32Values: ").append(Arrays.toString(value.value.int32Values.toArray()))
-                .append(",int64Values: ")
-                .append(Arrays.toString(value.value.int64Values.toArray()));
-
+    private static void dumpVehiclePropValue(PrintWriter writer, VehiclePropValue value) {
+        String bytesString = "";
         if (value.value.bytes.size() > MAX_BYTE_SIZE) {
             Object[] bytes = Arrays.copyOf(value.value.bytes.toArray(), MAX_BYTE_SIZE);
-            sb.append(",bytes: ").append(Arrays.toString(bytes));
+            bytesString = Arrays.toString(bytes);
         } else {
-            sb.append(",bytes: ").append(Arrays.toString(value.value.bytes.toArray()));
+            bytesString = Arrays.toString(value.value.bytes.toArray());
         }
-        sb.append(",string: ").append(value.value.stringValue);
 
-        return sb.toString();
+        writer.printf("Property:0x%x, status: %d, timestamp: %d, zone: 0x%x, "
+                + "floatValues: %s, int32Values: %s, int64Values: %s, bytes: %s, string: %s\n",
+                value.prop, value.status, value.timestamp, value.areaId,
+                Arrays.toString(value.value.floatValues.toArray()),
+                Arrays.toString(value.value.int32Values.toArray()),
+                Arrays.toString(value.value.int64Values.toArray()),
+                bytesString, value.value.stringValue);
     }
 
     private static VehiclePropValue createPropValue(int propId, int areaId) {
@@ -857,5 +957,14 @@ public class VehicleHal extends IVehicleCallback.Stub {
         propValue.prop = propId;
         propValue.areaId = areaId;
         return propValue;
+    }
+
+    private static String toCarPropertyLog(int propId) {
+        return String.format("property Id: %d // 0x%x, property name: %s ", propId, propId,
+                VehiclePropertyIds.toString(propId));
+    }
+
+    private static String toCarAreaLog(int areaId) {
+        return String.format("areaId: %d // 0x%x", areaId, areaId);
     }
 }

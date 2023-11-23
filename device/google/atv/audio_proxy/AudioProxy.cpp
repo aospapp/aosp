@@ -34,7 +34,7 @@ class AudioProxyImpl {
 };
 
 AudioProxyImpl::AudioProxyImpl() {
-  mManager = audio_proxy::V5_0::createAudioProxyManager();
+  mManager = audio_proxy::V5_1::createAudioProxyManager();
   ALOGE_IF(!mManager, "Failed to create audio proxy manager");
 }
 

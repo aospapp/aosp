@@ -16,6 +16,7 @@
 
 package android.net;
 
+@JavaDerive(toString=true)
 parcelable DataStallReportParcelable {
     /**
      * Timestamp of the report, relative to SystemClock.elapsedRealtime().

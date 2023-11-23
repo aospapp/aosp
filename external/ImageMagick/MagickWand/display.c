@@ -17,7 +17,7 @@
 %                                July 1992                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -118,6 +118,7 @@ static MagickBooleanType DisplayUsage(void)
       "  -edge factor         apply a filter to detect edges in the image\n"
       "  -enhance             apply a digital filter to enhance a noisy image\n"
       "  -equalize            perform histogram equalization to an image\n"
+      "  -extent geometry     set the image size\n"
       "  -extract geometry    extract area from image\n"
       "  -flip                flip image in the vertical direction\n"
       "  -flop                flop image in the horizontal direction\n"
@@ -236,7 +237,7 @@ static MagickBooleanType DisplayUsage(void)
   (void) printf("'-' for standard input or output.\n");
   (void) printf("\nButtons: \n");
   (void) puts(buttons);
-  return(MagickFalse);
+  return(MagickTrue);
 }
 
 WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
@@ -303,7 +304,7 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
   QuantizeInfo
     *quantize_info;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -397,7 +398,10 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
       nostdin=MagickTrue;
     if ((LocaleCompare("help",option+1) == 0) ||
         (LocaleCompare("-help",option+1) == 0))
-      return(DisplayUsage());
+      {
+        DestroyDisplay();
+        return(DisplayUsage());
+      }
   }
   /*
     Get user defaults from X resource database.
@@ -1048,6 +1052,17 @@ WandExport MagickBooleanType DisplayImageCommand(ImageInfo *image_info,
           break;
         if (LocaleCompare("equalize",option+1) == 0)
           break;
+        if (LocaleCompare("extent",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowDisplayException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowDisplayInvalidArgumentException(option,argv[i]);
+            break;
+          }
         if (LocaleCompare("extract",option+1) == 0)
           {
             if (*option == '+')

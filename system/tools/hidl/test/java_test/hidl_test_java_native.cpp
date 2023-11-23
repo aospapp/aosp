@@ -23,9 +23,9 @@
 #include <android/hardware/tests/baz/1.0/IBaz.h>
 #include <android/hardware/tests/memory/2.0/IMemoryInterface.h>
 #include <android/hardware/tests/memory/2.0/types.h>
-#include <android/hardware/tests/safeunion/1.0/IOtherInterface.h>
 #include <android/hardware/tests/safeunion/1.0/ISafeUnion.h>
 #include <android/hidl/allocator/1.0/IAllocator.h>
+#include <android/hidl/manager/1.0/IServiceManager.h>
 
 #include <hidlmemory/mapping.h>
 #include <hidl/LegacySupport.h>
@@ -44,7 +44,6 @@ using ::android::hardware::tests::baz::V1_0::IBaz;
 using ::android::hardware::tests::baz::V1_0::IBazCallback;
 using ::android::hardware::tests::memory::V2_0::IMemoryInterface;
 using ::android::hardware::tests::memory::V2_0::TwoMemory;
-using ::android::hardware::tests::safeunion::V1_0::IOtherInterface;
 using ::android::hardware::tests::safeunion::V1_0::ISafeUnion;
 
 using ::android::hardware::hidl_array;
@@ -82,16 +81,6 @@ Return<void> BazCallback::hey() {
 
     return Void();
 }
-
-struct OtherInterface : public IOtherInterface {
-    Return<void> concatTwoStrings(const hidl_string& a, const hidl_string& b,
-                                  concatTwoStrings_cb _hidl_cb) override {
-        hidl_string result = std::string(a) + std::string(b);
-        _hidl_cb(result);
-
-        return Void();
-    }
-};
 
 struct MemoryInterface : public IMemoryInterface {
     MemoryInterface() {
@@ -222,7 +211,6 @@ struct HidlEnvironment : public ::testing::Environment {
 struct HidlTest : public ::testing::Test {
     sp<IBaz> baz;
     sp<ISafeUnion> safeunionInterface;
-    sp<IOtherInterface> otherInterface;
 
     void SetUp() override {
         using namespace ::android::hardware;
@@ -236,11 +224,6 @@ struct HidlTest : public ::testing::Test {
         safeunionInterface = ISafeUnion::getService();
         CHECK(safeunionInterface != nullptr);
         CHECK(safeunionInterface->isRemote());
-
-        ::android::hardware::details::waitForHwService(IOtherInterface::descriptor, "default");
-        otherInterface = IOtherInterface::getService();
-        CHECK(otherInterface != nullptr);
-        CHECK(otherInterface->isRemote());
     }
 
     void TearDown() override {
@@ -295,19 +278,23 @@ TEST_F(HidlTest, BazSomeOtherBaseMethodTest) {
 }
 
 TEST_F(HidlTest, SomeOtherBaseMethodInvalidString) {
+    Return<bool> isJava = baz->isJava();
+    ASSERT_TRUE(isJava.isOk());
+    if (!isJava) {
+        GTEST_SKIP() << "Test only applies to Java";
+    }
+
     IBase::Foo foo {
         .y = {
             .s = "\xff",
         }
     };
 
-    auto ret = baz->someOtherBaseMethod(foo, [&](const auto&) {
-        ADD_FAILURE() << "Should not accept invalid UTF-8 String";
+    auto ret = baz->someOtherBaseMethod(foo, [](const IBase::Foo& ret) {
+        EXPECT_EQ(ret.y.s, "?");  // :)
     });
 
-    EXPECT_FALSE(ret.isOk());
-
-    EXPECT_OK(baz->ping());
+    EXPECT_TRUE(ret.isOk());
 }
 
 TEST_F(HidlTest, BazSomeMethodWithFooArraysTest) {
@@ -771,7 +758,7 @@ TEST_F(HidlTest, TwowayMethodOnewayEnabledTest) {
     EXPECT_EQ(::android::OK, request.writeInterfaceToken(IBaz::descriptor));
     EXPECT_EQ(::android::OK, request.writeInt64(1234));
     // IBaz::doThatAndReturnSomething is two-way but we call it using FLAG_ONEWAY.
-    EXPECT_EQ(::android::OK, binder->transact(18 /*doThatAndReturnSomething*/, request, &reply,
+    EXPECT_EQ(::android::OK, binder->transact(19 /*doThatAndReturnSomething*/, request, &reply,
                                               IBinder::FLAG_ONEWAY));
 
     ::android::hardware::Status status;
@@ -782,6 +769,9 @@ TEST_F(HidlTest, TwowayMethodOnewayEnabledTest) {
 }
 
 TEST_F(HidlTest, OnewayMethodOnewayDisabledTest) {
+    Return<bool> isJava = baz->isJava();
+    ASSERT_TRUE(isJava.isOk());
+
     using ::android::hardware::IBinder;
     using ::android::hardware::Parcel;
 
@@ -795,8 +785,10 @@ TEST_F(HidlTest, OnewayMethodOnewayDisabledTest) {
             // Expect UNKNOWN_ERROR because the JNI class JHwBinder always sets
             // the reply to UNKNOWN_ERROR for two-way transactions if the
             // transaction itself did not send a reply.
-            ::android::UNKNOWN_ERROR,
-            binder->transact(17 /*doThis*/, request, &reply, 0 /* Not FLAG_ONEWAY */));
+            //
+            // C++ does not specifically check this error case.
+            (isJava ? ::android::UNKNOWN_ERROR : 0),
+            binder->transact(18 /*doThis*/, request, &reply, 0 /* Not FLAG_ONEWAY */));
 
     EXPECT_OK(baz->ping());  // still works
 }
@@ -968,17 +960,14 @@ TEST_F(HidlTest, SafeUnionInterfaceTest) {
                 }));
         }));
 
-    // Same-process interface calls are not supported in Java, so we use
-    // a safe_union instance bound to this (client) process instead of
-    // safeunionInterface to exercise this test-case. Ref: b/110957763.
+    using android::hardware::defaultServiceManager;
+    using android::hardware::interfacesEqual;
+
     InterfaceTypeSafeUnion safeUnion;
-    safeUnion.c(otherInterface);
+    safeUnion.c(defaultServiceManager());
 
     EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::c, safeUnion.getDiscriminator());
-    EXPECT_OK(safeUnion.c()->concatTwoStrings(
-        hidl_string(testStringA), hidl_string(testStringB), [&](const hidl_string& result) {
-            EXPECT_EQ(testStringA + testStringB, std::string(result));
-        }));
+    EXPECT_TRUE(interfacesEqual(safeUnion.c(), defaultServiceManager()));
 
     native_handle_delete(h);
 }
@@ -1205,6 +1194,12 @@ void expectRangeEqual(const T* t, uint8_t byte) {
 }
 
 TEST_F(HidlTest, UninitTest) {
+    Return<bool> isJava = baz->isJava();
+    ASSERT_TRUE(isJava.isOk());
+    if (!isJava) {
+        GTEST_SKIP() << "Test only applies to Java";
+    }
+
     IBase::Foo foo;
     foo.x = 1;
     foo.y = {0, ""};
@@ -1228,9 +1223,8 @@ TEST_F(HidlTest, UninitTest) {
 }
 
 int main(int argc, char **argv) {
-    setenv("TREBLE_TESTING_OVERRIDE", "true", true);
-
     using namespace android::hardware;
+    details::setTrebleTestingOverride(true);
 
     const char *me = argv[0];
 
@@ -1283,10 +1277,6 @@ int main(int argc, char **argv) {
 
     status = registerPassthroughServiceImplementation<ISafeUnion>();
     CHECK(status == ::android::OK) << "ISafeUnion didn't register";
-
-    sp<IOtherInterface> otherInterface = new OtherInterface();
-    status = otherInterface->registerAsService();
-    CHECK(status == ::android::OK) << "IOtherInterface didn't register";
 
     sp<IMemoryInterface> memoryInterface = new MemoryInterface();
     status = memoryInterface->registerAsService();

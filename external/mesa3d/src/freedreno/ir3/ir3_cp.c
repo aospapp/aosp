@@ -25,10 +25,15 @@
  */
 
 #include <math.h>
+#include "util/half_float.h"
+#include "util/u_math.h"
 
 #include "ir3.h"
 #include "ir3_compiler.h"
 #include "ir3_shader.h"
+
+#define swap(a, b) \
+	do { __typeof(a) __tmp = (a); (a) = (b); (b) = __tmp; } while (0)
 
 /*
  * Copy Propagate:
@@ -37,11 +42,19 @@
 struct ir3_cp_ctx {
 	struct ir3 *shader;
 	struct ir3_shader_variant *so;
-	unsigned immediate_idx;
+	bool progress;
 };
 
-/* is it a type preserving mov, with ok flags? */
-static bool is_eligible_mov(struct ir3_instruction *instr, bool allow_flags)
+/* is it a type preserving mov, with ok flags?
+ *
+ * @instr: the mov to consider removing
+ * @dst_instr: the instruction consuming the mov (instr)
+ *
+ * TODO maybe drop allow_flags since this is only false when dst is
+ * NULL (ie. outputs)
+ */
+static bool is_eligible_mov(struct ir3_instruction *instr,
+		struct ir3_instruction *dst_instr, bool allow_flags)
 {
 	if (is_same_type_mov(instr)) {
 		struct ir3_register *dst = instr->regs[0];
@@ -66,162 +79,25 @@ static bool is_eligible_mov(struct ir3_instruction *instr, bool allow_flags)
 					IR3_REG_SABS | IR3_REG_SNEG | IR3_REG_BNOT))
 				return false;
 
-		/* TODO: remove this hack: */
-		if (src_instr->opc == OPC_META_FO)
-			return false;
+		/* If src is coming from fanout/split (ie. one component of a
+		 * texture fetch, etc) and we have constraints on swizzle of
+		 * destination, then skip it.
+		 *
+		 * We could possibly do a bit better, and copy-propagation if
+		 * we can CP all components that are being fanned out.
+		 */
+		if (src_instr->opc == OPC_META_SPLIT) {
+			if (!dst_instr)
+				return false;
+			if (dst_instr->opc == OPC_META_COLLECT)
+				return false;
+			if (dst_instr->cp.left || dst_instr->cp.right)
+				return false;
+		}
 
 		return true;
 	}
 	return false;
-}
-
-static unsigned cp_flags(unsigned flags)
-{
-	/* only considering these flags (at least for now): */
-	flags &= (IR3_REG_CONST | IR3_REG_IMMED |
-			IR3_REG_FNEG | IR3_REG_FABS |
-			IR3_REG_SNEG | IR3_REG_SABS |
-			IR3_REG_BNOT | IR3_REG_RELATIV);
-	return flags;
-}
-
-static bool valid_flags(struct ir3_instruction *instr, unsigned n,
-		unsigned flags)
-{
-	unsigned valid_flags;
-
-	if ((flags & IR3_REG_HIGH) &&
-			(opc_cat(instr->opc) > 1) &&
-			(instr->block->shader->compiler->gpu_id >= 600))
-		return false;
-
-	flags = cp_flags(flags);
-
-	/* If destination is indirect, then source cannot be.. at least
-	 * I don't think so..
-	 */
-	if ((instr->regs[0]->flags & IR3_REG_RELATIV) &&
-			(flags & IR3_REG_RELATIV))
-		return false;
-
-	/* TODO it seems to *mostly* work to cp RELATIV, except we get some
-	 * intermittent piglit variable-indexing fails.  Newer blob driver
-	 * doesn't seem to cp these.  Possibly this is hw workaround?  Not
-	 * sure, but until that is understood better, lets just switch off
-	 * cp for indirect src's:
-	 */
-	if (flags & IR3_REG_RELATIV)
-		return false;
-
-	switch (opc_cat(instr->opc)) {
-	case 1:
-		valid_flags = IR3_REG_IMMED | IR3_REG_CONST | IR3_REG_RELATIV;
-		if (flags & ~valid_flags)
-			return false;
-		break;
-	case 2:
-		valid_flags = ir3_cat2_absneg(instr->opc) |
-				IR3_REG_CONST | IR3_REG_RELATIV;
-
-		if (ir3_cat2_int(instr->opc))
-			valid_flags |= IR3_REG_IMMED;
-
-		if (flags & ~valid_flags)
-			return false;
-
-		if (flags & (IR3_REG_CONST | IR3_REG_IMMED)) {
-			unsigned m = (n ^ 1) + 1;
-			/* cannot deal w/ const in both srcs:
-			 * (note that some cat2 actually only have a single src)
-			 */
-			if (m < instr->regs_count) {
-				struct ir3_register *reg = instr->regs[m];
-				if ((flags & IR3_REG_CONST) && (reg->flags & IR3_REG_CONST))
-					return false;
-				if ((flags & IR3_REG_IMMED) && (reg->flags & IR3_REG_IMMED))
-					return false;
-			}
-			/* cannot be const + ABS|NEG: */
-			if (flags & (IR3_REG_FABS | IR3_REG_FNEG |
-					IR3_REG_SABS | IR3_REG_SNEG | IR3_REG_BNOT))
-				return false;
-		}
-		break;
-	case 3:
-		valid_flags = ir3_cat3_absneg(instr->opc) |
-				IR3_REG_CONST | IR3_REG_RELATIV;
-
-		if (flags & ~valid_flags)
-			return false;
-
-		if (flags & (IR3_REG_CONST | IR3_REG_RELATIV)) {
-			/* cannot deal w/ const/relativ in 2nd src: */
-			if (n == 1)
-				return false;
-		}
-
-		if (flags & IR3_REG_CONST) {
-			/* cannot be const + ABS|NEG: */
-			if (flags & (IR3_REG_FABS | IR3_REG_FNEG |
-					IR3_REG_SABS | IR3_REG_SNEG | IR3_REG_BNOT))
-				return false;
-		}
-		break;
-	case 4:
-		/* seems like blob compiler avoids const as src.. */
-		/* TODO double check if this is still the case on a4xx */
-		if (flags & (IR3_REG_CONST | IR3_REG_IMMED))
-			return false;
-		if (flags & (IR3_REG_SABS | IR3_REG_SNEG))
-			return false;
-		break;
-	case 5:
-		/* no flags allowed */
-		if (flags)
-			return false;
-		break;
-	case 6:
-		valid_flags = IR3_REG_IMMED;
-		if (flags & ~valid_flags)
-			return false;
-
-		if (flags & IR3_REG_IMMED) {
-			/* doesn't seem like we can have immediate src for store
-			 * instructions:
-			 *
-			 * TODO this restriction could also apply to load instructions,
-			 * but for load instructions this arg is the address (and not
-			 * really sure any good way to test a hard-coded immed addr src)
-			 */
-			if (is_store(instr) && (n == 1))
-				return false;
-
-			if ((instr->opc == OPC_LDL) && (n != 1))
-				return false;
-
-			if ((instr->opc == OPC_STL) && (n != 2))
-				return false;
-
-			/* disallow CP into anything but the SSBO slot argument for
-			 * atomics:
-			 */
-			if (is_atomic(instr->opc) && (n != 0))
-				return false;
-
-			if (is_atomic(instr->opc) && !(instr->flags & IR3_INSTR_G))
-				return false;
-
-			/* as with atomics, ldib on a6xx can only have immediate for
-			 * SSBO slot argument
-			 */
-			if ((instr->opc == OPC_LDIB) && (n != 0))
-				return false;
-		}
-
-		break;
-	}
-
-	return true;
 }
 
 /* propagate register flags from src to dst.. negates need special
@@ -268,12 +144,32 @@ static void combine_flags(unsigned *dstflags, struct ir3_instruction *src)
 		*dstflags &= ~IR3_REG_SABS;
 }
 
-static struct ir3_register *
-lower_immed(struct ir3_cp_ctx *ctx, struct ir3_register *reg, unsigned new_flags)
+/* Tries lowering an immediate register argument to a const buffer access by
+ * adding to the list of immediates to be pushed to the const buffer when
+ * switching to this shader.
+ */
+static bool
+lower_immed(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr, unsigned n,
+		struct ir3_register *reg, unsigned new_flags)
 {
-	unsigned swiz, idx, i;
+	if (!(new_flags & IR3_REG_IMMED))
+		return false;
+
+	new_flags &= ~IR3_REG_IMMED;
+	new_flags |= IR3_REG_CONST;
+
+	if (!ir3_valid_flags(instr, n, new_flags))
+		return false;
 
 	reg = ir3_reg_clone(ctx->shader, reg);
+
+	/* Half constant registers seems to handle only 32-bit values
+	 * within floating-point opcodes. So convert back to 32-bit values.
+	 */
+	bool f_opcode = (is_cat2_float(instr->opc) ||
+			is_cat3_float(instr->opc)) ? true : false;
+	if (f_opcode && (new_flags & IR3_REG_HALF))
+		reg->uim_val = fui(_mesa_half_to_float(reg->uim_val));
 
 	/* in some cases, there are restrictions on (abs)/(neg) plus const..
 	 * so just evaluate those and clear the flags:
@@ -298,37 +194,47 @@ lower_immed(struct ir3_cp_ctx *ctx, struct ir3_register *reg, unsigned new_flags
 		new_flags &= ~IR3_REG_FNEG;
 	}
 
-	/* Reallocate for 4 more elements whenever it's necessary */
-	if (ctx->immediate_idx == ctx->so->immediates_size * 4) {
-		ctx->so->immediates_size += 4;
-		ctx->so->immediates = realloc (ctx->so->immediates,
-			ctx->so->immediates_size * sizeof (ctx->so->immediates[0]));
+	/* Reallocate for 4 more elements whenever it's necessary.  Note that ir3
+	 * printing relies on having groups of 4 dwords, so we fill the unused
+	 * slots with a dummy value.
+	 */
+	struct ir3_const_state *const_state = ir3_const_state(ctx->so);
+	if (const_state->immediates_count == const_state->immediates_size) {
+		const_state->immediates = rerzalloc(const_state,
+				const_state->immediates,
+				__typeof__(const_state->immediates[0]),
+				const_state->immediates_size,
+				const_state->immediates_size + 4);
+		const_state->immediates_size += 4;
+
+		for (int i = const_state->immediates_count; i < const_state->immediates_size; i++)
+			const_state->immediates[i] = 0xd0d0d0d0;
 	}
 
-	for (i = 0; i < ctx->immediate_idx; i++) {
-		swiz = i % 4;
-		idx  = i / 4;
-
-		if (ctx->so->immediates[idx].val[swiz] == reg->uim_val) {
+	int i;
+	for (i = 0; i < const_state->immediates_count; i++) {
+		if (const_state->immediates[i] == reg->uim_val)
 			break;
-		}
 	}
 
-	if (i == ctx->immediate_idx) {
-		/* need to generate a new immediate: */
-		swiz = i % 4;
-		idx  = i / 4;
-		ctx->so->immediates[idx].val[swiz] = reg->uim_val;
-		ctx->so->immediates_count = idx + 1;
-		ctx->immediate_idx++;
+	if (i == const_state->immediates_count) {
+		/* Add on a new immediate to be pushed, if we have space left in the
+		 * constbuf.
+		 */
+		if (const_state->offsets.immediate + const_state->immediates_count / 4 >=
+				ir3_max_const(ctx->so))
+			return false;
+
+		const_state->immediates[i] = reg->uim_val;
+		const_state->immediates_count++;
 	}
 
-	new_flags &= ~IR3_REG_IMMED;
-	new_flags |= IR3_REG_CONST;
 	reg->flags = new_flags;
-	reg->num = i + (4 * ctx->so->constbase.immediate);
+	reg->num = i + (4 * const_state->offsets.immediate);
 
-	return reg;
+	instr->regs[n + 1] = reg;
+
+	return true;
 }
 
 static void
@@ -352,26 +258,64 @@ unuse(struct ir3_instruction *instr)
 }
 
 /**
+ * Handles the special case of the 2nd src (n == 1) to "normal" mad
+ * instructions, which cannot reference a constant.  See if it is
+ * possible to swap the 1st and 2nd sources.
+ */
+static bool
+try_swap_mad_two_srcs(struct ir3_instruction *instr, unsigned new_flags)
+{
+	if (!is_mad(instr->opc))
+		return false;
+
+	/* NOTE: pre-swap first two src's before valid_flags(),
+	 * which might try to dereference the n'th src:
+	 */
+	swap(instr->regs[0 + 1], instr->regs[1 + 1]);
+
+	/* cat3 doesn't encode immediate, but we can lower immediate
+	 * to const if that helps:
+	 */
+	if (new_flags & IR3_REG_IMMED) {
+		new_flags &= ~IR3_REG_IMMED;
+		new_flags |=  IR3_REG_CONST;
+	}
+
+	bool valid_swap =
+		/* can we propagate mov if we move 2nd src to first? */
+		ir3_valid_flags(instr, 0, new_flags) &&
+		/* and does first src fit in second slot? */
+		ir3_valid_flags(instr, 1, instr->regs[1 + 1]->flags);
+
+	if (!valid_swap) {
+		/* put things back the way they were: */
+		swap(instr->regs[0 + 1], instr->regs[1 + 1]);
+	}   /* otherwise leave things swapped */
+
+	return valid_swap;
+}
+
+/**
  * Handle cp for a given src register.  This additionally handles
  * the cases of collapsing immedate/const (which replace the src
  * register with a non-ssa src) or collapsing mov's from relative
  * src (which needs to also fixup the address src reference by the
  * instruction).
  */
-static void
+static bool
 reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 		struct ir3_register *reg, unsigned n)
 {
 	struct ir3_instruction *src = ssa(reg);
 
-	if (is_eligible_mov(src, true)) {
+	if (is_eligible_mov(src, instr, true)) {
 		/* simple case, no immed/const/relativ, only mov's w/ ssa src: */
 		struct ir3_register *src_reg = src->regs[1];
 		unsigned new_flags = reg->flags;
 
 		combine_flags(&new_flags, src);
 
-		if (valid_flags(instr, n, new_flags)) {
+		if (ir3_valid_flags(instr, n, new_flags)) {
 			if (new_flags & IR3_REG_ARRAY) {
 				debug_assert(!(reg->flags & IR3_REG_ARRAY));
 				reg->array = src_reg->array;
@@ -384,9 +328,10 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 
 			unuse(src);
 			reg->instr->use_count++;
-		}
 
-	} else if (is_same_type_mov(src) &&
+			return true;
+		}
+	} else if ((is_same_type_mov(src) || is_const_mov(src)) &&
 			/* cannot collapse const/immed/etc into meta instrs: */
 			!is_meta(instr)) {
 		/* immed/const/etc cases, which require some special handling: */
@@ -395,13 +340,10 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 
 		combine_flags(&new_flags, src);
 
-		if (!valid_flags(instr, n, new_flags)) {
+		if (!ir3_valid_flags(instr, n, new_flags)) {
 			/* See if lowering an immediate to const would help. */
-			if (valid_flags(instr, n, (new_flags & ~IR3_REG_IMMED) | IR3_REG_CONST)) {
-				debug_assert(new_flags & IR3_REG_IMMED);
-				instr->regs[n + 1] = lower_immed(ctx, src_reg, new_flags);
-				return;
-			}
+			if (lower_immed(ctx, instr, n, src_reg, new_flags))
+				return true;
 
 			/* special case for "normal" mad instructions, we can
 			 * try swapping the first two args if that fits better.
@@ -410,18 +352,10 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 			 * src prior to multiply) can swap their first two srcs if
 			 * src[0] is !CONST and src[1] is CONST:
 			 */
-			if ((n == 1) && is_mad(instr->opc) &&
-					!(instr->regs[0 + 1]->flags & (IR3_REG_CONST | IR3_REG_RELATIV)) &&
-					valid_flags(instr, 0, new_flags & ~IR3_REG_IMMED)) {
-				/* swap src[0] and src[1]: */
-				struct ir3_register *tmp;
-				tmp = instr->regs[0 + 1];
-				instr->regs[0 + 1] = instr->regs[1 + 1];
-				instr->regs[1 + 1] = tmp;
-
-				n = 0;
+			if ((n == 1) && try_swap_mad_two_srcs(instr, new_flags)) {
+				return true;
 			} else {
-				return;
+				return false;
 			}
 		}
 
@@ -439,7 +373,7 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 			 */
 			if ((src_reg->flags & IR3_REG_RELATIV) &&
 					conflicts(instr->address, reg->instr->address))
-				return;
+				return false;
 
 			/* This seems to be a hw bug, or something where the timings
 			 * just somehow don't work out.  This restriction may only
@@ -448,7 +382,18 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 			if ((opc_cat(instr->opc) == 3) && (n == 2) &&
 					(src_reg->flags & IR3_REG_RELATIV) &&
 					(src_reg->array.offset == 0))
-				return;
+				return false;
+
+			/* When narrowing constant from 32b to 16b, it seems
+			 * to work only for float. So we should do this only with
+			 * float opcodes.
+			 */
+			if (src->cat1.dst_type == TYPE_F16) {
+				if (instr->opc == OPC_MOV && !type_float(instr->cat1.src_type))
+					return false;
+				if (!is_cat2_float(instr->opc) && !is_cat3_float(instr->opc))
+					return false;
+			}
 
 			src_reg = ir3_reg_clone(instr->block->shader, src_reg);
 			src_reg->flags = new_flags;
@@ -457,7 +402,7 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 			if (src_reg->flags & IR3_REG_RELATIV)
 				ir3_instr_set_address(instr, reg->instr->address);
 
-			return;
+			return true;
 		}
 
 		if ((src_reg->flags & IR3_REG_RELATIV) &&
@@ -467,7 +412,7 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 			instr->regs[n+1] = src_reg;
 			ir3_instr_set_address(instr, reg->instr->address);
 
-			return;
+			return true;
 		}
 
 		/* NOTE: seems we can only do immed integers, so don't
@@ -496,21 +441,24 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
 				iim_val = ~iim_val;
 
 			/* other than category 1 (mov) we can only encode up to 10 bits: */
-			if ((instr->opc == OPC_MOV) ||
-					!((iim_val & ~0x3ff) && (-iim_val & ~0x3ff))) {
+			if (ir3_valid_flags(instr, n, new_flags) &&
+					((instr->opc == OPC_MOV) ||
+					 !((iim_val & ~0x3ff) && (-iim_val & ~0x3ff)))) {
 				new_flags &= ~(IR3_REG_SABS | IR3_REG_SNEG | IR3_REG_BNOT);
 				src_reg = ir3_reg_clone(instr->block->shader, src_reg);
 				src_reg->flags = new_flags;
 				src_reg->iim_val = iim_val;
 				instr->regs[n+1] = src_reg;
-			} else if (valid_flags(instr, n, (new_flags & ~IR3_REG_IMMED) | IR3_REG_CONST)) {
-				/* See if lowering an immediate to const would help. */
-				instr->regs[n+1] = lower_immed(ctx, src_reg, new_flags);
-			}
 
-			return;
+				return true;
+			} else if (lower_immed(ctx, instr, n, src_reg, new_flags)) {
+				/* Fell back to loading the immediate as a const */
+				return true;
+			}
 		}
 	}
+
+	return false;
 }
 
 /* Handle special case of eliminating output mov, and similar cases where
@@ -519,13 +467,14 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
  * be eliminated)
  */
 static struct ir3_instruction *
-eliminate_output_mov(struct ir3_instruction *instr)
+eliminate_output_mov(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr)
 {
-	if (is_eligible_mov(instr, false)) {
+	if (is_eligible_mov(instr, NULL, false)) {
 		struct ir3_register *reg = instr->regs[1];
 		if (!(reg->flags & IR3_REG_ARRAY)) {
 			struct ir3_instruction *src_instr = ssa(reg);
 			debug_assert(src_instr);
+			ctx->progress = true;
 			return src_instr;
 		}
 	}
@@ -539,8 +488,6 @@ eliminate_output_mov(struct ir3_instruction *instr)
 static void
 instr_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr)
 {
-	struct ir3_register *reg;
-
 	if (instr->regs_count == 0)
 		return;
 
@@ -548,26 +495,31 @@ instr_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr)
 		return;
 
 	/* walk down the graph from each src: */
-	foreach_src_n(reg, n, instr) {
-		struct ir3_instruction *src = ssa(reg);
+	bool progress;
+	do {
+		progress = false;
+		foreach_src_n (reg, n, instr) {
+			struct ir3_instruction *src = ssa(reg);
 
-		if (!src)
-			continue;
+			if (!src)
+				continue;
 
-		instr_cp(ctx, src);
+			instr_cp(ctx, src);
 
-		/* TODO non-indirect access we could figure out which register
-		 * we actually want and allow cp..
-		 */
-		if (reg->flags & IR3_REG_ARRAY)
-			continue;
+			/* TODO non-indirect access we could figure out which register
+			 * we actually want and allow cp..
+			 */
+			if (reg->flags & IR3_REG_ARRAY)
+				continue;
 
-		/* Don't CP absneg into meta instructions, that won't end well: */
-		if (is_meta(instr) && (src->opc != OPC_MOV))
-			continue;
+			/* Don't CP absneg into meta instructions, that won't end well: */
+			if (is_meta(instr) && (src->opc != OPC_MOV))
+				continue;
 
-		reg_cp(ctx, instr, reg, n);
-	}
+			progress |= reg_cp(ctx, instr, reg, n);
+			ctx->progress |= progress;
+		}
+	} while (progress);
 
 	if (instr->regs[0]->flags & IR3_REG_ARRAY) {
 		struct ir3_instruction *src = ssa(instr->regs[0]);
@@ -577,7 +529,7 @@ instr_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr)
 
 	if (instr->address) {
 		instr_cp(ctx, instr->address);
-		ir3_instr_set_address(instr, eliminate_output_mov(instr->address));
+		ir3_instr_set_address(instr, eliminate_output_mov(ctx, instr->address));
 	}
 
 	/* we can end up with extra cmps.s from frontend, which uses a
@@ -593,7 +545,8 @@ instr_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr)
 			(instr->regs[0]->num == regid(REG_P0, 0)) &&
 			ssa(instr->regs[1]) &&
 			(instr->regs[2]->flags & IR3_REG_IMMED) &&
-			(instr->regs[2]->iim_val == 0)) {
+			(instr->regs[2]->iim_val == 0) &&
+			(instr->cat2.condition == IR3_COND_NE)) {
 		struct ir3_instruction *cond = ssa(instr->regs[1]);
 		switch (cond->opc) {
 		case OPC_CMPS_S:
@@ -602,31 +555,34 @@ instr_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr)
 			instr->opc   = cond->opc;
 			instr->flags = cond->flags;
 			instr->cat2  = cond->cat2;
-			instr->address = cond->address;
+			ir3_instr_set_address(instr, cond->address);
 			instr->regs[1] = cond->regs[1];
 			instr->regs[2] = cond->regs[2];
 			instr->barrier_class |= cond->barrier_class;
 			instr->barrier_conflict |= cond->barrier_conflict;
 			unuse(cond);
+			ctx->progress = true;
 			break;
 		default:
 			break;
 		}
 	}
 
-	/* Handle converting a sam.s2en (taking samp/tex idx params via
-	 * register) into a normal sam (encoding immediate samp/tex idx)
-	 * if they are immediate.  This saves some instructions and regs
-	 * in the common case where we know samp/tex at compile time:
+	/* Handle converting a sam.s2en (taking samp/tex idx params via register)
+	 * into a normal sam (encoding immediate samp/tex idx) if they are
+	 * immediate. This saves some instructions and regs in the common case
+	 * where we know samp/tex at compile time. This needs to be done in the
+	 * frontend for bindless tex, though, so don't replicate it here.
 	 */
 	if (is_tex(instr) && (instr->flags & IR3_INSTR_S2EN) &&
+			!(instr->flags & IR3_INSTR_B) &&
 			!(ir3_shader_debug & IR3_DBG_FORCES2EN)) {
-		/* The first src will be a fan-in (collect), if both of it's
+		/* The first src will be a collect, if both of it's
 		 * two sources are mov from imm, then we can
 		 */
 		struct ir3_instruction *samp_tex = ssa(instr->regs[1]);
 
-		debug_assert(samp_tex->opc == OPC_META_FI);
+		debug_assert(samp_tex->opc == OPC_META_COLLECT);
 
 		struct ir3_instruction *samp = ssa(samp_tex->regs[1]);
 		struct ir3_instruction *tex  = ssa(samp_tex->regs[2]);
@@ -638,12 +594,19 @@ instr_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr)
 			instr->flags &= ~IR3_INSTR_S2EN;
 			instr->cat5.samp = samp->regs[1]->iim_val;
 			instr->cat5.tex  = tex->regs[1]->iim_val;
-			instr->regs[1]->instr = NULL;
+
+			/* shuffle around the regs to remove the first src: */
+			instr->regs_count--;
+			for (unsigned i = 1; i < instr->regs_count; i++) {
+				instr->regs[i] = instr->regs[i + 1];
+			}
+
+			ctx->progress = true;
 		}
 	}
 }
 
-void
+bool
 ir3_cp(struct ir3 *ir, struct ir3_shader_variant *so)
 {
 	struct ir3_cp_ctx ctx = {
@@ -657,16 +620,15 @@ ir3_cp(struct ir3 *ir, struct ir3_shader_variant *so)
 	 * a mov, so we need to do a pass to first count consumers of a
 	 * mov.
 	 */
-	list_for_each_entry (struct ir3_block, block, &ir->block_list, node) {
-		list_for_each_entry (struct ir3_instruction, instr, &block->instr_list, node) {
-			struct ir3_instruction *src;
+	foreach_block (block, &ir->block_list) {
+		foreach_instr (instr, &block->instr_list) {
 
 			/* by the way, we don't account for false-dep's, so the CP
 			 * pass should always happen before false-dep's are inserted
 			 */
 			debug_assert(instr->deps_count == 0);
 
-			foreach_ssa_src(src, instr) {
+			foreach_ssa_src (src, instr) {
 				src->use_count++;
 			}
 		}
@@ -674,22 +636,22 @@ ir3_cp(struct ir3 *ir, struct ir3_shader_variant *so)
 
 	ir3_clear_mark(ir);
 
-	for (unsigned i = 0; i < ir->noutputs; i++) {
-		if (ir->outputs[i]) {
-			instr_cp(&ctx, ir->outputs[i]);
-			ir->outputs[i] = eliminate_output_mov(ir->outputs[i]);
-		}
+	foreach_output_n (out, n, ir) {
+		instr_cp(&ctx, out);
+		ir->outputs[n] = eliminate_output_mov(&ctx, out);
 	}
 
-	list_for_each_entry (struct ir3_block, block, &ir->block_list, node) {
+	foreach_block (block, &ir->block_list) {
 		if (block->condition) {
 			instr_cp(&ctx, block->condition);
-			block->condition = eliminate_output_mov(block->condition);
+			block->condition = eliminate_output_mov(&ctx, block->condition);
 		}
 
 		for (unsigned i = 0; i < block->keeps_count; i++) {
 			instr_cp(&ctx, block->keeps[i]);
-			block->keeps[i] = eliminate_output_mov(block->keeps[i]);
+			block->keeps[i] = eliminate_output_mov(&ctx, block->keeps[i]);
 		}
 	}
+
+	return ctx.progress;
 }

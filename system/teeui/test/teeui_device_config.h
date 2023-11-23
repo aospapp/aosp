@@ -21,7 +21,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <teeui/example/teeui.h>
+#include <teeui/example/example.h>
 #include <unistd.h>
 
 #include <teeui/test/teeui_render_test.h>
@@ -35,7 +35,7 @@ namespace test {
 class TeeuiRenderTest : public ::testing::Test {
   public:
     // Default device configuration set to Blueline
-    DeviceInfo device_info = {
+    example::DeviceInfo device_info = {
         1080,         // width in px
         2160,         // height om px
         2.62135,      // dp2px pixel per density independent pixel

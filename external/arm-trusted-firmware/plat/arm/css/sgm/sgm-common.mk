@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2019, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -22,13 +22,15 @@ SGM_CPU_SOURCES		:=	lib/cpus/aarch64/cortex_a55.S		\
 
 INTERCONNECT_SOURCES	:=	${CSS_SGM_BASE}/sgm_interconnect.c
 
-SGM_GIC_SOURCES		:=	drivers/arm/gic/common/gic_common.c	\
-				drivers/arm/gic/v3/gicv3_main.c		\
-				drivers/arm/gic/v3/gicv3_helpers.c	\
+# GIC-600 configuration
+GICV3_SUPPORT_GIC600	:=	1
+
+# Include GICv3 driver files
+include drivers/arm/gic/v3/gicv3.mk
+
+SGM_GIC_SOURCES		:=	${GICV3_SOURCES}			\
 				plat/common/plat_gicv3.c		\
-				plat/arm/common/arm_gicv3.c		\
-				drivers/arm/gic/v3/gic600.c		\
-				drivers/arm/gic/v3/arm_gicv3_common.c
+				plat/arm/common/arm_gicv3.c
 
 BL1_SOURCES		+=	$(SGM_CPU_SOURCES)			\
 				${INTERCONNECT_SOURCES}			\

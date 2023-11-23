@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_native_license"],
+}
+
 cc_library {
     name: "libgralloctypes",
     defaults: ["libbinder_ndk_host_user"],
@@ -21,6 +30,11 @@ cc_library {
         "-Wno-enum-compare",
     ],
     host_supported: true,
+    target: {
+        darwin: {
+            enabled: false,
+        }
+    },
 
     vendor_available: true,
     vndk: {
@@ -38,14 +52,14 @@ cc_library {
     ],
 
     shared_libs: [
-        "android.hardware.graphics.common-ndk_platform",
+        "android.hardware.graphics.common-V2-ndk_platform",
         "android.hardware.graphics.mapper@4.0",
         "libhidlbase",
         "liblog",
     ],
 
     export_shared_lib_headers: [
-        "android.hardware.graphics.common-ndk_platform",
+        "android.hardware.graphics.common-V2-ndk_platform",
         "android.hardware.graphics.mapper@4.0",
         "libhidlbase",
     ],

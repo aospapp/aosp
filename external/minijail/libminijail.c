@@ -8,6 +8,7 @@
 #define _GNU_SOURCE
 
 #include <asm/unistd.h>
+#include <assert.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -26,6 +27,7 @@
 #include <sys/param.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
+#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/types.h>
@@ -47,27 +49,6 @@
 #ifndef PR_ALT_SYSCALL
 # define PR_ALT_SYSCALL 0x43724f53
 #endif
-
-/* Seccomp filter related flags. */
-#ifndef PR_SET_NO_NEW_PRIVS
-# define PR_SET_NO_NEW_PRIVS 38
-#endif
-
-#ifndef SECCOMP_MODE_FILTER
-#define SECCOMP_MODE_FILTER 2 /* Uses user-supplied filter. */
-#endif
-
-#ifndef SECCOMP_SET_MODE_STRICT
-# define SECCOMP_SET_MODE_STRICT 0
-#endif
-#ifndef SECCOMP_SET_MODE_FILTER
-# define SECCOMP_SET_MODE_FILTER 1
-#endif
-
-#ifndef SECCOMP_FILTER_FLAG_TSYNC
-# define SECCOMP_FILTER_FLAG_TSYNC 1
-#endif
-/* End seccomp filter related flags. */
 
 /* New cgroup namespace might not be in linux-headers yet. */
 #ifndef CLONE_NEWCGROUP
@@ -105,6 +86,12 @@ struct mountpoint {
 	int has_data;
 	unsigned long flags;
 	struct mountpoint *next;
+};
+
+struct minijail_remount {
+	unsigned long remount_mode;
+	char *mount_name;
+	struct minijail_remount *next;
 };
 
 struct hook {
@@ -149,6 +136,7 @@ struct minijail {
 		int seccomp_filter : 1;
 		int seccomp_filter_tsync : 1;
 		int seccomp_filter_logging : 1;
+		int seccomp_filter_allow_speculation : 1;
 		int chroot : 1;
 		int pivot_root : 1;
 		int mount_dev : 1;
@@ -189,6 +177,8 @@ struct minijail {
 	struct mountpoint *mounts_tail;
 	size_t mounts_count;
 	unsigned long remount_mode;
+	struct minijail_remount *remounts_head;
+	struct minijail_remount *remounts_tail;
 	size_t tmpfs_size;
 	char *cgroups[MAX_CGROUPS];
 	size_t cgroup_count;
@@ -217,6 +207,18 @@ static void free_mounts_list(struct minijail *j)
 	}
 	// No need to clear mounts_head as we know it's NULL after the loop.
 	j->mounts_tail = NULL;
+}
+
+static void free_remounts_list(struct minijail *j)
+{
+	while (j->remounts_head) {
+		struct minijail_remount *m = j->remounts_head;
+		j->remounts_head = j->remounts_head->next;
+		free(m->mount_name);
+		free(m);
+	}
+	// No need to clear remounts_head as we know it's NULL after the loop.
+	j->remounts_tail = NULL;
 }
 
 /*
@@ -271,6 +273,7 @@ void minijail_preenter(struct minijail *j)
 	j->flags.forward_signals = 0;
 	j->flags.setsid = 0;
 	j->remount_mode = 0;
+	free_remounts_list(j);
 }
 
 /*
@@ -313,7 +316,9 @@ void minijail_preexec(struct minijail *j)
 struct minijail API *minijail_new(void)
 {
 	struct minijail *j = calloc(1, sizeof(struct minijail));
-	j->remount_mode = MS_PRIVATE;
+	if (j) {
+		j->remount_mode = MS_PRIVATE;
+	}
 	return j;
 }
 
@@ -425,6 +430,16 @@ void API minijail_set_seccomp_filter_tsync(struct minijail *j)
 	}
 
 	j->flags.seccomp_filter_tsync = 1;
+}
+
+void API minijail_set_seccomp_filter_allow_speculation(struct minijail *j)
+{
+	if (j->filter_len > 0 && j->filter_prog != NULL) {
+		die("minijail_set_seccomp_filter_allow_speculation() must be "
+		    "called before minijail_parse_seccomp_filters()");
+	}
+
+	j->flags.seccomp_filter_allow_speculation = 1;
 }
 
 void API minijail_log_seccomp_filter_failures(struct minijail *j)
@@ -722,11 +737,6 @@ char API *minijail_get_original_path(struct minijail *j,
 	return strdup(path_inside_chroot);
 }
 
-size_t minijail_get_tmpfs_size(const struct minijail *j)
-{
-	return j->tmpfs_size;
-}
-
 void API minijail_mount_dev(struct minijail *j)
 {
 	j->flags.mount_dev = 1;
@@ -883,6 +893,33 @@ int API minijail_bind(struct minijail *j, const char *src, const char *dest,
 	return minijail_mount(j, src, dest, "", flags);
 }
 
+int API minijail_add_remount(struct minijail *j, const char *mount_name,
+			     unsigned long remount_mode)
+{
+	struct minijail_remount *m;
+
+	if (*mount_name != '/')
+		return -EINVAL;
+	m = calloc(1, sizeof(*m));
+	if (!m)
+		return -ENOMEM;
+	m->mount_name = strdup(mount_name);
+	if (!m->mount_name) {
+		free(m);
+		return -ENOMEM;
+	}
+
+	m->remount_mode = remount_mode;
+
+	if (j->remounts_tail)
+		j->remounts_tail->next = m;
+	else
+		j->remounts_head = m;
+	j->remounts_tail = m;
+
+	return 0;
+}
+
 int API minijail_add_hook(struct minijail *j, minijail_hook_t hook,
 			  void *payload, minijail_hook_event_t event)
 {
@@ -936,6 +973,7 @@ static void clear_seccomp_options(struct minijail *j)
 	j->flags.seccomp_filter = 0;
 	j->flags.seccomp_filter_tsync = 0;
 	j->flags.seccomp_filter_logging = 0;
+	j->flags.seccomp_filter_allow_speculation = 0;
 	j->filter_len = 0;
 	j->filter_prog = NULL;
 	j->flags.no_new_privs = 0;
@@ -984,6 +1022,15 @@ static int seccomp_should_use_filters(struct minijail *j)
 			 * we can proceed. Worst case scenario minijail_enter()
 			 * will abort() if seccomp or TSYNC fail.
 			 */
+		}
+	}
+	if (j->flags.seccomp_filter_allow_speculation) {
+		/* Is the SPEC_ALLOW flag supported? */
+		if (!seccomp_filter_flags_available(
+			SECCOMP_FILTER_FLAG_SPEC_ALLOW)) {
+			warn("allowing speculative execution on seccomp "
+			     "processes not supported");
+			j->flags.seccomp_filter_allow_speculation = 0;
 		}
 	}
 	return 1;
@@ -1048,10 +1095,15 @@ static int parse_seccomp_filters(struct minijail *j, const char *filename,
 		else
 			filteropts.action = ACTION_RET_TRAP;
 	} else {
-		if (j->flags.seccomp_filter_tsync)
-			filteropts.action = ACTION_RET_TRAP;
-		else
+		if (j->flags.seccomp_filter_tsync) {
+			if (seccomp_ret_kill_process_available()) {
+				filteropts.action = ACTION_RET_KILL_PROCESS;
+			} else {
+				filteropts.action = ACTION_RET_TRAP;
+			}
+		} else {
 			filteropts.action = ACTION_RET_KILL;
+		}
 	}
 
 	/*
@@ -1060,6 +1112,9 @@ static int parse_seccomp_filters(struct minijail *j, const char *filename,
 	 */
 	filteropts.allow_syscalls_for_logging =
 	    filteropts.allow_logging && !seccomp_ret_log_available();
+
+	/* Whether to fail on duplicate syscalls. */
+	filteropts.allow_duplicate_syscalls = allow_duplicate_syscalls();
 
 	if (compile_filter(filename, policy_file, fprog, &filteropts)) {
 		free(fprog);
@@ -1150,15 +1205,16 @@ struct marshal_state {
 	char *buf;
 };
 
-void marshal_state_init(struct marshal_state *state, char *buf,
-			size_t available)
+static void marshal_state_init(struct marshal_state *state, char *buf,
+			       size_t available)
 {
 	state->available = available;
 	state->buf = buf;
 	state->total = 0;
 }
 
-void marshal_append(struct marshal_state *state, void *src, size_t length)
+static void marshal_append(struct marshal_state *state, const void *src,
+			   size_t length)
 {
 	size_t copy_len = MIN(state->available, length);
 
@@ -1172,7 +1228,13 @@ void marshal_append(struct marshal_state *state, void *src, size_t length)
 	state->total += length;
 }
 
-void marshal_mount(struct marshal_state *state, const struct mountpoint *m)
+static void marshal_append_string(struct marshal_state *state, const char *src)
+{
+	marshal_append(state, src, strlen(src) + 1);
+}
+
+static void marshal_mount(struct marshal_state *state,
+			  const struct mountpoint *m)
 {
 	marshal_append(state, m->src, strlen(m->src) + 1);
 	marshal_append(state, m->dest, strlen(m->dest) + 1);
@@ -1183,23 +1245,23 @@ void marshal_mount(struct marshal_state *state, const struct mountpoint *m)
 	marshal_append(state, (char *)&m->flags, sizeof(m->flags));
 }
 
-void minijail_marshal_helper(struct marshal_state *state,
-			     const struct minijail *j)
+static void minijail_marshal_helper(struct marshal_state *state,
+				    const struct minijail *j)
 {
 	struct mountpoint *m = NULL;
 	size_t i;
 
 	marshal_append(state, (char *)j, sizeof(*j));
 	if (j->user)
-		marshal_append(state, j->user, strlen(j->user) + 1);
+		marshal_append_string(state, j->user);
 	if (j->suppl_gid_list) {
 		marshal_append(state, j->suppl_gid_list,
 			       j->suppl_gid_count * sizeof(gid_t));
 	}
 	if (j->chrootdir)
-		marshal_append(state, j->chrootdir, strlen(j->chrootdir) + 1);
+		marshal_append_string(state, j->chrootdir);
 	if (j->hostname)
-		marshal_append(state, j->hostname, strlen(j->hostname) + 1);
+		marshal_append_string(state, j->hostname);
 	if (j->alt_syscall_table) {
 		marshal_append(state, j->alt_syscall_table,
 			       strlen(j->alt_syscall_table) + 1);
@@ -1213,7 +1275,7 @@ void minijail_marshal_helper(struct marshal_state *state,
 		marshal_mount(state, m);
 	}
 	for (i = 0; i < j->cgroup_count; ++i)
-		marshal_append(state, j->cgroups[i], strlen(j->cgroups[i]) + 1);
+		marshal_append_string(state, j->cgroups[i]);
 }
 
 size_t API minijail_size(const struct minijail *j)
@@ -1251,6 +1313,8 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 	j->gidmap = NULL;
 	j->mounts_head = NULL;
 	j->mounts_tail = NULL;
+	j->remounts_head = NULL;
+	j->remounts_tail = NULL;
 	j->filter_prog = NULL;
 	j->hooks_head = NULL;
 	j->hooks_tail = NULL;
@@ -1380,6 +1444,7 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 
 bad_cgroups:
 	free_mounts_list(j);
+	free_remounts_list(j);
 	for (i = 0; i < j->cgroup_count; ++i)
 		free(j->cgroups[i]);
 bad_mounts:
@@ -1521,6 +1586,11 @@ static int mount_dev(char **dev_path_ret)
 			goto done;
 	}
 
+	/* Create empty dir for glibc shared mem APIs. */
+	ret = mkdirat(dev_fd, "shm", 01777);
+	if (ret)
+		goto done;
+
 	/* Restore old mask. */
  done:
 	close(dev_fd);
@@ -1591,7 +1661,7 @@ static int mount_one(const struct minijail *j, struct mountpoint *m,
 	    setup_mount_destination(m->src, dest, j->uid, j->gid,
 				    (m->flags & MS_BIND), &original_mnt_flags);
 	if (ret) {
-		warn("creating mount target '%s' failed", dest);
+		warn("cannot create mount target '%s'", dest);
 		goto error;
 	}
 
@@ -1614,7 +1684,8 @@ static int mount_one(const struct minijail *j, struct mountpoint *m,
 
 	ret = mount(m->src, dest, m->type, m->flags, m->data);
 	if (ret) {
-		pwarn("bind: %s -> %s flags=%#lx", m->src, dest, m->flags);
+		pwarn("cannot bind-mount '%s' as '%s' with flags %#lx", m->src,
+		      dest, m->flags);
 		goto error;
 	}
 
@@ -1623,8 +1694,10 @@ static int mount_one(const struct minijail *j, struct mountpoint *m,
 		    mount(m->src, dest, NULL,
 			  m->flags | original_mnt_flags | MS_REMOUNT, m->data);
 		if (ret) {
-			pwarn("bind remount: %s -> %s flags=%#lx", m->src, dest,
-			      m->flags | original_mnt_flags | MS_REMOUNT);
+			pwarn(
+			    "cannot bind-remount '%s' as '%s' with flags %#lx",
+			    m->src, dest,
+			    m->flags | original_mnt_flags | MS_REMOUNT);
 			goto error;
 		}
 	}
@@ -1650,12 +1723,10 @@ static void process_mounts_or_die(const struct minijail *j)
 		pdie("mount_dev failed");
 
 	if (j->mounts_head && mount_one(j, j->mounts_head, dev_path)) {
-		if (dev_path) {
-			int saved_errno = errno;
+		if (dev_path)
 			mount_dev_cleanup(dev_path);
-			errno = saved_errno;
-		}
-		pdie("mount_one failed");
+
+		_exit(MINIJAIL_ERR_MOUNT);
 	}
 
 	/*
@@ -1771,19 +1842,37 @@ static int remount_proc_readonly(const struct minijail *j)
 	 * mutate our parent's mount as well, even though we're in a VFS
 	 * namespace (!). Instead, remove their mount from our namespace lazily
 	 * (MNT_DETACH) and make our own.
+	 *
+	 * However, we skip this in the user namespace case because it will
+	 * invariably fail. Every mount namespace is "owned" by the
+	 * user namespace of the process that creates it. Mount namespace A is
+	 * "less privileged" than mount namespace B if A is created off of B,
+	 * and B is owned by a different user namespace.
+	 * When a less privileged mount namespace is created, the mounts used to
+	 * initialize it (coming from the more privileged mount namespace) come
+	 * as a unit, and are locked together. This means that code running in
+	 * the new mount (and user) namespace cannot piecemeal unmount
+	 * individual mounts inherited from a more privileged mount namespace.
+	 * See https://man7.org/linux/man-pages/man7/mount_namespaces.7.html,
+	 * "Restrictions on mount namespaces" for details.
+	 *
+	 * This happens in our use case because we first enter a new user
+	 * namespace (on clone(2)) and then we unshare(2) a new mount namespace,
+	 * which means the new mount namespace is less privileged than its
+	 * parent mount namespace. This would also happen if we entered a new
+	 * mount namespace on clone(2), since the user namespace is created
+	 * first.
+	 * In all other non-user-namespace cases the new mount namespace is
+	 * similarly privileged as the parent mount namespace so unmounting a
+	 * single mount is allowed.
+	 *
+	 * We still remount /proc as read-only in the user namespace case
+	 * because while a process with CAP_SYS_ADMIN in the new user namespace
+	 * can unmount the RO mount and get at the RW mount, an attacker with
+	 * access only to a write primitive will not be able to modify /proc.
 	 */
-	if (umount2(kProcPath, MNT_DETACH)) {
-		/*
-		 * If we are in a new user namespace, umount(2) will fail.
-		 * See http://man7.org/linux/man-pages/man7/user_namespaces.7.html
-		 */
-		if (j->flags.userns) {
-			info("umount(/proc, MNT_DETACH) failed, "
-			     "this is expected when using user namespaces");
-		} else {
-			return -errno;
-		}
-	}
+	if (!j->flags.userns && umount2(kProcPath, MNT_DETACH))
+		return -errno;
 	if (mount("proc", kProcPath, "proc", kSafeFlags | MS_RDONLY, ""))
 		return -errno;
 	return 0;
@@ -2076,9 +2165,16 @@ static void set_seccomp_filter(const struct minijail *j)
 	 * Install the syscall filter.
 	 */
 	if (j->flags.seccomp_filter) {
-		if (j->flags.seccomp_filter_tsync) {
-			if (sys_seccomp(SECCOMP_SET_MODE_FILTER,
-					SECCOMP_FILTER_FLAG_TSYNC,
+		if (j->flags.seccomp_filter_tsync ||
+		    j->flags.seccomp_filter_allow_speculation) {
+			int filter_flags =
+			    (j->flags.seccomp_filter_tsync
+				 ? SECCOMP_FILTER_FLAG_TSYNC
+				 : 0) |
+			    (j->flags.seccomp_filter_allow_speculation
+				 ? SECCOMP_FILTER_FLAG_SPEC_ALLOW
+				 : 0);
+			if (sys_seccomp(SECCOMP_SET_MODE_FILTER, filter_flags,
 					j->filter_prog)) {
 				pdie("seccomp(tsync) failed");
 			}
@@ -2208,9 +2304,24 @@ void API minijail_enter(const struct minijail *j)
 		if (j->remount_mode) {
 			if (mount(NULL, "/", NULL, MS_REC | j->remount_mode,
 				  NULL))
-				pdie("mount(NULL, /, NULL, MS_REC | MS_PRIVATE,"
-				     " NULL) failed");
+				pdie("mount(NULL, /, NULL, "
+				     "MS_REC | j->remount_mode, NULL) failed");
+
+			struct minijail_remount *temp = j->remounts_head;
+			while (temp) {
+				if (temp->remount_mode < j->remount_mode)
+					die("cannot remount %s as stricter "
+					    "than the root dir",
+					    temp->mount_name);
+				if (mount(NULL, temp->mount_name, NULL,
+					  MS_REC | temp->remount_mode, NULL))
+					pdie("mount(NULL, %s, NULL, "
+					     "MS_REC | temp->remount_mode, NULL) "
+					     "failed", temp->mount_name);
+				temp = temp->next;
+			}
 		}
+
 	}
 
 	if (j->flags.ipc && unshare(CLONE_NEWIPC)) {
@@ -2333,12 +2444,12 @@ void API minijail_enter(const struct minijail *j)
 /* TODO(wad): will visibility affect this variable? */
 static int init_exitstatus = 0;
 
-void init_term(int sig attribute_unused)
+static void init_term(int sig attribute_unused)
 {
 	_exit(init_exitstatus);
 }
 
-void init(pid_t rootpid)
+static void init(pid_t rootpid)
 {
 	pid_t pid;
 	int status;
@@ -2402,6 +2513,26 @@ int API minijail_to_fd(struct minijail *j, int fd)
 
 	err = write_exactly(fd, buf, sz);
 
+error:
+	free(buf);
+	return err;
+}
+
+int API minijail_copy_jail(const struct minijail *from, struct minijail *out)
+{
+	size_t sz = minijail_size(from);
+	if (!sz)
+		return -EINVAL;
+
+	char *buf = malloc(sz);
+	if (!buf)
+		return -ENOMEM;
+
+	int err = minijail_marshal(from, buf, sz);
+	if (err)
+		goto error;
+
+	err = minijail_unmarshal(out, buf, sz);
 error:
 	free(buf);
 	return err;
@@ -2483,12 +2614,92 @@ static int close_open_fds(int *inheritable_fds, size_t size)
 	return 0;
 }
 
+/* Return true if the specified file descriptor is already open. */
+static int fd_is_open(int fd)
+{
+	return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
+}
+
+static_assert(FD_SETSIZE >= MAX_PRESERVED_FDS * 2 - 1,
+	      "If true, ensure_no_fd_conflict will always find an unused fd.");
+
+/* If p->parent_fd will be used by a child_fd, move it to an unused fd. */
+static int ensure_no_fd_conflict(const fd_set* child_fds,
+				 struct preserved_fd* p)
+{
+	if (!FD_ISSET(p->parent_fd, child_fds)){
+		return 0;
+	}
+
+	/*
+	 * If no other parent_fd matches the child_fd then use it instead of a
+	 * temporary.
+	 */
+	int fd = p->child_fd;
+	if (fd_is_open(fd)) {
+		fd = FD_SETSIZE - 1;
+		while (FD_ISSET(fd, child_fds) || fd_is_open(fd)) {
+			--fd;
+			if (fd < 0) {
+				die("failed to find an unused fd");
+			}
+		}
+	}
+
+	int ret = dup2(p->parent_fd, fd);
+	/*
+	 * warn() opens a file descriptor so it needs to happen after dup2 to
+	 * avoid unintended side effects. This can be avoided by reordering the
+	 * mapping requests so that the source fds with overlap are mapped
+	 * first (unless there are cycles).
+	 */
+	warn("mapped fd overlap: moving %d to %d", p->parent_fd, fd);
+	if (ret == -1) {
+		return -1;
+	}
+
+	p->parent_fd = fd;
+	return 0;
+}
+
 static int redirect_fds(struct minijail *j)
 {
+	fd_set child_fds;
+	FD_ZERO(&child_fds);
+
+	/* Relocate parent_fds that would be replaced by a child_fd. */
 	for (size_t i = 0; i < j->preserved_fd_count; i++) {
+		int child_fd = j->preserved_fds[i].child_fd;
+		if (FD_ISSET(child_fd, &child_fds)) {
+			die("fd %d is mapped more than once", child_fd);
+		}
+
+		if (ensure_no_fd_conflict(&child_fds,
+					  &j->preserved_fds[i]) == -1) {
+			return -1;
+		}
+
+		FD_SET(child_fd, &child_fds);
+	}
+
+	for (size_t i = 0; i < j->preserved_fd_count; i++) {
+		if (j->preserved_fds[i].parent_fd ==
+		    j->preserved_fds[i].child_fd) {
+			continue;
+		}
 		if (dup2(j->preserved_fds[i].parent_fd,
 			 j->preserved_fds[i].child_fd) == -1) {
 			return -1;
+		}
+	}
+	/*
+	 * After all fds have been duped, we are now free to close all parent
+	 * fds that are *not* child fds.
+	 */
+	for (size_t i = 0; i < j->preserved_fd_count; i++) {
+		int parent_fd = j->preserved_fds[i].parent_fd;
+		if (!FD_ISSET(parent_fd, &child_fds)) {
+			close(parent_fd);
 		}
 	}
 	return 0;
@@ -2537,10 +2748,10 @@ static void setup_child_std_fds(struct minijail *j,
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(fd_map); ++i) {
-		if (fd_map[i].from != -1) {
-			if (dup2(fd_map[i].from, fd_map[i].to) == -1)
-				die("failed to set up %s pipe", fd_map[i].name);
-		}
+		if (fd_map[i].from == -1 || fd_map[i].from == fd_map[i].to)
+			continue;
+		if (dup2(fd_map[i].from, fd_map[i].to) == -1)
+			die("failed to set up %s pipe", fd_map[i].name);
 	}
 
 	/* Close temporary pipe file descriptors. */
@@ -3158,18 +3369,7 @@ minijail_run_config_internal(struct minijail *j,
 	return ret;
 }
 
-int API minijail_kill(struct minijail *j)
-{
-	if (j->initpid <= 0)
-		return -ECHILD;
-
-	if (kill(j->initpid, SIGTERM))
-		return -errno;
-
-	return minijail_wait(j);
-}
-
-int API minijail_wait(struct minijail *j)
+static int minijail_wait_internal(struct minijail *j, int expected_signal)
 {
 	if (j->initpid <= 0)
 		return -ECHILD;
@@ -3187,8 +3387,10 @@ int API minijail_wait(struct minijail *j)
 		int error_status = st;
 		if (WIFSIGNALED(st)) {
 			int signum = WTERMSIG(st);
-			warn("child process %d received signal %d",
-			     j->initpid, signum);
+			if (signum != expected_signal) {
+				warn("child process %d received signal %d",
+				     j->initpid, signum);
+			}
 			/*
 			 * We return MINIJAIL_ERR_JAIL if the process received
 			 * SIGSYS, which happens when a syscall is blocked by
@@ -3213,6 +3415,22 @@ int API minijail_wait(struct minijail *j)
 	return exit_status;
 }
 
+int API minijail_kill(struct minijail *j)
+{
+	if (j->initpid <= 0)
+		return -ECHILD;
+
+	if (kill(j->initpid, SIGTERM))
+		return -errno;
+
+	return minijail_wait_internal(j, SIGTERM);
+}
+
+int API minijail_wait(struct minijail *j)
+{
+	return minijail_wait_internal(j, 0);
+}
+
 void API minijail_destroy(struct minijail *j)
 {
 	size_t i;
@@ -3222,6 +3440,7 @@ void API minijail_destroy(struct minijail *j)
 		free(j->filter_prog);
 	}
 	free_mounts_list(j);
+	free_remounts_list(j);
 	while (j->hooks_head) {
 		struct hook *c = j->hooks_head;
 		j->hooks_head = c->next;

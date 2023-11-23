@@ -21,7 +21,11 @@ import android.util.Log;
 /**
  * Intrinsic for applying a 5x5 convolve to an allocation.
  *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public class ScriptIntrinsicConvolve5x5 extends ScriptIntrinsic {
     private final float[] mValues = new float[25];
     private Allocation mInput;

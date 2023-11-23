@@ -562,6 +562,7 @@ bool init_wifi_stub_hal_func_table(wifi_hal_fn* hal_fn) {
 }  // namespace
 
 bool HalTool::InitFunctionTable(wifi_hal_fn* hal_fn) {
+#ifndef WIFI_MULTIPLE_VENDOR_HALS
   if (!init_wifi_stub_hal_func_table(hal_fn)) {
     LOG(ERROR) << "Can not initialize the basic function pointer table";
     return false;
@@ -573,6 +574,11 @@ bool HalTool::InitFunctionTable(wifi_hal_fn* hal_fn) {
   }
 
   return true;
+#else
+  // vendor HAL library are dynamically loaded from the WIFI HAL.
+  LOG(ERROR) << "InitFunctionTable no longer supported.";
+  return false;
+#endif
 }
 
 bool HalTool::CanGetValidChannels(wifi_hal_fn* hal_fn) {

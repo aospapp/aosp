@@ -28,14 +28,14 @@
     <string name="load_wallpaper_error_message" msgid="7913278480467707374">"Не удалось загрузить обои. Изображение повреждено или недоступно."</string>
     <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"Установлено как обои"</string>
     <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"Обои на каждый день"</string>
-    <string name="wallpaper_destination_both" msgid="1124197176741944063">"Главный и заблокированный экраны"</string>
+    <string name="wallpaper_destination_both" msgid="1124197176741944063">"Главный экран и заблокированный экран"</string>
     <string name="home_screen_message" msgid="106444102822522813">"Главный экран"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Заблокированный экран"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Оба экрана"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Установка обоев"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Выберите, где установить обои"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Главный экран"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Заблокированный экран"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Главный экран и заблокированный экран"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Главный экран и заблокированный экран"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Автоматически меняющиеся обои"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Чтобы посмотреть текущие обои здесь, предоставьте приложению \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" доступ к памяти устройства."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Чтобы посмотреть текущие обои здесь, предоставьте приложению \"Обои\" доступ к памяти устройства.\n\nЗакрыть доступ можно, нажав \"Настройки &gt; Приложения &gt; Обои &gt; Разрешения\"."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Обновить ежедневные обои"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Обновление ежедневных обоев…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Не удалось обновить обои. Проверьте подключение к Интернету и повторите попытку."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Свернуть панель с информацией об обоях"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Развернуть панель с информацией об обоях"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Сохраненные на устройстве"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"На устройстве"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Обои для Android"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Заполнить"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"Растянуть"</string>
     <string name="preview" msgid="1774602101743861071">"Предварительный просмотр"</string>
+    <string name="tab_info" msgid="818614080690111416">"Информация"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Настройка"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Настройки…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Удалить"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Удалить эти обои с телефона?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Назад"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Изменить"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"Скачать"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Начать слайд-шоу обоев"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Применить"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"Страница <xliff:g id="ID_1">%1$d</xliff:g> из <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Следующая страница"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Предыдущая страница"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Обои"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Предварительный просмотр обоев"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Такой подборки не существует."</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Скрыть экран предпросмотра"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Предпросмотр интерфейса"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Сменить обои"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Предпросмотр обоев для заблок. экрана"</string>
 </resources>

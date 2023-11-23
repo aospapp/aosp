@@ -16,6 +16,8 @@
 
 package com.android.documentsui.ui;
 
+import static org.junit.Assume.assumeFalse;
+
 import android.content.res.Configuration;
 import android.graphics.Color;
 
@@ -23,6 +25,7 @@ import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.tests.R;
+import com.android.documentsui.util.VersionUtils;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -43,7 +46,8 @@ public class ThemeUiTest extends ThemeUiTestBase {
     }
 
     @Test
-    public void themeNightModeDisable_actionBarColorShouldBeLight() {
+    public void themeNightModeDisable_actionBarColorShouldBeLight() throws Exception {
+        assumeFalse(VersionUtils.isAtLeastS()); // Disable for S dynamic color
         assertTheme(R.styleable.ThemeColor, R.styleable.ThemeColor_android_colorBackground,
                 Color.WHITE);
     }
@@ -61,25 +65,29 @@ public class ThemeUiTest extends ThemeUiTestBase {
     }
 
     @Test
-    public void themeNightModeDisable_navigationBarColorShouldBeLight() {
+    public void themeNightModeDisable_navigationBarColorShouldBeLight() throws Exception {
+        assumeFalse(VersionUtils.isAtLeastS()); // Disable for S dynamic color
         assertTheme(R.styleable.SystemWindow, R.styleable.SystemWindow_android_navigationBarColor,
                 Color.WHITE);
     }
 
     @Test
-    public void themeNightModeDisable_windowBackgroundColorShouldBeLight() {
+    public void themeNightModeDisable_windowBackgroundColorShouldBeLight() throws Exception {
+        assumeFalse(VersionUtils.isAtLeastS()); // Disable for S dynamic color
         assertTheme(R.styleable.SystemWindow, R.styleable.SystemWindow_android_windowBackground,
                 Color.WHITE);
     }
 
     @Test
-    public void themeNightModeDisable_statusBarColorShouldBeLight() {
+    public void themeNightModeDisable_statusBarColorShouldBeLight() throws Exception {
+        assumeFalse(VersionUtils.isAtLeastS()); // Disable for S dynamic color
         assertTheme(R.styleable.SystemWindow, R.styleable.SystemWindow_android_statusBarColor,
                 Color.WHITE);
     }
 
     @Test
-    public void appCompatThemeNightModeDisable_colorPrimaryShouldBeThemeable() {
+    public void appCompatThemeNightModeDisable_colorPrimaryShouldBeThemeable() throws Exception {
+        assumeFalse(VersionUtils.isAtLeastS()); // Disable for S dynamic color
         assertTheme(R.styleable.ThemeColor, R.styleable.ThemeColor_android_colorPrimary,
                 mTheme.getResources().getColor(com.android.documentsui.R.color.primary, mTheme));
     }

@@ -23,10 +23,17 @@ import (
 // HasTag returns true if a StructField has a tag in the form `name:"foo,value"`.
 func HasTag(field reflect.StructField, name, value string) bool {
 	tag := field.Tag.Get(name)
-	for _, entry := range strings.Split(tag, ",") {
-		if entry == value {
+	for len(tag) > 0 {
+		idx := strings.Index(tag, ",")
+
+		if idx < 0 {
+			return tag == value
+		}
+		if tag[:idx] == value {
 			return true
 		}
+
+		tag = tag[idx+1:]
 	}
 
 	return false
@@ -49,8 +56,8 @@ func propertyIndexesWithTag(t reflect.Type, key, value string) [][]int {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		ft := field.Type
-		if isStruct(ft) || isStructPtr(ft) {
-			if ft.Kind() == reflect.Ptr {
+		if isStruct(ft) || isStructPtr(ft) || isSliceOfStruct(ft) {
+			if ft.Kind() == reflect.Ptr || ft.Kind() == reflect.Slice {
 				ft = ft.Elem()
 			}
 			subIndexes := propertyIndexesWithTag(ft, key, value)

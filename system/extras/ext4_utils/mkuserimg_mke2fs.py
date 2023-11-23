@@ -35,6 +35,8 @@ def RunCommand(cmd, env):
   env_copy = os.environ.copy()
   env_copy.update(env)
 
+  cmd[0] = FindProgram(cmd[0])
+
   logging.info("Env: %s", env)
   logging.info("Running: " + " ".join(cmd))
 
@@ -44,6 +46,21 @@ def RunCommand(cmd, env):
 
   return output, p.returncode
 
+def FindProgram(prog_name):
+  """Finds the path to prog_name.
+
+  Args:
+    prog_name: the program name to find.
+  Returns:
+    path to the progName if found. The program is searched in the same directory
+    where this script is located at. If not found, progName is returned.
+  """
+  exec_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
+  prog_path = os.path.join(exec_dir, prog_name)
+  if os.path.exists(prog_path):
+    return prog_path
+  else:
+    return prog_name
 
 def ParseArguments(argv):
   """Parses the input arguments to the program."""

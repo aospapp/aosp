@@ -133,12 +133,18 @@ public class DropBoxTests {
         restoreDropboxDefaults();
     }
 
-    private void sendExcessiveDropBoxEntries(String tag, int count, long delayPerEntry)
+    private void sendExcessiveDropBoxEntries(String tag, int count, long interval)
             throws Exception {
+        // addText() can take dozens of milliseconds. In order to ensure addText is called at the
+        // given interval, we keep track of the timestamp when the next addText call should occur.
+        long nextTime = SystemClock.elapsedRealtime();
         int i = 0;
         mDropBoxManager.addText(tag, String.valueOf(i++));
         for (; i < count; i++) {
-            Thread.sleep(delayPerEntry);
+            nextTime += interval;
+            // Sleep until when we should send the next entry.
+            final long delay = nextTime - SystemClock.elapsedRealtime();
+            if (delay > 0) Thread.sleep(delay);
             mDropBoxManager.addText(tag, String.valueOf(i));
         }
     }

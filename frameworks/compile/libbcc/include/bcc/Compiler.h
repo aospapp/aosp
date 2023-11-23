@@ -109,9 +109,9 @@ public:
 
   ~Compiler();
 
-  // Compare undefined external functions in pScript against a 'whitelist' of
-  // all RenderScript functions.  Returns error if any external function that is
-  // not in this whitelist is callable from the script.
+  // Compare undefined external functions in pScript against a list of allowed
+  // RenderScript functions.  Returns error if any external function that is
+  // not in this list is callable from the script.
   enum ErrorCode screenGlobalFunctions(Script &pScript);
 
   void translateGEPs(Script &pScript);

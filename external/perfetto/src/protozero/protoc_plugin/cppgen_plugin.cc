@@ -153,8 +153,10 @@ bool CppObjGenerator::Generate(const google::protobuf::FileDescriptor* file,
   cc_printer.Print("#include \"perfetto/protozero/proto_decoder.h\"\n");
   cc_printer.Print("#include \"perfetto/protozero/scattered_heap_buffer.h\"\n");
   cc_printer.Print(kHeader);
+  cc_printer.Print("#if defined(__GNUC__) || defined(__clang__)\n");
   cc_printer.Print("#pragma GCC diagnostic push\n");
   cc_printer.Print("#pragma GCC diagnostic ignored \"-Wfloat-equal\"\n");
+  cc_printer.Print("#endif\n");
 
   // Generate includes for translated types of dependencies.
 
@@ -335,8 +337,10 @@ bool CppObjGenerator::Generate(const google::protobuf::FileDescriptor* file,
     h_printer.Print("}  // namespace $n$\n", "n", ns);
     cc_printer.Print("}  // namespace $n$\n", "n", ns);
   }
-
+  cc_printer.Print("#if defined(__GNUC__) || defined(__clang__)\n");
   cc_printer.Print("#pragma GCC diagnostic pop\n");
+  cc_printer.Print("#endif\n");
+
   h_printer.Print("\n#endif  // $g$\n", "g", include_guard);
 
   return true;
@@ -610,24 +614,35 @@ void CppObjGenerator::GenClassDecl(const Descriptor* msg, Printer* p) const {
         }
       }
     } else {  // is_repeated()
-      p->Print(
-          "int $n$_size() const { return static_cast<int>($n$_.size()); }\n",
-          "t", GetCppType(field, false), "n", field->lowercase_name());
       p->Print("const std::vector<$t$>& $n$() const { return $n$_; }\n", "t",
                GetCppType(field, false), "n", field->lowercase_name());
       p->Print("std::vector<$t$>* mutable_$n$() { return &$n$_; }\n", "t",
                GetCppType(field, false), "n", field->lowercase_name());
-      p->Print("void clear_$n$() { $n$_.clear(); }\n", "n",
-               field->lowercase_name());
-      if (field->type() != FieldDescriptor::TYPE_MESSAGE) {
+
+      // Generate accessors for repeated message types in the .cc file so that
+      // the header doesn't depend on the full definition of all nested types.
+      if (field->type() == TYPE_MESSAGE) {
+        p->Print("int $n$_size() const;\n", "t", GetCppType(field, false), "n",
+                 field->lowercase_name());
+        p->Print("void clear_$n$();\n", "n", field->lowercase_name());
+        p->Print("$t$* add_$n$();\n", "t", GetCppType(field, false), "n",
+                 field->lowercase_name());
+      } else {  // Primitive type.
+        p->Print(
+            "int $n$_size() const { return static_cast<int>($n$_.size()); }\n",
+            "t", GetCppType(field, false), "n", field->lowercase_name());
+        p->Print("void clear_$n$() { $n$_.clear(); }\n", "n",
+                 field->lowercase_name());
         p->Print("void add_$n$($t$ value) { $n$_.emplace_back(value); }\n", "t",
                  GetCppType(field, false), "n", field->lowercase_name());
+        // TODO(primiano): this should be done only for TYPE_MESSAGE.
+        // Unfortuntely we didn't realize before and now we have a bunch of code
+        // that does: *msg->add_int_value() = 42 instead of
+        // msg->add_int_value(42).
+        p->Print(
+            "$t$* add_$n$() { $n$_.emplace_back(); return &$n$_.back(); }\n",
+            "t", GetCppType(field, false), "n", field->lowercase_name());
       }
-      // TODO(primiano): this should be done only for TYPE_MESSAGE. Unfortuntely
-      // we didn't realize before and now we have a bunch of code that does:
-      // *msg->add_int_value() = 42 instead of msg->add_int_value(42).
-      p->Print("$t$* add_$n$() { $n$_.emplace_back(); return &$n$_.back(); }\n",
-               "t", GetCppType(field, false), "n", field->lowercase_name());
     }
   }
   p->Outdent();
@@ -691,6 +706,25 @@ void CppObjGenerator::GenClassDef(const Descriptor* msg, Printer* p) const {
   p->Outdent();
   p->Print("\n}\n\n");
 
+  // Accessors for repeated message fields.
+  for (int i = 0; i < msg->field_count(); i++) {
+    const FieldDescriptor* field = msg->field(i);
+    if (field->options().lazy() || !field->is_repeated() ||
+        field->type() != TYPE_MESSAGE) {
+      continue;
+    }
+    p->Print(
+        "int $c$::$n$_size() const { return static_cast<int>($n$_.size()); }\n",
+        "c", full_name, "t", GetCppType(field, false), "n",
+        field->lowercase_name());
+    p->Print("void $c$::clear_$n$() { $n$_.clear(); }\n", "c", full_name, "n",
+             field->lowercase_name());
+    p->Print(
+        "$t$* $c$::add_$n$() { $n$_.emplace_back(); return &$n$_.back(); }\n",
+        "c", full_name, "t", GetCppType(field, false), "n",
+        field->lowercase_name());
+  }
+
   std::string proto_type = GetFullName(msg, true);
 
   // Generate the ParseFromArray() method definition.
@@ -724,7 +758,7 @@ void CppObjGenerator::GenClassDef(const Descriptor* msg, Printer* p) const {
     } else {
       std::string statement;
       if (field->type() == TYPE_MESSAGE) {
-        statement = "$rval$.ParseFromString(field.as_std_string());\n";
+        statement = "$rval$.ParseFromArray(field.data(), field.size());\n";
       } else {
         if (field->type() == TYPE_SINT32 || field->type() == TYPE_SINT64) {
           // sint32/64 fields are special and need to be zig-zag-decoded.

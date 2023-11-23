@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"android/soong/android"
+	"android/soong/bazel"
 )
 
 //
@@ -27,6 +28,8 @@ import (
 func init() {
 	android.RegisterModuleType("cc_object", ObjectFactory)
 	android.RegisterSdkMemberType(ccObjectSdkMemberType)
+
+	android.RegisterBp2BuildMutator("cc_object", ObjectBp2Build)
 }
 
 var ccObjectSdkMemberType = &librarySdkMemberType{
@@ -43,6 +46,26 @@ type objectLinker struct {
 	Properties ObjectLinkerProperties
 }
 
+type objectBazelHandler struct {
+	bazelHandler
+
+	module *Module
+}
+
+func (handler *objectBazelHandler) generateBazelBuildActions(ctx android.ModuleContext, label string) bool {
+	bazelCtx := ctx.Config().BazelContext
+	objPaths, ok := bazelCtx.GetOutputFiles(label, ctx.Arch().ArchType)
+	if ok {
+		if len(objPaths) != 1 {
+			ctx.ModuleErrorf("expected exactly one object file for '%s', but got %s", label, objPaths)
+			return false
+		}
+
+		handler.module.outputFile = android.OptionalPathForPath(android.PathForBazelOut(ctx, objPaths[0]))
+	}
+	return ok
+}
+
 type ObjectLinkerProperties struct {
 	// list of modules that should only provide headers for this module.
 	Header_libs []string `android:"arch_variant,variant_prepend"`
@@ -55,6 +78,10 @@ type ObjectLinkerProperties struct {
 
 	// if set, the path to a linker script to pass to ld -r when combining multiple object files.
 	Linker_script *string `android:"path,arch_variant"`
+
+	// Indicates that this module is a CRT object. CRT objects will be split
+	// into a variant per-API level between min_sdk_version and current.
+	Crt *bool
 }
 
 func newObject() *Module {
@@ -73,12 +100,103 @@ func ObjectFactory() android.Module {
 		baseLinker: NewBaseLinker(module.sanitize),
 	}
 	module.compiler = NewBaseCompiler()
+	module.bazelHandler = &objectBazelHandler{module: module}
 
 	// Clang's address-significance tables are incompatible with ld -r.
 	module.compiler.appendCflags([]string{"-fno-addrsig"})
 
 	module.sdkMemberTypes = []android.SdkMemberType{ccObjectSdkMemberType}
+
 	return module.Init()
+}
+
+// For bp2build conversion.
+type bazelObjectAttributes struct {
+	Srcs    bazel.LabelListAttribute
+	Hdrs    bazel.LabelListAttribute
+	Deps    bazel.LabelListAttribute
+	Copts   bazel.StringListAttribute
+	Asflags []string
+}
+
+type bazelObject struct {
+	android.BazelTargetModuleBase
+	bazelObjectAttributes
+}
+
+func (m *bazelObject) Name() string {
+	return m.BaseModuleName()
+}
+
+func (m *bazelObject) GenerateAndroidBuildActions(ctx android.ModuleContext) {}
+
+func BazelObjectFactory() android.Module {
+	module := &bazelObject{}
+	module.AddProperties(&module.bazelObjectAttributes)
+	android.InitBazelTargetModule(module)
+	return module
+}
+
+// ObjectBp2Build is the bp2build converter from cc_object modules to the
+// Bazel equivalent target, plus any necessary include deps for the cc_object.
+func ObjectBp2Build(ctx android.TopDownMutatorContext) {
+	m, ok := ctx.Module().(*Module)
+	if !ok || !m.ConvertWithBp2build(ctx) {
+		return
+	}
+
+	// a Module can be something other than a cc_object.
+	if ctx.ModuleType() != "cc_object" {
+		return
+	}
+
+	if m.compiler == nil {
+		// a cc_object must have access to the compiler decorator for its props.
+		ctx.ModuleErrorf("compiler must not be nil for a cc_object module")
+	}
+
+	// Set arch-specific configurable attributes
+	compilerAttrs := bp2BuildParseCompilerProps(ctx, m)
+	var asFlags []string
+
+	var deps bazel.LabelListAttribute
+	for _, props := range m.linker.linkerProps() {
+		if objectLinkerProps, ok := props.(*ObjectLinkerProperties); ok {
+			deps = bazel.MakeLabelListAttribute(
+				android.BazelLabelForModuleDeps(ctx, objectLinkerProps.Objs))
+		}
+	}
+
+	productVariableProps := android.ProductVariableProperties(ctx)
+	if props, exists := productVariableProps["Asflags"]; exists {
+		// TODO(b/183595873): consider deduplicating handling of product variable properties
+		for _, prop := range props {
+			flags, ok := prop.Property.([]string)
+			if !ok {
+				ctx.ModuleErrorf("Could not convert product variable asflag property")
+				return
+			}
+			// TODO(b/183595873) handle other product variable usages -- as selects?
+			if newFlags, subbed := bazel.TryVariableSubstitutions(flags, prop.ProductConfigVariable); subbed {
+				asFlags = append(asFlags, newFlags...)
+			}
+		}
+	}
+	// TODO(b/183595872) warn/error if we're not handling product variables
+
+	attrs := &bazelObjectAttributes{
+		Srcs:    compilerAttrs.srcs,
+		Deps:    deps,
+		Copts:   compilerAttrs.copts,
+		Asflags: asFlags,
+	}
+
+	props := bazel.BazelTargetModuleProperties{
+		Rule_class:        "cc_object",
+		Bzl_load_location: "//build/bazel/rules:cc_object.bzl",
+	}
+
+	ctx.CreateBazelTargetModule(BazelObjectFactory, m.Name(), props, attrs)
 }
 
 func (object *objectLinker) appendLdflags(flags []string) {
@@ -92,11 +210,6 @@ func (object *objectLinker) linkerProps() []interface{} {
 func (*objectLinker) linkerInit(ctx BaseModuleContext) {}
 
 func (object *objectLinker) linkerDeps(ctx DepsContext, deps Deps) Deps {
-	if ctx.useVndk() && ctx.toolchain().Bionic() {
-		// Needed for VNDK builds where bionic headers aren't automatically added.
-		deps.LateSharedLibs = append(deps.LateSharedLibs, "libc")
-	}
-
 	deps.HeaderLibs = append(deps.HeaderLibs, object.Properties.Header_libs...)
 	deps.ObjFiles = append(deps.ObjFiles, object.Properties.Objs...)
 	return deps
@@ -125,7 +238,7 @@ func (object *objectLinker) link(ctx ModuleContext,
 
 		if String(object.Properties.Prefix_symbols) != "" {
 			output := android.PathForModuleOut(ctx, ctx.ModuleName()+objectExtension)
-			TransformBinaryPrefixSymbols(ctx, String(object.Properties.Prefix_symbols), outputFile,
+			transformBinaryPrefixSymbols(ctx, String(object.Properties.Prefix_symbols), outputFile,
 				builderFlags, output)
 			outputFile = output
 		}
@@ -135,12 +248,12 @@ func (object *objectLinker) link(ctx ModuleContext,
 
 		if String(object.Properties.Prefix_symbols) != "" {
 			input := android.PathForModuleOut(ctx, "unprefixed", ctx.ModuleName()+objectExtension)
-			TransformBinaryPrefixSymbols(ctx, String(object.Properties.Prefix_symbols), input,
+			transformBinaryPrefixSymbols(ctx, String(object.Properties.Prefix_symbols), input,
 				builderFlags, output)
 			output = input
 		}
 
-		TransformObjsToObj(ctx, objs.objFiles, builderFlags, output, flags.LdFlagsDeps)
+		transformObjsToObj(ctx, objs.objFiles, builderFlags, output, flags.LdFlagsDeps)
 	}
 
 	ctx.CheckbuildFile(outputFile)
@@ -161,4 +274,8 @@ func (object *objectLinker) coverageOutputFilePath() android.OptionalPath {
 
 func (object *objectLinker) object() bool {
 	return true
+}
+
+func (object *objectLinker) isCrt() bool {
+	return Bool(object.Properties.Crt)
 }

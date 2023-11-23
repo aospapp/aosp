@@ -120,8 +120,9 @@ RET IPACM_OffloadManager::unregisterCtTimeoutUpdater(ConntrackTimeoutUpdater* )
 
 RET IPACM_OffloadManager::provideFd(int fd, unsigned int groups)
 {
+	struct timeval tv;
 	IPACM_ConntrackClient *cc;
-	int on = 1, rel;
+	int on = 1, rel = 0;
 	struct sockaddr_nl	local;
 	unsigned int addr_len;
 
@@ -155,13 +156,39 @@ RET IPACM_OffloadManager::provideFd(int fd, unsigned int groups)
 			IPACMERR( "setsockopt returned error code %d ( %s )", errno, strerror( errno ) );
 		}
 	} else if (groups == cc->subscrips_udp) {
+		/* Set receive timeout to 1s on the FD which is used to read conntrack dump. */
+		memset(&tv,0, sizeof(struct timeval));
+		tv.tv_sec = 1; /* 1s timeout */
+		rel = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
+		if (rel == -1)
+		{
+			IPACMERR("setsockopt returned error code %d ( %s )\n", errno, strerror(errno));
+		}
+
+		/* In Android we get conntrack handles once after tethering is enabled but we
+		   loose connections info for embedded traffic if running before. So no NAT
+		   entries are added for embedded traffic due to which we see NAT exception and
+		   data takes S/W path which results in less throughput. Hence for embedded
+		   traffic info, framework sends conntrack dump before providing handles. Here
+		   reading ct entries before creating filter on Fd in order to have NAT entries
+		   for both TCP/UDP embedded traffic.
+		*/
+		CtList->readConntrack(fd);
+		/* Reset receive timeout on the FD which is used to read conntrack dump. */
+		memset(&tv,0, sizeof(struct timeval));
+		rel = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
+		if (rel == -1)
+		{
+			IPACMERR("setsockopt returned error code %d ( %s )\n", errno, strerror(errno));
+		}
+
 		cc->fd_udp = dup(fd);
 		IPACMDBG_H("Received fd %d with groups %d.\n", fd, groups);
 		/* set netlink buf */
-		rel = setsockopt(cc->fd_tcp, SOL_NETLINK, NETLINK_NO_ENOBUFS, &on, sizeof(int) );
+		rel = setsockopt(cc->fd_udp, SOL_NETLINK, NETLINK_NO_ENOBUFS, &on, sizeof(int) );
 		if (rel == -1)
 		{
-			IPACMERR( "setsockopt returned error code %d ( %s )", errno, strerror( errno ) );
+			IPACMERR("setsockopt returned error code %d ( %s )\n", errno, strerror(errno));
 		}
 	} else {
 		IPACMERR("Received unexpected fd with groups %d.\n", groups);

@@ -19,7 +19,7 @@
 # the templated snippets. Those define all the helper functions used below.
 
 import sys, re
-from cStringIO import StringIO
+from io import StringIO
 
 out = StringIO()  # File-like in-memory buffer.
 handler_size_bytes = "MTERP_HANDLER_SIZE"
@@ -52,7 +52,7 @@ generated_helpers = {}
 # The output is temporarily redirected to in-memory buffer.
 def add_helper(write_helper, name = None):
   if name == None:
-    name = "mterp_" + opcode + "_helper"
+    name = default_helper_prefix() + opcode + "_helper"
   global out
   old_out = out
   out = StringIO()

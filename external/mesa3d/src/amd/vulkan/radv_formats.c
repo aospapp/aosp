@@ -29,9 +29,10 @@
 
 #include "vk_util.h"
 
-#include "util/u_half.h"
+#include "util/half_float.h"
 #include "util/format_srgb.h"
 #include "util/format_r11g11b10f.h"
+#include "util/format_rgb9e5.h"
 
 uint32_t radv_translate_buffer_dataformat(const struct vk_format_description *desc,
 					  int first_non_void)
@@ -104,6 +105,9 @@ uint32_t radv_translate_buffer_dataformat(const struct vk_format_description *de
 			return V_008F0C_BUF_DATA_FORMAT_32_32_32_32;
 		}
 		break;
+	case 64:
+		if (desc->nr_channels == 1)
+			return V_008F0C_BUF_DATA_FORMAT_32_32;
 	}
 
 	return V_008F0C_BUF_DATA_FORMAT_INVALID;
@@ -366,6 +370,11 @@ uint32_t radv_translate_tex_dataformat(VkFormat format,
 		case 4:
 			return V_008F14_IMG_DATA_FORMAT_32_32_32_32;
 		}
+		break;
+	case 64:
+		if (desc->nr_channels == 1)
+			return V_008F14_IMG_DATA_FORMAT_32_32;
+		break;
 	}
 
 out_unknown:
@@ -473,7 +482,8 @@ static bool radv_is_sampler_format_supported(VkFormat format, bool *linear_sampl
 {
 	const struct vk_format_description *desc = vk_format_description(format);
 	uint32_t num_format;
-	if (!desc || format == VK_FORMAT_UNDEFINED)
+	if (!desc || format == VK_FORMAT_UNDEFINED ||
+	    format == VK_FORMAT_R64_UINT || format == VK_FORMAT_R64_SINT)
 		return false;
 	num_format = radv_translate_tex_numformat(format, desc,
 						  vk_format_get_first_non_void_channel(format));
@@ -565,7 +575,8 @@ bool radv_is_buffer_format_supported(VkFormat format, bool *scaled)
 		num_format != ~0;
 }
 
-bool radv_is_colorbuffer_format_supported(VkFormat format, bool *blendable)
+bool radv_is_colorbuffer_format_supported(const struct radv_physical_device *pdevice,
+                                          VkFormat format, bool *blendable)
 {
 	const struct vk_format_description *desc = vk_format_description(format);
 	uint32_t color_format = radv_translate_colorformat(format);
@@ -580,6 +591,10 @@ bool radv_is_colorbuffer_format_supported(VkFormat format, bool *blendable)
 		*blendable = false;
 	} else
 		*blendable = true;
+
+	if (format == VK_FORMAT_E5B9G9R9_UFLOAT_PACK32 && pdevice->rad_info.chip_class < GFX10_3)
+		return false;
+
 	return color_format != V_028C70_COLOR_INVALID &&
 		color_swap != ~0U &&
 		color_num_format != ~0;
@@ -595,7 +610,7 @@ static bool radv_is_filter_minmax_format_supported(VkFormat format)
 	/* From the Vulkan spec 1.1.71:
 	 *
 	 * "The following formats must support the
-	 *  VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT_EXT feature with
+	 *  VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT feature with
 	 *  VK_IMAGE_TILING_OPTIMAL, if they support
 	 *  VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT."
 	 */
@@ -624,6 +639,7 @@ radv_device_supports_etc(struct radv_physical_device *physical_device)
 {
 	return physical_device->rad_info.family == CHIP_VEGA10 ||
 	       physical_device->rad_info.family == CHIP_RAVEN ||
+	       physical_device->rad_info.family == CHIP_RAVEN2 ||
 	       physical_device->rad_info.family == CHIP_STONEY;
 }
 
@@ -678,10 +694,12 @@ radv_physical_device_get_format_properties(struct radv_physical_device *physical
 	}
 
 	if (radv_is_buffer_format_supported(format, &scaled)) {
-		buffer |= VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT;
-		if (!scaled)
-			buffer |= VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT |
-				VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT;
+		if (format != VK_FORMAT_R64_UINT && format != VK_FORMAT_R64_SINT) {
+			buffer |= VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT;
+			if (!scaled)
+				buffer |= VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT;
+		}
+		buffer |= VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT;
 	}
 
 	if (vk_format_is_depth_or_stencil(format)) {
@@ -694,7 +712,7 @@ radv_physical_device_get_format_properties(struct radv_physical_device *physical
 			         VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
 
 			if (radv_is_filter_minmax_format_supported(format))
-				 tiled |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT_EXT;
+				 tiled |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT;
 
 			/* Don't support blitting surfaces with depth/stencil. */
 			if (vk_format_is_depth(format) && vk_format_is_stencil(format))
@@ -712,7 +730,7 @@ radv_physical_device_get_format_properties(struct radv_physical_device *physical
 				VK_FORMAT_FEATURE_BLIT_SRC_BIT;
 
 			if (radv_is_filter_minmax_format_supported(format))
-				 tiled |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT_EXT;
+				 tiled |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT;
 
 			if (linear_sampling) {
 				linear |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
@@ -726,7 +744,7 @@ radv_physical_device_get_format_properties(struct radv_physical_device *physical
 				linear &= ~VK_FORMAT_FEATURE_BLIT_SRC_BIT;
 			}
 		}
-		if (radv_is_colorbuffer_format_supported(format, &blendable)) {
+		if (radv_is_colorbuffer_format_supported(physical_device, format, &blendable)) {
 			linear |= VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
 			tiled |= VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
 			if (blendable) {
@@ -749,7 +767,11 @@ radv_physical_device_get_format_properties(struct radv_physical_device *physical
 		          VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
 	}
 
-	if (format == VK_FORMAT_R32_UINT || format == VK_FORMAT_R32_SINT) {
+	if (format == VK_FORMAT_R32_UINT ||
+	    format == VK_FORMAT_R32_SINT ||
+	    format == VK_FORMAT_R32_SFLOAT ||
+	    format == VK_FORMAT_R64_UINT ||
+	    format == VK_FORMAT_R64_SINT) {
 		buffer |= VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT;
 		linear |= VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT;
 		tiled |= VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT;
@@ -762,7 +784,7 @@ radv_physical_device_get_format_properties(struct radv_physical_device *physical
 	case VK_FORMAT_A2B10G10R10_SSCALED_PACK32:
 	case VK_FORMAT_A2R10G10B10_SINT_PACK32:
 	case VK_FORMAT_A2B10G10R10_SINT_PACK32:
-		if (physical_device->rad_info.chip_class <= VI &&
+		if (physical_device->rad_info.chip_class <= GFX8 &&
 		    physical_device->rad_info.family != CHIP_STONEY) {
 			buffer &= ~(VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT |
 			            VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT);
@@ -773,6 +795,10 @@ radv_physical_device_get_format_properties(struct radv_physical_device *physical
 	default:
 		break;
 	}
+
+	/* addrlib does not support linear compressed textures. */
+	if (vk_format_is_compressed(format))
+		linear = 0;
 
 	out_properties->linearTilingFeatures = linear;
 	out_properties->optimalTilingFeatures = tiled;
@@ -789,6 +815,9 @@ uint32_t radv_translate_colorformat(VkFormat format)
 
 	if (format == VK_FORMAT_B10G11R11_UFLOAT_PACK32) /* isn't plain */
 		return V_028C70_COLOR_10_11_11;
+
+	if (format == VK_FORMAT_E5B9G9R9_UFLOAT_PACK32)
+		return V_028C70_COLOR_5_9_9_9;
 
 	if (desc->layout != VK_FORMAT_LAYOUT_PLAIN)
 		return V_028C70_COLOR_INVALID;
@@ -923,6 +952,9 @@ unsigned radv_translate_colorswap(VkFormat format, bool do_endian_swap)
 	if (format == VK_FORMAT_B10G11R11_UFLOAT_PACK32)
 		return V_028C70_SWAP_STD;
 
+	if (format == VK_FORMAT_E5B9G9R9_UFLOAT_PACK32)
+		return V_028C70_SWAP_STD;
+
 	if (desc->layout != VK_FORMAT_LAYOUT_PLAIN)
 		return ~0U;
 
@@ -982,6 +1014,10 @@ bool radv_format_pack_clear_color(VkFormat format,
 
 	if (format == VK_FORMAT_B10G11R11_UFLOAT_PACK32) {
 		clear_vals[0] = float3_to_r11g11b10f(value->float32);
+		clear_vals[1] = 0;
+		return true;
+	} else if (format == VK_FORMAT_E5B9G9R9_UFLOAT_PACK32) {
+		clear_vals[0] = float3_to_rgb9e5(value->float32);
 		clear_vals[1] = 0;
 		return true;
 	}
@@ -1056,7 +1092,7 @@ bool radv_format_pack_clear_color(VkFormat format,
 			if (channel->size == 32) {
 				memcpy(&v, &value->float32[c], 4);
 			} else if(channel->size == 16) {
-				v = util_float_to_half(value->float32[c]);
+				v = _mesa_float_to_float16_rtz(value->float32[c]);
 			} else {
 				fprintf(stderr, "failed to fast clear for unhandled float size in format %d\n", format);
 				return false;
@@ -1100,6 +1136,7 @@ void radv_GetPhysicalDeviceFormatProperties2(
 
 static VkResult radv_get_image_format_properties(struct radv_physical_device *physical_device,
 						 const VkPhysicalDeviceImageFormatInfo2 *info,
+						 VkFormat format,
 						 VkImageFormatProperties *pImageFormatProperties)
 
 {
@@ -1109,9 +1146,10 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 	uint32_t maxMipLevels;
 	uint32_t maxArraySize;
 	VkSampleCountFlags sampleCounts = VK_SAMPLE_COUNT_1_BIT;
-	const struct vk_format_description *desc = vk_format_description(info->format);
+	const struct vk_format_description *desc = vk_format_description(format);
+	enum chip_class chip_class = physical_device->rad_info.chip_class;
 
-	radv_physical_device_get_format_properties(physical_device, info->format,
+	radv_physical_device_get_format_properties(physical_device, format,
 						   &format_props);
 	if (info->tiling == VK_IMAGE_TILING_LINEAR) {
 		format_feature_flags = format_props.linearTilingFeatures;
@@ -1124,7 +1162,7 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 	if (format_feature_flags == 0)
 		goto unsupported;
 
-	if (info->type != VK_IMAGE_TYPE_2D && vk_format_is_depth_or_stencil(info->format))
+	if (info->type != VK_IMAGE_TYPE_2D && vk_format_is_depth_or_stencil(format))
 		goto unsupported;
 
 	switch (info->type) {
@@ -1135,20 +1173,26 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 		maxExtent.height = 1;
 		maxExtent.depth = 1;
 		maxMipLevels = 15; /* log2(maxWidth) + 1 */
-		maxArraySize = 2048;
+		maxArraySize = chip_class >= GFX10 ? 8192 : 2048;
 		break;
 	case VK_IMAGE_TYPE_2D:
 		maxExtent.width = 16384;
 		maxExtent.height = 16384;
 		maxExtent.depth = 1;
 		maxMipLevels = 15; /* log2(maxWidth) + 1 */
-		maxArraySize = 2048;
+		maxArraySize = chip_class >= GFX10 ? 8192 : 2048;
 		break;
 	case VK_IMAGE_TYPE_3D:
-		maxExtent.width = 2048;
-		maxExtent.height = 2048;
-		maxExtent.depth = 2048;
-		maxMipLevels = 12; /* log2(maxWidth) + 1 */
+		if (chip_class >= GFX10) {
+			maxExtent.width = 8192;
+			maxExtent.height = 8192;
+			maxExtent.depth = 8192;
+		} else {
+			maxExtent.width = 2048;
+			maxExtent.height = 2048;
+			maxExtent.depth = 2048;
+		}
+		maxMipLevels = util_logbase2(maxExtent.width) + 1;
 		maxArraySize = 1;
 		break;
 	}
@@ -1168,9 +1212,9 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 	}
 
 	if (info->tiling == VK_IMAGE_TILING_LINEAR &&
-	    (info->format == VK_FORMAT_R32G32B32_SFLOAT ||
-	     info->format == VK_FORMAT_R32G32B32_SINT ||
-	     info->format == VK_FORMAT_R32G32B32_UINT)) {
+	    (format == VK_FORMAT_R32G32B32_SFLOAT ||
+	     format == VK_FORMAT_R32G32B32_SINT ||
+	     format == VK_FORMAT_R32G32B32_UINT)) {
 		/* R32G32B32 is a weird format and the driver currently only
 		 * supports the barely minimum.
 		 * TODO: Implement more if we really need to.
@@ -1185,8 +1229,8 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 	/* We can't create 3d compressed 128bpp images that can be rendered to on GFX9 */
 	if (physical_device->rad_info.chip_class >= GFX9 &&
 	    info->type == VK_IMAGE_TYPE_3D &&
-	    vk_format_get_blocksizebits(info->format) == 128 &&
-	    vk_format_is_compressed(info->format) &&
+	    vk_format_get_blocksizebits(format) == 128 &&
+	    vk_format_is_compressed(format) &&
 	    (info->flags & VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT) &&
 	    ((info->flags & VK_IMAGE_CREATE_EXTENDED_USAGE_BIT) ||
 	     (info->usage & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT))) {
@@ -1236,6 +1280,12 @@ static VkResult radv_get_image_format_properties(struct radv_physical_device *ph
 		}
 	}
 
+	/* Sparse resources with multi-planar formats are unsupported. */
+	if (info->flags & VK_IMAGE_CREATE_SPARSE_BINDING_BIT) {
+		if (desc->plane_count > 1)
+			goto unsupported;
+	}
+
 	*pImageFormatProperties = (VkImageFormatProperties) {
 		.maxExtent = maxExtent,
 		.maxMipLevels = maxMipLevels,
@@ -1282,30 +1332,60 @@ VkResult radv_GetPhysicalDeviceImageFormatProperties(
 		.flags = createFlags,
 	};
 
-	return radv_get_image_format_properties(physical_device, &info,
+	return radv_get_image_format_properties(physical_device, &info, format,
 						pImageFormatProperties);
 }
 
 static void
-get_external_image_format_properties(const VkPhysicalDeviceImageFormatInfo2 *pImageFormatInfo,
+get_external_image_format_properties(struct radv_physical_device *physical_device,
+				     const VkPhysicalDeviceImageFormatInfo2 *pImageFormatInfo,
 				     VkExternalMemoryHandleTypeFlagBits handleType,
-				     VkExternalMemoryProperties *external_properties)
+				     VkExternalMemoryProperties *external_properties,
+				     VkImageFormatProperties *format_properties)
 {
 	VkExternalMemoryFeatureFlagBits flags = 0;
 	VkExternalMemoryHandleTypeFlags export_flags = 0;
 	VkExternalMemoryHandleTypeFlags compat_flags = 0;
+
+	if (pImageFormatInfo->flags & VK_IMAGE_CREATE_SPARSE_BINDING_BIT)
+		return;
+
 	switch (handleType) {
 	case VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT:
 	case VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT:
 		switch (pImageFormatInfo->type) {
 		case VK_IMAGE_TYPE_2D:
-			flags = VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT|VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT|VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
+			flags = VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT|VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
+			if (pImageFormatInfo->tiling != VK_IMAGE_TILING_LINEAR)
+				flags |= VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT;
+
 			compat_flags = export_flags = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT |
 						      VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
 			break;
 		default:
 			break;
 		}
+		break;
+	case VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID:
+		if (!physical_device->supported_extensions.ANDROID_external_memory_android_hardware_buffer)
+			break;
+
+		if (!radv_android_gralloc_supports_format(pImageFormatInfo->format,
+		                                          pImageFormatInfo->usage))
+			break;
+
+		if (pImageFormatInfo->type != VK_IMAGE_TYPE_2D)
+			break;
+
+		format_properties->maxMipLevels = MIN2(1, format_properties->maxMipLevels);
+		format_properties->maxArrayLayers = MIN2(1, format_properties->maxArrayLayers);
+		format_properties->sampleCounts &= VK_SAMPLE_COUNT_1_BIT;
+
+		flags = VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT|VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
+		if (pImageFormatInfo->tiling != VK_IMAGE_TILING_LINEAR)
+			flags |= VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT;
+
+		compat_flags = VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
 		break;
 	case VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT:
 		flags = VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
@@ -1330,10 +1410,13 @@ VkResult radv_GetPhysicalDeviceImageFormatProperties2(
 	RADV_FROM_HANDLE(radv_physical_device, physical_device, physicalDevice);
 	const VkPhysicalDeviceExternalImageFormatInfo *external_info = NULL;
 	VkExternalImageFormatProperties *external_props = NULL;
+	struct VkAndroidHardwareBufferUsageANDROID *android_usage = NULL;
 	VkSamplerYcbcrConversionImageFormatProperties *ycbcr_props = NULL;
+	VkTextureLODGatherFormatPropertiesAMD *texture_lod_props = NULL;
 	VkResult result;
+	VkFormat format = radv_select_android_external_format(base_info->pNext, base_info->format);
 
-	result = radv_get_image_format_properties(physical_device, base_info,
+	result = radv_get_image_format_properties(physical_device, base_info, format,
 						&base_props->imageFormatProperties);
 	if (result != VK_SUCCESS)
 		return result;
@@ -1358,9 +1441,24 @@ VkResult radv_GetPhysicalDeviceImageFormatProperties2(
 		case VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_IMAGE_FORMAT_PROPERTIES:
 			ycbcr_props = (void *) s;
 			break;
+		case VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_USAGE_ANDROID:
+			android_usage = (void *) s;
+			break;
+		case VK_STRUCTURE_TYPE_TEXTURE_LOD_GATHER_FORMAT_PROPERTIES_AMD:
+			texture_lod_props = (void *) s;
+			break;
 		default:
 			break;
 		}
+	}
+
+	bool ahb_supported = physical_device->supported_extensions.ANDROID_external_memory_android_hardware_buffer;
+	if (android_usage && ahb_supported) {
+#if RADV_SUPPORT_ANDROID_HARDWARE_BUFFER
+		android_usage->androidHardwareBufferUsage =
+			radv_ahb_usage_from_vk_usage(base_info->flags,
+			                             base_info->usage);
+#endif
 	}
 
 	/* From the Vulkan 1.0.97 spec:
@@ -1370,14 +1468,10 @@ VkResult radv_GetPhysicalDeviceImageFormatProperties2(
 	 *    present and VkExternalImageFormatProperties will be ignored.
 	 */
 	if (external_info && external_info->handleType != 0) {
-		switch (external_info->handleType) {
-		case VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT:
-		case VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT:
-		case VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT:
-			get_external_image_format_properties(base_info, external_info->handleType,
-			                                     &external_props->externalMemoryProperties);
-			break;
-		default:
+		get_external_image_format_properties(physical_device, base_info, external_info->handleType,
+		                                     &external_props->externalMemoryProperties,
+		                                     &base_props->imageFormatProperties);
+		if (!external_props->externalMemoryProperties.externalMemoryFeatures) {
 			/* From the Vulkan 1.0.97 spec:
 			 *
 			 *    If handleType is not compatible with the [parameters] specified
@@ -1393,7 +1487,15 @@ VkResult radv_GetPhysicalDeviceImageFormatProperties2(
 	}
 
 	if (ycbcr_props) {
-		ycbcr_props->combinedImageSamplerDescriptorCount = vk_format_get_plane_count(base_info->format);
+		ycbcr_props->combinedImageSamplerDescriptorCount = vk_format_get_plane_count(format);
+	}
+
+	if (texture_lod_props) {
+		if (physical_device->rad_info.chip_class >= GFX9) {
+			texture_lod_props->supportsTextureGatherLODBiasAMD = true;
+		} else {
+			texture_lod_props->supportsTextureGatherLODBiasAMD = !vk_format_is_int(format);
+		}
 	}
 
 	return VK_SUCCESS;

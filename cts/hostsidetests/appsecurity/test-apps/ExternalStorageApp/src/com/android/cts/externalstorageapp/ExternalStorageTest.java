@@ -81,9 +81,17 @@ public class ExternalStorageTest extends AndroidTestCase {
     public void testMountPointsNotReadable() throws Exception {
         final String userId = Integer.toString(android.os.Process.myUid() / 100000);
         final List<File> mountPaths = getMountPaths();
+        final String packageName = getContext().getPackageName();
         for (File path : mountPaths) {
             if (path.getAbsolutePath().startsWith("/mnt/")
                     || path.getAbsolutePath().startsWith("/storage/")) {
+                if (path.getAbsolutePath().endsWith("obb/" + packageName) ||
+                        path.getAbsolutePath().endsWith("data/" + packageName)) {
+                    // It happens when app data isolation is enabled, obb and data dir will
+                    // be mounted in app's mount namespace.
+                    // It's package's own obb / data dir, we allow it.
+                    continue;
+                }
                 // Mount points could be multi-user aware, so try probing both
                 // top level and user-specific directory.
                 final File userPath = new File(path, userId);

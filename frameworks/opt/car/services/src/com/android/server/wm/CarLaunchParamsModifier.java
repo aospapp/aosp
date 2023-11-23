@@ -16,6 +16,9 @@
 
 package com.android.server.wm;
 
+import static com.android.server.wm.ActivityStarter.Request;
+
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.ActivityOptions;
 import android.app.ActivityTaskManager;
@@ -132,7 +135,7 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
      */
     public void init() {
         mAtm = (ActivityTaskManagerService) ActivityTaskManager.getService();
-        LaunchParamsController controller = mAtm.mStackSupervisor.getLaunchParamsController();
+        LaunchParamsController controller = mAtm.mTaskSupervisor.getLaunchParamsController();
         controller.registerModifier(this);
         mDisplayManager = mContext.getSystemService(DisplayManager.class);
         mDisplayManager.registerDisplayListener(mDisplayListener,
@@ -168,7 +171,7 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
         }
     }
 
-    private void removeUserFromWhitelistsLocked(int userId) {
+    private void removeUserFromAllowlistsLocked(int userId) {
         for (int i = mDisplayToProfileUserMapping.size() - 1; i >= 0; i--) {
             if (mDisplayToProfileUserMapping.valueAt(i) == userId) {
                 mDisplayToProfileUserMapping.removeAt(i);
@@ -182,27 +185,27 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
         // Note that the current user is never stopped. It always takes switching into
         // non-current user before stopping the user.
         synchronized (mLock) {
-            removeUserFromWhitelistsLocked(stoppedUser);
+            removeUserFromAllowlistsLocked(stoppedUser);
         }
     }
 
     /**
-     * Sets display whiltelist for the userId. For passenger user, activity will be always launched
-     * to a display in the whitelist. If requested display is not in the whitelist, the 1st display
-     * in the whitelist will be selected as target display.
+     * Sets display allowlist for the userId. For passenger user, activity will be always launched
+     * to a display in the allowlist. If requested display is not in the allowlist, the 1st display
+     * in the allowlist will be selected as target display.
      *
-     * <p>The whitelist is kept only for profile user. Assigning the current user unassigns users
+     * <p>The allowlist is kept only for profile user. Assigning the current user unassigns users
      * for the given displays.
      */
-    public void setDisplayWhitelistForUser(int userId, int[] displayIds) {
+    public void setDisplayAllowListForUser(int userId, int[] displayIds) {
         if (DBG) {
-            Slog.d(TAG, "setDisplayWhitelistForUser userId:" + userId
+            Slog.d(TAG, "setDisplayAllowlistForUser userId:" + userId
                     + " displays:" + displayIds);
         }
         synchronized (mLock) {
             for (int displayId : displayIds) {
                 if (!mPassengerDisplays.contains(displayId)) {
-                    Slog.w(TAG, "setDisplayWhitelistForUser called with display:" + displayId
+                    Slog.w(TAG, "setDisplayAllowlistForUser called with display:" + displayId
                             + " not in passenger display list:" + mPassengerDisplays);
                     continue;
                 }
@@ -220,7 +223,7 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
             if (displayIds.length > 0) {
                 mDefaultDisplayForProfileUser.put(userId, displayIds[0]);
             } else {
-                removeUserFromWhitelistsLocked(userId);
+                removeUserFromAllowlistsLocked(userId);
             }
         }
     }
@@ -265,8 +268,10 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
      * allowed, change to the 1st allowed display.</p>
      */
     @Override
-    public int onCalculate(Task task, ActivityInfo.WindowLayout layout, ActivityRecord activity,
-            ActivityRecord source, ActivityOptions options, int phase,
+    @Result
+    public int onCalculate(@Nullable Task task, @Nullable ActivityInfo.WindowLayout layout,
+            @Nullable ActivityRecord activity, @Nullable ActivityRecord source,
+            ActivityOptions options, @Nullable Request request, int phase,
             LaunchParamsController.LaunchParams currentParams,
             LaunchParamsController.LaunchParams outParams) {
         int userId;
@@ -310,6 +315,14 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
                             mSourcePreferredComponents, activity.info.getComponentName()) >= 0)) {
                 targetDisplayArea = source.noDisplay ? source.mHandoverTaskDisplayArea
                         : source.getDisplayArea();
+            } else if (originalDisplayArea == null
+                    && task == null  // launching as a new task
+                    && source != null && !source.getDisplayContent().isTrusted()
+                    && ((activity.info.flags & ActivityInfo.FLAG_ALLOW_EMBEDDED) == 0)) {
+                if (DBG) {
+                    Slog.d(TAG, "Disallow launch on virtual display for not-embedded activity.");
+                }
+                targetDisplayArea = getDefaultTaskDisplayAreaOnDisplay(Display.DEFAULT_DISPLAY);
             }
             if (userId == mCurrentDriverUser) {
                 // Respect the existing DisplayArea.
@@ -349,7 +362,7 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
                 break decision;
             }
             targetDisplayArea = getAlternativeDisplayAreaForPassengerLocked(
-                    userId, targetDisplayArea);
+                    userId, activity, request);
         }
         if (targetDisplayArea != null && originalDisplayArea != targetDisplayArea) {
             Slog.i(TAG, "Changed launching display, user:" + userId
@@ -364,21 +377,10 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
 
     @Nullable
     private TaskDisplayArea getAlternativeDisplayAreaForPassengerLocked(int userId,
-            TaskDisplayArea originalDisplayArea) {
-        int displayId = mDefaultDisplayForProfileUser.get(userId, Display.INVALID_DISPLAY);
-        if (displayId != Display.INVALID_DISPLAY) {
-            return getDefaultTaskDisplayAreaOnDisplay(displayId);
-        }
-        // return the 1st passenger display area if it exists
-        if (!mPassengerDisplays.isEmpty()) {
-            Slog.w(TAG, "No default display area for user:" + userId
-                    + " reassign to 1st passenger display area");
-            return getDefaultTaskDisplayAreaOnDisplay(mPassengerDisplays.get(0));
-        }
-        Slog.w(TAG, "No default display for user:" + userId
-                + " and no passenger display, keep the requested display area:"
-                + originalDisplayArea);
-        return originalDisplayArea;
+            @NonNull ActivityRecord activityRecord, @Nullable Request request) {
+        TaskDisplayArea sourceDisplayArea = sourceDisplayArea(userId, activityRecord, request);
+
+        return sourceDisplayArea != null ? sourceDisplayArea : fallbackDisplayArea(userId);
     }
 
     @VisibleForTesting
@@ -390,4 +392,99 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
         }
         return dc.getDefaultTaskDisplayArea();
     }
+
+    /**
+     * Calculates the {@link TaskDisplayArea} for the source of the request. The source is
+     * calculated implicitly from the request or the activity record.
+     *
+     * @param userId ID of the current active user
+     * @param activityRecord {@link ActivityRecord} that is to be shown
+     * @param request {@link Request} data for showing the {@link ActivityRecord}
+     * @return {@link TaskDisplayArea} First non {@code null} candidate display area that is allowed
+     * for the user.  It is allowed if the display has been added to the profile mapping.
+     */
+    @Nullable
+    private TaskDisplayArea sourceDisplayArea(int userId, @NonNull ActivityRecord activityRecord,
+            @Nullable Request request) {
+        List<WindowProcessController> candidateControllers = candidateControllers(activityRecord,
+                request);
+
+        for (int i = 0; i < candidateControllers.size(); i++) {
+            WindowProcessController controller = candidateControllers.get(i);
+            TaskDisplayArea candidate = controller.getTopActivityDisplayArea();
+            int displayId = candidate != null ? candidate.getDisplayId() : Display.INVALID_DISPLAY;
+            int userForDisplay = mDisplayToProfileUserMapping.get(displayId, UserHandle.USER_NULL);
+            if (userForDisplay == userId) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Calculates a list of {@link WindowProcessController} that can calculate the
+     * {@link TaskDisplayArea} to house the {@link ActivityRecord}. Controllers are calculated since
+     * calculating the display can be expensive. The list is ordered in the
+     * following way
+     * <ol>
+     *     <li>Controller for the activity record from the process name and app uid</li>
+     *     <li>Controller for the activity that is launching the given record</li>
+     *     <li>Controller for the actual process that is launching the record</li>
+     * </ol>
+     *
+     * @param activityRecord {@link ActivityRecord} that is to be shown
+     * @param request {@link Request} data for showing the {@link ActivityRecord}
+     * @return {@link List} of {@link WindowProcessController} ordered by preference to be shown
+     */
+    private List<WindowProcessController> candidateControllers(
+            @NonNull ActivityRecord activityRecord, @Nullable Request request) {
+        WindowProcessController firstController = mAtm.getProcessController(
+                activityRecord.getProcessName(), activityRecord.getUid());
+
+        WindowProcessController secondController = mAtm.getProcessController(
+                activityRecord.getLaunchedFromPid(), activityRecord.getLaunchedFromUid());
+
+        WindowProcessController thirdController = request == null ? null :
+                mAtm.getProcessController(request.realCallingPid, request.realCallingUid);
+
+        List<WindowProcessController> candidates = new ArrayList<>(3);
+
+        if (firstController != null) {
+            candidates.add(firstController);
+        }
+        if (secondController != null) {
+            candidates.add(secondController);
+        }
+        if (thirdController != null) {
+            candidates.add(thirdController);
+        }
+
+        return candidates;
+    }
+
+    /**
+     * Return a {@link TaskDisplayArea} that can be used if a source display area is not found.
+     * First check the default display for the user. If it is absent select the first passenger
+     * display if present.  If both are absent return {@code null}
+     *
+     * @param userId ID of the active user
+     * @return {@link TaskDisplayArea} that is recommended when a display area is not specified
+     */
+    @Nullable
+    private TaskDisplayArea fallbackDisplayArea(int userId) {
+        int displayIdForUserProfile = mDefaultDisplayForProfileUser.get(userId,
+                Display.INVALID_DISPLAY);
+        if (displayIdForUserProfile != Display.INVALID_DISPLAY) {
+            int displayId = mDefaultDisplayForProfileUser.get(userId);
+            return getDefaultTaskDisplayAreaOnDisplay(displayId);
+        }
+
+        if (!mPassengerDisplays.isEmpty()) {
+            int displayId = mPassengerDisplays.get(0);
+            return getDefaultTaskDisplayAreaOnDisplay(displayId);
+        }
+
+        return null;
+    }
+
 }

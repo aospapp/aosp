@@ -26,14 +26,17 @@ import android.telephony.NetworkScanRequest;
 import android.telephony.SignalThresholdInfo;
 import android.telephony.TelephonyManager;
 import android.telephony.data.DataProfile;
+import android.telephony.data.NetworkSliceInfo;
+import android.telephony.data.TrafficDescriptor;
 import android.telephony.emergency.EmergencyNumber;
 
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.RadioCapability;
 import com.android.internal.telephony.UUSInfo;
-import com.android.internal.telephony.uicc.IccCardApplicationStatus.PersoSubState;
 import com.android.internal.telephony.cdma.CdmaSmsBroadcastConfigInfo;
 import com.android.internal.telephony.gsm.SmsBroadcastConfigInfo;
+import com.android.internal.telephony.uicc.IccCardApplicationStatus.PersoSubState;
+import com.android.internal.telephony.uicc.SimPhonebookRecord;
 
 public class SimulatedCommandsVerifier implements CommandsInterface {
     private static SimulatedCommandsVerifier sInstance;
@@ -177,6 +180,16 @@ public class SimulatedCommandsVerifier implements CommandsInterface {
 
     @Override
     public void unregisterForDataCallListChanged(Handler h) {
+
+    }
+
+    @Override
+    public void registerForApnUnthrottled(Handler h, int what, Object obj) {
+
+    }
+
+    @Override
+    public void unregisterForApnUnthrottled(Handler h) {
 
     }
 
@@ -1049,6 +1062,17 @@ public class SimulatedCommandsVerifier implements CommandsInterface {
     }
 
     @Override
+    public void setAllowedNetworkTypesBitmap(
+            @TelephonyManager.NetworkTypeBitMask int networkTypeBitmask, Message response) {
+
+    }
+
+    @Override
+    public void getAllowedNetworkTypesBitmap(Message response) {
+
+    }
+
+    @Override
     public void setLocationUpdates(boolean enable, Message response) {
 
     }
@@ -1180,8 +1204,9 @@ public class SimulatedCommandsVerifier implements CommandsInterface {
 
     @Override
     public void setupDataCall(int accessNetworkType, DataProfile dataProfile, boolean isRoaming,
-                              boolean allowRoaming, int reason, LinkProperties linkProperties,
-                              Message result) {
+            boolean allowRoaming, int reason, LinkProperties linkProperties, int pduSessionId,
+            NetworkSliceInfo sliceInfo, TrafficDescriptor trafficDescriptor,
+            boolean matchAllRuleAllowed, Message result) {
     }
 
     @Override
@@ -1220,11 +1245,6 @@ public class SimulatedCommandsVerifier implements CommandsInterface {
 
     @Override
     public void setLogicalToPhysicalSlotMapping(int[] physicalSlots, Message result) {
-    }
-
-    @Override
-    public int getLteOnCdmaMode() {
-        return 0;
     }
 
     @Override
@@ -1464,5 +1484,45 @@ public class SimulatedCommandsVerifier implements CommandsInterface {
 
     @Override
     public void getBarringInfo(Message result) {
+    }
+
+    @Override
+    public void allocatePduSessionId(Message result) {
+    }
+
+    @Override
+    public void releasePduSessionId(Message result, int pduSessionId) {
+    }
+
+    @Override
+    public void getSlicingConfig(Message result) {
+    }
+
+    @Override
+    public void getSimPhonebookRecords(Message result){
+    }
+
+    @Override
+    public void getSimPhonebookCapacity(Message result){
+    }
+
+    @Override
+    public void updateSimPhonebookRecord(SimPhonebookRecord phonebookRecord, Message result){
+    }
+
+    @Override
+    public void registerForSimPhonebookChanged(Handler h, int what, Object obj){
+    }
+
+    @Override
+    public void unregisterForSimPhonebookChanged(Handler h){
+    }
+
+    @Override
+    public void registerForSimPhonebookRecordsReceived(Handler h, int what, Object obj){
+    }
+
+    @Override
+    public void unregisterForSimPhonebookRecordsReceived(Handler h){
     }
 }

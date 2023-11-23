@@ -17,7 +17,7 @@
 <resources>
     <!-- 4370 -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
-        <item>0x1112:rat=gsm, emergency=true</item>
+        <item>0x1112:rat=gsm, emergency=true, always_on=true</item>
     </string-array>
     <!-- 4371 -->
     <string-array name="cmas_alert_extreme_channels_range_strings" translatable="false">

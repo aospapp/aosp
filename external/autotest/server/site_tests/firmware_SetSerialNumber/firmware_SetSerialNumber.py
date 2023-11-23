@@ -73,7 +73,10 @@ class firmware_SetSerialNumber(FirmwareTest):
         logging.info("Setting serial number to '%s'.", serial_number)
 
         self.switcher.simple_reboot()
-        self.start_serial_number_prompt()
+        if not self.faft_config.rma_entered_automatically:
+            self.start_serial_number_prompt()
+        else:
+            time.sleep(self.faft_config.firmware_screen)
         self.send_string(serial_number)
         # Press enter on set
         self.servo.enter_key()

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 #  Copyright 2011 Sybren A. Stüvel <sybren@stuvel.eu>
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,12 +29,12 @@ class StringTest(unittest.TestCase):
 
     def test_enc_dec(self):
         message = unicode_string.encode('utf-8')
-        print("\tMessage:   %s" % message)
+        print("\tMessage:   %r" % message)
 
         encrypted = rsa.encrypt(message, self.pub)
-        print("\tEncrypted: %s" % encrypted)
+        print("\tEncrypted: %r" % encrypted)
 
         decrypted = rsa.decrypt(encrypted, self.priv)
-        print("\tDecrypted: %s" % decrypted)
+        print("\tDecrypted: %r" % decrypted)
 
         self.assertEqual(message, decrypted)

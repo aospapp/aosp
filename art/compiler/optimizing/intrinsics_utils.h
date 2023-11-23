@@ -17,9 +17,13 @@
 #ifndef ART_COMPILER_OPTIMIZING_INTRINSICS_UTILS_H_
 #define ART_COMPILER_OPTIMIZING_INTRINSICS_UTILS_H_
 
+#include "base/casts.h"
 #include "base/macros.h"
 #include "code_generator.h"
+#include "data_type-inl.h"
+#include "dex/dex_file-inl.h"
 #include "locations.h"
+#include "mirror/var_handle.h"
 #include "nodes.h"
 #include "utils/assembler.h"
 #include "utils/label.h"
@@ -36,10 +40,12 @@ namespace art {
 // Note: If an invoke wasn't sharpened, we will put down an invoke-virtual here. That's potentially
 //       sub-optimal (compared to a direct pointer call), but this is a slow-path.
 
-template <typename TDexCallingConvention>
-class IntrinsicSlowPath : public SlowPathCode {
+template <typename TDexCallingConvention,
+          typename TSlowPathCode = SlowPathCode,
+          typename TAssembler = Assembler>
+class IntrinsicSlowPath : public TSlowPathCode {
  public:
-  explicit IntrinsicSlowPath(HInvoke* invoke) : SlowPathCode(invoke), invoke_(invoke) { }
+  explicit IntrinsicSlowPath(HInvoke* invoke) : TSlowPathCode(invoke), invoke_(invoke) { }
 
   Location MoveArguments(CodeGenerator* codegen) {
     TDexCallingConvention calling_convention_visitor;
@@ -48,29 +54,41 @@ class IntrinsicSlowPath : public SlowPathCode {
   }
 
   void EmitNativeCode(CodeGenerator* codegen) override {
-    Assembler* assembler = codegen->GetAssembler();
-    assembler->Bind(GetEntryLabel());
+    TAssembler* assembler = down_cast<TAssembler*>(codegen->GetAssembler());
+    assembler->Bind(this->GetEntryLabel());
 
-    SaveLiveRegisters(codegen, invoke_->GetLocations());
+    this->SaveLiveRegisters(codegen, invoke_->GetLocations());
 
     Location method_loc = MoveArguments(codegen);
 
     if (invoke_->IsInvokeStaticOrDirect()) {
-      codegen->GenerateStaticOrDirectCall(invoke_->AsInvokeStaticOrDirect(), method_loc, this);
-    } else {
+      HInvokeStaticOrDirect* invoke_static_or_direct = invoke_->AsInvokeStaticOrDirect();
+      DCHECK_NE(invoke_static_or_direct->GetMethodLoadKind(), MethodLoadKind::kRecursive);
+      DCHECK_NE(invoke_static_or_direct->GetCodePtrLocation(),
+                CodePtrLocation::kCallCriticalNative);
+      codegen->GenerateStaticOrDirectCall(invoke_static_or_direct, method_loc, this);
+    } else if (invoke_->IsInvokeVirtual()) {
       codegen->GenerateVirtualCall(invoke_->AsInvokeVirtual(), method_loc, this);
+    } else {
+      DCHECK(invoke_->IsInvokePolymorphic());
+      codegen->GenerateInvokePolymorphicCall(invoke_->AsInvokePolymorphic(), this);
     }
 
     // Copy the result back to the expected output.
     Location out = invoke_->GetLocations()->Out();
     if (out.IsValid()) {
-      DCHECK(out.IsRegister());  // TODO: Replace this when we support output in memory.
-      DCHECK(!invoke_->GetLocations()->GetLiveRegisters()->ContainsCoreRegister(out.reg()));
+      DCHECK(out.IsRegisterKind());  // TODO: Replace this when we support output in memory.
+      // We want to double-check that we don't overwrite a live register with the return
+      // value.
+      // Note: For the possible kNoOutputOverlap case we can't simply remove the OUT register
+      // from the GetLiveRegisters() - theoretically it might be needed after the return from
+      // the slow path.
+      DCHECK(!invoke_->GetLocations()->GetLiveRegisters()->OverlapsRegisters(out));
       codegen->MoveFromReturnRegister(out, invoke_->GetType());
     }
 
-    RestoreLiveRegisters(codegen, invoke_->GetLocations());
-    assembler->Jump(GetExitLabel());
+    this->RestoreLiveRegisters(codegen, invoke_->GetLocations());
+    assembler->Jump(this->GetExitLabel());
   }
 
   const char* GetDescription() const override { return "IntrinsicSlowPath"; }
@@ -81,6 +99,52 @@ class IntrinsicSlowPath : public SlowPathCode {
 
   DISALLOW_COPY_AND_ASSIGN(IntrinsicSlowPath);
 };
+
+static inline size_t GetExpectedVarHandleCoordinatesCount(HInvoke *invoke) {
+  mirror::VarHandle::AccessModeTemplate access_mode_template =
+      mirror::VarHandle::GetAccessModeTemplateByIntrinsic(invoke->GetIntrinsic());
+  size_t var_type_count = mirror::VarHandle::GetNumberOfVarTypeParameters(access_mode_template);
+  size_t accessor_argument_count = invoke->GetNumberOfArguments() - 1;
+
+  return accessor_argument_count - var_type_count;
+}
+
+static inline DataType::Type GetDataTypeFromShorty(HInvoke* invoke, uint32_t index) {
+  DCHECK(invoke->IsInvokePolymorphic());
+  const DexFile& dex_file = invoke->GetBlock()->GetGraph()->GetDexFile();
+  const char* shorty = dex_file.GetShorty(invoke->AsInvokePolymorphic()->GetProtoIndex());
+  DCHECK_LT(index, strlen(shorty));
+
+  return DataType::FromShorty(shorty[index]);
+}
+
+static inline bool IsVarHandleGetAndBitwiseOp(HInvoke* invoke) {
+  switch (invoke->GetIntrinsic()) {
+    case Intrinsics::kVarHandleGetAndBitwiseOr:
+    case Intrinsics::kVarHandleGetAndBitwiseOrAcquire:
+    case Intrinsics::kVarHandleGetAndBitwiseOrRelease:
+    case Intrinsics::kVarHandleGetAndBitwiseXor:
+    case Intrinsics::kVarHandleGetAndBitwiseXorAcquire:
+    case Intrinsics::kVarHandleGetAndBitwiseXorRelease:
+    case Intrinsics::kVarHandleGetAndBitwiseAnd:
+    case Intrinsics::kVarHandleGetAndBitwiseAndAcquire:
+    case Intrinsics::kVarHandleGetAndBitwiseAndRelease:
+      return true;
+    default:
+      return false;
+  }
+}
+
+static inline bool IsVarHandleGetAndAdd(HInvoke* invoke) {
+  switch (invoke->GetIntrinsic()) {
+    case Intrinsics::kVarHandleGetAndAdd:
+    case Intrinsics::kVarHandleGetAndAddAcquire:
+    case Intrinsics::kVarHandleGetAndAddRelease:
+      return true;
+    default:
+      return false;
+  }
+}
 
 }  // namespace art
 

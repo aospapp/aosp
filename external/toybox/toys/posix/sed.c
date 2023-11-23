@@ -10,17 +10,22 @@
  * TODO: handle error return from emit(), error_msg/exit consistently
  *       What's the right thing to do for -i when write fails? Skip to next?
  * test '//q' with no previous regex, also repeat previous regex?
+ *
+ * Deviations from POSIX: allow extended regular expressions with -r,
+ * editing in place with -i, separate with -s, NUL-separated input with -z,
+ * printf escapes in text, line continuations, semicolons after all commands,
+ * 2-address anywhere an address is allowed, "T" command, multiline
+ * continuations for [abc], \; to end [abc] argument before end of line.
 
-USE_SED(NEWTOY(sed, "(help)(version)e*f*i:;nErz(null-data)[+Er]", TOYFLAG_BIN|TOYFLAG_LOCALE|TOYFLAG_NOHELP))
+USE_SED(NEWTOY(sed, "(help)(version)e*f*i:;nErz(null-data)s[+Er]", TOYFLAG_BIN|TOYFLAG_LOCALE|TOYFLAG_NOHELP))
 
 config SED
   bool "sed"
   default y
   help
-    usage: sed [-inrzE] [-e SCRIPT]...|SCRIPT [-f SCRIPT_FILE]... [FILE...]
+    usage: sed [-inrszE] [-e SCRIPT]...|SCRIPT [-f SCRIPT_FILE]... [FILE...]
 
-    Stream editor. Apply one or more editing SCRIPTs to each line of input
-    (from FILE or stdin) producing output (by default to stdout).
+    Stream editor. Apply editing SCRIPTs to lines of input.
 
     -e	Add SCRIPT to list
     -f	Add contents of SCRIPT_FILE to list
@@ -29,144 +34,86 @@ config SED
     -r	Use extended regular expression syntax
     -E	POSIX alias for -r
     -s	Treat input files separately (implied by -i)
-    -z	Use \0 rather than \n as the input line separator
+    -z	Use \0 rather than \n as input line separator
 
-    A SCRIPT is a series of one or more COMMANDs separated by newlines or
-    semicolons. All -e SCRIPTs are concatenated together as if separated
-    by newlines, followed by all lines from -f SCRIPT_FILEs, in order.
-    If no -e or -f SCRIPTs are specified, the first argument is the SCRIPT.
+    A SCRIPT is one or more COMMANDs separated by newlines or semicolons.
+    All -e SCRIPTs are combined as if separated by newlines, followed by all -f
+    SCRIPT_FILEs. If no -e or -f then first argument is the SCRIPT.
 
-    Each COMMAND may be preceded by an address which limits the command to
-    apply only to the specified line(s). Commands without an address apply to
-    every line. Addresses are of the form:
+    COMMANDs apply to every line unless prefixed with an ADDRESS of the form:
 
       [ADDRESS[,ADDRESS]][!]COMMAND
 
-    The ADDRESS may be a decimal line number (starting at 1), a /regular
-    expression/ within a pair of forward slashes, or the character "$" which
-    matches the last line of input. (In -s or -i mode this matches the last
-    line of each file, otherwise just the last line of the last file.) A single
-    address matches one line, a pair of comma separated addresses match
-    everything from the first address to the second address (inclusive). If
-    both addresses are regular expressions, more than one range of lines in
-    each file can match. The second address can be +N to end N lines later.
+    ADDRESS is a line number (starting at 1), a /REGULAR EXPRESSION/, or $ for
+    last line (-s or -i makes it last line of each file). One address matches one
+    line, ADDRESS,ADDRESS matches from first to second inclusive. Two regexes can
+    match multiple ranges. ADDRESS,+N ends N lines later. ! inverts the match.
 
-    REGULAR EXPRESSIONS in sed are started and ended by the same character
-    (traditionally / but anything except a backslash or a newline works).
-    Backslashes may be used to escape the delimiter if it occurs in the
-    regex, and for the usual printf escapes (\abcefnrtv and octal, hex,
-    and unicode). An empty regex repeats the previous one. ADDRESS regexes
-    (above) require the first delimiter to be escaped with a backslash when
-    it isn't a forward slash (to distinguish it from the COMMANDs below).
+    REGULAR EXPRESSIONS start and end with the same character (anything but
+    backslash or newline). To use the delimiter in the regex escape it with a
+    backslash, and printf escapes (\abcefnrtv and octal, hex, and unicode) work.
+    An empty regex repeats the previous one. ADDRESS regexes require any
+    first delimiter except / to be \escaped to distinguish it from COMMANDs.
 
-    Sed mostly operates on individual lines one at a time. It reads each line,
-    processes it, and either writes it to the output or discards it before
-    reading the next line. Sed can remember one additional line in a separate
-    buffer (using the h, H, g, G, and x commands), and can read the next line
-    of input early (using the n and N command), but other than that command
-    scripts operate on individual lines of text.
+    Sed reads each line of input, processes it, and writes it out or discards it
+    before reading the next. Sed can remember one additional line in a separate
+    buffer (the h, H, g, G, and x commands), and can read the next line of input
+    early (the n and N commands), but otherwise operates on individual lines.
 
-    Each COMMAND starts with a single character. The following commands take
-    no arguments:
+    Each COMMAND starts with a single character. Commands with no arguments are:
 
-      !  Run this command when the test _didn't_ match.
-
-      {  Start a new command block, continuing until a corresponding "}".
-         Command blocks may nest. If the block has an address, commands within
-         the block are only run for lines within the block's address range.
-
-      }  End command block (this command cannot have an address)
-
+      !  Run this command when the ADDRESS _didn't_ match.
+      {  Start new command block, continuing until a corresponding "}".
+         Command blocks nest and can have ADDRESSes applying to the whole block.
+      }  End command block (this COMMAND cannot have an address)
       d  Delete this line and move on to the next one
          (ignores remaining COMMANDs)
-
       D  Delete one line of input and restart command SCRIPT (same as "d"
          unless you've glued lines together with "N" or similar)
-
       g  Get remembered line (overwriting current line)
-
       G  Get remembered line (appending to current line)
-
       h  Remember this line (overwriting remembered line)
-
       H  Remember this line (appending to remembered line, if any)
-
-      l  Print line, escaping \abfrtv (but not newline), octal escaping other
-         nonprintable characters, wrapping lines to terminal width with a
-         backslash, and appending $ to actual end of line.
-
-      n  Print default output and read next line, replacing current line
-         (If no next line available, quit processing script)
-
-      N  Append next line of input to this line, separated by a newline
-         (This advances the line counter for address matching and "=", if no
-         next line available quit processing script without default output)
-
+      l  Print line escaping \abfrtv (but not \n), octal escape other nonprintng
+         chars, wrap lines to terminal width with \, append $ to end of line.
+      n  Print default output and read next line over current line (quit at EOF)
+      N  Append \n and next line of input to this line. Quit at EOF without
+         default output. Advances line counter for ADDRESS and "=".
       p  Print this line
-
       P  Print this line up to first newline (from "N")
-
       q  Quit (print default output, no more commands processed or lines read)
-
       x  Exchange this line with remembered line (overwrite in both directions)
+      =  Print the current line number (plus newline)
+      #  Comment, ignores rest of this line of SCRIPT (until newline)
 
-      =  Print the current line number (followed by a newline)
+    Commands that take an argument: 
 
-    The following commands (may) take an argument. The "text" arguments (to
-    the "a", "b", and "c" commands) may end with an unescaped "\" to append
-    the next line (for which leading whitespace is not skipped), and also
-    treat ";" as a literal character (use "\;" instead).
-
-      a [text]   Append text to output before attempting to read next line
-
-      b [label]  Branch, jumps to :label (or with no label, to end of SCRIPT)
-
-      c [text]   Delete line, output text at end of matching address range
-                 (ignores remaining COMMANDs)
-
-      i [text]   Print text
-
-      r [file]   Append contents of file to output before attempting to read
-                 next line.
-
-      s/S/R/F    Search for regex S, replace matched text with R using flags F.
-                 The first character after the "s" (anything but newline or
-                 backslash) is the delimiter, escape with \ to use normally.
-
-                 The replacement text may contain "&" to substitute the matched
-                 text (escape it with backslash for a literal &), or \1 through
-                 \9 to substitute a parenthetical subexpression in the regex.
-                 You can also use the normal backslash escapes such as \n and
-                 a backslash at the end of the line appends the next line.
-
-                 The flags are:
-
-                 [0-9]    A number, substitute only that occurrence of pattern
-                 g        Global, substitute all occurrences of pattern
-                 i        Ignore case when matching
-                 p        Print the line if match was found and replaced
-                 w [file] Write (append) line to file if match replaced
-
-      t [label]  Test, jump to :label only if an "s" command found a match in
-                 this line since last test (replacing with same text counts)
-
-      T [label]  Test false, jump only if "s" hasn't found a match.
-
-      w [file]   Write (append) line to file
-
+      : LABEL    Target for jump commands
+      a TEXT     Append text to output before reading next line
+      b LABEL    Branch, jumps to :LABEL (with no LABEL to end of SCRIPT)
+      c TEXT     Delete matching ADDRESS range and output TEXT instead
+      i TEXT     Insert text (output immediately)
+      r FILE     Append contents of FILE to output before reading next line.
+      s/S/R/F    Search for regex S replace match with R using flags F. Delimiter
+                 is anything but \n or \, escape with \ to use in S or R. Printf
+                 escapes work. Unescaped & in R becomes full matched text, \1
+                 through \9 = parenthetical subexpression from S. \ at end of
+                 line appends next line of SCRIPT. The flags in F are:
+                 [0-9]    A number N, substitute only Nth match
+                 g        Global, substitute all matches
+                 i/I      Ignore case when matching
+                 p        Print resulting line when match found and replaced
+                 w [file] Write (append) line to file when match replaced
+      t LABEL    Test, jump if s/// command matched this line since last test 
+      T LABEL    Test false, jump to :LABEL only if no s/// found a match
+      w FILE     Write (append) line to file
       y/old/new/ Change each character in 'old' to corresponding character
                  in 'new' (with standard backslash escapes, delimiter can be
                  any repeated character except \ or \n)
 
-      : [label]  Labeled target for jump commands
-
-      #  Comment, ignore rest of this line of SCRIPT
-
-    Deviations from POSIX: allow extended regular expressions with -r,
-    editing in place with -i, separate with -s, NUL-separated input with -z,
-    printf escapes in text, line continuations, semicolons after all commands,
-    2-address anywhere an address is allowed, "T" command, multiline
-    continuations for [abc], \; to end [abc] argument before end of line.
+    The TEXT arguments (to a c i) may end with an unescaped "\" to append
+    the next line (leading whitespace is not skipped), and treat ";" as a
+    literal character (use "\;" instead).
 */
 
 #define FOR_sed
@@ -200,7 +147,7 @@ struct sedcmd {
   int rmatch[2];  // offset of regex struct for prefix matches (/abc/,/def/p)
   int arg1, arg2, w; // offset of two arguments per command, plus s//w filename
   unsigned not, hit;
-  unsigned sflags; // s///flag bits: i=1, g=2, p=4
+  unsigned sflags; // s///flag bits: i=1, g=2, p=4, x=8
   char c; // action
 };
 
@@ -265,7 +212,7 @@ static void sed_line(char **pline, long plen)
   int eol = 0, tea = 0;
 
   // Ignore EOF for all files before last unless -i
-  if (!pline && !FLAG(i)) return;
+  if (!pline && !FLAG(i) && !FLAG(s)) return;
 
   // Grab next line for deferred processing (EOF detection: we get a NULL
   // pline at EOF to flush last line). Note that only end of _last_ input
@@ -494,9 +441,9 @@ static void sed_line(char **pline, long plen)
         } else zmatch = 0;
 
         // If we're replacing only a specific match, skip if this isn't it
-        off = command->sflags>>3;
+        off = command->sflags>>4;
         if (off && off != ++count) {
-          memcpy(l2+l2used, rline, match[0].rm_eo);
+          if (l2) memcpy(l2+l2used, rline, match[0].rm_eo);
           l2used += match[0].rm_eo;
           rline += match[0].rm_eo;
 
@@ -652,13 +599,15 @@ done:
 // Callback called on each input file
 static void do_sed_file(int fd, char *name)
 {
-  char *tmp;
+  char *tmp, *s;
 
   if (FLAG(i)) {
-    struct sedcmd *command;
-
     if (!fd) return error_msg("-i on stdin");
     TT.fdout = copy_tempfile(fd, name, &tmp);
+  }
+  if (FLAG(i) || FLAG(s)) {
+    struct sedcmd *command;
+
     TT.count = 0;
     for (command = (void *)TT.pattern; command; command = command->next)
       command->hit = 0;
@@ -666,13 +615,13 @@ static void do_sed_file(int fd, char *name)
   do_lines(fd, TT.delim, sed_line);
   if (FLAG(i)) {
     if (TT.i && *TT.i) {
-      char *s = xmprintf("%s%s", name, TT.i);
-
-      xrename(name, s);
+      xrename(name, s = xmprintf("%s%s", name, TT.i));
       free(s);
     }
     replace_tempfile(-1, TT.fdout, &tmp);
     TT.fdout = 1;
+  }
+  if (FLAG(i) || FLAG(s)) {
     TT.nextline = 0;
     TT.nextlen = TT.noeol = 0;
   }
@@ -844,6 +793,7 @@ static void parse_pattern(char **pline, long len)
       if (!TT.nextlen--) break;
     } else if (c == 's') {
       char *end, delim = 0;
+      int flags;
 
       // s/pattern/replacement/flags
 
@@ -896,18 +846,20 @@ resume_s:
 
         if (isspace(*line) && *line != '\n') continue;
 
-        if (0 <= (l = stridx("igp", *line))) command->sflags |= 1<<l;
-        else if (!(command->sflags>>3) && 0<(l = strtol(line, &line, 10))) {
-          command->sflags |= l << 3;
+        if (0 <= (l = stridx("igpx", *line))) command->sflags |= 1<<l;
+        else if (*line == 'I') command->sflags |= 1<<0;
+        else if (!(command->sflags>>4) && 0<(l = strtol(line, &line, 10))) {
+          command->sflags |= l << 4;
           line--;
         } else break;
       }
+      flags = (FLAG(r) || (command->sflags&8)) ? REG_EXTENDED : 0;
+      if (command->sflags&1) flags |= REG_ICASE;
 
       // We deferred actually parsing the regex until we had the s///i flag
       // allocating the space was done by extend_string() above
       if (!*TT.remember) command->arg1 = 0;
-      else xregcomp((void *)(command->arg1 + (char *)command), TT.remember,
-        (REG_EXTENDED*!!FLAG(r))|((command->sflags&1)*REG_ICASE));
+      else xregcomp((void *)(command->arg1+(char *)command),TT.remember,flags);
       free(TT.remember);
       TT.remember = 0;
       if (*line == 'w') {
@@ -1071,8 +1023,8 @@ void sed_main(void)
   loopfiles_rw(args, O_RDONLY|WARN_ONLY, 0, do_sed_file);
 
   // Provide EOF flush at end of cumulative input for non-i mode.
-  if (!FLAG(i)) {
-    toys.optflags |= FLAG_i;
+  if (!FLAG(i) && !FLAG(s)) {
+    toys.optflags |= FLAG_s;
     sed_line(0, 0);
   }
 

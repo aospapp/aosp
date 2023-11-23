@@ -16,12 +16,17 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="175237477015066795">"ৰাষ্ট্ৰীয় জৰুৰীকালীন সতর্কতা"</string>
-    <string name="pws_other_message_identifiers" msgid="9062780351883657067">"সকীয়নিমূলক সতৰ্কবাৰ্তা"</string>
-    <string name="public_safety_message" msgid="2187283654023170988">"ৰাজহুৱা সুৰক্ষা সতৰ্কবাৰ্তা"</string>
+    <string name="cmas_presidential_level_alert" msgid="569470769079166304">"ৰাষ্ট্ৰীয় জৰুৰীকালীন সতৰ্কবাৰ্তা"</string>
+    <string name="cmas_extreme_alert" msgid="9135130008703049274">"জৰুৰীকালীন সতৰ্কবাৰ্তা"</string>
+    <string name="cmas_extreme_immediate_observed_alert" msgid="713620529362685655">"জৰুৰীকালীন সতৰ্কবাৰ্তা"</string>
+    <string name="cmas_extreme_immediate_likely_alert" msgid="6858545279275537101">"জৰুৰীকালীন সতৰ্কবাৰ্তা"</string>
+    <string name="cmas_severe_alert" msgid="6255792641522355328">"জৰুৰীকালীন সতৰ্কবাৰ্তা"</string>
+    <string name="pws_other_message_identifiers" msgid="2219849459734958071">"সকীয়নিমূলক সতৰ্কবাৰ্তা"</string>
+    <string name="public_safety_message" msgid="6430821308078207535">"ৰাজহুৱা সুৰক্ষা বিষয়ক সতৰ্কবাৰ্তা"</string>
     <string name="cmas_exercise_alert" msgid="5775307523978007483">"অনুশীলন"</string>
-    <string name="cmas_required_monthly_test" msgid="7606843318721168353">"পৰীক্ষামূলক সতৰ্কতা"</string>
-    <string name="state_local_test_alert" msgid="3092681020067564217">"পৰীক্ষামূলক সতৰ্কবার্তা"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="876981179796412627">"সকীয়নিমূলক সতৰ্কবাৰ্তাসমূহ"</string>
-    <string name="enable_public_safety_messages_title" msgid="4810131816678424099">"ৰাজহুৱা সুৰক্ষা সতৰ্কবাৰ্তাসমূহ"</string>
+    <string name="cmas_required_monthly_test" msgid="638043663020315444">"পৰীক্ষামূলক সতৰ্কবাৰ্তা"</string>
+    <string name="state_local_test_alert" msgid="5347253401221487116">"পৰীক্ষামূলক সতৰ্কবাৰ্তা"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="5365080705719184919">"সকীয়নিমূলক সতৰ্কবাৰ্তাসমূহ"</string>
+    <string name="enable_public_safety_messages_title" msgid="4702006823902961758">"ৰাজহুৱা সুৰক্ষা বিষয়ক সতৰ্কবাৰ্তাসমূহ"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="3586102183699625309">"পৰীক্ষামূলক সতৰ্কবাৰ্তাসমূহ"</string>
 </resources>

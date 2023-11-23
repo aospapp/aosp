@@ -42,17 +42,10 @@
     },
     {
         "tests": ["002-sleep",
-                  "053-wait-some",
                   "055-enum-performance",
                   "133-static-invoke-super"],
         "description": ["Tests that are timing sensitive and flaky on heavily",
                         "loaded systems."]
-    },
-    {
-        "tests": "147-stripped-dex-fallback",
-        "variant": "target",
-        "description": ["147-stripped-dex-fallback isn't supported on device",
-                        "because --strip-dex  requires the zip command."]
     },
     {
         "tests": "569-checker-pattern-replacement",
@@ -62,15 +55,13 @@
     },
     {
         "tests": ["116-nodex2oat",
-                  "118-noimage-dex2oat",
-                  "134-nodex2oat-nofallback"],
+                  "118-noimage-dex2oat"],
         "variant": "prebuild",
         "description": ["Note 116-nodex2oat is not broken per-se it just",
                         "doesn't (and isn't meant to) work with --prebuild."]
     },
     {
-        "tests": ["147-stripped-dex-fallback",
-                  "608-checker-unresolved-lse"],
+        "tests": ["608-checker-unresolved-lse"],
         "variant": "no-prebuild"
     },
     {
@@ -170,18 +161,12 @@
         "bug": "http://b/2133391"
     },
     {
-        "tests": "147-stripped-dex-fallback",
-        "variant": "no-image",
-        "description": ["147-stripped-dex-fallback is disabled because it",
-                        "requires --prebuild."]
-    },
-    {
         "tests": ["116-nodex2oat",
                   "118-noimage-dex2oat",
                   "137-cfi",
                   "138-duplicate-classes-check2"],
         "variant": "no-image",
-        "description": ["All these tests check that we have sane behavior if we",
+        "description": ["All these tests check that we have appropriate behavior if we",
                         "don't have a dex2oat. Therefore we",
                         "shouldn't run them in situations where we actually",
                         "don't have these since they explicitly test for them.",
@@ -251,7 +236,8 @@
         "variant": "trace | stream"
     },
     {
-        "tests": ["604-hot-static-interface",
+        "tests": ["566-polymorphic-inlining",
+                  "604-hot-static-interface",
                   "612-jit-dex-cache",
                   "613-inlining-dex-cache",
                   "626-set-resolved-string",
@@ -303,9 +289,24 @@
         "variant": "optimizing & ndebuggable | regalloc_gc & ndebuggable | speed-profile & ndebuggable | jit & ndebuggable | jit-on-first-use & ndebuggable"
     },
     {
+        "tests": ["596-app-images", "597-app-images-same-classloader"],
+        "description": "no image generated in configuration",
+        "variant": "no-image | no-prebuild"
+    },
+    {
+        "tests": ["596-app-images", "597-app-images-same-classloader"],
+        "description": "not generated when using the access check configuration",
+        "variant": "interp-ac"
+    },
+    {
+        "tests": ["596-app-images", "597-app-images-same-classloader"],
+        "description": "jvmti does not interact well with images",
+        "variant": "field-stress | jvmti-stress | redefine-stress | step-stress | trace-stress"
+    },
+    {
         "tests": "596-app-images",
-        "description": "Code being tested has been disabled",
-        "bug": "b/70734839"
+        "description": "app images do not initialize classes when debuggable",
+        "variant": "debuggable"
     },
     {
         "tests": "055-enum-performance",
@@ -326,8 +327,6 @@
     },
     {
         "tests": ["000-nop",
-                  "134-nodex2oat-nofallback",
-                  "147-stripped-dex-fallback",
                   "595-profile-saving"],
         "description": "The doesn't compile anything",
         "env_vars": {"ART_TEST_BISECTION": "true"},
@@ -442,6 +441,7 @@
             ".*method-handle.*",
             ".*varhandle.*",
             ".*var-handle.*",
+            "160-read-barrier-stress",
             "716-jli-jit-samples",
             "1975-hello-structural-transformation",
             "1976-hello-structural-static-methods",
@@ -481,7 +481,6 @@
             "004-StackWalk",
             "064-field-access",
             "083-compiler-regressions",
-            "098-ddmc",
             "107-int-math2",
             "129-ThreadGetId",
             "135-MirandaDispatch",
@@ -566,11 +565,12 @@
             "692-vdex-inmem-loader",
             "693-vdex-inmem-loader-evict",
             "944-transform-classloaders",
-            "999-redefine-hiddenapi"
+            "999-redefine-hiddenapi",
+            "2038-hiddenapi-jvmti-ext"
         ],
         "description": [
             "Tests that use custom class loaders or other features not supported ",
-            "by our JVMTI implementation"
+            "by our JVMTI implementation (such as hiddenapi, vdex or bad dex-files)"
         ],
         "variant": "jvmti-stress | redefine-stress"
     },
@@ -677,47 +677,6 @@
         "variant": "interp-ac & target",
         "env_vars": {"SANITIZE_TARGET": "address"},
         "bug": "b/31098551"
-    },
-    {
-        "tests": [
-            "059-finalizer-throw",
-            "074-gc-thrash",
-            "911-get-stack-trace",
-            "913-heaps",
-            "980-redefine-object"
-        ],
-        "description": [
-            "Interpreter with access checks stack frames are too large and result in",
-            "StackOverFlow errors being thrown."
-        ],
-        "variant": "interp-ac & host",
-        "env_vars": {"SANITIZE_HOST": "address"}
-    },
-    {
-        "tests": [
-            "059-finalizer-throw",
-            "074-gc-thrash",
-            "911-get-stack-trace",
-            "913-heaps",
-            "980-redefine-object"
-        ],
-        "description": [
-            "Interpreter with access checks stack frames are too large and result in",
-            "StackOverFlow errors being thrown."
-        ],
-        "variant": "interp-ac & target",
-        "env_vars": {"SANITIZE_TARGET": "address"}
-    },
-    {
-        "tests": [
-            "074-gc-thrash"
-        ],
-        "description": [
-            "Interpreter with access checks stack frames are too large and result in",
-            "StackOverFlow errors being thrown."
-        ],
-        "variant": "interp-ac & target",
-        "env_vars": {"SANITIZE_TARGET": "hwaddress"}
     },
     {
         "tests": "071-dexfile-map-clean",
@@ -856,7 +815,6 @@
           "088-monitor-verification",
           "091-override-package-private-method",
           "097-duplicate-method",
-          "098-ddmc",
           "099-vmdebug",
           "100-reflect2",
           "104-growth-limit",
@@ -869,7 +827,6 @@
           "130-hprof",
           "1337-gc-coverage",
           "1338-gc-no-los",
-          "134-nodex2oat-nofallback",
           "134-reg-promotion",
           "135-MirandaDispatch",
           "136-daemon-jni-shutdown",
@@ -883,7 +840,6 @@
           "144-static-field-sigquit",
           "145-alloc-tracking-stress",
           "146-bad-interface",
-          "147-stripped-dex-fallback",
           "148-multithread-gc-annotations",
           "150-loadlibrary",
           "154-gc-loop",
@@ -892,7 +848,6 @@
           "158-app-image-class-table",
           "159-app-image-fields",
           "161-final-abstract-class",
-          "162-method-resolution",
           "163-app-image-methods",
           "164-resolution-trampoline-dex-cache",
           "167-visit-locks",
@@ -910,14 +865,12 @@
           "432-optimizing-cmp",
           "434-invoke-direct",
           "435-new-instance",
-          "441-checker-inliner",
           "442-checker-constant-folding",
           "448-multiple-returns",
           "449-checker-bce",
           "452-multiple-returns2",
           "453-not-byte",
           "454-get-vreg",
-          "455-checker-gvn",
           "457-regs",
           "458-checker-instruct-simplification",
           "459-dead-phi",
@@ -929,7 +882,6 @@
           "471-uninitialized-locals",
           "472-unreachable-if-regression",
           "475-regression-inliner-ids",
-          "480-checker-dead-blocks",
           "496-checker-inlining-class-loader",
           "498-type-propagation",
           "501-null-constant-dce",
@@ -946,8 +898,6 @@
           "518-null-array-get",
           "520-equivalent-phi",
           "529-checker-unresolved",
-          "530-checker-lse",
-          "530-checker-lse-ctor-fences",
           "530-checker-lse3",
           "530-checker-regression-reftyp-final",
           "536-checker-intrinsic-optimization",
@@ -967,7 +917,6 @@
           "565-checker-doublenegbitwise",
           "565-checker-irreducible-loop",
           "566-polymorphic-inlining",
-          "567-checker-compare",
           "569-checker-pattern-replacement",
           "570-checker-osr",
           "571-irreducible-loop",
@@ -1011,7 +960,6 @@
           "628-vdex",
           "629-vdex-speed",
           "630-safecast-array",
-          "631-checker-fp-abs",
           "633-checker-rtp-getclass",
           "634-vdex-duplicate",
           "636-wrong-static-access",
@@ -1027,7 +975,6 @@
           "649-vdex-duplicate-method",
           "652-deopt-intrinsic",
           "656-annotation-lookup-generic-jni",
-          "656-checker-simd-opt",
           "659-unpadded-array",
           "660-clinit",
           "660-store-8-16",
@@ -1055,10 +1002,14 @@
           "707-checker-invalid-profile",
           "714-invoke-custom-lambda-metafactory",
           "716-jli-jit-samples",
+          "729-checker-polymorphic-intrinsic",
           "800-smali",
           "801-VoidCheckCast",
           "802-deoptimization",
           "804-class-extends-itself",
+          "816-illegal-new-array",
+          "819-verification-runtime",
+          "823-cha-inlining",
           "900-hello-plugin",
           "901-hello-ti-agent",
           "903-hello-tagging",
@@ -1168,18 +1119,29 @@
         "bug": "b/147207934"
     },
     {
-        "tests": ["530-checker-peel-unroll",
+        "tests": ["178-app-image-native-method",
+                  "530-checker-peel-unroll",
                   "616-cha-unloading",
                   "674-hiddenapi",
                   "677-fsi2",
                   "678-quickening",
                   "679-locks",
                   "688-shared-library",
+                  "689-zygote-jit-deopt",
                   "690-hiddenapi-same-name-methods",
                   "691-hiddenapi-proxy",
+                  "692-vdex-secondary-loader",
                   "692-vdex-inmem-loader",
                   "693-vdex-inmem-loader-evict",
                   "723-string-init-range",
+                  "808-checker-invoke-super",
+                  "809-checker-invoke-super-bss",
+                  "810-checker-invoke-super-default",
+                  "811-checker-invoke-super-secondary",
+                  "817-hiddenapi",
+                  "820-vdex-multidex",
+                  "821-many-args",
+                  "822-hiddenapi-future",
                   "999-redefine-hiddenapi",
                   "1000-non-moving-space-stress",
                   "1001-app-image-regions",
@@ -1222,7 +1184,13 @@
                   "2005-pause-all-redefine-multithreaded",
                   "2006-virtual-structural-finalizing",
                   "2007-virtual-structural-finalizable",
-                  "2035-structural-native-method"],
+                  "2009-structural-local-ref",
+                  "2011-stack-walk-concurrent-instrument",
+                  "2012-structural-redefinition-failures-jni-id",
+                  "2033-shutdown-mechanics",
+                  "2035-structural-native-method",
+                  "2036-structural-subclass-shadow",
+                  "2038-hiddenapi-jvmti-ext"],
         "variant": "jvm",
         "description": ["Doesn't run on RI."]
     },
@@ -1315,14 +1283,6 @@
         "description": [ "Fails to eliminate dead reference when debuggable." ]
     },
     {
-        "tests": ["719-dm-verify-redefinition"],
-        "variant": "jvm | speed-profile | interp-ac | target | no-prebuild",
-        "description": ["Doesn't run on RI because of boot class redefintion.",
-                        "Doesn't work with profiles because the run-test is not setup to",
-                        "support both. It also needs full verification, so no interp-ac.",
-                        "Requires zip, which isn't available on device"]
-    },
-    {
         "tests": ["004-ReferenceMap",
                   "449-checker-bce",
                   "466-get-live-vreg",
@@ -1364,6 +1324,12 @@
                         "zipapex runner."]
     },
     {
+        "tests": ["175-alloc-big-bignums"],
+        "variant": "interpreter | interp-ac | trace | no-image | debuggable | prebuild",
+        "bug": "b/174470490",
+        "description": "Interpreting BigInteger.add() is too slow (timeouts)"
+    },
+    {
         "tests": ["2029-contended-monitors"],
         "variant": "interpreter | interp-ac | gcstress | trace",
         "description": ["Slow test. Prone to timeouts."]
@@ -1373,5 +1339,83 @@
         "variant": "gcstress & debuggable & debug & host",
         "bug": "b/149708943",
         "description": ["Timeouts."]
+    },
+    {
+        "tests": ["003-omnibus-opcodes",
+                  "051-thread",
+                  "427-bounds",
+                  "570-checker-osr-locals",
+                  "597-app-images-same-classloader",
+                  "724-invoke-super-npe",
+                  "725-imt-conflict-object",
+                  "952-invoke-custom",
+                  "960-default-smali",
+                  "966-default-conflict",
+                  "990-field-trace",
+                  "2034-spaces-in-SimpleName"],
+        "variant": "jvm",
+        "bug": "b/154802847",
+        "description": ["Failing on RI. Needs further investigating."]
+    },
+    {
+        "tests": ["122-npe", "160-read-barrier-stress"],
+        "variant": "jvm",
+        "description": ["Reference.refersTo() not supported on old version of RI."]
+    },
+    {
+        "tests": ["2232-write-metrics-to-log"],
+        "variant": "jvm",
+        "description": ["RI does not support ART metrics."]
+    },
+    {
+        "tests": ["2232-write-metrics-to-log"],
+        "variant": "target",
+        "description": ["Checks LOG_STREAM output, which cannot be captured on target."]
+    },
+    {
+        "tests": ["053-wait-some"],
+        "env_vars": {"ART_TEST_DEBUG_GC": "true"},
+        "bug": "b/175435088",
+        "description": ["Test is time-sensitive and fails on debug-gc configuration."]
+    },
+    {
+        "tests": ["053-wait-some"],
+        "variant": "gcstress | interp-ac",
+        "bug": "b/175435088",
+        "description": ["Test is time-sensitive and fails on gcstress and",
+                        "interpreter-access-checks configurations."]
+    },
+    {
+        "tests": ["821-madvise-willneed"],
+        "variant": "jvm",
+        "description": ["Adding custom madvise flags. Not to be tested on default jvm"]
+    },
+    {
+        "tests": ["692-vdex-secondary-loader"],
+        "env_vars": {"ART_USE_READ_BARRIER": "false"},
+        "description": ["Uses the low-ram flag which does not work with CMS"]
+    },
+    {
+        "tests": ["150-loadlibrary",
+                  "656-annotation-lookup-generic-jni",
+                  "674-hiddenapi",
+                  "817-hiddenapi",
+                  "900-hello-plugin"],
+        "variant": "target",
+        "bug": "b/186654484",
+        "description": ["Disabled after the switch to avoid allow_all_shared_libs from the ART namespace to system."]
+    },
+    {
+        "tests": ["2001-virtual-structural-multithread"],
+        "env_vars": {"SANITIZE_HOST": "address"},
+        "bug": "b/176786675",
+        "description": ["Out of memory"]
+    },
+    {
+        "tests": ["2001-virtual-structural-multithread"],
+        "env_vars": {"ART_HEAP_POISONING": "true"},
+        "variant": "host",
+        "bug": "b/176786675",
+        "description": ["Out of memory"]
     }
 ]

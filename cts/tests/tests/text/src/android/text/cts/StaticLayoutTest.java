@@ -33,7 +33,7 @@ import android.graphics.Paint;
 import android.graphics.Paint.FontMetricsInt;
 import android.graphics.Typeface;
 import android.os.LocaleList;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.text.Editable;
 import android.text.Layout;
 import android.text.Layout.Alignment;
@@ -1684,8 +1684,8 @@ public class StaticLayoutTest {
     }
 
     // This is for b/140755449
-    @SecurityTest
     @Test
+    @AsbSecurityTest(cveBugId = 140632678)
     public void testBidiVisibleEnd() {
         TextPaint paint = new TextPaint();
         // The default text size is too small and not useful for handling line breaks.

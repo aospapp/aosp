@@ -7,7 +7,7 @@ NAME = "enterprise_CFM_AtrusUpdaterStress"
 TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "enterprise"
-ATTRIBUTES = "suite:hotrod"
+ATTRIBUTES = "suite:hotrod-remora"
 TEST_TYPE = "client"
 DEPENDENCIES = "atrus"
 

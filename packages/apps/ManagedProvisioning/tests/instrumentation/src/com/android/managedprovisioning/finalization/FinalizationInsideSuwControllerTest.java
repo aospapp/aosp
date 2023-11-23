@@ -20,10 +20,12 @@ import static android.app.admin.DevicePolicyManager.ACTION_ADMIN_POLICY_COMPLIAN
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
-import static android.app.admin.DevicePolicyManager.PROVISIONING_MODE_MANAGED_PROFILE;
 
 import static com.android.managedprovisioning.TestUtils.createTestAdminExtras;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.eq;
@@ -42,6 +44,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.PersistableBundle;
@@ -50,12 +53,15 @@ import android.os.UserManager;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import androidx.test.InstrumentationRegistry;
+
 import com.android.managedprovisioning.TestUtils;
 import com.android.managedprovisioning.analytics.DeferredMetricsReader;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.NotificationHelper;
 import com.android.managedprovisioning.common.PolicyComplianceUtils;
 import com.android.managedprovisioning.common.SettingsFacade;
+import com.android.managedprovisioning.common.TransitionHelper;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
@@ -74,11 +80,8 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
             TEST_MDM_ADMIN_RECEIVER);
     private static final PersistableBundle TEST_MDM_EXTRA_BUNDLE = createTestAdminExtras();
     private static final Account TEST_ACCOUNT = new Account("test@account.com", "account.type");
-    private static final String TEST_DPC_INTENT_CATEGORY = "test_category";
     private static final Intent ACTIVITY_INTENT =
-            new Intent("android.app.action.PROVISION_FINALIZATION_INSIDE_SUW")
-            .putExtra(FinalizationInsideSuwControllerLogic.EXTRA_DPC_INTENT_CATEGORY,
-                    TEST_DPC_INTENT_CATEGORY);
+            new Intent("android.app.action.PROVISION_FINALIZATION_INSIDE_SUW");
 
     @Mock private Activity mActivity;
     @Mock private Utils mUtils;
@@ -87,9 +90,13 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
     @Mock private NotificationHelper mNotificationHelper;
     @Mock private DeferredMetricsReader mDeferredMetricsReader;
     @Mock private ProvisioningAnalyticsTracker mProvisioningAnalyticsTracker;
+    @Mock private UserManager mUserManager;
+    @Mock private SharedPreferences mSharedPreferences;
 
     private PreFinalizationController mPreFinalizationController;
     private FinalizationController mFinalizationController;
+    private final Context mTargetContext = InstrumentationRegistry.getTargetContext();
+    @Mock private TransitionHelper mTransitionHelper;
 
     @Override
     public void setUp() throws Exception {
@@ -102,6 +109,13 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         when(mActivity.getIntent()).thenReturn(ACTIVITY_INTENT);
         when(mActivity.bindService(any(Intent.class), any(ServiceConnection.class), anyInt()))
                 .thenReturn(false);
+        when(mActivity.getSystemServiceName(UserManager.class))
+                .thenReturn(Context.USER_SERVICE);
+        when(mActivity.getSystemService(Context.USER_SERVICE)).thenReturn(mUserManager);
+        when(mActivity.getSharedPreferences(anyString(), anyInt())).thenReturn(mSharedPreferences);
+        when(mActivity.getResources()).thenReturn(mTargetContext.getResources());
+        when(mUserManager.isUserUnlocked(anyInt())).thenReturn(true);
+        when(mUserManager.isUserUnlocked(any(UserHandle.class))).thenReturn(true);
 
         final ProvisioningParamsUtils provisioningParamsUtils = new ProvisioningParamsUtils();
         mPreFinalizationController = new PreFinalizationController(
@@ -110,8 +124,11 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         mFinalizationController = new FinalizationController(
                 mActivity,
                 new FinalizationInsideSuwControllerLogic(
-                        mActivity, mUtils, new PolicyComplianceUtils(),
-                        mProvisioningAnalyticsTracker),
+                        mActivity,
+                        mUtils,
+                        new PolicyComplianceUtils(),
+                        mProvisioningAnalyticsTracker,
+                        mTransitionHelper),
                 mUtils, mSettingsFacade, mHelper, mNotificationHelper, mDeferredMetricsReader,
                 provisioningParamsUtils);
     }
@@ -182,8 +199,8 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         verify(mHelper, never()).markUserProvisioningStateFinalized(params);
 
         // THEN no intent should be sent to the dpc.
-        verify(mActivity, never()).startActivityForResultAsUser(
-                any(Intent.class), anyInt(), eq(MANAGED_PROFILE_USER_HANDLE));
+        verify(mTransitionHelper, never()).startActivityForResultAsUserWithTransition(
+                eq(mActivity), any(Intent.class), anyInt(), eq(MANAGED_PROFILE_USER_HANDLE));
 
         // WHEN calling provisioningFinalized
         mFinalizationController.provisioningFinalized();
@@ -236,9 +253,6 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
 
         // THEN the service which starts the DPC, has never been started.
         verifySendDpcServiceNotStarted();
-
-        // THEN account migration is triggered exactly once
-        verify(mUtils).removeAccountAsync(eq(mActivity), eq(TEST_ACCOUNT), any());
     }
 
     @SmallTest
@@ -268,8 +282,9 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         verify(mHelper, never()).markUserProvisioningStateFinalized(params);
 
         // THEN no intent should be sent to the dpc.
-        verify(mActivity, never()).startActivityForResultAsUser(
-                any(Intent.class), anyInt(), eq(UserHandle.of(UserHandle.myUserId())));
+        verify(mTransitionHelper, never()).startActivityForResultAsUserWithTransition(
+                eq(mActivity), any(Intent.class), anyInt(),
+                        eq(UserHandle.of(UserHandle.myUserId())));
 
         // WHEN calling provisioningFinalized
         mFinalizationController.provisioningFinalized();
@@ -336,14 +351,13 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         final ProvisioningParams params =
                 createProvisioningParamsBuilder(ACTION_PROVISION_MANAGED_PROFILE, true)
                         .setIsOrganizationOwnedProvisioning(true)
-                        .setProvisioningMode(PROVISIONING_MODE_MANAGED_PROFILE)
+                        .setFlowType(ProvisioningParams.FLOW_TYPE_ADMIN_INTEGRATED)
                         .build();
 
         when(mSettingsFacade.isUserSetupCompleted(mActivity)).thenReturn(false);
         when(mSettingsFacade.isDuringSetupWizard(mActivity)).thenReturn(true);
         when(mUtils.getManagedProfile(mActivity))
                 .thenReturn(MANAGED_PROFILE_USER_HANDLE);
-        when(mUtils.isAdminIntegratedFlow(params)).thenCallRealMethod();
 
         // Mock DPM for testing access to device IDs is granted.
         final DevicePolicyManager mockDpm = mock(DevicePolicyManager.class);
@@ -363,12 +377,6 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         final DevicePolicyManager mockProfileDpm = mock(DevicePolicyManager.class);
         when(profileContext.getSystemService(DevicePolicyManager.class)).thenReturn(mockProfileDpm);
 
-        // Mock UserManager for testing user restriction.
-        final UserManager mockUserManager = mock(UserManager.class);
-        when(mActivity.getSystemServiceName(UserManager.class))
-                .thenReturn(Context.USER_SERVICE);
-        when(mActivity.getSystemService(Context.USER_SERVICE)).thenReturn(mockUserManager);
-
         // WHEN calling deviceManagementEstablished
         mPreFinalizationController.deviceManagementEstablished(params);
 
@@ -384,9 +392,12 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         // THEN the user provisioning state is not yet finalized
         verify(mHelper, never()).markUserProvisioningStateFinalized(params);
 
-        // THEN no intent should be sent to the dpc.
-        verify(mActivity, never()).startActivityForResultAsUser(
-                any(Intent.class), anyInt(), eq(MANAGED_PROFILE_USER_HANDLE));
+        // THEN the DPC policy compliance screen should be shown on the work profile.
+        ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
+        verify(mTransitionHelper).startActivityForResultAsUserWithTransition(
+                eq(mActivity), intentCaptor.capture(), anyInt(), eq(MANAGED_PROFILE_USER_HANDLE));
+        assertThat(intentCaptor.getValue().getAction())
+                .isEqualTo(DevicePolicyManager.ACTION_ADMIN_POLICY_COMPLIANCE);
 
         // WHEN calling provisioningFinalized again
         mFinalizationController.provisioningFinalized();
@@ -394,9 +405,12 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         // THEN the user provisioning state is not yet finalized
         verify(mHelper, never()).markUserProvisioningStateFinalized(params);
 
-        // THEN no intent should be sent to the dpc.
-        verify(mActivity, never()).startActivityForResultAsUser(
-                any(Intent.class), anyInt(), eq(MANAGED_PROFILE_USER_HANDLE));
+        // THEN the DPC policy compliance screen should be shown on the work profile.
+        intentCaptor = ArgumentCaptor.forClass(Intent.class);
+        verify(mTransitionHelper).startActivityForResultAsUserWithTransition(
+                eq(mActivity), intentCaptor.capture(), anyInt(), eq(MANAGED_PROFILE_USER_HANDLE));
+        assertThat(intentCaptor.getValue().getAction())
+                .isEqualTo(DevicePolicyManager.ACTION_ADMIN_POLICY_COMPLIANCE);
 
         // WHEN the provisioning state changes are now committed
         mFinalizationController.commitFinalizedState();
@@ -407,15 +421,12 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
 
         // THEN the user provisioning state is finalized
         verify(mHelper).markUserProvisioningStateFinalized(params);
-
-        // THEN account migration is triggered exactly once
-        verify(mUtils).removeAccountAsync(eq(mActivity), eq(TEST_ACCOUNT), any());
     }
 
     private void verifyDpcLaunchedForUser(UserHandle userHandle, int numTimes) {
         ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
-        verify(mActivity, times(numTimes)).startActivityForResultAsUser(
-                intentCaptor.capture(), anyInt(), eq(userHandle));
+        verify(mTransitionHelper, times(numTimes)).startActivityForResultAsUserWithTransition(
+                eq(mActivity), intentCaptor.capture(), anyInt(), eq(userHandle));
         final String intentAction = intentCaptor.getValue().getAction();
         // THEN the intent should be ACTION_PROVISIONING_SUCCESSFUL
         assertEquals(ACTION_ADMIN_POLICY_COMPLIANCE, intentAction);
@@ -423,8 +434,6 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         assertEquals(TEST_MDM_PACKAGE_NAME, intentCaptor.getValue().getPackage());
         // THEN the admin extras bundle should contain mdm extras
         assertExtras(intentCaptor.getValue());
-        // THEN the intent should have the category that was passed into the parent activity
-        assertTrue(intentCaptor.getValue().hasCategory(TEST_DPC_INTENT_CATEGORY));
         // THEN a metric should be logged
         verify(mProvisioningAnalyticsTracker, times(numTimes)).logDpcSetupStarted(
                 eq(mActivity), eq(intentAction));
@@ -449,7 +458,8 @@ public class FinalizationInsideSuwControllerTest extends AndroidTestCase {
         ProvisioningParams.Builder builder = new ProvisioningParams.Builder()
                 .setDeviceAdminComponentName(TEST_MDM_ADMIN)
                 .setProvisioningAction(action)
-                .setAdminExtrasBundle(TEST_MDM_EXTRA_BUNDLE);
+                .setAdminExtrasBundle(TEST_MDM_EXTRA_BUNDLE)
+                .setReturnBeforePolicyCompliance(true);
 
         if (migrateAccount) {
             builder.setAccountToMigrate(TEST_ACCOUNT);

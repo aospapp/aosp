@@ -19,7 +19,7 @@
     android:layout_height="match_parent"
     android:fitsSystemWindows="false">
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
@@ -47,20 +47,19 @@
                 android:layout_height="@dimen/tile_desktop_progress_bar_size"
                 android:layout_gravity="center"
                 android:indeterminate="true"
-                android:indeterminateTint="@color/accent_color" />
+                android:indeterminateTint="?android:colorAccent" />
 
         </FrameLayout>
 
     </LinearLayout>
 
-    <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:app="http://schemas.android.com/apk/res-auto"
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:id="@+id/coordinator_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom">
 
-        <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        <LinearLayout
             xmlns:app="http://schemas.android.com/apk/res-auto"
             android:id="@+id/bottom_sheet"
             android:layout_width="match_parent"
@@ -105,7 +104,7 @@
                             android:layout_marginLeft="@dimen/current_wallpaper_bottom_sheet_margin_sides"
                             android:layout_marginStart="@dimen/current_wallpaper_bottom_sheet_margin_sides"
                             android:layout_marginTop="@dimen/current_wallpaper_bottom_sheet_presentation_mode_margin_top"
-                            android:textColor="@color/accent_color"
+                            android:textColor="?android:colorAccent"
                             android:textSize="@dimen/current_wallpaper_bottom_sheet_presentation_mode_text_size"
                             android:textStyle="bold" />
 
@@ -153,7 +152,7 @@
                                 android:drawablePadding="@dimen/explore_button_drawable_padding"
                                 android:focusable="true"
                                 android:text="@string/explore"
-                                android:textColor="@color/accent_color"
+                                android:textColor="?android:colorAccent"
                                 android:textSize="@dimen/current_wallpaper_bottom_sheet_explore_button_text_size"
                                 android:visibility="gone" />
 
@@ -168,7 +167,7 @@
                                 android:drawablePadding="@dimen/explore_button_drawable_padding"
                                 android:focusable="true"
                                 android:text="@string/next_wallpaper"
-                                android:textColor="@color/accent_color"
+                                android:textColor="?android:colorAccent"
                                 android:textSize="@dimen/current_wallpaper_bottom_sheet_explore_button_text_size"
                                 android:visibility="gone" />
 

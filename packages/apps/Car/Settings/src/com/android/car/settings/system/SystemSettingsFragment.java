@@ -26,7 +26,6 @@ import com.android.car.settings.development.DevelopmentSettingsUtil;
 import com.android.car.settings.search.CarBaseSearchIndexProvider;
 import com.android.settingslib.search.SearchIndexable;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -48,12 +47,13 @@ public class SystemSettingsFragment extends SettingsFragment {
                     SystemSettingsActivity.class) {
                 @Override
                 public List<String> getNonIndexableKeys(Context context) {
+                    List<String> nonIndexableKeys = super.getNonIndexableKeys(context);
                     if (!DevelopmentSettingsUtil.isDevelopmentSettingsEnabled(context,
                             UserManager.get(context))) {
-                        return Collections.singletonList(
+                        nonIndexableKeys.add(
                                 context.getString(R.string.pk_developer_options_entry));
                     }
-                    return null;
+                    return nonIndexableKeys;
                 }
             };
 }

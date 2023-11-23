@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-java_binary {
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+java_binary_host {
     name: "metalava",
-    host_supported: true,
     srcs: [
         "src/main/java/**/*.java",
         "src/main/java/**/*.kt",
@@ -33,6 +36,14 @@ java_binary {
             },
         },
     },
+    visibility: [
+        // Metalava is linked by //vendor/xts/gts-tests/hostsidetests/api, but because it's a
+        // make project, soong's visibility won't apply. Soong also won't let you specify a
+        // subpackage of //vendor/ here. So let's just make it private.
+        // When //vendor/xts/gts-tests/hostsidetests/api migrates to Android.bp, we need to
+        // open metalava to //vendor:__subpackages__.
+        "//visibility:private",
+    ],
 }
 
 java_library {
@@ -75,6 +86,9 @@ java_library {
         ":private-stub-annotations",
     ],
     sdk_version: "core_current",
+    // private-stub-annotations-jar ends up in android.jar in the SDK and should
+    // use -target 8.
+    java_version: "1.8",
 }
 
 droiddoc_exported_dir {

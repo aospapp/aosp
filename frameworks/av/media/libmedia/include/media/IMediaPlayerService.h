@@ -27,6 +27,9 @@
 
 #include <media/IMediaPlayerClient.h>
 #include <media/IMediaMetadataRetriever.h>
+#include <android/content/AttributionSourceState.h>
+
+#include <string>
 
 namespace android {
 
@@ -44,10 +47,13 @@ class IMediaPlayerService: public IInterface
 public:
     DECLARE_META_INTERFACE(MediaPlayerService);
 
-    virtual sp<IMediaRecorder> createMediaRecorder(const String16 &opPackageName) = 0;
+    virtual sp<IMediaRecorder> createMediaRecorder(
+        const android::content::AttributionSourceState &attributionSource) = 0;
     virtual sp<IMediaMetadataRetriever> createMetadataRetriever() = 0;
     virtual sp<IMediaPlayer> create(const sp<IMediaPlayerClient>& client,
-            audio_session_t audioSessionId = AUDIO_SESSION_ALLOCATE) = 0;
+            audio_session_t audioSessionId = AUDIO_SESSION_ALLOCATE,
+            const android::content::AttributionSourceState &attributionSource =
+                android::content::AttributionSourceState()) = 0;
     virtual sp<IMediaCodecList> getCodecList() const = 0;
 
     // Connects to a remote display.

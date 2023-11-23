@@ -19,7 +19,6 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true"/>
         <option name="test-file-name" value="CtsWindowManagerDeviceTestCases.apk"/>
@@ -29,6 +28,7 @@
         <option name="test-file-name" value="CtsAlertWindowService.apk"/>
         <option name="test-file-name" value="CtsDeviceServicesTestApp.apk" />
         <option name="test-file-name" value="CtsDeviceServicesTestApp27.apk" />
+        <option name="test-file-name" value="CtsDeviceServicesTestApp30.apk" />
         <option name="test-file-name" value="CtsDeviceServicesTestSecondApp.apk" />
         <option name="test-file-name" value="CtsDeviceServicesTestThirdApp.apk" />
         <option name="test-file-name" value="CtsDeviceDeprecatedSdkApp.apk" />
@@ -55,6 +55,15 @@
         <option name="teardown-command"
                 value="settings put secure android.car.ENABLE_INITIAL_NOTICE_SCREEN_TO_USER 1" />
     </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+      <!-- Disable hidden API checking, see b/166236554 -->
+        <option name="run-command" value="settings put global hidden_api_policy 1" />
+        <option name="teardown-command" value="settings delete global hidden_api_policy" />
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.server.wm.app"  />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.server.wm.app" />
+    </target_preparer>
+
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
         <option name="package" value="android.server.wm.cts"/>
         <option name="runtime-hint" value="1h"/>

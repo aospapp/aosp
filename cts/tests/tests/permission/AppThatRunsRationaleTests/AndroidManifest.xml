@@ -16,17 +16,17 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.permission.cts.appthatrunsrationaletests">
+     package="android.permission.cts.appthatrunsrationaletests">
 
-    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
 
     <application android:label="CtsRationaleTests">
-        <activity android:name=".TestActivity">
+        <activity android:name=".TestActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="CtsRationalTests.intent.action.Launch" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="CtsRationalTests.intent.action.Launch"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
     </application>
 </manifest>
-

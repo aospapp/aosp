@@ -19,6 +19,7 @@ package com.google.turbine.diag;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
+import javax.tools.Diagnostic;
 
 /** A compilation error. */
 public class TurbineError extends Error {
@@ -31,6 +32,7 @@ public class TurbineError extends Error {
     UNTERMINATED_STRING("unterminated string literal"),
     UNTERMINATED_CHARACTER_LITERAL("unterminated char literal"),
     UNTERMINATED_EXPRESSION("unterminated expression, expected ';' not found"),
+    INVALID_UNICODE("illegal unicode escape"),
     EMPTY_CHARACTER_LITERAL("empty char literal"),
     EXPECTED_TOKEN("expected token %s"),
     INVALID_LITERAL("invalid literal: %s"),
@@ -42,11 +44,14 @@ public class TurbineError extends Error {
     INVALID_ANNOTATION_ARGUMENT("invalid annotation argument"),
     CANNOT_RESOLVE("could not resolve %s"),
     EXPRESSION_ERROR("could not evaluate constant expression"),
+    OPERAND_TYPE("bad operand type %s"),
     CYCLIC_HIERARCHY("cycle in class hierarchy: %s"),
     NOT_AN_ANNOTATION("%s is not an annotation"),
     NONREPEATABLE_ANNOTATION("%s is not @Repeatable"),
     DUPLICATE_DECLARATION("duplicate declaration of %s"),
-    BAD_MODULE_INFO("unexpected declaration found in module-info");
+    BAD_MODULE_INFO("unexpected declaration found in module-info"),
+    UNCLOSED_COMMENT("unclosed comment"),
+    PROC("%s");
 
     private final String message;
 
@@ -80,14 +85,19 @@ public class TurbineError extends Error {
   public static TurbineError format(
       SourceFile source, int position, ErrorKind kind, Object... args) {
     return new TurbineError(
-        ImmutableList.of(TurbineDiagnostic.format(source, position, kind, args)));
+        ImmutableList.of(
+            TurbineDiagnostic.format(Diagnostic.Kind.ERROR, source, position, kind, args)));
   }
 
   private final ImmutableList<TurbineDiagnostic> diagnostics;
 
   public TurbineError(ImmutableList<TurbineDiagnostic> diagnostics) {
-    super(diagnostics.stream().map(d -> d.diagnostic()).collect(joining("\n")));
     this.diagnostics = diagnostics;
+  }
+
+  @Override
+  public String getMessage() {
+    return diagnostics.stream().map(d -> d.diagnostic()).collect(joining(System.lineSeparator()));
   }
 
   public ImmutableList<TurbineDiagnostic> diagnostics() {

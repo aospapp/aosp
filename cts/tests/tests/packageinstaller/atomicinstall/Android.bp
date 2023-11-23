@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsAtomicInstallTestCases",
 
@@ -21,6 +25,8 @@ android_test {
         ":AtomicInstallCorrupt"
     ],
     static_libs: [
+        "androidx.annotation_annotation",
+        "androidx.core_core",
         "androidx.test.runner",
         "truth-prebuilt",
 	"cts-install-lib",
@@ -28,7 +34,6 @@ android_test {
     sdk_version: "test_current",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
         "mts",
     ],

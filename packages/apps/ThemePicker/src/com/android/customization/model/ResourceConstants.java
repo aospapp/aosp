@@ -83,7 +83,7 @@ public interface ResourceConstants {
             "ic_qs_dnd",
             "ic_qs_flashlight",
             "ic_qs_auto_rotate",
-            "ic_qs_airplane",
+            "ic_qs_battery_saver",
             "ic_signal_cellular_3_4_bar",
             "ic_battery_80_24dp"
     };

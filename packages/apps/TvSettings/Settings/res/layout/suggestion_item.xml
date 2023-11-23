@@ -28,7 +28,7 @@
         android:layout_height="wrap_content"
         android:background="?android:attr/selectableItemBackground"
         android:clickable="true"
-        android:focusable="true"
+        android:focusable="false"
         android:importantForAccessibility="no"
         android:orientation="horizontal"
         android:paddingEnd="@dimen/lb_preference_item_padding_end"
@@ -51,6 +51,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:focusable="true"
+            android:clickable="true"
             android:orientation="vertical">
             <Space android:layout_width="0dp"
                    android:layout_height="@dimen/lb_preference_item_text_space_top"/>

@@ -29,6 +29,7 @@ import android.mtp.MtpDeviceInfo;
 import android.mtp.MtpEvent;
 import android.mtp.MtpObjectInfo;
 import android.mtp.MtpStorageInfo;
+import android.os.Build;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
@@ -108,6 +109,9 @@ class MtpManager {
                 "Not found MTP storages in the device.");
 
         mDevices.put(deviceId, device);
+
+        setInitVersion(rawDevice);
+
         return createDeviceRecord(rawDevice);
     }
 
@@ -263,6 +267,28 @@ class MtpManager {
         }
     }
 
+    private void setInitVersion(UsbDevice device) {
+        final MtpDevice mtpDevice = mDevices.get(device.getDeviceId());
+        final boolean opened = mtpDevice != null;
+        final String name = device.getProductName();
+        int[] devicePropertySupported = null;
+
+        if (opened) {
+            final MtpDeviceInfo info = mtpDevice.getDeviceInfo();
+
+            if (info != null) {
+                devicePropertySupported = info.getDevicePropertySupported();
+
+                if (MtpDeviceRecord.isSupported(devicePropertySupported,
+                        MtpConstants.DEVICE_PROPERTY_SESSION_INITIATOR_VERSION_INFO)) {
+                    mtpDevice.setDevicePropertyInitVersion("Android/"
+                        + Build.VERSION.RELEASE
+                        + " Build/" + Build.VERSION.INCREMENTAL);
+                }
+            }
+        }
+    }
+
     private MtpDeviceRecord createDeviceRecord(UsbDevice device) {
         final MtpDevice mtpDevice = mDevices.get(device.getDeviceId());
         final boolean opened = mtpDevice != null;
@@ -270,6 +296,8 @@ class MtpManager {
         MtpRoot[] roots;
         int[] operationsSupported = null;
         int[] eventsSupported = null;
+        int[] devicePropertySupported = null;
+
         if (opened) {
             try {
                 roots = getRoots(device.getDeviceId());

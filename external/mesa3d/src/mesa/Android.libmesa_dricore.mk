@@ -34,16 +34,17 @@ include $(LOCAL_PATH)/Makefile.sources
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_dricore
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 LOCAL_SRC_FILES := \
 	$(MESA_FILES)
 
-ifeq ($(strip $(MESA_ENABLE_ASM)),true)
 ifeq ($(TARGET_ARCH),x86)
 	LOCAL_SRC_FILES += $(X86_FILES)
 endif # x86
-endif # MESA_ENABLE_ASM
 
 ifeq ($(ARCH_X86_HAVE_SSE4_1),true)
 LOCAL_WHOLE_STATIC_LIBRARIES := \

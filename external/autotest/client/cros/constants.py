@@ -6,7 +6,9 @@
 
 # Constants used by other constants.
 USER_DATA_DIR = '/home/chronos'
-WHITELIST_DIR = '/var/lib/whitelist'
+# TODO b:169251326 terms below are set outside of this codebase
+# and should be updated when possible. ("whitelist" -> "allowlist")
+ALLOWLIST_DIR = '/var/lib/whitelist'
 LOG_DIR = '/var/log'
 
 # Rest of constants.
@@ -108,7 +110,7 @@ OAUTH2_WRAP_BRIDGE_NEW_URL = '/OAuthWrapBridge'
 OAUTH2_GET_AUTH_CODE_URL = '/o/oauth2/programmatic_auth'
 OAUTH2_GET_TOKEN_URL = '/o/oauth2/token'
 
-OWNER_KEY_FILE = WHITELIST_DIR + '/owner.key'
+OWNER_KEY_FILE = ALLOWLIST_DIR + '/owner.key'
 
 SERVICE_LOGIN_URL = '/accounts/ServiceLogin'
 SERVICE_LOGIN_NEW_URL = '/ServiceLogin'
@@ -116,7 +118,7 @@ SERVICE_LOGIN_AUTH_URL = '/ServiceLoginAuth'
 SERVICE_LOGIN_AUTH_ERROR = 'The username or password you entered is incorrect.'
 
 SESSION_MANAGER = 'session_manager'
-SIGNED_POLICY_FILE = WHITELIST_DIR + '/policy'
+SIGNED_POLICY_FILE = ALLOWLIST_DIR + '/policy'
 SPECIAL_CASE_DOMAIN = 'gmail.com'
 USER_POLICY_DIR = '/run/user_policy'
 USER_POLICY_KEY_FILENAME = 'policy.pub'
@@ -156,13 +158,6 @@ BLUETOOTH_DEVICE_XMLRPC_SERVER_CLEANUP_PATTERN = (
         'bluetooth_device_xmlrpc_server')
 BLUETOOTH_DEVICE_XMLRPC_SERVER_READY_METHOD = 'ready'
 
-BLUETOOTH_TESTER_XMLRPC_SERVER_PORT = 9990
-BLUETOOTH_TESTER_XMLRPC_SERVER_COMMAND = (
-        'cd /usr/local/autotest/cros/bluetooth;  '
-        './bluetooth_tester_xmlrpc_server.py')
-BLUETOOTH_TESTER_XMLRPC_SERVER_CLEANUP_PATTERN = (
-        'bluetooth_tester_xmlrpc_server')
-BLUETOOTH_TESTER_XMLRPC_SERVER_READY_METHOD = 'ready'
 
 MULTIMEDIA_XMLRPC_SERVER_PORT = 9991
 MULTIMEDIA_XMLRPC_SERVER_COMMAND = (

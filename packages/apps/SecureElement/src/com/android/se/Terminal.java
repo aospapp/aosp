@@ -24,6 +24,7 @@
 package com.android.se;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -37,6 +38,7 @@ import android.os.HwBinder;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.ServiceSpecificException;
+import android.os.UserHandle;
 import android.se.omapi.ISecureElementListener;
 import android.se.omapi.ISecureElementReader;
 import android.se.omapi.ISecureElementSession;
@@ -158,8 +160,18 @@ public class Terminal {
                         reason,
                         mName);
             }
+
+            sendStateChangedBroadcast(state);
         }
     }
+
+    private void sendStateChangedBroadcast(boolean state) {
+        Intent intent = new Intent(SEService.ACTION_SECURE_ELEMENT_STATE_CHANGED);
+        intent.setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
+        intent.putExtra(SEService.EXTRA_READER_NAME, mName);
+        intent.putExtra(SEService.EXTRA_READER_STATE, state);
+        mContext.sendBroadcastAsUser(intent, UserHandle.CURRENT);
+    };
 
     class SecureElementDeathRecipient implements HwBinder.DeathRecipient {
         @Override
@@ -319,11 +331,13 @@ public class Terminal {
     /**
      * Cleans up all the channels in use.
      */
-    public synchronized void closeChannels() {
-        Collection<Channel> col = mChannels.values();
-        Channel[] channelList = col.toArray(new Channel[col.size()]);
-        for (Channel channel : channelList) {
-            channel.close();
+    public void closeChannels() {
+        synchronized (mLock) {
+            Collection<Channel> col = mChannels.values();
+            Channel[] channelList = col.toArray(new Channel[col.size()]);
+            for (Channel channel : channelList) {
+                channel.close();
+            }
         }
     }
 
@@ -670,17 +684,14 @@ public class Terminal {
      */
     public boolean[] isNfcEventAllowed(PackageManager packageManager, byte[] aid,
             String[] packageNames) {
-        // Attempt to initialize the access control enforcer if it failed in the previous attempt
-        // due to a kind of temporary failure or no rule was found.
+        if (!mIsConnected) {
+            // Return if not connected
+            return null;
+        }
+        // Return if the access control enforcer failed in previous attempt or no rule was found.
         if (mAccessControlEnforcer == null || mAccessControlEnforcer.isNoRuleFound()) {
-            try {
-                initializeAccessControl();
-                // Just finished to initialize the access control enforcer.
-                // It is too much to check the refresh tag in this case.
-            } catch (Exception e) {
-                Log.i(mTag, "isNfcEventAllowed Exception: " + e.getMessage());
-                return null;
-            }
+            Log.i(mTag, "isNfcEventAllowed: No access rules for checking.");
+            return null;
         }
         mAccessControlEnforcer.setPackageManager(packageManager);
 
@@ -926,8 +937,9 @@ public class Terminal {
             if (session == null) {
                 throw new NullPointerException("session is null");
             }
-            mSessions.remove(session);
+
             synchronized (mLock) {
+                mSessions.remove(session);
                 if (mSessions.size() == 0) {
                     mDefaultApplicationSelectedOnBasicChannel = true;
                 }

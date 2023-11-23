@@ -86,6 +86,7 @@ public class ThemeBundledWallpaperInfo extends WallpaperInfo {
     }
 
     private ThemeBundledWallpaperInfo(Parcel in) {
+        super(in);
         mPackageName = in.readString();
         mResName = in.readString();
         mCollectionId = in.readString();
@@ -177,6 +178,7 @@ public class ThemeBundledWallpaperInfo extends WallpaperInfo {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
+        super.writeToParcel(dest, flags);
         dest.writeString(mPackageName);
         dest.writeString(mResName);
         dest.writeString(mCollectionId);

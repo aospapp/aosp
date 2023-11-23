@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * src/nl-class-add.c     Add/Update/Replace Traffic Class
  *
@@ -16,6 +17,8 @@
 #include <netlink/cli/link.h>
 
 #include <netlink-private/route/tc-api.h>
+
+#include <linux/netlink.h>
 
 static int quiet = 0;
 
@@ -62,15 +65,15 @@ int main(int argc, char *argv[])
 	struct rtnl_tc_ops *ops;
 	int err, flags = NLM_F_CREATE | NLM_F_EXCL;
 	char *kind, *id = NULL;
- 
+
 	sock = nl_cli_alloc_socket();
 	nl_cli_connect(sock, NETLINK_ROUTE);
 
 	link_cache = nl_cli_link_alloc_cache(sock);
 
- 	class = nl_cli_class_alloc();
+	class = nl_cli_class_alloc();
 	tc = (struct rtnl_tc *) class;
- 
+
 	for (;;) {
 		int c, optidx = 0;
 		enum {
@@ -96,7 +99,7 @@ int main(int argc, char *argv[])
 			{ "linktype", 1, 0, ARG_LINKTYPE },
 			{ 0, 0, 0, 0 }
 		};
-	
+
 		c = getopt_long(argc, argv, "+qhvd:p:i:",
 				long_opts, &optidx);
 		if (c == -1)
@@ -116,7 +119,7 @@ int main(int argc, char *argv[])
 		case ARG_OVERHEAD: nl_cli_tc_parse_overhead(tc, optarg); break;
 		case ARG_LINKTYPE: nl_cli_tc_parse_linktype(tc, optarg); break;
 		}
- 	}
+	}
 
 	if (optind >= argc)
 		print_usage();
@@ -146,7 +149,7 @@ int main(int argc, char *argv[])
 	if (!quiet) {
 		printf("Adding ");
 		nl_object_dump(OBJ_CAST(class), &dp);
- 	}
+	}
 
 	if ((err = rtnl_class_add(sock, class, flags)) < 0)
 		nl_cli_fatal(EINVAL, "Unable to add class: %s", nl_geterror(err));

@@ -27,8 +27,16 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(C_SOURCES)
 
+LOCAL_C_INCLUDES := \
+	$(MESA_TOP)/src/freedreno/common
+
 LOCAL_SHARED_LIBRARIES := libdrm_freedreno
+LOCAL_STATIC_LIBRARIES := libfreedreno_registers
+
 LOCAL_MODULE := libmesa_winsys_freedreno
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../LICENSE
 
 include $(GALLIUM_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)

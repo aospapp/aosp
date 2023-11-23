@@ -87,7 +87,7 @@ public final class SubscriptionUtils {
     }
 
     private static boolean isInactiveInsertedPSim(UiccSlotInfo slotInfo) {
-        return !slotInfo.getIsEuicc() && !slotInfo.getIsActive()
+        return slotInfo != null && !slotInfo.getIsEuicc() && !slotInfo.getIsActive()
                 && slotInfo.getCardStateInfo() == CARD_STATE_INFO_PRESENT;
     }
 }

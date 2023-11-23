@@ -26,10 +26,12 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 	androidx.test.rules
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 LOCAL_SRC_FILES := $(call all-java-files-under, ../src)
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 LOCAL_SDK_VERSION := current
 
 LOCAL_PACKAGE_NAME := CtsWrapNoWrapTestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MANIFEST_FILE := AndroidManifest.xml
 
 # Jarjar to make WrapTest unique.

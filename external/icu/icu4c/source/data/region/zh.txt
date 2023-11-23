@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 zh{
     Countries{
         001{"世界"}
@@ -297,16 +298,10 @@ zh{
         ZW{"津巴布韦"}
         ZZ{"未知地区"}
     }
-    Countries%short{
-        GB{"英国"}
-        UN{"联合国"}
-        US{"美国"}
-    }
     Countries%variant{
         CD{"刚果民主共和国"}
         CG{"刚果共和国"}
         CI{"象牙海岸"}
         CZ{"捷克共和国"}
     }
-    Version{"36.1"}
 }

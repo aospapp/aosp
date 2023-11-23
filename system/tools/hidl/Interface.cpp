@@ -36,41 +36,16 @@
 #include <android-base/logging.h>
 #include <hidl-util/Formatter.h>
 #include <hidl-util/StringHelper.h>
+#include <hwbinder/IBinder.h>
 
 namespace android {
 
-#define B_PACK_CHARS(c1, c2, c3, c4) \
-         ((((c1)<<24)) | (((c2)<<16)) | (((c3)<<8)) | (c4))
-
-/* It is very important that these values NEVER change. These values
- * must remain unchanged over the lifetime of android. This is
- * because the framework on a device will be updated independently of
- * the hals on a device. If the hals are compiled with one set of
- * transaction values, and the framework with another, then the
- * interface between them will be destroyed, and the device will not
- * work.
- */
-enum {
-    /////////////////// User defined transactions
-    FIRST_CALL_TRANSACTION  = 0x00000001,
-    LAST_CALL_TRANSACTION   = 0x0effffff,
-    /////////////////// HIDL reserved
-    FIRST_HIDL_TRANSACTION  = 0x0f000000,
-    HIDL_PING_TRANSACTION                     = B_PACK_CHARS(0x0f, 'P', 'N', 'G'),
-    HIDL_DESCRIPTOR_CHAIN_TRANSACTION         = B_PACK_CHARS(0x0f, 'C', 'H', 'N'),
-    HIDL_GET_DESCRIPTOR_TRANSACTION           = B_PACK_CHARS(0x0f, 'D', 'S', 'C'),
-    HIDL_SYSPROPS_CHANGED_TRANSACTION         = B_PACK_CHARS(0x0f, 'S', 'Y', 'S'),
-    HIDL_LINK_TO_DEATH_TRANSACTION            = B_PACK_CHARS(0x0f, 'L', 'T', 'D'),
-    HIDL_UNLINK_TO_DEATH_TRANSACTION          = B_PACK_CHARS(0x0f, 'U', 'T', 'D'),
-    HIDL_SET_HAL_INSTRUMENTATION_TRANSACTION  = B_PACK_CHARS(0x0f, 'I', 'N', 'T'),
-    HIDL_GET_REF_INFO_TRANSACTION             = B_PACK_CHARS(0x0f, 'R', 'E', 'F'),
-    HIDL_DEBUG_TRANSACTION                    = B_PACK_CHARS(0x0f, 'D', 'B', 'G'),
-    HIDL_HASH_CHAIN_TRANSACTION               = B_PACK_CHARS(0x0f, 'H', 'S', 'H'),
-    LAST_HIDL_TRANSACTION   = 0x0fffffff,
-};
-
 const std::unique_ptr<ConstantExpression> Interface::FLAG_ONE_WAY =
-    std::make_unique<LiteralConstantExpression>(ScalarType::KIND_UINT32, 0x01, "oneway");
+        std::make_unique<LiteralConstantExpression>(ScalarType::KIND_UINT32,
+                                                    hardware::IBinder::FLAG_ONEWAY, "oneway");
+const std::unique_ptr<ConstantExpression> Interface::FLAG_CLEAR_BUF =
+        std::make_unique<LiteralConstantExpression>(ScalarType::KIND_UINT32,
+                                                    hardware::IBinder::FLAG_CLEAR_BUF, "clear buf");
 
 Interface::Interface(const std::string& localName, const FQName& fullName, const Location& location,
                      Scope* parent, const Reference<Type>& superType, const Hash* fileHash)
@@ -90,7 +65,7 @@ bool Interface::fillPingMethod(Method *method) const {
     }
 
     method->fillImplementation(
-        HIDL_PING_TRANSACTION,
+        hardware::IBinder::HIDL_PING_TRANSACTION,
         {
             {IMPL_INTERFACE,
                 [](auto &out) {
@@ -121,7 +96,7 @@ bool Interface::fillLinkToDeathMethod(Method *method) const {
     }
 
     method->fillImplementation(
-            HIDL_LINK_TO_DEATH_TRANSACTION,
+            hardware::IBinder::HIDL_LINK_TO_DEATH_TRANSACTION,
             {
                 {IMPL_INTERFACE,
                     [](auto &out) {
@@ -165,7 +140,7 @@ bool Interface::fillUnlinkToDeathMethod(Method *method) const {
     }
 
     method->fillImplementation(
-            HIDL_UNLINK_TO_DEATH_TRANSACTION,
+            hardware::IBinder::HIDL_UNLINK_TO_DEATH_TRANSACTION,
             {
                 {IMPL_INTERFACE,
                     [](auto &out) {
@@ -213,7 +188,7 @@ bool Interface::fillSyspropsChangedMethod(Method *method) const {
     }
 
     method->fillImplementation(
-            HIDL_SYSPROPS_CHANGED_TRANSACTION,
+            hardware::IBinder::HIDL_SYSPROPS_CHANGED_TRANSACTION,
             { { IMPL_INTERFACE, [](auto &out) {
                 out << "::android::report_sysprop_change();\n";
                 out << "return ::android::hardware::Void();\n";
@@ -231,7 +206,7 @@ bool Interface::fillSetHALInstrumentationMethod(Method *method) const {
     }
 
     method->fillImplementation(
-            HIDL_SET_HAL_INSTRUMENTATION_TRANSACTION,
+            hardware::IBinder::HIDL_SET_HAL_INSTRUMENTATION_TRANSACTION,
             {
                 {IMPL_INTERFACE,
                     [](auto &out) {
@@ -264,7 +239,7 @@ bool Interface::fillDescriptorChainMethod(Method *method) const {
     }
 
     method->fillImplementation(
-        HIDL_DESCRIPTOR_CHAIN_TRANSACTION,
+        hardware::IBinder::HIDL_DESCRIPTOR_CHAIN_TRANSACTION,
         { { IMPL_INTERFACE, [this](auto &out) {
             std::vector<const Interface *> chain = typeChain();
             out << "_hidl_cb(";
@@ -319,7 +294,7 @@ bool Interface::fillHashChainMethod(Method *method) const {
     const ArrayType *digestType = static_cast<const ArrayType *>(chainType->getElementType());
 
     method->fillImplementation(
-        HIDL_HASH_CHAIN_TRANSACTION,
+        hardware::IBinder::HIDL_HASH_CHAIN_TRANSACTION,
         { { IMPL_INTERFACE, [this, digestType](auto &out) {
             std::vector<const Interface *> chain = typeChain();
             out << "_hidl_cb(";
@@ -352,7 +327,7 @@ bool Interface::fillGetDescriptorMethod(Method *method) const {
     }
 
     method->fillImplementation(
-        HIDL_GET_DESCRIPTOR_TRANSACTION,
+        hardware::IBinder::HIDL_GET_DESCRIPTOR_TRANSACTION,
         { { IMPL_INTERFACE, [this](auto &out) {
             out << "_hidl_cb("
                 << fullName()
@@ -381,7 +356,7 @@ bool Interface::fillGetDebugInfoMethod(Method *method) const {
             "#endif\n";
 
     method->fillImplementation(
-        HIDL_GET_REF_INFO_TRANSACTION,
+        hardware::IBinder::HIDL_GET_REF_INFO_TRANSACTION,
         {
             {IMPL_INTERFACE,
                 [](auto &out) {
@@ -425,7 +400,7 @@ bool Interface::fillDebugMethod(Method *method) const {
         return false;
     }
 
-    method->fillImplementation(HIDL_DEBUG_TRANSACTION,
+    method->fillImplementation(hardware::IBinder::HIDL_DEBUG_TRANSACTION,
                                {
                                    {IMPL_INTERFACE,
                                     [](auto& out) {
@@ -481,14 +456,14 @@ std::vector<const Reference<Type>*> Interface::getStrongReferences() const {
 }
 
 status_t Interface::resolveInheritance() {
-    size_t serial = FIRST_CALL_TRANSACTION;
+    size_t serial = hardware::IBinder::FIRST_CALL_TRANSACTION;
     for (const auto* ancestor : superTypeChain()) {
         serial += ancestor->mUserMethods.size();
     }
 
     for (Method* method : mUserMethods) {
-        if (serial > LAST_CALL_TRANSACTION) {
-            std::cerr << "ERROR: More than " << LAST_CALL_TRANSACTION
+        if (serial > hardware::IBinder::LAST_CALL_TRANSACTION) {
+            std::cerr << "ERROR: More than " << hardware::IBinder::LAST_CALL_TRANSACTION
                       << " methods (including super and reserved) are not allowed at " << location()
                       << std::endl;
             return UNKNOWN_ERROR;
@@ -513,9 +488,6 @@ status_t Interface::validate() const {
     status_t err;
 
     err = validateUniqueNames();
-    if (err != OK) return err;
-
-    err = validateAnnotations();
     if (err != OK) return err;
 
     return Scope::validate();
@@ -561,6 +533,19 @@ status_t Interface::validateUniqueNames() const {
 }
 
 status_t Interface::validateAnnotations() const {
+    for (const Annotation* annotation : annotations()) {
+        const std::string name = annotation->name();
+
+        if (name == "SensitiveData") {
+            continue;
+        }
+
+        std::cerr << "WARNING: Unrecognized annotation '" << name << "' for " << typeName()
+                  << " at " << location() << ". Only @SensitiveData is supported." << std::endl;
+        // ideally would be error, but we don't want to break downstream
+        // return UNKNOWN_ERROR;
+    }
+
     for (const Method* method : methods()) {
         for (const Annotation* annotation : method->annotations()) {
             const std::string name = annotation->name();
@@ -570,12 +555,13 @@ status_t Interface::validateAnnotations() const {
             }
 
             std::cerr << "ERROR: Unrecognized annotation '" << name
-                      << "' for method: " << method->name() << ". An annotation should be one of: "
-                      << "entry, exit, callflow." << std::endl;
+                      << "' for method: " << method->name() << " at " << method->location()
+                      << ". An annotation should be one of: "
+                      << "@entry, @exit, or @callflow." << std::endl;
             return UNKNOWN_ERROR;
         }
     }
-    return OK;
+    return OK;  // not calling superclass which is more restrictive
 }
 
 bool Interface::addAllReservedMethods(const std::map<std::string, Method*>& allReservedMethods) {
@@ -610,6 +596,16 @@ bool Interface::addAllReservedMethods(const std::map<std::string, Method*>& allR
         this->mReservedMethods.push_back(pair.second);
     }
     return true;
+}
+
+bool Interface::hasSensitiveDataAnnotation() const {
+    for (const auto& annotation : annotations()) {
+        if (annotation->name() == "SensitiveData") {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 const Interface* Interface::superType() const {
@@ -965,6 +961,10 @@ void Interface::emitVtsAttributeType(Formatter& out) const {
 }
 
 bool Interface::deepIsJavaCompatible(std::unordered_set<const Type*>* visited) const {
+    if (hasSensitiveDataAnnotation()) {
+        return false;
+    }
+
     if (superType() != nullptr && !superType()->isJavaCompatible(visited)) {
         return false;
     }

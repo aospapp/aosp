@@ -22,6 +22,7 @@
     <application>
         <activity android:name=".ApplicationsLatency"
                 android:stateNotNeeded="true"
+                android:exported="true"
                 android:excludeFromRecents="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -31,6 +32,7 @@
 
         <activity android:name=".ContactsLatency"
                 android:stateNotNeeded="true"
+                android:exported="true"
                 android:excludeFromRecents="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -40,6 +42,7 @@
 
         <activity android:name=".WebConcurrency"
                 android:stateNotNeeded="true"
+                android:exported="true"
                 android:excludeFromRecents="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -49,6 +52,7 @@
 
         <activity android:name=".WebLatency"
                 android:stateNotNeeded="true"
+                android:exported="true"
                 android:excludeFromRecents="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

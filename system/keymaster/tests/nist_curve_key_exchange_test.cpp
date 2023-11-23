@@ -29,8 +29,6 @@ using std::string;
 namespace keymaster {
 namespace test {
 
-StdoutLogger logger;
-
 static const keymaster_ec_curve_t kEcCurves[] = {KM_EC_CURVE_P_224, KM_EC_CURVE_P_256,
                                                  KM_EC_CURVE_P_384, KM_EC_CURVE_P_521};
 
@@ -69,7 +67,7 @@ TEST(NistCurveKeyExchange, SharedKey) {
  * a point not on the curve.)
  * The expected result of such a protocol should be that the
  * key agreement fails and returns an error.
-*/
+ */
 static const char* kInvalidPublicKeys[] = {
     "04"  // uncompressed public key
     "deadbeef7f56584c5cc632ca65640db91b6bacce3a4df6b42ce7cc838833d287"
@@ -151,9 +149,10 @@ static const NistCurveTest kNistCurveTests[] = {
         "46fc62106420ff012e54a434fbdd2d25ccc5852060561e68040dd7778997bd7b",
     },
     {
-        KM_EC_CURVE_P_256, "04"
-                           "809f04289c64348c01515eb03d5ce7ac1a8cb9498f5caa50197e58d43a86a7ae"
-                           "b29d84e811197f25eba8f5194092cb6ff440e26d4421011372461f579271cda3",
+        KM_EC_CURVE_P_256,
+        "04"
+        "809f04289c64348c01515eb03d5ce7ac1a8cb9498f5caa50197e58d43a86a7ae"
+        "b29d84e811197f25eba8f5194092cb6ff440e26d4421011372461f579271cda3",
         // https://tools.ietf.org/html/rfc5915
         "30770201010420"  // DER-encodeded EC private key header
         "38f65d6dce47676044d58ce5139582d568f64bb16098d179dbab07741dd5caf5"  // private key
@@ -164,9 +163,10 @@ static const NistCurveTest kNistCurveTests[] = {
         "057d636096cb80b67a8c038c890e887d1adfa4195e9b3ce241c8a778c59cda67",
     },
     {
-        KM_EC_CURVE_P_256, "04"
-                           "df3989b9fa55495719b3cf46dccd28b5153f7808191dd518eff0c3cff2b705ed"
-                           "422294ff46003429d739a33206c8752552c8ba54a270defc06e221e0feaf6ac4",
+        KM_EC_CURVE_P_256,
+        "04"
+        "df3989b9fa55495719b3cf46dccd28b5153f7808191dd518eff0c3cff2b705ed"
+        "422294ff46003429d739a33206c8752552c8ba54a270defc06e221e0feaf6ac4",
         // https://tools.ietf.org/html/rfc5915
         "30770201010420"  // DER-encodeded EC private key header
         "207c43a79bfee03db6f4b944f53d2fb76cc49ef1c9c4d34d51b6c65c4db6932d"  // private key

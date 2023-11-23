@@ -54,8 +54,8 @@ template <typename Iter> static bool digest_set_is_full(Iter begin, Iter end) {
     return counter.count == full_digest_list.size();
 }
 
-static keymaster_error_t add_digests(const keymaster1_device_t* dev, keymaster_algorithm_t algorithm,
-                                     keymaster_purpose_t purpose,
+static keymaster_error_t add_digests(const keymaster1_device_t* dev,
+                                     keymaster_algorithm_t algorithm, keymaster_purpose_t purpose,
                                      Keymaster1LegacySupport::DigestMap* map, bool* supports_all) {
     auto key = std::make_pair(algorithm, purpose);
 
@@ -76,8 +76,7 @@ static keymaster_error_t add_digests(const keymaster1_device_t* dev, keymaster_a
 }
 
 static keymaster_error_t map_digests(const keymaster1_device_t* dev,
-                                     Keymaster1LegacySupport::DigestMap* map,
-                                     bool* supports_all) {
+                                     Keymaster1LegacySupport::DigestMap* map, bool* supports_all) {
     map->clear();
     *supports_all = true;
 
@@ -88,8 +87,7 @@ static keymaster_error_t map_digests(const keymaster1_device_t* dev,
             bool alg_purpose_supports_all;
             keymaster_error_t error =
                 add_digests(dev, algorithm, purpose, map, &alg_purpose_supports_all);
-            if (error != KM_ERROR_OK)
-                return error;
+            if (error != KM_ERROR_OK) return error;
             *supports_all &= alg_purpose_supports_all;
         }
 
@@ -100,8 +98,7 @@ static keymaster_error_t map_digests(const keymaster1_device_t* dev,
             bool alg_purpose_supports_all;
             keymaster_error_t error =
                 add_digests(dev, algorithm, purpose, map, &alg_purpose_supports_all);
-            if (error != KM_ERROR_OK)
-                return error;
+            if (error != KM_ERROR_OK) return error;
             *supports_all &= alg_purpose_supports_all;
         }
 
@@ -117,10 +114,8 @@ template <typename Collection, typename Value> bool contains(const Collection& c
 }
 
 template <typename T>
-static bool findUnsupportedDigest(keymaster_algorithm_t algorithm,
-                                  keymaster_purpose_t purpose,
-                                  keymaster_digest_t digest,
-                                  const T& params,
+static bool findUnsupportedDigest(keymaster_algorithm_t algorithm, keymaster_purpose_t purpose,
+                                  keymaster_digest_t digest, const T& params,
                                   const Keymaster1LegacySupport::DigestMap& digest_map) {
     auto supported_digests = digest_map.find(std::make_pair(algorithm, purpose));
     if (supported_digests == digest_map.end())
@@ -135,7 +130,8 @@ static bool findUnsupportedDigest(keymaster_algorithm_t algorithm,
     for (auto& entry : params)
         if (entry.tag == TAG_DIGEST)
             if (!contains(supported_digests->second, entry.enumerated)) {
-                LOG(WARNING) << "Digest " << entry.enumerated << " requested but not supported by KM1 hal";
+                LOG(WARNING) << "Digest " << entry.enumerated
+                             << " requested but not supported by KM1 hal";
                 return true;
             }
     return false;
@@ -143,8 +139,7 @@ static bool findUnsupportedDigest(keymaster_algorithm_t algorithm,
 
 template <typename T>
 bool requiresSoftwareDigesting(keymaster_algorithm_t algorithm, keymaster_purpose_t purpose,
-                               keymaster_digest_t digest,
-                               const T& params,
+                               keymaster_digest_t digest, const T& params,
                                const Keymaster1LegacySupport::DigestMap& digest_map) {
     switch (algorithm) {
     case KM_ALGORITHM_AES:
@@ -158,14 +153,15 @@ bool requiresSoftwareDigesting(keymaster_algorithm_t algorithm, keymaster_purpos
     }
 
     if (!findUnsupportedDigest(algorithm, purpose, digest, params, digest_map)) {
-        LOG(DEBUG) << "Requested digest(s) supported for algorithm " << algorithm << " and purpose " << purpose;
+        LOG(DEBUG) << "Requested digest(s) supported for algorithm " << algorithm << " and purpose "
+                   << purpose;
         return false;
     }
 
     return true;
 }
 bool Keymaster1LegacySupport::RequiresSoftwareDigesting(
-        const AuthorizationSet& key_description) const {
+    const AuthorizationSet& key_description) const {
 
     keymaster_algorithm_t algorithm;
     if (!key_description.GetTagValue(TAG_ALGORITHM, &algorithm)) {
@@ -189,7 +185,7 @@ bool Keymaster1LegacySupport::RequiresSoftwareDigesting(
 }
 
 bool Keymaster1LegacySupport::RequiresSoftwareDigesting(const keymaster_digest_t digest,
-        const AuthProxy& key_description) const {
+                                                        const AuthProxy& key_description) const {
 
     keymaster_algorithm_t algorithm;
     if (!key_description.GetTagValue(TAG_ALGORITHM, &algorithm)) {
@@ -222,15 +218,19 @@ bool Keymaster1LegacySupport::RequiresSoftwareDigesting(const keymaster_digest_t
     return !has_purpose;
 }
 
-template<>
-keymaster_error_t
-Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>::GenerateKey(
-        const AuthorizationSet& key_description,
-        KeymasterKeyBlob* key_blob, AuthorizationSet* hw_enforced,
-        AuthorizationSet* sw_enforced) const {
+template <>
+keymaster_error_t Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>::GenerateKey(
+    const AuthorizationSet& key_description,  //
+    UniquePtr<Key> attest_key,                //
+    const KeymasterBlob& issuer_subject,      //
+    KeymasterKeyBlob* key_blob,               //
+    AuthorizationSet* hw_enforced,            //
+    AuthorizationSet* sw_enforced,            //
+    CertificateChain* cert_chain) const {
     if (legacy_support_.RequiresSoftwareDigesting(key_description)) {
-        return software_digest_factory_.GenerateKey(key_description, key_blob, hw_enforced,
-                                             sw_enforced);
+        return software_digest_factory_.GenerateKey(key_description, move(attest_key),
+                                                    issuer_subject, key_blob, hw_enforced,
+                                                    sw_enforced, cert_chain);
     } else {
         AuthorizationSet mutable_key_description = key_description;
         keymaster_ec_curve_t curve;
@@ -252,54 +252,48 @@ Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>::GenerateKey(
             }
         }
 
-        return passthrough_factory_.GenerateKey(mutable_key_description, key_blob, hw_enforced,
-                                                sw_enforced);
+        return passthrough_factory_.GenerateKey(mutable_key_description, move(attest_key),
+                                                issuer_subject, key_blob, hw_enforced, sw_enforced,
+                                                cert_chain);
     }
 }
 
-template<>
-keymaster_error_t
-Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>::LoadKey(KeymasterKeyBlob&& key_material,
-        const AuthorizationSet& additional_params,
-        AuthorizationSet&& hw_enforced,
-        AuthorizationSet&& sw_enforced,
-        UniquePtr<Key>* key) const {
+template <>
+keymaster_error_t Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>::LoadKey(
+    KeymasterKeyBlob&& key_material, const AuthorizationSet& additional_params,
+    AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced, UniquePtr<Key>* key) const {
     keymaster_digest_t digest;
     if (!additional_params.GetTagValue(TAG_DIGEST, &digest)) {
         digest = KM_DIGEST_NONE;
     }
-    bool requires_software_digesting = legacy_support_.RequiresSoftwareDigesting(digest,
-                                                           AuthProxy(hw_enforced, sw_enforced));
+    bool requires_software_digesting =
+        legacy_support_.RequiresSoftwareDigesting(digest, AuthProxy(hw_enforced, sw_enforced));
     auto rc = software_digest_factory_.LoadKey(move(key_material), additional_params,
                                                move(hw_enforced), move(sw_enforced), key);
     if (rc != KM_ERROR_OK) return rc;
     if (!requires_software_digesting) {
-        (*key)->key_factory() = & passthrough_factory_;
+        (*key)->key_factory() = &passthrough_factory_;
     }
     return KM_ERROR_OK;
 }
 
-template<>
-keymaster_error_t
-Keymaster1ArbitrationFactory<RsaKeymaster1KeyFactory>::LoadKey(KeymasterKeyBlob&& key_material,
-        const AuthorizationSet& additional_params,
-        AuthorizationSet&& hw_enforced,
-        AuthorizationSet&& sw_enforced,
-        UniquePtr<Key>* key) const {
+template <>
+keymaster_error_t Keymaster1ArbitrationFactory<RsaKeymaster1KeyFactory>::LoadKey(
+    KeymasterKeyBlob&& key_material, const AuthorizationSet& additional_params,
+    AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced, UniquePtr<Key>* key) const {
     keymaster_digest_t digest;
     if (!additional_params.GetTagValue(TAG_DIGEST, &digest)) {
         digest = KM_DIGEST_NONE;
     }
-    bool requires_software_digesting = legacy_support_.RequiresSoftwareDigesting(digest,
-                                                           AuthProxy(hw_enforced, sw_enforced));
+    bool requires_software_digesting =
+        legacy_support_.RequiresSoftwareDigesting(digest, AuthProxy(hw_enforced, sw_enforced));
     auto rc = software_digest_factory_.LoadKey(move(key_material), additional_params,
                                                move(hw_enforced), move(sw_enforced), key);
     if (rc != KM_ERROR_OK) return rc;
     if (!requires_software_digesting) {
-        (*key)->key_factory() = & passthrough_factory_;
+        (*key)->key_factory() = &passthrough_factory_;
     }
     return KM_ERROR_OK;
 }
 
-
-} // namespace keymaster
+}  // namespace keymaster

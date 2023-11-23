@@ -107,6 +107,49 @@ Float4 &Vector4f::operator[](int i)
 	return x;
 }
 
+Vector4i::Vector4i()
+{
+}
+
+Vector4i::Vector4i(int x, int y, int z, int w)
+{
+	this->x = Int4(x);
+	this->y = Int4(y);
+	this->z = Int4(z);
+	this->w = Int4(w);
+}
+
+Vector4i::Vector4i(const Vector4i &rhs)
+{
+	x = rhs.x;
+	y = rhs.y;
+	z = rhs.z;
+	w = rhs.w;
+}
+
+Vector4i &Vector4i::operator=(const Vector4i &rhs)
+{
+	x = rhs.x;
+	y = rhs.y;
+	z = rhs.z;
+	w = rhs.w;
+
+	return *this;
+}
+
+Int4 &Vector4i::operator[](int i)
+{
+	switch(i)
+	{
+		case 0: return x;
+		case 1: return y;
+		case 2: return z;
+		case 3: return w;
+	}
+
+	return x;
+}
+
 Float4 exponential2(RValue<Float4> x, bool pp)
 {
 	// This implementation is based on 2^(i + f) = 2^i * 2^f,
@@ -181,20 +224,7 @@ Float4 power(RValue<Float4> x, RValue<Float4> y, bool pp)
 
 Float4 reciprocal(RValue<Float4> x, bool pp, bool finite, bool exactAtPow2)
 {
-	Float4 rcp = Rcp_pp(x, exactAtPow2);
-
-	if(!pp)
-	{
-		rcp = (rcp + rcp) - (x * rcp * rcp);
-	}
-
-	if(finite)
-	{
-		int big = 0x7F7FFFFF;
-		rcp = Min(rcp, Float4((float &)big));
-	}
-
-	return rcp;
+	return Rcp(x, pp ? Precision::Relaxed : Precision::Full, finite, exactAtPow2);
 }
 
 Float4 reciprocalSquareRoot(RValue<Float4> x, bool absolute, bool pp)
@@ -206,25 +236,7 @@ Float4 reciprocalSquareRoot(RValue<Float4> x, bool absolute, bool pp)
 		abs = Abs(abs);
 	}
 
-	Float4 rsq;
-
-	if(!pp)
-	{
-		rsq = Float4(1.0f) / Sqrt(abs);
-	}
-	else
-	{
-		rsq = RcpSqrt_pp(abs);
-
-		if(!pp)
-		{
-			rsq = rsq * (Float4(3.0f) - rsq * rsq * abs) * Float4(0.5f);
-		}
-
-		rsq = As<Float4>(CmpNEQ(As<Int4>(abs), Int4(0x7F800000)) & As<Int4>(rsq));
-	}
-
-	return rsq;
+	return Rcp(abs, pp ? Precision::Relaxed : Precision::Full);
 }
 
 Float4 modulo(RValue<Float4> x, RValue<Float4> y)
@@ -569,29 +581,27 @@ SIMD::UInt halfToFloatBits(SIMD::UInt halfBits)
 
 SIMD::UInt floatToHalfBits(SIMD::UInt floatBits, bool storeInUpperBits)
 {
-	static const uint32_t mask_sign = 0x80000000u;
-	static const uint32_t mask_round = ~0xfffu;
-	static const uint32_t c_f32infty = 255 << 23;
-	static const uint32_t c_magic = 15 << 23;
-	static const uint32_t c_nanbit = 0x200;
-	static const uint32_t c_infty_as_fp16 = 0x7c00;
-	static const uint32_t c_clamp = (31 << 23) - 0x1000;
+	SIMD::UInt sign = floatBits & SIMD::UInt(0x80000000);
+	SIMD::UInt abs = floatBits & SIMD::UInt(0x7FFFFFFF);
 
-	SIMD::UInt justsign = SIMD::UInt(mask_sign) & floatBits;
-	SIMD::UInt absf = floatBits ^ justsign;
-	SIMD::UInt b_isnormal = CmpNLE(SIMD::UInt(c_f32infty), absf);
+	SIMD::UInt normal = CmpNLE(abs, SIMD::UInt(0x38800000));
 
-	// Note: this version doesn't round to the nearest even in case of a tie as defined by IEEE 754-2008, it rounds to +inf
-	//       instead of nearest even, since that's fine for GLSL ES 3.0's needs (see section 2.1.1 Floating-Point Computation)
-	SIMD::UInt joined = ((((As<SIMD::UInt>(Min(As<SIMD::Float>(absf & SIMD::UInt(mask_round)) * As<SIMD::Float>(SIMD::UInt(c_magic)),
-	                                           As<SIMD::Float>(SIMD::UInt(c_clamp))))) -
-	                       SIMD::UInt(mask_round)) >>
-	                      13) &
-	                     b_isnormal) |
-	                    ((b_isnormal ^ SIMD::UInt(0xFFFFFFFF)) &
-	                     ((CmpNLE(absf, SIMD::UInt(c_f32infty)) & SIMD::UInt(c_nanbit)) | SIMD::UInt(c_infty_as_fp16)));
+	SIMD::UInt mantissa = (abs & SIMD::UInt(0x007FFFFF)) | SIMD::UInt(0x00800000);
+	SIMD::UInt e = SIMD::UInt(113) - (abs >> 23);
+	SIMD::UInt denormal = CmpLT(e, SIMD::UInt(24)) & (mantissa >> e);
 
-	return storeInUpperBits ? ((joined << 16) | justsign) : joined | (justsign >> 16);
+	SIMD::UInt base = (normal & abs) | (~normal & denormal);  // TODO: IfThenElse()
+
+	// float exponent bias is 127, half bias is 15, so adjust by -112
+	SIMD::UInt bias = normal & SIMD::UInt(0xC8000000);
+
+	SIMD::UInt rounded = base + bias + SIMD::UInt(0x00000FFF) + ((base >> 13) & SIMD::UInt(1));
+	SIMD::UInt fp16u = rounded >> 13;
+
+	// Infinity
+	fp16u |= CmpNLE(abs, SIMD::UInt(0x47FFEFFF)) & SIMD::UInt(0x7FFF);
+
+	return storeInUpperBits ? (sign | (fp16u << 16)) : ((sign >> 16) | fp16u);
 }
 
 Float4 r11g11b10Unpack(UInt r11g11b10bits)
@@ -611,7 +621,8 @@ Float4 r11g11b10Unpack(UInt r11g11b10bits)
 
 UInt r11g11b10Pack(const Float4 &value)
 {
-	auto halfBits = floatToHalfBits(As<UInt4>(value), true);
+	// 10 and 11 bit floats are unsigned, so their minimal value is 0
+	auto halfBits = floatToHalfBits(As<UInt4>(Max(value, Float4(0.0f))), true);
 	// Truncates instead of rounding. See b/147900455
 	UInt4 truncBits = halfBits & UInt4(0x7FF00000, 0x7FF00000, 0x7FE00000, 0);
 	return (UInt(truncBits.x) >> 20) | (UInt(truncBits.y) >> 9) | (UInt(truncBits.z) << 1);
@@ -1041,7 +1052,7 @@ bool Pointer::isStaticallyInBounds(unsigned int accessSize, OutOfBoundsBehavior 
 	return true;
 }
 
-Int Pointer::limit() const
+rr::Int Pointer::limit() const
 {
 	return dynamicLimit + staticLimit;
 }

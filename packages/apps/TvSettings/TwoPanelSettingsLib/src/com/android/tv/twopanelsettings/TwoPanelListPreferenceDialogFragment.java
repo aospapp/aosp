@@ -16,31 +16,38 @@
 
 package com.android.tv.twopanelsettings;
 
+import android.animation.AnimatorInflater;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
-import androidx.leanback.preference.LeanbackListPreferenceDialogFragment;
 import androidx.preference.DialogPreference;
 import androidx.preference.ListPreference;
 import androidx.preference.MultiSelectListPreference;
 import androidx.recyclerview.widget.RecyclerView;
 
+
 /** A workaround for pi-tv-dev to fix the issue that ListPreference is not correctly handled by two
  * panel lib. When moving to Q, we should fix this problem in androidx(b/139085296).
  */
-public class TwoPanelListPreferenceDialogFragment extends LeanbackListPreferenceDialogFragment {
+public class TwoPanelListPreferenceDialogFragment extends
+        LeanbackListPreferenceDialogFragmentCompat {
     private static final String SAVE_STATE_IS_MULTI =
             "LeanbackListPreferenceDialogFragment.isMulti";
     private static final String SAVE_STATE_ENTRIES = "LeanbackListPreferenceDialogFragment.entries";
     private static final String SAVE_STATE_ENTRY_VALUES =
             "LeanbackListPreferenceDialogFragment.entryValues";
+    private static final String SAVE_STATE_SUMMARIES =
+            "LeanbackListPreferenceDialogFragment.summaries";
     private static final String SAVE_STATE_INITIAL_SELECTION =
             "LeanbackListPreferenceDialogFragment.initialSelection";
     private boolean mMultiCopy;
     private CharSequence[] mEntriesCopy;
     private CharSequence[] mEntryValuesCopy;
+    private CharSequence[] mSummariesCopy;
     private String mInitialSelectionCopy;
 
     /** Provide a ListPreferenceDialogFragment which satisfy the use of two panel lib **/
@@ -64,6 +71,9 @@ public class TwoPanelListPreferenceDialogFragment extends LeanbackListPreference
                 mMultiCopy = false;
                 mEntriesCopy = ((ListPreference) preference).getEntries();
                 mEntryValuesCopy = ((ListPreference) preference).getEntryValues();
+                if (preference instanceof SummaryListPreference) {
+                    mSummariesCopy = ((SummaryListPreference) preference).getSummaries();
+                }
                 mInitialSelectionCopy = ((ListPreference) preference).getValue();
             } else if (preference instanceof MultiSelectListPreference) {
                 mMultiCopy = true;
@@ -75,6 +85,7 @@ public class TwoPanelListPreferenceDialogFragment extends LeanbackListPreference
             mMultiCopy = savedInstanceState.getBoolean(SAVE_STATE_IS_MULTI);
             mEntriesCopy = savedInstanceState.getCharSequenceArray(SAVE_STATE_ENTRIES);
             mEntryValuesCopy = savedInstanceState.getCharSequenceArray(SAVE_STATE_ENTRY_VALUES);
+            mSummariesCopy = savedInstanceState.getCharSequenceArray(SAVE_STATE_SUMMARIES);
             if (!mMultiCopy) {
                 mInitialSelectionCopy = savedInstanceState.getString(SAVE_STATE_INITIAL_SELECTION);
             }
@@ -82,23 +93,49 @@ public class TwoPanelListPreferenceDialogFragment extends LeanbackListPreference
     }
 
     @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        if (view != null) {
+            removeAnimationClipping(view);
+            ViewGroup mainFrame = view.findViewById(R.id.main_frame);
+            if (mainFrame != null) {
+                mainFrame.setOutlineProvider(null);
+            }
+        }
+    }
+
+    protected void removeAnimationClipping(View v) {
+        if (v instanceof ViewGroup) {
+            ((ViewGroup) v).setClipChildren(false);
+            ((ViewGroup) v).setClipToPadding(false);
+            for (int index = 0; index < ((ViewGroup) v).getChildCount(); index++) {
+                View child = ((ViewGroup) v).getChildAt(index);
+                removeAnimationClipping(child);
+            }
+        }
+    }
+
+    @Override
     public RecyclerView.Adapter onCreateAdapter() {
         if (!mMultiCopy) {
-            return new TwoPanelAdapterSingle(mEntriesCopy, mEntryValuesCopy, mInitialSelectionCopy);
+            return new TwoPanelAdapterSingle(mEntriesCopy, mEntryValuesCopy, mSummariesCopy,
+                    mInitialSelectionCopy);
         }
         return super.onCreateAdapter();
     }
 
     private class TwoPanelAdapterSingle extends RecyclerView.Adapter<ViewHolder>
-            implements ViewHolder.OnItemClickListener  {
+            implements OnItemClickListener  {
         private final CharSequence[] mEntries;
         private final CharSequence[] mEntryValues;
+        private final CharSequence[] mSummaries;
         private CharSequence mSelectedValue;
 
         TwoPanelAdapterSingle(CharSequence[] entries, CharSequence[] entryValues,
-                CharSequence selectedValue) {
+                CharSequence[] summaries, CharSequence selectedValue) {
             mEntries = entries;
             mEntryValues = entryValues;
+            mSummaries = summaries;
             mSelectedValue = selectedValue;
         }
 
@@ -114,6 +151,18 @@ public class TwoPanelListPreferenceDialogFragment extends LeanbackListPreference
         public void onBindViewHolder(ViewHolder holder, int position) {
             holder.getWidgetView().setChecked(mEntryValues[position].equals(mSelectedValue));
             holder.getTitleView().setText(mEntries[position]);
+            holder.itemView.setStateListAnimator(AnimatorInflater.loadStateListAnimator(
+                    getContext(), R.animator.preference));
+            TextView summaryView = (TextView) holder.getContainer()
+                    .findViewById(android.R.id.summary);
+            if (summaryView != null) {
+                if (mSummaries != null && !TextUtils.isEmpty(mSummaries[position])) {
+                    summaryView.setText(mSummaries[position]);
+                    summaryView.setVisibility(View.VISIBLE);
+                } else {
+                    summaryView.setVisibility(View.GONE);
+                }
+            }
         }
 
         @Override

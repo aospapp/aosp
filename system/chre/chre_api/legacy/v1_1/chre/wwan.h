@@ -253,7 +253,7 @@ struct chreWwanSignalStrengthLte {
     //! Valid values are (0-31, 99) as defined in TS 27.007 8.5
     int32_t signalStrength;
 
-    //! The current Reference Signal Receive Power in dBm multipled by -1.
+    //! The current Reference Signal Receive Power in dBm multiplied by -1.
     //! Range: 44 to 140 dBm
     //! INT32_MAX: 0x7FFFFFFF denotes invalid value.
     //! Reference: 3GPP TS 36.133 9.1.4
@@ -288,7 +288,7 @@ struct chreWwanSignalStrengthLte {
 
 //! Reference: RIL_TD_SCDMA_SignalStrength
 struct chreWwanSignalStrengthTdscdma {
-    //! The Received Signal Code Power in dBm multipled by -1.
+    //! The Received Signal Code Power in dBm multiplied by -1.
     //! Range : 25 to 120
     //! INT32_MAX: 0x7FFFFFFF denotes invalid value.
     //! Reference: 3GPP TS 25.123, section 9.1.1.1

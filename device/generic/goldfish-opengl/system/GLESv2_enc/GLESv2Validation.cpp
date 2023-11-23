@@ -18,6 +18,267 @@
 
 #include <sstream>
 
+#define LIST_VALID_TEX_INTERNALFORMATS(f) \
+    f(GL_BGRA8_EXT) \
+    f(GL_R8) \
+    f(GL_R8_SNORM) \
+    f(GL_R16F) \
+    f(GL_R32F) \
+    f(GL_R8UI) \
+    f(GL_R8I) \
+    f(GL_R16UI) \
+    f(GL_R16I) \
+    f(GL_R32UI) \
+    f(GL_R32I) \
+    f(GL_RG8) \
+    f(GL_RG8_SNORM) \
+    f(GL_RG16F) \
+    f(GL_RG32F) \
+    f(GL_RG8UI) \
+    f(GL_RG8I) \
+    f(GL_RG16UI) \
+    f(GL_RG16I) \
+    f(GL_RG32UI) \
+    f(GL_RG32I) \
+    f(GL_RGB8) \
+    f(GL_SRGB8) \
+    f(GL_RGB565) \
+    f(GL_RGB8_SNORM) \
+    f(GL_R11F_G11F_B10F) \
+    f(GL_RGB9_E5) \
+    f(GL_RGB16F) \
+    f(GL_RGB32F) \
+    f(GL_RGB8UI) \
+    f(GL_RGB8I) \
+    f(GL_RGB16UI) \
+    f(GL_RGB16I) \
+    f(GL_RGB32UI) \
+    f(GL_RGB32I) \
+    f(GL_RGBA8) \
+    f(GL_SRGB8_ALPHA8) \
+    f(GL_RGBA8_SNORM) \
+    f(GL_RGB5_A1) \
+    f(GL_RGBA4) \
+    f(GL_RGB10_A2) \
+    f(GL_RGBA16F) \
+    f(GL_RGBA32F) \
+    f(GL_RGBA8UI) \
+    f(GL_RGBA8I) \
+    f(GL_RGB10_A2UI) \
+    f(GL_RGBA16UI) \
+    f(GL_RGBA16I) \
+    f(GL_RGBA32I) \
+    f(GL_RGBA32UI) \
+    f(GL_DEPTH_COMPONENT16) \
+    f(GL_DEPTH_COMPONENT24) \
+    f(GL_DEPTH_COMPONENT32F) \
+    f(GL_DEPTH24_STENCIL8) \
+    f(GL_DEPTH32F_STENCIL8) \
+    f(GL_ETC1_RGB8_OES) \
+    f(GL_COMPRESSED_R11_EAC) \
+    f(GL_COMPRESSED_SIGNED_R11_EAC) \
+    f(GL_COMPRESSED_RG11_EAC) \
+    f(GL_COMPRESSED_SIGNED_RG11_EAC) \
+    f(GL_COMPRESSED_RGB8_ETC2) \
+    f(GL_COMPRESSED_SRGB8_ETC2) \
+    f(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2) \
+    f(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2) \
+    f(GL_COMPRESSED_RGBA8_ETC2_EAC) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC) \
+    f(GL_COMPRESSED_RGBA_ASTC_4x4_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_5x4_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_5x5_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_6x5_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_6x6_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_8x5_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_8x6_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_8x8_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_10x5_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_10x6_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_10x8_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_10x10_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_12x10_KHR) \
+    f(GL_COMPRESSED_RGBA_ASTC_12x12_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR) \
+    f(GL_COMPRESSED_RGBA_BPTC_UNORM_EXT) \
+    f(GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_EXT) \
+    f(GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_EXT) \
+    f(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT) \
+    f(GL_COMPRESSED_RGB_S3TC_DXT1_EXT) \
+    f(GL_COMPRESSED_RGBA_S3TC_DXT1_EXT) \
+    f(GL_COMPRESSED_RGBA_S3TC_DXT3_EXT) \
+    f(GL_COMPRESSED_RGBA_S3TC_DXT5_EXT) \
+    f(GL_COMPRESSED_SRGB_S3TC_DXT1_EXT) \
+    f(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT) \
+    f(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT) \
+    f(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT)
+
+
+#define LIST_INTEGER_TEX_FORMATS(f) \
+    f(GL_RED_INTEGER) \
+    f(GL_RG_INTEGER) \
+    f(GL_RGB_INTEGER) \
+    f(GL_RGBA_INTEGER) \
+    f(GL_R8UI) \
+    f(GL_R8I) \
+    f(GL_R16UI) \
+    f(GL_R16I) \
+    f(GL_R32UI) \
+    f(GL_R32I) \
+    f(GL_RG8UI) \
+    f(GL_RG8I) \
+    f(GL_RG16UI) \
+    f(GL_RG16I) \
+    f(GL_RG32UI) \
+    f(GL_RG32I) \
+    f(GL_RGB8UI) \
+    f(GL_RGB8I) \
+    f(GL_RGB16UI) \
+    f(GL_RGB16I) \
+    f(GL_RGB32UI) \
+    f(GL_RGB32I) \
+    f(GL_RGBA8UI) \
+    f(GL_RGBA8I) \
+    f(GL_RGB10_A2UI) \
+    f(GL_RGBA16UI) \
+    f(GL_RGBA16I) \
+    f(GL_RGBA32I) \
+    f(GL_RGBA32UI) \
+
+#define LIST_VALID_TEXFORMAT_COMBINATIONS(f) \
+    f(GL_BGRA8_EXT, GL_BGRA_EXT, GL_UNSIGNED_BYTE) \
+    f(GL_R8, GL_RED, GL_UNSIGNED_BYTE) \
+    f(GL_R8_SNORM, GL_RED, GL_BYTE) \
+    f(GL_R16F, GL_RED, GL_FLOAT) \
+    f(GL_R16F, GL_RED, GL_HALF_FLOAT) \
+    f(GL_R32F, GL_RED, GL_FLOAT) \
+    f(GL_R8UI, GL_RED_INTEGER, GL_UNSIGNED_BYTE) \
+    f(GL_R8I, GL_RED_INTEGER, GL_BYTE) \
+    f(GL_R16UI, GL_RED_INTEGER, GL_UNSIGNED_SHORT) \
+    f(GL_R16I, GL_RED_INTEGER, GL_SHORT) \
+    f(GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT) \
+    f(GL_R32I, GL_RED_INTEGER, GL_INT) \
+    f(GL_RG8, GL_RG, GL_UNSIGNED_BYTE) \
+    f(GL_RG8_SNORM, GL_RG, GL_BYTE) \
+    f(GL_RG16F, GL_RG, GL_HALF_FLOAT) \
+    f(GL_RG16F, GL_RG, GL_FLOAT) \
+    f(GL_RG32F, GL_RG, GL_FLOAT) \
+    f(GL_RG8UI, GL_RG_INTEGER, GL_UNSIGNED_BYTE) \
+    f(GL_RG8I, GL_RG_INTEGER, GL_BYTE) \
+    f(GL_RG16UI, GL_RG_INTEGER, GL_UNSIGNED_SHORT) \
+    f(GL_RG16I, GL_RG_INTEGER, GL_SHORT) \
+    f(GL_RG32UI, GL_RG_INTEGER, GL_UNSIGNED_INT) \
+    f(GL_RG32I, GL_RG_INTEGER, GL_INT) \
+    f(GL_RGB8, GL_RGB, GL_UNSIGNED_BYTE) \
+    f(GL_SRGB8, GL_RGB, GL_UNSIGNED_BYTE) \
+    f(GL_RGB565, GL_RGB, GL_UNSIGNED_BYTE) \
+    f(GL_RGB565, GL_RGB, GL_UNSIGNED_SHORT_5_6_5) \
+    f(GL_RGB8_SNORM, GL_RGB, GL_BYTE) \
+    f(GL_R11F_G11F_B10F, GL_RGB, GL_UNSIGNED_INT_10F_11F_11F_REV) \
+    f(GL_R11F_G11F_B10F, GL_RGB, GL_HALF_FLOAT) \
+    f(GL_R11F_G11F_B10F, GL_RGB, GL_FLOAT) \
+    f(GL_RGB9_E5, GL_RGB, GL_UNSIGNED_INT_5_9_9_9_REV) \
+    f(GL_RGB9_E5, GL_RGB, GL_HALF_FLOAT) \
+    f(GL_RGB9_E5, GL_RGB, GL_FLOAT) \
+    f(GL_RGB16F, GL_RGB, GL_HALF_FLOAT) \
+    f(GL_RGB16F, GL_RGB, GL_FLOAT) \
+    f(GL_RGB32F, GL_RGB, GL_FLOAT) \
+    f(GL_RGB8UI, GL_RGB_INTEGER, GL_UNSIGNED_BYTE) \
+    f(GL_RGB8I, GL_RGB_INTEGER, GL_BYTE) \
+    f(GL_RGB16UI, GL_RGB_INTEGER, GL_UNSIGNED_SHORT) \
+    f(GL_RGB16I, GL_RGB_INTEGER, GL_SHORT) \
+    f(GL_RGB32UI, GL_RGB_INTEGER, GL_UNSIGNED_INT) \
+    f(GL_RGB32I, GL_RGB_INTEGER, GL_INT) \
+    f(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_RGBA8_SNORM, GL_RGBA, GL_BYTE) \
+    f(GL_RGB5_A1, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_RGB5_A1, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1) \
+    f(GL_RGB5_A1, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV) \
+    f(GL_RGBA4, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_RGBA4, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4) \
+    f(GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV) \
+    f(GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT) \
+    f(GL_RGBA16F, GL_RGBA, GL_FLOAT) \
+    f(GL_RGBA32F, GL_RGBA, GL_FLOAT) \
+    f(GL_RGBA8UI, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE) \
+    f(GL_RGBA8I, GL_RGBA_INTEGER, GL_BYTE) \
+    f(GL_RGB10_A2UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT_2_10_10_10_REV) \
+    f(GL_RGBA16UI, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT) \
+    f(GL_RGBA16I, GL_RGBA_INTEGER, GL_SHORT) \
+    f(GL_RGBA32I, GL_RGBA_INTEGER, GL_INT) \
+    f(GL_RGBA32UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT) \
+    f(GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT) \
+    f(GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT) \
+    f(GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT) \
+    f(GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT) \
+    f(GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8) \
+    f(GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV) \
+    f(GL_COMPRESSED_R11_EAC, GL_RED, GL_FLOAT) \
+    f(GL_COMPRESSED_SIGNED_R11_EAC, GL_RED, GL_FLOAT) \
+    f(GL_COMPRESSED_RG11_EAC, GL_RG, GL_FLOAT) \
+    f(GL_COMPRESSED_SIGNED_RG11_EAC, GL_RG, GL_FLOAT) \
+    f(GL_COMPRESSED_RGB8_ETC2, GL_RGB, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ETC2, GL_RGB, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA8_ETC2_EAC, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_4x4_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_5x4_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_5x5_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_6x5_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_6x6_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_8x5_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_8x6_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_8x8_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_10x5_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_10x6_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_10x8_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_10x10_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_12x10_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_ASTC_12x12_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_BPTC_UNORM_EXT, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_EXT, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_EXT, GL_RGB, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT, GL_RGB, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGB_S3TC_DXT1_EXT, GL_RGB, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_S3TC_DXT1_EXT, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_S3TC_DXT3_EXT, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB_S3TC_DXT1_EXT, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT, GL_RGBA, GL_UNSIGNED_BYTE) \
+    f(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT, GL_RGBA, GL_UNSIGNED_BYTE)
+
+
 namespace GLESv2Validation {
 
 GLbitfield allBufferMapAccessFlags =
@@ -69,6 +330,24 @@ bool bufferParam(GL2Encoder* ctx, GLenum pname) {
     }
 }
 
+bool bufferUsage(GL2Encoder* ctx, GLenum usage) {
+    int glesMajorVersion = ctx->majorVersion();
+    switch(usage) {
+        case GL_STREAM_DRAW:
+        case GL_STATIC_DRAW:
+        case GL_DYNAMIC_DRAW:
+            return true;
+        case GL_STREAM_READ:
+        case GL_STATIC_READ:
+        case GL_DYNAMIC_READ:
+        case GL_STREAM_COPY:
+        case GL_STATIC_COPY:
+        case GL_DYNAMIC_COPY:
+            return glesMajorVersion >= 3;
+    }
+    return false;
+
+}
 bool pixelStoreParam(GL2Encoder* ctx, GLenum param) {
     int glesMajorVersion = ctx->majorVersion();
     switch(param) {
@@ -260,6 +539,17 @@ bool readPixelsType(GLenum format) {
     return false;
 }
 
+bool pixelOp(GLenum format,GLenum type) {
+     switch(type) {
+     case GL_UNSIGNED_SHORT_4_4_4_4:
+     case GL_UNSIGNED_SHORT_5_5_5_1:
+         return format == GL_RGBA;
+     case GL_UNSIGNED_SHORT_5_6_5:
+         return format == GL_RGB;
+     }
+     return true;
+}
+
 bool vertexAttribType(GL2Encoder* ctx, GLenum type)
 {
     int glesMajorVersion = ctx->majorVersion();
@@ -347,32 +637,133 @@ bool textureTarget(GL2Encoder* ctx, GLenum target) {
     return false;
 }
 
-static GLsizei ceildiv(GLsizei x, GLsizei y) {
-    return (x + y - 1) / y;
+bool textureParams(GL2Encoder* ctx, GLenum param) {
+    int glesMajorVersion = ctx->majorVersion();
+    int glesMinorVersion = ctx->minorVersion();
+    switch(param) {
+    case GL_TEXTURE_MIN_FILTER:
+    case GL_TEXTURE_MAG_FILTER:
+    case GL_TEXTURE_WRAP_S:
+    case GL_TEXTURE_WRAP_T:
+    case GL_TEXTURE_MAX_ANISOTROPY_EXT:
+        return true;
+    case GL_TEXTURE_SWIZZLE_R:
+    case GL_TEXTURE_SWIZZLE_G:
+    case GL_TEXTURE_SWIZZLE_B:
+    case GL_TEXTURE_SWIZZLE_A:
+    case GL_TEXTURE_MIN_LOD:
+    case GL_TEXTURE_MAX_LOD:
+    case GL_TEXTURE_BASE_LEVEL:
+    case GL_TEXTURE_MAX_LEVEL:
+    case GL_TEXTURE_COMPARE_MODE:
+    case GL_TEXTURE_COMPARE_FUNC:
+    case GL_TEXTURE_WRAP_R:
+    case GL_TEXTURE_IMMUTABLE_FORMAT:
+    case GL_TEXTURE_IMMUTABLE_LEVELS:
+        return glesMajorVersion >= 3;
+    case GL_DEPTH_STENCIL_TEXTURE_MODE:
+        return glesMajorVersion >= 3 && glesMinorVersion >= 1;
+    default:
+        return false;
+    }
 }
 
-GLsizei compressedTexImageSize(GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth) {
-    GLsizei base_size = ceildiv(width, 4) * ceildiv(height, 4) * depth;
-#define COMPRESSED_TEX_IMAGE_SIZE_CASE(internal, multiplier) \
-    case internal: \
-        return base_size * multiplier; \
-
-    switch (internalformat) {
-    COMPRESSED_TEX_IMAGE_SIZE_CASE(GL_COMPRESSED_R11_EAC, 8)
-    COMPRESSED_TEX_IMAGE_SIZE_CASE(GL_COMPRESSED_SIGNED_R11_EAC, 8)
-    COMPRESSED_TEX_IMAGE_SIZE_CASE(GL_COMPRESSED_RG11_EAC, 16)
-    COMPRESSED_TEX_IMAGE_SIZE_CASE(GL_COMPRESSED_SIGNED_RG11_EAC, 16)
-    COMPRESSED_TEX_IMAGE_SIZE_CASE(GL_COMPRESSED_RGB8_ETC2, 8)
-    COMPRESSED_TEX_IMAGE_SIZE_CASE(GL_COMPRESSED_SRGB8_ETC2, 8)
-    COMPRESSED_TEX_IMAGE_SIZE_CASE(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2, 8)
-    COMPRESSED_TEX_IMAGE_SIZE_CASE(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2, 8)
-    COMPRESSED_TEX_IMAGE_SIZE_CASE(GL_COMPRESSED_RGBA8_ETC2_EAC, 16)
-    COMPRESSED_TEX_IMAGE_SIZE_CASE(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC, 16)
-    default:
-        break;
+bool samplerParams(GL2Encoder* ctx, GLenum param) {
+    (void)ctx;
+    switch(param) {
+        case GL_TEXTURE_MAX_ANISOTROPY_EXT:
+        case GL_TEXTURE_MIN_FILTER:
+        case GL_TEXTURE_MAG_FILTER:
+        case GL_TEXTURE_WRAP_S:
+        case GL_TEXTURE_WRAP_T:
+        case GL_TEXTURE_WRAP_R:
+        case GL_TEXTURE_MIN_LOD:
+        case GL_TEXTURE_MAX_LOD:
+        case GL_TEXTURE_COMPARE_MODE:
+        case GL_TEXTURE_COMPARE_FUNC:
+            return true;
+        default:
+            return false;
     }
+}
 
-    return 0;
+bool textureParamValue(GL2Encoder* ctx, GLenum pname, GLint intval, GLfloat floatval, GLenum enumval) {
+    (void)ctx;
+    (void)floatval;
+    switch (pname) {
+    case GL_TEXTURE_BASE_LEVEL:
+        return intval >= 0;
+    case GL_TEXTURE_COMPARE_MODE:
+        return
+            (enumval == GL_NONE) ||
+            (enumval == GL_COMPARE_REF_TO_TEXTURE);
+    case GL_TEXTURE_COMPARE_FUNC:
+        return
+            (enumval == GL_LEQUAL) ||
+            (enumval == GL_GEQUAL) ||
+            (enumval == GL_LESS) ||
+            (enumval == GL_GREATER) ||
+            (enumval == GL_EQUAL) ||
+            (enumval == GL_NOTEQUAL) ||
+            (enumval == GL_ALWAYS) ||
+            (enumval == GL_NEVER);
+    case GL_TEXTURE_MAG_FILTER:
+        return
+            (enumval == GL_NEAREST) ||
+            (enumval == GL_LINEAR);
+    case GL_TEXTURE_MAX_LEVEL:
+        return intval >= 0;
+    case GL_TEXTURE_MAX_LOD:
+        return true;
+    case GL_TEXTURE_MIN_FILTER:
+        return
+            (enumval == GL_NEAREST) ||
+            (enumval == GL_LINEAR) ||
+            (enumval == GL_NEAREST_MIPMAP_NEAREST) ||
+            (enumval == GL_NEAREST_MIPMAP_LINEAR) ||
+            (enumval == GL_LINEAR_MIPMAP_NEAREST) ||
+            (enumval == GL_LINEAR_MIPMAP_LINEAR);
+    case GL_TEXTURE_MIN_LOD:
+        return true;
+    case GL_TEXTURE_SWIZZLE_R:
+    case GL_TEXTURE_SWIZZLE_G:
+    case GL_TEXTURE_SWIZZLE_B:
+    case GL_TEXTURE_SWIZZLE_A:
+        return
+            (enumval == GL_RED) ||
+            (enumval == GL_GREEN) ||
+            (enumval == GL_BLUE) ||
+            (enumval == GL_ALPHA) ||
+            (enumval == GL_ZERO) ||
+            (enumval == GL_ONE);
+    case GL_TEXTURE_WRAP_S:
+    case GL_TEXTURE_WRAP_T:
+    case GL_TEXTURE_WRAP_R:
+        return
+            (enumval == GL_CLAMP_TO_EDGE) ||
+            (enumval == GL_REPEAT) ||
+            (enumval == GL_MIRRORED_REPEAT);
+    case GL_TEXTURE_MAX_ANISOTROPY_EXT:
+        return true;
+    case GL_TEXTURE_IMMUTABLE_FORMAT:
+    case GL_TEXTURE_IMMUTABLE_LEVELS:
+    case GL_DEPTH_STENCIL_TEXTURE_MODE:
+        return true;
+    default:
+        return true;
+    }
+}
+
+bool isIntegerFormat(GLenum format) {
+
+#define CHECK_EQUAL(x) case x: return true;
+
+    switch (format) {
+        LIST_INTEGER_TEX_FORMATS(CHECK_EQUAL)
+
+    default:
+        return false;
+    }
 }
 
 bool isCompressedFormat(GLenum internalformat) {
@@ -433,6 +824,18 @@ bool supportedCompressedFormat(GL2Encoder* ctx, GLenum internalformat) {
     case internal: \
         return glesMajorVersion > 1 && ctx->hasExtension("GL_KHR_texture_compression_astc_ldr"); \
 
+#define COMPRESSED_TEX_IMAGE_SUPPORT_CASE_BPTC(internal) \
+    case internal: \
+        return glesMajorVersion > 1 && ctx->hasExtension("GL_EXT_texture_compression_bptc"); \
+
+#define COMPRESSED_TEX_IMAGE_SUPPORT_CASE_S3TC(internal) \
+    case internal: \
+      return glesMajorVersion > 1 && ctx->hasExtension("GL_EXT_texture_compression_s3tc"); \
+
+#define COMPRESSED_TEX_IMAGE_SUPPORT_CASE_S3TC_SRGB(internal)       \
+    case internal: \
+      return glesMajorVersion > 1 && ctx->hasExtension("GL_EXT_texture_compression_s3tc") && ctx->hasExtension("GL_EXT_texture_sRGB"); \
+
 #define COMPRESSED_TEX_IMAGE_SUPPORT_CASE(internal, maj, min) \
     case internal: \
         if (maj < 3) return true; \
@@ -445,6 +848,7 @@ bool supportedCompressedFormat(GL2Encoder* ctx, GLenum internalformat) {
         return false ; \
 
     switch (internalformat) {
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE(GL_ETC1_RGB8_OES, 2, 0)
     COMPRESSED_TEX_IMAGE_SUPPORT_CASE(GL_COMPRESSED_R11_EAC, 2, 0)
     COMPRESSED_TEX_IMAGE_SUPPORT_CASE(GL_COMPRESSED_SIGNED_R11_EAC, 2, 0)
     COMPRESSED_TEX_IMAGE_SUPPORT_CASE(GL_COMPRESSED_RG11_EAC, 2, 0)
@@ -483,10 +887,22 @@ bool supportedCompressedFormat(GL2Encoder* ctx, GLenum internalformat) {
     COMPRESSED_TEX_IMAGE_SUPPORT_CASE_ASTC(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR)
     COMPRESSED_TEX_IMAGE_SUPPORT_CASE_ASTC(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR)
     COMPRESSED_TEX_IMAGE_SUPPORT_CASE_ASTC(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_BPTC(GL_COMPRESSED_RGBA_BPTC_UNORM_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_BPTC(GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_BPTC(GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_BPTC(GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_S3TC(GL_COMPRESSED_RGB_S3TC_DXT1_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_S3TC(GL_COMPRESSED_RGBA_S3TC_DXT1_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_S3TC(GL_COMPRESSED_RGBA_S3TC_DXT3_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_S3TC(GL_COMPRESSED_RGBA_S3TC_DXT5_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_S3TC(GL_COMPRESSED_SRGB_S3TC_DXT1_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_S3TC_SRGB(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_S3TC_SRGB(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT)
+    COMPRESSED_TEX_IMAGE_SUPPORT_CASE_S3TC_SRGB(GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT)
     default:
         break;
     }
-    return true;
+    return false;
 }
 
 bool unsizedFormat(GLenum format) {
@@ -590,7 +1006,7 @@ bool colorRenderableFormat(GL2Encoder* ctx, GLenum internalformat) {
     return false;
 }
 
-bool depthRenderableFormat(GL2Encoder*, GLenum internalformat) {
+bool depthRenderableFormat(GL2Encoder* ctx, GLenum internalformat) {
     switch (internalformat) {
     case GL_DEPTH_COMPONENT:
     case GL_DEPTH_STENCIL:
@@ -600,6 +1016,8 @@ bool depthRenderableFormat(GL2Encoder*, GLenum internalformat) {
     case GL_DEPTH24_STENCIL8:
     case GL_DEPTH32F_STENCIL8:
         return true;
+    case GL_DEPTH_COMPONENT32_OES:
+        return ctx->hasExtension("GL_OES_depth32");
     }
     return false;
 }
@@ -730,103 +1148,6 @@ bool pixelFormat(GL2Encoder* ctx, GLenum format) {
     }
     return false;
 }
-#define LIST_VALID_TEX_INTERNALFORMATS(f) \
-    f(GL_BGRA8_EXT) \
-    f(GL_R8) \
-    f(GL_R8_SNORM) \
-    f(GL_R16F) \
-    f(GL_R32F) \
-    f(GL_R8UI) \
-    f(GL_R8I) \
-    f(GL_R16UI) \
-    f(GL_R16I) \
-    f(GL_R32UI) \
-    f(GL_R32I) \
-    f(GL_RG8) \
-    f(GL_RG8_SNORM) \
-    f(GL_RG16F) \
-    f(GL_RG32F) \
-    f(GL_RG8UI) \
-    f(GL_RG8I) \
-    f(GL_RG16UI) \
-    f(GL_RG16I) \
-    f(GL_RG32UI) \
-    f(GL_RG32I) \
-    f(GL_RGB8) \
-    f(GL_SRGB8) \
-    f(GL_RGB565) \
-    f(GL_RGB8_SNORM) \
-    f(GL_R11F_G11F_B10F) \
-    f(GL_RGB9_E5) \
-    f(GL_RGB16F) \
-    f(GL_RGB32F) \
-    f(GL_RGB8UI) \
-    f(GL_RGB8I) \
-    f(GL_RGB16UI) \
-    f(GL_RGB16I) \
-    f(GL_RGB32UI) \
-    f(GL_RGB32I) \
-    f(GL_RGBA8) \
-    f(GL_SRGB8_ALPHA8) \
-    f(GL_RGBA8_SNORM) \
-    f(GL_RGB5_A1) \
-    f(GL_RGBA4) \
-    f(GL_RGB10_A2) \
-    f(GL_RGBA16F) \
-    f(GL_RGBA32F) \
-    f(GL_RGBA8UI) \
-    f(GL_RGBA8I) \
-    f(GL_RGB10_A2UI) \
-    f(GL_RGBA16UI) \
-    f(GL_RGBA16I) \
-    f(GL_RGBA32I) \
-    f(GL_RGBA32UI) \
-    f(GL_DEPTH_COMPONENT16) \
-    f(GL_DEPTH_COMPONENT24) \
-    f(GL_DEPTH_COMPONENT32F) \
-    f(GL_DEPTH24_STENCIL8) \
-    f(GL_DEPTH32F_STENCIL8) \
-    f(GL_ETC1_RGB8_OES) \
-    f(GL_COMPRESSED_R11_EAC) \
-    f(GL_COMPRESSED_SIGNED_R11_EAC) \
-    f(GL_COMPRESSED_RG11_EAC) \
-    f(GL_COMPRESSED_SIGNED_RG11_EAC) \
-    f(GL_COMPRESSED_RGB8_ETC2) \
-    f(GL_COMPRESSED_SRGB8_ETC2) \
-    f(GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2) \
-    f(GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2) \
-    f(GL_COMPRESSED_RGBA8_ETC2_EAC) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC) \
-    f(GL_COMPRESSED_RGBA_ASTC_4x4_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_5x4_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_5x5_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_6x5_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_6x6_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_8x5_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_8x6_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_8x8_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_10x5_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_10x6_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_10x8_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_10x10_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_12x10_KHR) \
-    f(GL_COMPRESSED_RGBA_ASTC_12x12_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR) \
-    f(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR) \
-
-
 bool pixelInternalFormat(GLenum internalformat) {
 #define VALID_INTERNAL_FORMAT(format) \
     case format: \
@@ -837,7 +1158,86 @@ bool pixelInternalFormat(GLenum internalformat) {
     default:
         break;
     }
+
+    ALOGW("error internal format: 0x%x is invalid\n", internalformat);
     return false;
+}
+
+bool pixelSizedFormat(GL2Encoder* ctx, GLenum internalformat, GLenum format, GLenum type) {
+    int glesMajorVersion = ctx->majorVersion();
+    if (internalformat == format) {
+        return true;
+    }
+
+    if (glesMajorVersion < 3) {
+        switch (format) {
+            case GL_RED:
+                switch (type) {
+                    case GL_UNSIGNED_BYTE:
+                        return internalformat == GL_R8;
+                    case GL_HALF_FLOAT:
+                    case GL_FLOAT:
+                        return internalformat == GL_R16F;
+                    case GL_BYTE:
+                        return internalformat == GL_R8_SNORM;
+                    default:
+                        return false;
+                }
+                break;
+            case GL_RG:
+                switch (type) {
+                    case GL_UNSIGNED_BYTE:
+                        return internalformat == GL_RG8;
+                    case GL_HALF_FLOAT:
+                    case GL_FLOAT:
+                        return internalformat == GL_RG16F;
+                    default:
+                        return false;
+                }
+                break;
+            case GL_RGB:
+                switch (type) {
+                    case GL_HALF_FLOAT:
+                    case GL_FLOAT:
+                        return internalformat == GL_RGB16F
+                            || internalformat == GL_R11F_G11F_B10F;
+                    case GL_UNSIGNED_INT_10F_11F_11F_REV:
+                        return internalformat == GL_R11F_G11F_B10F;
+                    default:
+                        return internalformat == GL_RGB8 ||
+                               internalformat == GL_RGB;
+                }
+                break;
+            case GL_RGBA:
+                switch (type) {
+                    case GL_HALF_FLOAT:
+                    case GL_FLOAT:
+                        return internalformat == GL_RGBA16F;
+                    default:
+                        return internalformat == GL_RGBA8 ||
+                               internalformat == GL_RGBA;
+                }
+                break;
+        }
+    }
+
+#define VALIDATE_FORMAT_COMBINATION(x, y, z) \
+    if (internalformat == x && format == y && type == z) return true; \
+
+    LIST_VALID_TEXFORMAT_COMBINATIONS(VALIDATE_FORMAT_COMBINATION)
+
+    return false;
+}
+
+void getCompatibleFormatTypeForInternalFormat(GLenum internalformat, GLenum* format_out, GLenum* type_out) {
+#define RETURN_COMPATIBLE_FORMAT(x, y, z) \
+    if (internalformat == x) { \
+        *format_out = y; \
+        *type_out = z; \
+        return; \
+    } \
+
+    LIST_VALID_TEXFORMAT_COMBINATIONS(RETURN_COMPATIBLE_FORMAT)
 }
 
 bool shaderType(GL2Encoder* ctx, GLenum type) {
@@ -871,6 +1271,325 @@ std::string vertexAttribIndexRangeErrorMsg(GL2Encoder* ctx, GLuint index) {
     ctx->glGetIntegerv(ctx, GL_MAX_VERTEX_ATTRIBS, &maxIndex);
     ss << "Invalid vertex attribute index. Wanted index: " << index << ". Max index: " << maxIndex;
     return ss.str();
+}
+
+bool allowedFace(GLenum face) {
+    switch (face) {
+        case GL_FRONT:
+        case GL_BACK:
+        case GL_FRONT_AND_BACK:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedFunc(GLenum func) {
+    switch (func) {
+        case GL_NEVER:
+        case GL_ALWAYS:
+        case GL_LESS:
+        case GL_LEQUAL:
+        case GL_EQUAL:
+        case GL_GREATER:
+        case GL_GEQUAL:
+        case GL_NOTEQUAL:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedStencilOp(GLenum op) {
+    switch (op) {
+        case GL_KEEP:
+        case GL_ZERO:
+        case GL_REPLACE:
+        case GL_INCR:
+        case GL_DECR:
+        case GL_INVERT:
+        case GL_INCR_WRAP:
+        case GL_DECR_WRAP:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedBlendEquation(GLenum eq) {
+    switch (eq) {
+        case GL_FUNC_ADD:
+        case GL_FUNC_SUBTRACT:
+        case GL_FUNC_REVERSE_SUBTRACT:
+        case GL_MIN:
+        case GL_MAX:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedBlendFunc(GLenum func) {
+    switch (func) {
+        case GL_ZERO:
+        case GL_ONE:
+        case GL_SRC_COLOR:
+        case GL_ONE_MINUS_SRC_COLOR:
+        case GL_DST_COLOR:
+        case GL_ONE_MINUS_DST_COLOR:
+        case GL_SRC_ALPHA:
+        case GL_ONE_MINUS_SRC_ALPHA:
+        case GL_DST_ALPHA:
+        case GL_ONE_MINUS_DST_ALPHA:
+        case GL_CONSTANT_COLOR:
+        case GL_ONE_MINUS_CONSTANT_COLOR:
+        case GL_CONSTANT_ALPHA:
+        case GL_ONE_MINUS_CONSTANT_ALPHA:
+        case GL_SRC_ALPHA_SATURATE:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedCullFace(GLenum mode) {
+    switch (mode) {
+        case GL_FRONT:
+        case GL_BACK:
+        case GL_FRONT_AND_BACK:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedFrontFace(GLenum mode) {
+    switch (mode) {
+        case GL_CCW:
+        case GL_CW:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedEnable(int majorVersion, int minorVersion, GLenum cap) {
+    switch (cap) {
+        case GL_CULL_FACE:
+        case GL_POLYGON_OFFSET_FILL:
+        case GL_SAMPLE_ALPHA_TO_COVERAGE:
+        case GL_SAMPLE_COVERAGE:
+        case GL_SCISSOR_TEST:
+        case GL_STENCIL_TEST:
+        case GL_DEPTH_TEST:
+        case GL_BLEND:
+        case GL_DITHER:
+            return true;
+        case GL_PRIMITIVE_RESTART_FIXED_INDEX:
+        case GL_RASTERIZER_DISCARD:
+            return majorVersion >= 3;
+        case GL_SAMPLE_MASK:
+            return majorVersion >= 3 && minorVersion >= 1;
+		default:
+			return false;
+    }
+}
+
+bool allowedGetShader(GLenum pname) {
+	switch (pname) {
+		case GL_SHADER_TYPE:
+		case GL_DELETE_STATUS:
+		case GL_COMPILE_STATUS:
+		case GL_INFO_LOG_LENGTH:
+		case GL_SHADER_SOURCE_LENGTH:
+			return true;
+		default:
+			return false;
+	}
+}
+
+bool allowedShaderType(GLenum shadertype) {
+	switch (shadertype) {
+		case GL_VERTEX_SHADER:
+		case GL_FRAGMENT_SHADER:
+            return true;
+		default:
+			return false;
+	}
+}
+
+bool allowedPrecisionType(GLenum precisiontype) {
+	switch (precisiontype) {
+		case GL_LOW_FLOAT:
+		case GL_MEDIUM_FLOAT:
+		case GL_HIGH_FLOAT:
+		case GL_LOW_INT:
+		case GL_MEDIUM_INT:
+		case GL_HIGH_INT:
+            return true;
+		default:
+			return false;
+	}
+}
+
+bool allowedGetProgram(int majorVersion, int minorVersion, GLenum pname) {
+    switch (pname) {
+        case GL_DELETE_STATUS:
+        case GL_LINK_STATUS:
+        case GL_VALIDATE_STATUS:
+        case GL_INFO_LOG_LENGTH:
+        case GL_ATTACHED_SHADERS:
+        case GL_ACTIVE_ATTRIBUTES:
+        case GL_ACTIVE_ATTRIBUTE_MAX_LENGTH:
+        case GL_ACTIVE_UNIFORMS:
+        case GL_ACTIVE_UNIFORM_MAX_LENGTH:
+            return true;
+        case GL_TRANSFORM_FEEDBACK_BUFFER_MODE:
+        case GL_PROGRAM_BINARY_RETRIEVABLE_HINT:
+        case GL_PROGRAM_BINARY_LENGTH:
+        case GL_TRANSFORM_FEEDBACK_VARYINGS:
+        case GL_TRANSFORM_FEEDBACK_VARYING_MAX_LENGTH:
+        case GL_ACTIVE_UNIFORM_BLOCKS:
+        case GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH:
+            return majorVersion > 2;
+        case GL_COMPUTE_WORK_GROUP_SIZE:
+        case GL_PROGRAM_SEPARABLE:
+        case GL_ACTIVE_ATOMIC_COUNTER_BUFFERS:
+            return majorVersion > 2 && minorVersion > 0;
+        default:
+            return false;
+    }
+}
+
+bool allowedGetActiveUniforms(GLenum pname) {
+    switch (pname) {
+        case GL_UNIFORM_TYPE:
+        case GL_UNIFORM_SIZE:
+        case GL_UNIFORM_NAME_LENGTH:
+        case GL_UNIFORM_BLOCK_INDEX:
+        case GL_UNIFORM_OFFSET:
+        case GL_UNIFORM_ARRAY_STRIDE:
+        case GL_UNIFORM_MATRIX_STRIDE:
+        case GL_UNIFORM_IS_ROW_MAJOR:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedGetActiveUniformBlock(GLenum pname) {
+    switch (pname) {
+        case GL_UNIFORM_BLOCK_BINDING:
+        case GL_UNIFORM_BLOCK_DATA_SIZE:
+        case GL_UNIFORM_BLOCK_NAME_LENGTH:
+        case GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS:
+        case GL_UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES:
+        case GL_UNIFORM_BLOCK_REFERENCED_BY_VERTEX_SHADER:
+        case GL_UNIFORM_BLOCK_REFERENCED_BY_FRAGMENT_SHADER:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedGetVertexAttrib(GLenum pname) {
+    switch (pname) {
+        case GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING:
+        case GL_VERTEX_ATTRIB_ARRAY_ENABLED:
+        case GL_VERTEX_ATTRIB_ARRAY_SIZE:
+        case GL_VERTEX_ATTRIB_ARRAY_STRIDE:
+        case GL_VERTEX_ATTRIB_ARRAY_TYPE:
+        case GL_VERTEX_ATTRIB_ARRAY_NORMALIZED:
+        case GL_VERTEX_ATTRIB_ARRAY_INTEGER:
+        case GL_VERTEX_ATTRIB_ARRAY_DIVISOR:
+        case GL_VERTEX_ATTRIB_BINDING:
+        case GL_VERTEX_ATTRIB_RELATIVE_OFFSET:
+        case GL_CURRENT_VERTEX_ATTRIB:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedGetRenderbufferParameter(GLenum pname) {
+    switch (pname) {
+        case GL_RENDERBUFFER_WIDTH:
+        case GL_RENDERBUFFER_HEIGHT:
+        case GL_RENDERBUFFER_INTERNAL_FORMAT:
+        case GL_RENDERBUFFER_RED_SIZE:
+        case GL_RENDERBUFFER_GREEN_SIZE:
+        case GL_RENDERBUFFER_BLUE_SIZE:
+        case GL_RENDERBUFFER_ALPHA_SIZE:
+        case GL_RENDERBUFFER_DEPTH_SIZE:
+        case GL_RENDERBUFFER_STENCIL_SIZE:
+        case GL_RENDERBUFFER_SAMPLES:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedQueryTarget(GLenum target) {
+    switch (target) {
+        case GL_ANY_SAMPLES_PASSED:
+        case GL_ANY_SAMPLES_PASSED_CONSERVATIVE:
+        case GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedQueryParam(GLenum pname) {
+    switch (pname) {
+        case GL_CURRENT_QUERY:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedQueryObjectParam(GLenum pname) {
+    switch (pname) {
+        case GL_QUERY_RESULT:
+        case GL_QUERY_RESULT_AVAILABLE:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedGetSyncParam(GLenum pname) {
+    switch (pname) {
+        case GL_OBJECT_TYPE:
+        case GL_SYNC_STATUS:
+        case GL_SYNC_CONDITION:
+        case GL_SYNC_FLAGS:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedHintTarget(GLenum target) {
+    switch (target) {
+        case GL_GENERATE_MIPMAP_HINT:
+        case GL_FRAGMENT_SHADER_DERIVATIVE_HINT_OES:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool allowedHintMode(GLenum mode) {
+    switch (mode) {
+        case GL_DONT_CARE:
+        case GL_NICEST:
+        case GL_FASTEST:
+            return true;
+        default:
+            return false;
+    }
 }
 
 } // namespace GLESv2Validation

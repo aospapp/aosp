@@ -22,6 +22,7 @@ import androidx.annotation.IntDef;
  * used for testability.
  */
 public interface NetworkStatusNotifier {
+    static int NETWORK_NOT_INITIALIZED = -1;
     static int NETWORK_NOT_CONNECTED = 0;
     static int NETWORK_CONNECTED = 1;
 
@@ -40,6 +41,7 @@ public interface NetworkStatusNotifier {
      * Possible network statuses .
      */
     @IntDef({
+            NETWORK_NOT_INITIALIZED,
             NETWORK_NOT_CONNECTED,
             NETWORK_CONNECTED
     })

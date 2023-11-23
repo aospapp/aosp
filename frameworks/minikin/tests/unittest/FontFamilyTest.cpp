@@ -20,6 +20,7 @@
 
 #include "minikin/LocaleList.h"
 
+#include "BufferUtils.h"
 #include "FontTestUtils.h"
 #include "FreeTypeMinikinFontForTest.h"
 #include "LocaleListCache.h"
@@ -154,6 +155,40 @@ TEST(LocaleTest, testReconstruction) {
     EXPECT_EQ("zzz-Zzzz-ZZ", createLocaleWithoutICUSanitization("zzz-Zzzz-ZZ").getString());
     EXPECT_EQ("aaa-Aaaa-000", createLocaleWithoutICUSanitization("aaa-Aaaa-000").getString());
     EXPECT_EQ("zzz-Zzzz-999", createLocaleWithoutICUSanitization("zzz-Zzzz-999").getString());
+}
+
+TEST(LocaleTest, ReconstructFromIdentifierTest) {
+    std::string locales[] = {
+            // Language
+            "en",
+            "fil",
+            "und",
+            // Script
+            "en-Latn",
+            "fil-Taga",
+            "und-Zsye",
+            // Region
+            "en-US",
+            "fil-PH",
+            "es-419",
+            // Variant
+            "de-Latn-DE",
+            "de-Latn-DE-1901",
+            "de-Latn-DE-1996",
+            // Line break style
+            "ja-JP-u-lb-loose",
+            "ja-JP-u-lb-normal",
+            "ja-JP-u-lb-strict",
+            // Emoji subtag
+            "es-Latn-419-u-em-emoji",
+            // Everything
+            "de-Latn-DE-1996-u-lb-loose-u-em-emoji",
+    };
+    for (const std::string& locale : locales) {
+        EXPECT_EQ(createLocaleWithoutICUSanitization(locale),
+                  Locale(createLocaleWithoutICUSanitization(locale).getIdentifier()))
+                << "locale = " << locale;
+    }
 }
 
 TEST(LocaleTest, ScriptEqualTest) {
@@ -515,9 +550,7 @@ void expectVSGlyphs(FontFamily* family, uint32_t codepoint, const std::set<uint3
     }
 }
 
-TEST_F(FontFamilyTest, hasVariationSelectorTest) {
-    std::shared_ptr<FontFamily> family = buildFontFamily(kVsTestFont);
-
+void expectVSGlyphsForVsTestFont(FontFamily* family) {
     const uint32_t kVS1 = 0xFE00;
     const uint32_t kVS2 = 0xFE01;
     const uint32_t kVS3 = 0xFE02;
@@ -528,23 +561,28 @@ TEST_F(FontFamilyTest, hasVariationSelectorTest) {
 
     const uint32_t kSupportedChar1 = 0x82A6;
     EXPECT_TRUE(family->getCoverage().get(kSupportedChar1));
-    expectVSGlyphs(family.get(), kSupportedChar1, std::set<uint32_t>({kVS1, kVS17, kVS18, kVS19}));
+    expectVSGlyphs(family, kSupportedChar1, std::set<uint32_t>({kVS1, kVS17, kVS18, kVS19}));
 
     const uint32_t kSupportedChar2 = 0x845B;
     EXPECT_TRUE(family->getCoverage().get(kSupportedChar2));
-    expectVSGlyphs(family.get(), kSupportedChar2, std::set<uint32_t>({kVS2, kVS18, kVS19, kVS20}));
+    expectVSGlyphs(family, kSupportedChar2, std::set<uint32_t>({kVS2, kVS18, kVS19, kVS20}));
 
     const uint32_t kNoVsSupportedChar = 0x537F;
     EXPECT_TRUE(family->getCoverage().get(kNoVsSupportedChar));
-    expectVSGlyphs(family.get(), kNoVsSupportedChar, std::set<uint32_t>());
+    expectVSGlyphs(family, kNoVsSupportedChar, std::set<uint32_t>());
 
     const uint32_t kVsOnlySupportedChar = 0x717D;
     EXPECT_FALSE(family->getCoverage().get(kVsOnlySupportedChar));
-    expectVSGlyphs(family.get(), kVsOnlySupportedChar, std::set<uint32_t>({kVS3, kVS19, kVS20}));
+    expectVSGlyphs(family, kVsOnlySupportedChar, std::set<uint32_t>({kVS3, kVS19, kVS20}));
 
     const uint32_t kNotSupportedChar = 0x845C;
     EXPECT_FALSE(family->getCoverage().get(kNotSupportedChar));
-    expectVSGlyphs(family.get(), kNotSupportedChar, std::set<uint32_t>());
+    expectVSGlyphs(family, kNotSupportedChar, std::set<uint32_t>());
+}
+
+TEST_F(FontFamilyTest, hasVariationSelectorTest) {
+    std::shared_ptr<FontFamily> family = buildFontFamily(kVsTestFont);
+    expectVSGlyphsForVsTestFont(family.get());
 }
 
 TEST_F(FontFamilyTest, hasVSTableTest) {
@@ -728,7 +766,7 @@ TEST_F(FontFamilyTest, closestMatch) {
 
     for (const TestCase& testCase : testCases) {
         std::vector<std::shared_ptr<MinikinFont>> dummyFonts;
-        std::vector<Font> fonts;
+        std::vector<std::shared_ptr<Font>> fonts;
         for (auto familyStyle : testCase.familyStyles) {
             std::shared_ptr<MinikinFont> dummyFont(
                     new FreeTypeMinikinFontForTest(getTestFontPath(kTestFont)));
@@ -753,6 +791,43 @@ TEST_F(FontFamilyTest, closestMatch) {
                 << std::endl
                 << "Expected Families' Style: "
                 << fontStyleToString(testCase.familyStyles[testCase.expectedIndex]) << std::endl;
+    }
+}
+
+TEST_F(FontFamilyTest, bufferTest) {
+    {
+        // Font with variation selectors
+        std::shared_ptr<FontFamily> original = buildFontFamily(kVsTestFont);
+        std::vector<uint8_t> buffer =
+                writeToBuffer<FontFamily, writeFreeTypeMinikinFontForTest>(*original);
+        BufferReader reader(buffer.data());
+        std::shared_ptr<FontFamily> copied =
+                FontFamily::readFrom<readFreeTypeMinikinFontForTest>(&reader);
+        ASSERT_EQ(original->localeListId(), copied->localeListId());
+        ASSERT_EQ(original->variant(), copied->variant());
+        ASSERT_EQ(original->getNumFonts(), copied->getNumFonts());
+        ASSERT_EQ(original->supportedAxes(), copied->supportedAxes());
+        ASSERT_EQ(original->isColorEmojiFamily(), copied->isColorEmojiFamily());
+        ASSERT_EQ(original->isCustomFallback(), copied->isCustomFallback());
+        ASSERT_EQ(original->hasVSTable(), copied->hasVSTable());
+        expectVSGlyphsForVsTestFont(copied.get());
+        std::vector<uint8_t> newBuffer =
+                writeToBuffer<FontFamily, writeFreeTypeMinikinFontForTest>(*copied);
+        ASSERT_EQ(buffer, newBuffer);
+    }
+    {
+        // Font with axes
+        constexpr char kMultiAxisFont[] = "MultiAxis.ttf";
+        std::shared_ptr<FontFamily> original = buildFontFamily(kMultiAxisFont);
+        std::vector<uint8_t> buffer =
+                writeToBuffer<FontFamily, writeFreeTypeMinikinFontForTest>(*original);
+        BufferReader reader(buffer.data());
+        std::shared_ptr<FontFamily> copied =
+                FontFamily::readFrom<readFreeTypeMinikinFontForTest>(&reader);
+        ASSERT_EQ(original->supportedAxes(), copied->supportedAxes());
+        std::vector<uint8_t> newBuffer =
+                writeToBuffer<FontFamily, writeFreeTypeMinikinFontForTest>(*copied);
+        ASSERT_EQ(buffer, newBuffer);
     }
 }
 

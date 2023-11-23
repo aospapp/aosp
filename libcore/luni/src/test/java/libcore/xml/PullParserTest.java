@@ -770,7 +770,7 @@ public abstract class PullParserTest extends TestCase {
         XmlPullParser parser = newPullParser();
         String test = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<!DOCTYPE root [\n" +
-                "<!ENTITY dummy \"dummy\">\n" +
+                "<!ENTITY fake \"fake\">\n" +
                 "]>  \n" +
                 "<root></root>";
         assertParseSuccess(test, parser);
@@ -781,7 +781,7 @@ public abstract class PullParserTest extends TestCase {
         XmlPullParser parser = newPullParser();
         String test = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
                 "<!DOCTYPE root [\n" +
-                "<!ENTITY dummy \"dummy\">\n" +
+                "<!ENTITY fake \"fake\">\n" +
                 "]>  \n" +
                 "<root></root>";
         assertParseSuccess(test, parser);

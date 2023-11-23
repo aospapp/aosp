@@ -30,6 +30,7 @@
 #include "android.h"
 #include "private/android_filesystem_config.h"
 #include "private/canned_fs_config.h"
+#include "private/fs_config.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 

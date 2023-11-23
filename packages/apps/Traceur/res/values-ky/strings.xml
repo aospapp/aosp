@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="system_tracing" msgid="4719188511746319848">"Тутумга көз салуу"</string>
-    <string name="record_system_activity" msgid="4339462312915377825">"Тутумдун иштешин жакшыртуу үчүн анын аракеттери жазылып, кийинчерээк талданат"</string>
+    <string name="system_tracing" msgid="4719188511746319848">"Системага көз салуу"</string>
+    <string name="record_system_activity" msgid="4339462312915377825">"Системанын иштешин жакшыртуу үчүн анын аракеттери жазылып, кийинчерээк талданат"</string>
     <string name="record_trace" msgid="6416875085186661845">"Телефондо аткарылган аракеттерди жаздыруу"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Мүчүлүштүктөрү оңдоло турган колдонмолордун аракеттерин жаздыруу"</string>
     <string name="categories" msgid="2280163673538611008">"Категориялар"</string>
@@ -20,19 +20,22 @@
     <string name="saving_trace" msgid="1468692734770800541">"Телефондо аткарылган аракеттер сакталууда"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Телефондо аткарылган аракеттер сакталды"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"Телефондо аткарылган аракеттерди бөлүшүү үчүн таптаңыз"</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"Мүчүлүштүк тууралуу кабарларга жаздырылган аракеттер тиркелүүдө"</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"Мүчүлүштүк тууралуу кабарларга жаздырылган аракеттер тиркелди"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"BetterBug\'ды ачуу үчүн таптаңыз"</string>
     <string name="stop_tracing" msgid="8916938308534164152">"Көз салууну токтотуу"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Телефондо аткарылган аракеттердин айрым категориялары жеткиликсиз:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Көз салуу жаздырылууда"</string>
     <string name="tap_to_stop_tracing" msgid="6533282719573871806">"Көз салууну токтотуу үчүн таптаңыз"</string>
-    <string name="clear_saved_traces" msgid="4809195654452260944">"Сакталган дайын-даректерди тазалоо"</string>
+    <string name="clear_saved_traces" msgid="4809195654452260944">"Сакталган маалыматтарды тазалоо"</string>
     <string name="clear_saved_traces_summary" msgid="6035923138201219577">"Жаздырылган аракеттер бир айдан кийин тазаланат"</string>
     <string name="clear_saved_traces_question" msgid="2184026613055303818">"Сакталган дайындар тазалансынбы?"</string>
-    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"/data/local/traces бөлүмүндөгү бардык дайындар өчүрүлөт"</string>
+    <string name="all_traces_will_be_deleted" msgid="6646545462206955920">"/data/local/traces бөлүмүндөгү бардык маалыматтар өчүрүлөт"</string>
     <string name="clear" msgid="5484761795406948056">"Тазалоо"</string>
-    <string name="system_traces_storage_title" msgid="8294090839883366871">"Тутумдагы аракеттерди жаздыруу"</string>
+    <string name="system_traces_storage_title" msgid="8294090839883366871">"Системанын аракеттерин жаздыруу"</string>
     <string name="keywords" msgid="736547007949049535">"тутумга көз салуу, аракеттерди жаздыруу, иштин майнаптуулугу"</string>
-    <string name="share_trace" msgid="4528525067822044385">"Тутумга көз салуу аракеттери бөлүшүлсүнбү?"</string>
-    <string name="system_trace_sensitive_data" msgid="3069389866696009549">"Тутумга көз салуу файлдары тутумдагы жана колдонмодогу купуя дайын-даректерди (мисалы, колдонмонун пайдаланылышы) камтышы мүмкүн. Тутумга көз салуудан алынган маалыматты ишенимдүү байланыштар жана колдонмолор менен гана бөлүшүңүз."</string>
+    <string name="share_trace" msgid="4528525067822044385">"Системага көз салуу аракеттери бөлүшүлсүнбү?"</string>
+    <string name="system_trace_sensitive_data" msgid="3069389866696009549">"Системага көз салуу файлдары тутумдагы жана колдонмодогу купуя маалыматтарды (мисалы, колдонмонун пайдаланылышы) камтышы мүмкүн. Системага көз салуудан алынган маалыматты ишенимдүү байланыштар жана колдонмолор менен гана бөлүшүңүз."</string>
     <string name="share" msgid="8443979083706282338">"Бөлүшүү"</string>
     <string name="dont_show_again" msgid="6662492041164390600">"Экинчи көрүнбөсүн"</string>
     <string name="use_perfetto_beta" msgid="2725630143916520160">"Perfetto\'ну колдонуу (бета сынамык версиясы)"</string>
@@ -56,4 +59,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16384 Кб"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32768 Кб"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65536 Кб"</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"Мүчүлүштүк тууралуу кабарлоо башталганда, аракеттерди жаздырууну токтотуу"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Мүчүлүштүк тууралуу кабарлоо башталганда, аракеттерди жаздыруу токтотулат"</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"Мүчүлүштүк тууралуу кабарларга жаздырылган аракеттерди тиркөө"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Мүчүлүштүк тууралуу кабар чогултулганда, жаздырылган аракеттерди BetterBug кызматына автоматтык түрдө жөнөтүү"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"Аракеттерди жаздыруу файлдарын көрүү"</string>
 </resources>

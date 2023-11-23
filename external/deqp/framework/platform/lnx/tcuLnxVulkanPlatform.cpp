@@ -64,6 +64,11 @@ public:
 	{
 	}
 
+	void setVisible(bool visible)
+	{
+		m_window->setVisibility(visible);
+	}
+
 	void resize (const UVec2& newSize)
 	{
 		m_window->setDimensions((int)newSize.x(), (int)newSize.y());
@@ -107,6 +112,11 @@ public:
 	{
 	}
 
+	void setVisible(bool visible)
+	{
+		m_window->setVisibility(visible);
+	}
+
 	void resize (const UVec2& newSize)
 	{
 		m_window->setDimensions((int)newSize.x(), (int)newSize.y());
@@ -148,6 +158,11 @@ public:
 	{
 	}
 
+	void setVisible(bool visible)
+	{
+		m_window->setVisibility(visible);
+	}
+
 	void resize (const UVec2& newSize)
 	{
 		m_window->setDimensions((int)newSize.x(), (int)newSize.y());
@@ -177,6 +192,31 @@ private:
 	MovePtr<wayland::Display> m_display;
 };
 #endif // DEQP_SUPPORT_WAYLAND
+
+#if defined (DEQP_SUPPORT_HEADLESS)
+
+struct VulkanWindowHeadless : public vk::wsi::Window
+{
+public:
+	void resize (const UVec2&)
+	{
+	}
+};
+
+class VulkanDisplayHeadless : public vk::wsi::Display
+{
+public:
+	VulkanDisplayHeadless ()
+	{
+	}
+
+	vk::wsi::Window* createWindow (const Maybe<UVec2>&) const
+	{
+		return new VulkanWindowHeadless();
+	}
+};
+
+#endif // DEQP_SUPPORT_HEADLESS
 
 class VulkanLibrary : public vk::Library
 {
@@ -209,6 +249,11 @@ VulkanPlatform::VulkanPlatform (EventState& eventState)
 
 vk::wsi::Display* VulkanPlatform::createWsiDisplay (vk::wsi::Type wsiType) const
 {
+	if (!hasDisplay(wsiType))
+	{
+	    throw NotSupportedError("This display type is not available: ", NULL, __FILE__, __LINE__);
+	}
+
 	switch(wsiType)
 	{
 #if defined (DEQP_SUPPORT_X11)
@@ -226,6 +271,11 @@ vk::wsi::Display* VulkanPlatform::createWsiDisplay (vk::wsi::Type wsiType) const
 		return new VulkanDisplayWayland(MovePtr<wayland::Display>(new wayland::Display(m_eventState, WAYLAND_DISPLAY)));
 		break;
 #endif // DEQP_SUPPORT_WAYLAND
+#if defined (DEQP_SUPPORT_HEADLESS)
+	case vk::wsi::TYPE_HEADLESS:
+		return new VulkanDisplayHeadless();
+		break;
+#endif // DEQP_SUPPORT_HEADLESS
 
 	default:
 		TCU_THROW(NotSupportedError, "WSI type not supported");
@@ -248,6 +298,10 @@ bool VulkanPlatform::hasDisplay (vk::wsi::Type wsiType) const
 	case vk::wsi::TYPE_WAYLAND:
 		return wayland::Display::hasDisplay(WAYLAND_DISPLAY);
 #endif // DEQP_SUPPORT_WAYLAND
+#if defined (DEQP_SUPPORT_HEADLESS)
+       case vk::wsi::TYPE_HEADLESS:
+               return true;
+#endif // DEQP_SUPPORT_HEADLESS
 	default:
 		return false;
 

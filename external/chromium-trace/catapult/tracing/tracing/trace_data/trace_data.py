@@ -10,10 +10,12 @@ import gzip
 import json
 import logging
 import os
+import platform
 import shutil
 import subprocess
 import tempfile
 import time
+import traceback
 import six
 
 
@@ -59,6 +61,7 @@ CHROME_TRACE_PART = TraceDataPart('traceEvents')
 CPU_TRACE_DATA = TraceDataPart('cpuSnapshots')
 TELEMETRY_PART = TraceDataPart('telemetry')
 WALT_TRACE_PART = TraceDataPart('waltTraceEvents')
+CGROUP_TRACE_PART = TraceDataPart('cgroupDump')
 
 ALL_TRACE_PARTS = {ANDROID_PROCESS_DATA_PART,
                    ATRACE_PART,
@@ -92,7 +95,11 @@ class _TraceData(object):
 
 
 _TraceItem = collections.namedtuple(
-    '_TraceItem', ['part_name', 'handle', 'compressed'])
+    '_TraceItem', ['part_name', 'handle'])
+
+
+class TraceDataException(Exception):
+  """Exception raised by TraceDataBuilder via RecordTraceDataException()."""
 
 
 class TraceDataBuilder(object):
@@ -111,6 +118,7 @@ class TraceDataBuilder(object):
     self._traces = []
     self._frozen = False
     self._temp_dir = tempfile.mkdtemp()
+    self._exceptions = []
 
   def __enter__(self):
     return self
@@ -118,14 +126,14 @@ class TraceDataBuilder(object):
   def __exit__(self, *args):
     self.CleanUpTraceData()
 
-  def OpenTraceHandleFor(self, part, compressed=False):
+  def OpenTraceHandleFor(self, part, suffix):
     """Open a file handle for writing trace data into it.
 
     Args:
       part: A TraceDataPart instance.
-      compressed: An optional Boolean, indicates whether the written data is
-        gzipped. Note, this information is currently only used by the AsData()
-        method in order to be able to open and read the written data.
+      suffix: A string used as file extension and identifier for the format
+        of the trace contents, e.g. '.json'. Can also append '.gz' to
+        indicate gzipped content, e.g. '.json.gz'.
     """
     if not isinstance(part, TraceDataPart):
       raise TypeError('part must be a TraceDataPart instance')
@@ -133,8 +141,8 @@ class TraceDataBuilder(object):
       raise RuntimeError('trace data builder is no longer open for writing')
     trace = _TraceItem(
         part_name=part.raw_field_name,
-        handle=tempfile.NamedTemporaryFile(delete=False, dir=self._temp_dir),
-        compressed=compressed)
+        handle=tempfile.NamedTemporaryFile(
+            delete=False, dir=self._temp_dir, suffix=suffix))
     self._traces.append(trace)
     return trace.handle
 
@@ -151,7 +159,8 @@ class TraceDataBuilder(object):
         source file will no longer exist after calling this method; and the
         lifetime of the trace data will thereafter be managed by this builder.
     """
-    with self.OpenTraceHandleFor(part) as handle:
+    _, suffix = os.path.splitext(trace_file)
+    with self.OpenTraceHandleFor(part, suffix) as handle:
       pass
     if os.name == 'nt':
       # On windows os.rename won't overwrite, so the destination path needs to
@@ -175,11 +184,13 @@ class TraceDataBuilder(object):
       if not allow_unstructured:
         raise ValueError('must pass allow_unstructured=True for text data')
       do_write = lambda d, f: f.write(d)
+      suffix = '.txt'  # Used for atrace and systrace data.
     elif isinstance(data, dict):
       do_write = json.dump
+      suffix = '.json'
     else:
       raise TypeError('invalid trace data type')
-    with self.OpenTraceHandleFor(part) as handle:
+    with self.OpenTraceHandleFor(part, suffix) as handle:
       do_write(data, handle)
 
   def Freeze(self):
@@ -188,7 +199,11 @@ class TraceDataBuilder(object):
     return self
 
   def CleanUpTraceData(self):
-    """Clean up resources used by the data builder."""
+    """Clean up resources used by the data builder.
+
+    Will also re-raise any exceptions previously added by
+    RecordTraceCollectionException().
+    """
     if self._traces is None:
       return  # Already cleaned up.
     self.Freeze()
@@ -199,6 +214,11 @@ class TraceDataBuilder(object):
     shutil.rmtree(self._temp_dir)
     self._temp_dir = None
     self._traces = None
+
+    if self._exceptions:
+      raise TraceDataException(
+          'Exceptions raised during trace data collection:\n' +
+          '\n'.join(self._exceptions))
 
   def Serialize(self, file_path, trace_title=None):
     """Serialize the trace data to a file in HTML format."""
@@ -227,10 +247,15 @@ class TraceDataBuilder(object):
 
     raw_data = {}
     for trace in self._traces:
-      traces_for_part = raw_data.setdefault(trace.part_name, [])
-      opener = gzip.open if trace.compressed else open
-      with opener(trace.handle.name, 'rb') as f:
-        traces_for_part.append(json.load(f))
+      is_compressed_json = trace.handle.name.endswith('.json.gz')
+      is_json = trace.handle.name.endswith('.json') or is_compressed_json
+      if is_json:
+        traces_for_part = raw_data.setdefault(trace.part_name, [])
+        opener = gzip.open if is_compressed_json else open
+        with opener(trace.handle.name, 'rb') as f:
+          traces_for_part.append(json.load(f))
+      else:
+        logging.info('Skipping over non-json trace: %s', trace.handle.name)
     return _TraceData(raw_data)
 
   def IterTraceParts(self):
@@ -240,6 +265,22 @@ class TraceDataBuilder(object):
     """
     for trace in self._traces:
       yield trace.part_name, trace.handle.name
+
+  def RecordTraceDataException(self):
+    """Records the most recent exception to be re-raised during cleanup.
+
+    Exceptions raised during trace data collection can be stored temporarily
+    in the builder. They will be re-raised when the builder is cleaned up later.
+    This way, any collected trace data can still be retained before the
+    benchmark is aborted.
+
+    This method is intended to be called from within an "except" handler, e.g.:
+      try:
+        # Collect trace data.
+      except Exception: # pylint: disable=broad-except
+        builder.RecordTraceDataException()
+    """
+    self._exceptions.append(traceback.format_exc())
 
 
 def CreateTestTrace(number=1):
@@ -283,7 +324,15 @@ def SerializeAsHtml(trace_files, html_file, trace_title=None):
 
   input_size = sum(os.path.getsize(trace_file) for trace_file in trace_files)
 
-  cmd = ['python', _TRACE2HTML_PATH]
+  cmd = []
+  if platform.system() == 'Windows':
+    version_cmd = ['python', '-c',
+                   'import sys\nprint(sys.version_info.major)']
+    version = subprocess.check_output(version_cmd)
+    if version.strip() == '3':
+      raise RuntimeError('trace2html cannot run with python 3.')
+    cmd.append('python')
+  cmd.append(_TRACE2HTML_PATH)
   cmd.extend(trace_files)
   cmd.extend(['--output', html_file])
   if trace_title is not None:

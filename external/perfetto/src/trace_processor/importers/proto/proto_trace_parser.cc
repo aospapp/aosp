@@ -29,38 +29,42 @@
 #include "perfetto/ext/base/utils.h"
 #include "perfetto/ext/base/uuid.h"
 #include "perfetto/trace_processor/status.h"
+
 #include "src/trace_processor/importers/common/args_tracker.h"
 #include "src/trace_processor/importers/common/clock_tracker.h"
 #include "src/trace_processor/importers/common/event_tracker.h"
 #include "src/trace_processor/importers/common/process_tracker.h"
 #include "src/trace_processor/importers/common/slice_tracker.h"
 #include "src/trace_processor/importers/common/track_tracker.h"
+#include "src/trace_processor/importers/config.descriptor.h"
 #include "src/trace_processor/importers/ftrace/ftrace_module.h"
 #include "src/trace_processor/importers/proto/heap_profile_tracker.h"
 #include "src/trace_processor/importers/proto/metadata_tracker.h"
 #include "src/trace_processor/importers/proto/packet_sequence_state.h"
-#include "src/trace_processor/importers/proto/perf_sample_tracker.h"
 #include "src/trace_processor/importers/proto/profile_packet_utils.h"
+#include "src/trace_processor/importers/proto/profiler_util.h"
 #include "src/trace_processor/importers/proto/stack_profile_tracker.h"
 #include "src/trace_processor/storage/metadata.h"
+#include "src/trace_processor/storage/stats.h"
+#include "src/trace_processor/tables/profiler_tables.h"
 #include "src/trace_processor/timestamped_trace_piece.h"
 #include "src/trace_processor/types/trace_processor_context.h"
 #include "src/trace_processor/types/variadic.h"
+#include "src/trace_processor/util/descriptors.h"
+#include "src/trace_processor/util/protozero_to_text.h"
 
 #include "protos/perfetto/common/builtin_clock.pbzero.h"
 #include "protos/perfetto/common/trace_stats.pbzero.h"
 #include "protos/perfetto/config/trace_config.pbzero.h"
-#include "protos/perfetto/trace/chrome/chrome_benchmark_metadata.pbzero.h"
 #include "protos/perfetto/trace/chrome/chrome_trace_event.pbzero.h"
 #include "protos/perfetto/trace/interned_data/interned_data.pbzero.h"
 #include "protos/perfetto/trace/perfetto/perfetto_metatrace.pbzero.h"
-#include "protos/perfetto/trace/perfetto/tracing_service_event.pbzero.h"
+#include "protos/perfetto/trace/profiling/deobfuscation.pbzero.h"
 #include "protos/perfetto/trace/profiling/profile_common.pbzero.h"
 #include "protos/perfetto/trace/profiling/profile_packet.pbzero.h"
 #include "protos/perfetto/trace/profiling/smaps.pbzero.h"
 #include "protos/perfetto/trace/trace.pbzero.h"
 #include "protos/perfetto/trace/trace_packet.pbzero.h"
-#include "protos/perfetto/trace/trigger.pbzero.h"
 
 namespace perfetto {
 namespace trace_processor {
@@ -95,7 +99,7 @@ void ProtoTraceParser::ParseTracePacket(int64_t ts, TimestampedTracePiece ttp) {
   const TraceBlobView& blob = data->packet;
   protos::pbzero::TracePacket::Decoder packet(blob.data(), blob.length());
 
-  ParseTracePacketImpl(ts, std::move(ttp), data, packet);
+  ParseTracePacketImpl(ts, ttp, data->sequence_state.get(), packet);
 
   // TODO(lalitm): maybe move this to the flush method in the trace processor
   // once we have it. This may reduce performance in the ArgsTracker though so
@@ -106,14 +110,32 @@ void ProtoTraceParser::ParseTracePacket(int64_t ts, TimestampedTracePiece ttp) {
 
 void ProtoTraceParser::ParseTracePacketImpl(
     int64_t ts,
-    TimestampedTracePiece ttp,
-    const TracePacketData* data,
+    const TimestampedTracePiece& ttp,
+    PacketSequenceStateGeneration* sequence_state,
     const protos::pbzero::TracePacket::Decoder& packet) {
+  // This needs to get handled both by the HeapGraphModule and
+  // ProtoTraceParser (for StackProfileTracker).
+  if (packet.has_deobfuscation_mapping()) {
+    ParseDeobfuscationMapping(ts, sequence_state,
+                              packet.trusted_packet_sequence_id(),
+                              packet.deobfuscation_mapping());
+  }
+
+  // Chrome doesn't honor the one-of in TracePacket for this field and sets it
+  // together with chrome_metadata, which is handled by a module. Thus, we have
+  // to parse this field before the modules get to parse other fields.
+  // TODO(crbug/1194914): Move this back after the modules (or into a separate
+  // module) once the Chrome-side fix has propagated into all release channels.
+  if (packet.has_chrome_events()) {
+    ParseChromeEvents(ts, packet.chrome_events());
+  }
+
   // TODO(eseckler): Propagate statuses from modules.
   auto& modules = context_->modules_by_field;
   for (uint32_t field_id = 1; field_id < modules.size(); ++field_id) {
-    if (modules[field_id] && packet.Get(field_id).valid()) {
-      modules[field_id]->ParsePacket(packet, ttp, field_id);
+    if (!modules[field_id].empty() && packet.Get(field_id).valid()) {
+      for (ProtoImporterModule* module : modules[field_id])
+        module->ParsePacket(packet, ttp, field_id);
       return;
     }
   }
@@ -122,21 +144,8 @@ void ProtoTraceParser::ParseTracePacketImpl(
     ParseTraceStats(packet.trace_stats());
 
   if (packet.has_profile_packet()) {
-    ParseProfilePacket(ts, data->sequence_state,
-                       packet.trusted_packet_sequence_id(),
+    ParseProfilePacket(ts, sequence_state, packet.trusted_packet_sequence_id(),
                        packet.profile_packet());
-  }
-
-  if (packet.has_perf_sample()) {
-    ParsePerfSample(ts, data->sequence_state, packet.perf_sample());
-  }
-
-  if (packet.has_chrome_benchmark_metadata()) {
-    ParseChromeBenchmarkMetadata(packet.chrome_benchmark_metadata());
-  }
-
-  if (packet.has_chrome_events()) {
-    ParseChromeEvents(ts, packet.chrome_events());
   }
 
   if (packet.has_perfetto_metatrace()) {
@@ -149,14 +158,6 @@ void ProtoTraceParser::ParseTracePacketImpl(
 
   if (packet.has_module_symbols()) {
     ParseModuleSymbols(packet.module_symbols());
-  }
-
-  if (packet.has_trigger()) {
-    ParseTrigger(ts, packet.trigger());
-  }
-
-  if (packet.has_service_event()) {
-    ParseServiceEvent(ts, packet.service_event());
   }
 
   if (packet.has_smaps_packet()) {
@@ -242,7 +243,7 @@ void ProtoTraceParser::ParseTraceStats(ConstBytes blob) {
 }
 
 void ProtoTraceParser::ParseProfilePacket(
-    int64_t,
+    int64_t ts,
     PacketSequenceStateGeneration* sequence_state,
     uint32_t seq_id,
     ConstBytes blob) {
@@ -254,31 +255,31 @@ void ProtoTraceParser::ParseProfilePacket(
 
     const char* str = reinterpret_cast<const char*>(entry.str().data);
     auto str_view = base::StringView(str, entry.str().size);
-    sequence_state->state()->stack_profile_tracker().AddString(entry.iid(),
-                                                               str_view);
+    sequence_state->state()->sequence_stack_profile_tracker().AddString(
+        entry.iid(), str_view);
   }
 
   for (auto it = packet.mappings(); it; ++it) {
     protos::pbzero::Mapping::Decoder entry(*it);
-    StackProfileTracker::SourceMapping src_mapping =
+    SequenceStackProfileTracker::SourceMapping src_mapping =
         ProfilePacketUtils::MakeSourceMapping(entry);
-    sequence_state->state()->stack_profile_tracker().AddMapping(entry.iid(),
-                                                                src_mapping);
+    sequence_state->state()->sequence_stack_profile_tracker().AddMapping(
+        entry.iid(), src_mapping);
   }
 
   for (auto it = packet.frames(); it; ++it) {
     protos::pbzero::Frame::Decoder entry(*it);
-    StackProfileTracker::SourceFrame src_frame =
+    SequenceStackProfileTracker::SourceFrame src_frame =
         ProfilePacketUtils::MakeSourceFrame(entry);
-    sequence_state->state()->stack_profile_tracker().AddFrame(entry.iid(),
-                                                              src_frame);
+    sequence_state->state()->sequence_stack_profile_tracker().AddFrame(
+        entry.iid(), src_frame);
   }
 
   for (auto it = packet.callstacks(); it; ++it) {
     protos::pbzero::Callstack::Decoder entry(*it);
-    StackProfileTracker::SourceCallstack src_callstack =
+    SequenceStackProfileTracker::SourceCallstack src_callstack =
         ProfilePacketUtils::MakeSourceCallstack(entry);
-    sequence_state->state()->stack_profile_tracker().AddCallstack(
+    sequence_state->state()->sequence_stack_profile_tracker().AddCallstack(
         entry.iid(), src_callstack);
   }
 
@@ -296,6 +297,8 @@ void ProtoTraceParser::ParseProfilePacket(
     int64_t timestamp = *maybe_timestamp;
 
     int pid = static_cast<int>(entry.pid());
+    context_->storage->SetIndexedStats(stats::heapprofd_last_profile_timestamp,
+                                       pid, ts);
 
     if (entry.disconnected())
       context_->storage->IncrementIndexedStats(
@@ -303,31 +306,69 @@ void ProtoTraceParser::ParseProfilePacket(
     if (entry.buffer_corrupted())
       context_->storage->IncrementIndexedStats(
           stats::heapprofd_buffer_corrupted, pid);
-    if (entry.buffer_overran())
+    if (entry.buffer_overran() ||
+        entry.client_error() ==
+            protos::pbzero::ProfilePacket::ProcessHeapSamples::
+                CLIENT_ERROR_HIT_TIMEOUT) {
       context_->storage->IncrementIndexedStats(stats::heapprofd_buffer_overran,
                                                pid);
+    }
+    if (entry.client_error()) {
+      context_->storage->SetIndexedStats(stats::heapprofd_client_error, pid,
+                                         entry.client_error());
+    }
     if (entry.rejected_concurrent())
       context_->storage->IncrementIndexedStats(
           stats::heapprofd_rejected_concurrent, pid);
     if (entry.hit_guardrail())
       context_->storage->IncrementIndexedStats(stats::heapprofd_hit_guardrail,
                                                pid);
+    if (entry.orig_sampling_interval_bytes()) {
+      context_->storage->SetIndexedStats(
+          stats::heapprofd_sampling_interval_adjusted, pid,
+          static_cast<int64_t>(entry.sampling_interval_bytes()) -
+              static_cast<int64_t>(entry.orig_sampling_interval_bytes()));
+    }
+
+    protos::pbzero::ProfilePacket::ProcessStats::Decoder stats(entry.stats());
+    context_->storage->IncrementIndexedStats(
+        stats::heapprofd_unwind_time_us, static_cast<int>(entry.pid()),
+        static_cast<int64_t>(stats.total_unwinding_time_us()));
+    context_->storage->IncrementIndexedStats(
+        stats::heapprofd_unwind_samples, static_cast<int>(entry.pid()),
+        static_cast<int64_t>(stats.heap_samples()));
+    context_->storage->IncrementIndexedStats(
+        stats::heapprofd_client_spinlock_blocked, static_cast<int>(entry.pid()),
+        static_cast<int64_t>(stats.client_spinlock_blocked_us()));
+
+    // orig_sampling_interval_bytes was introduced slightly after a bug with
+    // self_max_count was fixed in the producer. We use this as a proxy
+    // whether or not we are getting this data from a fixed producer or not.
+    bool trustworthy_max_count = entry.orig_sampling_interval_bytes() > 0;
 
     for (auto sample_it = entry.samples(); sample_it; ++sample_it) {
       protos::pbzero::ProfilePacket::HeapSample::Decoder sample(*sample_it);
 
       HeapProfileTracker::SourceAllocation src_allocation;
       src_allocation.pid = entry.pid();
+      if (entry.heap_name().size != 0) {
+        src_allocation.heap_name =
+            context_->storage->InternString(entry.heap_name());
+      } else {
+        src_allocation.heap_name = context_->storage->InternString("malloc");
+      }
       src_allocation.timestamp = timestamp;
       src_allocation.callstack_id = sample.callstack_id();
-      if (sample.self_max()) {
+      if (sample.has_self_max()) {
         src_allocation.self_allocated = sample.self_max();
+        if (trustworthy_max_count)
+          src_allocation.alloc_count = sample.self_max_count();
       } else {
         src_allocation.self_allocated = sample.self_allocated();
         src_allocation.self_freed = sample.self_freed();
+        src_allocation.alloc_count = sample.alloc_count();
+        src_allocation.free_count = sample.free_count();
       }
-      src_allocation.alloc_count = sample.alloc_count();
-      src_allocation.free_count = sample.free_count();
 
       context_->heap_profile_tracker->StoreAllocation(seq_id, src_allocation);
     }
@@ -336,108 +377,69 @@ void ProtoTraceParser::ParseProfilePacket(
     PERFETTO_CHECK(sequence_state);
     ProfilePacketInternLookup intern_lookup(sequence_state);
     context_->heap_profile_tracker->FinalizeProfile(
-        seq_id, &sequence_state->state()->stack_profile_tracker(),
+        seq_id, &sequence_state->state()->sequence_stack_profile_tracker(),
         &intern_lookup);
   }
 }
 
-void ProtoTraceParser::ParsePerfSample(
-    int64_t ts,
-    PacketSequenceStateGeneration* sequence_state,
-    ConstBytes blob) {
-  using PerfSample = protos::pbzero::PerfSample;
-  PerfSample::Decoder sample(blob.data, blob.size);
-
-  // Not a sample, but an indication of data loss in the ring buffer shared with
-  // the kernel.
-  if (sample.kernel_records_lost() > 0) {
-    PERFETTO_DCHECK(sample.pid() == 0);
-
-    context_->storage->IncrementIndexedStats(
-        stats::perf_cpu_lost_records, static_cast<int>(sample.cpu()),
-        static_cast<int64_t>(sample.kernel_records_lost()));
+void ProtoTraceParser::ParseDeobfuscationMapping(int64_t,
+                                                 PacketSequenceStateGeneration*,
+                                                 uint32_t /* seq_id */,
+                                                 ConstBytes blob) {
+  protos::pbzero::DeobfuscationMapping::Decoder deobfuscation_mapping(
+      blob.data, blob.size);
+  if (deobfuscation_mapping.package_name().size == 0)
     return;
-  }
 
-  // Sample that looked relevant for the tracing session, but had to be skipped.
-  // Either we failed to look up the procfs file descriptors necessary for
-  // remote stack unwinding (not unexpected in most cases), or the unwind queue
-  // was out of capacity (producer lost data on its own).
-  if (sample.has_sample_skipped_reason()) {
-    context_->storage->IncrementStats(stats::perf_samples_skipped);
-
-    if (sample.sample_skipped_reason() ==
-        PerfSample::PROFILER_SKIP_UNWIND_ENQUEUE)
-      context_->storage->IncrementStats(stats::perf_samples_skipped_dataloss);
-
+  auto opt_package_name_id = context_->storage->string_pool().GetId(
+      deobfuscation_mapping.package_name());
+  auto opt_memfd_id = context_->storage->string_pool().GetId("memfd");
+  if (!opt_package_name_id && !opt_memfd_id)
     return;
-  }
 
-  uint64_t callstack_iid = sample.callstack_iid();
-  StackProfileTracker& stack_tracker =
-      sequence_state->state()->stack_profile_tracker();
-  ProfilePacketInternLookup intern_lookup(sequence_state);
+  for (auto class_it = deobfuscation_mapping.obfuscated_classes(); class_it;
+       ++class_it) {
+    protos::pbzero::ObfuscatedClass::Decoder cls(*class_it);
+    for (auto member_it = cls.obfuscated_methods(); member_it; ++member_it) {
+      protos::pbzero::ObfuscatedMember::Decoder member(*member_it);
+      std::string merged_obfuscated = cls.obfuscated_name().ToStdString() +
+                                      "." +
+                                      member.obfuscated_name().ToStdString();
+      auto merged_obfuscated_id = context_->storage->string_pool().GetId(
+          base::StringView(merged_obfuscated));
+      if (!merged_obfuscated_id)
+        continue;
+      std::string merged_deobfuscated =
+          FullyQualifiedDeobfuscatedName(cls, member);
 
-  base::Optional<CallsiteId> cs_id =
-      stack_tracker.FindOrInsertCallstack(callstack_iid, &intern_lookup);
-  if (!cs_id) {
-    context_->storage->IncrementStats(stats::stackprofile_parser_error);
-    PERFETTO_ELOG("PerfSample referencing invalid callstack iid [%" PRIu64
-                  "] at timestamp [%" PRIi64 "]",
-                  callstack_iid, ts);
-    return;
-  }
+      std::vector<tables::StackProfileFrameTable::Id> frames;
+      if (opt_package_name_id) {
+        const std::vector<tables::StackProfileFrameTable::Id>* pkg_frames =
+            context_->global_stack_profile_tracker->JavaFramesForName(
+                {*merged_obfuscated_id, *opt_package_name_id});
+        if (pkg_frames) {
+          frames.insert(frames.end(), pkg_frames->begin(), pkg_frames->end());
+        }
+      }
+      if (opt_memfd_id) {
+        const std::vector<tables::StackProfileFrameTable::Id>* memfd_frames =
+            context_->global_stack_profile_tracker->JavaFramesForName(
+                {*merged_obfuscated_id, *opt_memfd_id});
+        if (memfd_frames) {
+          frames.insert(frames.end(), memfd_frames->begin(),
+                        memfd_frames->end());
+        }
+      }
 
-  context_->perf_sample_tracker->AddStackToSliceTrack(
-      ts, *cs_id, sample.pid(), sample.tid(), sample.cpu());
-}
-
-void ProtoTraceParser::ParseChromeBenchmarkMetadata(ConstBytes blob) {
-  TraceStorage* storage = context_->storage.get();
-  MetadataTracker* metadata = context_->metadata_tracker.get();
-
-  protos::pbzero::ChromeBenchmarkMetadata::Decoder packet(blob.data, blob.size);
-  if (packet.has_benchmark_name()) {
-    auto benchmark_name_id = storage->InternString(packet.benchmark_name());
-    metadata->SetMetadata(metadata::benchmark_name,
-                          Variadic::String(benchmark_name_id));
-  }
-  if (packet.has_benchmark_description()) {
-    auto benchmark_description_id =
-        storage->InternString(packet.benchmark_description());
-    metadata->SetMetadata(metadata::benchmark_description,
-                          Variadic::String(benchmark_description_id));
-  }
-  if (packet.has_label()) {
-    auto label_id = storage->InternString(packet.label());
-    metadata->SetMetadata(metadata::benchmark_label,
-                          Variadic::String(label_id));
-  }
-  if (packet.has_story_name()) {
-    auto story_name_id = storage->InternString(packet.story_name());
-    metadata->SetMetadata(metadata::benchmark_story_name,
-                          Variadic::String(story_name_id));
-  }
-  for (auto it = packet.story_tags(); it; ++it) {
-    auto story_tag_id = storage->InternString(*it);
-    metadata->AppendMetadata(metadata::benchmark_story_tags,
-                             Variadic::String(story_tag_id));
-  }
-  if (packet.has_benchmark_start_time_us()) {
-    metadata->SetMetadata(metadata::benchmark_start_time_us,
-                          Variadic::Integer(packet.benchmark_start_time_us()));
-  }
-  if (packet.has_story_run_time_us()) {
-    metadata->SetMetadata(metadata::benchmark_story_run_time_us,
-                          Variadic::Integer(packet.story_run_time_us()));
-  }
-  if (packet.has_story_run_index()) {
-    metadata->SetMetadata(metadata::benchmark_story_run_index,
-                          Variadic::Integer(packet.story_run_index()));
-  }
-  if (packet.has_had_failures()) {
-    metadata->SetMetadata(metadata::benchmark_had_failures,
-                          Variadic::Integer(packet.had_failures()));
+      for (tables::StackProfileFrameTable::Id frame_id : frames) {
+        auto* frames_tbl =
+            context_->storage->mutable_stack_profile_frame_table();
+        frames_tbl->mutable_deobfuscated_name()->Set(
+            *frames_tbl->id().IndexOf(frame_id),
+            context_->storage->InternString(
+                base::StringView(merged_deobfuscated)));
+      }
+    }
   }
 }
 
@@ -451,10 +453,13 @@ void ProtoTraceParser::ParseChromeEvents(int64_t ts, ConstBytes blob) {
                    .id;
     auto inserter = args.AddArgsTo(id);
 
-    // Metadata is proxied via a special event in the raw table to JSON export.
+    uint32_t bundle_index =
+        context_->metadata_tracker->IncrementChromeMetadataBundleCount();
+
+    // The legacy untyped metadata is proxied via a special event in the raw
+    // table to JSON export.
     for (auto it = bundle.metadata(); it; ++it) {
       protos::pbzero::ChromeMetadata::Decoder metadata(*it);
-      StringId name_id = storage->InternString(metadata.name());
       Variadic value;
       if (metadata.has_string_value()) {
         value =
@@ -469,7 +474,23 @@ void ProtoTraceParser::ParseChromeEvents(int64_t ts, ConstBytes blob) {
         context_->storage->IncrementStats(stats::empty_chrome_metadata);
         continue;
       }
+
+      StringId name_id = storage->InternString(metadata.name());
       args.AddArgsTo(id).AddArg(name_id, value);
+
+      char buffer[2048];
+      base::StringWriter writer(buffer, sizeof(buffer));
+      writer.AppendString("cr-");
+      // If we have data from multiple Chrome instances, append a suffix
+      // to differentiate them.
+      if (bundle_index > 1) {
+        writer.AppendUnsignedInt(bundle_index);
+        writer.AppendChar('-');
+      }
+      writer.AppendString(metadata.name());
+
+      auto metadata_id = storage->InternString(writer.GetStringView());
+      context_->metadata_tracker->SetDynamicMetadata(metadata_id, value);
     }
   }
 
@@ -636,6 +657,17 @@ void ProtoTraceParser::ParseTraceConfig(ConstBytes blob) {
     context_->metadata_tracker->SetMetadata(metadata::unique_session_name,
                                             Variadic::String(id));
   }
+
+  DescriptorPool pool;
+  pool.AddFromFileDescriptorSet(kConfigDescriptor.data(),
+                                kConfigDescriptor.size());
+
+  std::string text = protozero_to_text::ProtozeroToText(
+      pool, ".perfetto.protos.TraceConfig", blob,
+      protozero_to_text::kIncludeNewLines);
+  StringId id = context_->storage->InternString(base::StringView(text));
+  context_->metadata_tracker->SetMetadata(metadata::trace_config_pbtxt,
+                                          Variadic::String(id));
 }
 
 void ProtoTraceParser::ParseModuleSymbols(ConstBytes blob) {
@@ -650,7 +682,7 @@ void ProtoTraceParser::ParseModuleSymbols(ConstBytes blob) {
         module_symbols.build_id().data, module_symbols.build_id().size)));
   }
 
-  auto mapping_ids = context_->storage->FindMappingRow(
+  auto mapping_ids = context_->global_stack_profile_tracker->FindMappingRow(
       context_->storage->InternString(module_symbols.path()), build_id);
   if (mapping_ids.empty()) {
     context_->storage->IncrementStats(stats::stackprofile_invalid_mapping_id);
@@ -675,8 +707,9 @@ void ProtoTraceParser::ParseModuleSymbols(ConstBytes blob) {
     }
     bool frame_found = false;
     for (MappingId mapping_id : mapping_ids) {
-      std::vector<FrameId> frame_ids = context_->storage->FindFrameIds(
-          mapping_id, address_symbols.address());
+      std::vector<FrameId> frame_ids =
+          context_->global_stack_profile_tracker->FindFrameIds(
+              mapping_id, address_symbols.address());
 
       for (const FrameId frame_id : frame_ids) {
         auto* frames = context_->storage->mutable_stack_profile_frame_table();
@@ -690,36 +723,6 @@ void ProtoTraceParser::ParseModuleSymbols(ConstBytes blob) {
       context_->storage->IncrementStats(stats::stackprofile_invalid_frame_id);
       continue;
     }
-
-  }
-}
-
-void ProtoTraceParser::ParseTrigger(int64_t ts, ConstBytes blob) {
-  protos::pbzero::Trigger::Decoder trigger(blob.data, blob.size);
-  StringId cat_id = kNullStringId;
-  TrackId track_id = context_->track_tracker->GetOrCreateTriggerTrack();
-  StringId name_id = context_->storage->InternString(trigger.trigger_name());
-  context_->slice_tracker->Scoped(
-      ts, track_id, cat_id, name_id,
-      /* duration = */ 0,
-      [&trigger, this](ArgsTracker::BoundInserter* args_table) {
-        StringId producer_name_key =
-            context_->storage->InternString("producer_name");
-        args_table->AddArg(producer_name_key,
-                           Variadic::String(context_->storage->InternString(
-                               trigger.producer_name())));
-        StringId trusted_producer_uid_key =
-            context_->storage->InternString("trusted_producer_uid");
-        args_table->AddArg(trusted_producer_uid_key,
-                           Variadic::Integer(trigger.trusted_producer_uid()));
-      });
-}
-
-void ProtoTraceParser::ParseServiceEvent(int64_t ts, ConstBytes blob) {
-  protos::pbzero::TracingServiceEvent::Decoder tse(blob.data, blob.size);
-  if (tse.all_data_sources_started()) {
-    context_->metadata_tracker->SetMetadata(
-        metadata::all_data_source_started_ns, Variadic::Integer(ts));
   }
 }
 
@@ -733,7 +736,18 @@ void ProtoTraceParser::ParseSmapsPacket(int64_t ts, ConstBytes blob) {
         {upid, ts, context_->storage->InternString(e.path()),
          static_cast<int64_t>(e.size_kb()),
          static_cast<int64_t>(e.private_dirty_kb()),
-         static_cast<int64_t>(e.swap_kb())});
+         static_cast<int64_t>(e.swap_kb()),
+         context_->storage->InternString(e.file_name()),
+         static_cast<int64_t>(e.start_address()),
+         static_cast<int64_t>(e.module_timestamp()),
+         context_->storage->InternString(e.module_debugid()),
+         context_->storage->InternString(e.module_debug_path()),
+         static_cast<int32_t>(e.protection_flags()),
+         static_cast<int64_t>(e.private_clean_resident_kb()),
+         static_cast<int64_t>(e.shared_dirty_resident_kb()),
+         static_cast<int64_t>(e.shared_clean_resident_kb()),
+         static_cast<int64_t>(e.locked_kb()),
+         static_cast<int64_t>(e.proportional_resident_kb())});
   }
 }
 

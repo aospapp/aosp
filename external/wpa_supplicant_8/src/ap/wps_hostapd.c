@@ -1376,6 +1376,48 @@ static void hostapd_wps_nfc_clear(struct wps_context *wps)
 }
 
 
+static int hostapd_wps_update_multi_ap(struct hostapd_data *hapd,
+				       struct wps_registrar *reg)
+{
+	struct hostapd_bss_config *conf = hapd->conf;
+	u8 *multi_ap_backhaul_network_key = NULL;
+	size_t multi_ap_backhaul_network_key_len = 0;
+	int ret;
+
+	if (!(conf->multi_ap & FRONTHAUL_BSS) ||
+	    !conf->multi_ap_backhaul_ssid.ssid_len)
+		return 0;
+
+	if (conf->multi_ap_backhaul_ssid.wpa_passphrase) {
+		multi_ap_backhaul_network_key =
+			(u8 *) os_strdup(
+				conf->multi_ap_backhaul_ssid.wpa_passphrase);
+		if (!multi_ap_backhaul_network_key)
+			return -1;
+		multi_ap_backhaul_network_key_len =
+			os_strlen(conf->multi_ap_backhaul_ssid.wpa_passphrase);
+	} else if (conf->multi_ap_backhaul_ssid.wpa_psk) {
+		multi_ap_backhaul_network_key = os_malloc(2 * PMK_LEN + 1);
+		if (!multi_ap_backhaul_network_key)
+			return -1;
+		wpa_snprintf_hex((char *) multi_ap_backhaul_network_key,
+				 2 * PMK_LEN + 1,
+				 conf->multi_ap_backhaul_ssid.wpa_psk->psk,
+				 PMK_LEN);
+		multi_ap_backhaul_network_key_len = 2 * PMK_LEN;
+	}
+
+	ret = wps_registrar_update_multi_ap(
+		reg, conf->multi_ap_backhaul_ssid.ssid,
+		conf->multi_ap_backhaul_ssid.ssid_len,
+		multi_ap_backhaul_network_key,
+		multi_ap_backhaul_network_key_len);
+	os_free(multi_ap_backhaul_network_key);
+
+	return ret;
+}
+
+
 void hostapd_deinit_wps(struct hostapd_data *hapd)
 {
 	eloop_cancel_timeout(hostapd_wps_reenable_ap_pin, hapd, NULL);
@@ -1398,22 +1440,65 @@ void hostapd_deinit_wps(struct hostapd_data *hapd)
 
 void hostapd_update_wps(struct hostapd_data *hapd)
 {
-	if (hapd->wps == NULL)
+	struct wps_context *wps = hapd->wps;
+	struct hostapd_bss_config *conf = hapd->conf;
+
+	if (!wps)
 		return;
 
 #ifdef CONFIG_WPS_UPNP
-	hapd->wps->friendly_name = hapd->conf->friendly_name;
-	hapd->wps->manufacturer_url = hapd->conf->manufacturer_url;
-	hapd->wps->model_description = hapd->conf->model_description;
-	hapd->wps->model_url = hapd->conf->model_url;
-	hapd->wps->upc = hapd->conf->upc;
+	wps->friendly_name = conf->friendly_name;
+	wps->manufacturer_url = conf->manufacturer_url;
+	wps->model_description = conf->model_description;
+	wps->model_url = conf->model_url;
+	wps->upc = conf->upc;
 #endif /* CONFIG_WPS_UPNP */
 
-	hostapd_wps_set_vendor_ext(hapd, hapd->wps);
-	hostapd_wps_set_application_ext(hapd, hapd->wps);
+	os_memcpy(wps->ssid, conf->ssid.ssid, conf->ssid.ssid_len);
+	wps->ssid_len = conf->ssid.ssid_len;
 
-	if (hapd->conf->wps_state)
-		wps_registrar_update_ie(hapd->wps->registrar);
+	/* Clear WPS settings, then fill them again */
+	os_free(wps->network_key);
+	wps->network_key = NULL;
+	wps->network_key_len = 0;
+	wps->psk_set = 0;
+	if (conf->ssid.wpa_psk_file) {
+		/* Use per-device PSKs */
+	} else if (conf->ssid.wpa_passphrase) {
+		wps->network_key = (u8 *) os_strdup(conf->ssid.wpa_passphrase);
+		if (!wps->network_key)
+			return;
+		wps->network_key_len = os_strlen(conf->ssid.wpa_passphrase);
+	} else if (conf->ssid.wpa_psk) {
+		wps->network_key = os_malloc(2 * PMK_LEN + 1);
+		if (!wps->network_key)
+			return;
+		wpa_snprintf_hex((char *) wps->network_key, 2 * PMK_LEN + 1,
+				 conf->ssid.wpa_psk->psk, PMK_LEN);
+		wps->network_key_len = 2 * PMK_LEN;
+#ifdef CONFIG_WEP
+	} else if (conf->ssid.wep.keys_set && conf->ssid.wep.key[0]) {
+		wps->network_key = os_malloc(conf->ssid.wep.len[0]);
+		if (!wps->network_key)
+			return;
+		os_memcpy(wps->network_key, conf->ssid.wep.key[0],
+			  conf->ssid.wep.len[0]);
+		wps->network_key_len = conf->ssid.wep.len[0];
+#endif /* CONFIG_WEP */
+	}
+
+	if (conf->ssid.wpa_psk) {
+		os_memcpy(wps->psk, conf->ssid.wpa_psk->psk, PMK_LEN);
+		wps->psk_set = 1;
+	}
+
+	hostapd_wps_update_multi_ap(hapd, wps->registrar);
+
+	hostapd_wps_set_vendor_ext(hapd, wps);
+	hostapd_wps_set_application_ext(hapd, wps);
+
+	if (conf->wps_state)
+		wps_registrar_update_ie(wps->registrar);
 	else
 		hostapd_deinit_wps(hapd);
 }

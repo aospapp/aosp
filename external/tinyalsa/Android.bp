@@ -1,13 +1,36 @@
+package {
+    default_applicable_licenses: ["external_tinyalsa_license"],
+}
+
+// Added automatically by a large-scale-change
+// http://go/android-license-faq
+license {
+    name: "external_tinyalsa_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library {
     name: "libtinyalsa",
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     vndk: {
         enabled: true,
     },
     srcs: [
         "mixer.c",
+        "mixer_hw.c",
+        "mixer_plugin.c",
         "pcm.c",
+        "pcm_hw.c",
+        "pcm_plugin.c",
+        "snd_utils.c",
     ],
     cflags: ["-Werror", "-Wno-macro-redefined"],
     export_include_dirs: ["include"],
@@ -18,6 +41,8 @@ cc_library {
             enabled: false,
         },
     },
+
+    system_shared_libs: ["libc","libdl"],
 }
 
 cc_binary {

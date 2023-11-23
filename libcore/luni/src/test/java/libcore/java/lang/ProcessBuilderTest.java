@@ -356,7 +356,7 @@ public class ProcessBuilderTest extends TestCase {
     }
 
     /**
-     * Tests that {@link Redirect}'s equals() and hashCode() is sane.
+     * Tests that {@link Redirect}'s equals() and hashCode() is useful.
      */
     public void testRedirect_equals() {
         File fileA = new File("/tmp/fileA");

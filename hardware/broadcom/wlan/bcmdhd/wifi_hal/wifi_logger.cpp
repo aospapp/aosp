@@ -26,6 +26,7 @@
 #include <netpacket/packet.h>
 #include <linux/filter.h>
 #include <linux/errqueue.h>
+#include <errno.h>
 
 #include <linux/pkt_sched.h>
 #include <netlink/object-api.h>
@@ -34,6 +35,7 @@
 #include <netlink-private/object-api.h>
 #include <netlink-private/types.h>
 #include <unistd.h>
+#include <cutils/properties.h>
 
 
 #include "nl80211_copy.h"
@@ -46,6 +48,7 @@
 #include "wifi_hal.h"
 #include "common.h"
 #include "cpp_bindings.h"
+#include <sys/stat.h>
 #include "brcm_version.h"
 #define WIFI_HAL_EVENT_SOCK_PORT     645
 
@@ -72,25 +75,51 @@ typedef enum {
     LOGGER_SET_HAL_PID
 } DEBUG_SUB_COMMAND;
 
+#define MAX_NV_FILE 4
+#define MAX_SKU_NAME_LEN 5
+#define OTA_PATH "/data/vendor/firmware/wifi/"
+#define OTA_CLM_FILE "bcmdhd_clm.blob"
+#define OTA_NVRAM_FILE "bcmdhd.cal"
+#define HW_DEV_PROP "ro.revision"
+#define HW_SKU_PROP "ro.boot.hardware.sku"
+
 typedef enum {
-    LOGGER_ATTRIBUTE_DRIVER_VER,
-    LOGGER_ATTRIBUTE_FW_VER,
-    LOGGER_ATTRIBUTE_RING_ID,
-    LOGGER_ATTRIBUTE_RING_NAME,
-    LOGGER_ATTRIBUTE_RING_FLAGS,
-    LOGGER_ATTRIBUTE_LOG_LEVEL,
-    LOGGER_ATTRIBUTE_LOG_TIME_INTVAL,
-    LOGGER_ATTRIBUTE_LOG_MIN_DATA_SIZE,
-    LOGGER_ATTRIBUTE_FW_DUMP_LEN,
-    LOGGER_ATTRIBUTE_FW_DUMP_DATA,
-    LOGGER_ATTRIBUTE_FW_ERR_CODE,
-    LOGGER_ATTRIBUTE_RING_DATA,
-    LOGGER_ATTRIBUTE_RING_STATUS,
-    LOGGER_ATTRIBUTE_RING_NUM,
-    LOGGER_ATTRIBUTE_DRIVER_DUMP_LEN,
-    LOGGER_ATTRIBUTE_DRIVER_DUMP_DATA,
-    LOGGER_ATTRIBUTE_PKT_FATE_NUM,
-    LOGGER_ATTRIBUTE_PKT_FATE_DATA,
+    NVRAM,
+    CLM_BLOB
+} OTA_TYPE;
+
+char ota_nvram_ext[10];
+typedef struct ota_info_buf {
+    u32 ota_clm_len;
+    const void *ota_clm_buf[1];
+    u32 ota_nvram_len;
+    const void *ota_nvram_buf[1];
+} ota_info_buf_t;
+u32 applied_ota_version = 0;
+
+typedef enum {
+    LOGGER_ATTRIBUTE_INVALID			= 0,
+    LOGGER_ATTRIBUTE_DRIVER_VER			= 1,
+    LOGGER_ATTRIBUTE_FW_VER			= 2,
+    LOGGER_ATTRIBUTE_RING_ID			= 3,
+    LOGGER_ATTRIBUTE_RING_NAME			= 4,
+    LOGGER_ATTRIBUTE_RING_FLAGS			= 5,
+    LOGGER_ATTRIBUTE_LOG_LEVEL			= 6,
+    LOGGER_ATTRIBUTE_LOG_TIME_INTVAL		= 7,
+    LOGGER_ATTRIBUTE_LOG_MIN_DATA_SIZE		= 8,
+    LOGGER_ATTRIBUTE_FW_DUMP_LEN		= 9,
+    LOGGER_ATTRIBUTE_FW_DUMP_DATA		= 10,
+    LOGGER_ATTRIBUTE_FW_ERR_CODE		= 11,
+    LOGGER_ATTRIBUTE_RING_DATA			= 12,
+    LOGGER_ATTRIBUTE_RING_STATUS		= 13,
+    LOGGER_ATTRIBUTE_RING_NUM			= 14,
+    LOGGER_ATTRIBUTE_DRIVER_DUMP_LEN		= 15,
+    LOGGER_ATTRIBUTE_DRIVER_DUMP_DATA		= 16,
+    LOGGER_ATTRIBUTE_PKT_FATE_NUM		= 17,
+    LOGGER_ATTRIBUTE_PKT_FATE_DATA		= 18,
+    LOGGER_ATTRIBUTE_HANG_REASON		= 19,
+    /* Add new attributes just above this */
+    LOGGER_ATTRIBUTE_MAX
 } LOGGER_ATTRIBUTE;
 
 typedef enum {
@@ -117,9 +146,10 @@ typedef enum {
 } PktFateReqType;
 
 enum wake_stat_attributes {
-    WAKE_STAT_ATTRIBUTE_TOTAL_CMD_EVENT,
-    WAKE_STAT_ATTRIBUTE_CMD_EVENT_WAKE,
-    WAKE_STAT_ATTRIBUTE_CMD_EVENT_COUNT,
+    WAKE_STAT_ATTRIBUTE_INVALID,
+    WAKE_STAT_ATTRIBUTE_TOTAL,
+    WAKE_STAT_ATTRIBUTE_WAKE,
+    WAKE_STAT_ATTRIBUTE_COUNT,
     WAKE_STAT_ATTRIBUTE_CMD_COUNT_USED,
     WAKE_STAT_ATTRIBUTE_TOTAL_DRIVER_FW,
     WAKE_STAT_ATTRIBUTE_DRIVER_FW_WAKE,
@@ -136,8 +166,9 @@ enum wake_stat_attributes {
     WAKE_STAT_ATTRIBUTE_RX_ICMP6_NS,
     WAKE_STAT_ATTRIBUTE_IPV4_RX_MULTICAST_ADD_CNT,
     WAKE_STAT_ATTRIBUTE_IPV6_RX_MULTICAST_ADD_CNT,
-    WAKE_STAT_ATTRIBUTE_OTHER__RX_MULTICAST_ADD_CNT,
-    WAKE_STAT_ATTRIBUTE_RX_MULTICAST_PKT_INFO
+    WAKE_STAT_ATTRIBUTE_OTHER_RX_MULTICAST_ADD_CNT,
+    WAKE_STAT_ATTRIBUTE_RX_MULTICAST_PKT_INFO,
+    WAKE_STAT_ATTRIBUTE_MAX
 };
 
 typedef enum {
@@ -146,8 +177,18 @@ typedef enum {
     SET_HAL_START_ATTRIBUTE_EVENT_SOCK_PID = 0x0003
 } SET_HAL_START_ATTRIBUTE;
 
-#define HAL_START_REQUEST_ID 2
+typedef enum {
+    OTA_DOWNLOAD_CLM_LENGTH_ATTR    = 0x0001,
+    OTA_DOWNLOAD_CLM_ATTR           = 0x0002,
+    OTA_DOWNLOAD_NVRAM_LENGTH_ATTR  = 0x0003,
+    OTA_DOWNLOAD_NVRAM_ATTR         = 0x0004,
+    OTA_SET_FORCE_REG_ON            = 0x0005,
+    OTA_CUR_NVRAM_EXT_ATTR          = 0x0006,
+} OTA_DOWNLOAD_ATTRIBUTE;
 
+#define HAL_START_REQUEST_ID 2
+#define HAL_RESTART_ID 3
+#define FILE_NAME_LEN 256
 ///////////////////////////////////////////////////////////////////////////////
 class DebugCommand : public WifiCommand
 {
@@ -465,7 +506,7 @@ public:
                 void *data = reply.get_vendor_data();
                 int len = reply.get_vendor_data_len();
 
-                ALOGD("len = %d, expected len = %d", len, sizeof(unsigned int));
+                ALOGD("len = %d, expected len = %lu", len, sizeof(unsigned int));
                 memcpy(mSupport, data, sizeof(unsigned int));
                 break;
             }
@@ -624,6 +665,7 @@ public:
 
         /* unregister event handler */
         unregisterVendorHandler(GOOGLE_OUI, GOOGLE_DEBUG_RING_EVENT);
+        wifi_unregister_cmd(wifiHandle(), id());
 
         WifiRequest request(familyId(), ifaceId());
         int result = request.create(GOOGLE_OUI, LOGGER_RESET_LOGGING);
@@ -729,7 +771,7 @@ wifi_error wifi_reset_log_handler(wifi_request_id id, wifi_interface_handle ifac
         return WIFI_SUCCESS;
     }
 
-    return wifi_cancel_cmd(id, iface);
+    return wifi_get_cancel_cmd(id, iface);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -795,7 +837,6 @@ public:
     }
 
     virtual int handleEvent(WifiEvent& event) {
-        wifi_ring_buffer_id ring_id;
         char *buffer = NULL;
         int buffer_size = 0;
         bool is_err_alert = false;
@@ -827,7 +868,7 @@ public:
                 }
             }
 
-            if(is_err_alert) {
+            if (is_err_alert) {
                 mBuffSize = sizeof(mErrCode);
                 if (mBuff) free(mBuff);
                 mBuff = (char *)malloc(mBuffSize);
@@ -896,6 +937,114 @@ public:
     }
 };
 
+class SetRestartHandler : public WifiCommand
+{
+    wifi_subsystem_restart_handler mHandler;
+    char *mBuff;
+public:
+    SetRestartHandler(wifi_handle handle, wifi_request_id id, wifi_subsystem_restart_handler handler)
+        : WifiCommand("SetRestartHandler", handle, id), mHandler(handler), mBuff(NULL)
+    { }
+    int start() {
+        ALOGI("Start Restart Handler handler:%p", mHandler);
+        registerVendorHandler(BRCM_OUI, BRCM_VENDOR_EVENT_HANGED);
+        return WIFI_SUCCESS;
+    }
+    virtual int cancel() {
+        ALOGI("Clear Restart Handler");
+
+        /* unregister alert handler */
+        unregisterVendorHandler(BRCM_OUI, BRCM_VENDOR_EVENT_HANGED);
+        wifi_unregister_cmd(wifiHandle(), id());
+        ALOGI("Success to clear restarthandler");
+        return WIFI_SUCCESS;
+    }
+
+    virtual int handleResponse(WifiEvent& reply) {
+        /* Nothing to do on response! */
+        return NL_OK;
+    }
+
+    virtual int handleEvent(WifiEvent& event) {
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = event.get_vendor_data_len();
+        int event_id = event.get_vendor_subcmd();
+        ALOGI("Got event: %d", event_id);
+
+        if (vendor_data == NULL || len == 0) {
+            ALOGE("No Debug data found");
+            return NL_SKIP;
+        }
+        if (event_id == BRCM_VENDOR_EVENT_HANGED) {
+            for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
+                if (it.get_type() == LOGGER_ATTRIBUTE_HANG_REASON) {
+                    mBuff = (char *)it.get_data();
+                } else {
+                    ALOGI("Ignoring invalid attribute type = %d, size = %d",
+                            it.get_type(), it.get_len());
+                }
+            }
+
+            if (*mHandler.on_subsystem_restart) {
+                (*mHandler.on_subsystem_restart)(mBuff);
+                ALOGI("Hang event received. Trigger SSR handler:%p",
+                    mHandler.on_subsystem_restart);
+            } else {
+                ALOGI("No Restart handler registered");
+            }
+        }
+        return NL_OK;
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+class SubSystemRestart : public WifiCommand
+{
+    public:
+    SubSystemRestart(wifi_interface_handle iface)
+        : WifiCommand("SubSystemRestart", iface, 0)
+    { }
+
+    int createRequest(WifiRequest& request) {
+        int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_TRIGGER_SSR);
+        if (result < 0) {
+            return result;
+        }
+
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+
+        request.attr_end(data);
+        return WIFI_SUCCESS;
+    }
+
+    int create() {
+        WifiRequest request(familyId(), ifaceId());
+
+        int result = createRequest(request);
+        if (result < 0) {
+            ALOGE("Failed to create ssr request result = %d\n", result);
+            return result;
+        }
+
+        result = requestResponse(request);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("Failed to register ssr response; result = %d\n", result);
+        }
+        return result;
+    }
+
+    protected:
+    int handleResponse(WifiEvent& reply) {
+        /* Nothing to do on response! */
+        return NL_OK;
+    }
+
+    int handleEvent(WifiEvent& event) {
+        /* NO events to handle here! */
+        return NL_SKIP;
+    }
+
+};
 ///////////////////////////////////////////////////////////////////////////////
 class HalInit : public WifiCommand
 {
@@ -939,6 +1088,7 @@ class HalInit : public WifiCommand
             ALOGE("Failed to register set hal start response; result = %d", result);
         }
         wifi_unregister_cmd(wifiHandle(), id());
+	ALOGV("Stop HAL Successfully Completed, mErrCode = %d\n", mErrCode);
         return result;
     }
 
@@ -1028,13 +1178,90 @@ wifi_error wifi_hal_preInit(wifi_interface_handle iface)
 
 wifi_error wifi_stop_hal(wifi_interface_handle iface)
 {
-    wifi_handle handle = getWifiHandle(iface);
-
     HalInit *cmd = new HalInit(iface, HAL_START_REQUEST_ID);
     NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
     cmd->cancel();
     cmd->releaseRef();
     return WIFI_SUCCESS;
+}
+
+
+wifi_error wifi_set_subsystem_restart_handler(wifi_handle handle,
+                                              wifi_subsystem_restart_handler handler)
+{
+    hal_info *info = NULL;
+
+    info = (hal_info *)handle;
+    if (info == NULL) {
+        ALOGE("Could not find hal info\n");
+        return WIFI_ERROR_UNKNOWN;
+    }
+
+    SetRestartHandler *cmd = new SetRestartHandler(handle, HAL_RESTART_ID, handler);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+    wifi_error result = wifi_register_cmd(handle, HAL_RESTART_ID, cmd);
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
+        return result;
+    }
+
+    result = (wifi_error)cmd->start();
+    if (result != WIFI_SUCCESS) {
+        wifi_unregister_cmd(handle, HAL_RESTART_ID);
+        cmd->releaseRef();
+        return result;
+    }
+
+    /* Cache the handler to use it for trigger subsystem restart */
+    ALOGI("Register SSR handler:%p", handler);
+    info->restart_handler = handler;
+    return result;
+}
+
+wifi_error wifi_trigger_subsystem_restart(wifi_handle handle)
+{
+    wifi_error result = WIFI_SUCCESS;
+    hal_info *info = NULL;
+    char error_str[20];
+    SubSystemRestart *cmd = NULL;
+    wifi_interface_handle *ifaceHandles = NULL;
+    wifi_interface_handle wlan0Handle;
+    int numIfaceHandles = 0;
+
+    info = (hal_info *)handle;
+    if (handle == NULL || info == NULL) {
+        ALOGE("Could not find hal info\n");
+        result = WIFI_ERROR_UNKNOWN;
+        goto exit;
+    }
+
+    ALOGI("Trigger subsystem restart\n");
+
+    wlan0Handle = wifi_get_wlan_interface((wifi_handle)handle, ifaceHandles, numIfaceHandles);
+
+    cmd = new SubSystemRestart(wlan0Handle);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+
+    result = (wifi_error)cmd->create();
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
+        strncpy(error_str, "WIFI_ERROR_UNKNOWN", sizeof(error_str));
+        ALOGE("Failed to create SSR");
+        goto exit;
+    }
+
+    strncpy(error_str, "WIFI_SUCCESS", sizeof(error_str));
+
+exit:
+    if (info->restart_handler.on_subsystem_restart) {
+        ALOGI("Trigger ssr handler registered handler:%p",
+            info->restart_handler.on_subsystem_restart);
+        (info->restart_handler.on_subsystem_restart)(error_str);
+    } else {
+        ALOGI("No trigger ssr handler registered");
+    }
+
+    return result;
 }
 
 wifi_error wifi_set_alert_handler(wifi_request_id id, wifi_interface_handle iface,
@@ -1075,7 +1302,7 @@ wifi_error wifi_reset_alert_handler(wifi_request_id id, wifi_interface_handle if
         return WIFI_SUCCESS;
     }
 
-    return wifi_cancel_cmd(id, iface);
+    return wifi_get_cancel_cmd(id, iface);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1345,7 +1572,7 @@ public:
         for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
             if (it.get_type() == LOGGER_ATTRIBUTE_PKT_FATE_NUM) {
                 *mNoProvidedFates = it.get_u32();
-                ALOGI("No: of pkt fates provided is %d\n", *mNoProvidedFates);
+                ALOGI("No: of pkt fates provided is %zu\n", *mNoProvidedFates);
             } else {
                 ALOGE("Ignoring invalid attribute type = %d, size = %d\n",
                         it.get_type(), it.get_len());
@@ -1429,7 +1656,7 @@ class GetWakeReasonCountCommand : public WifiCommand {
                     mWakeReasonCnt->total_driver_fw_local_wake =
                         it.get_u32();
                     break;
-                case WAKE_STAT_ATTRIBUTE_TOTAL_CMD_EVENT:
+                case WAKE_STAT_ATTRIBUTE_TOTAL:
                     mWakeReasonCnt->total_cmd_event_wake =
                         it.get_u32();
                     break;
@@ -1437,7 +1664,7 @@ class GetWakeReasonCountCommand : public WifiCommand {
                     mWakeReasonCnt->cmd_event_wake_cnt_used =
                         it.get_u32();
                     break;
-                case WAKE_STAT_ATTRIBUTE_CMD_EVENT_WAKE:
+                case WAKE_STAT_ATTRIBUTE_WAKE:
                     memcpy(mCmdEventWakeCount, it.get_data(),
                             (mWakeReasonCnt->cmd_event_wake_cnt_used * sizeof(int)));
                     break;
@@ -1485,7 +1712,7 @@ class GetWakeReasonCountCommand : public WifiCommand {
                     mWakeReasonCnt->rx_multicast_wake_pkt_info.ipv6_rx_multicast_addr_cnt =
                         it.get_u32();
                     break;
-                case WAKE_STAT_ATTRIBUTE_OTHER__RX_MULTICAST_ADD_CNT:
+                case WAKE_STAT_ATTRIBUTE_OTHER_RX_MULTICAST_ADD_CNT:
                     mWakeReasonCnt->rx_multicast_wake_pkt_info.other_rx_multicast_addr_cnt =
                         it.get_u32();
                     break;
@@ -1538,5 +1765,263 @@ wifi_error wifi_get_wake_reason_stats(wifi_interface_handle handle,
         new GetWakeReasonCountCommand(handle, wifi_wake_reason_cnt);
     wifi_error result = (wifi_error)cmd->start();
     cmd->releaseRef();
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+class OtaUpdateCommand : public WifiCommand
+{
+    int mErrCode;
+
+    public:
+    OtaUpdateCommand(wifi_interface_handle iface)
+        : WifiCommand("OtaUpdateCommand", iface, 0), mErrCode(0)
+    { }
+
+    int start() {
+        ALOGE("Start OtaUpdateCommand");
+        WifiRequest request(familyId(), ifaceId());
+
+        int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_GET_OTA_CURRUNT_INFO);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("Failed to set hal start; result = %d", result);
+            return result;
+        }
+
+        result = requestResponse(request);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("Failed to register set hal start response; result = %d", result);
+        }
+        return result;
+    }
+
+    int otaDownload(ota_info_buf_t* buf, uint32_t ota_version) {
+        u32 force_reg_on = false;
+        WifiRequest request(familyId(), ifaceId());
+        int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_OTA_UPDATE);
+
+        ALOGE("Download the OTA configuration");
+        if (result != WIFI_SUCCESS) {
+            ALOGE("Failed to set Hal preInit; result = %d", result);
+            return result;
+        }
+
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+
+        result = request.put_u32(OTA_DOWNLOAD_CLM_LENGTH_ATTR, buf->ota_clm_len);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("otaDownload Failed to put data= %d", result);
+            return result;
+        }
+
+        result = request.put(OTA_DOWNLOAD_CLM_ATTR, buf->ota_clm_buf, sizeof(*buf->ota_clm_buf));
+        if (result != WIFI_SUCCESS) {
+            ALOGE("otaDownload Failed to put data= %d", result);
+            return result;
+        }
+
+        result = request.put_u32(OTA_DOWNLOAD_NVRAM_LENGTH_ATTR, buf->ota_nvram_len);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("otaDownload Failed to put data= %d", result);
+            return result;
+        }
+
+        result = request.put(OTA_DOWNLOAD_NVRAM_ATTR,
+                buf->ota_nvram_buf, sizeof(*buf->ota_nvram_buf));
+        if (result != WIFI_SUCCESS) {
+            ALOGE("otaDownload Failed to put data= %d", result);
+            return result;
+        }
+
+        if (applied_ota_version != ota_version) {
+            force_reg_on = true;
+            applied_ota_version = ota_version;
+        }
+        result = request.put_u32(OTA_SET_FORCE_REG_ON, force_reg_on);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("otaDownload Failed to put data= %d", result);
+            return result;
+        }
+
+        request.attr_end(data);
+
+        result = requestResponse(request);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("Failed to register set otaDownload; result = %d", result);
+        }
+
+        return result;
+    }
+
+    virtual int handleResponse(WifiEvent& reply) {
+        ALOGD("In OtaUpdateCommand::handleResponse");
+
+        if (reply.get_cmd() != NL80211_CMD_VENDOR) {
+            ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
+            return NL_SKIP;
+        }
+
+        int id = reply.get_vendor_id();
+        int subcmd = reply.get_vendor_subcmd();
+        nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = reply.get_vendor_data_len();
+
+        ALOGI("Id = %0x, subcmd = %d, len = %d", id, subcmd, len);
+
+        if (vendor_data == NULL || len == 0) {
+            ALOGE("no vendor data in GetPktFateCommand response; ignoring it\n");
+            return NL_SKIP;
+        }
+
+        for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
+            switch (it.get_type()) {
+                case OTA_CUR_NVRAM_EXT_ATTR:
+                    strncpy(ota_nvram_ext, (char*)it.get_string(), it.get_len());
+                    ALOGI("Current Nvram ext [%s]\n", ota_nvram_ext);
+                    break;
+                default:
+                    ALOGE("Ignoring invalid attribute type = %d, size = %d\n",
+                            it.get_type(), it.get_len());
+                    break;
+            }
+        }
+        return NL_OK;
+    }
+
+    virtual int handleEvent(WifiEvent& event) {
+        /* NO events! */
+        return NL_SKIP;
+    }
+};
+
+wifi_error read_ota_file(char* file, char** buffer, uint32_t* size)
+{
+    FILE* fp = NULL;
+    int file_size, count;
+    char* buf;
+    fp = fopen(file, "r");
+
+    if (fp == NULL) {
+        ALOGI("File [%s] doesn't exist.", file);
+        return WIFI_ERROR_NOT_AVAILABLE;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    file_size = ftell(fp);
+
+    buf = (char *)malloc(file_size + 1);
+    if (buf == NULL) {
+        fclose(fp);
+        return WIFI_ERROR_UNKNOWN;
+    }
+    memset(buf, 0, file_size + 1);
+    fseek(fp, 0, SEEK_SET);
+    count = fread(buf, file_size, 1, fp);
+
+    *buffer = (char*) buf;
+    *size = file_size;
+    fclose(fp);
+    return WIFI_SUCCESS;
+}
+
+wifi_error check_multiple_nvram_clm(uint32_t type, char* hw_revision, char* hw_sku,
+        char** buffer, uint32_t* buffer_len)
+{
+    char file_name[MAX_NV_FILE][FILE_NAME_LEN];
+    char nvram_clmblob_default_file[FILE_NAME_LEN] = {0,};
+    wifi_error result = WIFI_SUCCESS;
+
+    if (type == CLM_BLOB) {
+        sprintf(nvram_clmblob_default_file, "%s%s", OTA_PATH, OTA_CLM_FILE);
+    }
+    else if (type == NVRAM) {
+        sprintf(nvram_clmblob_default_file, "%s%s", OTA_PATH, OTA_NVRAM_FILE);
+    }
+    for (unsigned int i = 0; i < MAX_NV_FILE; i++) {
+        memset(file_name[i], 0, FILE_NAME_LEN);
+    }
+
+    sprintf(file_name[0], "%s_%s_%s", nvram_clmblob_default_file, hw_revision, hw_sku);
+    sprintf(file_name[1], "%s_%s", nvram_clmblob_default_file, hw_revision);
+    sprintf(file_name[2], "%s_%s", nvram_clmblob_default_file, hw_sku);
+    sprintf(file_name[3], "%s", nvram_clmblob_default_file);
+
+    for (unsigned int i = 0; i < MAX_NV_FILE; i++) {
+        result = read_ota_file(file_name[i], buffer, buffer_len);
+        if (result == WIFI_SUCCESS) {
+            ALOGI("[OTA] %s PATH %s", type == NVRAM ? "NVRAM" : "CLM", file_name[i]);
+            break;
+        }
+    }
+    return result;
+}
+
+wifi_error wifi_hal_ota_update(wifi_interface_handle iface, uint32_t ota_version)
+{
+    wifi_handle handle = getWifiHandle(iface);
+    wifi_error result = WIFI_SUCCESS;
+    ota_info_buf_t buf;
+    char *buffer_nvram = NULL;
+    char *buffer_clm = NULL;
+    char prop_revision_buf[PROPERTY_VALUE_MAX] = {0,};
+    char prop_sku_buf[PROPERTY_VALUE_MAX] = {0,};
+    char sku_name[MAX_SKU_NAME_LEN] = {0,};
+
+    OtaUpdateCommand *cmd = new OtaUpdateCommand(iface);
+    NULL_CHECK_RETURN(cmd, "memory allocation failure", WIFI_ERROR_OUT_OF_MEMORY);
+
+    ALOGD("wifi_hal_ota_update, handle = %p, ota_version %d\n", handle, ota_version);
+
+    result = (wifi_error)cmd->start();
+    if (result != WIFI_SUCCESS) {
+        cmd->releaseRef();
+        return result;
+    }
+
+    property_get(HW_DEV_PROP, prop_revision_buf, NULL);
+    property_get(HW_SKU_PROP, prop_sku_buf, NULL);
+
+    if (strcmp(prop_sku_buf, "G9S9B") == 0 ||
+        strcmp(prop_sku_buf, "G8V0U") == 0 ||
+        strcmp(prop_sku_buf, "GFQM1") == 0) {
+        strncpy(sku_name, "MMW", MAX_SKU_NAME_LEN);
+    } else if (strcmp(prop_sku_buf, "GR1YH") == 0 ||
+               strcmp(prop_sku_buf, "GF5KQ") == 0 ||
+               strcmp(prop_sku_buf, "GPQ72") == 0) {
+        strncpy(sku_name, "JPN", MAX_SKU_NAME_LEN);
+    } else if (strcmp(prop_sku_buf, "GB7N6") == 0 ||
+               strcmp(prop_sku_buf, "GLU0G") == 0 ||
+               strcmp(prop_sku_buf, "GNA8F") == 0) {
+        strncpy(sku_name, "ROW", MAX_SKU_NAME_LEN);
+    } else {
+        strncpy(sku_name, "NA", MAX_SKU_NAME_LEN);
+    }
+
+    check_multiple_nvram_clm(CLM_BLOB, prop_revision_buf, sku_name, &buffer_clm, &buf.ota_clm_len);
+    if (buffer_clm == NULL) {
+        ALOGE("buffer_clm is null");
+        goto exit;
+    }
+    buf.ota_clm_buf[0] = buffer_clm;
+
+    check_multiple_nvram_clm(NVRAM, prop_revision_buf, sku_name,
+            &buffer_nvram, &buf.ota_nvram_len);
+    if (buffer_nvram == NULL) {
+        ALOGE("buffer_nvram is null");
+        goto exit;
+    }
+    buf.ota_nvram_buf[0] = buffer_nvram;
+    cmd->otaDownload(&buf, ota_version);
+
+exit:
+    if (buffer_clm != NULL) {
+        free(buffer_clm);
+    }
+    if (buffer_nvram != NULL) {
+        free(buffer_nvram);
+    }
+
+    cmd->releaseRef();
+
     return result;
 }

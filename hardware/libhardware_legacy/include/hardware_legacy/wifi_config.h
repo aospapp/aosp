@@ -12,8 +12,6 @@ extern "C"
 #define CONFIG_MINOR_VERSION      0
 #define CONFIG_MICRO_VERSION      0
 
-typedef int wifi_radio;
-
 // whether the wifi chipset wakes at every dtim beacon or a multiple of the dtim period
 // if extended_dtim is set to 3, the STA shall wake up every 3 DTIM beacons
 wifi_error wifi_extended_dtim_config_set(wifi_request_id id,

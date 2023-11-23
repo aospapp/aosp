@@ -21,9 +21,11 @@ import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT;
 import static android.server.wm.app.Components.TEST_ACTIVITY;
+import static android.server.wm.second.Components.IMPLICIT_TARGET_SECOND_TEST_ACTION;
 
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -38,8 +40,14 @@ import android.util.Log;
 public class ActivityLauncher {
     public static final String TAG = ActivityLauncher.class.getSimpleName();
 
+    /** Key for string extra, indicates the action to apply. */
+    public static final String KEY_ACTION = "intent_action";
     /** Key for boolean extra, indicates whether it should launch an activity. */
     public static final String KEY_LAUNCH_ACTIVITY = "launch_activity";
+    /** Key for boolean extra, indicates whether it should launch implicitly. */
+    public static final String KEY_LAUNCH_IMPLICIT = "launch_implicit";
+    /** Key for boolean extra, indicates whether it should launch fromm pending intent. */
+    public static final String KEY_LAUNCH_PENDING = "launch_pending";
     /**
      * Key for boolean extra, indicates whether it the activity should be launched to side in
      * split-screen.
@@ -103,6 +111,12 @@ public class ActivityLauncher {
      */
     private static final String KEY_CAUGHT_SECURITY_EXCEPTION = "caught_security_exception";
     /**
+     * Key for boolean extra, indicates a pending intent canceled exception is caught when
+     * launching activity by {@link #launchActivityFromExtras}.
+     */
+    private static final String KEY_CAUGHT_PENDING_INTENT_CANCELED_EXCEPTION =
+            "caught_pending_intent_exception";
+    /**
      * Key for int extra with target activity type where activity should be launched as.
      */
     public static final String KEY_ACTIVITY_TYPE = "activity_type";
@@ -133,35 +147,52 @@ public class ActivityLauncher {
         launchActivityFromExtras(context, extras, null /* launchInjector */);
     }
 
+    /**
+     * A convenience method to default to false if the extras are null.
+     *
+     * @param extras {@link Bundle} extras used to launch activity
+     * @param key key to look up in extras
+     * @return the value for the given key in the extra or false if extras is null
+     */
+    private static boolean getBoolean(Bundle extras, String key) {
+        return extras != null && extras.getBoolean(key);
+    }
+
     public static void launchActivityFromExtras(final Context context, Bundle extras,
             LaunchInjector launchInjector) {
-        if (extras == null || !extras.getBoolean(KEY_LAUNCH_ACTIVITY)) {
+        if (!getBoolean(extras, KEY_LAUNCH_ACTIVITY)) {
             return;
         }
-
         Log.i(TAG, "launchActivityFromExtras: extras=" + extras);
 
-        final String targetComponent = extras.getString(KEY_TARGET_COMPONENT);
-        final Intent newIntent = new Intent().setComponent(TextUtils.isEmpty(targetComponent)
-                ? TEST_ACTIVITY : ComponentName.unflattenFromString(targetComponent));
+        final Intent newIntent = new Intent();
 
-        if (extras.getBoolean(KEY_LAUNCH_TO_SIDE)) {
+        if (getBoolean(extras, KEY_LAUNCH_IMPLICIT)) {
+            newIntent.setAction(extras.getString(KEY_ACTION, IMPLICIT_TARGET_SECOND_TEST_ACTION));
+        } else {
+            final String targetComponent = extras.getString(KEY_TARGET_COMPONENT);
+            final ComponentName componentName = TextUtils.isEmpty(targetComponent)
+                    ? TEST_ACTIVITY : ComponentName.unflattenFromString(targetComponent);
+            newIntent.setComponent(componentName);
+        }
+
+        if (getBoolean(extras, KEY_LAUNCH_TO_SIDE)) {
             newIntent.addFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_LAUNCH_ADJACENT);
-            if (extras.getBoolean(KEY_RANDOM_DATA)) {
+            if (getBoolean(extras, KEY_RANDOM_DATA)) {
                 final Uri data = new Uri.Builder()
                         .path(String.valueOf(System.currentTimeMillis()))
                         .build();
                 newIntent.setData(data);
             }
         }
-        if (extras.getBoolean(KEY_MULTIPLE_TASK)) {
+        if (getBoolean(extras, KEY_MULTIPLE_TASK)) {
             newIntent.addFlags(FLAG_ACTIVITY_MULTIPLE_TASK);
         }
-        if (extras.getBoolean(KEY_NEW_TASK)) {
+        if (getBoolean(extras, KEY_NEW_TASK)) {
             newIntent.addFlags(FLAG_ACTIVITY_NEW_TASK);
         }
 
-        if (extras.getBoolean(KEY_REORDER_TO_FRONT)) {
+        if (getBoolean(extras, KEY_REORDER_TO_FRONT)) {
             newIntent.addFlags(FLAG_ACTIVITY_REORDER_TO_FRONT);
         }
 
@@ -205,13 +236,21 @@ public class ActivityLauncher {
         }
         final Bundle optionsBundle = options != null ? options.toBundle() : null;
 
-        final Context launchContext = extras.getBoolean(KEY_USE_APPLICATION_CONTEXT) ?
+        final Context launchContext = getBoolean(extras, KEY_USE_APPLICATION_CONTEXT) ?
                 context.getApplicationContext() : context;
 
         try {
-            launchContext.startActivity(newIntent, optionsBundle);
+            if (getBoolean(extras, KEY_LAUNCH_PENDING)) {
+                PendingIntent pendingIntent = PendingIntent.getActivity(launchContext,
+                        0, newIntent, PendingIntent.FLAG_IMMUTABLE);
+                pendingIntent.send();
+            } else {
+                launchContext.startActivity(newIntent, optionsBundle);
+            }
         } catch (SecurityException e) {
             handleSecurityException(context, e);
+        } catch (PendingIntent.CanceledException e) {
+            handlePendingIntentCanceled(context, e);
         } catch (Exception e) {
             if (extras.getBoolean(KEY_SUPPRESS_EXCEPTIONS)) {
                 Log.e(TAG, "Exception launching activity");
@@ -237,6 +276,13 @@ public class ActivityLauncher {
         Log.e(TAG, "SecurityException launching activity: " + e);
         TestJournalProvider.putExtras(context, TAG, bundle -> {
             bundle.putBoolean(KEY_CAUGHT_SECURITY_EXCEPTION, true);
+        });
+    }
+
+    public static void handlePendingIntentCanceled(Context context, Exception e) {
+        Log.e(TAG, "PendingIntent.CanceledException launching activity: " + e);
+        TestJournalProvider.putExtras(context, TAG, bundle -> {
+            bundle.putBoolean(KEY_CAUGHT_PENDING_INTENT_CANCELED_EXCEPTION, true);
         });
     }
 

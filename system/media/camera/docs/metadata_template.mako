@@ -156,11 +156,8 @@
                     % if value.optional:
                              optional="true"
                     % endif:
-                    % if value.hidden:
-                             hidden="true"
-                    % endif:
-                    % if value.ndk_hidden:
-                             ndk_hidden="true"
+                    % if value.visibility is not None:
+                             visibility="${value.visibility}"
                     % endif:
                     % if value.id is not None:
                              id="${value.id}"

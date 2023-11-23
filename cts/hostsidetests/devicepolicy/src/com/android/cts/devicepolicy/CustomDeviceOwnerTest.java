@@ -46,80 +46,70 @@ public class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
 
     @Override
     public void tearDown() throws Exception {
-        if (mHasFeature) {
-            getDevice().uninstallPackage(DEVICE_OWNER_PKG);
-            getDevice().uninstallPackage(ACCOUNT_MANAGEMENT_PKG);
-        }
+        getDevice().uninstallPackage(DEVICE_OWNER_PKG);
+        getDevice().uninstallPackage(ACCOUNT_MANAGEMENT_PKG);
 
         super.tearDown();
     }
 
     @Test
     public void testOwnerChangedBroadcast() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        installAppAsUser(DEVICE_OWNER_APK, mPrimaryUserId);
+        installAppAsUser(DEVICE_OWNER_APK, mDeviceOwnerUserId);
         try {
-            installAppAsUser(INTENT_RECEIVER_APK, mPrimaryUserId);
+            installAppAsUser(INTENT_RECEIVER_APK, mDeviceOwnerUserId);
 
             String testClass = INTENT_RECEIVER_PKG + ".OwnerChangedBroadcastTest";
 
             // Running this test also gets the intent receiver app out of the stopped state, so it
             // can receive broadcast intents.
             runDeviceTestsAsUser(INTENT_RECEIVER_PKG, testClass,
-                    "testOwnerChangedBroadcastNotReceived", mPrimaryUserId);
+                    "testOwnerChangedBroadcastNotReceived", mDeviceOwnerUserId);
 
             // Setting the device owner should send the owner changed broadcast.
-            assertTrue(setDeviceOwner(DEVICE_OWNER_ADMIN_COMPONENT, mPrimaryUserId,
+            assertTrue(setDeviceOwner(DEVICE_OWNER_ADMIN_COMPONENT, mDeviceOwnerUserId,
                     /*expectFailure*/ false));
 
             // Wait broadcast idle to ensure the owner changed broadcast has been sent.
             waitForBroadcastIdle();
 
             runDeviceTestsAsUser(INTENT_RECEIVER_PKG, testClass,
-                    "testOwnerChangedBroadcastReceived", mPrimaryUserId);
+                    "testOwnerChangedBroadcastReceived", mDeviceOwnerUserId);
         } finally {
             getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
             assertTrue("Failed to remove device owner.",
-                    removeAdmin(DEVICE_OWNER_ADMIN_COMPONENT, mPrimaryUserId));
+                    removeAdmin(DEVICE_OWNER_ADMIN_COMPONENT, mDeviceOwnerUserId));
         }
     }
 
     @Test
     public void testCannotSetDeviceOwnerWhenSecondaryUserPresent() throws Exception {
-        if (!mHasFeature || getMaxNumberOfUsersSupported() < 2) {
-            return;
-        }
+        assumeSupportsMultiUser();
         int userId = -1;
-        installAppAsUser(DEVICE_OWNER_APK, mPrimaryUserId);
+        installAppAsUser(DEVICE_OWNER_APK, mDeviceOwnerUserId);
         try {
             userId = createUser();
-            assertFalse(setDeviceOwner(DEVICE_OWNER_ADMIN_COMPONENT, mPrimaryUserId,
+            assertFalse(setDeviceOwner(DEVICE_OWNER_ADMIN_COMPONENT, mDeviceOwnerUserId,
                     /*expectFailure*/ true));
         } finally {
             removeUser(userId);
             // make sure we clean up in case we succeeded in setting the device owner
-            removeAdmin(DEVICE_OWNER_ADMIN_COMPONENT, mPrimaryUserId);
+            removeAdmin(DEVICE_OWNER_ADMIN_COMPONENT, mDeviceOwnerUserId);
         }
     }
 
     @FlakyTest
     @Test
     public void testCannotSetDeviceOwnerWhenAccountPresent() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         installAppAsUser(ACCOUNT_MANAGEMENT_APK, mPrimaryUserId);
-        installAppAsUser(DEVICE_OWNER_APK, mPrimaryUserId);
+        installAppAsUser(DEVICE_OWNER_APK, mDeviceOwnerUserId);
         try {
             runDeviceTestsAsUser(ACCOUNT_MANAGEMENT_PKG, ".AccountUtilsTest",
                     "testAddAccountExplicitly", mPrimaryUserId);
-            assertFalse(setDeviceOwner(DEVICE_OWNER_ADMIN_COMPONENT, mPrimaryUserId,
+            assertFalse(setDeviceOwner(DEVICE_OWNER_ADMIN_COMPONENT, mDeviceOwnerUserId,
                     /*expectFailure*/ true));
         } finally {
             // make sure we clean up in case we succeeded in setting the device owner
-            removeAdmin(DEVICE_OWNER_ADMIN_COMPONENT, mPrimaryUserId);
+            removeAdmin(DEVICE_OWNER_ADMIN_COMPONENT, mDeviceOwnerUserId);
             runDeviceTestsAsUser(ACCOUNT_MANAGEMENT_PKG, ".AccountUtilsTest",
                     "testRemoveAccountExplicitly", mPrimaryUserId);
         }
@@ -128,13 +118,13 @@ public class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
     @Test
     public void testIsProvisioningAllowed() throws Exception {
         // Must install the apk since the test runs in the DO apk.
-        installAppAsUser(DEVICE_OWNER_APK, mPrimaryUserId);
+        installAppAsUser(DEVICE_OWNER_APK, mDeviceOwnerUserId);
         try {
             // When CTS runs, setupwizard is complete. Expects it has to return false as DO can
             // only be provisioned before setupwizard is completed.
 
             runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".PreDeviceOwnerTest",
-                    "testIsProvisioningAllowedFalse", /* deviceOwnerUserId */ 0);
+                    "testIsProvisioningAllowedFalse", mDeviceOwnerUserId);
         } finally {
             getDevice().uninstallPackage(DEVICE_OWNER_PKG);
         }

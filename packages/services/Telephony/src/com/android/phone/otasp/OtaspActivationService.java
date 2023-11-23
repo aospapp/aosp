@@ -31,6 +31,7 @@ import android.telephony.TelephonyManager;
 import com.android.internal.telephony.GsmCdmaConnection;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
+import com.android.internal.telephony.ServiceStateTracker;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.PhoneUtils;
 
@@ -77,6 +78,11 @@ public class OtaspActivationService extends Service {
     public void onCreate() {
         logd("otasp service onCreate");
         mPhone = PhoneGlobals.getPhone();
+        ServiceStateTracker sst = mPhone.getServiceStateTracker();
+        if (sst != null && sst.getOtasp() != TelephonyManager.OTASP_NEEDED) {
+            logd("OTASP is not needed.");
+            return;
+        }
         if ((sIccId == null) || !sIccId.equals(mPhone.getIccSerialNumber())) {
             // reset to allow activation retry on new sim
             sIccId = mPhone.getIccSerialNumber();

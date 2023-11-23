@@ -18,6 +18,9 @@
 #define ANDROID_AUDIO_STRING_H
 
 #include <string.h>
+#ifndef __ANDROID__
+#include <cutils/memory.h>
+#endif
 
 /** similar to strlcpy but also zero fills to end of string buffer, ensures no data leak
     in parceled data sent over binder.*/

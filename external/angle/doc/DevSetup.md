@@ -18,21 +18,19 @@ On all platforms:
 On Windows:
 
  * ***IMPORTANT: Set `DEPOT_TOOLS_WIN_TOOLCHAIN=0` in your environment if you are not a Googler.***
- * [Visual Studio Community 2019](https://visualstudio.microsoft.com/vs/)
- * [Windows 10 Standalone SDK version 10.0.17134 exactly](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).
-   * You should install it through Visual Studio Installer if available.
-   * Comes with additional features that aid development, such as the Debug runtime for D3D11. Required for the D3D Compiler DLL.
- * (optional) See the [Chromium Windows build instructions](https://chromium.googlesource.com/chromium/src/+/master/docs/windows_build_instructions.md) for more info.
+ * Install [Visual Studio Community 2019](https://visualstudio.microsoft.com/vs/)
+ * Install the [Windows 10 SDK, latest version](https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk).
+   * You can install it through Visual Studio Installer if available.
+   * Required for GN-generated Visual Studio projects, the Debug runtime for D3D11, and the D3D Compiler DLL.
+ * (optional) See the [Chromium Windows build instructions](https://chromium.googlesource.com/chromium/src/+/main/docs/windows_build_instructions.md) for more info.
 
 On Linux:
 
- * Install package dependencies by running `install-build-deps.sh` later on.
- * Bison and flex are not needed as we only support generating the translator grammar on Windows.
+ * Dependencies will be handled later (see `install-build-deps.sh` below).
 
 On MacOS:
 
  * [XCode](https://developer.apple.com/xcode/) for Clang and development files.
- * Bison and flex are not needed as we only support generating the translator grammar on Windows.
 
 ### Getting the source
 
@@ -41,7 +39,7 @@ git clone https://chromium.googlesource.com/angle/angle
 cd angle
 python scripts/bootstrap.py
 gclient sync
-git checkout master
+git checkout main
 ```
 
 On Linux only, you need to install all the necessary dependencies before going further by running this command:
@@ -58,10 +56,10 @@ On Windows only, ensure you **set `DEPOT_TOOLS_WIN_TOOLCHAIN=0` in your environm
 
 GN will generate ninja files. To change the default build options run `gn args out/Debug`.  Some commonly used options are:
 ```
-target_cpu = "x86"        (default is "x64")
-is_clang = false          (to use system default compiler instead of clang)
-is_debug = true           (enable debugging, true is the default)
-dcheck_always_on = true   (enable release asserts and debug layers)
+target_cpu = "x86"              (default is "x64")
+is_clang = false                (to use system default compiler instead of clang)
+is_debug = false                (for release builds. is_debug = true is the default)
+angle_assert_always_on = true   (enable release asserts and debug layers)
 ```
 
 For a release build run `gn args out/Release` and set `is_debug = false`.
@@ -79,7 +77,25 @@ Ninja automatically calls GN to regenerate the build files on any configuration 
 
 Ensure `depot_tools` is in your path as it provides ninja.
 
-### Building with Visual Studio
+### Building with Goma (Google employees only)
+
+In addition, Google employees should use goma, a distributed compilation
+system. Detailed information is available internally but the relevant gn arg
+is:
+
+```
+use_goma = true
+```
+
+To get any benefit from goma it is important to pass a large -j value to
+ninja. A good default is 10*numCores to 20*numCores. If you run autoninja then
+it will automatically pass an appropriate -j value to ninja for goma or not.
+
+```
+$ autoninja -C out\Debug
+```
+
+### Building and Debugging with Visual Studio
 
 To generate the Visual Studio solution in `out/Debug/angle-debug.sln`:
 ```
@@ -104,12 +120,29 @@ This sections describes how to use ANGLE to build an OpenGL ES application.
 ANGLE can use a variety of backing renderers based on platform.  On Windows, it defaults to D3D11 where it's available,
 or D3D9 otherwise.  On other desktop platforms, it defaults to GL.  On mobile, it defaults to GLES.
 
-ANGLE provides an EGL extension called `EGL_ANGLE_platform_angle` which allows uers to select which renderer to use at EGL initialization time by calling eglGetPlatformDisplayEXT with special enums. Details of the extension can be found in it's specification in `extensions/ANGLE_platform_angle.txt` and `extensions/ANGLE_platform_angle_*.txt` and examples of it's use can be seen in the ANGLE samples and tests, particularly `util/EGLWindow.cpp`.
+ANGLE provides an EGL extension called `EGL_ANGLE_platform_angle` which allows uers to select
+which renderer to use at EGL initialization time by calling eglGetPlatformDisplayEXT with special
+enums. Details of the extension can be found in its specification in
+`extensions/EGL_ANGLE_platform_angle.txt` and `extensions/EGL_ANGLE_platform_angle_*.txt` and
+examples of its use can be seen in the ANGLE samples and tests, particularly `util/EGLWindow.cpp`.
 
 To change the default D3D backend:
 
  1. Open `src/libANGLE/renderer/d3d/DisplayD3D.cpp`
  2. Locate the definition of `ANGLE_DEFAULT_D3D11` near the head of the file, and set it to your preference.
+
+To remove any backend entirely:
+
+ 1. Run `gn args <path/to/build/dir>`
+ 2. Set the appropriate variable to `false`. Options are:
+   - `angle_enable_d3d9`
+   - `angle_enable_d3d11`
+   - `angle_enable_gl`
+   - `angle_enable_metal`
+   - `angle_enable_null`
+   - `angle_enable_vulkan`
+   - `angle_enable_essl`
+   - `angle_enable_glsl`
 
 ### To Use ANGLE in Your Application
 On Windows:

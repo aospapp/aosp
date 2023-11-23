@@ -40,7 +40,8 @@ class DnsResolver {
     ResolverController resolverCtrl;
 
   private:
-    DnsResolver() {}
+    DnsResolver();
+
     DnsProxyListener mDnsProxyListener;
     DnsQueryLog mQueryLog;
 };

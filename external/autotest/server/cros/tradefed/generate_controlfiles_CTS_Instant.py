@@ -15,7 +15,7 @@ CONFIG = {}
 CONFIG['TEST_NAME'] = 'cheets_CTS_Instant'
 CONFIG['DOC_TITLE'] = \
     'Android Compatibility Test Suite for Instant Apps (CTS Instant)'
-CONFIG['MOBLAB_SUITE_NAME'] = 'suite:cts_P'
+CONFIG['MOBLAB_SUITE_NAME'] = 'suite:cts_P, suite:cts'
 CONFIG['COPYRIGHT_YEAR'] = 2018
 CONFIG['AUTHKEY'] = ''
 
@@ -76,7 +76,16 @@ CONFIG['BVT_TIMEOUT'] = 0.1
 
 CONFIG['QUAL_TIMEOUT'] = 5
 
-CONFIG['QUAL_BOOKMARKS'] = []
+# Split tests so that large and flaky tests are distributed evenly.
+CONFIG['QUAL_BOOKMARKS'] = [
+        'A',  # A bookend to simplify partition algorithm.
+        # CtsAccessibility, CtsAutoFill
+        'CtsBackgroundRestrictionsTestCases',
+        # CtsMedia, CtsPrint
+        'CtsSampleDeviceTestCases',
+        # CtsView, CtsWidget
+        'zzzzz'  # A bookend to simplify algorithm.
+]
 
 CONFIG['SMOKE'] = [
     # TODO(b/113641546): add to CQ/PFQ when it's ready.
@@ -178,5 +187,4 @@ CONFIG['EXTRA_ARTIFACTS'] = {}
 CONFIG['PREREQUISITES'] = {}
 
 if __name__ == '__main__':
-        main(CONFIG)
-
+    main(CONFIG)

@@ -32,8 +32,8 @@ public class ThreadPoolExecutorTest extends TestCase {
 
         // It should be illegal to set a core pool size that's larger than the max
         // pool size but apps have been allowed to get away with it so far. The pattern
-        // below occurs in a commonly used library. Note that the executor is in a sane
-        // state at the end of both method calls.
+        // below occurs in a commonly used library. Note that the executor is in a
+        // consistent state at the end of both method calls.
         tp.setCorePoolSize(5);
         tp.setMaximumPoolSize(5);
     }

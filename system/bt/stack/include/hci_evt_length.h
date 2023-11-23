@@ -28,7 +28,7 @@ static const uint8_t hci_event_parameters_minimum_length[] = {
     255,  //  0x07 - HCI_Remote_Name_Request_Complete Event
     4,    //  0x08 - HCI_Encryption_Change Event
     3,    //  0x09 - HCI_Change_Connection_Link_Key_Complete Event
-    4,    //  0x0A - HCI_Master_Link_Key_Complete Event
+    4,    //  0x0A - HCI_Central_Link_Key_Complete Event
     11,   //  0x0B - HCI_Read_Remote_Supported_Features_Complete Event
     8,    //  0x0C - HCI_Read_Remote_Version_Information_Complete Event
     21,   //  0x0D - HCI_QoS_Setup_Complete Event
@@ -99,12 +99,13 @@ static const uint8_t hci_event_parameters_minimum_length[] = {
     9,    //  0x4E - HCI_Triggered_Clock_Capture Event
     1,    //  0x4F - HCI_Synchronization_Train_Complete Event
     29,   //  0x50 - HCI_Synchronization_Train_Received Event
-    18,   //  0x51 - HCI_Connectionless_Slave_Broadcast_Receive Event
+    18,   //  0x51 - HCI_Connectionless_Peripheral_Broadcast_Receive Event
           //  (Data_Length = 0)
-    7,    //  0x52 - HCI_Connectionless_Slave_Broadcast_Timeout Event
+    7,    //  0x52 - HCI_Connectionless_Peripheral_Broadcast_Timeout Event
     7,    //  0x53 - HCI_Truncated_Page_Complete Event
-    0,    //  0x54 - HCI_Slave_Page_Response_Timeout Event
-    10,   //  0x55 - HCI_Connectionless_Slave_Broadcast_Channel_Map_Change Event
+    0,    //  0x54 - HCI_Peripheral_Page_Response_Timeout Event
+    10,   //  0x55 - HCI_Connectionless_Peripheral_Broadcast_Channel_Map_Change
+          //  Event
     4,    //  0x56 - HCI_Inquiry_Response_Notification Event
     2,    //  0x57 - HCI_Authenticated_Payload_Timeout_Expired Event
     8,    //  0x58 - HCI_SAM_Status_Change Event

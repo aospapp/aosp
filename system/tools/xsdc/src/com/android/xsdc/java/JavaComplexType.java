@@ -24,6 +24,11 @@ class JavaComplexType implements JavaType {
     }
 
     @Override
+    public boolean isPrimitiveType() {
+        return false;
+    }
+
+    @Override
     public String getName() {
         return name;
     }
@@ -36,5 +41,10 @@ class JavaComplexType implements JavaType {
     @Override
     public String getParsingExpression() {
         return String.format("%s value = %s.read(parser);\n", name, name);
+    }
+
+    @Override
+    public String getWritingExpression(String getValue, String name) {
+        return String.format("%s.write(out, \"%s\");\n", getValue, name);
     }
 }

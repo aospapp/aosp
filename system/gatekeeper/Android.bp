@@ -14,9 +14,14 @@
 
 // libgatekeeper contains just the code necessary to communicate with a
 // GoogleGateKeeper implementation, e.g. one running in TrustZone.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "libgatekeeper",
     vendor_available: true,
+    host_supported: true,
     vndk: {
         enabled: true,
     },

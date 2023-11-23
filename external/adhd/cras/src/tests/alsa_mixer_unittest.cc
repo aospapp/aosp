@@ -381,7 +381,7 @@ TEST(AlsaMixer, CreateOneUnknownElementWithVolume) {
   mixer_control_destroy(mixer_output);
 }
 
-TEST(AlsaMixer, CreateOneMasterElement) {
+TEST(AlsaMixer, CreateOneMainElement) {
   struct cras_alsa_mixer* c;
   int element_playback_volume[] = {
       1,
@@ -419,10 +419,10 @@ TEST(AlsaMixer, CreateOneMasterElement) {
   EXPECT_EQ(3, snd_mixer_selem_get_name_called);
   EXPECT_EQ(1, snd_mixer_elem_next_called);
 
-  /* set mute should be called for Master. */
+  /* set mute should be called for Main. */
   cras_alsa_mixer_set_mute(c, 0, NULL);
   EXPECT_EQ(1, snd_mixer_selem_set_playback_switch_all_called);
-  /* set volume should be called for Master. */
+  /* set volume should be called for Main. */
   cras_alsa_mixer_set_dBFS(c, 0, NULL);
   EXPECT_EQ(1, snd_mixer_selem_set_playback_dB_all_called);
 
@@ -515,15 +515,15 @@ TEST(AlsaMixer, CreateTwoMainVolumeElements) {
   EXPECT_EQ(5, snd_mixer_selem_get_name_called);
   EXPECT_EQ(3, snd_mixer_selem_has_playback_switch_called);
 
-  /* Set mute should be called for Master only. */
+  /* Set mute should be called for Main only. */
   cras_alsa_mixer_set_mute(c, 0, NULL);
   EXPECT_EQ(1, snd_mixer_selem_set_playback_switch_all_called);
 
-  /* Set volume should be called for Master and PCM. If Master doesn't set to
+  /* Set volume should be called for Main and PCM. If Main doesn't set to
    * anything but zero then the entire volume should be passed to the PCM
    * control.*/
 
-  /* Set volume should be called for Master and PCM. (without mixer_output) */
+  /* Set volume should be called for Main and PCM. (without mixer_output) */
   snd_mixer_selem_get_playback_dB_return_values = get_dB_returns;
   snd_mixer_selem_get_playback_dB_return_values_length =
       ARRAY_SIZE(get_dB_returns);
@@ -557,8 +557,8 @@ TEST(AlsaMixer, CreateTwoMainVolumeElements) {
   EXPECT_EQ(1, snd_mixer_selem_has_playback_switch_called);
   EXPECT_EQ(1, snd_mixer_selem_get_playback_dB_range_called);
 
-  /* Set volume should be called for Master, PCM, and the mixer_output passed
-   * in. If Master doesn't set to anything but zero then the entire volume
+  /* Set volume should be called for Main, PCM, and the mixer_output passed
+   * in. If Main doesn't set to anything but zero then the entire volume
    * should be passed to the PCM control.*/
   cras_alsa_mixer_set_dBFS(c, -50, mixer_output);
   EXPECT_EQ(3, snd_mixer_selem_set_playback_dB_all_called);
@@ -566,8 +566,8 @@ TEST(AlsaMixer, CreateTwoMainVolumeElements) {
   EXPECT_EQ(30, set_dB_values[0]);
   EXPECT_EQ(30, set_dB_values[1]);
   EXPECT_EQ(30, set_dB_values[2]);
-  /* Set volume should be called for Master and PCM. Since the controls were
-   * sorted, Master should get the volume remaining after PCM is set, in this
+  /* Set volume should be called for Main and PCM. Since the controls were
+   * sorted, Main should get the volume remaining after PCM is set, in this
    * case -50 - -24 = -26. */
   long get_dB_returns2[] = {
       -25,
@@ -584,7 +584,7 @@ TEST(AlsaMixer, CreateTwoMainVolumeElements) {
   cras_alsa_mixer_set_dBFS(c, -50, mixer_output);
   EXPECT_EQ(2, snd_mixer_selem_set_playback_dB_all_called);
   EXPECT_EQ(2, snd_mixer_selem_get_playback_dB_called);
-  EXPECT_EQ(54, set_dB_values[0]);  // Master
+  EXPECT_EQ(54, set_dB_values[0]);  // Main
   EXPECT_EQ(30, set_dB_values[1]);  // PCM
 
   cras_alsa_mixer_destroy(c);
@@ -639,7 +639,7 @@ TEST(AlsaMixer, CreateTwoMainCaptureElements) {
   EXPECT_EQ(5, snd_mixer_selem_get_name_called);
   EXPECT_EQ(3, snd_mixer_selem_has_capture_switch_called);
 
-  /* Set mute should be called for Master only. */
+  /* Set mute should be called for Main only. */
   cras_alsa_mixer_set_capture_mute(c, 0, NULL);
   EXPECT_EQ(1, snd_mixer_selem_set_capture_switch_all_called);
   /* Set volume should be called for Capture and Digital Capture. If Capture
@@ -773,7 +773,7 @@ class AlsaMixerOutputs : public testing::Test {
 
     ResetStubData();
     snd_mixer_first_elem_return_value =
-        reinterpret_cast<snd_mixer_elem_t*>(1);  // Master
+        reinterpret_cast<snd_mixer_elem_t*>(1);  // Main
     snd_mixer_elem_next_return_values = elements;
     snd_mixer_elem_next_return_values_length = ARRAY_SIZE(elements);
     snd_mixer_selem_has_playback_volume_return_values = element_playback_volume;
@@ -1275,29 +1275,32 @@ class AlsaMixerFullySpeced : public testing::Test {
     for (i = 0; i < ARRAY_SIZE(elements); i++)
       snd_mixer_find_elem_map[element_names[i]] = elements[i];
 
-    section =
-        ucm_section_create("NullElement", 0, CRAS_STREAM_OUTPUT, NULL, NULL);
+    section = ucm_section_create("NullElement", "hw:0,1", 0, -1,
+                                 CRAS_STREAM_OUTPUT, NULL, NULL);
     ucm_section_set_mixer_name(section, "Unknown");
     DL_APPEND(sections, section);
-    section = ucm_section_create("Headphone", 0, CRAS_STREAM_OUTPUT,
-                                 "my-sound-card Headset Jack", "gpio");
+    section =
+        ucm_section_create("Headphone", "hw:0,1", 0, -1, CRAS_STREAM_OUTPUT,
+                           "my-sound-card Headset Jack", "gpio");
     ucm_section_add_coupled(section, "HP-L", MIXER_NAME_VOLUME);
     ucm_section_add_coupled(section, "HP-R", MIXER_NAME_VOLUME);
     DL_APPEND(sections, section);
-    section = ucm_section_create("Speaker", 0, CRAS_STREAM_OUTPUT, NULL, NULL);
+    section = ucm_section_create("Speaker", "hw:0,1", 0, -1, CRAS_STREAM_OUTPUT,
+                                 NULL, NULL);
     ucm_section_add_coupled(section, "SPK-L", MIXER_NAME_VOLUME);
     ucm_section_add_coupled(section, "SPK-R", MIXER_NAME_VOLUME);
     DL_APPEND(sections, section);
-    section = ucm_section_create("Mic", 0, CRAS_STREAM_INPUT,
+    section = ucm_section_create("Mic", "hw:0,1", 0, -1, CRAS_STREAM_INPUT,
                                  "my-sound-card Headset Jack", "gpio");
     ucm_section_set_mixer_name(section, "CAPTURE");
     DL_APPEND(sections, section);
-    section =
-        ucm_section_create("Internal Mic", 0, CRAS_STREAM_INPUT, NULL, NULL);
+    section = ucm_section_create("Internal Mic", "hw:0,1", 0, -1,
+                                 CRAS_STREAM_INPUT, NULL, NULL);
     ucm_section_add_coupled(section, "MIC-L", MIXER_NAME_VOLUME);
     ucm_section_add_coupled(section, "MIC-R", MIXER_NAME_VOLUME);
     DL_APPEND(sections, section);
-    section = ucm_section_create("HDMI", 0, CRAS_STREAM_OUTPUT, NULL, NULL);
+    section = ucm_section_create("HDMI", "hw:0,1", 0, -1, CRAS_STREAM_OUTPUT,
+                                 NULL, NULL);
     ucm_section_set_mixer_name(section, "HDMI");
     DL_APPEND(sections, section);
     ASSERT_NE(sections, (struct ucm_section*)NULL);

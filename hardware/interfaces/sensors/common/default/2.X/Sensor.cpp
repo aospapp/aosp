@@ -26,6 +26,7 @@ namespace sensors {
 namespace V2_X {
 namespace implementation {
 
+using ::android::hardware::sensors::V1_0::EventPayload;
 using ::android::hardware::sensors::V1_0::MetaDataEventType;
 using ::android::hardware::sensors::V1_0::OperationMode;
 using ::android::hardware::sensors::V1_0::Result;
@@ -57,11 +58,11 @@ const SensorInfo& Sensor::getSensorInfo() const {
     return mSensorInfo;
 }
 
-void Sensor::batch(int32_t samplingPeriodNs) {
-    if (samplingPeriodNs < mSensorInfo.minDelay * 1000) {
-        samplingPeriodNs = mSensorInfo.minDelay * 1000;
-    } else if (samplingPeriodNs > mSensorInfo.maxDelay * 1000) {
-        samplingPeriodNs = mSensorInfo.maxDelay * 1000;
+void Sensor::batch(int64_t samplingPeriodNs) {
+    if (samplingPeriodNs < mSensorInfo.minDelay * 1000ll) {
+        samplingPeriodNs = mSensorInfo.minDelay * 1000ll;
+    } else if (samplingPeriodNs > mSensorInfo.maxDelay * 1000ll) {
+        samplingPeriodNs = mSensorInfo.maxDelay * 1000ll;
     }
 
     if (mSamplingPeriodNs != samplingPeriodNs) {
@@ -138,10 +139,8 @@ std::vector<Event> Sensor::readEvents() {
     event.sensorHandle = mSensorInfo.sensorHandle;
     event.sensorType = mSensorInfo.type;
     event.timestamp = ::android::elapsedRealtimeNano();
-    event.u.vec3.x = 0;
-    event.u.vec3.y = 0;
-    event.u.vec3.z = 0;
-    event.u.vec3.status = SensorStatus::ACCURACY_HIGH;
+    memset(&event.u, 0, sizeof(event.u));
+    readEventPayload(event.u);
     events.push_back(event);
     return events;
 }
@@ -189,7 +188,7 @@ std::vector<Event> OnChangeSensor::readEvents() {
 
     for (auto iter = events.begin(); iter != events.end(); ++iter) {
         Event ev = *iter;
-        if (ev.u.vec3 != mPreviousEvent.u.vec3 || !mPreviousEventSet) {
+        if (!mPreviousEventSet || memcmp(&mPreviousEvent.u, &ev.u, sizeof(ev.u)) != 0) {
             outputEvents.push_back(ev);
             mPreviousEvent = ev;
             mPreviousEventSet = true;
@@ -208,13 +207,20 @@ AccelSensor::AccelSensor(int32_t sensorHandle, ISensorsEventCallback* callback) 
     mSensorInfo.maxRange = 78.4f;  // +/- 8g
     mSensorInfo.resolution = 1.52e-5;
     mSensorInfo.power = 0.001f;        // mA
-    mSensorInfo.minDelay = 20 * 1000;  // microseconds
+    mSensorInfo.minDelay = 10 * 1000;  // microseconds
     mSensorInfo.maxDelay = kDefaultMaxDelayUs;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
     mSensorInfo.requiredPermission = "";
     mSensorInfo.flags = static_cast<uint32_t>(SensorFlagBits::DATA_INJECTION);
 };
+
+void AccelSensor::readEventPayload(EventPayload& payload) {
+    payload.vec3.x = 0;
+    payload.vec3.y = 0;
+    payload.vec3.z = -9.8;
+    payload.vec3.status = SensorStatus::ACCURACY_HIGH;
+}
 
 PressureSensor::PressureSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
     : Sensor(callback) {
@@ -234,6 +240,10 @@ PressureSensor::PressureSensor(int32_t sensorHandle, ISensorsEventCallback* call
     mSensorInfo.requiredPermission = "";
     mSensorInfo.flags = 0;
 };
+
+void PressureSensor::readEventPayload(EventPayload& payload) {
+    payload.scalar = 1013.25f;
+}
 
 MagnetometerSensor::MagnetometerSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
     : Sensor(callback) {
@@ -303,7 +313,7 @@ GyroSensor::GyroSensor(int32_t sensorHandle, ISensorsEventCallback* callback) : 
     mSensorInfo.maxRange = 1000.0f * M_PI / 180.0f;
     mSensorInfo.resolution = 1000.0f * M_PI / (180.0f * 32768.0f);
     mSensorInfo.power = 0.001f;
-    mSensorInfo.minDelay = 2.5f * 1000;  // microseconds
+    mSensorInfo.minDelay = 10 * 1000;  // microseconds
     mSensorInfo.maxDelay = kDefaultMaxDelayUs;
     mSensorInfo.fifoReservedEventCount = 0;
     mSensorInfo.fifoMaxEventCount = 0;
@@ -329,25 +339,6 @@ AmbientTempSensor::AmbientTempSensor(int32_t sensorHandle, ISensorsEventCallback
     mSensorInfo.requiredPermission = "";
     mSensorInfo.flags = static_cast<uint32_t>(SensorFlagBits::ON_CHANGE_MODE);
 };
-
-DeviceTempSensor::DeviceTempSensor(int32_t sensorHandle, ISensorsEventCallback* callback)
-    : OnChangeSensor(callback) {
-    mSensorInfo.sensorHandle = sensorHandle;
-    mSensorInfo.name = "Device Temp Sensor";
-    mSensorInfo.vendor = "Vendor String";
-    mSensorInfo.version = 1;
-    mSensorInfo.type = SensorType::TEMPERATURE;
-    mSensorInfo.typeAsString = "";
-    mSensorInfo.maxRange = 80.0f;
-    mSensorInfo.resolution = 0.01f;
-    mSensorInfo.power = 0.001f;
-    mSensorInfo.minDelay = 40 * 1000;  // microseconds
-    mSensorInfo.maxDelay = kDefaultMaxDelayUs;
-    mSensorInfo.fifoReservedEventCount = 0;
-    mSensorInfo.fifoMaxEventCount = 0;
-    mSensorInfo.requiredPermission = "";
-    mSensorInfo.flags = static_cast<uint32_t>(SensorFlagBits::ON_CHANGE_MODE);
-}
 
 RelativeHumiditySensor::RelativeHumiditySensor(int32_t sensorHandle,
                                                ISensorsEventCallback* callback)

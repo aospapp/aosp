@@ -16,7 +16,7 @@ labels_list = [l.strip() for l in job_labels.split(',') if l]
 
 
 def verify(machine):
-    print 'Initializing host %s' % machine
+    print('Initializing host %s' % machine)
     job.record('START', None, 'verify')
     target = hosts.create_target_machine(machine,
                                          try_lab_servo=True)

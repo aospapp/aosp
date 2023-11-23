@@ -4,7 +4,7 @@ libdir=@libdir@
 includedir=@includedir@
 
 Name: libcap
-Description: libcap
+Description: libcap - linux capabilities library
 Version: @VERSION@
 Libs: -L${libdir} -lcap
 Libs.private: @deps@

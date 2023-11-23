@@ -43,14 +43,16 @@ TEST_F(IdletimerControllerTest, TestSetupIptablesHooks) {
 const std::vector<std::string> makeAddRemoveCommands(bool add) {
     const char *op = add ? "-A" : "-D";
     std::vector<std::string> cmds = {
-        "*raw",
-        StringPrintf("%s idletimer_raw_PREROUTING -i wlan0 -j IDLETIMER"
-                     " --timeout 12345 --label hello --send_nl_msg 1", op),
-        "COMMIT",
-        "*mangle",
-        StringPrintf("%s idletimer_mangle_POSTROUTING -o wlan0 -j IDLETIMER"
-                     " --timeout 12345 --label hello --send_nl_msg 1", op),
-        "COMMIT\n",
+            "*raw",
+            StringPrintf("%s idletimer_raw_PREROUTING -i wlan0 -j IDLETIMER"
+                         " --timeout 12345 --label hello --send_nl_msg",
+                         op),
+            "COMMIT",
+            "*mangle",
+            StringPrintf("%s idletimer_mangle_POSTROUTING -o wlan0 -j IDLETIMER"
+                         " --timeout 12345 --label hello --send_nl_msg",
+                         op),
+            "COMMIT\n",
     };
     return { Join(cmds, '\n') };
 }

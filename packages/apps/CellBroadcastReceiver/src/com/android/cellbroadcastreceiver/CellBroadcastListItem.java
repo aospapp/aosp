@@ -82,7 +82,7 @@ public class CellBroadcastListItem extends RelativeLayout {
             if (cursor != null) {
                 while (cursor.moveToNext()) {
                     if (cursor.getInt(cursor.getColumnIndexOrThrow(
-                            Telephony.CellBroadcasts.MESSAGE_READ)) != 0) {
+                            Telephony.CellBroadcasts.MESSAGE_READ)) == 0) {
                         messageText.setSpan(new StyleSpan(Typeface.BOLD), 0, messageText.length(),
                                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                         break;

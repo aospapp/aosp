@@ -16,116 +16,141 @@ package cc
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
+	"regexp"
 	"strings"
 	"testing"
 
 	"android/soong/android"
 )
 
-var buildDir string
-
-func setUp() {
-	var err error
-	buildDir, err = ioutil.TempDir("", "soong_cc_test")
-	if err != nil {
-		panic(err)
-	}
-}
-
-func tearDown() {
-	os.RemoveAll(buildDir)
-}
-
 func TestMain(m *testing.M) {
-	run := func() int {
-		setUp()
-		defer tearDown()
-
-		return m.Run()
-	}
-
-	os.Exit(run())
+	os.Exit(m.Run())
 }
 
+var prepareForCcTest = android.GroupFixturePreparers(
+	PrepareForTestWithCcIncludeVndk,
+	android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+		variables.DeviceVndkVersion = StringPtr("current")
+		variables.ProductVndkVersion = StringPtr("current")
+		variables.Platform_vndk_version = StringPtr("29")
+	}),
+)
+
+// testCcWithConfig runs tests using the prepareForCcTest
+//
+// See testCc for an explanation as to how to stop using this deprecated method.
+//
+// deprecated
 func testCcWithConfig(t *testing.T, config android.Config) *android.TestContext {
 	t.Helper()
-	ctx := CreateTestContext()
-	ctx.Register(config)
-
-	_, errs := ctx.ParseFileList(".", []string{"Android.bp"})
-	android.FailIfErrored(t, errs)
-	_, errs = ctx.PrepareBuildActions(config)
-	android.FailIfErrored(t, errs)
-
-	return ctx
+	result := prepareForCcTest.RunTestWithConfig(t, config)
+	return result.TestContext
 }
 
+// testCc runs tests using the prepareForCcTest
+//
+// Do not add any new usages of this, instead use the prepareForCcTest directly as it makes it much
+// easier to customize the test behavior.
+//
+// If it is necessary to customize the behavior of an existing test that uses this then please first
+// convert the test to using prepareForCcTest first and then in a following change add the
+// appropriate fixture preparers. Keeping the conversion change separate makes it easy to verify
+// that it did not change the test behavior unexpectedly.
+//
+// deprecated
 func testCc(t *testing.T, bp string) *android.TestContext {
 	t.Helper()
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
-	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
-
-	return testCcWithConfig(t, config)
+	result := prepareForCcTest.RunTestWithBp(t, bp)
+	return result.TestContext
 }
 
+// testCcNoVndk runs tests using the prepareForCcTest
+//
+// See testCc for an explanation as to how to stop using this deprecated method.
+//
+// deprecated
 func testCcNoVndk(t *testing.T, bp string) *android.TestContext {
 	t.Helper()
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
 
 	return testCcWithConfig(t, config)
 }
 
+// testCcNoProductVndk runs tests using the prepareForCcTest
+//
+// See testCc for an explanation as to how to stop using this deprecated method.
+//
+// deprecated
+func testCcNoProductVndk(t *testing.T, bp string) *android.TestContext {
+	t.Helper()
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
+	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
+
+	return testCcWithConfig(t, config)
+}
+
+// testCcErrorWithConfig runs tests using the prepareForCcTest
+//
+// See testCc for an explanation as to how to stop using this deprecated method.
+//
+// deprecated
 func testCcErrorWithConfig(t *testing.T, pattern string, config android.Config) {
 	t.Helper()
 
-	ctx := CreateTestContext()
-	ctx.Register(config)
-
-	_, errs := ctx.ParseFileList(".", []string{"Android.bp"})
-	if len(errs) > 0 {
-		android.FailIfNoMatchingErrors(t, pattern, errs)
-		return
-	}
-
-	_, errs = ctx.PrepareBuildActions(config)
-	if len(errs) > 0 {
-		android.FailIfNoMatchingErrors(t, pattern, errs)
-		return
-	}
-
-	t.Fatalf("missing expected error %q (0 errors are returned)", pattern)
+	prepareForCcTest.
+		ExtendWithErrorHandler(android.FixtureExpectsAtLeastOneErrorMatchingPattern(pattern)).
+		RunTestWithConfig(t, config)
 }
 
+// testCcError runs tests using the prepareForCcTest
+//
+// See testCc for an explanation as to how to stop using this deprecated method.
+//
+// deprecated
 func testCcError(t *testing.T, pattern string, bp string) {
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
+	t.Helper()
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
 	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
 	testCcErrorWithConfig(t, pattern, config)
 	return
 }
 
+// testCcErrorProductVndk runs tests using the prepareForCcTest
+//
+// See testCc for an explanation as to how to stop using this deprecated method.
+//
+// deprecated
 func testCcErrorProductVndk(t *testing.T, pattern string, bp string) {
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
+	t.Helper()
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
 	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
 	config.TestProductVariables.ProductVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
 	testCcErrorWithConfig(t, pattern, config)
 	return
 }
 
 const (
 	coreVariant     = "android_arm64_armv8-a_shared"
-	vendorVariant   = "android_vendor.VER_arm64_armv8-a_shared"
-	productVariant  = "android_product.VER_arm64_armv8-a_shared"
+	vendorVariant   = "android_vendor.29_arm64_armv8-a_shared"
+	productVariant  = "android_product.29_arm64_armv8-a_shared"
 	recoveryVariant = "android_recovery_arm64_armv8-a_shared"
 )
+
+// Test that the PrepareForTestWithCcDefaultModules provides all the files that it uses by
+// running it in a fixture that requires all source files to exist.
+func TestPrepareForTestWithCcDefaultModules(t *testing.T) {
+	android.GroupFixturePreparers(
+		PrepareForTestWithCcDefaultModules,
+		android.PrepareForTestDisallowNonExistentPaths,
+	).RunTest(t)
+}
 
 func TestFuchsiaDeps(t *testing.T) {
 	t.Helper()
@@ -141,13 +166,15 @@ func TestFuchsiaDeps(t *testing.T) {
 			},
 		}`
 
-	config := TestConfig(buildDir, android.Fuchsia, nil, bp, nil)
-	ctx := testCcWithConfig(t, config)
+	result := android.GroupFixturePreparers(
+		prepareForCcTest,
+		PrepareForTestOnFuchsia,
+	).RunTestWithBp(t, bp)
 
 	rt := false
 	fb := false
 
-	ld := ctx.ModuleForTests("libTest", "fuchsia_arm64_shared").Rule("ld")
+	ld := result.ModuleForTests("libTest", "fuchsia_arm64_shared").Rule("ld")
 	implicits := ld.Implicits
 	for _, lib := range implicits {
 		if strings.Contains(lib.Rel(), "libcompiler_rt") {
@@ -178,16 +205,16 @@ func TestFuchsiaTargetDecl(t *testing.T) {
 			},
 		}`
 
-	config := TestConfig(buildDir, android.Fuchsia, nil, bp, nil)
-	ctx := testCcWithConfig(t, config)
-	ld := ctx.ModuleForTests("libTest", "fuchsia_arm64_shared").Rule("ld")
+	result := android.GroupFixturePreparers(
+		prepareForCcTest,
+		PrepareForTestOnFuchsia,
+	).RunTestWithBp(t, bp)
+	ld := result.ModuleForTests("libTest", "fuchsia_arm64_shared").Rule("ld")
 	var objs []string
 	for _, o := range ld.Inputs {
 		objs = append(objs, o.Base())
 	}
-	if len(objs) != 2 || objs[0] != "foo.o" || objs[1] != "bar.o" {
-		t.Errorf("inputs of libTest must be []string{\"foo.o\", \"bar.o\"}, but was %#v.", objs)
-	}
+	android.AssertArrayString(t, "libTest inputs", []string{"foo.o", "bar.o"}, objs)
 }
 
 func TestVendorSrc(t *testing.T) {
@@ -217,15 +244,126 @@ func TestVendorSrc(t *testing.T) {
 	}
 }
 
+func checkInstallPartition(t *testing.T, ctx *android.TestContext, name, variant, expected string) {
+	mod := ctx.ModuleForTests(name, variant).Module().(*Module)
+	partitionDefined := false
+	checkPartition := func(specific bool, partition string) {
+		if specific {
+			if expected != partition && !partitionDefined {
+				// The variant is installed to the 'partition'
+				t.Errorf("%s variant of %q must not be installed to %s partition", variant, name, partition)
+			}
+			partitionDefined = true
+		} else {
+			// The variant is not installed to the 'partition'
+			if expected == partition {
+				t.Errorf("%s variant of %q must be installed to %s partition", variant, name, partition)
+			}
+		}
+	}
+	socSpecific := func(m *Module) bool {
+		return m.SocSpecific() || m.socSpecificModuleContext()
+	}
+	deviceSpecific := func(m *Module) bool {
+		return m.DeviceSpecific() || m.deviceSpecificModuleContext()
+	}
+	productSpecific := func(m *Module) bool {
+		return m.ProductSpecific() || m.productSpecificModuleContext()
+	}
+	systemExtSpecific := func(m *Module) bool {
+		return m.SystemExtSpecific()
+	}
+	checkPartition(socSpecific(mod), "vendor")
+	checkPartition(deviceSpecific(mod), "odm")
+	checkPartition(productSpecific(mod), "product")
+	checkPartition(systemExtSpecific(mod), "system_ext")
+	if !partitionDefined && expected != "system" {
+		t.Errorf("%s variant of %q is expected to be installed to %s partition,"+
+			" but installed to system partition", variant, name, expected)
+	}
+}
+
+func TestInstallPartition(t *testing.T) {
+	t.Helper()
+	ctx := prepareForCcTest.RunTestWithBp(t, `
+		cc_library {
+			name: "libsystem",
+		}
+		cc_library {
+			name: "libsystem_ext",
+			system_ext_specific: true,
+		}
+		cc_library {
+			name: "libproduct",
+			product_specific: true,
+		}
+		cc_library {
+			name: "libvendor",
+			vendor: true,
+		}
+		cc_library {
+			name: "libodm",
+			device_specific: true,
+		}
+		cc_library {
+			name: "liball_available",
+			vendor_available: true,
+			product_available: true,
+		}
+		cc_library {
+			name: "libsystem_ext_all_available",
+			system_ext_specific: true,
+			vendor_available: true,
+			product_available: true,
+		}
+		cc_library {
+			name: "liball_available_odm",
+			odm_available: true,
+			product_available: true,
+		}
+		cc_library {
+			name: "libproduct_vendoravailable",
+			product_specific: true,
+			vendor_available: true,
+		}
+		cc_library {
+			name: "libproduct_odmavailable",
+			product_specific: true,
+			odm_available: true,
+		}
+	`).TestContext
+
+	checkInstallPartition(t, ctx, "libsystem", coreVariant, "system")
+	checkInstallPartition(t, ctx, "libsystem_ext", coreVariant, "system_ext")
+	checkInstallPartition(t, ctx, "libproduct", productVariant, "product")
+	checkInstallPartition(t, ctx, "libvendor", vendorVariant, "vendor")
+	checkInstallPartition(t, ctx, "libodm", vendorVariant, "odm")
+
+	checkInstallPartition(t, ctx, "liball_available", coreVariant, "system")
+	checkInstallPartition(t, ctx, "liball_available", productVariant, "product")
+	checkInstallPartition(t, ctx, "liball_available", vendorVariant, "vendor")
+
+	checkInstallPartition(t, ctx, "libsystem_ext_all_available", coreVariant, "system_ext")
+	checkInstallPartition(t, ctx, "libsystem_ext_all_available", productVariant, "product")
+	checkInstallPartition(t, ctx, "libsystem_ext_all_available", vendorVariant, "vendor")
+
+	checkInstallPartition(t, ctx, "liball_available_odm", coreVariant, "system")
+	checkInstallPartition(t, ctx, "liball_available_odm", productVariant, "product")
+	checkInstallPartition(t, ctx, "liball_available_odm", vendorVariant, "odm")
+
+	checkInstallPartition(t, ctx, "libproduct_vendoravailable", productVariant, "product")
+	checkInstallPartition(t, ctx, "libproduct_vendoravailable", vendorVariant, "vendor")
+
+	checkInstallPartition(t, ctx, "libproduct_odmavailable", productVariant, "product")
+	checkInstallPartition(t, ctx, "libproduct_odmavailable", vendorVariant, "odm")
+}
+
 func checkVndkModule(t *testing.T, ctx *android.TestContext, name, subDir string,
 	isVndkSp bool, extends string, variant string) {
 
 	t.Helper()
 
 	mod := ctx.ModuleForTests(name, variant).Module().(*Module)
-	if !mod.HasVendorVariant() {
-		t.Errorf("%q must have variant %q", name, variant)
-	}
 
 	// Check library properties.
 	lib, ok := mod.compiler.(*libraryDecorator)
@@ -243,14 +381,14 @@ func checkVndkModule(t *testing.T, ctx *android.TestContext, name, subDir string
 	if !mod.IsVndk() {
 		t.Errorf("%q IsVndk() must equal to true", name)
 	}
-	if mod.isVndkSp() != isVndkSp {
-		t.Errorf("%q isVndkSp() must equal to %t", name, isVndkSp)
+	if mod.IsVndkSp() != isVndkSp {
+		t.Errorf("%q IsVndkSp() must equal to %t", name, isVndkSp)
 	}
 
 	// Check VNDK extension properties.
 	isVndkExt := extends != ""
-	if mod.isVndkExt() != isVndkExt {
-		t.Errorf("%q isVndkExt() must equal to %t", name, isVndkExt)
+	if mod.IsVndkExt() != isVndkExt {
+		t.Errorf("%q IsVndkExt() must equal to %t", name, isVndkExt)
 	}
 
 	if actualExtends := mod.getVndkExtendsModuleName(); actualExtends != extends {
@@ -258,29 +396,54 @@ func checkVndkModule(t *testing.T, ctx *android.TestContext, name, subDir string
 	}
 }
 
-func checkSnapshot(t *testing.T, ctx *android.TestContext, singleton android.TestingSingleton, moduleName, snapshotFilename, subDir, variant string) {
-	mod, ok := ctx.ModuleForTests(moduleName, variant).Module().(android.OutputFileProducer)
-	if !ok {
-		t.Errorf("%q must have output\n", moduleName)
-		return
-	}
-	outputFiles, err := mod.OutputFiles("")
-	if err != nil || len(outputFiles) != 1 {
+func checkSnapshotIncludeExclude(t *testing.T, ctx *android.TestContext, singleton android.TestingSingleton, moduleName, snapshotFilename, subDir, variant string, include bool, fake bool) {
+	t.Helper()
+	mod := ctx.ModuleForTests(moduleName, variant)
+	outputFiles := mod.OutputFiles(t, "")
+	if len(outputFiles) != 1 {
 		t.Errorf("%q must have single output\n", moduleName)
 		return
 	}
 	snapshotPath := filepath.Join(subDir, snapshotFilename)
 
-	out := singleton.Output(snapshotPath)
-	if out.Input.String() != outputFiles[0].String() {
-		t.Errorf("The input of snapshot %q must be %q, but %q", moduleName, out.Input.String(), outputFiles[0])
+	if include {
+		out := singleton.Output(snapshotPath)
+		if fake {
+			if out.Rule == nil {
+				t.Errorf("Missing rule for module %q output file %q", moduleName, outputFiles[0])
+			}
+		} else {
+			if out.Input.String() != outputFiles[0].String() {
+				t.Errorf("The input of snapshot %q must be %q, but %q", moduleName, out.Input.String(), outputFiles[0])
+			}
+		}
+	} else {
+		out := singleton.MaybeOutput(snapshotPath)
+		if out.Rule != nil {
+			t.Errorf("There must be no rule for module %q output file %q", moduleName, outputFiles[0])
+		}
 	}
+}
+
+func checkSnapshot(t *testing.T, ctx *android.TestContext, singleton android.TestingSingleton, moduleName, snapshotFilename, subDir, variant string) {
+	t.Helper()
+	checkSnapshotIncludeExclude(t, ctx, singleton, moduleName, snapshotFilename, subDir, variant, true, false)
+}
+
+func checkSnapshotExclude(t *testing.T, ctx *android.TestContext, singleton android.TestingSingleton, moduleName, snapshotFilename, subDir, variant string) {
+	t.Helper()
+	checkSnapshotIncludeExclude(t, ctx, singleton, moduleName, snapshotFilename, subDir, variant, false, false)
+}
+
+func checkSnapshotRule(t *testing.T, ctx *android.TestContext, singleton android.TestingSingleton, moduleName, snapshotFilename, subDir, variant string) {
+	t.Helper()
+	checkSnapshotIncludeExclude(t, ctx, singleton, moduleName, snapshotFilename, subDir, variant, true, true)
 }
 
 func checkWriteFileOutput(t *testing.T, params android.TestingBuildParams, expected []string) {
 	t.Helper()
-	assertString(t, params.Rule.String(), android.WriteFile.String())
-	actual := strings.FieldsFunc(strings.ReplaceAll(params.Args["content"], "\\n", "\n"), func(r rune) bool { return r == '\n' })
+	content := android.ContentFromFileRuleForTests(t, params)
+	actual := strings.FieldsFunc(content, func(r rune) bool { return r == '\n' })
 	assertArrayString(t, actual, expected)
 }
 
@@ -292,16 +455,8 @@ func checkVndkOutput(t *testing.T, ctx *android.TestContext, output string, expe
 
 func checkVndkLibrariesOutput(t *testing.T, ctx *android.TestContext, module string, expected []string) {
 	t.Helper()
-	vndkLibraries := ctx.ModuleForTests(module, "")
-
-	var output string
-	if module != "vndkcorevariant.libraries.txt" {
-		output = insertVndkVersion(module, "VER")
-	} else {
-		output = module
-	}
-
-	checkWriteFileOutput(t, vndkLibraries.Output(output), expected)
+	got := ctx.ModuleForTests(module, "").Module().(*vndkLibrariesTxt).fileNames
+	assertArrayString(t, got, expected)
 }
 
 func TestVndk(t *testing.T) {
@@ -317,12 +472,31 @@ func TestVndk(t *testing.T) {
 
 		cc_library {
 			name: "libvndk_private",
-			vendor_available: false,
+			vendor_available: true,
+			vndk: {
+				enabled: true,
+				private: true,
+			},
+			nocrt: true,
+			stem: "libvndk-private",
+		}
+
+		cc_library {
+			name: "libvndk_product",
+			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
 			nocrt: true,
-			stem: "libvndk-private",
+			target: {
+				vendor: {
+					cflags: ["-DTEST"],
+				},
+				product: {
+					cflags: ["-DTEST"],
+				},
+			},
 		}
 
 		cc_library {
@@ -338,10 +512,11 @@ func TestVndk(t *testing.T) {
 
 		cc_library {
 			name: "libvndk_sp_private",
-			vendor_available: false,
+			vendor_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
+				private: true,
 			},
 			nocrt: true,
 			target: {
@@ -350,38 +525,93 @@ func TestVndk(t *testing.T) {
 				},
 			},
 		}
-		vndk_libraries_txt {
+
+		cc_library {
+			name: "libvndk_sp_product_private",
+			vendor_available: true,
+			product_available: true,
+			vndk: {
+				enabled: true,
+				support_system_process: true,
+				private: true,
+			},
+			nocrt: true,
+			target: {
+				vendor: {
+					suffix: "-x",
+				},
+				product: {
+					suffix: "-x",
+				},
+			},
+		}
+
+		cc_library {
+			name: "libllndk",
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+				export_llndk_headers: ["libllndk_headers"],
+			}
+		}
+
+		cc_library {
+			name: "libclang_rt.hwasan-llndk",
+			llndk: {
+				symbol_file: "libclang_rt.hwasan.map.txt",
+			}
+		}
+
+		cc_library_headers {
+			name: "libllndk_headers",
+			llndk: {
+				llndk_headers: true,
+			},
+			export_include_dirs: ["include"],
+		}
+
+		llndk_libraries_txt {
 			name: "llndk.libraries.txt",
 		}
-		vndk_libraries_txt {
+		vndkcore_libraries_txt {
 			name: "vndkcore.libraries.txt",
 		}
-		vndk_libraries_txt {
+		vndksp_libraries_txt {
 			name: "vndksp.libraries.txt",
 		}
-		vndk_libraries_txt {
+		vndkprivate_libraries_txt {
 			name: "vndkprivate.libraries.txt",
 		}
-		vndk_libraries_txt {
+		vndkproduct_libraries_txt {
+			name: "vndkproduct.libraries.txt",
+		}
+		vndkcorevariant_libraries_txt {
 			name: "vndkcorevariant.libraries.txt",
+			insert_vndk_version: false,
 		}
 	`
 
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
 	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
+	config.TestProductVariables.ProductVndkVersion = StringPtr("current")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
 
 	ctx := testCcWithConfig(t, config)
 
-	checkVndkModule(t, ctx, "libvndk", "vndk-VER", false, "", vendorVariant)
-	checkVndkModule(t, ctx, "libvndk_private", "vndk-VER", false, "", vendorVariant)
-	checkVndkModule(t, ctx, "libvndk_sp", "vndk-sp-VER", true, "", vendorVariant)
-	checkVndkModule(t, ctx, "libvndk_sp_private", "vndk-sp-VER", true, "", vendorVariant)
+	// subdir == "" because VNDK libs are not supposed to be installed separately.
+	// They are installed as part of VNDK APEX instead.
+	checkVndkModule(t, ctx, "libvndk", "", false, "", vendorVariant)
+	checkVndkModule(t, ctx, "libvndk_private", "", false, "", vendorVariant)
+	checkVndkModule(t, ctx, "libvndk_product", "", false, "", vendorVariant)
+	checkVndkModule(t, ctx, "libvndk_sp", "", true, "", vendorVariant)
+	checkVndkModule(t, ctx, "libvndk_sp_private", "", true, "", vendorVariant)
+	checkVndkModule(t, ctx, "libvndk_sp_product_private", "", true, "", vendorVariant)
+
+	checkVndkModule(t, ctx, "libvndk_product", "", false, "", productVariant)
+	checkVndkModule(t, ctx, "libvndk_sp_product_private", "", true, "", productVariant)
 
 	// Check VNDK snapshot output.
-
 	snapshotDir := "vndk-snapshot"
-	snapshotVariantPath := filepath.Join(buildDir, snapshotDir, "arm64")
+	snapshotVariantPath := filepath.Join("out/soong", snapshotDir, "arm64")
 
 	vndkLibPath := filepath.Join(snapshotVariantPath, fmt.Sprintf("arch-%s-%s",
 		"arm64", "armv8-a"))
@@ -390,43 +620,59 @@ func TestVndk(t *testing.T) {
 
 	vndkCoreLibPath := filepath.Join(vndkLibPath, "shared", "vndk-core")
 	vndkSpLibPath := filepath.Join(vndkLibPath, "shared", "vndk-sp")
+	llndkLibPath := filepath.Join(vndkLibPath, "shared", "llndk-stub")
+
 	vndkCoreLib2ndPath := filepath.Join(vndkLib2ndPath, "shared", "vndk-core")
 	vndkSpLib2ndPath := filepath.Join(vndkLib2ndPath, "shared", "vndk-sp")
+	llndkLib2ndPath := filepath.Join(vndkLib2ndPath, "shared", "llndk-stub")
 
-	variant := "android_vendor.VER_arm64_armv8-a_shared"
-	variant2nd := "android_vendor.VER_arm_armv7-a-neon_shared"
+	variant := "android_vendor.29_arm64_armv8-a_shared"
+	variant2nd := "android_vendor.29_arm_armv7-a-neon_shared"
 
 	snapshotSingleton := ctx.SingletonForTests("vndk-snapshot")
 
 	checkSnapshot(t, ctx, snapshotSingleton, "libvndk", "libvndk.so", vndkCoreLibPath, variant)
 	checkSnapshot(t, ctx, snapshotSingleton, "libvndk", "libvndk.so", vndkCoreLib2ndPath, variant2nd)
+	checkSnapshot(t, ctx, snapshotSingleton, "libvndk_product", "libvndk_product.so", vndkCoreLibPath, variant)
+	checkSnapshot(t, ctx, snapshotSingleton, "libvndk_product", "libvndk_product.so", vndkCoreLib2ndPath, variant2nd)
 	checkSnapshot(t, ctx, snapshotSingleton, "libvndk_sp", "libvndk_sp-x.so", vndkSpLibPath, variant)
 	checkSnapshot(t, ctx, snapshotSingleton, "libvndk_sp", "libvndk_sp-x.so", vndkSpLib2ndPath, variant2nd)
+	checkSnapshot(t, ctx, snapshotSingleton, "libllndk", "libllndk.so", llndkLibPath, variant)
+	checkSnapshot(t, ctx, snapshotSingleton, "libllndk", "libllndk.so", llndkLib2ndPath, variant2nd)
 
 	snapshotConfigsPath := filepath.Join(snapshotVariantPath, "configs")
 	checkSnapshot(t, ctx, snapshotSingleton, "llndk.libraries.txt", "llndk.libraries.txt", snapshotConfigsPath, "")
 	checkSnapshot(t, ctx, snapshotSingleton, "vndkcore.libraries.txt", "vndkcore.libraries.txt", snapshotConfigsPath, "")
 	checkSnapshot(t, ctx, snapshotSingleton, "vndksp.libraries.txt", "vndksp.libraries.txt", snapshotConfigsPath, "")
 	checkSnapshot(t, ctx, snapshotSingleton, "vndkprivate.libraries.txt", "vndkprivate.libraries.txt", snapshotConfigsPath, "")
+	checkSnapshot(t, ctx, snapshotSingleton, "vndkproduct.libraries.txt", "vndkproduct.libraries.txt", snapshotConfigsPath, "")
 
 	checkVndkOutput(t, ctx, "vndk/vndk.libraries.txt", []string{
 		"LLNDK: libc.so",
 		"LLNDK: libdl.so",
 		"LLNDK: libft2.so",
+		"LLNDK: libllndk.so",
 		"LLNDK: libm.so",
 		"VNDK-SP: libc++.so",
 		"VNDK-SP: libvndk_sp-x.so",
 		"VNDK-SP: libvndk_sp_private-x.so",
+		"VNDK-SP: libvndk_sp_product_private-x.so",
 		"VNDK-core: libvndk-private.so",
 		"VNDK-core: libvndk.so",
+		"VNDK-core: libvndk_product.so",
 		"VNDK-private: libft2.so",
 		"VNDK-private: libvndk-private.so",
 		"VNDK-private: libvndk_sp_private-x.so",
+		"VNDK-private: libvndk_sp_product_private-x.so",
+		"VNDK-product: libc++.so",
+		"VNDK-product: libvndk_product.so",
+		"VNDK-product: libvndk_sp_product_private-x.so",
 	})
-	checkVndkLibrariesOutput(t, ctx, "llndk.libraries.txt", []string{"libc.so", "libdl.so", "libft2.so", "libm.so"})
-	checkVndkLibrariesOutput(t, ctx, "vndkcore.libraries.txt", []string{"libvndk-private.so", "libvndk.so"})
-	checkVndkLibrariesOutput(t, ctx, "vndkprivate.libraries.txt", []string{"libft2.so", "libvndk-private.so", "libvndk_sp_private-x.so"})
-	checkVndkLibrariesOutput(t, ctx, "vndksp.libraries.txt", []string{"libc++.so", "libvndk_sp-x.so", "libvndk_sp_private-x.so"})
+	checkVndkLibrariesOutput(t, ctx, "llndk.libraries.txt", []string{"libc.so", "libclang_rt.hwasan-llndk.so", "libdl.so", "libft2.so", "libllndk.so", "libm.so"})
+	checkVndkLibrariesOutput(t, ctx, "vndkcore.libraries.txt", []string{"libvndk-private.so", "libvndk.so", "libvndk_product.so"})
+	checkVndkLibrariesOutput(t, ctx, "vndksp.libraries.txt", []string{"libc++.so", "libvndk_sp-x.so", "libvndk_sp_private-x.so", "libvndk_sp_product_private-x.so"})
+	checkVndkLibrariesOutput(t, ctx, "vndkprivate.libraries.txt", []string{"libft2.so", "libvndk-private.so", "libvndk_sp_private-x.so", "libvndk_sp_product_private-x.so"})
+	checkVndkLibrariesOutput(t, ctx, "vndkproduct.libraries.txt", []string{"libc++.so", "libvndk_product.so", "libvndk_sp_product_private-x.so"})
 	checkVndkLibrariesOutput(t, ctx, "vndkcorevariant.libraries.txt", nil)
 }
 
@@ -435,6 +681,7 @@ func TestVndkWithHostSupported(t *testing.T) {
 		cc_library {
 			name: "libvndk_host_supported",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -444,6 +691,7 @@ func TestVndkWithHostSupported(t *testing.T) {
 		cc_library {
 			name: "libvndk_host_supported_but_disabled_on_device",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -456,7 +704,7 @@ func TestVndkWithHostSupported(t *testing.T) {
 			}
 		}
 
-		vndk_libraries_txt {
+		vndkcore_libraries_txt {
 			name: "vndkcore.libraries.txt",
 		}
 	`)
@@ -466,17 +714,18 @@ func TestVndkWithHostSupported(t *testing.T) {
 
 func TestVndkLibrariesTxtAndroidMk(t *testing.T) {
 	bp := `
-		vndk_libraries_txt {
+		llndk_libraries_txt {
 			name: "llndk.libraries.txt",
+			insert_vndk_version: true,
 		}`
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
 	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
 	ctx := testCcWithConfig(t, config)
 
 	module := ctx.ModuleForTests("llndk.libraries.txt", "")
-	entries := android.AndroidMkEntriesForTest(t, config, "", module.Module())[0]
-	assertArrayString(t, entries.EntryMap["LOCAL_MODULE_STEM"], []string{"llndk.libraries.VER.txt"})
+	entries := android.AndroidMkEntriesForTest(t, ctx, module.Module())[0]
+	assertArrayString(t, entries.EntryMap["LOCAL_MODULE_STEM"], []string{"llndk.libraries.29.txt"})
 }
 
 func TestVndkUsingCoreVariant(t *testing.T) {
@@ -484,6 +733,7 @@ func TestVndkUsingCoreVariant(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -493,6 +743,7 @@ func TestVndkUsingCoreVariant(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -502,21 +753,24 @@ func TestVndkUsingCoreVariant(t *testing.T) {
 
 		cc_library {
 			name: "libvndk2",
-			vendor_available: false,
+			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
+				private: true,
 			},
 			nocrt: true,
 		}
 
-		vndk_libraries_txt {
+		vndkcorevariant_libraries_txt {
 			name: "vndkcorevariant.libraries.txt",
+			insert_vndk_version: false,
 		}
 	`
 
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
 	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
 	config.TestProductVariables.VndkUseCoreVariant = BoolPtr(true)
 
 	setVndkMustUseVendorVariantListForTest(config, []string{"libvndk"})
@@ -526,15 +780,139 @@ func TestVndkUsingCoreVariant(t *testing.T) {
 	checkVndkLibrariesOutput(t, ctx, "vndkcorevariant.libraries.txt", []string{"libc++.so", "libvndk2.so", "libvndk_sp.so"})
 }
 
+func TestDataLibs(t *testing.T) {
+	bp := `
+		cc_test_library {
+			name: "test_lib",
+			srcs: ["test_lib.cpp"],
+			gtest: false,
+		}
+
+		cc_test {
+			name: "main_test",
+			data_libs: ["test_lib"],
+			gtest: false,
+		}
+ `
+
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
+	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
+	config.TestProductVariables.VndkUseCoreVariant = BoolPtr(true)
+
+	ctx := testCcWithConfig(t, config)
+	module := ctx.ModuleForTests("main_test", "android_arm_armv7-a-neon").Module()
+	testBinary := module.(*Module).linker.(*testBinary)
+	outputFiles, err := module.(android.OutputFileProducer).OutputFiles("")
+	if err != nil {
+		t.Errorf("Expected cc_test to produce output files, error: %s", err)
+		return
+	}
+	if len(outputFiles) != 1 {
+		t.Errorf("expected exactly one output file. output files: [%s]", outputFiles)
+		return
+	}
+	if len(testBinary.dataPaths()) != 1 {
+		t.Errorf("expected exactly one test data file. test data files: [%s]", testBinary.dataPaths())
+		return
+	}
+
+	outputPath := outputFiles[0].String()
+	testBinaryPath := testBinary.dataPaths()[0].SrcPath.String()
+
+	if !strings.HasSuffix(outputPath, "/main_test") {
+		t.Errorf("expected test output file to be 'main_test', but was '%s'", outputPath)
+		return
+	}
+	if !strings.HasSuffix(testBinaryPath, "/test_lib.so") {
+		t.Errorf("expected test data file to be 'test_lib.so', but was '%s'", testBinaryPath)
+		return
+	}
+}
+
+func TestDataLibsRelativeInstallPath(t *testing.T) {
+	bp := `
+		cc_test_library {
+			name: "test_lib",
+			srcs: ["test_lib.cpp"],
+			relative_install_path: "foo/bar/baz",
+			gtest: false,
+		}
+
+		cc_test {
+			name: "main_test",
+			data_libs: ["test_lib"],
+			gtest: false,
+		}
+ `
+
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
+	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
+	config.TestProductVariables.VndkUseCoreVariant = BoolPtr(true)
+
+	ctx := testCcWithConfig(t, config)
+	module := ctx.ModuleForTests("main_test", "android_arm_armv7-a-neon").Module()
+	testBinary := module.(*Module).linker.(*testBinary)
+	outputFiles, err := module.(android.OutputFileProducer).OutputFiles("")
+	if err != nil {
+		t.Fatalf("Expected cc_test to produce output files, error: %s", err)
+	}
+	if len(outputFiles) != 1 {
+		t.Errorf("expected exactly one output file. output files: [%s]", outputFiles)
+	}
+	if len(testBinary.dataPaths()) != 1 {
+		t.Errorf("expected exactly one test data file. test data files: [%s]", testBinary.dataPaths())
+	}
+
+	outputPath := outputFiles[0].String()
+
+	if !strings.HasSuffix(outputPath, "/main_test") {
+		t.Errorf("expected test output file to be 'main_test', but was '%s'", outputPath)
+	}
+	entries := android.AndroidMkEntriesForTest(t, ctx, module)[0]
+	if !strings.HasSuffix(entries.EntryMap["LOCAL_TEST_DATA"][0], ":test_lib.so:foo/bar/baz") {
+		t.Errorf("expected LOCAL_TEST_DATA to end with `:test_lib.so:foo/bar/baz`,"+
+			" but was '%s'", entries.EntryMap["LOCAL_TEST_DATA"][0])
+	}
+}
+
 func TestVndkWhenVndkVersionIsNotSet(t *testing.T) {
 	ctx := testCcNoVndk(t, `
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
 			nocrt: true,
+		}
+		cc_library {
+			name: "libvndk-private",
+			vendor_available: true,
+			product_available: true,
+			vndk: {
+				enabled: true,
+				private: true,
+			},
+			nocrt: true,
+		}
+
+		cc_library {
+			name: "libllndk",
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+				export_llndk_headers: ["libllndk_headers"],
+			}
+		}
+
+		cc_library_headers {
+			name: "libllndk_headers",
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+			},
+			export_include_dirs: ["include"],
 		}
 	`)
 
@@ -542,11 +920,58 @@ func TestVndkWhenVndkVersionIsNotSet(t *testing.T) {
 		"LLNDK: libc.so",
 		"LLNDK: libdl.so",
 		"LLNDK: libft2.so",
+		"LLNDK: libllndk.so",
 		"LLNDK: libm.so",
 		"VNDK-SP: libc++.so",
+		"VNDK-core: libvndk-private.so",
 		"VNDK-core: libvndk.so",
 		"VNDK-private: libft2.so",
+		"VNDK-private: libvndk-private.so",
+		"VNDK-product: libc++.so",
+		"VNDK-product: libvndk-private.so",
+		"VNDK-product: libvndk.so",
 	})
+}
+
+func TestVndkModuleError(t *testing.T) {
+	// Check the error message for vendor_available and product_available properties.
+	testCcErrorProductVndk(t, "vndk: vendor_available must be set to true when `vndk: {enabled: true}`", `
+		cc_library {
+			name: "libvndk",
+			vndk: {
+				enabled: true,
+			},
+			nocrt: true,
+		}
+	`)
+
+	testCcErrorProductVndk(t, "vndk: vendor_available must be set to true when `vndk: {enabled: true}`", `
+		cc_library {
+			name: "libvndk",
+			product_available: true,
+			vndk: {
+				enabled: true,
+			},
+			nocrt: true,
+		}
+	`)
+
+	testCcErrorProductVndk(t, "product properties must have the same values with the vendor properties for VNDK modules", `
+		cc_library {
+			name: "libvndkprop",
+			vendor_available: true,
+			product_available: true,
+			vndk: {
+				enabled: true,
+			},
+			nocrt: true,
+			target: {
+				vendor: {
+					cflags: ["-DTEST",],
+				},
+			},
+		}
+	`)
 }
 
 func TestVndkDepError(t *testing.T) {
@@ -555,6 +980,7 @@ func TestVndkDepError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -573,6 +999,7 @@ func TestVndkDepError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -592,6 +1019,7 @@ func TestVndkDepError(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -611,6 +1039,7 @@ func TestVndkDepError(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -631,6 +1060,7 @@ func TestVndkDepError(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -642,6 +1072,7 @@ func TestVndkDepError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -654,6 +1085,7 @@ func TestVndkDepError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -672,9 +1104,11 @@ func TestVndkDepError(t *testing.T) {
 	testCcError(t, "module \".*\" variant \".*\": \\(.*\\) should not link to \".*\"", `
 		cc_library {
 			name: "libvndkprivate",
-			vendor_available: false,
+			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
+				private: true,
 			},
 			shared_libs: ["libnonvndk"],
 			nocrt: true,
@@ -692,6 +1126,7 @@ func TestVndkDepError(t *testing.T) {
 		cc_library {
 			name: "libvndksp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -711,10 +1146,12 @@ func TestVndkDepError(t *testing.T) {
 	testCcError(t, "module \".*\" variant \".*\": \\(.*\\) should not link to \".*\"", `
 		cc_library {
 			name: "libvndkspprivate",
-			vendor_available: false,
+			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
+				private: true,
 			},
 			shared_libs: ["libnonvndk"],
 			nocrt: true,
@@ -734,16 +1171,15 @@ func TestDoubleLoadbleDep(t *testing.T) {
 		cc_library {
 			name: "libllndk",
 			shared_libs: ["libdoubleloadable"],
-		}
-
-		llndk_library {
-			name: "libllndk",
-			symbol_file: "",
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+			}
 		}
 
 		cc_library {
 			name: "libdoubleloadable",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -755,16 +1191,15 @@ func TestDoubleLoadbleDep(t *testing.T) {
 		cc_library {
 			name: "libllndk",
 			shared_libs: ["libvndksp"],
-		}
-
-		llndk_library {
-			name: "libllndk",
-			symbol_file: "",
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+			}
 		}
 
 		cc_library {
 			name: "libvndksp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -791,6 +1226,7 @@ func TestDoubleLoadbleDep(t *testing.T) {
 		cc_library {
 			name: "libdoubleloadable",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -800,9 +1236,11 @@ func TestDoubleLoadbleDep(t *testing.T) {
 
 		cc_library {
 			name: "libnondoubleloadable",
-			vendor_available: false,
+			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
+				private: true,
 			},
 			double_loadable: true,
 		}
@@ -812,11 +1250,9 @@ func TestDoubleLoadbleDep(t *testing.T) {
 		cc_library {
 			name: "libllndk",
 			shared_libs: ["libcoreonly"],
-		}
-
-		llndk_library {
-			name: "libllndk",
-			symbol_file: "",
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+			}
 		}
 
 		cc_library {
@@ -833,147 +1269,21 @@ func TestDoubleLoadbleDep(t *testing.T) {
 	`)
 }
 
-func TestVendorSnapshot(t *testing.T) {
-	bp := `
-	cc_library {
-		name: "libvndk",
-		vendor_available: true,
-		vndk: {
-			enabled: true,
-		},
-		nocrt: true,
-	}
-
-	cc_library {
-		name: "libvendor",
-		vendor: true,
-		nocrt: true,
-	}
-
-	cc_library {
-		name: "libvendor_available",
-		vendor_available: true,
-		nocrt: true,
-	}
-
-	cc_library_headers {
-		name: "libvendor_headers",
-		vendor_available: true,
-		nocrt: true,
-	}
-
-	cc_binary {
-		name: "vendor_bin",
-		vendor: true,
-		nocrt: true,
-	}
-
-	cc_binary {
-		name: "vendor_available_bin",
-		vendor_available: true,
-		nocrt: true,
-	}
-
-	toolchain_library {
-		name: "libb",
-		vendor_available: true,
-		src: "libb.a",
-	}
-
-	cc_object {
-		name: "obj",
-		vendor_available: true,
-	}
-`
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
-	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
-	ctx := testCcWithConfig(t, config)
-
-	// Check Vendor snapshot output.
-
-	snapshotDir := "vendor-snapshot"
-	snapshotVariantPath := filepath.Join(buildDir, snapshotDir, "arm64")
-	snapshotSingleton := ctx.SingletonForTests("vendor-snapshot")
-
-	var jsonFiles []string
-
-	for _, arch := range [][]string{
-		[]string{"arm64", "armv8-a"},
-		[]string{"arm", "armv7-a-neon"},
-	} {
-		archType := arch[0]
-		archVariant := arch[1]
-		archDir := fmt.Sprintf("arch-%s-%s", archType, archVariant)
-
-		// For shared libraries, only non-VNDK vendor_available modules are captured
-		sharedVariant := fmt.Sprintf("android_vendor.VER_%s_%s_shared", archType, archVariant)
-		sharedDir := filepath.Join(snapshotVariantPath, archDir, "shared")
-		checkSnapshot(t, ctx, snapshotSingleton, "libvendor", "libvendor.so", sharedDir, sharedVariant)
-		checkSnapshot(t, ctx, snapshotSingleton, "libvendor_available", "libvendor_available.so", sharedDir, sharedVariant)
-		jsonFiles = append(jsonFiles,
-			filepath.Join(sharedDir, "libvendor.so.json"),
-			filepath.Join(sharedDir, "libvendor_available.so.json"))
-
-		// For static libraries, all vendor:true and vendor_available modules (including VNDK) are captured.
-		staticVariant := fmt.Sprintf("android_vendor.VER_%s_%s_static", archType, archVariant)
-		staticDir := filepath.Join(snapshotVariantPath, archDir, "static")
-		checkSnapshot(t, ctx, snapshotSingleton, "libb", "libb.a", staticDir, staticVariant)
-		checkSnapshot(t, ctx, snapshotSingleton, "libvndk", "libvndk.a", staticDir, staticVariant)
-		checkSnapshot(t, ctx, snapshotSingleton, "libvendor", "libvendor.a", staticDir, staticVariant)
-		checkSnapshot(t, ctx, snapshotSingleton, "libvendor_available", "libvendor_available.a", staticDir, staticVariant)
-		jsonFiles = append(jsonFiles,
-			filepath.Join(staticDir, "libb.a.json"),
-			filepath.Join(staticDir, "libvndk.a.json"),
-			filepath.Join(staticDir, "libvendor.a.json"),
-			filepath.Join(staticDir, "libvendor_available.a.json"))
-
-		// For binary executables, all vendor:true and vendor_available modules are captured.
-		if archType == "arm64" {
-			binaryVariant := fmt.Sprintf("android_vendor.VER_%s_%s", archType, archVariant)
-			binaryDir := filepath.Join(snapshotVariantPath, archDir, "binary")
-			checkSnapshot(t, ctx, snapshotSingleton, "vendor_bin", "vendor_bin", binaryDir, binaryVariant)
-			checkSnapshot(t, ctx, snapshotSingleton, "vendor_available_bin", "vendor_available_bin", binaryDir, binaryVariant)
-			jsonFiles = append(jsonFiles,
-				filepath.Join(binaryDir, "vendor_bin.json"),
-				filepath.Join(binaryDir, "vendor_available_bin.json"))
-		}
-
-		// For header libraries, all vendor:true and vendor_available modules are captured.
-		headerDir := filepath.Join(snapshotVariantPath, archDir, "header")
-		jsonFiles = append(jsonFiles, filepath.Join(headerDir, "libvendor_headers.json"))
-
-		// For object modules, all vendor:true and vendor_available modules are captured.
-		objectVariant := fmt.Sprintf("android_vendor.VER_%s_%s", archType, archVariant)
-		objectDir := filepath.Join(snapshotVariantPath, archDir, "object")
-		checkSnapshot(t, ctx, snapshotSingleton, "obj", "obj.o", objectDir, objectVariant)
-		jsonFiles = append(jsonFiles, filepath.Join(objectDir, "obj.o.json"))
-	}
-
-	for _, jsonFile := range jsonFiles {
-		// verify all json files exist
-		if snapshotSingleton.MaybeOutput(jsonFile).Rule == nil {
-			t.Errorf("%q expected but not found", jsonFile)
-		}
-	}
-}
-
 func TestDoubleLoadableDepError(t *testing.T) {
 	// Check whether an error is emitted when a LLNDK depends on a non-double_loadable VNDK lib.
 	testCcError(t, "module \".*\" variant \".*\": link.* \".*\" which is not LL-NDK, VNDK-SP, .*double_loadable", `
 		cc_library {
 			name: "libllndk",
 			shared_libs: ["libnondoubleloadable"],
-		}
-
-		llndk_library {
-			name: "libllndk",
-			symbol_file: "",
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+			}
 		}
 
 		cc_library {
 			name: "libnondoubleloadable",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -986,70 +1296,14 @@ func TestDoubleLoadableDepError(t *testing.T) {
 			name: "libllndk",
 			no_libcrt: true,
 			shared_libs: ["libnondoubleloadable"],
-		}
-
-		llndk_library {
-			name: "libllndk",
-			symbol_file: "",
-		}
-
-		cc_library {
-			name: "libnondoubleloadable",
-			vendor_available: true,
-		}
-	`)
-
-	// Check whether an error is emitted when a double_loadable lib depends on a non-double_loadable vendor_available lib.
-	testCcError(t, "module \".*\" variant \".*\": link.* \".*\" which is not LL-NDK, VNDK-SP, .*double_loadable", `
-		cc_library {
-			name: "libdoubleloadable",
-			vendor_available: true,
-			double_loadable: true,
-			shared_libs: ["libnondoubleloadable"],
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+			}
 		}
 
 		cc_library {
 			name: "libnondoubleloadable",
 			vendor_available: true,
-		}
-	`)
-
-	// Check whether an error is emitted when a double_loadable lib depends on a non-double_loadable VNDK lib.
-	testCcError(t, "module \".*\" variant \".*\": link.* \".*\" which is not LL-NDK, VNDK-SP, .*double_loadable", `
-		cc_library {
-			name: "libdoubleloadable",
-			vendor_available: true,
-			double_loadable: true,
-			shared_libs: ["libnondoubleloadable"],
-		}
-
-		cc_library {
-			name: "libnondoubleloadable",
-			vendor_available: true,
-			vndk: {
-				enabled: true,
-			},
-		}
-	`)
-
-	// Check whether an error is emitted when a double_loadable VNDK depends on a non-double_loadable VNDK private lib.
-	testCcError(t, "module \".*\" variant \".*\": link.* \".*\" which is not LL-NDK, VNDK-SP, .*double_loadable", `
-		cc_library {
-			name: "libdoubleloadable",
-			vendor_available: true,
-			vndk: {
-				enabled: true,
-			},
-			double_loadable: true,
-			shared_libs: ["libnondoubleloadable"],
-		}
-
-		cc_library {
-			name: "libnondoubleloadable",
-			vendor_available: false,
-			vndk: {
-				enabled: true,
-			},
 		}
 	`)
 
@@ -1058,11 +1312,9 @@ func TestDoubleLoadableDepError(t *testing.T) {
 		cc_library {
 			name: "libllndk",
 			shared_libs: ["libcoreonly"],
-		}
-
-		llndk_library {
-			name: "libllndk",
-			symbol_file: "",
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+			}
 		}
 
 		cc_library {
@@ -1076,6 +1328,52 @@ func TestDoubleLoadableDepError(t *testing.T) {
 			vendor_available: true,
 		}
 	`)
+
+	// The error is not from 'client' but from 'libllndk'
+	testCcError(t, "module \"libllndk\".* links a library \"libnondoubleloadable\".*double_loadable", `
+		cc_library {
+			name: "client",
+			vendor_available: true,
+			double_loadable: true,
+			shared_libs: ["libllndk"],
+		}
+		cc_library {
+			name: "libllndk",
+			shared_libs: ["libnondoubleloadable"],
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+			}
+		}
+		cc_library {
+			name: "libnondoubleloadable",
+			vendor_available: true,
+		}
+	`)
+}
+
+func TestCheckVndkMembershipBeforeDoubleLoadable(t *testing.T) {
+	testCcError(t, "module \"libvndksp\" variant .*: .*: VNDK-SP must only depend on VNDK-SP", `
+		cc_library {
+			name: "libvndksp",
+			shared_libs: ["libanothervndksp"],
+			vendor_available: true,
+			product_available: true,
+			vndk: {
+				enabled: true,
+				support_system_process: true,
+			}
+		}
+
+		cc_library {
+			name: "libllndk",
+			shared_libs: ["libanothervndksp"],
+		}
+
+		cc_library {
+			name: "libanothervndksp",
+			vendor_available: true,
+		}
+	`)
 }
 
 func TestVndkExt(t *testing.T) {
@@ -1084,6 +1382,7 @@ func TestVndkExt(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1092,11 +1391,15 @@ func TestVndkExt(t *testing.T) {
 		cc_library {
 			name: "libvndk2",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
 			target: {
 				vendor: {
+					suffix: "-suffix",
+				},
+				product: {
 					suffix: "-suffix",
 				},
 			},
@@ -1143,10 +1446,10 @@ func TestVndkExt(t *testing.T) {
 			nocrt: true,
 		}
 	`
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
 	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
 	config.TestProductVariables.ProductVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
 
 	ctx := testCcWithConfig(t, config)
 
@@ -1166,6 +1469,7 @@ func TestVndkExtWithoutBoardVndkVersion(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1192,10 +1496,11 @@ func TestVndkExtWithoutBoardVndkVersion(t *testing.T) {
 
 func TestVndkExtWithoutProductVndkVersion(t *testing.T) {
 	// This test checks the VNDK-Ext properties when PRODUCT_PRODUCT_VNDK_VERSION is not set.
-	ctx := testCc(t, `
+	ctx := testCcNoProductVndk(t, `
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1226,6 +1531,7 @@ func TestVndkExtError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1246,6 +1552,7 @@ func TestVndkExtError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1266,6 +1573,7 @@ func TestVndkExtError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1286,6 +1594,7 @@ func TestVndkExtError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1296,6 +1605,7 @@ func TestVndkExtError(t *testing.T) {
 			name: "libvndk_ext_product",
 			product_specific: true,
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				extends: "libvndk",
@@ -1311,6 +1621,7 @@ func TestVndkExtInconsistentSupportSystemProcessError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1333,6 +1644,7 @@ func TestVndkExtInconsistentSupportSystemProcessError(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -1354,13 +1666,15 @@ func TestVndkExtInconsistentSupportSystemProcessError(t *testing.T) {
 
 func TestVndkExtVendorAvailableFalseError(t *testing.T) {
 	// This test ensures an error is emitted when a VNDK-Ext library extends a VNDK library
-	// with `vendor_available: false`.
-	testCcError(t, "`extends` refers module \".*\" which does not have `vendor_available: true`", `
+	// with `private: true`.
+	testCcError(t, "`extends` refers module \".*\" which has `private: true`", `
 		cc_library {
 			name: "libvndk",
-			vendor_available: false,
+			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
+				private: true,
 			},
 			nocrt: true,
 		}
@@ -1376,12 +1690,14 @@ func TestVndkExtVendorAvailableFalseError(t *testing.T) {
 		}
 	`)
 
-	testCcErrorProductVndk(t, "`extends` refers module \".*\" which does not have `vendor_available: true`", `
+	testCcErrorProductVndk(t, "`extends` refers module \".*\" which has `private: true`", `
 		cc_library {
 			name: "libvndk",
-			vendor_available: false,
+			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
+				private: true,
 			},
 			nocrt: true,
 		}
@@ -1404,6 +1720,7 @@ func TestVendorModuleUseVndkExt(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1423,6 +1740,7 @@ func TestVendorModuleUseVndkExt(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -1456,6 +1774,7 @@ func TestVndkExtUseVendorLib(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1485,6 +1804,7 @@ func TestVndkExtUseVendorLib(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -1517,6 +1837,7 @@ func TestProductVndkExtDependency(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1537,6 +1858,7 @@ func TestProductVndkExtDependency(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -1569,10 +1891,10 @@ func TestProductVndkExtDependency(t *testing.T) {
 			nocrt: true,
 		}
 	`
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
 	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
 	config.TestProductVariables.ProductVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
 
 	testCcWithConfig(t, config)
 }
@@ -1584,6 +1906,7 @@ func TestVndkSpExtUseVndkError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1593,6 +1916,7 @@ func TestVndkSpExtUseVndkError(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -1619,6 +1943,7 @@ func TestVndkSpExtUseVndkError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1638,6 +1963,7 @@ func TestVndkSpExtUseVndkError(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -1666,6 +1992,7 @@ func TestVndkUseVndkExtError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1685,6 +2012,7 @@ func TestVndkUseVndkExtError(t *testing.T) {
 		cc_library {
 			name: "libvndk2",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1697,6 +2025,7 @@ func TestVndkUseVndkExtError(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1732,6 +2061,7 @@ func TestVndkUseVndkExtError(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -1753,6 +2083,7 @@ func TestVndkUseVndkExtError(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp_2",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -1766,6 +2097,7 @@ func TestVndkUseVndkExtError(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1802,14 +2134,14 @@ func TestEnforceProductVndkVersion(t *testing.T) {
 	bp := `
 		cc_library {
 			name: "libllndk",
-		}
-		llndk_library {
-			name: "libllndk",
-			symbol_file: "",
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+			}
 		}
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1818,6 +2150,7 @@ func TestEnforceProductVndkVersion(t *testing.T) {
 		cc_library {
 			name: "libvndk_sp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -1828,6 +2161,26 @@ func TestEnforceProductVndkVersion(t *testing.T) {
 			name: "libva",
 			vendor_available: true,
 			nocrt: true,
+		}
+		cc_library {
+			name: "libpa",
+			product_available: true,
+			nocrt: true,
+		}
+		cc_library {
+			name: "libboth_available",
+			vendor_available: true,
+			product_available: true,
+			nocrt: true,
+			srcs: ["foo.c"],
+			target: {
+				vendor: {
+					suffix: "-vendor",
+				},
+				product: {
+					suffix: "-product",
+				},
+			}
 		}
 		cc_library {
 			name: "libproduct_va",
@@ -1842,7 +2195,8 @@ func TestEnforceProductVndkVersion(t *testing.T) {
 				"libllndk",
 				"libvndk",
 				"libvndk_sp",
-				"libva",
+				"libpa",
+				"libboth_available",
 				"libproduct_va",
 			],
 			nocrt: true,
@@ -1855,25 +2209,54 @@ func TestEnforceProductVndkVersion(t *testing.T) {
 				"libvndk",
 				"libvndk_sp",
 				"libva",
+				"libboth_available",
 				"libproduct_va",
 			],
 			nocrt: true,
 		}
 	`
 
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
-	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
-	config.TestProductVariables.ProductVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
+	ctx := prepareForCcTest.RunTestWithBp(t, bp).TestContext
 
-	ctx := testCcWithConfig(t, config)
+	checkVndkModule(t, ctx, "libvndk", "", false, "", productVariant)
+	checkVndkModule(t, ctx, "libvndk_sp", "", true, "", productVariant)
 
-	checkVndkModule(t, ctx, "libvndk", "vndk-VER", false, "", productVariant)
-	checkVndkModule(t, ctx, "libvndk_sp", "vndk-sp-VER", true, "", productVariant)
+	mod_vendor := ctx.ModuleForTests("libboth_available", vendorVariant).Module().(*Module)
+	assertString(t, mod_vendor.outputFile.Path().Base(), "libboth_available-vendor.so")
+
+	mod_product := ctx.ModuleForTests("libboth_available", productVariant).Module().(*Module)
+	assertString(t, mod_product.outputFile.Path().Base(), "libboth_available-product.so")
+
+	ensureStringContains := func(t *testing.T, str string, substr string) {
+		t.Helper()
+		if !strings.Contains(str, substr) {
+			t.Errorf("%q is not found in %v", substr, str)
+		}
+	}
+	ensureStringNotContains := func(t *testing.T, str string, substr string) {
+		t.Helper()
+		if strings.Contains(str, substr) {
+			t.Errorf("%q is found in %v", substr, str)
+		}
+	}
+
+	// _static variant is used since _shared reuses *.o from the static variant
+	vendor_static := ctx.ModuleForTests("libboth_available", strings.Replace(vendorVariant, "_shared", "_static", 1))
+	product_static := ctx.ModuleForTests("libboth_available", strings.Replace(productVariant, "_shared", "_static", 1))
+
+	vendor_cflags := vendor_static.Rule("cc").Args["cFlags"]
+	ensureStringContains(t, vendor_cflags, "-D__ANDROID_VNDK__")
+	ensureStringContains(t, vendor_cflags, "-D__ANDROID_VENDOR__")
+	ensureStringNotContains(t, vendor_cflags, "-D__ANDROID_PRODUCT__")
+
+	product_cflags := product_static.Rule("cc").Args["cFlags"]
+	ensureStringContains(t, product_cflags, "-D__ANDROID_VNDK__")
+	ensureStringContains(t, product_cflags, "-D__ANDROID_PRODUCT__")
+	ensureStringNotContains(t, product_cflags, "-D__ANDROID_VENDOR__")
 }
 
 func TestEnforceProductVndkVersionErrors(t *testing.T) {
-	testCcErrorProductVndk(t, "dependency \".*\" of \".*\" missing variant:\n.*image:product.VER", `
+	testCcErrorProductVndk(t, "dependency \".*\" of \".*\" missing variant:\n.*image:product.29", `
 		cc_library {
 			name: "libprod",
 			product_specific: true,
@@ -1888,7 +2271,7 @@ func TestEnforceProductVndkVersionErrors(t *testing.T) {
 			nocrt: true,
 		}
 	`)
-	testCcErrorProductVndk(t, "dependency \".*\" of \".*\" missing variant:\n.*image:product.VER", `
+	testCcErrorProductVndk(t, "dependency \".*\" of \".*\" missing variant:\n.*image:product.29", `
 		cc_library {
 			name: "libprod",
 			product_specific: true,
@@ -1902,7 +2285,22 @@ func TestEnforceProductVndkVersionErrors(t *testing.T) {
 			nocrt: true,
 		}
 	`)
-	testCcErrorProductVndk(t, "Vendor module that is not VNDK should not link to \".*\" which is marked as `vendor_available: false`", `
+	testCcErrorProductVndk(t, "dependency \".*\" of \".*\" missing variant:\n.*image:product.29", `
+		cc_library {
+			name: "libprod",
+			product_specific: true,
+			shared_libs: [
+				"libva",
+			],
+			nocrt: true,
+		}
+		cc_library {
+			name: "libva",
+			vendor_available: true,
+			nocrt: true,
+		}
+	`)
+	testCcErrorProductVndk(t, "non-VNDK module should not link to \".*\" which has `private: true`", `
 		cc_library {
 			name: "libprod",
 			product_specific: true,
@@ -1913,14 +2311,16 @@ func TestEnforceProductVndkVersionErrors(t *testing.T) {
 		}
 		cc_library {
 			name: "libvndk_private",
-			vendor_available: false,
+			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
+				private: true,
 			},
 			nocrt: true,
 		}
 	`)
-	testCcErrorProductVndk(t, "dependency \".*\" of \".*\" missing variant:\n.*image:product.VER", `
+	testCcErrorProductVndk(t, "dependency \".*\" of \".*\" missing variant:\n.*image:product.29", `
 		cc_library {
 			name: "libprod",
 			product_specific: true,
@@ -1957,6 +2357,7 @@ func TestMakeLinkType(t *testing.T) {
 		cc_library {
 			name: "libvndk",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -1964,6 +2365,7 @@ func TestMakeLinkType(t *testing.T) {
 		cc_library {
 			name: "libvndksp",
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 				support_system_process: true,
@@ -1971,9 +2373,11 @@ func TestMakeLinkType(t *testing.T) {
 		}
 		cc_library {
 			name: "libvndkprivate",
-			vendor_available: false,
+			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
+				private: true,
 			},
 		}
 		cc_library {
@@ -1994,6 +2398,7 @@ func TestMakeLinkType(t *testing.T) {
 			target_arch: "arm",
 			binder32bit: true,
 			vendor_available: true,
+			product_available: true,
 			vndk: {
 				enabled: true,
 			},
@@ -2005,34 +2410,50 @@ func TestMakeLinkType(t *testing.T) {
 		}
 		cc_library {
 			name: "libllndk",
-		}
-		llndk_library {
-			name: "libllndk",
-			symbol_file: "",
+			llndk: {
+				symbol_file: "libllndk.map.txt",
+			}
 		}
 		cc_library {
 			name: "libllndkprivate",
+			llndk: {
+				symbol_file: "libllndkprivate.map.txt",
+				private: true,
+			}
 		}
-		llndk_library {
-			name: "libllndkprivate",
-			vendor_available: false,
-			symbol_file: "",
-		}`
 
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
+		llndk_libraries_txt {
+			name: "llndk.libraries.txt",
+		}
+		vndkcore_libraries_txt {
+			name: "vndkcore.libraries.txt",
+		}
+		vndksp_libraries_txt {
+			name: "vndksp.libraries.txt",
+		}
+		vndkprivate_libraries_txt {
+			name: "vndkprivate.libraries.txt",
+		}
+		vndkcorevariant_libraries_txt {
+			name: "vndkcorevariant.libraries.txt",
+			insert_vndk_version: false,
+		}
+	`
+
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
 	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
-	config.TestProductVariables.Platform_vndk_version = StringPtr("VER")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
 	// native:vndk
 	ctx := testCcWithConfig(t, config)
 
-	assertMapKeys(t, vndkCoreLibraries(config),
-		[]string{"libvndk", "libvndkprivate"})
-	assertMapKeys(t, vndkSpLibraries(config),
-		[]string{"libc++", "libvndksp"})
-	assertMapKeys(t, llndkLibraries(config),
-		[]string{"libc", "libdl", "libft2", "libllndk", "libllndkprivate", "libm"})
-	assertMapKeys(t, vndkPrivateLibraries(config),
-		[]string{"libft2", "libllndkprivate", "libvndkprivate"})
+	checkVndkLibrariesOutput(t, ctx, "vndkcore.libraries.txt",
+		[]string{"libvndk.so", "libvndkprivate.so"})
+	checkVndkLibrariesOutput(t, ctx, "vndksp.libraries.txt",
+		[]string{"libc++.so", "libvndksp.so"})
+	checkVndkLibrariesOutput(t, ctx, "llndk.libraries.txt",
+		[]string{"libc.so", "libdl.so", "libft2.so", "libllndk.so", "libllndkprivate.so", "libm.so"})
+	checkVndkLibrariesOutput(t, ctx, "vndkprivate.libraries.txt",
+		[]string{"libft2.so", "libllndkprivate.so", "libvndkprivate.so"})
 
 	vendorVariant27 := "android_vendor.27_arm64_armv8-a_shared"
 
@@ -2046,7 +2467,7 @@ func TestMakeLinkType(t *testing.T) {
 		{vendorVariant, "libvndkprivate", "native:vndk_private"},
 		{vendorVariant, "libvendor", "native:vendor"},
 		{vendorVariant, "libvndkext", "native:vendor"},
-		{vendorVariant, "libllndk.llndk", "native:vndk"},
+		{vendorVariant, "libllndk", "native:vndk"},
 		{vendorVariant27, "prevndk.vndk.27.arm.binder32", "native:vndk"},
 		{coreVariant, "libvndk", "native:platform"},
 		{coreVariant, "libvndkprivate", "native:platform"},
@@ -2057,114 +2478,6 @@ func TestMakeLinkType(t *testing.T) {
 			module := ctx.ModuleForTests(test.name, test.variant).Module().(*Module)
 			assertString(t, module.makeLinkType, test.expected)
 		})
-	}
-}
-
-var (
-	str11 = "01234567891"
-	str10 = str11[:10]
-	str9  = str11[:9]
-	str5  = str11[:5]
-	str4  = str11[:4]
-)
-
-var splitListForSizeTestCases = []struct {
-	in   []string
-	out  [][]string
-	size int
-}{
-	{
-		in:   []string{str10},
-		out:  [][]string{{str10}},
-		size: 10,
-	},
-	{
-		in:   []string{str9},
-		out:  [][]string{{str9}},
-		size: 10,
-	},
-	{
-		in:   []string{str5},
-		out:  [][]string{{str5}},
-		size: 10,
-	},
-	{
-		in:   []string{str11},
-		out:  nil,
-		size: 10,
-	},
-	{
-		in:   []string{str10, str10},
-		out:  [][]string{{str10}, {str10}},
-		size: 10,
-	},
-	{
-		in:   []string{str9, str10},
-		out:  [][]string{{str9}, {str10}},
-		size: 10,
-	},
-	{
-		in:   []string{str10, str9},
-		out:  [][]string{{str10}, {str9}},
-		size: 10,
-	},
-	{
-		in:   []string{str5, str4},
-		out:  [][]string{{str5, str4}},
-		size: 10,
-	},
-	{
-		in:   []string{str5, str4, str5},
-		out:  [][]string{{str5, str4}, {str5}},
-		size: 10,
-	},
-	{
-		in:   []string{str5, str4, str5, str4},
-		out:  [][]string{{str5, str4}, {str5, str4}},
-		size: 10,
-	},
-	{
-		in:   []string{str5, str4, str5, str5},
-		out:  [][]string{{str5, str4}, {str5}, {str5}},
-		size: 10,
-	},
-	{
-		in:   []string{str5, str5, str5, str4},
-		out:  [][]string{{str5}, {str5}, {str5, str4}},
-		size: 10,
-	},
-	{
-		in:   []string{str9, str11},
-		out:  nil,
-		size: 10,
-	},
-	{
-		in:   []string{str11, str9},
-		out:  nil,
-		size: 10,
-	},
-}
-
-func TestSplitListForSize(t *testing.T) {
-	for _, testCase := range splitListForSizeTestCases {
-		out, _ := splitListForSize(android.PathsForTesting(testCase.in...), testCase.size)
-
-		var outStrings [][]string
-
-		if len(out) > 0 {
-			outStrings = make([][]string, len(out))
-			for i, o := range out {
-				outStrings[i] = o.Strings()
-			}
-		}
-
-		if !reflect.DeepEqual(outStrings, testCase.out) {
-			t.Errorf("incorrect output:")
-			t.Errorf("     input: %#v", testCase.in)
-			t.Errorf("      size: %d", testCase.size)
-			t.Errorf("  expected: %#v", testCase.out)
-			t.Errorf("       got: %#v", outStrings)
-		}
 	}
 }
 
@@ -2330,63 +2643,10 @@ func parseModuleDeps(text string) (modulesInOrder []android.Path, allDeps map[an
 	return modulesInOrder, allDeps
 }
 
-func TestLinkReordering(t *testing.T) {
-	for _, testCase := range staticLinkDepOrderTestCases {
-		errs := []string{}
-
-		// parse testcase
-		_, givenTransitiveDeps := parseModuleDeps(testCase.inStatic)
-		expectedModuleNames, expectedTransitiveDeps := parseModuleDeps(testCase.outOrdered)
-		if testCase.allOrdered == "" {
-			// allow the test case to skip specifying allOrdered
-			testCase.allOrdered = testCase.outOrdered
-		}
-		_, expectedAllDeps := parseModuleDeps(testCase.allOrdered)
-		_, givenAllSharedDeps := parseModuleDeps(testCase.inShared)
-
-		// For each module whose post-reordered dependencies were specified, validate that
-		// reordering the inputs produces the expected outputs.
-		for _, moduleName := range expectedModuleNames {
-			moduleDeps := givenTransitiveDeps[moduleName]
-			givenSharedDeps := givenAllSharedDeps[moduleName]
-			orderedAllDeps, orderedDeclaredDeps := orderDeps(moduleDeps, givenSharedDeps, givenTransitiveDeps)
-
-			correctAllOrdered := expectedAllDeps[moduleName]
-			if !reflect.DeepEqual(orderedAllDeps, correctAllOrdered) {
-				errs = append(errs, fmt.Sprintf("orderDeps returned incorrect orderedAllDeps."+
-					"\nin static:%q"+
-					"\nin shared:%q"+
-					"\nmodule:   %v"+
-					"\nexpected: %s"+
-					"\nactual:   %s",
-					testCase.inStatic, testCase.inShared, moduleName, correctAllOrdered, orderedAllDeps))
-			}
-
-			correctOutputDeps := expectedTransitiveDeps[moduleName]
-			if !reflect.DeepEqual(correctOutputDeps, orderedDeclaredDeps) {
-				errs = append(errs, fmt.Sprintf("orderDeps returned incorrect orderedDeclaredDeps."+
-					"\nin static:%q"+
-					"\nin shared:%q"+
-					"\nmodule:   %v"+
-					"\nexpected: %s"+
-					"\nactual:   %s",
-					testCase.inStatic, testCase.inShared, moduleName, correctOutputDeps, orderedDeclaredDeps))
-			}
-		}
-
-		if len(errs) > 0 {
-			sort.Strings(errs)
-			for _, err := range errs {
-				t.Error(err)
-			}
-		}
-	}
-}
-
 func getOutputPaths(ctx *android.TestContext, variant string, moduleNames []string) (paths android.Paths) {
 	for _, moduleName := range moduleNames {
 		module := ctx.ModuleForTests(moduleName, variant).Module().(*Module)
-		output := module.outputFile.Path()
+		output := module.outputFile.Path().RelativeToTop()
 		paths = append(paths, output)
 	}
 	return paths
@@ -2417,8 +2677,9 @@ func TestStaticLibDepReordering(t *testing.T) {
 
 	variant := "android_arm64_armv8-a_static"
 	moduleA := ctx.ModuleForTests("a", variant).Module().(*Module)
-	actual := moduleA.depsInLinkOrder
-	expected := getOutputPaths(ctx, variant, []string{"c", "b", "d"})
+	actual := ctx.ModuleProvider(moduleA, StaticLibraryInfoProvider).(StaticLibraryInfo).
+		TransitiveStaticLibrariesForOrdering.ToList().RelativeToTop()
+	expected := getOutputPaths(ctx, variant, []string{"a", "c", "b", "d"})
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("staticDeps orderings were not propagated correctly"+
@@ -2451,8 +2712,9 @@ func TestStaticLibDepReorderingWithShared(t *testing.T) {
 
 	variant := "android_arm64_armv8-a_static"
 	moduleA := ctx.ModuleForTests("a", variant).Module().(*Module)
-	actual := moduleA.depsInLinkOrder
-	expected := getOutputPaths(ctx, variant, []string{"c", "b"})
+	actual := ctx.ModuleProvider(moduleA, StaticLibraryInfoProvider).(StaticLibraryInfo).
+		TransitiveStaticLibrariesForOrdering.ToList().RelativeToTop()
+	expected := getOutputPaths(ctx, variant, []string{"a", "c", "b"})
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("staticDeps orderings did not account for shared libs"+
@@ -2465,6 +2727,7 @@ func TestStaticLibDepReorderingWithShared(t *testing.T) {
 }
 
 func checkEquals(t *testing.T, message string, expected, actual interface{}) {
+	t.Helper()
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf(message+
 			"\nactual:   %v"+
@@ -2476,43 +2739,116 @@ func checkEquals(t *testing.T, message string, expected, actual interface{}) {
 }
 
 func TestLlndkLibrary(t *testing.T) {
-	ctx := testCc(t, `
+	result := prepareForCcTest.RunTestWithBp(t, `
 	cc_library {
 		name: "libllndk",
 		stubs: { versions: ["1", "2"] },
+		llndk: {
+			symbol_file: "libllndk.map.txt",
+		},
+		export_include_dirs: ["include"],
 	}
-	llndk_library {
-		name: "libllndk",
+
+	cc_prebuilt_library_shared {
+		name: "libllndkprebuilt",
+		stubs: { versions: ["1", "2"] },
+		llndk: {
+			symbol_file: "libllndkprebuilt.map.txt",
+		},
+	}
+
+	cc_library {
+		name: "libllndk_with_external_headers",
+		stubs: { versions: ["1", "2"] },
+		llndk: {
+			symbol_file: "libllndk.map.txt",
+			export_llndk_headers: ["libexternal_llndk_headers"],
+		},
+		header_libs: ["libexternal_headers"],
+		export_header_lib_headers: ["libexternal_headers"],
+	}
+	cc_library_headers {
+		name: "libexternal_headers",
+		export_include_dirs: ["include"],
+		vendor_available: true,
+	}
+	cc_library_headers {
+		name: "libexternal_llndk_headers",
+		export_include_dirs: ["include_llndk"],
+		llndk: {
+			symbol_file: "libllndk.map.txt",
+		},
+		vendor_available: true,
+	}
+
+	cc_library {
+		name: "libllndk_with_override_headers",
+		stubs: { versions: ["1", "2"] },
+		llndk: {
+			symbol_file: "libllndk.map.txt",
+			override_export_include_dirs: ["include_llndk"],
+		},
+		export_include_dirs: ["include"],
 	}
 	`)
-	actual := ctx.ModuleVariantsForTests("libllndk.llndk")
-	expected := []string{
-		"android_vendor.VER_arm64_armv8-a_shared",
-		"android_vendor.VER_arm64_armv8-a_shared_1",
-		"android_vendor.VER_arm64_armv8-a_shared_2",
-		"android_vendor.VER_arm_armv7-a-neon_shared",
-		"android_vendor.VER_arm_armv7-a-neon_shared_1",
-		"android_vendor.VER_arm_armv7-a-neon_shared_2",
+	actual := result.ModuleVariantsForTests("libllndk")
+	for i := 0; i < len(actual); i++ {
+		if !strings.HasPrefix(actual[i], "android_vendor.29_") {
+			actual = append(actual[:i], actual[i+1:]...)
+			i--
+		}
 	}
-	checkEquals(t, "variants for llndk stubs", expected, actual)
+	expected := []string{
+		"android_vendor.29_arm64_armv8-a_shared_1",
+		"android_vendor.29_arm64_armv8-a_shared_2",
+		"android_vendor.29_arm64_armv8-a_shared_current",
+		"android_vendor.29_arm64_armv8-a_shared",
+		"android_vendor.29_arm_armv7-a-neon_shared_1",
+		"android_vendor.29_arm_armv7-a-neon_shared_2",
+		"android_vendor.29_arm_armv7-a-neon_shared_current",
+		"android_vendor.29_arm_armv7-a-neon_shared",
+	}
+	android.AssertArrayString(t, "variants for llndk stubs", expected, actual)
 
-	params := ctx.ModuleForTests("libllndk.llndk", "android_vendor.VER_arm_armv7-a-neon_shared").Description("generate stub")
-	checkEquals(t, "use VNDK version for default stubs", "current", params.Args["apiLevel"])
+	params := result.ModuleForTests("libllndk", "android_vendor.29_arm_armv7-a-neon_shared").Description("generate stub")
+	android.AssertSame(t, "use VNDK version for default stubs", "current", params.Args["apiLevel"])
 
-	params = ctx.ModuleForTests("libllndk.llndk", "android_vendor.VER_arm_armv7-a-neon_shared_1").Description("generate stub")
-	checkEquals(t, "override apiLevel for versioned stubs", "1", params.Args["apiLevel"])
+	params = result.ModuleForTests("libllndk", "android_vendor.29_arm_armv7-a-neon_shared_1").Description("generate stub")
+	android.AssertSame(t, "override apiLevel for versioned stubs", "1", params.Args["apiLevel"])
+
+	checkExportedIncludeDirs := func(module, variant string, expectedDirs ...string) {
+		t.Helper()
+		m := result.ModuleForTests(module, variant).Module()
+		f := result.ModuleProvider(m, FlagExporterInfoProvider).(FlagExporterInfo)
+		android.AssertPathsRelativeToTopEquals(t, "exported include dirs for "+module+"["+variant+"]",
+			expectedDirs, f.IncludeDirs)
+	}
+
+	checkExportedIncludeDirs("libllndk", "android_arm64_armv8-a_shared", "include")
+	checkExportedIncludeDirs("libllndk", "android_vendor.29_arm64_armv8-a_shared", "include")
+	checkExportedIncludeDirs("libllndk_with_external_headers", "android_arm64_armv8-a_shared", "include")
+	checkExportedIncludeDirs("libllndk_with_external_headers", "android_vendor.29_arm64_armv8-a_shared", "include_llndk")
+	checkExportedIncludeDirs("libllndk_with_override_headers", "android_arm64_armv8-a_shared", "include")
+	checkExportedIncludeDirs("libllndk_with_override_headers", "android_vendor.29_arm64_armv8-a_shared", "include_llndk")
 }
 
 func TestLlndkHeaders(t *testing.T) {
 	ctx := testCc(t, `
-	llndk_headers {
+	cc_library_headers {
 		name: "libllndk_headers",
 		export_include_dirs: ["my_include"],
+		llndk: {
+			llndk_headers: true,
+		},
 	}
-	llndk_library {
+	cc_library {
 		name: "libllndk",
-		export_llndk_headers: ["libllndk_headers"],
+		llndk: {
+			symbol_file: "libllndk.map.txt",
+			export_llndk_headers: ["libllndk_headers"],
+		}
 	}
+
 	cc_library {
 		name: "libvendor",
 		shared_libs: ["libllndk"],
@@ -2524,7 +2860,7 @@ func TestLlndkHeaders(t *testing.T) {
 	`)
 
 	// _static variant is used since _shared reuses *.o from the static variant
-	cc := ctx.ModuleForTests("libvendor", "android_vendor.VER_arm_armv7-a-neon_static").Rule("cc")
+	cc := ctx.ModuleForTests("libvendor", "android_vendor.29_arm_armv7-a-neon_static").Rule("cc")
 	cflags := cc.Args["cFlags"]
 	if !strings.Contains(cflags, "-Imy_include") {
 		t.Errorf("cflags for libvendor must contain -Imy_include, but was %#v.", cflags)
@@ -2545,8 +2881,17 @@ func checkRuntimeLibs(t *testing.T, expected []string, module *Module) {
 
 const runtimeLibAndroidBp = `
 	cc_library {
+		name: "liball_available",
+		vendor_available: true,
+		product_available: true,
+		no_libcrt : true,
+		nocrt : true,
+		system_shared_libs : [],
+	}
+	cc_library {
 		name: "libvendor_available1",
 		vendor_available: true,
+		runtime_libs: ["liball_available"],
 		no_libcrt : true,
 		nocrt : true,
 		system_shared_libs : [],
@@ -2554,18 +2899,10 @@ const runtimeLibAndroidBp = `
 	cc_library {
 		name: "libvendor_available2",
 		vendor_available: true,
-		runtime_libs: ["libvendor_available1"],
-		no_libcrt : true,
-		nocrt : true,
-		system_shared_libs : [],
-	}
-	cc_library {
-		name: "libvendor_available3",
-		vendor_available: true,
-		runtime_libs: ["libvendor_available1"],
+		runtime_libs: ["liball_available"],
 		target: {
 			vendor: {
-				exclude_runtime_libs: ["libvendor_available1"],
+				exclude_runtime_libs: ["liball_available"],
 			}
 		},
 		no_libcrt : true,
@@ -2573,8 +2910,16 @@ const runtimeLibAndroidBp = `
 		system_shared_libs : [],
 	}
 	cc_library {
+		name: "libproduct_vendor",
+		product_specific: true,
+		vendor_available: true,
+		no_libcrt : true,
+		nocrt : true,
+		system_shared_libs : [],
+	}
+	cc_library {
 		name: "libcore",
-		runtime_libs: ["libvendor_available1"],
+		runtime_libs: ["liball_available"],
 		no_libcrt : true,
 		nocrt : true,
 		system_shared_libs : [],
@@ -2589,7 +2934,30 @@ const runtimeLibAndroidBp = `
 	cc_library {
 		name: "libvendor2",
 		vendor: true,
-		runtime_libs: ["libvendor_available1", "libvendor1"],
+		runtime_libs: ["liball_available", "libvendor1", "libproduct_vendor"],
+		no_libcrt : true,
+		nocrt : true,
+		system_shared_libs : [],
+	}
+	cc_library {
+		name: "libproduct_available1",
+		product_available: true,
+		runtime_libs: ["liball_available"],
+		no_libcrt : true,
+		nocrt : true,
+		system_shared_libs : [],
+	}
+	cc_library {
+		name: "libproduct1",
+		product_specific: true,
+		no_libcrt : true,
+		nocrt : true,
+		system_shared_libs : [],
+	}
+	cc_library {
+		name: "libproduct2",
+		product_specific: true,
+		runtime_libs: ["liball_available", "libproduct1", "libproduct_vendor"],
 		no_libcrt : true,
 		nocrt : true,
 		system_shared_libs : [],
@@ -2602,32 +2970,45 @@ func TestRuntimeLibs(t *testing.T) {
 	// runtime_libs for core variants use the module names without suffixes.
 	variant := "android_arm64_armv8-a_shared"
 
-	module := ctx.ModuleForTests("libvendor_available2", variant).Module().(*Module)
-	checkRuntimeLibs(t, []string{"libvendor_available1"}, module)
+	module := ctx.ModuleForTests("libvendor_available1", variant).Module().(*Module)
+	checkRuntimeLibs(t, []string{"liball_available"}, module)
+
+	module = ctx.ModuleForTests("libproduct_available1", variant).Module().(*Module)
+	checkRuntimeLibs(t, []string{"liball_available"}, module)
 
 	module = ctx.ModuleForTests("libcore", variant).Module().(*Module)
-	checkRuntimeLibs(t, []string{"libvendor_available1"}, module)
+	checkRuntimeLibs(t, []string{"liball_available"}, module)
 
 	// runtime_libs for vendor variants have '.vendor' suffixes if the modules have both core
 	// and vendor variants.
-	variant = "android_vendor.VER_arm64_armv8-a_shared"
+	variant = "android_vendor.29_arm64_armv8-a_shared"
 
-	module = ctx.ModuleForTests("libvendor_available2", variant).Module().(*Module)
-	checkRuntimeLibs(t, []string{"libvendor_available1.vendor"}, module)
+	module = ctx.ModuleForTests("libvendor_available1", variant).Module().(*Module)
+	checkRuntimeLibs(t, []string{"liball_available.vendor"}, module)
 
 	module = ctx.ModuleForTests("libvendor2", variant).Module().(*Module)
-	checkRuntimeLibs(t, []string{"libvendor_available1.vendor", "libvendor1"}, module)
+	checkRuntimeLibs(t, []string{"liball_available.vendor", "libvendor1", "libproduct_vendor.vendor"}, module)
+
+	// runtime_libs for product variants have '.product' suffixes if the modules have both core
+	// and product variants.
+	variant = "android_product.29_arm64_armv8-a_shared"
+
+	module = ctx.ModuleForTests("libproduct_available1", variant).Module().(*Module)
+	checkRuntimeLibs(t, []string{"liball_available.product"}, module)
+
+	module = ctx.ModuleForTests("libproduct2", variant).Module().(*Module)
+	checkRuntimeLibs(t, []string{"liball_available.product", "libproduct1", "libproduct_vendor"}, module)
 }
 
 func TestExcludeRuntimeLibs(t *testing.T) {
 	ctx := testCc(t, runtimeLibAndroidBp)
 
 	variant := "android_arm64_armv8-a_shared"
-	module := ctx.ModuleForTests("libvendor_available3", variant).Module().(*Module)
-	checkRuntimeLibs(t, []string{"libvendor_available1"}, module)
+	module := ctx.ModuleForTests("libvendor_available2", variant).Module().(*Module)
+	checkRuntimeLibs(t, []string{"liball_available"}, module)
 
-	variant = "android_vendor.VER_arm64_armv8-a_shared"
-	module = ctx.ModuleForTests("libvendor_available3", variant).Module().(*Module)
+	variant = "android_vendor.29_arm64_armv8-a_shared"
+	module = ctx.ModuleForTests("libvendor_available2", variant).Module().(*Module)
 	checkRuntimeLibs(t, nil, module)
 }
 
@@ -2638,11 +3019,14 @@ func TestRuntimeLibsNoVndk(t *testing.T) {
 
 	variant := "android_arm64_armv8-a_shared"
 
-	module := ctx.ModuleForTests("libvendor_available2", variant).Module().(*Module)
-	checkRuntimeLibs(t, []string{"libvendor_available1"}, module)
+	module := ctx.ModuleForTests("libvendor_available1", variant).Module().(*Module)
+	checkRuntimeLibs(t, []string{"liball_available"}, module)
 
 	module = ctx.ModuleForTests("libvendor2", variant).Module().(*Module)
-	checkRuntimeLibs(t, []string{"libvendor_available1", "libvendor1"}, module)
+	checkRuntimeLibs(t, []string{"liball_available", "libvendor1", "libproduct_vendor"}, module)
+
+	module = ctx.ModuleForTests("libproduct2", variant).Module().(*Module)
+	checkRuntimeLibs(t, []string{"liball_available", "libproduct1", "libproduct_vendor"}, module)
 }
 
 func checkStaticLibs(t *testing.T, expected []string, module *Module) {
@@ -2674,13 +3058,13 @@ func TestStaticLibDepExport(t *testing.T) {
 	// Check the shared version of lib2.
 	variant := "android_arm64_armv8-a_shared"
 	module := ctx.ModuleForTests("lib2", variant).Module().(*Module)
-	checkStaticLibs(t, []string{"lib1", "libc++demangle", "libclang_rt.builtins-aarch64-android", "libatomic"}, module)
+	checkStaticLibs(t, []string{"lib1", "libc++demangle", "libclang_rt.builtins-aarch64-android"}, module)
 
 	// Check the static version of lib2.
 	variant = "android_arm64_armv8-a_static"
 	module = ctx.ModuleForTests("lib2", variant).Module().(*Module)
 	// libc++_static is linked additionally.
-	checkStaticLibs(t, []string{"lib1", "libc++_static", "libc++demangle", "libclang_rt.builtins-aarch64-android", "libatomic"}, module)
+	checkStaticLibs(t, []string{"lib1", "libc++_static", "libc++demangle", "libclang_rt.builtins-aarch64-android"}, module)
 }
 
 var compilerFlagsTestCases = []struct {
@@ -2768,72 +3152,6 @@ func TestCompilerFlags(t *testing.T) {
 	}
 }
 
-func TestVendorPublicLibraries(t *testing.T) {
-	ctx := testCc(t, `
-	cc_library_headers {
-		name: "libvendorpublic_headers",
-		export_include_dirs: ["my_include"],
-	}
-	vendor_public_library {
-		name: "libvendorpublic",
-		symbol_file: "",
-		export_public_headers: ["libvendorpublic_headers"],
-	}
-	cc_library {
-		name: "libvendorpublic",
-		srcs: ["foo.c"],
-		vendor: true,
-		no_libcrt: true,
-		nocrt: true,
-	}
-
-	cc_library {
-		name: "libsystem",
-		shared_libs: ["libvendorpublic"],
-		vendor: false,
-		srcs: ["foo.c"],
-		no_libcrt: true,
-		nocrt: true,
-	}
-	cc_library {
-		name: "libvendor",
-		shared_libs: ["libvendorpublic"],
-		vendor: true,
-		srcs: ["foo.c"],
-		no_libcrt: true,
-		nocrt: true,
-	}
-	`)
-
-	coreVariant := "android_arm64_armv8-a_shared"
-	vendorVariant := "android_vendor.VER_arm64_armv8-a_shared"
-
-	// test if header search paths are correctly added
-	// _static variant is used since _shared reuses *.o from the static variant
-	cc := ctx.ModuleForTests("libsystem", strings.Replace(coreVariant, "_shared", "_static", 1)).Rule("cc")
-	cflags := cc.Args["cFlags"]
-	if !strings.Contains(cflags, "-Imy_include") {
-		t.Errorf("cflags for libsystem must contain -Imy_include, but was %#v.", cflags)
-	}
-
-	// test if libsystem is linked to the stub
-	ld := ctx.ModuleForTests("libsystem", coreVariant).Rule("ld")
-	libflags := ld.Args["libFlags"]
-	stubPaths := getOutputPaths(ctx, coreVariant, []string{"libvendorpublic" + vendorPublicLibrarySuffix})
-	if !strings.Contains(libflags, stubPaths[0].String()) {
-		t.Errorf("libflags for libsystem must contain %#v, but was %#v", stubPaths[0], libflags)
-	}
-
-	// test if libvendor is linked to the real shared lib
-	ld = ctx.ModuleForTests("libvendor", vendorVariant).Rule("ld")
-	libflags = ld.Args["libFlags"]
-	stubPaths = getOutputPaths(ctx, vendorVariant, []string{"libvendorpublic"})
-	if !strings.Contains(libflags, stubPaths[0].String()) {
-		t.Errorf("libflags for libvendor must contain %#v, but was %#v", stubPaths[0], libflags)
-	}
-
-}
-
 func TestRecovery(t *testing.T) {
 	ctx := testCc(t, `
 		cc_library_shared {
@@ -2869,6 +3187,52 @@ func TestRecovery(t *testing.T) {
 	}
 }
 
+func TestDataLibsPrebuiltSharedTestLibrary(t *testing.T) {
+	bp := `
+		cc_prebuilt_test_library_shared {
+			name: "test_lib",
+			relative_install_path: "foo/bar/baz",
+			srcs: ["srcpath/dontusethispath/baz.so"],
+		}
+
+		cc_test {
+			name: "main_test",
+			data_libs: ["test_lib"],
+			gtest: false,
+		}
+ `
+
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
+	config.TestProductVariables.DeviceVndkVersion = StringPtr("current")
+	config.TestProductVariables.Platform_vndk_version = StringPtr("29")
+	config.TestProductVariables.VndkUseCoreVariant = BoolPtr(true)
+
+	ctx := testCcWithConfig(t, config)
+	module := ctx.ModuleForTests("main_test", "android_arm_armv7-a-neon").Module()
+	testBinary := module.(*Module).linker.(*testBinary)
+	outputFiles, err := module.(android.OutputFileProducer).OutputFiles("")
+	if err != nil {
+		t.Fatalf("Expected cc_test to produce output files, error: %s", err)
+	}
+	if len(outputFiles) != 1 {
+		t.Errorf("expected exactly one output file. output files: [%s]", outputFiles)
+	}
+	if len(testBinary.dataPaths()) != 1 {
+		t.Errorf("expected exactly one test data file. test data files: [%s]", testBinary.dataPaths())
+	}
+
+	outputPath := outputFiles[0].String()
+
+	if !strings.HasSuffix(outputPath, "/main_test") {
+		t.Errorf("expected test output file to be 'main_test', but was '%s'", outputPath)
+	}
+	entries := android.AndroidMkEntriesForTest(t, ctx, module)[0]
+	if !strings.HasSuffix(entries.EntryMap["LOCAL_TEST_DATA"][0], ":test_lib.so:foo/bar/baz") {
+		t.Errorf("expected LOCAL_TEST_DATA to end with `:test_lib.so:foo/bar/baz`,"+
+			" but was '%s'", entries.EntryMap["LOCAL_TEST_DATA"][0])
+	}
+}
+
 func TestVersionedStubs(t *testing.T) {
 	ctx := testCc(t, `
 		cc_library_shared {
@@ -2892,10 +3256,12 @@ func TestVersionedStubs(t *testing.T) {
 		"android_arm64_armv8-a_shared_1",
 		"android_arm64_armv8-a_shared_2",
 		"android_arm64_armv8-a_shared_3",
+		"android_arm64_armv8-a_shared_current",
 		"android_arm_armv7-a-neon_shared",
 		"android_arm_armv7-a-neon_shared_1",
 		"android_arm_armv7-a-neon_shared_2",
 		"android_arm_armv7-a-neon_shared_3",
+		"android_arm_armv7-a-neon_shared_current",
 	}
 	variantsMismatch := false
 	if len(variants) != len(expectedVariants) {
@@ -2975,7 +3341,7 @@ func TestStaticDepsOrderWithStubs(t *testing.T) {
 		cc_binary {
 			name: "mybin",
 			srcs: ["foo.c"],
-			static_libs: ["libfooB"],
+			static_libs: ["libfooC", "libfooB"],
 			static_executable: true,
 			stl: "none",
 		}
@@ -2996,8 +3362,8 @@ func TestStaticDepsOrderWithStubs(t *testing.T) {
 			},
 		}`)
 
-	mybin := ctx.ModuleForTests("mybin", "android_arm64_armv8-a").Module().(*Module)
-	actual := mybin.depsInLinkOrder
+	mybin := ctx.ModuleForTests("mybin", "android_arm64_armv8-a").Rule("ld")
+	actual := mybin.Implicits[:2]
 	expected := getOutputPaths(ctx, "android_arm64_armv8-a_static", []string{"libfooB", "libfooC"})
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -3082,6 +3448,9 @@ func TestDefaults(t *testing.T) {
 			shared: {
 				srcs: ["baz.c"],
 			},
+			bazel_module: {
+				bp2build_available: true,
+			},
 		}
 
 		cc_library_static {
@@ -3154,22 +3523,771 @@ func TestProductVariableDefaults(t *testing.T) {
 		}
 	`
 
-	config := TestConfig(buildDir, android.Android, nil, bp, nil)
-	config.TestProductVariables.Debuggable = BoolPtr(true)
+	result := android.GroupFixturePreparers(
+		prepareForCcTest,
+		android.PrepareForTestWithVariables,
 
-	ctx := CreateTestContext()
-	ctx.PreDepsMutators(func(ctx android.RegisterMutatorsContext) {
-		ctx.BottomUp("variable", android.VariableMutator).Parallel()
-	})
-	ctx.Register(config)
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.Debuggable = BoolPtr(true)
+		}),
+	).RunTestWithBp(t, bp)
 
-	_, errs := ctx.ParseFileList(".", []string{"Android.bp"})
-	android.FailIfErrored(t, errs)
-	_, errs = ctx.PrepareBuildActions(config)
-	android.FailIfErrored(t, errs)
+	libfoo := result.Module("libfoo", "android_arm64_armv8-a_static").(*Module)
+	android.AssertStringListContains(t, "cppflags", libfoo.flags.Local.CppFlags, "-DBAR")
+}
 
-	libfoo := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_static").Module().(*Module)
-	if !android.InList("-DBAR", libfoo.flags.Local.CppFlags) {
-		t.Errorf("expected -DBAR in cppflags, got %q", libfoo.flags.Local.CppFlags)
+func TestEmptyWholeStaticLibsAllowMissingDependencies(t *testing.T) {
+	t.Parallel()
+	bp := `
+		cc_library_static {
+			name: "libfoo",
+			srcs: ["foo.c"],
+			whole_static_libs: ["libbar"],
+		}
+
+		cc_library_static {
+			name: "libbar",
+			whole_static_libs: ["libmissing"],
+		}
+	`
+
+	result := android.GroupFixturePreparers(
+		prepareForCcTest,
+		android.PrepareForTestWithAllowMissingDependencies,
+	).RunTestWithBp(t, bp)
+
+	libbar := result.ModuleForTests("libbar", "android_arm64_armv8-a_static").Output("libbar.a")
+	android.AssertDeepEquals(t, "libbar rule", android.ErrorRule, libbar.Rule)
+
+	android.AssertStringDoesContain(t, "libbar error", libbar.Args["error"], "missing dependencies: libmissing")
+
+	libfoo := result.ModuleForTests("libfoo", "android_arm64_armv8-a_static").Output("libfoo.a")
+	android.AssertStringListContains(t, "libfoo.a dependencies", libfoo.Inputs.Strings(), libbar.Output.String())
+}
+
+func TestInstallSharedLibs(t *testing.T) {
+	bp := `
+		cc_binary {
+			name: "bin",
+			host_supported: true,
+			shared_libs: ["libshared"],
+			runtime_libs: ["libruntime"],
+			srcs: [":gen"],
+		}
+
+		cc_library_shared {
+			name: "libshared",
+			host_supported: true,
+			shared_libs: ["libtransitive"],
+		}
+
+		cc_library_shared {
+			name: "libtransitive",
+			host_supported: true,
+		}
+
+		cc_library_shared {
+			name: "libruntime",
+			host_supported: true,
+		}
+
+		cc_binary_host {
+			name: "tool",
+			srcs: ["foo.cpp"],
+		}
+
+		genrule {
+			name: "gen",
+			tools: ["tool"],
+			out: ["gen.cpp"],
+			cmd: "$(location tool) $(out)",
+		}
+	`
+
+	config := TestConfig(t.TempDir(), android.Android, nil, bp, nil)
+	ctx := testCcWithConfig(t, config)
+
+	hostBin := ctx.ModuleForTests("bin", config.BuildOSTarget.String()).Description("install")
+	hostShared := ctx.ModuleForTests("libshared", config.BuildOSTarget.String()+"_shared").Description("install")
+	hostRuntime := ctx.ModuleForTests("libruntime", config.BuildOSTarget.String()+"_shared").Description("install")
+	hostTransitive := ctx.ModuleForTests("libtransitive", config.BuildOSTarget.String()+"_shared").Description("install")
+	hostTool := ctx.ModuleForTests("tool", config.BuildOSTarget.String()).Description("install")
+
+	if g, w := hostBin.Implicits.Strings(), hostShared.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected host bin dependency %q, got %q", w, g)
 	}
+
+	if g, w := hostBin.Implicits.Strings(), hostTransitive.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected host bin dependency %q, got %q", w, g)
+	}
+
+	if g, w := hostShared.Implicits.Strings(), hostTransitive.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected host bin dependency %q, got %q", w, g)
+	}
+
+	if g, w := hostBin.Implicits.Strings(), hostRuntime.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected host bin dependency %q, got %q", w, g)
+	}
+
+	if g, w := hostBin.Implicits.Strings(), hostTool.Output.String(); android.InList(w, g) {
+		t.Errorf("expected no host bin dependency %q, got %q", w, g)
+	}
+
+	deviceBin := ctx.ModuleForTests("bin", "android_arm64_armv8-a").Description("install")
+	deviceShared := ctx.ModuleForTests("libshared", "android_arm64_armv8-a_shared").Description("install")
+	deviceTransitive := ctx.ModuleForTests("libtransitive", "android_arm64_armv8-a_shared").Description("install")
+	deviceRuntime := ctx.ModuleForTests("libruntime", "android_arm64_armv8-a_shared").Description("install")
+
+	if g, w := deviceBin.OrderOnly.Strings(), deviceShared.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected device bin dependency %q, got %q", w, g)
+	}
+
+	if g, w := deviceBin.OrderOnly.Strings(), deviceTransitive.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected device bin dependency %q, got %q", w, g)
+	}
+
+	if g, w := deviceShared.OrderOnly.Strings(), deviceTransitive.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected device bin dependency %q, got %q", w, g)
+	}
+
+	if g, w := deviceBin.OrderOnly.Strings(), deviceRuntime.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected device bin dependency %q, got %q", w, g)
+	}
+
+	if g, w := deviceBin.OrderOnly.Strings(), hostTool.Output.String(); android.InList(w, g) {
+		t.Errorf("expected no device bin dependency %q, got %q", w, g)
+	}
+
+}
+
+func TestStubsLibReexportsHeaders(t *testing.T) {
+	ctx := testCc(t, `
+		cc_library_shared {
+			name: "libclient",
+			srcs: ["foo.c"],
+			shared_libs: ["libfoo#1"],
+		}
+
+		cc_library_shared {
+			name: "libfoo",
+			srcs: ["foo.c"],
+			shared_libs: ["libbar"],
+			export_shared_lib_headers: ["libbar"],
+			stubs: {
+				symbol_file: "foo.map.txt",
+				versions: ["1", "2", "3"],
+			},
+		}
+
+		cc_library_shared {
+			name: "libbar",
+			export_include_dirs: ["include/libbar"],
+			srcs: ["foo.c"],
+		}`)
+
+	cFlags := ctx.ModuleForTests("libclient", "android_arm64_armv8-a_shared").Rule("cc").Args["cFlags"]
+
+	if !strings.Contains(cFlags, "-Iinclude/libbar") {
+		t.Errorf("expected %q in cflags, got %q", "-Iinclude/libbar", cFlags)
+	}
+}
+
+func TestAidlFlagsPassedToTheAidlCompiler(t *testing.T) {
+	ctx := testCc(t, `
+		cc_library {
+			name: "libfoo",
+			srcs: ["a/Foo.aidl"],
+			aidl: { flags: ["-Werror"], },
+		}
+	`)
+
+	libfoo := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_static")
+	manifest := android.RuleBuilderSboxProtoForTests(t, libfoo.Output("aidl.sbox.textproto"))
+	aidlCommand := manifest.Commands[0].GetCommand()
+	expectedAidlFlag := "-Werror"
+	if !strings.Contains(aidlCommand, expectedAidlFlag) {
+		t.Errorf("aidl command %q does not contain %q", aidlCommand, expectedAidlFlag)
+	}
+}
+
+func TestMinSdkVersionInClangTriple(t *testing.T) {
+	ctx := testCc(t, `
+		cc_library_shared {
+			name: "libfoo",
+			srcs: ["foo.c"],
+			min_sdk_version: "29",
+		}`)
+
+	cFlags := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_shared").Rule("cc").Args["cFlags"]
+	android.AssertStringDoesContain(t, "min sdk version", cFlags, "-target aarch64-linux-android29")
+}
+
+type MemtagNoteType int
+
+const (
+	None MemtagNoteType = iota + 1
+	Sync
+	Async
+)
+
+func (t MemtagNoteType) str() string {
+	switch t {
+	case None:
+		return "none"
+	case Sync:
+		return "sync"
+	case Async:
+		return "async"
+	default:
+		panic("invalid note type")
+	}
+}
+
+func checkHasMemtagNote(t *testing.T, m android.TestingModule, expected MemtagNoteType) {
+	note_async := "note_memtag_heap_async"
+	note_sync := "note_memtag_heap_sync"
+
+	found := None
+	implicits := m.Rule("ld").Implicits
+	for _, lib := range implicits {
+		if strings.Contains(lib.Rel(), note_async) {
+			found = Async
+			break
+		} else if strings.Contains(lib.Rel(), note_sync) {
+			found = Sync
+			break
+		}
+	}
+
+	if found != expected {
+		t.Errorf("Wrong Memtag note in target %q: found %q, expected %q", m.Module().(*Module).Name(), found.str(), expected.str())
+	}
+}
+
+var prepareForTestWithMemtagHeap = android.GroupFixturePreparers(
+	android.FixtureModifyMockFS(func(fs android.MockFS) {
+		templateBp := `
+		cc_test {
+			name: "%[1]s_test",
+			gtest: false,
+		}
+
+		cc_test {
+			name: "%[1]s_test_false",
+			gtest: false,
+			sanitize: { memtag_heap: false },
+		}
+
+		cc_test {
+			name: "%[1]s_test_true",
+			gtest: false,
+			sanitize: { memtag_heap: true },
+		}
+
+		cc_test {
+			name: "%[1]s_test_true_nodiag",
+			gtest: false,
+			sanitize: { memtag_heap: true, diag: { memtag_heap: false }  },
+		}
+
+		cc_test {
+			name: "%[1]s_test_true_diag",
+			gtest: false,
+			sanitize: { memtag_heap: true, diag: { memtag_heap: true }  },
+		}
+
+		cc_binary {
+			name: "%[1]s_binary",
+		}
+
+		cc_binary {
+			name: "%[1]s_binary_false",
+			sanitize: { memtag_heap: false },
+		}
+
+		cc_binary {
+			name: "%[1]s_binary_true",
+			sanitize: { memtag_heap: true },
+		}
+
+		cc_binary {
+			name: "%[1]s_binary_true_nodiag",
+			sanitize: { memtag_heap: true, diag: { memtag_heap: false }  },
+		}
+
+		cc_binary {
+			name: "%[1]s_binary_true_diag",
+			sanitize: { memtag_heap: true, diag: { memtag_heap: true }  },
+		}
+		`
+		subdirDefaultBp := fmt.Sprintf(templateBp, "default")
+		subdirExcludeBp := fmt.Sprintf(templateBp, "exclude")
+		subdirSyncBp := fmt.Sprintf(templateBp, "sync")
+		subdirAsyncBp := fmt.Sprintf(templateBp, "async")
+
+		fs.Merge(android.MockFS{
+			"subdir_default/Android.bp": []byte(subdirDefaultBp),
+			"subdir_exclude/Android.bp": []byte(subdirExcludeBp),
+			"subdir_sync/Android.bp":    []byte(subdirSyncBp),
+			"subdir_async/Android.bp":   []byte(subdirAsyncBp),
+		})
+	}),
+	android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+		variables.MemtagHeapExcludePaths = []string{"subdir_exclude"}
+		// "subdir_exclude" is covered by both include and exclude paths. Exclude wins.
+		variables.MemtagHeapSyncIncludePaths = []string{"subdir_sync", "subdir_exclude"}
+		variables.MemtagHeapAsyncIncludePaths = []string{"subdir_async", "subdir_exclude"}
+	}),
+)
+
+func TestSanitizeMemtagHeap(t *testing.T) {
+	variant := "android_arm64_armv8-a"
+
+	result := android.GroupFixturePreparers(
+		prepareForCcTest,
+		prepareForTestWithMemtagHeap,
+	).RunTest(t)
+	ctx := result.TestContext
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_true_diag", variant), Sync)
+}
+
+func TestSanitizeMemtagHeapWithSanitizeDevice(t *testing.T) {
+	variant := "android_arm64_armv8-a"
+
+	result := android.GroupFixturePreparers(
+		prepareForCcTest,
+		prepareForTestWithMemtagHeap,
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.SanitizeDevice = []string{"memtag_heap"}
+		}),
+	).RunTest(t)
+	ctx := result.TestContext
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_true", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_true_diag", variant), Sync)
+}
+
+func TestSanitizeMemtagHeapWithSanitizeDeviceDiag(t *testing.T) {
+	variant := "android_arm64_armv8-a"
+
+	result := android.GroupFixturePreparers(
+		prepareForCcTest,
+		prepareForTestWithMemtagHeap,
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.SanitizeDevice = []string{"memtag_heap"}
+			variables.SanitizeDeviceDiag = []string{"memtag_heap"}
+		}),
+	).RunTest(t)
+	ctx := result.TestContext
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("default_binary_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("exclude_binary_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("async_binary_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_test_true_diag", variant), Sync)
+
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_false", variant), None)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_true", variant), Sync)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_true_nodiag", variant), Async)
+	checkHasMemtagNote(t, ctx.ModuleForTests("sync_binary_true_diag", variant), Sync)
+}
+
+func TestIncludeDirsExporting(t *testing.T) {
+
+	// Trim spaces from the beginning, end and immediately after any newline characters. Leaves
+	// embedded newline characters alone.
+	trimIndentingSpaces := func(s string) string {
+		return strings.TrimSpace(regexp.MustCompile("(^|\n)\\s+").ReplaceAllString(s, "$1"))
+	}
+
+	checkPaths := func(t *testing.T, message string, expected string, paths android.Paths) {
+		t.Helper()
+		expected = trimIndentingSpaces(expected)
+		actual := trimIndentingSpaces(strings.Join(android.FirstUniqueStrings(android.NormalizePathsForTesting(paths)), "\n"))
+		if expected != actual {
+			t.Errorf("%s: expected:\n%s\n actual:\n%s\n", message, expected, actual)
+		}
+	}
+
+	type exportedChecker func(t *testing.T, name string, exported FlagExporterInfo)
+
+	checkIncludeDirs := func(t *testing.T, ctx *android.TestContext, module android.Module, checkers ...exportedChecker) {
+		t.Helper()
+		exported := ctx.ModuleProvider(module, FlagExporterInfoProvider).(FlagExporterInfo)
+		name := module.Name()
+
+		for _, checker := range checkers {
+			checker(t, name, exported)
+		}
+	}
+
+	expectedIncludeDirs := func(expectedPaths string) exportedChecker {
+		return func(t *testing.T, name string, exported FlagExporterInfo) {
+			t.Helper()
+			checkPaths(t, fmt.Sprintf("%s: include dirs", name), expectedPaths, exported.IncludeDirs)
+		}
+	}
+
+	expectedSystemIncludeDirs := func(expectedPaths string) exportedChecker {
+		return func(t *testing.T, name string, exported FlagExporterInfo) {
+			t.Helper()
+			checkPaths(t, fmt.Sprintf("%s: system include dirs", name), expectedPaths, exported.SystemIncludeDirs)
+		}
+	}
+
+	expectedGeneratedHeaders := func(expectedPaths string) exportedChecker {
+		return func(t *testing.T, name string, exported FlagExporterInfo) {
+			t.Helper()
+			checkPaths(t, fmt.Sprintf("%s: generated headers", name), expectedPaths, exported.GeneratedHeaders)
+		}
+	}
+
+	expectedOrderOnlyDeps := func(expectedPaths string) exportedChecker {
+		return func(t *testing.T, name string, exported FlagExporterInfo) {
+			t.Helper()
+			checkPaths(t, fmt.Sprintf("%s: order only deps", name), expectedPaths, exported.Deps)
+		}
+	}
+
+	genRuleModules := `
+		genrule {
+			name: "genrule_foo",
+			cmd: "generate-foo",
+			out: [
+				"generated_headers/foo/generated_header.h",
+			],
+			export_include_dirs: [
+				"generated_headers",
+			],
+		}
+
+		genrule {
+			name: "genrule_bar",
+			cmd: "generate-bar",
+			out: [
+				"generated_headers/bar/generated_header.h",
+			],
+			export_include_dirs: [
+				"generated_headers",
+			],
+		}
+	`
+
+	t.Run("ensure exported include dirs are not automatically re-exported from shared_libs", func(t *testing.T) {
+		ctx := testCc(t, genRuleModules+`
+		cc_library {
+			name: "libfoo",
+			srcs: ["foo.c"],
+			export_include_dirs: ["foo/standard"],
+			export_system_include_dirs: ["foo/system"],
+			generated_headers: ["genrule_foo"],
+			export_generated_headers: ["genrule_foo"],
+		}
+
+		cc_library {
+			name: "libbar",
+			srcs: ["bar.c"],
+			shared_libs: ["libfoo"],
+			export_include_dirs: ["bar/standard"],
+			export_system_include_dirs: ["bar/system"],
+			generated_headers: ["genrule_bar"],
+			export_generated_headers: ["genrule_bar"],
+		}
+		`)
+		foo := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_shared").Module()
+		checkIncludeDirs(t, ctx, foo,
+			expectedIncludeDirs(`
+				foo/standard
+				.intermediates/genrule_foo/gen/generated_headers
+			`),
+			expectedSystemIncludeDirs(`foo/system`),
+			expectedGeneratedHeaders(`.intermediates/genrule_foo/gen/generated_headers/foo/generated_header.h`),
+			expectedOrderOnlyDeps(`.intermediates/genrule_foo/gen/generated_headers/foo/generated_header.h`),
+		)
+
+		bar := ctx.ModuleForTests("libbar", "android_arm64_armv8-a_shared").Module()
+		checkIncludeDirs(t, ctx, bar,
+			expectedIncludeDirs(`
+				bar/standard
+				.intermediates/genrule_bar/gen/generated_headers
+			`),
+			expectedSystemIncludeDirs(`bar/system`),
+			expectedGeneratedHeaders(`.intermediates/genrule_bar/gen/generated_headers/bar/generated_header.h`),
+			expectedOrderOnlyDeps(`.intermediates/genrule_bar/gen/generated_headers/bar/generated_header.h`),
+		)
+	})
+
+	t.Run("ensure exported include dirs are automatically re-exported from whole_static_libs", func(t *testing.T) {
+		ctx := testCc(t, genRuleModules+`
+		cc_library {
+			name: "libfoo",
+			srcs: ["foo.c"],
+			export_include_dirs: ["foo/standard"],
+			export_system_include_dirs: ["foo/system"],
+			generated_headers: ["genrule_foo"],
+			export_generated_headers: ["genrule_foo"],
+		}
+
+		cc_library {
+			name: "libbar",
+			srcs: ["bar.c"],
+			whole_static_libs: ["libfoo"],
+			export_include_dirs: ["bar/standard"],
+			export_system_include_dirs: ["bar/system"],
+			generated_headers: ["genrule_bar"],
+			export_generated_headers: ["genrule_bar"],
+		}
+		`)
+		foo := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_shared").Module()
+		checkIncludeDirs(t, ctx, foo,
+			expectedIncludeDirs(`
+				foo/standard
+				.intermediates/genrule_foo/gen/generated_headers
+			`),
+			expectedSystemIncludeDirs(`foo/system`),
+			expectedGeneratedHeaders(`.intermediates/genrule_foo/gen/generated_headers/foo/generated_header.h`),
+			expectedOrderOnlyDeps(`.intermediates/genrule_foo/gen/generated_headers/foo/generated_header.h`),
+		)
+
+		bar := ctx.ModuleForTests("libbar", "android_arm64_armv8-a_shared").Module()
+		checkIncludeDirs(t, ctx, bar,
+			expectedIncludeDirs(`
+				bar/standard
+				foo/standard
+				.intermediates/genrule_foo/gen/generated_headers
+				.intermediates/genrule_bar/gen/generated_headers
+			`),
+			expectedSystemIncludeDirs(`
+				bar/system
+				foo/system
+			`),
+			expectedGeneratedHeaders(`
+				.intermediates/genrule_foo/gen/generated_headers/foo/generated_header.h
+				.intermediates/genrule_bar/gen/generated_headers/bar/generated_header.h
+			`),
+			expectedOrderOnlyDeps(`
+				.intermediates/genrule_foo/gen/generated_headers/foo/generated_header.h
+				.intermediates/genrule_bar/gen/generated_headers/bar/generated_header.h
+			`),
+		)
+	})
+
+	t.Run("ensure only aidl headers are exported", func(t *testing.T) {
+		ctx := testCc(t, genRuleModules+`
+		cc_library_shared {
+			name: "libfoo",
+			srcs: [
+				"foo.c",
+				"b.aidl",
+				"a.proto",
+			],
+			aidl: {
+				export_aidl_headers: true,
+			}
+		}
+		`)
+		foo := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_shared").Module()
+		checkIncludeDirs(t, ctx, foo,
+			expectedIncludeDirs(`
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/aidl
+			`),
+			expectedSystemIncludeDirs(``),
+			expectedGeneratedHeaders(`
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/aidl/b.h
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/aidl/Bnb.h
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/aidl/Bpb.h
+			`),
+			expectedOrderOnlyDeps(`
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/aidl/b.h
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/aidl/Bnb.h
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/aidl/Bpb.h
+			`),
+		)
+	})
+
+	t.Run("ensure only proto headers are exported", func(t *testing.T) {
+		ctx := testCc(t, genRuleModules+`
+		cc_library_shared {
+			name: "libfoo",
+			srcs: [
+				"foo.c",
+				"b.aidl",
+				"a.proto",
+			],
+			proto: {
+				export_proto_headers: true,
+			}
+		}
+		`)
+		foo := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_shared").Module()
+		checkIncludeDirs(t, ctx, foo,
+			expectedIncludeDirs(`
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/proto
+			`),
+			expectedSystemIncludeDirs(``),
+			expectedGeneratedHeaders(`
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/proto/a.pb.h
+			`),
+			expectedOrderOnlyDeps(`
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/proto/a.pb.h
+			`),
+		)
+	})
+
+	t.Run("ensure only sysprop headers are exported", func(t *testing.T) {
+		ctx := testCc(t, genRuleModules+`
+		cc_library_shared {
+			name: "libfoo",
+			srcs: [
+				"foo.c",
+				"a.sysprop",
+				"b.aidl",
+				"a.proto",
+			],
+		}
+		`)
+		foo := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_shared").Module()
+		checkIncludeDirs(t, ctx, foo,
+			expectedIncludeDirs(`
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/sysprop/include
+			`),
+			expectedSystemIncludeDirs(``),
+			expectedGeneratedHeaders(`
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/sysprop/include/a.sysprop.h
+			`),
+			expectedOrderOnlyDeps(`
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/sysprop/include/a.sysprop.h
+				.intermediates/libfoo/android_arm64_armv8-a_shared/gen/sysprop/public/include/a.sysprop.h
+			`),
+		)
+	})
 }

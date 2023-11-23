@@ -125,7 +125,7 @@ RUN my_pipeline 2 4 5 EXTRA)";
   Parser parser;
   Result r = parser.Parse(in);
   ASSERT_FALSE(r.IsSuccess());
-  ASSERT_EQ("12: extra parameters after RUN command", r.Error());
+  ASSERT_EQ("12: extra parameters after RUN command: EXTRA", r.Error());
 }
 
 TEST_F(AmberScriptParserTest, RunComputeInvalidZ) {
@@ -486,7 +486,368 @@ RUN my_pipeline DRAW_RECT POS 2 4 SIZE 10 20 EXTRA)";
   Parser parser;
   Result r = parser.Parse(in);
   ASSERT_FALSE(r.IsSuccess());
-  ASSERT_EQ("12: extra parameters after RUN command", r.Error());
+  ASSERT_EQ("12: extra parameters after RUN command: EXTRA", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGrid) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 SIZE 10 20 CELLS 4 5)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_TRUE(r.IsSuccess()) << r.Error();
+
+  auto script = parser.GetScript();
+  const auto& commands = script->GetCommands();
+  ASSERT_EQ(1U, commands.size());
+
+  auto* cmd = commands[0].get();
+  ASSERT_TRUE(cmd->IsDrawGrid());
+  EXPECT_FLOAT_EQ(2.f, cmd->AsDrawGrid()->GetX());
+  EXPECT_FLOAT_EQ(4.f, cmd->AsDrawGrid()->GetY());
+  EXPECT_FLOAT_EQ(10.f, cmd->AsDrawGrid()->GetWidth());
+  EXPECT_FLOAT_EQ(20.f, cmd->AsDrawGrid()->GetHeight());
+  EXPECT_EQ(4u, cmd->AsDrawGrid()->GetColumns());
+  EXPECT_EQ(5u, cmd->AsDrawGrid()->GetRows());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridWithComputePipelineInvalid) {
+  std::string in = R"(
+SHADER compute my_shader GLSL
+void main() {
+  gl_FragColor = vec3(2, 3, 4);
+}
+END
+
+PIPELINE compute my_pipeline
+  ATTACH my_shader
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 SIZE 10 20 CELLS 4 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: RUN command requires graphics pipeline", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridWithMissingPipeline) {
+  std::string in = R"(RUN my_pipeline DRAW_GRID POS 2 4 SIZE 10 20 CELLS 4 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("1: unknown pipeline for RUN command: my_pipeline", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridMissingValues) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: RUN DRAW_GRID command requires parameters", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridMissingPOS) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID 2 4 SIZE 10 20 CELLS 4 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: invalid token in RUN command: 2; expected POS", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridPOSMissingValues) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS SIZE 10 20 CELLS 4 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: missing X position for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridMissingPOSY) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 SIZE 10 20 CELLS 4 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: missing Y position for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridInvalidPOSX) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS INVALID 4 SIZE 10 20 CELLS 4 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: missing X position for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridInavlidPOSY) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 INVALID SIZE 10 20 CELLS 4 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: missing Y position for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridMissingSize) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 10 20 CELLS 4 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: invalid token in RUN command: 10; expected SIZE", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridMissingSizeValues) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 SIZE CELLS 4 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: missing width value for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridMissingSizeHeight) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 SIZE 10 CELLS 4 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: missing height value for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridMissingCells) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 SIZE 10 20)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: invalid token in RUN command: ; expected CELLS", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridMissingCellParams) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 SIZE 10 20 CELLS)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: missing columns value for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridMissingCellRows) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 SIZE 10 20 CELLS 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: missing rows value for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridInvalidSizeWidth) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 SIZE INVALID 20)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: missing width value for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridInvalidSizeHeight) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 SIZE 10 INVALID)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: missing height value for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawGridExtraCommands) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+END
+
+RUN my_pipeline DRAW_GRID POS 2 4 SIZE 10 20 CELLS 4 4 EXTRA)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  ASSERT_EQ("12: extra parameters after RUN command: EXTRA", r.Error());
 }
 
 TEST_F(AmberScriptParserTest, RunDrawArrays) {
@@ -521,8 +882,47 @@ RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1 COUNT 2)";
 
   auto* cmd = commands[0]->AsDrawArrays();
   EXPECT_FALSE(cmd->IsIndexed());
-  EXPECT_FALSE(cmd->IsInstanced());
-  EXPECT_EQ(static_cast<uint32_t>(0U), cmd->GetInstanceCount());
+  EXPECT_EQ(static_cast<uint32_t>(1U), cmd->GetInstanceCount());
+  EXPECT_EQ(static_cast<uint32_t>(0U), cmd->GetFirstInstance());
+  EXPECT_EQ(Topology::kTriangleList, cmd->GetTopology());
+  EXPECT_EQ(1U, cmd->GetFirstVertexIndex());
+  EXPECT_EQ(2U, cmd->GetVertexCount());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysInstanced) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+4 5 6
+7 8 9
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1 COUNT 2 START_INSTANCE 2 INSTANCE_COUNT 10)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_TRUE(r.IsSuccess()) << r.Error();
+
+  auto script = parser.GetScript();
+  const auto& commands = script->GetCommands();
+  ASSERT_EQ(1U, commands.size());
+
+  ASSERT_TRUE(commands[0]->IsDrawArrays());
+
+  auto* cmd = commands[0]->AsDrawArrays();
+  EXPECT_FALSE(cmd->IsIndexed());
+  EXPECT_EQ(static_cast<uint32_t>(10U), cmd->GetInstanceCount());
+  EXPECT_EQ(static_cast<uint32_t>(2U), cmd->GetFirstInstance());
   EXPECT_EQ(Topology::kTriangleList, cmd->GetTopology());
   EXPECT_EQ(1U, cmd->GetFirstVertexIndex());
   EXPECT_EQ(2U, cmd->GetVertexCount());
@@ -560,8 +960,8 @@ RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1)";
 
   auto* cmd = commands[0]->AsDrawArrays();
   EXPECT_FALSE(cmd->IsIndexed());
-  EXPECT_FALSE(cmd->IsInstanced());
-  EXPECT_EQ(static_cast<uint32_t>(0U), cmd->GetInstanceCount());
+  EXPECT_EQ(static_cast<uint32_t>(1U), cmd->GetInstanceCount());
+  EXPECT_EQ(static_cast<uint32_t>(0U), cmd->GetFirstInstance());
   EXPECT_EQ(Topology::kTriangleList, cmd->GetTopology());
   EXPECT_EQ(1U, cmd->GetFirstVertexIndex());
   // There are 3 elements in the vertex buffer, but we start at element 1.
@@ -600,8 +1000,8 @@ RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST)";
 
   auto* cmd = commands[0]->AsDrawArrays();
   EXPECT_FALSE(cmd->IsIndexed());
-  EXPECT_FALSE(cmd->IsInstanced());
-  EXPECT_EQ(static_cast<uint32_t>(0U), cmd->GetInstanceCount());
+  EXPECT_EQ(static_cast<uint32_t>(1U), cmd->GetInstanceCount());
+  EXPECT_EQ(static_cast<uint32_t>(0U), cmd->GetFirstInstance());
   EXPECT_EQ(Topology::kTriangleList, cmd->GetTopology());
   EXPECT_EQ(static_cast<uint32_t>(0U), cmd->GetFirstVertexIndex());
   // There are 3 elements in the vertex buffer.
@@ -646,8 +1046,8 @@ RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST INDEXED)";
 
   auto* cmd = commands[0]->AsDrawArrays();
   EXPECT_TRUE(cmd->IsIndexed());
-  EXPECT_FALSE(cmd->IsInstanced());
-  EXPECT_EQ(static_cast<uint32_t>(0U), cmd->GetInstanceCount());
+  EXPECT_EQ(static_cast<uint32_t>(1U), cmd->GetInstanceCount());
+  EXPECT_EQ(static_cast<uint32_t>(0U), cmd->GetFirstInstance());
   EXPECT_EQ(Topology::kTriangleList, cmd->GetTopology());
   EXPECT_EQ(static_cast<uint32_t>(0U), cmd->GetFirstVertexIndex());
   // There are 3 elements in the vertex buffer.
@@ -830,7 +1230,7 @@ RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST 1 COUNT 2)";
   Parser parser;
   Result r = parser.Parse(in);
   ASSERT_FALSE(r.IsSuccess());
-  EXPECT_EQ("18: missing START_IDX for RUN command", r.Error());
+  EXPECT_EQ("18: expecting identifier for RUN command", r.Error());
 }
 
 TEST_F(AmberScriptParserTest, RunDrawArraysMissingStartIdxValue) {
@@ -937,6 +1337,112 @@ RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX -1 COUNT 2)";
   EXPECT_EQ("18: START_IDX value must be >= 0 for RUN command", r.Error());
 }
 
+TEST_F(AmberScriptParserTest, RunDrawArraysMissingStartInstanceValue) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+4 5 6
+7 8 9
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 0 COUNT 2 START_INSTANCE INSTANCE_COUNT)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("18: invalid START_INSTANCE value for RUN command: INSTANCE_COUNT",
+            r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysInvalidStartInstanceValueFormat) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+4 5 6
+7 8 9
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 0 COUNT 2 START_INSTANCE INVALID INSTANCE_COUNT 4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("18: invalid START_INSTANCE value for RUN command: INVALID",
+            r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysInvalidStartInstanceValue) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+4 5 6
+7 8 9
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 0 COUNT 2 START_INSTANCE 1.3 INSTANCE_COUNT 5)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("18: invalid START_INSTANCE value for RUN command: 1.3", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysNegativeStartInstanceValue) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+4 5 6
+7 8 9
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 0 COUNT 2 START_INSTANCE -1 INSTANCE_COUNT 2)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("18: START_INSTANCE value must be >= 0 for RUN command", r.Error());
+}
+
 TEST_F(AmberScriptParserTest, RunDrawArraysMissingCount) {
   std::string in = R"(
 SHADER vertex my_shader PASSTHROUGH
@@ -960,7 +1466,7 @@ RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1 2)";
   Parser parser;
   Result r = parser.Parse(in);
   ASSERT_FALSE(r.IsSuccess());
-  EXPECT_EQ("18: missing COUNT for RUN command", r.Error());
+  EXPECT_EQ("18: expecting identifier for RUN command", r.Error());
 }
 
 TEST_F(AmberScriptParserTest, RunDrawArraysMissingCountValue) {
@@ -1040,6 +1546,64 @@ RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1 COUNT 9)";
   Result r = parser.Parse(in);
   ASSERT_FALSE(r.IsSuccess());
   EXPECT_EQ("18: START_IDX plus COUNT exceeds vertex buffer data size",
+            r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysIndexedStartIdxTooLarge) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+END
+BUFFER indices DATA_TYPE int32 DATA
+0 1 2 1 2 0
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+  INDEX_DATA indices
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST INDEXED START_IDX 6 COUNT 1)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("20: START_IDX plus COUNT exceeds index buffer data size",
+            r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysIndexedCountTooLarge) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+END
+BUFFER indices DATA_TYPE int32 DATA
+0 1 2 1 2 0
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+  INDEX_DATA indices
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST INDEXED START_IDX 1 COUNT 6)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("20: START_IDX plus COUNT exceeds index buffer data size",
             r.Error());
 }
 
@@ -1145,6 +1709,137 @@ RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1 COUNT 0)";
   Result r = parser.Parse(in);
   ASSERT_FALSE(r.IsSuccess());
   EXPECT_EQ("18: COUNT value must be > 0 for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysMissingInstanceCountValue) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+4 5 6
+7 8 9
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1 COUNT 2 START_INSTANCE 0 INSTANCE_COUNT)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("18: invalid INSTANCE_COUNT value for RUN command: ", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysInvalidInstanceCountValueFormat) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+4 5 6
+7 8 9
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1 COUNT 2 START_INSTANCE 0 INSTANCE_COUNT INVALID)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("18: invalid INSTANCE_COUNT value for RUN command: INVALID",
+            r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysInvalidInstanceCountValue) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+4 5 6
+7 8 9
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1 COUNT 2 START_INSTANCE 0 INSTANCE_COUNT 2.4)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("18: invalid INSTANCE_COUNT value for RUN command: 2.4", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysNegativeInstanceCountValue) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+4 5 6
+7 8 9
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1 COUNT 2 START_INSTANCE 0 INSTANCE_COUNT -2)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("18: INSTANCE_COUNT value must be > 0 for RUN command", r.Error());
+}
+
+TEST_F(AmberScriptParserTest, RunDrawArraysZeroInstanceCountValue) {
+  std::string in = R"(
+SHADER vertex my_shader PASSTHROUGH
+SHADER fragment my_fragment GLSL
+# GLSL Shader
+END
+BUFFER vtex_buf DATA_TYPE vec3<float> DATA
+1 2 3
+4 5 6
+7 8 9
+END
+
+PIPELINE graphics my_pipeline
+  ATTACH my_shader
+  ATTACH my_fragment
+  VERTEX_DATA vtex_buf LOCATION 0
+END
+
+RUN my_pipeline DRAW_ARRAY AS TRIANGLE_LIST START_IDX 1 COUNT 2 START_INSTANCE 0 INSTANCE_COUNT 0)";
+
+  Parser parser;
+  Result r = parser.Parse(in);
+  ASSERT_FALSE(r.IsSuccess());
+  EXPECT_EQ("18: INSTANCE_COUNT value must be > 0 for RUN command", r.Error());
 }
 
 }  // namespace amberscript

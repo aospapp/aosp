@@ -259,8 +259,11 @@ public class SampleChunkIoHelper implements Handler.Callback {
         mediaFormat.setString(MediaFormat.KEY_MIME, format.sampleMimeType);
         mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, format.channelCount);
         mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, format.sampleRate);
-        // Set mediaFormat parameters that may be unset.
         MediaFormatUtil.setCsdBuffers(mediaFormat, format.initializationData);
+        // Set mediaFormat parameters that may be unset.
+        if (format.language != null) {
+            mediaFormat.setString(MediaFormat.KEY_LANGUAGE, format.language);
+        }
         MediaFormatUtil.maybeSetInteger(
                 mediaFormat, MediaFormat.KEY_MAX_INPUT_SIZE, format.maxInputSize);
         if (Util.SDK_INT >= 23) {

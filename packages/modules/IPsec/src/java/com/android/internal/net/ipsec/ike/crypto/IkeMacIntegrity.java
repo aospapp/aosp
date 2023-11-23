@@ -16,11 +16,16 @@
 
 package com.android.internal.net.ipsec.ike.crypto;
 
+import static android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_AES_XCBC_96;
+
+import android.annotation.Nullable;
 import android.net.IpSecAlgorithm;
 import android.net.ipsec.ike.SaProposal;
+import android.util.SparseArray;
 
 import com.android.internal.net.ipsec.ike.message.IkeSaPayload.IntegrityTransform;
 
+import java.security.GeneralSecurityException;
 import java.util.Arrays;
 
 import javax.crypto.Cipher;
@@ -36,16 +41,34 @@ import javax.crypto.Mac;
  * Exchange Protocol Version 2 (IKEv2)</a>
  */
 public class IkeMacIntegrity extends IkeMac {
-    // STOPSHIP: b/130190639 Catch unchecked exceptions, notify users and close the IKE session.
+    // Map IKE algorithm numbers to IPsec algorithm names
+    private static final SparseArray<String> IKE_ALGO_TO_IPSEC_ALGO;
+
+    static {
+        IKE_ALGO_TO_IPSEC_ALGO = new SparseArray<>();
+        IKE_ALGO_TO_IPSEC_ALGO.put(
+                SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA1_96, IpSecAlgorithm.AUTH_HMAC_SHA1);
+        IKE_ALGO_TO_IPSEC_ALGO.put(
+                SaProposal.INTEGRITY_ALGORITHM_AES_XCBC_96, IpSecAlgorithm.AUTH_AES_XCBC);
+        IKE_ALGO_TO_IPSEC_ALGO.put(
+                SaProposal.INTEGRITY_ALGORITHM_AES_CMAC_96, IpSecAlgorithm.AUTH_AES_CMAC);
+        IKE_ALGO_TO_IPSEC_ALGO.put(
+                SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_256_128, IpSecAlgorithm.AUTH_HMAC_SHA256);
+        IKE_ALGO_TO_IPSEC_ALGO.put(
+                SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_384_192, IpSecAlgorithm.AUTH_HMAC_SHA384);
+        IKE_ALGO_TO_IPSEC_ALGO.put(
+                SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_512_256, IpSecAlgorithm.AUTH_HMAC_SHA512);
+    }
+
     private final int mChecksumLength;
 
     private IkeMacIntegrity(
             @SaProposal.IntegrityAlgorithm int algorithmId,
             int keyLength,
             String algorithmName,
-            boolean isEncryptAlgo,
+            boolean isJceSupported,
             int checksumLength) {
-        super(algorithmId, keyLength, algorithmName, isEncryptAlgo);
+        super(algorithmId, keyLength, algorithmName, isJceSupported);
         mChecksumLength = checksumLength;
     }
 
@@ -60,7 +83,7 @@ public class IkeMacIntegrity extends IkeMac {
 
         int keyLength = 0;
         String algorithmName = "";
-        boolean isEncryptAlgo = false;
+        boolean isJceSupported = true;
         int checksumLength = 0;
 
         switch (algorithmId) {
@@ -73,8 +96,13 @@ public class IkeMacIntegrity extends IkeMac {
                 break;
             case SaProposal.INTEGRITY_ALGORITHM_AES_XCBC_96:
                 keyLength = 16;
-                isEncryptAlgo = true;
-                algorithmName = "AES/CBC/NoPadding";
+                isJceSupported = false;
+                algorithmName = ALGO_NAME_JCE_UNSUPPORTED;
+                checksumLength = 12;
+                break;
+            case SaProposal.INTEGRITY_ALGORITHM_AES_CMAC_96:
+                keyLength = 16;
+                algorithmName = "AESCMAC";
                 checksumLength = 12;
                 break;
             case SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_256_128:
@@ -98,7 +126,20 @@ public class IkeMacIntegrity extends IkeMac {
         }
 
         return new IkeMacIntegrity(
-                algorithmId, keyLength, algorithmName, isEncryptAlgo, checksumLength);
+                algorithmId, keyLength, algorithmName, isJceSupported, checksumLength);
+    }
+
+    @Override
+    public byte[] signBytes(byte[] keyBytes, byte[] dataToSign) {
+        if (getAlgorithmId() == INTEGRITY_ALGORITHM_AES_XCBC_96) {
+            try {
+                return new AesXCbcImpl().mac(keyBytes, dataToSign, true /*needTruncation*/);
+            } catch (GeneralSecurityException | IllegalStateException e) {
+                throw new IllegalArgumentException("Failed to generate MAC: ", e);
+            }
+        } else {
+            return super.signBytes(keyBytes, dataToSign);
+        }
     }
 
     /**
@@ -133,6 +174,17 @@ public class IkeMacIntegrity extends IkeMac {
     }
 
     /**
+     * Returns the IPsec algorithm name defined in {@link IpSecAlgorithm} given the IKE algorithm
+     * ID.
+     *
+     * <p>Returns null if there is no corresponding IPsec algorithm given the IKE algorithm ID.
+     */
+    @Nullable
+    public static String getIpSecAlgorithmName(int ikeAlgoId) {
+        return IKE_ALGO_TO_IPSEC_ALGO.get(ikeAlgoId);
+    }
+
+    /**
      * Build IpSecAlgorithm from this IkeMacIntegrity.
      *
      * <p>Build IpSecAlgorithm that represents the same integrity algorithm with this
@@ -149,27 +201,12 @@ public class IkeMacIntegrity extends IkeMac {
                             + " Received key with length of : "
                             + key.length);
         }
-
-        switch (getAlgorithmId()) {
-            case SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA1_96:
-                return new IpSecAlgorithm(IpSecAlgorithm.AUTH_HMAC_SHA1, key, mChecksumLength * 8);
-            case SaProposal.INTEGRITY_ALGORITHM_AES_XCBC_96:
-                // TODO:Consider supporting AES128_XCBC in IpSecTransform.
-                throw new IllegalArgumentException(
-                        "Do not support IpSecAlgorithm with AES128_XCBC.");
-            case SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_256_128:
-                return new IpSecAlgorithm(
-                        IpSecAlgorithm.AUTH_HMAC_SHA256, key, mChecksumLength * 8);
-            case SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_384_192:
-                return new IpSecAlgorithm(
-                        IpSecAlgorithm.AUTH_HMAC_SHA384, key, mChecksumLength * 8);
-            case SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA2_512_256:
-                return new IpSecAlgorithm(
-                        IpSecAlgorithm.AUTH_HMAC_SHA512, key, mChecksumLength * 8);
-            default:
-                throw new IllegalArgumentException(
-                        "Unrecognized Integrity Algorithm ID: " + getAlgorithmId());
+        if (getIpSecAlgorithmName(getAlgorithmId()) == null) {
+            throw new IllegalStateException(
+                    "Unsupported algorithm " + getAlgorithmId() + " in IPsec");
         }
+        return new IpSecAlgorithm(
+                getIpSecAlgorithmName(getAlgorithmId()), key, mChecksumLength * 8);
     }
 
     /**

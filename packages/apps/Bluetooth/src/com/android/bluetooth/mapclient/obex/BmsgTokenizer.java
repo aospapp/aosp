@@ -23,6 +23,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class BmsgTokenizer {
+    private static final String TAG = "BmsgTokenizer";
+    private static final boolean VDBG = MapClientService.VDBG;
 
     private final String mStr;
 
@@ -89,7 +91,9 @@ public final class BmsgTokenizer {
             this.name = name;
             this.value = value;
 
-            Log.v("BMSG >> ", toString());
+            if (VDBG) {
+                Log.v(TAG, toString());
+            }
         }
 
         @Override

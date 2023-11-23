@@ -30,8 +30,11 @@ class DexCompilationUnit;
 class HSharpening {
  public:
   // Used by the builder and InstructionSimplifier.
-  static HInvokeStaticOrDirect::DispatchInfo SharpenInvokeStaticOrDirect(
-      ArtMethod* callee, CodeGenerator* codegen);
+  static HInvokeStaticOrDirect::DispatchInfo SharpenLoadMethod(
+      ArtMethod* callee,
+      bool has_method_id,
+      bool for_interface_call,
+      CodeGenerator* codegen);
 
   // Used by the builder and the inliner.
   static HLoadClass::LoadKind ComputeLoadClassKind(HLoadClass* load_class,

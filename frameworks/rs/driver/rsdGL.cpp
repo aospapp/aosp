@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <system/window.h>
+#include <vndk/window.h>
 
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -440,12 +440,12 @@ bool rsdGLSetInternalSurface(const Context *rsc, RsNativeWindow sur) {
     }
 
     if (dc->gl.currentWndSurface != nullptr) {
-        dc->gl.currentWndSurface->decStrong(nullptr);
+        ANativeWindow_release(dc->gl.currentWndSurface);
     }
 
     dc->gl.currentWndSurface = (ANativeWindow *)sur;
     if (dc->gl.currentWndSurface != nullptr) {
-        dc->gl.currentWndSurface->incStrong(nullptr);
+        ANativeWindow_acquire(dc->gl.currentWndSurface);
 
         rsc->setWatchdogGL("eglCreateWindowSurface", __LINE__, __FILE__);
         dc->gl.egl.surface = eglCreateWindowSurface(dc->gl.egl.display, dc->gl.egl.config,
@@ -468,7 +468,7 @@ bool rsdGLSetSurface(const Context *rsc, uint32_t w, uint32_t h, RsNativeWindow 
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
 
     if (dc->gl.wndSurface != nullptr) {
-        dc->gl.wndSurface->decStrong(nullptr);
+        ANativeWindow_release(dc->gl.wndSurface);
         dc->gl.wndSurface = nullptr;
     }
     if(w && h) {
@@ -476,7 +476,7 @@ bool rsdGLSetSurface(const Context *rsc, uint32_t w, uint32_t h, RsNativeWindow 
         // pbuffer to avoid this pitfall.
         dc->gl.wndSurface = (ANativeWindow *)sur;
         if (dc->gl.wndSurface != nullptr) {
-            dc->gl.wndSurface->incStrong(nullptr);
+            ANativeWindow_acquire(dc->gl.wndSurface);
         }
     }
 

@@ -15,92 +15,103 @@
  */
 package com.android.managedprovisioning.preprovisioning.terms;
 
+import static android.view.View.TEXT_ALIGNMENT_TEXT_START;
+
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_TERMS_ACTIVITY_TIME_MS;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
-import android.annotation.ColorInt;
-import android.content.pm.PackageManager;
+import static com.google.android.setupdesign.util.ThemeHelper.shouldApplyExtendedPartnerConfig;
+
+import static java.util.Objects.requireNonNull;
+
+import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
-import android.util.ArraySet;
 import android.view.ContextMenu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.ExpandableListView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toolbar;
 
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
-import com.android.car.ui.core.CarUi;
-import com.android.car.ui.recyclerview.CarUiRecyclerView;
-import com.android.car.ui.toolbar.ToolbarController;
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.MetricsWriterFactory;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
 import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.SettingsFacade;
-import com.android.managedprovisioning.common.SetupLayoutActivity;
-import com.android.managedprovisioning.common.StoreUtils;
+import com.android.managedprovisioning.common.SetupGlifLayoutActivity;
+import com.android.managedprovisioning.common.StylerHelper;
+import com.android.managedprovisioning.common.ThemeHelper;
+import com.android.managedprovisioning.common.ThemeHelper.DefaultNightModeChecker;
+import com.android.managedprovisioning.common.ThemeHelper.DefaultSetupWizardBridge;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
+import com.android.managedprovisioning.preprovisioning.terms.TermsViewModel.TermsViewModelFactory;
 import com.android.managedprovisioning.preprovisioning.terms.adapters.TermsListAdapter;
-import com.android.managedprovisioning.preprovisioning.terms.adapters.TermsListAdapterCar;
 
 import java.util.List;
-import java.util.Set;
+import java.util.function.BiFunction;
 
 /**
  * Activity responsible for displaying the Terms screen
  */
-public class TermsActivity extends SetupLayoutActivity {
-    private final TermsProvider mTermsProvider;
+public class TermsActivity extends SetupGlifLayoutActivity implements
+        TermsListAdapter.TermsBridge {
     private final AccessibilityContextMenuMaker mContextMenuMaker;
-    private final Set<Integer> mExpandedGroupsPosition = new ArraySet<>();
     private final SettingsFacade mSettingsFacade;
     private ProvisioningAnalyticsTracker mProvisioningAnalyticsTracker;
+    private final BiFunction<AppCompatActivity, ProvisioningParams, TermsViewModel>
+            mViewModelFetcher;
+    private TermsViewModel mViewModel;
+    private final StylerHelper mStylerHelper;
 
     @SuppressWarnings("unused")
     public TermsActivity() {
-        this(StoreUtils::readString, null, new SettingsFacade());
+        this(
+                /* contextMenuMaker= */ null,
+                new SettingsFacade(),
+                new StylerHelper(),
+                (activity, params) -> {
+                    final TermsViewModelFactory factory =
+                            new TermsViewModelFactory(activity.getApplication(), params);
+                    return new ViewModelProvider(activity, factory).get(TermsViewModel.class);
+                });
     }
 
     @VisibleForTesting
-    TermsActivity(StoreUtils.TextFileReader textFileReader,
-            AccessibilityContextMenuMaker contextMenuMaker, SettingsFacade settingsFacade) {
-        super(new Utils());
-        mTermsProvider = new TermsProvider(this, textFileReader, mUtils);
+    TermsActivity(AccessibilityContextMenuMaker contextMenuMaker, SettingsFacade settingsFacade,
+            StylerHelper stylerHelper,
+            BiFunction<AppCompatActivity, ProvisioningParams, TermsViewModel> viewModelFetcher) {
+        super(new Utils(), settingsFacade,
+                new ThemeHelper(new DefaultNightModeChecker(), new DefaultSetupWizardBridge()));
+
         mContextMenuMaker =
                 contextMenuMaker != null ? contextMenuMaker : new AccessibilityContextMenuMaker(
                         this);
-        mSettingsFacade = settingsFacade;
+        mSettingsFacade = requireNonNull(settingsFacade);
+        mViewModelFetcher = requireNonNull(viewModelFetcher);
+        mStylerHelper = requireNonNull(stylerHelper);
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
-            setTheme(R.style.Theme_CarUi_WithToolbar);
-        }
         super.onCreate(savedInstanceState);
         setContentView(R.layout.terms_screen);
         setTitle(R.string.terms);
-        int statusBarColor = getColor(R.color.term_status_bar);
-        setStatusBarColor(statusBarColor);
 
         ProvisioningParams params = checkNotNull(
                 getIntent().getParcelableExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS));
-        List<TermsDocument> terms = mTermsProvider.getTerms(params, 0);
+        mViewModel = mViewModelFetcher.apply(this, params);
+        List<TermsDocument> terms = mViewModel.getTerms();
 
-        setUpTermsList(terms, statusBarColor);
-
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
-            ToolbarController toolbar = CarUi.requireToolbar(this);
-            toolbar.setTitle(R.string.terms);
-            toolbar.setState(com.android.car.ui.toolbar.Toolbar.State.SUBPAGE);
-        } else {
-            Toolbar toolbar = findViewById(R.id.toolbar);
-            toolbar.setNavigationOnClickListener(v -> TermsActivity.this.finish());
-        }
+        initializeUiForHandhelds(terms);
 
         mProvisioningAnalyticsTracker = new ProvisioningAnalyticsTracker(
                 MetricsWriterFactory.getMetricsWriter(this, mSettingsFacade),
@@ -108,36 +119,55 @@ public class TermsActivity extends SetupLayoutActivity {
         mProvisioningAnalyticsTracker.logNumberOfTermsDisplayed(this, terms.size());
     }
 
-    private void setUpTermsList(List<TermsDocument> terms, @ColorInt int statusBarColor) {
-        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
-            CarUiRecyclerView listView = findViewById(R.id.terms_container);
-            listView.setAdapter(new TermsListAdapterCar(getApplicationContext(), terms,
-                    statusBarColor));
+    private void initializeUiForHandhelds(List<TermsDocument> terms) {
+        setupHeader();
+        setupRecyclerView();
+        setupToolbar();
+        setupTermsListForHandhelds(terms);
+    }
 
-        } else {
-            ExpandableListView container = findViewById(R.id.terms_container);
-            container.setAdapter(
-                    new TermsListAdapter(getApplicationContext(), terms,
-                            getLayoutInflater(),
-                            new AccessibilityContextMenuMaker(this),
-                            container::isGroupExpanded, statusBarColor));
-            container.expandGroup(0); // expand the 'General' section
-
-            // Add default open terms to the expanded groups set.
-            for (int i = 0; i < terms.size(); i++) {
-                if (container.isGroupExpanded(i)) mExpandedGroupsPosition.add(i);
-            }
-
-            // keep at most one group expanded at a time
-            container.setOnGroupExpandListener((int groupPosition) -> {
-                mExpandedGroupsPosition.add(groupPosition);
-                for (int i = 0; i < terms.size(); i++) {
-                    if (i != groupPosition && container.isGroupExpanded(i)) {
-                        container.collapseGroup(i);
-                    }
-                }
-            });
+    private void setupHeader() {
+        if (!shouldApplyExtendedPartnerConfig(this)) {
+            return;
         }
+        TextView header = findViewById(R.id.header);
+        header.setVisibility(View.VISIBLE);
+        header.setText(R.string.terms);
+        mStylerHelper.applyHeaderStyling(header,
+                new LinearLayout.LayoutParams(header.getLayoutParams()));
+        header.setTextAlignment(TEXT_ALIGNMENT_TEXT_START);
+    }
+
+    private void setupRecyclerView() {
+        final RecyclerView recyclerView = findViewById(R.id.terms_container);
+        if (recyclerView.getItemDecorationCount() > 0) {
+            recyclerView.removeItemDecorationAt(/* index= */ 0);
+        }
+    }
+
+    private void setupToolbar() {
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        toolbar.setNavigationContentDescription(R.string.navigation_button_description);
+        toolbar.setNavigationIcon(getDrawable(R.drawable.ic_arrow_back_24dp));
+        toolbar.setNavigationOnClickListener(v ->
+                getTransitionHelper().finishActivity(TermsActivity.this));
+        if (!shouldApplyExtendedPartnerConfig(this)) {
+            toolbar.setTitle(R.string.terms);
+        }
+    }
+
+    private void setupTermsListForHandhelds(List<TermsDocument> terms) {
+        RecyclerView recyclerView = findViewById(R.id.terms_container);
+        recyclerView.setLayoutManager(new LinearLayoutManager(/* context= */ this));
+        recyclerView.setAdapter(new TermsListAdapter(
+                this,
+                mViewModel.getGeneralDisclaimer(),
+                terms,
+                getLayoutInflater(),
+                new AccessibilityContextMenuMaker(this),
+                this,
+                mUtils,
+                mStylerHelper));
     }
 
     @Override
@@ -160,12 +190,35 @@ public class TermsActivity extends SetupLayoutActivity {
 
     @Override
     public void onDestroy() {
-        mProvisioningAnalyticsTracker.logNumberOfTermsRead(this, mExpandedGroupsPosition.size());
+        mProvisioningAnalyticsTracker.logNumberOfTermsRead(
+                this, mViewModel.getNumberOfReadTerms());
         super.onDestroy();
     }
 
     @Override
     protected int getMetricsCategory() {
         return PROVISIONING_TERMS_ACTIVITY_TIME_MS;
+    }
+
+    @Override
+    public boolean isTermExpanded(int groupPosition) {
+        return mViewModel.isTermExpanded(groupPosition);
+    }
+
+    @Override
+    public void onTermExpanded(int groupPosition, boolean expanded) {
+        mViewModel.setTermExpanded(groupPosition, expanded);
+    }
+
+    @Override
+    public void onLinkClicked(Intent intent) {
+        getTransitionHelper().startActivityWithTransition(this, intent);
+    }
+
+    @Override
+    protected boolean shouldSetupDynamicColors() {
+        Context context = getApplicationContext();
+        return !mSettingsFacade.isDeferredSetup(context)
+                && !mSettingsFacade.isDuringSetupWizard(context);
     }
 }

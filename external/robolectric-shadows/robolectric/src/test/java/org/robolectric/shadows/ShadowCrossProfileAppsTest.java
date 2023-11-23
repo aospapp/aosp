@@ -296,7 +296,7 @@ public class ShadowCrossProfileAppsTest {
     StartedActivity startedActivity = shadowOf(crossProfileApps).peekNextStartedActivity();
 
     assertThat(startedActivity).isEqualTo(new StartedActivity(component, userHandle1));
-    assertThat(shadowOf(crossProfileApps).peekNextStartedActivity()).isSameAs(startedActivity);
+    assertThat(shadowOf(crossProfileApps).peekNextStartedActivity()).isSameInstanceAs(startedActivity);
   }
 
   @Test

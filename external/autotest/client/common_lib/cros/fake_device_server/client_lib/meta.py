@@ -4,7 +4,7 @@
 
 """Contains a simple client lib to interact with server meta interfaces."""
 
-import urllib2
+from six.moves import urllib
 
 import common
 from fake_device_server.client_lib import common_client
@@ -27,8 +27,8 @@ class MetaClient(common_client.CommonClient):
 
         """
         try:
-            request = urllib2.urlopen(self.get_url(['generation']), None,
-                                      timeout_seconds)
-            return request.read()
-        except urllib2.URLError:
+            request = urllib.request.urlopen(self.get_url(['generation']), None,
+                                             timeout_seconds)
+            return request.read().decode('utf-8')
+        except urllib.error.URLError:
             return None

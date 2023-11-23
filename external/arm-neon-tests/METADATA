@@ -12,5 +12,6 @@ third_party {
     value: "https://github.com/christophe-lyon/arm-neon-tests.git"
   }
   version: "333ee3023f49a605e886e77c6e8c49bf655c81fb"
+  license_type: RESTRICTED
   last_upgrade_date { year: 2017 month: 11 day: 15 }
 }

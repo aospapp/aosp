@@ -36,12 +36,14 @@ public interface InitialLockSetupConstants {
     @IntDef({
             LockTypes.PASSWORD,
             LockTypes.PIN,
-            LockTypes.PATTERN
+            LockTypes.PATTERN,
+            LockTypes.NONE
     })
     @interface LockTypes {
         int PASSWORD = 0;
         int PIN = 1;
         int PATTERN = 2;
+        int NONE = 3;
     }
 
     /**
@@ -74,6 +76,20 @@ public interface InitialLockSetupConstants {
         int FAIL_LOCK_EXISTS = -1;
         int FAIL_LOCK_INVALID = -2;
         int FAIL_LOCK_GENERIC = -3;
+    }
+
+    /** PasswordComplexity as defined in DevicePolicyManager. */
+    @IntDef({
+        PasswordComplexity.PASSWORD_COMPLEXITY_NONE,
+        PasswordComplexity.PASSWORD_COMPLEXITY_LOW,
+        PasswordComplexity.PASSWORD_COMPLEXITY_MEDIUM,
+        PasswordComplexity.PASSWORD_COMPLEXITY_HIGH,
+    })
+    @interface PasswordComplexity {
+        int PASSWORD_COMPLEXITY_NONE = 0;
+        int PASSWORD_COMPLEXITY_LOW = 0x10000;
+        int PASSWORD_COMPLEXITY_MEDIUM = 0x30000;
+        int PASSWORD_COMPLEXITY_HIGH = 0x50000;
     }
 }
 

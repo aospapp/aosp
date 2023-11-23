@@ -22,23 +22,23 @@
  *
  ******************************************************************************/
 
-#include "bt_target.h"
+#define LOG_TAG "bluetooth"
 
+#include <cstdint>
+
+// PAN_INCLUDED
+#include "bt_target.h"  // Must be first to define build configuration
 #if (PAN_INCLUDED == TRUE)
 
-#include <string.h>
-
-#include <log/log.h>
-
-#include "bt_common.h"
-#include "bta_api.h"
-#include "bta_pan_api.h"
-#include "bta_pan_co.h"
-#include "bta_pan_int.h"
-#include "bta_sys.h"
-#include "osi/include/osi.h"
-#include "pan_api.h"
-#include "utl.h"
+#include "bta/include/bta_pan_co.h"
+#include "bta/pan/bta_pan_int.h"
+#include "osi/include/allocator.h"
+#include "osi/include/fixed_queue.h"
+#include "osi/include/log.h"
+#include "osi/include/osi.h"  // UNUSED_ATTR
+#include "stack/include/bt_types.h"
+#include "stack/include/pan_api.h"
+#include "types/raw_address.h"
 
 /* RX and TX data flow mask */
 #define BTA_PAN_RX_MASK 0x0F
@@ -114,8 +114,6 @@ static void bta_pan_conn_state_cback(uint16_t handle, const RawAddress& bd_addr,
 
     if (src_role == PAN_ROLE_CLIENT)
       p_scb->app_id = bta_pan_cb.app_id[0];
-    else if (src_role == PAN_ROLE_GN_SERVER)
-      p_scb->app_id = bta_pan_cb.app_id[1];
     else if (src_role == PAN_ROLE_NAP_SERVER)
       p_scb->app_id = bta_pan_cb.app_id[2];
   } else if ((state != PAN_SUCCESS) && !is_role_change) {
@@ -147,7 +145,7 @@ static void bta_pan_data_flow_cb(uint16_t handle, tPAN_RESULT result) {
   if (p_scb == NULL) return;
 
   if (result == PAN_TX_FLOW_ON) {
-    BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+    BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
     p_buf->layer_specific = handle;
     p_buf->event = BTA_PAN_BNEP_FLOW_ENABLE_EVT;
     bta_sys_sendmsg(p_buf);
@@ -198,7 +196,7 @@ static void bta_pan_data_buf_ind_cback(uint16_t handle, const RawAddress& src,
   ((tBTA_PAN_DATA_PARAMS*)p_new_buf)->forward = forward;
 
   fixed_queue_enqueue(p_scb->data_queue, p_new_buf);
-  BT_HDR* p_event = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_event = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
   p_event->layer_specific = handle;
   p_event->event = BTA_PAN_RX_FROM_BNEP_READY_EVT;
   bta_sys_sendmsg(p_event);
@@ -299,12 +297,6 @@ static bool bta_pan_has_multiple_connections(uint8_t app_id) {
  ******************************************************************************/
 void bta_pan_enable(tBTA_PAN_DATA* p_data) {
   tPAN_REGISTER reg_data;
-  uint16_t initial_discoverability;
-  uint16_t initial_connectability;
-  uint16_t d_window;
-  uint16_t d_interval;
-  uint16_t c_window;
-  uint16_t c_interval;
 
   bta_pan_cb.p_cback = p_data->api_enable.p_cback;
 
@@ -316,17 +308,7 @@ void bta_pan_enable(tBTA_PAN_DATA* p_data) {
   reg_data.pan_mfilt_ind_cb = bta_pan_mfilt_ind_cback;
   reg_data.pan_tx_data_flow_cb = bta_pan_data_flow_cb;
 
-  /* read connectability and discoverability settings.
-  Pan profile changes the settings. We have to change it back to
-  be consistent with other bta subsystems */
-  initial_connectability = BTM_ReadConnectability(&c_window, &c_interval);
-  initial_discoverability = BTM_ReadDiscoverability(&d_window, &d_interval);
-
   PAN_Register(&reg_data);
-
-  /* set it back to original value */
-  BTM_SetDiscoverability(initial_discoverability, d_window, d_interval);
-  BTM_SetConnectability(initial_connectability, c_window, c_interval);
 
   bta_pan_cb.flow_mask = bta_pan_co_init(&bta_pan_cb.q_level);
   bta_pan_cb.p_cback(BTA_PAN_ENABLE_EVT, NULL);
@@ -344,20 +326,14 @@ void bta_pan_enable(tBTA_PAN_DATA* p_data) {
 void bta_pan_set_role(tBTA_PAN_DATA* p_data) {
   tPAN_RESULT status;
   tBTA_PAN bta_pan;
-  uint8_t sec[3];
 
   bta_pan_cb.app_id[0] = p_data->api_set_role.user_app_id;
-  bta_pan_cb.app_id[1] = p_data->api_set_role.gn_app_id;
   bta_pan_cb.app_id[2] = p_data->api_set_role.nap_app_id;
 
-  sec[0] = p_data->api_set_role.user_sec_mask;
-  sec[1] = p_data->api_set_role.gn_sec_mask;
-  sec[2] = p_data->api_set_role.nap_sec_mask;
-
   /* set security correctly in api and here */
-  status = PAN_SetRole(
-      p_data->api_set_role.role, sec, p_data->api_set_role.user_name,
-      p_data->api_set_role.gn_name, p_data->api_set_role.nap_name);
+  status =
+      PAN_SetRole(p_data->api_set_role.role, p_data->api_set_role.user_name,
+                  p_data->api_set_role.nap_name);
 
   bta_pan.set_role.role = p_data->api_set_role.role;
   if (status == PAN_SUCCESS) {
@@ -365,11 +341,6 @@ void bta_pan_set_role(tBTA_PAN_DATA* p_data) {
       bta_sys_add_uuid(UUID_SERVCLASS_NAP);
     else
       bta_sys_remove_uuid(UUID_SERVCLASS_NAP);
-
-    if (p_data->api_set_role.role & PAN_ROLE_GN_SERVER)
-      bta_sys_add_uuid(UUID_SERVCLASS_GN);
-    else
-      bta_sys_remove_uuid(UUID_SERVCLASS_GN);
 
     if (p_data->api_set_role.role & PAN_ROLE_CLIENT)
       bta_sys_add_uuid(UUID_SERVCLASS_PANU);
@@ -380,7 +351,7 @@ void bta_pan_set_role(tBTA_PAN_DATA* p_data) {
   }
   /* if status is not success clear everything */
   else {
-    PAN_SetRole(0, 0, NULL, NULL, NULL);
+    PAN_SetRole(0, NULL, NULL);
     bta_sys_remove_uuid(UUID_SERVCLASS_NAP);
     bta_sys_remove_uuid(UUID_SERVCLASS_GN);
     bta_sys_remove_uuid(UUID_SERVCLASS_PANU);
@@ -406,7 +377,7 @@ void bta_pan_disable(void) {
   uint8_t i;
 
   /* close all connections */
-  PAN_SetRole(0, NULL, NULL, NULL, NULL);
+  PAN_SetRole(0, NULL, NULL);
 
 #if (BTA_EIR_CANNED_UUID_LIST != TRUE)
   bta_sys_remove_uuid(UUID_SERVCLASS_NAP);
@@ -522,10 +493,9 @@ void bta_pan_conn_open(tBTA_PAN_SCB* p_scb, tBTA_PAN_DATA* p_data) {
   p_scb->app_flow_enable = true;
 
   /* If app_id is NAP/GN, check whether there are multiple connections.
-     If there are, provide a special app_id to dm to enforce master role only.
+     If there are, provide a special app_id to dm to enforce central role only.
      */
-  if ((p_scb->app_id == bta_pan_cb.app_id[1] ||
-       p_scb->app_id == bta_pan_cb.app_id[2]) &&
+  if (p_scb->app_id == bta_pan_cb.app_id[2] &&
       bta_pan_has_multiple_connections(p_scb->app_id)) {
     p_scb->app_id = BTA_APP_ID_PAN_MULTI;
   }

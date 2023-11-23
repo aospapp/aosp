@@ -21,7 +21,7 @@ struct toy_list toy_list[] = {
 
 struct toy_context toys;
 union global_union this;
-char toybuf[4096], libbuf[4096];
+char *toybox_version = TOYBOX_VERSION, toybuf[4096], libbuf[4096];
 
 struct toy_list *toy_find(char *name)
 {
@@ -64,11 +64,11 @@ static void unknown(char *name)
 {
   toys.exitval = 127;
   toys.which = toy_list;
-  error_exit("Unknown command %s", name);
+  help_exit("Unknown command %s", name);
 }
 
 // Setup toybox global state for this command.
-static void toy_singleinit(struct toy_list *which, char *argv[])
+void toy_singleinit(struct toy_list *which, char *argv[])
 {
   toys.which = which;
   toys.argv = argv;
@@ -84,7 +84,7 @@ static void toy_singleinit(struct toy_list *which, char *argv[])
     }
 
     if (!strcmp(argv[1], "--version")) {
-      xputs("toybox "TOYBOX_VERSION);
+      xprintf("toybox %s\n", toybox_version);
       xexit();
     }
   }
@@ -95,15 +95,18 @@ static void toy_singleinit(struct toy_list *which, char *argv[])
     for (toys.optc = 0; toys.optargs[toys.optc]; toys.optc++);
   }
 
-  if (!(which->flags & TOYFLAG_NOFORK)) {
+  if (!(CFG_TOYBOX && which == toy_list) && !(which->flags & TOYFLAG_NOFORK)) {
     toys.old_umask = umask(0);
     if (!(which->flags & TOYFLAG_UMASK)) umask(toys.old_umask);
-    if (CFG_TOYBOX_I18N) {
-      // Deliberately try C.UTF-8 before the user's locale to work around users
-      // that choose non-UTF-8 locales. macOS doesn't support C.UTF-8 though.
-      if (!setlocale(LC_CTYPE, "C.UTF-8")) setlocale(LC_CTYPE, "");
-    }
-    setlinebuf(stdout);
+
+    // Try user's locale, but merge in the en_US.UTF-8 locale's character
+    // type data if the user's locale isn't UTF-8. (We can't merge in C.UTF-8
+    // because that locale doesn't exist on macOS.)
+    setlocale(LC_CTYPE, "");
+    if (strcmp("UTF-8", nl_langinfo(CODESET)))
+      uselocale(newlocale(LC_CTYPE_MASK, "en_US.UTF-8", NULL));
+
+    setvbuf(stdout, 0, (which->flags & TOYFLAG_LINEBUF) ? _IOLBF : _IONBF, 0);
   }
 }
 
@@ -143,10 +146,10 @@ void toy_init(struct toy_list *which, char *argv[])
 
 // Run an internal toybox command.
 // Only returns if it can't run command internally, otherwise xexit() when done.
-void toy_exec_which(struct toy_list *which, char *argv[])
+static void toy_exec_which(struct toy_list *which, char *argv[])
 {
   // Return if we can't find it (which includes no multiplexer case),
-  if (!which) return;
+  if (!which || (which->flags&TOYFLAG_NOFORK)) return;
 
   // Return if stack depth getting noticeable (proxy for leaked heap, etc).
 
@@ -169,35 +172,35 @@ void toy_exec_which(struct toy_list *which, char *argv[])
 // Lookup internal toybox command to run via argv[0]
 void toy_exec(char *argv[])
 {
-  toy_exec_which(toy_find(basename(*argv)), argv);
+  toy_exec_which(toy_find(*argv), argv);
 }
 
 // Multiplexer command, first argument is command to run, rest are args to that.
 // If first argument starts with - output list of command install paths.
 void toybox_main(void)
 {
-  static char *toy_paths[] = {"usr/","bin/","sbin/",0};
+  char *toy_paths[] = {"usr/", "bin/", "sbin/", 0}, *s = toys.argv[1];
   int i, len = 0;
+  unsigned width = 80;
 
   // fast path: try to exec immediately.
   // (Leave toys.which null to disable suid return logic.)
   // Try dereferencing one layer of symlink
-  if (toys.argv[1]) {
-    toy_exec(toys.argv+1);
-    if (0<readlink(toys.argv[1], libbuf, sizeof(libbuf))) {
-      struct toy_list *tl= toy_find(basename(libbuf));
+  while (s) {
+    struct toy_list *tl = toy_find(basename(s));
 
-      if (tl == toy_list) unknown(basename(toys.argv[1]));
-      else toy_exec_which(tl, toys.argv+1);
-    }
+    if (tl==toy_list && s!=toys.argv[1]) unknown(basename(s));
+    toy_exec_which(toy_find(basename(s)), toys.argv+1);
+    s = (0<readlink(s, libbuf, sizeof(libbuf))) ? libbuf : 0;
   }
 
   // For early error reporting
   toys.which = toy_list;
 
-  if (toys.argv[1] && toys.argv[1][0] != '-') unknown(toys.argv[1]);
+  if (toys.argv[1] && strcmp(toys.argv[1], "--long")) unknown(toys.argv[1]);
 
-  // Output list of command.
+  // Output list of commands.
+  terminal_size(&width, 0);
   for (i = 1; i<ARRAY_LEN(toy_list); i++) {
     int fl = toy_list[i].flags;
     if (fl & TOYMASK_LOCATION) {
@@ -207,7 +210,7 @@ void toybox_main(void)
           if (fl & (1<<j)) len += printf("%s", toy_paths[j]);
       }
       len += printf("%s",toy_list[i].name);
-      if (++len > 65) len = 0;
+      if (++len > width-15) len = 0;
       xputc(len ? ' ' : '\n');
     }
   }

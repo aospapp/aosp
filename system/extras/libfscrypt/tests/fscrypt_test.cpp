@@ -38,7 +38,7 @@ const EncryptionOptions TestString(unsigned int first_api_level, const std::stri
 }
 
 #define TEST_STRING(first_api_level, instring, outstring) \
-    SCOPED_TRACE(instring); \
+    SCOPED_TRACE(instring);                               \
     auto options = TestString(first_api_level, instring, outstring);
 
 TEST(fscrypt, ParseOptions) {
@@ -179,11 +179,12 @@ TEST(fscrypt, ParseOptions) {
 }
 
 TEST(fscrypt, ComparePolicies) {
-#define TEST_INEQUALITY(foo, field, value) { \
-    auto bar = foo; \
-    bar.field = value; \
-    EXPECT_NE(foo, bar); \
-}
+#define TEST_INEQUALITY(foo, field, value) \
+    {                                      \
+        auto bar = foo;                    \
+        bar.field = value;                 \
+        EXPECT_NE(foo, bar);               \
+    }
     EncryptionPolicy foo;
     foo.key_raw_ref = "foo";
     EncryptionOptions foo_options;

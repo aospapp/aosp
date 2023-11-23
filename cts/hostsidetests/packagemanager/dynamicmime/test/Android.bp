@@ -11,6 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsDynamicMimeTestApp",
     defaults: ["cts_defaults"],
@@ -20,14 +24,12 @@ android_test_helper_app {
         "compatibility-device-util-axt",
         "CtsDynamicMimeCommon",
         "hamcrest-library",
-        "android-support-test",
         "androidx.test.uiautomator_uiautomator",
     ],
     srcs: ["src/**/*.java"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     sdk_version: "test_current",

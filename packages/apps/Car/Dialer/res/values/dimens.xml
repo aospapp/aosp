@@ -59,14 +59,14 @@
     <dimen name="in_call_state_margin_top">@dimen/car_ui_padding_2</dimen>
     <dimen name="in_call_margin_between_avatar_and_text">48dp</dimen>
     <dimen name="in_call_user_profile_margin">@dimen/car_ui_margin</dimen>
-    <dimen name="in_call_user_profile_list_margin">20dp</dimen>
+    <dimen name="in_call_user_profile_list_margin">60dp</dimen>
     <dimen name="onhold_user_info_height">90dp</dimen>
     <dimen name="onhold_profile_margin_x">@dimen/list_item_padding</dimen>
     <dimen name="onhold_profile_margin_y">@dimen/car_ui_padding_3</dimen>
     <dimen name="onhold_profile_corner_radius">8dp</dimen>
     <dimen name="onhold_profile_avatar_margin">@dimen/car_keyline_1</dimen>
     <dimen name="onhold_profile_guideline">@dimen/list_item_guideline</dimen>
-    <dimen name="onhold_profile_status_margin">6dp</dimen>
+    <dimen name="onhold_profile_status_margin">12dp</dimen>
     <dimen name="user_profile_list_item_height">150dp</dimen>
 
     <!-- Ringing call dimensions -->
@@ -74,7 +74,6 @@
     <dimen name="ringing_call_text_margin">@dimen/car_ui_padding_4</dimen>
 
     <!-- Dialpad dimensions -->
-    <dimen name="dialpad_line_divider_height">@dimen/vertical_divider_width</dimen>
     <dimen name="dialpad_info_title_padding_size">@dimen/car_ui_padding_4</dimen>
     <dimen name="dialpad_info_edge_padding_size">@dimen/car_ui_padding_2</dimen>
     <dimen name="dialpad_info_guideline">@dimen/touch_target_size</dimen>
@@ -86,7 +85,6 @@
     <dimen name="dialpad_contact_avatar_size">64dp</dimen>
     <dimen name="dialpad_contact_label_margin">12dp</dimen>
     <dimen name="dialpad_info_margin_end">112dp</dimen>
-    <dimen name="dialpad_info_margin_start">154dp</dimen>
     <dimen name="type_down_list_item_height">@dimen/control_bar_height</dimen>
 
     <!-- Keypad dimensions -->
@@ -98,6 +96,7 @@
     <dimen name="favorite_card_space_horizontal">@dimen/car_ui_padding_3</dimen>
     <dimen name="favorite_card_space_vertical">@dimen/car_ui_padding_2</dimen>
     <dimen name="favorites_avatar_margin_bottom">@dimen/car_ui_padding_3</dimen>
+    <dimen name="favorite_item_padding">@dimen/car_ui_padding_2</dimen>
 
     <dimen name="call_fab_elevation">8dp</dimen>
     <dimen name="bksp_button_width">@dimen/touch_target_size</dimen>
@@ -130,7 +129,6 @@
     <dimen name="list_item_padding">@dimen/car_keyline_1</dimen>
     <dimen name="list_divider_inset">@dimen/car_keyline_1</dimen>
     <dimen name="list_divider_height">@dimen/car_ui_list_item_action_divider_height</dimen>
-    <dimen name="horizontal_divider_inset">@dimen/car_ui_padding_2</dimen>
     <dimen name="vertical_divider_inset">@dimen/car_ui_padding_2</dimen>
     <dimen name="vertical_divider_width">2dp</dimen>
     <dimen name="primary_icon_size">@dimen/car_ui_primary_icon_size</dimen>

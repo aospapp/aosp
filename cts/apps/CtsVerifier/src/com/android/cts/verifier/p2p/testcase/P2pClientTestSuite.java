@@ -19,6 +19,7 @@ package com.android.cts.verifier.p2p.testcase;
 import java.util.ArrayList;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 
 /**
  * Test suite to join a p2p group.
@@ -62,6 +63,10 @@ public class P2pClientTestSuite {
 
         sTestSuite = new ArrayList<ReqTestCase>();
         sTestSuite.add(new P2pClientPbcTestCase(context));
-        sTestSuite.add(new P2pClientPinTestCase(context));
+
+        // Remove pin based client for automotive until b/184183917 is resolved.
+        if (!context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            sTestSuite.add(new P2pClientPinTestCase(context));
+        }
     }
 }

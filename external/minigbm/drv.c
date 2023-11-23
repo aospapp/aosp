@@ -28,44 +28,36 @@
 #ifdef DRV_AMDGPU
 extern const struct backend backend_amdgpu;
 #endif
-extern const struct backend backend_evdi;
 #ifdef DRV_EXYNOS
 extern const struct backend backend_exynos;
 #endif
 #ifdef DRV_I915
 extern const struct backend backend_i915;
 #endif
-#ifdef DRV_MARVELL
-extern const struct backend backend_marvell;
-#endif
 #ifdef DRV_MEDIATEK
 extern const struct backend backend_mediatek;
-#endif
-#ifdef DRV_MESON
-extern const struct backend backend_meson;
 #endif
 #ifdef DRV_MSM
 extern const struct backend backend_msm;
 #endif
-extern const struct backend backend_nouveau;
-#ifdef DRV_RADEON
-extern const struct backend backend_radeon;
-#endif
 #ifdef DRV_ROCKCHIP
 extern const struct backend backend_rockchip;
 #endif
-#ifdef DRV_SYNAPTICS
-extern const struct backend backend_synaptics;
-#endif
-#ifdef DRV_TEGRA
-extern const struct backend backend_tegra;
-#endif
-extern const struct backend backend_udl;
 #ifdef DRV_VC4
 extern const struct backend backend_vc4;
 #endif
-extern const struct backend backend_vgem;
-extern const struct backend backend_virtio_gpu;
+
+// Dumb / generic drivers
+extern const struct backend backend_evdi;
+extern const struct backend backend_marvell;
+extern const struct backend backend_meson;
+extern const struct backend backend_nouveau;
+extern const struct backend backend_komeda;
+extern const struct backend backend_radeon;
+extern const struct backend backend_synaptics;
+extern const struct backend backend_virtgpu;
+extern const struct backend backend_udl;
+extern const struct backend backend_vkms;
 
 static const struct backend *drv_get_backend(int fd)
 {
@@ -81,55 +73,31 @@ static const struct backend *drv_get_backend(int fd)
 #ifdef DRV_AMDGPU
 		&backend_amdgpu,
 #endif
-		&backend_evdi,
 #ifdef DRV_EXYNOS
 		&backend_exynos,
 #endif
 #ifdef DRV_I915
 		&backend_i915,
 #endif
-#ifdef DRV_MARVELL
-		&backend_marvell,
-#endif
 #ifdef DRV_MEDIATEK
 		&backend_mediatek,
-#endif
-#ifdef DRV_MESON
-		&backend_meson,
 #endif
 #ifdef DRV_MSM
 		&backend_msm,
 #endif
-		&backend_nouveau,
-#ifdef DRV_RADEON
-		&backend_radeon,
-#endif
 #ifdef DRV_ROCKCHIP
 		&backend_rockchip,
 #endif
-#ifdef DRV_SYNAPTICS
-		&backend_synaptics,
-#endif
-#ifdef DRV_TEGRA
-		&backend_tegra,
-#endif
-		&backend_udl,
 #ifdef DRV_VC4
 		&backend_vc4,
 #endif
-		&backend_vgem,	    &backend_virtio_gpu,
+		&backend_evdi,	   &backend_marvell, &backend_meson,	 &backend_nouveau,
+		&backend_komeda,   &backend_radeon,  &backend_synaptics, &backend_virtgpu,
+		&backend_udl,	   &backend_virtgpu, &backend_vkms
 	};
 
 	for (i = 0; i < ARRAY_SIZE(backend_list); i++) {
 		const struct backend *b = backend_list[i];
-		// Exactly one of the main create functions must be defined.
-		assert((b->bo_create != NULL) ^ (b->bo_create_from_metadata != NULL));
-		// Either both or neither must be implemented.
-		assert((b->bo_compute_metadata != NULL) == (b->bo_create_from_metadata != NULL));
-		// Both can't be defined, but it's okay for neither to be (i.e. only bo_create).
-		assert((b->bo_create_with_modifiers == NULL) ||
-		       (b->bo_create_from_metadata == NULL));
-
 		if (!strcmp(drm_version->name, b->name)) {
 			drmFreeVersion(drm_version);
 			return b;
@@ -149,6 +117,10 @@ struct driver *drv_create(int fd)
 
 	if (!drv)
 		return NULL;
+
+	char *minigbm_debug;
+	minigbm_debug = getenv("MINIGBM_DEBUG");
+	drv->compression = (minigbm_debug == NULL) || (strcmp(minigbm_debug, "nocompression") != 0);
 
 	drv->fd = fd;
 	drv->backend = drv_get_backend(fd);
@@ -408,10 +380,10 @@ struct bo *drv_bo_import(struct driver *drv, struct drv_import_fd_data *data)
 		pthread_mutex_unlock(&bo->drv->driver_lock);
 	}
 
+	bo->meta.format_modifier = data->format_modifier;
 	for (plane = 0; plane < bo->meta.num_planes; plane++) {
 		bo->meta.strides[plane] = data->strides[plane];
 		bo->meta.offsets[plane] = data->offsets[plane];
-		bo->meta.format_modifiers[plane] = data->format_modifiers[plane];
 
 		seek_end = lseek(data->fds[plane], 0, SEEK_END);
 		if (seek_end == (off_t)(-1)) {
@@ -445,7 +417,7 @@ void *drv_bo_map(struct bo *bo, const struct rectangle *rect, uint32_t map_flags
 {
 	uint32_t i;
 	uint8_t *addr;
-	struct mapping mapping;
+	struct mapping mapping = { 0 };
 
 	assert(rect->width >= 0);
 	assert(rect->height >= 0);
@@ -455,11 +427,9 @@ void *drv_bo_map(struct bo *bo, const struct rectangle *rect, uint32_t map_flags
 	/* No CPU access for protected buffers. */
 	assert(!(bo->meta.use_flags & BO_USE_PROTECTED));
 
-	if (bo->is_test_buffer) {
+	if (bo->is_test_buffer)
 		return MAP_FAILED;
-	}
 
-	memset(&mapping, 0, sizeof(mapping));
 	mapping.rect = *rect;
 	mapping.refcount = 1;
 
@@ -621,15 +591,17 @@ int drv_bo_get_plane_fd(struct bo *bo, size_t plane)
 	int ret, fd;
 	assert(plane < bo->meta.num_planes);
 
-	if (bo->is_test_buffer) {
+	if (bo->is_test_buffer)
 		return -EINVAL;
-	}
 
 	ret = drmPrimeHandleToFD(bo->drv->fd, bo->handles[plane].u32, DRM_CLOEXEC | DRM_RDWR, &fd);
 
 	// Older DRM implementations blocked DRM_RDWR, but gave a read/write mapping anyways
 	if (ret)
 		ret = drmPrimeHandleToFD(bo->drv->fd, bo->handles[plane].u32, DRM_CLOEXEC, &fd);
+
+	if (ret)
+		drv_log("Failed to get plane fd: %s\n", strerror(errno));
 
 	return (ret) ? ret : fd;
 }
@@ -652,10 +624,9 @@ uint32_t drv_bo_get_plane_stride(struct bo *bo, size_t plane)
 	return bo->meta.strides[plane];
 }
 
-uint64_t drv_bo_get_plane_format_modifier(struct bo *bo, size_t plane)
+uint64_t drv_bo_get_format_modifier(struct bo *bo)
 {
-	assert(plane < bo->meta.num_planes);
-	return bo->meta.format_modifiers[plane];
+	return bo->meta.format_modifier;
 }
 
 uint32_t drv_bo_get_format(struct bo *bo)
@@ -681,9 +652,8 @@ uint32_t drv_num_buffers_per_bo(struct bo *bo)
 	uint32_t count = 0;
 	size_t plane, p;
 
-	if (bo->is_test_buffer) {
+	if (bo->is_test_buffer)
 		return 0;
-	}
 
 	for (plane = 0; plane < bo->meta.num_planes; plane++) {
 		for (p = 0; p < plane; p++)
@@ -713,15 +683,16 @@ void drv_log_prefix(const char *prefix, const char *file, int line, const char *
 }
 
 int drv_resource_info(struct bo *bo, uint32_t strides[DRV_MAX_PLANES],
-		      uint32_t offsets[DRV_MAX_PLANES])
+		      uint32_t offsets[DRV_MAX_PLANES], uint64_t *format_modifier)
 {
 	for (uint32_t plane = 0; plane < bo->meta.num_planes; plane++) {
 		strides[plane] = bo->meta.strides[plane];
 		offsets[plane] = bo->meta.offsets[plane];
 	}
+	*format_modifier = bo->meta.format_modifier;
 
 	if (bo->drv->backend->resource_info)
-		return bo->drv->backend->resource_info(bo, strides, offsets);
+		return bo->drv->backend->resource_info(bo, strides, offsets, format_modifier);
 
 	return 0;
 }

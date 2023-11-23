@@ -34,7 +34,7 @@ public class TestBitmapCropper implements BitmapCropper {
     }
 
     @Override
-    public void cropAndScaleBitmap(Asset asset, float scale, Rect cropRect,
+    public void cropAndScaleBitmap(Asset asset, float scale, Rect cropRect, boolean adjustRtl,
             Callback callback) {
         if (mFailNextCall) {
             callback.onError(null /* throwable */);
@@ -47,7 +47,7 @@ public class TestBitmapCropper implements BitmapCropper {
                 Math.round((float) cropRect.right / scale),
                 Math.round((float) cropRect.bottom / scale));
 
-        asset.decodeBitmapRegion(scaledCropRect, cropRect.width(), cropRect.height(),
+        asset.decodeBitmapRegion(scaledCropRect, cropRect.width(), cropRect.height(), adjustRtl,
                 new BitmapReceiver() {
                     @Override
                     public void onBitmapDecoded(Bitmap bitmap) {

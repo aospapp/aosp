@@ -15,19 +15,24 @@
  */
 package android.media.cts;
 
-import android.media.cts.R;
-
 import android.app.Activity;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
+import java.io.File;
+import java.io.IOException;
+
+@AppModeFull(reason = "Instant apps cannot access the SD card")
 public class MediaPlayerSurfaceStubActivity extends Activity {
 
     private static final String TAG = "MediaPlayerSurfaceStubActivity";
 
+    static final String mInpPrefix = WorkDir.getMediaDirString();
     protected Resources mResources;
 
     private VideoSurfaceView mVideoView = null;
@@ -39,14 +44,27 @@ public class MediaPlayerSurfaceStubActivity extends Activity {
 
         mResources = getResources();
         mMediaPlayer = new MediaPlayer();
+        AssetFileDescriptor afd = null;
 
+        Preconditions.assertTestFileExists(mInpPrefix + "testvideo.3gp");
         try {
-            AssetFileDescriptor afd = mResources.openRawResourceFd(R.raw.testvideo);
+            File inpFile = new File(mInpPrefix + "testvideo.3gp");
+            ParcelFileDescriptor parcelFD =
+                    ParcelFileDescriptor.open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
+            afd = new AssetFileDescriptor(parcelFD, 0, parcelFD.getStatSize());
             mMediaPlayer.setDataSource(
                     afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
             afd.close();
         } catch (Exception e) {
             Log.e(TAG, e.getMessage(), e);
+        } finally {
+            if (afd != null) {
+                try {
+                    afd.close();
+                } catch (IOException e) {
+                    Log.e(TAG, e.getMessage(), e);
+                }
+            }
         }
 
         mVideoView = new VideoSurfaceView(this, mMediaPlayer);

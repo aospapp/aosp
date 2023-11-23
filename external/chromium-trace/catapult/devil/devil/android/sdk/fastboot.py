@@ -1,7 +1,6 @@
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """This module wraps Android's fastboot tool.
 
 This is a thin wrapper around the fastboot interface. Any additional complexity
@@ -22,10 +21,12 @@ _FLASH_TIMEOUT = _DEFAULT_TIMEOUT * 10
 
 class Fastboot(object):
 
-  _fastboot_path = lazy.WeakConstant(
-      lambda: devil_env.config.FetchPath('fastboot'))
+  _fastboot_path = lazy.WeakConstant(lambda: devil_env.config.FetchPath(
+      'fastboot'))
 
-  def __init__(self, device_serial, default_timeout=_DEFAULT_TIMEOUT,
+  def __init__(self,
+               device_serial,
+               default_timeout=_DEFAULT_TIMEOUT,
                default_retries=_DEFAULT_RETRIES):
     """Initializes the FastbootWrapper.
 
@@ -57,9 +58,10 @@ class Fastboot(object):
     if isinstance(cmd, list):
       cmd = [cls._fastboot_path.read()] + cmd
     else:
-      raise TypeError(
-          'Command for _RunDeviceFastbootCommand must be a list.')
-    status, output = cmd_helper.GetCmdStatusAndOutput(cmd)
+      raise TypeError('Command for _RunDeviceFastbootCommand must be a list.')
+    # fastboot can't be trusted to keep non-error output out of stderr, so
+    # capture stderr as part of stdout.
+    status, output = cmd_helper.GetCmdStatusAndOutput(cmd, merge_stderr=True)
     if int(status) != 0:
       raise device_errors.FastbootCommandFailedError(cmd, output, status)
     return output
@@ -79,6 +81,19 @@ class Fastboot(object):
     if isinstance(cmd, list):
       cmd = ['-s', self._device_serial] + cmd
     return self._RunFastbootCommand(cmd)
+
+  @decorators.WithTimeoutAndRetriesDefaults(_DEFAULT_TIMEOUT, _DEFAULT_RETRIES)
+  def GetVar(self, variable, timeout=None, retries=None):
+    args = ['getvar', variable]
+    output = self._RunDeviceFastbootCommand(args)
+    # getvar returns timing information on the last line of output, so only
+    # parse the first line.
+    output = output.splitlines()[0]
+    # And the first line should match the format '$(var): $(value)'.
+    if variable + ': ' not in output:
+      raise device_errors.FastbootCommandFailedError(
+          args, output, message="Unknown 'getvar' output format.")
+    return output.split('%s: ' % variable)[1].strip()
 
   @decorators.WithTimeoutAndRetriesDefaults(_FLASH_TIMEOUT, 0)
   def Flash(self, partition, image, timeout=None, retries=None):
@@ -118,5 +133,4 @@ class Fastboot(object):
     Args:
       value: boolean value to set off-mode-charging on or off.
     """
-    self._RunDeviceFastbootCommand(
-        ['oem', 'off-mode-charge', str(int(value))])
+    self._RunDeviceFastbootCommand(['oem', 'off-mode-charge', str(int(value))])

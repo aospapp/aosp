@@ -24,8 +24,20 @@ import java.io.File;
 import java.io.FileWriter;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.junit.Before;
+
+import static org.junit.Assume.assumeThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 
 public class DynamicPartitionsDeviceInfo extends DeviceInfo {
+
+    @Before
+    public void setUp() throws Exception {
+        ITestDevice device = getDevice();
+
+        assumeThat("Skipping because lpdump may not exist for API level",
+            device.getApiLevel(), greaterThanOrEqualTo(29 /* Q */));
+    }
 
     @Override
     protected void collectDeviceInfo(HostInfoStore store) throws Exception {

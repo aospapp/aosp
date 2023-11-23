@@ -92,31 +92,31 @@
     "events": [
       {
         "action": "MOVE",
-        "axes": {"AXIS_X": 1}
+        "axes": {"AXIS_X": 1, "AXIS_RELATIVE_X": 1}
       },
       {
         "action": "MOVE",
-        "axes": {"AXIS_X": 768}
+        "axes": {"AXIS_X": 768, "AXIS_RELATIVE_X": 768}
       },
       {
         "action": "MOVE",
-        "axes": {"AXIS_X": -768}
+        "axes": {"AXIS_X": -768, "AXIS_RELATIVE_X": -768}
       },
       {
         "action": "MOVE",
-        "axes": {"AXIS_Y": 768}
+        "axes": {"AXIS_Y": 768, "AXIS_RELATIVE_Y": 768}
       },
       {
         "action": "MOVE",
-        "axes": {"AXIS_Y": -768}
+        "axes": {"AXIS_Y": -768, "AXIS_RELATIVE_Y": -768}
       },
       {
         "action": "MOVE",
-        "axes": {"AXIS_X": 768, "AXIS_Y": 768}
+        "axes": {"AXIS_X": 768, "AXIS_Y": 768, "AXIS_RELATIVE_X": 768, "AXIS_RELATIVE_Y": 768}
       },
       {
         "action": "MOVE",
-        "axes": {"AXIS_X": -768, "AXIS_Y": -768}
+        "axes": {"AXIS_X": -768, "AXIS_Y": -768, "AXIS_RELATIVE_X": -768, "AXIS_RELATIVE_Y": -768}
       }
     ]
   }

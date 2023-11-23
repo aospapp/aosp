@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsWebkitTestCases",
     defaults: ["cts_defaults"],
     libs: [
-        "android.test.runner.stubs",
+        "android.test.runner",
         "org.apache.http.legacy",
-        "android.test.base.stubs",
+        "android.test.base",
     ],
     static_libs: [
         "compatibility-device-util-axt",
@@ -31,7 +35,6 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     // uncomment when dalvik.annotation.Test* are removed or part of SDK

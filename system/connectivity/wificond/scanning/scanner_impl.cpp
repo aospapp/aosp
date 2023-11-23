@@ -58,8 +58,9 @@ bool IsScanTypeSupported(int scan_type, const WiphyFeatures& wiphy_features) {
 }
 
 constexpr const int kPercentNetworksWithFreq = 30;
-constexpr const int kPnoScanDefaultFreqs[] = {2412, 2417, 2422, 2427, 2432, 2437, 2447, 2452,
-    2457, 2462, 5180, 5200, 5220, 5240, 5745, 5765, 5785, 5805};
+constexpr const int32_t kPnoScanDefaultFreqs2G[] = {2412, 2417, 2422, 2427, 2432, 2437, 2447, 2452,
+    2457, 2462};
+constexpr const int32_t kPnoScanDefaultFreqs5G[] = {5180, 5200, 5220, 5240, 5745, 5765, 5785, 5805};
 } // namespace
 
 namespace android {
@@ -157,15 +158,21 @@ Status ScannerImpl::scan(const SingleScanSettings& scan_settings,
   vector<vector<uint8_t>> ssids = {{}};
 
   vector<vector<uint8_t>> skipped_scan_ssids;
+  vector<vector<uint8_t>> skipped_long_ssids;
   for (auto& network : scan_settings.hidden_networks_) {
     if (ssids.size() + 1 > scan_capabilities_.max_num_scan_ssids) {
       skipped_scan_ssids.emplace_back(network.ssid_);
       continue;
     }
+    if (network.ssid_.size() > 32) {
+        skipped_long_ssids.emplace_back(network.ssid_);
+        continue;
+    }
     ssids.push_back(network.ssid_);
   }
 
   LogSsidList(skipped_scan_ssids, "Skip scan ssid for single scan");
+  LogSsidList(skipped_long_ssids, "Skip too long ssid");
 
   vector<uint32_t> freqs;
   for (auto& channel : scan_settings.channel_settings_) {
@@ -174,7 +181,7 @@ Status ScannerImpl::scan(const SingleScanSettings& scan_settings,
 
   int error_code = 0;
   if (!scan_utils_->Scan(interface_index_, request_random_mac, scan_type,
-                         ssids, freqs, &error_code)) {
+                         scan_settings.enable_6ghz_rnr_, ssids, freqs, &error_code)) {
     if (error_code == ENODEV) {
         nodev_counter_ ++;
         LOG(WARNING) << "Scan failed with error=nodev. counter=" << nodev_counter_;
@@ -240,7 +247,20 @@ void ScannerImpl::ParsePnoSettings(const PnoSettings& pno_settings,
   // networks don't have frequency data.
   if (unique_frequencies.size() > 0 && num_networks_no_freqs * 100 / match_ssids->size()
       > kPercentNetworksWithFreq) {
-    unique_frequencies.insert(std::begin(kPnoScanDefaultFreqs), std::end(kPnoScanDefaultFreqs));
+    // Filter out frequencies not supported by chip.
+    const auto band_2g = client_interface_->GetBandInfo().band_2g;
+    for (const auto frequency : kPnoScanDefaultFreqs2G) {
+      if (std::find(band_2g.begin(), band_2g.end(), frequency) != band_2g.end()) {
+        unique_frequencies.insert(frequency);
+      }
+    }
+    // Note: kPnoScanDefaultFreqs5G doesn't contain DFS frequencies.
+    const auto band_5g = client_interface_->GetBandInfo().band_5g;
+    for (const auto frequency : kPnoScanDefaultFreqs5G) {
+      if (std::find(band_5g.begin(), band_5g.end(), frequency) != band_5g.end()) {
+        unique_frequencies.insert(frequency);
+      }
+    }
   }
   for (const auto& frequency : unique_frequencies) {
     freqs->push_back(frequency);

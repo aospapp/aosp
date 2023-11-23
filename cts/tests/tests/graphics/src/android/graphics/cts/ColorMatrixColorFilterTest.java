@@ -55,6 +55,7 @@ public class ColorMatrixColorFilterTest {
         Paint paint = new Paint();
         paint.setColor(Color.BLUE);
         paint.setColorFilter(filter);
+        paint.setAntiAlias(false);
         canvas.drawPoint(0, 0, paint);
         ColorUtils.verifyColor(Color.CYAN, bitmap.getPixel(0, 0));
         paint.setColor(Color.GREEN);

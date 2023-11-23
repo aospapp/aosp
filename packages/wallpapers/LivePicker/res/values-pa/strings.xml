@@ -37,6 +37,6 @@
     <string name="tab_info" msgid="5501369870701932475">"ਜਾਣਕਾਰੀ"</string>
     <string name="tab_customize" msgid="9007237541087328909">"ਵਿਉਂਤਬੱਧ ਕਰੋ"</string>
     <string name="delete_wallpaper_confirmation" msgid="252765957117597457">"ਕੀ ਇਹ ਵਾਲਪੇਪਰ ਤੁਹਾਡੇ ਫ਼ੋਨ ਤੋਂ ਮਿਟਾਉਣਾ ਹੈ?"</string>
-    <string name="collapse_attribution_panel" msgid="5368959884531941653">"ਵਾਲਪੇਪਰ ਜਾਣਕਾਰੀ ਪੈਨਲ ਸੰਖਿਪਤ ਕਰੋ"</string>
+    <string name="collapse_attribution_panel" msgid="5368959884531941653">"ਵਾਲਪੇਪਰ ਜਾਣਕਾਰੀ ਪੈਨਲ ਸਮੇਟੋ"</string>
     <string name="expand_attribution_panel" msgid="6540929859713706255">"ਵਾਲਪੇਪਰ ਜਾਣਕਾਰੀ ਪੈਨਲ ਦਾ ਵਿਸਤਾਰ ਕਰੋ"</string>
 </resources>

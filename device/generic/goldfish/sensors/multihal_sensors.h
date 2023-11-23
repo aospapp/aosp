@@ -17,8 +17,12 @@
 #pragma once
 #include <android-base/unique_fd.h>
 #include <V2_1/SubHal.h>
+#include <atomic>
+#include <condition_variable>
 #include <cstdint>
+#include <queue>
 #include <thread>
+#include <vector>
 
 namespace goldfish {
 namespace ahs = ::android::hardware::sensors;
@@ -26,6 +30,7 @@ namespace ahs21 = ahs::V2_1;
 namespace ahs10 = ahs::V1_0;
 
 using ahs21::implementation::IHalProxyCallback;
+using ahs21::SensorInfo;
 using ahs21::Event;
 using ahs10::OperationMode;
 using ahs10::RateLevel;
@@ -79,16 +84,21 @@ private:
         float lastHingeAngle0Value = kSensorNoValue;
         float lastHingeAngle1Value = kSensorNoValue;
         float lastHingeAngle2Value = kSensorNoValue;
+        float lastHeartRateValue = kSensorNoValue;
     };
 
+    bool isSensorHandleValid(int sensorHandle) const;
+    bool isSensorActive(int sensorHandle) const {
+        return m_activeSensorsMask & (1u << sensorHandle);  // m_mtx required
+    }
     static bool activateQemuSensorImpl(int pipe, int sensorHandle, bool enabled);
-    bool disableAllSensors();
+    bool setAllQemuSensors(bool enabled);
     void parseQemuSensorEvent(const int pipe, QemuSensorsProtocolState* state);
     void postSensorEvent(const Event& event);
-    void postSensorEventLocked(const Event& event);
+    void doPostSensorEventLocked(const SensorInfo& sensor, const Event& event);
 
     void qemuSensorListenerThread();
-    static void qemuSensorListenerThreadStart(MultihalSensors* that);
+    void batchThread();
 
     static constexpr char kCMD_QUIT = 'q';
     bool qemuSensorThreadSendCommand(char cmd) const;
@@ -105,7 +115,32 @@ private:
     uint32_t                m_activeSensorsMask = 0;
     OperationMode           m_opMode = OperationMode::NORMAL;
     sp<IHalProxyCallback>   m_halProxyCallback;
-    mutable std::mutex      m_apiMtx;
+
+    // batching
+    struct BatchEventRef {
+        int64_t  timestamp = -1;
+        int      sensorHandle = -1;
+        int      generation = 0;
+
+        bool operator<(const BatchEventRef &rhs) const {
+            // not a typo, we want m_batchQueue.top() to be the smallest timestamp
+            return timestamp > rhs.timestamp;
+        }
+    };
+
+    struct BatchInfo {
+        Event       event;
+        int64_t     samplingPeriodNs = 0;
+        int         generation = 0;
+    };
+
+    std::priority_queue<BatchEventRef>      m_batchQueue;
+    std::vector<BatchInfo>                  m_batchInfo;
+    std::condition_variable                 m_batchUpdated;
+    std::thread                             m_batchThread;
+    std::atomic<bool>                       m_batchRunning = true;
+
+    mutable std::mutex                      m_mtx;
 };
 
 }  // namespace goldfish

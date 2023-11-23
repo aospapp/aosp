@@ -17,7 +17,7 @@
 package com.android.camera.one.v2;
 
 import android.annotation.TargetApi;
-import android.content.Context;
+import android.app.Activity;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
@@ -162,7 +162,7 @@ public class OneCameraImpl extends AbstractOneCamera {
     }
 
     /** Directory to store raw DNG files in. */
-    private static final File RAW_DIRECTORY = new File(Storage.DIRECTORY, "DNG");
+    private final File mRawDirectory;
 
     /** Current CONTROL_AF_MODE request to Camera2 API. */
     private int mControlAFMode = CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
@@ -322,6 +322,7 @@ public class OneCameraImpl extends AbstractOneCamera {
         mLensRange = LensRangeCalculator.getDiopterToRatioCalculator(characteristics);
         mDirectionProvider = new CameraDirectionProvider(characteristics);
         mFullSizeAspectRatio = calculateFullSizeAspectRatio(characteristics);
+        mRawDirectory = new File(Storage.instance().DIRECTORY, "DNG");
 
         // Override pictureSize for RAW (our picture size settings don't include
         // RAW, which typically only supports one size (sensor size). This also
@@ -718,7 +719,7 @@ public class OneCameraImpl extends AbstractOneCamera {
     }
 
     @Override
-    public Size pickPreviewSize(Size pictureSize, Context context) {
+    public Size pickPreviewSize(Size pictureSize, Activity context) {
         if (pictureSize == null) {
             // TODO The default should be selected by the caller, and
             // pictureSize should never be null.
@@ -731,7 +732,7 @@ public class OneCameraImpl extends AbstractOneCamera {
         // flexible for selecting a matching preview resolution.
         Double aspectRatioTolerance = sCaptureImageFormat == ImageFormat.RAW_SENSOR ? 10d : null;
         Size size = CaptureModuleUtil.getOptimalPreviewSize(supportedSizes,
-                pictureAspectRatio, aspectRatioTolerance);
+                pictureAspectRatio, aspectRatioTolerance, context);
         Log.d(TAG, "Selected preview size: " + size);
         return size;
     }
@@ -766,12 +767,12 @@ public class OneCameraImpl extends AbstractOneCamera {
         // TODO: If we make this a real feature we should probably put the DNGs
         // into the Camera directly.
         if (sCaptureImageFormat == ImageFormat.RAW_SENSOR) {
-            if (!RAW_DIRECTORY.exists()) {
-                if (!RAW_DIRECTORY.mkdirs()) {
+            if (!mRawDirectory.exists()) {
+                if (!mRawDirectory.mkdirs()) {
                     throw new RuntimeException("Could not create RAW directory.");
                 }
             }
-            File dngFile = new File(RAW_DIRECTORY, capture.session.getTitle() + ".dng");
+            File dngFile = new File(mRawDirectory, capture.session.getTitle() + ".dng");
             writeDngBytesAndClose(capture.image, capture.totalCaptureResult,
                     mCharacteristics, dngFile);
         } else {

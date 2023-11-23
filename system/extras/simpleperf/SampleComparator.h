@@ -21,6 +21,8 @@
 
 #include <vector>
 
+namespace simpleperf {
+
 // The compare functions below are used to compare two samples by their item
 // content.
 
@@ -54,12 +56,10 @@ BUILD_COMPARE_VALUE_FUNCTION(ComparePid, pid);
 BUILD_COMPARE_VALUE_FUNCTION(CompareTid, tid);
 BUILD_COMPARE_VALUE_FUNCTION_REVERSE(CompareSampleCount, sample_count);
 BUILD_COMPARE_STRING_FUNCTION(CompareComm, thread_comm);
-BUILD_COMPARE_STRING_FUNCTION(CompareDso, map->dso->Path().c_str());
+BUILD_COMPARE_STRING_FUNCTION(CompareDso, map->dso->GetReportPath().data());
 BUILD_COMPARE_STRING_FUNCTION(CompareSymbol, symbol->DemangledName());
-BUILD_COMPARE_STRING_FUNCTION(CompareDsoFrom,
-                              branch_from.map->dso->Path().c_str());
-BUILD_COMPARE_STRING_FUNCTION(CompareSymbolFrom,
-                              branch_from.symbol->DemangledName());
+BUILD_COMPARE_STRING_FUNCTION(CompareDsoFrom, branch_from.map->dso->GetReportPath().data());
+BUILD_COMPARE_STRING_FUNCTION(CompareSymbolFrom, branch_from.symbol->DemangledName());
 BUILD_COMPARE_VALUE_FUNCTION(CompareCallGraphDuplicated, callchain.duplicated);
 
 template <typename EntryT>
@@ -82,18 +82,25 @@ class SampleComparator {
  public:
   typedef int (*compare_sample_func_t)(const EntryT*, const EntryT*);
 
-  void AddCompareFunction(compare_sample_func_t func) {
-    compare_v_.push_back(func);
-  }
+  void AddCompareFunction(compare_sample_func_t func) { compare_v_.push_back(func); }
 
   void AddComparator(const SampleComparator<EntryT>& other) {
-    compare_v_.insert(compare_v_.end(), other.compare_v_.begin(),
-                      other.compare_v_.end());
+    compare_v_.insert(compare_v_.end(), other.compare_v_.begin(), other.compare_v_.end());
   }
 
   bool operator()(const EntryT* sample1, const EntryT* sample2) const {
     for (const auto& func : compare_v_) {
       int ret = func(sample1, sample2);
+      if (ret != 0) {
+        return ret < 0;
+      }
+    }
+    return false;
+  }
+
+  bool operator()(const EntryT& sample1, const EntryT& sample2) const {
+    for (const auto& func : compare_v_) {
+      int ret = func(&sample1, &sample2);
       if (ret != 0) {
         return ret < 0;
       }
@@ -115,5 +122,7 @@ class SampleComparator {
  private:
   std::vector<compare_sample_func_t> compare_v_;
 };
+
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_SAMPLE_COMPARATOR_H_

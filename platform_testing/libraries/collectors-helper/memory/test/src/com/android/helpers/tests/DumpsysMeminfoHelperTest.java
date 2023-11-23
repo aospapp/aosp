@@ -41,7 +41,7 @@ public class DumpsysMeminfoHelperTest {
     // Process name used for testing
     private static final String TEST_PROCESS_NAME = "com.android.systemui";
     // Second process name used for testing
-    private static final String TEST_PROCESS_NAME_2 = "system_server";
+    private static final String TEST_PROCESS_NAME_2 = "init";
     // A process that does not exists
     private static final String PROCESS_NOT_FOUND = "process_not_found";
 

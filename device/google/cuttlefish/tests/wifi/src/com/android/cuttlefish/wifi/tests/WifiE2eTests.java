@@ -19,13 +19,13 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkInfo;
-import android.net.ConnectivityManager;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.support.test.InstrumentationRegistry;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -121,9 +121,11 @@ public class WifiE2eTests {
         Assert.assertNotNull(configs);
         for (WifiConfiguration config : configs) {
             Log.i(TAG, "Removing network " + config.networkId + ": " + config.SSID);
-            Assert.assertTrue(mWifiManager.disableNetwork(config.networkId));
-            Assert.assertTrue(mWifiManager.removeNetwork(config.networkId));
+            mWifiManager.disableNetwork(config.networkId);
+            mWifiManager.removeNetwork(config.networkId);
         }
+        configs = mWifiManager.getConfiguredNetworks();
+        Assert.assertEquals(0, configs.size());
 
         waitForSupplicantState(
                 SupplicantState.INACTIVE,

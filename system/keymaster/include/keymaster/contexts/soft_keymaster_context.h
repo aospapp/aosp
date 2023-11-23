@@ -14,44 +14,42 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_SOFT_KEYMASTER_CONTEXT_H_
-#define SYSTEM_KEYMASTER_SOFT_KEYMASTER_CONTEXT_H_
+#pragma once
 
 #include <memory>
 #include <string>
 
 #include <openssl/evp.h>
 
-#include <hardware/keymaster0.h>
 #include <hardware/keymaster1.h>
 
-#include <keymaster/attestation_record.h>
+#include <keymaster/attestation_context.h>
+#include <keymaster/contexts/soft_attestation_context.h>
 #include <keymaster/keymaster_context.h>
 #include <keymaster/km_openssl/software_random_source.h>
-#include <keymaster/soft_key_factory.h>
 #include <keymaster/random_source.h>
+#include <keymaster/soft_key_factory.h>
 
 namespace keymaster {
 
 class SoftKeymasterKeyRegistrations;
-class Keymaster0Engine;
 class Keymaster1Engine;
 class Key;
 
 /**
- * SoftKeymasterContext provides the context for a non-secure implementation of AndroidKeymaster.
+ * SoftKeymasterContext provides the context for a non-secure implementation of AndroidKeymaster
+ * that can wrap a Keymaster0 implementation or an incomplete Keymaster1 implementation (one that
+ * lacks support for all required digests).
  */
-class SoftKeymasterContext: public KeymasterContext, SoftwareKeyBlobMaker, SoftwareRandomSource,
-        AttestationRecordContext {
+class SoftKeymasterContext : public KeymasterContext,
+                             SoftwareKeyBlobMaker,
+                             SoftwareRandomSource,
+                             public SoftAttestationContext {
   public:
-    explicit SoftKeymasterContext(const std::string& root_of_trust = "SW");
+    explicit SoftKeymasterContext(KmVersion version, const std::string& root_of_trust = "SW");
     ~SoftKeymasterContext() override;
 
-    /**
-     * Use the specified HW keymaster0 device for the operations it supports.  Takes ownership of
-     * the specified device (will call keymaster0_device->common.close());
-     */
-    keymaster_error_t SetHardwareDevice(keymaster0_device_t* keymaster0_device);
+    KmVersion GetKmVersion() const override { return AttestationContext::GetKmVersion(); }
 
     /**
      * Use the specified HW keymaster1 device for performing undigested RSA and EC operations after
@@ -80,9 +78,14 @@ class SoftKeymasterContext: public KeymasterContext, SoftwareKeyBlobMaker, Softw
     keymaster_error_t DeleteAllKeys() const override;
     keymaster_error_t AddRngEntropy(const uint8_t* buf, size_t length) const override;
 
-    keymaster_error_t GenerateAttestation(const Key& key,
-                                          const AuthorizationSet& attest_params,
-                                          CertChainPtr* cert_chain) const override;
+    CertificateChain GenerateAttestation(const Key& key, const AuthorizationSet& attest_params,
+                                         UniquePtr<Key> attest_key,
+                                         const KeymasterBlob& issuer_subject,
+                                         keymaster_error_t* error) const override;
+    CertificateChain GenerateSelfSignedCertificate(const Key& key,
+                                                   const AuthorizationSet& cert_params,
+                                                   bool fake_signature,
+                                                   keymaster_error_t* error) const override;
 
     keymaster_error_t
     UnwrapKey(const KeymasterKeyBlob& wrapped_key_blob, const KeymasterKeyBlob& wrapping_key_blob,
@@ -104,27 +107,13 @@ class SoftKeymasterContext: public KeymasterContext, SoftwareKeyBlobMaker, Softw
                                     AuthorizationSet* sw_enforced) const override;
     /*********************************************************************************************/
 
-    /*********************************************************************************************
-     * Implement AttestationRecordContext
-     */
-
-    keymaster_error_t GetVerifiedBootParams(keymaster_blob_t* verified_boot_key,
-                                            keymaster_blob_t* verified_boot_hash,
-                                            keymaster_verified_boot_t* verified_boot_state,
-                                            bool* device_locked) const override;
-
   private:
     keymaster_error_t ParseKeymaster1HwBlob(const KeymasterKeyBlob& blob,
                                             const AuthorizationSet& additional_params,
                                             KeymasterKeyBlob* key_material,
                                             AuthorizationSet* hw_enforced,
                                             AuthorizationSet* sw_enforced) const;
-    keymaster_error_t ParseKeymaster0HwBlob(const KeymasterKeyBlob& blob,
-                                            KeymasterKeyBlob* key_material,
-                                            AuthorizationSet* hw_enforced,
-                                            AuthorizationSet* sw_enforced) const;
 
-    std::unique_ptr<Keymaster0Engine> km0_engine_;
     std::unique_ptr<Keymaster1Engine> km1_engine_;
     std::unique_ptr<KeyFactory> rsa_factory_;
     std::unique_ptr<KeyFactory> ec_factory_;
@@ -138,5 +127,3 @@ class SoftKeymasterContext: public KeymasterContext, SoftwareKeyBlobMaker, Softw
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_SOFT_KEYMASTER_CONTEXT_H_

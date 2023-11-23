@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Tem de mudar o nome"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Tem de adicionar um nome da pasta"</string>
     <string name="files_label" msgid="771781190045103748">"Ficheiros"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Transferências"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -46,7 +48,7 @@
     <string name="menu_rename" msgid="1883113442688817554">"Mudar o nome"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"Obter informações"</string>
     <string name="menu_show_hidden_files" msgid="5140676344684492769">"Mostrar ficheiros ocultos"</string>
-    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"Não mostr. ficheiros ocultos"</string>
+    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"Não mostrar ficheiros ocultos"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Ver no <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Nova janela"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Cortar"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Trabalho"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Trabalho"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Não pode mover ficheiros de outra app."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"A mostrar no modo de grelha…"</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"A mostrar no modo de lista…"</string>
 </resources>

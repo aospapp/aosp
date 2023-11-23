@@ -138,44 +138,44 @@ static const char
 
 typedef enum
   {
-    miINT8 = 1,      /* 8 bit signed */
+    miINT8 = 1,   /* 8 bit signed */
     miUINT8,      /* 8 bit unsigned */
     miINT16,      /* 16 bit signed */
-    miUINT16,      /* 16 bit unsigned */
+    miUINT16,     /* 16 bit unsigned */
     miINT32,      /* 32 bit signed */
-    miUINT32,      /* 32 bit unsigned */
-    miSINGLE,      /* IEEE 754 single precision float */
+    miUINT32,     /* 32 bit unsigned */
+    miSINGLE,     /* IEEE 754 single precision float */
     miRESERVE1,
-    miDOUBLE,      /* IEEE 754 double precision float */
+    miDOUBLE,     /* IEEE 754 double precision float */
     miRESERVE2,
     miRESERVE3,
     miINT64,      /* 64 bit signed */
-    miUINT64,      /* 64 bit unsigned */
-    miMATRIX,            /* MATLAB array */
-    miCOMPRESSED,          /* Compressed Data */
-    miUTF8,            /* Unicode UTF-8 Encoded Character Data */
-    miUTF16,            /* Unicode UTF-16 Encoded Character Data */
-    miUTF32      /* Unicode UTF-32 Encoded Character Data */
+    miUINT64,     /* 64 bit unsigned */
+    miMATRIX,     /* MATLAB array */
+    miCOMPRESSED, /* Compressed Data */
+    miUTF8,       /* Unicode UTF-8 Encoded Character Data */
+    miUTF16,      /* Unicode UTF-16 Encoded Character Data */
+    miUTF32       /* Unicode UTF-32 Encoded Character Data */
   } mat5_data_type;
 
 typedef enum
   {
-    mxCELL_CLASS=1,    /* cell array */
-    mxSTRUCT_CLASS,    /* structure */
-    mxOBJECT_CLASS,    /* object */
+    mxCELL_CLASS=1,  /* cell array */
+    mxSTRUCT_CLASS,  /* structure */
+    mxOBJECT_CLASS,  /* object */
     mxCHAR_CLASS,    /* character array */
-    mxSPARSE_CLASS,    /* sparse array */
-    mxDOUBLE_CLASS,    /* double precision array */
-    mxSINGLE_CLASS,    /* single precision floating point */
+    mxSPARSE_CLASS,  /* sparse array */
+    mxDOUBLE_CLASS,  /* double precision array */
+    mxSINGLE_CLASS,  /* single precision floating point */
     mxINT8_CLASS,    /* 8 bit signed integer */
-    mxUINT8_CLASS,    /* 8 bit unsigned integer */
-    mxINT16_CLASS,    /* 16 bit signed integer */
-    mxUINT16_CLASS,    /* 16 bit unsigned integer */
-    mxINT32_CLASS,    /* 32 bit signed integer */
-    mxUINT32_CLASS,    /* 32 bit unsigned integer */
-    mxINT64_CLASS,    /* 64 bit signed integer */
-    mxUINT64_CLASS,    /* 64 bit unsigned integer */
-    mxFUNCTION_CLASS            /* Function handle */
+    mxUINT8_CLASS,   /* 8 bit unsigned integer */
+    mxINT16_CLASS,   /* 16 bit signed integer */
+    mxUINT16_CLASS,  /* 16 bit unsigned integer */
+    mxINT32_CLASS,   /* 32 bit signed integer */
+    mxUINT32_CLASS,  /* 32 bit unsigned integer */
+    mxINT64_CLASS,   /* 64 bit signed integer */
+    mxUINT64_CLASS,  /* 64 bit unsigned integer */
+    mxFUNCTION_CLASS /* Function handle */
   } arrayclasstype;
 
 #define FLAG_COMPLEX 0x8
@@ -189,7 +189,7 @@ static void InsertComplexDoubleRow(Image *image,double *p,int y,double MinVal,
 {
   double f;
   int x;
-  register Quantum *q;
+  Quantum *q;
 
   if (MinVal >= 0)
     MinVal = -1;
@@ -252,7 +252,7 @@ static void InsertComplexFloatRow(Image *image,float *p,int y,double MinVal,
 {
   double f;
   int x;
-  register Quantum *q;
+  Quantum *q;
 
   if (MinVal >= 0)
     MinVal = -1;
@@ -624,7 +624,7 @@ static Image *ReadMATImageV4(const ImageInfo *image_info,Image *image,
   QuantumFormatType
     format_type;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -752,7 +752,7 @@ static Image *ReadMATImageV4(const ImageInfo *image_info,Image *image,
     pixels=(unsigned char *) GetQuantumPixels(quantum_info);
     for (y=0; y < (ssize_t) image->rows; y++)
     {
-      register Quantum
+      Quantum
         *magick_restrict q;
 
       count=ReadBlob(image,depth/8*image->columns,(char *) pixels);
@@ -874,7 +874,7 @@ static Image *ReadMATImage(const ImageInfo *image_info,ExceptionInfo *exception)
 {
   Image *image, *image2=NULL,
    *rotated_image;
-  register Quantum *q;
+  Quantum *q;
 
   unsigned int status;
   MATHeader MATLAB_HDR;

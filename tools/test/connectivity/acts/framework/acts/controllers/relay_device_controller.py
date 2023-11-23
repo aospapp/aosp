@@ -18,7 +18,7 @@ import json
 
 from acts.controllers.relay_lib.relay_rig import RelayRig
 
-ACTS_CONTROLLER_CONFIG_NAME = "RelayDevice"
+MOBLY_CONTROLLER_CONFIG_NAME = "RelayDevice"
 ACTS_CONTROLLER_REFERENCE_NAME = "relay_devices"
 
 

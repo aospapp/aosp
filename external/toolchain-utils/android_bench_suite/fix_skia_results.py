@@ -5,6 +5,7 @@
 # found in the LICENSE file.
 #
 # pylint: disable=cros-logging-import
+
 """Transforms skia benchmark results to ones that crosperf can understand."""
 
 from __future__ import print_function
@@ -57,7 +58,10 @@ def _GetTimeMultiplier(label_name):
 
 
 def _GetTimeDenom(ms):
-  """Given a list of times (in milliseconds), find a sane time unit for them.
+  """Express times in a common time unit.
+
+  Given a list of times (in milliseconds), find a time unit in which
+  they can all be expressed.
 
   Returns the unit name, and `ms` normalized to that time unit.
 
@@ -94,9 +98,9 @@ def _TransformBenchmarks(raw_benchmarks):
   # statistic...
   benchmarks = raw_benchmarks['results']
   results = []
-  for bench_name, bench_result in benchmarks.iteritems():
+  for bench_name, bench_result in benchmarks.items():
     try:
-      for cfg_name, keyvals in bench_result.iteritems():
+      for cfg_name, keyvals in bench_result.items():
         # Some benchmarks won't have timing data (either it won't exist at all,
         # or it'll be empty); skip them.
         samples = keyvals.get('samples')
@@ -109,17 +113,16 @@ def _TransformBenchmarks(raw_benchmarks):
 
         friendly_name = _GetFamiliarName(bench_name)
         if len(results) < len(samples):
-          results.extend({
-              'retval': 0
-          } for _ in range(len(samples) - len(results)))
+          results.extend(
+              {'retval': 0} for _ in range(len(samples) - len(results)))
 
         time_mul = _GetTimeMultiplier(friendly_name)
-        for sample, app in itertools.izip(samples, results):
+        for sample, app in itertools.zip(samples, results):
           assert friendly_name not in app
           app[friendly_name] = sample * time_mul
     except (KeyError, ValueError) as e:
-      logging.error('While converting "%s" (key: %s): %s',
-                    bench_result, bench_name, e.message)
+      logging.error('While converting "%s" (key: %s): %s', bench_result,
+                    bench_name, e)
       raise
 
   # Realistically, [results] should be multiple results, where each entry in the

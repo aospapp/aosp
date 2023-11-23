@@ -240,13 +240,13 @@ static MagickBooleanType ReadTIM2ImageData(const ImageInfo *image_info,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register Quantum
+  Quantum
     *q;
 
-  register unsigned char
+  unsigned char
     *p;
 
   size_t
@@ -277,7 +277,7 @@ static MagickBooleanType ReadTIM2ImageData(const ImageInfo *image_info,
    */
   bits_per_line=image->columns*bits_per_pixel;
   bytes_per_line=bits_per_line/8 + ((bits_per_line%8==0) ? 0 : 1);
-  row_data=(unsigned char*) AcquireMagickMemory(bytes_per_line);
+  row_data=(unsigned char*) AcquireQuantumMemory(1,bytes_per_line);
   if (row_data == (unsigned char *) NULL)
     ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
       image_info->filename);
@@ -511,7 +511,7 @@ static MagickBooleanType ReadTIM2ImageData(const ImageInfo *image_info,
     CSM
       csm;
 
-    register ssize_t
+    ssize_t
       i;
 
     unsigned char
@@ -520,7 +520,7 @@ static MagickBooleanType ReadTIM2ImageData(const ImageInfo *image_info,
     /*
       * ### Read CLUT Data ###
       */
-    clut_data=(unsigned char *) AcquireMagickMemory(header->clut_size);
+    clut_data=(unsigned char *) AcquireQuantumMemory(1,header->clut_size);
     if (clut_data == (unsigned char *) NULL)
       ThrowBinaryException(ResourceLimitError,"MemoryAllocationFailed",
         image_info->filename);

@@ -60,7 +60,7 @@ int main() {
 
     auto dumpstate = makeVirtualizationDumpstateDevice(si->str());
     // This method MUST be called before interacting with any HIDL interfaces.
-    configureRpcThreadpool(1, true);
+    configureRpcThreadpool(2, true);
     if (dumpstate->registerAsService() != OK) {
         ALOGE("Could not register service.");
         return 1;

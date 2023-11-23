@@ -260,16 +260,23 @@ static int more_bytes(dnssd_sock_t sd)
 		}
 	else 
 		{
-		// Compute the number of integers needed for storing "sd". Internally fd_set is stored
-		// as an array of ints with one bit for each fd and hence we need to compute
-		// the number of ints needed rather than the number of bytes. If "sd" is 32, we need
-		// two ints and not just one.
-		int nfdbits = sizeof (int) * 8;
-		int nints = (sd/nfdbits) + 1;
-		fs = (fd_set *)calloc(nints, sizeof(int));
+		// Compute the number of longs needed for storing "sd". Internally fd_set is stored
+		// as an array of longs with one bit for each fd and hence we need to compute
+		// the number of longs needed rather than the number of bytes. If "sd" is 64, we need
+		// two longs and not just one.
+		int nfdbits = sizeof (unsigned long) * 8;
+		int nlongs = (sd/nfdbits) + 1;
+		fs = (fd_set *)calloc(nlongs, sizeof(unsigned long));
 		if (fs == NULL) { syslog(LOG_WARNING, "dnssd_clientstub more_bytes: malloc failed"); return 0; }
 		}
-	FD_SET(sd, fs);
+
+	#ifdef __BIONIC__
+		// The regular FD_SET() macro in Bionic is unaware of the above workaround,
+		// and would abort on sd >= 1024. Use the unchecked __FD_SET() instead.
+		__FD_SET(sd, fs);
+	#else
+		FD_SET(sd, fs);
+	#endif
 	ret = select((int)sd+1, fs, (fd_set*)NULL, (fd_set*)NULL, &tv);
 	if (fs != &readfds) free(fs);
 	return (ret > 0);

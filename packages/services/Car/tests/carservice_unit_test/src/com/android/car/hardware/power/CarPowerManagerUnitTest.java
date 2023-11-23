@@ -16,41 +16,76 @@
 
 package com.android.car.hardware.power;
 
+import static android.car.hardware.power.PowerComponent.AUDIO;
+import static android.car.hardware.power.PowerComponent.BLUETOOTH;
+import static android.car.hardware.power.PowerComponent.CELLULAR;
+import static android.car.hardware.power.PowerComponent.CPU;
+import static android.car.hardware.power.PowerComponent.DISPLAY;
+import static android.car.hardware.power.PowerComponent.ETHERNET;
+import static android.car.hardware.power.PowerComponent.INPUT;
+import static android.car.hardware.power.PowerComponent.LOCATION;
+import static android.car.hardware.power.PowerComponent.MEDIA;
+import static android.car.hardware.power.PowerComponent.MICROPHONE;
+import static android.car.hardware.power.PowerComponent.NFC;
+import static android.car.hardware.power.PowerComponent.PROJECTION;
+import static android.car.hardware.power.PowerComponent.TRUSTED_DEVICE_DETECTION;
+import static android.car.hardware.power.PowerComponent.VISUAL_INTERACTION;
+import static android.car.hardware.power.PowerComponent.VOICE_INTERACTION;
+import static android.car.hardware.power.PowerComponent.WIFI;
+
+import static com.android.car.test.power.CarPowerPolicyUtil.assertPolicyIdentical;
+
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertThrows;
 
+import android.annotation.NonNull;
 import android.car.Car;
 import android.car.hardware.power.CarPowerManager;
+import android.car.hardware.power.CarPowerPolicy;
+import android.car.hardware.power.CarPowerPolicyFilter;
+import android.car.hardware.power.PowerComponent;
 import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.car.test.mocks.JavaMockitoHelper;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.frameworks.automotive.powerpolicy.internal.ICarPowerPolicySystemNotification;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReq;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateShutdownParam;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.AtomicFile;
 import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.android.car.CarPowerManagementService;
-import com.android.car.MockedPowerHalService;
 import com.android.car.R;
+import com.android.car.hal.MockedPowerHalService;
 import com.android.car.hal.PowerHalService;
 import com.android.car.hal.PowerHalService.PowerState;
+import com.android.car.power.CarPowerManagementService;
+import com.android.car.power.PowerComponentHandler;
 import com.android.car.systeminterface.DisplayInterface;
 import com.android.car.systeminterface.SystemInterface;
 import com.android.car.systeminterface.SystemStateInterface;
+import com.android.car.test.utils.TemporaryFile;
+import com.android.car.user.CarUserService;
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.app.IVoiceInteractionManagerService;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
+import org.mockito.Spy;
 
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 @SmallTest
 public class CarPowerManagerUnitTest extends AbstractExtendedMockitoTestCase {
@@ -62,20 +97,33 @@ public class CarPowerManagerUnitTest extends AbstractExtendedMockitoTestCase {
 
     private final MockDisplayInterface mDisplayInterface = new MockDisplayInterface();
     private final MockSystemStateInterface mSystemStateInterface = new MockSystemStateInterface();
+
+    @Spy
     private final Context mContext =
             InstrumentationRegistry.getInstrumentation().getTargetContext();
+    private final Executor mExecutor = mContext.getMainExecutor();
+    private final TemporaryFile mComponentStateFile;
 
     private MockedPowerHalService mPowerHal;
     private SystemInterface mSystemInterface;
     private CarPowerManagementService mService;
     private CarPowerManager mCarPowerManager;
+    private PowerComponentHandler mPowerComponentHandler;
 
     @Mock
     private Resources mResources;
     @Mock
     private Car mCar;
     @Mock
+    private CarUserService mCarUserService;
+    @Mock
     private IVoiceInteractionManagerService mVoiceInteractionManagerService;
+    @Mock
+    private ICarPowerPolicySystemNotification mPowerPolicyDaemon;
+
+    public CarPowerManagerUnitTest() throws Exception {
+        mComponentStateFile = new TemporaryFile("COMPONENT_STATE_FILE");
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -197,17 +245,170 @@ public class CarPowerManagerUnitTest extends AbstractExtendedMockitoTestCase {
                 .isEqualTo(PowerHalService.SET_DEEP_SLEEP_ENTRY);
     }
 
+    @Test
+    public void testGetCurrentPowerPolicy() throws Exception {
+        grantPowerPolicyPermission();
+        CarPowerPolicy expected = new CarPowerPolicy("test_policy4",
+                new int[]{AUDIO, MEDIA, DISPLAY, INPUT, CPU},
+                new int[]{BLUETOOTH, CELLULAR, ETHERNET, LOCATION, MICROPHONE, NFC, PROJECTION,
+                        TRUSTED_DEVICE_DETECTION, VISUAL_INTERACTION, VOICE_INTERACTION, WIFI});
+        PolicyDefinition[] policyDefinitions = new PolicyDefinition[]{
+                new PolicyDefinition("test_policy1", new String[]{"WIFI"}, new String[]{"AUDIO"}),
+                new PolicyDefinition("test_policy2", new String[]{"WIFI", "DISPLAY"},
+                        new String[]{"NFC"}),
+                new PolicyDefinition("test_policy3", new String[]{"CPU", "INPUT"},
+                        new String[]{"WIFI"}),
+                new PolicyDefinition("test_policy4", new String[]{"MEDIA", "AUDIO"},
+                        new String[]{})};
+        for (PolicyDefinition definition : policyDefinitions) {
+            mService.definePowerPolicy(definition.policyId, definition.enabledComponents,
+                    definition.disabledComponents);
+        }
+
+        for (PolicyDefinition definition : policyDefinitions) {
+            mCarPowerManager.applyPowerPolicy(definition.policyId);
+        }
+
+        assertPolicyIdentical(expected, mCarPowerManager.getCurrentPowerPolicy());
+    }
+
+    @Test
+    public void testApplyPowerPolicy() throws Exception {
+        grantPowerPolicyPermission();
+        String policyId = "no_change_policy";
+        mService.definePowerPolicy(policyId, new String[0], new String[0]);
+
+        mCarPowerManager.applyPowerPolicy(policyId);
+
+        assertThat(mCarPowerManager.getCurrentPowerPolicy().getPolicyId()).isEqualTo(policyId);
+    }
+
+    @Test
+    public void testApplyPowerPolicy_invalidId() throws Exception {
+        grantPowerPolicyPermission();
+        String policyId = "invalid_power_policy";
+
+        assertThrows(IllegalArgumentException.class,
+                () -> mCarPowerManager.applyPowerPolicy(policyId));
+    }
+
+    @Test
+    public void testApplyPowerPolicy_nullPolicyId() throws Exception {
+        grantPowerPolicyPermission();
+        assertThrows(IllegalArgumentException.class, () -> mCarPowerManager.applyPowerPolicy(null));
+    }
+
+    @Test
+    public void testAddPowerPolicyListener() throws Exception {
+        grantPowerPolicyPermission();
+        String policyId = "audio_on_wifi_off";
+        mService.definePowerPolicy(policyId, new String[]{"AUDIO"}, new String[]{"WIFI"});
+        MockedPowerPolicyListener listenerAudio = new MockedPowerPolicyListener();
+        MockedPowerPolicyListener listenerWifi = new MockedPowerPolicyListener();
+        MockedPowerPolicyListener listenerLocation = new MockedPowerPolicyListener();
+        CarPowerPolicyFilter filterAudio = new CarPowerPolicyFilter.Builder()
+                .setComponents(PowerComponent.AUDIO).build();
+        CarPowerPolicyFilter filterWifi = new CarPowerPolicyFilter.Builder()
+                .setComponents(PowerComponent.WIFI).build();
+        CarPowerPolicyFilter filterLocation = new CarPowerPolicyFilter.Builder()
+                .setComponents(PowerComponent.LOCATION).build();
+
+        mCarPowerManager.addPowerPolicyListener(mExecutor, filterAudio, listenerAudio);
+        mCarPowerManager.addPowerPolicyListener(mExecutor, filterWifi, listenerWifi);
+        mCarPowerManager.addPowerPolicyListener(mExecutor, filterLocation, listenerLocation);
+        mCarPowerManager.applyPowerPolicy(policyId);
+
+        assertThat(listenerAudio.getCurrentPolicyId()).isEqualTo(policyId);
+        assertThat(listenerWifi.getCurrentPolicyId()).isEqualTo(policyId);
+        assertThat(listenerLocation.getCurrentPolicyId()).isNull();
+    }
+
+    @Test
+    public void testAddPowerPolicyListener_Twice_WithDifferentFilters() throws Exception {
+        grantPowerPolicyPermission();
+        String policyId = "audio_on_wifi_off";
+        mService.definePowerPolicy(policyId, new String[]{"AUDIO"}, new String[]{"WIFI"});
+        MockedPowerPolicyListener listener = new MockedPowerPolicyListener();
+        CarPowerPolicyFilter filterAudio = new CarPowerPolicyFilter.Builder()
+                .setComponents(PowerComponent.AUDIO).build();
+        CarPowerPolicyFilter filterLocation = new CarPowerPolicyFilter.Builder()
+                .setComponents(PowerComponent.LOCATION).build();
+
+        mCarPowerManager.addPowerPolicyListener(mExecutor, filterAudio, listener);
+        mCarPowerManager.addPowerPolicyListener(mExecutor, filterLocation, listener);
+        mCarPowerManager.applyPowerPolicy(policyId);
+
+        assertThat(listener.getCurrentPolicyId()).isNull();
+    }
+
+    @Test
+    public void testAddPowerPolicyListener_nullListener() throws Exception {
+        MockedPowerPolicyListener listener = new MockedPowerPolicyListener();
+        CarPowerPolicyFilter filter = new CarPowerPolicyFilter.Builder()
+                .setComponents(PowerComponent.AUDIO).build();
+
+        assertThrows(NullPointerException.class,
+                () -> mCarPowerManager.addPowerPolicyListener(null, filter, listener));
+        assertThrows(NullPointerException.class,
+                () -> mCarPowerManager.addPowerPolicyListener(mExecutor, filter, null));
+        assertThrows(NullPointerException.class,
+                () -> mCarPowerManager.addPowerPolicyListener(mExecutor, null, listener));
+    }
+
+    @Test
+    public void testRemovePowerPolicyListener() throws Exception {
+        grantPowerPolicyPermission();
+        String policyId = "audio_on_wifi_off";
+        mService.definePowerPolicy(policyId, new String[]{"AUDIO"}, new String[]{"WIFI"});
+        MockedPowerPolicyListener listenerOne = new MockedPowerPolicyListener();
+        MockedPowerPolicyListener listenerTwo = new MockedPowerPolicyListener();
+        CarPowerPolicyFilter filterAudio = new CarPowerPolicyFilter.Builder()
+                .setComponents(PowerComponent.AUDIO).build();
+
+        mCarPowerManager.addPowerPolicyListener(mExecutor, filterAudio, listenerOne);
+        mCarPowerManager.addPowerPolicyListener(mExecutor, filterAudio, listenerTwo);
+        mCarPowerManager.removePowerPolicyListener(listenerOne);
+        mCarPowerManager.applyPowerPolicy(policyId);
+
+        assertThat(listenerOne.getCurrentPolicyId()).isNull();
+        assertThat(listenerTwo.getCurrentPolicyId()).isEqualTo(policyId);
+    }
+
+    @Test
+    public void testRemovePowerPolicyListener_Twice() throws Exception {
+        grantPowerPolicyPermission();
+        MockedPowerPolicyListener listener = new MockedPowerPolicyListener();
+        CarPowerPolicyFilter filter = new CarPowerPolicyFilter.Builder()
+                .setComponents(PowerComponent.AUDIO).build();
+
+        // Remove unregistered listener should not throw an exception.
+        mCarPowerManager.removePowerPolicyListener(listener);
+
+        mCarPowerManager.addPowerPolicyListener(mExecutor, filter, listener);
+        mCarPowerManager.removePowerPolicyListener(listener);
+        // Remove the same listener twice should nont throw an exception.
+        mCarPowerManager.removePowerPolicyListener(listener);
+    }
+
+    @Test
+    public void testRemovePowerPolicyListener_nullListener() throws Exception {
+        assertThrows(NullPointerException.class,
+                () -> mCarPowerManager.removePowerPolicyListener(null));
+    }
+
     /**
      * Helper method to create mService and initialize a test case
      */
     private void setService() throws Exception {
         Log.i(TAG, "setService(): overridden overlay properties: "
-                + "config_disableUserSwitchDuringResume="
-                + mResources.getBoolean(R.bool.config_disableUserSwitchDuringResume)
                 + ", maxGarageModeRunningDurationInSecs="
                 + mResources.getInteger(R.integer.maxGarageModeRunningDurationInSecs));
-        mService = new CarPowerManagementService(mContext, mResources, mPowerHal,
-                mSystemInterface, null, null, null, mVoiceInteractionManagerService);
+        mPowerComponentHandler = new PowerComponentHandler(mContext, mSystemInterface,
+                mVoiceInteractionManagerService, new AtomicFile(mComponentStateFile.getFile()));
+        mService = new CarPowerManagementService(mContext, mResources, mPowerHal, mSystemInterface,
+                null, mCarUserService, mPowerPolicyDaemon, mPowerComponentHandler,
+                /* silentModeHwStatePath= */ null, /* silentModeKernelStatePath= */ null,
+                /* bootReason= */ null);
         mService.init();
         mService.setShutdownTimersForTest(0, 0);
         assertStateReceived(MockedPowerHalService.SET_WAIT_FOR_VHAL, 0);
@@ -223,7 +424,8 @@ public class CarPowerManagerUnitTest extends AbstractExtendedMockitoTestCase {
      */
     private void setPowerOn() throws Exception {
         setPowerState(VehicleApPowerStateReq.ON, 0);
-        assertThat(mDisplayInterface.waitForDisplayStateChange(WAIT_TIMEOUT_MS)).isTrue();
+        int[] state = mPowerHal.waitForSend(WAIT_TIMEOUT_MS);
+        assertThat(state[0]).isEqualTo(PowerHalService.SET_ON);
     }
 
     /**
@@ -250,7 +452,17 @@ public class CarPowerManagerUnitTest extends AbstractExtendedMockitoTestCase {
         }
     }
 
+    private void grantPowerPolicyPermission() {
+        when(mCar.getContext()).thenReturn(mContext);
+        doReturn(PackageManager.PERMISSION_GRANTED).when(mContext)
+                .checkCallingOrSelfPermission(Car.PERMISSION_CONTROL_CAR_POWER_POLICY);
+        doReturn(PackageManager.PERMISSION_GRANTED).when(mContext)
+                .checkCallingOrSelfPermission(Car.PERMISSION_READ_CAR_POWER_POLICY);
+    }
+
     private static final class MockDisplayInterface implements DisplayInterface {
+        private final Object mLock = new Object();
+        @GuardedBy("mLock")
         private boolean mDisplayOn = true;
         private final Semaphore mDisplayStateWait = new Semaphore(0);
 
@@ -258,18 +470,18 @@ public class CarPowerManagerUnitTest extends AbstractExtendedMockitoTestCase {
         public void setDisplayBrightness(int brightness) {}
 
         @Override
-        public synchronized void setDisplayState(boolean on) {
-            mDisplayOn = on;
+        public void setDisplayState(boolean on) {
+            synchronized (mLock) {
+                mDisplayOn = on;
+            }
             mDisplayStateWait.release();
-        }
-
-        public synchronized boolean getDisplayState() {
-            return mDisplayOn;
         }
 
         public boolean waitForDisplayStateChange(long timeoutMs) throws Exception {
             JavaMockitoHelper.await(mDisplayStateWait, timeoutMs);
-            return mDisplayOn;
+            synchronized (mLock) {
+                return mDisplayOn;
+            }
         }
 
         @Override
@@ -280,6 +492,13 @@ public class CarPowerManagerUnitTest extends AbstractExtendedMockitoTestCase {
 
         @Override
         public void refreshDisplayBrightness() {}
+
+        @Override
+        public boolean isDisplayEnabled() {
+            synchronized (mLock) {
+                return mDisplayOn;
+            }
+        }
     }
 
     /**
@@ -389,6 +608,40 @@ public class CarPowerManagerUnitTest extends AbstractExtendedMockitoTestCase {
         @Override
         public boolean isSystemSupportingDeepSleep() {
             return true;
+        }
+    }
+
+    private final class MockedPowerPolicyListener implements
+            CarPowerManager.CarPowerPolicyListener {
+        private static final int MAX_LISTENER_WAIT_TIME_SEC = 1;
+
+        private final CountDownLatch mLatch = new CountDownLatch(1);
+        private String mCurrentPolicyId;
+
+        @Override
+        public void onPolicyChanged(@NonNull CarPowerPolicy policy) {
+            mCurrentPolicyId = policy.getPolicyId();
+            mLatch.countDown();
+        }
+
+        public String getCurrentPolicyId() throws Exception {
+            if (mLatch.await(MAX_LISTENER_WAIT_TIME_SEC, TimeUnit.SECONDS)) {
+                return mCurrentPolicyId;
+            }
+            return null;
+        }
+    }
+
+    private static final class PolicyDefinition {
+        public final String policyId;
+        public final String[] enabledComponents;
+        public final String[] disabledComponents;
+
+        private PolicyDefinition(String policyId, String[] enabledComponents,
+                String[] disabledComponents) {
+            this.policyId = policyId;
+            this.enabledComponents = enabledComponents;
+            this.disabledComponents = disabledComponents;
         }
     }
 }

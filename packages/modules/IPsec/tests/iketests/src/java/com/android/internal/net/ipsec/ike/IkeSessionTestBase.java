@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike;
+package com.android.internal.net.ipsec.test.ike;
 
-import static com.android.internal.net.ipsec.ike.IkeLocalRequestScheduler.LOCAL_REQUEST_WAKE_LOCK_TAG;
-import static com.android.internal.net.ipsec.ike.IkeSessionStateMachine.BUSY_WAKE_LOCK_TAG;
+import static com.android.internal.net.ipsec.test.ike.IkeLocalRequestScheduler.LOCAL_REQUEST_WAKE_LOCK_TAG;
+import static com.android.internal.net.ipsec.test.ike.IkeSessionStateMachine.BUSY_WAKE_LOCK_TAG;
 
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Matchers.any;
@@ -27,6 +27,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 
 import android.content.Context;
@@ -41,20 +42,30 @@ import android.net.SocketKeepalive;
 import android.os.Handler;
 import android.os.PowerManager;
 
-import com.android.internal.net.ipsec.ike.testutils.MockIpSecTestUtils;
-import com.android.internal.net.ipsec.ike.utils.IkeAlarmReceiver;
-import com.android.internal.net.ipsec.ike.utils.RandomnessFactory;
+import com.android.internal.net.ipsec.test.ike.testutils.MockIpSecTestUtils;
+import com.android.internal.net.ipsec.test.ike.utils.IkeAlarmReceiver;
+import com.android.internal.net.ipsec.test.ike.utils.RandomnessFactory;
 
 import org.junit.Before;
 
 import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
 import java.util.concurrent.Executor;
 
 public abstract class IkeSessionTestBase {
     protected static final Inet4Address LOCAL_ADDRESS =
-            (Inet4Address) (InetAddresses.parseNumericAddress("192.0.2.200"));
+            (Inet4Address) InetAddresses.parseNumericAddress("192.0.2.200");
+    protected static final Inet4Address UPDATED_LOCAL_ADDRESS =
+            (Inet4Address) InetAddresses.parseNumericAddress("192.0.2.201");
     protected static final Inet4Address REMOTE_ADDRESS =
-            (Inet4Address) (InetAddresses.parseNumericAddress("127.0.0.1"));
+            (Inet4Address) InetAddresses.parseNumericAddress("127.0.0.1");
+    protected static final Inet6Address LOCAL_ADDRESS_V6 =
+            (Inet6Address) InetAddresses.parseNumericAddress("2001:db8::200");
+    protected static final Inet6Address UPDATED_LOCAL_ADDRESS_V6 =
+            (Inet6Address) InetAddresses.parseNumericAddress("2001:db8::201");
+    protected static final Inet6Address REMOTE_ADDRESS_V6 =
+            (Inet6Address) InetAddresses.parseNumericAddress("::1");
     protected static final String REMOTE_HOSTNAME = "ike.test.android.com";
 
     protected PowerManager.WakeLock mMockBusyWakelock;
@@ -98,15 +109,26 @@ public abstract class IkeSessionTestBase {
                 .when(mPowerManager)
                 .newWakeLock(anyInt(), argThat(tag -> tag.contains(LOCAL_REQUEST_WAKE_LOCK_TAG)));
 
-        mMockConnectManager = mock(ConnectivityManager.class);
         mMockDefaultNetwork = mock(Network.class);
-        doReturn(mMockDefaultNetwork).when(mMockConnectManager).getActiveNetwork();
-        doReturn(REMOTE_ADDRESS).when(mMockDefaultNetwork).getByName(REMOTE_HOSTNAME);
-        doReturn(REMOTE_ADDRESS)
-                .when(mMockDefaultNetwork)
-                .getByName(REMOTE_ADDRESS.getHostAddress());
+        resetDefaultNetwork();
 
         mMockSocketKeepalive = mock(SocketKeepalive.class);
+
+        mMockNetworkCapabilities = mock(NetworkCapabilities.class);
+        doReturn(false)
+                .when(mMockNetworkCapabilities)
+                .hasTransport(RandomnessFactory.TRANSPORT_TEST);
+
+        mMockConnectManager = mock(ConnectivityManager.class);
+        doReturn(mMockConnectManager)
+                .when(mSpyContext)
+                .getSystemService(Context.CONNECTIVITY_SERVICE);
+        resetMockConnectManager();
+    }
+
+    protected void resetMockConnectManager() {
+        reset(mMockConnectManager);
+        doReturn(mMockDefaultNetwork).when(mMockConnectManager).getActiveNetwork();
         doReturn(mMockSocketKeepalive)
                 .when(mMockConnectManager)
                 .createSocketKeepalive(
@@ -116,16 +138,18 @@ public abstract class IkeSessionTestBase {
                         any(Inet4Address.class),
                         any(Executor.class),
                         any(SocketKeepalive.Callback.class));
-        doReturn(mMockConnectManager)
-                .when(mSpyContext)
-                .getSystemService(Context.CONNECTIVITY_SERVICE);
-
-        mMockNetworkCapabilities = mock(NetworkCapabilities.class);
         doReturn(mMockNetworkCapabilities)
                 .when(mMockConnectManager)
                 .getNetworkCapabilities(any(Network.class));
-        doReturn(false)
-                .when(mMockNetworkCapabilities)
-                .hasTransport(RandomnessFactory.TRANSPORT_TEST);
+    }
+
+    protected void resetDefaultNetwork() throws Exception {
+        reset(mMockDefaultNetwork);
+        doReturn(new InetAddress[] {REMOTE_ADDRESS})
+                .when(mMockDefaultNetwork)
+                .getAllByName(REMOTE_HOSTNAME);
+        doReturn(new InetAddress[] {REMOTE_ADDRESS})
+                .when(mMockDefaultNetwork)
+                .getAllByName(REMOTE_ADDRESS.getHostAddress());
     }
 }

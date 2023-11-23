@@ -12,6 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["packages_apps_SettingsIntelligence_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "packages_apps_SettingsIntelligence_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
+android_library {
+    name: "SettingsIntelligence-core",
+    sdk_version: "system_current",
+    srcs: [
+        "src/**/*.java",
+        "proto/**/*.proto",
+    ],
+
+    static_libs: [
+        "androidx.legacy_legacy-support-v4",
+        "androidx.legacy_legacy-support-v13",
+        "androidx.appcompat_appcompat",
+        "androidx.cardview_cardview",
+        "androidx.preference_preference",
+        "androidx.recyclerview_recyclerview",
+        "androidx.legacy_legacy-preference-v14",
+    ],
+    proto: {
+        type: "nano",
+    },
+}
+
 android_app {
     name: "SettingsIntelligence",
     optimize: {
@@ -22,23 +61,6 @@ android_app {
     privileged: true,
     required: ["privapp_whitelist_com.android.settings.intelligence"],
 
-    libs: ["android.car-stubs"],
-    static_libs: [
-        "androidx.legacy_legacy-support-v4",
-        "androidx.legacy_legacy-support-v13",
-        "androidx.appcompat_appcompat",
-        "androidx.cardview_cardview",
-        "androidx.preference_preference",
-        "androidx.recyclerview_recyclerview",
-        "androidx.legacy_legacy-preference-v14",
-        "car-ui-lib",
-    ],
-    resource_dirs: ["res"],
-    srcs: [
-        "src/**/*.java",
-        "proto/**/*.proto",
-    ],
-    proto: {
-        type: "nano",
-    },
+    static_libs: ["SettingsIntelligence-core"],
+    resource_dirs: [],
 }

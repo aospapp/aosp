@@ -27,10 +27,10 @@ extern "C" {
 */
 #define MagickPackageName "ImageMagick"
 #define MagickCopyright  "© 1999-2020 ImageMagick Studio LLC"
-#define MagickLibVersion  0x709
-#define MagickLibVersionText  "7.0.9"
+#define MagickLibVersion  0x70A
+#define MagickLibVersionText  "7.0.10"
 #define MagickLibVersionNumber  7,0,0
-#define MagickLibAddendum  "-13"
+#define MagickLibAddendum  "-12"
 #define MagickLibInterface  7
 #define MagickLibMinInterface  7
 #if defined(_WINDOWS)
@@ -42,12 +42,12 @@ extern "C" {
 #else
 #define MagickPlatform  "arm"
 #endif
-#define MagickppLibVersionText  "7.0.9"
+#define MagickppLibVersionText  "7.0.10"
 #define MagickppLibVersionNumber  4:0:0
-#define MagickppLibAddendum  "-13"
+#define MagickppLibAddendum  "-12"
 #define MagickppLibInterface  4
 #define MagickppLibMinInterface  4
-#define MagickReleaseDate  "2019-12-29"
+#define MagickReleaseDate  "2020-05-15"
 #define MagickAuthoritativeLicense  \
   "https://imagemagick.org/script/license.php"
 #define MagickAuthoritativeURL  "https://imagemagick.org"

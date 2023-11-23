@@ -15,6 +15,9 @@
  */
 package com.android.bluetooth.a2dpsink;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothAudioConfig;
 import android.bluetooth.BluetoothDevice;
@@ -129,7 +132,7 @@ public class A2dpSinkStateMachine extends StateMachine {
      */
     public void dump(StringBuilder sb) {
         ProfileService.println(sb, "mDevice: " + mDevice.getAddress() + "("
-                + mDevice.getName() + ") " + this.toString());
+                + Utils.getName(mDevice) + ") " + this.toString());
     }
 
     @Override
@@ -164,6 +167,7 @@ public class A2dpSinkStateMachine extends StateMachine {
             return false;
         }
 
+        @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
         void processStackEvent(StackEvent event) {
             switch (event.mType) {
                 case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
@@ -307,6 +311,6 @@ public class A2dpSinkStateMachine extends StateMachine {
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mDevice);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
         mMostRecentState = currentState;
-        mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
+        mService.sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
     }
 }

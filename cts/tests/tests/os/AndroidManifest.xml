@@ -16,153 +16,177 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.os.cts">
+     package="android.os.cts">
 
     <permission android:name="android.os.cts.permission.TEST_GRANTED"
-        android:protectionLevel="normal"
-            android:label="@string/permlab_testGranted"
-            android:description="@string/permdesc_testGranted">
-        <meta-data android:name="android.os.cts.string" android:value="foo" />
-        <meta-data android:name="android.os.cts.boolean" android:value="true" />
-        <meta-data android:name="android.os.cts.integer" android:value="100" />
-        <meta-data android:name="android.os.cts.color" android:value="#ff000000" />
-        <meta-data android:name="android.os.cts.float" android:value="100.1" />
-        <meta-data android:name="android.os.cts.reference" android:resource="@xml/metadata" />
+         android:protectionLevel="normal"
+         android:label="@string/permlab_testGranted"
+         android:description="@string/permdesc_testGranted">
+        <meta-data android:name="android.os.cts.string"
+             android:value="foo"/>
+        <meta-data android:name="android.os.cts.boolean"
+             android:value="true"/>
+        <meta-data android:name="android.os.cts.integer"
+             android:value="100"/>
+        <meta-data android:name="android.os.cts.color"
+             android:value="#ff000000"/>
+        <meta-data android:name="android.os.cts.float"
+             android:value="100.1"/>
+        <meta-data android:name="android.os.cts.reference"
+             android:resource="@xml/metadata"/>
     </permission>
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.ACCESS_VIBRATOR_STATE" />
-    <uses-permission android:name="android.permission.SEND_SMS" />
-    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.ACCESS_VIBRATOR_STATE"/>
+    <uses-permission android:name="android.permission.SEND_SMS"/>
+    <uses-permission android:name="android.permission.RECEIVE_SMS"/>
     <uses-permission android:name="android.permission.READ_SMS"/>
     <uses-permission android:name="android.permission.WRITE_SMS"/>
-    <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" />
-    <uses-permission android:name="android.permission.DEVICE_POWER" />
-    <uses-permission android:name="android.permission.POWER_SAVER" />
-    <uses-permission android:name="android.permission.INSTALL_DYNAMIC_SYSTEM" />
-    <uses-permission android:name="android.permission.MANAGE_COMPANION_DEVICES" />
+    <uses-permission android:name="android.permission.CALL_PHONE"/>
+    <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS"/>
+    <uses-permission android:name="android.permission.DEVICE_POWER"/>
+    <uses-permission android:name="android.permission.POWER_SAVER"/>
+    <uses-permission android:name="android.permission.INSTALL_DYNAMIC_SYSTEM"/>
+    <uses-permission android:name="android.permission.MANAGE_COMPANION_DEVICES"/>
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.os.cts.permission.TEST_GRANTED" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.os.cts.permission.TEST_GRANTED"/>
 
-    <application
-            android:usesCleartextTraffic="true"
-            android:requestLegacyExternalStorage="true">
+    <application android:usesCleartextTraffic="true"
+                 android:requestLegacyExternalStorage="true"
+                 android:manageSpaceActivity="android.os.cts.SimpleTestActivity">
         <activity android:name="android.os.cts.LaunchpadActivity"
-                  android:configChanges="keyboardHidden|orientation|screenSize"
-                  android:multiprocess="true">
+             android:configChanges="keyboardHidden|orientation|screenSize"
+             android:multiprocess="true">
         </activity>
 
         <activity android:name="android.os.cts.AliasActivityStub">
             <meta-data android:name="android.os.alias"
-                android:resource="@xml/alias" />
+                 android:resource="@xml/alias"/>
         </activity>
 
         <activity android:name="android.os.cts.CountDownTimerTestStub"
-            android:label="CountDownTimerTestStub">
+             android:label="CountDownTimerTestStub"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
 
-        <activity android:name="android.os.cts.SimpleTestActivity" />
-
-        <service
-            android:name="android.os.cts.ParcelFileDescriptorPeer$Red"
-            android:process=":red"
-            android:exported="true" />
-        <service
-            android:name="android.os.cts.ParcelFileDescriptorPeer$Blue"
-            android:process=":blue"
-            android:exported="true" />
-        <service
-            android:name="android.os.cts.CrossProcessExceptionService"
-            android:process=":green"
-            android:exported="true" />
-        <service
-            android:name="android.os.cts.SharedMemoryService"
-            android:process=":sharedmem"
-            android:exported="false" />
-        <service
-            android:name="android.os.cts.ParcelExceptionService"
-            android:process=":remote"
-            android:exported="true" />
-        <service
-            android:name="android.os.cts.ParcelTest$ParcelObjectFreeService"
-            android:process=":remote"
-            android:exported="true" />
-
-        <service android:name="android.os.cts.LocalService">
+        <activity android:name="android.os.cts.SimpleTestActivity"
+             android:exported="false">
             <intent-filter>
-                <action android:name="android.os.cts.activity.SERVICE_LOCAL" />
+                <action android:name="android.os.cts.BROWSABLE_INTENT_LAUNCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
             </intent-filter>
-            <meta-data android:name="android.os.cts.string" android:value="foo" />
-            <meta-data android:name="android.os.cts.boolean" android:value="true" />
-            <meta-data android:name="android.os.cts.integer" android:value="100" />
-            <meta-data android:name="android.os.cts.color" android:value="#ff000000" />
-            <meta-data android:name="android.os.cts.float" android:value="100.1" />
-            <meta-data android:name="android.os.cts.reference" android:resource="@xml/metadata" />
+        </activity>
+
+        <activity android:name="android.os.cts.IntentLaunchActivity"
+             android:exported="false" />
+
+        <service android:name="android.os.cts.ParcelFileDescriptorPeer$Red"
+             android:process=":red"
+             android:exported="true"/>
+        <service android:name="android.os.cts.ParcelFileDescriptorPeer$Blue"
+             android:process=":blue"
+             android:exported="true"/>
+        <service android:name="android.os.cts.CrossProcessExceptionService"
+             android:process=":green"
+             android:exported="true"/>
+        <service android:name="android.os.cts.SharedMemoryService"
+             android:process=":sharedmem"
+             android:exported="false"/>
+        <service android:name="android.os.cts.ParcelExceptionService"
+             android:process=":remote"
+             android:exported="true"/>
+        <service android:name="android.os.cts.ParcelTest$ParcelObjectFreeService"
+             android:process=":remote"
+             android:exported="true"/>
+
+        <service android:name="android.os.cts.LocalService"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.os.cts.activity.SERVICE_LOCAL"/>
+            </intent-filter>
+            <meta-data android:name="android.os.cts.string"
+                 android:value="foo"/>
+            <meta-data android:name="android.os.cts.boolean"
+                 android:value="true"/>
+            <meta-data android:name="android.os.cts.integer"
+                 android:value="100"/>
+            <meta-data android:name="android.os.cts.color"
+                 android:value="#ff000000"/>
+            <meta-data android:name="android.os.cts.float"
+                 android:value="100.1"/>
+            <meta-data android:name="android.os.cts.reference"
+                 android:resource="@xml/metadata"/>
         </service>
 
         <service android:name="android.os.cts.LocalGrantedService"
-             android:permission="android.os.cts.permission.TEST_GRANTED">
+             android:permission="android.os.cts.permission.TEST_GRANTED"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.os.cts.activity.SERVICE_LOCAL_GRANTED" />
+                <action android:name="android.os.cts.activity.SERVICE_LOCAL_GRANTED"/>
             </intent-filter>
         </service>
 
         <service android:name="android.os.cts.LocalDeniedService"
-               android:permission="android.os.cts.permission.TEST_DENIED">
+             android:permission="android.os.cts.permission.TEST_DENIED"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.os.cts.activity.SERVICE_LOCAL_DENIED" />
+                <action android:name="android.os.cts.activity.SERVICE_LOCAL_DENIED"/>
             </intent-filter>
         </service>
 
 
         <service android:name="android.os.cts.EmptyService"
-            android:process=":remote">
+             android:process=":remote"
+             android:exported="true">
             <intent-filter>
-                <action
-                    android:name="android.os.cts.IEmptyService" />
-                <action
-                    android:name="android.os.REMOTESERVICE" />
+                <action android:name="android.os.cts.IEmptyService"/>
+                <action android:name="android.os.REMOTESERVICE"/>
             </intent-filter>
         </service>
 
         <service android:name="android.os.cts.CtsRemoteService"
-            android:process=":remote">
+             android:process=":remote"
+             android:exported="true">
             <intent-filter>
-                <action
-                    android:name="android.os.cts.ISecondary" />
-                <action
-                    android:name="android.os.REMOTESERVICE" />
+                <action android:name="android.os.cts.ISecondary"/>
+                <action android:name="android.os.REMOTESERVICE"/>
             </intent-filter>
         </service>
 
         <service android:name="android.os.cts.SeccompTest$IsolatedService"
-                android:isolatedProcess="true">
+             android:isolatedProcess="true">
         </service>
 
         <service android:name="android.os.cts.MessengerService"
-                android:process=":messengerService">
+             android:process=":messengerService">
         </service>
 
-        <uses-library android:name="android.test.runner" />
+        <service android:name="android.os.cts.IntentLaunchService"
+             android:exported="true" />
+
+        <receiver android:name="android.os.cts.IntentLaunchReceiver"
+            android:exported="true" />
+
+        <uses-library android:name="android.test.runner"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.os.cts"
-                     android:label="CTS tests of android.os">
+         android:targetPackage="android.os.cts"
+         android:label="CTS tests of android.os">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>

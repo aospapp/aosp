@@ -37,7 +37,7 @@ import com.example.android.autofillframework.multidatasetservice.datasource.Shar
 import com.example.android.autofillframework.multidatasetservice.settings.MyPreferences
 import kotlinx.android.synthetic.main.multidataset_service_auth_activity.cancel
 import kotlinx.android.synthetic.main.multidataset_service_auth_activity.login
-import kotlinx.android.synthetic.main.multidataset_service_auth_activity.master_password
+import kotlinx.android.synthetic.main.multidataset_service_auth_activity.main_password
 
 /**
  * This Activity controls the UI for logging in to the Autofill service.
@@ -59,8 +59,8 @@ class AuthActivity : AppCompatActivity() {
     }
 
     private fun submitLogin() {
-        val password = master_password.text
-        if (password.toString() == MyPreferences.getMasterPassword(this@AuthActivity)) {
+        val password = main_password.text
+        if (password.toString() == MyPreferences.getMainPassword(this@AuthActivity)) {
             onSuccess()
         } else {
             Toast.makeText(this, "Password incorrect", Toast.LENGTH_SHORT).show()

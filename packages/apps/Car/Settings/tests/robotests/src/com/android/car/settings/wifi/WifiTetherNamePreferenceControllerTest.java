@@ -18,6 +18,9 @@ package com.android.car.settings.wifi;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import android.content.Context;
 import android.net.wifi.SoftApConfiguration;
 
@@ -52,7 +55,7 @@ public class WifiTetherNamePreferenceControllerTest {
     @Test
     public void onStart_wifiConfigHasSSID_setsSummary() {
         mContext = RuntimeEnvironment.application;
-        mCarWifiManager = new CarWifiManager(mContext);
+        mCarWifiManager = new CarWifiManager(mContext, mock(Lifecycle.class));
         String testSSID = "TEST_SSID";
         SoftApConfiguration config = new SoftApConfiguration.Builder()
                 .setSsid(testSSID)
@@ -62,6 +65,8 @@ public class WifiTetherNamePreferenceControllerTest {
         mControllerHelper =
                 new PreferenceControllerTestHelper<WifiTetherNamePreferenceController>(mContext,
                         WifiTetherNamePreferenceController.class, mPreference);
+        when(mControllerHelper.getMockFragmentController().getSettingsLifecycle())
+                .thenReturn(mock(Lifecycle.class));
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
         assertThat(mPreference.getSummary()).isEqualTo(testSSID);
     }

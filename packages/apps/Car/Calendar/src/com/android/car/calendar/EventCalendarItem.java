@@ -17,7 +17,6 @@
 package com.android.car.calendar;
 
 import android.Manifest;
-import android.annotation.ColorInt;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.InsetDrawable;
@@ -30,9 +29,11 @@ import android.text.style.StyleSpan;
 import android.view.LayoutInflater;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
@@ -171,8 +172,8 @@ class EventCalendarItem implements CalendarItem {
 
         private final TextView mTitleView;
         private final TextView mDescriptionView;
-        private final DrawableStateImageButton mPrimaryActionButton;
-        private final DrawableStateImageButton mSecondaryActionButton;
+        private final ImageButton mPrimaryActionButton;
+        private final ImageButton mSecondaryActionButton;
         private final int mCalendarIndicatorSize;
         private final int mCalendarIndicatorPadding;
         @ColorInt private final int mTimeTextColor;

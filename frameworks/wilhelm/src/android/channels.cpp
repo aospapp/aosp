@@ -15,6 +15,7 @@
  */
 
 #include "sles_allinclusive.h"
+#include <cutils/bitops.h>
 #include <system/audio.h>
 #include <SLES/OpenSLES_Android.h>
 #include "channels.h"
@@ -191,7 +192,7 @@ static audio_channel_mask_t sles_to_android_mask_helper(
         SL_LOGE("Unrecognized channel representation %#x", rep);
     }
 
-    uint32_t result = audio_channel_mask_from_representation_and_bits(
+    audio_channel_mask_t result = audio_channel_mask_from_representation_and_bits(
             rep,
             bitsOut);
 

@@ -56,8 +56,10 @@ class power_SuspendToIdle(test.test):
         with self._log_error_message():
             pch_powergating_stats = power_status.PCHPowergatingStats()
             pch_powergating_stats.read_pch_powergating_info()
-            if not pch_powergating_stats.check_s0ix_requirement():
-                raise error.TestFail('PCH powergating check failed.')
+            on_pch = pch_powergating_stats.check_s0ix_requirement()
+            if on_pch:
+                raise error.TestFail('PCH powergating check failed: ',
+                                     ', '.join(on_pch))
 
         with self._log_error_message():
             s0ix_residency_stats = power_status.S0ixResidencyStats()

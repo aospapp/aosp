@@ -126,9 +126,11 @@ public class NotificationHelper {
             throws Exception {
         Log.v(LOG_TAG, "Sending out notification...");
         PendingIntent emptyIntent = PendingIntent.getBroadcast(mContext, 0,
-                new Intent("an.action.that.nobody.will.be.listening.for"), 0);
+                new Intent("an.action.that.nobody.will.be.listening.for"),
+                PendingIntent.FLAG_IMMUTABLE);
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
+        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent,
+                PendingIntent.FLAG_IMMUTABLE);
         CharSequence subtitle = String.valueOf(System.currentTimeMillis());
         Notification.Builder notification = new Notification.Builder(mContext)
                 .setSmallIcon(R.drawable.stat_notify_email)
@@ -343,7 +345,8 @@ public class NotificationHelper {
             toastIntent.setAction(ACTION_TOAST + ":" + text); // one per toast message
             toastIntent.putExtra("text", text);
             PendingIntent pi = PendingIntent.getService(
-                    context, 58, toastIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                    context, 58, toastIntent,
+                    PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
             return pi;
         }
     }

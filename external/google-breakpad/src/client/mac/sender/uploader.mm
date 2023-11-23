@@ -28,6 +28,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #import <fcntl.h>
+#include <stdio.h>
 #import <sys/stat.h>
 #include <TargetConditionals.h>
 #import <unistd.h>
@@ -38,7 +39,6 @@
 
 #import "client/apple/Framework/BreakpadDefines.h"
 #import "client/mac/sender/uploader.h"
-#import "common/mac/GTMLogger.h"
 
 const int kMinidumpFileLengthLimit = 2 * 1024 * 1024;  // 2MB
 
@@ -89,17 +89,15 @@ NSData *readData(int fileId, ssize_t length) {
 NSDictionary *readConfigurationData(const char *configFile) {
   int fileId = open(configFile, O_RDONLY, 0600);
   if (fileId == -1) {
-    GTMLoggerDebug(@"Couldn't open config file %s - %s",
-                   configFile,
-                   strerror(errno));
+    fprintf(stderr, "Breakpad Uploader: Couldn't open config file %s - %s",
+            configFile, strerror(errno));
   }
 
   // we want to avoid a build-up of old config files even if they
   // have been incorrectly written by the framework
   if (unlink(configFile)) {
-    GTMLoggerDebug(@"Couldn't unlink config file %s - %s",
-                   configFile,
-                   strerror(errno));
+    fprintf(stderr, "Breakpad Uploader: Couldn't unlink config file %s - %s",
+            configFile, strerror(errno));
   }
 
   if (fileId == -1) {
@@ -168,6 +166,12 @@ NSDictionary *readConfigurationData(const char *configFile) {
 
 // Records the uploaded crash ID to the log file.
 - (void)logUploadWithID:(const char *)uploadID;
+
+// Builds an URL parameter for a given dictionary key. Uses Uploader's
+// parameters to provide its value. Returns nil if no item is stored for the
+// given key.
+- (NSURLQueryItem *)queryItemWithName:(NSString *)queryItemName
+                          forParamKey:(NSString *)key;
 @end
 
 @implementation Uploader
@@ -354,7 +358,8 @@ NSDictionary *readConfigurationData(const char *configFile) {
   NSString *logTarFile = [NSString stringWithFormat:@"%s/log.tar.bz2",tmpDir];
   logFileData_ = [[NSData alloc] initWithContentsOfFile:logTarFile];
   if (logFileData_ == nil) {
-    GTMLoggerDebug(@"Cannot find temp tar log file: %@", logTarFile);
+    fprintf(stderr, "Breakpad Uploader: Cannot find temp tar log file: %s",
+            [logTarFile UTF8String]);
     return NO;
   }
   return YES;
@@ -505,6 +510,9 @@ NSDictionary *readConfigurationData(const char *configFile) {
     reportID = [[result stringByTrimmingCharactersInSet:trimSet] UTF8String];
     [self logUploadWithID:reportID];
   }
+  if (uploadCompletion_) {
+    uploadCompletion_([NSString stringWithUTF8String:reportID], error);
+  }
 
   // rename the minidump file according to the id returned from the server
   NSString *minidumpDir =
@@ -520,20 +528,64 @@ NSDictionary *readConfigurationData(const char *configFile) {
   const char *dest = [destString fileSystemRepresentation];
 
   if (rename(src, dest) == 0) {
-    GTMLoggerInfo(@"Breakpad Uploader: Renamed %s to %s after successful " \
-                  "upload",src, dest);
+    fprintf(stderr,
+            "Breakpad Uploader: Renamed %s to %s after successful upload", src,
+            dest);
   }
   else {
     // can't rename - don't worry - it's not important for users
-    GTMLoggerDebug(@"Breakpad Uploader: successful upload report ID = %s\n",
-                   reportID );
+    fprintf(stderr, "Breakpad Uploader: successful upload report ID = %s\n",
+            reportID);
   }
   [result release];
 }
 
 //=============================================================================
+- (NSURLQueryItem *)queryItemWithName:(NSString *)queryItemName
+                          forParamKey:(NSString *)key {
+  NSString *value = [parameters_ objectForKey:key];
+  NSString *escapedValue =
+    [value stringByAddingPercentEncodingWithAllowedCharacters:
+      [NSCharacterSet URLQueryAllowedCharacterSet]];
+  return [NSURLQueryItem queryItemWithName:queryItemName value:escapedValue];
+}
+
+//=============================================================================
+- (void)setUploadCompletionBlock:(UploadCompletionBlock)uploadCompletion {
+  uploadCompletion_ = uploadCompletion;
+}
+
+//=============================================================================
 - (void)report {
   NSURL *url = [NSURL URLWithString:[parameters_ objectForKey:@BREAKPAD_URL]];
+
+  NSString *serverType = [parameters_ objectForKey:@BREAKPAD_SERVER_TYPE];
+  if ([serverType length] == 0 ||
+      [serverType isEqualToString:kGoogleServerType]) {
+    // when communicating to Google's crash collecting service, add URL params
+    // which identify the product
+    NSURLComponents *urlComponents = [NSURLComponents componentsWithURL:url
+                                                resolvingAgainstBaseURL:false];
+    NSMutableArray *queryItemsToAdd = [urlComponents.queryItems mutableCopy];
+    if (queryItemsToAdd == nil) {
+      queryItemsToAdd = [[NSMutableArray alloc] init];
+    }
+
+    NSURLQueryItem *queryItemProduct =
+      [self queryItemWithName:@"product" forParamKey:@BREAKPAD_PRODUCT];
+    NSURLQueryItem *queryItemVersion =
+      [self queryItemWithName:@"version" forParamKey:@BREAKPAD_VERSION];
+    NSURLQueryItem *queryItemGuid =
+      [self queryItemWithName:@"guid" forParamKey:@"guid"];
+
+    if (queryItemProduct != nil) [queryItemsToAdd addObject:queryItemProduct];
+    if (queryItemVersion != nil) [queryItemsToAdd addObject:queryItemVersion];
+    if (queryItemGuid != nil) [queryItemsToAdd addObject:queryItemGuid];
+
+    urlComponents.queryItems = queryItemsToAdd;
+    url = [urlComponents URL];
+  }
+
   HTTPMultipartUpload *upload = [[HTTPMultipartUpload alloc] initWithURL:url];
   NSMutableDictionary *uploadParameters = [NSMutableDictionary dictionary];
 

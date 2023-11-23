@@ -17,18 +17,73 @@
 package com.android.tv.settings.accessories;
 
 import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
+import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
+import androidx.fragment.app.FragmentActivity;
 
-public class BluetoothRequestPermissionActivity extends Activity {
+import java.util.concurrent.TimeUnit;
+
+public class BluetoothRequestPermissionActivity extends FragmentActivity {
+
+    private static final String TAG = "BluetoothRequestPermissionActivity";
+
+    private static final int DEFAULT_DISCOVERABLE_TIMEOUT_SECONDS = 30;
+    private static final int MIN_DISCOVERABLE_TIMEOUT_SECONDS = 1;
+    private static final int MAX_DISCOVERABLE_TIMEOUT_SECONDS = 300;
+
+    private BluetoothAdapter mBluetoothAdapter;
+    private int mTimeoutSeconds = DEFAULT_DISCOVERABLE_TIMEOUT_SECONDS;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // TODO: actually implement some sort of dialog here. But for now, we expect BT to always
-        // be on and discoverable.
+
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter == null) {
+            Log.e(TAG, "Error: there's a problem starting Bluetooth");
+            setResult(Activity.RESULT_CANCELED);
+            finish();
+            return;
+        }
+
+        if (!parseIntent()) {
+            setResult(Activity.RESULT_CANCELED);
+            finish();
+            return;
+        }
+
+        mBluetoothAdapter.setScanMode(BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE,
+                TimeUnit.SECONDS.toMillis(mTimeoutSeconds));
+
         setResult(Activity.RESULT_OK);
         finish();
+    }
+
+    private boolean parseIntent() {
+        Intent intent = getIntent();
+        if (intent == null) {
+            return false;
+        }
+
+        if (intent.getAction().equals(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                || intent.getAction().equals(BluetoothAdapter.ACTION_REQUEST_ENABLE)) {
+            mTimeoutSeconds = intent.getIntExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION,
+                    DEFAULT_DISCOVERABLE_TIMEOUT_SECONDS);
+            if (mTimeoutSeconds < MIN_DISCOVERABLE_TIMEOUT_SECONDS
+                    || mTimeoutSeconds > MAX_DISCOVERABLE_TIMEOUT_SECONDS) {
+                mTimeoutSeconds = DEFAULT_DISCOVERABLE_TIMEOUT_SECONDS;
+            }
+            Log.d(TAG, "Setting Bluetooth Discoverable Timeout = " + mTimeoutSeconds);
+        } else {
+            Log.e(TAG, "Error: this activity may be started only with intent "
+                    + BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+            return false;
+        }
+
+        return true;
     }
 }

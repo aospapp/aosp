@@ -21,9 +21,6 @@
     <color name="scrim_overlay_color">#D6000000</color>
     <color name="minimized_control_bar_background_color">#E00E1013</color>
 
-    <color name="primary_text_color">#E0FFFFFF</color>
-    <color name="secondary_text_color">#99FFFFFF</color>
-
     <color name="primary_app_icon_color">#E0FFFFFF</color>
     <color name="secondary_app_icon_color">#99FFFFFF</color>
 

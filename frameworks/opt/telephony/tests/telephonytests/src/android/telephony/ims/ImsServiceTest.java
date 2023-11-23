@@ -85,7 +85,9 @@ public class ImsServiceTest {
     @Test
     @SmallTest
     public void testCreateMMTelFeature() throws RemoteException {
-        IImsMmTelFeature f = mTestImsServiceBinder.createMmTelFeature(TEST_SLOT_0, mTestCallback);
+        IImsMmTelFeature f = mTestImsServiceBinder.createMmTelFeature(TEST_SLOT_0);
+        mTestImsServiceBinder.addFeatureStatusCallback(TEST_SLOT_0, ImsFeature.FEATURE_MMTEL,
+                mTestCallback);
         mTestImsService.mTestMmTelFeature.sendSetFeatureState(ImsFeature.STATE_READY);
 
         SparseArray<ImsFeature> features = mTestImsService.getFeatures(TEST_SLOT_0);
@@ -106,10 +108,13 @@ public class ImsServiceTest {
     @Test
     @SmallTest
     public void testRemoveMMTelFeature() throws RemoteException {
-        mTestImsServiceBinder.createMmTelFeature(TEST_SLOT_0, mTestCallback);
-
-        mTestImsServiceBinder.removeImsFeature(TEST_SLOT_0, ImsFeature.FEATURE_MMTEL,
+        mTestImsServiceBinder.createMmTelFeature(TEST_SLOT_0);
+        mTestImsServiceBinder.addFeatureStatusCallback(TEST_SLOT_0, ImsFeature.FEATURE_MMTEL,
                 mTestCallback);
+
+        mTestImsServiceBinder.removeFeatureStatusCallback(TEST_SLOT_0, ImsFeature.FEATURE_MMTEL,
+                mTestCallback);
+        mTestImsServiceBinder.removeImsFeature(TEST_SLOT_0, ImsFeature.FEATURE_MMTEL);
 
         verify(mTestImsService.mSpyMmTelFeature).onFeatureRemoved();
         verify(mTestImsService.mSpyMmTelFeature).removeImsFeatureStatusCallback(mTestCallback);
@@ -120,7 +125,9 @@ public class ImsServiceTest {
     @Test
     @SmallTest
     public void testCallMethodOnCreatedFeature() throws RemoteException {
-        IImsMmTelFeature f = mTestImsServiceBinder.createMmTelFeature(TEST_SLOT_0, mTestCallback);
+        IImsMmTelFeature f = mTestImsServiceBinder.createMmTelFeature(TEST_SLOT_0);
+        mTestImsServiceBinder.addFeatureStatusCallback(TEST_SLOT_0, ImsFeature.FEATURE_MMTEL,
+                mTestCallback);
 
         f.getUtInterface();
 
@@ -142,5 +149,24 @@ public class ImsServiceTest {
         ImsFeatureConfiguration result = mTestImsServiceBinder.querySupportedImsFeatures();
 
         assertEquals(config, result);
+    }
+
+    /**
+     * Tests that ImsService capability sanitization works correctly.
+     */
+    @Test
+    @SmallTest
+    public void testCapsSanitized() throws RemoteException {
+        long validCaps =
+                ImsService.CAPABILITY_SIP_DELEGATE_CREATION;
+        // emergency over MMTEL should not be set here, but rather internally in Telephony.
+        long invalidCaps = 0xDEADBEEF00000000L | ImsService.CAPABILITY_EMERGENCY_OVER_MMTEL;
+        invalidCaps |= validCaps;
+
+        mTestImsService.testCaps = validCaps;
+        assertEquals(validCaps, mTestImsServiceBinder.getImsServiceCapabilities());
+        mTestImsService.testCaps = invalidCaps;
+        // The extra bits should have been removed, leaving only the valid remaining
+        assertEquals(validCaps, mTestImsServiceBinder.getImsServiceCapabilities());
     }
 }

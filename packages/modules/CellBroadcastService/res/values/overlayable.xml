@@ -22,6 +22,8 @@
           <item type="array" name="additional_cell_broadcast_receiver_packages" />
           <item type="array" name="test_cell_broadcast_receiver_packages" />
           <item type="array" name="config_area_info_receiver_packages" />
+          <item type="bool" name="cross_sim_duplicate_detection" />
+          <item type="bool" name="reset_area_info_on_oos"/>
           <!-- Params from config.xml that can be overlayed -->
         </policy>
         <!-- END VENDOR CUSTOMIZATION -->

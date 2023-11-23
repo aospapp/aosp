@@ -22,7 +22,7 @@
 %                                March 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -253,11 +253,11 @@ MagickExport MagickBooleanType DuplexTransferImageViewIterator(
     MagickBooleanType
       sync;
 
-    register const Quantum
+    const Quantum
       *magick_restrict duplex_pixels,
       *magick_restrict pixels;
 
-    register Quantum
+    Quantum
       *magick_restrict destination_pixels;
 
     if (status == MagickFalse)
@@ -405,8 +405,8 @@ MagickExport char *GetImageViewException(const ImageView *image_view,
   assert(image_view->signature == MagickCoreSignature);
   assert(severity != (ExceptionType *) NULL);
   *severity=image_view->exception->severity;
-  description=(char *) AcquireQuantumMemory(2UL*MagickPathExtent,
-    sizeof(*description));
+  description=(char *) AcquireQuantumMemory(MagickPathExtent,
+    2*sizeof(*description));
   if (description == (char *) NULL)
     ThrowFatalException(ResourceLimitFatalError,"MemoryAllocationFailed");
   *description='\0';
@@ -563,7 +563,7 @@ MagickExport MagickBooleanType GetImageViewIterator(ImageView *source,
     const int
       id = GetOpenMPThreadId();
 
-    register const Quantum
+    const Quantum
       *pixels;
 
     if (status == MagickFalse)
@@ -668,7 +668,7 @@ MagickExport const Quantum *GetImageViewVirtualPixels(
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  IsImageView() returns MagickTrue if the the parameter is verified as a image
+%  IsImageView() returns MagickTrue if the parameter is verified as a image
 %  view object.
 %
 %  The format of the IsImageView method is:
@@ -911,7 +911,7 @@ MagickExport MagickBooleanType SetImageViewIterator(ImageView *destination,
     MagickBooleanType
       sync;
 
-    register Quantum
+    Quantum
       *magick_restrict pixels;
 
     if (status == MagickFalse)
@@ -1040,10 +1040,10 @@ MagickExport MagickBooleanType TransferImageViewIterator(ImageView *source,
     MagickBooleanType
       sync;
 
-    register const Quantum
+    const Quantum
       *magick_restrict pixels;
 
-    register Quantum
+    Quantum
       *magick_restrict destination_pixels;
 
     if (status == MagickFalse)
@@ -1169,7 +1169,7 @@ MagickExport MagickBooleanType UpdateImageViewIterator(ImageView *source,
     const int
       id = GetOpenMPThreadId();
 
-    register Quantum
+    Quantum
       *magick_restrict pixels;
 
     if (status == MagickFalse)
@@ -1184,8 +1184,6 @@ MagickExport MagickBooleanType UpdateImageViewIterator(ImageView *source,
     if (update(source,y,id,context) == MagickFalse)
       status=MagickFalse;
     status=SyncCacheViewAuthenticPixels(source->view,source->exception);
-    if (status == MagickFalse)
-      status=MagickFalse;
     if (source_image->progress_monitor != (MagickProgressMonitor) NULL)
       {
         MagickBooleanType

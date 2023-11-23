@@ -48,15 +48,22 @@ uint32_t GetOsVersion();
 /**
  * Parses OS patch level string, returning year and month in integer form. For example, "2016-03-25"
  * will be returned as 201603. Returns 0 if the string doesn't contain a date in the form
- * YYYY-MM-DD.
+ * YYYY-MM-DD; returns YYYMM on success.
  */
 uint32_t GetOsPatchlevel(const char* patchlevel_string);
 
 /**
  * Retrieves and parses OS patch level from build properties. Returns 0 if the string doesn't
- * contain a date in the form YYYY-MM-DD.
+ * contain a date in the form YYYY-MM-DD; returns YYYYMM on success.
  */
 uint32_t GetOsPatchlevel();
+
+/**
+ * Retrieves and parses vendor patch level from build properties (which may require SELinux
+ * permission). Returns 0 if the string doesn't contain a date in the form YYYY-MM-DD; returns
+ * YYYYMMDD on success.
+ */
+uint32_t GetVendorPatchlevel();
 
 }  // namespace keymaster
 

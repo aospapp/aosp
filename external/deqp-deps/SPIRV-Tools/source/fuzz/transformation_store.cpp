@@ -50,7 +50,7 @@ bool TransformationStore::IsApplicable(
   }
 
   // The pointer must not be read only.
-  if (pointer_type->GetSingleWordInOperand(0) == SpvStorageClassInput) {
+  if (pointer->IsReadOnlyPointer()) {
     return false;
   }
 
@@ -123,6 +123,10 @@ protobufs::Transformation TransformationStore::ToMessage() const {
   protobufs::Transformation result;
   *result.mutable_store() = message_;
   return result;
+}
+
+std::unordered_set<uint32_t> TransformationStore::GetFreshIds() const {
+  return std::unordered_set<uint32_t>();
 }
 
 }  // namespace fuzz

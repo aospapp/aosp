@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "libclassdescriptors",
 
@@ -66,21 +70,22 @@ java_defaults {
     static_libs: ["cts-api-signature-test"],
 }
 
-// Access the hiddenapi-flags.csv file produced by the build.
-hiddenapi_flags {
-    name: "cts-hiddenapi-flags-csv",
-    filename: "hiddenapi-flags.csv",
+filegroup {
+    name: "cts-api-hiddenapi-filter-csv",
+    srcs: [
+        "hiddenapi-filter.csv",
+    ],
 }
 
-// Defaults for hiddenapi blacklist checks.
+// Defaults for hiddenapi blocklist checks.
 java_defaults {
-    name: "hiddenapi-blacklist-check-defaults",
+    name: "hiddenapi-blocklist-check-defaults",
     defaults: ["signature-api-check-defaults"],
     java_resources: [
-        ":cts-hiddenapi-flags-csv",
+        ":platform-bootclasspath{hiddenapi-flags.csv}",
+        ":cts-api-hiddenapi-filter-csv"
     ],
     jni_libs: [
         "libcts_dexchecker",
     ],
 }
-

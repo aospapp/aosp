@@ -15,7 +15,7 @@
  */
 package com.android.car.user;
 
-import static android.car.test.mocks.AndroidMockitoHelper.getResult;
+import static android.car.test.mocks.JavaMockitoHelper.getResult;
 
 import static com.google.common.truth.Truth.assertThat;
 

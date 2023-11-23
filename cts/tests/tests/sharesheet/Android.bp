@@ -12,13 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsSharesheetTestCases",
     defaults: ["cts_defaults"],
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 
@@ -30,8 +33,8 @@ android_test {
     ],
 
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
 
     srcs: ["src/**/*.java"],

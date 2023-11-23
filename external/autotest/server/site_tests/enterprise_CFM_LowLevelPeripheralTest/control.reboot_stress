@@ -9,7 +9,7 @@ NAME = "enterprise_CFM_LowLevelPeripheralTest.reboot_stress"
 PURPOSE = "Stresses peripheral devices by repeatedly rebooting the DUT."
 CRITERIA = ("Atrus,Mimo, and Huddly detectable as USB devices after reboot "
             "and no crash files appear")
-ATTRIBUTES = "suite:hotrod"
+ATTRIBUTES = "suite:hotrod-remora"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Stress"
 TEST_TYPE = "server"

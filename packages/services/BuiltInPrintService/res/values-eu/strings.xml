@@ -59,7 +59,7 @@
     <string name="saved_printers" msgid="4567534965213125526">"Gordetako inprimagailuak"</string>
     <string name="forget" msgid="892068061425802502">"Ahaztu"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct zerbitzuaren bidez konektatzen da"</string>
-    <string name="connects_via_network" msgid="5990041581556733898">"Uneko sarearen bidez konektatzen da (<xliff:g id="IP_ADDRESS">%1$s</xliff:g>)"</string>
+    <string name="connects_via_network" msgid="5990041581556733898">"Sare honen bidez konektatzen da (<xliff:g id="IP_ADDRESS">%1$s</xliff:g>)"</string>
     <string name="recommendation_summary" msgid="2979700524954307566">"Inprimatze-zerbitzu lehenetsiak oinarrizko aukerak eskaintzen ditu. Baliteke beste inprimatze-zerbitzu batek bestelako aukerak eskaintzea inprimagailurako."</string>
     <string name="recommendations_heading" msgid="5086762263560605249">"Gomendatutako zerbitzuak"</string>
     <string name="recommendation_install_summary" msgid="374785283809791669">"Hautatu instalatzeko"</string>
@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"Onartu"</string>
     <string name="reject" msgid="24751635160440693">"Baztertu"</string>
     <string name="connections" msgid="8895413761760117180">"Konexioak"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"Inprimatze-zerbitzu lehenetsiak ezin du aurkitu Wi-Fi Direct-eko inprimagailuak"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Desgaitu Wi-Fi Direct"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Inprimatze-zerbitzu lehenetsiak kokapena erabiltzeko baimena behar du inguruko gailuak aurkitzeko."</string>
     <string name="fix" msgid="7784394272611365393">"Berrikusi baimena"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Inprimatze-zerbitzu lehenetsiak kokapen-zerbitzuak gaituta izan behar ditu inguruko gailuak aurkitzeko."</string>
+    <string name="enable_location" msgid="3627841004298863140">"Gaitu kokapena"</string>
     <string name="print" msgid="7851318072404916362">"Inprimatu"</string>
 </resources>

@@ -109,9 +109,9 @@ class GenerateReportTests(unittest.TestCase):
     }
     results = generate_report.CutResultsInPlace(
         bench_data, max_keys=0, complain_on_update=False)
-    # Just reach into results assuming we know it otherwise outputs things
-    # sanely. If it doesn't, testCutResultsInPlace should give an indication as
-    # to what, exactly, is broken.
+    # Just reach into results assuming we know it otherwise outputs things in
+    # the expected way. If it doesn't, testCutResultsInPlace should give an
+    # indication as to what, exactly, is broken.
     self.assertEqual(list(results['foo'][0][0].items()), [('retval', 0)])
     self.assertEqual(list(results['bar'][0][0].items()), [('retval', 1)])
     self.assertEqual(list(results['baz'][0][0].items()), [])

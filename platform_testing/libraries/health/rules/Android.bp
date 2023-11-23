@@ -12,15 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "platform-test-rules",
     sdk_version: "test_current",
     static_libs: [
         "androidx.test.runner",
+        "androidx.test.uiautomator",
         "app-helpers-handheld-interfaces",
         "guava",
         "memory-helper",
-        "ub-uiautomator"
+        "package-helper",
+        "launcher-aosp-tapl",
+        "flickerlib",
     ],
     srcs: ["src/**/*.java"],
+}
+
+java_library {
+    name: "platform-test-core-rules",
+    sdk_version: "test_current",
+    static_libs: [
+        "androidx.test.runner",
+        "androidx.test.uiautomator",
+        "app-helpers-handheld-interfaces",
+        "guava",
+        "memory-helper",
+        "package-helper",
+        "launcher-aosp-tapl",
+    ],
+    srcs: ["src/**/*.java"],
+    exclude_srcs: [
+        "src/android/platform/test/rule/flicker/**/*.java",
+    ],
 }

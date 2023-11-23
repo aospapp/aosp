@@ -16,8 +16,9 @@
   -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+                  xmlns:settings="http://schemas.android.com/apk/res-auto"
                   android:title="@string/development_settings_title">
-    <SwitchPreference
+    <com.android.tv.settings.widget.SwitchWithSoundPreference
         android:key="development_settings_enable"
         android:title="@string/development_settings_enable"
         android:fragment="com.android.tv.settings.system.development.EnableDevelopmentDialog"
@@ -37,7 +38,7 @@
             android:targetClass="com.android.settings.SetFullBackupPassword" />
     </PreferenceScreen>
 
-    <SwitchPreference
+    <com.android.tv.settings.widget.SwitchWithSoundPreference
         android:key="keep_screen_on"
         android:title="@string/keep_screen_on"
         android:summary="@string/keep_screen_on_summary"/>
@@ -56,11 +57,13 @@
         android:entries="@array/bt_hci_snoop_log_entries"
         android:entryValues="@array/bt_hci_snoop_log_values" />
 
-    <SwitchPreference
+    <com.android.settingslib.RestrictedSwitchPreference
         android:key="oem_unlock_enable"
         android:title="@string/oem_unlock_enable"
         android:summary="@string/oem_unlock_enable_summary"
-        android:fragment="com.android.tv.settings.system.development.OemUnlockDialog" />
+        android:fragment="com.android.tv.settings.system.development.OemUnlockDialog"
+        settings:userRestriction="no_factory_reset"
+        settings:useAdminDisabledSummary="true" />
 
     <PreferenceScreen
         android:key="running_apps"
@@ -85,7 +88,7 @@
     <PreferenceCategory android:key="debug_debugging_category"
                         android:title="@string/debug_debugging_category">
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="enable_adb"
             android:title="@string/enable_adb"
             android:summary="@string/enable_adb_summary"
@@ -95,7 +98,7 @@
                     android:title="@string/clear_adb_keys"
                     android:fragment="com.android.tv.settings.system.development.AdbKeysDialog" />
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="enable_terminal"
             android:title="@string/enable_terminal_title"
             android:summary="@string/enable_terminal_summary" />
@@ -103,19 +106,19 @@
         <PreferenceScreen android:key="mock_location_app"
                           android:title="@string/mock_location_app" />
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="debug_view_attributes"
             android:title="@string/debug_view_attributes" />
 
         <PreferenceScreen android:key="debug_app"
                           android:title="@string/debug_app" />
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="wait_for_debugger"
             android:title="@string/wait_for_debugger"
             android:summary="@string/wait_for_debugger_summary"/>
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="verify_apps_over_usb"
             android:title="@string/verify_apps_over_usb_title"
             android:summary="@string/verify_apps_over_usb_summary"/>
@@ -139,17 +142,17 @@
     <PreferenceCategory android:key="debug_networking_category"
                         android:title="@string/debug_networking_category">
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="wifi_display_certification"
             android:title="@string/wifi_display_certification"
             android:summary="@string/wifi_display_certification_summary"/>
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="wifi_verbose_logging"
             android:title="@string/wifi_verbose_logging"
             android:summary="@string/wifi_verbose_logging_summary"/>
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="mobile_data_always_on"
             android:title="@string/mobile_data_always_on"
             android:summary="@string/mobile_data_always_on_summary"/>
@@ -166,12 +169,12 @@
     <PreferenceCategory android:key="debug_input_category"
                         android:title="@string/debug_input_category">
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="show_touches"
             android:title="@string/show_touches"
             android:summary="@string/show_touches_summary"/>
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="pointer_location"
             android:title="@string/pointer_location"
             android:summary="@string/pointer_location_summary"/>
@@ -181,17 +184,17 @@
     <PreferenceCategory android:key="debug_drawing_category"
                         android:title="@string/debug_drawing_category">
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="show_screen_updates"
             android:title="@string/show_screen_updates"
             android:summary="@string/show_screen_updates_summary"/>
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="debug_layout"
             android:title="@string/debug_layout"
             android:summary="@string/debug_layout_summary"/>
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="force_rtl_layout_all_locales"
             android:title="@string/force_rtl_layout_all_locales"
             android:summary="@string/force_rtl_layout_all_locales_summary"/>
@@ -228,12 +231,12 @@
 
     <PreferenceCategory android:key="debug_hw_drawing_category"
                         android:title="@string/debug_hw_drawing_category">
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="show_hw_screen_udpates"
             android:title="@string/show_hw_screen_updates"
             android:summary="@string/show_hw_screen_updates_summary"/>
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="show_hw_layers_udpates"
             android:title="@string/show_hw_layers_updates"
             android:summary="@string/show_hw_layers_updates_summary"/>
@@ -253,11 +256,15 @@
             android:entryValues="@array/show_non_rect_clip_values" />
 
         <SwitchPreference
+            android:key="window_blurs"
+            android:title="@string/window_blurs"/>
+
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="force_msaa"
             android:title="@string/force_msaa"
             android:summary="@string/force_msaa_summary"/>
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="disable_overlays"
             android:title="@string/disable_overlays"
             android:summary="@string/disable_overlays_summary"/>
@@ -275,7 +282,7 @@
     <PreferenceCategory android:key="media_category"
                         android:title="@string/media_category">
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="usb_audio"
             android:title="@string/usb_audio_disable_routing"
             android:summary="@string/usb_audio_disable_routing_summary" />
@@ -284,7 +291,7 @@
 
     <PreferenceCategory android:key="audio_category"
                         android:title="@string/audio_category">
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="record_audio"
             android:title="@string/record_audio"
             android:summaryOn="@string/record_audio_summary_on"
@@ -309,7 +316,7 @@
     <PreferenceCategory android:key="debug_monitoring_category"
                         android:title="@string/debug_monitoring_category">
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="strict_mode"
             android:title="@string/strict_mode"
             android:summary="@string/strict_mode_summary"/>
@@ -333,7 +340,7 @@
     <PreferenceCategory android:key="debug_applications_category"
                         android:title="@string/debug_applications_category">
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="immediately_destroy_activities"
             android:title="@string/immediately_destroy_activities"
             android:summary="@string/immediately_destroy_activities_summary"/>
@@ -345,7 +352,7 @@
             android:entries="@array/app_process_limit_entries"
             android:entryValues="@array/app_process_limit_values" />
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="show_all_anrs"
             android:title="@string/show_all_anrs"
             android:summary="@string/show_all_anrs_summary"/>
@@ -355,12 +362,12 @@
             android:title="@string/inactive_apps_title"
             android:fragment="com.android.tv.settings.system.development.InactiveApps" />
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="force_allow_on_external"
             android:title="@string/force_allow_on_external"
             android:summary="@string/force_allow_on_external_summary"/>
 
-        <SwitchPreference
+        <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="force_resizable_activities"
             android:title="@string/force_resizable_activities"
             android:summary="@string/force_resizable_activities_summary"/>

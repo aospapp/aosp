@@ -31,9 +31,6 @@ class BasicAccelerometerTest : public BasicSensorTestBase {
   uint8_t getSensorType() const override {
     return CHRE_SENSOR_TYPE_ACCELEROMETER;
   }
-  bool isRequiredSensor() const override {
-    return true;
-  }
   bool isOnChangeSensor() const override {
     return false;
   }
@@ -50,9 +47,6 @@ class BasicInstantMotionDetectTest : public BasicSensorTestBase {
  protected:
   uint8_t getSensorType() const override {
     return CHRE_SENSOR_TYPE_INSTANT_MOTION_DETECT;
-  }
-  bool isRequiredSensor() const override {
-    return true;
   }
   bool isOnChangeSensor() const override {
     return false;
@@ -71,9 +65,6 @@ class BasicStationaryDetectTest : public BasicSensorTestBase {
   uint8_t getSensorType() const override {
     return CHRE_SENSOR_TYPE_STATIONARY_DETECT;
   }
-  bool isRequiredSensor() const override {
-    return true;
-  }
   bool isOnChangeSensor() const override {
     return false;
   }
@@ -90,9 +81,6 @@ class BasicGyroscopeTest : public BasicSensorTestBase {
  protected:
   uint8_t getSensorType() const override {
     return CHRE_SENSOR_TYPE_GYROSCOPE;
-  }
-  bool isRequiredSensor() const override {
-    return true;
   }
   bool isOnChangeSensor() const override {
     return false;
@@ -111,9 +99,6 @@ class BasicMagnetometerTest : public BasicSensorTestBase {
   uint8_t getSensorType() const override {
     return CHRE_SENSOR_TYPE_GEOMAGNETIC_FIELD;
   }
-  bool isRequiredSensor() const override {
-    return false;
-  }
   bool isOnChangeSensor() const override {
     return false;
   }
@@ -130,9 +115,6 @@ class BasicBarometerTest : public BasicSensorTestBase {
  protected:
   uint8_t getSensorType() const override {
     return CHRE_SENSOR_TYPE_PRESSURE;
-  }
-  bool isRequiredSensor() const override {
-    return false;
   }
   bool isOnChangeSensor() const override {
     return false;
@@ -151,9 +133,6 @@ class BasicLightSensorTest : public BasicSensorTestBase {
   uint8_t getSensorType() const override {
     return CHRE_SENSOR_TYPE_LIGHT;
   }
-  bool isRequiredSensor() const override {
-    return false;
-  }
   bool isOnChangeSensor() const override {
     return true;
   }
@@ -170,9 +149,6 @@ class BasicProximityTest : public BasicSensorTestBase {
  protected:
   uint8_t getSensorType() const override {
     return CHRE_SENSOR_TYPE_PROXIMITY;
-  }
-  bool isRequiredSensor() const override {
-    return false;
   }
   bool isOnChangeSensor() const override {
     return true;

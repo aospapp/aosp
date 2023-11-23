@@ -35,4 +35,9 @@ TEST(HasherTest, hasherTest) {
     EXPECT_EQ(hasher.hash(), hasher.hash());
 }
 
+TEST(HasherTest, hasherTestFloat) {
+    float x = 1.1f;
+    EXPECT_NE(Hasher().update(x).hash(), Hasher().update(1).hash());
+}
+
 }  // namespace minikin

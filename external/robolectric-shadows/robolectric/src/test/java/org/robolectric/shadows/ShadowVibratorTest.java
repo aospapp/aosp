@@ -5,6 +5,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -51,18 +52,59 @@ public class ShadowVibratorTest {
     assertThat(shadowOf(vibrator).isVibrating()).isTrue();
     assertThat(shadowOf(vibrator).getMilliseconds()).isEqualTo(5000L);
 
+    // Wait for vibrator to stop.
     Robolectric.getForegroundThreadScheduler().advanceToNextPostedRunnable();
     assertThat(shadowOf(vibrator).isVibrating()).isFalse();
   }
 
   @Test
   public void vibratePattern() {
-    long[] pattern = new long[] { 0, 200 };
-    vibrator.vibrate(pattern, 1);
+    long[] pattern = new long[]{0, 200};
+    vibrator.vibrate(pattern, 1 /* repeat */);
 
     assertThat(shadowOf(vibrator).isVibrating()).isTrue();
     assertThat(shadowOf(vibrator).getPattern()).isEqualTo(pattern);
     assertThat(shadowOf(vibrator).getRepeat()).isEqualTo(1);
+  }
+
+  @Test
+  public void vibrateWaveformEffect() {
+    long[] pattern = new long[]{0, 200};
+    vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0 /* repeat */));
+
+    assertThat(shadowOf(vibrator).isVibrating()).isTrue();
+    assertThat(shadowOf(vibrator).getPattern()).isEqualTo(pattern);
+    assertThat(shadowOf(vibrator).getRepeat()).isEqualTo(0);
+  }
+
+  @Test
+  public void vibrateOneShotEffect() {
+    vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE));
+
+    assertThat(shadowOf(vibrator).isVibrating()).isTrue();
+    assertThat(shadowOf(vibrator).getMilliseconds()).isEqualTo(100L);
+
+    // Wait for vibrator to stop.
+    Robolectric.getForegroundThreadScheduler().advanceToNextPostedRunnable();
+    assertThat(shadowOf(vibrator).isVibrating()).isFalse();
+  }
+
+  @Test
+  public void vibratePredefinedEffect() {
+    vibrator.vibrate(VibrationEffect.get(VibrationEffect.EFFECT_CLICK));
+
+    assertThat(shadowOf(vibrator).isVibrating()).isFalse();
+    assertThat(shadowOf(vibrator).getMilliseconds()).isEqualTo(-1L);
+  }
+
+  @Test
+  public void vibrateComposedEffect() {
+    vibrator.vibrate(VibrationEffect.startComposition()
+            .addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK)
+            .compose());
+
+    assertThat(shadowOf(vibrator).isVibrating()).isFalse();
+    assertThat(shadowOf(vibrator).getMilliseconds()).isEqualTo(-1L);
   }
 
   @Test

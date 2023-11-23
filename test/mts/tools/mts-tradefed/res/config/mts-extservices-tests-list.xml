@@ -20,8 +20,6 @@
         <option name="teardown-command" value="device_config delete textclassifier textclassifier_service_package_override" />
     </target_preparer>
 
-    <!-- for Notification -->
-    <option name="compatibility:include-filter" value="CtsLegacyNotification29TestCases" />
     <!-- for Watchdog -->
     <option name="compatibility:include-filter" value="CtsPackageWatchdogTestCases" />
     <!-- for TextClassifier -->
@@ -33,14 +31,19 @@
 
     <!-- for TextClassifier native -->
     <option name="compatibility:include-filter" value="libtextclassifier_tests" />
+    <option name="compatibility:include-filter" value="libtextclassifier_java_tests" />
+
+    <!-- for Displayhash native -->
+    <option name="compatibility:include-filter" value="libextservices_test" />
 
     <!-- Enable MainlineTestModuleController. -->
     <option name="compatibility:module-arg" value="CtsPackageWatchdogTestCases:enable:true" />
-    <option name="compatibility:module-arg" value="CtsLegacyNotification29TestCases:enable:true" />
     <option name="compatibility:module-arg" value="CtsTextClassifierTestCases:enable:true" />
     <option name="compatibility:module-arg" value="ExtServicesUnitTests:enable:true" />
     <option name="compatibility:module-arg" value="TextClassifierNotificationTests:enable:true" />
     <option name="compatibility:module-arg" value="TextClassifierServiceTest:enable:true" />
     <option name="compatibility:module-arg" value="libtextclassifier_tests:enable:true" />
+    <option name="compatibility:module-arg" value="libtextclassifier_java_tests:enable:true" />
+    <option name="compatibility:module-arg" value="libextservices_test:enable:true" />
 
 </configuration>

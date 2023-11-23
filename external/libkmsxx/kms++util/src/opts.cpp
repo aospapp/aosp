@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <stdexcept>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -74,7 +75,7 @@ void OptionSet::parse(int argc, char** argv)
 		}
 	}
 
-	longopts.push_back(option {});
+	longopts.push_back(option{});
 
 	while (1) {
 		int long_idx = 0;

@@ -19,6 +19,7 @@ package android.net.shared;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+import static android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PAID;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_TRUSTED;
 import static android.net.NetworkCapabilities.TRANSPORT_BLUETOOTH;
 import static android.net.NetworkCapabilities.TRANSPORT_CELLULAR;
@@ -35,6 +36,14 @@ public class NetworkMonitorUtils {
     // and it is being added as a system API in S.
     // TODO: use NetworkCapabilities.TRANSPORT_TEST once NetworkStack builds against API 31.
     private static final int TRANSPORT_TEST = 7;
+
+    // This class is used by both NetworkMonitor and ConnectivityService, so it cannot use
+    // NetworkStack shims, but at the same time cannot use non-system APIs.
+    // NET_CAPABILITY_NOT_VCN_MANAGED is system API as of S (so it is enforced to always be 28 and
+    // can't be changed).
+    // TODO: use NetworkCapabilities.NET_CAPABILITY_NOT_VCN_MANAGED once NetworkStack builds against
+    //       API 31.
+    public static final int NET_CAPABILITY_NOT_VCN_MANAGED = 28;
 
     // Network conditions broadcast constants
     public static final String ACTION_NETWORK_CONDITIONS_MEASURED =
@@ -59,11 +68,15 @@ public class NetworkMonitorUtils {
     public static boolean isPrivateDnsValidationRequired(NetworkCapabilities nc) {
         if (nc == null) return false;
 
+        final boolean isVcnManaged = !nc.hasCapability(NET_CAPABILITY_NOT_VCN_MANAGED);
+        final boolean isOemPaid = nc.hasCapability(NET_CAPABILITY_OEM_PAID)
+                && nc.hasCapability(NET_CAPABILITY_TRUSTED);
+        final boolean isDefaultCapable = nc.hasCapability(NET_CAPABILITY_NOT_RESTRICTED)
+                && nc.hasCapability(NET_CAPABILITY_TRUSTED);
+
         // TODO: Consider requiring validation for DUN networks.
         if (nc.hasCapability(NET_CAPABILITY_INTERNET)
-                && nc.hasCapability(NET_CAPABILITY_NOT_RESTRICTED)
-                && nc.hasCapability(NET_CAPABILITY_TRUSTED)) {
-            // Real networks
+                && (isVcnManaged || isOemPaid || isDefaultCapable)) {
             return true;
         }
 

@@ -1,8 +1,15 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
+from six.moves import map
+from six.moves import zip
 
 from autotest_lib.client.common_lib import error
 
@@ -121,7 +128,7 @@ class Netblock(object):
         @param prefix_len: int length of subnet prefix (e.g. 24).
 
         """
-        self._octets = map(int, addr_str.split('.'))
+        self._octets = list(map(int, addr_str.split('.')))
         mask_bits = (-1 << (32 - prefix_len)) & 0xffffffff
         self._mask_octets = self._int_to_octets(mask_bits)
         self._prefix_len = prefix_len

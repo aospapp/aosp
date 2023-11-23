@@ -29,6 +29,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import androidx.test.platform.app.InstrumentationRegistry;
 import java.io.File;
@@ -148,19 +149,22 @@ public class Utils {
      * is created once. The playback will be stopped immediately after that.
      * <p>For a media session to receive media button events, an actual playback is needed.
      */
+    @AppModeFull(reason = "Instant apps cannot access the SD card")
     static void assertMediaPlaybackStarted(Context context) {
         final AudioManager am = new AudioManager(context);
         final HandlerThread handlerThread = new HandlerThread(TAG);
         handlerThread.start();
         final TestAudioPlaybackCallback callback = new TestAudioPlaybackCallback();
         MediaPlayer mediaPlayer = null;
+        final String mInpPrefix = WorkDir.getMediaDirString();
 
         try {
             final int activeConfigSizeBeforeStart = am.getActivePlaybackConfigurations().size();
             final Handler handler = new Handler(handlerThread.getLooper());
 
             am.registerAudioPlaybackCallback(callback, handler);
-            mediaPlayer = MediaPlayer.create(context, R.raw.sine1khzs40dblong);
+            mediaPlayer = MediaPlayer.create(context, Uri.fromFile(new File(mInpPrefix +
+                    "sine1khzm40db.wav")));
             mediaPlayer.start();
             if (!callback.mCountDownLatch.await(TEST_TIMING_TOLERANCE_MS, TimeUnit.MILLISECONDS)
                     || callback.mActiveConfigSize != activeConfigSizeBeforeStart + 1) {

@@ -11,4 +11,5 @@
     <string-array name="non_roaming_operator_string_array" num="1">
         <item value="302"/>
     </string-array>
+    <int name="lte_plus_threshold_bandwidth_khz_int" value="0"/>
 </carrier_config>

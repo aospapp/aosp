@@ -380,17 +380,10 @@ public class StorageStatsManagerTest {
         assertThat(newCollection.size()).isEqualTo(oldCollection.size() - 1);
     }
 
-    Correspondence<CrateInfo, String> mCorrespondenceByLabel = new Correspondence<>() {
-        @Override
-        public boolean compare(CrateInfo crateInfo, String expect) {
+    Correspondence<CrateInfo, String> mCorrespondenceByLabel =
+        Correspondence.from((CrateInfo crateInfo, String expect) -> {
             return TextUtils.equals(crateInfo.getLabel(), expect);
-        }
-
-        @Override
-        public String toString() {
-            return "It should be the crated folder name";
-        }
-    };
+        }, "It should be the crated folder name");
 
     @Test
     public void queryCratesForUid_createDeepPath_shouldCreateOneCrate()

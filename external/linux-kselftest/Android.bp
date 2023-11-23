@@ -14,6 +14,51 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["external_linux-kselftest_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_linux-kselftest_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD-2-Clause",
+        "SPDX-license-identifier-BSD-3-Clause",
+        "SPDX-license-identifier-CC0-1.0",
+        "SPDX-license-identifier-GPL",
+        "SPDX-license-identifier-GPL-2.0",
+        "SPDX-license-identifier-GPL-3.0",
+        "SPDX-license-identifier-LGPL",
+        "SPDX-license-identifier-LGPL-2.1",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-Unlicense",
+    ],
+    license_text: [
+        "COPYING",
+        "NOTICE",
+    ],
+}
+
 cc_defaults {
     name: "kselftest_defaults",
     cflags: [
@@ -49,14 +94,6 @@ cc_defaults {
     no_named_install_directory: true,
 
     test_per_src: true,
-    arch: {
-        mips: {
-            enabled: false,
-        },
-        mips64: {
-            enabled: false,
-        },
-    },
 }
 
 // breakpoints test
@@ -437,6 +474,11 @@ cc_test {
     name: "kselftest_size_test",
     relative_install_path: "linux-kselftest/size",
     srcs: ["tools/testing/selftests/size/get_size.c"],
+    arch: {
+       x86_64: {
+           cflags: ["-mstackrealign"],
+       },
+    },
     defaults: ["kselftest_defaults"],
     nocrt: true,
     // coverage runtime calls atexit, which is unavailable with nocrt.
@@ -573,6 +615,7 @@ cc_test {
         "tools/testing/selftests/x86/syscall_nt.c",
         "tools/testing/selftests/x86/test_mremap_vdso.c",
         "tools/testing/selftests/x86/ldt_gdt.c",
+        "tools/testing/selftests/x86/syscall_arg_fault.c",
     ],
     arch: {
         arm: {
@@ -581,11 +624,15 @@ cc_test {
         arm64: {
             enabled: false,
         },
+        x86_64: {
+            enabled: true,
+            static_libs: [
+                "libdl",
+            ],
+        },
         x86: {
             srcs: [
-                "tools/testing/selftests/x86/sysret_ss_attrs.c",
                 //"tools/testing/selftests/x86/entry_from_vm86.c",
-                "tools/testing/selftests/x86/syscall_arg_fault.c",
                 "tools/testing/selftests/x86/unwind_vdso.c",
                 "tools/testing/selftests/x86/test_FCMOV.c",
                 "tools/testing/selftests/x86/test_FCOMI.c",
@@ -620,6 +667,12 @@ cc_test {
         arm64: {
             enabled: false,
         },
+        x86: {
+            enabled: true,
+        },
+        x86_64: {
+            enabled: true,
+        },
     },
     cflags: [
         "-O2",
@@ -640,7 +693,6 @@ cc_test {
     relative_install_path: "linux-kselftest/x86",
     srcs: [
         "tools/testing/selftests/x86/ptrace_syscall.c",
-        "tools/testing/selftests/x86/raw_syscall_helper_32.S",
     ],
     cflags: [
         "-O2",
@@ -653,6 +705,44 @@ cc_test {
     arch: {
         x86: {
             enabled: true,
+            srcs: [
+                "tools/testing/selftests/x86/raw_syscall_helper_32.S",
+            ],
+        },
+        x86_64: {
+            enabled: true,
+        },
+    },
+}
+
+cc_test {
+    name: "kselftest_x86_test_sysret_ss_attrs",
+    stem: "sysret_ss_attrs",
+    relative_install_path: "linux-kselftest/x86",
+    srcs: [
+        "tools/testing/selftests/x86/sysret_ss_attrs.c",
+    ],
+    cflags: [
+        "-O2",
+        "-pthread",
+    ],
+    c_std: "gnu99",
+    static_executable: true,
+    test_per_src: false,
+    defaults: ["kselftest_defaults"],
+    enabled: false,
+    arch: {
+        x86: {
+            enabled: true,
+            srcs: [
+                "tools/testing/selftests/x86/thunks_32.S",
+            ],
+        },
+        x86_64: {
+            enabled: true,
+            srcs: [
+                "tools/testing/selftests/x86/thunks.S",
+            ],
         },
     },
 }

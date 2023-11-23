@@ -23,6 +23,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -40,24 +41,26 @@
 #include <puffin/puffpatch.h>
 
 #include "update_engine/common/constants.h"
+#include "update_engine/common/download_action.h"
+#include "update_engine/common/error_code.h"
+#include "update_engine/common/error_code_utils.h"
 #include "update_engine/common/hardware_interface.h"
 #include "update_engine/common/prefs_interface.h"
 #include "update_engine/common/subprocess.h"
 #include "update_engine/common/terminator.h"
+#include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/bzip_extent_writer.h"
 #include "update_engine/payload_consumer/cached_file_descriptor.h"
 #include "update_engine/payload_consumer/certificate_parser_interface.h"
-#include "update_engine/payload_consumer/download_action.h"
 #include "update_engine/payload_consumer/extent_reader.h"
 #include "update_engine/payload_consumer/extent_writer.h"
+#include "update_engine/payload_consumer/partition_update_generator_interface.h"
+#include "update_engine/payload_consumer/partition_writer.h"
 #if USE_FEC
 #include "update_engine/payload_consumer/fec_file_descriptor.h"
 #endif  // USE_FEC
 #include "update_engine/payload_consumer/file_descriptor_utils.h"
 #include "update_engine/payload_consumer/mount_history.h"
-#if USE_MTD
-#include "update_engine/payload_consumer/mtd_file_descriptor.h"
-#endif  // USE_MTD
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_consumer/payload_verifier.h"
 #include "update_engine/payload_consumer/xz_extent_writer.h"
@@ -77,103 +80,6 @@ const uint64_t DeltaPerformer::kCheckpointFrequencySeconds = 1;
 namespace {
 const int kUpdateStateOperationInvalid = -1;
 const int kMaxResumedUpdateFailures = 10;
-#if USE_MTD
-const int kUbiVolumeAttachTimeout = 5 * 60;
-#endif
-
-const uint64_t kCacheSize = 1024 * 1024;  // 1MB
-
-FileDescriptorPtr CreateFileDescriptor(const char* path) {
-  FileDescriptorPtr ret;
-#if USE_MTD
-  if (strstr(path, "/dev/ubi") == path) {
-    if (!UbiFileDescriptor::IsUbi(path)) {
-      // The volume might not have been attached at boot time.
-      int volume_no;
-      if (utils::SplitPartitionName(path, nullptr, &volume_no)) {
-        utils::TryAttachingUbiVolume(volume_no, kUbiVolumeAttachTimeout);
-      }
-    }
-    if (UbiFileDescriptor::IsUbi(path)) {
-      LOG(INFO) << path << " is a UBI device.";
-      ret.reset(new UbiFileDescriptor);
-    }
-  } else if (MtdFileDescriptor::IsMtd(path)) {
-    LOG(INFO) << path << " is an MTD device.";
-    ret.reset(new MtdFileDescriptor);
-  } else {
-    LOG(INFO) << path << " is not an MTD nor a UBI device.";
-#endif
-    ret.reset(new EintrSafeFileDescriptor);
-#if USE_MTD
-  }
-#endif
-  return ret;
-}
-
-// Opens path for read/write. On success returns an open FileDescriptor
-// and sets *err to 0. On failure, sets *err to errno and returns nullptr.
-FileDescriptorPtr OpenFile(const char* path,
-                           int mode,
-                           bool cache_writes,
-                           int* err) {
-  // Try to mark the block device read-only based on the mode. Ignore any
-  // failure since this won't work when passing regular files.
-  bool read_only = (mode & O_ACCMODE) == O_RDONLY;
-  utils::SetBlockDeviceReadOnly(path, read_only);
-
-  FileDescriptorPtr fd = CreateFileDescriptor(path);
-  if (cache_writes && !read_only) {
-    fd = FileDescriptorPtr(new CachedFileDescriptor(fd, kCacheSize));
-    LOG(INFO) << "Caching writes.";
-  }
-#if USE_MTD
-  // On NAND devices, we can either read, or write, but not both. So here we
-  // use O_WRONLY.
-  if (UbiFileDescriptor::IsUbi(path) || MtdFileDescriptor::IsMtd(path)) {
-    mode = O_WRONLY;
-  }
-#endif
-  if (!fd->Open(path, mode, 000)) {
-    *err = errno;
-    PLOG(ERROR) << "Unable to open file " << path;
-    return nullptr;
-  }
-  *err = 0;
-  return fd;
-}
-
-// Discard the tail of the block device referenced by |fd|, from the offset
-// |data_size| until the end of the block device. Returns whether the data was
-// discarded.
-bool DiscardPartitionTail(const FileDescriptorPtr& fd, uint64_t data_size) {
-  uint64_t part_size = fd->BlockDevSize();
-  if (!part_size || part_size <= data_size)
-    return false;
-
-  struct blkioctl_request {
-    int number;
-    const char* name;
-  };
-  const vector<blkioctl_request> blkioctl_requests = {
-      {BLKDISCARD, "BLKDISCARD"},
-      {BLKSECDISCARD, "BLKSECDISCARD"},
-#ifdef BLKZEROOUT
-      {BLKZEROOUT, "BLKZEROOUT"},
-#endif
-  };
-  for (const auto& req : blkioctl_requests) {
-    int error = 0;
-    if (fd->BlkIoctl(req.number, data_size, part_size - data_size, &error) &&
-        error == 0) {
-      return true;
-    }
-    LOG(WARNING) << "Error discarding the last "
-                 << (part_size - data_size) / 1024 << " KiB using ioctl("
-                 << req.name << ")";
-  }
-  return false;
-}
 
 }  // namespace
 
@@ -292,12 +198,9 @@ bool DeltaPerformer::HandleOpResult(bool op_result,
   if (op_result)
     return true;
 
-  size_t partition_first_op_num =
-      current_partition_ ? acc_num_operations_[current_partition_ - 1] : 0;
   LOG(ERROR) << "Failed to perform " << op_type_name << " operation "
              << next_operation_num_ << ", which is the operation "
-             << next_operation_num_ - partition_first_op_num
-             << " in partition \""
+             << GetPartitionOperationNum() << " in partition \""
              << partitions_[current_partition_].partition_name() << "\"";
   if (*error == ErrorCode::kSuccess)
     *error = ErrorCode::kDownloadOperationExecutionError;
@@ -319,33 +222,12 @@ int DeltaPerformer::Close() {
 }
 
 int DeltaPerformer::CloseCurrentPartition() {
-  int err = 0;
-  if (source_fd_ && !source_fd_->Close()) {
-    err = errno;
-    PLOG(ERROR) << "Error closing source partition";
-    if (!err)
-      err = 1;
+  if (!partition_writer_) {
+    return 0;
   }
-  source_fd_.reset();
-  if (source_ecc_fd_ && !source_ecc_fd_->Close()) {
-    err = errno;
-    PLOG(ERROR) << "Error closing ECC source partition";
-    if (!err)
-      err = 1;
-  }
-  source_ecc_fd_.reset();
-  source_ecc_open_failure_ = false;
-  source_path_.clear();
-
-  if (target_fd_ && !target_fd_->Close()) {
-    err = errno;
-    PLOG(ERROR) << "Error closing target partition";
-    if (!err)
-      err = 1;
-  }
-  target_fd_.reset();
-  target_path_.clear();
-  return -err;
+  int err = partition_writer_->Close();
+  partition_writer_ = nullptr;
+  return err;
 }
 
 bool DeltaPerformer::OpenCurrentPartition() {
@@ -357,91 +239,29 @@ bool DeltaPerformer::OpenCurrentPartition() {
       install_plan_->partitions.size() - partitions_.size();
   const InstallPlan::Partition& install_part =
       install_plan_->partitions[num_previous_partitions + current_partition_];
-  // Open source fds if we have a delta payload with minor version >= 2.
-  if (payload_->type == InstallPayloadType::kDelta &&
-      GetMinorVersion() != kInPlaceMinorPayloadVersion &&
-      // With dynamic partitions we could create a new partition in a
-      // delta payload, and we shouldn't open source partition in that case.
-      install_part.source_size > 0) {
-    source_path_ = install_part.source_path;
-    int err;
-    source_fd_ = OpenFile(source_path_.c_str(), O_RDONLY, false, &err);
-    if (!source_fd_) {
-      LOG(ERROR) << "Unable to open source partition "
-                 << partition.partition_name() << " on slot "
-                 << BootControlInterface::SlotName(install_plan_->source_slot)
-                 << ", file " << source_path_;
-      return false;
-    }
-  }
+  auto dynamic_control = boot_control_->GetDynamicPartitionControl();
+  partition_writer_ = CreatePartitionWriter(
+      partition,
+      install_part,
+      dynamic_control,
+      block_size_,
+      interactive_,
+      IsDynamicPartition(install_part.name, install_plan_->target_slot));
+  // Open source fds if we have a delta payload, or for partitions in the
+  // partial update.
+  bool source_may_exist = manifest_.partial_update() ||
+                          payload_->type == InstallPayloadType::kDelta;
+  const size_t partition_operation_num = GetPartitionOperationNum();
 
-  target_path_ = install_part.target_path;
-  int err;
-
-  int flags = O_RDWR;
-  if (!interactive_)
-    flags |= O_DSYNC;
-
-  LOG(INFO) << "Opening " << target_path_ << " partition with"
-            << (interactive_ ? "out" : "") << " O_DSYNC";
-
-  target_fd_ = OpenFile(target_path_.c_str(), flags, true, &err);
-  if (!target_fd_) {
-    LOG(ERROR) << "Unable to open target partition "
-               << partition.partition_name() << " on slot "
-               << BootControlInterface::SlotName(install_plan_->target_slot)
-               << ", file " << target_path_;
-    return false;
-  }
-
-  LOG(INFO) << "Applying " << partition.operations().size()
-            << " operations to partition \"" << partition.partition_name()
-            << "\"";
-
-  // Discard the end of the partition, but ignore failures.
-  DiscardPartitionTail(target_fd_, install_part.target_size);
-
+  TEST_AND_RETURN_FALSE(partition_writer_->Init(
+      install_plan_, source_may_exist, partition_operation_num));
+  CheckpointUpdateProgress(true);
   return true;
 }
 
-bool DeltaPerformer::OpenCurrentECCPartition() {
-  if (source_ecc_fd_)
-    return true;
-
-  if (source_ecc_open_failure_)
-    return false;
-
-  if (current_partition_ >= partitions_.size())
-    return false;
-
-  // No support for ECC in minor version 1 or full payloads.
-  if (payload_->type == InstallPayloadType::kFull ||
-      GetMinorVersion() == kInPlaceMinorPayloadVersion)
-    return false;
-
-#if USE_FEC
-  const PartitionUpdate& partition = partitions_[current_partition_];
-  size_t num_previous_partitions =
-      install_plan_->partitions.size() - partitions_.size();
-  const InstallPlan::Partition& install_part =
-      install_plan_->partitions[num_previous_partitions + current_partition_];
-  string path = install_part.source_path;
-  FileDescriptorPtr fd(new FecFileDescriptor());
-  if (!fd->Open(path.c_str(), O_RDONLY, 0)) {
-    PLOG(ERROR) << "Unable to open ECC source partition "
-                << partition.partition_name() << " on slot "
-                << BootControlInterface::SlotName(install_plan_->source_slot)
-                << ", file " << path;
-    source_ecc_open_failure_ = true;
-    return false;
-  }
-  source_ecc_fd_ = fd;
-#else
-  // No support for ECC compiled.
-  source_ecc_open_failure_ = true;
-#endif  // USE_FEC
-
-  return !source_ecc_open_failure_;
+size_t DeltaPerformer::GetPartitionOperationNum() {
+  return next_operation_num_ -
+         (current_partition_ ? acc_num_operations_[current_partition_ - 1] : 0);
 }
 
 namespace {
@@ -464,15 +284,6 @@ void LogPartitionInfo(const vector<PartitionUpdate>& partitions) {
 }
 
 }  // namespace
-
-uint32_t DeltaPerformer::GetMinorVersion() const {
-  if (manifest_.has_minor_version()) {
-    return manifest_.minor_version();
-  }
-  return payload_->type == InstallPayloadType::kDelta
-             ? kMaxSupportedMinorPayloadVersion
-             : kFullPayloadMinorVersion;
-}
 
 bool DeltaPerformer::IsHeaderParsed() const {
   return metadata_size_ != 0;
@@ -505,6 +316,21 @@ MetadataParseResult DeltaPerformer::ParsePayloadMetadata(
         return MetadataParseResult::kError;
       }
     }
+
+    // Check that the |metadata signature size_| and |metadata_size_| are not
+    // very big numbers. This is necessary since |update_engine| needs to write
+    // these values into the buffer before being able to use them, and if an
+    // attacker sets these values to a very big number, the buffer will overflow
+    // and |update_engine| will crash. A simple way of solving this is to check
+    // that the size of both values is smaller than the payload itself.
+    if (metadata_size_ + metadata_signature_size_ > payload_->size) {
+      LOG(ERROR) << "The size of the metadata_size(" << metadata_size_ << ")"
+                 << " or metadata signature(" << metadata_signature_size_ << ")"
+                 << " is greater than the size of the payload"
+                 << "(" << payload_->size << ")";
+      *error = ErrorCode::kDownloadInvalidMetadataSize;
+      return MetadataParseResult::kError;
+    }
   }
 
   // Now that we have validated the metadata size, we should wait for the full
@@ -527,6 +353,7 @@ MetadataParseResult DeltaPerformer::ParsePayloadMetadata(
                  << "Trusting metadata size in payload = " << metadata_size_;
   }
 
+  // NOLINTNEXTLINE(whitespace/braces)
   auto [payload_verifier, perform_verification] = CreatePayloadVerifier();
   if (!payload_verifier) {
     LOG(ERROR) << "Failed to create payload verifier.";
@@ -567,7 +394,7 @@ MetadataParseResult DeltaPerformer::ParsePayloadMetadata(
 #define OP_DURATION_HISTOGRAM(_op_name, _start_time)                         \
   LOCAL_HISTOGRAM_CUSTOM_TIMES(                                              \
       "UpdateEngine.DownloadAction.InstallOperation::" _op_name ".Duration", \
-      base::TimeTicks::Now() - _start_time,                                  \
+      (base::TimeTicks::Now() - _start_time),                                \
       base::TimeDelta::FromMilliseconds(10),                                 \
       base::TimeDelta::FromMinutes(5),                                       \
       20);
@@ -608,6 +435,10 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
     if ((*error = ValidateManifest()) != ErrorCode::kSuccess)
       return false;
     manifest_valid_ = true;
+    if (!install_plan_->is_resume) {
+      auto begin = reinterpret_cast<const char*>(buffer_.data());
+      prefs_->SetString(kPrefsManifestBytes, {begin, buffer_.size()});
+    }
 
     // Clear the download buffer.
     DiscardBuffer(false, metadata_size_);
@@ -667,6 +498,9 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
     // We know there are more operations to perform because we didn't reach the
     // |num_total_operations_| limit yet.
     if (next_operation_num_ >= acc_num_operations_[current_partition_]) {
+      if (partition_writer_) {
+        TEST_AND_RETURN_FALSE(partition_writer_->FinishedInstallOps());
+      }
       CloseCurrentPartition();
       // Skip until there are operations for current_partition_.
       while (next_operation_num_ >= acc_num_operations_[current_partition_]) {
@@ -677,12 +511,9 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
         return false;
       }
     }
-    const size_t partition_operation_num =
-        next_operation_num_ -
-        (current_partition_ ? acc_num_operations_[current_partition_ - 1] : 0);
 
     const InstallOperation& op =
-        partitions_[current_partition_].operations(partition_operation_num);
+        partitions_[current_partition_].operations(GetPartitionOperationNum());
 
     CopyDataToBuffer(&c_bytes, &count, op.data_length());
 
@@ -690,27 +521,24 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
     if (!CanPerformInstallOperation(op))
       return true;
 
-    // Validate the operation only if the metadata signature is present.
-    // Otherwise, keep the old behavior. This serves as a knob to disable
-    // the validation logic in case we find some regression after rollout.
-    // NOTE: If hash checks are mandatory and if metadata_signature is empty,
-    // we would have already failed in ParsePayloadMetadata method and thus not
-    // even be here. So no need to handle that case again here.
-    if (!payload_->metadata_signature.empty()) {
-      // Note: Validate must be called only if CanPerformInstallOperation is
-      // called. Otherwise, we might be failing operations before even if there
-      // isn't sufficient data to compute the proper hash.
-      *error = ValidateOperationHash(op);
-      if (*error != ErrorCode::kSuccess) {
-        if (install_plan_->hash_checks_mandatory) {
-          LOG(ERROR) << "Mandatory operation hash check failed";
-          return false;
-        }
-
-        // For non-mandatory cases, just send a UMA stat.
-        LOG(WARNING) << "Ignoring operation validation errors";
-        *error = ErrorCode::kSuccess;
+    // Validate the operation unconditionally. This helps prevent the
+    // exploitation of vulnerabilities in the patching libraries, e.g. bspatch.
+    // The hash of the patch data for a given operation is embedded in the
+    // payload metadata; and thus has been verified against the public key on
+    // device.
+    // Note: Validate must be called only if CanPerformInstallOperation is
+    // called. Otherwise, we might be failing operations before even if there
+    // isn't sufficient data to compute the proper hash.
+    *error = ValidateOperationHash(op);
+    if (*error != ErrorCode::kSuccess) {
+      if (install_plan_->hash_checks_mandatory) {
+        LOG(ERROR) << "Mandatory operation hash check failed";
+        return false;
       }
+
+      // For non-mandatory cases, just send a UMA stat.
+      LOG(WARNING) << "Ignoring operation validation errors";
+      *error = ErrorCode::kSuccess;
     }
 
     // Makes sure we unblock exit when this operation completes.
@@ -732,14 +560,6 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
         op_result = PerformZeroOrDiscardOperation(op);
         OP_DURATION_HISTOGRAM("ZERO_OR_DISCARD", op_start_time);
         break;
-      case InstallOperation::MOVE:
-        op_result = PerformMoveOperation(op);
-        OP_DURATION_HISTOGRAM("MOVE", op_start_time);
-        break;
-      case InstallOperation::BSDIFF:
-        op_result = PerformBsdiffOperation(op);
-        OP_DURATION_HISTOGRAM("BSDIFF", op_start_time);
-        break;
       case InstallOperation::SOURCE_COPY:
         op_result = PerformSourceCopyOperation(op, error);
         OP_DURATION_HISTOGRAM("SOURCE_COPY", op_start_time);
@@ -759,19 +579,19 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
     if (!HandleOpResult(op_result, InstallOperationTypeName(op.type()), error))
       return false;
 
-    if (!target_fd_->Flush()) {
-      return false;
-    }
-
     next_operation_num_++;
     UpdateOverallProgress(false, "Completed ");
     CheckpointUpdateProgress(false);
   }
 
-  // In major version 2, we don't add dummy operation to the payload.
+  if (partition_writer_) {
+    TEST_AND_RETURN_FALSE(partition_writer_->FinishedInstallOps());
+  }
+  CloseCurrentPartition();
+
+  // In major version 2, we don't add unused operation to the payload.
   // If we already extracted the signature we should skip this step.
-  if (major_payload_version_ == kBrilloMajorPayloadVersion &&
-      manifest_.has_signatures_offset() && manifest_.has_signatures_size() &&
+  if (manifest_.has_signatures_offset() && manifest_.has_signatures_size() &&
       signatures_message_data_.empty()) {
     if (manifest_.signatures_offset() != buffer_offset_) {
       LOG(ERROR) << "Payload signatures offset points to blob offset "
@@ -806,49 +626,65 @@ bool DeltaPerformer::IsManifestValid() {
 }
 
 bool DeltaPerformer::ParseManifestPartitions(ErrorCode* error) {
-  if (major_payload_version_ == kBrilloMajorPayloadVersion) {
-    partitions_.clear();
-    for (const PartitionUpdate& partition : manifest_.partitions()) {
-      partitions_.push_back(partition);
-    }
-  } else if (major_payload_version_ == kChromeOSMajorPayloadVersion) {
-    LOG(INFO) << "Converting update information from old format.";
-    PartitionUpdate root_part;
-    root_part.set_partition_name(kPartitionNameRoot);
-#ifdef __ANDROID__
-    LOG(WARNING) << "Legacy payload major version provided to an Android "
-                    "build. Assuming no post-install. Please use major version "
-                    "2 or newer.";
-    root_part.set_run_postinstall(false);
-#else
-    root_part.set_run_postinstall(true);
-#endif  // __ANDROID__
-    if (manifest_.has_old_rootfs_info()) {
-      *root_part.mutable_old_partition_info() = manifest_.old_rootfs_info();
-      manifest_.clear_old_rootfs_info();
-    }
-    if (manifest_.has_new_rootfs_info()) {
-      *root_part.mutable_new_partition_info() = manifest_.new_rootfs_info();
-      manifest_.clear_new_rootfs_info();
-    }
-    *root_part.mutable_operations() = manifest_.install_operations();
-    manifest_.clear_install_operations();
-    partitions_.push_back(std::move(root_part));
+  partitions_.clear();
+  for (const PartitionUpdate& partition : manifest_.partitions()) {
+    partitions_.push_back(partition);
+  }
 
-    PartitionUpdate kern_part;
-    kern_part.set_partition_name(kPartitionNameKernel);
-    kern_part.set_run_postinstall(false);
-    if (manifest_.has_old_kernel_info()) {
-      *kern_part.mutable_old_partition_info() = manifest_.old_kernel_info();
-      manifest_.clear_old_kernel_info();
+  // For VAB and partial updates, the partition preparation will copy the
+  // dynamic partitions metadata to the target metadata slot, and rename the
+  // slot suffix of the partitions in the metadata.
+  if (install_plan_->target_slot != BootControlInterface::kInvalidSlot) {
+    uint64_t required_size = 0;
+    if (!PreparePartitionsForUpdate(&required_size)) {
+      if (required_size > 0) {
+        *error = ErrorCode::kNotEnoughSpace;
+      } else {
+        *error = ErrorCode::kInstallDeviceOpenError;
+      }
+      return false;
     }
-    if (manifest_.has_new_kernel_info()) {
-      *kern_part.mutable_new_partition_info() = manifest_.new_kernel_info();
-      manifest_.clear_new_kernel_info();
+  }
+
+  // Partitions in manifest are no longer needed after preparing partitions.
+  manifest_.clear_partitions();
+  // TODO(xunchang) TBD: allow partial update only on devices with dynamic
+  // partition.
+  if (manifest_.partial_update()) {
+    std::set<std::string> touched_partitions;
+    for (const auto& partition_update : partitions_) {
+      touched_partitions.insert(partition_update.partition_name());
     }
-    *kern_part.mutable_operations() = manifest_.kernel_install_operations();
-    manifest_.clear_kernel_install_operations();
-    partitions_.push_back(std::move(kern_part));
+
+    auto generator = partition_update_generator::Create(boot_control_,
+                                                        manifest_.block_size());
+    std::vector<PartitionUpdate> untouched_static_partitions;
+    TEST_AND_RETURN_FALSE(
+        generator->GenerateOperationsForPartitionsNotInPayload(
+            install_plan_->source_slot,
+            install_plan_->target_slot,
+            touched_partitions,
+            &untouched_static_partitions));
+    partitions_.insert(partitions_.end(),
+                       untouched_static_partitions.begin(),
+                       untouched_static_partitions.end());
+
+    // Save the untouched dynamic partitions in install plan.
+    std::vector<std::string> dynamic_partitions;
+    if (!boot_control_->GetDynamicPartitionControl()
+             ->ListDynamicPartitionsForSlot(install_plan_->source_slot,
+                                            boot_control_->GetCurrentSlot(),
+                                            &dynamic_partitions)) {
+      LOG(ERROR) << "Failed to load dynamic partitions from slot "
+                 << install_plan_->source_slot;
+      return false;
+    }
+    install_plan_->untouched_dynamic_partitions.clear();
+    for (const auto& name : dynamic_partitions) {
+      if (touched_partitions.find(name) == touched_partitions.end()) {
+        install_plan_->untouched_dynamic_partitions.push_back(name);
+      }
+    }
   }
 
   // Fill in the InstallPlan::partitions based on the partitions from the
@@ -924,22 +760,9 @@ bool DeltaPerformer::ParseManifestPartitions(ErrorCode* error) {
     install_plan_->partitions.push_back(install_part);
   }
 
-  if (install_plan_->target_slot != BootControlInterface::kInvalidSlot) {
-    uint64_t required_size = 0;
-    if (!PreparePartitionsForUpdate(&required_size)) {
-      if (required_size > 0) {
-        *error = ErrorCode::kNotEnoughSpace;
-      } else {
-        *error = ErrorCode::kInstallDeviceOpenError;
-      }
-      return false;
-    }
-  }
-
-  if (major_payload_version_ == kBrilloMajorPayloadVersion) {
-    manifest_.clear_partitions();
-  }
-
+  // TODO(xunchang) only need to load the partitions for those in payload.
+  // Because we have already loaded the other once when generating SOURCE_COPY
+  // operations.
   if (!install_plan_->LoadPartitionsFromSlots(boot_control_)) {
     LOG(ERROR) << "Unable to determine all the partition devices.";
     *error = ErrorCode::kInstallDeviceOpenError;
@@ -984,6 +807,7 @@ bool DeltaPerformer::PreparePartitionsForUpdate(
   } else {
     LOG(INFO) << "Preparing partitions for new update. last hash = "
               << last_hash << ", new hash = " << update_check_response_hash;
+    ResetUpdateProgress(prefs, false);
   }
 
   if (!boot_control->GetDynamicPartitionControl()->PreparePartitionsForUpdate(
@@ -1028,30 +852,10 @@ bool DeltaPerformer::PerformReplaceOperation(
 
   // Since we delete data off the beginning of the buffer as we use it,
   // the data we need should be exactly at the beginning of the buffer.
-  TEST_AND_RETURN_FALSE(buffer_offset_ == operation.data_offset());
   TEST_AND_RETURN_FALSE(buffer_.size() >= operation.data_length());
 
-  // Extract the signature message if it's in this operation.
-  if (ExtractSignatureMessageFromOperation(operation)) {
-    // If this is dummy replace operation, we ignore it after extracting the
-    // signature.
-    DiscardBuffer(true, 0);
-    return true;
-  }
-
-  // Setup the ExtentWriter stack based on the operation type.
-  std::unique_ptr<ExtentWriter> writer = std::make_unique<DirectExtentWriter>();
-
-  if (operation.type() == InstallOperation::REPLACE_BZ) {
-    writer.reset(new BzipExtentWriter(std::move(writer)));
-  } else if (operation.type() == InstallOperation::REPLACE_XZ) {
-    writer.reset(new XzExtentWriter(std::move(writer)));
-  }
-
-  TEST_AND_RETURN_FALSE(
-      writer->Init(target_fd_, operation.dst_extents(), block_size_));
-  TEST_AND_RETURN_FALSE(writer->Write(buffer_.data(), operation.data_length()));
-
+  TEST_AND_RETURN_FALSE(partition_writer_->PerformReplaceOperation(
+      operation, buffer_.data(), buffer_.size()));
   // Update buffer
   DiscardBuffer(true, buffer_.size());
   return true;
@@ -1066,92 +870,13 @@ bool DeltaPerformer::PerformZeroOrDiscardOperation(
   TEST_AND_RETURN_FALSE(!operation.has_data_offset());
   TEST_AND_RETURN_FALSE(!operation.has_data_length());
 
-#ifdef BLKZEROOUT
-  bool attempt_ioctl = true;
-  int request =
-      (operation.type() == InstallOperation::ZERO ? BLKZEROOUT : BLKDISCARD);
-#else   // !defined(BLKZEROOUT)
-  bool attempt_ioctl = false;
-  int request = 0;
-#endif  // !defined(BLKZEROOUT)
-
-  brillo::Blob zeros;
-  for (const Extent& extent : operation.dst_extents()) {
-    const uint64_t start = extent.start_block() * block_size_;
-    const uint64_t length = extent.num_blocks() * block_size_;
-    if (attempt_ioctl) {
-      int result = 0;
-      if (target_fd_->BlkIoctl(request, start, length, &result) && result == 0)
-        continue;
-      attempt_ioctl = false;
-    }
-    // In case of failure, we fall back to writing 0 to the selected region.
-    zeros.resize(16 * block_size_);
-    for (uint64_t offset = 0; offset < length; offset += zeros.size()) {
-      uint64_t chunk_length =
-          min(length - offset, static_cast<uint64_t>(zeros.size()));
-      TEST_AND_RETURN_FALSE(utils::PWriteAll(
-          target_fd_, zeros.data(), chunk_length, start + offset));
-    }
-  }
-  return true;
+  return partition_writer_->PerformZeroOrDiscardOperation(operation);
 }
 
-bool DeltaPerformer::PerformMoveOperation(const InstallOperation& operation) {
-  // Calculate buffer size. Note, this function doesn't do a sliding
-  // window to copy in case the source and destination blocks overlap.
-  // If we wanted to do a sliding window, we could program the server
-  // to generate deltas that effectively did a sliding window.
-
-  uint64_t blocks_to_read = 0;
-  for (int i = 0; i < operation.src_extents_size(); i++)
-    blocks_to_read += operation.src_extents(i).num_blocks();
-
-  uint64_t blocks_to_write = 0;
-  for (int i = 0; i < operation.dst_extents_size(); i++)
-    blocks_to_write += operation.dst_extents(i).num_blocks();
-
-  DCHECK_EQ(blocks_to_write, blocks_to_read);
-  brillo::Blob buf(blocks_to_write * block_size_);
-
-  // Read in bytes.
-  ssize_t bytes_read = 0;
-  for (int i = 0; i < operation.src_extents_size(); i++) {
-    ssize_t bytes_read_this_iteration = 0;
-    const Extent& extent = operation.src_extents(i);
-    const size_t bytes = extent.num_blocks() * block_size_;
-    TEST_AND_RETURN_FALSE(extent.start_block() != kSparseHole);
-    TEST_AND_RETURN_FALSE(utils::PReadAll(target_fd_,
-                                          &buf[bytes_read],
-                                          bytes,
-                                          extent.start_block() * block_size_,
-                                          &bytes_read_this_iteration));
-    TEST_AND_RETURN_FALSE(bytes_read_this_iteration ==
-                          static_cast<ssize_t>(bytes));
-    bytes_read += bytes_read_this_iteration;
-  }
-
-  // Write bytes out.
-  ssize_t bytes_written = 0;
-  for (int i = 0; i < operation.dst_extents_size(); i++) {
-    const Extent& extent = operation.dst_extents(i);
-    const size_t bytes = extent.num_blocks() * block_size_;
-    TEST_AND_RETURN_FALSE(extent.start_block() != kSparseHole);
-    TEST_AND_RETURN_FALSE(utils::PWriteAll(target_fd_,
-                                           &buf[bytes_written],
-                                           bytes,
-                                           extent.start_block() * block_size_));
-    bytes_written += bytes;
-  }
-  DCHECK_EQ(bytes_written, bytes_read);
-  DCHECK_EQ(bytes_written, static_cast<ssize_t>(buf.size()));
-  return true;
-}
-
-bool DeltaPerformer::ValidateSourceHash(const brillo::Blob& calculated_hash,
-                                        const InstallOperation& operation,
-                                        const FileDescriptorPtr source_fd,
-                                        ErrorCode* error) {
+bool PartitionWriter::ValidateSourceHash(const brillo::Blob& calculated_hash,
+                                         const InstallOperation& operation,
+                                         const FileDescriptorPtr source_fd,
+                                         ErrorCode* error) {
   brillo::Blob expected_source_hash(operation.src_sha256_hash().begin(),
                                     operation.src_sha256_hash().end());
   if (calculated_hash != expected_source_hash) {
@@ -1192,169 +917,7 @@ bool DeltaPerformer::PerformSourceCopyOperation(
     TEST_AND_RETURN_FALSE(operation.src_length() % block_size_ == 0);
   if (operation.has_dst_length())
     TEST_AND_RETURN_FALSE(operation.dst_length() % block_size_ == 0);
-
-  TEST_AND_RETURN_FALSE(source_fd_ != nullptr);
-
-  // The device may optimize the SOURCE_COPY operation.
-  // Being this a device-specific optimization let DynamicPartitionController
-  // decide it the operation should be skipped.
-  const PartitionUpdate& partition = partitions_[current_partition_];
-  const auto& partition_control = boot_control_->GetDynamicPartitionControl();
-
-  InstallOperation buf;
-  bool should_optimize = partition_control->OptimizeOperation(
-      partition.partition_name(), operation, &buf);
-  const InstallOperation& optimized = should_optimize ? buf : operation;
-
-  if (operation.has_src_sha256_hash()) {
-    bool read_ok;
-    brillo::Blob source_hash;
-    brillo::Blob expected_source_hash(operation.src_sha256_hash().begin(),
-                                      operation.src_sha256_hash().end());
-
-    // We fall back to use the error corrected device if the hash of the raw
-    // device doesn't match or there was an error reading the source partition.
-    // Note that this code will also fall back if writing the target partition
-    // fails.
-    if (should_optimize) {
-      // Hash operation.src_extents(), then copy optimized.src_extents to
-      // optimized.dst_extents.
-      read_ok =
-          fd_utils::ReadAndHashExtents(
-              source_fd_, operation.src_extents(), block_size_, &source_hash) &&
-          fd_utils::CopyAndHashExtents(source_fd_,
-                                       optimized.src_extents(),
-                                       target_fd_,
-                                       optimized.dst_extents(),
-                                       block_size_,
-                                       nullptr /* skip hashing */);
-    } else {
-      read_ok = fd_utils::CopyAndHashExtents(source_fd_,
-                                             operation.src_extents(),
-                                             target_fd_,
-                                             operation.dst_extents(),
-                                             block_size_,
-                                             &source_hash);
-    }
-    if (read_ok && expected_source_hash == source_hash)
-      return true;
-
-    if (!OpenCurrentECCPartition()) {
-      // The following function call will return false since the source hash
-      // mismatches, but we still want to call it so it prints the appropriate
-      // log message.
-      return ValidateSourceHash(source_hash, operation, source_fd_, error);
-    }
-
-    LOG(WARNING) << "Source hash from RAW device mismatched: found "
-                 << base::HexEncode(source_hash.data(), source_hash.size())
-                 << ", expected "
-                 << base::HexEncode(expected_source_hash.data(),
-                                    expected_source_hash.size());
-
-    if (should_optimize) {
-      TEST_AND_RETURN_FALSE(fd_utils::ReadAndHashExtents(
-          source_ecc_fd_, operation.src_extents(), block_size_, &source_hash));
-      TEST_AND_RETURN_FALSE(
-          fd_utils::CopyAndHashExtents(source_ecc_fd_,
-                                       optimized.src_extents(),
-                                       target_fd_,
-                                       optimized.dst_extents(),
-                                       block_size_,
-                                       nullptr /* skip hashing */));
-    } else {
-      TEST_AND_RETURN_FALSE(
-          fd_utils::CopyAndHashExtents(source_ecc_fd_,
-                                       operation.src_extents(),
-                                       target_fd_,
-                                       operation.dst_extents(),
-                                       block_size_,
-                                       &source_hash));
-    }
-    TEST_AND_RETURN_FALSE(
-        ValidateSourceHash(source_hash, operation, source_ecc_fd_, error));
-    // At this point reading from the the error corrected device worked, but
-    // reading from the raw device failed, so this is considered a recovered
-    // failure.
-    source_ecc_recovered_failures_++;
-  } else {
-    // When the operation doesn't include a source hash, we attempt the error
-    // corrected device first since we can't verify the block in the raw device
-    // at this point, but we fall back to the raw device since the error
-    // corrected device can be shorter or not available.
-
-    if (OpenCurrentECCPartition() &&
-        fd_utils::CopyAndHashExtents(source_ecc_fd_,
-                                     optimized.src_extents(),
-                                     target_fd_,
-                                     optimized.dst_extents(),
-                                     block_size_,
-                                     nullptr)) {
-      return true;
-    }
-    TEST_AND_RETURN_FALSE(fd_utils::CopyAndHashExtents(source_fd_,
-                                                       optimized.src_extents(),
-                                                       target_fd_,
-                                                       optimized.dst_extents(),
-                                                       block_size_,
-                                                       nullptr));
-  }
-  return true;
-}
-
-FileDescriptorPtr DeltaPerformer::ChooseSourceFD(
-    const InstallOperation& operation, ErrorCode* error) {
-  if (source_fd_ == nullptr) {
-    LOG(ERROR) << "ChooseSourceFD fail: source_fd_ == nullptr";
-    return nullptr;
-  }
-
-  if (!operation.has_src_sha256_hash()) {
-    // When the operation doesn't include a source hash, we attempt the error
-    // corrected device first since we can't verify the block in the raw device
-    // at this point, but we first need to make sure all extents are readable
-    // since the error corrected device can be shorter or not available.
-    if (OpenCurrentECCPartition() &&
-        fd_utils::ReadAndHashExtents(
-            source_ecc_fd_, operation.src_extents(), block_size_, nullptr)) {
-      return source_ecc_fd_;
-    }
-    return source_fd_;
-  }
-
-  brillo::Blob source_hash;
-  brillo::Blob expected_source_hash(operation.src_sha256_hash().begin(),
-                                    operation.src_sha256_hash().end());
-  if (fd_utils::ReadAndHashExtents(
-          source_fd_, operation.src_extents(), block_size_, &source_hash) &&
-      source_hash == expected_source_hash) {
-    return source_fd_;
-  }
-  // We fall back to use the error corrected device if the hash of the raw
-  // device doesn't match or there was an error reading the source partition.
-  if (!OpenCurrentECCPartition()) {
-    // The following function call will return false since the source hash
-    // mismatches, but we still want to call it so it prints the appropriate
-    // log message.
-    ValidateSourceHash(source_hash, operation, source_fd_, error);
-    return nullptr;
-  }
-  LOG(WARNING) << "Source hash from RAW device mismatched: found "
-               << base::HexEncode(source_hash.data(), source_hash.size())
-               << ", expected "
-               << base::HexEncode(expected_source_hash.data(),
-                                  expected_source_hash.size());
-
-  if (fd_utils::ReadAndHashExtents(
-          source_ecc_fd_, operation.src_extents(), block_size_, &source_hash) &&
-      ValidateSourceHash(source_hash, operation, source_ecc_fd_, error)) {
-    // At this point reading from the the error corrected device worked, but
-    // reading from the raw device failed, so this is considered a recovered
-    // failure.
-    source_ecc_recovered_failures_++;
-    return source_ecc_fd_;
-  }
-  return nullptr;
+  return partition_writer_->PerformSourceCopyOperation(operation, error);
 }
 
 bool DeltaPerformer::ExtentsToBsdiffPositionsString(
@@ -1379,110 +942,6 @@ bool DeltaPerformer::ExtentsToBsdiffPositionsString(
   return true;
 }
 
-bool DeltaPerformer::PerformBsdiffOperation(const InstallOperation& operation) {
-  // Since we delete data off the beginning of the buffer as we use it,
-  // the data we need should be exactly at the beginning of the buffer.
-  TEST_AND_RETURN_FALSE(buffer_offset_ == operation.data_offset());
-  TEST_AND_RETURN_FALSE(buffer_.size() >= operation.data_length());
-
-  string input_positions;
-  TEST_AND_RETURN_FALSE(ExtentsToBsdiffPositionsString(operation.src_extents(),
-                                                       block_size_,
-                                                       operation.src_length(),
-                                                       &input_positions));
-  string output_positions;
-  TEST_AND_RETURN_FALSE(ExtentsToBsdiffPositionsString(operation.dst_extents(),
-                                                       block_size_,
-                                                       operation.dst_length(),
-                                                       &output_positions));
-
-  TEST_AND_RETURN_FALSE(bsdiff::bspatch(target_path_.c_str(),
-                                        target_path_.c_str(),
-                                        buffer_.data(),
-                                        buffer_.size(),
-                                        input_positions.c_str(),
-                                        output_positions.c_str()) == 0);
-  DiscardBuffer(true, buffer_.size());
-
-  if (operation.dst_length() % block_size_) {
-    // Zero out rest of final block.
-    // TODO(adlr): build this into bspatch; it's more efficient that way.
-    const Extent& last_extent =
-        operation.dst_extents(operation.dst_extents_size() - 1);
-    const uint64_t end_byte =
-        (last_extent.start_block() + last_extent.num_blocks()) * block_size_;
-    const uint64_t begin_byte =
-        end_byte - (block_size_ - operation.dst_length() % block_size_);
-    brillo::Blob zeros(end_byte - begin_byte);
-    TEST_AND_RETURN_FALSE(utils::PWriteAll(
-        target_fd_, zeros.data(), end_byte - begin_byte, begin_byte));
-  }
-  return true;
-}
-
-namespace {
-
-class BsdiffExtentFile : public bsdiff::FileInterface {
- public:
-  BsdiffExtentFile(std::unique_ptr<ExtentReader> reader, size_t size)
-      : BsdiffExtentFile(std::move(reader), nullptr, size) {}
-  BsdiffExtentFile(std::unique_ptr<ExtentWriter> writer, size_t size)
-      : BsdiffExtentFile(nullptr, std::move(writer), size) {}
-
-  ~BsdiffExtentFile() override = default;
-
-  bool Read(void* buf, size_t count, size_t* bytes_read) override {
-    TEST_AND_RETURN_FALSE(reader_->Read(buf, count));
-    *bytes_read = count;
-    offset_ += count;
-    return true;
-  }
-
-  bool Write(const void* buf, size_t count, size_t* bytes_written) override {
-    TEST_AND_RETURN_FALSE(writer_->Write(buf, count));
-    *bytes_written = count;
-    offset_ += count;
-    return true;
-  }
-
-  bool Seek(off_t pos) override {
-    if (reader_ != nullptr) {
-      TEST_AND_RETURN_FALSE(reader_->Seek(pos));
-      offset_ = pos;
-    } else {
-      // For writes technically there should be no change of position, or it
-      // should be equivalent of current offset.
-      TEST_AND_RETURN_FALSE(offset_ == static_cast<uint64_t>(pos));
-    }
-    return true;
-  }
-
-  bool Close() override { return true; }
-
-  bool GetSize(uint64_t* size) override {
-    *size = size_;
-    return true;
-  }
-
- private:
-  BsdiffExtentFile(std::unique_ptr<ExtentReader> reader,
-                   std::unique_ptr<ExtentWriter> writer,
-                   size_t size)
-      : reader_(std::move(reader)),
-        writer_(std::move(writer)),
-        size_(size),
-        offset_(0) {}
-
-  std::unique_ptr<ExtentReader> reader_;
-  std::unique_ptr<ExtentWriter> writer_;
-  uint64_t size_;
-  uint64_t offset_;
-
-  DISALLOW_COPY_AND_ASSIGN(BsdiffExtentFile);
-};
-
-}  // namespace
-
 bool DeltaPerformer::PerformSourceBsdiffOperation(
     const InstallOperation& operation, ErrorCode* error) {
   // Since we delete data off the beginning of the buffer as we use it,
@@ -1494,105 +953,11 @@ bool DeltaPerformer::PerformSourceBsdiffOperation(
   if (operation.has_dst_length())
     TEST_AND_RETURN_FALSE(operation.dst_length() % block_size_ == 0);
 
-  FileDescriptorPtr source_fd = ChooseSourceFD(operation, error);
-  TEST_AND_RETURN_FALSE(source_fd != nullptr);
-
-  auto reader = std::make_unique<DirectExtentReader>();
-  TEST_AND_RETURN_FALSE(
-      reader->Init(source_fd, operation.src_extents(), block_size_));
-  auto src_file = std::make_unique<BsdiffExtentFile>(
-      std::move(reader),
-      utils::BlocksInExtents(operation.src_extents()) * block_size_);
-
-  auto writer = std::make_unique<DirectExtentWriter>();
-  TEST_AND_RETURN_FALSE(
-      writer->Init(target_fd_, operation.dst_extents(), block_size_));
-  auto dst_file = std::make_unique<BsdiffExtentFile>(
-      std::move(writer),
-      utils::BlocksInExtents(operation.dst_extents()) * block_size_);
-
-  TEST_AND_RETURN_FALSE(bsdiff::bspatch(std::move(src_file),
-                                        std::move(dst_file),
-                                        buffer_.data(),
-                                        buffer_.size()) == 0);
+  TEST_AND_RETURN_FALSE(partition_writer_->PerformSourceBsdiffOperation(
+      operation, error, buffer_.data(), buffer_.size()));
   DiscardBuffer(true, buffer_.size());
   return true;
 }
-
-namespace {
-
-// A class to be passed to |puffpatch| for reading from |source_fd_| and writing
-// into |target_fd_|.
-class PuffinExtentStream : public puffin::StreamInterface {
- public:
-  // Constructor for creating a stream for reading from an |ExtentReader|.
-  PuffinExtentStream(std::unique_ptr<ExtentReader> reader, uint64_t size)
-      : PuffinExtentStream(std::move(reader), nullptr, size) {}
-
-  // Constructor for creating a stream for writing to an |ExtentWriter|.
-  PuffinExtentStream(std::unique_ptr<ExtentWriter> writer, uint64_t size)
-      : PuffinExtentStream(nullptr, std::move(writer), size) {}
-
-  ~PuffinExtentStream() override = default;
-
-  bool GetSize(uint64_t* size) const override {
-    *size = size_;
-    return true;
-  }
-
-  bool GetOffset(uint64_t* offset) const override {
-    *offset = offset_;
-    return true;
-  }
-
-  bool Seek(uint64_t offset) override {
-    if (is_read_) {
-      TEST_AND_RETURN_FALSE(reader_->Seek(offset));
-      offset_ = offset;
-    } else {
-      // For writes technically there should be no change of position, or it
-      // should equivalent of current offset.
-      TEST_AND_RETURN_FALSE(offset_ == offset);
-    }
-    return true;
-  }
-
-  bool Read(void* buffer, size_t count) override {
-    TEST_AND_RETURN_FALSE(is_read_);
-    TEST_AND_RETURN_FALSE(reader_->Read(buffer, count));
-    offset_ += count;
-    return true;
-  }
-
-  bool Write(const void* buffer, size_t count) override {
-    TEST_AND_RETURN_FALSE(!is_read_);
-    TEST_AND_RETURN_FALSE(writer_->Write(buffer, count));
-    offset_ += count;
-    return true;
-  }
-
-  bool Close() override { return true; }
-
- private:
-  PuffinExtentStream(std::unique_ptr<ExtentReader> reader,
-                     std::unique_ptr<ExtentWriter> writer,
-                     uint64_t size)
-      : reader_(std::move(reader)),
-        writer_(std::move(writer)),
-        size_(size),
-        offset_(0),
-        is_read_(reader_ ? true : false) {}
-
-  std::unique_ptr<ExtentReader> reader_;
-  std::unique_ptr<ExtentWriter> writer_;
-  uint64_t size_;
-  uint64_t offset_;
-  bool is_read_;
-
-  DISALLOW_COPY_AND_ASSIGN(PuffinExtentStream);
-};
-
-}  // namespace
 
 bool DeltaPerformer::PerformPuffDiffOperation(const InstallOperation& operation,
                                               ErrorCode* error) {
@@ -1600,44 +965,9 @@ bool DeltaPerformer::PerformPuffDiffOperation(const InstallOperation& operation,
   // the data we need should be exactly at the beginning of the buffer.
   TEST_AND_RETURN_FALSE(buffer_offset_ == operation.data_offset());
   TEST_AND_RETURN_FALSE(buffer_.size() >= operation.data_length());
-
-  FileDescriptorPtr source_fd = ChooseSourceFD(operation, error);
-  TEST_AND_RETURN_FALSE(source_fd != nullptr);
-
-  auto reader = std::make_unique<DirectExtentReader>();
-  TEST_AND_RETURN_FALSE(
-      reader->Init(source_fd, operation.src_extents(), block_size_));
-  puffin::UniqueStreamPtr src_stream(new PuffinExtentStream(
-      std::move(reader),
-      utils::BlocksInExtents(operation.src_extents()) * block_size_));
-
-  auto writer = std::make_unique<DirectExtentWriter>();
-  TEST_AND_RETURN_FALSE(
-      writer->Init(target_fd_, operation.dst_extents(), block_size_));
-  puffin::UniqueStreamPtr dst_stream(new PuffinExtentStream(
-      std::move(writer),
-      utils::BlocksInExtents(operation.dst_extents()) * block_size_));
-
-  const size_t kMaxCacheSize = 5 * 1024 * 1024;  // Total 5MB cache.
-  TEST_AND_RETURN_FALSE(puffin::PuffPatch(std::move(src_stream),
-                                          std::move(dst_stream),
-                                          buffer_.data(),
-                                          buffer_.size(),
-                                          kMaxCacheSize));
+  TEST_AND_RETURN_FALSE(partition_writer_->PerformPuffDiffOperation(
+      operation, error, buffer_.data(), buffer_.size()));
   DiscardBuffer(true, buffer_.size());
-  return true;
-}
-
-bool DeltaPerformer::ExtractSignatureMessageFromOperation(
-    const InstallOperation& operation) {
-  if (operation.type() != InstallOperation::REPLACE ||
-      !manifest_.has_signatures_offset() ||
-      manifest_.signatures_offset() != operation.data_offset()) {
-    return false;
-  }
-  TEST_AND_RETURN_FALSE(manifest_.has_signatures_size() &&
-                        manifest_.signatures_size() == operation.data_length());
-  TEST_AND_RETURN_FALSE(ExtractSignatureMessage());
   return true;
 }
 
@@ -1647,20 +977,6 @@ bool DeltaPerformer::ExtractSignatureMessage() {
   TEST_AND_RETURN_FALSE(buffer_.size() >= manifest_.signatures_size());
   signatures_message_data_.assign(
       buffer_.begin(), buffer_.begin() + manifest_.signatures_size());
-
-  // Save the signature blob because if the update is interrupted after the
-  // download phase we don't go through this path anymore. Some alternatives to
-  // consider:
-  //
-  // 1. On resume, re-download the signature blob from the server and re-verify
-  // it.
-  //
-  // 2. Verify the signature as soon as it's received and don't checkpoint the
-  // blob and the signed sha-256 context.
-  LOG_IF(WARNING,
-         !prefs_->SetString(kPrefsUpdateStateSignatureBlob,
-                            signatures_message_data_))
-      << "Unable to store the signature blob.";
 
   LOG(INFO) << "Extracted signature data of size "
             << manifest_.signatures_size() << " at "
@@ -1676,8 +992,8 @@ bool DeltaPerformer::GetPublicKey(string* out_public_key) {
     return utils::ReadFile(public_key_path_, out_public_key);
   }
 
-  // If this is an official build then we are not allowed to use public key from
-  // Omaha response.
+  // If this is an official build then we are not allowed to use public key
+  // from Omaha response.
   if (!hardware_->IsOfficialBuild() && !install_plan_->public_key_rsa.empty()) {
     LOG(INFO) << "Verifying using public key from Omaha response.";
     return brillo::data_encoding::Base64Decode(install_plan_->public_key_rsa,
@@ -1710,19 +1026,21 @@ DeltaPerformer::CreatePayloadVerifier() {
 }
 
 ErrorCode DeltaPerformer::ValidateManifest() {
-  // Perform assorted checks to sanity check the manifest, make sure it
+  // Perform assorted checks to validation check the manifest, make sure it
   // matches data from other sources, and that it is a supported version.
-
-  bool has_old_fields =
-      (manifest_.has_old_kernel_info() || manifest_.has_old_rootfs_info());
-  for (const PartitionUpdate& partition : manifest_.partitions()) {
-    has_old_fields = has_old_fields || partition.has_old_partition_info();
-  }
+  bool has_old_fields = std::any_of(manifest_.partitions().begin(),
+                                    manifest_.partitions().end(),
+                                    [](const PartitionUpdate& partition) {
+                                      return partition.has_old_partition_info();
+                                    });
 
   // The presence of an old partition hash is the sole indicator for a delta
-  // update.
+  // update. Also, always treat the partial update as delta so that we can
+  // perform the minor version check correctly.
   InstallPayloadType actual_payload_type =
-      has_old_fields ? InstallPayloadType::kDelta : InstallPayloadType::kFull;
+      (has_old_fields || manifest_.partial_update())
+          ? InstallPayloadType::kDelta
+          : InstallPayloadType::kFull;
 
   if (payload_->type == InstallPayloadType::kUnknown) {
     LOG(INFO) << "Detected a '"
@@ -1737,8 +1055,8 @@ ErrorCode DeltaPerformer::ValidateManifest() {
                << "' payload.";
     return ErrorCode::kPayloadMismatchedType;
   }
-
   // Check that the minor version is compatible.
+  // TODO(xunchang) increment minor version & add check for partial update
   if (actual_payload_type == InstallPayloadType::kFull) {
     if (manifest_.minor_version() != kFullPayloadMinorVersion) {
       LOG(ERROR) << "Manifest contains minor version "
@@ -1759,43 +1077,114 @@ ErrorCode DeltaPerformer::ValidateManifest() {
     }
   }
 
-  if (major_payload_version_ != kChromeOSMajorPayloadVersion) {
-    if (manifest_.has_old_rootfs_info() || manifest_.has_new_rootfs_info() ||
-        manifest_.has_old_kernel_info() || manifest_.has_new_kernel_info() ||
-        manifest_.install_operations_size() != 0 ||
-        manifest_.kernel_install_operations_size() != 0) {
-      LOG(ERROR) << "Manifest contains deprecated field only supported in "
-                 << "major payload version 1, but the payload major version is "
-                 << major_payload_version_;
-      return ErrorCode::kPayloadMismatchedType;
+  ErrorCode error_code = CheckTimestampError();
+  if (error_code != ErrorCode::kSuccess) {
+    if (error_code == ErrorCode::kPayloadTimestampError) {
+      if (!hardware_->AllowDowngrade()) {
+        return ErrorCode::kPayloadTimestampError;
+      }
+      LOG(INFO) << "The current OS build allows downgrade, continuing to apply"
+                   " the payload with an older timestamp.";
+    } else {
+      LOG(ERROR) << "Timestamp check returned "
+                 << utils::ErrorCodeToString(error_code);
+      return error_code;
     }
   }
 
+  // TODO(crbug.com/37661) we should be adding more and more manifest checks,
+  // such as partition boundaries, etc.
+
+  return ErrorCode::kSuccess;
+}
+
+ErrorCode DeltaPerformer::CheckTimestampError() const {
+  bool is_partial_update =
+      manifest_.has_partial_update() && manifest_.partial_update();
+  const auto& partitions = manifest_.partitions();
+
+  // Check version field for a given PartitionUpdate object. If an error
+  // is encountered, set |error_code| accordingly. If downgrade is detected,
+  // |downgrade_detected| is set. Return true if the program should continue
+  // to check the next partition or not, or false if it should exit early due
+  // to errors.
+  auto&& timestamp_valid = [this](const PartitionUpdate& partition,
+                                  bool allow_empty_version,
+                                  bool* downgrade_detected) -> ErrorCode {
+    const auto& partition_name = partition.partition_name();
+    if (!partition.has_version()) {
+      if (hardware_->GetVersionForLogging(partition_name).empty()) {
+        LOG(INFO) << partition_name << " does't have version, skipping "
+                  << "downgrade check.";
+        return ErrorCode::kSuccess;
+      }
+
+      if (allow_empty_version) {
+        return ErrorCode::kSuccess;
+      }
+      LOG(ERROR)
+          << "PartitionUpdate " << partition_name
+          << " doesn't have a version field. Not allowed in partial updates.";
+      return ErrorCode::kDownloadManifestParseError;
+    }
+
+    auto error_code =
+        hardware_->IsPartitionUpdateValid(partition_name, partition.version());
+    switch (error_code) {
+      case ErrorCode::kSuccess:
+        break;
+      case ErrorCode::kPayloadTimestampError:
+        *downgrade_detected = true;
+        LOG(WARNING) << "PartitionUpdate " << partition_name
+                     << " has an older version than partition on device.";
+        break;
+      default:
+        LOG(ERROR) << "IsPartitionUpdateValid(" << partition_name
+                   << ") returned" << utils::ErrorCodeToString(error_code);
+        break;
+    }
+    return error_code;
+  };
+
+  bool downgrade_detected = false;
+
+  if (is_partial_update) {
+    // for partial updates, all partition MUST have valid timestamps
+    // But max_timestamp can be empty
+    for (const auto& partition : partitions) {
+      auto error_code = timestamp_valid(
+          partition, false /* allow_empty_version */, &downgrade_detected);
+      if (error_code != ErrorCode::kSuccess &&
+          error_code != ErrorCode::kPayloadTimestampError) {
+        return error_code;
+      }
+    }
+    if (downgrade_detected) {
+      return ErrorCode::kPayloadTimestampError;
+    }
+    return ErrorCode::kSuccess;
+  }
+
+  // For non-partial updates, check max_timestamp first.
   if (manifest_.max_timestamp() < hardware_->GetBuildTimestamp()) {
     LOG(ERROR) << "The current OS build timestamp ("
                << hardware_->GetBuildTimestamp()
                << ") is newer than the maximum timestamp in the manifest ("
                << manifest_.max_timestamp() << ")";
-    if (!hardware_->AllowDowngrade()) {
-      return ErrorCode::kPayloadTimestampError;
-    }
-    LOG(INFO) << "The current OS build allows downgrade, continuing to apply"
-                 " the payload with an older timestamp.";
+    return ErrorCode::kPayloadTimestampError;
   }
-
-  if (major_payload_version_ == kChromeOSMajorPayloadVersion) {
-    if (manifest_.has_dynamic_partition_metadata()) {
-      LOG(ERROR)
-          << "Should not contain dynamic_partition_metadata for major version "
-          << kChromeOSMajorPayloadVersion
-          << ". Please use major version 2 or above.";
-      return ErrorCode::kPayloadMismatchedType;
+  // Otherwise... partitions can have empty timestamps.
+  for (const auto& partition : partitions) {
+    auto error_code = timestamp_valid(
+        partition, true /* allow_empty_version */, &downgrade_detected);
+    if (error_code != ErrorCode::kSuccess &&
+        error_code != ErrorCode::kPayloadTimestampError) {
+      return error_code;
     }
   }
-
-  // TODO(garnold) we should be adding more and more manifest checks, such as
-  // partition boundaries etc (see chromium-os:37661).
-
+  if (downgrade_detected) {
+    return ErrorCode::kPayloadTimestampError;
+  }
   return ErrorCode::kSuccess;
 }
 
@@ -1803,10 +1192,11 @@ ErrorCode DeltaPerformer::ValidateOperationHash(
     const InstallOperation& operation) {
   if (!operation.data_sha256_hash().size()) {
     if (!operation.data_length()) {
-      // Operations that do not have any data blob won't have any operation hash
-      // either. So, these operations are always considered validated since the
-      // metadata that contains all the non-data-blob portions of the operation
-      // has already been validated. This is true for both HTTP and HTTPS cases.
+      // Operations that do not have any data blob won't have any operation
+      // hash either. So, these operations are always considered validated
+      // since the metadata that contains all the non-data-blob portions of
+      // the operation has already been validated. This is true for both HTTP
+      // and HTTPS cases.
       return ErrorCode::kSuccess;
     }
 
@@ -1815,7 +1205,7 @@ ErrorCode DeltaPerformer::ValidateOperationHash(
     // corresponding update should have been produced with the operation
     // hashes. So if it happens it means either we've turned operation hash
     // generation off in DeltaDiffGenerator or it's a regression of some sort.
-    // One caveat though: The last operation is a dummy signature operation
+    // One caveat though: The last operation is a unused signature operation
     // that doesn't have a hash at the time the manifest is created. So we
     // should not complaint about that operation. This operation can be
     // recognized by the fact that it's offset is mentioned in the manifest.
@@ -1890,12 +1280,7 @@ ErrorCode DeltaPerformer::VerifyPayload(
       ErrorCode::kPayloadHashMismatchError,
       payload_hash_calculator_.raw_hash() == update_check_response_hash);
 
-  TEST_AND_RETURN_VAL(ErrorCode::kSignedDeltaPayloadExpectedError,
-                      !signatures_message_data_.empty());
-  brillo::Blob hash_data = signed_hash_calculator_.raw_hash();
-  TEST_AND_RETURN_VAL(ErrorCode::kDownloadPayloadPubKeyVerificationError,
-                      hash_data.size() == kSHA256Size);
-
+  // NOLINTNEXTLINE(whitespace/braces)
   auto [payload_verifier, perform_verification] = CreatePayloadVerifier();
   if (!perform_verification) {
     LOG(WARNING) << "Not verifying signed delta payload -- missing public key.";
@@ -1905,6 +1290,13 @@ ErrorCode DeltaPerformer::VerifyPayload(
     LOG(ERROR) << "Failed to create the payload verifier.";
     return ErrorCode::kDownloadPayloadPubKeyVerificationError;
   }
+
+  TEST_AND_RETURN_VAL(ErrorCode::kSignedDeltaPayloadExpectedError,
+                      !signatures_message_data_.empty());
+  brillo::Blob hash_data = signed_hash_calculator_.raw_hash();
+  TEST_AND_RETURN_VAL(ErrorCode::kDownloadPayloadPubKeyVerificationError,
+                      hash_data.size() == kSHA256Size);
+
   if (!payload_verifier->VerifySignature(signatures_message_data_, hash_data)) {
     // The autoupdate_CatchBadSignatures test checks for this string
     // in log-files. Keep in sync.
@@ -1944,13 +1336,13 @@ bool DeltaPerformer::CanResumeUpdate(PrefsInterface* prefs,
     return false;
 
   int64_t resumed_update_failures;
-  // Note that storing this value is optional, but if it is there it should not
-  // be more than the limit.
+  // Note that storing this value is optional, but if it is there it should
+  // not be more than the limit.
   if (prefs->GetInt64(kPrefsResumedUpdateFailures, &resumed_update_failures) &&
       resumed_update_failures > kMaxResumedUpdateFailures)
     return false;
 
-  // Sanity check the rest.
+  // Validation check the rest.
   int64_t next_data_offset = -1;
   if (!(prefs->GetInt64(kPrefsUpdateStateNextDataOffset, &next_data_offset) &&
         next_data_offset >= 0))
@@ -2001,18 +1393,38 @@ bool DeltaPerformer::ResetUpdateProgress(
   return true;
 }
 
-bool DeltaPerformer::CheckpointUpdateProgress(bool force) {
+bool DeltaPerformer::ShouldCheckpoint() {
   base::TimeTicks curr_time = base::TimeTicks::Now();
-  if (force || curr_time > update_checkpoint_time_) {
+  if (curr_time > update_checkpoint_time_) {
     update_checkpoint_time_ = curr_time + update_checkpoint_wait_;
-  } else {
+    return true;
+  }
+  return false;
+}
+
+bool DeltaPerformer::CheckpointUpdateProgress(bool force) {
+  if (!force && !ShouldCheckpoint()) {
     return false;
   }
-
   Terminator::set_exit_blocked(true);
-  if (last_updated_buffer_offset_ != buffer_offset_) {
+  if (last_updated_operation_num_ != next_operation_num_ || force) {
     // Resets the progress in case we die in the middle of the state update.
     ResetUpdateProgress(prefs_, true);
+    if (!signatures_message_data_.empty()) {
+      // Save the signature blob because if the update is interrupted after the
+      // download phase we don't go through this path anymore. Some alternatives
+      // to consider:
+      //
+      // 1. On resume, re-download the signature blob from the server and
+      // re-verify it.
+      //
+      // 2. Verify the signature as soon as it's received and don't checkpoint
+      // the blob and the signed sha-256 context.
+      LOG_IF(WARNING,
+             !prefs_->SetString(kPrefsUpdateStateSignatureBlob,
+                                signatures_message_data_))
+          << "Unable to store the signature blob.";
+    }
     TEST_AND_RETURN_FALSE(prefs_->SetString(
         kPrefsUpdateStateSHA256Context, payload_hash_calculator_.GetContext()));
     TEST_AND_RETURN_FALSE(
@@ -2020,12 +1432,13 @@ bool DeltaPerformer::CheckpointUpdateProgress(bool force) {
                           signed_hash_calculator_.GetContext()));
     TEST_AND_RETURN_FALSE(
         prefs_->SetInt64(kPrefsUpdateStateNextDataOffset, buffer_offset_));
-    last_updated_buffer_offset_ = buffer_offset_;
+    last_updated_operation_num_ = next_operation_num_;
 
     if (next_operation_num_ < num_total_operations_) {
       size_t partition_index = current_partition_;
-      while (next_operation_num_ >= acc_num_operations_[partition_index])
+      while (next_operation_num_ >= acc_num_operations_[partition_index]) {
         partition_index++;
+      }
       const size_t partition_operation_num =
           next_operation_num_ -
           (partition_index ? acc_num_operations_[partition_index - 1] : 0);
@@ -2036,6 +1449,14 @@ bool DeltaPerformer::CheckpointUpdateProgress(bool force) {
     } else {
       TEST_AND_RETURN_FALSE(
           prefs_->SetInt64(kPrefsUpdateStateNextDataLength, 0));
+    }
+    if (partition_writer_) {
+      partition_writer_->CheckpointUpdateProgress(GetPartitionOperationNum());
+    } else {
+      CHECK_EQ(next_operation_num_, num_total_operations_)
+          << "Partition writer is null, we are expected to finish all "
+             "operations: "
+          << next_operation_num_ << "/" << num_total_operations_;
     }
   }
   TEST_AND_RETURN_FALSE(
@@ -2102,6 +1523,28 @@ bool DeltaPerformer::PrimeUpdateState() {
   }
   prefs_->SetInt64(kPrefsResumedUpdateFailures, resumed_update_failures);
   return true;
+}
+
+bool DeltaPerformer::IsDynamicPartition(const std::string& part_name,
+                                        uint32_t slot) {
+  return boot_control_->GetDynamicPartitionControl()->IsDynamicPartition(
+      part_name, slot);
+}
+
+std::unique_ptr<PartitionWriter> DeltaPerformer::CreatePartitionWriter(
+    const PartitionUpdate& partition_update,
+    const InstallPlan::Partition& install_part,
+    DynamicPartitionControlInterface* dynamic_control,
+    size_t block_size,
+    bool is_interactive,
+    bool is_dynamic_partition) {
+  return partition_writer::CreatePartitionWriter(
+      partition_update,
+      install_part,
+      dynamic_control,
+      block_size_,
+      interactive_,
+      IsDynamicPartition(install_part.name, install_plan_->target_slot));
 }
 
 }  // namespace chromeos_update_engine

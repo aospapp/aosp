@@ -24,7 +24,7 @@ struct nl_sock;
 struct taskstats;
 
 class TaskStatistics {
-public:
+ public:
   explicit TaskStatistics(const taskstats&);
   TaskStatistics() = default;
   TaskStatistics(const TaskStatistics&) = default;
@@ -48,7 +48,7 @@ public:
 
   void set_pid(pid_t pid) { pid_ = pid; }
 
-private:
+ private:
   std::string comm_;
   uid_t uid_;
   gid_t gid_;
@@ -84,17 +84,18 @@ private:
 };
 
 class TaskstatsSocket {
-public:
+ public:
   TaskstatsSocket();
   bool Open();
   void Close();
 
   bool GetPidStats(int, TaskStatistics&);
   bool GetTgidStats(int, TaskStatistics&);
-private:
+
+ private:
   bool GetStats(int, int, TaskStatistics& stats);
-  std::unique_ptr<nl_sock, void(*)(nl_sock*)> nl_;
+  std::unique_ptr<nl_sock, void (*)(nl_sock*)> nl_;
   int family_id_;
 };
 
-#endif // _IOTOP_TASKSTATS_H
+#endif  // _IOTOP_TASKSTATS_H

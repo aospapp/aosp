@@ -45,8 +45,9 @@ LOCAL_GENERATED_SOURCES += \
 	$(MESA_GEN_GLSL_H)
 
 LOCAL_MODULE := libmesa_compiler
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)
-
-

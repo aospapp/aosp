@@ -18,8 +18,8 @@ package com.android.layoutlib.bridge.impl;
 
 import com.android.ide.common.rendering.api.AdapterBinding;
 import com.android.ide.common.rendering.api.HardwareConfig;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.ILayoutPullParser;
-import com.android.ide.common.rendering.api.LayoutLog;
 import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.ide.common.rendering.api.RenderSession;
 import com.android.ide.common.rendering.api.ResourceReference;
@@ -46,16 +46,14 @@ import com.android.layoutlib.bridge.android.support.FragmentTabHostUtil;
 import com.android.layoutlib.bridge.android.support.SupportPreferencesUtil;
 import com.android.layoutlib.bridge.impl.binding.FakeAdapter;
 import com.android.layoutlib.bridge.impl.binding.FakeExpandableAdapter;
-import com.android.tools.layoutlib.java.System_Delegate;
-import com.android.tools.idea.validator.ValidatorResult;
 import com.android.tools.idea.validator.LayoutValidator;
 import com.android.tools.idea.validator.ValidatorResult;
 import com.android.tools.idea.validator.ValidatorResult.Builder;
-import com.android.util.Pair;
+import com.android.tools.layoutlib.java.System_Delegate;
+import com.android.utils.Pair;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
-import android.app.Fragment_Delegate;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap_Delegate;
 import android.graphics.Canvas;
@@ -93,6 +91,8 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.google.android.apps.common.testing.accessibility.framework.uielement.AccessibilityHierarchyAndroid_ViewElementClassNamesAndroid_Delegate;
+
 import static com.android.ide.common.rendering.api.Result.Status.ERROR_INFLATION;
 import static com.android.ide.common.rendering.api.Result.Status.ERROR_NOT_INFLATED;
 import static com.android.ide.common.rendering.api.Result.Status.ERROR_UNKNOWN;
@@ -119,7 +119,6 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
     private Canvas mCanvas;
     private int mMeasuredScreenWidth = -1;
     private int mMeasuredScreenHeight = -1;
-    private boolean mIsAlphaChannelImage;
     /** If >= 0, a frame will be executed */
     private long mElapsedFrameTimeNanos = -1;
     /** True if one frame has been already executed to start the animations */
@@ -175,11 +174,6 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
         SessionParams params = getParams();
         BridgeContext context = getContext();
 
-        // use default of true in case it's not found to use alpha by default
-        mIsAlphaChannelImage =
-                ResourceHelper.getBooleanThemeFrameworkAttrValue(params.getResources(),
-                        "windowIsFloating", true);
-
         mLayoutBuilder = new Layout.Builder(params, context);
 
         // build the inflater and parser.
@@ -209,10 +203,10 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
         mMeasuredScreenHeight = hardwareConfig.getScreenHeight();
 
         if (renderingMode != RenderingMode.NORMAL) {
-            int widthMeasureSpecMode = renderingMode.isHorizExpand() ?
+            int widthMeasureSpecMode = renderingMode.getHorizAction() == SizeAction.EXPAND ?
                     MeasureSpec.UNSPECIFIED // this lets us know the actual needed size
                     : MeasureSpec.EXACTLY;
-            int heightMeasureSpecMode = renderingMode.isVertExpand() ?
+            int heightMeasureSpecMode = renderingMode.getVertAction() == SizeAction.EXPAND ?
                     MeasureSpec.UNSPECIFIED // this lets us know the actual needed size
                     : MeasureSpec.EXACTLY;
 
@@ -233,7 +227,6 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
 
             // first measure the full layout, with EXACTLY to get the size of the
             // content as it is inside the decor/dialog
-            @SuppressWarnings("deprecation")
             Pair<Integer, Integer> exactMeasure = measureView(
                     mViewRoot, measuredView,
                     mMeasuredScreenWidth, MeasureSpec.EXACTLY,
@@ -241,7 +234,6 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
 
             // now measure the content only using UNSPECIFIED (where applicable, based on
             // the rendering mode). This will give us the size the content needs.
-            @SuppressWarnings("deprecation")
             Pair<Integer, Integer> neededMeasure = measureView(
                     mContentRoot, mContentRoot.getChildAt(0),
                     mMeasuredScreenWidth, widthMeasureSpecMode,
@@ -303,14 +295,14 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
 
             if (Bridge.isLocaleRtl(params.getLocale())) {
                 if (!params.isRtlSupported()) {
-                    Bridge.getLog().warning(LayoutLog.TAG_RTL_NOT_ENABLED,
+                    Bridge.getLog().warning(ILayoutLog.TAG_RTL_NOT_ENABLED,
                             "You are using a right-to-left " +
                                     "(RTL) locale but RTL is not enabled", null, null);
                 } else if (params.getSimulatedPlatformVersion() !=0 &&
                         params.getSimulatedPlatformVersion() < 17) {
                     // This will render ok because we are using the latest layoutlib but at least
                     // warn the user that this might fail in a real device.
-                    Bridge.getLog().warning(LayoutLog.TAG_RTL_NOT_SUPPORTED, "You are using a " +
+                    Bridge.getLog().warning(ILayoutLog.TAG_RTL_NOT_SUPPORTED, "You are using a " +
                             "right-to-left " +
                             "(RTL) locale but RTL is not supported for API level < 17", null, null);
                 }
@@ -505,11 +497,11 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
                         newImage = true;
                     }
 
-                    if (params.isBgColorOverridden()) {
+                    if (params.isTransparentBackground()) {
                         // since we override the content, it's the same as if it was a new image.
                         newImage = true;
                         Graphics2D gc = mImage.createGraphics();
-                        gc.setColor(new Color(params.getOverrideBgColor(), true));
+                        gc.setColor(new Color(0, true));
                         gc.setComposite(AlphaComposite.Src);
                         gc.fillRect(0, 0, mMeasuredScreenWidth, mMeasuredScreenHeight);
                         gc.dispose();
@@ -580,6 +572,9 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
                          params.getFlag(RenderParamsFlags.FLAG_ENABLE_LAYOUT_VALIDATOR_IMAGE_CHECK));
 
                 if (enableLayoutValidation && !getViewInfos().isEmpty()) {
+                    AccessibilityHierarchyAndroid_ViewElementClassNamesAndroid_Delegate.sLayoutlibCallback =
+                            getContext().getLayoutlibCallback();
+
                     BufferedImage imageToPass =
                             enableLayoutValidationImageCheck ? getImage() : null;
                     ValidatorResult validatorResult =
@@ -590,6 +585,8 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
                 ValidatorResult.Builder builder = new Builder();
                 builder.mMetric.mErrorMessage = e.getMessage();
                 setValidatorResult(builder.build());
+            } finally {
+                AccessibilityHierarchyAndroid_ViewElementClassNamesAndroid_Delegate.sLayoutlibCallback = null;
             }
 
             // success!
@@ -620,7 +617,6 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
      * @param heightMode the MeasureSpec mode to use for the height.
      * @return the measured width/height if measuredView is non-null, null otherwise.
      */
-    @SuppressWarnings("deprecation")  // For the use of Pair
     private static Pair<Integer, Integer> measureView(ViewGroup viewToMeasure, View measuredView,
             int width, int widthMode, int height, int heightMode) {
         int w_spec = MeasureSpec.makeMeasureSpec(width, widthMode);
@@ -644,7 +640,6 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
      * @param layoutlibCallback callback to the project.
      * @param skip the view and it's children are not processed.
      */
-    @SuppressWarnings("deprecation")  // For the use of Pair
     private void postInflateProcess(View view, LayoutlibCallback layoutlibCallback, View skip)
             throws PostInflateException {
         if (view == skip) {
@@ -872,7 +867,7 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
         }
 
         if (count == 0) {
-            // Create a dummy child to get a single tab
+            // Create a placeholder child to get a single tab
             TabSpec spec = tabHost.newTabSpec("tag")
                     .setIndicator("Tab Label", tabHost.getResources()
                             .getDrawable(android.R.drawable.ic_menu_info_details, null))
@@ -883,9 +878,7 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
             for (int i = 0 ; i < count ; i++) {
                 View child = content.getChildAt(i);
                 String tabSpec = String.format("tab_spec%d", i+1);
-                @SuppressWarnings("ConstantConditions")  // child cannot be null.
                 int id = child.getId();
-                @SuppressWarnings("deprecation")
                 ResourceReference resource = layoutlibCallback.resolveResourceId(id);
                 String name;
                 if (resource != null) {
@@ -1121,10 +1114,6 @@ public class RenderSessionImpl extends RenderAction<SessionParams> {
 
     public BufferedImage getImage() {
         return mImage;
-    }
-
-    public boolean isAlphaChannelImage() {
-        return mIsAlphaChannelImage;
     }
 
     public List<ViewInfo> getViewInfos() {

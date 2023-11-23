@@ -25,6 +25,7 @@ import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.nullable;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -32,9 +33,12 @@ import static org.mockito.Mockito.verify;
 import static java.util.Arrays.asList;
 
 import android.annotation.IntDef;
+import android.app.UiModeManager;
+import android.content.Context;
 import android.content.Intent;
 import android.hardware.radio.V1_5.IndicationFilter;
 import android.net.ConnectivityManager;
+import android.net.TetheringManager;
 import android.os.BatteryManager;
 import android.os.Message;
 import android.test.suitebuilder.annotation.MediumTest;
@@ -46,6 +50,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -127,6 +132,8 @@ public class DeviceStateMonitorTest extends TelephonyTest {
                 STATE_TYPE_CHARGING, STATE_TYPE_SCREEN, STATE_TYPE_TETHERING}
     );
 
+    @Mock
+    UiModeManager mUiModeManager;
     private DeviceStateMonitor mDSM;
     // Given a stateType, return the event type that can change the state
     private int state2Event(@StateType int stateType) {
@@ -154,6 +161,9 @@ public class DeviceStateMonitorTest extends TelephonyTest {
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
+        mContextFixture.setSystemService(Context.UI_MODE_SERVICE, mUiModeManager);
+        // We don't even need a mock executor, we just need to not throw.
+        doReturn(null).when(mContextFixture.getTestDouble()).getMainExecutor();
         mDSM = new DeviceStateMonitor(mPhone);
 
         // Initialize with ALL states off
@@ -241,7 +251,7 @@ public class DeviceStateMonitorTest extends TelephonyTest {
     @Test
     public void testTethering() {
         // Turn tethering on
-        Intent intent = new Intent(ConnectivityManager.ACTION_TETHER_STATE_CHANGED);
+        Intent intent = new Intent(TetheringManager.ACTION_TETHER_STATE_CHANGED);
         intent.putExtra(ConnectivityManager.EXTRA_ACTIVE_TETHER, new ArrayList<>(asList("abc")));
         mContext.sendBroadcast(intent);
         processAllMessages();

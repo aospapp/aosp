@@ -11,6 +11,7 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
+
 package com.google.common.collect;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -96,8 +97,8 @@ public class CompactLinkedHashMapTest extends TestCase {
     map.put(4, "b");
     map.put(3, "d");
     map.put(2, "c");
-    map.remove(3);
-    testHasMapEntriesInOrder(map, 1, "a", 4, "b", 2, "c");
+    map.remove(4);
+    testHasMapEntriesInOrder(map, 1, "a", 3, "d", 2, "c");
   }
 
   public void testInsertionOrderAfterRemoveLastEntry() {
@@ -139,6 +140,41 @@ public class CompactLinkedHashMapTest extends TestCase {
       assertEquals(expectedEntry, entries.get(i));
       assertEquals(expectedKey, keys.get(i));
       assertEquals(expectedValue, values.get(i));
+    }
+  }
+
+  public void testAllocArraysDefault() {
+    CompactLinkedHashMap<Integer, String> map = CompactLinkedHashMap.create();
+    assertThat(map.needsAllocArrays()).isTrue();
+    assertThat(map.entries).isNull();
+    assertThat(map.keys).isNull();
+    assertThat(map.values).isNull();
+    assertThat(map.links).isNull();
+
+    map.put(1, Integer.toString(1));
+    assertThat(map.needsAllocArrays()).isFalse();
+    assertThat(map.entries).hasLength(CompactHashing.DEFAULT_SIZE);
+    assertThat(map.keys).hasLength(CompactHashing.DEFAULT_SIZE);
+    assertThat(map.values).hasLength(CompactHashing.DEFAULT_SIZE);
+    assertThat(map.links).hasLength(CompactHashing.DEFAULT_SIZE);
+  }
+
+  public void testAllocArraysExpectedSize() {
+    for (int i = 0; i <= CompactHashing.DEFAULT_SIZE; i++) {
+      CompactLinkedHashMap<Integer, String> map = CompactLinkedHashMap.createWithExpectedSize(i);
+      assertThat(map.needsAllocArrays()).isTrue();
+      assertThat(map.entries).isNull();
+      assertThat(map.keys).isNull();
+      assertThat(map.values).isNull();
+      assertThat(map.links).isNull();
+
+      map.put(1, Integer.toString(1));
+      assertThat(map.needsAllocArrays()).isFalse();
+      int expectedSize = Math.max(1, i);
+      assertThat(map.entries).hasLength(expectedSize);
+      assertThat(map.keys).hasLength(expectedSize);
+      assertThat(map.values).hasLength(expectedSize);
+      assertThat(map.links).hasLength(expectedSize);
     }
   }
 }

@@ -20,6 +20,7 @@ import static com.android.tv.twopanelsettings.slices.SlicesConstants.BUTTONSTYLE
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.CHECKMARK;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.RADIO;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.SWITCH;
+import static com.android.tv.twopanelsettings.slices.SlicesConstants.SEEKBAR;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -177,6 +178,17 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
         return this;
     }
 
+
+    /**
+     * Set the redirected slice uri. Settings would render the slice from the redirected slice uri.
+     * @param redirectedSliceUri the redirected slice uri.
+     */
+    @NonNull
+    public PreferenceSliceBuilder setRedirectedSliceUri(@NonNull CharSequence redirectedSliceUri) {
+        mImpl.setRedirectedSliceUri(redirectedSliceUri);
+        return this;
+    }
+
     public static class RowBuilder {
 
         private final Uri mUri;
@@ -195,8 +207,10 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
         private CharSequence mSubtitle;
         private boolean mSubtitleLoading;
         private CharSequence mContentDescription;
-        private CharSequence mInfoText;
+        private CharSequence mInfoTitle;
+        private CharSequence mInfoSummary;
         private IconCompat mInfoImage;
+        private IconCompat mInfoTitleIcon;
         private int mLayoutDirection = -1;
         private List<Object> mEndItems = new ArrayList<>();
         private List<Integer> mEndTypes = new ArrayList<>();
@@ -207,9 +221,14 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
         private CharSequence mKey;
         private boolean mIconNeedsToBeProcessed;
         private @BUTTONSTYLE int mButtonStyle;
+        private int mSeekbarMin;
+        private int mSeekbarMax;
+        private int mSeekbarValue;
         private CharSequence mRadioGroup;
         private boolean mEnabled;
         private boolean mSelectable;
+        private boolean mAddInfoStatus;
+        private CharSequence mRedirectSliceUri;
 
         public static final int TYPE_ICON = 1;
         public static final int TYPE_ACTION = 2;
@@ -327,7 +346,7 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
         }
 
         /**
-         * Sets the information image for the preference builder.
+         * Set the information image for the preference builder.
          * The image would be displayed at the top of preview screen.
          */
         @NonNull
@@ -337,12 +356,56 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
         }
 
         /**
-         * Sets the information text for the preference builder.
-         * The image would be displayed at the top of preview screen.
+         * Set the information title icon for the preference builder.
+         * The icon will be displayed to the left of description text title
          */
         @NonNull
+        public RowBuilder setInfoTitleIcon(@NonNull IconCompat icon) {
+            mInfoTitleIcon = icon;
+            return this;
+        }
+
+        /**
+         * Set the information text for the preference builder.
+         */
+        @Deprecated
+        @NonNull
         public RowBuilder setInfoText(CharSequence text) {
-            mInfoText = text;
+            mInfoTitle = text;
+            return this;
+        }
+
+        /**
+         * Set the information text title for the preference builder.
+         *
+         * It is strongly recommended to also invoke setContentDescription() for a11y
+         * purposes. Please see setContentDescription() for more details.
+         */
+        @NonNull
+        public RowBuilder setInfoTitle(CharSequence text) {
+            mInfoTitle = text;
+            return this;
+        }
+
+        /**
+         * Set the information text summary for the preference builder.
+         *
+         * It is strongly recommended to also invoke setContentDescription() for a11y
+         * purposes. Please see setContentDescription() for more details.
+         */
+        @NonNull
+        public RowBuilder setInfoSummary(CharSequence text) {
+            mInfoSummary = text;
+            return this;
+        }
+
+        /**
+         * Set whether need to add info status. If set true, info status would be automatically
+         * generated based upon the on/off status of the switch.
+         */
+        @NonNull
+        public RowBuilder setAddInfoStatus(boolean addInfoStatus) {
+            mAddInfoStatus = addInfoStatus;
             return this;
         }
 
@@ -405,7 +468,7 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
             return this;
         }
 
-      /**
+        /**
          * Sets the title for the row builder. A title should fit on a single line and is ellipsized
          * if too long.
          */
@@ -575,6 +638,16 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
             return addEndItem(switchAction);
         }
 
+        public PreferenceSliceBuilder.RowBuilder addSeekBar(
+                PendingIntent pendingIntent, int min, int max, int value) {
+            SliceAction seekbarAction = new SliceAction(pendingIntent, "", false);
+            mButtonStyle = SEEKBAR;
+            mSeekbarMin = min;
+            mSeekbarMax = max;
+            mSeekbarValue = value;
+            return addEndItem(seekbarAction);
+        }
+
         /**
          * Adds an action to the end items of the row builder. A mixture of icons and actions is not
          * permitted. If an icon has already been added, this will throw {@link
@@ -609,6 +682,14 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
 
         /**
          * Sets the content description for the row.
+         *
+         * Although TvSettings will try to construct the content description to its best extent
+         * if it's not set, it is strongly recommended to invoke this method with info items
+         * folded in the content description for the Roy for a11y purposes, as the info items
+         * may be unfocusable when talkback is on.
+         *
+         * By default, this method will assign the full info item title and summary to the
+         * content description if one is not specified.
          */
         @NonNull
         public RowBuilder setContentDescription(@NonNull CharSequence description) {
@@ -725,6 +806,27 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
         }
 
         /**
+         *
+         */
+        public int getSeekbarMin() {
+            return mSeekbarMin;
+        }
+
+        /**
+         *
+         */
+        public int getSeekbarMax() {
+            return mSeekbarMax;
+        }
+
+        /**
+         *
+         */
+        public int getSeekbarValue() {
+            return mSeekbarValue;
+        }
+
+        /**
          * Get the target slice uri.
          */
         public CharSequence getTargetSliceUri() {
@@ -764,6 +866,10 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
             return mSelectable;
         }
 
+        public boolean addInfoStatus() {
+            return mAddInfoStatus;
+        }
+
         public boolean isTitleItemLoading() {
             return mTitleItemLoading;
         }
@@ -792,6 +898,10 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
             return mPageId;
         }
 
+        public CharSequence getRedirectSliceUri() {
+            return mRedirectSliceUri;
+        }
+
         public CharSequence getTitle() {
             return mTitle;
         }
@@ -817,11 +927,23 @@ public class PreferenceSliceBuilder extends TemplateSliceBuilder {
         }
 
         public CharSequence getInfoText() {
-            return mInfoText;
+            return mInfoTitle;
+        }
+
+        public CharSequence getInfoTitle() {
+            return mInfoTitle;
+        }
+
+        public CharSequence getInfoSummary() {
+            return mInfoSummary;
         }
 
         public IconCompat getInfoImage() {
             return mInfoImage;
+        }
+
+        public IconCompat getInfoTitleIcon() {
+            return mInfoTitleIcon;
         }
 
         public List<Object> getEndItems() {

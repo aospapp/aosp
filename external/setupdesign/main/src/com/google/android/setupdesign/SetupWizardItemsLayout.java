@@ -17,9 +17,9 @@
 package com.google.android.setupdesign;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 import android.widget.ListAdapter;
+import androidx.annotation.Nullable;
 import com.google.android.setupdesign.items.ItemAdapter;
 
 /** @deprecated Use {@link SetupWizardListLayout} instead. */

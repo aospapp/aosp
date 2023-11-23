@@ -13,14 +13,14 @@
 //===----------------------------------------------------------------------===//
 
 /* Capstone Disassembly Engine */
-/* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2014 */
+/* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2015 */
 
 #ifndef CS_SPARC_TARGET_SPARC_H
 #define CS_SPARC_TARGET_SPARC_H
 
-#include "../../include/sparc.h"
+#include "capstone/sparc.h"
 
-inline static char *SPARCCondCodeToString(sparc_cc CC)
+inline static const char *SPARCCondCodeToString(sparc_cc CC)
 {
 	switch (CC) {
 		default:	return NULL;	// unreachable

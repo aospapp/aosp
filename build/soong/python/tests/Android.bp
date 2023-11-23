@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 python_test_host {
     name: "par_test",
     main: "par_test.py",
@@ -19,7 +23,10 @@ python_test_host {
         "par_test.py",
         "testpkg/par_test.py",
     ],
-
+    // Is not implemented as a python unittest
+    test_options: {
+        unit_test: false,
+    },
     version: {
         py2: {
             enabled: true,
@@ -39,7 +46,10 @@ python_test_host {
         "par_test.py",
         "testpkg/par_test.py",
     ],
-
+    // Is not implemented as a python unittest
+    test_options: {
+        unit_test: false,
+    },
     version: {
         py3: {
             embedded_launcher: true,

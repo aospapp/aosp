@@ -1,4 +1,4 @@
-# Copyright © 2017 Intel Corporation
+# Copyright © 2017-2019 Intel Corporation
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,12 @@ files_libglx = files(
   'clientinfo.c',
   'compsize.c',
   'create_context.c',
+  'dri_common.c',
+  'dri_common.h',
+  'dri_common_query_renderer.c',
+  'dri_common_interop.c',
+  'drisw_glx.c',
+  'drisw_priv.h',
   'eval.c',
   'glxclient.h',
   'glxcmds.c',
@@ -64,26 +70,15 @@ files_libglx = files(
   'single2.c',
   'singlepix.c',
   'vertarr.c',
+  'xfont.c',
 )
 
 extra_libs_libglx = []
 extra_deps_libgl = []
 extra_ld_args_libgl = []
 
-if with_dri
-  files_libglx += files(
-    'dri_common.c',
-    'dri_common.h',
-    'dri_common_query_renderer.c',
-    'dri_common_interop.c',
-    'xfont.c',
-    'drisw_glx.c',
-    'drisw_priv.h',
-  )
-endif
-
 # dri2
-if with_dri and with_dri_platform == 'drm' and dep_libdrm.found()
+if with_dri_platform == 'drm' and dep_libdrm.found()
   files_libglx += files(
     'dri2.c',
     'dri2_glx.c',
@@ -139,16 +134,20 @@ gl_lib_cargs = [
 libglx = static_library(
   'glx',
   [files_libglx, glx_generated],
-  include_directories : [inc_common, inc_glapi, inc_loader],
+  include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_glapi, inc_loader],
   c_args : [
-    c_vis_args, gl_lib_cargs,
+    gl_lib_cargs,
     '-DGL_LIB_NAME="lib@0@.so.@1@"'.format(gl_lib_name, gl_lib_version.split('.')[0]),
   ],
+  gnu_symbol_visibility : 'hidden',
   link_with : [
-    libloader, libloader_dri3_helper, libmesa_util, libxmlconfig,
+    libloader, libloader_dri3_helper,
     extra_libs_libglx,
   ],
-  dependencies : [dep_libdrm, dep_dri2proto, dep_glproto, dep_x11, dep_glvnd],
+  dependencies : [
+    idep_mesautil, idep_xmlconfig,
+    dep_libdrm, dep_dri2proto, dep_glproto, dep_x11, dep_glvnd,
+  ],
 )
 
 libgl = shared_library(
@@ -160,7 +159,7 @@ libgl = shared_library(
   dependencies : [
     dep_libdrm, dep_dl, dep_m, dep_thread, dep_x11, dep_xcb_glx, dep_xcb,
     dep_x11_xcb, dep_xcb_dri2, dep_xext, dep_xfixes, dep_xdamage, dep_xxf86vm,
-    extra_deps_libgl,
+    dep_xcb_shm, extra_deps_libgl,
   ],
   version : gl_lib_version,
   install : true,

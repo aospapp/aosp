@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike.message;
+package com.android.internal.net.ipsec.test.ike.message;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import android.net.ipsec.test.ike.exceptions.InvalidMajorVersionException;
+import android.net.ipsec.test.ike.exceptions.InvalidSyntaxException;
+
 import com.android.internal.net.TestUtils;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidMajorVersionException;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidSyntaxException;
 
 import org.junit.Test;
 
@@ -105,7 +106,7 @@ public final class IkeHeaderTest {
                 IkeTestUtils.decodeAndVerifyUnprotectedErrorMsg(
                         inputPacket, InvalidMajorVersionException.class);
 
-        assertEquals(3, exception.getMajorVerion());
+        assertEquals(3, exception.getMajorVersion());
     }
 
     @Test

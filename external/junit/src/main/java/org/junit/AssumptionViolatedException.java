@@ -40,7 +40,7 @@ public class AssumptionViolatedException extends org.junit.internal.AssumptionVi
     /**
      * An assumption exception with the given message and a cause.
      */
-    public AssumptionViolatedException(String assumption, Throwable t) {
-        super(assumption, t);
+    public AssumptionViolatedException(String message, Throwable t) {
+        super(message, t);
     }
 }

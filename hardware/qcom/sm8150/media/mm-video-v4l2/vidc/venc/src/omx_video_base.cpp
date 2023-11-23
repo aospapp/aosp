@@ -3696,6 +3696,8 @@ OMX_ERRORTYPE  omx_video::allocate_output_buffer(
                     m_pOutput_pmem[i].buffer = malloc(sizeof(output_metabuffer));
                     if (m_pOutput_pmem[i].buffer == NULL) {
                         DEBUG_PRINT_ERROR("%s: Failed to allocate meta buffer", __func__);
+                        native_handle_close(handle);
+                        native_handle_delete(handle);
                         return OMX_ErrorInsufficientResources;
                     }
                     (*bufferHdr)->nAllocLen = sizeof(output_metabuffer);

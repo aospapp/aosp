@@ -31,11 +31,13 @@
 namespace keymaster {
 
 keymaster_error_t SymmetricKeyFactory::GenerateKey(const AuthorizationSet& key_description,
+                                                   UniquePtr<Key> /* attest_key */,
+                                                   const KeymasterBlob& /* issuer_subject */,
                                                    KeymasterKeyBlob* key_blob,
                                                    AuthorizationSet* hw_enforced,
-                                                   AuthorizationSet* sw_enforced) const {
-    if (!key_blob || !hw_enforced || !sw_enforced)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+                                                   AuthorizationSet* sw_enforced,
+                                                   CertificateChain* /* cert_chain */) const {
+    if (!key_blob || !hw_enforced || !sw_enforced) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     uint32_t key_size_bits;
     if (!key_description.GetTagValue(TAG_KEY_SIZE, &key_size_bits) ||
@@ -43,13 +45,11 @@ keymaster_error_t SymmetricKeyFactory::GenerateKey(const AuthorizationSet& key_d
         return KM_ERROR_UNSUPPORTED_KEY_SIZE;
 
     keymaster_error_t error = validate_algorithm_specific_new_key_params(key_description);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
     size_t key_data_size = key_size_bytes(key_size_bits);
     KeymasterKeyBlob key_material(key_data_size);
-    if (!key_material.key_material)
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    if (!key_material.key_material) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     error = random_source_.GenerateRandom(key_material.writable_data(), key_data_size);
     if (error != KM_ERROR_OK) {
@@ -61,14 +61,16 @@ keymaster_error_t SymmetricKeyFactory::GenerateKey(const AuthorizationSet& key_d
                                      hw_enforced, sw_enforced);
 }
 
-keymaster_error_t SymmetricKeyFactory::ImportKey(const AuthorizationSet& key_description,
+keymaster_error_t SymmetricKeyFactory::ImportKey(const AuthorizationSet& key_description,  //
                                                  keymaster_key_format_t input_key_material_format,
-                                                 const KeymasterKeyBlob& input_key_material,
+                                                 const KeymasterKeyBlob& input_key_material,  //
+                                                 UniquePtr<Key> /* attest_key */,
+                                                 const KeymasterBlob& /* issuer_subject */,
                                                  KeymasterKeyBlob* output_key_blob,
                                                  AuthorizationSet* hw_enforced,
-                                                 AuthorizationSet* sw_enforced) const {
-    if (!output_key_blob || !hw_enforced || !sw_enforced)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+                                                 AuthorizationSet* sw_enforced,
+                                                 CertificateChain* /* cert_chain */) const {
+    if (!output_key_blob || !hw_enforced || !sw_enforced) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     AuthorizationSet authorizations(key_description);
 
@@ -91,7 +93,7 @@ keymaster_error_t SymmetricKeyFactory::ImportKey(const AuthorizationSet& key_des
     }
 
     return blob_maker_.CreateKeyBlob(authorizations, KM_ORIGIN_IMPORTED, input_key_material,
-                                   output_key_blob, hw_enforced, sw_enforced);
+                                     output_key_blob, hw_enforced, sw_enforced);
 }
 
 static const keymaster_key_format_t supported_import_formats[] = {KM_KEY_FORMAT_RAW};
@@ -101,9 +103,8 @@ SymmetricKeyFactory::SupportedImportFormats(size_t* format_count) const {
     return supported_import_formats;
 }
 
-SymmetricKey::SymmetricKey(KeymasterKeyBlob&& key_material,
-                           AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
-                           const KeyFactory* key_factory)
+SymmetricKey::SymmetricKey(KeymasterKeyBlob&& key_material, AuthorizationSet&& hw_enforced,
+                           AuthorizationSet&& sw_enforced, const KeyFactory* key_factory)
     : Key(move(hw_enforced), move(sw_enforced), key_factory) {
     key_material_ = move(key_material);
 }

@@ -21,6 +21,7 @@
     <string name="bugreport_info_quit" msgid="5590138890181142473">"बंद करें"</string>
     <string name="bugreport_info_start" msgid="667324824650830832">"गड़बड़ी की रिपोर्ट बनाना शुरू करें"</string>
     <string name="bugreport_info_status" msgid="7211044508792815451">"स्थिति:"</string>
+    <string name="bugreport_info_expires_soon_notice" msgid="927139313070992675">"गड़बड़ी की यह रिपोर्ट जल्द ही हटा दी जाएगी"</string>
     <string name="bugreport_dialog_submit" msgid="2789636252713280633">"सबमिट करें"</string>
     <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"रद्द करें"</string>
     <string name="bugreport_dialog_upload" msgid="2517386929450370781">"अपलोड करें"</string>

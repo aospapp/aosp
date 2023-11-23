@@ -30,8 +30,8 @@ void stream_list_destroy(struct stream_list *list);
 
 struct cras_rstream *stream_list_get(struct stream_list *list);
 
-/* Creates a cras_rstream from cras_rstreaem_config and adds the cras_rstream
- * to stream_list.
+/* Creates a cras_rstream from cras_rstream_config and inserts the cras_rstream
+ * to stream_list in descending order by channel count.
  *
  * Args:
  *   list - stream_list to add streams.
@@ -55,3 +55,14 @@ int stream_list_rm_all_client_streams(struct stream_list *list,
  */
 bool stream_list_has_pinned_stream(struct stream_list *list,
 				   unsigned int dev_idx);
+
+/*
+ * Detects whether there is a RTC stream pair based on these rules:
+ * 1. The cb_threshold is 480.
+ * 2. The direction of two streams are opposite.
+ * 3. Two streams are from the same client. (Chrome or LaCrOS)
+ * 4. The start time of two streams are close enough. (shorter than 1s)
+ * If all rules are passed, set the stream type to the voice communication.
+ */
+void detect_rtc_stream_pair(struct stream_list *list,
+			    struct cras_rstream *stream);

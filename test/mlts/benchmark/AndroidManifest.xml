@@ -23,7 +23,8 @@
     <uses-sdk android:minSdkVersion="27" />
     <application android:label="NeuralNetworksBenchmark"
                  android:name=".BenchmarkApplication"
-                 android:hardwareAccelerated="true">
+                 android:hardwareAccelerated="true"
+                 android:largeHeap="true">
         <uses-library android:name="android.test.runner" android:required="false"/>
         <uses-library android:name="android.test.base" android:required="false"/>
         <activity android:name=".NNBenchmark">
@@ -41,6 +42,31 @@
         </activity>
         <activity android:exported="true" android:name="com.android.nn.benchmark.util.TestExternalStorageActivity">
         </activity>
+        <activity android:name="com.android.nn.crashtest.app.NNParallelTestActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity android:name="com.android.nn.crashtest.app.NNMultiProcessTestActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity android:name="com.android.nn.crashtest.app.NNRandomGraphTestActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity android:name="com.android.nn.crashtest.app.NNPerformanceDegradationTestActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
+        <service android:name="com.android.nn.crashtest.core.OutOfProcessCrashTestService"
+            android:process=":CrashTest" />
+        <service android:name="com.android.nn.crashtest.core.InProcessCrashTestService"
+            android:process=".CrashTest" />
     </application>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.nn.benchmark.app"/>

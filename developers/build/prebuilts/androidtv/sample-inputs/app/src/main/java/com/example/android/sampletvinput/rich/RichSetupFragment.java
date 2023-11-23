@@ -46,7 +46,7 @@ import com.example.android.sampletvinput.R;
 import com.example.android.sampletvinput.TvContractUtils;
 import com.example.android.sampletvinput.rich.RichTvInputService.ChannelInfo;
 import com.example.android.sampletvinput.rich.RichTvInputService.TvInput;
-import com.example.android.sampletvinput.syncadapter.DummyAccountService;
+import com.example.android.sampletvinput.syncadapter.StubAccountService;
 import com.example.android.sampletvinput.syncadapter.SyncUtils;
 import com.squareup.picasso.Picasso;
 import com.squareup.picasso.Target;
@@ -238,7 +238,7 @@ public class RichSetupFragment extends DetailsFragment {
                     if (mFinished) {
                         return;
                     }
-                    Account account = DummyAccountService.getAccount(SyncUtils.ACCOUNT_TYPE);
+                    Account account = StubAccountService.getAccount(SyncUtils.ACCOUNT_TYPE);
                     boolean syncActive = ContentResolver.isSyncActive(account,
                             TvContract.AUTHORITY);
                     boolean syncPending = ContentResolver.isSyncPending(account,

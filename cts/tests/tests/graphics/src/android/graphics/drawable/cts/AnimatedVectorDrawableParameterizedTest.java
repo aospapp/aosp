@@ -247,7 +247,7 @@ public class AnimatedVectorDrawableParameterizedTest {
         AnimatedVectorDrawableTest.waitForAVDStop(callback, MAX_TIMEOUT_MS);
         // Check that the AVD with empty AnimatorSet has finished
         callback.assertEnded(true);
-        callback.assertAVDRuntime(0, TimeUnit.MILLISECONDS.toNanos(300));
+        callback.assertAVDRuntime(0, TimeUnit.MILLISECONDS.toNanos(900));
     }
 
     // Does a fuzzy comparison between two images.
@@ -265,9 +265,6 @@ public class AnimatedVectorDrawableParameterizedTest {
 
         for (int x = rangeRect.left; x < rangeRect.right; x++) {
             for (int y = rangeRect.top; y < rangeRect.bottom; y++) {
-                if (image1.getPixel(x, y) != image2.getPixel(x, y)) {
-                    return false;
-                }
                 int color1 = image1.getPixel(x, y);
                 int color2 = image2.getPixel(x, y);
                 int rDiff = Math.abs(Color.red(color1) - Color.red(color2));

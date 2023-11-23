@@ -17,7 +17,7 @@
 package com.android.car.settings.security;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
-import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_USER;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -56,7 +56,7 @@ public class SecurityEntryPreferenceControllerTest {
     public void getAvailabilityStatus_guestUser_disabledForUser() {
         getShadowUserManager().addUser(UserHandle.myUserId(), "name", UserInfo.FLAG_GUEST);
 
-        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_USER);
+        assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
     }
 
     @Test

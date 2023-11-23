@@ -4,38 +4,28 @@
 
 import logging
 
-from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.cellular import test_environment
 from autotest_lib.client.cros.update_engine import nebraska_wrapper
 from autotest_lib.client.cros.update_engine import update_engine_test
 
 class autoupdate_CannedOmahaUpdate(update_engine_test.UpdateEngineTest):
-    """
-    Client-side mechanism to update a DUT with a given image.
+    """ Updates a DUT with a given image using a Nebraska instance."""
 
-    Restarts update_engine and attempts an update from the image
-    pointed to by |image_url| of size |image_size| with checksum
-    |image_sha256|. The rest of the parameters are optional.
-
-    If the |allow_failure| parameter is True, then the test will
-    succeed even if the update failed.
-
-    """
     version = 1
 
 
-    def run_canned_update(self, allow_failure, port):
+    def run_canned_update(self, allow_failure, update_url):
         """
         Performs the update.
 
         @param allow_failure: True if we dont raise an error on failure.
-        @param port: The port number we need to connect to on the server.
+        @param update_url: The URL to get an update.
 
         """
 
         try:
-            self._check_for_update(port=port, critical_update=True,
+            self._check_for_update(update_url, critical_update=True,
                                    wait_for_completion=True)
         except error.CmdError as e:
             if not allow_failure:
@@ -45,30 +35,24 @@ class autoupdate_CannedOmahaUpdate(update_engine_test.UpdateEngineTest):
                 logging.info('Ignoring failed update. Failure reason: %s', e)
 
 
-    def run_once(self, image_url, allow_failure=False, public_key=None,
+    def run_once(self, payload_url, allow_failure=False, public_key=None,
                  use_cellular=False):
         """
-        Runs an update with canned response using Nebraska.
+        Runs an update with a canned response using Nebraska.
 
-        @param image_url: The payload url.
+        @param payload_url: Path to a payload on Google storage.
         @param allow_failure: If true, failing the update is expected.
         @param public_key: The public key to serve to the update client.
         @param use_cellular: True if this test uses cellular.
 
         """
 
-        metadata_dir = autotemp.tempdir()
-        self._get_payload_properties_file(image_url,
-                                          metadata_dir.name,
-                                          public_key=public_key)
-        base_url = ''.join(image_url.rpartition('/')[0:2])
         with nebraska_wrapper.NebraskaWrapper(
-                log_dir=self.resultsdir,
-                update_metadata_dir=metadata_dir.name,
-                update_payloads_address=base_url) as nebraska:
+            log_dir=self.resultsdir, payload_url=payload_url,
+            public_key=public_key) as nebraska:
 
             if not use_cellular:
-                self.run_canned_update(allow_failure, nebraska.get_port())
+                self.run_canned_update(allow_failure, nebraska.get_update_url())
                 return
 
             # Setup DUT so that we have ssh over ethernet but DUT uses
@@ -82,9 +66,10 @@ class autoupdate_CannedOmahaUpdate(update_engine_test.UpdateEngineTest):
                     CONNECT_TIMEOUT = 120
                     test_env.shill.connect_service_synchronous(
                             service, CONNECT_TIMEOUT)
-                    self.run_canned_update(allow_failure, nebraska.get_port())
+                    self.run_canned_update(allow_failure,
+                                           nebraska.get_update_url())
             except error.TestError as e:
-                # Raise as test failure so it is propagated to server test
-                # failure message.
+                # Raise as test failure instead of test error so it is
+                # propagated to the server test's failure message.
                 logging.error('Failed setting up cellular connection.')
                 raise error.TestFail(e)

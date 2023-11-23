@@ -4,6 +4,10 @@
 # found in the LICENSE file.
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import numpy
 import os
@@ -21,6 +25,7 @@ from autotest_lib.client.cros.audio import audio_data
 from autotest_lib.client.cros.audio import cmd_utils
 from autotest_lib.client.cros.audio import cras_utils
 from autotest_lib.client.cros.audio import sox_utils
+from six.moves import range
 
 LD_LIBRARY_PATH = 'LD_LIBRARY_PATH'
 
@@ -33,6 +38,8 @@ _DEFAULT_PLAYBACK_VOLUME = 100
 _DEFAULT_CAPTURE_GAIN = 2500
 _DEFAULT_ALSA_MAX_VOLUME = '100%'
 _DEFAULT_ALSA_CAPTURE_GAIN = '25dB'
+_DEFAULT_VOLUME_LEVEL = 75
+_DEFAULT_MIC_GAIN = 75
 
 # Minimum RMS value to pass when checking recorded file.
 _DEFAULT_SOX_RMS_THRESHOLD = 0.08
@@ -81,16 +88,22 @@ def set_mixer_controls(mixer_settings={}, card='0'):
             # fail the test here if we get an error.
             logging.info('amixer command failed: %s', cmd)
 
+def set_default_volume_levels():
+    """Sets the default volume and default capture gain through cras_test_client.
+
+    """
+    logging.info('Setting audio levels to their defaults')
+    set_volume_levels(_DEFAULT_VOLUME_LEVEL, _DEFAULT_MIC_GAIN)
+
 def set_volume_levels(volume, capture):
     """Sets the volume and capture gain through cras_test_client.
 
     @param volume: The playback volume to set.
     @param capture: The capture gain to set.
     """
-    logging.info('Setting volume level to %d', volume)
+    logging.info('Setting volume: %d capture: %d', volume, capture)
     try:
         utils.system('/usr/bin/cras_test_client --volume %d' % volume)
-        logging.info('Setting capture gain to %d', capture)
         utils.system('/usr/bin/cras_test_client --capture_gain %d' % capture)
         utils.system('/usr/bin/cras_test_client --dump_server_info')
         utils.system('/usr/bin/cras_test_client --mute 0')
@@ -111,7 +124,7 @@ def loopback_latency_check(**args):
     @return A tuple containing measured and reported latency in uS.
         Return None if no audio detected.
     """
-    noise_threshold = str(args['n']) if args.has_key('n') else '400'
+    noise_threshold = str(args['n']) if 'n' in args else '400'
 
     cmd = '%s -n %s -c' % (LOOPBACK_LATENCY_PATH, noise_threshold)
 
@@ -389,7 +402,7 @@ def get_rms(input_audio, channels=1, bits=16, rate=48000):
     """
     stats = [get_channel_sox_stat(
             input_audio, i + 1, channels=channels, bits=bits,
-            rate=rate) for i in xrange(channels)]
+            rate=rate) for i in range(channels)]
 
     logging.info('sox stat: %s', [str(s) for s in stats])
     return [s.rms for s in stats]
@@ -750,7 +763,7 @@ def recorded_filesize_check(filesize,
 
     @raises: TestFail if the size is less or larger than expect.
     """
-    expected = duration * channels * (bits / 8) * rate
+    expected = duration * channels * (bits // 8) * rate
     ratio = abs(float(filesize) / expected)
     if ratio < 1 or ratio > 1 + tolerant_ratio:
         raise error.TestFail(

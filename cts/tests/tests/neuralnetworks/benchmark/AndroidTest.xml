@@ -26,6 +26,8 @@
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.nn.benchmark.cts" />
+        <!-- test-timeout unit is ms, value = 15 min -->
+        <option name="test-timeout" value="900000" />
     </test>
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">

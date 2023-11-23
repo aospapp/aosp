@@ -1,14 +1,30 @@
+/**
+ * Copyright (c) 2016, The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 ///////////////////////////////////////////////////////////////////////////////
 // THIS FILE IS IMMUTABLE. DO NOT EDIT IN ANY CASE.                          //
 ///////////////////////////////////////////////////////////////////////////////
 
-// This file is a snapshot of an AIDL interface (or parcelable). Do not try to
-// edit this file. It looks like you are doing that because you have modified
-// an AIDL interface in a backward-incompatible way, e.g., deleting a function
-// from an interface or a field from a parcelable and it broke the build. That
-// breakage is intended.
+// This file is a snapshot of an AIDL file. Do not edit it manually. There are
+// two cases:
+// 1). this is a frozen version file - do not edit this in any case.
+// 2). this is a 'current' file. If you make a backwards compatible change to
+//     the interface (from the latest frozen version), the build system will
+//     prompt you to update this file with `m <name>-update-api`.
 //
-// You must not make a backward incompatible changes to the AIDL files built
+// You must not make a backward incompatible change to any AIDL file built
 // with the aidl_interface module type with versions property set. The module
 // type is used to build AIDL files in a way that they can be used across
 // independently updatable components of the system. If a device is shipped
@@ -19,9 +35,15 @@ package android.net;
 /* @hide */
 interface INetd {
   boolean isAlive();
-  boolean firewallReplaceUidChain(in @utf8InCpp String chainName, boolean isWhitelist, in int[] uids);
+  boolean firewallReplaceUidChain(in @utf8InCpp String chainName, boolean isAllowlist, in int[] uids);
   boolean bandwidthEnableDataSaver(boolean enable);
+  /**
+   * @deprecated use networkCreate() instead.
+   */
   void networkCreatePhysical(int netId, int permission);
+  /**
+   * @deprecated use networkCreate() instead.
+   */
   void networkCreateVpn(int netId, boolean secure);
   void networkDestroy(int netId);
   void networkAddInterface(int netId, in @utf8InCpp String iface);
@@ -122,6 +144,9 @@ interface INetd {
   android.net.TetherStatsParcel[] tetherOffloadGetStats();
   void tetherOffloadSetInterfaceQuota(int ifIndex, long quotaBytes);
   android.net.TetherStatsParcel tetherOffloadGetAndClearStats(int ifIndex);
+  void networkCreate(in android.net.NativeNetworkConfig config);
+  void networkAddUidRangesParcel(in android.net.netd.aidl.NativeUidRangeConfig uidRangesConfig);
+  void networkRemoveUidRangesParcel(in android.net.netd.aidl.NativeUidRangeConfig uidRangesConfig);
   const int IPV4 = 4;
   const int IPV6 = 6;
   const int CONF = 1;
@@ -136,6 +161,8 @@ interface INetd {
   const int PENALTY_POLICY_LOG = 2;
   const int PENALTY_POLICY_REJECT = 3;
   const int LOCAL_NET_ID = 99;
+  const int DUMMY_NET_ID = 51;
+  const int UNREACHABLE_NET_ID = 52;
   const String NEXTHOP_NONE = "";
   const String NEXTHOP_UNREACHABLE = "unreachable";
   const String NEXTHOP_THROW = "throw";
@@ -146,14 +173,23 @@ interface INetd {
   const int PERMISSION_INTERNET = 4;
   const int PERMISSION_UPDATE_DEVICE_STATS = 8;
   const int PERMISSION_UNINSTALLED = -1;
+  /**
+   * @deprecated use FIREWALL_ALLOWLIST.
+   */
   const int FIREWALL_WHITELIST = 0;
+  const int FIREWALL_ALLOWLIST = 0;
+  /**
+   * @deprecated use FIREWALL_DENYLIST.
+   */
   const int FIREWALL_BLACKLIST = 1;
+  const int FIREWALL_DENYLIST = 1;
   const int FIREWALL_RULE_ALLOW = 1;
   const int FIREWALL_RULE_DENY = 2;
   const int FIREWALL_CHAIN_NONE = 0;
   const int FIREWALL_CHAIN_DOZABLE = 1;
   const int FIREWALL_CHAIN_STANDBY = 2;
   const int FIREWALL_CHAIN_POWERSAVE = 3;
+  const int FIREWALL_CHAIN_RESTRICTED = 4;
   const String IF_STATE_UP = "up";
   const String IF_STATE_DOWN = "down";
   const String IF_FLAG_BROADCAST = "broadcast";

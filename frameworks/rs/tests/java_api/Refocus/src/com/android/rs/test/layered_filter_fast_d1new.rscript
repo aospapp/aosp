@@ -30,7 +30,6 @@
 // UnpackInputImage, ComputeLayerMatteBehindFocalDepth, ComputeIntegralImageForLayerBehindFocalDepth,
 // FilterLayerBehindFocalDepth, updateSharpImageUsingFuzzyImage, ComputeLayerMatteInFrontOfFocalDepth,
 // FilterLayerInFrontOfFocalDepth
-// double cpuDummy;
 
 // Image size of padded images: g_sharp_image and g_fuzzy_image.
 // Float4 that stores the image size info: 1. width, 2. height, 3. margin

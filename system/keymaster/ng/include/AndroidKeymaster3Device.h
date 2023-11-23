@@ -15,8 +15,7 @@
  ** limitations under the License.
  */
 
-#ifndef HIDL_android_hardware_keymaster_V3_0_AndroidKeymaster3Device_H_
-#define HIDL_android_hardware_keymaster_V3_0_AndroidKeymaster3Device_H_
+#pragma once
 
 #include <android/hardware/keymaster/3.0/IKeymasterDevice.h>
 
@@ -33,17 +32,17 @@ class KeymasterContext;
 
 namespace ng {
 
+using ::android::sp;
+using ::android::hardware::hidl_string;
+using ::android::hardware::hidl_vec;
+using ::android::hardware::Return;
+using ::android::hardware::Void;
 using ::android::hardware::keymaster::V3_0::ErrorCode;
 using ::android::hardware::keymaster::V3_0::IKeymasterDevice;
 using ::android::hardware::keymaster::V3_0::KeyCharacteristics;
 using ::android::hardware::keymaster::V3_0::KeyFormat;
 using ::android::hardware::keymaster::V3_0::KeyParameter;
 using ::android::hardware::keymaster::V3_0::KeyPurpose;
-using ::android::hardware::Return;
-using ::android::hardware::Void;
-using ::android::hardware::hidl_vec;
-using ::android::hardware::hidl_string;
-using ::android::sp;
 
 enum class KeymasterHardwareProfile : uint32_t {
     SW,
@@ -103,5 +102,3 @@ IKeymasterDevice* CreateKeymasterDevice(keymaster0_device_t* km0_device);
 
 }  // namespace ng
 }  // namespace keymaster
-
-#endif  // HIDL_android_hardware_keymaster_V3_0_AndroidKeymaster3Device_H_

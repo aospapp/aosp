@@ -23,5 +23,7 @@
     <dimen name="alert_dialog_title_height">64dip</dimen>
     <!-- Dialog button bar height -->
     <dimen name="alert_dialog_button_bar_height">48dip</dimen>
+    <!-- Max height of alert dialog's text content -->
+    <dimen name="alert_dialog_maxheight_content_panel">0dip</dimen>
 
 </resources>

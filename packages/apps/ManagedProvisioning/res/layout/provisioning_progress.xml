@@ -21,38 +21,40 @@
     android:id="@+id/setup_wizard_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-  <LinearLayout
-      android:layout_marginLeft="?attr/sudMarginSides"
-      android:layout_marginRight="?attr/sudMarginSides"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"
-      android:orientation="vertical">
-    <TextView
-        android:id="@+id/subheader"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:importantForAccessibility="no"
-        style="@style/SudDescription.Glif"/>
-    <TextView
-        android:id="@+id/provider_info"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/spacer_24"
-        android:importantForAccessibility="no"
-        style="@style/SudDescription.Glif"/>
-    <ImageView
-        android:id="@+id/animation"
-        android:layout_gravity="center_horizontal"
-        android:layout_width="wrap_content"
-        android:layout_height="@dimen/animation_height"
-        android:scaleType="centerCrop"/>
-    <TextView
-        android:id="@+id/provisioning_progress"
-        style="@style/ProvisioningProgressText"
-        android:layout_marginBottom="@dimen/spacer_64"
-        android:gravity="bottom|center_horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"/>
-  </LinearLayout>
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        style="@style/SudContentFrame">
+        <Space
+            android:id="@+id/space1"
+            android:layout_width="1dp"
+            android:layout_height="@dimen/sud_items_margin_top"/>
+        <include
+            android:id="@+id/item1"
+            layout="@layout/icon_with_label_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <Space
+            android:id="@+id/space2"
+            android:layout_width="1dp"
+            android:layout_height="@dimen/sud_items_margin_inbetween"/>
+        <include
+            android:id="@+id/item2"
+            layout="@layout/icon_with_label_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <com.google.android.setupdesign.view.FillContentLayout
+            android:id="@+id/animation_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:maxWidth="@dimen/animation_max_size"
+            android:maxHeight="@dimen/animation_max_size">
+            <com.airbnb.lottie.LottieAnimationView
+                android:id="@+id/animation"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter" />
+        </com.google.android.setupdesign.view.FillContentLayout>
+    </LinearLayout>
 </com.google.android.setupdesign.GlifLayout>

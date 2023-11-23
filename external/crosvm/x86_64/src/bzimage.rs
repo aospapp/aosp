@@ -7,9 +7,9 @@
 
 use std::fmt::{self, Display};
 use std::io::{Read, Seek, SeekFrom};
-use std::os::unix::io::AsRawFd;
 
-use sys_util::{GuestAddress, GuestMemory};
+use base::AsRawDescriptor;
+use vm_memory::{GuestAddress, GuestMemory};
 
 use crate::bootparam::boot_params;
 
@@ -58,7 +58,7 @@ pub fn load_bzimage<F>(
     kernel_image: &mut F,
 ) -> Result<(boot_params, u64)>
 where
-    F: Read + Seek + AsRawFd,
+    F: Read + Seek + AsRawDescriptor,
 {
     let mut params: boot_params = Default::default();
     kernel_image
@@ -66,7 +66,7 @@ where
         .map_err(|_| Error::SeekBootParams)?;
     unsafe {
         // read_struct is safe when reading a POD struct.  It can be used and dropped without issue.
-        sys_util::read_struct(kernel_image, &mut params).map_err(|_| Error::ReadBootParams)?;
+        base::read_struct(kernel_image, &mut params).map_err(|_| Error::ReadBootParams)?;
     }
 
     // bzImage header signature "HdrS"

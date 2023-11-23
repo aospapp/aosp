@@ -12,6 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_ImageMagick_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-BSD
+    //   SPDX-license-identifier-MIT
+    //   legacy_notice
+    default_applicable_licenses: ["external_ImageMagick_license"],
+}
+
 cc_library_static {
     name: "MagickCore",
 
@@ -28,6 +39,7 @@ cc_library_static {
         "-Wno-for-loop-analysis",
         "-Wno-unused-function",
         "-Wno-unused-parameter",
+        "-Wno-unused-variable",
     ],
 
     header_libs: ["Magick_headers"],

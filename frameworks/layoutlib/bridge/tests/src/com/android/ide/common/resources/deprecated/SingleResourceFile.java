@@ -42,7 +42,7 @@ public class SingleResourceFile extends ResourceFile {
     private final ResourceType mType;
     private final ResourceValue mValue;
 
-    public SingleResourceFile(IAbstractFile file, ResourceFolder folder) {
+    public SingleResourceFile(TestFileWrapper file, ResourceFolder folder) {
         super(file, folder);
 
         // we need to infer the type of the resource from the folder type.

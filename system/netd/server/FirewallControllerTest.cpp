@@ -56,61 +56,58 @@ protected:
     }
 };
 
-TEST_F(FirewallControllerTest, TestCreateWhitelistChain) {
+TEST_F(FirewallControllerTest, TestCreateAllowlistChain) {
     std::vector<std::string> expectedRestore4 = {
-        "*filter",
-        ":fw_whitelist -",
-        "-A fw_whitelist -m owner --uid-owner 0-9999 -j RETURN",
-        "-A fw_whitelist -m owner ! --uid-owner 0-4294967294 -j RETURN",
-        "-A fw_whitelist -p esp -j RETURN",
-        "-A fw_whitelist -i lo -j RETURN",
-        "-A fw_whitelist -o lo -j RETURN",
-        "-A fw_whitelist -p tcp --tcp-flags RST RST -j RETURN",
-        "-A fw_whitelist -j DROP",
-        "COMMIT\n"
-    };
+            "*filter",
+            ":fw_allowlist -",
+            "-A fw_allowlist -m owner --uid-owner 0-9999 -j RETURN",
+            "-A fw_allowlist -m owner ! --uid-owner 0-4294967294 -j RETURN",
+            "-A fw_allowlist -p esp -j RETURN",
+            "-A fw_allowlist -i lo -j RETURN",
+            "-A fw_allowlist -o lo -j RETURN",
+            "-A fw_allowlist -p tcp --tcp-flags RST RST -j RETURN",
+            "-A fw_allowlist -j DROP",
+            "COMMIT\n"};
     std::vector<std::string> expectedRestore6 = {
-        "*filter",
-        ":fw_whitelist -",
-        "-A fw_whitelist -m owner --uid-owner 0-9999 -j RETURN",
-        "-A fw_whitelist -m owner ! --uid-owner 0-4294967294 -j RETURN",
-        "-A fw_whitelist -p esp -j RETURN",
-        "-A fw_whitelist -i lo -j RETURN",
-        "-A fw_whitelist -o lo -j RETURN",
-        "-A fw_whitelist -p tcp --tcp-flags RST RST -j RETURN",
-        "-A fw_whitelist -p icmpv6 --icmpv6-type packet-too-big -j RETURN",
-        "-A fw_whitelist -p icmpv6 --icmpv6-type router-solicitation -j RETURN",
-        "-A fw_whitelist -p icmpv6 --icmpv6-type router-advertisement -j RETURN",
-        "-A fw_whitelist -p icmpv6 --icmpv6-type neighbour-solicitation -j RETURN",
-        "-A fw_whitelist -p icmpv6 --icmpv6-type neighbour-advertisement -j RETURN",
-        "-A fw_whitelist -p icmpv6 --icmpv6-type redirect -j RETURN",
-        "-A fw_whitelist -j DROP",
-        "COMMIT\n"
-    };
+            "*filter",
+            ":fw_allowlist -",
+            "-A fw_allowlist -m owner --uid-owner 0-9999 -j RETURN",
+            "-A fw_allowlist -m owner ! --uid-owner 0-4294967294 -j RETURN",
+            "-A fw_allowlist -p esp -j RETURN",
+            "-A fw_allowlist -i lo -j RETURN",
+            "-A fw_allowlist -o lo -j RETURN",
+            "-A fw_allowlist -p tcp --tcp-flags RST RST -j RETURN",
+            "-A fw_allowlist -p icmpv6 --icmpv6-type packet-too-big -j RETURN",
+            "-A fw_allowlist -p icmpv6 --icmpv6-type router-solicitation -j RETURN",
+            "-A fw_allowlist -p icmpv6 --icmpv6-type router-advertisement -j RETURN",
+            "-A fw_allowlist -p icmpv6 --icmpv6-type neighbour-solicitation -j RETURN",
+            "-A fw_allowlist -p icmpv6 --icmpv6-type neighbour-advertisement -j RETURN",
+            "-A fw_allowlist -p icmpv6 --icmpv6-type redirect -j RETURN",
+            "-A fw_allowlist -j DROP",
+            "COMMIT\n"};
     std::vector<std::pair<IptablesTarget, std::string>> expectedRestoreCommands = {
             {V4, Join(expectedRestore4, '\n')},
             {V6, Join(expectedRestore6, '\n')},
     };
 
-    createChain("fw_whitelist", WHITELIST);
+    createChain("fw_allowlist", ALLOWLIST);
     expectIptablesRestoreCommands(expectedRestoreCommands);
 }
 
-TEST_F(FirewallControllerTest, TestCreateBlacklistChain) {
+TEST_F(FirewallControllerTest, TestCreateDenylistChain) {
     std::vector<std::string> expectedRestore = {
-        "*filter",
-        ":fw_blacklist -",
-        "-A fw_blacklist -i lo -j RETURN",
-        "-A fw_blacklist -o lo -j RETURN",
-        "-A fw_blacklist -p tcp --tcp-flags RST RST -j RETURN",
-        "COMMIT\n"
-    };
+            "*filter",
+            ":fw_denylist -",
+            "-A fw_denylist -i lo -j RETURN",
+            "-A fw_denylist -o lo -j RETURN",
+            "-A fw_denylist -p tcp --tcp-flags RST RST -j RETURN",
+            "COMMIT\n"};
     std::vector<std::pair<IptablesTarget, std::string>> expectedRestoreCommands = {
             {V4, Join(expectedRestore, '\n')},
             {V6, Join(expectedRestore, '\n')},
     };
 
-    createChain("fw_blacklist", BLACKLIST);
+    createChain("fw_denylist", DENYLIST);
     expectIptablesRestoreCommands(expectedRestoreCommands);
 }
 
@@ -162,50 +159,50 @@ TEST_F(FirewallControllerTest, TestSetFirewallRule) {
     expectIptablesRestoreCommands(expected);
 }
 
-TEST_F(FirewallControllerTest, TestReplaceWhitelistUidRule) {
+TEST_F(FirewallControllerTest, TestReplaceAllowlistUidRule) {
     std::string expected =
             "*filter\n"
-            ":FW_whitechain -\n"
-            "-A FW_whitechain -m owner --uid-owner 10023 -j RETURN\n"
-            "-A FW_whitechain -m owner --uid-owner 10059 -j RETURN\n"
-            "-A FW_whitechain -m owner --uid-owner 10124 -j RETURN\n"
-            "-A FW_whitechain -m owner --uid-owner 10111 -j RETURN\n"
-            "-A FW_whitechain -m owner --uid-owner 110122 -j RETURN\n"
-            "-A FW_whitechain -m owner --uid-owner 210153 -j RETURN\n"
-            "-A FW_whitechain -m owner --uid-owner 210024 -j RETURN\n"
-            "-A FW_whitechain -m owner --uid-owner 0-9999 -j RETURN\n"
-            "-A FW_whitechain -m owner ! --uid-owner 0-4294967294 -j RETURN\n"
-            "-A FW_whitechain -p esp -j RETURN\n"
-            "-A FW_whitechain -i lo -j RETURN\n"
-            "-A FW_whitechain -o lo -j RETURN\n"
-            "-A FW_whitechain -p tcp --tcp-flags RST RST -j RETURN\n"
-            "-A FW_whitechain -p icmpv6 --icmpv6-type packet-too-big -j RETURN\n"
-            "-A FW_whitechain -p icmpv6 --icmpv6-type router-solicitation -j RETURN\n"
-            "-A FW_whitechain -p icmpv6 --icmpv6-type router-advertisement -j RETURN\n"
-            "-A FW_whitechain -p icmpv6 --icmpv6-type neighbour-solicitation -j RETURN\n"
-            "-A FW_whitechain -p icmpv6 --icmpv6-type neighbour-advertisement -j RETURN\n"
-            "-A FW_whitechain -p icmpv6 --icmpv6-type redirect -j RETURN\n"
-            "-A FW_whitechain -j DROP\n"
+            ":FW_allowchain -\n"
+            "-A FW_allowchain -m owner --uid-owner 10023 -j RETURN\n"
+            "-A FW_allowchain -m owner --uid-owner 10059 -j RETURN\n"
+            "-A FW_allowchain -m owner --uid-owner 10124 -j RETURN\n"
+            "-A FW_allowchain -m owner --uid-owner 10111 -j RETURN\n"
+            "-A FW_allowchain -m owner --uid-owner 110122 -j RETURN\n"
+            "-A FW_allowchain -m owner --uid-owner 210153 -j RETURN\n"
+            "-A FW_allowchain -m owner --uid-owner 210024 -j RETURN\n"
+            "-A FW_allowchain -m owner --uid-owner 0-9999 -j RETURN\n"
+            "-A FW_allowchain -m owner ! --uid-owner 0-4294967294 -j RETURN\n"
+            "-A FW_allowchain -p esp -j RETURN\n"
+            "-A FW_allowchain -i lo -j RETURN\n"
+            "-A FW_allowchain -o lo -j RETURN\n"
+            "-A FW_allowchain -p tcp --tcp-flags RST RST -j RETURN\n"
+            "-A FW_allowchain -p icmpv6 --icmpv6-type packet-too-big -j RETURN\n"
+            "-A FW_allowchain -p icmpv6 --icmpv6-type router-solicitation -j RETURN\n"
+            "-A FW_allowchain -p icmpv6 --icmpv6-type router-advertisement -j RETURN\n"
+            "-A FW_allowchain -p icmpv6 --icmpv6-type neighbour-solicitation -j RETURN\n"
+            "-A FW_allowchain -p icmpv6 --icmpv6-type neighbour-advertisement -j RETURN\n"
+            "-A FW_allowchain -p icmpv6 --icmpv6-type redirect -j RETURN\n"
+            "-A FW_allowchain -j DROP\n"
             "COMMIT\n";
 
     std::vector<int32_t> uids = { 10023, 10059, 10124, 10111, 110122, 210153, 210024 };
-    EXPECT_EQ(expected, makeUidRules(V6, "FW_whitechain", true, uids));
+    EXPECT_EQ(expected, makeUidRules(V6, "FW_allowchain", true, uids));
 }
 
-TEST_F(FirewallControllerTest, TestReplaceBlacklistUidRule) {
+TEST_F(FirewallControllerTest, TestReplaceDenylistUidRule) {
     std::string expected =
             "*filter\n"
-            ":FW_blackchain -\n"
-            "-A FW_blackchain -i lo -j RETURN\n"
-            "-A FW_blackchain -o lo -j RETURN\n"
-            "-A FW_blackchain -p tcp --tcp-flags RST RST -j RETURN\n"
-            "-A FW_blackchain -m owner --uid-owner 10023 -j DROP\n"
-            "-A FW_blackchain -m owner --uid-owner 10059 -j DROP\n"
-            "-A FW_blackchain -m owner --uid-owner 10124 -j DROP\n"
+            ":FW_denychain -\n"
+            "-A FW_denychain -i lo -j RETURN\n"
+            "-A FW_denychain -o lo -j RETURN\n"
+            "-A FW_denychain -p tcp --tcp-flags RST RST -j RETURN\n"
+            "-A FW_denychain -m owner --uid-owner 10023 -j DROP\n"
+            "-A FW_denychain -m owner --uid-owner 10059 -j DROP\n"
+            "-A FW_denychain -m owner --uid-owner 10124 -j DROP\n"
             "COMMIT\n";
 
     std::vector<int32_t> uids = { 10023, 10059, 10124 };
-    EXPECT_EQ(expected, makeUidRules(V4 ,"FW_blackchain", false, uids));
+    EXPECT_EQ(expected, makeUidRules(V4, "FW_denychain", false, uids));
 }
 
 TEST_F(FirewallControllerTest, TestEnableChildChains) {
@@ -251,10 +248,10 @@ TEST_F(FirewallControllerTest, TestFirewall) {
     EXPECT_EQ(0, mFw.resetFirewall());
     expectIptablesRestoreCommands(disableCommands);
 
-    EXPECT_EQ(0, mFw.setFirewallType(BLACKLIST));
+    EXPECT_EQ(0, mFw.setFirewallType(DENYLIST));
     expectIptablesRestoreCommands(disableCommands);
 
-    EXPECT_EQ(0, mFw.setFirewallType(BLACKLIST));
+    EXPECT_EQ(0, mFw.setFirewallType(DENYLIST));
     expectIptablesRestoreCommands(noCommands);
 
     std::vector<std::string> disableEnableCommands;
@@ -263,7 +260,7 @@ TEST_F(FirewallControllerTest, TestFirewall) {
     disableEnableCommands.insert(
             disableEnableCommands.end(), enableCommands.begin(), enableCommands.end());
 
-    EXPECT_EQ(0, mFw.setFirewallType(WHITELIST));
+    EXPECT_EQ(0, mFw.setFirewallType(ALLOWLIST));
     expectIptablesRestoreCommands(disableEnableCommands);
 
     std::vector<std::string> ifaceCommands = {
@@ -290,15 +287,15 @@ TEST_F(FirewallControllerTest, TestFirewall) {
     EXPECT_EQ(0, mFw.setInterfaceRule("rmnet_data0", DENY));
     expectIptablesRestoreCommands(noCommands);
 
-    EXPECT_EQ(0, mFw.setFirewallType(WHITELIST));
+    EXPECT_EQ(0, mFw.setFirewallType(ALLOWLIST));
     expectIptablesRestoreCommands(noCommands);
 
     EXPECT_EQ(0, mFw.resetFirewall());
     expectIptablesRestoreCommands(disableCommands);
 
-    // TODO: calling resetFirewall and then setFirewallType(WHITELIST) does
+    // TODO: calling resetFirewall and then setFirewallType(ALLOWLIST) does
     // nothing. This seems like a clear bug.
-    EXPECT_EQ(0, mFw.setFirewallType(WHITELIST));
+    EXPECT_EQ(0, mFw.setFirewallType(ALLOWLIST));
     expectIptablesRestoreCommands(noCommands);
 }
 

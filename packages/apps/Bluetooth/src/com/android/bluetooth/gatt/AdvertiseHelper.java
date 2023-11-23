@@ -35,7 +35,10 @@ class AdvertiseHelper {
     private static final int SHORTENED_LOCAL_NAME = 0X08;
     private static final int COMPLETE_LOCAL_NAME = 0X09;
     private static final int TX_POWER_LEVEL = 0x0A;
+    private static final int LIST_16_BIT_SERVICE_SOLICITATION_UUIDS = 0X14;
+    private static final int LIST_128_BIT_SERVICE_SOLICITATION_UUIDS = 0X15;
     private static final int SERVICE_DATA_16_BIT_UUID = 0X16;
+    private static final int LIST_32_BIT_SERVICE_SOLICITATION_UUIDS = 0x1F;
     private static final int SERVICE_DATA_32_BIT_UUID = 0X20;
     private static final int SERVICE_DATA_128_BIT_UUID = 0X21;
     private static final int MANUFACTURER_SPECIFIC_DATA = 0XFF;
@@ -166,6 +169,42 @@ class AdvertiseHelper {
             }
         }
 
+
+        if (data.getServiceSolicitationUuids() != null) {
+            ByteArrayOutputStream serviceUuids16 = new ByteArrayOutputStream();
+            ByteArrayOutputStream serviceUuids32 = new ByteArrayOutputStream();
+            ByteArrayOutputStream serviceUuids128 = new ByteArrayOutputStream();
+
+            for (ParcelUuid parcelUuid : data.getServiceSolicitationUuids()) {
+                byte[] uuid = BluetoothUuid.uuidToBytes(parcelUuid);
+
+                if (uuid.length == BluetoothUuid.UUID_BYTES_16_BIT) {
+                    serviceUuids16.write(uuid, 0, uuid.length);
+                } else if (uuid.length == BluetoothUuid.UUID_BYTES_32_BIT) {
+                    serviceUuids32.write(uuid, 0, uuid.length);
+                } else /*if (uuid.length == BluetoothUuid.UUID_BYTES_128_BIT)*/ {
+                    serviceUuids128.write(uuid, 0, uuid.length);
+                }
+            }
+
+            if (serviceUuids16.size() != 0) {
+                ret.write(serviceUuids16.size() + 1);
+                ret.write(LIST_16_BIT_SERVICE_SOLICITATION_UUIDS);
+                ret.write(serviceUuids16.toByteArray(), 0, serviceUuids16.size());
+            }
+
+            if (serviceUuids32.size() != 0) {
+                ret.write(serviceUuids32.size() + 1);
+                ret.write(LIST_32_BIT_SERVICE_SOLICITATION_UUIDS);
+                ret.write(serviceUuids32.toByteArray(), 0, serviceUuids32.size());
+            }
+
+            if (serviceUuids128.size() != 0) {
+                ret.write(serviceUuids128.size() + 1);
+                ret.write(LIST_128_BIT_SERVICE_SOLICITATION_UUIDS);
+                ret.write(serviceUuids128.toByteArray(), 0, serviceUuids128.size());
+            }
+        }
         return ret.toByteArray();
     }
 }

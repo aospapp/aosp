@@ -20,34 +20,67 @@ class MockCurlInterface : public CurlInterface {
  public:
   MockCurlInterface() = default;
 
-  MOCK_METHOD0(EasyInit, CURL*());
-  MOCK_METHOD1(EasyCleanup, void(CURL*));
-  MOCK_METHOD3(EasySetOptInt, CURLcode(CURL*, CURLoption, int));
-  MOCK_METHOD3(EasySetOptStr, CURLcode(CURL*, CURLoption, const std::string&));
-  MOCK_METHOD3(EasySetOptPtr, CURLcode(CURL*, CURLoption, void*));
-  MOCK_METHOD3(EasySetOptCallback, CURLcode(CURL*, CURLoption, intptr_t));
-  MOCK_METHOD3(EasySetOptOffT, CURLcode(CURL*, CURLoption, curl_off_t));
-  MOCK_METHOD1(EasyPerform, CURLcode(CURL*));
-  MOCK_CONST_METHOD3(EasyGetInfoInt, CURLcode(CURL*, CURLINFO, int*));
-  MOCK_CONST_METHOD3(EasyGetInfoDbl, CURLcode(CURL*, CURLINFO, double*));
-  MOCK_CONST_METHOD3(EasyGetInfoStr, CURLcode(CURL*, CURLINFO, std::string*));
-  MOCK_CONST_METHOD3(EasyGetInfoPtr, CURLcode(CURL*, CURLINFO, void**));
-  MOCK_CONST_METHOD1(EasyStrError, std::string(CURLcode));
-  MOCK_METHOD0(MultiInit, CURLM*());
-  MOCK_METHOD1(MultiCleanup, CURLMcode(CURLM*));
-  MOCK_METHOD2(MultiInfoRead, CURLMsg*(CURLM*, int*));
-  MOCK_METHOD2(MultiAddHandle, CURLMcode(CURLM*, CURL*));
-  MOCK_METHOD2(MultiRemoveHandle, CURLMcode(CURLM*, CURL*));
-  MOCK_METHOD3(MultiSetSocketCallback,
-               CURLMcode(CURLM*, curl_socket_callback, void*));
-  MOCK_METHOD3(MultiSetTimerCallback,
-               CURLMcode(CURLM*, curl_multi_timer_callback, void*));
-  MOCK_METHOD3(MultiAssign, CURLMcode(CURLM*, curl_socket_t, void*));
-  MOCK_METHOD4(MultiSocketAction, CURLMcode(CURLM*, curl_socket_t, int, int*));
-  MOCK_CONST_METHOD1(MultiStrError, std::string(CURLMcode));
-  MOCK_METHOD2(MultiPerform, CURLMcode(CURLM*, int*));
-  MOCK_METHOD5(MultiWait,
-               CURLMcode(CURLM*, curl_waitfd[], unsigned int, int, int*));
+  MOCK_METHOD(CURL*, EasyInit, (), (override));
+  MOCK_METHOD(void, EasyCleanup, (CURL*), (override));
+  MOCK_METHOD(CURLcode, EasySetOptInt, (CURL*, CURLoption, int), (override));
+  MOCK_METHOD(CURLcode,
+              EasySetOptStr,
+              (CURL*, CURLoption, const std::string&),
+              (override));
+  MOCK_METHOD(CURLcode, EasySetOptPtr, (CURL*, CURLoption, void*), (override));
+  MOCK_METHOD(CURLcode,
+              EasySetOptCallback,
+              (CURL*, CURLoption, intptr_t),
+              (override));
+  MOCK_METHOD(CURLcode,
+              EasySetOptOffT,
+              (CURL*, CURLoption, curl_off_t),
+              (override));
+  MOCK_METHOD(CURLcode, EasyPerform, (CURL*), (override));
+  MOCK_METHOD(CURLcode,
+              EasyGetInfoInt,
+              (CURL*, CURLINFO, int*),
+              (const, override));
+  MOCK_METHOD(CURLcode,
+              EasyGetInfoDbl,
+              (CURL*, CURLINFO, double*),
+              (const, override));
+  MOCK_METHOD(CURLcode,
+              EasyGetInfoStr,
+              (CURL*, CURLINFO, std::string*),
+              (const, override));
+  MOCK_METHOD(CURLcode,
+              EasyGetInfoPtr,
+              (CURL*, CURLINFO, void**),
+              (const, override));
+  MOCK_METHOD(std::string, EasyStrError, (CURLcode), (const, override));
+  MOCK_METHOD(CURLM*, MultiInit, (), (override));
+  MOCK_METHOD(CURLMcode, MultiCleanup, (CURLM*), (override));
+  MOCK_METHOD(CURLMsg*, MultiInfoRead, (CURLM*, int*), (override));
+  MOCK_METHOD(CURLMcode, MultiAddHandle, (CURLM*, CURL*), (override));
+  MOCK_METHOD(CURLMcode, MultiRemoveHandle, (CURLM*, CURL*), (override));
+  MOCK_METHOD(CURLMcode,
+              MultiSetSocketCallback,
+              (CURLM*, curl_socket_callback, void*),
+              (override));
+  MOCK_METHOD(CURLMcode,
+              MultiSetTimerCallback,
+              (CURLM*, curl_multi_timer_callback, void*),
+              (override));
+  MOCK_METHOD(CURLMcode,
+              MultiAssign,
+              (CURLM*, curl_socket_t, void*),
+              (override));
+  MOCK_METHOD(CURLMcode,
+              MultiSocketAction,
+              (CURLM*, curl_socket_t, int, int*),
+              (override));
+  MOCK_METHOD(std::string, MultiStrError, (CURLMcode), (const, override));
+  MOCK_METHOD(CURLMcode, MultiPerform, (CURLM*, int*), (override));
+  MOCK_METHOD(CURLMcode,
+              MultiWait,
+              (CURLM*, curl_waitfd[], unsigned int, int, int*),
+              (override));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockCurlInterface);

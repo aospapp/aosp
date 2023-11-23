@@ -20,29 +20,43 @@ import static android.scopedstorage.cts.lib.TestUtils.BYTES_DATA1;
 import static android.scopedstorage.cts.lib.TestUtils.BYTES_DATA2;
 import static android.scopedstorage.cts.lib.TestUtils.STR_DATA1;
 import static android.scopedstorage.cts.lib.TestUtils.STR_DATA2;
+import static android.scopedstorage.cts.lib.TestUtils.allowAppOpsToUid;
 import static android.scopedstorage.cts.lib.TestUtils.assertCanRenameDirectory;
 import static android.scopedstorage.cts.lib.TestUtils.assertCanRenameFile;
 import static android.scopedstorage.cts.lib.TestUtils.assertCantRenameFile;
 import static android.scopedstorage.cts.lib.TestUtils.assertDirectoryContains;
 import static android.scopedstorage.cts.lib.TestUtils.assertFileContent;
+import static android.scopedstorage.cts.lib.TestUtils.canOpenFileAs;
+import static android.scopedstorage.cts.lib.TestUtils.checkPermission;
 import static android.scopedstorage.cts.lib.TestUtils.createFileAs;
 import static android.scopedstorage.cts.lib.TestUtils.createImageEntryAs;
 import static android.scopedstorage.cts.lib.TestUtils.deleteFileAsNoThrow;
 import static android.scopedstorage.cts.lib.TestUtils.deleteWithMediaProviderNoThrow;
+import static android.scopedstorage.cts.lib.TestUtils.denyAppOpsToUid;
 import static android.scopedstorage.cts.lib.TestUtils.executeShellCommand;
+import static android.scopedstorage.cts.lib.TestUtils.getAndroidMediaDir;
 import static android.scopedstorage.cts.lib.TestUtils.getContentResolver;
+import static android.scopedstorage.cts.lib.TestUtils.getDcimDir;
+import static android.scopedstorage.cts.lib.TestUtils.getExternalFilesDir;
 import static android.scopedstorage.cts.lib.TestUtils.getFileOwnerPackageFromDatabase;
 import static android.scopedstorage.cts.lib.TestUtils.getFileRowIdFromDatabase;
 import static android.scopedstorage.cts.lib.TestUtils.getImageContentUri;
-import static android.scopedstorage.cts.lib.TestUtils.installApp;
+import static android.scopedstorage.cts.lib.TestUtils.getPicturesDir;
+import static android.scopedstorage.cts.lib.TestUtils.insertFile;
+import static android.scopedstorage.cts.lib.TestUtils.insertFileFromExternalMedia;
 import static android.scopedstorage.cts.lib.TestUtils.listAs;
-import static android.scopedstorage.cts.lib.TestUtils.openFileAs;
-import static android.scopedstorage.cts.lib.TestUtils.openWithMediaProvider;
 import static android.scopedstorage.cts.lib.TestUtils.pollForExternalStorageState;
 import static android.scopedstorage.cts.lib.TestUtils.pollForPermission;
+import static android.scopedstorage.cts.lib.TestUtils.resetDefaultExternalStorageVolume;
 import static android.scopedstorage.cts.lib.TestUtils.setupDefaultDirectories;
-import static android.scopedstorage.cts.lib.TestUtils.uninstallApp;
-import static android.scopedstorage.cts.lib.TestUtils.uninstallAppNoThrow;
+import static android.scopedstorage.cts.lib.TestUtils.updateFile;
+import static android.scopedstorage.cts.lib.TestUtils.verifyInsertFromExternalMediaDirViaData_allowed;
+import static android.scopedstorage.cts.lib.TestUtils.verifyInsertFromExternalMediaDirViaRelativePath_allowed;
+import static android.scopedstorage.cts.lib.TestUtils.verifyInsertFromExternalPrivateDirViaRelativePath_denied;
+import static android.scopedstorage.cts.lib.TestUtils.verifyUpdateToExternalMediaDirViaRelativePath_allowed;
+import static android.scopedstorage.cts.lib.TestUtils.verifyUpdateToExternalPrivateDirsViaRelativePath_denied;
+
+import static androidx.test.InstrumentationRegistry.getContext;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -53,13 +67,15 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.Manifest;
+import android.app.AppOpsManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.ParcelFileDescriptor;
+import android.os.FileUtils;
+import android.os.Process;
 import android.provider.MediaStore;
 import android.scopedstorage.cts.lib.TestUtils;
 import android.system.ErrnoException;
@@ -84,6 +100,7 @@ import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -109,13 +126,25 @@ public class LegacyStorageTest {
      * test runs.
      */
     static final String NONCE = String.valueOf(System.nanoTime());
+    static final String CONTENT_PROVIDER_URL = "content://android.tradefed.contentprovider";
 
     static final String IMAGE_FILE_NAME = "LegacyStorageTest_file_" + NONCE + ".jpg";
     static final String VIDEO_FILE_NAME = "LegacyStorageTest_file_" + NONCE + ".mp4";
     static final String NONMEDIA_FILE_NAME = "LegacyStorageTest_file_" + NONCE + ".pdf";
 
-    private static final TestApp TEST_APP_A = new TestApp("TestAppA",
-            "android.scopedstorage.cts.testapp.A", 1, false, "CtsScopedStorageTestAppA.apk");
+    // The following apps are installed before the tests are run via a target_preparer.
+    // See test config for details.
+    // An app with READ_EXTERNAL_STORAGE permission
+    private static final TestApp APP_A_HAS_RES = new TestApp("TestAppA",
+            "android.scopedstorage.cts.testapp.A.withres", 1, false,
+            "CtsScopedStorageTestAppA.apk");
+    // An app with no permissions
+    private static final TestApp APP_B_NO_PERMS = new TestApp("TestAppB",
+            "android.scopedstorage.cts.testapp.B.noperms", 1, false,
+            "CtsScopedStorageTestAppB.apk");
+
+    private static final String[] SYSTEM_GALERY_APPOPS = {
+            AppOpsManager.OPSTR_WRITE_MEDIA_IMAGES, AppOpsManager.OPSTR_WRITE_MEDIA_VIDEO};
 
     /**
      * This method needs to be called once before running the whole test.
@@ -128,12 +157,21 @@ public class LegacyStorageTest {
     @Before
     public void setup() throws Exception {
         pollForExternalStorageState();
+
+        assertThat(checkPermission(APP_A_HAS_RES,
+                Manifest.permission.READ_EXTERNAL_STORAGE)).isTrue();
+        assertThat(checkPermission(APP_B_NO_PERMS,
+                Manifest.permission.READ_EXTERNAL_STORAGE)).isFalse();
     }
 
     @After
     public void teardown() throws Exception {
-        executeShellCommand("rm " + getShellFile());
-        MediaStore.scanFile(getContentResolver(), getShellFile());
+        deleteFileInExternalDir(getShellFile());
+        try {
+            MediaStore.scanFile(getContentResolver(), getShellFile());
+        } catch (Exception ignored) {
+            //ignore MediaScanner exceptions
+        }
     }
 
     /**
@@ -221,7 +259,7 @@ public class LegacyStorageTest {
         final File existingFile = getShellFile();
 
         try {
-            executeShellCommand("touch " + existingFile);
+            createFileInExternalDir(existingFile);
             MediaStore.scanFile(getContentResolver(), existingFile);
             Os.open(existingFile.getPath(), OsConstants.O_RDONLY, /*mode*/ 0);
             fail("Opening file for read expected to fail: " + existingFile);
@@ -274,7 +312,7 @@ public class LegacyStorageTest {
         // can open file for read
         FileDescriptor fd = null;
         try {
-            executeShellCommand("touch " + existingFile);
+            createFileInExternalDir(existingFile);
             MediaStore.scanFile(getContentResolver(), existingFile);
             fd = Os.open(existingFile.getPath(), OsConstants.O_RDONLY, /*mode*/ 0);
         } finally {
@@ -316,11 +354,38 @@ public class LegacyStorageTest {
         pollForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, /*granted*/ false);
         final File shellFile = getShellFile();
 
-        executeShellCommand("touch " + getShellFile());
+        createFileInExternalDir(shellFile);
         MediaStore.scanFile(getContentResolver(), getShellFile());
         // can list a non-media file created by other package.
         assertThat(Arrays.asList(shellFile.getParentFile().list()))
                 .contains(shellFile.getName());
+    }
+
+    /**
+     * Test that URI returned on inserting hidden file is valid after scan.
+     */
+    @Test
+    public void testInsertHiddenFile() throws Exception {
+        pollForPermission(Manifest.permission.READ_EXTERNAL_STORAGE, /*granted*/ true);
+        final File dcimDir = getDcimDir();
+        final String hiddenImageFileName = ".hidden" + IMAGE_FILE_NAME;
+        final File hiddenImageFile = new File(dcimDir, hiddenImageFileName);
+        try {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.MediaColumns.DATA, hiddenImageFile.getAbsolutePath());
+            Uri uri = getContentResolver().insert(getImageContentUri(), values);
+            try (OutputStream fos = getContentResolver().openOutputStream(uri, "rw")) {
+                fos.write(BYTES_DATA1);
+            }
+            MediaStore.scanFile(getContentResolver(), hiddenImageFile);
+            final String[] projection = {MediaStore.MediaColumns.DISPLAY_NAME};
+            try (Cursor c = getContentResolver().query(uri, projection, null, null, null)) {
+                assertThat(c.moveToFirst()).isTrue();
+                assertThat(c.getString(0)).isEqualTo(hiddenImageFileName);
+            }
+        } finally {
+            hiddenImageFile.delete();
+        }
     }
 
     /**
@@ -384,7 +449,7 @@ public class LegacyStorageTest {
                 new File(TestUtils.getExternalMediaDir(),
                         "LegacyFileAccessTest2");
         try {
-            executeShellCommand("touch " + shellFile1);
+            createFileInExternalDir(shellFile1);
             MediaStore.scanFile(getContentResolver(), shellFile1);
             // app can't rename shell file.
             assertCantRenameFile(shellFile1, shellFile2);
@@ -419,7 +484,7 @@ public class LegacyStorageTest {
                 new File(TestUtils.getExternalMediaDir(),
                         "LegacyFileAccessTest2");
         try {
-            executeShellCommand("touch " + shellFile1);
+            createFileInExternalDir(shellFile1);
             MediaStore.scanFile(getContentResolver(), shellFile1);
             // app can't rename shell file.
             assertCantRenameFile(shellFile1, shellFile2);
@@ -483,8 +548,7 @@ public class LegacyStorageTest {
             // Deleting the file will remove videoFile entry from database.
             assertThat(getFileRowIdFromDatabase(videoFile)).isEqualTo(-1);
 
-            installApp(TEST_APP_A, false);
-            assertThat(createFileAs(TEST_APP_A, otherAppPdfFile.getAbsolutePath())).isTrue();
+            assertThat(createFileAs(APP_B_NO_PERMS, otherAppPdfFile.getAbsolutePath())).isTrue();
             assertThat(getFileRowIdFromDatabase(otherAppPdfFile)).isNotEqualTo(-1);
             // Legacy app with write permission can delete the pdfFile owned by TestApp.
             assertThat(otherAppPdfFile.delete()).isTrue();
@@ -493,8 +557,7 @@ public class LegacyStorageTest {
             // on a public volume, which is different from the behaviour on a primary external.
 //            assertThat(getFileRowIdFromDatabase(otherAppPdfFile)).isEqualTo(-1);
         } finally {
-            deleteFileAsNoThrow(TEST_APP_A, otherAppPdfFile.getAbsolutePath());
-            uninstallApp(TEST_APP_A);
+            deleteFileAsNoThrow(APP_B_NO_PERMS, otherAppPdfFile.getAbsolutePath());
             videoFile.delete();
         }
     }
@@ -512,9 +575,8 @@ public class LegacyStorageTest {
         try {
             assertThat(videoFile.createNewFile()).isTrue();
 
-            installApp(TEST_APP_A, true);
             // videoFile is inserted to database, non-legacy app can see this videoFile on 'ls'.
-            assertThat(listAs(TEST_APP_A, TestUtils.getExternalStorageDir().getAbsolutePath()))
+            assertThat(listAs(APP_A_HAS_RES, TestUtils.getExternalStorageDir().getAbsolutePath()))
                     .contains(VIDEO_FILE_NAME);
 
             // videoFile is in database, row ID for videoFile can not be -1.
@@ -526,7 +588,6 @@ public class LegacyStorageTest {
             assertEquals(-1, getFileRowIdFromDatabase(videoFile));
         } finally {
             videoFile.delete();
-            uninstallApp(TEST_APP_A);
         }
     }
 
@@ -695,20 +756,18 @@ public class LegacyStorageTest {
         pollForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, /*granted*/ true);
 
         final File fullPath = new File(TestUtils.getDcimDir(),
-                "OwnershipChange_" + IMAGE_FILE_NAME);
-        final String relativePath = "DCIM/OwnershipChange_" + IMAGE_FILE_NAME;
+                "OwnershipChange" + IMAGE_FILE_NAME);
+        final String relativePath = "DCIM/OwnershipChange" + IMAGE_FILE_NAME;
         try {
-            installApp(TEST_APP_A, false);
-            createImageEntryAs(TEST_APP_A, relativePath);
+            createImageEntryAs(APP_B_NO_PERMS, relativePath);
             assertThat(fullPath.createNewFile()).isTrue();
 
-            // We have transferred ownership away from TEST_APP_A so reads / writes
+            // We have transferred ownership away from APP_B_NO_PERMS so reads / writes
             // should no longer work.
-            assertThat(openFileAs(TEST_APP_A, fullPath, false /* for write */)).isFalse();
-            assertThat(openFileAs(TEST_APP_A, fullPath, false /* for read */)).isFalse();
+            assertThat(canOpenFileAs(APP_B_NO_PERMS, fullPath, false /* forWrite */)).isFalse();
+            assertThat(canOpenFileAs(APP_B_NO_PERMS, fullPath, true /* forWrite */)).isFalse();
         } finally {
-            deleteFileAsNoThrow(TEST_APP_A, fullPath.getAbsolutePath());
-            uninstallAppNoThrow(TEST_APP_A);
+            deleteFileAsNoThrow(APP_B_NO_PERMS, fullPath.getAbsolutePath());
             fullPath.delete();
         }
     }
@@ -762,6 +821,183 @@ public class LegacyStorageTest {
                 deleteWithMediaProviderNoThrow(uri);
             }
         }
+    }
+
+    @Test
+    public void testLegacySystemGalleryCanRenameImagesAndVideosWithoutDbUpdates() throws Exception {
+        pollForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, /*granted*/ true);
+
+        final File otherAppVideoFile = new File(getDcimDir(), "other_" + VIDEO_FILE_NAME);
+        final File videoFile = new File(getPicturesDir(), VIDEO_FILE_NAME);
+
+        try {
+            allowAppOpsToUid(Process.myUid(), SYSTEM_GALERY_APPOPS);
+
+            // Create and write some data to the file
+            assertThat(createFileAs(APP_B_NO_PERMS, otherAppVideoFile.getPath())).isTrue();
+            try (FileOutputStream fos = new FileOutputStream(otherAppVideoFile)) {
+                fos.write(BYTES_DATA1);
+            }
+
+            // Assert legacy system gallery can rename the file.
+            assertCanRenameFile(otherAppVideoFile, videoFile, false /* checkDatabase */);
+            assertFileContent(videoFile, BYTES_DATA1);
+            // Database was not updated.
+            assertThat(getFileRowIdFromDatabase(otherAppVideoFile)).isNotEqualTo(-1);
+            assertThat(getFileRowIdFromDatabase(videoFile)).isEqualTo(-1);
+        } finally {
+            otherAppVideoFile.delete();
+            videoFile.delete();
+            denyAppOpsToUid(Process.myUid(), SYSTEM_GALERY_APPOPS);
+        }
+    }
+
+    @Test
+    public void testLegacySystemGalleryWithoutWESCannotRename() throws Exception {
+        pollForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, /*granted*/ false);
+
+        final File otherAppVideoFile = new File(getDcimDir(), "other_" + VIDEO_FILE_NAME);
+        final File videoFile = new File(getPicturesDir(), VIDEO_FILE_NAME);
+
+        try {
+            allowAppOpsToUid(Process.myUid(), SYSTEM_GALERY_APPOPS);
+
+            // Create file of other app.
+            assertThat(createFileAs(APP_B_NO_PERMS, otherAppVideoFile.getPath())).isTrue();
+
+            // Check we cannot rename it.
+            assertThat(otherAppVideoFile.renameTo(videoFile)).isFalse();
+        } finally {
+            otherAppVideoFile.delete();
+            videoFile.delete();
+            denyAppOpsToUid(Process.myUid(), SYSTEM_GALERY_APPOPS);
+        }
+    }
+
+    @Test
+    public void testLegacyWESCanRenameImagesAndVideosWithDbUpdates_hasW() throws Exception {
+        pollForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, /*granted*/ true);
+
+        final File otherAppVideoFile = new File(getDcimDir(), "other_" + VIDEO_FILE_NAME);
+        final File videoFile = new File(getPicturesDir(), VIDEO_FILE_NAME);
+
+        try {
+            // Create and write some data to the file
+            assertThat(createFileAs(APP_B_NO_PERMS, otherAppVideoFile.getPath())).isTrue();
+            try (FileOutputStream fos = new FileOutputStream(otherAppVideoFile)) {
+                fos.write(BYTES_DATA1);
+            }
+
+            // Assert legacy WES can rename the file (including database updated).
+            assertCanRenameFile(otherAppVideoFile, videoFile);
+            assertFileContent(videoFile, BYTES_DATA1);
+        } finally {
+            otherAppVideoFile.delete();
+            videoFile.delete();
+        }
+    }
+
+    @Test
+    public void testScanUpdatesMetadataForNewlyAddedFile_hasRW() throws Exception {
+        pollForPermission(Manifest.permission.READ_EXTERNAL_STORAGE, /*granted*/ true);
+        pollForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE, /*granted*/ true);
+
+        final File jpgFile = new File(getPicturesDir(), IMAGE_FILE_NAME);
+        try {
+            // Copy the image content to jpgFile
+            try (InputStream in =
+                         getContext().getResources().openRawResource(R.raw.img_with_metadata);
+                 FileOutputStream out = new FileOutputStream(jpgFile)) {
+                FileUtils.copy(in, out);
+                out.getFD().sync();
+            }
+            // Insert a new row for jpgFile.
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.MediaColumns.DATA, jpgFile.getAbsolutePath());
+            final Uri targetUri =
+                    getContentResolver().insert(getImageContentUri(), values, Bundle.EMPTY);
+            assertNotNull(targetUri);
+
+            try (Cursor c = TestUtils.queryFile(jpgFile, MediaStore.MediaColumns.DATE_TAKEN)) {
+                // Since the file is not yet scanned, no metadata is available
+                assertThat(c.moveToFirst()).isTrue();
+                assertThat(c.getString(0)).isNull();
+            }
+
+            // Scan the file to update the metadata. This scan shouldn't no-op
+            final Uri scanUri = MediaStore.scanFile(getContentResolver(), jpgFile);
+            assertNotNull(scanUri);
+
+            // ScanFile was able to update the metadata hence we should see DATE_TAKEN value.
+            try (Cursor c = TestUtils.queryFile(jpgFile, MediaStore.MediaColumns.DATE_TAKEN)) {
+                assertThat(c.moveToFirst()).isTrue();
+                assertThat(c.getString(0)).isNotNull();
+            }
+        } finally {
+            jpgFile.delete();
+        }
+    }
+
+    /**
+     * Make sure inserting files from app private directories in legacy apps is allowed via DATA.
+     */
+    @Test
+    public void testInsertFromExternalDirsViaData() throws Exception {
+        verifyInsertFromExternalMediaDirViaData_allowed();
+
+        ContentValues values = new ContentValues();
+        final String androidObbDir =
+                getContext().getObbDir().toString() + "/" + System.currentTimeMillis();
+        values.put(MediaStore.MediaColumns.DATA, androidObbDir);
+        insertFile(values);
+
+        final String androidDataDir = getExternalFilesDir().toString();
+        values.put(MediaStore.MediaColumns.DATA, androidDataDir);
+        insertFile(values);
+    }
+
+    /**
+     * Make sure inserting files from app private directories in legacy apps is not allowed via
+     * RELATIVE_PATH.
+     */
+    @Test
+    public void testInsertFromExternalDirsViaRelativePath() throws Exception {
+        verifyInsertFromExternalMediaDirViaRelativePath_allowed();
+        verifyInsertFromExternalPrivateDirViaRelativePath_denied();
+    }
+
+    /**
+     * Make sure updating files to app private directories in legacy apps is allowed via DATA.
+     */
+    @Test
+    public void testUpdateToExternalDirsViaData() throws Exception {
+        resetDefaultExternalStorageVolume();
+        Uri uri = insertFileFromExternalMedia(false);
+
+        final String androidMediaDirFile =
+                getAndroidMediaDir().toString() + "/" + System.currentTimeMillis();
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.MediaColumns.DATA, androidMediaDirFile);
+        assertNotEquals(0, updateFile(uri, values));
+
+        final String androidObbDir =
+                getContext().getObbDir().toString() + "/" + System.currentTimeMillis();
+        values.put(MediaStore.MediaColumns.DATA, androidObbDir);
+        assertNotEquals(0, updateFile(uri, values));
+
+        final String androidDataDir = getExternalFilesDir().toString();
+        values.put(MediaStore.MediaColumns.DATA, androidDataDir);
+        assertNotEquals(0, updateFile(uri, values));
+    }
+
+    /**
+     * Make sure updating files to app private directories in legacy apps is not allowed via
+     * RELATIVE_PATH.
+     */
+    @Test
+    public void testUpdateToExternalDirsViaRelativePath() throws Exception {
+        verifyUpdateToExternalMediaDirViaRelativePath_allowed();
+        verifyUpdateToExternalPrivateDirsViaRelativePath_denied();
     }
 
     private static void assertCanCreateFile(File file) throws IOException {
@@ -820,5 +1056,15 @@ public class LegacyStorageTest {
     private File getShellFile() throws Exception {
         return new File(TestUtils.getExternalStorageDir(),
                 "LegacyAccessHostTest_shell");
+    }
+
+    private void createFileInExternalDir(File file) throws Exception {
+        Log.d(TAG, "Creating file " + file);
+        getContentResolver().openFile(Uri.parse(CONTENT_PROVIDER_URL + file.getPath()), "w", null);
+    }
+
+    private void deleteFileInExternalDir(File file) throws Exception {
+        Log.d(TAG, "Deleting file " + file);
+        getContentResolver().delete(Uri.parse(CONTENT_PROVIDER_URL + file.getPath()), null, null);
     }
 }

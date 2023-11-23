@@ -1005,7 +1005,7 @@ void RSReflectionJava::genExportForEach(const RSExportForEach *EF) {
     mState->declareForEachDummyRoot(EF);
 
     if (!mCollecting) {
-      // Skip reflection for dummy root() kernels. Note that we have to
+      // Skip reflection for placeholder root() kernels. Note that we have to
       // advance the next slot number for ForEach, however.
       mOut.indent() << "//private final static int "
                     << RS_EXPORT_FOREACH_INDEX_PREFIX << EF->getName() << " = "
@@ -1498,7 +1498,7 @@ void RSReflectionJava::genExportReduceAllocationVariant(const RSExportReduce *ER
     mOut.indent() << "// " << InComment << "\n";
   startFunction(AM_Public, false, ResultTypeName.c_str(), MethodName, Args);
   const std::string &In0Name = Args[0].second;
-  // Sanity-check inputs
+  // Validity-check inputs
   if (Ins.size() > 1)
     mOut.indent() << "Type t0, t1;\n";
   for (size_t InIdx = 0, InEnd = Ins.size(); InIdx < InEnd; ++InIdx) {

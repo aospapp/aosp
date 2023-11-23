@@ -16,7 +16,6 @@
 
 package com.android.tools.metalava.model.text
 
-import com.android.tools.metalava.doclava1.TextCodebase
 import com.android.tools.metalava.model.TypeParameterItem
 import com.android.tools.metalava.model.TypeParameterList
 import com.android.tools.metalava.model.TypeParameterListOwner
@@ -65,7 +64,7 @@ class TextTypeParameterList(
             var balance = 0
             var expect = false
             var start = 0
-            for (i in 0 until s.length) {
+            for (i in s.indices) {
                 val c = s[i]
                 if (c == '<') {
                     balance++

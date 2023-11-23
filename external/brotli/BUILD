@@ -39,11 +39,9 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-config_setting(
-    name = "msvc",
-    values = {"compiler": "msvc-cl"},
-    visibility = ["//visibility:public"],
-)
+load(":compiler_config_setting.bzl", "create_msvc_config")
+
+create_msvc_config()
 
 STRICT_C_OPTIONS = select({
     ":msvc": [],
@@ -101,7 +99,7 @@ cc_library(
     name = "brotli_inc",
     hdrs = [":public_headers"],
     copts = STRICT_C_OPTIONS,
-    includes = ["c/include"],
+    strip_include_prefix = "c/include",
 )
 
 cc_library(

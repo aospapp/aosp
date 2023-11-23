@@ -42,16 +42,17 @@
 #ifndef LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_NANO_CALIBRATION_NANO_CALIBRATION_H_
 #define LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_NANO_CALIBRATION_NANO_CALIBRATION_H_
 
+#include <ash.h>
+#include <chre.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <ash.h>
-#include <chre.h>
 #include <cstdint>
 
 #include "calibration/online_calibration/common_data/calibration_callback.h"
 #include "calibration/online_calibration/common_data/calibration_data.h"
 #include "calibration/online_calibration/common_data/online_calibration.h"
+#include "calibration/online_calibration/common_data/result_callback_interface.h"
 #include "calibration/online_calibration/common_data/sensor_data.h"
 #include "common/math/macros.h"
 
@@ -88,6 +89,11 @@ class NanoSensorCal {
   void HandleTemperatureSamples(uint16_t event_type,
                                 const chreSensorFloatData *event_data);
 
+  void set_result_callback(
+      online_calibration::ResultCallbackInterface *result_callback) {
+    result_callback_ = result_callback;
+  }
+
  private:
   // Passes sensor data to the runtime calibration algorithms.
   void ProcessSample(const online_calibration::SensorData &sample);
@@ -99,7 +105,7 @@ class NanoSensorCal {
   // which runtime calibration parameters were recalled.
   bool LoadAshCalibration(uint8_t chreSensorType,
                           OnlineCalibrationThreeAxis *online_cal,
-                          online_calibration::CalibrationTypeFlags* flags,
+                          online_calibration::CalibrationTypeFlags *flags,
                           const char *sensor_tag);
 
   // Provides sensor calibration updates using the ASH API for the specified
@@ -126,7 +132,7 @@ class NanoSensorCal {
       const online_calibration::CalibrationDataThreeAxis &cal_data,
       online_calibration::CalibrationTypeFlags flags, const char *sensor_tag);
 
-  void HandleGyroLogMessage(uint64_t timestamp_nanos);
+  bool HandleGyroLogMessage(uint64_t timestamp_nanos);
 
   // Pointer to the accelerometer runtime calibration object.
   OnlineCalibrationThreeAxis *accel_cal_ = nullptr;
@@ -154,6 +160,9 @@ class NanoSensorCal {
       online_calibration::CalibrationTypeFlags::NONE;
   online_calibration::CalibrationTypeFlags mag_cal_update_flags_ =
       online_calibration::CalibrationTypeFlags::NONE;
+
+  // Pointer to telemetry logger.
+  online_calibration::ResultCallbackInterface *result_callback_ = nullptr;
 };
 
 }  // namespace nano_calibration

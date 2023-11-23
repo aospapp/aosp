@@ -36,8 +36,10 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.testng.Assert.assertThrows;
 
+import android.Manifest;
 import android.annotation.NonNull;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.media.MediaRoute2Info;
 import android.media.MediaRouter2;
@@ -82,6 +84,7 @@ public class MediaRouter2Test {
     private MediaRouter2 mRouter2;
     private Executor mExecutor;
     private AudioManager mAudioManager;
+    private RouteCallback mRouterDummyCallback = new RouteCallback(){};
     private StubMediaRoute2ProviderService mService;
 
     private static final int TIMEOUT_MS = 5000;
@@ -102,6 +105,16 @@ public class MediaRouter2Test {
         mExecutor = Executors.newSingleThreadExecutor();
         mAudioManager = (AudioManager) mContext.getSystemService(AUDIO_SERVICE);
 
+        MediaRouter2TestActivity.startActivity(mContext);
+
+        // In order to make the system bind to the test service,
+        // set a non-empty discovery preference while app is in foreground.
+        List<String> features = new ArrayList<>();
+        features.add("A test feature");
+        RouteDiscoveryPreference preference =
+                new RouteDiscoveryPreference.Builder(features, false).build();
+        mRouter2.registerRouteCallback(mExecutor, mRouterDummyCallback, preference);
+
         new PollingCheck(TIMEOUT_MS) {
             @Override
             protected boolean check() {
@@ -120,6 +133,8 @@ public class MediaRouter2Test {
 
     @After
     public void tearDown() throws Exception {
+        mRouter2.unregisterRouteCallback(mRouterDummyCallback);
+        MediaRouter2TestActivity.finishActivity();
         if (mService != null) {
             mService.clear();
             mService = null;
@@ -973,6 +988,14 @@ public class MediaRouter2Test {
     }
 
     @Test
+    public void testGetController() {
+        String systemControllerId = mRouter2.getSystemController().getId();
+        RoutingController controllerById = mRouter2.getController(systemControllerId);
+        assertNotNull(controllerById);
+        assertEquals(systemControllerId, controllerById.getId());
+    }
+
+    @Test
     public void testVolumeHandlingWhenVolumeFixed() {
         if (!mAudioManager.isVolumeFixed()) {
             return;
@@ -1026,6 +1049,16 @@ public class MediaRouter2Test {
             mRouter2.unregisterRouteCallback(routeCallback);
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0);
         }
+    }
+
+    @Test
+    public void testGettingSystemMediaRouter2WithoutPermissionThrowsSecurityException() {
+        // Make sure that the permission is not given.
+        assertNotEquals(PackageManager.PERMISSION_GRANTED,
+                mContext.checkSelfPermission(Manifest.permission.MEDIA_CONTENT_CONTROL));
+
+        assertThrows(SecurityException.class,
+                () -> MediaRouter2.getInstance(mContext, mContext.getPackageName()));
     }
 
     @Test

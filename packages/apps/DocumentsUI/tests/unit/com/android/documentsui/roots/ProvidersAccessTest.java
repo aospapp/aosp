@@ -41,19 +41,11 @@ public class ProvidersAccessTest extends AndroidTestCase {
 
     private static final UserId OTHER_USER = UserId.of(UserId.DEFAULT_USER.getIdentifier() + 1);
     private static final Correspondence<RootInfo, RootInfo> USER_ID_MIME_TYPES_CORRESPONDENCE =
-            new Correspondence<RootInfo, RootInfo>() {
-                @Override
-                public boolean compare(@Nullable RootInfo actual, @Nullable RootInfo expected) {
+            Correspondence.from((@Nullable RootInfo actual, @Nullable RootInfo expected) -> {
                     return actual != null && expected != null
                             && Objects.equals(actual.userId, expected.userId)
                             && Objects.equals(actual.derivedMimeTypes, expected.derivedMimeTypes);
-                }
-
-                @Override
-                public String toString() {
-                    return "has same userId and mimeTypes as in";
-                }
-            };
+            }, "has same userId and mimeTypes as in");
 
     private static RootInfo mNull = buildForMimeTypes((String[]) null);
     private static RootInfo mEmpty = buildForMimeTypes();

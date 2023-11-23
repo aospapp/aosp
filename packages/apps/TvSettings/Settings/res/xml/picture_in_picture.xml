@@ -20,6 +20,7 @@
     <Preference
             android:key="header"
             android:title="@string/picture_in_picture_app_detail_summary"
-            android:singleLineTitle="false" />
+            android:singleLineTitle="false"
+            android:selectable="false" />
 
 </PreferenceScreen>

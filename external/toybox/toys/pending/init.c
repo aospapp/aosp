@@ -188,6 +188,25 @@ static void inittab_parsing(void)
   }
 }
 
+static void reload_inittab(void)
+{
+  // Remove all inactive actions, then reload /etc/inittab
+  struct action_list_seed **y;
+  y = &action_list_pointer;
+  while (*y) {
+    if (!(*y)->pid) {
+      struct action_list_seed *x = *y;
+      free(x->terminal_name);
+      free(x->command);
+      *y = (*y)->next;
+      free(x);
+      continue;
+    }
+    y = &(*y)->next;
+  }
+  inittab_parsing();
+}
+
 static void run_command(char *command)
 {
   char *final_command[128];
@@ -289,11 +308,7 @@ static void waitforpid(pid_t pid)
 {
   if (pid <= 0) return;
 
-  for(;;) {
-    pid_t y = wait(NULL);
-    mark_as_terminated_process(y);
-    if (kill(y, 0)) break;
-  }
+  while (!kill(pid, 0)) mark_as_terminated_process(wait(NULL));
 }
 
 static void run_action_from_list(int action)
@@ -405,7 +420,7 @@ static void restart_init_handler(int sig_no)
 static void catch_signal(int sig_no)
 {
   caught_signal = sig_no;
-  error_msg("signal seen");
+  error_msg("signal seen: %d", sig_no);
 }
 
 static void pause_handler(int sig_no)
@@ -439,6 +454,10 @@ static int check_if_pending_signals(void)
     caught_signal = 0;
     signal_caught = 1;
     if (sig == SIGINT) run_action_from_list(CTRLALTDEL);
+    else if (sig == SIGHUP) {
+      error_msg("reloading inittab");
+      reload_inittab();
+    }
   }
 }
 

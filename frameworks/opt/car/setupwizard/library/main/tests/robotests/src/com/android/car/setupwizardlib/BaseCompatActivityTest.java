@@ -38,6 +38,7 @@ import androidx.fragment.app.Fragment;
 import com.android.car.setupwizardlib.robolectric.BaseRobolectricTest;
 import com.android.car.setupwizardlib.robolectric.TestHelper;
 import com.android.car.setupwizardlib.shadows.ShadowCar;
+import com.android.car.setupwizardlib.test.R;
 
 import org.junit.Before;
 import org.junit.Test;

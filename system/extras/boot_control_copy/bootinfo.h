@@ -17,8 +17,8 @@
 #ifndef BOOTINFO_H_
 #define BOOTINFO_H_
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct BrilloSlotInfo {
   uint8_t bootable : 1;
@@ -46,8 +46,8 @@ typedef struct BrilloBootInfo {
 } BrilloBootInfo;
 
 // Loading and saving BrillBootInfo instances.
-bool boot_info_load(BrilloBootInfo *out_info);
-bool boot_info_save(BrilloBootInfo *info);
+bool boot_info_load(BrilloBootInfo* out_info);
+bool boot_info_save(BrilloBootInfo* info);
 
 // Returns non-zero if valid.
 bool boot_info_validate(BrilloBootInfo* info);
@@ -56,7 +56,7 @@ void boot_info_reset(BrilloBootInfo* info);
 // Opens partition by |name|, e.g. "misc" or "boot_a" with |flags|
 // (e.g. O_RDONLY or O_RDWR) passed directly to open(2). Returns fd on
 // success and -1 on error.
-int boot_info_open_partition(const char *name, uint64_t *out_size, int flags);
+int boot_info_open_partition(const char* name, uint64_t* out_size, int flags);
 
 #if defined(__GNUC__) && __GNUC__ >= 4 && __GNUC_MINOR__ >= 6
 _Static_assert(sizeof(BrilloBootInfo) == 32, "BrilloBootInfo has wrong size");

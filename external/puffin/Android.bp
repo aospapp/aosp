@@ -1,3 +1,20 @@
+package {
+    default_applicable_licenses: ["external_puffin_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_puffin_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_defaults {
     name: "puffin_defaults",
     host_supported: true,

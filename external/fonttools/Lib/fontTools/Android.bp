@@ -11,16 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+//     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+//     DEPENDING ON IT IN YOUR PROJECT. ***
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_fonttools_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-BSD
+    //   SPDX-license-identifier-MIT
+    //   SPDX-license-identifier-OFL (by exception only)
+    //   SPDX-license-identifier-Unicode-DFS
+    //   legacy_unencumbered
+    default_applicable_licenses: ["external_fonttools_license"],
+}
+
 python_defaults {
     name: "fonttools_default",
     version: {
         py2: {
-            enabled: true,
-            embedded_launcher: true,
-        },
-        py3: {
             enabled: false,
             embedded_launcher: false,
+        },
+        py3: {
+            enabled: true,
+            embedded_launcher: true,
         },
     },
 }

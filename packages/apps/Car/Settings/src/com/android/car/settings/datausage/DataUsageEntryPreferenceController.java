@@ -21,12 +21,16 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionPlan;
+import android.util.Range;
 
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 import com.android.car.settings.network.NetworkUtils;
+
+import java.time.ZonedDateTime;
+import java.util.Iterator;
 
 /** Preference controller which shows how much data has been used so far. */
 public class DataUsageEntryPreferenceController extends PreferenceController<Preference> {
@@ -67,8 +71,9 @@ public class DataUsageEntryPreferenceController extends PreferenceController<Pre
         if (defaultPlan == null) {
             return null;
         }
-
-        return DataUsageUtils.bytesToIecUnits(getContext(), defaultPlan.getDataUsageBytes());
+        Iterator<Range<ZonedDateTime>> cycle = defaultPlan.cycleIterator();
+        long start = cycle.next().getLower().toInstant().toEpochMilli();
+        return DataUsageUtils.formatDataUsageInCycle(getContext(), defaultPlan.getDataUsageBytes(),
+                start);
     }
-
 }

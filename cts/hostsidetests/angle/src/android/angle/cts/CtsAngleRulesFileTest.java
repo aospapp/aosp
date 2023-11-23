@@ -42,7 +42,7 @@ public class CtsAngleRulesFileTest extends BaseHostJUnit4Test {
     private final String TAG = this.getClass().getSimpleName();
 
     private File mRulesFile;
-    private String mWhiteList;
+    private String mAllowList;
 
     // Rules Files
     private static final String RULES_FILE_EMPTY = "emptyRules.json";
@@ -52,7 +52,7 @@ public class CtsAngleRulesFileTest extends BaseHostJUnit4Test {
         byte[] rulesFileBytes =
                 ByteStreams.toByteArray(getClass().getResourceAsStream("/" + hostFilename));
 
-        Assert.assertTrue("Loaded empty rules file", rulesFileBytes.length > 0); // sanity check
+        Assert.assertTrue("Loaded empty rules file", rulesFileBytes.length > 0); // validity check
         mRulesFile = File.createTempFile("rulesFile", "tempRules.json");
         Files.write(rulesFileBytes, mRulesFile);
 
@@ -61,32 +61,32 @@ public class CtsAngleRulesFileTest extends BaseHostJUnit4Test {
         setProperty(getDevice(), PROPERTY_TEMP_RULES_FILE, DEVICE_TEMP_RULES_FILE_PATH);
     }
 
-    private void setAndValidateAngleDevOptionWhitelist(String whiteList) throws Exception {
-        // SETTINGS_GLOBAL_WHITELIST
-        setGlobalSetting(getDevice(), SETTINGS_GLOBAL_WHITELIST, whiteList);
+    private void setAndValidateAngleDevOptionAllowlist(String allowList) throws Exception {
+        // SETTINGS_GLOBAL_ALLOWLIST
+        setGlobalSetting(getDevice(), SETTINGS_GLOBAL_ALLOWLIST, allowList);
 
-        String devOption = getGlobalSetting(getDevice(), SETTINGS_GLOBAL_WHITELIST);
+        String devOption = getGlobalSetting(getDevice(), SETTINGS_GLOBAL_ALLOWLIST);
         Assert.assertEquals(
-            "Developer option '" + SETTINGS_GLOBAL_WHITELIST +
+            "Developer option '" + SETTINGS_GLOBAL_ALLOWLIST +
                 "' was not set correctly: '" + devOption + "'",
-            whiteList, devOption);
+            allowList, devOption);
     }
 
     @Before
     public void setUp() throws Exception {
         clearSettings(getDevice());
 
-        mWhiteList = getGlobalSetting(getDevice(), SETTINGS_GLOBAL_WHITELIST);
+        mAllowList = getGlobalSetting(getDevice(), SETTINGS_GLOBAL_ALLOWLIST);
 
-        final String whitelist = ANGLE_DRIVER_TEST_PKG + "," + ANGLE_DRIVER_TEST_SEC_PKG;
-        setAndValidateAngleDevOptionWhitelist(whitelist);
+        final String allowlist = ANGLE_DRIVER_TEST_PKG + "," + ANGLE_DRIVER_TEST_SEC_PKG;
+        setAndValidateAngleDevOptionAllowlist(allowlist);
     }
 
     @After
     public void tearDown() throws Exception {
         clearSettings(getDevice());
 
-        setAndValidateAngleDevOptionWhitelist(mWhiteList);
+        setAndValidateAngleDevOptionAllowlist(mAllowList);
 
         FileUtil.deleteFile(mRulesFile);
     }
@@ -97,6 +97,7 @@ public class CtsAngleRulesFileTest extends BaseHostJUnit4Test {
     @Test
     public void testEmptyRulesFile() throws Exception {
         Assume.assumeTrue(isAngleLoadable(getDevice()));
+        Assume.assumeFalse(isNativeDriverAngle(getDevice()));
 
         pushRulesFile(RULES_FILE_EMPTY);
 
@@ -113,6 +114,7 @@ public class CtsAngleRulesFileTest extends BaseHostJUnit4Test {
     @Test
     public void testEnableAngleRulesFile() throws Exception {
         Assume.assumeTrue(isAngleLoadable(getDevice()));
+        Assume.assumeFalse(isNativeDriverAngle(getDevice()));
 
         pushRulesFile(RULES_FILE_ENABLE_ANGLE);
 

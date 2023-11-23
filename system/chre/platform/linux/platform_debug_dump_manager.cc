@@ -21,4 +21,7 @@ namespace chre {
 void PlatformDebugDumpManager::sendDebugDump(const char * /*debugStr*/,
                                              bool /*complete*/) {}
 
+void PlatformDebugDumpManager::logStateToBuffer(
+    DebugDumpWrapper & /* debugDump */) {}
+
 }  // namespace chre

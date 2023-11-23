@@ -34,6 +34,7 @@ import android.content.Context;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.UiSelector;
 import android.view.View;
 
 import androidx.recyclerview.R;
@@ -48,7 +49,7 @@ import org.hamcrest.Matcher;
  */
 public class SearchBot extends Bots.BaseBot {
 
-    // Dumb search layout changes substantially between Ryu and Angler.
+    // Base search layout changes substantially between Ryu and Angler.
     @SuppressWarnings("unchecked")
     private static final Matcher<View> SEARCH_WIDGET = allOf(
             withId(R.id.option_menu_search),
@@ -76,6 +77,13 @@ public class SearchBot extends Bots.BaseBot {
         clear.click();
     }
 
+    // Click on the search history item with specified queryText, if exists.
+    public void clickSearchHistory(String queryText) throws UiObjectNotFoundException {
+        UiObject history = findSearchHistoryView();
+        UiSelector historyItemSelector = new UiSelector().text(queryText);
+        mDevice.findObject(history.getSelector().childSelector(historyItemSelector)).click();
+    }
+
     public void setInputText(String query) throws UiObjectNotFoundException {
         onView(SEARCH_INPUT).perform(typeText(query));
     }
@@ -89,6 +97,18 @@ public class SearchBot extends Bots.BaseBot {
             assertFalse(
                     "Search icon should not be visible.",
                     Matchers.present(SEARCH_WIDGET));
+        }
+    }
+
+    public void assertSearchHistoryVisible(boolean visible) {
+        if (visible) {
+            assertTrue(
+                    "Search fragment should be shown.",
+                    findSearchHistoryView().exists());
+        } else {
+            assertFalse(
+                    "Search fragment should be dismissed.",
+                    findSearchHistoryView().exists());
         }
     }
 
@@ -115,6 +135,10 @@ public class SearchBot extends Bots.BaseBot {
 
     private UiObject findSearchView() {
         return findObject(mTargetPackage + ":id/option_menu_search");
+    }
+
+    private UiObject findSearchHistoryView() {
+        return findObject(mTargetPackage + ":id/history_list");
     }
 
     private UiObject findSearchViewTextField() {

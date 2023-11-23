@@ -70,7 +70,7 @@ class SockDiag {
 
     int sockDestroy(uint8_t proto, const inet_diag_msg *);
     // Destroys all sockets on the given IPv4 or IPv6 address.
-    int destroySockets(const char *addrstr);
+    int destroySockets(const char* addrstr, int ifindex);
     // Destroys all sockets for the given protocol and UID.
     int destroySockets(uint8_t proto, uid_t uid, bool excludeLoopback);
     // Destroys all "live" (CONNECTED, SYN_SENT, SYN_RECV) TCP sockets for the given UID ranges.
@@ -91,7 +91,7 @@ class SockDiag {
     int mSocketsDestroyed;
     int sendDumpRequest(uint8_t proto, uint8_t family, uint8_t extensions, uint32_t states,
                         iovec *iov, int iovcnt);
-    int destroySockets(uint8_t proto, int family, const char *addrstr);
+    int destroySockets(uint8_t proto, int family, const char* addrstr, int ifindex);
     int destroyLiveSockets(const DestroyFilter& destroy, const char *what, iovec *iov, int iovcnt);
     bool hasSocks() { return mSock != -1 && mWriteSock != -1; }
     void closeSocks() { close(mSock); close(mWriteSock); mSock = mWriteSock = -1; }

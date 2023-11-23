@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,39 +8,62 @@ import json
 import logging
 from lxml import etree
 import os
-import StringIO
+import six
+import time
 
-from autotest_lib.client.common_lib import utils
+from autotest_lib.client.common_lib import error, utils
+from autotest_lib.server.cros.tradefed import tradefed_chromelogin as login
 
 
 class ChartFixture:
     """Sets up chart tablet to display dummy scene image."""
     DISPLAY_SCRIPT = '/usr/local/autotest/bin/display_chart.py'
+    OUTPUT_LOG = '/tmp/chart_service.log'
 
     def __init__(self, chart_host, scene_uri):
         self.host = chart_host
         self.scene_uri = scene_uri
         self.display_pid = None
+        self.host.run(['rm', '-f', self.OUTPUT_LOG])
 
     def initialize(self):
         """Prepare scene file and display it on chart host."""
         logging.info('Prepare scene file')
-        chart_dir = self.host.get_tmp_dir()
+        tmpdir = self.host.get_tmp_dir()
         scene_path = os.path.join(
-                chart_dir, self.scene_uri[self.scene_uri.rfind('/') + 1:])
+                tmpdir, self.scene_uri[self.scene_uri.rfind('/') + 1:])
         self.host.run('wget', args=('-O', scene_path, self.scene_uri))
-        self.host.run('chmod', args=('-R', '755', chart_dir))
 
         logging.info('Display scene file')
         self.display_pid = self.host.run_background(
-                'python %s %s' % (self.DISPLAY_SCRIPT, scene_path))
-        # TODO(inker): Suppose chart should be displayed very soon. Or require
-        # of waiting until chart actually displayed.
+                'python2 {script} {scene} >{log} 2>&1'.format(
+                        script=self.DISPLAY_SCRIPT,
+                        scene=scene_path,
+                        log=self.OUTPUT_LOG))
+
+        logging.info(
+                'Poll for "is ready" message for ensuring chart is ready.')
+        timeout = 60
+        poll_time_step = 0.1
+        while timeout > 0:
+            if self.host.run(
+                    'grep',
+                    args=('-q', 'Chart is ready.', self.OUTPUT_LOG),
+                    ignore_status=True).exit_status == 0:
+                break
+            time.sleep(poll_time_step)
+            timeout -= poll_time_step
+        else:
+            raise error.TestError('Timeout waiting for chart ready')
 
     def cleanup(self):
         """Cleanup display script."""
         if self.display_pid is not None:
-            self.host.run('kill', args=('-2', str(self.display_pid)))
+            self.host.run(
+                    'kill',
+                    args=('-2', str(self.display_pid)),
+                    ignore_status=True)
+            self.host.get_file(self.OUTPUT_LOG, '.')
 
 
 def get_chart_address(host_address, args):
@@ -55,10 +79,7 @@ def get_chart_address(host_address, args):
     if address is not None:
         return address.split(',')
     elif utils.is_in_container():
-        return [
-                utils.get_lab_chart_address(host)
-                for host in host_address
-        ]
+        return [utils.get_lab_chart_address(host) for host in host_address]
     else:
         return None
 
@@ -68,6 +89,7 @@ class DUTFixture:
     TEST_CONFIG_PATH = '/var/cache/camera/test_config.json'
     CAMERA_PROFILE_PATH = ('/mnt/stateful_partition/encrypted/var/cache/camera'
                            '/media_profiles.xml')
+    CAMERA_SCENE_LOG = '/tmp/scene.jpg'
 
     def __init__(self, test, host, facing):
         self.test = test
@@ -90,7 +112,7 @@ class DUTFixture:
             renumbered from 0.
         """
         tree = etree.parse(
-                StringIO.StringIO(content),
+                six.StringIO(content),
                 parser=etree.XMLParser(compact=False))
         root = tree.getroot()
         profiles = root.findall('CamcorderProfiles')
@@ -105,9 +127,10 @@ class DUTFixture:
                 else:
                     root.remove(p)
         else:
-            with self.test._login_chrome(
+            with login.login_chrome(
+                    hosts=[self.host],
                     board=self.test._get_board_name(),
-                    reboot=False), self._set_selinux_permissive():
+            ), self._set_selinux_permissive():
                 has_front_camera = (
                         'feature:android.hardware.camera.front' in self.host.
                         run_output('android-sh -c "pm list features"'))
@@ -149,7 +172,7 @@ class DUTFixture:
                         'enable_external_camera': False
                 }),
                 owner='arc-camera')
-        self.host.run('restart cros-camera')
+        self.host.upstart_restart('cros-camera')
 
         logging.info('Replace camera profile in ARC++ container')
         profile = self._read_file(self.CAMERA_PROFILE_PATH)
@@ -157,11 +180,35 @@ class DUTFixture:
         self._write_file(self.CAMERA_PROFILE_PATH, new_profile)
         self.host.run('restart ui')
 
+    @contextlib.contextmanager
+    def _stop_camera_service(self):
+        self.host.upstart_stop('cros-camera')
+        yield
+        self.host.upstart_restart('cros-camera')
+
+    def log_camera_scene(self):
+        """Capture an image from camera as the log for debugging scene related
+        problem."""
+
+        gtest_filter = (
+                'Camera3StillCaptureTest/'
+                'Camera3DumpSimpleStillCaptureTest.DumpCaptureResult/0')
+        with self._stop_camera_service():
+            self.host.run(
+                    'sudo',
+                    args=('--user=arc-camera', 'cros_camera_test',
+                          '--gtest_filter=' + gtest_filter,
+                          '--camera_facing=' + self.facing,
+                          '--dump_still_capture_path=' +
+                          self.CAMERA_SCENE_LOG))
+
+        self.host.get_file(self.CAMERA_SCENE_LOG, '.')
+
     def cleanup(self):
         """Cleanup camera filter."""
         logging.info('Remove filter option and restore camera service')
         self.host.run('rm', args=('-f', self.TEST_CONFIG_PATH))
-        self.host.run('restart cros-camera')
+        self.host.upstart_restart('cros-camera')
 
         logging.info('Restore camera profile in ARC++ container')
         self.host.run('restart ui')

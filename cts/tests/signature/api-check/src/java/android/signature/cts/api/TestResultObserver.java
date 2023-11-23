@@ -19,15 +19,18 @@ package android.signature.cts.api;
 import android.signature.cts.FailureType;
 import android.signature.cts.ResultObserver;
 
+import repackaged.junit.framework.Assert;
+import repackaged.junit.framework.TestCase;
+
 /**
  * Keeps track of any reported failures.
  */
 class TestResultObserver implements ResultObserver {
 
-    boolean mDidFail = false;
-    int failures = 0;
+    private boolean mDidFail = false;
+    private int failures = 0;
 
-    StringBuilder mErrorString = new StringBuilder();
+    private StringBuilder mErrorString = new StringBuilder();
 
     @Override
     public void notifyFailure(FailureType type, String name, String errorMessage) {
@@ -41,7 +44,26 @@ class TestResultObserver implements ResultObserver {
             mErrorString.append("\tError: ");
             mErrorString.append(errorMessage);
         } else if (failures == 101) {
-            mErrorString.append("\nMore than 100 failures, more errors will be elided.");
+            mErrorString.append("\nMore than 100 failures, aborting test.");
+            finalizeErrorString();
+            Assert.fail(mErrorString.toString());
         }
+    }
+
+    private void finalizeErrorString() {
+        ClassLoader classLoader = getClass().getClassLoader();
+        mErrorString.append("\nClassLoader hierarchy\n");
+        while (classLoader != null) {
+            mErrorString.append("    ").append(classLoader).append("\n");
+            classLoader = classLoader.getParent();
+        }
+    }
+
+    public void onTestComplete() {
+        if (mDidFail) {
+            finalizeErrorString();
+            Assert.fail(mErrorString.toString());
+        }
+
     }
 }

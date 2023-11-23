@@ -93,10 +93,6 @@ public abstract class AbstractLifecycleLogActivity extends BasicTestActivity {
         Log.i(getTag(), "onUserLeaveHint");
     }
 
-    protected final String getTag() {
-        return getClass().getSimpleName();
-    }
-
     protected void dumpConfiguration(Configuration config) {
         Log.i(getTag(), "Configuration: " + config);
         withTestJournalClient(client -> {

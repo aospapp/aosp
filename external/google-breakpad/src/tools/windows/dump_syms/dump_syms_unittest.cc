@@ -32,8 +32,7 @@
 #include <string>
 #include <utility>
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
+#include "breakpad_googletest_includes.h"
 
 namespace tools {
 namespace windows {
@@ -56,9 +55,13 @@ const wchar_t* kRootNames[] = {
   // without source data.
   L"omap_stretched",
   // A PDB file with OMAP data for an image that has been basic block reordered.
-  L"omap_reorder_bbs",  
+  L"omap_reorder_bbs",
   // A 64bit PDB file with no OMAP data.
   L"dump_syms_regtest64",
+};
+
+const wchar_t* kPEOnlyRootNames[] = {
+  L"pe_only_symbol_test",
 };
 
 void TrimLastComponent(const std::wstring& path,
@@ -122,7 +125,7 @@ void RunCommand(const std::wstring& command_line,
   STARTUPINFO startup_info = {};
   PROCESS_INFORMATION process_info = {};
   startup_info.cb = sizeof(STARTUPINFO);
-  startup_info.hStdError = child_stdout_write;
+  startup_info.hStdError = NULL;
   startup_info.hStdInput = child_stdin_read;
   startup_info.hStdOutput = child_stdout_write;
   startup_info.dwFlags = STARTF_USESTDHANDLES;
@@ -163,8 +166,23 @@ void GetFileContents(const std::wstring& path, std::string* content) {
   }
 }
 
-class DumpSymsRegressionTest : public testing::Test {
+class DumpSymsRegressionTest : public testing::TestWithParam<const wchar_t *> {
  public:
+  virtual void SetUp() {
+    std::wstring self_dir;
+    ASSERT_TRUE(GetSelfDirectory(&self_dir));
+    dump_syms_exe = self_dir + L"\\dump_syms.exe";
+
+    TrimLastComponent(self_dir, &testdata_dir, NULL);
+    testdata_dir += L"\\testdata";
+  }
+
+  std::wstring dump_syms_exe;
+  std::wstring testdata_dir;
+};
+
+class DumpSymsPEOnlyRegressionTest : public testing::TestWithParam<const wchar_t *> {
+public:
   virtual void SetUp() {
     std::wstring self_dir;
     ASSERT_TRUE(GetSelfDirectory(&self_dir));
@@ -180,24 +198,46 @@ class DumpSymsRegressionTest : public testing::Test {
 
 }  //namespace
 
-TEST_F(DumpSymsRegressionTest, EnsureDumpedSymbolsMatch) {
-  for (size_t i = 0; i < sizeof(kRootNames) / sizeof(kRootNames[0]); ++i) {
-    const wchar_t* root_name = kRootNames[i];
-    std::wstring root_path = testdata_dir + L"\\" + root_name;
+TEST_P(DumpSymsRegressionTest, EnsureDumpedSymbolsMatch) {
+  const wchar_t* root_name = GetParam();
+  std::wstring root_path = testdata_dir + L"\\" + root_name;
 
-    std::wstring sym_path = root_path + L".sym";
-    std::string expected_symbols;
-    ASSERT_NO_FATAL_FAILURE(GetFileContents(sym_path, &expected_symbols));
+  std::wstring sym_path = root_path + L".sym";
+  std::string expected_symbols;
+  ASSERT_NO_FATAL_FAILURE(GetFileContents(sym_path, &expected_symbols));
 
-    std::wstring pdb_path = root_path + L".pdb";
-    std::wstring command_line = L"\"" + dump_syms_exe + L"\" \"" +
-        pdb_path + L"\"";
-    std::string symbols;
-    ASSERT_NO_FATAL_FAILURE(RunCommand(command_line, &symbols));
+  std::wstring pdb_path = root_path + L".pdb";
+  std::wstring command_line = L"\"" + dump_syms_exe + L"\" \"" +
+    pdb_path + L"\"";
+  std::string symbols;
+  ASSERT_NO_FATAL_FAILURE(RunCommand(command_line, &symbols));
 
-    EXPECT_EQ(expected_symbols, symbols);
-  }
+  EXPECT_EQ(expected_symbols, symbols);
 }
+
+INSTANTIATE_TEST_CASE_P(DumpSyms, DumpSymsRegressionTest,
+  testing::ValuesIn(kRootNames));
+
+TEST_P(DumpSymsPEOnlyRegressionTest, EnsurePEOnlyDumpedSymbolsMatch) {
+  const wchar_t* root_name = GetParam();
+  std::wstring root_path = testdata_dir + L"\\" + root_name;
+
+  std::wstring sym_path = root_path + L".sym";
+  std::string expected_symbols;
+  ASSERT_NO_FATAL_FAILURE(GetFileContents(sym_path, &expected_symbols));
+
+  std::wstring dll_path = root_path + L".dll";
+  std::wstring command_line = L"\"" + dump_syms_exe + L"\" --pe \"" +
+    dll_path + L"\"";
+  std::string symbols;
+  ASSERT_NO_FATAL_FAILURE(RunCommand(command_line, &symbols));
+
+  EXPECT_EQ(expected_symbols, symbols);
+}
+
+INSTANTIATE_TEST_CASE_P(PEOnlyDumpSyms, DumpSymsPEOnlyRegressionTest,
+  testing::ValuesIn(kPEOnlyRootNames));
+
 
 }  // namespace dump_syms
 }  // namespace windows

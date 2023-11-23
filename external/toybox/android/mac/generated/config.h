@@ -64,12 +64,16 @@
 #define USE_ARP(...)
 #define CFG_ASCII 0
 #define USE_ASCII(...)
+#define CFG_BASE32 0
+#define USE_BASE32(...)
 #define CFG_BASE64 0
 #define USE_BASE64(...)
 #define CFG_BASENAME 1
 #define USE_BASENAME(...) __VA_ARGS__
 #define CFG_BC 0
 #define USE_BC(...)
+#define CFG_BLKDISCARD 0
+#define USE_BLKDISCARD(...)
 #define CFG_BLKID 0
 #define USE_BLKID(...)
 #define CFG_BLOCKDEV 0
@@ -106,6 +110,8 @@
 #define USE_CHROOT(...)
 #define CFG_CHRT 0
 #define USE_CHRT(...)
+#define CFG_CHSH 0
+#define USE_CHSH(...)
 #define CFG_CHVT 0
 #define USE_CHVT(...)
 #define CFG_CKSUM 0
@@ -118,8 +124,8 @@
 #define USE_COMM(...) __VA_ARGS__
 #define CFG_COUNT 0
 #define USE_COUNT(...)
-#define CFG_CPIO 0
-#define USE_CPIO(...)
+#define CFG_CPIO 1
+#define USE_CPIO(...) __VA_ARGS__
 #define CFG_CP_PRESERVE 1
 #define USE_CP_PRESERVE(...) __VA_ARGS__
 #define CFG_CP 1
@@ -194,8 +200,8 @@
 #define USE_FALSE(...)
 #define CFG_FDISK 0
 #define USE_FDISK(...)
-#define CFG_FGREP 0
-#define USE_FGREP(...)
+#define CFG_FGREP 1
+#define USE_FGREP(...) __VA_ARGS__
 #define CFG_FILE 0
 #define USE_FILE(...)
 #define CFG_FIND 1
@@ -408,8 +414,8 @@
 #define USE_NETSTAT(...)
 #define CFG_NICE 0
 #define USE_NICE(...)
-#define CFG_NL 0
-#define USE_NL(...)
+#define CFG_NL 1
+#define USE_NL(...) __VA_ARGS__
 #define CFG_NOHUP 0
 #define USE_NOHUP(...)
 #define CFG_NPROC 0
@@ -446,14 +452,16 @@
 #define USE_PMAP(...)
 #define CFG_PRINTENV 0
 #define USE_PRINTENV(...)
-#define CFG_PRINTF 0
-#define USE_PRINTF(...)
+#define CFG_PRINTF 1
+#define USE_PRINTF(...) __VA_ARGS__
 #define CFG_PS 0
 #define USE_PS(...)
 #define CFG_PWDX 0
 #define USE_PWDX(...)
 #define CFG_PWD 1
 #define USE_PWD(...) __VA_ARGS__
+#define CFG_PWGEN 0
+#define USE_PWGEN(...)
 #define CFG_READAHEAD 0
 #define USE_READAHEAD(...)
 #define CFG_READELF 0
@@ -482,6 +490,8 @@
 #define USE_RM(...) __VA_ARGS__
 #define CFG_ROUTE 0
 #define USE_ROUTE(...)
+#define CFG_RTCWAKE 0
+#define USE_RTCWAKE(...)
 #define CFG_RUNCON 0
 #define USE_RUNCON(...)
 #define CFG_SED 1
@@ -502,6 +512,8 @@
 #define USE_SHA224SUM(...)
 #define CFG_SHA256SUM 1
 #define USE_SHA256SUM(...) __VA_ARGS__
+#define CFG_SHA3SUM 0
+#define USE_SHA3SUM(...)
 #define CFG_SHA384SUM 0
 #define USE_SHA384SUM(...)
 #define CFG_SHA512SUM 1
@@ -564,6 +576,8 @@
 #define USE_TELNET(...)
 #define CFG_TEST 1
 #define USE_TEST(...) __VA_ARGS__
+#define CFG_TEST_GLUE 1
+#define USE_TEST_GLUE(...) __VA_ARGS__
 #define CFG_TFTPD 0
 #define USE_TFTPD(...)
 #define CFG_TFTP 0
@@ -594,6 +608,8 @@
 #define USE_UMOUNT(...)
 #define CFG_UNAME 1
 #define USE_UNAME(...) __VA_ARGS__
+#define CFG_UNICODE 0
+#define USE_UNICODE(...)
 #define CFG_UNIQ 1
 #define USE_UNIQ(...) __VA_ARGS__
 #define CFG_UNIX2DOS 1
@@ -624,6 +640,8 @@
 #define USE_VMSTAT(...)
 #define CFG_WATCH 0
 #define USE_WATCH(...)
+#define CFG_WATCHDOG 0
+#define USE_WATCHDOG(...)
 #define CFG_WC 1
 #define USE_WC(...) __VA_ARGS__
 #define CFG_WGET 0

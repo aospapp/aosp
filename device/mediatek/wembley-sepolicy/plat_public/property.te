@@ -18,3 +18,12 @@
 #  -product_property_type
 #  -vendor_property_type
 #}:file no_rw_file_perms;
+
+# Properties with no restrictions
+system_public_prop(system_mtk_ctl_emdlogger1_prop)
+system_public_prop(system_mtk_ctl_emdlogger2_prop)
+system_public_prop(system_mtk_ctl_emdlogger3_prop)
+system_public_prop(system_mtk_ctl_mdlogger_prop)
+system_public_prop(system_mtk_init_svc_aee_aedv_prop)
+system_public_prop(system_mtk_init_svc_emdlogger1_prop)
+system_public_prop(system_mtk_persist_mtk_aee_prop)

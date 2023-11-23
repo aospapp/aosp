@@ -21,7 +21,7 @@
 int main(int argc, char** argv) {
 #if !defined(OPENSSL_IS_BORINGSSL)
     ERR_load_crypto_strings();
-#endif // not OPENSSL_IS_BORINGSSL
+#endif  // not OPENSSL_IS_BORINGSSL
     ::testing::InitGoogleTest(&argc, argv);
     int result = RUN_ALL_TESTS();
 #if !defined(OPENSSL_IS_BORINGSSL)
@@ -29,6 +29,6 @@ int main(int argc, char** argv) {
     CRYPTO_cleanup_all_ex_data();
     ERR_remove_thread_state(NULL);
     ERR_free_strings();
-#endif // not OPENSSL_IS_BORINGSSL
+#endif  // not OPENSSL_IS_BORINGSSL
     return result;
 }

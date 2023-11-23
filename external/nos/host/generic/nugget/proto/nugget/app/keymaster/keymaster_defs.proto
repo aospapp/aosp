@@ -31,7 +31,7 @@ enum TagType {
   ULONG = 0x50000;         /* 5 << 16 */
   DATE = 0x60000;          /* 6 << 16 */
   BOOL = 0x70000;          /* 7 << 16 */
-  /*  BIGNUM = 0x80000;         8 << 16 */  /* Unused. */
+  BIGNUM_ = 0x80000;       /* 8 << 16 */
   BYTES = 0x90000;         /* 9 << 16 */
   ULONG_REP = 0xA0000;     /* 10 << 16 */
 };
@@ -51,6 +51,7 @@ enum Tag {
   RSA_PUBLIC_EXPONENT = 0x500c8; // (TagType:ULONG | 200)
   /* RESERVED: ECIES_SINGLE_HASH_MODE = 0x700c9; // (TagType:BOOL | 201) */
   INCLUDE_UNIQUE_ID = 0x700ca; // (TagType:BOOL | 202)
+  RSA_OAEP_MGF_DIGEST = 0x200cb; // (TagType:ENUM_REP | 203)
   BLOB_USAGE_REQUIREMENTS = 0x1012d; // (TagType:ENUM | 301)
   BOOTLOADER_ONLY = 0x7012e; // (TagType:BOOL | 302)
   ROLLBACK_RESISTANCE = 0x7012f; // (TagType:BOOL | 303)
@@ -61,6 +62,7 @@ enum Tag {
   USAGE_EXPIRE_DATETIME = 0x60192; // (TagType:DATE | 402)
   MIN_SECONDS_BETWEEN_OPS = 0x30193; // (TagType:UINT | 403)
   MAX_USES_PER_BOOT = 0x30194; // (TagType:UINT | 404)
+  USAGE_COUNT_LIMIT = 0x30195; // (TagType:UINT | 405)
   /* RESERVED: ALL_USERS = 0x701f4; // (TagType:BOOL | 500) */
   USER_ID = 0x301f5; // (TagType:UINT | 501)
   USER_SECURE_ID = 0xa01f6; // (TagType:ULONG_REP | 502)
@@ -102,7 +104,9 @@ enum Tag {
   /* RESERVED: AUTH_TOKEN = 0x903ea; // (TagType:BYTES | 1002) */
   MAC_LENGTH = 0x303eb; // (TagType:UINT | 1003)
   RESET_SINCE_ID_ROTATION = 0x703ec; // (TagType:BOOL | 1004)
-  CONFIRMATION_TOKEN = 0x903ed;// (TagType:BYTES | 1005)
+  CONFIRMATION_TOKEN = 0x903ed; // (TagType:BYTES | 1005)
+  CERTIFICATE_SERIAL = 0x803ee; // (TagType:BIGNUM | 1006)
+  CERTIFICATE_SUBJECT = 0x903ef; // (TagType:BYTES | 1007)
 };
 
 enum Algorithm {
@@ -173,7 +177,9 @@ enum KeyPurpose {
   VERIFY = 3;
   /* RESERVED: DERIVE_KEY = 4; */
   WRAP_KEY = 5;
-  PURPOSE_MAX = 6;
+  AGREE_KEY = 6;
+  ATTEST_KEY = 7;
+  PURPOSE_MAX = 8;
 };
 
 enum ErrorCode {
@@ -259,6 +265,8 @@ enum ErrorCode {
   ATTESTATION_IDS_NOT_PROVISIONED = 79;
   INVALID_OPERATION = 80;
   STORAGE_KEY_UNSUPPORTED = 81;
+  INCOMPATIBLE_MGF_DIGEST = 82;
+  UNSUPPORTED_MGF_DIGEST = 83;
 };
 
 enum SecurityLevel {
@@ -307,6 +315,8 @@ enum ChipFusing {
     FUSING_DVT = 1;
     FUSING_PVT = 2;     // Strongbox gen v0 certs.
     FUSING_PVT_1 = 3;   // Strongbox gen v1 certs.
+    FUSING_D_PVT = 4;   // Dauntless gen v0 certs.
+    FUSING_D_PVT_1 = 5; // Dauntless gen v1 certs.
 }
 
 enum CertificateStatus {

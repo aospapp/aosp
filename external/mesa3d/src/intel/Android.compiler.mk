@@ -30,6 +30,9 @@
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_intel_compiler
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT legacy_by_exception_only legacy_notice
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 LOCAL_SRC_FILES := \
@@ -53,7 +56,7 @@ $(intermediates)/compiler/brw_nir_trig_workarounds.c: $(prebuilt_intermediates)/
 	@mkdir -p $(dir $@)
 	@cp -f $< $@
 
-LOCAL_HEADER_LIBRARIES = libmesa_genxml
+LOCAL_STATIC_LIBRARIES = libmesa_genxml
 
 LOCAL_GENERATED_SOURCES += $(addprefix $(intermediates)/, \
 	$(COMPILER_GENERATED_FILES))

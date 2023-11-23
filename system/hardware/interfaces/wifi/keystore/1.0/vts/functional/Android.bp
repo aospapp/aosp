@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test {
     name: "VtsHalWifiKeystoreV1_0TargetTest",
     defaults: ["VtsHalTargetTestDefaults"],
@@ -27,15 +31,14 @@ cc_test {
         "libhidlbase",
         "libnativehelper",
         "libutils",
-        "libkeystore_binder",
-        "libbinder",
-        "libkeystore_aidl",
-        "libkeystore_parcelables",
-        "libkeymaster4support",
+        "libbinder_ndk",
     ],
     static_libs: [
         "VtsHalHidlTargetTestBase",
+        "android.hardware.security.keymint-V1-ndk_platform",
+        "android.system.keystore2-V1-ndk_platform",
         "android.system.wifi.keystore@1.0",
+        "libkeymint_support",
     ],
     cflags: [
         "-O0",
@@ -44,9 +47,4 @@ cc_test {
         "-Werror",
     ],
     test_suites: ["general-tests", "vts"],
-}
-
-vts_config {
-    name: "VtsHalWifiKeystoreV1_0Target",
-    test_config: "wifi_keystore_target.xml",
 }

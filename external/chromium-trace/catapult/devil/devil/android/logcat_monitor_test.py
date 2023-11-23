@@ -9,6 +9,8 @@ import itertools
 import threading
 import unittest
 
+import six
+
 from devil import devil_env
 from devil.android import logcat_monitor
 from devil.android.sdk import adb_wrapper
@@ -24,27 +26,34 @@ def _CreateTestLog(raw_logcat=None):
   return test_log
 
 
+def zip_longest(expected, actual):
+  # pylint: disable=no-member
+  if six.PY2:
+    return itertools.izip_longest(expected, actual)
+  else:
+    return itertools.zip_longest(expected, actual)
+
 class LogcatMonitorTest(unittest.TestCase):
 
   _TEST_THREADTIME_LOGCAT_DATA = [
       '01-01 01:02:03.456  7890  0987 V LogcatMonitorTest: '
-          'verbose logcat monitor test message 1',
+      'verbose logcat monitor test message 1',
       '01-01 01:02:03.457  8901  1098 D LogcatMonitorTest: '
-          'debug logcat monitor test message 2',
+      'debug logcat monitor test message 2',
       '01-01 01:02:03.458  9012  2109 I LogcatMonitorTest: '
-          'info logcat monitor test message 3',
+      'info logcat monitor test message 3',
       '01-01 01:02:03.459  0123  3210 W LogcatMonitorTest: '
-          'warning logcat monitor test message 4',
+      'warning logcat monitor test message 4',
       '01-01 01:02:03.460  1234  4321 E LogcatMonitorTest: '
-          'error logcat monitor test message 5',
+      'error logcat monitor test message 5',
       '01-01 01:02:03.461  2345  5432 F LogcatMonitorTest: '
-          'fatal logcat monitor test message 6',
+      'fatal logcat monitor test message 6',
       '01-01 01:02:03.462  3456  6543 D LogcatMonitorTest: '
-          'last line'
+      'last line'
   ]
 
   def assertIterEqual(self, expected_iter, actual_iter):
-    for expected, actual in itertools.izip_longest(expected_iter, actual_iter):
+    for expected, actual in zip_longest(expected_iter, actual_iter):
       self.assertIsNotNone(
           expected,
           msg='actual has unexpected elements starting with %s' % str(actual))
@@ -71,8 +80,7 @@ class LogcatMonitorTest(unittest.TestCase):
     self.assertTrue(actual_match)
     self.assertEqual(
         '01-01 01:02:03.460  1234  4321 E LogcatMonitorTest: '
-            'error logcat monitor test message 5',
-        actual_match.group(0))
+        'error logcat monitor test message 5', actual_match.group(0))
     self.assertEqual('error', actual_match.group(1))
     test_log.Stop()
     test_log.Close()
@@ -82,8 +90,8 @@ class LogcatMonitorTest(unittest.TestCase):
     test_log = _CreateTestLog(
         raw_logcat=type(self)._TEST_THREADTIME_LOGCAT_DATA)
     test_log.Start()
-    actual_match = test_log.WaitFor(
-        r'.*My Success Regex.*', r'.*(fatal|error) logcat monitor.*')
+    actual_match = test_log.WaitFor(r'.*My Success Regex.*',
+                                    r'.*(fatal|error) logcat monitor.*')
     self.assertIsNone(actual_match)
     test_log.Stop()
     test_log.Close()
@@ -120,19 +128,18 @@ class LogcatMonitorTest(unittest.TestCase):
     test_log.Start()
     test_log.WaitFor(r'.*last line.*', None)
     test_log.Stop()
-    expected_results = [
-        ('7890', '0987', 'V', 'LogcatMonitorTest',
-         'verbose logcat monitor test message 1'),
-        ('8901', '1098', 'D', 'LogcatMonitorTest',
-         'debug logcat monitor test message 2'),
-        ('9012', '2109', 'I', 'LogcatMonitorTest',
-         'info logcat monitor test message 3'),
-        ('0123', '3210', 'W', 'LogcatMonitorTest',
-         'warning logcat monitor test message 4'),
-        ('1234', '4321', 'E', 'LogcatMonitorTest',
-         'error logcat monitor test message 5'),
-        ('2345', '5432', 'F', 'LogcatMonitorTest',
-         'fatal logcat monitor test message 6')]
+    expected_results = [('7890', '0987', 'V', 'LogcatMonitorTest',
+                         'verbose logcat monitor test message 1'),
+                        ('8901', '1098', 'D', 'LogcatMonitorTest',
+                         'debug logcat monitor test message 2'),
+                        ('9012', '2109', 'I', 'LogcatMonitorTest',
+                         'info logcat monitor test message 3'),
+                        ('0123', '3210', 'W', 'LogcatMonitorTest',
+                         'warning logcat monitor test message 4'),
+                        ('1234', '4321', 'E', 'LogcatMonitorTest',
+                         'error logcat monitor test message 5'),
+                        ('2345', '5432', 'F', 'LogcatMonitorTest',
+                         'fatal logcat monitor test message 6')]
     actual_results = test_log.FindAll(r'\S* logcat monitor test message \d')
     self.assertIterEqual(iter(expected_results), actual_results)
     test_log.Close()
@@ -158,9 +165,8 @@ class LogcatMonitorTest(unittest.TestCase):
     test_log.Stop()
     actual_results = test_log.FindAll(
         r'\S* logcat monitor test message \d', proc_id=1234)
-    expected_results = [
-        ('1234', '4321', 'E', 'LogcatMonitorTest',
-         'error logcat monitor test message 5')]
+    expected_results = [('1234', '4321', 'E', 'LogcatMonitorTest',
+                         'error logcat monitor test message 5')]
     self.assertIterEqual(iter(expected_results), actual_results)
     test_log.Close()
 
@@ -173,9 +179,8 @@ class LogcatMonitorTest(unittest.TestCase):
     test_log.Stop()
     actual_results = test_log.FindAll(
         r'\S* logcat monitor test message \d', thread_id=2109)
-    expected_results = [
-        ('9012', '2109', 'I', 'LogcatMonitorTest',
-         'info logcat monitor test message 3')]
+    expected_results = [('9012', '2109', 'I', 'LogcatMonitorTest',
+                         'info logcat monitor test message 3')]
     self.assertIterEqual(iter(expected_results), actual_results)
     test_log.Close()
 
@@ -188,12 +193,10 @@ class LogcatMonitorTest(unittest.TestCase):
     test_log.Stop()
     actual_results = test_log.FindAll(
         r'\S* logcat monitor test message \d', log_level=r'[DW]')
-    expected_results = [
-        ('8901', '1098', 'D', 'LogcatMonitorTest',
-         'debug logcat monitor test message 2'),
-        ('0123', '3210', 'W', 'LogcatMonitorTest',
-         'warning logcat monitor test message 4')
-    ]
+    expected_results = [('8901', '1098', 'D', 'LogcatMonitorTest',
+                         'debug logcat monitor test message 2'),
+                        ('0123', '3210', 'W', 'LogcatMonitorTest',
+                         'warning logcat monitor test message 4')]
     self.assertIterEqual(iter(expected_results), actual_results)
     test_log.Close()
 
@@ -205,26 +208,22 @@ class LogcatMonitorTest(unittest.TestCase):
     test_log.WaitFor(r'.*last line.*', None)
     test_log.Stop()
     actual_results = test_log.FindAll(r'.*', component='LogcatMonitorTest')
-    expected_results = [
-        ('7890', '0987', 'V', 'LogcatMonitorTest',
-         'verbose logcat monitor test message 1'),
-        ('8901', '1098', 'D', 'LogcatMonitorTest',
-         'debug logcat monitor test message 2'),
-        ('9012', '2109', 'I', 'LogcatMonitorTest',
-         'info logcat monitor test message 3'),
-        ('0123', '3210', 'W', 'LogcatMonitorTest',
-         'warning logcat monitor test message 4'),
-        ('1234', '4321', 'E', 'LogcatMonitorTest',
-         'error logcat monitor test message 5'),
-        ('2345', '5432', 'F', 'LogcatMonitorTest',
-         'fatal logcat monitor test message 6'),
-        ('3456', '6543', 'D', 'LogcatMonitorTest',
-         'last line')
-    ]
+    expected_results = [('7890', '0987', 'V', 'LogcatMonitorTest',
+                         'verbose logcat monitor test message 1'),
+                        ('8901', '1098', 'D', 'LogcatMonitorTest',
+                         'debug logcat monitor test message 2'),
+                        ('9012', '2109', 'I', 'LogcatMonitorTest',
+                         'info logcat monitor test message 3'),
+                        ('0123', '3210', 'W', 'LogcatMonitorTest',
+                         'warning logcat monitor test message 4'),
+                        ('1234', '4321', 'E', 'LogcatMonitorTest',
+                         'error logcat monitor test message 5'),
+                        ('2345', '5432', 'F', 'LogcatMonitorTest',
+                         'fatal logcat monitor test message 6'),
+                        ('3456', '6543', 'D', 'LogcatMonitorTest', 'last line')]
     self.assertIterEqual(iter(expected_results), actual_results)
     test_log.Close()
 
 
 if __name__ == '__main__':
   unittest.main(verbosity=2)
-

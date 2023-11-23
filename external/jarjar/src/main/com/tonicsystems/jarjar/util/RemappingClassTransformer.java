@@ -17,12 +17,12 @@
 package com.tonicsystems.jarjar.util;
 
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.Remapper;
-import org.objectweb.asm.commons.RemappingClassAdapter;
 
 import com.tonicsystems.jarjar.EmptyClassVisitor;
 
-public class RemappingClassTransformer extends RemappingClassAdapter
+public class RemappingClassTransformer extends ClassRemapper
 {
     public RemappingClassTransformer(Remapper pr) {
         super(new EmptyClassVisitor(), pr);

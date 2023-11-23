@@ -18,17 +18,16 @@ package android.net.ipsec.ike;
 
 import android.annotation.IntRange;
 import android.annotation.NonNull;
+import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
+import android.os.PersistableBundle;
 
 import java.util.Objects;
 
 /**
  * TransportModeChildSessionParams represents proposed configurations for negotiating a transport
  * mode Child Session.
- *
- * @hide
  */
-@SystemApi
 public final class TransportModeChildSessionParams extends ChildSessionParams {
     private TransportModeChildSessionParams(
             IkeTrafficSelector[] inboundTs,
@@ -46,6 +45,40 @@ public final class TransportModeChildSessionParams extends ChildSessionParams {
     }
 
     /**
+     * Constructs this object by deserializing a PersistableBundle *
+     *
+     * <p>Constructed TransportModeChildSessionParams is guaranteed to be valid, as checked by the
+     * TransportModeChildSessionParams.Builder
+     *
+     * @hide
+     */
+    @NonNull
+    public static TransportModeChildSessionParams fromPersistableBundle(
+            @NonNull PersistableBundle in) {
+        Objects.requireNonNull(in, "PersistableBundle not provided");
+
+        TransportModeChildSessionParams.Builder builder =
+                new TransportModeChildSessionParams.Builder();
+
+        for (ChildSaProposal p : getProposalsFromPersistableBundle(in)) {
+            builder.addSaProposal(p);
+        }
+
+        for (IkeTrafficSelector ts : getTsFromPersistableBundle(in, INBOUND_TS_KEY)) {
+            builder.addInboundTrafficSelectors(ts);
+        }
+
+        for (IkeTrafficSelector ts : getTsFromPersistableBundle(in, OUTBOUND_TS_KEY)) {
+            builder.addOutboundTrafficSelectors(ts);
+        }
+
+        builder.setLifetimeSeconds(
+                in.getInt(HARD_LIFETIME_SEC_KEY), in.getInt(SOFT_LIFETIME_SEC_KEY));
+
+        return builder.build();
+    }
+
+    /**
      * This class can be used to incrementally construct a {@link TransportModeChildSessionParams}.
      */
     public static final class Builder extends ChildSessionParams.Builder {
@@ -55,13 +88,46 @@ public final class TransportModeChildSessionParams extends ChildSessionParams {
         }
 
         /**
+         * Construct Builder from the {@link TransportModeChildSessionParams} object.
+         *
+         * @param childParams the object this Builder will be constructed with.
+         */
+        public Builder(@NonNull TransportModeChildSessionParams childParams) {
+            super(childParams);
+        }
+
+        /**
+         * Adds a Child SA proposal to the {@link TransportModeChildSessionParams} being built.
+         *
+         * @param proposal Child SA proposal.
+         * @return Builder this, to facilitate chaining.
+         * @deprecated Callers should use {@link #addChildSaProposal(ChildSaProposal)}. This method
+         *     is deprecated because its name does not match the input type.
+         * @hide
+         */
+        // The matching getter is defined in the super class. Please see
+        // {@link ChildSessionParams#getSaProposals}
+        @SuppressLint("MissingGetterMatchingBuilder")
+        @Deprecated
+        @SystemApi
+        @NonNull
+        public Builder addSaProposal(@NonNull ChildSaProposal proposal) {
+            return addChildSaProposal(proposal);
+        }
+
+        /**
          * Adds a Child SA proposal to the {@link TransportModeChildSessionParams} being built.
          *
          * @param proposal Child SA proposal.
          * @return Builder this, to facilitate chaining.
          */
+        // The matching getter is defined in the super class. Please see
+        // {@link ChildSessionParams#getSaProposals}
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
-        public Builder addSaProposal(@NonNull ChildSaProposal proposal) {
+        public Builder addChildSaProposal(@NonNull ChildSaProposal proposal) {
+            Objects.requireNonNull(proposal, "Required argument not provided");
+
             addProposal(proposal);
             return this;
         }
@@ -80,6 +146,9 @@ public final class TransportModeChildSessionParams extends ChildSessionParams {
          * @param trafficSelector the inbound {@link IkeTrafficSelector}.
          * @return Builder this, to facilitate chaining.
          */
+        // The matching getter is defined in the super class. Please see {@link
+        // ChildSessionParams#getInboundTrafficSelectors}
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addInboundTrafficSelectors(@NonNull IkeTrafficSelector trafficSelector) {
             Objects.requireNonNull(trafficSelector, "Required argument not provided");
@@ -101,6 +170,9 @@ public final class TransportModeChildSessionParams extends ChildSessionParams {
          * @param trafficSelector the outbound {@link IkeTrafficSelector}.
          * @return Builder this, to facilitate chaining.
          */
+        // The matching getter is defined in the super class. Please see {@link
+        // ChildSessionParams#getOutboundTrafficSelectors}
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder addOutboundTrafficSelectors(@NonNull IkeTrafficSelector trafficSelector) {
             Objects.requireNonNull(trafficSelector, "Required argument not provided");
@@ -121,6 +193,10 @@ public final class TransportModeChildSessionParams extends ChildSessionParams {
          *     Defaults to 3600 seconds (1 hour). MUST be at least 120 seconds (2 minutes), and at
          *     least 60 seconds (1 minute) shorter than the hard lifetime.
          */
+        // The matching getters are defined in the super class. Please see {@link
+        // ChildSessionParams#getHardLifetimeSeconds and {@link
+        // ChildSessionParams#getSoftLifetimeSeconds}
+        @SuppressLint("MissingGetterMatchingBuilder")
         @NonNull
         public Builder setLifetimeSeconds(
                 @IntRange(

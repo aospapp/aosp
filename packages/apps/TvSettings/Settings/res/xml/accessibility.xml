@@ -27,7 +27,7 @@
                 android:targetPackage="com.android.tv.settings"/>
     </Preference>
 
-    <SwitchPreference
+    <com.android.tv.settings.widget.SwitchWithSoundPreference
             android:key="toggle_high_text_contrast"
             android:persistent="true"
             android:title="@string/accessibility_toggle_high_text_contrast_preference_title"

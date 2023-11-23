@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ar_XB{
     Keys{
         calendar{"؜‮Calendar‬؜"}
@@ -15,6 +16,7 @@ ar_XB{
         collation{"؜‮Sort‬؜ ؜‮Order‬؜"}
         currency{"؜‮Currency‬؜"}
         d0{"؜‮Transform‬؜ ؜‮Destination‬؜"}
+        dx{"؜‮Dictionary‬؜ ؜‮Break‬؜ ؜‮Exclusions‬؜"}
         em{"؜‮Emoji‬؜ ؜‮Presentation‬؜ ؜‮Style‬؜"}
         fw{"؜‮First‬؜ ؜‮day‬؜ ؜‮of‬؜ ؜‮week‬؜"}
         h0{"؜‮Mixed‬؜-؜‮in‬؜"}
@@ -666,6 +668,8 @@ ar_XB{
         zh_Hant{"؜‮Traditional‬؜ ؜‮Mandarin‬؜ ؜‮Chinese‬؜"}
     }
     Languages%menu{
+        ars{"؜‮Arabic‬؜, ؜‮Najdi‬؜"}
+        ckb{"؜‮Kurdish‬؜, ؜‮Central‬؜"}
         yue{"؜‮Chinese‬؜, ؜‮Cantonese‬؜"}
         zh{"؜‮Chinese‬؜, ؜‮Mandarin‬؜"}
     }
@@ -675,6 +679,7 @@ ar_XB{
         en_US{"؜‮US‬؜ ؜‮English‬؜"}
     }
     Languages%variant{
+        ckb{"؜‮Kurdish‬؜, ؜‮Sorani‬؜"}
         ky{"؜‮Kirghiz‬؜"}
         my{"؜‮Myanmar‬؜ ؜‮Language‬؜"}
         ps{"؜‮Pushto‬؜"}
@@ -686,6 +691,7 @@ ar_XB{
         Aghb{"؜‮Caucasian‬؜ ؜‮Albanian‬؜"}
         Ahom{"؜‮Ahom‬؜"}
         Arab{"؜‮Arabic‬؜"}
+        Aran{"؜‮Nastaliq‬؜"}
         Armi{"؜‮Imperial‬؜ ؜‮Aramaic‬؜"}
         Armn{"؜‮Armenian‬؜"}
         Avst{"؜‮Avestan‬؜"}
@@ -1192,6 +1198,7 @@ ar_XB{
             roman{"؜‮Roman‬؜ ؜‮Numerals‬؜"}
             romanlow{"؜‮Roman‬؜ ؜‮Lowercase‬؜ ؜‮Numerals‬؜"}
             saur{"؜‮Saurashtra‬؜ ؜‮Digits‬؜"}
+            segment{"؜‮Segmented‬؜ ؜‮Digits‬؜"}
             shrd{"؜‮Sharada‬؜ ؜‮Digits‬؜"}
             sind{"؜‮Khudawadi‬؜ ؜‮Digits‬؜"}
             sinh{"؜‮Sinhala‬؜ ؜‮Lith‬؜ ؜‮Digits‬؜"}
@@ -1294,9 +1301,9 @@ ar_XB{
         VALENCIA{"؜‮Valencian‬؜"}
         WADEGILE{"؜‮Wade‬؜-؜‮Giles‬؜ ؜‮Romanization‬؜"}
     }
-    Version{"36.1"}
     characterLabelPattern{
         all{"{0} — ؜‮all‬؜"}
+        category-list{"{0}: {1}"}
         compatibility{"{0} — ؜‮compatibility‬؜"}
         enclosed{"{0} — ؜‮enclosed‬؜"}
         extended{"{0} — ؜‮extended‬؜"}

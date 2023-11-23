@@ -27,6 +27,7 @@ import android.view.ViewGroup;
 import androidx.fragment.app.Fragment;
 
 import com.android.car.radio.bands.ProgramType;
+import com.android.car.radio.util.Log;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
 
@@ -34,6 +35,7 @@ import com.android.car.ui.baselayout.InsetsChangedListener;
  * Fragment that allows tuning to a specific frequency using a keypad
  */
 public class ManualTunerFragment extends Fragment implements InsetsChangedListener {
+    private static final String TAG = "BcRadioApp.TunFrg";
 
     private ManualTunerController mController;
     private RadioController mRadioController;
@@ -53,11 +55,16 @@ public class ManualTunerFragment extends Fragment implements InsetsChangedListen
         super.setUserVisibleHint(isVisibleToUser);
 
         if (!isVisibleToUser) return;
+
         ProgramInfo current = mRadioController.getCurrentProgram().getValue();
-        if (current == null) return;
-        mController.switchProgramType(ProgramType.fromSelector(current.getSelector()));
-        if (isVisibleToUser) {
+        if (current != null) {
+            mController.switchProgramType(ProgramType.fromSelector(current.getSelector()));
+        }
+
+        try {
             mRadioController.setSkipMode(SkipMode.TUNE);
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Can't set skip mode", e);
         }
     }
 

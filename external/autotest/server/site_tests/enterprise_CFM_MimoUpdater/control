@@ -11,7 +11,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 PURPOSE = "Server-side test for sanity check on mimo-updater."
 CRITERIA = "Fails if the Autotest framework doesn't work as expected."
-ATTRIBUTES = "suite:hotrod"
+ATTRIBUTES = "suite:hotrod-remora"
 
 DOC = """
 This test verifies that all large pieces of the mimo displaylink 

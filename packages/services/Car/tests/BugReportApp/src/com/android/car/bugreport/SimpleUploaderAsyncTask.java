@@ -50,6 +50,8 @@ import java.util.zip.ZipOutputStream;
  *
  * <p>Please see {@code res/values/configs.xml} and {@code res/raw/gcs_credentials.json} for the
  * configuration.
+ *
+ * <p>Must be run under user0.
  */
 class SimpleUploaderAsyncTask extends AsyncTask<Void, Void, Boolean> {
     private static final String TAG = SimpleUploaderAsyncTask.class.getSimpleName();

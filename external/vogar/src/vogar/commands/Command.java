@@ -308,7 +308,7 @@ public final class Command {
      */
     private abstract class TimeoutTask implements Runnable {
         public final void schedule() {
-            timer.schedule(this, System.nanoTime() - timeoutNanoTime, TimeUnit.NANOSECONDS);
+            timer.schedule(this, timeoutNanoTime - System.nanoTime(), TimeUnit.NANOSECONDS);
         }
 
         protected abstract void onTimeout(Process process);
@@ -324,7 +324,7 @@ public final class Command {
                 onTimeout(process);
             } else {
                 // if the kill time has been pushed back, reschedule
-                timer.schedule(this, System.nanoTime() - timeoutNanoTime, TimeUnit.NANOSECONDS);
+                schedule();
             }
         }
     }

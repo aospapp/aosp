@@ -11,12 +11,20 @@ ifneq ($(TARGET_USES_QMAA_OVERRIDE_DATA),true)
 endif #TARGET_USES_QMAA_OVERRIDE_DATA
 endif #TARGET_USES_QMAA
 
+BOARD_IPA_LOW_RAM_EXCP_LIST := bengal
+
+ifeq ($(TARGET_HAS_LOW_RAM),true)
+ifneq ($(call is-board-platform-in-list,$(BOARD_IPA_LOW_RAM_EXCP_LIST)),true)
+	TARGET_DISABLE_IPACM := true
+endif
+endif
+
 ifneq ($(TARGET_DISABLE_IPACM),true)
-ifneq ($(TARGET_HAS_LOW_RAM),true)
 BOARD_PLATFORM_LIST := msm8909
 BOARD_PLATFORM_LIST += msm8916
 BOARD_PLATFORM_LIST += msm8917
 BOARD_PLATFORM_LIST += qm215
+BOARD_PLATFORM_LIST += msm8937
 BOARD_IPAv3_LIST := msm8998
 BOARD_IPAv3_LIST += sdm845
 BOARD_IPAv3_LIST += sdm710
@@ -37,7 +45,6 @@ ifneq (, $(filter aarch64 arm arm64, $(TARGET_ARCH)))
 PRODUCT_PACKAGES += $(IPACM_DATA)
 
 endif # $(TARGET_ARCH)
-endif
 endif
 endif
 endif

@@ -34,6 +34,7 @@
 /dev/mnh_sm                                     u:object_r:easel_device:s0
 /dev/easelcomm-client                           u:object_r:easel_device:s0
 /dev/pn81a                                      u:object_r:secure_element_device:s0
+/dev/qce                                        u:object_r:qce_device:s0
 # camera rainbow sensor
 /dev/vd6281                                     u:object_r:camera_device:s0
 # pcm device receiving rainbow sensor data
@@ -76,12 +77,6 @@
 # Block devices for the drive that holds the xbl_a and xbl_b partitions.
 /dev/block/sd[bc]1?                             u:object_r:xbl_block_device:s0
 
-###################################
-# ramdumpfs files
-#
-/mnt/vendor/ramdump(/.*)?                       u:object_r:ramdump_vendor_mnt_file:s0
-/ramdump(/.*)?                                  u:object_r:ramdump_vendor_mnt_file:s0
-
 # Block device for hal_bootctl
 /dev/block/sde                                  u:object_r:boot_block_device:s0
 
@@ -113,7 +108,6 @@
 /vendor/bin/netmgrd             u:object_r:netmgrd_exec:s0
 /vendor/bin/port-bridge         u:object_r:port-bridge_exec:s0
 /vendor/bin/qti                 u:object_r:qti_exec:s0
-/vendor/bin/ramdump             u:object_r:ramdump_exec:s0
 /vendor/bin/smlog_dump          u:object_r:smlog_dump_exec:s0
 /vendor/bin/loc_launcher        u:object_r:location_exec:s0
 /vendor/bin/lowi-server         u:object_r:location_exec:s0
@@ -127,7 +121,7 @@
 /vendor/bin/msm_irqbalance      u:object_r:irqbalance_exec:s0
 /vendor/bin/cnd                 u:object_r:cnd_exec:s0
 /vendor/bin/easelmanagerd       u:object_r:easel_exec:s0
-/vendor/bin/hw/android\.hardware\.usb@1\.1-service\.bonito             u:object_r:hal_usb_impl_exec:s0
+/vendor/bin/hw/android\.hardware\.usb@1\.3-service\.bonito             u:object_r:hal_usb_impl_exec:s0
 /vendor/bin/chre                u:object_r:chre_exec:s0
 /vendor/bin/time_daemon         u:object_r:time_daemon_exec:s0
 /vendor/bin/tcpdump_logger      u:object_r:tcpdump_logger_exec:s0
@@ -147,6 +141,7 @@
 
 /vendor/bin/hw/android\.hardware\.drm@[0-9]+\.[0-9]+-service\.clearkey         u:object_r:hal_drm_clearkey_exec:s0
 /vendor/bin/hw/android\.hardware\.drm@[0-9]+\.[0-9]+-service\.widevine         u:object_r:hal_drm_widevine_exec:s0
+/vendor/bin/hw/android\.hardware\.drm@[0-9]+\.[0-9]+-service-lazy\.widevine         u:object_r:hal_drm_widevine_exec:s0
 /vendor/bin/hw/android\.hardware\.keymaster@4\.0-service-qti         u:object_r:hal_keymaster_qti_exec:s0
 /vendor/bin/hw/android\.hardware\.gatekeeper@1\.0-service-qti        u:object_r:hal_gatekeeper_qti_exec:s0
 /vendor/bin/hw/android\.hardware\.gnss@1\.1-service-qti              u:object_r:hal_gnss_qti_exec:s0
@@ -221,7 +216,6 @@
 /data/vendor/radio(/.*)?               u:object_r:radio_vendor_data_file:s0
 /data/vendor/wifi/cnss_diag(/.*)?      u:object_r:cnss_vendor_data_file:s0
 /data/vendor/wifi/wlan_logs(/.*)?      u:object_r:wifi_vendor_log_data_file:s0
-/data/vendor/ramdump(/.*)?             u:object_r:ramdump_vendor_data_file:s0
 /data/vendor/ssrdump(/.*)?             u:object_r:ramdump_vendor_data_file:s0
 /data/vendor/wifidump(/.*)?            u:object_r:wifidump_vendor_data_file:s0
 /data/vendor/modem_dump(/.*)?          u:object_r:modem_dump_file:s0
@@ -264,7 +258,6 @@
 /mnt/vendor/persist/data(/.*)?       u:object_r:persist_data_file:s0
 /mnt/vendor/persist/display(/.*)?    u:object_r:persist_display_file:s0
 /mnt/vendor/persist/drm(/.*)?        u:object_r:persist_drm_file:s0
-/mnt/vendor/persist/haptics(/.*)?    u:object_r:persist_haptics_file:s0
 /mnt/vendor/persist/hlos_rfs(/.*)?   u:object_r:persist_rfs_file:s0
 /mnt/vendor/persist/rfs(/.*)?        u:object_r:persist_rfs_file:s0
 /mnt/vendor/persist/sensors(/.*)?    u:object_r:persist_sensors_file:s0

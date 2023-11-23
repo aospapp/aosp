@@ -42,6 +42,7 @@ class GsiService : public BinderService<GsiService>, public BnGsiService {
     binder::Status closeInstall(int32_t* _aidl_return) override;
     binder::Status createPartition(const ::std::string& name, int64_t size, bool readOnly,
                                    int32_t* _aidl_return) override;
+    binder::Status closePartition(int32_t* _aidl_return) override;
     binder::Status commitGsiChunkFromStream(const ::android::os::ParcelFileDescriptor& stream,
                                             int64_t bytes, bool* _aidl_return) override;
     binder::Status getInstallProgress(::android::gsi::GsiProgress* _aidl_return) override;
@@ -67,6 +68,7 @@ class GsiService : public BinderService<GsiService>, public BnGsiService {
                                     android::sp<IImageService>* _aidl_return) override;
     binder::Status dumpDeviceMapperDevices(std::string* _aidl_return) override;
     binder::Status getAvbPublicKey(AvbPublicKey* dst, int32_t* _aidl_return) override;
+    binder::Status suggestScratchSize(int64_t* _aidl_return) override;
 
     // This is in GsiService, rather than GsiInstaller, since we need to access
     // it outside of the main lock which protects the unique_ptr.

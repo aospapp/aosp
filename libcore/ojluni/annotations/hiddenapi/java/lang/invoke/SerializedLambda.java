@@ -29,7 +29,7 @@ import java.io.Serializable;
 
 public final class SerializedLambda implements Serializable {
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public SerializedLambda(Class<?> capturingClass,
                             String functionalInterfaceClass,
                             String functionalInterfaceMethodName,
@@ -41,7 +41,7 @@ public final class SerializedLambda implements Serializable {
                             String instantiatedMethodType,
                             Object[] capturedArgs) { }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getCapturingClass() {
         throw new RuntimeException("Stub!");
     }
@@ -81,12 +81,12 @@ public final class SerializedLambda implements Serializable {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public final String getInstantiatedMethodType() {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public int getCapturedArgCount() {
         throw new RuntimeException("Stub!");
     }

@@ -21,9 +21,19 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.service.carrier.CarrierMessagingService;
-import android.service.carrier.CarrierMessagingServiceWrapper.CarrierMessagingCallbackWrapper;
+import android.service.carrier.CarrierMessagingServiceWrapper.CarrierMessagingCallback;
+import android.telephony.AnomalyReporter;
+import android.telephony.PhoneStateListener;
+import android.telephony.PreciseDataConnectionState;
+import android.telephony.TelephonyCallback;
+import android.telephony.data.ApnSetting;
+import android.telephony.ims.feature.MmTelFeature;
+import android.telephony.ims.ImsMmTelManager;
+import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.telephony.SmsManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
@@ -32,11 +42,21 @@ import com.android.mms.service.exception.ApnException;
 import com.android.mms.service.exception.MmsHttpException;
 import com.android.mms.service.exception.MmsNetworkException;
 
+import java.util.UUID;
+
 /**
  * Base class for MMS requests. This has the common logic of sending/downloading MMS.
  */
 public abstract class MmsRequest {
     private static final int RETRY_TIMES = 3;
+    // Signal level threshold for both wifi and cellular
+    private static final int SIGNAL_LEVEL_THRESHOLD = 2;
+    // MMS anomaly uuid
+    private final UUID mAnomalyUUID = UUID.fromString("e4330975-17be-43b7-87d6-d9f281d33278");
+    public static final String EXTRA_LAST_CONNECTION_FAILURE_CAUSE_CODE
+            = "android.telephony.extra.LAST_CONNECTION_FAILURE_CAUSE_CODE";
+    public static final String EXTRA_HANDLED_BY_CARRIER_APP
+            = "android.telephony.extra.HANDLED_BY_CARRIER_APP";
 
     /**
      * Interface for certain functionalities from MmsService
@@ -84,6 +104,25 @@ public abstract class MmsRequest {
     // Context used to get TelephonyManager.
     protected Context mContext;
     protected long mMessageId;
+    protected int mLastConnectionFailure;
+
+    class MonitorTelephonyCallback extends TelephonyCallback implements
+            TelephonyCallback.PreciseDataConnectionStateListener {
+        @Override
+        public void onPreciseDataConnectionStateChanged(
+                PreciseDataConnectionState connectionState) {
+            if (connectionState == null) {
+                return;
+            }
+            ApnSetting apnSetting = connectionState.getApnSetting();
+            int apnTypes = apnSetting.getApnTypeBitmask();
+            if ((apnTypes & ApnSetting.TYPE_MMS) != 0) {
+                mLastConnectionFailure = connectionState.getLastCauseCode();
+                LogUtil.d("onPreciseDataConnectionStateChanged mLastConnectionFailure: "
+                        + mLastConnectionFailure);
+            }
+        }
+    }
 
     public MmsRequest(RequestManager requestManager, int subId, String creator,
             Bundle configOverrides, Context context, long messageId) {
@@ -152,7 +191,10 @@ public abstract class MmsRequest {
             long retryDelaySecs = 2;
             // Try multiple times of MMS HTTP request, depending on the error.
             for (int i = 0; i < RETRY_TIMES; i++) {
+                httpStatusCode = 0; // Clear for retry.
+                MonitorTelephonyCallback connectionStateCallback = new MonitorTelephonyCallback();
                 try {
+                    listenToDataConnectionState(connectionStateCallback);
                     networkManager.acquireNetwork(requestId);
                     final String apnName = networkManager.getApnName();
                     LogUtil.d(requestId, "APN name is " + apnName);
@@ -176,7 +218,9 @@ public abstract class MmsRequest {
                         // Success
                         break;
                     } finally {
-                        networkManager.releaseNetwork(requestId, this instanceof DownloadRequest);
+                        // Release the MMS network immediately except successful DownloadRequest.
+                        networkManager.releaseNetwork(requestId,
+                                this instanceof DownloadRequest && result == Activity.RESULT_OK);
                     }
                 } catch (ApnException e) {
                     LogUtil.e(requestId, "APN failure", e);
@@ -195,6 +239,8 @@ public abstract class MmsRequest {
                     LogUtil.e(requestId, "Unexpected failure", e);
                     result = SmsManager.MMS_ERROR_UNSPECIFIED;
                     break;
+                } finally {
+                    stopListeningToDataConnectionState(connectionStateCallback);
                 }
                 try {
                     Thread.sleep(retryDelaySecs * 1000, 0/*nano*/);
@@ -202,7 +248,20 @@ public abstract class MmsRequest {
                 retryDelaySecs <<= 1;
             }
         }
-        processResult(context, result, response, httpStatusCode);
+        processResult(context, result, response, httpStatusCode, /* handledByCarrierApp= */ false);
+    }
+
+    private void listenToDataConnectionState(MonitorTelephonyCallback connectionStateCallback) {
+        final TelephonyManager telephonyManager = mContext.getSystemService(
+                TelephonyManager.class).createForSubscriptionId(mSubId);
+        telephonyManager.registerTelephonyCallback(r -> r.run(), connectionStateCallback);
+    }
+
+    private void stopListeningToDataConnectionState(
+            MonitorTelephonyCallback connectionStateCallback) {
+        final TelephonyManager telephonyManager = mContext.getSystemService(
+                TelephonyManager.class).createForSubscriptionId(mSubId);
+        telephonyManager.unregisterTelephonyCallback(connectionStateCallback);
     }
 
     /**
@@ -212,17 +271,22 @@ public abstract class MmsRequest {
      * @param result The result code of execution
      * @param response The response body
      * @param httpStatusCode The optional http status code in case of http failure
+     * @param handledByCarrierApp True if the sending/downloading was handled by a carrier app
+     *                            rather than MmsService.
      */
-    public void processResult(Context context, int result, byte[] response, int httpStatusCode) {
+    public void processResult(Context context, int result, byte[] response, int httpStatusCode,
+            boolean handledByCarrierApp) {
         final Uri messageUri = persistIfRequired(context, result, response);
 
         final String requestId = this.getRequestId();
         // As noted in the @param comment above, the httpStatusCode is only set when there's
         // an http failure. On success, such as an http code of 200, the value here will be 0.
-        // It's disconcerting in the log to see httpStatusCode: 0 when the mms succeeded. That
-        // is why an httpStatusCode of zero is now reported in the log as "success".
-        LogUtil.i(requestId, "processResult: " + result + ", httpStatusCode: "
-                + (httpStatusCode != 0 ? httpStatusCode : "success (0)"));
+        // "httpStatusCode: xxx" is now reported for an http failure only.
+        LogUtil.i(requestId, "processResult: "
+                + (result == Activity.RESULT_OK ? "success" : "failure(" + result + ")")
+                + (httpStatusCode != 0 ? ", httpStatusCode: " + httpStatusCode : "")
+                + " handledByCarrierApp: " + handledByCarrierApp
+                + " mLastConnectionFailure: " + mLastConnectionFailure);
 
         // Return MMS HTTP request result via PendingIntent
         final PendingIntent pendingIntent = getPendingIntent();
@@ -239,10 +303,14 @@ public abstract class MmsRequest {
             if (result == SmsManager.MMS_ERROR_HTTP_FAILURE && httpStatusCode != 0) {
                 fillIn.putExtra(SmsManager.EXTRA_MMS_HTTP_STATUS, httpStatusCode);
             }
+            fillIn.putExtra(EXTRA_LAST_CONNECTION_FAILURE_CAUSE_CODE,
+                    mLastConnectionFailure);
+            fillIn.putExtra(EXTRA_HANDLED_BY_CARRIER_APP, handledByCarrierApp);
             try {
                 if (!succeeded) {
                     result = SmsManager.MMS_ERROR_IO_ERROR;
                 }
+                reportPossibleAnomaly(result, httpStatusCode);
                 pendingIntent.send(context, result, fillIn);
             } catch (PendingIntent.CanceledException e) {
                 LogUtil.e(requestId, "Sending pending intent canceled", e);
@@ -250,6 +318,80 @@ public abstract class MmsRequest {
         }
 
         revokeUriPermission(context);
+    }
+
+    private void reportPossibleAnomaly(int result, int httpStatusCode) {
+        switch (result) {
+            case SmsManager.MMS_ERROR_HTTP_FAILURE:
+                if (isPoorSignal()) {
+                    LogUtil.i(this.toString(), "Poor Signal");
+                    break;
+                }
+            case SmsManager.MMS_ERROR_INVALID_APN:
+            case SmsManager.MMS_ERROR_UNABLE_CONNECT_MMS:
+            case SmsManager.MMS_ERROR_UNSPECIFIED:
+            case SmsManager.MMS_ERROR_IO_ERROR:
+                String message = "MMS failed";
+                LogUtil.i(this.toString(),
+                        message + " with error: " + result + " httpStatus:" + httpStatusCode);
+                AnomalyReporter.reportAnomaly(generateUUID(result, httpStatusCode), message);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private UUID generateUUID(int result, int httpStatusCode) {
+        long lresult = result;
+        long lhttpStatusCode = httpStatusCode;
+        return new UUID(mAnomalyUUID.getMostSignificantBits(),
+                mAnomalyUUID.getLeastSignificantBits() + ((lhttpStatusCode << 32) + lresult));
+    }
+
+    private boolean isPoorSignal() {
+        // Check Wifi signal strength when IMS registers via Wifi
+        if (isImsOnWifi()) {
+            int rssi = 0;
+            WifiManager wifiManager = mContext.getSystemService(WifiManager.class);
+            final WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+            if (wifiInfo != null) {
+                rssi = wifiInfo.getRssi();
+            } else {
+                return false;
+            }
+            final int wifiLevel = wifiManager.calculateSignalLevel(rssi);
+            LogUtil.d(this.toString(), "Wifi signal rssi: " + rssi + " level:" + wifiLevel);
+            if (wifiLevel <= SIGNAL_LEVEL_THRESHOLD) {
+                return true;
+            }
+            return false;
+        } else {
+            // Check cellular signal strength
+            final TelephonyManager telephonyManager = mContext.getSystemService(
+                    TelephonyManager.class).createForSubscriptionId(mSubId);
+            final int cellLevel = telephonyManager.getSignalStrength().getLevel();
+            LogUtil.d(this.toString(), "Cellular signal level:" + cellLevel);
+            if (cellLevel <= SIGNAL_LEVEL_THRESHOLD) {
+                return true;
+            }
+            return false;
+        }
+    }
+
+    private boolean isImsOnWifi() {
+        ImsMmTelManager imsManager;
+        try {
+            imsManager = ImsMmTelManager.createForSubscriptionId(mSubId);
+        } catch (IllegalArgumentException e) {
+            LogUtil.e(this.toString(), "invalid subid:" + mSubId);
+            return false;
+        }
+        if (imsManager != null) {
+            return imsManager.isAvailable(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                    ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN);
+        } else {
+            return false;
+        }
     }
 
     /**
@@ -261,8 +403,8 @@ public abstract class MmsRequest {
                 == CarrierMessagingService.SEND_STATUS_RETRY_ON_CARRIER_NETWORK
                 || carrierMessagingAppResult
                         == CarrierMessagingService.DOWNLOAD_STATUS_RETRY_ON_CARRIER_NETWORK) {
-            LogUtil.d(this.toString(), "Sending/downloading MMS by IP failed. messageId: "
-                    + mMessageId);
+            LogUtil.d(this.toString(), "Sending/downloading MMS by IP failed. "
+                    + MmsService.formatCrossStackMessageId(mMessageId));
             mRequestManager.addSimRequest(MmsRequest.this);
             return true;
         } else {
@@ -287,9 +429,8 @@ public abstract class MmsRequest {
     @Override
     public String toString() {
         return getClass().getSimpleName() + '@' + Integer.toHexString(hashCode())
-                + " messageId: " + mMessageId;
+                + " " + MmsService.formatCrossStackMessageId(mMessageId);
     }
-
 
     protected String getRequestId() {
         return this.toString();
@@ -353,22 +494,25 @@ public abstract class MmsRequest {
     /**
      * Base class for handling carrier app send / download result.
      */
-    protected abstract class CarrierMmsActionCallback extends CarrierMessagingCallbackWrapper {
+    protected abstract class CarrierMmsActionCallback implements CarrierMessagingCallback {
         @Override
         public void onSendSmsComplete(int result, int messageRef) {
-            LogUtil.e("Unexpected onSendSmsComplete call for messageId " + mMessageId
+            LogUtil.e("Unexpected onSendSmsComplete call for "
+                    + MmsService.formatCrossStackMessageId(mMessageId)
                     + " with result: " + result);
         }
 
         @Override
         public void onSendMultipartSmsComplete(int result, int[] messageRefs) {
-            LogUtil.e("Unexpected onSendMultipartSmsComplete call for messageId " + mMessageId
+            LogUtil.e("Unexpected onSendMultipartSmsComplete call for "
+                    + MmsService.formatCrossStackMessageId(mMessageId)
                     + " with result: " + result);
         }
 
         @Override
-        public void onFilterComplete(int result) {
-            LogUtil.e("Unexpected onFilterComplete call for messageId " + mMessageId
+        public void onReceiveSmsComplete(int result) {
+            LogUtil.e("Unexpected onFilterComplete call for "
+                    + MmsService.formatCrossStackMessageId(mMessageId)
                     + " with result: " + result);
         }
     }

@@ -8,7 +8,7 @@ PURPOSE = "Verify normal boot after clearing the tpm owner and rebooting the ec"
 # TODO(b/77292177): add to faft_cr50 once the issue has been addressed.
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 This test verifies the device doesn't get into a bad state when the EC is reset

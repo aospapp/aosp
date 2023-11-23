@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Je kunt certificaten installeren uit een PKCS#12-bestand met de extensie %1$s of %2$s dat zich bevindt in de externe opslag."</string>
     <string name="allow_button" msgid="3030990695030371561">"Selecteren"</string>
     <string name="deny_button" msgid="3766539809121892584">"Weigeren"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Certificaten laden..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s checkt op een certificaat…"</string>
 </resources>

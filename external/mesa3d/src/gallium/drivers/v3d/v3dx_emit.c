@@ -21,8 +21,8 @@
  * IN THE SOFTWARE.
  */
 
-#include "util/u_format.h"
-#include "util/u_half.h"
+#include "util/format/u_format.h"
+#include "util/half_float.h"
 #include "v3d_context.h"
 #include "broadcom/common/v3d_macros.h"
 #include "broadcom/cle/v3dx_pack.h"
@@ -101,11 +101,11 @@ swizzled_border_color(const struct v3d_device_info *devinfo,
 
         switch (swiz) {
         case PIPE_SWIZZLE_0:
-                return util_float_to_half(0.0);
+                return _mesa_float_to_half(0.0);
         case PIPE_SWIZZLE_1:
-                return util_float_to_half(1.0);
+                return _mesa_float_to_half(1.0);
         default:
-                return util_float_to_half(sampler->border_color.f[swiz]);
+                return _mesa_float_to_half(sampler->border_color.f[swiz]);
         }
 }
 
@@ -401,6 +401,15 @@ emit_varying_flags(struct v3d_job *job, uint32_t *flags,
         return emitted_any;
 }
 
+static inline struct v3d_uncompiled_shader *
+get_tf_shader(struct v3d_context *v3d)
+{
+        if (v3d->prog.bind_gs)
+                return v3d->prog.bind_gs;
+        else
+                return v3d->prog.bind_vs;
+}
+
 void
 v3dX(emit_state)(struct pipe_context *pctx)
 {
@@ -518,6 +527,12 @@ v3dX(emit_state)(struct pipe_context *pctx)
 
                         config.stencil_enable =
                                 v3d->zsa->base.stencil[0].enabled;
+
+                        /* Use nicer line caps when line smoothing is
+                         * enabled
+                         */
+                        config.line_rasterization =
+                                v3d_line_smoothing_enabled(v3d) ? 1 : 0;
                 }
 
         }
@@ -542,7 +557,7 @@ v3dX(emit_state)(struct pipe_context *pctx)
                 }
 
                 cl_emit(&job->bcl, LINE_WIDTH, line_width) {
-                        line_width.line_width = v3d->rasterizer->base.line_width;
+                        line_width.line_width = v3d_get_real_line_width(v3d);
                 }
         }
 
@@ -655,6 +670,9 @@ v3dX(emit_state)(struct pipe_context *pctx)
         if (v3d->dirty & VC5_DIRTY_FRAGTEX)
                 emit_textures(v3d, &v3d->tex[PIPE_SHADER_FRAGMENT]);
 
+        if (v3d->dirty & VC5_DIRTY_GEOMTEX)
+                emit_textures(v3d, &v3d->tex[PIPE_SHADER_GEOMETRY]);
+
         if (v3d->dirty & VC5_DIRTY_VERTTEX)
                 emit_textures(v3d, &v3d->tex[PIPE_SHADER_VERTEX]);
 #endif
@@ -692,22 +710,22 @@ v3dX(emit_state)(struct pipe_context *pctx)
                           VC5_DIRTY_RASTERIZER |
                           VC5_DIRTY_PRIM_MODE)) {
                 struct v3d_streamout_stateobj *so = &v3d->streamout;
-
                 if (so->num_targets) {
                         bool psiz_per_vertex = (v3d->prim_mode == PIPE_PRIM_POINTS &&
                                                 v3d->rasterizer->base.point_size_per_vertex);
+                        struct v3d_uncompiled_shader *tf_shader =
+                                get_tf_shader(v3d);
                         uint16_t *tf_specs = (psiz_per_vertex ?
-                                              v3d->prog.bind_vs->tf_specs_psiz :
-                                              v3d->prog.bind_vs->tf_specs);
+                                              tf_shader->tf_specs_psiz :
+                                              tf_shader->tf_specs);
 
 #if V3D_VERSION >= 40
-                        bool tf_enabled = (v3d->prog.bind_vs->num_tf_specs != 0 &&
-                                           v3d->active_queries);
+                        bool tf_enabled = v3d_transform_feedback_enabled(v3d);
                         job->tf_enabled |= tf_enabled;
 
                         cl_emit(&job->bcl, TRANSFORM_FEEDBACK_SPECS, tfe) {
                                 tfe.number_of_16_bit_output_data_specs_following =
-                                        v3d->prog.bind_vs->num_tf_specs;
+                                        tf_shader->num_tf_specs;
                                 tfe.enable = tf_enabled;
                         };
 #else /* V3D_VERSION < 40 */
@@ -715,10 +733,10 @@ v3dX(emit_state)(struct pipe_context *pctx)
                                 tfe.number_of_32_bit_output_buffer_address_following =
                                         so->num_targets;
                                 tfe.number_of_16_bit_output_data_specs_following =
-                                        v3d->prog.bind_vs->num_tf_specs;
+                                        tf_shader->num_tf_specs;
                         };
 #endif /* V3D_VERSION < 40 */
-                        for (int i = 0; i < v3d->prog.bind_vs->num_tf_specs; i++) {
+                        for (int i = 0; i < tf_shader->num_tf_specs; i++) {
                                 cl_emit_prepacked(&job->bcl, &tf_specs[i]);
                         }
                 } else {
@@ -732,14 +750,15 @@ v3dX(emit_state)(struct pipe_context *pctx)
 
         /* Set up the trasnform feedback buffers. */
         if (v3d->dirty & VC5_DIRTY_STREAMOUT) {
+                struct v3d_uncompiled_shader *tf_shader = get_tf_shader(v3d);
                 struct v3d_streamout_stateobj *so = &v3d->streamout;
                 for (int i = 0; i < so->num_targets; i++) {
                         const struct pipe_stream_output_target *target =
                                 so->targets[i];
                         struct v3d_resource *rsc = target ?
                                 v3d_resource(target->buffer) : NULL;
-                        struct pipe_shader_state *vs = &v3d->prog.bind_vs->base;
-                        struct pipe_stream_output_info *info = &vs->stream_output;
+                        struct pipe_shader_state *ss = &tf_shader->base;
+                        struct pipe_stream_output_info *info = &ss->stream_output;
                         uint32_t offset = (v3d->streamout.offsets[i] *
                                            info->stride[i] * 4);
 
@@ -767,8 +786,8 @@ v3dX(emit_state)(struct pipe_context *pctx)
                         };
 #endif /* V3D_VERSION < 40 */
                         if (target) {
-                                v3d_job_add_write_resource(v3d->job,
-                                                           target->buffer);
+                                v3d_job_add_tf_write_resource(v3d->job,
+                                                              target->buffer);
                         }
                         /* XXX: buffer_size? */
                 }
@@ -786,7 +805,7 @@ v3dX(emit_state)(struct pipe_context *pctx)
         if (v3d->dirty & VC5_DIRTY_SAMPLE_STATE) {
                 cl_emit(&job->bcl, SAMPLE_STATE, state) {
                         /* Note: SampleCoverage was handled at the
-                         * state_tracker level by converting to sample_mask.
+                         * frontend level by converting to sample_mask.
                          */
                         state.coverage = 1.0;
                         state.mask = job->msaa ? v3d->sample_mask : 0xf;

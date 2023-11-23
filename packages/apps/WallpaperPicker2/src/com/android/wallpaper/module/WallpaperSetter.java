@@ -11,9 +11,13 @@ import android.os.Build.VERSION_CODES;
 import android.util.Log;
 import android.view.Display;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.fragment.app.FragmentManager;
+import androidx.lifecycle.Lifecycle.Event;
+import androidx.lifecycle.LifecycleEventObserver;
+import androidx.lifecycle.LifecycleOwner;
 
 import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
@@ -140,6 +144,20 @@ public class WallpaperSetter {
             mProgressDialog.setMessage(containerActivity.getString(
                             R.string.set_wallpaper_progress_message));
             mProgressDialog.setIndeterminate(PROGRESS_DIALOG_INDETERMINATE);
+            if (containerActivity instanceof LifecycleOwner) {
+                ((LifecycleOwner) containerActivity).getLifecycle().addObserver(
+                        new LifecycleEventObserver() {
+                            @Override
+                            public void onStateChanged(@NonNull LifecycleOwner source,
+                                    @NonNull Event event) {
+                                if (event == Event.ON_DESTROY) {
+                                    if (mProgressDialog != null) {
+                                        mProgressDialog.dismiss();
+                                    }
+                                }
+                            }
+                        });
+            }
             mProgressDialog.show();
         }
 

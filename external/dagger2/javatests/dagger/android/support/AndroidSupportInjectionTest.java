@@ -20,15 +20,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import android.app.Application;
-import android.support.v4.app.Fragment;
+import androidx.fragment.app.Fragment;
 import dagger.android.AndroidInjector;
+import dagger.android.HasAndroidInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.support.v4.SupportFragmentTestUtil;
 
-@Config(manifest = Config.NONE)
 @RunWith(RobolectricTestRunner.class)
 public final class AndroidSupportInjectionTest {
   @Test
@@ -45,15 +45,15 @@ public final class AndroidSupportInjectionTest {
   }
 
   private static class ApplicationReturnsNull extends Application
-      implements HasSupportFragmentInjector {
+      implements HasAndroidInjector {
     @Override
-    public AndroidInjector<Fragment> supportFragmentInjector() {
+    public AndroidInjector<Object> androidInjector() {
       return null;
     }
   }
 
   @Test
-  @Config(manifest = Config.NONE, application = ApplicationReturnsNull.class)
+  @Config(application = ApplicationReturnsNull.class)
   public void fragmentInjector_returnsNull() {
     Fragment fragment = new Fragment();
     SupportFragmentTestUtil.startFragment(fragment);
@@ -62,7 +62,7 @@ public final class AndroidSupportInjectionTest {
       AndroidSupportInjection.inject(fragment);
       fail();
     } catch (Exception e) {
-      assertThat(e).hasMessageThat().contains("supportFragmentInjector() returned null");
+      assertThat(e).hasMessageThat().contains("androidInjector() returned null");
     }
   }
 

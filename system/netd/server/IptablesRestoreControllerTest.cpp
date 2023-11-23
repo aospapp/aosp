@@ -40,7 +40,14 @@
 #define XT_LOCK_ATTEMPTS 10
 #define XT_LOCK_POLL_INTERVAL_MS 100
 
+#define PROC_STAT_MIN_ELEMENTS 52U
+#define PROC_STAT_RSS_INDEX 23U
+
+#define IPTABLES_COMM "(iptables-restor)"
+#define IP6TABLES_COMM "(ip6tables-resto)"
+
 using android::base::Join;
+using android::base::StringAppendF;
 using android::base::StringPrintf;
 using android::netdutils::ScopedMockSyscalls;
 using android::netdutils::Stopwatch;
@@ -75,10 +82,29 @@ public:
       return con.getIpRestorePid(type);
   };
 
+  const std::string getProcStatPath(pid_t pid) { return StringPrintf("/proc/%d/stat", pid); }
+
+  std::vector<std::string> parseProcStat(int fd, const std::string& path) {
+      std::vector<std::string> procStat;
+
+      char statBuf[1024];
+      EXPECT_NE(-1, read(fd, statBuf, sizeof(statBuf)))
+              << "Could not read from " << path << ": " << strerror(errno);
+
+      std::stringstream stream(statBuf);
+      std::string item;
+      while (std::getline(stream, item, ' ')) {
+          procStat.push_back(item);
+      }
+
+      EXPECT_LE(PROC_STAT_MIN_ELEMENTS, procStat.size()) << "Too few elements in " << path;
+      return procStat;
+  }
+
   void expectNoIptablesRestoreProcess(pid_t pid) {
     // We can't readlink /proc/PID/exe, because zombie processes don't have it.
     // Parse /proc/PID/stat instead.
-    std::string statPath = StringPrintf("/proc/%d/stat", pid);
+    std::string statPath = getProcStatPath(pid);
     int fd = open(statPath.c_str(), O_RDONLY | O_CLOEXEC);
     if (fd == -1) {
       // ENOENT means the process is gone (expected).
@@ -89,14 +115,28 @@ public:
 
     // If the PID exists, it's possible (though very unlikely) that the PID was reused. Check the
     // binary name as well, to ensure the test isn't flaky.
-    char statBuf[1024];
-    ASSERT_NE(-1, read(fd, statBuf, sizeof(statBuf)))
-        << "Could not read from " << statPath << ": " << strerror(errno);
-    close(fd);
+    std::vector<std::string> procStat = parseProcStat(fd, statPath);
+    EXPECT_FALSE(procStat[1] == IPTABLES_COMM || procStat[1] == IP6TABLES_COMM)
+            << "Previous iptables-restore or ip6tables-restore pid " << pid
+            << " still alive: " << Join(procStat, " ");
 
-    std::string statString(statBuf);
-    EXPECT_FALSE(statString.find("iptables-restor") || statString.find("ip6tables-resto"))
-      << "Previous iptables-restore pid " << pid << " still alive: " << statString;
+    close(fd);
+  }
+
+  int getRssPages(pid_t pid) {
+      std::string statPath = getProcStatPath(pid);
+      int fd = open(statPath.c_str(), O_RDONLY | O_CLOEXEC);
+      EXPECT_NE(-1, fd) << "Unexpected error opening " << statPath << ": " << strerror(errno);
+      if (fd == -1) return 0;
+
+      const auto& procStat = parseProcStat(fd, statPath);
+      close(fd);
+
+      if (procStat.size() < PROC_STAT_MIN_ELEMENTS) return 0;
+      EXPECT_TRUE(procStat[1] == IPTABLES_COMM || procStat[1] == IP6TABLES_COMM)
+              << statPath << " is for unexpected process: " << procStat[1];
+
+      return std::atoi(procStat[PROC_STAT_RSS_INDEX].c_str());
   }
 
   int createTestChain() {
@@ -217,7 +257,7 @@ TEST_F(IptablesRestoreControllerTest, TestRestartOnProcessDeath) {
 
 TEST_F(IptablesRestoreControllerTest, TestCommandTimeout) {
   // Don't wait 10 seconds for this test to fail.
-  setRetryParameters(3, 50);
+  setRetryParameters(3, 100);
 
   // Expected contents of the chain.
   std::vector<std::string> expectedLines = {
@@ -298,4 +338,45 @@ TEST_F(IptablesRestoreControllerTest, TestStartup) {
   // re-initialize properly now that fork() is no longer mocked.
   EXPECT_EQ(-1, con.execute(V4V6, "malformed command\n", nullptr));
   EXPECT_EQ(0, con.execute(V4V6, "#Test\n", nullptr));
+}
+
+TEST_F(IptablesRestoreControllerTest, TestMemoryLeak) {
+    std::string cmd = "*filter\n";
+
+    // Keep command within PIPE_BUF (4096) just to make sure. Each line is 60 bytes including \n:
+    // -I netd_unit_test_9999 -p udp -m udp --sport 12345 -j DROP
+    for (int i = 0; i < 33; i++) {
+        StringAppendF(&cmd, "-I %s -p udp -m udp --sport 12345 -j DROP\n", mChainName.c_str());
+        StringAppendF(&cmd, "-D %s -p udp -m udp --sport 12345 -j DROP\n", mChainName.c_str());
+    }
+    StringAppendF(&cmd, "COMMIT\n");
+    ASSERT_GE(4096U, cmd.size());
+
+    // Run the command once in case it causes the first allocations for these iptables-restore
+    // processes, and check they don't crash.
+    pid_t pid4 = getIpRestorePid(IptablesRestoreController::IPTABLES_PROCESS);
+    pid_t pid6 = getIpRestorePid(IptablesRestoreController::IP6TABLES_PROCESS);
+    std::string output;
+    EXPECT_EQ(0, con.execute(IptablesTarget::V4V6, cmd, nullptr));
+    EXPECT_EQ(pid4, getIpRestorePid(IptablesRestoreController::IPTABLES_PROCESS));
+    EXPECT_EQ(pid6, getIpRestorePid(IptablesRestoreController::IP6TABLES_PROCESS));
+
+    // Check how much RAM the processes are using.
+    int pages4 = getRssPages(pid4);
+    ASSERT_NE(0, pages4);
+    int pages6 = getRssPages(pid6);
+    ASSERT_NE(0, pages6);
+
+    // Run the command a few times and check that it doesn't crash.
+    for (int i = 0; i < 10; i++) {
+        EXPECT_EQ(0, con.execute(IptablesTarget::V4V6, cmd, nullptr));
+    }
+    EXPECT_EQ(pid4, getIpRestorePid(IptablesRestoreController::IPTABLES_PROCESS));
+    EXPECT_EQ(pid6, getIpRestorePid(IptablesRestoreController::IP6TABLES_PROCESS));
+
+    // Don't allow a leak of more than 25 pages (100kB).
+    // This is more than enough for accuracy: the leak in b/162925719 fails with:
+    // Expected: (25U) >= (getRssPages(pid4) - pages4), actual: 5 vs 66
+    EXPECT_GE(25, getRssPages(pid4) - pages4) << "iptables-restore leaked too many pages";
+    EXPECT_GE(25, getRssPages(pid6) - pages6) << "ip6tables-restore leaked too many pages";
 }

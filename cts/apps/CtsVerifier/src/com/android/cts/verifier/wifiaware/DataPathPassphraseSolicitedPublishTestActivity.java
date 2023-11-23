@@ -29,7 +29,8 @@ public class DataPathPassphraseSolicitedPublishTestActivity extends BaseTestActi
     @Override
     protected BaseTestCase getTestCase(Context context) {
         return new DataPathInBandTestCase(context, /* isSecurityOpen */ false,
-                /* isPublish */ true, /* isUnsolicited */ false, /* usePmk */ false);
+                /* isPublish */ true, /* isUnsolicited */ false, /* usePmk */ false,
+                /* acceptAny */ false);
     }
 
     @Override

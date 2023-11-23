@@ -32,8 +32,6 @@
 
 __BEGIN_DECLS
 
-#if __ANDROID_API__ >= 28
-
 /**
  * Get a reference to the native ASurfaceTexture from the corresponding java object.
  *
@@ -52,8 +50,8 @@ __BEGIN_DECLS
  */
 ASurfaceTexture* ASurfaceTexture_fromSurfaceTexture(JNIEnv* env, jobject surfacetexture) __INTRODUCED_IN(28);
 
-#endif
-
 __END_DECLS
 
 #endif /* ANDROID_NATIVE_SURFACE_TEXTURE_JNI_H */
+
+/** @} */

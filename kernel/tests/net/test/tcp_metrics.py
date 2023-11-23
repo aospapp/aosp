@@ -134,4 +134,4 @@ class TcpMetrics(genetlink.GenericNetlink):
 
 if __name__ == "__main__":
   t = TcpMetrics()
-  print t.DumpMetrics()
+  print(t.DumpMetrics())

@@ -89,7 +89,7 @@ void signal_handler(int signal) {
 }
 
 int main(int /* argc */, char* /* argv */ []) {
-    setenv("TREBLE_TESTING_OVERRIDE", "true", true);
+    android::hardware::details::setTrebleTestingOverride(true);
 
     runOnEachServer<ForkServer>();
 

@@ -38,6 +38,11 @@ public class RootOfTrust {
     private final int verifiedBootState;
 
     public RootOfTrust(ASN1Encodable asn1Encodable) throws CertificateParsingException {
+        this(asn1Encodable, true);
+    }
+
+    public RootOfTrust(ASN1Encodable asn1Encodable, boolean strictParsing)
+            throws CertificateParsingException {
         if (!(asn1Encodable instanceof ASN1Sequence)) {
             throw new CertificateParsingException("Expected sequence for root of trust, found "
                     + asn1Encodable.getClass().getName());
@@ -46,9 +51,17 @@ public class RootOfTrust {
         ASN1Sequence sequence = (ASN1Sequence) asn1Encodable;
         verifiedBootKey =
                 Asn1Utils.getByteArrayFromAsn1(sequence.getObjectAt(VERIFIED_BOOT_KEY_INDEX));
-        deviceLocked = Asn1Utils.getBooleanFromAsn1(sequence.getObjectAt(DEVICE_LOCKED_INDEX));
+        deviceLocked = Asn1Utils.getBooleanFromAsn1(
+                sequence.getObjectAt(DEVICE_LOCKED_INDEX), strictParsing);
         verifiedBootState =
                 Asn1Utils.getIntegerFromAsn1(sequence.getObjectAt(VERIFIED_BOOT_STATE_INDEX));
+    }
+
+
+    RootOfTrust(byte[] verifiedBootKey, boolean deviceLocked, int verifiedBootState) {
+        this.verifiedBootKey = verifiedBootKey;
+        this.deviceLocked = deviceLocked;
+        this.verifiedBootState = verifiedBootState;
     }
 
     public static String verifiedBootStateToString(int verifiedBootState) {
@@ -82,11 +95,35 @@ public class RootOfTrust {
     public String toString() {
         return new StringBuilder()
                 .append("\nVerified boot Key: ")
-                .append(BaseEncoding.base64().encode(verifiedBootKey))
+                .append(verifiedBootKey != null ?
+                            BaseEncoding.base64().encode(verifiedBootKey) :
+                            "null")
                 .append("\nDevice locked: ")
                 .append(deviceLocked)
                 .append("\nVerified boot state: ")
                 .append(verifiedBootStateToString(verifiedBootState))
                 .toString();
+    }
+
+    public static class Builder {
+        private byte[] verifiedBootKey;
+        private boolean deviceLocked = false;
+        private int verifiedBootState = -1;
+
+        public Builder setVerifiedBootKey(byte[] verifiedBootKey) {
+            this.verifiedBootKey = verifiedBootKey;
+            return this;
+        }
+        public Builder setDeviceLocked(boolean deviceLocked) {
+            this.deviceLocked = deviceLocked;
+            return this;
+        }
+        public Builder setVerifiedBootState(int verifiedBootState) {
+            this.verifiedBootState = verifiedBootState;
+            return this;
+        }
+        public RootOfTrust build() {
+            return new RootOfTrust(verifiedBootKey, deviceLocked, verifiedBootState);
+        }
     }
 }

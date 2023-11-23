@@ -18,7 +18,7 @@ import math
 import ntpath
 import time
 import acts.controllers.cellular_simulator as cc
-from acts.test_utils.power.tel_simulations import LteSimulation
+from acts.controllers.cellular_lib import LteSimulation
 from acts.controllers.anritsu_lib import md8475a
 from acts.controllers.anritsu_lib import _anritsu_utils as anritsu
 
@@ -65,7 +65,7 @@ class MD8475CellularSimulator(cc.AbstractCellularSimulator):
         try:
             self.anritsu = md8475a.MD8475A(ip_address,
                                            md8475_version=self.MD8475_VERSION)
-        except anritsu.AnristuError:
+        except anritsu.AnritsuError:
             raise cc.CellularSimulatorError('Could not connect to MD8475.')
 
         self.bts = None
@@ -90,6 +90,8 @@ class MD8475CellularSimulator(cc.AbstractCellularSimulator):
 
         self.bts = [self.anritsu.get_BTS(md8475a.BtsNumber.BTS1)]
 
+        self.num_carriers = 1
+
     def setup_lte_ca_scenario(self):
         """ Configures the equipment for an LTE with CA simulation. """
         cell_file_name = self.LTE_CA_BASIC_CELL_FILE
@@ -98,14 +100,113 @@ class MD8475CellularSimulator(cc.AbstractCellularSimulator):
         cell_file_path = ntpath.join(self.CALLBOX_CONFIG_PATH, cell_file_name)
         sim_file_path = ntpath.join(self.CALLBOX_CONFIG_PATH, sim_file_name)
 
+        # Load the simulation config file
         self.anritsu.load_simulation_paramfile(sim_file_path)
+
+        # Enable all LTE base stations. This is needed so that base settings
+        # can be applied.
+        self.anritsu.set_simulation_model(
+            *[md8475a.BtsTechnology.LTE for _ in range(self.LTE_MAX_CARRIERS)],
+            reset=False)
+
+        # Load cell settings
         self.anritsu.load_cell_paramfile(cell_file_path)
+
         self.anritsu.start_simulation()
 
         self.bts = [
             self.anritsu.get_BTS(md8475a.BtsNumber.BTS1),
             self.anritsu.get_BTS(md8475a.BtsNumber.BTS2)
         ]
+
+    def set_ca_combination(self, combination):
+        """ Prepares the test equipment for the indicated CA combination.
+
+        The reason why this is implemented in a separate method and not calling
+        LteSimulation.BtsConfig for each separate band is that configuring each
+        ssc cannot be done separately, as it is necessary to know which
+        carriers are on the same band in order to decide which RF outputs can
+        be shared in the test equipment.
+
+        Args:
+            combination: carrier aggregation configurations are indicated
+                with a list of strings consisting of the band number followed
+                by the CA class. For example, for 5 CA using 3C 7C and 28A
+                the parameter value should be [3c, 7c, 28a].
+        """
+
+        # Obtain the list of bands from the carrier combination list
+        bands = []
+
+        for ca in combination:
+            ca_class = ca[-1]
+            band = ca[:-1]
+
+            # If the band appears twice in the combo it means that carriers
+            # must be in the same band but non contiguous.
+            if band in bands:
+                raise cc.CellularSimulatorError(
+                    'Intra-band non-contiguous carrier aggregation is not '
+                    'supported.')
+
+            if ca_class.upper() == 'B':
+                raise cc.CellularSimulatorError(
+                    'Class B carrier aggregation is not supported')
+            elif ca_class.upper() == 'A':
+                bands.append(band)
+            elif ca_class.upper() == 'C':
+                # Class C means two contiguous carriers in the same band, so
+                # add the band twice to the list.
+                bands.append(band)
+                bands.append(band)
+            else:
+                raise cc.CellularSimulatorError('Invalid carrier aggregation '
+                                                'configuration: ' + ca)
+
+        self.num_carriers = len(bands)
+
+        # Validate the number of carriers.
+        if self.num_carriers > self.LTE_MAX_CARRIERS:
+            raise cc.CellularSimulatorError('The test equipment supports up '
+                                            'to {} carriers.'.format(
+                                                self.LTE_MAX_CARRIERS))
+        elif self.num_carriers < 2:
+            raise cc.CellularSimulatorError('At least two carriers need to be '
+                                            'indicated for the carrier '
+                                            'aggregation simulation.')
+
+        # Initialize the base stations in the test equipment
+        self.anritsu.set_simulation_model(
+            *[md8475a.BtsTechnology.LTE for _ in range(self.num_carriers)],
+            reset=False)
+
+        # If base stations use different bands, make sure that the RF cards are
+        # not being shared by setting the right maximum MIMO modes
+        if self.num_carriers == 2:
+            # RF cards are never shared when doing 2CA so 4X4 can be done in
+            # both base stations.
+            self.bts[0].mimo_support = md8475a.LteMimoMode.MIMO_4X4
+            self.bts[1].mimo_support = md8475a.LteMimoMode.MIMO_4X4
+        if self.num_carriers == 3:
+            # 4X4 can only be done in the second base station if it is shared
+            # with the primary. If the RF cards cannot be shared, then at most
+            # 2X2 can be done.
+            self.bts[0].mimo_support = md8475a.LteMimoMode.MIMO_4X4
+            if bands[0] == bands[1]:
+                self.bts[1].mimo_support = md8475a.LteMimoMode.MIMO_4X4
+            else:
+                self.bts[1].mimo_support = md8475a.LteMimoMode.MIMO_2X2
+            self.bts[2].mimo_support = md8475a.LteMimoMode.MIMO_2X2
+
+        # Enable carrier aggregation
+        self.anritsu.set_carrier_aggregation_enabled()
+
+        # Restart the simulation as changing the simulation model will stop it.
+        self.anritsu.start_simulation()
+
+        # Set the bands in each base station
+        for bts_index in range(len(bands)):
+            self.set_band(bts_index, bands[bts_index])
 
     def set_input_power(self, bts_index, input_power):
         """ Sets the input power for the indicated base station.
@@ -147,15 +248,6 @@ class MD8475CellularSimulator(cc.AbstractCellularSimulator):
         self.bts[bts_index].dl_channel = str(channel_number + 1)
         time.sleep(8)
         self.bts[bts_index].dl_channel = str(channel_number)
-
-    def set_enabled_for_ca(self, bts_index, enabled):
-        """ Enables or disables the base station during carrier aggregation.
-
-        Args:
-            bts_index: the base station number
-            enabled: whether the base station should be enabled for ca.
-        """
-        self.bts[bts_index].dl_cc_enabled = enabled
 
     def set_dl_modulation(self, bts_index, modulation):
         """ Sets the DL modulation for the indicated base station.
@@ -225,6 +317,68 @@ class MD8475CellularSimulator(cc.AbstractCellularSimulator):
             phich: the new PHICH resource setting
         """
         self.bts[bts_index].phich_resource = phich
+
+    def set_drx_connected_mode(self, bts_index, active):
+        """ Sets the DRX connected mode
+
+        Args:
+            bts_index: the base station number
+            active: Boolean indicating whether cDRX mode
+                is active
+        """
+        mode = 'MANUAL' if active else 'OFF'
+        self.bts[bts_index].drx_connected_mode = mode
+
+    def set_drx_on_duration_timer(self, bts_index, timer):
+        """ Sets the amount of PDCCH subframes to wait for data after
+            waking up from a DRX cycle
+
+        Args:
+            bts_index: the base station number
+            timer: Number of PDCCH subframes to wait and check for user data
+                after waking from the DRX cycle
+        """
+        self.bts[bts_index].drx_on_duration_timer = timer
+
+    def set_drx_inactivity_timer(self, bts_index, timer):
+        """ Sets the number of PDCCH subframes to wait before entering DRX mode
+
+        Args:
+            bts_index: the base station number
+            timer: The time interval to wait before entering DRX mode
+        """
+        self.bts[bts_index].drx_inactivity_timer = timer
+
+    def set_drx_retransmission_timer(self, bts_index, timer):
+        """ Sets the number of consecutive PDCCH subframes to wait
+        for retransmission
+
+        Args:
+            bts_index: the base station number
+            timer: Number of PDCCH subframes to remain active
+
+        """
+        self.bts[bts_index].drx_retransmission_timer = timer
+
+    def set_drx_long_cycle(self, bts_index, cycle):
+        """ Sets the amount of subframes representing a DRX long cycle.
+
+        Args:
+            bts_index: the base station number
+            cycle: The amount of subframes representing one long DRX cycle.
+                One cycle consists of DRX sleep + DRX on duration
+        """
+        self.bts[bts_index].drx_long_cycle = cycle
+
+    def set_drx_long_cycle_offset(self, bts_index, offset):
+        """ Sets the offset used to determine the subframe number
+        to begin the long drx cycle
+
+        Args:
+            bts_index: the base station number
+            offset: Number in range 0 to (long cycle - 1)
+        """
+        self.bts[bts_index].drx_long_cycle_offset = offset
 
     def set_band(self, bts_index, band):
         """ Sets the right duplex mode before switching to a new band.
@@ -407,17 +561,31 @@ class MD8475CellularSimulator(cc.AbstractCellularSimulator):
 
         time.sleep(5)  # It takes some time to propagate the new settings
 
-    def lte_attach_secondary_carriers(self):
+    def lte_attach_secondary_carriers(self, ue_capability_enquiry):
         """ Activates the secondary carriers for CA. Requires the DUT to be
-        attached to the primary carrier first. """
+        attached to the primary carrier first.
+
+        Args:
+            ue_capability_enquiry: UE capability enquiry message to be sent to
+        the UE before starting carrier aggregation.
+        """
+
+        # Trigger UE capability enquiry from network to get
+        # UE supported CA band combinations. Here freq_bands is a hex string.
+        self.anritsu.trigger_ue_capability_enquiry(ue_capability_enquiry)
 
         testcase = self.anritsu.get_AnritsuTestCases()
-        # Setting the procedure to selection is needed because of a bug in the
-        # instrument's software (b/139547391).
-        testcase.procedure = md8475a.TestProcedure.PROCEDURE_SELECTION
+        # A bug in the instrument's software (b/139547391) requires the test
+        # procedure to be set to whatever was the previous configuration before
+        # setting it to MULTICELL.
+        testcase.procedure = md8475a.TestProcedure(testcase.procedure)
         testcase.procedure = md8475a.TestProcedure.PROCEDURE_MULTICELL
         testcase.power_control = md8475a.TestPowerControl.POWER_CONTROL_DISABLE
         testcase.measurement_LTE = md8475a.TestMeasurement.MEASUREMENT_DISABLE
+
+        # Enable the secondary carrier base stations for CA
+        for bts_index in range(1, self.num_carriers):
+            self.bts[bts_index].dl_cc_enabled = True
 
         self.anritsu.start_testcase()
 
@@ -547,6 +715,30 @@ class MD8475CellularSimulator(cc.AbstractCellularSimulator):
             # TODO (b/141962691): continue only if traffic is stopped
             self.log.warning(str(inst))
         time.sleep(2)
+
+    def get_measured_pusch_power(self):
+        """ Queries PUSCH power measured at the callbox.
+
+        Returns:
+            The PUSCH power in the primary input port.
+        """
+        # Try three times before raising an exception. This is needed because
+        # the callbox sometimes reports an active chain as 'DEACTIVE'.
+        retries_left = 3
+
+        while retries_left > 0:
+
+            ul_pusch = self.anritsu.get_measured_pusch_power().split(',')[0]
+
+            if ul_pusch != 'DEACTIVE':
+                return float(ul_pusch)
+
+            time.sleep(3)
+            retries_left -= 1
+            self.log.info('Chain shows as inactive. %d retries left.' %
+                          retries_left)
+
+        raise cc.CellularSimulatorError('Could not get measured PUSCH power.')
 
 
 class MD8475BCellularSimulator(MD8475CellularSimulator):

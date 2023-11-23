@@ -760,6 +760,39 @@ static int seinfo_parse(char *dest, const char *src, size_t size)
 	return 0;
 }
 
+static int set_range_from_level(context_t ctx, enum levelFrom levelFrom, uid_t userid, uid_t appid)
+{
+	char level[255];
+	switch (levelFrom) {
+	case LEVELFROM_NONE:
+        	strlcpy(level, "s0", sizeof level);
+		break;
+	case LEVELFROM_APP:
+		snprintf(level, sizeof level, "s0:c%u,c%u",
+			 appid & 0xff,
+			 256 + (appid>>8 & 0xff));
+		break;
+	case LEVELFROM_USER:
+		snprintf(level, sizeof level, "s0:c%u,c%u",
+			 512 + (userid & 0xff),
+			 768 + (userid>>8 & 0xff));
+		break;
+	case LEVELFROM_ALL:
+		snprintf(level, sizeof level, "s0:c%u,c%u,c%u,c%u",
+			 appid & 0xff,
+			 256 + (appid>>8 & 0xff),
+			 512 + (userid & 0xff),
+			 768 + (userid>>8 & 0xff));
+		break;
+	default:
+		return -1;
+	}
+	if (context_range_set(ctx, level)) {
+		return -2;
+	}
+	return 0;
+}
+
 static int seapp_context_lookup(enum seapp_kind kind,
 				uid_t uid,
 				bool isSystemServer,
@@ -903,30 +936,10 @@ static int seapp_context_lookup(enum seapp_kind kind,
 		}
 
 		if (cur->levelFrom != LEVELFROM_NONE) {
-			char level[255];
-			switch (cur->levelFrom) {
-			case LEVELFROM_APP:
-				snprintf(level, sizeof level, "s0:c%u,c%u",
-					 appid & 0xff,
-					 256 + (appid>>8 & 0xff));
-				break;
-			case LEVELFROM_USER:
-				snprintf(level, sizeof level, "s0:c%u,c%u",
-					 512 + (userid & 0xff),
-					 768 + (userid>>8 & 0xff));
-				break;
-			case LEVELFROM_ALL:
-				snprintf(level, sizeof level, "s0:c%u,c%u,c%u,c%u",
-					 appid & 0xff,
-					 256 + (appid>>8 & 0xff),
-					 512 + (userid & 0xff),
-					 768 + (userid>>8 & 0xff));
-				break;
-			default:
-				goto err;
+			int res = set_range_from_level(ctx, cur->levelFrom, userid, appid);
+			if (res != 0) {
+				return res;
 			}
-			if (context_range_set(ctx, level))
-				goto oom;
 		} else if (cur->level) {
 			if (context_range_set(ctx, cur->level))
 				goto oom;
@@ -953,6 +966,49 @@ err:
 	return -1;
 oom:
 	return -2;
+}
+
+int selinux_android_context_with_level(const char * context,
+				       char ** newContext,
+				       uid_t userid,
+				       uid_t appid)
+{
+	int rc = -2;
+
+	enum levelFrom levelFrom;
+	if (userid == (uid_t) -1) {
+		levelFrom = (appid == (uid_t) -1) ? LEVELFROM_NONE : LEVELFROM_APP;
+	} else {
+		levelFrom = (appid == (uid_t) -1) ? LEVELFROM_USER : LEVELFROM_ALL;
+	}
+
+	context_t ctx = context_new(context);
+	if (!ctx) {
+		goto out;
+	}
+
+	int res = set_range_from_level(ctx, levelFrom, userid, appid);
+	if (res != 0) {
+		rc = res;
+		goto out;
+	}
+
+	char * newString = context_str(ctx);
+	if (!newString) {
+		goto out;
+	}
+
+	char * newCopied = strdup(newString);
+	if (!newCopied) {
+		goto out;
+	}
+
+	*newContext = newCopied;
+	rc = 0;
+
+out:
+	context_free(ctx);
+	return rc;
 }
 
 int selinux_android_setcon(const char *con)
@@ -1123,9 +1179,9 @@ struct pkg_info *package_info_lookup(const char *name)
  * credentials are presented (filenames inside are mangled), so we need
  * to delay restorecon of those until vold explicitly requests it. */
 // NOTE: these paths need to be kept in sync with vold
-#define DATA_SYSTEM_CE_PREFIX "/data/system_ce/"
-#define DATA_VENDOR_CE_PREFIX "/data/vendor_ce/"
-#define DATA_MISC_CE_PREFIX "/data/misc_ce/"
+#define DATA_SYSTEM_CE_PREFIX "/data/system_ce"
+#define DATA_VENDOR_CE_PREFIX "/data/vendor_ce"
+#define DATA_MISC_CE_PREFIX "/data/misc_ce"
 
 /* The path prefixes of package data directories. */
 #define DATA_DATA_PATH "/data/data"
@@ -1133,6 +1189,7 @@ struct pkg_info *package_info_lookup(const char *name)
 #define DATA_USER_DE_PATH "/data/user_de"
 #define EXPAND_USER_PATH "/mnt/expand/\?\?\?\?\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?\?\?\?\?\?\?\?\?/user"
 #define EXPAND_USER_DE_PATH "/mnt/expand/\?\?\?\?\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?\?\?\?\?\?\?\?\?/user_de"
+#define USER_PROFILE_PATH "/data/misc/profiles/cur/*"
 #define DATA_DATA_PREFIX DATA_DATA_PATH "/"
 #define DATA_USER_PREFIX DATA_USER_PATH "/"
 #define DATA_USER_DE_PREFIX DATA_USER_DE_PATH "/"
@@ -1489,6 +1546,11 @@ static int selinux_android_restorecon_common(const char* pathname_orig,
         case FTS_D:
             if (issys && !selabel_partial_match(fc_sehandle, ftsent->fts_path)) {
                 fts_set(fts, ftsent, FTS_SKIP);
+                continue;
+            }
+
+            if (!datadata && !fnmatch(USER_PROFILE_PATH, ftsent->fts_path, FNM_PATHNAME)) {
+                // Don't label this directory, vold takes care of that, but continue below it.
                 continue;
             }
 

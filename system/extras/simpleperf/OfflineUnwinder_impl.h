@@ -17,6 +17,7 @@
 #pragma once
 
 #include <unwindstack/Maps.h>
+#include <unwindstack/Regs.h>
 
 #include "thread_tree.h"
 
@@ -29,6 +30,25 @@ class UnwindMaps : public unwindstack::Maps {
  private:
   uint64_t version_ = 0u;
   std::vector<const MapEntry*> entries_;
+};
+
+class OfflineUnwinderImpl : public OfflineUnwinder {
+ public:
+  OfflineUnwinderImpl(bool collect_stat) : collect_stat_(collect_stat) {
+    unwindstack::Elf::SetCachingEnabled(true);
+  }
+
+  bool UnwindCallChain(const ThreadEntry& thread, const RegSet& regs, const char* stack,
+                       size_t stack_size, std::vector<uint64_t>* ips,
+                       std::vector<uint64_t>* sps) override;
+
+  void LoadMetaInfo(const std::unordered_map<std::string, std::string>& info_map) override;
+  unwindstack::Regs* GetBacktraceRegs(const RegSet& regs);
+
+ private:
+  bool collect_stat_;
+  std::unordered_map<pid_t, UnwindMaps> cached_maps_;
+  uint64_t arm64_pac_mask_ = 0;
 };
 
 }  // namespace simpleperf

@@ -27,13 +27,14 @@ import android.os.Looper;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
-import com.android.settingslib.wifi.AccessPoint;
+import com.android.wifitrackerlib.WifiEntry;
 
 /** Business logic relating to the security type and associated password. */
 public class NetworkPasswordPreferenceController extends
@@ -41,7 +42,8 @@ public class NetworkPasswordPreferenceController extends
 
     private static final Logger LOG = new Logger(NetworkPasswordPreferenceController.class);
 
-    private final BroadcastReceiver mNameChangeReceiver = new BroadcastReceiver() {
+    @VisibleForTesting
+    final BroadcastReceiver mNameChangeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             mNetworkName = intent.getStringExtra(NetworkNamePreferenceController.KEY_NETWORK_NAME);
@@ -50,12 +52,13 @@ public class NetworkPasswordPreferenceController extends
         }
     };
 
-    private final BroadcastReceiver mSecurityChangeReceiver = new BroadcastReceiver() {
+    @VisibleForTesting
+    final BroadcastReceiver mSecurityChangeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             mSecurityType = intent.getIntExtra(
                     NetworkSecurityPreferenceController.KEY_SECURITY_TYPE,
-                    AccessPoint.SECURITY_NONE);
+                    WifiEntry.SECURITY_NONE);
             refreshUi();
         }
     };
@@ -78,7 +81,7 @@ public class NetworkPasswordPreferenceController extends
             };
 
     private String mNetworkName;
-    private int mSecurityType = AccessPoint.SECURITY_NONE;
+    private int mSecurityType = WifiEntry.SECURITY_NONE;
 
     public NetworkPasswordPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -118,7 +121,7 @@ public class NetworkPasswordPreferenceController extends
     protected boolean handlePreferenceChanged(
             NetworkNameRestrictedPasswordEditTextPreference preference, Object newValue) {
         String password = newValue.toString();
-        WifiUtil.connectToAccessPoint(getContext(), mNetworkName, mSecurityType,
+        WifiUtil.connectToWifiEntry(getContext(), mNetworkName, mSecurityType,
                 password, /* hidden= */ true, mConnectionListener);
         return true;
     }

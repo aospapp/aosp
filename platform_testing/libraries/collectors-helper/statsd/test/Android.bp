@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "statsd-helper-test",
     defaults: ["tradefed_errorprone_defaults"],
@@ -20,14 +24,16 @@ java_library {
 
     static_libs: [
         "androidx.test.runner",
-        "android-support-test",
+        "androidx.test.rules",
         "statsd-helper",
         "app-helpers-handheld-interfaces",
         "junit",
         "ub-uiautomator",
-        "platformprotoslite",
-        "statsdprotolite",
+        "platformprotosnano",
+        "platform-test-rules",
+        "statsdprotonano",
         "mockito-target-minus-junit4",
+        "launcher-aosp-tapl"
     ],
 
     platform_apis: true,

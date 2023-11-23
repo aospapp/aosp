@@ -16,6 +16,7 @@
 
 package com.google.turbine.binder;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.turbine.binder.bound.HeaderBoundClass;
@@ -68,6 +69,9 @@ public class HierarchyBinder {
     ClassSymbol superclass;
     if (decl.xtnds().isPresent()) {
       superclass = resolveClass(decl.xtnds().get());
+      if (origin.equals(superclass)) {
+        log.error(decl.xtnds().get().position(), ErrorKind.CYCLIC_HIERARCHY, origin);
+      }
     } else {
       switch (decl.tykind()) {
         case ENUM:
@@ -89,6 +93,9 @@ public class HierarchyBinder {
         ClassSymbol result = resolveClass(i);
         if (result == null) {
           continue;
+        }
+        if (origin.equals(result)) {
+          log.error(i.position(), ErrorKind.CYCLIC_HIERARCHY, origin);
         }
         interfaces.add(result);
       }
@@ -120,7 +127,7 @@ public class HierarchyBinder {
     // Resolve the base symbol in the qualified name.
     LookupResult result = lookup(ty, new LookupKey(ImmutableList.copyOf(flat)));
     if (result == null) {
-      log.error(ty.position(), ErrorKind.CANNOT_RESOLVE, ty);
+      log.error(ty.position(), ErrorKind.CANNOT_RESOLVE, Joiner.on('.').join(flat));
       return null;
     }
     // Resolve pieces in the qualified name referring to member types.

@@ -17,7 +17,6 @@
 package com.android.tv.settings.system.development;
 
 import android.annotation.Nullable;
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
@@ -29,7 +28,8 @@ import android.os.Process;
 import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
@@ -39,7 +39,7 @@ import java.text.Collator;
 import java.util.Comparator;
 import java.util.List;
 
-public class AppPicker extends Activity {
+public class AppPicker extends FragmentActivity {
 
     public static final String EXTRA_REQUESTIING_PERMISSION
             = "com.android.settings.extra.REQUESTIING_PERMISSION";
@@ -52,13 +52,13 @@ public class AppPicker extends Activity {
             final String permissionName = getIntent().getStringExtra(EXTRA_REQUESTIING_PERMISSION);
             final Boolean debuggableOnly = getIntent().getBooleanExtra(EXTRA_DEBUGGABLE, false);
 
-            GuidedStepFragment.addAsRoot(this,
+            GuidedStepSupportFragment.addAsRoot(this,
                     AppPickerFragment.newInstance(permissionName, debuggableOnly),
                     android.R.id.content);
         }
     }
 
-    public static class AppPickerFragment extends GuidedStepFragment {
+    public static class AppPickerFragment extends GuidedStepSupportFragment {
 
         private String mPermissionName;
         private boolean mDebuggableOnly;

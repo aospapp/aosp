@@ -13,121 +13,26 @@
 // limitations under the License.
 #include "VulkanStreamGuest.h"
 
-#include "IOStream.h"
-#include "ResourceTracker.h"
-
-#include "android/base/Pool.h"
-#include "android/base/Tracing.h"
-
-#include <vector>
-
-#include <log/log.h>
-#include <inttypes.h>
-
 namespace goldfish_vk {
 
-class VulkanStreamGuest::Impl : public android::base::Stream {
-public:
-    Impl(IOStream* stream) : mStream(stream) {
-        unsetHandleMapping();
-        mFeatureBits = ResourceTracker::get()->getStreamFeatures();
-    }
-
-    ~Impl() { }
-
-    bool valid() { return true; }
-
-    void alloc(void **ptrAddr, size_t bytes) {
-        if (!bytes) {
-            *ptrAddr = nullptr;
-            return;
-        }
-
-        *ptrAddr = mPool.alloc(bytes);
-    }
-
-    ssize_t write(const void *buffer, size_t size) override {
-        uint8_t* streamBuf = (uint8_t*)mStream->alloc(size);
-        memcpy(streamBuf, buffer, size);
-        return size;
-    }
-
-    ssize_t read(void *buffer, size_t size) override {
-        if (!mStream->readback(buffer, size)) {
-            ALOGE("FATAL: Could not read back %zu bytes", size);
-            abort();
-        }
-        return size;
-    }
-
-    void clearPool() {
-        mPool.freeAll();
-    }
-
-    void setHandleMapping(VulkanHandleMapping* mapping) {
-        mCurrentHandleMapping = mapping;
-    }
-
-    void unsetHandleMapping() {
-        mCurrentHandleMapping = &mDefaultHandleMapping;
-    }
-
-    VulkanHandleMapping* handleMapping() const {
-        return mCurrentHandleMapping;
-    }
-
-    void flush() {
-        commitWrite();
-    }
-
-    uint32_t getFeatureBits() const {
-        return mFeatureBits;
-    }
-
-private:
-    size_t oustandingWriteBuffer() const {
-        return mWritePos;
-    }
-
-    size_t remainingWriteBufferSize() const {
-        return mWriteBuffer.size() - mWritePos;
-    }
-
-    void commitWrite() {
-        AEMU_SCOPED_TRACE("VulkanStreamGuest device write");
-        mStream->flush();
-    }
-
-    ssize_t bufferedWrite(const void *buffer, size_t size) {
-        if (size > remainingWriteBufferSize()) {
-            mWriteBuffer.resize((mWritePos + size) << 1);
-        }
-        memcpy(mWriteBuffer.data() + mWritePos, buffer, size);
-        mWritePos += size;
-        return size;
-    }
-
-    android::base::Pool mPool { 8, 4096, 64 };
-
-    size_t mWritePos = 0;
-    std::vector<uint8_t> mWriteBuffer;
-    IOStream* mStream = nullptr;
-    DefaultHandleMapping mDefaultHandleMapping;
-    VulkanHandleMapping* mCurrentHandleMapping;
-    uint32_t mFeatureBits = 0;
-};
-
-VulkanStreamGuest::VulkanStreamGuest(IOStream *stream) :
-    mImpl(new VulkanStreamGuest::Impl(stream)) { }
+VulkanStreamGuest::VulkanStreamGuest(IOStream *stream): mStream(stream) {
+    unsetHandleMapping();
+    mFeatureBits = ResourceTracker::get()->getStreamFeatures();
+}
 
 VulkanStreamGuest::~VulkanStreamGuest() = default;
 
 bool VulkanStreamGuest::valid() {
-    return mImpl->valid();
+    return true;
 }
 
 void VulkanStreamGuest::alloc(void** ptrAddr, size_t bytes) {
-    mImpl->alloc(ptrAddr, bytes);
+    if (!bytes) {
+        *ptrAddr = nullptr;
+        return;
+    }
+    
+    *ptrAddr = mPool.alloc(bytes);
 }
 
 void VulkanStreamGuest::loadStringInPlace(char** forOutput) {
@@ -157,37 +62,95 @@ void VulkanStreamGuest::loadStringArrayInPlace(char*** forOutput) {
     }
 }
 
+void VulkanStreamGuest::loadStringInPlaceWithStreamPtr(char** forOutput, uint8_t** streamPtr) {
+    uint32_t len;
+    memcpy(&len, *streamPtr, sizeof(uint32_t));
+    *streamPtr += sizeof(uint32_t);
+    android::base::Stream::fromBe32((uint8_t*)&len);
+
+    alloc((void**)forOutput, len + 1);
+
+    memset(*forOutput, 0x0, len + 1);
+
+    if (len > 0) {
+        memcpy(*forOutput, *streamPtr, len);
+        *streamPtr += len;
+    }
+}
+
+void VulkanStreamGuest::loadStringArrayInPlaceWithStreamPtr(char*** forOutput, uint8_t** streamPtr) {
+ uint32_t count;
+    memcpy(&count, *streamPtr, sizeof(uint32_t));
+    *streamPtr += sizeof(uint32_t);
+    android::base::Stream::fromBe32((uint8_t*)&count);
+    if (!count) {
+        *forOutput = nullptr;
+        return;
+    }
+
+    alloc((void**)forOutput, count * sizeof(char*));
+
+    char **stringsForOutput = *forOutput;
+
+    for (size_t i = 0; i < count; i++) {
+        loadStringInPlaceWithStreamPtr(stringsForOutput + i, streamPtr);
+    }
+}
+
 
 ssize_t VulkanStreamGuest::read(void *buffer, size_t size) {
-    return mImpl->read(buffer, size);
+    if (!mStream->readback(buffer, size)) {
+        ALOGE("FATAL: Could not read back %zu bytes", size);
+        abort();
+    }
+    return size;
 }
 
 ssize_t VulkanStreamGuest::write(const void *buffer, size_t size) {
-    return mImpl->write(buffer, size);
+    uint8_t* streamBuf = (uint8_t*)mStream->alloc(size);
+    memcpy(streamBuf, buffer, size);
+    return size;
+}
+
+void VulkanStreamGuest::writeLarge(const void* buffer, size_t size) {
+    mStream->writeFullyAsync(buffer, size);
 }
 
 void VulkanStreamGuest::clearPool() {
-    mImpl->clearPool();
+    mPool.freeAll();
 }
 
 void VulkanStreamGuest::setHandleMapping(VulkanHandleMapping* mapping) {
-    mImpl->setHandleMapping(mapping);
+    mCurrentHandleMapping = mapping;
 }
 
 void VulkanStreamGuest::unsetHandleMapping() {
-    mImpl->unsetHandleMapping();
+    mCurrentHandleMapping = &mDefaultHandleMapping;
 }
 
 VulkanHandleMapping* VulkanStreamGuest::handleMapping() const {
-    return mImpl->handleMapping();
+    return mCurrentHandleMapping;
 }
 
 void VulkanStreamGuest::flush() {
-    mImpl->flush();
+    AEMU_SCOPED_TRACE("VulkanStreamGuest device write");
+    mStream->flush();
 }
 
 uint32_t VulkanStreamGuest::getFeatureBits() const {
-    return mImpl->getFeatureBits();
+    return mFeatureBits;
+}
+
+void VulkanStreamGuest::incStreamRef() {
+    mStream->incRef();
+}
+
+bool VulkanStreamGuest::decStreamRef() {
+    return mStream->decRef();
+}
+
+uint8_t* VulkanStreamGuest::reserve(size_t size) {
+    return (uint8_t*)mStream->alloc(size);
 }
 
 VulkanCountingStream::VulkanCountingStream() : VulkanStreamGuest(nullptr) { }

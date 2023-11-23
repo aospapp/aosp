@@ -16,7 +16,6 @@
 
 package com.android.car.messenger.common;
 
-import android.annotation.Nullable;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -24,8 +23,10 @@ import android.app.RemoteInput;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
 
+import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationCompat.Action;
 import androidx.core.app.Person;
@@ -202,9 +203,11 @@ public class BaseNotificationDelegate {
         if (avatarIcon != null) {
             builder.setLargeIcon(avatarIcon);
         } else if (mUseLetterTile) {
-            builder.setLargeIcon(TelecomUtils.createLetterTile(mContext,
+            BitmapDrawable drawable = (BitmapDrawable) TelecomUtils.createLetterTile(mContext,
                     Utils.getInitials(lastMessage.getSenderName(), ""),
-                    lastMessage.getSenderName(), mBitmapSize, mCornerRadiusPercent).getBitmap());
+                    lastMessage.getSenderName(), mBitmapSize, mCornerRadiusPercent)
+                    .loadDrawable(mContext);
+            builder.setLargeIcon(drawable.getBitmap());
         }
         // Else, no avatar icon will be shown.
 
@@ -235,9 +238,10 @@ public class BaseNotificationDelegate {
             }
         });
         if (notificationInfo.isGroupConvo()) {
-            messagingStyle.setConversationTitle(
-                    mContext.getString(R.string.group_conversation_title_separator,
-                            lastMessage.getSenderName(), notificationInfo.getConvoTitle()));
+            messagingStyle.setConversationTitle(Utils.constructGroupConversationHeader(
+                    lastMessage.getSenderName(), notificationInfo.getConvoTitle(),
+                    mContext.getString(R.string.group_conversation_title_separator)
+            ));
         }
 
         // We are creating this notification for the first time.
@@ -261,7 +265,7 @@ public class BaseNotificationDelegate {
 
             PendingIntent deleteIntent = createServiceIntent(conversationKey,
                     notificationInfo.getNotificationId(),
-                    ACTION_DISMISS_NOTIFICATION);
+                    ACTION_DISMISS_NOTIFICATION, /* isMutable= */ false);
             builder.setDeleteIntent(deleteIntent);
 
             List<Action> actions = buildNotificationActions(conversationKey,
@@ -291,7 +295,7 @@ public class BaseNotificationDelegate {
         if (shouldAddReplyAction(conversationKey.getDeviceId())) {
             final String replyString = mContext.getString(R.string.action_reply);
             PendingIntent replyIntent = createServiceIntent(conversationKey, notificationId,
-                    ACTION_REPLY);
+                    ACTION_REPLY, /* isMutable= */ true);
             actionList.add(
                     new NotificationCompat.Action.Builder(icon, replyString, replyIntent)
                             .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
@@ -308,7 +312,7 @@ public class BaseNotificationDelegate {
         // Mark-as-read Action. This will be the callback of Notification Center's "Read" action.
         final String markAsRead = mContext.getString(R.string.action_mark_as_read);
         PendingIntent markAsReadIntent = createServiceIntent(conversationKey, notificationId,
-                ACTION_MARK_AS_READ);
+                ACTION_MARK_AS_READ, /* isMutable= */ false);
         actionList.add(
                 new NotificationCompat.Action.Builder(icon, markAsRead, markAsReadIntent)
                         .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
@@ -320,14 +324,16 @@ public class BaseNotificationDelegate {
     }
 
     private PendingIntent createServiceIntent(ConversationKey conversationKey, int notificationId,
-            String action) {
+            String action, boolean isMutable) {
         Intent intent = new Intent(mContext, mContext.getClass())
                 .setAction(action)
                 .setClassName(mContext, mContext.getClass().getName())
                 .putExtra(EXTRA_CONVERSATION_KEY, conversationKey);
 
-        return PendingIntent.getForegroundService(mContext, notificationId, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        flags |= isMutable ? PendingIntent.FLAG_MUTABLE : PendingIntent.FLAG_IMMUTABLE;
+
+        return PendingIntent.getForegroundService(mContext, notificationId, intent, flags);
     }
 
 }

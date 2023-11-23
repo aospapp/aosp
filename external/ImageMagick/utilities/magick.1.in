@@ -5,7 +5,7 @@ magick \- convert between image formats as well as resize an image, blur, crop, 
 .TP
 \fBmagick\fP [\fIinput-options\fP] \fIinput-file\fP [\fIoutput-options\fP] \fIoutput-file\fP
 .SH OVERVIEW
-The \fBmagickscript\fP program is a member of the ImageMagick(1) suite of tools.  Use it to convert between image formats as well as resize an image, blur, crop, despeckle, dither, draw on, flip, join, re-sample, and much more.  
+The \fBmagick\fP program is a member of the ImageMagick(1) suite of tools.  Use it to convert between image formats as well as resize an image, blur, crop, despeckle, dither, draw on, flip, join, re-sample, and much more.  
 
 For more information about the magick command, point your browser to file://@DOCUMENTATION_PATH@/www/magick.html or http://imagemagick.org/script/magick.php.
 .SH DESCRIPTION
@@ -30,7 +30,7 @@ Image Settings:
   \-decipher filename   magick cipher pixels to plain pixels
   \-define format:option
                        define one or more image format options
-  \-delay value         display the next image after pausing
+  \-delay centiseconds  display the next image after pausing
   \-density geometry    horizontal and vertical density of the image
   \-depth value         image depth
   \-direction type      render text right-to-left or left-to-right
@@ -110,6 +110,8 @@ Image Operators:
   \-annotate geometry text
                        annotate the image with text
   \-auto-orient         automatically orient image
+  \-bilateral-blur geometry
+                        non-linear, edge-preserving, and noise-reducing smoothing filter
   \-black-threshold value
                        force all pixels below the threshold into black
   \-blur geometry       reduce image noise and reduce detail levels
@@ -206,6 +208,7 @@ Image Operators:
                        lightness rescaling using sigmoidal contrast enhancement
   \-sketch geometry     simulate a pencil sketch
   \-solarize threshold  negate all pixels above the threshold level
+  \-sort-pixels         sort each scanline in ascending order of intensity
   \-splice geometry     splice the background color into the image
   \-spread amount       displace image pixels by a random amount
   \-strip               strip image of all profiles and comments

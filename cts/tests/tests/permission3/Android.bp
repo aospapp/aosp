@@ -14,9 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsPermission3TestCases",
+    defaults: ["mts-target-sdk-version-current"],
     sdk_version: "test_current",
+    min_sdk_version: "30",
     srcs: [
         "src/**/*.kt",
     ],
@@ -25,25 +31,30 @@ android_test {
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
+        "bluetooth-test-util-lib",
+        "modules-utils-build_system",
     ],
     data: [
-        ":CtsPermissionEscalationAppNonRuntime",
-        ":CtsPermissionEscalationAppRuntime",
         ":CtsPermissionPolicyApp25",
         ":CtsUsePermissionApp22",
         ":CtsUsePermissionApp22CalendarOnly",
+        ":CtsUsePermissionApp22None",
         ":CtsUsePermissionApp23",
         ":CtsUsePermissionApp25",
         ":CtsUsePermissionApp26",
         ":CtsUsePermissionApp28",
         ":CtsUsePermissionApp29",
+        ":CtsUsePermissionApp30",
+        ":CtsUsePermissionApp30WithBackground",
+        ":CtsUsePermissionApp30WithBluetooth",
         ":CtsUsePermissionAppLatest",
-        ":CtsUsePermissionAppLatestWithBackground",
+        ":CtsUsePermissionAppLatestNone",
         ":CtsUsePermissionAppWithOverlay",
+        ":CtsAccessMicrophoneApp",
+        ":CtsAccessMicrophoneApp2",
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
         "mts",
     ],

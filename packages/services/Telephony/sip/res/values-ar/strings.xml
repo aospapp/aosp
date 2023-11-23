@@ -61,9 +61,9 @@
     <string name="advanced_settings" msgid="2704644977548662872">"الإعدادات الاختيارية"</string>
     <string name="auth_username_title" msgid="9002505242616662698">"اسم المستخدِم للمصادقة"</string>
     <string name="auth_username_summary" msgid="6346313945275377230">"اسم المستخدِم المستخدَم للمصادقة"</string>
-    <string name="default_preference_summary_username" msgid="8788114717555599222">"‏&lt;لم يتم التعيين&gt;"</string>
-    <string name="default_preference_summary_password" msgid="3695366978153175549">"‏&lt;لم يتم التعيين&gt;"</string>
-    <string name="default_preference_summary_domain_address" msgid="443247296785732364">"‏&lt;لم يتم التعيين&gt;"</string>
+    <string name="default_preference_summary_username" msgid="8788114717555599222">"‏&lt;لم يتم الضبط&gt;"</string>
+    <string name="default_preference_summary_password" msgid="3695366978153175549">"‏&lt;لم يتم الضبط&gt;"</string>
+    <string name="default_preference_summary_domain_address" msgid="443247296785732364">"‏&lt;لم يتم الضبط&gt;"</string>
     <string name="display_name_summary" msgid="6749135030093260358">"‏&lt;مثل اسم المستخدم&gt;"</string>
     <string name="optional_summary" msgid="620379377865437488">"‏&lt;اختياري&gt;"</string>
     <string name="advanced_settings_show" msgid="2318728080037568529">"▷ المس لإظهار الكل"</string>

@@ -35,6 +35,7 @@ namespace TexVerifierUtil
 
 float		computeFloatingPointError			(const float value, const int numAccurateBits);
 float		computeFixedPointError				(const int numAccurateBits);
+float		computeColorBitsError				(const int bits, const int numAccurateBits);
 
 template<int Size>
 inline Vector<float, Size> computeFloatingPointError (const Vector<float, Size>& value, const Vector<deInt32, Size>& numAccurateBits)
@@ -54,36 +55,54 @@ inline Vector<float, Size> computeFixedPointError (const Vector<deInt32, Size>& 
 	return res;
 }
 
+template<int Size>
+inline Vector<float, Size> computeColorBitsError(const Vector<deInt32, Size>& bits, const Vector<deInt32, Size>& numAccurateBits)
+{
+	Vector<float, Size> res;
+	for (int ndx = 0; ndx < Size; ndx++)
+		res[ndx] = computeColorBitsError(bits[ndx], numAccurateBits[ndx]);
+	return res;
+}
+
 // Sampler introspection
 
-inline bool isNearestMipmapFilter (const Sampler::FilterMode mode)
+inline bool isNearestMipmapFilter(const Sampler::FilterMode mode)
 {
-	return mode == Sampler::NEAREST_MIPMAP_NEAREST || mode == Sampler::LINEAR_MIPMAP_NEAREST;
+	return mode == Sampler::NEAREST_MIPMAP_NEAREST || mode == Sampler::LINEAR_MIPMAP_NEAREST || mode == Sampler::CUBIC_MIPMAP_NEAREST;
 }
 
-inline bool isLinearMipmapFilter (const Sampler::FilterMode mode)
+inline bool isLinearMipmapFilter(const Sampler::FilterMode mode)
 {
-	return mode == Sampler::NEAREST_MIPMAP_LINEAR || mode == Sampler::LINEAR_MIPMAP_LINEAR;
+	return mode == Sampler::NEAREST_MIPMAP_LINEAR || mode == Sampler::LINEAR_MIPMAP_LINEAR || mode == Sampler::CUBIC_MIPMAP_LINEAR;
 }
 
-inline bool isMipmapFilter (const Sampler::FilterMode mode)
+inline bool isMipmapFilter(const Sampler::FilterMode mode)
 {
 	return isNearestMipmapFilter(mode) || isLinearMipmapFilter(mode);
 }
 
-inline bool isLinearFilter (const Sampler::FilterMode mode)
+inline bool isNearestFilter(const Sampler::FilterMode mode)
+{
+	return mode == Sampler::NEAREST || mode == Sampler::NEAREST_MIPMAP_NEAREST || mode == Sampler::NEAREST_MIPMAP_LINEAR;
+}
+
+inline bool isLinearFilter(const Sampler::FilterMode mode)
 {
 	return mode == Sampler::LINEAR || mode == Sampler::LINEAR_MIPMAP_NEAREST || mode == Sampler::LINEAR_MIPMAP_LINEAR;
 }
 
-inline bool isNearestFilter (const Sampler::FilterMode mode)
+inline bool isCubicFilter(const Sampler::FilterMode mode)
 {
-	return !isLinearFilter(mode);
+	return mode == Sampler::CUBIC || mode == Sampler::CUBIC_MIPMAP_NEAREST || mode == Sampler::CUBIC_MIPMAP_LINEAR;
 }
 
-inline Sampler::FilterMode getLevelFilter (const Sampler::FilterMode mode)
+inline Sampler::FilterMode getLevelFilter(const Sampler::FilterMode mode)
 {
-	return isLinearFilter(mode) ? Sampler::LINEAR : Sampler::NEAREST;
+	if (isNearestFilter(mode))
+		return Sampler::NEAREST;
+	if (isLinearFilter(mode))
+		return Sampler::LINEAR;
+	return Sampler::CUBIC;
 }
 
 inline bool isWrapModeSupported (const Sampler::WrapMode mode)

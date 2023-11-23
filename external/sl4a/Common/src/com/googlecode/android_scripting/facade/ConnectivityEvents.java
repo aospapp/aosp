@@ -17,8 +17,8 @@
 package com.googlecode.android_scripting.facade;
 
 import android.net.NetworkCapabilities;
-import android.net.wifi.aware.WifiAwareNetworkInfo;
 
+import com.googlecode.android_scripting.jsonrpc.JsonBuilder;
 import com.googlecode.android_scripting.jsonrpc.JsonSerializable;
 
 import org.json.JSONException;
@@ -136,29 +136,7 @@ public class ConnectivityEvents {
          */
         public JSONObject toJSON() throws JSONException {
             JSONObject json = super.toJSON();
-            json.put(ConnectivityConstants.NetworkCallbackContainer.RSSI,
-                    mNetworkCapabilities.getSignalStrength());
-            if (mNetworkCapabilities.getNetworkSpecifier() != null) {
-                json.put("network_specifier",
-                        mNetworkCapabilities.getNetworkSpecifier().toString());
-            }
-            if (mNetworkCapabilities.getTransportInfo() instanceof WifiAwareNetworkInfo) {
-                WifiAwareNetworkInfo anc =
-                        (WifiAwareNetworkInfo) mNetworkCapabilities.getTransportInfo();
-
-                String ipv6 = anc.getPeerIpv6Addr().toString();
-                if (ipv6.charAt(0) == '/') {
-                    ipv6 = ipv6.substring(1);
-                }
-                json.put("aware_ipv6", ipv6);
-                if (anc.getPort() != 0) {
-                    json.put("aware_port", anc.getPort());
-                }
-                if (anc.getTransportProtocol() != -1) {
-                    json.put("aware_transport_protocol", anc.getTransportProtocol());
-                }
-            }
-            return json;
+            return JsonBuilder.buildNetworkCapabilities(json, mNetworkCapabilities);
         }
     }
 

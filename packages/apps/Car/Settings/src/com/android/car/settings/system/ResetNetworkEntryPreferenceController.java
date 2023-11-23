@@ -45,7 +45,7 @@ public class ResetNetworkEntryPreferenceController extends PreferenceController<
 
     @Override
     public int getAvailabilityStatus() {
-        return isUserRestricted() ? DISABLED_FOR_USER : AVAILABLE;
+        return isUserRestricted() ? DISABLED_FOR_PROFILE : AVAILABLE;
     }
 
     private boolean isUserRestricted() {

@@ -20,6 +20,7 @@ package com.android.org.conscrypt.javax.net.ssl;
 import java.nio.charset.Charset;
 import java.security.Principal;
 import java.security.cert.Certificate;
+import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSessionContext;
 
@@ -80,7 +81,7 @@ public class FakeSSLSession implements SSLSession {
     }
 
     @Override
-    public Certificate[] getPeerCertificates() {
+    public Certificate[] getPeerCertificates() throws SSLPeerUnverifiedException {
         throw new UnsupportedOperationException();
     }
 

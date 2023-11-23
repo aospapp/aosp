@@ -146,4 +146,32 @@
             <entry key="status_code" definition="ok">7</entry>
         </command_result>
     </feature>
+    <feature name="callwaiting">
+        <command name="query"><!--For example: *#102#-->
+            <service_code>102</service_code>
+            <action_code>*#</action_code>
+            <response_format number ="1"><!--For example: 120*4#-->
+                <entry position="4" key="status_code"/>
+            </response_format>
+        </command>
+        <command name="activate"><!--For example: *102#-->
+            <service_code>102</service_code>
+            <action_code>*</action_code>
+            <response_format number="1"><!--For example: 102*5#-->
+                <entry position="4" key="status_code"/>
+            </response_format>
+        </command>
+        <command name="deactivate"><!--For example: #102#-->
+            <service_code>102</service_code>
+            <action_code>#</action_code>
+            <response_format number="1"><!--For example: 148*4#-->
+                <entry position="4" key="status_code"/>
+            </response_format>
+        </command>
+        <command_result number="3">
+            <entry key="status_code" definition="activate">5</entry>
+            <entry key="status_code" definition="deactivate">4</entry>
+            <entry key="status_code" definition="unregister">0</entry>
+        </command_result>
+    </feature>
 </resources>

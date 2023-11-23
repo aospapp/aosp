@@ -53,6 +53,20 @@
 
 package {
     default_visibility: ["//visibility:private"],
+    default_applicable_licenses: ["external_vixl_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_vixl_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENCE",
+    ],
 }
 
 cc_defaults {
@@ -148,6 +162,7 @@ cc_defaults {
     name: "libvixl-defaults",
     srcs: ["src/*.cc"],
     export_include_dirs: ["src"],
+    min_sdk_version: "S",
 }
 
 art_cc_library {
@@ -170,9 +185,20 @@ art_cc_library {
     },
 
     apex_available: [
+        "com.android.art",
         "com.android.art.debug",
-        "com.android.art.release",
     ],
+
+    static: {
+        cflags: [
+            "-fvisibility=hidden",
+        ],
+    },
+    shared: {
+        cflags: [
+            "-fvisibility=protected",
+        ],
+    },
 }
 
 art_cc_library {
@@ -186,7 +212,7 @@ art_cc_library {
     ],
 
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
 }

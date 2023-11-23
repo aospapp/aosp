@@ -58,6 +58,10 @@ DrawRectCommand* Command::AsDrawRect() {
   return static_cast<DrawRectCommand*>(this);
 }
 
+DrawGridCommand* Command::AsDrawGrid() {
+  return static_cast<DrawGridCommand*>(this);
+}
+
 EntryPointCommand* Command::AsEntryPoint() {
   return static_cast<EntryPointCommand*>(this);
 }
@@ -92,6 +96,11 @@ DrawRectCommand::DrawRectCommand(Pipeline* pipeline, PipelineData data)
 
 DrawRectCommand::~DrawRectCommand() = default;
 
+DrawGridCommand::DrawGridCommand(Pipeline* pipeline, PipelineData data)
+    : PipelineCommand(Type::kDrawGrid, pipeline), data_(data) {}
+
+DrawGridCommand::~DrawGridCommand() = default;
+
 DrawArraysCommand::DrawArraysCommand(Pipeline* pipeline, PipelineData data)
     : PipelineCommand(Type::kDrawArrays, pipeline), data_(data) {}
 
@@ -120,10 +129,20 @@ ProbeSSBOCommand::ProbeSSBOCommand(Buffer* buffer)
 
 ProbeSSBOCommand::~ProbeSSBOCommand() = default;
 
+BindableResourceCommand::BindableResourceCommand(Type type, Pipeline* pipeline)
+    : PipelineCommand(type, pipeline) {}
+
+BindableResourceCommand::~BindableResourceCommand() = default;
+
 BufferCommand::BufferCommand(BufferType type, Pipeline* pipeline)
-    : PipelineCommand(Type::kBuffer, pipeline), buffer_type_(type) {}
+    : BindableResourceCommand(Type::kBuffer, pipeline), buffer_type_(type) {}
 
 BufferCommand::~BufferCommand() = default;
+
+SamplerCommand::SamplerCommand(Pipeline* pipeline)
+    : BindableResourceCommand(Type::kSampler, pipeline) {}
+
+SamplerCommand::~SamplerCommand() = default;
 
 CopyCommand::CopyCommand(Buffer* buffer_from, Buffer* buffer_to)
     : Command(Type::kCopy), buffer_from_(buffer_from), buffer_to_(buffer_to) {}

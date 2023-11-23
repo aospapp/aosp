@@ -29,17 +29,34 @@ namespace general_test {
 
 namespace {
 
+using nanoapp_testing::sendFatalFailureToHost;
+
 void testLocationSessionAsync() {
   if (!chreGnssLocationSessionStartAsync(1000 /* minIntervalMs */,
                                          0 /* minTimeToNextFixMs */,
                                          nullptr /* cookie */)) {
-    nanoapp_testing::sendFatalFailureToHost(
-        "Failed to start a location session");
+    sendFatalFailureToHost("Failed to start a location session");
   }
-  if (!chreGnssLocationSessionStopAsync(nullptr /* cookie */)) {
-    nanoapp_testing::sendFatalFailureToHost(
-        "Failed to stop a location session");
+}
+
+void testMeasurementSessionAsync() {
+  if (!chreGnssMeasurementSessionStartAsync(1000 /* minIntervalMs */,
+                                            nullptr /* cookie */)) {
+    sendFatalFailureToHost("Failed to start a measurement session");
   }
+}
+
+bool testPassiveListener() {
+  bool success = false;
+  if (!chreGnssConfigurePassiveLocationListener(true /* enable */)) {
+    sendFatalFailureToHost("Failed to enable passive location listener");
+  } else if (!chreGnssConfigurePassiveLocationListener(false /* enable */)) {
+    sendFatalFailureToHost("Failed to disable passive location listener");
+  } else {
+    success = true;
+  }
+
+  return success;
 }
 
 }  // anonymous namespace
@@ -48,27 +65,82 @@ BasicGnssTest::BasicGnssTest() : Test(CHRE_API_VERSION_1_1) {}
 
 void BasicGnssTest::setUp(uint32_t messageSize, const void * /* message */) {
   if (messageSize != 0) {
-    nanoapp_testing::sendFatalFailureToHost(
-        "Expected 0 byte message, got more bytes:", &messageSize);
+    sendFatalFailureToHost("Expected 0 byte message, got more bytes:",
+                           &messageSize);
   } else {
     uint32_t capabilities = chreGnssGetCapabilities();
 
     if (capabilities & CHRE_GNSS_CAPABILITIES_LOCATION) {
       testLocationSessionAsync();
-      // TODO: Add tests for chreGnssMeasurementXxx and
-      //       chreGnssConfigurePassiveLocationListener
+    } else {
+      mTestSuccessMarker.markStageAndSuccessOnFinish(
+          BASIC_GNSS_TEST_STAGE_LOCATION);
     }
 
-    nanoapp_testing::sendSuccessToHost();
+    if (capabilities & CHRE_GNSS_CAPABILITIES_MEASUREMENTS) {
+      testMeasurementSessionAsync();
+    } else {
+      mTestSuccessMarker.markStageAndSuccessOnFinish(
+          BASIC_GNSS_TEST_STAGE_MEASUREMENT);
+    }
+
+    if (((mApiVersion < CHRE_API_VERSION_1_5) &&
+         (capabilities &
+          CHRE_GNSS_CAPABILITIES_GNSS_ENGINE_BASED_PASSIVE_LISTENER) == 0) ||
+        testPassiveListener()) {
+      mTestSuccessMarker.markStageAndSuccessOnFinish(
+          BASIC_GNSS_TEST_STAGE_LISTENER);
+    }
+  }
+}
+
+void BasicGnssTest::handleGnssAsyncResult(const chreAsyncResult *result) {
+  if (!result->success) {
+    sendFatalFailureToHost("Received unsuccessful GNSS async result");
+  }
+
+  switch (result->requestType) {
+    case CHRE_GNSS_REQUEST_TYPE_LOCATION_SESSION_START: {
+      if (!chreGnssLocationSessionStopAsync(nullptr /* cookie */)) {
+        sendFatalFailureToHost("Failed to stop a location session");
+      }
+      break;
+    }
+    case CHRE_GNSS_REQUEST_TYPE_LOCATION_SESSION_STOP: {
+      mTestSuccessMarker.markStageAndSuccessOnFinish(
+          BASIC_GNSS_TEST_STAGE_LOCATION);
+      break;
+    }
+    case CHRE_GNSS_REQUEST_TYPE_MEASUREMENT_SESSION_START: {
+      if (!chreGnssMeasurementSessionStopAsync(nullptr /* cookie */)) {
+        sendFatalFailureToHost("Failed to stop a measurement session");
+      }
+      break;
+    }
+    case CHRE_GNSS_REQUEST_TYPE_MEASUREMENT_SESSION_STOP: {
+      mTestSuccessMarker.markStageAndSuccessOnFinish(
+          BASIC_GNSS_TEST_STAGE_MEASUREMENT);
+      break;
+    }
+    default:
+      sendFatalFailureToHost("Unexpected request type");
+      break;
   }
 }
 
 void BasicGnssTest::handleEvent(uint32_t /* senderInstanceId */,
-                                uint16_t eventType,
-                                const void * /* eventData */) {
-  if (eventType != CHRE_EVENT_GNSS_ASYNC_RESULT &&
-      eventType != CHRE_EVENT_GNSS_LOCATION) {
-    unexpectedEvent(eventType);
+                                uint16_t eventType, const void *eventData) {
+  switch (eventType) {
+    case CHRE_EVENT_GNSS_ASYNC_RESULT:
+      handleGnssAsyncResult(static_cast<const chreAsyncResult *>(eventData));
+      break;
+    case CHRE_EVENT_GNSS_LOCATION:
+    case CHRE_EVENT_GNSS_DATA:
+      // Do nothing
+      break;
+    default:
+      unexpectedEvent(eventType);
+      break;
   }
 }
 

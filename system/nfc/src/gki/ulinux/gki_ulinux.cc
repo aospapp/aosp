@@ -95,8 +95,8 @@ void* gki_task_entry(void* params) {
   /* Call the actual thread entry point */
   (p_pthread_info->task_entry)(p_pthread_info->params);
 
-  LOG(ERROR) << StringPrintf("gki_task task_id=%i terminating",
-                             p_pthread_info->task_id);
+  LOG(WARNING) << StringPrintf("gki_task task_id=%i terminating",
+                               p_pthread_info->task_id);
   gki_cb.os.thread_id[p_pthread_info->task_id] = 0;
 
   return nullptr;
@@ -338,9 +338,9 @@ void GKI_shutdown(void) {
 
 /*******************************************************************************
  **
- ** Function        GKI_run
+ ** Function        gki_system_tick_start_stop_cback
  **
- ** Description     This function runs a task
+ ** Description     This function starts or stops timer
  **
  ** Parameters:     start: TRUE start system tick (again), FALSE stop
  **
@@ -634,8 +634,8 @@ uint16_t GKI_wait(uint16_t flag, uint32_t timeout) {
       /* unlock thread_evt_mutex as pthread_cond_wait() does auto lock when cond
        * is met */
       pthread_mutex_unlock(&gki_cb.os.thread_evt_mutex[rtask]);
-      LOG(ERROR) << StringPrintf("GKI TASK_DEAD received. exit thread %d...",
-                                 rtask);
+      LOG(WARNING) << StringPrintf("GKI TASK_DEAD received. exit thread %d...",
+                                   rtask);
 
       gki_cb.os.thread_id[rtask] = 0;
       return (EVENT_MASK(GKI_SHUTDOWN_EVT));

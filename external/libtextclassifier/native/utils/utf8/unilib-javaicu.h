@@ -31,8 +31,8 @@
 #include "utils/java/jni-base.h"
 #include "utils/java/jni-cache.h"
 #include "utils/java/jni-helper.h"
-#include "utils/java/string_utils.h"
 #include "utils/utf8/unicodetext.h"
+#include "utils/utf8/unilib-common.h"
 
 namespace libtextclassifier3 {
 
@@ -56,6 +56,8 @@ class UniLibBase {
   char32 ToLower(char32 codepoint) const;
   char32 ToUpper(char32 codepoint) const;
   char32 GetPairedBracket(char32 codepoint) const;
+
+  StatusOr<int32> Length(const UnicodeText& text) const;
 
   // Forward declaration for friend.
   class RegexPattern;
@@ -115,9 +117,13 @@ class UniLibBase {
 
     // Returns the matched text (the 0th capturing group).
     std::string Text() const {
-      ScopedStringChars text_str =
-          GetScopedStringChars(jni_cache_->GetEnv(), text_.get());
-      return text_str.get();
+      StatusOr<std::string> status_or_result =
+          JStringToUtf8String(jni_cache_->GetEnv(), text_.get());
+      if (!status_or_result.ok()) {
+        TC3_LOG(ERROR) << "JStringToUtf8String failed.";
+        return "";
+      }
+      return status_or_result.ValueOrDie();
     }
 
    private:
@@ -194,13 +200,21 @@ bool UniLibBase::ParseInt(const UnicodeText& text, T* result) const {
     return false;
   }
 
+  // Avoid throwing exceptions when the text is unlikely to be a number.
+  int32 result32 = 0;
+  if (!PassesIntPreChesks(text, result32)) {
+    return false;
+  }
+
   JNIEnv* env = jni_cache_->GetEnv();
   TC3_ASSIGN_OR_RETURN_FALSE(const ScopedLocalRef<jstring> text_java,
                              jni_cache_->ConvertToJavaString(text));
   TC3_ASSIGN_OR_RETURN_FALSE(
-      *result, JniHelper::CallStaticIntMethod<T>(
-                   env, jni_cache_->integer_class.get(),
-                   jni_cache_->integer_parse_int, text_java.get()));
+      *result,
+      JniHelper::CallStaticIntMethod<T>(
+          env,
+          /*print_exception_on_error=*/false, jni_cache_->integer_class.get(),
+          jni_cache_->integer_parse_int, text_java.get()));
   return true;
 }
 

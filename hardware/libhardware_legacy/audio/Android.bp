@@ -3,6 +3,15 @@
 //AUDIO_POLICY_TEST := true
 //ENABLE_AUDIO_DUMP := true
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_libhardware_legacy_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_libhardware_legacy_license"],
+}
+
 cc_library_static {
 
     srcs: [

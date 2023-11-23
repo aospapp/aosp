@@ -1,8 +1,29 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_av_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_av_license"],
+}
+
 cc_library_headers {
     name: "libmedia_helper_headers",
     vendor_available: true,
     min_sdk_version: "29",
     export_include_dirs: ["include"],
+    host_supported: true,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.bluetooth.updatable",
+        "com.android.media",
+        "com.android.media.swcodec",
+    ],
 }
 
 cc_library {
@@ -12,7 +33,11 @@ cc_library {
         enabled: true,
     },
     double_loadable: true,
-    srcs: ["AudioParameter.cpp", "TypeConverter.cpp"],
+    srcs: [
+        "AudioParameter.cpp",
+        "AudioValidator.cpp",
+        "TypeConverter.cpp",
+    ],
     cflags: [
         "-Werror",
         "-Wextra",
@@ -27,4 +52,10 @@ cc_library {
         "libmedia_helper_headers",
     ],
     clang: true,
+    host_supported: true,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    },
 }

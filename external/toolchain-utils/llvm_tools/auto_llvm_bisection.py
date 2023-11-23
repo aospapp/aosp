@@ -14,10 +14,10 @@ import sys
 import time
 import traceback
 
-from assert_not_in_chroot import VerifyOutsideChroot
-from update_all_tryjobs_with_auto import GetPathToUpdateAllTryjobsWithAutoScript
+import chroot
 from llvm_bisection import BisectionExitStatus
 import llvm_bisection
+from update_all_tryjobs_with_auto import GetPathToUpdateAllTryjobsWithAutoScript
 
 # Used to re-try for 'llvm_bisection.py' to attempt to launch more tryjobs.
 BISECTION_RETRY_TIME_SECS = 10 * 60
@@ -46,7 +46,7 @@ def main():
     AssertionError: The script was run inside the chroot.
   """
 
-  VerifyOutsideChroot()
+  chroot.VerifyOutsideChroot()
 
   args_output = llvm_bisection.GetCommandLineArgs()
 

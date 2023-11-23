@@ -9,6 +9,7 @@
 #include "cras_types.h"
 
 #define CRAS_MIN_BUFFER_TIME_IN_US 1000 /* 1 milliseconds */
+#define CRAS_MAX_BUFFER_TIME_IN_S 10 /* 10 seconds */
 
 #define CRAS_SERVER_RT_THREAD_PRIORITY 12
 #define CRAS_CLIENT_RT_THREAD_PRIORITY 10
@@ -16,6 +17,12 @@
 #define CRAS_SOCKET_FILE ".cras_socket"
 #define CRAS_PLAYBACK_SOCKET_FILE ".cras_playback"
 #define CRAS_CAPTURE_SOCKET_FILE ".cras_capture"
+/* Socket file paths for VMs. */
+#define CRAS_VMS_LEGACY_SOCKET_FILE "vms/.cras_socket"
+#define CRAS_VMS_UNIFIED_SOCKET_FILE "vms/.cras_unified"
+/* Socket file paths for pluginVM. */
+#define CRAS_PLUGIN_PLAYBACK_SOCKET_FILE "vms/plugin/playback/.cras_socket"
+#define CRAS_PLUGIN_UNIFIED_SOCKET_FILE "vms/plugin/unified/.cras_socket"
 
 /* Maximum socket_path size, which is equals to sizeof(sun_path) in sockaddr_un
  * structure.

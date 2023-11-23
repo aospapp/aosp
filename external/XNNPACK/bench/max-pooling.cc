@@ -10,6 +10,7 @@
 #include <cfloat>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -30,7 +31,7 @@ void max_pooling_u8(benchmark::State& state, const char* net) {
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto u8rng = std::bind(std::uniform_int_distribution<uint8_t>(), rng);
+  auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), std::ref(rng));
 
   const size_t output_height = (2 * padding_size + input_height - pooling_size) / stride + 1;
   const size_t output_width = (2 * padding_size + input_width - pooling_size) / stride + 1;
@@ -85,7 +86,11 @@ void max_pooling_u8(benchmark::State& state, const char* net) {
   }
   pooling_op = nullptr;
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
+
   state.counters["bytes"] = benchmark::Counter(
     uint64_t(state.iterations()) *
       batch_size * (input_height * input_width + output_height * output_width) * channels * sizeof(uint8_t),
@@ -103,7 +108,7 @@ void max_pooling_f32(benchmark::State& state, const char* net) {
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), rng);
+  auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), std::ref(rng));
 
   const size_t output_height = (2 * padding_size + input_height - pooling_size) / stride + 1;
   const size_t output_width = (2 * padding_size + input_width - pooling_size) / stride + 1;
@@ -158,7 +163,11 @@ void max_pooling_f32(benchmark::State& state, const char* net) {
   }
   pooling_op = nullptr;
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
+
   state.counters["bytes"] = benchmark::Counter(
     uint64_t(state.iterations()) *
       batch_size * (input_height * input_width + output_height * output_width) * channels * sizeof(float),

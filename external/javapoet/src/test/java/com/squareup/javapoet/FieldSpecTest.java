@@ -28,10 +28,12 @@ public class FieldSpecTest {
     FieldSpec b = FieldSpec.builder(int.class, "foo").build();
     assertThat(a.equals(b)).isTrue();
     assertThat(a.hashCode()).isEqualTo(b.hashCode());
+    assertThat(a.toString()).isEqualTo(b.toString());
     a = FieldSpec.builder(int.class, "FOO", Modifier.PUBLIC, Modifier.STATIC).build();
     b = FieldSpec.builder(int.class, "FOO", Modifier.PUBLIC, Modifier.STATIC).build();
     assertThat(a.equals(b)).isTrue();
     assertThat(a.hashCode()).isEqualTo(b.hashCode());
+    assertThat(a.toString()).isEqualTo(b.toString());
   }
 
   @Test public void nullAnnotationsAddition() {
@@ -43,5 +45,22 @@ public class FieldSpecTest {
       assertThat(expected.getMessage())
           .isEqualTo("annotationSpecs == null");
     }
+  }
+
+  @Test public void modifyAnnotations() {
+    FieldSpec.Builder builder = FieldSpec.builder(int.class, "foo")
+          .addAnnotation(Override.class)
+          .addAnnotation(SuppressWarnings.class);
+
+    builder.annotations.remove(1);
+    assertThat(builder.build().annotations).hasSize(1);
+  }
+
+  @Test public void modifyModifiers() {
+    FieldSpec.Builder builder = FieldSpec.builder(int.class, "foo")
+          .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
+
+    builder.modifiers.remove(1);
+    assertThat(builder.build().modifiers).containsExactly(Modifier.PUBLIC);
   }
 }

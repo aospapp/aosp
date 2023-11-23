@@ -81,18 +81,13 @@ void SetupRoutine::generate()
 
 			Float A = (y0 - y2) * x1 + (y2 - y1) * x0 + (y1 - y0) * x2;  // Area
 
-			If(A == 0.0f)
-			{
-				Return(0);
-			}
-
 			Int w0w1w2 = *Pointer<Int>(v0 + OFFSET(Vertex, w)) ^
 			             *Pointer<Int>(v1 + OFFSET(Vertex, w)) ^
 			             *Pointer<Int>(v2 + OFFSET(Vertex, w));
 
 			A = IfThenElse(w0w1w2 < 0, -A, A);
 
-			Bool frontFacing = (state.frontFace == VK_FRONT_FACE_COUNTER_CLOCKWISE) ? A > 0.0f : A < 0.0f;
+			Bool frontFacing = (state.frontFace == VK_FRONT_FACE_COUNTER_CLOCKWISE) ? (A >= 0.0f) : (A <= 0.0f);
 
 			if(state.cullMode & VK_CULL_MODE_FRONT_BIT)
 			{
@@ -403,9 +398,9 @@ void SetupRoutine::generate()
 			z1 -= z0;
 			z2 -= z0;
 
-			Float4 A;
-			Float4 B;
-			Float4 C;
+			Float A;
+			Float B;
+			Float C;
 
 			if(!point)
 			{
@@ -416,34 +411,80 @@ void SetupRoutine::generate()
 
 				Float D = *Pointer<Float>(data + OFFSET(DrawData, depthRange)) / (x1 * y2 - x2 * y1);
 
-				Float a = (y2 * z1 - y1 * z2) * D;
-				Float b = (x1 * z2 - x2 * z1) * D;
-
-				A = Float4(a);
-				B = Float4(b);
+				A = (y2 * z1 - y1 * z2) * D;
+				B = (x1 * z2 - x2 * z1) * D;
 			}
 			else
 			{
-				A = Float4(0, 0, 0, 0);
-				B = Float4(0, 0, 0, 0);
+				A = 0.0f;
+				B = 0.0f;
 			}
 
-			*Pointer<Float4>(primitive + OFFSET(Primitive, z.A), 16) = A;
-			*Pointer<Float4>(primitive + OFFSET(Primitive, z.B), 16) = B;
+			C = z0 * *Pointer<Float>(data + OFFSET(DrawData, depthRange)) + *Pointer<Float>(data + OFFSET(DrawData, depthNear));
 
-			Float c = z0;
+			*Pointer<Float4>(primitive + OFFSET(Primitive, z.A), 16) = Float4(A);
+			*Pointer<Float4>(primitive + OFFSET(Primitive, z.B), 16) = Float4(B);
+			*Pointer<Float4>(primitive + OFFSET(Primitive, z.C), 16) = Float4(C);
+
+			Float bias = 0.0f;
+
+			if(state.applyConstantDepthBias)
+			{
+				Float r;  // Minimum resolvable difference
+
+				if(state.fixedPointDepthBuffer)
+				{
+					// TODO(b/139341727): Pre-multiply the constant depth bias factor by the minimum
+					// resolvable difference.
+
+					// TODO(b/139341727): When there's a fixed-point depth buffer and no depth bias clamp,
+					// the constant depth bias factor could be added to 'depthNear', eliminating the per-
+					// polygon addition.
+
+					r = *Pointer<Float>(data + OFFSET(DrawData, minimumResolvableDepthDifference));
+				}
+				else  // Floating-point depth buffer
+				{
+					// "For floating-point depth buffers, there is no single minimum resolvable difference.
+					//  In this case, the minimum resolvable difference for a given polygon is dependent on
+					//  the maximum exponent, e, in the range of z values spanned by the primitive. If n is
+					//  the number of bits in the floating-point mantissa, the minimum resolvable difference,
+					//  r, for the given primitive is defined as r = 2^(e-n)."
+
+					Float Z0 = C;
+					Float Z1 = z1 * *Pointer<Float>(data + OFFSET(DrawData, depthRange)) + *Pointer<Float>(data + OFFSET(DrawData, depthNear));
+					Float Z2 = z2 * *Pointer<Float>(data + OFFSET(DrawData, depthRange)) + *Pointer<Float>(data + OFFSET(DrawData, depthNear));
+
+					Int e0 = As<Int>(Z0) & 0x7F800000;
+					Int e1 = As<Int>(Z1) & 0x7F800000;
+					Int e2 = As<Int>(Z2) & 0x7F800000;
+
+					Int e = Max(Max(e0, e1), e2);
+
+					r = As<Float>(e) * Float(1.0f / (1 << 23));
+				}
+
+				bias = r * *Pointer<Float>(data + OFFSET(DrawData, constantDepthBias));
+			}
 
 			if(state.applySlopeDepthBias)
 			{
-				Float bias = Max(Abs(Float(A.x)), Abs(Float(B.x)));
-				bias *= *Pointer<Float>(data + OFFSET(DrawData, slopeDepthBias));
+				Float m = Max(Abs(A), Abs(B));
 
-				c += bias;
+				bias += m * *Pointer<Float>(data + OFFSET(DrawData, slopeDepthBias));  // TODO(b/155302798): Optimize 0 += x;
 			}
 
-			C = Float4(c * *Pointer<Float>(data + OFFSET(DrawData, depthRange)) + *Pointer<Float>(data + OFFSET(DrawData, depthNear)));
+			if(state.applyConstantDepthBias || state.applySlopeDepthBias)
+			{
+				if(state.applyDepthBiasClamp)
+				{
+					Float clamp = *Pointer<Float>(data + OFFSET(DrawData, depthBiasClamp));
 
-			*Pointer<Float4>(primitive + OFFSET(Primitive, z.C), 16) = C;
+					bias = IfThenElse(clamp > 0.0f, Min(bias, clamp), Max(bias, clamp));
+				}
+
+				*Pointer<Float4>(primitive + OFFSET(Primitive, zBias), 16) = Float4(bias);
+			}
 		}
 
 		for(int interpolant = 0; interpolant < MAX_INTERFACE_COMPONENTS; interpolant++)

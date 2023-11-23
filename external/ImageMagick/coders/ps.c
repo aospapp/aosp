@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -179,7 +179,7 @@ static inline int ProfileInteger(MagickByteBuffer *buffer,short int *hex_digits)
     l,
     value;
 
-  register ssize_t
+  ssize_t
     i;
 
   l=0;
@@ -235,10 +235,10 @@ static void ReadPSInfo(const ImageInfo *image_info,Image *image,
   MagickByteBuffer
     buffer;
 
-  register char
+  char
     *p;
 
-  register ssize_t
+  ssize_t
     i;
 
   SegmentInfo
@@ -315,6 +315,11 @@ static void ReadPSInfo(const ImageInfo *image_info,Image *image,
         c=ReadMagickByteBuffer(&buffer);
         if ((c == '%') || (c == '!'))
           break;
+        if (c == 'B')
+          {
+            buffer.offset--;
+            break;
+          }
         continue;
       }
       default:
@@ -380,7 +385,7 @@ static void ReadPSInfo(const ImageInfo *image_info,Image *image,
         i=0;
         for (c=ReadMagickByteBuffer(&buffer); c != EOF; c=ReadMagickByteBuffer(&buffer))
         {
-          if ((isspace(c) != 0) || ((i+1) == sizeof(name)))
+          if ((isspace((int) ((unsigned char) c)) != 0) || ((i+1) == sizeof(name)))
             break;
           name[i++]=(char) c;
         }
@@ -403,28 +408,31 @@ static void ReadPSInfo(const ImageInfo *image_info,Image *image,
         /*
           Read ICC profile.
         */
-        ps_info->icc_profile=AcquireStringInfo(MagickPathExtent);
-        datum=GetStringInfoDatum(ps_info->icc_profile);
-        for (i=0; (c=ProfileInteger(&buffer,hex_digits)) != EOF; i++)
-        {
-          if (i >= (ssize_t) GetStringInfoLength(ps_info->icc_profile))
+        if (SkipMagickByteBufferUntilNewline(&buffer) != MagickFalse)
+          {
+            ps_info->icc_profile=AcquireStringInfo(MagickPathExtent);
+            datum=GetStringInfoDatum(ps_info->icc_profile);
+            for (i=0; (c=ProfileInteger(&buffer,hex_digits)) != EOF; i++)
             {
-              SetStringInfoLength(ps_info->icc_profile,(size_t) i << 1);
-              datum=GetStringInfoDatum(ps_info->icc_profile);
+              if (i >= (ssize_t) GetStringInfoLength(ps_info->icc_profile))
+                {
+                  SetStringInfoLength(ps_info->icc_profile,(size_t) i << 1);
+                  datum=GetStringInfoDatum(ps_info->icc_profile);
+                }
+              datum[i]=(unsigned char) c;
             }
-          datum[i]=(unsigned char) c;
-        }
-        SetStringInfoLength(ps_info->icc_profile,(size_t) i+1);
+            SetStringInfoLength(ps_info->icc_profile,(size_t) i+1);
+          }
         continue;
       }
     if ((ps_info->photoshop_profile == (StringInfo *) NULL) &&
         (CompareMagickByteBuffer(&buffer,PhotoshopProfile,strlen(PhotoshopProfile)) != MagickFalse))
       {
-        unsigned char
-          *q;
-
         unsigned long
           extent;
+
+        unsigned char
+          *q;
 
         /*
           Read Photoshop profile.
@@ -437,17 +445,20 @@ static void ReadPSInfo(const ImageInfo *image_info,Image *image,
         if ((MagickSizeType) extent > GetBlobSize(image))
           continue;
         length=(size_t) extent;
-        ps_info->photoshop_profile=AcquireStringInfo(length+1U);
-        q=GetStringInfoDatum(ps_info->photoshop_profile);
-        while (extent > 0)
-        {
-          c=ProfileInteger(&buffer,hex_digits);
-          if (c == EOF)
-            break;
-          *q++=(unsigned char) c;
-          extent-=MagickMin(extent,2);
-        }
-        SetStringInfoLength(ps_info->photoshop_profile,length);
+        if (SkipMagickByteBufferUntilNewline(&buffer) != MagickFalse)
+          {
+            ps_info->photoshop_profile=AcquireStringInfo(length+1U);
+            q=GetStringInfoDatum(ps_info->photoshop_profile);
+            while (extent > 0)
+            {
+              c=ProfileInteger(&buffer,hex_digits);
+              if (c == EOF)
+                break;
+              *q++=(unsigned char) c;
+              extent-=MagickMin(extent,1);
+            }
+            SetStringInfoLength(ps_info->photoshop_profile,length);
+          }
         continue;
       }
     if (image_info->page != (char *) NULL)
@@ -521,7 +532,6 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
     command[MagickPathExtent],
     *density,
     filename[MagickPathExtent],
-    geometry[MagickPathExtent],
     input_filename[MagickPathExtent],
     message[MagickPathExtent],
     *options,
@@ -564,7 +574,7 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
   RectangleInfo
     page;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -638,10 +648,9 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if ((fabs(info.bounds.x2-info.bounds.x1) >= MagickEpsilon) &&
       (fabs(info.bounds.y2-info.bounds.y1) >= MagickEpsilon))
     {
-      (void) FormatLocaleString(geometry,MagickPathExtent,"%gx%g%+.15g%+.15g",
-        info.bounds.x2-info.bounds.x1,info.bounds.y2-info.bounds.y1,
-        info.bounds.x1,info.bounds.y1);
-      (void) SetImageProperty(image,"ps:HiResBoundingBox",geometry,exception);
+      (void) FormatImageProperty(image,"ps:HiResBoundingBox",
+        "%gx%g%+.15g%+.15g",info.bounds.x2-info.bounds.x1,info.bounds.y2-
+        info.bounds.y1,info.bounds.x1,info.bounds.y1);
       page.width=(size_t) ((ssize_t) ceil((double) ((info.bounds.x2-
         info.bounds.x1)*resolution.x/delta.x)-0.5));
       page.height=(size_t) ((ssize_t) ceil((double) ((info.bounds.y2-
@@ -687,8 +696,8 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
       return((Image *) NULL);
     }
   (void) CopyMagickString(command,"/setpagedevice {pop} bind 1 index where {"
-    "dup wcheck {3 1 roll put} {pop def} ifelse} {def} ifelse\n"
-    "<</UseCIEColor true>>setpagedevice\n",MagickPathExtent);
+    "dup wcheck {3 1 roll put} {pop def} ifelse} {def} ifelse\n",
+    MagickPathExtent);
   count=write(file,command,(unsigned int) strlen(command));
   if (image_info->page == (char *) NULL)
     {
@@ -723,6 +732,8 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
   options=AcquireString("");
   (void) FormatLocaleString(density,MagickPathExtent,"%gx%g",resolution.x,
     resolution.y);
+  if (image_info->ping != MagickFalse)
+    (void) FormatLocaleString(density,MagickPathExtent,"2.0x2.0");
   (void) FormatLocaleString(options,MagickPathExtent,"-g%.20gx%.20g ",(double)
     page.width,(double) page.height);
   read_info=CloneImageInfo(image_info);
@@ -856,6 +867,13 @@ static Image *ReadPSImage(const ImageInfo *image_info,ExceptionInfo *exception)
     if (info.rows != 0)
       postscript_image->magick_rows=info.rows;
     postscript_image->page=page;
+    if (image_info->ping != MagickFalse)
+      {
+        postscript_image->magick_columns*=image->resolution.x/2.0;
+        postscript_image->magick_rows*=image->resolution.y/2.0;
+        postscript_image->columns*=image->resolution.x/2.0;
+        postscript_image->rows*=image->resolution.y/2.0;
+      }
     (void) CloneImageProfiles(postscript_image,image);
     (void) CloneImageProperties(postscript_image,image);
     next=SyncNextImageInList(postscript_image);
@@ -1011,7 +1029,7 @@ ModuleExport void UnregisterPSImage(void)
 static inline unsigned char *PopHexPixel(const char hex_digits[][3],
   const size_t pixel,unsigned char *pixels)
 {
-  register const char
+  const char
     *hex;
 
   hex=hex_digits[pixel];
@@ -1319,7 +1337,7 @@ static MagickBooleanType WritePSImage(const ImageInfo *image_info,Image *image,
 
   char
     buffer[MagickPathExtent],
-    date[MagickPathExtent],
+    date[MagickTimeExtent],
     **labels,
     page_geometry[MagickPathExtent];
 
@@ -1363,14 +1381,14 @@ static MagickBooleanType WritePSImage(const ImageInfo *image_info,Image *image,
     media_info,
     page_info;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
-  register unsigned char
+  unsigned char
     *q;
 
   SegmentInfo
@@ -1498,7 +1516,7 @@ static MagickBooleanType WritePSImage(const ImageInfo *image_info,Image *image,
           image->filename);
         (void) WriteBlobString(image,buffer);
         timer=GetMagickTime();
-        (void) FormatMagickTime(timer,MagickPathExtent,date);
+        (void) FormatMagickTime(timer,sizeof(date),date);
         (void) FormatLocaleString(buffer,MagickPathExtent,
           "%%%%CreationDate: (%s)\n",date);
         (void) WriteBlobString(image,buffer);
@@ -1541,22 +1559,6 @@ static MagickBooleanType WritePSImage(const ImageInfo *image_info,Image *image,
             (void) WriteBlobString(image,"\n%EndPhotoshop\n");
           }
         profile=GetImageProfile(image,"xmp");
-DisableMSCWarning(4127)
-        if (0 && (profile != (StringInfo *) NULL))
-RestoreMSCWarning
-          {
-            /*
-              Embed XML profile.
-            */
-            (void) WriteBlobString(image,"\n%begin_xml_code\n");
-            (void) FormatLocaleString(buffer,MagickPathExtent,
-               "\n%%begin_xml_packet: %.20g\n",(double)
-               GetStringInfoLength(profile));
-            (void) WriteBlobString(image,buffer);
-            for (i=0; i < (ssize_t) GetStringInfoLength(profile); i++)
-              (void) WriteBlobByte(image,GetStringInfoDatum(profile)[i]);
-            (void) WriteBlobString(image,"\n%end_xml_packet\n%end_xml_code\n");
-          }
         value=GetImageProperty(image,"label",exception);
         if (value != (const char *) NULL)
           (void) WriteBlobString(image,
@@ -1590,7 +1592,7 @@ RestoreMSCWarning
             Quantum
               pixel;
 
-            register ssize_t
+            ssize_t
               x;
 
             ssize_t

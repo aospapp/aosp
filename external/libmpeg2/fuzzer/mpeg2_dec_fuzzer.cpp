@@ -18,7 +18,6 @@
  * Originally developed and contributed by Ittiam Systems Pvt. Ltd, Bangalore
  */
 
-#include <malloc.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -155,8 +154,11 @@ void Codec::createCodec() {
   iv_mem_rec_t *ps_mem_rec = (iv_mem_rec_t *)mMemRecords;
 
   for (i = 0; i < numMemRecords; i++) {
-    ps_mem_rec->pv_base =
-        memalign(ps_mem_rec->u4_mem_alignment, ps_mem_rec->u4_mem_size);
+    if (0 != posix_memalign(&ps_mem_rec->pv_base, ps_mem_rec->u4_mem_alignment,
+                            ps_mem_rec->u4_mem_size)) {
+      return;
+    }
+
     if (ps_mem_rec->pv_base == NULL) {
       return;
     }
@@ -318,7 +320,11 @@ void Codec::allocFrame() {
   mOutBufHandle.u4_num_bufs = num_bufs;
   for (int i = 0; i < num_bufs; i++) {
     mOutBufHandle.u4_min_out_buf_size[i] = sizes[i];
-    mOutBufHandle.pu1_bufs[i] = (UWORD8 *)memalign(16, sizes[i]);
+    void *buf = NULL;
+    if (0 != posix_memalign(&buf, 16, sizes[i])) {
+      return;
+    }
+    mOutBufHandle.pu1_bufs[i] = (UWORD8 *)buf;
   }
 }
 

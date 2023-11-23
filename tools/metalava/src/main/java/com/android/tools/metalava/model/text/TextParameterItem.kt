@@ -16,19 +16,18 @@
 
 package com.android.tools.metalava.model.text
 
-import com.android.tools.metalava.doclava1.SourcePositionInfo
-import com.android.tools.metalava.doclava1.TextCodebase
 import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.ParameterItem
 
-const val NO_DEFAULT_VALUE = "__no_default_value__"
+const val UNKNOWN_DEFAULT_VALUE = "__unknown_default_value__"
 
 class TextParameterItem(
     codebase: TextCodebase,
     private val containingMethod: TextMethodItem,
     private var name: String,
     private var publicName: String?,
-    private var defaultValue: String? = NO_DEFAULT_VALUE,
+    private val hasDefaultValue: Boolean,
+    private var defaultValueBody: String? = UNKNOWN_DEFAULT_VALUE,
     override val parameterIndex: Int,
     private var type: TextTypeItem,
     modifiers: TextModifiers,
@@ -45,12 +44,13 @@ class TextParameterItem(
         return type.toString().contains("...")
     }
 
-    override var included: Boolean = true
+    override val synthetic: Boolean get() = containingMethod.isEnumSyntheticMethod()
     override fun type(): TextTypeItem = type
     override fun name(): String = name
     override fun publicName(): String? = publicName
-    override fun hasDefaultValue(): Boolean = defaultValue != NO_DEFAULT_VALUE
-    override fun defaultValue(): String? = defaultValue
+    override fun hasDefaultValue(): Boolean = hasDefaultValue
+    override fun isDefaultValueKnown(): Boolean = defaultValueBody != UNKNOWN_DEFAULT_VALUE
+    override fun defaultValue(): String? = defaultValueBody
     override fun containingMethod(): MethodItem = containingMethod
 
     override fun equals(other: Any?): Boolean {

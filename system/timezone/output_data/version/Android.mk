@@ -22,6 +22,8 @@ ifeq ($(WITH_HOST_DALVIK),true)
 # Simulate the time zone data module
 include $(CLEAR_VARS)
 LOCAL_MODULE := tz_version_host_tzdata_apex
+LOCAL_LICENSE_KINDS := legacy_notice
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_IS_HOST_MODULE := true
 LOCAL_SRC_FILES := tz_version
 LOCAL_MODULE_CLASS := ETC

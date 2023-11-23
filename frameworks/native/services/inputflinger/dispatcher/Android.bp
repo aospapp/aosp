@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_native_license"],
+}
+
 cc_library_headers {
     name: "libinputdispatcher_headers",
     export_include_dirs: [
@@ -25,13 +34,18 @@ filegroup {
         "AnrTracker.cpp",
         "Connection.cpp",
         "Entry.cpp",
+        "FocusResolver.cpp",
         "InjectionState.cpp",
         "InputDispatcher.cpp",
         "InputDispatcherFactory.cpp",
+        "InputEventTimeline.cpp",
         "InputState.cpp",
         "InputTarget.cpp",
+        "LatencyAggregator.cpp",
+        "LatencyTracker.cpp",
         "Monitor.cpp",
         "TouchState.cpp",
+        "DragState.cpp",
     ],
 }
 
@@ -43,10 +57,19 @@ cc_defaults {
         "libcrypto",
         "libcutils",
         "libinput",
+        "libkll",
         "liblog",
+        "libprotobuf-cpp-lite",
         "libstatslog",
+        "libstatspull",
+        "libstatssocket",
         "libui",
         "libutils",
+        "lib-platform-compat-native-api",
+        "server_configurable_flags",
+    ],
+    static_libs: [
+        "libattestation",
     ],
     header_libs: [
         "libinputdispatcher_headers",
@@ -68,4 +91,5 @@ cc_library_static {
     export_header_lib_headers: [
         "libinputdispatcher_headers",
     ],
+    logtags: ["EventLogTags.logtags"],
 }

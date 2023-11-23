@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_RSA_KEYMASTER1_OPERATION_H_
-#define SYSTEM_KEYMASTER_RSA_KEYMASTER1_OPERATION_H_
+#pragma once
 
 #include <openssl/evp.h>
 
@@ -32,8 +31,7 @@ class RsaKeymaster1WrappedOperation {
     RsaKeymaster1WrappedOperation(keymaster_purpose_t purpose, const Keymaster1Engine* engine)
         : purpose_(purpose), operation_handle_(0), engine_(engine) {}
     ~RsaKeymaster1WrappedOperation() {
-        if (operation_handle_)
-            Abort();
+        if (operation_handle_) Abort();
     }
 
     keymaster_error_t Begin(EVP_PKEY* rsa_key, const AuthorizationSet& input_params);
@@ -43,6 +41,7 @@ class RsaKeymaster1WrappedOperation {
     keymaster_error_t GetError(EVP_PKEY* rsa_key);
 
     keymaster_operation_handle_t GetOperationHandle() const { return operation_handle_; }
+
   protected:
     keymaster_purpose_t purpose_;
     keymaster_operation_handle_t operation_handle_;
@@ -66,8 +65,7 @@ template <typename BaseOperation> class RsaKeymaster1Operation : public BaseOper
     keymaster_error_t Begin(const AuthorizationSet& input_params,
                             AuthorizationSet* output_params) override {
         keymaster_error_t error = wrapped_operation_.Begin(super::rsa_key_, input_params);
-        if (error != KM_ERROR_OK)
-            return error;
+        if (error != KM_ERROR_OK) return error;
         return super::Begin(input_params, output_params);
     }
 
@@ -75,8 +73,7 @@ template <typename BaseOperation> class RsaKeymaster1Operation : public BaseOper
                              const Buffer& signature, AuthorizationSet* output_params,
                              Buffer* output) override {
         keymaster_error_t error = wrapped_operation_.PrepareFinish(super::rsa_key_, input_params);
-        if (error != KM_ERROR_OK)
-            return error;
+        if (error != KM_ERROR_OK) return error;
         error = super::Finish(input_params, input, signature, output_params, output);
         if (wrapped_operation_.GetError(super::rsa_key_) != KM_ERROR_OK)
             error = wrapped_operation_.GetError(super::rsa_key_);
@@ -85,14 +82,14 @@ template <typename BaseOperation> class RsaKeymaster1Operation : public BaseOper
 
     keymaster_error_t Abort() override {
         keymaster_error_t error = wrapped_operation_.Abort();
-        if (error != KM_ERROR_OK)
-            return error;
+        if (error != KM_ERROR_OK) return error;
         return super::Abort();
     }
 
     keymaster_operation_handle_t operation_handle() const override {
         return wrapped_operation_.GetOperationHandle();
     }
+
   private:
     RsaKeymaster1WrappedOperation wrapped_operation_;
 };
@@ -119,5 +116,3 @@ class RsaKeymaster1OperationFactory : public OperationFactory {
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_RSA_KEYMASTER1_OPERATION_H_

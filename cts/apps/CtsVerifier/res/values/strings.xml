@@ -23,6 +23,8 @@
     <string name="fail_button_text">Fail</string>
     <string name="next_button_text">Next</string>
     <string name="go_button_text">Go</string>
+    <string name="present_button_text">Device Present</string>
+    <string name="gone_button_text">Device Gone</string>
     <string name="tests_completed_successfully">All tests completed successfully.</string>
 
     <string name="retry_button_text">Retry</string>
@@ -45,6 +47,7 @@
     <string name="test_category_jobscheduler">Job Scheduler</string>
     <string name="test_category_telecom">Telecom</string>
     <string name="test_category_telephony">Telephony</string>
+    <string name="test_category_tunnel">Tunnel Mode</string>
     <string name="test_category_tv">TV</string>
     <string name="test_category_instant_apps">Instant Apps</string>
     <string name="test_category_display_cutout">DisplayCutout</string>
@@ -60,6 +63,7 @@
         android:read_device_identifiers allow\" </string>
     <string name="runtime_permissions_error">Please grant runtime permissions, otherwise, tests might fail.</string>
     <string name="export">Export</string>
+    <string name="report_log_folder_name">ctsv-report-logs</string>
     <string name="no_storage">Cannot save report to external storage, see log for details.</string>
     <string name="no_storage_io_parser_exception">Cannot save report to external
         storage, see log for details. Or try running the following command if
@@ -128,6 +132,18 @@
     <string name="da_tapjacking_test_info">This test checks that an activity cannot tapjack the
         user by obscuring the device admin details while prompting the user to activate the admin.
     </string>
+    <string name="car_enable_garage_monitor">Enable Garage Mode Monitor</string>
+    <string name="car_garage_mode_test">Garage Mode Test</string>
+    <string name="car_garage_mode_test_desc">
+        This test verifies that Garage Mode runs at the end of a drive.\n\n
+        <b>Important: Please enable Wi-Fi or other connectivity for test to pass.\n\n </b>
+        Touch "Enable Garage Mode Monitor" to launch the Garage Mode verifier.\n\n
+        Turn the vehicle off and exit the vehicle (or take the proprietary action that
+        initiates shut-down of the system).\n\n
+        Do not enter or disturb the vehicle for at least 15 minutes.\n\n
+        Enter the vehicle. Re-launch the CTS-Verifier app if it is not running.\n\n
+        If Garage Mode ran as required, the pass button will be enabled.</string>
+    <string name="car_wifi_settings">Go to Wi-Fi settings</string>
     <string name="car_dock_test">Car Dock Test</string>
     <string name="car_dock_test_desc">This test ensures that car mode opens the app associated with
         car dock when going into car mode.\n\n
@@ -234,33 +250,12 @@
     <!-- Strings for BiometricTest -->
     <string name="biometric_test">Biometric Tests</string>
 
-    <string name="biometric_test_category_generic">0) Generic Tests</string>
     <string name="biometric_test_category_credential">1) Credential Tests</string>
     <string name="biometric_test_category_strong">2) Strong Biometric Tests</string>
     <string name="biometric_test_category_weak">3) Weak Biometric Tests</string>
     <string name="biometric_test_category_combination">4) setUserAuthParams Tests</string>
 
-    <string name="biometric_test_sensor_configuration_label">0a: Sensor Configuration Test</string>
-    <string name="biometric_test_sensor_configuration_instructions">This test checks that the device configuration is valid</string>
-    <string name="biometric_test_sensor_configuration_button">Start test</string>
-
-    <string name="biometric_test_credential_not_enrolled_label">1a: Credential Not Enrolled Tests</string>
-    <string name="biometric_test_credential_not_enrolled_instructions">This test checks that the BiometricManager/BiometricPrompt
-        APIs return results consistent with credential (PIN/Pattern/Password) state. Before starting this test, please ensure that you do
-        NOT have a credential set up.</string>
-    <string name="biometric_test_credential_not_enrolled_bm_button">Check BiometricManager</string>
-    <string name="biometric_test_credential_not_enrolled_bp_setAllowedAuthenticators_button">Check BiometricPrompt setAllowedAuthenticators(DEVICE_CREDENTIAL)</string>
-    <string name="biometric_test_credential_not_enrolled_bp_setDeviceCredentialAllowed_button">Check BiometricPrompt setDeviceCredentialAllowed(true)</string>
-
-    <string name="biometric_test_credential_enrolled_label">1b: Credential Enrolled Tests</string>
-    <string name="biometric_test_credential_enrolled_instructions">This test checks that apps are able to request credential enrollment, and that the BiometricManager/BiometricPrompt
-        APIs return results consistent with credential (PIN/Pattern/Password) state.</string>
-    <string name="biometric_test_credential_enroll_button">Enroll credential</string>
-    <string name="biometric_test_credential_enrolled_bm_button">Check BiometricManager</string>
-    <string name="biometric_test_credential_enrolled_bp_setAllowedAuthenticators_button">Check BiometricPrompt setAllowedAuthenticators(DEVICE_CREDENTIAL)</string>
-    <string name="biometric_test_credential_enrolled_bp_setDeviceCredentialAllowed_button">Check BiometricPrompt setDeviceCredentialAllowed(true)</string>
-
-    <string name="biometric_test_credential_crypto_label">1c: Credential Crypto</string>
+    <string name="biometric_test_credential_crypto_label">1a: Credential Crypto</string>
     <string name="biometric_test_credential_crypto_instructions">This test checks that PIN/Pattern/Password successfully unlocks the relevant KeyStore operations. Please
         ensure that you have a PIN/Pattern/Password set up.</string>
     <string name="biometric_test_credential_crypto_timed_key_strongbox">Create and unlock timed key (StrongBox)</string>
@@ -271,21 +266,6 @@
     <string name="biometric_test_ui_instruction_dialog_continue">Continue</string>
     <string name="biometric_test_ui_verification_dialog_title">Please enter your recorded contents</string>
     <string name="biometric_test_ui_verification_dialog_check">Check</string>
-
-    <!-- setDeviceCredentialAllowed(true), biometric authentication -->
-    <string name="biometric_test_authenticate_with_credential1_button">Authenticate with biometric (not PIN/Pattern/Pass)</string>
-    <!-- setDeviceCredentialAllowed(true), credential authentication -->
-    <string name="biometric_test_authenticate_with_credential2_button">Authenticate with PIN/Pattern/Pass (skip biometric)</string>
-    <!-- setAllowedAuthenticators(CREDENTIAL|BIOMETRIC), credential authentication -->
-    <string name="biometric_test_authenticate_with_credential3_button">Authenticate with PIN/Pattern/Pass (skip biometric again)</string>
-    <!-- Invoking the public API with non-public constants -->
-    <string name="biometric_test_invalid_inputs">Test invalid inputs</string>
-    <!-- Rejecting does not end the authentication lifecycle -->
-    <string name="biometric_test_reject_first">Reject, then authenticate</string>
-    <!-- Negative button callback is received -->
-    <string name="biometric_test_negative_button_button">Test Negative Button</string>
-    <!-- ERROR_CANCELED is received -->
-    <string name="biometric_test_cancellation_button">Test CancellationSignal</string>
 
     <string name="biometric_test_reject_continues_instruction_title">Instructions</string>
     <string name="biometric_test_reject_continues_instruction_contents">Please authenticate with a non-enrolled biometric before authenticating with the actual enrolled biometric.</string>
@@ -299,7 +279,6 @@
     <string name="biometric_test_strong_check_and_enroll_button">Start enrollment</string>
     <string name="biometric_test_strong_authenticate_no_strongbox_button">Authenticate Crypto (without StrongBox)</string>
     <string name="biometric_test_strong_authenticate_strongbox_button">Authenticate Crypto (with StrongBox)</string>
-    <string name="biometric_test_strong_authenticate_ui_button">Authenticate Crypto UI</string>
     <string name="biometric_test_strong_authenticate_invalidated_button">Authenticate Key Invalidated</string>
     <string name="biometric_test_strong_authenticate_invalidated_instruction_title">Instructions</string>
     <string name="biometric_test_strong_authenticate_invalidated_instruction_contents">Before starting the next test, please add another enrollment to your strong biometric sensor. If only one enrollment is supported, please remove the current enrollment, then enroll.</string>
@@ -311,8 +290,6 @@
         does NOT have ANY biometrics enrolled before starting this test. After passing the first part of the test, it will check various use cases
         when authentication is invoked.</string>
     <string name="biometric_test_weak_enroll">Start enrollment</string>
-    <string name="biometric_test_weak_authenticate">Authenticate</string>
-    <string name="biometric_test_weak_authenticate_time_based_keys">Authenticate attempt time-based keys</string>
 
     <string name="biometric_test_set_user_authentication_credential_cipher_label">4a: Cipher, Credential</string>
     <string name="biometric_test_set_user_authentication_biometric_cipher_label">4b: Cipher, Biometric</string>
@@ -322,7 +299,7 @@
     <string name="biometric_test_set_user_authentication_biometric_or_credential_signature_label">4f: Signature, Biometric|Credential</string>
     <string name="biometric_test_set_user_authentication_credential_mac_label">4g: MAC, Credential</string>
     <string name="biometric_test_set_user_authentication_biometric_mac_label">4h: MAC, Biometric</string>
-    <string name="biometric_test_set_user_authentication_biometric_or_credential_mac_label">4h: MAC, Biometric|Credential</string>
+    <string name="biometric_test_set_user_authentication_biometric_or_credential_mac_label">4i: MAC, Biometric|Credential</string>
     <string name="biometric_test_set_user_authentication_credential_instructions">This test checks the correctness of the KeyGenParameterSpec.Builder#setUserAuthenticationParameters(int, int) API for AUTH_DEVICE_CREDENTIAL.
         Buttons for completed tasks will become invisible. It\'s normal for buttons to be disabled for a few seconds during this test.</string>
     <string name="biometric_test_set_user_authentication_biometric_instructions">This test checks the correctness of the KeyGenParameterSpec.Builder#setUserAuthenticationParameters(int, int) API for AUTH_BIOMETRIC_STRONG.
@@ -367,7 +344,7 @@
         Keymaster signs a message with a confirmation key only if the message was previously
         confirmed by the user.
     </string>
-    <string name="sec_protected_confirmation_not_supported_title">Android Protected Confirmation not supported</string>
+    <string name="sec_protected_confirmation_not_supported_title">Not Supported</string>
     <string name="sec_protected_confirmation_not_supported_info">
         Android Protected Confirmation is not implemented by this device. This is okay because this
         is an optional feature. Set this test to passed and continue.
@@ -381,6 +358,12 @@
     <string name="sec_identity_credential_authentication_test_info">
         This test ensures that data elements in Identity Credential documents protected by user
         authentication with timeout 0 can only be accessed once per reader session.
+    </string>
+
+    <string name="sec_unlocked_device_required_test">Unlocked Device Required</string>
+    <string name="sec_unlocked_device_required_test_info">
+        This test ensures that keys created with setUnlockedDeviceRequired are usable when the
+        screen is unlocked but not when it is locked.
     </string>
 
     <!-- Strings for BluetoothActivity -->
@@ -587,6 +570,7 @@
     <string name="ble_read_descriptor_name">Bluetooth LE Read Descriptor</string>
     <string name="ble_write_descriptor_name">Bluetooth LE Write Descriptor</string>
     <string name="ble_read_rssi_name">Bluetooth LE Read RSSI</string>
+    <string name="ble_on_service_changed">Bluetooth LE On Service Changed</string>
     <string name="ble_client_disconnect_name">Bluetooth LE Client Disconnect</string>
     <string name="ble_insecure_client_test_info">
         The Bluetooth LE test must be done simultaneously on two devices. This device is the client.
@@ -635,6 +619,7 @@
     <string name="ble_server_read_descriptor">Waiting on read descriptor request</string>
     <string name="ble_server_reliable_write">Waiting on reliable write from client</string>
     <string name="ble_server_reliable_write_bad_resp">Waiting on reliable write from client (send bad response)</string>
+    <string name="ble_server_service_changed_indication">Waiting on service changed indication</string>
     <string name="ble_server_receiving_disconnect">Waiting on disconnection from Bluetooth LE client</string>
     <string name="ble_connection_priority_server_name">02 Bluetooth LE Connection Priority Server Test</string>
     <string name="ble_connection_priority_server_info">Bluetooth LE Connection Priority Server receive message from message in 3 different priority.</string>
@@ -800,6 +785,32 @@
         Once you press the button, wait for a dialog to pop up and select your device from the list.
     </string>
 
+    <string name="companion_service_test">Companion Device Service Test</string>
+    <string name="companion_service_test_info">
+        This test checks that APIs to notify the companion app of its associated device going in and
+        out of Bluetooth range are working correctly.
+        Before proceeding, make sure you have a Bluetooth LE device nearby and
+        discoverable. Also, make sure that bluetooth is turned on. Note that, the nearby device can
+        not be a phone since it considers advertising as classic device scan.
+        First, you press the go button, wait for a dialog to pop up and select your device from the
+        list. Second, make sure your bluetooth device is unreachable(you can power off/reboot your
+        Bluetooth device or put it into a Faraday bag) and press the Device Gone button.
+        Lastly, make your bluetooth device reachable by waiting for the device to power on or
+        removing it from the Faraday bag and press the Device Present button.
+    </string>
+
+    <string name="companion_service_test_gone_text">
+        Now, please make your Bluetooth device unreachable.
+        Put your bluetooth device into a RF Bag or power off/reboot your device,
+        then press the Device Gone button.
+    </string>
+
+    <string name="companion_service_test_present_text">
+        Now, please make your Bluetooth device reachable.
+        Remove your Bluetooth device from a RF Bag or power on your device,
+        then press the Device Present button.
+    </string>
+
     <!-- Strings for FeatureSummaryActivity -->
     <string name="feature_summary">Hardware/Software Feature Summary</string>
     <string name="feature_summary_info">This is a test for...</string>
@@ -860,6 +871,35 @@
     <string name="hifi_ultrasound_speaker_test_reference_side">
         Please report on the testing device.\n</string>
 
+    <!-- Strings for IgnoreBatteryOptimizationsTestActivity -->
+    <string name="ibo_test">Ignore Battery Optimizations Test</string>
+    <string name="ibo_test_info">
+        This test verifies that the device provides a user affordance to ask the user if the system
+        should disable battery optimizations for an app.
+    </string>
+    <string name="ibo_test_start_unexempt_app">
+        Remove the test app from the ignore battery optimizations list to begin the test. (Try going
+        to the App Info page and make sure the system is optimizing battery for the app.)
+    </string>
+    <string name="ibo_exempt_app_request">
+        Click Next to have the test request the exemption. Grant the exemption when prompted.
+    </string>
+    <string name="ibo_next_to_confirm">Press next to confirm.</string>
+    <string name="ibo_app_not_exempted">The app is not exempted from battery optimizations.</string>
+    <string name="ibo_unexempt_app">
+        Remove the test app from the ignore battery optimizations list. (Try going
+        to the App Info page and make sure the system is optimizing battery for the app.)
+    </string>
+    <string name="ibo_app_is_exempted">The app is exempted from battery optimizations.</string>
+    <string name="ibo_exempt_app_list">
+        Click Next to have the test open the list of apps and their exemption statuses. Find the
+        test app in the list and exempt it.
+    </string>
+    <string name="ibo_unexempt_app_list">
+        Click Next to have the test open the list of apps and their exemption statuses. Find the
+        test app in the list and remove the app\'s exemption.
+    </string>
+
     <!-- Strings for Location tests -->
     <string name="location_gps_test">GPS Test</string>
     <string name="location_gps_test_info">This test verifies basic GPS behavior
@@ -867,7 +907,6 @@
         Make sure the device has line of sight to GPS satellites
         (for example, outside, or near a window)
         and then press OK to run the automated tests.</string>
-    <string name="location_listener_activity">Location listener</string>
 
     <!-- Strings for Location GNSS tests -->
     <string name="location_gnss_constellation_type_test">GNSS Measurement Constellation Test</string>
@@ -1119,18 +1158,18 @@
     <string name="nfc_hce_change_favor_foreground">This test requires the \"Use default\" setting to be set to \"Except when another payment app is open\". Tap OK to go to Tap and Pay settings and make sure the \"Use default\" setting is set to \"Except when another payment app is open\".</string>
     <string name="nfc_hce_offhost_service_emulator">Off-host service (Emulator)</string>
     <string name="nfc_hce_offhost_service_reader">Off-host service (Reader)</string>
-    <string name="nfc_hce_offhost_emulator_help">This tests enables a service that declares some AIDs to reside off-host. This test only needs to be passed if your device has a secure element (either embedded or UICC.). The responses from the secure element are not verified by the test - it is up to the tester to verify the responses are as expected.</string>
+    <string name="nfc_hce_offhost_emulator_help">This test enables a service that declares some AIDs to reside off-host. This test only needs to be passed if your device has a secure element (either embedded or UICC.). The responses from the secure element are not verified by the test - it is up to the tester to verify the responses are as expected.</string>
 
     <string name="nfc_hce_on_and_offhost_service_emulator">On and off-host services (Emulator)</string>
     <string name="nfc_hce_on_and_offhost_service_reader">On and off-host services (Reader)</string>
-    <string name="nfc_hce_on_and_offhost_emulator_help">This tests enables a service that declares some AIDs to reside off-host, and another service that runs on host. It then first sends an APDU sequence that goes off-host, and subsequently some APDUs that should go to the on-host service. This test only needs to be passed if your device has a secure element (either embedded or UICC.). The pass button will be enabled if the on-host sequence is performed as expected. The responses from the secure element are not verified by the test - it is up to the tester to verify the responses are as expected. </string>
+    <string name="nfc_hce_on_and_offhost_emulator_help">This test enables a service that declares some AIDs to reside off-host, and another service that runs on host. It then first sends an APDU sequence that goes off-host, and subsequently some APDUs that should go to the on-host service. This test only needs to be passed if your device has a secure element (either embedded or UICC.). The pass button will be enabled if the on-host sequence is performed as expected. The responses from the secure element are not verified by the test - it is up to the tester to verify the responses are as expected. </string>
 
     <string name="nfc_hce_tap_test_emulator">50 successful taps test (Emulator)</string>
     <string name="nfc_hce_tap_test_reader">50 successful taps test (Reader)</string>
     <string name="nfc_hce_tap_test_emulator_help">This test requires you to complete at least 50 HCE taps, to ensure stability of the HCE feature. The NFC service and controller should not crash or hang during any of the 50 taps.</string>
     <string name="nfc_hce_throughput_emulator">HCE throughput test (Emulator)</string>
     <string name="nfc_hce_throughput_reader">HCE throughput test (Reader)</string>
-    <string name="nfc_hce_throughput_emulator_help">This tests verifies that your HCE implementation can reach a decent throughput. While Android does not have any requirements on HCE performance, many HCE applications such as transport and payment apps do. If the average APDU roundtrip time is more than 50ms, please take a look at your implementation to see where the delay is coming from.</string>
+    <string name="nfc_hce_throughput_emulator_help">This test verifies that your HCE implementation can reach a decent throughput. While Android does not have any requirements on HCE performance, many HCE applications such as transport and payment apps do. If the average APDU roundtrip time is more than 50ms, please take a look at your implementation to see where the delay is coming from.</string>
     <string name="nfc_hce_change_preinstalled_wallet">The device has an installed payment application that is currently set as default. To complete the test, you will be asked whether you want to make another app the default app. Select yes.</string>
     <string name="nfc_hce_change_default_help">You will now be asked whether you want to make Payment Service #1 the default app. Select yes.</string>
     <string name="nfc_hce_conflicting_non_payment_help">When tapping the first time, you will be shown a dialog that asks you to choose between TransportService #1 and TransportService #2. Select TransportService #2. Verify a dialog is shown that asks you to tap again to complete. Now tap again, and if communication with TransportService #2 is successfull the pass button will be enabled."</string>
@@ -1158,6 +1197,14 @@
     <string name="nfc_hce_other_conflicting_prefix_aids_reader">Conflicting non-payment prefix AIDs (Reader)</string>
     <string name="nfc_hce_other_conflicting_prefix_aids_help">This test registers conflicting prefix AIDs and makes sure AID conflict detection with prefix AIDs works properly. When tapping the first time, you will be shown a dialog that asks you to choose between TransportService #1 and TransportService #2. Select TransportService #2. Verify a dialog is shown that asks you to tap again to complete. Now tap again, and if communication with TransportService #2 is successfull the pass button will be enabled."</string>
 
+    <string name="nfc_screen_on_only_offhost_emulator">Screen on only Off-host Service (Emulator)</string>
+    <string name="nfc_screen_on_only_offhost_reader">Screen on only Off-host Service (Reader)</string>
+    <string name="nfc_screen_on_only_offhost_help">This test enables a service that declares some AIDs to reside off-host. This test only needs to be passed if your device has a secure element. The responses from the secure element are not verified by the test - it is up to the tester to verify the responses are as expected. The expected behavior is the AID can be selected only when the device is in screen on state.</string>
+
+    <string name="nfc_screen_off_hce_payment_emulator">Screen off HCE Payment (Emulator)</string>
+    <string name="nfc_screen_off_hce_payment_reader">Screen off HCE Payment (Reader)</string>
+    <string name="nfc_screen_off_hce_payment_help">This test verifies emulator responds when device is in screen off state. Please put the emulator to screen off state.</string>
+
     <string name="nfc_payment_service_desc">NFC Payment service</string>
     <string name="ppse">PPSE</string>
     <string name="mastercard">MasterCard</string>
@@ -1170,6 +1217,8 @@
     <string name="offhostService">OffhostService</string>
     <string name="felicaservice">Felica Service</string>
     <string name="UiccTransactionEventService">Uicc Transaction Event Service</string>
+    <string name="screenOffPaymentService">Screen Off Payment Service</string>
+    <string name="screenOnOnlyOffHostService">Screen On Only OffHost Service</string>
 
     <string name="nfc_offhost_uicc">Offhost UICC-based card emulation</string>
     <string name="nfc_offhost_uicc_emulator_tests">Offhost card emulation emulator tests</string>
@@ -1201,7 +1250,7 @@
       If your device supports type B (for example, because of a type B only UICC), select "Type B" from the drop-down box above. Note that all tests must be completed in the same mode (either "Type A" or "Type B").</string>
     <string name="nfc_offhost_please_wait">Please wait</string>
     <string name="nfc_offhost_setting_up">Setting up card emulation services...</string>
-    <string name="nfc_offhost_uicc_transaction_event_emulator_help">Switch application to background before starting tests. Successful transaction event will switch application to foreground with transaction event data.</string>
+    <string name="nfc_offhost_uicc_transaction_event_emulator_help"> This is an optional test for Android version beofre S. This is okay to set this test to passed and continue. Switch application to background before starting tests. Successful transaction event will switch application to foreground with transaction event data.</string>
 
     <!-- Strings for Sensor Test Activities -->
     <string name="snsr_device_admin_receiver">Sensor Tests Device Admin Receiver</string>
@@ -1703,6 +1752,29 @@
     <string name="sv_failed_title">Test Failed</string>
     <string name="sv_failed_message">Unable to play stream.  See log for details.</string>
 
+    <!-- Strings for MediaCodecFlushActivity -->
+    <string name="media_codec_flush">Video codec flushing in Tunnel Mode</string>
+
+    <!-- Strings for VolumeLevelChangesActivity -->
+    <string name="volume_level_changes">Volume level changes</string>
+    <string name="volume_level_changes_title">This test is for verifying that the Volume level
+        changes are reflected when playback occurs with and without tunnel mode playback for
+        PCM audio.</string>
+    <string name="increase_volume_level"> Increase the volume until you can clearly recognize the
+        audio, and then press OK button.</string>
+    <string name="ok_button_volume_level">OK</string>
+    <string name="decrease_volume_level"> Decrease the volume until you can no longer recognize the
+        audio, and then press OK button.</string>
+    <string name="yes_button_volume_level">Yes</string>
+    <string name="no_button_volume_level">No</string>
+    <string name="is_same_volume"> "Is the volume still the same as what you had set?"</string>
+    <string name="volume_level_changes_failure_tunnel_to_non_tunnel">
+        "The volume change was not maintained when switching from tunnel mode to non-tunnel mode."
+    </string>
+    <string name="volume_level_changes_failure_non_tunnel_to_tunnel">
+        "The volume change was not maintained when switching from non-tunnel mode to tunnel mode."
+    </string>
+
     <!-- Strings for the Camera Bokeh mode test activity -->
     <string name="camera_bokeh_test">Camera Bokeh</string>
     <string name="camera_bokeh_test_info">
@@ -1756,8 +1828,8 @@
     <string name="wifi_status_suggestion_get_failure">Failed to get suggestions.</string>
     <string name="wifi_status_suggestion_remove">Removing suggestions from the device.</string>
     <string name="wifi_status_suggestion_remove_failure">Failed to remove suggestions.</string>
-    <string name="wifi_status_suggestion_wait_for_connect">Waiting for network connection. Please click \"Allow\" in the dialog that pops up for approving the app.</string>
-    <string name="wifi_status_suggestion_ensure_no_connect">Ensuring no network connection. Please click \"Allow\" in the dialog that pops up for approving the app.</string>
+    <string name="wifi_status_suggestion_wait_for_connect">Waiting for network connection.</string>
+    <string name="wifi_status_suggestion_ensure_no_connect">Ensuring no network connection.</string>
     <string name="wifi_status_suggestion_connect">Connected to the network.</string>
     <string name="wifi_status_suggestion_not_connected">Did not connect to the network.</string>
     <string name="wifi_status_suggestion_wait_for_post_connect_bcast">Waiting for post connection broadcast.</string>
@@ -1773,6 +1845,10 @@
     <string name="wifi_status_suggestion_capabilities_not_changed">Network capabilities did not change.</string>
     <string name="wifi_status_suggestion_not_disconnected">Did not disconnect from the network.</string>
     <string name="wifi_status_suggestion_disconnected">Disconnected from the network.</string>
+    <string name="wifi_status_suggestion_add_user_approval_status_listener_failure">Failed to add user approval status listener</string>
+    <string name="wifi_status_suggestion_wait_for_user_approval">Waiting for user approval. Please click \"Allow\" in the dialog that pops up for approving the app</string>
+    <string name="wifi_status_suggestion_user_approval_status_failure">Failed to receive user approval status change</string>
+    <string name="wifi_status_suggestion_user_approve_failure">Failed to get user approval</string>
 
     <string name="wifi_status_test_success">Test completed successfully!</string>
     <string name="wifi_status_test_failed">Test failed!</string>
@@ -1984,6 +2060,12 @@
     <string name="aware_dp_ib_open_solicited">Data Path: Open: Solicited/Active</string>
     <string name="aware_dp_ib_passphrase_solicited">Data Path: Passphrase: Solicited/Active</string>
     <string name="aware_dp_ib_pmk_solicited">Data Path: PMK: Solicited/Active</string>
+    <string name="aware_dp_ib_open_unsolicited_accept_any">Data Path: Open: Unsolicited/Passive: accept any peer</string>
+    <string name="aware_dp_ib_passphrase_unsolicited_accept_any">Data Path: Passphrase: Unsolicited/Passive: accept any peer</string>
+    <string name="aware_dp_ib_pmk_unsolicited_accept_any">Data Path: PMK: Unsolicited/Passive: accept any peer</string>
+    <string name="aware_dp_ib_open_solicited_accept_any">Data Path: Open: Solicited/Active: accept any peer</string>
+    <string name="aware_dp_ib_passphrase_solicited_accept_any">Data Path: Passphrase: Solicited/Active: accept any peer</string>
+    <string name="aware_dp_ib_pmk_solicited_accept_any">Data Path: PMK: Solicited/Active: accept any peer</string>
     <string name="aware_discovery_ranging">Discovery with Ranging</string>
     <string name="aware_publish">Publish</string>
     <string name="aware_subscribe">Subscribe</string>
@@ -2185,36 +2267,28 @@
         and disabled, and that once enabled the service is able to receive notifications and
         dismiss them.
     </string>
+    <string name="nls_anr">This test checks that notifications are not sent with content that is
+        too long. If this test causes the test app to ANR, the test has failed.
+    </string>
+    <string name="action_not_sent">SecureActionOnLockScreenTest</string>
+    <string name="action_received">Action Sent - SecureActionOnLockScreenTest</string>
+    <string name="action_test_title">Action</string>
+    <string name="nls_visibility">Please change the lock screen setting to hide sensitive content
+        on the lockscreen</string>
+    <string name="nls_restore_visibility">Please change the lock screen setting to show all
+        content on the lockscreen</string>
+    <string name="add_screen_lock">Add a secure screen lock of any type</string>
+    <string name="remove_screen_lock">Remove the added screen lock</string>
+    <string name="secure_action_lockscreen">Lock the screen and find the SecureActionOnLockScreenTest
+        notification. Tap on its action. Verify that the keyguard displays on tap, and that the
+        notification text does not update until the passcode is entered. Ensure that the notification
+        text does update once the device is unlocked.</string>
     <string name="msg_extras_preserved">Check that Message extras Bundle was preserved.</string>
-    <string name="qs_media_player_title">QS Media Controls Test</string>
-    <string name="qs_media_player_test">Media Controls Test</string>
-    <string name="qs_media_player_info">This test checks that media controls appear in the
-        Quick Settings shade for applications that post a media style notification.</string>
-    <string name="qs_media_player_song_and_artist">Fully expand Quick Settings and look at the media
-        player controls for the CTS Verifier app.
-        Check that the media player contains the strings "Song" and "Artist".
-    </string>
-    <string name="qs_media_player_album_art">Open Quick Settings and look at the media player
-        controls for the CTS Verifier app.
-        Check that the media player contains a solid yellow image.
-    </string>
-    <string name="qs_media_player_progress_bar">Fully expand Quick Settings and look at the media
-        player controls for the CTS Verifier app.
-        Check that the media player contains a progress bar showing 6 seconds have elapsed of a
-        one minute long track.
-    </string>
-    <string name="qs_media_player_actions">Fully expand Quick Settings and look at the media player
-        controls for the CTS Verifier app.
-        Check that icons appear for rewind, previous track, pause, next track and fast forward.
-    </string>
-    <string name="qs_media_player_compact_actions">Open Notification Shade and look at the media player
-        controls for the CTS Verifier app.
-        Check that icons appear for only previous track, pause and next track.
-    </string>
-    <string name="qs_media_player_output_switcher">Open Quick Settings and look at the media player
-        controls for the CTS Verifier app. Click on the button showing that the media is playing
-        on the phone speaker. Check that the Output Switcher opens.
-    </string>
+    <string name="conversation_section_ordering">If this device supports conversation notifications,
+        and groups them into a separate section from alerting and silent non-conversation
+        notifications, fully expand the notification display and verify that the \"Person A\"
+        notification appears before the "\Non-Person Notification\".
+        If this device does not support conversation notifications or does not group them together, press Pass.</string>
     <string name="tile_service_name">Tile Service for CTS Verifier</string>
     <string name="tiles_test">Tile Service Test</string>
     <string name="tiles_info">This test checks that a Tile Service added by a third party
@@ -2282,6 +2356,10 @@
     <string name="nls_snooze_one_time">Check that service can snooze a notification for a given time.</string>
     <string name="nls_get_snoozed">Check that service can retrieve snoozed notifications.</string>
     <string name="nls_unsnooze_one">Check that service can unsnooze a notification.</string>
+    <string name="nls_change_type_filter">Click this button to launch the settings page for this app\'s notification listener in settings. Note what types were checked and which were disabled before you make any changes. View the list of apps and note any that are not allowed. Change the filter types to allow everything except ongoing and silent notifications, and then return to this screen</string>
+    <string name="nls_original_filter_verification">Were only alerting and silent notifications allowed? Was the Settings app not allowed? Was the ongoing option disabled? Are all only conversations and alerting notification types allowed now?</string>
+    <string name="nls_filter_test">Checking that an alerting notification is received and a silent one is not</string>
+    <string name="nls_reset_type_filter">Go to settings and allow all notification types, and then return here.</string>
     <string name="nas_note_missed_enqueued">Check that notification was not enqueued.</string>
     <string name="cp_test">Condition Provider test</string>
     <string name="cp_service_name">Condition Provider for CTS Verifier</string>
@@ -2334,7 +2412,7 @@
     <string name="caboot_install_cert">Install credential</string>
     <string name="caboot_remove_screen_lock">Remove screen lock</string>
     <string name="caboot_reboot_desc">Please reboot the device and return to this test.</string>
-    <string name="caboot_after_boot">AFTER REBOOTING: Check that there is a notification that the network may be monitored. Opening that notification should show a dialog box giving more information, with a button to check trusted credentials. This should open up the same view of trusted credentials that you get via the "Check credentials" button.</string>
+    <string name="caboot_after_boot">AFTER REBOOTING: Check that there is a notification saying a certificate authority is installed. Opening that notification should show a dialog box giving more information, with a button to check trusted credentials. This should open up the same view of trusted credentials that you get via the "Check credentials" button.</string>
 
     <!-- Strings for KeyChain -->
     <string name="keychain_test">KeyChain Storage Test</string>
@@ -2357,6 +2435,19 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="cacert_install_via_intent">CA Cert install via intent</string>
     <string name="cacert_install_via_intent_title">This test attempts to install a CA certificate via an intent.</string>
     <string name="cacert_install_via_intent_info">Attempt installing a CA certificate via an intent, which should not be possible. Tapping Go should show a dialog telling the user that CA certificates can put their privacy at risk and must be installed via Settings. If a any other dialog comes up, the test failed.</string>
+
+    <!-- Strings for credential management test -->
+    <string name="credential_management_app_test">Credential Management App Test</string>
+    <string name="credential_management_app_info">This test requests to manage the user\'s KeyChain credentials and become the credential management app.</string>
+    <string name="request_manage_credentials">Request to manage credentials</string>
+    <string name="is_credential_management_app">Check is credential management app</string>
+    <string name="credential_management_app_policy">Check correct authentication policy is set</string>
+    <string name="generate_key_pair">Generate key pair</string>
+    <string name="create_and_install_certificate">Create and install certificate</string>
+    <string name="request_certificate_authentication">Request certificate for authentication</string>
+    <string name="sign_data_with_key">Sign data with the private key</string>
+    <string name="verify_signature">Verify signature with the public key</string>
+    <string name="remove_credential_management_app">Remove credential management app</string>
 
     <!-- Strings for Widget -->
     <string name="widget_framework_test">Widget Framework Test</string>
@@ -2443,6 +2534,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_capture_image_support">Camera support cross profile image capture</string>
     <string name="provisioning_byod_capture_image_support_info">
         This test verifies that images can be captured from the managed profile using the primary profile camera.\n
+        If prompted, accept the camera permission after pressing go.\n
         1. Capture a picture using the camera.\n
         2. Verify that the captured picture is shown.\n
         3. Click on the close button.
@@ -2450,6 +2542,7 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="provisioning_byod_capture_video_support_with_extra_output">Camera support cross profile video capture (with extra output path)</string>
     <string name="provisioning_byod_capture_video_support_info">
         This test verifies that videos can be captured from the managed profile using the primary profile camera.\n
+        If prompted, accept the camera permission after pressing go.\n
         1. Capture a video using the camera.\n
         2. Click on the play button.\n
         3. Verify that the captured video is played.\n
@@ -2586,10 +2679,12 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="provisioning_byod_pattern_work_challenge">Confirm pattern lock test</string>
     <string name="provisioning_byod_pattern_work_challenge_description">
-        This test verifies that when a work pattern lock is set, a work app can open correctly.
+        This test verifies that when a work pattern lock is set, a work app can open correctly.\n
 
         1. Verify that you get sent to the page for Choosing a new work lock.\n
         2. Set a pattern lock.\n
+        Some devices have the pattern lock option disabled and it will not show up in the list.\n
+        If that\'s the case then mark the test as passed.\n
         3. Press the power button to turn the screen off and then back on and swipe to unlock.\n
         4. Open a work app.\n
         5. Verify that a screen asking you for your work credentials is shown.\n
@@ -2815,12 +2910,6 @@ You should be prompted to select credentials; choose the ones you just installed
 
     <string name="provisioning_tests_byod">BYOD Provisioning tests</string>
 
-    <string name="provisioning_tests_byod_custom_color"> Custom provisioning color </string>
-    <string name="provisioning_tests_byod_custom_color_info">
-        Please press the Go button to start the provisioning.
-        Check that the top status bar is colorized in green.
-        Then hit back and stop the provisioning.
-    </string>
     <string name="provisioning_tests_byod_custom_image"> Custom provisioning image </string>
     <string name="provisioning_tests_byod_custom_image_info">
         1. Please press the Go button to start the provisioning.\n
@@ -3138,6 +3227,15 @@ You should be prompted to select credentials; choose the ones you just installed
         \n
         Then use the Back button (or navigate back to this app using Recents) to return to this test and mark accordingly.
     </string>
+    <string name="provisioning_byod_location_failed">Failed to obtain location from any provider</string>
+    <string name="provisioning_byod_location_no_provider">Cannot obtain location: no providers available.</string>
+    <string name="provisioning_byod_location_trying">Trying to obtain location using providers: %1$s</string>
+    <string name="provisioning_byod_location_obtained">Location has been obtained.</string>
+    <string name="provisioning_byod_pass_message">PASS: %1$s</string>
+    <string name="provisioning_byod_fail_message">FAIL: %1$s</string>
+    <string name="provisioning_byod_location_test_activity">Location listener</string>
+    <string name="provisioning_byod_location_checker_activity">Location checker</string>
+
 
     <string name="provisioning_byod_wifi_data_usage_settings">Profile-aware data usage settings (Wi-Fi)</string>
     <string name="provisioning_byod_wifi_data_usage_settings_instruction">
@@ -3221,44 +3319,40 @@ You should be prompted to select credentials; choose the ones you just installed
 
     <string name="provisioning_byod_no_gps_location_feature">No GPS feature present. Skip test.</string>
     <string name="provisioning_byod_location_mode_enable">Enable location</string>
-    <string name="provisioning_byod_location_mode_enable_toast_location_change">Location changed</string>
+    <string name="provisioning_byod_location_mode_enable_missing_permission">Permission missing</string>
     <string name="provisioning_byod_location_mode_enable_instruction">
-        This test verifies that the location updates can be enabled for the managed profile apps.\n
-        1. Press the go button to go to the location settings page, set both the main location switch and the work profile location switch enabled.\n
-        2. Press home to go to the launcher.\n
-        3. Move your position a little bit, verify that location updates toast comes up.\n
-        Please wait until the location updates or timeout toast message shows up before going back to the cts-verifier tests.\n
-        4. Go back to the cts-verifier tests using the back button, then mark the test accordingly.\n
+        This test verifies that the location can be enabled for the managed profile apps.\n
+        1. Press the \"Prepare Test\" button to go to the location settings page, set both the main location switch and the work profile location switch enabled.\n
+        2. Return using back button and press Go button to check if location is available. If prompted, accept the location permission.\n
+        3. Check the result message below and mark the test accordingly.\n
+        \n
+        If the test fails to obtain location, try to enable as many location services as possible and move outside to make GPS work.
     </string>
 
     <string name="provisioning_byod_location_mode_disable">Disable location</string>
     <string name="provisioning_byod_location_mode_time_out_toast">Timeout waiting for gps location change</string>
     <string name="provisioning_byod_location_mode_disable_instruction">
-        This test verifies that the location updates can be disabled for the managed profile apps through the main location switch.\n
-        1. Press the go button to go to the location settings page, set the main location switch disabled.\n
-        2. Press home to go to the launcher.\n
-        3. Move your position a little bit, verify that no location updates toast come up and that the timeout message show up after around 15 seconds.
-        Please wait until the timeout or location updates toast message shows up before going back to the cts-verifier tests.\n
-        4. Go back to the cts-verifier tests using the back button, then mark the test accordingly.\n
+        This test verifies that the location can be disabled for the managed profile apps through the main location switch.\n
+        1. Press the \"Prepare Test\" button to go to the location settings page, set the main location switch disabled.\n
+        2. Return using back button and press Go button to check if location is available.  If prompted, accept the location permission.\n
+        3. Check the result message below and mark the test accordingly.\n
     </string>
 
     <string name="provisioning_byod_work_location_mode_disable">Disable location for work profile</string>
     <string name="provisioning_byod_work_location_mode_disable_instruction">
-        This test verifies that the location updates can be disabled for the managed profile apps through work profile location switch.\n
-        1. Press the go button to go to the location settings page, set the work location switch disabled while the main location switch is still enabled.\n
-        2. Press home to go to the launcher.\n
-        3. Move your position a little bit, verify that no location updates toast come up and that the timeout message show up after around 15 seconds.
-        Please wait until the timeout or location updates toast message shows up before going back to the cts-verifier tests.\n
-        4. Go back to the cts-verifier tests using the back button, then mark the test accordingly.\n
+        This test verifies that the location can be disabled for the managed profile apps through work profile location switch.\n
+        1. Press the \"Prepare Test\" button to go to the location settings page, set the work location switch disabled while the main location switch is still enabled.\n
+        2. Return using back button and press Go button to check if location is available. If prompted, accept the location permission.\n
+        3. Check the result message below and mark the test accordingly.\n
     </string>
     <string name="provisioning_byod_primary_location_when_work_disabled">Primary receives updates while work location is disabled</string>
     <string name="provisioning_byod_primary_location_when_work_disabled_instruction">
-        This test verifies that location updates are still received by primary profile when location updates are disabled for managed profile apps through work profile location switch.\n
-        1. Press the go button to go to the location settings page, set the work location switch disabled while the main location switch is still enabled.\n
-        2. Press home to go to the launcher.\n
-        3. Move your position a little bit, verify that location updates toast comes up.\n
-        Please wait until the location updates or timeout toast message shows up before going back to the cts-verifier tests.\n
-        4. Go back to the cts-verifier tests using the back button, then mark the test accordingly.\n
+        This test verifies that location is still available by primary profile when location updates are disabled for managed profile apps through work profile location switch.\n
+        1. Press the \"Prepare Test\" button to go to the location settings page, set the work location switch disabled while the main location switch is still enabled.\n
+        2. Return using back button and press Go button to check if location is available. If prompted, accept the location permission.\n
+        3. Check the result message below and mark the test accordingly.\n
+        \n
+        If the test fails to obtain location, try to enable as many location services as possible and move outside to make GPS work.
     </string>
 
     <string name="provisioning_byod_personal_ringtones">Personal ringtones</string>
@@ -3425,12 +3519,19 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_owner_positive_category">Device Owner Tests</string>
     <string name="set_device_owner_button_label">Set up device owner</string>
     <string name="set_device_owner_dialog_title">Set up device owner</string>
+    <string name="grant_headless_system_user_permissions">
+            For this test you need to grant some permissions to CtsVerifier by running\n
+            adb shell pm grant --user current com.android.cts.verifier android.permission.INTERACT_ACROSS_USERS\n
+            adb shell pm grant --user 0 com.android.cts.verifier android.permission.INTERACT_ACROSS_USERS\n
+            adb shell am compat enable ALLOW_TEST_API_ACCESS com.android.cts.verifier\n\n
+    </string>
     <string name="set_device_owner_dialog_text">
             For this test you need to install CtsEmptyDeviceOwner.apk by running\n
             adb install -r -t /path/to/CtsEmptyDeviceOwner.apk\n
             Then you need to set this app as the device owner by running\n
-            adb shell dpm set-device-owner com.android.cts.emptydeviceowner/.EmptyDeviceAdmin
+            adb shell dpm set-device-owner --user 0 com.android.cts.emptydeviceowner/.EmptyDeviceAdmin
     </string>
+
     <string name="device_owner_remove_device_owner_test">Remove device owner</string>
     <string name="device_owner_remove_device_owner_test_info">
             Please check in Settings &gt; Security &gt; Device Administrators if CTSVerifier is
@@ -3439,12 +3540,18 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="remove_device_owner_button">Remove device owner</string>
     <string name="device_owner_check_device_owner_test">Check device owner</string>
-    <string name="device_owner_incorrect_device_owner">Missing or incorrect device owner: CTSVerifier is not DO!</string>
+    <string name="device_owner_check_profile_owner_test">Check profile owner</string>
+    <string name="device_owner_check_user_affiliation_test">Check user affiliation</string>
+    <string name="device_owner_incorrect_device_owner">Missing or incorrect device owner: CTSVerifier is not DO for user %1$d!</string>
+    <string name="device_owner_incorrect_profile_owner">Missing or incorrect profile owner: CTSVerifier is not PO for user %1$d!</string>
+    <string name="device_owner_user_not_affiliated">User %1$d! is not affiliated</string>
     <string name="device_owner_wifi_lockdown_test">WiFi configuration lockdown</string>
     <string name="device_owner_wifi_lockdown_info">
             Please enter the SSID and auth method of an available WiFi Access Point and press the button to create a
-            WiFi configuration. This configuration can be seen on Settings &gt; WiFi. The test cases
-            are going to use this config. Please go through test cases in order (from top to bottom).
+            WiFi configuration. This configuration must NOT EXIST yet (you can use Settings &gt; WiFi to verify - if it exists,
+            then select the option to forget it). If the Wifi requires a password, wait for the \'Could not connect to the wifi network\'
+            notification, tap the notification, set the password and connect to the network.
+            The test cases are going to use this config. Please go through test cases in order (from top to bottom).
     </string>
     <string name="switch_wifi_lockdown_off_button">WiFi config lockdown off</string>
     <string name="switch_wifi_lockdown_on_button">WiFi config lockdown on</string>
@@ -3519,36 +3626,37 @@ You should be prompted to select credentials; choose the ones you just installed
             Press the button below to reset to default LockTask UI.
             Observe the following UI restrictions. Mark the test as \'pass\' only if ALL of the
             requirements below are met.\n\n
-            1) Nothing is shown in the status bar, including notification icons, connectivity icons,
-            battery status, clock, etc.\n
-            2) The status bar can\'t be expanded. That is, the \'swipe-down\' gesture doesn\'t work
-            for the status bar.\n
+            1) If the device under test (DUT) has a status bar: nothing is shown in the status bar,
+            including notification icons, connectivity icons, battery status, clock, etc.\n
+            2) If the device under test (DUT) has a status bar: the status bar can\'t be expanded.
+            That is, the \'swipe-down\' gesture doesn\'t work for the status bar.\n
             3) The software Home button is hidden.\n
-            4) The software Overview button is hidden and the Overview gesture (swipe-up) does not
-            work.\n
+            4) If the device under test (DUT) supports Overview: the software Overview button is
+            hidden and the Overview gesture (swipe-up) does not work.\n
             5) Long-press the power button. The power button menu, which usually shows the power-off
             button, etc., isn\'t shown.\n
             6) Press the power button to turn off the screen, and press it again to turn the screen
             back on. Lock screen shouldn\'t be shown.\n
-            7) The assistant gesture isn\'t available.
+            7) The assistant gesture isn\'t available.\n\n
     </string>
     <string name="device_owner_lock_task_ui_system_info_test">Enable system info</string>
     <string name="device_owner_lock_task_ui_system_info_test_info">
             Press the button below to enable system info. Observe the system info area of the status
             bar is now enabled. This includes the clock, connectivity info, battery info, etc.\n\n
             The rest of the UI restrictions should still apply:\n
-            1) Notification icons are still hidden on the status bar.\n
-            2) The status bar can\'t be expanded. That is, the \'swipe-down\' gesture doesn\'t work
-            for the status bar.\n
+            1) If the device under test (DUT) has a status bar: notification icons are still hidden
+            on the status bar.\n
+            2) If the device under test (DUT) has a status bar: the status bar can\'t be expanded.
+            That is, the \'swipe-down\' gesture doesn\'t work for the status bar.\n
             3) The software Home button is hidden.\n
-            4) The software Overview button is hidden and the Overview gesture (swipe-up) does not
-            work.\n
+            4) If the device under test (DUT) supports Overview: the software Overview button is
+            hidden and the Overview gesture (swipe-up) does not work.\n
             5) Long-press the power button. The power button menu, which usually shows the power-off
             button, etc., isn\'t shown.\n
             6) Press the power button to turn off the screen, and press it again to turn the screen
             back on. Lock screen shouldn\'t be shown.\n
             7) The assistant gesture isn\'t available.\n\n
-            Mark the test as \'pass\' only if ALL of the above requirements are met.
+            Mark the test as \'pass\' only if ALL of the above requirements are met.\n
     </string>
     <string name="device_owner_lock_task_ui_notifications_test">Enable notifications</string>
     <string name="device_owner_lock_task_ui_notifications_test_info">
@@ -3557,38 +3665,41 @@ You should be prompted to select credentials; choose the ones you just installed
             expanded to show the notifications. However, all Settings UI should remain invisible,
             including Quick Settings and any link to the Settings app.\n\n
             The rest of the UI restrictions should still apply:\n
-            1) System info area is still hidden on the status bar.\n
-            2) The software Overview button is hidden and the Overview gesture (swipe-up) does not
-            work.\n
+            1) If the device under test (DUT) has a status bar: system info area is still hidden on
+            the status bar.\n
+            2) If the device under test (DUT) supports Overview: the software Overview button is
+            hidden and the Overview gesture (swipe-up) does not work.\n
             3) Holding the Home button and swiping to the right does not bring up other tasks.\n
             4) Long-press the power button. The power button menu, which usually shows the power-off
             button, etc., isn\'t shown.\n
             5) Press the power button to turn off the screen, and press it again to turn the screen
             back on. Lock screen shouldn\'t be shown.\n
             6) The assistant gesture isn\'t available.\n\n
-            Mark the test as \'pass\' only if ALL of the above requirements are met.
+            Mark the test as \'pass\' only if ALL of the above requirements are met.\n
     </string>
     <string name="device_owner_lock_task_ui_home_test">Enable Home button</string>
     <string name="device_owner_lock_task_ui_home_test_info">
             Press the button below to enable the Home button. Observe the Home button is now
             enabled.\n\n
             The rest of the UI restrictions should still apply:\n
-            1) Nothing is shown in the status bar, including notification icons, connectivity icons,
-            battery status, clock, etc.\n
-            2) The status bar can\'t be expanded. That is, the \'swipe-down\' gesture doesn\'t work
-            for the status bar.\n
-            3) The software Overview button is hidden and the Overview gesture (swipe-up) does not
-            work.\n
+            1) If the device under test (DUT) has a status bar: nothing is shown in the status bar,
+            including notification icons, connectivity icons, battery status, clock, etc.\n
+            2) If the device under test (DUT) has a status bar: the status bar can\'t be expanded.
+            That is, the \'swipe-down\' gesture doesn\'t work for the status bar.\n
+            3) If the device under test (DUT) supports Overview: the software Overview button is
+            hidden and the Overview gesture (swipe-up) does not work.\n
             4) Holding the Home button and swiping to the right does not bring up other tasks.\n
             5) Long-press the power button. The power button menu, which usually shows the power-off
             button, etc., isn\'t shown.\n
             6) Press the power button to turn off the screen, and press it again to turn the screen
             back on. Lock screen shouldn\'t be shown.\n
             7) The assistant gesture isn\'t available.\n\n
-            Mark the test as \'pass\' only if ALL of the above requirements are met.
+            Mark the test as \'pass\' only if ALL of the above requirements are met.\n
     </string>
     <string name="device_owner_lock_task_ui_recents_test">Enable Overview button</string>
     <string name="device_owner_lock_task_ui_recents_test_info">
+            If the device under test (DUT) does not support Overview: mark this test as \'pass\'.\n
+            Otherwise:\n
             Press the button below to enable the Overview button. Observe the Home button is now
             enabled. Press the Overview button or perform the Overview gesture
             (swipe up) and verify the Overview view can be opened.\n\n
@@ -3602,10 +3713,13 @@ You should be prompted to select credentials; choose the ones you just installed
             4) Press the power button to turn off the screen, and press it again to turn the screen
             back on. Lock screen shouldn\'t be shown.\n
             5) The assistant gesture isn\'t available.\n\n
-            Mark the test as \'pass\' only if ALL of the above requirements are met.
+            Mark the test as \'pass\' only if ALL of the above requirements are met.\n
     </string>
     <string name="device_owner_lock_task_ui_global_actions_test">Enable global actions</string>
     <string name="device_owner_lock_task_ui_global_actions_test_info">
+            If the device under test (DUT) does not support global actions: mark this
+            test as \'pass\'.\n
+            Otherwise:\n
             Press the button below to enable global actions (a.k.a. power button menu). Long-press
             the power button and verify a menu containing power-off and restart buttons is shown.
             This menu can\'t contain any UI that allows the user to change system settings (such as
@@ -3621,7 +3735,7 @@ You should be prompted to select credentials; choose the ones you just installed
             5) Press the power button to turn off the screen, and press it again to turn the screen
             back on. Lock screen shouldn\'t be shown.\n
             6) The assistant gesture isn\'t available.\n\n
-            Mark the test as \'pass\' only if ALL of the above requirements are met.
+            Mark the test as \'pass\' only if ALL of the above requirements are met.\n
     </string>
     <string name="device_owner_lock_task_ui_keyguard_test">Enable keyguard</string>
     <string name="device_owner_lock_task_ui_keyguard_test_info">
@@ -3919,16 +4033,20 @@ You should be prompted to select credentials; choose the ones you just installed
         Email: someone@example.com
     </string>
     <string name="policy_transparency_update_button_label">Update</string>
-    <string name="dummy_input_method_label">Dummy input method</string>
-    <string name="dummy_accessibility_service_label">Dummy accessibility service</string>
+    <string name="test_input_method_label">Test input method</string>
+    <string name="test_accessibility_service_label">Test accessibility service</string>
     <string name="policy_transparency_test_instructions">
         1. <xliff:g id="set_step" example="Set policy by turning the switch on">%1$s</xliff:g>\n
         2. Open Settings app by clicking the "Open settings" button below. Note that this will open the personal Settings app. If this device has the work settings in a different app or screen, then navigate there, ignoring the button if necessary.\n
         3. Verify that performing the following action will trigger a support dialog:\n
            <xliff:g id="user_action" example="Adding an account">%2$s</xliff:g>.\n
         4. Verify that the support dialog displays the short support message set earlier.\n
-        5. Verify that clicking the "Learn more" link will redirect to Device administrators
-           page in Settings app which displays the long support message set earlier.\n
+        5. Verify that clicking the "Learn more" link will either launch a help web page with more
+           information or redirect to Device administrators page in Settings app which displays the
+           long support message set earlier.\n
+        6. If in step 5. the help web page was launched, navigate to the Device administrators page
+           from Settings -> Security, open the work profile \'CTS Verifier\' enabled admin and
+           verify that the page displays the long support message set earlier.\n
     </string>
     <string name="user_restriction_set_step">
         Set \'%s\' user restriction by turning on the switch below.
@@ -3936,7 +4054,8 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="disallow_add_user">Disallow add user</string>
     <string name="disallow_add_user_action">Adding a new user</string>
     <string name="disallow_adjust_volume">Disallow adjust volume</string>
-    <string name="disallow_adjust_volume_action">Adjusting the volume</string>
+    <string name="disallow_adjust_volume_action">Adjusting the volume\n
+        NOTE: If the device does not support volume adjustment in Settings app please skip this test and mark it as passing.\n</string>
     <string name="disallow_config_date_time">Disallow config date time</string>
     <string name="disallow_config_date_time_action">Configuring auto time, time, auto date or date</string>
     <string name="disallow_config_location">Disallow config location</string>
@@ -3975,7 +4094,8 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="disallow_modify_accounts">Disallow modify accounts</string>
     <string name="disallow_modify_accounts_action">Adding an account, and also removing an account (after you have previously added one)</string>
     <string name="disallow_network_reset">Disallow network reset</string>
-    <string name="disallow_network_reset_action">Resetting network settings</string>
+    <string name="disallow_network_reset_action">Resetting network settings\n
+        NOTE: If the device does not support network reset please skip this test and mark it as passing.\n</string>
     <string name="disallow_outgoing_beam">Disallow outgoing beam</string>
     <string name="disallow_outgoing_beam_action">Switching on android beam</string>
     <string name="disallow_remove_user">Disallow remove user</string>
@@ -4002,6 +4122,7 @@ You should be prompted to select credentials; choose the ones you just installed
         Use the Back button to return to this page.
     </string>
     <string name="device_owner_disallow_remove_user_create_user">Create uninitialized user</string>
+    <string name="device_owner_remove_secondary_user">Remove uninitialized user</string>
     <string name="disallow_remove_managed_profile">Disallow remove managed profile</string>
     <string name="disallow_remove_managed_profile_action">Removing the work profile. It shouldn\'t be possible neither from the Accounts screen nor the Device Administrators screen (after selecting the Device Administrator that corresponds to the badged version of \"CTS Verifier\")</string>
     <string name="disallow_share_location">Disallow share location</string>
@@ -4032,34 +4153,23 @@ You should be prompted to select credentials; choose the ones you just installed
     </string>
     <string name="set_maximum_time_to_lock_action">Selecting maximum time to lock greater than the set value below</string>
     <string name="set_maximum_time_to_lock_widget_label">Set maximum time to lock (in Sec):</string>
-    <string name="set_password_quality">Set password quality</string>
-    <string name="password_quality_set_step">Set minimum password quality by selecting an option in the spinner below.</string>
-    <string name="set_password_quality_action">Setting a password which does not meet the requirements of the password quality selected</string>
-    <string name="set_password_quality_widget_label">@string/set_password_quality</string>
-    <string name="password_quality_unspecified">Unspecified</string>
-    <string name="password_quality_something">Something</string>
-    <string name="password_quality_numeric">Numeric</string>
-    <string name="password_quality_numeric_complex">Numeric (Complex)</string>
-    <string name="password_quality_alphabetic">Alphabetic</string>
-    <string name="password_quality_alphanumeric">Alphanumeric</string>
-    <string name="password_quality_complex">Complex</string>
     <string name="set_permitted_accessibility_services">Set permitted accessibility services</string>
     <string name="permitted_accessibility_services_set_step">
-        Check that \'Dummy Accessibility service\' is not enabled in Settings and disallow \'Dummy Accessibility service\' from permitted accessibility services by turning on
+        Check that \'Test Accessibility service\' is not enabled in Settings and disallow \'Test Accessibility service\' from permitted accessibility services by turning on
         the switch below.
     </string>
     <string name="set_permitted_accessibility_services_action">
-        Enabling \'Dummy Accessibility service\' in the list of accessibility services
+        Enabling \'Test Accessibility service\' in the list of accessibility services
     </string>
     <string name="set_permitted_accessibility_services_widget_label">
         Allow only system accessibility services:
     </string>
     <string name="set_permitted_input_methods">Set permitted input methods</string>
     <string name="permitted_input_methods_set_step">
-        Check that \'Dummy Input method\', along with all other non-system apps, are not enabled in Settings for the managed profile (they may be enabled for the primary profile). Then disallow \'Dummy Input method\' from permitted input methods by turning on the switch below.
+        Check that \'Test Input method\', along with all other non-system apps, are not enabled in Settings for the managed profile (they may be enabled for the primary profile). Then disallow \'Test Input method\' from permitted input methods by turning on the switch below.
     </string>
     <string name="set_permitted_input_methods_action">
-        Enabling \'Dummy Input method\' in the list of input methods (make sure you are enabling it for the managed profile, not primary profile)
+        Enabling \'Test Input method\' in the list of input methods (make sure you are enabling it for the managed profile, not primary profile)
     </string>
     <string name="set_permitted_input_methods_widget_label">
         Allow only system input methods:
@@ -4358,6 +4468,58 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="device_owner_set_lockscreen_message_hint">My lock screen message</string>
     <string name="device_owner_lockscreen_message_cannot_be_empty">Lock screen message cannot be empty.</string>
 
+    <string name="device_owner_disable_usb_data_signaling_test">Disable USB data signaling</string>
+    <string name="device_owner_disable_usb_data_signaling_test_info">
+         This test verifies that USB data signaling can be disabled by the device owner.\n
+         1. Press the \"Go\" button to go to Settings. Go to Connected devices > USB and select use
+         USB for \"File transfer/Android Auto\". Verify that you can mount the device as a USB drive
+         on your desktop computer and access files from your phone through USB.\n
+         2. Press the \"Disable USB data signaling\" button to disable USB data signaling on
+         the device. When disabled, all USB data connections (except from charging functions)
+         are prohibited.\n
+         3. Press the \"Go\" button to go to Settings and confirm that the "USB" preferences in
+         \"System > Developer Options\" cannot be selected and "USB" preference in
+         \"Connected devices\" has disappeared.:\n
+              - Connected devices > USB\n
+              - System > Developer Options > USB debugging\n
+              - System > Developer Options > Default USB configuration\n
+              - System > Developer Options > Disable USB audio routing\n
+         4. Verify that you cannot mount the device as a USB drive on your desktop computer and
+         cannot access files from your phone through USB.\n
+         5. Press the \"Enable USB data signaling\" button to re-enable USB data signaling and
+         replug USB cable in the device. After that the "USB" preferences in
+         \"System > Developer Options\" can be selected and "USB" preference in
+         \"Connected devices\" has appeared.\n
+         Please mark the test accordingly.
+    </string>
+    <string name="device_owner_enable_usb_data_signaling_test">Enable USB data signaling</string>
+
+    <string name="device_owner_required_password_complexity_test">Set required password complexity</string>
+    <string name="device_owner_required_password_complexity_test_info">
+         This test verifies that required password complexity can be set by the device owner.\n
+         1. Press the \"Set low required password complexity\" button.\n
+         2. Press the \"Go\" button to go to Settings > Security > Screen lock. Verify that
+         you have to set a pattern, PIN or password.\n
+         3. Press the \"Set medium required password complexity\" button.\n
+         4. Press the \"Go\" button to go to Settings > Security > Screen lock. Verify that
+         you have to set a PIN without repeating (4444) or ordered (1234, 4321, 2468) sequences
+         with a length of at least 4; or you have to set an alphabetic or alphanumeric password with
+         a length of at least 4.\n
+         5. Press the \"Set high required password complexity\" button.\n
+         6. Press the \"Go\" button to go to Settings > Security > Screen lock. Verify that
+         you have to set a PIN without repeating (4444) or ordered (1234, 4321, 2468) sequences
+         with a length of at least 8; or you have to set an alphabetic or alphanumeric password with
+         a length of at least 6.\n
+         7. Press the \"Remove required password complexity\" button.\n
+         8. Press the \"Go\" button to go to Settings > Security > Screen lock. Verify that
+         you don\'t have to set a pattern, PIN or password.\n
+         Please mark the test accordingly.
+    </string>
+    <string name="set_low_required_password_complexity">Set low required password complexity</string>
+    <string name="set_medium_required_password_complexity">Set medium required password complexity</string>
+    <string name="set_high_required_password_complexity">Set high required password complexity</string>
+    <string name="remove_required_password_complexity">Remove required password complexity</string>
+
     <string name="managed_user_test">Managed User</string>
     <string name="managed_user_positive_tests">Managed User positive tests</string>
     <string name="managed_user_positive_tests_instructions">
@@ -4644,62 +4806,54 @@ You should be prompted to select credentials; choose the ones you just installed
 
     <!-- Common strings for the TV Display tests -->
     <string name="tv_start_test">Start Test</string>
+    <string name="tv_done">Done</string>
 
-    <!-- HDR Capabilities test -->
-    <string name="tv_hdr_capabilities_test">HDR Capabilities Test</string>
-    <string name="tv_hdr_capabilities_test_step_hdr_display">HDR Display</string>
-    <string name="tv_hdr_capabilities_test_step_no_display">No Display</string>
-    <string name="tv_hdr_capabilities_test_step_non_hdr_display">Non HDR Display</string>
-    <string name="tv_hdr_capabilities_test_info">This test checks if
-        Display.getHdrCapabilities correctly reports the HDR capabilities of the display.
+    <!-- Audio Capabilities test -->
+    <string name="tv_audio_capabilities_test">Audio Capabilities Test</string>
+    <string name="tv_audio_capabilities_test_info">This test checks if AudioDeviceInfo and
+    AudioTrack#isDirectPlaybackSupported APIs correctly report the Audio capabilities
+    of the connected audio devices.</string>
+    <string name="tv_audio_capabilities_no_receiver_connected">Disconnect all receivers or
+    soundbars which are connected. </string>
+    <string name="tv_audio_capabilities_receiver_connected">Connect a receiver or
+    soundbar which can play Dolby Atmos. </string>
+    <string name="tv_audio_capabilities_atmos_supported">Does your Android TV device support Dolby
+    Atmos (either passthrough or decode)?  </string>
+
+    <!-- Hotplug Test -->
+    <string name="tv_hotplug_test">Hotplug Test</string>
+    <string name="tv_hotplug_test_info">This test checks whether DisplayManager responds correctly
+        to plugging and unplugging the HDMI cable.
     </string>
-    <string name="tv_hdr_connect_no_hdr_display">Connect a non-HDR display and then
-        press the "%s" button, below.
-    </string>
-    <string name="tv_hdr_connect_hdr_display">Connect an HDR display and press
-        the "%s" button, below.
-    </string>
-    <string name="tv_hdr_disconnect_display">Press the "%1$s" button
-        and disconnect the display within %2$d seconds. Wait at least %3$d seconds and then
-        reconnect the display.
-    </string>
-    <string name="tv_panel_hdr_types_reported_are_supported">
-        The supported HDR types are: %s\nAre all of them supported by the hardware?
-    </string>
-    <string name="tv_panel_hdr_types_supported_are_reported">
-        Are there other HDR types which are supported by the hardware, but are not listed above?
+    <string name="tv_hotplug_disconnect_display">
+        Press the "%1$s" button, disconnect the HDMI cable, wait 2 seconds and then connect the HDMI
+        cable again.
     </string>
 
-    <!-- Display Modes Test -->
-    <string name="tv_display_modes_test">Display Modes Test</string>
-    <string name="tv_display_modes_test_info">This test checks if Display.getSupportedModes()
-        and Display.getMode() are correctly reporting the supported screen modes.
+    <!-- Mode Switching Test -->
+    <string name="tv_mode_switching_test">Mode switching test</string>
+    <string name="tv_mode_switching_test_step_instruction">
+        Click "Start Test" and then observe the video below. Testing transition from %1$s to %2$s.
     </string>
-    <string name="tv_display_modes_disconnect_display">
-        Press the "%1$s" button and disconnect the display within %2$d seconds. Wait at least %3$d
-        seconds and then reconnect the display.
+    <string name="tv_mode_switching_test_black_screen_question">
+        Did the video playback experience an interruption, for example, a black or solid color
+        screen?
     </string>
-    <string name="tv_display_modes_test_step_no_display">No Display</string>
-    <string name="tv_display_modes_test_step_1080p">1080p Display</string>
-    <string name="tv_display_modes_test_step_2160p">2160p Display</string>
-    <string name="tv_display_modes_start_test_button">Start Test</string>
-    <string name="tv_display_modes_connect_2160p_display">
-        Connect a 2160p display and press the "%s" button, below.
+    <string name="tv_mode_switching_test_is_video_ok">
+        Does the video look okay? Click "No" if the video is not playing, there was a snow screen,
+        audio static, wrong colors, the video is displaced compared to before running the test or
+        if the video is not playing. Keep in mind that some stutter is expected when the video does
+        not match the refresh rate.
     </string>
-    <string name="tv_display_modes_connect_1080p_display">
-        Connect a 1080p display and press the "%s" button, below.
-    </string>
-    <string name="tv_panel_display_modes_reported_are_supported">
-        The supported display modes are:\n%s\n\nAre all of the above display modes supported by the hardware?
-    </string>
-    <string name="tv_panel_display_modes_supported_are_reported">
-        Are there other modes which are supported by the hardware, but are not listed above?
-    </string>
+    <string name="tv_mode_switching_test_mode_switch_step">Mode switch step</string>
+
     <string name="overlay_view_text">Overlay View Dummy Text</string>
     <string name="custom_rating">Example of input app specific custom rating.</string>
 
     <!-- A list of fully-qualified test classes that should not be run. -->
-    <string-array name="disabled_tests" />
+    <string-array name="disabled_tests">
+        <item>com.android.cts.verifier.telecom.CtsVerifierInCallUi</item>
+    </string-array>
 
     <!-- Strings for screen pinning test -->
     <string name="screen_pinning_test">Screen Pinning Test</string>
@@ -4840,8 +4994,8 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="proAudioMidiHasUSBPeripheralLbl">USB Peripheral Mode:</string>
     <string name="proAudioHDMISupportLbl">HDMI Support:</string>
     <string name="proAudioHasHDMICheckBox">Has HDMI Support</string>
+    <string name="proAudioLoopbackMoved">The latency measurement for Pro Audio has been moved to the Audio Loopback Latency Test</string>
 
-    <string name="audio_proaudio_roundtrip">Round-Trip Test</string>
     <string name="audio_proaudio_NA">N/A</string>
     <string name="audio_proaudio_pending">pending...</string>
 
@@ -4849,9 +5003,19 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="audio_proaudio_nopa_message">This device does not set the FEATURE_AUDIO_PRO
         flag and therefore does not need to run this test.</string>
 
+    <!-- Various test status strings -->
+    <string name="audio_proaudio_pass">Pass</string>
+    <string name="audio_proaudio_latencytoohigh">Latency is too high</string>
+    <string name="audio_proaudio_confidencetoolow">"Insufficient Confidence value"</string>
+    <string name="audio_proaudio_midinotreported">"No MIDI support reported"</string>
+    <string name="audio_proaudio_usbhostnotreported">"No USB Host Mode support reported"</string>
+    <string name="audio_proaudio_usbperipheralnotreported">"No USB Peripheral Mode support reported"</string>
+    <string name="audio_proaudio_hdminotvalid">HDMI support is reported by not valid.</string>
+
     <!--  MIDI Test -->
     <string name="midi_test">MIDI Test</string>
-    <string name="ndk_midi_test">Native MIDI API Test</string>
+    <string name="midi_java_test">Java MIDI Test</string>
+    <string name="midi_native_test">Native MIDI Test</string>
     <string name="midi_info">
        For the USB MIDI interface test it is required that you have connected a supported USB
        Audio Peripheral device with standard MIDI 5-pin, DIN (round) connectors and a standard
@@ -4890,9 +5054,9 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="midiFailedJNILbl">Failed - JNI Error.</string>
 
     <!-- Audio general text -->
-    <string name="audio_general_headset_port_exists">Does this device have a headset port?</string>
-    <string name="audio_general_headset_no">No</string>
-    <string name="audio_general_headset_yes">Yes</string>
+    <string name="audio_wired_exists">Does this device support wired USB or Analog audio peripherals?</string>
+    <string name="audio_wired_no">No</string>
+    <string name="audio_wired_yes">Yes</string>
     <string name="audio_general_deficiency_found">WARNING: Some results show potential deficiencies on the system.
     Please consider addressing them for a future release.</string>
     <string name="audio_general_test_passed">Test Result: Successful</string>
@@ -4907,18 +5071,26 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="audio_general_yes">Yes</string>
     <string name="audio_general_info">Info</string>
     <string name="audio_general_ok">Ok</string>
+    <string name="audio_general_start">Start</string>
+    <string name="audio_general_stop">Stop</string>
+
+    <string name="audio_general_JavaApi">Java API</string>
+    <string name="audio_general_NativeApi">Native API</string>
+
+    <string name="audio_general_clear_results">Clear Results</string>
 
     <!-- Audio Loopback Latency Test -->
     <string name="audio_loopback_latency_test">Audio Loopback Latency Test</string>
-     <string name="audio_loopback_info">
-          This test requires some form of audio loopback. This can be either:\n
+    <string name="audio_loopback_info">
+        This test verifies that the device can achieve the required or recommended loopback latency.
+        To pass the test, the device need only achieve this on one of the following audio paths:\n
           - a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a>  connected to a 3.5mm headset jack.\n
           - a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a>  connected to a USB audio adapter.\n
-          - a USB interface with patch cords connecting the input and output jaccks.
+          - a USB interface with patch cords connecting the input and output jacks.\n
           Please connect one of these Loopback mechanisms, and proceed with the instructions
-          on the screen.
-          The system will measure the input-output audio latency by injecting a pulse on the output,
-          and computing the distance between replicas of the pulse.
+          on the screen. The required &amp; recommended latencies will be displayed.
+          The system will measure the input-output audio latency by injecting an audio signal to
+          the output and compute the time between generating the signal and recording it back.
           You can vary the Audio Level slider to ensure the pulse will feed back at adequate levels.
           Repeat until a confidence level >= 0.6 is achieved.
     </string>
@@ -4934,7 +5106,26 @@ You should be prompted to select credentials; choose the ones you just installed
     <string name="audio_loopback_test_btn">Test</string>
     <string name="audio_loopback_results_text">Results...</string>
 
-   <!-- Audio Frequency Line Test -->
+    <string name="audio_loopback_failure">FAILURE - Could not allocate analyzer thread.</string>
+
+    <!-- Audio Cold-Start Latency Test -->
+    <string name="audio_coldstart_out_latency_test">Audio Cold Start Output Latency Test</string>
+    <string name="audio_coldstart_in_latency_test">Audio Cold Start Input Latency Test</string>
+
+    <string name="audio_coldstart_output_info">
+        This test measures the time required to output audio from a suspended \"cold\" audio system.
+        It requires that touch-sounds be disabled in the device \"Sound &amp; Vibration\" settings
+        panel.
+    </string>
+    <string name="audio_coldstart_input_info">Info Here</string>
+    <string name="audio_coldstart_outputlbl">Output Cold Start Latency</string>
+    <string name="audio_coldstart_inputlbl">Input Cold Start Latency</string>
+    <string name="audio_coldstart_touchsounds_message">
+        Touch sounds are ENABLED. Please DISABLE touch sounds in the \"Sound &amp; Vibration\" settings panel.
+    </string>
+    <string name="audio_coldstart_notouchsounds_message">Touch sound are DISABLED.</string>
+
+    <!-- Audio Frequency Line Test -->
     <string name="audio_frequency_line_test">Audio Frequency Line Test</string>
     <string name="audio_frequency_line_info">
         The system will measure the frequency response of the left and right line outputs,
@@ -5049,7 +5240,24 @@ Follow the instructions on the screen to measure the frequency response for the 
     <string name="vr_test_usb_noise_instructions">TEST USB NOISE: Connect USB microphone and position it right next to microphone under test.
         Position speakers 40 cms from device under test. Press [PLAY] to play broadband white noise. Press [TEST]</string>
 
-
+    <!-- Analog Headset Test -->
+    <string name="audio_headset_audio_test">Analog Headset Audio Test</string>
+    <string name="analog_headset_query">Does this Android device have an analog headset jack?</string>
+    <string name="analog_headset_play">Play</string>
+    <string name="analog_headset_stop">Stop</string>
+    <string name="analog_headset_success_question">Was the audio correctly played through the headset/headphones?</string>
+    <string name="analog_headset_keycodes_label">Headset Keycodes</string>
+    <string name="analog_headset_headsethook">HEADSETHOOK</string>
+    <string name="analog_headset_volup">VOLUME_UP</string>
+    <string name="analog_headset_voldown">VOLUME_DOWN</string>
+    <string name="analog_headset_test">Analog Headset Test</string>
+    <string name="analog_headset_test_info">
+        This test tests the following functionality with respect to wired analog headset/headphones.\n
+        1. Correct audio playback.\n
+        2. Plug intents.\n
+        3. Headset keycodes.\n
+        To run this test it is necessary to have an Android device with a 3.5mm analog headset jack and a compatible analog headset with Hook, Volume Up and Volume Down buttons.
+    </string>
     <!-- Audio AEC Test -->
     <string name="audio_aec_test">Audio Acoustic Echo Cancellation (AEC) Test</string>
     <string name="audio_aec_info">
@@ -5072,6 +5280,23 @@ Follow the instructions on the screen to measure the frequency response for the 
     <string name="af_no">No</string>
     <string name="af_yes">Yes</string>
 
+    <!-- AudioTap2Tone test -->
+    <string name="audio_tap2tone">Audio Tap To Tone Test</string>
+    <string name="audio_tap2tone_info">This tests the latency from a screen interaction to a
+        resulting tone. This time is a combination of touch screen latency and audio latency.\nThis
+        test is best conducted in a quiet room with the device laying on a table. Select
+        the Audio API to test (\"Native\" has the lowest latency) and press the \"Start\" button.
+        Use your fingernail to tap ONCE on the field below to trigger the test tone. DO NOT leave
+        the finger resting on the test field. A strong "tick" sound from the fingernail striking
+        the display is necessary to register the start of the test process. After tapping ONCE,
+        wait until the results are displayed in the field above the waveform display before
+        tapping for the next test run.\nFive successful tests runs are required to determine
+        if the test as a whole succeeds.
+    </string>
+    <string name="audio_tap2tone_spec">80ms or less average latency is STRONGLY RECOMMENDED to pass.</string>
+    <string name="audio_tap2tone_too_few">Not enough edges. Use fingernail.</string>
+    <string name="audio_tap2tone_too_many">Too many edges. Use fingernail. Ensure there is
+    no background noise.</string>
 
     <!-- Strings for 6DoF test -->
     <string name="six_dof_test">6DoF Test</string>
@@ -5252,7 +5477,8 @@ Follow the instructions on the screen to measure the frequency response for the 
       can receive incoming calls after it has been set.
     </string>
     <string name="dialer_incoming_call_detected">Detected the incoming call. Activity passed.</string>
-    <string name="dialer_check_incoming_call_explanation">Call the device.</string>
+    <string name="dialer_check_incoming_call_explanation">Call the device and end the call in the
+        pop up in-call UI.</string>
     <string name="dialer_check_incoming_call">Verify Call Received</string>
 
     <!-- Strings for VoicemailSettingsCheck test -->
@@ -5276,6 +5502,7 @@ Follow the instructions on the screen to measure the frequency response for the 
     <string name="dialer_shows_hun_explanation">Call the device.
         Check the box if the heads up notification was shown containing the text
         \"CTS Incoming Call Notification\", and only one incoming call notification was shown.
+        Also a pop up CtsVerifier in call UI will show.
     </string>
     <string name="dialer_shows_hun_check_box">HUN shown and meets criteria specified above.</string>
     <string name="dialer_incoming_call_hun_teaser">Incoming Call</string>
@@ -5333,16 +5560,8 @@ Follow the instructions on the screen to measure the frequency response for the 
     <!-- Pro Audio Test -->
     <string name="proaudio_test">Pro Audio Test</string>
     <string name="proaudio_info">
-       This test requires that you have connected a supported USB Audio Peripheral device
-       (not a headset) and that peripheral\'s audio outputs are connected to the peripherals\'s
-       audio inputs. Alternatively, for devices with an analog audio jack or USB-c Digital
-       to Analog dongle, a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a>
-       can be used. Also, if there is an input level
-       control on the peripheral, it must be set to a non-zero value. When the test has
-       verified support for a valid audio peripheral, press the \"Round-Trip Test\" button
-       to complete the test.
-       The latency measurement is generally accurate even when the volume is low. But you may
-       need to increase the volume to bring the confidence number above the threshold.
+        This test will check for validity of the \"Pro Audio\" and subsidiary flags. Note
+        that this test no longer requires a loopback audio device.
     </string>
     <string name="proaudio_hdmi_infotitle">HDMI Support</string>
     <string name="proaudio_hdmi_message">Please connect an HDMI peripheral to validate
@@ -5435,6 +5654,33 @@ Follow the instructions on the screen to measure the frequency response for the 
         UI when prompted.
     </string>
     <string name="telecom_incoming_self_mgd_place_call_button">Start Self-Managed Call</string>
+    <string name="telecom_default_dialer_test_title">Default Dialer Test</string>
+    <string name="telecom_default_dialer_test_info">
+        This test verifies that a third party dialer can show an incoming call screen when the
+        device is locked.
+    </string>
+    <string name="telecom_default_dialer_step_1">
+        Click the button below to set CtsVerifier as the default dialer.
+    </string>
+    <string name="telecom_default_dialer_set_third_party_dialer_button">
+        Set third party dialer
+    </string>
+    <string name="telecom_default_dialer_step_2">
+        Click the button to make sure that this phone is secured with a lock screen.
+    </string>
+    <string name="telecom_confirm_lock_screen">Confirm lock screen</string>
+    <string name="telecom_default_dialer_step_3">
+        Click the button below to lock the phone and then call this device. Answer the incoming call
+        in the UI when prompted without unlock the phone.
+    </string>
+    <string name="telecom_default_dialer_lock_button">Lock phone and dail</string>
+    <string name="telecom_default_dialer_step_4">
+        Click the button below to confirm that the ongoing incoming call was answered when the
+        device is locked.
+    </string>
+    <string name="telecom_default_dialer_end_button">End call and confirm</string>
+    <string name="telecom_default_dialer_confirm_button">Confirm</string>
+    <string name="telecom_in_call_ui_label">CtsVerifierInCallUi</string>
     <!-- Strings for SetNewPasswordComplexityTest -->
     <string name="set_complexity_test_title">Set New Password Complexity Test</string>
     <string name="set_complexity_test_message">
@@ -5455,72 +5701,235 @@ Follow the instructions on the screen to measure the frequency response for the 
         \nAlphanumeric, length at least 4</string>
     <string name="set_complexity_low_desc">Any pattern, PIN or password</string>
     <string name="set_complexity_none_desc">No restrictions</string>
+    <!-- Strings for UnlockedDeviceRequiredTest -->
+    <string name="unlock_req_config_lock_screen">Secure lock screen has not been set up. Go to
+        Settings -> Security to set up a lock screen.</string>
+    <string name="unlock_req_config_lock_screen_and_biometrics">Secure lock screen has not been set
+        up. Go to Settings -> Security to set up a lock screen and biometric unlock.</string>
+    <string name="unlock_req_config_biometrics">Biometric unlock has not been set up. Go to Settings
+        -> Security to set up biometric unlock.</string>
+    <string name="unlock_req_biometric_lock">Lock the screen, wait 5 seconds, then unlock with
+        biometrics.</string>
+    <!-- This message should only be displayed briefly immediately after the user has unlocked
+        the device; as soon as key access is verified this message will be updated. -->
+    <string name="unlock_req_unlocked">Verifying the key is accessible after the unlock...</string>
+    <string name="unlock_req_credential_lock">Lock the screen, wait 5 seconds, then unlock with
+        credentials.</string>
+    <string name="unlock_req_successful">Test completed successfully.</string>
+    <string name="unlock_req_failed_key_available_when_locked">Test failed; the key was available
+        when the device was locked.</string>
+    <string name="unlock_req_failed_key_unavailable_when_unlocked">Test failed; the key was not
+        available when the device was unlocked.</string>
+    <!-- While this state should never be reached since all possible states are accounted for
+         it is included just in case. -->
+    <string name="unlock_req_unknown_state">The test is in an unexpected state; please dismiss
+        this dialog and restart the test.</string>
 
     <!-- Notification Bubble Tests-->
     <string name="bubbles_notification_title">Bubble Notification Tests</string>
-    <string name="bubbles_notification_description">This test checks the behaviour of bubble
-        notifications, ensuring that notifications appear or disappear appropriately based on how
-        BubbleMetadata is configured on the notification and user actions. Bubbles are special
-        notifications that appear as a floating button on the screen, in addition to the notification
-        in the notification shade.</string>
-    <string name="bubbles_notification_test_enable_bubbles_title">Enable Bubbles for CTS Verifier</string>
-    <string name="bubbles_notification_test_enable_bubbles_verify">Click the button below and enable
-        bubbles for the verifier app on the resulting screen, if they aren\'t enabled already.</string>
-    <string name="bubbles_notification_enable_bubbles_button">Enable bubbles for CTS Verifier</string>
-    <string name="bubbles_notification_test_title_1">Step 1: send a bubble with notification</string>
-    <string name="bubbles_notification_test_verify_1">Click the button below and verify that there is a
+    <string name="bubbles_test_title">Bubble Tests</string>
+    <string name="bubbles_test_info">This set of tests checks the settings, UI, and behaviour of
+        bubble notifications. Bubbles are special notifications that can appear as a floating button
+        on the screen along with a notification in the notification shade. When the floating button
+        is tapped an activity is opened in a contained view and the notification is hidden from the
+        shade.</string>
+    <!-- Default settings -->
+    <string name="bubbles_test_check_defaults_title">Check Default Settings</string>
+    <string name="bubbles_test_check_defaults_verify">This step verifies the default bubble
+        settings on the device. \n\n
+        Bubbles are enabled at a feature level and at a per-app level.\n\n
+        By default, bubbles are enabled at a feature level, but off for apps until the user opts in.
+        \n\nIf the default settings are correct, the test will indicate that the state is correct.
+    </string>
+    <!-- Bubble button -->
+    <string name="bubbles_test_bubble_button_title">Bubble Button</string>
+    <string name="bubbles_test_bubble_button_verify">1. Click the button below to send a bubble
+        notification.\n\n
+        2. Pull down the notification shade and press the bubble button on the bottom right of the
+        notification.\n\n
+        3. Pass this test if tapping the bubble button opens the bubble.</string>
+    <string name="bubbles_test_bubble_button_button">Send notification</string>
+    <!-- Bubble preference selected -->
+    <string name="bubbles_test_app_selected_title">Check Settings After Bubble Button</string>
+    <string name="bubbles_test_app_selected_verify">When a notification is turned into a bubble
+        via the bubble button, the app setting for bubbles will change to allow selected
+        notifications to bubble. If the settings are right, the test will indicate that the state
+        is correct.</string>
+    <!-- Disable at feature level -->
+    <string name="bubbles_test_disable_title">Disable Bubbles Feature</string>
+    <string name="bubbles_test_disable_verify">Click the button to open notification settings,
+        find Bubbles and turn the feature off. When the setting is off, the test will indicate that
+        the state is correct.</string>
+    <string name="bubbles_test_disable_button">Open settings</string>
+    <!-- App settings available when disabled -->
+    <string name="bubbles_test_enable_title">Enable Bubbles for CTS Verifier</string>
+    <string name="bubbles_test_enable_verify">1. Click the button below and enable bubbles for the
+        verifier app on the resulting screen, select "All conversations can bubble".\n\n
+        2. You will be prompted to turn on bubbles for the device, turn them on.\n\n
+        Once this is done, the test will indicate that the state is correct.</string>
+    <string name="bubbles_test_enable_button">Open bubble settings</string>
+    <!-- Send bubble -->
+    <string name="bubbles_test_send_bubble_title">Send bubble notification</string>
+    <string name="bubbles_test_send_bubble_verify">Click the button below and verify that there is a
         bubble on the screen and a notification in the notification shade.
     </string>
-    <string name="bubbles_notification_test_button_1">Send bubble notification</string>
-    <string name="bubbles_notification_test_title_2">Step 2: hide notification</string>
-    <string name="bubbles_notification_test_verify_2">Click the button below and verify that the bubble
-        is still on the screen, but the notification is now hidden from the notification shade.
+    <string name="bubbles_test_send_bubble_button">Send bubble notification</string>
+    <!-- Suppress notification -->
+    <string name="bubbles_test_suppress_notif_title">Hide notification</string>
+    <string name="bubbles_test_suppress_notif_verify">Click the button below and verify that the
+        bubble is still on the screen, but the notification is now hidden from the notification
+        shade.
     </string>
-    <string name="bubbles_notification_test_button_2">Update bubble to hide notification</string>
-    <string name="bubbles_notification_test_title_3">Step 3: show notification</string>
-    <string name="bubbles_notification_test_verify_3">Click the button below and verify that the bubble
-        is still on the screen, and the notification is now visible in the notification shade.
+    <string name="bubbles_test_suppress_notif_button">Update bubble to hide notification</string>
+    <!-- Add notification -->
+    <string name="bubbles_test_add_notif_title">Show notification</string>
+    <string name="bubbles_test_add_notif_verify">Click the button below and verify that the bubble
+        is still on the screen, the notification is now visible in the notification shade, and the
+        bubble has a dot indicating the new message.
     </string>
-    <string name="bubbles_notification_test_button_3">Update bubble to show notification</string>
-    <string name="bubbles_notification_test_title_4">Step 4: remove bubble</string>
-    <string name="bubbles_notification_test_verify_4">Click the button below and verify that the
+    <string name="bubbles_test_add_notif_button">Update bubble to show notification</string>
+    <!-- Remove bubble metadata -->
+    <string name="bubbles_test_remove_metadata_title">Remove bubble</string>
+    <string name="bubbles_test_remove_metadata_verify">Click the button below and verify that the
         bubble is removed from the screen, and the notification is still visible in the notification
         shade.</string>
-    <string name="bubbles_notification_test_button_4">Remove bubble</string>
-    <string name="bubbles_notification_test_title_5">Step 5: add bubble</string>
-    <string name="bubbles_notification_test_verify_5">Click the button below and verify that the
+    <string name="bubbles_test_remove_metadata_button">Remove bubble</string>
+    <!-- Add bubble metadata -->
+    <string name="bubbles_test_add_metadata_title">Add bubble</string>
+    <string name="bubbles_test_add_metadata_verify">Click the button below and verify that the
         bubble appears on the screen, and the notification is still visible in the notification
         shade.</string>
-    <string name="bubbles_notification_test_button_5">Add bubble</string>
-    <string name="bubbles_notification_test_title_6">Step 6: open bubble</string>
-    <string name="bubbles_notification_test_verify_6">Tap on the bubble to open it, then tap on the
+    <string name="bubbles_test_add_metadata_button">Add bubble</string>
+    <!-- Expand bubble -->
+    <string name="bubbles_test_expand_bubble_title">Open bubble</string>
+    <string name="bubbles_test_expand_bubble_verify">Tap on the bubble to open it, then tap on the
         bubble again to collapse it and return to this screen. Verify that after opening the bubble,
         there is no longer a notification for it visible in the notification shade.</string>
-    <string name="bubbles_notification_test_title_7">Step 7: drag and dismiss bubble</string>
-    <string name="bubbles_notification_test_verify_7">Click the button below and verify that the bubble
+    <!-- Dismiss bubble -->
+    <string name="bubbles_test_dismiss_title">Drag and dismiss bubble</string>
+    <string name="bubbles_test_dismiss_verify">Click the button below and verify that the bubble
         is still on screen, and the notification is visible in the notification shade.\n\n
         Drag the bubble, while dragging a UI affordance should show. Verify that: \n\n
         1. Dragging and dropping the bubble on that UI affordance removes it from the screen.\n\n
         2. The notification should remain in the notification shade.</string>
-    <string name="bubbles_notification_test_button_7">Update bubble to show notification</string>
-    <string name="bubbles_notification_test_title_8">Step 8: dismiss notification</string>
-    <string name="bubbles_notification_test_verify_8">Click the button below and verify that a bubble
+    <string name="bubbles_test_dismiss_button">Update bubble to show notification</string>
+    <!-- Dismiss notification -->
+    <string name="bubbles_test_dismiss_notif_title">Dismiss notification</string>
+    <string name="bubbles_test_dismiss_notif_verify">Click the button below and verify that a bubble
         appears on screen, and the notification is visible in the notification shade.\n\n
         Dismiss the notification from the notification shade and verify that the bubble remains on
         screen.</string>
-    <string name="bubbles_notification_test_button_8">Send bubble notification</string>
-    <string name="bubbles_notification_test_title_9">Step 9: auto expand bubble</string>
-    <string name="bubbles_notification_test_verify_9">Click the button below and verify that a bubble
+    <string name="bubbles_test_dismiss_notif_button">Send bubble notification</string>
+    <!-- Auto expand bubble -->
+    <string name="bubbles_test_autoexpand_title">Auto expand bubble</string>
+    <string name="bubbles_test_autoexpand_verify">Click the button below and verify that a bubble
         appears on screen, auto-expanded.</string>
-    <string name="bubbles_notification_test_button_9">Send auto-expanded bubble notification</string>
-    <string name="bubbles_notification_test_title_10">No bubbles on low memory device</string>
-    <string name="bubbles_notification_test_verify_10">Click the button below and verify that a
+    <string name="bubbles_test_autoexpand_button">Send auto-expanded bubble notification</string>
+    <!--Overflow exists -->
+    <string name="bubbles_test_overflow_title">Bubble overflow (empty)</string>
+    <string name="bubbles_test_overflow_verify">Tap the bubble to expand it and verify there is an
+        affordance to see previous bubbles. It should be empty right now and show an empty state
+        message.</string>
+    <!-- Bubbles appear in overflow -->
+    <string name="bubbles_test_bubbles_in_overflow_title">Bubble overflow (with bubbles)</string>
+    <string name="bubbles_test_bubbles_in_overflow_verify">1. Press the button below to create
+        several bubbles.\n\n
+        2. Expand the stack and drag down two of the bubbles to dismiss them.\n\n
+        3. Tap on the bubble overflow, pass this test if the two bubbles you dismissed are in
+        the overflow. </string>
+    <string name="bubbles_test_bubbles_in_overflow_button">Send several bubbles</string>
+    <!-- Add bubble from overflow -->
+    <string name="bubbles_test_add_from_overflow_title">Add bubble from overflow</string>
+    <string name="bubbles_test_add_from_overflow_verify">1. Expand the stack and open the bubble
+        overflow.\n\n 2. Tap on a bubble in the overflow, pass this test if that bubble is opened
+        and removed from the overflow.</string>
+    <!-- Cancel removes bubbles in overflow -->
+    <string name="bubbles_test_cancel_overflow_title">Cancel removes overflowed bubbles</string>
+    <string name="bubbles_test_cancel_overflow_verify">1. Press the button below, it will cancel all
+        previous bubble notifications and post one more.\n\n
+        2. Expand that bubble, navigate to the overflow and ensure that it is empty.</string>
+    <string name="bubbles_test_cancel_overflow_button">Cancel previous bubbles and post a
+        single bubble</string>
+    <!-- Tap on notification with bubble in the overflow -->
+    <string name="bubbles_test_tap_notif_with_overflow_title">Tap on notification opens bubble
+    </string>
+    <string name="bubbles_test_tap_notif_with_overflow_verify">1. Press the button to create a
+        bubble.\n\n
+        2. Dismiss the bubble without opening it.\n\n
+        3. Tap on the notification. Pass this test if the notification opened as a bubble.</string>
+    <string name="bubbles_test_tap_notif_with_overflow_button">Send bubble</string>
+    <!-- Portrait & landscape positioning -->
+    <string name ="bubbles_test_expanded_position_title">Portrait and landscape positioning</string>
+    <string name="bubbles_test_expanded_position_phone_verify">1. While in portrait orientation,
+        tap on the bubble to open it.\n\n
+        2. Verify that the bubbles show at the top of the screen.\n\n
+        3. Rotate the device to landscape orientation.\n\n
+        3. Verify that the bubbles are aligned to the left or right edge of the screen.</string>
+    <string name="bubbles_test_expanded_position_largescreen_verify">
+        1. Tap the bubble to open it.\n\n
+        2. Verify that the bubbles are aligned to the left or right edge of the screen.\n\n
+        3. Rotate the device.\n\n
+        4. Verify that the bubbles are aligned to the left or right edge of the screen.</string>
+    <!-- Expanded view scrim -->
+    <string name="bubbles_test_expanded_scrim_title">Expanded state has scrim</string>
+    <string name="bubbles_test_expanded_scrim_verify">Expand the bubble and pass this test if the
+        area below the bubble is dimmed (like when a dialog is opened).</string>
+    <!-- IME insets -->
+    <string name="bubbles_test_ime_title">IME behavior</string>
+    <string name="bubbles_test_ime_verify">1. Tap on the bubble to open it.\n\n
+        2. Tap the edit text in the bubble to bring up the IME.\n\n
+        3. Pass this test if the IME appears and the edit text is still visible.</string>
+    <!-- Expanded view min height -->
+    <string name="bubbles_test_min_height_title">Expanded view min height</string>
+    <string name="bubbles_test_min_height_verify">1. Press the button below to update the bubble to
+        have the smallest height.\n\n
+    2. Open the bubble, it will tell you if the height is correct.</string>
+    <string name="bubbles_test_min_height_button">Send small height bubble</string>
+    <!-- Expanded view max height -->
+    <string name="bubbles_test_max_height_title">Expanded view max height</string>
+    <string name="bubbles_test_max_height_verify">1. Press the button below to update the bubble to
+        have the maximum height.\n\n
+        2. Open the bubble, it will tell you if the height is correct.</string>
+    <string name="bubbles_test_max_height_button">Send max height bubble</string>
+    <!-- Low ram -->
+    <string name="bubbles_test_lowram_title">No bubbles on low memory device</string>
+    <string name="bubbles_test_lowram_verify">Click the button below and verify that a
         bubble does NOT appear on screen. Verify that there is a notification in the notification
         shade.</string>
-    <string name="bubbles_notification_test_button_10">Add bubble</string>
+    <string name="bubbles_test_lowram_button">Add bubble</string>
+    <!-- Bubbles end of test summary -->
     <string name="bubbles_test_summary_title">Test Complete</string>
     <string name="bubbles_test_summary">%1$d out of %2$d tests passed</string>
     <string name="bubble_activity_title">Bubble Activity</string>
+    <string name="bubble_test_state_correct">State is correct, pass the test.</string>
+    <string name="bubble_test_state_waiting">State is not correct, waiting for the correct state.
+    </string>
+    <string name="bubble_test_ime_hint">Tap for IME</string>
+    <string name="bubble_test_expanded_view">Bubble expanded view</string>
+
+    <!-- Toast test -->
+    <string name="toast_title">Toast test (may auto pass if CtsVerifier isn\'t targeting
+        S+)</string>
+    <string name="toast_info">This test checks the behavior for toasts for apps targeting
+        sdk S+ (31). Toasts are short messages that appear as popups for a limited amount of time.
+    </string>
+    <string name="toast_instructions_pre_s">No cts requirement for toasts for apps targeting
+        pre-s. Auto pass this test.</string>
+    <string name="toast_instructions_s">Press the button below to post a toast. Pass this
+        test if a toast appears and has:\n
+        \n\t1. a maximum of two lines
+        \n\t2. an application icon
+    </string>
+    <string name="toast_post_button_label">Post toast</string>
+    <string name="toast_long_text">Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+        Nam luctus eros ac interdum tincidunt. Vestibulum dignissim, metus nec tempor mollis,
+        tortor leo aliquam est, eget rutrum mi nisi ut ligula. Quisque enim justo, tempus at
+        ligula ac, porta posuere odio. Proin et tortor tincidunt, tempus ligula id,
+        vestibulum mauris. Vivamus blandit tristique tempus. Integer dignissim purus eu nibh
+        faucibus, eget dignissim eros gravida. Sed sit amet erat quis leo pharetra euismod vel at
+        purus. Duis blandit, diam eu imperdiet pulvinar, erat odio eleifend augue, nec luctus
+        lectus erat ac nibh. Nullam id enim metus.
+    </string>
 
     <!-- Strings for Instant Apps -->
     <string name="ia_instruction_heading_label">Instructions:</string>
@@ -5542,16 +5951,16 @@ Follow the instructions on the screen to measure the frequency response for the 
     1. Click Start Test. \n\n
     2. An alert dialog with install instruction will be shown if the sample Instant App has not been installed, otherwise, the sample Instant App will be opened automatically. \n\n
     3. Drag down the notification bar when the sample Instant App is at foreground. \n\n
-    4. Skip this step in china version. \n\n
+    4. Check if Instant App is shown in notifciation area with the following (Please expand the notification if it is collapsed): \n
+    \u0020\u0020\u0020a. It provides information about Instant Apps not requiring installation and an action that provides more information about the Instant App. \n
+    \u0020\u0020\u0020b. It provides an action allowing the user to launch the associated link with web browser. \n\n
     5. Click Pass button if all checks in step 4 passed, otherwise click Fail button.
     </string>
     <string name="ia_notification_instruction_label_no_app_market_version">\n
     1. Click Start Test. \n\n
     2. An alert dialog with install instruction will be shown if the sample Instant App has not been installed, otherwise, the sample Instant App will be opened automatically. \n\n
     3. Drag down the notification bar when the sample Instant App is at foreground. \n\n
-    4. Check if Instant App is shown in notification area with the following (Please expand the notification if it is collapsed): \n
-    \u0020\u0020\u0020a. It provides information about Instant Apps not requiring installation and an action that provides more information about the Instant App. \n
-    \u0020\u0020\u0020b. Skip this step in china version.Can not launch the associated link with web browser. \n\n
+    4. Check if Instant App is shown in notification area with information about Instant Apps not requiring installation and an action that provides more information about the Instant App (Please expand the notification if it is collapsed) \n\n
     5. Click Pass button if all checks in step 4 passed, otherwise click Fail button.
     </string>
     <string name="ia_recents">Instant Apps Recents Test</string>
@@ -5586,7 +5995,8 @@ Follow the instructions on the screen to measure the frequency response for the 
     <string name="uap_test_no">No</string>
     <string name="uap_test_yes">Yes</string>
     <string name="uap_test_info">Info</string>
-    <string name="uap_test_question">Does this device allow for the connectiono of a USB reference microphone?</string>
+    <string name="uap_test_question">Does this device allow for the connection of a USB audio peripheral?\nNote: phones and tablets generally do, watches and automobiles generally do not.</string>
+    <string name="uap_refmic_question">Does this device allow for the connection of a USB reference microphone?</string>
     <string name="uap_mic_dlg_caption">USB Host Mode Audio Required</string>
     <string name="uap_mic_dlg_text">This test requires a USB audio peripheral to be connected to the device.
     If the device under test does not support USB Host Mode Audio (either because it does not have a
@@ -5609,21 +6019,38 @@ Follow the instructions on the screen to measure the frequency response for the 
     Note: Devices declaring feature android.hardware.audio.pro MUST implement USB host mode (CDD 5.10 C-1-3) and if they omit a 4 conductor 3.5mm audio jack MUST support USB audio class (CDD 5.10 C-3-1)
     </string>
 
-    <string name="display_cutout_test">DisplayCutout Test</string>
-    <string name="display_cutout_test_instruction">\n
-    This test is to make sure that the area inside the safe insets from the DisplayCutout should be
-    fully visible and touchable. \n\n
-    Please check the below items: \n
-    1. All buttons are fully visible \n
-    2. All buttons are clickable. \n
-    </string>
-
     <string name="loopback_test_question">Does this device allow for the connection of a loopback audio peripheral?</string>
     <string name="loopback_dlg_caption">Loopback Peripheral Required</string>
-    <string name="loopback_dlg_text">This test requires an Audio Loopback Peripheral to be connected to the device.\n
-        This can be done in one of three ways:\n
-        1. Connect a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a> to the 3.5mm headset jack.\n
-        2. Connect a <a href="https://source.android.com/devices/audio/latency/loopback">Loopback Plug</a> to a USB-C headset adapter.\n
-        3. Connect a USB audio interface peripheral and connect the outputs to the inputs with an audio patch cable.
+
+    <string name="display_cutout_test">DisplayCutout Test</string>
+    <string name="display_cutout_test_instruction">\n
+    This test is to make sure that the area inside the safe insets from the DisplayCutout should be:\n
+    1. Visible\n
+    2. Clickable.\n
     </string>
+
+    <!-- TTS Test Resources -->
+    <string name="tts_test">TTS Test</string>
+    <string name="tts_test_info">
+      1. Install the CtsTtsEngineSelectorTestHelper and CtsTtsEngineSelectorTestHelper2 apps on the device.\n
+      2. Click on the "Go To Accessibility Settings" button.\n
+      3. Go to Text-to-speech output > Preferred engine.\n
+      4. Ensure that two engines are listed, both named "TTS CTS Test Helper App".\n
+      5. Ensure that each engine can be selected.
+    </string>
+    <string name="tts_test_steps">
+      1. Install the CtsTtsEngineSelectorTestHelper and CtsTtsEngineSelectorTestHelper2 apps on the device.\n
+      2. Click on the "Go To Accessibility Settings" button.\n
+      3. Go to Text-to-speech output > Preferred engine.\n
+      4. Ensure that two engines are listed, both named "TTS CTS Test Helper App".\n
+      5. Ensure that each engine can be selected.
+    </string>
+    <string name="tts_accessibility_settings_button">Go To Accessibility Settings</string>
+
+    <!-- Strings for SecurityModeFeatureVerifierActivity test -->
+    <string name="security_mode_feature_verifier_test">SecurityModeFeatureVerifier Test</string>
+    <string name="security_mode_feature_verifier_instructions">This test verifies that the PackageManager.FEATURE_SECURITY_MODEL_COMPATIBLE feature is present.</string>
+    <string name="handheld_or_tablet_text_before_test">Is this a handheld or tablet device?</string>
+    <string name="handheld_or_tablet_yes">Yes</string>
+    <string name="handheld_or_tablet_not_applicable">Not applicable</string>
 </resources>

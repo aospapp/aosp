@@ -303,6 +303,16 @@ struct chreAudioDataEvent {
 bool chreAudioGetSource(uint32_t handle, struct chreAudioSource *audioSource);
 
 /**
+ * Nanoapps must define CHRE_NANOAPP_USES_AUDIO somewhere in their build
+ * system (e.g. Makefile) if the nanoapp needs to use the following audio APIs.
+ * In addition to allowing access to these APIs, defining this macro will also
+ * ensure CHRE enforces that all host clients this nanoapp talks to have the
+ * required Android permissions needed to listen to audio data by adding
+ * metadata to the nanoapp.
+ */
+#if defined(CHRE_NANOAPP_USES_AUDIO) || !defined(CHRE_IS_NANOAPP_BUILD)
+
+/**
  * Configures delivery of audio data to the current nanoapp. Note that this may
  * not fully disable the audio source if it is used by other clients in the
  * system but it will halt data delivery to the nanoapp.
@@ -381,6 +391,7 @@ bool chreAudioGetSource(uint32_t handle, struct chreAudioSource *audioSource);
  *     were provided (non-existent handle, invalid buffering configuration).
  *
  * @since v1.2
+ * @note Requires audio permission
  */
 bool chreAudioConfigureSource(uint32_t handle, bool enable,
                               uint64_t bufferDuration,
@@ -397,8 +408,19 @@ bool chreAudioConfigureSource(uint32_t handle, bool enable,
  *     successfully, false if the handle was invalid or status is NULL.
  *
  * @since v1.2
+ * @note Requires audio permission
  */
 bool chreAudioGetStatus(uint32_t handle, struct chreAudioSourceStatus *status);
+
+#else  /* defined(CHRE_NANOAPP_USES_AUDIO) || !defined(CHRE_IS_NANOAPP_BUILD) */
+#define CHRE_AUDIO_PERM_ERROR_STRING \
+    "CHRE_NANOAPP_USES_AUDIO must be defined when building this nanoapp in " \
+    "order to refer to "
+#define chreAudioConfigureSource(...) \
+    CHRE_BUILD_ERROR(CHRE_AUDIO_PERM_ERROR_STRING "chreAudioConfigureSource")
+#define chreAudioGetStatus(...) \
+    CHRE_BUILD_ERROR(CHRE_AUDIO_PERM_ERROR_STRING "chreAudioGetStatus")
+#endif  /* defined(CHRE_NANOAPP_USES_AUDIO) || !defined(CHRE_IS_NANOAPP_BUILD) */
 
 #ifdef __cplusplus
 }

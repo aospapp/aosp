@@ -11,7 +11,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 DUT is connected to Servo v4 via USB type-C, and Servo v4 is connected to AC

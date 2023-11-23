@@ -87,7 +87,7 @@ class BlockCipherEvpOperation : public Operation {
     virtual int evp_encrypt_mode() = 0;
 
     bool need_iv() const;
-    keymaster_error_t InitializeCipher(KeymasterKeyBlob key);
+    keymaster_error_t InitializeCipher(const KeymasterKeyBlob& key);
     keymaster_error_t GetIv(const AuthorizationSet& input_params);
     bool HandleAad(const AuthorizationSet& input_params, const Buffer& input,
                    keymaster_error_t* error);

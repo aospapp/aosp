@@ -87,8 +87,8 @@ public abstract class StreamableAsset extends Asset {
 
     @Override
     public void decodeBitmapRegion(Rect rect, int targetWidth, int targetHeight,
-                                   BitmapReceiver receiver) {
-        runDecodeBitmapRegionTask(rect, targetWidth, targetHeight, receiver);
+            boolean shouldAdjustForRtl, BitmapReceiver receiver) {
+        runDecodeBitmapRegionTask(rect, targetWidth, targetHeight, shouldAdjustForRtl, receiver);
     }
 
     @Override
@@ -136,14 +136,15 @@ public abstract class StreamableAsset extends Asset {
      * @param rect         Rect representing the crop region in terms of the original image's resolution.
      * @param targetWidth  Width of target view in physical pixels.
      * @param targetHeight Height of target view in physical pixels.
+     * @param isRtl
      * @param receiver     Called with the decoded bitmap region or null if there was an error decoding
      *                     the bitmap region.
      * @return AsyncTask reference so that the decoding task can be canceled before it starts.
      */
     public AsyncTask runDecodeBitmapRegionTask(Rect rect, int targetWidth, int targetHeight,
-                                               BitmapReceiver receiver) {
+            boolean isRtl, BitmapReceiver receiver) {
         DecodeBitmapRegionAsyncTask task =
-                new DecodeBitmapRegionAsyncTask(rect, targetWidth, targetHeight, receiver);
+                new DecodeBitmapRegionAsyncTask(rect, targetWidth, targetHeight, isRtl, receiver);
         task.execute();
         return task;
     }
@@ -299,17 +300,19 @@ public abstract class StreamableAsset extends Asset {
      */
     private class DecodeBitmapRegionAsyncTask extends AsyncTask<Void, Void, Bitmap> {
 
+        private final boolean mIsRtl;
         private Rect mCropRect;
-        private BitmapReceiver mReceiver;
+        private final BitmapReceiver mReceiver;
         private int mTargetWidth;
         private int mTargetHeight;
 
         public DecodeBitmapRegionAsyncTask(Rect rect, int targetWidth, int targetHeight,
-                                           BitmapReceiver receiver) {
+                boolean isRtl, BitmapReceiver receiver) {
             mCropRect = rect;
             mReceiver = receiver;
             mTargetWidth = targetWidth;
             mTargetHeight = targetHeight;
+            mIsRtl = isRtl;
         }
 
         @Override
@@ -324,8 +327,15 @@ public abstract class StreamableAsset extends Asset {
             }
 
             // Rotate crop rect if image is rotated more than 0 degrees.
+            Point dimensions = calculateRawDimensions();
             mCropRect = CropRectRotator.rotateCropRectForExifOrientation(
-                    calculateRawDimensions(), mCropRect, exifOrientation);
+                    dimensions, mCropRect, exifOrientation);
+
+            // If we're in RTL mode, center in the rightmost side of the image
+            if (mIsRtl) {
+                mCropRect.set(dimensions.x - mCropRect.right, mCropRect.top,
+                        dimensions.x - mCropRect.left, mCropRect.bottom);
+            }
 
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inSampleSize = BitmapUtils.calculateInSampleSize(
@@ -354,6 +364,9 @@ public abstract class StreamableAsset extends Asset {
 
                 } catch (OutOfMemoryError e) {
                     Log.e(TAG, "Out of memory and unable to decode bitmap region", e);
+                    return null;
+                } catch (IllegalArgumentException e){
+                    Log.e(TAG, "Illegal argument for decoding bitmap region", e);
                     return null;
                 }
             }

@@ -319,8 +319,7 @@ static bool TryPrepareHwWrappedKey(Keymaster &keymaster,
   paramBuilder.Authorization(km::TAG_STORAGE_KEY);
 
   std::string wrapped_key_blob;
-  if (keymaster.importKey(paramBuilder, km::KeyFormat::RAW, master_key_string,
-                          &wrapped_key_blob) &&
+  if (keymaster.importKey(paramBuilder, master_key_string, &wrapped_key_blob) &&
       keymaster.exportKey(wrapped_key_blob, exported_key_string)) {
     return true;
   }

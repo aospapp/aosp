@@ -28,4 +28,9 @@
         <option name="jar" value="CtsAppUsageHostTestCases.jar" />
         <option name="runtime-hint" value="2m" />
     </test>
+
+    <object type="module_controller"
+            class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <option name="mainline-module-package-name" value="android.scheduling"/>
+    </object>
 </configuration>

@@ -16,6 +16,8 @@
 
 package com.android.bluetooth.pbap;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
 import android.annotation.NonNull;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -38,6 +40,7 @@ import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.IObexConnectionHandler;
 import com.android.bluetooth.ObexRejectServer;
 import com.android.bluetooth.R;
+import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
@@ -74,6 +77,12 @@ class PbapStateMachine extends StateMachine {
     static final int REMOVE_NOTIFICATION = 6;
     static final int AUTH_KEY_INPUT = 7;
     static final int AUTH_CANCELLED = 8;
+
+    /**
+     * Used to limit PBAP OBEX maximum packet size in order to reduce
+     * transaction time.
+     */
+    private static final int PBAP_OBEX_MAXIMUM_PACKET_SIZE = 8192;
 
     private BluetoothPbapService mService;
     private IObexConnectionHandler mIObexConnectionHandler;
@@ -155,7 +164,7 @@ class PbapStateMachine extends StateMachine {
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
             intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
             mService.sendBroadcastAsUser(intent, UserHandle.ALL,
-                    BluetoothPbapService.BLUETOOTH_PERM);
+                    BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
         }
 
         /**
@@ -241,7 +250,8 @@ class PbapStateMachine extends StateMachine {
         private void rejectConnection() {
             mPbapServer =
                     new BluetoothPbapObexServer(mServiceHandler, mService, PbapStateMachine.this);
-            BluetoothObexTransport transport = new BluetoothObexTransport(mConnSocket);
+            BluetoothObexTransport transport = new BluetoothObexTransport(mConnSocket,
+                    PBAP_OBEX_MAXIMUM_PACKET_SIZE, BluetoothObexTransport.PACKET_SIZE_UNSPECIFIED);
             ObexRejectServer server =
                     new ObexRejectServer(ResponseCodes.OBEX_HTTP_UNAVAILABLE, mConnSocket);
             try {
@@ -342,7 +352,8 @@ class PbapStateMachine extends StateMachine {
                 mObexAuth.setChallenged(false);
                 mObexAuth.setCancelled(false);
             }
-            BluetoothObexTransport transport = new BluetoothObexTransport(mConnSocket);
+            BluetoothObexTransport transport = new BluetoothObexTransport(mConnSocket,
+                    PBAP_OBEX_MAXIMUM_PACKET_SIZE, BluetoothObexTransport.PACKET_SIZE_UNSPECIFIED);
             mServerSession = new ServerSession(transport, mPbapServer, mObexAuth);
             // It's ok to just use one wake lock
             // Message MSG_ACQUIRE_WAKE_LOCK is always surrounded by RELEASE. safe.
@@ -377,7 +388,7 @@ class PbapStateMachine extends StateMachine {
             deleteIntent.setClass(mService, BluetoothPbapService.class);
             deleteIntent.setAction(BluetoothPbapService.AUTH_CANCELLED_ACTION);
 
-            String name = mRemoteDevice.getName();
+            String name = Utils.getName(mRemoteDevice);
 
             Notification notification =
                     new Notification.Builder(mService, PBAP_OBEX_NOTIFICATION_CHANNEL).setWhen(
@@ -393,10 +404,14 @@ class PbapStateMachine extends StateMachine {
                                             mService.getTheme()))
                             .setFlag(Notification.FLAG_AUTO_CANCEL, true)
                             .setFlag(Notification.FLAG_ONLY_ALERT_ONCE, true)
+                            // TODO(b/171825892) Please replace FLAG_MUTABLE_UNAUDITED below
+                            // with either FLAG_IMMUTABLE (recommended) or FLAG_MUTABLE.
                             .setContentIntent(
-                                    PendingIntent.getActivity(mService, 0, clickIntent, 0))
+                                    PendingIntent.getActivity(mService, 0, clickIntent,
+                                        PendingIntent.FLAG_IMMUTABLE))
                             .setDeleteIntent(
-                                    PendingIntent.getBroadcast(mService, 0, deleteIntent, 0))
+                                    PendingIntent.getBroadcast(mService, 0, deleteIntent,
+                                        PendingIntent.FLAG_IMMUTABLE))
                             .setLocalOnly(true)
                             .build();
             nm.notify(mNotificationId, notification);

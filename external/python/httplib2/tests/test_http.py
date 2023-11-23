@@ -622,6 +622,57 @@ def test_get_307():
         assert content == b"final content\n"
 
 
+def test_post_307():
+    # 307: follow with same method
+    http = httplib2.Http(cache=tests.get_cache_path(), timeout=1)
+    http.follow_all_redirects = True
+    r307 = tests.http_response_bytes(status=307, headers={"location": "/final"})
+    r200 = tests.http_response_bytes(status=200, body=b"final content\n")
+
+    with tests.server_list_http([r307, r200, r307, r200]) as uri:
+        response, content = http.request(uri, "POST")
+        assert response.previous.status == 307
+        assert not response.previous.fromcache
+        assert response.status == 200
+        assert not response.fromcache
+        assert content == b"final content\n"
+
+        response, content = http.request(uri, "POST")
+        assert response.previous.status == 307
+        assert not response.previous.fromcache
+        assert response.status == 200
+        assert not response.fromcache
+        assert content == b"final content\n"
+
+
+def test_change_308():
+    # 308: follow with same method, cache redirect
+    http = httplib2.Http(cache=tests.get_cache_path(), timeout=1)
+    routes = {
+        "/final": tests.make_http_reflect(),
+        "": tests.http_response_bytes(
+            status="308 Permanent Redirect",
+            add_date=True,
+            headers={"cache-control": "max-age=300", "location": "/final"},
+        ),
+    }
+
+    with tests.server_route(routes, request_count=3) as uri:
+        response, content = http.request(uri, "CHANGE", body=b"hello308")
+        assert response.previous.status == 308
+        assert not response.previous.fromcache
+        assert response.status == 200
+        assert not response.fromcache
+        assert content.startswith(b"CHANGE /final HTTP")
+
+        response, content = http.request(uri, "CHANGE")
+        assert response.previous.status == 308
+        assert response.previous.fromcache
+        assert response.status == 200
+        assert not response.fromcache
+        assert content.startswith(b"CHANGE /final HTTP")
+
+
 def test_get_410():
     # Test that we pass 410's through
     http = httplib2.Http()
@@ -643,3 +694,42 @@ content"""
         assert response.status == 200
         assert content == b"content"
         assert response["link"], "link1, link2"
+
+
+def test_custom_redirect_codes():
+    http = httplib2.Http()
+    http.redirect_codes = set([300])
+    with tests.server_const_http(status=301, request_count=1) as uri:
+        response, content = http.request(uri, "GET")
+        assert response.status == 301
+        assert response.previous is None
+
+
+def test_cwe93_inject_crlf():
+    # https://cwe.mitre.org/data/definitions/93.html
+    # GET /?q= HTTP/1.1      <- injected "HTTP/1.1" from attacker
+    # injected: attack
+    # ignore-http: HTTP/1.1  <- nominal "HTTP/1.1" from library
+    # Host: localhost:57285
+    http = httplib2.Http()
+    with tests.server_reflect() as uri:
+        danger_url = urllib.parse.urljoin(
+            uri, "?q= HTTP/1.1\r\ninjected: attack\r\nignore-http:"
+        )
+        response, content = http.request(danger_url, "GET")
+        assert response.status == 200
+        req = tests.HttpRequest.from_bytes(content)
+        assert req.headers.get("injected") is None
+
+
+def test_inject_space():
+    # Injecting space into request line is precursor to CWE-93 and possibly other injections
+    http = httplib2.Http()
+    with tests.server_reflect() as uri:
+        # "\r\nignore-http:" suffix is nuance for current server implementation
+        # please only pay attention to space after "?q="
+        danger_url = urllib.parse.urljoin(uri, "?q= HTTP/1.1\r\nignore-http:")
+        response, content = http.request(danger_url, "GET")
+        assert response.status == 200
+        req = tests.HttpRequest.from_bytes(content)
+        assert req.uri == "/?q=%20HTTP/1.1%0D%0Aignore-http:"

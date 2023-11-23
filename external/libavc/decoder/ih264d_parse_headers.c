@@ -35,6 +35,7 @@
 #include "ih264_typedefs.h"
 #include "ih264_macros.h"
 #include "ih264_platform_macros.h"
+#include "ih264_defs.h"
 #include "ih264d_bitstrm.h"
 #include "ih264d_structs.h"
 #include "ih264d_parse_cavlc.h"
@@ -275,6 +276,7 @@ WORD32 ih264d_parse_pps(dec_struct_t * ps_dec, dec_bit_stream_t * ps_bitstrm)
     UWORD32 *pu4_bitstrm_ofst = &ps_dec->ps_bitstrm->u4_ofst;
 
     /* Variables used for error resilience checks */
+    UWORD64 u8_temp;
     UWORD32 u4_temp;
     WORD32 i_temp;
 
@@ -327,30 +329,28 @@ WORD32 ih264d_parse_pps(dec_struct_t * ps_dec, dec_bit_stream_t * ps_bitstrm)
     /*--------------------------------------------------------------------*/
     /* Decode num_slice_groups_minus1                                     */
     /*--------------------------------------------------------------------*/
-    u4_temp = ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf) + 1;
-    if(u4_temp != 1)
+    u8_temp = ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf) + (UWORD64)1;
+    if(u8_temp != 1)
     {
-        UWORD32 i4_error_code;
-        i4_error_code = ERROR_FEATURE_UNAVAIL;
-        return i4_error_code;
+        return ERROR_FEATURE_UNAVAIL;
     }
-    ps_pps->u1_num_slice_groups = u4_temp;
+    ps_pps->u1_num_slice_groups = u8_temp;
     COPYTHECONTEXT("PPS: num_slice_groups_minus1",ps_pps->u1_num_slice_groups -1);
 
     /*--------------------------------------------------------------------*/
     /* Other parameter set values                                         */
     /*--------------------------------------------------------------------*/
-    u4_temp = 1 + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
-    if(u4_temp > H264_MAX_REF_IDX)
+    u8_temp = (UWORD64)1 + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+    if(u8_temp > H264_MAX_REF_IDX)
         return ERROR_REF_IDX;
-    ps_pps->u1_num_ref_idx_lx_active[0] = u4_temp;
+    ps_pps->u1_num_ref_idx_lx_active[0] = u8_temp;
     COPYTHECONTEXT("PPS: num_ref_idx_l0_active_minus1",
                     ps_pps->u1_num_ref_idx_lx_active[0] - 1);
 
-    u4_temp = 1 + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
-    if(u4_temp > H264_MAX_REF_IDX)
+    u8_temp = (UWORD64)1 + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+    if(u8_temp > H264_MAX_REF_IDX)
         return ERROR_REF_IDX;
-    ps_pps->u1_num_ref_idx_lx_active[1] = u4_temp;
+    ps_pps->u1_num_ref_idx_lx_active[1] = u8_temp;
     COPYTHECONTEXT("PPS: num_ref_idx_l1_active_minus1",
                     ps_pps->u1_num_ref_idx_lx_active[1] - 1);
 
@@ -363,20 +363,21 @@ WORD32 ih264d_parse_pps(dec_struct_t * ps_dec, dec_bit_stream_t * ps_bitstrm)
     if(ps_pps->u1_wted_bipred_idc > MAX_WEIGHT_BIPRED_IDC)
         return ERROR_INV_SPS_PPS_T;
 
-    i_temp = 26 + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+    WORD64 i8_temp = (WORD64)26
+                        + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
 
-    if((i_temp < 0) || (i_temp > 51))
+    if((i8_temp < MIN_H264_QP) || (i8_temp > MAX_H264_QP))
         return ERROR_INV_RANGE_QP_T;
 
-    ps_pps->u1_pic_init_qp = i_temp;
+    ps_pps->u1_pic_init_qp = i8_temp;
     COPYTHECONTEXT("PPS: pic_init_qp_minus26",ps_pps->u1_pic_init_qp - 26);
 
-    i_temp = 26 + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+    i8_temp = (WORD64)26 + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
 
-    if((i_temp < 0) || (i_temp > 51))
+    if((i8_temp < MIN_H264_QP) || (i8_temp > MAX_H264_QP))
         return ERROR_INV_RANGE_QP_T;
 
-    ps_pps->u1_pic_init_qs = i_temp;
+    ps_pps->u1_pic_init_qs = i8_temp;
     COPYTHECONTEXT("PPS: pic_init_qs_minus26",ps_pps->u1_pic_init_qs - 26);
 
     i_temp = ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
@@ -463,7 +464,7 @@ WORD32 ih264d_parse_pps(dec_struct_t * ps_dec, dec_bit_stream_t * ps_bitstrm)
 
     /* In case bitstream read has exceeded the filled size, then
        return an error */
-    if(ps_bitstrm->u4_ofst > ps_bitstrm->u4_max_ofst + 8)
+    if(EXCEED_OFFSET(ps_bitstrm))
     {
         return ERROR_INV_SPS_PPS_T;
     }
@@ -577,6 +578,7 @@ WORD32 ih264d_parse_sps(dec_struct_t *ps_dec, dec_bit_stream_t *ps_bitstrm)
     UWORD8 u1_frm, uc_constraint_set0_flag, uc_constraint_set1_flag;
     WORD32 i4_cropped_ht, i4_cropped_wd;
     UWORD32 u4_temp;
+    UWORD64 u8_temp;
     UWORD32 u4_pic_height_in_map_units, u4_pic_width_in_mbs;
     UWORD32 u2_pic_wd = 0;
     UWORD32 u2_pic_ht = 0;
@@ -771,12 +773,12 @@ WORD32 ih264d_parse_sps(dec_struct_t *ps_dec, dec_bit_stream_t *ps_bitstrm)
     /*--------------------------------------------------------------------*/
     /* Decode MaxFrameNum                                                 */
     /*--------------------------------------------------------------------*/
-    u4_temp = 4 + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
-    if(u4_temp > MAX_BITS_IN_FRAME_NUM)
+    u8_temp = (UWORD64)4 + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+    if(u8_temp > MAX_BITS_IN_FRAME_NUM)
     {
         return ERROR_INV_SPS_PPS_T;
     }
-    ps_seq->u1_bits_in_frm_num = u4_temp;
+    ps_seq->u1_bits_in_frm_num = u8_temp;
     COPYTHECONTEXT("SPS: log2_max_frame_num_minus4",
                     (ps_seq->u1_bits_in_frm_num - 4));
 
@@ -797,14 +799,14 @@ WORD32 ih264d_parse_sps(dec_struct_t *ps_dec, dec_bit_stream_t *ps_bitstrm)
     ps_seq->u1_num_ref_frames_in_pic_order_cnt_cycle = 1;
     if(ps_seq->u1_pic_order_cnt_type == 0)
     {
-        u4_temp = 4 + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
-        if(u4_temp > MAX_BITS_IN_POC_LSB)
+        u8_temp = (UWORD64)4 + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+        if(u8_temp > MAX_BITS_IN_POC_LSB)
         {
             return ERROR_INV_SPS_PPS_T;
         }
-        ps_seq->u1_log2_max_pic_order_cnt_lsb_minus = u4_temp;
-        ps_seq->i4_max_pic_order_cntLsb = (1 << u4_temp);
-        COPYTHECONTEXT("SPS: log2_max_pic_order_cnt_lsb_minus4",(u4_temp - 4));
+        ps_seq->u1_log2_max_pic_order_cnt_lsb_minus = u8_temp;
+        ps_seq->i4_max_pic_order_cntLsb = (1 << u8_temp);
+        COPYTHECONTEXT("SPS: log2_max_pic_order_cnt_lsb_minus4",(u8_temp - 4));
     }
     else if(ps_seq->u1_pic_order_cnt_type == 1)
     {
@@ -864,20 +866,23 @@ WORD32 ih264d_parse_sps(dec_struct_t *ps_dec, dec_bit_stream_t *ps_bitstrm)
     /*--------------------------------------------------------------------*/
     /* Decode FrameWidth and FrameHeight and related values               */
     /*--------------------------------------------------------------------*/
-    u4_pic_width_in_mbs = 1
-                    + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
-    COPYTHECONTEXT("SPS: pic_width_in_mbs_minus1",
-                   u4_pic_width_in_mbs - 1);
-
-    u4_pic_height_in_map_units = 1 + ih264d_uev(pu4_bitstrm_ofst,
-                                                pu4_bitstrm_buf);
-
+    u8_temp = (UWORD64)1 + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
     /* Check  for unsupported resolutions*/
-    if((u4_pic_width_in_mbs > (H264_MAX_FRAME_WIDTH >> 4)) ||
-        (u4_pic_height_in_map_units > (H264_MAX_FRAME_HEIGHT >> 4)))
+    if(u8_temp > (H264_MAX_FRAME_WIDTH >> 4))
     {
         return IVD_STREAM_WIDTH_HEIGHT_NOT_SUPPORTED;
     }
+    u4_pic_width_in_mbs = u8_temp;
+    COPYTHECONTEXT("SPS: pic_width_in_mbs_minus1",
+                   u4_pic_width_in_mbs - 1);
+
+    u8_temp = (UWORD64)1 + ih264d_uev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+    if (u8_temp > (H264_MAX_FRAME_HEIGHT >> 4))
+    {
+        return IVD_STREAM_WIDTH_HEIGHT_NOT_SUPPORTED;
+    }
+    u4_pic_height_in_map_units = u8_temp;
+
     ps_seq->u2_frm_wd_in_mbs = u4_pic_width_in_mbs;
     ps_seq->u2_frm_ht_in_mbs = u4_pic_height_in_map_units;
 
@@ -1093,7 +1098,7 @@ WORD32 ih264d_parse_sps(dec_struct_t *ps_dec, dec_bit_stream_t *ps_bitstrm)
 
     /* In case bitstream read has exceeded the filled size, then
      return an error */
-    if (ps_bitstrm->u4_ofst > ps_bitstrm->u4_max_ofst)
+    if (EXCEED_OFFSET(ps_bitstrm))
     {
         return ERROR_INV_SPS_PPS_T;
     }
@@ -1101,6 +1106,23 @@ WORD32 ih264d_parse_sps(dec_struct_t *ps_dec, dec_bit_stream_t *ps_bitstrm)
     /*--------------------------------------------------------------------*/
     /* All initializations to ps_dec are beyond this point                */
     /*--------------------------------------------------------------------*/
+    {
+        WORD32 reorder_depth = ih264d_get_dpb_size(ps_seq);
+        if((1 == ps_seq->u1_vui_parameters_present_flag) &&
+           (1 == ps_seq->s_vui.u1_bitstream_restriction_flag))
+        {
+            reorder_depth = ps_seq->s_vui.u4_num_reorder_frames + 1;
+        }
+
+        if (reorder_depth > H264_MAX_REF_PICS)
+        {
+            return ERROR_INV_SPS_PPS_T;
+        }
+
+        if(ps_seq->u1_frame_mbs_only_flag != 1)
+            reorder_depth *= 2;
+        ps_dec->i4_reorder_depth = reorder_depth + DISPLAY_LATENCY;
+    }
     ps_dec->u2_disp_height = i4_cropped_ht;
     ps_dec->u2_disp_width = i4_cropped_wd;
 

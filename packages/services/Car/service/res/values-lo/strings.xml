@@ -16,8 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="car_permission_label" msgid="741004755205554376">"ເຂົ້າເຖິງຂໍ້ມູນຂອງລົດ"</string>
-    <string name="car_permission_desc" msgid="162499818870052725">"ເຂົ້າເຖິງຂໍ້ມູນລົດຂອງທ່ານ."</string>
+    <string name="car_permission_label" msgid="2215078736675564541">"ຂໍ້ມູນລົດ"</string>
+    <string name="car_permission_desc" msgid="3584369074931334964">"ເຂົ້າເຖິງຂໍ້ມູນລົດຂອງທ່ານ"</string>
     <string name="car_permission_label_camera" msgid="3725702064841827180">"ເຂົ້າເຖິງກ້ອງຂອງລົດ"</string>
     <string name="car_permission_desc_camera" msgid="917024932164501426">"ເຂົ້າເຖິງກ້ອງຂອງລົດທ່ານ."</string>
     <string name="car_permission_label_energy" msgid="7409144323527821558">"ເຂົ້າເຖິງຂໍ້ມູນພະລັງງານຂອງລົດ"</string>
@@ -62,6 +62,8 @@
     <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"ຮັບຂໍ້ມູນຈາກແຜງໜ້າປັດ"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"ການກຳນົດຄ່າຂໍ້ຈຳກັດ UX"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"ກຳນົດຄ່າຂໍ້ຈຳກັດ UX"</string>
+    <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"ສິດເຂົ້າເຖິງແບບອ່ານສຳລັບ ID ການສະແດງຜົນສ່ວນຕົວ"</string>
+    <string name="car_permission_desc_access_private_display_id" msgid="8535974477610944721">"ອະນຸຍາດສິດເຂົ້າເຖິງແບບອ່ານສຳລັບ ID ການສະແດງຜົນສ່ວນຕົວ"</string>
     <string name="car_permission_label_car_handle_usb_aoap_device" msgid="72783989504378036">"ສື່ສານກັບອຸປະກອນ USB ໃນໂໝດ AOAP"</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device" msgid="273505990971317034">"ອະນຸຍາດໃຫ້ແອັບສື່ສານກັບອຸປະກອນໃນໂໝດ AOAP"</string>
     <string name="car_permission_label_read_car_occupant_awareness_state" msgid="125517953575032758">"ສິດເຂົ້າເຖິງການອ່ານຂອງລະບົບການຮັບຮູ້ວ່າມີຄົນຢູ່"</string>
@@ -91,6 +93,18 @@
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"ຕິດຕາມການໃຊ້ພື້ນທີ່ເກັບຂໍ້ມູນແຟລດ"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"ຟັງສະຖານະການຂັບຂີ່"</string>
     <string name="car_permission_desc_driving_state" msgid="2684025262811635737">"ຟັງການປ່ຽນແປງສະພາບການຂັບຂີ່."</string>
+    <string name="car_permission_label_use_telemetry_service" msgid="948005838683758846">"ໃຊ້ບໍລິການວັດແທກ ແລະ ສົ່ງຂໍ້ມູນທາງໄກໃນລົດ"</string>
+    <string name="car_permission_desc_use_telemetry_service" msgid="3633214312435700766">"ເກັບກຳຂໍ້ມູນປະສິດທິພາບຂອງລະບົບລົດ."</string>
+    <string name="car_permission_label_use_evs_service" msgid="1729276125209310607">"ໃຊ້ການບໍລິການ EVS ຂອງລົດ"</string>
+    <string name="car_permission_desc_use_evs_service" msgid="2374737642186632816">"ຕິດຕາມວິດີໂອສະຕຣີມ EVS"</string>
+    <string name="car_permission_label_request_evs_activity" msgid="3906551972883482883">"ຮ້ອງຂໍການເຄື່ອນໄຫວສະແດງຕົວຢ່າງ EVS"</string>
+    <string name="car_permission_desc_request_evs_activity" msgid="4582768053649138488">"ຮ້ອງຂໍໃຫ້ລະບົບເປີດນຳໃຊ້ການເຄື່ອນໄຫວສະແດງຕົວຢ່າງ EVS"</string>
+    <string name="car_permission_label_control_evs_activity" msgid="2030069860204405679">"ຄວບຄຸມການເຄື່ອນໄຫວສະແດງຕົວຢ່າງ EVS"</string>
+    <string name="car_permission_desc_control_evs_activity" msgid="691646545916976346">"ຄວບຄຸມການເຄື່ອນໄຫວສະແດງຕົວຢ່າງ EVS ຂອງລະບົບ"</string>
+    <string name="car_permission_label_use_evs_camera" msgid="3607720208623955067">"ໃຊ້ກ້ອງ EVS"</string>
+    <string name="car_permission_desc_use_evs_camera" msgid="1625845902221003985">"ຕິດຕາມການສະຕຣີມກ້ອງ EVS"</string>
+    <string name="car_permission_label_monitor_evs_status" msgid="2091521314159379622">"ຕິດຕາມສະຖານະບໍລິການ EVS"</string>
+    <string name="car_permission_desc_monitor_evs_status" msgid="2764278897143573535">"ຟັງການປ່ຽນສະຖານະຂອງບໍລິການ EVS"</string>
     <string name="car_permission_label_car_engine_detailed" msgid="8911992719173587337">"ເຂົ້າເຖິງລາຍລະອຽດເຄື່ອງຈັກຂອງລົດ"</string>
     <string name="car_permission_desc_car_engine_detailed" msgid="1746863362811347700">"ເຂົ້າເຖິງຂໍ້ມູນເຄື່ອງຈັກລະອຽດຂອງລົດທ່ານ."</string>
     <string name="car_permission_label_car_energy_ports" msgid="8548990315169219454">"ເຂົ້າເຖິງຂໍ້ມູນຝານໍ້າມັນ ແລະ ຮູສາກໄຟຂອງລົດ"</string>
@@ -113,6 +127,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"ເຂົ້າເຖິງຂໍ້ມູນການອະນຸຍາດຂອງຜູ້ຂາຍລົດ."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"ອ່ານສະຖານະໄຟພາຍນອກຂອງລົດ"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"ເຂົ້າເຖິງສະຖານະໄພພາຍນອກຂອງລົດ."</string>
+    <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"ເຂົ້າເຖິງເວລາສະເພາະຂອງລົດ"</string>
+    <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"ເຂົ້າເຖິງເວລາສະເພາະຂອງລົດ."</string>
+    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"ເຂົ້າເຖິງ seed ການເຊື່ອມໂຍງການເຂົ້າລະຫັດຂອງລົດ"</string>
+    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"ເຂົ້າເຖິງ seed ການເຊື່ອມໂຍງການເຂົ້າລະຫັດຂອງລົດ."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"ອ່ານສະຖານໄຟພາຍນອກລົດ"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"ຄວບຄຸມໄຟພາຍນອກຂອງລົດ."</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"ອ່ານໄຟພາຍໃນຂອງລົດ"</string>
@@ -141,6 +159,27 @@
     <string name="car_permission_desc_control_car_features" msgid="7646711104530599901">"ເປີດນຳໃຊ້ ຫຼື ປິດການນຳໃຊ້ຄຸນສົມບັດຂອງລົດ."</string>
     <string name="car_permission_label_use_car_watchdog" msgid="6973938293170413475">"ໃຊ້ Watchdog ໃນລົດ"</string>
     <string name="car_permission_desc_use_car_watchdog" msgid="8244592601805516086">"ໃຊ້ Watchdog ໃນລົດ."</string>
+    <string name="car_permission_label_control_car_watchdog_config" msgid="7002301555689209243">"ຄວບຄຸມການຕັ້ງຄ່າ watchdog ຂອງລົດ"</string>
+    <string name="car_permission_desc_control_car_watchdog_config" msgid="2276721198186100781">"ຄວບຄຸມການຕັ້ງຄ່າ watchdog ຂອງລົດ."</string>
+    <string name="car_permission_label_collect_car_watchdog_metrics" msgid="6868646053065666480">"ຮວບຮວມເມທຣິກ watchdog ຂອງລົດ"</string>
+    <string name="car_permission_desc_collect_car_watchdog_metrics" msgid="5712074376194601441">"ຮວບຮວມເມທຣິກ watchdog ຂອງລົດ."</string>
+    <string name="car_permission_label_read_car_power_policy" msgid="4597484321338979324">"ອ່ານນະໂຍບາຍພະລັງງານສຳລັບລົດຍົນ"</string>
+    <string name="car_permission_desc_read_car_power_policy" msgid="5430714179790601808">"ອ່ານນະໂຍບາຍພະລັງງານສຳລັບລົດຍົນ."</string>
+    <string name="car_permission_label_control_car_power_policy" msgid="6840069695926008330">"ຄວບຄຸມນະໂຍບາຍພະລັງງານສຳລັບລົດຍົນ"</string>
+    <string name="car_permission_desc_control_car_power_policy" msgid="8565782440893507028">"ຄວບຄຸມນະໂຍບາຍພະລັງງານສຳລັບລົດຍົນ."</string>
+    <string name="car_permission_label_template_renderer" msgid="3464887382919754850">"ສະແດງແມ່ແບບ"</string>
+    <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"ສະແດງແມ່ແບບ."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"ອຸປະກອນຂອງຂ້ອຍ"</string>
     <string name="default_guest_name" msgid="2912812799433131476">"ແຂກ"</string>
+    <string name="importance_default" msgid="8587741629268312938">"ຄວາມສຳຄັນເລີ່ມຕົ້ນ"</string>
+    <string name="importance_high" msgid="3141530792377745041">"ຄວາມສໍາຄັນສູງ"</string>
+    <string name="factory_reset_notification_title" msgid="2530056626309489398">"ຕ້ອງຣິເຊັດເປັນຄ່າຈາກໂຮງງານ"</string>
+    <string name="factory_reset_notification_text" msgid="6517642677900094724">"ຂໍ້ມູນທັງໝົດໃນລະບົບສາລະບັນເທີງຈະຖືກລຶບ. ຫຼັງຈາກຣີເຊັດແລ້ວ, ທ່ານສາມາດຕັ້ງຄ່າໂປຣໄຟລ໌ໃໝ່."</string>
+    <string name="factory_reset_notification_button" msgid="5450535366202106371">"ເພີ່ມເຕີມ"</string>
+    <string name="factory_reset_parked_title" msgid="258340498079453871">"ຣີເຊັດລະບົບສາລະບັນເທີງ"</string>
+    <string name="factory_reset_parked_text" msgid="910347526834275166">"ລະບົບຂອງທ່ານໄດ້ຮັບຄຳຂໍໃຫ້ຣີເຊັດເປັນຄ່າຈາກໂຮງງານ ແລະ ລຶບຂໍ້ມູນທັງໝົດ. ທ່ານສາມາດຣີເຊັດມັນໄດ້ດຽວນີ້ ຫຼື ມັນຈະຣີເຊັດໃນຄັ້ງຕໍ່ໄປທີ່ລົດຕິດຈັກ. ຈາກນັ້ນທ່ານສາມາດຕັ້ງຄ່າໂປຣໄຟລ໌ໃໝ່."</string>
+    <string name="factory_reset_now_button" msgid="1245040835119663310">"ຣີເຊັດດຽວນີ້"</string>
+    <string name="factory_reset_later_button" msgid="2401829720674483843">"ຣີເຊັດໃນພາຍຫຼັງ"</string>
+    <string name="factory_reset_later_text" msgid="5896142140528784784">"ລະບົບສາລະບັນເທີງຈະຣີເຊັດໃນຄັ້ງຕໍ່ໄປທີ່ລົດຕິດຈັກ."</string>
+    <string name="factory_reset_driving_text" msgid="6702298505761254553">"ຕ້ອງຈອດລົດເພື່ອເລີ່ມຕົ້ນການຣີເຊັດ."</string>
 </resources>

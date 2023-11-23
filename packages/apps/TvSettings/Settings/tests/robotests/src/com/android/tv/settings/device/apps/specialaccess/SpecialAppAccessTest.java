@@ -20,9 +20,12 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.robolectric.Shadows.shadowOf;
 import static org.robolectric.shadow.api.Shadow.extract;
 
 import android.app.ActivityManager;
+
+import androidx.fragment.app.FragmentActivity;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -32,6 +35,7 @@ import org.mockito.Spy;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowActivityManager;
+import org.robolectric.shadows.ShadowPackageManager;
 
 @RunWith(RobolectricTestRunner.class)
 public class SpecialAppAccessTest {
@@ -39,7 +43,12 @@ public class SpecialAppAccessTest {
     @Spy
     private SpecialAppAccess mSpecialAppAccess;
 
+    @Spy
+    private FragmentActivity mActivity;
+
     private ShadowActivityManager mActivityManager;
+
+    private ShadowPackageManager mShadowPackageManager;
 
     @Before
     public void setUp() {
@@ -47,7 +56,13 @@ public class SpecialAppAccessTest {
         mActivityManager = extract(RuntimeEnvironment.application
                 .getSystemService(ActivityManager.class));
         doReturn(RuntimeEnvironment.application).when(mSpecialAppAccess).getContext();
+        mShadowPackageManager = shadowOf(
+                RuntimeEnvironment.application.getPackageManager());
         mSpecialAppAccess.onAttach(RuntimeEnvironment.application);
+        doReturn(mActivity).when(mSpecialAppAccess).getActivity();
+        doReturn(RuntimeEnvironment.application.getPackageManager())
+                .when(mActivity)
+                .getPackageManager();
     }
 
     @Test
@@ -56,7 +71,7 @@ public class SpecialAppAccessTest {
 
         mSpecialAppAccess.updatePreferenceStates();
 
-        verify(mSpecialAppAccess, times(1)).removePreference(SpecialAppAccess.KEY_FEATURE_PIP);
+        verify(mSpecialAppAccess, times(2)).removePreference(SpecialAppAccess.KEY_FEATURE_PIP);
         verify(mSpecialAppAccess, times(1)).removePreference(
                 SpecialAppAccess.KEY_FEATURE_NOTIFICATION_ACCESS);
     }
@@ -67,7 +82,7 @@ public class SpecialAppAccessTest {
 
         mSpecialAppAccess.updatePreferenceStates();
 
-        verify(mSpecialAppAccess, never()).removePreference(SpecialAppAccess.KEY_FEATURE_PIP);
+        verify(mSpecialAppAccess, times(1)).removePreference(SpecialAppAccess.KEY_FEATURE_PIP);
         verify(mSpecialAppAccess, never()).removePreference(
                 SpecialAppAccess.KEY_FEATURE_NOTIFICATION_ACCESS);
     }

@@ -16,4 +16,5 @@
 
 <resources>
     <string name="feature_c_string">Feature C String Default</string>
+    <string name="theme_name">Feature C Theme</string>
 </resources>

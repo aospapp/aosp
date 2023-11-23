@@ -59,6 +59,12 @@ public class KeyEventTest {
     private long mDownTime;
     private long mEventTime;
 
+    private static native void nativeKeyEventTest(KeyEvent event);
+
+    static {
+        System.loadLibrary("ctsview_jni");
+    }
+
     @Before
     public void setup() {
         mKeyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_0);
@@ -586,6 +592,23 @@ public class KeyEventTest {
     }
 
     @Test
+    public void testIsMediaSessionKey() {
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_MEDIA_PLAY));
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_MEDIA_PAUSE));
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE));
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_MUTE));
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_HEADSETHOOK));
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_MEDIA_STOP));
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_MEDIA_NEXT));
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS));
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_MEDIA_REWIND));
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_MEDIA_RECORD));
+        assertTrue(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_MEDIA_FAST_FORWARD));
+
+        assertFalse(KeyEvent.isMediaSessionKey(KeyEvent.KEYCODE_0));
+    }
+
+    @Test
     public void testGetMatch() {
         // Our default key event is down + 0, so we expect getMatch to return our '0' character
         assertEquals('0', mKeyEvent.getMatch(new char[] { '0', '1', '2' }));
@@ -793,6 +816,13 @@ public class KeyEventTest {
                 KeyEvent.keyCodeFromString(Integer.toString(KeyEvent.LAST_KEYCODE)));
         assertEquals(KeyEvent.KEYCODE_UNKNOWN,
                 KeyEvent.keyCodeFromString(Integer.toString(KeyEvent.LAST_KEYCODE + 1)));
+    }
+
+    @Test
+    public void testNativeConverter() {
+        mKeyEvent = new KeyEvent(mDownTime, mEventTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A,
+                1, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0, 0, InputDevice.SOURCE_TOUCHSCREEN);
+        nativeKeyEventTest(mKeyEvent);
     }
 
     // Parcel a KeyEvent, then create a new KeyEvent from this parcel. Return the new KeyEvent

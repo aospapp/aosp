@@ -9,10 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/google/brotli.git"
   }
-  version: "v1.0.7"
+  version: "v1.0.9"
+  license_type: NOTICE
   last_upgrade_date {
-    year: 2018
-    month: 10
-    day: 29
+    year: 2020
+    month: 8
+    day: 27
   }
 }

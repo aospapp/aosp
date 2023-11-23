@@ -42,7 +42,6 @@ import android.net.Uri;
 import android.os.Looper;
 import android.os.ParcelUuid;
 import android.os.PersistableBundle;
-import android.permission.IPermissionManager;
 import android.service.euicc.EuiccProfileInfo;
 import android.service.euicc.EuiccService;
 import android.service.euicc.GetEuiccProfileInfoListResult;
@@ -85,8 +84,10 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
     private static final int FAKE_SUB_ID_2 = 1;
     private static final int FAKE_CARD_ID = 0;
     private static final String FAKE_EID = "89049032000001000000031328322874";
+    private static final String FAKE_ICCID_1 = "89012604200000000000";
     private static final String FAKE_MCC_MNC_1 = "123456";
     private static final String FAKE_MCC_MNC_2 = "456789";
+    private static final int FAKE_PHONE_ID_1 = 0;
 
     private SubscriptionInfoUpdater mUpdater;
     private IccRecords mIccRecord;
@@ -106,8 +107,6 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
     private IntentBroadcaster mIntentBroadcaster;
     @Mock
     private IPackageManager mPackageManager;
-    @Mock
-    private IPermissionManager mPermissionManager;
     @Mock
     private UiccSlot mUiccSlot;
 
@@ -161,8 +160,8 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
                 .getActiveSubIdList(/*visibleOnly*/false);
         mIccRecord = mUiccProfile.getIccRecords();
 
-        mUpdater = new SubscriptionInfoUpdater(Looper.myLooper(), mContext,
-            new CommandsInterface[]{mSimulatedCommands});
+        mUpdater =
+                new SubscriptionInfoUpdater(Looper.myLooper(), mContext, mSubscriptionController);
         processAllMessages();
 
         assertFalse(mUpdater.isSubInfoInitialized());
@@ -238,16 +237,16 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
     @SmallTest
     public void testSimNotReady() throws Exception {
         mUpdater.updateInternalIccState(
-                IccCardConstants.INTENT_VALUE_ICC_NOT_READY, null, FAKE_SUB_ID_1);
+                IccCardConstants.INTENT_VALUE_ICC_NOT_READY, null, FAKE_PHONE_ID_1);
 
         processAllMessages();
         assertFalse(mUpdater.isSubInfoInitialized());
         verify(mSubscriptionContent, never()).put(anyString(), any());
         CarrierConfigManager mConfigManager = (CarrierConfigManager)
                 mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE);
-        verify(mConfigManager, never()).updateConfigForPhoneId(eq(FAKE_SUB_ID_1),
+        verify(mConfigManager, never()).updateConfigForPhoneId(eq(FAKE_PHONE_ID_1),
                 eq(IccCardConstants.INTENT_VALUE_ICC_NOT_READY));
-        verify(mSubscriptionController, never()).clearSubInfo();
+        verify(mSubscriptionController, never()).clearSubInfoRecord(FAKE_PHONE_ID_1);
         verify(mSubscriptionController, never()).notifySubscriptionInfoChanged();
     }
 
@@ -258,19 +257,19 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
         doReturn(true).when(mIccCard).isEmptyProfile();
 
         mUpdater.updateInternalIccState(
-                IccCardConstants.INTENT_VALUE_ICC_NOT_READY, null, FAKE_SUB_ID_1);
+                IccCardConstants.INTENT_VALUE_ICC_NOT_READY, null, FAKE_PHONE_ID_1);
 
         processAllMessages();
         assertTrue(mUpdater.isSubInfoInitialized());
         // Sub info should be cleared and change should be notified.
-        verify(mSubscriptionController).clearSubInfoRecord(eq(FAKE_SUB_ID_1));
+        verify(mSubscriptionController).clearSubInfoRecord(eq(FAKE_PHONE_ID_1));
         verify(mSubscriptionController).notifySubscriptionInfoChanged();
         // No new sub should be added.
         verify(mSubscriptionManager, never()).addSubscriptionInfoRecord(any(), anyInt());
         verify(mSubscriptionContent, never()).put(anyString(), any());
         CarrierConfigManager mConfigManager = (CarrierConfigManager)
                 mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE);
-        verify(mConfigManager).updateConfigForPhoneId(eq(FAKE_SUB_ID_1),
+        verify(mConfigManager).updateConfigForPhoneId(eq(FAKE_PHONE_ID_1),
                 eq(IccCardConstants.INTENT_VALUE_ICC_NOT_READY));
     }
 
@@ -285,28 +284,46 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
         doReturn(false).when(mSubInfo).areUiccApplicationsEnabled();
 
         mUpdater.updateInternalIccState(
-                IccCardConstants.INTENT_VALUE_ICC_NOT_READY, null, FAKE_SUB_ID_1);
+                IccCardConstants.INTENT_VALUE_ICC_NOT_READY, null, FAKE_PHONE_ID_1);
 
         processAllMessages();
         assertTrue(mUpdater.isSubInfoInitialized());
         // Sub info should be cleared and change should be notified.
-        verify(mSubscriptionController).clearSubInfoRecord(eq(FAKE_SUB_ID_1));
+        verify(mSubscriptionController).clearSubInfoRecord(eq(FAKE_PHONE_ID_1));
         verify(mSubscriptionController).notifySubscriptionInfoChanged();
         // No new sub should be added.
         verify(mSubscriptionManager, never()).addSubscriptionInfoRecord(any(), anyInt());
         verify(mSubscriptionContent, never()).put(anyString(), any());
         CarrierConfigManager mConfigManager = (CarrierConfigManager)
                 mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE);
-        verify(mConfigManager).updateConfigForPhoneId(eq(FAKE_SUB_ID_1),
+        verify(mConfigManager).updateConfigForPhoneId(eq(FAKE_PHONE_ID_1),
                 eq(IccCardConstants.INTENT_VALUE_ICC_NOT_READY));
 
         // When becomes ABSENT, UICC_APPLICATIONS_ENABLED should be reset to true.
         mUpdater.updateInternalIccState(
-                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, FAKE_SUB_ID_1);
+                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, FAKE_PHONE_ID_1);
         processAllMessages();
         ArgumentCaptor<ContentValues> valueCapture = ArgumentCaptor.forClass(ContentValues.class);
         verify(mContentProvider).update(eq(SubscriptionManager.CONTENT_URI), valueCapture.capture(),
                 eq(SubscriptionManager.ICC_ID + "=\'" + iccId + "\'"), eq(null));
+        ContentValues contentValues = valueCapture.getValue();
+        assertTrue(contentValues != null && contentValues.getAsBoolean(
+                UICC_APPLICATIONS_ENABLED));
+    }
+
+    @Test
+    @SmallTest
+    public void testSimRemovedWhileDisablingUiccApps() throws Exception {
+        loadSim();
+
+        mUpdater.updateInternalIccState(
+                IccCardConstants.INTENT_VALUE_ICC_ABSENT, null, FAKE_SUB_ID_1);
+        processAllMessages();
+
+        // UICC_APPLICATIONS_ENABLED should be reset to true.
+        ArgumentCaptor<ContentValues> valueCapture = ArgumentCaptor.forClass(ContentValues.class);
+        verify(mContentProvider).update(eq(SubscriptionManager.CONTENT_URI), valueCapture.capture(),
+                eq(SubscriptionManager.ICC_ID + "=\'" + FAKE_ICCID_1 + "\'"), eq(null));
         ContentValues contentValues = valueCapture.getValue();
         assertTrue(contentValues != null && contentValues.getAsBoolean(
                 UICC_APPLICATIONS_ENABLED));
@@ -346,13 +363,11 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
         verify(mSubscriptionController, times(0)).notifySubscriptionInfoChanged();
     }
 
-    @Test
-    @SmallTest
-    public void testSimLoaded() throws Exception {
+    private void loadSim() {
         doReturn(FAKE_SUB_ID_1).when(mSubInfo).getSubscriptionId();
         doReturn(Arrays.asList(mSubInfo)).when(mSubscriptionController)
                 .getSubInfoUsingSlotIndexPrivileged(eq(FAKE_SUB_ID_1));
-        doReturn("89012604200000000000").when(mIccRecord).getFullIccId();
+        doReturn(FAKE_ICCID_1).when(mIccRecord).getFullIccId();
         doReturn(FAKE_MCC_MNC_1).when(mTelephonyManager).getSimOperatorNumeric(FAKE_SUB_ID_1);
         when(mActivityManager.updateMccMncConfiguration(anyString(), anyString())).thenReturn(
                 true);
@@ -362,6 +377,17 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
 
         processAllMessages();
         assertTrue(mUpdater.isSubInfoInitialized());
+
+        CarrierConfigManager mConfigManager = (CarrierConfigManager)
+                mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        verify(mConfigManager).updateConfigForPhoneId(eq(FAKE_SUB_ID_1),
+                eq(IccCardConstants.INTENT_VALUE_ICC_LOADED));
+    }
+
+    @Test
+    @SmallTest
+    public void testSimLoaded() throws Exception {
+        loadSim();
 
         // verify SIM_STATE_CHANGED broadcast. It should be broadcast twice, once for
         // READ_PHONE_STATE and once for READ_PRIVILEGED_PHONE_STATE
@@ -384,7 +410,7 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
         SubscriptionManager mSubscriptionManager = SubscriptionManager.from(mContext);
         verify(mTelephonyManager).getSimOperatorNumeric(FAKE_SUB_ID_1);
         verify(mSubscriptionManager, times(1)).addSubscriptionInfoRecord(
-                eq("89012604200000000000"), eq(FAKE_SUB_ID_1));
+                eq(FAKE_ICCID_1), eq(FAKE_SUB_ID_1));
         verify(mSubscriptionController, times(1)).notifySubscriptionInfoChanged();
         verify(mSubscriptionController, times(1)).setMccMnc(FAKE_MCC_MNC_1, FAKE_SUB_ID_1);
         verify(mSubscriptionController, times(0)).clearSubInfo();
@@ -417,7 +443,7 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testSimLoadedEmptyOperatorNumeric() throws Exception {
-        doReturn("89012604200000000000").when(mIccRecord).getFullIccId();
+        doReturn(FAKE_ICCID_1).when(mIccRecord).getFullIccId();
         // operator numeric is empty
         doReturn("").when(mTelephonyManager).getSimOperatorNumeric(FAKE_SUB_ID_1);
         doReturn(FAKE_SUB_ID_1).when(mSubInfo).getSubscriptionId();
@@ -431,7 +457,7 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
         SubscriptionManager mSubscriptionManager = SubscriptionManager.from(mContext);
         verify(mTelephonyManager).getSimOperatorNumeric(FAKE_SUB_ID_1);
         verify(mSubscriptionManager, times(1)).addSubscriptionInfoRecord(
-                eq("89012604200000000000"), eq(FAKE_SUB_ID_1));
+                eq(FAKE_ICCID_1), eq(FAKE_SUB_ID_1));
         verify(mSubscriptionController, times(1)).notifySubscriptionInfoChanged();
         verify(mSubscriptionController, times(0)).setMccMnc(anyString(), anyInt());
         verify(mSubscriptionController, times(0)).clearSubInfo();
@@ -491,7 +517,7 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
         doReturn(FAKE_MCC_MNC_1).when(mTelephonyManager).getSimOperatorNumeric(eq(FAKE_SUB_ID_1));
         doReturn(FAKE_MCC_MNC_2).when(mTelephonyManager).getSimOperatorNumeric(eq(FAKE_SUB_ID_2));
         verify(mSubscriptionController, times(0)).clearSubInfo();
-        doReturn("89012604200000000000").when(mIccRecord).getFullIccId();
+        doReturn(FAKE_ICCID_1).when(mIccRecord).getFullIccId();
         SubscriptionManager mSubscriptionManager = SubscriptionManager.from(mContext);
         verify(mSubscriptionManager, times(0)).addSubscriptionInfoRecord(anyString(), anyInt());
         verify(mSubscriptionController, times(0)).notifySubscriptionInfoChanged();
@@ -519,7 +545,7 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
                 IccCardConstants.INTENT_VALUE_ICC_LOADED, null, FAKE_SUB_ID_2);
 
         processAllMessages();
-        verify(mSubscriptionManager, times(1)).addSubscriptionInfoRecord(eq("89012604200000000000"),
+        verify(mSubscriptionManager, times(1)).addSubscriptionInfoRecord(eq(FAKE_ICCID_1),
                 eq(FAKE_SUB_ID_1));
         verify(mSubscriptionManager, times(1)).addSubscriptionInfoRecord(eq("89012604200000000001"),
                 eq(FAKE_SUB_ID_2));
@@ -536,7 +562,7 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
         doReturn("98106240020000000000").when(mIccRecord).getFullIccId();
 
         replaceInstance(SubscriptionInfoUpdater.class, "sIccId", null,
-                new String[]{"89012604200000000000"});
+                new String[]{FAKE_ICCID_1});
 
         mUpdater.updateInternalIccState(
                 IccCardConstants.INTENT_VALUE_ICC_LOCKED, "TESTING", FAKE_SUB_ID_1);
@@ -725,9 +751,10 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
         mUpdater.updateSubscriptionByCarrierConfig(mPhone.getPhoneId(),
                 carrierPackageName, new PersistableBundle());
 
-        verify(mContentProvider, never()).update(any(), any(), any(), any());
-        verify(mSubscriptionController, never()).refreshCachedActiveSubscriptionInfoList();
-        verify(mSubscriptionController, never()).notifySubscriptionInfoChanged();
+        //at each call to updateSubscriptionByCarrierConfig, only carrier certs are updated
+        verify(mContentProvider, times(1)).update(any(), any(), any(), any());
+        verify(mSubscriptionController, times(1)).notifySubscriptionInfoChanged();
+        verify(mSubscriptionController, times(1)).refreshCachedActiveSubscriptionInfoList();
     }
 
     @Test
@@ -756,7 +783,8 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
                 cvCaptor.capture(), eq(null), eq(null));
         assertEquals(1, cvCaptor.getValue().getAsInteger(
                 SubscriptionManager.IS_OPPORTUNISTIC).intValue());
-        assertEquals(1, cvCaptor.getValue().size());
+        // 2 updates: isOpportunistic, and carrier certs:
+        assertEquals(2, cvCaptor.getValue().size());
         verify(mSubscriptionController, times(1)).refreshCachedActiveSubscriptionInfoList();
         verify(mSubscriptionController, times(1)).notifySubscriptionInfoChanged();
     }
@@ -792,7 +820,8 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
                 cvCaptor.getValue().getAsString(SubscriptionManager.GROUP_UUID));
         assertEquals(carrierPackageName,
                 cvCaptor.getValue().getAsString(SubscriptionManager.GROUP_OWNER));
-        assertEquals(3, cvCaptor.getValue().size());
+        // 4 updates: isOpportunistic, groupUuid, groupOwner, and carrier certs:
+        assertEquals(4, cvCaptor.getValue().size());
     }
 
     @Test
@@ -825,7 +854,8 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
         assertEquals(1, cvCaptor.getValue().getAsInteger(
                 SubscriptionManager.IS_OPPORTUNISTIC).intValue());
         assertNull(cvCaptor.getValue().getAsString(SubscriptionManager.GROUP_UUID));
-        assertEquals(2, cvCaptor.getValue().size());
+        // 3 updates: isOpportunistic, groupUuid, and carrier certs:
+        assertEquals(3, cvCaptor.getValue().size());
     }
 
     @Test
@@ -868,6 +898,46 @@ public class SubscriptionInfoUpdaterTest extends TelephonyTest {
                 .getAsByteArray(SubscriptionManager.ACCESS_RULES_FROM_CARRIER_CONFIGS)));
         assertEquals(1, cvCaptor.getValue().size());
         verify(mSubscriptionController, times(1)).refreshCachedActiveSubscriptionInfoList();
+        verify(mSubscriptionController, times(1)).notifySubscriptionInfoChanged();
+    }
+
+    @Test
+    @SmallTest
+    public void testSimReady() throws Exception {
+        replaceInstance(SubscriptionInfoUpdater.class, "sIccId", null,new String[]{""});
+
+        doReturn(FAKE_ICCID_1).when(mUiccSlot).getIccId();
+
+        mUpdater.updateInternalIccState(
+            IccCardConstants.INTENT_VALUE_ICC_READY, "TESTING", FAKE_SUB_ID_1);
+        processAllMessages();
+
+        verify(mSubscriptionController).clearSubInfoRecord(eq(FAKE_SUB_ID_1));
+        verify(mSubscriptionManager, times(1)).addSubscriptionInfoRecord(
+                eq(FAKE_ICCID_1), eq(FAKE_SUB_ID_1));
+        assertTrue(mUpdater.isSubInfoInitialized());
+        verify(mSubscriptionController, times(1)).notifySubscriptionInfoChanged();
+    }
+
+    @Test
+    @SmallTest
+    public void testSimReadyAndLoaded() throws Exception {
+        replaceInstance(SubscriptionInfoUpdater.class, "sIccId", null,new String[]{""});
+
+        doReturn(null).when(mUiccSlot).getIccId();
+
+        mUpdater.updateInternalIccState(
+            IccCardConstants.INTENT_VALUE_ICC_READY, "TESTING", FAKE_SUB_ID_1);
+        processAllMessages();
+
+        verify(mSubscriptionManager, times(0)).addSubscriptionInfoRecord(
+                eq(FAKE_ICCID_1), eq(FAKE_SUB_ID_1));
+
+        loadSim();
+
+        SubscriptionManager mSubscriptionManager = SubscriptionManager.from(mContext);
+        verify(mSubscriptionManager, times(1)).addSubscriptionInfoRecord(
+                eq(FAKE_ICCID_1), eq(FAKE_SUB_ID_1));
         verify(mSubscriptionController, times(1)).notifySubscriptionInfoChanged();
     }
 }

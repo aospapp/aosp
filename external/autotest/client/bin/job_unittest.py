@@ -5,10 +5,12 @@ import logging
 import os
 import re
 import shutil
-import StringIO
 import sys
 import tempfile
 import unittest
+
+from six.moves import range
+import six
 
 import common
 from autotest_lib.client.bin import job, sysinfo, harness
@@ -105,7 +107,7 @@ class test_init_minimal_options(abstract_test_init, job_test_case):
         self.job.__init__(self.control_file, options)
 
 
-class dummy(object):
+class placeholder(object):
     """A simple placeholder for attributes"""
     pass
 
@@ -133,13 +135,13 @@ class test_base_job(unittest.TestCase):
         self.jobtag = "jobtag"
 
         # get rid of stdout and logging
-        sys.stdout = StringIO.StringIO()
+        sys.stdout = six.StringIO()
         logging_manager.configure_logging(logging_config.TestingConfig())
         logging.disable(logging.CRITICAL)
-        def dummy_configure_logging(*args, **kwargs):
+        def placeholder_configure_logging(*args, **kwargs):
             pass
         self.god.stub_with(logging_manager, 'configure_logging',
-                           dummy_configure_logging)
+                           placeholder_configure_logging)
         real_get_logging_manager = logging_manager.get_logging_manager
         def get_logging_manager_no_fds(manage_stdout_and_stderr=False,
                                        redirect_fds=False):
@@ -234,7 +236,7 @@ class test_base_job(unittest.TestCase):
         self._setup_post_record_init(cont, resultdir, my_harness)
 
         # finish constructor
-        options = dummy()
+        options = placeholder()
         options.tag = self.jobtag
         options.cont = cont
         options.harness = None
@@ -274,7 +276,7 @@ class test_base_job(unittest.TestCase):
         Test post record initialization failure.
         """
         self.job = job.base_client_job.__new__(job.base_client_job)
-        options = dummy()
+        options = placeholder()
         options.tag = self.jobtag
         options.cont = False
         options.harness = None
@@ -462,7 +464,7 @@ class test_base_job(unittest.TestCase):
         # record
         job.partition_lib.get_partition_list.expect_call(
                 self.job, exclude_swap=False).and_return(part_list)
-        for i in xrange(len(part_list)):
+        for i in range(len(part_list)):
             part_list[i].get_mountpoint.expect_call().and_return(mount_list[i])
         if cpu_count is not None:
             utils.count_cpus.expect_call().and_return(cpu_count)

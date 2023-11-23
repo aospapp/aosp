@@ -24,6 +24,6 @@
     <string name="accessbility_suggestion_dropdown_closed" msgid="91481373431329121">"କୌଣସି ପରାମର୍ଶ ଉପଲବ୍ଧ ନାହିଁ"</string>
     <string name="dropdown_delete_button_desc" msgid="4359394656487762022">"ପ୍ରାପ୍ତକର୍ତ୍ତାଙ୍କଠାରୁ <xliff:g id="CONTACT">%s</xliff:g>ଙ୍କୁ ବାହାର କରନ୍ତୁ"</string>
     <string name="chips_action_copy" msgid="6984158516334578792">"କପି କରନ୍ତୁ"</string>
-    <string name="chips_action_cancel" msgid="2582257014578396781">"କ୍ୟାନ୍ସଲ୍‍ କରନ୍ତୁ"</string>
+    <string name="chips_action_cancel" msgid="2582257014578396781">"ବାତିଲ୍‍ କରନ୍ତୁ"</string>
     <string name="chips_permission_text" msgid="5601284803674008863">"ଯୋଗାଯୋଗ ପରାମର୍ଶର ଅନୁମତି ଦିଅନ୍ତୁ"</string>
 </resources>

@@ -14,10 +14,28 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="oval">
-    <solid android:color="@color/progress_bar_thumb_color"/>
-    <size
-        android:width="@dimen/playback_seekbar_thumb_width"
-        android:height="@dimen/playback_seekbar_thumb_height"/>
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/thumb_center">
+        <shape android:shape="oval">
+            <solid android:color="@color/progress_bar_thumb_color"/>
+            <size android:width="@dimen/playback_seekbar_thumb_width"
+                  android:height="@dimen/playback_seekbar_thumb_height"/>
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="ring"
+               android:innerRadius="@dimen/playback_seekbar_thumb_inner_ring_inner_radius"
+               android:thickness="@dimen/playback_seekbar_thumb_inner_ring_thickness"
+               android:useLevel="false">
+            <solid android:color="@color/progress_bar_thumb_inner_ring_color"/>
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="ring"
+               android:innerRadius="@dimen/playback_seekbar_thumb_outer_ring_inner_radius"
+               android:thickness="@dimen/playback_seekbar_thumb_outer_ring_thickness"
+               android:useLevel="false">
+            <solid android:color="@color/progress_bar_thumb_outer_ring_color"/>
+        </shape>
+    </item>
+</layer-list>

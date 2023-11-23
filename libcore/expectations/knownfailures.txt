@@ -100,11 +100,6 @@
   name: "org.apache.harmony.security.tests.java.security.SignatureTest#testUpdatebyteArrayintint2"
 },
 {
-  description: "Android doesn't allow null parent.",
-  result: EXEC_FAILED,
-  name: "tests.java.security.SecureClassLoaderTest#testSecureClassLoaderClassLoader"
-},
-{
   description: "not supported",
   result: EXEC_FAILED,
   names: [
@@ -1272,7 +1267,7 @@
   description: "Android's XPath fails 29 of 250 Jaxen XPath tests",
   bug: 3270761,
   names: [
-    "libcore.xml.JaxenXPathTestSuite$3#xml/defaultNamespace.xml / /dummy:a/dummy:b/dummy:c",
+    "libcore.xml.JaxenXPathTestSuite$3#xml/defaultNamespace.xml / /fake:a/fake:b/fake:c",
     "libcore.xml.JaxenXPathTestSuite$3#xml/evaluate.xml / //metatest[ evaluate(@select) = . ]",
     "libcore.xml.JaxenXPathTestSuite$3#xml/evaluate.xml / evaluate('//jumps/*')",
     "libcore.xml.JaxenXPathTestSuite$3#xml/evaluate.xml / evaluate('//jumps/*')/dog",
@@ -1743,9 +1738,9 @@
   names: [
       "libcore.java.security.OldDHTest#testDHGen",
       "libcore.java.security.OldKeyPairGeneratorTestDH#testKeyPairGenerator",
-      "libcore.javax.crypto.spec.KeyPairGeneratorTestDH#testKeyPairGenerator",
-      "libcore.javax.crypto.spec.AlgorithmParametersTestDH#testAlgorithmParameters",
-      "libcore.javax.crypto.spec.AlgorithmParameterGeneratorTestDH#testAlgorithmParameterGenerator"
+      "com.android.org.conscrypt.java.security.KeyPairGeneratorTestDH#testKeyPairGenerator",
+      "com.android.org.conscrypt.java.security.AlgorithmParametersTestDH#testAlgorithmParameters",
+      "com.android.org.conscrypt.java.security.AlgorithmParameterGeneratorTestDH#testAlgorithmParameterGenerator"
   ]
 },
 {
@@ -1791,5 +1786,37 @@
   result: EXEC_FAILED,
   bug: 62408076,
   name: "libcore.java.lang.reflect.annotations.AnnotatedElementParameterTest#testImplicitConstructorParameters_singleAnnotation"
+},
+{
+  description: "Android has different implementation in classes, e.g. SecurityManager.",
+  result: EXEC_FAILED,
+  bug: 181171596,
+  names: [
+    "test.java.util.concurrent.tck.AbstractExecutorServiceTest#testSubmitFailedPrivilegedExceptionAction",
+    "test.java.util.concurrent.tck.AbstractExecutorServiceTest#testSubmitPrivilegedAction",
+    "test.java.util.concurrent.tck.AbstractExecutorServiceTest#testSubmitPrivilegedExceptionAction",
+    "test.java.util.concurrent.tck.CompletableFutureTest#testMinimalCompletionStage_toCompletableFuture_exceptionalCompletion",
+    "test.java.util.concurrent.tck.CompletableFutureTest#testMinimalCompletionStage_toCompletableFuture_join",
+    "test.java.util.concurrent.tck.CompletableFutureTest#testMinimalCompletionStage_toCompletableFuture_mutable",
+    "test.java.util.concurrent.tck.CompletableFutureTest#testMinimalCompletionStage_toCompletableFuture_normalCompletion",
+    "test.java.util.concurrent.tck.CompletableFutureTest#testMinimalCompletionStage_toCompletableFuture_oneWayPropagation",
+    "test.java.util.concurrent.tck.CompletableFutureTest#testToCompletableFutureGarbageRetention",
+    "test.java.util.concurrent.tck.ExecutorsTest#testCreatePrivilegedCallableUsingCCLWithNoPrivs",
+    "test.java.util.concurrent.tck.ExecutorsTest#testPrivilegedCallableUsingCCLWithPrivs",
+    "test.java.util.concurrent.tck.ExecutorsTest#testPrivilegedCallableWithNoPrivs",
+    "test.java.util.concurrent.tck.ExecutorsTest#testPrivilegedCallableWithPrivs",
+    "test.java.util.concurrent.tck.ExecutorsTest#testPrivilegedThreadFactory",
+    "test.java.util.concurrent.tck.ForkJoinPoolTest#testSubmitFailedPrivilegedExceptionAction",
+    "test.java.util.concurrent.tck.ForkJoinPoolTest#testSubmitPrivilegedAction",
+    "test.java.util.concurrent.tck.ForkJoinPoolTest#testSubmitPrivilegedExceptionAction",
+    "test.java.util.concurrent.tck.PriorityQueueTest#testOfferNonComparable",
+    "test.java.util.concurrent.tck.StampedLockTest#testDeeplyNestedReadLocks",
+    "test.java.util.concurrent.tck.StampedLockTest#testReadLock_lockUnlock",
+    "test.java.util.concurrent.tck.StampedLockTest#testTryConvertToOptimisticRead",
+    "test.java.util.concurrent.tck.StampedLockTest#testTryConvertToReadLock",
+    "test.java.util.concurrent.tck.StampedLockTest#testTryConvertToWriteLock",
+    "test.java.util.concurrent.tck.ThreadPoolExecutorTest#testPoolSizeInvariants",
+    "test.java.util.concurrent.tck.ThreadTest#testGetAndSetDefaultUncaughtExceptionHandler"
+ ]
 }
 ]

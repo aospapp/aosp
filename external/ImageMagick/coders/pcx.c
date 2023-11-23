@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -234,16 +234,16 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
   PCXInfo
     pcx_info;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register Quantum
+  Quantum
     *q;
 
-  register ssize_t
+  ssize_t
     i;
 
-  register unsigned char
+  unsigned char
     *p,
     *r;
 
@@ -568,7 +568,7 @@ static Image *ReadPCXImage(const ImageInfo *image_info,ExceptionInfo *exception)
           {
             case 1:
             {
-              register ssize_t
+              ssize_t
                 bit;
 
               for (x=0; x < ((ssize_t) image->columns-7); x+=8)
@@ -804,10 +804,10 @@ ModuleExport void UnregisterPCXImage(void)
 static MagickBooleanType PCXWritePixels(PCXInfo *pcx_info,
   const unsigned char *pixels,Image *image)
 {
-  register const unsigned char
+  const unsigned char
     *q;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
@@ -875,14 +875,14 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image,
   PCXInfo
     pcx_info;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
-  register unsigned char
+  unsigned char
     *q;
 
   size_t
@@ -1113,7 +1113,7 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image,
             q=pixels;
             for (x=0; x < (ssize_t) image->columns; x++)
             {
-              *q++=(unsigned char) GetPixelIndex(image,p);
+              *q++=(unsigned char) ((ssize_t) GetPixelIndex(image,p));
               p+=GetPixelChannels(image);
             }
             if (PCXWritePixels(&pcx_info,pixels,image) == MagickFalse)
@@ -1128,7 +1128,7 @@ static MagickBooleanType WritePCXImage(const ImageInfo *image_info,Image *image,
           }
         else
           {
-            register unsigned char
+            unsigned char
               bit,
               byte;
 

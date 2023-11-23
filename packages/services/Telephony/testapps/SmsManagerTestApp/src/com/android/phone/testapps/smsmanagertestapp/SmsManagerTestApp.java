@@ -44,6 +44,10 @@ public class SmsManagerTestApp extends Activity {
     private static final ComponentName SETTINGS_SUB_PICK_ACTIVITY = new ComponentName(
             "com.android.settings", "com.android.settings.sim.SimDialogActivity");
 
+    // Can't import PERFORM_IMS_SINGLE_REGISTRATION const directly beause it's a @SystemApi
+    private static final String PERFORM_IMS_SINGLE_REGISTRATION =
+            "android.permission.PERFORM_IMS_SINGLE_REGISTRATION";
+
     /*
      * Forwarded constants from SimDialogActivity.
      */
@@ -66,6 +70,12 @@ public class SmsManagerTestApp extends Activity {
         findViewById(R.id.send_text_button_service)
                 .setOnClickListener(this::sendOutgoingSmsService);
         findViewById(R.id.get_sub_for_result_button).setOnClickListener(this::getSubIdForResult);
+        findViewById(R.id.enable_persistent_service)
+                .setOnClickListener(this::setPersistentServiceComponentEnabled);
+        findViewById(R.id.disable_persistent_service)
+                .setOnClickListener(this::setPersistentServiceComponentDisabled);
+        findViewById(R.id.check_single_reg_permission)
+                .setOnClickListener(this::checkSingleRegPermission);
         mPhoneNumber = (EditText) findViewById(R.id.phone_number_text);
     }
 
@@ -181,6 +191,32 @@ public class SmsManagerTestApp extends Activity {
             Toast.makeText(this, "Unable to launch Settings application.",
                     Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void setPersistentServiceComponentEnabled(View view) {
+        getPackageManager().setComponentEnabledSetting(
+                new ComponentName(this, PersistentService.class),
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP);
+    }
+
+    private void setPersistentServiceComponentDisabled(View view) {
+        getPackageManager().setComponentEnabledSetting(
+                new ComponentName(this, PersistentService.class),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
+    }
+
+    private void checkSingleRegPermission(View view) {
+        if (checkSelfPermission(PERFORM_IMS_SINGLE_REGISTRATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Single Reg permission granted",
+                    Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Single Reg permission NOT granted",
+                    Toast.LENGTH_SHORT).show();
+        }
+
     }
 
     private Intent getSendStatusIntent() {

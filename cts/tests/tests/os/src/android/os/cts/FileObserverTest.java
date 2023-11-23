@@ -35,6 +35,7 @@ public class FileObserverTest extends AndroidTestCase {
     private static final String PATH = "/PATH";
     private static final String TEST_FILE = "file_observer_test.txt";
     private static final String TEST_DIR = "fileobserver_dir";
+    private static final File EXT_STORAGE_DIR = new File(Environment.getExternalStorageDirectory(), "fileobserver_toplevel_dir");
     private static final int FILE_DATA = 0x20;
     private static final int UNDEFINED = 0x8000;
     private static final long DELAY_MSECOND = 2000;
@@ -60,9 +61,13 @@ public class FileObserverTest extends AndroidTestCase {
             dir = getContext().getExternalFilesDir(null);
             helpSetUp(dir);
 
-            dir = Environment.getExternalStorageDirectory();
+            dir = EXT_STORAGE_DIR;
+            dir.mkdirs();
             helpSetUp(dir);
         }
+
+        // Let the setup settles
+        Thread.sleep(DELAY_MSECOND);
     }
 
     private void helpTearDown(File dir) throws Exception {
@@ -96,8 +101,11 @@ public class FileObserverTest extends AndroidTestCase {
         dir = getContext().getExternalFilesDir(null);
         helpTearDown(dir);
 
-        dir = Environment.getExternalStorageDirectory();
+        dir = EXT_STORAGE_DIR;
         helpTearDown(dir);
+        if (dir.exists()) {
+            dir.delete();
+        }
     }
 
     public void testConstructor() {
@@ -255,7 +263,7 @@ public class FileObserverTest extends AndroidTestCase {
 
     @AppModeFull(reason = "Instant apps cannot access external storage")
     public void testFileObserverExternalStorageDirectory() throws Exception {
-        helpTestFileObserver(Environment.getExternalStorageDirectory(), true);
+        helpTestFileObserver(EXT_STORAGE_DIR, true);
     }
 
     @AppModeFull(reason = "Instant apps cannot access external storage")
@@ -264,7 +272,7 @@ public class FileObserverTest extends AndroidTestCase {
                 Pair.create(getContext().getCacheDir(), false),
                 Pair.create(getContext().getFilesDir(), false),
                 Pair.create(getContext().getExternalFilesDir(null), true),
-                Pair.create(Environment.getExternalStorageDirectory(), true)
+                Pair.create(EXT_STORAGE_DIR, true)
         );
     }
 

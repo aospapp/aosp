@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -27,9 +28,14 @@ Note that if you make changes, make sure that the tests in the bottom of this
 file still pass.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import collections
 import logging
 import random
+from six.moves import range
 import socket
 import struct
 
@@ -125,7 +131,7 @@ class ClasslessStaticRoutesOption(Option):
             byte_string += chr(prefix_size)
             # Encode only the significant octets of the destination
             # that fall within the prefix.
-            destination_address_count = (prefix_size + 7) / 8
+            destination_address_count = (prefix_size + 7) // 8
             destination_address = socket.inet_aton(destination)
             byte_string += destination_address[:destination_address_count]
             byte_string += socket.inet_aton(router)
@@ -138,7 +144,7 @@ class ClasslessStaticRoutesOption(Option):
         offset = 0
         while offset < len(byte_string):
             prefix_size = ord(byte_string[offset])
-            destination_address_count = (prefix_size + 7) / 8
+            destination_address_count = (prefix_size + 7) // 8
             entry_end = offset + 1 + destination_address_count + 4
             if entry_end > len(byte_string):
                 raise Exception("Classless domain list is corrupted.")
@@ -717,7 +723,7 @@ class DhcpPacket(object):
 
         @returns The MessageType for this packet, or MESSAGE_TYPE_UNKNOWN.
         """
-        if (self._options.has_key(OPTION_DHCP_MESSAGE_TYPE) and
+        if (OPTION_DHCP_MESSAGE_TYPE in self._options and
             self._options[OPTION_DHCP_MESSAGE_TYPE] > 0 and
             self._options[OPTION_DHCP_MESSAGE_TYPE] < len(MESSAGE_TYPE_BY_NUM)):
             return MESSAGE_TYPE_BY_NUM[self._options[OPTION_DHCP_MESSAGE_TYPE]]

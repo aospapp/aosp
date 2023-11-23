@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 1996-2015, International Business Machines Corporation and
@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.MissingResourceException;
 import java.util.Set;
 
+import android.icu.platform.AndroidDataFiles;
 import android.icu.util.ICUUncheckedIOException;
 import android.icu.util.VersionInfo;
 
@@ -285,8 +286,17 @@ public final class ICUBinary {
     private static final List<DataFile> icuDataFiles = new ArrayList<>();
 
     static {
+        // BEGIN Android-changed: Initialize ICU data file paths.
+        /*
         // Normally android.icu.impl.ICUBinary.dataPath.
         String dataPath = ICUConfig.get(ICUBinary.class.getName() + ".dataPath");
+        */
+        String dataPath = null;
+        // Only when runs after repackaging ICU4J. Otherwise the jar should have the ICU resources.
+        if (ICUBinary.class.getName().startsWith("android.icu")) {
+            dataPath = AndroidDataFiles.generateIcuDataPath();
+        }
+        // END Android-changed: Initialize ICU data file paths.
         if (dataPath != null) {
             addDataFilesFromPath(dataPath, icuDataFiles);
         }

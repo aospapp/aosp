@@ -47,6 +47,7 @@ union ChreSensorData {
   struct chreSensorOccurrenceData occurrenceData;
   struct chreSensorFloatData floatData;
   struct chreSensorByteData byteData;
+  struct chreSensorUint64Data uint64Data;
 };
 
 // Validate that aliasing into the header is valid for all types of the union
@@ -58,6 +59,8 @@ static_assert(offsetof(ChreSensorData, floatData.header) == 0,
               "Float data header not at offset 0");
 static_assert(offsetof(ChreSensorData, byteData.header) == 0,
               "Byte data header not at offset 0");
+static_assert(offsetof(ChreSensorData, uint64Data.header) == 0,
+              "Uint64 data header not at offset 0");
 
 /**
  * Returns a sensor sample event type for a given sensor type. The sensor type

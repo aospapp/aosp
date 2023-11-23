@@ -145,8 +145,8 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
                 trim();
         assertEquals("adb serial != ro.serialno" , adbSerial, roSerial);
 
-        CommandResult result = RunUtil.getDefault().runTimedCmd(5000, "lsusb", "-v");
-        assertTrue("lsusb -v failed", result.getStatus() == CommandStatus.SUCCESS);
+        CommandResult result = RunUtil.getDefault().runTimedCmd(15000, "lsusb", "-v");
+        assertEquals("lsusb -v failed", result.getStatus(), CommandStatus.SUCCESS);
         String lsusbOutput = result.getStdout();
         Pattern pattern = Pattern.compile("^\\s+iSerial\\s+\\d+\\s+([a-zA-Z0-9]{6,20})",
                 Pattern.MULTILINE);

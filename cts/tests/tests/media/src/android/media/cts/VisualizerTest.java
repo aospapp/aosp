@@ -16,8 +16,6 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
-
 import android.content.Context;
 import android.media.audiofx.AudioEffect;
 import android.media.AudioFormat;
@@ -25,9 +23,12 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.audiofx.Visualizer;
 import android.media.audiofx.Visualizer.MeasurementPeakRms;
+import android.net.Uri;
 import android.os.Looper;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
+
+import java.io.File;
 import java.util.UUID;
 import android.util.Log;
 
@@ -39,6 +40,7 @@ public class VisualizerTest extends PostProcTestBase {
     private final static int MIN_CAPTURE_SIZE_MAX = 1024;
     private final static int MAX_CAPTURE_SIZE_MIN = 512;
     private final static int MAX_LOOPER_WAIT_COUNT = 10;
+    static final String mInpPrefix = WorkDir.getMediaDirString();
 
     private Visualizer mVisualizer = null;
     private byte[] mWaveform = null;
@@ -289,9 +291,11 @@ public class VisualizerTest extends PostProcTestBase {
             return;
         }
         AudioEffect vc = null;
+        Preconditions.assertTestFileExists(mInpPrefix + "sine1khzm40db.wav");
         try {
             // this test will play a 1kHz sine wave with peaks at -40dB
-            MediaPlayer mp = MediaPlayer.create(getContext(), R.raw.sine1khzm40db);
+            MediaPlayer mp = MediaPlayer
+                    .create(getContext(), Uri.fromFile(new File(mInpPrefix + "sine1khzm40db.wav")));
             final int EXPECTED_PEAK_MB = -4015;
             final int EXPECTED_RMS_MB =  -4300;
             final int MAX_MEASUREMENT_ERROR_MB = 2000;
@@ -362,9 +366,11 @@ public class VisualizerTest extends PostProcTestBase {
             return;
         }
         AudioEffect vc = null;
+        Preconditions.assertTestFileExists(mInpPrefix + "sine1khzs40dblong.mp3");
         try {
             // this test will play a 1kHz sine wave with peaks at -40dB
-            MediaPlayer mp = MediaPlayer.create(getContext(), R.raw.sine1khzs40dblong);
+            MediaPlayer mp = MediaPlayer.create(getContext(),
+                    Uri.fromFile(new File(mInpPrefix + "sine1khzs40dblong.mp3")));
             final int EXPECTED_PEAK_MB = -4015;
             final int EXPECTED_RMS_MB =  -4300;
             final int MAX_MEASUREMENT_ERROR_MB = 2000;

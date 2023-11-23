@@ -40,7 +40,7 @@
     <string name="media_size_4x6in" msgid="3093276425529958253">"4x6 ഇഞ്ച്"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"പ്രിന്‍റർ ചേർക്കുക"</string>
-    <string name="add_printer_by_ip" msgid="562864787592910327">"IP വിലാസം ഉപയോഗിച്ച് പ്രിന്‍റർ ചേർക്കുക"</string>
+    <string name="add_printer_by_ip" msgid="562864787592910327">"IP വിലാസം ഉപയോഗിച്ച് ചേർക്കുക"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"ഹോസ്‌റ്റ് നാമം അല്ലെങ്കിൽ IP വിലാസം"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"ചേർക്കുക"</string>
@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"അംഗീകരിക്കുക"</string>
     <string name="reject" msgid="24751635160440693">"നിരസിക്കുക"</string>
     <string name="connections" msgid="8895413761760117180">"കണക്ഷനുകൾ"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"ഡിഫോൾട്ട് പ്രിന്റ് സേവനത്തിന് Wi-Fi ഡയറക്‌ട് പ്രിന്ററുകൾ കണ്ടെത്താനാകുന്നില്ല"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi ഡയറക്‌ട് പ്രവർത്തനരഹിതമാക്കൂ"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"സമീപമുള്ള ഉപകരണങ്ങൾ കണ്ടെത്താൻ ഡിഫോൾട്ട് പ്രിന്റ് സേവനത്തിന് ലൊക്കേഷൻ അനുമതി ആവശ്യമാണ്."</string>
     <string name="fix" msgid="7784394272611365393">"അനുമതി അവലോകനം"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"സമീപമുള്ള ഉപകരണങ്ങൾ കണ്ടെത്താൻ ഡിഫോൾട്ട് പ്രിന്റ് സേവനത്തിന് ലൊക്കേഷൻ സേവനങ്ങൾ പ്രവർത്തനക്ഷമമാക്കേണ്ടതുണ്ട്."</string>
+    <string name="enable_location" msgid="3627841004298863140">"ലൊക്കേഷൻ പ്രവർത്തനക്ഷമമാക്കൂ"</string>
     <string name="print" msgid="7851318072404916362">"അച്ചടിക്കുക"</string>
 </resources>

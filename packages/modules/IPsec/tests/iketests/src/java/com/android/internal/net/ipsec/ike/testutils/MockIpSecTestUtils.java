@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.ipsec.ike.testutils;
+package com.android.internal.net.ipsec.test.ike.testutils;
 
 import static android.system.OsConstants.AF_INET;
 import static android.system.OsConstants.IPPROTO_UDP;

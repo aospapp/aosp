@@ -25,6 +25,7 @@ import android.net.Uri;
 import android.util.Log;
 
 import com.android.tv.common.feature.CommonFeatures;
+import com.android.tv.common.flags.TunerFlags;
 import com.android.tv.tuner.tvinput.datamanager.ChannelDataManager;
 import com.android.tv.tuner.tvinput.factory.TunerRecordingSessionFactory;
 import com.android.tv.tuner.tvinput.factory.TunerSessionFactory;
@@ -55,6 +56,7 @@ public class BaseTunerTvInputService extends TvInputService {
             Collections.newSetFromMap(new WeakHashMap<>());
     @Inject TunerSessionFactory mTunerSessionFactory;
     @Inject TunerRecordingSessionFactory mTunerRecordingSessionFactory;
+    @Inject TunerFlags mTunerFlags;
 
     LoadingCache<String, ChannelDataManager> mChannelDataManagers;
     RemovalListener<String, ChannelDataManager> mChannelDataManagerRemovalListener =
@@ -152,9 +154,16 @@ public class BaseTunerTvInputService extends TvInputService {
 
     private Uri getRecordingUri(Uri channelUri) {
         for (RecordingSession session : mTunerRecordingSession) {
-            TunerRecordingSession tunerSession = (TunerRecordingSession) session;
-            if (tunerSession.getChannelUri().equals(channelUri)) {
-                return tunerSession.getRecordingUri();
+            if (mTunerFlags.useExoplayerV2()) {
+                TunerRecordingSessionExoV2 tunerSession = (TunerRecordingSessionExoV2) session;
+                if (tunerSession.getChannelUri().equals(channelUri)) {
+                    return tunerSession.getRecordingUri();
+                }
+            } else {
+                TunerRecordingSession tunerSession = (TunerRecordingSession) session;
+                if (tunerSession.getChannelUri().equals(channelUri)) {
+                    return tunerSession.getRecordingUri();
+                }
             }
         }
         return null;

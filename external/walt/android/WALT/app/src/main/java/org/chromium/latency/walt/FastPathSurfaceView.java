@@ -22,12 +22,13 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.os.Build;
-import android.support.annotation.RequiresApi;
 import android.util.AttributeSet;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.Toast;
+
+import androidx.annotation.RequiresApi;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;

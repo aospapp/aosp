@@ -21,6 +21,7 @@
 #include "minikin/FontCollection.h"
 
 #include "FontTestUtils.h"
+#include "PathUtils.h"
 
 namespace minikin {
 namespace {
@@ -30,8 +31,16 @@ public:
     TestableSystemFonts() : SystemFonts() {}
     virtual ~TestableSystemFonts() {}
 
-    std::shared_ptr<FontCollection> findFontCollection(const std::string& familyName) const {
+    std::shared_ptr<FontCollection> findFontCollection(const std::string& familyName) {
         return findFontCollectionInternal(familyName);
+    }
+
+    void addFontMap(std::shared_ptr<FontCollection>&& collections) {
+        addFontMapInternal(std::move(collections));
+    }
+
+    void getFontSet(std::function<void(const std::vector<std::shared_ptr<Font>>&)> func) {
+        getFontSetInternal(func);
     }
 
     void registerFallback(const std::string& familyName,
@@ -64,6 +73,45 @@ TEST(SystemFontsTest, registerDefaultAndFallback) {
     systemFonts.registerFallback("sans", fc2);
     EXPECT_EQ(fc1, systemFonts.findFontCollection("unknown-name"));
     EXPECT_EQ(fc2, systemFonts.findFontCollection("sans"));
+}
+
+TEST(SystemFontsTest, updateDefaultAndFallback) {
+    TestableSystemFonts systemFonts;
+    auto fc1 = buildFontCollection("Ascii.ttf");
+    auto fc2 = buildFontCollection("Bold.ttf");
+    systemFonts.registerDefault(fc1);
+    systemFonts.registerFallback("sans", fc2);
+    systemFonts.registerDefault(fc2);
+    systemFonts.registerFallback("sans", fc1);
+    EXPECT_EQ(fc2, systemFonts.findFontCollection("unknown-name"));
+    EXPECT_EQ(fc1, systemFonts.findFontCollection("sans"));
+}
+
+TEST(SystemFontTest, getAvailableFont_dedupFonts) {
+    TestableSystemFonts systemFonts;
+    auto asciiFamily = buildFontFamily("Ascii.ttf");
+    auto boldFamily = buildFontFamily("Bold.ttf");
+    auto boldItalicFamily = buildFontFamily("BoldItalic.ttf");
+
+    auto fc1Families = std::vector<std::shared_ptr<FontFamily>>{asciiFamily, boldItalicFamily};
+    auto fc2Families = std::vector<std::shared_ptr<FontFamily>>{boldFamily, boldItalicFamily};
+    auto fc1 = std::make_shared<FontCollection>(std::move(fc1Families));
+    auto fc2 = std::make_shared<FontCollection>(std::move(fc2Families));
+
+    systemFonts.addFontMap(std::move(fc1));
+    systemFonts.addFontMap(std::move(fc2));
+
+    systemFonts.getFontSet([](const std::vector<std::shared_ptr<Font>>& fonts) {
+        EXPECT_EQ(3u, fonts.size());  // Ascii, Bold and BoldItalic
+        std::unordered_set<std::string> fontPaths;
+        for (const auto& font : fonts) {
+            fontPaths.insert(getBasename(font->typeface()->GetFontPath()));
+        }
+
+        EXPECT_TRUE(fontPaths.find("Ascii.ttf") != fontPaths.end());
+        EXPECT_TRUE(fontPaths.find("Bold.ttf") != fontPaths.end());
+        EXPECT_TRUE(fontPaths.find("BoldItalic.ttf") != fontPaths.end());
+    });
 }
 
 }  // namespace

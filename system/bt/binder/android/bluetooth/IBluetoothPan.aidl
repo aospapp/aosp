@@ -17,6 +17,7 @@
 package android.bluetooth;
 
 import android.bluetooth.BluetoothDevice;
+import android.content.AttributionSource;
 
 /**
  * API for Bluetooth Pan service
@@ -25,12 +26,20 @@ import android.bluetooth.BluetoothDevice;
  */
 interface IBluetoothPan {
     // Public API
-    boolean isTetheringOn();
-    void setBluetoothTethering(boolean value, String pkgName);
-    boolean connect(in BluetoothDevice device);
-    boolean disconnect(in BluetoothDevice device);
-    List<BluetoothDevice> getConnectedDevices();
-    List<BluetoothDevice> getDevicesMatchingConnectionStates(in int[] states);
-    int getConnectionState(in BluetoothDevice device);
-    boolean setConnectionPolicy(in BluetoothDevice device, int connectionPolicy);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean isTetheringOn(in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_CONNECT,android.Manifest.permission.BLUETOOTH_PRIVILEGED,android.Manifest.permission.TETHER_PRIVILEGED})")
+    void setBluetoothTethering(boolean value, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_CONNECT,android.Manifest.permission.BLUETOOTH_PRIVILEGED})")
+    boolean connect(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean disconnect(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_CONNECT,android.Manifest.permission.BLUETOOTH_PRIVILEGED})")
+    List<BluetoothDevice> getConnectedDevices(in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_CONNECT,android.Manifest.permission.BLUETOOTH_PRIVILEGED})")
+    List<BluetoothDevice> getDevicesMatchingConnectionStates(in int[] states, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_CONNECT,android.Manifest.permission.BLUETOOTH_PRIVILEGED})")
+    int getConnectionState(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_CONNECT,android.Manifest.permission.BLUETOOTH_PRIVILEGED})")
+    boolean setConnectionPolicy(in BluetoothDevice device, int connectionPolicy, in AttributionSource attributionSource);
 }

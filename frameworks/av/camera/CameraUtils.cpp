@@ -20,12 +20,15 @@
 #include <camera/CameraUtils.h>
 #include <media/hardware/HardwareAPI.h>
 
+#include <android-base/properties.h>
 #include <system/window.h>
 #include <system/graphics.h>
 
 #include <utils/Log.h>
 
 namespace android {
+
+const char *kCameraServiceDisabledProperty = "config.disable_cameraservice";
 
 status_t CameraUtils::getRotationTransform(const CameraMetadata& staticInfo,
                 /*out*/int32_t* transform) {
@@ -120,6 +123,10 @@ status_t CameraUtils::getRotationTransform(const CameraMetadata& staticInfo,
     ALOGV("%s: final transform = 0x%x", __FUNCTION__, flags);
 
     return OK;
+}
+
+bool CameraUtils::isCameraServiceDisabled() {
+    return base::GetBoolProperty(kCameraServiceDisabledProperty, false);
 }
 
 } /* namespace android */

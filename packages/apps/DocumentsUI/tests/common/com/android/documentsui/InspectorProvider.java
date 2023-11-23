@@ -34,10 +34,10 @@ import java.io.FileNotFoundException;
  *
  *  Structure of the provider.
  *
- *         Top ------------> Middle  ------> Bottom -------> Dummy21 50B
- *         openInProvider    Dummy1 50B      Dummy11 50B     Dummy22 150B
- *         test.txt          Dummy2 150B     Dummy12 150B    Dummy23 100B
- *         update.txt        Dummy3 100B     Dummy13 100B
+ *         Top ------------> Middle  ------> Bottom -------> Stub21 50B
+ *         openInProvider    Stub1 50B       Stub11 50B      Stub22 150B
+ *         test.txt          Stub2 150B      Stub12 150B     Stub23 100B
+ *         update.txt        Stub3 100B      Stub13 100B
  *         test.jpg
  *         invalid.jpg
  */
@@ -97,24 +97,24 @@ public class InspectorProvider extends TestRootProvider {
         if("Top".equals(s)) {
             MatrixCursor c = createDocCursor(projection);
             addFolder(c, "Middle");
-            addFileWithSize(c, "dummy1", 50);
-            addFileWithSize(c, "dummy2", 150);
-            addFileWithSize(c, "dummy3", 100);
+            addFileWithSize(c, "stub1", 50);
+            addFileWithSize(c, "stub2", 150);
+            addFileWithSize(c, "stub3", 100);
             return c;
         }
         else if("Middle".equals(s)) {
             MatrixCursor c = createDocCursor(projection);
             addFolder(c, "Bottom");
-            addFileWithSize(c, "dummy11", 50);
-            addFileWithSize(c, "dummy12", 150);
-            addFileWithSize(c, "dummy13", 100);
+            addFileWithSize(c, "stub11", 50);
+            addFileWithSize(c, "stub12", 150);
+            addFileWithSize(c, "stub13", 100);
             return c;
         }
         else if("Bottom".equals(s)) {
             MatrixCursor c = createDocCursor(projection);
-            addFileWithSize(c, "dummy21", 50);
-            addFileWithSize(c, "dummy22", 150);
-            addFileWithSize(c, "dummy23", 100);
+            addFileWithSize(c, "stub21", 50);
+            addFileWithSize(c, "stub22", 150);
+            addFileWithSize(c, "stub23", 100);
             return c;
         }
         else {

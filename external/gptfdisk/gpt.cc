@@ -780,6 +780,11 @@ int GPTData::SetDisk(const string & deviceFilename) {
    return allOK;
 } // GPTData::SetDisk()
 
+int GPTData::SetDisk(const DiskIO & disk) {
+   myDisk = disk;
+   return 1;
+} // GPTData::SetDisk()
+
 // Scan for partition data. This function loads the MBR data (regular MBR or
 // protective MBR) and loads BSD disklabel data (which is probably invalid).
 // It also looks for APM data, forces a load of GPT data, and summarizes

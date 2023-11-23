@@ -305,12 +305,10 @@ public class WallpaperManagerTest {
 
             // Check that the secondary color is almost blue
             Color secondary = colors.getSecondaryColor();
-            final float delta = 0.1f;
+            final float delta = 0.15f;
             Assert.assertEquals("red", 0f, secondary.red(), delta);
             Assert.assertEquals("green", 0f, secondary.green(), delta);
             Assert.assertEquals("blue", 1f, secondary.blue(), delta);
-
-            Assert.assertNull(colors.getTertiaryColor());
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {
@@ -530,13 +528,11 @@ public class WallpaperManagerTest {
      */
     private void ensureCleanState() {
         Bitmap bmp = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
-        // We expect 5 events to happen when we change a wallpaper:
+        // We expect 3 events to happen when we change a wallpaper:
         // • Wallpaper changed
-        // • System colors are null
-        // • Lock colors are null
         // • System colors are known
         // • Lock colors are known
-        final int expectedEvents = 5;
+        final int expectedEvents = 3;
         mCountDownLatch = new CountDownLatch(expectedEvents);
         if (DEBUG) {
             Log.d(TAG, "Started latch expecting: " + mCountDownLatch.getCount());

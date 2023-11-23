@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.text.ParseException;
 import java.util.Arrays;
+import java.util.Locale;
 
 class FirmwareImage {
     private static final String TAG = "FirmwareImage";
@@ -89,7 +90,8 @@ class FirmwareImage {
                 return;
             }
             default: {
-                throw new ParseException(String.format("Unknown code '%x'", code), cur);
+                throw new ParseException(String.format(
+                    Locale.US, "Unknown code '%x'", code), cur);
             }
         }
     }
@@ -119,8 +121,8 @@ class FirmwareImage {
                 dest[addr + i] = parseByte(line, pos + i * 2);
                 mask[addr + i] = true;
             } catch (ArrayIndexOutOfBoundsException e) {
-                throw new ParseException(String.format("Address '%x' out of range", addr + i),
-                        pos + i * 2);
+                throw new ParseException(String.format(Locale.US,
+                    "Address '%x' out of range", addr + i), pos + i * 2);
             }
         }
     }

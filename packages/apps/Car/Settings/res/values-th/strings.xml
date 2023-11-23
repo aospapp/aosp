@@ -22,12 +22,8 @@
     <string name="display_settings" msgid="5325515247739279185">"การแสดงผล"</string>
     <string name="brightness" msgid="2919605130898772866">"ระดับความสว่าง"</string>
     <string name="auto_brightness_title" msgid="9124647862844666581">"ปรับความสว่างอัตโนมัติ"</string>
-    <string name="auto_brightness_summary" msgid="4741887033140384352">"ปรับระดับความสว่างให้เหมาะกับแสง"</string>
+    <string name="auto_brightness_summary" msgid="2002570577219479702">"ปรับความสว่างของหน้าจอตามสภาพแวดล้อม"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"\"แสงตอนกลางคืน\" เปิดอยู่"</string>
-    <string name="keywords_display" msgid="3978416985146943922">"หน้าจอ หน้าจอสัมผัส"</string>
-    <string name="keywords_display_brightness_level" msgid="3956411572536209195">"หน้าจอสลัว หน้าจอสัมผัส แบตเตอรี่"</string>
-    <string name="keywords_display_auto_brightness" msgid="2700310050333468752">"หน้าจอสลัว หน้าจอสัมผัส แบตเตอรี่"</string>
-    <string name="keywords_display_night_display" msgid="2922294576679769957">"หรี่หน้าจอ กลางคืน แต้มสี"</string>
     <string name="night_mode_tile_label" msgid="6603597795502131664">"โหมดกลางคืน"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"เครือข่ายและอินเทอร์เน็ต"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"เครือข่ายมือถือ"</string>
@@ -84,6 +80,10 @@
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"ตั้งค่าเตือนปริมาณการใช้อินเทอร์เน็ต"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"ตั้งค่าขีดจำกัดปริมาณการใช้อินเทอร์เน็ต"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"ตั้งค่า"</string>
+    <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"เครือข่าย OEM"</string>
+    <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"ใช้ไป %1$s ตั้งแต่วันที่ %2$s - %3$s"</string>
+    <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"เข้าร่วมเครือข่ายอื่น"</string>
+    <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"การตั้งค่าเครือข่าย"</string>
     <string name="wifi_settings" msgid="7701477685273103841">"Wi-Fi"</string>
     <string name="wifi_starting" msgid="473253087503153167">"กำลังเปิด Wi-Fi…"</string>
     <string name="wifi_stopping" msgid="3534173972547890148">"กำลังปิด Wi-Fi…"</string>
@@ -93,6 +93,8 @@
     <string name="wifi_failed_connect_message" msgid="4447498225022147324">"ไม่สามารถเชื่อมต่อกับเครือข่าย"</string>
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"เพิ่มเครือข่าย"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"เชื่อมต่อ"</string>
+    <string name="wifi_connecting" msgid="1930665730621677960">"กำลังเชื่อมต่อ…"</string>
+    <string name="wifi_not_in_range_message" msgid="2617126307140203787">"เครือข่ายไม่อยู่ในพื้นที่ให้บริการ"</string>
     <string name="wifi_password" msgid="5565632142720292397">"รหัสผ่าน"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"แสดงรหัสผ่าน"</string>
     <string name="wifi_no_network_name" msgid="6819604337231313594">"โปรดป้อนชื่อเครือข่าย"</string>
@@ -152,18 +154,26 @@
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5.0 GHz"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"เลือกอย่างน้อย 1 ย่านความถี่สำหรับฮอตสปอต Wi‑Fi:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"ฮอตสปอตและการเชื่อมต่ออินเทอร์เน็ตผ่านมือถือ"</string>
+    <string name="hotspot_settings_title" msgid="8220814387592756713">"ฮอตสปอต"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"ปิดฮอตสปอตโดยอัตโนมัติ"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"ฮอตสปอต Wi‑Fi จะปิดถ้าไม่มีอุปกรณ์ที่เชื่อมต่อ"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> ต้องการเปิด Wi-Fi"</string>
     <string name="wifi_ask_disable" msgid="2949290055916181553">"<xliff:g id="REQUESTER">%s</xliff:g> ต้องการปิด Wi-Fi"</string>
     <string name="wifi_error" msgid="3105105447117289410">"ข้อผิดพลาด"</string>
+    <string name="network_connection_request_dialog_title" msgid="8449606155059098762">"อุปกรณ์ที่จะใช้กับ <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
+    <string name="network_connection_timeout_dialog_message" msgid="2536299451668687586">"ไม่พบอุปกรณ์ ตรวจสอบว่าอุปกรณ์เปิดอยู่และพร้อมเชื่อมต่อ"</string>
+    <string name="network_connection_timeout_dialog_ok" msgid="2228662561126434792">"ลองอีกครั้ง"</string>
+    <string name="network_connection_errorstate_dialog_message" msgid="4268321315241218483">"เกิดข้อผิดพลาด แอปพลิเคชันยกเลิกคำขอเลือกอุปกรณ์"</string>
+    <string name="network_connection_connect_successful" msgid="7893957133113302365">"เชื่อมต่อสำเร็จ"</string>
+    <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"แสดงทั้งหมด"</string>
+    <string name="progress_scanning" msgid="7191583064717479795">"กำลังค้นหา"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"บลูทูธ"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"อุปกรณ์ไม่มีชื่อ"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"อุปกรณ์ที่จับคู่"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"จับคู่อุปกรณ์ใหม่"</string>
     <string name="bluetooth_pair_new_device_summary" msgid="2497221247690369031">"บลูทูธจะเปิดเพื่อจับคู่อุปกรณ์"</string>
     <string name="bluetooth_disconnect_title" msgid="7675271355910637528">"เลิกเชื่อมต่ออุปกรณ์ไหม"</string>
-    <string name="bluetooth_disconnect_all_profiles" msgid="2017519733701757244">"พาหนะจะยกเลิกการเชื่อมต่อจาก <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
+    <string name="bluetooth_disconnect_all_profiles" msgid="2017519733701757244">"รถของคุณจะยกเลิกการเชื่อมต่อกับ <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
     <string name="bluetooth_vehicle_mac_address" msgid="7069234636525805937">"ที่อยู่บลูทูธของพาหนะ: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
     <string name="bluetooth_device_mac_address" msgid="3949829271575045069">"ที่อยู่บลูทูธของอุปกรณ์: <xliff:g id="ADDRESS">%1$s</xliff:g>"</string>
     <string name="bluetooth_name" msgid="2609869978821094114">"ชื่อพาหนะ"</string>
@@ -183,6 +193,11 @@
     <string name="bluetooth_ask_discovery_no_name" msgid="164397600370102369">"แอปต้องการทำให้อุปกรณ์บลูทูธอื่นมองเห็นระบบเครื่องเสียงของคุณได้เป็นเวลา <xliff:g id="TIMEOUT">%1$d</xliff:g> วินาที"</string>
     <string name="bluetooth_ask_enablement_and_discovery" msgid="5487502083015708674">"<xliff:g id="APP_NAME">%1$s</xliff:g> ต้องการเปิดบลูทูธและทำให้อุปกรณ์อื่นมองเห็นระบบเครื่องเสียงของคุณได้เป็นเวลา <xliff:g id="TIMEOUT">%2$d</xliff:g> วินาที"</string>
     <string name="bluetooth_ask_enablement_and_discovery_no_name" msgid="907153034209916282">"แอปต้องการเปิดบลูทูธและทำให้อุปกรณ์อื่นมองเห็นระบบเครื่องเสียงของคุณได้เป็นเวลา <xliff:g id="TIMEOUT">%1$d</xliff:g> วินาที"</string>
+    <string name="bluetooth_state_switch_summary" msgid="171929910916432266">"แสดงเป็น %1$s ให้อุปกรณ์อื่นๆ เห็น"</string>
+    <string name="bluetooth_my_devices" msgid="6352010339607939612">"อุปกรณ์ของฉัน"</string>
+    <string name="bluetooth_previously_connected" msgid="5206229557831180323">"อุปกรณ์ที่เคยเชื่อมต่อ"</string>
+    <string name="bluetooth_device_connected_toast" msgid="4614765282582494488">"เชื่อมต่อ %1$s แล้ว"</string>
+    <string name="bluetooth_device_disconnected_toast" msgid="8889122688851623920">"ยกเลิกการเชื่อมต่อ %1$s แล้ว"</string>
     <string name="bluetooth_notif_ticker" msgid="7192577740198156792">"คำขอจับคู่อุปกรณ์บลูทูธ"</string>
     <string name="bluetooth_device_context_pair_connect" msgid="3138105800372470422">"จับคู่อุปกรณ์และเชื่อมต่อ"</string>
     <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"รหัสการจับคู่บลูทูธ"</string>
@@ -220,6 +235,11 @@
     <string name="ringtone_title" msgid="8370531086214517972">"เสียงเรียกเข้าของโทรศัพท์"</string>
     <string name="notification_ringtone_title" msgid="8661716239594010288">"เสียงการแจ้งเตือนเริ่มต้น"</string>
     <string name="alarm_ringtone_title" msgid="3257364170646440908">"เสียงปลุกเริ่มต้น"</string>
+    <string name="ringtone_picker_save_title" msgid="4388137432517227001">"บันทึก"</string>
+    <string name="sound_alert_sounds" msgid="6838044721739163867">"เสียงการแจ้งเตือน"</string>
+    <string name="sound_alert_sounds_summary" msgid="816501423095651281">"เสียงเรียกเข้า การแจ้งเตือน การปลุก"</string>
+    <string name="display_brightness" msgid="5718970880488110840">"ความสว่าง"</string>
+    <string name="display_night_mode_summary" msgid="4939425286027546230">"ปรับหน้าจอสำหรับสภาวะแสงน้อย"</string>
     <string name="units_settings" msgid="402325305096925886">"หน่วย"</string>
     <string name="units_speed_title" msgid="7115143916747108160">"ความเร็ว"</string>
     <string name="units_distance_title" msgid="6257691565990474635">"ระยะทาง"</string>
@@ -272,24 +292,36 @@
     <string name="all_applications" msgid="7798210477486822168">"แสดงแอปทั้งหมด"</string>
     <string name="default_applications" msgid="1558183275638697087">"แอปเริ่มต้น"</string>
     <string name="app_permissions" msgid="32799922508313948">"สิทธิ์ของแอป"</string>
-    <string name="app_permissions_summary" msgid="1842858532315056367">"แอปต่างๆ ที่ใช้<xliff:g id="APPS">%1$s</xliff:g>"</string>
+    <string name="app_permissions_summary" msgid="5402214755935368418">"ควมคุมสิทธิ์ของแอปในการเข้าถึงข้อมูล"</string>
     <string name="applications_settings" msgid="794261395191035632">"ข้อมูลแอป"</string>
     <string name="force_stop" msgid="2153183697014720520">"บังคับให้หยุด"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"บังคับให้หยุดไหม"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"แอปอาจทำงานผิดพลาดหากบังคับให้หยุด"</string>
+    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"ปิดการปกป้องประสิทธิภาพไหม"</string>
+    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"หากปิด ซอฟต์แวร์และฮาร์ดแวร์อาจไม่ทำงานด้วยเช่นกัน"</string>
+    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"เปิดไว้"</string>
+    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"ปิด"</string>
     <string name="disable_text" msgid="4358165448648990820">"ปิดใช้"</string>
     <string name="enable_text" msgid="1794971777861881238">"เปิดใช้"</string>
     <string name="uninstall_text" msgid="277907956072833012">"ถอนการติดตั้ง"</string>
     <string name="app_disable_dialog_text" msgid="7731155411006654025">"หากคุณปิดใช้แอปนี้ Android และแอปอื่นๆ อาจไม่ทำงานตามที่ควรจะเป็นอีกต่อไป"</string>
     <string name="app_disable_dialog_positive" msgid="4448684722791563349">"ปิดใช้แอป"</string>
-    <string name="not_installed" msgid="4218816013370552746">"ไม่ได้ติดตั้งสำหรับผู้ใช้นี้"</string>
+    <string name="not_installed" msgid="4163454337822508007">"ไม่ได้ติดตั้งสำหรับโปรไฟล์นี้"</string>
     <string name="permissions_label" msgid="2701446753515612685">"สิทธิ์"</string>
     <string name="notifications_label" msgid="6586089149665170731">"การแจ้งเตือน"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"พื้นที่เก็บข้อมูลและแคช"</string>
+    <string name="peak_performance_label" msgid="1592816366516845648">"รับรองสมรรถภาพสูงสุด"</string>
     <string name="application_version_label" msgid="8556889839783311649">"เวอร์ชัน: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"ไม่มีการมอบสิทธิ์"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"ไม่มีการขอสิทธิ์"</string>
+    <string name="unused_apps" msgid="648471933781010395">"แอปที่ไม่ได้ใช้"</string>
+    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
+      <item quantity="other">แอปที่ไม่ได้ใช้ <xliff:g id="COUNT_1">%d</xliff:g> รายการ</item>
+      <item quantity="one">แอปที่ไม่ได้ใช้ <xliff:g id="COUNT_0">%d</xliff:g> รายการ</item>
+    </plurals>
+    <string name="unused_apps_switch" msgid="4433958286200341563">"นำสิทธิ์ออกและเพิ่มพื้นที่ว่าง"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"%s ในที่จัดเก็บข้อมูลภายใน"</string>
+    <string name="peak_performance_summary" msgid="2450911487290019786">"ปิดแอปเพื่อเลี่ยงการใช้ทรัพยากรมากเกินเมื่อจำเป็น"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"ปริมาณการใช้อินเทอร์เน็ต"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"ปริมาณการใช้เน็ตของแอป"</string>
     <string name="computing_size" msgid="5791407621793083965">"กำลังคำนวณ…"</string>
@@ -326,9 +358,17 @@
     <string name="app_link_open_ask" msgid="7242075065136237456">"ถามทุกครั้ง"</string>
     <string name="app_link_open_never" msgid="2173174327831792316">"อย่าเปิดในแอปนี้"</string>
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"ลิงก์ที่รองรับ"</string>
+    <string name="apps_settings_title" msgid="3982535942394315336">"แอป"</string>
+    <string name="apps_recently_opened" msgid="5320377037971195984">"เปิดล่าสุด"</string>
+    <string name="apps_view_all_apps_title" msgid="2322120325505230530">"ดูทั้ง %1$d แอป"</string>
+    <string name="apps_permission_manager_title" msgid="8776335943862484131">"เครื่องมือจัดการสิทธิ์"</string>
+    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"ควมคุมสิทธิ์ของแอปในการเข้าถึงข้อมูล"</string>
+    <string name="apps_default_apps_summary" msgid="2017792579839972926">"สำหรับ Assistant และอื่นๆ"</string>
+    <string name="apps_special_app_access_summary" msgid="6464767436309742163">"เข้าถึงระบบและการตั้งค่าอื่นๆ"</string>
     <string name="special_access" msgid="5730278220917123811">"สิทธิ์เข้าถึงพิเศษของแอป"</string>
     <string name="show_system" msgid="4401355756969485287">"แสดงระบบ"</string>
     <string name="hide_system" msgid="8845453295584638040">"ซ่อนระบบ"</string>
+    <string name="hide_system_apps" msgid="6583947381056154020">"ซ่อนแอปของระบบ"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"แก้ไขการตั้งค่าระบบ"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"สิทธิ์นี้อนุญาตให้แอปแก้ไขการตั้งค่าระบบได้"</string>
     <string name="notification_access_title" msgid="1467340098885813473">"การเข้าถึงการแจ้งเตือน"</string>
@@ -349,15 +389,19 @@
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"ไม่มีคำขอตำแหน่งล่าสุด"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"สิทธิ์ระดับแอป"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"บริการตำแหน่ง"</string>
+    <string name="location_use_location_title" msgid="117735895374606680">"ใช้ตำแหน่ง"</string>
+    <string name="location_settings_footer" msgid="296892848338100051">"ตำแหน่งอาจใช้ข้อมูลจากแหล่งที่มาต่างๆ อย่างเช่น GPS, Wi‑Fi, เครือข่ายมือถือ และเซ็นเซอร์ เพื่อช่วยระบุตำแหน่งคร่าวๆ ของอุปกรณ์"</string>
     <string name="system_setting_title" msgid="6864599341809463440">"ระบบ"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"การอัปเดตระบบ"</string>
+    <string name="system_advanced_title" msgid="6303355131691523362">"ขั้นสูง"</string>
+    <string name="system_advanced_summary" msgid="5833643795981791953">"เกี่ยวกับ ข้อมูลกฎหมาย รีเซ็ต และอื่นๆ"</string>
     <string name="firmware_version" msgid="8491753744549309333">"เวอร์ชันของ Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"ระดับแพตช์ความปลอดภัยของ Android"</string>
-    <string name="hardware_info" msgid="3973165746261507658">"สื่อและฮาร์ดแวร์"</string>
+    <string name="hardware_info" msgid="3973165746261507658">"รุ่นและฮาร์ดแวร์"</string>
     <string name="hardware_info_summary" msgid="8262576443254075921">"รุ่น: <xliff:g id="MODEL">%1$s</xliff:g>"</string>
     <string name="baseband_version" msgid="2370088062235041897">"เวอร์ชันเบสแบนด์"</string>
     <string name="kernel_version" msgid="7327212934187011508">"เวอร์ชันเคอร์เนล"</string>
-    <string name="build_number" msgid="3997326631001009102">"หมายเลขบิวด์"</string>
+    <string name="build_number" msgid="3997326631001009102">"หมายเลขบิลด์"</string>
     <string name="bluetooth_mac_address" msgid="7641425947941688072">"ที่อยู่บลูทูธ"</string>
     <string name="device_info_not_available" msgid="2095601973977376655">"ไม่พร้อมให้บริการ"</string>
     <string name="device_status_activity_title" msgid="4083567497305368200">"สถานะ"</string>
@@ -391,7 +435,7 @@
     </plurals>
     <string name="show_dev_on" msgid="5339077400040834808">"ตอนนี้คุณเป็นนักพัฒนาซอฟต์แวร์แล้ว!"</string>
     <string name="show_dev_already" msgid="1678087328973865736">"ไม่จำเป็น คุณเป็นนักพัฒนาซอฟต์แวร์อยู่แล้ว"</string>
-    <string name="developer_options_settings" msgid="1530739225109118480">"ตัวเลือกสำหรับนักพัฒนาซอฟต์แวร์"</string>
+    <string name="developer_options_settings" msgid="1530739225109118480">"ตัวเลือกสำหรับนักพัฒนาแอป"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"ตัวเลือกการรีเซ็ต"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"การรีเซ็ตเครือข่าย แอป หรืออุปกรณ์"</string>
     <string name="reset_network_title" msgid="1284233059990797263">"รีเซ็ตเครือข่าย"</string>
@@ -409,25 +453,24 @@
     <string name="reset_network_confirm_button_text" msgid="5246859685069024851">"รีเซ็ตการตั้งค่า"</string>
     <string name="reset_network_complete_toast" msgid="3804108209431416865">"รีเซ็ตการตั้งค่าเครือข่ายแล้ว"</string>
     <string name="reset_app_pref_title" msgid="5855420038951743992">"รีเซ็ตค่ากำหนดของแอป"</string>
-    <string name="reset_app_pref_desc" msgid="579392665146962149">"คำสั่งนี้จะรีเซ็ตค่ากำหนดทั้งหมดของ:\n\n"<li>"แอปที่ปิดใช้"</li>\n<li>"การแจ้งเตือนของแอปที่ปิดใช้"</li>\n<li>"แอปพลิเคชันเริ่มต้นสำหรับการทำงานต่างๆ"</li>\n<li>"ข้อจำกัดข้อมูลในพื้นหลังสำหรับแอป"</li>\n<li>"ข้อจำกัดสิทธิ์ใดๆ"</li>\n\n"ข้อมูลของแอปจะไม่หายไป"</string>
+    <string name="reset_app_pref_desc" msgid="579392665146962149">"คำสั่งนี้จะรีเซ็ตค่ากำหนดทั้งหมดของ\n\n"<li>"แอปที่ปิดใช้"</li>\n<li>"การแจ้งเตือนของแอปที่ปิดใช้"</li>\n<li>"แอปเริ่มต้นที่จะใช้งาน"</li>\n<li>"ข้อจำกัดของอินเทอร์เน็ตที่ใช้งานอยู่เบื้องหลังเกี่ยวกับการใช้แอป"</li>\n<li>"ข้อจำกัดสิทธิ์ใดๆ"</li>\n\n"ข้อมูลแอปทั้งหมดของคุณจะยังคงอยู่เหมือนเดิม"</string>
     <string name="reset_app_pref_button_text" msgid="6270820447321231609">"รีเซ็ตแอป"</string>
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"รีเซ็ตค่ากำหนดของแอปแล้ว"</string>
-    <string name="master_clear_title" msgid="8515335233363214414">"ลบข้อมูล (รีเซ็ตเป็นค่าเริ่มต้น)"</string>
-    <string name="master_clear_desc" msgid="9058719802779893535">"การดำเนินการนี้จะลบข้อมูลทั้งหมดออกจากระบบเครื่องเสียงในยานพาหนะ โดยรวมถึงสิ่งต่อไปนี้\n\n"<li>"บัญชี Google ของคุณ"</li>\n<li>"ข้อมูลและการตั้งค่าของระบบและแอป"</li>\n<li>"แอปที่ดาวน์โหลด"</li></string>
-    <string name="master_clear_accounts" msgid="7797522012993567494">"คุณลงชื่อเข้าใช้บัญชีต่อไปนี้อยู่ในขณะนี้"</string>
-    <string name="master_clear_other_users_present" msgid="8383376863095743337">"มีผู้ใช้รายอื่นอยู่บนยานพาหนะคันนี้"</string>
-    <string name="master_clear_button_text" msgid="8010754220392741160">"รีเซ็ตยานพาหนะ"</string>
-    <string name="master_clear_confirm_title" msgid="8646455623132887370">"รีเซ็ตไหม"</string>
-    <string name="master_clear_confirm_desc" msgid="8920446291698038558">"ลบข้อมูลส่วนบุคคลและแอปที่ดาวน์โหลดทั้งหมดไหม คุณจะเลิกทำการดำเนินการนี้ไม่ได้"</string>
-    <string name="master_clear_confirm_button_text" msgid="7981254968588121786">"ลบทุกอย่าง"</string>
-    <string name="master_clear_progress_title" msgid="7087480656932674774">"กำลังลบ"</string>
-    <string name="master_clear_progress_text" msgid="3440789441935303176">"โปรดรอสักครู่..."</string>
+    <string name="factory_reset_title" msgid="4019066569214122052">"ลบข้อมูลทั้งหมด (รีเซ็ตเป็นค่าเริ่มต้น)"</string>
+    <string name="factory_reset_summary" msgid="854815182943504327">"ลบข้อมูลและโปรไฟล์ทั้งหมดออกจากระบบสาระบันเทิง"</string>
+    <string name="factory_reset_desc" msgid="1688333312943433244">"การดำเนินการนี้จะลบข้อมูลทั้งหมดออกจากระบบสาระบันเทิงของรถยนต์ ซึ่งได้แก่\n\n"<li>"บัญชี Google"</li>\n<li>"ข้อมูลและการตั้งค่าของระบบและแอป"</li>\n<li>"แอปที่ดาวน์โหลดไว้"</li></string>
+    <string name="factory_reset_accounts" msgid="5523956654938834209">"คุณลงชื่อเข้าใช้บัญชีต่อไปนี้อยู่ในขณะนี้:"</string>
+    <string name="factory_reset_other_users_present" msgid="3852324375352090570">"มีการตั้งค่าโปรไฟล์อื่นสำหรับรถยนต์คันนี้แล้ว"</string>
+    <string name="factory_reset_button_text" msgid="2626666247051368256">"ลบข้อมูลทั้งหมด"</string>
+    <string name="factory_reset_confirm_title" msgid="3354542161765761879">"ลบข้อมูลทั้งหมดใช่ไหม"</string>
+    <string name="factory_reset_confirm_desc" msgid="2037199381372030510">"การดำเนินการนี้จะลบข้อมูลโปรไฟล์ส่วนตัว บัญชี และแอปที่ดาวน์โหลดไว้ทั้งหมดในระบบสาระบันเทิงนี้\n\nคุณจะยกเลิกการดำเนินการนี้ไม่ได้"</string>
+    <string name="factory_reset_confirm_button_text" msgid="1797490544756481809">"ลบทุกอย่าง"</string>
+    <string name="factory_reset_progress_title" msgid="4580937077054738173">"กำลังลบ"</string>
+    <string name="factory_reset_progress_text" msgid="7704636573522634757">"โปรดรอสักครู่..."</string>
     <string name="date_and_time_settings_title" msgid="4058492663544475485">"วันที่และเวลา"</string>
     <string name="date_and_time_settings_summary" msgid="7669856855390804666">"ตั้งวันที่ เวลา เขตเวลาและรูปแบบ"</string>
-    <string name="date_time_auto" msgid="3570339569471779767">"วันที่และเวลาอัตโนมัติ"</string>
-    <string name="date_time_auto_summary" msgid="3311706425095342759">"ใช้เวลาที่ระบุโดยเครือข่าย"</string>
-    <string name="zone_auto" msgid="3701878581920206160">"เขตเวลาอัตโนมัติ"</string>
-    <string name="zone_auto_summary" msgid="4345856882906981864">"ใช้เขตเวลาที่ระบุโดยเครือข่าย"</string>
+    <string name="date_time_auto" msgid="6018635902717385962">"ตั้งเวลาอัตโนมัติ"</string>
+    <string name="zone_auto" msgid="4174874778459184605">"ตั้งเขตเวลาอัตโนมัติ"</string>
     <string name="date_time_24hour_title" msgid="3025576547136168692">"รูปแบบ 24 ชั่วโมง"</string>
     <string name="date_time_24hour" msgid="1137618702556486913">"ใช้รูปแบบ 24 ชั่วโมง"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"เวลา"</string>
@@ -442,35 +485,36 @@
     <string name="time_picker_title" msgid="7436045944320504639">"เวลา"</string>
     <string name="user_admin" msgid="1535484812908584809">"ผู้ดูแลระบบ"</string>
     <string name="signed_in_admin_user" msgid="1267225622818673274">"ลงชื่อเข้าใช้เป็นผู้ดูแลระบบ"</string>
-    <string name="grant_admin_permissions_title" msgid="4628430467359951437">"สิทธิ์ทั้งหมดของผู้ดูแลระบบ"</string>
+    <string name="grant_admin_permissions_title" msgid="4496239754512028468">"ให้สิทธิ์แก่ผู้ดูแลระบบไหม"</string>
     <string name="grant_admin_permissions_button_text" msgid="988239414372882401">"เปลี่ยนสถานะเป็นผู้ดูแลระบบ"</string>
-    <string name="grant_admin_permissions_message" msgid="1751910369004774830">"ผู้ใช้จะลบผู้ใช้อื่นได้ รวมถึงผู้ดูแลระบบอื่น และรีเซ็ตระบบเป็นค่าเริ่มต้นได้"</string>
+    <string name="grant_admin_permissions_message" msgid="5205433947453539566">"ผู้ดูแลระบบจะลบโปรไฟล์อื่นซึ่งรวมถึงโปรไฟล์ของผู้ดูแลระบบคนอื่น และรีเซ็ตระบบสาระบันเทิงเป็นค่าเริ่มต้นได้"</string>
     <string name="action_not_reversible_message" msgid="740401337875726973">"การดำเนินการนี้ไม่สามารถย้อนกลับได้"</string>
     <string name="confirm_grant_admin" msgid="7852596890218647682">"ใช่ เปลี่ยนสถานะเป็นผู้ดูแลระบบ"</string>
-    <string name="create_user_permission_title" msgid="7781550880565935298">"สร้างผู้ใช้ใหม่"</string>
+    <string name="create_user_permission_title" msgid="2402003632264628632">"สร้างโปรไฟล์ใหม่"</string>
     <string name="outgoing_calls_permission_title" msgid="1230180443712099293">"โทรออก"</string>
     <string name="sms_messaging_permission_title" msgid="6099328509729071243">"การรับส่งข้อความผ่านเน็ตมือถือของรถ"</string>
     <string name="install_apps_permission_title" msgid="3099705360827925296">"ติดตั้งแอปใหม่"</string>
     <string name="uninstall_apps_permission_title" msgid="8448422340567430659">"ถอนการติดตั้งแอป"</string>
-    <string name="user_add_user_menu" msgid="5319151436895941496">"เพิ่มผู้ใช้"</string>
-    <string name="user_new_user_name" msgid="7115771396412339662">"ผู้ใช้ใหม่"</string>
-    <string name="user_add_user_title" msgid="7458813670614932479">"เพิ่มผู้ใช้ใหม่ไหม"</string>
-    <string name="user_add_user_message_setup" msgid="6030901156040053106">"เมื่อคุณเพิ่มผู้ใช้ใหม่ ผู้ใช้ดังกล่าวจะต้องตั้งค่าพื้นที่ของตนเอง"</string>
-    <string name="user_add_user_message_update" msgid="1528170913388932459">"ผู้ใช้ทุกคนจะอัปเดตแอปให้แก่ผู้ใช้คนอื่นๆ ได้"</string>
-    <string name="user_limit_reached_title" msgid="8803355734556061238">"ถึงขีดจำกัดผู้ใช้แล้ว"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="2651922256448824747">
-      <item quantity="other">คุณสร้างผู้ใช้ได้สูงสุด <xliff:g id="COUNT">%d</xliff:g> คน</item>
-      <item quantity="one">สร้างผู้ใช้ได้เพียง 1 คนเท่านั้น</item>
+    <string name="user_add_user_menu" msgid="4125869008006021799">"เพิ่มโปรไฟล์"</string>
+    <string name="user_new_user_name" msgid="906698527658609819">"โปรไฟล์ใหม่"</string>
+    <string name="user_add_user_title" msgid="6296827596015729982">"เพิ่มโปรไฟล์ใหม่ใช่ไหม"</string>
+    <string name="user_add_user_message_setup" msgid="812616230454605159">"หลังจากที่คุณสร้างโปรไฟล์ใหม่ บุคคลดังกล่าวควรปรับแต่งโปรไฟล์เอง"</string>
+    <string name="user_add_user_message_update" msgid="3836353291078729240">"แต่ละโปรไฟล์อัปเดตแอปให้โปรไฟล์อื่นๆ ใช้งานได้"</string>
+    <string name="user_limit_reached_title" msgid="5677729355746623293">"มีโปรไฟล์ถึงขีดจำกัดแล้ว"</string>
+    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
+      <item quantity="other">คุณสร้างโปรไฟล์ได้สูงสุด <xliff:g id="COUNT">%d</xliff:g> รายการ</item>
+      <item quantity="one">สร้างได้เพียงโปรไฟล์เดียวเท่านั้น</item>
     </plurals>
-    <string name="add_user_error_title" msgid="3206300411663817038">"สร้างผู้ใช้ใหม่ไม่ได้"</string>
-    <string name="delete_user_dialog_title" msgid="3422867434431562007">"ลบผู้ใช้นี้ใช่ไหม"</string>
-    <string name="delete_user_dialog_message" msgid="4346777604351785057">"แอปและข้อมูลทั้งหมดจะถูกลบ"</string>
-    <string name="delete_user_error_title" msgid="7609819398530124827">"ลบผู้ใช้ไม่สำเร็จ"</string>
+    <string name="add_user_error_title" msgid="7589792057846396341">"สร้างโปรไฟล์ใหม่ไม่ได้"</string>
+    <string name="delete_user_dialog_title" msgid="575517556232943687">"ลบโปรไฟล์นี้ใช่ไหม"</string>
+    <string name="delete_user_dialog_message" msgid="3916865958419051299">"ระบบจะลบแอปและข้อมูลทั้งหมดในโปรไฟล์นี้"</string>
+    <string name="delete_user_error_title" msgid="6422249596301690254">"ลบโปรไฟล์ไม่ได้"</string>
+    <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"โปรไฟล์นี้จะถูกลบเมื่อคุณสลับโปรไฟล์หรือสตาร์ทรถอีกครั้ง"</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"ปิด"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"ลองอีกครั้ง"</string>
-    <string name="delete_last_user_dialog_title" msgid="3644392025675369680">"ลบผู้ใช้สุดท้ายไหม"</string>
-    <string name="delete_last_user_admin_created_message" msgid="1856897729010319054">"หลังจากลบผู้ใช้ที่เหลืออยู่เพียงรายเดียวของรถคันนี้ ระบบจะสร้างผู้ดูแลระบบใหม่ขึ้น"</string>
-    <string name="delete_last_user_system_setup_required_message" msgid="8550730509371697989">"ระบบจะลบข้อมูล การตั้งค่า และแอปทั้งหมดที่เชื่อมโยงกับผู้ใช้นี้ คุณจะต้องตั้งค่าระบบอีกครั้ง"</string>
+    <string name="delete_last_user_dialog_title" msgid="3454454005909291260">"ลบโปรไฟล์สุดท้ายที่เหลืออยู่ใช่ไหม"</string>
+    <string name="delete_last_user_delete_warning" msgid="7189499586859833988">"หากคุณลบโปรไฟล์เดียวที่เหลืออยู่ในรถยนต์คันนี้ ระบบจะลบข้อมูล การตั้งค่า และแอปทั้งหมดที่เชื่อมโยงกับโปรไฟล์นี้"</string>
+    <string name="delete_last_user_system_setup_required_message" msgid="726196874941282088">"คุณจะตั้งค่าโปรไฟล์ใหม่ได้หลังจากรีเซ็ต"</string>
     <string name="choose_new_admin_title" msgid="1915428454917699587">"เลือกผู้ดูแลระบบใหม่"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"คุณต้องมีผู้ดูแลระบบอย่างน้อย 1 ราย หากต้องการลบผู้ดูแลระบบรายนี้ ก่อนอื่นให้เลือกคนที่จะมาแทน"</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"เลือกผู้ดูแลระบบ"</string>
@@ -480,10 +524,11 @@
     <string name="current_user_name" msgid="3813671533249316823">"คุณ (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"ชื่อ"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"ไม่ได้ตั้งค่า"</string>
-    <string name="edit_user_name_title" msgid="6890782937520262478">"แก้ไขชื่อผู้ใช้"</string>
+    <string name="edit_user_name_title" msgid="1118500707473139995">"แก้ไขชื่อโปรไฟล์"</string>
     <string name="name_input_blank_error" msgid="2088850865880984123">"ต้องกรอกข้อมูลในช่อง"</string>
-    <string name="name_input_invalid_error" msgid="3523545780580744273">"ชื่อผู้ใช้ที่ป้อนไม่ถูกต้อง"</string>
+    <string name="name_input_invalid_error" msgid="4355625213535164704">"ชื่อโปรไฟล์ที่ป้อนไม่ถูกต้อง"</string>
     <string name="users_list_title" msgid="770764290290240909">"ผู้ใช้"</string>
+    <string name="profiles_list_title" msgid="1443396686780460221">"โปรไฟล์"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"มอบสิทธิ์ให้กับ %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"พื้นที่เก็บข้อมูล"</string>
     <string name="storage_music_audio" msgid="7827147379976134040">"เพลงและเสียง"</string>
@@ -494,7 +539,7 @@
     <string name="storage_audio_files_title" msgid="5183170457027181700">"ไฟล์เสียง"</string>
     <string name="memory_calculating_size" msgid="1672238502950390033">"กำลังคำนวณ…"</string>
     <string name="storage_application_size_label" msgid="1146156683170661354">"ขนาดแอป"</string>
-    <string name="storage_data_size_label" msgid="5022911581004239367">"ข้อมูลผู้ใช้"</string>
+    <string name="storage_data_size_label" msgid="7986110464268960652">"ข้อมูลโปรไฟล์"</string>
     <string name="storage_cache_size_label" msgid="6361308766707419555">"แคช"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"รวม"</string>
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"ล้างพื้นที่เก็บข้อมูล"</string>
@@ -520,7 +565,7 @@
     <string name="user_cannot_add_accounts_message" msgid="6775605884544906797">"โปรไฟล์ที่ถูกจำกัดจะเพิ่มบัญชีไม่ได้"</string>
     <string name="remove_account_title" msgid="8840386525787836381">"นำบัญชีออก"</string>
     <string name="really_remove_account_title" msgid="3555164432587924900">"นำบัญชีออกใช่ไหม"</string>
-    <string name="really_remove_account_message" msgid="4296769280849579900">"การนำบัญชีนี้ออกจะเป็นการลบข้อความ รายชื่อติดต่อ และข้อมูลอื่นๆ ทั้งหมดออกจากอุปกรณ์!"</string>
+    <string name="really_remove_account_message" msgid="4296769280849579900">"การนำบัญชีนี้ออกจะเป็นการลบข้อความ รายชื่อติดต่อ และข้อมูลอื่นๆ ทั้งหมดออกจากอุปกรณ์"</string>
     <string name="remove_account_error_title" msgid="8368044943174826635">"นำบัญชีออกไม่สำเร็จ"</string>
     <string name="account_sync_title" msgid="6541844336300236915">"การซิงค์บัญชี"</string>
     <string name="account_sync_summary_some_on" msgid="4525960296068027182">"การซิงค์เปิดอยู่สำหรับ <xliff:g id="ID_1">%1$d</xliff:g> จาก <xliff:g id="ID_2">%2$d</xliff:g> รายการ"</string>
@@ -536,6 +581,15 @@
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"ยกเลิกการซิงค์"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"ขณะนี้ พบปัญหาในการซิงค์ อีกสักครู่จึงจะกลับมาดำเนินการต่อ"</string>
     <string name="privacy_settings_title" msgid="3150145262029229572">"ความเป็นส่วนตัว"</string>
+    <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"ข้อมูลระบบสาระบันเทิง"</string>
+    <string name="privacy_location_summary" msgid="7019817848470566242">"ควมคุมสิทธิ์ของแอปในการเข้าถึงตำแหน่ง"</string>
+    <string name="mute_mic_title" msgid="2813215197799569553">"ไมโครโฟน"</string>
+    <string name="mute_mic_summary" msgid="5426953935775303904">"ควมคุมสิทธิ์ของแอปในการเข้าถึงไมโครโฟน"</string>
+    <string name="vehicle_data_title" msgid="935933215161763721">"ข้อมูลระบบสาระบันเทิง"</string>
+    <string name="vehicle_data_summary" msgid="9204836361819386115">"จัดการกิจกรรมและข้อมูลที่บันทึกไว้ในรถยนต์คันนี้"</string>
+    <string name="vehicle_data_delete_user_title" msgid="9132472153739085346">"ลบโปรไฟล์"</string>
+    <string name="vehicle_data_delete_user_summary" msgid="5900205773710111394">"ลบโปรไฟล์และบัญชีออกจากระบบสาระบันเทิง"</string>
+    <string name="action_unavailable" msgid="7087119418684417249">"การทำงานนี้ใช้ไม่ได้กับโปรไฟล์ของคุณ"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"ความปลอดภัย"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"ล็อกหน้าจอ"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"ไม่มี"</string>
@@ -552,7 +606,6 @@
     <string name="lockscreen_skip_button_text" msgid="3755748786396198091">"ข้าม"</string>
     <string name="set_screen_lock" msgid="5239317292691332780">"ตั้งค่าการล็อกหน้าจอ"</string>
     <string name="lockscreen_choose_your_pin" msgid="1645229555410061526">"เลือก PIN ของคุณ"</string>
-    <string name="lockscreen_choose_your_pattern" msgid="6801175111142593404">"เลือกรูปแบบของคุณ"</string>
     <string name="lockscreen_choose_your_password" msgid="4487577710136014069">"เลือกรหัสผ่านของคุณ"</string>
     <string name="current_screen_lock" msgid="637651611145979587">"การล็อกหน้าจอปัจจุบัน"</string>
     <string name="choose_lock_pattern_message" msgid="6242765203541309524">"ตั้งรูปแบบเพื่อความปลอดภัย"</string>
@@ -567,9 +620,12 @@
     <string name="lockpattern_pattern_wrong" msgid="929223969555399363">"รูปแบบไม่ถูกต้อง"</string>
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"วิธีวาดรูปแบบการปลดล็อก"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"เกิดข้อผิดพลาดในการบันทึกรูปแบบ"</string>
+    <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"ดำเนินการไม่ถูกต้องหลายครั้งเกินไป ลองอีกครั้งใน <xliff:g id="NUMBER">%d</xliff:g> วินาที"</string>
     <string name="okay" msgid="4589873324439764349">"ตกลง"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"นำการล็อกหน้าจอออกไหม"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"การดำเนินการนี้จะทำให้ทุกคนเข้าถึงบัญชีของคุณได้"</string>
+    <string name="security_profile_lock_title" msgid="3082523481292617350">"การล็อกโปรไฟล์"</string>
+    <string name="security_unlock_profile_summary" msgid="6742592419759865631">"ตั้งค่าการปลดล็อกอัตโนมัติ"</string>
     <string name="lock_settings_enter_pin" msgid="1669172111244633904">"ป้อน PIN"</string>
     <string name="lock_settings_enter_password" msgid="2636669926649496367">"ป้อนรหัสผ่าน"</string>
     <string name="choose_lock_pin_message" msgid="2963792070267774417">"ตั้ง PIN เพื่อความปลอดภัย"</string>
@@ -593,7 +649,7 @@
     <string name="lockpassword_pin_too_long" msgid="62957683396974404">"ต้องมีตัวเลขไม่เกิน <xliff:g id="NUMBER">%d</xliff:g> ตัว"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"ต้องมีตัวเลข 0-9 เท่านั้น"</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"ผู้ดูแลระบบอุปกรณ์ไม่อนุญาตให้ใช้ PIN ที่เพิ่งใช้ไป"</string>
-    <string name="lockpassword_pin_blacklisted_by_admin" msgid="7412709707800738442">"ผู้ดูแลระบบไอทีบล็อก PIN ที่ไม่รัดกุม ลอง PIN อื่น"</string>
+    <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"ผู้ดูแลระบบไอทีบล็อก PIN ที่ไม่รัดกุม ลอง PIN อื่น"</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"ต้องใช้อักขระที่ใช้ได้ทั้งหมด"</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"รหัสผ่านไม่ถูกต้อง ต้องมีอักขระอย่างน้อย 4 ตัว"</string>
     <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
@@ -622,7 +678,7 @@
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"ผู้ดูแลระบบอุปกรณ์ไม่อนุญาตให้ใช้รหัสผ่านที่เพิ่งใช้ไป"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"เกิดข้อผิดพลาดในการบันทึกรหัสผ่าน"</string>
-    <string name="lockpassword_password_blacklisted_by_admin" msgid="7965893810326503891">"ผู้ดูแลระบบไอทีบล็อกรหัสผ่านที่ไม่รัดกุม ลองรหัสผ่านอื่น"</string>
+    <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"ผู้ดูแลระบบไอทีบล็อกรหัสผ่านที่ไม่รัดกุม ลองรหัสผ่านอื่น"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"ไม่อนุญาตให้เรียงจากน้อยไปมาก จากมากไปน้อย หรือเรียงลำดับตัวเลขที่ซ้ำกัน"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"ตัวเลือกการล็อกหน้าจอ"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> วันที่ผ่านมา"</string>
@@ -643,10 +699,24 @@
     <string name="enter_key" msgid="2121394305541579468">"ปุ่ม Enter"</string>
     <string name="exit_retail_button_text" msgid="6093240315583384473">"ออกจากการสาธิต"</string>
     <string name="exit_retail_mode_dialog_title" msgid="7970631760237469168">"ออกจากโหมดสาธิต"</string>
-    <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"การดำเนินการนี้จะลบบัญชีสาธิตและรีเซ็ตข้อมูลในระบบเป็นค่าเริ่มต้น ข้อมูลผู้ใช้ทั้งหมดจะสูญหาย"</string>
+    <string name="exit_retail_mode_dialog_body" msgid="6513854703627380365">"การดำเนินการนี้จะลบบัญชีสาธิตและรีเซ็ตข้อมูลในระบบเป็นค่าเริ่มต้น ข้อมูลโปรไฟล์ทั้งหมดจะสูญหาย"</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"ออกจากการสาธิต"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ปิด"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"ฟีเจอร์ไม่พร้อมใช้งานขณะขับรถ"</string>
-    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"เพิ่มผู้ใช้ขณะขับรถไม่ได้"</string>
+    <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"เพิ่มโปรไฟล์ขณะขับรถไม่ได้"</string>
     <string name="default_search_query" msgid="3137420627428857068">"ค้นหา"</string>
+    <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Assistant และเสียง"</string>
+    <string name="assistant_and_voice_assistant_app_title" msgid="5981647244625171285">"แอปผู้ช่วยดิจิทัล"</string>
+    <string name="assistant_and_voice_use_text_from_screen_title" msgid="5851460943413795599">"ใช้ข้อความจากหน้าจอ"</string>
+    <string name="assistant_and_voice_use_text_from_screen_summary" msgid="4161751708121301541">"อนุญาตให้ Assistant เข้าถึงเนื้อหาในหน้าจอ"</string>
+    <string name="assistant_and_voice_use_screenshot_title" msgid="1930735578425470046">"ใช้ภาพหน้าจอ"</string>
+    <string name="assistant_and_voice_use_screenshot_summary" msgid="3738474919393817950">"อนุญาตให้ Assistant เข้าถึงรูปภาพในหน้าจอ"</string>
+    <string name="notifications_recently_sent" msgid="9051696542615302799">"ส่งล่าสุด"</string>
+    <string name="notifications_all_apps" msgid="3557079551048958846">"แอปทั้งหมด"</string>
+    <string name="profiles_and_accounts_settings_title" msgid="2672643892127659812">"โปรไฟล์และบัญชี"</string>
+    <string name="manage_other_profiles_button_text" msgid="2262188413455510828">"จัดการโปรไฟล์อื่น"</string>
+    <string name="add_a_profile_button_text" msgid="8027395095117925114">"เพิ่มโปรไฟล์"</string>
+    <string name="delete_this_profile_text" msgid="6035404714526922665">"ลบโปรไฟล์นี้"</string>
+    <string name="add_profile_text" msgid="9118410102199116969">"เพิ่มโปรไฟล์"</string>
+    <string name="power_component_disabled" msgid="7084144472096800457">"เปลี่ยนแปลงการตั้งค่านี้ไม่ได้ในตอนนี้"</string>
 </resources>

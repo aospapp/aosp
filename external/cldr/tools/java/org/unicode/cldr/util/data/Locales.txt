@@ -301,6 +301,19 @@ Google	;	yo	;	moderate	;	Yoruba
 Google	;	ceb	;	moderate	;	Cebuano
 Google	;	chr	;	basic	;	Cherokee
 
+Google	; mni ; basic ; Manipuri (Bengali script)
+Google	; sat ; basic ; Santali (Olck script)
+Google	; kok ; basic ; Konkani
+Google	; su ; basic ; Sundanese (script TBD)
+# Google	; gn ; basic ; Guarani (Bengali script)
+Google	; sd_Deva ; basic ; Sindhi (Devanagari script)
+Google	; mai ; basic ; Maithili (Devanagari script)
+
+Google    ; nn ; Moderate ; Nynorsk
+Google    ; sa ; basic ; Sanskrit
+Google    ; doi ; basic ; Dogri
+#Google    ; nv ; basic ; Navajo
+
 #Google Tier TR
 Google	;	es_US	;	modern	; TR Spanish (United States)
 Google	;	es_MX	;	modern	; TR Spanish (Mexico)
@@ -436,6 +449,10 @@ Apple	;	or	;	basic
 Apple	;	sq	;	basic
 Apple	;	ug	;	basic
 Apple	;	yi	;	basic
+
+Apple    ; sa ; basic ; Sanskrit
+Apple    ; doi ; basic ; Dogri
+#Apple    ; nv ; basic ; Navajo
 
 Adobe	;	ar	;	basic
 Adobe	;	az	;	basic
@@ -623,6 +640,21 @@ Cldr	;	ig	;	moderate	;	Igbo
 Cldr	;	yo	;	moderate	;	Yoruba
 Cldr	;	ceb	;	moderate	;	Cebuano
 
+Cldr	; mai ; basic ; Maithili (Devanagari script)
+Cldr	; mni ; basic ; Manipuri (Bengali script)
+Cldr	; sat ; basic ; Santali (Olck script)
+Cldr	; kok ; basic ; Konkani
+Cldr	; su ; basic ; Sundanese (script TBD)
+# Cldr	; gn ; basic ; Guarani (Bengali script)
+Cldr	; sd_Deva ; basic ; Sindhi (Devanagari script)
+# Cldr	; cad ; basic ; Caddo
+Cldr	; pcm ; basic ; Nigerian Pidgin
+
+Cldr    ; nn ; Moderate ; Nynorsk
+Cldr    ; sa ; basic ; Sanskrit
+Cldr    ; doi ; basic ; Dogri
+#Cldr    ; nv ; basic ; Navajo
+
 Bangor_Univ ;   cy   ;    modern  ; Welsh
 Bangor_Univ ;   *    ;    moderate  ; All others
 
@@ -672,6 +704,9 @@ Kendra	;	*	;	moderate	;	All others
 
 OpenInstitute	;	km	;	modern	;	Khmer
 OpenInstitute	;	*	;	moderate	;	All others
+
+kunsill_malti   ;   mt  ;   modern  ;   Malta
+kunsill_malti   ;   *   ;   moderate    ;   All others
 
 Microsoft	;	am	;	modern
 Microsoft	;	af	;	modern
@@ -789,6 +824,12 @@ Microsoft	;	tg	;	basic
 Microsoft	;	wo	;	basic
 Microsoft	;	yo	;	basic
 
+Microsoft    ; nn ; Moderate ; Nynorsk
+Microsoft    ; sa ; basic ; Sanskrit
+Microsoft    ; doi ; basic ; Dogri
+#Microsoft    ; nv ; basic ; Navajo
+
+
 Pakistan	;	ur	;	modern	;	Urdu
 Pakistan	;	*	;	modern	;	All others
 
@@ -864,3 +905,6 @@ Facebook	;	it	;	modern
 Facebook	;	pt_PT	;	modern
 
 Mozilla	;	en	;	modern
+
+Rodakych ; pcm ; modern ; Nigerian Pidgin
+Rodakych ; * ; moderate ; All Others

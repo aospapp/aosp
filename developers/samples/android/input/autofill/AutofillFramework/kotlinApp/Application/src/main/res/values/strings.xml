@@ -56,7 +56,7 @@
     <string name="login_label">Login</string>
     <string name="to_label">To</string>
     <string name="body_label">Body</string>
-    <string name="autofill_master_login_label">Autofill Master Login</string>
+    <string name="autofill_main_login_label">Autofill Main Login</string>
     <string name="submit_label">Submit</string>
     <string name="cc_exp_month_description">Credit Card Expiration Month</string>
     <string name="cc_exp_year_description">Credit Card Expiration Year</string>

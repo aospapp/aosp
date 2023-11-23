@@ -32,6 +32,7 @@
 #include "Sensor.h"
 #include <cmath>
 #include <cstdlib>
+#include <cutils/properties.h>
 #include "system/camera_metadata.h"
 
 namespace android {
@@ -96,7 +97,25 @@ float sqrtf_approx(float r) {
     return *(float*)(&r_i);
 }
 
+#define GRALLOC_PROP "ro.hardware.gralloc"
 
+static bool getIsMinigbmFromProperty() {
+    char grallocValue[PROPERTY_VALUE_MAX] = "";
+    property_get(GRALLOC_PROP, grallocValue, "");
+    bool isValid = grallocValue[0] != '\0';
+
+    if (!isValid) return false;
+
+    bool res = 0 == strcmp("minigbm", grallocValue);
+
+    if (res) {
+        ALOGV("%s: Is using minigbm, in minigbm mode.\n", __func__);
+    } else {
+        ALOGV("%s: Is not using minigbm, in goldfish mode.\n", __func__);
+    }
+
+    return res;
+}
 
 Sensor::Sensor(uint32_t width, uint32_t height):
         Thread(false),
@@ -107,10 +126,11 @@ Sensor::Sensor(uint32_t width, uint32_t height):
         mExposureTime(kFrameDurationRange[0]-kMinVerticalBlank),
         mFrameDuration(kFrameDurationRange[0]),
         mGainFactor(kDefaultSensitivity),
-        mNextBuffers(NULL),
+        mNextBuffers(nullptr),
         mFrameNumber(0),
-        mCapturedBuffers(NULL),
-        mListener(NULL),
+        mCapturedBuffers(nullptr),
+        mListener(nullptr),
+        mIsMinigbm(getIsMinigbmFromProperty()),
         mSceneWidth((width < Scene::kMaxWidth) ? width : Scene::kMaxWidth),
         mSceneHeight((height < Scene::kMaxHeight) ? height : Scene::kMaxHeight),
         mScene(mSceneWidth, mSceneHeight, kElectronsPerLuxSecond)
@@ -353,7 +373,11 @@ bool Sensor::threadLoop() {
                     }
                     break;
                 case HAL_PIXEL_FORMAT_YCbCr_420_888:
-                    captureYU12(b.img, gain, b.width, b.height);
+                    if (mIsMinigbm) {
+                        captureNV12(b.img, gain, b.width, b.height);
+                    } else {
+                        captureYU12(b.img, gain, b.width, b.height);
+                    }
                    break;
                 case HAL_PIXEL_FORMAT_YV12:
                     // TODO:
@@ -562,7 +586,65 @@ void Sensor::captureYU12(uint8_t *img, uint32_t gain, uint32_t width, uint32_t h
             }
         }
     }
-    ALOGVV("YU21 sensor image captured");
+    ALOGVV("YU12 sensor image captured");
+}
+
+void Sensor::captureNV12(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height) {
+    ATRACE_CALL();
+    float totalGain = gain/100.0 * kBaseGainFactor;
+    // Using fixed-point math with 6 bits of fractional precision.
+    // In fixed-point math, calculate total scaling from electrons to 8bpp
+    const int scale64x = 64 * totalGain * 255 / kMaxRawValue;
+    // In fixed-point math, saturation point of sensor after gain
+    const int saturationPoint = 64 * 255;
+    // Fixed-point coefficients for RGB-YUV transform
+    // Based on JFIF RGB->YUV transform.
+    // Cb/Cr offset scaled by 64x twice since they're applied post-multiply
+    float rgbToY[]  = {19.0, 37.0, 7.0, 0.0};
+    float rgbToCb[] = {-10.0,-21.0, 32.0, 524288.0};
+    float rgbToCr[] = {32.0,-26.0, -5.0, 524288.0};
+    // Scale back to 8bpp non-fixed-point
+    const int scaleOut = 64;
+    const int scaleOutSq = scaleOut * scaleOut; // after multiplies
+    const double invscaleOutSq = 1.0/scaleOutSq;
+    for (int i=0; i < 4; ++i) {
+        rgbToY[i] *= invscaleOutSq;
+        rgbToCb[i] *= invscaleOutSq;
+        rgbToCr[i] *= invscaleOutSq;
+    }
+
+    unsigned int DivH= (float)mSceneHeight/height * (0x1 << 10);
+    unsigned int DivW = (float)mSceneWidth/width * (0x1 << 10);
+    for (unsigned int outY = 0; outY < height; outY++) {
+        unsigned int y = outY * DivH >> 10;
+        uint8_t *pxY = img + outY * width;
+        uint8_t *pxVU = img + (height + outY / 2) * width;
+        mScene.setReadoutPixel(0, y);
+        unsigned int lastX = 0;
+        const uint32_t *pixel = mScene.getPixelElectrons();
+         for (unsigned int outX = 0; outX < width; outX++) {
+            int32_t rCount, gCount, bCount;
+            unsigned int x = outX * DivW >> 10;
+            if (x - lastX > 0) {
+                for (unsigned int k = 0; k < (x-lastX); k++) {
+                     pixel = mScene.getPixelElectrons();
+                }
+            }
+            lastX = x;
+            rCount = pixel[Scene::R]  * scale64x;
+            rCount = rCount < saturationPoint ? rCount : saturationPoint;
+            gCount = pixel[Scene::Gr] * scale64x;
+            gCount = gCount < saturationPoint ? gCount : saturationPoint;
+            bCount = pixel[Scene::B]  * scale64x;
+            bCount = bCount < saturationPoint ? bCount : saturationPoint;
+            *pxY++ = (rgbToY[0] * rCount + rgbToY[1] * gCount + rgbToY[2] * bCount);
+            if (outY % 2 == 0 && outX % 2 == 0) {
+                *pxVU++ = (rgbToCb[0] * rCount + rgbToCb[1] * gCount + rgbToCb[2] * bCount + rgbToCb[3]);
+                *pxVU++ = (rgbToCr[0] * rCount + rgbToCr[1] * gCount + rgbToCr[2] * bCount + rgbToCr[3]);
+            }
+        }
+    }
+    ALOGVV("NV12 sensor image captured");
 }
 
 void Sensor::captureDepth(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height) {

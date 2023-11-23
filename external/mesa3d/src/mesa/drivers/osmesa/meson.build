@@ -27,8 +27,7 @@ endif
 libosmesa = shared_library(
   osmesa_lib_name,
   ['osmesa.c', glapitable_h, glapitemp_h],
-  c_args : c_vis_args,
-  cpp_args : cpp_vis_args,
+  gnu_symbol_visibility : 'hidden',
   link_args : ld_args_gc_sections,
   include_directories : [
     inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux,
@@ -36,6 +35,8 @@ libosmesa = shared_library(
   link_whole : libglapi_static,
   link_with : [libmesa_classic, osmesa_link_with],
   dependencies : [dep_thread, dep_selinux],
+  name_prefix : host_machine.system() == 'windows' ? '' : 'lib',  # otherwise mingw will create libosmesa.dll
+  soversion : host_machine.system() == 'windows' ? '' : '8',
   version : '8.0.0',
   install : true,
 )

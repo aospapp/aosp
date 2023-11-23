@@ -18,7 +18,7 @@ package com.android.car.user;
 
 import static android.car.hardware.power.CarPowerManager.CarPowerStateListener;
 
-import static com.android.car.CarLog.TAG_USER;
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
@@ -46,18 +46,18 @@ import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.provider.Settings;
-import android.util.Log;
+import android.util.IndentingPrintWriter;
+import android.util.Slog;
 import android.view.IWindowManager;
 import android.view.WindowManagerGlobal;
 
-import androidx.annotation.VisibleForTesting;
-
 import com.android.car.CarLocalServices;
+import com.android.car.CarLog;
 import com.android.car.CarServiceBase;
 import com.android.car.R;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.internal.annotations.GuardedBy;
-
-import java.io.PrintWriter;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * Service to show initial notice UI to user. It only launches it when setting is enabled and
@@ -71,6 +71,9 @@ import java.io.PrintWriter;
  * </ol>
  */
 public final class CarUserNoticeService implements CarServiceBase {
+
+    private static final boolean DBG = false;
+    private static final String TAG = CarLog.tagFor(CarUserNoticeService.class);
 
     // Keyguard unlocking can be only polled as we cannot dismiss keyboard.
     // Polling will stop when keyguard is unlocked.
@@ -111,15 +114,18 @@ public final class CarUserNoticeService implements CarServiceBase {
     private int mIgnoreUserId = UserHandle.USER_NULL;
 
     private final UserLifecycleListener mUserLifecycleListener = event -> {
-        if (Log.isLoggable(TAG_USER, Log.DEBUG)) {
-            Log.d(TAG_USER, "onEvent(" + event + ")");
-        }
+        if (DBG) Slog.d(TAG, "onEvent(" + event + ")");
+
         if (CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING == event.getEventType()) {
+
+            int userId = event.getUserId();
+            if (DBG) Slog.d(TAG, "User switch event received. Target User:" + userId);
+
             CarUserNoticeService.this.mMainHandler.post(() -> {
                 stopUi(/* clearUiShown= */ true);
                 synchronized (mLock) {
-                   // This should be the only place to change user
-                    mUserId = event.getUserId();
+                    // This should be the only place to change user
+                    mUserId = userId;
                 }
                 startNoticeUiIfNecessary();
             });
@@ -144,17 +150,17 @@ public final class CarUserNoticeService implements CarServiceBase {
             // Runs in main thread, so do not use Handler.
             if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
                 if (isDisplayOn()) {
-                    Log.i(TAG_USER, "SCREEN_OFF while display is already on");
+                    Slog.i(TAG, "SCREEN_OFF while display is already on");
                     return;
                 }
-                Log.i(TAG_USER, "Display off, stopping UI");
+                Slog.i(TAG, "Display off, stopping UI");
                 stopUi(/* clearUiShown= */ true);
             } else if (Intent.ACTION_SCREEN_ON.equals(intent.getAction())) {
                 if (!isDisplayOn()) {
-                    Log.i(TAG_USER, "SCREEN_ON while display is already off");
+                    Slog.i(TAG, "SCREEN_ON while display is already off");
                     return;
                 }
-                Log.i(TAG_USER, "Display on, starting UI");
+                Slog.i(TAG, "Display on, starting UI");
                 startNoticeUiIfNecessary();
             }
         }
@@ -180,7 +186,7 @@ public final class CarUserNoticeService implements CarServiceBase {
             try {
                 binder.setCallbackBinder(mIUserNotice);
             } catch (RemoteException e) {
-                Log.w(TAG_USER, "UserNoticeUI Service died", e);
+                Slog.w(TAG, "UserNoticeUI Service died", e);
                 // Wait for reconnect
                 binder = null;
             }
@@ -241,7 +247,7 @@ public final class CarUserNoticeService implements CarServiceBase {
             try {
                 locked = wm.isKeyguardLocked();
             } catch (RemoteException e) {
-                Log.w(TAG_USER, "system server crashed", e);
+                Slog.w(TAG, "system server crashed", e);
             }
         }
         if (locked) {
@@ -267,7 +273,7 @@ public final class CarUserNoticeService implements CarServiceBase {
     private boolean grantSystemAlertWindowPermission(@UserIdInt int userId) {
         AppOpsManager appOpsManager = mContext.getSystemService(AppOpsManager.class);
         if (appOpsManager == null) {
-            Log.w(TAG_USER, "AppOpsManager not ready yet");
+            Slog.w(TAG, "AppOpsManager not ready yet");
             return false;
         }
         String packageName = mServiceIntent.getComponent().getPackageName();
@@ -275,13 +281,13 @@ public final class CarUserNoticeService implements CarServiceBase {
         try {
             packageUid = mContext.getPackageManager().getPackageUidAsUser(packageName, userId);
         } catch (PackageManager.NameNotFoundException e) {
-            Log.wtf(TAG_USER, "Target package for config_userNoticeUiService not found:"
+            Slog.wtf(TAG, "Target package for config_userNoticeUiService not found:"
                     + packageName + " userId:" + userId);
             return false;
         }
         appOpsManager.setMode(AppOpsManager.OP_SYSTEM_ALERT_WINDOW, packageUid, packageName,
                 AppOpsManager.MODE_ALLOWED);
-        Log.i(TAG_USER, "Granted SYSTEM_ALERT_WINDOW permission to package:" + packageName
+        Slog.i(TAG, "Granted SYSTEM_ALERT_WINDOW permission to package:" + packageName
                 + " package uid:" + packageUid);
         return true;
     }
@@ -290,51 +296,73 @@ public final class CarUserNoticeService implements CarServiceBase {
         int userId;
         synchronized (mLock) {
             if (mUiShown || mServiceBound) {
+                if (DBG) {
+                    Slog.d(TAG, "Notice UI not necessary: mUiShown " + mUiShown + " mServiceBound "
+                            + mServiceBound);
+                }
                 return;
             }
             userId = mUserId;
             if (mIgnoreUserId == userId) {
+                if (DBG) {
+                    Slog.d(TAG, "Notice UI not necessary: mIgnoreUserId " + mIgnoreUserId
+                            + " userId " + userId);
+                }
                 return;
             } else {
                 mIgnoreUserId = UserHandle.USER_NULL;
             }
         }
         if (userId == UserHandle.USER_NULL) {
+            if (DBG) Slog.d(TAG, "Notice UI not necessary: userId " + userId);
             return;
         }
         // headless user 0 is ignored.
         if (userId == UserHandle.USER_SYSTEM) {
+            if (DBG) Slog.d(TAG, "Notice UI not necessary: userId " + userId);
             return;
         }
         if (!isNoticeScreenEnabledInSetting(userId)) {
+            if (DBG) {
+                Slog.d(TAG, "Notice UI not necessary as notice screen not enabled in settings.");
+            }
             return;
         }
         if (userId != ActivityManager.getCurrentUser()) {
-            // user has switched. will be handled by user switch callback
+            if (DBG) {
+                Slog.d(TAG, "Notice UI not necessary as user has switched. will be handled by user"
+                                + " switch callback.");
+            }
             return;
         }
         // Dialog can be not shown if display is off.
         // DISPLAY_ON broadcast will handle this later.
         if (!isDisplayOn()) {
+            if (DBG) Slog.d(TAG, "Notice UI not necessary as display is off.");
             return;
         }
         // Do not show it until keyguard is dismissed.
         if (checkKeyguardLockedWithPolling()) {
+            if (DBG) Slog.d(TAG, "Notice UI not necessary as keyguard is not dismissed.");
             return;
         }
         if (!grantSystemAlertWindowPermission(userId)) {
+            if (DBG) {
+                Slog.d(TAG, "Notice UI not necessary as System Alert Window Permission not"
+                        + " granted.");
+            }
             return;
         }
         boolean bound = mContext.bindServiceAsUser(mServiceIntent, mUiServiceConnection,
                 Context.BIND_AUTO_CREATE, UserHandle.of(userId));
         if (bound) {
-            Log.i(TAG_USER, "Bound UserNoticeUI Service Service:" + mServiceIntent);
+            Slog.i(TAG, "Bound UserNoticeUI Service: " + mServiceIntent);
             synchronized (mLock) {
                 mServiceBound = true;
                 mUiShown = true;
             }
         } else {
-            Log.w(TAG_USER, "Cannot bind to UserNoticeUI Service Service" + mServiceIntent);
+            Slog.w(TAG, "Cannot bind to UserNoticeUI Service Service" + mServiceIntent);
         }
     }
 
@@ -350,7 +378,7 @@ public final class CarUserNoticeService implements CarServiceBase {
             }
         }
         if (serviceBound) {
-            Log.i(TAG_USER, "Unbound UserNoticeUI Service");
+            Slog.i(TAG, "Unbound UserNoticeUI Service");
             mContext.unbindService(mUiServiceConnection);
         }
     }
@@ -400,7 +428,8 @@ public final class CarUserNoticeService implements CarServiceBase {
     }
 
     @Override
-    public void dump(PrintWriter writer) {
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
+    public void dump(IndentingPrintWriter writer) {
         synchronized (mLock) {
             if (mServiceIntent == null) {
                 writer.println("*CarUserNoticeService* disabled");

@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -30,7 +30,7 @@ public class Poc17_06 extends SecurityTestCase {
      * b/36392138
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-06")
+    @AsbSecurityTest(cveBugId = 36392138)
     public void testPocCVE_2017_0647() throws Exception {
         AdbUtils.pushResource("/CVE-2017-0647.zip", "/data/local/tmp/CVE-2017-0647.zip",
                 getDevice());

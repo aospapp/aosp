@@ -12,18 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "CtsEdiHostTestCases",
     srcs: ["src/**/*.java"],
-    // tag this module as a cts test artifact
     test_suites: [
+        "ats",
         "cts",
-        "vts10",
+        "gts",
         "general-tests",
     ],
     libs: [
-        "cts-tradefed",
-        "tradefed",
         "compatibility-host-util",
+        "cts-tradefed",
+        "dexlib2-no-guava-no-cli",
+        "tradefed",
+    ],
+    static_libs: [
+        "compat-classpaths-testing",
+        "modules-utils-build-testing",
+        "hamcrest-library",
     ],
 }

@@ -22,8 +22,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.turbine.binder.bound.AnnotationValue;
 import com.google.turbine.binder.bound.EnumConstantValue;
+import com.google.turbine.binder.bound.TurbineAnnotationValue;
 import com.google.turbine.binder.bound.TurbineClassValue;
 import com.google.turbine.binder.bound.TypeBoundClass;
 import com.google.turbine.binder.bound.TypeBoundClass.FieldInfo;
@@ -38,8 +38,10 @@ import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.binder.sym.FieldSymbol;
 import com.google.turbine.binder.sym.Symbol;
 import com.google.turbine.diag.SourceFile;
+import com.google.turbine.diag.TurbineDiagnostic;
 import com.google.turbine.diag.TurbineError;
 import com.google.turbine.diag.TurbineError.ErrorKind;
+import com.google.turbine.diag.TurbineLog.TurbineLogWithSource;
 import com.google.turbine.model.Const;
 import com.google.turbine.model.Const.ConstCastError;
 import com.google.turbine.model.Const.Value;
@@ -91,14 +93,17 @@ public strictfp class ConstEvaluator {
 
   private final Scope scope;
 
+  private final TurbineLogWithSource log;
+
   public ConstEvaluator(
       ClassSymbol origin,
       ClassSymbol owner,
       MemberImportIndex memberImports,
       SourceFile source,
       Scope scope,
-      Env<FieldSymbol, Const.Value> values,
-      CompoundEnv<ClassSymbol, TypeBoundClass> env) {
+      Env<FieldSymbol, Value> values,
+      CompoundEnv<ClassSymbol, TypeBoundClass> env,
+      TurbineLogWithSource log) {
 
     this.origin = origin;
     this.owner = owner;
@@ -107,6 +112,7 @@ public strictfp class ConstEvaluator {
     this.values = values;
     this.env = env;
     this.scope = scope;
+    this.log = log;
   }
 
   /** Evaluates the given expression's value. */
@@ -139,9 +145,8 @@ public strictfp class ConstEvaluator {
             case SHORT:
             case BYTE:
             case NULL:
-            default:
-              throw new AssertionError(a.constantTypeKind());
           }
+          throw new AssertionError(a.constantTypeKind());
         }
       case VOID_TY:
         throw new AssertionError(t.kind());
@@ -162,7 +167,7 @@ public strictfp class ConstEvaluator {
       case ANNO_EXPR:
         return evalAnno(((Tree.AnnoExpr) t).value());
       default:
-        throw new AssertionError(t.kind());
+        throw error(t.position(), ErrorKind.EXPRESSION_ERROR);
     }
   }
 
@@ -178,7 +183,7 @@ public strictfp class ConstEvaluator {
       case VOID_TY:
         return Type.VOID;
       case CLASS_TY:
-        return Type.ClassTy.asNonParametricClassTy(resolveClass((ClassTy) type));
+        return resolveClass((ClassTy) type);
       case ARR_TY:
         return Type.ArrayTy.create(
             evalClassLiteralType(((Tree.ArrTy) type).elem()), ImmutableList.of());
@@ -191,19 +196,20 @@ public strictfp class ConstEvaluator {
    * Resolves the {@link ClassSymbol} for the given {@link Tree.ClassTy}, with handling for
    * non-canonical qualified type names.
    *
-   * <p>Similar to {@link HierarchyBinder#resolveClass}, except we can't unconditionally consider
+   * <p>Similar to {@code HierarchyBinder#resolveClass}, except we can't unconditionally consider
    * members of the current class (e.g. when binding constants inside annotations on that class),
    * and when we do want to consider members we can rely on them being in the current scope (it
    * isn't completed during the hierarchy phase).
    */
-  private ClassSymbol resolveClass(ClassTy classTy) {
+  private Type resolveClass(ClassTy classTy) {
     ArrayDeque<Ident> flat = new ArrayDeque<>();
     for (ClassTy curr = classTy; curr != null; curr = curr.base().orElse(null)) {
       flat.addFirst(curr.name());
     }
     LookupResult result = scope.lookup(new LookupKey(ImmutableList.copyOf(flat)));
     if (result == null) {
-      throw error(classTy.position(), ErrorKind.CANNOT_RESOLVE, flat.peekFirst());
+      log.error(classTy.position(), ErrorKind.CANNOT_RESOLVE, flat.peekFirst());
+      return Type.ErrorTy.create(flat);
     }
     if (result.sym().symKind() != Symbol.Kind.CLASS) {
       throw error(classTy.position(), ErrorKind.UNEXPECTED_TYPE_PARAMETER, flat.peekFirst());
@@ -212,7 +218,7 @@ public strictfp class ConstEvaluator {
     for (Ident bit : result.remaining()) {
       classSym = resolveNext(classTy.position(), classSym, bit);
     }
-    return classSym;
+    return Type.ClassTy.asNonParametricClassTy(classSym);
   }
 
   private ClassSymbol resolveNext(int position, ClassSymbol sym, Ident bit) {
@@ -372,41 +378,41 @@ public strictfp class ConstEvaluator {
     }
     switch (t.op()) {
       case NOT:
-        return unaryNegate(expr);
+        return unaryNegate(t.position(), expr);
       case BITWISE_COMP:
-        return bitwiseComp(expr);
+        return bitwiseComp(t.position(), expr);
       case UNARY_PLUS:
-        return unaryPlus(expr);
+        return unaryPlus(t.position(), expr);
       case NEG:
-        return unaryMinus(expr);
+        return unaryMinus(t.position(), expr);
       default:
         throw new AssertionError(t.op());
     }
   }
 
-  private Value unaryNegate(Value expr) {
+  private Value unaryNegate(int position, Value expr) {
     switch (expr.constantTypeKind()) {
       case BOOLEAN:
         return new Const.BooleanValue(!expr.asBoolean().value());
       default:
-        throw new AssertionError(expr.constantTypeKind());
+        throw error(position, ErrorKind.OPERAND_TYPE, expr.constantTypeKind());
     }
   }
 
-  private Value bitwiseComp(Value expr) {
-    expr = promoteUnary(expr);
+  private Value bitwiseComp(int position, Value expr) {
+    expr = promoteUnary(position, expr);
     switch (expr.constantTypeKind()) {
       case INT:
         return new Const.IntValue(~expr.asInteger().value());
       case LONG:
         return new Const.LongValue(~expr.asLong().value());
       default:
-        throw new AssertionError(expr.constantTypeKind());
+        throw error(position, ErrorKind.OPERAND_TYPE, expr.constantTypeKind());
     }
   }
 
-  private Value unaryPlus(Value expr) {
-    expr = promoteUnary(expr);
+  private Value unaryPlus(int position, Value expr) {
+    expr = promoteUnary(position, expr);
     switch (expr.constantTypeKind()) {
       case INT:
         return new Const.IntValue(+expr.asInteger().value());
@@ -417,12 +423,12 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.DoubleValue(+expr.asDouble().value());
       default:
-        throw new AssertionError(expr.constantTypeKind());
+        throw error(position, ErrorKind.OPERAND_TYPE, expr.constantTypeKind());
     }
   }
 
-  private Value unaryMinus(Value expr) {
-    expr = promoteUnary(expr);
+  private Value unaryMinus(int position, Value expr) {
+    expr = promoteUnary(position, expr);
     switch (expr.constantTypeKind()) {
       case INT:
         return new Const.IntValue(-expr.asInteger().value());
@@ -433,7 +439,7 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.DoubleValue(-expr.asDouble().value());
       default:
-        throw new AssertionError(expr.constantTypeKind());
+        throw error(position, ErrorKind.OPERAND_TYPE, expr.constantTypeKind());
     }
   }
 
@@ -460,12 +466,12 @@ public strictfp class ConstEvaluator {
     }
   }
 
-  static Const.Value add(Const.Value a, Const.Value b) {
+  private Const.Value add(int position, Const.Value a, Const.Value b) {
     if (a.constantTypeKind() == TurbineConstantTypeKind.STRING
         || b.constantTypeKind() == TurbineConstantTypeKind.STRING) {
       return new Const.StringValue(a.asString().value() + b.asString().value());
     }
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -478,12 +484,12 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.DoubleValue(a.asDouble().value() + b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value subtract(Const.Value a, Const.Value b) {
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+  private Const.Value subtract(int position, Const.Value a, Const.Value b) {
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -496,12 +502,12 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.DoubleValue(a.asDouble().value() - b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value mult(Const.Value a, Const.Value b) {
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+  private Const.Value mult(int position, Const.Value a, Const.Value b) {
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -514,12 +520,12 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.DoubleValue(a.asDouble().value() * b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value divide(Const.Value a, Const.Value b) {
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+  private Const.Value divide(int position, Const.Value a, Const.Value b) {
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -532,12 +538,12 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.DoubleValue(a.asDouble().value() / b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value mod(Const.Value a, Const.Value b) {
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+  private Const.Value mod(int position, Const.Value a, Const.Value b) {
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -550,17 +556,17 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.DoubleValue(a.asDouble().value() % b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static final int INT_SHIFT_MASK = 0b11111;
+  private static final int INT_SHIFT_MASK = 0b11111;
 
-  static final int LONG_SHIFT_MASK = 0b111111;
+  private static final int LONG_SHIFT_MASK = 0b111111;
 
-  static Const.Value shiftLeft(Const.Value a, Const.Value b) {
-    a = promoteUnary(a);
-    b = promoteUnary(b);
+  private Const.Value shiftLeft(int position, Const.Value a, Const.Value b) {
+    a = promoteUnary(position, a);
+    b = promoteUnary(position, b);
     switch (a.constantTypeKind()) {
       case INT:
         return new Const.IntValue(
@@ -568,13 +574,13 @@ public strictfp class ConstEvaluator {
       case LONG:
         return new Const.LongValue(a.asLong().value() << (b.asInteger().value() & LONG_SHIFT_MASK));
       default:
-        throw new AssertionError(a.constantTypeKind());
+        throw error(position, ErrorKind.OPERAND_TYPE, a.constantTypeKind());
     }
   }
 
-  static Const.Value shiftRight(Const.Value a, Const.Value b) {
-    a = promoteUnary(a);
-    b = promoteUnary(b);
+  private Const.Value shiftRight(int position, Const.Value a, Const.Value b) {
+    a = promoteUnary(position, a);
+    b = promoteUnary(position, b);
     switch (a.constantTypeKind()) {
       case INT:
         return new Const.IntValue(
@@ -582,13 +588,13 @@ public strictfp class ConstEvaluator {
       case LONG:
         return new Const.LongValue(a.asLong().value() >> (b.asInteger().value() & LONG_SHIFT_MASK));
       default:
-        throw new AssertionError(a.constantTypeKind());
+        throw error(position, ErrorKind.OPERAND_TYPE, a.constantTypeKind());
     }
   }
 
-  static Const.Value unsignedShiftRight(Const.Value a, Const.Value b) {
-    a = promoteUnary(a);
-    b = promoteUnary(b);
+  private Const.Value unsignedShiftRight(int position, Const.Value a, Const.Value b) {
+    a = promoteUnary(position, a);
+    b = promoteUnary(position, b);
     switch (a.constantTypeKind()) {
       case INT:
         return new Const.IntValue(
@@ -597,12 +603,12 @@ public strictfp class ConstEvaluator {
         return new Const.LongValue(
             a.asLong().value() >>> (b.asInteger().value() & LONG_SHIFT_MASK));
       default:
-        throw new AssertionError(a.constantTypeKind());
+        throw error(position, ErrorKind.OPERAND_TYPE, a.constantTypeKind());
     }
   }
 
-  static Const.Value lessThan(Const.Value a, Const.Value b) {
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+  private Const.Value lessThan(int position, Const.Value a, Const.Value b) {
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -615,12 +621,12 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.BooleanValue(a.asDouble().value() < b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value lessThanEqual(Const.Value a, Const.Value b) {
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+  private Const.Value lessThanEqual(int position, Const.Value a, Const.Value b) {
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -633,12 +639,12 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.BooleanValue(a.asDouble().value() <= b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value greaterThan(Const.Value a, Const.Value b) {
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+  private Const.Value greaterThan(int position, Const.Value a, Const.Value b) {
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -651,12 +657,12 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.BooleanValue(a.asDouble().value() > b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value greaterThanEqual(Const.Value a, Const.Value b) {
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+  private Const.Value greaterThanEqual(int position, Const.Value a, Const.Value b) {
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -669,11 +675,11 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.BooleanValue(a.asDouble().value() >= b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value equal(Const.Value a, Const.Value b) {
+  private Const.Value equal(int position, Const.Value a, Const.Value b) {
     switch (a.constantTypeKind()) {
       case STRING:
         return new Const.BooleanValue(a.asString().value().equals(b.asString().value()));
@@ -682,7 +688,7 @@ public strictfp class ConstEvaluator {
       default:
         break;
     }
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -695,11 +701,11 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.BooleanValue(a.asDouble().value() == b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value notEqual(Const.Value a, Const.Value b) {
+  private Const.Value notEqual(int position, Const.Value a, Const.Value b) {
     switch (a.constantTypeKind()) {
       case STRING:
         return new Const.BooleanValue(!a.asString().value().equals(b.asString().value()));
@@ -708,7 +714,7 @@ public strictfp class ConstEvaluator {
       default:
         break;
     }
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -721,18 +727,18 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return new Const.BooleanValue(a.asDouble().value() != b.asDouble().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value bitwiseAnd(Const.Value a, Const.Value b) {
+  private Const.Value bitwiseAnd(int position, Const.Value a, Const.Value b) {
     switch (a.constantTypeKind()) {
       case BOOLEAN:
         return new Const.BooleanValue(a.asBoolean().value() & b.asBoolean().value());
       default:
         break;
     }
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -741,18 +747,18 @@ public strictfp class ConstEvaluator {
       case LONG:
         return new Const.LongValue(a.asLong().value() & b.asLong().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value bitwiseOr(Const.Value a, Const.Value b) {
+  private Const.Value bitwiseOr(int position, Const.Value a, Const.Value b) {
     switch (a.constantTypeKind()) {
       case BOOLEAN:
         return new Const.BooleanValue(a.asBoolean().value() | b.asBoolean().value());
       default:
         break;
     }
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -761,18 +767,18 @@ public strictfp class ConstEvaluator {
       case LONG:
         return new Const.LongValue(a.asLong().value() | b.asLong().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
-  static Const.Value bitwiseXor(Const.Value a, Const.Value b) {
+  private Const.Value bitwiseXor(int position, Const.Value a, Const.Value b) {
     switch (a.constantTypeKind()) {
       case BOOLEAN:
         return new Const.BooleanValue(a.asBoolean().value() ^ b.asBoolean().value());
       default:
         break;
     }
-    TurbineConstantTypeKind type = promoteBinary(a, b);
+    TurbineConstantTypeKind type = promoteBinary(position, a, b);
     a = coerce(a, type);
     b = coerce(b, type);
     switch (type) {
@@ -781,7 +787,7 @@ public strictfp class ConstEvaluator {
       case LONG:
         return new Const.LongValue(a.asLong().value() ^ b.asLong().value());
       default:
-        throw new AssertionError(type);
+        throw error(position, ErrorKind.OPERAND_TYPE, type);
     }
   }
 
@@ -793,49 +799,49 @@ public strictfp class ConstEvaluator {
     }
     switch (t.op()) {
       case PLUS:
-        return add(lhs, rhs);
+        return add(t.position(), lhs, rhs);
       case MINUS:
-        return subtract(lhs, rhs);
+        return subtract(t.position(), lhs, rhs);
       case MULT:
-        return mult(lhs, rhs);
+        return mult(t.position(), lhs, rhs);
       case DIVIDE:
-        return divide(lhs, rhs);
+        return divide(t.position(), lhs, rhs);
       case MODULO:
-        return mod(lhs, rhs);
+        return mod(t.position(), lhs, rhs);
       case SHIFT_LEFT:
-        return shiftLeft(lhs, rhs);
+        return shiftLeft(t.position(), lhs, rhs);
       case SHIFT_RIGHT:
-        return shiftRight(lhs, rhs);
+        return shiftRight(t.position(), lhs, rhs);
       case UNSIGNED_SHIFT_RIGHT:
-        return unsignedShiftRight(lhs, rhs);
+        return unsignedShiftRight(t.position(), lhs, rhs);
       case LESS_THAN:
-        return lessThan(lhs, rhs);
+        return lessThan(t.position(), lhs, rhs);
       case GREATER_THAN:
-        return greaterThan(lhs, rhs);
+        return greaterThan(t.position(), lhs, rhs);
       case LESS_THAN_EQ:
-        return lessThanEqual(lhs, rhs);
+        return lessThanEqual(t.position(), lhs, rhs);
       case GREATER_THAN_EQ:
-        return greaterThanEqual(lhs, rhs);
+        return greaterThanEqual(t.position(), lhs, rhs);
       case EQUAL:
-        return equal(lhs, rhs);
+        return equal(t.position(), lhs, rhs);
       case NOT_EQUAL:
-        return notEqual(lhs, rhs);
+        return notEqual(t.position(), lhs, rhs);
       case AND:
         return new Const.BooleanValue(lhs.asBoolean().value() && rhs.asBoolean().value());
       case OR:
         return new Const.BooleanValue(lhs.asBoolean().value() || rhs.asBoolean().value());
       case BITWISE_AND:
-        return bitwiseAnd(lhs, rhs);
+        return bitwiseAnd(t.position(), lhs, rhs);
       case BITWISE_XOR:
-        return bitwiseXor(lhs, rhs);
+        return bitwiseXor(t.position(), lhs, rhs);
       case BITWISE_OR:
-        return bitwiseOr(lhs, rhs);
+        return bitwiseOr(t.position(), lhs, rhs);
       default:
         throw new AssertionError(t.op());
     }
   }
 
-  private static Const.Value promoteUnary(Const.Value v) {
+  private Const.Value promoteUnary(int position, Value v) {
     switch (v.constantTypeKind()) {
       case CHAR:
       case SHORT:
@@ -847,13 +853,13 @@ public strictfp class ConstEvaluator {
       case DOUBLE:
         return v;
       default:
-        throw new AssertionError(v.constantTypeKind());
+        throw error(position, ErrorKind.OPERAND_TYPE, v.constantTypeKind());
     }
   }
 
-  private static TurbineConstantTypeKind promoteBinary(Const.Value a, Const.Value b) {
-    a = promoteUnary(a);
-    b = promoteUnary(b);
+  private TurbineConstantTypeKind promoteBinary(int position, Const.Value a, Const.Value b) {
+    a = promoteUnary(position, a);
+    b = promoteUnary(position, b);
     switch (a.constantTypeKind()) {
       case INT:
         switch (b.constantTypeKind()) {
@@ -863,7 +869,7 @@ public strictfp class ConstEvaluator {
           case FLOAT:
             return b.constantTypeKind();
           default:
-            throw new AssertionError(b.constantTypeKind());
+            throw error(position, ErrorKind.OPERAND_TYPE, b.constantTypeKind());
         }
       case LONG:
         switch (b.constantTypeKind()) {
@@ -874,7 +880,7 @@ public strictfp class ConstEvaluator {
           case FLOAT:
             return b.constantTypeKind();
           default:
-            throw new AssertionError(b.constantTypeKind());
+            throw error(position, ErrorKind.OPERAND_TYPE, b.constantTypeKind());
         }
       case FLOAT:
         switch (b.constantTypeKind()) {
@@ -885,7 +891,7 @@ public strictfp class ConstEvaluator {
           case DOUBLE:
             return TurbineConstantTypeKind.DOUBLE;
           default:
-            throw new AssertionError(b.constantTypeKind());
+            throw error(position, ErrorKind.OPERAND_TYPE, b.constantTypeKind());
         }
       case DOUBLE:
         switch (b.constantTypeKind()) {
@@ -895,10 +901,10 @@ public strictfp class ConstEvaluator {
           case DOUBLE:
             return TurbineConstantTypeKind.DOUBLE;
           default:
-            throw new AssertionError(b.constantTypeKind());
+            throw error(position, ErrorKind.OPERAND_TYPE, b.constantTypeKind());
         }
       default:
-        throw new AssertionError(a.constantTypeKind());
+        throw error(position, ErrorKind.OPERAND_TYPE, a.constantTypeKind());
     }
   }
 
@@ -915,9 +921,17 @@ public strictfp class ConstEvaluator {
    * expression trees.
    */
   AnnoInfo evaluateAnnotation(AnnoInfo info) {
+    // bail if annotation has not been resolved
+    if (info.sym() == null) {
+      return info;
+    }
+
     Map<String, Type> template = new LinkedHashMap<>();
-    for (MethodInfo method : env.get(info.sym()).methods()) {
-      template.put(method.name(), method.returnType());
+    TypeBoundClass annoClass = env.get(info.sym());
+    if (annoClass != null) {
+      for (MethodInfo method : annoClass.methods()) {
+        template.put(method.name(), method.returnType());
+      }
     }
 
     Map<String, Const> values = new LinkedHashMap<>();
@@ -952,7 +966,7 @@ public strictfp class ConstEvaluator {
     return info.withValues(ImmutableMap.copyOf(values));
   }
 
-  private AnnotationValue evalAnno(Tree.Anno t) {
+  private TurbineAnnotationValue evalAnno(Tree.Anno t) {
     LookupResult result = scope.lookup(new LookupKey(t.name()));
     if (result == null) {
       throw error(
@@ -968,8 +982,8 @@ public strictfp class ConstEvaluator {
     if (sym == null) {
       return null;
     }
-    AnnoInfo annoInfo = evaluateAnnotation(new AnnoInfo(source, sym, t, null));
-    return new AnnotationValue(annoInfo.sym(), annoInfo.values());
+    AnnoInfo annoInfo = evaluateAnnotation(new AnnoInfo(source, sym, t, ImmutableMap.of()));
+    return new TurbineAnnotationValue(annoInfo);
   }
 
   private Const.ArrayInitValue evalArrayInit(ArrayInit t) {
@@ -994,6 +1008,9 @@ public strictfp class ConstEvaluator {
     }
     switch (ty.tyKind()) {
       case PRIM_TY:
+        if (!(value instanceof Const.Value)) {
+          throw error(tree.position(), ErrorKind.EXPRESSION_ERROR);
+        }
         return coerce((Const.Value) value, ((Type.PrimTy) ty).primkind());
       case CLASS_TY:
       case TY_VAR:
@@ -1027,7 +1044,17 @@ public strictfp class ConstEvaluator {
         return null;
       }
       return (Const.Value) cast(type, value);
-    } catch (TurbineError | ConstCastError error) {
+    } catch (TurbineError error) {
+      for (TurbineDiagnostic diagnostic : error.diagnostics()) {
+        switch (diagnostic.kind()) {
+          case CANNOT_RESOLVE:
+            // assume this wasn't a constant
+            return null;
+          default: // fall out
+        }
+      }
+      throw error;
+    } catch (ConstCastError error) {
       return null;
     }
   }

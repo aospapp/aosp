@@ -14,26 +14,34 @@
 
 #include "src/vulkan/transfer_buffer.h"
 
-#include <cstring>
-
 #include "src/vulkan/command_buffer.h"
 #include "src/vulkan/device.h"
 
 namespace amber {
 namespace vulkan {
 
-TransferBuffer::TransferBuffer(Device* device, uint32_t size_in_bytes)
-    : Resource(device, size_in_bytes) {}
+TransferBuffer::TransferBuffer(Device* device,
+                               uint32_t size_in_bytes,
+                               Format* format)
+    : Resource(device, size_in_bytes) {
+  if (format)
+    format_ = device->GetVkFormat(*format);
+}
 
 TransferBuffer::~TransferBuffer() {
-  if (memory_ != VK_NULL_HANDLE) {
-    UnMapMemory(memory_);
-    device_->GetPtrs()->vkFreeMemory(device_->GetVkDevice(), memory_, nullptr);
-  }
+  if (device_) {
+    device_->GetPtrs()->vkDestroyBufferView(device_->GetVkDevice(), view_,
+                                            nullptr);
 
-  if (buffer_ != VK_NULL_HANDLE)
+    if (memory_ != VK_NULL_HANDLE) {
+      UnMapMemory(memory_);
+      device_->GetPtrs()->vkFreeMemory(device_->GetVkDevice(), memory_,
+                                       nullptr);
+    }
+
     device_->GetPtrs()->vkDestroyBuffer(device_->GetVkDevice(), buffer_,
                                         nullptr);
+  }
 }
 
 Result TransferBuffer::Initialize(const VkBufferUsageFlags usage) {
@@ -48,6 +56,23 @@ Result TransferBuffer::Initialize(const VkBufferUsageFlags usage) {
                                       true, &memory_type_index);
   if (!r.IsSuccess())
     return r;
+
+  // Create buffer view
+  if (usage & (VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
+               VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT)) {
+    VkBufferViewCreateInfo buffer_view_info = VkBufferViewCreateInfo();
+    buffer_view_info.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+    buffer_view_info.buffer = buffer_;
+    buffer_view_info.format = format_;
+    buffer_view_info.offset = 0;
+    buffer_view_info.range = VK_WHOLE_SIZE;
+
+    if (device_->GetPtrs()->vkCreateBufferView(device_->GetVkDevice(),
+                                               &buffer_view_info, nullptr,
+                                               &view_) != VK_SUCCESS) {
+      return Result("Vulkan::Calling vkCreateBufferView Fail");
+    }
+  }
 
   if (!device_->IsMemoryHostAccessible(memory_type_index) ||
       !device_->IsMemoryHostCoherent(memory_type_index)) {
@@ -69,13 +94,6 @@ void TransferBuffer::CopyToDevice(CommandBuffer* command_buffer) {
 
 void TransferBuffer::CopyToHost(CommandBuffer* command_buffer) {
   MemoryBarrier(command_buffer);
-}
-
-void TransferBuffer::UpdateMemoryWithRawData(
-    const std::vector<uint8_t>& raw_data) {
-  size_t effective_size =
-      raw_data.size() > GetSizeInBytes() ? GetSizeInBytes() : raw_data.size();
-  std::memcpy(HostAccessibleMemoryPtr(), raw_data.data(), effective_size);
 }
 
 }  // namespace vulkan

@@ -376,7 +376,7 @@ static void r300_update_rs_block(struct r300_context *r300)
             if (fs_inputs->color[i] != ATTR_UNUSED) {
                 fp_offset++;
 
-                DBG(r300, DBG_RS, "r300: FS input color %i unassigned%s.\n",
+                DBG(r300, DBG_RS, "r300: FS input color %i unassigned.\n",
                     i);
             }
         }
@@ -474,7 +474,7 @@ static void r300_update_rs_block(struct r300_context *r300)
 		if (fs_inputs->generic[i] != ATTR_UNUSED) {
 		    fp_offset++;
 
-		    DBG(r300, DBG_RS, "r300: FS input generic %i unassigned%s.\n", i);
+		    DBG(r300, DBG_RS, "r300: FS input generic %i unassigned.\n", i);
 		}
 	    }
 	}
@@ -683,7 +683,7 @@ static uint32_t r300_get_border_color(enum pipe_format format,
             border_swizzled[0] = border_swizzled[0] < 0 ?
                                  border_swizzled[0]*0.5+1 :
                                  border_swizzled[0]*0.5;
-            /* Pass through. */
+            /* fallthrough. */
 
         case PIPE_FORMAT_RGTC1_UNORM:
         case PIPE_FORMAT_LATC1_UNORM:

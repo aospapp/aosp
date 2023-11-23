@@ -9,7 +9,6 @@ import java.security.spec.ECPoint;
 import java.security.spec.ECPublicKeySpec;
 import java.security.spec.EllipticCurve;
 
-import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.DERBitString;
@@ -29,6 +28,7 @@ import org.bouncycastle.jcajce.provider.config.ProviderConfiguration;
 import org.bouncycastle.jce.interfaces.ECPointEncoder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.math.ec.ECCurve;
+import org.bouncycastle.util.Properties;
 
 public class BCECPublicKey
     implements ECPublicKey, org.bouncycastle.jce.interfaces.ECPublicKey, ECPointEncoder
@@ -60,7 +60,7 @@ public class BCECPublicKey
     {
         this.algorithm = algorithm;
         this.ecSpec = spec.getParams();
-        this.ecPublicKey = new ECPublicKeyParameters(EC5Util.convertPoint(ecSpec, spec.getW(), false), EC5Util.getDomainParameters(configuration, spec.getParams()));
+        this.ecPublicKey = new ECPublicKeyParameters(EC5Util.convertPoint(ecSpec, spec.getW()), EC5Util.getDomainParameters(configuration, spec.getParams()));
         this.configuration = configuration;
     }
 
@@ -164,7 +164,8 @@ public class BCECPublicKey
     {
         this.algorithm = key.getAlgorithm();
         this.ecSpec = key.getParams();
-        this.ecPublicKey = new ECPublicKeyParameters(EC5Util.convertPoint(this.ecSpec, key.getW(), false), EC5Util.getDomainParameters(configuration, key.getParams()));
+        this.ecPublicKey = new ECPublicKeyParameters(EC5Util.convertPoint(this.ecSpec, key.getW()), EC5Util.getDomainParameters(configuration, key.getParams()));
+        this.configuration = configuration;
     }
 
     BCECPublicKey(
@@ -234,13 +235,16 @@ public class BCECPublicKey
 
     public byte[] getEncoded()
     {
-        ASN1Encodable   params = ECUtils.getDomainParametersFromName(ecSpec, withCompression);
-        ASN1OctetString p = ASN1OctetString.getInstance(new X9ECPoint(ecPublicKey.getQ(), withCompression).toASN1Primitive());
+        boolean compress = withCompression || Properties.isOverrideSet("org.bouncycastle.ec.enable_pc");
+
+        AlgorithmIdentifier algId = new AlgorithmIdentifier(
+            X9ObjectIdentifiers.id_ecPublicKey,
+            ECUtils.getDomainParametersFromName(ecSpec, compress));
+
+        byte[] pubKeyOctets = ecPublicKey.getQ().getEncoded(compress);
 
         // stored curve is null if ImplicitlyCa
-        SubjectPublicKeyInfo info = new SubjectPublicKeyInfo(new AlgorithmIdentifier(X9ObjectIdentifiers.id_ecPublicKey, params), p.getOctets());
-
-        return KeyUtil.getEncodedSubjectPublicKeyInfo(info);
+        return KeyUtil.getEncodedSubjectPublicKeyInfo(algId, pubKeyOctets);
     }
 
     public ECParameterSpec getParams()
@@ -255,7 +259,7 @@ public class BCECPublicKey
             return null;
         }
 
-        return EC5Util.convertSpec(ecSpec, withCompression);
+        return EC5Util.convertSpec(ecSpec);
     }
 
     public ECPoint getW()
@@ -284,7 +288,7 @@ public class BCECPublicKey
     {
         if (ecSpec != null)
         {
-            return EC5Util.convertSpec(ecSpec, withCompression);
+            return EC5Util.convertSpec(ecSpec);
         }
 
         return configuration.getEcImplicitlyCa();

@@ -27,42 +27,80 @@ import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Adds a javadoc tag to {@link BodyDeclaration}s that match a list of locators.
  */
 public class TagMatchingDeclarations implements Processor {
-  private final List<BodyDeclarationLocator> locatorList;
-  private final String tagComment;
+  private final List<LocatorTag> locatorTags;
 
+  /**
+   * @param tagComment The same tag applied to all locators
+   */
   public TagMatchingDeclarations(List<BodyDeclarationLocator> locatorList, String tagComment) {
-    this.locatorList = locatorList;
-    this.tagComment = tagComment;
+    locatorTags = locatorList.stream()
+            .map((locator) -> new LocatorTag(locator, tagComment))
+            .collect(Collectors.toList());
+  }
+
+  public TagMatchingDeclarations(Map<BodyDeclarationLocator, String> locatorTagMap) {
+    locatorTags = locatorTagMap.entrySet().stream()
+            .map((entry) -> new LocatorTag(entry.getKey(), entry.getValue()))
+            .collect(Collectors.toList());
   }
 
   @Override public void process(Context context, CompilationUnit cu) {
-    List<BodyDeclaration> matchingNodes = Lists.newArrayList();
+    List<DeclarationTag> matchingNodes = Lists.newArrayList();
     // This is inefficient but it is very simple.
-    for (BodyDeclarationLocator locator : locatorList) {
-      BodyDeclaration bodyDeclaration = locator.find(cu);
+    for (LocatorTag locatorTag : locatorTags) {
+      BodyDeclaration bodyDeclaration = locatorTag.locator.find(cu);
       if (bodyDeclaration != null) {
-        matchingNodes.add(bodyDeclaration);
+        matchingNodes.add(new DeclarationTag(bodyDeclaration, locatorTag.tagComment));
       }
     }
     // Tackle nodes in reverse order to avoid messing up the ASTNode offsets.
-    Collections.sort(matchingNodes, new StartPositionComparator());
+    Collections.sort(matchingNodes, Comparator.comparingInt(o -> o.declaration.getStartPosition()));
     ASTRewrite rewrite = context.rewrite();
-    for (BodyDeclaration bodyDeclaration : Lists.reverse(matchingNodes)) {
-      JavadocUtils.addJavadocTag(rewrite, bodyDeclaration, tagComment);
+    for (DeclarationTag declarationTag : Lists.reverse(matchingNodes)) {
+      JavadocUtils.addJavadocTag(rewrite, declarationTag.declaration, declarationTag.tagComment);
     }
   }
 
-
   @Override public String toString() {
     return "TagDeclarations{" +
-        "locatorList=" + locatorList +
-        "tagComment=" + tagComment +
+        "locatorTags=" + locatorTags +
         '}';
+  }
+
+  private static class LocatorTag {
+    final BodyDeclarationLocator locator;
+    final String tagComment;
+
+    LocatorTag(BodyDeclarationLocator locator, String tagComment) {
+      this.locator = locator;
+      this.tagComment = tagComment;
+    }
+
+    @Override
+    public String toString() {
+      return "LocatorTag{" +
+              "locator=" + locator +
+              ", tagComment='" + tagComment + '\'' +
+              '}';
+    }
+  }
+
+  private static class DeclarationTag {
+    final BodyDeclaration declaration;
+    final String tagComment;
+
+    DeclarationTag(BodyDeclaration declaration, String tagComment) {
+      this.declaration = declaration;
+      this.tagComment = tagComment;
+    }
   }
 }

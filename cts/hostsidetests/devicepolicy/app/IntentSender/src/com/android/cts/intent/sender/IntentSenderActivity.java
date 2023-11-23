@@ -26,13 +26,13 @@ import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.util.Log;
 
+import java.util.List;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.List;
 
 public class IntentSenderActivity extends Activity {
 
-    private static String TAG = "IntentSenderActivity";
+    private static final String TAG = IntentSenderActivity.class.getSimpleName();
 
     private final SynchronousQueue<Result> mResult = new SynchronousQueue<>();
 
@@ -52,10 +52,14 @@ public class IntentSenderActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mClipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+
+        Log.d(TAG, "Created on user " + getUserId());
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d(TAG, "onActivityResult(): userId=" + getUserId() + ", requestCode=" + requestCode
+                + ",  resultCode=" + resultCode);
         if (resultCode == Activity.RESULT_OK) {
             try {
                 mResult.offer(new Result(resultCode, data), 5, TimeUnit.SECONDS);
@@ -68,9 +72,12 @@ public class IntentSenderActivity extends Activity {
     public Intent getResult(Intent intent) throws Exception {
         Log.d(TAG, "Sending intent " + intent);
         startActivityForResult(intent, 42);
-        final Result result = mResult.poll(30, TimeUnit.SECONDS);
+        int timeoutSec = 30;
+        Result result = mResult.poll(timeoutSec, TimeUnit.SECONDS);
         if (result != null) {
             Log.d(TAG, "Result intent: " + result.data);
+        } else {
+            Log.d(TAG, "null result after " + timeoutSec + "s");
         }
         return (result != null) ? result.data : null;
     }
@@ -79,8 +86,7 @@ public class IntentSenderActivity extends Activity {
      * This method will send an intent accross profiles to IntentReceiverActivity, and return the
      * result intent set by IntentReceiverActivity.
      */
-    public Intent getCrossProfileResult(Intent intent)
-            throws Exception {
+    public Intent getCrossProfileResult(Intent intent) throws Exception {
         PackageManager pm = getPackageManager();
         List<ResolveInfo> ris = pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
         //  There should be two matches:

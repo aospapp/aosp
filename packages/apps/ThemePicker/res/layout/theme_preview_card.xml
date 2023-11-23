@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2019 The Android Open Source Project
+     Copyright (C) 2020 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -16,12 +16,27 @@
 -->
 <androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    style="@style/PreviewCard"
+    style="@style/FullContentPreviewCard"
+    android:id="@+id/theme_preview_card"
+    android:contentDescription="@string/theme_preview_card_content_description"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:contentPadding="0dp">
+    android:layout_gravity="center">
 
-    <include layout="@layout/theme_component_preview"/>
+    <ImageView
+        android:id="@+id/wallpaper_preview_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?android:colorPrimary" />
+
+    <SurfaceView
+        android:id="@+id/wallpaper_preview_surface"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <FrameLayout
+        android:id="@+id/theme_preview_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="noHideDescendants" />
 </androidx.cardview.widget.CardView>

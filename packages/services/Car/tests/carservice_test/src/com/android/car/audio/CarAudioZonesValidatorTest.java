@@ -17,15 +17,18 @@ package com.android.car.audio;
 
 import static org.mockito.Mockito.when;
 
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import android.car.media.CarAudioManager;
+import android.util.SparseArray;
 
-import com.google.common.collect.Lists;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
+
+import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
 public class CarAudioZonesValidatorTest {
@@ -37,52 +40,102 @@ public class CarAudioZonesValidatorTest {
         thrown.expect(RuntimeException.class);
         thrown.expectMessage("At least one zone should be defined");
 
-        CarAudioZonesValidator.validate(new CarAudioZone[0]);
+        CarAudioZonesValidator.validate(new SparseArray<CarAudioZone>());
     }
 
     @Test
     public void validate_volumeGroupsForEachZone() {
-        CarAudioZone primaryZone = Mockito.mock(CarAudioZone.class);
-        when(primaryZone.validateVolumeGroups()).thenReturn(true);
-        CarAudioZone zoneOne = Mockito.mock(CarAudioZone.class);
-        when(zoneOne.validateVolumeGroups()).thenReturn(false);
-        when(zoneOne.getId()).thenReturn(1);
+        SparseArray<CarAudioZone> zones = generateAudioZonesWithPrimary();
+        CarAudioZone zoneOne = new MockBuilder()
+                .withInvalidVolumeGroups()
+                .withZoneId(1)
+                .build();
+        zones.put(zoneOne.getId(), zoneOne);
 
         thrown.expect(RuntimeException.class);
         thrown.expectMessage("Invalid volume groups configuration for zone " + 1);
 
-        CarAudioZonesValidator.validate(new CarAudioZone[]{primaryZone, zoneOne});
+        CarAudioZonesValidator.validate(zones);
     }
 
     @Test
     public void validate_eachAddressAppearsInOnlyOneZone() {
-        CarAudioZone primaryZone = Mockito.mock(CarAudioZone.class);
-        CarVolumeGroup mockVolumeGroup = Mockito.mock(CarVolumeGroup.class);
-        when(mockVolumeGroup.getAddresses()).thenReturn(Lists.newArrayList("one", "two", "three"));
-        when(primaryZone.getVolumeGroups()).thenReturn(new CarVolumeGroup[]{mockVolumeGroup});
-        when(primaryZone.validateVolumeGroups()).thenReturn(true);
+        CarVolumeGroup mockVolumeGroup = generateVolumeGroup(List.of("one", "two", "three"));
 
-        CarAudioZone secondaryZone = Mockito.mock(CarAudioZone.class);
-        CarVolumeGroup mockSecondaryVolmeGroup = Mockito.mock(CarVolumeGroup.class);
-        when(mockSecondaryVolmeGroup.getAddresses()).thenReturn(
-                Lists.newArrayList("three", "four", "five"));
-        when(secondaryZone.getVolumeGroups()).thenReturn(
-                new CarVolumeGroup[]{mockSecondaryVolmeGroup});
-        when(secondaryZone.validateVolumeGroups()).thenReturn(true);
+        CarAudioZone primaryZone = new MockBuilder()
+                .withVolumeGroups(new CarVolumeGroup[]{mockVolumeGroup})
+                .build();
+
+        CarVolumeGroup mockSecondaryVolumeGroup = generateVolumeGroup(
+                List.of("three", "four", "five"));
+
+        CarAudioZone secondaryZone = new MockBuilder()
+                .withZoneId(1)
+                .withVolumeGroups(new CarVolumeGroup[]{mockSecondaryVolumeGroup})
+                .build();
+        SparseArray<CarAudioZone> zones = new SparseArray<>();
+        zones.put(primaryZone.getId(), primaryZone);
+        zones.put(secondaryZone.getId(), secondaryZone);
+
 
         thrown.expect(RuntimeException.class);
         thrown.expectMessage(
                 "Device with address three appears in multiple volume groups or audio zones");
 
-        CarAudioZonesValidator.validate(new CarAudioZone[]{primaryZone, secondaryZone});
+        CarAudioZonesValidator.validate(zones);
     }
 
     @Test
     public void validate_passesWithoutExceptionForValidZoneConfiguration() {
-        CarAudioZone primaryZone = Mockito.mock(CarAudioZone.class);
-        when(primaryZone.validateVolumeGroups()).thenReturn(true);
-        when(primaryZone.getVolumeGroups()).thenReturn(new CarVolumeGroup[0]);
+        SparseArray<CarAudioZone> zones = generateAudioZonesWithPrimary();
 
-        CarAudioZonesValidator.validate(new CarAudioZone[]{primaryZone});
+        CarAudioZonesValidator.validate(zones);
+    }
+
+    private SparseArray<CarAudioZone> generateAudioZonesWithPrimary() {
+        CarAudioZone zone = new MockBuilder().build();
+        SparseArray<CarAudioZone> zones = new SparseArray<>();
+        zones.put(zone.getId(), zone);
+        return zones;
+    }
+
+    private CarVolumeGroup generateVolumeGroup(List<String> deviceAddresses) {
+        CarVolumeGroup mockVolumeGroup = Mockito.mock(CarVolumeGroup.class);
+        when(mockVolumeGroup.getAddresses()).thenReturn(deviceAddresses);
+        return mockVolumeGroup;
+    }
+
+    private CarAudioZone getMockPrimaryZone() {
+        CarAudioZone zoneMock = Mockito.mock(CarAudioZone.class);
+        when(zoneMock.getId()).thenReturn(CarAudioManager.PRIMARY_AUDIO_ZONE);
+        return zoneMock;
+    }
+    private static class MockBuilder {
+        private boolean mHasValidVolumeGroups = true;
+        private int mZoneId = 0;
+        private CarVolumeGroup[] mVolumeGroups = new CarVolumeGroup[0];
+
+        CarAudioZone build() {
+            CarAudioZone zoneMock = Mockito.mock(CarAudioZone.class);
+            when(zoneMock.getId()).thenReturn(mZoneId);
+            when(zoneMock.validateVolumeGroups()).thenReturn(mHasValidVolumeGroups);
+            when(zoneMock.getVolumeGroups()).thenReturn(mVolumeGroups);
+            return zoneMock;
+        }
+
+        MockBuilder withInvalidVolumeGroups() {
+            mHasValidVolumeGroups = false;
+            return this;
+        }
+
+        MockBuilder withZoneId(int zoneId) {
+            mZoneId = zoneId;
+            return this;
+        }
+
+        MockBuilder withVolumeGroups(CarVolumeGroup[] volumeGroups) {
+            mVolumeGroups = volumeGroups;
+            return this;
+        }
     }
 }

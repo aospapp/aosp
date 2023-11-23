@@ -22,12 +22,8 @@
     <string name="display_settings" msgid="5325515247739279185">"디스플레이"</string>
     <string name="brightness" msgid="2919605130898772866">"밝기 수준"</string>
     <string name="auto_brightness_title" msgid="9124647862844666581">"밝기 자동 조절"</string>
-    <string name="auto_brightness_summary" msgid="4741887033140384352">"빛의 양에 따라 밝기 수준 최적화"</string>
+    <string name="auto_brightness_summary" msgid="2002570577219479702">"화면 밝기를 환경에 맞게 조정"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"야간 조명 켜짐"</string>
-    <string name="keywords_display" msgid="3978416985146943922">"화면, 터치스크린"</string>
-    <string name="keywords_display_brightness_level" msgid="3956411572536209195">"화면 어둡게 하기, 터치스크린, 배터리"</string>
-    <string name="keywords_display_auto_brightness" msgid="2700310050333468752">"화면 어둡게 하기, 터치스크린, 배터리"</string>
-    <string name="keywords_display_night_display" msgid="2922294576679769957">"화면 어둡게 하기, 밤, 농담 효과"</string>
     <string name="night_mode_tile_label" msgid="6603597795502131664">"야간 모드"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"네트워크 및 인터넷"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"모바일 네트워크"</string>
@@ -84,6 +80,10 @@
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"데이터 사용 경고 설정"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"데이터 사용 한도"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"설정"</string>
+    <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"OEM 네트워크"</string>
+    <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"%1$s 사용됨, %2$s~%3$s"</string>
+    <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"다른 네트워크에 연결"</string>
+    <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"네트워크 환경설정"</string>
     <string name="wifi_settings" msgid="7701477685273103841">"Wi-Fi"</string>
     <string name="wifi_starting" msgid="473253087503153167">"Wi-Fi 사용 설정 중..."</string>
     <string name="wifi_stopping" msgid="3534173972547890148">"Wi-Fi 사용 중지 중..."</string>
@@ -93,6 +93,8 @@
     <string name="wifi_failed_connect_message" msgid="4447498225022147324">"네트워크에 연결하지 못했습니다."</string>
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"네트워크 추가"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"연결"</string>
+    <string name="wifi_connecting" msgid="1930665730621677960">"연결 중…"</string>
+    <string name="wifi_not_in_range_message" msgid="2617126307140203787">"범위 안에 네트워크가 없음"</string>
     <string name="wifi_password" msgid="5565632142720292397">"비밀번호"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"비밀번호 표시"</string>
     <string name="wifi_no_network_name" msgid="6819604337231313594">"네트워크 이름을 입력하세요."</string>
@@ -152,11 +154,19 @@
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5.0GHz"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Wi‑Fi 핫스팟 대역 한 개 이상 선택"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"핫스팟 및 테더링"</string>
+    <string name="hotspot_settings_title" msgid="8220814387592756713">"핫스팟"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"자동으로 핫스팟 사용 중지"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"연결된 기기가 없으면 Wi‑Fi 핫스팟이 사용 중지됩니다."</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g>에서 Wi-Fi를 사용 설정하려고 합니다."</string>
     <string name="wifi_ask_disable" msgid="2949290055916181553">"<xliff:g id="REQUESTER">%s</xliff:g>에서 Wi-Fi를 사용 중지하려고 합니다."</string>
     <string name="wifi_error" msgid="3105105447117289410">"오류"</string>
+    <string name="network_connection_request_dialog_title" msgid="8449606155059098762">"<xliff:g id="APPNAME">%1$s</xliff:g>에서 사용할 기기"</string>
+    <string name="network_connection_timeout_dialog_message" msgid="2536299451668687586">"기기가 없습니다. 기기가 켜져 있으며 연결 가능한지 확인하세요."</string>
+    <string name="network_connection_timeout_dialog_ok" msgid="2228662561126434792">"다시 시도"</string>
+    <string name="network_connection_errorstate_dialog_message" msgid="4268321315241218483">"문제가 발생했습니다. 애플리케이션에서 기기 선택 요청을 취소했습니다."</string>
+    <string name="network_connection_connect_successful" msgid="7893957133113302365">"연결되었습니다."</string>
+    <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"모두 표시"</string>
+    <string name="progress_scanning" msgid="7191583064717479795">"검색 중"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"블루투스"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"이름이 없는 기기"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"페어링된 기기"</string>
@@ -183,6 +193,11 @@
     <string name="bluetooth_ask_discovery_no_name" msgid="164397600370102369">"앱에서 헤드유닛이 <xliff:g id="TIMEOUT">%1$d</xliff:g>초 동안 다른 블루투스 기기에 표시되도록 설정하려고 합니다."</string>
     <string name="bluetooth_ask_enablement_and_discovery" msgid="5487502083015708674">"<xliff:g id="APP_NAME">%1$s</xliff:g>에서 블루투스를 사용 설정하고 헤드유닛이 <xliff:g id="TIMEOUT">%2$d</xliff:g>초 동안 다른 기기에 표시되도록 설정하려고 합니다."</string>
     <string name="bluetooth_ask_enablement_and_discovery_no_name" msgid="907153034209916282">"앱에서 블루투스를 사용 설정하고 헤드유닛이 <xliff:g id="TIMEOUT">%1$d</xliff:g>초 동안 다른 기기에 표시되도록 설정하려고 합니다."</string>
+    <string name="bluetooth_state_switch_summary" msgid="171929910916432266">"다른 기기에 %1$s(으)로 표시"</string>
+    <string name="bluetooth_my_devices" msgid="6352010339607939612">"내 기기"</string>
+    <string name="bluetooth_previously_connected" msgid="5206229557831180323">"이전에 연결됨"</string>
+    <string name="bluetooth_device_connected_toast" msgid="4614765282582494488">"%1$s 연결됨"</string>
+    <string name="bluetooth_device_disconnected_toast" msgid="8889122688851623920">"%1$s 연결 해제됨"</string>
     <string name="bluetooth_notif_ticker" msgid="7192577740198156792">"블루투스 페어링 요청"</string>
     <string name="bluetooth_device_context_pair_connect" msgid="3138105800372470422">"페어링 및 연결"</string>
     <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"블루투스 페어링 코드"</string>
@@ -220,6 +235,11 @@
     <string name="ringtone_title" msgid="8370531086214517972">"전화 벨소리"</string>
     <string name="notification_ringtone_title" msgid="8661716239594010288">"기본 알림 소리"</string>
     <string name="alarm_ringtone_title" msgid="3257364170646440908">"기본 알람 소리"</string>
+    <string name="ringtone_picker_save_title" msgid="4388137432517227001">"저장"</string>
+    <string name="sound_alert_sounds" msgid="6838044721739163867">"경고음"</string>
+    <string name="sound_alert_sounds_summary" msgid="816501423095651281">"벨소리, 알림, 알람"</string>
+    <string name="display_brightness" msgid="5718970880488110840">"밝기"</string>
+    <string name="display_night_mode_summary" msgid="4939425286027546230">"어두운 곳에 맞게 화면 조정"</string>
     <string name="units_settings" msgid="402325305096925886">"단위"</string>
     <string name="units_speed_title" msgid="7115143916747108160">"속도"</string>
     <string name="units_distance_title" msgid="6257691565990474635">"거리"</string>
@@ -272,24 +292,36 @@
     <string name="all_applications" msgid="7798210477486822168">"모든 앱 표시"</string>
     <string name="default_applications" msgid="1558183275638697087">"기본 앱"</string>
     <string name="app_permissions" msgid="32799922508313948">"앱 권한"</string>
-    <string name="app_permissions_summary" msgid="1842858532315056367">"<xliff:g id="APPS">%1$s</xliff:g>을(를) 사용하는 앱"</string>
+    <string name="app_permissions_summary" msgid="5402214755935368418">"내 데이터에 대한 앱 액세스 권한 제어"</string>
     <string name="applications_settings" msgid="794261395191035632">"앱 정보"</string>
     <string name="force_stop" msgid="2153183697014720520">"강제 종료"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"강제 종료하시겠습니까?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"앱을 강제 종료하면 예기치 않은 오류가 발생할 수 있습니다."</string>
+    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"성능 보호 기능을 사용 중지하시겠습니까?"</string>
+    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"사용 중지하면 소프트웨어와 하드웨어가 제대로 작동하지 않을 수 있습니다."</string>
+    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"계속 사용"</string>
+    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"사용 중지"</string>
     <string name="disable_text" msgid="4358165448648990820">"사용 중지"</string>
     <string name="enable_text" msgid="1794971777861881238">"사용"</string>
     <string name="uninstall_text" msgid="277907956072833012">"제거"</string>
     <string name="app_disable_dialog_text" msgid="7731155411006654025">"이 앱을 사용 중지하면 Android와 다른 앱이 제대로 작동하지 않을 수도 있습니다."</string>
     <string name="app_disable_dialog_positive" msgid="4448684722791563349">"앱 사용 중지"</string>
-    <string name="not_installed" msgid="4218816013370552746">"이 사용자에게 설치되지 않음"</string>
+    <string name="not_installed" msgid="4163454337822508007">"이 프로필에 설치되지 않음"</string>
     <string name="permissions_label" msgid="2701446753515612685">"권한"</string>
     <string name="notifications_label" msgid="6586089149665170731">"알림"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"저장용량 및 캐시"</string>
+    <string name="peak_performance_label" msgid="1592816366516845648">"최대 성능 보장"</string>
     <string name="application_version_label" msgid="8556889839783311649">"버전: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"부여된 권한이 없습니다."</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"요청한 권한이 없습니다."</string>
+    <string name="unused_apps" msgid="648471933781010395">"사용하지 않는 앱"</string>
+    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
+      <item quantity="other">사용하지 않는 앱 <xliff:g id="COUNT_1">%d</xliff:g>개</item>
+      <item quantity="one">사용하지 않는 앱 <xliff:g id="COUNT_0">%d</xliff:g>개</item>
+    </plurals>
+    <string name="unused_apps_switch" msgid="4433958286200341563">"권한을 삭제하고 여유 공간 확보"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"내부 저장소의 %s"</string>
+    <string name="peak_performance_summary" msgid="2450911487290019786">"필요한 경우 과도한 리소스 사용을 방지하기 위해 앱을 닫습니다."</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"데이터 사용량"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"앱 데이터 사용량"</string>
     <string name="computing_size" msgid="5791407621793083965">"계산 중..."</string>
@@ -326,9 +358,17 @@
     <string name="app_link_open_ask" msgid="7242075065136237456">"항상 확인"</string>
     <string name="app_link_open_never" msgid="2173174327831792316">"이 앱에서 열지 않음"</string>
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"지원되는 링크"</string>
+    <string name="apps_settings_title" msgid="3982535942394315336">"앱"</string>
+    <string name="apps_recently_opened" msgid="5320377037971195984">"최근에 연 앱"</string>
+    <string name="apps_view_all_apps_title" msgid="2322120325505230530">"앱 %1$d개 모두 보기"</string>
+    <string name="apps_permission_manager_title" msgid="8776335943862484131">"권한 관리자"</string>
+    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"내 데이터에 대한 앱 액세스 권한 제어"</string>
+    <string name="apps_default_apps_summary" msgid="2017792579839972926">"어시스턴트용 기본 앱"</string>
+    <string name="apps_special_app_access_summary" msgid="6464767436309742163">"시스템 및 기타 설정"</string>
     <string name="special_access" msgid="5730278220917123811">"특수 앱 액세스"</string>
     <string name="show_system" msgid="4401355756969485287">"시스템 표시"</string>
     <string name="hide_system" msgid="8845453295584638040">"시스템 숨기기"</string>
+    <string name="hide_system_apps" msgid="6583947381056154020">"시스템 앱 숨기기"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"시스템 설정 수정"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"이 권한은 앱이 시스템 설정을 수정하도록 허용합니다."</string>
     <string name="notification_access_title" msgid="1467340098885813473">"알림 액세스"</string>
@@ -349,8 +389,12 @@
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"최근 위치 요청 없음"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"앱 수준 권한"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"위치 서비스"</string>
+    <string name="location_use_location_title" msgid="117735895374606680">"위치 사용"</string>
+    <string name="location_settings_footer" msgid="296892848338100051">"기기의 위치를 추정하는 데 GPS, Wi-Fi, 모바일 네트워크, 센서 등의 데이터가 사용될 수 있습니다."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"시스템"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"시스템 업데이트"</string>
+    <string name="system_advanced_title" msgid="6303355131691523362">"고급"</string>
+    <string name="system_advanced_summary" msgid="5833643795981791953">"정보, 법률 정보, 초기화 등"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android 버전"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android 보안 패치 수준"</string>
     <string name="hardware_info" msgid="3973165746261507658">"모델 및 하드웨어"</string>
@@ -367,7 +411,7 @@
     <string name="about_settings" msgid="4329457966672592345">"정보"</string>
     <string name="about_summary" msgid="5374623866267691206">"Android <xliff:g id="VERSION">%1$s</xliff:g>"</string>
     <string name="about_settings_summary" msgid="7975072809083281401">"법률 정보, 상태, 소프트웨어 버전 보기"</string>
-    <string name="legal_information" msgid="1838443759229784762">"법률정보"</string>
+    <string name="legal_information" msgid="1838443759229784762">"법률 정보"</string>
     <string name="contributors_title" msgid="7698463793409916113">"도움을 주신 분들"</string>
     <string name="manual" msgid="4819839169843240804">"수동"</string>
     <string name="regulatory_labels" msgid="3165587388499646779">"규정 라벨"</string>
@@ -394,7 +438,7 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"개발자 옵션"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"옵션 재설정"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"네트워크, 앱, 기기 재설정"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"네트워크 재설정"</string>
+    <string name="reset_network_title" msgid="1284233059990797263">"네트워크 초기화"</string>
     <string name="reset_network_desc" msgid="602381374544634925">"다음을 포함한 모든 네트워크 설정을 초기화합니다."</string>
     <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"Wi‑Fi"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"모바일 데이터"</li></string>
@@ -409,25 +453,24 @@
     <string name="reset_network_confirm_button_text" msgid="5246859685069024851">"설정 초기화"</string>
     <string name="reset_network_complete_toast" msgid="3804108209431416865">"네트워크 설정이 초기화되었습니다."</string>
     <string name="reset_app_pref_title" msgid="5855420038951743992">"앱 환경설정 초기화"</string>
-    <string name="reset_app_pref_desc" msgid="579392665146962149">"이 작업을 하면 다음 환경설정이 재설정됩니다.\n\n"<li>"사용 중지된 앱"</li>\n<li>"사용 중지된 알림"</li>\n<li>"작업에 사용하는 기본 애플리케이션"</li>\n<li>"앱의 백그라운드 데이터 제한"</li>\n<li>"그 밖의 권한 제한"</li>\n\n"앱 데이터는 손실되지 않습니다."</string>
+    <string name="reset_app_pref_desc" msgid="579392665146962149">"다음 환경설정이 초기화됩니다.\n\n"<li>"사용 중지된 앱"</li>\n<li>"사용 중지된 앱 알림"</li>\n<li>"작업에 사용하는 기본 애플리케이션"</li>\n<li>"앱의 백그라운드 데이터 제한"</li>\n<li>"그 밖의 권한 제한"</li>\n\n"앱 데이터는 손실되지 않습니다."</string>
     <string name="reset_app_pref_button_text" msgid="6270820447321231609">"앱 초기화"</string>
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"앱 환경설정이 초기화되었습니다."</string>
-    <string name="master_clear_title" msgid="8515335233363214414">"모든 데이터 삭제(초기화)"</string>
-    <string name="master_clear_desc" msgid="9058719802779893535">"초기화하면 다음을 포함한 차량 헤드 유닛의 모든 데이터가 삭제됩니다. \n\n"<li>"Google 계정"</li>\n<li>"시스템과 앱 데이터 및 설정"</li>\n<li>"다운로드한 앱"</li></string>
-    <string name="master_clear_accounts" msgid="7797522012993567494">"현재 다음 계정에 로그인함:"</string>
-    <string name="master_clear_other_users_present" msgid="8383376863095743337">"이 차량에 다른 사용자가 있습니다."</string>
-    <string name="master_clear_button_text" msgid="8010754220392741160">"차량 초기화"</string>
-    <string name="master_clear_confirm_title" msgid="8646455623132887370">"초기화하시겠습니까?"</string>
-    <string name="master_clear_confirm_desc" msgid="8920446291698038558">"모든 개인정보와 다운로드한 앱을 삭제하시겠습니까? 삭제한 후에는 작업을 취소할 수 없습니다."</string>
-    <string name="master_clear_confirm_button_text" msgid="7981254968588121786">"모두 삭제"</string>
-    <string name="master_clear_progress_title" msgid="7087480656932674774">"삭제 중"</string>
-    <string name="master_clear_progress_text" msgid="3440789441935303176">"잠시 기다려 주세요..."</string>
+    <string name="factory_reset_title" msgid="4019066569214122052">"모든 데이터 삭제(초기화)"</string>
+    <string name="factory_reset_summary" msgid="854815182943504327">"인포테인먼트 시스템에서 모든 데이터와 프로필 삭제"</string>
+    <string name="factory_reset_desc" msgid="1688333312943433244">"초기화하면 다음을 포함한 인포테인먼트 시스템의 모든 데이터가 삭제됩니다.\n\n"<li>"Google 계정"</li>\n<li>"시스템과 앱 데이터 및 설정"</li>\n<li>"다운로드한 앱"</li></string>
+    <string name="factory_reset_accounts" msgid="5523956654938834209">"현재 로그인한 계정:"</string>
+    <string name="factory_reset_other_users_present" msgid="3852324375352090570">"차량에 다른 프로필이 설정되어 있습니다."</string>
+    <string name="factory_reset_button_text" msgid="2626666247051368256">"모든 데이터 삭제"</string>
+    <string name="factory_reset_confirm_title" msgid="3354542161765761879">"모든 데이터를 삭제하시겠습니까?"</string>
+    <string name="factory_reset_confirm_desc" msgid="2037199381372030510">"이 인포테인먼트 시스템의 모든 개인 프로필 데이터, 계정, 다운로드한 앱이 삭제됩니다.\n\n이 작업은 되돌릴 수 없습니다."</string>
+    <string name="factory_reset_confirm_button_text" msgid="1797490544756481809">"모두 삭제"</string>
+    <string name="factory_reset_progress_title" msgid="4580937077054738173">"삭제 중"</string>
+    <string name="factory_reset_progress_text" msgid="7704636573522634757">"잠시 기다려 주세요..."</string>
     <string name="date_and_time_settings_title" msgid="4058492663544475485">"날짜 및 시간"</string>
     <string name="date_and_time_settings_summary" msgid="7669856855390804666">"날짜, 시간, 표준시간대 및 형식 설정"</string>
-    <string name="date_time_auto" msgid="3570339569471779767">"날짜/시간 자동설정"</string>
-    <string name="date_time_auto_summary" msgid="3311706425095342759">"네트워크 시간 사용"</string>
-    <string name="zone_auto" msgid="3701878581920206160">"시간대 자동설정"</string>
-    <string name="zone_auto_summary" msgid="4345856882906981864">"네트워크 시간대 사용"</string>
+    <string name="date_time_auto" msgid="6018635902717385962">"자동으로 시간 설정"</string>
+    <string name="zone_auto" msgid="4174874778459184605">"자동으로 시간대 설정"</string>
     <string name="date_time_24hour_title" msgid="3025576547136168692">"24시간 형식"</string>
     <string name="date_time_24hour" msgid="1137618702556486913">"24시간 형식 사용"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"시간"</string>
@@ -442,35 +485,36 @@
     <string name="time_picker_title" msgid="7436045944320504639">"시간"</string>
     <string name="user_admin" msgid="1535484812908584809">"관리자"</string>
     <string name="signed_in_admin_user" msgid="1267225622818673274">"관리자로 로그인했습니다."</string>
-    <string name="grant_admin_permissions_title" msgid="4628430467359951437">"모든 관리자 권한"</string>
+    <string name="grant_admin_permissions_title" msgid="4496239754512028468">"관리자 권한을 부여하시겠습니까?"</string>
     <string name="grant_admin_permissions_button_text" msgid="988239414372882401">"관리자 권한 부여"</string>
-    <string name="grant_admin_permissions_message" msgid="1751910369004774830">"사용자는 다른 관리자를 포함한 사용자를 삭제하고 시스템을 초기화할 수 있게 됩니다."</string>
+    <string name="grant_admin_permissions_message" msgid="5205433947453539566">"관리자는 다른 관리자를 비롯한 기타 프로필을 삭제하고 인포테인먼트 시스템을 초기화할 수 있습니다."</string>
     <string name="action_not_reversible_message" msgid="740401337875726973">"이 작업은 되돌릴 수 없습니다."</string>
     <string name="confirm_grant_admin" msgid="7852596890218647682">"관리자 권한 부여"</string>
-    <string name="create_user_permission_title" msgid="7781550880565935298">"새 사용자 만들기"</string>
+    <string name="create_user_permission_title" msgid="2402003632264628632">"새 프로필 만들기"</string>
     <string name="outgoing_calls_permission_title" msgid="1230180443712099293">"전화 걸기"</string>
     <string name="sms_messaging_permission_title" msgid="6099328509729071243">"자동차의 모바일 데이터를 통해 메시지 보내기"</string>
     <string name="install_apps_permission_title" msgid="3099705360827925296">"새 앱 설치"</string>
     <string name="uninstall_apps_permission_title" msgid="8448422340567430659">"앱 제거"</string>
-    <string name="user_add_user_menu" msgid="5319151436895941496">"사용자 추가"</string>
-    <string name="user_new_user_name" msgid="7115771396412339662">"새 사용자"</string>
-    <string name="user_add_user_title" msgid="7458813670614932479">"새 사용자를 추가할까요?"</string>
-    <string name="user_add_user_message_setup" msgid="6030901156040053106">"추가된 새로운 사용자는 자신의 공간을 설정해야 합니다."</string>
-    <string name="user_add_user_message_update" msgid="1528170913388932459">"모든 사용자는 다른 사용자들을 위하여 앱을 업데이트할 수 있습니다."</string>
-    <string name="user_limit_reached_title" msgid="8803355734556061238">"사용자 제한 도달"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="2651922256448824747">
-      <item quantity="other">사용자는 <xliff:g id="COUNT">%d</xliff:g>명까지 만들 수 있습니다.</item>
-      <item quantity="one">사용자는 한 명만 만들 수 있습니다.</item>
+    <string name="user_add_user_menu" msgid="4125869008006021799">"프로필 추가"</string>
+    <string name="user_new_user_name" msgid="906698527658609819">"새 프로필"</string>
+    <string name="user_add_user_title" msgid="6296827596015729982">"새 프로필을 추가하시겠습니까?"</string>
+    <string name="user_add_user_message_setup" msgid="812616230454605159">"새 프로필을 만들고 나면 사용자가 직접 프로필을 맞춤설정해야 합니다."</string>
+    <string name="user_add_user_message_update" msgid="3836353291078729240">"어떤 프로필에서든 앱을 업데이트하여 다른 모든 프로필에 적용할 수 있습니다."</string>
+    <string name="user_limit_reached_title" msgid="5677729355746623293">"최대 프로필 개수에 도달"</string>
+    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
+      <item quantity="other">최대 <xliff:g id="COUNT">%d</xliff:g>개의 프로필을 만들 수 있습니다.</item>
+      <item quantity="one">프로필은 1개만 만들 수 있습니다.</item>
     </plurals>
-    <string name="add_user_error_title" msgid="3206300411663817038">"새 사용자를 만들지 못했습니다."</string>
-    <string name="delete_user_dialog_title" msgid="3422867434431562007">"이 사용자를 삭제하시겠습니까?"</string>
-    <string name="delete_user_dialog_message" msgid="4346777604351785057">"모든 앱과 데이터가 삭제됩니다."</string>
-    <string name="delete_user_error_title" msgid="7609819398530124827">"사용자를 삭제하지 못했습니다"</string>
+    <string name="add_user_error_title" msgid="7589792057846396341">"새 프로필을 만들 수 없음"</string>
+    <string name="delete_user_dialog_title" msgid="575517556232943687">"프로필을 삭제하시겠습니까?"</string>
+    <string name="delete_user_dialog_message" msgid="3916865958419051299">"이 프로필의 모든 앱과 데이터가 삭제됩니다."</string>
+    <string name="delete_user_error_title" msgid="6422249596301690254">"프로필을 삭제할 수 없음"</string>
+    <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"이 프로필은 프로필을 전환하거나 차량을 다시 시작할 때 삭제됩니다"</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"닫기"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"재시도"</string>
-    <string name="delete_last_user_dialog_title" msgid="3644392025675369680">"마지막 사용자를 삭제하시겠습니까?"</string>
-    <string name="delete_last_user_admin_created_message" msgid="1856897729010319054">"이 자동차의 남은 사용자만 삭제한 후에 새 관리자를 생성합니다."</string>
-    <string name="delete_last_user_system_setup_required_message" msgid="8550730509371697989">"이 사용자와 관련된 모든 데이터, 설정 및 앱이 삭제됩니다. 시스템을 다시 설정해야 합니다."</string>
+    <string name="delete_last_user_dialog_title" msgid="3454454005909291260">"마지막으로 남은 프로필을 삭제하시겠습니까?"</string>
+    <string name="delete_last_user_delete_warning" msgid="7189499586859833988">"이 차량의 남은 유일한 프로필을 삭제하면 이 프로필에 연결된 모든 데이터, 설정, 앱이 삭제됩니다."</string>
+    <string name="delete_last_user_system_setup_required_message" msgid="726196874941282088">"초기화 후 새 프로필을 설정할 수 있습니다."</string>
     <string name="choose_new_admin_title" msgid="1915428454917699587">"새 관리자 선택"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"관리자 한 명 이상을 선택해야 합니다. 이 관리자를 삭제하려면 먼저 대체 관리자를 선택하세요."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"관리자 선택"</string>
@@ -480,10 +524,11 @@
     <string name="current_user_name" msgid="3813671533249316823">"사용자(%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"이름"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"설정되지 않음"</string>
-    <string name="edit_user_name_title" msgid="6890782937520262478">"사용자 이름 수정"</string>
+    <string name="edit_user_name_title" msgid="1118500707473139995">"프로필 이름 수정"</string>
     <string name="name_input_blank_error" msgid="2088850865880984123">"입력란을 비워 둘 수 없습니다."</string>
-    <string name="name_input_invalid_error" msgid="3523545780580744273">"입력한 사용자 이름이 올바르지 않습니다."</string>
+    <string name="name_input_invalid_error" msgid="4355625213535164704">"입력한 프로필 이름이 올바르지 않습니다."</string>
     <string name="users_list_title" msgid="770764290290240909">"사용자"</string>
+    <string name="profiles_list_title" msgid="1443396686780460221">"프로필"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"%1$s에 부여된 권한"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"저장용량"</string>
     <string name="storage_music_audio" msgid="7827147379976134040">"음악 및 오디오"</string>
@@ -494,7 +539,7 @@
     <string name="storage_audio_files_title" msgid="5183170457027181700">"오디오 파일"</string>
     <string name="memory_calculating_size" msgid="1672238502950390033">"계산 중..."</string>
     <string name="storage_application_size_label" msgid="1146156683170661354">"앱 크기"</string>
-    <string name="storage_data_size_label" msgid="5022911581004239367">"사용자 데이터"</string>
+    <string name="storage_data_size_label" msgid="7986110464268960652">"프로필 데이터"</string>
     <string name="storage_cache_size_label" msgid="6361308766707419555">"캐시"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"합계"</string>
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"저장용량 비우기"</string>
@@ -519,7 +564,7 @@
     <string name="add_an_account" msgid="1072285034300995091">"계정 추가"</string>
     <string name="user_cannot_add_accounts_message" msgid="6775605884544906797">"제한된 프로필은 계정을 추가할 수 없습니다."</string>
     <string name="remove_account_title" msgid="8840386525787836381">"계정 삭제"</string>
-    <string name="really_remove_account_title" msgid="3555164432587924900">"계정을 삭제할까요?"</string>
+    <string name="really_remove_account_title" msgid="3555164432587924900">"계정을 삭제하시겠습니까?"</string>
     <string name="really_remove_account_message" msgid="4296769280849579900">"계정을 삭제하면 기기의 메시지, 연락처 및 다른 데이터가 모두 지워집니다."</string>
     <string name="remove_account_error_title" msgid="8368044943174826635">"계정을 삭제하지 못했습니다"</string>
     <string name="account_sync_title" msgid="6541844336300236915">"계정 동기화"</string>
@@ -536,6 +581,15 @@
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"동기화 취소"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"동기화에 현재 문제가 발생했습니다. 곧 다시 동기화됩니다."</string>
     <string name="privacy_settings_title" msgid="3150145262029229572">"개인정보 보호"</string>
+    <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"인포테인먼트 시스템 데이터"</string>
+    <string name="privacy_location_summary" msgid="7019817848470566242">"위치에 대한 앱 액세스 제어"</string>
+    <string name="mute_mic_title" msgid="2813215197799569553">"마이크"</string>
+    <string name="mute_mic_summary" msgid="5426953935775303904">"앱의 마이크 액세스 권한 제어"</string>
+    <string name="vehicle_data_title" msgid="935933215161763721">"인포테인먼트 시스템 데이터"</string>
+    <string name="vehicle_data_summary" msgid="9204836361819386115">"차량에 저장된 활동 및 정보 관리"</string>
+    <string name="vehicle_data_delete_user_title" msgid="9132472153739085346">"프로필 삭제"</string>
+    <string name="vehicle_data_delete_user_summary" msgid="5900205773710111394">"인포테인먼트 시스템에서 프로필과 계정을 삭제"</string>
+    <string name="action_unavailable" msgid="7087119418684417249">"이 프로필에서 사용할 수 없는 작업입니다."</string>
     <string name="security_settings_title" msgid="6955331714774709746">"보안"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"화면 잠금"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"없음"</string>
@@ -552,7 +606,6 @@
     <string name="lockscreen_skip_button_text" msgid="3755748786396198091">"건너뛰기"</string>
     <string name="set_screen_lock" msgid="5239317292691332780">"화면 잠금 설정"</string>
     <string name="lockscreen_choose_your_pin" msgid="1645229555410061526">"PIN 선택"</string>
-    <string name="lockscreen_choose_your_pattern" msgid="6801175111142593404">"패턴 선택"</string>
     <string name="lockscreen_choose_your_password" msgid="4487577710136014069">"비밀번호 선택"</string>
     <string name="current_screen_lock" msgid="637651611145979587">"현재 화면 잠금"</string>
     <string name="choose_lock_pattern_message" msgid="6242765203541309524">"보안을 위해 패턴을 설정하세요."</string>
@@ -567,9 +620,12 @@
     <string name="lockpattern_pattern_wrong" msgid="929223969555399363">"잘못된 패턴"</string>
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"잠금해제 패턴을 그리는 방법"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"패턴 저장 중 오류 발생"</string>
+    <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"잘못 시도한 횟수가 너무 많습니다. <xliff:g id="NUMBER">%d</xliff:g>초 후에 다시 시도해 주세요."</string>
     <string name="okay" msgid="4589873324439764349">"확인"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"화면 잠금을 삭제하시겠습니까?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"화면 잠금을 삭제하면 누구나 계정에 액세스할 수 있습니다."</string>
+    <string name="security_profile_lock_title" msgid="3082523481292617350">"프로필 잠금"</string>
+    <string name="security_unlock_profile_summary" msgid="6742592419759865631">"자동 잠금 해제 설정"</string>
     <string name="lock_settings_enter_pin" msgid="1669172111244633904">"PIN 입력"</string>
     <string name="lock_settings_enter_password" msgid="2636669926649496367">"비밀번호 입력"</string>
     <string name="choose_lock_pin_message" msgid="2963792070267774417">"보안을 위해 PIN을 설정하세요."</string>
@@ -593,7 +649,7 @@
     <string name="lockpassword_pin_too_long" msgid="62957683396974404">"<xliff:g id="NUMBER">%d</xliff:g>자리 미만이어야 합니다."</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"숫자 0~9만 포함해야 합니다."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"기기 관리자가 최근 PIN 사용을 허용하지 않습니다."</string>
-    <string name="lockpassword_pin_blacklisted_by_admin" msgid="7412709707800738442">"IT 관리자가 일반적으로 사용되는 PIN을 허용하지 않습니다. 다른 PIN으로 시도해 보세요."</string>
+    <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"IT 관리자가 일반적으로 사용되는 PIN을 차단했습니다. 다른 PIN을 시도해 보세요."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"잘못된 문자를 포함할 수 없습니다."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"비밀번호는 4자 이상이어야 합니다."</string>
     <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
@@ -622,7 +678,7 @@
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"기기 관리자가 최근 비밀번호 사용을 허용하지 않습니다."</string>
     <string name="error_saving_password" msgid="8334882262622500658">"비밀번호 저장 중 오류 발생"</string>
-    <string name="lockpassword_password_blacklisted_by_admin" msgid="7965893810326503891">"IT 관리자가 일반적으로 사용되는 비밀번호를 허용하지 않습니다. 다른 비밀번호로 시도해 보세요."</string>
+    <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"IT 관리자가 일반적으로 사용되는 비밀번호를 차단했습니다. 다른 비밀번호로 시도해 보세요."</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"연속으로 올라가거나 내려가는 숫자 또는 반복되는 숫자의 배열은 허용되지 않습니다."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"화면 잠금 옵션"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g>: <xliff:g id="NUM_DAYS">%3$s</xliff:g>일 전"</string>
@@ -643,10 +699,24 @@
     <string name="enter_key" msgid="2121394305541579468">"Enter 키"</string>
     <string name="exit_retail_button_text" msgid="6093240315583384473">"데모 종료"</string>
     <string name="exit_retail_mode_dialog_title" msgid="7970631760237469168">"데모 모드 종료"</string>
-    <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"데모 계정을 삭제하고 시스템을 초기화합니다. 사용자 데이터는 모두 사라집니다."</string>
+    <string name="exit_retail_mode_dialog_body" msgid="6513854703627380365">"데모 계정을 삭제하고 시스템을 초기화합니다. 프로필 데이터는 모두 사라집니다."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"데모 종료"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"닫기"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"운전 중에 사용할 수 없는 기능입니다."</string>
-    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"운전 중에는 사용자를 추가할 수 없습니다."</string>
+    <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"운전 중에는 프로필을 추가할 수 없습니다."</string>
     <string name="default_search_query" msgid="3137420627428857068">"검색"</string>
+    <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"어시스턴트 및 음성"</string>
+    <string name="assistant_and_voice_assistant_app_title" msgid="5981647244625171285">"디지털 어시스턴트 앱"</string>
+    <string name="assistant_and_voice_use_text_from_screen_title" msgid="5851460943413795599">"화면의 텍스트 사용"</string>
+    <string name="assistant_and_voice_use_text_from_screen_summary" msgid="4161751708121301541">"어시스턴트가 화면 콘텐츠에 액세스하도록 허용"</string>
+    <string name="assistant_and_voice_use_screenshot_title" msgid="1930735578425470046">"스크린샷 사용"</string>
+    <string name="assistant_and_voice_use_screenshot_summary" msgid="3738474919393817950">"어시스턴트가 화면 이미지에 액세스하도록 허용"</string>
+    <string name="notifications_recently_sent" msgid="9051696542615302799">"최근에 보냄"</string>
+    <string name="notifications_all_apps" msgid="3557079551048958846">"모든 앱"</string>
+    <string name="profiles_and_accounts_settings_title" msgid="2672643892127659812">"프로필 및 계정"</string>
+    <string name="manage_other_profiles_button_text" msgid="2262188413455510828">"다른 프로필 관리"</string>
+    <string name="add_a_profile_button_text" msgid="8027395095117925114">"프로필 추가"</string>
+    <string name="delete_this_profile_text" msgid="6035404714526922665">"이 프로필 삭제"</string>
+    <string name="add_profile_text" msgid="9118410102199116969">"프로필 추가"</string>
+    <string name="power_component_disabled" msgid="7084144472096800457">"지금은 이 설정을 변경할 수 없습니다."</string>
 </resources>

@@ -22,6 +22,7 @@
 
 #include <base/macros.h>
 
+#include "payload_consumer/file_descriptor.h"
 #include "update_engine/payload_consumer/install_plan.h"
 
 namespace chromeos_update_engine {
@@ -36,6 +37,10 @@ class VerityWriterInterface {
   // Will write verity data to the target partition once all the necessary
   // blocks has passed.
   virtual bool Update(uint64_t offset, const uint8_t* buffer, size_t size) = 0;
+
+  // Write hash tree && FEC data to underlying fd, if they are present
+  virtual bool Finalize(FileDescriptorPtr read_fd,
+                        FileDescriptorPtr write_fd) = 0;
 
  protected:
   VerityWriterInterface() = default;

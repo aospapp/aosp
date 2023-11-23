@@ -25,6 +25,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.inputmethodservice.InputMethodService;
@@ -42,6 +43,8 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
+import android.view.Display;
+import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -58,6 +61,7 @@ import android.view.inputmethod.InlineSuggestion;
 import android.view.inputmethod.InlineSuggestionsRequest;
 import android.view.inputmethod.InlineSuggestionsResponse;
 import android.view.inputmethod.InputBinding;
+import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputContentInfo;
 import android.view.inputmethod.InputMethod;
 import android.widget.FrameLayout;
@@ -132,6 +136,16 @@ public final class MockIme extends InputMethodService {
         }
     }
 
+    @Nullable
+    private InputConnection mMemorizedInputConnection = null;
+
+    @Nullable
+    @MainThread
+    private InputConnection getMemorizedOrCurrentInputConnection() {
+        return mMemorizedInputConnection != null
+                ? mMemorizedInputConnection : getCurrentInputConnection();
+    }
+
     @WorkerThread
     private void onReceiveCommand(@NonNull ImeCommand command) {
         getTracer().onReceiveCommand(command, () -> {
@@ -151,121 +165,159 @@ public final class MockIme extends InputMethodService {
                     throw new IllegalStateException("command " + command
                             + " should be handled on the main thread");
                 }
+                // The context which created from InputMethodService#createXXXContext must behave
+                // like an UI context, which can obtain a display, a window manager,
+                // a view configuration and a gesture detector instance without strict mode
+                // violation.
+                final Configuration testConfig = new Configuration();
+                testConfig.setToDefaults();
+                final Context configContext = createConfigurationContext(testConfig);
+                final Context attrContext = createAttributionContext(null /* attributionTag */);
+                // UI component accesses on a display context must throw strict mode violations.
+                final Context displayContext = createDisplayContext(getDisplay());
                 switch (command.getName()) {
+                    case "memorizeCurrentInputConnection": {
+                        if (!Looper.getMainLooper().isCurrentThread()) {
+                            return new UnsupportedOperationException(
+                                    "memorizeCurrentInputConnection can be requested only for the"
+                                            + " main thread.");
+                        }
+                        mMemorizedInputConnection = getCurrentInputConnection();
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
+                    case "unmemorizeCurrentInputConnection": {
+                        if (!Looper.getMainLooper().isCurrentThread()) {
+                            return new UnsupportedOperationException(
+                                    "unmemorizeCurrentInputConnection can be requested only for the"
+                                            + " main thread.");
+                        }
+                        mMemorizedInputConnection = null;
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
                     case "getTextBeforeCursor": {
                         final int n = command.getExtras().getInt("n");
                         final int flag = command.getExtras().getInt("flag");
-                        return getCurrentInputConnection().getTextBeforeCursor(n, flag);
+                        return getMemorizedOrCurrentInputConnection().getTextBeforeCursor(n, flag);
                     }
                     case "getTextAfterCursor": {
                         final int n = command.getExtras().getInt("n");
                         final int flag = command.getExtras().getInt("flag");
-                        return getCurrentInputConnection().getTextAfterCursor(n, flag);
+                        return getMemorizedOrCurrentInputConnection().getTextAfterCursor(n, flag);
                     }
                     case "getSelectedText": {
                         final int flag = command.getExtras().getInt("flag");
-                        return getCurrentInputConnection().getSelectedText(flag);
+                        return getMemorizedOrCurrentInputConnection().getSelectedText(flag);
                     }
                     case "getCursorCapsMode": {
                         final int reqModes = command.getExtras().getInt("reqModes");
-                        return getCurrentInputConnection().getCursorCapsMode(reqModes);
+                        return getMemorizedOrCurrentInputConnection().getCursorCapsMode(reqModes);
                     }
                     case "getExtractedText": {
                         final ExtractedTextRequest request =
                                 command.getExtras().getParcelable("request");
                         final int flags = command.getExtras().getInt("flags");
-                        return getCurrentInputConnection().getExtractedText(request, flags);
+                        return getMemorizedOrCurrentInputConnection().getExtractedText(request,
+                                flags);
                     }
                     case "deleteSurroundingText": {
                         final int beforeLength = command.getExtras().getInt("beforeLength");
                         final int afterLength = command.getExtras().getInt("afterLength");
-                        return getCurrentInputConnection().deleteSurroundingText(
+                        return getMemorizedOrCurrentInputConnection().deleteSurroundingText(
                                 beforeLength, afterLength);
                     }
                     case "deleteSurroundingTextInCodePoints": {
                         final int beforeLength = command.getExtras().getInt("beforeLength");
                         final int afterLength = command.getExtras().getInt("afterLength");
-                        return getCurrentInputConnection().deleteSurroundingTextInCodePoints(
-                                beforeLength, afterLength);
+                        return getMemorizedOrCurrentInputConnection()
+                                .deleteSurroundingTextInCodePoints(beforeLength, afterLength);
                     }
                     case "setComposingText": {
                         final CharSequence text = command.getExtras().getCharSequence("text");
                         final int newCursorPosition =
                                 command.getExtras().getInt("newCursorPosition");
-                        return getCurrentInputConnection().setComposingText(
+                        return getMemorizedOrCurrentInputConnection().setComposingText(
                                 text, newCursorPosition);
                     }
                     case "setComposingRegion": {
                         final int start = command.getExtras().getInt("start");
                         final int end = command.getExtras().getInt("end");
-                        return getCurrentInputConnection().setComposingRegion(start, end);
+                        return getMemorizedOrCurrentInputConnection().setComposingRegion(start,
+                                end);
                     }
                     case "finishComposingText":
-                        return getCurrentInputConnection().finishComposingText();
+                        return getMemorizedOrCurrentInputConnection().finishComposingText();
                     case "commitText": {
                         final CharSequence text = command.getExtras().getCharSequence("text");
                         final int newCursorPosition =
                                 command.getExtras().getInt("newCursorPosition");
-                        return getCurrentInputConnection().commitText(text, newCursorPosition);
+                        return getMemorizedOrCurrentInputConnection().commitText(text,
+                                newCursorPosition);
                     }
                     case "commitCompletion": {
                         final CompletionInfo text = command.getExtras().getParcelable("text");
-                        return getCurrentInputConnection().commitCompletion(text);
+                        return getMemorizedOrCurrentInputConnection().commitCompletion(text);
                     }
                     case "commitCorrection": {
                         final CorrectionInfo correctionInfo =
                                 command.getExtras().getParcelable("correctionInfo");
-                        return getCurrentInputConnection().commitCorrection(correctionInfo);
+                        return getMemorizedOrCurrentInputConnection().commitCorrection(
+                                correctionInfo);
                     }
                     case "setSelection": {
                         final int start = command.getExtras().getInt("start");
                         final int end = command.getExtras().getInt("end");
-                        return getCurrentInputConnection().setSelection(start, end);
+                        return getMemorizedOrCurrentInputConnection().setSelection(start, end);
                     }
                     case "performEditorAction": {
                         final int editorAction = command.getExtras().getInt("editorAction");
-                        return getCurrentInputConnection().performEditorAction(editorAction);
+                        return getMemorizedOrCurrentInputConnection().performEditorAction(
+                                editorAction);
                     }
                     case "performContextMenuAction": {
                         final int id = command.getExtras().getInt("id");
-                        return getCurrentInputConnection().performContextMenuAction(id);
+                        return getMemorizedOrCurrentInputConnection().performContextMenuAction(id);
                     }
                     case "beginBatchEdit":
-                        return getCurrentInputConnection().beginBatchEdit();
+                        return getMemorizedOrCurrentInputConnection().beginBatchEdit();
                     case "endBatchEdit":
-                        return getCurrentInputConnection().endBatchEdit();
+                        return getMemorizedOrCurrentInputConnection().endBatchEdit();
                     case "sendKeyEvent": {
                         final KeyEvent event = command.getExtras().getParcelable("event");
-                        return getCurrentInputConnection().sendKeyEvent(event);
+                        return getMemorizedOrCurrentInputConnection().sendKeyEvent(event);
                     }
                     case "clearMetaKeyStates": {
                         final int states = command.getExtras().getInt("states");
-                        return getCurrentInputConnection().clearMetaKeyStates(states);
+                        return getMemorizedOrCurrentInputConnection().clearMetaKeyStates(states);
                     }
                     case "reportFullscreenMode": {
                         final boolean enabled = command.getExtras().getBoolean("enabled");
-                        return getCurrentInputConnection().reportFullscreenMode(enabled);
+                        return getMemorizedOrCurrentInputConnection().reportFullscreenMode(enabled);
+                    }
+                    case "performSpellCheck": {
+                        return getMemorizedOrCurrentInputConnection().performSpellCheck();
                     }
                     case "performPrivateCommand": {
                         final String action = command.getExtras().getString("action");
                         final Bundle data = command.getExtras().getBundle("data");
-                        return getCurrentInputConnection().performPrivateCommand(action, data);
+                        return getMemorizedOrCurrentInputConnection().performPrivateCommand(action,
+                                data);
                     }
                     case "requestCursorUpdates": {
                         final int cursorUpdateMode = command.getExtras().getInt("cursorUpdateMode");
-                        return getCurrentInputConnection().requestCursorUpdates(cursorUpdateMode);
+                        return getMemorizedOrCurrentInputConnection().requestCursorUpdates(
+                                cursorUpdateMode);
                     }
                     case "getHandler":
-                        return getCurrentInputConnection().getHandler();
+                        return getMemorizedOrCurrentInputConnection().getHandler();
                     case "closeConnection":
-                        getCurrentInputConnection().closeConnection();
+                        getMemorizedOrCurrentInputConnection().closeConnection();
                         return ImeEvent.RETURN_VALUE_UNAVAILABLE;
                     case "commitContent": {
                         final InputContentInfo inputContentInfo =
                                 command.getExtras().getParcelable("inputContentInfo");
                         final int flags = command.getExtras().getInt("flags");
                         final Bundle opts = command.getExtras().getBundle("opts");
-                        return getCurrentInputConnection().commitContent(
+                        return getMemorizedOrCurrentInputConnection().commitContent(
                                 inputContentInfo, flags, opts);
                     }
                     case "setBackDisposition": {
@@ -289,6 +341,15 @@ public final class MockIme extends InputMethodService {
                         sendDownUpKeyEvents(keyEventCode);
                         return ImeEvent.RETURN_VALUE_UNAVAILABLE;
                     }
+                    case "getApplicationInfo": {
+                        final String packageName = command.getExtras().getString("packageName");
+                        final int flags = command.getExtras().getInt("flags");
+                        try {
+                            return getPackageManager().getApplicationInfo(packageName, flags);
+                        } catch (PackageManager.NameNotFoundException e) {
+                            return e;
+                        }
+                    }
                     case "getDisplayId":
                         return getDisplay().getDisplayId();
                     case "verifyLayoutInflaterContext":
@@ -301,20 +362,79 @@ public final class MockIme extends InputMethodService {
                         mInlineSuggestionsExtras = command.getExtras();
                         return ImeEvent.RETURN_VALUE_UNAVAILABLE;
                     case "verifyGetDisplay":
-                        Context configContext = createConfigurationContext(new Configuration());
-                        return getDisplay() != null && configContext.getDisplay() != null;
-                    case "verifyGetWindowManager":
-                        configContext = createConfigurationContext(new Configuration());
-                        return getSystemService(WindowManager.class) != null
-                                && configContext.getSystemService(WindowManager.class) != null;
-                    case "verifyGetViewConfiguration":
-                            configContext = createConfigurationContext(new Configuration());
-                            return ViewConfiguration.get(this) != null
-                                    && ViewConfiguration.get(configContext) != null;
+                        try {
+                            return verifyGetDisplay();
+                        } catch (UnsupportedOperationException e) {
+                            return e;
+                        }
+                    case "verifyGetWindowManager": {
+                        final WindowManager imsWm = getSystemService(WindowManager.class);
+                        final WindowManager configContextWm =
+                                configContext.getSystemService(WindowManager.class);
+                        final WindowManager attrContextWm =
+                                attrContext.getSystemService(WindowManager.class);
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
+                    case "verifyGetViewConfiguration": {
+                        final ViewConfiguration imsViewConfig = ViewConfiguration.get(this);
+                        final ViewConfiguration configContextViewConfig =
+                                ViewConfiguration.get(configContext);
+                        final ViewConfiguration attrContextViewConfig =
+                                ViewConfiguration.get(attrContext);
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
+                    case "verifyGetGestureDetector": {
+                        GestureDetector.SimpleOnGestureListener listener =
+                                new GestureDetector.SimpleOnGestureListener();
+                        final GestureDetector imsGestureDetector =
+                                new GestureDetector(this, listener);
+                        final GestureDetector configContextGestureDetector =
+                                new GestureDetector(configContext, listener);
+                        final GestureDetector attrGestureDetector =
+                                new GestureDetector(attrContext, listener);
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
+                    case "verifyGetWindowManagerOnDisplayContext": {
+                        // Obtaining a WindowManager on a display context must throw a strict mode
+                        // violation.
+                        final WindowManager wm = displayContext
+                                .getSystemService(WindowManager.class);
+
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
+                    case "verifyGetViewConfigurationOnDisplayContext": {
+                        // Obtaining a ViewConfiguration on a display context must throw a strict
+                        // mode violation.
+                        final ViewConfiguration viewConfiguration =
+                                ViewConfiguration.get(displayContext);
+
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
+                    case "verifyGetGestureDetectorOnDisplayContext": {
+                        // Obtaining a GestureDetector on a display context must throw a strict mode
+                        // violation.
+                        GestureDetector.SimpleOnGestureListener listener =
+                                new GestureDetector.SimpleOnGestureListener();
+                        final GestureDetector gestureDetector =
+                                new GestureDetector(displayContext, listener);
+
+                        return ImeEvent.RETURN_VALUE_UNAVAILABLE;
+                    }
                 }
             }
             return ImeEvent.RETURN_VALUE_UNAVAILABLE;
         });
+    }
+
+    private boolean verifyGetDisplay() throws UnsupportedOperationException {
+        final Display display;
+        final Display configContextDisplay;
+        final Configuration config = new Configuration();
+        config.setToDefaults();
+        final Context configContext = createConfigurationContext(config);
+        display = getDisplay();
+        configContextDisplay = configContext.getDisplay();
+        return display != null && configContextDisplay != null;
     }
 
     @Nullable
@@ -387,7 +507,7 @@ public final class MockIme extends InputMethodService {
                             .detectIncorrectContextUse()
                             .penaltyLog()
                             .penaltyListener(Runnable::run,
-                                    v -> getTracer().onStrictModeViolated(() -> {}))
+                                    v -> getTracer().onStrictModeViolated(() -> { }))
                             .build());
         }
 
@@ -404,7 +524,9 @@ public final class MockIme extends InputMethodService {
             } else {
                 registerReceiver(mCommandReceiver, filter, null /* broadcastPermission */, handler);
             }
-
+            if (mSettings.isVerifyGetDisplayOnCreate()) {
+                getTracer().onVerify("getDisplay", this::verifyGetDisplay);
+            }
             final int windowFlags = mSettings.getWindowFlags(0);
             final int windowFlagsMask = mSettings.getWindowFlagsMask(0);
             if (windowFlags != 0 || windowFlagsMask != 0) {
@@ -667,6 +789,15 @@ public final class MockIme extends InputMethodService {
                 () -> super.onUpdateCursorAnchorInfo(cursorAnchorInfo));
     }
 
+    @Override
+    public void onUpdateSelection(int oldSelStart, int oldSelEnd, int newSelStart, int newSelEnd,
+            int candidatesStart, int candidatesEnd) {
+        getTracer().onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
+                candidatesStart, candidatesEnd,
+                () -> super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
+                        candidatesStart, candidatesEnd));
+    }
+
     @CallSuper
     public boolean onEvaluateInputViewShown() {
         return getTracer().onEvaluateInputViewShown(() -> {
@@ -730,10 +861,10 @@ public final class MockIme extends InputMethodService {
     @NonNull
     private ImeState getState() {
         final boolean hasInputBinding = getCurrentInputBinding() != null;
-        final boolean hasDummyInputConnectionConnection =
+        final boolean hasFallbackInputConnection =
                 !hasInputBinding
                         || getCurrentInputConnection() == getCurrentInputBinding().getConnection();
-        return new ImeState(hasInputBinding, hasDummyInputConnectionConnection);
+        return new ImeState(hasInputBinding, hasFallbackInputConnection);
     }
 
     private PendingInlineSuggestions mPendingInlineSuggestions;
@@ -759,6 +890,7 @@ public final class MockIme extends InputMethodService {
         StylesBuilder stylesBuilder = UiVersions.newStylesBuilder();
         stylesBuilder.addStyle(InlineSuggestionUi.newStyleBuilder().build());
         Bundle styles = stylesBuilder.build();
+
         if (mInlineSuggestionsExtras != null) {
             styles.putAll(mInlineSuggestionsExtras);
         }
@@ -770,8 +902,12 @@ public final class MockIme extends InputMethodService {
             presentationSpecs.add(new InlinePresentationSpec.Builder(new Size(100, 100),
                     new Size(400, 100)).setStyle(styles).build());
 
+            final InlinePresentationSpec tooltipSpec =
+                    new InlinePresentationSpec.Builder(new Size(100, 100),
+                            new Size(400, 100)).setStyle(styles).build();
             final InlineSuggestionsRequest.Builder builder =
                     new InlineSuggestionsRequest.Builder(presentationSpecs)
+                            .setInlineTooltipPresentationSpec(tooltipSpec)
                             .setMaxSuggestionCount(6);
             if (mInlineSuggestionsExtras != null) {
                 builder.setExtras(mInlineSuggestionsExtras.deepCopy());
@@ -809,6 +945,13 @@ public final class MockIme extends InputMethodService {
                         suggestionView -> {
                             Log.d(TAG, "new inline suggestion view ready");
                             if (suggestionView != null) {
+                                suggestionView.setOnClickListener((v) -> {
+                                    getTracer().onInlineSuggestionClickedEvent(() -> { });
+                                });
+                                suggestionView.setOnLongClickListener((v) -> {
+                                    getTracer().onInlineSuggestionLongClickedEvent(() -> { });
+                                    return true;
+                                });
                                 pendingInlineSuggestions.mViews[index] = suggestionView;
                             }
                             if (pendingInlineSuggestions.mInflatedViewCount.incrementAndGet()
@@ -919,6 +1062,12 @@ public final class MockIme extends InputMethodService {
             recordEventInternal("onCreate", runnable);
         }
 
+        void onVerify(String name, @NonNull BooleanSupplier supplier) {
+            final Bundle arguments = new Bundle();
+            arguments.putString("name", name);
+            recordEventInternal("onVerify", supplier::getAsBoolean, arguments);
+        }
+
         void onConfigureWindow(Window win, boolean isFullscreen, boolean isCandidatesOnly,
                 @NonNull Runnable runnable) {
             final Bundle arguments = new Bundle();
@@ -982,6 +1131,23 @@ public final class MockIme extends InputMethodService {
             final Bundle arguments = new Bundle();
             arguments.putParcelable("cursorAnchorInfo", cursorAnchorInfo);
             recordEventInternal("onUpdateCursorAnchorInfo", runnable, arguments);
+        }
+
+        void onUpdateSelection(int oldSelStart,
+                int oldSelEnd,
+                int newSelStart,
+                int newSelEnd,
+                int candidatesStart,
+                int candidatesEnd,
+                @NonNull Runnable runnable) {
+            final Bundle arguments = new Bundle();
+            arguments.putInt("oldSelStart", oldSelStart);
+            arguments.putInt("oldSelEnd", oldSelEnd);
+            arguments.putInt("newSelStart", newSelStart);
+            arguments.putInt("newSelEnd", newSelEnd);
+            arguments.putInt("candidatesStart", candidatesStart);
+            arguments.putInt("candidatesEnd", candidatesEnd);
+            recordEventInternal("onUpdateSelection", runnable, arguments);
         }
 
         boolean onShowInputRequested(int flags, boolean configChange,
@@ -1067,6 +1233,16 @@ public final class MockIme extends InputMethodService {
             arguments.putParcelable("response", response);
             return recordEventInternal("onInlineSuggestionsResponse", supplier::getAsBoolean,
                     arguments);
+        }
+
+        void onInlineSuggestionClickedEvent(@NonNull Runnable runnable) {
+            final Bundle arguments = new Bundle();
+            recordEventInternal("onInlineSuggestionClickedEvent", runnable, arguments);
+        }
+
+        void onInlineSuggestionLongClickedEvent(@NonNull Runnable runnable) {
+            final Bundle arguments = new Bundle();
+            recordEventInternal("onInlineSuggestionLongClickedEvent", runnable, arguments);
         }
     }
 }

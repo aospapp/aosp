@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Stemboodskapinstellings kan slegs deur die primêre gebruiker gewysig word."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Jou SIM-kaart is oopgesluit. Jou foon sluit tans oop…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"SIM-netwerk ontsluit PIN"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"SIM gesluit vir operateur"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Ontsluit"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Maak toe"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Versoek tans netwerkontsluiting…"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Stuur aan na <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Af"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Jou diensverskaffer ondersteun nie die deaktivering van oproepaanstuur wanneer jou foon onbereikbaar is nie."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Jou diensverskaffer ondersteun nie oproepaanstuur nie."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Skakel Oproep Wat Wag aan?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Jy sal tydens \'n oproep in kennis gestel word van inkomende oproepe"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Skakel aan"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Kanselleer"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"CDMA-Oproep Wat Wag onder IMS is Aan"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA-Oproep Wat Wag onder IMS is Af"</string>
     <string name="updating_title" msgid="6130548922615719689">"Belinstellings"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Oproepinstellings kan net deur die administrateur verander word."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Instellings (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Beperkte SIM-funksionaliteit"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> oproepe- en datadienste kan geblokkeer word terwyl <xliff:g id="PHONE_NUMBER">%2$s</xliff:g> gebruik word."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> oproepe- en datadienste kan geblokkeer word terwyl \'n ander SIM gebruik word."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Opgeskorte SIP-rekeninge is gevind en verwyder"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP-bel word nie meer deur die Android-platform ondersteun nie.\nJou bestaande SIP-rekeninge <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> is verwyder.\nBevestig asseblief jou verstekbelinstelling."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Gaan na instellings"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Programdatagebruik"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> mobiele data gebruik <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Gevorderd"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Wagwoord is verkeerd. SIM is nou geblokkeer. Voer PUK2 in."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 is permanent geblokkeer."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Jy het <xliff:g id="NUMBER">%d</xliff:g> oorblywende pogings."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 is gesluit. Kontak diensverskaffer om te ontsluit."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 is nie meer geblokkeer nie"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Netwerk- of SIM-kaartfout"</string>
     <string name="doneButton" msgid="7371209609238460207">"Klaar"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Skakel selnetwerk aan, skakel vliegtuigmodus af of skakel batterybespaardermodus af om \'n oproep te maak."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Skakel vliegtuigmodus af om \'n oproep te maak."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Skakel vliegtuigmodus af of koppel aan \'n draadlose netwerk om \'n oproep te maak."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Foon is te warm"</b>\n\n"Kan nie hierdie oproep voltooi nie. Probeer weer wanneer jou foon afkoel.\n\nJy kan nog noodoproepe maak."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Verlaat noodterugbelmodus om \'n nienoodoproep te maak."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Nie geregistreer op netwerk nie."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Mobiele netwerk nie beskikbaar nie."</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Sub-ID van verstekdata-SIM:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Aflaaibandwydte (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Oplaaibandwydte (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Selligginginligting (opgeskort):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Fisieke LTE-kanaalopstelling:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Herlaaikoers van selinligting:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Alle selmetingsinligting:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Herlaai"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Wissel DNS-kontrole"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-spesifieke inligting/instellings"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC is beskikbaar:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR is beperk:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR is beskikbaar:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR-status:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR-frekwensie:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Stel radiobandmodus"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Laai tans bandlys …"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Stel"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Fooninligting"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Diensverskaffervoorsiening-inligting"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Trigger-diensverskaffervoorsiening"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Jou bluetooth-sein is swak. Probeer om na luidsprekerfoon oor te skakel."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Kennisgewing oor oproepgehalte"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Opgeskorte SIP-rekeninge"</string>
 </resources>

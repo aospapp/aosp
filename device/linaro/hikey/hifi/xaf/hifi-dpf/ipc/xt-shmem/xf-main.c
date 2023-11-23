@@ -181,7 +181,7 @@ int main(void)
     }
 #endif
 
-    /* ...enter execution loop on master core #0 */
+    /* ...enter execution loop on main core #0 */
     xf_core_loop(0);
 
     /* ...not reachable */

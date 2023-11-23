@@ -219,8 +219,7 @@ class MetadataParserXml:
       enum_values = []
       enum_deprecateds = []
       enum_optionals = []
-      enum_hiddens = []
-      enum_ndk_hiddens = []
+      enum_visibilities = {}
       enum_notes = {}
       enum_sdk_notes = {}
       enum_ndk_notes = {}
@@ -237,11 +236,9 @@ class MetadataParserXml:
         if value.attrs.get('optional', 'false') == 'true':
           enum_optionals.append(value_body)
 
-        if value.attrs.get('hidden', 'false') == 'true':
-          enum_hiddens.append(value_body)
-
-        if value.attrs.get('ndk_hidden', 'false') == 'true':
-          enum_ndk_hiddens.append(value_body)
+        visibility = value.attrs.get('visibility')
+        if visibility is not None:
+          enum_visibilities[value_body] = visibility
 
         notes = value.find('notes')
         if notes is not None:
@@ -264,8 +261,7 @@ class MetadataParserXml:
       d['enum_values'] = enum_values
       d['enum_deprecateds'] = enum_deprecateds
       d['enum_optionals'] = enum_optionals
-      d['enum_hiddens'] = enum_hiddens
-      d['enum_ndk_hiddens'] = enum_ndk_hiddens
+      d['enum_visibilities'] = enum_visibilities
       d['enum_notes'] = enum_notes
       d['enum_sdk_notes'] = enum_sdk_notes
       d['enum_ndk_notes'] = enum_ndk_notes
@@ -317,7 +313,7 @@ class MetadataParserXml:
 
     return d
 
-  def render(self, template, output_name=None, hal_version="3.2"):
+  def render(self, template, output_name=None, hal_version="3.2", copyright_year="2021"):
     """
     Render the metadata model using a Mako template as the view.
 
@@ -331,11 +327,13 @@ class MetadataParserXml:
       output_name: path to the output file, or None to use stdout
       hal_version: target HAL version, used when generating HIDL HAL outputs.
                    Must be a string of form "X.Y" where X and Y are integers.
+      copyright_year: the year in the copyright section of output file
     """
     buf = StringIO()
     metadata_helpers._context_buf = buf
     metadata_helpers._hal_major_version = int(hal_version.partition('.')[0])
     metadata_helpers._hal_minor_version = int(hal_version.partition('.')[2])
+    metadata_helpers._copyright_year = copyright_year
 
     helpers = [(i, getattr(metadata_helpers, i))
                 for i in dir(metadata_helpers) if not i.startswith('_')]
@@ -361,7 +359,8 @@ class MetadataParserXml:
 
 if __name__ == "__main__":
   if len(sys.argv) <= 2:
-    print("Usage: %s <filename.xml> <template.mako> [<output_file>] [<hal_version>]"          \
+    print("Usage: %s <filename.xml> <template.mako> [<output_file>]"\
+          " [<hal_version>] [<copyright_year>]" \
           % (sys.argv[0]), file=sys.stderr)
     sys.exit(0)
 
@@ -369,8 +368,9 @@ if __name__ == "__main__":
   template_name = sys.argv[2]
   output_name = sys.argv[3] if len(sys.argv) > 3 else None
   hal_version = sys.argv[4] if len(sys.argv) > 4 else "3.2"
+  copyright_year = sys.argv[5] if len(sys.argv) > 5 else "2021"
 
   parser = MetadataParserXml.create_from_file(file_name)
-  parser.render(template_name, output_name, hal_version)
+  parser.render(template_name, output_name, hal_version, copyright_year)
 
   sys.exit(0)

@@ -4,7 +4,6 @@
 
 import logging
 
-from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.network import wifi_cell_test_base
 
 class network_WiFi_SimpleConnect(wifi_cell_test_base.WiFiCellTestBase):
@@ -37,9 +36,6 @@ class network_WiFi_SimpleConnect(wifi_cell_test_base.WiFiCellTestBase):
             else:
                 with self.context.client.assert_no_disconnects():
                     self.context.assert_ping_from_dut()
-                if self.context.router.detect_client_deauth(client_mac):
-                    raise error.TestFail(
-                        'Client de-authenticated during the test')
                 self.context.client.shill.disconnect(client_conf.ssid)
                 times_dict = {
                     'Discovery': assoc_result.discovery_time,

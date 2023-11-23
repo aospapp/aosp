@@ -26,12 +26,17 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
 import android.os.Bundle;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.ViewModelProviders;
 
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 import com.android.settingslib.wifi.WifiTracker;
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.util.State;
@@ -83,6 +88,18 @@ public class WifiSetupActivity extends FragmentActivity implements State.Fragmen
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        final UserManager userManager = UserManager.get(this);
+        if (userManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_WIFI)) {
+            EnforcedAdmin admin = RestrictedLockUtilsInternal.checkIfRestrictionEnforced(this,
+                    UserManager.DISALLOW_CONFIG_WIFI, UserHandle.myUserId());
+            if (admin != null) {
+                RestrictedLockUtils.sendShowAdminSupportDetailsIntent(this, admin);
+            }
+            doFinish();
+            return;
+        }
+
         setContentView(R.layout.wifi_container);
         // fade in
         ObjectAnimator animator = TransitionUtils.createActivityFadeInAnimator(getResources(),
@@ -269,19 +286,25 @@ public class WifiSetupActivity extends FragmentActivity implements State.Fragmen
     @Override
     public void onResume() {
         super.onResume();
-        mWifiTracker.onStart();
+        if (mWifiTracker != null) {
+            mWifiTracker.onStart();
+        }
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        mWifiTracker.onStop();
+        if (mWifiTracker != null) {
+            mWifiTracker.onStop();
+        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mWifiTracker.onDestroy();
+        if (mWifiTracker != null) {
+            mWifiTracker.onDestroy();
+        }
     }
 
     @Override

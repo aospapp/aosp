@@ -60,9 +60,6 @@ private:
     NetlinkMessage& operator=(const NetlinkMessage&) = delete;
 
     bool getAttribute(int attributeId, void* data, size_t size) const;
-    bool findAttribute(int attributeId,
-                       const void** value,
-                       uint16_t* size) const;
 
     std::vector<uint8_t> mData;
 };

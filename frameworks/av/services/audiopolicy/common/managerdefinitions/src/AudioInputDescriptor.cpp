@@ -92,7 +92,7 @@ void AudioInputDescriptor::toAudioPortConfig(struct audio_port_config *dstConfig
     dstConfig->ext.mix.usecase.source = source();
 }
 
-void AudioInputDescriptor::toAudioPort(struct audio_port *port) const
+void AudioInputDescriptor::toAudioPort(struct audio_port_v7 *port) const
 {
     ALOG_ASSERT(mProfile != 0, "toAudioPort() called on input with null profile %d", mIoHandle);
 
@@ -516,7 +516,7 @@ void AudioInputDescriptor::dump(String8 *dst) const
     dst->appendFormat(" Sampling rate: %d\n", mSamplingRate);
     dst->appendFormat(" Format: %d\n", mFormat);
     dst->appendFormat(" Channels: %08x\n", mChannelMask);
-    dst->appendFormat(" Devices %s\n", mDevice->toString().c_str());
+    dst->appendFormat(" Devices %s\n", mDevice->toString(true /*includeSensitiveInfo*/).c_str());
     mEnabledEffects.dump(dst, 1 /*spaces*/, false /*verbose*/);
     dst->append(" AudioRecord Clients:\n");
     ClientMapHandler<RecordClientDescriptor>::dump(dst);

@@ -2,8 +2,12 @@ import init.${ro.hardware}.usb.rc
 import init.${ro.hardware}.power.rc
 
 on fs
-    mount_all /vendor/etc/init/fstab.${ro.hardware}
-    swapon_all /vendor/etc/init/fstab.${ro.hardware}
+    mount_all /vendor/etc/fstab.${ro.hardware}
+    swapon_all /vendor/etc/fstab.${ro.hardware}
+
+on post-fs
+    # set RLIMIT_MEMLOCK to 64MB
+    setrlimit 8 67108864 67108864
 
 on init
     # For legacy support
@@ -31,6 +35,8 @@ on zygote-start
     mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi
 
 on property:sys.boot_completed=1
+    chmod 0755 /sys/kernel/debug/tracing
+
     # update cpuset now that processors are up
     # Foreground should contain most cores (7 is reserved for top-app)
     write /dev/cpuset/foreground/cpus 0-6
@@ -55,3 +61,9 @@ service wpa_supplicant /vendor/bin/hw/wpa_supplicant \
     class main
     disabled
     oneshot
+
+# TODO: disable this service once we implement system suspend
+service suspend_blocker /vendor/bin/suspend_blocker
+    class early_hal # Start together with system_suspend HAL
+    group system
+    user root

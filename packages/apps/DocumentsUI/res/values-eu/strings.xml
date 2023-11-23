@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Izena aldatu behar diozu"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Karpetari izena jarri behar diozu"</string>
     <string name="files_label" msgid="771781190045103748">"Fitxategiak"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Deskargak"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -196,14 +198,14 @@
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> elementu kopiatu da arbelean.</item>
     </plurals>
     <string name="file_operation_rejected" msgid="4301554203329008794">"Ez da onartzen hori egitea fitxategiarekin."</string>
-    <string name="file_operation_error" msgid="2234357335716533795">"Ezin da egin hori fitxategiarekin."</string>
+    <string name="file_operation_error" msgid="2234357335716533795">"Ezin izan da egin hori fitxategiarekin."</string>
     <string name="rename_error" msgid="6700093173508118635">"Ezin izan zaio aldatu izena dokumentuari"</string>
     <string name="menu_eject_root" msgid="9215040039374893613">"Atera"</string>
     <string name="notification_copy_files_converted_title" msgid="6916768494891833365">"Artxibo batzuk bihurtu dira"</string>
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> aplikazioari <xliff:g id="STORAGE"><i>^3</i></xliff:g> unitateko <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> direktoriorako sarbidea eman nahi diozu?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> aplikazioari <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> direktoriorako sarbidea eman nahi diozu?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> aplikazioari zure datuak atzitzeko baimena eman nahi diozu (besteak beste, <xliff:g id="STORAGE"><i>^2</i></xliff:g> biltegian dituzun argazkiak eta bideoak)?"</string>
-    <string name="allow" msgid="1275746941353040309">"Baimendu"</string>
+    <string name="allow" msgid="1275746941353040309">"Eman baimena"</string>
     <string name="deny" msgid="5127201668078153379">"Ukatu"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> hautatuta</item>
@@ -268,7 +270,7 @@
     <string name="anonymous_application" msgid="7633027057951625862">"Anonimoa"</string>
     <string name="open_tree_button" msgid="6402871398424497776">"Erabili karpeta hau"</string>
     <string name="open_tree_dialog_title" msgid="6339509533852318569">"<xliff:g id="DIRECTORY">%2$s</xliff:g> direktorioko fitxategiak atzitzeko baimena eman nahi diozu <xliff:g id="APPNAME">%1$s</xliff:g> aplikazioari?"</string>
-    <string name="open_tree_dialog_message" msgid="4120695398430659628">"<xliff:g id="APPNAME">%1$s</xliff:g> aplikazioak <xliff:g id="DIRECTORY">%2$s</xliff:g> direktorioan gordetako uneko eta etorkizuneko edukia atzitu ahalko du."</string>
+    <string name="open_tree_dialog_message" msgid="4120695398430659628">"<xliff:g id="APPNAME">%1$s</xliff:g> aplikazioak <xliff:g id="DIRECTORY">%2$s</xliff:g> direktorioan gordetako oraingo eta etorkizuneko edukia atzitu ahalko du."</string>
     <string name="directory_blocked_header_title" msgid="1164584889578740066">"Ezin da erabili karpeta hori"</string>
     <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"Pribatutasuna babesteko, aukeratu beste karpeta bat"</string>
     <string name="create_new_folder_button" msgid="8859613309559794890">"Sortu karpeta bat"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Lanekoa"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Lana"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Ezin dituzu mugitu beste aplikazio batzuetako fitxategiak."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Sareta moduan ikusgai."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Zerrenda moduan ikusgai."</string>
 </resources>

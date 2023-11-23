@@ -30,9 +30,10 @@
 #include <vector>
 
 #include "annotator/entity-data_generated.h"
+#include "annotator/knowledge/knowledge-engine-types.h"
 #include "utils/base/integral_types.h"
 #include "utils/base/logging.h"
-#include "utils/flatbuffers.h"
+#include "utils/flatbuffers/flatbuffers.h"
 #include "utils/optional.h"
 #include "utils/variant.h"
 
@@ -56,15 +57,53 @@ using CodepointIndex = int;
 // Marks a span in a sequence of codepoints. The first element is the index of
 // the first codepoint of the span, and the second element is the index of the
 // codepoint one past the end of the span.
-// TODO(b/71982294): Make it a struct.
-using CodepointSpan = std::pair<CodepointIndex, CodepointIndex>;
+struct CodepointSpan {
+  static const CodepointSpan kInvalid;
+
+  CodepointSpan() : first(kInvalidIndex), second(kInvalidIndex) {}
+
+  CodepointSpan(CodepointIndex start, CodepointIndex end)
+      : first(start), second(end) {}
+
+  CodepointSpan& operator=(const CodepointSpan& other) = default;
+
+  bool operator==(const CodepointSpan& other) const {
+    return this->first == other.first && this->second == other.second;
+  }
+
+  bool operator!=(const CodepointSpan& other) const {
+    return !(*this == other);
+  }
+
+  bool operator<(const CodepointSpan& other) const {
+    if (this->first != other.first) {
+      return this->first < other.first;
+    }
+    return this->second < other.second;
+  }
+
+  bool IsValid() const {
+    return this->first != kInvalidIndex && this->second != kInvalidIndex &&
+           this->first <= this->second && this->first >= 0;
+  }
+
+  bool IsEmpty() const { return this->first == this->second; }
+
+  CodepointIndex first;
+  CodepointIndex second;
+};
+
+// Pretty-printing function for CodepointSpan.
+logging::LoggingStringStream& operator<<(logging::LoggingStringStream& stream,
+                                         const CodepointSpan& span);
 
 inline bool SpansOverlap(const CodepointSpan& a, const CodepointSpan& b) {
   return a.first < b.second && b.first < a.second;
 }
 
-inline bool ValidNonEmptySpan(const CodepointSpan& span) {
-  return span.first < span.second && span.first >= 0 && span.second >= 0;
+inline bool SpanContains(const CodepointSpan& span,
+                         const CodepointSpan& sub_span) {
+  return span.first <= sub_span.first && span.second >= sub_span.second;
 }
 
 template <typename T>
@@ -102,33 +141,59 @@ bool DoesCandidateConflict(
 // Marks a span in a sequence of tokens. The first element is the index of the
 // first token in the span, and the second element is the index of the token one
 // past the end of the span.
-// TODO(b/71982294): Make it a struct.
-using TokenSpan = std::pair<TokenIndex, TokenIndex>;
+struct TokenSpan {
+  static const TokenSpan kInvalid;
 
-// Returns the size of the token span. Assumes that the span is valid.
-inline int TokenSpanSize(const TokenSpan& token_span) {
-  return token_span.second - token_span.first;
-}
+  TokenSpan() : first(kInvalidIndex), second(kInvalidIndex) {}
 
-// Returns a token span consisting of one token.
-inline TokenSpan SingleTokenSpan(int token_index) {
-  return {token_index, token_index + 1};
-}
+  TokenSpan(TokenIndex start, TokenIndex end) : first(start), second(end) {}
 
-// Returns an intersection of two token spans. Assumes that both spans are valid
-// and overlapping.
+  // Creates a token span consisting of one token.
+  explicit TokenSpan(int token_index)
+      : first(token_index), second(token_index + 1) {}
+
+  TokenSpan& operator=(const TokenSpan& other) = default;
+
+  bool operator==(const TokenSpan& other) const {
+    return this->first == other.first && this->second == other.second;
+  }
+
+  bool operator!=(const TokenSpan& other) const { return !(*this == other); }
+
+  bool operator<(const TokenSpan& other) const {
+    if (this->first != other.first) {
+      return this->first < other.first;
+    }
+    return this->second < other.second;
+  }
+
+  bool IsValid() const {
+    return this->first != kInvalidIndex && this->second != kInvalidIndex;
+  }
+
+  // Returns the size of the token span. Assumes that the span is valid.
+  int Size() const { return this->second - this->first; }
+
+  // Returns an expanded token span by adding a certain number of tokens on its
+  // left and on its right.
+  TokenSpan Expand(int num_tokens_left, int num_tokens_right) const {
+    return {this->first - num_tokens_left, this->second + num_tokens_right};
+  }
+
+  TokenIndex first;
+  TokenIndex second;
+};
+
+// Pretty-printing function for TokenSpan.
+logging::LoggingStringStream& operator<<(logging::LoggingStringStream& stream,
+                                         const TokenSpan& span);
+
+// Returns an intersection of two token spans. Assumes that both spans are
+// valid and overlapping.
 inline TokenSpan IntersectTokenSpans(const TokenSpan& token_span1,
                                      const TokenSpan& token_span2) {
   return {std::max(token_span1.first, token_span2.first),
           std::min(token_span1.second, token_span2.second)};
-}
-
-// Returns and expanded token span by adding a certain number of tokens on its
-// left and on its right.
-inline TokenSpan ExpandTokenSpan(const TokenSpan& token_span,
-                                 int num_tokens_left, int num_tokens_right) {
-  return {token_span.first - num_tokens_left,
-          token_span.second + num_tokens_right};
 }
 
 // Token holds a token, its position in the original string and whether it was
@@ -169,7 +234,7 @@ struct Token {
            is_padding == other.is_padding;
   }
 
-  bool IsContainedInSpan(CodepointSpan span) const {
+  bool IsContainedInSpan(const CodepointSpan& span) const {
     return start >= span.first && end <= span.second;
   }
 };
@@ -177,6 +242,11 @@ struct Token {
 // Pretty-printing function for Token.
 logging::LoggingStringStream& operator<<(logging::LoggingStringStream& stream,
                                          const Token& token);
+
+// Returns a TokenSpan that merges all of the given token spans.
+inline TokenSpan AllOf(const std::vector<Token>& tokens) {
+  return {0, static_cast<TokenIndex>(tokens.size())};
+}
 
 enum DatetimeGranularity {
   GRANULARITY_UNKNOWN = -1,  // GRANULARITY_UNKNOWN is used as a proxy for this
@@ -218,9 +288,9 @@ struct DatetimeComponent {
     SECOND = 8,
     // Meridiem field where 0 == AM, 1 == PM.
     MERIDIEM = 9,
-    // Number of hours offset from UTC this date time is in.
+    // Offset in number of minutes from UTC this date time is in.
     ZONE_OFFSET = 10,
-    // Number of hours offest for DST.
+    // Offset in number of hours for DST.
     DST_OFFSET = 11,
   };
 
@@ -314,17 +384,18 @@ struct DatetimeParseResultSpan {
   float priority_score;
 
   DatetimeParseResultSpan()
-      : target_classification_score(-1.0), priority_score(-1.0) {}
+      : span(CodepointSpan::kInvalid),
+        target_classification_score(-1.0),
+        priority_score(-1.0) {}
 
   DatetimeParseResultSpan(const CodepointSpan& span,
                           const std::vector<DatetimeParseResult>& data,
                           const float target_classification_score,
-                          const float priority_score) {
-    this->span = span;
-    this->data = data;
-    this->target_classification_score = target_classification_score;
-    this->priority_score = priority_score;
-  }
+                          const float priority_score)
+      : span(span),
+        data(data),
+        target_classification_score(target_classification_score),
+        priority_score(priority_score) {}
 
   bool operator==(const DatetimeParseResultSpan& other) const {
     return span == other.span && data == other.data &&
@@ -365,7 +436,8 @@ struct ClassificationResult {
   std::string serialized_knowledge_result;
   ContactPointer contact_pointer;
   std::string contact_name, contact_given_name, contact_family_name,
-      contact_nickname, contact_email_address, contact_phone_number, contact_id;
+      contact_nickname, contact_email_address, contact_phone_number,
+      contact_account_type, contact_account_name, contact_id;
   std::string app_name, app_package_name;
   int64 numeric_value;
   double numeric_double_value;
@@ -456,6 +528,13 @@ struct BaseOptions {
   // The location context passed along with each annotation.
   Optional<LocationContext> location_context;
 
+  // If true, the POD NER annotator is used.
+  bool use_pod_ner = true;
+
+  // If true and the model file supports that, the new vocab annotator is used
+  // to annotate "Dictionary". Otherwise, we use the FFModel to do so.
+  bool use_vocab_annotator = true;
+
   bool operator==(const BaseOptions& other) const {
     bool location_context_equality = this->location_context.has_value() ==
                                      other.location_context.has_value();
@@ -468,7 +547,9 @@ struct BaseOptions {
            this->annotation_usecase == other.annotation_usecase &&
            this->detected_text_language_tags ==
                other.detected_text_language_tags &&
-           location_context_equality;
+           location_context_equality &&
+           this->use_pod_ner == other.use_pod_ner &&
+           this->use_vocab_annotator == other.use_vocab_annotator;
   }
 };
 
@@ -493,10 +574,14 @@ struct ClassificationOptions : public BaseOptions, public DatetimeOptions {
   // Comma-separated list of language tags which the user can read and
   // understand (BCP 47).
   std::string user_familiar_language_tags;
+  // If true, trigger dictionary on words that are of beginner level.
+  bool trigger_dictionary_on_beginner_words = false;
 
   bool operator==(const ClassificationOptions& other) const {
     return this->user_familiar_language_tags ==
                other.user_familiar_language_tags &&
+           this->trigger_dictionary_on_beginner_words ==
+               other.trigger_dictionary_on_beginner_words &&
            BaseOptions::operator==(other) && DatetimeOptions::operator==(other);
   }
 };
@@ -525,11 +610,24 @@ struct AnnotationOptions : public BaseOptions, public DatetimeOptions {
   // Defines the permissions for the annotators.
   Permissions permissions;
 
+  AnnotateMode annotate_mode = AnnotateMode::kEntityAnnotation;
+
+  // If true, trigger dictionary on words that are of beginner level.
+  bool trigger_dictionary_on_beginner_words = false;
+
+  // If true, enables an optimized code path for annotation.
+  // The optimization caused crashes previously, which is why we are rolling it
+  // out using this temporary flag. See: b/178503899
+  bool enable_optimization = false;
+
   bool operator==(const AnnotationOptions& other) const {
     return this->is_serialized_entity_data_enabled ==
                other.is_serialized_entity_data_enabled &&
            this->permissions == other.permissions &&
            this->entity_types == other.entity_types &&
+           this->annotate_mode == other.annotate_mode &&
+           this->trigger_dictionary_on_beginner_words ==
+               other.trigger_dictionary_on_beginner_words &&
            BaseOptions::operator==(other) && DatetimeOptions::operator==(other);
   }
 };
@@ -552,7 +650,7 @@ struct AnnotatedSpan {
   enum class Source { OTHER, KNOWLEDGE, DURATION, DATETIME, PERSON_NAME };
 
   // Unicode codepoint indices in the input string.
-  CodepointSpan span = {kInvalidIndex, kInvalidIndex};
+  CodepointSpan span = CodepointSpan::kInvalid;
 
   // Classification result for the span.
   std::vector<ClassificationResult> classification;
@@ -574,8 +672,31 @@ struct AnnotatedSpan {
         source(arg_source) {}
 };
 
+// Represents Annotations that correspond to all input fragments.
+struct Annotations {
+  // List of annotations found in the corresponding input fragments. For these
+  // annotations, topicality score will not be set.
+  std::vector<std::vector<AnnotatedSpan>> annotated_spans;
+
+  // List of topicality results found across all input fragments.
+  std::vector<ClassificationResult> topicality_results;
+
+  Annotations() = default;
+
+  explicit Annotations(
+      std::vector<std::vector<AnnotatedSpan>> arg_annotated_spans)
+      : annotated_spans(std::move(arg_annotated_spans)) {}
+
+  Annotations(std::vector<std::vector<AnnotatedSpan>> arg_annotated_spans,
+              std::vector<ClassificationResult> arg_topicality_results)
+      : annotated_spans(std::move(arg_annotated_spans)),
+        topicality_results(std::move(arg_topicality_results)) {}
+};
+
 struct InputFragment {
   std::string text;
+  float bounding_box_top;
+  float bounding_box_height;
 
   // If present will override the AnnotationOptions reference time and timezone
   // when annotating this specific string fragment.
@@ -591,7 +712,7 @@ template <class T>
 class VectorSpan {
  public:
   VectorSpan() : begin_(), end_() {}
-  VectorSpan(const std::vector<T>& v)  // NOLINT(runtime/explicit)
+  explicit VectorSpan(const std::vector<T>& v)  // NOLINT(runtime/explicit)
       : begin_(v.begin()), end_(v.end()) {}
   VectorSpan(typename std::vector<T>::const_iterator begin,
              typename std::vector<T>::const_iterator end)

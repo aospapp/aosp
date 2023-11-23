@@ -2,40 +2,43 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //! ```
-//! use audio_streams::{StreamSource, DummyStreamSource};
+//! use audio_streams::{BoxError, SampleFormat, StreamSource, NoopStreamSource};
 //! use std::io::Read;
 //!
 //! const buffer_size: usize = 120;
 //! const num_channels: usize = 2;
-//! const frame_size: usize = num_channels * 2; // 16-bit samples are two bytes.
 //!
-//! # fn main() -> std::result::Result<(), Box<std::error::Error>> {
-//! let mut stream_source = DummyStreamSource::new();
+//! # fn main() -> std::result::Result<(),BoxError> {
+//! let mut stream_source = NoopStreamSource::new();
+//! let sample_format = SampleFormat::S16LE;
+//! let frame_size = num_channels * sample_format.sample_bytes();
 //!
 //! let (_, mut stream) = stream_source
-//!     .new_capture_stream(num_channels, 48000, buffer_size)?;
+//!     .new_capture_stream(num_channels, sample_format, 48000, buffer_size)?;
 //! // Capture 10 buffers of zeros.
-//! let mut cp_bufs = [[0xa5u8; buffer_size * frame_size]; 10];
-//! for cp_buf in &mut cp_bufs {
+//! let mut buf = Vec::new();
+//! buf.resize(buffer_size * frame_size, 0xa5u8);
+//! for _ in 0..10 {
 //!     let mut stream_buffer = stream.next_capture_buffer()?;
-//!     assert_eq!(stream_buffer.read(cp_buf)?, buffer_size * frame_size);
+//!     assert_eq!(stream_buffer.read(&mut buf)?, buffer_size * frame_size);
 //! }
 //! # Ok (())
 //! # }
 //! ```
 
 use std::{
+    cmp::min,
     error,
     fmt::{self, Display},
     io::{self, Read, Write},
     time::{Duration, Instant},
 };
 
-use super::{AudioBuffer, BufferDrop, DummyBufferDrop};
+use super::{AudioBuffer, BoxError, BufferDrop, NoopBufferDrop, SampleFormat};
 
 /// `CaptureBufferStream` provides `CaptureBuffer`s to read with audio samples from capture.
 pub trait CaptureBufferStream: Send {
-    fn next_capture_buffer<'a>(&'a mut self) -> Result<CaptureBuffer<'a>, Box<dyn error::Error>>;
+    fn next_capture_buffer(&mut self) -> Result<CaptureBuffer, BoxError>;
 }
 
 /// `CaptureBuffer` contains a block of audio samples got from capture stream. It provides
@@ -94,7 +97,10 @@ impl<'a> CaptureBuffer<'a> {
 
     /// Reads up to `size` bytes directly from this buffer inside of the given callback function.
     pub fn copy_cb<F: FnOnce(&[u8])>(&mut self, size: usize, cb: F) {
-        let len = size / self.buffer.frame_size * self.buffer.frame_size;
+        let len = min(
+            size / self.buffer.frame_size * self.buffer.frame_size,
+            self.buffer.buffer.len() - self.buffer.offset,
+        );
         cb(&self.buffer.buffer[self.buffer.offset..(self.buffer.offset + len)]);
         self.buffer.offset += len;
     }
@@ -117,39 +123,43 @@ impl<'a> Drop for CaptureBuffer<'a> {
 }
 
 /// Stream that provides null capture samples.
-pub struct DummyCaptureStream {
+pub struct NoopCaptureStream {
     buffer: Vec<u8>,
     frame_size: usize,
     interval: Duration,
     next_frame: Duration,
     start_time: Option<Instant>,
-    buffer_drop: DummyBufferDrop,
+    buffer_drop: NoopBufferDrop,
 }
 
-impl DummyCaptureStream {
-    // TODO(allow other formats)
-    pub fn new(num_channels: usize, frame_rate: usize, buffer_size: usize) -> Self {
-        const S16LE_SIZE: usize = 2;
-        let frame_size = S16LE_SIZE * num_channels;
+impl NoopCaptureStream {
+    pub fn new(
+        num_channels: usize,
+        format: SampleFormat,
+        frame_rate: u32,
+        buffer_size: usize,
+    ) -> Self {
+        let frame_size = format.sample_bytes() * num_channels;
         let interval = Duration::from_millis(buffer_size as u64 * 1000 / frame_rate as u64);
-        DummyCaptureStream {
+        NoopCaptureStream {
             buffer: vec![0; buffer_size * frame_size],
             frame_size,
             interval,
             next_frame: interval,
             start_time: None,
-            buffer_drop: DummyBufferDrop {
+            buffer_drop: NoopBufferDrop {
                 which_buffer: false,
             },
         }
     }
 }
 
-impl CaptureBufferStream for DummyCaptureStream {
-    fn next_capture_buffer(&mut self) -> Result<CaptureBuffer, Box<dyn error::Error>> {
+impl CaptureBufferStream for NoopCaptureStream {
+    fn next_capture_buffer(&mut self) -> Result<CaptureBuffer, BoxError> {
         if let Some(start_time) = self.start_time {
-            if start_time.elapsed() < self.next_frame {
-                std::thread::sleep(self.next_frame - start_time.elapsed());
+            let elapsed = start_time.elapsed();
+            if elapsed < self.next_frame {
+                std::thread::sleep(self.next_frame - elapsed);
             }
             self.next_frame += self.interval;
         } else {
@@ -173,7 +183,7 @@ mod tests {
     fn invalid_buffer_length() {
         // Capture buffers can't be created with a size that isn't divisible by the frame size.
         let mut cp_buf = [0xa5u8; 480 * 2 * 2 + 1];
-        let mut buffer_drop = DummyBufferDrop {
+        let mut buffer_drop = NoopBufferDrop {
             which_buffer: false,
         };
         assert!(CaptureBuffer::new(2, &mut cp_buf, &mut buffer_drop).is_err());
@@ -203,8 +213,10 @@ mod tests {
 
     #[test]
     fn sixteen_bit_stereo() {
-        let mut server = DummyStreamSource::new();
-        let (_, mut stream) = server.new_capture_stream(2, 48000, 480).unwrap();
+        let mut server = NoopStreamSource::new();
+        let (_, mut stream) = server
+            .new_capture_stream(2, SampleFormat::S16LE, 48000, 480)
+            .unwrap();
         let mut stream_buffer = stream.next_capture_buffer().unwrap();
         assert_eq!(stream_buffer.frame_capacity(), 480);
         let mut pb_buf = [0xa5u8; 480 * 2 * 2];
@@ -213,15 +225,17 @@ mod tests {
 
     #[test]
     fn consumption_rate() {
-        let mut server = DummyStreamSource::new();
-        let (_, mut stream) = server.new_capture_stream(2, 48000, 480).unwrap();
+        let mut server = NoopStreamSource::new();
+        let (_, mut stream) = server
+            .new_capture_stream(2, SampleFormat::S16LE, 48000, 480)
+            .unwrap();
         let start = Instant::now();
         {
             let mut stream_buffer = stream.next_capture_buffer().unwrap();
             let mut cp_buf = [0xa5u8; 480 * 2 * 2];
             assert_eq!(stream_buffer.read(&mut cp_buf).unwrap(), 480 * 2 * 2);
-            for i in 0..cp_buf.len() {
-                assert_eq!(cp_buf[i], 0, "Read samples should all be zeros.");
+            for buf in cp_buf.iter() {
+                assert_eq!(*buf, 0, "Read samples should all be zeros.");
             }
         }
         // The second call should block until the first buffer is consumed.
@@ -233,5 +247,4 @@ mod tests {
             elapsed.subsec_millis()
         );
     }
-
 }

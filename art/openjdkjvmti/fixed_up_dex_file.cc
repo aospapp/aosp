@@ -39,7 +39,6 @@
 // Runtime includes.
 #include "dex_container.h"
 #include "dex/compact_dex_level.h"
-#include "dex_to_dex_decompiler.h"
 #include "dexlayout.h"
 #include "oat_file.h"
 #include "vdex_file.h"
@@ -49,28 +48,6 @@ namespace openjdkjvmti {
 static void RecomputeDexChecksum(art::DexFile* dex_file) {
   reinterpret_cast<art::DexFile::Header*>(const_cast<uint8_t*>(dex_file->Begin()))->checksum_ =
       dex_file->CalculateChecksum();
-}
-
-static const art::VdexFile* GetVdex(const art::DexFile& original_dex_file) {
-  const art::OatDexFile* oat_dex = original_dex_file.GetOatDexFile();
-  if (oat_dex == nullptr) {
-    return nullptr;
-  }
-  const art::OatFile* oat_file = oat_dex->GetOatFile();
-  if (oat_file == nullptr) {
-    return nullptr;
-  }
-  return oat_file->GetVdexFile();
-}
-
-static void DoDexUnquicken(const art::DexFile& new_dex_file,
-                           const art::DexFile& original_dex_file) {
-  const art::VdexFile* vdex = GetVdex(original_dex_file);
-  if (vdex != nullptr) {
-    vdex->UnquickenDexFile(new_dex_file,
-                           original_dex_file,
-                           /* decompile_return_instruction= */ true);
-  }
 }
 
 static void DCheckVerifyDexFile(const art::DexFile& dex) {
@@ -149,8 +126,6 @@ std::unique_ptr<FixedUpDexFile> FixedUpDexFile::Create(const art::DexFile& origi
   }
 
   new_dex_file->SetHiddenapiDomain(original.GetHiddenapiDomain());
-
-  DoDexUnquicken(*new_dex_file, original);
 
   RecomputeDexChecksum(const_cast<art::DexFile*>(new_dex_file.get()));
   DCheckVerifyDexFile(*new_dex_file);

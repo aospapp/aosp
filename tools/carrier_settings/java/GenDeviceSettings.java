@@ -57,7 +57,7 @@ public class GenDeviceSettings {
 
   @Parameter(
       names = "--device_setting_dir",
-      description = "The path to putput <deice>_settings directory.")
+      description = "The path to output <device>_settings directory.")
   private String deviceSettingDirName = "/tmp/muskie_setting";
 
   @Parameter(

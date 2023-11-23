@@ -56,8 +56,8 @@ allow fuelgauged kernel:system module_request;
 # Date: W18.03
 # Operation : change fuelgagued access from cache to nvcfg
 # Purpose : add fuelgauged to nvcfg read write permit
-allow fuelgauged nvcfg_file:dir { search write open read add_name create getattr};
-allow fuelgauged nvcfg_file:file { read write getattr open create };
+allow fuelgauged nvcfg_file:dir create_dir_perms;
+allow fuelgauged nvcfg_file:file create_file_perms;
 
 # Date: W18.17
 # Operation : add label for /sys/devices/platform/battery(/.*)

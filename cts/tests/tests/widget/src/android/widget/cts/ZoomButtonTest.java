@@ -44,6 +44,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class ZoomButtonTest {
@@ -126,11 +129,13 @@ public class ZoomButtonTest {
 
     @LargeTest
     @Test
-    public void testSetZoomSpeed() {
+    public void testSetZoomSpeed() throws Throwable {
         final long[] zoomSpeeds = { 0, 100 };
         mZoomButton.setEnabled(true);
         ZoomClickListener zoomClickListener = new ZoomClickListener();
         mZoomButton.setOnClickListener(zoomClickListener);
+        final ZoomLongClickListener longClickListener = new ZoomLongClickListener();
+        mZoomButton.setOnLongClickListener(longClickListener);
 
         for (long zoomSpeed : zoomSpeeds) {
             // Reset the tracking state of our listener, but continue using it for testing
@@ -156,10 +161,29 @@ public class ZoomButtonTest {
                             + " while long press timeout is " + minTimeUntilFirstInvocationMs,
                     actualTimeUntilFirstInvocationNs
                             > minTimeUntilFirstInvocationMs * NANOS_IN_MILLI);
+            assertTrue(longClickListener.postLatch.await(1, TimeUnit.SECONDS));
             assertTrue("First callback should have happened sooner than "
                             + actualTimeUntilFirstInvocationNs / NANOS_IN_MILLI,
                     actualTimeUntilFirstInvocationNs
-                            <= (minTimeUntilFirstInvocationMs + 200) * NANOS_IN_MILLI);
+                            <= longClickListener.postAfterLongClick);
+        }
+    }
+
+    private static class ZoomLongClickListener implements View.OnLongClickListener, Runnable {
+        public long postAfterLongClick;
+        public CountDownLatch postLatch;
+
+        @Override
+        public boolean onLongClick(View v) {
+            postLatch = new CountDownLatch(1);
+            v.post(this);
+            return false;
+        }
+
+        @Override
+        public void run() {
+            postAfterLongClick = System.nanoTime();
+            postLatch.countDown();
         }
     }
 

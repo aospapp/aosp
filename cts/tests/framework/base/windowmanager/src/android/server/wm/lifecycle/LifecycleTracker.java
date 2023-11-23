@@ -49,6 +49,20 @@ public class LifecycleTracker implements LifecycleLog.LifecycleTrackerCallback {
         }
     }
 
+    void waitAndAssertActivityCurrentState(Class<? extends Activity> activityClass,
+            ActivityCallback expectedState) {
+        final boolean waitResult = waitForConditionWithTimeout(() -> {
+            List<ActivityCallback> activityLog = mLifecycleLog.getActivityLog(activityClass);
+            ActivityCallback currentState = activityLog.get(activityLog.size() - 1);
+            return currentState == expectedState;
+        }, 5 * 1000);
+
+        if (!waitResult) {
+            fail("Lifecycle state did not settle with the expected current state of "
+                    + expectedState + " : " + mLifecycleLog.getActivityLog(activityClass));
+        }
+    }
+
     /**
      * Waits for a specific sequence of events to happen.
      * When there is a possibility of some lifecycle state happening more than once in a sequence,

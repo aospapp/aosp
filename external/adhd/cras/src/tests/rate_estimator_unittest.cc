@@ -95,11 +95,10 @@ TEST(RateEstimatorTest, EstimateRateSkewTooLarge) {
 
 TEST(RateEstimatorTest, EstimateOutputSmooth) {
   struct rate_estimator* re;
-  struct timespec t;
+  struct timespec t = {.tv_sec = 1, .tv_nsec = 0};
   int rc;
 
   re = rate_estimator_create(10010, &window, 0.9f);
-  t.tv_sec = 1;
   rc = rate_estimator_check(re, 240, &t);
   EXPECT_EQ(0, rc);
 
@@ -124,11 +123,10 @@ TEST(RateEstimatorTest, EstimateOutputSmooth) {
 
 TEST(RateEstimatorTest, EstimateInputLinear) {
   struct rate_estimator* re;
-  struct timespec t;
+  struct timespec t = {.tv_sec = 1, .tv_nsec = 0};
   int i, rc, level, tmp;
 
   re = rate_estimator_create(10000, &window, 0.0f);
-  t.tv_sec = 1;
   level = 1200;
   for (i = 0; i < 20; i++) {
     rc = rate_estimator_check(re, level, &t);

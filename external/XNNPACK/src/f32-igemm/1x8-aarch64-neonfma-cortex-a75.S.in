@@ -5,7 +5,7 @@
 
 #include <xnnpack/assembly.h>
 
-# void xnn_f32_igemm_ukernel_4x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}(
+# void xnn_f32_igemm_minmax_ukernel_4x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}(
 #     size_t mr,                         (x0) - unused.  mr = 1
 #     size_t nc,                         x1
 #     size_t kc,                         x2 / x0
@@ -17,10 +17,9 @@
 #     size_t cn_stride,                  [sp] -> x10
 #     size_t a_offset,                   [sp + 8] -> x11
 #     const float* zero,                 [sp + 16] -> x12
-#     const xnn_f32_output_params params [sp + 24] -> x8
+#     const xnn_f32_minmax_params params [sp + 24] -> x8
 
-# d8-d15 need to be preserved if used.
-# x19-30 need to be preserved if used.
+# d8-d15, x19-x30 need to be preserved if used. x18 is reserved by the OS.
 
 # A pointer
 # x8  a0
@@ -28,15 +27,15 @@
 # C pointer
 # x6  c0
 
-BEGIN_FUNCTION xnn_f32_igemm_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
+BEGIN_FUNCTION xnn_f32_igemm_minmax_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
 
         # Load cn_stride, a_offset
         LDP x10, x11, [sp]
 
-        # Load zero, clamping params pointer
+        # Load zero, params pointer
         LDP x12, x8, [sp, 16]
 
-        # Load clamping_params values
+        # Load min/max values
         LD2R {v30.4s, v31.4s}, [x8]
 
 0:
@@ -162,16 +161,16 @@ BEGIN_FUNCTION xnn_f32_igemm_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREF
 5:
         # ks loop
         SUBS x9, x9, 8  // ks -= MR * sizeof(void*)
-        B.NE 1b
+        B.HI 1b
 
         FADD v16.4s, v16.4s, v18.4s
         FADD v17.4s, v17.4s, v19.4s
 
         # Clamp
-        FMIN v16.4s, v16.4s, v30.4s
-        FMIN v17.4s, v17.4s, v30.4s
-        FMAX v16.4s, v16.4s, v31.4s
-        FMAX v17.4s, v17.4s, v31.4s
+        FMAX v16.4s, v16.4s, v30.4s
+        FMAX v17.4s, v17.4s, v30.4s
+        FMIN v16.4s, v16.4s, v31.4s
+        FMIN v17.4s, v17.4s, v31.4s
 
         # Store full 1 x 8
         SUBS x1, x1, 8
@@ -240,7 +239,7 @@ BEGIN_FUNCTION xnn_f32_igemm_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREF
 13:
         RET
 
-END_FUNCTION xnn_f32_igemm_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
+END_FUNCTION xnn_f32_igemm_minmax_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
 
 #ifdef __ELF__
 .section ".note.GNU-stack","",%progbits

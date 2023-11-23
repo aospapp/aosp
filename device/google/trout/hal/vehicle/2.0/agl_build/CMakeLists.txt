@@ -50,8 +50,8 @@ add_executable(vehicle_hal_grpc_server
     ${trout_NATIVE_VHAL_ROOT_DIR}/common/src/Obd2SensorStore.cpp
     ${trout_NATIVE_VHAL_ROOT_DIR}/common/src/VehicleObjectPool.cpp
     ${trout_NATIVE_VHAL_ROOT_DIR}/common/src/VehicleUtils.cpp
+    ${trout_NATIVE_VHAL_ROOT_DIR}/common/src/VehiclePropertyStore.cpp
     ${trout_NATIVE_VHAL_ROOT_DIR}/impl/vhal_v2_0/VehicleHalServer.cpp
-    ${trout_NATIVE_VHAL_ROOT_DIR}/impl/vhal_v2_0/EmulatedUserHal.cpp
     ${trout_NATIVE_VHAL_ROOT_DIR}/impl/vhal_v2_0/GeneratorHub.cpp
     ${trout_NATIVE_VHAL_ROOT_DIR}/impl/vhal_v2_0/JsonFakeValueGenerator.cpp
     ${trout_NATIVE_VHAL_ROOT_DIR}/impl/vhal_v2_0/LinearFakeValueGenerator.cpp

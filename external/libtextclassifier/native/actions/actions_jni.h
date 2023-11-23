@@ -32,16 +32,20 @@ extern "C" {
 #endif
 
 TC3_JNI_METHOD(jlong, TC3_ACTIONS_CLASS_NAME, nativeNewActionsModel)
-(JNIEnv* env, jobject thiz, jint fd, jbyteArray serialized_preconditions);
+(JNIEnv* env, jobject clazz, jint fd, jbyteArray serialized_preconditions);
 
 TC3_JNI_METHOD(jlong, TC3_ACTIONS_CLASS_NAME, nativeNewActionsModelFromPath)
-(JNIEnv* env, jobject thiz, jstring path, jbyteArray serialized_preconditions);
+(JNIEnv* env, jobject clazz, jstring path, jbyteArray serialized_preconditions);
 
 TC3_JNI_METHOD(jlong, TC3_ACTIONS_CLASS_NAME, nativeNewActionsModelWithOffset)
-(JNIEnv* env, jobject thiz, jint fd, jlong offset, jlong size,
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size,
  jbyteArray serialized_preconditions);
 
-TC3_JNI_METHOD(jobjectArray, TC3_ACTIONS_CLASS_NAME, nativeSuggestActions)
+TC3_JNI_METHOD(jboolean, TC3_ACTIONS_CLASS_NAME,
+               nativeInitializeConversationIntentDetection)
+(JNIEnv* env, jobject thiz, jlong ptr, jbyteArray jserialized_config);
+
+TC3_JNI_METHOD(jobject, TC3_ACTIONS_CLASS_NAME, nativeSuggestActions)
 (JNIEnv* env, jobject thiz, jlong ptr, jobject jconversation, jobject joptions,
  jlong annotatorPtr, jobject app_context, jstring device_locales,
  jboolean generate_intents);
@@ -66,6 +70,9 @@ TC3_JNI_METHOD(jint, TC3_ACTIONS_CLASS_NAME, nativeGetVersion)
 
 TC3_JNI_METHOD(jint, TC3_ACTIONS_CLASS_NAME, nativeGetVersionWithOffset)
 (JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size);
+
+TC3_JNI_METHOD(jlong, TC3_ACTIONS_CLASS_NAME, nativeGetNativeModelPtr)
+(JNIEnv* env, jobject thiz, jlong ptr);
 
 #ifdef __cplusplus
 }

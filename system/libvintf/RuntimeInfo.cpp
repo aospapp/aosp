@@ -19,6 +19,9 @@
 
 #include "RuntimeInfo.h"
 
+#include <android-base/logging.h>
+#include <kver/kernel_release.h>
+
 #include "CompatibilityMatrix.h"
 #include "parse_string.h"
 
@@ -69,6 +72,10 @@ const Version &RuntimeInfo::bootAvbVersion() const {
     return mBootAvbVersion;
 }
 
+bool RuntimeInfo::isMainlineKernel() const {
+    return mIsMainline;
+}
+
 bool RuntimeInfo::checkCompatibility(const CompatibilityMatrix& mat, std::string* error,
                                      CheckFlags::Type flags) const {
     if (mat.mType != SchemaType::FRAMEWORK) {
@@ -91,7 +98,8 @@ bool RuntimeInfo::checkCompatibility(const CompatibilityMatrix& mat, std::string
     // HalManifest.device.mSepolicyVersion in HalManifest::checkCompatibility.
 
     if (flags.isKernelEnabled()) {
-        if (mKernel.getMatchedKernelRequirements(mat.framework.mKernels, kernelLevel(), error)
+        if (!isMainlineKernel() &&
+            mKernel.getMatchedKernelRequirements(mat.framework.mKernels, kernelLevel(), error)
                 .empty()) {
             return false;
         }
@@ -130,6 +138,62 @@ void RuntimeInfo::setKernelLevel(Level level) {
 
 Level RuntimeInfo::kernelLevel() const {
     return mKernel.mLevel;
+}
+
+status_t RuntimeInfo::parseGkiKernelRelease(RuntimeInfo::FetchFlags flags,
+                                            const std::string& kernelReleaseString,
+                                            KernelVersion* outVersion, Level* outLevel) {
+    auto kernelRelease =
+        android::kver::KernelRelease::Parse(kernelReleaseString, true /* allow suffix */);
+    if (kernelRelease == std::nullopt) {
+        return UNKNOWN_ERROR;
+    }
+
+    if (flags & RuntimeInfo::FetchFlag::CPU_VERSION) {
+        if (kernelRelease->version() > std::numeric_limits<size_t>::max() ||
+            kernelRelease->patch_level() > std::numeric_limits<size_t>::max() ||
+            kernelRelease->sub_level() > std::numeric_limits<size_t>::max()) {
+            LOG(ERROR) << "Overflow : " << kernelRelease->string();
+            return UNKNOWN_ERROR;
+        }
+        *outVersion = {static_cast<size_t>(kernelRelease->version()),
+                       static_cast<size_t>(kernelRelease->patch_level()),
+                       static_cast<size_t>(kernelRelease->sub_level())};
+    }
+
+    if (flags & RuntimeInfo::FetchFlag::KERNEL_FCM) {
+        Level kernelLevel = gkiAndroidReleaseToLevel(kernelRelease->android_release());
+        if (kernelLevel == Level::UNSPECIFIED) {
+            LOG(ERROR) << "Cannot infer level corresponding to Android "
+                       << kernelRelease->android_release()
+                       << "; update libvintf to recognize this value.";
+            return UNKNOWN_ERROR;
+        }
+        // VintfObject may previously set mRuntimeInfo->mKernel.mLevel to the kernel level
+        // from device manifest. Check consistency.
+        if (*outLevel != Level::UNSPECIFIED && *outLevel != kernelLevel) {
+            LOG(ERROR) << "Kernel level in device manifest (" << *outLevel
+                       << ") does not match kernel level in kernel release (" << kernelLevel
+                       << " for Android " << kernelRelease->android_release() << ")";
+            return UNKNOWN_ERROR;
+        }
+        *outLevel = kernelLevel;
+    }
+    return OK;
+}
+
+Level RuntimeInfo::gkiAndroidReleaseToLevel(uint64_t androidRelease) {
+    constexpr size_t ANDROID_S = 12;
+
+    // Values prior to Android 12 is ignored because GKI kernel release format starts
+    // at Android 12.
+    if (androidRelease < ANDROID_S) return Level::UNSPECIFIED;
+
+    Level ret = static_cast<Level>(androidRelease - ANDROID_S + static_cast<size_t>(Level::S));
+    CHECK(ret < Level::LAST_PLUS_ONE)
+        << "Convert Android " << androidRelease << " to level '" << ret
+        << "' goes out of bounds. Fix by adding a new Level enum.";
+    return ret;
 }
 
 } // namespace vintf

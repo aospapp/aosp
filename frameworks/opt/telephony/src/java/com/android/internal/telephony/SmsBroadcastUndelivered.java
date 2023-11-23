@@ -92,12 +92,6 @@ public class SmsBroadcastUndelivered {
     /** Content resolver to use to access raw table from SmsProvider. */
     private final ContentResolver mResolver;
 
-    /** Handler for 3GPP-format messages (may be null). */
-    private final GsmInboundSmsHandler mGsmInboundSmsHandler;
-
-    /** Handler for 3GPP2-format messages (may be null). */
-    private final CdmaInboundSmsHandler mCdmaInboundSmsHandler;
-
     /** Broadcast receiver that processes the raw table when the user unlocks the phone for the
      *  first time after reboot and the credential-encrypted storage is available.
      */
@@ -120,7 +114,7 @@ public class SmsBroadcastUndelivered {
 
         @Override
         public void run() {
-            scanRawTable(context, mCdmaInboundSmsHandler, mGsmInboundSmsHandler,
+            scanRawTable(context,
                     System.currentTimeMillis() - getUndeliveredSmsExpirationTime(context));
             InboundSmsHandler.cancelNewMessageNotification(context);
         }
@@ -129,8 +123,7 @@ public class SmsBroadcastUndelivered {
     public static void initialize(Context context, GsmInboundSmsHandler gsmInboundSmsHandler,
         CdmaInboundSmsHandler cdmaInboundSmsHandler) {
         if (instance == null) {
-            instance = new SmsBroadcastUndelivered(
-                context, gsmInboundSmsHandler, cdmaInboundSmsHandler);
+            instance = new SmsBroadcastUndelivered(context);
         }
 
         // Tell handlers to start processing new messages and transit from the startup state to the
@@ -145,11 +138,8 @@ public class SmsBroadcastUndelivered {
     }
 
     @UnsupportedAppUsage
-    private SmsBroadcastUndelivered(Context context, GsmInboundSmsHandler gsmInboundSmsHandler,
-            CdmaInboundSmsHandler cdmaInboundSmsHandler) {
+    private SmsBroadcastUndelivered(Context context) {
         mResolver = context.getContentResolver();
-        mGsmInboundSmsHandler = gsmInboundSmsHandler;
-        mCdmaInboundSmsHandler = cdmaInboundSmsHandler;
 
         UserManager userManager = (UserManager) context.getSystemService(Context.USER_SERVICE);
 
@@ -165,8 +155,7 @@ public class SmsBroadcastUndelivered {
     /**
      * Scan the raw table for complete SMS messages to broadcast, and old PDUs to delete.
      */
-    static void scanRawTable(Context context, CdmaInboundSmsHandler cdmaInboundSmsHandler,
-            GsmInboundSmsHandler gsmInboundSmsHandler, long oldMessageTimestamp) {
+    static void scanRawTable(Context context, long oldMessageTimestamp) {
         if (DBG) Rlog.d(TAG, "scanning raw table for undelivered messages");
         long startTime = System.nanoTime();
         ContentResolver contentResolver = context.getContentResolver();
@@ -199,7 +188,7 @@ public class SmsBroadcastUndelivered {
 
                 if (tracker.getMessageCount() == 1) {
                     // deliver single-part message
-                    broadcastSms(tracker, cdmaInboundSmsHandler, gsmInboundSmsHandler);
+                    broadcastSms(tracker);
                 } else {
                     SmsReferenceKey reference = new SmsReferenceKey(tracker);
                     Integer receivedCount = multiPartReceivedCount.get(reference);
@@ -216,7 +205,7 @@ public class SmsBroadcastUndelivered {
                             // looks like we've got all the pieces; send a single tracker
                             // to state machine which will find the other pieces to broadcast
                             if (DBG) Rlog.d(TAG, "found complete multi-part message");
-                            broadcastSms(tracker, cdmaInboundSmsHandler, gsmInboundSmsHandler);
+                            broadcastSms(tracker);
                             // don't delete this old message until after we broadcast it
                             oldMultiPartMessages.remove(reference);
                         } else {
@@ -225,8 +214,12 @@ public class SmsBroadcastUndelivered {
                     }
                 }
             }
-            // Retrieve the phone id, required for metrics
-            int phoneId = getPhoneId(gsmInboundSmsHandler, cdmaInboundSmsHandler);
+            // Retrieve the phone and phone id, required for metrics
+            // TODO don't hardcode to the first phone (phoneId = 0) but this is no worse than
+            //  earlier. Also phoneId for old messages may not be known (messages may be from an
+            //  inactive sub)
+            Phone phone = PhoneFactory.getPhone(0);
+            int phoneId = 0;
 
             // Delete old incomplete message segments
             for (SmsReferenceKey message : oldMultiPartMessages) {
@@ -244,6 +237,10 @@ public class SmsBroadcastUndelivered {
                     TelephonyMetrics metrics = TelephonyMetrics.getInstance();
                     metrics.writeDroppedIncomingMultipartSms(phoneId, message.mFormat, rows,
                             message.mMessageCount);
+                    if (phone != null) {
+                        phone.getSmsStats().onDroppedIncomingMultipartSms(message.mIs3gpp2, rows,
+                                message.mMessageCount);
+                    }
                 }
             }
         } catch (SQLException e) {
@@ -258,31 +255,24 @@ public class SmsBroadcastUndelivered {
     }
 
     /**
-     * Retrieve the phone id for the GSM or CDMA Inbound SMS handler
-     */
-    private static int getPhoneId(GsmInboundSmsHandler gsmInboundSmsHandler,
-            CdmaInboundSmsHandler cdmaInboundSmsHandler) {
-        int phoneId = SubscriptionManager.INVALID_PHONE_INDEX;
-        if (gsmInboundSmsHandler != null) {
-            phoneId = gsmInboundSmsHandler.getPhone().getPhoneId();
-        } else if (cdmaInboundSmsHandler != null) {
-            phoneId = cdmaInboundSmsHandler.getPhone().getPhoneId();
-        }
-        return phoneId;
-    }
-
-    /**
      * Send tracker to appropriate (3GPP or 3GPP2) inbound SMS handler for broadcast.
      */
-    private static void broadcastSms(InboundSmsTracker tracker,
-            CdmaInboundSmsHandler cdmaInboundSmsHandler,
-            GsmInboundSmsHandler gsmInboundSmsHandler) {
+    private static void broadcastSms(InboundSmsTracker tracker) {
         InboundSmsHandler handler;
-        if (tracker.is3gpp2()) {
-            handler = cdmaInboundSmsHandler;
-        } else {
-            handler = gsmInboundSmsHandler;
+        int subId = tracker.getSubId();
+        // TODO consider other subs in this subId's group as well
+        int phoneId = SubscriptionController.getInstance().getPhoneId(subId);
+        if (!SubscriptionManager.isValidPhoneId(phoneId)) {
+            Rlog.e(TAG, "broadcastSms: ignoring message; no phone found for subId " + subId);
+            return;
         }
+        Phone phone = PhoneFactory.getPhone(phoneId);
+        if (phone == null) {
+            Rlog.e(TAG, "broadcastSms: ignoring message; no phone found for subId " + subId
+                    + " phoneId " + phoneId);
+            return;
+        }
+        handler = phone.getInboundSmsHandler(tracker.is3gpp2());
         if (handler != null) {
             handler.sendMessage(InboundSmsHandler.EVENT_BROADCAST_SMS, tracker);
         } else {
@@ -312,6 +302,7 @@ public class SmsBroadcastUndelivered {
         final int mReferenceNumber;
         final int mMessageCount;
         final String mQuery;
+        final boolean mIs3gpp2;
         final String mFormat;
 
         SmsReferenceKey(InboundSmsTracker tracker) {
@@ -319,6 +310,7 @@ public class SmsBroadcastUndelivered {
             mReferenceNumber = tracker.getReferenceNumber();
             mMessageCount = tracker.getMessageCount();
             mQuery = tracker.getQueryForSegments();
+            mIs3gpp2 = tracker.is3gpp2();
             mFormat = tracker.getFormat();
         }
 

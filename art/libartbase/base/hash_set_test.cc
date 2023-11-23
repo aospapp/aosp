@@ -357,7 +357,7 @@ TEST_F(HashSetTest, TestReserve) {
 }
 
 TEST_F(HashSetTest, IteratorConversion) {
-  const char* test_string = "dummy";
+  const char* test_string = "test string";
   HashSet<std::string> hash_set;
   HashSet<std::string>::iterator it = hash_set.insert(test_string).first;
   HashSet<std::string>::const_iterator cit = it;
@@ -366,7 +366,7 @@ TEST_F(HashSetTest, IteratorConversion) {
 }
 
 TEST_F(HashSetTest, StringSearchStringView) {
-  const char* test_string = "dummy";
+  const char* test_string = "test string";
   HashSet<std::string> hash_set;
   HashSet<std::string>::iterator insert_pos = hash_set.insert(test_string).first;
   HashSet<std::string>::iterator it = hash_set.find(std::string_view(test_string));
@@ -374,11 +374,118 @@ TEST_F(HashSetTest, StringSearchStringView) {
 }
 
 TEST_F(HashSetTest, DoubleInsert) {
-  const char* test_string = "dummy";
+  const char* test_string = "test string";
   HashSet<std::string> hash_set;
   hash_set.insert(test_string);
   hash_set.insert(test_string);
   ASSERT_EQ(1u, hash_set.size());
+}
+
+TEST_F(HashSetTest, Preallocated) {
+  static const size_t kBufferSize = 64;
+  uint32_t buffer[kBufferSize];
+  HashSet<uint32_t> hash_set(buffer, kBufferSize);
+  size_t max_without_resize = kBufferSize * hash_set.GetMaxLoadFactor();
+  for (size_t i = 0; i != max_without_resize; ++i) {
+    hash_set.insert(i);
+  }
+  ASSERT_FALSE(hash_set.owns_data_);
+  hash_set.insert(max_without_resize);
+  ASSERT_TRUE(hash_set.owns_data_);
+}
+
+class SmallIndexEmptyFn {
+ public:
+  void MakeEmpty(uint16_t& item) const {
+    item = std::numeric_limits<uint16_t>::max();
+  }
+  bool IsEmpty(const uint16_t& item) const {
+    return item == std::numeric_limits<uint16_t>::max();
+  }
+};
+
+class StatefulHashFn {
+ public:
+  explicit StatefulHashFn(const std::vector<std::string>* strings)
+      : strings_(strings) {}
+
+  size_t operator() (const uint16_t& index) const {
+    CHECK_LT(index, strings_->size());
+    return (*this)((*strings_)[index]);
+  }
+
+  size_t operator() (std::string_view s) const {
+    return DataHash()(s);
+  }
+
+ private:
+  const std::vector<std::string>* strings_;
+};
+
+class StatefulPred {
+ public:
+  explicit StatefulPred(const std::vector<std::string>* strings)
+      : strings_(strings) {}
+
+  bool operator() (const uint16_t& lhs, const uint16_t& rhs) const {
+    CHECK_LT(rhs, strings_->size());
+    return (*this)(lhs, (*strings_)[rhs]);
+  }
+
+  bool operator() (const uint16_t& lhs, std::string_view rhs) const {
+    CHECK_LT(lhs, strings_->size());
+    return (*strings_)[lhs] == rhs;
+  }
+
+ private:
+  const std::vector<std::string>* strings_;
+};
+
+TEST_F(HashSetTest, StatefulHashSet) {
+  std::vector<std::string> strings{
+      "duplicate",
+      "a",
+      "b",
+      "xyz",
+      "___",
+      "123",
+      "placeholder",
+      "duplicate"
+  };
+  const size_t duplicateFirstIndex = 0;
+  const size_t duplicateSecondIndex = strings.size() - 1u;
+  const size_t otherIndex = 1u;
+
+  StatefulHashFn hashfn(&strings);
+  StatefulPred pred(&strings);
+  HashSet<uint16_t, SmallIndexEmptyFn, StatefulHashFn, StatefulPred> hash_set(hashfn, pred);
+  for (size_t index = 0, size = strings.size(); index != size; ++index) {
+    bool inserted = hash_set.insert(index).second;
+    ASSERT_EQ(index != duplicateSecondIndex, inserted) << index;
+  }
+
+  // Check search by string.
+  for (size_t index = 0, size = strings.size(); index != size; ++index) {
+    auto it = hash_set.find(strings[index]);
+    ASSERT_FALSE(it == hash_set.end());
+    ASSERT_EQ(index == duplicateSecondIndex ? duplicateFirstIndex : index, *it) << index;
+  }
+  ASSERT_TRUE(hash_set.find("missing") == hash_set.end());
+
+  // Check search by index.
+  for (size_t index = 0, size = strings.size(); index != size; ++index) {
+    auto it = hash_set.find(index);
+    ASSERT_FALSE(it == hash_set.end());
+    ASSERT_EQ(index == duplicateSecondIndex ? duplicateFirstIndex : index, *it) << index;
+  }
+  // Note: Searching for index >= strings.size() is not supported by Stateful{HashFn,Pred}.
+
+  // Test removal and search by missing index.
+  auto remove_it = hash_set.find(otherIndex);
+  ASSERT_FALSE(remove_it == hash_set.end());
+  hash_set.erase(remove_it);
+  auto search_it = hash_set.find(otherIndex);
+  ASSERT_TRUE(search_it == hash_set.end());
 }
 
 }  // namespace art

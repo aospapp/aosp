@@ -26,11 +26,13 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <android/log.h>
 #include <mutex>
 #include <sstream>
-#include <android/log.h>
 
 namespace simpleperf {
+
+constexpr int AID_USER_OFFSET = 100000;
 
 enum RecordCmd {
   CMD_PAUSE_RECORDING = 1,
@@ -49,19 +51,18 @@ class RecordOptionsImpl {
   bool trace_offcpu = false;
 };
 
-RecordOptions::RecordOptions() : impl_(new RecordOptionsImpl) {
-}
+RecordOptions::RecordOptions() : impl_(new RecordOptionsImpl) {}
 
 RecordOptions::~RecordOptions() {
   delete impl_;
 }
 
-RecordOptions& RecordOptions::SetOutputFilename(const std::string &filename) {
+RecordOptions& RecordOptions::SetOutputFilename(const std::string& filename) {
   impl_->output_filename = filename;
   return *this;
 }
 
-RecordOptions& RecordOptions::SetEvent(const std::string &event) {
+RecordOptions& RecordOptions::SetEvent(const std::string& event) {
   impl_->event = event;
   return *this;
 }
@@ -76,7 +77,7 @@ RecordOptions& RecordOptions::SetDuration(double duration_in_second) {
   return *this;
 }
 
-RecordOptions& RecordOptions::SetSampleThreads(const std::vector<pid_t> &threads) {
+RecordOptions& RecordOptions::SetSampleThreads(const std::vector<pid_t>& threads) {
   impl_->threads = threads;
   return *this;
 }
@@ -156,8 +157,7 @@ static void Abort(const char* fmt, ...) {
 class ProfileSessionImpl {
  public:
   ProfileSessionImpl(const std::string& app_data_dir)
-      : app_data_dir_(app_data_dir),
-        simpleperf_data_dir_(app_data_dir + "/simpleperf_data") {}
+      : app_data_dir_(app_data_dir), simpleperf_data_dir_(app_data_dir + "/simpleperf_data") {}
   ~ProfileSessionImpl();
   void StartRecording(const std::vector<std::string>& args);
   void PauseRecording();
@@ -200,7 +200,7 @@ ProfileSessionImpl::~ProfileSessionImpl() {
   }
 }
 
-void ProfileSessionImpl::StartRecording(const std::vector<std::string> &args) {
+void ProfileSessionImpl::StartRecording(const std::vector<std::string>& args) {
   std::lock_guard<std::mutex> guard(lock_);
   if (state_ != NOT_YET_STARTED) {
     Abort("startRecording: session in wrong state %d", state_);
@@ -261,7 +261,7 @@ void ProfileSessionImpl::StopRecording() {
 void ProfileSessionImpl::SendCmd(const std::string& cmd) {
   std::string data = cmd + "\n";
   if (TEMP_FAILURE_RETRY(write(control_fd_, &data[0], data.size())) !=
-                         static_cast<ssize_t>(data.size())) {
+      static_cast<ssize_t>(data.size())) {
     Abort("failed to send cmd to simpleperf: %s", strerror(errno));
   }
   if (ReadReply() != "ok") {
@@ -393,8 +393,8 @@ void ProfileSessionImpl::CreateSimpleperfDataDir() {
   }
 }
 
-void ProfileSessionImpl::CreateSimpleperfProcess(const std::string &simpleperf_path,
-                                                 const std::vector<std::string> &record_args) {
+void ProfileSessionImpl::CreateSimpleperfProcess(const std::string& simpleperf_path,
+                                                 const std::vector<std::string>& record_args) {
   // 1. Create control/reply pips.
   int control_fd[2];
   int reply_fd[2];
@@ -477,6 +477,11 @@ ProfileSession::ProfileSession() {
     }
   }
   std::string app_data_dir = "/data/data/" + s;
+  int uid = getuid();
+  if (uid >= AID_USER_OFFSET) {
+    int user_id = uid / AID_USER_OFFSET;
+    app_data_dir = "/data/user/" + std::to_string(user_id) + "/" + s;
+  }
   impl_ = new ProfileSessionImpl(app_data_dir);
 }
 
@@ -487,12 +492,12 @@ ProfileSession::~ProfileSession() {
   delete impl_;
 }
 
-void ProfileSession::StartRecording(const RecordOptions &options) {
+void ProfileSession::StartRecording(const RecordOptions& options) {
   StartRecording(options.ToRecordArgs());
 }
 
-void ProfileSession::StartRecording(const std::vector<std::string> &record_args) {
-   impl_->StartRecording(record_args);
+void ProfileSession::StartRecording(const std::vector<std::string>& record_args) {
+  impl_->StartRecording(record_args);
 }
 
 void ProfileSession::PauseRecording() {

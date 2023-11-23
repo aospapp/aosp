@@ -4,12 +4,15 @@
 
 #include <brillo/streams/file_stream.h>
 
-#include <algorithm>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <utility>
+
 #include <base/bind.h>
+#include <base/files/file_descriptor_watcher_posix.h>
 #include <base/files/file_util.h>
 #include <base/posix/eintr_wrapper.h>
 #include <brillo/errors/error_codes.h>
@@ -84,15 +87,11 @@ class FileDescriptor : public FileStream::FileDescriptorInterface {
                    ErrorPtr* error) override {
     if (stream_utils::IsReadAccessMode(mode)) {
       CHECK(read_data_callback_.is_null());
-      MessageLoop::current()->CancelTask(read_watcher_);
-      read_watcher_ = MessageLoop::current()->WatchFileDescriptor(
-          FROM_HERE,
+      read_watcher_ = base::FileDescriptorWatcher::WatchReadable(
           fd_,
-          MessageLoop::WatchMode::kWatchRead,
-          false,  // persistent
-          base::Bind(&FileDescriptor::OnFileCanReadWithoutBlocking,
-                     base::Unretained(this)));
-      if (read_watcher_ == MessageLoop::kTaskIdNull) {
+          base::BindRepeating(&FileDescriptor::OnReadable,
+                              base::Unretained(this)));
+      if (!read_watcher_) {
         Error::AddTo(error, FROM_HERE, errors::stream::kDomain,
                      errors::stream::kInvalidParameter,
                      "File descriptor doesn't support watching for reading.");
@@ -102,15 +101,11 @@ class FileDescriptor : public FileStream::FileDescriptorInterface {
     }
     if (stream_utils::IsWriteAccessMode(mode)) {
       CHECK(write_data_callback_.is_null());
-      MessageLoop::current()->CancelTask(write_watcher_);
-      write_watcher_ = MessageLoop::current()->WatchFileDescriptor(
-          FROM_HERE,
+      write_watcher_ = base::FileDescriptorWatcher::WatchWritable(
           fd_,
-          MessageLoop::WatchMode::kWatchWrite,
-          false,  // persistent
-          base::Bind(&FileDescriptor::OnFileCanWriteWithoutBlocking,
-                     base::Unretained(this)));
-      if (write_watcher_ == MessageLoop::kTaskIdNull) {
+          base::BindRepeating(&FileDescriptor::OnWritable,
+                              base::Unretained(this)));
+      if (!write_watcher_) {
         Error::AddTo(error, FROM_HERE, errors::stream::kDomain,
                      errors::stream::kInvalidParameter,
                      "File descriptor doesn't support watching for writing.");
@@ -155,31 +150,26 @@ class FileDescriptor : public FileStream::FileDescriptorInterface {
 
   void CancelPendingAsyncOperations() override {
     read_data_callback_.Reset();
-    if (read_watcher_ != MessageLoop::kTaskIdNull) {
-      MessageLoop::current()->CancelTask(read_watcher_);
-      read_watcher_ = MessageLoop::kTaskIdNull;
-    }
-
+    read_watcher_ = nullptr;
     write_data_callback_.Reset();
-    if (write_watcher_ != MessageLoop::kTaskIdNull) {
-      MessageLoop::current()->CancelTask(write_watcher_);
-      write_watcher_ = MessageLoop::kTaskIdNull;
-    }
+    write_watcher_ = nullptr;
   }
 
   // Called from the brillo::MessageLoop when the file descriptor is available
   // for reading.
-  void OnFileCanReadWithoutBlocking() {
+  void OnReadable() {
     CHECK(!read_data_callback_.is_null());
-    DataCallback cb = read_data_callback_;
-    read_data_callback_.Reset();
+
+    read_watcher_ = nullptr;
+    DataCallback cb = std::move(read_data_callback_);
     cb.Run(Stream::AccessMode::READ);
   }
 
-  void OnFileCanWriteWithoutBlocking() {
+  void OnWritable() {
     CHECK(!write_data_callback_.is_null());
-    DataCallback cb = write_data_callback_;
-    write_data_callback_.Reset();
+
+    write_watcher_ = nullptr;
+    DataCallback cb = std::move(write_data_callback_);
     cb.Run(Stream::AccessMode::WRITE);
   }
 
@@ -198,9 +188,9 @@ class FileDescriptor : public FileStream::FileDescriptorInterface {
   DataCallback read_data_callback_;
   DataCallback write_data_callback_;
 
-  // MessageLoop tasks monitoring read/write operations on the file descriptor.
-  MessageLoop::TaskId read_watcher_{MessageLoop::kTaskIdNull};
-  MessageLoop::TaskId write_watcher_{MessageLoop::kTaskIdNull};
+  // Monitoring read/write operations on the file descriptor.
+  std::unique_ptr<base::FileDescriptorWatcher::Controller> read_watcher_;
+  std::unique_ptr<base::FileDescriptorWatcher::Controller> write_watcher_;
 
   DISALLOW_COPY_AND_ASSIGN(FileDescriptor);
 };

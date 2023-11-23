@@ -88,6 +88,8 @@ struct WellKnownClasses {
   static jclass java_lang_Thread;
   static jclass java_lang_ThreadGroup;
   static jclass java_lang_Throwable;
+  static jclass java_lang_Void;
+  static jclass java_nio_Buffer;
   static jclass java_nio_ByteBuffer;
   static jclass java_nio_DirectByteBuffer;
   static jclass java_util_Collections;
@@ -109,7 +111,9 @@ struct WellKnownClasses {
   static jmethodID java_lang_Daemons_start;
   static jmethodID java_lang_Daemons_stop;
   static jmethodID java_lang_Daemons_waitForDaemonStart;
+  static jmethodID java_lang_Double_doubleToRawLongBits;
   static jmethodID java_lang_Double_valueOf;
+  static jmethodID java_lang_Float_floatToRawIntBits;
   static jmethodID java_lang_Float_valueOf;
   static jmethodID java_lang_Integer_valueOf;
   static jmethodID java_lang_invoke_MethodHandles_lookup;
@@ -129,6 +133,7 @@ struct WellKnownClasses {
   static jmethodID java_lang_Thread_run;
   static jmethodID java_lang_ThreadGroup_add;
   static jmethodID java_lang_ThreadGroup_removeThread;
+  static jmethodID java_nio_Buffer_isDirect;
   static jmethodID java_nio_DirectByteBuffer_init;
   static jmethodID java_util_function_Consumer_accept;
   static jmethodID libcore_reflect_AnnotationFactory_createAnnotation;
@@ -144,7 +149,6 @@ struct WellKnownClasses {
   static jfieldID dalvik_system_DexPathList__Element_dexFile;
   static jfieldID dalvik_system_VMRuntime_nonSdkApiUsageConsumer;
   static jfieldID java_io_FileDescriptor_descriptor;
-  static jfieldID java_io_FileDescriptor_ownerId;
   static jfieldID java_lang_Thread_parkBlocker;
   static jfieldID java_lang_Thread_daemon;
   static jfieldID java_lang_Thread_group;
@@ -166,6 +170,7 @@ struct WellKnownClasses {
   static jfieldID java_lang_Throwable_stackState;
   static jfieldID java_lang_Throwable_suppressedExceptions;
   static jfieldID java_nio_Buffer_address;
+  static jfieldID java_nio_Buffer_capacity;
   static jfieldID java_nio_Buffer_elementSizeShift;
   static jfieldID java_nio_Buffer_limit;
   static jfieldID java_nio_Buffer_position;
@@ -174,8 +179,6 @@ struct WellKnownClasses {
   static jfieldID java_nio_ByteBuffer_isReadOnly;
   static jfieldID java_nio_ByteBuffer_limit;
   static jfieldID java_nio_ByteBuffer_offset;
-  static jfieldID java_nio_DirectByteBuffer_capacity;
-  static jfieldID java_nio_DirectByteBuffer_effectiveDirectAddress;
 
   static jfieldID java_util_Collections_EMPTY_LIST;
   static jfieldID libcore_util_EmptyArray_STACK_TRACE_ELEMENT;

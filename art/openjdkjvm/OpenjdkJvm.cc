@@ -45,6 +45,7 @@
 #include "../../libcore/ojluni/src/main/native/jvm.h"  // TODO(narayan): fix it
 
 #include "base/macros.h"
+#include "base/fast_exit.h"
 #include "common_throws.h"
 #include "gc/heap.h"
 #include "handle_scope-inl.h"
@@ -315,7 +316,7 @@ JNIEXPORT __attribute__((noreturn)) void JVM_Exit(jint status) {
   art::Runtime::Current()->CallExitHook(status);
   // Unsafe to call exit() while threads may still be running. They would race
   // with static destructors.
-  _exit(status);
+  art::FastExit(status);
 }
 
 JNIEXPORT jstring JVM_NativeLoad(JNIEnv* env,

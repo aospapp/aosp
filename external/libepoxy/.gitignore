@@ -10,7 +10,6 @@ autoscan.log
 ChangeLog
 compile
 config.guess
-config.h
 config.h.in
 config.log
 config-ml.in
@@ -80,15 +79,3 @@ core
 configure.lineno
 .dirstamp
 test-driver
-
-gl_generated_dispatch.c
-gl_generated.h
-
-glx_generated_dispatch.c
-glx_generated.h
-
-egl_generated_dispatch.c
-egl_generated.h
-
-wgl_generated_dispatch.c
-wgl_generated.h

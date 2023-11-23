@@ -131,6 +131,11 @@
             android:layout_height="wrap_content"
             android:layout_marginLeft="10dp"/>
     </LinearLayout>
+    <TextView
+        android:id="@+id/incoming_composer_attachments"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="10dp"/>
     <Button
         android:id="@+id/disable_incallservice"
         android:layout_width="wrap_content"

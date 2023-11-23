@@ -8,12 +8,15 @@ edition = "2018"
 arch = { path = "../arch" }
 data_model = { path = "../data_model" }
 devices = { path = "../devices" }
-io_jail = { path = "../io_jail" }
+hypervisor = { path = "../hypervisor" }
 kernel_cmdline = { path = "../kernel_cmdline" }
 kvm = { path = "../kvm" }
 kvm_sys = { path = "../kvm_sys" }
 libc = "*"
+minijail = { path = "../../minijail/rust/minijail" } # ignored by ebuild
 remain = "*"
 resources = { path = "../resources" }
 sync = { path = "../sync" }
-sys_util = { path = "../sys_util" }
+base = { path = "../base" }
+vm_control = { path = "../vm_control" }
+vm_memory = { path = "../vm_memory" }

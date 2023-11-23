@@ -192,7 +192,7 @@ public class TestEnv {
         DocumentInfo rootDoc = model.getDocument(
                 ModelId.build(model.mUserId, TestProvidersAccess.HOME.authority, "1"));
 
-        // These are test setup sanity checks, not test assertions.
+        // These are test setup quick checks, not test assertions.
         assert rootDoc != null;
         assert rootDoc.isDirectory();
         assert FOLDER_0.equals(rootDoc);

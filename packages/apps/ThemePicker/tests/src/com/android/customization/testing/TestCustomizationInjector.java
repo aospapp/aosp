@@ -13,7 +13,6 @@ import com.android.customization.module.ThemesUserEventLogger;
 import com.android.wallpaper.module.DrawableLayerResolver;
 import com.android.wallpaper.module.PackageStatusNotifier;
 import com.android.wallpaper.module.UserEventLogger;
-import com.android.wallpaper.module.WallpaperSetter;
 import com.android.wallpaper.testing.TestInjector;
 
 /**
@@ -38,12 +37,10 @@ public class TestCustomizationInjector extends TestInjector implements Customiza
     public ThemeManager getThemeManager(
             ThemeBundleProvider provider,
             FragmentActivity activity,
-            WallpaperSetter wallpaperSetter,
             OverlayManagerCompat overlayManagerCompat,
             ThemesUserEventLogger logger) {
         if (mThemeManager == null) {
-            mThemeManager = new TestThemeManager(provider, activity, wallpaperSetter,
-                    overlayManagerCompat, logger);
+            mThemeManager = new TestThemeManager(provider, activity, overlayManagerCompat, logger);
         }
         return mThemeManager;
     }

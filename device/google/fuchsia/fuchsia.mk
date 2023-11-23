@@ -27,7 +27,7 @@ PRODUCT_BUILD_RAMDISK_IMAGE := false
 # default is nosdcard, S/W button enabled in resource
 PRODUCT_CHARACTERISTICS := nosdcard
 
-art_apex := com.android.art.release
+art_apex := com.android.art
 ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
     art_apex := com.android.art.debug
 endif
@@ -51,3 +51,6 @@ art_apex :=
 # Fuchsia only has 64-bit support.
 TARGET_SUPPORTS_32_BIT_APPS := false
 TARGET_SUPPORTS_64_BIT_APPS := true
+
+# The target has no boot jars to check.
+SKIP_BOOT_JARS_CHECK := true

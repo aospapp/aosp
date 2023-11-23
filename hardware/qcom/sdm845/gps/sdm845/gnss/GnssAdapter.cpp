@@ -3941,28 +3941,28 @@ GnssAdapter::getAgcInformation(GnssMeasurementsNotification& measurements, int m
                 case GNSS_SV_TYPE_GPS:
                 case GNSS_SV_TYPE_QZSS:
                     measurements.measurements[i].agcLevelDb =
-                            reports.mRfAndParams.back().mAgcGps;
+                            -(double)reports.mRfAndParams.back().mJammerGps;
                     measurements.measurements[i].flags |=
                             GNSS_MEASUREMENTS_DATA_AUTOMATIC_GAIN_CONTROL_BIT;
                     break;
 
                 case GNSS_SV_TYPE_GALILEO:
                     measurements.measurements[i].agcLevelDb =
-                            reports.mRfAndParams.back().mAgcGal;
+                            -(double)reports.mRfAndParams.back().mJammerGal;
                     measurements.measurements[i].flags |=
                             GNSS_MEASUREMENTS_DATA_AUTOMATIC_GAIN_CONTROL_BIT;
                     break;
 
                 case GNSS_SV_TYPE_GLONASS:
                     measurements.measurements[i].agcLevelDb =
-                            reports.mRfAndParams.back().mAgcGlo;
+                            -(double)reports.mRfAndParams.back().mJammerGlo;
                     measurements.measurements[i].flags |=
                             GNSS_MEASUREMENTS_DATA_AUTOMATIC_GAIN_CONTROL_BIT;
                     break;
 
                 case GNSS_SV_TYPE_BEIDOU:
                     measurements.measurements[i].agcLevelDb =
-                            reports.mRfAndParams.back().mAgcBds;
+                            -(double)reports.mRfAndParams.back().mJammerBds;
                     measurements.measurements[i].flags |=
                             GNSS_MEASUREMENTS_DATA_AUTOMATIC_GAIN_CONTROL_BIT;
                     break;

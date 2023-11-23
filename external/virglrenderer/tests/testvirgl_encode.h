@@ -142,6 +142,28 @@ int virgl_encoder_inline_write(struct virgl_context *ctx,
                               const struct pipe_box *box,
                               const void *data, unsigned stride,
                               unsigned layer_stride);
+
+int virgl_encoder_transfer(struct virgl_context *ctx,
+                           struct virgl_resource *res,
+                           unsigned level, unsigned usage,
+                           const struct pipe_box *box,
+                           unsigned offset, unsigned direction);
+
+int virgl_encoder_transfer_with_stride(struct virgl_context *ctx,
+                                       struct virgl_resource *res,
+                                       unsigned level, unsigned usage,
+                                       const struct pipe_box *box,
+                                       unsigned offset, unsigned direction,
+                                       unsigned stride, unsigned layer_stride);
+
+int virgl_encoder_copy_transfer(struct virgl_context *ctx,
+                                struct virgl_resource *res,
+                                unsigned level, unsigned usage,
+                                const struct pipe_box *box,
+                                struct virgl_resource *src_res,
+                                unsigned src_offset,
+                                unsigned synchronized);
+
 int virgl_encode_sampler_state(struct virgl_context *ctx,
                               uint32_t handle,
                               const struct pipe_sampler_state *state);

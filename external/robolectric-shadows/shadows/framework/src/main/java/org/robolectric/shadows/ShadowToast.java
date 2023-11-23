@@ -1,9 +1,11 @@
 package org.robolectric.shadows;
 
 import android.content.Context;
+import android.os.Looper;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import java.util.List;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Implementation;
@@ -26,6 +28,11 @@ public class ShadowToast {
 
   @Implementation
   protected void __constructor__(Context context) {}
+
+  // BEGIN-INTERNAL
+  @Implementation
+  protected void __constructor__(Context context, Looper looper) {}
+  // END-INTERNAL
 
   @Implementation
   protected static Toast makeText(Context context, int resId, int duration) {

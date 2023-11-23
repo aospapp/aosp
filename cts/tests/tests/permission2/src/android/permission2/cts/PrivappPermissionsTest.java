@@ -108,6 +108,12 @@ public class PrivappPermissionsTest {
                 continue;
             }
 
+            // Exempt apk-in-apex as there is currently no way to get the PackageInfo of the
+            // preinstalled APK
+            if (pkg.applicationInfo.sourceDir.startsWith("/apex")) {
+                continue;
+            }
+
             PackageInfo factoryPkg = pm
                     .getPackageInfo(packageName, MATCH_FACTORY_ONLY | GET_PERMISSIONS
                         | MATCH_UNINSTALLED_PACKAGES);

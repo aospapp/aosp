@@ -17,6 +17,7 @@
 #define LOG_TAG "ia_tunneling_hal"
 #define LOG_NDEBUG 0
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <errno.h>

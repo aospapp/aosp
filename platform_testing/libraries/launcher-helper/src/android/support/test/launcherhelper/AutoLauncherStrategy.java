@@ -73,20 +73,25 @@ public class AutoLauncherStrategy implements IAutoLauncherStrategy {
             }).collect(Collectors.toMap(data -> (String) data[0], data -> (BySelector) data[1]));
 
     private static final Map<String, BySelector> APP_OPEN_VERIFIERS =
-            Stream.of(new Object[][] {
-                { "Home", By.hasDescendant(By.res(CAR_LENSPICKER, "maps"))
-                            .hasDescendant(By.res(CAR_LENSPICKER, "contextual"))
-                            .hasDescendant(By.res(CAR_LENSPICKER, "playback"))
-                },
-                { "Maps", By.pkg(MAPS_PACKAGE).depth(0) },
-                { "Media", By.pkg(MEDIA_PACKAGE).depth(0) },
-                { "Radio", By.pkg(RADIO_PACKAGE).depth(0) },
-                { "Dial",  By.pkg(DIAL_PACKAGE).depth(0) },
-                { "App Grid", By.res(CAR_LENSPICKER, "apps_grid") },
-                { "Notification", By.res(SYSTEM_UI_PACKAGE, "notifications") },
-                { "Google Assistant", By.pkg(ASSISTANT_PACKAGE) },
-                { "Settings", By.pkg(SETTINGS_PACKAGE).depth(0) },
-            }).collect(Collectors.toMap(data -> (String) data[0], data -> (BySelector) data[1]));
+            Stream.of(
+                            new Object[][] {
+                                {
+                                    "Home",
+                                    By.hasDescendant(By.res(CAR_LENSPICKER, "top_card"))
+                                            .hasDescendant(By.res(CAR_LENSPICKER, "bottom_card"))
+                                },
+                                {"Maps", By.pkg(MAPS_PACKAGE).depth(0)},
+                                {"Media", By.pkg(MEDIA_PACKAGE).depth(0)},
+                                {"Radio", By.pkg(RADIO_PACKAGE).depth(0)},
+                                {"Dial", By.pkg(DIAL_PACKAGE).depth(0)},
+                                {"App Grid", By.res(CAR_LENSPICKER, "apps_grid")},
+                                {"Notification", By.res(SYSTEM_UI_PACKAGE, "notifications")},
+                                {"Google Assistant", By.pkg(ASSISTANT_PACKAGE)},
+                                {"Settings", By.pkg(SETTINGS_PACKAGE).depth(0)},
+                            })
+                    .collect(
+                            Collectors.toMap(
+                                    data -> (String) data[0], data -> (BySelector) data[1]));
 
     protected UiDevice mDevice;
     private Instrumentation mInstrumentation;
@@ -398,6 +403,18 @@ public class AutoLauncherStrategy implements IAutoLauncherStrategy {
                 "The feature not supported on Auto");
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void openOverview() {
+        throw new UnsupportedOperationException("The feature not supported on Auto");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean clearRecentAppsFromOverview() {
+        throw new UnsupportedOperationException("The feature not supported on Auto");
+    }
+
     @SuppressWarnings("unused")
     @Override
     public BySelector getAllAppsButtonSelector() {
@@ -452,6 +469,12 @@ public class AutoLauncherStrategy implements IAutoLauncherStrategy {
     public BySelector getHotSeatSelector() {
         throw new UnsupportedOperationException(
                 "The feature not supported on Auto");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BySelector getOverviewSelector() {
+        throw new UnsupportedOperationException("The feature not supported on Auto");
     }
 
     @SuppressWarnings("unused")

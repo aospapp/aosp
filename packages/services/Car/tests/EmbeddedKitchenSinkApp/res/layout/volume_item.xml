@@ -28,6 +28,13 @@
         android:textSize="20sp"
         android:layout_weight="1">
     </TextView>
+    <ToggleButton
+        android:id="@+id/volume_mute"
+        android:layout_width="150dp"
+        android:layout_height="wrap_content"
+        android:text="@string/volume_unmute"
+        android:textOff="@string/volume_mute"
+        android:textOn="@string/volume_unmute"/>
     <Button
         android:id="@+id/volume_up"
         android:layout_width="wrap_content"

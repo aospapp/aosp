@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import android.content.pm.PackageManager;
-import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -37,7 +36,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-@SecurityTest
 public class CertificateTest extends AndroidTestCase {
     // The directory for CA root certificates trusted by WFA (WiFi Alliance)
     private static final String DIR_OF_CACERTS_FOR_WFA =

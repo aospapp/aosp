@@ -6,7 +6,6 @@ AUTHOR = 'pstew, wiley, quiche'
 NAME = 'network_WiFi_CSA'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_matfunc')
 DEPENDENCIES = 'wificell'
 
 DOC = """

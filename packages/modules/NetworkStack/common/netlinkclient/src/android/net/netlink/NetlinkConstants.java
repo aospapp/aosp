@@ -16,6 +16,7 @@
 
 package android.net.netlink;
 
+import android.annotation.NonNull;
 import android.system.OsConstants;
 
 import java.nio.ByteBuffer;
@@ -26,8 +27,10 @@ import java.nio.ByteBuffer;
  *
  * Values taken from:
  *
- *     &lt;linux_src&gt;/include/uapi/linux/netlink.h
- *     &lt;linux_src&gt;/include/uapi/linux/rtnetlink.h
+ *     include/uapi/linux/netfilter/nfnetlink.h
+ *     include/uapi/linux/netfilter/nfnetlink_conntrack.h
+ *     include/uapi/linux/netlink.h
+ *     include/uapi/linux/rtnetlink.h
  *
  * @hide
  */
@@ -79,43 +82,71 @@ public class NetlinkConstants {
     }
 
     // Known values for struct nlmsghdr nlm_type.
-    public static final short NLMSG_NOOP         = 1;   // Nothing
-    public static final short NLMSG_ERROR        = 2;   // Error
-    public static final short NLMSG_DONE         = 3;   // End of a dump
-    public static final short NLMSG_OVERRUN      = 4;   // Data lost
-    public static final short NLMSG_MAX_RESERVED = 15;  // Max reserved value
+    public static final short NLMSG_NOOP                    = 1;   // Nothing
+    public static final short NLMSG_ERROR                   = 2;   // Error
+    public static final short NLMSG_DONE                    = 3;   // End of a dump
+    public static final short NLMSG_OVERRUN                 = 4;   // Data lost
+    public static final short NLMSG_MAX_RESERVED            = 15;  // Max reserved value
 
-    public static final short RTM_NEWLINK        = 16;
-    public static final short RTM_DELLINK        = 17;
-    public static final short RTM_GETLINK        = 18;
-    public static final short RTM_SETLINK        = 19;
-    public static final short RTM_NEWADDR        = 20;
-    public static final short RTM_DELADDR        = 21;
-    public static final short RTM_GETADDR        = 22;
-    public static final short RTM_NEWROUTE       = 24;
-    public static final short RTM_DELROUTE       = 25;
-    public static final short RTM_GETROUTE       = 26;
-    public static final short RTM_NEWNEIGH       = 28;
-    public static final short RTM_DELNEIGH       = 29;
-    public static final short RTM_GETNEIGH       = 30;
-    public static final short RTM_NEWRULE        = 32;
-    public static final short RTM_DELRULE        = 33;
-    public static final short RTM_GETRULE        = 34;
-    public static final short RTM_NEWNDUSEROPT   = 68;
+    public static final short RTM_NEWLINK                   = 16;
+    public static final short RTM_DELLINK                   = 17;
+    public static final short RTM_GETLINK                   = 18;
+    public static final short RTM_SETLINK                   = 19;
+    public static final short RTM_NEWADDR                   = 20;
+    public static final short RTM_DELADDR                   = 21;
+    public static final short RTM_GETADDR                   = 22;
+    public static final short RTM_NEWROUTE                  = 24;
+    public static final short RTM_DELROUTE                  = 25;
+    public static final short RTM_GETROUTE                  = 26;
+    public static final short RTM_NEWNEIGH                  = 28;
+    public static final short RTM_DELNEIGH                  = 29;
+    public static final short RTM_GETNEIGH                  = 30;
+    public static final short RTM_NEWRULE                   = 32;
+    public static final short RTM_DELRULE                   = 33;
+    public static final short RTM_GETRULE                   = 34;
+    public static final short RTM_NEWNDUSEROPT              = 68;
 
-    /* see &lt;linux_src&gt;/include/uapi/linux/sock_diag.h */
+    // Netfilter netlink message types are presented by two bytes: high byte subsystem and
+    // low byte operation. See the macro NFNL_SUBSYS_ID and NFNL_MSG_TYPE in
+    // include/uapi/linux/netfilter/nfnetlink.h
+    public static final short NFNL_SUBSYS_CTNETLINK         = 1;
+
+    public static final short IPCTNL_MSG_CT_NEW             = 0;
+    public static final short IPCTNL_MSG_CT_GET             = 1;
+    public static final short IPCTNL_MSG_CT_DELETE          = 2;
+    public static final short IPCTNL_MSG_CT_GET_CTRZERO     = 3;
+    public static final short IPCTNL_MSG_CT_GET_STATS_CPU   = 4;
+    public static final short IPCTNL_MSG_CT_GET_STATS       = 5;
+    public static final short IPCTNL_MSG_CT_GET_DYING       = 6;
+    public static final short IPCTNL_MSG_CT_GET_UNCONFIRMED = 7;
+
+    /* see include/uapi/linux/sock_diag.h */
     public static final short SOCK_DIAG_BY_FAMILY = 20;
 
     // Netlink groups.
     public static final int RTNLGRP_ND_USEROPT = 20;
     public static final int RTMGRP_ND_USEROPT = 1 << (RTNLGRP_ND_USEROPT - 1);
 
-    public static String stringForNlMsgType(short nlm_type) {
-        switch (nlm_type) {
+    /**
+     * Convert a netlink message type to a string for control message.
+     */
+    @NonNull
+    private static String stringForCtlMsgType(short nlmType) {
+        switch (nlmType) {
             case NLMSG_NOOP: return "NLMSG_NOOP";
             case NLMSG_ERROR: return "NLMSG_ERROR";
             case NLMSG_DONE: return "NLMSG_DONE";
             case NLMSG_OVERRUN: return "NLMSG_OVERRUN";
+            default: return "unknown control message type: " + String.valueOf(nlmType);
+        }
+    }
+
+    /**
+     * Convert a netlink message type to a string for NETLINK_ROUTE.
+     */
+    @NonNull
+    private static String stringForRtMsgType(short nlmType) {
+        switch (nlmType) {
             case RTM_NEWLINK: return "RTM_NEWLINK";
             case RTM_DELLINK: return "RTM_DELLINK";
             case RTM_GETLINK: return "RTM_GETLINK";
@@ -133,9 +164,62 @@ public class NetlinkConstants {
             case RTM_DELRULE: return "RTM_DELRULE";
             case RTM_GETRULE: return "RTM_GETRULE";
             case RTM_NEWNDUSEROPT: return "RTM_NEWNDUSEROPT";
-            default:
-                return "unknown RTM type: " + String.valueOf(nlm_type);
+            default: return "unknown RTM type: " + String.valueOf(nlmType);
         }
+    }
+
+    /**
+     * Convert a netlink message type to a string for NETLINK_INET_DIAG.
+     */
+    @NonNull
+    private static String stringForInetDiagMsgType(short nlmType) {
+        switch (nlmType) {
+            case SOCK_DIAG_BY_FAMILY: return "SOCK_DIAG_BY_FAMILY";
+            default: return "unknown SOCK_DIAG type: " + String.valueOf(nlmType);
+        }
+    }
+
+    /**
+     * Convert a netlink message type to a string for NETLINK_NETFILTER.
+     */
+    @NonNull
+    private static String stringForNfMsgType(short nlmType) {
+        final byte subsysId = (byte) (nlmType >> 8);
+        final byte msgType = (byte) nlmType;
+        switch (subsysId) {
+            case NFNL_SUBSYS_CTNETLINK:
+                switch (msgType) {
+                    case IPCTNL_MSG_CT_NEW: return "IPCTNL_MSG_CT_NEW";
+                    case IPCTNL_MSG_CT_GET: return "IPCTNL_MSG_CT_GET";
+                    case IPCTNL_MSG_CT_DELETE: return "IPCTNL_MSG_CT_DELETE";
+                    case IPCTNL_MSG_CT_GET_CTRZERO: return "IPCTNL_MSG_CT_GET_CTRZERO";
+                    case IPCTNL_MSG_CT_GET_STATS_CPU: return "IPCTNL_MSG_CT_GET_STATS_CPU";
+                    case IPCTNL_MSG_CT_GET_STATS: return "IPCTNL_MSG_CT_GET_STATS";
+                    case IPCTNL_MSG_CT_GET_DYING: return "IPCTNL_MSG_CT_GET_DYING";
+                    case IPCTNL_MSG_CT_GET_UNCONFIRMED: return "IPCTNL_MSG_CT_GET_UNCONFIRMED";
+                }
+                break;
+        }
+        return "unknown NETFILTER type: " + String.valueOf(nlmType);
+    }
+
+    /**
+     * Convert a netlink message type to a string by netlink family.
+     */
+    @NonNull
+    public static String stringForNlMsgType(short nlmType, int nlFamily) {
+        // Reserved control messages. The netlink family is ignored.
+        // See NLMSG_MIN_TYPE in include/uapi/linux/netlink.h.
+        if (nlmType <= NLMSG_MAX_RESERVED) return stringForCtlMsgType(nlmType);
+
+        // Netlink family messages. The netlink family is required. Note that the reason for using
+        // if-statement is that switch-case can't be used because the OsConstants.NETLINK_* are
+        // not constant.
+        if (nlFamily == OsConstants.NETLINK_ROUTE) return stringForRtMsgType(nlmType);
+        if (nlFamily == OsConstants.NETLINK_INET_DIAG) return stringForInetDiagMsgType(nlmType);
+        if (nlFamily == OsConstants.NETLINK_NETFILTER) return stringForNfMsgType(nlmType);
+
+        return "unknown type: " + String.valueOf(nlmType);
     }
 
     private static final char[] HEX_DIGITS = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',

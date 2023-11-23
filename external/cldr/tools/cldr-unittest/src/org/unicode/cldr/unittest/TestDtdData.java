@@ -21,15 +21,19 @@ import org.unicode.cldr.util.DtdData.Attribute;
 import org.unicode.cldr.util.DtdData.Element;
 import org.unicode.cldr.util.DtdData.ElementType;
 import org.unicode.cldr.util.DtdType;
+import org.unicode.cldr.util.MatchValue;
+import org.unicode.cldr.util.MatchValue.EnumParser;
 import org.unicode.cldr.util.Pair;
 import org.unicode.cldr.util.SupplementalDataInfo;
+import org.unicode.cldr.util.Validity;
+import org.unicode.cldr.util.Validity.Status;
 import org.unicode.cldr.util.XMLFileReader;
 import org.unicode.cldr.util.XPathParts;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 import com.ibm.icu.dev.test.TestFmwk;
-import com.ibm.icu.dev.util.CollectionUtilities;
 
 public class TestDtdData extends TestFmwk {
     private static final String COMMON_DIR = CLDRPaths.BASE_DIRECTORY + "common/";
@@ -46,7 +50,7 @@ public class TestDtdData extends TestFmwk {
 
             /*
              * TODO: re-enable the first test or something like it.
-             * It began to fail as a result of copying dtdData in XPathParts.cloneAsThawed rather than always making it null. 
+             * It began to fail as a result of copying dtdData in XPathParts.cloneAsThawed rather than always making it null.
              * Reference: https://unicode.org/cldr/trac/ticket/12007
              */
             // has a value & value attribute
@@ -126,7 +130,7 @@ public class TestDtdData extends TestFmwk {
                     actual.add(item + "==VALUE");
                 }
             }
-            TreeSet<String> temp = new TreeSet<String>(actual);
+            TreeSet<String> temp = new TreeSet<>(actual);
             temp.removeAll(expected);
             assertEquals("too many, extra:  " + path, Collections.emptySet(), temp);
             temp.clear();
@@ -153,7 +157,7 @@ public class TestDtdData extends TestFmwk {
                     DtdType dtdTypeFromPath = DtdType.fromPath(pathValue.getFirst());
                     if (!dtdTypeFromPath.directories.contains(dir.getName())) {
                         errln("Mismatch in " + file.toString()
-                            + ": " + dtdTypeFromPath + ", " + dtdTypeFromPath.directories);
+                        + ": " + dtdTypeFromPath + ", " + dtdTypeFromPath.directories);
                     }
                     logln("\t" + file.getName() + "\t" + dtdTypeFromPath);
                     break;
@@ -172,7 +176,7 @@ public class TestDtdData extends TestFmwk {
             DtdData dtdData = DtdData.getInstance(type);
             Element special = dtdData.getElementFromName().get("special");
             checkEmpty(m, type, dtdData.ROOT, special, new HashSet<Element>(),
-                new ArrayList<Element>(Arrays.asList(dtdData.ROOT)));
+                new ArrayList<>(Arrays.asList(dtdData.ROOT)));
         }
         Collection<String> items = m.get("error");
         if (items != null) {
@@ -191,9 +195,9 @@ public class TestDtdData extends TestFmwk {
     }
 
     /** make sure that if the final element is empty, there is a value attribute required somewhere in the path
-     * @param m 
-     * @param type 
-     * @param seen 
+     * @param m
+     * @param type
+     * @param seen
      */
     private void checkEmpty(Multimap<String, String> m, DtdType type, Element element, Element special, HashSet<Element> seen,
         List<Element> parents) {
@@ -280,7 +284,7 @@ public class TestDtdData extends TestFmwk {
     }
 
     private String showPath(List<Element> parents) {
-        return "!//" + CollectionUtilities.join(parents, "/");
+        return "!//" + Joiner.on("/").join(parents);
     }
 
     public void TestNewDtdData() {
@@ -335,17 +339,17 @@ public class TestDtdData extends TestFmwk {
 //                        continue;
 //                    }
 //                    switch (attribute.getStatus()) {
-//                    case value: 
+//                    case value:
 //                        errln(type + "\t" + element + "\t" + attribute + "\t");
 //                    }
 //                }
 //            }
 //        }
-//        
+//
 //    }
 
     // TESTING CODE
-    static final Set<String> orderedElements = Collections.unmodifiableSet(new HashSet<String>(Arrays
+    static final Set<String> orderedElements = Collections.unmodifiableSet(new HashSet<>(Arrays
         .asList(
             // can prettyprint with TestAttributes
 
@@ -422,8 +426,9 @@ public class TestDtdData extends TestFmwk {
             "exception", // needed for new segmentations
             "coverageLevel", // needed for supplemental/coverageLevel.xml
             "coverageVariable", // needed for supplemental/coverageLevel.xml
-            "substitute" // needed for characters.xml
-    )));
+            "substitute", // needed for characters.xml
+            "unitPreference"
+            )));
 
     public static boolean isOrderedOld(String element, DtdType type) {
         return orderedElements.contains(element);
@@ -457,7 +462,14 @@ public class TestDtdData extends TestFmwk {
                 || (elementName.equals("parseLenients") && (attribute.equals("scope") || attribute.equals("level")))
                 || (elementName.equals("parseLenient") && attribute.equals("sample"))
                 || (elementName.equals("ordinalMinimalPairs") && attribute.equals("ordinal"))
-                || (elementName.equals("styleName") && attribute.equals("subtype"));
+                || (elementName.equals("styleName") && attribute.equals("subtype"))
+                || (elementName.equals("unitPattern") && attribute.equals("case"))
+                || (elementName.equals("compoundUnitPattern") && attribute.equals("case"))
+                || (elementName.equals("compoundUnitPattern1") && (attribute.equals("case") || attribute.equals("gender")))
+                || (elementName.equals("genderMinimalPairs") && attribute.equals("gender"))
+                || (elementName.equals("caseMinimalPairs") && attribute.equals("case"))
+                ;
+
         case ldmlBCP47:
             return attribute.equals("_q")
                 //|| attribute.equals("alias")
@@ -476,94 +488,107 @@ public class TestDtdData extends TestFmwk {
                 || attribute.equals("dtds")
                 || attribute.equals("idStatus")
                 || elementName.equals("deprecatedItems")
-                    && (attribute.equals("type") || attribute.equals("elements") || attribute.equals("attributes") || attribute.equals("values"))
+                && (attribute.equals("type") || attribute.equals("elements") || attribute.equals("attributes") || attribute.equals("values"))
                 || elementName.equals("character")
-                    && attribute.equals("value")
+                && attribute.equals("value")
                 || elementName.equals("dayPeriodRules")
-                    && attribute.equals("locales")
+                && attribute.equals("locales")
                 || elementName.equals("dayPeriodRule")
-                    && (attribute.equals("type"))
+                && (attribute.equals("type"))
                 || elementName.equals("metazones") && attribute.equals("type")
                 || elementName.equals("subgroup") && attribute.equals("subtype")
                 || elementName.equals("mapZone")
-                    && (attribute.equals("other") || attribute.equals("territory"))
+                && (attribute.equals("other") || attribute.equals("territory"))
                 || elementName.equals("postCodeRegex")
-                    && attribute.equals("territoryId")
+                && attribute.equals("territoryId")
                 || elementName.equals("calendarPreference")
-                    && attribute.equals("territories")
+                && attribute.equals("territories")
                 || elementName.equals("minDays")
-                    && attribute.equals("count")
+                && attribute.equals("count")
                 || elementName.equals("firstDay")
-                    && attribute.equals("day")
+                && attribute.equals("day")
                 || elementName.equals("weekendStart")
-                    && attribute.equals("day")
+                && attribute.equals("day")
                 || elementName.equals("weekendEnd")
-                    && attribute.equals("day")
+                && attribute.equals("day")
                 || elementName.equals("measurementSystem")
-                    && attribute.equals("category")
+                && attribute.equals("category")
                 || elementName.equals("unitPreferences")
-                    && (attribute.equals("category") || attribute.equals("usage") || attribute.equals("scope"))
+                && (attribute.equals("category") || attribute.equals("usage") || attribute.equals("scope"))
                 || elementName.equals("unitPreference")
-                    && attribute.equals("regions")
+                && (attribute.equals("regions") || attribute.equals("geq"))
                 || elementName.equals("distinguishingItems")
-                    && attribute.equals("attributes")
+                && attribute.equals("attributes")
                 || elementName.equals("codesByTerritory")
-                    && attribute.equals("territory")
+                && attribute.equals("territory")
                 || elementName.equals("currency")
-                    && attribute.equals("iso4217")
+                && attribute.equals("iso4217")
                 || elementName.equals("territoryAlias")
-                    && attribute.equals("type")
+                && attribute.equals("type")
                 || elementName.equals("territoryCodes")
-                    && attribute.equals("type")
+                && attribute.equals("type")
                 || elementName.equals("group")
-                    && (attribute.equals("status")) //  || attribute.equals("grouping")
+                && (attribute.equals("status")) //  || attribute.equals("grouping")
                 || elementName.equals("plurals")
-                    && attribute.equals("type")
+                && attribute.equals("type")
                 || elementName.equals("pluralRules")
-                    && attribute.equals("locales")
+                && attribute.equals("locales")
                 || elementName.equals("pluralRule")
-                    && attribute.equals("count")
+                && attribute.equals("count")
                 || elementName.equals("pluralRanges")
-                    && attribute.equals("locales")
+                && attribute.equals("locales")
                 || elementName.equals("pluralRange")
-                    && (attribute.equals("start") || attribute.equals("end"))
+                && (attribute.equals("start") || attribute.equals("end"))
                 || elementName.equals("hours")
-                    && (attribute.equals("preferred") || attribute.equals("allowed"))
+                && (attribute.equals("preferred") || attribute.equals("allowed"))
                 || elementName.equals("personList") && attribute.equals("type")
                 || elementName.equals("likelySubtag")
-                    && attribute.equals("from")
+                && attribute.equals("from")
                 || elementName.equals("rgPath")
-                    && attribute.equals("path")
+                && attribute.equals("path")
                 || elementName.equals("timezone")
-                    && attribute.equals("type")
+                && attribute.equals("type")
                 || elementName.equals("usesMetazone")
-                    && (attribute.equals("to") || attribute.equals("from")) // attribute.equals("mzone") ||
+                && (attribute.equals("to") || attribute.equals("from")) // attribute.equals("mzone") ||
                 || elementName.equals("numberingSystem")
-                    && attribute.equals("id")
+                && attribute.equals("id")
                 || elementName.equals("group")
-                    && attribute.equals("type")
+                && attribute.equals("type")
                 || elementName.equals("currency")
-                    && attribute.equals("from")
+                && attribute.equals("from")
                 || elementName.equals("currency")
-                    && attribute.equals("to")
+                && attribute.equals("to")
                 || elementName.equals("currency")
-                    && attribute.equals("iso4217")
+                && attribute.equals("iso4217")
                 || (elementName.equals("parentLocale") || elementName.equals("languageGroup"))
-                    && attribute.equals("parent")
+                && attribute.equals("parent")
                 || elementName.equals("currencyCodes")
-                    && attribute.equals("type")
+                && attribute.equals("type")
                 || elementName.equals("approvalRequirement")
-                    && (attribute.equals("locales") || attribute.equals("paths"))
+                && (attribute.equals("locales") || attribute.equals("paths"))
                 || elementName.equals("weekOfPreference")
-                    && attribute.equals("locales")
+                && attribute.equals("locales")
                 || elementName.equals("coverageVariable")
-                    && attribute.equals("key")
+                && attribute.equals("key")
                 || elementName.equals("coverageLevel")
-                    && (attribute.equals("inLanguage") || attribute.equals("inScript") || attribute.equals("inTerritory") || attribute.equals("match"))
+                && (attribute.equals("inLanguage") || attribute.equals("inScript") || attribute.equals("inTerritory") || attribute.equals("match"))
                 || elementName.equals("languageMatch")
-                    && (attribute.equals("desired") || attribute.equals("supported"))
+                && (attribute.equals("desired") || attribute.equals("supported"))
                 || (elementName.equals("transform") && (attribute.equals("source") || attribute.equals("target") || attribute.equals("direction") || attribute
-                    .equals("variant")));
+                    .equals("variant")))
+                || (elementName.equals("grammaticalFeatures") && (attribute.equals("locales") || attribute.equals("targets")))
+                || (elementName.equals("grammaticalDefiniteness") && attribute.equals("scope"))
+                || (elementName.equals("grammaticalCase") && attribute.equals("scope"))
+                || (elementName.equals("grammaticalGender") && attribute.equals("scope"))
+                || (elementName.equals("convertUnit") && (attribute.equals("source") || attribute.equals("target")))
+                || (elementName.equals("unitConstant") && attribute.equals("constant"))
+                || (elementName.equals("unitQuantity") && attribute.equals("baseUnit"))
+
+                || attribute.equals("scope")
+                || elementName.equals("deriveComponent") && (attribute.equals("feature") || attribute.equals("structure"))
+                || elementName.equals("grammaticalDerivations") && attribute.equals("locales")
+                || elementName.equals("deriveCompound") && (attribute.equals("feature")|| attribute.equals("structure"))
+                ;
 
         case keyboard:
             return attribute.equals("_q")
@@ -614,5 +639,49 @@ public class TestDtdData extends TestFmwk {
     @Deprecated
     public static Set<String> getSerialElements() {
         return orderedElements;
+    }
+
+    public static enum TestEnum {a, b, c, d}
+
+    public void TestEnumParser() throws ClassNotFoundException {
+        Object[][] tests = {
+            {Status.class, "regular", Status.regular},
+            {Status.class, "regular deprecated", Validity.Status.regular, Status.deprecated},
+            {Status.class, "deprecated regular", "regular deprecated", Validity.Status.regular, Status.deprecated},
+            {TestEnum.class, "b a", "a b", TestEnum.a, TestEnum.b},
+            {TestEnum.class, "!c d", "a b", TestEnum.a, TestEnum.b},
+        };
+        for (Object[] test : tests) {
+            Class aClass = (Class<Enum>)test[0];
+            EnumParser parser = MatchValue.EnumParser.of(aClass);
+            final String inputText = (String)test[1];
+            int startOfValues = test[2] instanceof String ? 3 : 2;
+            String expectedFormat = startOfValues == 3 ? (String) test[2] : inputText;
+            Set<Enum> expected = new TreeSet<>();
+            for (Object item : Arrays.asList(test).subList(startOfValues, test.length)) {
+                expected.add((Enum)item);
+            }
+
+            Set<Enum> actual = parser.parse(inputText);
+            assertEquals("parse " + test[1], expected, actual);
+
+            String formatted = parser.format(expected);
+            assertEquals("format " + expected, expectedFormat, formatted);
+
+        }
+    }
+
+    public void TestMatchValue() {
+        Object[][] tests = {
+            {"validity/short-unit/deprecated", "inch-hg"}
+        };
+        for (Object[] test : tests) {
+            MatchValue matcher = MatchValue.of((String)test[0]);
+            final String toMatch = (String)test[1];
+            boolean expectedValue = test.length < 3 ? true : Boolean.valueOf((String)test[2]);
+
+            final boolean actual = matcher.is(toMatch);
+            assertEquals(Arrays.asList(test).toString(), expectedValue, actual);
+        }
     }
 }

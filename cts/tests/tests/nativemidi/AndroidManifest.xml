@@ -16,38 +16,37 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.nativemidi.cts">
+     package="android.nativemidi.cts">
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
 
-    <uses-feature android:name="android.software.midi" android:required="true"/>
+    <uses-feature android:name="android.software.midi"
+         android:required="true"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
         <service android:name="com.android.midi.MidiEchoTestService"
-            android:permission="android.permission.BIND_MIDI_DEVICE_SERVICE">
+             android:permission="android.permission.BIND_MIDI_DEVICE_SERVICE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.media.midi.MidiDeviceService" />
+                <action android:name="android.media.midi.MidiDeviceService"/>
             </intent-filter>
             <meta-data android:name="android.media.midi.MidiDeviceService"
-                android:resource="@xml/echo_device_info" />
+                 android:resource="@xml/echo_device_info"/>
         </service>
 
         <!--
         <activity android:name="android.nativemidi.cts.NativeMidiEchoTest"
-                  android:label="NativeMidiEchoTest"/>
-        -->
+                              android:label="NativeMidiEchoTest"/>
+                    -->
     </application>
 
     <!--  self-instrumenting test package. -->
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:label="CTS Native MIDI tests"
-        android:targetPackage="android.nativemidi.cts" >
-        <meta-data
-            android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:label="CTS Native MIDI tests"
+         android:targetPackage="android.nativemidi.cts">
+        <meta-data android:name="listener"
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 </manifest>
-

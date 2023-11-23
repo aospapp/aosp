@@ -25,13 +25,13 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
-import androidx.annotation.AttrRes;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.Window;
 import android.widget.LinearLayout;
+import androidx.annotation.AttrRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import com.google.android.setupcompat.PartnerCustomizationLayout;
 import com.google.android.setupcompat.R;
 import com.google.android.setupcompat.partnerconfig.PartnerConfig;
@@ -112,10 +112,14 @@ public class StatusBarMixin implements Mixin {
    */
   public void setStatusBarBackground(Drawable background) {
     if (partnerCustomizationLayout.shouldApplyPartnerResource()) {
+      // If full dynamic color enabled which means this activity is running outside of setup
+      // flow, the colors should refer to R.style.SudFullDynamicColorThemeGlifV3.
+      if (!partnerCustomizationLayout.useFullDynamicColor()) {
       Context context = partnerCustomizationLayout.getContext();
       background =
           PartnerConfigHelper.get(context)
               .getDrawable(context, PartnerConfig.CONFIG_STATUS_BAR_BACKGROUND);
+      }
     }
 
     if (statusBarLayout == null) {

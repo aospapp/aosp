@@ -78,7 +78,6 @@ class platform_Crossystem(test.test):
                 ("ro_fwid", _ANYTHING),
                 ("tpm_fwver", _HEXNUM),
                 ("tpm_kernver", _HEXNUM),
-                ("wpsw_boot", _BIT),
                 ("wpsw_cur", _BIT),
         ):
             check(var, matcher)

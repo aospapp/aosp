@@ -43,12 +43,18 @@ public class WallpaperPreferenceKeys {
      * Preferences with these keys should not be backed up
      */
     public interface NoBackupKeys {
+        public static final String KEY_APP_LAUNCH_COUNT = "app_launch_count";
+        public static final String KEY_FIRST_LAUNCH_DATE_SINCE_SETUP =
+                "first_launch_date_since_setup";
+        public static final String KEY_FIRST_WALLPAPER_APPLY_DATE_SINCE_SETUP =
+                "first_wallpaper_apply_date_since_setup";
         public static final String KEY_HOME_WALLPAPER_BASE_IMAGE_URL =
                 "home_wallpaper_base_image_url";
         public static final String KEY_HOME_WALLPAPER_MANAGER_ID = "home_wallpaper_id";
         public static final String KEY_HOME_WALLPAPER_REMOTE_ID = "home_wallpaper_remote_id";
         public static final String KEY_HOME_WALLPAPER_BACKING_FILE = "home_wallpaper_backing_file";
         public static final String KEY_LOCK_WALLPAPER_MANAGER_ID = "lock_wallpaper_id";
+        public static final String KEY_LOCK_WALLPAPER_REMOTE_ID = "lock_wallpaper_remote_id";
         public static final String KEY_LOCK_WALLPAPER_BACKING_FILE = "lock_wallpaper_backing_file";
         public static final String KEY_DAILY_ROTATION_TIMESTAMPS = "daily_rotation_timestamps";
         public static final String KEY_DAILY_WALLPAPER_ENABLED_TIMESTAMP =
@@ -68,5 +74,6 @@ public class WallpaperPreferenceKeys {
         public static final String KEY_NUM_DAYS_DAILY_ROTATION_NOT_ATTEMPTED =
                 "num_days_daily_rotation_not_attempted";
         public static final String KEY_HOME_WALLPAPER_PACKAGE_NAME = "home_wallpaper_package_name";
+        public static final String KEY_HOME_WALLPAPER_SERVICE_NAME = "home_wallpaper_service_name";
     }
 }

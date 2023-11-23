@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include "SpiLayerInterface.h"
 
 #define ATP_FILE_PATH "/data/vendor/ese/atp.bin"
 
@@ -33,6 +34,14 @@
 #define MIN_TIME_BETWEEN_MODE_SWITCH 1
 #define ST54J_SE_MAGIC 0xE5
 #define ST54J_SE_PULSE_RESET _IOR(ST54J_SE_MAGIC, 0x01, unsigned int)
+
+/**
+ * Initialize internal variables.
+ *
+ * @return  null
+ */
+
+void SpiLayerDriver_init(SpiDriver_config_t* tSpiDriver);
 
 /**
  * Open the spi device driver.

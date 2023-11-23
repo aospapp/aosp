@@ -172,14 +172,14 @@ void exit_vulnerable_if_memory_leak_detected(void) {
 #ifdef CHECK_UNINITIALIZED_MEMORY
 bool is_memory_uninitialized() {
     for (int i = 0; i < s_allocation_index; ++i) {
-        char *mem_ptr = s_allocation_list[i].mem_ptr;
+        uint8_t *mem_ptr = s_allocation_list[i].mem_ptr;
         size_t mem_size = s_allocation_list[i].mem_size;
         if (mem_ptr) {
 
 #ifdef CHECK_FOUR_BYTES
             if(mem_size > (2 * sizeof(uint32_t))) {
-                char *mem_ptr_start = (char *)s_allocation_list[i].mem_ptr;
-                char *mem_ptr_end = (char *)s_allocation_list[i].mem_ptr + mem_size - 1;
+                uint8_t *mem_ptr_start = (uint8_t *) s_allocation_list[i].mem_ptr;
+                uint8_t *mem_ptr_end = (uint8_t *) s_allocation_list[i].mem_ptr + mem_size - 1;
                 for (size_t j = 0; j < sizeof(uint32_t); ++j) {
                     if (*mem_ptr_start++ == INITIAL_VAL) {
                         return true;

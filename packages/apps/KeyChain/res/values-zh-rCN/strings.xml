@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"您可以安装PKCS#12文件（位于外部存储设备中且扩展名为%1$s或%2$s）中的证书。"</string>
     <string name="allow_button" msgid="3030990695030371561">"选择"</string>
     <string name="deny_button" msgid="3766539809121892584">"拒绝"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"正在加载证书…"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s正在检查证书…"</string>
 </resources>

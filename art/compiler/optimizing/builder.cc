@@ -33,7 +33,6 @@
 #include "optimizing_compiler_stats.h"
 #include "ssa_builder.h"
 #include "thread.h"
-#include "utils/dex_cache_arrays_layout-inl.h"
 
 namespace art {
 
@@ -42,9 +41,7 @@ HGraphBuilder::HGraphBuilder(HGraph* graph,
                              const DexCompilationUnit* dex_compilation_unit,
                              const DexCompilationUnit* outer_compilation_unit,
                              CodeGenerator* code_generator,
-                             OptimizingCompilerStats* compiler_stats,
-                             ArrayRef<const uint8_t> interpreter_metadata,
-                             VariableSizedHandleScope* handles)
+                             OptimizingCompilerStats* compiler_stats)
     : graph_(graph),
       dex_file_(&graph->GetDexFile()),
       code_item_accessor_(accessor),
@@ -52,14 +49,11 @@ HGraphBuilder::HGraphBuilder(HGraph* graph,
       outer_compilation_unit_(outer_compilation_unit),
       code_generator_(code_generator),
       compilation_stats_(compiler_stats),
-      interpreter_metadata_(interpreter_metadata),
-      handles_(handles),
       return_type_(DataType::FromShorty(dex_compilation_unit_->GetShorty()[0])) {}
 
 HGraphBuilder::HGraphBuilder(HGraph* graph,
                              const DexCompilationUnit* dex_compilation_unit,
                              const CodeItemDebugInfoAccessor& accessor,
-                             VariableSizedHandleScope* handles,
                              DataType::Type return_type)
     : graph_(graph),
       dex_file_(&graph->GetDexFile()),
@@ -68,7 +62,6 @@ HGraphBuilder::HGraphBuilder(HGraph* graph,
       outer_compilation_unit_(nullptr),
       code_generator_(nullptr),
       compilation_stats_(nullptr),
-      handles_(handles),
       return_type_(return_type) {}
 
 bool HGraphBuilder::SkipCompilation(size_t number_of_branches) {
@@ -119,7 +112,6 @@ GraphAnalysisResult HGraphBuilder::BuildGraph() {
   SsaBuilder ssa_builder(graph_,
                          dex_compilation_unit_->GetClassLoader(),
                          dex_compilation_unit_->GetDexCache(),
-                         handles_,
                          &local_allocator);
   HInstructionBuilder instruction_builder(graph_,
                                           &block_builder,
@@ -130,9 +122,7 @@ GraphAnalysisResult HGraphBuilder::BuildGraph() {
                                           dex_compilation_unit_,
                                           outer_compilation_unit_,
                                           code_generator_,
-                                          interpreter_metadata_,
                                           compilation_stats_,
-                                          handles_,
                                           &local_allocator);
 
   // 1) Create basic blocks and link them together. Basic blocks are left
@@ -190,7 +180,6 @@ void HGraphBuilder::BuildIntrinsicGraph(ArtMethod* method) {
   SsaBuilder ssa_builder(graph_,
                          dex_compilation_unit_->GetClassLoader(),
                          dex_compilation_unit_->GetDexCache(),
-                         handles_,
                          &local_allocator);
   HInstructionBuilder instruction_builder(graph_,
                                           &block_builder,
@@ -201,9 +190,7 @@ void HGraphBuilder::BuildIntrinsicGraph(ArtMethod* method) {
                                           dex_compilation_unit_,
                                           outer_compilation_unit_,
                                           code_generator_,
-                                          interpreter_metadata_,
                                           compilation_stats_,
-                                          handles_,
                                           &local_allocator);
 
   // 1) Create basic blocks for the intrinsic and link them together.

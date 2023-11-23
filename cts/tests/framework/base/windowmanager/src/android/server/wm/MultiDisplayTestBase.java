@@ -17,6 +17,8 @@
 package android.server.wm;
 
 import static android.content.pm.PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
+import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+import static android.provider.Settings.Secure.IMMERSIVE_MODE_CONFIRMATIONS;
 import static android.server.wm.StateLogger.log;
 import static android.server.wm.UiDeviceUtils.pressSleepButton;
 import static android.server.wm.UiDeviceUtils.pressWakeupButton;
@@ -35,6 +37,7 @@ import static android.server.wm.app.Components.VirtualDisplayActivity.KEY_SHOW_S
 import static android.server.wm.app.Components.VirtualDisplayActivity.VIRTUAL_DISPLAY_PREFIX;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.Display.INVALID_DISPLAY;
+import static android.view.WindowManager.DISPLAY_IME_POLICY_FALLBACK_DISPLAY;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
@@ -43,10 +46,12 @@ import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -65,7 +70,9 @@ import com.android.compatibility.common.util.SystemUtil;
 import com.android.cts.mockime.ImeEvent;
 import com.android.cts.mockime.ImeEventStream;
 
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -87,9 +94,26 @@ import java.util.regex.Pattern;
  */
 public class MultiDisplayTestBase extends ActivityManagerTestBase {
 
+    private static SettingsSession<String> sImmersiveModeConfirmationSetting;
+
     static final int CUSTOM_DENSITY_DPI = 222;
     private static final int INVALID_DENSITY_DPI = -1;
     protected Context mTargetContext;
+
+    @BeforeClass
+    public static void setUpClass() {
+        sImmersiveModeConfirmationSetting = new SettingsSession<>(
+                Settings.Secure.getUriFor(IMMERSIVE_MODE_CONFIRMATIONS),
+                Settings.Secure::getString, Settings.Secure::putString);
+        sImmersiveModeConfirmationSetting.set("confirmed");
+    }
+
+    @AfterClass
+    public static void tearDownClass() {
+        if (sImmersiveModeConfirmationSetting != null) {
+            sImmersiveModeConfirmationSetting.close();
+        }
+    }
 
     @Before
     @Override
@@ -158,12 +182,16 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
         private static final Pattern OVERRIDE_DENSITY =
                 Pattern.compile("Override density: (\\d+)");
 
+        /** The size of the physical display. */
         @NonNull
         final Size physicalSize;
+        /** The density of the physical display. */
         final int physicalDensity;
 
+        /** The pre-existing size override applied to a logical display. */
         @Nullable
         final Size overrideSize;
+        /** The pre-existing density override applied to a logical display. */
         @Nullable
         final Integer overrideDensity;
 
@@ -261,9 +289,36 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
             return ReportedDisplayMetrics.getDisplayMetrics(mDisplayId);
         }
 
-        void changeDisplayMetrics(double sizeRatio, double densityRatio) {
+        void changeAspectRatio(double aspectRatio, int orientation) {
             final Size originalSize = mInitialDisplayMetrics.physicalSize;
-            final int density = mInitialDisplayMetrics.physicalDensity;
+            final int smaller = Math.min(originalSize.getWidth(), originalSize.getHeight());
+            final int larger = (int) (smaller * aspectRatio);
+            Size overrideSize;
+            if (orientation == ORIENTATION_LANDSCAPE) {
+                overrideSize = new Size(larger, smaller);
+            }
+            else {
+                overrideSize = new Size(smaller, larger);
+            }
+            overrideDisplayMetrics(overrideSize, mInitialDisplayMetrics.physicalDensity);
+        }
+
+        void changeDisplayMetrics(double sizeRatio, double densityRatio) {
+            // Given a display may already have an override applied before the test is begun,
+            // resize based upon the override.
+            final Size originalSize;
+            final int density;
+            if (mInitialDisplayMetrics.overrideSize != null) {
+                originalSize = mInitialDisplayMetrics.overrideSize;
+            } else {
+                originalSize = mInitialDisplayMetrics.physicalSize;
+            }
+
+            if (mInitialDisplayMetrics.overrideDensity != null) {
+                density = mInitialDisplayMetrics.overrideDensity;
+            } else {
+                density = mInitialDisplayMetrics.physicalDensity;
+            }
 
             final Size overrideSize = new Size((int)(originalSize.getWidth() * sizeRatio),
                     (int)(originalSize.getHeight() * sizeRatio));
@@ -275,9 +330,13 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
             mInitialDisplayMetrics.setDisplayMetrics(size, density);
         }
 
+        void restoreDisplayMetrics() {
+            mInitialDisplayMetrics.restoreDisplayMetrics();
+        }
+
         @Override
         public void close() {
-            mInitialDisplayMetrics.restoreDisplayMetrics();
+            restoreDisplayMetrics();
         }
     }
 
@@ -286,16 +345,53 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
         return mObjectTracker.manage(new DisplayMetricsSession(displayId));
     }
 
+    public static class LetterboxAspectRatioSession implements AutoCloseable {
+        private static final String WM_SET_IGNORE_ORIENTATION_REQUEST =
+                "wm set-ignore-orientation-request ";
+        private static final String WM_GET_IGNORE_ORIENTATION_REQUEST =
+                "wm get-ignore-orientation-request";
+        private static final Pattern IGNORE_ORIENTATION_REQUEST_PATTERN =
+                Pattern.compile("ignoreOrientationRequest (true|false) for displayId=\\d+");
+
+        private static final String WM_SET_LETTERBOX_STYLE_ASPECT_RATIO =
+                "wm set-letterbox-style --aspectRatio ";
+        private static final String WM_RESET_LETTERBOX_STYLE_ASPECT_RATIO
+                = "wm reset-letterbox-style aspectRatio";
+
+        final int mDisplayId;
+        final boolean mInitialIgnoreOrientationRequest;
+
+        LetterboxAspectRatioSession(int displayId, float aspectRatio) {
+            mDisplayId = displayId;
+            Matcher matcher = IGNORE_ORIENTATION_REQUEST_PATTERN.matcher(
+                    executeShellCommand(WM_GET_IGNORE_ORIENTATION_REQUEST + " -d " + mDisplayId));
+            assertTrue("get-ignore-orientation-request should match pattern", matcher.find());
+            mInitialIgnoreOrientationRequest = Boolean.parseBoolean(matcher.group(1));
+
+            executeShellCommand("wm set-ignore-orientation-request true -d " + mDisplayId);
+            executeShellCommand(WM_SET_LETTERBOX_STYLE_ASPECT_RATIO + aspectRatio);
+        }
+
+        @Override
+        public void close() {
+            executeShellCommand(
+                    WM_SET_IGNORE_ORIENTATION_REQUEST + mInitialIgnoreOrientationRequest + " -d "
+                            + mDisplayId);
+            executeShellCommand(WM_RESET_LETTERBOX_STYLE_ASPECT_RATIO);
+        }
+    }
+
+    /** @see ObjectTracker#manage(AutoCloseable) */
+    protected LetterboxAspectRatioSession createManagedLetterboxAspectRatioSession(int displayId,
+            float aspectRatio) {
+        return mObjectTracker.manage(new LetterboxAspectRatioSession(displayId, aspectRatio));
+    }
+
     void waitForDisplayGone(Predicate<DisplayContent> displayPredicate) {
         waitForOrFail("displays to be removed", () -> {
             mWmState.computeState();
             return mWmState.getDisplays().stream().noneMatch(displayPredicate);
         });
-    }
-
-    void assertSecurityExceptionFromActivityLauncher() {
-        waitForOrFail("SecurityException from " + ActivityLauncher.TAG,
-            ActivityLauncher::hasCaughtSecurityException);
     }
 
     /** @see ObjectTracker#manage(AutoCloseable) */
@@ -319,7 +415,7 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
         private boolean mResizeDisplay = true;
         private boolean mShowSystemDecorations = false;
         private boolean mOwnContentOnly = false;
-        private boolean mRequestShowIme = false;
+        private int mDisplayImePolicy = DISPLAY_IME_POLICY_FALLBACK_DISPLAY;
         private boolean mPresentationDisplay = false;
         private boolean mSimulateDisplay = false;
         private boolean mMustBeCreated = true;
@@ -363,8 +459,18 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
             return this;
         }
 
-        VirtualDisplaySession setRequestShowIme(boolean requestShowIme) {
-            mRequestShowIme = requestShowIme;
+        /**
+         * Sets the policy for how the display should show the ime.
+         *
+         * Set to one of:
+         *   <ul>
+         *     <li>{@link WindowManager#DISPLAY_IME_POLICY_LOCAL}
+         *     <li>{@link WindowManager#DISPLAY_IME_POLICY_FALLBACK_DISPLAY}
+         *     <li>{@link WindowManager#DISPLAY_IME_POLICY_HIDE}
+         *   </ul>
+         */
+        VirtualDisplaySession setDisplayImePolicy(int displayImePolicy) {
+            mDisplayImePolicy = displayImePolicy;
             return this;
         }
 
@@ -409,6 +515,11 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
         }
 
         void resizeDisplay() {
+            if (mSimulateDisplay) {
+                throw new IllegalStateException(
+                        "Please use ReportedDisplayMetrics#setDisplayMetrics to resize"
+                                + " simulate display");
+            }
             executeShellCommand(getAmStartCmd(VIRTUAL_DISPLAY_ACTIVITY)
                     + " -f 0x20000000" + " --es " + KEY_COMMAND + " " + COMMAND_RESIZE_DISPLAY);
         }
@@ -438,9 +549,7 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
                     mDensityDpi,
                     mOwnContentOnly,
                     mShowSystemDecorations);
-            if (mRequestShowIme) {
-                mOverlayDisplayDeviceSession.configureDisplays(true /* requestShowIme */);
-            }
+            mOverlayDisplayDeviceSession.configureDisplays(mDisplayImePolicy /* imePolicy */);
             return mOverlayDisplayDeviceSession.getCreatedDisplays();
         }
 
@@ -470,6 +579,9 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
                         .setToSide(true)
                         .setTargetActivity(VIRTUAL_DISPLAY_ACTIVITY)
                         .execute();
+                final int secondaryTaskId =
+                        mWmState.getTaskByActivity(VIRTUAL_DISPLAY_ACTIVITY).mTaskId;
+                mTaskOrganizer.putTaskInSplitSecondary(secondaryTaskId);
             } else {
                 launchActivity(VIRTUAL_DISPLAY_ACTIVITY);
             }
@@ -609,15 +721,15 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
             set(displaySettingsEntry);
         }
 
-        void configureDisplays(boolean requestShowIme) {
+        void configureDisplays(int imePolicy) {
             SystemUtil.runWithShellPermissionIdentity(() -> {
                 for (DisplayContent display : mDisplays) {
-                    final boolean showIme = mWm.shouldShowIme(display.mId);
-                    mDisplayStates.add(new OverlayDisplayState(display.mId, showIme));
-                    if (requestShowIme != showIme) {
-                        mWm.setShouldShowIme(display.mId, requestShowIme);
+                    final int oldImePolicy = mWm.getDisplayImePolicy(display.mId);
+                    mDisplayStates.add(new OverlayDisplayState(display.mId, oldImePolicy));
+                    if (imePolicy != oldImePolicy) {
+                        mWm.setDisplayImePolicy(display.mId, imePolicy);
                         waitForOrFail("display config show-IME to be set",
-                                () -> mWm.shouldShowIme(display.mId) == requestShowIme);
+                                () -> (mWm.getDisplayImePolicy(display.mId) == imePolicy));
                     }
                 }
             });
@@ -625,11 +737,11 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
 
         private void restoreDisplayStates() {
             mDisplayStates.forEach(state -> SystemUtil.runWithShellPermissionIdentity(() -> {
-                mWm.setShouldShowIme(state.mId, state.mShouldShowIme);
+                mWm.setDisplayImePolicy(state.mId, state.mImePolicy);
 
                 // Only need to wait the last flag to be set.
                 waitForOrFail("display config show-IME to be restored",
-                        () -> mWm.shouldShowIme(state.mId) == state.mShouldShowIme);
+                        () -> (mWm.getDisplayImePolicy(state.mId) == state.mImePolicy));
             }));
         }
 
@@ -656,11 +768,11 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
 
         private class OverlayDisplayState {
             int mId;
-            boolean mShouldShowIme;
+            int mImePolicy;
 
-            OverlayDisplayState(int displayId, boolean showIme) {
+            OverlayDisplayState(int displayId, int imePolicy) {
                 mId = displayId;
-                mShouldShowIme = showIme;
+                mImePolicy = imePolicy;
             }
         }
     }
@@ -724,6 +836,8 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
 
     protected void assertBothDisplaysHaveResumedActivities(
             Pair<Integer, ComponentName> firstPair, Pair<Integer, ComponentName> secondPair) {
+        assertNotEquals("Displays must be different.  First display id: "
+                        + firstPair.first, firstPair.first, secondPair.first);
         mWmState.assertResumedActivities("Both displays must have resumed activities",
                 mapping -> {
                     mapping.put(firstPair.first, firstPair.second);
@@ -734,6 +848,11 @@ public class MultiDisplayTestBase extends ActivityManagerTestBase {
     /** Checks if the device supports multi-display. */
     protected boolean supportsMultiDisplay() {
         return hasDeviceFeature(FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS);
+    }
+
+    /** Checks if the device supports wallpaper for multi-display. */
+    protected boolean supportsLiveWallpaper() {
+        return hasDeviceFeature(PackageManager.FEATURE_LIVE_WALLPAPER);
     }
 
     /** @see ObjectTracker#manage(AutoCloseable) */

@@ -29,6 +29,7 @@
 
 namespace libtextclassifier3 {
 
+#ifndef __cpp_aligned_new
 static void *aligned_malloc(size_t size, int minimum_alignment) {
   void *ptr = nullptr;
   // posix_memalign requires that the requested alignment be at least
@@ -42,6 +43,7 @@ static void *aligned_malloc(size_t size, int minimum_alignment) {
   else
     return ptr;
 }
+#endif  // !__cpp_aligned_new
 
 // The value here doesn't matter until page_aligned_ is supported.
 static const int kPageSize = 8192;   // should be getpagesize()

@@ -61,6 +61,20 @@ int terminal_probesize(unsigned *xx, unsigned *yy)
   return 0;
 }
 
+void xsetspeed(struct termios *tio, int speed)
+{
+  int i, speeds[] = {50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400,
+                    4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800,
+                    500000, 576000, 921600, 1000000, 1152000, 1500000, 2000000,
+                    2500000, 3000000, 3500000, 4000000};
+
+  // Find speed in table, adjust to constant
+  for (i = 0; i < ARRAY_LEN(speeds); i++) if (speeds[i] == speed) break;
+  if (i == ARRAY_LEN(speeds)) error_exit("unknown speed: %d", speed);
+  cfsetspeed(tio, i+1+4081*(i>15));
+}
+
+
 // Reset terminal to known state, saving copy of old state if old != NULL.
 int set_terminal(int fd, int raw, int speed, struct termios *old)
 {
@@ -136,9 +150,11 @@ struct scan_key_list {
 
   // VT102/VT220 escapes.
   {KEY_HOME, "\033[1~"},
+  {KEY_HOME|KEY_CTRL, "\033[1;5~"},
   {KEY_INSERT, "\033[2~"},
   {KEY_DELETE, "\033[3~"},
   {KEY_END, "\033[4~"},
+  {KEY_END|KEY_CTRL, "\033[4;5~"},
   {KEY_PGUP, "\033[5~"},
   {KEY_PGDN, "\033[6~"},
   // "Normal" "PC" escapes (xterm).
@@ -147,6 +163,8 @@ struct scan_key_list {
   // "Application" "PC" escapes (gnome-terminal).
   {KEY_HOME, "\033[H"},
   {KEY_END, "\033[F"},
+  {KEY_HOME|KEY_CTRL, "\033[1;5H"},
+  {KEY_END|KEY_CTRL, "\033[1;5F"},
 
   {KEY_FN+1, "\033OP"}, {KEY_FN+2, "\033OQ"}, {KEY_FN+3, "\033OR"},
   {KEY_FN+4, "\033OS"}, {KEY_FN+5, "\033[15~"}, {KEY_FN+6, "\033[17~"},

@@ -34,12 +34,12 @@ using google_camera_hal::NotifyMessage;
 JpegCompressor::JpegCompressor() {
   ATRACE_CALL();
   char value[PROPERTY_VALUE_MAX];
-  if (property_get("ro.product.vendor.manufacturer", value, "unknown") <= 0) {
+  if (property_get("ro.product.manufacturer", value, "unknown") <= 0) {
     ALOGW("%s: No Exif make data!", __FUNCTION__);
   }
   exif_make_ = std::string(value);
 
-  if (property_get("ro.product.vendor.model", value, "unknown") <= 0) {
+  if (property_get("ro.product.model", value, "unknown") <= 0) {
     ALOGW("%s: No Exif model data!", __FUNCTION__);
   }
   exif_model_ = std::string(value);
@@ -65,7 +65,7 @@ status_t JpegCompressor::QueueYUV420(std::unique_ptr<JpegYUV420Job> job) {
   ATRACE_CALL();
 
   if ((job->input.get() == nullptr) || (job->output.get() == nullptr) ||
-      (job->output->format != HAL_PIXEL_FORMAT_BLOB) ||
+      (job->output->format != PixelFormat::BLOB) ||
       (job->output->dataSpace != HAL_DATASPACE_V0_JFIF)) {
     ALOGE("%s: Unable to find buffers for JPEG source/destination",
           __FUNCTION__);

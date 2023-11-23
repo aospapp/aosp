@@ -15,24 +15,20 @@
  */
 package android.support.test.launcherhelper;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-
-import android.app.Instrumentation;
 import android.content.Context;
-import android.content.Intent;
-import android.os.SystemClock;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
-import android.widget.TextView;
 import android.util.Log;
+import android.widget.TextView;
 
 import junit.framework.Assert;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 public class WearLauncherStrategy implements ILauncherStrategy {
 
@@ -98,6 +94,20 @@ public class WearLauncherStrategy implements ILauncherStrategy {
         return allAppsContainer;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void openOverview() {
+        throw new UnsupportedOperationException(
+                "The 'Overview' is not available on Android Wear Launcher.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean clearRecentAppsFromOverview() {
+        throw new UnsupportedOperationException(
+                "The 'Recent Apps' are not available on Android Wear Launcher.");
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -106,6 +116,12 @@ public class WearLauncherStrategy implements ILauncherStrategy {
          return By.res(getSupportedLauncherPackage(), "watchface_overlay");
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public BySelector getOverviewSelector() {
+        throw new UnsupportedOperationException(
+                "The 'Overview' are not available on Android Wear Launcher.");
+    }
 
     /**
      * Returns a {@link BySelector} describing the all apps drawer

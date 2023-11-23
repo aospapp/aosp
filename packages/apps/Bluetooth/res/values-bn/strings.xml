@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"ডাউনলোড ম্যানেজার অ্যাক্সেস করুন।"</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"অ্যাপ্লিকেশানটিকে BluetoothShare ম্যানেজার অ্যাক্সেস করতে ও ফাইলগুলি স্থানান্তর করতে এটি ব্যবহার করার অনুমতি দেয়।"</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"শ্বেততালিকাভুক্ত ব্লুটুথ ডিভাইসের অ্যাক্সেস।"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"অ্যাপ্লিকেশানটিকে অস্থায়ীভাবে কোনো ব্লুটুথ ডিভাইসকে শ্বেততালিকায় অন্তর্ভুক্ত করার অনুমতি দেয়, যা সেই ডিভাইসটিকে এই ডিভাইসে ব্যবহারকারীর নিশ্চিতকরণ ছাড়া ফাইল পাঠানোর অনুমতি দেয়।"</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"অ্যাক্সেপ্ট করা হয়েছে এমন তালিকাভুক্ত ব্লুটুথ ডিভাইসের অ্যাক্সেস।"</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"অ্যাপটিকে অস্থায়ীভাবে কোনও ব্লুটুথ ডিভাইসকে অ্যাক্সেপ্ট করা হয়েছে এমন তালিকায় অন্তর্ভুক্ত করার অনুমতি দেয়, যার ফলে ব্যবহারকারীর নিশ্চিতকরণ ছাড়াই ওই ডিভাইস থেকে এই ডিভাইসে ফাইল পাঠানো যায়।"</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"ব্লুটুথ"</string>
     <string name="unknown_device" msgid="9221903979877041009">"অজানা ডিভাইস"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"অজানা"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ঠিক আছে"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" এর থেকে ইনকামিং ফাইল গ্রহণ করার সময় অতিবাহিত হয়ে গেছে।"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"আগত ফাইল"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> <xliff:g id="FILE">%2$s</xliff:g> পাঠানোর জন্য প্রস্তুত"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> এবার ফাইল পাঠাতে পারবে: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> প্রাপ্ত করা হচ্ছে"</string>
     <string name="notification_received" msgid="3324588019186687985">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> প্রাপ্ত করা হয়েছে"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"ব্লুটুথ share: <xliff:g id="FILE">%1$s</xliff:g> ফাইল প্রাপ্ত করা হয়নি"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" কে ফাইল পাঠানো হচ্ছে"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" কে <xliff:g id="NUMBER">%1$s</xliff:g>টি ফাইল পাঠানো হচ্ছে"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" কে ফাইল পাঠানো বন্ধ করা হয়েছে"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\"-এর পাঠানো ফাইল সেভ করার জন্য ইউএসবি স্টোরেজে পর্যাপ্ত জায়গা নেই"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\"-এর পাঠানো ফাইল সেভ করার জন্য এসডি কার্ডে পর্যাপ্ত জায়গা নেই"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"ফাইল সেভ করার মতো USB স্টোরেজে পর্যাপ্ত স্পেস নেই।"</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"ফাইল সেভ করার মতো এসডি কার্ডে পর্যাপ্ত স্পেস নেই।"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"জায়গা প্রয়োজন: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"অনেকগুলি অনুরোধ প্রক্রিয়া করা হচ্ছে৷ পরে আবার চেষ্টা করুন৷"</string>
     <string name="status_pending" msgid="2503691772030877944">"ফাইল ট্রান্সফার করা এখনও শুরু হয়নি।"</string>

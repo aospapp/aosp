@@ -19,6 +19,12 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
+        <!-- Disable package verifier as it is flaky. -->
+        <option name="set-global-setting" key="verifier_verify_adb_installs" value="0" />
+        <option name="restore-settings" value="true" />
+        <option name="force-skip-system-props" value="true" />
+    </target_preparer>
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsAtraceHostTestCases.jar" />
         <option name="runtime-hint" value="9m" />

@@ -52,7 +52,27 @@ const nsecs_t QemuSensor::kMinVerticalBlank = 10000L;
 const int32_t QemuSensor::kSensitivityRange[2] = {100, 1600};
 const uint32_t QemuSensor::kDefaultSensitivity = 100;
 
-const char QemuSensor::kHostCameraVerString[] = "ro.kernel.qemu.camera_protocol_ver";
+const char QemuSensor::kHostCameraVerString[] = "ro.boot.qemu.camera_protocol_ver";
+
+#define GRALLOC_PROP "ro.hardware.gralloc"
+
+static bool getIsMinigbmFromProperty() {
+    char grallocValue[PROPERTY_VALUE_MAX] = "";
+    property_get(GRALLOC_PROP, grallocValue, "");
+    bool isValid = grallocValue[0] != '\0';
+
+    if (!isValid) return false;
+
+    bool res = 0 == strcmp("minigbm", grallocValue);
+
+    if (res) {
+        ALOGV("%s: Is using minigbm, in minigbm mode.\n", __func__);
+    } else {
+        ALOGV("%s: Is not using minigbm, in goldfish mode.\n", __func__);
+    }
+
+    return res;
+}
 
 QemuSensor::QemuSensor(const char *deviceName, uint32_t width, uint32_t height,
                        GraphicBufferMapper* gbm):
@@ -71,7 +91,8 @@ QemuSensor::QemuSensor(const char *deviceName, uint32_t width, uint32_t height,
         mNextBuffers(nullptr),
         mFrameNumber(0),
         mCapturedBuffers(nullptr),
-        mListener(nullptr) {
+        mListener(nullptr),
+        mIsMinigbm(getIsMinigbmFromProperty()) {
     mHostCameraVer = property_get_int32(kHostCameraVerString, 0);
     ALOGV("QemuSensor created with pixel array %d x %d", width, height);
 }
@@ -292,7 +313,7 @@ bool QemuSensor::threadLoop() {
                     captureRGB(b.img, b.width, b.height, b.stride, &timestamp);
                     break;
                 case HAL_PIXEL_FORMAT_RGBA_8888:
-                    if (mHostCameraVer == 1) {
+                    if (mHostCameraVer == 1 && !mIsMinigbm) {
                         captureRGBA(b.width, b.height, b.stride, &timestamp, b.buffer);
                     } else {
                         captureRGBA(b.img, b.width, b.height, b.stride, &timestamp);
@@ -312,7 +333,7 @@ bool QemuSensor::threadLoop() {
                         bAux.height = b.height;
                         bAux.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
                         bAux.stride = b.width;
-                        if (mHostCameraVer == 1) {
+                        if (mHostCameraVer == 1 && !mIsMinigbm) {
                             const uint64_t usage =
                                 GRALLOC_USAGE_HW_CAMERA_READ |
                                 GRALLOC_USAGE_HW_CAMERA_WRITE |
@@ -349,7 +370,7 @@ bool QemuSensor::threadLoop() {
                     }
                     break;
                 case HAL_PIXEL_FORMAT_YCbCr_420_888:
-                    if (mHostCameraVer == 1) {
+                    if (mHostCameraVer == 1 && !mIsMinigbm) {
                         captureYU12(b.width, b.height, b.stride, &timestamp, b.buffer);
                     } else {
                         captureYU12(b.img, b.width, b.height, b.stride, &timestamp);
@@ -532,7 +553,7 @@ void QemuSensor::captureYU12(uint8_t *img, uint32_t width, uint32_t height, uint
          * and asks for the video format from the pixFmt parameter, which is
          * V4L2_PIX_FMT_YUV420 in our implementation.
          */
-        uint32_t pixFmt = V4L2_PIX_FMT_YUV420;
+        uint32_t pixFmt = mIsMinigbm ? V4L2_PIX_FMT_NV12 : V4L2_PIX_FMT_YUV420;
         res = mCameraQemuClient.queryStart(pixFmt, width, height);
         if (res == NO_ERROR) {
             mLastRequestWidth = width;

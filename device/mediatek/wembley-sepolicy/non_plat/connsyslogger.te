@@ -19,10 +19,6 @@ allow connsyslogger consyslog_data_file:dir { create_dir_perms relabelto };
 allow connsyslogger consyslog_data_file:fifo_file { create_file_perms };
 allow connsyslogger consyslog_data_file:file { create_file_perms };
 
-#consys logger socket access
-#allow connsyslogger property_socket:sock_file write;
-#allow connsyslogger init:unix_stream_socket connectto;
-
 allow connsyslogger tmpfs:lnk_file { create_file_perms };
 
 # purpose: avc: denied { read } for name="plat_file_contexts"
@@ -59,15 +55,14 @@ allow connsyslogger rootfs:lnk_file getattr;
 allow connsyslogger media_rw_data_file:file  { create_file_perms };
 allow connsyslogger media_rw_data_file:dir { create_dir_perms };
 
-set_prop(connsyslogger, vendor_connsysfw_prop)
-
 allow connsyslogger vendor_configs_file:file map;
 #permission to get driver ready status
-get_prop(connsyslogger, wmt_prop)
+get_prop(connsyslogger, vendor_mtk_wmt_prop)
 
 #Date:2019/03/25
 # purpose: allow connsyslogger to access persist.meta.connecttype
-get_prop(connsyslogger, meta_connecttype_prop);
+get_prop(connsyslogger, vendor_mtk_meta_connecttype_prop)
+
 
 #Date:2019/03/25
 # purpose: allow emdlogger to create socket
@@ -79,4 +74,5 @@ allow connsyslogger node:tcp_socket node_bind;
 # usb device ttyGSx for modem logger usb logging
 allow connsyslogger ttyGS_device:chr_file { rw_file_perms};
 
-
+# Add permission to access new bootmode file
+allow connsyslogger sysfs_boot_info:file r_file_perms;

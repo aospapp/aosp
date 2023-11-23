@@ -16,11 +16,14 @@
 
 package io.grpc.internal;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Attributes;
 import io.grpc.ConnectivityState;
 import io.grpc.ConnectivityStateInfo;
 import io.grpc.EquivalentAddressGroup;
+import io.grpc.InternalChannelz.ChannelTrace;
 import io.grpc.LoadBalancer;
 import io.grpc.LoadBalancer.Helper;
 import io.grpc.LoadBalancer.PickResult;
@@ -32,6 +35,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
 
 final class AutoConfiguredLoadBalancerFactory extends LoadBalancer.Factory {
@@ -43,11 +47,20 @@ final class AutoConfiguredLoadBalancerFactory extends LoadBalancer.Factory {
   static final String GRPCLB_LOAD_BALANCER_FACTORY_NAME =
       "io.grpc.grpclb.GrpclbLoadBalancerFactory";
 
-  AutoConfiguredLoadBalancerFactory() {}
+  @Nullable
+  private final ChannelTracer channelTracer;
+  @Nullable
+  private final TimeProvider timeProvider;
+
+  AutoConfiguredLoadBalancerFactory(
+      @Nullable ChannelTracer channelTracer, @Nullable TimeProvider timeProvider) {
+    this.channelTracer = channelTracer;
+    this.timeProvider = timeProvider;
+  }
 
   @Override
   public LoadBalancer newLoadBalancer(Helper helper) {
-    return new AutoConfiguredLoadBalancer(helper);
+    return new AutoConfiguredLoadBalancer(helper, channelTracer, timeProvider);
   }
 
   private static final class NoopLoadBalancer extends LoadBalancer {
@@ -71,11 +84,21 @@ final class AutoConfiguredLoadBalancerFactory extends LoadBalancer.Factory {
     private final Helper helper;
     private LoadBalancer delegate;
     private LoadBalancer.Factory delegateFactory;
+    @CheckForNull
+    private ChannelTracer channelTracer;
+    @Nullable
+    private final TimeProvider timeProvider;
 
-    AutoConfiguredLoadBalancer(Helper helper) {
+    AutoConfiguredLoadBalancer(
+        Helper helper, @Nullable ChannelTracer channelTracer, @Nullable TimeProvider timeProvider) {
       this.helper = helper;
       delegateFactory = PickFirstBalancerFactory.getInstance();
       delegate = delegateFactory.newLoadBalancer(helper);
+      this.channelTracer = channelTracer;
+      this.timeProvider = timeProvider;
+      if (channelTracer != null) {
+        checkNotNull(timeProvider, "timeProvider");
+      }
     }
 
     //  Must be run inside ChannelExecutor.
@@ -101,7 +124,15 @@ final class AutoConfiguredLoadBalancerFactory extends LoadBalancer.Factory {
         helper.updateBalancingState(ConnectivityState.CONNECTING, new EmptyPicker());
         delegate.shutdown();
         delegateFactory = newlbf;
+        LoadBalancer old = delegate;
         delegate = delegateFactory.newLoadBalancer(helper);
+        if (channelTracer != null) {
+          channelTracer.reportEvent(new ChannelTrace.Event.Builder()
+              .setDescription("Load balancer changed from " + old + " to " + delegate)
+              .setSeverity(ChannelTrace.Event.Severity.CT_INFO)
+              .setTimestampNanos(timeProvider.currentTimeNanos())
+              .build());
+        }
       }
       getDelegate().handleResolvedAddressGroups(servers, attributes);
     }

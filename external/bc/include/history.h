@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,8 +47,6 @@
  * Copyright (c) 2010-2016, Salvatore Sanfilippo <antirez at gmail dot com>
  * Copyright (c) 2010-2013, Pieter Noordhuis <pcnoordhuis at gmail dot com>
  *
- * All rights reserved.
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
@@ -89,11 +87,10 @@
 
 #ifdef _WIN32
 #error History is not supported on Windows.
-#endif
+#endif // _WIN32
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
 
 #include <signal.h>
 
@@ -106,31 +103,40 @@
 #include <vector.h>
 #include <read.h>
 
+#if BC_DEBUG_CODE
+#include <file.h>
+#endif // BC_DEBUG_CODE
+
 #define BC_HIST_DEF_COLS (80)
 #define BC_HIST_MAX_LEN (128)
 #define BC_HIST_MAX_LINE (4095)
 #define BC_HIST_SEQ_SIZE (64)
 
 #define BC_HIST_BUF_LEN(h) ((h)->buf.len - 1)
-#define BC_HIST_WRITE(s, n) (write(STDERR_FILENO, (s), (n)) != (ssize_t) (n))
-#define BC_HIST_READ(s, n) (read(STDIN_FILENO, (s), (n)) == -1)
+#define BC_HIST_READ(s, n) (bc_history_read((s), (n)) == -1)
 
 #define BC_HIST_NEXT (false)
 #define BC_HIST_PREV (true)
 
 #if BC_DEBUG_CODE
-#define lndebug(...)                                               \
-	do {                                                           \
-		if (bc_history_debug_fp == NULL) {                         \
-			bc_history_debug_fp = fopen("/tmp/lndebug.txt","a");   \
-			fprintf(bc_history_debug_fp,                           \
-			       "[%zu %zu %zu] p: %d, rows: %d, "               \
-			       "rpos: %d, max: %zu, oldmax: %d\n",             \
-			       l->len, l->pos, l->oldcolpos, plen, rows, rpos, \
-			       l->maxrows, old_rows);                          \
-		}                                                          \
-		fprintf(bc_history_debug_fp, ", " __VA_ARGS__);            \
-		fflush(bc_history_debug_fp);                               \
+
+#define BC_HISTORY_DEBUG_BUF_SIZE (1024)
+
+#define lndebug(...)                                                        \
+	do {                                                                    \
+		if (bc_history_debug_fp.fd == 0) {                                  \
+			bc_history_debug_buf = bc_vm_malloc(BC_HISTORY_DEBUG_BUF_SIZE); \
+			bc_file_init(&bc_history_debug_fp,                              \
+			             open("/tmp/lndebug.txt", O_APPEND),                \
+		                 BC_HISTORY_DEBUG_BUF_SIZE);                        \
+			bc_file_printf(&bc_history_debug_fp,                            \
+			       "[%zu %zu %zu] p: %d, rows: %d, "                        \
+			       "rpos: %d, max: %zu, oldmax: %d\n",                      \
+			       l->len, l->pos, l->oldcolpos, plen, rows, rpos,          \
+			       l->maxrows, old_rows);                                   \
+		}                                                                   \
+		bc_file_printf(&bc_history_debug_fp, ", " __VA_ARGS__);             \
+		bc_file_flush(&bc_history_debug_fp);                                \
 	} while (0)
 #else // BC_DEBUG_CODE
 #define lndebug(fmt, ...)
@@ -180,9 +186,8 @@ typedef struct BcHistory {
 	/// The history.
 	BcVec history;
 
-	/// A temporary buffer for refresh. Using this
-	/// prevents an allocation on every refresh.
-	BcVec tmp;
+	/// Any material printed without a trailing newline.
+	BcVec extras;
 
 #if BC_ENABLE_PROMPT
 	/// Prompt to display.
@@ -210,14 +215,7 @@ typedef struct BcHistory {
 	/// The original terminal state.
 	struct termios orig_termios;
 
-	/// This is to check if stdin has more data.
-	fd_set rdset;
-
-	/// This is to check if stdin has more data.
-	struct timespec ts;
-
-	/// This is to check if stdin has more data.
-	sigset_t sigmask;
+	/// These next three are here because pahole found a 4 byte hole here.
 
 	/// This is to signal that there is more, so we don't process yet.
 	bool stdin_has_data;
@@ -228,10 +226,18 @@ typedef struct BcHistory {
 	/// Whether the terminal is bad.
 	bool badTerm;
 
+	/// This is to check if stdin has more data.
+	fd_set rdset;
+
+	/// This is to check if stdin has more data.
+	struct timespec ts;
+
+	/// This is to check if stdin has more data.
+	sigset_t sigmask;
+
 } BcHistory;
 
 BcStatus bc_history_line(BcHistory *h, BcVec *vec, const char *prompt);
-void bc_history_add(BcHistory *h, char *line);
 
 void bc_history_init(BcHistory *h);
 void bc_history_free(BcHistory *h);
@@ -245,8 +251,9 @@ extern const size_t bc_history_wchars_len;
 extern const uint32_t bc_history_combo_chars[];
 extern const size_t bc_history_combo_chars_len;
 #if BC_DEBUG_CODE
-extern FILE *bc_history_debug_fp;
-BcStatus bc_history_printKeyCodes(BcHistory* l);
+extern BcFile bc_history_debug_fp;
+extern char *bc_history_debug_buf;
+void bc_history_printKeyCodes(BcHistory* l);
 #endif // BC_DEBUG_CODE
 
 #endif // BC_ENABLE_HISTORY

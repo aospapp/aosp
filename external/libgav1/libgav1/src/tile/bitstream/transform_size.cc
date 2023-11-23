@@ -70,7 +70,7 @@ TransformSize GetSquareTransformSize(uint8_t pixels) {
 int Tile::GetTopTransformWidth(const Block& block, int row4x4, int column4x4,
                                bool ignore_skip) {
   if (row4x4 == block.row4x4) {
-    if (!block.top_available) return 64;
+    if (!block.top_available[kPlaneY]) return 64;
     const BlockParameters& bp_top =
         *block_parameters_holder_.Find(row4x4 - 1, column4x4);
     if ((ignore_skip || bp_top.skip) && bp_top.is_inter) {
@@ -83,7 +83,7 @@ int Tile::GetTopTransformWidth(const Block& block, int row4x4, int column4x4,
 int Tile::GetLeftTransformHeight(const Block& block, int row4x4, int column4x4,
                                  bool ignore_skip) {
   if (column4x4 == block.column4x4) {
-    if (!block.left_available) return 64;
+    if (!block.left_available[kPlaneY]) return 64;
     const BlockParameters& bp_left =
         *block_parameters_holder_.Find(row4x4, column4x4 - 1);
     if ((ignore_skip || bp_left.skip) && bp_left.is_inter) {
@@ -107,19 +107,21 @@ TransformSize Tile::ReadFixedTransformSize(const Block& block) {
   const int max_tx_width = kTransformWidth[max_rect_tx_size];
   const int max_tx_height = kTransformHeight[max_rect_tx_size];
   const int top_width =
-      block.top_available
+      block.top_available[kPlaneY]
           ? GetTopTransformWidth(block, block.row4x4, block.column4x4, true)
           : 0;
   const int left_height =
-      block.left_available
+      block.left_available[kPlaneY]
           ? GetLeftTransformHeight(block, block.row4x4, block.column4x4, true)
           : 0;
   const auto context = static_cast<int>(top_width >= max_tx_width) +
                        static_cast<int>(left_height >= max_tx_height);
   const int cdf_index = kTxDepthCdfIndex[block.size];
-  const int symbol_count = 3 - static_cast<int>(cdf_index == 0);
-  const int tx_depth = reader_.ReadSymbol(
-      symbol_decoder_context_.tx_depth_cdf[cdf_index][context], symbol_count);
+  uint16_t* const cdf =
+      symbol_decoder_context_.tx_depth_cdf[cdf_index][context];
+  const int tx_depth = (cdf_index == 0)
+                           ? static_cast<int>(reader_.ReadSymbol(cdf))
+                           : reader_.ReadSymbol<3>(cdf);
   assert(tx_depth < 3);
   TransformSize tx_size = max_rect_tx_size;
   if (tx_depth == 0) return tx_size;
@@ -130,8 +132,7 @@ TransformSize Tile::ReadFixedTransformSize(const Block& block) {
 
 void Tile::ReadVariableTransformTree(const Block& block, int row4x4,
                                      int column4x4, TransformSize tx_size) {
-  const uint8_t pixels =
-      std::max(kBlockWidthPixels[block.size], kBlockHeightPixels[block.size]);
+  const uint8_t pixels = std::max(block.width, block.height);
   const TransformSize max_tx_size = GetSquareTransformSize(pixels);
   const int context_delta = (kNumSquareTransformSizes - 1 -
                              TransformSizeToSquareTransformIndex(max_tx_size)) *
@@ -142,7 +143,7 @@ void Tile::ReadVariableTransformTree(const Block& block, int row4x4,
   Stack<TransformTreeNode, 7> stack;
   stack.Push(TransformTreeNode(column4x4, row4x4, tx_size, 0));
 
-  while (!stack.Empty()) {
+  do {
     TransformTreeNode node = stack.Pop();
     const int tx_width4x4 = kTransformWidth4x4[node.tx_size];
     const int tx_height4x4 = kTransformHeight4x4[node.tx_size];
@@ -190,12 +191,10 @@ void Tile::ReadVariableTransformTree(const Block& block, int row4x4,
     }
     block_parameters_holder_.Find(node.y, node.x)->transform_size =
         node.tx_size;
-  }
+  } while (!stack.Empty());
 }
 
 void Tile::DecodeTransformSize(const Block& block) {
-  const int block_width4x4 = kNum4x4BlocksWide[block.size];
-  const int block_height4x4 = kNum4x4BlocksHigh[block.size];
   BlockParameters& bp = *block.bp;
   if (frame_header_.tx_mode == kTxModeSelect && block.size > kBlock4x4 &&
       bp.is_inter && !bp.skip &&
@@ -203,19 +202,19 @@ void Tile::DecodeTransformSize(const Block& block) {
     const TransformSize max_tx_size = kMaxTransformSizeRectangle[block.size];
     const int tx_width4x4 = kTransformWidth4x4[max_tx_size];
     const int tx_height4x4 = kTransformHeight4x4[max_tx_size];
-    for (int row = block.row4x4; row < block.row4x4 + block_height4x4;
+    for (int row = block.row4x4; row < block.row4x4 + block.height4x4;
          row += tx_height4x4) {
       for (int column = block.column4x4;
-           column < block.column4x4 + block_width4x4; column += tx_width4x4) {
+           column < block.column4x4 + block.width4x4; column += tx_width4x4) {
         ReadVariableTransformTree(block, row, column, max_tx_size);
       }
     }
   } else {
     bp.transform_size = ReadFixedTransformSize(block);
-    for (int row = block.row4x4; row < block.row4x4 + block_height4x4; ++row) {
+    for (int row = block.row4x4; row < block.row4x4 + block.height4x4; ++row) {
       static_assert(sizeof(TransformSize) == 1, "");
       memset(&inter_transform_sizes_[row][block.column4x4], bp.transform_size,
-             block_width4x4);
+             block.width4x4);
     }
   }
 }

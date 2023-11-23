@@ -252,8 +252,8 @@ struct chrePalSensorApi {
 
   /**
    * Issues a request to flush all samples stored for batching. The PAL
-   * implementation is expected to blindly issue this request for the given
-   * sensor. The CHRE framework will ensure that it must have an active,
+   * implementation is expected to unconditionally issue this request for the
+   * given sensor. The CHRE framework will ensure that it must have an active,
    * powered, batching request issued through configureSensor before invoking
    * this method.
    *

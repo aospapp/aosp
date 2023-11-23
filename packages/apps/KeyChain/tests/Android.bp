@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "KeyChainTests",
     srcs: ["src/**/*.java"],
@@ -32,9 +36,9 @@ android_test {
     libs: [
         "android.test.base",
     ],
-    test_suites: ["general-tests"],
-    required: [
-        "KeyChainTestsSupport",
+    test_suites: ["device-tests"],
+    data: [
+        ":KeyChainTestsSupport",
     ],
 
     instrumentation_for: "KeyChain",

@@ -23,6 +23,7 @@
 #include "camera_device_session_hwl.h"
 #include "hal_camera_metadata.h"
 #include "hal_types.h"
+#include "profiler.h"
 
 namespace android {
 namespace google_camera_hal {
@@ -74,6 +75,12 @@ class CameraDeviceHwl {
   // supported. stream_config contains the stream configurations.
   virtual bool IsStreamCombinationSupported(
       const StreamConfiguration& stream_config) = 0;
+
+  // Get customized profiler
+  virtual std::unique_ptr<google::camera_common::Profiler> GetProfiler(
+      uint32_t /* camera_id */, int /* option */) {
+    return nullptr;
+  }
 };
 
 }  // namespace google_camera_hal

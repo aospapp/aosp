@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_PURE_SOFT_KEYMASTER_CONTEXT_H_
-#define SYSTEM_KEYMASTER_PURE_SOFT_KEYMASTER_CONTEXT_H_
-
+#pragma once
 
 #include <memory>
 #include <string>
 
+#include <keymaster/attestation_context.h>
+#include <keymaster/contexts/pure_soft_remote_provisioning_context.h>
+#include <keymaster/contexts/soft_attestation_context.h>
 #include <keymaster/keymaster_context.h>
-#include <keymaster/attestation_record.h>
-#include <keymaster/km_openssl/software_random_source.h>
+#include <keymaster/km_openssl/attestation_record.h>
 #include <keymaster/km_openssl/soft_keymaster_enforcement.h>
-#include <keymaster/soft_key_factory.h>
+#include <keymaster/km_openssl/software_random_source.h>
+#include <keymaster/pure_soft_secure_key_storage.h>
 #include <keymaster/random_source.h>
+#include <keymaster/soft_key_factory.h>
 
 namespace keymaster {
 
@@ -40,13 +42,15 @@ class Key;
  */
 class PureSoftKeymasterContext : public KeymasterContext,
                                  protected SoftwareKeyBlobMaker,
-                                 public AttestationRecordContext,
+                                 public SoftAttestationContext,
                                  SoftwareRandomSource {
   public:
     // Security level must only be used for testing.
     explicit PureSoftKeymasterContext(
-        keymaster_security_level_t security_level = KM_SECURITY_LEVEL_SOFTWARE);
+        KmVersion version, keymaster_security_level_t security_level = KM_SECURITY_LEVEL_SOFTWARE);
     ~PureSoftKeymasterContext() override;
+
+    KmVersion GetKmVersion() const override { return AttestationContext::GetKmVersion(); }
 
     /*********************************************************************************************
      * Implement KeymasterContext
@@ -67,16 +71,46 @@ class PureSoftKeymasterContext : public KeymasterContext,
     keymaster_error_t DeleteKey(const KeymasterKeyBlob& blob) const override;
     keymaster_error_t DeleteAllKeys() const override;
     keymaster_error_t AddRngEntropy(const uint8_t* buf, size_t length) const override;
-
-    keymaster_error_t GenerateAttestation(const Key& key,
-                                          const AuthorizationSet& attest_params,
-                                          CertChainPtr* cert_chain) const override;
-
-
+    CertificateChain GenerateAttestation(const Key& key, const AuthorizationSet& attest_params,
+                                         UniquePtr<Key> attest_key,
+                                         const KeymasterBlob& issuer_subject,
+                                         keymaster_error_t* error) const override;
+    CertificateChain GenerateSelfSignedCertificate(const Key& key,
+                                                   const AuthorizationSet& cert_params,
+                                                   bool fake_signature,
+                                                   keymaster_error_t* error) const override;
     KeymasterEnforcement* enforcement_policy() override {
         // SoftKeymaster does no enforcement; it's all done by Keystore.
         return &soft_keymaster_enforcement_;
     }
+
+    SecureKeyStorage* secure_key_storage() override { return pure_soft_secure_key_storage_.get(); }
+
+    RemoteProvisioningContext* GetRemoteProvisioningContext() const override {
+        return pure_soft_remote_provisioning_context_.get();
+    }
+
+    keymaster_error_t SetVendorPatchlevel(uint32_t vendor_patchlevel) override {
+        if (vendor_patchlevel_.has_value() && vendor_patchlevel != vendor_patchlevel_.value()) {
+            // Can't set patchlevel to a different value.
+            return KM_ERROR_INVALID_ARGUMENT;
+        }
+        vendor_patchlevel_ = vendor_patchlevel;
+        return KM_ERROR_OK;
+    }
+
+    keymaster_error_t SetBootPatchlevel(uint32_t boot_patchlevel) override {
+        if (boot_patchlevel_.has_value() && boot_patchlevel != boot_patchlevel_.value()) {
+            // Can't set patchlevel to a different value.
+            return KM_ERROR_INVALID_ARGUMENT;
+        }
+        boot_patchlevel_ = boot_patchlevel;
+        return KM_ERROR_OK;
+    }
+
+    std::optional<uint32_t> GetVendorPatchlevel() const override { return vendor_patchlevel_; }
+
+    std::optional<uint32_t> GetBootPatchlevel() const override { return boot_patchlevel_; }
 
     /*********************************************************************************************
      * Implement SoftwareKeyBlobMaker
@@ -93,13 +127,10 @@ class PureSoftKeymasterContext : public KeymasterContext,
               KeymasterKeyBlob* wrapped_key_material) const override;
 
     /*********************************************************************************************
-     * Implement AttestationRecordContext
+     * Implement AttestationContext
      */
 
-    keymaster_error_t GetVerifiedBootParams(keymaster_blob_t* verified_boot_key,
-                                            keymaster_blob_t* verified_boot_hash,
-                                            keymaster_verified_boot_t* verified_boot_state,
-                                            bool* device_locked) const override;
+    const VerifiedBootParams* GetVerifiedBootParams(keymaster_error_t* error) const override;
 
     keymaster_security_level_t GetSecurityLevel() const override { return security_level_; }
 
@@ -111,10 +142,12 @@ class PureSoftKeymasterContext : public KeymasterContext,
     std::unique_ptr<KeyFactory> hmac_factory_;
     uint32_t os_version_;
     uint32_t os_patchlevel_;
+    std::optional<uint32_t> vendor_patchlevel_;
+    std::optional<uint32_t> boot_patchlevel_;
     SoftKeymasterEnforcement soft_keymaster_enforcement_;
-    keymaster_security_level_t security_level_;
+    const keymaster_security_level_t security_level_;
+    std::unique_ptr<SecureKeyStorage> pure_soft_secure_key_storage_;
+    std::unique_ptr<RemoteProvisioningContext> pure_soft_remote_provisioning_context_;
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_PURE_SOFT_KEYMASTER_CONTEXT_H_

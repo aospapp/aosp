@@ -27,7 +27,9 @@ public class FooterButtonPartnerConfig {
   private final PartnerConfig buttonIconConfig;
   private final PartnerConfig buttonTextColorConfig;
   private final PartnerConfig buttonTextSizeConfig;
+  private final PartnerConfig buttonMinHeightConfig;
   private final PartnerConfig buttonTextTypeFaceConfig;
+  private final PartnerConfig buttonTextStyleConfig;
   private final PartnerConfig buttonRadiusConfig;
   private final PartnerConfig buttonRippleColorAlphaConfig;
   private final int partnerTheme;
@@ -40,14 +42,18 @@ public class FooterButtonPartnerConfig {
       PartnerConfig buttonIconConfig,
       PartnerConfig buttonTextColorConfig,
       PartnerConfig buttonTextSizeConfig,
+      PartnerConfig buttonMinHeightConfig,
       PartnerConfig buttonTextTypeFaceConfig,
+      PartnerConfig buttonTextStyleConfig,
       PartnerConfig buttonRadiusConfig,
       PartnerConfig buttonRippleColorAlphaConfig) {
     this.partnerTheme = partnerTheme;
 
     this.buttonTextColorConfig = buttonTextColorConfig;
     this.buttonTextSizeConfig = buttonTextSizeConfig;
+    this.buttonMinHeightConfig = buttonMinHeightConfig;
     this.buttonTextTypeFaceConfig = buttonTextTypeFaceConfig;
+    this.buttonTextStyleConfig = buttonTextStyleConfig;
     this.buttonBackgroundConfig = buttonBackgroundConfig;
     this.buttonDisableAlphaConfig = buttonDisableAlphaConfig;
     this.buttonDisableBackgroundConfig = buttonDisableBackgroundConfig;
@@ -80,12 +86,20 @@ public class FooterButtonPartnerConfig {
     return buttonTextColorConfig;
   }
 
+  public PartnerConfig getButtonMinHeightConfig() {
+    return buttonMinHeightConfig;
+  }
+
   public PartnerConfig getButtonTextSizeConfig() {
     return buttonTextSizeConfig;
   }
 
   public PartnerConfig getButtonTextTypeFaceConfig() {
     return buttonTextTypeFaceConfig;
+  }
+
+  public PartnerConfig getButtonTextStyleConfig() {
+    return buttonTextStyleConfig;
   }
 
   public PartnerConfig getButtonRadiusConfig() {
@@ -105,15 +119,19 @@ public class FooterButtonPartnerConfig {
     private PartnerConfig buttonIconConfig = null;
     private PartnerConfig buttonTextColorConfig = null;
     private PartnerConfig buttonTextSizeConfig = null;
+    private PartnerConfig buttonMinHeight = null;
     private PartnerConfig buttonTextTypeFaceConfig = null;
+    private PartnerConfig buttonTextStyleConfig = null;
     private PartnerConfig buttonRadiusConfig = null;
     private PartnerConfig buttonRippleColorAlphaConfig = null;
     private int partnerTheme;
 
     public Builder(FooterButton footerButton) {
       this.footerButton = footerButton;
-      // default partnerTheme should be the same as footerButton.getTheme();
-      this.partnerTheme = this.footerButton.getTheme();
+      if (this.footerButton != null) {
+        // default partnerTheme should be the same as footerButton.getTheme();
+        this.partnerTheme = this.footerButton.getTheme();
+      }
     }
 
     public Builder setButtonBackgroundConfig(PartnerConfig buttonBackgroundConfig) {
@@ -146,8 +164,18 @@ public class FooterButtonPartnerConfig {
       return this;
     }
 
+    public Builder setButtonMinHeight(PartnerConfig buttonMinHeightConfig) {
+      this.buttonMinHeight = buttonMinHeightConfig;
+      return this;
+    }
+
     public Builder setTextTypeFaceConfig(PartnerConfig buttonTextTypeFaceConfig) {
       this.buttonTextTypeFaceConfig = buttonTextTypeFaceConfig;
+      return this;
+    }
+
+    public Builder setTextStyleConfig(PartnerConfig buttonTextStyleConfig) {
+      this.buttonTextStyleConfig = buttonTextStyleConfig;
       return this;
     }
 
@@ -175,7 +203,9 @@ public class FooterButtonPartnerConfig {
           buttonIconConfig,
           buttonTextColorConfig,
           buttonTextSizeConfig,
+          buttonMinHeight,
           buttonTextTypeFaceConfig,
+          buttonTextStyleConfig,
           buttonRadiusConfig,
           buttonRippleColorAlphaConfig);
     }

@@ -22,6 +22,7 @@
 #include "session_state.pb.h"
 
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -32,6 +33,7 @@
 
 using android::base::Error;
 using android::base::Result;
+using android::base::StringPrintf;
 using apex::proto::SessionState;
 
 namespace android {
@@ -39,68 +41,57 @@ namespace apex {
 
 namespace {
 
+// Starting from R, apexd prefers /metadata partition (kNewApexSessionsDir) as
+// location for sessions-related information. For devices that don't have
+// /metadata partition, apexd will fallback to the /data one
+// (kOldApexSessionsDir).
+static constexpr const char* kOldApexSessionsDir = "/data/apex/sessions";
+static constexpr const char* kNewApexSessionsDir = "/metadata/apex/sessions";
+
 static constexpr const char* kStateFileName = "state";
-
-std::string getSessionDir(int session_id) {
-  return kApexSessionsDir + "/" + std::to_string(session_id);
-}
-
-std::string getSessionStateFilePath(int session_id) {
-  return getSessionDir(session_id) + "/" + kStateFileName;
-}
-
-Result<std::string> createSessionDirIfNeeded(int session_id) {
-  // create /data/sessions
-  auto res = createDirIfNeeded(kApexSessionsDir, 0700);
-  if (!res.ok()) {
-    return res.error();
-  }
-  // create /data/sessions/session_id
-  std::string sessionDir = getSessionDir(session_id);
-  res = createDirIfNeeded(sessionDir, 0700);
-  if (!res.ok()) {
-    return res.error();
-  }
-
-  return sessionDir;
-}
-
-Result<void> deleteSessionDir(int session_id) {
-  std::string session_dir = getSessionDir(session_id);
-  LOG(DEBUG) << "Deleting " << session_dir;
-  auto path = std::filesystem::path(session_dir);
-  std::error_code error_code;
-  std::filesystem::remove_all(path, error_code);
-  if (error_code) {
-    return Error() << "Failed to delete " << session_dir << " : "
-                   << error_code.message();
-  }
-  return {};
-}
 
 }  // namespace
 
 ApexSession::ApexSession(SessionState state) : state_(std::move(state)) {}
 
+std::string ApexSession::GetSessionsDir() {
+  static std::string result;
+  static std::once_flag once_flag;
+  std::call_once(once_flag, [&]() {
+    auto status =
+        FindFirstExistingDirectory(kNewApexSessionsDir, kOldApexSessionsDir);
+    if (!status.ok()) {
+      LOG(FATAL) << status.error();
+    }
+    result = std::move(*status);
+  });
+  return result;
+}
+
+Result<void> ApexSession::MigrateToMetadataSessionsDir() {
+  return MoveDir(kOldApexSessionsDir, kNewApexSessionsDir);
+}
+
 Result<ApexSession> ApexSession::CreateSession(int session_id) {
   SessionState state;
   // Create session directory
-  auto sessionPath = createSessionDirIfNeeded(session_id);
-  if (!sessionPath.ok()) {
-    return sessionPath.error();
+  std::string session_dir = GetSessionsDir() + "/" + std::to_string(session_id);
+  if (auto status = CreateDirIfNeeded(session_dir, 0700); !status.ok()) {
+    return status.error();
   }
   state.set_id(session_id);
 
   return ApexSession(state);
 }
+
 Result<ApexSession> ApexSession::GetSessionFromFile(const std::string& path) {
   SessionState state;
-  std::fstream stateFile(path, std::ios::in | std::ios::binary);
-  if (!stateFile) {
+  std::fstream state_file(path, std::ios::in | std::ios::binary);
+  if (!state_file) {
     return Error() << "Failed to open " << path;
   }
 
-  if (!state.ParseFromIstream(&stateFile)) {
+  if (!state.ParseFromIstream(&state_file)) {
     return Error() << "Failed to parse " << path;
   }
 
@@ -108,7 +99,8 @@ Result<ApexSession> ApexSession::GetSessionFromFile(const std::string& path) {
 }
 
 Result<ApexSession> ApexSession::GetSession(int session_id) {
-  auto path = getSessionStateFilePath(session_id);
+  auto path = StringPrintf("%s/%d/%s", GetSessionsDir().c_str(), session_id,
+                           kStateFileName);
 
   return GetSessionFromFile(path);
 }
@@ -116,19 +108,19 @@ Result<ApexSession> ApexSession::GetSession(int session_id) {
 std::vector<ApexSession> ApexSession::GetSessions() {
   std::vector<ApexSession> sessions;
 
-  Result<std::vector<std::string>> sessionPaths = ReadDir(
-      kApexSessionsDir, [](const std::filesystem::directory_entry& entry) {
+  Result<std::vector<std::string>> session_paths = ReadDir(
+      GetSessionsDir(), [](const std::filesystem::directory_entry& entry) {
         std::error_code ec;
         return entry.is_directory(ec);
       });
 
-  if (!sessionPaths.ok()) {
+  if (!session_paths.ok()) {
     return sessions;
   }
 
-  for (const std::string& sessionDirPath : *sessionPaths) {
+  for (const std::string& session_dir_path : *session_paths) {
     // Try to read session state
-    auto session = GetSessionFromFile(sessionDirPath + "/" + kStateFileName);
+    auto session = GetSessionFromFile(session_dir_path + "/" + kStateFileName);
     if (!session.ok()) {
       LOG(WARNING) << session.error();
       continue;
@@ -152,20 +144,20 @@ std::vector<ApexSession> ApexSession::GetSessionsInState(
 
 std::vector<ApexSession> ApexSession::GetActiveSessions() {
   auto sessions = GetSessions();
-  std::vector<ApexSession> activeSessions;
+  std::vector<ApexSession> active_sessions;
   for (const ApexSession& session : sessions) {
     if (!session.IsFinalized() && session.GetState() != SessionState::UNKNOWN) {
-      activeSessions.push_back(session);
+      active_sessions.push_back(session);
     }
   }
-  return activeSessions;
+  return active_sessions;
 }
 
 SessionState::State ApexSession::GetState() const { return state_.state(); }
 
 int ApexSession::GetId() const { return state_.id(); }
 
-std::string ApexSession::GetBuildFingerprint() const {
+const std::string& ApexSession::GetBuildFingerprint() const {
   return state_.expected_build_fingerprint();
 }
 
@@ -189,8 +181,12 @@ bool ApexSession::IsRollback() const { return state_.is_rollback(); }
 
 int ApexSession::GetRollbackId() const { return state_.rollback_id(); }
 
-std::string ApexSession::GetCrashingNativeProcess() const {
+const std::string& ApexSession::GetCrashingNativeProcess() const {
   return state_.crashing_native_process();
+}
+
+const std::string& ApexSession::GetErrorMessage() const {
+  return state_.error_message();
 }
 
 const google::protobuf::RepeatedField<int> ApexSession::GetChildSessionIds()
@@ -230,6 +226,10 @@ void ApexSession::SetCrashingNativeProcess(
   state_.set_crashing_native_process(crashing_process);
 }
 
+void ApexSession::SetErrorMessage(const std::string& error_message) {
+  state_.set_error_message(error_message);
+}
+
 void ApexSession::AddApexName(const std::string& apex_name) {
   state_.add_apex_names(apex_name);
 }
@@ -238,25 +238,48 @@ Result<void> ApexSession::UpdateStateAndCommit(
     const SessionState::State& session_state) {
   state_.set_state(session_state);
 
-  auto stateFilePath = getSessionStateFilePath(state_.id());
+  auto state_file_path = StringPrintf("%s/%d/%s", GetSessionsDir().c_str(),
+                                      state_.id(), kStateFileName);
 
-  std::fstream stateFile(stateFilePath,
-                         std::ios::out | std::ios::trunc | std::ios::binary);
-  if (!state_.SerializeToOstream(&stateFile)) {
-    return Error() << "Failed to write state file " << stateFilePath;
+  std::fstream state_file(state_file_path,
+                          std::ios::out | std::ios::trunc | std::ios::binary);
+  if (!state_.SerializeToOstream(&state_file)) {
+    return Error() << "Failed to write state file " << state_file_path;
   }
 
   return {};
 }
 
 Result<void> ApexSession::DeleteSession() const {
-  return deleteSessionDir(GetId());
+  std::string session_dir = GetSessionsDir() + "/" + std::to_string(GetId());
+  LOG(INFO) << "Deleting " << session_dir;
+  auto path = std::filesystem::path(session_dir);
+  std::error_code error_code;
+  std::filesystem::remove_all(path, error_code);
+  if (error_code) {
+    return Error() << "Failed to delete " << session_dir << " : "
+                   << error_code.message();
+  }
+  return {};
 }
 
 std::ostream& operator<<(std::ostream& out, const ApexSession& session) {
   return out << "[id = " << session.GetId()
              << "; state = " << SessionState::State_Name(session.GetState())
              << "]";
+}
+
+void ApexSession::DeleteFinalizedSessions() {
+  auto sessions = GetSessions();
+  for (const ApexSession& session : sessions) {
+    if (!session.IsFinalized()) {
+      continue;
+    }
+    auto result = session.DeleteSession();
+    if (!result.ok()) {
+      LOG(WARNING) << "Failed to delete finalized session: " << session.GetId();
+    }
+  }
 }
 
 }  // namespace apex

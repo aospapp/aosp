@@ -24,16 +24,19 @@
  *
  ******************************************************************************/
 
-#include <string.h>
-#include <base/logging.h>
+#include <cstdint>
 
-#include "bt_utils.h"
-#include "bta_api.h"
-#include "bta_hf_client_api.h"
-#include "bta_hf_client_int.h"
-#include "bta_sys.h"
-#include "osi/include/osi.h"
+#include "bta/hf_client/bta_hf_client_int.h"
+#include "bta/include/bta_ag_api.h"
+#include "bta/include/bta_hf_client_api.h"
+#include "bta/sys/bta_sys.h"
+#include "osi/include/allocator.h"
 #include "osi/include/properties.h"
+#include "stack/btm/btm_sec.h"
+#include "stack/include/btm_api.h"
+#include "stack/include/port_api.h"
+#include "stack/include/sdpdefs.h"
+#include "types/bluetooth/uuid.h"
 
 using bluetooth::Uuid;
 
@@ -53,7 +56,7 @@ using bluetooth::Uuid;
  * Returns          void
  *
  ******************************************************************************/
-static void bta_hf_client_sdp_cback(uint16_t status, void* data) {
+static void bta_hf_client_sdp_cback(tSDP_STATUS status, void* data) {
   uint16_t event;
   tBTA_HF_CLIENT_DISC_RESULT* p_buf = (tBTA_HF_CLIENT_DISC_RESULT*)osi_malloc(
       sizeof(tBTA_HF_CLIENT_DISC_RESULT));
@@ -121,11 +124,7 @@ bool bta_hf_client_add_record(const char* p_service_name, uint8_t scn,
 
   /* add profile descriptor list */
   profile_uuid = UUID_SERVCLASS_HF_HANDSFREE;
-  version = HFP_VERSION_1_6;
-
-  if (osi_property_get_bool("persist.bluetooth.hfpclient.sco_s4_supported",
-                            false))
-    version = HFP_VERSION_1_7;
+  version = BTA_HFP_VERSION;
 
   result &= SDP_AddProfileDescriptorList(sdp_handle, profile_uuid, version);
 
@@ -205,7 +204,7 @@ void bta_hf_client_del_record(tBTA_HF_CLIENT_CB_ARR* client_cb) {
     SDP_DeleteRecord(client_cb->sdp_handle);
     client_cb->sdp_handle = 0;
     BTM_FreeSCN(client_cb->scn);
-    BTM_SecClrService(BTM_SEC_SERVICE_HF_HANDSFREE);
+    RFCOMM_ClearSecurityRecord(client_cb->scn);
     bta_sys_remove_uuid(UUID_SERVCLASS_HF_HANDSFREE);
   }
 }

@@ -12,6 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["external_modp_b64_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_modp_b64_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_library_static {
     name: "libmodpb64",
     host_supported: true,

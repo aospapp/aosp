@@ -15,13 +15,14 @@
  */
 
 #include <gflags/gflags.h>
-#include <glog/logging.h>
+#include <android-base/logging.h>
 
 #include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
 
+#include "host/libs/config/logging.h"
 #include "common/libs/fs/shared_fd.h"
 
 DEFINE_int32(
@@ -49,26 +50,26 @@ static std::string next_tombstone_path() {
     num_tombstones_in_last_second = 0;
   }
 
-  LOG(INFO) << "Creating " << retval;
+  LOG(DEBUG) << "Creating " << retval;
   return retval;
 }
 
 #define CHUNK_RECV_MAX_LEN (1024)
 int main(int argc, char** argv) {
-  ::android::base::InitLogging(argv, android::base::StderrLogger);
+  cuttlefish::DefaultSubprocessLogging(argv);
   google::ParseCommandLineFlags(&argc, &argv, true);
 
-  cvd::SharedFD server_fd = cvd::SharedFD::Dup(FLAGS_server_fd);
+  cuttlefish::SharedFD server_fd = cuttlefish::SharedFD::Dup(FLAGS_server_fd);
   close(FLAGS_server_fd);
 
   CHECK(server_fd->IsOpen()) << "Error inheriting tombstone server: "
                              << server_fd->StrError();
-  LOG(INFO) << "Host is starting server on port "
-            << server_fd->VsockServerPort();
+  LOG(DEBUG) << "Host is starting server on port "
+             << server_fd->VsockServerPort();
 
   // Server loop
   while (true) {
-    auto conn = cvd::SharedFD::Accept(*server_fd);
+    auto conn = cuttlefish::SharedFD::Accept(*server_fd);
     std::ofstream file(next_tombstone_path(),
                        std::ofstream::out | std::ofstream::binary);
 

@@ -1,0 +1,2 @@
+require board=vim3l
+require version-bootloader=U-Boot 2021.01-00035-g6180f7834d

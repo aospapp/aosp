@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+#include "OfflineUnwinder.h"
 #include "OfflineUnwinder_impl.h"
+
+#include <android-base/parseint.h>
+#include <unwindstack/RegsArm64.h>
 
 #include <gtest/gtest.h>
 
@@ -27,10 +31,10 @@ bool CheckUnwindMaps(UnwindMaps& maps, const MapSet& map_set) {
   unwindstack::MapInfo* prev_real_map = nullptr;
   for (size_t i = 0; i < maps.Total(); i++) {
     unwindstack::MapInfo* info = maps.Get(i);
-    if (info == nullptr || map_set.maps.find(info->start) == map_set.maps.end()) {
+    if (info == nullptr || map_set.maps.find(info->start()) == map_set.maps.end()) {
       return false;
     }
-    if (info->prev_real_map != prev_real_map) {
+    if (info->prev_real_map() != prev_real_map) {
       return false;
     }
     if (!info->IsBlank()) {
@@ -84,4 +88,30 @@ TEST(OfflineUnwinder, UnwindMaps) {
   map_set.maps.clear();
   maps.UpdateMaps(map_set);
   ASSERT_TRUE(CheckUnwindMaps(maps, map_set));
+}
+
+TEST(OfflineUnwinder, CollectMetaInfo) {
+  std::unordered_map<std::string, std::string> info_map;
+  OfflineUnwinder::CollectMetaInfo(&info_map);
+  if (auto it = info_map.find(OfflineUnwinder::META_KEY_ARM64_PAC_MASK); it != info_map.end()) {
+    uint64_t arm64_pack_mask;
+    ASSERT_TRUE(android::base::ParseUint(it->second, &arm64_pack_mask));
+    ASSERT_NE(arm64_pack_mask, 0);
+  }
+}
+
+TEST(OfflineUnwinder, ARM64PackMask) {
+  std::unordered_map<std::string, std::string> info_map;
+  info_map[OfflineUnwinder::META_KEY_ARM64_PAC_MASK] = "0xff00000000";
+  std::unique_ptr<OfflineUnwinderImpl> unwinder(new OfflineUnwinderImpl(false));
+  unwinder->LoadMetaInfo(info_map);
+
+  RegSet fake_regs(0, 0, nullptr);
+  fake_regs.arch = ARCH_ARM64;
+  unwindstack::Regs* regs = unwinder->GetBacktraceRegs(fake_regs);
+  ASSERT_TRUE(regs != nullptr);
+  auto& arm64 = *static_cast<unwindstack::RegsArm64*>(regs);
+  arm64.SetPseudoRegister(unwindstack::Arm64Reg::ARM64_PREG_RA_SIGN_STATE, 1);
+  arm64.set_pc(0xffccccccccULL);
+  ASSERT_EQ(arm64.pc(), 0xccccccccULL);
 }

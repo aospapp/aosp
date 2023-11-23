@@ -223,5 +223,19 @@
         android:id="@+id/transform_matrix_view_2"
         android:layout_width="10px"
         android:layout_height="10px" />
+    <View
+        android:id="@+id/clip_to_outline_unset"
+        android:layout_width="10px"
+        android:layout_height="10px"/>
+    <View
+        android:id="@+id/clip_to_outline_false"
+        android:layout_width="10px"
+        android:layout_height="10px"
+        android:clipToOutline="false" />
+    <View
+        android:id="@+id/clip_to_outline_true"
+        android:layout_width="10px"
+        android:layout_height="10px"
+        android:clipToOutline="true" />
 
 </LinearLayout>

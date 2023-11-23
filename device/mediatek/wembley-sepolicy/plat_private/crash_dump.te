@@ -2,6 +2,12 @@
 # MTK Policy Rule
 # ==============================================
 
+typeattribute crash_dump mlstrustedsubject;
+
+# /porc/pid/
+allow crash_dump appdomain:dir r_dir_perms;
+allow crash_dump coredomain:dir r_dir_perms;
+
 # AED start: /dev/block/expdb
 allow crash_dump block_device:dir search;
 
@@ -118,3 +124,8 @@ allow crash_dump packages_list_file:file r_file_perms;
 
 # Purpose: Allow crash_dump to read /proc/*/exe
 allow crash_dump system_file_type:file r_file_perms;
+
+# Purpose: crash_dump set property
+set_prop(crash_dump, system_mtk_persist_mtk_aee_prop)
+set_prop(crash_dump, system_mtk_persist_aee_prop)
+set_prop(crash_dump, system_mtk_debug_mtk_aee_prop)

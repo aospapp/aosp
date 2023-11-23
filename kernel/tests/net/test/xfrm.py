@@ -123,12 +123,15 @@ XFRM_STATE_AF_UNSPEC = 32
 
 # XFRM algorithm names, as defined in net/xfrm/xfrm_algo.c.
 XFRM_EALG_CBC_AES = "cbc(aes)"
+XFRM_EALG_CTR_AES = "rfc3686(ctr(aes))"
 XFRM_AALG_HMAC_MD5 = "hmac(md5)"
 XFRM_AALG_HMAC_SHA1 = "hmac(sha1)"
 XFRM_AALG_HMAC_SHA256 = "hmac(sha256)"
 XFRM_AALG_HMAC_SHA384 = "hmac(sha384)"
 XFRM_AALG_HMAC_SHA512 = "hmac(sha512)"
+XFRM_AALG_AUTH_XCBC_AES = "xcbc(aes)"
 XFRM_AEAD_GCM_AES = "rfc4106(gcm(aes))"
+XFRM_AEAD_CHACHA20_POLY1305 = "rfc7539esp(chacha20,poly1305)"
 
 # Data structure formats.
 # These aren't constants, they're classes. So, pylint: disable=invalid-name
@@ -136,6 +139,11 @@ XfrmSelector = cstruct.Struct(
     "XfrmSelector", "=16s16sHHHHHBBBxxxiI",
     "daddr saddr dport dport_mask sport sport_mask "
     "family prefixlen_d prefixlen_s proto ifindex user")
+
+XfrmMigrate = cstruct.Struct(
+    "XfrmMigrate", "=16s16s16s16sBBxxIHH",
+    "old_daddr old_saddr new_daddr new_saddr proto "
+    "mode reqid old_family new_family")
 
 XfrmLifetimeCfg = cstruct.Struct(
     "XfrmLifetimeCfg", "=QQQQQQQQ",
@@ -356,9 +364,9 @@ class Xfrm(netlink.NetlinkSocket):
 
     cmdname = self._GetConstantName(command, "XFRM_MSG_")
     if struct_type:
-      print "%s %s" % (cmdname, str(self._ParseNLMsg(data, struct_type)))
+      print("%s %s" % (cmdname, str(self._ParseNLMsg(data, struct_type))))
     else:
-      print "%s" % cmdname
+      print("%s" % cmdname)
 
   def _Decode(self, command, unused_msg, nla_type, nla_data):
     """Decodes netlink attributes to Python types."""
@@ -707,8 +715,54 @@ class Xfrm(netlink.NetlinkSocket):
     for selector in selectors:
       self.DeletePolicyInfo(selector, direction, mark, xfrm_if_id)
 
+  def MigrateTunnel(self, direction, selector, old_saddr, old_daddr,
+                    new_saddr, new_daddr, spi,
+                    encryption, auth_trunc, aead,
+                    encap, new_output_mark, xfrm_if_id):
+    """Update addresses and underlying network of Policies and an SA
+
+    Args:
+      direction: XFRM_POLICY_IN or XFRM_POLICY_OUT
+      selector: An XfrmSelector of the tunnel that needs to be updated.
+        If the passed-in selector is None, it means the tunnel is
+        dual-stack and thus both IPv4 and IPv6 policies will be updated.
+      old_saddr: the old (current) source address of the tunnel
+      old_daddr: the old (current) destination address of the tunnel
+      new_saddr: the new source address the IPsec SA will be migrated to
+      new_daddr: the new destination address the tunnel will be migrated to
+      spi: The SPI for the IPsec SA that encapsulates the tunneled packets
+      encryption: A tuple of an XfrmAlgo and raw key bytes, or None.
+      auth_trunc: A tuple of an XfrmAlgoAuth and raw key bytes, or None.
+      aead: A tuple of an XfrmAlgoAead and raw key bytes, or None.
+      encap: An XfrmEncapTmpl structure, or None.
+      new_output_mark: The mark used to select the new underlying network
+        for packets outbound from xfrm. None means unspecified.
+      xfrm_if_id: The XFRM interface ID
+    """
+
+    if selector is None:
+      selectors = [EmptySelector(AF_INET), EmptySelector(AF_INET6)]
+    else:
+      selectors = [selector]
+
+    nlattrs = []
+    xfrmMigrate = XfrmMigrate((PaddedAddress(old_daddr), PaddedAddress(old_saddr),
+                      PaddedAddress(new_daddr), PaddedAddress(new_saddr),
+                      IPPROTO_ESP, XFRM_MODE_TUNNEL, 0,
+                      net_test.GetAddressFamily(net_test.GetAddressVersion(old_saddr)),
+                      net_test.GetAddressFamily(net_test.GetAddressVersion(new_saddr))))
+    nlattrs.append((XFRMA_MIGRATE, xfrmMigrate))
+
+    for selector in selectors:
+        self.SendXfrmNlRequest(XFRM_MSG_MIGRATE,
+                               XfrmUserpolicyId(sel=selector, dir=direction), nlattrs)
+
+    # UPDSA is called exclusively to update the set_mark=new_output_mark.
+    self.AddSaInfo(new_saddr, new_daddr, spi, XFRM_MODE_TUNNEL, 0, encryption,
+                   auth_trunc, aead, encap, None, new_output_mark, True, xfrm_if_id)
+
 
 if __name__ == "__main__":
   x = Xfrm()
-  print x.DumpSaInfo()
-  print x.DumpPolicyInfo()
+  print(x.DumpSaInfo())
+  print(x.DumpPolicyInfo())

@@ -6,7 +6,7 @@
 #include "util/u_atomic.h"
 #include "util/u_memory.h"
 
-#ifdef DEBUG
+#ifndef NDEBUG
 # define NOUVEAU_ENABLE_DRIVER_STATISTICS
 #endif
 
@@ -69,6 +69,10 @@ struct nouveau_screen {
    struct disk_cache *disk_shader_cache;
 
    bool prefer_nir;
+   bool force_enable_cl;
+   bool has_svm;
+   void *svm_cutout;
+   size_t svm_cutout_size;
 
 #ifdef NOUVEAU_ENABLE_DRIVER_STATISTICS
    union {

@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Bạn cần đổi tên này"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Bạn cần thêm tên thư mục"</string>
     <string name="files_label" msgid="771781190045103748">"Tệp"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Tệp đã tải xuống"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -142,7 +144,7 @@
       <item quantity="other">Đang xóa <xliff:g id="COUNT_1">%1$d</xliff:g> mục.</item>
       <item quantity="one">Đang xóa <xliff:g id="COUNT_0">%1$d</xliff:g> mục.</item>
     </plurals>
-    <string name="undo" msgid="2902438994196400565">"Hoàn tác"</string>
+    <string name="undo" msgid="2902438994196400565">"Hủy"</string>
     <string name="copy_preparing" msgid="4759516490222449324">"Đang chuẩn bị…"</string>
     <string name="compress_preparing" msgid="7401605598969019696">"Đang chuẩn bị…"</string>
     <string name="extract_preparing" msgid="4796626960061745796">"Đang chuẩn bị…"</string>
@@ -192,8 +194,8 @@
       <item quantity="one">Tệp này đã được chuyển đổi sang định dạng khác: <xliff:g id="LIST_0">%1$s</xliff:g></item>
     </plurals>
     <plurals name="clipboard_files_clipped" formatted="false" msgid="4847061634862926902">
-      <item quantity="other">Đã sao chép <xliff:g id="COUNT_1">%1$d</xliff:g> mục vào khay nhớ tạm.</item>
-      <item quantity="one">Đã sao chép <xliff:g id="COUNT_0">%1$d</xliff:g> mục vào khay nhớ tạm.</item>
+      <item quantity="other">Đã sao chép <xliff:g id="COUNT_1">%1$d</xliff:g> mục vào bảng nhớ tạm.</item>
+      <item quantity="one">Đã sao chép <xliff:g id="COUNT_0">%1$d</xliff:g> mục vào bảng nhớ tạm.</item>
     </plurals>
     <string name="file_operation_rejected" msgid="4301554203329008794">"Thao tác tệp không được hỗ trợ."</string>
     <string name="file_operation_error" msgid="2234357335716533795">"Thao tác tệp không thành công."</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Công việc"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Công việc"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Bạn không thể di chuyển các tệp từ một ứng dụng khác."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Đang hiển thị ở chế độ lưới."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Đang hiển thị ở chế độ danh sách."</string>
 </resources>

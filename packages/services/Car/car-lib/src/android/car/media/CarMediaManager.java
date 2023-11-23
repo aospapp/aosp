@@ -19,7 +19,6 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
 import android.car.Car;
 import android.car.CarManagerBase;
 import android.content.ComponentName;
@@ -182,7 +181,6 @@ public final class CarMediaManager extends CarManagerBase {
      * isn't or if the value could not be determined.
      * @hide
      */
-    @TestApi
     @RequiresPermission(value = android.Manifest.permission.MEDIA_CONTENT_CONTROL)
     public boolean isIndependentPlaybackConfig() {
         try {
@@ -197,7 +195,6 @@ public final class CarMediaManager extends CarManagerBase {
      * @param independent whether the browse and playback sources can be changed independently.
      * @hide
      */
-    @TestApi
     @RequiresPermission(value = android.Manifest.permission.MEDIA_CONTENT_CONTROL)
     public void setIndependentPlaybackConfig(boolean independent) {
         try {

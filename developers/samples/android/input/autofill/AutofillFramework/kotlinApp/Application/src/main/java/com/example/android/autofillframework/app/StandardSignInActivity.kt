@@ -59,7 +59,7 @@ class StandardSignInActivity : AppCompatActivity() {
     }
 
     /**
-     * Dummy implementation for demo purposes. A real service should use secure mechanisms to
+     * Fake implementation for demo purposes. A real service should use secure mechanisms to
      * authenticate users.
      */
     fun isValidCredentials(username: String, password: String): Boolean {

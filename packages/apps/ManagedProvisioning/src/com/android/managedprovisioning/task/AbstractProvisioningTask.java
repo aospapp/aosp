@@ -24,7 +24,6 @@ import android.content.Context;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.analytics.AnalyticsUtils;
 import com.android.managedprovisioning.analytics.MetricsLoggerWrapper;
-import com.android.managedprovisioning.analytics.MetricsWriter;
 import com.android.managedprovisioning.analytics.MetricsWriterFactory;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.analytics.TimeLogger;
@@ -107,11 +106,6 @@ public abstract class AbstractProvisioningTask {
      * @param userId the id of the user the action should be performed on.
      */
     public abstract void run(int userId);
-
-    /**
-     * @return the resource id of the status message related to the task.
-     */
-    public abstract int getStatusMsgId();
 
     /**
      * Callback class for provisioning tasks.

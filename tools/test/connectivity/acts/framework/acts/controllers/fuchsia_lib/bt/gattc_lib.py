@@ -121,6 +121,52 @@ class FuchsiaGattcLib(BaseLib):
 
         return self.send_command(test_id, test_cmd, test_args)
 
+    def writeLongCharById(self, id, offset, write_value, reliable_mode=False):
+        """Write Characteristic by id.
+
+        Args:
+            id: string, Characteristic identifier.
+            offset: int, The offset of bytes to write to.
+            write_value: byte array, The bytes to write.
+            reliable_mode: bool value representing reliable writes.
+
+        Returns:
+            None if success, error string if error.
+        """
+        test_cmd = "gatt_client_facade.GattcWriteLongCharacteristicById"
+        test_args = {
+            "identifier": id,
+            "offset": offset,
+            "write_value": write_value,
+            "reliable_mode": reliable_mode
+        }
+        test_id = self.build_id(self.test_counter)
+        self.test_counter += 1
+
+        return self.send_command(test_id, test_cmd, test_args)
+
+    def writeLongDescById(self, id, offset, write_value):
+        """Write Descriptor by id.
+
+        Args:
+            id: string, Characteristic identifier.
+            offset: int, The offset of bytes to write to.
+            write_value: byte array, The bytes to write.
+
+        Returns:
+            None if success, error string if error.
+        """
+        test_cmd = "gatt_client_facade.GattcWriteLongDescriptorById"
+        test_args = {
+            "identifier": id,
+            "offset": offset,
+            "write_value": write_value,
+        }
+        test_id = self.build_id(self.test_counter)
+        self.test_counter += 1
+
+        return self.send_command(test_id, test_cmd, test_args)
+
     def writeCharByIdWithoutResponse(self, id, write_value):
         """Write Characteristic by id without response.
 
@@ -190,6 +236,24 @@ class FuchsiaGattcLib(BaseLib):
         test_cmd = "gatt_client_facade.GattcReadCharacteristicById"
         test_args = {
             "identifier": id,
+        }
+        test_id = self.build_id(self.test_counter)
+        self.test_counter += 1
+
+        return self.send_command(test_id, test_cmd, test_args)
+
+    def readCharacteristicByType(self, uuid):
+        """Read Characteristic value by id..
+
+        Args:
+            uuid: string, Characteristic identifier.
+
+        Returns:
+            Characteristic value if success, error string if error.
+        """
+        test_cmd = "gatt_client_facade.GattcReadCharacteristicByType"
+        test_args = {
+            "uuid": uuid,
         }
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1

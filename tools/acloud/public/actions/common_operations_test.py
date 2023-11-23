@@ -18,13 +18,17 @@
 from __future__ import absolute_import
 from __future__ import division
 
+import shlex
 import unittest
-import mock
 
+from unittest import mock
+
+from acloud import errors
 from acloud.internal.lib import android_build_client
 from acloud.internal.lib import android_compute_client
 from acloud.internal.lib import auth
 from acloud.internal.lib import driver_test_lib
+from acloud.internal.lib import utils
 from acloud.internal.lib import ssh
 from acloud.public import report
 from acloud.public.actions import common_operations
@@ -43,7 +47,7 @@ class CommonOperationsTest(driver_test_lib.BaseDriverTest):
     # pylint: disable=protected-access
     def setUp(self):
         """Set up the test."""
-        super(CommonOperationsTest, self).setUp()
+        super().setUp()
         self.build_client = mock.MagicMock()
         self.device_factory = mock.MagicMock()
         self.Patch(
@@ -113,6 +117,33 @@ class CommonOperationsTest(driver_test_lib.BaseDriverTest):
                 "gcs_bucket_build_id": self.BUILD_ID,
             }]})
 
+    def testCreateDevicesWithAdbPort(self):
+        """Test Create Devices with adb port for cuttlefish avd type."""
+        self.Patch(utils, "_ExecuteCommand")
+        self.Patch(utils, "PickFreePort", return_value=56789)
+        self.Patch(shlex, "split", return_value=[])
+        cfg = self._CreateCfg()
+        _report = common_operations.CreateDevices(self.CMD, cfg,
+                                                  self.device_factory, 1,
+                                                  "cuttlefish",
+                                                  autoconnect=True,
+                                                  client_adb_port=12345)
+        self.assertEqual(_report.command, self.CMD)
+        self.assertEqual(_report.status, report.Status.SUCCESS)
+        self.assertEqual(
+            _report.data,
+            {"devices": [{
+                "ip": self.IP.external,
+                "instance_name": self.INSTANCE,
+                "branch": self.BRANCH,
+                "build_id": self.BUILD_ID,
+                "adb_port": 12345,
+                "device_serial": "127.0.0.1:12345",
+                "vnc_port": 56789,
+                "build_target": self.BUILD_TARGET,
+                "gcs_bucket_build_id": self.BUILD_ID,
+            }]})
+
     def testCreateDevicesInternalIP(self):
         """Test Create Devices and report internal IP."""
         cfg = self._CreateCfg()
@@ -132,6 +163,34 @@ class CommonOperationsTest(driver_test_lib.BaseDriverTest):
                 "build_target": self.BUILD_TARGET,
                 "gcs_bucket_build_id": self.BUILD_ID,
             }]})
+
+    def testGetErrorType(self):
+        """Test GetErrorType."""
+        # Test with CheckGCEZonesQuotaError()
+        error = errors.CheckGCEZonesQuotaError()
+        expected_result = common_operations._GCE_QUOTA_ERROR
+        self.assertEqual(common_operations._GetErrorType(error), expected_result)
+
+        # Test with DownloadArtifactError()
+        error = errors.DownloadArtifactError()
+        expected_result = common_operations._ACLOUD_DOWNLOAD_ARTIFACT_ERROR
+        self.assertEqual(common_operations._GetErrorType(error), expected_result)
+
+        # Test with DeviceConnectionError()
+        error = errors.DeviceConnectionError()
+        expected_result = common_operations._ACLOUD_SSH_CONNECT_ERROR
+        self.assertEqual(common_operations._GetErrorType(error), expected_result)
+
+        # Test with ACLOUD_GENERIC_ERROR
+        error = errors.DriverError()
+        expected_result = common_operations._ACLOUD_GENERIC_ERROR
+        self.assertEqual(common_operations._GetErrorType(error), expected_result)
+
+        # Test with error message about GCE quota issue
+        error = errors.DriverError("Quota exceeded for quota read group.")
+        expected_result = common_operations._GCE_QUOTA_ERROR
+        self.assertEqual(common_operations._GetErrorType(error), expected_result)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,13 +16,44 @@
 
 package android.car.watchdog;
 
-import android.automotive.watchdog.ICarWatchdogClient;
-import android.automotive.watchdog.TimeoutLength;
+import android.car.watchdog.ICarWatchdogServiceCallback;
+import android.car.watchdog.IResourceOveruseListener;
+import android.car.watchdog.PackageKillableState;
+import android.car.watchdog.ResourceOveruseConfiguration;
+import android.car.watchdog.ResourceOveruseStats;
+import android.os.UserHandle;
 
 /** @hide */
 interface ICarWatchdogService {
     // registerClient needs to get callingPid, so cannot be oneway.
-    void registerClient(in ICarWatchdogClient client, in TimeoutLength timeout);
-    void unregisterClient(in ICarWatchdogClient client);
-    void tellClientAlive(in ICarWatchdogClient client, in int sessionId);
+    void registerClient(in ICarWatchdogServiceCallback client, in int timeout);
+    void unregisterClient(in ICarWatchdogServiceCallback client);
+    void tellClientAlive(in ICarWatchdogServiceCallback client, in int sessionId);
+
+    ResourceOveruseStats getResourceOveruseStats(
+        in int resourceOveruseFlag, in int maxStatsPeriod);
+    List<ResourceOveruseStats> getAllResourceOveruseStats(
+        in int resourceOveruseFlag, in int minimumStatsFlag, in int maxStatsPeriod);
+    ResourceOveruseStats getResourceOveruseStatsForUserPackage(
+        in String packageName, in UserHandle userHandle, in int resourceOveruseFlag,
+            in int maxStatsPeriod);
+
+    // addResourceOveruseListener needs to get callingUid, so cannot be oneway.
+    void addResourceOveruseListener(
+        in int resourceOveruseFlag, in IResourceOveruseListener listener);
+    oneway void removeResourceOveruseListener(in IResourceOveruseListener listener);
+
+    // Following APIs need to get calling pid/uid for permission checking, so cannot be oneway.
+    void addResourceOveruseListenerForSystem(
+        in int resourceOveruseFlag, in IResourceOveruseListener listener);
+    void removeResourceOveruseListenerForSystem(in IResourceOveruseListener listener);
+
+    void setKillablePackageAsUser(in String packageName, in UserHandle userHandle,
+        in boolean isKillable);
+    List<PackageKillableState> getPackageKillableStatesAsUser(in UserHandle user);
+
+    int setResourceOveruseConfigurations(
+        in List<ResourceOveruseConfiguration> configurations, in int resourceOveruseFlag);
+    List<ResourceOveruseConfiguration> getResourceOveruseConfigurations(
+        in int resourceOveruseFlag);
 }

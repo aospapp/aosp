@@ -40,9 +40,13 @@
 
 __BEGIN_DECLS
 
-#if __ANDROID_API__ >= 24
-
+/**
+ * Camera status enum types.
+ */
 typedef enum {
+    /**
+     * Camera operation has succeeded.
+     */
     ACAMERA_OK = 0,
 
     ACAMERA_ERROR_BASE                  = -10000,
@@ -137,8 +141,6 @@ typedef enum {
      */
     ACAMERA_ERROR_UNSUPPORTED_OPERATION = ACAMERA_ERROR_BASE - 14,
 } camera_status_t;
-
-#endif /* __ANDROID_API__ >= 24 */
 
 __END_DECLS
 

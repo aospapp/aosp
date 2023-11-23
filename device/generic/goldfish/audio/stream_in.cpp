@@ -19,16 +19,15 @@
 #include <fmq/MessageQueue.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
-#include "stream_in.h"
-#include "deleters.h"
-#include "talsa.h"
-#include "util.h"
-#include <sys/resource.h>
-#include <pthread.h>
-#include <cutils/sched_policy.h>
 #include <utils/ThreadDefs.h>
 #include <future>
 #include <thread>
+#include "stream_in.h"
+#include "device_port_source.h"
+#include "deleters.h"
+#include "audio_ops.h"
+#include "util.h"
+#include "debug.h"
 
 namespace android {
 namespace hardware {
@@ -45,15 +44,8 @@ struct ReadThread : public IOThread {
     typedef MessageQueue<IStreamIn::ReadStatus, kSynchronizedReadWrite> StatusMQ;
     typedef MessageQueue<uint8_t, kSynchronizedReadWrite> DataMQ;
 
-    ReadThread(StreamIn *stream,
-               const unsigned nChannels,
-               const size_t sampleRateHz,
-               const size_t frameCount,
-               const size_t bufferSize)
+    ReadThread(StreamIn *stream, const size_t bufferSize)
             : mStream(stream)
-            , mNChannels(nChannels)
-            , mSampleRateHz(sampleRateHz)
-            , mFrameCount(frameCount)
             , mCommandMQ(1)
             , mStatusMQ(1)
             , mDataMQ(bufferSize, true /* EventFlag */) {
@@ -104,8 +96,7 @@ struct ReadThread : public IOThread {
     }
 
     void threadLoop() {
-        setpriority(PRIO_PROCESS, 0, PRIORITY_URGENT_AUDIO);
-        set_sched_policy(0, SP_FOREGROUND);
+        util::setThreadPriority(PRIORITY_URGENT_AUDIO);
         mTid.set_value(pthread_self());
 
         while (true) {
@@ -117,22 +108,17 @@ struct ReadThread : public IOThread {
             }
 
             if (efState & STAND_BY_REQUEST) {
-                mPcm.reset();
-                mBuffer.reset();
+                mSource.reset();
             }
 
             if (efState & (MessageQueueFlagBits::NOT_FULL | 0)) {
-                if (!mPcm) {
-                    mBuffer.reset(new uint8_t[mDataMQ.getQuantumCount()]);
-                    LOG_ALWAYS_FATAL_IF(!mBuffer);
-
-                    mPcm = talsa::pcmOpen(
-                        talsa::kPcmCard, talsa::kPcmDevice,
-                        mNChannels, mSampleRateHz, mFrameCount,
-                        false /* isOut */);
-                    LOG_ALWAYS_FATAL_IF(!mPcm);
-
-                    mPos.reset();
+                if (!mSource) {
+                    mSource = DevicePortSource::create(mDataMQ.getQuantumCount(),
+                                                       mStream->getDeviceAddress(),
+                                                       mStream->getAudioConfig(),
+                                                       mStream->getAudioOutputFlags(),
+                                                       mStream->getFrameCounter());
+                    LOG_ALWAYS_FATAL_IF(!mSource);
                 }
 
                 processCommand();
@@ -160,7 +146,7 @@ struct ReadThread : public IOThread {
             default:
                 ALOGE("ReadThread::%s:%d: Unknown read thread command code %d",
                       __func__, __LINE__, rParameters.command);
-                rStatus.retval = Result::NOT_SUPPORTED;
+                rStatus.retval = FAILURE(Result::NOT_SUPPORTED);
                 break;
         }
 
@@ -174,84 +160,75 @@ struct ReadThread : public IOThread {
     }
 
     IStreamIn::ReadStatus doRead(const IStreamIn::ReadParameters &rParameters) {
+        struct MQWriter : public IWriter {
+            explicit MQWriter(DataMQ &mq) : dataMQ(mq) {}
+
+            size_t operator()(const void *dst, size_t sz) override {
+                if (dataMQ.write(static_cast<const uint8_t *>(dst), sz)) {
+                    totalWritten += sz;
+                    return sz;
+                } else {
+                    ALOGE("WriteThread::%s:%d: DataMQ::write failed",
+                          __func__, __LINE__);
+                    return 0;
+                }
+            }
+
+            size_t totalWritten = 0;
+            DataMQ &dataMQ;
+        };
+
         const size_t bytesToRead = std::min(mDataMQ.availableToWrite(),
                                             static_cast<size_t>(rParameters.params.read));
 
+        MQWriter writer(mDataMQ);
+        const size_t framesLost =
+            mSource->read(mStream->getEffectiveVolume(), bytesToRead, writer);
+        if (framesLost > 0) {
+            mStream->addInputFramesLost(framesLost);
+        }
+
         IStreamIn::ReadStatus status;
-        size_t read = 0;
-        status.retval = doReadImpl(&mBuffer[0], bytesToRead, read);
-        if (status.retval == Result::OK) {
-            if (!mDataMQ.write(&mBuffer[0], read)) {
-                ALOGE("ReadThread::%s:%d: mDataMQ.write failed", __func__, __LINE__);
-            }
-
-            mPos.addFrames(pcm_bytes_to_frames(mPcm.get(), read));
-            status.reply.read = read;
-        }
-
+        status.retval = Result::OK;
+        status.reply.read = writer.totalWritten;
         return status;
-    }
-
-    Result doReadImpl(uint8_t *const data, const size_t toRead, size_t &read) {
-        const int res = pcm_read(mPcm.get(), data, toRead);
-        if (res < 0) {
-            memset(data, 0, toRead);
-            read = toRead;
-
-            ALOGE("ReadThread::%s:%d pcm_read failed with %s",
-                  __func__, __LINE__, strerror(-res));
-        } else if (res == 0) {
-            read = toRead;
-        } else {
-            read = res;
-        }
-
-        return Result::OK;
     }
 
     IStreamIn::ReadStatus doGetCapturePosition() {
         IStreamIn::ReadStatus status;
 
-        status.retval = Result::OK;
-        nsecs_t t = 0;
-        mPos.now(mSampleRateHz, status.reply.capturePosition.frames, t);
-        status.reply.capturePosition.time = t;
+        status.retval = mSource->getCapturePosition(
+            status.reply.capturePosition.frames,
+            status.reply.capturePosition.time);
 
         return status;
     }
 
     StreamIn *const mStream;
-    const unsigned mNChannels;
-    const size_t mSampleRateHz;
-    const size_t mFrameCount;
     CommandMQ mCommandMQ;
     StatusMQ mStatusMQ;
     DataMQ mDataMQ;
     std::unique_ptr<EventFlag, deleters::forEventFlag> mEfGroup;
-    std::unique_ptr<uint8_t[]> mBuffer;
-    talsa::PcmPtr mPcm;
-    util::StreamPosition mPos;
+    std::unique_ptr<DevicePortSource> mSource;
     std::thread mThread;
     std::promise<pthread_t> mTid;
 };
 
 } // namespace
 
-StreamIn::StreamIn(sp<IDevice> dev,
-                   void (*unrefDevice)(IDevice*),
+StreamIn::StreamIn(sp<PrimaryDevice> dev,
                    int32_t ioHandle,
                    const DeviceAddress& device,
                    const AudioConfig& config,
                    hidl_bitfield<AudioInputFlag> flags,
                    const SinkMetadata& sinkMetadata)
         : mDev(std::move(dev))
-        , mUnrefDevice(unrefDevice)
         , mCommon(ioHandle, device, config, flags)
         , mSinkMetadata(sinkMetadata) {
 }
 
 StreamIn::~StreamIn() {
-    close();
+    closeImpl(true);
 }
 
 Return<uint64_t> StreamIn::getFrameSize() {
@@ -314,12 +291,12 @@ Return<void> StreamIn::getAudioProperties(getAudioProperties_cb _hidl_cb) {
 
 Return<Result> StreamIn::addEffect(uint64_t effectId) {
     (void)effectId;
-    return Result::INVALID_ARGUMENTS;
+    return FAILURE(Result::INVALID_ARGUMENTS);
 }
 
 Return<Result> StreamIn::removeEffect(uint64_t effectId) {
     (void)effectId;
-    return Result::INVALID_ARGUMENTS;
+    return FAILURE(Result::INVALID_ARGUMENTS);
 }
 
 Return<Result> StreamIn::standby() {
@@ -343,7 +320,7 @@ Return<void> StreamIn::getParameters(const hidl_vec<ParameterValue>& context,
                                      const hidl_vec<hidl_string>& keys,
                                      getParameters_cb _hidl_cb) {
     (void)context;
-    _hidl_cb((keys.size() > 0) ? Result::NOT_SUPPORTED : Result::OK, {});
+    _hidl_cb((keys.size() > 0) ? FAILURE(Result::NOT_SUPPORTED) : Result::OK, {});
     return Void();
 }
 
@@ -356,48 +333,56 @@ Return<Result> StreamIn::setParameters(const hidl_vec<ParameterValue>& context,
 
 Return<Result> StreamIn::setHwAvSync(uint32_t hwAvSync) {
     (void)hwAvSync;
-    return Result::NOT_SUPPORTED;
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 Return<Result> StreamIn::start() {
-    return Result::NOT_SUPPORTED;
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 Return<Result> StreamIn::stop() {
-    return Result::NOT_SUPPORTED;
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 Return<void> StreamIn::createMmapBuffer(int32_t minSizeFrames,
                                         createMmapBuffer_cb _hidl_cb) {
     (void)minSizeFrames;
-    _hidl_cb(Result::NOT_SUPPORTED, {});
+    _hidl_cb(FAILURE(Result::NOT_SUPPORTED), {});
     return Void();
 }
 
 Return<void> StreamIn::getMmapPosition(getMmapPosition_cb _hidl_cb) {
-    _hidl_cb(Result::NOT_SUPPORTED, {});
+    _hidl_cb(FAILURE(Result::NOT_SUPPORTED), {});
     return Void();
 }
 
-Return<Result> StreamIn::close() {
+Result StreamIn::closeImpl(const bool fromDctor) {
     if (mDev) {
         mReadThread.reset();
-        mUnrefDevice(mDev.get());
+        mDev->unrefDevice(this);
         mDev = nullptr;
         return Result::OK;
+    } else if (fromDctor) {
+        // closeImpl is always called from the dctor, it is ok if mDev is null,
+        // we don't want to log the error in this case.
+        return Result::OK;
     } else {
-        return Result::INVALID_STATE;
+        return FAILURE(Result::INVALID_STATE);
     }
 }
 
+Return<Result> StreamIn::close() {
+    return closeImpl(false);
+}
+
 Return<void> StreamIn::getAudioSource(getAudioSource_cb _hidl_cb) {
-    _hidl_cb(Result::NOT_SUPPORTED, {});
+    _hidl_cb(FAILURE(Result::NOT_SUPPORTED), {});
     return Void();
 }
 
 Return<Result> StreamIn::setGain(float gain) {
     (void)gain;
-    return Result::NOT_SUPPORTED;
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 Return<void> StreamIn::updateSinkMetadata(const SinkMetadata& sinkMetadata) {
@@ -409,20 +394,16 @@ Return<void> StreamIn::prepareForReading(uint32_t frameSize,
                                          uint32_t framesCount,
                                          prepareForReading_cb _hidl_cb) {
     if (!frameSize || !framesCount || frameSize > 256 || framesCount > (1u << 20)) {
-        _hidl_cb(Result::INVALID_ARGUMENTS, {}, {}, {}, {});
+        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {}, {}, {});
         return Void();
     }
 
     if (mReadThread) {  // INVALID_STATE if the method was already called.
-        _hidl_cb(Result::INVALID_STATE, {}, {}, {}, {});
+        _hidl_cb(FAILURE(Result::INVALID_STATE), {}, {}, {}, {});
         return Void();
     }
 
-    auto t = std::make_unique<ReadThread>(this,
-                                          util::countChannels(mCommon.getChannelMask()),
-                                          mCommon.getSampleRate(),
-                                          mCommon.getFrameCount(),
-                                          frameSize * framesCount);
+    auto t = std::make_unique<ReadThread>(this, frameSize * framesCount);
 
     if (t->isRunning()) {
         _hidl_cb(Result::OK,
@@ -433,7 +414,7 @@ Return<void> StreamIn::prepareForReading(uint32_t frameSize,
 
         mReadThread = std::move(t);
     } else {
-        _hidl_cb(Result::INVALID_ARGUMENTS, {}, {}, {}, {});
+        _hidl_cb(FAILURE(Result::INVALID_ARGUMENTS), {}, {}, {}, {});
     }
 
     return Void();
@@ -444,7 +425,7 @@ Return<uint32_t> StreamIn::getInputFramesLost() {
 }
 
 Return<void> StreamIn::getCapturePosition(getCapturePosition_cb _hidl_cb) {
-    _hidl_cb(Result::NOT_SUPPORTED, 0, 0);  // see ReadThread::doGetCapturePosition
+    _hidl_cb(FAILURE(Result::NOT_SUPPORTED), 0, 0);  // see ReadThread::doGetCapturePosition
     return Void();
 }
 
@@ -455,12 +436,18 @@ Return<void> StreamIn::getActiveMicrophones(getActiveMicrophones_cb _hidl_cb) {
 
 Return<Result> StreamIn::setMicrophoneDirection(MicrophoneDirection direction) {
     (void)direction;
-    return Result::NOT_SUPPORTED;
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 Return<Result> StreamIn::setMicrophoneFieldDimension(float zoom) {
     (void)zoom;
-    return Result::NOT_SUPPORTED;
+    return FAILURE(Result::NOT_SUPPORTED);
+}
+
+void StreamIn::setMicMute(bool mute) {
+    mEffectiveVolume =
+        (mute && (getDeviceAddress().device & AudioDevice::IN_BUILTIN_MIC))
+            ? 0.0f : 1.0f;
 }
 
 }  // namespace implementation

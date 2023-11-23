@@ -12,15 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Make test APK
-// ============================================================
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_base_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_base_license"],
+}
 
 android_test {
-    name: "FrameworksWifiApiTests",
+    name: "FrameworksWifiNonUpdatableApiTests",
 
     defaults: ["framework-wifi-test-defaults"],
 
-    srcs: ["**/*.java"],
+    srcs: ["src/**/*.java"],
 
     jacoco: {
         include_filter: ["android.net.wifi.*"],
@@ -30,11 +36,9 @@ android_test {
 
     static_libs: [
         "androidx.test.rules",
-        "core-test-rules",
+        "frameworks-base-testutils",
         "guava",
         "mockito-target-minus-junit4",
-        "net-tests-utils",
-        "frameworks-base-testutils",
         "truth-prebuilt",
     ],
 
@@ -44,7 +48,6 @@ android_test {
     ],
 
     test_suites: [
-        "device-tests",
-        "mts",
+        "general-tests",
     ],
 }

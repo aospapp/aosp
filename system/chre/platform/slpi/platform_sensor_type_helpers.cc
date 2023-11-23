@@ -174,23 +174,6 @@ uint8_t PlatformSensorTypeHelpersBase::toCalibratedSensorType(
   return sensorType;
 }
 
-uint8_t PlatformSensorTypeHelpersBase::toUncalibratedSensorType(
-    uint8_t sensorType) {
-  switch (sensorType) {
-    case CHRE_SENSOR_TYPE_ACCELEROMETER:
-      return CHRE_SENSOR_TYPE_UNCALIBRATED_ACCELEROMETER;
-    case CHRE_SENSOR_TYPE_GYROSCOPE:
-      return CHRE_SENSOR_TYPE_UNCALIBRATED_GYROSCOPE;
-    case CHRE_SENSOR_TYPE_GEOMAGNETIC_FIELD:
-      return CHRE_SENSOR_TYPE_UNCALIBRATED_GEOMAGNETIC_FIELD;
-    default:
-      /* empty */
-      break;
-  }
-
-  return sensorType;
-}
-
 bool PlatformSensorTypeHelpersBase::reportsBias(uint8_t sensorType) {
   switch (sensorType) {
     case CHRE_SENSOR_TYPE_ACCELEROMETER:
@@ -206,6 +189,23 @@ bool PlatformSensorTypeHelpersBase::reportsBias(uint8_t sensorType) {
 #else
       return false;
 #endif
+  }
+}
+
+void PlatformSensorTypeHelpersBase::rewriteToChreSensorType(
+    uint8_t *sensorType) {
+  CHRE_ASSERT(sensorType);
+
+  if (*sensorType == CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_ACCEL) {
+    *sensorType = CHRE_SENSOR_TYPE_ACCELEROMETER;
+  } else if (*sensorType == CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_ACCEL) {
+    *sensorType = CHRE_SENSOR_TYPE_UNCALIBRATED_ACCELEROMETER;
+  } else if (*sensorType == CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_GYRO) {
+    *sensorType = CHRE_SENSOR_TYPE_UNCALIBRATED_GYROSCOPE;
+  } else if (*sensorType == CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_MAG) {
+    *sensorType = CHRE_SENSOR_TYPE_UNCALIBRATED_GEOMAGNETIC_FIELD;
+  } else if (*sensorType == CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_LIGHT) {
+    *sensorType = CHRE_SENSOR_TYPE_LIGHT;
   }
 }
 

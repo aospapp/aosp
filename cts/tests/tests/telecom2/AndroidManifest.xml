@@ -15,69 +15,72 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.telecom2.cts">
-    <uses-sdk android:minSdkVersion="21" />
+     package="android.telecom2.cts">
+    <uses-sdk android:minSdkVersion="21"/>
 
     <!--
-        This app contains tests to verify Telecom's behavior when the app is missing certain
-        permissions.
-    -->
+                This app contains tests to verify Telecom's behavior when the app is missing certain
+                permissions.
+            -->
 
-    <application>
-        <uses-library android:name="android.test.runner" />
+    <!-- Must be debuggable for compat shell commands to work on user builds -->
+    <application android:debuggable="true">
+        <uses-library android:name="android.test.runner"/>
 
         <service android:name="android.telecom.cts.MockConnectionService"
-            android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE" >
+             android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.telecom.ConnectionService" />
+                <action android:name="android.telecom.ConnectionService"/>
             </intent-filter>
         </service>
 
         <service android:name="android.telecom.cts.MockInCallService"
-            android:permission="android.permission.BIND_INCALL_SERVICE" >
+             android:permission="android.permission.BIND_INCALL_SERVICE"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.telecom.InCallService"/>
             </intent-filter>
         </service>
 
-        <activity android:name="android.telecom.cts.MockDialerActivity">
+        <activity android:name="android.telecom.cts.MockDialerActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.DIAL" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:mimeType="vnd.android.cursor.item/phone" />
-                <data android:mimeType="vnd.android.cursor.item/person" />
+                <action android:name="android.intent.action.DIAL"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:mimeType="vnd.android.cursor.item/phone"/>
+                <data android:mimeType="vnd.android.cursor.item/person"/>
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.DIAL" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="voicemail" />
+                <action android:name="android.intent.action.DIAL"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="voicemail"/>
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.DIAL" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.DIAL"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <action android:name="android.intent.action.DIAL" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="tel" />
+                <action android:name="android.intent.action.VIEW"/>
+                <action android:name="android.intent.action.DIAL"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="tel"/>
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.telecom2.cts"
-                     android:label="CTS tests for android.telecom package">
+         android:targetPackage="android.telecom2.cts"
+         android:label="CTS tests for android.telecom package">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 </manifest>
-

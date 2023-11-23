@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -473,6 +473,11 @@ int main(int argc, char *argv[])
 
 		cert = &certs[i];
 
+		if (cert->fn == NULL) {
+			/* Certificate not requested. Skip to the next one */
+			continue;
+		}
+
 		/* Create a new stack of extensions. This stack will be used
 		 * to create the certificate */
 		CHECK_NULL(sk, sk_X509_EXTENSION_new_null());
@@ -492,7 +497,12 @@ int main(int argc, char *argv[])
 			 */
 			switch (ext->type) {
 			case EXT_TYPE_NVCOUNTER:
-				if (ext->arg) {
+				if (ext->optional && ext->arg == NULL) {
+					/* Skip this NVCounter */
+					continue;
+				} else {
+					/* Checked by `check_cmd_params` */
+					assert(ext->arg != NULL);
 					nvctr = atoi(ext->arg);
 					CHECK_NULL(cert_ext, ext_new_nvcounter(ext_nid,
 						EXT_CRIT, nvctr));
@@ -505,7 +515,7 @@ int main(int argc, char *argv[])
 						memset(md, 0x0, SHA512_DIGEST_LENGTH);
 					} else {
 						/* Do not include this hash in the certificate */
-						break;
+						continue;
 					}
 				} else {
 					/* Calculate the hash of the file */
@@ -534,9 +544,14 @@ int main(int argc, char *argv[])
 		}
 
 		/* Create certificate. Signed with corresponding key */
-		if (cert->fn && !cert_new(hash_alg, cert, VAL_DAYS, 0, sk)) {
+		if (!cert_new(hash_alg, cert, VAL_DAYS, 0, sk)) {
 			ERROR("Cannot create %s\n", cert->cn);
 			exit(1);
+		}
+
+		for (cert_ext = sk_X509_EXTENSION_pop(sk); cert_ext != NULL;
+				cert_ext = sk_X509_EXTENSION_pop(sk)) {
+			X509_EXTENSION_free(cert_ext);
 		}
 
 		sk_X509_EXTENSION_free(sk);
@@ -576,10 +591,44 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	/* If we got here, then we must have filled the key array completely.
+	 * We can then safely call free on all of the keys in the array
+	 */
+	for (i = 0; i < num_keys; i++) {
+		EVP_PKEY_free(keys[i].key);
+	}
+
 #ifndef OPENSSL_NO_ENGINE
 	ENGINE_cleanup();
 #endif
 	CRYPTO_cleanup_all_ex_data();
+
+
+	/* We allocated strings through strdup, so now we have to free them */
+	for (i = 0; i < num_keys; i++) {
+		if (keys[i].fn != NULL) {
+			void *ptr = keys[i].fn;
+
+			keys[i].fn = NULL;
+			free(ptr);
+		}
+	}
+	for (i = 0; i < num_extensions; i++) {
+		if (extensions[i].arg != NULL) {
+			void *ptr = (void *)extensions[i].arg;
+
+			extensions[i].arg = NULL;
+			free(ptr);
+		}
+	}
+	for (i = 0; i < num_certs; i++) {
+		if (certs[i].fn != NULL) {
+			void *ptr = (void *)certs[i].fn;
+
+			certs[i].fn = NULL;
+			free(ptr);
+		}
+	}
 
 	return 0;
 }

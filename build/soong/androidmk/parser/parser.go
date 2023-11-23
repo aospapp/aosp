@@ -212,8 +212,21 @@ func (p *parser) parseDirective() bool {
 	expression := SimpleMakeString("", pos)
 
 	switch d {
-	case "endif", "endef", "else":
+	case "endif", "endef":
 		// Nothing
+	case "else":
+		p.ignoreSpaces()
+		if p.tok != '\n' {
+			d = p.scanner.TokenText()
+			p.accept(scanner.Ident)
+			if d == "ifdef" || d == "ifndef" || d == "ifeq" || d == "ifneq" {
+				d = "el" + d
+				p.ignoreSpaces()
+				expression = p.parseExpression()
+			} else {
+				p.errorf("expected ifdef/ifndef/ifeq/ifneq, found %s", d)
+			}
+		}
 	case "define":
 		expression, endPos = p.parseDefine()
 	default:
@@ -484,12 +497,6 @@ loop:
 		switch p.tok {
 		case '\\':
 			p.parseEscape()
-			if p.tok == '\n' {
-				// Special case: '\' does not "escape" newline in comment (b/127521510)
-				comment += "\\"
-				p.accept(p.tok)
-				break loop
-			}
 			comment += "\\" + p.scanner.TokenText()
 			p.accept(p.tok)
 		case '\n':
@@ -546,12 +553,14 @@ var directives = [...]string{
 	"else",
 	"endef",
 	"endif",
+	"export",
 	"ifdef",
 	"ifeq",
 	"ifndef",
 	"ifneq",
 	"include",
 	"-include",
+	"unexport",
 }
 
 var functions = [...]string{

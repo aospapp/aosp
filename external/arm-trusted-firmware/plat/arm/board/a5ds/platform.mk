@@ -1,8 +1,11 @@
 #
-# Copyright (c) 2019, Arm Limited. All rights reserved.
+# Copyright (c) 2019-2020, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
+
+# Firmware Configuration Framework sources
+include lib/fconf/fconf.mk
 
 # Add `libfdt` and Arm common helpers required for Dynamic Config
 include lib/libfdt/libfdt.mk
@@ -11,9 +14,10 @@ DYN_CFG_SOURCES		+=	plat/arm/common/arm_dyn_cfg.c		\
 				plat/arm/common/arm_dyn_cfg_helpers.c	\
 				common/fdt_wrappers.c
 
-A5DS_GIC_SOURCES	:=	drivers/arm/gic/common/gic_common.c	\
-				drivers/arm/gic/v2/gicv2_main.c		\
-				drivers/arm/gic/v2/gicv2_helpers.c	\
+# Include GICv2 driver files
+include drivers/arm/gic/v2/gicv2.mk
+
+A5DS_GIC_SOURCES	:=	${GICV2_SOURCES}			\
 				plat/common/plat_gicv2.c		\
 				plat/arm/common/arm_gicv2.c
 
@@ -38,6 +42,7 @@ BL1_SOURCES		+=	drivers/io/io_fip.c				\
 				plat/arm/common/arm_err.c			\
 				plat/arm/board/a5ds/a5ds_err.c			\
 				plat/arm/common/arm_io_storage.c		\
+				plat/arm/common/fconf/arm_fconf_io.c		\
 				plat/arm/board/a5ds/${ARCH}/a5ds_helpers.S	\
 				plat/arm/board/a5ds/a5ds_bl1_setup.c		\
 				lib/aarch32/arm32_aeabi_divmod.c		\
@@ -58,6 +63,7 @@ BL2_SOURCES		+=	lib/aarch32/arm32_aeabi_divmod.c		\
 				plat/arm/common/arm_err.c			\
 				plat/arm/board/a5ds/a5ds_err.c			\
 				plat/arm/common/arm_io_storage.c		\
+				plat/arm/common/fconf/arm_fconf_io.c		\
 				plat/arm/common/${ARCH}/arm_bl2_mem_params_desc.c	\
 				plat/arm/common/arm_image_load.c		\
 				common/desc_image_load.c			\
@@ -67,17 +73,21 @@ BL2_SOURCES		+=	lib/aarch32/arm32_aeabi_divmod.c		\
 # Add the FDT_SOURCES and options for Dynamic Config (only for Unix env)
 ifdef UNIX_MK
 
-FVP_TB_FW_CONFIG	:=	${BUILD_PLAT}/fdts/a5ds_tb_fw_config.dtb
+FW_CONFIG	:=      ${BUILD_PLAT}/fdts/a5ds_fw_config.dtb
+TB_FW_CONFIG	:=	${BUILD_PLAT}/fdts/a5ds_tb_fw_config.dtb
 
 # Add the TB_FW_CONFIG to FIP and specify the same to certtool
-$(eval $(call TOOL_ADD_PAYLOAD,${FVP_TB_FW_CONFIG},--tb-fw-config))
+$(eval $(call TOOL_ADD_PAYLOAD,${TB_FW_CONFIG},--tb-fw-config,${TB_FW_CONFIG}))
+# Add the FW_CONFIG to FIP and specify the same to certtool
+$(eval $(call TOOL_ADD_PAYLOAD,${FW_CONFIG},--fw-config,${FW_CONFIG}))
 
 $(eval FVP_HW_CONFIG	:=	${BUILD_PLAT}/$(patsubst %.dts,%.dtb, \
 	fdts/$(notdir ${FVP_HW_CONFIG_DTS})))
 # Add the HW_CONFIG to FIP and specify the same to certtool
-$(eval $(call TOOL_ADD_PAYLOAD,${FVP_HW_CONFIG},--hw-config))
+$(eval $(call TOOL_ADD_PAYLOAD,${FVP_HW_CONFIG},--hw-config,${FVP_HW_CONFIG}))
 
-FDT_SOURCES		+=	plat/arm/board/a5ds/fdts/a5ds_tb_fw_config.dts \
+FDT_SOURCES		+=	plat/arm/board/a5ds/fdts/a5ds_fw_config.dts \
+				plat/arm/board/a5ds/fdts/a5ds_tb_fw_config.dts \
 					${FVP_HW_CONFIG_DTS}
 endif
 

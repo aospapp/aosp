@@ -13,6 +13,23 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["external_javapoet_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_javapoet_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE.txt",
+    ],
+}
+
 java_library_host {
     name: "javapoet",
     srcs: ["src/main/java/**/*.java"],

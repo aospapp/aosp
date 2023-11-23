@@ -3,6 +3,8 @@
 # found in the LICENSE file.
 """Autotest for Logitech Meetup firmware updater."""
 
+from __future__ import print_function
+
 import logging
 import os
 import re
@@ -218,7 +220,7 @@ class enterprise_CFM_LogitechMeetupUpdater(test.test):
 
         logging.debug('Parsing output from updater %s', cmd_output)
         if 'MeetUp image not found' in cmd_output or 'MeetUp' not in cmd_output:
-           raise error.TestFail('MeetUp image not found on DUT')
+            raise error.TestFail('MeetUp image not found on DUT')
         try:
             version = {}
             output = cmd_output.split('\n')
@@ -353,12 +355,12 @@ class enterprise_CFM_LogitechMeetupUpdater(test.test):
         """Pretty print Meetup firmware version."""
 
         if info_str:
-            print info_str
-        print 'Video version: ', version['Video']
-        print 'Eeprom version: ', version['Eeprom']
-        print 'Audio version: ', version['Audio']
-        print 'Codec version: ', version['Codec']
-        print 'BLE version: ', version['BLE']
+            print(info_str)
+        print('Video version: ', version['Video'])
+        print('Eeprom version: ', version['Eeprom'])
+        print('Audio version: ', version['Audio'])
+        print('Codec version: ', version['Codec'])
+        print('BLE version: ', version['BLE'])
 
     def is_device_firmware_equal_to(self, expected_ver):
         """Check that the device fw version is equal to given version."""

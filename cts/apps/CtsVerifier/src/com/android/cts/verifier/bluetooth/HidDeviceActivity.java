@@ -23,6 +23,7 @@ import android.bluetooth.BluetoothHidDeviceAppQosSettings;
 import android.bluetooth.BluetoothHidDeviceAppSdpSettings;
 import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 
 import android.util.Log;
@@ -161,12 +162,22 @@ public class HidDeviceActivity extends PassFailButtons.Activity {
                 testReportError();
             }
         });
+
+        if (isAndroidTv()) {
+            startForegroundService(new Intent(getApplication(),
+                  FocusLossPreventionService.class));
+        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         unregister();
+
+        if (isAndroidTv()) {
+            stopService(new Intent(getApplication(),
+                  FocusLossPreventionService.class));
+        }
     }
 
     private boolean register() {
@@ -288,5 +299,11 @@ public class HidDeviceActivity extends PassFailButtons.Activity {
             return 0;
         }
         return (byte) (c - 'a' + 0x04);
+    }
+
+    private boolean isAndroidTv() {
+        final PackageManager pm = getApplicationContext().getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION)
+                  || pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     }
 }

@@ -22,8 +22,8 @@ import android.content.Intent;
 
 import androidx.annotation.Nullable;
 
-import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.ui.preference.CarUiTwoActionIconPreference;
 import com.android.settingslib.applications.DefaultAppInfo;
 
 /**
@@ -31,7 +31,7 @@ import com.android.settingslib.applications.DefaultAppInfo;
  * an option to navigate to the settings of the selected default app.
  */
 public abstract class DefaultAppsPickerEntryBasePreferenceController extends
-        DefaultAppEntryBasePreferenceController<ButtonPreference> {
+        DefaultAppEntryBasePreferenceController<CarUiTwoActionIconPreference> {
 
     public DefaultAppsPickerEntryBasePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -39,30 +39,31 @@ public abstract class DefaultAppsPickerEntryBasePreferenceController extends
     }
 
     @Override
-    protected Class<ButtonPreference> getPreferenceType() {
-        return ButtonPreference.class;
+    protected Class<CarUiTwoActionIconPreference> getPreferenceType() {
+        return CarUiTwoActionIconPreference.class;
     }
 
     @Override
-    protected void updateState(ButtonPreference preference) {
+    protected void updateState(CarUiTwoActionIconPreference preference) {
         super.updateState(preference);
 
         // If activity does not exist, return. Otherwise allow intenting to the activity.
         Intent intent = getSettingIntent(getCurrentDefaultAppInfo());
         if (intent == null || intent.resolveActivityInfo(
                 getContext().getPackageManager(), intent.getFlags()) == null) {
-            preference.showAction(false);
+            preference.setSecondaryActionVisible(false);
             return;
         }
 
         // Use startActivityForResult because some apps need to check the identity of the caller.
-        preference.setOnButtonClickListener(p -> getContext().startActivityForResult(
-                getContext().getBasePackageName(),
-                intent,
-                /* requestCode= */ 0,
-                /* options= */ null
-        ));
-        preference.showAction(true);
+        preference.setOnSecondaryActionClickListener(() -> {
+            getContext().startActivityForResult(
+                    getContext().getBasePackageName(),
+                    intent,
+                    /* requestCode= */ 0,
+                    /* options= */ null);
+        });
+        preference.setSecondaryActionVisible(true);
     }
 
     /**

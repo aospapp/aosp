@@ -4,32 +4,34 @@
 
 //! Implements vhost-based virtio devices.
 
-use std;
 use std::fmt::{self, Display};
 
+use base::{Error as SysError, TubeError};
 use net_util::Error as TapError;
 use remain::sorted;
-use sys_util::Error as SysError;
 use vhost::Error as VhostError;
 
+mod control_socket;
 mod net;
+pub mod user;
 mod vsock;
 mod worker;
 
+pub use self::control_socket::*;
 pub use self::net::Net;
 pub use self::vsock::Vsock;
 
 #[sorted]
 #[derive(Debug)]
 pub enum Error {
-    /// Cloning kill eventfd failed.
-    CloneKillEventFd(SysError),
-    /// Creating kill eventfd failed.
-    CreateKillEventFd(SysError),
-    /// Creating poll context failed.
-    CreatePollContext(SysError),
-    /// Error while polling for events.
-    PollError(SysError),
+    /// Cloning kill event failed.
+    CloneKillEvent(SysError),
+    /// Creating kill event failed.
+    CreateKillEvent(SysError),
+    /// Creating tube failed.
+    CreateTube(TubeError),
+    /// Creating wait context failed.
+    CreateWaitContext(SysError),
     /// Enabling tap interface failed.
     TapEnable(TapError),
     /// Open tap device failed.
@@ -46,9 +48,9 @@ pub enum Error {
     TapSetVnetHdrSize(TapError),
     /// Get features failed.
     VhostGetFeatures(VhostError),
-    /// Failed to create vhost eventfd.
+    /// Failed to create vhost event.
     VhostIrqCreate(SysError),
-    /// Failed to read vhost eventfd.
+    /// Failed to read vhost event.
     VhostIrqRead(SysError),
     /// Net set backend failed.
     VhostNetSetBackend(VhostError),
@@ -74,6 +76,8 @@ pub enum Error {
     VhostVsockSetCid(VhostError),
     /// Failed to start vhost-vsock driver.
     VhostVsockStart(VhostError),
+    /// Error while waiting for events.
+    WaitError(SysError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -85,10 +89,10 @@ impl Display for Error {
 
         #[sorted]
         match self {
-            CloneKillEventFd(e) => write!(f, "failed to clone kill eventfd: {}", e),
-            CreateKillEventFd(e) => write!(f, "failed to create kill eventfd: {}", e),
-            CreatePollContext(e) => write!(f, "failed to create poll context: {}", e),
-            PollError(e) => write!(f, "failed polling for events: {}", e),
+            CloneKillEvent(e) => write!(f, "failed to clone kill event: {}", e),
+            CreateKillEvent(e) => write!(f, "failed to create kill event: {}", e),
+            CreateTube(e) => write!(f, "failed to create tube: {}", e),
+            CreateWaitContext(e) => write!(f, "failed to create poll context: {}", e),
             TapEnable(e) => write!(f, "failed to enable tap interface: {}", e),
             TapOpen(e) => write!(f, "failed to open tap device: {}", e),
             TapSetIp(e) => write!(f, "failed to set tap IP: {}", e),
@@ -97,8 +101,8 @@ impl Display for Error {
             TapSetOffload(e) => write!(f, "failed to set tap interface offload flags: {}", e),
             TapSetVnetHdrSize(e) => write!(f, "failed to set vnet header size: {}", e),
             VhostGetFeatures(e) => write!(f, "failed to get features: {}", e),
-            VhostIrqCreate(e) => write!(f, "failed to create vhost eventfd: {}", e),
-            VhostIrqRead(e) => write!(f, "failed to read vhost eventfd: {}", e),
+            VhostIrqCreate(e) => write!(f, "failed to create vhost event: {}", e),
+            VhostIrqRead(e) => write!(f, "failed to read vhost event: {}", e),
             VhostNetSetBackend(e) => write!(f, "net set backend failed: {}", e),
             VhostOpen(e) => write!(f, "failed to open vhost device: {}", e),
             VhostSetFeatures(e) => write!(f, "failed to set features: {}", e),
@@ -111,6 +115,7 @@ impl Display for Error {
             VhostSetVringNum(e) => write!(f, "failed to set vring num: {}", e),
             VhostVsockSetCid(e) => write!(f, "failed to set CID for guest: {}", e),
             VhostVsockStart(e) => write!(f, "failed to start vhost-vsock driver: {}", e),
+            WaitError(e) => write!(f, "failed waiting for events: {}", e),
         }
     }
 }

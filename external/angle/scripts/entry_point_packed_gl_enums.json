@@ -105,6 +105,12 @@
         "target": "BufferBinding",
         "usage": "BufferUsage"
     },
+    "glBufferStorage": {
+        "target": "BufferBinding"
+    },
+    "glBufferStorageExternal": {
+        "target": "BufferBinding"
+    },
     "glBufferStorageMem": {
         "memory": "MemoryObjectID",
         "target": "TextureType"
@@ -415,6 +421,10 @@
         "textarget": "TextureTarget",
         "texture": "TextureID"
     },
+    "glFramebufferTexture2DMultisample": {
+        "textarget": "TextureTarget",
+        "texture": "TextureID"
+    },
     "glFramebufferTexture3D": {
         "textarget": "TextureTarget",
         "texture": "TextureID"
@@ -484,13 +494,16 @@
         "program": "ShaderProgramID"
     },
     "glGetActiveUniformBlockiv": {
-        "program": "ShaderProgramID"
+        "program": "ShaderProgramID",
+        "uniformBlockIndex": "UniformBlockIndex"
     },
     "glGetActiveUniformBlockivRobust": {
-        "program": "ShaderProgramID"
+        "program": "ShaderProgramID",
+        "uniformBlockIndex": "UniformBlockIndex"
     },
     "glGetActiveUniformBlockName": {
-        "program": "ShaderProgramID"
+        "program": "ShaderProgramID",
+        "uniformBlockIndex": "UniformBlockIndex"
     },
     "glGetActiveUniformName": {
         "program": "ShaderProgramID"
@@ -1062,7 +1075,8 @@
         "buffer": "BufferID"
     },
     "glNamedBufferStorage": {
-        "buffer": "BufferID"
+        "buffer": "BufferID",
+        "target": "BufferBinding"
     },
     "glNamedBufferSubData": {
         "buffer": "BufferID"
@@ -1460,10 +1474,12 @@
         "fence": "FenceNVID"
     },
     "glTexBuffer": {
-        "buffer": "BufferID"
+        "buffer": "BufferID",
+        "target": "TextureType"
     },
     "glTexBufferRange": {
-        "buffer": "BufferID"
+        "buffer": "BufferID",
+        "target": "TextureType"
     },
     "glTexCoordPointer": {
         "type": "VertexAttribType"
@@ -1568,6 +1584,22 @@
         "target": "TextureType"
     },
     "glTexStorageMem3DMultisample": {
+        "memory": "MemoryObjectID",
+        "target": "TextureType"
+    },
+    "glTexStorageMemFlags2D": {
+        "memory": "MemoryObjectID",
+        "target": "TextureType"
+    },
+    "glTexStorageMemFlags2DMultisample": {
+        "memory": "MemoryObjectID",
+        "target": "TextureType"
+    },
+    "glTexStorageMemFlags3D": {
+        "memory": "MemoryObjectID",
+        "target": "TextureType"
+    },
+    "glTexStorageMemFlags3DMultisample": {
         "memory": "MemoryObjectID",
         "target": "TextureType"
     },
@@ -1796,7 +1828,8 @@
         "location": "UniformLocation"
     },
     "glUniformBlockBinding": {
-        "program": "ShaderProgramID"
+        "program": "ShaderProgramID",
+        "uniformBlockIndex": "UniformBlockIndex"
     },
     "glUnmapBuffer": {
         "target": "BufferBinding"

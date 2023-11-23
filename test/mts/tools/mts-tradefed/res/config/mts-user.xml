@@ -16,6 +16,8 @@
 <configuration description="Config to run MTS tests on user builds.">
     <include name="mts" />
 
+    <option name="enable-root" value="false" />
+
     <include name="mts-tests-list-user" />
 
     <option name="plan" value="mts-user" />

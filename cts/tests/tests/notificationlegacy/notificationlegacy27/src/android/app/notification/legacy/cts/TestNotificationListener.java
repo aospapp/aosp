@@ -21,6 +21,8 @@ import android.service.notification.StatusBarNotification;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class TestNotificationListener extends NotificationListenerService {
     public static final String TAG = "TestNotificationListener";
@@ -29,7 +31,7 @@ public class TestNotificationListener extends NotificationListenerService {
     private ArrayList<String> mTestPackages = new ArrayList<>();
 
     public ArrayList<StatusBarNotification> mPosted = new ArrayList<>();
-    public ArrayList<StatusBarNotification> mRemoved = new ArrayList<>();
+    public Map<String, Integer> mRemoved = new HashMap<>();
     public RankingMap mRankingMap;
 
     private static TestNotificationListener sNotificationListenerInstance = null;
@@ -80,10 +82,11 @@ public class TestNotificationListener extends NotificationListenerService {
     }
 
     @Override
-    public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap) {
+    public void onNotificationRemoved(StatusBarNotification sbn, RankingMap rankingMap,
+            int reason) {
         if (!mTestPackages.contains(sbn.getPackageName())) { return; }
         mRankingMap = rankingMap;
-        mRemoved.add(sbn);
+        mRemoved.put(sbn.getKey(), reason);
     }
 
     @Override

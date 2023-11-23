@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsSecurityTestCases",
     defaults: ["cts_defaults"],
@@ -27,11 +31,12 @@ android_test {
         "compatibility-common-util-devicesidelib",
         "guava",
         "platform-test-annotations",
+        "hamcrest-library",
     ],
     libs: [
-        "android.test.runner.stubs",
+        "android.test.runner",
         "org.apache.http.legacy",
-        "android.test.base.stubs",
+        "android.test.base",
     ],
     java_resources: [
         ":PackageInstallerTestApp",
@@ -53,13 +58,13 @@ android_test {
         "src/**/*.java",
         "src/android/security/cts/activity/ISecureRandomService.aidl",
         "aidl/android/security/cts/IIsolatedService.aidl",
+        "aidl/android/security/cts/CVE_2021_0327/IBadProvider.aidl",
     ],
     //sdk_version: "current",
     platform_apis: true,
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
         "sts",
     ],

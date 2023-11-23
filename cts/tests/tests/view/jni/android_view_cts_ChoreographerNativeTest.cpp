@@ -17,20 +17,21 @@
 
 #include <android/choreographer.h>
 #include <android/looper.h>
-
 #include <jni.h>
 #include <sys/time.h>
 #include <time.h>
 
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <set>
 #include <sstream>
+#include <string>
 #include <thread>
 
-#define LOG_TAG "ChoreographerNative"
+#define LOG_TAG "ChoreographerNativeTest"
 
 #define ASSERT(condition, format, args...) \
         if (!(condition)) { \
@@ -45,18 +46,35 @@ static constexpr std::chrono::nanoseconds NOMINAL_VSYNC_PERIOD{16ms};
 static constexpr std::chrono::nanoseconds DELAY_PERIOD{NOMINAL_VSYNC_PERIOD * 5};
 static constexpr std::chrono::nanoseconds ZERO{std::chrono::nanoseconds::zero()};
 
+struct {
+    struct {
+        jclass clazz;
+        jmethodID checkRefreshRateIsCurrentAndSwitch;
+    } choreographerNativeTest;
+} gJni;
+
 static std::mutex gLock;
 static std::set<int64_t> gSupportedRefreshPeriods;
 struct Callback {
     Callback(const char* name): name(name) {}
-    const char* name;
+    std::string name;
     int count{0};
     std::chrono::nanoseconds frameTime{0LL};
 };
 
 struct RefreshRateCallback {
     RefreshRateCallback(const char* name): name(name) {}
-    const char* name;
+    std::string name;
+    int count{0};
+    std::chrono::nanoseconds vsyncPeriod{0LL};
+};
+
+struct RefreshRateCallbackWithDisplayManager {
+    RefreshRateCallbackWithDisplayManager(const char* name, JNIEnv* env, jobject clazz)
+          : name(name), env(env), clazz(clazz) {}
+    std::string name;
+    JNIEnv* env;
+    jobject clazz;
     int count{0};
     std::chrono::nanoseconds vsyncPeriod{0LL};
 };
@@ -79,6 +97,17 @@ static void refreshRateCallback(int64_t vsyncPeriodNanos, void* data) {
     cb->vsyncPeriod = std::chrono::nanoseconds{vsyncPeriodNanos};
 }
 
+static void refreshRateCallbackWithDisplayManager(int64_t vsyncPeriodNanos, void* data) {
+    std::lock_guard<std::mutex> _l(gLock);
+    RefreshRateCallbackWithDisplayManager* cb =
+            static_cast<RefreshRateCallbackWithDisplayManager*>(data);
+    cb->count++;
+    cb->vsyncPeriod = std::chrono::nanoseconds{vsyncPeriodNanos};
+    cb->env->CallVoidMethod(cb->clazz,
+                            gJni.choreographerNativeTest.checkRefreshRateIsCurrentAndSwitch,
+                            static_cast<int>(std::round(1e9f / cb->vsyncPeriod.count())));
+}
+
 static std::chrono::nanoseconds now() {
     return std::chrono::steady_clock::now().time_since_epoch();
 }
@@ -98,15 +127,15 @@ static void fail(JNIEnv* env, const char* format, ...) {
     free(msg);
 }
 
-static void verifyCallback(JNIEnv* env, Callback* cb, int expectedCount,
+static void verifyCallback(JNIEnv* env, const Callback& cb, int expectedCount,
                            std::chrono::nanoseconds startTime, std::chrono::nanoseconds maxTime) {
     std::lock_guard<std::mutex> _l{gLock};
-    ASSERT(cb->count == expectedCount, "Choreographer failed to invoke '%s' %d times - actual: %d",
-            cb->name, expectedCount, cb->count);
+    ASSERT(cb.count == expectedCount, "Choreographer failed to invoke '%s' %d times - actual: %d",
+           cb.name.c_str(), expectedCount, cb.count);
     if (maxTime > ZERO) {
-        auto duration = cb->frameTime - startTime;
+        auto duration = cb.frameTime - startTime;
         ASSERT(duration < maxTime, "Callback '%s' has incorrect frame time in invocation %d",
-                cb->name, expectedCount);
+               cb.name.c_str(), expectedCount);
     }
 }
 
@@ -120,25 +149,27 @@ static std::string dumpSupportedRefreshPeriods() {
     return ss.str();
 }
 
-static void verifyRefreshRateCallback(JNIEnv* env, RefreshRateCallback* cb, int expectedMin) {
+template <class T>
+static void verifyRefreshRateCallback(JNIEnv* env, const T& cb, int expectedMin) {
     std::lock_guard<std::mutex> _l(gLock);
-    ASSERT(cb->count >= expectedMin, "Choreographer failed to invoke '%s' %d times - actual: %d",
-            cb->name, expectedMin, cb->count);
+    ASSERT(cb.count >= expectedMin, "Choreographer failed to invoke '%s' %d times - actual: %d",
+           cb.name.c_str(), expectedMin, cb.count);
     // Unfortunately we can't verify the specific vsync period as public apis
     // don't provide a guarantee that we adhere to a particular refresh rate.
     // The best we can do is check that the reported period is contained in the
-    // set of suppoted periods.
-    ASSERT(cb->vsyncPeriod > ZERO,
-            "Choreographer failed to report a nonzero refresh period invoking '%s'",
-            cb->name);
-    ASSERT(gSupportedRefreshPeriods.count(cb->vsyncPeriod.count()) > 0,
-           "Choreographer failed to report a supported refresh period invoking '%s': supported periods: %s, actual: %lu",
-            cb->name, dumpSupportedRefreshPeriods().c_str(), cb->vsyncPeriod.count());
+    // set of supported periods.
+    ASSERT(cb.vsyncPeriod > ZERO,
+           "Choreographer failed to report a nonzero refresh period invoking '%s'",
+           cb.name.c_str());
+    ASSERT(gSupportedRefreshPeriods.count(cb.vsyncPeriod.count()) > 0,
+           "Choreographer failed to report a supported refresh period invoking '%s': supported "
+           "periods: %s, actual: %lu",
+           cb.name.c_str(), dumpSupportedRefreshPeriods().c_str(), cb.vsyncPeriod.count());
 }
 
-static void resetRefreshRateCallback(RefreshRateCallback* cb) {
+static void resetRefreshRateCallback(RefreshRateCallback& cb) {
     std::lock_guard<std::mutex> _l(gLock);
-    cb->count = 0;
+    cb.count = 0;
 }
 
 static jlong android_view_cts_ChoreographerNativeTest_getChoreographer(JNIEnv*, jclass) {
@@ -162,24 +193,24 @@ static jboolean android_view_cts_ChoreographerNativeTest_prepareChoreographerTes
 static void android_view_cts_ChoreographerNativeTest_testPostCallback64WithoutDelayEventuallyRunsCallback(
         JNIEnv* env, jclass, jlong choreographerPtr) {
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    Callback* cb1 = new Callback("cb1");
-    Callback* cb2 = new Callback("cb2");
+    Callback cb1("cb1");
+    Callback cb2("cb2");
     auto start = now();
 
-    AChoreographer_postFrameCallback64(choreographer, frameCallback64, cb1);
-    AChoreographer_postFrameCallback64(choreographer, frameCallback64, cb2);
+    AChoreographer_postFrameCallback64(choreographer, frameCallback64, &cb1);
+    AChoreographer_postFrameCallback64(choreographer, frameCallback64, &cb2);
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
 
     verifyCallback(env, cb1, 1, start, NOMINAL_VSYNC_PERIOD * 3);
     verifyCallback(env, cb2, 1, start, NOMINAL_VSYNC_PERIOD * 3);
     {
         std::lock_guard<std::mutex> _l{gLock};
-        auto delta = cb2->frameTime - cb1->frameTime;
+        auto delta = cb2.frameTime - cb1.frameTime;
         ASSERT(delta == ZERO || delta > ZERO && delta < NOMINAL_VSYNC_PERIOD * 2,
                 "Callback 1 and 2 have frame times too large of a delta in frame times");
     }
 
-    AChoreographer_postFrameCallback64(choreographer, frameCallback64, cb1);
+    AChoreographer_postFrameCallback64(choreographer, frameCallback64, &cb1);
     start = now();
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
     verifyCallback(env, cb1, 2, start, NOMINAL_VSYNC_PERIOD * 3);
@@ -189,11 +220,11 @@ static void android_view_cts_ChoreographerNativeTest_testPostCallback64WithoutDe
 static void android_view_cts_ChoreographerNativeTest_testPostCallback64WithDelayEventuallyRunsCallback(
         JNIEnv* env, jclass, jlong choreographerPtr) {
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    Callback* cb1 = new Callback("cb1");
+    Callback cb1 = Callback("cb1");
     auto start = now();
 
     auto delay = std::chrono::duration_cast<std::chrono::milliseconds>(DELAY_PERIOD).count();
-    AChoreographer_postFrameCallbackDelayed64(choreographer, frameCallback64, cb1, delay);
+    AChoreographer_postFrameCallbackDelayed64(choreographer, frameCallback64, &cb1, delay);
 
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
     verifyCallback(env, cb1, 0, start, ZERO);
@@ -205,16 +236,16 @@ static void android_view_cts_ChoreographerNativeTest_testPostCallback64WithDelay
 static void android_view_cts_ChoreographerNativeTest_testPostCallbackWithoutDelayEventuallyRunsCallback(
         JNIEnv* env, jclass, jlong choreographerPtr) {
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    Callback* cb1 = new Callback("cb1");
-    Callback* cb2 = new Callback("cb2");
+    Callback cb1("cb1");
+    Callback cb2("cb2");
     auto start = now();
     const auto delay = NOMINAL_VSYNC_PERIOD * 3;
     // Delay calculations are known to be broken on 32-bit systems (overflow),
     // so we skip testing the delay on such systems by setting this to ZERO.
     const auto delayToTest = sizeof(long) == sizeof(int64_t) ? delay : ZERO;
 
-    AChoreographer_postFrameCallback(choreographer, frameCallback, cb1);
-    AChoreographer_postFrameCallback(choreographer, frameCallback, cb2);
+    AChoreographer_postFrameCallback(choreographer, frameCallback, &cb1);
+    AChoreographer_postFrameCallback(choreographer, frameCallback, &cb2);
     std::this_thread::sleep_for(delay);
 
     verifyCallback(env, cb1, 1, start, delayToTest);
@@ -224,12 +255,12 @@ static void android_view_cts_ChoreographerNativeTest_testPostCallbackWithoutDela
     // part of the test on systems known to be broken.
     if (sizeof(long) == sizeof(int64_t)) {
         std::lock_guard<std::mutex> _l{gLock};
-        auto delta = cb2->frameTime - cb1->frameTime;
+        auto delta = cb2.frameTime - cb1.frameTime;
         ASSERT(delta == ZERO || delta > ZERO && delta < NOMINAL_VSYNC_PERIOD * 2,
                 "Callback 1 and 2 have frame times too large of a delta in frame times");
     }
 
-    AChoreographer_postFrameCallback(choreographer, frameCallback, cb1);
+    AChoreographer_postFrameCallback(choreographer, frameCallback, &cb1);
     start = now();
     std::this_thread::sleep_for(delay);
 
@@ -245,11 +276,11 @@ static void android_view_cts_ChoreographerNativeTest_testPostCallbackWithDelayEv
     }
 
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    Callback* cb1 = new Callback("cb1");
+    Callback cb1("cb1");
     auto start = now();
 
     auto delay = std::chrono::duration_cast<std::chrono::milliseconds>(DELAY_PERIOD).count();
-    AChoreographer_postFrameCallbackDelayed(choreographer, frameCallback, cb1, delay);
+    AChoreographer_postFrameCallbackDelayed(choreographer, frameCallback, &cb1, delay);
 
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
     verifyCallback(env, cb1, 0, start, ZERO);
@@ -263,12 +294,12 @@ static void android_view_cts_ChoreographerNativeTest_testPostCallbackWithDelayEv
 static void android_view_cts_ChoreographerNativeTest_testPostCallbackMixedWithoutDelayEventuallyRunsCallback(
         JNIEnv* env, jclass, jlong choreographerPtr) {
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    Callback* cb1 = new Callback("cb1");
-    Callback* cb64 = new Callback("cb64");
+    Callback cb1("cb1");
+    Callback cb64("cb64");
     auto start = now();
 
-    AChoreographer_postFrameCallback(choreographer, frameCallback, cb1);
-    AChoreographer_postFrameCallback64(choreographer, frameCallback64, cb64);
+    AChoreographer_postFrameCallback(choreographer, frameCallback, &cb1);
+    AChoreographer_postFrameCallback64(choreographer, frameCallback64, &cb64);
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
 
     verifyCallback(env, cb1, 1, start, ZERO);
@@ -278,12 +309,12 @@ static void android_view_cts_ChoreographerNativeTest_testPostCallbackMixedWithou
     // part of the test on systems known to be broken.
     if (sizeof(long) == sizeof(int64_t)) {
         std::lock_guard<std::mutex> _l{gLock};
-        auto delta = cb64->frameTime - cb1->frameTime;
+        auto delta = cb64.frameTime - cb1.frameTime;
         ASSERT(delta == ZERO || delta > ZERO && delta < NOMINAL_VSYNC_PERIOD * 2,
                 "Callback 1 and 2 have frame times too large of a delta in frame times");
     }
 
-    AChoreographer_postFrameCallback64(choreographer, frameCallback64, cb64);
+    AChoreographer_postFrameCallback64(choreographer, frameCallback64, &cb64);
     start = now();
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
     verifyCallback(env, cb1, 1, start, ZERO);
@@ -293,13 +324,13 @@ static void android_view_cts_ChoreographerNativeTest_testPostCallbackMixedWithou
 static void android_view_cts_ChoreographerNativeTest_testPostCallbackMixedWithDelayEventuallyRunsCallback(
         JNIEnv* env, jclass, jlong choreographerPtr) {
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    Callback* cb1 = new Callback("cb1");
-    Callback* cb64 = new Callback("cb64");
+    Callback cb1("cb1");
+    Callback cb64("cb64");
     auto start = now();
 
     auto delay = std::chrono::duration_cast<std::chrono::milliseconds>(DELAY_PERIOD).count();
-    AChoreographer_postFrameCallbackDelayed(choreographer, frameCallback, cb1, delay);
-    AChoreographer_postFrameCallbackDelayed64(choreographer, frameCallback64, cb64, delay);
+    AChoreographer_postFrameCallbackDelayed(choreographer, frameCallback, &cb1, delay);
+    AChoreographer_postFrameCallbackDelayed64(choreographer, frameCallback64, &cb64, delay);
 
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 3);
     verifyCallback(env, cb1, 0, start, ZERO);
@@ -315,84 +346,84 @@ static void android_view_cts_ChoreographerNativeTest_testPostCallbackMixedWithDe
 static void android_view_cts_ChoreographerNativeTest_testRefreshRateCallback(
         JNIEnv* env, jclass, jlong choreographerPtr) {
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    RefreshRateCallback* cb = new RefreshRateCallback("cb");
+    RefreshRateCallback cb("cb");
 
-    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, cb);
+    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, &cb);
 
     // Give the display system time to push an initial callback.
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 10);
-    verifyRefreshRateCallback(env, cb, 1);
-    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, cb);
+    verifyRefreshRateCallback<RefreshRateCallback>(env, cb, 1);
+    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, &cb);
 }
 
 static void android_view_cts_ChoreographerNativeTest_testUnregisteringRefreshRateCallback(
         JNIEnv* env, jclass, jlong choreographerPtr) {
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    RefreshRateCallback* cb1 = new RefreshRateCallback("cb1");
-    RefreshRateCallback* cb2 = new RefreshRateCallback("cb2");
+    RefreshRateCallback cb1("cb1");
+    RefreshRateCallback cb2("cb2");
 
-    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, cb1);
+    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, &cb1);
 
     // Give the display system time to push an initial callback.
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 10);
-    verifyRefreshRateCallback(env, cb1, 1);
+    verifyRefreshRateCallback<RefreshRateCallback>(env, cb1, 1);
 
-    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, cb1);
+    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, &cb1);
     // Flush out pending callback events for the callback
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 10);
     resetRefreshRateCallback(cb1);
 
-    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, cb2);
+    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, &cb2);
     // Verify that cb2 is called on registration, but not cb1.
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 10);
-    verifyRefreshRateCallback(env, cb1, 0);
-    verifyRefreshRateCallback(env, cb2, 1);
-    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, cb2);
+    verifyRefreshRateCallback<RefreshRateCallback>(env, cb1, 0);
+    verifyRefreshRateCallback<RefreshRateCallback>(env, cb2, 1);
+    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, &cb2);
 }
 
 static void android_view_cts_ChoreographerNativeTest_testMultipleRefreshRateCallbacks(
         JNIEnv* env, jclass, jlong choreographerPtr) {
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    RefreshRateCallback* cb1 = new RefreshRateCallback("cb1");
-    RefreshRateCallback* cb2 = new RefreshRateCallback("cb2");
+    RefreshRateCallback cb1("cb1");
+    RefreshRateCallback cb2("cb2");
 
-    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, cb1);
-    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, cb2);
+    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, &cb1);
+    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, &cb2);
 
     // Give the display system time to push an initial refresh rate change.
     // Polling the event will allow both callbacks to be triggered.
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 10);
-    verifyRefreshRateCallback(env, cb1, 1);
-    verifyRefreshRateCallback(env, cb2, 1);
+    verifyRefreshRateCallback<RefreshRateCallback>(env, cb1, 1);
+    verifyRefreshRateCallback<RefreshRateCallback>(env, cb2, 1);
 
-    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, cb1);
-    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, cb2);
+    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, &cb1);
+    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, &cb2);
 }
 
 static void android_view_cts_ChoreographerNativeTest_testAttemptToAddRefreshRateCallbackTwiceDoesNotAddTwice(
         JNIEnv* env, jclass, jlong choreographerPtr) {
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    RefreshRateCallback* cb1 = new RefreshRateCallback("cb1");
-    RefreshRateCallback* cb2 = new RefreshRateCallback("cb2");
+    RefreshRateCallback cb1("cb1");
+    RefreshRateCallback cb2("cb2");
 
-    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, cb1);
-    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, cb1);
+    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, &cb1);
+    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, &cb1);
 
     // Give the display system time to push an initial callback.
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 10);
-    verifyRefreshRateCallback(env, cb1, 1);
+    verifyRefreshRateCallback<RefreshRateCallback>(env, cb1, 1);
 
-    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, cb1);
+    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, &cb1);
     // Flush out pending callback events for the callback
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 10);
     resetRefreshRateCallback(cb1);
 
-    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, cb2);
+    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, &cb2);
     // Verify that cb1 is not called again, even thiough it was registered once
     // and unregistered again
     std::this_thread::sleep_for(NOMINAL_VSYNC_PERIOD * 10);
-    verifyRefreshRateCallback(env, cb1, 0);
-    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, cb2);
+    verifyRefreshRateCallback<RefreshRateCallback>(env, cb1, 0);
+    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, &cb2);
 }
 
 // This test must be run on the UI thread for fine-grained control of looper
@@ -400,27 +431,27 @@ static void android_view_cts_ChoreographerNativeTest_testAttemptToAddRefreshRate
 static void android_view_cts_ChoreographerNativeTest_testRefreshRateCallbackMixedWithFrameCallbacks(
         JNIEnv* env, jclass, jlong choreographerPtr) {
     AChoreographer* choreographer = reinterpret_cast<AChoreographer*>(choreographerPtr);
-    RefreshRateCallback* cb = new RefreshRateCallback("cb");
+    RefreshRateCallback cb("cb");
 
-    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, cb);
+    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallback, &cb);
 
-    Callback* cb1 = new Callback("cb1");
-    Callback* cb64 = new Callback("cb64");
+    Callback cb1("cb1");
+    Callback cb64("cb64");
     auto start = now();
 
     auto vsyncPeriod = std::chrono::duration_cast<std::chrono::milliseconds>(
                            NOMINAL_VSYNC_PERIOD)
                            .count();
     auto delay = std::chrono::duration_cast<std::chrono::milliseconds>(DELAY_PERIOD).count();
-    AChoreographer_postFrameCallbackDelayed(choreographer, frameCallback, cb1, delay);
-    AChoreographer_postFrameCallbackDelayed64(choreographer, frameCallback64, cb64, delay);
+    AChoreographer_postFrameCallbackDelayed(choreographer, frameCallback, &cb1, delay);
+    AChoreographer_postFrameCallbackDelayed64(choreographer, frameCallback64, &cb64, delay);
 
     std::this_thread::sleep_for(DELAY_PERIOD + NOMINAL_VSYNC_PERIOD * 10);
     // Ensure that callbacks are seen by the looper instance at approximately
     // the same time, and provide enough time for the looper instance to process
     // the delayed callback and the requested vsync signal if needed.
     ALooper_pollAll(vsyncPeriod * 5, nullptr, nullptr, nullptr);
-    verifyRefreshRateCallback(env, cb, 1);
+    verifyRefreshRateCallback<RefreshRateCallback>(env, cb, 1);
     verifyCallback(env, cb64, 1, start,
                    DELAY_PERIOD + NOMINAL_VSYNC_PERIOD * 15);
     const auto delayToTestFor32Bit =
@@ -428,41 +459,89 @@ static void android_view_cts_ChoreographerNativeTest_testRefreshRateCallbackMixe
             ? DELAY_PERIOD + NOMINAL_VSYNC_PERIOD * 15
             : ZERO;
     verifyCallback(env, cb1, 1, start, delayToTestFor32Bit);
-    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, cb);
+    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, &cb);
+}
+
+// This test cannot be run on the UI thread because it relies on callbacks to be dispatched on the
+// application UI thread.
+static void
+android_view_cts_ChoreographerNativeTest_testRefreshRateCallbacksAreSyncedWithDisplayManager(
+        JNIEnv* env, jobject clazz) {
+    // Test harness choreographer is not on the main thread, so create a thread-local choreographer
+    // instance.
+    ALooper_prepare(0);
+    AChoreographer* choreographer = AChoreographer_getInstance();
+    RefreshRateCallbackWithDisplayManager cb("cb", env, clazz);
+
+    AChoreographer_registerRefreshRateCallback(choreographer, refreshRateCallbackWithDisplayManager,
+                                               &cb);
+
+    auto delayPeriod = std::chrono::duration_cast<std::chrono::milliseconds>(DELAY_PERIOD).count();
+
+    const size_t numRuns = 1000;
+    int previousCount = 0;
+    for (int i = 0; i < numRuns; ++i) {
+        const size_t numTries = 5;
+        for (int j = 0; j < numTries; j++) {
+            // In theory we only need to poll once because the test harness configuration should
+            // enforce that we won't get spurious callbacks. In practice, there may still be
+            // spurious callbacks due to hotplug or other display events that aren't suppressed. So
+            // we add some slack by retrying a few times, but we stop at the first refresh rate
+            // callback (1) to keep the test runtime reasonably short, and (2) to keep the test
+            // under better control so that it does not spam the system with refresh rate changes.
+            int result = ALooper_pollOnce(delayPeriod * 5, nullptr, nullptr, nullptr);
+            ASSERT(result == ALOOPER_POLL_CALLBACK, "Callback failed on run: %d with error: %d", i,
+                   result);
+            if (previousCount != cb.count) {
+                verifyRefreshRateCallback<RefreshRateCallbackWithDisplayManager>(env, cb,
+                                                                                 previousCount + 1);
+                previousCount = cb.count;
+                break;
+            }
+
+            ASSERT(j < numTries - 1, "No callback observed for run: %d", i);
+        }
+    }
+    AChoreographer_unregisterRefreshRateCallback(choreographer, refreshRateCallback, &cb);
 }
 
 static JNINativeMethod gMethods[] = {
-    {  "nativeGetChoreographer", "()J",
-            (void *) android_view_cts_ChoreographerNativeTest_getChoreographer},
-    {  "nativePrepareChoreographerTests", "(J[J)Z",
-            (void *) android_view_cts_ChoreographerNativeTest_prepareChoreographerTests},
-    {  "nativeTestPostCallback64WithoutDelayEventuallyRunsCallbacks", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testPostCallback64WithoutDelayEventuallyRunsCallback},
-    {  "nativeTestPostCallback64WithDelayEventuallyRunsCallbacks", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testPostCallback64WithDelayEventuallyRunsCallback},
-    {  "nativeTestPostCallbackWithoutDelayEventuallyRunsCallbacks", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testPostCallbackWithoutDelayEventuallyRunsCallback},
-    {  "nativeTestPostCallbackWithDelayEventuallyRunsCallbacks", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testPostCallbackWithDelayEventuallyRunsCallback},
-    {  "nativeTestPostCallbackMixedWithoutDelayEventuallyRunsCallbacks", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testPostCallbackMixedWithoutDelayEventuallyRunsCallback},
-    {  "nativeTestPostCallbackMixedWithDelayEventuallyRunsCallbacks", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testPostCallbackMixedWithDelayEventuallyRunsCallback},
-    {  "nativeTestRefreshRateCallback", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testRefreshRateCallback},
-    {  "nativeTestUnregisteringRefreshRateCallback", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testUnregisteringRefreshRateCallback},
-    {  "nativeTestMultipleRefreshRateCallbacks", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testMultipleRefreshRateCallbacks},
-    {  "nativeTestAttemptToAddRefreshRateCallbackTwiceDoesNotAddTwice", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testAttemptToAddRefreshRateCallbackTwiceDoesNotAddTwice},
-    {  "nativeTestRefreshRateCallbackMixedWithFrameCallbacks", "(J)V",
-            (void *) android_view_cts_ChoreographerNativeTest_testRefreshRateCallbackMixedWithFrameCallbacks},
+        {"nativeGetChoreographer", "()J",
+         (void*)android_view_cts_ChoreographerNativeTest_getChoreographer},
+        {"nativePrepareChoreographerTests", "(J[J)Z",
+         (void*)android_view_cts_ChoreographerNativeTest_prepareChoreographerTests},
+        {"nativeTestPostCallback64WithoutDelayEventuallyRunsCallbacks", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testPostCallback64WithoutDelayEventuallyRunsCallback},
+        {"nativeTestPostCallback64WithDelayEventuallyRunsCallbacks", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testPostCallback64WithDelayEventuallyRunsCallback},
+        {"nativeTestPostCallbackWithoutDelayEventuallyRunsCallbacks", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testPostCallbackWithoutDelayEventuallyRunsCallback},
+        {"nativeTestPostCallbackWithDelayEventuallyRunsCallbacks", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testPostCallbackWithDelayEventuallyRunsCallback},
+        {"nativeTestPostCallbackMixedWithoutDelayEventuallyRunsCallbacks", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testPostCallbackMixedWithoutDelayEventuallyRunsCallback},
+        {"nativeTestPostCallbackMixedWithDelayEventuallyRunsCallbacks", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testPostCallbackMixedWithDelayEventuallyRunsCallback},
+        {"nativeTestRefreshRateCallback", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testRefreshRateCallback},
+        {"nativeTestUnregisteringRefreshRateCallback", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testUnregisteringRefreshRateCallback},
+        {"nativeTestMultipleRefreshRateCallbacks", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testMultipleRefreshRateCallbacks},
+        {"nativeTestAttemptToAddRefreshRateCallbackTwiceDoesNotAddTwice", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testAttemptToAddRefreshRateCallbackTwiceDoesNotAddTwice},
+        {"nativeTestRefreshRateCallbackMixedWithFrameCallbacks", "(J)V",
+         (void*)android_view_cts_ChoreographerNativeTest_testRefreshRateCallbackMixedWithFrameCallbacks},
+        {"nativeTestRefreshRateCallbacksAreSyncedWithDisplayManager", "()V",
+         (void*)android_view_cts_ChoreographerNativeTest_testRefreshRateCallbacksAreSyncedWithDisplayManager},
 };
 
 int register_android_view_cts_ChoreographerNativeTest(JNIEnv* env)
 {
     jclass clazz = env->FindClass("android/view/cts/ChoreographerNativeTest");
+    gJni.choreographerNativeTest.clazz = static_cast<jclass>(env->NewGlobalRef(clazz));
+    gJni.choreographerNativeTest.checkRefreshRateIsCurrentAndSwitch =
+            env->GetMethodID(clazz, "checkRefreshRateIsCurrentAndSwitch", "(I)V");
     return env->RegisterNatives(clazz, gMethods,
             sizeof(gMethods) / sizeof(JNINativeMethod));
 }

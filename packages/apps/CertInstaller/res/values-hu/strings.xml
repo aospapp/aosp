@@ -29,8 +29,8 @@
     <string name="one_userkey" msgid="3500697912370644881">"egy felhasználói kulcs"</string>
     <string name="userkey_type" msgid="6214833257030657106">"Algoritmus:"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"egy felhasználói tanúsítvány"</string>
-    <string name="one_cacrt" msgid="2667950425420663146">"egy CA tanúsítvány"</string>
-    <string name="n_cacrts" msgid="2141498640685639208">"%d CA tanúsítvány"</string>
+    <string name="one_cacrt" msgid="2667950425420663146">"egy CA-tanúsítvány"</string>
+    <string name="n_cacrts" msgid="2141498640685639208">"%d CA-tanúsítvány"</string>
     <string name="password_error" msgid="2042471639556516356">"Adja meg a helyes jelszót."</string>
     <string name="password_empty_error" msgid="591713406761723025">"Írja be a jelszót."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Írjon be egy nevet."</string>

@@ -79,6 +79,7 @@ message ApnItem {
     EMERGENCY = 10;
     XCAP = 11;
     UT = 12;
+    RCS = 13;
   }
   repeated ApnType type = 3;
 

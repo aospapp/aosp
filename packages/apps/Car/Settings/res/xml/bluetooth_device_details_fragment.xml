@@ -20,9 +20,15 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/bluetooth_settings_title"
     android:key="@string/psk_bluetooth_device_details">
-    <Preference
+    <com.android.car.settings.common.EntityHeaderPreference
         android:key="@string/pk_bluetooth_device_name"
-        settings:controller="com.android.car.settings.bluetooth.BluetoothDeviceNamePreferenceController"/>
+        settings:controller="com.android.car.settings.bluetooth.BluetoothDeviceNamePreferenceController"
+        settings:selectable="true"
+        settings:searchable="false"/>
+    <com.android.car.settings.common.ActionButtonsPreference
+        android:key="@string/pk_bluetooth_device_action_buttons"
+        settings:controller="com.android.car.settings.bluetooth.BluetoothDeviceActionButtonsPreferenceController"
+        settings:searchable="false"/>
     <PreferenceCategory
         android:key="@string/pk_bluetooth_device_profiles"
         android:title="@string/bluetooth_profiles"

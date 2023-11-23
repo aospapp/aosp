@@ -1,3 +1,4 @@
+pub type wchar_t = i32;
 pub type time_t = i64;
 pub type mode_t = u32;
 pub type nlink_t = u32;
@@ -73,6 +74,13 @@ s! {
         pub mode: ::mode_t,
         pub seq: ::c_ushort,
         pub key: ::key_t,
+    }
+
+    pub struct ptrace_io_desc {
+        pub piod_op: ::c_int,
+        pub piod_offs: *mut ::c_void,
+        pub piod_addr: *mut ::c_void,
+        pub piod_len: ::size_t,
     }
 }
 
@@ -341,6 +349,12 @@ pub const POSIX_MADV_DONTNEED: ::c_int = 4;
 
 pub const PTHREAD_CREATE_JOINABLE: ::c_int = 0;
 pub const PTHREAD_CREATE_DETACHED: ::c_int = 1;
+
+pub const PIOD_READ_D: ::c_int = 1;
+pub const PIOD_WRITE_D: ::c_int = 2;
+pub const PIOD_READ_I: ::c_int = 3;
+pub const PIOD_WRITE_I: ::c_int = 4;
+pub const PIOD_READ_AUXV: ::c_int = 5;
 
 pub const PT_TRACE_ME: ::c_int = 0;
 pub const PT_READ_I: ::c_int = 1;
@@ -625,56 +639,30 @@ pub const TIMER_ABSTIME: ::c_int = 1;
 extern "C" {
     pub fn setgrent();
     pub fn sem_destroy(sem: *mut sem_t) -> ::c_int;
-    pub fn sem_init(
-        sem: *mut sem_t,
-        pshared: ::c_int,
-        value: ::c_uint,
-    ) -> ::c_int;
+    pub fn sem_init(sem: *mut sem_t, pshared: ::c_int, value: ::c_uint) -> ::c_int;
 
     pub fn daemon(nochdir: ::c_int, noclose: ::c_int) -> ::c_int;
-    pub fn mincore(
-        addr: *mut ::c_void,
-        len: ::size_t,
-        vec: *mut ::c_char,
+    pub fn accept4(
+        s: ::c_int,
+        addr: *mut ::sockaddr,
+        addrlen: *mut ::socklen_t,
+        flags: ::c_int,
     ) -> ::c_int;
+    pub fn mincore(addr: *mut ::c_void, len: ::size_t, vec: *mut ::c_char) -> ::c_int;
     #[cfg_attr(target_os = "netbsd", link_name = "__clock_getres50")]
     pub fn clock_getres(clk_id: ::clockid_t, tp: *mut ::timespec) -> ::c_int;
     #[cfg_attr(target_os = "netbsd", link_name = "__clock_gettime50")]
     pub fn clock_gettime(clk_id: ::clockid_t, tp: *mut ::timespec) -> ::c_int;
     #[cfg_attr(target_os = "netbsd", link_name = "__clock_settime50")]
-    pub fn clock_settime(
-        clk_id: ::clockid_t,
-        tp: *const ::timespec,
-    ) -> ::c_int;
+    pub fn clock_settime(clk_id: ::clockid_t, tp: *const ::timespec) -> ::c_int;
     pub fn __errno() -> *mut ::c_int;
-    pub fn shm_open(
-        name: *const ::c_char,
-        oflag: ::c_int,
-        mode: ::mode_t,
-    ) -> ::c_int;
-    pub fn memrchr(
-        cx: *const ::c_void,
-        c: ::c_int,
-        n: ::size_t,
-    ) -> *mut ::c_void;
+    pub fn shm_open(name: *const ::c_char, oflag: ::c_int, mode: ::mode_t) -> ::c_int;
+    pub fn memrchr(cx: *const ::c_void, c: ::c_int, n: ::size_t) -> *mut ::c_void;
     pub fn mkostemp(template: *mut ::c_char, flags: ::c_int) -> ::c_int;
-    pub fn mkostemps(
-        template: *mut ::c_char,
-        suffixlen: ::c_int,
-        flags: ::c_int,
-    ) -> ::c_int;
-    pub fn pwritev(
-        fd: ::c_int,
-        iov: *const ::iovec,
-        iovcnt: ::c_int,
-        offset: ::off_t,
-    ) -> ::ssize_t;
-    pub fn preadv(
-        fd: ::c_int,
-        iov: *const ::iovec,
-        iovcnt: ::c_int,
-        offset: ::off_t,
-    ) -> ::ssize_t;
+    pub fn mkostemps(template: *mut ::c_char, suffixlen: ::c_int, flags: ::c_int) -> ::c_int;
+    pub fn pwritev(fd: ::c_int, iov: *const ::iovec, iovcnt: ::c_int, offset: ::off_t)
+        -> ::ssize_t;
+    pub fn preadv(fd: ::c_int, iov: *const ::iovec, iovcnt: ::c_int, offset: ::off_t) -> ::ssize_t;
     pub fn futimens(fd: ::c_int, times: *const ::timespec) -> ::c_int;
     pub fn utimensat(
         dirfd: ::c_int,
@@ -706,15 +694,8 @@ extern "C" {
         mode: ::mode_t,
         dev: dev_t,
     ) -> ::c_int;
-    pub fn mkfifoat(
-        dirfd: ::c_int,
-        pathname: *const ::c_char,
-        mode: ::mode_t,
-    ) -> ::c_int;
-    pub fn sem_timedwait(
-        sem: *mut sem_t,
-        abstime: *const ::timespec,
-    ) -> ::c_int;
+    pub fn mkfifoat(dirfd: ::c_int, pathname: *const ::c_char, mode: ::mode_t) -> ::c_int;
+    pub fn sem_timedwait(sem: *mut sem_t, abstime: *const ::timespec) -> ::c_int;
     pub fn sem_getvalue(sem: *mut sem_t, sval: *mut ::c_int) -> ::c_int;
     pub fn pthread_condattr_setclock(
         attr: *mut pthread_condattr_t,
@@ -739,17 +720,9 @@ extern "C" {
     pub fn uname(buf: *mut ::utsname) -> ::c_int;
 
     pub fn shmget(key: ::key_t, size: ::size_t, shmflg: ::c_int) -> ::c_int;
-    pub fn shmat(
-        shmid: ::c_int,
-        shmaddr: *const ::c_void,
-        shmflg: ::c_int,
-    ) -> *mut ::c_void;
+    pub fn shmat(shmid: ::c_int, shmaddr: *const ::c_void, shmflg: ::c_int) -> *mut ::c_void;
     pub fn shmdt(shmaddr: *const ::c_void) -> ::c_int;
-    pub fn shmctl(
-        shmid: ::c_int,
-        cmd: ::c_int,
-        buf: *mut ::shmid_ds,
-    ) -> ::c_int;
+    pub fn shmctl(shmid: ::c_int, cmd: ::c_int, buf: *mut ::shmid_ds) -> ::c_int;
 }
 
 cfg_if! {

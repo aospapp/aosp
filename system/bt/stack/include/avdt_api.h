@@ -25,8 +25,13 @@
 #ifndef AVDT_API_H
 #define AVDT_API_H
 
+#include <base/strings/stringprintf.h>
+#include <cstdint>
+#include <string>
+
 #include "bt_target.h"
 #include "bt_types.h"
+#include "osi/include/log.h"
 
 /*****************************************************************************
  *  Constants
@@ -39,12 +44,38 @@
 #define AVDT_CODEC_SIZE 20
 
 /* API function return value result codes. */
-#define AVDT_SUCCESS 0      /* Function successful */
-#define AVDT_BAD_PARAMS 1   /* Invalid parameters */
-#define AVDT_NO_RESOURCES 2 /* Not enough resources */
-#define AVDT_BAD_HANDLE 3   /* Bad handle */
-#define AVDT_BUSY 4         /* A procedure is already in progress */
-#define AVDT_WRITE_FAIL 5   /* Write failed */
+typedef enum : uint16_t {
+  AVDT_SUCCESS = 0,      /* Function successful */
+  AVDT_BAD_PARAMS = 1,   /* Invalid parameters */
+  AVDT_NO_RESOURCES = 2, /* Not enough resources */
+  AVDT_BAD_HANDLE = 3,   /* Bad handle */
+  AVDT_BUSY = 4,         /* A procedure is already in progress */
+  AVDT_WRITE_FAIL = 5,   /* Write failed */
+} tAVDT_RESULT;
+
+inline tAVDT_RESULT ToAvdtResult(uint16_t result) {
+  ASSERT_LOG(result <= AVDT_WRITE_FAIL, "Unable to convert illegal result:%hu",
+             result);
+  return static_cast<tAVDT_RESULT>(result);
+}
+
+#define CASE_RETURN_TEXT(code) \
+  case code:                   \
+    return #code
+
+inline std::string avdt_result_text(const tAVDT_RESULT& result) {
+  switch (result) {
+    CASE_RETURN_TEXT(AVDT_SUCCESS);
+    CASE_RETURN_TEXT(AVDT_BAD_PARAMS);
+    CASE_RETURN_TEXT(AVDT_NO_RESOURCES);
+    CASE_RETURN_TEXT(AVDT_BAD_HANDLE);
+    CASE_RETURN_TEXT(AVDT_BUSY);
+    CASE_RETURN_TEXT(AVDT_WRITE_FAIL);
+    default:
+      return base::StringPrintf("UNKNOWN[%hu]", result);
+  }
+}
+#undef CASE_RETURN_TEXT
 
 /* The index to access the codec type in codec_info[]. */
 #define AVDT_CODEC_TYPE_INDEX 2
@@ -78,6 +109,16 @@
 #define AVDT_TSEP_SRC 0     /* Source SEP */
 #define AVDT_TSEP_SNK 1     /* Sink SEP */
 #define AVDT_TSEP_INVALID 3 /* Invalid SEP */
+inline const std::string peer_stream_endpoint_text(int type) {
+  switch (type) {
+    case AVDT_TSEP_SRC:
+      return std::string("Source");
+    case AVDT_TSEP_SNK:
+      return std::string("Sink");
+    default:
+      return std::string("Invalid");
+  }
+}
 
 /* initiator/acceptor role for adaption */
 #define AVDT_INT 0 /* initiator */
@@ -277,7 +318,6 @@ class AvdtpRcb {
         ret_tout(0),
         sig_tout(0),
         idle_tout(0),
-        sec_mask(0),
         scb_index(0) {}
   AvdtpRcb& operator=(const AvdtpRcb&) = default;
 
@@ -286,7 +326,6 @@ class AvdtpRcb {
     ret_tout = 0;
     sig_tout = 0;
     idle_tout = 0;
-    sec_mask = 0;
     scb_index = 0;
   }
 
@@ -294,7 +333,6 @@ class AvdtpRcb {
   uint8_t ret_tout;  /* AVDTP signaling retransmission timeout */
   uint8_t sig_tout;  /* AVDTP signaling message timeout */
   uint8_t idle_tout; /* AVDTP idle signaling channel timeout */
-  uint8_t sec_mask;  /* Security mask for BTM_SetSecurityLevel() */
   uint8_t scb_index; /* The Stream Control Block index */
 };
 
@@ -470,7 +508,6 @@ class AvdtpStreamConfig {
         p_sink_data_cback(nullptr),
         p_report_cback(nullptr),
         mtu(0),
-        flush_to(0),
         tsep(0),
         media_type(0),
         nsc_mask(0) {}
@@ -482,7 +519,6 @@ class AvdtpStreamConfig {
     p_sink_data_cback = nullptr;
     p_report_cback = nullptr;
     mtu = 0;
-    flush_to = 0;
     tsep = 0;
     media_type = 0;
     nsc_mask = 0;
@@ -494,7 +530,6 @@ class AvdtpStreamConfig {
   tAVDT_SINK_DATA_CBACK* p_sink_data_cback;  // Sink data callback function
   tAVDT_REPORT_CBACK* p_report_cback;        // Report callback function
   uint16_t mtu;        // The L2CAP MTU of the transport channel
-  uint16_t flush_to;   // The L2CAP flush timeout of the transport channel
   uint8_t tsep;        // SEP type
   uint8_t media_type;  // Media type: AVDT_MEDIA_TYPE_*
   uint16_t nsc_mask;   // Nonsupported protocol command messages
@@ -761,21 +796,6 @@ extern uint16_t AVDT_ReconfigReq(uint8_t handle, AvdtpSepConfig* p_cfg);
 
 /*******************************************************************************
  *
- * Function         AVDT_ReconfigRsp
- *
- * Description      Respond to a reconfigure request from the peer device.
- *                  This function must be called if the application receives
- *                  an AVDT_RECONFIG_IND_EVT through its control callback.
- *
- *
- * Returns          AVDT_SUCCESS if successful, otherwise error.
- *
- ******************************************************************************/
-extern uint16_t AVDT_ReconfigRsp(uint8_t handle, uint8_t label,
-                                 uint8_t error_code, uint8_t category);
-
-/*******************************************************************************
- *
  * Function         AVDT_SecurityReq
  *
  * Description      Send a security request to the peer device.  When the
@@ -808,42 +828,6 @@ extern uint16_t AVDT_SecurityRsp(uint8_t handle, uint8_t label,
                                  uint8_t error_code, uint8_t* p_data,
                                  uint16_t len);
 
-/*******************************************************************************
- *
- * Function         AVDT_WriteReq
- *
- * Description      Send a media packet to the peer device.  The stream must
- *                  be started before this function is called.  Also, this
- *                  function can only be called if the stream is a SRC.
- *
- *                  When AVDTP has sent the media packet and is ready for the
- *                  next packet, an AVDT_WRITE_CFM_EVT is sent to the
- *                  application via the control callback.  The application must
- *                  wait for the AVDT_WRITE_CFM_EVT before it makes the next
- *                  call to AVDT_WriteReq().  If the applications calls
- *                  AVDT_WriteReq() before it receives the event the packet
- *                  will not be sent.  The application may make its first call
- *                  to AVDT_WriteReq() after it receives an AVDT_START_CFM_EVT
- *                  or AVDT_START_IND_EVT.
- *
- *                  The application passes the packet using the BT_HDR
- *                  structure.
- *                  This structure is described in section 2.1.  The offset
- *                  field must be equal to or greater than AVDT_MEDIA_OFFSET.
- *                  This allows enough space in the buffer for the L2CAP and
- *                  AVDTP headers.
- *
- *                  The memory pointed to by p_pkt must be a GKI buffer
- *                  allocated by the application.  This buffer will be freed
- *                  by the protocol stack; the application must not free
- *                  this buffer.
- *
- *
- * Returns          AVDT_SUCCESS if successful, otherwise error.
- *
- ******************************************************************************/
-extern uint16_t AVDT_WriteReq(uint8_t handle, BT_HDR* p_pkt,
-                              uint32_t time_stamp, uint8_t m_pt);
 /*******************************************************************************
  *
  * Function         AVDT_WriteReqOpt
@@ -900,7 +884,7 @@ extern uint16_t AVDT_WriteReqOpt(uint8_t handle, BT_HDR* p_pkt,
  *
  ******************************************************************************/
 extern uint16_t AVDT_ConnectReq(const RawAddress& bd_addr,
-                                uint8_t channel_index, uint8_t sec_mask,
+                                uint8_t channel_index,
                                 tAVDT_CTRL_CBACK* p_cback);
 
 /*******************************************************************************
@@ -928,33 +912,6 @@ extern uint16_t AVDT_DisconnectReq(const RawAddress& bd_addr,
  *
  ******************************************************************************/
 extern uint16_t AVDT_GetL2CapChannel(uint8_t handle);
-
-/*******************************************************************************
- *
- * Function         AVDT_GetSignalChannel
- *
- * Description      Get the L2CAP CID used by the signal channel of the given
- *                  handle.
- *
- * Returns          CID if successful, otherwise 0.
- *
- ******************************************************************************/
-extern uint16_t AVDT_GetSignalChannel(uint8_t handle,
-                                      const RawAddress& bd_addr);
-
-/*******************************************************************************
- *
- * Function         AVDT_SendReport
- *
- * Description
- *
- *
- *
- * Returns
- *
- ******************************************************************************/
-extern uint16_t AVDT_SendReport(uint8_t handle, AVDT_REPORT_TYPE type,
-                                tAVDT_REPORT_DATA* p_data);
 
 /******************************************************************************
  *

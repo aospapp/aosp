@@ -343,18 +343,29 @@ public class WebViewSyncLoader {
         class ExitLoopException extends RuntimeException {
         }
 
+        // Pumping messages only makes sense if the current thread is the one we're waiting on.
+        Assert.assertEquals("Waiting for a WebView event on the wrong thread",
+                Looper.myLooper(), mWebView.getHandler().getLooper());
+
         // Force loop to exit when processing this. Loop.quit() doesn't
         // work because this is the main Loop.
-        mWebView.getHandler().post(new Runnable() {
+        Runnable exitRunnable = new Runnable() {
             @Override
             public void run() {
                 throw new ExitLoopException(); // exit loop!
             }
-        });
+        };
+        mWebView.getHandler().post(exitRunnable);
         try {
             // Pump messages until our message gets through.
             Looper.loop();
         } catch (ExitLoopException e) {
+        } finally {
+            // If we're exiting the loop due to another task throwing an unrelated exception then we
+            // need to remove the Runnable we added; leaving it in the queue will crash the regular
+            // event loop if it gets to run. This is a no-op if it's already been removed from the
+            // queue.
+            mWebView.getHandler().removeCallbacks(exitRunnable);
         }
     }
 

@@ -46,10 +46,11 @@ public class DhcpAckPacket extends DhcpPacket {
             dnsServers += dnsServer.toString() + " ";
         }
 
-        return s + " ACK: your new IP " + mYourIp +
-                ", netmask " + mSubnetMask +
-                ", gateways " + mGateways + dnsServers +
-                ", lease time " + mLeaseTime;
+        return s + " ACK: your new IP " + mYourIp
+                + ", netmask " + mSubnetMask
+                + ", gateways " + mGateways + dnsServers
+                + ", lease time " + mLeaseTime
+                + (mIpv6OnlyWaitTime != null ? ", V6ONLY_WAIT " + mIpv6OnlyWaitTime : "");
     }
 
     /**

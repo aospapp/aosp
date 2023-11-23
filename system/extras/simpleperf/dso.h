@@ -18,7 +18,9 @@
 #define SIMPLE_PERF_DSO_H_
 
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -26,9 +28,10 @@
 #include <android-base/logging.h>
 
 #include "build_id.h"
+#include "kallsyms.h"
 #include "read_elf.h"
 
-
+namespace simpleperf {
 namespace simpleperf_dso_impl {
 
 // Find elf files with symbol table and debug information.
@@ -38,8 +41,7 @@ class DebugElfFileFinder {
   bool SetSymFsDir(const std::string& symfs_dir);
   bool AddSymbolDir(const std::string& symbol_dir);
   void SetVdsoFile(const std::string& vdso_file, bool is_64bit);
-  std::string FindDebugFile(const std::string& dso_path, bool force_64bit,
-                            BuildId& build_id);
+  std::string FindDebugFile(const std::string& dso_path, bool force_64bit, BuildId& build_id);
   // Only for testing
   std::string GetPathInSymFsDir(const std::string& path);
 
@@ -63,10 +65,9 @@ struct Symbol {
   const char* Name() const { return name_; }
 
   const char* DemangledName() const;
+  void SetDemangledName(std::string_view name) const;
 
-  bool HasDumpId() const {
-    return dump_id_ != UINT_MAX;
-  }
+  bool HasDumpId() const { return dump_id_ != UINT_MAX; }
 
   bool GetDumpId(uint32_t* pdump_id) const {
     if (!HasDumpId()) {
@@ -84,13 +85,9 @@ struct Symbol {
     return id1 < id2;
   }
 
-  static bool CompareByAddr(const Symbol* s1, const Symbol* s2) {
-    return s1->addr < s2->addr;
-  }
+  static bool CompareByAddr(const Symbol* s1, const Symbol* s2) { return s1->addr < s2->addr; }
 
-  static bool CompareValueByAddr(const Symbol& s1, const Symbol& s2) {
-    return s1.addr < s2.addr;
-  }
+  static bool CompareValueByAddr(const Symbol& s1, const Symbol& s2) { return s1.addr < s2.addr; }
 
  private:
   const char* name_;
@@ -105,11 +102,11 @@ enum DsoType {
   DSO_KERNEL_MODULE,
   DSO_ELF_FILE,
   DSO_DEX_FILE,  // For files containing dex files, like .vdex files.
+  DSO_SYMBOL_MAP_FILE,
   DSO_UNKNOWN_FILE,
+  // DSO_UNKNOWN_FILE is written to the file feature section in recording files. Changing its value
+  // may cause compatibility issue. So put new DsoTypes below.
 };
-
-struct KernelSymbol;
-struct ElfFileSymbol;
 
 class Dso {
  public:
@@ -128,17 +125,17 @@ class Dso {
       kallsyms_ = std::move(kallsyms);
     }
   }
-  static void ReadKernelSymbolsFromProc() {
-    read_kernel_symbols_from_proc_ = true;
-  }
-  static void SetBuildIds(
-      const std::vector<std::pair<std::string, BuildId>>& build_ids);
+  static void SetBuildIds(const std::vector<std::pair<std::string, BuildId>>& build_ids);
   static BuildId FindExpectedBuildIdForPath(const std::string& path);
   static void SetVdsoFile(const std::string& vdso_file, bool is_64bit);
 
   static std::unique_ptr<Dso> CreateDso(DsoType dso_type, const std::string& dso_path,
                                         bool force_64bit = false);
-
+  static std::unique_ptr<Dso> CreateDsoWithBuildId(DsoType dso_type, const std::string& dso_path,
+                                                   BuildId& build_id);
+  static std::unique_ptr<Dso> CreateKernelModuleDso(const std::string& dso_path,
+                                                    uint64_t memory_start, uint64_t memory_end,
+                                                    Dso* kernel_dso);
   virtual ~Dso();
 
   DsoType type() const { return type_; }
@@ -147,12 +144,12 @@ class Dso {
   const std::string& Path() const { return path_; }
   // Return the path containing symbol table and debug information.
   const std::string& GetDebugFilePath() const { return debug_file_path_; }
+  // Return the path beautified for reporting.
+  virtual std::string_view GetReportPath() const { return Path(); }
   // Return the file name without directory info.
   const std::string& FileName() const { return file_name_; }
 
-  bool HasDumpId() {
-    return dump_id_ != UINT_MAX;
-  }
+  bool HasDumpId() { return dump_id_ != UINT_MAX; }
 
   bool GetDumpId(uint32_t* pdump_id) {
     if (!HasDumpId()) {
@@ -174,22 +171,23 @@ class Dso {
   virtual const std::vector<uint64_t>* DexFileOffsets() { return nullptr; }
 
   virtual uint64_t IpToVaddrInFile(uint64_t ip, uint64_t map_start, uint64_t map_pgoff) = 0;
+  virtual std::optional<uint64_t> IpToFileOffset(uint64_t ip, uint64_t map_start,
+                                                 uint64_t map_pgoff);
 
   const Symbol* FindSymbol(uint64_t vaddr_in_dso);
-
-  const std::vector<Symbol>& GetSymbols() { return symbols_; }
+  void LoadSymbols();
+  const std::vector<Symbol>& GetSymbols() const { return symbols_; }
   void SetSymbols(std::vector<Symbol>* symbols);
 
   // Create a symbol for a virtual address which can't find a corresponding
   // symbol in symbol table.
   void AddUnknownSymbol(uint64_t vaddr_in_dso, const std::string& name);
-  bool IsForJavaMethod();
+  bool IsForJavaMethod() const;
 
  protected:
   static bool demangle_;
   static std::string vmlinux_;
   static std::string kallsyms_;
-  static bool read_kernel_symbols_from_proc_;
   static std::unordered_map<std::string, BuildId> build_id_map_;
   static size_t dso_count_;
   static uint32_t g_dump_id_;
@@ -198,8 +196,7 @@ class Dso {
   Dso(DsoType type, const std::string& path, const std::string& debug_file_path);
   BuildId GetExpectedBuildId();
 
-  void Load();
-  virtual std::vector<Symbol> LoadSymbols() = 0;
+  virtual std::vector<Symbol> LoadSymbolsImpl() = 0;
 
   DsoType type_;
   // path of the shared library used by the profiled program
@@ -222,5 +219,7 @@ class Dso {
 
 const char* DsoTypeToString(DsoType dso_type);
 bool GetBuildIdFromDsoPath(const std::string& dso_path, BuildId* build_id);
+
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_DSO_H_

@@ -25,22 +25,27 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.InputStream;
 
 public class Utils {
     public static void installApk(String pathToApk) {
-        executeShellCommand("pm install -t " + pathToApk);
+        executeShellCommandAndAssert("pm install -t " + pathToApk);
     }
 
     public static void updateApp(String pathToApk) {
-        executeShellCommand("pm install -t -r  " + pathToApk);
+        executeShellCommandAndAssert("pm install -t -r  " + pathToApk);
     }
 
     public static void uninstallApp(String appPackage) {
-        executeShellCommand("pm uninstall " + appPackage);
+        executeShellCommandAndAssert("pm uninstall " + appPackage);
     }
 
-    private static void executeShellCommand(String command) {
+    public static boolean hasFeature(String featureName) {
+        return executeShellCommand("pm list features").contains(featureName);
+    }
+
+    private static String executeShellCommand(String command) {
         ParcelFileDescriptor pfd = InstrumentationRegistry
                 .getInstrumentation()
                 .getUiAutomation()
@@ -48,23 +53,32 @@ public class Utils {
         InputStream is = new FileInputStream(pfd.getFileDescriptor());
 
         try {
-            readFully(is);
+            return readFully(is);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static void readFully(InputStream in) throws IOException {
+    private static void executeShellCommandAndAssert(String command) {
+        String result = executeShellCommand(command);
+        assertTrue(result, result.isEmpty() || result.contains("Success"));
+    }
+
+    private static String readFully(InputStream in) throws IOException {
         try {
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
             byte[] buffer = new byte[1024];
-            int count;
-            while ((count = in.read(buffer)) != -1) {
-                bytes.write(buffer, 0, count);
-            }
+            int count = 0;
+            do {
+                try {
+                    count = in.read(buffer);
+                    if (count > 0) {
+                        bytes.write(buffer, 0, count);
+                    }
+                } catch (InterruptedIOException ie) {}
+            } while (count > 0);
 
-            String result = new String(bytes.toByteArray());
-            assertTrue(result, result.isEmpty() || result.contains("Success"));
+            return new String(bytes.toByteArray());
         } finally {
             in.close();
         }

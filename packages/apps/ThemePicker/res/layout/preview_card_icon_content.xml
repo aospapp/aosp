@@ -22,7 +22,7 @@
     android:gravity="center_horizontal"
     android:orientation="vertical">
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center_horizontal"
         android:orientation="horizontal">
@@ -33,7 +33,7 @@
             android:layout_weight="1"
             android:tint="@color/theme_preview_icon_color"/>
         <Space
-            android:layout_width="0dp"
+            android:layout_width="@dimen/preview_theme_icon_size"
             android:layout_height="match_parent"
             android:layout_weight="0" />
         <ImageView
@@ -43,7 +43,7 @@
             android:layout_weight="1"
             android:tint="@color/theme_preview_icon_color"/>
         <Space
-            android:layout_width="0dp"
+            android:layout_width="@dimen/preview_theme_icon_size"
             android:layout_height="match_parent"
             android:layout_weight="0" />
         <ImageView
@@ -55,10 +55,9 @@
     </LinearLayout>
     <Space
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_height="68dp" />
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="bottom|center_horizontal"
         android:orientation="horizontal">
@@ -69,7 +68,7 @@
             android:layout_weight="1"
             android:tint="@color/theme_preview_icon_color"/>
         <Space
-            android:layout_width="0dp"
+            android:layout_width="@dimen/preview_theme_icon_size"
             android:layout_height="match_parent"
             android:layout_weight="0" />
         <ImageView
@@ -79,7 +78,7 @@
             android:layout_weight="1"
             android:tint="@color/theme_preview_icon_color"/>
         <Space
-            android:layout_width="0dp"
+            android:layout_width="@dimen/preview_theme_icon_size"
             android:layout_height="match_parent"
             android:layout_weight="0" />
         <ImageView
@@ -89,8 +88,4 @@
             android:layout_weight="1"
             android:tint="@color/theme_preview_icon_color"/>
     </LinearLayout>
-    <Space
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
 </LinearLayout>

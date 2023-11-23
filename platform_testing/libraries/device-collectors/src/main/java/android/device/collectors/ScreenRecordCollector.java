@@ -19,9 +19,9 @@ import static org.junit.Assert.assertNotNull;
 
 import android.device.collectors.annotations.OptionClass;
 import android.os.SystemClock;
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 import androidx.annotation.VisibleForTesting;
+import androidx.test.uiautomator.UiDevice;
 
 import java.io.IOException;
 import java.io.File;

@@ -119,6 +119,9 @@ struct PartitionConfig {
 
   // Enables the on device fec data computation by default.
   bool disable_fec_computation = false;
+
+  // Per-partition version, usually a number representing timestamp.
+  std::string version;
 };
 
 // The ImageConfig struct describes a pair of binaries kernel and rootfs and the
@@ -146,13 +149,6 @@ struct ImageConfig {
   // Validate |dynamic_partition_metadata| against |partitions|.
   bool ValidateDynamicPartitionMetadata() const;
 
-  // Returns whether the |image_info| field is empty.
-  bool ImageInfoIsEmpty() const;
-
-  // The ImageInfo message defined in the update_metadata.proto file describes
-  // the metadata of the image.
-  ImageInfo image_info;
-
   // The updated partitions.
   std::vector<PartitionConfig> partitions;
 
@@ -170,12 +166,8 @@ struct PayloadVersion {
   // Return whether the passed |operation| is allowed by this payload.
   bool OperationAllowed(InstallOperation::Type operation) const;
 
-  // Whether this payload version is a delta payload.
-  bool IsDelta() const;
-
-  // Tells whether the update is done in-place, that is, whether the operations
-  // read and write from the same partition.
-  bool InplaceUpdate() const;
+  // Whether this payload version is a delta or partial payload.
+  bool IsDeltaOrPartial() const;
 
   // The major version of the payload.
   uint64_t major;
@@ -201,6 +193,10 @@ struct PayloadGenerationConfig {
 
   // Whether the requested payload is a delta payload.
   bool is_delta = false;
+
+  // Whether the requested payload is a partial payload, i.e. only update a
+  // subset of partitions on device.
+  bool is_partial_update = false;
 
   // The major/minor version of the payload.
   PayloadVersion version;
@@ -234,6 +230,9 @@ struct PayloadGenerationConfig {
 
   // The maximum timestamp of the OS allowed to apply this payload.
   int64_t max_timestamp = 0;
+
+  // Path to apex_info.pb, extracted from target_file.zip
+  std::string apex_info_file;
 };
 
 }  // namespace chromeos_update_engine

@@ -20,7 +20,7 @@ import static android.net.InetAddresses.parseNumericAddress;
 import static android.net.dhcp.DhcpResultsParcelableUtil.fromStableParcelable;
 import static android.net.dhcp.DhcpResultsParcelableUtil.toStableParcelable;
 
-import static com.android.testutils.MiscAssertsKt.assertFieldCountEquals;
+import static com.android.testutils.MiscAsserts.assertFieldCountEquals;
 
 import static org.junit.Assert.assertEquals;
 
@@ -48,9 +48,9 @@ public class DhcpResultsParcelableUtilTest {
     @Before
     public void setUp() {
         mDhcpResults = new DhcpResults();
-        mDhcpResults.ipAddress = new LinkAddress(parseNumericAddress("2001:db8::42"), 64);
+        mDhcpResults.ipAddress = new LinkAddress(parseNumericAddress("192.168.42.19"), 25);
         mDhcpResults.gateway = parseNumericAddress("192.168.42.42");
-        mDhcpResults.dnsServers.add(parseNumericAddress("2001:db8::43"));
+        mDhcpResults.dnsServers.add(parseNumericAddress("8.8.8.8"));
         mDhcpResults.dnsServers.add(parseNumericAddress("192.168.43.43"));
         mDhcpResults.domains = "example.com";
         mDhcpResults.serverAddress = (Inet4Address) parseNumericAddress("192.168.44.44");
@@ -119,5 +119,17 @@ public class DhcpResultsParcelableUtilTest {
     private void doDhcpResultsParcelUnparcelTest() {
         final DhcpResults unparceled = fromStableParcelable(toStableParcelable(mDhcpResults));
         assertEquals(mDhcpResults, unparceled);
+    }
+
+    @Test
+    public void testToString() {
+        final String expected = ""
+                + "android.net.DhcpResultsParcelable{baseConfiguration: IP address 192.168.42.19/25"
+                + " Gateway 192.168.42.42  DNS servers: [ 8.8.8.8 192.168.43.43 ]"
+                + " Domains example.com, leaseDuration: 3600, mtu: 1450,"
+                + " serverAddress: 192.168.44.44, vendorInfo: TEST_VENDOR_INFO,"
+                + " serverHostName: dhcp.example.com,"
+                + " captivePortalApiUrl: https://example.com/testapi}";
+        assertEquals(expected, toStableParcelable(mDhcpResults).toString());
     }
 }

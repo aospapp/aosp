@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/netfilter/queue_obj.c	Netfilter Queue
  *
@@ -53,9 +54,9 @@ static void nfnl_queue_dump(struct nl_object *a, struct nl_dump_params *p)
 }
 
 static const struct trans_tbl copy_modes[] = {
-	__ADD(NFNL_QUEUE_COPY_NONE,	none)
-	__ADD(NFNL_QUEUE_COPY_META,	meta)
-	__ADD(NFNL_QUEUE_COPY_PACKET,	packet)
+	__ADD(NFNL_QUEUE_COPY_NONE,	none),
+	__ADD(NFNL_QUEUE_COPY_META,	meta),
+	__ADD(NFNL_QUEUE_COPY_PACKET,	packet),
 };
 
 char *nfnl_queue_copy_mode2str(enum nfnl_queue_copy_mode copy_mode, char *buf,
@@ -65,7 +66,7 @@ char *nfnl_queue_copy_mode2str(enum nfnl_queue_copy_mode copy_mode, char *buf,
 			   ARRAY_SIZE(copy_modes));
 }
 
-enum nfnl_queue_copy_mode nfnl_queue_str2copy_mode(const char *name)
+int nfnl_queue_str2copy_mode(const char *name)
 {
 	return __str2type(name, copy_modes, ARRAY_SIZE(copy_modes));
 }
@@ -161,12 +162,12 @@ uint32_t nfnl_queue_get_copy_range(const struct nfnl_queue *queue)
 	return queue->queue_copy_range;
 }
 
-static int nfnl_queue_compare(struct nl_object *_a, struct nl_object *_b,
-			      uint32_t attrs, int flags)
+static uint64_t nfnl_queue_compare(struct nl_object *_a, struct nl_object *_b,
+				   uint64_t attrs, int flags)
 {
 	struct nfnl_queue *a = (struct nfnl_queue *) _a;
 	struct nfnl_queue *b = (struct nfnl_queue *) _b;
-	int diff = 0;
+	uint64_t diff = 0;
 
 #define NFNL_QUEUE_DIFF(ATTR, EXPR) \
 	ATTR_DIFF(attrs, QUEUE_ATTR_##ATTR, a, b, EXPR)
@@ -185,10 +186,10 @@ static int nfnl_queue_compare(struct nl_object *_a, struct nl_object *_b,
 }
 
 static const struct trans_tbl nfnl_queue_attrs[] = {
-	__ADD(QUEUE_ATTR_GROUP,		group)
-	__ADD(QUEUE_ATTR_MAXLEN,	maxlen)
-	__ADD(QUEUE_ATTR_COPY_MODE,	copy_mode)
-	__ADD(QUEUE_ATTR_COPY_RANGE,	copy_range)
+	__ADD(QUEUE_ATTR_GROUP,		group),
+	__ADD(QUEUE_ATTR_MAXLEN,	maxlen),
+	__ADD(QUEUE_ATTR_COPY_MODE,	copy_mode),
+	__ADD(QUEUE_ATTR_COPY_RANGE,	copy_range),
 };
 
 static char *nfnl_queue_attrs2str(int attrs, char *buf, size_t len)

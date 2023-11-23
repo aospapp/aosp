@@ -133,6 +133,13 @@ enum
     CHROMA_FMT_IDC_YUV444_PLANES = 4,
 };
 
+typedef enum
+{
+    NULL_PLANE = -1,
+    U_PLANE = 0,
+    V_PLANE = 1
+} CHROMA_PLANE_ID_T;
+
 /* Pred Modes */
 /* Do not change enum values */
 enum

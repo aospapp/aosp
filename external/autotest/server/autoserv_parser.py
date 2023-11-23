@@ -225,6 +225,19 @@ class autoserv_parser(object):
                      'This overrides the control file provided via the '
                      'positional args.',
         )
+        self.parser.add_argument(
+            '--sync-offload-dir', action='store', type=str, default='',
+            help='Relative path from results directory to the sub-directory '
+            'which should be offloaded synchronously',
+        )
+        self.parser.add_argument(
+                '--ssp-base-image-name',
+                action='store',
+                help='Name of the base container image to use for'
+                     ' Server Side Packaging (SSP). Only meaningful when SSP is'
+                     ' enabled. The default value is provided via the global'
+                     ' config setting for AUTOSERV/container_base_name.'
+        )
 
         #
         # Warning! Please read before adding any new arguments!
@@ -233,9 +246,9 @@ class autoserv_parser(object):
         # packaging and if the test source build does not have the new
         # arguments.
         #
-        # New argument should NOT set action to `store_true`. A workaround is to
-        # use string value of `True` or `False`, then convert them to boolean in
-        # code.
+        # New arguments should NOT set action to `store_true`. A workaround is
+        # to use string value of `True` or `False`, then convert them to boolean
+        # in code.
         # The reason is that parse_args will always ignore the argument name and
         # value. An unknown argument without a value will lead to positional
         # argument being removed unexpectedly.

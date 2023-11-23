@@ -45,10 +45,10 @@ TEST_F(RouteControllerTest, TestGetRulePriority) {
     // Expect a rule dump for these two families to contain at least the following priorities.
     for (int family : {AF_INET, AF_INET6 }) {
         std::set<uint32_t> expectedPriorities = {
-            0,
-            15000,  // RULE_PRIORITY_LEGACY_SYSTEM
-            16000,  // RULE_PRIORITY_LEGACY_NETWORK
-            32000,  // RULE_PRIORITY_UNREACHABLE
+                0,
+                RULE_PRIORITY_LEGACY_SYSTEM,
+                RULE_PRIORITY_LEGACY_NETWORK,
+                RULE_PRIORITY_UNREACHABLE,
         };
 
         NetlinkDumpCallback callback = [&expectedPriorities] (const nlmsghdr *nlh) {

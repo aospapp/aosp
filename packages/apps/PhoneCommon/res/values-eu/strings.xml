@@ -34,7 +34,7 @@
     <string name="callFailed_noSignal" msgid="7700332004458210245">"Ez dago seinalerik"</string>
     <string name="callFailed_limitExceeded" msgid="2877263157928717415">"ACM datuen muga gainditu da"</string>
     <string name="callFailed_powerOff" msgid="2212239757387143765">"Irratia desaktibatuta dago"</string>
-    <string name="callFailed_simError" msgid="510948380244092037">"Ez dago SIM txartelik edo SIM txartelaren errore bat gertatu da"</string>
+    <string name="callFailed_simError" msgid="510948380244092037">"Ez dago SIMik, edo SIMaren errore bat gertatu da"</string>
     <string name="callFailed_outOfService" msgid="2917536349269880601">"Sare mugikorra ez dago erabilgarri"</string>
     <string name="callFailed_fdn_only" msgid="584249308311672690">"Irteerako deiak markatze finkoko zenbakiaren arabera murrizten dira."</string>
     <string name="callFailed_dialToUssd" msgid="6794913139176808973">"USSD eskaerara aldatu da deia"</string>

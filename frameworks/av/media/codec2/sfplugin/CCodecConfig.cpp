@@ -18,11 +18,13 @@
 #define LOG_TAG "CCodecConfig"
 #include <cutils/properties.h>
 #include <log/log.h>
+#include <utils/NativeHandle.h>
 
 #include <C2Component.h>
 #include <C2Param.h>
 #include <util/C2InterfaceHelper.h>
 
+#include <media/stagefright/CodecBase.h>
 #include <media/stagefright/MediaCodecConstants.h>
 
 #include "CCodecConfig.h"
@@ -289,8 +291,8 @@ struct StandardParams {
     std::vector<std::string> getPathsForDomain(
             Domain any, Domain all = Domain::ALL) const {
         std::vector<std::string> res;
-        for (const std::pair<std::string, std::vector<ConfigMapper>> &el : mConfigMappers) {
-            for (const ConfigMapper &cm : el.second) {
+        for (const auto &[key, mappers] : mConfigMappers) {
+            for (const ConfigMapper &cm : mappers) {
                 ALOGV("filtering %s %x %x %x %x", cm.path().c_str(), cm.domain(), any,
                         (cm.domain() & any), (cm.domain() & any & all));
                 if ((cm.domain() & any) && ((cm.domain() & any & all) == (any & all))) {
@@ -321,7 +323,8 @@ const std::vector<ConfigMapper> StandardParams::NO_MAPPERS;
 CCodecConfig::CCodecConfig()
     : mInputFormat(new AMessage),
       mOutputFormat(new AMessage),
-      mUsingSurface(false) { }
+      mUsingSurface(false),
+      mTunneled(false) { }
 
 void CCodecConfig::initializeStandardParams() {
     typedef Domain D;
@@ -359,7 +362,10 @@ void CCodecConfig::initializeStandardParams() {
         .limitTo(D::OUTPUT & D::READ));
 
     add(ConfigMapper(KEY_BIT_RATE, C2_PARAMKEY_BITRATE, "value")
-        .limitTo(D::ENCODER & D::OUTPUT));
+        .limitTo(D::ENCODER & D::CODED));
+    // Some audio decoders require bitrate information to be set
+    add(ConfigMapper(KEY_BIT_RATE, C2_PARAMKEY_BITRATE, "value")
+        .limitTo(D::AUDIO & D::DECODER & D::CODED));
     // we also need to put the bitrate in the max bitrate field
     add(ConfigMapper(KEY_MAX_BIT_RATE, C2_PARAMKEY_BITRATE, "value")
         .limitTo(D::ENCODER & D::READ & D::OUTPUT));
@@ -415,19 +421,38 @@ void CCodecConfig::initializeStandardParams() {
     add(ConfigMapper("color-matrix",        C2_PARAMKEY_DEFAULT_COLOR_ASPECTS,   "matrix")
         .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::CODED & (D::CONFIG | D::PARAM)));
 
+    // read back default for decoders. This is needed in case the component does not support
+    // color aspects. In that case, these values get copied to color-* keys.
+    // TRICKY: We read these values at raw port, since that's where we want to read these.
+    add(ConfigMapper("default-color-range",     C2_PARAMKEY_DEFAULT_COLOR_ASPECTS,   "range")
+        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW & D::READ)
+        .withC2Mappers<C2Color::range_t>());
+    add(ConfigMapper("default-color-transfer",  C2_PARAMKEY_DEFAULT_COLOR_ASPECTS,   "transfer")
+        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW & D::READ)
+        .withC2Mappers<C2Color::transfer_t>());
+    add(ConfigMapper("default-color-primaries", C2_PARAMKEY_DEFAULT_COLOR_ASPECTS,   "primaries")
+        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW & D::READ));
+    add(ConfigMapper("default-color-matrix",    C2_PARAMKEY_DEFAULT_COLOR_ASPECTS,   "matrix")
+        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW & D::READ));
+
     // read back final for decoder output (also, configure final aspects as well. This should be
     // overwritten based on coded/default values if component supports color aspects, but is used
     // as final values if component does not support aspects at all)
     add(ConfigMapper(KEY_COLOR_RANGE,       C2_PARAMKEY_COLOR_ASPECTS,   "range")
-        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW)
+        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW & D::READ)
         .withC2Mappers<C2Color::range_t>());
     add(ConfigMapper(KEY_COLOR_TRANSFER,    C2_PARAMKEY_COLOR_ASPECTS,   "transfer")
-        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW)
+        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW & D::READ)
         .withC2Mappers<C2Color::transfer_t>());
     add(ConfigMapper("color-primaries",     C2_PARAMKEY_COLOR_ASPECTS,   "primaries")
-        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW));
+        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW & D::READ));
     add(ConfigMapper("color-matrix",        C2_PARAMKEY_COLOR_ASPECTS,   "matrix")
-        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW));
+        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW & D::READ));
+
+    // configure transfer request
+    add(ConfigMapper("color-transfer-request", C2_PARAMKEY_COLOR_ASPECTS, "transfer")
+        .limitTo((D::VIDEO | D::IMAGE) & D::DECODER  & D::RAW & D::CONFIG)
+        .withC2Mappers<C2Color::transfer_t>());
 
     // configure source aspects for encoders and read them back on the coded(!) port.
     // This is to ensure muxing the desired aspects into the container.
@@ -488,7 +513,7 @@ void CCodecConfig::initializeStandardParams() {
     add(ConfigMapper(std::string(KEY_FEATURE_) + FEATURE_SecurePlayback,
                      C2_PARAMKEY_SECURE_MODE, "value"));
 
-    add(ConfigMapper(KEY_PREPEND_HEADERS_TO_SYNC_FRAMES,
+    add(ConfigMapper(KEY_PREPEND_HEADER_TO_SYNC_FRAMES,
                      C2_PARAMKEY_PREPEND_HEADER_MODE, "value")
         .limitTo(D::ENCODER & D::VIDEO)
         .withMappers([](C2Value v) -> C2Value {
@@ -512,7 +537,7 @@ void CCodecConfig::initializeStandardParams() {
             return C2Value();
         }));
     // remove when codecs switch to PARAMKEY
-    deprecated(ConfigMapper(KEY_PREPEND_HEADERS_TO_SYNC_FRAMES,
+    deprecated(ConfigMapper(KEY_PREPEND_HEADER_TO_SYNC_FRAMES,
                             "coding.add-csd-to-sync-frames", "value")
                .limitTo(D::ENCODER & D::VIDEO));
     // convert to timestamp base
@@ -708,6 +733,17 @@ void CCodecConfig::initializeStandardParams() {
             return C2Value();
         }));
 
+    add(ConfigMapper(KEY_AAC_PROFILE, C2_PARAMKEY_PROFILE_LEVEL, "profile")
+        .limitTo(D::AUDIO & D::ENCODER & (D::CONFIG | D::PARAM))
+        .withMapper([mapper](C2Value v) -> C2Value {
+            C2Config::profile_t c2 = PROFILE_UNUSED;
+            int32_t sdk;
+            if (mapper && v.get(&sdk) && mapper->mapProfile(sdk, &c2)) {
+                return c2;
+            }
+            return PROFILE_UNUSED;
+        }));
+
     // convert to dBFS and add default
     add(ConfigMapper(KEY_AAC_DRC_TARGET_REFERENCE_LEVEL, C2_PARAMKEY_DRC_TARGET_REFERENCE_LEVEL, "value")
         .limitTo(D::AUDIO & D::DECODER & (D::CONFIG | D::PARAM | D::READ))
@@ -765,21 +801,13 @@ void CCodecConfig::initializeStandardParams() {
 
     // convert to compression type and add default
     add(ConfigMapper(KEY_AAC_DRC_HEAVY_COMPRESSION, C2_PARAMKEY_DRC_COMPRESSION_MODE, "value")
-        .limitTo(D::AUDIO & D::DECODER & (D::CONFIG | D::PARAM | D::READ))
-        .withMappers([](C2Value v) -> C2Value {
+        .limitTo(D::AUDIO & D::DECODER & (D::CONFIG | D::PARAM))
+        .withMapper([](C2Value v) -> C2Value {
             int32_t value;
             if (!v.get(&value) || value < 0) {
                 value = property_get_int32(PROP_DRC_OVERRIDE_HEAVY, DRC_DEFAULT_MOBILE_DRC_HEAVY);
             }
             return value == 1 ? C2Config::DRC_COMPRESSION_HEAVY : C2Config::DRC_COMPRESSION_LIGHT;
-        },[](C2Value v) -> C2Value {
-            int32_t value;
-            if (v.get(&value)) {
-              return value;
-            }
-            else {
-              return C2Value();
-            }
         }));
 
     // convert to dBFS and add default
@@ -881,6 +909,8 @@ void CCodecConfig::initializeStandardParams() {
             }
         }));
 
+    add(ConfigMapper("android._encoding-quality-level", C2_PARAMKEY_ENCODING_QUALITY_LEVEL, "value")
+        .limitTo(D::ENCODER & (D::CONFIG | D::PARAM)));
     add(ConfigMapper(KEY_QUALITY, C2_PARAMKEY_QUALITY, "value")
         .limitTo(D::ENCODER & (D::CONFIG | D::PARAM)));
     add(ConfigMapper(KEY_FLAC_COMPRESSION_LEVEL, C2_PARAMKEY_COMPLEXITY, "value")
@@ -904,6 +934,14 @@ void CCodecConfig::initializeStandardParams() {
 
     add(ConfigMapper(KEY_LOW_LATENCY, C2_PARAMKEY_LOW_LATENCY_MODE, "value")
         .limitTo(D::DECODER & (D::CONFIG | D::PARAM))
+        .withMapper([](C2Value v) -> C2Value {
+            int32_t value = 0;
+            (void)v.get(&value);
+            return value == 0 ? C2_FALSE : C2_TRUE;
+        }));
+
+    add(ConfigMapper("android._trigger-tunnel-peek", C2_PARAMKEY_TUNNEL_START_RENDER, "value")
+        .limitTo(D::PARAM & D::VIDEO & D::DECODER)
         .withMapper([](C2Value v) -> C2Value {
             int32_t value = 0;
             (void)v.get(&value);
@@ -1009,11 +1047,14 @@ status_t CCodecConfig::initialize(
                     new C2StreamPixelAspectRatioInfo::output(0u, 1u, 1u),
                     C2_PARAMKEY_PIXEL_ASPECT_RATIO);
             addLocalParam(new C2StreamRotationInfo::output(0u, 0), C2_PARAMKEY_ROTATION);
-            addLocalParam(new C2StreamColorAspectsInfo::output(0u), C2_PARAMKEY_COLOR_ASPECTS);
+            addLocalParam(
+                    new C2StreamColorAspectsTuning::output(0u),
+                    C2_PARAMKEY_DEFAULT_COLOR_ASPECTS);
             addLocalParam<C2StreamDataSpaceInfo::output>(C2_PARAMKEY_DATA_SPACE);
             addLocalParam<C2StreamHdrStaticInfo::output>(C2_PARAMKEY_HDR_STATIC_INFO);
-            addLocalParam(new C2StreamSurfaceScalingInfo::output(0u, VIDEO_SCALING_MODE_SCALE_TO_FIT),
-                          C2_PARAMKEY_SURFACE_SCALING_MODE);
+            addLocalParam(
+                    new C2StreamSurfaceScalingInfo::output(0u, VIDEO_SCALING_MODE_SCALE_TO_FIT),
+                    C2_PARAMKEY_SURFACE_SCALING_MODE);
         } else {
             addLocalParam(new C2StreamColorAspectsInfo::input(0u), C2_PARAMKEY_COLOR_ASPECTS);
         }
@@ -1045,7 +1086,7 @@ status_t CCodecConfig::initialize(
             std::vector<std::string> keys;
             mParamUpdater->getKeysForParamIndex(desc->index(), &keys);
             for (const std::string &key : keys) {
-                mVendorParamIndices.insert_or_assign(key, desc->index());
+                mVendorParams.insert_or_assign(key, desc);
             }
         }
     }
@@ -1111,6 +1152,12 @@ bool CCodecConfig::updateConfiguration(
             }
             insertion.first->second = std::move(p);
         }
+    }
+    if (mInputSurface
+            && (domain & mOutputDomain)
+            && mInputSurfaceDataspace != mInputSurface->getDataspace()) {
+        changed = true;
+        mInputSurfaceDataspace = mInputSurface->getDataspace();
     }
 
     ALOGV("updated configuration has %zu params (%s)", mCurrentConfig.size(),
@@ -1180,8 +1227,8 @@ sp<AMessage> CCodecConfig::getFormatForDomain(
         const ReflectedParamUpdater::Dict &reflected,
         Domain portDomain) const {
     sp<AMessage> msg = new AMessage;
-    for (const std::pair<std::string, std::vector<ConfigMapper>> &el : mStandardParams->getKeys()) {
-        for (const ConfigMapper &cm : el.second) {
+    for (const auto &[key, mappers] : mStandardParams->getKeys()) {
+        for (const ConfigMapper &cm : mappers) {
             if ((cm.domain() & portDomain) == 0 // input-output-coded-raw
                 || (cm.domain() & mDomain) != mDomain // component domain + kind (these must match)
                 || (cm.domain() & IS_READ) == 0) {
@@ -1205,26 +1252,26 @@ sp<AMessage> CCodecConfig::getFormatForDomain(
                 ALOGD("unexpected untyped query value for key: %s", cm.path().c_str());
                 continue;
             }
-            msg->setItem(el.first.c_str(), item);
+            msg->setItem(key.c_str(), item);
         }
     }
 
     bool input = (portDomain & Domain::IS_INPUT);
     std::vector<std::string> vendorKeys;
-    for (const std::pair<std::string, ReflectedParamUpdater::Value> &entry : reflected) {
-        auto it = mVendorParamIndices.find(entry.first);
-        if (it == mVendorParamIndices.end()) {
+    for (const auto &[key, value] : reflected) {
+        auto it = mVendorParams.find(key);
+        if (it == mVendorParams.end()) {
             continue;
         }
-        if (mSubscribedIndices.count(it->second) == 0) {
+        C2Param::Index index = it->second->index();
+        if (mSubscribedIndices.count(index) == 0) {
             continue;
         }
         // For vendor parameters, we only care about direction
-        if ((input && !it->second.forInput())
-                || (!input && !it->second.forOutput())) {
+        if ((input && !index.forInput())
+                || (!input && !index.forOutput())) {
             continue;
         }
-        const ReflectedParamUpdater::Value &value = entry.second;
         C2Value c2Value;
         sp<ABuffer> bufValue;
         AString strValue;
@@ -1236,10 +1283,10 @@ sp<AMessage> CCodecConfig::getFormatForDomain(
         } else if (value.find(&strValue)) {
             item.set(strValue);
         } else {
-            ALOGD("unexpected untyped query value for key: %s", entry.first.c_str());
+            ALOGD("unexpected untyped query value for key: %s", key.c_str());
             continue;
         }
-        msg->setItem(entry.first.c_str(), item);
+        msg->setItem(key.c_str(), item);
     }
 
     { // convert from Codec 2.0 rect to MediaFormat rect and add crop rect if not present
@@ -1299,9 +1346,46 @@ sp<AMessage> CCodecConfig::getFormatForDomain(
         }
     }
 
+    // Remove KEY_AAC_SBR_MODE from SDK message if it is outside supported range
+    // as SDK doesn't have a way to signal default sbr mode based on profile and
+    // requires that the key isn't present in format to signal that
+    int sbrMode;
+    if (msg->findInt32(KEY_AAC_SBR_MODE, &sbrMode) && (sbrMode < 0 || sbrMode > 2)) {
+        msg->removeEntryAt(msg->findEntryByName(KEY_AAC_SBR_MODE));
+    }
+
     { // convert color info
+        // move default color to color aspect if not read from the component
+        int32_t tmp;
+        int32_t range;
+        if (msg->findInt32("default-color-range", &range)) {
+            if (!msg->findInt32(KEY_COLOR_RANGE, &tmp)) {
+                msg->setInt32(KEY_COLOR_RANGE, range);
+            }
+            msg->removeEntryAt(msg->findEntryByName("default-color-range"));
+        }
+        int32_t transfer;
+        if (msg->findInt32("default-color-transfer", &transfer)) {
+            if (!msg->findInt32(KEY_COLOR_TRANSFER, &tmp)) {
+                msg->setInt32(KEY_COLOR_TRANSFER, transfer);
+            }
+            msg->removeEntryAt(msg->findEntryByName("default-color-transfer"));
+        }
         C2Color::primaries_t primaries;
+        if (msg->findInt32("default-color-primaries", (int32_t*)&primaries)) {
+            if (!msg->findInt32("color-primaries", &tmp)) {
+                msg->setInt32("color-primaries", primaries);
+            }
+            msg->removeEntryAt(msg->findEntryByName("default-color-primaries"));
+        }
         C2Color::matrix_t matrix;
+        if (msg->findInt32("default-color-matrix", (int32_t*)&matrix)) {
+            if (!msg->findInt32("color-matrix", &tmp)) {
+                msg->setInt32("color-matrix", matrix);
+            }
+            msg->removeEntryAt(msg->findEntryByName("default-color-matrix"));
+        }
+
         if (msg->findInt32("color-primaries", (int32_t*)&primaries)
                 && msg->findInt32("color-matrix", (int32_t*)&matrix)) {
             int32_t standard;
@@ -1313,7 +1397,6 @@ sp<AMessage> CCodecConfig::getFormatForDomain(
             msg->removeEntryAt(msg->findEntryByName("color-primaries"));
             msg->removeEntryAt(msg->findEntryByName("color-matrix"));
         }
-
 
         // calculate dataspace for raw graphic buffers if not specified by component, or if
         // using surface with unspecified aspects (as those must be defaulted which may change
@@ -1350,6 +1433,23 @@ sp<AMessage> CCodecConfig::getFormatForDomain(
                 dataspace = ColorUtils::getDataSpaceForColorAspects(aspects, true /* mayExpand */);
                 msg->setInt32("android._dataspace", dataspace);
             }
+        }
+
+        if (mInputSurface) {
+            android_dataspace dataspace = mInputSurface->getDataspace();
+            ColorUtils::convertDataSpaceToV0(dataspace);
+            int32_t standard;
+            ColorUtils::getColorConfigFromDataSpace(dataspace, &range, &standard, &transfer);
+            if (range != 0) {
+                msg->setInt32(KEY_COLOR_RANGE, range);
+            }
+            if (standard != 0) {
+                msg->setInt32(KEY_COLOR_STANDARD, standard);
+            }
+            if (transfer != 0) {
+                msg->setInt32(KEY_COLOR_TRANSFER, transfer);
+            }
+            msg->setInt32("android._dataspace", dataspace);
         }
 
         // HDR static info
@@ -1393,22 +1493,22 @@ sp<AMessage> CCodecConfig::getFormatForDomain(
                 meta.sType1.mMinDisplayLuminance = hdr.mastering.minLuminance / 0.0001 + 0.5;
                 meta.sType1.mMaxContentLightLevel = hdr.maxCll + 0.5;
                 meta.sType1.mMaxFrameAverageLightLevel = hdr.maxFall + 0.5;
-                msg->removeEntryAt(msg->findEntryByName("smpte2086.red.x"));
-                msg->removeEntryAt(msg->findEntryByName("smpte2086.red.y"));
-                msg->removeEntryAt(msg->findEntryByName("smpte2086.green.x"));
-                msg->removeEntryAt(msg->findEntryByName("smpte2086.green.y"));
-                msg->removeEntryAt(msg->findEntryByName("smpte2086.blue.x"));
-                msg->removeEntryAt(msg->findEntryByName("smpte2086.blue.y"));
-                msg->removeEntryAt(msg->findEntryByName("smpte2086.white.x"));
-                msg->removeEntryAt(msg->findEntryByName("smpte2086.white.y"));
-                msg->removeEntryAt(msg->findEntryByName("smpte2086.max-luminance"));
-                msg->removeEntryAt(msg->findEntryByName("smpte2086.min-luminance"));
-                msg->removeEntryAt(msg->findEntryByName("cta861.max-cll"));
-                msg->removeEntryAt(msg->findEntryByName("cta861.max-fall"));
                 msg->setBuffer(KEY_HDR_STATIC_INFO, ABuffer::CreateAsCopy(&meta, sizeof(meta)));
             } else {
                 ALOGD("found invalid HDR static metadata %s", msg->debugString(8).c_str());
             }
+            msg->removeEntryAt(msg->findEntryByName("smpte2086.red.x"));
+            msg->removeEntryAt(msg->findEntryByName("smpte2086.red.y"));
+            msg->removeEntryAt(msg->findEntryByName("smpte2086.green.x"));
+            msg->removeEntryAt(msg->findEntryByName("smpte2086.green.y"));
+            msg->removeEntryAt(msg->findEntryByName("smpte2086.blue.x"));
+            msg->removeEntryAt(msg->findEntryByName("smpte2086.blue.y"));
+            msg->removeEntryAt(msg->findEntryByName("smpte2086.white.x"));
+            msg->removeEntryAt(msg->findEntryByName("smpte2086.white.y"));
+            msg->removeEntryAt(msg->findEntryByName("smpte2086.max-luminance"));
+            msg->removeEntryAt(msg->findEntryByName("smpte2086.min-luminance"));
+            msg->removeEntryAt(msg->findEntryByName("cta861.max-cll"));
+            msg->removeEntryAt(msg->findEntryByName("cta861.max-fall"));
         }
     }
 
@@ -1643,8 +1743,8 @@ ReflectedParamUpdater::Dict CCodecConfig::getReflectedFormat(
             }
         }
     }
-    ALOGV("filtered %s to %s", params->debugString(4).c_str(),
-            filtered.debugString(4).c_str());
+    ALOGV("filter src msg %s", params->debugString(4).c_str());
+    ALOGV("filter dst params %s", filtered.debugString(4).c_str());
     return filtered;
 }
 
@@ -1769,8 +1869,81 @@ const C2Param *CCodecConfig::getConfigParameterValue(C2Param::Index index) const
 status_t CCodecConfig::subscribeToAllVendorParams(
         const std::shared_ptr<Codec2Client::Configurable> &configurable,
         c2_blocking_t blocking) {
-    for (const std::pair<std::string, C2Param::Index> &entry : mVendorParamIndices) {
-        mSubscribedIndices.insert(entry.second);
+    for (const auto &[path, desc] : mVendorParams) {
+        mSubscribedIndices.insert(desc->index());
+    }
+    return subscribeToConfigUpdate(configurable, {}, blocking);
+}
+
+status_t CCodecConfig::querySupportedParameters(std::vector<std::string> *names) {
+    if (!names) {
+        return BAD_VALUE;
+    }
+    names->clear();
+    // TODO: expand to standard params
+    for (const auto &[key, desc] : mVendorParams) {
+        names->push_back(key);
+    }
+    return OK;
+}
+
+status_t CCodecConfig::describe(const std::string &name, CodecParameterDescriptor *desc) {
+    if (!desc) {
+        return BAD_VALUE;
+    }
+    // TODO: expand to standard params
+    desc->name = name;
+    switch (mParamUpdater->getTypeForKey(name)) {
+        case C2FieldDescriptor::INT32:
+        case C2FieldDescriptor::UINT32:
+        case C2FieldDescriptor::CNTR32:
+            desc->type = AMessage::kTypeInt32;
+            return OK;
+        case C2FieldDescriptor::INT64:
+        case C2FieldDescriptor::UINT64:
+        case C2FieldDescriptor::CNTR64:
+            desc->type = AMessage::kTypeInt64;
+            return OK;
+        case C2FieldDescriptor::FLOAT:
+            desc->type = AMessage::kTypeFloat;
+            return OK;
+        case C2FieldDescriptor::STRING:
+            desc->type = AMessage::kTypeString;
+            return OK;
+        case C2FieldDescriptor::BLOB:
+            desc->type = AMessage::kTypeBuffer;
+            return OK;
+        default:
+            return NAME_NOT_FOUND;
+    }
+}
+
+status_t CCodecConfig::subscribeToVendorConfigUpdate(
+        const std::shared_ptr<Codec2Client::Configurable> &configurable,
+        const std::vector<std::string> &names,
+        c2_blocking_t blocking) {
+    for (const std::string &name : names) {
+        auto it = mVendorParams.find(name);
+        if (it == mVendorParams.end()) {
+            ALOGD("%s is not a recognized vendor parameter; ignored.", name.c_str());
+            continue;
+        }
+        mSubscribedIndices.insert(it->second->index());
+    }
+    return subscribeToConfigUpdate(configurable, {}, blocking);
+}
+
+status_t CCodecConfig::unsubscribeFromVendorConfigUpdate(
+        const std::shared_ptr<Codec2Client::Configurable> &configurable,
+        const std::vector<std::string> &names,
+        c2_blocking_t blocking) {
+    for (const std::string &name : names) {
+        auto it = mVendorParams.find(name);
+        if (it == mVendorParams.end()) {
+            ALOGD("%s is not a recognized vendor parameter; ignored.", name.c_str());
+            continue;
+        }
+        mSubscribedIndices.erase(it->second->index());
     }
     return subscribeToConfigUpdate(configurable, {}, blocking);
 }

@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "art_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["art_license"],
+}
+
 bootstrap_go_package {
     name: "soong-art",
     pkgPath: "android/soong/art",
@@ -54,10 +63,29 @@ art_clang_tidy_disabled = [
     "-modernize-pass-by-value",
 ]
 
-art_global_defaults {
+soong_config_module_type_import {
+    from: "art/build/SoongConfig.bp",
+    module_types: [
+        "art_module_art_global_defaults",
+        "art_module_cc_defaults",
+        "art_module_java_defaults",
+    ],
+}
+
+art_module_art_global_defaults {
     // Additional flags are computed by art.go
 
     name: "art_defaults",
+
+    // Disable all ART Soong modules by default when ART prebuilts are in use.
+    // TODO(b/172480617): Clean up when sources are gone from the platform tree
+    // and we no longer need to support sources present when prebuilts are used.
+    enabled: false,
+    soong_config_variables: {
+        source_build: {
+            enabled: true,
+        },
+    },
 
     // This is the default visibility for the //art package, but we repeat it
     // here so that it gets merged with other visibility rules in modules
@@ -137,8 +165,6 @@ art_global_defaults {
     target: {
         android: {
             cflags: [
-                "-DART_TARGET",
-
                 // To use oprofile_android --callgraph, uncomment this and recompile with
                 //    mmma -j art
                 // "-fno-omit-frame-pointer",
@@ -171,6 +197,13 @@ art_global_defaults {
             },
         },
         darwin: {
+            enabled: false,
+        },
+        windows: {
+            // When the module is enabled globally in the soong_config_variables
+            // stanza above, it may get enabled on windows too for some module
+            // types. Hence we need to disable it explicitly.
+            // TODO(b/172480617): Clean up with that.
             enabled: false,
         },
         host: {
@@ -223,6 +256,51 @@ art_global_defaults {
         // will still get the "real" errors.
         "-extra-arg=-Wno-unreachable-code",
     ],
+
+    min_sdk_version: "S",
+}
+
+// Used to generate binaries that can be backed by transparent hugepages.
+cc_defaults {
+    name: "art_hugepage_defaults",
+    arch: {
+        arm64: {
+            ldflags: ["-z max-page-size=0x200000"],
+        },
+        x86_64: {
+            ldflags: ["-z max-page-size=0x200000"],
+        },
+    },
+}
+
+cc_defaults {
+    name: "art_pgo_defaults",
+    visibility: ["//art:__subpackages__"],
+    pgo: {
+        sampling: true,
+    },
+    target: {
+        android_arm64: {
+            pgo: {
+                profile_file: "art/art_arm_arm64.profdata",
+            },
+        },
+        android_arm: {
+            pgo: {
+                profile_file: "art/art_arm_arm64.profdata",
+            },
+        },
+        android_x86_64: {
+            pgo: {
+                profile_file: "art/art_x86_x86_64.profdata",
+            },
+        },
+        android_x86: {
+            pgo: {
+                profile_file: "art/art_x86_x86_64.profdata",
+            },
+        },
+    },
 }
 
 art_debug_defaults {
@@ -245,6 +323,104 @@ art_debug_defaults {
         },
         host: {
             cflags: ["-Wno-frame-larger-than="],
+        },
+    },
+
+    min_sdk_version: "S",
+}
+
+// Use this to enable a cc_* module only when building ART from sources.
+// TODO(b/172480617): Clean up when sources are gone from the platform tree and
+// we no longer need to support sources present when prebuilts are used.
+art_module_cc_defaults {
+    name: "art_module_source_build_defaults",
+    defaults_visibility: [
+        "//art:__subpackages__",
+        "//libcore:__subpackages__",
+        "//libnativehelper:__subpackages__",
+    ],
+
+    enabled: false,
+    soong_config_variables: {
+        source_build: {
+            enabled: true,
+        },
+    },
+    target: {
+        windows: {
+            // Windows is disabled by default, but if we set enabled:true
+            // globally above we need to disable it explicitly.
+            enabled: false,
+        },
+    },
+}
+
+// Use this to enable a java_* module only when building ART from sources.
+// TODO(b/172480617): Clean up when sources are gone from the platform tree and
+// we no longer need to support sources present when prebuilts are used.
+art_module_java_defaults {
+    name: "art_module_source_build_java_defaults",
+    defaults_visibility: [
+        "//art:__subpackages__",
+        "//libcore:__subpackages__",
+        "//libnativehelper:__subpackages__",
+    ],
+
+    enabled: false,
+    soong_config_variables: {
+        source_build: {
+            enabled: true,
+        },
+    },
+    target: {
+        windows: {
+            // Windows is disabled by default, but if we set enabled:true
+            // globally above we need to disable it explicitly.
+            enabled: false,
+        },
+    },
+}
+
+// A version of conscrypt only for enabling the "-hostdex" version to test ART on host.
+java_library {
+    // We need our own name to not clash with the conscrypt library.
+    name: "conscrypt-host",
+    installable: true,
+    hostdex: true,
+    static_libs: ["conscrypt-for-host"],
+
+    // Tests and build files rely on this file to be installed as "conscrypt-hostdex",
+    // therefore set a stem. Without it, the file would be installed as
+    // "conscrypt-host-hostdex".
+    stem: "conscrypt",
+    sdk_version: "core_platform",
+    target: {
+        hostdex: {
+            required: ["libjavacrypto"],
+        },
+        darwin: {
+            // required module "libjavacrypto" is disabled on darwin
+            enabled: false,
+        },
+    },
+}
+
+// A version of core-icu4j only for enabling the "-hostdex" version to test ART on host.
+java_library {
+    // We need our own name to not clash with the core-icu4j library.
+    name: "core-icu4j-host",
+    installable: true,
+    hostdex: true,
+    static_libs: ["core-icu4j-for-host"],
+
+    // Tests and build files rely on this file to be installed as "core-icu4j-hostdex",
+    // therefore set a stem. Without it, the file would be installed as
+    // "core-icu4j-host-hostdex".
+    stem: "core-icu4j",
+    sdk_version: "core_platform",
+    target: {
+        hostdex: {
+            required: ["libicu_jni"],
         },
     },
 }

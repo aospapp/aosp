@@ -18,45 +18,45 @@ package android.platform.helpers;
 
 public interface IAutoMediaCenterMinimizeControlBarHelper extends IAppHelper {
 
-  /**
-   * Setup expectations: media test app is open and Minimize control bar present.
-   *
-   * This method is used to play media.
-   */
-  void playMedia();
+    /**
+     * Setup expectations: media test app is open and Minimize control bar present.
+     *
+     * <p>This method is used to play media.
+     */
+    void playMedia();
 
-  /**
-   * Setup expectations: media test app is open and Minimize control bar present.
-   *
-   * This method is used to pause media.
-   */
-  void pauseMedia();
+    /**
+     * Setup expectations: media test app is open and Minimize control bar present.
+     *
+     * <p>This method is used to pause media.
+     */
+    void pauseMedia();
 
-  /**
-   * Setup expectations: media test app is open and Minimize control bar present.
-   *
-   * This method is used to select next track.
-   */
-  void clickNextTrack();
+    /**
+     * Setup expectations: media test app is open and Minimize control bar present.
+     *
+     * <p>This method is used to select next track.
+     */
+    void clickNextTrack();
 
-  /**
-   *  Setup expectations: media test app is open and Minimize control bar present.
-   *
-   * This method is used to select previous track.
-   */
-  void clickPreviousTrack();
+    /**
+     * Setup expectations: media test app is open and Minimize control bar present.
+     *
+     * <p>This method is used to select previous track.
+     */
+    void clickPreviousTrack();
 
-  /**
-   * Setup expectations: media test app is open and Minimize control bar present.
-   *
-   * @return to get current playing track name from home screen.
-   */
-  String getTrackName();
+    /**
+     * Setup expectations: media test app is open and Minimize control bar present.
+     *
+     * @return to get current playing track name from home screen.
+     */
+    String getTrackName();
 
-  /**
-   * Setup expectations: media test app is open and Minimize control bar present.
-   *
-   * This method is used to maximize the play back screen.
-   */
-  void maximizeNowPlaying();
+    /**
+     * Setup expectations: media test app is open and Minimize control bar present.
+     *
+     * <p>This method is used to maximize the play back screen.
+     */
+    void maximizeNowPlaying();
 }

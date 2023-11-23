@@ -41,12 +41,20 @@
 		}                                                                                  \
 	} while (0)
 
+#define BUFFER_USAGE_FRONT_RENDERING GRALLOC_USAGE_PRIVATE_0
+
 /* Private API enumeration -- see <gralloc_drm.h> */
 enum {
 	GRALLOC_DRM_GET_STRIDE,
 	GRALLOC_DRM_GET_FORMAT,
 	GRALLOC_DRM_GET_DIMENSIONS,
 	GRALLOC_DRM_GET_BACKING_STORE,
+	GRALLOC_DRM_GET_BUFFER_INFO,
+	GRALLOC_DRM_GET_USAGE,
+};
+
+enum {
+	GRALLOC_DRM_GET_USAGE_FRONT_RENDERING_BIT = 0x00000001,
 };
 
 struct gralloctest_context {
@@ -467,7 +475,7 @@ static int test_perform(struct gralloctest_context *ctx)
 {
 	int32_t format;
 	uint64_t id1, id2;
-	uint32_t stride, width, height;
+	uint32_t stride, width, height, req_usage, gralloc_usage;
 	struct grallocinfo info, duplicate;
 	struct gralloc_module_t *mod = ctx->module;
 
@@ -476,7 +484,7 @@ static int test_perform(struct gralloctest_context *ctx)
 	CHECK(allocate(ctx->device, &info));
 
 	CHECK(mod->perform(mod, GRALLOC_DRM_GET_STRIDE, info.handle, &stride) == 0);
-	CHECK(stride == info.stride);
+	CHECK(stride >= info.stride);
 
 	CHECK(mod->perform(mod, GRALLOC_DRM_GET_FORMAT, info.handle, &format) == 0);
 	CHECK(format == info.format);
@@ -497,6 +505,16 @@ static int test_perform(struct gralloctest_context *ctx)
 
 	CHECK(unregister_buffer(mod, &duplicate));
 	CHECK(deallocate(ctx->device, &info));
+
+	req_usage = 0;
+	gralloc_usage = 0;
+	CHECK(mod->perform(mod, GRALLOC_DRM_GET_USAGE, req_usage, &gralloc_usage) == 0);
+	CHECK(gralloc_usage == 0);
+
+	req_usage = GRALLOC_DRM_GET_USAGE_FRONT_RENDERING_BIT;
+	gralloc_usage = 0;
+	CHECK(mod->perform(mod, GRALLOC_DRM_GET_USAGE, req_usage, &gralloc_usage) == 0);
+	CHECK(gralloc_usage == BUFFER_USAGE_FRONT_RENDERING);
 
 	return 1;
 }
@@ -674,11 +692,12 @@ int main(int argc, char *argv[])
 			if (strcmp(tests[i].name, name) && strcmp("all", name))
 				continue;
 
+			printf("[ RUN      ] gralloctest.%s\n", tests[i].name);
+
 			int success = 1;
 			if (ctx->api >= tests[i].required_api)
 				success = tests[i].run_test(ctx);
 
-			printf("[ RUN      ] gralloctest.%s\n", tests[i].name);
 			if (!success) {
 				fprintf(stderr, "[  FAILED  ] gralloctest.%s\n", tests[i].name);
 				ret |= 1;

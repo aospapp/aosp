@@ -69,7 +69,7 @@ public class SerializationTester<T> {
             assertTrue("User-constructed value doesn't equal itself, reserialized",
                     equals(value, reserialized));
 
-            // just a sanity check! if this fails, verify() is probably broken
+            // just a confidence check! if this fails, verify() is probably broken
             verify(value);
             verify(deserialized);
             verify(reserialized);

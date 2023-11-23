@@ -19,7 +19,7 @@
 #include <inttypes.h>
 
 #include <shared/abort.h>
-#include <shared/dumb_allocator.h>
+#include <shared/chunk_allocator.h>
 #include <shared/nano_endian.h>
 #include <shared/nano_string.h>
 
@@ -29,27 +29,27 @@ namespace nanoapp_testing {
 
 constexpr size_t kAllocSize = 128;
 
-static DumbAllocator<kAllocSize, 4> gDumbAlloc;
+static ChunkAllocator<kAllocSize, 4> gChunkAlloc;
 
-static void freeDumbAllocMessage(void *message, size_t messageSize) {
+static void freeChunkAllocMessage(void *message, size_t messageSize) {
   if (messageSize > kAllocSize) {
     uint32_t localSize = uint32_t(messageSize);
-    sendFatalFailureToHost("freeDumbAllocMessage given oversized message:",
+    sendFatalFailureToHost("freeChunkAllocMessage given oversized message:",
                            &localSize);
   }
-  if (!gDumbAlloc.free(message)) {
+  if (!gChunkAlloc.free(message)) {
     uint32_t localPtr =
         reinterpret_cast<size_t>(message) & UINT32_C(0xFFFFFFFF);
-    sendFatalFailureToHost("freeDumbAllocMessage given bad pointer:",
+    sendFatalFailureToHost("freeChunkAllocMessage given bad pointer:",
                            &localPtr);
   }
 }
 
 static void freeHeapMessage(void *message, size_t /* messageSize */) {
-  if (gDumbAlloc.contains(message)) {
+  if (gChunkAlloc.contains(message)) {
     uint32_t localPtr =
         reinterpret_cast<size_t>(message) & UINT32_C(0xFFFFFFFF);
-    sendFatalFailureToHost("freeHeapMessage given DumbAlloc pointer:",
+    sendFatalFailureToHost("freeHeapMessage given ChunkAlloc pointer:",
                            &localPtr);
   }
   chreHeapFree(message);
@@ -74,17 +74,17 @@ static bool needToPrependMessageType() {
   return true;
 }
 
-static void *getMessageMemory(size_t *size, bool *dumbAlloc) {
+static void *getMessageMemory(size_t *size, bool *ChunkAlloc) {
   if (needToPrependMessageType()) {
     *size += sizeof(uint32_t);
   }
-  void *ret = gDumbAlloc.alloc(*size);
+  void *ret = gChunkAlloc.alloc(*size);
   if (ret != nullptr) {
-    *dumbAlloc = true;
+    *ChunkAlloc = true;
   } else {
     // Not expected, but possible if the CHRE is lagging in freeing
     // these messages, or if we're sending a huge message.
-    *dumbAlloc = false;
+    *ChunkAlloc = false;
     ret = chreHeapAlloc(static_cast<uint32_t>(*size));
     if (ret == nullptr) {
       fatalError();
@@ -107,14 +107,14 @@ static void *prependMessageType(MessageType messageType, void *memory) {
 }
 
 static void internalSendMessage(MessageType messageType, void *data,
-                                size_t dataSize, bool dumbAlloc) {
+                                size_t dataSize, bool ChunkAlloc) {
   // Note that if the CHRE implementation occasionally drops a message
   // here, then tests will become flaky.  For now, we consider that to
   // be a flaky CHRE implementation which should fail testing.
   if (!chreSendMessageToHostEndpoint(
           data, dataSize, static_cast<uint32_t>(messageType),
           CHRE_HOST_ENDPOINT_BROADCAST,
-          dumbAlloc ? freeDumbAllocMessage : freeHeapMessage)) {
+          ChunkAlloc ? freeChunkAllocMessage : freeHeapMessage)) {
     fatalError();
   }
 }
@@ -124,12 +124,12 @@ void sendMessageToHost(MessageType messageType, const void *data,
   if ((dataSize == 0) && (data != nullptr)) {
     sendInternalFailureToHost("Bad sendMessageToHost args");
   }
-  bool dumbAlloc = true;
+  bool ChunkAlloc = true;
   size_t fullMessageSize = dataSize;
-  void *myMessageBase = getMessageMemory(&fullMessageSize, &dumbAlloc);
+  void *myMessageBase = getMessageMemory(&fullMessageSize, &ChunkAlloc);
   void *ptr = prependMessageType(messageType, myMessageBase);
   memcpy(ptr, data, dataSize);
-  internalSendMessage(messageType, myMessageBase, fullMessageSize, dumbAlloc);
+  internalSendMessage(messageType, myMessageBase, fullMessageSize, ChunkAlloc);
 }
 
 void sendStringToHost(MessageType messageType, const char *message,
@@ -137,7 +137,7 @@ void sendStringToHost(MessageType messageType, const char *message,
   if (message == nullptr) {
     sendInternalFailureToHost("sendStringToHost 'message' is NULL");
   }
-  bool dumbAlloc = true;
+  bool ChunkAlloc = true;
   const size_t messageStrlen = strlen(message);
   size_t myMessageLen = messageStrlen;
   if (value != nullptr) {
@@ -148,7 +148,7 @@ void sendStringToHost(MessageType messageType, const char *message,
 
   size_t fullMessageLen = myMessageLen;
   char *fullMessage =
-      static_cast<char *>(getMessageMemory(&fullMessageLen, &dumbAlloc));
+      static_cast<char *>(getMessageMemory(&fullMessageLen, &ChunkAlloc));
   char *ptr = static_cast<char *>(prependMessageType(messageType, fullMessage));
   memcpy(ptr, message, messageStrlen);
   ptr += messageStrlen;
@@ -159,7 +159,7 @@ void sendStringToHost(MessageType messageType, const char *message,
   // Add the terminator.
   fullMessage[fullMessageLen - 1] = '\0';
 
-  internalSendMessage(messageType, fullMessage, fullMessageLen, dumbAlloc);
+  internalSendMessage(messageType, fullMessage, fullMessageLen, ChunkAlloc);
 }
 
 // Before we abort the nanoapp, we also put this message in the chreLog().

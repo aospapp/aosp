@@ -26,7 +26,8 @@
  *
  ******************************************************************************/
 
-#include <log/log.h>
+#define LOG_TAG "bluetooth"
+
 #include <string.h>
 #include "avdt_api.h"
 #include "avdt_int.h"
@@ -36,6 +37,7 @@
 #include "bt_types.h"
 #include "bt_utils.h"
 #include "btu.h"
+#include "osi/include/log.h"
 #include "osi/include/osi.h"
 
 /*****************************************************************************
@@ -1000,9 +1002,7 @@ static uint8_t avdt_msg_prs_rej(tAVDT_MSG* p_msg, uint8_t* p, uint16_t len,
   }
 
   if (len < 1) {
-    char error_info[] = "AVDT rejected response length mismatch";
-    android_errorWriteWithInfoLog(0x534e4554, "79702484", -1, error_info,
-                                  strlen(error_info));
+    android_errorWriteLog(0x534e4554, "79702484");
     error = AVDT_ERR_LENGTH;
   } else {
     p_msg->hdr.err_code = *p;

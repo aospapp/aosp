@@ -25,6 +25,7 @@
 #include <inttypes.h>
 #include <time.h>
 #include <unistd.h>
+#include <math.h>
 #include <vector>
 
 #include <android/thermal.h>
@@ -256,6 +257,41 @@ static jstring nativeTestThermalStatusListenerDoubleRegistration(JNIEnv *env, jo
     return returnJString(env, testThermalStatusListenerDoubleRegistration(env, obj));
 }
 
+static std::optional<std::string> testGetThermalHeadroom(JNIEnv *, jobject) {
+    AThermalTestContext ctx;
+    std::unique_lock<std::mutex> lock(ctx.mMutex);
+
+    ctx.mThermalMgr = AThermal_acquireManager();
+    if (ctx.mThermalMgr == nullptr) {
+        return "AThermal_acquireManager failed";
+    }
+
+    // Fairly light touch test only. More in-depth testing of the underlying
+    // Thermal API functionality is done against the equivalent Java API.
+
+    float headroom = AThermal_getThermalHeadroom(ctx.mThermalMgr, 0);
+    if (isnan(headroom)) {
+        // If the device doesn't support thermal headroom, return early.
+        // This is not a failure.
+        return std::nullopt;
+    }
+
+    if (headroom < 0.0f) {
+        return StringPrintf("Expected non-negative headroom but got %2.2f",
+                headroom);
+    }
+    if (headroom >= 10.0f) {
+        return StringPrintf("Expected reasonably small (<10) headroom but got %2.2f", headroom);
+    }
+
+    AThermal_releaseManager(ctx.mThermalMgr);
+    return std::nullopt;
+}
+
+static jstring nativeTestGetThermalHeadroom(JNIEnv *env, jobject obj) {
+    return returnJString(env, testGetThermalHeadroom(env, obj));
+}
+
 extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
     JNIEnv* env;
     const JNINativeMethod methodTable[] = {
@@ -267,6 +303,8 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
          (void*)nativeTestThermalStatusRegisterNullListener},
         {"nativeTestThermalStatusListenerDoubleRegistration", "()Ljava/lang/String;",
          (void*)nativeTestThermalStatusListenerDoubleRegistration},
+        {"nativeTestGetThermalHeadroom", "()Ljava/lang/String;",
+         (void*)nativeTestGetThermalHeadroom},
     };
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
         return JNI_ERR;

@@ -1,3 +1,7 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
 #cmddumper access external modem ttySDIO2
 allow cmddumper ttySDIO_device:chr_file { read write ioctl open };
 
@@ -10,10 +14,6 @@ allow cmddumper mdlog_data_file:fifo_file create_file_perms;
 allow cmddumper mdlog_data_file:file create_file_perms;
 allow cmddumper mdlog_data_file:dir { create_dir_perms relabelto };
 
-#allow emdlogger to set property
-allow cmddumper debug_mdlogger_prop:property_service set;
-allow cmddumper debug_prop:property_service set;
-
 # purpose: allow cmddumper to access storage in N version
 allow cmddumper media_rw_data_file:file  { create_file_perms };
 allow cmddumper media_rw_data_file:dir { create_dir_perms };
@@ -25,7 +25,5 @@ allow cmddumper file_contexts_file:file { read getattr open };
 allow cmddumper sysfs_boot_mode:file { read open };
 
 # Android P migration
-set_prop(cmddumper, persist_mtklog_prop)
-set_prop(cmddumper, vendor_mdl_prop)
 allow cmddumper tmpfs:lnk_file read;
 allow cmddumper vmodem_device:chr_file { read write ioctl open };

@@ -47,21 +47,24 @@ enum class AidlError {
 
 int compile_aidl(const Options& options, const IoDelegate& io_delegate);
 bool preprocess_aidl(const Options& options, const IoDelegate& io_delegate);
-bool dump_api(const Options& options, const IoDelegate& io_delegate);
 bool dump_mappings(const Options& options, const IoDelegate& io_delegate);
+
+// main entry point to AIDL
+int aidl_entry(const Options& options, const IoDelegate& io_delegate);
 
 const char kPreamble[] =
     R"(///////////////////////////////////////////////////////////////////////////////
 // THIS FILE IS IMMUTABLE. DO NOT EDIT IN ANY CASE.                          //
 ///////////////////////////////////////////////////////////////////////////////
 
-// This file is a snapshot of an AIDL interface (or parcelable). Do not try to
-// edit this file. It looks like you are doing that because you have modified
-// an AIDL interface in a backward-incompatible way, e.g., deleting a function
-// from an interface or a field from a parcelable and it broke the build. That
-// breakage is intended.
+// This file is a snapshot of an AIDL file. Do not edit it manually. There are
+// two cases:
+// 1). this is a frozen version file - do not edit this in any case.
+// 2). this is a 'current' file. If you make a backwards compatible change to
+//     the interface (from the latest frozen version), the build system will
+//     prompt you to update this file with `m <name>-update-api`.
 //
-// You must not make a backward incompatible changes to the AIDL files built
+// You must not make a backward incompatible change to any AIDL file built
 // with the aidl_interface module type with versions property set. The module
 // type is used to build AIDL files in a way that they can be used across
 // independently updatable components of the system. If a device is shipped
@@ -77,7 +80,6 @@ namespace internals {
 
 AidlError load_and_validate_aidl(const std::string& input_file_name, const Options& options,
                                  const IoDelegate& io_delegate, AidlTypenames* typenames,
-                                 vector<AidlDefinedType*>* defined_types,
                                  vector<string>* imported_files);
 
 bool parse_preprocessed_file(const IoDelegate& io_delegate, const std::string& filename,

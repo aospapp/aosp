@@ -56,7 +56,7 @@ func TestCallBisectDriverWithCCache(t *testing.T) {
 		if err := verifyPath(cmd, "/usr/bin/env"); err != nil {
 			t.Error(err)
 		}
-		if err := verifyArgOrder(cmd, "python", "/usr/bin/ccache"); err != nil {
+		if err := verifyArgOrder(cmd, "python3", "/usr/bin/ccache"); err != nil {
 			t.Error(err)
 		}
 		if err := verifyEnvUpdate(cmd, "CCACHE_DIR=.*"); err != nil {
@@ -138,7 +138,7 @@ func withBisectTestContext(t *testing.T, work func(ctx *testContext)) {
 			if err := verifyPath(cmd, "/usr/bin/env"); err != nil {
 				return err
 			}
-			if cmd.Args[0] != "python" {
+			if cmd.Args[0] != "python3" {
 				return fmt.Errorf("expected a call to python. Got: %s", cmd.Args[0])
 			}
 			if cmd.Args[1] != "-c" {

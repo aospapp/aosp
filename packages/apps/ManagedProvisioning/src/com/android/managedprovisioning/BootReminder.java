@@ -19,21 +19,79 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
-import com.android.managedprovisioning.ota.CrossProfileAppsPregrantController;
-import com.android.managedprovisioning.preprovisioning.EncryptionController;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.common.CrossProfileAppsPregrantControllerProvider;
+import com.android.managedprovisioning.common.EncryptionControllerProvider;
+import com.android.managedprovisioning.common.ManagedProfileChecker;
+import com.android.managedprovisioning.common.UserProvisioningStateHelperProvider;
+import com.android.managedprovisioning.finalization.UserProvisioningStateHelper;
+import com.android.managedprovisioning.manageduser.ManagedUserRemovalListener;
+import com.android.managedprovisioning.manageduser.ManagedUserRemovalUtils;
 
 /**
  * Boot listener for triggering reminders at boot time.
  */
 public class BootReminder extends BroadcastReceiver {
+    private final ManagedProfileChecker mManagedProfileChecker;
+    private final UserProvisioningStateHelperProvider mUserProvisioningStateHelperProvider;
+    private final EncryptionControllerProvider mEncryptionControllerProvider;
+    private final CrossProfileAppsPregrantControllerProvider
+            mCrossProfileAppsPregrantControllerProvider;
+    private final ManagedUserRemovalUtils mManagedUserRemovalUtils;
+
+    public BootReminder() {
+        this(
+                ManagedProfileChecker.DEFAULT,
+                UserProvisioningStateHelperProvider.DEFAULT,
+                EncryptionControllerProvider.DEFAULT,
+                CrossProfileAppsPregrantControllerProvider.DEFAULT,
+                new ManagedUserRemovalUtils());
+    }
+
+    @VisibleForTesting
+    public BootReminder(
+            ManagedProfileChecker managedProfileChecker,
+            UserProvisioningStateHelperProvider userProvisioningStateHelperProvider,
+            EncryptionControllerProvider encryptionControllerProvider,
+            CrossProfileAppsPregrantControllerProvider crossProfileAppsPregrantControllerProvider,
+            ManagedUserRemovalUtils managedUserRemovalUtils) {
+        mManagedProfileChecker = managedProfileChecker;
+        mUserProvisioningStateHelperProvider = userProvisioningStateHelperProvider;
+        mEncryptionControllerProvider = encryptionControllerProvider;
+        mCrossProfileAppsPregrantControllerProvider = crossProfileAppsPregrantControllerProvider;
+        mManagedUserRemovalUtils = managedUserRemovalUtils;
+    }
+
     @Override
     public void onReceive(Context context, Intent intent) {
-        new CrossProfileAppsPregrantController(context).checkCrossProfileAppsPermissions();
+        mCrossProfileAppsPregrantControllerProvider
+                .createCrossProfileAppsPregrantController(context)
+                        .checkCrossProfileAppsPermissions();
 
         // For encryption flows during setup wizard, this acts as a backup to
         // PostEncryptionActivity in case the PackageManager has not yet written the package state
         // to disk when the reboot is triggered.
-        EncryptionController.getInstance(context).resumeProvisioning();
+        mEncryptionControllerProvider.createEncryptionController(context).resumeProvisioning();
+
+        resetPrimaryUserProvisioningStateIfNecessary(context);
+    }
+
+    /**
+     * Resets the primary user provisioning state if a work profile was removed, but the state
+     * hasn't been updated by {@link ManagedUserRemovalListener}.
+     *
+     * <p>This can happen if the device gets rebooted after removing the work profile, but before
+     * {@link ManagedUserRemovalListener} receives the {@link Intent#ACTION_USER_REMOVED}
+     * broadcast.
+     */
+    private void resetPrimaryUserProvisioningStateIfNecessary(Context context) {
+        if (mManagedProfileChecker.hasManagedProfile(context)) {
+            return;
+        }
+        UserProvisioningStateHelper userProvisioningStateHelper =
+                mUserProvisioningStateHelperProvider.createUserProvisioningStateHelper(context);
+        mManagedUserRemovalUtils
+                .resetPrimaryUserProvisioningStateIfNecessary(context, userProvisioningStateHelper);
     }
 }
 

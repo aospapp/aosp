@@ -61,6 +61,13 @@ typedef struct _nat_entry_bundle
 
 }nat_entry_bundle;
 
+typedef struct _ct_entry
+{
+	struct nf_conntrack *ct;
+	u_int8_t  protocol;
+	enum nf_conntrack_msg_type type;
+}ct_entry;
+
 class IPACM_ConntrackListener : public IPACM_Listener
 {
 
@@ -68,6 +75,7 @@ private:
 	bool isCTReg;
 	bool isNatThreadStart;
 	bool WanUp;
+	bool isProcessCTDone;
 	NatApp *nat_inst;
 
 	int NatIfaceCnt;
@@ -77,12 +85,14 @@ private:
 	uint32_t nonnat_iface_ipv4_addr[MAX_IFACE_ADDRESS];
 	uint32_t sta_clnt_ipv4_addr[MAX_STA_CLNT_IFACES];
 	IPACM_Config *pConfig;
+	ct_entry *ct_entries;
+	ct_entry ct_cache[MAX_CONNTRACK_ENTRIES];
 #ifdef CT_OPT
 	IPACM_LanToLan *p_lan2lan;
 #endif
 
 	void ProcessCTMessage(void *);
-	void ProcessTCPorUDPMsg(struct nf_conntrack *,
+	bool ProcessTCPorUDPMsg(struct nf_conntrack *,
 	enum nf_conntrack_msg_type, u_int8_t);
 	void TriggerWANUp(void *);
 	void TriggerWANDown(uint32_t);
@@ -104,6 +114,7 @@ public:
 	char wan_ifname[IPA_IFACE_NAME_LEN];
 	uint32_t wan_ipaddr;
 	ipacm_wan_iface_type backhaul_mode;
+	bool isReadCTDone;
 	IPACM_ConntrackListener();
 	void event_callback(ipa_cm_event_id, void *data);
 	inline bool isWanUp()
@@ -116,6 +127,11 @@ public:
 	void HandleSTAClientAddEvt(uint32_t);
 	void HandleSTAClientDelEvt(uint32_t);
 	int  CreateConnTrackThreads(void);
+	void readConntrack(int fd);
+	void processConntrack(void);
+	void CacheORDeleteConntrack(struct nf_conntrack *ct,
+		enum nf_conntrack_msg_type type, u_int8_t protocol);
+	void processCacheConntrack(void);
 };
 
 extern IPACM_ConntrackListener *CtList;

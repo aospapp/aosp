@@ -16,6 +16,8 @@
 
 #if defined(__ANDROID__) || defined(HOST_BUILD)
 
+#define ATRACE_TAG ATRACE_TAG_GRAPHICS
+
 #include <cutils/trace.h>
 
 #define VK_TRACE_TAG ATRACE_TAG_GRAPHICS
@@ -23,11 +25,15 @@
 namespace android {
 namespace base {
 
-void ScopedTrace::beginTraceImpl(const char* name) {
+bool isTracingEnabled() {
+    return atrace_is_tag_enabled(ATRACE_TAG_GRAPHICS);
+}
+
+void ScopedTraceGuest::beginTraceImpl(const char* name) {
     atrace_begin(VK_TRACE_TAG, name);
 }
 
-void ScopedTrace::endTraceImpl(const char*) {
+void ScopedTraceGuest::endTraceImpl(const char*) {
     atrace_end(VK_TRACE_TAG);
 }
 
@@ -45,13 +51,18 @@ void ScopedTrace::endTraceImpl(const char*) {
 namespace android {
 namespace base {
 
-void ScopedTrace::beginTraceImpl(const char* name) {
+bool isTracingEnabled() {
+    // TODO: Fuchsia
+    return false;
+}
+
+void ScopedTraceGuest::beginTraceImpl(const char* name) {
 #ifndef FUCHSIA_NO_TRACE
     TRACE_DURATION_BEGIN(VK_TRACE_TAG, name);
 #endif
 }
 
-void ScopedTrace::endTraceImpl(const char* name) {
+void ScopedTraceGuest::endTraceImpl(const char* name) {
 #ifndef FUCHSIA_NO_TRACE
     TRACE_DURATION_END(VK_TRACE_TAG, name);
 #endif

@@ -22,12 +22,11 @@
  *
  ******************************************************************************/
 
-#include "bt_target.h"
+#include <base/strings/stringprintf.h>
 
-#include <string.h>
+#include "bt_target.h"  // Must be first to define build configuration"
 
-#include "bt_common.h"
-#include "bta_gattc_int.h"
+#include "bta/gatt/bta_gattc_int.h"
 
 using base::StringPrintf;
 
@@ -57,7 +56,7 @@ enum {
   BTA_GATTC_CONFIRM,
   BTA_GATTC_EXEC,
   BTA_GATTC_READ_MULTI,
-  BTA_GATTC_IGNORE_OP_CMPL,
+  BTA_GATTC_OP_CMPL_DURING_DISCOVERY,
   BTA_GATTC_DISC_CLOSE,
   BTA_GATTC_RESTART_DISCOVER,
   BTA_GATTC_CFG_MTU,
@@ -66,34 +65,34 @@ enum {
 };
 /* type for action functions */
 typedef void (*tBTA_GATTC_ACTION)(tBTA_GATTC_CLCB* p_clcb,
-                                  tBTA_GATTC_DATA* p_data);
+                                  const tBTA_GATTC_DATA* p_data);
 
 /* action function list */
 const tBTA_GATTC_ACTION bta_gattc_action[] = {
-    bta_gattc_open,              /* BTA_GATTC_OPEN */
-    bta_gattc_open_fail,         /* BTA_GATTC_OPEN_FAIL */
-    bta_gattc_open_error,        /* BTA_GATTC_OPEN_ERROR */
-    bta_gattc_cancel_open,       /* BTA_GATTC_CANCEL_OPEN */
-    bta_gattc_cancel_open_ok,    /* BTA_GATTC_CANCEL_OPEN_OK */
-    bta_gattc_cancel_open_error, /* BTA_GATTC_CANCEL_OPEN_ERROR */
-    bta_gattc_conn,              /* BTA_GATTC_CONN */
-    bta_gattc_start_discover,    /* BTA_GATTC_START_DISCOVER */
-    bta_gattc_disc_cmpl,         /* BTA_GATTC_DISC_CMPL */
-    bta_gattc_q_cmd,             /* BTA_GATTC_Q_CMD */
-    bta_gattc_close,             /* BTA_GATTC_CLOSE */
-    bta_gattc_close_fail,        /* BTA_GATTC_CLOSE_FAIL */
-    bta_gattc_read,              /* BTA_GATTC_READ */
-    bta_gattc_write,             /* BTA_GATTC_WRITE */
-    bta_gattc_op_cmpl,           /* BTA_GATTC_OP_CMPL */
-    bta_gattc_search,            /* BTA_GATTC_SEARCH */
-    bta_gattc_fail,              /* BTA_GATTC_FAIL */
-    bta_gattc_confirm,           /* BTA_GATTC_CONFIRM */
-    bta_gattc_execute,           /* BTA_GATTC_EXEC */
-    bta_gattc_read_multi,        /* BTA_GATTC_READ_MULTI */
-    bta_gattc_ignore_op_cmpl,    /* BTA_GATTC_IGNORE_OP_CMPL */
-    bta_gattc_disc_close,        /* BTA_GATTC_DISC_CLOSE */
-    bta_gattc_restart_discover,  /* BTA_GATTC_RESTART_DISCOVER */
-    bta_gattc_cfg_mtu            /* BTA_GATTC_CFG_MTU */
+    bta_gattc_open,                     /* BTA_GATTC_OPEN */
+    bta_gattc_open_fail,                /* BTA_GATTC_OPEN_FAIL */
+    bta_gattc_open_error,               /* BTA_GATTC_OPEN_ERROR */
+    bta_gattc_cancel_open,              /* BTA_GATTC_CANCEL_OPEN */
+    bta_gattc_cancel_open_ok,           /* BTA_GATTC_CANCEL_OPEN_OK */
+    bta_gattc_cancel_open_error,        /* BTA_GATTC_CANCEL_OPEN_ERROR */
+    bta_gattc_conn,                     /* BTA_GATTC_CONN */
+    bta_gattc_start_discover,           /* BTA_GATTC_START_DISCOVER */
+    bta_gattc_disc_cmpl,                /* BTA_GATTC_DISC_CMPL */
+    bta_gattc_q_cmd,                    /* BTA_GATTC_Q_CMD */
+    bta_gattc_close,                    /* BTA_GATTC_CLOSE */
+    bta_gattc_close_fail,               /* BTA_GATTC_CLOSE_FAIL */
+    bta_gattc_read,                     /* BTA_GATTC_READ */
+    bta_gattc_write,                    /* BTA_GATTC_WRITE */
+    bta_gattc_op_cmpl,                  /* BTA_GATTC_OP_CMPL */
+    bta_gattc_search,                   /* BTA_GATTC_SEARCH */
+    bta_gattc_fail,                     /* BTA_GATTC_FAIL */
+    bta_gattc_confirm,                  /* BTA_GATTC_CONFIRM */
+    bta_gattc_execute,                  /* BTA_GATTC_EXEC */
+    bta_gattc_read_multi,               /* BTA_GATTC_READ_MULTI */
+    bta_gattc_op_cmpl_during_discovery, /* BTA_GATTC_OP_CMPL_DURING_DISCOVERY */
+    bta_gattc_disc_close,               /* BTA_GATTC_DISC_CLOSE */
+    bta_gattc_restart_discover,         /* BTA_GATTC_RESTART_DISCOVER */
+    bta_gattc_cfg_mtu                   /* BTA_GATTC_CFG_MTU */
 };
 
 /* state table information */
@@ -256,7 +255,7 @@ static const uint8_t bta_gattc_st_discover[][BTA_GATTC_NUM_COLS] = {
                                             BTA_GATTC_DISCOVER_ST},
     /* BTA_GATTC_DISCOVER_CMPL_EVT      */ {BTA_GATTC_DISC_CMPL,
                                             BTA_GATTC_CONN_ST},
-    /* BTA_GATTC_OP_CMPL_EVT            */ {BTA_GATTC_IGNORE_OP_CMPL,
+    /* BTA_GATTC_OP_CMPL_EVT            */ {BTA_GATTC_OP_CMPL_DURING_DISCOVERY,
                                             BTA_GATTC_DISCOVER_ST},
     /* BTA_GATTC_INT_DISCONN_EVT        */ {BTA_GATTC_CLOSE, BTA_GATTC_IDLE_ST},
 
@@ -297,7 +296,7 @@ static const char* gattc_state_code(tBTA_GATTC_STATE state_code);
  *
  ******************************************************************************/
 bool bta_gattc_sm_execute(tBTA_GATTC_CLCB* p_clcb, uint16_t event,
-                          tBTA_GATTC_DATA* p_data) {
+                          const tBTA_GATTC_DATA* p_data) {
   tBTA_GATTC_ST_TBL state_table;
   uint8_t action;
   int i;
@@ -362,7 +361,7 @@ bool bta_gattc_sm_execute(tBTA_GATTC_CLCB* p_clcb, uint16_t event,
  * Returns          bool
  *
  ******************************************************************************/
-bool bta_gattc_hdl_event(BT_HDR* p_msg) {
+bool bta_gattc_hdl_event(BT_HDR_RIGID* p_msg) {
   tBTA_GATTC_CLCB* p_clcb = NULL;
   bool rt = true;
 #if (BTA_GATT_DEBUG == TRUE)
@@ -387,8 +386,8 @@ bool bta_gattc_hdl_event(BT_HDR* p_msg) {
         p_clcb = bta_gattc_find_clcb_by_conn_id(p_msg->layer_specific);
 
       if (p_clcb != NULL) {
-        rt =
-            bta_gattc_sm_execute(p_clcb, p_msg->event, (tBTA_GATTC_DATA*)p_msg);
+        rt = bta_gattc_sm_execute(p_clcb, p_msg->event,
+                                  (const tBTA_GATTC_DATA*)p_msg);
       } else {
         VLOG(1) << "Ignore unknown conn ID: " << +p_msg->layer_specific;
       }

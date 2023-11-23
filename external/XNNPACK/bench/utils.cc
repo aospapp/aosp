@@ -3,18 +3,20 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <pthread.h>
-#include <sched.h>
-#ifdef __ANDROID__
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <mutex>
+
+#ifdef __linux__
+  #include <sched.h>
+#endif
+#if defined(__ANDROID__) || defined(_WIN32) || defined(__CYGWIN__)
   #include <malloc.h>
 #endif
 #if defined(__SSE__) || defined(__x86_64__)
   #include <xmmintrin.h>
 #endif
-
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
 
 #include <cpuinfo.h>
 
@@ -24,7 +26,7 @@
 static void* wipe_buffer = nullptr;
 static size_t wipe_buffer_size = 0;
 
-static pthread_once_t wipe_buffer_guard = PTHREAD_ONCE_INIT;
+static std::once_flag wipe_buffer_guard;
 
 static void InitWipeBuffer() {
   // Default: the largest know cache size (128 MB Intel Crystalwell L4 cache).
@@ -32,7 +34,9 @@ static void InitWipeBuffer() {
   if (cpuinfo_initialize()) {
     wipe_buffer_size = benchmark::utils::GetMaxCacheSize();
   }
-#if defined(__ANDROID__)
+#if defined(_WIN32)
+  wipe_buffer = _aligned_malloc(wipe_buffer_size, 128);
+#elif defined(__ANDROID__) || defined(__CYGWIN__)
   // memalign is obsolete, but it is the only option on Android until API level 17.
   wipe_buffer = memalign(128, wipe_buffer_size);
 #else
@@ -63,7 +67,7 @@ uint32_t PrefetchToL1(const void* ptr, size_t size) {
 }
 
 uint32_t WipeCache() {
-  pthread_once(&wipe_buffer_guard, &InitWipeBuffer);
+  std::call_once(wipe_buffer_guard, InitWipeBuffer);
   return PrefetchToL1(wipe_buffer, wipe_buffer_size);
 }
 
@@ -72,11 +76,21 @@ void DisableDenormals() {
   _mm_setcsr(_mm_getcsr() | 0x8040);
 #elif defined(__arm__) && defined(__ARM_FP) && (__ARM_FP != 0)
   uint32_t fpscr;
-  __asm__ __volatile__(
-      "VMRS %[fpscr], fpscr\n"
-      "ORR %[fpscr], #0x1000000\n"
-      "VMSR fpscr, %[fpscr]\n"
-    : [fpscr] "=r" (fpscr));
+  #if defined(__thumb__) && !defined(__thumb2__)
+    __asm__ __volatile__(
+        "VMRS %[fpscr], fpscr\n"
+        "ORRS %[fpscr], %[bitmask]\n"
+        "VMSR fpscr, %[fpscr]\n"
+        : [fpscr] "=l" (fpscr)
+        : [bitmask] "l" (0x1000000)
+        : "cc");
+  #else
+    __asm__ __volatile__(
+        "VMRS %[fpscr], fpscr\n"
+        "ORR %[fpscr], #0x1000000\n"
+        "VMSR fpscr, %[fpscr]\n"
+        : [fpscr] "=r" (fpscr));
+  #endif
 #elif defined(__aarch64__)
   uint64_t fpcr;
   __asm__ __volatile__(
@@ -119,112 +133,7 @@ size_t GetMaxCacheSize() {
       return 128 * 1024 * 1024;
     #endif
   }
-  const cpuinfo_processor* processor = cpuinfo_get_processor(0);
-  #if CPUINFO_ARCH_ARM || CPUINFO_ARCH_ARM64
-    // There is no precise way to detect cache size on ARM/ARM64, and cache size reported by cpuinfo
-    // may underestimate the actual cache size. Thus, we use microarchitecture-specific maximum.
-    switch (processor->core->uarch) {
-      case cpuinfo_uarch_xscale:
-      case cpuinfo_uarch_arm11:
-      case cpuinfo_uarch_scorpion:
-      case cpuinfo_uarch_krait:
-      case cpuinfo_uarch_kryo:
-      case cpuinfo_uarch_exynos_m1:
-      case cpuinfo_uarch_exynos_m2:
-      case cpuinfo_uarch_exynos_m3:
-        // cpuinfo-detected cache size always correct.
-        break;
-      case cpuinfo_uarch_cortex_a5:
-        // Max observed (NXP Vybrid SoC)
-        return 512 * 1024;
-      case cpuinfo_uarch_cortex_a7:
-        // Cortex-A7 MPCore Technical Reference Manual:
-        // 7.1. About the L2 Memory system
-        //   The L2 memory system consists of an:
-        //    - Optional tightly-coupled L2 cache that includes:
-        //      - Configurable L2 cache size of 128KB, 256KB, 512KB, and 1MB.
-        return 1024 * 1024;
-      case cpuinfo_uarch_cortex_a8:
-        // Cortex-A8 Technical Reference Manual:
-        // 8.1. About the L2 memory system
-        //   The key features of the L2 memory system include:
-        //    - configurable cache size of 0KB, 128KB, 256KB, 512KB, and 1MB
-        return 1024 * 1024;
-      case cpuinfo_uarch_cortex_a9:
-        // Max observed (e.g. Exynos 4212)
-        return 1024 * 1024;
-      case cpuinfo_uarch_cortex_a12:
-      case cpuinfo_uarch_cortex_a17:
-        // ARM Cortex-A17 MPCore Processor Technical Reference Manual:
-        // 7.1. About the L2 Memory system
-        //   The key features of the L2 memory system include:
-        //    - An integrated L2 cache:
-        //      - The cache size is implemented as either 256KB, 512KB, 1MB, 2MB, 4MB or 8MB.
-        return 8 * 1024 * 1024;
-      case cpuinfo_uarch_cortex_a15:
-        // ARM Cortex-A15 MPCore Processor Technical Reference Manual:
-        // 7.1. About the L2 memory system
-        //   The features of the L2 memory system include:
-        //    - Configurable L2 cache size of 512KB, 1MB, 2MB and 4MB.
-        return 4 * 1024 * 1024;
-      case cpuinfo_uarch_cortex_a35:
-        // ARM Cortex‑A35 Processor Technical Reference Manual:
-        // 7.1 About the L2 memory system
-        //   L2 cache
-        //    - Further features of the L2 cache are:
-        //      - Configurable size of 128KB, 256KB, 512KB, and 1MB.
-        return 1024 * 1024;
-      case cpuinfo_uarch_cortex_a53:
-        // ARM Cortex-A53 MPCore Processor Technical Reference Manual:
-        // 7.1. About the L2 memory system
-        //   The L2 memory system consists of an:
-        //    - Optional tightly-coupled L2 cache that includes:
-        //      - Configurable L2 cache size of 128KB, 256KB, 512KB, 1MB and 2MB.
-        return 2 * 1024 * 1024;
-      case cpuinfo_uarch_cortex_a57:
-        // ARM Cortex-A57 MPCore Processor Technical Reference Manual:
-        // 7.1 About the L2 memory system
-        //   The features of the L2 memory system include:
-        //    - Configurable L2 cache size of 512KB, 1MB, and 2MB.
-        return 2 * 1024 * 1024;
-      case cpuinfo_uarch_cortex_a72:
-        // ARM Cortex-A72 MPCore Processor Technical Reference Manual:
-        // 7.1 About the L2 memory system
-        //   The features of the L2 memory system include:
-        //    - Configurable L2 cache size of 512KB, 1MB, 2MB and 4MB.
-        return 4 * 1024 * 1024;
-      case cpuinfo_uarch_cortex_a73:
-        // ARM Cortex‑A73 MPCore Processor Technical Reference Manual
-        // 7.1 About the L2 memory system
-        //   The L2 memory system consists of:
-        //    - A tightly-integrated L2 cache with:
-        //       - A configurable size of 256KB, 512KB, 1MB, 2MB, 4MB, or 8MB.
-        return 8 * 1024 * 1024;
-      default:
-        // ARM DynamIQ Shared Unit Technical Reference Manual
-        // 1.3 Implementation options
-        //   L3_CACHE_SIZE
-        //    - 256KB
-        //    - 512KB
-        //    - 1024KB
-        //    - 1536KB
-        //    - 2048KB
-        //    - 3072KB
-        //    - 4096KB
-        return 4 * 1024 * 1024;
-    }
-  #endif
-  if (processor->cache.l4 != NULL) {
-    return processor->cache.l4->size;
-  } else if (processor->cache.l3 != NULL) {
-    return processor->cache.l3->size;
-  } else if (processor->cache.l2 != NULL) {
-    return processor->cache.l2->size;
-  } else if (processor->cache.l1d != NULL) {
-    return processor->cache.l1d->size;
-  } else {
-    return 0;
-  }
+  return cpuinfo_get_max_cache_size();
 }
 
 void MultiThreadingParameters(benchmark::internal::Benchmark* benchmark) {
@@ -256,6 +165,22 @@ void MultiThreadingParameters(benchmark::internal::Benchmark* benchmark) {
 }
 
 
+bool CheckVFP(benchmark::State& state) {
+  if (!cpuinfo_initialize() || !(cpuinfo_has_arm_vfpv2() || cpuinfo_has_arm_vfpv3())) {
+    state.SkipWithError("no VFP extension");
+    return false;
+  }
+  return true;
+}
+
+bool CheckNEONFP16ARITH(benchmark::State& state) {
+  if (!cpuinfo_initialize() || !cpuinfo_has_arm_neon_fp16_arith()) {
+    state.SkipWithError("no NEON-FP16-ARITH extension");
+    return false;
+  }
+  return true;
+}
+
 bool CheckNEON(benchmark::State& state) {
   if (!cpuinfo_initialize() || !cpuinfo_has_arm_neon()) {
     state.SkipWithError("no NEON extension");
@@ -272,6 +197,22 @@ bool CheckNEONFMA(benchmark::State& state) {
   return true;
 }
 
+bool CheckNEONDOT(benchmark::State& state) {
+  if (!cpuinfo_initialize() || !cpuinfo_has_arm_neon_dot()) {
+    state.SkipWithError("no NEON-DOT extension");
+    return false;
+  }
+  return true;
+}
+
+bool CheckSSSE3(benchmark::State& state) {
+  if (!cpuinfo_initialize() || !cpuinfo_has_x86_ssse3()) {
+    state.SkipWithError("no SSSE3 extension");
+    return false;
+  }
+  return true;
+}
+
 bool CheckSSE41(benchmark::State& state) {
   if (!cpuinfo_initialize() || !cpuinfo_has_x86_sse4_1()) {
     state.SkipWithError("no SSE4.1 extension");
@@ -283,6 +224,14 @@ bool CheckSSE41(benchmark::State& state) {
 bool CheckAVX(benchmark::State& state) {
   if (!cpuinfo_initialize() || !cpuinfo_has_x86_avx()) {
     state.SkipWithError("no AVX extension");
+    return false;
+  }
+  return true;
+}
+
+bool CheckXOP(benchmark::State& state) {
+  if (!cpuinfo_initialize() || !cpuinfo_has_x86_xop()) {
+    state.SkipWithError("no XOP extension");
     return false;
   }
   return true;
@@ -307,6 +256,17 @@ bool CheckAVX2(benchmark::State& state) {
 bool CheckAVX512F(benchmark::State& state) {
   if (!cpuinfo_initialize() || !cpuinfo_has_x86_avx512f()) {
     state.SkipWithError("no AVX512F extension");
+    return false;
+  }
+  return true;
+}
+
+bool CheckAVX512SKX(benchmark::State& state) {
+  if (!cpuinfo_initialize() || !cpuinfo_has_x86_avx512f() ||
+      !cpuinfo_has_x86_avx512cd() || !cpuinfo_has_x86_avx512bw() ||
+      !cpuinfo_has_x86_avx512dq() || !cpuinfo_has_x86_avx512vl())
+  {
+    state.SkipWithError("no AVX512 SKX extensions");
     return false;
   }
   return true;

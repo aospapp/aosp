@@ -20,11 +20,11 @@ import static com.android.internal.net.ipsec.ike.message.IkePayload.PayloadType;
 
 import android.annotation.IntDef;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
+import android.net.ipsec.ike.exceptions.InvalidMajorVersionException;
+import android.net.ipsec.ike.exceptions.InvalidSyntaxException;
 import android.util.SparseArray;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidMajorVersionException;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidSyntaxException;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

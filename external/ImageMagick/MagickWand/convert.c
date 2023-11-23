@@ -17,7 +17,7 @@
 %                                April 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -96,7 +96,7 @@ static MagickBooleanType ConcatenateImages(int argc,char **argv,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   /*
@@ -160,6 +160,8 @@ static MagickBooleanType ConvertUsage(void)
       "  -auto-threshold method\n"
       "                       automatically perform image thresholding\n"
       "  -bench iterations    measure performance\n"
+      "  -bilateral-blur geometry\n"
+      "                       non-linear, edge-preserving, and noise-reducing smoothing filter\n"
       "  -black-threshold value\n"
       "                       force all pixels below the threshold into black\n"
       "  -blue-shift factor   simulate a scene at nighttime in the moonlight\n"
@@ -190,7 +192,7 @@ static MagickBooleanType ConvertUsage(void)
       "  -deskew threshold    straighten an image\n"
       "  -despeckle           reduce the speckles within an image\n"
       "  -distort method args\n"
-      "                       distort images according to given method ad args\n"
+      "                       distort images according to given method and args\n"
       "  -draw string         annotate the image with a graphic primitive\n"
       "  -edge radius         apply a filter to detect edges in the image\n"
       "  -encipher filename   convert plain pixels to cipher pixels\n"
@@ -287,6 +289,7 @@ static MagickBooleanType ConvertUsage(void)
       "                       shadows\n"
       "  -sketch geometry     simulate a pencil sketch\n"
       "  -solarize threshold  negate all pixels above the threshold level\n"
+      "  -sort-pixels         sort each scanline in ascending order of intensity\n"
       "  -sparse-color method args\n"
       "                       fill in a image based on a few color points\n"
       "  -splice geometry     splice the background color into the image\n"
@@ -312,6 +315,7 @@ static MagickBooleanType ConvertUsage(void)
       "  -wave geometry       alter an image along a sine wave\n"
       "  -wavelet-denoise threshold\n"
       "                       removes noise from the image using a wavelet transform\n"
+      "  -white-balance       automagically adjust white balance of image\n"
       "  -white-threshold value\n"
       "                       force all pixels above the threshold into white",
     sequence_operators[] =
@@ -382,6 +386,7 @@ static MagickBooleanType ConvertUsage(void)
       "  -fuzz distance       colors within this distance are considered equal\n"
       "  -gravity type        horizontal and vertical text placement\n"
       "  -green-primary point chromaticity green primary point\n"
+      "  -illuminant type     reference illuminant\n"
       "  -intensity method    method to generate an intensity value from a pixel\n"
       "  -intent type         type of rendering intent when managing the image color\n"
       "  -interlace type      type of image interlacing scheme\n"
@@ -472,7 +477,7 @@ static MagickBooleanType ConvertUsage(void)
   (void) printf(
     "image type as the filename suffix (i.e. image.ps).  Specify 'file' as\n");
   (void) printf("'-' for standard input or output.\n");
-  return(MagickFalse);
+  return(MagickTrue);
 }
 
 WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
@@ -522,7 +527,7 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
   MagickStatusType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -761,6 +766,17 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             break;
           }
         if (LocaleCompare("bias",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowConvertException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowConvertInvalidArgumentException(option,argv[i]);
+            break;
+          }
+        if (LocaleCompare("bilateral-blur",option+1) == 0)
           {
             if (*option == '+')
               break;
@@ -1069,6 +1085,15 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
             if (colorspace < 0)
               ThrowConvertException(OptionError,"UnrecognizedColorspace",
                 argv[i]);
+            break;
+          }
+        if (LocaleCompare("color-threshold",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowConvertException(OptionError,"MissingArgument",option);
             break;
           }
         if (LocaleCompare("combine",option+1) == 0)
@@ -1774,7 +1799,10 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
           break;
         if ((LocaleCompare("help",option+1) == 0) ||
             (LocaleCompare("-help",option+1) == 0))
-          return(ConvertUsage());
+          {
+            DestroyConvert();
+            return(ConvertUsage());
+          }
         if (LocaleCompare("hough-lines",option+1) == 0)
           {
             if (*option == '+')
@@ -1794,6 +1822,23 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
           break;
         if (LocaleCompare("ift",option+1) == 0)
           break;
+        if (LocaleCompare("illuminant",option+1) == 0)
+          {
+            ssize_t
+              type;
+
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowConvertException(OptionError,"MissingArgument",option);
+            type=ParseCommandOption(MagickIlluminantOptions,MagickFalse,
+              argv[i]);
+            if (type < 0)
+              ThrowConvertException(OptionError,"UnrecognizedIlluminantMethod",
+                argv[i]);
+            break;
+          }
         if (LocaleCompare("implode",option+1) == 0)
           {
             if (*option == '+')
@@ -2838,6 +2883,8 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
               ThrowConvertInvalidArgumentException(option,argv[i]);
             break;
           }
+        if (LocaleCompare("sort-pixels",option+1) == 0)
+          break;
         if (LocaleCompare("sparse-color",option+1) == 0)
           {
             ssize_t
@@ -3225,6 +3272,8 @@ WandExport MagickBooleanType ConvertImageCommand(ImageInfo *image_info,
               ThrowConvertInvalidArgumentException(option,argv[i]);
             break;
           }
+        if (LocaleCompare("white-balance",option+1) == 0)
+          break;
         if (LocaleCompare("white-threshold",option+1) == 0)
           {
             if (*option == '+')

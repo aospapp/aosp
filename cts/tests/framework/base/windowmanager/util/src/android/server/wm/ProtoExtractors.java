@@ -53,6 +53,8 @@ public class ProtoExtractors {
             return config;
         }
         config.setAppBounds(extract(proto.appBounds));
+        config.setBounds(extract(proto.bounds));
+        config.setMaxBounds(extract(proto.maxBounds));
         config.setWindowingMode(proto.windowingMode);
         config.setActivityType(proto.activityType);
         return config;

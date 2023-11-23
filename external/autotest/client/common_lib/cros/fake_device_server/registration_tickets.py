@@ -139,7 +139,7 @@ class RegistrationTickets(object):
                 raise server_errors.HTTPError(
                         400,
                         'Require userEmail=me to create ticket %s' % operation)
-            if [key for key in data.iterkeys() if key != 'userEmail']:
+            if [key for key in iter(data) if key != 'userEmail']:
                 raise server_errors.HTTPError(
                         400, 'Extra data for ticket creation: %r.' % data)
             if id:

@@ -70,8 +70,10 @@ Try $acloud [cmd] --help for further details.
 from __future__ import print_function
 import argparse
 import logging
+import os
 import platform
 import sys
+import sysconfig
 import traceback
 
 # TODO: Remove this once we switch over to embedded launcher.
@@ -93,6 +95,12 @@ if (sys.version_info.major == 2
         print("  - or -")
         print("  POSIXLY_CORRECT=1 port -N install python27")
     sys.exit(1)
+# This is a workaround to put '/usr/lib/python3.X' ahead of googleapiclient of
+# build system path list to fix python3 issue of http.client(b/144743252)
+# that googleapiclient existed http.py conflict with python3 build-in lib.
+# Using embedded_launcher(b/135639220) perhaps work whereas it didn't solve yet.
+if sys.version_info.major == 3:
+    sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
 
 # By Default silence root logger's stream handler since 3p lib may initial
 # root logger no matter what level we're using. The acloud logger behavior will
@@ -115,23 +123,40 @@ from acloud.reconnect import reconnect_args
 from acloud.list import list as list_instances
 from acloud.list import list_args
 from acloud.metrics import metrics
+from acloud.powerwash import powerwash
+from acloud.powerwash import powerwash_args
 from acloud.public import acloud_common
 from acloud.public import config
+from acloud.public import report
 from acloud.public.actions import create_cuttlefish_action
 from acloud.public.actions import create_goldfish_action
 from acloud.pull import pull
 from acloud.pull import pull_args
+from acloud.restart import restart
+from acloud.restart import restart_args
 from acloud.setup import setup
 from acloud.setup import setup_args
 
 
 LOGGING_FMT = "%(asctime)s |%(levelname)s| %(module)s:%(lineno)s| %(message)s"
 ACLOUD_LOGGER = "acloud"
+_LOGGER = logging.getLogger(ACLOUD_LOGGER)
 NO_ERROR_MESSAGE = ""
+PROG = "acloud"
+_ACLOUD_CONFIG_ERROR = "ACLOUD_CONFIG_ERROR"
 
 # Commands
 CMD_CREATE_CUTTLEFISH = "create_cf"
 CMD_CREATE_GOLDFISH = "create_gf"
+
+# Config requires fields.
+_CREATE_REQUIRE_FIELDS = ["project", "zone", "machine_type"]
+_CREATE_CF_REQUIRE_FIELDS = ["resolution"]
+# show contact info to user.
+_CONTACT_INFO = ("If you have any question or need acloud team support, "
+                 "please feel free to contact us by email at "
+                 "buganizer-system+419709@google.com")
+_LOG_INFO = " and attach those log files from %s"
 
 
 # pylint: disable=too-many-statements
@@ -151,11 +176,15 @@ def _ParseArgs(args):
         delete_args.CMD_DELETE,
         reconnect_args.CMD_RECONNECT,
         pull_args.CMD_PULL,
+        restart_args.CMD_RESTART,
     ])
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         usage="acloud {" + usage + "} ...")
+    parser = argparse.ArgumentParser(prog=PROG)
+    parser.add_argument('--version', action='version', version=(
+        '%(prog)s ' + config.GetVersion()))
     subparsers = parser.add_subparsers(metavar="{" + usage + "}")
     subparser_list = []
 
@@ -222,12 +251,22 @@ def _ParseArgs(args):
     # Command "reconnect"
     subparser_list.append(reconnect_args.GetReconnectArgParser(subparsers))
 
+    # Command "restart"
+    subparser_list.append(restart_args.GetRestartArgParser(subparsers))
+
+    # Command "powerwash"
+    subparser_list.append(powerwash_args.GetPowerwashArgParser(subparsers))
+
     # Command "pull"
     subparser_list.append(pull_args.GetPullArgParser(subparsers))
 
     # Add common arguments.
     for subparser in subparser_list:
         acloud_common.AddCommonArguments(subparser)
+
+    if not args:
+        parser.print_help()
+        sys.exit(constants.EXIT_BY_WRONG_CMD)
 
     return parser.parse_args(args)
 
@@ -247,6 +286,8 @@ def _VerifyArgs(parsed_args):
     """
     if parsed_args.which == create_args.CMD_CREATE:
         create_args.VerifyArgs(parsed_args)
+    if parsed_args.which == setup_args.CMD_SETUP:
+        setup_args.VerifyArgs(parsed_args)
     if parsed_args.which == CMD_CREATE_CUTTLEFISH:
         if not parsed_args.build_id and not parsed_args.branch:
             raise errors.CommandArgError(
@@ -273,6 +314,26 @@ def _VerifyArgs(parsed_args):
                 and not parsed_args.serial_log_file.endswith(".tar.gz")):
             raise errors.CommandArgError(
                 "--serial_log_file must ends with .tar.gz")
+
+
+def _ParsingConfig(args, cfg):
+    """Parse config to check if missing any field.
+
+    Args:
+        args: Namespace object from argparse.parse_args.
+        cfg: AcloudConfig object.
+
+    Returns:
+        error message about list of missing config fields.
+    """
+    missing_fields = []
+    if args.which == create_args.CMD_CREATE and args.local_instance is None:
+        missing_fields = cfg.GetMissingFields(_CREATE_REQUIRE_FIELDS)
+    if args.which == CMD_CREATE_CUTTLEFISH:
+        missing_fields.extend(cfg.GetMissingFields(_CREATE_CF_REQUIRE_FIELDS))
+    if missing_fields:
+        return "Missing required configuration fields: %s" % missing_fields
+    return None
 
 
 def _SetupLogging(log_file, verbose):
@@ -340,23 +401,25 @@ def main(argv=None):
         Job status: Integer, 0 if success. None-zero if fails.
         Stack trace: String of errors.
     """
-    if argv is None:
-        argv = sys.argv[1:]
-
     args = _ParseArgs(argv)
     _SetupLogging(args.log_file, args.verbose)
     _VerifyArgs(args)
+    _LOGGER.info("Acloud version: %s", config.GetVersion())
 
     cfg = config.GetAcloudConfig(args)
+    parsing_config_error = _ParsingConfig(args, cfg)
     # TODO: Move this check into the functions it is actually needed.
     # Check access.
     # device_driver.CheckAccess(cfg)
 
-    report = None
-    if args.which == create_args.CMD_CREATE:
-        report = create.Run(args)
+    reporter = None
+    if parsing_config_error:
+        reporter = report.Report(command=args.which)
+        reporter.UpdateFailure(parsing_config_error, _ACLOUD_CONFIG_ERROR)
+    elif args.which == create_args.CMD_CREATE:
+        reporter = create.Run(args)
     elif args.which == CMD_CREATE_CUTTLEFISH:
-        report = create_cuttlefish_action.CreateDevices(
+        reporter = create_cuttlefish_action.CreateDevices(
             cfg=cfg,
             build_target=args.build_target,
             build_id=args.build_id,
@@ -367,6 +430,9 @@ def main(argv=None):
             system_branch=args.system_branch,
             system_build_id=args.system_build_id,
             system_build_target=args.system_build_target,
+            bootloader_branch=args.bootloader_branch,
+            bootloader_build_id=args.bootloader_build_id,
+            bootloader_build_target=args.bootloader_build_target,
             gpu=args.gpu,
             num=args.num,
             serial_log_file=args.serial_log_file,
@@ -375,7 +441,7 @@ def main(argv=None):
             boot_timeout_secs=args.boot_timeout_secs,
             ins_timeout_secs=args.ins_timeout_secs)
     elif args.which == CMD_CREATE_GOLDFISH:
-        report = create_goldfish_action.CreateDevices(
+        reporter = create_goldfish_action.CreateDevices(
             cfg=cfg,
             build_target=args.build_target,
             build_id=args.build_id,
@@ -390,15 +456,20 @@ def main(argv=None):
             serial_log_file=args.serial_log_file,
             autoconnect=args.autoconnect,
             tags=args.tags,
-            report_internal_ip=args.report_internal_ip)
+            report_internal_ip=args.report_internal_ip,
+            boot_timeout_secs=args.boot_timeout_secs)
     elif args.which == delete_args.CMD_DELETE:
-        report = delete.Run(args)
+        reporter = delete.Run(args)
     elif args.which == list_args.CMD_LIST:
         list_instances.Run(args)
     elif args.which == reconnect_args.CMD_RECONNECT:
         reconnect.Run(args)
+    elif args.which == restart_args.CMD_RESTART:
+        reporter = restart.Run(args)
+    elif args.which == powerwash_args.CMD_POWERWASH:
+        reporter = powerwash.Run(args)
     elif args.which == pull_args.CMD_PULL:
-        report = pull.Run(args)
+        reporter = pull.Run(args)
     elif args.which == setup_args.CMD_SETUP:
         setup.Run(args)
     else:
@@ -406,11 +477,15 @@ def main(argv=None):
         sys.stderr.write(error_msg)
         return constants.EXIT_BY_WRONG_CMD, error_msg
 
-    if report and args.report_file:
-        report.Dump(args.report_file)
-    if report and report.errors:
-        error_msg = "\n".join(report.errors)
-        sys.stderr.write("Encountered the following errors:\n%s\n" % error_msg)
+    if reporter and args.report_file:
+        reporter.Dump(args.report_file)
+    if reporter and reporter.errors:
+        error_msg = "\n".join(reporter.errors)
+        help_msg = _CONTACT_INFO
+        if reporter.data.get(constants.ERROR_LOG_FOLDER):
+            help_msg += _LOG_INFO % reporter.data.get(constants.ERROR_LOG_FOLDER)
+        sys.stderr.write("Encountered the following errors:\n%s\n\n%s.\n" %
+                         (error_msg, help_msg))
         return constants.EXIT_BY_FAIL_REPORT, error_msg
     return constants.EXIT_SUCCESS, NO_ERROR_MESSAGE
 

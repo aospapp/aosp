@@ -69,6 +69,7 @@ struct wl_proxy {
 	void *user_data;
 	wl_dispatcher_func_t dispatcher;
 	uint32_t version;
+	const char * const *tag;
 };
 
 struct wl_event_queue {
@@ -106,11 +107,46 @@ struct wl_display {
 	int reader_count;
 	uint32_t read_serial;
 	pthread_cond_t reader_cond;
+
+	struct wl_list protocol_loggers;
 };
 
 /** \endcond */
 
+struct wl_protocol_logger_client {
+	struct wl_list link;
+	wl_protocol_logger_client_func_t func;
+	void *user_data;
+};
+
 static int debug_client = 0;
+
+static void
+log_closure(struct wl_closure *closure, struct wl_proxy* proxy, int send)
+{
+	struct wl_display *display = proxy->display;
+	struct wl_protocol_logger_client *protocol_logger;
+	struct wl_protocol_logger_client_message message;
+
+	if (debug_client)
+		wl_closure_print(closure, &proxy->object, send);
+
+	if (!wl_list_empty(&display->protocol_loggers)) {
+		message.proxy = proxy;
+		message.message_opcode = closure->opcode;
+		message.message = closure->message;
+		message.arguments_count = closure->count;
+		message.arguments = closure->args;
+		wl_list_for_each(protocol_logger, &display->protocol_loggers,
+				 link) {
+			protocol_logger->func(
+				protocol_logger->user_data,
+				send ? WL_PROTOCOL_LOGGER_CLIENT_REQUEST :
+				       WL_PROTOCOL_LOGGER_CLIENT_EVENT,
+				&message);
+		}
+	}
+}
 
 /**
  * This helper function wakes up all threads that are
@@ -298,8 +334,8 @@ wl_event_queue_release(struct wl_event_queue *queue)
 	struct wl_closure *closure;
 
 	while (!wl_list_empty(&queue->event_list)) {
-		closure = container_of(queue->event_list.next,
-				       struct wl_closure, link);
+		closure = wl_container_of(queue->event_list.next,
+					  closure, link);
 		wl_list_remove(&closure->link);
 		destroy_queued_closure(closure);
 	}
@@ -739,15 +775,23 @@ wl_proxy_marshal_array_constructor_versioned(struct wl_proxy *proxy,
 			goto err_unlock;
 	}
 
+	if (proxy->display->last_error) {
+		goto err_unlock;
+	}
+
 	closure = wl_closure_marshal(&proxy->object, opcode, args, message);
-	if (closure == NULL)
-		wl_abort("Error marshalling request: %s\n", strerror(errno));
+	if (closure == NULL) {
+		wl_log("Error marshalling request: %s\n", strerror(errno));
+		display_fatal_error(proxy->display, errno);
+		goto err_unlock;
+	}
 
-	if (debug_client)
-		wl_closure_print(closure, &proxy->object, true);
+	log_closure(closure, proxy, true);
 
-	if (wl_closure_send(closure, proxy->display->connection))
-		wl_abort("Error sending request: %s\n", strerror(errno));
+	if (wl_closure_send(closure, proxy->display->connection)) {
+		wl_log("Error sending request: %s\n", strerror(errno));
+		display_fatal_error(proxy->display, errno);
+	}
 
 	wl_closure_destroy(closure);
 
@@ -1046,6 +1090,7 @@ wl_display_connect_to_fd(int fd)
 	pthread_mutex_init(&display->mutex, NULL);
 	pthread_cond_init(&display->reader_cond, NULL);
 	display->reader_count = 0;
+	wl_list_init(&display->protocol_loggers);
 
 	wl_map_insert_new(&display->objects, 0, NULL);
 
@@ -1102,6 +1147,13 @@ wl_display_connect_to_fd(int fd)
  * Connect to the Wayland display named \c name. If \c name is \c NULL,
  * its value will be replaced with the WAYLAND_DISPLAY environment
  * variable if it is set, otherwise display "wayland-0" will be used.
+ *
+ * If WAYLAND_SOCKET is set, it's interpreted as a file descriptor number
+ * referring to an already opened socket. In this case, the socket is used
+ * as-is and \c name is ignored.
+ *
+ * If \c name is a relative path, then the socket is opened relative to
+ * the XDG_RUNTIME_DIR directory.
  *
  * If \c name is an absolute path, then that path is used as-is for
  * the location of the socket at which the Wayland server is listening;
@@ -1160,6 +1212,7 @@ wl_display_disconnect(struct wl_display *display)
 	wl_map_release(&display->objects);
 	wl_event_queue_release(&display->default_queue);
 	wl_event_queue_release(&display->display_queue);
+	wl_list_remove(&display->protocol_loggers);
 	pthread_mutex_destroy(&display->mutex);
 	pthread_cond_destroy(&display->reader_cond);
 	close(display->fd);
@@ -1363,6 +1416,12 @@ queue_event(struct wl_display *display, int len)
 		return size;
 	}
 
+	if (opcode >= proxy->object.interface->event_count) {
+		wl_log("interface '%s' has no event %u\n",
+		       proxy->object.interface->name, opcode);
+		return -1;
+	}
+
 	message = &proxy->object.interface->events[opcode];
 	closure = wl_connection_demarshal(display->connection, size,
 					  &display->objects, message);
@@ -1400,8 +1459,7 @@ dispatch_event(struct wl_display *display, struct wl_event_queue *queue)
 	int opcode;
 	bool proxy_destroyed;
 
-	closure = container_of(queue->event_list.next,
-			       struct wl_closure, link);
+	closure = wl_container_of(queue->event_list.next, closure, link);
 	wl_list_remove(&closure->link);
 	opcode = closure->opcode;
 
@@ -1417,16 +1475,12 @@ dispatch_event(struct wl_display *display, struct wl_event_queue *queue)
 
 	pthread_mutex_unlock(&display->mutex);
 
-	if (proxy->dispatcher) {
-		if (debug_client)
-			wl_closure_print(closure, &proxy->object, false);
+	log_closure(closure, proxy, false);
 
+	if (proxy->dispatcher) {
 		wl_closure_dispatch(closure, proxy->dispatcher,
 				    &proxy->object, opcode);
 	} else if (proxy->object.implementation) {
-		if (debug_client)
-			wl_closure_print(closure, &proxy->object, false);
-
 		wl_closure_invoke(closure, WL_CLOSURE_INVOKE_CLIENT,
 				  &proxy->object, opcode, proxy->user_data);
 	}
@@ -2060,6 +2114,70 @@ wl_proxy_get_id(struct wl_proxy *proxy)
 	return proxy->object.id;
 }
 
+/** Set the tag of a proxy object
+ *
+ * A toolkit or application can set a unique tag on a proxy in order to
+ * identify whether an object is managed by itself or some external part.
+ *
+ * To create a tag, the recommended way is to define a statically allocated
+ * constant char array containing some descriptive string. The tag will be the
+ * pointer to the non-const pointer to the beginning of the array.
+ *
+ * For example, to define and set a tag on a surface managed by a certain
+ * subsystem:
+ *
+ * 	static const char *my_tag = "my tag";
+ *
+ * 	wl_proxy_set_tag((struct wl_proxy *) surface, &my_tag);
+ *
+ * Then, in a callback with wl_surface as an argument, in order to check
+ * whether it's a surface managed by the same subsystem.
+ *
+ * 	const char * const *tag;
+ *
+ * 	tag = wl_proxy_get_tag((struct wl_proxy *) surface);
+ * 	if (tag != &my_tag)
+ *		return;
+ *
+ *	...
+ *
+ * For debugging purposes, a tag should be suitable to be included in a debug
+ * log entry, e.g.
+ *
+ * 	const char * const *tag;
+ *
+ * 	tag = wl_proxy_get_tag((struct wl_proxy *) surface);
+ * 	printf("Got a surface with the tag %p (%s)\n",
+ * 	       tag, (tag && *tag) ? *tag : "");
+ *
+ * \param proxy The proxy object
+ * \param tag The tag
+ *
+ * \memberof wl_proxy
+ * \since 1.17.90
+ */
+WL_EXPORT void
+wl_proxy_set_tag(struct wl_proxy *proxy,
+		 const char * const *tag)
+{
+	proxy->tag = tag;
+}
+
+/** Get the tag of a proxy object
+ *
+ * See wl_proxy_set_tag for details.
+ *
+ * \param proxy The proxy object
+ *
+ * \memberof wl_proxy
+ * \since 1.17.90
+ */
+WL_EXPORT const char * const *
+wl_proxy_get_tag(struct wl_proxy *proxy)
+{
+	return proxy->tag;
+}
+
 /** Get the interface name (class) of a proxy object
  *
  * \param proxy The proxy object
@@ -2189,14 +2307,87 @@ wl_proxy_wrapper_destroy(void *proxy_wrapper)
 	free(wrapper);
 }
 
+/** Safely converts an object into its corresponding proxy
+ *
+ * \param object The object to convert
+ * \return A corresponding proxy, or NULL on failure
+ *
+ * Safely converts an object into its corresponding proxy.
+ *
+ * This is useful for implementing functions that are given a \c wl_argument
+ * array, and that need to do further introspection on the ".o" field, as it
+ * is otherwise an opaque type.
+ *
+ * \memberof wl_proxy
+ */
+WL_EXPORT struct wl_proxy *
+wl_proxy_from_object(struct wl_object *object)
+{
+	struct wl_proxy *proxy;
+	if (object == NULL)
+		return NULL;
+	return wl_container_of(object, proxy, object);
+}
+
 WL_EXPORT void
 wl_log_set_handler_client(wl_log_func_t handler)
 {
 	wl_log_handler = handler;
 }
 
-WL_EXPORT void
-wl_set_debug_client_flag(int value)
+/** Adds a new protocol client logger.
+ *
+ * When a new protocol message arrives or is sent from the client
+ * all the protocol logger functions will be called, carrying the
+ * \a user_data pointer, the type of the message (request or
+ * event) and the actual message.
+ * The lifetime of the messages passed to the logger function ends
+ * when they return so the messages cannot be stored and accessed
+ * later.
+ *
+ * \a errno is set on error.
+ *
+ * \param display The display object
+ * \param func The function to call to log a new protocol message
+ * \param user_data The user data pointer to pass to \a func
+ *
+ * \return The protocol logger object on success, NULL on failure.
+ *
+ * \sa wl_protocol_logger_client_destroy
+ *
+ * \memberof wl_display
+ */
+WL_EXPORT struct wl_protocol_logger_client *
+wl_display_add_protocol_logger_client(struct wl_display *display,
+				      wl_protocol_logger_client_func_t func,
+				      void *user_data)
 {
-	debug_client = value;
+	struct wl_protocol_logger_client *logger;
+
+	logger = malloc(sizeof *logger);
+	if (!logger)
+		return NULL;
+
+	logger->func = func;
+	logger->user_data = user_data;
+	wl_list_insert(&display->protocol_loggers, &logger->link);
+
+	return logger;
+}
+
+/** Destroys a protocol client logger.
+ *
+ * This function destroys a protocol client logger and removes it from the
+ * display it was added to with \a wl_display_add_protocol_logger_client.
+ * The \a logger object becomes invalid after calling this function.
+ *
+ * \sa wl_display_add_protocol_logger_client
+ *
+ * \memberof wl_protocol_logger_client
+ */
+WL_EXPORT void
+wl_protocol_logger_client_destroy(struct wl_protocol_logger_client *logger)
+{
+	wl_list_remove(&logger->link);
+	free(logger);
 }

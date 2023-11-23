@@ -1,4 +1,5 @@
 homepage: "https://www.imagemagick.org"
+language: c++
 primary_contact: "dirk@lemstra.org"
 auto_ccs:
   - paul.l.kehrer@gmail.com
@@ -11,3 +12,4 @@ sanitizers:
 architectures:
   - x86_64
   - i386
+main_repo: 'https://github.com/imagemagick/imagemagick'

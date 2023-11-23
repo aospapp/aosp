@@ -12,12 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_tensorflow_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_tensorflow_license"],
+}
+
 filegroup {
     name: "tflite_nnapi_delegate_java",
     srcs: [
         "src/main/java/org/tensorflow/lite/nnapi/*.java",
     ],
     visibility: [
-        "//visibility:public"
+        "//visibility:public",
     ],
 }

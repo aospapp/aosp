@@ -1,4 +1,2 @@
 # Bug component: 24949
-include platform/libcore:/OWNERS
-jsharkey@android.com
-
+include platform/frameworks/base:/mime/OWNERS

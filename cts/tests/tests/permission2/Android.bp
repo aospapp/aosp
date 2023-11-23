@@ -14,16 +14,19 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsPermission2TestCases",
     defaults: ["cts_defaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
-    libs: ["android.test.base.stubs"],
+    libs: ["android.test.base"],
     static_libs: [
         "androidx.test.core",
         "compatibility-device-util-axt",

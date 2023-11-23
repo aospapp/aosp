@@ -331,7 +331,7 @@ int T1protocol_doSoftReset(Tpdu *lastRespTpduReceived);
  *
  * @return 0 if everything went fine, -1 if an error occurred.
  */
-int T1protocol_doRequestIFS();
+int T1protocol_doRequestIFS(Tpdu* lastRespTpduReceived);
 
 /**
  * Handles any TPDU response iteratively.
@@ -396,7 +396,8 @@ int T1protocol_init(SpiDriver_config_t *tSpiDriver);
  *          - 1 if there are more response parts
  *          - -1 if an error occurred.
  */
-int T1protocol_transcieveApduPart(uint8_t *cmdApduPart, uint8_t cmdLength,
-                                  bool isLast, StEse_data *pRsp);
+int T1protocol_transcieveApduPart(uint8_t* cmdApduPart, uint8_t cmdLength,
+                                  bool isLast, StEse_data* pRsp,
+                                  T1TProtocol_TransceiveState Block_type);
 
 #endif /* _T1PROTOCOL_H_ */

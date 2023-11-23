@@ -22,12 +22,33 @@ import (
 
 	"android/soong/apex"
 	"android/soong/cc"
-
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
 )
+
+// Environment variables that affect the generated snapshot
+// ========================================================
+//
+// SOONG_SDK_SNAPSHOT_PREFER
+//     By default every unversioned module in the generated snapshot has prefer: false. Building it
+//     with SOONG_SDK_SNAPSHOT_PREFER=true will force them to use prefer: true.
+//
+// SOONG_SDK_SNAPSHOT_VERSION
+//     This provides control over the version of the generated snapshot.
+//
+//     SOONG_SDK_SNAPSHOT_VERSION=current will generate unversioned and versioned prebuilts and a
+//     versioned snapshot module. This is the default behavior. The zip file containing the
+//     generated snapshot will be <sdk-name>-current.zip.
+//
+//     SOONG_SDK_SNAPSHOT_VERSION=unversioned will generate unversioned prebuilts only and the zip
+//     file containing the generated snapshot will be <sdk-name>.zip.
+//
+//     SOONG_SDK_SNAPSHOT_VERSION=<number> will generate versioned prebuilts and a versioned
+//     snapshot module only. The zip file containing the generated snapshot will be
+//     <sdk-name>-<number>.zip.
+//
 
 var pctx = android.NewPackageContext("android/soong/sdk")
 
@@ -43,7 +64,7 @@ var (
 
 	zipFiles = pctx.AndroidStaticRule("SnapshotZipFiles",
 		blueprint.RuleParams{
-			Command: `${config.SoongZipCmd} -C $basedir -l $out.rsp -o $out`,
+			Command: `${config.SoongZipCmd} -C $basedir -r $out.rsp -o $out`,
 			CommandDeps: []string{
 				"${config.SoongZipCmd}",
 			},
@@ -59,6 +80,11 @@ var (
 				"${config.MergeZipsCmd}",
 			},
 		})
+)
+
+const (
+	soongSdkSnapshotVersionUnversioned = "unversioned"
+	soongSdkSnapshotVersionCurrent     = "current"
 )
 
 type generatedContents struct {
@@ -92,7 +118,7 @@ func (gc *generatedContents) Printfln(format string, args ...interface{}) {
 }
 
 func (gf *generatedFile) build(pctx android.PackageContext, ctx android.BuilderContext, implicits android.Paths) {
-	rb := android.NewRuleBuilder()
+	rb := android.NewRuleBuilder(pctx, ctx)
 
 	content := gf.content.String()
 
@@ -103,24 +129,29 @@ func (gf *generatedFile) build(pctx android.PackageContext, ctx android.BuilderC
 
 	rb.Command().
 		Implicits(implicits).
-		Text("echo").Text(proptools.ShellEscape(content)).
+		Text("echo -n").Text(proptools.ShellEscape(content)).
 		// convert \\n to \n
 		Text("| sed 's/\\\\n/\\n/g' >").Output(gf.path)
 	rb.Command().
 		Text("chmod a+x").Output(gf.path)
-	rb.Build(pctx, ctx, gf.path.Base(), "Build "+gf.path.Base())
+	rb.Build(gf.path.Base(), "Build "+gf.path.Base())
 }
 
 // Collect all the members.
 //
-// Returns a list containing type (extracted from the dependency tag) and the variant
-// plus the multilib usages.
+// Updates the sdk module with a list of sdkMemberVariantDep instances and details as to which
+// multilibs (32/64/both) are used by this sdk variant.
 func (s *sdk) collectMembers(ctx android.ModuleContext) {
 	s.multilibUsages = multilibNone
 	ctx.WalkDeps(func(child android.Module, parent android.Module) bool {
 		tag := ctx.OtherModuleDependencyTag(child)
 		if memberTag, ok := tag.(android.SdkMemberTypeDependencyTag); ok {
-			memberType := memberTag.SdkMemberType()
+			memberType := memberTag.SdkMemberType(child)
+
+			// If a nil SdkMemberType was returned then this module should not be added to the sdk.
+			if memberType == nil {
+				return false
+			}
 
 			// Make sure that the resolved module is allowed in the member list property.
 			if !memberType.IsInstance(child) {
@@ -130,31 +161,41 @@ func (s *sdk) collectMembers(ctx android.ModuleContext) {
 			// Keep track of which multilib variants are used by the sdk.
 			s.multilibUsages = s.multilibUsages.addArchType(child.Target().Arch.ArchType)
 
-			s.memberRefs = append(s.memberRefs, sdkMemberRef{memberType, child.(android.SdkAware)})
+			var exportedComponentsInfo android.ExportedComponentsInfo
+			if ctx.OtherModuleHasProvider(child, android.ExportedComponentsInfoProvider) {
+				exportedComponentsInfo = ctx.OtherModuleProvider(child, android.ExportedComponentsInfoProvider).(android.ExportedComponentsInfo)
+			}
 
-			// If the member type supports transitive sdk members then recurse down into
-			// its dependencies, otherwise exit traversal.
-			return memberType.HasTransitiveSdkMembers()
+			export := memberTag.ExportMember()
+			s.memberVariantDeps = append(s.memberVariantDeps, sdkMemberVariantDep{
+				s, memberType, child.(android.SdkAware), export, exportedComponentsInfo,
+			})
+
+			// Recurse down into the member's dependencies as it may have dependencies that need to be
+			// automatically added to the sdk.
+			return true
 		}
 
 		return false
 	})
 }
 
-// Organize the members.
+// groupMemberVariantsByMemberThenType groups the member variant dependencies so that all the
+// variants of each member are grouped together within an sdkMember instance.
 //
-// The members are first grouped by type and then grouped by name. The order of
-// the types is the order they are referenced in android.SdkMemberTypesRegistry.
-// The names are in the order in which the dependencies were added.
+// The sdkMember instances are then grouped into slices by member type. Within each such slice the
+// sdkMember instances appear in the order they were added as dependencies.
 //
-// Returns the members as well as the multilib setting to use.
-func (s *sdk) organizeMembers(ctx android.ModuleContext, memberRefs []sdkMemberRef) []*sdkMember {
+// Finally, the member type slices are concatenated together to form a single slice. The order in
+// which they are concatenated is the order in which the member types were registered in the
+// android.SdkMemberTypesRegistry.
+func (s *sdk) groupMemberVariantsByMemberThenType(ctx android.ModuleContext, memberVariantDeps []sdkMemberVariantDep) []*sdkMember {
 	byType := make(map[android.SdkMemberType][]*sdkMember)
 	byName := make(map[string]*sdkMember)
 
-	for _, memberRef := range memberRefs {
-		memberType := memberRef.memberType
-		variant := memberRef.variant
+	for _, memberVariantDep := range memberVariantDeps {
+		memberType := memberVariantDep.memberType
+		variant := memberVariantDep.variant
 
 		name := ctx.OtherModuleName(variant)
 		member := byName[name]
@@ -215,21 +256,41 @@ func versionedSdkMemberName(ctx android.ModuleContext, memberName string, versio
 // the contents (header files, stub libraries, etc) into the zip file.
 func (s *sdk) buildSnapshot(ctx android.ModuleContext, sdkVariants []*sdk) android.OutputPath {
 
+	// Aggregate all the sdkMemberVariantDep instances from all the sdk variants.
+	hasLicenses := false
+	var memberVariantDeps []sdkMemberVariantDep
+	for _, sdkVariant := range sdkVariants {
+		memberVariantDeps = append(memberVariantDeps, sdkVariant.memberVariantDeps...)
+	}
+
+	// Filter out any sdkMemberVariantDep that is a component of another.
+	memberVariantDeps = filterOutComponents(ctx, memberVariantDeps)
+
+	// Record the names of all the members, both explicitly specified and implicitly
+	// included.
 	allMembersByName := make(map[string]struct{})
 	exportedMembersByName := make(map[string]struct{})
-	var memberRefs []sdkMemberRef
-	for _, sdkVariant := range sdkVariants {
-		memberRefs = append(memberRefs, sdkVariant.memberRefs...)
 
-		// Record the names of all the members, both explicitly specified and implicitly
-		// included.
-		for _, memberRef := range sdkVariant.memberRefs {
-			allMembersByName[memberRef.variant.Name()] = struct{}{}
+	addMember := func(name string, export bool) {
+		allMembersByName[name] = struct{}{}
+		if export {
+			exportedMembersByName[name] = struct{}{}
+		}
+	}
+
+	for _, memberVariantDep := range memberVariantDeps {
+		name := memberVariantDep.variant.Name()
+		export := memberVariantDep.export
+
+		addMember(name, export)
+
+		// Add any components provided by the module.
+		for _, component := range memberVariantDep.exportedComponentsInfo.Components {
+			addMember(component, export)
 		}
 
-		// Merge the exported member sets from all sdk variants.
-		for key, _ := range sdkVariant.getExportedMembers() {
-			exportedMembersByName[key] = struct{}{}
+		if memberVariantDep.memberType == android.LicenseModuleSdkMemberType {
+			hasLicenses = true
 		}
 	}
 
@@ -241,10 +302,26 @@ func (s *sdk) buildSnapshot(ctx android.ModuleContext, sdkVariants []*sdk) andro
 		modules: make(map[string]*bpModule),
 	}
 
+	config := ctx.Config()
+	version := config.GetenvWithDefault("SOONG_SDK_SNAPSHOT_VERSION", "current")
+
+	// Generate versioned modules in the snapshot unless an unversioned snapshot has been requested.
+	generateVersioned := version != soongSdkSnapshotVersionUnversioned
+
+	// Generate unversioned modules in the snapshot unless a numbered snapshot has been requested.
+	//
+	// Unversioned modules are not required in that case because the numbered version will be a
+	// finalized version of the snapshot that is intended to be kept separate from the
+	generateUnversioned := version == soongSdkSnapshotVersionUnversioned || version == soongSdkSnapshotVersionCurrent
+	snapshotZipFileSuffix := ""
+	if generateVersioned {
+		snapshotZipFileSuffix = "-" + version
+	}
+
 	builder := &snapshotBuilder{
 		ctx:                   ctx,
 		sdk:                   s,
-		version:               "current",
+		version:               version,
 		snapshotDir:           snapshotDir.OutputPath,
 		copies:                make(map[string]string),
 		filesToZip:            []android.Path{bp.path},
@@ -255,14 +332,34 @@ func (s *sdk) buildSnapshot(ctx android.ModuleContext, sdkVariants []*sdk) andro
 	}
 	s.builderForTests = builder
 
-	members := s.organizeMembers(ctx, memberRefs)
+	// If the sdk snapshot includes any license modules then add a package module which has a
+	// default_applicable_licenses property. That will prevent the LSC license process from updating
+	// the generated Android.bp file to add a package module that includes all licenses used by all
+	// the modules in that package. That would be unnecessary as every module in the sdk should have
+	// their own licenses property specified.
+	if hasLicenses {
+		pkg := bpFile.newModule("package")
+		property := "default_applicable_licenses"
+		pkg.AddCommentForProperty(property, `
+A default list here prevents the license LSC from adding its own list which would
+be unnecessary as every module in the sdk already has its own licenses property.
+`)
+		pkg.AddProperty(property, []string{"Android-Apache-2.0"})
+		bpFile.AddModule(pkg)
+	}
+
+	// Group the variants for each member module together and then group the members of each member
+	// type together.
+	members := s.groupMemberVariantsByMemberThenType(ctx, memberVariantDeps)
+
+	// Create the prebuilt modules for each of the member modules.
 	for _, member := range members {
 		memberType := member.memberType
 
 		memberCtx := &memberContext{ctx, builder, memberType, member.name}
 
 		prebuiltModule := memberType.AddPrebuiltModule(memberCtx, member)
-		s.createMemberSnapshot(memberCtx, member, prebuiltModule)
+		s.createMemberSnapshot(memberCtx, member, prebuiltModule.(*bpModule))
 	}
 
 	// Create a transformer that will transform an unversioned module into a versioned module.
@@ -270,93 +367,49 @@ func (s *sdk) buildSnapshot(ctx android.ModuleContext, sdkVariants []*sdk) andro
 
 	// Create a transformer that will transform an unversioned module by replacing any references
 	// to internal members with a unique module name and setting prefer: false.
-	unversionedTransformer := unversionedTransformation{builder: builder}
+	unversionedTransformer := unversionedTransformation{
+		builder: builder,
+	}
 
 	for _, unversioned := range builder.prebuiltOrder {
 		// Prune any empty property sets.
 		unversioned = unversioned.transform(pruneEmptySetTransformer{})
 
-		// Copy the unversioned module so it can be modified to make it versioned.
-		versioned := unversioned.deepCopy()
+		if generateVersioned {
+			// Copy the unversioned module so it can be modified to make it versioned.
+			versioned := unversioned.deepCopy()
 
-		// Transform the unversioned module into a versioned one.
-		versioned.transform(unversionedToVersionedTransformer)
-		bpFile.AddModule(versioned)
+			// Transform the unversioned module into a versioned one.
+			versioned.transform(unversionedToVersionedTransformer)
+			bpFile.AddModule(versioned)
+		}
 
-		// Transform the unversioned module to make it suitable for use in the snapshot.
-		unversioned.transform(unversionedTransformer)
-		bpFile.AddModule(unversioned)
-	}
-
-	// Create the snapshot module.
-	snapshotName := ctx.ModuleName() + string(android.SdkVersionSeparator) + builder.version
-	var snapshotModuleType string
-	if s.properties.Module_exports {
-		snapshotModuleType = "module_exports_snapshot"
-	} else {
-		snapshotModuleType = "sdk_snapshot"
-	}
-	snapshotModule := bpFile.newModule(snapshotModuleType)
-	snapshotModule.AddProperty("name", snapshotName)
-
-	// Make sure that the snapshot has the same visibility as the sdk.
-	visibility := android.EffectiveVisibilityRules(ctx, s)
-	if len(visibility) != 0 {
-		snapshotModule.AddProperty("visibility", visibility)
-	}
-
-	addHostDeviceSupportedProperties(s.ModuleBase.DeviceSupported(), s.ModuleBase.HostSupported(), snapshotModule)
-
-	var dynamicMemberPropertiesContainers []propertiesContainer
-	osTypeToMemberProperties := make(map[android.OsType]*sdk)
-	for _, sdkVariant := range sdkVariants {
-		properties := sdkVariant.dynamicMemberTypeListProperties
-		osTypeToMemberProperties[sdkVariant.Target().Os] = sdkVariant
-		dynamicMemberPropertiesContainers = append(dynamicMemberPropertiesContainers, &dynamicMemberPropertiesContainer{sdkVariant, properties})
-	}
-
-	// Extract the common lists of members into a separate struct.
-	commonDynamicMemberProperties := s.dynamicSdkMemberTypes.createMemberListProperties()
-	extractor := newCommonValueExtractor(commonDynamicMemberProperties)
-	extractCommonProperties(ctx, extractor, commonDynamicMemberProperties, dynamicMemberPropertiesContainers)
-
-	// Add properties common to all os types.
-	s.addMemberPropertiesToPropertySet(builder, snapshotModule, commonDynamicMemberProperties)
-
-	// Iterate over the os types in a fixed order.
-	targetPropertySet := snapshotModule.AddPropertySet("target")
-	for _, osType := range s.getPossibleOsTypes() {
-		if sdkVariant, ok := osTypeToMemberProperties[osType]; ok {
-			osPropertySet := targetPropertySet.AddPropertySet(sdkVariant.Target().Os.Name)
-
-			// Compile_multilib defaults to both and must always be set to both on the
-			// device and so only needs to be set when targeted at the host and is neither
-			// unspecified or both.
-			multilib := sdkVariant.multilibUsages
-			if (osType.Class == android.Host || osType.Class == android.HostCross) &&
-				multilib != multilibNone && multilib != multilibBoth {
-				osPropertySet.AddProperty("compile_multilib", multilib.String())
-			}
-
-			s.addMemberPropertiesToPropertySet(builder, osPropertySet, sdkVariant.dynamicMemberTypeListProperties)
+		if generateUnversioned {
+			// Transform the unversioned module to make it suitable for use in the snapshot.
+			unversioned.transform(unversionedTransformer)
+			bpFile.AddModule(unversioned)
 		}
 	}
 
-	// Prune any empty property sets.
-	snapshotModule.transform(pruneEmptySetTransformer{})
-
-	bpFile.AddModule(snapshotModule)
+	if generateVersioned {
+		// Add the sdk/module_exports_snapshot module to the bp file.
+		s.addSnapshotModule(ctx, builder, sdkVariants, memberVariantDeps)
+	}
 
 	// generate Android.bp
 	bp = newGeneratedFile(ctx, "snapshot", "Android.bp")
 	generateBpContents(&bp.generatedContents, bpFile)
+
+	contents := bp.content.String()
+	syntaxCheckSnapshotBpFile(ctx, contents)
 
 	bp.build(pctx, ctx, nil)
 
 	filesToZip := builder.filesToZip
 
 	// zip them all
-	outputZipFile := android.PathForModuleOut(ctx, ctx.ModuleName()+"-current.zip").OutputPath
+	zipPath := fmt.Sprintf("%s%s.zip", ctx.ModuleName(), snapshotZipFileSuffix)
+	outputZipFile := android.PathForModuleOut(ctx, zipPath).OutputPath
 	outputDesc := "Building snapshot for " + ctx.ModuleName()
 
 	// If there are no zips to merge then generate the output zip directly.
@@ -368,7 +421,8 @@ func (s *sdk) buildSnapshot(ctx android.ModuleContext, sdkVariants []*sdk) andro
 		zipFile = outputZipFile
 		desc = outputDesc
 	} else {
-		zipFile = android.PathForModuleOut(ctx, ctx.ModuleName()+"-current.unmerged.zip").OutputPath
+		intermediatePath := fmt.Sprintf("%s%s.unmerged.zip", ctx.ModuleName(), snapshotZipFileSuffix)
+		zipFile = android.PathForModuleOut(ctx, intermediatePath).OutputPath
 		desc = "Building intermediate snapshot for " + ctx.ModuleName()
 	}
 
@@ -395,6 +449,152 @@ func (s *sdk) buildSnapshot(ctx android.ModuleContext, sdkVariants []*sdk) andro
 	return outputZipFile
 }
 
+// filterOutComponents removes any item from the deps list that is a component of another item in
+// the deps list, e.g. if the deps list contains "foo" and "foo.stubs" which is component of "foo"
+// then it will remove "foo.stubs" from the deps.
+func filterOutComponents(ctx android.ModuleContext, deps []sdkMemberVariantDep) []sdkMemberVariantDep {
+	// Collate the set of components that all the modules added to the sdk provide.
+	components := map[string]*sdkMemberVariantDep{}
+	for i, _ := range deps {
+		dep := &deps[i]
+		for _, c := range dep.exportedComponentsInfo.Components {
+			components[c] = dep
+		}
+	}
+
+	// If no module provides components then return the input deps unfiltered.
+	if len(components) == 0 {
+		return deps
+	}
+
+	filtered := make([]sdkMemberVariantDep, 0, len(deps))
+	for _, dep := range deps {
+		name := android.RemoveOptionalPrebuiltPrefix(ctx.OtherModuleName(dep.variant))
+		if owner, ok := components[name]; ok {
+			// This is a component of another module that is a member of the sdk.
+
+			// If the component is exported but the owning module is not then the configuration is not
+			// supported.
+			if dep.export && !owner.export {
+				ctx.ModuleErrorf("Module %s is internal to the SDK but provides component %s which is used outside the SDK")
+				continue
+			}
+
+			// This module must not be added to the list of members of the sdk as that would result in a
+			// duplicate module in the sdk snapshot.
+			continue
+		}
+
+		filtered = append(filtered, dep)
+	}
+	return filtered
+}
+
+// addSnapshotModule adds the sdk_snapshot/module_exports_snapshot module to the builder.
+func (s *sdk) addSnapshotModule(ctx android.ModuleContext, builder *snapshotBuilder, sdkVariants []*sdk, memberVariantDeps []sdkMemberVariantDep) {
+	bpFile := builder.bpFile
+
+	snapshotName := ctx.ModuleName() + string(android.SdkVersionSeparator) + builder.version
+	var snapshotModuleType string
+	if s.properties.Module_exports {
+		snapshotModuleType = "module_exports_snapshot"
+	} else {
+		snapshotModuleType = "sdk_snapshot"
+	}
+	snapshotModule := bpFile.newModule(snapshotModuleType)
+	snapshotModule.AddProperty("name", snapshotName)
+
+	// Make sure that the snapshot has the same visibility as the sdk.
+	visibility := android.EffectiveVisibilityRules(ctx, s).Strings()
+	if len(visibility) != 0 {
+		snapshotModule.AddProperty("visibility", visibility)
+	}
+
+	addHostDeviceSupportedProperties(s.ModuleBase.DeviceSupported(), s.ModuleBase.HostSupported(), snapshotModule)
+
+	combinedPropertiesList := s.collateSnapshotModuleInfo(ctx, sdkVariants, memberVariantDeps)
+	commonCombinedProperties := s.optimizeSnapshotModuleProperties(ctx, combinedPropertiesList)
+
+	s.addSnapshotPropertiesToPropertySet(builder, snapshotModule, commonCombinedProperties)
+
+	targetPropertySet := snapshotModule.AddPropertySet("target")
+
+	// Create a mapping from osType to combined properties.
+	osTypeToCombinedProperties := map[android.OsType]*combinedSnapshotModuleProperties{}
+	for _, combined := range combinedPropertiesList {
+		osTypeToCombinedProperties[combined.sdkVariant.Os()] = combined
+	}
+
+	// Iterate over the os types in a fixed order.
+	for _, osType := range s.getPossibleOsTypes() {
+		if combined, ok := osTypeToCombinedProperties[osType]; ok {
+			osPropertySet := targetPropertySet.AddPropertySet(osType.Name)
+
+			s.addSnapshotPropertiesToPropertySet(builder, osPropertySet, combined)
+		}
+	}
+
+	// If host is supported and any member is host OS dependent then disable host
+	// by default, so that we can enable each host OS variant explicitly. This
+	// avoids problems with implicitly enabled OS variants when the snapshot is
+	// used, which might be different from this run (e.g. different build OS).
+	if s.HostSupported() {
+		var supportedHostTargets []string
+		for _, memberVariantDep := range memberVariantDeps {
+			if memberVariantDep.memberType.IsHostOsDependent() && memberVariantDep.variant.Target().Os.Class == android.Host {
+				targetString := memberVariantDep.variant.Target().Os.String() + "_" + memberVariantDep.variant.Target().Arch.ArchType.String()
+				if !android.InList(targetString, supportedHostTargets) {
+					supportedHostTargets = append(supportedHostTargets, targetString)
+				}
+			}
+		}
+		if len(supportedHostTargets) > 0 {
+			hostPropertySet := targetPropertySet.AddPropertySet("host")
+			hostPropertySet.AddProperty("enabled", false)
+		}
+		// Enable the <os>_<arch> variant explicitly when we've disabled it by default on host.
+		for _, hostTarget := range supportedHostTargets {
+			propertySet := targetPropertySet.AddPropertySet(hostTarget)
+			propertySet.AddProperty("enabled", true)
+		}
+	}
+
+	// Prune any empty property sets.
+	snapshotModule.transform(pruneEmptySetTransformer{})
+
+	bpFile.AddModule(snapshotModule)
+}
+
+// Check the syntax of the generated Android.bp file contents and if they are
+// invalid then log an error with the contents (tagged with line numbers) and the
+// errors that were found so that it is easy to see where the problem lies.
+func syntaxCheckSnapshotBpFile(ctx android.ModuleContext, contents string) {
+	errs := android.CheckBlueprintSyntax(ctx, "Android.bp", contents)
+	if len(errs) != 0 {
+		message := &strings.Builder{}
+		_, _ = fmt.Fprint(message, `errors in generated Android.bp snapshot:
+
+Generated Android.bp contents
+========================================================================
+`)
+		for i, line := range strings.Split(contents, "\n") {
+			_, _ = fmt.Fprintf(message, "%6d:    %s\n", i+1, line)
+		}
+
+		_, _ = fmt.Fprint(message, `
+========================================================================
+
+Errors found:
+`)
+
+		for _, err := range errs {
+			_, _ = fmt.Fprintf(message, "%s\n", err.Error())
+		}
+
+		ctx.ModuleErrorf("%s", message.String())
+	}
+}
+
 func extractCommonProperties(ctx android.ModuleContext, extractor *commonValueExtractor, commonProperties interface{}, inputPropertiesSlice interface{}) {
 	err := extractor.extractCommonProperties(commonProperties, inputPropertiesSlice)
 	if err != nil {
@@ -402,8 +602,118 @@ func extractCommonProperties(ctx android.ModuleContext, extractor *commonValueEx
 	}
 }
 
-func (s *sdk) addMemberPropertiesToPropertySet(builder *snapshotBuilder, propertySet android.BpPropertySet, dynamicMemberTypeListProperties interface{}) {
+// snapshotModuleStaticProperties contains snapshot static (i.e. not dynamically generated) properties.
+type snapshotModuleStaticProperties struct {
+	Compile_multilib string `android:"arch_variant"`
+}
+
+// combinedSnapshotModuleProperties are the properties that are associated with the snapshot module.
+type combinedSnapshotModuleProperties struct {
+	// The sdk variant from which this information was collected.
+	sdkVariant *sdk
+
+	// Static snapshot module properties.
+	staticProperties *snapshotModuleStaticProperties
+
+	// The dynamically generated member list properties.
+	dynamicProperties interface{}
+}
+
+// collateSnapshotModuleInfo collates all the snapshot module info from supplied sdk variants.
+func (s *sdk) collateSnapshotModuleInfo(ctx android.BaseModuleContext, sdkVariants []*sdk, memberVariantDeps []sdkMemberVariantDep) []*combinedSnapshotModuleProperties {
+	sdkVariantToCombinedProperties := map[*sdk]*combinedSnapshotModuleProperties{}
+	var list []*combinedSnapshotModuleProperties
+	for _, sdkVariant := range sdkVariants {
+		staticProperties := &snapshotModuleStaticProperties{
+			Compile_multilib: sdkVariant.multilibUsages.String(),
+		}
+		dynamicProperties := s.dynamicSdkMemberTypes.createMemberListProperties()
+
+		combinedProperties := &combinedSnapshotModuleProperties{
+			sdkVariant:        sdkVariant,
+			staticProperties:  staticProperties,
+			dynamicProperties: dynamicProperties,
+		}
+		sdkVariantToCombinedProperties[sdkVariant] = combinedProperties
+
+		list = append(list, combinedProperties)
+	}
+
+	for _, memberVariantDep := range memberVariantDeps {
+		// If the member dependency is internal then do not add the dependency to the snapshot member
+		// list properties.
+		if !memberVariantDep.export {
+			continue
+		}
+
+		combined := sdkVariantToCombinedProperties[memberVariantDep.sdkVariant]
+		memberListProperty := s.memberListProperty(memberVariantDep.memberType)
+		memberName := ctx.OtherModuleName(memberVariantDep.variant)
+
+		if memberListProperty.getter == nil {
+			continue
+		}
+
+		// Append the member to the appropriate list, if it is not already present in the list.
+		memberList := memberListProperty.getter(combined.dynamicProperties)
+		if !android.InList(memberName, memberList) {
+			memberList = append(memberList, memberName)
+		}
+		memberListProperty.setter(combined.dynamicProperties, memberList)
+	}
+
+	return list
+}
+
+func (s *sdk) optimizeSnapshotModuleProperties(ctx android.ModuleContext, list []*combinedSnapshotModuleProperties) *combinedSnapshotModuleProperties {
+
+	// Extract the dynamic properties and add them to a list of propertiesContainer.
+	propertyContainers := []propertiesContainer{}
+	for _, i := range list {
+		propertyContainers = append(propertyContainers, sdkVariantPropertiesContainer{
+			sdkVariant: i.sdkVariant,
+			properties: i.dynamicProperties,
+		})
+	}
+
+	// Extract the common members, removing them from the original properties.
+	commonDynamicProperties := s.dynamicSdkMemberTypes.createMemberListProperties()
+	extractor := newCommonValueExtractor(commonDynamicProperties)
+	extractCommonProperties(ctx, extractor, commonDynamicProperties, propertyContainers)
+
+	// Extract the static properties and add them to a list of propertiesContainer.
+	propertyContainers = []propertiesContainer{}
+	for _, i := range list {
+		propertyContainers = append(propertyContainers, sdkVariantPropertiesContainer{
+			sdkVariant: i.sdkVariant,
+			properties: i.staticProperties,
+		})
+	}
+
+	commonStaticProperties := &snapshotModuleStaticProperties{}
+	extractor = newCommonValueExtractor(commonStaticProperties)
+	extractCommonProperties(ctx, extractor, &commonStaticProperties, propertyContainers)
+
+	return &combinedSnapshotModuleProperties{
+		sdkVariant:        nil,
+		staticProperties:  commonStaticProperties,
+		dynamicProperties: commonDynamicProperties,
+	}
+}
+
+func (s *sdk) addSnapshotPropertiesToPropertySet(builder *snapshotBuilder, propertySet android.BpPropertySet, combined *combinedSnapshotModuleProperties) {
+	staticProperties := combined.staticProperties
+	multilib := staticProperties.Compile_multilib
+	if multilib != "" && multilib != "both" {
+		// Compile_multilib defaults to both so only needs to be set when it's specified and not both.
+		propertySet.AddProperty("compile_multilib", multilib)
+	}
+
+	dynamicMemberTypeListProperties := combined.dynamicProperties
 	for _, memberListProperty := range s.memberListProperties() {
+		if memberListProperty.getter == nil {
+			continue
+		}
 		names := memberListProperty.getter(dynamicMemberTypeListProperties)
 		if len(names) > 0 {
 			propertySet.AddProperty(memberListProperty.propertyName(), builder.versionedSdkMemberNames(names, false))
@@ -437,9 +747,11 @@ type unversionedToVersionedTransformation struct {
 func (t unversionedToVersionedTransformation) transformModule(module *bpModule) *bpModule {
 	// Use a versioned name for the module but remember the original name for the
 	// snapshot.
-	name := module.getValue("name").(string)
+	name := module.Name()
 	module.setProperty("name", t.builder.versionedSdkMemberName(name, true))
 	module.insertAfter("name", "sdk_member_name", name)
+	// Remove the prefer property if present as versioned modules never need marking with prefer.
+	module.removeProperty("prefer")
 	return module
 }
 
@@ -459,12 +771,8 @@ type unversionedTransformation struct {
 
 func (t unversionedTransformation) transformModule(module *bpModule) *bpModule {
 	// If the module is an internal member then use a unique name for it.
-	name := module.getValue("name").(string)
+	name := module.Name()
 	module.setProperty("name", t.builder.unversionedSdkMemberName(name, true))
-
-	// Set prefer: false - this is not strictly required as that is the default.
-	module.insertAfter("name", "prefer", false)
-
 	return module
 }
 
@@ -495,17 +803,33 @@ func (t pruneEmptySetTransformer) transformPropertySetAfterContents(name string,
 }
 
 func generateBpContents(contents *generatedContents, bpFile *bpFile) {
+	generateFilteredBpContents(contents, bpFile, func(*bpModule) bool {
+		return true
+	})
+}
+
+func generateFilteredBpContents(contents *generatedContents, bpFile *bpFile, moduleFilter func(module *bpModule) bool) {
 	contents.Printfln("// This is auto-generated. DO NOT EDIT.")
 	for _, bpModule := range bpFile.order {
-		contents.Printfln("")
-		contents.Printfln("%s {", bpModule.moduleType)
-		outputPropertySet(contents, bpModule.bpPropertySet)
-		contents.Printfln("}")
+		if moduleFilter(bpModule) {
+			contents.Printfln("")
+			contents.Printfln("%s {", bpModule.moduleType)
+			outputPropertySet(contents, bpModule.bpPropertySet)
+			contents.Printfln("}")
+		}
 	}
 }
 
 func outputPropertySet(contents *generatedContents, set *bpPropertySet) {
 	contents.Indent()
+
+	addComment := func(name string) {
+		if text, ok := set.comments[name]; ok {
+			for _, line := range strings.Split(text, "\n") {
+				contents.Printfln("// %s", line)
+			}
+		}
+	}
 
 	// Output the properties first, followed by the nested sets. This ensures a
 	// consistent output irrespective of whether property sets are created before
@@ -513,6 +837,12 @@ func outputPropertySet(contents *generatedContents, set *bpPropertySet) {
 	for _, name := range set.order {
 		value := set.getValue(name)
 
+		// Do not write property sets in the properties phase.
+		if _, ok := value.(*bpPropertySet); ok {
+			continue
+		}
+
+		addComment(name)
 		switch v := value.(type) {
 		case []string:
 			length := len(v)
@@ -533,9 +863,6 @@ func outputPropertySet(contents *generatedContents, set *bpPropertySet) {
 		case bool:
 			contents.Printfln("%s: %t,", name, v)
 
-		case *bpPropertySet:
-			// Do not write property sets in the properties phase.
-
 		default:
 			contents.Printfln("%s: %q,", name, value)
 		}
@@ -547,6 +874,7 @@ func outputPropertySet(contents *generatedContents, set *bpPropertySet) {
 		// Only write property sets in the sets phase.
 		switch v := value.(type) {
 		case *bpPropertySet:
+			addComment(name)
 			contents.Printfln("%s: {", name)
 			outputPropertySet(contents, v)
 			contents.Printfln("},")
@@ -562,10 +890,36 @@ func (s *sdk) GetAndroidBpContentsForTests() string {
 	return contents.content.String()
 }
 
+func (s *sdk) GetUnversionedAndroidBpContentsForTests() string {
+	contents := &generatedContents{}
+	generateFilteredBpContents(contents, s.builderForTests.bpFile, func(module *bpModule) bool {
+		name := module.Name()
+		// Include modules that are either unversioned or have no name.
+		return !strings.Contains(name, "@")
+	})
+	return contents.content.String()
+}
+
+func (s *sdk) GetVersionedAndroidBpContentsForTests() string {
+	contents := &generatedContents{}
+	generateFilteredBpContents(contents, s.builderForTests.bpFile, func(module *bpModule) bool {
+		name := module.Name()
+		// Include modules that are either versioned or have no name.
+		return name == "" || strings.Contains(name, "@")
+	})
+	return contents.content.String()
+}
+
 type snapshotBuilder struct {
-	ctx         android.ModuleContext
-	sdk         *sdk
-	version     string
+	ctx android.ModuleContext
+	sdk *sdk
+
+	// The version of the generated snapshot.
+	//
+	// See the documentation of SOONG_SDK_SNAPSHOT_VERSION above for details of the valid values of
+	// this field.
+	version string
+
 	snapshotDir android.OutputPath
 	bpFile      *bpFile
 
@@ -644,10 +998,43 @@ func (s *snapshotBuilder) AddPrebuiltModule(member android.SdkMember, moduleType
 	} else {
 		// Extract visibility information from a member variant. All variants have the same
 		// visibility so it doesn't matter which one is used.
-		visibility := android.EffectiveVisibilityRules(s.ctx, variant)
+		visibilityRules := android.EffectiveVisibilityRules(s.ctx, variant)
+
+		// Add any additional visibility rules needed for the prebuilts to reference each other.
+		err := visibilityRules.Widen(s.sdk.properties.Prebuilt_visibility)
+		if err != nil {
+			s.ctx.PropertyErrorf("prebuilt_visibility", "%s", err)
+		}
+
+		visibility := visibilityRules.Strings()
 		if len(visibility) != 0 {
 			m.AddProperty("visibility", visibility)
 		}
+	}
+
+	// Where available copy apex_available properties from the member.
+	if apexAware, ok := variant.(interface{ ApexAvailable() []string }); ok {
+		apexAvailable := apexAware.ApexAvailable()
+		if len(apexAvailable) == 0 {
+			// //apex_available:platform is the default.
+			apexAvailable = []string{android.AvailableToPlatform}
+		}
+
+		// Add in any baseline apex available settings.
+		apexAvailable = append(apexAvailable, apex.BaselineApexAvailable(member.Name())...)
+
+		// Remove duplicates and sort.
+		apexAvailable = android.FirstUniqueStrings(apexAvailable)
+		sort.Strings(apexAvailable)
+
+		m.AddProperty("apex_available", apexAvailable)
+	}
+
+	// The licenses are the same for all variants.
+	mctx := s.ctx
+	licenseInfo := mctx.OtherModuleProvider(variant, android.LicenseInfoProvider).(android.LicenseInfo)
+	if len(licenseInfo.Licenses) > 0 {
+		m.AddPropertyWithTag("licenses", licenseInfo.Licenses, s.OptionalSdkMemberReferencePropertyTag())
 	}
 
 	deviceSupported := false
@@ -655,7 +1042,7 @@ func (s *snapshotBuilder) AddPrebuiltModule(member android.SdkMember, moduleType
 
 	for _, variant := range member.Variants() {
 		osClass := variant.Target().Os.Class
-		if osClass == android.Host || osClass == android.HostCross {
+		if osClass == android.Host {
 			hostSupported = true
 		} else if osClass == android.Device {
 			deviceSupported = true
@@ -663,22 +1050,6 @@ func (s *snapshotBuilder) AddPrebuiltModule(member android.SdkMember, moduleType
 	}
 
 	addHostDeviceSupportedProperties(deviceSupported, hostSupported, m)
-
-	// Where available copy apex_available properties from the member.
-	if apexAware, ok := variant.(interface{ ApexAvailable() []string }); ok {
-		apexAvailable := apexAware.ApexAvailable()
-
-		// Add in any baseline apex available settings.
-		apexAvailable = append(apexAvailable, apex.BaselineApexAvailable(member.Name())...)
-
-		if len(apexAvailable) > 0 {
-			// Remove duplicates and sort.
-			apexAvailable = android.FirstUniqueStrings(apexAvailable)
-			sort.Strings(apexAvailable)
-
-			m.AddProperty("apex_available", apexAvailable)
-		}
-	}
 
 	// Disable installation in the versioned module of those modules that are ever installable.
 	if installable, ok := variant.(interface{ EverInstallable() bool }); ok {
@@ -693,6 +1064,12 @@ func (s *snapshotBuilder) AddPrebuiltModule(member android.SdkMember, moduleType
 }
 
 func addHostDeviceSupportedProperties(deviceSupported bool, hostSupported bool, bpModule *bpModule) {
+	// If neither device or host is supported then this module does not support either so will not
+	// recognize the properties.
+	if !deviceSupported && !hostSupported {
+		return
+	}
+
 	if !deviceSupported {
 		bpModule.AddProperty("device_supported", false)
 	}
@@ -761,13 +1138,39 @@ func (s *snapshotBuilder) isInternalMember(memberName string) bool {
 	return !ok
 }
 
-type sdkMemberRef struct {
+// Add the properties from the given SdkMemberProperties to the blueprint
+// property set. This handles common properties in SdkMemberPropertiesBase and
+// calls the member-specific AddToPropertySet for the rest.
+func addSdkMemberPropertiesToSet(ctx *memberContext, memberProperties android.SdkMemberProperties, targetPropertySet android.BpPropertySet) {
+	if memberProperties.Base().Compile_multilib != "" {
+		targetPropertySet.AddProperty("compile_multilib", memberProperties.Base().Compile_multilib)
+	}
+
+	memberProperties.AddToPropertySet(ctx, targetPropertySet)
+}
+
+// sdkMemberVariantDep represents a dependency from an sdk variant onto a member variant.
+type sdkMemberVariantDep struct {
+	// The sdk variant that depends (possibly indirectly) on the member variant.
+	sdkVariant *sdk
+
+	// The type of sdk member the variant is to be treated as.
 	memberType android.SdkMemberType
-	variant    android.SdkAware
+
+	// The variant that is added to the sdk.
+	variant android.SdkAware
+
+	// True if the member should be exported, i.e. accessible, from outside the sdk.
+	export bool
+
+	// The names of additional component modules provided by the variant.
+	exportedComponentsInfo android.ExportedComponentsInfo
 }
 
 var _ android.SdkMember = (*sdkMember)(nil)
 
+// sdkMember groups all the variants of a specific member module together along with the name of the
+// module and the member type. This is used to generate the prebuilt modules for a specific member.
 type sdkMember struct {
 	memberType android.SdkMemberType
 	name       string
@@ -878,7 +1281,7 @@ func newOsTypeSpecificInfo(ctx android.SdkMemberContext, osType android.OsType, 
 
 	if commonVariants, ok := variantsByArchName["common"]; ok {
 		if len(osTypeVariants) != 1 {
-			panic("Expected to only have 1 variant when arch type is common but found " + string(len(osTypeVariants)))
+			panic(fmt.Errorf("Expected to only have 1 variant when arch type is common but found %d", len(osTypeVariants)))
 		}
 
 		// A common arch type only has one variant and its properties should be treated
@@ -890,7 +1293,7 @@ func newOsTypeSpecificInfo(ctx android.SdkMemberContext, osType android.OsType, 
 			archTypeName := archType.Name
 
 			archVariants := variantsByArchName[archTypeName]
-			archInfo := newArchSpecificInfo(ctx, archType, osSpecificVariantPropertiesFactory, archVariants)
+			archInfo := newArchSpecificInfo(ctx, archType, osType, osSpecificVariantPropertiesFactory, archVariants)
 
 			osInfo.archInfos = append(osInfo.archInfos, archInfo)
 		}
@@ -931,9 +1334,12 @@ func (osInfo *osTypeSpecificInfo) addToPropertySet(ctx *memberContext, bpModule 
 	var osPropertySet android.BpPropertySet
 	var archPropertySet android.BpPropertySet
 	var archOsPrefix string
-	if osInfo.Properties.Base().Os_count == 1 {
-		// There is only one os type present in the variants so don't bother
-		// with adding target specific properties.
+	if osInfo.Properties.Base().Os_count == 1 &&
+		(osInfo.osType.Class == android.Device || !ctx.memberType.IsHostOsDependent()) {
+		// There is only one OS type present in the variants and it shouldn't have a
+		// variant-specific target. The latter is the case if it's either for device
+		// where there is only one OS (android), or for host and the member type
+		// isn't host OS dependent.
 
 		// Create a structure that looks like:
 		// module_type {
@@ -976,7 +1382,7 @@ func (osInfo *osTypeSpecificInfo) addToPropertySet(ctx *memberContext, bpModule 
 	}
 
 	// Add the os specific but arch independent properties to the module.
-	osInfo.Properties.AddToPropertySet(ctx, osPropertySet)
+	addSdkMemberPropertiesToSet(ctx, osInfo.Properties, osPropertySet)
 
 	// Add arch (and possibly os) specific sections for each set of arch (and possibly
 	// os) specific properties.
@@ -990,7 +1396,7 @@ func (osInfo *osTypeSpecificInfo) addToPropertySet(ctx *memberContext, bpModule 
 
 func (osInfo *osTypeSpecificInfo) isHostVariant() bool {
 	osClass := osInfo.osType.Class
-	return osClass == android.Host || osClass == android.HostCross
+	return osClass == android.Host
 }
 
 var _ isHostVariant = (*osTypeSpecificInfo)(nil)
@@ -1003,6 +1409,7 @@ type archTypeSpecificInfo struct {
 	baseInfo
 
 	archType android.ArchType
+	osType   android.OsType
 
 	linkInfos []*linkTypeSpecificInfo
 }
@@ -1011,10 +1418,10 @@ var _ propertiesContainer = (*archTypeSpecificInfo)(nil)
 
 // Create a new archTypeSpecificInfo for the specified arch type and its properties
 // structures populated with information from the variants.
-func newArchSpecificInfo(ctx android.SdkMemberContext, archType android.ArchType, variantPropertiesFactory variantPropertiesFactoryFunc, archVariants []android.Module) *archTypeSpecificInfo {
+func newArchSpecificInfo(ctx android.SdkMemberContext, archType android.ArchType, osType android.OsType, variantPropertiesFactory variantPropertiesFactoryFunc, archVariants []android.Module) *archTypeSpecificInfo {
 
 	// Create an arch specific info into which the variant properties can be copied.
-	archInfo := &archTypeSpecificInfo{archType: archType}
+	archInfo := &archTypeSpecificInfo{archType: archType, osType: osType}
 
 	// Create the properties into which the arch type specific properties will be
 	// added.
@@ -1078,11 +1485,15 @@ func (archInfo *archTypeSpecificInfo) optimizeProperties(ctx *memberContext, com
 func (archInfo *archTypeSpecificInfo) addToPropertySet(ctx *memberContext, archPropertySet android.BpPropertySet, archOsPrefix string) {
 	archTypeName := archInfo.archType.Name
 	archTypePropertySet := archPropertySet.AddPropertySet(archOsPrefix + archTypeName)
-	archInfo.Properties.AddToPropertySet(ctx, archTypePropertySet)
+	// Enable the <os>_<arch> variant explicitly when we've disabled it by default on host.
+	if ctx.memberType.IsHostOsDependent() && archInfo.osType.Class == android.Host {
+		archTypePropertySet.AddProperty("enabled", true)
+	}
+	addSdkMemberPropertiesToSet(ctx, archInfo.Properties, archTypePropertySet)
 
 	for _, linkInfo := range archInfo.linkInfos {
 		linkPropertySet := archTypePropertySet.AddPropertySet(linkInfo.linkType)
-		linkInfo.Properties.AddToPropertySet(ctx, linkPropertySet)
+		addSdkMemberPropertiesToSet(ctx, linkInfo.Properties, linkPropertySet)
 	}
 }
 
@@ -1140,9 +1551,24 @@ func (m *memberContext) Name() string {
 	return m.name
 }
 
-func (s *sdk) createMemberSnapshot(ctx *memberContext, member *sdkMember, bpModule android.BpModule) {
+func (s *sdk) createMemberSnapshot(ctx *memberContext, member *sdkMember, bpModule *bpModule) {
 
 	memberType := member.memberType
+
+	// Do not add the prefer property if the member snapshot module is a source module type.
+	if !memberType.UsesSourceModuleTypeInSnapshot() {
+		// Set the prefer based on the environment variable. This is a temporary work around to allow a
+		// snapshot to be created that sets prefer: true.
+		// TODO(b/174997203): Remove once the ability to select the modules to prefer can be done
+		//  dynamically at build time not at snapshot generation time.
+		prefer := ctx.sdkMemberContext.Config().IsEnvTrue("SOONG_SDK_SNAPSHOT_PREFER")
+
+		// Set prefer. Setting this to false is not strictly required as that is the default but it does
+		// provide a convenient hook to post-process the generated Android.bp file, e.g. in tests to
+		// check the behavior when a prebuilt is preferred. It also makes it explicit what the default
+		// behavior is for the module.
+		bpModule.insertAfter("name", "prefer", prefer)
+	}
 
 	// Group the variants by os type.
 	variantsByOsType := make(map[android.OsType][]android.Module)
@@ -1188,11 +1614,23 @@ func (s *sdk) createMemberSnapshot(ctx *memberContext, member *sdkMember, bpModu
 	extractCommonProperties(ctx.sdkMemberContext, commonValueExtractor, commonProperties, osSpecificPropertiesContainers)
 
 	// Add the common properties to the module.
-	commonProperties.AddToPropertySet(ctx, bpModule)
+	addSdkMemberPropertiesToSet(ctx, commonProperties, bpModule)
 
 	// Create a target property set into which target specific properties can be
 	// added.
 	targetPropertySet := bpModule.AddPropertySet("target")
+
+	// If the member is host OS dependent and has host_supported then disable by
+	// default and enable each host OS variant explicitly. This avoids problems
+	// with implicitly enabled OS variants when the snapshot is used, which might
+	// be different from this run (e.g. different build OS).
+	if ctx.memberType.IsHostOsDependent() {
+		hostSupported := bpModule.getValue("host_supported") == true // Missing means false.
+		if hostSupported {
+			hostPropertySet := targetPropertySet.AddPropertySet("host")
+			hostPropertySet.AddProperty("enabled", false)
+		}
+	}
 
 	// Iterate over the os types in a fixed order.
 	for _, osType := range s.getPossibleOsTypes() {
@@ -1208,14 +1646,14 @@ func (s *sdk) createMemberSnapshot(ctx *memberContext, member *sdkMember, bpModu
 // Compute the list of possible os types that this sdk could support.
 func (s *sdk) getPossibleOsTypes() []android.OsType {
 	var osTypes []android.OsType
-	for _, osType := range android.OsTypeList {
+	for _, osType := range android.OsTypeList() {
 		if s.DeviceSupported() {
 			if osType.Class == android.Device && osType != android.Fuchsia {
 				osTypes = append(osTypes, osType)
 			}
 		}
 		if s.HostSupported() {
-			if osType.Class == android.Host || osType.Class == android.HostCross {
+			if osType.Class == android.Host {
 				osTypes = append(osTypes, osType)
 			}
 		}
@@ -1240,7 +1678,8 @@ type isHostVariant interface {
 
 // A property that can be optimized by the commonValueExtractor.
 type extractorProperty struct {
-	// The name of the field for this property.
+	// The name of the field for this property. It is a "."-separated path for
+	// fields in non-anonymous substructs.
 	name string
 
 	// Filter that can use metadata associated with the properties being optimized
@@ -1277,18 +1716,18 @@ type commonValueExtractor struct {
 func newCommonValueExtractor(propertiesStruct interface{}) *commonValueExtractor {
 	structType := getStructValue(reflect.ValueOf(propertiesStruct)).Type()
 	extractor := &commonValueExtractor{}
-	extractor.gatherFields(structType, nil)
+	extractor.gatherFields(structType, nil, "")
 	return extractor
 }
 
 // Gather the fields from the supplied structure type from which common values will
 // be extracted.
 //
-// This is recursive function. If it encounters an embedded field (no field name)
-// that is a struct then it will recurse into that struct passing in the accessor
-// for the field. That will then be used in the accessors for the fields in the
-// embedded struct.
-func (e *commonValueExtractor) gatherFields(structType reflect.Type, containingStructAccessor fieldAccessorFunc) {
+// This is recursive function. If it encounters a struct then it will recurse
+// into it, passing in the accessor for the field and the struct name as prefix
+// for the nested fields. That will then be used in the accessors for the fields
+// in the embedded struct.
+func (e *commonValueExtractor) gatherFields(structType reflect.Type, containingStructAccessor fieldAccessorFunc, namePrefix string) {
 	for f := 0; f < structType.NumField(); f++ {
 		field := structType.Field(f)
 		if field.PkgPath != "" {
@@ -1318,7 +1757,7 @@ func (e *commonValueExtractor) gatherFields(structType reflect.Type, containingS
 		// Save a copy of the field index for use in the function.
 		fieldIndex := f
 
-		name := field.Name
+		name := namePrefix + field.Name
 
 		fieldGetter := func(value reflect.Value) reflect.Value {
 			if containingStructAccessor != nil {
@@ -1340,9 +1779,15 @@ func (e *commonValueExtractor) gatherFields(structType reflect.Type, containingS
 			return value.Field(fieldIndex)
 		}
 
-		if field.Type.Kind() == reflect.Struct && field.Anonymous {
-			// Gather fields from the embedded structure.
-			e.gatherFields(field.Type, fieldGetter)
+		if field.Type.Kind() == reflect.Struct {
+			// Gather fields from the nested or embedded structure.
+			var subNamePrefix string
+			if field.Anonymous {
+				subNamePrefix = namePrefix
+			} else {
+				subNamePrefix = name + "."
+			}
+			e.gatherFields(field.Type, fieldGetter, subNamePrefix)
 		} else {
 			property := extractorProperty{
 				name,
@@ -1383,17 +1828,17 @@ type propertiesContainer interface {
 	optimizableProperties() interface{}
 }
 
-// A wrapper for dynamic member properties to allow them to be optimized.
-type dynamicMemberPropertiesContainer struct {
-	sdkVariant              *sdk
-	dynamicMemberProperties interface{}
+// A wrapper for sdk variant related properties to allow them to be optimized.
+type sdkVariantPropertiesContainer struct {
+	sdkVariant *sdk
+	properties interface{}
 }
 
-func (c dynamicMemberPropertiesContainer) optimizableProperties() interface{} {
-	return c.dynamicMemberProperties
+func (c sdkVariantPropertiesContainer) optimizableProperties() interface{} {
+	return c.properties
 }
 
-func (c dynamicMemberPropertiesContainer) String() string {
+func (c sdkVariantPropertiesContainer) String() string {
 	return c.sdkVariant.String()
 }
 
@@ -1406,7 +1851,8 @@ func (c dynamicMemberPropertiesContainer) String() string {
 // Iterates over each exported field (capitalized name) and checks to see whether they
 // have the same value (using DeepEquals) across all the input properties. If it does not then no
 // change is made. Otherwise, the common value is stored in the field in the commonProperties
-// and the field in each of the input properties structure is set to its default value.
+// and the field in each of the input properties structure is set to its default value. Nested
+// structs are visited recursively and their non-struct fields are compared.
 func (e *commonValueExtractor) extractCommonProperties(commonProperties interface{}, inputPropertiesSlice interface{}) error {
 	commonPropertiesValue := reflect.ValueOf(commonProperties)
 	commonStructValue := commonPropertiesValue.Elem()

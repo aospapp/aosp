@@ -21,8 +21,10 @@ import (
 )
 
 var (
-	DarwinRustFlags      = []string{}
-	DarwinRustLinkFlags  = []string{}
+	DarwinRustFlags     = []string{}
+	DarwinRustLinkFlags = []string{
+		"-B${cc_config.MacToolPath}",
+	}
 	darwinX8664Rustflags = []string{}
 	darwinX8664Linkflags = []string{}
 )
@@ -62,12 +64,21 @@ func (t *toolchainDarwinX8664) RustTriple() string {
 	return "x86_64-apple-darwin"
 }
 
-func (t *toolchainDarwin) ShlibSuffix() string {
+func (t *toolchainDarwin) SharedLibSuffix() string {
+	return ".dylib"
+}
+
+func (t *toolchainDarwin) DylibSuffix() string {
+	return ".rustlib.dylib"
+}
+
+func (t *toolchainDarwin) ProcMacroSuffix() string {
 	return ".dylib"
 }
 
 func (t *toolchainDarwinX8664) ToolchainLinkFlags() string {
-	return "${config.DarwinToolchainLinkFlags} ${config.DarwinToolchainX8664LinkFlags}"
+	// Prepend the lld flags from cc_config so we stay in sync with cc
+	return "${cc_config.DarwinClangLldflags} ${config.DarwinToolchainLinkFlags} ${config.DarwinToolchainX8664LinkFlags}"
 }
 
 func (t *toolchainDarwinX8664) ToolchainRustFlags() string {

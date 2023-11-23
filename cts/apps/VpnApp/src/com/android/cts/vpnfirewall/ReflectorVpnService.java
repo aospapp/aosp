@@ -40,6 +40,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 public class ReflectorVpnService extends VpnService {
+    public static final String ACTION_STOP_SERVICE = "com.android.cts.vpnfirewall.STOP_SERVICE";
+
     private static final String TAG = "ReflectorVpnService";
     private static final String DEVICE_AND_PROFILE_OWNER_PACKAGE =
         "com.android.cts.deviceandprofileowner";
@@ -65,16 +67,22 @@ public class ReflectorVpnService extends VpnService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // Put ourself in the foreground to stop the system killing us while we wait for orders from
-        // the hostside test.
-        NotificationManager notificationManager = getSystemService(NotificationManager.class);
-        notificationManager.createNotificationChannel(new NotificationChannel(
-                NOTIFICATION_CHANNEL_ID, NOTIFICATION_CHANNEL_ID,
-                NotificationManager.IMPORTANCE_DEFAULT));
-        startForeground(NOTIFICATION_ID, new Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_dialog_alert)
-                .build());
-        start();
+        if (ACTION_STOP_SERVICE.equals(intent.getAction())) {
+            stop();
+            stopSelf();
+        } else {
+            // Normal service start
+            // Put ourself in the foreground to stop the system killing us while we wait for orders from
+            // the hostside test.
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(new NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID, NOTIFICATION_CHANNEL_ID,
+                    NotificationManager.IMPORTANCE_DEFAULT));
+            startForeground(NOTIFICATION_ID, new Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_dialog_alert)
+                    .build());
+            start();
+        }
         return START_NOT_STICKY;
     }
 
@@ -203,7 +211,7 @@ public class ReflectorVpnService extends VpnService {
             || SystemProperties.getInt("service.adb.tcp.port", -1) > -1)) {
             try {
                 // If adb TCP port opened the test may be running by adb over network.
-                // Add com.android.shell application into blacklist to exclude adb socket
+                // Add com.android.shell application into disallowed list to exclude adb socket
                 // for VPN tests.
                 builder.addDisallowedApplication("com.android.shell");
             } catch(NameNotFoundException e) {

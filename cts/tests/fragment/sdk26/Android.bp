@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsFragmentTestCasesSdk26",
     defaults: ["cts_defaults"],
@@ -27,9 +31,10 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 
-    sdk_version: "26",
+    sdk_version: "30",
+    min_sdk_version: "26",
+    target_sdk_version: "26",
 }

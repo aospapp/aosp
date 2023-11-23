@@ -92,6 +92,11 @@ public:
      */
     double getConfidence();
 
+    /**
+     * Returns true if the stream was successfully opened in low-latency mode.
+     */
+    bool isLowLatencyStream();
+
     aaudio_result_t getError() {
         return mInputError ? mInputError : mOutputError;
     }
@@ -131,6 +136,7 @@ private:
     int32_t            mFramesReadTotal = 0;
     int32_t            mFramesWrittenTotal = 0;
     bool               mIsDone = false;
+    bool               mIsLowLatencyStream = false;
 
     static constexpr int kLogPeriodMillis         = 1000;
     static constexpr int kNumInputChannels        = 1;

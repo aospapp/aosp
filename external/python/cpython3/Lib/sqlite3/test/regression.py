@@ -68,7 +68,7 @@ class RegressionTests(unittest.TestCase):
     def CheckColumnNameWithSpaces(self):
         cur = self.con.cursor()
         cur.execute('select 1 as "foo bar [datetime]"')
-        self.assertEqual(cur.description[0][0], "foo bar")
+        self.assertEqual(cur.description[0][0], "foo bar [datetime]")
 
         cur.execute('select 1 as "foo baz"')
         self.assertEqual(cur.description[0][0], "foo baz")
@@ -132,6 +132,19 @@ class RegressionTests(unittest.TestCase):
         con.execute("create table foo(bar integer)")
         con.execute("insert into foo(bar) values (5)")
         con.execute(SELECT)
+
+    def CheckBindMutatingList(self):
+        # Issue41662: Crash when mutate a list of parameters during iteration.
+        class X:
+            def __conform__(self, protocol):
+                parameters.clear()
+                return "..."
+        parameters = [X(), 0]
+        con = sqlite.connect(":memory:",detect_types=sqlite.PARSE_DECLTYPES)
+        con.execute("create table foo(bar X, baz integer)")
+        # Should not crash
+        with self.assertRaises(IndexError):
+            con.execute("insert into foo(bar, baz) values (?, ?)", parameters)
 
     def CheckErrorMsgDecodeError(self):
         # When porting the module to Python 3.0, the error message about
@@ -262,7 +275,7 @@ class RegressionTests(unittest.TestCase):
         Call a connection with a non-string SQL request: check error handling
         of the statement constructor.
         """
-        self.assertRaises(sqlite.Warning, self.con, 1)
+        self.assertRaises(TypeError, self.con, 1)
 
     def CheckCollation(self):
         def collation_cb(a, b):

@@ -24,6 +24,8 @@
 
 #include "perf_event.h"
 
+namespace simpleperf {
+
 struct EventType;
 
 struct EventAttrWithId {
@@ -41,5 +43,7 @@ bool IsCpuSupported(const perf_event_attr& attr);
 // Return event name with modifier if the event is found, otherwise return "unknown".
 // This function is slow for using linear search, so only used when reporting.
 std::string GetEventNameByAttr(const perf_event_attr& attr);
+
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_EVENT_ATTR_H_

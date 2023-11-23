@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /**
  *******************************************************************************
  * Copyright (C) 2000-2016, International Business Machines Corporation and
@@ -1575,6 +1575,8 @@ public class TimeZoneTest extends TestFmwk
                 {"Asia/Vientiane", "Asia/Bangkok"},
                 {"Atlantic/Jan_Mayen", "Europe/Oslo"},
                 {"Atlantic/St_Helena", "Africa/Abidjan"},
+                {"Australia/Currie", "Australia/Hobart"},
+                {"Australia/Tasmania", "Australia/Hobart"},
                 {"Europe/Bratislava", "Europe/Prague"},
                 {"Europe/Busingen", "Europe/Zurich"},
                 {"Europe/Guernsey", "Europe/London"},
@@ -1788,7 +1790,6 @@ public class TimeZoneTest extends TestFmwk
 
             {"America/Sao_Paulo",   "en",   Boolean.FALSE,  TZSHORT,    "GMT-3"/*"BRT"*/},
             {"America/Sao_Paulo",   "en",   Boolean.FALSE,  TZLONG,     "Brasilia Standard Time"},
-
             // Per https://mm.icann.org/pipermail/tz-announce/2019-July/000056.html
             // Brazil has canceled DST and will stay on standard time indefinitely.
             // {"America/Sao_Paulo",   "en",   Boolean.TRUE,   TZSHORT,    "GMT-2"/*"BRST"*/},

@@ -20,6 +20,8 @@ import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 
+import androidx.annotation.Nullable;
+
 import com.android.wallpaper.asset.Asset;
 
 /**
@@ -61,6 +63,25 @@ public abstract class Category {
      */
     public boolean isEnumerable() {
         return false;
+    }
+
+    /**
+     * Returns true if this category contains a single Wallpaper, which could then be retrieved
+     * via {@link #getSingleWallpaper()}
+     */
+    public boolean isSingleWallpaperCategory() {
+        return false;
+    }
+
+    /**
+     * If {@link #isSingleWallpaperCategory()} returned true, this method will return the single
+     * wallpaper contained in this category.
+     * @return a {@link WallpaperInfo} for the one wallpaper in this category, if this category is
+     * a single wallpaper category, or {@code null} otherwise.
+     */
+    @Nullable
+    public WallpaperInfo getSingleWallpaper() {
+        return null;
     }
 
     /**

@@ -57,7 +57,7 @@ class firmware_Cr50GetName(Cr50Test):
     def cleanup(self):
         """Reset the DUT to restore trunksd."""
         try:
-            self.servo.get_power_state_controller().reset()
+            self.host.reset_via_servo()
         finally:
             super(firmware_Cr50GetName, self).cleanup()
 

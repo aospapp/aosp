@@ -19,6 +19,8 @@ import time
 from cros_utils import command_executer
 from cros_utils import logger
 
+MANIFEST_VERSION_MAIN_BRANCH = 'master'
+
 
 def IsCrosVersion(version):
   match = re.search(r'(\d+\.\d+\.\d+\.\d+)', version)
@@ -72,7 +74,8 @@ class ManifestVersions(object):
     commands = [
         'cd {0}'.format(self.clone_location), 'cd manifest-versions',
         'git checkout -f $(git rev-list' +
-        ' --max-count=1 --before={0} origin/master)'.format(my_time)
+        ' --max-count=1 --before={0} origin/{1})'.format(
+            my_time, MANIFEST_VERSION_MAIN_BRANCH)
     ]
     ret = self.ce.RunCommands(commands)
     if ret:
@@ -106,7 +109,7 @@ class ManifestVersions(object):
       version = pp[-2] + '.' + small
     commands = [
         'cd {0}'.format(self.clone_location), 'cd manifest-versions',
-        'git checkout master'
+        'git checkout {0}'.format(MANIFEST_VERSION_MAIN_BRANCH)
     ]
     self.ce.RunCommands(commands)
     return version
@@ -120,7 +123,8 @@ class ManifestVersions(object):
     commands = [
         'cd {0}'.format(self.clone_location), 'cd manifest-versions',
         'git checkout -f $(git rev-list' +
-        ' --max-count=1 --before={0} origin/master)'.format(my_time)
+        ' --max-count=1 --before={0} origin/{1})'.format(
+            my_time, MANIFEST_VERSION_MAIN_BRANCH)
     ]
     ret = self.ce.RunCommands(commands)
     if ret:
@@ -133,7 +137,7 @@ class ManifestVersions(object):
     version = pp[-2] + '.' + small
     commands = [
         'cd {0}'.format(self.clone_location), 'cd manifest-versions',
-        'git checkout master'
+        'git checkout {0}'.format(MANIFEST_VERSION_MAIN_BRANCH)
     ]
     self.ce.RunCommands(commands)
     return version

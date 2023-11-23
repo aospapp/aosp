@@ -7,7 +7,6 @@ import glob
 import logging
 import os
 import pipes
-import re
 import shutil
 import socket
 import sys
@@ -93,17 +92,6 @@ def restart_adb():
     logging.debug('killing and restarting adb server')
     utils.system('killall --quiet --wait -KILL adb')
     utils.system('adb start-server')
-
-
-def adb_connect():
-    """Attempt to connect ADB to the Android container.
-
-    Returns true if successful. Do not call this function directly. Call
-    wait_for_adb_ready() instead.
-    """
-    if utils.system('adb connect localhost:22', ignore_status=True) != 0:
-        return False
-    return is_adb_connected()
 
 
 def is_adb_connected():
@@ -207,7 +195,7 @@ def _restart_adb_and_wait_for_ready(timeout):
     timeout -= (time.time() - start_time)
 
     try:
-        utils.poll_for_condition(condition=adb_connect,
+        utils.poll_for_condition(condition=is_adb_connected,
                                  timeout=timeout)
         return True
     except (utils.TimeoutError):
@@ -354,16 +342,6 @@ def get_android_data_root():
     return _ANDROID_DATA_ROOT_PATH
 
 
-def get_job_pid(job_name):
-    """Returns the PID of an upstart job."""
-    status = utils.system_output('status %s' % job_name)
-    match = re.match(r'^%s start/running, process (\d+)$' % job_name,
-                     status)
-    if not match:
-        raise error.TestError('Unexpected status: "%s"' % status)
-    return match.group(1)
-
-
 def get_container_pid():
     """Returns the PID of the container."""
     return utils.read_one_line(get_container_pid_path())
@@ -375,34 +353,6 @@ def get_adbd_pid():
         # The adbd proxy does not run on all boards.
         return None
     return utils.read_one_line(_ADBD_PID_PATH)
-
-
-def get_sdcard_pid():
-    """Returns the PID of the sdcard container."""
-    return utils.read_one_line(_SDCARD_PID_PATH)
-
-
-def get_mount_passthrough_pid_list():
-    """Returns PIDs of ARC mount-passthrough daemon jobs."""
-    JOB_NAMES = [ 'arc-myfiles', 'arc-myfiles-default',
-                  'arc-myfiles-read', 'arc-myfiles-write',
-                  'arc-removable-media', 'arc-removable-media-default',
-                  'arc-removable-media-read', 'arc-removable-media-write' ]
-    pid_list = []
-    for job_name in JOB_NAMES:
-        try:
-            pid = get_job_pid(job_name)
-            pid_list.append(pid)
-        except Exception, e:
-            logging.warning('Failed to find PID for %s : %s', job_name, e)
-            continue
-
-    return pid_list
-
-
-def get_obb_mounter_pid():
-    """Returns the PID of the OBB mounter."""
-    return utils.system_output('pgrep -f -u root ^/usr/bin/arc-obb-mounter')
 
 
 def is_android_process_running(process_name):
@@ -847,8 +797,7 @@ class ArcTest(test.test):
         raise error.TestError('Format error with variable %s' % var_name)
 
     def arc_setup(self, dep_packages=None, apks=None, full_pkg_names=None,
-                  uiautomator=False, block_outbound=False,
-                  disable_play_store=False):
+                  uiautomator=False, disable_play_store=False):
         """ARC test setup: Setup dependencies and install apks.
 
         This function disables package verification and enables non-market
@@ -861,7 +810,6 @@ class ArcTest(test.test):
         @param full_pkg_names: Array of full package name arrays to be removed
                                in teardown.
         @param uiautomator: uiautomator python package is required or not.
-        @param block_outbound: block outbound network traffic during a test.
         @param disable_play_store: Set this to True if you want to prevent
                                    GMS Core from updating.
         """
@@ -926,8 +874,6 @@ class ArcTest(test.test):
             if not is_package_disabled(_PLAY_STORE_PKG):
                 raise error.TestFail('Failed to disable Google Play Store.')
             self._should_reenable_play_store = True
-        if block_outbound:
-            self.block_outbound()
 
     def arc_teardown(self):
         """ARC test teardown.
@@ -961,42 +907,6 @@ class ArcTest(test.test):
                                 get_android_data_root(),
                                 os.path.relpath(_ANDROID_ADB_KEYS_PATH, '/'))))
         utils.system_output('adb kill-server')
-
-    def block_outbound(self):
-        """ Blocks the connection from the container to outer network.
-
-            The iptables settings accept only 100.115.92.2 port 5555 (adb) and
-            all local connections, e.g. uiautomator.
-        """
-        logging.info('Blocking outbound connection')
-        # Disable ipv6 temporarily since tests become flaky if ipv6
-        # outbound traffic is blocked with iptables.
-        _android_shell('sysctl -w net.ipv6.conf.all.disable_ipv6=1')
-        _android_shell('sysctl -w net.ipv6.conf.default.disable_ipv6=1')
-        # ipv4
-        _android_shell('iptables -I OUTPUT -j REJECT')
-        _android_shell('iptables -I OUTPUT -p tcp -s 100.115.92.2 '
-                       '--sport 5555 '
-                       '-j ACCEPT')
-        _android_shell('iptables -I OUTPUT -d localhost -j ACCEPT')
-
-    def unblock_outbound(self):
-        """ Unblocks the connection from the container to outer network.
-
-            The iptables settings are not permanent which means they reset on
-            each instance invocation. But we can still use this function to
-            unblock the outbound connections during the test if needed.
-        """
-        logging.info('Unblocking outbound connection')
-        # ipv4
-        _android_shell('iptables -D OUTPUT -d localhost -j ACCEPT')
-        _android_shell('iptables -D OUTPUT -p tcp -s 100.115.92.2 '
-                       '--sport 5555 '
-                       '-j ACCEPT')
-        _android_shell('iptables -D OUTPUT -j REJECT')
-        # Re-enable ipv6.
-        _android_shell('sysctl -w net.ipv6.conf.all.disable_ipv6=0')
-        _android_shell('sysctl -w net.ipv6.conf.default.disable_ipv6=0')
 
     def _add_ui_object_not_found_handler(self):
         """Logs the device dump upon uiautomator.UiObjectNotFoundException."""

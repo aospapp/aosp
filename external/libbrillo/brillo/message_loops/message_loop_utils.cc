@@ -4,20 +4,19 @@
 
 #include <brillo/message_loops/message_loop_utils.h>
 
+#include <base/bind.h>
 #include <base/location.h>
-#include <brillo/bind_lambda.h>
 
 namespace brillo {
 
-void MessageLoopRunUntil(
-    MessageLoop* loop,
-    base::TimeDelta timeout,
-    base::Callback<bool()> terminate) {
+void MessageLoopRunUntil(MessageLoop* loop,
+                         base::TimeDelta timeout,
+                         base::RepeatingCallback<bool()> terminate) {
   bool timeout_called = false;
   MessageLoop::TaskId task_id = loop->PostDelayedTask(
       FROM_HERE,
-      base::Bind([](bool* timeout_called) { *timeout_called = true; },
-                 base::Unretained(&timeout_called)),
+      base::BindOnce([](bool* timeout_called) { *timeout_called = true; },
+                     &timeout_called),
       timeout);
   while (!timeout_called && (terminate.is_null() || !terminate.Run()))
     loop->RunOnce(true);

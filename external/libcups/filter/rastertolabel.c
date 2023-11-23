@@ -1,16 +1,11 @@
 /*
  * Label printer filter for CUPS.
  *
- * Copyright 2007-2016 by Apple Inc.
- * Copyright 2001-2007 by Easy Software Products.
+ * Copyright © 2007-2019 by Apple Inc.
+ * Copyright © 2001-2007 by Easy Software Products.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -28,12 +23,12 @@
 
 
 /*
- * This driver filter currently supports Dymo, Intellitech, and Zebra
+ * This driver filter currently supports DYMO, Intellitech, and Zebra
  * label printers.
  *
- * The Dymo portion of the driver has been tested with the 300, 330,
- * and 330 Turbo label printers; it may also work with other models.
- * The Dymo printers support printing at 136, 203, and 300 DPI.
+ * The DYMO portion of the driver has been tested with the 300, 330,
+ * 330 Turbo, and 450 Twin Turbo label printers; it may also work with other
+ * models.  The DYMO printers support printing at 136, 203, and 300 DPI.
  *
  * The Intellitech portion of the driver has been tested with the
  * Intellibar 408, 412, and 808 and supports their PCL variant.
@@ -48,7 +43,7 @@
  * Model number constants...
  */
 
-#define DYMO_3x0	0		/* Dymo Labelwriter 300/330/330 Turbo */
+#define DYMO_3x0	0		/* DYMO Labelwriter 300/330/330 Turbo */
 
 #define ZEBRA_EPL_LINE	0x10		/* Zebra EPL line mode printers */
 #define ZEBRA_EPL_PAGE	0x11		/* Zebra EPL page mode printers */
@@ -196,6 +191,7 @@ StartPage(ppd_file_t         *ppd,	/* I - PPD file */
 	printf("\033D%c", header->cupsBytesPerLine);
 
 	printf("\033%c", header->cupsCompression + 'c'); /* Darkness */
+	printf("\033q%d", header->MediaPosition + 1);	 /* Roll Select */
 	break;
 
     case ZEBRA_EPL_LINE :
@@ -619,7 +615,14 @@ EndPage(ppd_file_t          *ppd,	/* I - PPD file */
 	*/
 
 	puts("^XZ");
+
+       /*
+        * Delete the label image...
+        */
+
+	puts("^XA");
         puts("^IDR:CUPS.GRF^FS");
+	puts("^XZ");
 
        /*
         * Cut the label as needed...

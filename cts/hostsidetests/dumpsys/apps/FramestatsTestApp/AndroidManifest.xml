@@ -13,18 +13,20 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-       package="com.android.cts.framestatstestapp">
+     package="com.android.cts.framestatstestapp">
     <!--
-    A simple app that draws at least one frame. Used by framestats
-    test.
-    -->
+            A simple app that draws at least one frame. Used by framestats
+            test.
+            -->
     <application>
-        <activity android:name=".FramestatsTestAppActivity">
+        <activity android:name=".FramestatsTestAppActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>

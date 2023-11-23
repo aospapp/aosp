@@ -81,6 +81,8 @@ using StringDexCacheType = std::atomic<StringDexCachePair>;
 // C++ mirror of java.lang.Class
 class MANAGED Class final : public Object {
  public:
+  MIRROR_CLASS("Ljava/lang/Class;");
+
   // A magic value for reference_instance_offsets_. Ignore the bits and walk the super chain when
   // this is the value.
   // [This is an unlikely "natural" value, since it would be 30 non-ref instance fields followed by
@@ -523,7 +525,7 @@ class MANAGED Class final : public Object {
   };
 
   // Creates a raw object instance but does not invoke the default constructor.
-  // kCheckAddFinalizer controls whether we use a DCHECK to sanity check that we create a
+  // kCheckAddFinalizer controls whether we use a DCHECK to check that we create a
   // finalizer-reference if needed. This should only be disabled when doing structural class
   // redefinition.
   template <bool kIsInstrumented = true,
@@ -751,7 +753,7 @@ class MANAGED Class final : public Object {
         PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  template <PointerSize kPointerSize, bool kTransactionActive>
+  template <PointerSize kPointerSize>
   static ObjPtr<Method> GetDeclaredMethodInternal(
       Thread* self,
       ObjPtr<Class> klass,
@@ -760,7 +762,7 @@ class MANAGED Class final : public Object {
       const std::function<hiddenapi::AccessContext()>& fn_get_access_context)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  template <PointerSize kPointerSize, bool kTransactionActive>
+  template <PointerSize kPointerSize>
   static ObjPtr<Constructor> GetDeclaredConstructorInternal(Thread* self,
                                                             ObjPtr<Class> klass,
                                                             ObjPtr<ObjectArray<Class>> args)
@@ -773,6 +775,9 @@ class MANAGED Class final : public Object {
   ALWAYS_INLINE ArraySlice<ArtMethod> GetDeclaredVirtualMethods(
         PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // The index in the methods_ array where the first copied method is.
+  ALWAYS_INLINE uint32_t GetCopiedMethodsStartOffset() REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
   ALWAYS_INLINE ArraySlice<ArtMethod> GetCopiedMethodsSlice(PointerSize pointer_size)
@@ -921,6 +926,12 @@ class MANAGED Class final : public Object {
   ArtMethod* FindInterfaceMethod(ObjPtr<DexCache> dex_cache,
                                  uint32_t dex_method_idx,
                                  PointerSize pointer_size)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Return the first public SDK method from the list of interfaces implemented by
+  // this class.
+  ArtMethod* FindAccessibleInterfaceMethod(ArtMethod* implementation_method,
+                                           PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Find a method with the given name and signature in a non-interface class.
@@ -1387,9 +1398,6 @@ class MANAGED Class final : public Object {
 
   // The index in the methods_ array where the first direct method is.
   ALWAYS_INLINE uint32_t GetDirectMethodsStartOffset() REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // The index in the methods_ array where the first copied method is.
-  ALWAYS_INLINE uint32_t GetCopiedMethodsStartOffset() REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool ProxyDescriptorEquals(const char* match) REQUIRES_SHARED(Locks::mutator_lock_);
 

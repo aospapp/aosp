@@ -23,6 +23,6 @@
     <string name="pws_other_message_identifiers" msgid="7907712751421890873">"সতৰ্কবার্তাসমূহ"</string>
     <string name="enable_emergency_alerts_message_title" msgid="5267857032926801433">"সতৰ্কবার্তাসমূহ"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="8961532453478455676">"জীৱন অথবা সম্পত্তি ৰক্ষা কৰিব পৰা চুপাৰিছ কৰা কাৰ্যসমূহ"</string>
-    <string name="cmas_required_monthly_test" msgid="197559096432885563">"পৰীক্ষণ সতৰ্কবার্তাসমূহ"</string>
+    <string name="cmas_required_monthly_test" msgid="5733131786754331921">"পৰীক্ষণৰ বাবে ব্যৱহৃত সতৰ্কবাৰ্তা"</string>
     <string name="cmas_exercise_alert" msgid="7249058541625071454">"অনুশীলনসমূহ"</string>
 </resources>

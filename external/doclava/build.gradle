@@ -16,76 +16,42 @@
 
 import javax.tools.ToolProvider
 
-apply plugin: 'java'
-apply plugin: 'maven'
+plugins {
+    id("java")
+    id("maven-publish")
+}
 
 group = 'com.android'
 version = '1.0.6'
 
-def currentJvmVersion = org.gradle.api.JavaVersion.current()
-if (currentJvmVersion.getMajorVersion() != "8") {
-  throw new Exception("Unsupported java version '" + currentJvmVersion.toString() + "'. Please install java 8.\n" +
-"\n" +
-"If you have already installed java 8, you can instruct Gradle to use it by setting the environment variable JAVA_HOME equal to its file path.")
-}
-
-/*
- * With the build server you are given two env variables:
- * 1. The OUT_DIR is a temporary directory you can use to put things during the build.
- * 2. The DIST_DIR is where you want to save things from the build.
- *
- * The build server will copy the contents of DIST_DIR to somewhere and make it available.
- */
-if (System.env.DIST_DIR != null && System.env.OUT_DIR != null) {
-    buildDir = file("${System.env.OUT_DIR}/gradle/external/jdiff/build").getCanonicalFile()
-    ext.distDir = file(System.env.DIST_DIR).getCanonicalFile()
-
-    // The distDir is conveniently named after the build ID.
-    version = "${version}.${ext.distDir.name}"
+if (System.env.OUT_DIR != null) {
+    buildDir = file("${System.env.OUT_DIR}/gradle/external/doclava/build").getCanonicalFile()
 } else {
-    buildDir = file('../../out/host/gradle/external/jdiff/build')
-    ext.distDir = file('../../out/dist')
-
-    // Local builds are not public release candidates.
-    version = "${version}-SNAPSHOT"
+    buildDir = file('../../out/host/gradle/external/doclava/build')
 }
 
-/*
- * If prebuilts are available, use them. Else, if this is unbundled build use jcenter().
- * Finally, if none of that is true, attempt to compile against the full source trees.
- */
-File m2repo = file('../../prebuilts/androidx/external')
-boolean unbundleBuild = (new File("unbundled-build")).exists()
-
-if (m2repo.exists() || unbundleBuild) {
-    repositories {
-        maven { url m2repo.absolutePath }
-        if (unbundleBuild) {
-            jcenter()
-        }
-    }
-
-    dependencies {
-        compile 'org.antlr:antlr:3.5.2'
-        compile 'com.google.jsilver:jsilver:1.0.0'
-        compile 'org.ccil.cowan.tagsoup:tagsoup:1.2.1'
-        // Transitive dependency required by jsilver.
-        compile 'com.google.guava:guava:15.0'
-    }
-} else {
-    dependencies {
-        compile project(path: ':antlr', configuration: 'antlrRuntime')
-        compile project(':jsilver')
-        compile project(':tagsoup')
-    }
+repositories {
+    maven { url file('../../prebuilts/androidx/external').absolutePath }
 }
-
 
 dependencies {
-    testCompile 'junit:junit:4.12'
+    implementation("org.antlr:antlr:3.5.2")
+    implementation("com.google.jsilver:jsilver:1.0.0")
+    implementation("org.ccil.cowan.tagsoup:tagsoup:1.2.1")
 
     // tools.jar required for com.sun.javadoc
-    compile files(((URLClassLoader) ToolProvider.getSystemToolClassLoader()).getURLs())
+    def toolsJar
+    if (JavaVersion.current().getMajorVersion() == "8") {
+        toolsJar = ((URLClassLoader) ToolProvider.getSystemToolClassLoader()).getURLs()
+    } else if (System.env.JAVA_TOOLS_JAR != null) {
+        toolsJar = System.env.JAVA_TOOLS_JAR
+    } else {
+        throw new Exception("If you are not using Java 8, JAVA_TOOLS_JAR env variable " +
+                "needs to be set to tools.jar from a Java 8 installation to build Doclava")
+    }
+    implementation(files(toolsJar))
+
+    testImplementation("junit:junit:4.12")
 }
 
 sourceSets {
@@ -99,22 +65,12 @@ sourceSets {
     }
 }
 
-uploadArchives {
-    repositories {
-        mavenDeployer {
-            repository(url: uri("${buildDir}/repo"))
-        }
-    }
+tasks.withType(JavaCompile) {
+    // Suppress build warnings that we're not interested in: b/154755010
+    options.warnings = false
 }
 
-task dist(type: Zip, dependsOn: uploadArchives)  {
-    group = BasePlugin.BUILD_GROUP
-    description 'Builds distribution artifacts.'
-
-    from uploadArchives.artifacts
-    destinationDir distDir
-
-    doLast {
-        logger.lifecycle "Compressed maven artifacts to ${archivePath}"
-    }
+tasks.withType(Jar) { task ->
+    task.reproducibleFileOrder = true
+    task.preserveFileTimestamps = false
 }

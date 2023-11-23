@@ -9,8 +9,9 @@ use super::xhci_abi::{
 };
 use super::xhci_regs::*;
 use crate::register_space::Register;
+use base::{Error as SysError, Event};
 use std::fmt::{self, Display};
-use sys_util::{Error as SysError, EventFd, GuestAddress, GuestMemory};
+use vm_memory::{GuestAddress, GuestMemory};
 
 #[derive(Debug)]
 pub enum Error {
@@ -39,13 +40,12 @@ impl Display for Error {
 /// See spec 4.17 for interrupters. Controller can send an event back to guest kernel driver
 /// through interrupter.
 pub struct Interrupter {
-    interrupt_fd: EventFd,
+    interrupt_evt: Event,
     usbsts: Register<u32>,
     iman: Register<u32>,
     erdp: Register<u64>,
     event_handler_busy: bool,
     enabled: bool,
-    pending: bool,
     moderation_interval: u16,
     moderation_counter: u16,
     event_ring: EventRing,
@@ -53,15 +53,14 @@ pub struct Interrupter {
 
 impl Interrupter {
     /// Create a new interrupter.
-    pub fn new(mem: GuestMemory, irq_evt: EventFd, regs: &XhciRegs) -> Self {
+    pub fn new(mem: GuestMemory, irq_evt: Event, regs: &XhciRegs) -> Self {
         Interrupter {
-            interrupt_fd: irq_evt,
+            interrupt_evt: irq_evt,
             usbsts: regs.usbsts.clone(),
             iman: regs.iman.clone(),
             erdp: regs.erdp.clone(),
             event_handler_busy: false,
             enabled: false,
-            pending: false,
             moderation_interval: 0,
             moderation_counter: 0,
             event_ring: EventRing::new(mem),
@@ -76,7 +75,6 @@ impl Interrupter {
     /// Add event to event ring.
     fn add_event(&mut self, trb: Trb) -> Result<()> {
         self.event_ring.add_event(trb).map_err(Error::AddEvent)?;
-        self.pending = true;
         self.interrupt_if_needed()
     }
 
@@ -169,9 +167,6 @@ impl Interrupter {
     pub fn set_event_ring_dequeue_pointer(&mut self, addr: GuestAddress) -> Result<()> {
         usb_debug!("interrupter set dequeue ptr addr {:#x}", addr.0);
         self.event_ring.set_dequeue_pointer(addr);
-        if addr == self.event_ring.get_enqueue_pointer() {
-            self.pending = false;
-        }
         self.interrupt_if_needed()
     }
 
@@ -186,15 +181,15 @@ impl Interrupter {
     pub fn interrupt(&mut self) -> Result<()> {
         usb_debug!("sending interrupt");
         self.event_handler_busy = true;
-        self.pending = false;
         self.usbsts.set_bits(USB_STS_EVENT_INTERRUPT);
         self.iman.set_bits(IMAN_INTERRUPT_PENDING);
         self.erdp.set_bits(ERDP_EVENT_HANDLER_BUSY);
-        self.interrupt_fd.write(1).map_err(Error::SendInterrupt)
+        self.interrupt_evt.write(1).map_err(Error::SendInterrupt)
     }
 
     fn interrupt_if_needed(&mut self) -> Result<()> {
-        if self.enabled && self.pending && !self.event_handler_busy {
+        // TODO(dverkamp): re-add !self.event_handler_busy after solving https://crbug.com/1082930
+        if self.enabled && !self.event_ring.is_empty() {
             self.interrupt()?;
         }
         Ok(())

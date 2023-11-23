@@ -22,7 +22,7 @@
     <string name="couldnt_launch" msgid="7815676424138012351">"Үйл ажиллагааг эхлүүлж чадсангүй"</string>
     <string name="select_display" msgid="1682700853391296117">"Дэлгэц сонгох"</string>
     <string name="add_app_shortcut" msgid="8873512136913188432">"Аппын товчлол нэмэх"</string>
-    <string name="set_wallpaper" msgid="3650915172749345197">"Ханын зураг тохируулах"</string>
+    <string name="set_wallpaper" msgid="3650915172749345197">"Дэлгэцийн зураг тохируулах"</string>
     <string name="new_instance" msgid="1924479866055190730">"Шинэ инстансаар эхлүүлэх хүсэлт тавих"</string>
-    <string name="wallpaper_description" msgid="5885164573334720996">"Жишээ олон дэлгэцэт ханын зураг"</string>
+    <string name="wallpaper_description" msgid="5885164573334720996">"Жишээ олон дэлгэцэт дэлгэцийн зураг"</string>
 </resources>

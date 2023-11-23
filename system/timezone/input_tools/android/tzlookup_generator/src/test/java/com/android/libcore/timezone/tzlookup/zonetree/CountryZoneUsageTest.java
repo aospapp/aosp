@@ -22,13 +22,14 @@ import java.time.Instant;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class CountryZoneUsageTest {
 
     @Test
-    public void testGetIsCode() {
+    public void testGetIsoCode() {
         CountryZoneUsage countryZoneUsage = new CountryZoneUsage("us");
         assertEquals("us", countryZoneUsage.getIsoCode());
     }
@@ -48,15 +49,23 @@ public class CountryZoneUsageTest {
     @Test
     public void testWithEntry() {
         CountryZoneUsage countryZoneUsage = new CountryZoneUsage("us");
-        String usZoneId = "America/Boise";
+
+        String usZoneId1 = "America/Boise";
+        countryZoneUsage.addEntry(usZoneId1, null /* notUsedAfterInstant */, null /* altTzId */);
+        assertTrue(countryZoneUsage.hasEntry(usZoneId1));
+        assertNull(countryZoneUsage.getNotUsedAfterInstant(usZoneId1));
+        assertNull(null, countryZoneUsage.getNotUsedReplacementId(usZoneId1));
+
+        String usZoneId2 = "America/Los_Angeles";
         Instant instant = Instant.ofEpochSecond(1234);
-        countryZoneUsage.addEntry(usZoneId, instant);
+        countryZoneUsage.addEntry(usZoneId2, instant, usZoneId1 /* notUsedReplacementId */);
+        assertTrue(countryZoneUsage.hasEntry(usZoneId2));
+        assertEquals(instant, countryZoneUsage.getNotUsedAfterInstant(usZoneId2));
+        assertEquals(usZoneId1, countryZoneUsage.getNotUsedReplacementId(usZoneId2));
 
-        assertTrue(countryZoneUsage.hasEntry(usZoneId));
-        assertEquals(instant, countryZoneUsage.getNotUsedAfterInstant(usZoneId));
-
+        // Duplicate IDs are not allowed.
         try {
-            countryZoneUsage.addEntry(usZoneId, instant);
+            countryZoneUsage.addEntry(usZoneId1, instant, "" /* notUsedReplacementId */);
             fail();
         } catch (IllegalArgumentException expected) {
         }

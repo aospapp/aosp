@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsBlobStoreTestCases",
     defaults: ["cts_defaults"],
@@ -30,7 +34,6 @@ android_test {
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     sdk_version: "test_current"
@@ -50,7 +53,6 @@ android_test_helper_app {
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests"
     ],
     manifest: "helper-app/AndroidManifest.xml",
@@ -71,7 +73,6 @@ android_test_helper_app {
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     manifest: "helper-app/AndroidManifest.xml",
@@ -96,7 +97,6 @@ android_test_helper_app {
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     manifest: "helper-app/AndroidManifest.xml",

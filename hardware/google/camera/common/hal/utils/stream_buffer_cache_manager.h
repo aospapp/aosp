@@ -181,13 +181,15 @@ class StreamBufferCacheManager {
     // in which case, the is_dummy_buffer field in res will be true.
     status_t GetBuffer(StreamBufferRequestResult* res);
 
-    // Notify provider readiness. Client should call this function before
-    // calling Refill and GetBuffer.
-    void NotifyProviderReadiness();
-
-    // Notify the stream buffer cache to flush all buffers it acquire from the
-    // provider.
-    void NotifyFlushing();
+    // Activate or deactivate the stream buffer cache manager. The stream
+    // buffer cache manager needs to be active before calling Refill and
+    // GetBuffer. If no inflight buffer needs to be maintained, this function is
+    // called with false to flush all buffers acquired from the provider. The
+    // Stream buffer cache manager should only be invoked when the buffer
+    // provider (the camera service/framework) is ready to provide buffers (e.g.
+    // when the first capture request arrives). Similarly, it should be
+    // deactivated in cases like when the framework asks for a flush.
+    void SetManagerState(bool active);
 
     // Return whether the stream that this cache is for has been deactivated
     bool IsStreamDeactivated();
@@ -250,17 +252,12 @@ class StreamBufferCacheManager {
     // is returned, the is_dummy_buffer_ flag in the BufferRequestResult must be
     // set to true.
     StreamBuffer dummy_buffer_;
-    // Whether this stream has been notified by the client for flushing. This
-    // flag should be cleared after StreamBufferCache is flushed. Once this is
-    // flagged by the client, StreamBufferCacheManager will return all buffers
-    // acquired from provider for this cache the next time the dedicated thread
-    // processes any request/return workload.
-    bool notified_flushing_ = false;
-    // StreamBufferCacheManager does not refill a StreamBufferCache until this is
-    // notified by the client. Client should notify this after the buffer provider
-    // (e.g. framework) is ready to handle buffer requests. Usually, this is set
-    // once in a session and will not be cleared in the same session.
-    bool notified_provider_readiness_ = false;
+    // StreamBufferCacheManager does not refill a StreamBufferCache until this
+    // is set true by the client. Client should set this flag to true after the
+    // buffer provider (e.g. framework) is ready to handle buffer requests, or
+    // when a new request is submitted for an idle camera device (no inflight
+    // requests).
+    bool is_active_ = false;
     // Interface to notify the parent manager for new threadloop workload.
     NotifyManagerThreadWorkloadFunc notify_for_workload_ = nullptr;
     // Allocator of the dummy buffer for this stream. The stream buffer cache

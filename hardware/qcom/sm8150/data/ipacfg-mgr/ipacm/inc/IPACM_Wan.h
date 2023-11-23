@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -53,7 +53,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define IPA_V2_NUM_DEFAULT_WAN_FILTER_RULE_IPV4 2
 
 #ifdef FEATURE_IPA_ANDROID
-#define IPA_V2_NUM_DEFAULT_WAN_FILTER_RULE_IPV6 7
+#define IPA_V2_NUM_DEFAULT_WAN_FILTER_RULE_IPV6 4
 #define IPA_V2_NUM_TCP_WAN_FILTER_RULE_IPV6 3
 #define IPA_V2_NUM_MULTICAST_WAN_FILTER_RULE_IPV6 3
 #define IPA_V2_NUM_FRAG_WAN_FILTER_RULE_IPV6 1
@@ -63,6 +63,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define NETWORK_STATS "%s %llu %llu %llu %llu"
 #define IPA_NETWORK_STATS_FILE_NAME "/data/misc/ipa/network_stats"
+#define IPA_OFFLOAD_TETHER_STATE_FILE_NAME "/data/vendor/ipa/offload_state"
 
 typedef struct _wan_client_rt_hdl
 {
@@ -105,8 +106,10 @@ public:
 	static bool wan_up;
 	static bool wan_up_v6;
 	static uint8_t xlat_mux_id;
-	static uint16_t mtu_default_wan;
-	uint16_t mtu_size;
+
+	static uint16_t mtu_default_wan_v4;
+	static uint16_t mtu_default_wan_v6;
+
 	/* IPACM interface name */
 	static char wan_up_dev_name[IF_NAME_LEN];
 	static uint32_t curr_wan_ip;
@@ -145,15 +148,14 @@ public:
 		{
 			if (isWanUP(ipa_if_num_tether))
 			{
-				return mtu_default_wan;
+				return mtu_default_wan_v4;
 			}
 		}
 		else if (iptype == IPA_IP_v6)
 		{
 			if (isWanUP_V6(ipa_if_num_tether))
 			{
-				return mtu_default_wan;
-
+				return mtu_default_wan_v6;
 			}
 		}
 		return DEFAULT_MTU_SIZE;
@@ -405,6 +407,14 @@ private:
 	/* handle for TCP RST rule */
 	uint32_t tcp_rst_hdl;
 
+	/* V4 MTU value. */
+	uint16_t mtu_v4;
+	bool mtu_v4_set;
+
+	/* V6 MTU value. */
+	uint16_t mtu_v6;
+	bool mtu_v6_set;
+
 	inline ipa_wan_client* get_client_memptr(ipa_wan_client *param, int cnt)
 	{
 	    char *ret = ((char *)param) + (wan_client_len * cnt);
@@ -583,9 +593,12 @@ private:
 		return IPACM_SUCCESS;
 	}
 
-	int handle_wan_hdr_init(uint8_t *mac_addr);
+	int handle_wan_hdr_init(uint8_t *mac_addr, bool replaced = false, int entry = 0);
 	int handle_wan_client_ipaddr(ipacm_event_data_all *data);
 	int handle_wan_client_route_rule(uint8_t *mac_addr, ipa_ip_type iptype);
+
+	/* handle_gw_mac_renew, index_client valiud is success */
+	int handle_gw_mac_renew(ipacm_event_data_all *data, int index_client);
 
 	/* handle new_address event */
 	int handle_addr_evt(ipacm_event_data_addr *data);
@@ -594,10 +607,10 @@ private:
 	int handle_addr_evt_mhi_q6(ipacm_event_data_addr *data);
 
 	/* wan default route/filter rule configuration */
-	int handle_route_add_evt(ipa_ip_type iptype);
+	int handle_route_add_evt(ipa_ip_type iptype, bool add_only = false);
 
 	/* construct complete STA ethernet header */
-	int handle_sta_header_add_evt();
+	int handle_sta_header_add_evt(bool renew = false);
 
 	bool check_dft_firewall_rules_attr_mask(IPACM_firewall_conf_t *firewall_config);
 
@@ -612,7 +625,7 @@ private:
 	/* configure the initial firewall filter rules */
 	int config_dft_embms_rules(ipa_ioc_add_flt_rule *pFilteringTable_v4, ipa_ioc_add_flt_rule *pFilteringTable_v6);
 
-	int handle_route_del_evt(ipa_ip_type iptype);
+	int handle_route_del_evt(ipa_ip_type iptype, bool delete_only = false);
 
 	int del_dft_firewall_rules(ipa_ip_type iptype);
 
@@ -645,8 +658,6 @@ private:
 
 	int add_dft_filtering_rule(struct ipa_flt_rule_add* rules, int rule_offset, ipa_ip_type iptype);
 
-	int add_tcpv6_filtering_rule(struct ipa_flt_rule_add* rules, int rule_offset);
-
 	int install_wan_filtering_rule(bool is_sw_routing);
 
 	void handle_wlan_SCC_MCC_switch(bool, ipa_ip_type);
@@ -676,7 +687,7 @@ private:
 
 	int delete_tcp_fin_rst_exception_rule();
 
-	/* Query mtu size */
+	/* MTU helper functions */
 	int query_mtu_size();
 };
 

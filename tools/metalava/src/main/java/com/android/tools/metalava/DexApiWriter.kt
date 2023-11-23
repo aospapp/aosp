@@ -27,28 +27,18 @@ import java.util.function.Predicate
 class DexApiWriter(
     private val writer: PrintWriter,
     filterEmit: Predicate<Item>,
-    filterReference: Predicate<Item>,
-    inlineInheritedFields: Boolean = true,
-    private val membersOnly: Boolean = false,
-    private val includePositions: Boolean = false
+    filterReference: Predicate<Item>
 ) : ApiVisitor(
     visitConstructorsAsMethods = true,
     nestInnerClasses = false,
-    inlineInheritedFields = inlineInheritedFields,
+    inlineInheritedFields = true,
     filterEmit = filterEmit,
     filterReference = filterReference
 ) {
     override fun visitClass(cls: ClassItem) {
-        if (membersOnly) {
-            return
-        }
-
         if (filterEmit.test(cls)) {
             writer.print(cls.toType().internalName())
             writer.print("\n")
-        }
-        if (includePositions) {
-            writeLocation(cls)
         }
     }
 
@@ -62,19 +52,16 @@ class DexApiWriter(
         writer.print(method.internalName())
         writer.print("(")
         for (pi in method.parameters()) {
-            writer.print(pi.type().internalName())
+            writer.print(pi.type().internalName(method))
         }
         writer.print(")")
         if (method.isConstructor()) {
             writer.print("V")
         } else {
             val returnType = method.returnType()
-            writer.print(returnType?.internalName() ?: "V")
+            writer.print(returnType?.internalName(method) ?: "V")
         }
         writer.print("\n")
-        if (includePositions) {
-            writeLocation(method)
-        }
     }
 
     override fun visitField(field: FieldItem) {
@@ -84,17 +71,7 @@ class DexApiWriter(
         writer.print("->")
         writer.print(field.name())
         writer.print(":")
-        writer.print(field.type().internalName())
+        writer.print(field.type().internalName(field))
         writer.print("\n")
-        if (includePositions) {
-            writeLocation(field)
-        }
-    }
-
-    private fun writeLocation(item: Item) {
-        val psiItem =
-            item.psi() ?: throw DriverException(stderr = "$ARG_DEX_API_MAPPING should only be used on source trees")
-        val location = reporter.elementToLocation(psiItem, false)
-        writer.println(location ?: "<unknown>:-1")
     }
 }

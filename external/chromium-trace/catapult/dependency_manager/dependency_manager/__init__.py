@@ -15,13 +15,13 @@ DEPENDENCY_MANAGER_PATH = os.path.join(CATAPULT_PATH, 'dependency_manager')
 def _AddDirToPythonPath(*path_parts):
   path = os.path.abspath(os.path.join(*path_parts))
   if os.path.isdir(path) and path not in sys.path:
-    sys.path.append(path)
+    sys.path.insert(0, path)
 
 
 _AddDirToPythonPath(CATAPULT_PATH, 'common', 'py_utils')
 _AddDirToPythonPath(CATAPULT_THIRD_PARTY_PATH, 'mock')
+_AddDirToPythonPath(CATAPULT_THIRD_PARTY_PATH, 'six')
 _AddDirToPythonPath(CATAPULT_THIRD_PARTY_PATH, 'pyfakefs')
-_AddDirToPythonPath(CATAPULT_THIRD_PARTY_PATH, 'zipfile')
 _AddDirToPythonPath(DEPENDENCY_MANAGER_PATH)
 
 

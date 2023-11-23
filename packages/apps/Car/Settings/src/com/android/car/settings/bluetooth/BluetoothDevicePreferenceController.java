@@ -76,7 +76,7 @@ public abstract class BluetoothDevicePreferenceController<V extends Preference> 
         int availabilityStatus = super.getAvailabilityStatus();
         if (availabilityStatus == AVAILABLE) {
             return getUserManager().hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH)
-                    ? DISABLED_FOR_USER : AVAILABLE;
+                    ? DISABLED_FOR_PROFILE : AVAILABLE;
         }
         return availabilityStatus;
     }

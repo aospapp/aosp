@@ -16,6 +16,7 @@
 
 package android.app.cts;
 
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.content.Context.ACTIVITY_SERVICE;
 import static android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
@@ -27,6 +28,7 @@ import static org.junit.Assert.fail;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.ActivityOptions;
 import android.app.Instrumentation;
 import android.app.stubs.MockActivity;
 import android.app.stubs.MockListActivity;
@@ -134,7 +136,16 @@ public class AppTaskTests {
     @Test
     public void testMoveToFront() throws Exception {
         final Activity a1 = mActivityRule.launchActivity(null);
-        final Activity a2 = mActivityRule.launchActivity(null);
+
+        // Launch fullscreen activity as an another task to hide the first activity
+        final Intent intent = new Intent();
+        intent.setComponent(new ComponentName(mTargetContext, MockActivity.class));
+        intent.setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_NEW_DOCUMENT
+                    | FLAG_ACTIVITY_MULTIPLE_TASK);
+        final ActivityOptions options = ActivityOptions.makeBasic();
+        options.setLaunchWindowingMode(WINDOWING_MODE_FULLSCREEN);
+        mInstrumentation.startActivitySync(intent, options.toBundle());
+
         final BooleanValue targetResumed = new BooleanValue();
         mLifecycleMonitor.addLifecycleCallback(new ActivityLifecycleCallback() {
             public void onActivityLifecycleChanged(Activity activity, Stage stage) {

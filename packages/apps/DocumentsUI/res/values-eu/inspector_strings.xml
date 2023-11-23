@@ -26,7 +26,7 @@
     <string name="handler_app_not_selected" msgid="1294439257183908786">"Hautatu gabe"</string>
     <string name="handler_app_unknown" msgid="5911661530593229287">"Ezezaguna"</string>
     <string name="metadata_dimensions" msgid="6112907724016659801">"Dimentsioak"</string>
-    <string name="metadata_dimensions_format" msgid="6138765871412005962">"<xliff:g id="WIDTH">%1$d</xliff:g> x <xliff:g id="HEIGHT">%2$d</xliff:g> - <xliff:g id="MEGAPIXELS">%3$,.1f</xliff:g> MP"</string>
+    <string name="metadata_dimensions_format" msgid="6138765871412005962">"<xliff:g id="WIDTH">%1$d</xliff:g> × <xliff:g id="HEIGHT">%2$d</xliff:g> - <xliff:g id="MEGAPIXELS">%3$,.1f</xliff:g> MP"</string>
     <string name="metadata_coordinates" msgid="6897383227370702734">"Koordenatuak"</string>
     <string name="metadata_coordinates_format" msgid="1402724596764547761">"<xliff:g id="LATITUDE">%1$,.3f</xliff:g>, <xliff:g id="LONGITUDE">%2$,.3f</xliff:g>"</string>
     <string name="metadata_altitude" msgid="8063792127436794294">"Altitudea"</string>

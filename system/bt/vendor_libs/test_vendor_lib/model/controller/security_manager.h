@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "hci/address.h"
 
@@ -33,6 +34,8 @@ enum class PairingType : uint8_t {
   DISPLAY_PIN,
   DISPLAY_AND_CONFIRM,
   INPUT_PIN,
+  OUT_OF_BAND,
+  PEER_HAS_OUT_OF_BAND,
   INVALID = 0xff,
 };
 
@@ -76,6 +79,14 @@ class SecurityManager {
   uint16_t GetAuthenticationHandle();
   Address GetAuthenticationAddress();
 
+  void SetPinRequested(const Address& addr);
+  bool GetPinRequested(const Address& addr);
+  void SetLocalPin(const Address& peer, const std::vector<uint8_t>& pin);
+  void SetRemotePin(const Address& peer, const std::vector<uint8_t>& pin);
+  bool GetLocalPinResponseReceived(const Address& peer);
+  bool GetRemotePinResponseReceived(const Address& peer);
+  bool PinCompare();
+
   void SetPeerIoCapability(const Address& addr, uint8_t io_capability, uint8_t oob_present_flag,
                            uint8_t authentication_requirements);
   void SetLocalIoCapability(const Address& peer, uint8_t io_capability, uint8_t oob_present_flag,
@@ -90,18 +101,25 @@ class SecurityManager {
   std::unordered_map<std::string, std::array<uint8_t, 16>> key_store_;
 
   bool peer_capabilities_valid_{false};
-  IoCapabilityType peer_io_capability_;
-  bool peer_oob_present_flag_{false};
-  AuthenticationType peer_authentication_requirements_;
+  IoCapabilityType peer_io_capability_{IoCapabilityType::DISPLAY_ONLY};
+  uint8_t peer_oob_present_flag_{0};
+  AuthenticationType peer_authentication_requirements_{
+      AuthenticationType::NO_BONDING};
+  bool peer_pin_requested_{false};
+  bool peer_pin_received_{false};
+  std::vector<uint8_t> peer_pin_;
 
   bool host_capabilities_valid_{false};
-  IoCapabilityType host_io_capability_;
-  bool host_oob_present_flag_{false};
-  AuthenticationType host_authentication_requirements_;
+  IoCapabilityType host_io_capability_{IoCapabilityType::DISPLAY_ONLY};
+  uint8_t host_oob_present_flag_{0};
+  AuthenticationType host_authentication_requirements_{
+      AuthenticationType::NO_BONDING};
+  std::vector<uint8_t> host_pin_;
+  bool host_pin_received_{false};
 
   bool authenticating_{false};
-  uint16_t current_handle_;
-  Address peer_address_;
+  uint16_t current_handle_{};
+  Address peer_address_{};
 };
 
 }  // namespace test_vendor_lib

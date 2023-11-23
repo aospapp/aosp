@@ -1,4 +1,0 @@
-service audio_proxy_service /vendor/bin/hw/device.google.atv.audio_proxy@5.0-service
-    class hal
-    user system
-    group system

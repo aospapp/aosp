@@ -15,30 +15,32 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.cts.documentprovider">
+     package="com.android.cts.documentprovider">
 
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
+    <uses-sdk android:minSdkVersion="29"
+         android:targetSdkVersion="29"/>
 
-    <application android:forceQueryable="true">
-        <uses-library android:name="android.test.runner" />
+    <application>
+        <uses-library android:name="android.test.runner"/>
 
         <provider android:name=".MyDocumentsProvider"
-                android:authorities="com.android.cts.documentprovider"
-                android:exported="true"
-                android:grantUriPermissions="true"
-                android:permission="android.permission.MANAGE_DOCUMENTS">
+             android:authorities="com.android.cts.documentprovider"
+             android:exported="true"
+             android:grantUriPermissions="true"
+             android:permission="android.permission.MANAGE_DOCUMENTS">
             <intent-filter>
-                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER"/>
             </intent-filter>
         </provider>
 
         <activity android:name=".GetContentActivity"
-                android:label="CtsGetContent">
+             android:label="CtsGetContent"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.GET_CONTENT" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.OPENABLE" />
-                <data android:mimeType="image/*" />
+                <action android:name="android.intent.action.GET_CONTENT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.OPENABLE"/>
+                <data android:mimeType="image/*"/>
             </intent-filter>
         </activity>
 

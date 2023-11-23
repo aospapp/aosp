@@ -32,8 +32,8 @@
 
 // GOOGLETEST_CM0001 DO NOT DELETE
 
-#ifndef GTEST_INCLUDE_GTEST_INTERNAL_GTEST_PARAM_UTIL_H_
-#define GTEST_INCLUDE_GTEST_INTERNAL_GTEST_PARAM_UTIL_H_
+#ifndef GOOGLETEST_INCLUDE_GTEST_INTERNAL_GTEST_PARAM_UTIL_H_
+#define GOOGLETEST_INCLUDE_GTEST_INTERNAL_GTEST_PARAM_UTIL_H_
 
 #include <ctype.h>
 
@@ -459,7 +459,7 @@ class ParameterizedTestSuiteInfoBase {
 
   // Base part of test suite name for display purposes.
   virtual const std::string& GetTestSuiteName() const = 0;
-  // Test case id to verify identity.
+  // Test suite id to verify identity.
   virtual TypeId GetTestSuiteTypeId() const = 0;
   // UnitTest class invokes this method to register tests in this
   // test suite right before running them in RUN_ALL_TESTS macro.
@@ -474,8 +474,16 @@ class ParameterizedTestSuiteInfoBase {
   GTEST_DISALLOW_COPY_AND_ASSIGN_(ParameterizedTestSuiteInfoBase);
 };
 
+// INTERNAL IMPLEMENTATION - DO NOT USE IN USER CODE.
+//
+// Report a the name of a test_suit as safe to ignore
+// as the side effect of construction of this type.
+struct MarkAsIgnored {
+  explicit MarkAsIgnored(const char* test_suite);
+};
+
 GTEST_API_ void InsertSyntheticTestCase(const std::string& name,
-                                        CodeLocation location);
+                                        CodeLocation location, bool has_test_p);
 
 // INTERNAL IMPLEMENTATION - DO NOT USE IN USER CODE.
 //
@@ -499,11 +507,11 @@ class ParameterizedTestSuiteInfo : public ParameterizedTestSuiteInfoBase {
                                       CodeLocation code_location)
       : test_suite_name_(name), code_location_(code_location) {}
 
-  // Test case base name for display purposes.
+  // Test suite base name for display purposes.
   const std::string& GetTestSuiteName() const override {
     return test_suite_name_;
   }
-  // Test case id to verify identity.
+  // Test suite id to verify identity.
   TypeId GetTestSuiteTypeId() const override { return GetTypeId<TestSuite>(); }
   // TEST_P macro uses AddTestPattern() to record information
   // about a single test in a LocalTestInfo structure.
@@ -512,9 +520,10 @@ class ParameterizedTestSuiteInfo : public ParameterizedTestSuiteInfoBase {
   // parameter index. For the test SequenceA/FooTest.DoBar/1 FooTest is
   // test suite base name and DoBar is test base name.
   void AddTestPattern(const char* test_suite_name, const char* test_base_name,
-                      TestMetaFactoryBase<ParamType>* meta_factory) {
-    tests_.push_back(std::shared_ptr<TestInfo>(
-        new TestInfo(test_suite_name, test_base_name, meta_factory)));
+                      TestMetaFactoryBase<ParamType>* meta_factory,
+                      CodeLocation code_location) {
+    tests_.push_back(std::shared_ptr<TestInfo>(new TestInfo(
+        test_suite_name, test_base_name, meta_factory, code_location)));
   }
   // INSTANTIATE_TEST_SUITE_P macro uses AddGenerator() to record information
   // about a generator.
@@ -581,7 +590,7 @@ class ParameterizedTestSuiteInfo : public ParameterizedTestSuiteInfoBase {
           MakeAndRegisterTestInfo(
               test_suite_name.c_str(), test_name_stream.GetString().c_str(),
               nullptr,  // No type parameter.
-              PrintToString(*param_it).c_str(), code_location_,
+              PrintToString(*param_it).c_str(), test_info->code_location,
               GetTestSuiteTypeId(),
               SuiteApiResolver<TestSuite>::GetSetUpCaseOrSuite(file, line),
               SuiteApiResolver<TestSuite>::GetTearDownCaseOrSuite(file, line),
@@ -592,7 +601,8 @@ class ParameterizedTestSuiteInfo : public ParameterizedTestSuiteInfoBase {
 
     if (!generated_instantiations) {
       // There are no generaotrs, or they all generate nothing ...
-      InsertSyntheticTestCase(GetTestSuiteName(), code_location_);
+      InsertSyntheticTestCase(GetTestSuiteName(), code_location_,
+                              !tests_.empty());
     }
   }    // RegisterTests
 
@@ -601,14 +611,17 @@ class ParameterizedTestSuiteInfo : public ParameterizedTestSuiteInfoBase {
   // with TEST_P macro.
   struct TestInfo {
     TestInfo(const char* a_test_suite_base_name, const char* a_test_base_name,
-             TestMetaFactoryBase<ParamType>* a_test_meta_factory)
+             TestMetaFactoryBase<ParamType>* a_test_meta_factory,
+             CodeLocation a_code_location)
         : test_suite_base_name(a_test_suite_base_name),
           test_base_name(a_test_base_name),
-          test_meta_factory(a_test_meta_factory) {}
+          test_meta_factory(a_test_meta_factory),
+          code_location(a_code_location) {}
 
     const std::string test_suite_base_name;
     const std::string test_base_name;
     const std::unique_ptr<TestMetaFactoryBase<ParamType> > test_meta_factory;
+    const CodeLocation code_location;
   };
   using TestInfoContainer = ::std::vector<std::shared_ptr<TestInfo> >;
   // Records data received from INSTANTIATE_TEST_SUITE_P macros:
@@ -770,10 +783,15 @@ internal::ParamGenerator<typename Container::value_type> ValuesIn(
 namespace internal {
 // Used in the Values() function to provide polymorphic capabilities.
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4100)
+#endif
+
 template <typename... Ts>
 class ValueArray {
  public:
-  ValueArray(Ts... v) : v_{std::move(v)...} {}
+  explicit ValueArray(Ts... v) : v_(FlatTupleConstructTag{}, std::move(v)...) {}
 
   template <typename T>
   operator ParamGenerator<T>() const {  // NOLINT
@@ -788,6 +806,10 @@ class ValueArray {
 
   FlatTuple<Ts...> v_;
 };
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 template <typename... T>
 class CartesianProductGenerator
@@ -922,4 +944,4 @@ class CartesianProductHolder {
 }  // namespace internal
 }  // namespace testing
 
-#endif  // GTEST_INCLUDE_GTEST_INTERNAL_GTEST_PARAM_UTIL_H_
+#endif  // GOOGLETEST_INCLUDE_GTEST_INTERNAL_GTEST_PARAM_UTIL_H_

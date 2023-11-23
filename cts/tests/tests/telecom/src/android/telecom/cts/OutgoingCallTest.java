@@ -16,16 +16,27 @@
 
 package android.telecom.cts;
 
+import static android.telecom.Call.STATE_SELECT_PHONE_ACCOUNT;
+import static android.telephony.TelephonyManager.CALL_STATE_RINGING;
+
 import android.content.Context;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.telecom.Call;
 import android.telecom.CallAudioState;
 import android.telecom.Connection;
+import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
+import android.telephony.emergency.EmergencyNumber;
 
+import com.android.compatibility.common.util.SystemUtil;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -112,14 +123,45 @@ public class OutgoingCallTest extends BaseTelecomTestWithMockServices {
         assertNotAudioRoute(mInCallCallbacks.getService(), CallAudioState.ROUTE_SPEAKER);
     }
 
-    public void testPhoneStateListenerInvokedOnOutgoingEmergencyCall() throws Exception {
+    public void testPhoneStateListenerInvokedOnOutgoingEmergencyCall() throws Throwable {
         if (!mShouldTestTelecom) {
             return;
         }
         TestUtils.setSystemDialerOverride(getInstrumentation());
+        TestUtils.setTestEmergencyPhoneAccountPackageFilter(getInstrumentation(), mContext);
         TestUtils.addTestEmergencyNumber(getInstrumentation(), TEST_EMERGENCY_NUMBER);
-        mTelecomManager.placeCall(Uri.fromParts("tel", TEST_EMERGENCY_NUMBER, null), null);
-        verifyPhoneStateListenerCallbacksForEmergencyCall(TEST_EMERGENCY_NUMBER);
+        Map<Integer, List<EmergencyNumber>> emergencyNumbers = null;
+
+        for (int i = 0; i < 5; i++) {
+            emergencyNumbers = mTelephonyCallback.waitForEmergencyNumberListUpdate(
+                    TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+            assertNotNull("Never got an update that the test emergency number was registered",
+                    emergencyNumbers);
+            if (doesEmergencyNumberListContainTestNumber(emergencyNumbers)) {
+                break;
+            }
+        }
+        assertTrue("Emergency number list from telephony still doesn't have the test number",
+                doesEmergencyNumberListContainTestNumber(emergencyNumbers));
+
+        try {
+            Bundle extras = new Bundle();
+            extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,
+                    TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
+            mTelecomManager.placeCall(Uri.fromParts("tel", TEST_EMERGENCY_NUMBER, null), extras);
+
+            verifyPhoneStateListenerCallbacksForEmergencyCall(TEST_EMERGENCY_NUMBER);
+        } finally {
+            TestUtils.removeTestEmergencyNumber(getInstrumentation(), TEST_EMERGENCY_NUMBER);
+            TestUtils.clearTestEmergencyPhoneAccountPackageFilter(getInstrumentation());
+        }
+    }
+
+    private boolean doesEmergencyNumberListContainTestNumber(
+            Map<Integer, List<EmergencyNumber>> emergencyNumbers) {
+        return emergencyNumbers.values().stream().flatMap(List::stream)
+                .anyMatch(numberObj ->
+                        Objects.equals(numberObj.getNumber(), TEST_EMERGENCY_NUMBER));
     }
 
     public void testPhoneStateListenerInvokedOnOutgoingCall() throws Exception {
@@ -133,6 +175,7 @@ public class OutgoingCallTest extends BaseTelecomTestWithMockServices {
                 .getAddress().getSchemeSpecificPart();
         verifyPhoneStateListenerCallbacksForCall(TelephonyManager.CALL_STATE_OFFHOOK,
                 expectedNumber);
+        verifyCallStateListener(TelephonyManager.CALL_STATE_OFFHOOK);
     }
 
     /**
@@ -185,6 +228,7 @@ public class OutgoingCallTest extends BaseTelecomTestWithMockServices {
         assertEquals(TestUtils.TEST_PHONE_ACCOUNT_HANDLE, conn.getPhoneAccountHandle());
 
         cleanupCalls();
+        assertCtsConnectionServiceUnbound();
         CtsConnectionService.tearDown();
         setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
 
@@ -195,5 +239,43 @@ public class OutgoingCallTest extends BaseTelecomTestWithMockServices {
         conn = verifyConnectionForOutgoingCall();
         assertEquals(TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2, conn.getPhoneAccountHandle());
         conn.onDisconnect();
+    }
+
+    public void testAccountSelectionAvailable() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        CountDownLatch latch = new CountDownLatch(1);
+        mInCallCallbacks = new MockInCallService.InCallServiceCallbacks() {
+            @Override
+            public void onCallAdded(Call call, int numCalls) {
+                if (call.getState() == STATE_SELECT_PHONE_ACCOUNT) {
+                    latch.countDown();
+                }
+            }
+        };
+        MockInCallService.setCallbacks(mInCallCallbacks);
+
+        mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT);
+        TestUtils.enablePhoneAccount(getInstrumentation(), TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
+        mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_2);
+        TestUtils.enablePhoneAccount(getInstrumentation(), TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2);
+
+        PhoneAccountHandle cachedHandle = mTelecomManager.getUserSelectedOutgoingPhoneAccount();
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            mTelecomManager.setUserSelectedOutgoingPhoneAccount(null);
+        });
+
+        try {
+            Uri testNumber = createTestNumber();
+            mTelecomManager.placeCall(testNumber, null);
+
+            assertTrue(latch.await(TestUtils.WAIT_FOR_CALL_ADDED_TIMEOUT_S, TimeUnit.SECONDS));
+        } finally {
+            SystemUtil.runWithShellPermissionIdentity(() -> {
+                mTelecomManager.setUserSelectedOutgoingPhoneAccount(cachedHandle);
+            });
+        }
     }
 }

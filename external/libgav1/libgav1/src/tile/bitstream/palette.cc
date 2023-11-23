@@ -34,21 +34,21 @@ namespace libgav1 {
 int Tile::GetPaletteCache(const Block& block, PlaneType plane_type,
                           uint16_t* const cache) {
   const int top_size =
-      (block.top_available && Mod64(MultiplyBy4(block.row4x4)) != 0)
+      (block.top_available[kPlaneY] && Mod64(MultiplyBy4(block.row4x4)) != 0)
           ? block.bp_top->palette_mode_info.size[plane_type]
           : 0;
-  const int left_size = block.left_available
+  const int left_size = block.left_available[kPlaneY]
                             ? block.bp_left->palette_mode_info.size[plane_type]
                             : 0;
   if (left_size == 0 && top_size == 0) return 0;
   // Merge the left and top colors in sorted order and store them in |cache|.
   uint16_t dummy[1];
-  uint16_t* top = (top_size > 0)
-                      ? block.bp_top->palette_mode_info.color[plane_type]
+  const uint16_t* top = (top_size > 0)
+                            ? block.bp_top->palette_mode_info.color[plane_type]
+                            : dummy;
+  const uint16_t* left =
+      (left_size > 0) ? block.bp_left->palette_mode_info.color[plane_type]
                       : dummy;
-  uint16_t* left = (left_size > 0)
-                       ? block.bp_left->palette_mode_info.color[plane_type]
-                       : dummy;
   std::merge(top, top + top_size, left, left + left_size, cache);
   // Deduplicate the entries in |cache| and return the number of unique
   // entries.
@@ -130,20 +130,20 @@ void Tile::ReadPaletteColors(const Block& block, Plane plane) {
 
 void Tile::ReadPaletteModeInfo(const Block& block) {
   BlockParameters& bp = *block.bp;
+  bp.palette_mode_info.size[kPlaneTypeY] = 0;
+  bp.palette_mode_info.size[kPlaneTypeUV] = 0;
   if (IsBlockSmallerThan8x8(block.size) || block.size > kBlock64x64 ||
       !frame_header_.allow_screen_content_tools) {
-    bp.palette_mode_info.size[kPlaneTypeY] = 0;
-    bp.palette_mode_info.size[kPlaneTypeUV] = 0;
     return;
   }
   const int block_size_context =
       k4x4WidthLog2[block.size] + k4x4HeightLog2[block.size] - 2;
   if (bp.y_mode == kPredictionModeDc) {
     const int context =
-        static_cast<int>(block.top_available &&
+        static_cast<int>(block.top_available[kPlaneY] &&
                          block.bp_top->palette_mode_info.size[kPlaneTypeY] >
                              0) +
-        static_cast<int>(block.left_available &&
+        static_cast<int>(block.left_available[kPlaneY] &&
                          block.bp_left->palette_mode_info.size[kPlaneTypeY] >
                              0);
     const bool has_palette_y = reader_.ReadSymbol(
@@ -156,7 +156,7 @@ void Tile::ReadPaletteModeInfo(const Block& block) {
       ReadPaletteColors(block, kPlaneY);
     }
   }
-  if (bp.uv_mode == kPredictionModeDc && block.HasChroma()) {
+  if (block.HasChroma() && bp.uv_mode == kPredictionModeDc) {
     const int context =
         static_cast<int>(bp.palette_mode_info.size[kPlaneTypeY] > 0);
     const bool has_palette_uv =
@@ -252,8 +252,8 @@ bool Tile::ReadPaletteTokens(const Block& block) {
        ++plane_type) {
     const int palette_size = palette_mode_info.size[plane_type];
     if (palette_size == 0) continue;
-    int block_height = kBlockHeightPixels[block.size];
-    int block_width = kBlockWidthPixels[block.size];
+    int block_height = block.height;
+    int block_width = block.width;
     int screen_height = std::min(
         block_height, MultiplyBy4(frame_header_.rows4x4 - block.row4x4));
     int screen_width = std::min(

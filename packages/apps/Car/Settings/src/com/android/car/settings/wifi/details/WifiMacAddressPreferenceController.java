@@ -17,7 +17,10 @@ package com.android.car.settings.wifi.details;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.net.wifi.WifiInfo;
+import android.text.TextUtils;
 
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 
 /**
@@ -38,6 +41,18 @@ public class WifiMacAddressPreferenceController extends
 
     @Override
     protected void updateState(WifiDetailsPreference preference) {
-        preference.setDetailText(getWifiInfoProvider().getWifiInfo().getMacAddress());
+        String macAddress = getWifiEntry().getMacAddress();
+        if (TextUtils.isEmpty(macAddress)) {
+            preference.setVisible(false);
+            return;
+        }
+
+        preference.setVisible(true);
+
+        if (macAddress.equals(WifiInfo.DEFAULT_MAC_ADDRESS)) {
+            preference.setDetailText(getContext().getString(R.string.device_info_not_available));
+        } else {
+            preference.setDetailText(macAddress);
+        }
     }
 }

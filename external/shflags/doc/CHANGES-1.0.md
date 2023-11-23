@@ -1,78 +1,21 @@
-Changes in shFlags
-==================
+# Changes in shFlags
 
-Changes with 1.2.0
-------------------
+## Changes with 1.0.3
 
-Changed from the LGPL v2.1 license to the Apache v2.0 license so that others
-can include the library or make changes without needing to release the modified
-source code as well.
-
-Moved documentation to Markdown.
-
-Migrated the code to GitHub as code.google.com is turning down.
-
-Fixed issue #10. Usage of `expr` under FreeBSD 7.2 (FreeNAS 0.7.1) and FreeBSD
-8.0 that was causing many unit tests to fail.
-
-Fixed issue where booleans were sometimes mis-configured to require additional
-values like other flags.
-
-Changed `_flags_fatal()` to exit with `FLAGS_ERROR` immediately.
-
-Fixed issue #11. When help is requested, the help flag is no longer prefixed
-with '[no]'.
-
-Upgraded shUnit2 to 2.1.6.
-
-Fixed issue #12. Requesting help shouldn't be considered an error.
-
-Added the ability to override the use of the OS default `getopt` command by
-defining the `FLAGS_GETOPT_CMD` variable.
-
-Updated `gen_test_results.sh` and versions from shUnit2 source.
-
-Fixed issues# 13, 14. Added support for dashes ('-') in long flag names. The
-defined flag will still be declared with underscores ('_') due to shell
-limitations, so only one of a dashed flag name or an underscored flag name are
-allowed, not both.
-
-Issue #20. Updated LGPL v2.1 license from
-http://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt.
-
-Issue #15. Use `gexpr` instead of `expr` on BSD variants.
-
-Minor tweaks to make run on FreeBSD 9.1.
-
-Fixed issue in `shflags_test_public.sh` where screens >80 columns were causing a
-test to fail.
-
-Issue #22. Fixed broken testGetFlagInfo() test.
-
-Created alternate `validFloat()` and `validInt()` functions that use shell
-built-ins where possible to increase performance and reduce the usage of the
-`expr` command.
-
-Added separate built-in and `expr` functions for doing math.
-
-
-Changes with 1.0.3
-------------------
-
-MAJOR CHANGE! `FLAGS_ARGC` is now obsolete, and is replaced by
-`FLAGS_ARGV`. See below for more info.
+MAJOR CHANGE! `FLAGS_ARGC` is now obsolete, and is replaced by `FLAGS_ARGV`. See
+below for more info.
 
 Fixed issue# 7 where long flags defined with '=' (e.g. `--abc=123`) made it
 impossible for the user to know how many non-flag command-line arguments were
-available because the value returned by `FLAGS_ARGC` was wrong. The
-`FLAGS_ARGC` value is now obsolete, but will be maintained for backwards
-compatibility. The new method of getting the non-flag arguments is by executing
-`eval set -- "${FLAGS_ARGV}"` after the `FLAGS` call. The arguments will
-then be available using the standard shell $#, $@, $*, $1, etc. variables.
+available because the value returned by `FLAGS_ARGC` was wrong. The `FLAGS_ARGC`
+value is now obsolete, but will be maintained for backwards compatibility. The
+new method of getting the non-flag arguments is by executing `eval set --
+"${FLAGS_ARGV}"` after the `FLAGS` call. The arguments will then be available
+using the standard shell $#, $@, $*, $1, etc. variables.
 
-Due to above fix for issue# 7, there is now proper support for mixing flags
-with non-flag arguments on the command-line. Previously, all non-flag arguments
-had to be at the end of the command-line.
+Due to above fix for issue# 7, there is now proper support for mixing flags with
+non-flag arguments on the command-line. Previously, all non-flag arguments had
+to be at the end of the command-line.
 
 Renamed `_flags_standardGetopt()` and `_flags_enhancedGetopt()` functions to
 `_flags_getoptStandard()` and `_flags_getoptEnhanced()`.
@@ -97,9 +40,7 @@ Added the OS version to OS release for Solaris.
 
 Fixed `flags_reset()` so it unsets the default value environment vars.
 
-
-Changes with 1.0.2
-------------------
+## Changes with 1.0.2
 
 FLAGS_PARENT no longer transforms into a constant so that it can be defined at
 run time in scripts.
@@ -119,8 +60,8 @@ Improved `assert[Warn|Error]Msg()` test helper grepping.
 Replaced shell_versions.sh with a new versions library and created
 `gen_test_results.sh` to make releases easier.
 
-Copied the coding standards from shUnit2, but haven't fully implemented them
-in shFlags yet.
+Copied the coding standards from shUnit2, but haven't fully implemented them in
+shFlags yet.
 
 Issue# 1: When a user defines their own `--help` flag, no more warning is thrown
 when `FLAGS()` is called stating that the help flag already defined.
@@ -129,9 +70,7 @@ Issue# 2: Passing the `--nohelp` option no longer gives help output.
 
 Issue# 3: Added support for screen width detection.
 
-
-Changes with 1.0.1
-------------------
+## Changes with 1.0.1
 
 Fixed bug where the help output added '[no]' to all flag names
 
@@ -148,8 +87,6 @@ execute the code in-line, but later. As such, variables that are defined in the
 library cannot be used until functions are called from the main code. This
 required the 'help' flag definition to be moved inside the FLAGS command.
 
-
-Changes with 1.0.0
-------------------
+## Changes with 1.0.0
 
 This is the first official release, so everything is new.

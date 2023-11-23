@@ -22,6 +22,7 @@
 #include <linux/types.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
+#include <functional>
 
 namespace android {
 namespace hardware {
@@ -31,6 +32,8 @@ namespace subhal {
 namespace implementation {
 
 using ::android::hardware::sensors::V1_0::SensorType;
+
+extern const char* DEFAULT_IIO_DIR;
 
 static constexpr auto DEFAULT_IIO_BUFFER_LEN = 2;
 static constexpr auto DISABLE_CHANNEL = 0;
@@ -55,16 +58,18 @@ struct iio_device_data {
     std::string name;
     std::string sysfspath;
     float resolution;
+    float scale;
     SensorType type;
     std::vector<iio_info_channel> channelInfo;
     std::vector<double> sampling_freq_avl;
     uint8_t iio_dev_num;
-    unsigned int power_microwatts;
     int64_t max_range;
 };
 
-int load_iio_devices(std::vector<iio_device_data>* iio_data,
-                     const std::vector<sensors_supported_hal>& supported_sensors);
+using DeviceFilterFunction = std::function<bool(iio_device_data*)>;
+
+int load_iio_devices(std::string iio_dir, std::vector<iio_device_data>* iio_data,
+                     DeviceFilterFunction filter);
 int scan_elements(const std::string& device_dir, struct iio_device_data* iio_data);
 int enable_sensor(const std::string& name, const bool flag);
 int set_sampling_frequency(const std::string& name, const double frequency);

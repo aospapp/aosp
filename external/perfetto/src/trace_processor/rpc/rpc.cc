@@ -22,6 +22,7 @@
 #include "perfetto/protozero/scattered_heap_buffer.h"
 #include "perfetto/trace_processor/trace_processor.h"
 #include "protos/perfetto/trace_processor/trace_processor.pbzero.h"
+#include "src/trace_processor/rpc/query_result_serializer.h"
 #include "src/trace_processor/tp_metatrace.h"
 
 namespace perfetto {
@@ -73,11 +74,44 @@ void Rpc::NotifyEndOfFile() {
 void Rpc::MaybePrintProgress() {
   if (eof_ || bytes_parsed_ - bytes_last_progress_ > kProgressUpdateBytes) {
     bytes_last_progress_ = bytes_parsed_;
-    auto t_load_s = (base::GetWallTimeNs().count() - t_parse_started_) / 1e9;
+    auto t_load_s =
+        static_cast<double>(base::GetWallTimeNs().count() - t_parse_started_) /
+        1e9;
     fprintf(stderr, "\rLoading trace %.2f MB (%.1f MB/s)%s",
-            bytes_parsed_ / 1e6, bytes_parsed_ / 1e6 / t_load_s,
+            static_cast<double>(bytes_parsed_) / 1e6,
+            static_cast<double>(bytes_parsed_) / 1e6 / t_load_s,
             (eof_ ? "\n" : ""));
     fflush(stderr);
+  }
+}
+
+void Rpc::Query(const uint8_t* args,
+                size_t len,
+                QueryResultBatchCallback result_callback) {
+  protos::pbzero::RawQueryArgs::Decoder query(args, len);
+  std::string sql = query.sql_query().ToStdString();
+  PERFETTO_DLOG("[RPC] Query < %s", sql.c_str());
+  PERFETTO_TP_TRACE("RPC_QUERY",
+                    [&](metatrace::Record* r) { r->AddArg("SQL", sql); });
+
+  if (!trace_processor_) {
+    static const char kErr[] = "Query() called before Parse()";
+    PERFETTO_ELOG("[RPC] %s", kErr);
+    protozero::HeapBuffered<protos::pbzero::QueryResult> result;
+    result->set_error(kErr);
+    auto vec = result.SerializeAsArray();
+    result_callback(vec.data(), vec.size(), /*has_more=*/false);
+    return;
+  }
+
+  auto it = trace_processor_->ExecuteQuery(sql.c_str());
+  QueryResultSerializer serializer(std::move(it));
+
+  std::vector<uint8_t> res;
+  for (bool has_more = true; has_more;) {
+    has_more = serializer.Serialize(&res);
+    result_callback(res.data(), res.size(), has_more);
+    res.clear();
   }
 }
 
@@ -241,19 +275,52 @@ std::vector<uint8_t> Rpc::ComputeMetric(const uint8_t* data, size_t len) {
   PERFETTO_TP_TRACE("RPC_COMPUTE_METRIC", [&](metatrace::Record* r) {
     for (const auto& metric : metric_names) {
       r->AddArg("Metric", metric);
+      r->AddArg("Format", std::to_string(args.format()));
     }
   });
 
-  std::vector<uint8_t> metrics_proto;
-  util::Status status =
-      trace_processor_->ComputeMetric(metric_names, &metrics_proto);
-  if (status.ok()) {
-    result->AppendBytes(
-        protos::pbzero::ComputeMetricResult::kMetricsFieldNumber,
-        metrics_proto.data(), metrics_proto.size());
-  } else {
-    result->set_error(status.message());
+  switch (args.format()) {
+    case protos::pbzero::ComputeMetricArgs::BINARY_PROTOBUF: {
+      std::vector<uint8_t> metrics_proto;
+      util::Status status =
+          trace_processor_->ComputeMetric(metric_names, &metrics_proto);
+      if (status.ok()) {
+        result->AppendBytes(
+            protos::pbzero::ComputeMetricResult::kMetricsFieldNumber,
+            metrics_proto.data(), metrics_proto.size());
+      } else {
+        result->set_error(status.message());
+      }
+      break;
+    }
+    case protos::pbzero::ComputeMetricArgs::TEXTPROTO: {
+      std::string metrics_string;
+      util::Status status = trace_processor_->ComputeMetricText(
+          metric_names, TraceProcessor::MetricResultFormat::kProtoText,
+          &metrics_string);
+      if (status.ok()) {
+        result->AppendString(
+            protos::pbzero::ComputeMetricResult::kMetricsAsPrototextFieldNumber,
+            metrics_string);
+      } else {
+        result->set_error(status.message());
+      }
+      break;
+    }
   }
+  return result.SerializeAsArray();
+}
+
+std::vector<uint8_t> Rpc::GetMetricDescriptors(const uint8_t*, size_t) {
+  protozero::HeapBuffered<protos::pbzero::GetMetricDescriptorsResult> result;
+  if (!trace_processor_) {
+    return result.SerializeAsArray();
+  }
+  std::vector<uint8_t> descriptor_set =
+      trace_processor_->GetMetricDescriptors();
+  result->AppendBytes(
+      protos::pbzero::GetMetricDescriptorsResult::kDescriptorSetFieldNumber,
+      descriptor_set.data(), descriptor_set.size());
   return result.SerializeAsArray();
 }
 
@@ -277,7 +344,7 @@ std::vector<uint8_t> Rpc::DisableAndReadMetatrace() {
   } else {
     result->set_error(status.message());
   }
-  return trace_proto;
+  return result.SerializeAsArray();
 }
 
 }  // namespace trace_processor

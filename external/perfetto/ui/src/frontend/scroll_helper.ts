@@ -18,6 +18,8 @@ import {fromNs, TimeSpan, toNs} from '../common/time';
 
 import {globals} from './globals';
 
+const INCOMPLETE_SLICE_TIME_S = 0.00003;
+
 /**
  * Given a timestamp, if |ts| is not currently in view move the view to
  * center |ts|, keeping the same zoom level.
@@ -27,7 +29,7 @@ export function horizontalScrollToTs(ts: number) {
   const endNs = toNs(globals.frontendLocalState.visibleWindowTime.end);
   const currentViewNs = endNs - startNs;
   if (ts < startNs || ts > endNs) {
-    // TODO(taylori): This is an ugly jump, we should do a smooth pan instead.
+    // TODO(hjd): This is an ugly jump, we should do a smooth pan instead.
     globals.frontendLocalState.updateVisibleTime(new TimeSpan(
         fromNs(ts - currentViewNs / 2), fromNs(ts + currentViewNs / 2)));
   }
@@ -40,7 +42,11 @@ export function horizontalScrollToTs(ts: number) {
 export function horizontalScrollAndZoomToRange(startTs: number, endTs: number) {
   const visibleDur = globals.frontendLocalState.visibleWindowTime.end -
       globals.frontendLocalState.visibleWindowTime.start;
-  const selectDur = endTs - startTs;
+  let selectDur = endTs - startTs;
+  if (toNs(selectDur) === -1) {  // Unfinished slice
+    selectDur = INCOMPLETE_SLICE_TIME_S;
+    endTs = startTs;
+  }
   const viewStartNs = toNs(globals.frontendLocalState.visibleWindowTime.start);
   const viewEndNs = toNs(globals.frontendLocalState.visibleWindowTime.end);
   if (selectDur / visibleDur < 0.05 || startTs < viewStartNs ||
@@ -100,4 +106,22 @@ export function scrollToTrackAndTs(
     verticalScrollToTrack(trackId, openGroup);
   }
   horizontalScrollToTs(ts);
+}
+
+/**
+ * Returns the UI track Id that is associated with the given |traceTrackId| in
+ * the trace_processor. Due to concepts like Async tracks and TrackGroups this
+ * is not always a one to one mapping.
+ */
+export function findUiTrackId(traceTrackId: number) {
+  for (const [uiTrackId, trackState] of Object.entries(globals.state.tracks)) {
+    const config = trackState.config as {trackId: number};
+    if (config.trackId === traceTrackId) return uiTrackId;
+    const multiple = trackState.config as {trackIds: number[]};
+    if (multiple.trackIds !== undefined &&
+        multiple.trackIds.includes(traceTrackId)) {
+      return uiTrackId;
+    }
+  }
+  return null;
 }

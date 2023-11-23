@@ -17,6 +17,7 @@ package com.android.cts.deviceadminservice;
 
 import android.content.ComponentName;
 import android.content.pm.PackageManager;
+import android.os.UserHandle;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -28,7 +29,8 @@ public class ComponentController extends AndroidTestCase {
                 (enabled ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED :
                         PackageManager.COMPONENT_ENABLED_STATE_DISABLED)
                 , PackageManager.DONT_KILL_APP);
-        Log.i(TAG, "setComponentEnabledSetting: " + cn + " enabled=" + enabled);
+        Log.i(TAG, "enableComponent(): user=" + UserHandle.myUserId() + ", component=" + cn
+                + ", enabled=" + enabled);
     }
 
     public void testEnableService1() {

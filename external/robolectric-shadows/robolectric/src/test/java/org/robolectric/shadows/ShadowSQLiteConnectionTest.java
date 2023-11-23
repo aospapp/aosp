@@ -2,6 +2,7 @@ package org.robolectric.shadows;
 
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 import static org.robolectric.shadows.ShadowSQLiteConnection.convertSQLWithLocalizedUnicodeCollator;
 
@@ -94,39 +95,39 @@ public class ShadowSQLiteConnectionTest {
   @Test
   public void nativeOpen_addsConnectionToPool() {
     assertThat(conn).isNotNull();
-    assertThat(conn.isOpen()).named("open").isTrue();
+    assertWithMessage("open").that(conn.isOpen()).isTrue();
   }
     
   @Test
   public void nativeClose_closesConnection() {
     ShadowSQLiteConnection.nativeClose(ptr);
-    assertThat(conn.isOpen()).named("open").isFalse();
+    assertWithMessage("open").that(conn.isOpen()).isFalse();
   }
     
   @Test
   public void reset_closesConnection() {
     ShadowSQLiteConnection.reset();
-    assertThat(conn.isOpen()).named("open").isFalse();
+    assertWithMessage("open").that(conn.isOpen()).isFalse();
   }
 
   @Test
   public void reset_clearsConnectionCache() {
     final Map<Long, SQLiteConnection> connectionsMap = ReflectionHelpers.getField(CONNECTIONS, "connectionsMap");
 
-    assertThat(connectionsMap).named("connections before").isNotEmpty();
+    assertWithMessage("connections before").that(connectionsMap).isNotEmpty();
     ShadowSQLiteConnection.reset();
 
-    assertThat(connectionsMap).named("connections after").isEmpty();
+    assertWithMessage("connections after").that(connectionsMap).isEmpty();
   }
   
   @Test
   public void reset_clearsStatementCache() {
     final Map<Long, SQLiteStatement> statementsMap = ReflectionHelpers.getField(CONNECTIONS, "statementsMap");
 
-    assertThat(statementsMap).named("statements before").isNotEmpty();
+    assertWithMessage("statements before").that(statementsMap).isNotEmpty();
     ShadowSQLiteConnection.reset();
 
-    assertThat(statementsMap).named("statements after").isEmpty();
+    assertWithMessage("statements after").that(statementsMap).isEmpty();
   }
 
   @Test

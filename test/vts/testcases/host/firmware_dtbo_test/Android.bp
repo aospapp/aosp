@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "FirmwareDtboVerification",
     libs: [
         "compatibility-tradefed",
         "tradefed",
-        "tradefed-common-util",
         "vts-core-tradefed-harness",
     ],
     srcs: ["src/**/*.java"],
@@ -25,10 +28,8 @@ java_test_host {
         "general-tests",
         "vts",
     ],
-    // (b/153848038), Change to ":mkdtboimg.py" after resolving.
-    data: [
-        ":mkdtboimg",
+    data_native_bins: [
+        "mkdtboimg.py",
     ],
     target_required: ["ufdt_verify_overlay"],
-    required: ["mkdtboimg.py"],
 }

@@ -292,8 +292,10 @@ public class BugReportService extends Service {
 
     private Notification buildProgressNotification() {
         Intent intent = new Intent(getApplicationContext(), BugReportInfoActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         PendingIntent startBugReportInfoActivity =
-                PendingIntent.getActivity(getApplicationContext(), 0, intent, 0);
+                PendingIntent.getActivity(getApplicationContext(), /* requestCode= */ 0, intent,
+                                          PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, PROGRESS_CHANNEL_ID)
                 .setContentTitle(getText(R.string.notification_bugreport_in_progress))
                 .setContentText(mMetaBugReport.getTitle())
@@ -490,7 +492,8 @@ public class BugReportService extends Service {
     static void showBugReportFinishedNotification(Context context, MetaBugReport bug) {
         Intent intent = new Intent(context, BugReportInfoActivity.class);
         PendingIntent startBugReportInfoActivity =
-                PendingIntent.getActivity(context, 0, intent, 0);
+                PendingIntent.getActivity(context.getApplicationContext(),
+                        /* requestCode= */ 0, intent, PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification
                 .Builder(context, STATUS_CHANNEL_ID)
                 .setContentTitle(context.getText(R.string.notification_bugreport_finished_title))

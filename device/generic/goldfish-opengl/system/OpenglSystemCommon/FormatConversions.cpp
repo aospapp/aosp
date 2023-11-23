@@ -35,11 +35,14 @@ static int get_rgb_offset(int row, int width, int rgbStride) {
     return row * width * rgbStride;
 }
 
+#define OMX_COLOR_FormatYUV420Planar 0x13
+
 bool gralloc_is_yuv_format(const int format) {
     switch (format) {
     case HAL_PIXEL_FORMAT_YV12:
     case HAL_PIXEL_FORMAT_YCbCr_420_888:
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
+    case OMX_COLOR_FormatYUV420Planar:
         return true;
 
     default:

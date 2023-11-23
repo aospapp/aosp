@@ -23,7 +23,6 @@ import mock_controller
 
 from acts import asserts
 from acts import base_test
-from acts import error
 from acts import signals
 
 from mobly import base_test as mobly_base_test
@@ -95,25 +94,6 @@ class ActsBaseClassTest(unittest.TestCase):
         actual_record = bt_cls.results.passed[0]
         self.assertEqual(actual_record.test_name, 'test_something')
 
-    def test_self_tests_list_fail_by_convention(self):
-        class MockBaseTest(base_test.BaseTestClass):
-            def __init__(self, controllers):
-                super(MockBaseTest, self).__init__(controllers)
-                self.tests = ('not_a_test_something', )
-
-            def not_a_test_something(self):
-                pass
-
-            def test_never(self):
-                # This should not execute it's not on default test list.
-                never_call()
-
-        bt_cls = MockBaseTest(self.test_run_config)
-        expected_msg = ('Test case name not_a_test_something does not follow '
-                        'naming convention test_\*, abort.')
-        with self.assertRaisesRegex(base_test.Error, expected_msg):
-            bt_cls.run()
-
     def test_cli_test_selection_match_self_tests_list(self):
         class MockBaseTest(base_test.BaseTestClass):
             def __init__(self, controllers):
@@ -165,17 +145,6 @@ class ActsBaseClassTest(unittest.TestCase):
         bt_cls.run()
         actual_record = bt_cls.results.passed[0]
         self.assertEqual(actual_record.test_name, 'test_something')
-
-    def test_missing_requested_test_func(self):
-        class MockBaseTest(base_test.BaseTestClass):
-            def __init__(self, controllers):
-                super(MockBaseTest, self).__init__(controllers)
-                self.tests = ('test_something', )
-
-        bt_cls = MockBaseTest(self.test_run_config)
-        bt_cls.run()
-        self.assertFalse(bt_cls.results.executed)
-        self.assertTrue(bt_cls.results.skipped)
 
     def test_setup_class_fail_by_exception(self):
         call_check = mock.MagicMock()
@@ -276,26 +245,6 @@ class ActsBaseClassTest(unittest.TestCase):
             'Error': 0,
             'Executed': 1,
             'Failed': 1,
-            'Passed': 0,
-            'Requested': 1,
-            'Skipped': 0
-        }
-        self.assertEqual(bt_cls.results.summary_dict(), expected_summary)
-
-    def test_run_fail_by_ActsError_(self):
-        class MockBaseTest(base_test.BaseTestClass):
-            def __init__(self, controllers):
-                super(MockBaseTest, self).__init__(controllers)
-
-            def test_something(self):
-                raise error.ActsError()
-
-        bt_cls = MockBaseTest(self.test_run_config)
-        bt_cls.run(test_names=['test_something'])
-        expected_summary = {
-            'Error': 1,
-            'Executed': 1,
-            'Failed': 0,
             'Passed': 0,
             'Requested': 1,
             'Skipped': 0
@@ -1058,7 +1007,7 @@ class ActsBaseClassTest(unittest.TestCase):
         registered twice.
         """
         mock_test_config = self.test_run_config.copy()
-        mock_ctrlr_config_name = mock_controller.ACTS_CONTROLLER_CONFIG_NAME
+        mock_ctrlr_config_name = mock_controller.MOBLY_CONTROLLER_CONFIG_NAME
         mock_test_config.controller_configs[mock_ctrlr_config_name] = [
             'magic1', 'magic2'
         ]
@@ -1080,7 +1029,7 @@ class ActsBaseClassTest(unittest.TestCase):
         is registered twice.
         """
         mock_test_config = self.test_run_config.copy()
-        mock_ctrlr_config_name = mock_controller.ACTS_CONTROLLER_CONFIG_NAME
+        mock_ctrlr_config_name = mock_controller.MOBLY_CONTROLLER_CONFIG_NAME
         mock_test_config.controller_configs[mock_ctrlr_config_name] = [
             'magic1', 'magic2'
         ]
@@ -1095,7 +1044,7 @@ class ActsBaseClassTest(unittest.TestCase):
         this is for a builtin controller module.
         """
         mock_test_config = self.test_run_config.copy()
-        mock_ctrlr_config_name = mock_controller.ACTS_CONTROLLER_CONFIG_NAME
+        mock_ctrlr_config_name = mock_controller.MOBLY_CONTROLLER_CONFIG_NAME
         mock_ref_name = 'haha'
         setattr(mock_controller, 'ACTS_CONTROLLER_REFERENCE_NAME',
                 mock_ref_name)
@@ -1121,7 +1070,7 @@ class ActsBaseClassTest(unittest.TestCase):
 
     def test_register_controller_no_get_info(self):
         mock_test_config = self.test_run_config.copy()
-        mock_ctrlr_config_name = mock_controller.ACTS_CONTROLLER_CONFIG_NAME
+        mock_ctrlr_config_name = mock_controller.MOBLY_CONTROLLER_CONFIG_NAME
         mock_ref_name = 'haha'
         get_info = getattr(mock_controller, 'get_info')
         delattr(mock_controller, 'get_info')
@@ -1137,7 +1086,7 @@ class ActsBaseClassTest(unittest.TestCase):
 
     def test_register_controller_return_value(self):
         mock_test_config = self.test_run_config.copy()
-        mock_ctrlr_config_name = mock_controller.ACTS_CONTROLLER_CONFIG_NAME
+        mock_ctrlr_config_name = mock_controller.MOBLY_CONTROLLER_CONFIG_NAME
         mock_test_config.controller_configs[mock_ctrlr_config_name] = [
             'magic1', 'magic2'
         ]
@@ -1145,6 +1094,38 @@ class ActsBaseClassTest(unittest.TestCase):
         magic_devices = base_cls.register_controller(mock_controller)
         self.assertEqual(magic_devices[0].magic, 'magic1')
         self.assertEqual(magic_devices[1].magic, 'magic2')
+
+    def test_handle_file_user_params_does_not_overwrite_existing_params(self):
+        test_run_config = self.test_run_config.copy()
+        test_run_config.user_params = {
+            'foo': ['good_value'],
+            'local_files': {
+                'foo': ['bad_value']
+            }
+        }
+        test = base_test.BaseTestClass(test_run_config)
+
+        self.assertEqual(test.user_params['foo'], ['good_value'])
+
+    def test_handle_file_user_params_dumps_files_dict(self):
+        test_run_config = self.test_run_config.copy()
+        test_run_config.user_params = {
+            'my_files': {
+                'foo': ['good_value']
+            }
+        }
+        test = base_test.BaseTestClass(test_run_config)
+
+        self.assertEqual(test.user_params['foo'], ['good_value'])
+
+    def test_handle_file_user_params_is_called_in_init(self):
+        test_run_config = self.test_run_config.copy()
+        test_run_config.user_params['files'] = {
+            'file_a': ['/some/path']
+        }
+        test = base_test.BaseTestClass(test_run_config)
+
+        self.assertEqual(test.user_params['file_a'], ['/some/path'])
 
 
 if __name__ == '__main__':

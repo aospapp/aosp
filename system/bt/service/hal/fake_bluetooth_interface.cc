@@ -76,6 +76,8 @@ bt_interface_t fake_bt_iface = {
     nullptr, /* get_avrcp_service */
     nullptr, /* obfuscate_address */
     nullptr, /* get_metric_id */
+    nullptr, /* set_dynamic_audio_buffer_size */
+    nullptr, /* generate_local_oob_data */
 };
 
 }  // namespace
@@ -140,9 +142,10 @@ void FakeBluetoothInterface::NotifyAdapterLocalLeFeaturesPropertyChanged(
 }
 
 void FakeBluetoothInterface::NotifyAclStateChangedCallback(
-    bt_status_t status, const RawAddress& remote_bdaddr, bt_acl_state_t state) {
+    bt_status_t status, const RawAddress& remote_bdaddr, bt_acl_state_t state,
+    bt_hci_error_code_t hci_reason) {
   for (auto& observer : observers_) {
-    observer.AclStateChangedCallback(status, remote_bdaddr, state);
+    observer.AclStateChangedCallback(status, remote_bdaddr, state, hci_reason);
   }
 }
 

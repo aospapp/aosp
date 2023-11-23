@@ -1,15 +1,49 @@
 // service library
-cc_library_shared {
+package {
+    default_applicable_licenses: [
+        "frameworks_av_services_mediatranscoding_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_services_mediatranscoding_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
+cc_library {
     name: "libmediatranscodingservice",
 
-    srcs: ["MediaTranscodingService.cpp"],
+    srcs: [
+        "MediaTranscodingService.cpp",
+        "SimulatedTranscoder.cpp",
+    ],
+
+    min_sdk_version: "29",
+    apex_available: [
+        "com.android.media",
+        "test_com.android.media",
+    ],
 
     shared_libs: [
+        "libandroid#31",
         "libbase",
         "libbinder_ndk",
+        "libcutils",
         "liblog",
         "libmediatranscoding",
         "libutils",
+    ],
+
+    export_shared_lib_headers: [
+        "libmediatranscoding",
     ],
 
     static_libs: [
@@ -31,8 +65,7 @@ cc_binary {
 
     shared_libs: [
         "libbase",
-        // TODO(hkuang): Use libbinder_ndk
-        "libbinder",
+        "libbinder_ndk",
         "libutils",
         "liblog",
         "libbase",
@@ -40,23 +73,15 @@ cc_binary {
         "libmediatranscodingservice",
     ],
 
+    min_sdk_version: "29",
+    apex_available: [
+        "com.android.media",
+        "test_com.android.media",
+    ],
+
     static_libs: [
         "mediatranscoding_aidl_interface-ndk_platform",
     ],
-
-    target: {
-        android: {
-            product_variables: {
-                malloc_not_svelte: {
-                    // Scudo increases memory footprint, so only enable on
-                    // non-svelte devices.
-                    shared_libs: ["libc_scudo"],
-                },
-            },
-        },
-    },
-
-    init_rc: ["mediatranscoding.rc"],
 
     cflags: [
         "-Werror",

@@ -108,4 +108,32 @@ public class WallpaperColorsTest {
 
         Assert.assertEquals(drawable.getBounds(), initialBounds);
     }
+
+    @Test
+    public void wallpaperColorsHints_default() {
+        WallpaperColors wallpaperColors = new WallpaperColors(Color.valueOf(Color.WHITE),
+                Color.valueOf(Color.BLACK), Color.valueOf(Color.GREEN));
+        Assert.assertEquals(wallpaperColors.getColorHints(), 0);
+    }
+
+    @Test
+    public void wallpaperColorsHints_ctor() {
+        WallpaperColors wallpaperColors = new WallpaperColors(Color.valueOf(Color.WHITE),
+                Color.valueOf(Color.BLACK), Color.valueOf(Color.GREEN),
+                WallpaperColors.HINT_SUPPORTS_DARK_TEXT);
+        Assert.assertEquals(wallpaperColors.getColorHints(),
+                WallpaperColors.HINT_SUPPORTS_DARK_TEXT);
+
+        wallpaperColors = new WallpaperColors(Color.valueOf(Color.WHITE),
+                Color.valueOf(Color.BLACK), Color.valueOf(Color.GREEN),
+                WallpaperColors.HINT_SUPPORTS_DARK_THEME);
+        Assert.assertEquals(wallpaperColors.getColorHints(),
+                WallpaperColors.HINT_SUPPORTS_DARK_THEME);
+
+        final int both = WallpaperColors.HINT_SUPPORTS_DARK_TEXT
+                | WallpaperColors.HINT_SUPPORTS_DARK_THEME;
+        wallpaperColors = new WallpaperColors(Color.valueOf(Color.WHITE),
+                Color.valueOf(Color.BLACK), Color.valueOf(Color.GREEN), both);
+        Assert.assertEquals(wallpaperColors.getColorHints(), both);
+    }
 }

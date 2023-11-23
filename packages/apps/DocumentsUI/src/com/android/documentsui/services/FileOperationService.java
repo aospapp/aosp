@@ -18,7 +18,6 @@ package com.android.documentsui.services;
 
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
-import androidx.annotation.IntDef;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -29,8 +28,10 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.UserManager;
-import androidx.annotation.VisibleForTesting;
 import android.util.Log;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.documentsui.R;
 import com.android.documentsui.base.Features;
@@ -97,7 +98,9 @@ public class FileOperationService extends Service implements Job.Listener {
 
     static final String NOTIFICATION_CHANNEL_ID = "channel_id";
 
-    private static final int POOL_SIZE = 2;  // "pool size", not *max* "pool size".
+    // This is a temporary solution, we will gray out the UI when a transaction is in progress to
+    // not enable users to make a transaction.
+    private static final int POOL_SIZE = 1;  // Allow only 1 executor operation
 
     @VisibleForTesting static final int NOTIFICATION_ID_PROGRESS = 1;
     private static final int NOTIFICATION_ID_FAILURE = 2;

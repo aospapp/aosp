@@ -26,6 +26,17 @@ table NanoappMessage {
 
   /// Vector containing arbitrary application-specific message data
   message:[ubyte] (required);
+
+  /// List of Android permissions that cover the contents of a message from a
+  /// nanoapp to the host.
+  /// These permissions are used to record and attribute access to
+  /// permissions-controlled resources.
+  message_permissions:uint;
+
+  /// List of Android permissions declared by the nanoapp / granted to the host.
+  /// For messages from a nanoaapp to the host, this must be a superset of
+  /// message_permissions.
+  permissions:uint;
 }
 
 table HubInfoRequest {}
@@ -74,6 +85,10 @@ table NanoappListEntry {
   /// nanoapps are typically used to leverage CHRE for some device functionality
   /// and do not interact via the context hub HAL.
   is_system:bool = false;
+
+  /// Nanoapp permissions, if supported. Nanoapp permissions are required on
+  /// CHRE API v1.5+, and are defined in chre/util/system/napp_permissions.h
+  permissions:uint;
 
   // TODO: memory usage
 }
@@ -139,6 +154,16 @@ table LoadNanoappRequest {
   /// Null-terminated ASCII string containing the file name that contains the
   /// app binary to be loaded.
   app_binary_file_name:[byte];
+
+  /// The nanoapp flag values from the nanoapp header defined in
+  /// build/build_template.mk. Refer to that file for more details.
+  app_flags:uint;
+
+  /// If true and fragmented loading is requested, the LoadNanoappResponse
+  /// for the last fragment will be sent after the fragment was confirmed
+  /// to be placed in memory and no additional response will be sent after
+  /// the nanoapp is linked and started in the framework.
+  respond_before_start:bool;
 }
 
 table LoadNanoappResponse {
@@ -231,6 +256,9 @@ table LowPowerMicAccessRelease {}
 /// An enum describing the setting type.
 enum Setting : byte {
   LOCATION = 0,
+  WIFI_AVAILABLE,
+  AIRPLANE_MODE,
+  MICROPHONE,
 }
 
 /// An enum describing the state of a setting.
@@ -246,6 +274,37 @@ table SettingChangeMessage {
 
   /// The new setting value
   state:SettingState = DISABLED;
+}
+
+/// Represents V2 log messages from CHRE.
+table LogMessageV2 {
+  /// A buffer containing formatted log data. A flat array is used here to avoid
+  /// overhead in serializing and deserializing. The format is as follows:
+  ///
+  /// uint8_t                 - LogBuffer log level (1 = error, 2 = warn,
+  ///                                                3 = info,  4 = debug,
+  ///                                                5 = verbose)
+  /// uint32_t, little-endian - timestamp in milliseconds
+  /// char[]                  - message to log
+  /// char, \0                - null-terminator
+  ///
+  /// This pattern repeats until the end of the buffer for multiple log
+  /// messages. The last byte will always be a null-terminator. There are no
+  /// padding bytes between these fields. Treat this like a packed struct and be
+  /// cautious with unaligned access when reading/writing this buffer.
+  buffer:[byte];
+
+  /// The number of logs dropped since CHRE started
+  num_logs_dropped:uint;
+}
+
+// A request to perform basic internal self-test in CHRE. The test to be performed
+// is platform-dependent, and can be used to check if the system is functioning
+// properly. This message should be used for debugging/testing.
+table SelfTestRequest {}
+table SelfTestResponse {
+  // True if the self-test succeeded.
+  success:bool;
 }
 
 /// A union that joins together all possible messages. Note that in FlatBuffers,
@@ -279,6 +338,11 @@ union ChreMessage {
   LowPowerMicAccessRelease,
 
   SettingChangeMessage,
+
+  LogMessageV2,
+
+  SelfTestRequest,
+  SelfTestResponse,
 }
 
 struct HostAddress {

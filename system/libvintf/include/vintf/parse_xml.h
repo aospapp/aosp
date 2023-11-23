@@ -24,34 +24,12 @@
 namespace android {
 namespace vintf {
 
-template<typename Object>
-struct XmlConverter {
-    XmlConverter() {}
-    virtual ~XmlConverter() {}
-
-    virtual const std::string &lastError() const = 0;
-
-    // deprecated. Use operator() instead.
-    virtual std::string serialize(
-        const Object& o, SerializeFlags::Type flags = SerializeFlags::EVERYTHING) const = 0;
-
-    // Serialize an object to XML.
-    virtual std::string operator()(
-        const Object& o, SerializeFlags::Type flags = SerializeFlags::EVERYTHING) const = 0;
-
-    // deprecated. Use operator() instead. These APIs sets lastError(). Kept for testing.
-    virtual bool deserialize(Object* o, const std::string& xml) = 0;
-    virtual bool operator()(Object* o, const std::string& xml) = 0;
-
-    // Deserialize an XML to object. Return whether it is successful. This API
-    // does not touch lastError(), but instead sets error message
-    // to optional "error" out parameter (which can be null).
-    virtual bool operator()(Object* o, const std::string& xml, std::string* error) const = 0;
-};
-
-extern XmlConverter<HalManifest>& gHalManifestConverter;
-
-extern XmlConverter<CompatibilityMatrix>& gCompatibilityMatrixConverter;
+std::string toXml(const HalManifest& o, SerializeFlags::Type flags = SerializeFlags::EVERYTHING);
+std::string toXml(const CompatibilityMatrix& o,
+                  SerializeFlags::Type flags = SerializeFlags::EVERYTHING);
+[[nodiscard]] bool fromXml(HalManifest* o, const std::string& xml, std::string* error = nullptr);
+[[nodiscard]] bool fromXml(CompatibilityMatrix* o, const std::string& xml,
+                           std::string* error = nullptr);
 
 } // namespace vintf
 } // namespace android

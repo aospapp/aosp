@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="title" msgid="9099755437807065998">"Տեղային համակարգի թարմացում"</string>
+    <string name="title" msgid="9099755437807065998">"Համակարգի լոկալ թարմացում"</string>
     <string name="invalid_file_type" msgid="5363346679377832590">"Սա թարմացման վավեր ֆայլ չէ"</string>
     <string name="unknown_file" msgid="4460330045071455406">"Անհայտ ֆայլ"</string>
     <string name="cannot_access_storage" msgid="692801523959625901">"Չհաջողվեց բացել հիշողության սարքը"</string>

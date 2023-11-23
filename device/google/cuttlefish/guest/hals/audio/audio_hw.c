@@ -45,11 +45,10 @@
 #define PCM_CARD 0
 #define PCM_DEVICE 0
 
-
-#define OUT_PERIOD_MS 15
+#define OUT_PERIOD_MS 10
 #define OUT_PERIOD_COUNT 4
 
-#define IN_PERIOD_MS 15
+#define IN_PERIOD_MS 10
 #define IN_PERIOD_COUNT 4
 
 struct generic_audio_device {
@@ -739,7 +738,8 @@ static int refine_output_parameters(uint32_t *sample_rate, audio_format_t *forma
 
 static int refine_input_parameters(uint32_t *sample_rate, audio_format_t *format, audio_channel_mask_t *channel_mask)
 {
-    static const uint32_t sample_rates [] = {8000, 11025, 16000, 22050, 44100, 48000};
+    // Crosvm only supports 48kHz streams for input
+    static const uint32_t sample_rates [] = {48000};
     static const int sample_rates_count = sizeof(sample_rates)/sizeof(uint32_t);
     bool inval = false;
     // Only PCM_16_bit is supported. If this is changed, stereo to mono drop
@@ -1322,6 +1322,12 @@ static char * adev_get_parameters(const struct audio_hw_device *dev,
     return strdup("");
 }
 
+static int adev_get_audio_port(struct audio_hw_device *dev,
+                               struct audio_port *port)
+{
+    return 0;
+}
+
 static int adev_init_check(const struct audio_hw_device *dev)
 {
     return 0;
@@ -1439,9 +1445,12 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     struct generic_audio_device *adev = (struct generic_audio_device *)dev;
     struct generic_stream_in *in;
     int ret = 0;
+    uint32_t orig_sample_rate = config->sample_rate;
+    audio_format_t orig_audio_format = config->format;
+    audio_channel_mask_t orig_channel_mask = config->channel_mask;
     if (refine_input_parameters(&config->sample_rate, &config->format, &config->channel_mask)) {
         ALOGE("Error opening input stream format %d, channel_mask %04x, sample_rate %u",
-              config->format, config->channel_mask, config->sample_rate);
+              orig_audio_format, orig_channel_mask, orig_sample_rate);
         ret = -EINVAL;
         goto error;
     }
@@ -1773,6 +1782,7 @@ static int adev_open(const hw_module_t* module, const char* name,
     adev->device.get_mic_mute = adev_get_mic_mute;
     adev->device.set_parameters = adev_set_parameters;       // no op
     adev->device.get_parameters = adev_get_parameters;       // no op
+    adev->device.get_audio_port = adev_get_audio_port;       // no op
     adev->device.get_input_buffer_size = adev_get_input_buffer_size;
     adev->device.open_output_stream = adev_open_output_stream;
     adev->device.close_output_stream = adev_close_output_stream;

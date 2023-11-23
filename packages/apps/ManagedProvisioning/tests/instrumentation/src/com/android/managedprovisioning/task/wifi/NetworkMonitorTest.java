@@ -16,19 +16,20 @@
 
 package com.android.managedprovisioning.task.wifi;
 
-import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
-import static org.mockito.Mockito.when;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
 import android.net.ConnectivityManager;
+import android.net.ConnectivityManager.NetworkCallback;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 
 import androidx.test.filters.SmallTest;
-
-import com.android.managedprovisioning.common.Utils;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -43,72 +44,160 @@ import org.mockito.MockitoAnnotations;
 public class NetworkMonitorTest {
 
     @Mock private Context mContext;
-    @Mock private Utils mUtils;
+    @Mock private ConnectivityManager mConnManager;
     @Mock private NetworkMonitor.NetworkConnectedCallback mCallback;
-    private NetworkMonitor mNetworkMonitor;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-
-        mNetworkMonitor = new NetworkMonitor(mContext, mUtils);
+        doReturn(mConnManager).when(mContext).getSystemService(Context.CONNECTIVITY_SERVICE);
+        doReturn(Context.CONNECTIVITY_SERVICE).when(mContext).getSystemServiceName(
+                ConnectivityManager.class);
     }
 
     @Test
     public void testStartListening() {
         // WHEN starting to listen for connectivity changes
-        mNetworkMonitor.startListening(mCallback);
+        final NetworkMonitor nm = new NetworkMonitor(mContext, false /* waitForValidated */);
+        nm.startListening(mCallback);
 
-        // THEN a broadcast receiver should be registered
-        ArgumentCaptor<BroadcastReceiver> receiverCaptor =
-                ArgumentCaptor.forClass(BroadcastReceiver.class);
-        verify(mContext).registerReceiver(receiverCaptor.capture(), eq(NetworkMonitor.FILTER));
+        // THEN a callback should be registered
+        final NetworkCallback cb = verifyCallbackRegistered();
 
-        // WHEN connectivity is not obtained and a broadcast is received
-        when(mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI)).thenReturn(
-                false);
-        receiverCaptor.getValue().onReceive(mContext,
-                new Intent(ConnectivityManager.CONNECTIVITY_ACTION));
-
-        // THEN no callback should be given
-        verifyZeroInteractions(mCallback);
-
-        // WHEN connectivity is obtained and a broadcast is received
-        when(mUtils.isConnectedToNetwork(mContext)).thenReturn(true);
-        receiverCaptor.getValue().onReceive(mContext,
-                new Intent(ConnectivityManager.CONNECTIVITY_ACTION));
+        // WHEN the network connects and a callback is received
+        final Network network = mock(Network.class);
+        cb.onAvailable(network);
+        cb.onBlockedStatusChanged(network, false);
 
         // THEN a callback should be given
         verify(mCallback).onNetworkConnected();
+
+        nm.stopListening();
     }
 
     @Test
     public void testStopListening() {
         // WHEN starting and stopping to listen for connectivity changes
-        mNetworkMonitor.startListening(mCallback);
-        mNetworkMonitor.stopListening();
+        final NetworkMonitor nm = new NetworkMonitor(mContext, false /* waitForValidated */);
+        nm.startListening(mCallback);
+        nm.stopListening();
 
-        // THEN a broadcast receiver should be registered and later unregistered
-        ArgumentCaptor<BroadcastReceiver> receiverCaptor =
-                ArgumentCaptor.forClass(BroadcastReceiver.class);
-        verify(mContext).registerReceiver(receiverCaptor.capture(), eq(NetworkMonitor.FILTER));
-        verify(mContext).unregisterReceiver(receiverCaptor.getValue());
+        // THEN a callback should be registered and later unregistered
+        final NetworkCallback cb = verifyCallbackRegistered();
+        verify(mConnManager).unregisterNetworkCallback(cb);
 
-        // WHEN connectivity is not obtained and a broadcast is received
-        when(mUtils.isConnectedToNetwork(mContext)).thenReturn(false);
-        receiverCaptor.getValue().onReceive(mContext,
-                new Intent(ConnectivityManager.CONNECTIVITY_ACTION));
+        // Even if an unexpected callback is received after unregistering
+        cb.onBlockedStatusChanged(mock(Network.class), false);
 
         // THEN no callback should be given
         verifyZeroInteractions(mCallback);
+    }
 
-        // WHEN connectivity is obtained and a broadcast is received
-        when(mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI)).thenReturn(
-                true);
-        receiverCaptor.getValue().onReceive(mContext,
-                new Intent(ConnectivityManager.CONNECTIVITY_ACTION));
+    @Test
+    public void testWaitForValidated_NoCallbackBeforeValidated() {
+        final NetworkMonitor nm = new NetworkMonitor(mContext, /* waitForValidated */ true);
+        nm.startListening(mCallback);
 
-        // THEN no callback should be given
+        final NetworkCallback cb = verifyCallbackRegistered();
+
+        final Network network = mock(Network.class);
+        cb.onAvailable(network);
+        cb.onBlockedStatusChanged(network, false);
+        cb.onCapabilitiesChanged(network, new NetworkCapabilities());
+
         verifyZeroInteractions(mCallback);
+
+        nm.stopListening();
+    }
+
+    @Test
+    public void testWaitForValidated_NetworkChange() {
+        final NetworkMonitor nm = new NetworkMonitor(mContext, /* waitForValidated */ true);
+        nm.startListening(mCallback);
+
+        final NetworkCallback cb = verifyCallbackRegistered();
+
+        final Network network = mock(Network.class);
+        cb.onAvailable(network);
+        cb.onBlockedStatusChanged(network, false);
+        cb.onCapabilitiesChanged(network, new NetworkCapabilities.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                .build());
+
+        verify(mCallback).onNetworkConnected();
+
+        final Network network2 = mock(Network.class);
+        cb.onAvailable(network2);
+        cb.onBlockedStatusChanged(network2, false);
+
+        // Callback is only called after the second network validates
+        verifyNoMoreInteractions(mCallback);
+
+        cb.onCapabilitiesChanged(network2, new NetworkCapabilities.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                .build());
+
+        verify(mCallback, times(2)).onNetworkConnected();
+
+        nm.stopListening();
+    }
+
+    @Test
+    public void testWaitForValidated_NoCallbackOnCapabilitiesChange() {
+        final NetworkMonitor nm = new NetworkMonitor(mContext, /* waitForValidated */ true);
+        nm.startListening(mCallback);
+
+        final NetworkCallback cb = verifyCallbackRegistered();
+
+        final Network network = mock(Network.class);
+        final NetworkCapabilities validatedCaps = new NetworkCapabilities.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                .build();
+        cb.onAvailable(network);
+        cb.onBlockedStatusChanged(network, false);
+        cb.onCapabilitiesChanged(network, validatedCaps);
+
+        verify(mCallback).onNetworkConnected();
+
+        cb.onCapabilitiesChanged(network, validatedCaps);
+
+        verifyNoMoreInteractions(mCallback);
+
+        nm.stopListening();
+    }
+
+    @Test
+    public void testWaitForValidated_ToggleBlocked() {
+        final NetworkMonitor nm = new NetworkMonitor(mContext, /* waitForValidated */ true);
+        nm.startListening(mCallback);
+
+        final NetworkCallback cb = verifyCallbackRegistered();
+
+        final Network network = mock(Network.class);
+        cb.onAvailable(network);
+        cb.onBlockedStatusChanged(network, false);
+        cb.onCapabilitiesChanged(network, new NetworkCapabilities.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                .build());
+
+        verify(mCallback).onNetworkConnected();
+
+        // Network gets blocked then unblocked. Callback only gets called after unblocking.
+        cb.onBlockedStatusChanged(network, true);
+
+        verifyNoMoreInteractions(mCallback);
+
+        cb.onBlockedStatusChanged(network, false);
+
+        verify(mCallback, times(2)).onNetworkConnected();
+
+        nm.stopListening();
+    }
+
+    private NetworkCallback verifyCallbackRegistered() {
+        final ArgumentCaptor<NetworkCallback> cbCaptor =
+                ArgumentCaptor.forClass(NetworkCallback.class);
+        verify(mConnManager).registerDefaultNetworkCallback(cbCaptor.capture());
+        return cbCaptor.getValue();
     }
 }

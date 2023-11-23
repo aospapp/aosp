@@ -607,8 +607,7 @@ EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL(kInterface);
 inline ArtField* FindFieldFast(uint32_t field_idx, ArtMethod* referrer, FindFieldType type,
                                size_t expected_size) {
   ScopedAssertNoThreadSuspension ants(__FUNCTION__);
-  ArtField* resolved_field =
-      referrer->GetDexCache()->GetResolvedField(field_idx, kRuntimePointerSize);
+  ArtField* resolved_field = referrer->GetDexCache()->GetResolvedField(field_idx);
   if (UNLIKELY(resolved_field == nullptr)) {
     return nullptr;
   }
@@ -759,12 +758,24 @@ inline bool NeedsClinitCheckBeforeCall(ArtMethod* method) {
   return method->IsStatic() && !method->IsConstructor();
 }
 
-inline HandleScope* GetGenericJniHandleScope(ArtMethod** managed_sp,
-                                             size_t num_handle_scope_references) {
-  // The HandleScope is just below the cookie and padding to align as uintptr_t.
-  const size_t offset =
-      RoundUp(HandleScope::SizeOf(num_handle_scope_references) + kJniCookieSize, sizeof(uintptr_t));
-  return reinterpret_cast<HandleScope*>(reinterpret_cast<uint8_t*>(managed_sp) - offset);
+inline jobject GetGenericJniSynchronizationObject(Thread* self, ArtMethod* called)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  DCHECK(!called->IsCriticalNative());
+  DCHECK(!called->IsFastNative());
+  DCHECK(self->GetManagedStack()->GetTopQuickFrame() != nullptr);
+  DCHECK_EQ(*self->GetManagedStack()->GetTopQuickFrame(), called);
+  if (called->IsStatic()) {
+    // Static methods synchronize on the declaring class object.
+    // The `jclass` is a pointer to the method's declaring class.
+    return reinterpret_cast<jobject>(called->GetDeclaringClassAddressWithoutBarrier());
+  } else {
+    // Instance methods synchronize on the `this` object.
+    // The `this` reference is stored in the first out vreg in the caller's frame.
+    // The `jobject` is a pointer to the spill slot.
+    uint8_t* sp = reinterpret_cast<uint8_t*>(self->GetManagedStack()->GetTopQuickFrame());
+    size_t frame_size = RuntimeCalleeSaveFrame::GetFrameSize(CalleeSaveType::kSaveRefsAndArgs);
+    return reinterpret_cast<jobject>(sp + frame_size + static_cast<size_t>(kRuntimePointerSize));
+  }
 }
 
 }  // namespace art

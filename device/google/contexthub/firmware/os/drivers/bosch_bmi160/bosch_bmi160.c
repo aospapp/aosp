@@ -129,9 +129,16 @@
 #define BMI160_SPI_WRITE          0x00
 #define BMI160_SPI_READ           0x80
 
+#ifndef BMI160_SPI_BUS_ID
 #define BMI160_SPI_BUS_ID         1
+#endif
+#ifndef BMI160_SPI_SPEED_HZ
 #define BMI160_SPI_SPEED_HZ       8000000
+#endif
 #define BMI160_SPI_MODE           3
+#ifndef BMI160_SPI_CS_PIN
+#define BMI160_SPI_CS_PIN         GPIO_PB(12)
+#endif
 
 #ifndef BMI160_INT1_IRQ
 #define BMI160_INT1_IRQ           EXTI9_5_IRQn
@@ -400,7 +407,7 @@ enum SensorState {
 static const char * getStateName(int32_t s) {
     // keep this in sync with SensorState
     static const char* const l[] = {"BOOT", "VERIFY_ID", "INIT", "IDLE", "PWR_UP",
-            "PWR-DN", "CFG_CHANGE", "INT1", "INT2", "CALIB", "STEP_CNT", "SYNC", "SAVE_CALIB"};
+            "PWR-DN", "CFG_CHANGE", "INT1", "INT2", "CALIB", "TEST", "STEP_CNT", "SYNC", "SAVE_CALIB"};
     if (s >= 0 && s < SENSOR_NUM_OF_STATE) {
         return l[s];
     }
@@ -3825,7 +3832,7 @@ static bool startTask(uint32_t task_id)
     T(mode).cpha = SPI_CPHA_TRAILING_EDGE;
     T(mode).nssChange = true;
     T(mode).format = SPI_FORMAT_MSB_FIRST;
-    T(cs) = GPIO_PB(12);
+    T(cs) = BMI160_SPI_CS_PIN;
 
     T(watermark) = 0;
 

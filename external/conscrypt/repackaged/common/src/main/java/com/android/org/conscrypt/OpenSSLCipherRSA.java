@@ -382,7 +382,7 @@ public abstract class OpenSSLCipherRSA extends CipherSpi {
      * @hide This class is not part of the Android public SDK API
      */
     public abstract static class DirectRSA extends OpenSSLCipherRSA {
-        public DirectRSA(int padding) {
+        protected DirectRSA(int padding) {
             super(padding);
         }
 

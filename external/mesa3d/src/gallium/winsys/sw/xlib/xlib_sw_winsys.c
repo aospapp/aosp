@@ -35,11 +35,11 @@
 #include "pipe/p_format.h"
 #include "pipe/p_context.h"
 #include "util/u_inlines.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
 
-#include "state_tracker/xlibsw_api.h"
+#include "frontend/xlibsw_api.h"
 #include "xlib_sw_winsys.h"
 
 #include <X11/Xlib.h>
@@ -49,7 +49,7 @@
 #include <sys/shm.h>
 #include <X11/extensions/XShm.h>
 
-DEBUG_GET_ONCE_BOOL_OPTION(xlib_no_shm, "XLIB_NO_SHM", FALSE)
+DEBUG_GET_ONCE_BOOL_OPTION(xlib_no_shm, "XLIB_NO_SHM", false)
 
 /**
  * Display target for Xlib winsys.
@@ -126,7 +126,8 @@ alloc_shm(struct xlib_displaytarget *buf, unsigned size)
    shminfo->shmid = -1;
    shminfo->shmaddr = (char *) -1;
 
-   shminfo->shmid = shmget(IPC_PRIVATE, size, IPC_CREAT|0777);
+   /* 0600 = user read+write */
+   shminfo->shmid = shmget(IPC_PRIVATE, size, IPC_CREAT | 0600);
    if (shminfo->shmid < 0) {
       return NULL;
    }
@@ -219,13 +220,13 @@ alloc_ximage(struct xlib_displaytarget *xlib_dt,
                                    8, 0);
 }
 
-static boolean
+static bool
 xlib_is_displaytarget_format_supported(struct sw_winsys *ws,
                                        unsigned tex_usage,
                                        enum pipe_format format)
 {
    /* TODO: check visuals or other sensible thing here */
-   return TRUE;
+   return true;
 }
 
 
@@ -296,8 +297,8 @@ static void
 xlib_sw_display(struct xlib_drawable *xlib_drawable,
                 struct sw_displaytarget *dt)
 {
-   static boolean no_swap = 0;
-   static boolean firsttime = 1;
+   static bool no_swap = false;
+   static bool firsttime = true;
    struct xlib_displaytarget *xlib_dt = xlib_displaytarget(dt);
    Display *display = xlib_dt->display;
    XImage *ximage;
@@ -446,13 +447,13 @@ xlib_displaytarget_from_handle(struct sw_winsys *winsys,
 }
 
 
-static boolean
+static bool
 xlib_displaytarget_get_handle(struct sw_winsys *winsys,
                               struct sw_displaytarget *dt,
                               struct winsys_handle *whandle)
 {
    assert(0);
-   return FALSE;
+   return false;
 }
 
 

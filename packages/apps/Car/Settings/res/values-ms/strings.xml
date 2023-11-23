@@ -22,12 +22,8 @@
     <string name="display_settings" msgid="5325515247739279185">"Paparan"</string>
     <string name="brightness" msgid="2919605130898772866">"Tahap kecerahan"</string>
     <string name="auto_brightness_title" msgid="9124647862844666581">"Kecerahan boleh suai"</string>
-    <string name="auto_brightness_summary" msgid="4741887033140384352">"Optimumkan tahap kecerahan untuk cahaya yang tersedia"</string>
+    <string name="auto_brightness_summary" msgid="2002570577219479702">"Laraskan kecerahan skrin mengikut persekitaran"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"Cahaya Malam dihidupkan"</string>
-    <string name="keywords_display" msgid="3978416985146943922">"skrin, skrin sentuh"</string>
-    <string name="keywords_display_brightness_level" msgid="3956411572536209195">"malapkan skrin, skrin sentuh, bateri"</string>
-    <string name="keywords_display_auto_brightness" msgid="2700310050333468752">"malapkan skrin, skrin sentuh, bateri"</string>
-    <string name="keywords_display_night_display" msgid="2922294576679769957">"malapkan skrin, malam, seri warna"</string>
     <string name="night_mode_tile_label" msgid="6603597795502131664">"Mod malam"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Rangkaian &amp; Internet"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Rangkaian mudah alih"</string>
@@ -84,6 +80,10 @@
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"Tetapkan amaran penggunaan data"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"Tetapkan had penggunaan data"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"Tetapkan"</string>
+    <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"Rangkaian OEM"</string>
+    <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"%1$s digunakan %2$s - %3$s"</string>
+    <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"Sertai rangkaian lain"</string>
+    <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"Pilihan rangkaian"</string>
     <string name="wifi_settings" msgid="7701477685273103841">"Wi‑Fi"</string>
     <string name="wifi_starting" msgid="473253087503153167">"Menghidupkan Wi‑Fi…"</string>
     <string name="wifi_stopping" msgid="3534173972547890148">"Mematikan Wi‑Fi…"</string>
@@ -93,6 +93,8 @@
     <string name="wifi_failed_connect_message" msgid="4447498225022147324">"Gagal menyambung ke rangkaian"</string>
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"Tambah rangkaian"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"Sambung"</string>
+    <string name="wifi_connecting" msgid="1930665730621677960">"Menyambung…"</string>
+    <string name="wifi_not_in_range_message" msgid="2617126307140203787">"Rangkaian di luar liputan"</string>
     <string name="wifi_password" msgid="5565632142720292397">"Kata Laluan"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"Tunjukkan kata laluan"</string>
     <string name="wifi_no_network_name" msgid="6819604337231313594">"Sila masukkan nama rangkaian"</string>
@@ -152,11 +154,19 @@
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5.0 GHz"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Pilih jalur untuk tempat liputan Wi-Fi:"</string>
     <string name="tether_settings_title_all" msgid="4663704772599383169">"Tempat liputan &amp; penambatan"</string>
+    <string name="hotspot_settings_title" msgid="8220814387592756713">"Tempat liputan"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"Matikan tempat liputan secara automatik"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"Tempat liputan Wi‑Fi akan dimatikan jika tiada peranti disambungkan"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> mahu menghidupkan Wi-Fi"</string>
     <string name="wifi_ask_disable" msgid="2949290055916181553">"<xliff:g id="REQUESTER">%s</xliff:g> mahu mematikan Wi-Fi"</string>
     <string name="wifi_error" msgid="3105105447117289410">"Ralat"</string>
+    <string name="network_connection_request_dialog_title" msgid="8449606155059098762">"Peranti untuk digunakan dengan <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
+    <string name="network_connection_timeout_dialog_message" msgid="2536299451668687586">"Tiada peranti ditemui. Pastikan peranti dihidupkan dan tersedia untuk menyambung."</string>
+    <string name="network_connection_timeout_dialog_ok" msgid="2228662561126434792">"Cuba lagi"</string>
+    <string name="network_connection_errorstate_dialog_message" msgid="4268321315241218483">"Sesuatu telah berlaku. Aplikasi telah membatalkan permintaan untuk memilih peranti."</string>
+    <string name="network_connection_connect_successful" msgid="7893957133113302365">"Sambungan berjaya"</string>
+    <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"Tunjukkan semua"</string>
+    <string name="progress_scanning" msgid="7191583064717479795">"Mencari"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"Peranti tidak bernama"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Peranti gandingan"</string>
@@ -183,9 +193,14 @@
     <string name="bluetooth_ask_discovery_no_name" msgid="164397600370102369">"Terdapat apl yang mahu memperlihatkan unit kepala anda kepada peranti Bluetooth lain selama <xliff:g id="TIMEOUT">%1$d</xliff:g> saat."</string>
     <string name="bluetooth_ask_enablement_and_discovery" msgid="5487502083015708674">"<xliff:g id="APP_NAME">%1$s</xliff:g> mahu menghidupkan Bluetooth dan memperlihatkan unit kepala anda kepada peranti lain selama <xliff:g id="TIMEOUT">%2$d</xliff:g> saat."</string>
     <string name="bluetooth_ask_enablement_and_discovery_no_name" msgid="907153034209916282">"Terdapat apl yang mahu menghidupkan Bluetooth dan memperlihatkan unit kepala anda kepada peranti lain selama <xliff:g id="TIMEOUT">%1$d</xliff:g> saat."</string>
+    <string name="bluetooth_state_switch_summary" msgid="171929910916432266">"Kelihatan sebagai %1$s pada peranti lain"</string>
+    <string name="bluetooth_my_devices" msgid="6352010339607939612">"Peranti saya"</string>
+    <string name="bluetooth_previously_connected" msgid="5206229557831180323">"Disambungkan sebelum ini"</string>
+    <string name="bluetooth_device_connected_toast" msgid="4614765282582494488">"%1$s disambungkan"</string>
+    <string name="bluetooth_device_disconnected_toast" msgid="8889122688851623920">"%1$s diputuskan sambungan"</string>
     <string name="bluetooth_notif_ticker" msgid="7192577740198156792">"Permintaan penggandingan Bluetooth"</string>
     <string name="bluetooth_device_context_pair_connect" msgid="3138105800372470422">"Gandingkan &amp; sambung"</string>
-    <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"Kod penggandingan Bluetooth"</string>
+    <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"Kod gandingan Bluetooth"</string>
     <string name="bluetooth_enable_alphanumeric_pin" msgid="1636575922217263060">"PIN mengandungi huruf atau simbol"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="5955236916732265593">"Taip kod berpasangan kemudian tekan Return atau Enter"</string>
     <string name="bluetooth_pairing_request" msgid="4769675459526556801">"Gandingkan dengan <xliff:g id="DEVICE_NAME">%1$s</xliff:g>?"</string>
@@ -220,6 +235,11 @@
     <string name="ringtone_title" msgid="8370531086214517972">"Nada dering telefon"</string>
     <string name="notification_ringtone_title" msgid="8661716239594010288">"Bunyi pemberitahuan lalai"</string>
     <string name="alarm_ringtone_title" msgid="3257364170646440908">"Bunyi penggera lalai"</string>
+    <string name="ringtone_picker_save_title" msgid="4388137432517227001">"Simpan"</string>
+    <string name="sound_alert_sounds" msgid="6838044721739163867">"Bunyi makluman"</string>
+    <string name="sound_alert_sounds_summary" msgid="816501423095651281">"Nada dering, pemberitahuan, penggera"</string>
+    <string name="display_brightness" msgid="5718970880488110840">"Kecerahan"</string>
+    <string name="display_night_mode_summary" msgid="4939425286027546230">"Laraskan skrin untuk cahaya malap"</string>
     <string name="units_settings" msgid="402325305096925886">"Unit"</string>
     <string name="units_speed_title" msgid="7115143916747108160">"Kelajuan"</string>
     <string name="units_distance_title" msgid="6257691565990474635">"Jarak"</string>
@@ -272,24 +292,36 @@
     <string name="all_applications" msgid="7798210477486822168">"Tunjukkan semua apl"</string>
     <string name="default_applications" msgid="1558183275638697087">"Apl lalai"</string>
     <string name="app_permissions" msgid="32799922508313948">"Kebenaran apl"</string>
-    <string name="app_permissions_summary" msgid="1842858532315056367">"Apl menggunakan <xliff:g id="APPS">%1$s</xliff:g>"</string>
+    <string name="app_permissions_summary" msgid="5402214755935368418">"Kawal akses apl kepada data anda"</string>
     <string name="applications_settings" msgid="794261395191035632">"Maklumat apl"</string>
     <string name="force_stop" msgid="2153183697014720520">"Henti paksa"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"Henti paksa?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Jika anda menghentikan apl secara paksa, fungsinya mungkin terganggu."</string>
+    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"Matikan perlindungan prestasi?"</string>
+    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"Jika anda berbuat sedemikian, perisian dan perkakasan anda mungkin tidak berfungsi dengan baik."</string>
+    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"Biarkan hidup"</string>
+    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"Matikan"</string>
     <string name="disable_text" msgid="4358165448648990820">"Lumpuhkan"</string>
     <string name="enable_text" msgid="1794971777861881238">"Dayakan"</string>
     <string name="uninstall_text" msgid="277907956072833012">"Nyahpasang"</string>
-    <string name="app_disable_dialog_text" msgid="7731155411006654025">"Jika anda melumpuhkan apl ini, Android dan apl lain mungkin tidak berfungsi seperti yang dimaksudkan lagi."</string>
+    <string name="app_disable_dialog_text" msgid="7731155411006654025">"Jika anda melumpuhkan apl ini, Android dan apl lain mungkin tidak berfungsi seperti yang sepatutnya."</string>
     <string name="app_disable_dialog_positive" msgid="4448684722791563349">"Lumpuhkan apl"</string>
-    <string name="not_installed" msgid="4218816013370552746">"Tidak dipasang untuk pengguna ini"</string>
+    <string name="not_installed" msgid="4163454337822508007">"Tidak dipasang untuk profil ini"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Kebenaran"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Pemberitahuan"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"Storan &amp; cache"</string>
+    <string name="peak_performance_label" msgid="1592816366516845648">"Pastikan prestasi puncak"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Versi: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Tiada kebenaran diberikan"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Tiada kebenaran diminta"</string>
+    <string name="unused_apps" msgid="648471933781010395">"Apl yang tidak digunakan"</string>
+    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> apl yang tidak digunakan</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> apl tidak digunakan</item>
+    </plurals>
+    <string name="unused_apps_switch" msgid="4433958286200341563">"Alih keluar kebenaran dan kosongkan ruang"</string>
     <string name="storage_type_internal" msgid="8918688427078709570">"%s dalam storan dalaman"</string>
+    <string name="peak_performance_summary" msgid="2450911487290019786">"Jika perlu, tutup apl untuk mengelakkan penggunaan sumber yang berlebihan"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Penggunaan data"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Penggunaan data apl"</string>
     <string name="computing_size" msgid="5791407621793083965">"Mengira…"</string>
@@ -326,9 +358,17 @@
     <string name="app_link_open_ask" msgid="7242075065136237456">"Tanya setiap kali"</string>
     <string name="app_link_open_never" msgid="2173174327831792316">"Jangan buka dalam apl ini"</string>
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"Pautan yang disokong"</string>
+    <string name="apps_settings_title" msgid="3982535942394315336">"Apl"</string>
+    <string name="apps_recently_opened" msgid="5320377037971195984">"Dibuka baru-baru ini"</string>
+    <string name="apps_view_all_apps_title" msgid="2322120325505230530">"Lihat semua apl %1$d"</string>
+    <string name="apps_permission_manager_title" msgid="8776335943862484131">"Pengurus kebenaran"</string>
+    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"Kawal akses apl kepada data anda"</string>
+    <string name="apps_default_apps_summary" msgid="2017792579839972926">"Untuk Pembantu dan banyak lagi"</string>
+    <string name="apps_special_app_access_summary" msgid="6464767436309742163">"Untuk sistem dan tetapan lain"</string>
     <string name="special_access" msgid="5730278220917123811">"Akses apl khas"</string>
     <string name="show_system" msgid="4401355756969485287">"Tunjukkan sistem"</string>
     <string name="hide_system" msgid="8845453295584638040">"Sembunyikan sistem"</string>
+    <string name="hide_system_apps" msgid="6583947381056154020">"Sembunyikan apl sistem"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"Ubah suai tetapan sistem"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"Kebenaran ini membolehkan apl mengubah suai tetapan sistem."</string>
     <string name="notification_access_title" msgid="1467340098885813473">"Akses pemberitahuan"</string>
@@ -349,8 +389,12 @@
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Tiada permintaan lokasi terbaharu"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Kebenaran tahap apl"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Perkhidmatan Lokasi"</string>
+    <string name="location_use_location_title" msgid="117735895374606680">"Gunakan lokasi"</string>
+    <string name="location_settings_footer" msgid="296892848338100051">"Lokasi mungkin menggunakan sumber seperti GPS, Wi-Fi, rangkaian mudah alih dan penderia untuk menganggarkan lokasi peranti anda."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Sistem"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Kemas kini sistem"</string>
+    <string name="system_advanced_title" msgid="6303355131691523362">"Lanjutan"</string>
+    <string name="system_advanced_summary" msgid="5833643795981791953">"Perihal, maklumat undang-undang, tetapan semula dan banyak lagi"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Versi Android"</string>
     <string name="security_patch" msgid="4794276590178386903">"Tahap tampung keselamatan Android"</string>
     <string name="hardware_info" msgid="3973165746261507658">"Model &amp; perkakasan"</string>
@@ -412,22 +456,21 @@
     <string name="reset_app_pref_desc" msgid="579392665146962149">"Tindakan ini akan menetapkan semula semua pilihan untuk:\n\n"<li>"Apl dilumpuhkan"</li>\n<li>"Pemberitahuan apl dilumpuhkan"</li>\n<li>"Aplikasi lalai untuk tindakan"</li>\n<li>"Sekatan data latar belakang untuk apl"</li>\n<li>"Sebarang sekatan kebenaran"</li>\n\n"Anda tidak akan kehilangan sebarang data apl."</string>
     <string name="reset_app_pref_button_text" msgid="6270820447321231609">"Tetapkan semula apl"</string>
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Pilihan apl telah ditetapkan semula"</string>
-    <string name="master_clear_title" msgid="8515335233363214414">"Padamkan semua data (ttpn semula kilang)"</string>
-    <string name="master_clear_desc" msgid="9058719802779893535">"Tindakan ini akan memadamkan semua data daripada unit kepala kenderaan anda, termasuk:\n\n"<li>"Akaun Google anda"</li>\n<li>"Data dan tetapan sistem dan apl"</li>\n<li>"Apl yang dimuat turun"</li></string>
-    <string name="master_clear_accounts" msgid="7797522012993567494">"Pada masa ini, anda telah dilog masuk ke akaun berikut:"</string>
-    <string name="master_clear_other_users_present" msgid="8383376863095743337">"Terdapat pengguna lain pada kenderaan ini."</string>
-    <string name="master_clear_button_text" msgid="8010754220392741160">"Tetapkan semula kenderaan"</string>
-    <string name="master_clear_confirm_title" msgid="8646455623132887370">"Tetapkan semula?"</string>
-    <string name="master_clear_confirm_desc" msgid="8920446291698038558">"Padamkan semua maklumat peribadi anda dan aplikasi yang dimuat turun? Anda tidak boleh membuat asal tindakan ini!"</string>
-    <string name="master_clear_confirm_button_text" msgid="7981254968588121786">"Padamkan semua"</string>
-    <string name="master_clear_progress_title" msgid="7087480656932674774">"Memadam"</string>
-    <string name="master_clear_progress_text" msgid="3440789441935303176">"Sila tunggu..."</string>
+    <string name="factory_reset_title" msgid="4019066569214122052">"Padam semua data (tetapan semula kilang)"</string>
+    <string name="factory_reset_summary" msgid="854815182943504327">"Padamkan semua data dan profil daripada sistem maklumat hibur"</string>
+    <string name="factory_reset_desc" msgid="1688333312943433244">"Tindakan ini akan memadamkan semua data daripada sistem maklumat hibur kenderaan anda, termasuk:\n\n"<li>"Akaun Google anda"</li>\n<li>"Data dan tetapan sistem serta apl"</li>\n<li>"Apl yang dimuat turun"</li></string>
+    <string name="factory_reset_accounts" msgid="5523956654938834209">"Pada masa ini, anda telah dilog masuk ke akaun berikut:"</string>
+    <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Profil lain telah disediakan untuk kenderaan ini."</string>
+    <string name="factory_reset_button_text" msgid="2626666247051368256">"Padamkan semua data"</string>
+    <string name="factory_reset_confirm_title" msgid="3354542161765761879">"Padamkan semua data?"</string>
+    <string name="factory_reset_confirm_desc" msgid="2037199381372030510">"Tindakan ini akan memadamkan semua data profil peribadi, akaun dan apl yang telah anda muat turun pada sistem maklumat hibur ini.\n\nAnda tidak boleh membuat asal tindakan ini."</string>
+    <string name="factory_reset_confirm_button_text" msgid="1797490544756481809">"Padamkan semua"</string>
+    <string name="factory_reset_progress_title" msgid="4580937077054738173">"Memadam"</string>
+    <string name="factory_reset_progress_text" msgid="7704636573522634757">"Sila tunggu..."</string>
     <string name="date_and_time_settings_title" msgid="4058492663544475485">"Tarikh &amp; masa"</string>
     <string name="date_and_time_settings_summary" msgid="7669856855390804666">"Tetapkan tarikh, masa, zon waktu &amp; format"</string>
-    <string name="date_time_auto" msgid="3570339569471779767">"Tarikh &amp; masa automatik"</string>
-    <string name="date_time_auto_summary" msgid="3311706425095342759">"Gunakan waktu yang diberikan oleh rangkaian"</string>
-    <string name="zone_auto" msgid="3701878581920206160">"Zon waktu automatik"</string>
-    <string name="zone_auto_summary" msgid="4345856882906981864">"Gunakan zon waktu yang diberikan oleh rangkaian"</string>
+    <string name="date_time_auto" msgid="6018635902717385962">"Tetapkan masa secara automatik"</string>
+    <string name="zone_auto" msgid="4174874778459184605">"Tetapkan zon waktu secara automatik"</string>
     <string name="date_time_24hour_title" msgid="3025576547136168692">"Format 24 jam"</string>
     <string name="date_time_24hour" msgid="1137618702556486913">"Gunakan format 24 jam"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"Masa"</string>
@@ -442,35 +485,36 @@
     <string name="time_picker_title" msgid="7436045944320504639">"Masa"</string>
     <string name="user_admin" msgid="1535484812908584809">"Pentadbir"</string>
     <string name="signed_in_admin_user" msgid="1267225622818673274">"Dilog masuk sebagai pentadbir"</string>
-    <string name="grant_admin_permissions_title" msgid="4628430467359951437">"Semua kebenaran pentadbir"</string>
+    <string name="grant_admin_permissions_title" msgid="4496239754512028468">"Berikan kebenaran kepada pentadbir?"</string>
     <string name="grant_admin_permissions_button_text" msgid="988239414372882401">"Jadikan Pentadbir"</string>
-    <string name="grant_admin_permissions_message" msgid="1751910369004774830">"Pengguna tersebut dapat memadamkan pengguna, termasuk Pentadbir lain, dan membuat tetapan semula kilang pada sistem."</string>
+    <string name="grant_admin_permissions_message" msgid="5205433947453539566">"Pentadbir dapat memadam profil lain, termasuk bagi pentadbir lain dan membuat tetapan semula kilang untuk sistem maklumat hibur."</string>
     <string name="action_not_reversible_message" msgid="740401337875726973">"Tindakan ini tidak boleh diterbalikkan."</string>
     <string name="confirm_grant_admin" msgid="7852596890218647682">"Ya, jadikan pentadbir"</string>
-    <string name="create_user_permission_title" msgid="7781550880565935298">"Buat pengguna baharu"</string>
+    <string name="create_user_permission_title" msgid="2402003632264628632">"Buat profil baharu"</string>
     <string name="outgoing_calls_permission_title" msgid="1230180443712099293">"Buat panggilan telefon"</string>
     <string name="sms_messaging_permission_title" msgid="6099328509729071243">"Pmsjn melalui data mdh alih kereta"</string>
     <string name="install_apps_permission_title" msgid="3099705360827925296">"Pasang apl baharu"</string>
     <string name="uninstall_apps_permission_title" msgid="8448422340567430659">"Nyahpasang apl"</string>
-    <string name="user_add_user_menu" msgid="5319151436895941496">"Tambah pengguna"</string>
-    <string name="user_new_user_name" msgid="7115771396412339662">"Pengguna baharu"</string>
-    <string name="user_add_user_title" msgid="7458813670614932479">"Tambah pengguna baharu?"</string>
-    <string name="user_add_user_message_setup" msgid="6030901156040053106">"Apabila anda menambahkan pengguna baharu, orang itu perlu menyediakan ruang mereka."</string>
-    <string name="user_add_user_message_update" msgid="1528170913388932459">"Mana-mana pengguna boleh mengemas kini apl untuk semua pengguna lain."</string>
-    <string name="user_limit_reached_title" msgid="8803355734556061238">"Had pengguna dicapai"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="2651922256448824747">
-      <item quantity="other">Anda boleh membuat hingga <xliff:g id="COUNT">%d</xliff:g> pengguna.</item>
-      <item quantity="one">Hanya satu pengguna yang boleh dibuat.</item>
+    <string name="user_add_user_menu" msgid="4125869008006021799">"Tambah profil"</string>
+    <string name="user_new_user_name" msgid="906698527658609819">"Profil baharu"</string>
+    <string name="user_add_user_title" msgid="6296827596015729982">"Tambah profil baharu?"</string>
+    <string name="user_add_user_message_setup" msgid="812616230454605159">"Selepas anda mencipta profil baharu, orang itu perlu menyesuaikan profil untuk diri sendiri."</string>
+    <string name="user_add_user_message_update" msgid="3836353291078729240">"Apl boleh dikemas kini daripada mana-mana profil untuk kegunaan semua profil lain."</string>
+    <string name="user_limit_reached_title" msgid="5677729355746623293">"Had profil dicapai"</string>
+    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
+      <item quantity="other">Anda boleh membuat sehingga <xliff:g id="COUNT">%d</xliff:g> profil.</item>
+      <item quantity="one">Hanya satu profil boleh dibuat.</item>
     </plurals>
-    <string name="add_user_error_title" msgid="3206300411663817038">"Gagal membuat pengguna baharu"</string>
-    <string name="delete_user_dialog_title" msgid="3422867434431562007">"Padamkan pengguna ini?"</string>
-    <string name="delete_user_dialog_message" msgid="4346777604351785057">"Semua apl dan data akan dipadamkan."</string>
-    <string name="delete_user_error_title" msgid="7609819398530124827">"Gagal memadamkan pengguna."</string>
+    <string name="add_user_error_title" msgid="7589792057846396341">"Tidak dapat mencipta profil baharu"</string>
+    <string name="delete_user_dialog_title" msgid="575517556232943687">"Padamkan profil ini?"</string>
+    <string name="delete_user_dialog_message" msgid="3916865958419051299">"Semua apl dan data untuk profil ini akan dipadamkan"</string>
+    <string name="delete_user_error_title" msgid="6422249596301690254">"Tidak dapat memadam profil."</string>
+    <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"Profil ini akan dipadamkan apabila anda menukar profil atau menghidupkan semula kenderaan."</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"Ketepikan"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"Cuba semula"</string>
-    <string name="delete_last_user_dialog_title" msgid="3644392025675369680">"Padamkan pengguna terakhir?"</string>
-    <string name="delete_last_user_admin_created_message" msgid="1856897729010319054">"Selepas memadamkan satu-satunya pengguna yang tinggal untuk kereta ini, pengguna pentadbir baharu akan dibuat."</string>
-    <string name="delete_last_user_system_setup_required_message" msgid="8550730509371697989">"Semua data, tetapan dan apl yang dikaitkan dengan pengguna ini akan dipadamkan. Anda perlu menyediakan sistem sekali lagi."</string>
+    <string name="delete_last_user_dialog_title" msgid="3454454005909291260">"Padamkan profil terakhir yang tinggal?"</string>
+    <string name="delete_last_user_delete_warning" msgid="7189499586859833988">"Jika anda memadam satu-satunya profil yang tinggal untuk kenderaan ini, semua data, tetapan dan apl yang dikaitkan dengan profil ini akan dipadamkan."</string>
+    <string name="delete_last_user_system_setup_required_message" msgid="726196874941282088">"Selepas penetapan semula, anda boleh menyediakan profil baharu."</string>
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Pilih pentadbir baharu"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Anda memerlukan sekurang-kurangnya satu pentadbir. Untuk memadamkan pentadbir ini, pilih pengganti dahulu."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Pilih pentadbir"</string>
@@ -480,10 +524,11 @@
     <string name="current_user_name" msgid="3813671533249316823">"Anda (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Nama"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Tidak disediakan"</string>
-    <string name="edit_user_name_title" msgid="6890782937520262478">"Edit nama pengguna"</string>
+    <string name="edit_user_name_title" msgid="1118500707473139995">"Edit nama profil"</string>
     <string name="name_input_blank_error" msgid="2088850865880984123">"Medan tidak boleh kosong."</string>
-    <string name="name_input_invalid_error" msgid="3523545780580744273">"Nama pengguna yang dimasukkan tidak sah."</string>
+    <string name="name_input_invalid_error" msgid="4355625213535164704">"Nama profil yang dimasukkan tidak sah."</string>
     <string name="users_list_title" msgid="770764290290240909">"Pengguna"</string>
+    <string name="profiles_list_title" msgid="1443396686780460221">"Profil"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"Kebenaran diberikan kpd %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Storan"</string>
     <string name="storage_music_audio" msgid="7827147379976134040">"Muzik &amp; audio"</string>
@@ -494,7 +539,7 @@
     <string name="storage_audio_files_title" msgid="5183170457027181700">"Fail audio"</string>
     <string name="memory_calculating_size" msgid="1672238502950390033">"Mengira…"</string>
     <string name="storage_application_size_label" msgid="1146156683170661354">"Saiz apl"</string>
-    <string name="storage_data_size_label" msgid="5022911581004239367">"Data pengguna"</string>
+    <string name="storage_data_size_label" msgid="7986110464268960652">"Data profil"</string>
     <string name="storage_cache_size_label" msgid="6361308766707419555">"Cache"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"Jumlah"</string>
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Kosongkan storan"</string>
@@ -536,6 +581,15 @@
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Batalkan penyegerakan"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Penyegerakan sedang mengalami masalah. Ciri ini akan kembali sebentar lagi."</string>
     <string name="privacy_settings_title" msgid="3150145262029229572">"Privasi"</string>
+    <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Data sistem maklumat hibur"</string>
+    <string name="privacy_location_summary" msgid="7019817848470566242">"Kawal akses apl kepada lokasi anda"</string>
+    <string name="mute_mic_title" msgid="2813215197799569553">"Mikrofon"</string>
+    <string name="mute_mic_summary" msgid="5426953935775303904">"Kawal akses apl kepada mikrofon"</string>
+    <string name="vehicle_data_title" msgid="935933215161763721">"Data sistem maklumat hibur"</string>
+    <string name="vehicle_data_summary" msgid="9204836361819386115">"Urus aktiviti dan maklumat yang disimpan pada kenderaan ini"</string>
+    <string name="vehicle_data_delete_user_title" msgid="9132472153739085346">"Padamkan profil anda"</string>
+    <string name="vehicle_data_delete_user_summary" msgid="5900205773710111394">"Padamkan profil dan akaun anda daripada sistem maklumat hibur"</string>
+    <string name="action_unavailable" msgid="7087119418684417249">"Tindakan ini tidak tersedia untuk profil anda"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Keselamatan"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Kunci skrin"</string>
     <string name="security_lock_none" msgid="1054645093754839638">"Tiada"</string>
@@ -552,7 +606,6 @@
     <string name="lockscreen_skip_button_text" msgid="3755748786396198091">"Langkau"</string>
     <string name="set_screen_lock" msgid="5239317292691332780">"Tetapkan kunci skrin"</string>
     <string name="lockscreen_choose_your_pin" msgid="1645229555410061526">"Pilih PIN anda"</string>
-    <string name="lockscreen_choose_your_pattern" msgid="6801175111142593404">"Pilih corak anda"</string>
     <string name="lockscreen_choose_your_password" msgid="4487577710136014069">"Pilih kata laluan anda"</string>
     <string name="current_screen_lock" msgid="637651611145979587">"Kunci skrin semasa"</string>
     <string name="choose_lock_pattern_message" msgid="6242765203541309524">"Untuk keselamatan, tetapkan corak"</string>
@@ -567,9 +620,12 @@
     <string name="lockpattern_pattern_wrong" msgid="929223969555399363">"Corak salah"</string>
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"Cara melukis corak buka kunci"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"Ralat semasa menyimpan corak"</string>
+    <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"Terlalu banyak percubaan yang salah. Cuba lagi dalam <xliff:g id="NUMBER">%d</xliff:g> saat."</string>
     <string name="okay" msgid="4589873324439764349">"OK"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"Alih keluar kunci skrin?"</string>
-    <string name="remove_screen_lock_message" msgid="6675850371585564965">"Tindakan ini membenarkan sesiapa sahaja mengakses akaun anda"</string>
+    <string name="remove_screen_lock_message" msgid="6675850371585564965">"Tindakan ini membolehkan sesiapa sahaja mengakses akaun anda"</string>
+    <string name="security_profile_lock_title" msgid="3082523481292617350">"Kunci profil"</string>
+    <string name="security_unlock_profile_summary" msgid="6742592419759865631">"Sediakan pembukaan kunci automatik"</string>
     <string name="lock_settings_enter_pin" msgid="1669172111244633904">"Masukkan PIN anda"</string>
     <string name="lock_settings_enter_password" msgid="2636669926649496367">"Masukkan kata laluan anda"</string>
     <string name="choose_lock_pin_message" msgid="2963792070267774417">"Untuk keselamatan, tetapkan PIN"</string>
@@ -593,7 +649,7 @@
     <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Mesti kurang daripada <xliff:g id="NUMBER">%d</xliff:g> digit"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Mesti mengandungi angka 0-9 sahaja."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Pentadbir peranti tidak membenarkan penggunaan PIN terbaharu"</string>
-    <string name="lockpassword_pin_blacklisted_by_admin" msgid="7412709707800738442">"PIN lazim disekat oleh pentadbir IT anda. Cuba PIN yang lain."</string>
+    <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"PIN lazim disekat oleh pentadbir IT anda. Cuba PIN yang lain."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"Tidak boleh menyertakan aksara yang tidak sah."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"Kata laluan tidak sah, mesti sekurang-kurangnya 4 aksara."</string>
     <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
@@ -622,7 +678,7 @@
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Pentadbir peranti tidak membenarkan penggunaan kata laluan terbaharu"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Ralat semasa menyimpan kata laluan"</string>
-    <string name="lockpassword_password_blacklisted_by_admin" msgid="7965893810326503891">"Kata laluan lazim disekat oleh pentadbir IT anda. Cuba kata laluan yang lain."</string>
+    <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Kata laluan lazim disekat oleh pentadbir IT anda. Cuba kata laluan yang lain."</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Angka menaik, menurun atau jujukan berulang tidak dibenarkan."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Pilihan kunci skrin"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> hari lalu"</string>
@@ -643,10 +699,24 @@
     <string name="enter_key" msgid="2121394305541579468">"Kekunci enter"</string>
     <string name="exit_retail_button_text" msgid="6093240315583384473">"Keluar drpd Tunjuk Cara"</string>
     <string name="exit_retail_mode_dialog_title" msgid="7970631760237469168">"Keluar drpd mod tunjuk cara"</string>
-    <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Tindakan ini akan memadamkan akaun tunjuk cara dan membuat tetapan semula data kilang pada sistem. Semua data pengguna akan hilang."</string>
+    <string name="exit_retail_mode_dialog_body" msgid="6513854703627380365">"Tindakan ini akan memadamkan akaun tunjuk cara dan membuat tetapan semula data kilang pada sistem. Semua data profil akan hilang."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Keluar drpd Tunjuk Cara"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"KETEPIKAN"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"Ciri tidak tersedia semasa anda memandu"</string>
-    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Tidak dapat menambah pengguna semasa memandu"</string>
+    <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"Tidak dapat menambah profil semasa memandu"</string>
     <string name="default_search_query" msgid="3137420627428857068">"Cari"</string>
+    <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Pembantu &amp; suara"</string>
+    <string name="assistant_and_voice_assistant_app_title" msgid="5981647244625171285">"Apl pembantu digital"</string>
+    <string name="assistant_and_voice_use_text_from_screen_title" msgid="5851460943413795599">"Gunakan teks daripada skrin"</string>
+    <string name="assistant_and_voice_use_text_from_screen_summary" msgid="4161751708121301541">"Benarkan pembantu untuk mengakses kandungan skrin"</string>
+    <string name="assistant_and_voice_use_screenshot_title" msgid="1930735578425470046">"Gunakan tangkapan skrin"</string>
+    <string name="assistant_and_voice_use_screenshot_summary" msgid="3738474919393817950">"Benarkan pembantu untuk mengakses imej skrin"</string>
+    <string name="notifications_recently_sent" msgid="9051696542615302799">"Terbaharu dihantar"</string>
+    <string name="notifications_all_apps" msgid="3557079551048958846">"Semua apl"</string>
+    <string name="profiles_and_accounts_settings_title" msgid="2672643892127659812">"Profil &amp; akaun"</string>
+    <string name="manage_other_profiles_button_text" msgid="2262188413455510828">"Urus profil lain"</string>
+    <string name="add_a_profile_button_text" msgid="8027395095117925114">"Tambah profil"</string>
+    <string name="delete_this_profile_text" msgid="6035404714526922665">"Padamkan profil ini"</string>
+    <string name="add_profile_text" msgid="9118410102199116969">"Tambah profil"</string>
+    <string name="power_component_disabled" msgid="7084144472096800457">"Tetapan ini tidak boleh ditukar sekarang"</string>
 </resources>

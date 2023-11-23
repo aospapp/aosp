@@ -6,6 +6,7 @@ third_party {
     value: "http://www.ka9q.net/code/fec/"
   }
   version: "3.0.1"
+  license_type: RESTRICTED
   last_upgrade_date {
     year: 2007
     month: 8

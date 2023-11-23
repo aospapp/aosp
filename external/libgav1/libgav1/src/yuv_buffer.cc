@@ -16,181 +16,184 @@
 
 #include <cassert>
 #include <cstddef>
+#include <new>
 
+#include "src/frame_buffer_utils.h"
 #include "src/utils/common.h"
 #include "src/utils/logging.h"
-#include "src/utils/memory.h"
 
 namespace libgav1 {
-namespace {
-
-// |align| must be a power of 2.
-uint8_t* AlignAddr(uint8_t* const addr, const size_t align) {
-  const auto value = reinterpret_cast<size_t>(addr);
-  return reinterpret_cast<uint8_t*>(Align(value, align));
-}
-
-}  // namespace
-
-YuvBuffer::~YuvBuffer() { AlignedFree(buffer_alloc_); }
 
 // Size conventions:
 // * Widths, heights, and border sizes are in pixels.
 // * Strides and plane sizes are in bytes.
+//
+// YuvBuffer objects may be reused through the BufferPool. Realloc() must
+// assume that data members (except buffer_alloc_ and buffer_alloc_size_) may
+// contain stale values from the previous use, and must set all data members
+// from scratch. In particular, Realloc() must not rely on the initial values
+// of data members set by the YuvBuffer constructor.
 bool YuvBuffer::Realloc(int bitdepth, bool is_monochrome, int width, int height,
-                        int8_t subsampling_x, int8_t subsampling_y, int border,
-                        int byte_alignment,
+                        int8_t subsampling_x, int8_t subsampling_y,
+                        int left_border, int right_border, int top_border,
+                        int bottom_border,
                         GetFrameBufferCallback get_frame_buffer,
-                        void* private_data, FrameBuffer* frame_buffer) {
-  // Only support allocating buffers that have a border that's a multiple of
-  // 32. The border restriction is required to get 16-byte alignment of the
-  // start of the chroma rows.
-  if ((border & 31) != 0) return false;
+                        void* callback_private_data,
+                        void** buffer_private_data) {
+  // Only support allocating buffers that have borders that are a multiple of
+  // 2. The border restriction is required because we may subsample the
+  // borders in the chroma planes.
+  if (((left_border | right_border | top_border | bottom_border) & 1) != 0) {
+    LIBGAV1_DLOG(ERROR,
+                 "Borders must be a multiple of 2: left_border = %d, "
+                 "right_border = %d, top_border = %d, bottom_border = %d.",
+                 left_border, right_border, top_border, bottom_border);
+    return false;
+  }
 
-  assert(byte_alignment == 0 || byte_alignment >= 16);
-  const int byte_align = (byte_alignment == 0) ? 1 : byte_alignment;
-  // byte_align must be a power of 2.
-  assert((byte_align & (byte_align - 1)) == 0);
-
-  // aligned_width and aligned_height are width and height padded to a
-  // multiple of 8 pixels.
-  const int aligned_width = Align(width, 8);
-  const int aligned_height = Align(height, 8);
-
-  // Calculate y_stride (in bytes). It is padded to a multiple of 16 bytes.
-  int y_stride = aligned_width + 2 * border;
-#if LIBGAV1_MAX_BITDEPTH >= 10
-  if (bitdepth > 8) y_stride *= sizeof(uint16_t);
-#endif
-  y_stride = Align(y_stride, 16);
-  // Size of the Y plane in bytes.
-  const uint64_t y_plane_size =
-      (aligned_height + 2 * border) * static_cast<uint64_t>(y_stride) +
-      byte_alignment;
-  assert((y_plane_size & 15) == 0);
-
-  const int uv_width = aligned_width >> subsampling_x;
-  const int uv_height = aligned_height >> subsampling_y;
-  const int uv_border_width = border >> subsampling_x;
-  const int uv_border_height = border >> subsampling_y;
-
-  // Calculate uv_stride (in bytes). It is padded to a multiple of 16 bytes.
-  int uv_stride = uv_width + 2 * uv_border_width;
-#if LIBGAV1_MAX_BITDEPTH >= 10
-  if (bitdepth > 8) uv_stride *= sizeof(uint16_t);
-#endif
-  uv_stride = Align(uv_stride, 16);
-  // Size of the U or V plane in bytes.
-  const uint64_t uv_plane_size =
-      (uv_height + 2 * uv_border_height) * static_cast<uint64_t>(uv_stride) +
-      byte_alignment;
-  assert((uv_plane_size & 15) == 0);
-
-  const uint64_t frame_size = y_plane_size + 2 * uv_plane_size;
-
-  // Allocate y_buffer, u_buffer, and v_buffer with 16-byte alignment.
-  uint8_t* y_buffer = nullptr;
-  uint8_t* u_buffer = nullptr;
-  uint8_t* v_buffer = nullptr;
+  // Every row in the plane buffers needs to be kFrameBufferRowAlignment-byte
+  // aligned. Since the strides are multiples of kFrameBufferRowAlignment bytes,
+  // it suffices to just make the plane buffers kFrameBufferRowAlignment-byte
+  // aligned.
+  const int plane_align = kFrameBufferRowAlignment;
+  const int uv_width =
+      is_monochrome ? 0 : SubsampledValue(width, subsampling_x);
+  const int uv_height =
+      is_monochrome ? 0 : SubsampledValue(height, subsampling_y);
+  const int uv_left_border = is_monochrome ? 0 : left_border >> subsampling_x;
+  const int uv_right_border = is_monochrome ? 0 : right_border >> subsampling_x;
+  const int uv_top_border = is_monochrome ? 0 : top_border >> subsampling_y;
+  const int uv_bottom_border =
+      is_monochrome ? 0 : bottom_border >> subsampling_y;
 
   if (get_frame_buffer != nullptr) {
-    // |get_frame_buffer| allocates unaligned memory. Ask it to allocate 15
-    // extra bytes so we can align the buffers to 16-byte boundaries.
-    const int align_addr_extra_size = 15;
-    const uint64_t external_y_plane_size = y_plane_size + align_addr_extra_size;
-    const uint64_t external_uv_plane_size =
-        uv_plane_size + align_addr_extra_size;
+    assert(buffer_private_data != nullptr);
 
-    assert(frame_buffer != nullptr);
-
-    if (external_y_plane_size != static_cast<size_t>(external_y_plane_size) ||
-        external_uv_plane_size != static_cast<size_t>(external_uv_plane_size)) {
+    const Libgav1ImageFormat image_format =
+        ComposeImageFormat(is_monochrome, subsampling_x, subsampling_y);
+    FrameBuffer frame_buffer;
+    if (get_frame_buffer(callback_private_data, bitdepth, image_format, width,
+                         height, left_border, right_border, top_border,
+                         bottom_border, kFrameBufferRowAlignment,
+                         &frame_buffer) != kStatusOk) {
       return false;
     }
 
-    // Allocation to hold larger frame, or first allocation.
-    if (get_frame_buffer(
-            private_data, static_cast<size_t>(external_y_plane_size),
-            static_cast<size_t>(external_uv_plane_size), frame_buffer) < 0) {
-      return false;
-    }
-
-    if (frame_buffer->data[0] == nullptr ||
-        frame_buffer->size[0] < external_y_plane_size ||
-        frame_buffer->data[1] == nullptr ||
-        frame_buffer->size[1] < external_uv_plane_size ||
-        frame_buffer->data[2] == nullptr ||
-        frame_buffer->size[2] < external_uv_plane_size) {
-      assert(0 && "The get_frame_buffer callback malfunctioned.");
+    if (frame_buffer.plane[0] == nullptr ||
+        (!is_monochrome && frame_buffer.plane[1] == nullptr) ||
+        (!is_monochrome && frame_buffer.plane[2] == nullptr)) {
+      assert(false && "The get_frame_buffer callback malfunctioned.");
       LIBGAV1_DLOG(ERROR, "The get_frame_buffer callback malfunctioned.");
       return false;
     }
 
-    y_buffer = AlignAddr(frame_buffer->data[0], 16);
-    u_buffer = AlignAddr(frame_buffer->data[1], 16);
-    v_buffer = AlignAddr(frame_buffer->data[2], 16);
+    stride_[kPlaneY] = frame_buffer.stride[0];
+    stride_[kPlaneU] = frame_buffer.stride[1];
+    stride_[kPlaneV] = frame_buffer.stride[2];
+    buffer_[kPlaneY] = frame_buffer.plane[0];
+    buffer_[kPlaneU] = frame_buffer.plane[1];
+    buffer_[kPlaneV] = frame_buffer.plane[2];
+    *buffer_private_data = frame_buffer.private_data;
   } else {
-    assert(private_data == nullptr);
-    assert(frame_buffer == nullptr);
+    assert(callback_private_data == nullptr);
+    assert(buffer_private_data == nullptr);
 
+    // Calculate y_stride (in bytes). It is padded to a multiple of
+    // kFrameBufferRowAlignment bytes.
+    int y_stride = width + left_border + right_border;
+#if LIBGAV1_MAX_BITDEPTH >= 10
+    if (bitdepth > 8) y_stride *= sizeof(uint16_t);
+#endif
+    y_stride = Align(y_stride, kFrameBufferRowAlignment);
+    // Size of the Y plane in bytes.
+    const uint64_t y_plane_size = (height + top_border + bottom_border) *
+                                      static_cast<uint64_t>(y_stride) +
+                                  (plane_align - 1);
+
+    // Calculate uv_stride (in bytes). It is padded to a multiple of
+    // kFrameBufferRowAlignment bytes.
+    int uv_stride = uv_width + uv_left_border + uv_right_border;
+#if LIBGAV1_MAX_BITDEPTH >= 10
+    if (bitdepth > 8) uv_stride *= sizeof(uint16_t);
+#endif
+    uv_stride = Align(uv_stride, kFrameBufferRowAlignment);
+    // Size of the U or V plane in bytes.
+    const uint64_t uv_plane_size =
+        is_monochrome ? 0
+                      : (uv_height + uv_top_border + uv_bottom_border) *
+                                static_cast<uint64_t>(uv_stride) +
+                            (plane_align - 1);
+
+    // Allocate unaligned y_buffer, u_buffer, and v_buffer.
+    uint8_t* y_buffer = nullptr;
+    uint8_t* u_buffer = nullptr;
+    uint8_t* v_buffer = nullptr;
+
+    const uint64_t frame_size = y_plane_size + 2 * uv_plane_size;
     if (frame_size > buffer_alloc_size_) {
       // Allocation to hold larger frame, or first allocation.
-      AlignedFree(buffer_alloc_);
-      buffer_alloc_ = nullptr;
-
       if (frame_size != static_cast<size_t>(frame_size)) return false;
 
-      buffer_alloc_ = static_cast<uint8_t*>(
-          AlignedAlloc(16, static_cast<size_t>(frame_size)));
-      if (buffer_alloc_ == nullptr) return false;
+      buffer_alloc_.reset(new (std::nothrow)
+                              uint8_t[static_cast<size_t>(frame_size)]);
+      if (buffer_alloc_ == nullptr) {
+        buffer_alloc_size_ = 0;
+        return false;
+      }
 
       buffer_alloc_size_ = static_cast<size_t>(frame_size);
     }
 
-    y_buffer = buffer_alloc_;
-    u_buffer = buffer_alloc_ + y_plane_size;
-    v_buffer = buffer_alloc_ + y_plane_size + uv_plane_size;
+    y_buffer = buffer_alloc_.get();
+    if (!is_monochrome) {
+      u_buffer = y_buffer + y_plane_size;
+      v_buffer = u_buffer + uv_plane_size;
+    }
+
+    stride_[kPlaneY] = y_stride;
+    stride_[kPlaneU] = stride_[kPlaneV] = uv_stride;
+
+    int left_border_bytes = left_border;
+    int uv_left_border_bytes = uv_left_border;
+#if LIBGAV1_MAX_BITDEPTH >= 10
+    if (bitdepth > 8) {
+      left_border_bytes *= sizeof(uint16_t);
+      uv_left_border_bytes *= sizeof(uint16_t);
+    }
+#endif
+    buffer_[kPlaneY] = AlignAddr(
+        y_buffer + (top_border * y_stride) + left_border_bytes, plane_align);
+    buffer_[kPlaneU] =
+        AlignAddr(u_buffer + (uv_top_border * uv_stride) + uv_left_border_bytes,
+                  plane_align);
+    buffer_[kPlaneV] =
+        AlignAddr(v_buffer + (uv_top_border * uv_stride) + uv_left_border_bytes,
+                  plane_align);
   }
 
-  y_crop_width_ = width;
-  y_crop_height_ = height;
-  y_width_ = aligned_width;
-  y_height_ = aligned_height;
-  stride_[kPlaneY] = y_stride;
-  left_border_[kPlaneY] = right_border_[kPlaneY] = top_border_[kPlaneY] =
-      bottom_border_[kPlaneY] = border;
+  y_width_ = width;
+  y_height_ = height;
+  left_border_[kPlaneY] = left_border;
+  right_border_[kPlaneY] = right_border;
+  top_border_[kPlaneY] = top_border;
+  bottom_border_[kPlaneY] = bottom_border;
 
-  uv_crop_width_ = (width + subsampling_x) >> subsampling_x;
-  uv_crop_height_ = (height + subsampling_y) >> subsampling_y;
   uv_width_ = uv_width;
   uv_height_ = uv_height;
-  stride_[kPlaneU] = stride_[kPlaneV] = uv_stride;
-  left_border_[kPlaneU] = right_border_[kPlaneU] = uv_border_width;
-  top_border_[kPlaneU] = bottom_border_[kPlaneU] = uv_border_height;
-  left_border_[kPlaneV] = right_border_[kPlaneV] = uv_border_width;
-  top_border_[kPlaneV] = bottom_border_[kPlaneV] = uv_border_height;
+  left_border_[kPlaneU] = left_border_[kPlaneV] = uv_left_border;
+  right_border_[kPlaneU] = right_border_[kPlaneV] = uv_right_border;
+  top_border_[kPlaneU] = top_border_[kPlaneV] = uv_top_border;
+  bottom_border_[kPlaneU] = bottom_border_[kPlaneV] = uv_bottom_border;
 
   subsampling_x_ = subsampling_x;
   subsampling_y_ = subsampling_y;
 
   bitdepth_ = bitdepth;
   is_monochrome_ = is_monochrome;
-  int border_bytes = border;
-  int uv_border_width_bytes = uv_border_width;
-#if LIBGAV1_MAX_BITDEPTH >= 10
-  if (bitdepth > 8) {
-    border_bytes *= sizeof(uint16_t);
-    uv_border_width_bytes *= sizeof(uint16_t);
-  }
-#endif
-  buffer_[kPlaneY] =
-      AlignAddr(y_buffer + (border * y_stride) + border_bytes, byte_align);
-  buffer_[kPlaneU] = AlignAddr(
-      u_buffer + (uv_border_height * uv_stride) + uv_border_width_bytes,
-      byte_align);
-  buffer_[kPlaneV] = AlignAddr(
-      v_buffer + (uv_border_height * uv_stride) + uv_border_width_bytes,
-      byte_align);
+  assert(!is_monochrome || stride_[kPlaneU] == 0);
+  assert(!is_monochrome || stride_[kPlaneV] == 0);
+  assert(!is_monochrome || buffer_[kPlaneU] == nullptr);
+  assert(!is_monochrome || buffer_[kPlaneV] == nullptr);
 
   return true;
 }

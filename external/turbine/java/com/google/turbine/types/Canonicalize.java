@@ -100,6 +100,7 @@ public class Canonicalize {
       case PRIM_TY:
       case VOID_TY:
       case TY_VAR:
+      case ERROR_TY:
         return type;
       case WILD_TY:
         return canonicalizeWildTy(base, (WildTy) type);
@@ -118,6 +119,9 @@ public class Canonicalize {
   }
 
   private ClassTy canon(ClassSymbol base, ClassTy ty) {
+    if (ty.sym().equals(ClassSymbol.ERROR)) {
+      return ty;
+    }
     if (isRaw(ty)) {
       return Erasure.eraseClassTy(ty);
     }
@@ -277,7 +281,7 @@ public class Canonicalize {
   }
 
   /** Instantiates a type argument using the given mapping. */
-  private Type instantiate(Map<TyVarSymbol, Type> mapping, Type type) {
+  private static Type instantiate(Map<TyVarSymbol, Type> mapping, Type type) {
     if (type == null) {
       return null;
     }
@@ -286,6 +290,7 @@ public class Canonicalize {
         return instantiateWildTy(mapping, (WildTy) type);
       case PRIM_TY:
       case VOID_TY:
+      case ERROR_TY:
         return type;
       case CLASS_TY:
         return instantiateClassTy(mapping, (ClassTy) type);
@@ -304,7 +309,7 @@ public class Canonicalize {
     }
   }
 
-  private Type instantiateWildTy(Map<TyVarSymbol, Type> mapping, WildTy type) {
+  private static Type instantiateWildTy(Map<TyVarSymbol, Type> mapping, WildTy type) {
     switch (type.boundKind()) {
       case NONE:
         return type;
@@ -314,12 +319,11 @@ public class Canonicalize {
       case LOWER:
         return Type.WildLowerBoundedTy.create(
             instantiate(mapping, type.bound()), type.annotations());
-      default:
-        throw new AssertionError(type.boundKind());
     }
+    throw new AssertionError(type.boundKind());
   }
 
-  private Type instantiateClassTy(Map<TyVarSymbol, Type> mapping, ClassTy type) {
+  private static Type instantiateClassTy(Map<TyVarSymbol, Type> mapping, ClassTy type) {
     ImmutableList.Builder<SimpleClassTy> simples = ImmutableList.builder();
     for (SimpleClassTy simple : type.classes()) {
       ImmutableList.Builder<Type> args = ImmutableList.builder();
@@ -336,7 +340,7 @@ public class Canonicalize {
    * reference, or else {@code null}.
    */
   @Nullable
-  private TyVarSymbol tyVarSym(Type type) {
+  private static TyVarSymbol tyVarSym(Type type) {
     if (type.tyKind() == TyKind.TY_VAR) {
       return ((TyVar) type).sym();
     }

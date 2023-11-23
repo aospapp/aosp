@@ -20,6 +20,31 @@ limitations under the License.
 
 include "mlir/IR/OpBase.td"
 
+def TFL_Dialect : Dialect {
+  let name = "tfl";
+
+  let description = [{
+    The TensorFlow Lite dialect.
+
+    This dialect maps to TensorFlow Lite operations.
+
+    Invariants:
+
+    * All values are of Tensor type (in particular, scalars are
+      represented using zero-dimensional tensors);
+  }];
+
+  let cppNamespace = "::mlir::TFL";
+}
+
+// Attributes used for encoding sparse tensors.
+// Please find detailed explanation of these parameters in the TFLite schema.
+def TFL_DT_Dense : StrEnumAttrCase<"DENSE", 0>;
+def TFL_DT_SparseCSR : StrEnumAttrCase<"SPARSE_CSR", 1>;
+
+def TFL_DimensionTypeAttr : StrEnumAttr<
+    "DimensionType", "dimension type", [TFL_DT_Dense, TFL_DT_SparseCSR]>;
+
 //===----------------------------------------------------------------------===//
 // TFL op interface for stateful operands.
 
@@ -40,17 +65,44 @@ def TFL_StatefulOp : OpInterface<"StatefulOpInterface"> {
 }
 
 //===----------------------------------------------------------------------===//
-// TFL op interface for output channel index.
+// TFL op interface for sparse operands.
 
-def TFL_ChannelDimIndexInterface : OpInterface<"ChannelDimIndexInterface"> {
+def TFL_SparseOp : OpInterface<"SparseOpInterface"> {
   let description = [{
-    Interface for defining the index of out channel index.
+    Interface for ops that support sparse computation.
   }];
 
   let methods = [
     InterfaceMethod<
-      [{Returns the dimension index of the output channels.}],
-      "int", "GetChannelDimIndex", (ins)
+      [{Returns the indices of sparse operands.}],
+      "std::vector<int>", "GetSparseOperands", (ins)
+    >,
+    InterfaceMethod<
+      [{Returns the supported block size of float sparse operands.}],
+      "std::vector<std::vector<int>>", "GetFloatBlockSize", (ins)
+    >,
+    InterfaceMethod<
+      [{Returns the supported block size of quantized sparse operands.}],
+      "std::vector<std::vector<int>>", "GetQuantizedBlockSize", (ins)
+    >,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// TFL runtime type verification of operand/result types.
+
+def TFL_RuntimeVerification : OpInterface<"TflRuntimeVerifyOpInterface"> {
+  let description = [{
+    Interface to verify TFLite runtime op verification.
+
+    This verifies that the converted TFLite ops has operand/result type
+    supported by the TFLite runtime.
+  }];
+
+  let methods = [
+    StaticInterfaceMethod<
+      [{Returns whether the op's operands/results are supported by runtime.}],
+      "LogicalResult", "VerifyTflRuntimeConstraints", (ins "Operation*":$op)
     >,
   ];
 }

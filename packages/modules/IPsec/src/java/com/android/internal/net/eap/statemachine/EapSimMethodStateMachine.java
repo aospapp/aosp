@@ -16,8 +16,9 @@
 
 package com.android.internal.net.eap.statemachine;
 
+import static android.net.eap.EapSessionConfig.EapMethodConfig.EAP_TYPE_SIM;
+
 import static com.android.internal.net.eap.EapAuthenticator.LOG;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_SIM;
 import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_SUCCESS;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_ANY_ID_REQ;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_ENCR_DATA;
@@ -34,6 +35,7 @@ import static com.android.internal.net.eap.message.simaka.EapSimTypeData.EAP_SIM
 
 import android.annotation.Nullable;
 import android.content.Context;
+import android.net.eap.EapSessionConfig.EapMethodConfig.EapMethod;
 import android.net.eap.EapSessionConfig.EapSimConfig;
 import android.telephony.TelephonyManager;
 
@@ -48,7 +50,6 @@ import com.android.internal.net.eap.exceptions.simaka.EapSimAkaAuthenticationFai
 import com.android.internal.net.eap.exceptions.simaka.EapSimAkaIdentityUnavailableException;
 import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAttributeException;
 import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidLengthException;
-import com.android.internal.net.eap.message.EapData.EapMethod;
 import com.android.internal.net.eap.message.EapMessage;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
 import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtClientErrorCode;
@@ -113,7 +114,7 @@ class EapSimMethodStateMachine extends EapSimAkaMethodStateMachine {
             SecureRandom secureRandom,
             EapSimTypeDataDecoder eapSimTypeDataDecoder) {
         super(
-                telephonyManager.createForSubscriptionId(eapSimConfig.subId),
+                telephonyManager.createForSubscriptionId(eapSimConfig.getSubId()),
                 eapIdentity,
                 eapSimConfig);
 
@@ -264,7 +265,7 @@ class EapSimMethodStateMachine extends EapSimAkaMethodStateMachine {
                 LOG.wtf(mTAG, "Exception thrown while making AtIdentity attribute", ex);
                 return new EapError(ex);
             } catch (EapSimAkaIdentityUnavailableException ex) {
-                LOG.e(mTAG, "Unable to get IMSI for subId=" + mEapUiccConfig.subId);
+                LOG.e(mTAG, "Unable to get IMSI for subId=" + mEapUiccConfig.getSubId());
                 return new EapError(ex);
             }
 
@@ -327,7 +328,7 @@ class EapSimMethodStateMachine extends EapSimAkaMethodStateMachine {
                 String imsi = mTelephonyManager.getSubscriberId();
                 if (imsi == null) {
                     throw new EapSimAkaIdentityUnavailableException(
-                            "IMSI for subId (" + mEapUiccConfig.subId + ") not available");
+                            "IMSI for subId (" + mEapUiccConfig.getSubId() + ") not available");
                 }
 
                 // Permanent Identity is "1" + IMSI (RFC 4186 Section 4.1.2.6)

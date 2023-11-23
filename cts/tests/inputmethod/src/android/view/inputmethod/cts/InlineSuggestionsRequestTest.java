@@ -91,7 +91,7 @@ public class InlineSuggestionsRequestTest {
         assertThat(request.getInlinePresentationSpecs().size()).isEqualTo(1);
         assertThat(request.getInlinePresentationSpecs().get(0).getStyle()).isEqualTo(Bundle.EMPTY);
         assertThat(request.getExtras()).isEqualTo(Bundle.EMPTY);
-        assertThat(request.getSupportedLocales()).isEqualTo(LocaleList.getDefault());
+        assertThat(request.getSupportedLocales()).isEqualTo(LocaleList.getEmptyLocaleList());
 
         // Tests the parceling/deparceling
         Parcel p = Parcel.obtain();

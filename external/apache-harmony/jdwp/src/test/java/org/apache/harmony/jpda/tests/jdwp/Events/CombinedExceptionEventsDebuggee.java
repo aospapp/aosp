@@ -43,7 +43,7 @@ public class CombinedExceptionEventsDebuggee extends SyncDebuggee {
         logWriter.println("-> CombinedExceptionEventsDebuggee: Starting...");
 
         // Preload exception classes
-        new SubDebuggeeException("dummy");
+        new SubDebuggeeException("fake");
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 

@@ -57,6 +57,7 @@ constexpr int kShutdownMonitor = 100;
 constexpr char kBuildType[] = "ro.build.type";
 constexpr char kPersistentVendorConfig[] = "persist.vendor.usb.usbradio.config";
 constexpr char kVendorConfig[] = "vendor.usb.config";
+constexpr char kVendorRndisConfig[] = "vendor.usb.rndis.config";
 
 #define GADGET_PATH "/config/usb_gadget/g1/"
 #define PULLUP_PATH GADGET_PATH "UDC"

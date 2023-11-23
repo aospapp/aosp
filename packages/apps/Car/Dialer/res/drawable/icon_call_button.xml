@@ -26,8 +26,4 @@
         </shape>
     </item>
     <item android:drawable="@drawable/ic_phone" android:gravity="center"/>
-    <item>
-        <ripple android:color="@*android:color/car_card_ripple_background"
-                android:radius="@dimen/fab_ripple_radius"/>
-    </item>
 </layer-list>

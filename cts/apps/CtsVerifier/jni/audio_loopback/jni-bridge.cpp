@@ -19,10 +19,21 @@
 #include <jni.h>
 #include <stdint.h>
 
+// If the NDK is before O then define this in your build
+// so that AAudio.h will not be included.
+// #define OBOE_NO_INCLUDE_AAUDIO
+
+// Oboe Includes
+//#include <oboe/Oboe.h>
+#include <AAudioExtensions.h>
+
 #include "NativeAudioAnalyzer.h"
 
 extern "C" {
 
+//
+// com.android.cts.verifier.audio.NativeAnalyzerThread
+//
 JNIEXPORT jlong JNICALL Java_com_android_cts_verifier_audio_NativeAnalyzerThread_openAudio
   (JNIEnv * /*env */, jobject /* obj */,
           jint /* micSource */) {
@@ -77,6 +88,15 @@ JNIEXPORT jboolean JNICALL Java_com_android_cts_verifier_audio_NativeAnalyzerThr
     return false;
 }
 
+JNIEXPORT jboolean JNICALL Java_com_android_cts_verifier_audio_NativeAnalyzerThread_isLowlatency
+  (JNIEnv *env __unused, jobject obj __unused, jlong pAnalyzer) {
+    NativeAudioAnalyzer * analyzer = (NativeAudioAnalyzer *) pAnalyzer;
+    if (analyzer != nullptr) {
+        return analyzer->isLowLatencyStream();
+    }
+    return false;
+}
+
 JNIEXPORT jint JNICALL Java_com_android_cts_verifier_audio_NativeAnalyzerThread_getError
   (JNIEnv *env __unused, jobject obj __unused, jlong pAnalyzer) {
     NativeAudioAnalyzer * analyzer = (NativeAudioAnalyzer *) pAnalyzer;
@@ -120,6 +140,22 @@ JNIEXPORT jint JNICALL Java_com_android_cts_verifier_audio_NativeAnalyzerThread_
         return analyzer->getSampleRate();
     }
     return 0;
+}
+
+//
+// com.android.cts.verifier.audio.audiolib.AudioUtils
+//
+JNIEXPORT jboolean JNICALL
+    Java_com_android_cts_verifier_audio_audiolib_AudioUtils_isMMapSupported(JNIEnv *env __unused) {
+
+    return oboe::AAudioExtensions().isMMapSupported();
+}
+
+JNIEXPORT jboolean JNICALL
+    Java_com_android_cts_verifier_audio_audiolib_AudioUtils_isMMapExclusiveSupported(
+        JNIEnv *env __unused) {
+
+    return oboe::AAudioExtensions().isMMapExclusiveSupported();
 }
 
 }

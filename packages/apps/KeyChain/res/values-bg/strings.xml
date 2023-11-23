@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Можете да инсталирате сертификати от файл с формат PKCS#12 с разширение %1$s или %2$s, намиращ се във външното хранилище."</string>
     <string name="allow_button" msgid="3030990695030371561">"Избиране"</string>
     <string name="deny_button" msgid="3766539809121892584">"Отказ"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Сертификатите се зареждат..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s проверява за сертификат…"</string>
 </resources>

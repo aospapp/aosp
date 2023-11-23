@@ -5,8 +5,8 @@ import android.graphics.drawable.Drawable;
 
 import com.android.wallpaper.asset.CurrentWallpaperAssetVNLoader.CurrentWallpaperAssetVNLoaderFactory;
 import com.android.wallpaper.asset.LiveWallpaperThumbAssetLoader.LiveWallpaperThumbAssetLoaderFactory;
-import com.android.wallpaper.asset.NexusStaticAssetLoader.NexusStaticAssetLoaderFactory;
 import com.android.wallpaper.asset.ResourceAssetLoader.ResourceAssetLoaderFactory;
+import com.android.wallpaper.asset.SystemStaticAssetLoader.SystemStaticAssetLoaderFactory;
 import com.android.wallpaper.asset.WallpaperModelLoader.WallpaperModelLoaderFactory;
 
 import com.bumptech.glide.Glide;
@@ -51,7 +51,8 @@ public class WallpaperGlideModule implements GlideModule {
     public void registerComponents(Context context, Glide glide, Registry registry) {
         registry.append(WallpaperModel.class, Drawable.class, new WallpaperModelLoaderFactory());
         registry.append(ResourceAsset.class, InputStream.class, new ResourceAssetLoaderFactory());
-        registry.append(NexusStaticAsset.class, InputStream.class, new NexusStaticAssetLoaderFactory());
+        registry.append(SystemStaticAsset.class, InputStream.class,
+                new SystemStaticAssetLoaderFactory());
         registry.append(LiveWallpaperThumbAsset.class, Drawable.class,
                 new LiveWallpaperThumbAssetLoaderFactory());
         registry.append(CurrentWallpaperAssetVN.class, InputStream.class,

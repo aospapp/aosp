@@ -28,7 +28,6 @@ import androidx.preference.PreferenceGroup;
 import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
 
@@ -39,11 +38,6 @@ import com.android.tv.settings.R;
 public class WriteSettings extends ManageAppOp {
 
     private AppOpsManager mAppOpsManager;
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.SYSTEM_ALERT_WINDOW_APPS;
-    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {

@@ -39,7 +39,8 @@
 #endif  // NANOHUB_NON_CHRE_API
 
 #include <stddef.h>
-#include "util/nano_assert.h"
+
+#include "chre/util/nanoapp/assert.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,7 +56,7 @@ struct Vec4 {
 
 // 3-DIMENSIONAL VECTOR MATH ///////////////////////////////////////////
 static inline void initVec3(struct Vec3 *v, float x, float y, float z) {
-  ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(v);
   v->x = x;
   v->y = y;
   v->z = z;
@@ -63,8 +64,8 @@ static inline void initVec3(struct Vec3 *v, float x, float y, float z) {
 
 // Updates v as the sum of v and w.
 static inline void vec3Add(struct Vec3 *v, const struct Vec3 *w) {
-  ASSERT_NOT_NULL(v);
-  ASSERT_NOT_NULL(w);
+  CHRE_ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(w);
   v->x += w->x;
   v->y += w->y;
   v->z += w->z;
@@ -73,9 +74,9 @@ static inline void vec3Add(struct Vec3 *v, const struct Vec3 *w) {
 // Sets u as the sum of v and w.
 static inline void vec3AddVecs(struct Vec3 *u, const struct Vec3 *v,
                                const struct Vec3 *w) {
-  ASSERT_NOT_NULL(u);
-  ASSERT_NOT_NULL(v);
-  ASSERT_NOT_NULL(w);
+  CHRE_ASSERT_NOT_NULL(u);
+  CHRE_ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(w);
   u->x = v->x + w->x;
   u->y = v->y + w->y;
   u->z = v->z + w->z;
@@ -83,8 +84,8 @@ static inline void vec3AddVecs(struct Vec3 *u, const struct Vec3 *v,
 
 // Updates v as the subtraction of w from v.
 static inline void vec3Sub(struct Vec3 *v, const struct Vec3 *w) {
-  ASSERT_NOT_NULL(v);
-  ASSERT_NOT_NULL(w);
+  CHRE_ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(w);
   v->x -= w->x;
   v->y -= w->y;
   v->z -= w->z;
@@ -93,9 +94,9 @@ static inline void vec3Sub(struct Vec3 *v, const struct Vec3 *w) {
 // Sets u as the difference of v and w.
 static inline void vec3SubVecs(struct Vec3 *u, const struct Vec3 *v,
                                const struct Vec3 *w) {
-  ASSERT_NOT_NULL(u);
-  ASSERT_NOT_NULL(v);
-  ASSERT_NOT_NULL(w);
+  CHRE_ASSERT_NOT_NULL(u);
+  CHRE_ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(w);
   u->x = v->x - w->x;
   u->y = v->y - w->y;
   u->z = v->z - w->z;
@@ -103,7 +104,7 @@ static inline void vec3SubVecs(struct Vec3 *u, const struct Vec3 *v,
 
 // Scales v by the scalar c, i.e. v = c * v.
 static inline void vec3ScalarMul(struct Vec3 *v, float c) {
-  ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(v);
   v->x *= c;
   v->y *= c;
   v->z *= c;
@@ -111,29 +112,29 @@ static inline void vec3ScalarMul(struct Vec3 *v, float c) {
 
 // Returns the dot product of v and w.
 static inline float vec3Dot(const struct Vec3 *v, const struct Vec3 *w) {
-  ASSERT_NOT_NULL(v);
-  ASSERT_NOT_NULL(w);
+  CHRE_ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(w);
   return v->x * w->x + v->y * w->y + v->z * w->z;
 }
 
 // Returns the square of the L2-norm of the given vector.
 static inline float vec3NormSquared(const struct Vec3 *v) {
-  ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(v);
   return vec3Dot(v, v);
 }
 
 // Returns the L2-norm of the given vector.
 static inline float vec3Norm(const struct Vec3 *v) {
-  ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(v);
   return sqrtf(vec3NormSquared(v));
 }
 
 // Normalizes the provided vector to unit norm. If the provided vector has a
 // norm of zero, the vector will be unchanged.
 static inline void vec3Normalize(struct Vec3 *v) {
-  ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(v);
   float norm = vec3Norm(v);
-  ASSERT(norm > 0);
+  CHRE_ASSERT(norm > 0);
   // Only normalize if norm is non-zero.
   if (norm > 0) {
     float invNorm = 1.0f / norm;
@@ -146,9 +147,9 @@ static inline void vec3Normalize(struct Vec3 *v) {
 // Updates u as the cross product of v and w.
 static inline void vec3Cross(struct Vec3 *u, const struct Vec3 *v,
                              const struct Vec3 *w) {
-  ASSERT_NOT_NULL(u);
-  ASSERT_NOT_NULL(v);
-  ASSERT_NOT_NULL(w);
+  CHRE_ASSERT_NOT_NULL(u);
+  CHRE_ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(w);
   u->x = v->y * w->z - v->z * w->y;
   u->y = v->z * w->x - v->x * w->z;
   u->z = v->x * w->y - v->y * w->x;
@@ -167,7 +168,7 @@ void findOrthogonalVector(float inX, float inY, float inZ, float *outX,
 // Initialize the Vec4 structure with the provided component values.
 static inline void initVec4(struct Vec4 *v, float x, float y, float z,
                             float w) {
-  ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(v);
   v->x = x;
   v->y = y;
   v->z = z;

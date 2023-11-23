@@ -18,11 +18,9 @@
 
 #include "minikin/FontFamily.h"
 
-#include <cstdint>
+#include <algorithm>
 #include <vector>
 
-#include <hb-ot.h>
-#include <hb.h>
 #include <log/log.h>
 
 #include "minikin/CmapCoverage.h"
@@ -37,82 +35,14 @@
 
 namespace minikin {
 
-Font Font::Builder::build() {
-    if (mIsWeightSet && mIsSlantSet) {
-        // No need to read OS/2 header of the font file.
-        return Font(std::move(mTypeface), FontStyle(mWeight, mSlant), prepareFont(mTypeface));
-    }
-
-    HbFontUniquePtr font = prepareFont(mTypeface);
-    FontStyle styleFromFont = analyzeStyle(font);
-    if (!mIsWeightSet) {
-        mWeight = styleFromFont.weight();
-    }
-    if (!mIsSlantSet) {
-        mSlant = styleFromFont.slant();
-    }
-    return Font(std::move(mTypeface), FontStyle(mWeight, mSlant), std::move(font));
-}
-
-// static
-HbFontUniquePtr Font::prepareFont(const std::shared_ptr<MinikinFont>& typeface) {
-    const char* buf = reinterpret_cast<const char*>(typeface->GetFontData());
-    size_t size = typeface->GetFontSize();
-    uint32_t ttcIndex = typeface->GetFontIndex();
-
-    HbBlobUniquePtr blob(hb_blob_create(buf, size, HB_MEMORY_MODE_READONLY, nullptr, nullptr));
-    HbFaceUniquePtr face(hb_face_create(blob.get(), ttcIndex));
-    HbFontUniquePtr parent(hb_font_create(face.get()));
-    hb_ot_font_set_funcs(parent.get());
-
-    uint32_t upem = hb_face_get_upem(face.get());
-    hb_font_set_scale(parent.get(), upem, upem);
-
-    HbFontUniquePtr font(hb_font_create_sub_font(parent.get()));
-    std::vector<hb_variation_t> variations;
-    variations.reserve(typeface->GetAxes().size());
-    for (const FontVariation& variation : typeface->GetAxes()) {
-        variations.push_back({variation.axisTag, variation.value});
-    }
-    hb_font_set_variations(font.get(), variations.data(), variations.size());
-    return font;
-}
-
-// static
-FontStyle Font::analyzeStyle(const HbFontUniquePtr& font) {
-    HbBlob os2Table(font, MinikinFont::MakeTag('O', 'S', '/', '2'));
-    if (!os2Table) {
-        return FontStyle();
-    }
-
-    int weight;
-    bool italic;
-    if (!::minikin::analyzeStyle(os2Table.get(), os2Table.size(), &weight, &italic)) {
-        return FontStyle();
-    }
-    // TODO: Update weight/italic based on fvar value.
-    return FontStyle(static_cast<uint16_t>(weight), static_cast<FontStyle::Slant>(italic));
-}
-
-std::unordered_set<AxisTag> Font::getSupportedAxes() const {
-    HbBlob fvarTable(mBaseFont, MinikinFont::MakeTag('f', 'v', 'a', 'r'));
-    if (!fvarTable) {
-        return std::unordered_set<AxisTag>();
-    }
-    std::unordered_set<AxisTag> supportedAxes;
-    analyzeAxes(fvarTable.get(), fvarTable.size(), &supportedAxes);
-    return supportedAxes;
-}
-
-FontFamily::FontFamily(std::vector<Font>&& fonts)
+FontFamily::FontFamily(std::vector<std::shared_ptr<Font>>&& fonts)
         : FontFamily(FamilyVariant::DEFAULT, std::move(fonts)) {}
 
-FontFamily::FontFamily(FamilyVariant variant, std::vector<Font>&& fonts)
-        : FontFamily(LocaleListCache::kEmptyListId, variant, std::move(fonts),
-                     false /* isCustomFallback */) {}
+FontFamily::FontFamily(FamilyVariant variant, std::vector<std::shared_ptr<Font>>&& fonts)
+        : FontFamily(kEmptyLocaleListId, variant, std::move(fonts), false /* isCustomFallback */) {}
 
-FontFamily::FontFamily(uint32_t localeListId, FamilyVariant variant, std::vector<Font>&& fonts,
-                       bool isCustomFallback)
+FontFamily::FontFamily(uint32_t localeListId, FamilyVariant variant,
+                       std::vector<std::shared_ptr<Font>>&& fonts, bool isCustomFallback)
         : mLocaleListId(localeListId),
           mVariant(variant),
           mFonts(std::move(fonts)),
@@ -123,6 +53,83 @@ FontFamily::FontFamily(uint32_t localeListId, FamilyVariant variant, std::vector
     computeCoverage();
 }
 
+FontFamily::FontFamily(uint32_t localeListId, FamilyVariant variant,
+                       std::vector<std::shared_ptr<Font>>&& fonts,
+                       std::unordered_set<AxisTag>&& supportedAxes, bool isColorEmoji,
+                       bool isCustomFallback, SparseBitSet&& coverage,
+                       std::vector<std::unique_ptr<SparseBitSet>>&& cmapFmt14Coverage)
+        : mLocaleListId(localeListId),
+          mVariant(variant),
+          mFonts(std::move(fonts)),
+          mSupportedAxes(std::move(supportedAxes)),
+          mIsColorEmoji(isColorEmoji),
+          mIsCustomFallback(isCustomFallback),
+          mCoverage(std::move(coverage)),
+          mCmapFmt14Coverage(std::move(cmapFmt14Coverage)) {}
+
+// Read fields other than mFonts, mLocaleList.
+// static
+std::shared_ptr<FontFamily> FontFamily::readFromInternal(BufferReader* reader,
+                                                         std::vector<std::shared_ptr<Font>>&& fonts,
+                                                         uint32_t localeListId) {
+    // FamilyVariant is uint8_t
+    static_assert(sizeof(FamilyVariant) == 1);
+    FamilyVariant variant = reader->read<FamilyVariant>();
+    // AxisTag is uint32_t
+    static_assert(sizeof(AxisTag) == 4);
+    const auto& [axesPtr, axesCount] = reader->readArray<AxisTag>();
+    std::unordered_set<AxisTag> supportedAxes(axesPtr, axesPtr + axesCount);
+    bool isColorEmoji = static_cast<bool>(reader->read<uint8_t>());
+    bool isCustomFallback = static_cast<bool>(reader->read<uint8_t>());
+    SparseBitSet coverage(reader);
+    // Read mCmapFmt14Coverage. As it can have null entries, it is stored in the buffer as a sparse
+    // array (size, non-null entry count, array of (index, entry)).
+    uint32_t cmapFmt14CoverageSize = reader->read<uint32_t>();
+    std::vector<std::unique_ptr<SparseBitSet>> cmapFmt14Coverage(cmapFmt14CoverageSize);
+    uint32_t cmapFmt14CoverageEntryCount = reader->read<uint32_t>();
+    for (uint32_t i = 0; i < cmapFmt14CoverageEntryCount; i++) {
+        uint32_t index = reader->read<uint32_t>();
+        cmapFmt14Coverage[index] = std::make_unique<SparseBitSet>(reader);
+    }
+    return std::shared_ptr<FontFamily>(new FontFamily(
+            localeListId, variant, std::move(fonts), std::move(supportedAxes), isColorEmoji,
+            isCustomFallback, std::move(coverage), std::move(cmapFmt14Coverage)));
+}
+
+// static
+uint32_t FontFamily::readLocaleListInternal(BufferReader* reader) {
+    return LocaleListCache::readFrom(reader);
+}
+
+// Write fields other than mFonts.
+void FontFamily::writeToInternal(BufferWriter* writer) const {
+    writer->write<FamilyVariant>(mVariant);
+    std::vector<AxisTag> axes(mSupportedAxes.begin(), mSupportedAxes.end());
+    // Sort axes to be deterministic.
+    std::sort(axes.begin(), axes.end());
+    writer->writeArray<AxisTag>(axes.data(), axes.size());
+    writer->write<uint8_t>(mIsColorEmoji);
+    writer->write<uint8_t>(mIsCustomFallback);
+    mCoverage.writeTo(writer);
+    // Write mCmapFmt14Coverage as a sparse array (size, non-null entry count,
+    // array of (index, entry))
+    writer->write<uint32_t>(mCmapFmt14Coverage.size());
+    uint32_t cmapFmt14CoverageEntryCount = 0;
+    for (const std::unique_ptr<SparseBitSet>& coverage : mCmapFmt14Coverage) {
+        if (coverage != nullptr) cmapFmt14CoverageEntryCount++;
+    }
+    writer->write<uint32_t>(cmapFmt14CoverageEntryCount);
+    for (size_t i = 0; i < mCmapFmt14Coverage.size(); i++) {
+        if (mCmapFmt14Coverage[i] != nullptr) {
+            writer->write<uint32_t>(i);
+            mCmapFmt14Coverage[i]->writeTo(writer);
+        }
+    }
+}
+
+void FontFamily::writeLocaleListInternal(BufferWriter* writer) const {
+    LocaleListCache::writeTo(writer, mLocaleListId);
+}
 // Compute a matching metric between two styles - 0 is an exact match
 static int computeMatch(FontStyle style1, FontStyle style2) {
     if (style1 == style2) return 0;
@@ -144,21 +151,23 @@ static FontFakery computeFakery(FontStyle wanted, FontStyle actual) {
 }
 
 FakedFont FontFamily::getClosestMatch(FontStyle style) const {
-    const Font* bestFont = &mFonts[0];
+    int bestIndex = 0;
+    Font* bestFont = mFonts[bestIndex].get();
     int bestMatch = computeMatch(bestFont->style(), style);
     for (size_t i = 1; i < mFonts.size(); i++) {
-        const Font& font = mFonts[i];
-        int match = computeMatch(font.style(), style);
+        Font* font = mFonts[i].get();
+        int match = computeMatch(font->style(), style);
         if (i == 0 || match < bestMatch) {
-            bestFont = &font;
+            bestFont = font;
+            bestIndex = i;
             bestMatch = match;
         }
     }
-    return FakedFont{bestFont, computeFakery(style, bestFont->style())};
+    return FakedFont{mFonts[bestIndex], computeFakery(style, bestFont->style())};
 }
 
 void FontFamily::computeCoverage() {
-    const Font* font = getClosestMatch(FontStyle()).font;
+    const std::shared_ptr<Font>& font = getClosestMatch(FontStyle()).font;
     HbBlob cmapTable(font->baseFont(), MinikinFont::MakeTag('c', 'm', 'a', 'p'));
     if (cmapTable.get() == nullptr) {
         ALOGE("Could not get cmap table size!\n");
@@ -168,7 +177,7 @@ void FontFamily::computeCoverage() {
     mCoverage = CmapCoverage::getCoverage(cmapTable.get(), cmapTable.size(), &mCmapFmt14Coverage);
 
     for (size_t i = 0; i < mFonts.size(); ++i) {
-        std::unordered_set<AxisTag> supportedAxes = mFonts[i].getSupportedAxes();
+        std::unordered_set<AxisTag> supportedAxes = mFonts[i]->getSupportedAxes();
         mSupportedAxes.insert(supportedAxes.begin(), supportedAxes.end());
     }
 }
@@ -216,10 +225,10 @@ std::shared_ptr<FontFamily> FontFamily::createFamilyWithVariation(
         return nullptr;
     }
 
-    std::vector<Font> fonts;
-    for (const Font& font : mFonts) {
+    std::vector<std::shared_ptr<Font>> fonts;
+    for (const auto& font : mFonts) {
         bool supportedVariations = false;
-        std::unordered_set<AxisTag> supportedAxes = font.getSupportedAxes();
+        std::unordered_set<AxisTag> supportedAxes = font->getSupportedAxes();
         if (!supportedAxes.empty()) {
             for (const FontVariation& variation : variations) {
                 if (supportedAxes.find(variation.axisTag) != supportedAxes.end()) {
@@ -230,12 +239,13 @@ std::shared_ptr<FontFamily> FontFamily::createFamilyWithVariation(
         }
         std::shared_ptr<MinikinFont> minikinFont;
         if (supportedVariations) {
-            minikinFont = font.typeface()->createFontWithVariation(variations);
+            minikinFont = font->typeface()->createFontWithVariation(variations);
         }
         if (minikinFont == nullptr) {
-            minikinFont = font.typeface();
+            fonts.push_back(font);
+        } else {
+            fonts.push_back(Font::Builder(minikinFont).setStyle(font->style()).build());
         }
-        fonts.push_back(Font::Builder(minikinFont).setStyle(font.style()).build());
     }
 
     return std::shared_ptr<FontFamily>(

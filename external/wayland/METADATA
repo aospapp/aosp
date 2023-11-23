@@ -14,9 +14,9 @@ third_party {
   }
   url {
     type: GIT
-    value: "https://cgit.freedesktop.org/wayland/wayland/"
+    value: "https://gitlab.freedesktop.org/wayland/wayland.git"
   }
-  version: "1.12.90"
-  last_upgrade_date { year: 2017 month: 9 day: 29 }
+  version: "1.19.0"
+  last_upgrade_date { year: 2021 month: 2 day: 9 }
   license_type: NOTICE
 }

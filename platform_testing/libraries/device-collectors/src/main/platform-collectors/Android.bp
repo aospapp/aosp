@@ -13,6 +13,10 @@
 // limitations under the License.
 
 // Genrule for handwritten statsd configs.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_genrule {
     name: "statsd-config-protos",
     host_supported: true,
@@ -45,10 +49,9 @@ java_library {
 
     static_libs: [
         "collector-device-lib",
-        "libprotobuf-java-lite",
-        "statsd-config-protos",
+        "statsdprotonano",
         "statsd-helper",
-        "ub-uiautomator",
+        "statsd-config-protos",
     ],
     platform_apis: true,
 }

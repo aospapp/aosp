@@ -37,8 +37,8 @@ import com.android.compatibility.common.util.SystemUtil;
  */
 public class ApplicationTest extends InstrumentationTestCase {
     private static final String ERASE_FONT_SCALE_CMD = "settings delete system font_scale";
-    // 2 is an arbitrary value.
-    private static final String PUT_FONT_SCALE_CMD = "settings put system font_scale 2";
+    // 1.2 is an arbitrary value.
+    private static final String PUT_FONT_SCALE_CMD = "settings put system font_scale 1.2";
 
     @Override
     public void tearDown() throws Exception {

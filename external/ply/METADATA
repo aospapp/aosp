@@ -13,6 +13,6 @@ third_party {
   }
   version: "3.11"
   last_upgrade_date { year: 2018 month: 05 day: 22 }
-  license_type: PERMISSIVE
+  license_type: NOTICE
 }
 

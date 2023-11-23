@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsBatteryStatsApp",
     defaults: ["cts_defaults"],
     srcs: ["src/**/*.java"],
     libs: [
-        "android.test.runner.stubs",
+        "android.test.runner",
         "junit",
         "org.apache.http.legacy",
     ],
@@ -25,12 +29,12 @@ android_test_helper_app {
         "ctstestrunner-axt",
         "compatibility-device-util-axt",
         "androidx.legacy_legacy-support-v4",
+        "testng", // for org.test.* support
     ],
     sdk_version: "test_current",
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

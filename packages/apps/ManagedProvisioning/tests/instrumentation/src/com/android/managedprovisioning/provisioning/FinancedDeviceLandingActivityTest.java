@@ -19,20 +19,26 @@ package com.android.managedprovisioning.provisioning;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
-
-import static org.junit.Assert.assertTrue;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.managedprovisioning.model.ProvisioningParams.EXTRA_PROVISIONING_PARAMS;
 
+import static org.junit.Assert.assertTrue;
+
 import android.content.ComponentName;
 import android.content.Intent;
+import android.os.RemoteException;
+import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.espresso.intent.rule.IntentsTestRule;
 import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.TestUtils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
+import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,14 +58,20 @@ public class FinancedDeviceLandingActivityTest {
     public IntentsTestRule<FinancedDeviceLandingActivity> mActivityRule =
             new IntentsTestRule(FinancedDeviceLandingActivity.class, true, false);
 
+    @Before
+    public void setup() throws RemoteException {
+        TestUtils.wakeupDeviceAndPressHome(UiDevice.getInstance(getInstrumentation()));
+    }
+
+    @Ignore("b/181323689")
     @Test
     public void onAcceptAndContinueButtonClicked() {
         // GIVEN the activity launched
         ProvisioningParams params = generateProvisioningParams();
         launchActivityWithParams(params);
 
-        // WHEN the user clicks Accept & continue
-        onView(withText(R.string.accept_and_continue)).perform(click());
+        // WHEN the user clicks Next
+        onView(withText(R.string.next)).perform(click());
 
         // THEN the activity should finish
         assertTrue(mActivityRule.getActivity().isFinishing());

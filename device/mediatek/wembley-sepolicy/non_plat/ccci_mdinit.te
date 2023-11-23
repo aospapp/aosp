@@ -12,43 +12,34 @@ type ccci_mdinit ,domain;
 # ==============================================
 init_daemon_domain(ccci_mdinit)
 wakelock_use(ccci_mdinit)
-#=============allow ccci_mdinit to start gsm0710muxd==============
-set_prop(ccci_mdinit, ctl_gsm0710muxd_prop)
-#=============allow ccci_mdinit to start emcsmdlogger==============
-set_prop(ccci_mdinit, ctl_mdlogger_prop)
+
 #=============allow ccci_mdinit to start c2krild==============
-set_prop(ccci_mdinit, ctl_viarild_prop)
+set_prop(ccci_mdinit, vendor_mtk_ctl_viarild_prop)
 #=============allow ccci_mdinit to start/stop rild, mdlogger==============
-set_prop(ccci_mdinit, ctl_mdlogger_prop)
-set_prop(ccci_mdinit, ctl_emdlogger1_prop)
-set_prop(ccci_mdinit, ctl_emdlogger2_prop)
-set_prop(ccci_mdinit, ctl_emdlogger3_prop)
-set_prop(ccci_mdinit, ctl_dualmdlogger_prop)
-set_prop(ccci_mdinit, ctl_gsm0710muxd_prop)
-set_prop(ccci_mdinit, ctl_gsm0710muxd-s_prop)
-set_prop(ccci_mdinit, ctl_gsm0710muxd-d_prop)
-#set_prop(ccci_mdinit, ctl_rildaemon_prop)
-set_prop(ccci_mdinit, ctl_ril-daemon-mtk_prop)
-set_prop(ccci_mdinit, ctl_fusion_ril_mtk_prop)
-set_prop(ccci_mdinit, ctl_ril-daemon-s_prop)
-set_prop(ccci_mdinit, ctl_ril-daemon-d_prop)
-set_prop(ccci_mdinit, ctl_ril-proxy_prop)
-set_prop(ccci_mdinit, ril_active_md_prop)
-set_prop(ccci_mdinit, mtk_md_prop)
-#set_prop(ccci_mdinit, radio_prop)
-set_prop(ccci_mdinit, net_cdma_mdmstat)
+set_prop(ccci_mdinit, system_mtk_ctl_mdlogger_prop)
+set_prop(ccci_mdinit, system_mtk_ctl_emdlogger1_prop)
+set_prop(ccci_mdinit, system_mtk_ctl_emdlogger2_prop)
+set_prop(ccci_mdinit, system_mtk_ctl_emdlogger3_prop)
+set_prop(ccci_mdinit, vendor_mtk_ctl_gsm0710muxd_prop)
+set_prop(ccci_mdinit, vendor_mtk_ctl_ril-daemon-mtk_prop)
+set_prop(ccci_mdinit, vendor_mtk_ctl_fusion_ril_mtk_prop)
+set_prop(ccci_mdinit, vendor_mtk_ctl_ril-proxy_prop)
+set_prop(ccci_mdinit, vendor_mtk_ril_active_md_prop)
+set_prop(ccci_mdinit, vendor_mtk_md_prop)
+set_prop(ccci_mdinit, vendor_mtk_net_cdma_mdmstat_prop)
 set_prop(ccci_mdinit, ctl_start_prop)
-#=============allow ccci_mdinit to get tel_switch_prop==============
-get_prop(ccci_mdinit, tel_switch_prop)
+#=============allow ccci_mdinit to get vendor_mtk_tel_switch_prop==============
+get_prop(ccci_mdinit, vendor_mtk_tel_switch_prop)
 
 #=============allow ccci_mdinit to start/stop fsd==============
-set_prop(ccci_mdinit, ctl_ccci_fsd_prop)
-set_prop(ccci_mdinit, ctl_ccci2_fsd_prop)
-set_prop(ccci_mdinit, ctl_ccci3_fsd_prop)
+set_prop(ccci_mdinit, vendor_mtk_ctl_ccci_fsd_prop)
+set_prop(ccci_mdinit, vendor_mtk_ctl_ccci2_fsd_prop)
+set_prop(ccci_mdinit, vendor_mtk_ctl_ccci3_fsd_prop)
 
-get_prop(ccci_mdinit, vendor_default_prop)
-get_prop(ccci_mdinit, init_svc_emdlogger1_prop)
-get_prop(ccci_mdinit, init_svc_aee_aedv_prop)
+# GOOGLE: Commented out for b/169606103
+#get_prop(ccci_mdinit, vendor_default_prop)
+get_prop(ccci_mdinit, system_mtk_init_svc_emdlogger1_prop)
+get_prop(ccci_mdinit, system_mtk_init_svc_aee_aedv_prop)
 
 allow ccci_mdinit ccci_device:chr_file rw_file_perms;
 allow ccci_mdinit ccci_monitor_device:chr_file rw_file_perms;
@@ -71,7 +62,7 @@ allow ccci_mdinit protect_s_data_file:file create_file_perms;
 allow ccci_mdinit nvram_device:blk_file rw_file_perms;
 allow ccci_mdinit nvdata_device:blk_file rw_file_perms;
 
-set_prop(ccci_mdinit, ril_mux_report_case_prop)
+set_prop(ccci_mdinit, vendor_mtk_ril_mux_report_case_prop)
 
 allow ccci_mdinit ccci_cfg_file:dir create_dir_perms;
 allow ccci_mdinit ccci_cfg_file:file create_file_perms;
@@ -95,7 +86,7 @@ allow ccci_mdinit sysfs_ccci:dir search;
 allow ccci_mdinit sysfs_ccci:file rw_file_perms;
 allow ccci_mdinit sysfs_ssw:dir search;
 allow ccci_mdinit sysfs_ssw:file r_file_perms;
-allow ccci_mdinit sysfs_boot_mode:file { read open };
+allow ccci_mdinit sysfs_boot_info:file r_file_perms;
 
 # Purpose : Allow ccci_mdinit to open and read/write /proc/bootprof
 allow ccci_mdinit proc_bootprof:file rw_file_perms;
@@ -110,3 +101,8 @@ allow ccci_mdinit block_device:dir search;
 allow ccci_mdinit metadata_file:dir search;
 allow ccci_mdinit proc_cmdline:file r_file_perms;
 allow ccci_mdinit sysfs_dt_firmware_android:dir search;
+
+# Date : 2020-07-06
+# Purpose: no trigger avc log when call nvram api
+dontaudit ccci_mdinit gsi_metadata_file:dir search;
+

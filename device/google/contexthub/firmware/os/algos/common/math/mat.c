@@ -16,8 +16,9 @@
 
 #include "common/math/mat.h"
 
-#include <assert.h>
 #include <float.h>
+
+#include "chre/util/nanoapp/assert.h"
 
 #ifdef _OS_BUILD_
 #include <nanohub_math.h>
@@ -44,13 +45,13 @@ static void mat33Rotate(struct Mat33 *A, float c, float s, uint32_t k,
 static void mat44SwapRows(struct Mat44 *A, uint32_t i, uint32_t j);
 
 void initZeroMatrix(struct Mat33 *A) {
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(A);
   memset(A->elem, 0.0f, sizeof(A->elem));
 }
 
 UNROLLED
 void initDiagonalMatrix(struct Mat33 *A, float x) {
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(A);
   initZeroMatrix(A);
 
   uint32_t i;
@@ -61,10 +62,10 @@ void initDiagonalMatrix(struct Mat33 *A, float x) {
 
 void initMatrixColumns(struct Mat33 *A, const struct Vec3 *v1,
                        const struct Vec3 *v2, const struct Vec3 *v3) {
-  ASSERT_NOT_NULL(A);
-  ASSERT_NOT_NULL(v1);
-  ASSERT_NOT_NULL(v2);
-  ASSERT_NOT_NULL(v3);
+  CHRE_ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(v1);
+  CHRE_ASSERT_NOT_NULL(v2);
+  CHRE_ASSERT_NOT_NULL(v3);
   A->elem[0][0] = v1->x;
   A->elem[0][1] = v2->x;
   A->elem[0][2] = v3->x;
@@ -79,9 +80,9 @@ void initMatrixColumns(struct Mat33 *A, const struct Vec3 *v1,
 }
 
 void mat33Apply(struct Vec3 *out, const struct Mat33 *A, const struct Vec3 *v) {
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
-  ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(v);
   out->x = A->elem[0][0] * v->x + A->elem[0][1] * v->y + A->elem[0][2] * v->z;
   out->y = A->elem[1][0] * v->x + A->elem[1][1] * v->y + A->elem[1][2] * v->z;
   out->z = A->elem[2][0] * v->x + A->elem[2][1] * v->y + A->elem[2][2] * v->z;
@@ -90,11 +91,11 @@ void mat33Apply(struct Vec3 *out, const struct Mat33 *A, const struct Vec3 *v) {
 UNROLLED
 void mat33Multiply(struct Mat33 *out, const struct Mat33 *A,
                    const struct Mat33 *B) {
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
-  ASSERT_NOT_NULL(B);
-  ASSERT(out != A);
-  ASSERT(out != B);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(B);
+  CHRE_ASSERT(out != A);
+  CHRE_ASSERT(out != B);
 
   uint32_t i;
   for (i = 0; i < 3; ++i) {
@@ -113,7 +114,7 @@ void mat33Multiply(struct Mat33 *out, const struct Mat33 *A,
 
 UNROLLED
 void mat33ScalarMul(struct Mat33 *A, float c) {
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(A);
   uint32_t i;
   for (i = 0; i < 3; ++i) {
     uint32_t j;
@@ -125,8 +126,8 @@ void mat33ScalarMul(struct Mat33 *A, float c) {
 
 UNROLLED
 void mat33Add(struct Mat33 *out, const struct Mat33 *A) {
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
   uint32_t i;
   for (i = 0; i < 3; ++i) {
     uint32_t j;
@@ -138,8 +139,8 @@ void mat33Add(struct Mat33 *out, const struct Mat33 *A) {
 
 UNROLLED
 void mat33Sub(struct Mat33 *out, const struct Mat33 *A) {
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
   uint32_t i;
   for (i = 0; i < 3; ++i) {
     uint32_t j;
@@ -151,7 +152,7 @@ void mat33Sub(struct Mat33 *out, const struct Mat33 *A) {
 
 UNROLLED
 int mat33IsPositiveSemidefinite(const struct Mat33 *A, float tolerance) {
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(A);
   uint32_t i;
   for (i = 0; i < 3; ++i) {
     if (A->elem[i][i] < 0.0f) {
@@ -174,11 +175,11 @@ int mat33IsPositiveSemidefinite(const struct Mat33 *A, float tolerance) {
 UNROLLED
 void mat33MultiplyTransposed(struct Mat33 *out, const struct Mat33 *A,
                              const struct Mat33 *B) {
-  ASSERT(out != A);
-  ASSERT(out != B);
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
-  ASSERT_NOT_NULL(B);
+  CHRE_ASSERT(out != A);
+  CHRE_ASSERT(out != B);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(B);
   uint32_t i;
   for (i = 0; i < 3; ++i) {
     uint32_t j;
@@ -197,11 +198,11 @@ void mat33MultiplyTransposed(struct Mat33 *out, const struct Mat33 *A,
 UNROLLED
 void mat33MultiplyTransposed2(struct Mat33 *out, const struct Mat33 *A,
                               const struct Mat33 *B) {
-  ASSERT(out != A);
-  ASSERT(out != B);
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
-  ASSERT_NOT_NULL(B);
+  CHRE_ASSERT(out != A);
+  CHRE_ASSERT(out != B);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(B);
   uint32_t i;
   for (i = 0; i < 3; ++i) {
     uint32_t j;
@@ -219,8 +220,8 @@ void mat33MultiplyTransposed2(struct Mat33 *out, const struct Mat33 *A,
 
 UNROLLED
 void mat33Invert(struct Mat33 *out, const struct Mat33 *A) {
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
   float t;
   initDiagonalMatrix(out, 1.0f);
 
@@ -248,7 +249,7 @@ void mat33Invert(struct Mat33 *out, const struct Mat33 *A) {
       }
     }
     // divide by zero guard.
-    ASSERT(fabsf(tmp.elem[i][i]) > 0);
+    CHRE_ASSERT(fabsf(tmp.elem[i][i]) > 0);
     if(!(fabsf(tmp.elem[i][i]) > 0)) {
       return;
     }
@@ -272,8 +273,8 @@ void mat33Invert(struct Mat33 *out, const struct Mat33 *A) {
 
 UNROLLED
 void mat33Transpose(struct Mat33 *out, const struct Mat33 *A) {
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
   uint32_t i;
   for (i = 0; i < 3; ++i) {
     uint32_t j;
@@ -285,7 +286,7 @@ void mat33Transpose(struct Mat33 *out, const struct Mat33 *A) {
 
 UNROLLED
 void mat33SwapRows(struct Mat33 *A, const uint32_t i, const uint32_t j) {
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(A);
   const uint32_t N = 3;
   uint32_t k;
 
@@ -303,9 +304,9 @@ void mat33SwapRows(struct Mat33 *A, const uint32_t i, const uint32_t j) {
 UNROLLED
 void mat33GetEigenbasis(struct Mat33 *S, struct Vec3 *eigenvals,
                         struct Mat33 *eigenvecs) {
-  ASSERT_NOT_NULL(S);
-  ASSERT_NOT_NULL(eigenvals);
-  ASSERT_NOT_NULL(eigenvecs);
+  CHRE_ASSERT_NOT_NULL(S);
+  CHRE_ASSERT_NOT_NULL(eigenvals);
+  CHRE_ASSERT_NOT_NULL(eigenvecs);
   const uint32_t N = 3;
   uint32_t i, j, k, l, m;
 
@@ -408,7 +409,7 @@ void mat33GetEigenbasis(struct Mat33 *S, struct Vec3 *eigenvals,
 }
 
 float mat33Determinant(const struct Mat33 *A) {
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(A);
   return A->elem[0][0] *
       (A->elem[1][1] * A->elem[2][2] - A->elem[1][2] * A->elem[2][1])
       - A->elem[0][1] *
@@ -420,7 +421,7 @@ float mat33Determinant(const struct Mat33 *A) {
 // index of largest off-diagonal element in row k
 UNROLLED
 uint32_t mat33Maxind(const struct Mat33 *A, uint32_t k) {
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(A);
   const uint32_t N = 3;
 
   uint32_t m = k + 1;
@@ -437,16 +438,16 @@ uint32_t mat33Maxind(const struct Mat33 *A, uint32_t k) {
 
 void mat33Rotate(struct Mat33 *A, float c, float s, uint32_t k, uint32_t l,
                  uint32_t i, uint32_t j) {
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(A);
   float tmp = c * A->elem[k][l] - s * A->elem[i][j];
   A->elem[i][j] = s * A->elem[k][l] + c * A->elem[i][j];
   A->elem[k][l] = tmp;
 }
 
 void mat44Apply(struct Vec4 *out, const struct Mat44 *A, const struct Vec4 *v) {
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
-  ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(v);
 
   out->x = A->elem[0][0] * v->x + A->elem[0][1] * v->y + A->elem[0][2] * v->z +
            A->elem[0][3] * v->w;
@@ -463,8 +464,8 @@ void mat44Apply(struct Vec4 *out, const struct Mat44 *A, const struct Vec4 *v) {
 
 UNROLLED
 void mat44DecomposeLup(struct Mat44 *LU, struct Size4 *pivot) {
-  ASSERT_NOT_NULL(LU);
-  ASSERT_NOT_NULL(pivot);
+  CHRE_ASSERT_NOT_NULL(LU);
+  CHRE_ASSERT_NOT_NULL(pivot);
   const uint32_t N = 4;
   uint32_t i, j, k;
 
@@ -500,7 +501,7 @@ void mat44DecomposeLup(struct Mat44 *LU, struct Size4 *pivot) {
 
 UNROLLED
 void mat44SwapRows(struct Mat44 *A, const uint32_t i, const uint32_t j) {
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(A);
   const uint32_t N = 4;
   uint32_t k;
 
@@ -518,10 +519,10 @@ void mat44SwapRows(struct Mat44 *A, const uint32_t i, const uint32_t j) {
 UNROLLED
 void mat44Solve(const struct Mat44 *A, struct Vec4 *x, const struct Vec4 *b,
                 const struct Size4 *pivot) {
-  ASSERT_NOT_NULL(A);
-  ASSERT_NOT_NULL(x);
-  ASSERT_NOT_NULL(b);
-  ASSERT_NOT_NULL(pivot);
+  CHRE_ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(x);
+  CHRE_ASSERT_NOT_NULL(b);
+  CHRE_ASSERT_NOT_NULL(pivot);
   const uint32_t N = 4;
   uint32_t i, k;
 
@@ -556,8 +557,8 @@ void mat44Solve(const struct Mat44 *A, struct Vec4 *x, const struct Vec4 *b,
 }
 
 float matMaxDiagonalElement(const float *square_mat, size_t n) {
-  ASSERT_NOT_NULL(square_mat);
-  ASSERT(n > 0);
+  CHRE_ASSERT_NOT_NULL(square_mat);
+  CHRE_ASSERT(n > 0);
   size_t i;
   float max = square_mat[0];
   const size_t n_square = n * n;
@@ -571,7 +572,7 @@ float matMaxDiagonalElement(const float *square_mat, size_t n) {
 }
 
 void matAddConstantDiagonal(float *square_mat, float u, size_t n) {
-  ASSERT_NOT_NULL(square_mat);
+  CHRE_ASSERT_NOT_NULL(square_mat);
   size_t i;
   const size_t n_square = n * n;
   const size_t offset = n + 1;
@@ -582,8 +583,8 @@ void matAddConstantDiagonal(float *square_mat, float u, size_t n) {
 
 void matTransposeMultiplyMat(float *out, const float *A,
                              size_t nrows, size_t ncols) {
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
   size_t i;
   size_t j;
   size_t k;
@@ -608,9 +609,9 @@ void matTransposeMultiplyMat(float *out, const float *A,
 
 void matMultiplyVec(float *out, const float *A, const float *v,
                     size_t nrows, size_t ncols) {
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
-  ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(v);
   size_t i;
   for (i = 0; i < nrows; ++i) {
     const float *row = &A[i * ncols];
@@ -620,9 +621,9 @@ void matMultiplyVec(float *out, const float *A, const float *v,
 
 void matTransposeMultiplyVec(float *out, const float *A, const float *v,
                              size_t nrows, size_t ncols) {
-  ASSERT_NOT_NULL(out);
-  ASSERT_NOT_NULL(A);
-  ASSERT_NOT_NULL(v);
+  CHRE_ASSERT_NOT_NULL(out);
+  CHRE_ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(v);
   size_t i, j;
   for (i = 0; i < ncols; ++i) {
     out[i] = 0;
@@ -633,10 +634,10 @@ void matTransposeMultiplyVec(float *out, const float *A, const float *v,
 }
 
 bool matLinearSolveCholesky(float *x, const float *L, const float *b, size_t n) {
-  ASSERT_NOT_NULL(x);
-  ASSERT_NOT_NULL(L);
-  ASSERT_NOT_NULL(b);
-  ASSERT(n <= INT32_MAX);
+  CHRE_ASSERT_NOT_NULL(x);
+  CHRE_ASSERT_NOT_NULL(L);
+  CHRE_ASSERT_NOT_NULL(b);
+  CHRE_ASSERT(n <= INT32_MAX);
   int32_t i, j;  // Loops below require signed integers.
   int32_t s_n = (int32_t)n; // Signed n.
   float sum = 0.0f;
@@ -667,8 +668,8 @@ bool matLinearSolveCholesky(float *x, const float *L, const float *b, size_t n) 
 }
 
 bool matCholeskyDecomposition(float *L, const float *A, size_t n) {
-  ASSERT_NOT_NULL(L);
-  ASSERT_NOT_NULL(A);
+  CHRE_ASSERT_NOT_NULL(L);
+  CHRE_ASSERT_NOT_NULL(A);
   size_t i, j, k;
   float sum = 0.0f;
   // initialize L to zero.

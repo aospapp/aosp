@@ -18,8 +18,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.captiveportallogin"
-    android:versionCode="300000000"
-    android:versionName="2019-09">
+    android:versionCode="319999900"
+    android:versionName="s_aml_319999900">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -49,6 +49,7 @@
             android:name="com.android.captiveportallogin.CaptivePortalLoginActivity"
             android:label="@string/action_bar_label"
             android:theme="@style/AppTheme"
+            android:exported="true"
             android:configChanges="keyboardHidden|orientation|screenSize" >
             <intent-filter>
                 <action android:name="android.net.conn.CAPTIVE_PORTAL"/>

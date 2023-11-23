@@ -16,11 +16,17 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="enable_cmas_test_alerts_title" msgid="5028777622440500200">"Այլ փորձնական ծանուցումներ"</string>
     <string name="receive_cmas_in_second_language_title" msgid="7539080017840218665">"Իսպաներեն"</string>
     <string name="receive_cmas_in_second_language_summary" msgid="4482209573334686904">"Հնարավորության դեպքում արտակարգ իրավիճակների ահազանգերը ստանալ իսպաներեն լեզվով"</string>
     <string name="confirm_delete_broadcast" msgid="6808374217554967811">"Ջնջե՞լ այս ծանուցումը։"</string>
     <string name="confirm_delete_all_broadcasts" msgid="4748571670736214158">"Ջնջե՞լ բոլոր ծանուցումները"</string>
     <string name="menu_delete" msgid="2691868773984777519">"Ջնջել ծանուցումը"</string>
     <string name="menu_delete_all" msgid="8991615021908376216">"Ջնջել ծանուցումները"</string>
+    <!-- no translation found for enable_cmas_test_alerts_title (3722503121618497385) -->
+    <skip />
+    <string name="enable_cmas_test_alerts_summary" msgid="6138676147687910935">"Ստանալ ազդարարման համակարգի պարտադիր փորձնական ահազանգեր"</string>
+    <string name="cmas_presidential_level_alert" msgid="5810314558991898384">"Համապետական ազդարարում"</string>
+    <string name="show_cmas_opt_out_summary" msgid="5612381687166765604">"Ցուցադրել ազդարարումն անջատելու պատուհան առաջին ազդարարումից հետո (եթե այն համապետական չէ)"</string>
+    <string name="enable_cmas_presidential_alerts_title" msgid="3871388542233245120">"Համապետական զգուշացումներ"</string>
+    <string name="enable_cmas_presidential_alerts_summary" msgid="1292969668875568075">"Համապետական նախազգուշացնող ծանուցումներ։ Հնարավոր չէ անջատել։"</string>
 </resources>

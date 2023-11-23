@@ -1,10 +1,14 @@
 """Pen recording operations that can be accessed or replayed."""
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
 from fontTools.pens.basePen import AbstractPen, DecomposingPen
+from fontTools.pens.pointPen import AbstractPointPen
 
 
-__all__ = ["replayRecording", "RecordingPen", "DecomposingRecordingPen"]
+__all__ = [
+	"replayRecording",
+	"RecordingPen",
+	"DecomposingRecordingPen",
+	"RecordingPointPen",
+]
 
 
 def replayRecording(recording, pen):
@@ -90,8 +94,52 @@ class DecomposingRecordingPen(DecomposingPen, RecordingPen):
 	skipMissingComponents = False
 
 
+class RecordingPointPen(AbstractPointPen):
+	"""PointPen recording operations that can be accessed or replayed.
+
+	The recording can be accessed as pen.value; or replayed using
+	pointPen.replay(otherPointPen).
+
+	Usage example:
+	==============
+	from defcon import Font
+	from fontTools.pens.recordingPen import RecordingPointPen
+
+	glyph_name = 'a'
+	font_path = 'MyFont.ufo'
+
+	font = Font(font_path)
+	glyph = font[glyph_name]
+
+	pen = RecordingPointPen()
+	glyph.drawPoints(pen)
+	print(pen.value)
+
+	new_glyph = font.newGlyph('b')
+	pen.replay(new_glyph.getPointPen())
+	"""
+
+	def __init__(self):
+		self.value = []
+
+	def beginPath(self, **kwargs):
+		self.value.append(("beginPath", (), kwargs))
+
+	def endPath(self):
+		self.value.append(("endPath", (), {}))
+
+	def addPoint(self, pt, segmentType=None, smooth=False, name=None, **kwargs):
+		self.value.append(("addPoint", (pt, segmentType, smooth, name), kwargs))
+
+	def addComponent(self, baseGlyphName, transformation, **kwargs):
+		self.value.append(("addComponent", (baseGlyphName, transformation), kwargs))
+
+	def replay(self, pointPen):
+		for operator, args, kwargs in self.value:
+			getattr(pointPen, operator)(*args, **kwargs)
+
+
 if __name__ == "__main__":
-	from fontTools.pens.basePen import _TestPen
 	pen = RecordingPen()
 	pen.moveTo((0, 0))
 	pen.lineTo((0, 100))

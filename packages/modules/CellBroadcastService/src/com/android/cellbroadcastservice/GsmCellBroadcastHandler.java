@@ -21,10 +21,12 @@ import static com.android.cellbroadcastservice.CellBroadcastStatsLog.CELL_BROADC
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.net.Uri;
@@ -34,6 +36,8 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Telephony.CellBroadcasts;
 import android.telephony.AccessNetworkConstants;
+import android.telephony.CarrierConfigManager;
+import android.telephony.CbGeoUtils;
 import android.telephony.CbGeoUtils.Geometry;
 import android.telephony.CellBroadcastIntents;
 import android.telephony.CellIdentity;
@@ -44,9 +48,11 @@ import android.telephony.CellIdentityTdscdma;
 import android.telephony.CellIdentityWcdma;
 import android.telephony.CellInfo;
 import android.telephony.NetworkRegistrationInfo;
+import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
+import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
@@ -60,6 +66,7 @@ import com.android.internal.annotations.VisibleForTesting;
 
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -76,15 +83,132 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
     /** Indicates that a message is not displayed. */
     private static final String MESSAGE_NOT_DISPLAYED = "0";
 
+    /**
+     * Intent sent from cellbroadcastreceiver to notify cellbroadcastservice that area info update
+     * is disabled/enabled.
+     */
+    private static final String ACTION_AREA_UPDATE_ENABLED =
+            "com.android.cellbroadcastreceiver.action.AREA_UPDATE_INFO_ENABLED";
+
+    /**
+     * The extra for cell ACTION_AREA_UPDATE_ENABLED enable/disable
+     */
+    private static final String EXTRA_ENABLE = "enable";
+
+    /**
+     * This permission is only granted to the cellbroadcast mainline module and thus can be
+     * used for permission check within CBR and CBS.
+     */
+    private static final String CBR_MODULE_PERMISSION =
+            "com.android.cellbroadcastservice.FULL_ACCESS_CELL_BROADCAST_HISTORY";
+
     private final SparseArray<String> mAreaInfos = new SparseArray<>();
+
+    /**
+     * Used to store ServiceStateListeners for each active slot
+     */
+    private final SparseArray<ServiceStateListener> mServiceStateListener = new SparseArray<>();
 
     /** This map holds incomplete concatenated messages waiting for assembly. */
     private final HashMap<SmsCbConcatInfo, byte[][]> mSmsCbPageMap =
             new HashMap<>(4);
 
     @VisibleForTesting
-    public GsmCellBroadcastHandler(Context context, Looper looper) {
-        super("GsmCellBroadcastHandler", context, looper);
+    public GsmCellBroadcastHandler(Context context, Looper looper,
+            CbSendMessageCalculatorFactory cbSendMessageCalculatorFactory,
+            CellBroadcastHandler.HandlerHelper handlerHelper) {
+        super("GsmCellBroadcastHandler", context, looper, cbSendMessageCalculatorFactory,
+                handlerHelper);
+        mContext.registerReceiver(mGsmReceiver, new IntentFilter(ACTION_AREA_UPDATE_ENABLED),
+                CBR_MODULE_PERMISSION, null);
+        // Some OEMs want us to reset the area info updates when going out of service
+        // (Okay to use res for slot 0 here because this should not be carrier specific)
+        if (getResourcesForSlot(0).getBoolean(R.bool.reset_area_info_on_oos)) {
+            mContext.registerReceiver(mGsmReceiver,
+                    new IntentFilter(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED), null,
+                    null);
+        }
+    }
+
+    /**
+     * Constructor used only for tests. This constructor allows the caller to pass in resources
+     * and a subId to be put into the resources cache before getResourcesForSlot called (this is
+     * needed for unit tests to prevent
+     */
+    @VisibleForTesting
+    public GsmCellBroadcastHandler(Context context, Looper looper,
+            CbSendMessageCalculatorFactory cbSendMessageCalculatorFactory,
+            CellBroadcastHandler.HandlerHelper handlerHelper, Resources resources, int subId) {
+        super("GsmCellBroadcastHandler", context, looper, cbSendMessageCalculatorFactory,
+                handlerHelper);
+        mContext.registerReceiver(mGsmReceiver, new IntentFilter(ACTION_AREA_UPDATE_ENABLED),
+                CBR_MODULE_PERMISSION, null);
+
+        // set the resources cache here for unit tests
+        mResourcesCache.put(subId, resources);
+
+        // Some OEMs want us to reset the area info updates when going out of service
+        // (Okay to use res for slot 0 here because this should not be carrier specific)
+        if (getResourcesForSlot(0).getBoolean(R.bool.reset_area_info_on_oos)) {
+            mContext.registerReceiver(mGsmReceiver,
+                    new IntentFilter(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED), null,
+                    null);
+        }
+    }
+
+    @Override
+    public void cleanup() {
+        log("cleanup");
+        TelephonyManager tm = mContext.getSystemService(TelephonyManager.class);
+        int size = mServiceStateListener.size();
+        for (int i = 0; i < size; i++) {
+            tm.listen(mServiceStateListener.valueAt(i), PhoneStateListener.LISTEN_NONE);
+        }
+        mContext.unregisterReceiver(mGsmReceiver);
+        super.cleanup();
+    }
+
+    private void registerServiceStateListeners() {
+        // register for all active slots
+        TelephonyManager tm = mContext.getSystemService(TelephonyManager.class);
+        SubscriptionManager sm = mContext.getSystemService(SubscriptionManager.class);
+        for (int slotId = 0; slotId < tm.getActiveModemCount(); slotId++) {
+            SubscriptionInfo info = sm.getActiveSubscriptionInfoForSimSlotIndex(slotId);
+            if (info != null) {
+                int subId = info.getSubscriptionId();
+                if (subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                    mServiceStateListener.put(slotId, new ServiceStateListener(subId, slotId));
+                    tm.createForSubscriptionId(subId).listen(mServiceStateListener.get(slotId),
+                            PhoneStateListener.LISTEN_SERVICE_STATE);
+                }
+            }
+        }
+    }
+
+    private class ServiceStateListener extends PhoneStateListener {
+        // subId is not needed for clearing area info, only used for debugging purposes
+        private int mSubId;
+        private int mSlotId;
+
+        ServiceStateListener(int subId, int slotId) {
+            mSubId = subId;
+            mSlotId = slotId;
+        }
+
+        @Override
+        public void onServiceStateChanged(@NonNull ServiceState serviceState) {
+            int state = serviceState.getState();
+            if (state == ServiceState.STATE_POWER_OFF
+                    || state == ServiceState.STATE_OUT_OF_SERVICE) {
+                synchronized (mAreaInfos) {
+                    if (mAreaInfos.contains(mSlotId)) {
+                        log("OOS mSubId=" + mSubId + " mSlotId=" + mSlotId
+                                + ", clearing area infos");
+                        mAreaInfos.remove(mSlotId);
+                    }
+                }
+            }
+        }
     }
 
     @Override
@@ -121,9 +245,22 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
      * @return the new handler
      */
     public static GsmCellBroadcastHandler makeGsmCellBroadcastHandler(Context context) {
-        GsmCellBroadcastHandler handler = new GsmCellBroadcastHandler(context, Looper.myLooper());
+        GsmCellBroadcastHandler handler = new GsmCellBroadcastHandler(context, Looper.myLooper(),
+                new CbSendMessageCalculatorFactory(), null);
         handler.start();
         return handler;
+    }
+
+    private Resources getResourcesForSlot(int slotIndex) {
+        SubscriptionManager subMgr = mContext.getSystemService(SubscriptionManager.class);
+        int[] subIds = subMgr.getSubscriptionIds(slotIndex);
+        Resources res;
+        if (subIds != null) {
+            res = getResources(subIds[0]);
+        } else {
+            res = getResources(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+        }
+        return res;
     }
 
     /**
@@ -138,15 +275,7 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
         final List<SmsCbMessage> cbMessages = new ArrayList<>();
         final List<Uri> cbMessageUris = new ArrayList<>();
 
-        SubscriptionManager subMgr = (SubscriptionManager) mContext.getSystemService(
-                Context.TELEPHONY_SUBSCRIPTION_SERVICE);
-        int[] subIds = subMgr.getSubscriptionIds(slotIndex);
-        Resources res;
-        if (subIds != null) {
-            res = getResources(subIds[0]);
-        } else {
-            res = getResources(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
-        }
+        Resources res = getResourcesForSlot(slotIndex);
 
         // Only consider the cell broadcast received within 24 hours.
         long lastReceivedTime = System.currentTimeMillis() - DateUtils.DAY_IN_MILLIS;
@@ -216,22 +345,48 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
             return false;
         }
 
-        requestLocationUpdate(location -> {
-            if (location == null) {
-                // If the location is not available, broadcast the messages directly.
-                for (int i = 0; i < cbMessages.size(); i++) {
-                    broadcastMessage(cbMessages.get(i), cbMessageUris.get(i), slotIndex);
+        //Create calculators for each message that will be reused on every location update.
+        CbSendMessageCalculator[] calculators = new CbSendMessageCalculator[cbMessages.size()];
+        for (int i = 0; i < cbMessages.size(); i++) {
+            List<Geometry> broadcastArea = !commonBroadcastArea.isEmpty()
+                    ? commonBroadcastArea : cbMessages.get(i).getGeometries();
+            if (broadcastArea == null) {
+                broadcastArea = new ArrayList<>();
+            }
+            calculators[i] = mCbSendMessageCalculatorFactory.createNew(mContext, broadcastArea);
+        }
+
+        requestLocationUpdate(new LocationUpdateCallback() {
+            @Override
+            public void onLocationUpdate(@NonNull CbGeoUtils.LatLng location,
+                    float accuracy) {
+                if (VDBG) {
+                    logd("onLocationUpdate: location=" + location
+                            + ", acc=" + accuracy + ". ");
                 }
-            } else {
                 for (int i = 0; i < cbMessages.size(); i++) {
-                    List<Geometry> broadcastArea = !commonBroadcastArea.isEmpty()
-                            ? commonBroadcastArea : cbMessages.get(i).getGeometries();
-                    if (broadcastArea == null || broadcastArea.isEmpty()) {
-                        broadcastMessage(cbMessages.get(i), cbMessageUris.get(i), slotIndex);
+                    CbSendMessageCalculator calculator = calculators[i];
+                    if (calculator.getFences().isEmpty()) {
+                        broadcastGeofenceMessage(cbMessages.get(i), cbMessageUris.get(i),
+                                slotIndex, calculator);
                     } else {
-                        performGeoFencing(cbMessages.get(i), cbMessageUris.get(i), broadcastArea,
-                                location, slotIndex);
+                        performGeoFencing(cbMessages.get(i), cbMessageUris.get(i),
+                                calculator, location, slotIndex, accuracy);
                     }
+                }
+
+                boolean containsAnyAmbiguousMessages = Arrays.stream(calculators)
+                        .anyMatch(c -> isMessageInAmbiguousState(c));
+                if (!containsAnyAmbiguousMessages) {
+                    cancelLocationRequest();
+                }
+            }
+
+            @Override
+            public void onLocationUnavailable() {
+                for (int i = 0; i < cbMessages.size(); i++) {
+                    GsmCellBroadcastHandler.this.onLocationUnavailable(calculators[i],
+                            cbMessages.get(i), cbMessageUris.get(i), slotIndex);
                 }
             }
         }, maxWaitingTimeSec);
@@ -536,15 +691,59 @@ public class GsmCellBroadcastHandler extends CellBroadcastHandler {
         }
     }
 
+    private BroadcastReceiver mGsmReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            switch (intent.getAction()) {
+                case ACTION_AREA_UPDATE_ENABLED:
+                    boolean enabled = intent.getBooleanExtra(EXTRA_ENABLE, false);
+                    log("Area update info enabled: " + enabled);
+                    String[] pkgs = mContext.getResources().getStringArray(
+                            R.array.config_area_info_receiver_packages);
+                    // set mAreaInfo to null before sending the broadcast to listeners to avoid
+                    // possible race condition.
+                    if (!enabled) {
+                        mAreaInfos.clear();
+                        log("Area update info disabled, clear areaInfo");
+                    }
+                    // notify receivers. the setting is singleton for msim devices, if areaInfo
+                    // toggle was off/on, it will applies for all slots/subscriptions.
+                    TelephonyManager tm = mContext.getSystemService(TelephonyManager.class);
+                    for(int i = 0; i < tm.getActiveModemCount(); i++) {
+                        for (String pkg : pkgs) {
+                            Intent areaInfoIntent = new Intent(
+                                    CellBroadcastIntents.ACTION_AREA_INFO_UPDATED);
+                            areaInfoIntent.putExtra(SubscriptionManager.EXTRA_SLOT_INDEX, i);
+                            areaInfoIntent.putExtra(EXTRA_ENABLE, enabled);
+                            areaInfoIntent.setPackage(pkg);
+                            mContext.sendBroadcastAsUser(areaInfoIntent, UserHandle.ALL,
+                                    android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE);
+                        }
+                    }
+                    break;
+                case CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED:
+                    // (Okay to use res for slot 0 here because this should not be carrier specific)
+                    if (getResourcesForSlot(0).getBoolean(R.bool.reset_area_info_on_oos)) {
+                        registerServiceStateListeners();
+                    }
+                    break;
+                default:
+                    log("Unhandled broadcast " + intent.getAction());
+            }
+        }
+    };
+
     /**
      * Holds all info about a message page needed to assemble a complete concatenated message.
      */
-    private static final class SmsCbConcatInfo {
+    @VisibleForTesting
+    public static final class SmsCbConcatInfo {
 
         private final SmsCbHeader mHeader;
         private final SmsCbLocation mLocation;
 
-        SmsCbConcatInfo(SmsCbHeader header, SmsCbLocation location) {
+        @VisibleForTesting
+        public SmsCbConcatInfo(SmsCbHeader header, SmsCbLocation location) {
             mHeader = header;
             mLocation = location;
         }

@@ -12,17 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsAppDataIsolationAppA",
     defaults: ["cts_support_defaults"],
     srcs: ["common/src/**/*.java", "AppA/src/**/*.java", "AppA/aidl/**/*.aidl"],
-    sdk_version: "current",
-    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng", "ub-uiautomator"],
-    libs: ["android.test.base.stubs"],
+    sdk_version: "test_current",
+    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng", "ub-uiautomator", "compatibility-device-util-axt"],
+    libs: ["android.test.base"],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     certificate: ":cts-testkey1",
@@ -36,13 +39,12 @@ android_test_helper_app {
     name: "CtsAppDataIsolationAppSharedA",
     defaults: ["cts_support_defaults"],
     srcs: ["common/src/**/*.java", "AppA/src/**/*.java", "AppA/aidl/**/*.aidl"],
-    sdk_version: "current",
-    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng", "ub-uiautomator"],
-    libs: ["android.test.base.stubs"],
+    sdk_version: "test_current",
+    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng", "ub-uiautomator", "compatibility-device-util-axt"],
+    libs: ["android.test.base"],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     certificate: ":cts-testkey1",
@@ -56,13 +58,12 @@ android_test_helper_app {
     name: "CtsAppDataIsolationAppDirectBootA",
     defaults: ["cts_support_defaults"],
     srcs: ["common/src/**/*.java", "AppA/src/**/*.java", "AppA/aidl/**/*.aidl"],
-    sdk_version: "current",
-    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng", "ub-uiautomator"],
-    libs: ["android.test.base.stubs"],
+    sdk_version: "test_current",
+    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng", "ub-uiautomator", "compatibility-device-util-axt"],
+    libs: ["android.test.base"],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     certificate: ":cts-testkey1",
@@ -73,16 +74,34 @@ android_test_helper_app {
 }
 
 android_test_helper_app {
-    name: "CtsAppDataIsolationAppB",
+    name: "CtsAppDataIsolationAppApi29A",
     defaults: ["cts_support_defaults"],
-    srcs: ["common/src/**/*.java", "AppB/src/**/*.java"],
-    sdk_version: "current",
-    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng"],
-    libs: ["android.test.base.stubs"],
+    srcs: ["common/src/**/*.java", "AppA/src/**/*.java", "AppA/aidl/**/*.aidl"],
+    sdk_version: "test_current",
+    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng", "ub-uiautomator", "compatibility-device-util-axt"],
+    libs: ["android.test.base"],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
+        "general-tests",
+    ],
+    certificate: ":cts-testkey1",
+    dex_preopt: {
+        enabled: false,
+    },
+    manifest: "AppA/AndroidManifest_api29.xml",
+}
+
+android_test_helper_app {
+    name: "CtsAppDataIsolationAppB",
+    defaults: ["cts_support_defaults"],
+    srcs: ["common/src/**/*.java", "AppB/src/**/*.java"],
+    sdk_version: "test_current",
+    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng", "ub-uiautomator", "compatibility-device-util-axt"],
+    libs: ["android.test.base"],
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
         "general-tests",
     ],
     certificate: ":cts-testkey1",
@@ -96,13 +115,12 @@ android_test_helper_app {
     name: "CtsAppDataIsolationAppSharedB",
     defaults: ["cts_support_defaults"],
     srcs: ["common/src/**/*.java", "AppB/src/**/*.java"],
-    sdk_version: "current",
-    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng"],
-    libs: ["android.test.base.stubs"],
+    sdk_version: "test_current",
+    static_libs: ["androidx.test.rules", "truth-prebuilt", "testng", "compatibility-device-util-axt"],
+    libs: ["android.test.base"],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     certificate: ":cts-testkey1",

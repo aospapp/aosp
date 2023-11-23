@@ -39,14 +39,13 @@
 #define U_MATH_H
 
 
-#include "pipe/p_compiler.h"
-
 #include "c99_math.h"
 #include <assert.h>
 #include <float.h>
 #include <stdarg.h>
 
 #include "bitscan.h"
+#include "u_endian.h" /* for UTIL_ARCH_BIG_ENDIAN */
 
 #ifdef __cplusplus
 extern "C" {
@@ -186,6 +185,23 @@ util_fast_pow(float x, float y)
 static inline int
 util_ifloor(float f)
 {
+#if defined(USE_X86_ASM) && defined(__GNUC__) && defined(__i386__)
+   /*
+    * IEEE floor for computers that round to nearest or even.
+    * 'f' must be between -4194304 and 4194303.
+    * This floor operation is done by "(iround(f + .5) + iround(f - .5)) >> 1",
+    * but uses some IEEE specific tricks for better speed.
+    * Contributed by Josh Vanderhoof
+    */
+   int ai, bi;
+   double af, bf;
+   af = (3 << 22) + 0.5 + (double)f;
+   bf = (3 << 22) + 0.5 - (double)f;
+   /* GCC generates an extra fstp/fld without this. */
+   __asm__ ("fstps %0" : "=m" (ai) : "t" (af) : "st");
+   __asm__ ("fstps %0" : "=m" (bi) : "t" (bf) : "st");
+   return (ai - bi) >> 1;
+#else
    int ai, bi;
    double af, bf;
    union fi u;
@@ -194,6 +210,7 @@ util_ifloor(float f)
    u.f = (float) af;  ai = u.i;
    u.f = (float) bf;  bi = u.i;
    return (ai - bi) >> 1;
+#endif
 }
 
 
@@ -226,7 +243,7 @@ util_iround(float f)
 /**
  * Approximate floating point comparison
  */
-static inline boolean
+static inline bool
 util_is_approx(float a, float b, float tol)
 {
    return fabsf(b - a) <= tol;
@@ -245,7 +262,7 @@ util_is_approx(float a, float b, float tol)
 /**
  * Single-float
  */
-static inline boolean
+static inline bool
 util_is_inf_or_nan(float x)
 {
    union fi tmp;
@@ -254,7 +271,7 @@ util_is_inf_or_nan(float x)
 }
 
 
-static inline boolean
+static inline bool
 util_is_nan(float x)
 {
    union fi tmp;
@@ -279,7 +296,7 @@ util_inf_sign(float x)
 /**
  * Double-float
  */
-static inline boolean
+static inline bool
 util_is_double_inf_or_nan(double x)
 {
    union di tmp;
@@ -288,7 +305,7 @@ util_is_double_inf_or_nan(double x)
 }
 
 
-static inline boolean
+static inline bool
 util_is_double_nan(double x)
 {
    union di tmp;
@@ -313,14 +330,14 @@ util_double_inf_sign(double x)
 /**
  * Half-float
  */
-static inline boolean
+static inline bool
 util_is_half_inf_or_nan(int16_t x)
 {
    return (x & 0x7c00) == 0x7c00;
 }
 
 
-static inline boolean
+static inline bool
 util_is_half_nan(int16_t x)
 {
    return (x & 0x7fff) > 0x7c00;
@@ -359,64 +376,64 @@ uif(uint32_t ui)
 
 
 /**
- * Convert ubyte to float in [0, 1].
+ * Convert uint8_t to float in [0, 1].
  */
 static inline float
-ubyte_to_float(ubyte ub)
+ubyte_to_float(uint8_t ub)
 {
    return (float) ub * (1.0f / 255.0f);
 }
 
 
 /**
- * Convert float in [0,1] to ubyte in [0,255] with clamping.
+ * Convert float in [0,1] to uint8_t in [0,255] with clamping.
  */
-static inline ubyte
+static inline uint8_t
 float_to_ubyte(float f)
 {
    /* return 0 for NaN too */
    if (!(f > 0.0f)) {
-      return (ubyte) 0;
+      return (uint8_t) 0;
    }
    else if (f >= 1.0f) {
-      return (ubyte) 255;
+      return (uint8_t) 255;
    }
    else {
       union fi tmp;
       tmp.f = f;
       tmp.f = tmp.f * (255.0f/256.0f) + 32768.0f;
-      return (ubyte) tmp.i;
+      return (uint8_t) tmp.i;
    }
 }
 
 /**
- * Convert ushort to float in [0, 1].
+ * Convert uint16_t to float in [0, 1].
  */
 static inline float
-ushort_to_float(ushort us)
+ushort_to_float(uint16_t us)
 {
    return (float) us * (1.0f / 65535.0f);
 }
 
 
 /**
- * Convert float in [0,1] to ushort in [0,65535] with clamping.
+ * Convert float in [0,1] to uint16_t in [0,65535] with clamping.
  */
-static inline ushort
+static inline uint16_t
 float_to_ushort(float f)
 {
    /* return 0 for NaN too */
    if (!(f > 0.0f)) {
-      return (ushort) 0;
+      return (uint16_t) 0;
    }
    else if (f >= 1.0f) {
-      return (ushort) 65535;
+      return (uint16_t) 65535;
    }
    else {
       union fi tmp;
       tmp.f = f;
       tmp.f = tmp.f * (65535.0f/65536.0f) + 128.0f;
-      return (ushort) tmp.i;
+      return (uint16_t) tmp.i;
    }
 }
 
@@ -550,42 +567,6 @@ util_next_power_of_two64(uint64_t x)
 #endif
 }
 
-
-/**
- * Return number of bits set in n.
- */
-static inline unsigned
-util_bitcount(unsigned n)
-{
-#if defined(HAVE___BUILTIN_POPCOUNT)
-   return __builtin_popcount(n);
-#else
-   /* K&R classic bitcount.
-    *
-    * For each iteration, clear the LSB from the bitfield.
-    * Requires only one iteration per set bit, instead of
-    * one iteration per bit less than highest set bit.
-    */
-   unsigned bits;
-   for (bits = 0; n; bits++) {
-      n &= n - 1;
-   }
-   return bits;
-#endif
-}
-
-
-static inline unsigned
-util_bitcount64(uint64_t n)
-{
-#ifdef HAVE___BUILTIN_POPCOUNTLL
-   return __builtin_popcountll(n);
-#else
-   return util_bitcount(n) + util_bitcount(n >> 32);
-#endif
-}
-
-
 /**
  * Reverse bits in n
  * Algorithm taken from:
@@ -606,7 +587,7 @@ util_bitreverse(unsigned n)
  * Convert from little endian to CPU byte order.
  */
 
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
 #define util_le64_to_cpu(x) util_bswap64(x)
 #define util_le32_to_cpu(x) util_bswap32(x)
 #define util_le16_to_cpu(x) util_bswap16(x)
@@ -664,7 +645,7 @@ util_bswap16(uint16_t n)
 static inline void*
 util_memcpy_cpu_to_le32(void * restrict dest, const void * restrict src, size_t n)
 {
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    size_t i, e;
    assert(n % 4 == 0);
 
@@ -686,6 +667,9 @@ util_memcpy_cpu_to_le32(void * restrict dest, const void * restrict src, size_t 
  */
 #define CLAMP( X, MIN, MAX )  ( (X)>(MIN) ? ((X)>(MAX) ? (MAX) : (X)) : (MIN) )
 
+/* Syntax sugar occuring frequently in graphics code */
+#define SATURATE( X ) CLAMP(X, 0.0f, 1.0f)
+
 #define MIN2( A, B )   ( (A)<(B) ? (A) : (B) )
 #define MAX2( A, B )   ( (A)>(B) ? (A) : (B) )
 
@@ -695,6 +679,52 @@ util_memcpy_cpu_to_le32(void * restrict dest, const void * restrict src, size_t 
 #define MIN4( A, B, C, D ) ((A) < (B) ? MIN3(A, C, D) : MIN3(B, C, D))
 #define MAX4( A, B, C, D ) ((A) > (B) ? MAX3(A, C, D) : MAX3(B, C, D))
 
+
+/**
+ * Align a value up to an alignment value
+ *
+ * If \c value is not already aligned to the requested alignment value, it
+ * will be rounded up.
+ *
+ * \param value  Value to be rounded
+ * \param alignment  Alignment value to be used.  This must be a power of two.
+ *
+ * \sa ROUND_DOWN_TO()
+ */
+static inline uintptr_t
+ALIGN(uintptr_t value, int32_t alignment)
+{
+   assert(util_is_power_of_two_nonzero(alignment));
+   return (((value) + (alignment) - 1) & ~((alignment) - 1));
+}
+
+/**
+ * Like ALIGN(), but works with a non-power-of-two alignment.
+ */
+static inline uintptr_t
+ALIGN_NPOT(uintptr_t value, int32_t alignment)
+{
+   assert(alignment > 0);
+   return (value + alignment - 1) / alignment * alignment;
+}
+
+/**
+ * Align a value down to an alignment value
+ *
+ * If \c value is not already aligned to the requested alignment value, it
+ * will be rounded down.
+ *
+ * \param value  Value to be rounded
+ * \param alignment  Alignment value to be used.  This must be a power of two.
+ *
+ * \sa ALIGN()
+ */
+static inline uintptr_t
+ROUND_DOWN_TO(uintptr_t value, int32_t alignment)
+{
+   assert(util_is_power_of_two_nonzero(alignment));
+   return ((value) & ~(alignment - 1));
+}
 
 /**
  * Align a value, only works pot alignemnts.
@@ -774,7 +804,25 @@ util_fpstate_set_denorms_to_zero(unsigned current_fpstate);
 void
 util_fpstate_set(unsigned fpstate);
 
-
+/**
+ * For indexed draw calls, return true if the vertex count to be drawn is
+ * much lower than the vertex count that has to be uploaded, meaning
+ * that the driver should flatten indices instead of trying to upload
+ * a too big range.
+ *
+ * This is used by vertex upload code in u_vbuf and glthread.
+ */
+static inline bool
+util_is_vbo_upload_ratio_too_large(unsigned draw_vertex_count,
+                                   unsigned upload_vertex_count)
+{
+   if (draw_vertex_count > 1024)
+      return upload_vertex_count > draw_vertex_count * 4;
+   else if (draw_vertex_count > 32)
+      return upload_vertex_count > draw_vertex_count * 8;
+   else
+      return upload_vertex_count > draw_vertex_count * 16;
+}
 
 #ifdef __cplusplus
 }

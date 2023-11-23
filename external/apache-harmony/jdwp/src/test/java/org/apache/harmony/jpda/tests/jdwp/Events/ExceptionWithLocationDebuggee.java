@@ -51,7 +51,7 @@ public class ExceptionWithLocationDebuggee extends SyncDebuggee {
         logWriter.println("ExceptionWithLocationDebuggee: STARTED");
         // load and prepare DebuggeeException class
         @SuppressWarnings("unused")
-        DebuggeeException ex = new DebuggeeException("dummy exception");
+        DebuggeeException ex = new DebuggeeException("fake exception");
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 

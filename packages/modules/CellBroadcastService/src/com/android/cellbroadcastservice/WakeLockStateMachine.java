@@ -38,7 +38,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@link #quit}.
  */
 public abstract class WakeLockStateMachine extends StateMachine {
-    protected static final boolean DBG = SystemProperties.getInt("ro.debuggable", 0) == 1;
+    protected static final boolean DBG = SystemProperties.getInt("ro.debuggable", 0) == 1
+            || SystemProperties.getInt("persist.cellbroadcast.debug", 0) == 1
+            || SystemProperties.getInt("persist.cellbroadcast.verbose", 0) == 1;
+
+    protected static final boolean VDBG =
+            SystemProperties.getInt("persist.cellbroadcast.verbose", 0) == 1;
+
 
     private final PowerManager.WakeLock mWakeLock;
 
@@ -199,9 +205,13 @@ public abstract class WakeLockStateMachine extends StateMachine {
                     releaseWakeLock();
                     return HANDLED;
                 case EVENT_BROADCAST_NOT_REQUIRED:
-                    log("Waiting: broadcast not required");
+                    log("Waiting: broadcast location timed out");
                     if (mReceiverCount.get() == 0) {
+                        log("Waiting: broadcast location timed out");
                         transitionTo(mIdleState);
+                    } else {
+                        log("Waiting: broadcast location timed out, receiverCount = "
+                                + mReceiverCount.get());
                     }
                     return HANDLED;
                 default:

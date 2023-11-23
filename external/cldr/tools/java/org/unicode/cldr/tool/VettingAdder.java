@@ -27,6 +27,7 @@ import org.unicode.cldr.util.CLDRFile;
 import org.unicode.cldr.util.CLDRFile.DraftStatus;
 import org.unicode.cldr.util.Factory;
 import org.unicode.cldr.util.Log;
+import org.unicode.cldr.util.PathUtilities;
 import org.unicode.cldr.util.SimpleFactory;
 import org.unicode.cldr.util.XPathParts;
 
@@ -42,7 +43,7 @@ import com.ibm.icu.text.UTF16;
  */
 public class VettingAdder {
 
-    private Map<String, Set<String>> locale_files = new TreeMap<String, Set<String>>();
+    private Map<String, Set<String>> locale_files = new TreeMap<>();
     private Comparator<String> scomp = new UTF16.StringComparator();
     private Set<Object[]> conflictSet = new TreeSet<Object[]>(
         new ArrayComparator(new Comparator[] { scomp, scomp, scomp }));
@@ -53,25 +54,25 @@ public class VettingAdder {
 
     private void addFiles(String sourceDirectory) throws IOException {
         File f = new File(sourceDirectory);
-        String canonicalName = f.getCanonicalPath();
+        String normalizedPath = PathUtilities.getNormalizedPathString(f);
         if (!f.isDirectory()) {
             String name = f.getName();
             if (name.startsWith("fixed-")) return; // skip
             if (name.equals(".htaccess")) return; // skip
             if (!name.endsWith(".xml")) {
-                Log.logln("Wrong filename format: " + f.getCanonicalPath());
+                Log.logln("Wrong filename format: " + PathUtilities.getNormalizedPathString(f));
                 return;
             }
             String localeName = name.substring(0, name.length() - 4);
             Set<String> s = locale_files.get(localeName);
             if (s == null) {
-                locale_files.put(localeName, s = new TreeSet<String>());
+                locale_files.put(localeName, s = new TreeSet<>());
             }
             s.add(f.getParent());
         } else {
             String[] subnames = f.list();
             for (int i = 0; i < subnames.length; ++i) {
-                addFiles(canonicalName + File.separatorChar + subnames[i]);
+                addFiles(normalizedPath + File.separatorChar + subnames[i]);
             }
         }
     }
@@ -87,6 +88,7 @@ public class VettingAdder {
             this.dir = dir;
         }
 
+        @Override
         public String toString() {
             return "source: " + dir + ";\t value: <" + value + ">";
         }
@@ -100,18 +102,19 @@ public class VettingAdder {
     }
 
     static Comparator PathAndValueComparator = new Comparator() {
+        @Override
         public int compare(Object o1, Object o2) {
             return ((VettingInfo) o1).compareByPathAndValue((VettingInfo) o2);
         }
     };
 
     static class VettingInfoSet {
-        private Map<String, List<VettingInfo>> path_vettingInfoList = new TreeMap<String, List<VettingInfo>>();
+        private Map<String, List<VettingInfo>> path_vettingInfoList = new TreeMap<>();
 
         public void add(String path, String dir, String fullPath, String value) {
             VettingInfo vi = new VettingInfo(dir, fullPath, value);
             List<VettingInfo> s = path_vettingInfoList.get(path);
-            if (s == null) path_vettingInfoList.put(path, s = new ArrayList<VettingInfo>(1));
+            if (s == null) path_vettingInfoList.put(path, s = new ArrayList<>(1));
             s.add(vi);
         }
 
@@ -272,7 +275,7 @@ public class VettingAdder {
         Log.logln("D. Missing Vetting");
         Log.logln("");
 
-        Set<String> availableLocales = new TreeSet<String>(cldrFactory.getAvailable());
+        Set<String> availableLocales = new TreeSet<>(cldrFactory.getAvailable());
         availableLocales.removeAll(vettedLocales);
 
         for (Iterator<String> it = availableLocales.iterator(); it.hasNext();) {
@@ -300,7 +303,7 @@ public class VettingAdder {
         String lastLocale = "";
         CLDRFile cldr = null;
         Transliterator any_latin = Transliterator.getInstance("any-latin");
-        Set<String> emails = new LinkedHashSet<String>();
+        Set<String> emails = new LinkedHashSet<>();
         String[] pieces = new String[5];
 
         for (Iterator<Object[]> it = s.iterator(); it.hasNext();) {
@@ -361,8 +364,6 @@ public class VettingAdder {
         String other = some.transliterate(current);
         return "<" + current + ">" + (other.equals(current) ? "" : "\t[" + other + "]");
     }
-
-    XPathParts tempParts = new XPathParts();
 
     /**
      *

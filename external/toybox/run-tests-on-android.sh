@@ -5,6 +5,9 @@
 #
 
 # Copy the toybox tests across.
+if [[ $(adb shell getprop ro.debuggable) == 1 ]]; then
+  adb shell su root rm -rf /data/local/tmp/toybox-tests/
+fi
 adb shell rm -rf /data/local/tmp/toybox-tests/
 adb shell mkdir /data/local/tmp/toybox-tests/
 adb push tests/ /data/local/tmp/toybox-tests/

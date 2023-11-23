@@ -20,15 +20,14 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_height="wrap_content"
     android:layout_width="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:id="@+id/disclaimer_content_container">
     <TextView
         android:id="@+id/disclaimer_content"
         android:layout_height="wrap_content"
         android:layout_width="match_parent"
-        android:paddingStart="@dimen/spacer_16"
-        android:paddingEnd="@dimen/spacer_16"
-        android:paddingTop="@dimen/spacer_16"
-        android:paddingBottom="@dimen/spacer_16"
-        style="@style/Provisioning2Theme.Text.Secondary"/>
-    <View style="@style/Provisioning2Theme.Divider"/>
+        android:paddingStart="@dimen/spacer_32"
+        android:paddingTop="@dimen/terms_disclaimer_content_margin_top"
+        android:paddingBottom="@dimen/terms_disclaimer_content_margin_bottom"
+        style="@style/Provisioning2Theme.Text.Primary.Medium"/>
 </LinearLayout>

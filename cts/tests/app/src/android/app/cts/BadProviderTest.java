@@ -16,26 +16,43 @@
 
 package android.app.cts;
 
-import android.app.ActivityManager;
+import static junit.framework.Assert.fail;
+
 import android.app.cts.android.app.cts.tools.WatchUidRunner;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.net.Uri;
-import android.os.HandlerThread;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.SystemClock;
-import android.test.AndroidTestCase;
+import android.platform.test.annotations.Presubmit;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test system behavior of a bad provider.
  */
-public class BadProviderTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+@Presubmit
+public class BadProviderTest {
     private static final String AUTHORITY = "com.android.cts.stubbad.badprovider";
     private static final String TEST_PACKAGE_NAME = "com.android.cts.stubbad";
-    private static final int WAIT_TIME = 2000;
+    private static final int WAIT_TIME = 5000;
 
+    private Context mContext;
+
+    @Before
+    public void setUp() {
+        mContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
+    @Test
     public void testExitOnCreate() {
         WatchUidRunner uidWatcher = null;
         ContentResolver res = mContext.getContentResolver();

@@ -204,7 +204,7 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
             for (int i = 0; i < messageParts.size(); i++) {
                 Intent intent = new Intent(ACTION_MESSAGE_SENT);
                 PendingIntent pendingIntent = PendingIntent.getBroadcast(context, i, intent,
-                        PendingIntent.FLAG_ONE_SHOT);
+                        PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
                 sentIntents.add(pendingIntent);
             }
             MessageSentReceiver receiver = new MessageSentReceiver(

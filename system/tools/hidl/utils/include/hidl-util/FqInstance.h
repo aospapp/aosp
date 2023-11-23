@@ -18,6 +18,7 @@
 
 #define ANDROID_FQINSTANCE_H_
 
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -69,7 +70,6 @@ class FqInstance {
     // IFoo.Type:MY_ENUM_VALUE
     //
     // If no "/instance", hasInstance() will return false afterwards.
-    // TODO(b/73774955): deprecate this and use std::optional.
     __attribute__((warn_unused_result)) bool setTo(const std::string& s);
 
     // Convenience method when an FQName and instance are already available.
@@ -94,6 +94,15 @@ class FqInstance {
     // IFoo/default
     __attribute__((warn_unused_result)) bool setTo(const std::string& interface,
                                                    const std::string& instance);
+
+    // Same as creating an FqInstance then call setTo. See setTo for all valid signatures.
+    // If setTo returns false, this function returns nullopt.
+    template <typename... Args>
+    static std::optional<FqInstance> from(Args&&... args) {
+        FqInstance fqInstance;
+        if (fqInstance.setTo(std::forward<Args>(args)...)) return fqInstance;
+        return std::nullopt;
+    }
 
     // undefined behavior if:
     // - Default constructor is called without setTo();

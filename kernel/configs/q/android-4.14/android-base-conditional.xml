@@ -14,16 +14,46 @@
 		<value type="bool">y</value>
 	</config>
 	<config>
-		<key>CONFIG_CPU_SW_DOMAIN_PAN</key>
-		<value type="bool">y</value>
-	</config>
-	<config>
 		<key>CONFIG_DEVKMEM</key>
 		<value type="bool">n</value>
 	</config>
 	<config>
 		<key>CONFIG_OABI_COMPAT</key>
 		<value type="bool">n</value>
+	</config>
+</group>
+
+<!-- For ARM, CONFIG_CPU_SW_DOMAIN_PAN || CONFIG_CPU_TTBR0_PAN -->
+<group>
+	<conditions>
+		<config>
+			<key>CONFIG_ARM</key>
+			<value type="bool">y</value>
+		</config>
+		<config>
+			<key>CONFIG_CPU_TTBR0_PAN</key>
+			<value type="bool">n</value>
+		</config>
+	</conditions>
+	<config>
+		<key>CONFIG_CPU_SW_DOMAIN_PAN</key>
+		<value type="bool">y</value>
+	</config>
+</group>
+<group>
+	<conditions>
+		<config>
+			<key>CONFIG_ARM</key>
+			<value type="bool">y</value>
+		</config>
+		<config>
+			<key>CONFIG_CPU_SW_DOMAIN_PAN</key>
+			<value type="bool">n</value>
+		</config>
+	</conditions>
+	<config>
+		<key>CONFIG_CPU_TTBR0_PAN</key>
+		<value type="bool">y</value>
 	</config>
 </group>
 

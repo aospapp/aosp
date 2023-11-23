@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, 2021 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -37,12 +37,7 @@
 using namespace loc_core;
 
 BatchingAdapter::BatchingAdapter() :
-    LocAdapterBase(0,
-                    LocContext::getLocContext(
-                        NULL,
-                        NULL,
-                        LocContext::mLocationHalName,
-                        false)),
+    LocAdapterBase(0, LocContext::getLocContext(LocContext::mLocationHalName)),
     mOngoingTripDistance(0),
     mOngoingTripTBFInterval(0),
     mTripWithOngoingTBFDropped(false),
@@ -55,6 +50,10 @@ BatchingAdapter::BatchingAdapter() :
     LOC_LOGD("%s]: Constructor", __func__);
     readConfigCommand();
     setConfigCommand();
+
+    // at last step, let us inform adapater base that we are done
+    // with initialization, e.g.: ready to process handleEngineUpEvent
+    doneInit();
 }
 
 void

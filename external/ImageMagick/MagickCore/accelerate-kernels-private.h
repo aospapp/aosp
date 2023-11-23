@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -346,13 +346,6 @@ OPENCL_ENDIF()
       float sign = x < (float) 0.0 ? (float) -1.0 : (float) 1.0;
       return((sign*x) >= MagickEpsilon ? (float) 1.0/x : sign*((float) 1.0/MagickEpsilon));
     }
-  )
-
-  STRINGIFY(
-  static inline float RoundToUnity(const float value)
-   {
-     return clamp(value,0.0f,1.0f);
-   }
   )
 
   STRINGIFY(
@@ -816,7 +809,7 @@ OPENCL_ENDIF()
           beta=mwcReadPseudoRandomValue(r);
           alpha*=beta;
         }
-        noise=(QuantumRange*i/SigmaPoisson);
+        noise=(QuantumRange*i*PerceptibleReciprocal(SigmaPoisson));
         break;
       }
       case RandomNoise:

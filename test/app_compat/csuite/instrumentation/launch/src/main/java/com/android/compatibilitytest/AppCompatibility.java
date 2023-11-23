@@ -34,9 +34,12 @@ import android.os.DropBoxManager;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.Log;
+import android.view.KeyEvent;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.internal.util.Preconditions;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -51,6 +54,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 /** Application Compatibility Test that launches an application and detects crashes. */
 @RunWith(AndroidJUnit4.class)
@@ -59,15 +63,14 @@ public final class AppCompatibility {
     private static final String TAG = AppCompatibility.class.getSimpleName();
     private static final String PACKAGE_TO_LAUNCH = "package_to_launch";
     private static final String APP_LAUNCH_TIMEOUT_MSECS = "app_launch_timeout_ms";
-    private static final String WORKSPACE_LAUNCH_TIMEOUT_MSECS = "workspace_launch_timeout_ms";
+    private static final String ARG_DISMISS_DIALOG = "ARG_DISMISS_DIALOG";
     private static final Set<String> DROPBOX_TAGS = new HashSet<>();
     private static final int MAX_CRASH_SNIPPET_LINES = 20;
     private static final int MAX_NUM_CRASH_SNIPPET = 3;
+    private static final int DELAY_AFTER_KEYEVENT_MILLIS = 500;
 
     // time waiting for app to launch
     private int mAppLaunchTimeout = 7000;
-    // time waiting for launcher home screen to show up
-    private int mWorkspaceLaunchTimeout = 2000;
 
     private Context mContext;
     private ActivityManager mActivityManager;
@@ -113,10 +116,6 @@ public final class AppCompatibility {
         if (appLaunchTimeoutMsecs != null) {
             mAppLaunchTimeout = Integer.parseInt(appLaunchTimeoutMsecs);
         }
-        String workspaceLaunchTimeoutMsecs = mArgs.getString(WORKSPACE_LAUNCH_TIMEOUT_MSECS);
-        if (workspaceLaunchTimeoutMsecs != null) {
-            mWorkspaceLaunchTimeout = Integer.parseInt(workspaceLaunchTimeoutMsecs);
-        }
         mInstrumentation.getUiAutomation().setRotation(UiAutomation.ROTATION_FREEZE_0);
 
         // set activity controller to suppress crash dialogs and collects them by process name
@@ -141,54 +140,59 @@ public final class AppCompatibility {
     @Test
     public void testAppStability() throws Exception {
         String packageName = mArgs.getString(PACKAGE_TO_LAUNCH);
-        if (packageName != null) {
-            Log.d(TAG, "Launching app " + packageName);
-            Intent intent = getLaunchIntentForPackage(packageName);
-            if (intent == null) {
-                Log.w(TAG, String.format("Skipping %s; no launch intent", packageName));
-                return;
-            }
-            long startTime = System.currentTimeMillis();
-            launchActivity(packageName, intent);
-            try {
-                checkDropbox(startTime, packageName);
-                if (mAppErrors.containsKey(packageName)) {
-                    StringBuilder message =
-                            new StringBuilder("Error(s) detected for package: ")
-                                    .append(packageName);
-                    List<String> errors = mAppErrors.get(packageName);
-                    for (int i = 0; i < MAX_NUM_CRASH_SNIPPET && i < errors.size(); i++) {
-                        String err = errors.get(i);
-                        message.append("\n\n");
-                        // limit the size of each crash snippet
-                        message.append(truncate(err, MAX_CRASH_SNIPPET_LINES));
-                    }
-                    if (errors.size() > MAX_NUM_CRASH_SNIPPET) {
-                        message.append(
-                                String.format(
-                                        "\n... %d more errors omitted ...",
-                                        errors.size() - MAX_NUM_CRASH_SNIPPET));
-                    }
-                    Assert.fail(message.toString());
-                }
-                // last check: see if app process is still running
-                Assert.assertTrue(
-                        "app package \""
-                                + packageName
-                                + "\" no longer found in running "
-                                + "tasks, but no explicit crashes were detected; check logcat for "
-                                + "details",
-                        processStillUp(packageName));
-            } finally {
-                returnHome();
-            }
-        } else {
-            Log.d(
-                    TAG,
-                    "Missing argument, use "
-                            + PACKAGE_TO_LAUNCH
-                            + " to specify the package to launch");
+        Preconditions.checkStringNotEmpty(
+                packageName,
+                String.format(
+                        "Missing argument, use %s to specify the package to launch",
+                        PACKAGE_TO_LAUNCH));
+
+        Log.d(TAG, "Launching app " + packageName);
+        Intent intent = getLaunchIntentForPackage(packageName);
+        if (intent == null) {
+            Log.w(TAG, String.format("Skipping %s; no launch intent", packageName));
+            return;
         }
+        long startTime = System.currentTimeMillis();
+        launchActivity(packageName, intent);
+
+        if (mArgs.getString(ARG_DISMISS_DIALOG, "false").equals("true")) {
+            // Attempt to dismiss any dialogs which some apps display to 'gracefully' handle
+            // errors. The dialog prevents the app from crashing thereby hiding issues. The
+            // first key event is to select a default button on the error dialog if any while
+            // the second event pushes the button.
+            IntStream.range(0, 2)
+                    .forEach(i -> mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER));
+            // Give the app process enough time to terminate after dismissing the error.
+            Thread.sleep(DELAY_AFTER_KEYEVENT_MILLIS);
+        }
+
+        checkDropbox(startTime, packageName);
+        if (mAppErrors.containsKey(packageName)) {
+            StringBuilder message =
+                    new StringBuilder("Error(s) detected for package: ").append(packageName);
+            List<String> errors = mAppErrors.get(packageName);
+            for (int i = 0; i < MAX_NUM_CRASH_SNIPPET && i < errors.size(); i++) {
+                String err = errors.get(i);
+                message.append("\n\n");
+                // limit the size of each crash snippet
+                message.append(truncate(err, MAX_CRASH_SNIPPET_LINES));
+            }
+            if (errors.size() > MAX_NUM_CRASH_SNIPPET) {
+                message.append(
+                        String.format(
+                                "\n... %d more errors omitted ...",
+                                errors.size() - MAX_NUM_CRASH_SNIPPET));
+            }
+            Assert.fail(message.toString());
+        }
+        // last check: see if app process is still running
+        Assert.assertTrue(
+                "app package \""
+                        + packageName
+                        + "\" no longer found in running "
+                        + "tasks, but no explicit crashes were detected; check logcat for "
+                        + "details",
+                processStillUp(packageName));
     }
 
     /**
@@ -240,19 +244,6 @@ public final class AppCompatibility {
             } finally {
                 entry.close();
             }
-        }
-    }
-
-    private void returnHome() {
-        Intent homeIntent = new Intent(Intent.ACTION_MAIN);
-        homeIntent.addCategory(Intent.CATEGORY_HOME);
-        homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        // Send the "home" intent and wait 2 seconds for us to get there
-        mContext.startActivity(homeIntent);
-        try {
-            Thread.sleep(mWorkspaceLaunchTimeout);
-        } catch (InterruptedException e) {
-            // ignore
         }
     }
 

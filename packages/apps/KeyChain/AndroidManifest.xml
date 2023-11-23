@@ -11,13 +11,16 @@
             android:allowBackup="false"
             android:usesCleartextTraffic="false"
             android:theme="@android:style/Theme.DeviceDefault.DayNight">
-        <service android:name="com.android.keychain.KeyChainService">
+        <service android:name="com.android.keychain.KeyChainService"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.security.IKeyChainService"/>
             </intent-filter>
         </service>
         <activity android:name="com.android.keychain.KeyChainActivity"
+                  android:exported="true"
                   android:theme="@style/KeyChainTransparent"
+                  android:launchMode="singleTop"
 		  android:excludeFromRecents="true">
 	    <intent-filter>
 	        <action android:name="com.android.keychain.CHOOSER"/>

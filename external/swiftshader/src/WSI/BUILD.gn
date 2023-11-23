@@ -14,15 +14,26 @@
 
 import("../swiftshader.gni")
 
+config("WSI_metal_weak_framework") {
+  if (is_mac) {
+    ldflags = [
+      "-weak_framework",
+      "Metal",
+    ]
+  }
+}
+
 swiftshader_source_set("WSI") {
   sources = [
+    "HeadlessSurfaceKHR.cpp",
+    "HeadlessSurfaceKHR.hpp",
     "VkSurfaceKHR.cpp",
     "VkSurfaceKHR.hpp",
     "VkSwapchainKHR.cpp",
     "VkSwapchainKHR.hpp",
   ]
 
-  if (is_linux) {
+  if (is_linux || is_chromeos) {
     sources += [
       "XcbSurfaceKHR.cpp",
       "XcbSurfaceKHR.hpp",
@@ -42,13 +53,14 @@ swiftshader_source_set("WSI") {
 
   if (is_mac) {
     sources += [
+      "MetalSurface.hpp",
       "MetalSurface.mm",
-      "MetalSurface.h",
     ]
-    libs = [
+    frameworks = [
       "Cocoa.framework",
       "QuartzCore.framework",
     ]
+    public_configs = [ ":WSI_metal_weak_framework" ]
   }
 
   include_dirs = [
@@ -58,10 +70,11 @@ swiftshader_source_set("WSI") {
   ]
 
   deps = [
+    "${swiftshader_spirv_tools_dir}:SPIRV-Tools",
     "../../third_party/marl:Marl_headers",
     "../System",
     "../Vulkan:swiftshader_libvulkan_headers",
   ]
 
-  configs = [ "../Vulkan:swiftshader_libvulkan_private_config", ]
+  configs = [ "../Vulkan:swiftshader_libvulkan_private_config" ]
 }

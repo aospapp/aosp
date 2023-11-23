@@ -20,18 +20,18 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string-array name="wifi_status">
-    <item msgid="8763475525292171481"></item>
-    <item msgid="903308535197209786">"Etsitään…"</item>
-    <item msgid="6222852518007967736">"Yhdistetään…"</item>
-    <item msgid="1176401854208153464">"Varmennetaan…"</item>
-    <item msgid="1377026397901197257">"Haetaan IP-osoitetta…"</item>
-    <item msgid="7627139816052121509">"Yhdistetty"</item>
-    <item msgid="1598801023719359130">"Jäädytetty"</item>
-    <item msgid="9160765456671002324">"Katkaistaan…"</item>
-    <item msgid="8013176736494493734">"Yhteys katkaistu"</item>
-    <item msgid="4077393480368783785">"Epäonnistui"</item>
-    <item msgid="605372180740008604">"Estetty"</item>
-    <item msgid="5102306451432929048">"Vältetään huonoa yhteyttä tilapäisesti"</item>
+  <string-array name="wifitrackerlib_wifi_status">
+    <item msgid="4878873480828298657"></item>
+    <item msgid="5782995872855767551">"Etsitään…"</item>
+    <item msgid="9055468790485684083">"Yhdistetään…"</item>
+    <item msgid="6099499723199990208">"Todennetaan…"</item>
+    <item msgid="6794055951297347103">"Haetaan IP-osoitetta…"</item>
+    <item msgid="5450920562291300229">"Yhdistetty"</item>
+    <item msgid="6332116533879646145">"Jäädytetty"</item>
+    <item msgid="294459081501073818">"Katkaistaan yhteyttä…"</item>
+    <item msgid="1577368920272598676">"Yhteys katkaistu"</item>
+    <item msgid="7655843177582495451">"Epäonnistui"</item>
+    <item msgid="8953752690917593623">"Estetty"</item>
+    <item msgid="4400457817750243671">"Vältetään huonoa yhteyttä tilapäisesti"</item>
   </string-array>
 </resources>

@@ -42,24 +42,18 @@ public abstract class WifiBasePreferenceController<V extends Preference> extends
 
     @Override
     protected void onCreateInternal() {
-        mCarWifiManager = new CarWifiManager(getContext());
+        mCarWifiManager = new CarWifiManager(getContext(),
+                getFragmentController().getSettingsLifecycle());
     }
 
     @Override
     protected void onStartInternal() {
         mCarWifiManager.addListener(this);
-        mCarWifiManager.start();
     }
 
     @Override
     protected void onStopInternal() {
         mCarWifiManager.removeListener(this);
-        mCarWifiManager.stop();
-    }
-
-    @Override
-    protected void onDestroyInternal() {
-        mCarWifiManager.destroy();
     }
 
     @Override
@@ -68,7 +62,7 @@ public abstract class WifiBasePreferenceController<V extends Preference> extends
     }
 
     @Override
-    public void onAccessPointsChanged() {
+    public void onWifiEntriesChanged() {
         // don't care
     }
 

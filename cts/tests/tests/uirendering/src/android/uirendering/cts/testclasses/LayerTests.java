@@ -623,16 +623,46 @@ public class LayerTests extends ActivityTestBase {
 
     @LargeTest
     @Test
-    public void testWebViewWithLayerAndComplexClip() {
+    public void testWebViewOnHWLayerAndComplexAntiAliasedClip() {
         if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
             return; // no WebView to run test on
         }
+
         CountDownLatch hwFence = new CountDownLatch(1);
         createTest()
                 // golden client - draw a simple non-AA circle
                 .addCanvasClient((canvas, width, height) -> {
                     Paint paint = new Paint();
-                    paint.setAntiAlias(false);
+                    paint.setAntiAlias(true);
+                    paint.setColor(Color.BLUE);
+                    canvas.drawOval(0, 0, width, height, paint);
+                }, false)
+                // verify against solid color webview, clipped to its parent oval
+                .addLayout(R.layout.circle_clipped_webview, (ViewInitializer) view -> {
+                    FrameLayout layout = view.requireViewById(R.id.circle_clip_frame_layout);
+                    WebView webview = view.requireViewById(R.id.webview);
+                    // Promote the webview onto its own layer
+                    webview.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"background-color:blue\">");
+
+                }, true, hwFence)
+                .runWithComparer(new MSSIMComparer(0.98));
+    }
+
+    @LargeTest
+    @Test
+    public void testWebViewWithParentLayerAndComplexClip() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                // golden client - draw a simple AA circle
+                .addCanvasClient((canvas, width, height) -> {
+                    Paint paint = new Paint();
+                    paint.setAntiAlias(true);
                     paint.setColor(Color.BLUE);
                     canvas.drawOval(0, 0, width, height, paint);
                 }, false)
@@ -646,6 +676,33 @@ public class LayerTests extends ActivityTestBase {
                     helper.loadData("<body style=\"background-color:blue\">");
 
                 }, true, hwFence)
-                .runWithComparer(new MSSIMComparer(0.95));
+                // WebView is not on its own layer, so the parent clip may not be AA
+                .runWithComparer(new MSSIMComparer(0.93));
+    }
+
+    @LargeTest
+    @Test
+    public void testWebViewWithRRectClip() {
+        if (!getActivity().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) {
+            return; // no WebView to run test on
+        }
+
+        CountDownLatch hwFence = new CountDownLatch(1);
+        createTest()
+                // golden client - draw an AA rounded rect
+                .addCanvasClient((canvas, width, height) -> {
+                    Paint paint = new Paint();
+                    paint.setAntiAlias(true);
+                    paint.setColor(Color.BLUE);
+                    canvas.drawRoundRect(0, 0, width, height, ActivityTestBase.TEST_WIDTH / 4,
+                            ActivityTestBase.TEST_HEIGHT / 4, paint);
+                }, false)
+                // verify against solid color webview, which applies a rounded rect clip
+                .addLayout(R.layout.webview_canvas_rrect_clip, (ViewInitializer) view -> {
+                    WebView webview = view.requireViewById(R.id.webview_canvas_rrect_clip);
+                    WebViewReadyHelper helper = new WebViewReadyHelper(webview, hwFence);
+                    helper.loadData("<body style=\"background-color:blue\">");
+                }, true, hwFence)
+                .runWithComparer(new MSSIMComparer(0.90));
     }
 }

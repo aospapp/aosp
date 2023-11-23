@@ -17,6 +17,7 @@
 package android.hardware.cts.helpers.sensorverification;
 
 import android.hardware.cts.helpers.SensorStats;
+import android.hardware.cts.helpers.SensorTestWarningException;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 
@@ -46,8 +47,8 @@ public class OffsetVerificationTest extends TestCase {
 
         // Verify that the norm is calculated correctly
         values = new float[][]{ {10, 10, 10, 2, 2, 2} };
-        runStats(3.5f /* threshold */, values, true /* pass */);
-        runStats(3.4f /* threshold */, values, false /* pass */);
+        runStats(2.0f /* threshold */, values, true /* pass */);
+        runStats(1.9f /* threshold */, values, false /* pass */);
 
         // Verify that the first value from the offsets is used
         values = new float[][]{ {10, 10, 10, 2, 0, 0} };
@@ -76,15 +77,15 @@ public class OffsetVerificationTest extends TestCase {
                 {10, 10, 10, 2, 2, 2},
                 {10, 10, 10, 2, 2, 2}
         };
-        runStats(3.5f /* threshold */, values, true /* pass */);
-        runStats(3.4f /* threshold */, values, false /* pass */);
+        runStats(2.0f /* threshold */, values, true /* pass */);
+        runStats(1.9f /* threshold */, values, false /* pass */);
 
         // Verify when the first event exceeds the threshold and the second does not
         values = new float[][] {
-                {0, 0, 0, 0, 0, 0},
-                {0, 0, 0, 2, 2, 2}
+                {0, 0, 0, 2, 2, 2},
+                {0, 0, 0, 0, 0, 0}
         };
-        runStats(3.0f /* threshold */, values, false /* pass */);
+        runStats(1.9f /* threshold */, values, false /* pass */);
 
         // Verify when the second event exceeds the threshold and the first does not
         values = new float[][] {
@@ -102,8 +103,8 @@ public class OffsetVerificationTest extends TestCase {
         } else {
             try {
                 verification.verify(stats);
-                throw new Error("Expected an AssertionError");
-            } catch (AssertionError e) {
+                throw new Error("Expected a SensorTestWarningException");
+            } catch (SensorTestWarningException e) {
                 // Expected;
             }
         }

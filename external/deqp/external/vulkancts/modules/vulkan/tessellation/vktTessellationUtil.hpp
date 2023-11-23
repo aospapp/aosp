@@ -31,6 +31,7 @@
 #include "vkRefUtil.hpp"
 #include "vkQueryUtil.hpp"
 #include "vkObjUtil.hpp"
+#include "vktTestCase.hpp"
 
 #include "tcuVector.hpp"
 #include "tcuMaybe.hpp"
@@ -231,17 +232,23 @@ int								referenceVertexCount						(const TessPrimitiveType primitiveType, con
 int								referencePrimitiveCount						(const TessPrimitiveType primitiveType, const SpacingMode spacingMode, const bool usePointMode, const float* innerLevels, const float* outerLevels);
 int								numVerticesPerPrimitive						(const TessPrimitiveType primitiveType, const bool usePointMode);
 
-static inline const char* getTessPrimitiveTypeShaderName (const TessPrimitiveType type)
+static inline const char* getTessPrimitiveTypeShaderName (const TessPrimitiveType type, bool forSpirv = false)
 {
-	switch (type)
+	static std::string primitiveName[][2] =
 	{
-		case TESSPRIMITIVETYPE_TRIANGLES:	return "triangles";
-		case TESSPRIMITIVETYPE_QUADS:		return "quads";
-		case TESSPRIMITIVETYPE_ISOLINES:	return "isolines";
-		default:
-			DE_FATAL("Unexpected primitive type.");
-			return DE_NULL;
+		// glsl name	spirv name
+		{ "triangles", "Triangles"},
+		{ "quads"	 , "Quads" },
+		{ "isolines" , "Isolines" }
+	};
+
+	if (type >= TESSPRIMITIVETYPE_LAST)
+	{
+		DE_FATAL("Unexpected primitive type.");
+		return DE_NULL;
 	}
+
+	return primitiveName[type][forSpirv].c_str();
 }
 
 static inline const char* getDomainName (const TessPrimitiveType type)
@@ -270,17 +277,23 @@ static inline const char* getOutputTopologyName (const TessPrimitiveType type, c
 	return DE_NULL;
 }
 
-static inline const char* getSpacingModeShaderName (SpacingMode mode)
+static inline const char* getSpacingModeShaderName (SpacingMode mode, bool forSpirv = false)
 {
-	switch (mode)
+	static std::string spacingName[][2] =
 	{
-		case SPACINGMODE_EQUAL:				return "equal_spacing";
-		case SPACINGMODE_FRACTIONAL_ODD:	return "fractional_odd_spacing";
-		case SPACINGMODE_FRACTIONAL_EVEN:	return "fractional_even_spacing";
-		default:
-			DE_FATAL("Unexpected spacing mode.");
-			return DE_NULL;
+		// glsl name					spirv name
+		{ "equal_spacing",				"SpacingEqual"},
+		{ "fractional_odd_spacing",		"SpacingFractionalOdd" },
+		{ "fractional_even_spacing",	"SpacingFractionalEven" }
+	};
+
+	if (mode >= SPACINGMODE_LAST)
+	{
+		DE_FATAL("Unexpected spacing type.");
+		return DE_NULL;
 	}
+
+	return spacingName[mode][forSpirv].c_str();
 }
 
 static inline const char* getPartitioningShaderName (SpacingMode mode)
@@ -360,6 +373,37 @@ static inline const char* getGeometryShaderOutputPrimitiveTypeShaderName (const 
 	}
 }
 
+static inline const vk::VkPhysicalDevicePortabilitySubsetFeaturesKHR* getPortability (const Context& context)
+{
+	if (context.isDeviceFunctionalitySupported("VK_KHR_portability_subset"))
+		return &context.getPortabilitySubsetFeatures();
+	return DE_NULL;
+}
+
+static inline void checkIsolines (const vk::VkPhysicalDevicePortabilitySubsetFeaturesKHR& features)
+{
+	if (!features.tessellationIsolines)
+		TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: Tessellation iso lines are not supported by this implementation");
+}
+
+static inline void checkPrimitive (const vk::VkPhysicalDevicePortabilitySubsetFeaturesKHR& features, const TessPrimitiveType primitive)
+{
+	if (primitive == TESSPRIMITIVETYPE_ISOLINES)
+		checkIsolines(features);
+}
+
+static inline void checkSupportPrimitive (Context& context, const TessPrimitiveType primitive)
+{
+	if (const vk::VkPhysicalDevicePortabilitySubsetFeaturesKHR* const features = getPortability(context))
+		checkPrimitive(*features, primitive);
+}
+
+static inline void checkPointMode (const vk::VkPhysicalDevicePortabilitySubsetFeaturesKHR& features)
+{
+	if (!features.tessellationPointMode)
+		TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: Tessellation point mode is not supported by this implementation");
+}
+
 template<typename T>
 inline std::size_t sizeInBytes (const std::vector<T>& vec)
 {
@@ -434,6 +478,34 @@ std::vector<T> readInterleavedData (const int count, const void* memory, const i
 	}
 
 	return results;
+}
+
+template <typename CaseDef, typename = bool>
+struct PointMode
+{
+	static void check(const vk::VkPhysicalDevicePortabilitySubsetFeaturesKHR&, const CaseDef)
+	{
+	}
+};
+
+template <typename CaseDef>
+struct PointMode<CaseDef, decltype(CaseDef().usePointMode)>
+{
+	static void check(const vk::VkPhysicalDevicePortabilitySubsetFeaturesKHR& features, const CaseDef caseDef)
+	{
+		if (caseDef.usePointMode)
+			checkPointMode(features);
+	}
+};
+
+template <typename CaseDef>
+void checkSupportCase (Context& context, const CaseDef caseDef)
+{
+	if (const vk::VkPhysicalDevicePortabilitySubsetFeaturesKHR* const features = getPortability(context))
+	{
+		PointMode<CaseDef>::check(*features, caseDef);
+		checkPrimitive(*features, caseDef.primitiveType);
+	}
 }
 
 } // tessellation

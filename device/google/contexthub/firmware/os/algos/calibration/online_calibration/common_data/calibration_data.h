@@ -48,6 +48,12 @@ namespace online_calibration {
  *                    behavior with temperature (e.g., linear bias sensitivity
  *                    model).
  * QUALITY_DEGRADED - Indicates a degradation in calibration quality.
+ * OTC_STILL_BIAS   - Indicates that a stillness-induced bias update occurred as
+ *                    an input to the over-temperature compensation algorithm
+ *                    NOTE: Stillness bias values (e.g., GyroCal) may be
+ *                    different from the OTC bias. If these bias value are
+ *                    desired, they should be retrieved directly (see related
+ *                    calibration wrappers for access [e.g., GyroOffsetOtcCal]).
  */
 enum class CalibrationTypeFlags : uint8_t {
   NONE = 0x00,
@@ -56,6 +62,7 @@ enum class CalibrationTypeFlags : uint8_t {
   CROSS_AXIS = 0x04,
   OVER_TEMP = 0x08,
   QUALITY_DEGRADED = 0x10,
+  OTC_STILL_BIAS = 0x20,
   ALL = 0xFF
 };
 

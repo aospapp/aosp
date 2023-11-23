@@ -11,6 +11,7 @@
 #include <drivers/marvell/cache_llc.h>
 #include <drivers/marvell/ccu.h>
 #include <drivers/marvell/io_win.h>
+#include <drivers/marvell/iob.h>
 #include <drivers/marvell/mci.h>
 #include <drivers/marvell/mochi/ap_setup.h>
 #include <lib/mmio.h>
@@ -31,6 +32,11 @@
 #define DSS_CR0					(MVEBU_RFU_BASE + 0x100)
 #define DVM_48BIT_VA_ENABLE			(1 << 21)
 
+
+/* SoC RFU / IHBx4 Control */
+#define MCIX4_807_REG_START_ADDR_REG(unit_id)	(MVEBU_RFU_BASE + \
+						0x4258 + (unit_id * 0x4))
+
 /* Secure MoChi incoming access */
 #define SEC_MOCHI_IN_ACC_REG			(MVEBU_RFU_BASE + 0x4738)
 #define SEC_MOCHI_IN_ACC_IHB0_EN		(1)
@@ -41,6 +47,14 @@
 						 SEC_MOCHI_IN_ACC_IHB1_EN | \
 						 SEC_MOCHI_IN_ACC_IHB2_EN | \
 						 SEC_MOCHI_IN_ACC_PIDI_EN)
+#define MOCHI_IN_ACC_LEVEL_FORCE_NONSEC		(0)
+#define MOCHI_IN_ACC_LEVEL_FORCE_SEC		(1)
+#define MOCHI_IN_ACC_LEVEL_LEAVE_ORIG		(2)
+#define MOCHI_IN_ACC_LEVEL_MASK_ALL		(3)
+#define SEC_MOCHI_IN_ACC_IHB0_LEVEL(l)		((l) << 1)
+#define SEC_MOCHI_IN_ACC_IHB1_LEVEL(l)		((l) << 4)
+#define SEC_MOCHI_IN_ACC_PIDI_LEVEL(l)		((l) << 10)
+
 
 /* SYSRST_OUTn Config definitions */
 #define MVEBU_SYSRST_OUT_CONFIG_REG		(MVEBU_MISC_SOC_BASE + 0x4)
@@ -65,19 +79,36 @@ enum axi_attr {
 
 static void ap_sec_masters_access_en(uint32_t enable)
 {
-	uint32_t reg;
-
 	/* Open/Close incoming access for all masters.
 	 * The access is disabled in trusted boot mode
 	 * Could only be done in EL3
 	 */
-	reg = mmio_read_32(SEC_MOCHI_IN_ACC_REG);
-	if (enable)
-		mmio_write_32(SEC_MOCHI_IN_ACC_REG, reg |
-			      SEC_IN_ACCESS_ENA_ALL_MASTERS);
-	else
-		mmio_write_32(SEC_MOCHI_IN_ACC_REG,
-			      reg & ~SEC_IN_ACCESS_ENA_ALL_MASTERS);
+	if (enable != 0) {
+		mmio_clrsetbits_32(SEC_MOCHI_IN_ACC_REG, 0x0U, /* no clear */
+				   SEC_IN_ACCESS_ENA_ALL_MASTERS);
+#if LLC_SRAM
+		/* Do not change access security level
+		 * for PIDI masters
+		 */
+		mmio_clrsetbits_32(SEC_MOCHI_IN_ACC_REG,
+				   SEC_MOCHI_IN_ACC_PIDI_LEVEL(
+					  MOCHI_IN_ACC_LEVEL_MASK_ALL),
+				   SEC_MOCHI_IN_ACC_PIDI_LEVEL(
+					  MOCHI_IN_ACC_LEVEL_LEAVE_ORIG));
+#endif
+	} else {
+		mmio_clrsetbits_32(SEC_MOCHI_IN_ACC_REG,
+				   SEC_IN_ACCESS_ENA_ALL_MASTERS,
+				   0x0U /* no set */);
+#if LLC_SRAM
+		/* Return PIDI access level to the default */
+		mmio_clrsetbits_32(SEC_MOCHI_IN_ACC_REG,
+				   SEC_MOCHI_IN_ACC_PIDI_LEVEL(
+					  MOCHI_IN_ACC_LEVEL_MASK_ALL),
+				   SEC_MOCHI_IN_ACC_PIDI_LEVEL(
+					  MOCHI_IN_ACC_LEVEL_FORCE_NONSEC));
+#endif
+	}
 }
 
 static void setup_smmu(void)
@@ -111,6 +142,8 @@ static void init_aurora2(void)
 	reg |= (0x1 << CCU_SET_POC_OFFSET);
 	mmio_write_32(CCU_HTC_CR, reg);
 #endif /* LLC_ENABLE */
+
+	errata_wa_init();
 }
 
 
@@ -124,7 +157,7 @@ static void mci_remap_indirect_access_base(void)
 	uint32_t mci;
 
 	for (mci = 0; mci < MCI_MAX_UNIT_ID; mci++)
-		mmio_write_32(MCIX4_REG_START_ADDRESS_REG(mci),
+		mmio_write_32(MCIX4_807_REG_START_ADDR_REG(mci),
 				  MVEBU_MCI_REG_BASE_REMAP(mci) >>
 				  MCI_REMAP_OFF_SHIFT);
 }
@@ -184,6 +217,38 @@ static void misc_soc_configurations(void)
 	reg = mmio_read_32(MVEBU_SYSRST_OUT_CONFIG_REG);
 	reg &= ~(WD_MASK_SYS_RST_OUT);
 	mmio_write_32(MVEBU_SYSRST_OUT_CONFIG_REG, reg);
+}
+
+/*
+ * By default all external CPs start with configuration address space set to
+ * 0xf200_0000. To overcome this issue, go in the loop and initialize the
+ * CP one by one, using temporary window configuration which allows to access
+ * each CP and update its configuration space according to decoding
+ * windows scheme defined for each platform.
+ */
+void update_cp110_default_win(int cp_id)
+{
+	int mci_id = cp_id - 1;
+	uintptr_t cp110_base, cp110_temp_base;
+
+	/* CP110 default configuration address space */
+	cp110_temp_base = MVEBU_AP_IO_BASE(MVEBU_AP0);
+
+	struct addr_map_win iowin_temp_win = {
+		.base_addr = cp110_temp_base,
+		.win_size = MVEBU_CP_OFFSET,
+	};
+
+	iowin_temp_win.target_id = mci_id;
+	iow_temp_win_insert(0, &iowin_temp_win, 1);
+
+	/* Calculate the new CP110 - base address */
+	cp110_base = MVEBU_CP_REGS_BASE(cp_id);
+	/* Go and update the CP110 configuration address space */
+	iob_cfg_space_update(0, cp_id, cp110_temp_base, cp110_base);
+
+	/* Remove the temporary IO-WIN window */
+	iow_temp_win_remove(0, &iowin_temp_win, 1);
 }
 
 void ap_init(void)

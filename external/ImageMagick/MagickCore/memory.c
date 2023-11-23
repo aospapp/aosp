@@ -17,7 +17,7 @@
 %                                 July 1998                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -33,9 +33,36 @@
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  Segregate our memory requirements from any program that calls our API.  This
-%  should help reduce the risk of others changing our program state or causing
-%  memory corruption.
+%  We provide these memory allocators:
+%
+%    AcquireCriticalMemory(): allocate a small memory request with
+%      AcquireMagickMemory(), however, on fail throw a fatal exception and exit.
+%      Free the memory reserve with RelinquishMagickMemory().
+%    AcquireAlignedMemory(): allocate a small memory request that is aligned
+%      on a cache line.  On fail, return NULL for possible recovery.
+%      Free the memory reserve with RelinquishMagickMemory().
+%    AcquireMagickMemory()/ResizeMagickMemory(): allocate a small to medium
+%      memory request, typically with malloc()/realloc(). On fail, return NULL
+%      for possible recovery.  Free the memory reserve with
+%      RelinquishMagickMemory().
+%    AcquireQuantumMemory()/ResizeQuantumMemory(): allocate a small to medium
+%      memory request.  This is a secure memory allocator as it accepts two
+%      parameters, count and quantum, to ensure the request does not overflow.
+%      It also check to ensure the request does not exceed the maximum memory
+%      per the security policy.  Free the memory reserve with
+%      RelinquishMagickMemory().
+%    AcquireVirtualMemory(): allocate a large memory request either in heap,
+%      memory-mapped, or memory-mapped on disk depending on whether heap
+%      allocation fails or if the request exceeds the maximum memory policy.
+%      Free the memory reserve with RelinquishVirtualMemory().
+%    ResetMagickMemory(): fills the bytes of the memory area with a constant
+%      byte.
+%    
+%  In addition, we provide hooks for your own memory constructor/destructors.
+%  You can also utilize our internal custom allocator as follows: Segregate
+%  our memory requirements from any program that calls our API.  This should
+%  help reduce the risk of others changing our program state or causing memory
+%  corruption.
 %
 %  Our custom memory allocation manager implements a best-fit allocation policy
 %  using segregated free lists.  It uses a linear distribution of size classes
@@ -58,6 +85,7 @@
 #include "MagickCore/blob-private.h"
 #include "MagickCore/exception.h"
 #include "MagickCore/exception-private.h"
+#include "MagickCore/image-private.h"
 #include "MagickCore/memory_.h"
 #include "MagickCore/memory-private.h"
 #include "MagickCore/policy.h"
@@ -174,14 +202,14 @@ static size_t
   virtual_anonymous_memory = 0;
 
 #if defined _MSC_VER
-static void* MSCMalloc(size_t size)
+static void *MSCMalloc(size_t size)
 {
-  return malloc(size);
+  return(malloc(size));
 }
 
-static void* MSCRealloc(void* ptr, size_t size)
+static void *MSCRealloc(void* ptr, size_t size)
 {
-  return realloc(ptr,size);
+  return(realloc(ptr,size));
 }
 
 static void MSCFree(void* ptr)
@@ -247,7 +275,7 @@ static MagickBooleanType
 %    o quantum: the size (in bytes) of each object.
 %
 */
-#if MAGICKCORE_HAVE_STDC_ALIGNED_ALLOC
+#if defined(MAGICKCORE_HAVE_ALIGNED_MALLOC)
 #define AcquireAlignedMemory_Actual AcquireAlignedMemory_STDC
 static inline void *AcquireAlignedMemory_STDC(const size_t size)
 {
@@ -319,7 +347,7 @@ static inline void *AcquireAlignedMemory_Generic(const size_t size)
   #if SIZE_MAX < ALIGNMENT_OVERHEAD
     #error "CACHE_LINE_SIZE is way too big."
   #endif
-  extent=(size + ALIGNMENT_OVERHEAD);
+  extent=(size+ALIGNMENT_OVERHEAD);
   if (extent <= size)
     {
       errno=ENOMEM;
@@ -340,7 +368,10 @@ MagickExport void *AcquireAlignedMemory(const size_t count,const size_t quantum)
     size;
 
   if (HeapOverflowSanityCheckGetSize(count,quantum,&size) != MagickFalse)
-    return(NULL);
+    {
+      errno=ENOMEM;
+      return(NULL);
+    }
   if (memory_methods.acquire_aligned_memory_handler != (AcquireAlignedMemoryHandler) NULL)
     return(memory_methods.acquire_aligned_memory_handler(size,CACHE_LINE_SIZE));
   return(AcquireAlignedMemory_Actual(size));
@@ -373,7 +404,7 @@ MagickExport void *AcquireAlignedMemory(const size_t count,const size_t quantum)
 
 static inline size_t AllocationPolicy(size_t size)
 {
-  register size_t
+  size_t
     blocksize;
 
   /*
@@ -401,7 +432,7 @@ static inline size_t AllocationPolicy(size_t size)
 
 static inline void InsertFreeBlock(void *block,const size_t i)
 {
-  register void
+  void
     *next,
     *previous;
 
@@ -428,7 +459,7 @@ static inline void InsertFreeBlock(void *block,const size_t i)
 
 static inline void RemoveFreeBlock(void *block,const size_t i)
 {
-  register void
+  void
     *next,
     *previous;
 
@@ -444,10 +475,10 @@ static inline void RemoveFreeBlock(void *block,const size_t i)
 
 static void *AcquireBlock(size_t size)
 {
-  register size_t
+  size_t
     i;
 
-  register void
+  void
     *block;
 
   /*
@@ -520,7 +551,7 @@ static void *AcquireBlock(size_t size)
 */
 MagickExport void *AcquireMagickMemory(const size_t size)
 {
-  register void
+  void
     *memory;
 
 #if !defined(MAGICKCORE_ANONYMOUS_MEMORY_SUPPORT)
@@ -533,7 +564,7 @@ MagickExport void *AcquireMagickMemory(const size_t size)
       LockSemaphoreInfo(memory_semaphore);
       if (free_segments == (DataSegmentInfo *) NULL)
         {
-          register ssize_t
+          ssize_t
             i;
 
           assert(2*sizeof(size_t) > (size_t) (~SizeMask));
@@ -594,7 +625,7 @@ MagickExport void *AcquireMagickMemory(const size_t size)
 */
 MagickExport void *AcquireCriticalMemory(const size_t size)
 {
-  register void
+  void
     *memory;
 
   /*
@@ -636,8 +667,12 @@ MagickExport void *AcquireQuantumMemory(const size_t count,const size_t quantum)
   size_t
     size;
 
-  if (HeapOverflowSanityCheckGetSize(count,quantum,&size) != MagickFalse)
-    return((void *) NULL);
+  if ((HeapOverflowSanityCheckGetSize(count,quantum,&size) != MagickFalse) ||
+      (size > GetMaxMemoryRequest()))
+    {
+      errno=ENOMEM;
+      return(NULL);
+    }
   return(AcquireMagickMemory(size));
 }
 
@@ -680,7 +715,10 @@ MagickExport MemoryInfo *AcquireVirtualMemory(const size_t count,
     size;
 
   if (HeapOverflowSanityCheckGetSize(count,quantum,&size) != MagickFalse)
-    return((MemoryInfo *) NULL);
+    {
+      errno=ENOMEM;
+      return((MemoryInfo *) NULL);
+    }
   if (virtual_anonymous_memory == 0)
     {
       virtual_anonymous_memory=1;
@@ -703,8 +741,7 @@ MagickExport MemoryInfo *AcquireVirtualMemory(const size_t count,
   (void) memset(memory_info,0,sizeof(*memory_info));
   memory_info->length=size;
   memory_info->signature=MagickCoreSignature;
-  if ((virtual_anonymous_memory == 1) &&
-      (size <= GetMaxMemoryRequest()))
+  if ((virtual_anonymous_memory == 1) && (size <= GetMaxMemoryRequest()))
     {
       memory_info->blob=AcquireAlignedMemory(1,size);
       if (memory_info->blob != NULL)
@@ -741,7 +778,7 @@ MagickExport MemoryInfo *AcquireVirtualMemory(const size_t count,
 #if !defined(MAGICKCORE_HAVE_POSIX_FALLOCATE)
                   memory_info->blob=MapBlob(file,IOMode,0,size);
 #else
-                  if (posix_fallocate(file,0,size) == 0)
+                  if (posix_fallocate(file,0,(MagickOffsetType) size) == 0)
                     memory_info->blob=MapBlob(file,IOMode,0,size);
 #endif
                   if (memory_info->blob != NULL)
@@ -800,10 +837,10 @@ MagickExport MemoryInfo *AcquireVirtualMemory(const size_t count,
 MagickExport void *CopyMagickMemory(void *magick_restrict destination,
   const void *magick_restrict source,const size_t size)
 {
-  register const unsigned char
+  const unsigned char
     *p;
 
-  register unsigned char
+  unsigned char
     *q;
 
   assert(destination != (void *) NULL);
@@ -848,7 +885,7 @@ MagickExport void *CopyMagickMemory(void *magick_restrict destination,
 MagickExport void DestroyMagickMemory(void)
 {
 #if defined(MAGICKCORE_ANONYMOUS_MEMORY_SUPPORT)
-  register ssize_t
+  ssize_t
     i;
 
   if (memory_semaphore == (SemaphoreInfo *) NULL)
@@ -900,10 +937,10 @@ static MagickBooleanType ExpandHeap(size_t size)
   MagickBooleanType
     mapped;
 
-  register ssize_t
+  ssize_t
     i;
 
-  register void
+  void
     *block;
 
   size_t
@@ -1006,24 +1043,26 @@ MagickExport void GetMagickMemoryMethods(
 */
 MagickExport size_t GetMaxMemoryRequest(void)
 {
+#define MinMemoryRequest "16MiB"
+
   if (max_memory_request == 0)
     {
       char
         *value;
 
+      max_memory_request=(size_t) MagickULLConstant(~0);
       value=GetPolicyValue("system:max-memory-request");
       if (value != (char *) NULL)
         {
           /*
             The security policy sets a max memory request limit.
           */
-          max_memory_request=StringToSizeType(value,100.0);
+          max_memory_request=MagickMax(StringToSizeType(value,100.0),
+            StringToSizeType(MinMemoryRequest,100.0));
           value=DestroyString(value);
         }
-      else
-        max_memory_request=(size_t) MagickULLConstant(~0);
     }
-  return(max_memory_request);
+  return(MagickMin(max_memory_request,MAGICK_SSIZE_MAX));
 }
 
 /*
@@ -1087,7 +1126,7 @@ MagickExport void *RelinquishAlignedMemory(void *memory)
       memory_methods.relinquish_aligned_memory_handler(memory);
       return(NULL);
     }
-#if MAGICKCORE_HAVE_STDC_ALIGNED_ALLOC || defined(MAGICKCORE_HAVE_POSIX_MEMALIGN)
+#if defined(MAGICKCORE_HAVE_ALIGNED_MALLOC) || defined(MAGICKCORE_HAVE_POSIX_MEMALIGN)
   free(memory);
 #elif defined(MAGICKCORE_HAVE__ALIGNED_MALLOC)
   _aligned_free(memory);
@@ -1230,26 +1269,36 @@ MagickExport MemoryInfo *RelinquishVirtualMemory(MemoryInfo *memory_info)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  ResetMagickMemory() fills the first size bytes of the memory area pointed to
-%  by memory with the constant byte c.
+%  ResetMagickMemory() fills the first size bytes of the memory area pointed to %  by memory with the constant byte c.  We use a volatile pointer when
+%  updating the byte string.  Most compilers will avoid optimizing away access
+%  to a volatile pointer, even if the pointer appears to be unused after the
+%  call.
 %
 %  The format of the ResetMagickMemory method is:
 %
-%      void *ResetMagickMemory(void *memory,int byte,const size_t size)
+%      void *ResetMagickMemory(void *memory,int c,const size_t size)
 %
 %  A description of each parameter follows:
 %
 %    o memory: a pointer to a memory allocation.
 %
-%    o byte: set the memory to this value.
+%    o c: set the memory to this value.
 %
 %    o size: size of the memory to reset.
 %
 */
-MagickExport void *ResetMagickMemory(void *memory,int byte,const size_t size)
+MagickExport void *ResetMagickMemory(void *memory,int c,const size_t size)
 {
+  volatile unsigned char
+    *p = (volatile unsigned char *) memory;
+
+  size_t
+    n = size;
+
   assert(memory != (void *) NULL);
-  return(memset(memory,byte,size));
+  while (n-- != 0)
+  	*p++=(unsigned char) c;
+  return(memory);
 }
 
 /*
@@ -1328,7 +1377,7 @@ MagickPrivate void ResetVirtualAnonymousMemory(void)
 #if defined(MAGICKCORE_ANONYMOUS_MEMORY_SUPPORT)
 static inline void *ResizeBlock(void *block,size_t size)
 {
-  register void
+  void
     *memory;
 
   if (block == (void *) NULL)
@@ -1347,7 +1396,7 @@ static inline void *ResizeBlock(void *block,size_t size)
 
 MagickExport void *ResizeMagickMemory(void *memory,const size_t size)
 {
-  register void
+  void
     *block;
 
   if (memory == (void *) NULL)
@@ -1411,10 +1460,12 @@ MagickExport void *ResizeQuantumMemory(void *memory,const size_t count,
   size_t
     size;
 
-  if (HeapOverflowSanityCheckGetSize(count,quantum,&size) != MagickFalse)
+  if ((HeapOverflowSanityCheckGetSize(count,quantum,&size) != MagickFalse) ||
+      (size > GetMaxMemoryRequest()))
     {
+      errno=ENOMEM;
       memory=RelinquishMagickMemory(memory);
-      return((void *) NULL);
+      return(NULL);
     }
   return(ResizeMagickMemory(memory,size));
 }

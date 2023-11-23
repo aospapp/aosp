@@ -21,4 +21,5 @@
     <color name="button_background_color">#660000</color>
     <color name="button_disabled_background_color">#61646b</color>
     <color name="scroll_text_background_color">#61646b</color>
+    <color name="tab_color">#808080</color>
 </resources>

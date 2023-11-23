@@ -152,7 +152,8 @@ public final class CtsKeyEventUtil {
      */
     public static void sendKeyDownUp(final Instrumentation instrumentation, final View targetView,
             final int key) {
-        sendKey(instrumentation, targetView, new KeyEvent(KeyEvent.ACTION_DOWN, key));
+        sendKey(instrumentation, targetView, new KeyEvent(KeyEvent.ACTION_DOWN, key),
+                false /* waitForIdle */);
         sendKey(instrumentation, targetView, new KeyEvent(KeyEvent.ACTION_UP, key));
     }
 
@@ -165,6 +166,11 @@ public final class CtsKeyEventUtil {
      */
     public static void sendKey(final Instrumentation instrumentation, final View targetView,
             final KeyEvent event) {
+        sendKey(instrumentation, targetView, event, true /* waitForIdle */);
+    }
+
+    private static void sendKey(final Instrumentation instrumentation, final View targetView,
+            final KeyEvent event, boolean waitForIdle) {
         validateNotAppThread();
 
         long downTime = event.getDownTime();
@@ -192,7 +198,9 @@ public final class CtsKeyEventUtil {
 
         InputMethodManager imm = targetView.getContext().getSystemService(InputMethodManager.class);
         imm.dispatchKeyEventFromInputMethod(imm.isActive() ? null : targetView, newEvent);
-        instrumentation.waitForIdleSync();
+        if (waitForIdle) {
+            instrumentation.waitForIdleSync();
+        }
     }
 
     /**

@@ -23,6 +23,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanohub_bl_cortexm4
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../NOTICE
 LOCAL_AUX_CPU := cortexm4
 
 LOCAL_SRC_FILES := \
@@ -35,6 +38,9 @@ include $(BUILD_NANOHUB_BL_STATIC_LIBRARY)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanohub_os_cortexm4
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../NOTICE
 LOCAL_AUX_CPU := cortexm4
 
 LOCAL_SRC_FILES := \

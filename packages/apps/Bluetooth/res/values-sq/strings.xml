@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Qasu në menaxherin e shkarkimit."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Lejon aplikacionin të ketë qasje në menaxherin \"Shpërndarje përmes bluetooth-it\" (BluetoothShare) dhe ta përdorë për transferim skedarësh."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Qasje në listën e miratimeve të pajisjes me bluetooth."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Lejon aplikacionin të vërë përkohësisht në listën e miratimeve një pajisje bluetooth-i, duke e lejuar atë t\'i dërgojë skedarë kësaj pajisjeje pa konfirmimin e përdoruesit."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Autorizimi në listën e pranimit të pajisjes me Bluetooth."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Lejon aplikacionin të vërë përkohësisht në listën e miratimeve një pajisje me Bluetooth, duke i lejuar asaj t\'i dërgojë skedarë kësaj pajisjeje pa konfirmimin e përdoruesit."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Pajisje e panjohur"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"I panjohur"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"Në rregull!"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Përfundoi koha e veprimit për pranimin e skedarit hyrës nga \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Skedari në ardhje"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> është gati për të dërguar <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> është gati të dërgojë një skedar: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Shpërndarja përmes bluetooth-it: Po merret skedari <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"Shpërndarja përmes bluetooth-it: U pranua skedari <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Shpërndarja përmes bluetooth-it: Skedari <xliff:g id="FILE">%1$s</xliff:g> nuk u pranua"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Po e dërgon skedarin te \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Po dërgon <xliff:g id="NUMBER">%1$s</xliff:g> skedarë te \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Ndaloi dërgimin e skedarit te \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Nuk ka hapësirë të mjaftueshme në USB për të ruajtur skedarin nga \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Nuk ka hapësirë të mjaftueshme në kartën SD për të ruajtur skedarin nga \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"Nuk ka hapësirë të mjaftueshme në USB për të ruajtur skedarin."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"Nuk ka hapësirë të mjaftueshme në kartën SD për ta ruajtur skedarin."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Hapësira e nevojshme: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Po përpunohen shumë kërkesa. Provo sërish më vonë."</string>
     <string name="status_pending" msgid="2503691772030877944">"Transferimi i skedarit nuk ka filluar ende."</string>

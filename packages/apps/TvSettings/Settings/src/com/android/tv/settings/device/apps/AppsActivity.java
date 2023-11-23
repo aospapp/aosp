@@ -16,11 +16,12 @@
 
 package com.android.tv.settings.device.apps;
 
-import android.app.Fragment;
 import android.os.Bundle;
 
+import androidx.fragment.app.Fragment;
+
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 /**
  * Activity allowing the management of apps settings.
@@ -40,7 +41,7 @@ public class AppsActivity extends TvSettingsActivity {
             volumeUuid = args.getString(EXTRA_VOLUME_UUID);
             volumeName = args.getString(EXTRA_VOLUME_NAME);
         }
-        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
                 .newSettingsFragment(AppsFragment.class.getName(),
                         getArguments(volumeUuid, volumeName));
     }

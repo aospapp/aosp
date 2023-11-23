@@ -14,9 +14,61 @@
  * limitations under the License.
  */
 
-cc_library_shared {
-    name: "android.hardware.camera.provider@2.6-impl-google",
-    defaults: ["google_camera_hal_defaults"],
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+soong_config_module_type {
+    name: "gch_lazy_hal_cc_defaults",
+    module_type: "cc_defaults",
+    config_namespace: "gch",
+    bool_variables: ["use_lazy_hal"],
+    properties: ["enabled"],
+}
+
+gch_lazy_hal_cc_defaults {
+    name: "camera_service_eager_hal_defaults",
+    enabled: true,
+    soong_config_variables: {
+        use_lazy_hal: {
+            enabled: false,
+        },
+    },
+}
+
+gch_lazy_hal_cc_defaults {
+    name: "camera_service_lazy_hal_defaults",
+    enabled: false,
+    soong_config_variables: {
+        use_lazy_hal: {
+            enabled: true,
+        },
+    },
+}
+
+sh_binary_host {
+    name: "camera_hal_version_script",
+    src: "version_script.sh",
+    filename_from_src: true,
+}
+
+cc_genrule {
+    name: "hidl_camera_build_version",
+    tools: [":camera_hal_version_script"],
+    cmd: "$(location :camera_hal_version_script) $(in) $(out)",
+    vendor: true,
+    srcs: [
+        "hidl_camera_build_version.inl",
+    ],
+    out: ["hidl_camera_build_version.h"],
+}
+
+cc_defaults {
+    name: "camera_service_defaults",
+    defaults: [
+        "google_camera_hal_defaults",
+        "apex_update_listener_cc_defaults_static",
+    ],
     vendor: true,
     relative_install_path: "hw",
     srcs: [
@@ -26,6 +78,11 @@ cc_library_shared {
         "hidl_profiler.cc",
         "hidl_thermal_utils.cc",
         "hidl_utils.cc",
+        "libc_wrappers.cc",
+        "service.cc",
+    ],
+    generated_headers: [
+        "hidl_camera_build_version",
     ],
     compile_multilib: "first",
     shared_libs: [
@@ -33,13 +90,18 @@ cc_library_shared {
         "android.hardware.camera.device@3.3",
         "android.hardware.camera.device@3.4",
         "android.hardware.camera.device@3.5",
+        "android.hardware.camera.device@3.6",
+        "android.hardware.camera.device@3.7",
         "android.hardware.camera.provider@2.4",
         "android.hardware.camera.provider@2.5",
         "android.hardware.camera.provider@2.6",
+        "android.hardware.camera.provider@2.7",
         "android.hardware.graphics.mapper@2.0",
         "android.hardware.graphics.mapper@3.0",
         "android.hardware.graphics.mapper@4.0",
         "android.hardware.thermal@2.0",
+        "libbinder",
+        "libbase",
         "libcamera_metadata",
         "libcutils",
         "libfmq",
@@ -50,45 +112,30 @@ cc_library_shared {
         "libutils",
         "lib_profiler",
     ],
+    export_shared_lib_headers: [
+        "lib_profiler",
+    ],
     static_libs: [
         "android.hardware.camera.common@1.0-helper",
     ],
+    vintf_fragments: ["android.hardware.camera.provider@2.7-service-google.xml"],
 }
 
-cc_defaults {
-    name: "camera_service_defaults",
-    defaults: ["google_camera_hal_defaults"],
-    vendor: true,
-    relative_install_path: "hw",
-    srcs: ["service.cc"],
-    compile_multilib: "first",
-    shared_libs: [
-        "android.hardware.camera.device@3.2",
-        "android.hardware.camera.device@3.3",
-        "android.hardware.camera.device@3.4",
-        "android.hardware.camera.device@3.5",
-        "android.hardware.camera.provider@2.4",
-        "android.hardware.camera.provider@2.5",
-        "android.hardware.camera.provider@2.6",
-        "android.hardware.graphics.mapper@2.0",
-        "android.hardware.graphics.mapper@3.0",
-        "libbinder",
-        "libhidlbase",
-        "liblog",
-        "libutils",
+cc_binary {
+    name: "android.hardware.camera.provider@2.7-service-google",
+    defaults: [
+        "camera_service_defaults",
+        "camera_service_eager_hal_defaults",
     ],
-    vintf_fragments: ["android.hardware.camera.provider@2.6-service-google.xml"]
+    init_rc: ["android.hardware.camera.provider@2.7-service-google.rc"],
 }
 
 cc_binary {
-    name: "android.hardware.camera.provider@2.6-service-google",
-    defaults: ["camera_service_defaults"],
-    init_rc: ["android.hardware.camera.provider@2.6-service-google.rc"],
-}
-
-cc_binary {
-    name: "android.hardware.camera.provider@2.6-service-google-lazy",
-    defaults: ["camera_service_defaults"],
-    init_rc: ["android.hardware.camera.provider@2.6-service-google-lazy.rc"],
+    name: "android.hardware.camera.provider@2.7-service-google-lazy",
+    defaults: [
+        "camera_service_defaults",
+        "camera_service_lazy_hal_defaults",
+    ],
+    init_rc: ["android.hardware.camera.provider@2.7-service-google-lazy.rc"],
     cflags: ["-DLAZY_SERVICE"],
 }

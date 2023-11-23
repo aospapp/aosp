@@ -19,6 +19,10 @@ consults at run time to determine which tests belong to a suite.
 """
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import collections, json, os, sys
 
 import common
@@ -28,7 +32,7 @@ from autotest_lib.site_utils import suite_preprocessor
 
 # A set of SUITES that we choose not to preprocess as they might have tests
 # added later.
-SUITE_BLACKLIST = set(['au'])
+SUITE_DENYLIST = set(['au'])
 
 
 def _get_control_files_to_process(autotest_dir):
@@ -64,7 +68,7 @@ def get_suite_control_files(autotest_dir, external_autotest_dirs=None):
         d = d.rstrip('/')
         for test in _get_control_files_to_process(d):
             for suite_name in test.suite_tag_parts:
-                if suite_name in SUITE_BLACKLIST:
+                if suite_name in SUITE_DENYLIST:
                     continue
 
                 suite_control_files[suite_name].append(
@@ -89,7 +93,7 @@ def main():
         with open(options.output_file, 'w') as file_obj:
             json.dump(suite_control_files, file_obj)
     else:
-        print suite_control_files
+        print(suite_control_files)
 
 
 if __name__ == '__main__':

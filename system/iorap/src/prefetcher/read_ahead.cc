@@ -65,6 +65,8 @@ std::ostream& operator<<(std::ostream& os, PrefetchStrategy ps) {
 }
 
 static constexpr PrefetchStrategy kPrefetchStrategy = PrefetchStrategy::kFadvise;
+static uint64_t kMaxPrefetchBytes = ::android::base::GetUintProperty<uint64_t>(
+    "iorapd.max_prefetch_bytes", /*default*/100 * 1024 * 1024); // 100MB by default
 
 static PrefetchStrategy GetPrefetchStrategy() {
   PrefetchStrategy strat = PrefetchStrategy::kFadvise;
@@ -356,6 +358,7 @@ void ReadAhead::BeginTask(const TaskId& id) {
   LOG(DEBUG) << "ReadAhead: Opened file&headers in " << open_duration_ms.count() << "ms";
 
   size_t length_sum = 0;
+  size_t prefetch_bytes = 0;
   size_t entry_offset = 0;
   {
     ScopedFormatTrace atrace_perform_read_ahead(ATRACE_TAG_ACTIVITY_MANAGER,
@@ -378,6 +381,15 @@ void ReadAhead::BeginTask(const TaskId& id) {
       if (!PerformReadAhead(session, file_entry.index_id(), kind, file_entry.file_length(), file_entry.file_offset())) {
         // TODO: Do we need below at all? The always-on Dump already prints a % of failed entries.
         // LOG(WARNING) << "Failed readahead, bad file length/offset in entry @ " << (entry_offset - 1);
+      } else {
+        prefetch_bytes += static_cast<size_t>(file_entry.file_length());
+        if (prefetch_bytes >= kMaxPrefetchBytes) {
+          LOG(WARNING) << "The prefetching size is "
+                       << prefetch_bytes
+                       << " and it exceeds the threshold "
+                       << kMaxPrefetchBytes;
+          break;
+        }
       }
 
       length_sum += static_cast<size_t>(file_entry.file_length());

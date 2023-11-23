@@ -23,11 +23,6 @@ binder_call(cameraserver, hal_graphics_allocator)
 # Purpose: adb shell dumpsys media.camera --unreachable
 allow cameraserver self:process { ptrace };
 
-# -----------------------------------
-# Purpose: property access
-# -----------------------------------
-allow cameraserver mtkcam_prop:file { open read getattr };
-
 # Date : WK14.34
 # Operation : Migration
 # Purpose : nvram access (dumchar case for nand and legacy chip)

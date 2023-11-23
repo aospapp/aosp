@@ -30,16 +30,15 @@ import android.widget.TextView;
 
 import androidx.lifecycle.MutableLiveData;
 
+import com.android.car.arch.common.LiveDataFunctions;
 import com.android.car.dialer.CarDialerRobolectricTestRunner;
 import com.android.car.dialer.FragmentTestActivity;
 import com.android.car.dialer.R;
 import com.android.car.dialer.TestDialerApplication;
-import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.dialer.testutils.ShadowAndroidViewModelFactory;
 import com.android.car.dialer.testutils.ShadowCallLogCalls;
 import com.android.car.dialer.testutils.ShadowInMemoryPhoneBook;
 import com.android.car.dialer.ui.common.ContactResultsLiveData;
-import com.android.car.dialer.ui.search.ContactResultsViewModel;
 import com.android.car.telephony.common.Contact;
 import com.android.car.telephony.common.InMemoryPhoneBook;
 import com.android.car.telephony.common.PhoneNumber;
@@ -65,15 +64,15 @@ public class DialpadFragmentTest {
     private static final String DIAL_NUMBER = "6505551234";
     private static final String DIAL_NUMBER_LONG = "650555123465055512346505551234";
     private static final String SINGLE_DIGIT = "0";
-    private static final String SPEC_CHAR = "123=_=%^&";
+    private static final String SPEC_CHAR = "123,456";
     private static final String DISPALY_NAME = "Display Name";
 
     private Context mContext;
     private DialpadFragment mDialpadFragment;
     private MutableLiveData<List<ContactResultsLiveData.ContactResultListItem>>
-            mContactResultsLiveData;
+            mTypeDownResultsLiveData;
     @Mock
-    private ContactResultsViewModel mMockContactResultsViewModel;
+    private TypeDownResultsViewModel mTypeDownResultsViewModel;
     @Mock
     private Contact mMockContact;
 
@@ -83,19 +82,19 @@ public class DialpadFragmentTest {
 
         mContext = RuntimeEnvironment.application;
         ((TestDialerApplication) mContext).setupInCallServiceImpl();
-        ((TestDialerApplication) mContext).initUiCallManager();
         InMemoryPhoneBook.init(mContext);
 
-        mContactResultsLiveData = new MutableLiveData<>();
-        when(mMockContactResultsViewModel.getContactSearchResults())
-                .thenReturn(mContactResultsLiveData);
-        ShadowAndroidViewModelFactory.add(
-                ContactResultsViewModel.class, mMockContactResultsViewModel);
+        mTypeDownResultsLiveData = new MutableLiveData<>();
+        when(mTypeDownResultsViewModel.getContactSearchResults()).thenReturn(
+                mTypeDownResultsLiveData);
+        when(mTypeDownResultsViewModel.getSortOrderLiveData()).thenReturn(
+                LiveDataFunctions.dataOf(TelecomUtils.SORT_BY_FIRST_NAME));
+        ShadowAndroidViewModelFactory.add(TypeDownResultsViewModel.class,
+                mTypeDownResultsViewModel);
     }
 
     @After
     public void tearDown() {
-        UiCallManager.get().tearDown();
         InMemoryPhoneBook.tearDown();
     }
 

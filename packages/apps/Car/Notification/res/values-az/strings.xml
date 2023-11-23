@@ -39,4 +39,5 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> yeni mesaj</item>
       <item quantity="one">1 yeni mesaj</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"İdarə edin"</string>
 </resources>

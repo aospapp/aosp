@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 sh_test {
     name: "vts_ltp_test_arm_64",
     src: "phony_ltp_test_arm64.sh",
@@ -26,6 +30,8 @@ genrule {
     out: ["vts_ltp_test_arm_64.xml"],
     tool_files: [
         "tools/gen_ltp_config.py",
+        "tools/**/*.py",
+        "tools/template/template.xml",
     ],
     cmd: "export ANDROID_BUILD_TOP=$$(pwd) && python3 $(location tools/gen_ltp_config.py) arm 64 False False $(out)",
 }
@@ -42,6 +48,8 @@ genrule {
     out: ["vts_ltp_test_arm_64_lowmem.xml"],
     tool_files: [
         "tools/gen_ltp_config.py",
+        "tools/**/*.py",
+        "tools/template/template.xml",
     ],
     cmd: "export ANDROID_BUILD_TOP=$$(pwd) && python3 $(location tools/gen_ltp_config.py) arm 64 True False $(out)",
 }
@@ -58,6 +66,8 @@ genrule {
     out: ["vts_ltp_test_arm_64_hwasan.xml"],
     tool_files: [
         "tools/gen_ltp_config.py",
+        "tools/**/*.py",
+        "tools/template/template.xml",
     ],
     cmd: "export ANDROID_BUILD_TOP=$$(pwd) && python3 $(location tools/gen_ltp_config.py) arm 64 False True $(out)",
 }
@@ -74,6 +84,8 @@ genrule {
     out: ["vts_ltp_test_arm_64_lowmem_hwasan.xml"],
     tool_files: [
         "tools/gen_ltp_config.py",
+        "tools/**/*.py",
+        "tools/template/template.xml",
     ],
     cmd: "export ANDROID_BUILD_TOP=$$(pwd) && python3 $(location tools/gen_ltp_config.py) arm 64 True True $(out)",
 }
@@ -90,6 +102,8 @@ genrule {
     out: ["vts_ltp_test_arm.xml"],
     tool_files: [
         "tools/gen_ltp_config.py",
+        "tools/**/*.py",
+        "tools/template/template.xml",
     ],
     cmd: "export ANDROID_BUILD_TOP=$$(pwd) && python3 $(location tools/gen_ltp_config.py) arm 32 False False $(out)",
 }
@@ -106,6 +120,8 @@ genrule {
     out: ["vts_ltp_test_arm_lowmem.xml"],
     tool_files: [
         "tools/gen_ltp_config.py",
+        "tools/**/*.py",
+        "tools/template/template.xml",
     ],
     cmd: "export ANDROID_BUILD_TOP=$$(pwd) && python3 $(location tools/gen_ltp_config.py) arm 32 True False $(out)",
 }
@@ -122,6 +138,8 @@ genrule {
     out: ["vts_ltp_test_x86_64.xml"],
     tool_files: [
         "tools/gen_ltp_config.py",
+        "tools/**/*.py",
+        "tools/template/template.xml",
     ],
     cmd: "export ANDROID_BUILD_TOP=$$(pwd) && python3 $(location tools/gen_ltp_config.py) x86 64 False False $(out)",
 }
@@ -138,6 +156,8 @@ genrule {
     out: ["vts_ltp_test_x86.xml"],
     tool_files: [
         "tools/gen_ltp_config.py",
+        "tools/**/*.py",
+        "tools/template/template.xml",
     ],
     cmd: "export ANDROID_BUILD_TOP=$$(pwd) && python3 $(location tools/gen_ltp_config.py) x86 32 False False $(out)",
 }

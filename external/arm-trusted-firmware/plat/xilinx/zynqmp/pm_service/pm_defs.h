@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -18,7 +18,7 @@
  * (PM_VERSION_MAJOR << 16) | PM_VERSION_MINOR
  */
 #define PM_VERSION_MAJOR	1
-#define PM_VERSION_MINOR	0
+#define PM_VERSION_MINOR	1
 
 #define PM_VERSION	((PM_VERSION_MAJOR << 16) | PM_VERSION_MINOR)
 
@@ -33,6 +33,7 @@
 #define PM_STATE_CPU_IDLE		0x0U
 #define PM_STATE_SUSPEND_TO_RAM		0xFU
 
+#define EM_FUNID_NUM_MASK    0xF0000U
 /*********************************************************************
  * Enum definitions
  ********************************************************************/
@@ -97,6 +98,9 @@ enum pm_api_id {
 	PM_PLL_GET_PARAMETER,
 	PM_PLL_SET_MODE,
 	PM_PLL_GET_MODE,
+	/* PM Register Access API */
+	PM_REGISTER_ACCESS,
+	PM_EFUSE_ACCESS,
 	PM_API_MAX
 };
 
@@ -215,26 +219,29 @@ enum pm_opchar_type {
 
 /**
  * @PM_RET_SUCCESS:		success
- * @PM_RET_ERROR_ARGS:		illegal arguments provided
+ * @PM_RET_ERROR_ARGS:		illegal arguments provided (deprecated)
+ * @PM_RET_ERROR_NOTSUPPORTED:	feature not supported  (deprecated)
+ * @PM_RET_ERROR_INTERNAL:	internal error
+ * @PM_RET_ERROR_CONFLICT:	conflict
  * @PM_RET_ERROR_ACCESS:	access rights violation
+ * @PM_RET_ERROR_INVALID_NODE:	invalid node
+ * @PM_RET_ERROR_DOUBLE_REQ:	duplicate request for same node
+ * @PM_RET_ERROR_ABORT_SUSPEND:	suspend procedure has been aborted
  * @PM_RET_ERROR_TIMEOUT:	timeout in communication with PMU
- * @PM_RET_ERROR_NOTSUPPORTED:	feature not supported
- * @PM_RET_ERROR_PROC:		node is not a processor node
- * @PM_RET_ERROR_API_ID:	illegal API ID
- * @PM_RET_ERROR_OTHER:		other error
+ * @PM_RET_ERROR_NODE_USED:	node is already in use
  */
 enum pm_ret_status {
 	PM_RET_SUCCESS,
-	PM_RET_ERROR_ARGS,
-	PM_RET_ERROR_ACCESS,
-	PM_RET_ERROR_TIMEOUT,
-	PM_RET_ERROR_NOTSUPPORTED,
-	PM_RET_ERROR_PROC,
-	PM_RET_ERROR_API_ID,
-	PM_RET_ERROR_FAILURE,
-	PM_RET_ERROR_COMMUNIC,
-	PM_RET_ERROR_DOUBLEREQ,
-	PM_RET_ERROR_OTHER,
+	PM_RET_ERROR_ARGS = 1,
+	PM_RET_ERROR_NOTSUPPORTED = 4,
+	PM_RET_ERROR_INTERNAL = 2000,
+	PM_RET_ERROR_CONFLICT = 2001,
+	PM_RET_ERROR_ACCESS = 2002,
+	PM_RET_ERROR_INVALID_NODE = 2003,
+	PM_RET_ERROR_DOUBLE_REQ = 2004,
+	PM_RET_ERROR_ABORT_SUSPEND = 2005,
+	PM_RET_ERROR_TIMEOUT = 2006,
+	PM_RET_ERROR_NODE_USED = 2007
 };
 
 /**
@@ -315,6 +322,15 @@ enum pm_pll_mode {
 enum pm_clock_div_id {
 	PM_CLOCK_DIV0_ID,
 	PM_CLOCK_DIV1_ID,
+};
+
+/**
+ * EM API IDs
+ */
+enum em_api_id {
+	EM_SET_ACTION = 1,
+	EM_REMOVE_ACTION,
+	EM_SEND_ERRORS,
 };
 
 #endif /* PM_DEFS_H */

@@ -31,11 +31,6 @@ static void output_mute_changed(void *context, int muted, int user_muted,
 	       muted, user_muted, mute_locked);
 }
 
-static void capture_gain_changed(void *context, int32_t gain)
-{
-	printf("capture gain: %d\n", gain);
-}
-
 static void capture_mute_changed(void *context, int muted, int mute_locked)
 {
 	printf("capture mute: muted: %d, mute_locked: %d\n", muted,
@@ -271,8 +266,6 @@ int main(int argc, char **argv)
 						       output_volume_changed);
 	cras_client_set_output_mute_changed_callback(client,
 						     output_mute_changed);
-	cras_client_set_capture_gain_changed_callback(client,
-						      capture_gain_changed);
 	cras_client_set_capture_mute_changed_callback(client,
 						      capture_mute_changed);
 	cras_client_set_nodes_changed_callback(client, nodes_changed);

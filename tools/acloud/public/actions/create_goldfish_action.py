@@ -166,7 +166,8 @@ class GoldfishDeviceFactory(base_device_factory.BaseDeviceFactory):
             blank_data_disk_size_gb=self._blank_data_disk_size_gb,
             avd_spec=self._avd_spec,
             tags=self._tags,
-            extra_scopes=self._extra_scopes)
+            extra_scopes=self._extra_scopes,
+            launch_args=self._cfg.launch_args)
 
         return instance
 
@@ -242,7 +243,8 @@ def CreateDevices(avd_spec=None,
                   autoconnect=False,
                   branch=None,
                   tags=None,
-                  report_internal_ip=False):
+                  report_internal_ip=False,
+                  boot_timeout_secs=None):
     """Create one or multiple Goldfish devices.
 
     Args:
@@ -267,12 +269,13 @@ def CreateDevices(avd_spec=None,
               ["http-server", "https-server"]
         report_internal_ip: Boolean to report the internal ip instead of
                             external ip.
+        boot_timeout_secs: Integer, the maximum time in seconds used to
+                           wait for the AVD to boot.
 
     Returns:
         A Report instance.
     """
     client_adb_port = None
-    boot_timeout_secs = None
     if avd_spec:
         cfg = avd_spec.cfg
         build_target = avd_spec.remote_image[constants.BUILD_TARGET]

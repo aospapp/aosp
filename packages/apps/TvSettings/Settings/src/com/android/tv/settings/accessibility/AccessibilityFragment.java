@@ -21,10 +21,12 @@ import static android.content.Context.ACCESSIBILITY_SERVICE;
 import static com.android.tv.settings.util.InstrumentationUtils.logToggleInteracted;
 
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.app.admin.DevicePolicyManager;
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.ComponentName;
 import android.content.pm.ServiceInfo;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.accessibility.AccessibilityManager;
@@ -35,7 +37,9 @@ import androidx.preference.PreferenceGroup;
 import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
-import com.android.internal.logging.nano.MetricsProto;
+import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
+import com.android.settingslib.RestrictedLockUtilsInternal;
+import com.android.settingslib.RestrictedPreference;
 import com.android.settingslib.accessibility.AccessibilityUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
@@ -117,11 +121,15 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
     }
 
     private void refreshServices(PreferenceGroup group) {
+        DevicePolicyManager dpm = getContext().getSystemService(DevicePolicyManager.class);
         final List<AccessibilityServiceInfo> installedServiceInfos =
                 getActivity().getSystemService(AccessibilityManager.class)
                         .getInstalledAccessibilityServiceList();
         final Set<ComponentName> enabledServices =
                 AccessibilityUtils.getEnabledServicesFromSettings(getActivity());
+        final List<String> permittedServices = dpm.getPermittedAccessibilityServices(
+                UserHandle.myUserId());
+
         final boolean accessibilityEnabled = Settings.Secure.getInt(
                 getActivity().getContentResolver(),
                 Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1;
@@ -133,31 +141,45 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
 
             final boolean serviceEnabled = accessibilityEnabled
                     && enabledServices.contains(componentName);
+            // permittedServices null means all accessibility services are allowed.
+            final boolean serviceAllowed = permittedServices == null
+                    || permittedServices.contains(serviceInfo.packageName);
 
             final String title = accInfo.getResolveInfo()
                     .loadLabel(getActivity().getPackageManager()).toString();
 
             final String key = "ServicePref:" + componentName.flattenToString();
-            Preference servicePref = findPreference(key);
+            RestrictedPreference servicePref = findPreference(key);
             if (servicePref == null) {
-                servicePref = new Preference(group.getContext());
+                servicePref = new RestrictedPreference(group.getContext());
                 servicePref.setKey(key);
             }
             servicePref.setTitle(title);
             servicePref.setSummary(serviceEnabled ? R.string.settings_on : R.string.settings_off);
-            servicePref.setFragment(AccessibilityServiceFragment.class.getName());
             AccessibilityServiceFragment.prepareArgs(servicePref.getExtras(),
                     serviceInfo.packageName,
                     serviceInfo.name,
                     accInfo.getSettingsActivityName(),
                     title);
+
+            if (serviceAllowed || serviceEnabled) {
+                servicePref.setEnabled(true);
+                servicePref.setFragment(AccessibilityServiceFragment.class.getName());
+            } else {
+                // Disable accessibility service that are not permitted.
+                final EnforcedAdmin admin =
+                        RestrictedLockUtilsInternal.checkIfAccessibilityServiceDisallowed(
+                                getContext(), serviceInfo.packageName, UserHandle.myUserId());
+                if (admin != null) {
+                    servicePref.setDisabledByAdmin(admin);
+                } else {
+                    servicePref.setEnabled(false);
+                }
+                servicePref.setFragment(null);
+            }
+
             group.addPreference(servicePref);
         }
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.ACCESSIBILITY;
     }
 
     @Override

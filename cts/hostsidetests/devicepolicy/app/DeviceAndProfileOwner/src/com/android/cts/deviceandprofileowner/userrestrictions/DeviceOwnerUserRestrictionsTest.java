@@ -61,6 +61,8 @@ public class DeviceOwnerUserRestrictionsTest extends BaseUserRestrictionsTest {
             UserManager.DISALLOW_CONTENT_CAPTURE,
             UserManager.DISALLOW_CONTENT_SUGGESTIONS,
             UserManager.DISALLOW_UNIFIED_PASSWORD,
+            UserManager.DISALLOW_CAMERA_TOGGLE,
+            UserManager.DISALLOW_MICROPHONE_TOGGLE,
     };
 
     public static final String[] DISALLOWED = new String[] {

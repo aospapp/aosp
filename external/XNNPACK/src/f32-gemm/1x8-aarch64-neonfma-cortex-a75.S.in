@@ -5,7 +5,7 @@
 
 #include <xnnpack/assembly.h>
 
-# void xnn_f32_gemm${"inc" if INC else ""}_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}(
+# void xnn_f32_gemm${"inc" if INC else ""}_minmax_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}(
 #     size_t mr,                (x0) - unused.  mr = 1
 #     size_t nc,                x1
 #     size_t kc,                x2 / x0
@@ -17,12 +17,11 @@
 #     size_t cn_stride,         [sp] -> x14
 $if INC:
   #     const float*restrict acc,  [sp + 8] -> x15
-  #     const union xnn_f32_output_params params[restrict static 1])  [sp + 16] -> x8
+  #     const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 16] -> x8
 $else:
-  #     const union xnn_f32_output_params params[restrict static 1])  [sp + 8] -> x8
+  #     const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 8] -> x8
 
-# d8-d15 need to be preserved if used.
-# x19-30 need to be preserved if used.
+# d8-d15, x19-x30 need to be preserved if used. x18 is reserved by the OS.
 
 # A pointer
 # x3  a0
@@ -32,7 +31,7 @@ $else:
 
 # Clamp v4 v5
 
-BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
+BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_minmax_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
 
         $if INC:
           # Load cn_stride, acc
@@ -43,7 +42,7 @@ BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_1x8__aarch64_neonfma_
           # Load cn_stride, params pointer
           LDP x14, x8, [sp]
 
-        # Load clamping_params values
+        # Load min/max values
         LD2R {v4.4s, v5.4s}, [x8]
 0:
         $if INC:
@@ -59,9 +58,7 @@ BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_1x8__aarch64_neonfma_
         MOVI v19.4s, 0
         $if PREFETCH:
           PRFM PLDL1KEEP, [x5, 64]
-        $if PREFETCH:
           PRFM PLDL1KEEP, [x5, 128]
-        $if PREFETCH:
           PRFM PLDL1KEEP, [x5, 192]
 
         # Is there at least 8 floats (32 bytes) for prologue + epilogue?
@@ -159,10 +156,10 @@ BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_1x8__aarch64_neonfma_
         FADD v17.4s, v17.4s, v19.4s
 
         # Clamp
-        FMIN v16.4s, v16.4s, v4.4s
-        FMIN v17.4s, v17.4s, v4.4s
-        FMAX v16.4s, v16.4s, v5.4s
-        FMAX v17.4s, v17.4s, v5.4s
+        FMAX v16.4s, v16.4s, v4.4s
+        FMAX v17.4s, v17.4s, v4.4s
+        FMIN v16.4s, v16.4s, v5.4s
+        FMIN v17.4s, v17.4s, v5.4s
 
         # Store full 1 x 8
         B.LO 9f
@@ -229,7 +226,7 @@ BEGIN_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_1x8__aarch64_neonfma_
 12:
         RET
 
-END_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
+END_FUNCTION xnn_f32_gemm${"inc" if INC else ""}_minmax_ukernel_1x8__aarch64_neonfma_cortex_${"a75" if PREFETCH else "a57"}
 
 #ifdef __ELF__
 .section ".note.GNU-stack","",%progbits

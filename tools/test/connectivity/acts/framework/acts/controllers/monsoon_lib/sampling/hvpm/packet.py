@@ -150,11 +150,9 @@ class Packet(object):
 
     Attributes:
         _packet_data: The raw data received from the packet.
-        time_since_start: The timestamp (relative to start) this packet was
-            collected.
+        time_of_read: The unix timestamp this packet was collected at.
         time_since_last_sample: The differential between this packet's
-            time_since_start and the previous packet's. Note that for the first
-            packet, this value will be equal to time_since_start.
+            time_of_read and the previous packet's.
     """
 
     FIRST_MEASUREMENT_OFFSET = 8
@@ -174,7 +172,7 @@ class Packet(object):
             (str(HvpmMeasurement.SIZE) + 's') * self.num_measurements)
 
         # yapf: disable. Yapf forces these to try to fit one after the other.
-        (self.time_since_start,
+        (self.time_of_read,
          self.time_since_last_sample,
          self.dropped_count,
          self.flags,
@@ -195,7 +193,7 @@ class Packet(object):
         sample the values.
         """
         time_per_sample = self.time_since_last_sample / self.num_measurements
-        return time_per_sample * (index + 1) + self.time_since_start
+        return time_per_sample * (index + 1) + self.time_of_read
 
     @property
     def packet_counter(self):

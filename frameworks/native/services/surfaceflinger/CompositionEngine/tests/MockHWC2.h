@@ -27,12 +27,13 @@
 // TODO(b/129481165): remove the #pragma below and fix conversion issues
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wconversion"
+#pragma clang diagnostic ignored "-Wextra"
 
 #include <ui/GraphicTypes.h>
 #include "DisplayHardware/HWC2.h"
 
 // TODO(b/129481165): remove the #pragma below and fix conversion issues
-#pragma clang diagnostic pop // ignored "-Wconversion"
+#pragma clang diagnostic pop // ignored "-Wconversion -Wextra"
 
 namespace android {
 namespace HWC2 {
@@ -66,7 +67,6 @@ public:
     MOCK_METHOD1(setTransform, Error(hal::Transform));
     MOCK_METHOD1(setVisibleRegion, Error(const android::Region&));
     MOCK_METHOD1(setZOrder, Error(uint32_t));
-    MOCK_METHOD2(setInfo, Error(uint32_t, uint32_t));
 
     MOCK_METHOD1(setColorTransform, Error(const android::mat4&));
     MOCK_METHOD3(setLayerGenericMetadata,

@@ -41,9 +41,13 @@ public final class CarPackageManager extends CarManagerBase {
      * Flag for {@link #setAppBlockingPolicy(String, CarAppBlockingPolicy, int)}. When this
      * flag is set, the call will be blocked until policy is set to system. This can take time
      * and the flag cannot be used in main thread.
+     *
      * @hide
+     * @deprecated see the {@link #setAppBlockingPolicy(String, CarAppBlockingPolicy, int)}
+     * documentation for alternative mechanism.
      */
     @SystemApi
+    @Deprecated
     public static final int FLAG_SET_POLICY_WAIT_FOR_CHANGE = 0x1;
     /**
      * Flag for {@link #setAppBlockingPolicy(String, CarAppBlockingPolicy, int)}. When this
@@ -51,18 +55,26 @@ public final class CarPackageManager extends CarManagerBase {
      * If none of {@link #FLAG_SET_POLICY_ADD} or {@link #FLAG_SET_POLICY_REMOVE} is set, existing
      * policy is replaced. Note that policy per each package is always replaced and will not be
      * added.
+     *
      * @hide
+     * @deprecated see the {@link #setAppBlockingPolicy(String, CarAppBlockingPolicy, int)}
+     * documentation for alternative mechanism.
      */
     @SystemApi
+    @Deprecated
     public static final int FLAG_SET_POLICY_ADD = 0x2;
     /**
      * Flag for {@link #setAppBlockingPolicy(String, CarAppBlockingPolicy, int)}. When this
      * flag is set, passed policy is removed from existing policy set from the current package.
      * If none of {@link #FLAG_SET_POLICY_ADD} or {@link #FLAG_SET_POLICY_REMOVE} is set, existing
      * policy is replaced.
+     *
      * @hide
+     * @deprecated see the {@link #setAppBlockingPolicy(String, CarAppBlockingPolicy, int)}
+     * documentation for alternative mechanism.
      */
     @SystemApi
+    @Deprecated
     public static final int FLAG_SET_POLICY_REMOVE = 0x4;
 
     /** @hide */
@@ -104,8 +116,18 @@ public final class CarPackageManager extends CarManagerBase {
      * @throws IllegalStateException If {@link #FLAG_SET_POLICY_WAIT_FOR_CHANGE} is set while
      *         called from main thread.
      * @hide
+     * @deprecated It is no longer possible to change the app blocking policy at runtime. The first
+     * choice to mark an activity as safe for driving should always be to to include
+     * {@code <meta-data android:name="distractionOptimized" android:value="true"/>} in its
+     * manifest. All other activities will be blocked whenever driving restrictions are required. If
+     * an activity's manifest cannot be changed, then you can explicitly make an exception to its
+     * behavior using the build-time XML configuration. Allow or deny specific activities by
+     * changing the appropriate value ({@code R.string.activityAllowlist},
+     * {@code R.string.activityDenylist}) within the
+     * {@code packages/services/Car/service/res/values/config.xml} overlay.
      */
     @SystemApi
+    @Deprecated
     public void setAppBlockingPolicy(
             String packageName, CarAppBlockingPolicy policy, @SetPolicyFlags int flags) {
         if ((flags & FLAG_SET_POLICY_WAIT_FOR_CHANGE) != 0

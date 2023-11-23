@@ -635,7 +635,7 @@ class UtilAndroid(object):
 
         # if the remote is an emulator do not even try to reboot
         # otherwise check whether a reboot is advised
-        if (self._get_prop('ro.kernel.qemu') != '1' and output and
+        if (self._get_prop('ro.boot.qemu') != '1' and output and
                 'Now reboot your device for settings to take effect' in output):
             self._reboot_device()
 

@@ -13,6 +13,10 @@
 // limitations under the License.
 
 // A static library containing all the source needed by a Time Zone Data app.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "time_zone_distro_provider",
 

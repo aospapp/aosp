@@ -26,7 +26,6 @@ import java.util.Collection;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLSession;
 import javax.security.auth.x500.X500Principal;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -168,12 +167,7 @@ public final class HostnameVerifierTest {
     assertFalse(verifier.verify("a.bar.com", session));
   }
 
-  /**
-   * Ignored due to incompatibilities between Android and Java on how non-ASCII
-   * subject alt names are parsed. Android fails to parse these, which means we
-   * fall back to the CN. The RI does parse them, so the CN is unused.
-   */
-  @Test @Ignore public void verifyNonAsciiSubjectAlt() throws Exception {
+  @Test public void verifyNonAsciiSubjectAlt() throws Exception {
     // CN=foo.com, subjectAlt=bar.com, subjectAlt=&#x82b1;&#x5b50;.co.jp
     // (hanako.co.jp in kanji)
     SSLSession session = session(""
@@ -203,16 +197,15 @@ public final class HostnameVerifierTest {
         + "sWIKHYrmhCIRshUNohGXv50m2o+1w9oWmQ6Dkq7lCjfXfUB4wIbggJjpyEtbNqBt\n"
         + "j4MC2x5rfsLKKqToKmNE7pFEgqwe8//Aar1b+Qj+\n"
         + "-----END CERTIFICATE-----\n");
-    assertTrue(verifier.verify("foo.com", session));
+    // Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // assertTrue(verifier.verify("foo.com", session));
+    assertFalse(verifier.verify("foo.com", session));
     assertFalse(verifier.verify("a.foo.com", session));
-    // these checks test alternative subjects. The test data contains an
-    // alternative subject starting with a japanese kanji character. This is
-    // not supported by Android because the underlying implementation from
-    // harmony follows the definition from rfc 1034 page 10 for alternative
-    // subject names. This causes the code to drop all alternative subjects.
-    // assertTrue(verifier.verify("bar.com", session));
-    // assertFalse(verifier.verify("a.bar.com", session));
-    // assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
+    assertTrue(verifier.verify("bar.com", session));
+    assertFalse(verifier.verify("a.bar.com", session));
+    assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
+    // Android-added: Reject non-ASCII hostnames and SANs. http://b/171980069
+    assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
   }
 
   @Test public void verifySubjectAltOnly() throws Exception {
@@ -358,17 +351,12 @@ public final class HostnameVerifierTest {
     // Android-changed: Ignore common name in hostname verification. http://b/70278814
     // assertTrue(verifier.verify("foo.co.jp", session));
     assertFalse(verifier.verify("foo.co.jp", session));
-    // Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // Android-changed: Reject non-ASCII hostnames and SANs. http://b/171980069
     // assertTrue(verifier.verify("\u82b1\u5b50.co.jp", session));
     assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
   }
 
-  /**
-   * Ignored due to incompatibilities between Android and Java on how non-ASCII
-   * subject alt names are parsed. Android fails to parse these, which means we
-   * fall back to the CN. The RI does parse them, so the CN is unused.
-   */
-  @Test @Ignore public void testWilcardNonAsciiSubjectAlt() throws Exception {
+  @Test public void testWilcardNonAsciiSubjectAlt() throws Exception {
     // CN=*.foo.com, subjectAlt=*.bar.com, subjectAlt=*.&#x82b1;&#x5b50;.co.jp
     // (*.hanako.co.jp in kanji)
     SSLSession session = session(""
@@ -399,19 +387,22 @@ public final class HostnameVerifierTest {
         + "pgJsDbJtZfHnV1nd3M6zOtQPm1TIQpNmMMMd/DPrGcUQerD3\n"
         + "-----END CERTIFICATE-----\n");
     // try the foo.com variations
-    assertTrue(verifier.verify("foo.com", session));
-    assertTrue(verifier.verify("www.foo.com", session));
-    assertTrue(verifier.verify("\u82b1\u5b50.foo.com", session));
+    // BEGIN Android-changed: Ignore common name in hostname verification. http://b/70278814
+    // assertTrue(verifier.verify("foo.com", session));
+    // assertTrue(verifier.verify("www.foo.com", session));
+    // assertTrue(verifier.verify("\u82b1\u5b50.foo.com", session));
+    assertFalse(verifier.verify("foo.com", session));
+    assertFalse(verifier.verify("www.foo.com", session));
+    assertFalse(verifier.verify("\u82b1\u5b50.foo.com", session));
+    // END Android-changed: Ignore common name in hostname verification. http://b/70278814
     assertFalse(verifier.verify("a.b.foo.com", session));
-    // these checks test alternative subjects. The test data contains an
-    // alternative subject starting with a japanese kanji character. This is
-    // not supported by Android because the underlying implementation from
-    // harmony follows the definition from rfc 1034 page 10 for alternative
-    // subject names. This causes the code to drop all alternative subjects.
-    // assertFalse(verifier.verify("bar.com", session));
-    // assertTrue(verifier.verify("www.bar.com", session));
+    // these checks test alternative subjects.
+    assertFalse(verifier.verify("bar.com", session));
+    assertTrue(verifier.verify("www.bar.com", session));
+    // Android-changed: Reject non-ASCII hostnames and SANs. http://b/171980069
     // assertTrue(verifier.verify("\u82b1\u5b50.bar.com", session));
-    // assertTrue(verifier.verify("a.b.bar.com", session));
+    assertFalse(verifier.verify("\u82b1\u5b50.bar.com", session));
+    assertFalse(verifier.verify("a.b.bar.com", session));
   }
 
   @Test public void subjectAltUsesLocalDomainAndIp() throws Exception {
@@ -603,6 +594,14 @@ public final class HostnameVerifierTest {
     assertFalse(OkHostnameVerifier.verifyAsIpAddress("localhost"));
     assertFalse(OkHostnameVerifier.verifyAsIpAddress("squareup.com"));
     assertFalse(OkHostnameVerifier.verifyAsIpAddress("www.nintendo.co.jp"));
+  }
+
+  @Test public void isPrintableAscii() {
+    assertTrue(OkHostnameVerifier.isPrintableAscii("foo-bar_baz.com"));
+    assertTrue(OkHostnameVerifier.isPrintableAscii("FoO-bAr_BaZ.cOm"));
+    assertFalse(OkHostnameVerifier.isPrintableAscii("Føø-bAr_BaZ.cøm"));
+    // Char 0xc0 (capital A with grave accent in ISO 8859-1) fits in 8 bits but not 7.
+    assertFalse(OkHostnameVerifier.isPrintableAscii("\u00c0.com"));
   }
 
   private X509Certificate certificate(String certificate) throws Exception {

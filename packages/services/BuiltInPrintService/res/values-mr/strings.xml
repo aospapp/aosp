@@ -41,7 +41,7 @@
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"प्रिंटर जोडा"</string>
     <string name="add_printer_by_ip" msgid="562864787592910327">"आयपी ॲड्रेसनुसार प्रिंटर जोडा"</string>
-    <string name="hostname_or_ip" msgid="3460546103553992915">"होस्ट नाव किंवा IP पत्ता"</string>
+    <string name="hostname_or_ip" msgid="3460546103553992915">"होस्ट नाव किंवा आयपी अ‍ॅड्रेस"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"जोडा"</string>
     <string name="add_named" msgid="9074106244018070583">"<xliff:g id="PRINTER">%1$s</xliff:g> जोडा"</string>
@@ -65,13 +65,17 @@
     <string name="recommendation_install_summary" msgid="374785283809791669">"इंस्टॉल करण्यासाठी निवडा"</string>
     <string name="recommendation_enable_summary" msgid="3500907868251326224">"सुरू करण्यासाठी निवडा"</string>
     <string name="recommendation_manage" msgid="4683640588502866284">"सेवा व्यवस्थापित करा"</string>
-    <string name="security" msgid="2279008326210305401">"सुरक्षितता"</string>
+    <string name="security" msgid="2279008326210305401">"सुरक्षा"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"हा प्रिंटर नवीन सुरक्षा सर्टिफिकेट प्रदान करतो किंवा दुसरे एखादे डिव्हाइस तोतयागिरी करत असेल. नवीन सर्टिफिकेट स्वीकारायचे का?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"यापुढे हा प्रिंटर एंक्रिप्ट केलेली कामे स्वीकारणार नाही. प्रिंट करणे सुरू ठेवायचे आहे का?"</string>
     <string name="accept" msgid="4426153292469698134">"स्वीकारा"</string>
     <string name="reject" msgid="24751635160440693">"नकार द्या"</string>
     <string name="connections" msgid="8895413761760117180">"कनेक्शन"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"डीफॉल्ट प्रिंट सेवा यास वाय-फाय थेट प्रिंटर आढळले नाहीत"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"वाय-फाय थेट बंद करा"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"डीफॉल्ट प्रिंट सेवेला जवळपासच्या डिव्हाइस शोधण्यासाठी स्थान परवानगी आवश्यक आहे."</string>
     <string name="fix" msgid="7784394272611365393">"परीक्षण परवानगी द्या"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"डीफॉल्ट प्रिंट सेवा यास जवळपासची डिव्हाइस शोधण्यासाठी स्थान सेवा सुरू असणे आवश्यक आहे."</string>
+    <string name="enable_location" msgid="3627841004298863140">"स्थान सुरू करा"</string>
     <string name="print" msgid="7851318072404916362">"प्रिंट करा"</string>
 </resources>

@@ -60,7 +60,7 @@ void xnn_f32_raddextexp_ukernel__avx512f_p5_scalef_x${ELEMENTS_TILE}${"" if ACCU
     $for N in range(SIMD_TILE):
       vt${N} = _mm512_fmadd_ps(vn${N}, vminus_ln2_lo, vt${N});
 
-    // Compute degree-5 polynomial approxiatmion for exp(t) on [-log(2)/2, log(2)/2].
+    // Compute degree-5 polynomial approximation for exp(t) on [-log(2)/2, log(2)/2].
     $for N in range(SIMD_TILE):
       __m512 vp${N} = _mm512_fmadd_ps(vc5, vt${N}, vc4);
 
@@ -79,8 +79,8 @@ void xnn_f32_raddextexp_ukernel__avx512f_p5_scalef_x${ELEMENTS_TILE}${"" if ACCU
     // Accumulate "extended" floating-point numbers in ("mantissa", "exponent") representation where
     //  - vnX is "exponent"
     //  - vpX is "mantissa"
-    //   
-    // exp2(ae) * av + exp2(be) * bv = 
+    //
+    // exp2(ae) * av + exp2(be) * bv =
     //   = exp2(max(ae, be)) * exp2(ae - max(ae, be)) * av + exp2(max(ae, be)) * exp2(be - max(ae, be)) * bv
     //   = exp2(max_e) * (exp2(ae - max_e) * av + exp2(be - max_e) * bv)
     //   = exp2(max_e) * (exp2(delta_ae) * av + exp2(delta_be) * bv)
@@ -145,7 +145,7 @@ void xnn_f32_raddextexp_ukernel__avx512f_p5_scalef_x${ELEMENTS_TILE}${"" if ACCU
     __m512 vt = _mm512_fmadd_ps(vn, vminus_ln2_hi, vx);
     vt = _mm512_fmadd_ps(vn, vminus_ln2_lo, vt);
 
-    // Compute degree-5 polynomial approxiatmion for exp(t) on [-log(2)/2, log(2)/2].
+    // Compute degree-5 polynomial approximation for exp(t) on [-log(2)/2, log(2)/2].
     __m512 vp = _mm512_fmadd_ps(vc5, vt, vc4);
     vp = _mm512_fmadd_ps(vp, vt, vc3);
     vp = _mm512_fmadd_ps(vp, vt, vc2);
@@ -177,7 +177,7 @@ void xnn_f32_raddextexp_ukernel__avx512f_p5_scalef_x${ELEMENTS_TILE}${"" if ACCU
     __m512 vt = _mm512_fmadd_ps(vn, vminus_ln2_hi, vx);
     vt = _mm512_fmadd_ps(vn, vminus_ln2_lo, vt);
 
-    // Compute degree-5 polynomial approxiatmion for exp(t) on [-log(2)/2, log(2)/2].
+    // Compute degree-5 polynomial approximation for exp(t) on [-log(2)/2, log(2)/2].
     __m512 vp = _mm512_fmadd_ps(vc5, vt, vc4);
     vp = _mm512_fmadd_ps(vp, vt, vc3);
     vp = _mm512_fmadd_ps(vp, vt, vc2);

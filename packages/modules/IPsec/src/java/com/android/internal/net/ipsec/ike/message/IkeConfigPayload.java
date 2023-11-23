@@ -30,9 +30,11 @@ import android.net.ipsec.ike.TunnelModeChildSessionParams.ConfigRequestIpv4Netma
 import android.net.ipsec.ike.TunnelModeChildSessionParams.ConfigRequestIpv6Address;
 import android.net.ipsec.ike.TunnelModeChildSessionParams.ConfigRequestIpv6DnsServer;
 import android.net.ipsec.ike.TunnelModeChildSessionParams.TunnelModeChildConfigRequest;
+import android.net.ipsec.ike.exceptions.InvalidSyntaxException;
+import android.os.PersistableBundle;
 
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidSyntaxException;
+import com.android.server.vcn.util.PersistableBundleUtils;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -40,11 +42,13 @@ import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * This class represents Configuration payload.
@@ -111,7 +115,7 @@ public final class IkeConfigPayload extends IkePayload {
         configType = Byte.toUnsignedInt(inputBuffer.get());
         inputBuffer.get(new byte[CONFIG_HEADER_RESERVED_LEN]);
 
-        recognizedAttributeList = ConfigAttribute.decodeAttributeFrom(inputBuffer);
+        recognizedAttributeList = ConfigAttribute.decodeAttributesFrom(inputBuffer);
 
         // For an inbound Config Payload, IKE library is only able to handle a Config Reply or IKE
         // Session attribute requests in a Config Request. For interoperability, netmask validation
@@ -166,6 +170,8 @@ public final class IkeConfigPayload extends IkePayload {
 
     /** This class represents common information of all Configuration Attributes. */
     public abstract static class ConfigAttribute {
+        private static final String ENCODED_ATTRIBUTE_BYTES_KEY = "encodedAttribute";
+
         private static final int ATTRIBUTE_TYPE_MASK = 0x7fff;
 
         private static final int ATTRIBUTE_HEADER_LEN = 4;
@@ -192,66 +198,111 @@ public final class IkeConfigPayload extends IkePayload {
         }
 
         /**
+         * Constructs this object by deserializing a PersistableBundle.
+         *
+         * <p>Constructed ConfigAttributes are guaranteed to be valid, as checked by
+         * #decodeAttributesFrom(ByteBuffer)
+         */
+        public static ConfigAttribute fromPersistableBundle(PersistableBundle in) {
+            Objects.requireNonNull(in, "PersistableBundle is null");
+
+            PersistableBundle byteArrayBundle =
+                    in.getPersistableBundle(ENCODED_ATTRIBUTE_BYTES_KEY);
+            ByteBuffer buffer =
+                    ByteBuffer.wrap(PersistableBundleUtils.toByteArray(byteArrayBundle));
+
+            ConfigAttribute attribute;
+            try {
+                attribute = decodeSingleAttributeFrom(buffer);
+            } catch (NegativeArraySizeException
+                    | BufferUnderflowException
+                    | InvalidSyntaxException e) {
+                throw new IllegalArgumentException(
+                        "PersistableBundle contains invalid Config request");
+            }
+
+            if (buffer.hasRemaining()) {
+                throw new IllegalArgumentException(
+                        "Unexpected trailing bytes in Config request PersistableBundle");
+            }
+
+            return attribute;
+        }
+
+        /** Serializes this object to a PersistableBundle */
+        public PersistableBundle toPersistableBundle() {
+            final PersistableBundle result = new PersistableBundle();
+
+            ByteBuffer buffer = ByteBuffer.allocate(getAttributeLen());
+            encodeAttributeToByteBuffer(buffer);
+
+            result.putPersistableBundle(
+                    ENCODED_ATTRIBUTE_BYTES_KEY,
+                    PersistableBundleUtils.fromByteArray(buffer.array()));
+            return result;
+        }
+
+        /**
          * Package private method to decode ConfigAttribute list from an inbound packet
          *
          * <p>NegativeArraySizeException and BufferUnderflowException will be caught in {@link
          * IkeMessage}
          */
-        static List<ConfigAttribute> decodeAttributeFrom(ByteBuffer inputBuffer)
+        static List<ConfigAttribute> decodeAttributesFrom(ByteBuffer inputBuffer)
                 throws InvalidSyntaxException {
             List<ConfigAttribute> configList = new LinkedList();
 
             while (inputBuffer.hasRemaining()) {
-                int attributeType = Short.toUnsignedInt(inputBuffer.getShort());
-                int length = Short.toUnsignedInt(inputBuffer.getShort());
-                byte[] value = new byte[length];
-                inputBuffer.get(value);
-
-                switch (attributeType) {
-                    case CONFIG_ATTR_INTERNAL_IP4_ADDRESS:
-                        configList.add(new ConfigAttributeIpv4Address(value));
-                        break;
-                    case CONFIG_ATTR_INTERNAL_IP4_NETMASK:
-                        configList.add(new ConfigAttributeIpv4Netmask(value));
-                        break;
-                    case CONFIG_ATTR_INTERNAL_IP4_DNS:
-                        configList.add(new ConfigAttributeIpv4Dns(value));
-                        break;
-                    case CONFIG_ATTR_INTERNAL_IP4_DHCP:
-                        configList.add(new ConfigAttributeIpv4Dhcp(value));
-                        break;
-                    case CONFIG_ATTR_APPLICATION_VERSION:
-                        configList.add(new ConfigAttributeAppVersion(value));
-                        break;
-                    case CONFIG_ATTR_INTERNAL_IP6_ADDRESS:
-                        configList.add(new ConfigAttributeIpv6Address(value));
-                        break;
-                    case CONFIG_ATTR_INTERNAL_IP6_DNS:
-                        configList.add(new ConfigAttributeIpv6Dns(value));
-                        break;
-                    case CONFIG_ATTR_INTERNAL_IP4_SUBNET:
-                        configList.add(new ConfigAttributeIpv4Subnet(value));
-                        break;
-                    case CONFIG_ATTR_INTERNAL_IP6_SUBNET:
-                        configList.add(new ConfigAttributeIpv6Subnet(value));
-                        break;
-                    case CONFIG_ATTR_IP4_PCSCF:
-                        configList.add(new ConfigAttributeIpv4Pcscf(value));
-                        break;
-                    case CONFIG_ATTR_IP6_PCSCF:
-                        configList.add(new ConfigAttributeIpv6Pcscf(value));
-                        break;
-                    default:
-                        IkeManager.getIkeLog()
-                                .i(
-                                        "IkeConfigPayload",
-                                        "Unrecognized attribute type: " + attributeType);
+                ConfigAttribute attribute = decodeSingleAttributeFrom(inputBuffer);
+                if (attribute != null) {
+                    configList.add(attribute);
                 }
-
-                // TODO: Support App version and supported attribute list
             }
 
             return configList;
+        }
+
+        /**
+         * Method to decode a single ConfigAttribute from a ByteBuffer.
+         *
+         * <p>Caller should be responsible for handling NegativeArraySizeException and
+         * BufferUnderflowException.
+         */
+        private static ConfigAttribute decodeSingleAttributeFrom(ByteBuffer inputBuffer)
+                throws InvalidSyntaxException {
+            int attributeType = Short.toUnsignedInt(inputBuffer.getShort());
+            int length = Short.toUnsignedInt(inputBuffer.getShort());
+            byte[] value = new byte[length];
+            inputBuffer.get(value);
+
+            switch (attributeType) {
+                case CONFIG_ATTR_INTERNAL_IP4_ADDRESS:
+                    return new ConfigAttributeIpv4Address(value);
+                case CONFIG_ATTR_INTERNAL_IP4_NETMASK:
+                    return new ConfigAttributeIpv4Netmask(value);
+                case CONFIG_ATTR_INTERNAL_IP4_DNS:
+                    return new ConfigAttributeIpv4Dns(value);
+                case CONFIG_ATTR_INTERNAL_IP4_DHCP:
+                    return new ConfigAttributeIpv4Dhcp(value);
+                case CONFIG_ATTR_APPLICATION_VERSION:
+                    return new ConfigAttributeAppVersion(value);
+                case CONFIG_ATTR_INTERNAL_IP6_ADDRESS:
+                    return new ConfigAttributeIpv6Address(value);
+                case CONFIG_ATTR_INTERNAL_IP6_DNS:
+                    return new ConfigAttributeIpv6Dns(value);
+                case CONFIG_ATTR_INTERNAL_IP4_SUBNET:
+                    return new ConfigAttributeIpv4Subnet(value);
+                case CONFIG_ATTR_INTERNAL_IP6_SUBNET:
+                    return new ConfigAttributeIpv6Subnet(value);
+                case CONFIG_ATTR_IP4_PCSCF:
+                    return new ConfigAttributeIpv4Pcscf(value);
+                case CONFIG_ATTR_IP6_PCSCF:
+                    return new ConfigAttributeIpv6Pcscf(value);
+                default:
+                    IkeManager.getIkeLog()
+                            .i("IkeConfigPayload", "Unrecognized attribute type: " + attributeType);
+                    return null;
+            }
         }
 
         /** Encode attribute to ByteBuffer. */
@@ -269,6 +320,20 @@ public final class IkeConfigPayload extends IkePayload {
         /** Returns if this attribute value is empty. */
         public boolean isEmptyValue() {
             return getValueLength() == VALUE_LEN_NOT_INCLUDED;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(attributeType);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof ConfigAttribute)) {
+                return false;
+            }
+
+            return attributeType == ((ConfigAttribute) o).attributeType;
         }
 
         protected static int netmaskToPrefixLen(Inet4Address address) {
@@ -391,6 +456,23 @@ public final class IkeConfigPayload extends IkePayload {
         protected boolean isLengthValid(int length) {
             return length == IPV4_ADDRESS_LEN || length == VALUE_LEN_NOT_INCLUDED;
         }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), address);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!super.equals(o) || !(o instanceof TunnelModeChildConfigAttrIpv4AddressBase)) {
+                return false;
+            }
+
+            TunnelModeChildConfigAttrIpv4AddressBase other =
+                    (TunnelModeChildConfigAttrIpv4AddressBase) o;
+
+            return Objects.equals(address, other.address);
+        }
     }
 
     /**
@@ -447,6 +529,22 @@ public final class IkeConfigPayload extends IkePayload {
         @Override
         protected boolean isLengthValid(int length) {
             return length == IPV4_ADDRESS_LEN || length == VALUE_LEN_NOT_INCLUDED;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), address);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!super.equals(o) || !(o instanceof IkeConfigAttrIpv4AddressBase)) {
+                return false;
+            }
+
+            IkeConfigAttrIpv4AddressBase other = (IkeConfigAttrIpv4AddressBase) o;
+
+            return Objects.equals(address, other.address);
         }
     }
 
@@ -665,6 +763,22 @@ public final class IkeConfigPayload extends IkePayload {
         protected boolean isLengthValid(int length) {
             return length == VALUE_LEN || length == VALUE_LEN_NOT_INCLUDED;
         }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), linkAddress);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!super.equals(o) || !(o instanceof ConfigAttributeIpv4Subnet)) {
+                return false;
+            }
+
+            ConfigAttributeIpv4Subnet other = (ConfigAttributeIpv4Subnet) o;
+
+            return Objects.equals(linkAddress, other.linkAddress);
+        }
     }
 
     /** This class represents an IPv4 P_CSCF address attribute */
@@ -752,6 +866,23 @@ public final class IkeConfigPayload extends IkePayload {
         protected boolean isLengthValid(int length) {
             return length == IPV6_ADDRESS_LEN || length == VALUE_LEN_NOT_INCLUDED;
         }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), address);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!super.equals(o) || !(o instanceof TunnelModeChildConfigAttrIpv6AddressBase)) {
+                return false;
+            }
+
+            TunnelModeChildConfigAttrIpv6AddressBase other =
+                    (TunnelModeChildConfigAttrIpv6AddressBase) o;
+
+            return Objects.equals(address, other.address);
+        }
     }
 
     /**
@@ -808,6 +939,22 @@ public final class IkeConfigPayload extends IkePayload {
         @Override
         protected boolean isLengthValid(int length) {
             return length == IPV6_ADDRESS_LEN || length == VALUE_LEN_NOT_INCLUDED;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), address);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!super.equals(o) || !(o instanceof IkeConfigAttrIpv6AddressBase)) {
+                return false;
+            }
+
+            IkeConfigAttrIpv6AddressBase other = (IkeConfigAttrIpv6AddressBase) o;
+
+            return Objects.equals(address, other.address);
         }
     }
 
@@ -885,6 +1032,23 @@ public final class IkeConfigPayload extends IkePayload {
         @Override
         protected boolean isLengthValid(int length) {
             return length == VALUE_LEN || length == VALUE_LEN_NOT_INCLUDED;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), linkAddress);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!super.equals(o) || !(o instanceof TunnelModeChildConfigAttrIpv6AddrRangeBase)) {
+                return false;
+            }
+
+            TunnelModeChildConfigAttrIpv6AddrRangeBase other =
+                    (TunnelModeChildConfigAttrIpv6AddrRangeBase) o;
+
+            return Objects.equals(linkAddress, other.linkAddress);
         }
     }
 
@@ -1046,6 +1210,22 @@ public final class IkeConfigPayload extends IkePayload {
         @Override
         protected boolean isLengthValid(int length) {
             return length >= 0;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), applicationVersion);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!super.equals(o) || !(o instanceof ConfigAttributeAppVersion)) {
+                return false;
+            }
+
+            ConfigAttributeAppVersion other = (ConfigAttributeAppVersion) o;
+
+            return Objects.equals(applicationVersion, other.applicationVersion);
         }
     }
 

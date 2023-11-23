@@ -399,7 +399,7 @@ static boolean
 test_unary(unsigned verbose, FILE *fp, const struct unary_test_t *test, unsigned length)
 {
    char test_name[128];
-   util_snprintf(test_name, sizeof test_name, "%s.v%u", test->name, length);
+   snprintf(test_name, sizeof test_name, "%s.v%u", test->name, length);
    LLVMContextRef context;
    struct gallivm_state *gallivm;
    LLVMValueRef test_func;
@@ -417,7 +417,7 @@ test_unary(unsigned verbose, FILE *fp, const struct unary_test_t *test, unsigned
    }
 
    context = LLVMContextCreate();
-   gallivm = gallivm_create("test_module", context);
+   gallivm = gallivm_create("test_module", context, NULL);
 
    test_func = build_unary_test_func(gallivm, test, length, test_name);
 
@@ -468,9 +468,11 @@ test_unary(unsigned verbose, FILE *fp, const struct unary_test_t *test, unsigned
          }
 
          if (test->ref == &expf && util_inf_sign(testval) == -1) {
-            /* XXX: 64bits MSVCRT's expf(-inf) returns -inf instead of 0 */
+            /* Some older 64-bit MSVCRT versions return -inf instead of 0
+	     * for expf(-inf). As detecting the VC runtime version is
+	     * non-trivial, just ignore the test result. */
 #if defined(_MSC_VER) && defined(_WIN64)
-            expected_pass = FALSE;
+            expected_pass = pass;
 #endif
          }
 

@@ -16,7 +16,8 @@
 import os
 import subprocess
 import unittest
-import mock
+
+from unittest import mock
 
 from acloud import errors
 from acloud.create import avd_spec
@@ -57,6 +58,7 @@ class CreateTest(driver_test_lib.BaseDriverTest):
         """Test CheckForAutoconnect."""
         args = mock.MagicMock()
         args.autoconnect = True
+        args.no_prompt = False
 
         self.Patch(utils, "InteractWithQuestion", return_value="Y")
         self.Patch(utils, "FindExecutable", return_value=None)
@@ -109,6 +111,47 @@ class CreateTest(driver_test_lib.BaseDriverTest):
                    return_value=True)
         create._CheckForSetup(args)
         setup.Run.assert_called_once()
+
+        # Should or not run gcp_setup or install packages.
+        # Test with remote instance remote image case.
+        self.Patch(gcp_setup_runner.GcpTaskRunner,
+                   "ShouldRun")
+        self.Patch(host_setup_runner.AvdPkgInstaller,
+                   "ShouldRun")
+        args.local_instance = None
+        args.local_image = None
+        create._CheckForSetup(args)
+        self.assertEqual(gcp_setup_runner.GcpTaskRunner.ShouldRun.call_count, 1)
+        self.assertEqual(host_setup_runner.AvdPkgInstaller.ShouldRun.call_count, 0)
+        gcp_setup_runner.GcpTaskRunner.ShouldRun.reset_mock()
+        host_setup_runner.AvdPkgInstaller.ShouldRun.reset_mock()
+
+        # Test with remote instance local image case.
+        args.local_instance = None
+        args.local_image = ""
+        create._CheckForSetup(args)
+        self.assertEqual(gcp_setup_runner.GcpTaskRunner.ShouldRun.call_count, 1)
+        self.assertEqual(host_setup_runner.AvdPkgInstaller.ShouldRun.call_count, 0)
+        gcp_setup_runner.GcpTaskRunner.ShouldRun.reset_mock()
+        host_setup_runner.AvdPkgInstaller.ShouldRun.reset_mock()
+
+        # Test with local instance remote image case.
+        args.local_instance = 0
+        args.local_image = None
+        create._CheckForSetup(args)
+        self.assertEqual(gcp_setup_runner.GcpTaskRunner.ShouldRun.call_count, 1)
+        self.assertEqual(host_setup_runner.AvdPkgInstaller.ShouldRun.call_count, 1)
+        gcp_setup_runner.GcpTaskRunner.ShouldRun.reset_mock()
+        host_setup_runner.AvdPkgInstaller.ShouldRun.reset_mock()
+
+        # Test with local instance local image case.
+        args.local_instance = 0
+        args.local_image = ""
+        create._CheckForSetup(args)
+        self.assertEqual(gcp_setup_runner.GcpTaskRunner.ShouldRun.call_count, 0)
+        self.assertEqual(host_setup_runner.AvdPkgInstaller.ShouldRun.call_count, 1)
+        gcp_setup_runner.GcpTaskRunner.ShouldRun.reset_mock()
+        host_setup_runner.AvdPkgInstaller.ShouldRun.reset_mock()
 
     # pylint: disable=no-member
     def testRun(self):

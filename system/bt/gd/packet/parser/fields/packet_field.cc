@@ -100,3 +100,47 @@ bool PacketField::IsContainerField() const {
 const PacketField* PacketField::GetElementField() const {
   return nullptr;
 }
+
+void PacketField::GenStringRepresentation(std::ostream& s, std::string accessor) const {
+  s << "\"REPRESENTATION_UNIMPLEMENTED " << GetFieldType() << " " << accessor << "\"";
+}
+
+int PacketField::GetRustBitOffset(
+    std::ostream&, Size start_offset, Size end_offset, Size size) const {
+  // In order to find field_begin and field_end, we must have two of the three Sizes.
+  if ((start_offset.empty() && size.empty()) || (start_offset.empty() && end_offset.empty()) ||
+      (end_offset.empty() && size.empty())) {
+    ERROR(this) << "GenBounds called without enough information. "
+        << start_offset << end_offset << size;
+  }
+
+  if (start_offset.bits() % 8 != 0 || end_offset.bits() % 8 != 0) {
+    ERROR(this) << "Can not find the bounds of a field at a non byte-aligned offset."
+        << start_offset << end_offset;
+  }
+
+  return 0;  // num_leading_bits
+}
+
+bool PacketField::GenRustNameAndType(std::ostream& s) const {
+  auto param_type = GetRustDataType();
+  if (param_type.empty()) {
+    return false;
+  }
+  s << GetName() << ": " << param_type;
+  return true;
+}
+
+void PacketField::GenBoundsCheck(std::ostream& s, Size start_offset, Size, std::string context) const {
+  Size size = GetSize();
+  if (size.bits() < 8) {
+    return;
+  }
+  s << "if bytes.len() < " << start_offset.bytes() + size.bytes() << " {";
+  s << " return Err(Error::InvalidLengthError{";
+  s << "    obj: \"" << context << "\".to_string(),";
+  s << "    field: \"" << GetName() << "\".to_string(),";
+  s << "    wanted: " << start_offset.bytes() + size.bytes() << ",";
+  s << "    got: bytes.len()});";
+  s << "}";
+}

@@ -16,20 +16,22 @@
 
 package com.android.tv.settings;
 
-import android.app.Fragment;
 import android.content.ContentProviderClient;
 import android.net.Uri;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.preference.LeanbackSettingsFragment;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.leanback.preference.LeanbackSettingsFragmentCompat;
 import androidx.preference.Preference;
-import androidx.preference.PreferenceDialogFragment;
-import androidx.preference.PreferenceFragment;
+import androidx.preference.PreferenceDialogFragmentCompat;
+import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceScreen;
 
 import com.android.tv.settings.system.LeanbackPickerDialogFragment;
 import com.android.tv.settings.system.LeanbackPickerDialogPreference;
+import com.android.tv.twopanelsettings.slices.SliceFragment;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
 import com.android.tv.twopanelsettings.slices.SlicesConstants;
 
@@ -38,9 +40,11 @@ import com.android.tv.twopanelsettings.slices.SlicesConstants;
  * generic way. Subclasses should only override onPreferenceStartInitialScreen.
  */
 
-public abstract class BaseSettingsFragment extends LeanbackSettingsFragment {
+public abstract class BaseSettingsFragment extends LeanbackSettingsFragmentCompat implements
+        SliceFragment.OnePanelSliceFragmentContainer {
     @Override
-    public final boolean onPreferenceStartFragment(PreferenceFragment caller, Preference pref) {
+    public final boolean onPreferenceStartFragment(PreferenceFragmentCompat caller,
+            Preference pref) {
         if (pref.getFragment() != null) {
             if (pref instanceof SlicePreference) {
                 SlicePreference slicePref = (SlicePreference) pref;
@@ -55,7 +59,7 @@ public abstract class BaseSettingsFragment extends LeanbackSettingsFragment {
         final Fragment f =
                 Fragment.instantiate(getActivity(), pref.getFragment(), pref.getExtras());
         f.setTargetFragment(caller, 0);
-        if (f instanceof PreferenceFragment || f instanceof PreferenceDialogFragment) {
+        if (f instanceof PreferenceFragmentCompat || f instanceof PreferenceDialogFragmentCompat) {
             startPreferenceFragment(f);
         } else {
             startImmersiveFragment(f);
@@ -78,12 +82,22 @@ public abstract class BaseSettingsFragment extends LeanbackSettingsFragment {
     }
 
     @Override
-    public final boolean onPreferenceStartScreen(PreferenceFragment caller, PreferenceScreen pref) {
+    public final boolean onPreferenceStartScreen(PreferenceFragmentCompat caller,
+            PreferenceScreen pref) {
         return false;
     }
 
+    /** Navigate back to the previous fragment **/
+    public void navigateBack() {
+        FragmentManager fragmentManager = getChildFragmentManager();
+        if (fragmentManager.getBackStackEntryCount() > 0) {
+            fragmentManager.popBackStack();
+        }
+    }
+
     @Override
-    public boolean onPreferenceDisplayDialog(@NonNull PreferenceFragment caller, Preference pref) {
+    public boolean onPreferenceDisplayDialog(@NonNull PreferenceFragmentCompat caller,
+            Preference pref) {
         final Fragment f;
         if (pref instanceof LeanbackPickerDialogPreference) {
             final LeanbackPickerDialogPreference dialogPreference = (LeanbackPickerDialogPreference)

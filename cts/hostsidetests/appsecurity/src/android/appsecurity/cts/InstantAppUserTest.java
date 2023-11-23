@@ -231,7 +231,7 @@ public class InstantAppUserTest extends BaseHostJUnit4Test {
 
     private void uninstallTestPackages() throws Exception {
         getDevice().uninstallPackage(NORMAL_PKG);
-        getDevice().uninstallPackage(IMPLICIT_APK);
+        getDevice().uninstallPackage(IMPLICIT_PKG);
         getDevice().uninstallPackage(EPHEMERAL_1_PKG);
         getDevice().uninstallPackage(USER_TEST_PKG);
         getDevice().uninstallPackage(USER_PKG);

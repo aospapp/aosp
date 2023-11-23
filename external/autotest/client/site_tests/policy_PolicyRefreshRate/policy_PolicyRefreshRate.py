@@ -32,9 +32,9 @@ class policy_PolicyRefreshRate(
         refresh_interval = tab.EvaluateJavaScript(
                                js_text_query.format(refresh_interval_js))
         if case <= 1800000:
-            expected_refresh = '30 mins'
+            expected_refresh = ' 30 mins'
         elif case >= 86400000:
-            expected_refresh = '1 day'
+            expected_refresh = ' 1 day'
 
         if refresh_interval != expected_refresh:
             raise error.TestFail('Policy refresh incorrect. Got {} expected {}'

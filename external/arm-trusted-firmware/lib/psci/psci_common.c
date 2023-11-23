@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,6 +12,7 @@
 #include <common/bl_common.h>
 #include <common/debug.h>
 #include <context.h>
+#include <drivers/delay_timer.h>
 #include <lib/el3_runtime/context_mgmt.h>
 #include <lib/utils.h>
 #include <plat/common/platform.h>
@@ -601,7 +602,7 @@ void psci_release_pwr_domain_locks(unsigned int end_pwrlvl,
 	unsigned int level;
 
 	/* Unlock top down. No unlocking required for level 0. */
-	for (level = end_pwrlvl; level >= PSCI_CPU_PWR_LVL + 1U; level--) {
+	for (level = end_pwrlvl; level >= (PSCI_CPU_PWR_LVL + 1U); level--) {
 		parent_idx = parent_nodes[level - 1U];
 		psci_lock_release(&psci_non_cpu_pd_nodes[parent_idx]);
 	}
@@ -662,7 +663,8 @@ static int psci_get_ns_ep_info(entry_point_info_t *ep,
 
 		mode = ((ns_scr_el3 & SCR_HCE_BIT) != 0U) ? MODE_EL2 : MODE_EL1;
 
-		ep->spsr = SPSR_64(mode, MODE_SP_ELX, DISABLE_ALL_EXCEPTIONS);
+		ep->spsr = SPSR_64((uint64_t)mode, MODE_SP_ELX,
+				   DISABLE_ALL_EXCEPTIONS);
 	} else {
 
 		mode = ((ns_scr_el3 & SCR_HCE_BIT) != 0U) ?
@@ -674,7 +676,8 @@ static int psci_get_ns_ep_info(entry_point_info_t *ep,
 		 */
 		daif = DAIF_ABT_BIT | DAIF_IRQ_BIT | DAIF_FIQ_BIT;
 
-		ep->spsr = SPSR_MODE32(mode, entrypoint & 0x1, ee, daif);
+		ep->spsr = SPSR_MODE32((uint64_t)mode, entrypoint & 0x1, ee,
+				       daif);
 	}
 
 	return PSCI_E_SUCCESS;
@@ -972,4 +975,50 @@ void psci_do_pwrdown_sequence(unsigned int power_level)
 	 */
 	psci_do_pwrdown_cache_maintenance(power_level);
 #endif
+}
+
+/*******************************************************************************
+ * This function invokes the callback 'stop_func()' with the 'mpidr' of each
+ * online PE. Caller can pass suitable method to stop a remote core.
+ *
+ * 'wait_ms' is the timeout value in milliseconds for the other cores to
+ * transition to power down state. Passing '0' makes it non-blocking.
+ *
+ * The function returns 'PSCI_E_DENIED' if some cores failed to stop within the
+ * given timeout.
+ ******************************************************************************/
+int psci_stop_other_cores(unsigned int wait_ms,
+				   void (*stop_func)(u_register_t mpidr))
+{
+	unsigned int idx, this_cpu_idx;
+
+	this_cpu_idx = plat_my_core_pos();
+
+	/* Invoke stop_func for each core */
+	for (idx = 0U; idx < psci_plat_core_count; idx++) {
+		/* skip current CPU */
+		if (idx == this_cpu_idx) {
+			continue;
+		}
+
+		/* Check if the CPU is ON */
+		if (psci_get_aff_info_state_by_idx(idx) == AFF_STATE_ON) {
+			(*stop_func)(psci_cpu_pd_nodes[idx].mpidr);
+		}
+	}
+
+	/* Need to wait for other cores to shutdown */
+	if (wait_ms != 0U) {
+		while ((wait_ms-- != 0U) && (psci_is_last_on_cpu() != 0U)) {
+			mdelay(1U);
+		}
+
+		if (psci_is_last_on_cpu() != 0U) {
+			WARN("Failed to stop all cores!\n");
+			psci_print_power_domain_map();
+			return PSCI_E_DENIED;
+		}
+	}
+
+	return PSCI_E_SUCCESS;
 }

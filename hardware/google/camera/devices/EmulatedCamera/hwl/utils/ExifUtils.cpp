@@ -948,7 +948,8 @@ bool ExifUtilsImpl::SetFromMetadata(const HalCameraMetadata& metadata,
   ret = metadata.Get(ANDROID_SCALER_CROP_REGION, &entry);
   if (ret == OK) {
     if (!SetDigitalZoomRatio(entry.data.i32[2], entry.data.i32[3],
-                             sensor_chars_.width, sensor_chars_.height)) {
+                             sensor_chars_.full_res_width,
+                             sensor_chars_.full_res_height)) {
       ALOGE("%s: setting digital zoom ratio failed.", __FUNCTION__);
       return false;
     }

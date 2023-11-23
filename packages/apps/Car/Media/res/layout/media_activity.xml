@@ -20,18 +20,17 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <com.android.car.ui.FocusParkingView
+        android:id="@+id/fpv"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+    />
+
     <FrameLayout
         android:id="@+id/fragment_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="visible"
-    />
-
-    <FrameLayout
-        android:id="@+id/search_container"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone"
     />
 
     <FrameLayout
@@ -41,14 +40,18 @@
         android:visibility="gone"
     />
 
-    <com.android.car.media.common.MinimizedPlaybackControlBar
-        android:id="@+id/minimized_playback_controls"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+    <com.android.car.ui.FocusArea
+        style="@style/MinimizedControlBar"
         android:layout_marginHorizontal="@dimen/minimized_control_bar_margin_x"
         android:layout_marginBottom="@dimen/minimized_control_bar_margin_bottom"
-        android:layout_gravity="bottom"
-    />
+        android:layout_gravity="center|bottom">
+        <com.android.car.media.common.MinimizedPlaybackControlBar
+            android:id="@+id/minimized_playback_controls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+        />
+    </com.android.car.ui.FocusArea>
 
     <FrameLayout
         android:id="@+id/playback_container"

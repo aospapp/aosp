@@ -38,20 +38,20 @@
     <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"સ્પેસ ખાલી કરો"</string>
     <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"તમારા ઉપકરણમાંથી <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>નું કન્ટેન્ટ કાઢી નાખવામાં આવશે"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"સ્પેસ ખાલી કરો"</string>
-    <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"સ્ટોરેજ આપમેળે સંચાલિત કરીએ?"</string>
-    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> હવે ખાલી. તમારા ઉપકરણમાંથી બૅકઅપ લીધેલ કન્ટેન્ટને દૂર કરીને સ્ટોરેજ સંચાલકને આપમેળે સ્પેસ ખાલી કરવા દઈએ?"</string>
+    <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"સ્ટોરેજ ઑટોમૅટિક રીતે મેનેજ કરીએ?"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"<xliff:g id="USED">%1$s</xliff:g> હવે ખાલી. તમારા ડિવાઇસમાંથી બૅકઅપ લીધેલ કન્ટેન્ટને કાઢી નાખીને સ્ટોરેજ મેનેજરને ઑટોમૅટિક રીતે સ્પેસ ખાલી કરવા દઈએ?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"ના, આભાર"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"ચાલુ કરો"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"ક્વચિત્ ઉપયોગમાં લેવાયેલી ઍપ્લિકેશનો"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
-    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"સ્વચાલિત"</string>
+    <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"ઑટોમૅટિક રીતે"</string>
     <string name="deletion_helper_manual_title" msgid="3905192395039688529">"મેન્યુઅલ"</string>
     <string name="deletion_helper_preference_title" msgid="803484286872745892">"હમણાં સ્થાન ખાલી કરો"</string>
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"ઑટોમેટિક સ્ટોરેજ મેનેજમેન્ટ સેવા"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"તમારા ફોન પર સ્થાન ઓછું છે"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"તમારા ટૅબ્લેટ પર જગ્યા ઓછી છે"</string>
-    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"જ્યારે તમારો ફોન ફરીથી ભરાવાનું શરૂ થાય ત્યારે તમારા સ્ટોરેજ સંચાલકને જૂના ફોટો અને વીડિઓ આપમેળે દૂર કરીને સ્પેસ ખાલી કરવા દો."</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"જ્યારે તમારો ફોન ફરીથી ભરાવાનું શરૂ થાય ત્યારે તમારા સ્ટોરેજ મેનેજરને જૂના ફોટો અને વીડિયો ઑટોમૅટિક રીતે કાઢી નાખીને સ્પેસ ખાલી કરવા દો."</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"ના, આભાર"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"ચાલુ કરો"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"બૅકઅપ લીધેલા ફોટો અને વીડિઓ"</string>
@@ -59,7 +59,7 @@
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"બધી આઇટમ બતાવો"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"તાજેતરની આઇટમ છુપાવો"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"તમારા ઉપકરણમાંથી <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>નું કન્ટેન્ટ કાઢી નાખવામાં આવશે"</string>
-    <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"તમારું સ્ટોરેજ, હવે સ્ટોરેજ સંચાલક દ્વારા સંચાલિત કરવામાં આવી રહ્યું છે"</string>
+    <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"તમારું સ્ટોરેજ, હવે સ્ટોરેજ મેનેજર દ્વારા મેનેજ કરવામાં આવી રહ્યું છે"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"દૂર કરવા માટે કંઈ નથી"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"તાજેતરની આઇટમની સમીક્ષા કરો"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"દૂર કરવા માટે કોઈ જૂની ફાઇલો નથી. જગ્યા ખાલી કરવા માટે, તાજેતરના ફોટો, વીડિઓ અને ઍપ્લિકેશનો દૂર કરો."</string>

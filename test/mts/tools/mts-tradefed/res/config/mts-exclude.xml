@@ -154,28 +154,13 @@
     <!-- b/142978584: Flaky test -->
     <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.TrafficStatsTest#testTrafficStatsForLocalhost" />
 
-    <!-- https://b.corp.google.com/hotlists/2163903 Flaky test for DNS resolver-->
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testRawQueryInline" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testPrivateDnsBypass" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testRawQueryNXDomainInlineWithPrivateDns" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testRawQueryRootInline" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testRawQueryRoot" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testQueryForInetAddressInline" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsTest#testDnsWorks" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testRawQueryNXDomainInlineWithPrivateDns" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testQueryForInetAddressIpv4" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testContinuousQueries" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testContinuousQueriesInline" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testRawQueryNXDomainWithPrivateDns" />
-    <option name="compatibility:exclude-filter" value="CtsNetTestCases  android.net.cts.DnsResolverTest#testRawQueryNXDomain" />
-
     <!-- b/148478158, b/148478370, b/148476965 Flaky test for Conscrypt-->
     <option name="compatibility:exclude-filter" value="CtsLibcoreOjTestCases  test.java.time.chrono.TestJapaneseChronoImpl#test_dayOfYearVsCalendar" />
     <option name="compatibility:exclude-filter" value="CtsLibcoreOjTestCases  tck.java.time.chrono.TCKJapaneseChronology#test_getDayOfYear" />
     <option name="compatibility:exclude-filter" value="CtsLibcoreTestCases  org.apache.harmony.tests.javax.net.ssl.SSLSocketTest#testConstructor_InetAddressI" />
 
     <!-- https://b.corp.google.com/hotlists/2163643 Flaky test for statsd-->
-    <option name="compatibility:exclude-filter" value="CtsStatsdHostTestCases android.cts.statsd.atom.UidAtomTests#testAppOps" />
+    <option name="compatibility:exclude-filter" value="CtsStatsdAtomHostTestCases android.cts.statsdatom.appops.AppOpsTests#testAppOps" />
     <option name="compatibility:exclude-filter" value="CtsStatsdHostTestCases android.cts.statsd.atom.UidAtomTests$#testForegroundServiceAccessAppOp" />
     <option name="compatibility:exclude-filter" value="CtsStatsdHostTestCases android.cts.statsd.atom.UidAtomTests#testMobileBytesTransfer" />
     <option name="compatibility:exclude-filter" value="CtsStatsdHostTestCases android.cts.statsd.atom.UidAtomTests#testMobileBytesTransferByFgBg" />
@@ -237,9 +222,6 @@
     <!-- b/144590380: MTS flaky test -->
     <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.NativeMediaDrmClearkeyTest#testClearKeyPlaybackCenc2" />
 
-    <!-- b/143245993: MTS flaky test -->
-    <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.NativeMediaDrmClearkeyTest#testPssh" />
-
     <!-- b/142965402: MTS flaky test -->
     <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.MediaCodecCapabilitiesTest#testGetMaxSupportedInstances" />
 
@@ -258,12 +240,20 @@
 
     <!-- Slow Conscrypt tests -->
     <option name="compatibility:exclude-filter" value="MtsConscryptTestCases org.apache.harmony.crypto.tests.javax.crypto.func.KeyAgreementFunctionalTest#test_KeyAgreement" />
+    <option name="compatibility:exclude-filter" value="MtsConscryptFdSocketTestCases org.apache.harmony.crypto.tests.javax.crypto.func.KeyAgreementFunctionalTest#test_KeyAgreement" />
     <option name="compatibility:exclude-filter" value="MtsConscryptTestCases com.android.org.conscrypt.java.security.AlgorithmParameterGeneratorTestDH#testAlgorithmParameterGenerator" />
+    <option name="compatibility:exclude-filter" value="MtsConscryptFdSocketTestCases com.android.org.conscrypt.java.security.AlgorithmParameterGeneratorTestDH#testAlgorithmParameterGenerator" />
 
     <!-- BouncyCastle allows unrecognized algorithms, but RI does not -->
     <option name="compatibility:exclude-filter" value="MtsConscryptTestCases org.apache.harmony.crypto.tests.javax.crypto.KeyAgreementTest#test_generateSecretLjava_lang_String" />
+    <option name="compatibility:exclude-filter" value="MtsConscryptFdSocketTestCases org.apache.harmony.crypto.tests.javax.crypto.KeyAgreementTest#test_generateSecretLjava_lang_String" />
 
     <!-- b/3403706: SQLite JDBC is unsupported -->
     <option name="compatibility:exclude-filter" value="MtsConscryptTestCases org.apache.harmony.tests.javax.net.ssl.TrustManagerFactory1Test#test_initLjavax_net_ssl_ManagerFactoryParameters" />
+    <option name="compatibility:exclude-filter" value="MtsConscryptFdSocketTestCases org.apache.harmony.tests.javax.net.ssl.TrustManagerFactory1Test#test_initLjavax_net_ssl_ManagerFactoryParameters" />
+
+    <!-- HostnameVerifierTest assumes latest security patches installed, not always true for MTS: b/182957352 -->
+    <option name="compatibility:exclude-filter" value="MtsConscryptTestCases org.apache.harmony.tests.javax.net.ssl.HostnameVerifierTest#testVerify" />
+    <option name="compatibility:exclude-filter" value="MtsConscryptFdSocketTestCases org.apache.harmony.tests.javax.net.ssl.HostnameVerifierTest#testVerify" />
 </configuration>
 

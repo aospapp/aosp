@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"মিডিয়া"</string>
     <string name="search_hint" msgid="5401750426238148416">"গান, শিল্পী আৰু অধিক..."</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"এতিয়া এয়া প্লে\' হৈ আছে"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"কিবা ভুল হ’ল। পাছত চেষ্টা কৰক।"</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"সেইটো এই মুহূৰ্তত কৰিব নোৱাৰি"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"এই এপ্‌টোৱে সেইটো কৰিব নোৱাৰে"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"এই এপ্‌টো ব্যৱহাৰ কৰিবলৈ ছাইন ইন কৰক"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"প্ৰিমিয়াম এক্সেছৰ প্ৰয়োজন"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"বহুকেইটা ডিভাইচত শুনি আছে"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"সেই সমলটো অৱৰোধ কৰা আছে"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"সেই সমলটো ইয়াত পাব নোৱাৰি"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"সেই সমলটো ইতিমধ্যে প্লে’ হৈ আছে"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"আৰু ট্ৰেক এৰি যাব নোৱাৰি"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"সম্পূর্ণ কৰিব পৰা নগ’ল। আকৌ চেষ্টা কৰক।"</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"শাৰীত অন্য একো নাই"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"মিডিয়াৰ সৈতে সংযোগ কৰি থকা হৈছে"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"ধ্বনিৰ ছেটিংসমূহ"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"এপসমূহ সলনি কৰক"</string>

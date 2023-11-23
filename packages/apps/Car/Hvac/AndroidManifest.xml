@@ -19,7 +19,7 @@
     package="com.android.car.hvac">
     <uses-sdk
         android:minSdkVersion="22"
-        android:targetSdkVersion="23"/>
+        android:targetSdkVersion="29"/>
 
     <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -42,7 +42,8 @@
             android:singleUser="true"
             android:exported="false"/>
 
-        <receiver android:name=".BootCompleteReceiver">
+        <receiver android:name=".BootCompleteReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>

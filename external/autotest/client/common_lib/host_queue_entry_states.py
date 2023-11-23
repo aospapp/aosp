@@ -5,14 +5,14 @@ from various disconnected pieces of code that should not depend on everything
 that frontend.afe.models depends on such as RPC clients.
 """
 
-from autotest_lib.client.common_lib import enum
+from autotest_lib.client.common_lib import autotest_enum
 
 Status_list = ['Queued', 'Starting', 'Resetting', 'Verifying', 'Provisioning',
                'Pending', 'Running', 'Gathering', 'Parsing',
                'Aborted', 'Completed', 'Failed', 'Stopped',
                'Cleaning', 'Template']
 
-Status = enum.Enum(*Status_list, string_values=True)
+Status = autotest_enum.AutotestEnum(*Status_list, string_values=True)
 ACTIVE_STATUSES = (Status.STARTING, Status.RESETTING, Status.VERIFYING,
                    Status.PROVISIONING, Status.PENDING, Status.RUNNING,
                    Status.GATHERING, Status.CLEANING)
@@ -24,4 +24,4 @@ PRE_JOB_STATUSES = (Status.RESETTING, Status.PROVISIONING, Status.VERIFYING,
                     Status.PENDING, Status.QUEUED)
 IDLE_PRE_JOB_STATUSES = (Status.PENDING, Status.QUEUED)
 
-IntStatus = enum.Enum(*Status_list)
+IntStatus = autotest_enum.AutotestEnum(*Status_list)

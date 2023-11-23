@@ -12,20 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/dsp/dsp.h"
-#include "src/dsp/intrapred.h"
+#include "src/dsp/intrapred_directional.h"
+#include "src/utils/cpu.h"
 
 #if LIBGAV1_ENABLE_NEON
 
 #include <arm_neon.h>
 
-#include <algorithm>  // std::min
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>  // memset
+#include <cstring>
 
 #include "src/dsp/arm/common_neon.h"
+#include "src/dsp/constants.h"
+#include "src/dsp/dsp.h"
 #include "src/utils/common.h"
 
 namespace libgav1 {
@@ -33,14 +35,14 @@ namespace dsp {
 namespace low_bitdepth {
 namespace {
 
-// Blend two values based on a 32 bit weight.
+// Blend two values based on weights that sum to 32.
 inline uint8x8_t WeightedBlend(const uint8x8_t a, const uint8x8_t b,
                                const uint8x8_t a_weight,
                                const uint8x8_t b_weight) {
   const uint16x8_t a_product = vmull_u8(a, a_weight);
   const uint16x8_t b_product = vmull_u8(b, b_weight);
 
-  return vrshrn_n_u16(vaddq_u16(a_product, b_product), 5);
+  return vrshrn_n_u16(vaddq_u16(a_product, b_product), 5 /*log2(32)*/);
 }
 
 // For vertical operations the weights are one constant value.
@@ -110,7 +112,7 @@ inline void DirectionalZone1_WxH(uint8_t* dst, const ptrdiff_t stride,
     // 4 wide subsamples the output. 8 wide subsamples the input.
     if (width == 4) {
       const uint8x8_t left_values = vld1_u8(top + top_base_x);
-      const uint8x8_t right_values = RightShift<8>(left_values);
+      const uint8x8_t right_values = RightShiftVector<8>(left_values);
       const uint8x8_t value = WeightedBlend(left_values, right_values, shift);
 
       // If |upsampled| is true then extract every other value for output.
@@ -898,7 +900,7 @@ void DirectionalIntraPredictorZone3_NEON(void* const dest,
 }
 
 void Init8bpp() {
-  Dsp* const dsp = dsp_internal::GetWritableDspTable(8);
+  Dsp* const dsp = dsp_internal::GetWritableDspTable(kBitdepth8);
   assert(dsp != nullptr);
   dsp->directional_intra_predictor_zone1 = DirectionalIntraPredictorZone1_NEON;
   dsp->directional_intra_predictor_zone2 = DirectionalIntraPredictorZone2_NEON;
@@ -908,7 +910,585 @@ void Init8bpp() {
 }  // namespace
 }  // namespace low_bitdepth
 
-void IntraPredDirectionalInit_NEON() { low_bitdepth::Init8bpp(); }
+#if LIBGAV1_MAX_BITDEPTH >= 10
+namespace high_bitdepth {
+namespace {
+
+// Blend two values based on weights that sum to 32.
+inline uint16x4_t WeightedBlend(const uint16x4_t a, const uint16x4_t b,
+                                const int a_weight, const int b_weight) {
+  const uint16x4_t a_product = vmul_n_u16(a, a_weight);
+  const uint16x4_t sum = vmla_n_u16(a_product, b, b_weight);
+
+  return vrshr_n_u16(sum, 5 /*log2(32)*/);
+}
+
+// Blend two values based on weights that sum to 32.
+inline uint16x8_t WeightedBlend(const uint16x8_t a, const uint16x8_t b,
+                                const uint16_t a_weight,
+                                const uint16_t b_weight) {
+  const uint16x8_t a_product = vmulq_n_u16(a, a_weight);
+  const uint16x8_t sum = vmlaq_n_u16(a_product, b, b_weight);
+
+  return vrshrq_n_u16(sum, 5 /*log2(32)*/);
+}
+
+// Each element of |dest| contains values associated with one weight value.
+inline void LoadEdgeVals(uint16x4x2_t* dest, const uint16_t* const source,
+                         const bool upsampled) {
+  if (upsampled) {
+    *dest = vld2_u16(source);
+  } else {
+    dest->val[0] = vld1_u16(source);
+    dest->val[1] = vld1_u16(source + 1);
+  }
+}
+
+// Each element of |dest| contains values associated with one weight value.
+inline void LoadEdgeVals(uint16x8x2_t* dest, const uint16_t* const source,
+                         const bool upsampled) {
+  if (upsampled) {
+    *dest = vld2q_u16(source);
+  } else {
+    dest->val[0] = vld1q_u16(source);
+    dest->val[1] = vld1q_u16(source + 1);
+  }
+}
+
+template <bool upsampled>
+inline void DirectionalZone1_4xH(uint16_t* dst, const ptrdiff_t stride,
+                                 const int height, const uint16_t* const top,
+                                 const int xstep) {
+  const int upsample_shift = static_cast<int>(upsampled);
+  const int index_scale_bits = 6 - upsample_shift;
+
+  const int max_base_x = (4 + height - 1) << upsample_shift;
+  const int16x4_t max_base = vdup_n_s16(max_base_x);
+  const uint16x4_t final_top_val = vdup_n_u16(top[max_base_x]);
+  const int16x4_t index_offset = {0, 1, 2, 3};
+
+  // All rows from |min_corner_only_y| down will simply use Memset.
+  // |max_base_x| is always greater than |height|, so clipping the denominator
+  // to 1 is enough to make the logic work.
+  const int xstep_units = std::max(xstep >> index_scale_bits, 1);
+  const int min_corner_only_y = std::min(max_base_x / xstep_units, height);
+
+  int top_x = xstep;
+  int y = 0;
+  for (; y < min_corner_only_y; ++y, dst += stride, top_x += xstep) {
+    const int top_base_x = top_x >> index_scale_bits;
+
+    // To accommodate reuse of this function in Zone2, permit negative values
+    // for |xstep|.
+    const uint16_t shift_0 = (LeftShift(top_x, upsample_shift) & 0x3F) >> 1;
+    const uint16_t shift_1 = 32 - shift_0;
+
+    // Use signed values to compare |top_base_x| to |max_base_x|.
+    const int16x4_t base_x = vadd_s16(vdup_n_s16(top_base_x), index_offset);
+    const uint16x4_t max_base_mask = vclt_s16(base_x, max_base);
+
+    uint16x4x2_t sampled_top_row;
+    LoadEdgeVals(&sampled_top_row, top + top_base_x, upsampled);
+    const uint16x4_t combined = WeightedBlend(
+        sampled_top_row.val[0], sampled_top_row.val[1], shift_1, shift_0);
+
+    // If |upsampled| is true then extract every other value for output.
+    const uint16x4_t masked_result =
+        vbsl_u16(max_base_mask, combined, final_top_val);
+
+    vst1_u16(dst, masked_result);
+  }
+  for (; y < height; ++y) {
+    Memset(dst, top[max_base_x], 4 /* width */);
+    dst += stride;
+  }
+}
+
+// Process a multiple of 8 |width| by any |height|. Processes horizontally
+// before vertically in the hopes of being a little more cache friendly.
+template <bool upsampled>
+inline void DirectionalZone1_WxH(uint16_t* dst, const ptrdiff_t stride,
+                                 const int width, const int height,
+                                 const uint16_t* const top, const int xstep) {
+  assert(width % 8 == 0);
+  const int upsample_shift = static_cast<int>(upsampled);
+  const int index_scale_bits = 6 - upsample_shift;
+
+  const int max_base_index = (width + height - 1) << upsample_shift;
+  const int16x8_t max_base_x = vdupq_n_s16(max_base_index);
+  const uint16x8_t final_top_val = vdupq_n_u16(top[max_base_index]);
+  const int16x8_t index_offset = {0, 1, 2, 3, 4, 5, 6, 7};
+
+  const int base_step = 1 << upsample_shift;
+  const int base_step8 = base_step << 3;
+  const int16x8_t block_step = vdupq_n_s16(base_step8);
+
+  // All rows from |min_corner_only_y| down will simply use Memset.
+  // |max_base_x| is always greater than |height|, so clipping the denominator
+  // to 1 is enough to make the logic work.
+  const int xstep_units = std::max(xstep >> index_scale_bits, 1);
+  const int min_corner_only_y = std::min(max_base_index / xstep_units, height);
+
+  int top_x = xstep;
+  int y = 0;
+  for (; y < min_corner_only_y; ++y, dst += stride, top_x += xstep) {
+    int top_base_x = top_x >> index_scale_bits;
+
+    // To accommodate reuse of this function in Zone2, permit negative values
+    // for |xstep|.
+    const uint16_t shift_0 = (LeftShift(top_x, upsample_shift) & 0x3F) >> 1;
+    const uint16_t shift_1 = 32 - shift_0;
+
+    // Use signed values to compare |top_base_x| to |max_base_x|.
+    int16x8_t base_x = vaddq_s16(vdupq_n_s16(top_base_x), index_offset);
+
+    int x = 0;
+    do {
+      const uint16x8_t max_base_mask = vcltq_s16(base_x, max_base_x);
+
+      uint16x8x2_t sampled_top_row;
+      LoadEdgeVals(&sampled_top_row, top + top_base_x, upsampled);
+      const uint16x8_t combined = WeightedBlend(
+          sampled_top_row.val[0], sampled_top_row.val[1], shift_1, shift_0);
+
+      const uint16x8_t masked_result =
+          vbslq_u16(max_base_mask, combined, final_top_val);
+      vst1q_u16(dst + x, masked_result);
+
+      base_x = vaddq_s16(base_x, block_step);
+      top_base_x += base_step8;
+      x += 8;
+    } while (x < width);
+  }
+  for (int i = y; i < height; ++i) {
+    Memset(dst, top[max_base_index], width);
+    dst += stride;
+  }
+}
+
+// Process a multiple of 8 |width| by any |height|. Processes horizontally
+// before vertically in the hopes of being a little more cache friendly.
+inline void DirectionalZone1_Large(uint16_t* dst, const ptrdiff_t stride,
+                                   const int width, const int height,
+                                   const uint16_t* const top, const int xstep,
+                                   const bool upsampled) {
+  assert(width % 8 == 0);
+  const int upsample_shift = static_cast<int>(upsampled);
+  const int index_scale_bits = 6 - upsample_shift;
+
+  const int max_base_index = (width + height - 1) << upsample_shift;
+  const int16x8_t max_base_x = vdupq_n_s16(max_base_index);
+  const uint16x8_t final_top_val = vdupq_n_u16(top[max_base_index]);
+  const int16x8_t index_offset = {0, 1, 2, 3, 4, 5, 6, 7};
+
+  const int base_step = 1 << upsample_shift;
+  const int base_step8 = base_step << 3;
+  const int16x8_t block_step = vdupq_n_s16(base_step8);
+
+  // All rows from |min_corner_only_y| down will simply use Memset.
+  // |max_base_x| is always greater than |height|, so clipping the denominator
+  // to 1 is enough to make the logic work.
+  const int xstep_units = std::max(xstep >> index_scale_bits, 1);
+  const int min_corner_only_y = std::min(max_base_index / xstep_units, height);
+
+  // Rows up to this y-value can be computed without checking for bounds.
+  const int max_no_corner_y = std::min(
+      ((max_base_index - (base_step * width)) << index_scale_bits) / xstep,
+      height);
+  // No need to check for exceeding |max_base_x| in the first loop.
+  int y = 0;
+  int top_x = xstep;
+  for (; y < max_no_corner_y; ++y, dst += stride, top_x += xstep) {
+    int top_base_x = top_x >> index_scale_bits;
+    // To accommodate reuse of this function in Zone2, permit negative values
+    // for |xstep|.
+    const uint16_t shift_0 = (LeftShift(top_x, upsample_shift) & 0x3F) >> 1;
+    const uint16_t shift_1 = 32 - shift_0;
+
+    int x = 0;
+    do {
+      uint16x8x2_t sampled_top_row;
+      LoadEdgeVals(&sampled_top_row, top + top_base_x, upsampled);
+      const uint16x8_t combined = WeightedBlend(
+          sampled_top_row.val[0], sampled_top_row.val[1], shift_1, shift_0);
+
+      vst1q_u16(dst + x, combined);
+
+      top_base_x += base_step8;
+      x += 8;
+    } while (x < width);
+  }
+
+  for (; y < min_corner_only_y; ++y, dst += stride, top_x += xstep) {
+    int top_base_x = top_x >> index_scale_bits;
+
+    // To accommodate reuse of this function in Zone2, permit negative values
+    // for |xstep|.
+    const uint16_t shift_0 = (LeftShift(top_x, upsample_shift) & 0x3F) >> 1;
+    const uint16_t shift_1 = 32 - shift_0;
+
+    // Use signed values to compare |top_base_x| to |max_base_x|.
+    int16x8_t base_x = vaddq_s16(vdupq_n_s16(top_base_x), index_offset);
+
+    int x = 0;
+    const int min_corner_only_x =
+        std::min(width, ((max_base_index - top_base_x) >> upsample_shift) + 7) &
+        ~7;
+    for (; x < min_corner_only_x; x += 8, top_base_x += base_step8,
+                                  base_x = vaddq_s16(base_x, block_step)) {
+      const uint16x8_t max_base_mask = vcltq_s16(base_x, max_base_x);
+
+      uint16x8x2_t sampled_top_row;
+      LoadEdgeVals(&sampled_top_row, top + top_base_x, upsampled);
+      const uint16x8_t combined = WeightedBlend(
+          sampled_top_row.val[0], sampled_top_row.val[1], shift_1, shift_0);
+
+      const uint16x8_t masked_result =
+          vbslq_u16(max_base_mask, combined, final_top_val);
+      vst1q_u16(dst + x, masked_result);
+    }
+    // Corner-only section of the row.
+    Memset(dst + x, top[max_base_index], width - x);
+  }
+  for (; y < height; ++y) {
+    Memset(dst, top[max_base_index], width);
+    dst += stride;
+  }
+}
+
+void DirectionalIntraPredictorZone1_NEON(void* const dest, ptrdiff_t stride,
+                                         const void* const top_row,
+                                         const int width, const int height,
+                                         const int xstep,
+                                         const bool upsampled_top) {
+  const uint16_t* const top = static_cast<const uint16_t*>(top_row);
+  uint16_t* dst = static_cast<uint16_t*>(dest);
+  stride /= sizeof(top[0]);
+
+  assert(xstep > 0);
+
+  if (xstep == 64) {
+    assert(!upsampled_top);
+    const uint16_t* top_ptr = top + 1;
+    const int width_bytes = width * sizeof(top[0]);
+    int y = height;
+    do {
+      memcpy(dst, top_ptr, width_bytes);
+      memcpy(dst + stride, top_ptr + 1, width_bytes);
+      memcpy(dst + 2 * stride, top_ptr + 2, width_bytes);
+      memcpy(dst + 3 * stride, top_ptr + 3, width_bytes);
+      dst += 4 * stride;
+      top_ptr += 4;
+      y -= 4;
+    } while (y != 0);
+  } else {
+    if (width == 4) {
+      if (upsampled_top) {
+        DirectionalZone1_4xH<true>(dst, stride, height, top, xstep);
+      } else {
+        DirectionalZone1_4xH<false>(dst, stride, height, top, xstep);
+      }
+    } else if (width >= 32) {
+      if (upsampled_top) {
+        DirectionalZone1_Large(dst, stride, width, height, top, xstep, true);
+      } else {
+        DirectionalZone1_Large(dst, stride, width, height, top, xstep, false);
+      }
+    } else if (upsampled_top) {
+      DirectionalZone1_WxH<true>(dst, stride, width, height, top, xstep);
+    } else {
+      DirectionalZone1_WxH<false>(dst, stride, width, height, top, xstep);
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Zone 3
+// This can be considered "the transpose of Zone 1." In Zone 1, the fractional
+// step applies when moving vertically in the destination block, connected to
+// the change in |y|, whereas in this mode, the step applies when moving
+// horizontally, connected to the change in |x|. This makes vectorization very
+// complicated in row-order, because a given vector may need source pixels that
+// span 16 or 32 pixels in steep angles, requiring multiple expensive table
+// lookups and checked loads. Rather than work in row order, it is simpler to
+// compute |dest| in column order, and then store the transposed results.
+
+// Compute 4x4 sub-blocks.
+// Example of computed sub-blocks of a 4x8 block before and after transpose:
+// 00 10 20 30             00 01 02 03
+// 01 11 21 31             10 11 12 13
+// 02 12 22 32             20 21 22 23
+// 03 13 23 33             30 31 32 33
+// -----------     -->     -----------
+// 40 50 60 70             40 41 42 43
+// 41 51 61 71             50 51 52 53
+// 42 52 62 72             60 61 62 63
+// 43 53 63 73             70 71 72 73
+template <bool upsampled>
+inline void DirectionalZone3_4x4(uint8_t* dst, const ptrdiff_t stride,
+                                 const uint16_t* const left, const int ystep,
+                                 const int base_left_y = 0) {
+  const int upsample_shift = static_cast<int>(upsampled);
+  const int index_scale_bits = 6 - upsample_shift;
+
+  // Compute one column at a time, then transpose for storage.
+  uint16x4_t result[4];
+
+  int left_y = base_left_y + ystep;
+  int left_offset = left_y >> index_scale_bits;
+  int shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  int shift_1 = 32 - shift_0;
+  uint16x4x2_t sampled_left_col;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[0] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  left_y += ystep;
+  left_offset = left_y >> index_scale_bits;
+  shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[1] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  left_y += ystep;
+  left_offset = left_y >> index_scale_bits;
+  shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[2] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  left_y += ystep;
+  left_offset = left_y >> index_scale_bits;
+  shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[3] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  Transpose4x4(result);
+  Store4(dst, result[0]);
+  dst += stride;
+  Store4(dst, result[1]);
+  dst += stride;
+  Store4(dst, result[2]);
+  dst += stride;
+  Store4(dst, result[3]);
+}
+
+template <bool upsampled>
+inline void DirectionalZone3_4xH(uint8_t* dest, const ptrdiff_t stride,
+                                 const int height, const uint16_t* const left,
+                                 const int ystep) {
+  const int upsample_shift = static_cast<int>(upsampled);
+  int y = 0;
+  do {
+    DirectionalZone3_4x4<upsampled>(dest, stride, left + (y << upsample_shift),
+                                    ystep);
+    dest += 4 * stride;
+    y += 4;
+  } while (y < height);
+}
+
+template <bool upsampled>
+inline void DirectionalZone3_Wx4(uint8_t* dest, const ptrdiff_t stride,
+                                 const int width, const uint16_t* const left,
+                                 const int ystep) {
+  int x = 0;
+  int base_left_y = 0;
+  do {
+    // TODO(petersonab): Establish 8x4 transpose to reserve this function for
+    // 8x4 and 16x4.
+    DirectionalZone3_4x4<upsampled>(dest + 2 * x, stride, left, ystep,
+                                    base_left_y);
+    base_left_y += 4 * ystep;
+    x += 4;
+  } while (x < width);
+}
+
+template <bool upsampled>
+inline void DirectionalZone3_8x8(uint8_t* dest, const ptrdiff_t stride,
+                                 const uint16_t* const left, const int ystep,
+                                 const int base_left_y = 0) {
+  const int upsample_shift = static_cast<int>(upsampled);
+  const int index_scale_bits = 6 - upsample_shift;
+
+  // Compute one column at a time, then transpose for storage.
+  uint16x8_t result[8];
+
+  int left_y = base_left_y + ystep;
+  uint16x8x2_t sampled_left_col;
+  int left_offset = left_y >> index_scale_bits;
+  int shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  int shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[0] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+  left_y += ystep;
+  left_offset = left_y >> index_scale_bits;
+  shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[1] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  left_y += ystep;
+  left_offset = left_y >> index_scale_bits;
+  shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[2] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  left_y += ystep;
+  left_offset = left_y >> index_scale_bits;
+  shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[3] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  left_y += ystep;
+  left_offset = left_y >> index_scale_bits;
+  shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[4] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  left_y += ystep;
+  left_offset = left_y >> index_scale_bits;
+  shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[5] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  left_y += ystep;
+  left_offset = left_y >> index_scale_bits;
+  shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[6] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  left_y += ystep;
+  left_offset = left_y >> index_scale_bits;
+  shift_0 = (LeftShift(left_y, upsample_shift) & 0x3F) >> 1;
+  shift_1 = 32 - shift_0;
+  LoadEdgeVals(&sampled_left_col, &left[left_offset], upsampled);
+  result[7] = WeightedBlend(sampled_left_col.val[0], sampled_left_col.val[1],
+                            shift_1, shift_0);
+
+  Transpose8x8(result);
+  Store8(dest, result[0]);
+  dest += stride;
+  Store8(dest, result[1]);
+  dest += stride;
+  Store8(dest, result[2]);
+  dest += stride;
+  Store8(dest, result[3]);
+  dest += stride;
+  Store8(dest, result[4]);
+  dest += stride;
+  Store8(dest, result[5]);
+  dest += stride;
+  Store8(dest, result[6]);
+  dest += stride;
+  Store8(dest, result[7]);
+}
+
+template <bool upsampled>
+inline void DirectionalZone3_WxH(uint8_t* dest, const ptrdiff_t stride,
+                                 const int width, const int height,
+                                 const uint16_t* const left, const int ystep) {
+  const int upsample_shift = static_cast<int>(upsampled);
+  // Zone3 never runs out of left_column values.
+  assert((width + height - 1) << upsample_shift >  // max_base_y
+         ((ystep * width) >> (6 - upsample_shift)) +
+             (/* base_step */ 1 << upsample_shift) *
+                 (height - 1));  // left_base_y
+  int y = 0;
+  do {
+    int x = 0;
+    uint8_t* dst_x = dest + y * stride;
+    do {
+      const int base_left_y = ystep * x;
+      DirectionalZone3_8x8<upsampled>(
+          dst_x, stride, left + (y << upsample_shift), ystep, base_left_y);
+      dst_x += 8 * sizeof(uint16_t);
+      x += 8;
+    } while (x < width);
+    y += 8;
+  } while (y < height);
+}
+
+void DirectionalIntraPredictorZone3_NEON(void* const dest,
+                                         const ptrdiff_t stride,
+                                         const void* const left_column,
+                                         const int width, const int height,
+                                         const int ystep,
+                                         const bool upsampled_left) {
+  const uint16_t* const left = static_cast<const uint16_t*>(left_column);
+  uint8_t* dst = static_cast<uint8_t*>(dest);
+
+  if (ystep == 64) {
+    assert(!upsampled_left);
+    const int width_bytes = width * sizeof(left[0]);
+    int y = height;
+    do {
+      const uint16_t* left_ptr = left + 1;
+      memcpy(dst, left_ptr, width_bytes);
+      memcpy(dst + stride, left_ptr + 1, width_bytes);
+      memcpy(dst + 2 * stride, left_ptr + 2, width_bytes);
+      memcpy(dst + 3 * stride, left_ptr + 3, width_bytes);
+      dst += 4 * stride;
+      left_ptr += 4;
+      y -= 4;
+    } while (y != 0);
+    return;
+  }
+  if (width == 4) {
+    if (upsampled_left) {
+      DirectionalZone3_4xH<true>(dst, stride, height, left, ystep);
+    } else {
+      DirectionalZone3_4xH<false>(dst, stride, height, left, ystep);
+    }
+  } else if (height == 4) {
+    if (upsampled_left) {
+      DirectionalZone3_Wx4<true>(dst, stride, width, left, ystep);
+    } else {
+      DirectionalZone3_Wx4<false>(dst, stride, width, left, ystep);
+    }
+  } else {
+    if (upsampled_left) {
+      // |upsampled_left| can only be true if |width| + |height| <= 16,
+      // therefore this is 8x8.
+      DirectionalZone3_8x8<true>(dst, stride, left, ystep);
+    } else {
+      DirectionalZone3_WxH<false>(dst, stride, width, height, left, ystep);
+    }
+  }
+}
+
+void Init10bpp() {
+  Dsp* const dsp = dsp_internal::GetWritableDspTable(kBitdepth10);
+  assert(dsp != nullptr);
+  dsp->directional_intra_predictor_zone1 = DirectionalIntraPredictorZone1_NEON;
+  dsp->directional_intra_predictor_zone3 = DirectionalIntraPredictorZone3_NEON;
+}
+
+}  // namespace
+}  // namespace high_bitdepth
+#endif  // LIBGAV1_MAX_BITDEPTH >= 10
+
+void IntraPredDirectionalInit_NEON() {
+  low_bitdepth::Init8bpp();
+#if LIBGAV1_MAX_BITDEPTH >= 10
+  high_bitdepth::Init10bpp();
+#endif  // LIBGAV1_MAX_BITDEPTH >= 10
+}
 
 }  // namespace dsp
 }  // namespace libgav1

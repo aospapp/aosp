@@ -14,13 +14,16 @@
      limitations under the License.
 -->
 <configuration description="Config for libtextclassifier_tests">
+    <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.extservices.apex" />
     <option name="test-suite-tag" value="apct" />
     <option name="test-suite-tag" value="mts" />
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="libtextclassifier_tests->/data/local/tmp/libtextclassifier_tests" />
-        <option name="append-bitness" value="true" />
+        <option name="push" value="actions->/data/local/tmp/actions" />
+        <option name="push" value="annotator->/data/local/tmp/annotator" />
+        <option name="push" value="utils->/data/local/tmp/utils" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.GTest" >

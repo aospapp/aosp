@@ -47,7 +47,7 @@ coverage_out := $(call intermediates-dir-for,PACKAGING,continuous_instrumentatio
 coverage_report := $(coverage_out)/api_coverage.html
 
 # Framework API descriptions
-api_text := frameworks/base/api/system-current.txt
+api_text := $(call intermediates-dir-for,ETC,frameworks-base-api-system-current.txt)/frameworks-base-api-system-current.txt
 api_xml := $(coverage_out)/api.xml
 $(api_xml) : $(api_text) $(APICHECK)
 	$(hide) echo "Converting API file to XML: $@"

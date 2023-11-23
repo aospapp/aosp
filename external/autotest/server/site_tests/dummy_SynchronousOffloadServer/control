@@ -9,6 +9,8 @@ TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "dummy"
 TEST_TYPE = "server"
+# Disable this test until it can be fixed: http://b/171572182
+# ATTRIBUTES = "suite:offloads"
 
 DOC = """
 This test creates a file in $SYNCHRONOUS_OFFLOAD_DIR on the server and succeeds.

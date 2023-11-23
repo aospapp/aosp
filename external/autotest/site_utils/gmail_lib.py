@@ -16,6 +16,10 @@ Example usage:
      > Line 2
      Ctrl-D to end standard input.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import base64
 import httplib2
@@ -196,7 +200,7 @@ if __name__ == '__main__':
                         help='Email addresses separated by space.')
     args = parser.parse_args()
     if not args.recipients or not args.subject:
-        print 'Requires both recipients and subject.'
+        print('Requires both recipients and subject.')
         sys.exit(1)
 
     message_text = sys.stdin.read()
@@ -207,9 +211,9 @@ if __name__ == '__main__':
             if random.random() < args.probability:
                 recipients.append(r)
         if recipients:
-            print 'Randomly selected recipients %s' % recipients
+            print('Randomly selected recipients %s' % recipients)
         else:
-            print 'Random filtering removed all recipients. Sending nothing.'
+            print('Random filtering removed all recipients. Sending nothing.')
             sys.exit(0)
     else:
         recipients = args.recipients

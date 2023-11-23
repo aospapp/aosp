@@ -23,33 +23,42 @@
 #include "shim/dumpsys.h"
 
 namespace {
+
 constexpr char kModuleName[] = "shim::legacy::dumpsys";
-static std::unordered_map<const void*, bluetooth::shim::DumpsysFunction>*
+static std::unordered_map<const void*, bluetooth::shim::DumpsysFunction>
     dumpsys_functions_;
+
 }  // namespace
 
 void bluetooth::shim::RegisterDumpsysFunction(const void* token,
                                               DumpsysFunction func) {
-  dumpsys_functions_ =
-      new std::unordered_map<const void*, bluetooth::shim::DumpsysFunction>();
-  CHECK(dumpsys_functions_->find(token) == dumpsys_functions_->end());
-  dumpsys_functions_->insert({token, func});
+  CHECK(dumpsys_functions_.find(token) == dumpsys_functions_.end());
+  dumpsys_functions_.insert({token, func});
 }
 
 void bluetooth::shim::UnregisterDumpsysFunction(const void* token) {
-  CHECK(dumpsys_functions_->find(token) != dumpsys_functions_->end());
-  dumpsys_functions_->erase(token);
+  CHECK(dumpsys_functions_.find(token) != dumpsys_functions_.end());
+  dumpsys_functions_.erase(token);
 }
 
-void bluetooth::shim::Dump(int fd) {
-  dprintf(fd, "%s Dumping shim legacy targets:%zd\n", kModuleName,
-          dumpsys_functions_->size());
-  for (auto& dumpsys : *dumpsys_functions_) {
-    dumpsys.second(fd);
+void bluetooth::shim::Dump(int fd, const char** args) {
+  if (dumpsys_functions_.empty()) {
+    dprintf(fd, "%s No registered dumpsys shim legacy targets\n", kModuleName);
+  } else {
+    dprintf(fd, "%s Dumping shim legacy targets:%zd\n", kModuleName,
+            dumpsys_functions_.size());
+    for (auto& dumpsys : dumpsys_functions_) {
+      dumpsys.second(fd);
+    }
   }
   if (bluetooth::shim::is_gd_stack_started_up()) {
-    bluetooth::shim::GetDumpsys()->Dump(fd);
+    if (bluetooth::shim::is_gd_dumpsys_module_started()) {
+      bluetooth::shim::GetDumpsys()->Dump(fd, args);
+    } else {
+      dprintf(fd, "%s NOTE: gd dumpsys module not loaded or started\n",
+              kModuleName);
+    }
   } else {
-    dprintf(fd, "%s gd stack has not started up\n", kModuleName);
+    dprintf(fd, "%s gd stack is enabled but not started\n", kModuleName);
   }
 }

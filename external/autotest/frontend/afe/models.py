@@ -15,13 +15,12 @@ except django.core.exceptions.ImproperlyConfigured:
                        'setup_django_lite_environment from '
                        'autotest_lib.frontend before any imports that '
                        'depend on django models.')
-from django.db import utils as django_utils
 from xml.sax import saxutils
 import common
 from autotest_lib.frontend.afe import model_logic, model_attributes
 from autotest_lib.frontend.afe import rdb_model_extensions
 from autotest_lib.frontend import settings, thread_local
-from autotest_lib.client.common_lib import enum, error, host_protections
+from autotest_lib.client.common_lib import autotest_enum, error, host_protections
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import host_queue_entry_states
 from autotest_lib.client.common_lib import control_data, priorities, decorators
@@ -455,9 +454,9 @@ class User(dbmodels.Model, model_logic.ModelExtensions):
         # Both the id and login should be uniqe but there are cases when
         # we might already have a user with the same login/id because
         # current_user will proactively create a user record if it doesn't
-        # exist. Since we want to avoid conflict between the master and
+        # exist. Since we want to avoid conflict between the main and
         # shard, just delete any existing user records that don't match
-        # what we're about to deserialize from the master.
+        # what we're about to deserialize from the main.
         try:
             return cls.objects.get(login=data['login'], id=data['id'])
         except cls.DoesNotExist:
@@ -959,7 +958,7 @@ class HostAttribute(dbmodels.Model, model_logic.ModelExtensions):
     def deserialize(cls, data):
         """Override deserialize in parent class.
 
-        Do not deserialize id as id is not kept consistent on master and shards.
+        Do not deserialize id as id is not kept consistent on main and shards.
 
         @param data: A dictionary of data to deserialize.
 
@@ -1003,7 +1002,7 @@ class StaticHostAttribute(dbmodels.Model, model_logic.ModelExtensions):
     def deserialize(cls, data):
         """Override deserialize in parent class.
 
-        Do not deserialize id as id is not kept consistent on master and shards.
+        Do not deserialize id as id is not kept consistent on main and shards.
 
         @param data: A dictionary of data to deserialize.
 
@@ -1039,7 +1038,8 @@ class Test(dbmodels.Model, model_logic.ModelExtensions):
     test_retry: Number of times to retry test if the test did not complete
                 successfully. (optional, default: 0)
     """
-    TestTime = enum.Enum('SHORT', 'MEDIUM', 'LONG', start_value=1)
+    TestTime = autotest_enum.AutotestEnum('SHORT', 'MEDIUM', 'LONG',
+                                          start_value=1)
 
     name = dbmodels.CharField(max_length=255, unique=True)
     author = dbmodels.CharField(max_length=255)
@@ -1471,17 +1471,17 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
 
 
     def sanity_check_update_from_shard(self, shard, updated_serialized):
-        # If the job got aborted on the master after the client fetched it
+        # If the job got aborted on the main after the client fetched it
         # no shard_id will be set. The shard might still push updates though,
         # as the job might complete before the abort bit syncs to the shard.
-        # Alternative considered: The master scheduler could be changed to not
+        # Alternative considered: The main scheduler could be changed to not
         # set aborted jobs to completed that are sharded out. But that would
         # require database queries and seemed more complicated to implement.
         # This seems safe to do, as there won't be updates pushed from the wrong
         # shards should be powered off and wiped hen they are removed from the
-        # master.
+        # main.
         if self.shard_id and self.shard_id != shard.id:
-            raise error.IgnorableUnallowedRecordsSentToMaster(
+            raise error.IgnorableUnallowedRecordsSentToMain(
                 'Job id=%s is assigned to shard (%s). Cannot update it with %s '
                 'from shard %s.' % (self.id, self.shard_id, updated_serialized,
                                     shard.id))
@@ -1557,12 +1557,11 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
 
     timeout_mins = dbmodels.IntegerField(default=DEFAULT_TIMEOUT_MINS)
 
-    # If this is None on the master, a slave should be found.
-    # If this is None on a slave, it should be synced back to the master
+    # If this is None on the main, a shard should be found.
+    # If this is None on a shard, it should be synced back to the main
     shard = dbmodels.ForeignKey(Shard, blank=True, null=True)
 
-    # If this is None, server-side packaging will be used for server side test,
-    # unless it's disabled in global config AUTOSERV/enable_ssp_container.
+    # If this is None, server-side packaging will be used for server side test.
     require_ssp = dbmodels.NullBooleanField(default=None, blank=True, null=True)
 
     # custom manager
@@ -1669,7 +1668,7 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
     @classmethod
     @contextlib.contextmanager
     def _readonly_job_query_context(cls):
-        #TODO(jkop): Get rid of this kludge when we update Django to >=1.7
+        #TODO: Get rid of this kludge if/when we update Django to >=1.7
         #correct usage would be .raw(..., using='readonly')
         old_db = Job.objects._db
         try:
@@ -1884,7 +1883,7 @@ class JobKeyval(dbmodels.Model, model_logic.ModelExtensions):
     def deserialize(cls, data):
         """Override deserialize in parent class.
 
-        Do not deserialize id as id is not kept consistent on master and shards.
+        Do not deserialize id as id is not kept consistent on main and shards.
 
         @param data: A dictionary of data to deserialize.
 
@@ -1928,7 +1927,7 @@ class HostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
     def sanity_check_update_from_shard(self, shard, updated_serialized,
                                        job_ids_sent):
         if self.job_id not in job_ids_sent:
-            raise error.IgnorableUnallowedRecordsSentToMaster(
+            raise error.IgnorableUnallowedRecordsSentToMain(
                 'Sent HostQueueEntry without corresponding '
                 'job entry: %s' % updated_serialized)
 
@@ -2176,8 +2175,8 @@ class SpecialTask(dbmodels.Model, model_logic.ModelExtensions):
     queue_entry: Host queue entry waiting on this task (or None, if task was not
                  started in preparation of a job)
     """
-    Task = enum.Enum('Verify', 'Cleanup', 'Repair', 'Reset', 'Provision',
-                     string_values=True)
+    Task = autotest_enum.AutotestEnum('Verify', 'Cleanup', 'Repair', 'Reset',
+                                      'Provision', string_values=True)
 
     host = dbmodels.ForeignKey(Host, blank=False, null=False)
     task = dbmodels.CharField(max_length=64, choices=Task.choices(),
@@ -2305,6 +2304,7 @@ class StableVersion(dbmodels.Model, model_logic.ModelExtensions):
         else:
             raise RuntimeError("the ability to save StableVersions has been intentionally removed")
 
+    # pylint:disable=undefined-variable
     def delete(self):
         if os.getenv("OVERRIDE_STABLE_VERSION_BAN"):
             super(StableVersion, self).delete(*args, **kwargs)

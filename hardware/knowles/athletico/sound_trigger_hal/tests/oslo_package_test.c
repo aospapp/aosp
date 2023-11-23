@@ -205,7 +205,7 @@ int main(int argc, char *argv[])
             goto exit;
         }
 
-        /* Create Dummy sensor plugin */
+        /* Create placeholder sensor plugin */
         pi.plg_idx  = 0;
         pi.pkg_id = sensor_pkg_id;
         pi.block_id = 1;
@@ -345,7 +345,7 @@ int main(int argc, char *argv[])
             goto exit;
         }
 
-        /* destroy Dummy sensor plugin */
+        /* destroy placeholder sensor plugin */
         pi.block_id = 1;
         pi.inst_id  = 3;
         err = ioctl(fileno(odsp_node), ODSP_PLG_DESTROY, (unsigned long)&pi);

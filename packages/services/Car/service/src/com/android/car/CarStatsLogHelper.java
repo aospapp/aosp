@@ -18,6 +18,9 @@ package com.android.car;
 
 /**
  * CarStatsLogHelper provides API to send Car events to statd.
+ *
+ * <p>{@link CarStatsLog} is generated in
+ * {@code packages/services/Car/service/Android.bp}.
  * @hide
  */
 public class CarStatsLogHelper {

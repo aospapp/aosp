@@ -37,6 +37,7 @@ import com.android.car.setupwizardlib.partner.PartnerConfig;
 import com.android.car.setupwizardlib.partner.ResourceEntry;
 import com.android.car.setupwizardlib.robolectric.BaseRobolectricTest;
 import com.android.car.setupwizardlib.robolectric.TestHelper;
+import com.android.car.setupwizardlib.shadows.ShadowConfiguration;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -45,6 +46,7 @@ import org.mockito.Mockito;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Shadows;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowTextView;
 import org.robolectric.util.ReflectionHelpers;
 
@@ -56,6 +58,7 @@ import java.util.Locale;
  * Tests for the CarSetupWizardCompatLayout
  */
 @RunWith(RobolectricTestRunner.class)
+@Config(shadows = ShadowConfiguration.class)
 public class CarSetupWizardCompatLayoutTest extends BaseRobolectricTest {
     private static final Locale LOCALE_EN_US = new Locale("en", "US");
     // Hebrew locale can be used to test RTL.
@@ -101,8 +104,22 @@ public class CarSetupWizardCompatLayoutTest extends BaseRobolectricTest {
     }
 
     /**
+     * Test that {@link CarSetupWizardCompatLayout#setCloseButtonListener} does set the close button
+     * listener.
+     */
+    @Test
+    public void testSetCloseButtonListener() {
+        View.OnClickListener spyListener = TestHelper.createSpyListener();
+
+        mCarSetupWizardCompatLayout.setCloseButtonListener(spyListener);
+        mCarSetupWizardCompatLayout.getCloseButton().performClick();
+        Mockito.verify(spyListener).onClick(mCarSetupWizardCompatLayout.getCloseButton());
+    }
+
+    /**
      * Test that {@link CarSetupWizardCompatLayout#setBackButtonVisible} does set the view
-     * visible/not visible and calls updateBackButtonTouchDelegate.
+     * visible/not visible and calls
+     * {@link CarSetupWizardDesignLayout#updateNavigationButtonTouchDelegate(View, boolean)}.
      */
     @Test
     public void testSetBackButtonVisibleTrue() {
@@ -112,12 +129,18 @@ public class CarSetupWizardCompatLayoutTest extends BaseRobolectricTest {
         spyCarSetupWizardCompatLayout.setBackButtonVisible(true);
         View backButton = spyCarSetupWizardCompatLayout.getBackButton();
         TestHelper.assertViewVisible(backButton);
-        Mockito.verify(spyCarSetupWizardCompatLayout).updateBackButtonTouchDelegate(true);
+        Mockito.verify(spyCarSetupWizardCompatLayout)
+                .updateNavigationButtonTouchDelegate(backButton, true);
+        View closeButton = spyCarSetupWizardCompatLayout.getCloseButton();
+        TestHelper.assertViewNotVisible(closeButton);
+        Mockito.verify(spyCarSetupWizardCompatLayout)
+                .updateNavigationButtonTouchDelegate(closeButton, false);
     }
 
     /**
      * Test that {@link CarSetupWizardCompatLayout#setBackButtonVisible} does set the view
-     * visible/not visible and calls updateBackButtonTouchDelegate.
+     * visible/not visible and calls
+     * {@link CarSetupWizardDesignLayout#updateNavigationButtonTouchDelegate(View, boolean)}.
      */
     @Test
     public void testSetBackButtonVisibleFalse() {
@@ -127,7 +150,47 @@ public class CarSetupWizardCompatLayoutTest extends BaseRobolectricTest {
         spyCarSetupWizardCompatLayout.setBackButtonVisible(false);
         View backButton = spyCarSetupWizardCompatLayout.getBackButton();
         TestHelper.assertViewNotVisible(backButton);
-        Mockito.verify(spyCarSetupWizardCompatLayout).updateBackButtonTouchDelegate(false);
+        Mockito.verify(spyCarSetupWizardCompatLayout)
+                .updateNavigationButtonTouchDelegate(backButton, false);
+    }
+
+    /**
+     * Test that {@link CarSetupWizardCompatLayout#setCloseButtonVisible} does set the view
+     * visible/not visible and calls
+     * {@link CarSetupWizardDesignLayout#updateNavigationButtonTouchDelegate(View, boolean)}.
+     */
+    @Test
+    public void testSetCloseButtonVisibleTrue() {
+        CarSetupWizardCompatLayout spyCarSetupWizardCompatLayout =
+                Mockito.spy(mCarSetupWizardCompatLayout);
+
+        spyCarSetupWizardCompatLayout.setCloseButtonVisible(true);
+        View closeButton = spyCarSetupWizardCompatLayout.getCloseButton();
+        TestHelper.assertViewVisible(closeButton);
+        Mockito.verify(spyCarSetupWizardCompatLayout)
+                .updateNavigationButtonTouchDelegate(closeButton, true);
+        View backButton = spyCarSetupWizardCompatLayout.getBackButton();
+        TestHelper.assertViewNotVisible(backButton);
+        Mockito.verify(spyCarSetupWizardCompatLayout)
+                .updateNavigationButtonTouchDelegate(backButton, false);
+    }
+
+
+    /**
+     * Test that {@link CarSetupWizardCompatLayout#setCloseButtonVisible} does set the view
+     * visible/not visible and calls
+     * {@link CarSetupWizardDesignLayout#updateNavigationButtonTouchDelegate(View, boolean)}.
+     */
+    @Test
+    public void testSetCloseButtonVisibleFalse() {
+        CarSetupWizardCompatLayout spyCarSetupWizardCompatLayout =
+                Mockito.spy(mCarSetupWizardCompatLayout);
+
+        spyCarSetupWizardCompatLayout.setCloseButtonVisible(false);
+        View closeButton = spyCarSetupWizardCompatLayout.getCloseButton();
+        TestHelper.assertViewNotVisible(closeButton);
+        Mockito.verify(spyCarSetupWizardCompatLayout)
+                .updateNavigationButtonTouchDelegate(closeButton, false);
     }
 
     /**
@@ -530,6 +593,30 @@ public class CarSetupWizardCompatLayoutTest extends BaseRobolectricTest {
 
         assertThat(primaryButton.getTextSize()).isWithin(TOLERANCE).of(EXCEPTED_TEXT_SIZE);
         assertThat(secondaryButton.getTextSize()).isWithin(TOLERANCE).of(EXCEPTED_TEXT_SIZE);
+    }
+
+    @Test
+    public void test_shouldNotMirrorNavIcons_inLtr() {
+        Activity activity = Robolectric.buildActivity(CarSetupWizardLayoutTestActivity.class)
+                .create()
+                .get();
+
+        CarSetupWizardCompatLayout layout = activity.findViewById(R.id.car_setup_wizard_layout);
+        assertThat(layout.shouldMirrorNavIcons()).isFalse();
+    }
+
+    @Test
+    public void test_shouldMirrorNavIcons_inRtl() {
+        application.getResources().getConfiguration().setLocale(LOCALE_IW_IL);
+
+        Activity activity = Robolectric.buildActivity(CarSetupWizardLayoutTestActivity.class)
+                .create()
+                .get();
+
+        CarSetupWizardCompatLayout layout = activity.findViewById(R.id.car_setup_wizard_layout);
+        View toolbar = layout.findViewById(R.id.application_bar);
+        assertThat(toolbar.getTextDirection()).isEqualTo(View.TEXT_DIRECTION_LTR);
+        assertThat(layout.shouldMirrorNavIcons()).isTrue();
     }
 
     private void setupFakeContentProvider() {

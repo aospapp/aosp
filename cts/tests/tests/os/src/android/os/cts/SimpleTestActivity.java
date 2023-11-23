@@ -16,30 +16,6 @@
 
 package android.os.cts;
 
-import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
-
 import android.app.Activity;
-import android.os.Bundle;
-import android.widget.EditText;
-import android.widget.LinearLayout;
 
-public class SimpleTestActivity extends Activity {
-    private EditText mEditText;
-
-    @Override
-    protected void onCreate(Bundle icicle) {
-        super.onCreate(icicle);
-        mEditText = new EditText(this);
-        final LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.addView(mEditText);
-        setContentView(layout);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        getWindow().setSoftInputMode(SOFT_INPUT_STATE_ALWAYS_VISIBLE);
-        mEditText.requestFocus();
-    }
-}
+public class SimpleTestActivity extends Activity {}

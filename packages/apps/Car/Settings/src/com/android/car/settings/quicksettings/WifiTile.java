@@ -23,12 +23,13 @@ import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 
+import androidx.lifecycle.Lifecycle;
+
 import com.android.car.settings.R;
 import com.android.car.settings.common.CarSettingActivities;
-import com.android.car.settings.common.FragmentHost;
 import com.android.car.settings.wifi.CarWifiManager;
 import com.android.car.settings.wifi.WifiUtil;
-import com.android.settingslib.wifi.AccessPoint;
+import com.android.wifitrackerlib.WifiEntry;
 
 /**
  * Controls Wifi tile on quick setting page.
@@ -50,17 +51,17 @@ public class WifiTile implements QuickSettingGridAdapter.Tile, CarWifiManager.Li
     WifiTile(
             Context context,
             StateChangedListener stateChangedListener,
-            FragmentHost fragmentHost) {
+            Lifecycle lifecycle) {
         mContext = context;
         mLaunchWifiSettings = v -> {
             context.startActivity(new Intent(context,
                     CarSettingActivities.WifiSettingsActivity.class));
             return true;
         };
-        mCarWifiManager = new CarWifiManager(context);
+        mCarWifiManager = new CarWifiManager(context, lifecycle);
         mStateChangedListener = stateChangedListener;
         // init icon and text etc.
-        updateAccessPointSsid();
+        updateWifiEntrySsid();
         onWifiStateChanged(mCarWifiManager.getWifiState());
     }
 
@@ -93,19 +94,16 @@ public class WifiTile implements QuickSettingGridAdapter.Tile, CarWifiManager.Li
     @Override
     public void start() {
         mCarWifiManager.addListener(this);
-        mCarWifiManager.start();
     }
 
     @Override
     public void stop() {
         mCarWifiManager.removeListener(this);
-        mCarWifiManager.stop();
-        mCarWifiManager.destroy();
     }
 
     @Override
-    public void onAccessPointsChanged() {
-        if (updateAccessPointSsid()) {
+    public void onWifiEntriesChanged() {
+        if (updateWifiEntrySsid()) {
             mStateChangedListener.onStateChanged();
         }
     }
@@ -116,7 +114,7 @@ public class WifiTile implements QuickSettingGridAdapter.Tile, CarWifiManager.Li
         int stringId = WifiUtil.getStateDesc(state);
         if (stringId != 0) {
             mText = mContext.getString(stringId);
-        } else if (!updateAccessPointSsid()) {
+        } else if (!updateWifiEntrySsid()) {
             if (wifiEnabledNotConnected()) {
                 mText = mContext.getString(R.string.wifi_settings);
             }
@@ -131,18 +129,18 @@ public class WifiTile implements QuickSettingGridAdapter.Tile, CarWifiManager.Li
     }
 
     private boolean wifiEnabledNotConnected() {
-        return mCarWifiManager.isWifiEnabled() && mCarWifiManager.getConnectedAccessPoint() == null;
+        return mCarWifiManager.isWifiEnabled() && mCarWifiManager.getConnectedWifiEntry() == null;
     }
 
     /**
-     * Updates the text with access point connected, if any
+     * Updates the text with Wi-Fi entry connected, if any
      *
-     * @return {@code true} if the text is updated, {@code false} other wise.
+     * @return {@code true} if the text was updated, {@code false} otherwise
      */
-    private boolean updateAccessPointSsid() {
-        AccessPoint accessPoint = mCarWifiManager.getConnectedAccessPoint();
-        if (accessPoint != null) {
-            mText = accessPoint.getConfigName();
+    private boolean updateWifiEntrySsid() {
+        WifiEntry wifiEntry = mCarWifiManager.getConnectedWifiEntry();
+        if (wifiEntry != null) {
+            mText = wifiEntry.getSsid();
             return true;
         }
         return false;

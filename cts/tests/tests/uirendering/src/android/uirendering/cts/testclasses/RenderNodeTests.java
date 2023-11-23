@@ -21,17 +21,35 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
+import android.graphics.Bitmap;
+import android.graphics.BlendMode;
+import android.graphics.BlendModeColorFilter;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorFilter;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.RecordingCanvas;
 import android.graphics.Rect;
+import android.graphics.RenderEffect;
 import android.graphics.RenderNode;
+import android.graphics.Shader;
+import android.graphics.drawable.Drawable;
+import android.uirendering.cts.R;
+import android.uirendering.cts.bitmapverifiers.BlurPixelVerifier;
+import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
+import android.uirendering.cts.bitmapverifiers.RegionVerifier;
+import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
+import android.view.View;
+import android.widget.FrameLayout;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -364,4 +382,506 @@ public class RenderNodeTests extends ActivityTestBase {
         renderNode.setCameraDistance(100f);
         assertEquals(100f, renderNode.getCameraDistance(), 0.0f);
     }
+
+    @Test
+    public void testBitmapRenderEffect() {
+        Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
+        bitmap.eraseColor(Color.BLUE);
+
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(RenderEffect.createBitmapEffect(bitmap));
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas recordingCanvas = renderNode.beginRecording();
+            // must have at least 1 drawing instruction
+            recordingCanvas.drawColor(Color.TRANSPARENT);
+            renderNode.endRecording();
+        }
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(new ColorVerifier(Color.BLUE));
+    }
+
+    @Test
+    public void testOffsetImplicitInputRenderEffect() {
+        final int offsetX = 20;
+        final int offsetY = 20;
+        RenderEffect offsetEffect = RenderEffect.createOffsetEffect(offsetX, offsetY);
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(offsetEffect);
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas recordingCanvas = renderNode.beginRecording();
+            Paint paint = new Paint();
+            paint.setColor(Color.BLUE);
+            recordingCanvas.drawRect(0, 0, TEST_WIDTH, TEST_HEIGHT, paint);
+            renderNode.endRecording();
+        }
+
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    Paint canvasClientPaint = new Paint();
+                    canvasClientPaint.setColor(Color.RED);
+                    canvas.drawRect(0, 0, width, height, canvasClientPaint);
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(
+                        new RegionVerifier()
+                                .addVerifier(
+                                        new Rect(
+                                                0,
+                                                0,
+                                                TEST_WIDTH - 1,
+                                                offsetY - 1
+                                        ),
+                                        new ColorVerifier(Color.RED)
+                                )
+                                .addVerifier(
+                                        new Rect(
+                                                offsetX + 1,
+                                                offsetY + 1,
+                                                TEST_WIDTH - 1,
+                                                TEST_HEIGHT - 1),
+                                        new ColorVerifier(Color.BLUE)
+                                )
+                                .addVerifier(
+                                        new Rect(
+                                                0,
+                                                0,
+                                                offsetX - 1,
+                                                TEST_HEIGHT - 1
+                                        ),
+                                        new ColorVerifier(Color.RED)
+                        )
+            );
+    }
+
+    @Test
+    public void testColorFilterRenderEffectImplicitInput() {
+        RenderEffect colorFilterEffect = RenderEffect.createColorFilterEffect(
+                new BlendModeColorFilter(Color.RED, BlendMode.SRC_OVER));
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(colorFilterEffect);
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas recordingCanvas = renderNode.beginRecording();
+            Paint paint = new Paint();
+            paint.setColor(Color.BLUE);
+            recordingCanvas.drawRect(0, 0, TEST_WIDTH, TEST_HEIGHT, paint);
+            renderNode.endRecording();
+        }
+
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(new ColorVerifier(Color.RED));
+    }
+
+    @Test
+    public void testBlendModeRenderEffectImplicitInput() {
+        Bitmap srcBitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
+        srcBitmap.eraseColor(Color.BLUE);
+
+        Bitmap dstBitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
+        dstBitmap.eraseColor(Color.RED);
+
+        RenderEffect colorFilterEffect = RenderEffect.createBlendModeEffect(
+                RenderEffect.createBitmapEffect(dstBitmap),
+                RenderEffect.createBitmapEffect(srcBitmap),
+                BlendMode.SRC
+        );
+
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(colorFilterEffect);
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas recordingCanvas = renderNode.beginRecording();
+            recordingCanvas.drawColor(Color.TRANSPARENT);
+            renderNode.endRecording();
+        }
+
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(new ColorVerifier(Color.BLUE));
+    }
+
+    @Test
+    public void testColorFilterRenderEffect() {
+        Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
+        Canvas bitmapCanvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setColor(Color.BLUE);
+        bitmapCanvas.drawRect(0, 0, TEST_WIDTH, TEST_HEIGHT, paint);
+
+        RenderEffect bitmapEffect = RenderEffect.createBitmapEffect(
+                bitmap, null, new Rect(0, 0, TEST_WIDTH, TEST_HEIGHT));
+
+        RenderEffect colorFilterEffect = RenderEffect.createColorFilterEffect(
+                new BlendModeColorFilter(Color.RED, BlendMode.SRC_OVER), bitmapEffect);
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(colorFilterEffect);
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas recordingCanvas = renderNode.beginRecording();
+            Paint renderNodePaint = new Paint();
+            recordingCanvas.drawRect(0, 0, TEST_WIDTH, TEST_HEIGHT, renderNodePaint);
+            renderNode.endRecording();
+        }
+
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(new ColorVerifier(Color.RED));
+    }
+
+    @Test
+    public void testOffsetRenderEffect() {
+        Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
+        Canvas bitmapCanvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setColor(Color.BLUE);
+        bitmapCanvas.drawRect(0, 0, bitmap.getWidth(), bitmap.getHeight(), paint);
+
+        final int offsetX = 20;
+        final int offsetY = 20;
+        RenderEffect bitmapEffect = RenderEffect.createBitmapEffect(bitmap);
+        RenderEffect offsetEffect = RenderEffect.createOffsetEffect(offsetX, offsetY, bitmapEffect);
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(offsetEffect);
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas recordingCanvas = renderNode.beginRecording();
+            recordingCanvas.drawRect(0, 0, TEST_WIDTH, TEST_HEIGHT, new Paint());
+            renderNode.endRecording();
+        }
+
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    Paint canvasClientPaint = new Paint();
+                    canvasClientPaint.setColor(Color.RED);
+                    canvas.drawRect(0, 0, width, height, canvasClientPaint);
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(
+                        new RegionVerifier()
+                                .addVerifier(
+                                        new Rect(0, 0, TEST_WIDTH - 1, offsetY - 1),
+                                        new ColorVerifier(Color.RED)
+                                )
+                                .addVerifier(
+                                        new Rect(
+                                                offsetX + 1,
+                                                offsetY + 1,
+                                                TEST_WIDTH - 1,
+                                                TEST_HEIGHT - 1
+                                        ),
+                                        new ColorVerifier(Color.BLUE)
+                                )
+                                .addVerifier(
+                                        new Rect(0, 0, offsetX - 1, TEST_HEIGHT - 1),
+                                        new ColorVerifier(Color.RED)
+                                )
+            );
+    }
+
+    @Test
+    public void testViewRenderNodeBlurEffect() {
+        final int blurRadius = 10;
+        final Rect fullBounds = new Rect(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        final Rect insetBounds = new Rect(blurRadius, blurRadius, TEST_WIDTH - blurRadius,
+                TEST_HEIGHT - blurRadius);
+
+        final Rect unblurredBounds = new Rect(insetBounds);
+        unblurredBounds.inset(blurRadius, blurRadius);
+        createTest()
+                .addLayout(R.layout.frame_layout, (view) -> {
+                    FrameLayout root = view.findViewById(R.id.frame_layout);
+                    View innerView = new View(view.getContext());
+                    innerView.setLayoutParams(
+                            new FrameLayout.LayoutParams(TEST_WIDTH, TEST_HEIGHT));
+                    innerView.setBackground(new TestDrawable());
+                    root.addView(innerView);
+                }, true)
+                .runWithVerifier(
+                        new RegionVerifier()
+                                .addVerifier(
+                                        unblurredBounds,
+                                        new ColorVerifier(Color.BLUE))
+                                .addVerifier(
+                                        fullBounds,
+                                        new BlurPixelVerifier(Color.BLUE, Color.WHITE)
+                                )
+            );
+    }
+
+    private static class TestDrawable extends Drawable {
+
+        private final Paint mPaint = new Paint();
+
+        @Override
+        public void draw(@NonNull Canvas canvas) {
+            mPaint.setColor(Color.WHITE);
+
+            Rect rect = getBounds();
+            canvas.drawRect(rect, mPaint);
+            mPaint.setColor(Color.BLUE);
+
+            canvas.drawRect(
+                    10,
+                    10,
+                    rect.right - 10,
+                    rect.bottom - 10,
+                    mPaint
+            );
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            // No-op
+        }
+
+        @Override
+        public void setColorFilter(@Nullable ColorFilter colorFilter) {
+            // No-op
+        }
+
+        @Override
+        public int getOpacity() {
+            return 0;
+        }
+    }
+
+    @Test
+    public void testBlurRenderEffectImplicitInput() {
+        final int blurRadius = 10;
+        final Rect fullBounds = new Rect(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        final Rect insetBounds = new Rect(blurRadius, blurRadius, TEST_WIDTH - blurRadius,
+                TEST_HEIGHT - blurRadius);
+
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(
+                RenderEffect.createBlurEffect(
+                        blurRadius,
+                        blurRadius,
+                        Shader.TileMode.DECAL
+                )
+        );
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas canvas = renderNode.beginRecording();
+            Paint paint = new Paint();
+            paint.setColor(Color.WHITE);
+            canvas.drawRect(fullBounds, paint);
+
+            paint.setColor(Color.BLUE);
+
+            canvas.drawRect(insetBounds, paint);
+            renderNode.endRecording();
+        }
+
+        final Rect unblurredBounds = new Rect(insetBounds);
+        unblurredBounds.inset(blurRadius, blurRadius);
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(
+                        new RegionVerifier()
+                                .addVerifier(
+                                        unblurredBounds,
+                                        new ColorVerifier(Color.BLUE))
+                                .addVerifier(
+                                        fullBounds,
+                                        new BlurPixelVerifier(Color.BLUE, Color.WHITE)
+                                )
+            );
+    }
+
+    @Test
+    public void testBlurRenderEffect() {
+        final int blurRadius = 10;
+        final Rect fullBounds = new Rect(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        final Rect insetBounds = new Rect(blurRadius, blurRadius, TEST_WIDTH - blurRadius,
+                TEST_HEIGHT - blurRadius);
+
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(
+                RenderEffect.createBlurEffect(
+                        blurRadius,
+                        blurRadius,
+                        null,
+                        Shader.TileMode.DECAL
+                )
+        );
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas canvas = renderNode.beginRecording();
+            Paint paint = new Paint();
+            paint.setColor(Color.WHITE);
+            canvas.drawRect(fullBounds, paint);
+
+            paint.setColor(Color.BLUE);
+
+            canvas.drawRect(insetBounds, paint);
+            renderNode.endRecording();
+        }
+
+        final Rect unblurredBounds = new Rect(insetBounds);
+        unblurredBounds.inset(blurRadius, blurRadius);
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(
+                        new RegionVerifier()
+                                .addVerifier(
+                                        unblurredBounds,
+                                        new ColorVerifier(Color.BLUE))
+                                .addVerifier(
+                                        fullBounds,
+                                        new BlurPixelVerifier(Color.BLUE, Color.WHITE)
+                                )
+            );
+    }
+
+    @Test
+    public void testChainRenderEffect() {
+        Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
+        Canvas bitmapCanvas = new Canvas(bitmap);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(Color.BLUE);
+        bitmapCanvas.drawRect(0, 0, bitmap.getWidth(), bitmap.getHeight(), paint);
+
+        final int offsetX = 20;
+        final int offsetY = 20;
+        RenderEffect bitmapEffect = RenderEffect.createBitmapEffect(bitmap);
+        RenderEffect offsetEffect = RenderEffect.createOffsetEffect(offsetX, offsetY);
+        RenderEffect chainEffect = RenderEffect.createChainEffect(offsetEffect, bitmapEffect);
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(chainEffect);
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas recordingCanvas = renderNode.beginRecording();
+            recordingCanvas.drawRect(0, 0, TEST_WIDTH, TEST_HEIGHT, new Paint());
+            renderNode.endRecording();
+        }
+
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    Paint canvasClientPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    canvasClientPaint.setColor(Color.RED);
+                    canvas.drawRect(0, 0, width, height, canvasClientPaint);
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(
+                        new RegionVerifier()
+                                .addVerifier(
+                                    new Rect(
+                                            0,
+                                            0,
+                                            TEST_WIDTH - 1,
+                                            offsetY - 1
+                                    ),
+                                    new ColorVerifier(Color.RED)
+                                )
+                                .addVerifier(
+                                        new Rect(
+                                                offsetX + 1,
+                                                offsetY + 1,
+                                                TEST_WIDTH - 1,
+                                                TEST_HEIGHT - 1
+                                        ),
+                                        new ColorVerifier(Color.BLUE)
+                                )
+                                .addVerifier(
+                                        new Rect(0, 0, offsetX - 1, TEST_HEIGHT - 1),
+                                        new ColorVerifier(Color.RED)
+                                )
+            );
+    }
+
+    @Test
+    public void testShaderRenderEffect() {
+        LinearGradient gradient = new LinearGradient(
+                0f, 0f,
+                0f, TEST_HEIGHT,
+                new int[] { Color.RED, Color.BLUE },
+                null,
+                Shader.TileMode.CLAMP
+        );
+
+        RenderEffect shaderEffect = RenderEffect.createShaderEffect(gradient);
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(shaderEffect);
+        renderNode.setPosition(0, 0, TEST_WIDTH, TEST_HEIGHT);
+        {
+            Canvas recordingCanvas = renderNode.beginRecording();
+            recordingCanvas.drawRect(0, 0, TEST_WIDTH, TEST_HEIGHT, new Paint());
+            renderNode.endRecording();
+        }
+
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(
+                    new SamplePointVerifier(
+                            new Point[] {
+                                    new Point(0, 0),
+                                    new Point(0, TEST_HEIGHT - 1)
+                            },
+                            new int[] { Color.RED, Color.BLUE }
+                    )
+            );
+    }
+
+
+    @Test
+    public void testBlurShaderLargeRadiiEdgeReplication() {
+        final int blurRadius = 200;
+        final int left = 0;
+        final int top = 0;
+        final int right = TEST_WIDTH;
+        final int bottom = TEST_HEIGHT;
+        final RenderNode renderNode = new RenderNode(null);
+        renderNode.setRenderEffect(
+                RenderEffect.createBlurEffect(
+                        blurRadius,
+                        blurRadius,
+                        null,
+                        Shader.TileMode.CLAMP
+                )
+        );
+        renderNode.setPosition(left, top, right, bottom);
+        {
+            Canvas canvas = renderNode.beginRecording();
+            Paint blurPaint = new Paint();
+            blurPaint.setColor(Color.BLUE);
+            canvas.save();
+            canvas.clipRect(left, top, right, bottom);
+            canvas.drawRect(left, top, right, bottom, blurPaint);
+            canvas.restore();
+            renderNode.endRecording();
+        }
+        // Ensure that blurring with large blur radii with clipped content shows a solid
+        // blur square.
+        // Previously blur radii that were very large would end up blurring pixels outside
+        // of the source with transparent leading to larger blur radii actually being less
+        // blurred than smaller radii.
+        // Because the internal SkTileMode is set to kClamp, the edges of the source are used in
+        // blur kernels that extend beyond the bounds of the source
+        createTest()
+                .addCanvasClientWithoutUsingPicture((canvas, width, height) -> {
+                    canvas.drawRenderNode(renderNode);
+                }, true)
+                .runWithVerifier(new ColorVerifier(Color.BLUE));
+    }
+
+
 }

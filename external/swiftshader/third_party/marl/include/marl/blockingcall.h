@@ -15,7 +15,8 @@
 #ifndef marl_blocking_call_h
 #define marl_blocking_call_h
 
-#include "defer.h"
+#include "export.h"
+#include "scheduler.h"
 #include "waitgroup.h"
 
 #include <thread>
@@ -29,13 +30,20 @@ template <typename RETURN_TYPE>
 class OnNewThread {
  public:
   template <typename F, typename... Args>
-  inline static RETURN_TYPE call(F&& f, Args&&... args) {
+  MARL_NO_EXPORT inline static RETURN_TYPE call(F&& f, Args&&... args) {
     RETURN_TYPE result;
     WaitGroup wg(1);
+    auto scheduler = Scheduler::get();
     auto thread = std::thread(
-        [&](Args&&... args) {
-          defer(wg.done());
+        [&, wg](Args&&... args) {
+          if (scheduler != nullptr) {
+            scheduler->bind();
+          }
           result = f(std::forward<Args>(args)...);
+          if (scheduler != nullptr) {
+            Scheduler::unbind();
+          }
+          wg.done();
         },
         std::forward<Args>(args)...);
     wg.wait();
@@ -48,12 +56,19 @@ template <>
 class OnNewThread<void> {
  public:
   template <typename F, typename... Args>
-  inline static void call(F&& f, Args&&... args) {
+  MARL_NO_EXPORT inline static void call(F&& f, Args&&... args) {
     WaitGroup wg(1);
+    auto scheduler = Scheduler::get();
     auto thread = std::thread(
-        [&](Args&&... args) {
-          defer(wg.done());
+        [&, wg](Args&&... args) {
+          if (scheduler != nullptr) {
+            scheduler->bind();
+          }
           f(std::forward<Args>(args)...);
+          if (scheduler != nullptr) {
+            Scheduler::unbind();
+          }
+          wg.done();
         },
         std::forward<Args>(args)...);
     wg.wait();
@@ -71,16 +86,17 @@ class OnNewThread<void> {
 //  void runABlockingFunctionOnATask()
 //  {
 //      // Schedule a task that calls a blocking, non-yielding function.
-//      yarn::schedule([=] {
+//      marl::schedule([=] {
 //          // call_blocking_function() may block indefinitely.
 //          // Ensure this call does not block other tasks from running.
-//          auto result = yarn::blocking_call(call_blocking_function);
+//          auto result = marl::blocking_call(call_blocking_function);
 //          // call_blocking_function() has now returned.
 //          // result holds the return value of the blocking function call.
 //      });
 //  }
 template <typename F, typename... Args>
-auto inline blocking_call(F&& f, Args&&... args) -> decltype(f(args...)) {
+MARL_NO_EXPORT auto inline blocking_call(F&& f, Args&&... args)
+    -> decltype(f(args...)) {
   return detail::OnNewThread<decltype(f(args...))>::call(
       std::forward<F>(f), std::forward<Args>(args)...);
 }

@@ -7,6 +7,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := atrace_helper
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../NOTICE
 LOCAL_CPPFLAGS := -std=c++11 -Wall -Wextra -Werror -O2
 LOCAL_CPPFLAGS += -fPIE -fno-rtti -fno-exceptions -fstack-protector
 LOCAL_CPP_EXTENSION := .cc

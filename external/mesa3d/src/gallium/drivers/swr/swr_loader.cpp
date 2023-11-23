@@ -36,8 +36,9 @@ swr_initialize_screen_interface(struct swr_screen *screen, const char arch[])
 #ifdef HAVE_SWR_BUILTIN
    screen->pLibrary = NULL;
    screen->pfnSwrGetInterface = SwrGetInterface;
+   screen->pfnSwrGetTileInterface = SwrGetTileIterface;
    InitTilesTable();
-   fprintf(stderr, "(using: builtin).\n");
+   swr_print_info("(using: builtin).\n");
 #else
    char filename[256] = { 0 };
    sprintf(filename, "%sswr%s%s", UTIL_DL_PREFIX, arch, UTIL_DL_EXT);
@@ -50,9 +51,11 @@ swr_initialize_screen_interface(struct swr_screen *screen, const char arch[])
 
    util_dl_proc pApiProc = util_dl_get_proc_address(screen->pLibrary,
       "SwrGetInterface");
+   util_dl_proc pTileApiProc = util_dl_get_proc_address(screen->pLibrary,
+      "SwrGetTileIterface");
    util_dl_proc pInitFunc = util_dl_get_proc_address(screen->pLibrary,
       "InitTilesTable");
-   if (!pApiProc || !pInitFunc) {
+   if (!pApiProc || !pInitFunc || !pTileApiProc) {
       fprintf(stderr, "(skipping: %s).\n", util_dl_error());
       util_dl_close(screen->pLibrary);
       screen->pLibrary = NULL;
@@ -60,10 +63,17 @@ swr_initialize_screen_interface(struct swr_screen *screen, const char arch[])
    }
 
    screen->pfnSwrGetInterface = (PFNSwrGetInterface)pApiProc;
+   screen->pfnSwrGetTileInterface = (PFNSwrGetTileInterface)pTileApiProc;
+
+   SWR_ASSERT(screen->pfnSwrGetInterface != nullptr);
+   SWR_ASSERT(screen->pfnSwrGetTileInterface != nullptr);
+   SWR_ASSERT(pInitFunc != nullptr);
+
    pInitFunc();
 
-   fprintf(stderr, "(using: %s).\n", filename);
+   swr_print_info("(using: %s).\n", filename);
 #endif
+
    return true;
 }
 
@@ -82,9 +92,9 @@ swr_create_screen(struct sw_winsys *winsys)
    util_cpu_detect();
 
    if (util_cpu_caps.has_avx512f && util_cpu_caps.has_avx512er) {
-      fprintf(stderr, "SWR detected KNL instruction support ");
+      swr_print_info("SWR detected KNL instruction support ");
 #ifndef HAVE_SWR_KNL
-      fprintf(stderr, "(skipping: not built).\n");
+      swr_print_info("(skipping: not built).\n");
 #else
       if (swr_initialize_screen_interface(screen, "KNL")) {
          screen->is_knl = true;
@@ -94,9 +104,9 @@ swr_create_screen(struct sw_winsys *winsys)
    }
 
    if (util_cpu_caps.has_avx512f && util_cpu_caps.has_avx512bw) {
-      fprintf(stderr, "SWR detected SKX instruction support ");
+      swr_print_info("SWR detected SKX instruction support ");
 #ifndef HAVE_SWR_SKX
-      fprintf(stderr, "(skipping not built).\n");
+      swr_print_info("(skipping not built).\n");
 #else
       if (swr_initialize_screen_interface(screen, "SKX"))
          return p_screen;
@@ -104,9 +114,9 @@ swr_create_screen(struct sw_winsys *winsys)
    }
 
    if (util_cpu_caps.has_avx2) {
-      fprintf(stderr, "SWR detected AVX2 instruction support ");
+      swr_print_info("SWR detected AVX2 instruction support ");
 #ifndef HAVE_SWR_AVX2
-      fprintf(stderr, "(skipping not built).\n");
+      swr_print_info("(skipping not built).\n");
 #else
       if (swr_initialize_screen_interface(screen, "AVX2"))
          return p_screen;
@@ -114,9 +124,9 @@ swr_create_screen(struct sw_winsys *winsys)
    }
 
    if (util_cpu_caps.has_avx) {
-      fprintf(stderr, "SWR detected AVX instruction support ");
+      swr_print_info("SWR detected AVX instruction support ");
 #ifndef HAVE_SWR_AVX
-      fprintf(stderr, "(skipping not built).\n");
+      swr_print_info("(skipping not built).\n");
 #else
       if (swr_initialize_screen_interface(screen, "AVX"))
          return p_screen;

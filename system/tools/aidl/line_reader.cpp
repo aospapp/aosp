@@ -34,6 +34,12 @@ class FileLineReader : public LineReader {
     input_stream_.close();
   }
 
+  // non-copyable, non-movable
+  FileLineReader(const FileLineReader&) = delete;
+  FileLineReader(FileLineReader&&) = delete;
+  FileLineReader& operator=(const FileLineReader&) = delete;
+  FileLineReader& operator=(FileLineReader&&) = delete;
+
   bool Init(const std::string& file_path) {
     input_stream_.open(file_path, ifstream::in | ifstream::binary);
     return input_stream_.is_open() && input_stream_.good();
@@ -50,14 +56,18 @@ class FileLineReader : public LineReader {
 
  private:
   ifstream input_stream_;
-
-  DISALLOW_COPY_AND_ASSIGN(FileLineReader);
 };  // class FileLineReader
 
 class MemoryLineReader : public LineReader {
  public:
   explicit MemoryLineReader(const string& contents) : input_stream_(contents) {}
   ~MemoryLineReader() override = default;
+
+  // non-copyable, non-movable
+  MemoryLineReader(const MemoryLineReader&) = delete;
+  MemoryLineReader(MemoryLineReader&&) = delete;
+  MemoryLineReader& operator=(const MemoryLineReader&) = delete;
+  MemoryLineReader& operator=(MemoryLineReader&&) = delete;
 
   bool ReadLine(string* line) override {
     if (!input_stream_.good()) {
@@ -70,8 +80,6 @@ class MemoryLineReader : public LineReader {
 
  private:
   istringstream input_stream_;
-
-  DISALLOW_COPY_AND_ASSIGN(MemoryLineReader);
 };  // class MemoryLineReader
 
 unique_ptr<LineReader> LineReader::ReadFromFile(const string& file_path) {

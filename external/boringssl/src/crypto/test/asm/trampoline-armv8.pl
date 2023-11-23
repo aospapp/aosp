@@ -45,6 +45,8 @@ open OUT, "| \"$^X\" \"$xlate\" $flavour \"$output\"";
 
 my ($func, $state, $argv, $argc) = ("x0", "x1", "x2", "x3");
 my $code = <<____;
+#include <openssl/arm_arch.h>
+
 .text
 
 // abi_test_trampoline loads callee-saved registers from |state|, calls |func|
@@ -58,6 +60,7 @@ my $code = <<____;
 .align	4
 abi_test_trampoline:
 .Labi_test_trampoline_begin:
+	AARCH64_SIGN_LINK_REGISTER
 	// Stack layout (low to high addresses)
 	//   x29,x30 (16 bytes)
 	//    d8-d15 (64 bytes)
@@ -160,6 +163,7 @@ abi_test_trampoline:
 	ldp	x27, x28, [sp, #144]
 
 	ldp	x29, x30, [sp], #176
+	AARCH64_VALIDATE_LINK_REGISTER
 	ret
 .size	abi_test_trampoline,.-abi_test_trampoline
 ____
@@ -174,6 +178,7 @@ foreach (0..29) {
 .globl	abi_test_clobber_x$_
 .align	4
 abi_test_clobber_x$_:
+	AARCH64_VALID_CALL_TARGET
 	mov	x$_, xzr
 	ret
 .size	abi_test_clobber_x$_,.-abi_test_clobber_x$_
@@ -185,6 +190,7 @@ foreach (0..31) {
 .globl	abi_test_clobber_d$_
 .align	4
 abi_test_clobber_d$_:
+	AARCH64_VALID_CALL_TARGET
 	fmov	d$_, xzr
 	ret
 .size	abi_test_clobber_d$_,.-abi_test_clobber_d$_
@@ -199,6 +205,7 @@ foreach (8..15) {
 .globl	abi_test_clobber_v${_}_upper
 .align	4
 abi_test_clobber_v${_}_upper:
+	AARCH64_VALID_CALL_TARGET
 	fmov	v${_}.d[1], xzr
 	ret
 .size	abi_test_clobber_v${_}_upper,.-abi_test_clobber_v${_}_upper

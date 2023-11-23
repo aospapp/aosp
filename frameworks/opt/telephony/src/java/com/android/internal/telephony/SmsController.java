@@ -29,6 +29,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.BaseBundle;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.TelephonyServiceManager.ServiceRegisterer;
 import android.provider.Telephony.Sms.Intents;
@@ -80,7 +81,7 @@ public class SmsController extends ISmsImplBase {
                 (AppOpsManager) mContext.getSystemService(Context.APP_OPS_SERVICE));
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public boolean updateMessageOnIccEfForSubscriber(int subId, String callingPackage, int index,
             int status, byte[] pdu) {
@@ -97,7 +98,7 @@ public class SmsController extends ISmsImplBase {
         }
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public boolean copyMessageToIccEfForSubscriber(int subId, String callingPackage, int status,
             byte[] pdu, byte[] smsc) {
@@ -114,7 +115,7 @@ public class SmsController extends ISmsImplBase {
         }
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public List<SmsRawData> getAllMessagesFromIccEfForSubscriber(int subId, String callingPackage) {
         if (callingPackage == null) {
@@ -135,7 +136,7 @@ public class SmsController extends ISmsImplBase {
      * byte[], PendingIntent, PendingIntent)} instead
      */
     @Deprecated
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public void sendDataForSubscriber(int subId, String callingPackage, String destAddr,
             String scAddr, int destPort, byte[] data, PendingIntent sentIntent,
             PendingIntent deliveryIntent) {
@@ -312,14 +313,14 @@ public class SmsController extends ISmsImplBase {
         }
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public boolean enableCellBroadcastForSubscriber(int subId, int messageIdentifier, int ranType) {
         return enableCellBroadcastRangeForSubscriber(subId, messageIdentifier, messageIdentifier,
                 ranType);
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public boolean enableCellBroadcastRangeForSubscriber(int subId, int startMessageId,
             int endMessageId, int ranType) {
@@ -333,7 +334,7 @@ public class SmsController extends ISmsImplBase {
         return false;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public boolean disableCellBroadcastForSubscriber(int subId,
             int messageIdentifier, int ranType) {
@@ -341,7 +342,7 @@ public class SmsController extends ISmsImplBase {
                 ranType);
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public boolean disableCellBroadcastRangeForSubscriber(int subId, int startMessageId,
             int endMessageId, int ranType) {
@@ -389,7 +390,7 @@ public class SmsController extends ISmsImplBase {
         }
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public boolean isImsSmsSupportedForSubscriber(int subId) {
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
@@ -444,7 +445,7 @@ public class SmsController extends ISmsImplBase {
         return false;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public String getImsSmsFormatForSubscriber(int subId) {
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
@@ -476,7 +477,7 @@ public class SmsController extends ISmsImplBase {
      * subscription if there is only one active. If no preference can be found, return
      * {@link SubscriptionManager#INVALID_SUBSCRIPTION_ID}.
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public int getPreferredSmsSubscription() {
         // If there is a default, choose that one.
@@ -514,6 +515,10 @@ public class SmsController extends ISmsImplBase {
             Uri messageUri, String scAddress, PendingIntent sentIntent,
             PendingIntent deliveryIntent) {
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
+        if (!getCallingPackage().equals(callingPkg)) {
+            throw new SecurityException("sendStoredText: Package " + callingPkg
+                    + "does not belong to " + Binder.getCallingUid());
+        }
         if (iccSmsIntMgr != null) {
             iccSmsIntMgr.sendStoredText(callingPkg, callingAttributionTag, messageUri, scAddress,
                     sentIntent, deliveryIntent);
@@ -528,6 +533,10 @@ public class SmsController extends ISmsImplBase {
             Uri messageUri, String scAddress, List<PendingIntent> sentIntents,
             List<PendingIntent> deliveryIntents) {
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
+        if (!getCallingPackage().equals(callingPkg)) {
+            throw new SecurityException("sendStoredMultipartText: Package " + callingPkg
+                    + " does not belong to " + Binder.getCallingUid());
+        }
         if (iccSmsIntMgr != null) {
             iccSmsIntMgr.sendStoredMultipartText(callingPkg, callingAttributionTag, messageUri,
                     scAddress, sentIntents, deliveryIntents);
@@ -771,7 +780,7 @@ public class SmsController extends ISmsImplBase {
         indentingPW.flush();
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private void sendErrorInPendingIntent(@Nullable PendingIntent intent, int errorCode) {
         if (intent != null) {
             try {
@@ -781,7 +790,7 @@ public class SmsController extends ISmsImplBase {
         }
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private void sendErrorInPendingIntents(List<PendingIntent> intents, int errorCode) {
         if (intents == null) {
             return;
@@ -797,7 +806,7 @@ public class SmsController extends ISmsImplBase {
      *
      * @return ICC SMS manager
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private @Nullable IccSmsInterfaceManager getIccSmsInterfaceManager(int subId) {
         return getPhone(subId).getIccSmsInterfaceManager();
     }
@@ -816,7 +825,7 @@ public class SmsController extends ISmsImplBase {
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
 
         if (iccSmsIntMgr != null ) {
-            return iccSmsIntMgr.getSmsCapacityOnIcc();
+            return iccSmsIntMgr.getSmsCapacityOnIcc(getCallingPackage(), null);
         } else {
             Rlog.e(LOG_TAG, "iccSmsIntMgr is null for " + " subId: " + subId);
             return 0;
@@ -839,5 +848,12 @@ public class SmsController extends ISmsImplBase {
             Rlog.e(LOG_TAG, "iccSmsIntMgr is null for " + " subId: " + subId);
             return false;
         }
+    }
+
+    /**
+     * Internal API to consistently format the debug log output of the cross-stack message id.
+     */
+    public static String formatCrossStackMessageId(long id) {
+        return "{x-message-id:" + id + "}";
     }
 }

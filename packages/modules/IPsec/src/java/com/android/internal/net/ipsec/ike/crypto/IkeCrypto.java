@@ -25,6 +25,9 @@ abstract class IkeCrypto {
     private final int mKeyLength;
     private final String mAlgorithmName;
 
+    // IKE crypto algorithm that is not supported by Java Cryptography Extension(JCE)
+    protected static final String ALGO_NAME_JCE_UNSUPPORTED = "ALGO_NAME_JCE_UNSUPPORTED";
+
     protected IkeCrypto(int algorithmId, int keyLength, String algorithmName) {
         mAlgorithmId = algorithmId;
         mKeyLength = keyLength;

@@ -1,5 +1,5 @@
---- android_icu4j/src/main/java/android/icu/text/CompactDecimalFormat.java	2018-08-21 18:04:13.950636392 +0100
-+++ android_icu4j/src/main/java/android/icu/text/CompactDecimalFormat.java	2018-08-21 18:03:41.790480466 +0100
+--- android_icu4j/src/main/java/android/icu/text/CompactDecimalFormat.java	2021-01-19 16:26:29.358683997 +0000
++++ android_icu4j/src/main/java/android/icu/text/CompactDecimalFormat.java	2021-01-19 16:26:50.898836901 +0000
 @@ -21,12 +21,6 @@
  /**
   * Formats numbers in compact (abbreviated) notation, like "1.2K" instead of "1200".

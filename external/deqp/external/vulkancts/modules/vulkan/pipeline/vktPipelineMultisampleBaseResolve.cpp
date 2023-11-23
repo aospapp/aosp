@@ -44,6 +44,17 @@ using namespace vk;
 
 tcu::TestStatus MSInstanceBaseResolve::iterate (void)
 {
+	// cases creating this tests are defined using templates and we do not have easy access
+	// to image type - to do this check in checkSupport bigger reffactoring would be needed
+	if (m_context.isDeviceFunctionalitySupported("VK_KHR_portability_subset") &&
+		!m_context.getPortabilitySubsetFeatures().multisampleArrayImage &&
+		(m_imageType == IMAGE_TYPE_2D_ARRAY) &&
+		(m_imageMSParams.numSamples != VK_SAMPLE_COUNT_1_BIT) &&
+		(m_imageMSParams.imageSize.z() != 1))
+	{
+		TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: Implementation does not support image array with multiple samples per texel");
+	}
+
 	const InstanceInterface&		instance			= m_context.getInstanceInterface();
 	const DeviceInterface&			deviceInterface		= m_context.getDeviceInterface();
 	const VkDevice					device				= m_context.getDevice();
@@ -52,6 +63,8 @@ tcu::TestStatus MSInstanceBaseResolve::iterate (void)
 	Allocator&						allocator			= m_context.getDefaultAllocator();
 	const VkQueue					queue				= m_context.getUniversalQueue();
 	const deUint32					queueFamilyIndex	= m_context.getUniversalQueueFamilyIndex();
+	const bool						usePushConstants	= (m_imageMSParams.componentData.source == ComponentSource::PUSH_CONSTANT);
+	const deUint32					pushConstantSize	= static_cast<deUint32>(sizeof(decltype(m_imageMSParams.componentData.index)));
 
 	VkImageCreateInfo				imageMSInfo;
 	VkImageCreateInfo				imageRSInfo;
@@ -190,16 +203,29 @@ tcu::TestStatus MSInstanceBaseResolve::iterate (void)
 
 	const Unique<VkFramebuffer> framebuffer(createFramebuffer(deviceInterface, device, &framebufferInfo));
 
+	std::vector<vk::VkPushConstantRange>	pushConstantRanges;
+
+	if (usePushConstants)
+	{
+		const vk::VkPushConstantRange pushConstantRange =
+		{
+			vk::VK_SHADER_STAGE_ALL,	// VkShaderStageFlags	stageFlags;
+			0u,							// deUint32				offset;
+			pushConstantSize,			// deUint32				size;
+		};
+		pushConstantRanges.push_back(pushConstantRange);
+	}
+
 	// Create pipeline layout
 	const VkPipelineLayoutCreateInfo pipelineLayoutParams =
 	{
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,		// VkStructureType					sType;
-		DE_NULL,											// const void*						pNext;
-		(VkPipelineLayoutCreateFlags)0u,					// VkPipelineLayoutCreateFlags		flags;
-		0u,													// deUint32							setLayoutCount;
-		DE_NULL,											// const VkDescriptorSetLayout*		pSetLayouts;
-		0u,													// deUint32							pushConstantRangeCount;
-		DE_NULL,											// const VkPushConstantRange*		pPushConstantRanges;
+		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,						// VkStructureType					sType;
+		DE_NULL,															// const void*						pNext;
+		(VkPipelineLayoutCreateFlags)0u,									// VkPipelineLayoutCreateFlags		flags;
+		0u,																	// deUint32							setLayoutCount;
+		DE_NULL,															// const VkDescriptorSetLayout*		pSetLayouts;
+		static_cast<deUint32>(pushConstantRanges.size()),					// deUint32							pushConstantRangeCount;
+		(pushConstantRanges.empty() ? nullptr : pushConstantRanges.data()),	// const VkPushConstantRange*		pPushConstantRanges;
 	};
 
 	const Unique<VkPipelineLayout> pipelineLayout(createPipelineLayout(deviceInterface, device, &pipelineLayoutParams));
@@ -317,6 +343,10 @@ tcu::TestStatus MSInstanceBaseResolve::iterate (void)
 
 		// Bind vertex buffer
 		deviceInterface.cmdBindVertexBuffers(*commandBuffer, 0u, 1u, &vertexBuffer->get(), &vertexStartOffset);
+
+		// Push constants.
+		if (usePushConstants)
+			deviceInterface.cmdPushConstants(*commandBuffer, *pipelineLayout, vk::VK_SHADER_STAGE_ALL, 0u, pushConstantSize, &m_imageMSParams.componentData.index);
 
 		// Draw full screen quad
 		deviceInterface.cmdDraw(*commandBuffer, vertexDataDesc.verticesCount, 1u, 0u, 0u);

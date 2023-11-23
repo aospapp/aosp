@@ -95,6 +95,7 @@ enum {
   NFA_RW_OP_T2T_READ,
   NFA_RW_OP_T2T_WRITE,
   NFA_RW_OP_T2T_SECTOR_SELECT,
+  NFA_RW_OP_T2T_READ_DYN_LOCKS,
 
   /* Exclusive Type-3 tag operations */
   NFA_RW_OP_T3T_READ,
@@ -117,7 +118,7 @@ enum {
   NFA_RW_OP_I93_LOCK_DSFID,
   NFA_RW_OP_I93_GET_SYS_INFO,
   NFA_RW_OP_I93_GET_MULTI_BLOCK_STATUS,
-
+  NFA_RW_OP_I93_SET_ADDR_MODE,
   NFA_RW_OP_MAX
 };
 typedef uint8_t tNFA_RW_OP;
@@ -164,6 +165,11 @@ typedef struct {
 /* NFA_RW_OP_T2T_SECTOR_SELECT params */
 typedef struct { uint8_t sector_number; } tNFA_RW_OP_PARAMS_T2T_SECTOR_SELECT;
 
+/* NFA_RW_OP_T2T_READ_DYN_LOCKS params */
+typedef struct {
+  bool read_dyn_locks;
+} tNFA_RW_OP_PARAMS_T2T_READ_DYN_LOCKS;
+
 /* NFA_RW_OP_T3T_READ params */
 typedef struct {
   uint8_t num_blocks;
@@ -184,6 +190,7 @@ typedef struct {
   bool afi_present;
   uint8_t afi;
   uint8_t dsfid;
+  bool addr_mode;
   uint16_t first_block_number;
   uint16_t number_blocks;
   uint8_t* p_data;
@@ -209,6 +216,7 @@ typedef union {
   tNFA_RW_OP_PARAMS_T2T_READ t2t_read;
   tNFA_RW_OP_PARAMS_T2T_WRITE t2t_write;
   tNFA_RW_OP_PARAMS_T2T_SECTOR_SELECT t2t_sector_select;
+  tNFA_RW_OP_PARAMS_T2T_READ_DYN_LOCKS t2t_read_dyn_locks;
 
   /* params for NFA_RW_OP_T3T_READ and NFA_RW_OP_T3T_WRITE */
   tNFA_RW_OP_PARAMS_T3T_READ t3t_read;
@@ -315,6 +323,7 @@ typedef struct {
   uint8_t i93_block_size;
   uint16_t i93_num_block;
   uint8_t i93_uid[I93_UID_BYTE_LEN];
+  uint8_t i93_addr_mode;
 } tNFA_RW_CB;
 extern tNFA_RW_CB nfa_rw_cb;
 

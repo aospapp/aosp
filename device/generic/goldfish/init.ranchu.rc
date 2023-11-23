@@ -1,10 +1,29 @@
+on early-fs
+    start vold
+
 on fs
-    mount_all /vendor/etc/fstab.ranchu
+    mount_all /vendor/etc/fstab.ranchu --early
+
+on late-fs
+    # Mount RW partitions which need run fsck
+    exec_start wait_for_keymaster
+    mount_all /vendor/etc/fstab.ranchu --late
 
 on early-init
     mount proc proc /proc remount hidepid=2,gid=3009
-    setprop ro.hardware.egl emulation
     setprop ro.hardware.vulkan ranchu
+
+    # true if ram is <= 2G
+    setprop ro.config.low_ram ${ro.boot.config.low_ram}
+    setprop dalvik.vm.dex2oat64.enabled 1
+
+    setprop ro.soc.manufacturer AOSP
+    setprop ro.soc.model ranchu
+
+    # DEPRECATED, use ro.boot.qemu instead. The GTS tests still refer to
+    # ro.kernel.qemu to decide if a device is emulator. Should be removed once
+    # GTS tests are migrated to ro.boot.qemu.
+    setprop ro.kernel.qemu 1
 
 on init
     # set RLIMIT_MEMLOCK to 8MB for BPF network statistics
@@ -43,10 +62,12 @@ on init
 
 on post-fs-data
     setprop vold.post_fs_data_done 1
+    mkdir /data/vendor/adb 0755 root root
     mkdir /data/vendor/var 0755 root root
     mkdir /data/vendor/var/run 0755 root root
     mkdir /data/vendor/var/run/netns 0755 root root
-    start ranchu-net
+
+    start qemu-adb-keys
 
 on zygote-start
     # Create the directories used by the Wireless subsystem
@@ -55,18 +76,19 @@ on zygote-start
     mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi
 
 on boot
-    setprop ro.hardware.egl emulation
-    setprop debug.sf.vsync_reactor 0
+    setprop ro.hardware.egl ${ro.boot.hardwareegl:-emulation}
+    setprop debug.sf.vsync_reactor_ignore_present_fences true
     setprop debug.hwui.renderer opengl
-    setprop debug.hwui.renderer ${ro.kernel.qemu.uirenderer}
-    setprop ro.opengles.version ${ro.kernel.qemu.opengles.version}
+    setprop debug.hwui.renderer ${ro.boot.debug.hwui.renderer}
+    setprop ro.opengles.version ${ro.boot.opengles.version}
+    setprop ro.surface_flinger.supports_background_blur 1
     setprop ro.zygote.disable_gl_preload 1
 
-    setprop debug.stagefright.ccodec 0
-    setprop debug.stagefright.ccodec ${ro.kernel.qemu.media.ccodec}
+    setprop debug.stagefright.ccodec ${ro.boot.debug.stagefright.ccodec}
 
     setprop dalvik.vm.heapsize 192m
-    setprop dalvik.vm.heapsize ${ro.kernel.qemu.dalvik.vm.heapsize}
+    setprop dalvik.vm.heapsize ${ro.boot.dalvik.vm.heapsize}
+    setprop dalvik.vm.checkjni ${ro.boot.dalvik.vm.checkjni}
     chown root system /sys/power/wake_lock
     chown root system /sys/power/wake_unlock
     setprop ro.hardware.audio.primary goldfish
@@ -74,9 +96,7 @@ on boot
     setprop wifi.interface wlan0
     setprop wifi.direct.interface p2p-dev-wlan0
 
-    start goldfish-logcat
-
-    # Create a dummy USB gadget to allow sysfs testing
+    # Create an unused USB gadget to allow sysfs testing
     mkdir /config/usb_gadget/g1 0770 root root
 
 service ranchu-setup /vendor/bin/init.ranchu-core.sh
@@ -85,15 +105,34 @@ service ranchu-setup /vendor/bin/init.ranchu-core.sh
     group root
     oneshot
 
+service qemu-adb-setup /system_ext/bin/init.qemu-adb-keys.sh
+    class core
+    user root
+    group shell
+    disabled  # Started when qemu-adb-keys is stopped
+    oneshot
+
+on property:vendor.qemu.vport.gnss=*
+    symlink ${vendor.qemu.vport.gnss} /dev/gnss0
+
 on property:vendor.qemu.timezone=*
     setprop persist.sys.timezone ${vendor.qemu.timezone}
 
-on property:vendor.qemu.android.bootanim=0
+on property:ro.boot.debug.sf.nobootanimation=1
     setprop debug.sf.nobootanimation 1
 
 on property:dev.bootcomplete=1
     setprop vendor.qemu.dev.bootcomplete 1
     start ranchu-setup
+
+on post-fs-data && property:ro.boot.qemu.wifi=1
+    start create_router_ns
+
+on post-fs-data && property:ro.boot.qemu.virtiowifi=1
+    start ranchu-net
+
+on property:vendor.qemu.networknamespace=ready
+    start ranchu-net
 
 service ranchu-net /vendor/bin/init.ranchu-net.sh
     class late_start
@@ -111,6 +150,12 @@ service netmgr /vendor/bin/execns router /vendor/bin/netmgr --if-prefix wlan1 --
     user root
     group root wifi
     disabled
+
+service create_router_ns /vendor/bin/createns router
+    user root
+    group root
+    disabled
+    oneshot
 
 service wifi_forwarder /vendor/bin/wifi_forwarder
     user root
@@ -147,17 +192,16 @@ service qemu-props /vendor/bin/qemu-props
     group root
     oneshot
 
-# -Q is a special logcat option that forces the
-# program to check wether it runs on the emulator
-# if it does, it redirects its output to the device
-# named by the androidboot.console kernel option
-# if not, is simply exits immediately
-# logd user added to prevent logcat from logging content.
-# log group added to support access to read logs socket.
-service goldfish-logcat /system/bin/logcat -Q
-    user logd
-    group log
+service qemu-adb-keys /vendor/bin/qemu-adb-keys
+    class core
+    user root
+    group root
     oneshot
+
+service goldfish-logcat /system/bin/logcat -f /dev/hvc1 ${ro.boot.logcat}
+    class main
+    user logd
+    group root logd
 
 service bugreport /system/bin/dumpstate -d -p -z
     class main

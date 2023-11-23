@@ -17,12 +17,38 @@
 #pragma once
 
 #include "l2cap/dynamic_channel.h"
+#include "l2cap/le/link_options.h"
+#include "l2cap/mtu.h"
 
 namespace bluetooth {
 namespace l2cap {
 namespace le {
+namespace internal {
+class Link;
+}
 
-using DynamicChannel = l2cap::DynamicChannel;
+class DynamicChannel : public l2cap::DynamicChannel {
+ public:
+  DynamicChannel(
+      std::shared_ptr<l2cap::internal::DynamicChannelImpl> impl,
+      os::Handler* l2cap_handler,
+      internal::Link* link,
+      Mtu mtu)
+      : l2cap::DynamicChannel(impl, l2cap_handler), link_(link), mtu_(mtu) {}
+
+  /**
+   * Get the Proxy for L2CAP Link Options.
+   * Only few special L2CAP users need to use it, including
+   * Hearing Aid Profile and Java API.
+   */
+  LinkOptions* GetLinkOptions();
+
+  Mtu GetMtu() const;
+
+ private:
+  internal::Link* link_;
+  Mtu mtu_;
+};
 
 }  // namespace le
 }  // namespace l2cap

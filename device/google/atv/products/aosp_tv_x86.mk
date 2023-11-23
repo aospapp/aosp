@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+# Generate source.properties for image target
+PRODUCT_SDK_ADDON_SYS_IMG_SOURCE_PROP := \
+    device/google/atv/sdk/images_source.prop_template
+
 PRODUCT_USE_DYNAMIC_PARTITIONS := true
 
 # The system image of aosp_tv_x86-userdebug is a GSI for the devices with:
@@ -25,7 +29,7 @@ PRODUCT_USE_DYNAMIC_PARTITIONS := true
 #
 # All components inherited here go to system image
 #
-$(call inherit-product, device/google/atv/products/atv_mainline_system.mk)
+$(call inherit-product, device/google/atv/products/atv_generic_system.mk)
 
 # Enable mainline checking for excat this product name
 ifeq (aosp_tv_x86,$(TARGET_PRODUCT))
@@ -38,7 +42,6 @@ endif
 $(call inherit-product, device/google/atv/products/atv_system_ext.mk)
 # Packages required for ATV GSI
 PRODUCT_PACKAGES += \
-    FrameworkPackageStubs \
     TvProvision
 
 #
@@ -47,7 +50,7 @@ PRODUCT_PACKAGES += \
 $(call inherit-product, device/google/atv/products/atv_product.mk)
 # Packages required for ATV GSI
 PRODUCT_PACKAGES += \
-    LatinIMEGoogleTvPrebuilt \
+    LeanbackIME \
     TvSampleLeanbackLauncher
 
 #

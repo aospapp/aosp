@@ -29,15 +29,13 @@
 #endif
 #define ___STRING(x) __STRING(x)
 
-static void usage(char *filename)
-{
+static void usage(char* filename) {
     fprintf(stderr, "Usage: %s input_blk_alloc_file output_base_fs_file \n", filename);
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char** argv) {
     FILE *blk_alloc_file = NULL, *base_fs_file = NULL;
-    char filename[MAX_PATH+1], file_version[MAX_FILE_VERSION+1], *spaced_allocs = NULL;
+    char filename[MAX_PATH + 1], file_version[MAX_FILE_VERSION + 1], *spaced_allocs = NULL;
     size_t spaced_allocs_len = 0;
 
     if (argc != 3) {
@@ -54,7 +52,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "failed to open %s: %s\n", argv[2], strerror(errno));
         exit(EXIT_FAILURE);
     }
-    if (fscanf(blk_alloc_file, "Base EXT4 version %" ___STRING(MAX_FILE_VERSION) "s", file_version) > 0) {
+    if (fscanf(blk_alloc_file, "Base EXT4 version %" ___STRING(MAX_FILE_VERSION) "s",
+               file_version) > 0) {
         int c;
         printf("%s is already in *.base_fs format, just copying into %s...\n", argv[1], argv[2]);
         rewind(blk_alloc_file);
@@ -67,7 +66,7 @@ int main(int argc, char **argv)
         rewind(blk_alloc_file);
     }
     fprintf(base_fs_file, "Base EXT4 version 1.0\n");
-    while(fscanf(blk_alloc_file, "%" ___STRING(MAX_PATH) "s ", filename) != EOF) {
+    while (fscanf(blk_alloc_file, "%" ___STRING(MAX_PATH) "s ", filename) != EOF) {
         int i;
         fprintf(base_fs_file, "%s ", filename);
         if (getline(&spaced_allocs, &spaced_allocs_len, blk_alloc_file) == -1) {
@@ -77,7 +76,8 @@ int main(int argc, char **argv)
         for (i = 0; spaced_allocs[i]; i++) {
             if (spaced_allocs[i] == ' ') {
                 if (!isspace(spaced_allocs[i + 1])) fputc(',', base_fs_file);
-            } else fputc(spaced_allocs[i], base_fs_file);
+            } else
+                fputc(spaced_allocs[i], base_fs_file);
         }
     }
     free(spaced_allocs);

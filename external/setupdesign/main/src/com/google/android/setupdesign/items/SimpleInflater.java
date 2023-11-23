@@ -18,11 +18,11 @@ package com.google.android.setupdesign.items;
 
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
-import androidx.annotation.NonNull;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
 import android.view.InflateException;
+import androidx.annotation.NonNull;
 import java.io.IOException;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;

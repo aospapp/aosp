@@ -14,33 +14,33 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka;
+package com.android.internal.net.eap.test.message.simaka;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.simaka.EapAkaTypeData.EAP_AKA_CHALLENGE;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_AUTN;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_KDF;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_KDF_INPUT;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_KDF_INPUT;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.KDF_VERSION;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.NETWORK_NAME_BYTES;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.NETWORK_NAME_HEX;
+import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EAP_AKA_CHALLENGE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_AUTN;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_KDF;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_KDF_INPUT;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_KDF_INPUT;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.KDF_VERSION;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.NETWORK_NAME_BYTES;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.NETWORK_NAME_HEX;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.android.internal.net.eap.message.simaka.EapAkaPrimeTypeData.EapAkaPrimeTypeDataDecoder;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtAutn;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtClientErrorCode;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtKdf;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtKdfInput;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtMac;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtRandAka;
-import com.android.internal.net.eap.message.simaka.EapSimAkaTypeData.DecodeResult;
+import com.android.internal.net.eap.test.message.simaka.EapAkaPrimeTypeData.EapAkaPrimeTypeDataDecoder;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtAutn;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtClientErrorCode;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtKdf;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtKdfInput;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtMac;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRandAka;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaTypeData.DecodeResult;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -56,7 +56,17 @@ public class EapAkaPrimeTypeDataTest {
     private static final byte[] AUTN_BYTES = hexStringToByteArray(AUTN);
     private static final String MAC = "95FEB9E70427F34B4FAC8F2C7A65A302";
     private static final byte[] MAC_BYTES = hexStringToByteArray(MAC);
+
     private static final byte[] EAP_AKA_PRIME_CHALLENGE_REQUEST =
+            hexStringToByteArray(
+                    "010A0B" // Challenge | 2B padding
+                            + "01051A1B" + RAND // AT_RAND attribute
+                            + "02052A2B" + AUTN // AT_AUTN attribute
+                            + "1704000B" + NETWORK_NAME_HEX + "00" // AT_KDF_INPUT
+                            + "18010001" // AT_KDF
+                            + "0B053A3B" + MAC); // AT_MAC attribute
+
+    private static final byte[] EAP_AKA_PRIME_CHALLENGE_REQUEST_EMPTY_RESERVED =
             hexStringToByteArray(
                     "010000" // Challenge | 2B padding
                             + "01050000" + RAND // AT_RAND attribute
@@ -64,6 +74,7 @@ public class EapAkaPrimeTypeDataTest {
                             + "1704000B" + NETWORK_NAME_HEX + "00" // AT_KDF_INPUT
                             + "18010001" // AT_KDF
                             + "0B050000" + MAC); // AT_MAC attribute
+
     private static final byte[] EAP_AKA_PRIME_MULTIPLE_AT_KDF =
             hexStringToByteArray(
                     "010000" // Challenge | 2B padding
@@ -117,6 +128,15 @@ public class EapAkaPrimeTypeDataTest {
     }
 
     @Test
+    public void testDecodeEncode() {
+        DecodeResult<EapAkaTypeData> result =
+                mTypeDataDecoder.decode(EAP_AKA_PRIME_CHALLENGE_REQUEST);
+        assertTrue(result.isSuccessfulDecode());
+
+        assertArrayEquals(EAP_AKA_PRIME_CHALLENGE_REQUEST, result.eapTypeData.encode());
+    }
+
+    @Test
     public void testDecodeMultipleAtKdfAttributes() {
         DecodeResult<EapAkaTypeData> result =
                 mTypeDataDecoder.decode(EAP_AKA_PRIME_MULTIPLE_AT_KDF);
@@ -137,6 +157,6 @@ public class EapAkaPrimeTypeDataTest {
                 new EapAkaPrimeTypeData(EAP_AKA_CHALLENGE, attributes);
 
         byte[] result = eapAkaPrimeTypeData.encode();
-        assertArrayEquals(EAP_AKA_PRIME_CHALLENGE_REQUEST, result);
+        assertArrayEquals(EAP_AKA_PRIME_CHALLENGE_REQUEST_EMPTY_RESERVED, result);
     }
 }

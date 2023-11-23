@@ -18,7 +18,7 @@ import("vulkan.gni")
 
 # Need a separate config to ensure the warnings are added to the end.
 config("swiftshader_libvulkan_private_config") {
-  if (is_linux) {
+  if (is_linux || is_chromeos) {
     defines = [
       "VK_USE_PLATFORM_XLIB_KHR",
       "VK_USE_PLATFORM_XCB_KHR",
@@ -58,28 +58,29 @@ config("swiftshader_libvulkan_private_config") {
 
 swiftshader_source_set("swiftshader_libvulkan_headers") {
   sources = [
-    "Version.h",
+    "Version.hpp",
     "VkBuffer.hpp",
     "VkBufferView.hpp",
     "VkCommandBuffer.hpp",
     "VkCommandPool.hpp",
-    "VkConfig.h",
+    "VkConfig.hpp",
+    "VkDebugUtilsMessenger.hpp",
     "VkDescriptorPool.hpp",
     "VkDescriptorSet.hpp",
     "VkDescriptorSetLayout.hpp",
     "VkDescriptorUpdateTemplate.hpp",
-    "VkDestroy.h",
+    "VkDestroy.hpp",
     "VkDevice.hpp",
     "VkDeviceMemory.hpp",
     "VkEvent.hpp",
     "VkFence.hpp",
-    "VkFormat.h",
+    "VkFormat.hpp",
     "VkFramebuffer.hpp",
-    "VkGetProcAddress.h",
+    "VkGetProcAddress.hpp",
     "VkImage.hpp",
     "VkImageView.hpp",
     "VkInstance.hpp",
-    "VkMemory.h",
+    "VkMemory.hpp",
     "VkObject.hpp",
     "VkPhysicalDevice.hpp",
     "VkPipeline.hpp",
@@ -91,18 +92,22 @@ swiftshader_source_set("swiftshader_libvulkan_headers") {
     "VkSampler.hpp",
     "VkSemaphore.hpp",
     "VkShaderModule.hpp",
+    "VkSpecializationInfo.hpp",
     "VkStringify.hpp",
-    "VulkanPlatform.h",
+    "VkTimelineSemaphore.hpp",
+    "VulkanPlatform.hpp",
   ]
-  if (is_linux || is_android) {
+  if (is_linux || is_chromeos || is_android) {
     sources += [
       "VkDeviceMemoryExternalLinux.hpp",
       "VkSemaphoreExternalLinux.hpp",
     ]
+  } else if (is_mac) {
+    sources += [
+      "VkDeviceMemoryExternalMac.hpp",
+    ]
   } else if (is_fuchsia) {
     sources += [ "VkSemaphoreExternalFuchsia.hpp" ]
-  } else {
-    sources += [ "VkSemaphoreExternalNone.hpp" ]
   }
 }
 
@@ -112,7 +117,9 @@ swiftshader_shared_library("swiftshader_libvulkan") {
     "VkBufferView.cpp",
     "VkCommandBuffer.cpp",
     "VkCommandPool.cpp",
+    "VkDebugUtilsMessenger.cpp",
     "VkDescriptorPool.cpp",
+    "VkDescriptorSet.cpp",
     "VkDescriptorSetLayout.cpp",
     "VkDescriptorUpdateTemplate.cpp",
     "VkDevice.cpp",
@@ -135,12 +142,12 @@ swiftshader_shared_library("swiftshader_libvulkan") {
     "VkSampler.cpp",
     "VkSemaphore.cpp",
     "VkShaderModule.cpp",
+    "VkSpecializationInfo.cpp",
     "VkStringify.cpp",
-    "Vulkan.rc",
+    "VkTimelineSemaphore.cpp",
     "libVulkan.cpp",
     "main.cpp",
     "resource.h",
-    "vk_swiftshader.def",
   ]
 
   configs = [ ":swiftshader_libvulkan_private_config" ]
@@ -152,13 +159,20 @@ swiftshader_shared_library("swiftshader_libvulkan") {
     output_name = "libvk_swiftshader"
   }
 
+  if (is_win) {
+    sources += [
+      "Vulkan.rc",
+      "vk_swiftshader.def",
+    ]
+  }
+
   if (is_mac) {
     ldflags = [
       "-Wl,-install_name,@rpath/libvk_swiftshader.dylib",
       "-Wl,-exported_symbols_list," +
           rebase_path("vk_swiftshader.exports", root_build_dir),
     ]
-  } else if (is_linux || is_fuchsia) {
+  } else if (is_linux || is_chromeos || is_fuchsia) {
     inputs = [
       "vk_swiftshader.lds",
     ]
@@ -175,7 +189,7 @@ swiftshader_shared_library("swiftshader_libvulkan") {
     "../../third_party/marl:Marl",
     "../Device",
     "../Pipeline",
-    "../Reactor:swiftshader_llvm_reactor",
+    "../Reactor:swiftshader_reactor",
     "../System",
     "../WSI",
   ]

@@ -119,7 +119,7 @@ public abstract class BaseTileServiceTest {
 
     protected void expandSettings(boolean expand) throws Exception {
         executeShellCommand(" cmd statusbar " + (expand ? "expand-settings" : "collapse"));
-        Thread.sleep(200); // wait for animation
+        Thread.sleep(600); // wait for animation
     }
 
     protected void initializeAndListen() throws Exception {

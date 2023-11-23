@@ -22,7 +22,7 @@
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
-        <option name="runner" value="android.test.InstrumentationTestRunner" />
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="package" value="com.android.documentsui.appperftests" />
     </test>
 </configuration>

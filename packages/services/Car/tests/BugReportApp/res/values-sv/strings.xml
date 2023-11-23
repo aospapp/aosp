@@ -21,6 +21,7 @@
     <string name="bugreport_info_quit" msgid="5590138890181142473">"Stäng"</string>
     <string name="bugreport_info_start" msgid="667324824650830832">"Starta felrapport"</string>
     <string name="bugreport_info_status" msgid="7211044508792815451">"Status:"</string>
+    <string name="bugreport_info_expires_soon_notice" msgid="927139313070992675">"Den här felrapporten löper snart ut"</string>
     <string name="bugreport_dialog_submit" msgid="2789636252713280633">"Skicka"</string>
     <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"Avbryt"</string>
     <string name="bugreport_dialog_upload" msgid="2517386929450370781">"Ladda upp"</string>
@@ -41,7 +42,7 @@
     <string name="toast_bug_report_in_progress" msgid="8319601113129121579">"Felrapporten samlas redan in"</string>
     <string name="toast_bug_report_started" msgid="7154589593986557754">"Felrapportering startas"</string>
     <string name="toast_status_failed" msgid="6365384202315043395">"Felrapporten misslyckades"</string>
-    <string name="toast_status_screencap_failed" msgid="2187083897594745149">"Skärmdumpen misslyckades"</string>
+    <string name="toast_status_screencap_failed" msgid="2187083897594745149">"Skärmbilden misslyckades"</string>
     <string name="toast_status_dump_state_failed" msgid="8072469535227541761">"Statusdumpen misslyckades"</string>
     <string name="notification_bugreport_in_progress" msgid="8486454116357963238">"Felrapporten har påbörjats"</string>
     <string name="notification_bugreport_finished_title" msgid="3970195939909624320">"Felrapporten samlas in"</string>

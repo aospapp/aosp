@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,8 +33,8 @@
  *
  */
 
-#ifndef BC_IO_H
-#define BC_IO_H
+#ifndef BC_READ_H
+#define BC_READ_H
 
 #include <stdlib.h>
 
@@ -53,7 +53,8 @@
 #define BC_READ_BIN_CHAR(c) (((c) < ' ' && !isspace((c))) || ((uchar) c) > '~')
 
 BcStatus bc_read_line(BcVec *vec, const char *prompt);
-BcStatus bc_read_file(const char *path, char **buf);
+void bc_read_file(const char *path, char **buf);
 BcStatus bc_read_chars(BcVec *vec, const char *prompt);
+bool bc_read_buf(BcVec *vec, char *buf, size_t *buf_len);
 
-#endif // BC_IO_H
+#endif // BC_READ_H

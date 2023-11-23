@@ -30,6 +30,16 @@
 #include "wprint_df_types.h"
 
 /*
+ * Media ready set definition
+ */
+typedef struct
+{
+    unsigned int x_dimension;
+    unsigned int y_dimension;
+    char media_tray_tag[MAX_STRING + 1];
+} media_ready_set_t;
+
+/*
  * Printer Capabilities structure.
  */
 typedef struct {

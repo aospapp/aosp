@@ -95,7 +95,17 @@ public:
     // Parse from string
     Locale(const StringPiece& buf);
 
-    bool operator==(const Locale other) const {
+    // Parse from identifier. See getIdentifier() for the identifier format.
+    explicit Locale(uint64_t identifier)
+            : mScript(extractBits(identifier, 29, 20)),
+              mLanguage(extractBits(identifier, 49, 15)),
+              mRegion(extractBits(identifier, 14, 15)),
+              mSubScriptBits(scriptToSubScriptBits(mScript)),
+              mVariant(static_cast<Variant>(extractBits(identifier, 0, 2))),
+              mEmojiStyle(static_cast<EmojiStyle>(extractBits(identifier, 12, 2))),
+              mLBStyle(static_cast<LineBreakStyle>(extractBits(identifier, 10, 2))) {}
+
+    bool operator==(const Locale& other) const {
         return !isUnsupported() && isEqualScript(other) && mLanguage == other.mLanguage &&
                mRegion == other.mRegion && mVariant == other.mVariant &&
                mLBStyle == other.mLBStyle && mEmojiStyle == other.mEmojiStyle;
@@ -134,13 +144,13 @@ public:
 
     // Identifier pattern:
     // |-------|-------|-------|-------|-------|-------|-------|-------|
-    // lllllllllllllll                                                   Language Code
-    //                ssssssssssssssssssss                               Script Code
-    //                                    rrrrrrrrrrrrrrr                Region Code
-    //                                                   ee              Emoji Style
-    //                                                     bb            Line Break Style
-    //                                                       XXXXXXXX    Free
-    //                                                               vv  German Variant
+    // lllllllllllllll                                                   Language Code (15 bits)
+    //                ssssssssssssssssssss                               Script Code (20 bits)
+    //                                    rrrrrrrrrrrrrrr                Region Code (15 bits)
+    //                                                   ee              Emoji Style (2 bits)
+    //                                                     bb            Line Break Style (2 bits)
+    //                                                       XXXXXXXX    Free (8 bits)
+    //                                                               vv  German Variant (2 bits)
     uint64_t getIdentifier() const {
         return ((uint64_t)mLanguage << 49) | ((uint64_t)mScript << 29) | ((uint64_t)mRegion << 14) |
                ((uint64_t)mEmojiStyle << 12) | ((uint64_t)mLBStyle << 10) | (uint64_t)mVariant;
@@ -180,6 +190,10 @@ private:
     LineBreakStyle mLBStyle;
 
     void resolveUnicodeExtension(const char* buf, size_t length);
+
+    inline static uint64_t extractBits(uint64_t value, uint8_t shift, uint8_t nBits) {
+        return (value >> shift) & ((1 << nBits) - 1);
+    }
 
     static uint8_t scriptToSubScriptBits(uint32_t rawScript);
 

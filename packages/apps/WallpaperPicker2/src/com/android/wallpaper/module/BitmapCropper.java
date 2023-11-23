@@ -18,9 +18,9 @@ package com.android.wallpaper.module;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 
-import com.android.wallpaper.asset.Asset;
-
 import androidx.annotation.Nullable;
+
+import com.android.wallpaper.asset.Asset;
 
 /**
  * Interface for classes which perform crop operations on bitmaps.
@@ -31,7 +31,8 @@ public interface BitmapCropper {
      * Crops and scales a bitmap per the given scale factor and crop area (at target scale) from the
      * source asset.
      */
-    void cropAndScaleBitmap(Asset asset, float scale, Rect cropRect, Callback callback);
+    void cropAndScaleBitmap(Asset asset, float scale, Rect cropRect, boolean adjustForRtl,
+            Callback callback);
 
     /**
      * Interface for receiving the output bitmap of crop operations.

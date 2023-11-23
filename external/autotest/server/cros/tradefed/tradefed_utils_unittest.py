@@ -141,6 +141,44 @@ class TradefedTestTest(unittest.TestCase):
             'tradefed_utils_unittest_data', 'results', '2019.11.07_10.14.55',
             'test_result.xml'))
 
+        # assertNoRaises
+        tradefed_utils.get_test_result_xml_path(os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            'tradefed_utils_unittest_data', 'not_exist'))
+
+    def test_parse_tradefed_testresults_xml_no_failure(self):
+        waived, accurate = tradefed_utils.parse_tradefed_testresults_xml(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         'tradefed_utils_unittest_data', 'test_result.xml'))
+        self.assertEquals(0, len(waived))
+        self.assertTrue(accurate)
+
+    def test_parse_tradefed_testresult_xml_waivers(self):
+        waived, accurate = tradefed_utils.parse_tradefed_testresults_xml(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         'tradefed_utils_unittest_data',
+                         'gtsplacement_test_result.xml'))
+        self.assertEquals(0, len(waived))
+
+        waivers = set([
+            'com.google.android.media.gts.WidevineDashPolicyTests#testL1RenewalDelay5S',
+            'com.google.android.media.gts.MediaDrmTest#testWidevineApi28',
+            'com.google.android.media.gts.WidevineGenericOpsTests#testL3',
+            'com.google.android.media.gts.WidevineDashPolicyTests#testL3RenewalDelay5S',
+            'com.google.android.media.gts.WidevineH264PlaybackTests#testCbc1L3WithUHD30',
+            'com.google.android.media.gts.WidevineH264PlaybackTests#testCbcsL3WithUHD30',
+            'com.google.android.media.gts.WidevineH264PlaybackTests#testCbc1L1WithUHD30',
+            'com.google.android.media.gts.WidevineDashPolicyTests#testL3RenewalDelay13S',
+            'com.google.android.gts.backup.BackupHostTest#testGmsBackupTransportIsDefault',
+            'com.google.android.placement.gts.CoreGmsAppsTest#testGoogleDuoPreloaded',
+            'com.google.android.placement.gts.CoreGmsAppsTest#testCoreGmsAppsPreloaded',
+            'com.google.android.media.gts.WidevineH264PlaybackTests#testCbcsL1WithUHD30'])
+        waived, accurate = tradefed_utils.parse_tradefed_testresults_xml(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         'tradefed_utils_unittest_data',
+                         'gtsplacement_test_result.xml'), waivers=waivers)
+        self.assertEquals(4, len(waived))
+
     def test_get_perf_metrics_from_test_result_xml(self):
         perf_result = tradefed_utils.get_perf_metrics_from_test_result_xml(
             os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -356,6 +394,14 @@ class TradefedTestTest(unittest.TestCase):
                          'malformed_test_result.xml'),
             os.path.join('/', 'resultsdir'))
         self.assertListEqual(list(perf_result), [])
+
+        # assertNoRaises
+        tradefed_utils.get_perf_metrics_from_test_result_xml(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         'tradefed_utils_unittest_data',
+                         'not_exist'),
+            os.path.join('/', 'resultsdir'))
+
 
 
 if __name__ == '__main__':

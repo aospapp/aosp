@@ -8,7 +8,7 @@ AUTHOR = 'samueltan, ejcaruso'
 NAME = 'network_WiFi_DarkResumeActiveScans'
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
-DEPENDENCIES = 'wificell, servo, lucidsleep'
+DEPENDENCIES = 'wificell, servo_state:WORKING, lucidsleep'
 ATTRIBUTES = 'suite:wifi_lucidsleep'
 
 DOC = """

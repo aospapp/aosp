@@ -68,7 +68,7 @@ class barrier_test(unittest.TestCase):
         self.assertEqual(remain, 100)
 
 
-    def test_master_welcome_garbage(self):
+    def test_main_welcome_garbage(self):
         b = barrier.barrier('127.0.0.1#', 'garbage', 100)
         waiting_before = dict(b._waiting)
         seen_before = b._seen
@@ -77,7 +77,7 @@ class barrier_test(unittest.TestCase):
         try:
             sender.send('GET /foobar?p=-1 HTTP/1.0\r\n\r\n')
             # This should not raise an exception.
-            b._master_welcome((receiver, 'fakeaddr'))
+            b._main_welcome((receiver, 'fakeaddr'))
 
             self.assertEqual(waiting_before, b._waiting)
             self.assertEqual(seen_before, b._seen)
@@ -85,7 +85,7 @@ class barrier_test(unittest.TestCase):
             sender, receiver = socket.socketpair()
             sender.send('abcdefg\x00\x01\x02\n'*5)
             # This should not raise an exception.
-            b._master_welcome((receiver, 'fakeaddr'))
+            b._main_welcome((receiver, 'fakeaddr'))
 
             self.assertEqual(waiting_before, b._waiting)
             self.assertEqual(seen_before, b._seen)

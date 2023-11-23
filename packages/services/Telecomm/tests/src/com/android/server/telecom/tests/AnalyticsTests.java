@@ -16,6 +16,9 @@
 
 package com.android.server.telecom.tests;
 
+import static android.provider.CallLog.Calls.MISSED_REASON_NOT_MISSED;
+import static android.provider.CallLog.Calls.USER_MISSED_CALL_FILTERS_TIMEOUT;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -27,6 +30,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.os.Build;
 import android.telecom.CallAudioState;
@@ -127,7 +131,8 @@ public class AnalyticsTests extends TelecomSystemTest {
         Analytics.dump(ip);
         String dumpResult = sr.toString();
         String[] expectedFields = {"startTime", "endTime", "direction", "isAdditionalCall",
-                "isInterrupted", "callTechnologies", "callTerminationReason", "connectionService"};
+                "isInterrupted", "callTechnologies", "callTerminationReason", "connectionService",
+                "missedReason"};
         for (String field : expectedFields) {
             assertTrue(dumpResult.contains(field));
         }
@@ -181,6 +186,8 @@ public class AnalyticsTests extends TelecomSystemTest {
     @MediumTest
     @Test
     public void testAnalyticsTwoCalls() throws Exception {
+        when(mTimeoutsAdapter.getCallScreeningTimeoutMillis(any(ContentResolver.class)))
+                .thenReturn((long) TEST_TIMEOUT);
         IdPair testCall1 = startAndMakeActiveIncomingCall(
                 "650-555-1212",
                 mPhoneAccountA0.getAccountHandle(),
@@ -200,6 +207,10 @@ public class AnalyticsTests extends TelecomSystemTest {
         assertTrue(callAnalytics2.startTime > 0);
         assertEquals(0, callAnalytics1.endTime);
         assertEquals(0, callAnalytics2.endTime);
+        long missedReason1 = callAnalytics1.missedReason;
+        assertTrue(missedReason1 == MISSED_REASON_NOT_MISSED
+                || missedReason1 == USER_MISSED_CALL_FILTERS_TIMEOUT);
+        assertEquals(MISSED_REASON_NOT_MISSED, callAnalytics2.missedReason);
 
         assertEquals(Analytics.INCOMING_DIRECTION, callAnalytics1.callDirection);
         assertEquals(Analytics.OUTGOING_DIRECTION, callAnalytics2.callDirection);

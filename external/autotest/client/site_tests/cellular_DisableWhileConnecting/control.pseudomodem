@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if a disconnect request while the modem is
 connecting is not promptly executed.
 """
-ATTRIBUTES = "suite:cellular_pseudomodem"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

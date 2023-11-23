@@ -20,7 +20,7 @@
 
 #include "base/casts.h"
 #include "base/enums.h"
-#include "class_root.h"
+#include "class_root-inl.h"
 #include "debugger.h"
 #include "dex/dex_file_types.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
@@ -83,10 +83,6 @@ bool UseFastInterpreterToInterpreterInvoke(ArtMethod* method) {
     return false;
   }
   if (method->IsStatic() && !method->GetDeclaringClass()->IsVisiblyInitialized()) {
-    return false;
-  }
-  ProfilingInfo* profiling_info = method->GetProfilingInfo(kRuntimePointerSize);
-  if ((profiling_info != nullptr) && (profiling_info->GetSavedEntryPoint() != nullptr)) {
     return false;
   }
   return true;
@@ -342,7 +338,7 @@ static bool DoMethodHandleInvokeCommon(Thread* self,
 
   // Initialize |result| to 0 as this is the default return value for
   // polymorphic invocations of method handle types with void return
-  // and provides sane return result in error cases.
+  // and provides a sensible return result in error cases.
   result->SetJ(0);
 
   // The invoke_method_idx here is the name of the signature polymorphic method that
@@ -565,7 +561,7 @@ bool DoInvokePolymorphic(Thread* self,
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
   ArtMethod* invoke_method =
       class_linker->ResolveMethod<ClassLinker::ResolveMode::kCheckICCEAndIAE>(
-          self, invoke_method_idx, shadow_frame.GetMethod(), kVirtual);
+          self, invoke_method_idx, shadow_frame.GetMethod(), kPolymorphic);
 
   // Ensure intrinsic identifiers are initialized.
   DCHECK(invoke_method->IsIntrinsic());

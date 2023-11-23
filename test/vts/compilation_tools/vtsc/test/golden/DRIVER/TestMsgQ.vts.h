@@ -36,10 +36,11 @@ class Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ : public ::android::hardwar
     virtual ~Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ() = default;
 
     ::android::hardware::Return<bool> configureFmqSyncReadWrite(
-        const ::android::hardware::MQDescriptorSync<uint16_t>& arg0) override;
+        const ::android::hardware::MQDescriptorSync<int32_t>& arg0) override;
 
     ::android::hardware::Return<void> getFmqUnsyncWrite(
-        bool arg0, std::function<void(bool arg0,const ::android::hardware::MQDescriptorUnsync<uint16_t>& arg1)> cb) override;
+        bool arg0,
+        bool arg1, std::function<void(bool arg0,const ::android::hardware::MQDescriptorUnsync<int32_t>& arg1)> cb) override;
 
     ::android::hardware::Return<bool> requestWriteFmqSync(
         int32_t arg0) override;

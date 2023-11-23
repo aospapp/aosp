@@ -15,14 +15,9 @@
  */
 package android.net.ipsec.ike.exceptions;
 
-import android.annotation.SystemApi;
-
 /**
  * IkeException represents a generic exception that includes internal and protocol exceptions.
- *
- * @hide
  */
-@SystemApi
 public abstract class IkeException extends Exception {
     /** @hide */
     protected IkeException() {

@@ -24,7 +24,7 @@
             android:layout_height="wrap_content"
             android:src="@drawable/ic_cancel"
             android:background="@null" />
-        <!-- dummy invisible view only for spacing -->
+        <!-- stub invisible view only for spacing -->
         <View
             android:layout_width="1dp"
             android:layout_height="1dp"

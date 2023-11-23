@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/fib_lookup/request.c	FIB Lookup Request
  *
@@ -53,12 +54,12 @@ static int request_clone(struct nl_object *_dst, struct nl_object *_src)
 	return 0;
 }
 
-static int request_compare(struct nl_object *_a, struct nl_object *_b,
-			   uint32_t attrs, int flags)
+static uint64_t request_compare(struct nl_object *_a, struct nl_object *_b,
+			   uint64_t attrs, int flags)
 {
 	struct flnl_request *a = (struct flnl_request *) _a;
 	struct flnl_request *b = (struct flnl_request *) _b;
-	int diff = 0;
+	uint64_t diff = 0;
 
 #define REQ_DIFF(ATTR, EXPR) ATTR_DIFF(attrs, REQUEST_ATTR_##ATTR, a, b, EXPR)
 

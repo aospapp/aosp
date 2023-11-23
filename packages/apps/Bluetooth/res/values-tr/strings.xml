@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"İndirme yöneticisine erişin."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Uygulamaya, BluetoothShare yöneticisine erişme ve bunu dosyaları aktarmak için kullanma izni verir."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Bluetooth cihazı erişimine izin ver."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Uygulamaya, bir Bluetooth cihazını geçici olarak onaylananlar listesine ekleme izni verir. Böylece, izin verilen cihaz kullanıcının onayı olmadan bu cihaza dosya gönderebilir."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Onay listesi Bluetooth cihaz erişimi."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Uygulamaya, bir Bluetooth cihazını geçici olarak onaylananlar listesine ekleme izni verir. Böylece, izin verilen cihaz kullanıcının onayı olmadan bu cihaza dosya gönderebilir."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Bilinmeyen cihaz"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Bilinmiyor"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"Tamam"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" kaynağından gelen dosyayı kabul etme süresi doldu"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Gelen dosya"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g>, <xliff:g id="FILE">%2$s</xliff:g> adlı dosyayı göndermeye hazır"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g>, dosya göndermeye hazır: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetooth paylaşımı: <xliff:g id="FILE">%1$s</xliff:g> alınıyor"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetooth paylaşımı: <xliff:g id="FILE">%1$s</xliff:g> alındı"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetooth paylaşımı: <xliff:g id="FILE">%1$s</xliff:g> dosyası alınamadı"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Dosya \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" hedefine gönderiliyor"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g> dosya \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" hedefine gönderiliyor"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" hedefine dosya gönderme işlemi durduruldu"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"USB depolama biriminde \"<xliff:g id="SENDER">%1$s</xliff:g>\" kaynağından gelen dosyayı kaydedecek kadar alan yok"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"SD kartta \"<xliff:g id="SENDER">%1$s</xliff:g>\" kaynağından gelen dosyayı kaydedecek kadar alan yok"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"USB depolamada dosyayı kaydedecek kadar alan yok."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"SD kartta dosyayı kaydedecek kadar alan yok."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Gereken alan: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Çok fazla sayıda istek işleniyor. Daha sonra yeniden deneyin."</string>
     <string name="status_pending" msgid="2503691772030877944">"Dosya aktarımı henüz başlatılmadı."</string>

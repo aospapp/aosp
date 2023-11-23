@@ -18,6 +18,7 @@
 #ifndef __CLATD_H__
 #define __CLATD_H__
 
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/uio.h>
 
@@ -35,7 +36,8 @@ struct tun_data;
 // how frequently (in seconds) to poll for an address change while there is no traffic
 #define NO_TRAFFIC_INTERFACE_POLL_FREQUENCY 90
 
-void stop_loop();
+extern volatile sig_atomic_t running;
+
 void configure_tun_ip(const struct tun_data *tunnel, const char *v4_addr, int mtu);
 void set_capability(uint64_t target_cap);
 void drop_root_but_keep_caps();

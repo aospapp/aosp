@@ -26,7 +26,6 @@
 
 #include "linkerconfig/namespacebuilder.h"
 
-using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::Namespace;
 
 namespace android {
@@ -38,25 +37,25 @@ Namespace BuildSphalNamespace([[maybe_unused]] const Context& ctx) {
   Namespace ns("sphal",
                /*is_isolated=*/!ctx.IsUnrestrictedSection(),
                /*is_visible=*/true);
-  ns.AddSearchPath("/odm/${LIB}", AsanPath::WITH_DATA_ASAN);
-  ns.AddSearchPath("/vendor/${LIB}", AsanPath::WITH_DATA_ASAN);
-  ns.AddSearchPath("/vendor/${LIB}/hw", AsanPath::NONE);
+  ns.AddSearchPath("/odm/${LIB}");
+  ns.AddSearchPath("/vendor/${LIB}");
+  ns.AddSearchPath("/vendor/${LIB}/egl");
+  ns.AddSearchPath("/vendor/${LIB}/hw");
 
-  ns.AddPermittedPath("/odm/${LIB}", AsanPath::WITH_DATA_ASAN);
-  ns.AddPermittedPath("/vendor/${LIB}", AsanPath::WITH_DATA_ASAN);
-  ns.AddPermittedPath("/system/vendor/${LIB}", AsanPath::NONE);
+  ns.AddPermittedPath("/odm/${LIB}");
+  ns.AddPermittedPath("/vendor/${LIB}");
+  ns.AddPermittedPath("/system/vendor/${LIB}");
 
   if (ctx.IsApexBinaryConfig() && !ctx.IsVndkAvailable()) {
     // If device is legacy, let Sphal libraries access to system lib path for
     // VNDK-SP libraries
-    ns.AddSearchPath("/system/${LIB}", AsanPath::WITH_DATA_ASAN);
-    ns.AddPermittedPath("/system/${LIB}", AsanPath::WITH_DATA_ASAN);
+    ns.AddSearchPath("/system/${LIB}");
+    ns.AddPermittedPath("/system/${LIB}");
   }
 
   if (ctx.IsApexBinaryConfig()) {
     if (ctx.IsVndkAvailable()) {
-      ns.GetLink("vndk").AddSharedLib(
-          Var("VNDK_SAMEPROCESS_LIBRARIES_VENDOR", ""));
+      ns.AddRequires(std::vector{":vndksp"});
       ns.GetLink(ctx.GetSystemNamespaceName())
           .AddSharedLib(Var("LLNDK_LIBRARIES_VENDOR", ""));
     }

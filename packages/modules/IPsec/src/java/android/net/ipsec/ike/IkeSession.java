@@ -21,6 +21,7 @@ import android.annotation.SystemApi;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.IpSecManager;
+import android.net.Network;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.CloseGuard;
@@ -32,7 +33,7 @@ import java.util.concurrent.Executor;
 
 /**
  * This class represents an IKE Session management object that allows for keying and management of
- * {@link IpSecTransform}s.
+ * {@link android.net.IpSecTransform}s.
  *
  * <p>An IKE/Child Session represents an IKE/Child SA as well as its rekeyed successors. A Child
  * Session is bounded by the lifecycle of the IKE Session under which it is set up. Closing an IKE
@@ -47,9 +48,7 @@ import java.util.concurrent.Executor;
  *
  * @see <a href="https://tools.ietf.org/html/rfc7296">RFC 7296, Internet Key Exchange Protocol
  *     Version 2 (IKEv2)</a>
- * @hide
  */
-@SystemApi
 public final class IkeSession implements AutoCloseable {
     private final CloseGuard mCloseGuard = new CloseGuard();
     private final Context mContext;
@@ -73,7 +72,7 @@ public final class IkeSession implements AutoCloseable {
      * @param userCbExecutor the {@link Executor} upon which all callbacks will be posted. For
      *     security and consistency, the callbacks posted to this executor MUST be executed serially
      *     and in the order they were posted, as guaranteed by executors such as {@link
-     *     ExecutorService.newSingleThreadExecutor()}
+     *     java.util.concurrent.Executors#newSingleThreadExecutor()}
      * @param ikeSessionCallback the {@link IkeSessionCallback} interface to notify callers of state
      *     changes within the {@link IkeSession}.
      * @param firstChildSessionCallback the {@link ChildSessionCallback} interface to notify callers
@@ -231,12 +230,12 @@ public final class IkeSession implements AutoCloseable {
      * <p>Implements {@link AutoCloseable#close()}
      *
      * <p>Upon closure, {@link IkeSessionCallback#onClosed()} or {@link
-     * IkeSessionCallback#onClosedExceptionally()} will be fired.
+     * IkeSessionCallback#onClosedWithException(IkeException)} will be fired.
      *
      * <p>Closing an IKE Session implicitly closes any remaining Child Sessions negotiated under it.
-     * Users SHOULD stop all outbound traffic that uses these Child Sessions({@link IpSecTransform}
-     * pairs) before calling this method. Otherwise IPsec packets will be dropped due to the lack of
-     * a valid {@link IpSecTransform}.
+     * Users SHOULD stop all outbound traffic that uses these Child Sessions ({@link
+     * android.net.IpSecTransform} pairs) before calling this method. Otherwise IPsec packets will
+     * be dropped due to the lack of a valid {@link android.net.IpSecTransform}.
      *
      * <p>Closure of an IKE session will take priority over, and cancel other procedures waiting in
      * the queue (but will wait for ongoing locally initiated procedures to complete). After sending
@@ -255,9 +254,9 @@ public final class IkeSession implements AutoCloseable {
      * <p>Upon closing, {@link IkeSessionCallback#onClosed()} will be fired.
      *
      * <p>Closing an IKE Session implicitly closes any remaining Child Sessions negotiated under it.
-     * Users SHOULD stop all outbound traffic that uses these Child Sessions({@link IpSecTransform}
-     * pairs) before calling this method. Otherwise IPsec packets will be dropped due to the lack of
-     * a valid {@link IpSecTransform}.
+     * Users SHOULD stop all outbound traffic that uses these Child Sessions ({@link
+     * android.net.IpSecTransform} pairs) before calling this method. Otherwise IPsec packets will
+     * be dropped due to the lack of a valid {@link android.net.IpSecTransform}.
      *
      * <p>Forcible closure of an IKE session will take priority over, and cancel other procedures
      * waiting in the queue. It will also interrupt any ongoing locally initiated procedure.
@@ -265,5 +264,46 @@ public final class IkeSession implements AutoCloseable {
     public void kill() {
         mCloseGuard.close();
         mIkeSessionStateMachine.killSession();
+    }
+
+    /**
+     * Update the IkeSession's underlying Network to use the specified Network.
+     *
+     * <p>Updating the IkeSession's Network also updates the Network for any Child Sessions created
+     * with this IkeSession. To perform the update, callers must implement:
+     *
+     * <ul>
+     *   <li>{@link IkeSessionCallback#onIkeSessionConnectionInfoChanged(IkeSessionConnectionInfo)}:
+     *       This call will be triggered once the IKE Session has been updated. The implementation
+     *       MUST migrate all IpSecTunnelInterface instances associated with this IkeSession via
+     *       {@link android.net.IpSecManager#IpSecTunnelInterface#setUnderlyingNetwork(Network)}
+     *   <li>{@link ChildSessionCallback#onIpSecTransformsMigrated(android.net.IpSecTransform,
+     *       android.net.IpSecTransform)}: This call will be triggered once a Child Session has been
+     *       updated. The implementation MUST re-apply the migrated transforms to the {@link
+     *       android.net.IpSecManager#IpSecTunnelInterface} associated with this
+     *       ChildSessionCallback, via {@link android.net.IpSecManager#applyTunnelModeTransform(
+     *       android.net.IpSecManager.IpSecTunnelInterface, int, android.net.IpSecTransform)}.
+     * </ul>
+     *
+     * <p>In order for Network migration to be possible, the following must be true:
+     *
+     * <ul>
+     *   <li>the {@link IkeSessionParams} for this IkeSession must be configured with {@link
+     *       IkeSessionParams#IKE_OPTION_MOBIKE} (set via {@link
+     *       IkeSessionParams.Builder#addIkeOption(int)}), and
+     *   <li>the IkeSession must have been started with the Network specified via {@link
+     *       IkeSessionParams.Builder#setConfiguredNetwork(Network)}.
+     * </ul>
+     *
+     * @see <a href="https://tools.ietf.org/html/rfc4555">RFC 4555, IKEv2 Mobility and Multihoming
+     *     Protocol (MOBIKE)</a>
+     * @param network the Network to use for this IkeSession
+     * @throws IllegalStateException if {@link IkeSessionParams#IKE_OPTION_MOBIKE} is not configured
+     *     in IkeSessionParams, or if the Network was not specified in IkeSessionParams.
+     * @hide
+     */
+    @SystemApi
+    public void setNetwork(@NonNull Network network) {
+        mIkeSessionStateMachine.setNetwork(network);
     }
 }

@@ -16,36 +16,179 @@
 
 package com.android.cts.deviceandprofileowner;
 
-import static org.testng.Assert.assertThrows;
+import static com.android.cts.deviceandprofileowner.BaseDeviceAdminTest.ADMIN_RECEIVER_COMPONENT;
 
+import static junit.framework.Assert.assertFalse;
+import static junit.framework.Assert.assertTrue;
+
+import static org.junit.Assume.assumeTrue;
+
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.Process;
+import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.Until;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.RequiresDevice;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class SecondaryLockscreenTest extends BaseDeviceAdminTest {
+import java.util.List;
+
+// TODO(b/184280023): remove @RequiresDevice and @Ignores.
+@RequiresDevice
+@RunWith(AndroidJUnit4.class)
+public class SecondaryLockscreenTest {
+
+    private static final int UI_AUTOMATOR_WAIT_TIME_MILLIS = 10000;
+    private static final String TAG = "SecondaryLockscreenTest";
+
+    private Context mContext;
+    private DevicePolicyManager mDevicePolicyManager;
+    private UiDevice mUiDevice;
 
     @Before
-    @Override
     public void setUp() throws Exception {
-        super.setUp();
+        mContext = InstrumentationRegistry.getContext();
+        mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
+        mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+
+        assumeTrue(
+                "Device does not support secure lock",
+                mContext.getPackageManager().hasSystemFeature(
+                        PackageManager.FEATURE_SECURE_LOCK_SCREEN));
+
+        // TODO(b/182994391): Replace with more generic solution to override the supervision
+        // component.
+        mUiDevice.executeShellCommand("settings put global device_policy_constants "
+                + "use_test_admin_as_supervision_component=true");
+        mUiDevice.executeShellCommand("locksettings set-disabled false");
+        mUiDevice.executeShellCommand("locksettings set-pin 1234");
+
+        mDevicePolicyManager.clearPackagePersistentPreferredActivities(ADMIN_RECEIVER_COMPONENT,
+                mContext.getPackageName());
+
         assertFalse(mDevicePolicyManager.isSecondaryLockscreenEnabled(Process.myUserHandle()));
+        mDevicePolicyManager.setSecondaryLockscreenEnabled(ADMIN_RECEIVER_COMPONENT, true);
+        assertTrue(mDevicePolicyManager.isSecondaryLockscreenEnabled(Process.myUserHandle()));
     }
 
     @After
-    @Override
     public void tearDown() throws Exception {
+        mDevicePolicyManager.setSecondaryLockscreenEnabled(ADMIN_RECEIVER_COMPONENT, false);
         assertFalse(mDevicePolicyManager.isSecondaryLockscreenEnabled(Process.myUserHandle()));
-        super.tearDown();
+        mUiDevice.executeShellCommand("settings delete global device_policy_constants");
+        mUiDevice.executeShellCommand("locksettings clear --old 1234");
+        mUiDevice.executeShellCommand("locksettings set-disabled true");
     }
 
-    public void testSetSecondaryLockscreen_notSupervisionApp_throwsSecurityException() {
-        // This API is only available to the configured supervision app, which is not possible to
-        // override as part of a CTS test, so just test that a security exception is thrown as
-        // expected even for the DO/PO.
-        assertThrows(SecurityException.class,
-                () -> mDevicePolicyManager.setSecondaryLockscreenEnabled(ADMIN_RECEIVER_COMPONENT,
-                        true));
+    @Test
+    @Ignore("b/184280023")
+    public void testSetSecondaryLockscreenEnabled() throws Exception {
+        enterKeyguardPin();
+        assertTrue("Lockscreen title not shown",
+                mUiDevice.wait(Until.hasObject(By.text(SimpleKeyguardService.TITLE_LABEL)),
+                        UI_AUTOMATOR_WAIT_TIME_MILLIS));
+
+        mDevicePolicyManager.setSecondaryLockscreenEnabled(ADMIN_RECEIVER_COMPONENT, false);
+
+        // Verify that the lockscreen is dismissed after disabling the feature
+        assertFalse(mDevicePolicyManager.isSecondaryLockscreenEnabled(Process.myUserHandle()));
+        verifyHomeLauncherIsShown();
+    }
+
+    @Test
+    @Ignore("b/184280023")
+    public void testHomeButton() throws Exception {
+        enterKeyguardPin();
+        assertTrue("Lockscreen title not shown",
+                mUiDevice.wait(Until.hasObject(By.text(SimpleKeyguardService.TITLE_LABEL)),
+                        UI_AUTOMATOR_WAIT_TIME_MILLIS));
+
+        // Verify that pressing home does not dismiss the lockscreen
+        mUiDevice.pressHome();
+        verifySecondaryLockscreenIsShown();
+    }
+
+    @Test
+    @Ignore("b/184280023")
+    public void testDismiss() throws Exception {
+        enterKeyguardPin();
+        assertTrue("Lockscreen title not shown",
+                mUiDevice.wait(Until.hasObject(By.text(SimpleKeyguardService.TITLE_LABEL)),
+                        UI_AUTOMATOR_WAIT_TIME_MILLIS));
+
+        mUiDevice.findObject(By.text(SimpleKeyguardService.DISMISS_BUTTON_LABEL)).click();
+        verifyHomeLauncherIsShown();
+
+        // Verify that the feature is not disabled after dismissal
+        enterKeyguardPin();
+        assertTrue(mUiDevice.wait(Until.hasObject(By.text(SimpleKeyguardService.TITLE_LABEL)),
+                UI_AUTOMATOR_WAIT_TIME_MILLIS));
+        verifySecondaryLockscreenIsShown();
+    }
+
+    @Test(expected = SecurityException.class)
+    public void testSetSecondaryLockscreen_ineligibleAdmin_throwsSecurityException() {
+        final ComponentName badAdmin = new ComponentName("com.foo.bar", ".NonProfileOwnerReceiver");
+        mDevicePolicyManager.setSecondaryLockscreenEnabled(badAdmin, true);
+    }
+
+    private void enterKeyguardPin() throws Exception {
+        mUiDevice.executeShellCommand("input keyevent KEYCODE_SLEEP");
+        mUiDevice.executeShellCommand("input keyevent KEYCODE_WAKEUP");
+        assertTrue("Keyguard unexpectedly not shown",
+                mUiDevice.wait(Until.hasObject(
+                        By.res("com.android.systemui", "keyguard_status_view")),
+                                UI_AUTOMATOR_WAIT_TIME_MILLIS));
+        mUiDevice.executeShellCommand("wm dismiss-keyguard");
+        assertTrue("Keyguard pin entry unexpectedly not shown",
+                mUiDevice.wait(Until.hasObject(By.res("com.android.systemui", "pinEntry")),
+                        UI_AUTOMATOR_WAIT_TIME_MILLIS));
+        mUiDevice.executeShellCommand("input text 1234");
+        mUiDevice.executeShellCommand("input keyevent KEYCODE_ENTER");
+    }
+
+    private void verifyHomeLauncherIsShown() {
+        String launcherPackageName = getLauncherPackageName();
+        assertTrue("Lockscreen title is unexpectedly shown",
+                mUiDevice.wait(Until.gone(By.text(SimpleKeyguardService.TITLE_LABEL)),
+                        UI_AUTOMATOR_WAIT_TIME_MILLIS));
+        assertTrue(String.format("Launcher (%s) is not shown", launcherPackageName),
+                mUiDevice.wait(Until.hasObject(By.pkg(launcherPackageName)),
+                        UI_AUTOMATOR_WAIT_TIME_MILLIS));
+    }
+
+    private void verifySecondaryLockscreenIsShown() {
+        String launcherPackageName = getLauncherPackageName();
+        assertTrue("Lockscreen title is unexpectedly not shown",
+                mUiDevice.wait(Until.hasObject(By.text(SimpleKeyguardService.TITLE_LABEL)),
+                        UI_AUTOMATOR_WAIT_TIME_MILLIS));
+        assertTrue(String.format("Launcher (%s) is unexpectedly shown", launcherPackageName),
+                mUiDevice.wait(Until.gone(By.pkg(launcherPackageName)),
+                        UI_AUTOMATOR_WAIT_TIME_MILLIS));
+    }
+
+    private String getLauncherPackageName() {
+        Intent homeIntent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+        List<ResolveInfo> resolveInfos = mContext.getPackageManager().queryIntentActivities(
+                homeIntent, 0);
+        StringBuilder sb = new StringBuilder();
+        for (ResolveInfo resolveInfo : resolveInfos) {
+            sb.append(resolveInfo.activityInfo.packageName).append("/").append(
+                    resolveInfo.activityInfo.name).append(", ");
+        }
+        return resolveInfos.isEmpty() ? null : resolveInfos.get(0).activityInfo.packageName;
     }
 }

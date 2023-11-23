@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/socket.c		Netlink Socket
  *
@@ -29,8 +30,11 @@
 
 #include "defs.h"
 
+#include "sys/socket.h"
+
 #include <netlink-private/netlink.h>
 #include <netlink-private/socket.h>
+#include <netlink-private/utils.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
 #include <netlink/handlers.h>
@@ -106,24 +110,20 @@ static uint32_t generate_local_port(void)
 
 			nl_write_unlock(&port_map_lock);
 
-			return pid + (((uint32_t)n) << 22);
+			/* ensure we don't return zero. */
+			pid = pid + (((uint32_t)n) << 22);
+			return pid ? pid : 1024;
 		}
 	}
 
 	nl_write_unlock(&port_map_lock);
-
-	/* Out of sockets in our own PID namespace, what to do? FIXME */
-	NL_DBG(1, "Warning: Ran out of unique local port namespace\n");
-	return UINT32_MAX;
+	return 0;
 }
 
 static void release_local_port(uint32_t port)
 {
 	int nr;
 	uint32_t mask;
-
-	if (port == UINT32_MAX)
-		return;
 
 	BUG_ON(port == 0);
 
@@ -165,7 +165,7 @@ void _nl_socket_used_ports_set(uint32_t *used_ports, uint32_t port)
 	nr /= 32;
 
 	/*
-	BUG_ON(port == UINT32_MAX || port == 0 || (getpid() & 0x3FFFFF) != (port & 0x3FFFFF));
+	BUG_ON(port == 0 || (getpid() & 0x3FFFFF) != (port & 0x3FFFFF));
 	BUG_ON(used_ports[nr] & mask);
 	*/
 
@@ -190,7 +190,7 @@ static struct nl_sock *__alloc_socket(struct nl_cb *cb)
 	sk->s_cb = nl_cb_get(cb);
 	sk->s_local.nl_family = AF_NETLINK;
 	sk->s_peer.nl_family = AF_NETLINK;
-	sk->s_seq_expect = sk->s_seq_next = time(0);
+	sk->s_seq_expect = sk->s_seq_next = time(NULL);
 
 	/* the port is 0 (unspecified), meaning NL_OWN_PORT */
 	sk->s_flags = NL_OWN_PORT;
@@ -206,18 +206,18 @@ static struct nl_sock *__alloc_socket(struct nl_cb *cb)
 struct nl_sock *nl_socket_alloc(void)
 {
 	struct nl_cb *cb;
-        struct nl_sock *sk;
+	struct nl_sock *sk;
 
 	cb = nl_cb_alloc(default_cb);
 	if (!cb)
 		return NULL;
 
-        /* will increment cb reference count on success */
+	/* will increment cb reference count on success */
 	sk = __alloc_socket(cb);
 
-        nl_cb_put(cb);
+	nl_cb_put(cb);
 
-        return sk;
+	return sk;
 }
 
 /**
@@ -335,16 +335,24 @@ int _nl_socket_is_local_port_unspecified(struct nl_sock *sk)
 	return (sk->s_local.nl_pid == 0);
 }
 
-uint32_t _nl_socket_generate_local_port_no_release(struct nl_sock *sk)
+uint32_t _nl_socket_set_local_port_no_release(struct nl_sock *sk, int generate_other)
 {
 	uint32_t port;
 
 	/* reset the port to generate_local_port(), but do not release
 	 * the previously generated port. */
 
-	port = generate_local_port();
-	sk->s_flags &= ~NL_OWN_PORT;
+	if (generate_other)
+		port = generate_local_port();
+	else
+		port = 0;
 	sk->s_local.nl_pid = port;
+	if (port == 0) {
+		/* failed to find an unsed port. Restore the socket to have an
+		 * unspecified port. */
+		sk->s_flags |= NL_OWN_PORT;
+	} else
+		sk->s_flags &= ~NL_OWN_PORT;
 	return port;
 }
 /** \endcond */
@@ -357,6 +365,8 @@ uint32_t _nl_socket_generate_local_port_no_release(struct nl_sock *sk)
 uint32_t nl_socket_get_local_port(const struct nl_sock *sk)
 {
 	if (sk->s_local.nl_pid == 0) {
+		struct nl_sock *sk_mutable = (struct nl_sock *) sk;
+
 		/* modify the const argument sk. This is justified, because
 		 * nobody ever saw the local_port from externally. So, we
 		 * initilize it on first use.
@@ -366,7 +376,15 @@ uint32_t nl_socket_get_local_port(const struct nl_sock *sk)
 		 * is not automatically threadsafe anyway, so the user is not
 		 * allowed to do that.
 		 */
-		return _nl_socket_generate_local_port_no_release((struct nl_sock *) sk);
+		sk_mutable->s_local.nl_pid = generate_local_port();
+		if (sk_mutable->s_local.nl_pid == 0) {
+			/* could not generate a local port. Assign UINT32_MAX to preserve
+			 * backward compatibility. A user who cares can clear that anyway
+			 * with nl_socket_set_local_port(). */
+			sk_mutable->s_local.nl_pid = UINT32_MAX;
+			sk_mutable->s_flags |= NL_OWN_PORT;
+		} else
+			sk_mutable->s_flags &= ~NL_OWN_PORT;
 	}
 	return sk->s_local.nl_pid;
 }
@@ -434,6 +452,8 @@ int nl_socket_add_memberships(struct nl_sock *sk, int group, ...)
 						 &group, sizeof(group));
 		if (err < 0) {
 			va_end(ap);
+			NL_DBG(4, "nl_socket_add_memberships(%p): setsockopt() failed with %d (%s)\n",
+				sk, errno, nl_strerror_l(errno));
 			return -nl_syserr2nlerr(errno);
 		}
 
@@ -482,6 +502,8 @@ int nl_socket_drop_memberships(struct nl_sock *sk, int group, ...)
 						 &group, sizeof(group));
 		if (err < 0) {
 			va_end(ap);
+			NL_DBG(4, "nl_socket_drop_memberships(%p): setsockopt() failed with %d (%s)\n",
+				sk, errno, nl_strerror_l(errno));
 			return -nl_syserr2nlerr(errno);
 		}
 
@@ -565,6 +587,114 @@ int nl_socket_get_fd(const struct nl_sock *sk)
 }
 
 /**
+ * Set the socket file descriptor externally which initializes the
+ * socket similar to nl_connect().
+ *
+ * @arg sk         Netlink socket (required)
+ * @arg protocol   The socket protocol (optional). Linux 2.6.32 supports
+ *                 the socket option SO_PROTOCOL. In this case, you can set
+ *                 protocol to a negative value and let it autodetect.
+ *                 If you set it to a non-negative value, the detected protocol
+ *                 must match the one provided.
+ *                 To support older kernels, you must specify the protocol.
+ * @arg fd         Socket file descriptor to use (required)
+ *
+ * Set the socket file descriptor. @fd must be valid and bind'ed.
+ *
+ * This is an alternative to nl_connect(). nl_connect() creates, binds and
+ * sets the socket. With this function you can set the socket to an externally
+ * created file descriptor.
+ *
+ * @see nl_connect()
+ *
+ * @return 0 on success or a negative error code. On error, @fd is not closed but
+ * possibly unusable.
+ *
+ * @retval -NLE_BAD_SOCK Netlink socket is already connected
+ * @retval -NLE_INVAL Socket is of unexpected type
+ */
+int nl_socket_set_fd(struct nl_sock *sk, int protocol, int fd)
+{
+	int err = 0;
+	socklen_t addrlen;
+	struct sockaddr_nl local = { 0 };
+	int so_type = -1, so_protocol = -1;
+
+	if (sk->s_fd != -1)
+		return -NLE_BAD_SOCK;
+	if (fd < 0)
+		return -NLE_INVAL;
+
+	addrlen = sizeof(local);
+	err = getsockname(fd, (struct sockaddr *) &local,
+	                  &addrlen);
+	if (err < 0) {
+		NL_DBG(4, "nl_socket_set_fd(%p,%d): getsockname() failed with %d (%s)\n",
+		       sk, fd, errno, nl_strerror_l(errno));
+		return -nl_syserr2nlerr(errno);
+	}
+	if (addrlen != sizeof(local))
+		return -NLE_INVAL;
+	if (local.nl_family != AF_NETLINK) {
+		NL_DBG(4, "nl_socket_set_fd(%p,%d): getsockname() returned family %d instead of %d (AF_NETLINK)\n",
+		       sk, fd, local.nl_family, AF_NETLINK);
+		return -NLE_INVAL;
+	}
+
+	addrlen = sizeof(so_type);
+	err = getsockopt(fd, SOL_SOCKET, SO_TYPE, &so_type, &addrlen);
+	if (err < 0) {
+		NL_DBG(4, "nl_socket_set_fd(%p,%d): getsockopt() for SO_TYPE failed with %d (%s)\n",
+		       sk, fd, errno, nl_strerror_l(errno));
+		return -nl_syserr2nlerr(errno);
+	}
+	if (addrlen != sizeof(so_type))
+		return -NLE_INVAL;
+	if (so_type != SOCK_RAW) {
+		NL_DBG(4, "nl_socket_set_fd(%p,%d): getsockopt() returned SO_TYPE %d instead of %d (SOCK_RAW)\n",
+		       sk, fd, so_type, SOCK_RAW);
+		return -NLE_INVAL;
+	}
+
+#if SO_PROTOCOL
+	addrlen = sizeof(so_protocol);
+	err = getsockopt(fd, SOL_SOCKET, SO_PROTOCOL, &so_protocol, &addrlen);
+	if (err < 0) {
+		if (errno == ENOPROTOOPT)
+			goto no_so_protocol;
+		NL_DBG(4, "nl_socket_set_fd(%p,%d): getsockopt() for SO_PROTOCOL failed with %d (%s)\n",
+		       sk, fd, errno, nl_strerror_l(errno));
+		return -nl_syserr2nlerr(errno);
+	}
+	if (addrlen != sizeof(so_protocol))
+		return -NLE_INVAL;
+	if (protocol >= 0 && protocol != so_protocol) {
+		NL_DBG(4, "nl_socket_set_fd(%p,%d): getsockopt() for SO_PROTOCOL returned %d instead of %d\n",
+		       sk, fd, so_protocol, protocol);
+		return -NLE_INVAL;
+	}
+
+	if (0)
+#endif
+	{
+no_so_protocol:
+		if (protocol < 0) {
+			NL_DBG(4, "nl_socket_set_fd(%p,%d): unknown protocol and unable to detect it via SO_PROTOCOL socket option\n",
+			       sk, fd);
+			return -NLE_INVAL;
+		}
+		so_protocol = protocol;
+	}
+
+	nl_socket_set_local_port (sk, local.nl_pid);
+	sk->s_local = local;
+	sk->s_fd = fd;
+	sk->s_proto = so_protocol;
+
+	return 0;
+}
+
+/**
  * Set file descriptor of socket to non-blocking state
  * @arg sk		Netlink socket.
  *
@@ -575,8 +705,11 @@ int nl_socket_set_nonblocking(const struct nl_sock *sk)
 	if (sk->s_fd == -1)
 		return -NLE_BAD_SOCK;
 
-	if (fcntl(sk->s_fd, F_SETFL, O_NONBLOCK) < 0)
+	if (fcntl(sk->s_fd, F_SETFL, O_NONBLOCK) < 0) {
+		NL_DBG(4, "nl_socket_set_nonblocking(%p): fcntl() failed with %d (%s)\n",
+			sk, errno, nl_strerror_l(errno));
 		return -nl_syserr2nlerr(errno);
+	}
 
 	return 0;
 }
@@ -584,18 +717,23 @@ int nl_socket_set_nonblocking(const struct nl_sock *sk)
 /**
  * Enable use of MSG_PEEK when reading from socket
  * @arg sk		Netlink socket.
+ *
+ * See also NL_CAPABILITY_NL_RECVMSGS_PEEK_BY_DEFAULT capability
  */
 void nl_socket_enable_msg_peek(struct nl_sock *sk)
 {
-	sk->s_flags |= NL_MSG_PEEK;
+	sk->s_flags |= (NL_MSG_PEEK | NL_MSG_PEEK_EXPLICIT);
 }
 
 /**
  * Disable use of MSG_PEEK when reading from socket
  * @arg sk		Netlink socket.
+ *
+ * See also NL_CAPABILITY_NL_RECVMSGS_PEEK_BY_DEFAULT capability
  */
 void nl_socket_disable_msg_peek(struct nl_sock *sk)
 {
+	sk->s_flags |= NL_MSG_PEEK_EXPLICIT;
 	sk->s_flags &= ~NL_MSG_PEEK;
 }
 
@@ -613,8 +751,8 @@ struct nl_cb *nl_socket_get_cb(const struct nl_sock *sk)
 
 void nl_socket_set_cb(struct nl_sock *sk, struct nl_cb *cb)
 {
-        if (cb == NULL)
-                BUG();
+	if (cb == NULL)
+		BUG();
 
 	nl_cb_put(sk->s_cb);
 	sk->s_cb = nl_cb_get(cb);
@@ -684,18 +822,22 @@ int nl_socket_set_buffer_size(struct nl_sock *sk, int rxbuf, int txbuf)
 
 	if (sk->s_fd == -1)
 		return -NLE_BAD_SOCK;
-	
+
 	err = setsockopt(sk->s_fd, SOL_SOCKET, SO_SNDBUF,
 			 &txbuf, sizeof(txbuf));
-	if (err < 0)
+	if (err < 0) {
+		NL_DBG(4, "nl_socket_set_buffer_size(%p): setsockopt() failed with %d (%s)\n",
+			sk, errno, nl_strerror_l(errno));
 		return -nl_syserr2nlerr(errno);
+	}
 
 	err = setsockopt(sk->s_fd, SOL_SOCKET, SO_RCVBUF,
 			 &rxbuf, sizeof(rxbuf));
-	if (err < 0)
+	if (err < 0) {
+		NL_DBG(4, "nl_socket_set_buffer_size(%p): setsockopt() failed with %d (%s)\n",
+			sk, errno, nl_strerror_l(errno));
 		return -nl_syserr2nlerr(errno);
-
-	sk->s_flags |= NL_SOCK_BUFSIZE_SET;
+	}
 
 	return 0;
 }
@@ -709,6 +851,19 @@ int nl_socket_set_buffer_size(struct nl_sock *sk, int rxbuf, int txbuf)
  * The default message buffer size limits the maximum message size the
  * socket will be able to receive. It is generally recommneded to specify
  * a buffer size no less than the size of a memory page.
+ *
+ * Setting the @bufsize to zero means to use a default of 4 times getpagesize().
+ *
+ * When MSG_PEEK is enabled, the buffer size is used for the initial choice
+ * of the buffer while peeking. It still makes sense to choose an optimal value
+ * to avoid realloc().
+ *
+ * When MSG_PEEK is disabled, the buffer size is important because a too small
+ * size will lead to failure of receiving the message via nl_recvmsgs().
+ *
+ * By default, MSG_PEEK is enabled unless the user calls either nl_socket_disable_msg_peek()/
+ * nl_socket_enable_msg_peek() or sets the message buffer size to a positive value.
+ * See capability NL_CAPABILITY_NL_RECVMSGS_PEEK_BY_DEFAULT for that.
  *
  * @return 0 on success or a negative error code.
  */
@@ -746,8 +901,11 @@ int nl_socket_set_passcred(struct nl_sock *sk, int state)
 
 	err = setsockopt(sk->s_fd, SOL_SOCKET, SO_PASSCRED,
 			 &state, sizeof(state));
-	if (err < 0)
+	if (err < 0) {
+		NL_DBG(4, "nl_socket_set_passcred(%p): setsockopt() failed with %d (%s)\n",
+			sk, errno, nl_strerror_l(errno));
 		return -nl_syserr2nlerr(errno);
+	}
 
 	if (state)
 		sk->s_flags |= NL_SOCK_PASSCRED;
@@ -773,8 +931,11 @@ int nl_socket_recv_pktinfo(struct nl_sock *sk, int state)
 
 	err = setsockopt(sk->s_fd, SOL_NETLINK, NETLINK_PKTINFO,
 			 &state, sizeof(state));
-	if (err < 0)
+	if (err < 0) {
+		NL_DBG(4, "nl_socket_recv_pktinfo(%p): setsockopt() failed with %d (%s)\n",
+			sk, errno, nl_strerror_l(errno));
 		return -nl_syserr2nlerr(errno);
+	}
 
 	return 0;
 }

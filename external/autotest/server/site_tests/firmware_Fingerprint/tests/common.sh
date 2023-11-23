@@ -6,12 +6,37 @@
 
 set -e
 
-readonly _FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_ENABLED="$(cat <<SETVAR
+# nocturne does not support unibuild, so the cros_config command will exit
+# with error and not print a board.
+readonly _BOARD="$(cros_config /fingerprint board || true)"
+
+# TODO(b/149590275): remove once fixed
+if [[ "${_BOARD}" == "bloonchipper" ]]; then
+  readonly _FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_ENABLED="$(cat <<SETVAR
+Flash protect flags: 0x0000040f wp_gpio_asserted ro_at_boot ro_now rollback_now all_now
+Valid flags:         0x0000003f wp_gpio_asserted ro_at_boot ro_now all_now STUCK INCONSISTENT
+Writable flags:      0x00000000
+SETVAR
+  )"
+else
+  readonly _FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_ENABLED="$(cat <<SETVAR
 Flash protect flags: 0x0000000b wp_gpio_asserted ro_at_boot ro_now
 Valid flags:         0x0000003f wp_gpio_asserted ro_at_boot ro_now all_now STUCK INCONSISTENT
 Writable flags:      0x00000004 all_now
 SETVAR
-)"
+  )"
+fi
+
+if [[ "${_BOARD}" == "bloonchipper" ]]; then
+  readonly _FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_ENABLED_RO="$(cat <<SETVAR
+Flash protect flags: 0x0000000b wp_gpio_asserted ro_at_boot ro_now
+Valid flags:         0x0000003f wp_gpio_asserted ro_at_boot ro_now all_now STUCK INCONSISTENT
+Writable flags:      0x00000004 all_now
+SETVAR
+  )"
+else
+  readonly _FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_ENABLED_RO="${_FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_ENABLED}"
+fi
 
 readonly _FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_DISABLED="$(cat <<SETVAR
 Flash protect flags: 0x00000000
@@ -20,12 +45,34 @@ Writable flags:      0x00000001 ro_at_boot
 SETVAR
 )"
 
-readonly _FLASHPROTECT_OUTPUT_HW_WRITE_PROTECT_DISABLED_AND_SW_WRITE_PROTECT_ENABLED="$(cat <<SETVAR
-Flash protect flags: 0x00000003 ro_at_boot ro_now
+# TODO(b/149590275): remove once fixed
+if [[ "${_BOARD}" == "bloonchipper" ]]; then
+  readonly _FLASHPROTECT_OUTPUT_HW_WRITE_PROTECT_DISABLED_AND_SW_WRITE_PROTECT_ENABLED="$(cat <<SETVAR
+Flash protect flags: 0x00000407 ro_at_boot ro_now rollback_now all_now
 Valid flags:         0x0000003f wp_gpio_asserted ro_at_boot ro_now all_now STUCK INCONSISTENT
 Writable flags:      0x00000000
 SETVAR
 )"
+else
+  readonly _FLASHPROTECT_OUTPUT_HW_WRITE_PROTECT_DISABLED_AND_SW_WRITE_PROTECT_ENABLED="$(cat <<SETVAR
+Flash protect flags: 0x00000003 ro_at_boot ro_now
+Valid flags:         0x0000003f wp_gpio_asserted ro_at_boot ro_now all_now STUCK INCONSISTENT
+Writable flags:      0x00000000
+SETVAR
+  )"
+fi
+
+# SYSTEM_IS_LOCKED
+# SYSTEM_JUMP_ENABLED
+# SYSTEM_JUMPED_TO_CURRENT_IMAGE
+# See https://chromium.googlesource.com/chromiumos/platform/ec/+/10fe09bf9aaf59213d141fc1d479ed259f786049/include/ec_commands.h#1865
+readonly _SYSINFO_SYSTEM_IS_LOCKED_FLAGS="0x0000000d"
+
+if [[ "${_BOARD}" == "bloonchipper" ]]; then
+  readonly _ROLLBACK_FLASH_OFFSET="0x20000"
+else
+  readonly _ROLLBACK_FLASH_OFFSET="0xe0000"
+fi
 
 readonly _FP_FRAME_RAW_ACCESS_DENIED_ERROR="$(cat <<SETVAR
 EC result 4 (ACCESS_DENIED)
@@ -102,7 +149,7 @@ check_raw_fpframe_fails() {
 
 read_from_flash() {
   local output_file="${1}"
-  run_ectool_cmd "flashread" "0xe0000" "0x1000" "${output_file}"
+  run_ectool_cmd "flashread" "${_ROLLBACK_FLASH_OFFSET}" "0x1000" "${output_file}"
 }
 
 read_from_flash_in_bootloader_mode_without_modifying_RDP_level() {
@@ -113,6 +160,11 @@ read_from_flash_in_bootloader_mode_without_modifying_RDP_level() {
 read_from_flash_in_bootloader_mode_while_setting_RDP_to_level_0() {
   local output_file="${1}"
   flash_fp_mcu --read "${output_file}"
+}
+
+
+get_sysinfo_flags() {
+  run_ectool_cmd "sysinfo" "flags"
 }
 
 get_running_firmware_copy() {
@@ -311,6 +363,17 @@ check_hw_and_sw_write_protect_enabled() {
   fi
 }
 
+check_hw_and_sw_write_protect_enabled_ro() {
+  local output
+  output="$(get_flashprotect_status)"
+
+  if [[ "${output}" != "${_FLASHPROTECT_OUTPUT_HW_AND_SW_WRITE_PROTECT_ENABLED_RO}" ]]; then
+    echo "Incorrect flashprotect state: ${output}"
+    echo "Make sure HW write protect is enabled (wp_gpio_asserted)"
+    exit 1
+  fi
+}
+
 check_hw_and_sw_write_protect_disabled() {
   local output
   output="$(get_flashprotect_status)"
@@ -394,4 +457,14 @@ check_file_contains_all_0xFF_bytes() {
   check_files_match "${file_to_compare}" "${tmp_file}"
 
   rm -rf "${tmp_file}"
+}
+
+check_system_is_locked() {
+  local flags
+  flags="$(get_sysinfo_flags)"
+  if [[ "${flags}" != "${_SYSINFO_SYSTEM_IS_LOCKED_FLAGS}" ]]; then
+    echo "sysinfo flags do not match. expected: "\
+         "${_SYSINFO_SYSTEM_IS_LOCKED_FLAGS}, actual: ${flags}"
+    exit 1
+  fi
 }

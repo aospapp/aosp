@@ -15,32 +15,30 @@
  */
 package android.host.multiuser;
 
-import static com.android.tradefed.log.LogUtil.CLog;
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import android.host.multiuser.BaseMultiUserTest.SupportsMultiUserRule;
 
 import com.android.compatibility.common.util.CddTest;
-import com.android.ddmlib.Log;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CreateUsersPermissionTest extends BaseMultiUserTest {
+public final class CreateUsersPermissionTest extends BaseMultiUserTest {
+
+    @Rule
+    public final SupportsMultiUserRule mSupportsMultiUserRule = new SupportsMultiUserRule(this);
 
     @Test
     public void testCanCreateGuestUser() throws Exception {
-        if (!mSupportsMultiUser) {
-            return;
-        }
         createGuestUser();
     }
 
     @Test
     public void testCanCreateEphemeralUser() throws Exception {
-        if (!mSupportsMultiUser || !mIsSplitSystemUser) {
-            return;
-        }
         getDevice().createUser(
                 "TestUser_" + System.currentTimeMillis() /* name */,
                 false /* guest */,
@@ -49,33 +47,14 @@ public class CreateUsersPermissionTest extends BaseMultiUserTest {
 
     @Test
     public void testCanCreateRestrictedUser() throws Exception {
-        if (!mSupportsMultiUser) {
-            return;
-        }
         createRestrictedProfile(mPrimaryUserId);
-    }
-
-    @Test
-    public void testCantSetUserRestriction() throws Exception {
-        if (getDevice().isAdbRoot()) {
-            CLog.logAndDisplay(Log.LogLevel.WARN,
-                    "Cannot test testCantSetUserRestriction on rooted devices");
-            return;
-        }
-        final String setRestriction = "pm set-user-restriction no_fun ";
-        final String output = getDevice().executeShellCommand(setRestriction + "1");
-        final boolean isErrorOutput = output.contains("SecurityException")
-                && output.contains("You need MANAGE_USERS permission");
-        Assert.assertTrue("Trying to set user restriction should fail with SecurityException. "
-                + "command output: " + output, isErrorOutput);
     }
 
     @CddTest(requirement="9.5/A-1-3")
     @Test
     public void testCanCreateGuestUserWhenUserLimitReached() throws Exception {
-        if (!isAutomotiveDevice()) {
-            return;
-        }
+        assumeIsAutomotive();
+
         // Remove existing guest user
         int guestUserId = getGuestUser();
         if (guestUserId != -1) {
@@ -94,7 +73,7 @@ public class CreateUsersPermissionTest extends BaseMultiUserTest {
         }
         createGuestUser();
         userCount = getDevice().listUsers().size();
-        Assert.assertTrue("User count should be greater than max users due to added guest user",
-                userCount > maxUsers);
+        assertWithMessage("User count should be greater than max users due to added guest user")
+                .that(userCount).isGreaterThan(maxUsers);
     }
 }

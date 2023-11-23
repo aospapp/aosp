@@ -334,15 +334,33 @@ TEST_F(CreateSuite, CreateSRC44to48) {
   out_fmt.frame_rate = 48000;  // Output from converter is device rate.
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
   dev_stream =
-      dev_stream_create(&rstream_, 0, &fmt_s16le_48, (void*)0x55, &cb_ts);
+      dev_stream_create(&rstream_, 0, &fmt_s16le_48, (void*)0x55, &cb_ts, NULL);
   EXPECT_EQ(1, config_format_converter_called);
   EXPECT_NE(static_cast<byte_buffer*>(NULL), dev_stream->conv_buffer);
   // Converter tmp and output buffers are large enough for device output.
   unsigned int device_frames =
       cras_frames_at_rate(in_fmt.frame_rate, kBufferFrames, out_fmt.frame_rate);
-  EXPECT_LE(kBufferFrames, device_frames);  // Sanity check.
+  EXPECT_LE(kBufferFrames, device_frames);  // Soundness check.
   EXPECT_LE(device_frames, config_format_converter_frames);
   EXPECT_LE(device_frames, dev_stream->conv_buffer_size_frames);
+  dev_stream_destroy(dev_stream);
+}
+
+TEST_F(CreateSuite, CreateOutputWithSchedule) {
+  struct dev_stream* dev_stream;
+  unsigned int dev_id = 9;
+  // init_cb_ts and non-null init_sleep_ts will be used.
+  struct timespec init_cb_ts = {1, 2};
+  struct timespec init_sleep_ts = {3, 4};
+
+  rstream_.direction = CRAS_STREAM_OUTPUT;
+  dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_48, (void*)0x55,
+                                 &init_cb_ts, &init_sleep_ts);
+
+  EXPECT_EQ(init_cb_ts.tv_sec, rstream_.next_cb_ts.tv_sec);
+  EXPECT_EQ(init_cb_ts.tv_nsec, rstream_.next_cb_ts.tv_nsec);
+  EXPECT_EQ(init_sleep_ts.tv_sec, rstream_.sleep_interval_ts.tv_sec);
+  EXPECT_EQ(init_sleep_ts.tv_nsec, rstream_.sleep_interval_ts.tv_nsec);
   dev_stream_destroy(dev_stream);
 }
 
@@ -358,13 +376,13 @@ TEST_F(CreateSuite, CreateSRC44from48Input) {
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
   cras_rstream_post_processing_format_val = &processed_fmt;
   dev_stream =
-      dev_stream_create(&rstream_, 0, &fmt_s16le_48, (void*)0x55, &cb_ts);
+      dev_stream_create(&rstream_, 0, &fmt_s16le_48, (void*)0x55, &cb_ts, NULL);
   EXPECT_EQ(1, config_format_converter_called);
   EXPECT_NE(static_cast<byte_buffer*>(NULL), dev_stream->conv_buffer);
   // Converter tmp and output buffers are large enough for device input.
   unsigned int device_frames =
       cras_frames_at_rate(out_fmt.frame_rate, kBufferFrames, in_fmt.frame_rate);
-  EXPECT_LE(kBufferFrames, device_frames);  // Sanity check.
+  EXPECT_LE(kBufferFrames, device_frames);  // Soundness check.
   EXPECT_LE(device_frames, config_format_converter_frames);
   EXPECT_EQ(&processed_fmt, config_format_converter_from_fmt);
   EXPECT_LE(device_frames, dev_stream->conv_buffer_size_frames);
@@ -378,8 +396,8 @@ TEST_F(CreateSuite, CreateSRC48to44) {
   in_fmt.frame_rate = 48000;   // Stream rate.
   out_fmt.frame_rate = 44100;  // Device rate.
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
-  dev_stream =
-      dev_stream_create(&rstream_, 0, &fmt_s16le_44_1, (void*)0x55, &cb_ts);
+  dev_stream = dev_stream_create(&rstream_, 0, &fmt_s16le_44_1, (void*)0x55,
+                                 &cb_ts, NULL);
   EXPECT_EQ(1, config_format_converter_called);
   EXPECT_NE(static_cast<byte_buffer*>(NULL), dev_stream->conv_buffer);
   // Converter tmp and output buffers are large enough for stream input.
@@ -396,8 +414,8 @@ TEST_F(CreateSuite, CreateSRC48from44Input) {
   in_fmt.frame_rate = 44100;   // Device rate.
   out_fmt.frame_rate = 48000;  // Stream rate.
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
-  dev_stream =
-      dev_stream_create(&rstream_, 0, &fmt_s16le_44_1, (void*)0x55, &cb_ts);
+  dev_stream = dev_stream_create(&rstream_, 0, &fmt_s16le_44_1, (void*)0x55,
+                                 &cb_ts, NULL);
   EXPECT_EQ(1, config_format_converter_called);
   EXPECT_NE(static_cast<byte_buffer*>(NULL), dev_stream->conv_buffer);
   // Converter tmp and output buffers are large enough for stream output.
@@ -414,13 +432,13 @@ TEST_F(CreateSuite, CreateSRC8to48) {
   out_fmt.frame_rate = 48000;  // Device rate.
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
   dev_stream =
-      dev_stream_create(&rstream_, 0, &fmt_s16le_48, (void*)0x55, &cb_ts);
+      dev_stream_create(&rstream_, 0, &fmt_s16le_48, (void*)0x55, &cb_ts, NULL);
   EXPECT_EQ(1, config_format_converter_called);
   EXPECT_NE(static_cast<byte_buffer*>(NULL), dev_stream->conv_buffer);
   // Converter tmp and output buffers are large enough for device output.
   unsigned int device_frames =
       cras_frames_at_rate(in_fmt.frame_rate, kBufferFrames, out_fmt.frame_rate);
-  EXPECT_LE(kBufferFrames, device_frames);  // Sanity check.
+  EXPECT_LE(kBufferFrames, device_frames);  // Soundness check.
   EXPECT_LE(device_frames, config_format_converter_frames);
   EXPECT_LE(device_frames, dev_stream->conv_buffer_size_frames);
   dev_stream_destroy(dev_stream);
@@ -435,13 +453,13 @@ TEST_F(CreateSuite, CreateSRC8from48Input) {
   out_fmt.frame_rate = 8000;  // Stream rate.
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
   dev_stream =
-      dev_stream_create(&rstream_, 0, &fmt_s16le_48, (void*)0x55, &cb_ts);
+      dev_stream_create(&rstream_, 0, &fmt_s16le_48, (void*)0x55, &cb_ts, NULL);
   EXPECT_EQ(1, config_format_converter_called);
   EXPECT_NE(static_cast<byte_buffer*>(NULL), dev_stream->conv_buffer);
   // Converter tmp and output buffers are large enough for device input.
   unsigned int device_frames =
       cras_frames_at_rate(out_fmt.frame_rate, kBufferFrames, in_fmt.frame_rate);
-  EXPECT_LE(kBufferFrames, device_frames);  // Sanity check.
+  EXPECT_LE(kBufferFrames, device_frames);  // Soundness check.
   EXPECT_LE(device_frames, config_format_converter_frames);
   EXPECT_LE(device_frames, dev_stream->conv_buffer_size_frames);
   dev_stream_destroy(dev_stream);
@@ -455,7 +473,7 @@ TEST_F(CreateSuite, CreateSRC48to8) {
   out_fmt.frame_rate = 8000;  // Device rate.
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
   dev_stream =
-      dev_stream_create(&rstream_, 0, &fmt_s16le_8, (void*)0x55, &cb_ts);
+      dev_stream_create(&rstream_, 0, &fmt_s16le_8, (void*)0x55, &cb_ts, NULL);
   EXPECT_EQ(1, config_format_converter_called);
   EXPECT_NE(static_cast<byte_buffer*>(NULL), dev_stream->conv_buffer);
   // Converter tmp and output buffers are large enough for stream input.
@@ -473,7 +491,7 @@ TEST_F(CreateSuite, CreateSRC48from8Input) {
   out_fmt.frame_rate = 48000;  // Stream rate.
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
   dev_stream =
-      dev_stream_create(&rstream_, 0, &fmt_s16le_8, (void*)0x55, &cb_ts);
+      dev_stream_create(&rstream_, 0, &fmt_s16le_8, (void*)0x55, &cb_ts, NULL);
   EXPECT_EQ(1, config_format_converter_called);
   EXPECT_NE(static_cast<byte_buffer*>(NULL), dev_stream->conv_buffer);
   // Converter tmp and output buffers are large enough for stream output.
@@ -490,8 +508,8 @@ TEST_F(CreateSuite, CreateSRC48MonoFrom44StereoInput) {
   in_fmt.frame_rate = 44100;   // Device rate.
   out_fmt.frame_rate = 48000;  // Stream rate.
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
-  dev_stream =
-      dev_stream_create(&rstream_, 0, &fmt_s16le_44_1, (void*)0x55, &cb_ts);
+  dev_stream = dev_stream_create(&rstream_, 0, &fmt_s16le_44_1, (void*)0x55,
+                                 &cb_ts, NULL);
   EXPECT_EQ(1, config_format_converter_called);
   EXPECT_NE(static_cast<byte_buffer*>(NULL), dev_stream->conv_buffer);
   // Converter tmp and output buffers are large enough for stream output.
@@ -510,8 +528,8 @@ TEST_F(CreateSuite, CaptureAvailConvBufHasSamples) {
   rstream_.format = fmt_s16le_48;
   rstream_.direction = CRAS_STREAM_INPUT;
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
-  dev_stream =
-      dev_stream_create(&rstream_, 0, &fmt_s16le_44_1, (void*)0x55, &cb_ts);
+  dev_stream = dev_stream_create(&rstream_, 0, &fmt_s16le_44_1, (void*)0x55,
+                                 &cb_ts, NULL);
   EXPECT_EQ(1, config_format_converter_called);
   EXPECT_NE(static_cast<byte_buffer*>(NULL), dev_stream->conv_buffer);
   EXPECT_LE(
@@ -529,16 +547,16 @@ TEST_F(CreateSuite, CaptureAvailConvBufHasSamples) {
   dev_stream_destroy(dev_stream);
 }
 
-TEST_F(CreateSuite, SetDevRateNotMasterDev) {
+TEST_F(CreateSuite, SetDevRateNotMainDev) {
   struct dev_stream* dev_stream;
   unsigned int dev_id = 9;
 
   rstream_.format = fmt_s16le_48;
   rstream_.direction = CRAS_STREAM_INPUT;
-  rstream_.master_dev.dev_id = 4;
+  rstream_.main_dev.dev_id = 4;
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
   dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_44_1,
-                                 (void*)0x55, &cb_ts);
+                                 (void*)0x55, &cb_ts, NULL);
 
   dev_stream_set_dev_rate(dev_stream, 44100, 1.01, 1.0, 0);
   EXPECT_EQ(1, cras_fmt_conv_set_linear_resample_rates_called);
@@ -557,17 +575,17 @@ TEST_F(CreateSuite, SetDevRateNotMasterDev) {
   dev_stream_destroy(dev_stream);
 }
 
-TEST_F(CreateSuite, SetDevRateMasterDev) {
+TEST_F(CreateSuite, SetDevRateMainDev) {
   struct dev_stream* dev_stream;
   unsigned int dev_id = 9;
   unsigned int expected_ts_nsec;
 
   rstream_.format = fmt_s16le_48;
   rstream_.direction = CRAS_STREAM_INPUT;
-  rstream_.master_dev.dev_id = dev_id;
+  rstream_.main_dev.dev_id = dev_id;
   config_format_converter_conv = reinterpret_cast<struct cras_fmt_conv*>(0x33);
   dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_44_1,
-                                 (void*)0x55, &cb_ts);
+                                 (void*)0x55, &cb_ts, NULL);
 
   dev_stream_set_dev_rate(dev_stream, 44100, 1.01, 1.0, 0);
   EXPECT_EQ(1, cras_fmt_conv_set_linear_resample_rates_called);
@@ -661,7 +679,7 @@ TEST_F(CreateSuite, DevStreamFlushAudioMessages) {
   unsigned int dev_id = 9;
 
   dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_44_1,
-                                 (void*)0x55, &cb_ts);
+                                 (void*)0x55, &cb_ts, NULL);
 
   dev_stream_flush_old_audio_messages(dev_stream);
   EXPECT_EQ(1, cras_rstream_flush_old_audio_messages_called);
@@ -673,7 +691,7 @@ TEST_F(CreateSuite, DevStreamIsPending) {
   unsigned int dev_id = 9;
 
   dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_44_1,
-                                 (void*)0x55, &cb_ts);
+                                 (void*)0x55, &cb_ts, NULL);
 
   // dev_stream_is_pending_reply is only a wrapper.
   cras_rstream_is_pending_reply_ret = 0;
@@ -694,7 +712,7 @@ TEST_F(CreateSuite, StreamCanSend) {
 
   rstream_.direction = CRAS_STREAM_INPUT;
   dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_44_1,
-                                 (void*)0x55, &cb_ts);
+                                 (void*)0x55, &cb_ts, NULL);
 
   // Assume there is a next_cb_ts on rstream.
   rstream_.next_cb_ts.tv_sec = 1;
@@ -791,7 +809,7 @@ TEST_F(CreateSuite, StreamCanSendBulkAudio) {
   rstream_.direction = CRAS_STREAM_INPUT;
   rstream_.flags |= BULK_AUDIO_OK;
   dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_44_1,
-                                 (void*)0x55, &cb_ts);
+                                 (void*)0x55, &cb_ts, NULL);
 
   // Assume there is a next_cb_ts on rstream.
   rstream_.next_cb_ts.tv_sec = 1;
@@ -864,7 +882,7 @@ TEST_F(CreateSuite, TriggerOnlyStreamSendOnlyOnce) {
 
   rstream_.direction = CRAS_STREAM_INPUT;
   dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_44_1,
-                                 (void*)0x55, &cb_ts);
+                                 (void*)0x55, &cb_ts, NULL);
   dev_stream->stream->flags = TRIGGER_ONLY;
   dev_stream->stream->triggered = 0;
 
@@ -896,7 +914,7 @@ TEST_F(CreateSuite, InputDevStreamWakeTimeByNextCbTs) {
 
   rstream_.direction = CRAS_STREAM_INPUT;
   dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_44_1,
-                                 (void*)0x55, &cb_ts);
+                                 (void*)0x55, &cb_ts, NULL);
 
   // Assume there is a next_cb_ts on rstream.
   rstream_.next_cb_ts.tv_sec = 1;
@@ -929,8 +947,8 @@ TEST_F(CreateSuite, InputDevStreamWakeTimeByDevice) {
   int needed_frames_from_device = 0;
 
   rstream_.direction = CRAS_STREAM_INPUT;
-  dev_stream =
-      dev_stream_create(&rstream_, dev_id, &fmt_s16le_48, (void*)0x55, &cb_ts);
+  dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_48, (void*)0x55,
+                                 &cb_ts, NULL);
 
   // Assume there is a next_cb_ts on rstream, that is, 1.005 seconds.
   rstream_.next_cb_ts.tv_sec = 1;
@@ -994,7 +1012,7 @@ TEST_F(CreateSuite, UpdateNextWakeTime) {
 
   rstream_.direction = CRAS_STREAM_OUTPUT;
   dev_stream = dev_stream_create(&rstream_, dev_id, &fmt_s16le_44_1,
-                                 (void*)0x55, &cb_ts);
+                                 (void*)0x55, &cb_ts, NULL);
 
   // Case 1: The new next_cb_ts is greater than now. Do not need to reschedule.
   rstream_.next_cb_ts.tv_sec = 2;
@@ -1170,6 +1188,11 @@ struct cras_audio_format* cras_rstream_post_processing_format(
     void* dev_ptr) {
   return cras_rstream_post_processing_format_val;
 }
+void* buffer_share_get_data(const struct buffer_share* mix, unsigned int id) {
+  return NULL;
+};
+void cras_apm_list_start_apm(struct cras_apm_list* list, void* dev_ptr){};
+void cras_apm_list_stop_apm(struct cras_apm_list* list, void* dev_ptr){};
 
 int config_format_converter(struct cras_fmt_conv** conv,
                             enum CRAS_STREAM_DIRECTION dir,
@@ -1291,7 +1314,7 @@ int cras_rstream_flush_old_audio_messages(struct cras_rstream* stream) {
   return 0;
 }
 
-int cras_server_metrics_missed_cb_event(const struct cras_rstream* stream) {
+int cras_server_metrics_missed_cb_event(struct cras_rstream* stream) {
   cras_server_metrics_missed_cb_event_called++;
   return 0;
 }

@@ -7,7 +7,7 @@ from autotest_lib.server import utils
 AUTHOR = "Intel"
 NAME = "platform_S3Cycle"
 PURPOSE = "Servo based S3 state transition test."
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "platform"

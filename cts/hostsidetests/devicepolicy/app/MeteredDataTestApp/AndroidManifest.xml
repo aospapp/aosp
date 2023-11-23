@@ -16,15 +16,16 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.cts.devicepolicy.metereddatatestapp">
+     package="com.android.cts.devicepolicy.metereddatatestapp">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application>
-        <activity android:name=".MainActivity" >
+        <activity android:name=".MainActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MAIN"/>
             </intent-filter>
         </activity>
     </application>

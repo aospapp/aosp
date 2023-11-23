@@ -12,6 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_ImageMagick_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-BSD
+    //   SPDX-license-identifier-MIT
+    //   legacy_notice
+    //   legacy_unencumbered
+    default_applicable_licenses: ["external_ImageMagick_license"],
+}
+
 cc_library_static {
     name: "Magick_filters",
 
@@ -23,6 +35,7 @@ cc_library_static {
         "-DHAVE_CONFIG_H",
         "-Wall",
         "-Werror",
+        "-Wno-unused-function",
     ],
 
     header_libs: ["Magick_headers"],

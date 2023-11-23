@@ -291,7 +291,7 @@ public class ShortcutManagerPostBackupTest extends ShortcutManagerDeviceTestBase
 
         // Force launcher 4 to be the default launcher so it'll receive the pin request.
         setDefaultLauncher(getInstrumentation(),
-                "android.content.pm.cts.shortcut.backup.launcher4/.MainActivity");
+                "android.content.pm.cts.shortcut.backup.launcher4");
 
         // Update, set and add have been tested already, so let's test "pin".
 
@@ -319,7 +319,7 @@ public class ShortcutManagerPostBackupTest extends ShortcutManagerDeviceTestBase
         getContext().registerReceiver(onResult, myFilter);
         assertTrue(getManager().requestPinShortcut(ms2,
                 PendingIntent.getBroadcast(getContext(), 0, new Intent(myIntentAction),
-                        PendingIntent.FLAG_CANCEL_CURRENT).getIntentSender()));
+                        PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED).getIntentSender()));
 
         assertTrue("Didn't receive requestPinShortcut() callback.",
                 latch.await(30, TimeUnit.SECONDS));

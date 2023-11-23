@@ -314,7 +314,8 @@ enum OperationType : int32_t {
      *      tensors. The output shape is [D0, D1, ..., sum(Daxis(i)), ..., Dm].
      *      Since HAL version 1.2, for a {@link OperandType::TENSOR_QUANT8_ASYMM} tensor,
      *      the scale and zeroPoint values can be different from
-     *      input tensors. Before HAL version 1.2 they have to be the same as for the input tensors.
+     *      input tensors. Before HAL version 1.2 they have to be the same as for the
+     *      input tensors.
      */
     CONCATENATION = @1.1::OperationType:CONCATENATION,
 
@@ -460,8 +461,9 @@ enum OperationType : int32_t {
      * Outputs:
      * * 0: The output 4-D tensor, of shape
      *      [batches, out_height, out_width, depth_out].
-     *      Before HAL version 1.2, for output tensor of {@link OperandType::TENSOR_QUANT8_ASYMM},
-     *      the following condition must be satisfied: output_scale > input_scale * filter_scale
+     *      Before HAL version 1.2, for output tensor of
+     *      {@link OperandType::TENSOR_QUANT8_ASYMM}, the following condition must
+     *      be satisfied: output_scale > input_scale * filter_scale
      */
     CONV_2D = @1.1::OperationType:CONV_2D,
 
@@ -3616,7 +3618,7 @@ enum OperationType : int32_t {
      *      front of dimension i.
      *      padding[i, 1] specifies the number of elements to be padded after
      *      the end of dimension i.
-     * * 2: An scalar specifying the value to use for padding input0.
+     * * 2: A scalar specifying the value to use for padding input0.
      *      For input tensor of {@link OperandType::TENSOR_FLOAT16}, the
      *      pad value must be of {@link OperandType::FLOAT16}.
      *      For input tensor of {@link OperandType::TENSOR_FLOAT32}, the
@@ -4709,14 +4711,14 @@ enum DeviceType : int32_t {
     // HAL equivalent of unknown type and a 1.2 HAL implementation must belong
     // to one of the categories below.
     /** The device does not fall into any category below. */
-    OTHER             = 1,
+    OTHER = 1,
     /** The device runs NNAPI models on single or multi-core CPU. */
-    CPU               = 2,
+    CPU = 2,
     /** The device can run NNAPI models and also accelerate graphics APIs such
-      * as OpenGL ES and Vulkan. */
-    GPU               = 3,
+     * as OpenGL ES and Vulkan. */
+    GPU = 3,
     /** Dedicated accelerator for Machine Learning workloads. */
-    ACCELERATOR       = 4,
+    ACCELERATOR = 4,
 };
 
 /**
@@ -4853,15 +4855,18 @@ struct Operand {
     /**
      * Quantized scale of the operand.
      *
-     * Only applicable if the operand is of type TENSOR_QUANT8_ASYMM or
-     * TENSOR_INT32.
+     * Must be 0 when not applicable to an operand type.
+     *
+     * See {@link OperandType}.
      */
     float scale;
 
     /**
      * Quantized zero-point offset of the operand.
      *
-     * Only applicable if the operand is of type TENSOR_QUANT8_ASYMM.
+     * Must be 0 when not applicable to an operand type.
+     *
+     * See {@link OperandType}.
      */
     int32_t zeroPoint;
 
@@ -4890,25 +4895,25 @@ struct Operand {
      * Additional parameters specific to a particular operand type.
      */
     safe_union ExtraParams {
-       /**
-        * No additional parameters.
-        */
-       Monostate none;
+        /**
+         * No additional parameters.
+         */
+        Monostate none;
 
-       /**
-        * Symmetric per-channel quantization parameters.
-        *
-        * Only applicable to operands of type TENSOR_QUANT8_SYMM_PER_CHANNEL.
-        */
-       SymmPerChannelQuantParams channelQuant;
+        /**
+         * Symmetric per-channel quantization parameters.
+         *
+         * Only applicable to operands of type TENSOR_QUANT8_SYMM_PER_CHANNEL.
+         */
+        SymmPerChannelQuantParams channelQuant;
 
-       /**
-        * Extension operand parameters.
-        *
-        * The framework treats this as an opaque data blob.
-        * The format is up to individual extensions.
-        */
-       vec<uint8_t> extension;
+        /**
+         * Extension operand parameters.
+         *
+         * The framework treats this as an opaque data blob.
+         * The format is up to individual extensions.
+         */
+        vec<uint8_t> extension;
     } extraParams;
 };
 
@@ -5049,7 +5054,7 @@ struct OutputShape {
  * Specifies whether or not to measure timing information during execution.
  */
 enum MeasureTiming : int32_t {
-    NO  = 0,
+    NO = 0,
     YES = 1,
 };
 

@@ -50,6 +50,8 @@
 #include "common/gen_decoder.h"
 #include "intel_screen.h"
 #include "intel_tex_obj.h"
+#include "perf/gen_perf.h"
+#include "perf/gen_perf_query.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -145,6 +147,7 @@ struct brw_wm_prog_key;
 struct brw_wm_prog_data;
 struct brw_cs_prog_key;
 struct brw_cs_prog_data;
+struct brw_label;
 
 enum brw_pipeline {
    BRW_RENDER_PIPELINE,
@@ -385,7 +388,7 @@ struct brw_cache {
 
 #define perf_debug(...) do {                                    \
    static GLuint msg_id = 0;                                    \
-   if (unlikely(INTEL_DEBUG & DEBUG_PERF))                      \
+   if (INTEL_DEBUG & DEBUG_PERF)                                \
       dbg_printf(__VA_ARGS__);                                  \
    if (brw->perf_debug)                                         \
       _mesa_gl_debugf(&brw->ctx, &msg_id,                       \
@@ -445,8 +448,7 @@ struct brw_vertex_buffer {
    GLuint step_rate;
 };
 struct brw_vertex_element {
-   const struct gl_array_attributes *glattrib;
-   const struct gl_vertex_buffer_binding *glbinding;
+   const struct gl_vertex_format *glformat;
 
    int buffer;
    bool is_dual_slot;
@@ -524,7 +526,7 @@ struct intel_batchbuffer {
    } saved;
 
    /** Map from batch offset to brw_state_batch data (with DEBUG_BATCH) */
-   struct hash_table *state_batch_sizes;
+   struct hash_table_u64 *state_batch_sizes;
 
    struct gen_batch_decode_ctx decoder;
 };
@@ -722,8 +724,19 @@ struct brw_context
 
    uint32_t hw_ctx;
 
-   /** BO for post-sync nonzero writes for gen6 workaround. */
+   /**
+    * BO for post-sync nonzero writes for gen6 workaround.
+    *
+    * This buffer also contains a marker + description of the driver. This
+    * buffer is added to all execbufs syscalls so that we can identify the
+    * driver that generated a hang by looking at the content of the buffer in
+    * the error state.
+    *
+    * Read/write should go at workaround_bo_offset in that buffer to avoid
+    * overriding the debug data.
+    */
    struct brw_bo *workaround_bo;
+   uint32_t workaround_bo_offset;
    uint8_t pipe_controls_since_last_cs_stall;
 
    /**
@@ -852,6 +865,9 @@ struct brw_context
    /* The last PMA stall bits programmed. */
    uint32_t pma_stall_bits;
 
+   /* Whether INTEL_black_render is active. */
+   bool frontend_noop;
+
    struct {
       struct {
          /**
@@ -903,6 +919,13 @@ struct brw_context
        */
       struct brw_bo *draw_params_count_bo;
       uint32_t draw_params_count_offset;
+
+      /**
+       * Draw indirect buffer.
+       */
+      unsigned draw_indirect_stride;
+      GLsizeiptr draw_indirect_offset;
+      struct gl_buffer_object *draw_indirect_data;
    } draw;
 
    struct {
@@ -914,6 +937,11 @@ struct brw_context
       struct brw_bo *num_work_groups_bo;
       GLintptr num_work_groups_offset;
       const GLuint *num_work_groups;
+      /**
+       * This is only used alongside ARB_compute_variable_group_size when the
+       * local work group size is variable, otherwise it's NULL.
+       */
+      const GLuint *group_size;
    } compute;
 
    struct {
@@ -1161,63 +1189,7 @@ struct brw_context
       bool supported;
    } predicate;
 
-   struct {
-      struct gen_perf *perf;
-
-      /* The i915 perf stream we open to setup + enable the OA counters */
-      int oa_stream_fd;
-
-      /* An i915 perf stream fd gives exclusive access to the OA unit that will
-       * report counter snapshots for a specific counter set/profile in a
-       * specific layout/format so we can only start OA queries that are
-       * compatible with the currently open fd...
-       */
-      int current_oa_metrics_set_id;
-      int current_oa_format;
-
-      /* List of buffers containing OA reports */
-      struct exec_list sample_buffers;
-
-      /* Cached list of empty sample buffers */
-      struct exec_list free_sample_buffers;
-
-      int n_active_oa_queries;
-      int n_active_pipeline_stats_queries;
-
-      /* The number of queries depending on running OA counters which
-       * extends beyond brw_end_perf_query() since we need to wait until
-       * the last MI_RPC command has parsed by the GPU.
-       *
-       * Accurate accounting is important here as emitting an
-       * MI_REPORT_PERF_COUNT command while the OA unit is disabled will
-       * effectively hang the gpu.
-       */
-      int n_oa_users;
-
-      /* To help catch an spurious problem with the hardware or perf
-       * forwarding samples, we emit each MI_REPORT_PERF_COUNT command
-       * with a unique ID that we can explicitly check for...
-       */
-      int next_query_start_report_id;
-
-      /**
-       * An array of queries whose results haven't yet been assembled
-       * based on the data in buffer objects.
-       *
-       * These may be active, or have already ended.  However, the
-       * results have not been requested.
-       */
-      struct brw_perf_query_object **unaccumulated;
-      int unaccumulated_elements;
-      int unaccumulated_array_size;
-
-      /* The total number of query objects so we can relinquish
-       * our exclusive access to perf if the application deletes
-       * all of its objects. (NB: We only disable perf while
-       * there are no active queries)
-       */
-      int n_query_instances;
-   } perfquery;
+   struct gen_perf_context *perf_ctx;
 
    int num_atoms[BRW_NUM_PIPELINES];
    const struct brw_tracked_state render_atoms[76];
@@ -1274,6 +1246,9 @@ struct brw_context
 
    enum gen9_astc5x5_wa_tex_type gen9_astc5x5_wa_tex_mask;
 
+   /** Last rendering scale argument provided to brw_emit_hashing_mode(). */
+   unsigned current_hash_scale;
+
    __DRIcontext *driContext;
    struct intel_screen *screen;
 };
@@ -1320,6 +1295,8 @@ GLboolean brwCreateContext(gl_api api,
  */
 void brw_workaround_depthstencil_alignment(struct brw_context *brw,
                                            GLbitfield clear_mask);
+void brw_emit_hashing_mode(struct brw_context *brw, unsigned width,
+                           unsigned height, unsigned scale);
 
 /* brw_object_purgeable.c */
 void brw_init_object_purgeable_functions(struct dd_function_table *functions);
@@ -1548,11 +1525,12 @@ gen6_get_sample_position(struct gl_context *ctx,
                          struct gl_framebuffer *fb,
                          GLuint index,
                          GLfloat *result);
-void
-gen6_set_sample_maps(struct gl_context *ctx);
 
 /* gen8_multisample_state.c */
 void gen8_emit_3dstate_sample_pattern(struct brw_context *brw);
+
+/* gen7_l3_state.c */
+void brw_emit_l3_state(struct brw_context *brw);
 
 /* gen7_urb.c */
 void

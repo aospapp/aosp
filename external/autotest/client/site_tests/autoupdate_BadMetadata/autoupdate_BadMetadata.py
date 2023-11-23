@@ -4,7 +4,6 @@
 
 import logging
 
-from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.update_engine import nebraska_wrapper
 from autotest_lib.client.cros.update_engine import update_engine_test
@@ -19,11 +18,11 @@ class autoupdate_BadMetadata(update_engine_test.UpdateEngineTest):
                            'ErrorCode::kDownloadInvalidMetadataSize)'
 
 
-    def run_once(self, image_url, bad_metadata_size=False, bad_sha256=False):
+    def run_once(self, payload_url, bad_metadata_size=False, bad_sha256=False):
         """
         Tests update_engine can deal with invalid data in the omaha response.
 
-        @param image_url: The payload url.
+        @param payload_url: The payload url.
         @param bad_metadata_size: True if we want to test bad metadata size.
         @param bad_sha256: True if we want to test bad sha256.
 
@@ -39,20 +38,14 @@ class autoupdate_BadMetadata(update_engine_test.UpdateEngineTest):
                 nebraska_wrapper.KEY_PUBLIC_KEY] = self._IMAGE_PUBLIC_KEY
             error_string = self._METADATA_SIZE_ERROR
 
-        metadata_dir = autotemp.tempdir()
-        self._get_payload_properties_file(image_url,
-                                          metadata_dir.name,
-                                          **props_to_override)
-        base_url = ''.join(image_url.rpartition('/')[0:2])
         with nebraska_wrapper.NebraskaWrapper(
-                log_dir=self.resultsdir,
-                update_metadata_dir=metadata_dir.name,
-                update_payloads_address=base_url) as nebraska:
+            log_dir=self.resultsdir, payload_url=payload_url,
+            **props_to_override) as nebraska:
 
             try:
-                self._check_for_update(port=nebraska.get_port(),
-                                       wait_for_completion=True,
-                                       critical_update=True)
+                self._check_for_update(
+                    nebraska.get_update_url(critical_update=True),
+                    wait_for_completion=True)
                 raise error.TestFail('Update completed when it should have '
                                      'failed. Check the update_engine log.')
             except error.CmdError as e:

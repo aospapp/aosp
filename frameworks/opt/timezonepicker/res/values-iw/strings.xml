@@ -17,8 +17,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="hint_time_zone_search" msgid="804776560897143016">"הקלד את שם הארץ"</string>
-    <string name="searchview_description_clear" msgid="1603860069305867810">"מחק שאילתה"</string>
+    <string name="hint_time_zone_search" msgid="804776560897143016">"יש להזין את שם המדינה"</string>
+    <string name="searchview_description_clear" msgid="1603860069305867810">"מחיקת השאילתה"</string>
     <string name="no_results_found" msgid="5475293015394772651">"לא נמצאו תוצאות"</string>
-    <string name="palestine_display_name" msgid="3485026339977302148">"פלסטין"</string>
+    <string name="palestine_display_name" msgid="3485026339977302148">"הרשות הפלסטינית"</string>
 </resources>

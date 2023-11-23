@@ -31,12 +31,26 @@ class SwarmingJobDirectoryTestCase(unittest.TestCase):
         with _change_to_tempdir():
             os.makedirs("swarming-3e4391423c3a4310/1")
             os.makedirs("swarming-3e4391423c3a4310/0")
+            open("swarming-3e4391423c3a4310/1/.ready_for_offload",
+                 'w+').close()
             os.makedirs("swarming-3e4391423c3a4310/a")
+            open("swarming-3e4391423c3a4310/a/.ready_for_offload",
+                 'w+').close()
+            os.makedirs("swarming-34391423c3a4310/1/test_id")
+            os.makedirs("swarming-34391423c3a4310/1/test_id2")
+            open("swarming-34391423c3a4310/1/test_id/.ready_for_offload",
+                 'w+').close()
+            open("swarming-34391423c3a4310/1/test_id2/.ready_for_offload",
+                 'w+').close()
             os.mkdir("not-a-swarming-dir")
             results = job_directories.SwarmingJobDirectory.get_job_directories()
-            self.assertEqual(set(results),
-                             {"swarming-3e4391423c3a4310/1",
-                              "swarming-3e4391423c3a4310/a"})
+            self.assertEqual(
+                    set(results), {
+                            "swarming-3e4391423c3a4310/1",
+                            "swarming-3e4391423c3a4310/a",
+                            "swarming-34391423c3a4310/1/test_id",
+                            "swarming-34391423c3a4310/1/test_id2"
+                    })
 
 
 class GetJobIDOrTaskID(unittest.TestCase):

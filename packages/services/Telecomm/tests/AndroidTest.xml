@@ -27,4 +27,10 @@
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="hidden-api-checks" value="false"/>
     </test>
+    <object type="module_controller"
+            class="com.android.tradefed.testtype.suite.module.TestFailureModuleController">
+        <option name="screenshot-on-failure" value="false" />
+        <option name="bugreportz-on-failure" value="false" />
+        <option name="logcat-on-failure" value="true" />
+  </object>
 </configuration>

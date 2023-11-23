@@ -22,6 +22,12 @@ my_bionic_testlib_files := \
   elftls_dlopen_ie_error_helper/elftls_dlopen_ie_error_helper \
   exec_linker_helper/exec_linker_helper \
   exec_linker_helper_lib.so \
+  heap_tagging_async_helper/heap_tagging_async_helper \
+  heap_tagging_disabled_helper/heap_tagging_disabled_helper \
+  heap_tagging_static_sync_helper/heap_tagging_static_sync_helper \
+  heap_tagging_static_async_helper/heap_tagging_static_async_helper \
+  heap_tagging_static_disabled_helper/heap_tagging_static_disabled_helper \
+  heap_tagging_sync_helper/heap_tagging_sync_helper \
   inaccessible_libs/libtestshared.so \
   inaccessible_libs/libtestshared.so \
   ld_config_test_helper/ld_config_test_helper \

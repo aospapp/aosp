@@ -15,6 +15,9 @@
 package sdk
 
 import (
+	"android/soong/android"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/google/blueprint/proptools"
@@ -22,7 +25,13 @@ import (
 
 // Needed in an _test.go file in this package to ensure tests run correctly, particularly in IDE.
 func TestMain(m *testing.M) {
-	runTestWithBuildDir(m)
+	if android.BuildOs != android.Linux {
+		// b/145598135 - Generating host snapshots for anything other than linux is not supported.
+		log.Printf("Skipping as sdk snapshot generation is only supported on %s not %s", android.Linux, android.BuildOs)
+		os.Exit(0)
+	}
+
+	os.Exit(m.Run())
 }
 
 func TestDepNotInRequiredSdks(t *testing.T) {
@@ -99,6 +108,9 @@ func TestSnapshotVisibility(t *testing.T) {
 				// generated sdk_snapshot.
 				":__subpackages__",
 			],
+			prebuilt_visibility: [
+				"//prebuilts/mysdk",
+			],
 			java_header_libs: [
 				"myjavalib",
 				"mypublicjavalib",
@@ -157,7 +169,7 @@ func TestSnapshotVisibility(t *testing.T) {
 			"package/Android.bp": []byte(packageBp),
 		})
 
-	result.CheckSnapshot("mysdk", "package",
+	CheckSnapshot(t, result, "mysdk", "package",
 		checkAndroidBpContents(`
 // This is auto-generated. DO NOT EDIT.
 
@@ -167,7 +179,9 @@ java_import {
     visibility: [
         "//other/foo",
         "//package",
+        "//prebuilts/mysdk",
     ],
+    apex_available: ["//apex_available:platform"],
     jars: ["java/myjavalib.jar"],
 }
 
@@ -177,7 +191,9 @@ java_import {
     visibility: [
         "//other/foo",
         "//package",
+        "//prebuilts/mysdk",
     ],
+    apex_available: ["//apex_available:platform"],
     jars: ["java/myjavalib.jar"],
 }
 
@@ -185,6 +201,7 @@ java_import {
     name: "mysdk_mypublicjavalib@current",
     sdk_member_name: "mypublicjavalib",
     visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
     jars: ["java/mypublicjavalib.jar"],
 }
 
@@ -192,6 +209,7 @@ java_import {
     name: "mypublicjavalib",
     prefer: false,
     visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
     jars: ["java/mypublicjavalib.jar"],
 }
 
@@ -201,7 +219,9 @@ java_import {
     visibility: [
         "//other/bar",
         "//package",
+        "//prebuilts/mysdk",
     ],
+    apex_available: ["//apex_available:platform"],
     jars: ["java/mydefaultedjavalib.jar"],
 }
 
@@ -211,21 +231,31 @@ java_import {
     visibility: [
         "//other/bar",
         "//package",
+        "//prebuilts/mysdk",
     ],
+    apex_available: ["//apex_available:platform"],
     jars: ["java/mydefaultedjavalib.jar"],
 }
 
 java_import {
     name: "mysdk_myprivatejavalib@current",
     sdk_member_name: "myprivatejavalib",
-    visibility: ["//package"],
+    visibility: [
+        "//package",
+        "//prebuilts/mysdk",
+    ],
+    apex_available: ["//apex_available:platform"],
     jars: ["java/myprivatejavalib.jar"],
 }
 
 java_import {
     name: "myprivatejavalib",
     prefer: false,
-    visibility: ["//package"],
+    visibility: [
+        "//package",
+        "//prebuilts/mysdk",
+    ],
+    apex_available: ["//apex_available:platform"],
     jars: ["java/myprivatejavalib.jar"],
 }
 
@@ -245,20 +275,50 @@ sdk_snapshot {
 `))
 }
 
-func TestSDkInstall(t *testing.T) {
+func TestPrebuiltVisibilityProperty_IsValidated(t *testing.T) {
+	testSdkError(t, `prebuilt_visibility: cannot mix "//visibility:private" with any other visibility rules`, `
+		sdk {
+			name: "mysdk",
+			prebuilt_visibility: [
+				"//foo",
+				"//visibility:private",
+			],
+		}
+`)
+}
+
+func TestPrebuiltVisibilityProperty_AddPrivate(t *testing.T) {
+	testSdkError(t, `prebuilt_visibility: "//visibility:private" does not widen the visibility`, `
+		sdk {
+			name: "mysdk",
+			prebuilt_visibility: [
+				"//visibility:private",
+			],
+			java_header_libs: [
+				"myjavalib",
+			],
+		}
+
+		java_library {
+			name: "myjavalib",
+			// Uses package default visibility
+			srcs: ["Test.java"],
+			system_modules: "none",
+			sdk_version: "none",
+		}
+`)
+}
+
+func TestSdkInstall(t *testing.T) {
 	sdk := `
 		sdk {
 			name: "mysdk",
 		}
 	`
-	result := testSdkWithFs(t, ``,
-		map[string][]byte{
-			"Android.bp": []byte(sdk),
-		})
+	result := testSdkWithFs(t, sdk, nil)
 
-	result.CheckSnapshot("mysdk", "",
-		checkAllOtherCopyRules(`.intermediates/mysdk/common_os/mysdk-current.zip -> mysdk-current.zip`),
-	)
+	CheckSnapshot(t, result, "mysdk", "",
+		checkAllOtherCopyRules(`.intermediates/mysdk/common_os/mysdk-current.zip -> mysdk-current.zip`))
 }
 
 type EmbeddedPropertiesStruct struct {
@@ -326,12 +386,10 @@ func TestCommonValueOptimization(t *testing.T) {
 
 	extractor := newCommonValueExtractor(common)
 
-	h := TestHelper{t}
-
 	err := extractor.extractCommonProperties(common, structs)
-	h.AssertDeepEquals("unexpected error", nil, err)
+	android.AssertDeepEquals(t, "unexpected error", nil, err)
 
-	h.AssertDeepEquals("common properties not correct",
+	android.AssertDeepEquals(t, "common properties not correct",
 		&testPropertiesStruct{
 			name:        "common",
 			private:     "",
@@ -349,7 +407,7 @@ func TestCommonValueOptimization(t *testing.T) {
 		},
 		common)
 
-	h.AssertDeepEquals("updated properties[0] not correct",
+	android.AssertDeepEquals(t, "updated properties[0] not correct",
 		&testPropertiesStruct{
 			name:        "struct-0",
 			private:     "common",
@@ -367,7 +425,7 @@ func TestCommonValueOptimization(t *testing.T) {
 		},
 		structs[0])
 
-	h.AssertDeepEquals("updated properties[1] not correct",
+	android.AssertDeepEquals(t, "updated properties[1] not correct",
 		&testPropertiesStruct{
 			name:        "struct-1",
 			private:     "common",
@@ -401,10 +459,206 @@ func TestCommonValueOptimization_InvalidArchSpecificVariants(t *testing.T) {
 
 	extractor := newCommonValueExtractor(common)
 
-	h := TestHelper{t}
-
 	err := extractor.extractCommonProperties(common, structs)
-	h.AssertErrorMessageEquals("unexpected error", `field "S_Common" is not tagged as "arch_variant" but has arch specific properties:
+	android.AssertErrorMessageEquals(t, "unexpected error", `field "S_Common" is not tagged as "arch_variant" but has arch specific properties:
     "struct-0" has value "should-be-but-is-not-common0"
     "struct-1" has value "should-be-but-is-not-common1"`, err)
+}
+
+// Ensure that sdk snapshot related environment variables work correctly.
+func TestSnapshot_EnvConfiguration(t *testing.T) {
+	bp := `
+		sdk {
+			name: "mysdk",
+			java_header_libs: ["myjavalib"],
+		}
+
+		java_library {
+			name: "myjavalib",
+			srcs: ["Test.java"],
+			system_modules: "none",
+			sdk_version: "none",
+			compile_dex: true,
+			host_supported: true,
+		}
+	`
+	preparer := android.GroupFixturePreparers(
+		prepareForSdkTestWithJava,
+		android.FixtureWithRootAndroidBp(bp),
+	)
+
+	checkZipFile := func(t *testing.T, result *android.TestResult, expected string) {
+		zipRule := result.ModuleForTests("mysdk", "common_os").Rule("SnapshotZipFiles")
+		android.AssertStringEquals(t, "snapshot zip file", expected, zipRule.Output.String())
+	}
+
+	t.Run("no env variables", func(t *testing.T) {
+		result := preparer.RunTest(t)
+
+		checkZipFile(t, result, "out/soong/.intermediates/mysdk/common_os/mysdk-current.zip")
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpContents(`
+// This is auto-generated. DO NOT EDIT.
+
+java_import {
+    name: "mysdk_myjavalib@current",
+    sdk_member_name: "myjavalib",
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    jars: ["java/myjavalib.jar"],
+}
+
+java_import {
+    name: "myjavalib",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    jars: ["java/myjavalib.jar"],
+}
+
+sdk_snapshot {
+    name: "mysdk@current",
+    visibility: ["//visibility:public"],
+    java_header_libs: ["mysdk_myjavalib@current"],
+}
+			`),
+		)
+	})
+
+	t.Run("SOONG_SDK_SNAPSHOT_PREFER=true", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_PREFER": "true",
+			}),
+		).RunTest(t)
+
+		checkZipFile(t, result, "out/soong/.intermediates/mysdk/common_os/mysdk-current.zip")
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpContents(`
+// This is auto-generated. DO NOT EDIT.
+
+java_import {
+    name: "mysdk_myjavalib@current",
+    sdk_member_name: "myjavalib",
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    jars: ["java/myjavalib.jar"],
+}
+
+java_import {
+    name: "myjavalib",
+    prefer: true,
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    jars: ["java/myjavalib.jar"],
+}
+
+sdk_snapshot {
+    name: "mysdk@current",
+    visibility: ["//visibility:public"],
+    java_header_libs: ["mysdk_myjavalib@current"],
+}
+			`),
+		)
+	})
+
+	t.Run("SOONG_SDK_SNAPSHOT_VERSION=unversioned", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_VERSION": "unversioned",
+			}),
+		).RunTest(t)
+
+		checkZipFile(t, result, "out/soong/.intermediates/mysdk/common_os/mysdk.zip")
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpContents(`
+// This is auto-generated. DO NOT EDIT.
+
+java_import {
+    name: "myjavalib",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    jars: ["java/myjavalib.jar"],
+}
+			`),
+		)
+	})
+
+	t.Run("SOONG_SDK_SNAPSHOT_VERSION=current", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_VERSION": "current",
+			}),
+		).RunTest(t)
+
+		checkZipFile(t, result, "out/soong/.intermediates/mysdk/common_os/mysdk-current.zip")
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpContents(`
+// This is auto-generated. DO NOT EDIT.
+
+java_import {
+    name: "mysdk_myjavalib@current",
+    sdk_member_name: "myjavalib",
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    jars: ["java/myjavalib.jar"],
+}
+
+java_import {
+    name: "myjavalib",
+    prefer: false,
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    jars: ["java/myjavalib.jar"],
+}
+
+sdk_snapshot {
+    name: "mysdk@current",
+    visibility: ["//visibility:public"],
+    java_header_libs: ["mysdk_myjavalib@current"],
+}
+			`),
+		)
+	})
+
+	t.Run("SOONG_SDK_SNAPSHOT_VERSION=2", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_VERSION": "2",
+			}),
+		).RunTest(t)
+
+		checkZipFile(t, result, "out/soong/.intermediates/mysdk/common_os/mysdk-2.zip")
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpContents(`
+// This is auto-generated. DO NOT EDIT.
+
+java_import {
+    name: "mysdk_myjavalib@2",
+    sdk_member_name: "myjavalib",
+    visibility: ["//visibility:public"],
+    apex_available: ["//apex_available:platform"],
+    jars: ["java/myjavalib.jar"],
+}
+
+sdk_snapshot {
+    name: "mysdk@2",
+    visibility: ["//visibility:public"],
+    java_header_libs: ["mysdk_myjavalib@2"],
+}
+			`),
+			// A versioned snapshot cannot be used on its own so add the source back in.
+			snapshotTestPreparer(checkSnapshotWithoutSource, android.FixtureWithRootAndroidBp(bp)),
+		)
+	})
 }

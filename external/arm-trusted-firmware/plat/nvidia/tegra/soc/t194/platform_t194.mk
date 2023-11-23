@@ -24,28 +24,27 @@ COLD_BOOT_SINGLE_CPU			:= 1
 TZDRAM_BASE				:= 0x40000000
 $(eval $(call add_define,TZDRAM_BASE))
 
-PLATFORM_CLUSTER_COUNT			:= 4
-$(eval $(call add_define,PLATFORM_CLUSTER_COUNT))
-
-PLATFORM_MAX_CPUS_PER_CLUSTER		:= 2
-$(eval $(call add_define,PLATFORM_MAX_CPUS_PER_CLUSTER))
-
 MAX_XLAT_TABLES				:= 25
 $(eval $(call add_define,MAX_XLAT_TABLES))
 
 MAX_MMAP_REGIONS			:= 30
 $(eval $(call add_define,MAX_MMAP_REGIONS))
 
-# platform files
-PLAT_INCLUDES		+=	-I${SOC_DIR}/drivers/include
+# enable RAS handling
+HANDLE_EA_EL3_FIRST			:= 1
+RAS_EXTENSION				:= 1
 
-BL31_SOURCES		+=	drivers/ti/uart/aarch64/16550_console.S \
+# platform files
+PLAT_INCLUDES		+=	-Iplat/nvidia/tegra/include/t194 \
+				-I${SOC_DIR}/drivers/include
+
+BL31_SOURCES		+=	${TEGRA_GICv2_SOURCES}			\
+				drivers/ti/uart/aarch64/16550_console.S \
 				lib/cpus/aarch64/denver.S		\
-				${COMMON_DIR}/drivers/bpmp_ipc/intf.c	\
-				${COMMON_DIR}/drivers/bpmp_ipc/ivc.c	\
-				${COMMON_DIR}/drivers/gpcdma/gpcdma.c	\
-				${COMMON_DIR}/drivers/memctrl/memctrl_v2.c	\
-				${COMMON_DIR}/drivers/smmu/smmu.c	\
+				${TEGRA_DRIVERS}/bpmp_ipc/intf.c	\
+				${TEGRA_DRIVERS}/bpmp_ipc/ivc.c		\
+				${TEGRA_DRIVERS}/memctrl/memctrl_v2.c	\
+				${TEGRA_DRIVERS}/smmu/smmu.c		\
 				${SOC_DIR}/drivers/mce/mce.c		\
 				${SOC_DIR}/drivers/mce/nvg.c		\
 				${SOC_DIR}/drivers/mce/aarch64/nvg_helpers.S \
@@ -58,6 +57,27 @@ BL31_SOURCES		+=	drivers/ti/uart/aarch64/16550_console.S \
 				${SOC_DIR}/plat_smmu.c			\
 				${SOC_DIR}/plat_trampoline.S
 
+ifeq (${USE_GPC_DMA}, 1)
+BL31_SOURCES		+=	${TEGRA_DRIVERS}/gpcdma/gpcdma.c
+endif
+
 ifeq (${ENABLE_CONSOLE_SPE},1)
-BL31_SOURCES		+=	${COMMON_DIR}/drivers/spe/shared_console.S
+BL31_SOURCES		+=	${TEGRA_DRIVERS}/spe/shared_console.S
+endif
+
+# RAS sources
+ifeq (${RAS_EXTENSION},1)
+BL31_SOURCES		+=	lib/extensions/ras/std_err_record.c		\
+				lib/extensions/ras/ras_common.c			\
+				${SOC_DIR}/plat_ras.c
+endif
+
+# SPM dispatcher
+ifeq (${SPD},spmd)
+# include device tree helper library
+include lib/libfdt/libfdt.mk
+# sources to support spmd
+BL31_SOURCES		+=	plat/common/plat_spmd_manifest.c	\
+				common/fdt_wrappers.c			\
+				${LIBFDT_SRCS}
 endif

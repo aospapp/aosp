@@ -15,27 +15,27 @@
  */
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.CannedFillResponse.NO_RESPONSE;
-import static android.autofillservice.cts.FatActivity.ID_CAPTCHA;
-import static android.autofillservice.cts.FatActivity.ID_IMAGE;
-import static android.autofillservice.cts.FatActivity.ID_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS;
-import static android.autofillservice.cts.FatActivity.ID_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_CHILD;
-import static android.autofillservice.cts.FatActivity.ID_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_GRAND_CHILD;
-import static android.autofillservice.cts.FatActivity.ID_IMPORTANT_IMAGE;
-import static android.autofillservice.cts.FatActivity.ID_INPUT;
-import static android.autofillservice.cts.FatActivity.ID_INPUT_CONTAINER;
-import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS;
-import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_CHILD;
-import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_GRAND_CHILD;
-import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS;
-import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS_CHILD;
-import static android.autofillservice.cts.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS_GRAND_CHILD;
-import static android.autofillservice.cts.FatActivity.ID_ROOT;
-import static android.autofillservice.cts.Helper.findNodeByAutofillHint;
-import static android.autofillservice.cts.Helper.findNodeByResourceId;
-import static android.autofillservice.cts.Helper.findNodeByText;
-import static android.autofillservice.cts.Helper.getNumberNodes;
-import static android.autofillservice.cts.Helper.importantForAutofillAsString;
+import static android.autofillservice.cts.activities.FatActivity.ID_CAPTCHA;
+import static android.autofillservice.cts.activities.FatActivity.ID_IMAGE;
+import static android.autofillservice.cts.activities.FatActivity.ID_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS;
+import static android.autofillservice.cts.activities.FatActivity.ID_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_CHILD;
+import static android.autofillservice.cts.activities.FatActivity.ID_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_GRAND_CHILD;
+import static android.autofillservice.cts.activities.FatActivity.ID_IMPORTANT_IMAGE;
+import static android.autofillservice.cts.activities.FatActivity.ID_INPUT;
+import static android.autofillservice.cts.activities.FatActivity.ID_INPUT_CONTAINER;
+import static android.autofillservice.cts.activities.FatActivity.ID_NOT_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS;
+import static android.autofillservice.cts.activities.FatActivity.ID_NOT_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_CHILD;
+import static android.autofillservice.cts.activities.FatActivity.ID_NOT_IMPORTANT_CONTAINER_EXCLUDING_DESCENDANTS_GRAND_CHILD;
+import static android.autofillservice.cts.activities.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS;
+import static android.autofillservice.cts.activities.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS_CHILD;
+import static android.autofillservice.cts.activities.FatActivity.ID_NOT_IMPORTANT_CONTAINER_MIXED_DESCENDANTS_GRAND_CHILD;
+import static android.autofillservice.cts.activities.FatActivity.ID_ROOT;
+import static android.autofillservice.cts.testcore.CannedFillResponse.NO_RESPONSE;
+import static android.autofillservice.cts.testcore.Helper.findNodeByAutofillHint;
+import static android.autofillservice.cts.testcore.Helper.findNodeByResourceId;
+import static android.autofillservice.cts.testcore.Helper.findNodeByText;
+import static android.autofillservice.cts.testcore.Helper.getNumberNodes;
+import static android.autofillservice.cts.testcore.Helper.importantForAutofillAsString;
 import static android.view.View.IMPORTANT_FOR_AUTOFILL_AUTO;
 import static android.view.View.IMPORTANT_FOR_AUTOFILL_NO;
 import static android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS;
@@ -46,7 +46,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.app.assist.AssistStructure.ViewNode;
-import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
+import android.autofillservice.cts.activities.FatActivity;
+import android.autofillservice.cts.commontests.AutoFillServiceTestCase;
+import android.autofillservice.cts.testcore.AutofillActivityTestRule;
+import android.autofillservice.cts.testcore.InstrumentedAutoFillService.FillRequest;
 
 import org.junit.Test;
 

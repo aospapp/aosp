@@ -18,6 +18,7 @@ package android.bluetooth;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClientCall;
+import android.content.AttributionSource;
 import android.os.Bundle;
 
 /**
@@ -26,40 +27,67 @@ import android.os.Bundle;
  * {@hide}
  */
 interface IBluetoothHeadsetClient {
-    boolean connect(in BluetoothDevice device);
-    boolean disconnect(in BluetoothDevice device);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean connect(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean disconnect(in BluetoothDevice device, in AttributionSource attributionSource);
 
-    List<BluetoothDevice> getConnectedDevices();
-    List<BluetoothDevice> getDevicesMatchingConnectionStates(in int[] states);
-    int getConnectionState(in BluetoothDevice device);
-    boolean setConnectionPolicy(in BluetoothDevice device, int connectionPolicy);
-    int getConnectionPolicy(in BluetoothDevice device);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    List<BluetoothDevice> getConnectedDevices(in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    List<BluetoothDevice> getDevicesMatchingConnectionStates(in int[] states, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    int getConnectionState(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean setConnectionPolicy(in BluetoothDevice device, int connectionPolicy, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    int getConnectionPolicy(in BluetoothDevice device, in AttributionSource attributionSource);
 
-    boolean startVoiceRecognition(in BluetoothDevice device);
-    boolean stopVoiceRecognition(in BluetoothDevice device);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean startVoiceRecognition(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean stopVoiceRecognition(in BluetoothDevice device, in AttributionSource attributionSource);
 
-    List<BluetoothHeadsetClientCall> getCurrentCalls(in BluetoothDevice device);
-    Bundle getCurrentAgEvents(in BluetoothDevice device);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    List<BluetoothHeadsetClientCall> getCurrentCalls(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    Bundle getCurrentAgEvents(in BluetoothDevice device, in AttributionSource attributionSource);
 
-    boolean acceptCall(in BluetoothDevice device, int flag);
-    boolean holdCall(in BluetoothDevice device);
-    boolean rejectCall(in BluetoothDevice device);
-    boolean terminateCall(in BluetoothDevice device, in BluetoothHeadsetClientCall call);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean acceptCall(in BluetoothDevice device, int flag, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean holdCall(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean rejectCall(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean terminateCall(in BluetoothDevice device, in BluetoothHeadsetClientCall call, in AttributionSource attributionSource);
 
-    boolean enterPrivateMode(in BluetoothDevice device, int index);
-    boolean explicitCallTransfer(in BluetoothDevice device);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean enterPrivateMode(in BluetoothDevice device, int index, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean explicitCallTransfer(in BluetoothDevice device, in AttributionSource attributionSource);
 
-    BluetoothHeadsetClientCall dial(in BluetoothDevice device, String number);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    BluetoothHeadsetClientCall dial(in BluetoothDevice device, String number, in AttributionSource attributionSource);
 
-    boolean sendDTMF(in BluetoothDevice device, byte code);
-    boolean getLastVoiceTagNumber(in BluetoothDevice device);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean sendDTMF(in BluetoothDevice device, byte code, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean getLastVoiceTagNumber(in BluetoothDevice device, in AttributionSource attributionSource);
 
-    int getAudioState(in BluetoothDevice device);
-    boolean connectAudio(in BluetoothDevice device);
-    boolean disconnectAudio(in BluetoothDevice device);
-    void setAudioRouteAllowed(in BluetoothDevice device, boolean allowed);
-    boolean getAudioRouteAllowed(in BluetoothDevice device);
-    boolean sendVendorAtCommand(in BluetoothDevice device, int vendorId, String atCommand);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    int getAudioState(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean connectAudio(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean disconnectAudio(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    void setAudioRouteAllowed(in BluetoothDevice device, boolean allowed, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean getAudioRouteAllowed(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean sendVendorAtCommand(in BluetoothDevice device, int vendorId, String atCommand, in AttributionSource attributionSource);
 
-    Bundle getCurrentAgFeatures(in BluetoothDevice device);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    Bundle getCurrentAgFeatures(in BluetoothDevice device, in AttributionSource attributionSource);
 }

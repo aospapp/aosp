@@ -29,6 +29,7 @@
 #include "VoldUtil.h"
 #include "VolumeManager.h"
 
+#include <android-base/logging.h>
 #include <android-base/parseint.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
@@ -80,6 +81,7 @@ using android::fs_mgr::GetEntryForMountPoint;
 using android::vold::CryptoType;
 using android::vold::KeyBuffer;
 using android::vold::KeyGeneration;
+using namespace android::vold;
 using namespace android::dm;
 using namespace std::chrono_literals;
 
@@ -90,6 +92,8 @@ using namespace std::chrono_literals;
 #define CRYPT_FOOTER_TO_PERSIST_OFFSET 0x1000
 #define CRYPT_PERSIST_DATA_SIZE 0x1000
 
+#define CRYPT_SECTOR_SIZE 512
+
 #define MAX_CRYPTO_TYPE_NAME_LEN 64
 
 #define MAX_KEY_LEN 48
@@ -98,9 +102,7 @@ using namespace std::chrono_literals;
 
 /* definitions of flags in the structure below */
 #define CRYPT_MNT_KEY_UNENCRYPTED 0x1 /* The key for the partition is not encrypted. */
-#define CRYPT_ENCRYPTION_IN_PROGRESS       \
-    0x2 /* Encryption partially completed, \
-           encrypted_upto valid*/
+#define CRYPT_ENCRYPTION_IN_PROGRESS 0x2 /* no longer used */
 #define CRYPT_INCONSISTENT_STATE                    \
     0x4 /* Set when starting encryption, clear when \
            exit cleanly, either through success or  \
@@ -195,12 +197,8 @@ struct crypt_mnt_ftr {
     __le8 N_factor;        /* (1 << N) */
     __le8 r_factor;        /* (1 << r) */
     __le8 p_factor;        /* (1 << p) */
-    __le64 encrypted_upto; /* If we are in state CRYPT_ENCRYPTION_IN_PROGRESS and
-                              we have to stop (e.g. power low) this is the last
-                              encrypted 512 byte sector.*/
-    __le8 hash_first_block[SHA256_DIGEST_LENGTH]; /* When CRYPT_ENCRYPTION_IN_PROGRESS
-                                                     set, hash of first block, used
-                                                     to validate before continuing*/
+    __le64 encrypted_upto; /* no longer used */
+    __le8 hash_first_block[SHA256_DIGEST_LENGTH]; /* no longer used */
 
     /* key_master key, used to sign the derived key which is then used to generate
      * the intermediate key
@@ -257,8 +255,6 @@ struct crypt_persist_data {
     __le32 persist_spare[30];
     struct crypt_persist_entry persist_entry[0];
 };
-
-static int wait_and_unmount(const char* mountpoint, bool kill);
 
 typedef int (*kdf_func)(const char* passwd, const unsigned char* salt, unsigned char* ikey,
                         void* params);
@@ -330,9 +326,43 @@ const KeyGeneration cryptfs_get_keygen() {
     return KeyGeneration{get_crypto_type().get_keysize(), true, false};
 }
 
-/* Should we use keymaster? */
-static int keymaster_check_compatibility() {
-    return keymaster_compatibility_cryptfs_scrypt();
+static bool write_string_to_buf(const std::string& towrite, uint8_t* buffer, uint32_t buffer_size,
+                                uint32_t* out_size) {
+    if (!buffer || !out_size) {
+        LOG(ERROR) << "Missing target pointers";
+        return false;
+    }
+    *out_size = towrite.size();
+    if (buffer_size < towrite.size()) {
+        LOG(ERROR) << "Buffer too small " << buffer_size << " < " << towrite.size();
+        return false;
+    }
+    memset(buffer, '\0', buffer_size);
+    std::copy(towrite.begin(), towrite.end(), buffer);
+    return true;
+}
+
+static int keymaster_create_key_for_cryptfs_scrypt(uint32_t rsa_key_size, uint64_t rsa_exponent,
+                                                   uint32_t ratelimit, uint8_t* key_buffer,
+                                                   uint32_t key_buffer_size,
+                                                   uint32_t* key_out_size) {
+    if (key_out_size) {
+        *key_out_size = 0;
+    }
+    Keymaster dev;
+    if (!dev) {
+        LOG(ERROR) << "Failed to initiate keymaster session";
+        return -1;
+    }
+    auto keyParams = km::AuthorizationSetBuilder()
+                             .RsaSigningKey(rsa_key_size, rsa_exponent)
+                             .NoDigestOrPadding()
+                             .Authorization(km::TAG_NO_AUTH_REQUIRED)
+                             .Authorization(km::TAG_MIN_SECONDS_BETWEEN_OPS, ratelimit);
+    std::string key;
+    if (!dev.generateKey(keyParams, &key)) return -1;
+    if (!write_string_to_buf(key, key_buffer, key_buffer_size, key_out_size)) return -1;
+    return 0;
 }
 
 /* Create a new keymaster key and store it in this footer */
@@ -353,6 +383,79 @@ static int keymaster_create_key(struct crypt_mnt_ftr* ftr) {
         SLOGE("Failed to generate keypair");
         return -1;
     }
+    return 0;
+}
+
+static int keymaster_sign_object_for_cryptfs_scrypt(struct crypt_mnt_ftr* ftr, uint32_t ratelimit,
+                                                    const uint8_t* object, const size_t object_size,
+                                                    uint8_t** signature_buffer,
+                                                    size_t* signature_buffer_size) {
+    if (!object || !signature_buffer || !signature_buffer_size) {
+        LOG(ERROR) << __FILE__ << ":" << __LINE__ << ":Invalid argument";
+        return -1;
+    }
+
+    Keymaster dev;
+    if (!dev) {
+        LOG(ERROR) << "Failed to initiate keymaster session";
+        return -1;
+    }
+
+    km::AuthorizationSet outParams;
+    std::string key(reinterpret_cast<const char*>(ftr->keymaster_blob), ftr->keymaster_blob_size);
+    std::string input(reinterpret_cast<const char*>(object), object_size);
+    std::string output;
+    KeymasterOperation op;
+
+    auto paramBuilder = km::AuthorizationSetBuilder().NoDigestOrPadding().Authorization(
+            km::TAG_PURPOSE, km::KeyPurpose::SIGN);
+    while (true) {
+        op = dev.begin(key, paramBuilder, &outParams);
+        if (op.getErrorCode() == km::ErrorCode::KEY_RATE_LIMIT_EXCEEDED) {
+            sleep(ratelimit);
+            continue;
+        } else
+            break;
+    }
+
+    if (!op) {
+        LOG(ERROR) << "Error starting keymaster signature transaction: "
+                   << int32_t(op.getErrorCode());
+        return -1;
+    }
+
+    if (op.getUpgradedBlob()) {
+        write_string_to_buf(*op.getUpgradedBlob(), ftr->keymaster_blob, KEYMASTER_BLOB_SIZE,
+                            &ftr->keymaster_blob_size);
+
+        SLOGD("Upgrading key");
+        if (put_crypt_ftr_and_key(ftr) != 0) {
+            SLOGE("Failed to write upgraded key to disk");
+            return -1;
+        }
+        SLOGD("Key upgraded successfully");
+    }
+
+    if (!op.updateCompletely(input, &output)) {
+        LOG(ERROR) << "Error sending data to keymaster signature transaction: "
+                   << int32_t(op.getErrorCode());
+        return -1;
+    }
+
+    if (!op.finish(&output)) {
+        LOG(ERROR) << "Error finalizing keymaster signature transaction: "
+                   << int32_t(op.getErrorCode());
+        return -1;
+    }
+
+    *signature_buffer = reinterpret_cast<uint8_t*>(malloc(output.size()));
+    if (*signature_buffer == nullptr) {
+        LOG(ERROR) << "Error allocation buffer for keymaster signature";
+        return -1;
+    }
+    *signature_buffer_size = output.size();
+    std::copy(output.data(), output.data() + output.size(), *signature_buffer);
+
     return 0;
 }
 
@@ -393,31 +496,8 @@ static int keymaster_sign_object(struct crypt_mnt_ftr* ftr, const unsigned char*
             SLOGE("Unknown KDF type %d", ftr->kdf_type);
             return -1;
     }
-    for (;;) {
-        auto result = keymaster_sign_object_for_cryptfs_scrypt(
-            ftr->keymaster_blob, ftr->keymaster_blob_size, KEYMASTER_CRYPTFS_RATE_LIMIT, to_sign,
-            to_sign_size, signature, signature_size);
-        switch (result) {
-            case KeymasterSignResult::ok:
-                return 0;
-            case KeymasterSignResult::upgrade:
-                break;
-            default:
-                return -1;
-        }
-        SLOGD("Upgrading key");
-        if (keymaster_upgrade_key_for_cryptfs_scrypt(
-                RSA_KEY_SIZE, RSA_EXPONENT, KEYMASTER_CRYPTFS_RATE_LIMIT, ftr->keymaster_blob,
-                ftr->keymaster_blob_size, ftr->keymaster_blob, KEYMASTER_BLOB_SIZE,
-                &ftr->keymaster_blob_size) != 0) {
-            SLOGE("Failed to upgrade key");
-            return -1;
-        }
-        if (put_crypt_ftr_and_key(ftr) != 0) {
-            SLOGE("Failed to write upgraded key to disk");
-        }
-        SLOGD("Key upgraded successfully");
-    }
+    return keymaster_sign_object_for_cryptfs_scrypt(ftr, KEYMASTER_CRYPTFS_RATE_LIMIT, to_sign,
+                                                    to_sign_size, signature, signature_size);
 }
 
 /* Store password when userdata is successfully decrypted and mounted.
@@ -1433,7 +1513,7 @@ static void ensure_subdirectory_unmounted(const char *prefix) {
     }
 }
 
-static int wait_and_unmount(const char* mountpoint, bool kill) {
+static int wait_and_unmount(const char* mountpoint) {
     int i, err, rc;
 
     // Subdirectory mount will cause a failure of umount.
@@ -1455,15 +1535,19 @@ static int wait_and_unmount(const char* mountpoint, bool kill) {
 
         err = errno;
 
-        /* If allowed, be increasingly aggressive before the last two retries */
-        if (kill) {
-            if (i == (WAIT_UNMOUNT_COUNT - 3)) {
-                SLOGW("sending SIGHUP to processes with open files\n");
-                android::vold::KillProcessesWithOpenFiles(mountpoint, SIGTERM);
-            } else if (i == (WAIT_UNMOUNT_COUNT - 2)) {
-                SLOGW("sending SIGKILL to processes with open files\n");
-                android::vold::KillProcessesWithOpenFiles(mountpoint, SIGKILL);
-            }
+        // If it's taking too long, kill the processes with open files.
+        //
+        // Originally this logic was only a fail-safe, but now it's relied on to
+        // kill certain processes that aren't stopped by init because they
+        // aren't in the main or late_start classes.  So to avoid waiting for
+        // too long, we now are fairly aggressive in starting to kill processes.
+        static_assert(WAIT_UNMOUNT_COUNT >= 4);
+        if (i == 2) {
+            SLOGW("sending SIGTERM to processes with open files\n");
+            android::vold::KillProcessesWithOpenFiles(mountpoint, SIGTERM);
+        } else if (i >= 3) {
+            SLOGW("sending SIGKILL to processes with open files\n");
+            android::vold::KillProcessesWithOpenFiles(mountpoint, SIGKILL);
         }
 
         sleep(1);
@@ -1597,7 +1681,7 @@ static int cryptfs_restart_internal(int restart_main) {
         return -1;
     }
 
-    if (!(rc = wait_and_unmount(DATA_MNT_POINT, true))) {
+    if (!(rc = wait_and_unmount(DATA_MNT_POINT))) {
         /* If ro.crypto.readonly is set to 1, mount the decrypted
          * filesystem readonly.  This is used when /data is mounted by
          * recovery mode.
@@ -1747,7 +1831,6 @@ static int test_mount_encrypted_fs(struct crypt_mnt_ftr* crypt_ftr, const char* 
     char tmp_mount_point[64];
     unsigned int orig_failed_decrypt_count;
     int rc;
-    int use_keymaster = 0;
     int upgrade = 0;
     unsigned char* intermediate_key = 0;
     size_t intermediate_key_size = 0;
@@ -1829,14 +1912,8 @@ static int test_mount_encrypted_fs(struct crypt_mnt_ftr* crypt_ftr, const char* 
         rc = 0;
 
         // Upgrade if we're not using the latest KDF.
-        use_keymaster = keymaster_check_compatibility();
-        if (crypt_ftr->kdf_type == KDF_SCRYPT_KEYMASTER) {
-            // Don't allow downgrade
-        } else if (use_keymaster == 1 && crypt_ftr->kdf_type != KDF_SCRYPT_KEYMASTER) {
+        if (crypt_ftr->kdf_type != KDF_SCRYPT_KEYMASTER) {
             crypt_ftr->kdf_type = KDF_SCRYPT_KEYMASTER;
-            upgrade = 1;
-        } else if (use_keymaster == 0 && crypt_ftr->kdf_type != KDF_SCRYPT) {
-            crypt_ftr->kdf_type = KDF_SCRYPT;
             upgrade = 1;
         }
 
@@ -2041,20 +2118,7 @@ static int cryptfs_init_crypt_mnt_ftr(struct crypt_mnt_ftr* ftr) {
     ftr->minor_version = CURRENT_MINOR_VERSION;
     ftr->ftr_size = sizeof(struct crypt_mnt_ftr);
     ftr->keysize = get_crypto_type().get_keysize();
-
-    switch (keymaster_check_compatibility()) {
-        case 1:
-            ftr->kdf_type = KDF_SCRYPT_KEYMASTER;
-            break;
-
-        case 0:
-            ftr->kdf_type = KDF_SCRYPT;
-            break;
-
-        default:
-            SLOGE("keymaster_check_compatibility failed");
-            return -1;
-    }
+    ftr->kdf_type = KDF_SCRYPT_KEYMASTER;
 
     get_device_scrypt_params(ftr);
 
@@ -2068,61 +2132,6 @@ static int cryptfs_init_crypt_mnt_ftr(struct crypt_mnt_ftr* ftr) {
 }
 
 #define FRAMEWORK_BOOT_WAIT 60
-
-static int cryptfs_SHA256_fileblock(const char* filename, __le8* buf) {
-    int fd = open(filename, O_RDONLY | O_CLOEXEC);
-    if (fd == -1) {
-        SLOGE("Error opening file %s", filename);
-        return -1;
-    }
-
-    char block[CRYPT_INPLACE_BUFSIZE];
-    memset(block, 0, sizeof(block));
-    if (unix_read(fd, block, sizeof(block)) < 0) {
-        SLOGE("Error reading file %s", filename);
-        close(fd);
-        return -1;
-    }
-
-    close(fd);
-
-    SHA256_CTX c;
-    SHA256_Init(&c);
-    SHA256_Update(&c, block, sizeof(block));
-    SHA256_Final(buf, &c);
-
-    return 0;
-}
-
-static int cryptfs_enable_all_volumes(struct crypt_mnt_ftr* crypt_ftr, const char* crypto_blkdev,
-                                      const char* real_blkdev, int previously_encrypted_upto) {
-    off64_t cur_encryption_done = 0, tot_encryption_size = 0;
-    int rc = -1;
-
-    /* The size of the userdata partition, and add in the vold volumes below */
-    tot_encryption_size = crypt_ftr->fs_size;
-
-    rc = cryptfs_enable_inplace(crypto_blkdev, real_blkdev, crypt_ftr->fs_size, &cur_encryption_done,
-                                tot_encryption_size, previously_encrypted_upto, true);
-
-    if (rc == ENABLE_INPLACE_ERR_DEV) {
-        /* Hack for b/17898962 */
-        SLOGE("cryptfs_enable: crypto block dev failure. Must reboot...\n");
-        cryptfs_reboot(RebootType::reboot);
-    }
-
-    if (!rc) {
-        crypt_ftr->encrypted_upto = cur_encryption_done;
-    }
-
-    if (!rc && crypt_ftr->encrypted_upto == crypt_ftr->fs_size) {
-        /* The inplace routine never actually sets the progress to 100% due
-         * to the round down nature of integer division, so set it here */
-        property_set("vold.encrypt_progress", "100");
-    }
-
-    return rc;
-}
 
 static int vold_unmountAll(void) {
     VolumeManager* vm = VolumeManager::Instance();
@@ -2140,26 +2149,21 @@ int cryptfs_enable_internal(int crypt_type, const char* passwd, int no_ui) {
     char lockid[32] = {0};
     std::string key_loc;
     int num_vols;
-    off64_t previously_encrypted_upto = 0;
     bool rebootEncryption = false;
     bool onlyCreateHeader = false;
-    std::unique_ptr<android::wakelock::WakeLock> wakeLock = nullptr;
+
+    /* Get a wakelock as this may take a while, and we don't want the
+     * device to sleep on us.  We'll grab a partial wakelock, and if the UI
+     * wants to keep the screen on, it can grab a full wakelock.
+     */
+    snprintf(lockid, sizeof(lockid), "enablecrypto%d", (int)getpid());
+    auto wl = android::wakelock::WakeLock::tryGet(lockid);
+    if (!wl.has_value()) {
+        return android::UNEXPECTED_NULL;
+    }
 
     if (get_crypt_ftr_and_key(&crypt_ftr) == 0) {
-        if (crypt_ftr.flags & CRYPT_ENCRYPTION_IN_PROGRESS) {
-            /* An encryption was underway and was interrupted */
-            previously_encrypted_upto = crypt_ftr.encrypted_upto;
-            crypt_ftr.encrypted_upto = 0;
-            crypt_ftr.flags &= ~CRYPT_ENCRYPTION_IN_PROGRESS;
-
-            /* At this point, we are in an inconsistent state. Until we successfully
-               complete encryption, a reboot will leave us broken. So mark the
-               encryption failed in case that happens.
-               On successfully completing encryption, remove this flag */
-            crypt_ftr.flags |= CRYPT_INCONSISTENT_STATE;
-
-            put_crypt_ftr_and_key(&crypt_ftr);
-        } else if (crypt_ftr.flags & CRYPT_FORCE_ENCRYPTION) {
+        if (crypt_ftr.flags & CRYPT_FORCE_ENCRYPTION) {
             if (!check_ftr_sha(&crypt_ftr)) {
                 memset(&crypt_ftr, 0, sizeof(crypt_ftr));
                 put_crypt_ftr_and_key(&crypt_ftr);
@@ -2177,7 +2181,7 @@ int cryptfs_enable_internal(int crypt_type, const char* passwd, int no_ui) {
     }
 
     property_get("ro.crypto.state", encrypted_state, "");
-    if (!strcmp(encrypted_state, "encrypted") && !previously_encrypted_upto) {
+    if (!strcmp(encrypted_state, "encrypted")) {
         SLOGE("Device is already running encrypted, aborting");
         goto error_unencrypted;
     }
@@ -2204,13 +2208,6 @@ int cryptfs_enable_internal(int crypt_type, const char* passwd, int no_ui) {
             goto error_unencrypted;
         }
     }
-
-    /* Get a wakelock as this may take a while, and we don't want the
-     * device to sleep on us.  We'll grab a partial wakelock, and if the UI
-     * wants to keep the screen on, it can grab a full wakelock.
-     */
-    snprintf(lockid, sizeof(lockid), "enablecrypto%d", (int)getpid());
-    wakeLock = std::make_unique<android::wakelock::WakeLock>(lockid);
 
     /* The init files are setup to stop the class main and late start when
      * vold sets trigger_shutdown_framework.
@@ -2243,7 +2240,7 @@ int cryptfs_enable_internal(int crypt_type, const char* passwd, int no_ui) {
          * /data, set a property saying we're doing inplace encryption,
          * and restart the framework.
          */
-        wait_and_unmount(DATA_MNT_POINT, true);
+        wait_and_unmount(DATA_MNT_POINT);
         if (fs_mgr_do_tmpfs_mount(DATA_MNT_POINT)) {
             goto error_shutting_down;
         }
@@ -2264,7 +2261,7 @@ int cryptfs_enable_internal(int crypt_type, const char* passwd, int no_ui) {
 
     /* Start the actual work of making an encrypted filesystem */
     /* Initialize a crypt_mnt_ftr for the partition */
-    if (previously_encrypted_upto == 0 && !rebootEncryption) {
+    if (!rebootEncryption) {
         if (cryptfs_init_crypt_mnt_ftr(&crypt_ftr)) {
             goto error_shutting_down;
         }
@@ -2339,77 +2336,46 @@ int cryptfs_enable_internal(int crypt_type, const char* passwd, int no_ui) {
     }
 
     decrypt_master_key(passwd, decrypted_master_key, &crypt_ftr, 0, 0);
-    create_crypto_blk_dev(&crypt_ftr, decrypted_master_key, real_blkdev.c_str(), &crypto_blkdev,
-                          CRYPTO_BLOCK_DEVICE, 0);
-
-    /* If we are continuing, check checksums match */
-    rc = 0;
-    if (previously_encrypted_upto) {
-        __le8 hash_first_block[SHA256_DIGEST_LENGTH];
-        rc = cryptfs_SHA256_fileblock(crypto_blkdev.c_str(), hash_first_block);
-
-        if (!rc &&
-            memcmp(hash_first_block, crypt_ftr.hash_first_block, sizeof(hash_first_block)) != 0) {
-            SLOGE("Checksums do not match - trigger wipe");
-            rc = -1;
-        }
-    }
-
+    rc = create_crypto_blk_dev(&crypt_ftr, decrypted_master_key, real_blkdev.c_str(),
+                               &crypto_blkdev, CRYPTO_BLOCK_DEVICE, 0);
     if (!rc) {
-        rc = cryptfs_enable_all_volumes(&crypt_ftr, crypto_blkdev.c_str(), real_blkdev.data(),
-                                        previously_encrypted_upto);
-    }
-
-    /* Calculate checksum if we are not finished */
-    if (!rc && crypt_ftr.encrypted_upto != crypt_ftr.fs_size) {
-        rc = cryptfs_SHA256_fileblock(crypto_blkdev.c_str(), crypt_ftr.hash_first_block);
-        if (rc) {
-            SLOGE("Error calculating checksum for continuing encryption");
+        if (encrypt_inplace(crypto_blkdev, real_blkdev, crypt_ftr.fs_size, true)) {
+            crypt_ftr.encrypted_upto = crypt_ftr.fs_size;
+            rc = 0;
+        } else {
             rc = -1;
         }
+        /* Undo the dm-crypt mapping whether we succeed or not */
+        delete_crypto_blk_dev(CRYPTO_BLOCK_DEVICE);
     }
-
-    /* Undo the dm-crypt mapping whether we succeed or not */
-    delete_crypto_blk_dev(CRYPTO_BLOCK_DEVICE);
 
     if (!rc) {
         /* Success */
         crypt_ftr.flags &= ~CRYPT_INCONSISTENT_STATE;
 
-        if (crypt_ftr.encrypted_upto != crypt_ftr.fs_size) {
-            SLOGD("Encrypted up to sector %lld - will continue after reboot",
-                  crypt_ftr.encrypted_upto);
-            crypt_ftr.flags |= CRYPT_ENCRYPTION_IN_PROGRESS;
-        }
-
         put_crypt_ftr_and_key(&crypt_ftr);
 
-        if (crypt_ftr.encrypted_upto == crypt_ftr.fs_size) {
-            char value[PROPERTY_VALUE_MAX];
-            property_get("ro.crypto.state", value, "");
-            if (!strcmp(value, "")) {
-                /* default encryption - continue first boot sequence */
-                property_set("ro.crypto.state", "encrypted");
-                property_set("ro.crypto.type", "block");
-                wakeLock.reset(nullptr);
-                if (rebootEncryption && crypt_ftr.crypt_type != CRYPT_TYPE_DEFAULT) {
-                    // Bring up cryptkeeper that will check the password and set it
-                    property_set("vold.decrypt", "trigger_shutdown_framework");
-                    sleep(2);
-                    property_set("vold.encrypt_progress", "");
-                    cryptfs_trigger_restart_min_framework();
-                } else {
-                    cryptfs_check_passwd(DEFAULT_PASSWORD);
-                    cryptfs_restart_internal(1);
-                }
-                return 0;
+        char value[PROPERTY_VALUE_MAX];
+        property_get("ro.crypto.state", value, "");
+        if (!strcmp(value, "")) {
+            /* default encryption - continue first boot sequence */
+            property_set("ro.crypto.state", "encrypted");
+            property_set("ro.crypto.type", "block");
+            wl.reset();
+            if (rebootEncryption && crypt_ftr.crypt_type != CRYPT_TYPE_DEFAULT) {
+                // Bring up cryptkeeper that will check the password and set it
+                property_set("vold.decrypt", "trigger_shutdown_framework");
+                sleep(2);
+                property_set("vold.encrypt_progress", "");
+                cryptfs_trigger_restart_min_framework();
             } else {
-                sleep(2); /* Give the UI a chance to show 100% progress */
-                cryptfs_reboot(RebootType::reboot);
+                cryptfs_check_passwd(DEFAULT_PASSWORD);
+                cryptfs_restart_internal(1);
             }
+            return 0;
         } else {
-            sleep(2); /* Partially encrypted, ensure writes flushed to ssd */
-            cryptfs_reboot(RebootType::shutdown);
+            sleep(2); /* Give the UI a chance to show 100% progress */
+            cryptfs_reboot(RebootType::reboot);
         }
     } else {
         char value[PROPERTY_VALUE_MAX];

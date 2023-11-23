@@ -53,7 +53,7 @@ class policy_PlatformKeys(enterprise_policy_base.EnterprisePolicyTest):
         # Wait for the API to return 'OK' and raise an error if it doesn't.
         utils.poll_for_condition(
                 lambda: 'OK' in self.field_value(error_id),
-                timeout=5,
+                timeout=15,
                 exception=error.TestFail(
                     'API error: %s' % self.field_value(error_id)))
 

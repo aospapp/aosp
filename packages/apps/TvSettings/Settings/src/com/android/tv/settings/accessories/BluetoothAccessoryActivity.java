@@ -16,12 +16,17 @@
 
 package com.android.tv.settings.accessories;
 
-import android.app.Fragment;
 import android.os.Bundle;
+import android.os.UserHandle;
+import android.os.UserManager;
 
+import androidx.fragment.app.Fragment;
+
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 import com.android.tv.settings.R;
 import com.android.tv.settings.TvSettingsActivity;
-import com.android.tv.settings.overlay.FeatureFactory;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 public class BluetoothAccessoryActivity extends TvSettingsActivity {
 
@@ -31,6 +36,16 @@ public class BluetoothAccessoryActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
+
+        RestrictedLockUtils.EnforcedAdmin admin =
+                RestrictedLockUtilsInternal.checkIfRestrictionEnforced(this,
+                        UserManager.DISALLOW_CONFIG_BLUETOOTH, UserHandle.myUserId());
+        if (admin != null) {
+            RestrictedLockUtils.sendShowAdminSupportDetailsIntent(this, admin);
+            finish();
+            return null;
+        }
+
         String deviceAddress = null;
         String deviceName;
         int deviceImgId;
@@ -43,7 +58,7 @@ public class BluetoothAccessoryActivity extends TvSettingsActivity {
             deviceName = getString(R.string.accessory_options);
             deviceImgId = R.drawable.ic_qs_bluetooth_not_connected;
         }
-        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+        return FlavorUtils.getFeatureFactory(this).getSettingsFragmentProvider()
                 .newSettingsFragment(BluetoothAccessoryFragment.class.getName(),
                         getArguments(deviceAddress, deviceName, deviceImgId));
     }

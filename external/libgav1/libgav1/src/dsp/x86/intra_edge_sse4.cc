@@ -12,19 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/dsp/dsp.h"
 #include "src/dsp/intra_edge.h"
+#include "src/utils/cpu.h"
 
-#if LIBGAV1_ENABLE_SSE4_1
+#if LIBGAV1_TARGETING_SSE4_1
 
 #include <xmmintrin.h>
 
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>  // memcpy
+#include <cstring>
 
 #include "src/dsp/constants.h"
+#include "src/dsp/dsp.h"
 #include "src/dsp/x86/common_sse4.h"
 #include "src/utils/common.h"
 
@@ -117,7 +118,7 @@ inline void ComputeKernel2Store12(uint8_t* dest, const uint8_t* source) {
 inline void ComputeKernel3Store8(uint8_t* dest, const uint8_t* source) {
   const __m128i edge_lo = LoadUnaligned16(source);
   const __m128i edge_hi = _mm_srli_si128(edge_lo, 4);
-  // Finish |edge_lo| lifecycle quickly.
+  // Finish |edge_lo| life cycle quickly.
   // Multiply for 2x.
   const __m128i source2_lo = _mm_slli_epi16(_mm_cvtepu8_epi16(edge_lo), 1);
   // Multiply 2x by 2 and align.
@@ -241,7 +242,7 @@ void IntraEdgeUpsampler_SSE4_1(void* buffer, int size) {
 }
 
 void Init8bpp() {
-  Dsp* const dsp = dsp_internal::GetWritableDspTable(8);
+  Dsp* const dsp = dsp_internal::GetWritableDspTable(kBitdepth8);
   assert(dsp != nullptr);
 #if DSP_ENABLED_8BPP_SSE4_1(IntraEdgeFilter)
   dsp->intra_edge_filter = IntraEdgeFilter_SSE4_1;
@@ -258,7 +259,7 @@ void IntraEdgeInit_SSE4_1() { Init8bpp(); }
 }  // namespace dsp
 }  // namespace libgav1
 
-#else   // !LIBGAV1_ENABLE_SSE4_1
+#else   // !LIBGAV1_TARGETING_SSE4_1
 namespace libgav1 {
 namespace dsp {
 
@@ -266,4 +267,4 @@ void IntraEdgeInit_SSE4_1() {}
 
 }  // namespace dsp
 }  // namespace libgav1
-#endif  // LIBGAV1_ENABLE_SSE4_1
+#endif  // LIBGAV1_TARGETING_SSE4_1

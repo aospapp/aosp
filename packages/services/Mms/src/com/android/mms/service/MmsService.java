@@ -42,10 +42,12 @@ import android.provider.Telephony;
 import android.security.NetworkSecurityPolicy;
 import android.service.carrier.CarrierMessagingService;
 import android.telephony.SmsManager;
+import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.data.ApnSetting;
 import android.text.TextUtils;
+import android.util.EventLog;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.IMms;
@@ -63,7 +65,10 @@ import com.google.android.mms.util.SqliteWrapper;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Callable;
@@ -71,6 +76,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * System service to process MMS API requests
@@ -183,7 +190,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         public void sendMessage(int subId, String callingPkg, Uri contentUri,
                 String locationUrl, Bundle configOverrides, PendingIntent sentIntent,
                 long messageId) {
-            LogUtil.d("sendMessage messageId: " + messageId);
+            LogUtil.d("sendMessage " + formatCrossStackMessageId(messageId));
             enforceSystemUid();
 
             // Make sure the subId is correct
@@ -210,7 +217,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     getCarrierMessagingServicePackageIfExists(subId);
 
             if (carrierMessagingServicePackage != null) {
-                LogUtil.d(request.toString(), "sending message by carrier app");
+                LogUtil.d(request.toString(), "sending message by carrier app "
+                        + formatCrossStackMessageId(messageId));
                 request.trySendingByCarrierApp(MmsService.this, carrierMessagingServicePackage);
                 return;
             }
@@ -239,7 +247,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             // subIds, so we should try to download anyway.
             // TODO: Fail fast when downloading will fail (i.e. SIM swapped)
             LogUtil.d("downloadMessage: " + MmsHttpClient.redactUrlForNonVerbose(locationUrl) +
-                    ", messageId: " + messageId);
+                    ", " + formatCrossStackMessageId(messageId));
 
             enforceSystemUid();
 
@@ -253,6 +261,24 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 subId = SubscriptionManager.getDefaultSmsSubscriptionId();
             }
 
+            if (!isActiveSubId(subId)) {
+                List<SubscriptionInfo> activeSubList = getActiveSubscriptionsInGroup(subId);
+                if (activeSubList.isEmpty()) {
+                    sendErrorInPendingIntent(downloadedIntent);
+                    return;
+                }
+
+                subId = activeSubList.get(0).getSubscriptionId();
+                int defaultSmsSubId = SubscriptionManager.getDefaultSmsSubscriptionId();
+                // If we have default sms subscription, prefer to use that. Otherwise, use first
+                // subscription
+                for (SubscriptionInfo subInfo : activeSubList) {
+                    if (subInfo.getSubscriptionId() == defaultSmsSubId) {
+                        subId = subInfo.getSubscriptionId();
+                    }
+                }
+            }
+
             final DownloadRequest request = new DownloadRequest(MmsService.this, subId, locationUrl,
                     contentUri, downloadedIntent, callingPkg, configOverrides, MmsService.this,
                     messageId);
@@ -261,7 +287,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     getCarrierMessagingServicePackageIfExists(subId);
 
             if (carrierMessagingServicePackage != null) {
-                LogUtil.d(request.toString(), "downloading message by carrier app");
+                LogUtil.d(request.toString(), "downloading message by carrier app "
+                        + formatCrossStackMessageId(messageId));
                 request.tryDownloadingByCarrierApp(MmsService.this, carrierMessagingServicePackage);
                 return;
             }
@@ -274,6 +301,48 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             }
 
             addSimRequest(request);
+        }
+
+        private List<SubscriptionInfo> getActiveSubscriptionsInGroup(int subId) {
+            SubscriptionManager subManager =
+                    (SubscriptionManager) getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+
+            if (subManager == null) {
+                return Collections.emptyList();
+            }
+
+            List<SubscriptionInfo> subList = subManager.getAvailableSubscriptionInfoList();
+
+            if (subList == null) {
+                return Collections.emptyList();
+            }
+
+            SubscriptionInfo subscriptionInfo = null;
+            for (SubscriptionInfo subInfo : subList) {
+                if (subInfo.getSubscriptionId() == subId) {
+                    subscriptionInfo = subInfo;
+                    break;
+                }
+            }
+
+            if (subscriptionInfo == null) {
+                return Collections.emptyList();
+            }
+
+            if (subscriptionInfo.getGroupUuid() == null) {
+                return Collections.emptyList();
+            }
+
+            List<SubscriptionInfo> subscriptionInGroupList =
+                    subManager.getSubscriptionsInGroup(subscriptionInfo.getGroupUuid());
+
+            // the list is sorted by isOpportunistic and isOpportunistic == false will have higher
+            // priority
+            return subscriptionInGroupList.stream()
+                    .filter(info ->
+                            info.getSimSlotIndex() != SubscriptionManager.INVALID_SIM_SLOT_INDEX)
+                    .sorted(Comparator.comparing(SubscriptionInfo::isOpportunistic))
+                    .collect(Collectors.toList());
         }
 
         @Override
@@ -359,6 +428,10 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         public boolean archiveStoredConversation(String callingPkg, long conversationId,
                 boolean archived) throws RemoteException {
             LogUtil.d("archiveStoredConversation " + conversationId + " " + archived);
+            if (Binder.getCallingUid() != Process.SYSTEM_UID) {
+                EventLog.writeEvent(0x534e4554, "180419673", Binder.getCallingUid(), "");
+            }
+            enforceSystemUid();
             if (conversationId == -1) {
                 LogUtil.e("archiveStoredConversation: invalid thread id");
                 return false;
@@ -417,6 +490,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
          * Calls the pending intent with <code>MMS_ERROR_NO_DATA_NETWORK</code>.
          */
         private void sendErrorInPendingIntent(@Nullable PendingIntent intent) {
+            LogUtil.d("sendErrorInPendingIntent - no data network");
             if (intent != null) {
                 try {
                     intent.send(SmsManager.MMS_ERROR_NO_DATA_NETWORK);
@@ -465,6 +539,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     movePendingSimRequestsToRunningSynchronized();
                 }
             } else {
+                LogUtil.d("Add request to running queue."
+                        + " Request subId=" + request.getSubId() + ","
+                        + " current subId=" + mCurrentSubId);
                 addToRunningRequestQueueSynchronized(request);
             }
         }
@@ -505,6 +582,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 } finally {
                     synchronized (MmsService.this) {
                         mRunningRequestCount--;
+                        LogUtil.d("addToRunningRequestQueueSynchronized mRunningRequestCount="
+                                + mRunningRequestCount);
                         if (mRunningRequestCount <= 0) {
                             movePendingSimRequestsToRunningSynchronized();
                         }
@@ -515,7 +594,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     }
 
     private void movePendingSimRequestsToRunningSynchronized() {
-        LogUtil.d("Schedule requests pending on SIM");
+        LogUtil.d("Move pending requests to running queue mPendingSimRequestQueue.size="
+                + mPendingSimRequestQueue.size());
         mCurrentSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
         while (mPendingSimRequestQueue.size() > 0) {
             final MmsRequest request = mPendingSimRequestQueue.peek();
@@ -524,9 +604,15 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                         || mCurrentSubId == request.getSubId()) {
                     // First or subsequent requests with same SIM ID
                     mPendingSimRequestQueue.remove();
+                    LogUtil.d("Move pending request to running queue."
+                            + " Request subId=" + request.getSubId() + ","
+                            + " current subId=" + mCurrentSubId);
                     addToRunningRequestQueueSynchronized(request);
                 } else {
                     // Stop if we see a different SIM ID
+                    LogUtil.d("Pending request not moved to running queue, different subId."
+                            + " Request subId=" + request.getSubId() + ","
+                            + " current subId=" + mCurrentSubId);
                     break;
                 }
             } else {
@@ -936,6 +1022,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         } catch (Exception e) {
             // Typically a timeout occurred - cancel task
             pendingResult.cancel(true);
+            LogUtil.e("Exception during PDU read", e);
         }
         return 0;
     }
@@ -981,7 +1068,12 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         } catch (Exception e) {
             // Typically a timeout occurred - cancel task
             pendingResult.cancel(true);
+            LogUtil.e("Exception during PDU write", e);
         }
         return false;
+    }
+
+    static String formatCrossStackMessageId(long id) {
+        return "{x-message-id:" + id + "}";
     }
 }

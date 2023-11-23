@@ -16,7 +16,4 @@
 
 package android.view.accessibility.cts;
 
-import android.app.Activity;
-
-public class DummyActivity extends Activity {
-}
+public class DummyActivity extends AccessibilityTestActivity {}

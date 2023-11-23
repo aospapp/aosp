@@ -19,19 +19,25 @@
 #include <algorithm>
 #include <atomic>
 #include <thread>
+#include <unordered_map>
 
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
-#include "environment.h"
 #include "ETMRecorder.h"
+#include "IOEventLoop.h"
+#include "RecordReadThread.h"
+#include "environment.h"
 #include "event_attr.h"
 #include "event_type.h"
-#include "IOEventLoop.h"
 #include "perf_regs.h"
+#include "tracing.h"
 #include "utils.h"
-#include "RecordReadThread.h"
 
-using namespace simpleperf;
+namespace simpleperf {
+
+using android::base::StringPrintf;
 
 bool IsBranchSamplingSupported() {
   const EventType* type = FindEventTypeByName("cpu-cycles");
@@ -50,8 +56,7 @@ bool IsDwarfCallChainSamplingSupported() {
     return false;
   }
   perf_event_attr attr = CreateDefaultPerfEventAttr(*type);
-  attr.sample_type |=
-      PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_REGS_USER | PERF_SAMPLE_STACK_USER;
+  attr.sample_type |= PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_REGS_USER | PERF_SAMPLE_STACK_USER;
   attr.exclude_callchain_user = 1;
   attr.sample_regs_user = GetSupportedRegMask(GetBuildArch());
   attr.sample_stack_user = 8192;
@@ -59,6 +64,11 @@ bool IsDwarfCallChainSamplingSupported() {
 }
 
 bool IsDumpingRegsForTracepointEventsSupported() {
+  if (auto version = GetKernelVersion(); version && version.value() >= std::make_pair(4, 2)) {
+    // Kernel >= 4.2 has patch "5b09a094f2 arm64: perf: Fix callchain parse error with kernel
+    // tracepoint events". So no need to test.
+    return true;
+  }
   const EventType* event_type = FindEventTypeByName("sched:sched_switch", false);
   if (event_type == nullptr) {
     return false;
@@ -88,16 +98,20 @@ bool IsDumpingRegsForTracepointEventsSupported() {
   done = true;
   thread.join();
 
-  std::vector<char> buffer = event_fd->GetAvailableMmapData();
-  std::vector<std::unique_ptr<Record>> records =
-      ReadRecordsFromBuffer(attr, buffer.data(), buffer.size());
-  for (auto& r : records) {
-    if (r->type() == PERF_RECORD_SAMPLE) {
-      auto& record = *static_cast<SampleRecord*>(r.get());
-      if (record.ip_data.ip != 0) {
-        return true;
+  // There are small chances that we don't see samples immediately after joining the thread on
+  // cuttlefish, probably due to data synchronization between cpus. To avoid flaky tests, use a
+  // loop to wait for samples.
+  for (int timeout = 0; timeout < 1000; timeout++) {
+    std::vector<char> buffer = event_fd->GetAvailableMmapData();
+    std::vector<std::unique_ptr<Record>> records =
+        ReadRecordsFromBuffer(attr, buffer.data(), buffer.size());
+    for (auto& r : records) {
+      if (r->type() == PERF_RECORD_SAMPLE) {
+        auto& record = *static_cast<SampleRecord*>(r.get());
+        return record.ip_data.ip != 0;
       }
     }
+    usleep(1);
   }
   return false;
 }
@@ -131,6 +145,23 @@ bool IsMmap2Supported() {
   return IsEventAttrSupported(attr, type->name);
 }
 
+std::string AddrFilter::ToString() const {
+  switch (type) {
+    case FILE_RANGE:
+      return StringPrintf("filter 0x%" PRIx64 "/0x%" PRIx64 "@%s", addr, size, file_path.c_str());
+    case AddrFilter::FILE_START:
+      return StringPrintf("start 0x%" PRIx64 "@%s", addr, file_path.c_str());
+    case AddrFilter::FILE_STOP:
+      return StringPrintf("stop 0x%" PRIx64 "@%s", addr, file_path.c_str());
+    case AddrFilter::KERNEL_RANGE:
+      return StringPrintf("filter 0x%" PRIx64 "/0x%" PRIx64, addr, size);
+    case AddrFilter::KERNEL_START:
+      return StringPrintf("start 0x%" PRIx64, addr);
+    case AddrFilter::KERNEL_STOP:
+      return StringPrintf("stop 0x%" PRIx64, addr);
+  }
+}
+
 EventSelectionSet::EventSelectionSet(bool for_stat_cmd)
     : for_stat_cmd_(for_stat_cmd), loop_(new IOEventLoop) {}
 
@@ -143,11 +174,9 @@ bool EventSelectionSet::BuildAndCheckEventSelection(const std::string& event_nam
     return false;
   }
   if (for_stat_cmd_) {
-    if (event_type->event_type.name == "cpu-clock" ||
-        event_type->event_type.name == "task-clock") {
+    if (event_type->event_type.name == "cpu-clock" || event_type->event_type.name == "task-clock") {
       if (event_type->exclude_user || event_type->exclude_kernel) {
-        LOG(ERROR) << "Modifier u and modifier k used in event type "
-                   << event_type->event_type.name
+        LOG(ERROR) << "Modifier u and modifier k used in event type " << event_type->event_type.name
                    << " are not supported by the kernel.";
         return false;
       }
@@ -199,8 +228,7 @@ bool EventSelectionSet::BuildAndCheckEventSelection(const std::string& event_nam
   // PMU events are provided by kernel, so they should be supported
   if (!event_type->event_type.IsPmuEvent() &&
       !IsEventAttrSupported(selection->event_attr, selection->event_type_modifier.name)) {
-    LOG(ERROR) << "Event type '" << event_type->name
-               << "' is not supported on the device";
+    LOG(ERROR) << "Event type '" << event_type->name << "' is not supported on the device";
     return false;
   }
   if (set_default_sample_freq) {
@@ -212,8 +240,7 @@ bool EventSelectionSet::BuildAndCheckEventSelection(const std::string& event_nam
   for (const auto& group : groups_) {
     for (const auto& sel : group) {
       if (sel.event_type_modifier.name == selection->event_type_modifier.name) {
-        LOG(ERROR) << "Event type '" << sel.event_type_modifier.name
-                   << "' appears more than once";
+        LOG(ERROR) << "Event type '" << sel.event_type_modifier.name << "' appears more than once";
         return false;
       }
     }
@@ -225,8 +252,8 @@ bool EventSelectionSet::AddEventType(const std::string& event_name, size_t* grou
   return AddEventGroup(std::vector<std::string>(1, event_name), group_id);
 }
 
-bool EventSelectionSet::AddEventGroup(
-    const std::vector<std::string>& event_names, size_t* group_id) {
+bool EventSelectionSet::AddEventGroup(const std::vector<std::string>& event_names,
+                                      size_t* group_id) {
   EventSelectionGroup group;
   bool first_event = groups_.empty();
   bool first_in_group = true;
@@ -270,8 +297,7 @@ std::vector<const EventType*> EventSelectionSet::GetTracepointEvents() const {
   std::vector<const EventType*> result;
   for (const auto& group : groups_) {
     for (const auto& selection : group) {
-      if (selection.event_type_modifier.event_type.type ==
-          PERF_TYPE_TRACEPOINT) {
+      if (selection.event_type_modifier.event_type.type == PERF_TYPE_TRACEPOINT) {
         result.push_back(&selection.event_type_modifier.event_type);
       }
     }
@@ -300,6 +326,18 @@ std::vector<EventAttrWithId> EventSelectionSet::GetEventAttrWithId() const {
         attr_id.ids.push_back(fd->Id());
       }
       result.push_back(attr_id);
+    }
+  }
+  return result;
+}
+
+std::unordered_map<uint64_t, std::string> EventSelectionSet::GetEventNamesById() const {
+  std::unordered_map<uint64_t, std::string> result;
+  for (const auto& group : groups_) {
+    for (const auto& selection : group) {
+      for (const auto& fd : selection.event_fds) {
+        result[fd->Id()] = selection.event_type_modifier.name;
+      }
     }
   }
   return result;
@@ -374,11 +412,9 @@ void EventSelectionSet::SetSampleSpeed(size_t group_id, const SampleSpeed& speed
 
 bool EventSelectionSet::SetBranchSampling(uint64_t branch_sample_type) {
   if (branch_sample_type != 0 &&
-      (branch_sample_type &
-       (PERF_SAMPLE_BRANCH_ANY | PERF_SAMPLE_BRANCH_ANY_CALL |
-        PERF_SAMPLE_BRANCH_ANY_RETURN | PERF_SAMPLE_BRANCH_IND_CALL)) == 0) {
-    LOG(ERROR) << "Invalid branch_sample_type: 0x" << std::hex
-               << branch_sample_type;
+      (branch_sample_type & (PERF_SAMPLE_BRANCH_ANY | PERF_SAMPLE_BRANCH_ANY_CALL |
+                             PERF_SAMPLE_BRANCH_ANY_RETURN | PERF_SAMPLE_BRANCH_IND_CALL)) == 0) {
+    LOG(ERROR) << "Invalid branch_sample_type: 0x" << std::hex << branch_sample_type;
     return false;
   }
   if (branch_sample_type != 0 && !IsBranchSamplingSupported()) {
@@ -414,12 +450,10 @@ bool EventSelectionSet::EnableDwarfCallChainSampling(uint32_t dump_stack_size) {
   }
   for (auto& group : groups_) {
     for (auto& selection : group) {
-      selection.event_attr.sample_type |= PERF_SAMPLE_CALLCHAIN |
-                                          PERF_SAMPLE_REGS_USER |
-                                          PERF_SAMPLE_STACK_USER;
+      selection.event_attr.sample_type |=
+          PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_REGS_USER | PERF_SAMPLE_STACK_USER;
       selection.event_attr.exclude_callchain_user = 1;
-      selection.event_attr.sample_regs_user =
-          GetSupportedRegMask(GetMachineArch());
+      selection.event_attr.sample_regs_user = GetSupportedRegMask(GetMachineArch());
       selection.event_attr.sample_stack_user = dump_stack_size;
     }
   }
@@ -444,14 +478,7 @@ void EventSelectionSet::SetClockId(int clock_id) {
 }
 
 bool EventSelectionSet::NeedKernelSymbol() const {
-  for (const auto& group : groups_) {
-    for (const auto& selection : group) {
-      if (!selection.event_type_modifier.exclude_kernel) {
-        return true;
-      }
-    }
-  }
-  return false;
+  return !ExcludeKernel();
 }
 
 void EventSelectionSet::SetRecordNotExecutableMaps(bool record) {
@@ -463,11 +490,68 @@ bool EventSelectionSet::RecordNotExecutableMaps() const {
   return groups_[0][0].event_attr.mmap_data == 1;
 }
 
+void EventSelectionSet::WakeupPerSample() {
+  for (auto& group : groups_) {
+    for (auto& selection : group) {
+      selection.event_attr.watermark = 0;
+      selection.event_attr.wakeup_events = 1;
+    }
+  }
+}
+
+bool EventSelectionSet::SetTracepointFilter(const std::string& filter) {
+  // 1. Find the tracepoint event to set filter.
+  EventSelection* selection = nullptr;
+  if (!groups_.empty()) {
+    auto& group = groups_.back();
+    if (group.size() == 1) {
+      if (group[0].event_attr.type == PERF_TYPE_TRACEPOINT) {
+        selection = &group[0];
+      }
+    }
+  }
+  if (selection == nullptr) {
+    LOG(ERROR) << "No tracepoint event before filter: " << filter;
+    return false;
+  }
+
+  // 2. Check the format of the filter.
+  bool use_quote = false;
+  // Quotes are needed for string operands in kernel >= 4.19, probably after patch "tracing: Rewrite
+  // filter logic to be simpler and faster".
+  if (auto version = GetKernelVersion(); version && version.value() >= std::make_pair(4, 19)) {
+    use_quote = true;
+  }
+
+  FieldNameSet used_fields;
+  auto adjusted_filter = AdjustTracepointFilter(filter, use_quote, &used_fields);
+  if (!adjusted_filter) {
+    return false;
+  }
+
+  // 3. Check if used fields are available in the tracepoint event.
+  auto& event_type = selection->event_type_modifier.event_type;
+  if (auto opt_fields = GetFieldNamesForTracepointEvent(event_type); opt_fields) {
+    FieldNameSet& fields = opt_fields.value();
+    for (const auto& field : used_fields) {
+      if (fields.find(field) == fields.end()) {
+        LOG(ERROR) << "field name " << field << " used in \"" << filter << "\" doesn't exist in "
+                   << event_type.name << ". Available fields are "
+                   << android::base::Join(fields, ",");
+        return false;
+      }
+    }
+  }
+
+  // 4. Connect the filter to the event.
+  selection->tracepoint_filter = adjusted_filter.value();
+  return true;
+}
+
 static bool CheckIfCpusOnline(const std::vector<int>& cpus) {
   std::vector<int> online_cpus = GetOnlineCpus();
   for (const auto& cpu : cpus) {
-    if (std::find(online_cpus.begin(), online_cpus.end(), cpu) ==
-        online_cpus.end()) {
+    if (std::find(online_cpus.begin(), online_cpus.end(), cpu) == online_cpus.end()) {
       LOG(ERROR) << "cpu " << cpu << " is not online.";
       return false;
     }
@@ -475,8 +559,7 @@ static bool CheckIfCpusOnline(const std::vector<int>& cpus) {
   return true;
 }
 
-bool EventSelectionSet::OpenEventFilesOnGroup(EventSelectionGroup& group,
-                                              pid_t tid, int cpu,
+bool EventSelectionSet::OpenEventFilesOnGroup(EventSelectionGroup& group, pid_t tid, int cpu,
                                               std::string* failed_event_type) {
   std::vector<std::unique_ptr<EventFd>> event_fds;
   // Given a tid and cpu, events on the same group should be all opened
@@ -486,8 +569,8 @@ bool EventSelectionSet::OpenEventFilesOnGroup(EventSelectionGroup& group,
     std::unique_ptr<EventFd> event_fd = EventFd::OpenEventFile(
         selection.event_attr, tid, cpu, group_fd, selection.event_type_modifier.name, false);
     if (!event_fd) {
-        *failed_event_type = selection.event_type_modifier.name;
-        return false;
+      *failed_event_type = selection.event_type_modifier.name;
+      return false;
     }
     LOG(VERBOSE) << "OpenEventFile for " << event_fd->Name();
     event_fds.push_back(std::move(event_fd));
@@ -557,37 +640,60 @@ bool EventSelectionSet::OpenEventFiles(const std::vector<int>& cpus) {
 }
 
 bool EventSelectionSet::ApplyFilters() {
-  if (include_filters_.empty()) {
+  return ApplyAddrFilters() && ApplyTracepointFilters();
+}
+
+bool EventSelectionSet::ApplyAddrFilters() {
+  if (addr_filters_.empty()) {
     return true;
   }
   if (!has_aux_trace_) {
-    LOG(ERROR) << "include filters only take effect in cs-etm instruction tracing";
+    LOG(ERROR) << "addr filters only take effect in cs-etm instruction tracing";
     return false;
   }
-  size_t supported_pairs = ETMRecorder::GetInstance().GetAddrFilterPairs();
-  if (supported_pairs < include_filters_.size()) {
-    LOG(ERROR) << "filter binary count is " << include_filters_.size()
-               << ", bigger than maximum supported filters on device, which is " << supported_pairs;
+
+  // Check filter count limit.
+  size_t required_etm_filter_count = 0;
+  for (auto& filter : addr_filters_) {
+    // A range filter needs two etm filters.
+    required_etm_filter_count +=
+        (filter.type == AddrFilter::FILE_RANGE || filter.type == AddrFilter::KERNEL_RANGE) ? 2 : 1;
+  }
+  size_t etm_filter_count = ETMRecorder::GetInstance().GetAddrFilterPairs() * 2;
+  if (etm_filter_count < required_etm_filter_count) {
+    LOG(ERROR) << "needed " << required_etm_filter_count << " etm filters, but only "
+               << etm_filter_count << " filters are available.";
     return false;
   }
+
   std::string filter_str;
-  for (auto& binary : include_filters_) {
-    std::string path;
-    if (!android::base::Realpath(binary, &path)) {
-      PLOG(ERROR) << "failed to find include filter binary: " << binary;
-      return false;
-    }
-    uint64_t file_size = GetFileSize(path);
+  for (auto& filter : addr_filters_) {
     if (!filter_str.empty()) {
       filter_str += ',';
     }
-    android::base::StringAppendF(&filter_str, "filter 0/%" PRIu64 "@%s", file_size, path.c_str());
+    filter_str += filter.ToString();
   }
+
   for (auto& group : groups_) {
     for (auto& selection : group) {
       if (IsEtmEventType(selection.event_type_modifier.event_type.type)) {
         for (auto& event_fd : selection.event_fds) {
           if (!event_fd->SetFilter(filter_str)) {
+            return false;
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
+
+bool EventSelectionSet::ApplyTracepointFilters() {
+  for (auto& group : groups_) {
+    for (auto& selection : group) {
+      if (!selection.tracepoint_filter.empty()) {
+        for (auto& event_fd : selection.event_fds) {
+          if (!event_fd->SetFilter(selection.tracepoint_filter)) {
             return false;
           }
         }
@@ -631,10 +737,9 @@ bool EventSelectionSet::ReadCounters(std::vector<CountersInfo>* counters) {
 bool EventSelectionSet::MmapEventFiles(size_t min_mmap_pages, size_t max_mmap_pages,
                                        size_t aux_buffer_size, size_t record_buffer_size,
                                        bool allow_cutting_samples, bool exclude_perf) {
-  record_read_thread_.reset(
-      new simpleperf::RecordReadThread(record_buffer_size, groups_[0][0].event_attr, min_mmap_pages,
-                                       max_mmap_pages, aux_buffer_size, allow_cutting_samples,
-                                       exclude_perf));
+  record_read_thread_.reset(new simpleperf::RecordReadThread(
+      record_buffer_size, groups_[0][0].event_attr, min_mmap_pages, max_mmap_pages, aux_buffer_size,
+      allow_cutting_samples, exclude_perf));
   return true;
 }
 
@@ -690,6 +795,17 @@ bool EventSelectionSet::FinishReadMmapEventData() {
   return true;
 }
 
+void EventSelectionSet::CloseEventFiles() {
+  if (record_read_thread_) {
+    record_read_thread_->StopReadThread();
+  }
+  for (auto& group : groups_) {
+    for (auto& event : group) {
+      event.event_fds.clear();
+    }
+  }
+}
+
 bool EventSelectionSet::StopWhenNoMoreTargets(double check_interval_in_sec) {
   return loop_->AddPeriodicEvent(SecondToTimeval(check_interval_in_sec),
                                  [&]() { return CheckMonitoredTargets(); });
@@ -735,3 +851,5 @@ bool EventSelectionSet::SetEnableEvents(bool enable) {
   }
   return true;
 }
+
+}  // namespace simpleperf

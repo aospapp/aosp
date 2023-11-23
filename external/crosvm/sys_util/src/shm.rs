@@ -2,21 +2,24 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::ffi::CStr;
-use std::fs::File;
+use std::ffi::{CStr, CString};
+use std::fs::{read_link, File};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use libc::{
-    self, c_char, c_int, c_long, c_uint, close, fcntl, ftruncate64, off64_t, syscall, F_ADD_SEALS,
-    F_GET_SEALS, F_SEAL_GROW, F_SEAL_SEAL, F_SEAL_SHRINK, F_SEAL_WRITE, MFD_ALLOW_SEALING,
+    self, c_char, c_int, c_long, c_uint, close, fcntl, ftruncate64, off64_t, syscall,
+    SYS_memfd_create, EINVAL, F_ADD_SEALS, F_GET_SEALS, F_SEAL_GROW, F_SEAL_SEAL, F_SEAL_SHRINK,
+    F_SEAL_WRITE, MFD_ALLOW_SEALING,
 };
-use syscall_defines::linux::LinuxSyscall::SYS_memfd_create;
+use serde::{Deserialize, Serialize};
 
 use crate::{errno, errno_result, Result};
 
 /// A shared memory file descriptor and its size.
+#[derive(Serialize, Deserialize)]
 pub struct SharedMemory {
+    #[serde(with = "crate::with_as_descriptor")]
     fd: File,
     size: u64,
 }
@@ -97,6 +100,22 @@ impl MemfdSeals {
 }
 
 impl SharedMemory {
+    /// Convenience function for `SharedMemory::new` that is always named and accepts a wide variety
+    /// of string-like types.
+    ///
+    /// Note that the given name may not have NUL characters anywhere in it, or this will return an
+    /// error.
+    pub fn named<T: Into<Vec<u8>>>(name: T) -> Result<SharedMemory> {
+        Self::new(Some(
+            &CString::new(name).map_err(|_| errno::Error::new(EINVAL))?,
+        ))
+    }
+
+    /// Convenience function for `SharedMemory::new` that has an arbitrary and unspecified name.
+    pub fn anon() -> Result<SharedMemory> {
+        Self::new(None)
+    }
+
     /// Creates a new shared memory file descriptor with zero size.
     ///
     /// If a name is given, it will appear in `/proc/self/fd/<shm fd>` for the purposes of
@@ -119,13 +138,11 @@ impl SharedMemory {
         Ok(SharedMemory { fd: file, size: 0 })
     }
 
-    /// Constructs a `SharedMemory` instance from a file descriptor that represents shared memory.
+    /// Constructs a `SharedMemory` instance from a `File` that represents shared memory.
     ///
     /// The size of the resulting shared memory will be determined using `File::seek`. If the given
     /// file's size can not be determined this way, this will return an error.
-    pub fn from_raw_fd<T: IntoRawFd>(fd: T) -> Result<SharedMemory> {
-        // Safe because the IntoRawFd trait indicates fd has unique ownership.
-        let mut file = unsafe { File::from_raw_fd(fd.into_raw_fd()) };
+    pub fn from_file(mut file: File) -> Result<SharedMemory> {
         let file_size = file.seek(SeekFrom::End(0))?;
         Ok(SharedMemory {
             fd: file,
@@ -175,6 +192,24 @@ impl SharedMemory {
         }
         self.size = size;
         Ok(())
+    }
+
+    /// Reads the name from the underlying file as a `String`.
+    ///
+    /// If the underlying file was not created with `SharedMemory::new` or with `memfd_create`, the
+    /// results are undefined. Because this returns a `String`, the name's bytes are interpreted as
+    /// utf-8.
+    pub fn read_name(&self) -> Result<String> {
+        let fd_path = format!("/proc/self/fd/{}", self.as_raw_fd());
+        let link_name = read_link(fd_path)?;
+        link_name
+            .to_str()
+            .map(|s| {
+                s.trim_start_matches("/memfd:")
+                    .trim_end_matches(" (deleted)")
+                    .to_owned()
+            })
+            .ok_or_else(|| errno::Error::new(EINVAL))
     }
 }
 
@@ -234,9 +269,15 @@ impl AsRawFd for &SharedMemory {
     }
 }
 
-impl Into<File> for SharedMemory {
-    fn into(self) -> File {
-        self.fd
+impl IntoRawFd for SharedMemory {
+    fn into_raw_fd(self) -> RawFd {
+        self.fd.into_raw_fd()
+    }
+}
+
+impl From<SharedMemory> for File {
+    fn from(s: SharedMemory) -> File {
+        s.fd
     }
 }
 
@@ -262,18 +303,35 @@ mod tests {
     use super::*;
 
     use std::ffi::CString;
-    use std::fs::read_link;
 
     use data_model::VolatileMemory;
 
     use crate::MemoryMapping;
 
     #[test]
+    fn named() {
+        if !kernel_has_memfd() {
+            return;
+        }
+        const TEST_NAME: &str = "Name McCool Person";
+        let shm = SharedMemory::named(TEST_NAME).expect("failed to create shared memory");
+        assert_eq!(shm.read_name(), Ok(TEST_NAME.to_owned()));
+    }
+
+    #[test]
+    fn anon() {
+        if !kernel_has_memfd() {
+            return;
+        }
+        SharedMemory::anon().expect("failed to create shared memory");
+    }
+
+    #[test]
     fn new() {
         if !kernel_has_memfd() {
             return;
         }
-        let shm = SharedMemory::new(None).expect("failed to create shared memory");
+        let shm = SharedMemory::anon().expect("failed to create shared memory");
         assert_eq!(shm.size(), 0);
     }
 
@@ -282,7 +340,7 @@ mod tests {
         if !kernel_has_memfd() {
             return;
         }
-        let mut shm = SharedMemory::new(None).expect("failed to create shared memory");
+        let mut shm = SharedMemory::anon().expect("failed to create shared memory");
         shm.set_size(1024)
             .expect("failed to set shared memory size");
         assert_eq!(shm.size(), 1024);
@@ -293,7 +351,7 @@ mod tests {
         if !kernel_has_memfd() {
             return;
         }
-        let mut shm = SharedMemory::new(None).expect("failed to create shared memory");
+        let mut shm = SharedMemory::anon().expect("failed to create shared memory");
         shm.set_size(0x7fff_ffff_ffff_ffff)
             .expect("failed to set shared memory size");
         assert_eq!(shm.size(), 0x7fff_ffff_ffff_ffff);
@@ -304,7 +362,7 @@ mod tests {
         if !kernel_has_memfd() {
             return;
         }
-        let mut shm = SharedMemory::new(None).expect("failed to create shared memory");
+        let mut shm = SharedMemory::anon().expect("failed to create shared memory");
         shm.set_size(0x8000_0000_0000_0000).unwrap_err();
         assert_eq!(shm.size(), 0);
     }
@@ -317,10 +375,7 @@ mod tests {
         let name = "very unique name";
         let cname = CString::new(name).unwrap();
         let shm = SharedMemory::new(Some(&cname)).expect("failed to create shared memory");
-        let fd_path = format!("/proc/self/fd/{}", shm.as_raw_fd());
-        let link_name =
-            read_link(fd_path).expect("failed to read link of shared memory /proc/self/fd entry");
-        assert!(link_name.to_str().unwrap().contains(name));
+        assert_eq!(shm.read_name(), Ok(name.to_owned()));
     }
 
     #[test]
@@ -328,7 +383,7 @@ mod tests {
         if !kernel_has_memfd() {
             return;
         }
-        let mut shm = SharedMemory::new(None).expect("failed to create shared memory");
+        let mut shm = SharedMemory::anon().expect("failed to create shared memory");
         let mut seals = shm.get_seals().expect("failed to get seals");
         assert_eq!(seals.bitmask(), 0);
         seals.set_seal_seal();
@@ -344,7 +399,7 @@ mod tests {
         if !kernel_has_memfd() {
             return;
         }
-        let mut shm = SharedMemory::new(None).expect("failed to create shared memory");
+        let mut shm = SharedMemory::anon().expect("failed to create shared memory");
         shm.set_size(4096)
             .expect("failed to set shared memory size");
 
@@ -373,7 +428,7 @@ mod tests {
         if !kernel_has_memfd() {
             return;
         }
-        let mut shm = SharedMemory::new(None).expect("failed to create shared memory");
+        let mut shm = SharedMemory::anon().expect("failed to create shared memory");
         shm.set_size(8092)
             .expect("failed to set shared memory size");
 

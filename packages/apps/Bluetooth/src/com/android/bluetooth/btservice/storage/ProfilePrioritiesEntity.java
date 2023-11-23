@@ -35,6 +35,7 @@ class ProfilePrioritiesEntity {
     public int sap_connection_policy;
     public int hearing_aid_connection_policy;
     public int map_client_connection_policy;
+    public int le_audio_connection_policy;
 
     ProfilePrioritiesEntity() {
         a2dp_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
@@ -49,6 +50,7 @@ class ProfilePrioritiesEntity {
         sap_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
         hearing_aid_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
         map_client_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        le_audio_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
     }
 
     public String toString() {
@@ -64,7 +66,8 @@ class ProfilePrioritiesEntity {
                 .append("|MAP=").append(map_connection_policy)
                 .append("|MAP_CLIENT=").append(map_client_connection_policy)
                 .append("|SAP=").append(sap_connection_policy)
-                .append("|HEARING_AID=").append(hearing_aid_connection_policy);
+                .append("|HEARING_AID=").append(hearing_aid_connection_policy)
+                .append("|LE_AUDIO=").append(le_audio_connection_policy);
 
         return builder.toString();
     }

@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+# Generate source.properties for image target
+PRODUCT_SDK_ADDON_SYS_IMG_SOURCE_PROP := \
+    device/google/atv/sdk/images_source.prop_template
+
 # The system image of aosp_tv_arm64-userdebug is a GSI for the devices with:
 # - ARM 64 bits user space
 # - 64 bits binder interface
@@ -24,7 +28,7 @@
 # All components inherited here go to system image
 #
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
-$(call inherit-product, device/google/atv/products/atv_mainline_system.mk)
+$(call inherit-product, device/google/atv/products/atv_generic_system.mk)
 
 # Enable mainline checking for excat this product name
 ifeq (aosp_tv_arm64,$(TARGET_PRODUCT))
@@ -37,7 +41,6 @@ endif
 $(call inherit-product, device/google/atv/products/atv_system_ext.mk)
 # Packages required for ATV GSI
 PRODUCT_PACKAGES += \
-    FrameworkPackageStubs \
     TvProvision
 
 #
@@ -46,14 +49,13 @@ PRODUCT_PACKAGES += \
 $(call inherit-product, device/google/atv/products/atv_product.mk)
 # Packages required for ATV GSI
 PRODUCT_PACKAGES += \
-    LatinIMEGoogleTvPrebuilt \
+    LeanbackIME \
     TvSampleLeanbackLauncher
 
 #
-# All components inherited here go to vendor image
+# All components inherited here go to vendor or vendor_boot image
 #
 $(call inherit-product, device/google/atv/products/atv_emulator_vendor.mk)
-$(call inherit-product-if-exists, device/generic/goldfish/arm64-vendor.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/board/generic_arm64/device.mk)
 
 ifeq (aosp_tv_arm64,$(TARGET_PRODUCT))

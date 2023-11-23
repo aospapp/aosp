@@ -73,6 +73,7 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -94,8 +95,16 @@ public class ProviderTestUtils {
     public static Iterable<String> getSharedVolumeNames() {
         // We test both new and legacy volume names
         final HashSet<String> testVolumes = new HashSet<>();
-        testVolumes.addAll(
-                MediaStore.getExternalVolumeNames(InstrumentationRegistry.getTargetContext()));
+        final Set<String> volumeNames = MediaStore.getExternalVolumeNames(
+                InstrumentationRegistry.getTargetContext());
+        // Run tests only on VISIBLE volumes which are FUSE mounted and indexed by MediaProvider
+        for (String vol : volumeNames) {
+            final File mountedPath = getVolumePath(vol);
+            if (mountedPath == null || mountedPath.getAbsolutePath() == null) continue;
+            if (mountedPath.getAbsolutePath().startsWith("/storage/")) {
+                testVolumes.add(vol);
+            }
+        }
         testVolumes.add(MediaStore.VOLUME_EXTERNAL);
         return testVolumes;
     }
@@ -397,7 +406,11 @@ public class ProviderTestUtils {
 
     public static void assertExists(String msg, String path) throws IOException {
         if (!access(path)) {
-            fail(msg);
+            if (msg != null) {
+                fail(path + ": " + msg);
+            } else {
+                fail("File " + path + " does not exist");
+            }
         }
     }
 
@@ -448,16 +461,25 @@ public class ProviderTestUtils {
         return false;
     }
 
+    /**
+     * Gets File corresponding to the uri.
+     * This function assumes that the caller has access to the uri
+     * @param uri uri to get File for
+     * @return File file corresponding to the uri
+     * @throws FileNotFoundException if either the file does not exist or the caller does not have
+     * read access to the file
+     */
     public static File getRawFile(Uri uri) throws Exception {
-        final String res = ProviderTestUtils.executeShellCommand("content query --uri " + uri
-                + " --user " + InstrumentationRegistry.getTargetContext().getUserId()
-                + " --projection _data",
-                InstrumentationRegistry.getInstrumentation().getUiAutomation());
-        final int i = res.indexOf("_data=");
-        if (i >= 0) {
-            return new File(res.substring(i + 6));
+        String filePath;
+        try (Cursor c = InstrumentationRegistry.getTargetContext().getContentResolver().query(uri,
+                new String[] { MediaColumns.DATA }, null, null)) {
+            assertTrue(c.moveToFirst());
+            filePath = c.getString(0);
+        }
+        if (filePath != null) {
+            return new File(filePath);
         } else {
-            throw new FileNotFoundException("Failed to find _data for " + uri + "; found " + res);
+            throw new FileNotFoundException("Failed to find _data for " + uri);
         }
     }
 

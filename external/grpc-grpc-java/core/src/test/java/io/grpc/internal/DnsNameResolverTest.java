@@ -18,6 +18,7 @@ package io.grpc.internal;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
@@ -27,13 +28,10 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import com.google.common.net.InetAddresses;
-import com.google.common.testing.FakeTicker;
 import io.grpc.Attributes;
 import io.grpc.EquivalentAddressGroup;
 import io.grpc.NameResolver;
@@ -42,6 +40,7 @@ import io.grpc.internal.DnsNameResolver.ResolutionResults;
 import io.grpc.internal.DnsNameResolver.ResourceResolver;
 import io.grpc.internal.DnsNameResolver.ResourceResolverFactory;
 import io.grpc.internal.SharedResourceHolder.Resource;
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -55,8 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
-import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -108,25 +105,21 @@ public class DnsNameResolverTest {
   private NameResolver.Listener mockListener;
   @Captor
   private ArgumentCaptor<List<EquivalentAddressGroup>> resultCaptor;
-  @Nullable
-  private String networkaddressCacheTtlPropertyValue;
 
   private DnsNameResolver newResolver(String name, int port) {
-    return newResolver(name, port, GrpcUtil.NOOP_PROXY_DETECTOR, Stopwatch.createUnstarted());
+    return newResolver(name, port, GrpcUtil.NOOP_PROXY_DETECTOR);
   }
 
   private DnsNameResolver newResolver(
       String name,
       int port,
-      ProxyDetector proxyDetector,
-      Stopwatch stopwatch) {
+      ProxyDetector proxyDetector) {
     DnsNameResolver dnsResolver = new DnsNameResolver(
         null,
         name,
         Attributes.newBuilder().set(NameResolver.Factory.PARAMS_DEFAULT_PORT, port).build(),
         fakeExecutorResource,
-        proxyDetector,
-        stopwatch);
+        proxyDetector);
     return dnsResolver;
   }
 
@@ -134,19 +127,6 @@ public class DnsNameResolverTest {
   public void setUp() {
     MockitoAnnotations.initMocks(this);
     DnsNameResolver.enableJndi = true;
-    networkaddressCacheTtlPropertyValue =
-        System.getProperty(DnsNameResolver.NETWORKADDRESS_CACHE_TTL_PROPERTY);
-  }
-
-  @After
-  public void restoreSystemProperty() {
-    if (networkaddressCacheTtlPropertyValue == null) {
-      System.clearProperty(DnsNameResolver.NETWORKADDRESS_CACHE_TTL_PROPERTY);
-    } else {
-      System.setProperty(
-          DnsNameResolver.NETWORKADDRESS_CACHE_TTL_PROPERTY,
-          networkaddressCacheTtlPropertyValue);
-    }
   }
 
   @After
@@ -198,8 +178,7 @@ public class DnsNameResolverTest {
   }
 
   @Test
-  public void resolve_neverCache() throws Exception {
-    System.setProperty(DnsNameResolver.NETWORKADDRESS_CACHE_TTL_PROPERTY, "0");
+  public void resolve() throws Exception {
     final List<InetAddress> answer1 = createAddressList(2);
     final List<InetAddress> answer2 = createAddressList(1);
     String name = "foo.googleapis.com";
@@ -215,156 +194,6 @@ public class DnsNameResolverTest {
     assertAnswerMatches(answer1, 81, resultCaptor.getValue());
     assertEquals(0, fakeClock.numPendingTasks());
 
-    resolver.refresh();
-    assertEquals(1, fakeExecutor.runDueTasks());
-    verify(mockListener, times(2)).onAddresses(resultCaptor.capture(), any(Attributes.class));
-    assertAnswerMatches(answer2, 81, resultCaptor.getValue());
-    assertEquals(0, fakeClock.numPendingTasks());
-
-    resolver.shutdown();
-
-    verify(mockResolver, times(2)).resolveAddress(Matchers.anyString());
-  }
-
-  @Test
-  public void resolve_cacheForever() throws Exception {
-    System.setProperty(DnsNameResolver.NETWORKADDRESS_CACHE_TTL_PROPERTY, "-1");
-    final List<InetAddress> answer1 = createAddressList(2);
-    String name = "foo.googleapis.com";
-    FakeTicker fakeTicker = new FakeTicker();
-
-    DnsNameResolver resolver =
-        newResolver(name, 81, GrpcUtil.NOOP_PROXY_DETECTOR, Stopwatch.createUnstarted(fakeTicker));
-    AddressResolver mockResolver = mock(AddressResolver.class);
-    when(mockResolver.resolveAddress(Matchers.anyString()))
-        .thenReturn(answer1)
-        .thenThrow(new AssertionError("should not called twice"));
-    resolver.setAddressResolver(mockResolver);
-
-    resolver.start(mockListener);
-    assertEquals(1, fakeExecutor.runDueTasks());
-    verify(mockListener).onAddresses(resultCaptor.capture(), any(Attributes.class));
-    assertAnswerMatches(answer1, 81, resultCaptor.getValue());
-    assertEquals(0, fakeClock.numPendingTasks());
-
-    fakeTicker.advance(1, TimeUnit.DAYS);
-    resolver.refresh();
-    assertEquals(1, fakeExecutor.runDueTasks());
-    verifyNoMoreInteractions(mockListener);
-    assertAnswerMatches(answer1, 81, resultCaptor.getValue());
-    assertEquals(0, fakeClock.numPendingTasks());
-
-    resolver.shutdown();
-
-    verify(mockResolver).resolveAddress(Matchers.anyString());
-  }
-
-  @Test
-  public void resolve_usingCache() throws Exception {
-    long ttl = 60;
-    System.setProperty(DnsNameResolver.NETWORKADDRESS_CACHE_TTL_PROPERTY, Long.toString(ttl));
-    final List<InetAddress> answer = createAddressList(2);
-    String name = "foo.googleapis.com";
-    FakeTicker fakeTicker = new FakeTicker();
-
-    DnsNameResolver resolver =
-        newResolver(name, 81, GrpcUtil.NOOP_PROXY_DETECTOR, Stopwatch.createUnstarted(fakeTicker));
-    AddressResolver mockResolver = mock(AddressResolver.class);
-    when(mockResolver.resolveAddress(Matchers.anyString()))
-        .thenReturn(answer)
-        .thenThrow(new AssertionError("should not reach here."));
-    resolver.setAddressResolver(mockResolver);
-
-    resolver.start(mockListener);
-    assertEquals(1, fakeExecutor.runDueTasks());
-    verify(mockListener).onAddresses(resultCaptor.capture(), any(Attributes.class));
-    assertAnswerMatches(answer, 81, resultCaptor.getValue());
-    assertEquals(0, fakeClock.numPendingTasks());
-
-    // this refresh should return cached result
-    fakeTicker.advance(ttl - 1, TimeUnit.SECONDS);
-    resolver.refresh();
-    assertEquals(1, fakeExecutor.runDueTasks());
-    verifyNoMoreInteractions(mockListener);
-    assertAnswerMatches(answer, 81, resultCaptor.getValue());
-    assertEquals(0, fakeClock.numPendingTasks());
-
-    resolver.shutdown();
-
-    verify(mockResolver).resolveAddress(Matchers.anyString());
-  }
-
-  @Test
-  public void resolve_cacheExpired() throws Exception {
-    long ttl = 60;
-    System.setProperty(DnsNameResolver.NETWORKADDRESS_CACHE_TTL_PROPERTY, Long.toString(ttl));
-    final List<InetAddress> answer1 = createAddressList(2);
-    final List<InetAddress> answer2 = createAddressList(1);
-    String name = "foo.googleapis.com";
-    FakeTicker fakeTicker = new FakeTicker();
-
-    DnsNameResolver resolver =
-        newResolver(name, 81, GrpcUtil.NOOP_PROXY_DETECTOR, Stopwatch.createUnstarted(fakeTicker));
-    AddressResolver mockResolver = mock(AddressResolver.class);
-    when(mockResolver.resolveAddress(Matchers.anyString())).thenReturn(answer1).thenReturn(answer2);
-    resolver.setAddressResolver(mockResolver);
-
-    resolver.start(mockListener);
-    assertEquals(1, fakeExecutor.runDueTasks());
-    verify(mockListener).onAddresses(resultCaptor.capture(), any(Attributes.class));
-    assertAnswerMatches(answer1, 81, resultCaptor.getValue());
-    assertEquals(0, fakeClock.numPendingTasks());
-
-    fakeTicker.advance(ttl + 1, TimeUnit.SECONDS);
-    resolver.refresh();
-    assertEquals(1, fakeExecutor.runDueTasks());
-    verify(mockListener, times(2)).onAddresses(resultCaptor.capture(), any(Attributes.class));
-    assertAnswerMatches(answer2, 81, resultCaptor.getValue());
-    assertEquals(0, fakeClock.numPendingTasks());
-
-    resolver.shutdown();
-
-    verify(mockResolver, times(2)).resolveAddress(Matchers.anyString());
-  }
-
-  @Test
-  public void resolve_invalidTtlPropertyValue() throws Exception {
-    System.setProperty(DnsNameResolver.NETWORKADDRESS_CACHE_TTL_PROPERTY, "not_a_number");
-    resolveDefaultValue();
-  }
-
-  @Test
-  public void resolve_noPropertyValue() throws Exception {
-    System.clearProperty(DnsNameResolver.NETWORKADDRESS_CACHE_TTL_PROPERTY);
-    resolveDefaultValue();
-  }
-
-  private void resolveDefaultValue() throws Exception {
-    final List<InetAddress> answer1 = createAddressList(2);
-    final List<InetAddress> answer2 = createAddressList(1);
-    String name = "foo.googleapis.com";
-    FakeTicker fakeTicker = new FakeTicker();
-
-    DnsNameResolver resolver =
-        newResolver(name, 81, GrpcUtil.NOOP_PROXY_DETECTOR, Stopwatch.createUnstarted(fakeTicker));
-    AddressResolver mockResolver = mock(AddressResolver.class);
-    when(mockResolver.resolveAddress(Matchers.anyString())).thenReturn(answer1).thenReturn(answer2);
-    resolver.setAddressResolver(mockResolver);
-
-    resolver.start(mockListener);
-    assertEquals(1, fakeExecutor.runDueTasks());
-    verify(mockListener).onAddresses(resultCaptor.capture(), any(Attributes.class));
-    assertAnswerMatches(answer1, 81, resultCaptor.getValue());
-    assertEquals(0, fakeClock.numPendingTasks());
-
-    fakeTicker.advance(DnsNameResolver.DEFAULT_NETWORK_CACHE_TTL_SECONDS, TimeUnit.SECONDS);
-    resolver.refresh();
-    assertEquals(1, fakeExecutor.runDueTasks());
-    verifyNoMoreInteractions(mockListener);
-    assertAnswerMatches(answer1, 81, resultCaptor.getValue());
-    assertEquals(0, fakeClock.numPendingTasks());
-
-    fakeTicker.advance(1, TimeUnit.SECONDS);
     resolver.refresh();
     assertEquals(1, fakeExecutor.runDueTasks());
     verify(mockListener, times(2)).onAddresses(resultCaptor.capture(), any(Attributes.class));
@@ -394,6 +223,23 @@ public class DnsNameResolverTest {
     assertThat(res.balancerAddresses).isEmpty();
     assertThat(res.txtRecords).isEmpty();
     verify(mockResolver).resolveAddress(hostname);
+  }
+
+  @Test
+  public void resolveAll_nullResourceResolver_addressFailure() throws Exception {
+    final String hostname = "addr.fake";
+
+    AddressResolver mockResolver = mock(AddressResolver.class);
+    when(mockResolver.resolveAddress(Matchers.anyString()))
+        .thenThrow(new IOException("no addr"));
+    ResourceResolver resourceResolver = null;
+    boolean resovleSrv = true;
+    boolean resolveTxt = true;
+
+    thrown.expect(RuntimeException.class);
+    thrown.expectMessage("no addr");
+
+    DnsNameResolver.resolveAll(mockResolver, resourceResolver, resovleSrv, resolveTxt, hostname);
   }
 
   @Test
@@ -502,8 +348,7 @@ public class DnsNameResolverTest {
         "password");
     when(alwaysDetectProxy.proxyFor(any(SocketAddress.class)))
         .thenReturn(proxyParameters);
-    DnsNameResolver resolver =
-        newResolver(name, port, alwaysDetectProxy, Stopwatch.createUnstarted());
+    DnsNameResolver resolver = newResolver(name, port, alwaysDetectProxy);
     AddressResolver mockAddressResolver = mock(AddressResolver.class);
     when(mockAddressResolver.resolveAddress(Matchers.anyString())).thenThrow(new AssertionError());
     resolver.setAddressResolver(mockAddressResolver);
@@ -752,6 +597,82 @@ public class DnsNameResolverTest {
     choice.put("serviceConfig", serviceConfig);
 
     assertNotNull(DnsNameResolver.maybeChooseServiceConfig(choice, new Random(), "localhost"));
+  }
+
+  @Test
+  public void shouldUseJndi_alwaysFalseIfDisabled() {
+    boolean enableJndi = false;
+    boolean enableJndiLocalhost = true;
+    String host = "seemingly.valid.host";
+
+    assertFalse(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, host));
+  }
+
+  @Test
+  public void shouldUseJndi_falseIfDisabledForLocalhost() {
+    boolean enableJndi = true;
+    boolean enableJndiLocalhost = false;
+    
+    assertFalse(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "localhost"));
+    assertFalse(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "LOCALHOST"));
+  }
+
+  @Test
+  public void shouldUseJndi_trueIfLocalhostOverriden() {
+    boolean enableJndi = true;
+    boolean enableJndiLocalhost = true;
+    String host = "localhost";
+
+    assertTrue(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, host));
+  }
+
+  @Test
+  public void shouldUseJndi_falseForIpv6() {
+    boolean enableJndi = true;
+    boolean enableJndiLocalhost = false;
+
+    assertFalse(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "::"));
+    assertFalse(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "::1"));
+    assertFalse(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "2001:db8:1234::"));
+    assertFalse(DnsNameResolver.shouldUseJndi(
+        enableJndi, enableJndiLocalhost, "[2001:db8:1234::]"));
+    assertFalse(DnsNameResolver.shouldUseJndi(
+        enableJndi, enableJndiLocalhost, "2001:db8:1234::%3"));
+  }
+
+  @Test
+  public void shouldUseJndi_falseForIpv4() {
+    boolean enableJndi = true;
+    boolean enableJndiLocalhost = false;
+
+    assertFalse(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "127.0.0.1"));
+    assertFalse(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "192.168.0.1"));
+    assertFalse(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "134744072"));
+  }
+
+  @Test
+  public void shouldUseJndi_falseForEmpty() {
+    boolean enableJndi = true;
+    boolean enableJndiLocalhost = false;
+
+    assertFalse(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, ""));
+  }
+
+  @Test
+  public void shouldUseJndi_trueIfItMightPossiblyBeValid() {
+    boolean enableJndi = true;
+    boolean enableJndiLocalhost = false;
+
+    assertTrue(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "remotehost"));
+    assertTrue(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "remotehost.gov"));
+    assertTrue(DnsNameResolver.shouldUseJndi(enableJndi, enableJndiLocalhost, "f.q.d.n."));
+    assertTrue(DnsNameResolver.shouldUseJndi(
+        enableJndi, enableJndiLocalhost, "8.8.8.8.in-addr.arpa."));
+    assertTrue(DnsNameResolver.shouldUseJndi(
+        enableJndi, enableJndiLocalhost, "2001-db8-1234--as3.ipv6-literal.net"));
+
+
+
   }
 
   private void testInvalidUri(URI uri) {

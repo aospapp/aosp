@@ -12,6 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["external_libkmsxx_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_libkmsxx_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-MPL",
+        "SPDX-license-identifier-MPL-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_library_shared {
     name: "libkmsxx",
 
@@ -19,37 +51,20 @@ cc_library_shared {
     rtti: true,
 
     srcs: [
-        "kms++/src/atomicreq.cpp",
-        "kms++/src/card.cpp",
-        "kms++/src/crtc.cpp",
-        "kms++/src/drmpropobject.cpp",
-        "kms++/src/encoder.cpp",
-        "kms++/src/framebuffer.cpp",
-        "kms++/src/modedb_cea.cpp",
-        "kms++/src/modedb_dmt.cpp",
-        "kms++/src/pixelformats.cpp",
-        "kms++/src/property.cpp",
-        "kms++/src/blob.cpp",
-        "kms++/src/connector.cpp",
-        "kms++/src/drmobject.cpp",
-        "kms++/src/dumbframebuffer.cpp",
-        "kms++/src/extframebuffer.cpp",
-        "kms++/src/helpers.cpp",
-        "kms++/src/mode_cvt.cpp",
-        "kms++/src/modedb.cpp",
-        "kms++/src/plane.cpp",
-        "kms++/src/videomode.cpp",
+        "kms++/src/*.cpp",
     ],
 
     cflags: [
-        "-std=c++11",
+        "-DFMT_EXCEPTIONS=0",  // fmtlib is not built with exception.
         "-Wall",
         "-Wextra",
         "-Wno-unused-parameter",
         "-fexceptions",
+        "-include array",
     ],
 
     shared_libs: [
+        "libbase",  // for fmtlib
         "libdrm",
     ],
 

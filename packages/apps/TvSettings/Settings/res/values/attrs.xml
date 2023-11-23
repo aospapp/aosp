@@ -143,4 +143,7 @@
         <attr name="pickerType" format="string" />
     </declare-styleable>
 
+    <declare-styleable name="TsPreference">
+        <attr name="updatableFromGoogleSettings" format="boolean" />
+    </declare-styleable>
 </resources>

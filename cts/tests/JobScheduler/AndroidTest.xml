@@ -19,6 +19,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="token" value="SIM_CARD" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsJobSchedulerTestCases.apk" />
@@ -26,6 +27,8 @@
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="cmd thermalservice override-status 0" />
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.jobscheduler.cts.jobtestapp" />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.jobscheduler.cts.jobtestapp" />
         <option name="teardown-command" value="cmd thermalservice reset" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
@@ -33,4 +36,9 @@
         <option name="runtime-hint" value="2m" />
         <option name="isolated-storage" value="false" />
     </test>
+
+    <object type="module_controller"
+            class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <option name="mainline-module-package-name" value="android.scheduling"/>
+    </object>
 </configuration>

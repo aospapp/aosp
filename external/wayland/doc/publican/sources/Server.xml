@@ -24,7 +24,7 @@
   </para>
   <para>
     Each open socket to a client is represented by a <link
-    linkend="Server-structwl__client">wl_client</link>.  The equvalent
+    linkend="Server-structwl__client">wl_client</link>.  The equivalent
     of the <link linkend="Client-classwl__proxy">wl_proxy</link> that
     libwayland-client uses to represent an object is <link
     linkend="Server-structwl__resource">wl_resource</link> for

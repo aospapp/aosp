@@ -15,7 +15,6 @@
  */
 package com.google.android.chre.test.audioconcurrency;
 
-import android.app.UiAutomation;
 import android.hardware.location.ContextHubClient;
 import android.hardware.location.ContextHubClientCallback;
 import android.hardware.location.ContextHubInfo;
@@ -27,8 +26,6 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.util.Log;
-
-import androidx.test.InstrumentationRegistry;
 
 import com.google.android.chre.nanoapp.proto.ChreAudioConcurrencyTest;
 import com.google.android.chre.nanoapp.proto.ChreTestCommon;
@@ -180,10 +177,6 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
      * Records audio from the mic.
      */
     private void recordAudio() {
-        UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
-        Assert.assertTrue("Failed to get UI automation", automation != null);
-        automation.adoptShellPermissionIdentity(AUDIO_PERMISSION);
-
         // Hold the mic for 1 second
         int samplingRateHz = 16000; // 16 KHz
         int durationSeconds = 1;
@@ -201,8 +194,6 @@ public class ContextHubAudioConcurrencyTestExecutor extends ContextHubClientCall
         record.read(buf, 0 /* offsetInBytes */, size);
         Log.d(TAG, "AP read audio for " + 1000 * size / samplingRateHz + " ms");
         record.release();
-
-        automation.dropShellPermissionIdentity();
     }
 
     /**

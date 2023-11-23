@@ -19,6 +19,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanohub_os_nucleo
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../NOTICE
 LOCAL_MODULE_TAGS := optional
 LOCAL_AUX_OS_VARIANT := nucleo
 

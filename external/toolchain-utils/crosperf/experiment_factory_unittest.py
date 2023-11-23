@@ -248,17 +248,19 @@ class ExperimentFactoryTest(unittest.TestCase):
     self.assertTrue(isinstance(bench_list[0], benchmark.Benchmark))
 
     bench_list = []
-    ef.AppendBenchmarkSet(
-        bench_list, experiment_factory.telemetry_pagecycler_tests, '', 1, False,
-        '', 'telemetry_Crosperf', False, 0, False, '', 0)
+    ef.AppendBenchmarkSet(bench_list,
+                          experiment_factory.telemetry_pagecycler_tests, '', 1,
+                          False, '', 'telemetry_Crosperf', False, 0, False, '',
+                          0)
     self.assertEqual(
         len(bench_list), len(experiment_factory.telemetry_pagecycler_tests))
     self.assertTrue(isinstance(bench_list[0], benchmark.Benchmark))
 
     bench_list = []
-    ef.AppendBenchmarkSet(
-        bench_list, experiment_factory.telemetry_toolchain_perf_tests, '', 1,
-        False, '', 'telemetry_Crosperf', False, 0, False, '', 0)
+    ef.AppendBenchmarkSet(bench_list,
+                          experiment_factory.telemetry_toolchain_perf_tests, '',
+                          1, False, '', 'telemetry_Crosperf', False, 0, False,
+                          '', 0)
     self.assertEqual(
         len(bench_list), len(experiment_factory.telemetry_toolchain_perf_tests))
     self.assertTrue(isinstance(bench_list[0], benchmark.Benchmark))
@@ -398,7 +400,7 @@ class ExperimentFactoryTest(unittest.TestCase):
   def test_get_default_remotes(self):
     board_list = [
         'elm', 'bob', 'chell', 'kefka', 'lulu', 'nautilus', 'snappy',
-        'veyron_minnie'
+        'veyron_tiger'
     ]
 
     ef = ExperimentFactory()

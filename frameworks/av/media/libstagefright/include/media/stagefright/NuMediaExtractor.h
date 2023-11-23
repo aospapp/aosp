@@ -47,12 +47,14 @@ struct NuMediaExtractor : public RefBase {
         SAMPLE_FLAG_ENCRYPTED   = 2,
     };
 
+    typedef IMediaExtractor::EntryPoint EntryPoint;
+
     // identical to IMediaExtractor::GetTrackMetaDataFlags
     enum GetTrackFormatFlags {
         kIncludeExtensiveMetaData = 1, // reads sample table and possibly stream headers
     };
 
-    NuMediaExtractor();
+    explicit NuMediaExtractor(EntryPoint entryPoint);
 
     status_t setDataSource(
             const sp<MediaHTTPService> &httpService,
@@ -98,6 +100,10 @@ struct NuMediaExtractor : public RefBase {
 
     status_t getAudioPresentations(size_t trackIdx, AudioPresentationCollection *presentations);
 
+    status_t setLogSessionId(const String8& logSessionId);
+
+    const char* getName() const;
+
 protected:
     virtual ~NuMediaExtractor();
 
@@ -128,6 +134,8 @@ private:
         uint32_t mTrackFlags;  // bitmask of "TrackFlags"
     };
 
+    const EntryPoint mEntryPoint;
+
     mutable Mutex mLock;
 
     sp<DataSource> mDataSource;
@@ -138,6 +146,8 @@ private:
     Vector<TrackInfo> mSelectedTracks;
     int64_t mTotalBitrate;  // in bits/sec
     int64_t mDurationUs;
+
+    void setEntryPointToRemoteMediaExtractor();
 
     ssize_t fetchAllTrackSamples(
             int64_t seekTimeUs = -1ll,

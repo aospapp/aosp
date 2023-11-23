@@ -10,8 +10,13 @@ on post-fs
     mkdir /metadata/gsi/dsu 0771 root system
     mkdir /metadata/gsi/ota 0771 root system
     mkdir /metadata/gsi/remount 0771 root system
+    chmod 0664 /metadata/gsi/dsu/active
+    chmod 0664 /metadata/gsi/dsu/booted
+    chmod 0664 /metadata/gsi/dsu/lp_names
 
 on post-fs-data
+    write /data/gsi_persistent_data 0
+    chown system system /data/gsi_persistent_data
     mkdir /data/gsi 0700 root root encryption=None
     mkdir /data/gsi/dsu 0700 root root
     mkdir /data/gsi/ota 0700 root root

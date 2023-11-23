@@ -12,15 +12,17 @@ use super::xhci_abi::{
 };
 use super::xhci_regs::{valid_slot_id, MAX_PORTS, MAX_SLOTS};
 use crate::register_space::Register;
+use crate::usb::host_backend::error::Error as HostBackendProviderError;
 use crate::usb::xhci::ring_buffer_stop_cb::{fallible_closure, RingBufferStopCallback};
 use crate::utils::{EventLoop, FailHandle};
+use base::error;
 use bit_field::Error as BitFieldError;
 use std::fmt::{self, Display};
 use std::mem::size_of;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use sync::Mutex;
-use sys_util::{error, GuestAddress, GuestMemory, GuestMemoryError};
+use vm_memory::{GuestAddress, GuestMemory, GuestMemoryError};
 
 #[derive(Debug)]
 pub enum Error {
@@ -36,6 +38,7 @@ pub enum Error {
     BadInputContextAddr(GuestAddress),
     BadDeviceContextAddr(GuestAddress),
     CreateTransferController(TransferRingControllerError),
+    ResetPort(HostBackendProviderError),
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -57,6 +60,7 @@ impl Display for Error {
             BadInputContextAddr(addr) => write!(f, "bad input context address: {}", addr),
             BadDeviceContextAddr(addr) => write!(f, "bad device context: {}", addr),
             CreateTransferController(e) => write!(f, "failed to create transfer controller: {}", e),
+            ResetPort(e) => write!(f, "failed to reset port: {}", e),
         }
     }
 }
@@ -126,10 +130,10 @@ impl DeviceSlots {
     }
 
     /// Reset the device connected to a specific port.
-    pub fn reset_port(&self, port_id: u8) -> std::result::Result<(), ()> {
+    pub fn reset_port(&self, port_id: u8) -> Result<()> {
         if let Some(port) = self.hub.get_port(port_id) {
             if let Some(backend_device) = port.get_backend_device().as_mut() {
-                backend_device.reset()?;
+                backend_device.reset().map_err(Error::ResetPort)?;
             }
         }
 
@@ -218,7 +222,7 @@ impl PortId {
     }
 
     fn set(&self, value: u8) -> Result<()> {
-        if value < 1 || value > MAX_PORTS {
+        if !(1..=MAX_PORTS).contains(&value) {
             return Err(Error::BadPortId(value));
         }
         *self.0.lock() = value;
@@ -229,7 +233,7 @@ impl PortId {
         *self.0.lock() = 0;
     }
 
-    fn get(&self) -> Result<(u8)> {
+    fn get(&self) -> Result<u8> {
         let val = *self.0.lock();
         if val == 0 {
             return Err(Error::BadPortId(val));

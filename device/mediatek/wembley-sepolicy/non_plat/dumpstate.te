@@ -2,9 +2,6 @@
 # MTK Policy Rule
 # ==============================================
 
-# Purpose: aee_dumpstate set surfaceflinger property
-set_prop(dumpstate, debug_bq_dump_prop);
-
 # Purpose: access dev/aed0
 allow dumpstate aed_device:chr_file { read getattr };
 
@@ -17,36 +14,36 @@ allow dumpstate aee_exp_data_file:dir { w_dir_perms };
 allow dumpstate aee_exp_data_file:file { create_file_perms };
 
 # Purpose: debugfs files
-allow dumpstate debugfs_binder:dir { read open };
-allow dumpstate debugfs_binder:file { read open };
-allow dumpstate debugfs_blockio:file { read open };
+allow dumpstate debugfs_binder:dir r_dir_perms;
+allow dumpstate debugfs_binder:file r_file_perms;
+allow dumpstate debugfs_blockio:file r_file_perms;
 allow dumpstate debugfs_fb:dir search;
-allow dumpstate debugfs_fb:file { read open };
+allow dumpstate debugfs_fb:file r_file_perms;
 allow dumpstate debugfs_fuseio:dir search;
-allow dumpstate debugfs_fuseio:file { read open };
+allow dumpstate debugfs_fuseio:file r_file_perms;
 allow dumpstate debugfs_ged:dir search;
-allow dumpstate debugfs_ged:file { read open };
+allow dumpstate debugfs_ged:file r_file_perms;
 allow dumpstate debugfs_rcu:dir search;
-allow dumpstate debugfs_shrinker_debug:file { read open };
-allow dumpstate debugfs_wakeup_sources:file { read open };
-allow dumpstate debugfs_dmlog_debug:file { read open };
-allow dumpstate debugfs_page_owner_slim_debug:file { read open };
+allow dumpstate debugfs_shrinker_debug:file r_file_perms;
+allow dumpstate debugfs_wakeup_sources:file r_file_perms;
+allow dumpstate debugfs_dmlog_debug:file r_file_perms;
+allow dumpstate debugfs_page_owner_slim_debug:file r_file_perms;
 allow dumpstate debugfs_ion_mm_heap:dir search;
-allow dumpstate debugfs_ion_mm_heap:file { read open };
+allow dumpstate debugfs_ion_mm_heap:file r_file_perms;
 allow dumpstate debugfs_ion_mm_heap:lnk_file read;
 allow dumpstate debugfs_cpuhvfs:dir search;
-allow dumpstate debugfs_cpuhvfs:file { read open };
-allow dumpstate debugfs_vpu_device_dbg:file { read open };
+allow dumpstate debugfs_cpuhvfs:file r_file_perms;
+allow dumpstate debugfs_vpu_device_dbg:file r_file_perms;
 
 # Purpose: /sys/kernel/ccci/md_chn
 allow dumpstate sysfs_ccci:dir search;
-allow dumpstate sysfs_ccci:file { read open };
+allow dumpstate sysfs_ccci:file r_file_perms;
 
 # Purpose: leds status
 allow dumpstate sysfs_leds:lnk_file read;
 
 # Purpose: /sys/module/lowmemorykiller/parameters/adj
-allow dumpstate sysfs_lowmemorykiller:file { read open };
+allow dumpstate sysfs_lowmemorykiller:file r_file_perms;
 allow dumpstate sysfs_lowmemorykiller:dir search;
 
 # Purpose: /dev/block/mmcblk0p10
@@ -182,3 +179,20 @@ allow dumpstate mnt_expand_file:dir { search getattr };
 
 #Purpose: Allow dumpstate to read /dev/usb-ffs
 allow dumpstate functionfs:file { getattr };
+
+#Purpose: Allow dumpstate to read /sys/bus/platform/drivers/cache_parity/cache_status
+allow dumpstate sysfs_cache_status:file r_file_perms;
+
+hal_client_domain(dumpstate, hal_light)
+
+#Purpose: Allow dumpstate to read /sys/kernel/tracing/instances/mmstat/trace
+allow dumpstate debugfs_tracing_instances:dir r_dir_perms;
+allow dumpstate debugfs_tracing_instances:file r_file_perms;
+
+allow dumpstate proc_ion:dir r_dir_perms;
+allow dumpstate proc_ion:file r_file_perms;
+allow dumpstate proc_m4u_dbg:dir r_dir_perms;
+allow dumpstate proc_m4u_dbg:file r_file_perms;
+allow dumpstate proc_mtkfb:file r_file_perms;
+
+allow dumpstate debugfs_cmdq:file r_file_perms;

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"ခေါ်ဆိုမှုစီမံခန့်ခွဲရေး"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"ဖုန်းခေါ်ဆိုမှုများ"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"ဖုန်း"</string>
     <string name="unknown" msgid="6993977514360123431">"မသိပါ"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"လွဲသွားသော ဖုန်းခေါ်မှု"</string>
@@ -98,7 +98,7 @@
     <string name="notification_channel_missed_call" msgid="7168893015283909012">"လွတ်သွားသော ဖုန်းခေါ်ဆိုမှုများ"</string>
     <string name="notification_channel_call_blocking" msgid="2028807677868598710">"ခေါ်ဆိုမှု ပိတ်ထားခြင်း"</string>
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"နောက်ခံမှ ခေါ်ဆိုမှုများ"</string>
-    <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"ခေါ်ဆိုမှုများကို ဖြတ်တောက်လိုက်သည်"</string>
+    <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"ပြတ်တောက်သွားသည့် ခေါ်ဆိုမှုများ"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"ရပ်တန့်သွားသော ဖုန်းအက်ပ်များ"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"ဤခေါ်ဆိုမှု ပြုလုပ်ပါက <xliff:g id="OTHER_APP">%1$s</xliff:g> သုံးပြီးပြောနေခြင်းကို ဖြတ်ပစ်ပါမည်။"</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"ဤခေါ်ဆိုမှု ပြုလုပ်ပုံကို ရွေးချယ်ပါ"</string>

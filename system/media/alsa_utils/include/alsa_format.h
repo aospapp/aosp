@@ -21,6 +21,6 @@
 
 #include <tinyalsa/asoundlib.h>
 
-enum pcm_format get_pcm_format_for_mask(struct pcm_mask* mask);
+enum pcm_format get_pcm_format_for_mask(const struct pcm_mask* mask);
 
 #endif /* ANDROID_SYSTEM_MEDIA_ALSA_UTILS_ALSA_FORMAT_H */

@@ -16,7 +16,7 @@
 
 package android.scopedstorage.cts.host;
 
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -33,8 +33,9 @@ public class PublicVolumeLegacyHostTest extends LegacyStorageHostTest {
 
     private void setupNewPublicVolume() throws Exception {
         if (!mIsPublicVolumeSetup) {
-            assertTrue(runDeviceTests("android.scopedstorage.cts",
-                    "android.scopedstorage.cts.PublicVolumeTestHelper", "setupNewPublicVolume"));
+            assertThat(runDeviceTests("android.scopedstorage.cts",
+                    "android.scopedstorage.cts.PublicVolumeTestHelper", "setupNewPublicVolume"))
+                            .isTrue();
             mIsPublicVolumeSetup = true;
         }
     }
@@ -51,8 +52,8 @@ public class PublicVolumeLegacyHostTest extends LegacyStorageHostTest {
      */
     @Override
     void runDeviceTest(String phase) throws Exception {
-        assertTrue(runDeviceTests("android.scopedstorage.cts.legacy",
-                "android.scopedstorage.cts.legacy.PublicVolumeLegacyTest", phase));
+        assertThat(runDeviceTests("android.scopedstorage.cts.legacy",
+                "android.scopedstorage.cts.legacy.PublicVolumeLegacyTest", phase)).isTrue();
     }
 
     @Before

@@ -31,7 +31,7 @@ interface ITestMsgQ {
      *
      * @return ret True if the setup is successful.
      */
-    configureFmqSyncReadWrite(fmq_sync<uint16_t> mqDesc) generates(bool ret);
+    configureFmqSyncReadWrite(fmq_sync<int32_t> mqDesc) generates(bool ret);
 
     /**
      * This method requests the service to return an MQDescriptor to
@@ -41,12 +41,15 @@ interface ITestMsgQ {
      *
      * @param configureFmq The server sets up a new unsynchronized FMQ if
      * this parameter is true.
+     * @param userFd True to initialize the message queue with a user supplied
+     * file descriptor for the ring buffer.
+     * False to let the message queue use a single FD for everything.
      *
      * @return ret True if successful.
      * @return mqDesc This structure describes the unsynchronized FMQ that was
      * set up by the service. Client can use it to set up the FMQ at its end.
      */
-    getFmqUnsyncWrite(bool configureFmq) generates(bool ret, fmq_unsync<uint16_t> mqDesc);
+    getFmqUnsyncWrite(bool configureFmq, bool userFd) generates(bool ret, fmq_unsync<int32_t> mqDesc);
 
     /**
      * This method request the service to write into the synchronized read/write

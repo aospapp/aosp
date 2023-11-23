@@ -21,7 +21,7 @@
 
 #include "art_method.h"
 #include "base/indenter.h"
-#include "base/stats.h"
+#include "base/stats-inl.h"
 #include "oat_quick_method_header.h"
 #include "scoped_thread_state_change-inl.h"
 
@@ -60,13 +60,6 @@ CodeInfo::CodeInfo(const uint8_t* data, size_t* num_read_bits)
 
 CodeInfo::CodeInfo(const OatQuickMethodHeader* header)
     : CodeInfo(header->GetOptimizedCodeInfoPtr()) {}
-
-QuickMethodFrameInfo CodeInfo::DecodeFrameInfo(const uint8_t* data) {
-  CodeInfo code_info(data);
-  return QuickMethodFrameInfo(code_info.packed_frame_size_ * kStackAlignment,
-                              code_info.core_spill_mask_,
-                              code_info.fp_spill_mask_);
-}
 
 CodeInfo CodeInfo::DecodeGcMasksOnly(const OatQuickMethodHeader* header) {
   CodeInfo code_info(header->GetOptimizedCodeInfoPtr());
@@ -140,7 +133,7 @@ size_t CodeInfo::Deduper::Dedupe(const uint8_t* code_info_data) {
   return deduped_offset;
 }
 
-StackMap CodeInfo::GetStackMapForNativePcOffset(uint32_t pc, InstructionSet isa) const {
+StackMap CodeInfo::GetStackMapForNativePcOffset(uintptr_t pc, InstructionSet isa) const {
   uint32_t packed_pc = StackMap::PackNativePc(pc, isa);
   // Binary search.  All catch stack maps are stored separately at the end.
   auto it = std::partition_point(
@@ -223,26 +216,26 @@ void CodeInfo::DecodeDexRegisterMap(uint32_t stack_map_index,
 }
 
 // Decode the CodeInfo while collecting size statistics.
-void CodeInfo::CollectSizeStats(const uint8_t* code_info_data, /*out*/ Stats* parent) {
-  Stats* codeinfo_stats = parent->Child("CodeInfo");
+void CodeInfo::CollectSizeStats(const uint8_t* code_info_data, /*out*/ Stats& stats) {
   BitMemoryReader reader(code_info_data);
   reader.ReadInterleavedVarints<kNumHeaders>();
-  codeinfo_stats->Child("Header")->AddBits(reader.NumberOfReadBits());
+  stats["Header"].AddBits(reader.NumberOfReadBits());
   size_t num_bits;
   CodeInfo code_info(code_info_data, &num_bits, [&](size_t i, auto* table, BitMemoryRegion region) {
     if (!code_info.IsBitTableDeduped(i)) {
-      Stats* table_stats = codeinfo_stats->Child(table->GetName());
-      table_stats->AddBits(region.size_in_bits());
+      Stats& table_stats = stats[table->GetName()];
+      table_stats.AddBits(region.size_in_bits());
+      table_stats["Header"].AddBits(region.size_in_bits() - table->DataBitSize());
       const char* const* column_names = table->GetColumnNames();
       for (size_t c = 0; c < table->NumColumns(); c++) {
         if (table->NumColumnBits(c) > 0) {
-          Stats* column_stats = table_stats->Child(column_names[c]);
-          column_stats->AddBits(table->NumRows() * table->NumColumnBits(c), table->NumRows());
+          Stats& column_stats = table_stats[column_names[c]];
+          column_stats.AddBits(table->NumRows() * table->NumColumnBits(c), table->NumRows());
         }
       }
     }
   });
-  codeinfo_stats->AddBytes(BitsToBytesRoundUp(num_bits));
+  stats.AddBytes(BitsToBytesRoundUp(num_bits));
 }
 
 void DexRegisterMap::Dump(VariableIndentationOutputStream* vios) const {
@@ -262,7 +255,8 @@ void CodeInfo::Dump(VariableIndentationOutputStream* vios,
                     uint32_t code_offset,
                     bool verbose,
                     InstructionSet instruction_set) const {
-  vios->Stream() << "CodeInfo "
+  vios->Stream() << "CodeInfo"
+    << " CodeSize:" << code_size_
     << " FrameSize:" << packed_frame_size_ * kStackAlignment
     << " CoreSpillMask:" << std::hex << core_spill_mask_
     << " FpSpillMask:" << std::hex << fp_spill_mask_
@@ -326,6 +320,12 @@ void StackMap::Dump(VariableIndentationOutputStream* vios,
   BitMemoryRegion stack_mask = code_info.GetStackMaskOf(*this);
   for (size_t i = 0, e = stack_mask.size_in_bits(); i < e; ++i) {
     vios->Stream() << stack_mask.LoadBit(e - i - 1);
+  }
+  switch (static_cast<Kind>(GetKind())) {
+    case Kind::Default: break;
+    case Kind::Catch: vios->Stream() << ", Catch"; break;
+    case Kind::OSR: vios->Stream() << ", OSR"; break;
+    case Kind::Debug: vios->Stream() << ", Debug"; break;
   }
   vios->Stream() << ")\n";
   code_info.GetDexRegisterMapOf(*this).Dump(vios);

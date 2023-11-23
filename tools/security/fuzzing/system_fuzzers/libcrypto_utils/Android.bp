@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_fuzz {
     host_supported: true,
     name : "libcrypto_utils_fuzzer",
@@ -14,4 +18,3 @@ cc_fuzz {
         "libcrypto",
     ],
 }
-

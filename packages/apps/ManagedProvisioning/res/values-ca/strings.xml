@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"L\'aplicació que es mostra a continuació gestionarà el dispositiu:"</string>
     <string name="next" msgid="1004321437324424398">"Següent"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"S\'està configurant el perfil de treball…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"L\'administrador de TI pot supervisar i gestionar la configuració, l\'accés corporatiu, les aplicacions, els permisos i les dades associades a aquest perfil, inclosa l\'activitat de xarxa, així com la ubicació, l\'historial de trucades i l\'historial de cerca de contactes del dispositiu.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacta amb l\'administrador de TI per obtenir més informació i consultar les polítiques de privadesa de la teva organització."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"L\'administrador de TI pot supervisar i gestionar la configuració, l\'accés corporatiu, les aplicacions, els permisos i les dades associades a aquest dispositiu, inclosa l\'activitat de xarxa, així com la ubicació, l\'historial de trucades i l\'historial de cerca de contactes del dispositiu.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacta amb l\'administrador de TI per obtenir més informació i consultar les polítiques de privadesa de la teva organització."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"L\'administrador de TI pot supervisar i gestionar la configuració, l\'accés corporatiu, les aplicacions, els permisos i les dades associades a aquest perfil, inclosa l\'activitat de xarxa, així com la ubicació, l\'historial de trucades i l\'historial de cerca de contactes del dispositiu.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Contacta amb l\'administrador de TI per obtenir més informació i consultar les polítiques de privadesa de la teva organització."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"L\'administrador de TI pot supervisar i gestionar la configuració, l\'accés corporatiu, les aplicacions, els permisos i les dades associades a aquest dispositiu, inclosa l\'activitat de xarxa, així com la ubicació, l\'historial de trucades i l\'historial de cerca de contactes del dispositiu.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Contacta amb l\'administrador de TI per obtenir més informació i consultar les polítiques de privadesa de la teva organització."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Per utilitzar les funcions de protecció antirobatori has de fer servir un bloqueig de pantalla protegit per contrasenya al dispositiu."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Contacta amb l\'administrador de TI per obtenir més informació i consultar les polítiques de privadesa de la teva organització."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Més informació"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"D\'acord"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Accepto"</string>
     <string name="url_error" msgid="5958494012986243186">"No es pot mostrar aquest enllaç."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Navega cap amunt"</string>
     <string name="terms" msgid="8295436105384703903">"Condicions"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Informació del perfil de treball"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Informació dels dispositius gestionat"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Perfil de treball"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Usuari principal"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Vols suprimir el perfil existent?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Ja tens un perfil de treball gestionat mitjançant l\'aplicació següent:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Abans de continuar, "<a href="#read_this_link">"llegeix aquesta informació"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"La configuració d\'usuari no està completa"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Usuari del dispositiu de la feina"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"S\'està configurant el dispositiu professional…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Processant les dades de configuració..."</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"S\'està connectant a la Wi-Fi..."</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"S\'està connectant a una xarxa mòbil…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"S\'està baixant l\'aplicació d\'administració..."</string>
-    <string name="progress_install" msgid="2258045670385866183">"Instal·lant l\'aplicació d\'administració..."</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Suprimint aplic. del sistema no obligatòries…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Estem afegint els últims retocs…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Definint el propietari del dispositiu..."</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"El dispositiu s\'està inicialitzant…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Aquest dispositiu no permet l\'encriptació, necessària per a la configuració. Contacta amb l\'administrador de TI per obtenir ajuda."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Vols aturar la configuració i restablir el dispositiu?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Aquest procés restablirà el dispositiu i tornaràs a la primera pantalla"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"La teva organització gestionarà i protegirà aquest dispositiu"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"S\'està preparant per configurar el dispositiu de la feina…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"S\'està configurant l\'aplicació d\'administració"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Configura la resta d\'elements"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Afegeix un compte personal per treure més profit del teu dispositiu"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Ara que el teu perfil de treball ja està a punt, també pots afegir un Compte personal de Google per accedir a les teves aplicacions i al teu contingut."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Aquest dispositiu pertany a la teva organització"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"S\'utilitzarà l\'aplicació següent per gestionar i supervisar aquest telèfon"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"El teu compte està gestionat"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"El teu administrador de TI utilitza la gestió de dispositius mòbils per aplicar les polítiques de seguretat"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"S\'està preparant per a la configuració professional…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Configurem el teu perfil de treball"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Les aplicacions de treball es desaran al teu perfil de treball"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Pots tenir totes les teves aplicacions de treball al teu abast"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Aquest dispositiu no és privat"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"L\'administrador de TI podrà veure les teves dades i la teva activitat en aquest dispositiu."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Activitat i dades"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Permisos d\'aplicacions"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"L\'administrador de TI pot configurar els permisos de les aplicacions d\'aquest dispositiu, inclosos els permisos d\'accés al micròfon, a la càmera i a la ubicació."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"S\'està configurant el dispositiu…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Utilitza aquest dispositiu per accedir fàcilment a les aplicacions de treball. Aquest dispositiu no és privat i, per tant, l\'administrador de TI podrà veure les teves dades i la teva activitat. Per obtenir més informació, contacta amb l\'administrador de TI."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Utilitza aquest dispositiu per accedir fàcilment a les teves aplicacions de treball. Aquest dispositiu no és privat i, per tant, l\'administrador de TI podrà veure les teves dades i la teva activitat."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Utilitza aquest dispositiu per accedir fàcilment a les teves aplicacions de treball. Aquest dispositiu no és privat i, per tant, l\'administrador de TI podrà veure la teva activitat i les teves dades. L\'administrador de TI també pot configurar els permisos de les aplicacions d\'aquest dispositiu, inclosos els permisos d\'accés al micròfon, a la càmera i a la ubicació."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Retorna aquest dispositiu al teu administrador de TI"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Torna a la pantalla anterior o bé restableix aquest dispositiu i retorna\'l al teu administrador de TI."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Cancel·la la configuració"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Restableix i retorna el dispositiu"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"L\'administrador de TI gestiona les apps de treball, que es desen al perfil de treball."</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Les aplicacions personals s\'amaguen separades de les de treball"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"L\'administrador de TI pot controlar el dispositiu i bloquejar aplicacions determinades"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"Un moment…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Recordatori de privadesa"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"L\'administrador de TI podrà veure les teves dades i la teva activitat en aquest dispositiu"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"El teu dispositiu ja està a punt."</string>
-    <string name="done" msgid="7755227776955952318">"Fet"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Aquest dispositiu s\'ha comprat a crèdit a <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> pot fer el següent:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"Instal·lar l\'aplicació <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> per poder fer pagaments per a aquest dispositiu"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"Restringir l\'accés a aquest dispositiu si no fas cap pagament"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"<xliff:g id="CREDITOR_NAME">%s</xliff:g> proporciona aquest dispositiu"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Fes pagaments per a aquest dispositiu"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> pot instal·lar l\'aplicació <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> per poder fer pagaments en aquest dispositiu."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Aquest dispositiu es pot restringir"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> pot restringir l\'accés a aquest dispositiu si no fas cap pagament."</string>
 </resources>

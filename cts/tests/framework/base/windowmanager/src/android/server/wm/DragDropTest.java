@@ -28,12 +28,14 @@ import android.app.UiAutomation;
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.pm.PackageManager;
+import android.graphics.Canvas;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.cts.R;
+import android.util.MutableBoolean;
 import android.view.DragEvent;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -41,6 +43,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.FlakyTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
@@ -52,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 
 @Presubmit
@@ -695,7 +699,58 @@ public class DragDropTest extends WindowManagerTestBase {
         });
     }
 
+    /**
+     * Tests that the canvas is hardware accelerated when the activity is hardware accelerated.
+     */
+    @Test
+    public void testHardwareAcceleratedCanvas() throws InterruptedException {
+        assertDragCanvasHwAcceleratedState(mActivity, true);
+    }
+
+    /**
+     * Tests that the canvas is not hardware accelerated when the activity is not hardware
+     * accelerated.
+     */
+    @Test
+    public void testSoftwareCanvas() throws InterruptedException {
+        SoftwareCanvasDragDropActivity activity =
+                startActivity(SoftwareCanvasDragDropActivity.class);
+        assertDragCanvasHwAcceleratedState(activity, false);
+    }
+
+    private void assertDragCanvasHwAcceleratedState(DragDropActivity activity,
+            boolean expectedHwAccelerated) {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicBoolean isCanvasHwAccelerated = new AtomicBoolean();
+        runOnMain(() -> {
+            View v = activity.findViewById(R.id.draggable);
+            v.startDragAndDrop(sClipData, new View.DragShadowBuilder(v) {
+                @Override
+                public void onDrawShadow(Canvas canvas) {
+                    isCanvasHwAccelerated.set(canvas.isHardwareAccelerated());
+                    latch.countDown();
+                }
+            }, null, 0);
+        });
+
+        try {
+            assertTrue("Timeout while waiting for canvas", latch.await(5, TimeUnit.SECONDS));
+            assertTrue("Expected canvas hardware acceleration to be: " + expectedHwAccelerated,
+                    expectedHwAccelerated == isCanvasHwAccelerated.get());
+        } catch (InterruptedException e) {
+            fail("Got InterruptedException while waiting for canvas");
+        }
+    }
+
     public static class DragDropActivity extends FocusableActivity {
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            setContentView(R.layout.drag_drop_layout);
+        }
+    }
+
+    public static class SoftwareCanvasDragDropActivity extends DragDropActivity {
         @Override
         protected void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);

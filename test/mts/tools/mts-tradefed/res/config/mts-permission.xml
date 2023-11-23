@@ -20,7 +20,8 @@
 
     <include name="mts" />
 
-    <include name="mts-permission-tests-list" />
+    <include name="mts-permission-tests-list-internal" />
+    <include name="mts-permission-tests-list-oem" />
 
     <option name="plan" value="mts-permission" />
 </configuration>

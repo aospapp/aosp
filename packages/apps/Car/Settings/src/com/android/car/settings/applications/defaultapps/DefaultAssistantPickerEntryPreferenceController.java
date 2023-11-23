@@ -29,8 +29,8 @@ import android.service.voice.VoiceInteractionServiceInfo;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
-import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.ui.preference.CarUiTwoActionIconPreference;
 import com.android.internal.app.AssistUtils;
 import com.android.settingslib.applications.DefaultAppInfo;
 
@@ -67,7 +67,7 @@ public class DefaultAssistantPickerEntryPreferenceController extends
     }
 
     @Override
-    protected boolean handlePreferenceClicked(ButtonPreference preference) {
+    protected boolean handlePreferenceClicked(CarUiTwoActionIconPreference preference) {
         String packageName = getContext().getPackageManager().getPermissionControllerPackageName();
         if (packageName != null) {
             Intent intent = new Intent(Intent.ACTION_MANAGE_DEFAULT_APP)

@@ -28,7 +28,9 @@ using ::testing::IsEmpty;
 using ::testing::SizeIs;
 
 TEST(SerializeRulesTest, HandlesSimpleRuleSet) {
-  Rules rules;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Rules rules(locale_shard_map);
 
   rules.Add("<verb>", {"buy"});
   rules.Add("<verb>", {"bring"});
@@ -49,16 +51,16 @@ TEST(SerializeRulesTest, HandlesSimpleRuleSet) {
 }
 
 TEST(SerializeRulesTest, HandlesRulesSetWithCallbacks) {
-  Rules rules;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Rules rules(locale_shard_map);
   const CallbackId output = 1;
-  const CallbackId filter = 2;
-  rules.DefineFilter(filter);
 
   rules.Add("<verb>", {"buy"});
-  rules.Add("<verb>", {"bring"}, output, 0);
-  rules.Add("<verb>", {"remind"}, output, 0);
+  rules.Add("<verb>", {"bring"});
+  rules.Add("<verb>", {"remind"});
   rules.Add("<reminder>", {"remind", "me", "to", "<verb>"});
-  rules.Add("<action>", {"<reminder>"}, filter, 0);
+  rules.Add("<action>", {"<reminder>"}, output, 0);
 
   const Ir ir = rules.Finalize();
   RulesSetT frozen_rules;
@@ -68,16 +70,16 @@ TEST(SerializeRulesTest, HandlesRulesSetWithCallbacks) {
   EXPECT_EQ(frozen_rules.terminals,
             std::string("bring\0buy\0me\0remind\0to\0", 23));
 
-  // We have two identical output calls and one filter call in the rule set
-  // definition above.
-  EXPECT_THAT(frozen_rules.lhs, SizeIs(2));
+  EXPECT_THAT(frozen_rules.lhs, SizeIs(1));
 
   EXPECT_THAT(frozen_rules.rules.front()->binary_rules, SizeIs(3));
   EXPECT_THAT(frozen_rules.rules.front()->unary_rules, SizeIs(1));
 }
 
 TEST(SerializeRulesTest, HandlesRulesWithWhitespaceGapLimits) {
-  Rules rules;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Rules rules(locale_shard_map);
   rules.Add("<iata>", {"lx"});
   rules.Add("<iata>", {"aa"});
   rules.Add("<flight>", {"<iata>", "<4_digits>"}, kNoCallback, 0,
@@ -93,7 +95,9 @@ TEST(SerializeRulesTest, HandlesRulesWithWhitespaceGapLimits) {
 }
 
 TEST(SerializeRulesTest, HandlesCaseSensitiveTerminals) {
-  Rules rules;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Rules rules(locale_shard_map);
   rules.Add("<iata>", {"LX"}, kNoCallback, 0, /*max_whitespace_gap=*/-1,
             /*case_sensitive=*/true);
   rules.Add("<iata>", {"AA"}, kNoCallback, 0, /*max_whitespace_gap=*/-1,
@@ -113,7 +117,9 @@ TEST(SerializeRulesTest, HandlesCaseSensitiveTerminals) {
 }
 
 TEST(SerializeRulesTest, HandlesMultipleShards) {
-  Rules rules(/*num_shards=*/2);
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({"", "de"});
+  Rules rules(locale_shard_map);
   rules.Add("<iata>", {"LX"}, kNoCallback, 0, /*max_whitespace_gap=*/-1,
             /*case_sensitive=*/true, /*shard=*/0);
   rules.Add("<iata>", {"aa"}, kNoCallback, 0, /*max_whitespace_gap=*/-1,
@@ -128,7 +134,10 @@ TEST(SerializeRulesTest, HandlesMultipleShards) {
 }
 
 TEST(SerializeRulesTest, HandlesRegexRules) {
-  Rules rules;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Rules rules(locale_shard_map);
+  // Rules rules;
   rules.AddRegex("<code>", "[A-Z]+");
   rules.AddRegex("<numbers>", "\\d+");
   RulesSetT frozen_rules;
@@ -138,7 +147,9 @@ TEST(SerializeRulesTest, HandlesRegexRules) {
 }
 
 TEST(SerializeRulesTest, HandlesAlias) {
-  Rules rules;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Rules rules(locale_shard_map);
   rules.Add("<iata>", {"lx"});
   rules.Add("<iata>", {"aa"});
   rules.Add("<flight>", {"<iata>", "<4_digits>"});
@@ -159,7 +170,9 @@ TEST(SerializeRulesTest, HandlesAlias) {
 }
 
 TEST(SerializeRulesTest, ResolvesAnchorsAndFillers) {
-  Rules rules;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Rules rules(locale_shard_map);
   rules.Add("<code>",
             {"<^>", "<filler>", "this", "is", "a", "test", "<filler>", "<$>"});
   const Ir ir = rules.Finalize();
@@ -180,8 +193,33 @@ TEST(SerializeRulesTest, ResolvesAnchorsAndFillers) {
   EXPECT_THAT(frozen_rules.lhs, IsEmpty());
 }
 
+TEST(SerializeRulesTest, HandlesFillers) {
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Rules rules(locale_shard_map);
+  rules.Add("<test>", {"<filler>?", "a", "test"});
+  const Ir ir = rules.Finalize();
+  RulesSetT frozen_rules;
+  ir.Serialize(/*include_debug_information=*/false, &frozen_rules);
+
+  EXPECT_THAT(frozen_rules.rules, SizeIs(1));
+  EXPECT_EQ(frozen_rules.terminals, std::string("a\0test\0", 7));
+
+  // Expect removal of anchors and fillers in this case.
+  // The rule above is equivalent to: <code> ::= this is a test, binarized into
+  // <tmp_0>  ::= <filler> a
+  // <test>   ::= <tmp_0> test
+  // <test>   ::= a test
+  // <filler> ::= <token> <filler>
+  EXPECT_THAT(frozen_rules.rules.front()->binary_rules, SizeIs(4));
+  // <filler> ::= <token>
+  EXPECT_THAT(frozen_rules.rules.front()->unary_rules, SizeIs(1));
+}
+
 TEST(SerializeRulesTest, HandlesAnnotations) {
-  Rules rules;
+  grammar::LocaleShardMap locale_shard_map =
+      grammar::LocaleShardMap::CreateLocaleShardMap({""});
+  Rules rules(locale_shard_map);
   rules.AddAnnotation("phone");
   rules.AddAnnotation("url");
   rules.AddAnnotation("tracking_number");

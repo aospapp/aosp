@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka.attributes;
+package com.android.internal.net.eap.test.message.simaka.attributes;
 
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_RES;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_RES;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_RES_INVALID_RES_LENGTH;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_RES_LONG_RES;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_RES_SHORT_RES;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RES_BYTES;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_RES;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_RES;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_RES_INVALID_RES_LENGTH;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_RES_LONG_RES;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_RES_SHORT_RES;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RES_BYTES;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -29,10 +29,10 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAttributeException;
-import com.android.internal.net.eap.message.simaka.EapAkaAttributeFactory;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtRes;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaInvalidAttributeException;
+import com.android.internal.net.eap.test.message.simaka.EapAkaAttributeFactory;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRes;
 
 import org.junit.Before;
 import org.junit.Test;

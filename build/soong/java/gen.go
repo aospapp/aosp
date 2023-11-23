@@ -57,7 +57,7 @@ func genAidl(ctx android.ModuleContext, aidlFiles android.Paths, aidlFlags strin
 
 		outDir := srcJarFile.ReplaceExtension(ctx, "tmp")
 
-		rule := android.NewRuleBuilder()
+		rule := android.NewRuleBuilder(pctx, ctx)
 
 		rule.Command().Text("rm -rf").Flag(outDir.String())
 		rule.Command().Text("mkdir -p").Flag(outDir.String())
@@ -78,10 +78,7 @@ func genAidl(ctx android.ModuleContext, aidlFiles android.Paths, aidlFlags strin
 
 		rule.Command().
 			Tool(ctx.Config().HostToolPath(ctx, "soong_zip")).
-			// TODO(b/124333557): this can't use -srcjar for now, aidl on parcelables generates java files
-			//  without a package statement, which causes -srcjar to put them in the top level of the zip file.
-			//  Once aidl skips parcelables we can use -srcjar.
-			//Flag("-srcjar").
+			Flag("-srcjar").
 			Flag("-write_if_changed").
 			FlagWithOutput("-o ", srcJarFile).
 			FlagWithArg("-C ", outDir.String()).
@@ -98,7 +95,7 @@ func genAidl(ctx android.ModuleContext, aidlFiles android.Paths, aidlFlags strin
 			ruleDesc += " " + strconv.Itoa(i)
 		}
 
-		rule.Build(pctx, ctx, ruleName, ruleDesc)
+		rule.Build(ruleName, ruleDesc)
 	}
 
 	return srcJarFiles
@@ -176,6 +173,12 @@ func LogtagsSingleton() android.Singleton {
 type logtagsProducer interface {
 	logtags() android.Paths
 }
+
+func (j *Module) logtags() android.Paths {
+	return j.logtagsSrcs
+}
+
+var _ logtagsProducer = (*Module)(nil)
 
 type logtagsSingleton struct{}
 

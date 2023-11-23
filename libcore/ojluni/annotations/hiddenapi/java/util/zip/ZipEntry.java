@@ -31,7 +31,7 @@ import android.compat.annotation.UnsupportedAppUsage;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class ZipEntry implements java.util.zip.ZipConstants, java.lang.Cloneable {
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public ZipEntry(
             java.lang.String name,
             java.lang.String comment,
@@ -189,7 +189,7 @@ public class ZipEntry implements java.util.zip.ZipConstants, java.lang.Cloneable
 
     int flag = 0; // 0x0
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     int method = -1; // 0xffffffff
 
     java.nio.file.attribute.FileTime mtime;

@@ -137,7 +137,7 @@
 
     </LinearLayout>
 
-    <view class="android.autofillservice.cts.FatActivity$MyView"
+    <view class="android.autofillservice.cts.activities.FatActivity$MyView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:autofillHints="importantAmI">

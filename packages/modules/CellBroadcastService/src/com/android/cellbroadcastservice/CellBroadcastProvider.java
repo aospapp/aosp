@@ -19,6 +19,7 @@ package com.android.cellbroadcastservice;
 import static com.android.cellbroadcastservice.CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__FAILED_TO_INSERT_TO_DB;
 
 import android.content.ContentProvider;
+import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
@@ -29,6 +30,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
+import android.provider.Telephony;
 import android.provider.Telephony.CellBroadcasts;
 import android.text.TextUtils;
 import android.util.Log;
@@ -69,6 +71,11 @@ public class CellBroadcastProvider extends ContentProvider {
      */
     private static final int MESSAGE_HISTORY = 1;
 
+    /**
+     * URI matcher type for update message which are being displayed to end-users.
+     */
+    private static final int MESSAGE_DISPLAYED = 2;
+
     /** MIME type for the list of all cell broadcasts. */
     private static final String LIST_TYPE = "vnd.android.cursor.dir/cellbroadcast";
 
@@ -103,9 +110,7 @@ public class CellBroadcastProvider extends ContentProvider {
             CellBroadcasts.MESSAGE_FORMAT,
             CellBroadcasts.MESSAGE_PRIORITY,
             CellBroadcasts.ETWS_WARNING_TYPE,
-            // TODO: Remove the hardcode and make this system API in S.
-            // CellBroadcasts.ETWS_IS_PRIMARY,
-            "etws_is_primary",
+            CellBroadcasts.ETWS_IS_PRIMARY,
             CellBroadcasts.CMAS_MESSAGE_CLASS,
             CellBroadcasts.CMAS_CATEGORY,
             CellBroadcasts.CMAS_RESPONSE_TYPE,
@@ -130,6 +135,7 @@ public class CellBroadcastProvider extends ContentProvider {
     static {
         sUriMatcher.addURI(AUTHORITY, null, ALL);
         sUriMatcher.addURI(AUTHORITY, "history", MESSAGE_HISTORY);
+        sUriMatcher.addURI(AUTHORITY, "displayed", MESSAGE_DISPLAYED);
     }
 
     public CellBroadcastProvider() {}
@@ -281,15 +287,44 @@ public class CellBroadcastProvider extends ContentProvider {
                     + " selectionArgs = " + Arrays.toString(selectionArgs));
         }
 
+        int rowCount = 0;
         switch (sUriMatcher.match(uri)) {
             case ALL:
-                int rowCount = getWritableDatabase().update(
+                rowCount = getWritableDatabase().update(
                         CELL_BROADCASTS_TABLE_NAME,
                         values,
                         selection,
                         selectionArgs);
                 if (rowCount > 0) {
-                    getContext().getContentResolver().notifyChange(uri, null /* observer */);
+                    getContext().getContentResolver().notifyChange(uri, null /* observer */,
+                            ContentResolver.NOTIFY_SKIP_NOTIFY_FOR_DESCENDANTS
+                                    | ContentResolver.NOTIFY_SYNC_TO_NETWORK );
+                }
+                return rowCount;
+            case MESSAGE_DISPLAYED:
+                // mark message was displayed to the end-users.
+                values.put(Telephony.CellBroadcasts.MESSAGE_DISPLAYED, 1);
+                rowCount = getWritableDatabase().update(
+                        CELL_BROADCASTS_TABLE_NAME,
+                        values,
+                        selection,
+                        selectionArgs);
+                if (rowCount > 0) {
+                    // update was succeed. the row number of the updated message.
+                    try (Cursor ret = query(CellBroadcasts.CONTENT_URI,
+                            new String[]{CellBroadcasts._ID},
+                            selection, selectionArgs, null)) {
+                        if (ret != null && ret.moveToFirst()) {
+                            int rowNumber = ret.getInt(ret.getColumnIndex(CellBroadcasts._ID));
+                            Log.d(TAG, "notify contentObservers for the displayed message, row: "
+                                    + rowNumber);
+                            getContext().getContentResolver().notifyChange(
+                                    Uri.withAppendedPath(CONTENT_URI,
+                                            "displayed/" + rowNumber), null, true);
+                        }
+                    } catch (Exception ex) {
+                        Log.e(TAG, "exception during update message displayed:  " + ex.toString());
+                    }
                 }
                 return rowCount;
             default:
@@ -320,8 +355,7 @@ public class CellBroadcastProvider extends ContentProvider {
                 + CellBroadcasts.MESSAGE_FORMAT + " INTEGER,"
                 + CellBroadcasts.MESSAGE_PRIORITY + " INTEGER,"
                 + CellBroadcasts.ETWS_WARNING_TYPE + " INTEGER,"
-                // TODO: Use system API CellBroadcasts.ETWS_IS_PRIMARY in S.
-                + "etws_is_primary" + " BOOLEAN DEFAULT 0,"
+                + CellBroadcasts.ETWS_IS_PRIMARY + " BOOLEAN DEFAULT 0,"
                 + CellBroadcasts.CMAS_MESSAGE_CLASS + " INTEGER,"
                 + CellBroadcasts.CMAS_CATEGORY + " INTEGER,"
                 + CellBroadcasts.CMAS_RESPONSE_TYPE + " INTEGER,"
@@ -406,8 +440,7 @@ public class CellBroadcastProvider extends ContentProvider {
 
             if (oldVersion < 4) {
                 db.execSQL("ALTER TABLE " + CELL_BROADCASTS_TABLE_NAME + " ADD COLUMN "
-                        // TODO: Use system API CellBroadcasts.ETWS_IS_PRIMARY in S.
-                        + "etws_is_primary" + " BOOLEAN DEFAULT 0;");
+                        + CellBroadcasts.ETWS_IS_PRIMARY + " BOOLEAN DEFAULT 0;");
                 Log.d(TAG, "add ETWS is_primary column.");
             }
         }

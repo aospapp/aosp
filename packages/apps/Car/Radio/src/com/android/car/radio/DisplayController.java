@@ -50,7 +50,6 @@ public class DisplayController {
 
     private final Context mContext;
 
-    private final View mToolbar;
     private final View mViewpager;
     private final TextView mStatusMessage;
     private final TextView mChannel;
@@ -85,7 +84,6 @@ public class DisplayController {
             @NonNull RadioController radioController) {
         mContext = Objects.requireNonNull(activity);
 
-        mToolbar = activity.findViewById(R.id.toolbar);
         mViewpager = activity.findViewById(R.id.viewpager);
         mStatusMessage = activity.findViewById(R.id.status_message);
         mChannel = activity.findViewById(R.id.station_channel);
@@ -143,9 +141,6 @@ public class DisplayController {
 
         if (mFavoriteButton != null) {
             mFavoriteButton.setVisibility(enabled ? View.VISIBLE : View.GONE);
-        }
-        if (mToolbar != null) {
-            mToolbar.setVisibility(enabled ? View.VISIBLE : View.INVISIBLE);
         }
         if (mViewpager != null) {
             mViewpager.setVisibility(enabled ? View.VISIBLE : View.GONE);

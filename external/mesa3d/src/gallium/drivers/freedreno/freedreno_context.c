@@ -28,6 +28,7 @@
 #include "freedreno_blitter.h"
 #include "freedreno_draw.h"
 #include "freedreno_fence.h"
+#include "freedreno_log.h"
 #include "freedreno_program.h"
 #include "freedreno_resource.h"
 #include "freedreno_texture.h"
@@ -37,6 +38,12 @@
 #include "freedreno_query_hw.h"
 #include "freedreno_util.h"
 #include "util/u_upload_mgr.h"
+
+#if DETECT_OS_ANDROID
+#include "util/u_process.h"
+#include <sys/stat.h>
+#include <sys/types.h>
+#endif
 
 static void
 fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
@@ -49,40 +56,57 @@ fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
 
 	DBG("%p: flush: flags=%x\n", ctx->batch, flags);
 
+	/* In some sequence of events, we can end up with a last_fence that is
+	 * not an "fd" fence, which results in eglDupNativeFenceFDANDROID()
+	 * errors.
+	 */
+	if ((flags & PIPE_FLUSH_FENCE_FD) && ctx->last_fence &&
+			!fd_fence_is_fd(ctx->last_fence))
+		fd_fence_ref(&ctx->last_fence, NULL);
+
 	/* if no rendering since last flush, ie. app just decided it needed
 	 * a fence, re-use the last one:
 	 */
 	if (ctx->last_fence) {
-		fd_fence_ref(pctx->screen, &fence, ctx->last_fence);
+		fd_fence_ref(&fence, ctx->last_fence);
+		fd_bc_dump(ctx->screen, "%p: reuse last_fence, remaining:\n", ctx);
 		goto out;
 	}
 
-	if (!batch)
+	if (!batch) {
+		fd_bc_dump(ctx->screen, "%p: NULL batch, remaining:\n", ctx);
 		return;
+	}
 
 	/* Take a ref to the batch's fence (batch can be unref'd when flushed: */
-	fd_fence_ref(pctx->screen, &fence, batch->fence);
+	fd_fence_ref(&fence, batch->fence);
 
-	/* TODO is it worth trying to figure out if app is using fence-fd's, to
-	 * avoid requesting one every batch?
-	 */
-	batch->needs_out_fence_fd = true;
+	if (flags & PIPE_FLUSH_FENCE_FD)
+		batch->needs_out_fence_fd = true;
+
+	fd_bc_dump(ctx->screen, "%p: flushing %p<%u>, flags=0x%x, pending:\n",
+			ctx, batch, batch->seqno, flags);
 
 	if (!ctx->screen->reorder) {
-		fd_batch_flush(batch, true, false);
+		fd_batch_flush(batch);
 	} else if (flags & PIPE_FLUSH_DEFERRED) {
 		fd_bc_flush_deferred(&ctx->screen->batch_cache, ctx);
 	} else {
 		fd_bc_flush(&ctx->screen->batch_cache, ctx);
 	}
 
+	fd_bc_dump(ctx->screen, "%p: remaining:\n", ctx);
+
 out:
 	if (fencep)
-		fd_fence_ref(pctx->screen, fencep, fence);
+		fd_fence_ref(fencep, fence);
 
-	fd_fence_ref(pctx->screen, &ctx->last_fence, fence);
+	fd_fence_ref(&ctx->last_fence, fence);
 
-	fd_fence_ref(pctx->screen, &fence, NULL);
+	fd_fence_ref(&fence, NULL);
+
+	if (flags & PIPE_FLUSH_END_OF_FRAME)
+		fd_log_eof(ctx);
 }
 
 static void
@@ -115,31 +139,11 @@ fd_memory_barrier(struct pipe_context *pctx, unsigned flags)
 	/* TODO do we need to check for persistently mapped buffers and fd_bo_cpu_prep()?? */
 }
 
-/**
- * emit marker string as payload of a no-op packet, which can be
- * decoded by cffdump.
- */
 static void
-fd_emit_string_marker(struct pipe_context *pctx, const char *string, int len)
+emit_string_tail(struct fd_ringbuffer *ring, const char *string, int len)
 {
-	struct fd_context *ctx = fd_context(pctx);
-	struct fd_ringbuffer *ring;
 	const uint32_t *buf = (const void *)string;
 
-	if (!ctx->batch)
-		return;
-
-	ctx->batch->needs_flush = true;
-
-	ring = ctx->batch->draw;
-
-	/* max packet size is 0x3fff dwords: */
-	len = MIN2(len, 0x3fff * 4);
-
-	if (ctx->screen->gpu_id >= 500)
-		OUT_PKT7(ring, CP_NOP, align(len, 4) / 4);
-	else
-		OUT_PKT3(ring, CP_NOP, align(len, 4) / 4);
 	while (len >= 4) {
 		OUT_RING(ring, *buf);
 		buf++;
@@ -154,6 +158,51 @@ fd_emit_string_marker(struct pipe_context *pctx, const char *string, int len)
 	}
 }
 
+/* for prior to a5xx: */
+void
+fd_emit_string(struct fd_ringbuffer *ring,
+		const char *string, int len)
+{
+	/* max packet size is 0x3fff+1 dwords: */
+	len = MIN2(len, 0x4000 * 4);
+
+	OUT_PKT3(ring, CP_NOP, align(len, 4) / 4);
+	emit_string_tail(ring, string, len);
+}
+
+/* for a5xx+ */
+void
+fd_emit_string5(struct fd_ringbuffer *ring,
+		const char *string, int len)
+{
+	/* max packet size is 0x3fff dwords: */
+	len = MIN2(len, 0x3fff * 4);
+
+	OUT_PKT7(ring, CP_NOP, align(len, 4) / 4);
+	emit_string_tail(ring, string, len);
+}
+
+/**
+ * emit marker string as payload of a no-op packet, which can be
+ * decoded by cffdump.
+ */
+static void
+fd_emit_string_marker(struct pipe_context *pctx, const char *string, int len)
+{
+	struct fd_context *ctx = fd_context(pctx);
+
+	if (!ctx->batch)
+		return;
+
+	ctx->batch->needs_flush = true;
+
+	if (ctx->screen->gpu_id >= 500) {
+		fd_emit_string5(ctx->batch->draw, string, len);
+	} else {
+		fd_emit_string(ctx->batch->draw, string, len);
+	}
+}
+
 void
 fd_context_destroy(struct pipe_context *pctx)
 {
@@ -162,10 +211,17 @@ fd_context_destroy(struct pipe_context *pctx)
 
 	DBG("");
 
-	fd_fence_ref(pctx->screen, &ctx->last_fence, NULL);
+	fd_screen_lock(ctx->screen);
+	list_del(&ctx->node);
+	fd_screen_unlock(ctx->screen);
 
-	if (ctx->screen->reorder && util_queue_is_initialized(&ctx->flush_queue))
-		util_queue_destroy(&ctx->flush_queue);
+	fd_log_process(ctx, true);
+	assert(list_is_empty(&ctx->log_chunks));
+
+	fd_fence_ref(&ctx->last_fence, NULL);
+
+	if (ctx->in_fence_fd != -1)
+		close(ctx->in_fence_fd);
 
 	util_copy_framebuffer_state(&ctx->framebuffer, NULL);
 	fd_batch_reference(&ctx->batch, NULL);  /* unref current batch */
@@ -179,23 +235,25 @@ fd_context_destroy(struct pipe_context *pctx)
 	if (pctx->stream_uploader)
 		u_upload_destroy(pctx->stream_uploader);
 
-	if (ctx->clear_rs_state)
-		pctx->delete_rasterizer_state(pctx, ctx->clear_rs_state);
+	for (i = 0; i < ARRAY_SIZE(ctx->clear_rs_state); i++)
+		if (ctx->clear_rs_state[i])
+			pctx->delete_rasterizer_state(pctx, ctx->clear_rs_state[i]);
 
 	if (ctx->primconvert)
 		util_primconvert_destroy(ctx->primconvert);
 
 	slab_destroy_child(&ctx->transfer_pool);
 
-	for (i = 0; i < ARRAY_SIZE(ctx->vsc_pipe); i++) {
-		struct fd_vsc_pipe *pipe = &ctx->vsc_pipe[i];
-		if (!pipe->bo)
+	for (i = 0; i < ARRAY_SIZE(ctx->vsc_pipe_bo); i++) {
+		if (!ctx->vsc_pipe_bo[i])
 			break;
-		fd_bo_del(pipe->bo);
+		fd_bo_del(ctx->vsc_pipe_bo[i]);
 	}
 
 	fd_device_del(ctx->dev);
 	fd_pipe_del(ctx->pipe);
+
+	mtx_destroy(&ctx->gmem_lock);
 
 	if (fd_mesa_debug & (FD_DBG_BSTAT | FD_DBG_MSGS)) {
 		printf("batch_total=%u, batch_sysmem=%u, batch_gmem=%u, batch_nondraw=%u, batch_restore=%u\n",
@@ -346,6 +404,8 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
 	ctx->screen = screen;
 	ctx->pipe = fd_pipe_new2(screen->dev, FD_PIPE_3D, prio);
 
+	ctx->in_fence_fd = -1;
+
 	if (fd_device_version(screen->dev) >= FD_VERSION_ROBUSTNESS) {
 		ctx->context_reset_count = fd_get_reset_count(ctx, true);
 		ctx->global_reset_count = fd_get_reset_count(ctx, false);
@@ -353,14 +413,17 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
 
 	ctx->primtypes = primtypes;
 	ctx->primtype_mask = 0;
-	for (i = 0; i < PIPE_PRIM_MAX; i++)
+	for (i = 0; i <= PIPE_PRIM_MAX; i++)
 		if (primtypes[i])
 			ctx->primtype_mask |= (1 << i);
 
-	/* need some sane default in case state tracker doesn't
+	(void) mtx_init(&ctx->gmem_lock, mtx_plain);
+
+	/* need some sane default in case gallium frontends don't
 	 * set some state:
 	 */
 	ctx->sample_mask = 0xffff;
+	ctx->active_queries = true;
 
 	pctx = &ctx->base;
 	pctx->screen = pscreen;
@@ -371,6 +434,7 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
 	pctx->get_device_reset_status = fd_get_device_reset_status;
 	pctx->create_fence_fd = fd_create_fence_fd;
 	pctx->fence_server_sync = fd_fence_server_sync;
+	pctx->fence_server_signal = fd_fence_server_signal;
 	pctx->texture_barrier = fd_texture_barrier;
 	pctx->memory_barrier = fd_memory_barrier;
 
@@ -378,9 +442,6 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
 	if (!pctx->stream_uploader)
 		goto fail;
 	pctx->const_uploader = pctx->stream_uploader;
-
-	if (!ctx->screen->reorder)
-		ctx->batch = fd_bc_alloc_batch(&screen->batch_cache, ctx, false);
 
 	slab_create_child(&ctx->transfer_pool, &screen->transfer_pool);
 
@@ -400,6 +461,33 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
 
 	list_inithead(&ctx->hw_active_queries);
 	list_inithead(&ctx->acc_active_queries);
+	list_inithead(&ctx->log_chunks);
+
+	fd_screen_lock(ctx->screen);
+	list_add(&ctx->node, &ctx->screen->context_list);
+	fd_screen_unlock(ctx->screen);
+
+	ctx->current_scissor = &ctx->disabled_scissor;
+
+	ctx->log_out = stdout;
+
+	if ((fd_mesa_debug & FD_DBG_LOG) &&
+			!(ctx->record_timestamp && ctx->ts_to_ns)) {
+		printf("logging not supported!\n");
+		fd_mesa_debug &= ~FD_DBG_LOG;
+	}
+
+#if DETECT_OS_ANDROID
+	if (fd_mesa_debug & FD_DBG_LOG) {
+		static unsigned idx = 0;
+		char *p;
+		asprintf(&p, "/data/fdlog/%s-%d.log", util_get_process_name(), idx++);
+
+		FILE *f = fopen(p, "w");
+		if (f)
+			ctx->log_out = f;
+	}
+#endif
 
 	return pctx;
 

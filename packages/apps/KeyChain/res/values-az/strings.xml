@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Siz sertifikatları xarici yaddaşda yerləşən, %1$s və ya %2$s artırması olan PKCS#12 fayldan quraşdıra bilərsiniz."</string>
     <string name="allow_button" msgid="3030990695030371561">"Seçin"</string>
     <string name="deny_button" msgid="3766539809121892584">"İmtina et"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Sertifikatlar yüklənir..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s sertifikatı yoxlayır…"</string>
 </resources>

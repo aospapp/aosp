@@ -15,485 +15,106 @@
 # Description:
 #   A JSR-330 compliant dependency injection system for android and java
 
+load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
+load(
+    "//:build_defs.bzl",
+    "POM_VERSION",
+)
+load("//tools:maven.bzl", "gen_maven_artifact")
+
 package(default_visibility = ["//:src"])
 
-load("//:build_defs.bzl", "DOCLINT_HTML_AND_SYNTAX", "DOCLINT_REFERENCES")
-load("//tools:maven.bzl", "POM_VERSION", "pom_file")
-
-EXPERIMENTAL_VISUALIZER_SRCS = ["BindingNetworkVisualizer.java"]
-
-JAVAC_PLUGIN_MODULE_SRCS = ["JavacPluginModule.java"]
-
-KYTHE_SRCS = ["DaggerKythePlugin.java"]
-
-STATISTICS_COLLECTOR_SRCS = ["BindingGraphStatisticsCollector.java"]
-
-CODEGEN_SRCS = glob(
-    ["*.java"],
-    exclude = EXPERIMENTAL_VISUALIZER_SRCS + KYTHE_SRCS + STATISTICS_COLLECTOR_SRCS +
-              JAVAC_PLUGIN_MODULE_SRCS,
-)
-
-CODEGEN_PLUGINS = [":bootstrap_compiler_plugin"]
-
-CODEGEN_SHARED_DEPS = [
-    "@google_bazel_common//third_party/java/auto:service",
-    "@google_bazel_common//third_party/java/auto:value",
-    "@google_bazel_common//third_party/java/auto:common",
-    "@google_bazel_common//third_party/java/checker_framework_annotations",
-    "@google_bazel_common//third_party/java/error_prone:annotations",
-    "@google_bazel_common//third_party/java/google_java_format",
-    "@google_bazel_common//third_party/java/javapoet",
-    "@bazel_tools//tools/jdk:langtools-neverlink",
-    "@google_bazel_common//third_party/java/jsr250_annotations",
-    "@google_bazel_common//third_party/java/jsr330_inject",
-    "//java/dagger:core",
-    "//java/dagger/internal/codegen/serialization",
-    "//java/dagger/producers",
-    "//java/dagger/model",
-    "//java/dagger/spi",
-    "//java/dagger/model:internal-proxies",
-]
-
-CODEGEN_DEPS = CODEGEN_SHARED_DEPS + [
-    ":jdk-and-guava-extras",
-    "@google_bazel_common//third_party/java/guava",
-]
-
-# Extra features for the JDK and Guava. This code is merged into both
-# the dagger-compiler and dagger-spi artifacts that are sent to Maven
-java_library(
-    name = "jdk-and-guava-extras",
-    srcs = [
-        "DaggerGraphs.java",
-        "DaggerStreams.java",
-        "Optionals.java",
-    ],
-    plugins = CODEGEN_PLUGINS,
-    tags = ["maven:merged"],
-    deps = [
-        "@google_bazel_common//third_party/java/guava",
-    ],
-)
-
-# Common types needed across all of the codegen package
-java_library(
-    name = "base",
-    srcs = [
-        "AnnotationProtoConverter.java",
-        "ClearableCache.java",
-        "CompilerOptions.java",
-        "ComponentAnnotation.java",
-        "ContributionType.java",
-        "DaggerStatistics.java",
-        "DaggerStatisticsCollectingProcessingStep.java",
-        "DaggerStatisticsCollector.java",
-        "DaggerStatisticsRecorder.java",
-        "DiagnosticFormatting.java",
-        "ElementFormatter.java",
-        "FeatureStatus.java",
-        "Formatter.java",
-        "ForwardingCompilerOptions.java",
-        "FrameworkTypes.java",
-        "InjectionAnnotations.java",
-        "Keys.java",
-        "MapKeyAccessibility.java",
-        "MapType.java",
-        "ModuleAnnotation.java",
-        "MoreAnnotationMirrors.java",
-        "MoreAnnotationValues.java",
-        "MultibindingAnnotations.java",
-        "OptionalType.java",
-        "ProcessingEnvironmentCompilerOptions.java",
-        "ProcessingOptions.java",
-        "RequestKinds.java",
-        "Scopes.java",
-        "SetType.java",
-        "SimpleAnnotationMirror.java",
-        "SimpleTypeAnnotationValue.java",
-        "SourceFileGenerationException.java",  # Used in :writing and :processor
-        "SourceFileGenerator.java",  # Needed by InjectBindingRegistry in :binding and also :writing
-        "TypeCheckingProcessingStep.java",
-        "TypeProtoConverter.java",
-        "UniqueNameSet.java",
-        "Util.java",
-        "ValidationType.java",
-        "package-info.java",
-    ],
-    plugins = CODEGEN_PLUGINS,
-    tags = ["maven:merged"],
-    deps = CODEGEN_DEPS + [
-        "//java/dagger/internal/codegen/javapoet",
-        "//java/dagger/internal/codegen/langmodel",
-    ],
-)
-
-# Classes that help to build a model of the binding graph
-java_library(
-    name = "binding",
-    srcs = [
-        "AnnotationExpression.java",
-        "Binding.java",
-        "BindingDeclaration.java",
-        "BindingDeclarationFormatter.java",
-        "BindingFactory.java",
-        "BindingGraph.java",
-        "BindingGraphConverter.java",
-        "BindingGraphFactory.java",
-        "BindingNode.java",
-        "BindingRequest.java",
-        "BindingType.java",
-        "BindsTypeChecker.java",
-        "ChildFactoryMethodEdgeImpl.java",
-        "ComponentCreatorAnnotation.java",
-        "ComponentCreatorDescriptor.java",
-        "ComponentCreatorKind.java",
-        "ComponentDescriptor.java",
-        "ComponentDescriptorFactory.java",
-        "ComponentKind.java",
-        "ComponentNodeImpl.java",
-        "ComponentRequirement.java",
-        "ComponentTreeTraverser.java",
-        "ConfigurationAnnotations.java",  # Uses ModuleDescriptors
-        "ContributionBinding.java",
-        "DelegateDeclaration.java",
-        "DependencyEdgeImpl.java",
-        "DependencyRequestFactory.java",
-        "DependencyRequestFormatter.java",
-        "DependencyVariableNamer.java",  # Used by SourceFiles
-        "ErrorMessages.java",  # Consider splitting this up as it pulls in too much
-        "FrameworkDependency.java",
-        "FrameworkField.java",  # Used by SourceFiles
-        "FrameworkType.java",
-        "FrameworkTypeMapper.java",
-        "InjectBindingRegistry.java",
-        "InjectionSiteFactory.java",
-        "KeyFactory.java",
-        "KeyVariableNamer.java",  # needs ConfigurationAnnotations, SourceFiles
-        "MapKeys.java",
-        "MembersInjectionBinding.java",
-        "MethodSignature.java",
-        "MethodSignatureFormatter.java",
-        "ModuleDescriptor.java",
-        "ModuleKind.java",
-        "MultibindingDeclaration.java",
-        "OptionalBindingDeclaration.java",
-        "ProductionBinding.java",
-        "ProvisionBinding.java",
-        "ResolvedBindings.java",
-        "SourceFiles.java",  # Consider splitting this up?
-        "SubcomponentCreatorBindingEdgeImpl.java",
-        "SubcomponentDeclaration.java",
-    ],
-    plugins = CODEGEN_PLUGINS,
-    tags = ["maven:merged"],
-    deps = CODEGEN_DEPS + [
-        ":base",
-        "//java/dagger/internal/codegen/langmodel",
-        "//java/dagger/internal/codegen/javapoet",
-    ],
-)
-
-# Code related to validating the user-written Dagger code
-java_library(
-    name = "validation",
-    srcs = [
-        "AnyBindingMethodValidator.java",
-        "BindingElementValidator.java",
-        "BindingGraphPlugins.java",
-        "BindingGraphValidator.java",
-        "BindingMethodProcessingStep.java",
-        "BindingMethodValidator.java",
-        "BindsInstanceElementValidator.java",
-        "BindsInstanceMethodValidator.java",
-        "BindsInstanceParameterValidator.java",
-        "BindsInstanceProcessingStep.java",
-        "BindsMethodValidator.java",
-        "BindsOptionalOfMethodValidator.java",
-        "ComponentCreatorValidator.java",
-        "ComponentDescriptorValidator.java",
-        "ComponentHierarchyValidator.java",
-        "ComponentValidator.java",
-        "DependencyRequestValidator.java",
-        "DiagnosticReporterFactory.java",
-        "InjectValidator.java",
-        "MapKeyValidator.java",
-        "MembersInjectionValidator.java",
-        "ModuleValidator.java",
-        "MultibindingAnnotationsProcessingStep.java",
-        "MultibindsMethodValidator.java",
-        "ProducesMethodValidator.java",
-        "ProvidesMethodValidator.java",
-        "Validation.java",
-        "ValidationReport.java",
-    ],
-    plugins = CODEGEN_PLUGINS,
-    tags = ["maven:merged"],
-    deps = CODEGEN_DEPS + [
-        ":base",
-        ":binding",
-        "//java/dagger/internal/codegen/langmodel",
-    ],
-)
-
-java_library(
-    name = "binding_graph_validation",
-    srcs = [
-        "DependencyCycleValidator.java",
-        "DependsOnProductionExecutorValidator.java",
-        "DuplicateBindingsValidator.java",
-        "IncompatiblyScopedBindingsValidator.java",
-        "InjectBindingValidator.java",
-        "MapMultibindingValidator.java",
-        "MissingBindingValidator.java",
-        "NullableBindingValidator.java",
-        "ProvisionDependencyOnProducerBindingValidator.java",
-        "SubcomponentFactoryMethodValidator.java",
-    ],
-    plugins = CODEGEN_PLUGINS,
-    tags = ["maven:merged"],
-    deps = CODEGEN_DEPS + [
-        ":base",
-        ":binding",
-        ":validation",
-        "//java/dagger/internal/codegen/langmodel",
-    ],
-)
-
-# Classes that assemble the model of the generated code and write to the Filer
-java_library(
-    name = "writing",
-    srcs = [
-        "AnnotationCreatorGenerator.java",
-        "AnonymousProviderCreationExpression.java",
-        "BindingExpression.java",
-        "ComponentBindingExpressions.java",
-        "ComponentCreatorImplementation.java",
-        "ComponentImplementation.java",
-        "ComponentInstanceBindingExpression.java",
-        "ComponentMethodBindingExpression.java",
-        "ComponentProvisionBindingExpression.java",
-        "ComponentRequirementBindingExpression.java",
-        "ComponentRequirementExpression.java",
-        "ComponentRequirementExpressions.java",
-        "DeferredModifiableBindingExpression.java",
-        "DelegateBindingExpression.java",
-        "DelegatingFrameworkInstanceCreationExpression.java",
-        "DependencyMethodProducerCreationExpression.java",
-        "DependencyMethodProviderCreationExpression.java",
-        "DerivedFromFrameworkInstanceBindingExpression.java",
-        "FactoryGenerator.java",
-        "FrameworkFieldInitializer.java",
-        "FrameworkInstanceBindingExpression.java",
-        "FrameworkInstanceSupplier.java",
-        "GenerationCompilerOptions.java",
-        "GwtCompatibility.java",
-        "HjarSourceFileGenerator.java",
-        "ImmediateFutureBindingExpression.java",
-        "InaccessibleMapKeyProxyGenerator.java",
-        "InjectionMethod.java",
-        "InjectionMethods.java",
-        "InjectionOrProvisionProviderCreationExpression.java",
-        "InnerSwitchingProviders.java",
-        "InstanceFactoryCreationExpression.java",
-        "MapBindingExpression.java",
-        "MapFactoryCreationExpression.java",
-        "MemberSelect.java",
-        "MembersInjectionBindingExpression.java",
-        "MembersInjectionMethods.java",
-        "MembersInjectorGenerator.java",
-        "MembersInjectorProviderCreationExpression.java",
-        "MethodBindingExpression.java",
-        "MissingBindingExpression.java",
-        "ModifiableAbstractMethodBindingExpression.java",
-        "ModifiableBindingExpressions.java",
-        "ModifiableBindingMethods.java",
-        "ModifiableBindingType.java",
-        "ModifiableConcreteMethodBindingExpression.java",
-        "ModuleConstructorProxyGenerator.java",
-        "ModuleGenerator.java",
-        "ModuleProxies.java",
-        "MonitoringModuleGenerator.java",
-        "MonitoringModuleProcessingStep.java",
-        "MultibindingExpression.java",
-        "MultibindingFactoryCreationExpression.java",
-        "OptionalBindingExpression.java",
-        "OptionalFactories.java",
-        "OptionalFactoryInstanceCreationExpression.java",
-        "ParentComponent.java",
-        "PerComponentImplementation.java",
-        "PerGeneratedFile.java",
-        "PrivateMethodBindingExpression.java",
-        "ProducerCreationExpression.java",
-        "ProducerEntryPointView.java",
-        "ProducerFactoryGenerator.java",
-        "ProducerFromProviderCreationExpression.java",
-        "ProducerNodeInstanceBindingExpression.java",
-        "ProviderInstanceBindingExpression.java",
-        "PrunedConcreteMethodBindingExpression.java",
-        "SetBindingExpression.java",
-        "SetFactoryCreationExpression.java",
-        "SimpleInvocationBindingExpression.java",
-        "SimpleMethodBindingExpression.java",
-        "SubcomponentCreatorBindingExpression.java",
-        "SubcomponentNames.java",
-        "SwitchingProviders.java",
-        "TopLevel.java",
-        "UnwrappedMapKeyGenerator.java",
-    ],
-    plugins = CODEGEN_PLUGINS,
-    tags = ["maven:merged"],
-    deps = CODEGEN_DEPS + [
-        ":base",
-        ":binding",
-        "//java/dagger/internal/codegen/javapoet",
-        "//java/dagger/internal/codegen/langmodel",
-    ],
-)
-
-# The processor's "main", if you will
 java_library(
     name = "processor",
-    srcs = [
-        "BindingGraphValidationModule.java",
-        "BindingMethodValidatorsModule.java",
-        "ComponentCreatorImplementationFactory.java",
-        "ComponentGenerator.java",
-        "ComponentHjarProcessingStep.java",
-        "ComponentImplementationBuilder.java",
-        "ComponentImplementationFactory.java",
-        "ComponentProcessingStep.java",
-        "ComponentProcessor.java",
-        "CurrentImplementationSubcomponent.java",
-        "DeserializedComponentImplementationBuilder.java",
-        "GenerationOptionsModule.java",
-        "InjectBindingRegistryImpl.java",
-        "InjectBindingRegistryModule.java",
-        "InjectProcessingStep.java",
-        "MapKeyProcessingStep.java",
-        "ModuleProcessingStep.java",
-        "ProcessingEnvironmentModule.java",
-        "ProcessingRoundCacheModule.java",
-        "SourceFileGeneratorsModule.java",
-        "SpiModule.java",
-        "SystemComponentsModule.java",
-        "TopLevelImplementationComponent.java",
+    srcs = glob(
+        ["*.java"],
+        exclude = ["package-info.java"],
+    ),
+    plugins = [
+        "//java/dagger/internal/codegen/bootstrap",
     ],
-    plugins = CODEGEN_PLUGINS,
     tags = ["maven_coordinates=com.google.dagger:dagger-compiler:" + POM_VERSION],
-    deps = CODEGEN_DEPS + [
-        ":base",
-        ":binding",
-        ":binding_graph_validation",
-        ":writing",
-        ":validation",
-        "//java/dagger/internal/codegen/javapoet",
-        "//java/dagger/internal/codegen/langmodel",
-        "@google_bazel_common//third_party/java/incap",
+    exports = [
+        "@google_bazel_common//third_party/java/jsr250_annotations",  # Export for @Generated
     ],
-)
-
-pom_file(
-    name = "pom",
-    artifact_id = "dagger-compiler",
-    artifact_name = "Dagger Compiler",
-    targets = [
-        ":processor",
-        ":base",
-        ":binding",
-        ":binding_graph_validation",
-        ":writing",
-        ":validation",
-        "//java/dagger/internal/codegen/serialization",
-        "//java/dagger/internal/codegen/javapoet",
-    ],
-)
-
-java_library(
-    name = "javac-plugin-module",
-    srcs = JAVAC_PLUGIN_MODULE_SRCS,
-    plugins = [":component-codegen"],
-    visibility = ["//visibility:private"],
     deps = [
-        ":base",
-        ":binding",
-        ":javac",
-        ":processor",
+        ":package_info",
         "//java/dagger:core",
+        "//java/dagger/internal/codegen/base",
+        "//java/dagger/internal/codegen/binding",
+        "//java/dagger/internal/codegen/bindinggraphvalidation",
+        "//java/dagger/internal/codegen/compileroption",
+        "//java/dagger/internal/codegen/componentgenerator",
+        "//java/dagger/internal/codegen/extension",
+        "//java/dagger/internal/codegen/javapoet",
+        "//java/dagger/internal/codegen/kotlin",
         "//java/dagger/internal/codegen/langmodel",
-    ],
-)
-
-java_library(
-    name = "kythe",
-    srcs = KYTHE_SRCS,
-    plugins = [":component-codegen"],
-    deps = [
-        ":base",
-        ":binding",
-        ":javac",
-        ":javac-plugin-module",
-        ":kythe_plugin",
-        ":processor",
-        "//java/dagger:core",
-        "//java/dagger/internal/codegen/langmodel",
-        "//java/dagger/model",
+        "//java/dagger/internal/codegen/validation",
+        "//java/dagger/internal/codegen/writing",
+        "//java/dagger/internal/guava:collect",
         "//java/dagger/producers",
-        "@google_bazel_common//third_party/java/auto:common",
+        "//java/dagger/spi",
         "@google_bazel_common//third_party/java/auto:service",
-        "@google_bazel_common//third_party/java/guava",
+        "@google_bazel_common//third_party/java/auto:value",
+        "@google_bazel_common//third_party/java/error_prone:annotations",
+        "@google_bazel_common//third_party/java/google_java_format",
+        "@google_bazel_common//third_party/java/incap",
+        "@google_bazel_common//third_party/java/javapoet",
+        "@google_bazel_common//third_party/java/jsr330_inject",
+        "@maven//:com_google_auto_auto_common",
     ],
-)
-
-# Replacement for @bazel_tools//third_party/java/jdk/langtools:javac, which seems to have gone away?
-java_import(
-    name = "javac",
-    jars = ["@bazel_tools//third_party/java/jdk/langtools:javac_jar"],
-)
-
-# A _deploy.jar consisting of the java_librarys in https://github.com/kythe/kythe needed to build a
-# Kythe plugin
-# TODO(ronshapiro): replace this with a http_archive of the next release in
-# https://github.com/kythe/kythe/releases
-java_import(
-    name = "kythe_plugin",
-    jars = ["kythe_plugin_deploy.jar"],
-    neverlink = 1,
-)
-
-java_import(
-    name = "bootstrap_compiler",
-    jars = ["bootstrap_compiler_deploy.jar"],
-    visibility = ["//visibility:private"],
-)
-
-java_plugin(
-    name = "bootstrap_compiler_plugin",
-    generates_api = 1,
-    processor_class = "dagger.internal.codegen.ComponentProcessor",
-    deps = [":bootstrap_compiler"],
-)
-
-load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
-
-javadoc_library(
-    name = "codegen-javadoc",
-    srcs = CODEGEN_SRCS,
-    root_packages = ["dagger.internal.codegen"],
-    deps = [":processor"],
 )
 
 java_library(
-    name = "check-package-javadoc",
-    testonly = 1,
-    srcs = CODEGEN_SRCS,
-    javacopts = DOCLINT_HTML_AND_SYNTAX + DOCLINT_REFERENCES,
-    plugins = CODEGEN_PLUGINS,
-    deps = CODEGEN_DEPS + [
-        "//java/dagger/internal/codegen/langmodel",
+    name = "package_info",
+    srcs = ["package-info.java"],
+    tags = ["maven:merged"],
+    deps = ["@google_bazel_common//third_party/java/error_prone:annotations"],
+)
+
+gen_maven_artifact(
+    name = "artifact",
+    artifact_coordinates = "com.google.dagger:dagger-compiler:" + POM_VERSION,
+    artifact_name = "Dagger Compiler",
+    artifact_target = ":processor",
+    artifact_target_libs = [
+        ":package_info",
+        "//java/dagger/internal/codegen/base",
+        "//java/dagger/internal/codegen/base:shared",
+        "//java/dagger/internal/codegen/binding",
+        "//java/dagger/internal/codegen/bindinggraphvalidation",
+        "//java/dagger/internal/codegen/compileroption",
+        "//java/dagger/internal/codegen/componentgenerator",
         "//java/dagger/internal/codegen/javapoet",
-        "@google_bazel_common//third_party/java/incap",
+        "//java/dagger/internal/codegen/kotlin",
+        "//java/dagger/internal/codegen/langmodel",
+        "//java/dagger/internal/codegen/validation",
+        "//java/dagger/internal/codegen/writing",
+        "//java/dagger/model:internal-proxies",
     ],
+    artifact_target_maven_deps = [
+        "com.google.auto:auto-common",
+        "com.google.code.findbugs:jsr305",
+        "com.google.dagger:dagger-producers",
+        "com.google.dagger:dagger-spi",
+        "com.google.dagger:dagger",
+        "com.google.googlejavaformat:google-java-format",
+        "com.google.guava:failureaccess",
+        "com.google.guava:guava",
+        "com.squareup:javapoet",
+        "javax.annotation:jsr250-api",
+        "javax.inject:javax.inject",
+        "net.ltgt.gradle.incap:incap",
+        "org.checkerframework:checker-compat-qual",
+        "org.jetbrains.kotlin:kotlin-stdlib",
+        "org.jetbrains.kotlinx:kotlinx-metadata-jvm",
+    ],
+    javadoc_root_packages = ["dagger.internal.codegen"],
+    # The javadocs should only include ComponentProcessor.java, since that is the only class used
+    # externally. Specifically, ComponentProcessor.forTesting() is required for testing SPI plugins.
+    javadoc_srcs = ["ComponentProcessor.java"],
+    shaded_deps = ["@maven//:com_google_auto_auto_common"],
+    shaded_rules = ["rule com.google.auto.common.** dagger.shaded.auto.common.@1"],
 )
 
 java_plugin(
@@ -508,20 +129,4 @@ java_plugin(
         "genclass=${package}.Dagger${outerclasses}${classname}",
     ],
     deps = [":processor"],
-)
-
-java_library(
-    name = "statistics",
-    srcs = STATISTICS_COLLECTOR_SRCS,
-    plugins = [":component-codegen"],
-    deps = [
-        ":base",
-        ":binding",
-        ":javac",
-        ":javac-plugin-module",
-        ":processor",
-        "//java/dagger:core",
-        "//java/dagger/model",
-        "@google_bazel_common//third_party/java/error_prone:check_api",
-    ],
 )

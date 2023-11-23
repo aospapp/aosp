@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "packages_services_Telephony_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["packages_services_Telephony_license"],
+}
+
 apex_defaults {
     name: "com.android.telephony-defaults",
 
@@ -9,6 +18,8 @@ apex_defaults {
 
     key: "com.android.telephony.key",
     certificate: ":com.android.telephony.certificate",
+
+    updatable: false,
 }
 
 apex {

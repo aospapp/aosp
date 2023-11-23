@@ -23,18 +23,13 @@
  *
  ******************************************************************************/
 
-#include <string.h>
-#include "bt_utils.h"
-#include "bta_api.h"
-#include "bta_dm_api.h"
-#include "bta_hf_client_api.h"
-#include "bta_hf_client_int.h"
-#include "bta_sys.h"
-#include "l2c_api.h"
-#include "osi/include/compat.h"
-#include "osi/include/osi.h"
-#include "port_api.h"
-#include "utl.h"
+#include "bt_trace.h"  // Legacy trace logging
+
+#include "bta/hf_client/bta_hf_client_int.h"
+#include "bta/include/bta_dm_api.h"
+#include "stack/include/l2c_api.h"
+#include "stack/include/port_api.h"
+#include "types/raw_address.h"
 
 /*****************************************************************************
  *  Constants
@@ -99,7 +94,6 @@ void bta_hf_client_start_open(tBTA_HF_CLIENT_DATA* p_data) {
   /* store parameters */
   if (p_data) {
     client_cb->peer_addr = p_data->api_open.bd_addr;
-    client_cb->cli_sec_mask = p_data->api_open.sec_mask;
   }
 
   /* Check if RFCOMM has any incoming connection to avoid collision. */
@@ -108,7 +102,8 @@ void bta_hf_client_start_open(tBTA_HF_CLIENT_DATA* p_data) {
     /* Let the incoming connection goes through.                        */
     /* Issue collision for now.                                         */
     /* We will decide what to do when we find incoming connection later.*/
-    bta_hf_client_collision_cback(0, BTA_ID_HS, 0, client_cb->peer_addr);
+    bta_hf_client_collision_cback(BTA_SYS_CONN_OPEN, BTA_ID_HS, 0,
+                                  client_cb->peer_addr);
     return;
   }
 

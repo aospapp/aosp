@@ -206,19 +206,24 @@ write_tmu_p1(struct v3d_job *job,
 }
 
 struct v3d_cl_reloc
-v3d_write_uniforms(struct v3d_context *v3d, struct v3d_compiled_shader *shader,
+v3d_write_uniforms(struct v3d_context *v3d, struct v3d_job *job,
+                   struct v3d_compiled_shader *shader,
                    enum pipe_shader_type stage)
 {
         struct v3d_constbuf_stateobj *cb = &v3d->constbuf[stage];
         struct v3d_texture_stateobj *texstate = &v3d->tex[stage];
         struct v3d_uniform_list *uinfo = &shader->prog_data.base->uniforms;
-        struct v3d_job *job = v3d->job;
         const uint32_t *gallium_uniforms = cb->cb[0].user_buffer;
 
-        /* We always need to return some space for uniforms, because the HW
-         * will be prefetching, even if we don't read any in the program.
+        /* The hardware always pre-fetches the next uniform (also when there
+         * aren't any), so we always allocate space for an extra slot. This
+         * fixes MMU exceptions reported since Linux kernel 5.4 when the
+         * uniforms fill up the tail bytes of a page in the indirect
+         * BO. In that scenario, when the hardware pre-fetches after reading
+         * the last uniform it will read beyond the end of the page and trigger
+         * the MMU exception.
          */
-        v3d_cl_ensure_space(&job->indirect, MAX2(uinfo->count, 1) * 4, 4);
+        v3d_cl_ensure_space(&job->indirect, (uinfo->count + 1) * 4, 4);
 
         struct v3d_cl_reloc uniform_stream = cl_get_address(&job->indirect);
         v3d_bo_reference(uniform_stream.bo);
@@ -307,6 +312,15 @@ v3d_write_uniforms(struct v3d_context *v3d, struct v3d_compiled_shader *shader,
                                      v3d->zsa->base.alpha.ref_value);
                         break;
 
+                case QUNIFORM_LINE_WIDTH:
+                        cl_aligned_f(&uniforms,
+                                     v3d->rasterizer->base.line_width);
+                        break;
+
+                case QUNIFORM_AA_LINE_WIDTH:
+                        cl_aligned_f(&uniforms, v3d_get_real_line_width(v3d));
+                        break;
+
                 case QUNIFORM_UBO_ADDR: {
                         uint32_t unit = v3d_unit_data_get_unit(data);
                         /* Constant buffer 0 may be a system memory pointer,
@@ -338,7 +352,7 @@ v3d_write_uniforms(struct v3d_context *v3d, struct v3d_compiled_shader *shader,
                         break;
                 }
 
-                case QUNIFORM_GET_BUFFER_SIZE:
+                case QUNIFORM_GET_SSBO_SIZE:
                         cl_aligned_u32(&uniforms,
                                        v3d->ssbo[stage].sb[data].buffer_size);
                         break;
@@ -366,6 +380,10 @@ v3d_write_uniforms(struct v3d_context *v3d, struct v3d_compiled_shader *shader,
                 case QUNIFORM_SHARED_OFFSET:
                         cl_aligned_reloc(&job->indirect, &uniforms,
                                          v3d->compute_shared_memory, 0);
+                        break;
+
+                case QUNIFORM_FB_LAYERS:
+                        cl_aligned_u32(&uniforms, job->num_layers);
                         break;
 
                 default:
@@ -434,11 +452,12 @@ v3d_set_shader_uniform_dirty_flags(struct v3d_compiled_shader *shader)
                         /* We could flag this on just the stage we're
                          * compiling for, but it's not passed in.
                          */
-                        dirty |= VC5_DIRTY_FRAGTEX | VC5_DIRTY_VERTTEX;
+                        dirty |= VC5_DIRTY_FRAGTEX | VC5_DIRTY_VERTTEX |
+                                 VC5_DIRTY_GEOMTEX | VC5_DIRTY_COMPTEX;
                         break;
 
                 case QUNIFORM_SSBO_OFFSET:
-                case QUNIFORM_GET_BUFFER_SIZE:
+                case QUNIFORM_GET_SSBO_SIZE:
                         dirty |= VC5_DIRTY_SSBO;
                         break;
 
@@ -454,14 +473,24 @@ v3d_set_shader_uniform_dirty_flags(struct v3d_compiled_shader *shader)
                         dirty |= VC5_DIRTY_ZSA;
                         break;
 
+                case QUNIFORM_LINE_WIDTH:
+                case QUNIFORM_AA_LINE_WIDTH:
+                        dirty |= VC5_DIRTY_RASTERIZER;
+                        break;
+
                 case QUNIFORM_NUM_WORK_GROUPS:
                 case QUNIFORM_SHARED_OFFSET:
                         /* Compute always recalculates uniforms. */
                         break;
 
+                case QUNIFORM_FB_LAYERS:
+                        dirty |= VC5_DIRTY_FRAMEBUFFER;
+                        break;
+
                 default:
                         assert(quniform_contents_is_texture_p0(shader->prog_data.base->uniforms.contents[i]));
-                        dirty |= VC5_DIRTY_FRAGTEX | VC5_DIRTY_VERTTEX;
+                        dirty |= VC5_DIRTY_FRAGTEX | VC5_DIRTY_VERTTEX |
+                                 VC5_DIRTY_GEOMTEX | VC5_DIRTY_COMPTEX;
                         break;
                 }
         }

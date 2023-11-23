@@ -58,6 +58,7 @@ public class DailyLoggingAlarmReceiver extends BroadcastReceiver {
         logger.logNumDailyWallpaperRotationsInLastWeek();
         logger.logNumDailyWallpaperRotationsPreviousDay();
         logger.logWallpaperPresentationMode();
+        logger.logSnapshot();
 
         preferences.setLastDailyLogTimestamp(System.currentTimeMillis());
 

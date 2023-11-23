@@ -17,15 +17,16 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
                   android:key="@string/psk_account_details">
-    <com.android.car.ui.preference.CarUiPreference
+    <com.android.car.ui.preference.CarUiTwoActionIconPreference
         android:key="@string/pk_account_details"
         android:selectable="false"
         settings:controller="com.android.car.settings.accounts.AccountDetailsPreferenceController"
+        settings:secondaryActionIcon="@drawable/ic_delete"
         settings:showChevron="false"/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_account_settings"
         settings:controller="com.android.car.settings.accounts.AccountDetailsSettingController">
-        <intent android:action="com.android.settings.action.IA_SETTINGS">
+        <intent>
             <extra android:name="com.android.settings.category"
                    android:value="com.android.settings.category.ia.account_detail"/>
         </intent>

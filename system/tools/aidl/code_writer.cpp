@@ -15,13 +15,15 @@
  */
 #include "code_writer.h"
 
+#include "logging.h"
+
 #include <stdarg.h>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <unordered_map>
 #include <vector>
 
-#include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 
 namespace android {
@@ -74,7 +76,7 @@ void CodeWriter::Indent() {
   indent_level_++;
 }
 void CodeWriter::Dedent() {
-  CHECK(indent_level_ > 0);
+  AIDL_FATAL_IF(indent_level_ <= 0, "Mismatched dedent");
 
   indent_level_--;
 }
@@ -129,6 +131,24 @@ CodeWriterPtr CodeWriter::ForString(std::string* buf) {
     std::string* buf_;
   };
   return CodeWriterPtr(new StringCodeWriter(buf));
+}
+
+std::string QuotedEscape(const std::string& str) {
+  std::string result;
+  result += '"';
+  static const std::unordered_map<char, std::string> escape = {
+      {'"', "\\\""}, {'\\', "\\\\"}, {'\n', "\\n"}, {'\r', "\\r"}, {'\t', "\\t"}, {'\v', "\\v"},
+  };
+  for (auto c : str) {
+    auto it = escape.find(c);
+    if (it != escape.end()) {
+      result += it->second;
+    } else {
+      result += c;
+    }
+  }
+  result += '"';
+  return result;
 }
 
 }  // namespace aidl

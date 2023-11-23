@@ -16,8 +16,12 @@
 
 #pragma once
 
+#include "stack/btm/btm_sec.h"
+#include "stack/btm/neighbor_inquiry.h"
+#include "stack/include/acl_api_types.h"
 #include "stack/include/btm_api_types.h"
 #include "stack/include/btm_ble_api_types.h"
+#include "types/hci_role.h"
 
 namespace bluetooth {
 namespace shim {
@@ -32,8 +36,6 @@ namespace shim {
  *                      mode - GENERAL or LIMITED inquiry
  *                      duration - length in 1.28 sec intervals (If '0', the
  *                                 inquiry is CANCELLED)
- *                      max_resps - maximum amount of devices to search for
- *                                  before ending the inquiry
  *                      filter_cond_type - BTM_CLR_INQUIRY_FILTER,
  *                                         BTM_FILTER_COND_DEVICE_CLASS, or
  *                                         BTM_FILTER_COND_BD_ADDR
@@ -58,8 +60,7 @@ namespace shim {
  *                  BTM_WRONG_MODE if the device is not up.
  *
  ******************************************************************************/
-tBTM_STATUS BTM_StartInquiry(tBTM_INQ_PARMS* p_inqparms,
-                             tBTM_INQ_RESULTS_CB* p_results_cb,
+tBTM_STATUS BTM_StartInquiry(tBTM_INQ_RESULTS_CB* p_results_cb,
                              tBTM_CMPL_CB* p_cmpl_cb);
 
 /*******************************************************************************
@@ -83,22 +84,6 @@ tBTM_STATUS BTM_SetDiscoverability(uint16_t inq_mode, uint16_t window,
 
 /*******************************************************************************
  *
- * Function         BTM_SetInquiryScanType
- *
- * Description      This function is called to set the iquiry scan-type to
- *                  standard or interlaced.
- *
- * Input Params:    BTM_SCAN_TYPE_STANDARD or BTM_SCAN_TYPE_INTERLACED
- *
- * Returns          BTM_SUCCESS if successful
- *                  BTM_MODE_UNSUPPORTED if not a 1.2 device
- *                  BTM_WRONG_MODE if the device is not up.
- *
- ******************************************************************************/
-tBTM_STATUS BTM_SetInquiryScanType(uint16_t scan_type);
-
-/*******************************************************************************
- *
  * Function         BTM_BleObserve
  *
  * Description      This procedure keep the device listening for advertising
@@ -113,21 +98,9 @@ tBTM_STATUS BTM_BleObserve(bool start, uint8_t duration,
                            tBTM_INQ_RESULTS_CB* p_results_cb,
                            tBTM_CMPL_CB* p_cmpl_cb);
 
-/*******************************************************************************
- *
- * Function         BTM_SetPageScanType
- *
- * Description      This function is called to set the page scan-type to
- *                  standard or interlaced.
- *
- * Input Params:    BTM_SCAN_TYPE_STANDARD or BTM_SCAN_TYPE_INTERLACED
- *
- * Returns          BTM_SUCCESS if successful
- *                  BTM_MODE_UNSUPPORTED if not a 1.2 device
- *                  BTM_WRONG_MODE if the device is not up.
- *
- ******************************************************************************/
-tBTM_STATUS BTM_SetPageScanType(uint16_t scan_type);
+void BTM_EnableInterlacedInquiryScan();
+
+void BTM_EnableInterlacedPageScan();
 
 /*******************************************************************************
  *
@@ -149,36 +122,6 @@ tBTM_STATUS BTM_SetInquiryMode(uint8_t mode);
 
 /*******************************************************************************
  *
- * Function         BTM_ReadDiscoverability
- *
- * Description      This function is called to read the current discoverability
- *                  mode of the device.
- *
- * Output Params:   p_window - current inquiry scan duration
- *                  p_interval - current inquiry scan interval
- *
- * Returns          BTM_NON_DISCOVERABLE, BTM_LIMITED_DISCOVERABLE, or
- *                  BTM_GENERAL_DISCOVERABLE
- *
- ******************************************************************************/
-uint16_t BTM_ReadDiscoverability(uint16_t* p_window, uint16_t* p_interval);
-
-/*******************************************************************************
- *
- * Function         BTM_CancelPeriodicInquiry
- *
- * Description      This function cancels a periodic inquiry
- *
- * Returns
- *                  BTM_NO_RESOURCES if could not allocate a message buffer
- *                  BTM_SUCCESS - if cancelling the periodic inquiry
- *                  BTM_WRONG_MODE if the device is not up.
- *
- ******************************************************************************/
-tBTM_STATUS BTM_CancelPeriodicInquiry(void);
-
-/*******************************************************************************
- *
  * Function         BTM_SetConnectability
  *
  * Description      This function is called to set the device into or out of
@@ -196,28 +139,12 @@ tBTM_STATUS BTM_SetConnectability(uint16_t page_mode, uint16_t window,
 
 /*******************************************************************************
  *
- * Function         BTM_ReadConnectability
- *
- * Description      This function is called to read the current discoverability
- *                  mode of the device.
- * Output Params    p_window - current page scan duration
- *                  p_interval - current time between page scans
- *
- * Returns          BTM_NON_CONNECTABLE or BTM_CONNECTABLE
- *
- ******************************************************************************/
-uint16_t BTM_ReadConnectability(uint16_t* p_window, uint16_t* p_interval);
-
-/*******************************************************************************
- *
  * Function         BTM_IsInquiryActive
  *
  * Description      Return a bit mask of the current inquiry state
  *
  * Returns          BTM_INQUIRY_INACTIVE if inactive (0)
- *                  BTM_LIMITED_INQUIRY_ACTIVE if a limted inquiry is active
  *                  BTM_GENERAL_INQUIRY_ACTIVE if a general inquiry is active
- *                  BTM_PERIODIC_INQUIRY_ACTIVE if a periodic inquiry is active
  *
  ******************************************************************************/
 uint16_t BTM_IsInquiryActive(void);
@@ -228,12 +155,8 @@ uint16_t BTM_IsInquiryActive(void);
  *
  * Description      This function cancels an inquiry if active
  *
- * Returns          BTM_SUCCESS if successful
- *                  BTM_NO_RESOURCES if could not allocate a message buffer
- *                  BTM_WRONG_MODE if the device is not up.
- *
  ******************************************************************************/
-tBTM_STATUS BTM_CancelInquiry(void);
+void BTM_CancelInquiry(void);
 
 /*******************************************************************************
  *
@@ -472,15 +395,12 @@ uint8_t BTM_GetEirUuidList(uint8_t* p_eir, size_t eir_len, uint8_t uuid_size,
  *                  for a LE device stored in the NVRAM.
  *
  * Parameters:      bd_addr          - BD address of the peer
- *                  bd_name          - Name of the peer device. NULL if unknown.
  *                  dev_type         - Remote device's device type.
  *                  addr_type        - LE device address type.
  *
- * Returns          true if added OK, else false
- *
  ******************************************************************************/
-bool BTM_SecAddBleDevice(const RawAddress& bd_addr, BD_NAME bd_name,
-                         tBT_DEVICE_TYPE dev_type, tBLE_ADDR_TYPE addr_type);
+void BTM_SecAddBleDevice(const RawAddress& bd_addr, tBT_DEVICE_TYPE dev_type,
+                         tBLE_ADDR_TYPE addr_type);
 
 /*******************************************************************************
  *
@@ -494,10 +414,8 @@ bool BTM_SecAddBleDevice(const RawAddress& bd_addr, BD_NAME bd_name,
  *                  p_le_key         - LE key values.
  *                  key_type         - LE SMP key type.
  *
- * Returns          true if added OK, else false
- *
  ******************************************************************************/
-bool BTM_SecAddBleKey(const RawAddress& bd_addr, tBTM_LE_KEY_VALUE* p_le_key,
+void BTM_SecAddBleKey(const RawAddress& bd_addr, tBTM_LE_KEY_VALUE* p_le_key,
                       tBTM_LE_KEY_TYPE key_type);
 
 /*******************************************************************************
@@ -540,18 +458,6 @@ void BTM_ReadConnectionAddr(const RawAddress& remote_bda,
 
 /*******************************************************************************
  *
- * Function         BTM_IsBleConnection
- *
- * Description      This function is called to check if the connection handle
- *                  for an LE link
- *
- * Returns          true if connection is LE link, otherwise false.
- *
- ******************************************************************************/
-bool BTM_IsBleConnection(uint16_t conn_handle);
-
-/*******************************************************************************
- *
  * Function         BTM_ReadRemoteConnectionAddr
  *
  * Description      Read the remote device address currently used.
@@ -578,38 +484,6 @@ bool BTM_ReadRemoteConnectionAddr(const RawAddress& pseudo_addr,
  *
  ******************************************************************************/
 void BTM_SecurityGrant(const RawAddress& bd_addr, uint8_t res);
-
-/*******************************************************************************
- *
- * Function         BTM_BlePasskeyReply
- *
- * Description      This function is called after Security Manager submitted
- *                  passkey request to the application.
- *
- * Parameters:      bd_addr - Address of the device for which passkey was
- *                            requested
- *                  res     - result of the operation SMP_SUCCESS if success
- *                  passkey - numeric value in the range of
- *                               BTM_MIN_PASSKEY_VAL(0) -
- *                               BTM_MAX_PASSKEY_VAL(999999(0xF423F)).
- *
- ******************************************************************************/
-void BTM_BlePasskeyReply(const RawAddress& bd_addr, uint8_t res,
-                         uint32_t passkey);
-
-/*******************************************************************************
- *
- * Function         BTM_BleConfirmReply
- *
- * Description      This function is called after Security Manager submitted
- *                  numeric comparison request to the application.
- *
- * Parameters:      bd_addr      - Address of the device with which numeric
- *                                 comparison was requested
- *                  res          - comparison result BTM_SUCCESS if success
- *
- ******************************************************************************/
-void BTM_BleConfirmReply(const RawAddress& bd_addr, uint8_t res);
 
 /*******************************************************************************
  *
@@ -668,14 +542,15 @@ void BTM_BleSetConnScanParams(uint32_t scan_interval, uint32_t scan_window);
  * Parameters:      bd_addr          - BD address of the peripheral
  *                  min_conn_int     - minimum preferred connection interval
  *                  max_conn_int     - maximum preferred connection interval
- *                  slave_latency    - preferred slave latency
+ *                  peripheral_latency    - preferred peripheral latency
  *                  supervision_tout - preferred supervision timeout
  *
  * Returns          void
  *
  ******************************************************************************/
 void BTM_BleSetPrefConnParams(const RawAddress& bd_addr, uint16_t min_conn_int,
-                              uint16_t max_conn_int, uint16_t slave_latency,
+                              uint16_t max_conn_int,
+                              uint16_t peripheral_latency,
                               uint16_t supervision_tout);
 
 /*******************************************************************************
@@ -763,18 +638,6 @@ bool BTM_UseLeLink(const RawAddress& bd_addr);
 
 /*******************************************************************************
  *
- * Function         BTM_SetBleDataLength
- *
- * Description      Set the maximum BLE transmission packet size
- *
- * Returns          BTM_SUCCESS if success; otherwise failed.
- *
- ******************************************************************************/
-tBTM_STATUS BTM_SetBleDataLength(const RawAddress& bd_addr,
-                                 uint16_t tx_pdu_length);
-
-/*******************************************************************************
- *
  * Function         BTM_BleReadPhy
  *
  * Description      To read the current PHYs for specified LE connection
@@ -786,19 +649,6 @@ tBTM_STATUS BTM_SetBleDataLength(const RawAddress& bd_addr,
 void BTM_BleReadPhy(
     const RawAddress& bd_addr,
     base::Callback<void(uint8_t tx_phy, uint8_t rx_phy, uint8_t status)> cb);
-
-/*******************************************************************************
- *
- * Function         BTM_BleSetDefaultPhy
- *
- * Description      To set preferred PHY for ensuing LE connections
- *
- *
- * Returns          BTM_SUCCESS if success; otherwise failed.
- *
- ******************************************************************************/
-tBTM_STATUS BTM_BleSetDefaultPhy(uint8_t all_phys, uint8_t tx_phys,
-                                 uint8_t rx_phys);
 
 /*******************************************************************************
  *
@@ -979,18 +829,7 @@ void BTM_BleEnableDisableFilterFeature(uint8_t enable,
  ******************************************************************************/
 uint8_t BTM_BleMaxMultiAdvInstanceCount();
 
-/*******************************************************************************
- *
- * Function         BTM_DeviceReset
- *
- * Description      This function is called to reset the controller.  The
- *                  Callback function if provided is called when startup of the
- *                  device has completed.
- *
- * Returns          void
- *
- ******************************************************************************/
-void BTM_DeviceReset(tBTM_CMPL_CB* p_cb);
+void BTM_reset_complete();
 
 /*******************************************************************************
  *
@@ -1063,30 +902,6 @@ tBTM_STATUS BTM_ReadLocalDeviceNameFromController(
  *
  ******************************************************************************/
 uint8_t* BTM_ReadDeviceClass(void);
-
-/*******************************************************************************
- *
- * Function         BTM_ReadLocalFeatures
- *
- * Description      This function is called to read the local features
- *
- * Returns          pointer to the local features string
- *
- ******************************************************************************/
-uint8_t* BTM_ReadLocalFeatures(void);
-
-/*******************************************************************************
- *
- * Function         BTM_RegisterForDeviceStatusNotif
- *
- * Description      This function is called to register for device status
- *                  change notifications.
- *
- * Returns          pointer to previous caller's callback function or NULL if
- *                  first registration.
- *
- ******************************************************************************/
-tBTM_DEV_STATUS_CB* BTM_RegisterForDeviceStatusNotif(tBTM_DEV_STATUS_CB* p_cb);
 
 /*******************************************************************************
  *
@@ -1203,12 +1018,11 @@ tBTM_STATUS BTM_EnableTestMode(void);
  *
  * Description      This function is called to read a remote device's version
  *
- * Returns          BTM_SUCCESS if successful, otherwise an error
+ * Returns          true if valid, false otherwise
  *
  ******************************************************************************/
-tBTM_STATUS BTM_ReadRemoteVersion(const RawAddress& addr, uint8_t* lmp_version,
-                                  uint16_t* manufacturer,
-                                  uint16_t* lmp_sub_version);
+bool BTM_ReadRemoteVersion(const RawAddress& addr, uint8_t* lmp_version,
+                           uint16_t* manufacturer, uint16_t* lmp_sub_version);
 
 /*******************************************************************************
  *
@@ -1217,10 +1031,9 @@ tBTM_STATUS BTM_ReadRemoteVersion(const RawAddress& addr, uint8_t* lmp_version,
  * Description      This function is called to read a remote device's
  *                  supported features mask (features mask located at page 0)
  *
- *                  Note: The size of device features mask page is
- *                  BTM_FEATURE_BYTES_PER_PAGE bytes.
- *
  * Returns          pointer to the remote supported features mask
+ *                  The size of device features mask page is
+ *                  HCI_FEATURE_BYTES_PER_PAGE bytes.
  *
  ******************************************************************************/
 uint8_t* BTM_ReadRemoteFeatures(const RawAddress& addr);
@@ -1228,28 +1041,13 @@ uint8_t* BTM_ReadRemoteFeatures(const RawAddress& addr);
 /*****************************************************************************
  *  ACL CHANNEL MANAGEMENT FUNCTIONS
  ****************************************************************************/
-/*******************************************************************************
- *
- * Function         BTM_SetLinkPolicy
- *
- * Description      Create and send HCI "Write Policy Set" command
- *
- * Returns          BTM_CMD_STARTED if successfully initiated, otherwise error
- *
- ******************************************************************************/
-tBTM_STATUS BTM_SetLinkPolicy(const RawAddress& remote_bda, uint16_t* settings);
+void BTM_unblock_sniff_mode_for(const RawAddress& peer_addr);
+void BTM_block_sniff_mode_for(const RawAddress& peer_addr);
+void BTM_unblock_role_switch_for(const RawAddress& peer_addr);
+void BTM_block_role_switch_for(const RawAddress& peer_addr);
 
-/*******************************************************************************
- *
- * Function         BTM_SetDefaultLinkPolicy
- *
- * Description      Set the default value for HCI "Write Policy Set" command
- *                  to use when an ACL link is created.
- *
- * Returns          void
- *
- ******************************************************************************/
-void BTM_SetDefaultLinkPolicy(uint16_t settings);
+void BTM_default_unblock_role_switch();
+void BTM_default_block_role_switch();
 
 /*******************************************************************************
  *
@@ -1310,16 +1108,14 @@ bool BTM_IsAclConnectionUp(const RawAddress& remote_bda,
  *                  BTM_UNKNOWN_ADDR if no active link with bd addr specified
  *
  ******************************************************************************/
-tBTM_STATUS BTM_GetRole(const RawAddress& remote_bd_addr, uint8_t* p_role);
+tBTM_STATUS BTM_GetRole(const RawAddress& remote_bd_addr, tHCI_ROLE* p_role);
 
 /*******************************************************************************
  *
  * Function         BTM_SwitchRole
  *
- * Description      This function is called to switch role between master and
- *                  slave.  If role is already set it will do nothing.  If the
- *                  command was initiated, the callback function is called upon
- *                  completion.
+ * Description      This function is called to switch role between central and
+ *                  peripheral.  If role is already set it will do nothing.
  *
  * Returns          BTM_SUCCESS if already in specified role.
  *                  BTM_CMD_STARTED if command issued to controller.
@@ -1330,8 +1126,7 @@ tBTM_STATUS BTM_GetRole(const RawAddress& remote_bd_addr, uint8_t* p_role);
  *                                       role switching
  *
  ******************************************************************************/
-tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role,
-                           tBTM_CMPL_CB* p_cb);
+tBTM_STATUS BTM_SwitchRole(const RawAddress& remote_bd_addr, uint8_t new_role);
 
 /*******************************************************************************
  *
@@ -1404,31 +1199,6 @@ tBTM_STATUS BTM_ReadAutomaticFlushTimeout(const RawAddress& remote_bda,
  ******************************************************************************/
 tBTM_STATUS BTM_ReadTxPower(const RawAddress& remote_bda,
                             tBT_TRANSPORT transport, tBTM_CMPL_CB* p_cb);
-
-/*******************************************************************************
- *
- * Function         BTM_RegBusyLevelNotif
- *
- * Description      This function is called to register a callback to receive
- *                  busy level change events.
- *
- * Returns          BTM_SUCCESS if successfully registered, otherwise error
- *
- ******************************************************************************/
-tBTM_STATUS BTM_RegBusyLevelNotif(tBTM_BL_CHANGE_CB* p_cb, uint8_t* p_level,
-                                  tBTM_BL_EVENT_MASK evt_mask);
-
-/*******************************************************************************
- *
- * Function         BTM_GetNumAclLinks
- *
- * Description      This function is called to count the number of
- *                  ACL links that are active.
- *
- * Returns          uint16_t Number of active ACL links
- *
- ******************************************************************************/
-uint16_t BTM_GetNumAclLinks(void);
 
 /*****************************************************************************
  *  (e)SCO CHANNEL MANAGEMENT FUNCTIONS
@@ -1635,18 +1405,6 @@ bool BTM_GetSecurityFlagsByTransport(const RawAddress& bd_addr,
 
 /*******************************************************************************
  *
- * Function         BTM_ReadTrustedMask
- *
- * Description      Get trusted mask for the device
- *
- * Returns          NULL, if the device record is not found.
- *                  otherwise, the trusted mask
- *
- ******************************************************************************/
-uint32_t* BTM_ReadTrustedMask(const RawAddress& bd_addr);
-
-/*******************************************************************************
- *
  * Function         BTM_SetPinType
  *
  * Description      Set PIN type for the device.
@@ -1655,22 +1413,6 @@ uint32_t* BTM_ReadTrustedMask(const RawAddress& bd_addr);
  *
  ******************************************************************************/
 void BTM_SetPinType(uint8_t pin_type, PIN_CODE pin_code, uint8_t pin_code_len);
-
-/*******************************************************************************
- *
- * Function         BTM_SetPairableMode
- *
- * Description      Enable or disable pairing
- *
- * Parameters       allow_pairing - (true or false) whether or not the device
- *                      allows pairing.
- *                  connect_only_paired - (true or false) whether or not to
- *                      only allow paired devices to connect.
- *
- * Returns          void
- *
- ******************************************************************************/
-void BTM_SetPairableMode(bool allow_pairing, bool connect_only_paired);
 
 /*******************************************************************************
  *
@@ -1687,19 +1429,6 @@ void BTM_SetPairableMode(bool allow_pairing, bool connect_only_paired);
 bool BTM_SetSecurityLevel(bool is_originator, const char* p_name,
                           uint8_t service_id, uint16_t sec_level, uint16_t psm,
                           uint32_t mx_proto_id, uint32_t mx_chan_id);
-
-/*******************************************************************************
- *
- * Function         BTM_SetOutService
- *
- * Description      This function is called to set the service for
- *                  outgoing connection.
- *
- * Returns          void
- *
- ******************************************************************************/
-void BTM_SetOutService(const RawAddress& bd_addr, uint8_t service_id,
-                       uint32_t mx_chan_id);
 
 /*******************************************************************************
  *
@@ -1729,9 +1458,8 @@ uint8_t BTM_SecClrService(uint8_t service_id);
  *
  ******************************************************************************/
 bool BTM_SecAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
-                      BD_NAME bd_name, uint8_t* features,
-                      uint32_t trusted_mask[], LinkKey* link_key,
-                      uint8_t key_type, tBTM_IO_CAP io_cap, uint8_t pin_length);
+                      BD_NAME bd_name, uint8_t* features, LinkKey* link_key,
+                      uint8_t key_type, uint8_t pin_length);
 
 /** Free resources associated with the device associated with |bd_addr| address.
  *
@@ -1784,14 +1512,12 @@ tBTM_LINK_KEY_TYPE BTM_SecGetDeviceLinkKeyType(const RawAddress& bd_addr);
  *                                 success
  *                  pin_len      - length in bytes of the PIN Code
  *                  p_pin        - pointer to array with the PIN Code
- *                  trusted_mask - bitwise OR of trusted services
- *                                 (array of uint32_t)
  *
  * Returns          void
  *
  ******************************************************************************/
 void BTM_PINCodeReply(const RawAddress& bd_addr, uint8_t res, uint8_t pin_len,
-                      uint8_t* p_pin, uint32_t trusted_mask[]);
+                      uint8_t* p_pin);
 
 /*******************************************************************************
  *
@@ -1803,8 +1529,6 @@ void BTM_PINCodeReply(const RawAddress& bd_addr, uint8_t res, uint8_t pin_len,
  *                  addr_type    - address type for LE transport
  *                  pin_len      - length in bytes of the PIN Code
  *                  p_pin        - pointer to array with the PIN Code
- *                  trusted_mask - bitwise OR of trusted services
- *                                 (array of uint32_t)
  *                  transport :  Physical transport to use for bonding
  *                               (BR/EDR or LE)
  *
@@ -1812,8 +1536,7 @@ void BTM_PINCodeReply(const RawAddress& bd_addr, uint8_t res, uint8_t pin_len,
  *
  ******************************************************************************/
 tBTM_STATUS BTM_SecBond(const RawAddress& bd_addr, tBLE_ADDR_TYPE addr_type,
-                        tBT_TRANSPORT transport, uint8_t pin_len,
-                        uint8_t* p_pin, uint32_t trusted_mask[]);
+                        tBT_TRANSPORT transport, int device_type);
 
 /*******************************************************************************
  *
@@ -1857,7 +1580,7 @@ tBTM_STATUS BTM_SecBondCancel(const RawAddress& bd_addr);
  ******************************************************************************/
 tBTM_STATUS BTM_SetEncryption(const RawAddress& bd_addr,
                               tBT_TRANSPORT transport,
-                              tBTM_SEC_CBACK* p_callback, void* p_ref_data,
+                              tBTM_SEC_CALLBACK* p_callback, void* p_ref_data,
                               tBTM_BLE_SEC_ACT sec_act);
 
 /*******************************************************************************
@@ -1890,22 +1613,6 @@ void BTM_ConfirmReqReply(tBTM_STATUS res, const RawAddress& bd_addr);
  ******************************************************************************/
 void BTM_PasskeyReqReply(tBTM_STATUS res, const RawAddress& bd_addr,
                          uint32_t passkey);
-
-/*******************************************************************************
- *
- * Function         BTM_SendKeypressNotif
- *
- * Description      This function is used during the passkey entry model
- *                  by a device with KeyboardOnly IO capabilities
- *                  (very likely to be a HID Device).
- *                  It is called by a HID Device to inform the remote device
- *                  when a key has been entered or erased.
- *
- * Parameters:      bd_addr - Address of the peer device
- *                  type - notification type
- *
- ******************************************************************************/
-void BTM_SendKeypressNotif(const RawAddress& bd_addr, tBTM_SP_KEY_TYPE type);
 
 /*******************************************************************************
  *
@@ -1984,6 +1691,23 @@ bool BTM_PeerSupportsSecureConnections(const RawAddress& bd_addr);
 
 /*******************************************************************************
  *
+ * Function         BTM_GetPeerDeviceTypeFromFeatures
+ *
+ * Description      This function is called to retrieve the peer device type
+ *                  by referencing the remote features.
+ *
+ * Parameters:      bd_addr - address of the peer
+ *
+ * Returns          BT_DEVICE_TYPE_DUMO if both BR/EDR and BLE transports are
+ *                  supported by the peer,
+ *                  BT_DEVICE_TYPE_BREDR if only BR/EDR transport is supported,
+ *                  BT_DEVICE_TYPE_BLE if only BLE transport is supported.
+ *
+ ******************************************************************************/
+tBT_DEVICE_TYPE BTM_GetPeerDeviceTypeFromFeatures(const RawAddress& bd_addr);
+
+/*******************************************************************************
+ *
  * Function         BTM_SecReadDevName
  *
  * Description      Looks for the device name in the security database for the
@@ -1993,81 +1717,6 @@ bool BTM_PeerSupportsSecureConnections(const RawAddress& bd_addr);
  *
  ******************************************************************************/
 char* BTM_SecReadDevName(const RawAddress& bd_addr);
-
-/*****************************************************************************
- *  POWER MANAGEMENT FUNCTIONS
- ****************************************************************************/
-/*******************************************************************************
- *
- * Function         BTM_PmRegister
- *
- * Description      register or deregister with power manager
- *
- * Returns          BTM_SUCCESS if successful,
- *                  BTM_NO_RESOURCES if no room to hold registration
- *                  BTM_ILLEGAL_VALUE
- *
- ******************************************************************************/
-tBTM_STATUS BTM_PmRegister(uint8_t mask, uint8_t* p_pm_id,
-                           tBTM_PM_STATUS_CBACK* p_cb);
-
-/*******************************************************************************
- *
- * Function         BTM_SetPowerMode
- *
- * Description      store the mode in control block or
- *                  alter ACL connection behavior.
- *
- * Returns          BTM_SUCCESS if successful,
- *                  BTM_UNKNOWN_ADDR if bd addr is not active or bad
- *
- ******************************************************************************/
-tBTM_STATUS BTM_SetPowerMode(uint8_t pm_id, const RawAddress& remote_bda,
-                             const tBTM_PM_PWR_MD* p_mode);
-
-/*******************************************************************************
- *
- * Function         BTM_ReadPowerMode
- *
- * Description      This returns the current mode for a specific
- *                  ACL connection.
- *
- * Input Param      remote_bda - device address of desired ACL connection
- *
- * Output Param     p_mode - address where the current mode is copied into.
- *                          BTM_ACL_MODE_NORMAL
- *                          BTM_ACL_MODE_HOLD
- *                          BTM_ACL_MODE_SNIFF
- *                          BTM_ACL_MODE_PARK
- *                          (valid only if return code is BTM_SUCCESS)
- *
- * Returns          BTM_SUCCESS if successful,
- *                  BTM_UNKNOWN_ADDR if bd addr is not active or bad
- *
- ******************************************************************************/
-tBTM_STATUS BTM_ReadPowerMode(const RawAddress& remote_bda,
-                              tBTM_PM_MODE* p_mode);
-
-/*******************************************************************************
- *
- * Function         BTM_SetSsrParams
- *
- * Description      This sends the given SSR parameters for the given ACL
- *                  connection if it is in ACTIVE mode.
- *
- * Input Param      remote_bda - device address of desired ACL connection
- *                  max_lat    - maximum latency (in 0.625ms)(0-0xFFFE)
- *                  min_rmt_to - minimum remote timeout
- *                  min_loc_to - minimum local timeout
- *
- *
- * Returns          BTM_SUCCESS if the HCI command is issued successful,
- *                  BTM_UNKNOWN_ADDR if bd addr is not active or bad
- *                  BTM_CMD_STORED if the command is stored
- *
- ******************************************************************************/
-tBTM_STATUS BTM_SetSsrParams(const RawAddress& remote_bda, uint16_t max_lat,
-                             uint16_t min_rmt_to, uint16_t min_loc_to);
 
 /*******************************************************************************
  *
@@ -2104,18 +1753,6 @@ tBTM_CONTRL_STATE BTM_PM_ReadControllerState(void);
  *
  * BLE API
  */
-/*******************************************************************************
- *
- * Function         BTM_BleObtainVendorCapabilities
- *
- * Description      This function is called to obatin vendor capabilties
- *
- * Parameters       p_cmn_vsc_cb - Returns the vednor capabilities
- *
- * Returns          void
- *
- ******************************************************************************/
-void BTM_BleObtainVendorCapabilities(tBTM_BLE_VSC_CB* p_cmn_vsc_cb);
 
 /**
  * This function is called to set scan parameters. |cb| is called with operation
@@ -2177,20 +1814,6 @@ void BTM_BleReadScanReports(tBLE_SCAN_MODE scan_mode,
 /* This function is called to setup the callback for tracking */
 void BTM_BleTrackAdvertiser(tBTM_BLE_TRACK_ADV_CBACK* p_track_cback,
                             tBTM_BLE_REF_VALUE ref_value);
-
-/*******************************************************************************
- *
- * Function         BTM_BleWriteScanRsp
- *
- * Description      This function is called to write LE scan response.
- *
- * Parameters:      p_scan_rsp: scan response.
- *
- * Returns          status
- *
- ******************************************************************************/
-void BTM_BleWriteScanRsp(uint8_t* data, uint8_t length,
-                         tBTM_BLE_ADV_DATA_CMPL_CBACK* p_adv_data_cback);
 
 /******************************************************************************
  *
@@ -2256,68 +1879,6 @@ bool BTM_BleConfigPrivacy(bool enable);
  ******************************************************************************/
 bool BTM_BleLocalPrivacyEnabled(void);
 
-/*******************************************************************************
- *
- * Function         BTM_BleEnableMixedPrivacyMode
- *
- * Description      This function is called to enabled Mixed mode if privacy 1.2
- *                  is applicable in controller.
- *
- * Parameters       mixed_on:  mixed mode to be used or not.
- *
- * Returns          void
- *
- ******************************************************************************/
-void BTM_BleEnableMixedPrivacyMode(bool mixed_on);
-
-/*******************************************************************************
- *
- * Function         BTM_BleSetConnectableMode
- *
- * Description      This function is called to set BLE connectable mode for a
- *                  peripheral device.
- *
- * Parameters       connectable_mode:  directed connectable mode, or
- *                                     non-directed. It can be
- *                                     BTM_BLE_CONNECT_EVT,
- *                                     BTM_BLE_CONNECT_DIR_EVT or
- *                                     BTM_BLE_CONNECT_LO_DUTY_DIR_EVT
- *
- * Returns          BTM_ILLEGAL_VALUE if controller does not support BLE.
- *                  BTM_SUCCESS is status set successfully; otherwise failure.
- *
- ******************************************************************************/
-tBTM_STATUS BTM_BleSetConnectableMode(tBTM_BLE_CONN_MODE connectable_mode);
-
-/*******************************************************************************
- *
- * Function         BTM_BleTurnOnPrivacyOnRemote
- *
- * Description      This function is called to enable or disable the privacy on
- *                  the remote device.
- *
- * Parameters       bd_addr: remote device address.
- *                  privacy_on: true to enable it; false to disable it.
- *
- * Returns          void
- *
- ******************************************************************************/
-void BTM_BleTurnOnPrivacyOnRemote(const RawAddress& bd_addr, bool privacy_on);
-
-/*******************************************************************************
- *
- * Function         BTM_BleStackEnable
- *
- * Description      Enable/Disable BLE functionality on stack regardless of
- *                  controller capability.
- *
- * Parameters:      enable: true to enable, false to disable.
- *
- * Returns          true if added OK, else false
- *
- ******************************************************************************/
-tBTM_STATUS BTM_BleStackEnable(bool enable);
-
 /**
  * This functions are called to configure the adv data payload filter condition
  */
@@ -2334,53 +1895,16 @@ tBTM_STATUS BTM_BleStackEnable(bool enable);
  ******************************************************************************/
 tBTM_STATUS BTM_BleGetEnergyInfo(tBTM_BLE_ENERGY_INFO_CBACK* p_ener_cback);
 
-/*******************************************************************************
- *
- * Function         BTM_SecBond
- *
- * Description      This function is called to perform bonding with peer device.
- *                  If the connection is already up, but not secure, pairing
- *                  is attempted.  If already paired BTM_SUCCESS is returned.
- *
- * Parameters:      bd_addr      - Address of the device to bond
- *                  addr_type    - address type for LE transport
- *                  transport    - doing SSP over BR/EDR or SMP over LE
- *                  pin_len      - length in bytes of the PIN Code
- *                  p_pin        - pointer to array with the PIN Code
- *                  trusted_mask - bitwise OR of trusted services
- *                                 (array of uint32_t)
- *
- *  Note: After 2.1 parameters are not used and preserved here not to change API
- ******************************************************************************/
-tBTM_STATUS BTM_SecBond(const RawAddress& bd_addr, tBLE_ADDR_TYPE addr_type,
-                        tBT_TRANSPORT transport, uint8_t pin_len,
-                        uint8_t* p_pin, uint32_t trusted_mask[]);
-
-/*******************************************************************************
- *
- * Function         BTM_SecRegister
- *
- * Description      Application manager calls this function to register for
- *                  security services.  There can be one and only one
- *                  application saving link keys.  BTM allows only first
- *                  registration.
- *
- * Returns          true if registered OK, else false
- *
- ******************************************************************************/
-bool BTM_SecRegister(const tBTM_APPL_INFO* p_cb_info);
-
-/** Free resources associated with the device associated with |bd_addr| address.
- *
- * *** WARNING ***
- * tBTM_SEC_DEV_REC associated with bd_addr becomes invalid after this function
- * is called, also any of it's fields. i.e. if you use p_dev_rec->bd_addr, it is
- * no longer valid!
- * *** WARNING ***
- *
- * Returns true if removed OK, false if not found or ACL link is active.
+/**
+ * Send remote name request to GD shim Name module
  */
-bool BTM_SecDeleteDevice(const RawAddress& bd_addr);
+void SendRemoteNameRequest(const RawAddress& raw_address);
+
+tBTM_STATUS btm_sec_mx_access_request(const RawAddress& bd_addr,
+                                      bool is_originator,
+                                      uint16_t security_requirement,
+                                      tBTM_SEC_CALLBACK* p_callback,
+                                      void* p_ref_data);
 
 }  // namespace shim
 }  // namespace bluetooth

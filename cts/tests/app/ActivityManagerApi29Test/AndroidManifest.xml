@@ -16,27 +16,30 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.app.cts.activitymanager.api29">
-    <uses-sdk android:minSdkVersion="11" android:targetSdkVersion="29" />
+     package="android.app.cts.activitymanager.api29">
+    <uses-sdk android:minSdkVersion="11"
+         android:targetSdkVersion="29"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
     <application android:usesCleartextTraffic="true">
-        <uses-library android:name="android.test.runner" />
-        <uses-library android:name="org.apache.http.legacy" android:required="false" />
+        <uses-library android:name="android.test.runner"/>
+        <uses-library android:name="org.apache.http.legacy"
+             android:required="false"/>
         <activity android:name=".SimpleActivity"
-                  android:excludeFromRecents="true">
+             android:excludeFromRecents="true"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
         <service android:name="LocationForegroundService"
-            android:foregroundServiceType="location|camera|microphone"
-            android:exported="true">
+             android:foregroundServiceType="location|camera|microphone"
+             android:exported="true">
         </service>
     </application>
 </manifest>

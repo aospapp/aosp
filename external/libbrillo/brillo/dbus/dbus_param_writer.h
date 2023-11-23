@@ -24,8 +24,8 @@ class DBusParamWriter final {
  public:
   // Generic writer method that takes 1 or more arguments. It recursively calls
   // itself (each time with one fewer arguments) until no more is left.
-  template<typename ParamType, typename... RestOfParams>
-  static void Append(dbus::MessageWriter* writer,
+  template <typename ParamType, typename... RestOfParams>
+  static void Append(::dbus::MessageWriter* writer,
                      const ParamType& param,
                      const RestOfParams&... rest) {
     // Append the current |param| to D-Bus, then call Append() with one
@@ -38,13 +38,13 @@ class DBusParamWriter final {
   // The final overload of DBusParamWriter::Append() used when no more
   // parameters are remaining to be written.
   // Does nothing and finishes meta-recursion.
-  static void Append(dbus::MessageWriter* /*writer*/) {}
+  static void Append(::dbus::MessageWriter* /*writer*/) {}
 
   // Generic writer method that takes 1 or more arguments. It recursively calls
   // itself (each time with one fewer arguments) until no more is left.
   // Handles non-pointer parameter by just skipping over it.
-  template<typename ParamType, typename... RestOfParams>
-  static void AppendDBusOutParams(dbus::MessageWriter* writer,
+  template <typename ParamType, typename... RestOfParams>
+  static void AppendDBusOutParams(::dbus::MessageWriter* writer,
                                   const ParamType& /* param */,
                                   const RestOfParams&... rest) {
     // Skip the current |param| and call Append() with one fewer arguments,
@@ -57,8 +57,8 @@ class DBusParamWriter final {
   // itself (each time with one fewer arguments) until no more is left.
   // Handles only a parameter of pointer type and writes the data pointed to
   // to the output message buffer.
-  template<typename ParamType, typename... RestOfParams>
-  static void AppendDBusOutParams(dbus::MessageWriter* writer,
+  template <typename ParamType, typename... RestOfParams>
+  static void AppendDBusOutParams(::dbus::MessageWriter* writer,
                                   ParamType* param,
                                   const RestOfParams&... rest) {
     // Append the current |param| to D-Bus, then call Append() with one
@@ -71,7 +71,7 @@ class DBusParamWriter final {
   // The final overload of DBusParamWriter::AppendDBusOutParams() used when no
   // more parameters are remaining to be written.
   // Does nothing and finishes meta-recursion.
-  static void AppendDBusOutParams(dbus::MessageWriter* /*writer*/) {}
+  static void AppendDBusOutParams(::dbus::MessageWriter* /*writer*/) {}
 };
 
 }  // namespace dbus_utils

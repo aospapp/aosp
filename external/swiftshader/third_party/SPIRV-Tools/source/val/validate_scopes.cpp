@@ -32,6 +32,7 @@ bool IsValidScope(uint32_t scope) {
     case SpvScopeSubgroup:
     case SpvScopeInvocation:
     case SpvScopeQueueFamilyKHR:
+    case SpvScopeShaderCallKHR:
       return true;
     case SpvScopeMax:
       break;
@@ -98,7 +99,7 @@ spv_result_t ValidateExecutionScope(ValidationState_t& _,
       if (spvOpcodeIsNonUniformGroupOperation(opcode) &&
           value != SpvScopeSubgroup) {
         return _.diag(SPV_ERROR_INVALID_DATA, inst)
-               << spvOpcodeString(opcode)
+               << _.VkErrorID(4642) << spvOpcodeString(opcode)
                << ": in Vulkan environment Execution scope is limited to "
                << "Subgroup";
       }
@@ -133,16 +134,6 @@ spv_result_t ValidateExecutionScope(ValidationState_t& _,
              << spvOpcodeString(opcode)
              << ": in Vulkan environment Execution Scope is limited to "
              << "Workgroup and Subgroup";
-    }
-  }
-
-  // WebGPU Specific rules
-  if (spvIsWebGPUEnv(_.context()->target_env)) {
-    if (value != SpvScopeWorkgroup) {
-      return _.diag(SPV_ERROR_INVALID_DATA, inst)
-             << spvOpcodeString(opcode)
-             << ": in WebGPU environment Execution Scope is limited to "
-             << "Workgroup";
     }
   }
 
@@ -199,7 +190,7 @@ spv_result_t ValidateMemoryScope(ValidationState_t& _, const Instruction* inst,
   if (spvIsVulkanEnv(_.context()->target_env)) {
     if (value == SpvScopeCrossDevice) {
       return _.diag(SPV_ERROR_INVALID_DATA, inst)
-             << spvOpcodeString(opcode)
+             << _.VkErrorID(4638) << spvOpcodeString(opcode)
              << ": in Vulkan environment, Memory Scope cannot be CrossDevice";
     }
     // Vulkan 1.0 specifc rules
@@ -207,7 +198,7 @@ spv_result_t ValidateMemoryScope(ValidationState_t& _, const Instruction* inst,
         value != SpvScopeDevice && value != SpvScopeWorkgroup &&
         value != SpvScopeInvocation) {
       return _.diag(SPV_ERROR_INVALID_DATA, inst)
-             << spvOpcodeString(opcode)
+             << _.VkErrorID(4638) << spvOpcodeString(opcode)
              << ": in Vulkan 1.0 environment Memory Scope is limited to "
              << "Device, Workgroup and Invocation";
     }
@@ -215,51 +206,54 @@ spv_result_t ValidateMemoryScope(ValidationState_t& _, const Instruction* inst,
     if ((_.context()->target_env == SPV_ENV_VULKAN_1_1 ||
          _.context()->target_env == SPV_ENV_VULKAN_1_2) &&
         value != SpvScopeDevice && value != SpvScopeWorkgroup &&
-        value != SpvScopeSubgroup && value != SpvScopeInvocation) {
+        value != SpvScopeSubgroup && value != SpvScopeInvocation &&
+        value != SpvScopeShaderCallKHR) {
       return _.diag(SPV_ERROR_INVALID_DATA, inst)
-             << spvOpcodeString(opcode)
+             << _.VkErrorID(4638) << spvOpcodeString(opcode)
              << ": in Vulkan 1.1 and 1.2 environment Memory Scope is limited "
-             << "to Device, Workgroup and Invocation";
+             << "to Device, Workgroup, Invocation, and ShaderCall";
     }
-  }
 
-  // WebGPU specific rules
-  if (spvIsWebGPUEnv(_.context()->target_env)) {
-    switch (inst->opcode()) {
-      case SpvOpControlBarrier:
-        if (value != SpvScopeWorkgroup) {
-          return _.diag(SPV_ERROR_INVALID_DATA, inst)
-                 << spvOpcodeString(opcode)
-                 << ": in WebGPU environment Memory Scope is limited to "
-                 << "Workgroup for OpControlBarrier";
-        }
-        break;
-      case SpvOpMemoryBarrier:
-        if (value != SpvScopeWorkgroup) {
-          return _.diag(SPV_ERROR_INVALID_DATA, inst)
-                 << spvOpcodeString(opcode)
-                 << ": in WebGPU environment Memory Scope is limited to "
-                 << "Workgroup for OpMemoryBarrier";
-        }
-        break;
-      default:
-        if (spvOpcodeIsAtomicOp(inst->opcode())) {
-          if (value != SpvScopeQueueFamilyKHR) {
-            return _.diag(SPV_ERROR_INVALID_DATA, inst)
-                   << spvOpcodeString(opcode)
-                   << ": in WebGPU environment Memory Scope is limited to "
-                   << "QueueFamilyKHR for OpAtomic* operations";
-          }
-        }
+    if (value == SpvScopeShaderCallKHR) {
+      std::string errorVUID = _.VkErrorID(4640);
+      _.function(inst->function()->id())
+          ->RegisterExecutionModelLimitation(
+              [errorVUID](SpvExecutionModel model, std::string* message) {
+                if (model != SpvExecutionModelRayGenerationKHR &&
+                    model != SpvExecutionModelIntersectionKHR &&
+                    model != SpvExecutionModelAnyHitKHR &&
+                    model != SpvExecutionModelClosestHitKHR &&
+                    model != SpvExecutionModelMissKHR &&
+                    model != SpvExecutionModelCallableKHR) {
+                  if (message) {
+                    *message =
+                        errorVUID +
+                        "ShaderCallKHR Memory Scope requires a ray tracing "
+                        "execution model";
+                  }
+                  return false;
+                }
+                return true;
+              });
+    }
 
-        if (value != SpvScopeWorkgroup && value != SpvScopeInvocation &&
-            value != SpvScopeQueueFamilyKHR) {
-          return _.diag(SPV_ERROR_INVALID_DATA, inst)
-                 << spvOpcodeString(opcode)
-                 << ": in WebGPU environment Memory Scope is limited to "
-                 << "Workgroup, Invocation, and QueueFamilyKHR";
-        }
-        break;
+    if (value == SpvScopeWorkgroup) {
+      std::string errorVUID = _.VkErrorID(4639);
+      _.function(inst->function()->id())
+          ->RegisterExecutionModelLimitation(
+              [errorVUID](SpvExecutionModel model, std::string* message) {
+                if (model != SpvExecutionModelGLCompute &&
+                    model != SpvExecutionModelTaskNV &&
+                    model != SpvExecutionModelMeshNV) {
+                  if (message) {
+                    *message = errorVUID +
+                               "Workgroup Memory Scope is limited to MeshNV, "
+                               "TaskNV, and GLCompute execution model";
+                  }
+                  return false;
+                }
+                return true;
+              });
     }
   }
 

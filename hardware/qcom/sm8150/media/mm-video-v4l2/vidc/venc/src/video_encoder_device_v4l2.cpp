@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------
-Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+Copyright (c) 2010-2018, 2020, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -120,6 +120,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #undef LOG_TAG
 #define LOG_TAG "OMX-VENC: venc_dev"
 
+#define LUMINANCE_MULTIPLICATION_FACTOR 10000
+
 //constructor
 venc_dev::venc_dev(class omx_venc *venc_class)
 {
@@ -190,6 +192,7 @@ venc_dev::venc_dev(class omx_venc *venc_class)
     intra_period.num_bframes = 0;
     mIsNativeRecorder = false;
     m_hdr10meta_enabled = false;
+    hdr10metadata_supported = false;
 
     Platform::Config::getInt32(Platform::vidc_enc_log_in,
             (int32_t *)&m_debug.in_buffer_log, 0);
@@ -1653,6 +1656,14 @@ bool venc_dev::venc_open(OMX_U32 codec)
     if (!strncmp(m_platform_name, "msm8610", 7)) {
         device_name = (OMX_STRING)"/dev/video/q6_enc";
         supported_rc_modes = (RC_ALL & ~RC_CBR_CFR);
+    }
+
+    if (!strcmp(m_platform_name, "sm6150") || !strcmp(m_platform_name, "atoll") || !strcmp(m_platform_name, "trinket"))
+    {
+       hdr10metadata_supported = false;
+    }
+    else {
+       hdr10metadata_supported = true;
     }
 
 #ifdef HYPERVISOR
@@ -3769,7 +3780,9 @@ unsigned venc_dev::venc_start(void)
         return 1;
     }
 
-    venc_set_extradata_hdr10metadata();
+    if (hdr10metadata_supported == true) {
+        venc_set_extradata_hdr10metadata();
+    }
 
     venc_config_print();
 
@@ -4521,6 +4534,8 @@ bool venc_dev::venc_empty_buf(void *buffer, void *pmem_data_buf, unsigned index,
                         if (encodePerfMode == OMX_TRUE) {
                             buf.flags |= V4L2_QCOM_BUF_FLAG_PERF_MODE;
                         }
+                        // Clear SET_VIDEO_PERF_MODE in buffer handle
+                        setMetaData(handle, SET_VIDEO_PERF_MODE, 0);
                     }
                     fd = handle->fd;
                     plane[0].data_offset = 0;
@@ -5283,6 +5298,14 @@ bool venc_dev::venc_set_profile(OMX_U32 eProfile)
     DEBUG_PRINT_LOW("Success IOCTL set control for id=%d, value=%d", control.id, control.value);
 
     codec_profile.profile = control.value;
+
+    if (hdr10metadata_supported == true) {
+        if (venc_set_extradata_hdr10metadata() == false)
+        {
+            DEBUG_PRINT_ERROR("Failed to set extradata HDR10PLUS_METADATA");
+            return false;
+        }
+    }
     return true;
 }
 
@@ -5721,7 +5744,7 @@ bool venc_dev::venc_set_intra_refresh()
 {
     bool status = true;
     int rc;
-    struct v4l2_control control_mode, control_mbs;
+    struct v4l2_control control_mode;
     control_mode.id   = V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE_CYCLIC;
     control_mode.value = 0;
     // There is no disabled mode.  Disabled mode is indicated by a 0 count.
@@ -5744,7 +5767,6 @@ bool venc_dev::venc_set_intra_refresh()
         return false;
     }
 
-    intra_refresh.mbcount = control_mbs.value;
     return status;
 }
 
@@ -7666,7 +7688,10 @@ bool venc_dev::venc_set_hdr_info(const MasteringDisplay& mastering_disp_info,
     ctrl[8].value = mastering_disp_info.primaries.whitePoint[1];
 
     ctrl[9].id = V4L2_CID_MPEG_VIDC_VENC_MAX_DISP_LUM;
-    ctrl[9].value = mastering_disp_info.maxDisplayLuminance;
+    // maxDisplayLuminance is in cd/m^2 scale. But the standard requires this field
+    // to be in 0.0001 cd/m^2 scale. So, multiply with LUMINANCE_MULTIPLICATION_FACTOR
+    // and give to be driver
+    ctrl[9].value = mastering_disp_info.maxDisplayLuminance * LUMINANCE_MULTIPLICATION_FACTOR;
 
     ctrl[10].id = V4L2_CID_MPEG_VIDC_VENC_MIN_DISP_LUM;
     ctrl[10].value = mastering_disp_info.minDisplayLuminance;

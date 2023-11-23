@@ -23,6 +23,7 @@
                 android:icon="@drawable/hang"
                 android:stateNotNeeded="true"
                 android:theme="@android:style/Theme.NoDisplay"
+                android:exported="true"
                 android:excludeFromRecents="true">
 
             <intent-filter>
@@ -40,6 +41,7 @@
                 android:icon="@drawable/crash"
                 android:stateNotNeeded="true"
                 android:theme="@android:style/Theme.NoDisplay"
+                android:exported="true"
                 android:excludeFromRecents="true">
 
             <intent-filter>

@@ -23,8 +23,8 @@
 #include <errno.h>
 #include <xf86drm.h>
 #include <nouveau_drm.h>
-#include "util/u_format.h"
-#include "util/u_format_s3tc.h"
+#include "util/format/u_format.h"
+#include "util/format/u_format_s3tc.h"
 #include "util/u_screen.h"
 #include "pipe/p_screen.h"
 #include "compiler/nir/nir.h"
@@ -43,7 +43,7 @@
 
 #define THREADS_IN_WARP 32
 
-static boolean
+static bool
 nv50_screen_is_format_supported(struct pipe_screen *pscreen,
                                 enum pipe_format format,
                                 enum pipe_texture_target target,
@@ -94,8 +94,8 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    switch (param) {
    /* non-boolean caps */
-   case PIPE_CAP_MAX_TEXTURE_2D_LEVELS:
-      return 14;
+   case PIPE_CAP_MAX_TEXTURE_2D_SIZE:
+      return 8192;
    case PIPE_CAP_MAX_TEXTURE_3D_LEVELS:
       return 12;
    case PIPE_CAP_MAX_TEXTURE_CUBE_LEVELS:
@@ -159,11 +159,16 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return 16 * 1024 * 1024;
    case PIPE_CAP_MAX_VARYINGS:
       return 15;
+   case PIPE_CAP_MAX_VERTEX_BUFFERS:
+      return 16;
+   case PIPE_CAP_GL_BEGIN_END_BUFFER_SIZE:
+      return 512 * 1024; /* TODO: Investigate tuning this */
 
    /* supported caps */
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP:
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP_TO_EDGE:
    case PIPE_CAP_TEXTURE_SWIZZLE:
+   case PIPE_CAP_TEXTURE_SHADOW_MAP:
    case PIPE_CAP_NPOT_TEXTURES:
    case PIPE_CAP_MIXED_FRAMEBUFFER_SIZES:
    case PIPE_CAP_MIXED_COLOR_DEPTH_BITS:
@@ -172,7 +177,9 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_BUFFER_MAP_PERSISTENT_COHERENT:
    case PIPE_CAP_DEPTH_CLIP_DISABLE:
    case PIPE_CAP_POINT_SPRITE:
-   case PIPE_CAP_SM3:
+   case PIPE_CAP_FRAGMENT_SHADER_TEXTURE_LOD:
+   case PIPE_CAP_FRAGMENT_SHADER_DERIVATIVES:
+   case PIPE_CAP_VERTEX_SHADER_SATURATE:
    case PIPE_CAP_FRAGMENT_COLOR_CLAMPED:
    case PIPE_CAP_VERTEX_COLOR_UNCLAMPED:
    case PIPE_CAP_VERTEX_COLOR_CLAMPED:
@@ -184,6 +191,7 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_TGSI_FS_COORD_ORIGIN_UPPER_LEFT:
    case PIPE_CAP_TGSI_FS_COORD_PIXEL_CENTER_HALF_INTEGER:
    case PIPE_CAP_PRIMITIVE_RESTART:
+   case PIPE_CAP_PRIMITIVE_RESTART_FIXED_INDEX:
    case PIPE_CAP_TGSI_INSTANCEID:
    case PIPE_CAP_VERTEX_ELEMENT_INSTANCE_DIVISOR:
    case PIPE_CAP_MIXED_COLORBUFFER_FORMATS:
@@ -219,6 +227,14 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_ALLOW_MAPPED_BUFFERS_DURING_EXECUTION:
    case PIPE_CAP_DEST_SURFACE_SRGB_CONTROL:
    case PIPE_CAP_TGSI_DIV:
+   case PIPE_CAP_PREFER_IMM_ARRAYS_AS_CONSTBUF:
+   case PIPE_CAP_FLATSHADE:
+   case PIPE_CAP_ALPHA_TEST:
+   case PIPE_CAP_POINT_SIZE_FIXED:
+   case PIPE_CAP_TWO_SIDED_COLOR:
+   case PIPE_CAP_CLIP_PLANES:
+   case PIPE_CAP_PACKED_STREAM_OUTPUT:
+   case PIPE_CAP_DRAW_INFO_START_WITH_USER_INDICES:
       return 1;
    case PIPE_CAP_SEAMLESS_CUBE_MAP:
       return 1; /* class_3d >= NVA0_3D_CLASS; */
@@ -260,6 +276,7 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_DRAW_PARAMETERS:
    case PIPE_CAP_TGSI_PACK_HALF_FLOAT:
    case PIPE_CAP_TGSI_FS_POSITION_IS_SYSVAL:
+   case PIPE_CAP_TGSI_FS_POINT_IS_SYSVAL:
    case PIPE_CAP_SHADER_BUFFER_OFFSET_ALIGNMENT:
    case PIPE_CAP_GENERATE_MIPMAP:
    case PIPE_CAP_BUFFER_SAMPLER_VIEW_RGBA_ONLY:
@@ -279,7 +296,7 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_TGSI_CAN_READ_OUTPUTS:
    case PIPE_CAP_NATIVE_FENCE_FD:
    case PIPE_CAP_GLSL_OPTIMIZE_CONSERVATIVELY:
-   case PIPE_CAP_TGSI_FS_FBFETCH:
+   case PIPE_CAP_FBFETCH:
    case PIPE_CAP_DOUBLES:
    case PIPE_CAP_INT64:
    case PIPE_CAP_INT64_DIVMOD:
@@ -320,6 +337,26 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_NIR_COMPACT_ARRAYS:
    case PIPE_CAP_COMPUTE:
    case PIPE_CAP_IMAGE_LOAD_FORMATTED:
+   case PIPE_CAP_COMPUTE_SHADER_DERIVATIVES:
+   case PIPE_CAP_ATOMIC_FLOAT_MINMAX:
+   case PIPE_CAP_CONSERVATIVE_RASTER_INNER_COVERAGE:
+   case PIPE_CAP_FRAGMENT_SHADER_INTERLOCK:
+   case PIPE_CAP_CS_DERIVED_SYSTEM_VALUES_SUPPORTED:
+   case PIPE_CAP_FBFETCH_COHERENT:
+   case PIPE_CAP_TGSI_SKIP_SHRINK_IO_ARRAYS:
+   case PIPE_CAP_TGSI_ATOMINC_WRAP:
+   case PIPE_CAP_DEMOTE_TO_HELPER_INVOCATION:
+   case PIPE_CAP_TGSI_TG4_COMPONENT_IN_SWIZZLE:
+   case PIPE_CAP_OPENCL_INTEGER_FUNCTIONS:
+   case PIPE_CAP_INTEGER_MULTIPLY_32X16: /* could be done */
+   case PIPE_CAP_FRONTEND_NOOP:
+   case PIPE_CAP_GL_SPIRV:
+   case PIPE_CAP_SHADER_SAMPLES_IDENTICAL:
+   case PIPE_CAP_TEXTURE_SHADOW_LOD:
+   case PIPE_CAP_VIEWPORT_TRANSFORM_LOWERED:
+   case PIPE_CAP_PSIZ_CLAMPED:
+   case PIPE_CAP_VIEWPORT_SWIZZLE:
+   case PIPE_CAP_VIEWPORT_MASK:
       return 0;
 
    case PIPE_CAP_VENDOR_ID:
@@ -338,8 +375,14 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return dev->vram_size >> 20;
    case PIPE_CAP_UMA:
       return 0;
+
    default:
       debug_printf("%s: unhandled cap %d\n", __func__, param);
+      /* fallthrough */
+   /* caps where we want the default value */
+   case PIPE_CAP_DMABUF:
+   case PIPE_CAP_ESSL_FEATURE_LEVEL:
+   case PIPE_CAP_THROTTLE:
       return u_pipe_screen_get_param_defaults(pscreen, param);
    }
 }
@@ -393,6 +436,9 @@ nv50_screen_get_shader_param(struct pipe_screen *pscreen,
       return 1;
    case PIPE_SHADER_CAP_INT64_ATOMICS:
    case PIPE_SHADER_CAP_FP16:
+   case PIPE_SHADER_CAP_FP16_DERIVATIVES:
+   case PIPE_SHADER_CAP_INT16:
+   case PIPE_SHADER_CAP_GLSL_16BIT_CONSTS:
    case PIPE_SHADER_CAP_SUBROUTINES:
       return 0; /* please inline, or provide function declarations */
    case PIPE_SHADER_CAP_INTEGERS:
@@ -419,8 +465,6 @@ nv50_screen_get_shader_param(struct pipe_screen *pscreen,
    case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTERS:
    case PIPE_SHADER_CAP_MAX_HW_ATOMIC_COUNTER_BUFFERS:
       return 0;
-   case PIPE_SHADER_CAP_SCALAR_ISA:
-      return 1;
    default:
       NOUVEAU_ERR("unknown PIPE_SHADER_CAP %d\n", param);
       return 0;
@@ -440,7 +484,7 @@ nv50_screen_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
    case PIPE_CAPF_MAX_TEXTURE_ANISOTROPY:
       return 16.0f;
    case PIPE_CAPF_MAX_TEXTURE_LOD_BIAS:
-      return 4.0f;
+      return 15.0f;
    case PIPE_CAPF_MIN_CONSERVATIVE_RASTER_DILATE:
    case PIPE_CAPF_MAX_CONSERVATIVE_RASTER_DILATE:
    case PIPE_CAPF_CONSERVATIVE_RASTER_DILATE_GRANULARITY:
@@ -613,7 +657,7 @@ nv50_screen_init_hwctx(struct nv50_screen *screen)
    PUSH_DATA (push, 0);
    BEGIN_NV04(push, NV50_2D(COLOR_KEY_ENABLE), 1);
    PUSH_DATA (push, 0);
-   BEGIN_NV04(push, SUBC_2D(0x0888), 1);
+   BEGIN_NV04(push, NV50_2D(SET_PIXELS_FROM_MEMORY_SAFE_OVERLAP), 1);
    PUSH_DATA (push, 1);
    BEGIN_NV04(push, NV50_2D(COND_MODE), 1);
    PUSH_DATA (push, NV50_2D_COND_MODE_ALWAYS);
@@ -879,13 +923,15 @@ int nv50_tls_realloc(struct nv50_screen *screen, unsigned tls_space)
 }
 
 static const nir_shader_compiler_options nir_options = {
-   .fuse_ffma = false, /* nir doesn't track mad vs fma */
+   .fuse_ffma16 = false, /* nir doesn't track mad vs fma */
+   .fuse_ffma32 = false, /* nir doesn't track mad vs fma */
+   .fuse_ffma64 = false, /* nir doesn't track mad vs fma */
    .lower_flrp32 = true,
    .lower_flrp64 = true,
    .lower_fpow = false,
-   .lower_fmod64 = true,
    .lower_uadd_carry = true,
    .lower_usub_borrow = true,
+   .lower_sub = true,
    .lower_ffract = true,
    .lower_pack_half_2x16 = true,
    .lower_pack_unorm_2x16 = true,
@@ -900,8 +946,9 @@ static const nir_shader_compiler_options nir_options = {
    .lower_extract_byte = true,
    .lower_extract_word = true,
    .lower_all_io_to_temps = false,
-   .native_integers = true,
    .lower_cs_local_index_from_id = true,
+   .lower_rotate = true,
+   .lower_to_scalar = true,
    .use_interpolated_input_intrinsics = true,
    .max_unroll_iterations = 32,
 };

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_helper_library {
     name: "CtsMockInputMethodLib",
     sdk_version: "test_current",
@@ -40,8 +44,9 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
+        "sts",
     ],
     static_libs: [
         "androidx.annotation_annotation",

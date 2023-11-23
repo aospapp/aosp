@@ -26,7 +26,7 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.ViewModelProviders;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.arch.common.LiveDataFunctions;
 import com.android.car.dialer.Constants;
@@ -35,9 +35,16 @@ import com.android.car.dialer.log.L;
 import com.android.car.dialer.notification.InCallNotificationController;
 import com.android.car.telephony.common.CallDetail;
 
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
+
 /** Activity for ongoing call and incoming call. */
-public class InCallActivity extends FragmentActivity {
+@AndroidEntryPoint(FragmentActivity.class)
+public class InCallActivity extends Hilt_InCallActivity {
     private static final String TAG = "CD.InCallActivity";
+
+    @Inject InCallNotificationController mInCallNotificationController;
     private Fragment mOngoingCallFragment;
     private Fragment mOngoingConfCallFragment;
     private Fragment mIncomingCallFragment;
@@ -68,7 +75,7 @@ public class InCallActivity extends FragmentActivity {
                 .commit();
 
         mShowIncomingCall = new MutableLiveData<>();
-        mInCallViewModel = ViewModelProviders.of(this).get(InCallViewModel.class);
+        mInCallViewModel = new ViewModelProvider(this).get(InCallViewModel.class);
         mIncomingCallLiveData = LiveDataFunctions.iff(mShowIncomingCall,
                 mInCallViewModel.getIncomingCall());
         LiveDataFunctions.pair(mInCallViewModel.getPrimaryCallDetail(),
@@ -82,8 +89,7 @@ public class InCallActivity extends FragmentActivity {
         super.onStop();
         L.d(TAG, "onStop");
         if (mIncomingCallLiveData.getValue() != null) {
-            InCallNotificationController.get()
-                    .showInCallNotification(mIncomingCallLiveData.getValue());
+            mInCallNotificationController.showInCallNotification(mIncomingCallLiveData.getValue());
         }
     }
 

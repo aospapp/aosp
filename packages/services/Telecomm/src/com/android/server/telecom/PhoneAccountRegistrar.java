@@ -18,6 +18,7 @@ package com.android.server.telecom;
 
 import android.Manifest;
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -485,6 +486,7 @@ public class PhoneAccountRegistrar {
      * target phone account.
      * @return phone account handle of sim call manager based on the ongoing call.
      */
+    @Nullable
     public PhoneAccountHandle getSimCallManagerFromCall(Call call) {
         if (call == null) {
             return null;
@@ -1264,11 +1266,11 @@ public class PhoneAccountRegistrar {
             // Comparator which places PhoneAccounts with a specified sort order first, followed by
             // those with no sort order.
             Comparator<PhoneAccount> bySortOrder = (p1, p2) -> {
-                String sort1 = p1.getExtras() == null ? null :
-                        p1.getExtras().getString(PhoneAccount.EXTRA_SORT_ORDER, null);
-                String sort2 = p2.getExtras() == null ? null :
-                        p2.getExtras().getString(PhoneAccount.EXTRA_SORT_ORDER, null);
-                return nullSafeStringComparator.compare(sort1, sort2);
+                int sort1 = p1.getExtras() == null ? Integer.MAX_VALUE:
+                        p1.getExtras().getInt(PhoneAccount.EXTRA_SORT_ORDER, Integer.MAX_VALUE);
+                int sort2 = p2.getExtras() == null ? Integer.MAX_VALUE:
+                        p2.getExtras().getInt(PhoneAccount.EXTRA_SORT_ORDER, Integer.MAX_VALUE);
+                return Integer.compare(sort1, sort2);
             };
 
             // Comparator which sorts PhoneAccounts by label.
@@ -1597,10 +1599,16 @@ public class PhoneAccountRegistrar {
             return BitmapFactory.decodeByteArray(imageByteArray, 0, imageByteArray.length);
         }
 
+        @Nullable
         protected Icon readIcon(XmlPullParser parser) throws IOException {
-            byte[] iconByteArray = Base64.decode(parser.getText(), 0);
-            ByteArrayInputStream stream = new ByteArrayInputStream(iconByteArray);
-            return Icon.createFromStream(stream);
+            try {
+                byte[] iconByteArray = Base64.decode(parser.getText(), 0);
+                ByteArrayInputStream stream = new ByteArrayInputStream(iconByteArray);
+                return Icon.createFromStream(stream);
+            } catch (IllegalArgumentException e) {
+                Log.e(this, e, "Bitmap must not be null.");
+                return null;
+            }
         }
     }
 
@@ -1985,8 +1993,8 @@ public class PhoneAccountRegistrar {
          * @return {@code True} if SIP should be used for all calls.
          */
         private boolean useSipForPstnCalls(Context context) {
-            String option = Settings.System.getString(context.getContentResolver(),
-                    Settings.System.SIP_CALL_OPTIONS);
+            String option = Settings.System.getStringForUser(context.getContentResolver(),
+                    Settings.System.SIP_CALL_OPTIONS, context.getUserId());
             option = (option != null) ? option : Settings.System.SIP_ADDRESS_ONLY;
             return option.equals(Settings.System.SIP_ALWAYS);
         }

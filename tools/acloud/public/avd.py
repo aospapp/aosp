@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 class AndroidVirtualDevice(object):
     """Represent an Android device."""
 
-    def __init__(self, instance_name, ip=None, time_info=None):
+    def __init__(self, instance_name, ip=None, time_info=None, stage=None):
         """Initialize.
 
         Args:
@@ -46,6 +46,7 @@ class AndroidVirtualDevice(object):
             ip: namedtuple (internal, external) that holds IP address of the
                 gce instance, e.g. "external:140.110.20.1, internal:10.0.0.1"
             time_info: Dict of time cost information, e.g. {"launch_cvd": 5}
+            stage: Integer of AVD in which stage, e.g. STAGE_GCE, STAGE_BOOT_UP
         """
         self._ip = ip
         self._instance_name = instance_name
@@ -72,6 +73,7 @@ class AndroidVirtualDevice(object):
         #  "system_build_target": "cf_x86_phone-userdebug",
         #  "system_gcs_bucket_build_id": "12345"}
         self._build_info = {}
+        self._stage = stage
 
     @property
     def ip(self):
@@ -99,6 +101,11 @@ class AndroidVirtualDevice(object):
     def time_info(self):
         """Getter of _time_info."""
         return self._time_info
+
+    @property
+    def stage(self):
+        """Getter of _stage."""
+        return self._stage
 
     @build_info.setter
     def build_info(self, value):

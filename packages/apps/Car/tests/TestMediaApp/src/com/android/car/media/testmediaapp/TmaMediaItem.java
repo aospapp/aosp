@@ -78,9 +78,9 @@ public class TmaMediaItem {
 
 
     /** Internally modifiable list (for includes). */
-    private final List<TmaMediaItem> mChildren;
-    /** Read only list. */
-    private final List<TmaMediaItem> mPlayableChildren;
+    private final List<TmaMediaItem> mChildren = new ArrayList<>();
+    /** Internally modifiable list (for includes). */
+    private final List<TmaMediaItem> mPlayableChildren = new ArrayList<>();
     /** Read only list. */
     final List<TmaCustomAction> mCustomActions;
     /** Read only list. Events triggered when starting the playback. */
@@ -91,6 +91,7 @@ public class TmaMediaItem {
     private @Nullable TmaMediaItem mParent;
     int mHearts;
     int mRevealCounter;
+    boolean mIsHidden = false;
 
 
     public TmaMediaItem(int flags, ContentStyle playableStyle, ContentStyle browsableStyle,
@@ -103,17 +104,9 @@ public class TmaMediaItem {
         mMediaMetadata = metadata;
         mSelfUpdateMs = selfUpdateMs;
         mCustomActions = Collections.unmodifiableList(customActions);
-        mChildren = children;
         mMediaEvents = Collections.unmodifiableList(mediaEvents);
         mInclude = include;
-        List<TmaMediaItem> playableChildren = new ArrayList<>(children.size());
-        for (TmaMediaItem child: mChildren) {
-            child.setParent(this);
-            if ((child.mFlags & FLAG_PLAYABLE) != 0) {
-                playableChildren.add(child);
-            }
-        }
-        mPlayableChildren = Collections.unmodifiableList(playableChildren);
+        setChildren(children);
     }
 
     private void setParent(@Nullable TmaMediaItem parent) {
@@ -171,6 +164,16 @@ public class TmaMediaItem {
     void setChildren(List<TmaMediaItem> children) {
         mChildren.clear();
         mChildren.addAll(children);
+
+        List<TmaMediaItem> playableChildren = new ArrayList<>(children.size());
+        for (TmaMediaItem child: mChildren) {
+            child.setParent(this);
+            if ((child.mFlags & FLAG_PLAYABLE) != 0) {
+                playableChildren.add(child);
+            }
+        }
+        mPlayableChildren.clear();
+        mPlayableChildren.addAll(playableChildren);
     }
 
     void updateSessionMetadata(MediaSessionCompat session) {

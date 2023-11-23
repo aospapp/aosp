@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Жүктөө менежерине жетүү."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Колдонмого BluetoothАлмашуу менежерине жетип, ал аркылуу файлдарды өткөрүү уруксатын берет."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Bluetooth түзмөгүнүн Таза тизмесине жетки берүү."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Колдонмого Bluetooth түзмөгүн таза тизмеге убактылуу жайгаштырып, колдонуучунун ырастоосусуз, ал түзмөктөн бул түзмөккө файлдарды жөнөтүү уруксатын берет."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Bluetooth түзмөгүнө кирүү мүмкүнчүлүгүн уруксат берилгендердин тизмесине жайгаштыруу."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Колдонмого Bluetooth түзмөгүн уруксат берилгендердин тизмесине убактылуу жайгаштырып, колдонуучунун уруксатысыз файлдарды ал түзмөктөн бул түзмөккө жөнөтүү мүмкүнчүлүгүн берет."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Белгисиз түзмөк"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Белгисиз"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" жөнөткөн файлды алуу мөөнөтү өтүп кетти."</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Кирүүчү файл"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> <xliff:g id="FILE">%2$s</xliff:g> жөнөтүүгө даяр"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> түзмөгү <xliff:g id="FILE">%2$s</xliff:g> файлын жөнөтүүгө даяр"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetooth бөлүшүү: <xliff:g id="FILE">%1$s</xliff:g> алынууда"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetooth бөлүшүү: <xliff:g id="FILE">%1$s</xliff:g> алынды"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetooth бөлүшүү: <xliff:g id="FILE">%1$s</xliff:g> алынган жок"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Кийинкиге файл жөнөтүлүүдө: \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" дарегине <xliff:g id="NUMBER">%1$s</xliff:g> файл жөнөтүлүүдө"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" дарегине файл жөнөтүү токтотулду"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" жөнөткөн файлды сактоо үчүн USB эстутумунда орун жетишсиз"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" жөнөткөн файлды сактоо үчүн SD-картада орун жетишсиз"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"Файлды сактоо үчүн USB сактагычында орун жетишсиз."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"Файлды сактоо үчүн SD-картада орун жетишсиз."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Керектүү орун: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Өтө көп талаптар иштетилүүдө. Кайта аракеттениңиз."</string>
     <string name="status_pending" msgid="2503691772030877944">"Файл өткөрүү баштала элек."</string>

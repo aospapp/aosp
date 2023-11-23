@@ -17,32 +17,33 @@
 #ifndef HARDWARE_GOOGLE_CAMERA_HAL_HIDL_SERVICE_HIDL_CAMERA_DEVICE_SESSION_H_
 #define HARDWARE_GOOGLE_CAMERA_HAL_HIDL_SERVICE_HIDL_CAMERA_DEVICE_SESSION_H_
 
-#include <android/hardware/camera/device/3.5/ICameraDevice.h>
 #include <android/hardware/camera/device/3.5/ICameraDeviceCallback.h>
-#include <android/hardware/camera/device/3.5/ICameraDeviceSession.h>
+#include <android/hardware/camera/device/3.7/ICameraDevice.h>
+#include <android/hardware/camera/device/3.7/ICameraDeviceSession.h>
 #include <android/hardware/thermal/2.0/IThermal.h>
 #include <fmq/MessageQueue.h>
 
 #include <shared_mutex>
 
 #include "camera_device_session.h"
+#include "hidl_profiler.h"
 #include "hidl_thermal_utils.h"
-#include "profiler.h"
 
 namespace android {
 namespace hardware {
 namespace camera {
 namespace device {
-namespace V3_5 {
+namespace V3_7 {
 namespace implementation {
 
 using ::android::hardware::camera::common::V1_0::Status;
 using ::android::hardware::camera::device::V3_2::BufferCache;
 using ::android::hardware::camera::device::V3_2::RequestTemplate;
-using ::android::hardware::camera::device::V3_4::CaptureRequest;
 using ::android::hardware::camera::device::V3_5::ICameraDeviceCallback;
-using ::android::hardware::camera::device::V3_5::ICameraDeviceSession;
-using ::android::hardware::camera::device::V3_5::StreamConfiguration;
+using ::android::hardware::camera::device::V3_7::CaptureRequest;
+using ::android::hardware::camera::device::V3_7::ICameraDeviceSession;
+using ::android::hardware::camera::device::V3_7::StreamConfiguration;
+using ::android::hardware::camera::implementation::HidlProfiler;
 
 using MetadataQueue =
     ::android::hardware::MessageQueue<uint8_t, kSynchronizedReadWrite>;
@@ -59,17 +60,34 @@ class HidlCameraDeviceSession : public ICameraDeviceSession {
   // nullptr.
   static std::unique_ptr<HidlCameraDeviceSession> Create(
       const sp<V3_2::ICameraDeviceCallback>& callback,
-      std::unique_ptr<google_camera_hal::CameraDeviceSession> device_session);
+      std::unique_ptr<google_camera_hal::CameraDeviceSession> device_session,
+      std::shared_ptr<HidlProfiler> hidl_profiler);
 
   virtual ~HidlCameraDeviceSession();
 
   // Override functions in ICameraDeviceSession
+  Return<void> configureStreams_3_7(
+      const StreamConfiguration& requestedConfiguration,
+      configureStreams_3_7_cb _hidl_cb) override;
+
+  Return<void> processCaptureRequest_3_7(
+      const hidl_vec<CaptureRequest>& requests,
+      const hidl_vec<BufferCache>& cachesToRemove,
+      processCaptureRequest_3_7_cb _hidl_cb) override;
+
+  Return<void> configureStreams_3_6(
+      const V3_5::StreamConfiguration& requestedConfiguration,
+      ICameraDeviceSession::configureStreams_3_6_cb _hidl_cb) override;
+
+  Return<void> switchToOffline(const hidl_vec<int32_t>& streamsToKeep,
+                               switchToOffline_cb _hidl_cb) override;
+
   Return<void> constructDefaultRequestSettings(
       RequestTemplate type,
       ICameraDeviceSession::constructDefaultRequestSettings_cb _hidl_cb) override;
 
   Return<void> configureStreams_3_5(
-      const StreamConfiguration& requestedConfiguration,
+      const V3_5::StreamConfiguration& requestedConfiguration,
       ICameraDeviceSession::configureStreams_3_5_cb _hidl_cb) override;
 
   Return<void> getCaptureRequestMetadataQueue(
@@ -79,7 +97,7 @@ class HidlCameraDeviceSession : public ICameraDeviceSession {
       ICameraDeviceSession::getCaptureResultMetadataQueue_cb _hidl_cb) override;
 
   Return<void> processCaptureRequest_3_4(
-      const hidl_vec<CaptureRequest>& requests,
+      const hidl_vec<V3_4::CaptureRequest>& requests,
       const hidl_vec<BufferCache>& cachesToRemove,
       processCaptureRequest_3_4_cb _hidl_cb) override;
 
@@ -123,7 +141,8 @@ class HidlCameraDeviceSession : public ICameraDeviceSession {
   // Initialize HidlCameraDeviceSession with a CameraDeviceSession.
   status_t Initialize(
       const sp<V3_2::ICameraDeviceCallback>& callback,
-      std::unique_ptr<google_camera_hal::CameraDeviceSession> device_session);
+      std::unique_ptr<google_camera_hal::CameraDeviceSession> device_session,
+      std::shared_ptr<HidlProfiler> hidl_profiler);
 
   // Create a metadata queue.
   // If override_size_property contains a valid size, it will create a metadata
@@ -200,14 +219,19 @@ class HidlCameraDeviceSession : public ICameraDeviceSession {
   // Flag for profiling first frame processing time.
   bool first_frame_requested_ = false;
 
+  // The frame number of first capture request after configure stream
+  uint32_t first_request_frame_number_ = 0;
+
   std::mutex pending_first_frame_buffers_mutex_;
   // Profiling first frame process time. Stop timer when it become 0.
   // Must be protected by pending_first_frame_buffers_mutex_
   size_t num_pending_first_frame_buffers_ = 0;
+
+  std::shared_ptr<HidlProfiler> hidl_profiler_;
 };
 
 }  // namespace implementation
-}  // namespace V3_5
+}  // namespace V3_7
 }  // namespace device
 }  // namespace camera
 }  // namespace hardware

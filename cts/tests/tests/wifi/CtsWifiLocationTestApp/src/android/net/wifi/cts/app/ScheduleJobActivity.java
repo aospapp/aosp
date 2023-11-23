@@ -57,7 +57,5 @@ public class ScheduleJobActivity extends Activity {
         jobScheduler.schedule(jobInfo);
 
         Log.v(TAG,"Job scheduled: " + jobInfo);
-
-        finish();
     }
 }

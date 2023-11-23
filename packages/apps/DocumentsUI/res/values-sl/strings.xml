@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"To morate preimenovati."</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Dodati morate ime mape."</string>
     <string name="files_label" msgid="771781190045103748">"Datoteke"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Prenosi"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -322,4 +324,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Služba"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Delovna"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Datotek iz druge aplikacije ni mogoče premakniti."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Prikazano v načinu mreže"</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Prikazano v načinu seznama"</string>
 </resources>

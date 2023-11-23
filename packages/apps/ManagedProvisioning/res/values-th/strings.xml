@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"แอปต่อไปนี้จะจัดการอุปกรณ์:"</string>
     <string name="next" msgid="1004321437324424398">"ถัดไป"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"กำลังตั้งค่าโปรไฟล์งาน…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"ผู้ดูแลระบบไอทีสามารถตรวจสอบและจัดการการตั้งค่า การเข้าถึงของบริษัท แอป สิทธิ์ และข้อมูลที่เชื่อมโยงกับโปรไฟล์นี้ รวมถึงกิจกรรมในเครือข่ายของคุณ ตำแหน่งของอุปกรณ์ ประวัติการโทร และประวัติการค้นหารายชื่อติดต่อ<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>โปรดติดต่อผู้ดูแลระบบไอทีเพื่อสอบถามข้อมูลเพิ่มเติม รวมถึงนโยบายความเป็นส่วนตัวขององค์กร"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"ผู้ดูแลระบบไอทีสามารถตรวจสอบและจัดการการตั้งค่า การเข้าถึงของบริษัท แอป สิทธิ์ และข้อมูลที่เชื่อมโยงกับอุปกรณ์นี้ รวมถึงกิจกรรมในเครือข่ายของคุณ ตำแหน่งของอุปกรณ์ ประวัติการโทร ตลอดจนประวัติการค้นหารายชื่อติดต่อ<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>โปรดติดต่อผู้ดูแลระบบไอทีเพื่อสอบถามข้อมูลเพิ่มเติม รวมถึงนโยบายความเป็นส่วนตัวขององค์กร"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"ผู้ดูแลระบบไอทีสามารถตรวจสอบและจัดการการตั้งค่า การเข้าถึงของบริษัท แอป สิทธิ์ และข้อมูลที่เชื่อมโยงกับโปรไฟล์นี้ รวมถึงกิจกรรมในเครือข่ายของคุณ ตำแหน่งของอุปกรณ์ ประวัติการโทร และประวัติการค้นหารายชื่อติดต่อ<xliff:g id="LINE_BREAK">
+
+</xliff:g>โปรดติดต่อผู้ดูแลระบบไอทีเพื่อสอบถามข้อมูลเพิ่มเติม รวมถึงนโยบายความเป็นส่วนตัวขององค์กร"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"ผู้ดูแลระบบไอทีสามารถตรวจสอบและจัดการการตั้งค่า การเข้าถึงของบริษัท แอป สิทธิ์ และข้อมูลที่เชื่อมโยงกับอุปกรณ์นี้ รวมถึงกิจกรรมในเครือข่ายของคุณ ตำแหน่งของอุปกรณ์ ประวัติการโทร ตลอดจนประวัติการค้นหารายชื่อติดต่อ<xliff:g id="LINE_BREAK">
+
+</xliff:g>โปรดติดต่อผู้ดูแลระบบไอทีเพื่อสอบถามข้อมูลเพิ่มเติม รวมถึงนโยบายความเป็นส่วนตัวขององค์กร"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"หากต้องการใช้ฟีเจอร์การป้องกันขโมย อุปกรณ์ของคุณต้องมีการล็อกหน้าจอที่ป้องกันด้วยรหัสผ่าน"</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"โปรดติดต่อผู้ดูแลระบบไอทีเพื่อสอบถามข้อมูลเพิ่มเติม รวมถึงนโยบายความเป็นส่วนตัวขององค์กร"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ดูข้อมูลเพิ่มเติม"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"ตกลง"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"ฉันยินยอม"</string>
     <string name="url_error" msgid="5958494012986243186">"แสดงลิงก์ไม่ได้"</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"กลับ"</string>
     <string name="terms" msgid="8295436105384703903">"ข้อกำหนด"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"ข้อมูลโปรไฟล์งาน"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"ข้อมูลอุปกรณ์ที่มีการจัดการ"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"โปรไฟล์งาน"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"ผู้ใช้หลัก"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"ลบโปรไฟล์ที่มีอยู่ใช่ไหม"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"คุณมีโปรไฟล์งานอยู่แล้ว ซึ่งมีการจัดการโดยใช้แอปต่อไปนี้"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"ก่อนดำเนินการต่อ โปรด"<a href="#read_this_link">"อ่านข้อมูลนี้"</a></string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"การตั้งค่าผู้ใช้ไม่สมบูรณ์"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"ผู้ใช้อุปกรณ์ในการทำงาน"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"กำลังตั้งค่าอุปกรณ์ที่ทำงาน…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"กำลังดำเนินการกับข้อมูลการตั้งค่า…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"กำลังเชื่อมต่อ Wi-Fi…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"กำลังเชื่อมต่อเครือข่ายมือถือ…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"กำลังดาวน์โหลดแอปผู้ดูแลระบบ…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"กำลังติดตั้งแอปผู้ดูแลระบบ…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"กำลังนำแอประบบที่ไม่จำเป็นออก…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"กำลังตกแต่งขั้นสุดท้าย…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"กำลังตั้งค่าเจ้าของอุปกรณ์…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"กำลังเริ่มต้นอุปกรณ์…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"อุปกรณ์นี้ไม่อนุญาตการเข้ารหัสลับซึ่งจำเป็นสำหรับการตั้งค่า โปรดติดต่อผู้ดูแลระบบไอทีเพื่อรับความช่วยเหลือ"</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"หยุดตั้งค่าและรีเซ็ตอุปกรณ์ไหม"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"การดำเนินการนี้จะรีเซ็ตอุปกรณ์และนำคุณกลับสู่หน้าจอแรก"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"อุปกรณ์นี้จะได้รับการรักษาความปลอดภัยและจัดการโดยองค์กรของคุณ"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"กำลังเตรียมตั้งค่าอุปกรณ์สำหรับการทำงาน…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"กำลังตั้งค่าแอปผู้ดูแลระบบ"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"ตั้งค่าอื่นๆ"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"เพิ่มบัญชีส่วนบุคคลเพื่อทำสิ่งต่างๆ จากอุปกรณ์ของคุณได้มากขึ้น"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"เมื่อโปรไฟล์งานของคุณพร้อม คุณจะเพิ่มบัญชี Google ส่วนบุคคลเพื่อเข้าถึงแอปและเนื้อหาของคุณได้อีกด้วย"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"องค์กรของคุณเป็นเจ้าของอุปกรณ์นี้"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"แอปต่อไปนี้จะใช้เพื่อจัดการและตรวจสอบโทรศัพท์เครื่องนี้"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"บัญชีของคุณได้รับการจัดการแล้ว"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"ผู้ดูแลระบบไอทีจะใช้การจัดการอุปกรณ์เคลื่อนที่เพื่อบังคับใช้นโยบายความปลอดภัย"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"กำลังเตรียมอุปกรณ์เพื่อตั้งค่าสำหรับการทำงาน…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ก่อนอื่นมาตั้งค่าโปรไฟล์งานกัน"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"แอปการทำงานเก็บอยู่ในโปรไฟล์งาน"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"เข้าถึงแอปการทำงานได้ด้วยปลายนิ้ว"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"อุปกรณ์นี้ไม่เป็นส่วนตัว"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ผู้ดูแลระบบไอทีอาจดูข้อมูลและกิจกรรมของคุณในอุปกรณ์เครื่องนี้ได้"</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"กิจกรรมและข้อมูลของคุณ"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"สิทธิ์ของแอป"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"ผู้ดูแลระบบไอทีตั้งค่าสิทธิ์สำหรับแอปต่างๆ ในอุปกรณ์นี้ได้ เช่น สิทธิ์เข้าถึงไมโครโฟน กล้อง และตำแหน่ง"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"กำลังตั้งค่าอุปกรณ์…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"ใช้อุปกรณ์นี้เพื่อเข้าถึงแอปการทำงานได้ง่ายๆ นี่ไม่ใช่อุปกรณ์ส่วนตัว ดังนั้นผู้ดูแลระบบไอทีจึงอาจดูข้อมูลและกิจกรรมของคุณได้ โปรดติดต่อผู้ดูแลระบบไอทีเพื่อดูข้อมูลเพิ่มเติม"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"ใช้อุปกรณ์นี้เพื่อเข้าถึงแอปงานได้ง่ายๆ นี่ไม่ใช่อุปกรณ์ส่วนตัว ผู้ดูแลระบบไอทีจึงอาจดูข้อมูลและกิจกรรมของคุณได้"</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"ใช้อุปกรณ์นี้เพื่อเข้าถึงแอปงานได้ง่ายๆ นี่ไม่ใช่อุปกรณ์ส่วนตัว ผู้ดูแลระบบไอทีจึงอาจดูกิจกรรมและข้อมูลของคุณได้ ผู้ดูแลระบบไอทีตั้งค่าสิทธิ์สำหรับแอปต่างๆ ในอุปกรณ์นี้ได้ด้วย เช่น สิทธิ์เข้าถึงไมโครโฟน กล้อง และตำแหน่ง"</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"ส่งคืนอุปกรณ์นี้ให้กับผู้ดูแลระบบไอทีของคุณ"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"กลับไปยังหน้าจอก่อนหน้านี้ หรือรีเซ็ตอุปกรณ์นี้และส่งคืนให้กับผู้ดูแลระบบไอทีของคุณ"</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"ยกเลิกการตั้งค่า"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"รีเซ็ตและส่งคืนอุปกรณ์"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"แอปงานเก็บอยู่ในโปรไฟล์งานและจัดการโดยผู้ดูแลระบบไอที"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"แอปส่วนตัวจะอยู่แยกต่างหากและซ่อนจากแอปงาน"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"ผู้ดูแลระบบไอทีจะควบคุมอุปกรณ์นี้และบล็อกบางแอปได้"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"รอสักครู่…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"การช่วยเตือนความเป็นส่วนตัว"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ผู้ดูแลระบบไอทีอาจดูข้อมูลและกิจกรรมของคุณในอุปกรณ์เครื่องนี้ได้"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"อุปกรณ์พร้อมใช้งานแล้ว"</string>
-    <string name="done" msgid="7755227776955952318">"เสร็จสิ้น"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"อุปกรณ์นี้ซื้อด้วยเครดิตจาก <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ดำเนินการต่อไปนี้ได้"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"ติดตั้งแอป <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> เพื่อให้ดำเนินการชำระเงินสำหรับอุปกรณ์นี้ได้"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"จำกัดการเข้าถึงอุปกรณ์นี้หากไม่ชำระเงิน"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"อุปกรณ์นี้ให้บริการโดย <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"ชำระเงินค่าอุปกรณ์นี้"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> ติดตั้งแอป <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> เพื่อให้ดำเนินการชำระเงินสำหรับอุปกรณ์นี้ได้"</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"อุปกรณ์นี้อาจถูกจำกัด"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> จำกัดการเข้าถึงอุปกรณ์นี้ได้หากคุณไม่ชำระเงิน"</string>
 </resources>

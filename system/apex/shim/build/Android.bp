@@ -14,6 +14,10 @@
 
 // Build rules to build shim apexes.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 genrule {
   name: "com.android.apex.cts.shim.pem",
   out: ["com.android.apex.cts.shim.pem"],
@@ -32,6 +36,27 @@ apex_key {
   name: "com.android.apex.cts.shim.key",
   private_key: ":com.android.apex.cts.shim.pem",
   public_key: ":com.android.apex.cts.shim.pubkey",
+  installable: false,
+}
+
+genrule {
+  name: "com.android.apex.cts.shim.debug.pem",
+  out: ["com.android.apex.cts.shim.debug.pem"],
+  cmd: "openssl genrsa -out $(out) 4096",
+}
+
+genrule {
+  name: "com.android.apex.cts.shim.debug.pubkey",
+  srcs: [":com.android.apex.cts.shim.debug.pem"],
+  out: ["com.android.apex.cts.shim.debug.pubkey"],
+  tools: ["avbtool"],
+  cmd: "$(location avbtool) extract_public_key --key $(in) --output $(out)",
+}
+
+apex_key {
+  name: "com.android.apex.cts.shim.debug.key",
+  private_key: ":com.android.apex.cts.shim.debug.pem",
+  public_key: ":com.android.apex.cts.shim.debug.pubkey",
   installable: false,
 }
 
@@ -58,6 +83,7 @@ apex {
   apps: ["CtsShim", "CtsShimPriv"],
   installable: false,
   allowed_files: "default_shim_allowed_list.txt",
+  updatable: false,
 }
 
 apex {
@@ -70,6 +96,20 @@ apex {
   apps: ["CtsShim", "CtsShimPriv"],
   installable: false,
   allowed_files: "default_shim_allowed_list.txt",
+  updatable: false,
+}
+
+apex {
+  name: "com.android.apex.cts.shim.v2_sign_payload_with_different_key",
+  // Use manifest_v2_rebootless to also re-use this APEX in the rebootless update test case.
+  manifest: "manifest_v2_rebootless.json",
+  androidManifest: "AndroidManifest.xml",
+  file_contexts: ":apex.test-file_contexts",
+  key: "com.android.apex.cts.shim.debug.key",
+  prebuilts: ["hash_of_dev_null"],
+  installable: false,
+  allowed_files: "default_shim_allowed_list.txt",
+  updatable: false,
 }
 
 apex {
@@ -81,6 +121,7 @@ apex {
   prebuilts: ["hash_of_dev_null"],
   installable: false,
   allowed_files: "default_shim_allowed_list.txt",
+  updatable: false,
 }
 
 apex {
@@ -93,12 +134,14 @@ apex {
   apps: ["CtsShim", "CtsShimPriv"],
   installable: false,
   allowed_files: "default_shim_allowed_list.txt",
-  test_only_no_hashtree: true,
+  generate_hashtree: false,
+  updatable: false,
 }
 
 apex {
   name: "com.android.apex.cts.shim.v2_unsigned_payload",
-  manifest: "manifest_v2.json",
+  // Use manifest_v2_rebootless to also re-use this APEX in the rebootless update test case.
+  manifest: "manifest_v2_rebootless.json",
   androidManifest: "AndroidManifest.xml",
   file_contexts: ":apex.test-file_contexts",
   key: "com.android.apex.cts.shim.key",
@@ -107,12 +150,14 @@ apex {
   installable: false,
   allowed_files: "default_shim_allowed_list.txt",
   test_only_unsigned_payload: true,
+  updatable: false,
 }
 
 override_apex {
     name: "com.android.apex.cts.shim.v2_different_package_name",
     package_name: "com.android.apex.cts.shim.different",
-    base: "com.android.apex.cts.shim.v2",
+    // Use rebootless APEX to re-use this APEX in the rebootless update test case.
+    base: "com.android.apex.cts.shim.v2_rebootless",
 }
 
 genrule {
@@ -132,12 +177,14 @@ prebuilt_etc {
 // to stage it should fail.
 apex {
   name: "com.android.apex.cts.shim.v2_wrong_sha",
-  manifest: "manifest_v2.json",
+  // Use manifest_v2_rebootless to also re-use this APEX in the rebootless update test case.
+  manifest: "manifest_v2_rebootless.json",
   androidManifest: "AndroidManifest.xml",
   file_contexts: ":apex.test-file_contexts",
   key: "com.android.apex.cts.shim.key",
   prebuilts: ["empty_hash"],
   installable: false,
+  updatable: false,
 }
 
 prebuilt_etc {
@@ -149,12 +196,14 @@ prebuilt_etc {
 
 apex {
   name: "com.android.apex.cts.shim.v2_additional_file",
-  manifest: "manifest_v2.json",
+  // Use manifest_v2_rebootless to also re-use this APEX in the rebootless update test case.
+  manifest: "manifest_v2_rebootless.json",
   androidManifest: "AndroidManifest.xml",
   file_contexts: ":apex.test-file_contexts",
   key: "com.android.apex.cts.shim.key",
   prebuilts: ["hash_of_dev_null", "apex_shim_additional_file"],
   installable: false,
+  updatable: false,
 }
 
 prebuilt_etc {
@@ -167,12 +216,14 @@ prebuilt_etc {
 
 apex {
   name: "com.android.apex.cts.shim.v2_additional_folder",
-  manifest: "manifest_v2.json",
+  // Use manifest_v2_rebootless to also re-use this APEX in the rebootless update test case.
+  manifest: "manifest_v2_rebootless.json",
   androidManifest: "AndroidManifest.xml",
   file_contexts: ":apex.test-file_contexts",
   key: "com.android.apex.cts.shim.key",
   prebuilts: ["hash_of_dev_null", "apex_shim_additional_folder"],
   installable: false,
+  updatable: false,
 }
 
 apex {
@@ -183,6 +234,7 @@ apex {
   key: "com.android.apex.cts.shim.key",
   prebuilts: ["hash_of_dev_null"],
   installable: false,
+  updatable: false,
 }
 
 apex {
@@ -193,6 +245,7 @@ apex {
   key: "com.android.apex.cts.shim.key",
   prebuilts: ["hash_of_dev_null"],
   installable: false,
+  updatable: false,
 }
 
 genrule {
@@ -212,7 +265,9 @@ genrule {
     ":com.android.apex.cts.shim.v2_with_post_install_hook",
     ":com.android.apex.cts.shim.v2_sdk_target_p",
     ":com.android.apex.cts.shim.v2_apk_in_apex_sdk_target_p",
+    ":com.android.apex.cts.shim.v2_rebootless",
     ":com.android.apex.cts.shim.v3",
+    ":com.android.apex.cts.shim.v3_rebootless",
     ":com.android.apex.cts.shim.v3_signed_bob",
     ":com.android.apex.cts.shim.v3_signed_bob_rot",
   ],
@@ -236,6 +291,7 @@ apex {
   prebuilts: ["hash_v1"],
   apps: ["CtsShim", "CtsShimPriv"],
   allowed_files: "default_shim_allowed_list.txt",
+  updatable: false,
 }
 
 // This is to install the flattened version of com.android.apex.cts.shim.
@@ -276,21 +332,25 @@ apex_key {
 apex {
   name: "com.android.apex.cts.shim_not_pre_installed",
   manifest: "manifest_not_pre_installed.json",
+  androidManifest: "AndroidManifestNotPreInstalled.xml",
   file_contexts: ":apex.test-file_contexts",
   key: "com.android.apex.cts.shim_not_pre_installed.key",
   prebuilts: ["hash_of_dev_null"],
   installable: false,
+  updatable: false,
 }
 
 apex {
   name: "com.android.apex.cts.shim.v2_different_certificate",
-  manifest: "manifest_v2.json",
+  // Use manifest_v2_rebootless to also re-use this APEX in the rebootless update test case.
+  manifest: "manifest_v2_rebootless.json",
   androidManifest: "AndroidManifest.xml",
   file_contexts: ":apex.test-file_contexts",
   key: "com.android.apex.cts.shim.key",
   prebuilts: ["hash_of_dev_null"],
   installable: false,
   certificate: ":com.android.apex.cts.shim.debug.cert",
+  updatable: false,
 }
 
 android_app_certificate {
@@ -455,6 +515,7 @@ apex {
   apps: ["CtsShim", "CtsShimPriv"],
   installable: false,
   min_sdk_version: "29",
+  updatable: false,
 }
 
 genrule {
@@ -468,13 +529,15 @@ genrule {
 // Apex shim that targets an old sdk (P)
 apex {
   name: "com.android.apex.cts.shim.v2_sdk_target_p",
-  manifest: "manifest_v2.json",
+  // Use manifest_v2_rebootless to also re-use this APEX in the rebootless update test case.
+  manifest: "manifest_v2_rebootless.json",
   androidManifest: "AndroidManifestSdkTargetP.xml",
   file_contexts: ":apex.test-file_contexts",
   key: "com.android.apex.cts.shim.key",
   prebuilts: ["hash_of_dev_null"],
   installable: false,
   apps: ["CtsShim", "CtsShimPriv"],
+  updatable: false,
 }
 
 // Apex shim with apk-in-apex that targets sdk P
@@ -487,15 +550,35 @@ apex {
   prebuilts: ["hash_of_dev_null"],
   apps: ["CtsShimTargetPSdk"],
   installable: false,
+  updatable: false,
 }
 
 // Apex shim with unsigned apk
 genrule {
   name: "com.android.apex.cts.shim.v2_unsigned_apk_container",
-  srcs: [":com.android.apex.cts.shim.v2"],
+  // Use shim.v2_rebootless to re-use same APEX in the rebootless update test case.
+  srcs: [":com.android.apex.cts.shim.v2_rebootless"],
   out: ["com.android.apex.cts.shim.v2_unsigned_apk_container.apex"],
   cmd: "cp -v $(in) $(out) && zip -d $(out) META-INF*",
-  dist: {
-    targets: ["apps_only"],
-  }
+}
+
+// Apex shim for testing rebootless updates
+apex {
+  name: "com.android.apex.cts.shim.v2_rebootless",
+  manifest: "manifest_v2_rebootless.json",
+  file_contexts: ":apex.test-file_contexts",
+  key: "com.android.apex.cts.shim.key",
+  prebuilts: ["hash_of_dev_null"],
+  installable: false,
+  updatable: false,
+}
+
+apex {
+  name: "com.android.apex.cts.shim.v3_rebootless",
+  manifest: "manifest_v3_rebootless.json",
+  file_contexts: ":apex.test-file_contexts",
+  key: "com.android.apex.cts.shim.key",
+  prebuilts: ["hash_of_dev_null"],
+  installable: false,
+  updatable: false,
 }

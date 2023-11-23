@@ -32,6 +32,8 @@
 
 package com.android.bluetooth.opp;
 
+import static android.view.WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
+
 import android.bluetooth.AlertActivity;
 import android.content.BroadcastReceiver;
 import android.content.ContentValues;
@@ -55,8 +57,7 @@ import com.android.bluetooth.R;
 /**
  * This class is designed to ask user to confirm if accept incoming file;
  */
-public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity
-        implements DialogInterface.OnClickListener {
+public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity {
     private static final String TAG = "BluetoothIncomingFileConfirmActivity";
     private static final boolean D = Constants.DEBUG;
     private static final boolean V = Constants.VERBOSE;
@@ -93,6 +94,7 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity
         }
         super.onCreate(savedInstanceState);
 
+        getWindow().addPrivateFlags(SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
         Intent intent = getIntent();
         mUri = intent.getData();
         mTransInfo = new BluetoothOppTransferInfo();
@@ -107,8 +109,10 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity
 
         mAlertBuilder.setTitle(getString(R.string.incoming_file_confirm_content));
         mAlertBuilder.setView(createView());
-        mAlertBuilder.setPositiveButton(R.string.incoming_file_confirm_ok, this);
-        mAlertBuilder.setNegativeButton(R.string.incoming_file_confirm_cancel, this);
+        mAlertBuilder.setPositiveButton(R.string.incoming_file_confirm_ok,
+                (dialog, which) -> onIncomingFileConfirmOk());
+        mAlertBuilder.setNegativeButton(R.string.incoming_file_confirm_cancel,
+                (dialog, which) -> onIncomingFileConfirmCancel());
 
         setupAlert();
         if (V) {
@@ -137,29 +141,24 @@ public class BluetoothOppIncomingFileConfirmActivity extends AlertActivity
         return view;
     }
 
-    @Override
-    public void onClick(DialogInterface dialog, int which) {
-        switch (which) {
-            case DialogInterface.BUTTON_POSITIVE:
-                if (!mTimeout) {
-                    // Update database
-                    mUpdateValues = new ContentValues();
-                    mUpdateValues.put(BluetoothShare.USER_CONFIRMATION,
-                            BluetoothShare.USER_CONFIRMATION_CONFIRMED);
-                    this.getContentResolver().update(mUri, mUpdateValues, null, null);
+    private void onIncomingFileConfirmOk() {
+        if (!mTimeout) {
+            // Update database
+            mUpdateValues = new ContentValues();
+            mUpdateValues.put(BluetoothShare.USER_CONFIRMATION,
+                    BluetoothShare.USER_CONFIRMATION_CONFIRMED);
+            this.getContentResolver().update(mUri, mUpdateValues, null, null);
 
-                    Toast.makeText(this, getString(R.string.bt_toast_1), Toast.LENGTH_SHORT).show();
-                }
-                break;
-
-            case DialogInterface.BUTTON_NEGATIVE:
-                // Update database
-                mUpdateValues = new ContentValues();
-                mUpdateValues.put(BluetoothShare.USER_CONFIRMATION,
-                        BluetoothShare.USER_CONFIRMATION_DENIED);
-                this.getContentResolver().update(mUri, mUpdateValues, null, null);
-                break;
+            Toast.makeText(this, getString(R.string.bt_toast_1), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void onIncomingFileConfirmCancel() {
+        // Update database
+        mUpdateValues = new ContentValues();
+        mUpdateValues.put(BluetoothShare.USER_CONFIRMATION,
+                BluetoothShare.USER_CONFIRMATION_DENIED);
+        this.getContentResolver().update(mUri, mUpdateValues, null, null);
     }
 
     @Override

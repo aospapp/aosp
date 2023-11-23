@@ -80,6 +80,7 @@ enum tgsi_file_type {
    TGSI_FILE_SAMPLER_VIEW        =11,
    TGSI_FILE_BUFFER,
    TGSI_FILE_MEMORY,
+   TGSI_FILE_HW_ATOMIC,
    TGSI_FILE_COUNT      /**< how many TGSI_FILE_ types */
 };
 
@@ -293,7 +294,11 @@ union tgsi_immediate_data
 #define TGSI_PROPERTY_CS_FIXED_BLOCK_HEIGHT  21
 #define TGSI_PROPERTY_CS_FIXED_BLOCK_DEPTH   22
 #define TGSI_PROPERTY_MUL_ZERO_WINS          23
-#define TGSI_PROPERTY_COUNT                  24
+#define TGSI_PROPERTY_VS_BLIT_SGPRS_AMD 24
+#define TGSI_PROPERTY_CS_USER_DATA_COMPONENTS_AMD 25
+#define TGSI_PROPERTY_LAYER_VIEWPORT_RELATIVE 26
+#define TGSI_PROPERTY_FS_BLEND_EQUATION_ADVANCED 27
+#define TGSI_PROPERTY_COUNT                  28
 
 struct tgsi_property {
    unsigned Type         : 4;  /**< TGSI_TOKEN_TYPE_PROPERTY */
@@ -350,10 +355,9 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_LRP                 18
 #define TGSI_OPCODE_FMA                 19
 #define TGSI_OPCODE_SQRT                20
-#define TGSI_OPCODE_DP2A                21
                                 /* gap */
 #define TGSI_OPCODE_FRC                 24
-#define TGSI_OPCODE_CLAMP               25
+                                /* gap */
 #define TGSI_OPCODE_FLR                 26
 #define TGSI_OPCODE_ROUND               27
 #define TGSI_OPCODE_EX2                 28
@@ -408,9 +412,7 @@ struct tgsi_property_data {
 
 #define TGSI_OPCODE_DDX_FINE            79
 #define TGSI_OPCODE_DDY_FINE            80
-
-#define TGSI_OPCODE_PUSHA               81
-#define TGSI_OPCODE_POPA                82
+                                /* gap */
 #define TGSI_OPCODE_CEIL                83
 #define TGSI_OPCODE_I2F                 84
 #define TGSI_OPCODE_NOT                 85
@@ -421,7 +423,7 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_OR                  90
 #define TGSI_OPCODE_MOD                 91
 #define TGSI_OPCODE_XOR                 92
-#define TGSI_OPCODE_SAD                 93
+                                /* gap */
 #define TGSI_OPCODE_TXF                 94
 #define TGSI_OPCODE_TXQ                 95
 #define TGSI_OPCODE_CONT                96
@@ -431,7 +433,7 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_BGNSUB              100
 #define TGSI_OPCODE_ENDLOOP             101
 #define TGSI_OPCODE_ENDSUB              102
-#define TGSI_OPCODE_TXQ_LZ              103 /* TXQ for mipmap level 0 */
+                                /* gap */
 #define TGSI_OPCODE_TXQS                104
 #define TGSI_OPCODE_RESQ                105
                                 /* gap */
@@ -443,9 +445,7 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_FSNE                111
 
 #define TGSI_OPCODE_MEMBAR              112
-#define TGSI_OPCODE_CALLNZ              113
                                 /* gap */
-#define TGSI_OPCODE_BREAKC              115
 #define TGSI_OPCODE_KILL_IF             116  /* conditional kill */
 #define TGSI_OPCODE_END                 117  /* aka HALT */
 #define TGSI_OPCODE_DFMA                118
@@ -498,9 +498,7 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_LOAD                161
 #define TGSI_OPCODE_STORE               162
 
-#define TGSI_OPCODE_MFENCE              163
-#define TGSI_OPCODE_LFENCE              164
-#define TGSI_OPCODE_SFENCE              165
+                                /* gap */
 #define TGSI_OPCODE_BARRIER             166
 
 #define TGSI_OPCODE_ATOMUADD            167
@@ -570,7 +568,43 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_DSSG                222
 #define TGSI_OPCODE_DDIV                223
 #define TGSI_OPCODE_CLOCK               224
-#define TGSI_OPCODE_LAST                225
+
+/* opcodes for ARB_gpu_shader_int64 */
+#define TGSI_OPCODE_I64ABS              225
+#define TGSI_OPCODE_I64NEG              226
+#define TGSI_OPCODE_I64SSG              227
+#define TGSI_OPCODE_I64SLT              228
+#define TGSI_OPCODE_I64SGE              229
+#define TGSI_OPCODE_I64MIN              230
+#define TGSI_OPCODE_I64MAX              231
+#define TGSI_OPCODE_I64SHR              232
+#define TGSI_OPCODE_I64DIV              233
+#define TGSI_OPCODE_I64MOD              234
+#define TGSI_OPCODE_F2I64               235
+#define TGSI_OPCODE_U2I64               236
+#define TGSI_OPCODE_I2I64               237
+#define TGSI_OPCODE_D2I64               238
+#define TGSI_OPCODE_I642F               239
+#define TGSI_OPCODE_I642D               240
+
+#define TGSI_OPCODE_U64ADD              241
+#define TGSI_OPCODE_U64MUL              242
+#define TGSI_OPCODE_U64SEQ              243
+#define TGSI_OPCODE_U64SNE              244
+#define TGSI_OPCODE_U64SLT              245
+#define TGSI_OPCODE_U64SGE              246
+#define TGSI_OPCODE_U64MIN              247
+#define TGSI_OPCODE_U64MAX              248
+#define TGSI_OPCODE_U64SHL              249
+#define TGSI_OPCODE_U64SHR              250
+#define TGSI_OPCODE_U64DIV              251
+#define TGSI_OPCODE_U64MOD              252
+#define TGSI_OPCODE_F2U64               253
+#define TGSI_OPCODE_D2U64               254
+#define TGSI_OPCODE_U642F               255
+#define TGSI_OPCODE_U642D               256
+
+#define TGSI_OPCODE_LAST                257
 
 /**
  * Opcode is the operation code to execute. A given operation defines the

@@ -119,14 +119,14 @@ bool DumpstateDevice::dumpRemoteLogs(
     return true;
 }
 
-void DumpstateDevice::dumpHelperSystem(int textFd, int binFd) {
+bool DumpstateDevice::dumpHelperSystem(int textFd, int binFd) {
     std::string helperSystemLogDir =
             android::base::GetProperty(VENDOR_HELPER_SYSTEM_LOG_LOC_PROPERTY, "");
 
     if (helperSystemLogDir.empty()) {
         LOG(ERROR) << "Helper system log location '" << VENDOR_HELPER_SYSTEM_LOG_LOC_PROPERTY
                    << "' not set";
-        return;
+        return false;
     }
 
     std::error_code error;
@@ -135,13 +135,21 @@ void DumpstateDevice::dumpHelperSystem(int textFd, int binFd) {
     if (!fs::create_directories(helperSysLogPath, error)) {
         LOG(ERROR) << "Failed to create the dumping log directory " << helperSystemLogDir << ": "
                    << error;
-        return;
+        return false;
     }
 
     if (!fs::is_directory(helperSysLogPath)) {
         LOG(ERROR) << helperSystemLogDir << " is not a directory";
-        return;
+        return false;
     }
+
+    if (!isHealthy()) {
+        LOG(ERROR) << "Failed to connect to the dumpstate server";
+        return false;
+    }
+
+    // When start dumping, we always return success to keep dumped logs
+    // even if some of them are failed
 
     {
         // Dumping system logs
@@ -170,6 +178,7 @@ void DumpstateDevice::dumpHelperSystem(int textFd, int binFd) {
         LOG(ERROR) << "Failed to clear the dumping log directory " << helperSystemLogDir << ": "
                    << error;
     }
+    return true;
 }
 
 bool DumpstateDevice::isHealthy() {
@@ -222,7 +231,9 @@ Return<DumpstateStatus> DumpstateDevice::dumpstateBoard_1_1(const hidl_handle& h
     const int textFd = handle->data[0];
     const int binFd = handle->numFds >= 2 ? handle->data[1] : -1;
 
-    dumpHelperSystem(textFd, binFd);
+    if (!dumpHelperSystem(textFd, binFd)) {
+        return DumpstateStatus::DEVICE_LOGGING_NOT_ENABLED;
+    }
 
     return DumpstateStatus::OK;
 }
@@ -234,6 +245,26 @@ Return<void> DumpstateDevice::setVerboseLoggingEnabled(const bool enable) {
 
 Return<bool> DumpstateDevice::getVerboseLoggingEnabled() {
     return android::base::GetBoolProperty(VENDOR_VERBOSE_LOGGING_ENABLED_PROPERTY, false);
+}
+
+Return<void> DumpstateDevice::debug(const hidl_handle& h, const hidl_vec<hidl_string>& options) {
+    if (h.getNativeHandle() == nullptr || h->numFds == 0) {
+        LOG(ERROR) << "Invalid FD passed to debug() function";
+        return Void();
+    }
+
+    const int fd = h->data[0];
+    auto pf = [fd](std::string s) -> void { dprintf(fd, "%s\n", s.c_str()); };
+    debugDumpServices(pf);
+
+    return Void();
+}
+
+void DumpstateDevice::debugDumpServices(std::function<void(std::string)> f) {
+    f("Available services for Dumpstate:");
+    for (const auto& svc : getAvailableServices()) {
+        f("  " + svc);
+    }
 }
 
 sp<DumpstateDevice> makeVirtualizationDumpstateDevice(const std::string& addr) {

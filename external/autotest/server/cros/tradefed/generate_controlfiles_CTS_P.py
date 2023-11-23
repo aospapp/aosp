@@ -10,7 +10,7 @@ CONFIG = {}
 
 CONFIG['TEST_NAME'] = 'cheets_CTS_P'
 CONFIG['DOC_TITLE'] = 'Android Compatibility Test Suite (CTS)'
-CONFIG['MOBLAB_SUITE_NAME'] = 'suite:cts_P'
+CONFIG['MOBLAB_SUITE_NAME'] = 'suite:cts_P, suite:cts'
 CONFIG['COPYRIGHT_YEAR'] = 2018
 CONFIG['AUTHKEY'] = ''
 
@@ -57,33 +57,34 @@ CONFIG['CTS_JOB_RETRIES_IN_PUBLIC'] = 1
 CONFIG['CTS_QUAL_RETRIES'] = 9
 CONFIG['CTS_MAX_RETRIES'] = {
     'CtsDeqpTestCases':         15,  # TODO(b/126787654)
-    'CtsIncidentHostTestCases': 30,  # TODO(b/128695132)
+    'CtsGraphicsTestCases':      5,  # TODO(b/155056869)
     'CtsSensorTestCases':       30,  # TODO(b/124528412)
 }
 
 # Timeout in hours.
 CONFIG['CTS_TIMEOUT_DEFAULT'] = 1.0
 CONFIG['CTS_TIMEOUT'] = {
-    'CtsActivityManagerDeviceTestCases': 2.0,
-    'CtsAppSecurityHostTestCases':       2.0,
-    'CtsAutoFillServiceTestCases':       2.5,  # TODO(b/134662826)
-    'CtsDeqpTestCases':                 20.0,
-    'CtsDeqpTestCases.dEQP-EGL'  :       2.0,
-    'CtsDeqpTestCases.dEQP-GLES2':       2.0,
-    'CtsDeqpTestCases.dEQP-GLES3':       6.0,
-    'CtsDeqpTestCases.dEQP-GLES31':      6.0,
-    'CtsDeqpTestCases.dEQP-VK':         15.0,
-    'CtsFileSystemTestCases':            3.0,
-    'CtsIcuTestCases':                   2.0,
-    'CtsLibcoreOjTestCases':             2.0,
-    'CtsMediaStressTestCases':           5.0,
-    'CtsMediaTestCases':                10.0,
-    'CtsPrintTestCases':                 1.5,
-    'CtsSecurityTestCases':              2.0,
-    'CtsVideoTestCases':                 1.5,
-    _COLLECT:                            2.5,
-    _PUBLIC_COLLECT:                     2.5,
-    _WM_PRESUBMIT:                       0.2,
+        'CtsActivityManagerDeviceTestCases': 2.0,
+        'CtsAppSecurityHostTestCases': 4.0,  # TODO(b/172409836)
+        'CtsAutoFillServiceTestCases': 6.0,  # TODO(b/145092442)
+        'CtsCameraTestCases': 2.0,  # TODO(b/150657700)
+        'CtsDeqpTestCases': 20.0,
+        'CtsDeqpTestCases.dEQP-EGL': 2.0,
+        'CtsDeqpTestCases.dEQP-GLES2': 2.0,
+        'CtsDeqpTestCases.dEQP-GLES3': 6.0,
+        'CtsDeqpTestCases.dEQP-GLES31': 6.0,
+        'CtsDeqpTestCases.dEQP-VK': 15.0,
+        'CtsFileSystemTestCases': 3.0,
+        'CtsIcuTestCases': 2.0,
+        'CtsLibcoreOjTestCases': 2.0,
+        'CtsMediaStressTestCases': 5.0,
+        'CtsMediaTestCases': 10.0,
+        'CtsPrintTestCases': 1.5,
+        'CtsSecurityTestCases': 2.0,
+        'CtsVideoTestCases': 1.5,
+        _COLLECT: 2.5,
+        _PUBLIC_COLLECT: 2.5,
+        _WM_PRESUBMIT: 0.2,
 }
 
 # Any test that runs as part as blocking BVT needs to be stable and fast. For
@@ -94,7 +95,7 @@ CONFIG['CTS_TIMEOUT'] = {
 # (typically camera) is stuck, the CTS precondition step hits 5 minute abort.
 # Since this abort doesn't affect too much for the main CTS runs (with longer
 # timeouts), it's ok to let them go in. Bad state of camre should be caught by
-# camera tests, not by this general CTS sanity test.
+# camera tests, not by this general test harness health check for CTS.
 CONFIG['BVT_TIMEOUT'] = 0.2
 
 CONFIG['QUAL_BOOKMARKS'] = sorted([
@@ -144,7 +145,6 @@ CONFIG['BVT_PERBUILD'] = [
     'CtsThemeDeviceTestCases',
     'CtsTransitionTestCases',
     'CtsTvTestCases',
-    'CtsUiAutomationTestCases',
     'CtsUsbTests',
     'CtsVoiceSettingsTestCases',
 ]
@@ -178,7 +178,16 @@ CONFIG['MEDIA_MODULES'] = [
     'CtsMediaBitstreamsTestCases',
 ]
 
-CONFIG['NEEDS_PUSH_MEDIA'] = CONFIG['MEDIA_MODULES']
+CONFIG['NEEDS_PUSH_MEDIA'] = CONFIG['MEDIA_MODULES'] + [
+    'CtsMediaTestCases.audio',
+]
+
+# See b/149889853. Non-media test basically does not require dynamic
+# config. To reduce the flakiness, let us suppress the config.
+CONFIG['NEEDS_DYNAMIC_CONFIG_ON_COLLECTION'] = False
+CONFIG['NEEDS_DYNAMIC_CONFIG'] = CONFIG['MEDIA_MODULES'] + [
+    'CtsIntentSignatureTestCases'
+]
 
 # Modules that are known to need the default apps of Chrome (eg. Files.app).
 CONFIG['ENABLE_DEFAULT_APPS'] = [
@@ -301,6 +310,12 @@ CONFIG['EXTRA_MODULES'] = {
             'CtsDeqpTestCases.dEQP-VK'
         ]),
         'SUITES': ['suite:arc-cts-deqp', 'suite:graphics_per-week'],
+    },
+    'CtsMediaTestCases': {
+        'SUBMODULES': set([
+            'CtsMediaTestCases.audio',
+        ]),
+        'SUITES': ['suite:arc-cts'],
     },
     _WM_PRESUBMIT: {
         'SUBMODULES': set([_WM_PRESUBMIT]),
@@ -547,6 +562,31 @@ CONFIG['EXTRA_COMMANDLINE'] = {
         '--include-filter', 'CtsDeqpTestCases', '--module', 'CtsDeqpTestCases',
         '--test', 'dEQP-VK.ycbcr.*'
     ],
+    'CtsMediaTestCases.audio': [
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioAttributesTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioEffectTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioFocusTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioFormatTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioManagerTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioNativeTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioPlayRoutingNative',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioPlaybackConfigurationTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioPreProcessingTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioPresentationTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioRecordAppOpTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioRecordRoutingNative',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioRecordTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioRecord_BufferSizeTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioRecordingConfigurationTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioTrackLatencyTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioTrackSurroundTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioTrackTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.AudioTrack_ListenerTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.SoundPoolAacTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.SoundPoolMidiTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.SoundPoolOggTest',
+        '--include-filter', 'CtsMediaTestCases android.media.cts.VolumeShaperTest',
+    ],
     _WM_PRESUBMIT: [
         '--include-filter', 'CtsActivityManagerDeviceSdk25TestCases',
         '--include-filter', 'CtsActivityManagerDeviceTestCases',
@@ -617,4 +657,3 @@ from generate_controlfiles_common import main
 
 if __name__ == '__main__':
     main(CONFIG)
-

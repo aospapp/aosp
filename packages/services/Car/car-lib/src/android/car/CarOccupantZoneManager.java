@@ -302,7 +302,7 @@ public class CarOccupantZoneManager extends CarManagerBase {
             int[] displayIds = mService.getAllDisplaysForOccupantZone(occupantZone.zoneId);
             ArrayList<Display> displays = new ArrayList<>(displayIds.length);
             for (int i = 0; i < displayIds.length; i++) {
-                // quick sanity check while getDisplay can still handle invalid display
+                // quick confidence check while getDisplay can still handle invalid display
                 if (displayIds[i] == Display.INVALID_DISPLAY) {
                     continue;
                 }
@@ -330,13 +330,35 @@ public class CarOccupantZoneManager extends CarManagerBase {
         assertNonNullOccupant(occupantZone);
         try {
             int displayId = mService.getDisplayForOccupant(occupantZone.zoneId, displayType);
-            // quick sanity check while getDisplay can still handle invalid display
+            // quick confidence check while getDisplay can still handle invalid display
             if (displayId == Display.INVALID_DISPLAY) {
                 return null;
             }
             return mDisplayManager.getDisplay(displayId);
         } catch (RemoteException e) {
             return handleRemoteExceptionFromCarService(e, null);
+        }
+    }
+
+    /**
+     * Returns the display id for the driver.
+     *
+     * <p>This method just returns the display id for the requested type. The returned display id
+     * may correspond to a private display and the client may not have access to it.
+     *
+     * @param displayType the display type
+     * @return the driver's display id or {@link Display#INVALID_DISPLAY} when no such display
+     * exists
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(Car.ACCESS_PRIVATE_DISPLAY_ID)
+    public int getDisplayIdForDriver(@DisplayTypeEnum int displayType) {
+        try {
+            return mService.getDisplayIdForDriver(displayType);
+        } catch (RemoteException e) {
+            return handleRemoteExceptionFromCarService(e, Display.INVALID_DISPLAY);
         }
     }
 

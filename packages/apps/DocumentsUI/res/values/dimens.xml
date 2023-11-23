@@ -89,8 +89,9 @@
     <dimen name="root_info_header_height">60dp</dimen>
     <dimen name="root_info_header_horizontal_padding">24dp</dimen>
 
-    <dimen name="search_chip_group_margin">8dp</dimen>
+    <dimen name="search_chip_group_margin">20dp</dimen>
     <dimen name="search_chip_spacing">8dp</dimen>
+    <dimen name="search_chip_half_spacing">4dp</dimen>
     <dimen name="search_chip_icon_padding">4dp</dimen>
     <dimen name="search_chip_radius">16dp</dimen>
 
@@ -110,15 +111,16 @@
     <dimen name="apps_row_exit_icon_margin_bottom">6dp</dimen>
     <dimen name="apps_row_item_text_margin_horizontal">8dp</dimen>
 
+    <dimen name="search_bar_elevation">3dp</dimen>
     <dimen name="search_bar_radius">8dp</dimen>
     <dimen name="search_bar_background_margin_start">0dp</dimen>
     <dimen name="search_bar_background_margin_end">0dp</dimen>
     <dimen name="search_bar_margin">8dp</dimen>
     <dimen name="search_bar_text_size">16dp</dimen>
+
+    <dimen name="action_bar_elevation">3dp</dimen>
+    <dimen name="action_bar_margin">1dp</dimen>
     <dimen name="action_bar_size">48dp</dimen>
-    <!--This value should equal actionBarSize + (2 x search_bar_margin)-->
-    <dimen name="action_bar_space_height">64dp</dimen>
-    <dimen name="action_bar_space_margin">@dimen/action_bar_space_height</dimen>
     <dimen name="action_mode_text_size">18sp</dimen>
 
     <dimen name="refresh_icon_range">64dp</dimen>

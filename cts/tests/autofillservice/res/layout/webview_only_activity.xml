@@ -24,7 +24,7 @@
     android:focusableInTouchMode="true"
     android:orientation="vertical" >
 
-    <android.autofillservice.cts.MyWebView
+    <android.autofillservice.cts.activities.MyWebView
         android:id="@+id/my_webview"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

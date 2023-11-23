@@ -15,9 +15,25 @@
 //
 
 // Exposes ExoPlayer classes required for implementing the MediaParser API.
-android_library {
+package {
+    default_applicable_licenses: ["external_exoplayer_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_exoplayer_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
+java_library {
     name: "exoplayer2-extractor",
-    manifest: "tree/library/extractor/src/main/AndroidManifest.xml",
     srcs: [
         "tree/library/extractor/src/main/java/**/*.java",
         "tree/library/common/src/main/java/**/*.java",

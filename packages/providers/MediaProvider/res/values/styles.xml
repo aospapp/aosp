@@ -16,15 +16,16 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <style name="PickerDialogTheme" parent="@*android:style/Theme.DeviceDefault.Settings.Dialog">
+    <style name="PickerDialogTheme"
+           parent="@android:style/Theme.DeviceDefault.Light.Dialog.Alert">
         <item name="android:windowNoTitle">true</item>
     </style>
 
     <style name="AlertDialogTheme"
-      parent="@*android:style/Theme.DeviceDefault.Dialog.Alert.DayNight" />
+           parent="@android:style/Theme.DeviceDefault.Light.Dialog.Alert"/>
 
     <style name="CacheClearingAlertDialogTheme"
-           parent="@*android:style/Theme.DeviceDefault.Dialog.Alert.DayNight">
+           parent="@android:style/Theme.DeviceDefault.Light.Dialog.Alert">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>
@@ -39,7 +40,13 @@
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:gravity">center</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
         <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
     </style>
 
+    <style name="PermissionAlertDialogTitle"
+           parent="@android:style/TextAppearance.DeviceDefault.DialogWindowTitle">
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+    </style>
 </resources>

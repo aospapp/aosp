@@ -7,10 +7,11 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_Cr50WPG3"
 PURPOSE = "Verify WP in G3."
-ATTRIBUTES = "suite:faft_cr50_prepvt, suite:faft_cr50_pvt"
+# TODO(b/166471025): add to suites once WP check is fixed.
+# ATTRIBUTES = "suite:faft_cr50_prepvt, suite:faft_cr50_pvt"
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """Verify WP in G3.
 

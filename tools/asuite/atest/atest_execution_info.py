@@ -40,16 +40,18 @@ _TEST_NAME_KEY = 'test_name'
 _TEST_TIME_KEY = 'test_time'
 _TEST_DETAILS_KEY = 'details'
 _TEST_RESULT_NAME = 'test_result'
+_TEST_RESULT_LINK = 'test_result_link'
 _EXIT_CODE_ATTR = 'EXIT_CODE'
 _MAIN_MODULE_KEY = '__main__'
 _UUID_LEN = 30
-_RESULT_LEN = 35
+_RESULT_LEN = 20
+_RESULT_URL_LEN = 35
 _COMMAND_LEN = 50
 _LOGCAT_FMT = '{}/log/invocation_*/{}*logcat-on-failure*'
 
-_SUMMARY_MAP_TEMPLATE = {_STATUS_PASSED_KEY : 0,
-                         _STATUS_FAILED_KEY : 0,
-                         _STATUS_IGNORED_KEY : 0,}
+_SUMMARY_MAP_TEMPLATE = {_STATUS_PASSED_KEY: 0,
+                         _STATUS_FAILED_KEY: 0,
+                         _STATUS_IGNORED_KEY: 0}
 
 PREPARE_END_TIME = None
 
@@ -96,11 +98,19 @@ def print_test_result(root, history_arg):
     target = '%s/20*_*_*' % root
     paths = glob.glob(target)
     paths.sort(reverse=True)
-    print('{:-^{uuid_len}} {:-^{result_len}} {:-^{command_len}}'
-          .format('uuid', 'result', 'command',
-                  uuid_len=_UUID_LEN,
-                  result_len=_RESULT_LEN,
-                  command_len=_COMMAND_LEN))
+    if has_url_results():
+        print('{:-^{uuid_len}} {:-^{result_len}} {:-^{result_url_len}} {:-^{command_len}}'
+              .format('uuid', 'result', 'result_url', 'command',
+                      uuid_len=_UUID_LEN,
+                      result_len=_RESULT_LEN,
+                      result_url_len=_RESULT_URL_LEN,
+                      command_len=_COMMAND_LEN))
+    else:
+        print('{:-^{uuid_len}} {:-^{result_len}} {:-^{command_len}}'
+              .format('uuid', 'result', 'command',
+                      uuid_len=_UUID_LEN,
+                      result_len=_RESULT_LEN,
+                      command_len=_COMMAND_LEN))
     for path in paths[0: int(history_arg)+1]:
         result_path = os.path.join(path, 'test_result')
         if os.path.isfile(result_path):
@@ -108,15 +118,28 @@ def print_test_result(root, history_arg):
                 with open(result_path) as json_file:
                     result = json.load(json_file)
                     total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
-                    summary_str = ', '.join([k+':'+str(v)
+                    summary_str = ', '.join([k[:1]+':'+str(v)
                                              for k, v in total_summary.items()])
-                    print('{:<{uuid_len}} {:<{result_len}} atest {:<{command_len}}'
-                          .format(os.path.basename(path),
-                                  summary_str,
-                                  result.get(_ARGS_KEY, ''),
-                                  uuid_len=_UUID_LEN,
-                                  result_len=_RESULT_LEN,
-                                  command_len=_COMMAND_LEN))
+                    test_result_url = result.get(_TEST_RESULT_LINK, '')
+                    if has_url_results():
+                        print('{:<{uuid_len}} {:<{result_len}} '
+                              '{:<{result_url_len}} atest {:<{command_len}}'
+                              .format(os.path.basename(path),
+                                      summary_str,
+                                      test_result_url,
+                                      result.get(_ARGS_KEY, ''),
+                                      uuid_len=_UUID_LEN,
+                                      result_len=_RESULT_LEN,
+                                      result_url_len=_RESULT_URL_LEN,
+                                      command_len=_COMMAND_LEN))
+                    else:
+                        print('{:<{uuid_len}} {:<{result_len}} atest {:<{command_len}}'
+                              .format(os.path.basename(path),
+                                      summary_str,
+                                      result.get(_ARGS_KEY, ''),
+                                      uuid_len=_UUID_LEN,
+                                      result_len=_RESULT_LEN,
+                                      command_len=_COMMAND_LEN))
             except ValueError:
                 pass
 
@@ -131,6 +154,9 @@ def print_test_result_by_path(path):
         with open(path) as json_file:
             result = json.load(json_file)
             print("\natest {}".format(result.get(_ARGS_KEY, '')))
+            test_result_url = result.get(_TEST_RESULT_LINK, '')
+            if test_result_url:
+                print('\nTest Result Link: {}'.format(test_result_url))
             print('\nTotal Summary:\n{}'.format(au.delimiter('-')))
             total_summary = result.get(_TOTAL_SUMMARY_KEY, {})
             print(', '.join([(k+':'+str(v))
@@ -179,7 +205,26 @@ def has_non_test_options(args):
             or args.history
             or args.info
             or args.version
-            or args.latest_result)
+            or args.latest_result
+            or args.history)
+
+
+def has_url_results():
+    """Get if contains url info."""
+    for root, _, files in os.walk(constants.ATEST_RESULT_ROOT):
+        for file in files:
+            if file != 'test_result':
+                continue
+            json_file = os.path.join(root, 'test_result')
+            with open(json_file) as result:
+                try:
+                    result = json.load(result)
+                    url_link = result.get(_TEST_RESULT_LINK, '')
+                    if url_link:
+                        return True
+                except ValueError:
+                    pass
+    return False
 
 
 class AtestExecutionInfo:
@@ -248,12 +293,11 @@ class AtestExecutionInfo:
 
     def __exit__(self, exit_type, value, traceback):
         """Write execution information and close information file."""
-        if self.result_file:
+        if self.result_file and not has_non_test_options(self.args_ns):
             self.result_file.write(AtestExecutionInfo.
                                    _generate_execution_detail(self.args))
             self.result_file.close()
-            if not has_non_test_options(self.args_ns):
-                symlink_latest_result(self.work_dir)
+            symlink_latest_result(self.work_dir)
         main_module = sys.modules.get(_MAIN_MODULE_KEY)
         main_exit_code = getattr(main_module, _EXIT_CODE_ATTR,
                                  constants.EXIT_CODE_ERROR)
@@ -308,13 +352,15 @@ class AtestExecutionInfo:
         """
         info_dict[_TEST_RUNNER_KEY] = {}
         for reporter in reporters:
+            if reporter.test_result_link:
+                info_dict[_TEST_RESULT_LINK] = reporter.test_result_link
             for test in reporter.all_test_results:
                 runner = info_dict[_TEST_RUNNER_KEY].setdefault(
                     test.runner_name, {})
                 group = runner.setdefault(test.group_name, {})
-                result_dict = {_TEST_NAME_KEY : test.test_name,
-                               _TEST_TIME_KEY : test.test_time,
-                               _TEST_DETAILS_KEY : test.details}
+                result_dict = {_TEST_NAME_KEY: test.test_name,
+                               _TEST_TIME_KEY: test.test_time,
+                               _TEST_DETAILS_KEY: test.details}
                 group.setdefault(test.status, []).append(result_dict)
 
         total_test_group_summary = _SUMMARY_MAP_TEMPLATE.copy()

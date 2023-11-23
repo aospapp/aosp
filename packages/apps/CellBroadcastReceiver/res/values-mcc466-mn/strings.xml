@@ -18,5 +18,5 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="4052407641316309322">"Мессеж сэрэмжлүүлэг"</string>
     <string name="enable_cmas_test_alerts_title" msgid="4165080207837566277">"Сар тутам шаардлагатай туршилт"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="1339769389077152402">"Аюулгүй байдлын сэрэмжлүүлгийн системийн туршилтын зурвас хүлээн авах"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="1339769389077152402">"Аюулгүй байдлын сэрэмжлүүлгийн системийн туршилтын мессеж хүлээн авах"</string>
 </resources>

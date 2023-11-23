@@ -5,7 +5,6 @@
 import logging
 import os
 import re
-import urlparse
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
@@ -24,16 +23,11 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
     _P2P_NUM_ATTEMPTS_PREF = 'p2p-num-attempts'
 
 
-    def setup(self):
-        """Basic setup for the test."""
-        self._omaha_devserver = None
-
-
     def cleanup(self):
         logging.info('Disabling p2p_update on hosts.')
         for host in self._hosts:
             try:
-                cmd = 'update_engine_client --p2p_update=no'
+                cmd = [self._UPDATE_ENGINE_CLIENT_CMD, '--p2p_update=no']
                 retry_util.RetryException(error.AutoservRunError, 2, host.run,
                                           cmd)
             except Exception:
@@ -46,7 +40,7 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
         logging.info('Enabling p2p_update on hosts.')
         for host in self._hosts:
             try:
-                cmd = 'update_engine_client --p2p_update=yes'
+                cmd = [self._UPDATE_ENGINE_CLIENT_CMD, '--p2p_update=yes']
                 retry_util.RetryException(error.AutoservRunError, 2, host.run,
                                           cmd)
             except Exception:
@@ -119,12 +113,8 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
                                  desc='Waiting for update engine idle')
 
         logging.info('Updating first DUT with a regular update.')
-        # Split the URL into server and port.
-        url_split = urlparse.urlsplit(update_url)
-        server, port = url_split.netloc.split(':')
         try:
-            self._check_for_update(server=server, port=int(port),
-                                   wait_for_completion=True)
+            self._check_for_update(update_url, wait_for_completion=True)
         except error.AutoservRunError:
             logging.exception('Failed to update the first DUT.')
             raise error.TestFail('Updating the first DUT failed. Error: %s.' %
@@ -146,8 +136,8 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
         """
         logging.info('Checking that p2p is still enabled after update.')
         def _is_p2p_enabled():
-            p2p = host.run('update_engine_client --show_p2p_update',
-                           ignore_status=True)
+            p2p = host.run([self._UPDATE_ENGINE_CLIENT_CMD,
+                            '--show_p2p_update'], ignore_status=True)
             if p2p.stderr is not None and 'ENABLED' in p2p.stderr:
                 return True
             else:
@@ -177,13 +167,9 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
                                  desc='Waiting for update engine idle')
 
         logging.info('Updating second host via p2p.')
-        # Split the URL into server and port.
-        url_split = urlparse.urlsplit(update_url)
-        server, port = url_split.netloc.split(':')
-
         try:
-            self._check_for_update(server=server, port=int(port),
-                                   wait_for_completion=True, interactive=False)
+            self._check_for_update(update_url, wait_for_completion=True,
+                                   interactive=False)
         except error.AutoservRunError:
             logging.exception('Failed to update the second DUT via P2P.')
             raise error.TestFail('Failed to update the second DUT. Error: %s' %
@@ -195,7 +181,7 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
                                        'update_engine.log_second_dut'))
 
         # Return the update_engine logs so we can check for p2p entries.
-        return host.run('cat %s' % self._UPDATE_ENGINE_LOG).stdout
+        return self._get_update_engine_log()
 
 
     def _check_for_p2p_entries_in_update_log(self, update_engine_log):
@@ -309,8 +295,7 @@ class autoupdate_P2P(update_engine_test.UpdateEngineTest):
         # Get an N-to-N delta payload update url to use for the test.
         # P2P updates are very slow so we will only update with a delta payload.
         update_url = self.get_update_url_for_test(job_repo_url,
-                                                  full_payload=False,
-                                                  critical_update=False)
+                                                  full_payload=False)
 
         # The first device just updates normally.
         self._update_dut(self._hosts[0], update_url)

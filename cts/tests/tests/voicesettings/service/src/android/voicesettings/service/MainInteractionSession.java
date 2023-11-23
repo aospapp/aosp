@@ -66,7 +66,10 @@ public class MainInteractionSession extends VoiceInteractionSession {
 
     @Override
     public void onShow(Bundle args, int showFlags) {
-        super.onShow(args, showFlags);
+        if (args == null) {
+            Log.e(TAG, "onshow() received null args");
+            return;
+        }
         String testCaseType = args.getString(BroadcastUtils.TESTCASE_TYPE);
         Log.i(TAG, "received_testcasetype = " + testCaseType);
         try {

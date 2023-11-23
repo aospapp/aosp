@@ -24,8 +24,11 @@ import com.google.auto.common.MoreTypes;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.testing.compile.CompilationRule;
+import dagger.BindsInstance;
+import dagger.Component;
 import dagger.Module;
 import dagger.Provides;
+import dagger.internal.codegen.binding.KeyFactory;
 import dagger.internal.codegen.langmodel.DaggerElements;
 import dagger.internal.codegen.langmodel.DaggerTypes;
 import dagger.model.Key;
@@ -38,6 +41,7 @@ import java.lang.annotation.Retention;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.inject.Qualifier;
+import javax.inject.Singleton;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -57,16 +61,12 @@ import org.junit.runners.JUnit4;
 public class KeyFactoryTest {
   @Rule public CompilationRule compilationRule = new CompilationRule();
 
-  private DaggerElements elements;
-  private DaggerTypes types;
-  private KeyFactory keyFactory;
+  @Inject DaggerElements elements;
+  @Inject DaggerTypes types;
+  @Inject KeyFactory keyFactory;
 
   @Before public void setUp() {
-    this.elements = new DaggerElements(compilationRule.getElements(), compilationRule.getTypes());
-    this.types = new DaggerTypes(compilationRule.getTypes(), elements);
-    TypeProtoConverter typeProtoConverter = new TypeProtoConverter(types, elements);
-    this.keyFactory = new KeyFactory(
-        types, elements, typeProtoConverter, new AnnotationProtoConverter(typeProtoConverter));
+    DaggerKeyFactoryTest_TestComponent.factory().create(compilationRule).inject(this);
   }
 
   @Test public void forInjectConstructorWithResolvedType() {
@@ -250,7 +250,7 @@ public class KeyFactoryTest {
     ExecutableElement integerMethod = Iterables.getOnlyElement(
         ElementFilter.methodsIn(boxedPrimitiveHolder.getEnclosedElements()));
 
-    // TODO(cgruber): Truth subject for TypeMirror and TypeElement
+    // TODO(user): Truth subject for TypeMirror and TypeElement
     TypeMirror intType = intMethod.getReturnType();
     assertThat(intType.getKind().isPrimitive()).isTrue();
     TypeMirror integerType = integerMethod.getReturnType();
@@ -327,6 +327,30 @@ public class KeyFactoryTest {
     @Produces @ElementsIntoSet
     ListenableFuture<Set<String>> produceFutureStrings() {
       throw new UnsupportedOperationException();
+    }
+  }
+
+  @Singleton
+  @Component(modules = {TestModule.class})
+  interface TestComponent {
+    void inject(KeyFactoryTest test);
+
+    @Component.Factory
+    interface Factory {
+      TestComponent create(@BindsInstance CompilationRule compilationRule);
+    }
+  }
+
+  @Module
+  static class TestModule {
+    @Provides
+    static DaggerElements elements(CompilationRule compilationRule) {
+      return new DaggerElements(compilationRule.getElements(), compilationRule.getTypes());
+    }
+
+    @Provides
+    static DaggerTypes types(CompilationRule compilationRule, DaggerElements elements) {
+      return new DaggerTypes(compilationRule.getTypes(), elements);
     }
   }
 }

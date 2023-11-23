@@ -17,6 +17,7 @@
 package android.location.cts.gnss;
 
 import android.location.GnssMeasurement;
+import android.location.GnssMeasurementRequest;
 import android.location.GnssMeasurementsEvent;
 import android.location.GnssStatus;
 import android.location.cts.common.GnssTestCase;
@@ -25,7 +26,6 @@ import android.location.cts.common.TestGnssMeasurementListener;
 import android.location.cts.common.TestLocationListener;
 import android.location.cts.common.TestLocationManager;
 import android.location.cts.common.TestMeasurementUtil;
-import android.os.Build;
 import android.util.Log;
 
 import java.util.List;
@@ -36,11 +36,8 @@ import java.util.List;
  * Test steps:
  * 1. Register a listener for {@link GnssMeasurementsEvent}s.
  * 2. Check {@link GnssMeasurementsEvent} status: if the status is not
- *    {@link GnssMeasurementsEvent#STATUS_READY}, the test will be skipped because one of the
- *    following reasons:
- *          2.1 the device does not support the feature,
- *          2.2 GPS is disabled in the device,
- *          2.3 Location is disabled in the device.
+ *    {@link GnssMeasurementsEvent#STATUS_READY}, the test will be skipped if the device does not
+ *    support the feature,
  * 3. If at least one {@link GnssMeasurementsEvent} is received, the test will pass.
  * 2. If no {@link GnssMeasurementsEvent} are received, then check whether the device is deep indoor.
  *    This is done by performing the following steps:
@@ -49,10 +46,9 @@ import java.util.List;
  *          2.3 If no {@link GnssStatus} is received this will mean that the device is located
  *              indoor. Test will be skipped.
  *          2.4 If we receive a {@link GnssStatus}, it mean that {@link GnssMeasurementsEvent}s are
- *              provided only if the application registers for location updates as well:
- *                  2.4.1 The test will pass with a warning for the M release.
- *                  2.4.2 The test might fail in a future Android release, when this requirement
- *                        becomes mandatory.
+ *              provided only if the application registers for location updates as well. Since
+ *              Android Q, it is mandatory to report GnssMeasurement even if a location has not
+ *              yet been reported. Therefore, the test fails.
  */
 public class GnssMeasurementRegistrationTest extends GnssTestCase {
 
@@ -86,9 +82,12 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
      */
     public void testGnssMeasurementRegistration() throws Exception {
         // Checks if GPS hardware feature is present, skips test (pass) if not
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(Build.VERSION_CODES.N,
-                mTestLocationManager,
-                TAG)) {
+        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
+            return;
+        }
+
+        if (TestMeasurementUtil.isAutomotiveDevice(getContext())) {
+            Log.i(TAG, "Test is being skipped because the system has the AUTOMOTIVE feature.");
             return;
         }
 
@@ -96,26 +95,47 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
         mMeasurementListener = new TestGnssMeasurementListener(TAG, GPS_EVENTS_COUNT);
         mTestLocationManager.registerGnssMeasurementCallback(mMeasurementListener);
 
-        mMeasurementListener.await();
-        if (!mMeasurementListener.verifyStatus()) {
-            // If test is strict verifyStatus will assert conditions are good for further testing.
-            // Else this returns false and, we arrive here, and then return from here (pass.)
+        verifyGnssMeasurementsReceived();
+    }
+
+    /**
+     * Test GPS measurements registration with full tracking enabled.
+     */
+    public void testGnssMeasurementRegistration_enableFullTracking() throws Exception {
+        // Checks if GPS hardware feature is present, skips test (pass) if not,
+        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
             return;
         }
+
+        if (TestMeasurementUtil.isAutomotiveDevice(getContext())) {
+            Log.i(TAG, "Test is being skipped because the system has the AUTOMOTIVE feature.");
+            return;
+        }
+
+        // Register for GPS measurements.
+        mMeasurementListener = new TestGnssMeasurementListener(TAG, GPS_EVENTS_COUNT);
+        mTestLocationManager.registerGnssMeasurementCallback(mMeasurementListener,
+                new GnssMeasurementRequest.Builder().setFullTracking(true).build());
+
+        verifyGnssMeasurementsReceived();
+    }
+
+    private void verifyGnssMeasurementsReceived() throws InterruptedException {
+        mMeasurementListener.await();
 
         List<GnssMeasurementsEvent> events = mMeasurementListener.getEvents();
         Log.i(TAG, "Number of GnssMeasurement events received = " + events.size());
 
         if (!events.isEmpty()) {
-           // Test passes if we get at least 1 pseudorange.
-           Log.i(TAG, "Received GPS measurements. Test Pass.");
-           return;
+            // Test passes if we get at least 1 pseudorange.
+            Log.i(TAG, "Received GPS measurements. Test Pass.");
+            return;
         }
 
         SoftAssert.failAsWarning(
                 TAG,
                 "GPS measurements were not received without registering for location updates. "
-                + "Trying again with Location request.");
+                        + "Trying again with Location request.");
 
         // Register for location updates.
         mLocationListener = new TestLocationListener(EVENTS_COUNT);
@@ -132,6 +152,14 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
         softAssert.assertTrue(
                 "Did not receive any GnssMeasurement events.  Retry outdoors?",
                 !events.isEmpty());
+
+        softAssert.assertTrue(
+                "Received GnssMeasurement events only when registering for location updates. "
+                        + "Since Android Q, device MUST report GNSS measurements, as soon as they"
+                        + " are found, even if a location calculated from GPS/GNSS is not yet "
+                        + "reported.",
+                events.isEmpty());
+
         softAssert.assertAll();
     }
 }

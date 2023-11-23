@@ -28,7 +28,7 @@ import com.android.car.apps.common.util.ViewUtils;
 import com.android.car.dialer.R;
 import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.dialer.ui.common.DialerUtils;
-import com.android.car.dialer.ui.common.entity.ContactSortingInfo;
+import com.android.car.dialer.ui.common.OnItemClickedListener;
 import com.android.car.dialer.ui.view.ContactAvatarOutputlineProvider;
 import com.android.car.telephony.common.Contact;
 import com.android.car.telephony.common.PhoneNumber;
@@ -36,12 +36,17 @@ import com.android.car.telephony.common.TelecomUtils;
 
 import java.util.List;
 
+import dagger.assisted.Assisted;
+import dagger.assisted.AssistedFactory;
+import dagger.assisted.AssistedInject;
+
 /**
  * {@link RecyclerView.ViewHolder} for contact list item, responsible for presenting and resetting
  * the UI on recycle.
  */
-public class ContactListViewHolder extends RecyclerView.ViewHolder {
-    private final ContactListAdapter.OnShowContactDetailListener mOnShowContactDetailListener;
+class ContactListViewHolder extends RecyclerView.ViewHolder {
+    private final UiCallManager mUiCallManager;
+    private final OnItemClickedListener<Contact> mOnItemClickedListener;
     private final TextView mHeaderView;
     private final ImageView mAvatarView;
     private final TextView mTitleView;
@@ -49,10 +54,14 @@ public class ContactListViewHolder extends RecyclerView.ViewHolder {
     private final View mShowContactDetailView;
     private final View mCallActionView;
 
-    public ContactListViewHolder(@NonNull View itemView,
-            ContactListAdapter.OnShowContactDetailListener onShowContactDetailListener) {
+    @AssistedInject
+    ContactListViewHolder(
+            @Assisted @NonNull View itemView,
+            OnItemClickedListener<Contact> onItemClickedListener,
+            UiCallManager uiCallManager) {
         super(itemView);
-        mOnShowContactDetailListener = onShowContactDetailListener;
+        mUiCallManager = uiCallManager;
+        mOnItemClickedListener = onItemClickedListener;
         mHeaderView = itemView.findViewById(R.id.header);
         mAvatarView = itemView.findViewById(R.id.icon);
         mAvatarView.setOutlineProvider(ContactAvatarOutputlineProvider.get());
@@ -66,13 +75,14 @@ public class ContactListViewHolder extends RecyclerView.ViewHolder {
      * Binds the view holder with relevant data.
      */
     public void bind(Contact contact, boolean showHeader, String header, Integer sortMethod) {
-        TelecomUtils.setContactBitmapAsync(mAvatarView.getContext(), mAvatarView, contact);
+        TelecomUtils.setContactBitmapAsync(mAvatarView.getContext(), mAvatarView, contact,
+                sortMethod);
         ViewUtils.setVisible(mHeaderView, showHeader);
         if (showHeader) {
             ViewUtils.setText(mHeaderView, header);
         }
-        mTitleView.setText(ContactSortingInfo.SORT_BY_FIRST_NAME.equals(sortMethod)
-                ? contact.getDisplayName() : contact.getDisplayNameAlt());
+        mTitleView.setText(TelecomUtils.isSortByFirstName(sortMethod) ? contact.getDisplayName()
+                : contact.getDisplayNameAlt());
         setLabelText(contact);
 
         boolean forceShowButton = itemView.getResources().getBoolean(
@@ -115,10 +125,10 @@ public class ContactListViewHolder extends RecyclerView.ViewHolder {
         if (hasPhoneNumbers) {
             ViewUtils.setOnClickListener(mCallActionView, view -> {
                 DialerUtils.promptForPrimaryNumber(itemView.getContext(), contact,
-                        (phoneNumber, always) -> UiCallManager.get().placeCall(
+                        (phoneNumber, always) -> mUiCallManager.placeCall(
                                 phoneNumber.getRawNumber()));
             });
-        }  else {
+        } else {
             ViewUtils.setOnClickListener(mCallActionView, null);
         }
     }
@@ -135,7 +145,7 @@ public class ContactListViewHolder extends RecyclerView.ViewHolder {
 
         if (hasContactDetail) {
             ViewUtils.setOnClickListener(mShowContactDetailView,
-                    view -> mOnShowContactDetailListener.onShowContactDetail(contact));
+                    view -> mOnItemClickedListener.onItemClicked(contact));
         } else {
             ViewUtils.setOnClickListener(mShowContactDetailView, null);
         }
@@ -147,5 +157,14 @@ public class ContactListViewHolder extends RecyclerView.ViewHolder {
     public void recycle() {
         ViewUtils.setOnClickListener(mCallActionView, null);
         ViewUtils.setOnClickListener(mShowContactDetailView, null);
+    }
+
+    /**
+     * Factory to create {@link ContactListViewHolder} instances via the {@link AssistedInject}
+     * constructor.
+     */
+    @AssistedFactory
+    interface Factory {
+        ContactListViewHolder create(@NonNull View itemView);
     }
 }

@@ -17,9 +17,11 @@
 // Add fake functions to build successfully on darwin.
 #include <android-base/logging.h>
 
-#include "read_dex_file.h"
-#include "environment.h"
 #include "OfflineUnwinder.h"
+#include "environment.h"
+#include "read_dex_file.h"
+
+namespace simpleperf {
 
 bool GetKernelBuildId(BuildId*) {
   return false;
@@ -30,12 +32,12 @@ bool CanRecordRawData() {
 }
 
 bool ReadSymbolsFromDexFileInMemory(void*, uint64_t, const std::vector<uint64_t>&,
-                                    std::vector<DexFileSymbol>*) {
+                                    const std::function<void(DexFileSymbol*)>&) {
   return true;
 }
 
 bool ReadSymbolsFromDexFile(const std::string&, const std::vector<uint64_t>&,
-                            std::vector<DexFileSymbol>*) {
+                            const std::function<void(DexFileSymbol*)>&) {
   return true;
 }
 
@@ -43,9 +45,7 @@ const char* GetTraceFsDir() {
   return nullptr;
 }
 
-namespace simpleperf {
-
-class DummyOfflineUnwinder : public OfflineUnwinder {
+class NoOpOfflineUnwinder : public OfflineUnwinder {
  public:
   bool UnwindCallChain(const ThreadEntry&, const RegSet&, const char*, size_t,
                        std::vector<uint64_t>*, std::vector<uint64_t>*) override {
@@ -54,7 +54,7 @@ class DummyOfflineUnwinder : public OfflineUnwinder {
 };
 
 std::unique_ptr<OfflineUnwinder> OfflineUnwinder::Create(bool) {
-  return std::unique_ptr<OfflineUnwinder>(new DummyOfflineUnwinder);
+  return std::unique_ptr<OfflineUnwinder>(new NoOpOfflineUnwinder);
 }
 
 }  // namespace simpleperf

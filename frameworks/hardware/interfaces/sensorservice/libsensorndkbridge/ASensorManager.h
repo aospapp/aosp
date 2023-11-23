@@ -44,6 +44,8 @@ struct ASensorManager {
             ALooper_callbackFunc callback,
             void *data);
 
+    // This must not be called from inside ALooper_callbackFunc to avoid deadlocking inside of the
+    // ALooper.
     void destroyEventQueue(ASensorEventQueue *queue);
 
 private:

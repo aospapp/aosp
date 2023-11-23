@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+
 import difflib
 import logging
 
@@ -63,7 +65,7 @@ class servo_ConsoleStress(FirmwareTest):
         for i in range(attempts):
             try:
                 output = self._get_test_cmd_output(cmd)
-            except Exception, e:
+            except Exception as e:
                 raise error.TestFail('failed to get %s %r during run %d' %
                         (cmd_type, cmd, i))
 

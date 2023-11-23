@@ -16,11 +16,13 @@
 
 package com.android.car.setupwizardlib;
 
+import android.app.KeyguardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -28,6 +30,7 @@ import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.car.setupwizardlib.InitialLockSetupConstants.LockTypes;
+import com.android.car.setupwizardlib.InitialLockSetupConstants.PasswordComplexity;
 import com.android.car.setupwizardlib.InitialLockSetupConstants.SetLockCodes;
 import com.android.car.setupwizardlib.InitialLockSetupConstants.ValidateLockFlags;
 
@@ -56,6 +59,7 @@ public class InitialLockSetupClient implements ServiceConnection {
 
     private InitialLockListener mInitialLockListener;
     private Context mContext;
+    private KeyguardManager mKeyguardManager;
     private IInitialLockSetupService mInitialLockSetupService;
     private ValidateLockAsyncTask mCurrentValidateLockTask;
     private SaveLockAsyncTask mCurrentSaveLockTask;
@@ -65,6 +69,7 @@ public class InitialLockSetupClient implements ServiceConnection {
 
     public InitialLockSetupClient(Context context) {
         mContext = context.getApplicationContext();
+        mKeyguardManager = mContext.getSystemService(KeyguardManager.class);
     }
 
     /**
@@ -120,8 +125,8 @@ public class InitialLockSetupClient implements ServiceConnection {
      * Fetches the set of {@link LockConfig}s that define the lock constraints for the device.
      */
     public void getLockConfigs() {
-        LockConfigsAsyncTask lockConfigsAsyncTask = new LockConfigsAsyncTask(mInitialLockListener,
-                mInitialLockSetupService);
+        LockConfigsAsyncTask lockConfigsAsyncTask = new LockConfigsAsyncTask(
+                mInitialLockListener, mInitialLockSetupService, mKeyguardManager);
         lockConfigsAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, null);
     }
 
@@ -136,8 +141,8 @@ public class InitialLockSetupClient implements ServiceConnection {
                 && mCurrentValidateLockTask.getStatus() != AsyncTask.Status.FINISHED) {
             mCurrentValidateLockTask.cancel(true);
         }
-        mCurrentValidateLockTask = new ValidateLockAsyncTask(
-                mInitialLockListener, mInitialLockSetupService, LockTypes.PASSWORD);
+        mCurrentValidateLockTask = new ValidateLockAsyncTask(mInitialLockListener,
+                mInitialLockSetupService, mKeyguardManager, LockTypes.PASSWORD);
         mCurrentValidateLockTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, password);
     }
 
@@ -151,8 +156,8 @@ public class InitialLockSetupClient implements ServiceConnection {
                 && mCurrentValidateLockTask.getStatus() != AsyncTask.Status.FINISHED) {
             mCurrentValidateLockTask.cancel(true);
         }
-        mCurrentValidateLockTask = new ValidateLockAsyncTask(
-                mInitialLockListener, mInitialLockSetupService, LockTypes.PIN);
+        mCurrentValidateLockTask = new ValidateLockAsyncTask(mInitialLockListener,
+                mInitialLockSetupService, mKeyguardManager, LockTypes.PIN);
         mCurrentValidateLockTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, pin);
     }
 
@@ -166,8 +171,8 @@ public class InitialLockSetupClient implements ServiceConnection {
                 && mCurrentValidateLockTask.getStatus() != AsyncTask.Status.FINISHED) {
             mCurrentValidateLockTask.cancel(true);
         }
-        mCurrentValidateLockTask = new ValidateLockAsyncTask(
-                mInitialLockListener, mInitialLockSetupService, LockTypes.PATTERN);
+        mCurrentValidateLockTask = new ValidateLockAsyncTask(mInitialLockListener,
+                mInitialLockSetupService, mKeyguardManager, LockTypes.PATTERN);
         mCurrentValidateLockTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, pattern);
     }
 
@@ -184,7 +189,7 @@ public class InitialLockSetupClient implements ServiceConnection {
             return;
         }
         mCurrentSaveLockTask = new SaveLockAsyncTask(mInitialLockListener,
-                mInitialLockSetupService, LockTypes.PASSWORD);
+                mInitialLockSetupService, mKeyguardManager, LockTypes.PASSWORD);
         mCurrentSaveLockTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, password);
     }
 
@@ -200,7 +205,7 @@ public class InitialLockSetupClient implements ServiceConnection {
             return;
         }
         mCurrentSaveLockTask = new SaveLockAsyncTask(mInitialLockListener,
-                mInitialLockSetupService, LockTypes.PIN);
+                mInitialLockSetupService, mKeyguardManager, LockTypes.PIN);
         mCurrentSaveLockTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, pin);
     }
 
@@ -217,7 +222,7 @@ public class InitialLockSetupClient implements ServiceConnection {
             return;
         }
         mCurrentSaveLockTask = new SaveLockAsyncTask(mInitialLockListener,
-                mInitialLockSetupService, LockTypes.PATTERN);
+                mInitialLockSetupService, mKeyguardManager, LockTypes.PATTERN);
         mCurrentSaveLockTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, pattern);
     }
 
@@ -282,29 +287,56 @@ public class InitialLockSetupClient implements ServiceConnection {
 
         private WeakReference<InitialLockListener> mInitialLockListener;
         private WeakReference<IInitialLockSetupService> mInitialLockSetupService;
+        private WeakReference<KeyguardManager> mKeyguardManager;
 
         LockConfigsAsyncTask(InitialLockListener initialLockListener,
-                IInitialLockSetupService initialLockSetupService) {
+                IInitialLockSetupService initialLockSetupService,
+                KeyguardManager keyguardManager) {
             mInitialLockListener = new WeakReference<>(initialLockListener);
             mInitialLockSetupService = new WeakReference<>(initialLockSetupService);
+            mKeyguardManager = new WeakReference<>(keyguardManager);
         }
 
         @Override
         protected Map<Integer, LockConfig> doInBackground(Void... voids) {
-            IInitialLockSetupService initialLockSetupService = mInitialLockSetupService.get();
-            if (initialLockSetupService == null) {
-                InitialLockSetupClient.logVerbose(
-                        "Lost reference to service in LockConfigsAsyncTask");
-                return null;
-            }
             LockConfig passwordConfig, pinConfig, patternConfig;
-            try {
-                passwordConfig = initialLockSetupService.getLockConfig(LockTypes.PASSWORD);
-                pinConfig = initialLockSetupService.getLockConfig(LockTypes.PIN);
-                patternConfig = initialLockSetupService.getLockConfig(LockTypes.PATTERN);
-            } catch (RemoteException e) {
-                e.printStackTrace();
-                return null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                KeyguardManager km = mKeyguardManager.get();
+                if (km == null) {
+                    InitialLockSetupClient.logVerbose(
+                            "Lost reference to keyguardManager in LockConfigsAsyncTask");
+                    return null;
+                }
+                passwordConfig =
+                    new LockConfig(
+                        /* enabled= */ true,
+                        km.getMinLockLength(
+                            /* isPin= */ false, PasswordComplexity.PASSWORD_COMPLEXITY_MEDIUM));
+                pinConfig =
+                    new LockConfig(
+                        /* enabled= */ true,
+                        km.getMinLockLength(
+                            /* isPin= */ true, PasswordComplexity.PASSWORD_COMPLEXITY_LOW));
+                patternConfig =
+                    new LockConfig(
+                        /* enabled= */ true,
+                        km.getMinLockLength(
+                            /* isPin= */ false, PasswordComplexity.PASSWORD_COMPLEXITY_LOW));
+            } else {
+                IInitialLockSetupService initialLockSetupService = mInitialLockSetupService.get();
+                if (initialLockSetupService == null) {
+                    InitialLockSetupClient.logVerbose(
+                            "Lost reference to service in LockConfigsAsyncTask");
+                    return null;
+                }
+                try {
+                    passwordConfig = initialLockSetupService.getLockConfig(LockTypes.PASSWORD);
+                    pinConfig = initialLockSetupService.getLockConfig(LockTypes.PIN);
+                    patternConfig = initialLockSetupService.getLockConfig(LockTypes.PATTERN);
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                    return null;
+                }
             }
             Map<Integer, LockConfig> map = new HashMap<>();
             map.put(LockTypes.PASSWORD, passwordConfig);
@@ -327,32 +359,64 @@ public class InitialLockSetupClient implements ServiceConnection {
 
         private WeakReference<InitialLockListener> mInitialLockListener;
         private WeakReference<IInitialLockSetupService> mInitialLockSetupService;
+        private WeakReference<KeyguardManager> mKeyguardManager;
         private int mLockType;
 
         ValidateLockAsyncTask(
                 InitialLockListener initialLockListener,
                 IInitialLockSetupService initialLockSetupService,
+                KeyguardManager keyguardManager,
                 @LockTypes int lockType) {
             mInitialLockListener = new WeakReference<>(initialLockListener);
             mInitialLockSetupService = new WeakReference<>(initialLockSetupService);
+            mKeyguardManager = new WeakReference<>(keyguardManager);
             mLockType = lockType;
         }
 
         @Override
         protected Integer doInBackground(byte[]... passwords) {
             InitialLockSetupClient.logVerbose("ValidateLockAsyncTask doInBackground");
-            IInitialLockSetupService initialLockSetupService = mInitialLockSetupService.get();
-            if (initialLockSetupService == null) {
-                InitialLockSetupClient.logVerbose(
-                        "Lost reference to service in ValidateLockAsyncTask");
-                return ValidateLockFlags.INVALID_GENERIC;
-            }
-            try {
-                int output = initialLockSetupService.checkValidLock(mLockType, passwords[0]);
-                return output;
-            } catch (RemoteException e) {
-                e.printStackTrace();
-                return ValidateLockFlags.INVALID_GENERIC;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                KeyguardManager km = mKeyguardManager.get();
+                if (km == null) {
+                    InitialLockSetupClient.logVerbose(
+                            "Lost reference to keyguardManager in LockConfigsAsyncTask");
+                    return null;
+                }
+                int complexity;
+                switch (mLockType) {
+                    case LockTypes.PASSWORD:
+                        complexity = PasswordComplexity.PASSWORD_COMPLEXITY_MEDIUM;
+                        break;
+                    case LockTypes.PIN:
+                        complexity = PasswordComplexity.PASSWORD_COMPLEXITY_LOW;
+                        break;
+                    case LockTypes.PATTERN:
+                        complexity = PasswordComplexity.PASSWORD_COMPLEXITY_LOW;
+                        passwords[0] =
+                                InitialLockSetupHelper.getNumericEquivalentByteArray(passwords[0]);
+                        break;
+                    default:
+                        Log.e(TAG, "other lock type, returning generic error");
+                        return ValidateLockFlags.INVALID_GENERIC;
+                }
+                return km.isValidLockPasswordComplexity(mLockType, passwords[0], complexity)
+                    ? 0
+                    : ValidateLockFlags.INVALID_GENERIC;
+            } else {
+                IInitialLockSetupService initialLockSetupService = mInitialLockSetupService.get();
+                if (initialLockSetupService == null) {
+                    InitialLockSetupClient.logVerbose(
+                            "Lost reference to service in ValidateLockAsyncTask");
+                    return ValidateLockFlags.INVALID_GENERIC;
+                }
+                try {
+                    int output = initialLockSetupService.checkValidLock(mLockType, passwords[0]);
+                    return output;
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                    return ValidateLockFlags.INVALID_GENERIC;
+                }
             }
         }
 
@@ -373,32 +437,64 @@ public class InitialLockSetupClient implements ServiceConnection {
 
         private WeakReference<InitialLockListener> mInitialLockListener;
         private WeakReference<IInitialLockSetupService> mInitialLockSetupService;
+        private WeakReference<KeyguardManager> mKeyguardManager;
         private int mLockType;
 
         SaveLockAsyncTask(
                 InitialLockListener initialLockListener,
                 IInitialLockSetupService initialLockSetupService,
+                KeyguardManager keyguardManager,
                 @LockTypes int lockType) {
             mInitialLockListener = new WeakReference<>(initialLockListener);
             mInitialLockSetupService = new WeakReference<>(initialLockSetupService);
+            mKeyguardManager = new WeakReference<>(keyguardManager);
             mLockType = lockType;
         }
 
         @Override
         protected Integer doInBackground(byte[]... passwords) {
             InitialLockSetupClient.logVerbose("SaveLockAsyncTask doInBackground");
-            IInitialLockSetupService initialLockSetupService = mInitialLockSetupService.get();
-            if (initialLockSetupService == null) {
-                InitialLockSetupClient.logVerbose(
-                        "Lost reference to service in SaveLockAsyncTask");
-                return SetLockCodes.FAIL_LOCK_GENERIC;
-            }
-            try {
-                int output = initialLockSetupService.setLock(mLockType, passwords[0]);
-                return output;
-            } catch (RemoteException e) {
-                e.printStackTrace();
-                return SetLockCodes.FAIL_LOCK_GENERIC;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                KeyguardManager km = mKeyguardManager.get();
+                if (km == null) {
+                    InitialLockSetupClient.logVerbose(
+                            "Lost reference to keyguardManager in SaveLockAsyncTask");
+                    return null;
+                }
+                int complexity;
+                switch (mLockType) {
+                    case LockTypes.PASSWORD:
+                        complexity = PasswordComplexity.PASSWORD_COMPLEXITY_MEDIUM;
+                        break;
+                    case LockTypes.PIN:
+                        complexity = PasswordComplexity.PASSWORD_COMPLEXITY_LOW;
+                        break;
+                    case LockTypes.PATTERN:
+                        complexity = PasswordComplexity.PASSWORD_COMPLEXITY_LOW;
+                        passwords[0] =
+                            InitialLockSetupHelper.getNumericEquivalentByteArray(passwords[0]);
+                        break;
+                    default:
+                        Log.e(TAG, "other lock type, returning generic error");
+                        return SetLockCodes.FAIL_LOCK_GENERIC;
+                }
+                return km.setLock(mLockType, passwords[0], complexity)
+                    ? 1
+                    : SetLockCodes.FAIL_LOCK_GENERIC;
+            } else {
+                IInitialLockSetupService initialLockSetupService = mInitialLockSetupService.get();
+                if (initialLockSetupService == null) {
+                    InitialLockSetupClient.logVerbose(
+                            "Lost reference to service in SaveLockAsyncTask");
+                    return SetLockCodes.FAIL_LOCK_GENERIC;
+                }
+                try {
+                    int output = initialLockSetupService.setLock(mLockType, passwords[0]);
+                    return output;
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                    return SetLockCodes.FAIL_LOCK_GENERIC;
+                }
             }
         }
 

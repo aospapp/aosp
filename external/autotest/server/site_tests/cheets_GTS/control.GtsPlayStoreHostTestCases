@@ -28,6 +28,7 @@ def run_TS(machine):
         target_module='GtsPlayStoreHostTestCases',
         target_plan=None,
         retry_manual_tests=True,
+        use_jdk9=True,
         warn_on_test_retry=False,
         timeout=720)
 

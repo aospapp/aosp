@@ -96,8 +96,18 @@ class DatetimeExtractor {
       const UnicodeText& input,
       DatetimeComponent::ComponentType* parsed_field_type) const;
   bool ParseDayOfWeek(const UnicodeText& input, int* parsed_day_of_week) const;
+
   bool ParseRelationAndConvertToRelativeCount(const UnicodeText& input,
                                               int* relative_count) const;
+
+  // There are some special words which represent multiple date time components
+  // e.g. if the text says “by noon” it clearly indicates that the hour is 12,
+  // minute is 0 and meridiam is PM.
+  // The method handles such tokens and translates them into multiple date time
+  // components.
+  bool ParseAbsoluteDateValues(
+      const UnicodeText& input,
+      std::unordered_map<DatetimeComponent::ComponentType, int>* values) const;
 
   const CompiledRule& rule_;
   const UniLib::RegexMatcher& matcher_;

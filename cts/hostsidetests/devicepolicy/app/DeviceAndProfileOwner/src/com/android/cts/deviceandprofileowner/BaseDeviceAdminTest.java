@@ -15,33 +15,64 @@
  */
 package com.android.cts.deviceandprofileowner;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import android.annotation.NonNull;
 import android.app.admin.DeviceAdminReceiver;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Process;
+import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.bedstead.dpmwrapper.DeviceOwnerHelper;
+import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
 import com.android.compatibility.common.util.SystemUtil;
+import com.android.cts.deviceandprofileowner.BaseDeviceAdminTest.BasicAdminReceiver;
+
 import java.util.concurrent.CountDownLatch;
 
 /**
  * Base class for profile and device based tests.
  *
- * This class handles making sure that the test is the profile or device owner and that it has an
+ * <p>This class handles making sure that the test is the profile or device owner and that it has an
  * active admin registered, so that all tests may assume these are done.
  */
-public class BaseDeviceAdminTest extends InstrumentationTestCase {
+public abstract class BaseDeviceAdminTest extends InstrumentationTestCase {
 
-    public static class BasicAdminReceiver extends DeviceAdminReceiver {
+    public static final class BasicAdminReceiver extends DeviceAdminReceiver {
+
+        static final String ACTION_NETWORK_LOGS_AVAILABLE =
+                "com.android.cts.deviceandprofileowner.action.ACTION_NETWORK_LOGS_AVAILABLE";
+
+        static final String EXTRA_NETWORK_LOGS_BATCH_TOKEN =
+                "com.android.cts.deviceandprofileowner.extra.NETWORK_LOGS_BATCH_TOKEN";
+
+        // Shared preference used to coordinate compliance acknowledgement test.
+        static final String COMPLIANCE_ACK_PREF_NAME = "compliance-pref";
+        // Shared preference key controlling whether to use default callback implementation.
+        static final String COMPLIANCE_ACK_PREF_KEY_OVERRIDE = "compliance-pref-override";
+        // Shared preference key to save broadcast receipt.
+        static final String COMPLIANCE_ACK_PREF_KEY_BCAST_RECEIVED = "compliance-pref-bcast";
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (DeviceOwnerHelper.runManagerMethod(this, context, intent)) return;
+
+            super.onReceive(context, intent);
+        }
 
         @Override
         public String onChoosePrivateKeyAlias(Context context, Intent intent, int uid, Uri uri,
@@ -60,7 +91,32 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
                 mOnPasswordExpiryTimeoutCalled.countDown();
             }
         }
+
+        @Override
+        public void onNetworkLogsAvailable(Context context, Intent intent, long batchToken,
+                int networkLogsCount) {
+            super.onNetworkLogsAvailable(context, intent, batchToken, networkLogsCount);
+            // send the broadcast, the rest of the test happens in NetworkLoggingTest
+            Intent batchIntent = new Intent(ACTION_NETWORK_LOGS_AVAILABLE);
+            batchIntent.putExtra(EXTRA_NETWORK_LOGS_BATCH_TOKEN, batchToken);
+            context.sendBroadcast(batchIntent);
+        }
+
+        @Override
+        public void onComplianceAcknowledgementRequired(
+                @NonNull Context context, @NonNull Intent intent) {
+            final SharedPreferences pref =
+                    context.getSharedPreferences(COMPLIANCE_ACK_PREF_NAME, Context.MODE_PRIVATE);
+            // Record the broadcast receipt.
+            pref.edit().putBoolean(COMPLIANCE_ACK_PREF_KEY_BCAST_RECEIVED, true).commit();
+            // Call the default implementation unless instructed otherwise.
+            if (!pref.getBoolean(COMPLIANCE_ACK_PREF_KEY_OVERRIDE, false)) {
+                super.onComplianceAcknowledgementRequired(context, intent);
+            }
+        }
     }
+
+    private static final String TAG = BaseDeviceAdminTest.class.getSimpleName();
 
     public static final String PACKAGE_NAME = BasicAdminReceiver.class.getPackage().getName();
     public static final ComponentName ADMIN_RECEIVER_COMPONENT = new ComponentName(
@@ -72,31 +128,53 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
     protected boolean mHasSecureLockScreen;
     static CountDownLatch mOnPasswordExpiryTimeoutCalled;
 
-    private final String mTag = getClass().getSimpleName();
+    protected final String mTag = getClass().getSimpleName();
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mContext = getInstrumentation().getContext();
 
-        mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
-        assertNotNull(mDevicePolicyManager);
-
         mUserManager = mContext.getSystemService(UserManager.class);
-        assertNotNull(mUserManager);
+        assertWithMessage("userManager").that(mUserManager).isNotNull();
 
         mHasSecureLockScreen = mContext.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_SECURE_LOCK_SCREEN);
 
-        assertTrue(mDevicePolicyManager.isAdminActive(ADMIN_RECEIVER_COMPONENT));
-        assertTrue("App is neither device nor profile owner",
-                mDevicePolicyManager.isProfileOwnerApp(PACKAGE_NAME) ||
-                mDevicePolicyManager.isDeviceOwnerApp(PACKAGE_NAME));
+        boolean isDeviceOwnerTest = "DeviceOwner"
+                .equals(InstrumentationRegistry.getArguments().getString("admin_type"));
+
+        if (isDeviceOwnerTest) {
+            mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
+                    BasicAdminReceiver.class);
+            Log.d(mTag, "mDevicePolicyManager after DPMWrapper call: " + mDevicePolicyManager);
+        } else {
+            mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
+        }
+
+        Log.v(TAG, "setup(): dpm for " + getClass() + " and user " + mContext.getUserId() + ": "
+                + mDevicePolicyManager);
+        assertWithMessage("dpm").that(mDevicePolicyManager).isNotNull();
+
+        boolean isActiveAdmin = mDevicePolicyManager.isAdminActive(ADMIN_RECEIVER_COMPONENT);
+        boolean isProfileOwner = mDevicePolicyManager.isProfileOwnerApp(PACKAGE_NAME);
+        boolean isDeviceOwner = mDevicePolicyManager.isDeviceOwnerApp(PACKAGE_NAME);
+
+        Log.d(mTag, "setup() on user " + mContext.getUserId() + ": package=" + PACKAGE_NAME
+                + ", adminReceiverComponent=" + ADMIN_RECEIVER_COMPONENT
+                + ", isActiveAdmin=" + isActiveAdmin + ", isProfileOwner=" + isProfileOwner
+                + ", isDeviceOwner=" + isDeviceOwner + ", isDeviceOwnerTest=" + isDeviceOwnerTest);
+
+        assertWithMessage("active admin for %s", ADMIN_RECEIVER_COMPONENT).that(isActiveAdmin)
+                .isTrue();
+
+        assertWithMessage("profile owner or device owner for %s", PACKAGE_NAME)
+                .that(isProfileOwner || isDeviceOwner).isTrue();
     }
 
     protected int getTargetApiLevel() throws Exception {
         final PackageManager pm = mContext.getPackageManager();
-        final PackageInfo pi = pm.getPackageInfo(mContext.getPackageName(), /* flags =*/ 0);
+        final PackageInfo pi = pm.getPackageInfo(mContext.getPackageName(), /* flags= */ 0);
         return pi.applicationInfo.targetSdkVersion;
     }
 
@@ -125,15 +203,22 @@ public class BaseDeviceAdminTest extends InstrumentationTestCase {
                 break;
             }
         }
-        assertTrue("User should have been unlocked", mUserManager.isUserUnlocked());
+        assertWithMessage("user unlocked").that(mUserManager.isUserUnlocked()).isTrue();
     }
 
     protected void assertPasswordSufficiency(boolean expectPasswordSufficient) {
         waitUntilUserUnlocked();
-        assertEquals(expectPasswordSufficient, mDevicePolicyManager.isActivePasswordSufficient());
+        assertWithMessage("isActivePasswordSufficient()")
+                .that(mDevicePolicyManager.isActivePasswordSufficient())
+                .isEqualTo(expectPasswordSufficient);
     }
 
     protected boolean isDeviceOwner() {
         return mDevicePolicyManager.isDeviceOwnerApp(PACKAGE_NAME);
+    }
+
+    void sleep(int timeMs) {
+        Log.d(TAG, "Sleeping " + timeMs + " ms");
+        SystemClock.sleep(timeMs);
     }
 }

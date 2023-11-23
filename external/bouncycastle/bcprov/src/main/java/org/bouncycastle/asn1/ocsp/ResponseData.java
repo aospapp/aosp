@@ -12,6 +12,17 @@ import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.X509Extensions;
 
+/**
+ * OCSP RFC 2560, RFC 6960
+ * <pre>
+ * ResponseData ::= SEQUENCE {
+ *     version              [0] EXPLICIT Version DEFAULT v1,
+ *     responderID              ResponderID,
+ *     producedAt               GeneralizedTime,
+ *     responses                SEQUENCE OF SingleResponse,
+ *     responseExtensions   [1] EXPLICIT Extensions OPTIONAL }
+ * </pre>
+ */
 public class ResponseData
     extends ASN1Object
 {
@@ -161,7 +172,7 @@ public class ResponseData
      */
     public ASN1Primitive toASN1Primitive()
     {
-        ASN1EncodableVector v = new ASN1EncodableVector();
+        ASN1EncodableVector v = new ASN1EncodableVector(5);
 
         if (versionPresent || !version.equals(V1))
         {

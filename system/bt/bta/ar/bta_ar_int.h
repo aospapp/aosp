@@ -25,7 +25,10 @@
 #ifndef BTA_AR_INT_H
 #define BTA_AR_INT_H
 
-#include "bta_av_api.h"
+#include <cstdint>
+
+#include "bta/include/bta_av_api.h"
+#include "stack/include/avdt_api.h"
 
 #define BTA_AR_AV_MASK 0x01
 #define BTA_AR_AVK_MASK 0x02
@@ -33,7 +36,6 @@
 /* data associated with BTA_AR */
 typedef struct {
   tAVDT_CTRL_CBACK* p_av_conn_cback;  /* av connection callback function */
-  tAVDT_CTRL_CBACK* p_avk_conn_cback; /* avk connection callback function */
   uint8_t avdt_registered;
   uint8_t avct_registered;
   uint32_t sdp_tg_handle;

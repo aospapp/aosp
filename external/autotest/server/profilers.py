@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 import os, shutil, tempfile, logging
 
 import common
@@ -110,7 +111,7 @@ class profilers(profiler_manager.profiler_manager):
         filtered out of the list.
         """
         if host is None:
-            return self.installed_hosts.values()
+            return list(self.installed_hosts.values())
         if host.hostname in self.installed_hosts:
             return [self.installed_hosts[host.hostname]]
         return []

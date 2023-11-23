@@ -165,12 +165,12 @@ public class MimeMapTest {
         assertMimeTypeFromExtension("image/jp2", "jpg2");
     }
 
-    @Test public void bug120135571_audio() {
-        assertMimeTypeFromExtension("audio/mpeg", "m4r");
+    @Test public void bug141654151_image() {
+        assertBidirectional("image/avif", "avif");
     }
 
-    @Test public void bug136096979_ota() {
-        assertMimeTypeFromExtension("application/vnd.android.ota", "ota");
+    @Test public void bug120135571_audio() {
+        assertMimeTypeFromExtension("audio/mpeg", "m4r");
     }
 
     @Test public void bug154667531_consistent() {
@@ -201,6 +201,11 @@ public class MimeMapTest {
     @Test public void wifiConfig_xml() {
         assertExtensionFromMimeType("xml", "application/x-wifi-config");
         assertMimeTypeFromExtension("text/xml", "xml");
+    }
+
+    @Test public void x509CaCert() {
+        assertMimeTypeFromExtension("application/x-x509-ca-cert", "crt");
+        assertMimeTypeFromExtension("application/x-x509-ca-cert", "der");
     }
 
     // http://b/122734564

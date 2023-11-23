@@ -39,6 +39,7 @@ from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
 from aidegen.vscode import vscode_workspace_file_gen
+from aidegen.vscode import vscode_native_project_file_gen
 
 
 # pylint: disable=protected-access
@@ -59,7 +60,7 @@ class AidegenMainUnittests(unittest.TestCase):
         """Test _parse_args with different conditions."""
         args = aidegen_main._parse_args([])
         self.assertEqual(args.targets, [''])
-        self.assertEqual(args.ide[0], 'j')
+        self.assertEqual(args.ide[0], 'u')
         target = 'tradefed'
         args = aidegen_main._parse_args([target])
         self.assertEqual(args.targets, [target])
@@ -220,65 +221,36 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_ide_util.launch_ide.called)
         mock_print.return_value = None
 
-    @mock.patch('builtins.input')
-    def test_get_preferred_ide_from_user(self, mock_input):
-        """Test get_preferred_ide_from_user with different conditions."""
-        test_data = []
-        aidegen_main._get_preferred_ide_from_user(test_data)
-        self.assertFalse(mock_input.called)
-        mock_input.reset_mock()
-
-        test_data = ['One', 'Two', 'Three']
-        mock_input.return_value = '3'
-        self.assertEqual('Three', aidegen_main._get_preferred_ide_from_user(
-            test_data))
-        self.assertEqual(1, mock_input.call_count)
-        mock_input.reset_mock()
-
-        mock_input.side_effect = ['7', '5', '3']
-        self.assertEqual('Three', aidegen_main._get_preferred_ide_from_user(
-            test_data))
-        self.assertEqual(3, mock_input.call_count)
-        mock_input.reset_mock()
-
-        mock_input.side_effect = ('.', '7', 't', '5', '1')
-        self.assertEqual('One', aidegen_main._get_preferred_ide_from_user(
-            test_data))
-        self.assertEqual(5, mock_input.call_count)
-        mock_input.reset_mock()
-
     @mock.patch.object(project_config.ProjectConfig, 'init_environment')
-    @mock.patch('logging.warning')
+    @mock.patch('builtins.print')
     @mock.patch.object(aidegen_main, '_launch_vscode')
     @mock.patch.object(aidegen_main, '_launch_native_projects')
     @mock.patch.object(native_util, 'generate_clion_projects')
     @mock.patch.object(native_project_info.NativeProjectInfo,
                        'generate_projects')
     @mock.patch.object(aidegen_main, '_create_and_launch_java_projects')
-    @mock.patch.object(aidegen_main, '_get_preferred_ide_from_user')
-    def test_launch_ide_by_module_contents(self, mock_choice, mock_j,
-                                           mock_c_prj, mock_genc, mock_c,
-                                           mock_vs, mock_log, mock_init):
+    def test_launch_ide_by_module_contents(self, mock_j, mock_c_prj, mock_genc,
+                                           mock_c, mock_vs, mock_print,
+                                           mock_init):
         """Test _launch_ide_by_module_contents with different conditions."""
         args = aidegen_main._parse_args(['', '-i', 's'])
         mock_init.return_value = None
         self._init_project_config(args)
         ide_obj = 'ide_obj'
-        test_both = False
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, None,
-                                                    None, test_both)
+        test_all = False
+        lang = constant.JAVA
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, None,
+                                                    None, None, test_all)
         self.assertFalse(mock_vs.called)
-        self.assertTrue(mock_log.called)
-        self.assertFalse(mock_choice.called)
-        self.assertFalse(mock_choice.called)
+        self.assertTrue(mock_print.called)
         self.assertFalse(mock_j.called)
         self.assertFalse(mock_c_prj.called)
         self.assertFalse(mock_genc.called)
         self.assertFalse(mock_c.called)
 
-        test_both = True
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, None,
-                                                    None, test_both)
+        test_all = True
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, None,
+                                                    None, None, test_all)
         self.assertTrue(mock_vs.called)
         self.assertFalse(mock_j.called)
         self.assertFalse(mock_genc.called)
@@ -287,8 +259,7 @@ class AidegenMainUnittests(unittest.TestCase):
 
         test_j = ['a', 'b', 'c']
         test_c = ['1', '2', '3']
-        mock_choice.return_value = constant.JAVA
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
                                                     test_c)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_j.called)
@@ -296,12 +267,14 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_c.called)
 
         mock_vs.reset_mock()
-        mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_j.reset_mock()
-        mock_choice.return_value = constant.C_CPP
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+        args = aidegen_main._parse_args(['', '-l', 'c'])
+        mock_init.return_value = None
+        self._init_project_config(args)
+        lang = constant.C_CPP
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
                                                     test_c)
         self.assertTrue(mock_c_prj.called)
         self.assertFalse(mock_vs.called)
@@ -310,24 +283,23 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_j.called)
 
         mock_vs.reset_mock()
-        mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_j.reset_mock()
         test_none = None
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_none,
-                                                    test_c)
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang,
+                                                    test_none, test_c)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_genc.called)
         self.assertTrue(mock_c.called)
         self.assertFalse(mock_j.called)
 
         mock_vs.reset_mock()
-        mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_j.reset_mock()
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+        lang = constant.JAVA
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
                                                     test_none)
         self.assertFalse(mock_vs.called)
         self.assertTrue(mock_j.called)
@@ -336,15 +308,14 @@ class AidegenMainUnittests(unittest.TestCase):
 
         args = aidegen_main._parse_args(['frameworks/base', '-i', 'c'])
         mock_vs.reset_mock()
-        mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_c_prj.reset_mock()
         mock_j.reset_mock()
-        aidegen_main._launch_ide_by_module_contents(args, ide_obj, test_j,
+        lang = constant.C_CPP
+        aidegen_main._launch_ide_by_module_contents(args, ide_obj, lang, test_j,
                                                     test_c)
         self.assertFalse(mock_vs.called)
-        self.assertFalse(mock_choice.called)
         self.assertFalse(mock_j.called)
         self.assertTrue(mock_c.called)
         self.assertTrue(mock_c_prj.called)
@@ -352,15 +323,15 @@ class AidegenMainUnittests(unittest.TestCase):
 
         args = aidegen_main._parse_args(['frameworks/base'])
         mock_vs.reset_mock()
-        mock_choice.reset_mock()
         mock_c.reset_mock()
         mock_genc.reset_mock()
         mock_c_prj.reset_mock()
         mock_j.reset_mock()
         os.environ[constant.AIDEGEN_TEST_MODE] = 'true'
-        aidegen_main._launch_ide_by_module_contents(args, None, test_j, test_c)
+        lang = constant.JAVA
+        aidegen_main._launch_ide_by_module_contents(args, None, lang, test_j,
+                                                    test_c)
         self.assertFalse(mock_vs.called)
-        self.assertFalse(mock_choice.called)
         self.assertTrue(mock_j.called)
         self.assertFalse(mock_c.called)
         self.assertFalse(mock_c_prj.called)
@@ -398,7 +369,7 @@ class AidegenMainUnittests(unittest.TestCase):
             self, mock_get_rel, mock_gen_code, mock_launch_ide):
         """Test _launch_vscode function without ide object."""
         mock_get_rel.return_value = 'rel', 'abs'
-        aidegen_main._launch_vscode(None, mock.Mock(), ['Settings'], [])
+        aidegen_main._launch_vscode(None, mock.Mock(), ['Settings'], [], [])
         self.assertTrue(mock_get_rel.called)
         self.assertTrue(mock_gen_code.called)
         self.assertFalse(mock_launch_ide.called)
@@ -411,7 +382,8 @@ class AidegenMainUnittests(unittest.TestCase):
             self, mock_get_rel, mock_gen_code, mock_get_ide):
         """Test _launch_vscode function with ide object."""
         mock_get_rel.return_value = 'rel', 'abs'
-        aidegen_main._launch_vscode(mock.Mock(), mock.Mock(), ['Settings'], [])
+        aidegen_main._launch_vscode(
+            mock.Mock(), mock.Mock(), ['Settings'], [], [])
         self.assertTrue(mock_get_rel.called)
         self.assertTrue(mock_gen_code.called)
         self.assertTrue(mock_get_ide.called)
@@ -431,8 +403,104 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertFalse(mock_get_ide.called)
         self.assertTrue(mock_vscode.called)
 
+    @mock.patch('builtins.print')
+    @mock.patch.object(aidegen_main, '_launch_ide')
+    @mock.patch.object(vscode_workspace_file_gen,
+                       'generate_code_workspace_file')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    @mock.patch.object(aidegen_main, '_get_rust_project_paths')
+    @mock.patch.object(aidegen_main, '_get_cc_project_paths')
+    @mock.patch.object(aidegen_main, '_get_java_project_paths')
+    def test_launch_vscode_with_logic(self, mock_get_java, mock_get_cc,
+                                      mock_get_rust, mock_get_root, mock_gen,
+                                      mock_launch, mock_print):
+        """Test _launch_vscode with the logic tests."""
+        aidegen_main._launch_vscode(None, mock.Mock(), [], [], [])
+        self.assertFalse(mock_get_java.called)
+        self.assertFalse(mock_get_cc.called)
+        self.assertFalse(mock_get_rust.called)
+        self.assertFalse(mock_get_root.called)
+        self.assertFalse(mock_gen.called)
+        self.assertFalse(mock_launch.called)
+        self.assertTrue(mock_print.called)
+
+        mock_get_java.mock_reset()
+        mock_get_cc.mock_reset()
+        mock_get_rust.mock_reset()
+        mock_get_root.mock_reset()
+        mock_gen.mock_reset()
+        mock_launch.mock_reset()
+        mock_print.mock_reset()
+
+        aidegen_main._launch_vscode(
+            mock.Mock(), mock.Mock(), ['Java'], ['CC'], ['Rust'])
+        self.assertTrue(mock_get_java.called)
+        self.assertTrue(mock_get_cc.called)
+        self.assertTrue(mock_get_rust.called)
+        self.assertTrue(mock_get_root.called)
+        self.assertTrue(mock_gen.called)
+        self.assertTrue(mock_launch.called)
+
+    @mock.patch.object(common_util, 'get_related_paths')
+    def test_get_java_project_paths(self, mock_get_related):
+        """Test _get_java_project_paths with conditions."""
+        abs_path = 'a/b/c/d'
+        rel_path = 'c/d'
+        mock_get_related.return_value = rel_path, abs_path
+        self.assertEqual(
+            [abs_path], aidegen_main._get_java_project_paths(
+                ['Java'], mock.Mock()))
+        mock_get_related.return_value = None, None
+        self.assertEqual(
+            [], aidegen_main._get_java_project_paths(['Java'], mock.Mock()))
+
+    @mock.patch.object(
+        vscode_native_project_file_gen.VSCodeNativeProjectFileGenerator,
+        'generate_c_cpp_properties_json_file')
+    @mock.patch.object(
+        vscode_native_project_file_gen, 'VSCodeNativeProjectFileGenerator')
+    @mock.patch.object(common_util, 'get_related_paths')
+    @mock.patch.object(
+        native_project_info.NativeProjectInfo, 'generate_projects')
+    @mock.patch.object(native_module_info, 'NativeModuleInfo')
+    def test_get_cc_project_paths(self, mock_mod_info, mock_gen, mock_get_rel,
+                                  mock_gen_vs, mock_gen_vs_file):
+        """Test _get_cc_project_paths with conditions."""
+        mock_get_rel.return_value = None, None
+        self.assertEqual([], aidegen_main._get_cc_project_paths(['Java']))
+        self.assertTrue(mock_mod_info.called)
+        self.assertTrue(mock_gen.called)
+        self.assertTrue(mock_get_rel.called)
+        self.assertFalse(mock_gen_vs.called)
+        self.assertFalse(mock_gen_vs_file.called)
+
+        mock_mod_info.mock_reset()
+        mock_gen.mock_reset()
+        mock_get_rel.mock_reset()
+        mock_gen_vs.mock_reset()
+        mock_gen_vs_file.mock_reset()
+
+        abs_path = 'a/b/c/d'
+        rel_path = 'c/d'
+        mock_get_rel.return_value = rel_path, abs_path
+        self.assertEqual([abs_path], aidegen_main._get_cc_project_paths(['CC']))
+        self.assertTrue(mock_mod_info.called)
+        self.assertTrue(mock_gen.called)
+        self.assertTrue(mock_get_rel.called)
+        self.assertTrue(mock_gen_vs.called)
+
+    def test_get_rust_project_paths(self):
+        """Test _get_rust_project_paths with conditions."""
+        abs_path = 'a/b/c/d'
+        rel_path = 'c/d'
+        root = 'a/b'
+        self.assertEqual(
+            [abs_path], aidegen_main._get_rust_project_paths([abs_path], root))
+        self.assertEqual(
+            [abs_path], aidegen_main._get_rust_project_paths([rel_path], root))
+
     @mock.patch.object(aidegen_main, '_launch_ide_by_module_contents')
-    @mock.patch.object(native_util, 'get_native_and_java_projects')
+    @mock.patch.object(native_util, 'get_java_cc_and_rust_projects')
     @mock.patch.object(native_module_info, 'NativeModuleInfo')
     @mock.patch.object(module_info, 'AidegenModuleInfo')
     @mock.patch.object(ide_util, 'get_ide_util_instance')
@@ -448,14 +516,15 @@ class AidegenMainUnittests(unittest.TestCase):
         mock_config.return_value = config
         ide = mock.Mock()
         mock_get_ide.return_value = ide
-        mock_get_project.return_value = config.targets, []
+        mock_get_project.return_value = config.targets, [], []
         aidegen_main.aidegen_main(args)
         self.assertTrue(mock_config.called)
         self.assertTrue(mock_get_ide.called)
         self.assertTrue(mock_mod_info.called)
         self.assertTrue(mock_native.called)
         self.assertTrue(mock_get_project.called)
-        mock_launch_ide.assert_called_with(args, ide, config.targets, [], True)
+        mock_launch_ide.assert_called_with(
+            args, ide, constant.JAVA, config.targets, [], [], True)
 
         mock_config.mock_reset()
         mock_get_ide.mock_reset()
@@ -472,7 +541,8 @@ class AidegenMainUnittests(unittest.TestCase):
         self.assertTrue(mock_mod_info.called)
         self.assertTrue(mock_native.called)
         self.assertTrue(mock_get_project.called)
-        mock_launch_ide.assert_called_with(args, ide, config.targets, [], False)
+        mock_launch_ide.assert_called_with(
+            args, ide, constant.JAVA, config.targets, [], [], False)
 
 
 if __name__ == '__main__':

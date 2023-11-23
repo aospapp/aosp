@@ -36,8 +36,20 @@ enum PacketType : 8 {
     REMOTE_NAME_REQUEST = 0x1D,
     REMOTE_NAME_REQUEST_RESPONSE = 0x1E,
     SCO = 0x1F,
-    COMMAND = 0x23, // Remove
-    RESPONSE = 0x24, // Remove
+    LE_ENCRYPT_CONNECTION = 0x20,
+    LE_ENCRYPT_CONNECTION_RESPONSE = 0x21,
+    ISO = 0x22,
+    ISO_CONNECTION_REQUEST = 0x23,
+    ISO_CONNECTION_RESPONSE = 0x24,
+    OOB_DATA = 0x25,
+    OOB_DATA_RESPONSE = 0x26,
+    PASSKEY = 0x27,
+    PASSKEY_FAILED = 0x28,
+    KEYPRESS_NOTIFICATION = 0x29,
+    PIN_REQUEST = 0x2A,
+    PIN_RESPONSE = 0x2B,
+    LE_READ_REMOTE_FEATURES = 0x2C,
+    LE_READ_REMOTE_FEATURES_RESPONSE = 0x2D,
 }
 
 packet LinkLayerPacket {
@@ -47,16 +59,7 @@ packet LinkLayerPacket {
   _body_,
 }
 
-packet Command : LinkLayerPacket (type = COMMAND) {
-  _payload_,
-}
-
-packet Response : LinkLayerPacket (type = RESPONSE) {
-  opcode : 16,
-  _payload_,
-}
-
-packet AclPacket : LinkLayerPacket (type = ACL) {
+packet Acl : LinkLayerPacket (type = ACL) {
   _payload_,
 }
 
@@ -234,3 +237,127 @@ packet ScoPacket : LinkLayerPacket (type = SCO) {
   _payload_,
 }
 
+packet LeEncryptConnection : LinkLayerPacket (type = LE_ENCRYPT_CONNECTION) {
+  rand : 8[8],
+  ediv : 16,
+  ltk : 8[16],
+}
+
+packet LeEncryptConnectionResponse : LinkLayerPacket (type = LE_ENCRYPT_CONNECTION_RESPONSE) {
+  rand : 8[8],
+  ediv : 16,
+  ltk : 8[16],
+}
+
+enum StartContinuation : 1 {
+  START = 0,
+  CONTINUATION = 1,
+}
+
+enum Complete : 1 {
+  INCOMPLETE = 0,
+  COMPLETE = 1,
+}
+
+packet IsoDataPacket : LinkLayerPacket (type = ISO) {
+  handle : 12,
+  _reserved_ : 4,
+  sc : StartContinuation,
+  cmplt : Complete,
+  _reserved_ : 6,
+  _size_(_payload_) : 16,
+  _payload_,
+}
+
+packet IsoStart : IsoDataPacket (sc = START) {
+  time_offset : 24,
+  _payload_,
+}
+
+packet IsoContinuation : IsoDataPacket (sc = CONTINUATION) {
+  _payload_,
+}
+
+packet IsoConnectionRequest : LinkLayerPacket (type = ISO_CONNECTION_REQUEST) {
+  // Group
+  cig_id : 8,
+  sdu_interval_m_to_s : 32,
+  sdu_interval_s_to_m : 32,
+  interleaved : 1,
+  framed : 1,
+  _reserved_ : 6,
+  latency_m_to_s : 16,
+  latency_s_to_m : 16,
+  // Stream parameters
+  id : 8,
+  max_sdu_m_to_s_ : 16,
+  max_sdu_s_to_m_ : 16,
+  // For the response
+  requester_cis_handle : 12,
+  _reserved_ : 4,
+  requester_acl_handle : 12,
+  _reserved_ : 4,
+}
+
+packet IsoConnectionResponse  : LinkLayerPacket (type = ISO_CONNECTION_RESPONSE){
+  status : 8, // ErrorCode (SUCCESS == connected)
+  requester_cis_handle : 12,
+  _reserved_ : 4,
+  requester_acl_handle : 12,
+  _reserved_ : 4,
+  // For the link layer
+  responder_cis_handle : 12,
+  _reserved_ : 4,
+}
+
+packet OobData : LinkLayerPacket (type = OOB_DATA){
+  c_p_194 : 8[16],
+  r_p_194 : 8[16],
+  c_p_256 : 8[16],
+  r_p_256 : 8[16],
+}
+
+packet OobDataResponse : LinkLayerPacket (type = OOB_DATA_RESPONSE){
+  matched : 1,
+  _reserved_ : 7,
+}
+
+enum PasskeyNotificationType : 8 {
+  ENTRY_STARTED = 0x00,
+  DIGIT_ENTERED = 0x01,
+  DIGIT_ERASED = 0x02,
+  CLEARED = 0x03,
+  ENTRY_COMPLETED = 0x04,
+}
+
+packet Passkey : LinkLayerPacket (type = PASSKEY){
+  passkey : 20,
+  _reserved_ : 4,
+}
+
+packet PasskeyFailed : LinkLayerPacket (type = PASSKEY_FAILED){
+}
+
+packet KeypressNotification : LinkLayerPacket (type = KEYPRESS_NOTIFICATION){
+  notification_type : PasskeyNotificationType,
+}
+
+packet PinRequest : LinkLayerPacket (type = PIN_REQUEST) {
+  _size_(pin_code) : 5, // 0x01 - 0x10
+  _reserved_ : 3,
+  pin_code : 8[], // string parameter, first octet first
+}
+
+packet PinResponse : LinkLayerPacket (type = PIN_RESPONSE) {
+  _size_(pin_code) : 5, // 0x01 - 0x10
+  _reserved_ : 3,
+  pin_code : 8[], // string parameter, first octet first
+}
+
+packet LeReadRemoteFeatures : LinkLayerPacket (type = LE_READ_REMOTE_FEATURES) {
+}
+
+packet LeReadRemoteFeaturesResponse : LinkLayerPacket (type = LE_READ_REMOTE_FEATURES_RESPONSE) {
+  features : 64,
+  status : 8,
+}

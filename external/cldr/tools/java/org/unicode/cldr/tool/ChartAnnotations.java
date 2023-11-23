@@ -16,6 +16,7 @@ import org.unicode.cldr.util.Annotations;
 import org.unicode.cldr.util.Annotations.AnnotationSet;
 import org.unicode.cldr.util.CLDRFile;
 import org.unicode.cldr.util.CLDRPaths;
+import org.unicode.cldr.util.CLDRURLS;
 import org.unicode.cldr.util.CldrUtility;
 import org.unicode.cldr.util.Factory;
 import org.unicode.cldr.util.FileCopier;
@@ -23,9 +24,9 @@ import org.unicode.cldr.util.LanguageGroup;
 import org.unicode.cldr.util.LanguageTagParser;
 import org.unicode.cldr.util.LocaleIDParser;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
-import com.ibm.icu.dev.util.CollectionUtilities;
 import com.ibm.icu.impl.Relation;
 import com.ibm.icu.impl.Row;
 import com.ibm.icu.impl.Row.R3;
@@ -39,7 +40,9 @@ public class ChartAnnotations extends Chart {
     private static final String LDML_ANNOTATIONS = "<a href='http://unicode.org/repos/cldr/trunk/specs/ldml/tr35-general.html#Annotations'>LDML Annotations</a>";
 
     private static final String MAIN_HEADER = "<p>Annotations provide names and keywords for Unicode characters, currently focusing on emoji. "
-        + "If you see any problems, please <a target='_blank' href='http://unicode.org/cldr/trac/newticket'>file a ticket</a> with the corrected values for the locale. "
+        + "If you see any problems, please <a target='_blank' href='"
+        + CLDRURLS.CLDR_NEWTICKET_URL
+        + "'>file a ticket</a> with the corrected values for the locale. "
         + "For the XML data used for these charts, see "
         + "<a href='http://unicode.org/repos/cldr/tags/latest/common/annotations/'>latest-release annotations </a> "
         + "or <a href='http://unicode.org/repos/cldr/tags/latest/common/annotations/'>beta annotations</a>. "
@@ -71,6 +74,7 @@ public class ChartAnnotations extends Chart {
         return MAIN_HEADER + "<p>The charts are presented in groups of related languages, for easier comparison.<p>";
     }
 
+    @Override
     public void writeContents(FormattedFileWriter pw) throws IOException {
         FileCopier.ensureDirectoryExists(DIR);
         FileCopier.copy(Chart.class, "index.css", DIR);
@@ -108,7 +112,7 @@ public class ChartAnnotations extends Chart {
 
         // set up right order for columns
 
-        Map<String, String> nameToCode = new LinkedHashMap<String, String>();
+        Map<String, String> nameToCode = new LinkedHashMap<>();
         Relation<LanguageGroup, R3<Integer, String, String>> groupToNameAndCodeSorted = Relation.of(
             new EnumMap<LanguageGroup, Set<R3<Integer, String, String>>>(LanguageGroup.class),
             TreeSet.class);
@@ -212,7 +216,7 @@ public class ChartAnnotations extends Chart {
                             }
                         }
                         for (Entry<String, Collection<String>> entry : valueToSub.asMap().entrySet()) {
-                            baseAnnotation += "<hr><i>" + CollectionUtilities.join(entry.getValue(), ", ") + "</i>: " + entry.getKey();
+                            baseAnnotation += "<hr><i>" + Joiner.on(", ").join(entry.getValue()) + "</i>: " + entry.getKey();
                         }
                     }
                     tablePrinter.addCell(baseAnnotation);
@@ -333,7 +337,7 @@ public class ChartAnnotations extends Chart {
                 + "The keywords plus the words in the short name are typically used for search and predictive typing.<p>\n"
                 + "<p>Most short names and keywords that can be constructed with the mechanism in " + LDML_ANNOTATIONS + " are omitted. "
                 + "However, a few are included for comparison: "
-                + CollectionUtilities.join(EXTRAS.addAllTo(new TreeSet<>()), ", ") + ". "
+                + Joiner.on(", ").join(EXTRAS.addAllTo(new TreeSet<>())) + ". "
                 + "In this chart, missing items are marked with “" + Annotations.MISSING_MARKER + "”, "
                 + "‘fallback’ constructed items with “" + Annotations.BAD_MARKER + "”, "
                 + "substituted English values with “" + Annotations.ENGLISH_MARKER + "”, and "
@@ -362,75 +366,4 @@ public class ChartAnnotations extends Chart {
             throw new IllegalArgumentException("Failure in rules for " + CLDRPaths.COMMON_DIRECTORY + "collation/" + "root", e);
         }
     }
-
-//    static final Set<String> ENGLISH_LABELS = new LinkedHashSet<>(Arrays.asList(
-//        "flag", "nature", "objects", "people", "places", "symbols", "travel", "animal",
-//        "office", "sign", "word", "time", "food", "person", "weather", "activity",
-//        "vehicle", "restaurant", "communication", "emotion", "geometric", "mark",
-//        "education", "gesture", "japanese", "symbol", "congratulation", "body", "clothing"));
-
-//    static class Annotations {
-//
-//        final UnicodeRelation<String> values = new UnicodeRelation<>();
-//
-//        static Factory cldrFactory = Factory.make(CLDRPaths.COMMON_DIRECTORY + "annotations/", ".*");
-//
-//        static Set<String> getAvailableLocales() {
-//            return cldrFactory.getAvailable();
-//        }
-//
-//        static Map<String, Annotations> cache = new ConcurrentHashMap<>();
-//
-//        static synchronized Annotations make(String locale) {
-//            Annotations result = cache.get(locale);
-//            if (result == null) {
-//                CLDRFile file = cldrFactory.make(locale, false); // for now, don't resolve
-//                result = new Annotations();
-//                LinkedHashSet<String> values = new LinkedHashSet<>();
-//                XPathParts parts = new XPathParts();
-//                Splitter sp = Splitter.on(';').omitEmptyStrings().trimResults();
-//                for (String path : file) {
-//                    if (path.startsWith("//ldml/identity")) {
-//                        continue;
-//                    }
-//                    String value = file.getStringValue(path);
-//                    String fullPath = file.getFullXPath(path);
-//                    String cpString = parts.set(fullPath).getAttributeValue(-1, "cp");
-//                    UnicodeSet cps = new UnicodeSet(cpString);
-//                    String tts = parts.set(fullPath).getAttributeValue(-1, "tts");
-//                    values.clear();
-//                    if (tts != null) {
-//                        values.add(tts.trim()); // always first value
-//                    }
-//                    values.addAll(sp.splitToList(value));
-//                    result.values.addAll(cps, values);
-//                }
-//
-//                // remove labels
-//
-//                if (locale.equals("en")) {
-//                    for (Entry<String, Set<String>> item : result.values.keyValues()) {
-//                        String key = item.getKey();
-//                        Set<String> valueSet = new LinkedHashSet<>(item.getValue());
-//                        for (String skip : ENGLISH_LABELS) {
-//                            if (valueSet.contains(skip)) {
-//                                result.values.remove(key, skip);
-//                                if (result.values.get(key) == null) {
-//                                    result.values.add(key, skip); // restore
-//                                    break;
-//                                }
-//                            }
-//                        }
-//                        Set<String> newSet = result.values.get(key);
-//                        if (!valueSet.equals(newSet)) {
-//                            if (DEBUG) System.out.println("dropping labels from " + item.getKey() + ", old: " + valueSet + ", new: " + newSet);
-//                        }
-//                    }
-//                }
-//                result.values.freeze();
-//                cache.put(locale, result);
-//            }
-//            return result;
-//        }
-//    }
 }

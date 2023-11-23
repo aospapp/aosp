@@ -54,6 +54,8 @@ LOCAL_EXPORT_C_INCLUDE_DIRS += \
     hardware/google/easel/amber/camera/include
 
 LOCAL_MODULE:= libhdrplusclient
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_OWNER := google
 

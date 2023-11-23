@@ -19,6 +19,44 @@
 // Static Library: libcompiler_rt-extras
 //=====================================================================
 
+package {
+    default_applicable_licenses: ["external_compiler-rt_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_compiler-rt_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-NCSA",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "LICENSE.TXT",
+        "NOTICE",
+    ],
+}
+
 cc_library_static {
     name: "libcompiler_rt-extras",
     host_supported: true,
@@ -43,12 +81,6 @@ cc_library_static {
     ],
 
     arch: {
-        mips: {
-            srcs: ["lib/builtins/clear_cache.c"],
-        },
-        mips64: {
-            srcs: ["lib/builtins/clear_cache.c"],
-        },
         // Clang generates call to __unorddf2 builtin when compiling s_fmal.c
         // in bionic.  Generate this builtin from compiler-rt for arm64 and
         // x86_64 (where the corresponding libgcc does not have this builtin.
@@ -76,10 +108,12 @@ cc_library_static {
 
 cc_library {
     name: "libcompiler_rt",
-    vendor_available: false,
+    vendor_available: true,
+    product_available: true,
     vndk: {
         enabled: true,
         support_system_process: true,
+        private: true,
     },
     host_supported: true,
     native_bridge_supported: true,
@@ -310,11 +344,6 @@ cc_library {
                 "lib/builtins/umodsi3.c",
             ],
         },
-        mips64: {
-            cflags: [
-                "-DCRT_HAS_128BIT",
-            ],
-        },
         x86: {
             srcs: [
                 "lib/builtins/i386/ashldi3.S",
@@ -373,34 +402,11 @@ cc_library {
     target: {
         android: {
             shared_libs: ["liblog"],
-        },
-        android_arm: {
-            static_libs: ["libunwind_llvm"],
-            ldflags: ["-Wl,--exclude-libs,libunwind_llvm.a"],
-        },
-        android_arm64: {
-            static_libs: ["libunwindbacktrace", "libunwind_static"],
-            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
-        },
-        android_mips: {
-            static_libs: ["libunwindbacktrace", "libunwind_static"],
-            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
-        },
-        android_mips64: {
-            static_libs: ["libunwindbacktrace", "libunwind_static"],
-            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
-        },
-        android_x86: {
-            static_libs: ["libunwindbacktrace", "libunwind_static"],
-            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
+            static_libs: ["libunwind"],
+            ldflags: ["-Wl,--exclude-libs,libunwind.a"],
         },
         android_x86_64: {
             srcs: ["lib/builtins/ppc/floatditf.c"],
-            static_libs: ["libunwindbacktrace", "libunwind_static"],
-            ldflags: ["-Wl,--exclude-libs,libunwindbacktrace.a:libunwind.a"],
-        },
-        linux_glibc: {
-            static_libs: ["libunwindbacktrace", "libunwind_static"],
         },
         windows: {
             enabled: true,

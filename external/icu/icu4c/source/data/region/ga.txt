@@ -1,5 +1,6 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ga{
     Countries{
         001{"an Domhan"}
@@ -308,7 +309,5 @@ ga{
         CI{"Côte d’Ivoire"}
         CZ{"Poblacht na Seice"}
         SZ{"an tSuasalainn"}
-        TL{"TL"}
     }
-    Version{"36.1"}
 }

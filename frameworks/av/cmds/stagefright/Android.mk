@@ -16,6 +16,9 @@ LOCAL_SHARED_LIBRARIES := \
         libstagefright_foundation libjpeg libui libgui libcutils liblog \
         libhidlbase libdatasource libaudioclient \
         android.hardware.media.omx@1.0 \
+        framework-permission-aidl-cpp
+
+LOCAL_STATIC_LIBRARIES := framework-permission-aidl-cpp
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
@@ -28,6 +31,9 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SYSTEM_EXT_MODULE:= true
 LOCAL_MODULE:= stagefright
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/NOTICE
 
 include $(BUILD_EXECUTABLE)
 
@@ -45,7 +51,8 @@ LOCAL_HEADER_LIBRARIES := \
 
 LOCAL_SHARED_LIBRARIES := \
         libstagefright libmedia liblog libutils libbinder \
-        libstagefright_foundation libdatasource libaudioclient
+        libstagefright_foundation libdatasource libaudioclient \
+        framework-permission-aidl-cpp
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/camera/include \
@@ -58,6 +65,9 @@ LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= record
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/NOTICE
 
 include $(BUILD_EXECUTABLE)
 
@@ -79,13 +89,17 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
         frameworks/native/include/media/openmax \
-        frameworks/native/include/media/hardware
+        frameworks/native/include/media/hardware \
+        framework-permission-aidl-cpp
 
 LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= recordvideo
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/NOTICE
 
 include $(BUILD_EXECUTABLE)
 
@@ -104,7 +118,8 @@ LOCAL_HEADER_LIBRARIES := \
 
 LOCAL_SHARED_LIBRARIES := \
         libstagefright libmedia liblog libutils libbinder \
-        libstagefright_foundation libaudioclient
+        libstagefright_foundation libaudioclient \
+        framework-permission-aidl-cpp
 
 LOCAL_C_INCLUDES:= \
         frameworks/av/media/libstagefright \
@@ -115,6 +130,9 @@ LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= audioloop
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/NOTICE
 
 include $(BUILD_EXECUTABLE)
 
@@ -141,6 +159,9 @@ LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= stream
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/NOTICE
 
 include $(BUILD_EXECUTABLE)
 
@@ -169,6 +190,9 @@ LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= codec
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/NOTICE
 
 include $(BUILD_EXECUTABLE)
 
@@ -214,6 +238,9 @@ LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= mediafilter
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/NOTICE
 
 LOCAL_SANITIZE := cfi
 
@@ -242,5 +269,8 @@ LOCAL_CFLAGS += -Wno-multichar -Werror -Wall
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= muxer
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/NOTICE
 
 include $(BUILD_EXECUTABLE)

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "collector-device-lib",
     defaults: ["tradefed_errorprone_defaults"],
@@ -19,15 +23,18 @@ java_library {
     srcs: ["java/**/*.java"],
 
     static_libs: [
+        "androidx.annotation_annotation",
         "androidx.test.runner",
+        "androidx.test.uiautomator",
         "jank-helper",
         "junit",
+        "lyric-metric-helper",
         "memory-helper",
         "perfetto-helper",
         "power-helper",
-        "ub-uiautomator",
+        "simpleperf-helper",
         "system-metric-helper",
     ],
 
-    sdk_version: "current",
+    sdk_version: "test_current",
 }

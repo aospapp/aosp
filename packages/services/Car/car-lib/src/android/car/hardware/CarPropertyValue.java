@@ -31,9 +31,12 @@ import java.nio.charset.StandardCharsets;
 /**
  * Stores values broken down by area for a vehicle property.
  *
- * @param <T> refer to Parcel#writeValue(Object) to get a list of all supported types. The class
- * should be visible to framework as default class loader is being used here.
+ * <p>This class is a java representation of {@code struct VehiclePropValue} defined in
+ * {@code hardware/interfaces/automotive/vehicle/2.0/types.hal}. See
+ * {@link com.android.car.hal.CarPropertyUtils} to learn conversion details.
  *
+ * @param <T> refer to Parcel#writeValue(Object) to get a list of all supported types. The class
+ *            should be visible to framework as default class loader is being used here.
  */
 public final class CarPropertyValue<T> implements Parcelable {
     private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
@@ -68,7 +71,8 @@ public final class CarPropertyValue<T> implements Parcelable {
     public static final int STATUS_ERROR = 2;
 
     /**
-     * Get an instance of CarPropertyValue
+     * Creates an instance of CarPropertyValue.
+     *
      * @param propertyId Property ID
      * @param areaId Area ID of Property
      * @param value Value of Property
@@ -79,12 +83,16 @@ public final class CarPropertyValue<T> implements Parcelable {
     }
 
     /**
-     * Get an instance of CarPropertyValue
+     * Creates an instance of CarPropertyValue. The {@code timestamp} is the time in nanoseconds at
+     * which the event happened. For a given car property, each new CarPropertyValue should be
+     * monotonically increasing using the same time base as
+     * {@link SystemClock#elapsedRealtimeNanos()}.
+     *
      * @param propertyId Property ID
-     * @param areaId Area ID of Property
-     * @param status Status of Property
-     * @param timestamp Timestamp in nanosecond
-     * @param value Value of Property
+     * @param areaId     Area ID of Property
+     * @param status     Status of Property
+     * @param timestamp  Elapsed time in nanoseconds since boot
+     * @param value      Value of Property
      * @hide
      */
     public CarPropertyValue(int propertyId, int areaId, int status, long timestamp, T value) {
@@ -96,7 +104,8 @@ public final class CarPropertyValue<T> implements Parcelable {
     }
 
     /**
-     * Get an instance of CarPropertyValue
+     * Creates an instance of CarPropertyValue.
+     *
      * @param in Parcel to read
      * @hide
      */
@@ -183,7 +192,13 @@ public final class CarPropertyValue<T> implements Parcelable {
     }
 
     /**
-     * @return Timestamp of CarPropertyValue
+     * Returns the timestamp in nanoseconds at which the CarPropertyValue happened. For a given car
+     * property, each new CarPropertyValue should be monotonically increasing using the same time
+     * base as {@link SystemClock#elapsedRealtimeNanos()}.
+     *
+     * <p>NOTE: Timestamp should be synchronized with other signals from the platform (e.g.
+     * {@link Location} and {@link SensorEvent} instances). Ideally, timestamp synchronization
+     * error should be below 1 millisecond.
      */
     public long getTimestamp() {
         return mTimestamp;

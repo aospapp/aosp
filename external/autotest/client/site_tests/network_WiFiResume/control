@@ -4,8 +4,7 @@
 
 AUTHOR = 'kirtika'
 NAME = 'network_WiFiResume'
-ATTRIBUTES = ('suite:network_nightly, suite:bvt-perbuild,'
-              'suite:wificell-pre-cq')
+ATTRIBUTES = ('suite:network_nightly, suite:bvt-perbuild')
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

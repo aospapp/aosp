@@ -25,12 +25,15 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaFormat;
+import android.os.Environment;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.view.View;
 
 import com.android.compatibility.common.util.MediaUtils;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -139,6 +142,8 @@ public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
     private View videoView;
     private VideoViewFactory videoViewFactory;
     private String fileName;
+    private String testName;
+    private String methodName;
     private SimplePlayer player;
 
     @After
@@ -161,48 +166,55 @@ public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
         final List<Object[]> testParams = new ArrayList<>();
         for (int i = 0; i < VIDEO_FILES.length; i++) {
             final String file = VIDEO_FILES[i];
-            Pattern regex = Pattern.compile("^\\w+-(\\w+)_\\d+fps.\\w+");
+            Pattern regex = Pattern.compile("^\\w+-(\\w+)_\\d+fps\\.\\w+");
             Matcher matcher = regex.matcher(file);
             String testName = "";
             if (matcher.matches()) {
                 testName = matcher.group(1);
             }
-            testParams.add(new Object[] { testName.replace("_", " ").toUpperCase(), file });
+            testParams.add(new Object[] { testName, file });
         }
         return testParams;
     }
 
-    public DecodeAccuracyTest(String testname, String fileName) {
+    public DecodeAccuracyTest(String testName, String fileName) {
         this.fileName = fileName;
+        this.testName = testName;
     }
 
     @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testGLViewDecodeAccuracy() throws Exception {
+        this.methodName = "testGLViewDecodeAccuracy";
         runTest(new GLSurfaceViewFactory(), new VideoFormat(fileName));
     }
 
     @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testGLViewLargerHeightDecodeAccuracy() throws Exception {
+        this.methodName = "testGLViewLargerHeightDecodeAccuracy";
         runTest(new GLSurfaceViewFactory(), getLargerHeightVideoFormat(new VideoFormat(fileName)));
     }
 
     @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testGLViewLargerWidthDecodeAccuracy() throws Exception {
+        this.methodName = "testGLViewLargerWidthDecodeAccuracy";
         runTest(new GLSurfaceViewFactory(), getLargerWidthVideoFormat(new VideoFormat(fileName)));
     }
 
     @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testSurfaceViewVideoDecodeAccuracy() throws Exception {
+        this.methodName = "testSurfaceViewVideoDecodeAccuracy";
         runTest(new SurfaceViewFactory(), new VideoFormat(fileName));
     }
 
     @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testSurfaceViewLargerHeightDecodeAccuracy() throws Exception {
+        this.methodName = "testSurfaceViewLargerHeightDecodeAccuracy";
         runTest(new SurfaceViewFactory(), getLargerHeightVideoFormat(new VideoFormat(fileName)));
     }
 
     @Test(timeout = PER_TEST_TIMEOUT_MS)
     public void testSurfaceViewLargerWidthDecodeAccuracy() throws Exception {
+        this.methodName = "testSurfaceViewLargerWidthDecodeAccuracy";
         runTest(new SurfaceViewFactory(), getLargerWidthVideoFormat(new VideoFormat(fileName)));
     }
 
@@ -253,6 +265,20 @@ public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
         final Bitmap golden = getHelper().generateBitmapFromImageResourceId(goldenId);
         final BitmapCompare.Difference difference = BitmapCompare.computeMinimumDifference(
                 result, golden, videoFormat.getOriginalWidth(), videoFormat.getOriginalHeight());
+
+        if (difference.greatestPixelDifference > ALLOWED_GREATEST_PIXEL_DIFFERENCE) {
+            /* save failing file */
+            File failed = new File(Environment.getExternalStorageDirectory(),
+                                   "failed_" + methodName + "_" + testName + ".png");
+            try (FileOutputStream fileStream = new FileOutputStream(failed)) {
+                result.compress(Bitmap.CompressFormat.PNG, 0 /* ignored for PNG */, fileStream);
+                fileStream.flush();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            Log.d(TAG, testName + " saved " + failed.getAbsolutePath());
+        }
+
         assertTrue("With the best matched border crop ("
                 + difference.bestMatchBorderCrop.first + ", "
                 + difference.bestMatchBorderCrop.second + "), "

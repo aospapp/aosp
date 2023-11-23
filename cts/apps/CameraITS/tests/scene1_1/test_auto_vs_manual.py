@@ -11,98 +11,135 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Verifies auto and manual captures are similar with same scene."""
 
+
+import logging
 import math
 import os.path
-import its.caps
-import its.device
-import its.image
-import its.objects
+from mobly import test_runner
 import numpy as np
 
-NAME = os.path.basename(__file__).split(".")[0]
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import image_processing_utils
+import its_session_utils
+
+AWB_AUTO_ATOL = 0.10
+AWB_AUTO_RTOL = 0.25
+AWB_MANUAL_ATOL = 0.05
+NAME = os.path.splitext(os.path.basename(__file__))[0]
+TONEMAP_GAMMA = sum([[t/63.0, math.pow(t/63.0, 1/2.2)] for t in range(64)], [])
 
 
-def main():
-    """Capture auto and manual shots that should look the same.
+def extract_awb_gains_and_xform(cap, cap_name, log_path):
+  """Extract the AWB transform and gains, save image, and log info.
 
-    Manual shots taken with just manual WB, and also with manual WB+tonemap.
+  Args:
+    cap: camera capture
+    cap_name: text string to identify cap type
+    log_path: location to save images
 
-    In all cases, the general color/look of the shots should be the same,
-    however there can be variations in brightness/contrast due to different
-    "auto" ISP blocks that may be disabled in the manual flows.
-    """
+  Returns:
+    awb_gains, awb_xform
+  """
+  img = image_processing_utils.convert_capture_to_rgb_image(cap)
+  image_processing_utils.write_image(img, '%s_%s.jpg' % (
+      os.path.join(log_path, NAME), cap_name))
+  awb_gains = cap['metadata']['android.colorCorrection.gains']
+  awb_xform = capture_request_utils.rational_to_float(
+      cap['metadata']['android.colorCorrection.transform'])
+  logging.debug('%s gains: %s', cap_name, str(awb_gains))
+  logging.debug('%s transform: %s', cap_name, str(awb_xform))
+  return awb_gains, awb_xform
 
-    with its.device.ItsSession() as cam:
-        props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.read_3a(props) and
-                             its.caps.per_frame_control(props))
-        mono_camera = its.caps.mono_camera(props)
 
-        # Converge 3A and get the estimates.
-        debug = its.caps.debug_mode()
-        largest_yuv = its.objects.get_largest_yuv_format(props)
-        if debug:
-            fmt = largest_yuv
-        else:
-            match_ar = (largest_yuv["width"], largest_yuv["height"])
-            fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
-        sens, exp, gains, xform, focus = cam.do_3a(get_results=True,
-                                                   mono_camera=mono_camera)
-        xform_rat = its.objects.float_to_rational(xform)
-        print "AE sensitivity %d, exposure %dms" % (sens, exp/1000000.0)
-        print "AWB gains", gains
-        print "AWB transform", xform
-        print "AF distance", focus
+class AutoVsManualTest(its_base_test.ItsBaseTest):
+  """Capture auto and manual shots that should look the same.
 
-        # Auto capture.
-        req = its.objects.auto_capture_request()
-        cap_auto = cam.do_capture(req, fmt)
-        img_auto = its.image.convert_capture_to_rgb_image(cap_auto)
-        its.image.write_image(img_auto, "%s_auto.jpg" % (NAME))
-        xform_a = its.objects.rational_to_float(
-                cap_auto["metadata"]["android.colorCorrection.transform"])
-        gains_a = cap_auto["metadata"]["android.colorCorrection.gains"]
-        print "Auto gains:", gains_a
-        print "Auto transform:", xform_a
+  Manual shots taken with just manual WB, and also with manual WB+tonemap.
 
-        # Manual capture 1: WB
-        req = its.objects.manual_capture_request(sens, exp, focus)
-        req["android.colorCorrection.transform"] = xform_rat
-        req["android.colorCorrection.gains"] = gains
-        cap_man1 = cam.do_capture(req, fmt)
-        img_man1 = its.image.convert_capture_to_rgb_image(cap_man1)
-        its.image.write_image(img_man1, "%s_manual_wb.jpg" % (NAME))
-        xform_m1 = its.objects.rational_to_float(
-                cap_man1["metadata"]["android.colorCorrection.transform"])
-        gains_m1 = cap_man1["metadata"]["android.colorCorrection.gains"]
-        print "Manual wb gains:", gains_m1
-        print "Manual wb transform:", xform_m1
+  In all cases, the general color/look of the shots should be the same,
+  however there can be variations in brightness/contrast due to different
+  'auto' ISP blocks that may be disabled in the manual flows.
+  """
 
-        # Manual capture 2: WB + tonemap
-        gamma = sum([[i/63.0, math.pow(i/63.0, 1/2.2)] for i in xrange(64)], [])
-        req["android.tonemap.mode"] = 0
-        req["android.tonemap.curve"] = {
-                "red": gamma, "green": gamma, "blue": gamma}
-        cap_man2 = cam.do_capture(req, fmt)
-        img_man2 = its.image.convert_capture_to_rgb_image(cap_man2)
-        its.image.write_image(img_man2, "%s_manual_wb_tm.jpg" % (NAME))
-        xform_m2 = its.objects.rational_to_float(
-                cap_man2["metadata"]["android.colorCorrection.transform"])
-        gains_m2 = cap_man2["metadata"]["android.colorCorrection.gains"]
-        print "Manual wb+tm gains:", gains_m2
-        print "Manual wb+tm transform:", xform_m2
+  def test_auto_vs_manual(self):
+    logging.debug('Starting %s', NAME)
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      mono_camera = camera_properties_utils.mono_camera(props)
+      log_path = self.log_path
 
-        # Check that the WB gains and transform reported in each capture
-        # result match with the original AWB estimate from do_3a.
-        for g, x in [(gains_m1, xform_m1), (gains_m2, xform_m2)]:
-            assert all([abs(xform[i] - x[i]) < 0.05 for i in range(9)])
-            assert all([abs(gains[i] - g[i]) < 0.05 for i in range(4)])
+      # check SKIP conditions
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.read_3a(props) and
+          camera_properties_utils.per_frame_control(props))
 
-        # Check that auto AWB settings are close
-        assert all([np.isclose(xform_a[i], xform[i], rtol=0.25, atol=0.1) for i in range(9)])
-        assert all([np.isclose(gains_a[i], gains[i], rtol=0.25, atol=0.1) for i in range(4)])
+      # Load chart for scene
+      its_session_utils.load_scene(
+          cam, props, self.scene, self.tablet, self.chart_distance)
 
-if __name__ == "__main__":
-    main()
+      # Converge 3A and get the estimates
+      largest_yuv = capture_request_utils.get_largest_yuv_format(props)
+      match_ar = (largest_yuv['width'], largest_yuv['height'])
+      fmt = capture_request_utils.get_smallest_yuv_format(
+          props, match_ar=match_ar)
+      s, e, awb_gains, awb_xform, fd = cam.do_3a(get_results=True,
+                                                 mono_camera=mono_camera)
+      awb_xform_rat = capture_request_utils.float_to_rational(awb_xform)
+      logging.debug('AE sensitivity: %d, exposure: %dms', s, e/1000000.0)
+      logging.debug('AWB gains: %s', str(awb_gains))
+      logging.debug('AWB transform: %s', str(awb_xform))
+      logging.debug('AF distance: %.3f', fd)
+
+      # Auto capture
+      req = capture_request_utils.auto_capture_request()
+      cap_auto = cam.do_capture(req, fmt)
+      awb_gains_a, awb_xform_a = extract_awb_gains_and_xform(
+          cap_auto, 'auto', log_path)
+
+      # Manual capture 1: WB
+      req = capture_request_utils.manual_capture_request(s, e, fd)
+      req['android.colorCorrection.transform'] = awb_xform_rat
+      req['android.colorCorrection.gains'] = awb_gains
+      cap_man1 = cam.do_capture(req, fmt)
+      awb_gains_m1, awb_xform_m1 = extract_awb_gains_and_xform(
+          cap_man1, 'manual_wb', log_path)
+
+      # Manual capture 2: WB + tonemap
+      req['android.tonemap.mode'] = 0
+      req['android.tonemap.curve'] = {'red': TONEMAP_GAMMA,
+                                      'green': TONEMAP_GAMMA,
+                                      'blue': TONEMAP_GAMMA}
+      cap_man2 = cam.do_capture(req, fmt)
+      awb_gains_m2, awb_xform_m2 = extract_awb_gains_and_xform(
+          cap_man2, 'manual_wb_tm', log_path)
+
+      # Check AWB gains & transform in manual results match values from do_3a
+      for g, x in [(awb_gains_m1, awb_xform_m1), (awb_gains_m2, awb_xform_m2)]:
+        e_msg = 'awb_xform 3A: %s, manual: %s, ATOL=%.2f' % (
+            str(awb_xform), str(x), AWB_MANUAL_ATOL)
+        assert np.allclose(awb_xform, x, atol=AWB_MANUAL_ATOL, rtol=0), e_msg
+        e_msg = 'awb_gains 3A: %s, manual: %s, ATOL=%.2f' % (
+            str(awb_gains), str(g), AWB_MANUAL_ATOL)
+        assert np.allclose(awb_gains, g, atol=AWB_MANUAL_ATOL, rtol=0), e_msg
+
+      # Check AWB gains & transform in auto results match values from do_3a
+      e_msg = 'awb_xform 3A: %s, auto: %s, RTOL=%.2f, ATOL=%.2f' % (
+          str(awb_xform), str(awb_xform_a), AWB_AUTO_RTOL, AWB_AUTO_ATOL)
+      assert np.allclose(awb_xform_a, awb_xform, atol=AWB_AUTO_ATOL,
+                         rtol=AWB_AUTO_RTOL), e_msg
+      e_msg = 'awb_gains 3A: %s, auto: %s, RTOL=%.2f, ATOL=%.2f' % (
+          str(awb_gains), str(awb_gains_a), AWB_AUTO_RTOL, AWB_AUTO_ATOL)
+      assert np.allclose(awb_gains_a, awb_gains, atol=AWB_AUTO_ATOL,
+                         rtol=AWB_AUTO_RTOL), e_msg
+
+if __name__ == '__main__':
+  test_runner.main()
 

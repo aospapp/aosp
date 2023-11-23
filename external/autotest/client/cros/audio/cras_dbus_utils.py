@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -19,7 +20,7 @@ def _set_default_main_loop():
     """
     try:
         import dbus.mainloop.glib
-    except ImportError, e:
+    except ImportError as e:
         logging.exception(
                 'Can not import dbus.mainloop.glib: %s. '
                 'This method should only be called on Cros device.', e)
@@ -37,7 +38,7 @@ def _get_gobject():
     """
     try:
         import gobject
-    except ImportError, e:
+    except ImportError as e:
         logging.exception(
                 'Can not import gobject: %s. This method should only be '
                 'called on Cros device.', e)

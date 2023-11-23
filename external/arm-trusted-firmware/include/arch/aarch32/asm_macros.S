@@ -95,11 +95,29 @@
 
 #if ARM_ARCH_MAJOR == 7 && !defined(ARMV7_SUPPORTS_VIRTUALIZATION)
 	/*
+	 * Macro for mitigating against speculative execution.
 	 * ARMv7 cores without Virtualization extension do not support the
 	 * eret instruction.
 	 */
-	.macro eret
+	.macro exception_return
 	movs	pc, lr
+	dsb	nsh
+	isb
+	.endm
+
+#else
+	/*
+	 * Macro for mitigating against speculative execution beyond ERET.
+	 * If possible use Speculation Barrier instruction defined in ARMv8.5
+	 */
+	.macro exception_return
+	eret
+#if ARM_ARCH_AT_LEAST(8, 5)
+	sb
+#else
+	dsb	nsh
+	isb
+#endif
 	.endm
 #endif
 

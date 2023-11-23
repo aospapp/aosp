@@ -17,6 +17,7 @@
 #define LOG_TAG "createns"
 #include <log/log.h>
 
+#include <cutils/properties.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -148,85 +149,11 @@ static bool writeNamespacePid(const char* name, pid_t pid) {
     return true;
 }
 
-static pid_t daemonize(int fd) {
-    // This convoluted way of demonizing the process is described in
-    // man (7) daemon.
-
-    // (1) Close all files, we don't have any open files at this point
-    // (2) Reset all signal handlers to default, they already are
-    // (3) Reset the signal mask, we never changed it
-    // (4) Sanitize environment block, we didn't change the environment
-    // (5) Call fork
-    pid_t pid = ::fork();
-    if (pid != 0) {
-        // In the parent, nothing more to do
-        return pid;
-    }
-
-    // (6) Acquire a new session to detach from terminal
-    ::setsid();
-
-    // (7) Fork again to avoid the daemon being attached to a terminal again
-    pid = ::fork();
-    if (pid != 0) {
-        // (8) This is the first child, needs to call exit
-        exit(0);
-        return pid;
-    }
-    // (9) Connect /dev/null to stdin, stdout, stderr
-    ::close(STDIN_FILENO);
-    ::close(STDOUT_FILENO);
-    ::close(STDERR_FILENO);
-    // Since open will always reuse the lowest available fd and we have closed
-    // every single fd at this point we can just open them in the correct order.
-    if (::open("/dev/null", O_RDONLY) == -1) {
-        ALOGE("Unable to open /dev/null as stdin");
-    }
-    if (::open("/dev/null", O_WRONLY) == -1) {
-        ALOGE("Unable to open /dev/null as stdout");
-    }
-    if (::open("/dev/null", O_WRONLY) == -1) {
-        ALOGE("Unable to open /dev/null as stderr");
-    }
-    // (10) Reset umask to zero
-    ::umask(0);
-    // (11) Change directory to root (/)
-    if (::chdir("/") != 0) {
-        ALOGE("Failed to set working directory to root: %s", strerror(errno));
-    }
-    // (12) Write the pid of the daemon to a file, we're passing this to
-    // the process that starts the daemon to ensure that the pid file exists
-    // once that process exits. Atomicity is guaranteed by that write requiring
-    // that the pid file does not exist to begin with.
-    pid = ::getpid();
-    if (::write(fd, &pid, sizeof(pid)) != sizeof(pid)) {
-        ALOGE("Unable to write pid to pipe: %s", strerror(errno));
-        ::close(fd);
-        exit(1);
-    }
-    ::close(fd);
-    // (13) Drop privileges, doing this causes problems for execns when it's
-    // trying to open the proc/ns/net file of this process so we can't do that.
-    // (14) Notify the starting process that the daemon is running, this is done
-    // in step (12) above.
-    // (15) Exit starting process happens in main where it returns.
-    return 0;
-}
-
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         usage(argv[0]);
         return 1;
     }
-    int fds[2];
-    if (::pipe2(fds, O_CLOEXEC) != 0) {
-        ALOGE("Failed to create pipe: %s", strerror(errno));
-        return 1;
-    }
-
-    Fd readPipe(fds[0]);
-    Fd writePipe(fds[1]);
-
     if (::unshare(CLONE_NEWNET) != 0) {
         ALOGE("Failed to create network namespace '%s': %s",
               argv[1],
@@ -240,8 +167,7 @@ int main(int argc, char* argv[]) {
     }
     {
         // Open and then immediately close the fd
-        Fd fd(::open(path.c_str(), O_CREAT | O_TRUNC | O_RDONLY | O_CLOEXEC,
-                     S_IRUSR | S_IWUSR | S_IRGRP));
+        Fd fd(::open(path.c_str(), O_CREAT|O_RDONLY, S_IRUSR | S_IRGRP));
         if (fd.get() == -1) {
             ALOGE("Failed to open file %s: %s", path.c_str(), strerror(errno));
             return 1;
@@ -257,28 +183,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // At this point we fork. This way we keep a process in the namespace alive
-    // without this command being blocking. This is valuable because it allows
-    // us to write the pid to a file before we exit. That way we can guarantee
-    // that after this command completes there is a pid to be read, there is no
-    // asynchronous behavior going on.
-    pid_t pid = daemonize(writePipe.get());
-    if (pid == 0) {
-        // In the child
-        for (;;) {
-            pause();
-        }
-    } else {
-        // In the parent, read the pid of the daemon from the pipe and write it
-        // to a file.
-        pid_t child = 0;
-        if (::read(readPipe.get(), &child, sizeof(child)) != sizeof(child)) {
-            ALOGE("Failed to read child PID from pipe: %s", strerror(errno));
-            return 1;
-        }
-        if (!writeNamespacePid(argv[1], child)) {
-            return 1;
-        }
+    if (!writeNamespacePid(argv[1], ::getpid())) {
+        return 1;
+    }
+    property_set("vendor.qemu.networknamespace", "ready");
+
+    for (;;) {
+        pause();
     }
 
     return 0;

@@ -1,4 +1,3 @@
-# -*- coding:utf-8 -*-
 # Copyright 2016 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,9 +14,9 @@
 
 """Manage various config files."""
 
-from __future__ import print_function
-
+import configparser
 import functools
+import itertools
 import os
 import shlex
 import sys
@@ -30,7 +29,6 @@ del _path
 # pylint: disable=wrong-import-position
 import rh.hooks
 import rh.shell
-from rh.sixish import configparser
 
 
 class Error(Exception):
@@ -41,99 +39,97 @@ class ValidationError(Error):
     """Config file has unknown sections/keys or other values."""
 
 
+# Sentinel so we can handle None-vs-unspecified.
+_UNSET = object()
+
+
 class RawConfigParser(configparser.RawConfigParser):
     """Like RawConfigParser but with some default helpers."""
 
-    @staticmethod
-    def _check_args(name, cnt_min, cnt_max, args):
-        cnt = len(args)
-        if cnt not in (0, cnt_max - cnt_min):
-            raise TypeError('%s() takes %i or %i arguments (got %i)' %
-                            (name, cnt_min, cnt_max, cnt,))
-        return cnt
-
-    # pylint can't seem to grok our use of *args here.
+    # pylint doesn't like it when we extend the API.
     # pylint: disable=arguments-differ
 
-    def options(self, section, *args):
-        """Return the options in |section| (with default |args|).
+    def options(self, section, default=_UNSET):
+        """Return the options in |section|.
 
         Args:
           section: The section to look up.
-          args: What to return if |section| does not exist.
+          default: What to return if |section| does not exist.
         """
-        cnt = self._check_args('options', 2, 3, args)
         try:
             return configparser.RawConfigParser.options(self, section)
         except configparser.NoSectionError:
-            if cnt == 1:
-                return args[0]
+            if default is not _UNSET:
+                return default
             raise
 
-    def get(self, section, option, *args):
-        """Return the value for |option| in |section| (with default |args|)."""
-        cnt = self._check_args('get', 3, 4, args)
+    def get(self, section, option, default=_UNSET):
+        """Return the value for |option| in |section| (with |default|)."""
         try:
             return configparser.RawConfigParser.get(self, section, option)
         except (configparser.NoSectionError, configparser.NoOptionError):
-            if cnt == 1:
-                return args[0]
+            if default is not _UNSET:
+                return default
             raise
 
-    def items(self, section, *args):
+    def items(self, section=_UNSET, default=_UNSET):
         """Return a list of (key, value) tuples for the options in |section|."""
-        cnt = self._check_args('items', 2, 3, args)
+        if section is _UNSET:
+            # Python 3 compat logic.  Return a dict of section-to-options.
+            if sys.version_info.major < 3:
+                return [(x, self.items(x)) for x in self.sections()]
+            return super(RawConfigParser, self).items()
+
         try:
             return configparser.RawConfigParser.items(self, section)
         except configparser.NoSectionError:
-            if cnt == 1:
-                return args[0]
+            if default is not _UNSET:
+                return default
             raise
+
+    if sys.version_info.major < 3:
+        def read_dict(self, dictionary):
+            """Store |dictionary| into ourselves."""
+            for section, settings in dictionary.items():
+                for option, value in settings:
+                    if not self.has_section(section):
+                        self.add_section(section)
+                    self.set(section, option, value)
 
 
 class PreUploadConfig(object):
-    """Config file used for per-project `repo upload` hooks."""
-
-    FILENAME = 'PREUPLOAD.cfg'
-    GLOBAL_FILENAME = 'GLOBAL-PREUPLOAD.cfg'
+    """A single (abstract) config used for `repo upload` hooks."""
 
     CUSTOM_HOOKS_SECTION = 'Hook Scripts'
     BUILTIN_HOOKS_SECTION = 'Builtin Hooks'
     BUILTIN_HOOKS_OPTIONS_SECTION = 'Builtin Hooks Options'
+    BUILTIN_HOOKS_EXCLUDE_SECTION = 'Builtin Hooks Exclude Paths'
     TOOL_PATHS_SECTION = 'Tool Paths'
     OPTIONS_SECTION = 'Options'
+    VALID_SECTIONS = {
+        CUSTOM_HOOKS_SECTION,
+        BUILTIN_HOOKS_SECTION,
+        BUILTIN_HOOKS_OPTIONS_SECTION,
+        BUILTIN_HOOKS_EXCLUDE_SECTION,
+        TOOL_PATHS_SECTION,
+        OPTIONS_SECTION,
+    }
 
     OPTION_IGNORE_MERGED_COMMITS = 'ignore_merged_commits'
-    VALID_OPTIONS = (OPTION_IGNORE_MERGED_COMMITS,)
+    VALID_OPTIONS = {OPTION_IGNORE_MERGED_COMMITS}
 
-    def __init__(self, paths=('',), global_paths=()):
+    def __init__(self, config=None, source=None):
         """Initialize.
 
-        All the config files found will be merged together in order.
-
         Args:
-          paths: The directories to look for config files.
-          global_paths: The directories to look for global config files.
+          config: A configparse.ConfigParser instance.
+          source: Where this config came from. This is used in error messages to
+              facilitate debugging. It is not necessarily a valid path.
         """
-        config = RawConfigParser()
-
-        def _search(paths, filename):
-            for path in paths:
-                path = os.path.join(path, filename)
-                if os.path.exists(path):
-                    self.paths.append(path)
-                    try:
-                        config.read(path)
-                    except configparser.ParsingError as e:
-                        raise ValidationError('%s: %s' % (path, e))
-
-        self.paths = []
-        _search(global_paths, self.GLOBAL_FILENAME)
-        _search(paths, self.FILENAME)
-
-        self.config = config
-
-        self._validate()
+        self.config = config if config else RawConfigParser()
+        self.source = source
+        if config:
+            self._validate()
 
     @property
     def custom_hooks(self):
@@ -155,26 +151,35 @@ class PreUploadConfig(object):
         return shlex.split(self.config.get(self.BUILTIN_HOOKS_OPTIONS_SECTION,
                                            hook, ''))
 
+    def builtin_hook_exclude_paths(self, hook):
+        """List of paths for which |hook| should not be executed."""
+        return shlex.split(self.config.get(self.BUILTIN_HOOKS_EXCLUDE_SECTION,
+                                           hook, ''))
+
     @property
     def tool_paths(self):
         """List of all tool paths."""
         return dict(self.config.items(self.TOOL_PATHS_SECTION, ()))
 
     def callable_hooks(self):
-        """Yield a name and callback for each hook to be executed."""
+        """Yield a CallableHook for each hook to be executed."""
+        scope = rh.hooks.ExclusionScope([])
         for hook in self.custom_hooks:
             options = rh.hooks.HookOptions(hook,
                                            self.custom_hook(hook),
                                            self.tool_paths)
-            yield (hook, functools.partial(rh.hooks.check_custom,
-                                           options=options))
+            func = functools.partial(rh.hooks.check_custom, options=options)
+            yield rh.hooks.CallableHook(hook, func, scope)
 
         for hook in self.builtin_hooks:
             options = rh.hooks.HookOptions(hook,
                                            self.builtin_hook_option(hook),
                                            self.tool_paths)
-            yield (hook, functools.partial(rh.hooks.BUILTIN_HOOKS[hook],
-                                           options=options))
+            func = functools.partial(rh.hooks.BUILTIN_HOOKS[hook],
+                                     options=options)
+            scope = rh.hooks.ExclusionScope(
+                self.builtin_hook_exclude_paths(hook))
+            yield rh.hooks.CallableHook(hook, func, scope)
 
     @property
     def ignore_merged_commits(self):
@@ -184,28 +189,25 @@ class PreUploadConfig(object):
                             self.OPTION_IGNORE_MERGED_COMMITS, None),
             False)
 
+    def update(self, preupload_config):
+        """Merge settings from |preupload_config| into ourself."""
+        self.config.read_dict(preupload_config.config)
+
     def _validate(self):
         """Run consistency checks on the config settings."""
         config = self.config
 
         # Reject unknown sections.
-        valid_sections = set((
-            self.CUSTOM_HOOKS_SECTION,
-            self.BUILTIN_HOOKS_SECTION,
-            self.BUILTIN_HOOKS_OPTIONS_SECTION,
-            self.TOOL_PATHS_SECTION,
-            self.OPTIONS_SECTION,
-        ))
-        bad_sections = set(config.sections()) - valid_sections
+        bad_sections = set(config.sections()) - self.VALID_SECTIONS
         if bad_sections:
             raise ValidationError('%s: unknown sections: %s' %
-                                  (self.paths, bad_sections))
+                                  (self.source, bad_sections))
 
         # Reject blank custom hooks.
         for hook in self.custom_hooks:
             if not config.get(self.CUSTOM_HOOKS_SECTION, hook):
                 raise ValidationError('%s: custom hook "%s" cannot be blank' %
-                                      (self.paths, hook))
+                                      (self.source, hook))
 
         # Reject unknown builtin hooks.
         valid_builtin_hooks = set(rh.hooks.BUILTIN_HOOKS.keys())
@@ -214,7 +216,7 @@ class PreUploadConfig(object):
             bad_hooks = hooks - valid_builtin_hooks
             if bad_hooks:
                 raise ValidationError('%s: unknown builtin hooks: %s' %
-                                      (self.paths, bad_hooks))
+                                      (self.source, bad_hooks))
         elif config.has_section(self.BUILTIN_HOOKS_OPTIONS_SECTION):
             raise ValidationError('Builtin hook options specified, but missing '
                                   'builtin hook settings')
@@ -224,7 +226,7 @@ class PreUploadConfig(object):
             bad_hooks = hooks - valid_builtin_hooks
             if bad_hooks:
                 raise ValidationError('%s: unknown builtin hook options: %s' %
-                                      (self.paths, bad_hooks))
+                                      (self.source, bad_hooks))
 
         # Verify hooks are valid shell strings.
         for hook in self.custom_hooks:
@@ -232,7 +234,7 @@ class PreUploadConfig(object):
                 self.custom_hook(hook)
             except ValueError as e:
                 raise ValidationError('%s: hook "%s" command line is invalid: '
-                                      '%s' % (self.paths, hook, e))
+                                      '%s' % (self.source, hook, e))
 
         # Verify hook options are valid shell strings.
         for hook in self.builtin_hooks:
@@ -240,7 +242,7 @@ class PreUploadConfig(object):
                 self.builtin_hook_option(hook)
             except ValueError as e:
                 raise ValidationError('%s: hook options "%s" are invalid: %s' %
-                                      (self.paths, hook, e))
+                                      (self.source, hook, e))
 
         # Reject unknown tools.
         valid_tools = set(rh.hooks.TOOL_PATHS.keys())
@@ -249,13 +251,105 @@ class PreUploadConfig(object):
             bad_tools = tools - valid_tools
             if bad_tools:
                 raise ValidationError('%s: unknown tools: %s' %
-                                      (self.paths, bad_tools))
+                                      (self.source, bad_tools))
 
         # Reject unknown options.
-        valid_options = set(self.VALID_OPTIONS)
         if config.has_section(self.OPTIONS_SECTION):
             options = set(config.options(self.OPTIONS_SECTION))
-            bad_options = options - valid_options
+            bad_options = options - self.VALID_OPTIONS
             if bad_options:
                 raise ValidationError('%s: unknown options: %s' %
-                                      (self.paths, bad_options))
+                                      (self.source, bad_options))
+
+
+class PreUploadFile(PreUploadConfig):
+    """A single config (file) used for `repo upload` hooks.
+
+    This is an abstract class that requires subclasses to define the FILENAME
+    constant.
+
+    Attributes:
+      path: The path of the file.
+    """
+    FILENAME = None
+
+    def __init__(self, path):
+        """Initialize.
+
+        Args:
+          path: The config file to load.
+        """
+        super(PreUploadFile, self).__init__(source=path)
+
+        self.path = path
+        try:
+            self.config.read(path)
+        except configparser.ParsingError as e:
+            raise ValidationError('%s: %s' % (path, e))
+
+        self._validate()
+
+    @classmethod
+    def from_paths(cls, paths):
+        """Search for files within paths that matches the class FILENAME.
+
+        Args:
+          paths: List of directories to look for config files.
+
+        Yields:
+          For each valid file found, an instance is created and returned.
+        """
+        for path in paths:
+            path = os.path.join(path, cls.FILENAME)
+            if os.path.exists(path):
+                yield cls(path)
+
+
+class LocalPreUploadFile(PreUploadFile):
+    """A single config file for a project (PREUPLOAD.cfg)."""
+    FILENAME = 'PREUPLOAD.cfg'
+
+    def _validate(self):
+        super(LocalPreUploadFile, self)._validate()
+
+        # Reject Exclude Paths section for local config.
+        if self.config.has_section(self.BUILTIN_HOOKS_EXCLUDE_SECTION):
+            raise ValidationError('%s: [%s] is not valid in local files' %
+                                  (self.path,
+                                   self.BUILTIN_HOOKS_EXCLUDE_SECTION))
+
+
+class GlobalPreUploadFile(PreUploadFile):
+    """A single config file for a repo (GLOBAL-PREUPLOAD.cfg)."""
+    FILENAME = 'GLOBAL-PREUPLOAD.cfg'
+
+
+class PreUploadSettings(PreUploadConfig):
+    """Settings for `repo upload` hooks.
+
+    This encompasses multiple config files and provides the final (merged)
+    settings for a particular project.
+    """
+
+    def __init__(self, paths=('',), global_paths=()):
+        """Initialize.
+
+        All the config files found will be merged together in order.
+
+        Args:
+          paths: The directories to look for config files.
+          global_paths: The directories to look for global config files.
+        """
+        super(PreUploadSettings, self).__init__()
+
+        self.paths = []
+        for config in itertools.chain(
+                GlobalPreUploadFile.from_paths(global_paths),
+                LocalPreUploadFile.from_paths(paths)):
+            self.paths.append(config.path)
+            self.update(config)
+
+
+        # We validated configs in isolation, now do one final pass altogether.
+        self.source = '{%s}' % '|'.join(self.paths)
+        self._validate()

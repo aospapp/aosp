@@ -111,10 +111,10 @@ public class NotificationCarExtenderTest extends AndroidTestCase {
         final Intent testIntent = new Intent("testIntent");
         final PendingIntent testPendingIntent =
             PendingIntent.getBroadcast(mContext, 0, testIntent,
-            PendingIntent.FLAG_CANCEL_CURRENT);
+            PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         final PendingIntent testReplyPendingIntent =
             PendingIntent.getBroadcast(mContext, 0, testIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         final RemoteInput testRemoteInput = new RemoteInput.Builder("key").build();
 
         final UnreadConversation testConversation =

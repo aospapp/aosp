@@ -22,19 +22,29 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.role.RoleProto;
+import com.android.role.RoleServiceDumpProto;
+import com.android.role.RoleUserStateProto;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.device.CollectingByteOutputReceiver;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
+import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
 
 import org.junit.After;
+import org.junit.AssumptionViolatedException;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.runner.RunWith;
 
 import java.io.File;
@@ -46,6 +56,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -65,9 +76,26 @@ import javax.annotation.Nullable;
 @RunWith(DeviceJUnit4ClassRunner.class)
 public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
 
+    private static final String FEATURE_BLUETOOTH = "android.hardware.bluetooth";
+    private static final String FEATURE_CAMERA = "android.hardware.camera";
+    private static final String FEATURE_CONNECTION_SERVICE = "android.software.connectionservice";
+    private static final String FEATURE_FBE = "android.software.file_based_encryption";
+    private static final String FEATURE_LEANBACK = "android.software.leanback";
+    private static final String FEATURE_NFC = "android.hardware.nfc";
+    private static final String FEATURE_NFC_BEAM = "android.software.nfc.beam";
+
+    private static final String FEATURE_PRINT = "android.software.print";
+    private static final String FEATURE_TELEPHONY = "android.hardware.telephony";
+    private static final String FEATURE_SECURE_LOCK_SCREEN = "android.software.secure_lock_screen";
+    private static final String FEATURE_WIFI = "android.hardware.wifi";
+
     //The maximum time to wait for user to be unlocked.
     private static final long USER_UNLOCK_TIMEOUT_SEC = 30;
     private static final String USER_STATE_UNLOCKED = "RUNNING_UNLOCKED";
+
+    protected static final String PERMISSION_INTERACT_ACROSS_USERS =
+            "android.permission.INTERACT_ACROSS_USERS";
+
     @Option(
             name = "skip-device-admin-feature-check",
             description = "Flag that allows to skip the check for android.software.device_admin "
@@ -80,7 +108,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
 
     protected static final int USER_SYSTEM = 0; // From the UserHandle class.
 
-    protected static final int USER_OWNER = 0;
+    protected static final int USER_OWNER = USER_SYSTEM;
 
     private static final long TIMEOUT_USER_REMOVED_MILLIS = TimeUnit.SECONDS.toMillis(15);
     private static final long WAIT_SAMPLE_INTERVAL_MILLIS = 200;
@@ -146,50 +174,38 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     /** Packages installed as part of the tests */
     private Set<String> mFixedPackages;
 
-    /** Whether DPM is supported. */
-    protected boolean mHasFeature;
+    protected int mDeviceOwnerUserId;
     protected int mPrimaryUserId;
 
     /** Record the initial user ID. */
     protected int mInitialUserId;
 
     /** Whether multi-user is supported. */
-    protected boolean mSupportsMultiUser;
-
-    /** Whether managed profiles are supported. */
-    protected boolean mHasManagedUserFeature;
-
-    /** Whether file-based encryption (FBE) is supported. */
-    protected boolean mSupportsFbe;
-
-    /** Whether the device has a lock screen.*/
-    protected boolean mHasSecureLockScreen;
-
-    /** Whether the device supports telephony. */
-    protected boolean mHasTelephony;
+    private boolean mSupportsMultiUser;
 
     /** Users we shouldn't delete in the tests */
     private ArrayList<Integer> mFixedUsers;
 
     private static final String VERIFY_CREDENTIAL_CONFIRMATION = "Lock credential verified";
 
+    @Rule
+    public final DeviceAdminFeaturesCheckerRule mFeaturesCheckerRule =
+            new DeviceAdminFeaturesCheckerRule(this);
+
     @Before
     public void setUp() throws Exception {
         assertNotNull(getBuild());  // ensure build has been set before test is run.
-        ensurePackageManagerReady();
-        mHasFeature = getDevice().getApiLevel() >= 21; /* Build.VERSION_CODES.L */
+
         if (!mSkipDeviceAdminFeatureCheck) {
-            mHasFeature = mHasFeature && hasDeviceFeature("android.software.device_admin");
+            // TODO(b/177965931): STOPSHIP must integrate mSkipDeviceAdminFeatureCheck into
+            // DeviceAdminFeaturesCheckerRule
         }
+
         mSupportsMultiUser = getMaxNumberOfUsersSupported() > 1;
-        mHasManagedUserFeature = hasDeviceFeature("android.software.managed_users");
-        mSupportsFbe = hasDeviceFeature("android.software.file_based_encryption");
-        mHasTelephony = hasDeviceFeature("android.hardware.telephony");
         mFixedPackages = getDevice().getInstalledPackageNames();
         mBuildHelper = new CompatibilityBuildHelper(getBuild());
 
-        mHasSecureLockScreen = hasDeviceFeature("android.software.secure_lock_screen");
-        if (mHasSecureLockScreen) {
+        if (hasDeviceFeature(FEATURE_SECURE_LOCK_SCREEN)) {
             ensurePrimaryUserHasNoPassword();
         }
 
@@ -199,18 +215,27 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         getDevice().executeShellCommand("settings put global verifier_verify_adb_installs 0");
 
         mFixedUsers = new ArrayList<>();
-        mPrimaryUserId = getPrimaryUser();
 
         // Set the value of initial user ID calls in {@link #setUp}.
         if(mSupportsMultiUser) {
             mInitialUserId = getDevice().getCurrentUser();
         }
+
+        if (!isHeadlessSystemUserMode()) {
+            mDeviceOwnerUserId = mPrimaryUserId = getPrimaryUser();
+        } else {
+            // For headless system user, all tests will be executed on current user
+            // and therefore, initial user is set as primary user for test purpose.
+            mPrimaryUserId = mInitialUserId;
+            mDeviceOwnerUserId = USER_SYSTEM;
+        }
+
         mFixedUsers.add(mPrimaryUserId);
         if (mPrimaryUserId != USER_SYSTEM) {
             mFixedUsers.add(USER_SYSTEM);
         }
 
-        if (mHasFeature) {
+        if (mFeaturesCheckerRule.hasRequiredFeatures()) {
             // Switching to primary is only needed when we're testing device admin features.
             switchUser(mPrimaryUserId);
         } else {
@@ -223,7 +248,9 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         getDevice().executeShellCommand(" mkdir " + TEST_UPDATE_LOCATION);
 
         removeOwners();
-        switchUser(USER_SYSTEM);
+
+        switchUser(mPrimaryUserId);
+
         removeTestUsers();
         // Unlock keyguard before test
         wakeupAndDismissKeyguard();
@@ -290,7 +317,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     protected void installAppAsUser(String appFileName, boolean grantPermissions,
             boolean dontKillApp, int userId)
                     throws FileNotFoundException, DeviceNotAvailableException {
-        CLog.e("Installing app " + appFileName + " for user " + userId);
+        CLog.e("Installing app %s for user %d", appFileName, userId);
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
         List<String> extraArgs = new LinkedList<>();
         extraArgs.add("-t");
@@ -304,12 +331,55 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
                 result);
     }
 
+    protected void installAppIncremental(String appFileName)
+            throws FileNotFoundException, DeviceNotAvailableException {
+        final String signatureSuffix = ".idsig";
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
+        final File apk = buildHelper.getTestFile(appFileName);
+        assertNotNull(apk);
+        final File idsig = buildHelper.getTestFile(appFileName + signatureSuffix);
+        assertNotNull(idsig);
+        final String remoteApkPath = TEST_UPDATE_LOCATION + "/" + apk.getName();
+        final String remoteIdsigPath = remoteApkPath + signatureSuffix;
+        assertTrue(getDevice().pushFile(apk, remoteApkPath));
+        assertTrue(getDevice().pushFile(idsig, remoteIdsigPath));
+        String installResult = getDevice().executeShellCommand(
+                "pm install-incremental -t -g " + remoteApkPath);
+        assertEquals("Success\n", installResult);
+    }
+
+    protected void installDeviceOwnerApp(String apk) throws Exception {
+        installAppAsUser(apk, mDeviceOwnerUserId);
+
+        if (isHeadlessSystemUserMode()) {
+            // Need to explicitly install the device owner app for the current user (rather than
+            // relying on DPMS) so it has the same privileges (like INTERACT_ACROSS_USERS) as the
+            // app running on system user, otherwise some tests might fail
+            installAppAsUser(apk, mPrimaryUserId);
+        }
+    }
+
+    protected void removeDeviceOwnerAdmin(String componentName) throws DeviceNotAvailableException {
+        // Don't fail as it could hide the real failure from the test method
+        if (!removeAdmin(componentName, mDeviceOwnerUserId)) {
+            CLog.e("Failed to remove device owner %s on user %d", componentName,
+                    mDeviceOwnerUserId);
+        }
+        if (isHeadlessSystemUserMode() && !removeAdmin(componentName, mPrimaryUserId)) {
+            CLog.e("Failed to remove profile owner %s on user %d", componentName, mPrimaryUserId);
+        }
+    }
+
     protected void forceStopPackageForUser(String packageName, int userId) throws Exception {
         // TODO Move this logic to ITestDevice
         executeShellCommand("am force-stop --user " + userId + " " + packageName);
     }
 
-    protected void executeShellCommand(final String command) throws Exception {
+    protected void executeShellCommand(String commandTemplate, Object...args) throws Exception {
+        executeShellCommand(String.format(commandTemplate, args));
+    }
+
+    protected void executeShellCommand(String command) throws Exception {
         CLog.d("Starting command " + command);
         String commandOutput = getDevice().executeShellCommand(command);
         CLog.d("Output for command " + command + ": " + commandOutput);
@@ -464,6 +534,13 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
             stopUserAsync(userId);
         }
         for (int userId : usersCreatedByTests) {
+            removeTestAddedUser(userId);
+        }
+    }
+
+    private void removeTestAddedUser(int userId) throws Exception  {
+        // Don't remove system user or initial user.
+        if (userId != USER_SYSTEM && userId != mInitialUserId) {
             removeUser(userId);
         }
     }
@@ -491,7 +568,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     protected void runDeviceTestsAsUser(
             String pkgName, @Nullable String testClassName, int userId)
             throws DeviceNotAvailableException {
-        runDeviceTestsAsUser(pkgName, testClassName, null /*testMethodName*/, userId);
+        runDeviceTestsAsUser(pkgName, testClassName, /* testMethodName= */ null, userId);
     }
 
     protected void runDeviceTestsAsUser(
@@ -509,6 +586,8 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
             testClassName = pkgName + testClassName;
         }
 
+        CLog.i("runDeviceTestsAsUser(): user=%d, pkg=%s class=%s, test=%s", userId, pkgName,
+                testClassName, testMethodName);
         runDeviceTests(
                 getDevice(),
                 RUNNER,
@@ -525,14 +604,9 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     }
 
     /** Reboots the device and block until the boot complete flag is set. */
-    protected void rebootAndWaitUntilReady() throws DeviceNotAvailableException {
+    protected void rebootAndWaitUntilReady() throws Exception {
         getDevice().rebootUntilOnline();
         assertTrue("Device failed to boot", getDevice().waitForBootComplete(120000));
-    }
-
-    /** Returns true if the system supports the split between system and primary user. */
-    protected boolean hasUserSplit() throws DeviceNotAvailableException {
-        return getBooleanSystemProperty("ro.fw.system_user_split", false);
     }
 
     /** Returns a boolean value of the system property with the specified key. */
@@ -560,33 +634,58 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         return listUsers().size() + numberOfUsers <= getMaxNumberOfUsersSupported();
     }
 
+    /**
+     * Throws a {@link org.junit.AssumptionViolatedException} if it's not possible to create the
+     * desired number of users.
+     */
+    protected void assumeCanCreateAdditionalUsers(int numberOfUsers)
+            throws DeviceNotAvailableException {
+        int maxUsers = getDevice().getMaxNumberOfUsersSupported();
+        assumeTrue("Tests needs at least " + numberOfUsers + " extra users, but device supports "
+                + "at most " + getMaxNumberOfUsersSupported(),
+                canCreateAdditionalUsers(numberOfUsers));
+    }
+
     /** Checks whether it is possible to start the desired number of users. */
     protected boolean canStartAdditionalUsers(int numberOfUsers)
             throws DeviceNotAvailableException {
         return listRunningUsers().size() + numberOfUsers <= getMaxNumberOfRunningUsersSupported();
     }
 
+    protected void assumeCanStartNewUser() throws DeviceNotAvailableException {
+        assumeCanCreateOneManagedUser();
+        assumeTrue("Cannot start a new user", canStartAdditionalUsers(1));
+    }
+
     protected int createUser() throws Exception {
         int userId = createUser(0);
+        CLog.i("Created user with id %d", userId);
         // TODO remove this and audit tests so they start users as necessary
         startUser(userId);
+        return userId;
+    }
+
+    protected int createUserAndWaitStart() throws Exception {
+        int userId = createUser(0);
+        startUserAndWait(userId);
         return userId;
     }
 
     protected int createUser(int flags) throws Exception {
         boolean guest = FLAG_GUEST == (flags & FLAG_GUEST);
         boolean ephemeral = FLAG_EPHEMERAL == (flags & FLAG_EPHEMERAL);
+        CLog.i("Creating user with flags %d: guest=%b, ephemeral=%b", flags, guest, ephemeral);
         // TODO Use ITestDevice.createUser() when guest and ephemeral is available
         String command ="pm create-user " + (guest ? "--guest " : "")
                 + (ephemeral ? "--ephemeral " : "") + "TestUser_" + System.currentTimeMillis();
-        CLog.d("Starting command " + command);
+        CLog.d("Starting command %s", command);
         String commandOutput = getDevice().executeShellCommand(command);
-        CLog.d("Output for command " + command + ": " + commandOutput);
+        CLog.d("Output for command %s: %s", command, commandOutput);
 
         // Extract the id of the new user.
         String[] tokens = commandOutput.split("\\s+");
         assertTrue(tokens.length > 0);
-        assertEquals("Success:", tokens[0]);
+        assertEquals("Command '" + command + "' failed: " + commandOutput, "Success:", tokens[0]);
         return Integer.parseInt(tokens[tokens.length-1]);
     }
 
@@ -604,6 +703,81 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
         int userId = getUserIdFromCreateUserCommandOutput(commandOutput);
         removeUser(userId);
         fail("Expected not to be able to create a managed profile. Output was: " + commandOutput);
+    }
+
+    private void assumeHasDeviceFeature(String feature) throws DeviceNotAvailableException {
+        assumeTrue("device doesn't have " + feature, hasDeviceFeature(feature));
+    }
+
+    private void assumeDoesNotHaveDeviceFeature(String feature) throws DeviceNotAvailableException {
+        assumeFalse("device has " + feature, hasDeviceFeature(feature));
+    }
+
+    /**
+     * Used by test cases to add additional checks priort to {@link #setUp()}, so that when it
+     * throws an {@link AssumptionViolatedException} exception nothing is run
+     * (even {@link #tearDown()}).
+     */
+    protected void assumeTestEnabled() throws Exception {
+    }
+
+    protected final void assumeCanCreateOneManagedUser() throws DeviceNotAvailableException {
+        assumeSupportsMultiUser();
+        assumeCanCreateAdditionalUsers(1);
+    }
+
+    protected final void assumeSupportsMultiUser() throws DeviceNotAvailableException {
+        assumeTrue("device doesn't support multiple users", mSupportsMultiUser);
+    }
+
+    protected final void assumeHasWifiFeature() throws DeviceNotAvailableException {
+        assumeHasDeviceFeature(FEATURE_WIFI);
+    }
+
+    protected final void assumeHasTelephonyFeature() throws DeviceNotAvailableException {
+        assumeHasDeviceFeature(FEATURE_TELEPHONY);
+    }
+
+    protected final void assumeHasNfcFeatures() throws DeviceNotAvailableException {
+        assumeHasDeviceFeature(FEATURE_NFC);
+        assumeHasDeviceFeature(FEATURE_NFC_BEAM);
+    }
+
+    protected final void assumeHasTelephonyAndConnectionServiceFeatures()
+            throws DeviceNotAvailableException {
+        assumeHasTelephonyFeature();
+        assumeHasDeviceFeature(FEATURE_CONNECTION_SERVICE);
+    }
+
+    protected final void assumeHasSecureLockScreenFeature() throws DeviceNotAvailableException {
+        assumeHasDeviceFeature(FEATURE_SECURE_LOCK_SCREEN);
+    }
+
+    protected final void assumeDoesNotHaveSecureLockScreenFeature()
+            throws DeviceNotAvailableException {
+        assumeDoesNotHaveDeviceFeature(FEATURE_SECURE_LOCK_SCREEN);
+    }
+
+    protected final void assumeHasFileBasedEncryptionAndSecureLockScreenFeatures()
+            throws DeviceNotAvailableException {
+        assumeHasDeviceFeature(FEATURE_FBE);
+        assumeHasSecureLockScreenFeature();
+    }
+
+    protected final void assumeHasPrintFeature() throws DeviceNotAvailableException {
+        assumeHasDeviceFeature(FEATURE_PRINT);
+    }
+
+    protected final void assumeHasCameraFeature() throws DeviceNotAvailableException {
+        assumeHasDeviceFeature(FEATURE_CAMERA);
+    }
+
+    protected final void assumeHasBluetoothFeature() throws DeviceNotAvailableException {
+        assumeHasDeviceFeature(FEATURE_BLUETOOTH);
+    }
+
+    protected final void assumeApiLevel(int min) throws DeviceNotAvailableException {
+        assumeTrue("API level must be >=" + min, getDevice().getApiLevel() >= min);
     }
 
     private int getUserIdFromCreateUserCommandOutput(String commandOutput) {
@@ -661,9 +835,8 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     protected void setProfileOwnerOrFail(String componentName, int userId)
             throws Exception {
         if (!setProfileOwner(componentName, userId, /*expectFailure*/ false)) {
-            if (userId != 0) { // don't remove system user.
-                removeUser(userId);
-            }
+            // Don't remove system user or initial user that tests require to run on.
+            removeTestAddedUser(userId);
             fail("Failed to set profile owner");
         }
     }
@@ -671,9 +844,7 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     protected void setProfileOwnerExpectingFailure(String componentName, int userId)
             throws Exception {
         if (setProfileOwner(componentName, userId, /* expectFailure =*/ true)) {
-            if (userId != 0) { // don't remove system user.
-                removeUser(userId);
-            }
+            removeTestAddedUser(userId);
             fail("Setting profile owner should have failed.");
         }
     }
@@ -725,6 +896,16 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     protected void setDeviceOwnerExpectingFailure(String componentName, int userId)
             throws Exception {
         assertFalse(setDeviceOwner(componentName, userId, /* expectFailure =*/ true));
+    }
+
+
+    protected void affiliateUsers(String deviceAdminPkg, int userId1, int userId2)
+            throws Exception {
+        CLog.d("Affiliating users %d and %d on admin package %s", userId1, userId2, deviceAdminPkg);
+        runDeviceTestsAsUser(
+                deviceAdminPkg, ".AffiliationTest", "testSetAffiliationId1", userId1);
+        runDeviceTestsAsUser(
+                deviceAdminPkg, ".AffiliationTest", "testSetAffiliationId1", userId2);
     }
 
     protected String getSettings(String namespace, String name, int userId)
@@ -990,25 +1171,151 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
     }
 
     protected String getDefaultLauncher() throws Exception {
-        final String PREFIX = "Launcher: ComponentInfo{";
-        final String POSTFIX = "}";
-        final String commandOutput =
-                getDevice().executeShellCommand("cmd shortcut get-default-launcher");
-        if (commandOutput == null) {
-            return null;
-        }
-        String[] lines = commandOutput.split("\\r?\\n");
-        for (String line : lines) {
-            if (line.startsWith(PREFIX) && line.endsWith(POSTFIX)) {
-                return line.substring(PREFIX.length(), line.length() - POSTFIX.length());
+        final CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
+        getDevice().executeShellCommand("dumpsys role --proto", receiver);
+
+        RoleUserStateProto roleState = null;
+        final RoleServiceDumpProto dumpProto =
+                RoleServiceDumpProto.parser().parseFrom(receiver.getOutput());
+        for (RoleUserStateProto userState : dumpProto.getUserStatesList()) {
+            if (getDevice().getCurrentUser() == userState.getUserId()) {
+                roleState = userState;
+                break;
             }
         }
+
+        if (roleState != null) {
+            final List<RoleProto> roles = roleState.getRolesList();
+            // Iterate through the roles until we find the Home role
+            for (RoleProto roleProto : roles) {
+                if ("android.app.role.HOME".equals(roleProto.getName())) {
+                    assertEquals(1, roleProto.getHoldersList().size());
+                    return roleProto.getHoldersList().get(0);
+                }
+            }
+        }
+
         throw new Exception("Default launcher not found");
     }
 
-    boolean isDeviceAb() throws DeviceNotAvailableException {
+    void assumeIsDeviceAb() throws DeviceNotAvailableException {
         final String result = getDevice().executeShellCommand("getprop ro.build.ab_update").trim();
+        assumeTrue("not device AB", "true".equalsIgnoreCase(result));
+    }
+
+    // TODO (b/174775905) remove after exposing the check from ITestDevice.
+    boolean isHeadlessSystemUserMode() throws DeviceNotAvailableException {
+        return isHeadlessSystemUserMode(getDevice());
+    }
+
+    // TODO (b/174775905) remove after exposing the check from ITestDevice.
+    public static boolean isHeadlessSystemUserMode(ITestDevice device)
+            throws DeviceNotAvailableException {
+        final String result = device
+                .executeShellCommand("getprop ro.fw.mu.headless_system_user").trim();
         return "true".equalsIgnoreCase(result);
+    }
+
+    protected void assumeHeadlessSystemUserMode(String reason)
+            throws DeviceNotAvailableException {
+        assumeTrue("Skipping test on non-headless system user mode. Reason: " + reason,
+                isHeadlessSystemUserMode());
+    }
+
+    protected void grantDpmWrapperPermissions(String deviceAdminPkg, int userId) throws Exception {
+        // TODO(b/176993670): INTERACT_ACROSS_USERS is needed by DevicePolicyManagerWrapper to
+        // send ordered broadcasts to the test user. The permission is already available to the
+        // packages installed by the host side test (as they're installed with -g), but need to be
+        // granted for users created by the test, as the package is intalled by code
+        // (DPMS.manageUserUnchecked(), which doesn't grant it (as this is a privileged permission
+        // that's not available to 3rd party apps). If we get rid of DevicePolicyManagerWrapper,
+        // we won't need to grant it anymore.
+        grantPermission(deviceAdminPkg, PERMISSION_INTERACT_ACROSS_USERS, userId, "its PO needs to "
+                + "send ordered broadcasts to user 0");
+
+        // Probably not needed anymore, but it doesn't hurt to keep...
+        allowTestApiAccess(deviceAdminPkg);
+    }
+
+    protected void allowTestApiAccess(String deviceAdminPkg) throws Exception {
+        CLog.i("Granting ALLOW_TEST_API_ACCESS to package %s", deviceAdminPkg);
+        executeShellCommand("am compat enable ALLOW_TEST_API_ACCESS %s", deviceAdminPkg);
+    }
+
+    protected void grantPermission(String pkg, String permission, int userId, String reason)
+            throws Exception {
+        CLog.i("Granting permission %s to package (%s) on user %d%s", pkg, permission, userId,
+                (reason == null ? "" : "(reason: " + reason + ")"));
+        executeShellCommand("pm grant --user %d %s %s", userId, pkg, permission);
+    }
+
+    protected void revokePermission(String pkg, String permission, int userId) throws Exception {
+        CLog.i("Revoking permission %s to package (%s) on user %d", pkg, permission, userId);
+        executeShellCommand("pm revoke --user %d %s %s", userId, pkg, permission);
+    }
+
+    /** Find effective restriction for user */
+    protected boolean isRestrictionSetOnUser(int userId, String restriction) throws Exception {
+        String commandOutput = getDevice().executeShellCommand("dumpsys user");
+        String[] outputLines = commandOutput.split("\\n");
+        Pattern userPattern = Pattern.compile("(^.*)UserInfo\\{" + userId + ":.*$");
+        Pattern restrictionPattern = Pattern.compile("(^.*)Effective\\srestrictions\\:.*$");
+
+        boolean userFound = false;
+        boolean restrictionsFound = false;
+        int lastIndent = -1;
+
+        for (String line : outputLines) {
+            // Starting a new block of user infos
+            if (!line.startsWith(Strings.repeat(" ", lastIndent + 1))) {
+                CLog.d("User %d restrictions found, no matched restriction.", userId);
+                return false;
+            }
+            //First, try matching user pattern
+            Matcher userMatcher = userPattern.matcher(line);
+            if (userMatcher.find()) {
+                CLog.d("User %d found in dumpsys, finding restrictions.", userId);
+                userFound = true;
+                lastIndent = userMatcher.group(1).length();
+            }
+
+            // Second, try matching restriction
+            Matcher restrictionMatcher = restrictionPattern.matcher(line);
+            if (userFound && restrictionMatcher.find()) {
+                CLog.d("User %d restrictions found, finding exact restriction.", userId);
+                restrictionsFound = true;
+                lastIndent = restrictionMatcher.group(1).length();
+            }
+
+            if (restrictionsFound && line.contains(restriction)) {
+                return true;
+            }
+        }
+        if (!userFound) {
+            CLog.e("User %d not found in dumpsys.", userId);
+        }
+        if (!restrictionsFound) {
+            CLog.d("User %d found in dumpsys, but restrictions not found.", userId);
+        }
+        return false;
+    }
+
+    /**
+     * Generates instrumentation arguments that indicate the device-side test is exercising device
+     * owner APIs.
+     *
+     * <p>This is needed for hostside tests that use the same class hierarchy for both device and
+     * profile owner tests, as on headless system user mode the test side must decide whether to
+     * use its "local DPC" or wrap the calls to the system user DPC.
+     */
+    protected static Map<String, String> getParamsForDeviceOwnerTest() {
+        Map<String, String> params = new HashMap<>();
+        params.put("admin_type", "DeviceOwner");
+        return params;
+    }
+
+    boolean isTv() throws DeviceNotAvailableException {
+        return hasDeviceFeature(FEATURE_LEANBACK);
     }
 
     void pushUpdateFileToDevice(String fileName)
@@ -1033,5 +1340,10 @@ public abstract class BaseDevicePolicyTest extends BaseHostJUnit4Test {
             CLog.w("Exception running '" + command + "': " + e);
             return false;
         }
+    }
+
+    void sleep(int timeMs) throws InterruptedException {
+        CLog.d("Sleeping %d ms");
+        Thread.sleep(timeMs);
     }
 }

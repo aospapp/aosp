@@ -7,9 +7,6 @@
 #   - /sys/fs/bpf is already mounted,
 #   - apex (incl. rollback) is initialized (so that in the future we can load bpf
 #     programs shipped as part of apex mainline modules)
-#   - system properties have been set, this is because isBpfSupported() calls
-#     getUncachedBpfSupportLevel() which depends on
-#     ro.kernel.ebpf.supported, ro.product.first_api_level & ro.build.version.sdk
 #   - logd is ready for us to log stuff
 #
 # At the same time we want to be as early as possible to reduce races and thus
@@ -23,10 +20,10 @@ on load_bpf_programs
     write /proc/sys/net/core/bpf_jit_enable 1
     # Enable JIT kallsyms export for privileged users only
     write /proc/sys/net/core/bpf_jit_kallsyms 1
-    start bpfloader
+    exec_start bpfloader
 
 service bpfloader /system/bin/bpfloader
-    capabilities CHOWN SYS_ADMIN
+    capabilities CHOWN SYS_ADMIN NET_ADMIN
     #
     # Set RLIMIT_MEMLOCK to 1GiB for bpfloader
     #

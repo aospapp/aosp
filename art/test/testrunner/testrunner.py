@@ -61,6 +61,7 @@ except Exception:
   raise
 
 import contextlib
+import csv
 import datetime
 import fnmatch
 import itertools
@@ -74,13 +75,13 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 import env
 from target_config import target_config
 from device_config import device_config
 
-# timeout for individual tests.
 # TODO: make it adjustable per tests and for buildbots
 #
 # Note: this needs to be larger than run-test timeouts, as long as this script
@@ -91,6 +92,10 @@ from device_config import device_config
 #        -----------------------
 #                            47m
 timeout = 3600 # 60 minutes
+
+if env.ART_TEST_RUN_ON_ARM_FVP:
+  # Increase timeout to 600 minutes due to the emulation overhead on FVP.
+  timeout = 36000
 
 # DISABLED_TEST_CONTAINER holds information about the disabled tests. It is a map
 # that has key as the test name (like 001-HelloWorld), and value as set of
@@ -123,14 +128,17 @@ failed_tests = []
 skipped_tests = []
 
 # Flags
-n_thread = -1
+n_thread = 0
 total_test_count = 0
 verbose = False
 dry_run = False
 ignore_skips = False
 build = False
+dist = False
 gdb = False
 gdb_arg = ''
+csv_result = None
+csv_writer = None
 runtime_option = ''
 with_agent = []
 zipapex_loc = None
@@ -145,6 +153,72 @@ extra_arguments = { "host" : [], "target" : [] }
 # key: variant_type.
 # value: set of variants user wants to run of type <key>.
 _user_input_variants = collections.defaultdict(set)
+
+
+class ChildProcessTracker(object):
+  """Keeps track of forked child processes to be able to kill them."""
+
+  def __init__(self):
+    self.procs = {}             # dict from pid to subprocess.Popen object
+    self.mutex = threading.Lock()
+
+  def wait(self, proc, timeout):
+    """Waits on the given subprocess and makes it available to kill_all meanwhile.
+
+    Args:
+      proc: The subprocess.Popen object to wait on.
+      timeout: Timeout passed on to proc.communicate.
+
+    Returns: A tuple of the process stdout output and its return value.
+    """
+    with self.mutex:
+      if self.procs is not None:
+        self.procs[proc.pid] = proc
+      else:
+        os.killpg(proc.pid, signal.SIGKILL) # kill_all has already been called.
+    try:
+      output = proc.communicate(timeout=timeout)[0]
+      return_value = proc.wait()
+      return output, return_value
+    finally:
+      with self.mutex:
+        if self.procs is not None:
+          del self.procs[proc.pid]
+
+  def kill_all(self):
+    """Kills all currently running processes and any future ones."""
+    with self.mutex:
+      for pid in self.procs:
+        os.killpg(pid, signal.SIGKILL)
+      self.procs = None # Make future wait() calls kill their processes immediately.
+
+child_process_tracker = ChildProcessTracker()
+
+
+def setup_csv_result():
+  """Set up the CSV output if required."""
+  global csv_writer
+  csv_writer = csv.writer(csv_result)
+  # Write the header.
+  csv_writer.writerow(['target', 'run', 'prebuild', 'compiler', 'relocate', 'trace', 'gc',
+                       'jni', 'image', 'debuggable', 'jvmti', 'cdex_level', 'test', 'address_size', 'result'])
+
+
+def send_csv_result(test, result):
+  """
+  Write a line into the CSV results file if one is available.
+  """
+  if csv_writer is not None:
+    csv_writer.writerow(extract_test_name(test) + [result])
+
+def close_csv_file():
+  global csv_result
+  global csv_writer
+  if csv_result is not None:
+    csv_writer = None
+    csv_result.flush()
+    csv_result.close()
+    csv_result = None
 
 def gather_test_info():
   """The method gathers test information about the test to be run which includes
@@ -240,12 +314,18 @@ def setup_test_env():
     _user_input_variants['address_sizes_target']['target'] = _user_input_variants['address_sizes']
 
   global n_thread
-  if n_thread == -1:
-    if 'target' in _user_input_variants['target']:
-      n_thread = get_default_threads('target')
-    else:
-      n_thread = get_default_threads('host')
-    print_text("Concurrency: " + str(n_thread) + "\n")
+  if 'target' in _user_input_variants['target']:
+    device_name = get_device_name()
+    if n_thread == 0:
+      # Use only half of the cores since fully loading the device tends to lead to timeouts.
+      n_thread = get_target_cpu_count() // 2
+      if device_name == 'fugu':
+        n_thread = 1
+  else:
+    device_name = "host"
+    if n_thread == 0:
+      n_thread = get_host_cpu_count()
+  print_text("Concurrency: {} ({})\n".format(n_thread, device_name))
 
   global extra_arguments
   for target in _user_input_variants['target']:
@@ -279,7 +359,13 @@ def get_device_name():
                           stdout = subprocess.PIPE,
                           universal_newlines=True)
   # only wait 2 seconds.
-  output = proc.communicate(timeout = 2)[0]
+  timeout_val = 2
+
+  if env.ART_TEST_RUN_ON_ARM_FVP:
+    # Increase timeout to 200 seconds due to the emulation overhead on FVP.
+    timeout_val = 200
+
+  output = proc.communicate(timeout = timeout_val)[0]
   success = not proc.wait()
   if success:
     return output.strip()
@@ -482,14 +568,6 @@ def run_tests(tests):
       if address_size == '64':
         options_test += ' --64'
 
-        if env.DEX2OAT_HOST_INSTRUCTION_SET_FEATURES:
-          options_test += ' --instruction-set-features' + env.DEX2OAT_HOST_INSTRUCTION_SET_FEATURES
-
-      elif address_size == '32':
-        if env.HOST_2ND_ARCH_PREFIX_DEX2OAT_HOST_INSTRUCTION_SET_FEATURES:
-          options_test += ' --instruction-set-features ' + \
-                          env.HOST_2ND_ARCH_PREFIX_DEX2OAT_HOST_INSTRUCTION_SET_FEATURES
-
       # TODO(http://36039166): This is a temporary solution to
       # fix build breakages.
       options_test = (' --output-path %s') % (
@@ -510,18 +588,24 @@ def run_tests(tests):
         for address_size in _user_input_variants['address_sizes_target'][target]:
           test_futures.append(start_combination(executor, config_tuple, options_all, address_size))
 
-        for config_tuple in uncombinated_config:
-          test_futures.append(start_combination(executor, config_tuple, options_all, ""))  # no address size
+      for config_tuple in uncombinated_config:
+        test_futures.append(
+            start_combination(executor, config_tuple, options_all, ""))  # no address size
 
-      tests_done = 0
-      for test_future in concurrent.futures.as_completed(test_futures):
-        (test, status, failure_info, test_time) = test_future.result()
-        tests_done += 1
-        print_test_info(tests_done, test, status, failure_info, test_time)
-        if failure_info and not env.ART_TEST_KEEP_GOING:
-          for f in test_futures:
-            f.cancel()
-          break
+      try:
+        tests_done = 0
+        for test_future in concurrent.futures.as_completed(test_futures):
+          (test, status, failure_info, test_time) = test_future.result()
+          tests_done += 1
+          print_test_info(tests_done, test, status, failure_info, test_time)
+          if failure_info and not env.ART_TEST_KEEP_GOING:
+            for f in test_futures:
+              f.cancel()
+            break
+      except KeyboardInterrupt:
+        for f in test_futures:
+          f.cancel()
+        child_process_tracker.kill_all()
       executor.shutdown(True)
 
 @contextlib.contextmanager
@@ -540,6 +624,11 @@ def handle_zipapex(ziploc):
       yield " --runtime-extracted-zipapex " + tmpdir
   else:
     yield ""
+
+def _popen(**kwargs):
+  if sys.version_info.major == 3 and sys.version_info.minor >= 6:
+    return subprocess.Popen(encoding=sys.stdout.encoding, **kwargs)
+  return subprocess.Popen(**kwargs)
 
 def run_test(command, test, test_variant, test_name):
   """Runs the test.
@@ -569,13 +658,22 @@ def run_test(command, test, test_variant, test_name):
       if verbose:
         print_text("Starting %s at %s\n" % (test_name, test_start_time))
       if gdb:
-        proc = subprocess.Popen(command.split(), stderr=subprocess.STDOUT,
-                                universal_newlines=True, start_new_session=True)
+        proc = _popen(
+          args=command.split(),
+          stderr=subprocess.STDOUT,
+          universal_newlines=True,
+          start_new_session=True
+        )
       else:
-        proc = subprocess.Popen(command.split(), stderr=subprocess.STDOUT, stdout = subprocess.PIPE,
-                                universal_newlines=True, start_new_session=True)
-      script_output = proc.communicate(timeout=timeout)[0]
-      test_passed = not proc.wait()
+        proc = _popen(
+          args=command.split(),
+          stderr=subprocess.STDOUT,
+          stdout = subprocess.PIPE,
+          universal_newlines=True,
+          start_new_session=True,
+        )
+      script_output, return_value = child_process_tracker.wait(proc, timeout)
+      test_passed = not return_value
       test_time_seconds = time.monotonic() - test_start_time
       test_time = datetime.timedelta(seconds=test_time_seconds)
 
@@ -695,6 +793,7 @@ def print_test_info(test_count, test_name, result, failed_test_info="",
           progress_info,
           test_name,
           result_text)
+    send_csv_result(test_name, result)
     print_text(info)
   except Exception as e:
     print_text(('%s\n%s\n') % (test_name, str(e)))
@@ -894,6 +993,32 @@ def print_analysis():
     for failed_test in sorted([test_info[0] for test_info in failed_tests]):
       print_text(('%s\n' % (failed_test)))
 
+test_name_matcher = None
+def extract_test_name(test_name):
+  """Parses the test name and returns all the parts"""
+  global test_name_matcher
+  if test_name_matcher is None:
+    regex = '^test-art-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['target']) + ')-'
+    regex += 'run-test-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['run']) + ')-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['prebuild']) + ')-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['compiler']) + ')-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['relocate']) + ')-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['trace']) + ')-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['gc']) + ')-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['jni']) + ')-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['image']) + ')-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['debuggable']) + ')-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['jvmti']) + ')-'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['cdex_level']) + ')-'
+    regex += '(' + '|'.join(RUN_TEST_SET) + ')'
+    regex += '(' + '|'.join(VARIANT_TYPE_DICT['address_sizes']) + ')$'
+    test_name_matcher = re.compile(regex)
+  match = test_name_matcher.match(test_name)
+  if match:
+    return list(match.group(i) for i in range(1,15))
+  raise ValueError(test_name + " is not a valid test")
 
 def parse_test_name(test_name):
   """Parses the testname provided by the user.
@@ -913,75 +1038,41 @@ def parse_test_name(test_name):
   if test_set:
     return test_set
 
-  regex = '^test-art-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['target']) + ')-'
-  regex += 'run-test-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['run']) + ')-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['prebuild']) + ')-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['compiler']) + ')-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['relocate']) + ')-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['trace']) + ')-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['gc']) + ')-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['jni']) + ')-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['image']) + ')-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['debuggable']) + ')-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['jvmti']) + ')-'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['cdex_level']) + ')-'
-  regex += '(' + '|'.join(RUN_TEST_SET) + ')'
-  regex += '(' + '|'.join(VARIANT_TYPE_DICT['address_sizes']) + ')$'
-  match = re.match(regex, test_name)
+  parsed = extract_test_name(test_name)
+  _user_input_variants['target'].add(parsed[0])
+  _user_input_variants['run'].add(parsed[1])
+  _user_input_variants['prebuild'].add(parsed[2])
+  _user_input_variants['compiler'].add(parsed[3])
+  _user_input_variants['relocate'].add(parsed[4])
+  _user_input_variants['trace'].add(parsed[5])
+  _user_input_variants['gc'].add(parsed[6])
+  _user_input_variants['jni'].add(parsed[7])
+  _user_input_variants['image'].add(parsed[8])
+  _user_input_variants['debuggable'].add(parsed[9])
+  _user_input_variants['jvmti'].add(parsed[10])
+  _user_input_variants['cdex_level'].add(parsed[11])
+  _user_input_variants['address_sizes'].add(parsed[13])
+  return {parsed[12]}
+
+
+def get_target_cpu_count():
+  adb_command = 'adb shell cat /sys/devices/system/cpu/present'
+  cpu_info_proc = subprocess.Popen(adb_command.split(), stdout=subprocess.PIPE)
+  cpu_info = cpu_info_proc.stdout.read()
+  if type(cpu_info) is bytes:
+    cpu_info = cpu_info.decode('utf-8')
+  cpu_info_regex = r'\d*-(\d*)'
+  match = re.match(cpu_info_regex, cpu_info)
   if match:
-    _user_input_variants['target'].add(match.group(1))
-    _user_input_variants['run'].add(match.group(2))
-    _user_input_variants['prebuild'].add(match.group(3))
-    _user_input_variants['compiler'].add(match.group(4))
-    _user_input_variants['relocate'].add(match.group(5))
-    _user_input_variants['trace'].add(match.group(6))
-    _user_input_variants['gc'].add(match.group(7))
-    _user_input_variants['jni'].add(match.group(8))
-    _user_input_variants['image'].add(match.group(9))
-    _user_input_variants['debuggable'].add(match.group(10))
-    _user_input_variants['jvmti'].add(match.group(11))
-    _user_input_variants['cdex_level'].add(match.group(12))
-    _user_input_variants['address_sizes'].add(match.group(14))
-    return {match.group(13)}
-  raise ValueError(test_name + " is not a valid test")
-
-
-def setup_env_for_build_target(build_target, parser, options):
-  """Setup environment for the build target
-
-  The method setup environment for the master-art-host targets.
-  """
-  os.environ.update(build_target['env'])
-  os.environ['SOONG_ALLOW_MISSING_DEPENDENCIES'] = 'true'
-  print_text('%s\n' % (str(os.environ)))
-
-  target_options = vars(parser.parse_args(build_target['flags']))
-  target_options['host'] = True
-  target_options['verbose'] = True
-  target_options['build'] = True
-  target_options['n_thread'] = options['n_thread']
-  target_options['dry_run'] = options['dry_run']
-
-  return target_options
-
-def get_default_threads(target):
-  if target == 'target':
-    adb_command = 'adb shell cat /sys/devices/system/cpu/present'
-    cpu_info_proc = subprocess.Popen(adb_command.split(), stdout=subprocess.PIPE)
-    cpu_info = cpu_info_proc.stdout.read()
-    if type(cpu_info) is bytes:
-      cpu_info = cpu_info.decode('utf-8')
-    cpu_info_regex = r'\d*-(\d*)'
-    match = re.match(cpu_info_regex, cpu_info)
-    if match:
-      return int(match.group(1))
-    else:
-      raise ValueError('Unable to predict the concurrency for the target. '
-                       'Is device connected?')
+    return int(match.group(1)) + 1  # Add one to convert from "last-index" to "count"
   else:
-    return multiprocessing.cpu_count()
+    raise ValueError('Unable to predict the concurrency for the target. '
+                     'Is device connected?')
+
+
+def get_host_cpu_count():
+  return multiprocessing.cpu_count()
+
 
 def parse_option():
   global verbose
@@ -989,6 +1080,7 @@ def parse_option():
   global ignore_skips
   global n_thread
   global build
+  global dist
   global gdb
   global gdb_arg
   global runtime_option
@@ -998,12 +1090,14 @@ def parse_option():
   global run_all_configs
   global with_agent
   global zipapex_loc
+  global csv_result
 
   parser = argparse.ArgumentParser(description="Runs all or a subset of the ART test suite.")
   parser.add_argument('-t', '--test', action='append', dest='tests', help='name(s) of the test(s)')
   global_group = parser.add_argument_group('Global options',
                                            'Options that affect all tests being run')
-  global_group.add_argument('-j', type=int, dest='n_thread')
+  global_group.add_argument('-j', type=int, dest='n_thread', help="""Number of CPUs to use.
+                            Defaults to half of CPUs on target and all CPUs on host.""")
   global_group.add_argument('--timeout', default=timeout, type=int, dest='timeout')
   global_group.add_argument('--verbose', '-v', action='store_true', dest='verbose')
   global_group.add_argument('--dry-run', action='store_true', dest='dry_run')
@@ -1020,7 +1114,11 @@ def parse_option():
                             action='store_true', dest='build',
                             help="""Build dependencies under all circumstances. By default we will
                             not build dependencies unless ART_TEST_RUN_TEST_BUILD=true.""")
-  global_group.add_argument('--build-target', dest='build_target', help='master-art-host targets')
+  global_group.add_argument('--dist',
+                            action='store_true', dest='dist',
+                            help="""If dependencies are to be built, pass `dist` to the build
+                            command line. You may want to also set the DIST_DIR environment
+                            variable when using this flag.""")
   global_group.set_defaults(build = env.ART_TEST_RUN_TEST_BUILD)
   global_group.add_argument('--gdb', action='store_true', dest='gdb')
   global_group.add_argument('--gdb-arg', dest='gdb_arg')
@@ -1042,6 +1140,8 @@ def parse_option():
                             help='Location for runtime zipapex.')
   global_group.add_argument('-a', '--all', action='store_true', dest='run_all',
                             help="Run all the possible configurations for the input test set")
+  global_group.add_argument('--csv-results', action='store', dest='csv_result', default=None,
+                            type=argparse.FileType('w'), help='Store a CSV record of all results.')
   for variant_type, variant_set in VARIANT_TYPE_DICT.items():
     var_group = parser.add_argument_group(
         '{}-type Options'.format(variant_type),
@@ -1055,15 +1155,14 @@ def parse_option():
       var_group.add_argument(flag, action='store_true', dest=variant)
 
   options = vars(parser.parse_args())
+  if options['csv_result'] is not None:
+    csv_result = options['csv_result']
+    setup_csv_result()
   # Handle the --all-<type> meta-options
   for variant_type, variant_set in VARIANT_TYPE_DICT.items():
     if options['all_' + variant_type]:
       for variant in variant_set:
         options[variant] = True
-
-  if options['build_target']:
-    options = setup_env_for_build_target(target_config[options['build_target']],
-                                         parser, options)
 
   tests = None
   env.EXTRA_DISABLED_TESTS.update(set(options['skips']))
@@ -1086,6 +1185,7 @@ def parse_option():
     dry_run = True
     verbose = True
   build = options['build']
+  dist = options['dist']
   if options['gdb']:
     n_thread = 1
     gdb = True
@@ -1119,7 +1219,10 @@ def main():
       build_targets += 'test-art-host-run-test-dependencies '
     build_command = env.ANDROID_BUILD_TOP + '/build/soong/soong_ui.bash --make-mode'
     build_command += ' DX='
+    if dist:
+      build_command += ' dist'
     build_command += ' ' + build_targets
+    print_text('Build command: %s\n' % build_command)
     if subprocess.call(build_command.split()):
       # Debugging for b/62653020
       if env.DIST_DIR:
@@ -1132,6 +1235,7 @@ def main():
     run_tests(RUN_TEST_SET)
 
   print_analysis()
+  close_csv_file()
 
   exit_code = 0 if len(failed_tests) == 0 else 1
   sys.exit(exit_code)

@@ -107,7 +107,7 @@ public class TemplateIntentFactoryTest {
     assertThat(intent.getData().toString()).isEqualTo(DATA);
     assertThat(intent.getType()).isEqualTo(TYPE);
     assertThat(intent.getFlags()).isEqualTo(FLAG);
-    assertThat(intent.getCategories()).containsExactly((Object[]) CATEGORY);
+    assertThat(intent.getCategories()).containsExactlyElementsIn(CATEGORY);
     assertThat(intent.getPackage()).isNull();
     assertThat(intent.getStringExtra(KEY_ONE)).isEqualTo(VALUE_ONE);
     assertThat(intent.getIntExtra(KEY_TWO, 0)).isEqualTo(VALUE_TWO);

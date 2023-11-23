@@ -18,6 +18,14 @@ enum MessageType {
   // was received from a CHRE API.
   // Payload must be Data message
   CHRE_CROSS_VALIDATION_DATA = 2;
+
+  // H2C: Host asking nanoapp for information about a given sensor.
+  // Payload must be SensorInfoCommand message.
+  CHRE_CROSS_VALIDATION_INFO = 3;
+
+  // C2H: Response to a information request for a sensor.
+  // Payload must be a SensorInfoResponse message.
+  CHRE_CROSS_VALIDATION_INFO_RESPONSE = 4;
 }
 
 message StartCommand {
@@ -35,6 +43,21 @@ message StartSensorCommand {
   optional uint64 intervalInMs = 2;
   optional uint64 latencyInMs = 3;
   optional bool isContinuous = 4;
+}
+
+/*
+ * Asks for the nanoapp to provide stats about the provided CHRE sensor type.
+ */
+message SensorInfoCommand {
+  optional uint32 chreSensorType = 1;
+}
+
+/*
+ * Response to a SensorInfoCommand containing data about the requested sensor.
+ */
+message SensorInfoResponse {
+  optional uint32 chreSensorType = 1;
+  optional bool isAvailable = 2;
 }
 
 message Data {

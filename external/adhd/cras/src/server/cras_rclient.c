@@ -24,6 +24,7 @@
 #include "cras_server_metrics.h"
 #include "cras_system_state.h"
 #include "cras_types.h"
+#include "cras_unified_rclient.h"
 #include "cras_util.h"
 #include "stream_list.h"
 #include "utlist.h"
@@ -58,9 +59,16 @@ int cras_rclient_send_message(const struct cras_rclient *client,
 	return client->ops->send_message_to_client(client, msg, fds, num_fds);
 }
 
+static void cras_rclient_set_client_type(struct cras_rclient *client,
+					 enum CRAS_CLIENT_TYPE client_type)
+{
+	client->client_type = client_type;
+}
+
 struct cras_rclient *cras_rclient_create(int fd, size_t id,
 					 enum CRAS_CONNECTION_TYPE conn_type)
 {
+	struct cras_rclient *client;
 	if (!cras_validate_connection_type(conn_type))
 		goto error;
 
@@ -71,6 +79,18 @@ struct cras_rclient *cras_rclient_create(int fd, size_t id,
 		return cras_playback_rclient_create(fd, id);
 	case CRAS_CAPTURE:
 		return cras_capture_rclient_create(fd, id);
+	case CRAS_VMS_LEGACY:
+		return cras_playback_rclient_create(fd, id);
+	case CRAS_VMS_UNIFIED:
+		return cras_unified_rclient_create(fd, id);
+	case CRAS_PLUGIN_PLAYBACK:
+		client = cras_playback_rclient_create(fd, id);
+		cras_rclient_set_client_type(client, CRAS_CLIENT_TYPE_PLUGIN);
+		return client;
+	case CRAS_PLUGIN_UNIFIED:
+		client = cras_unified_rclient_create(fd, id);
+		cras_rclient_set_client_type(client, CRAS_CLIENT_TYPE_PLUGIN);
+		return client;
 	default:
 		goto error;
 	}

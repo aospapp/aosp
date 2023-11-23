@@ -38,6 +38,9 @@
 
 #include <asm/ptrace.h>
 #include <sys/cdefs.h>
+#if defined (__mips__)
+#include <sys/types.h>
+#endif
 #include <sys/user.h>
 #include <unistd.h>
 
@@ -98,8 +101,8 @@ struct elf_prpsinfo {
   unsigned int   pr_uid;
   unsigned int   pr_gid;
 #elif defined(__mips__)
-  unsigned long  pr_uid;
-  unsigned long  pr_gid;
+  __kernel_uid_t pr_uid;
+  __kernel_gid_t pr_gid;
 #else
   unsigned short pr_uid;
   unsigned short pr_gid;

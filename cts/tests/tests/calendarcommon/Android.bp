@@ -12,18 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsCalendarcommon2TestCases",
     defaults: ["cts_defaults"],
     static_libs: ["ctstestrunner-axt"],
-    libs: ["android.test.base.stubs"],
+    libs: ["android.test.base"],
     srcs: ["src/**/*.java"],
     sdk_version: "current",
     min_sdk_version: "15",
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

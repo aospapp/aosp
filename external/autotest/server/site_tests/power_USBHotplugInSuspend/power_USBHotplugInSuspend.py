@@ -15,7 +15,12 @@ _SUSPEND_TIME = 60
 _SUSPEND_TIMEOUT = 30
 
 class power_USBHotplugInSuspend(test.test):
+
     version = 1
+
+    # Constant to wait in seconds after turning on or off the usb port power.
+    USB_POWEROFF_DELAY_S = 2
+
 
     def _switch_usbkey_power(self, on):
         """
@@ -24,14 +29,14 @@ class power_USBHotplugInSuspend(test.test):
         @param on True to turn on, false otherwise.
         """
         if on:
-            self._host.servo.set('prtctl4_pwren', 'on')
+            self._host.servo.set('image_usbkey_pwr', 'on')
         else:
-            self._host.servo.set('prtctl4_pwren', 'off')
-        time.sleep(self._host.servo.USB_POWEROFF_DELAY)
+            self._host.servo.set('image_usbkey_pwr', 'off')
+        time.sleep(self.USB_POWEROFF_DELAY_S)
 
     def _get_usb_devices(self):
         """
-        Get the USB device attached to the client.
+        Get the USB devices attached to the client.
 
         Parses output from lsusb and returns the set of device IDs.
         """
@@ -108,8 +113,8 @@ class power_USBHotplugInSuspend(test.test):
         Tests adding and removing a USB device while the client is suspended.
         """
         self._host = host
-        self._init_usbkey_power = self._host.servo.get('prtctl4_pwren')
-        self._init_usbkey_direction = self._host.servo.get_usbkey_direction()
+        self._init_usbkey_power = self._host.servo.get('image_usbkey_pwr')
+        self._init_usbkey_direction = self._host.servo.get_usbkey_state()
 
         # Make sure the USB key is facing the DUT and is actually present.
         self._host.servo.switch_usbkey('dut')

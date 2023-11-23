@@ -507,8 +507,9 @@ public class SystemFeaturesTest {
      */
     @Test
     public void testTelephonyFeatures() {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            return;
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) ||
+            !mPackageManager.hasSystemFeature(PackageManager.FEATURE_CONNECTION_SERVICE)) {
+                return;
         }
 
         int phoneType = mTelephonyManager.getPhoneType();
@@ -643,7 +644,7 @@ public class SystemFeaturesTest {
     }
 
     private boolean isAndroidEmulator() {
-        return PropertyUtil.propertyEquals("ro.kernel.qemu", "1");
+        return PropertyUtil.propertyEquals("ro.boot.qemu", "1");
     }
 
     private void assertFeature(boolean exist, String feature) {

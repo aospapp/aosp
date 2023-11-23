@@ -64,7 +64,8 @@ public class FileSender {
                 .setContentText(context.getString(R.string.tap_to_share))
                 .setContentIntent(PendingIntent.getActivity(
                         context, traceUri.hashCode(), intent, PendingIntent.FLAG_ONE_SHOT
-                                | PendingIntent.FLAG_CANCEL_CURRENT))
+                                | PendingIntent.FLAG_CANCEL_CURRENT
+                                | PendingIntent.FLAG_IMMUTABLE))
                 .setAutoCancel(true)
                 .setLocalOnly(true)
                 .setColor(context.getColor(

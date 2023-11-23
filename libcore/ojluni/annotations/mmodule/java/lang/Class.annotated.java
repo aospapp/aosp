@@ -83,7 +83,6 @@ public java.lang.reflect.Type getGenericSuperclass() { throw new RuntimeExceptio
 
 public java.lang.Package getPackage() { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
 public java.lang.String getPackageName$() { throw new RuntimeException("Stub!"); }
 
 public java.lang.Class<?>[] getInterfaces() { throw new RuntimeException("Stub!"); }
@@ -134,12 +133,10 @@ public native java.lang.Class<?>[] getDeclaredClasses();
 
 public native java.lang.reflect.Field[] getDeclaredFields();
 
-@libcore.api.CorePlatformApi
 public native java.lang.reflect.Field[] getDeclaredFieldsUnchecked(boolean publicOnly);
 
 public java.lang.reflect.Method[] getDeclaredMethods() throws java.lang.SecurityException { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
 public native java.lang.reflect.Method[] getDeclaredMethodsUnchecked(boolean publicOnly);
 
 public java.lang.reflect.Constructor<?>[] getDeclaredConstructors() throws java.lang.SecurityException { throw new RuntimeException("Stub!"); }

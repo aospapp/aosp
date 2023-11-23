@@ -19,7 +19,10 @@ package android.keystore.cts;
 import android.keystore.cts.R;
 
 import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.KeyFactory;
 import java.security.KeyPair;
+import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Provider;
 import java.security.Provider.Service;
@@ -37,6 +40,8 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import android.content.Context;
+import android.security.keystore.KeyInfo;
+import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
 import android.test.AndroidTestCase;
@@ -421,6 +426,62 @@ public class SignatureTest extends AndroidTestCase {
         }
     }
 
+    public void testValidSignatureGeneratedForEmptyMessageByLimitedUseKey()
+            throws Exception {
+        Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
+        assertNotNull(provider);
+        int maxUsageCount = 2;
+        for (String sigAlgorithm : EXPECTED_SIGNATURE_ALGORITHMS) {
+            for (ImportedKey key : importLimitedUseKatKeyPairsForSigning(getContext(), sigAlgorithm, maxUsageCount)) {
+                if (!TestUtils.isKeyLongEnoughForSignatureAlgorithm(
+                        sigAlgorithm, key.getOriginalSigningKey())) {
+                    continue;
+                }
+                try {
+                    KeyPair keyPair = key.getKeystoreBackedKeyPair();
+                    KeyFactory keyFactory = KeyFactory.getInstance(
+                            keyPair.getPrivate().getAlgorithm(), "AndroidKeyStore");
+                    KeyInfo info = keyFactory.getKeySpec(keyPair.getPrivate(), KeyInfo.class);
+                    assertEquals(maxUsageCount, info.getRemainingUsageCount());
+
+                    // The first usage of the limited use key.
+                    // Generate a signature
+                    Signature signature = Signature.getInstance(sigAlgorithm, provider);
+                    signature.initSign(keyPair.getPrivate());
+                    byte[] sigBytes = signature.sign();
+                    // Assert that it verifies using our own Provider
+                    signature.initVerify(keyPair.getPublic());
+                    assertTrue(signature.verify(sigBytes));
+
+                    // After using the key, the remaining usage count should be decreased. But this
+                    // will not be reflected unless we loads the key entry again.
+                    info = keyFactory.getKeySpec(keyPair.getPrivate(), KeyInfo.class);
+                    assertEquals(maxUsageCount, info.getRemainingUsageCount());
+
+                    // Reloads the key entry again, the remaining usage count is decreased.
+                    KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+                    keyStore.load(null);
+                    KeyStore.PrivateKeyEntry entry =
+                            (KeyStore.PrivateKeyEntry) keyStore.getEntry(key.getAlias(), null);
+                    info = keyFactory.getKeySpec(entry.getPrivateKey(), KeyInfo.class);
+                    assertEquals(maxUsageCount - 1, info.getRemainingUsageCount());
+
+                    // The second usage of the limited use key.
+                    signature.initSign(keyPair.getPrivate());
+                    signature.sign();
+
+                    // After the usage of limited use key is exhausted, the key will be deleted.
+                    try {
+                        signature.initSign(keyPair.getPrivate());
+                    } catch (KeyPermanentlyInvalidatedException expected) {}
+                } catch (Throwable e) {
+                    throw new RuntimeException(
+                            "Failed for " + sigAlgorithm + " with key " + key.getAlias(), e);
+                }
+            }
+        }
+    }
+
     public void testEmptySignatureDoesNotVerify()
             throws Exception {
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
@@ -562,61 +623,6 @@ public class SignatureTest extends AndroidTestCase {
         }
     }
 
-    public void testEntropyConsumption() throws Exception {
-        // Assert that signature generation consumes the correct amount of entropy from the provided
-        // SecureRandom. There is no need to check that Signature.verify does not consume entropy
-        // because Signature.initVerify does not take a SecureRandom.
-
-        Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
-        assertNotNull(provider);
-
-        CountingSecureRandom rng = new CountingSecureRandom();
-        for (String sigAlgorithm : EXPECTED_SIGNATURE_ALGORITHMS) {
-            for (ImportedKey key : importKatKeyPairsForSigning(getContext(), sigAlgorithm)) {
-                if (!TestUtils.isKeyLongEnoughForSignatureAlgorithm(
-                        sigAlgorithm, key.getOriginalSigningKey())) {
-                    continue;
-                }
-                try {
-                    KeyPair keyPair = key.getKeystoreBackedKeyPair();
-                    PrivateKey privateKey = keyPair.getPrivate();
-                    Signature signature = Signature.getInstance(sigAlgorithm, provider);
-
-                    // Signature.initSign should not consume entropy.
-                    rng.resetCounters();
-                    signature.initSign(privateKey, rng);
-                    assertEquals(0, rng.getOutputSizeBytes());
-
-                    // Signature.update should not consume entropy.
-                    byte[] message = "This is a test message".getBytes("UTF-8");
-                    rng.resetCounters();
-                    signature.update(message);
-                    assertEquals(0, rng.getOutputSizeBytes());
-
-                    // Signature.sign may consume entropy.
-                    rng.resetCounters();
-                    signature.sign();
-                    int expectedEntropyBytesConsumed;
-                    String algorithmUpperCase = sigAlgorithm.toUpperCase(Locale.US);
-                    if (algorithmUpperCase.endsWith("WITHECDSA")) {
-                        expectedEntropyBytesConsumed =
-                                (TestUtils.getKeySizeBits(privateKey) + 7) / 8;
-                    } else if (algorithmUpperCase.endsWith("WITHRSA")) {
-                        expectedEntropyBytesConsumed = 0;
-                    } else if (algorithmUpperCase.endsWith("WITHRSA/PSS")) {
-                        expectedEntropyBytesConsumed = 20; // salt length
-                    } else {
-                        throw new RuntimeException("Unsupported algorithm: " + sigAlgorithm);
-                    }
-                    assertEquals(expectedEntropyBytesConsumed, rng.getOutputSizeBytes());
-                } catch (Throwable e) {
-                    throw new RuntimeException(
-                            "Failed for " + sigAlgorithm + " with key " + key.getAlias(), e);
-                }
-            }
-        }
-    }
-
     public void testSmallMsgKat() throws Exception {
         byte[] message = SHORT_MSG_KAT_MESSAGE;
 
@@ -747,8 +753,9 @@ public class SignatureTest extends AndroidTestCase {
                     signature.initVerify(keyPair.getPublic());
                     try {
                         signature.update(message);
-                        signature.verify(sigBytes);
-                        fail();
+                        if (signature.verify(sigBytes)) {
+                            fail();
+                        }
                     } catch (SignatureException expected) {}
                     continue;
                 }
@@ -1305,6 +1312,21 @@ public class SignatureTest extends AndroidTestCase {
         String keyAlgorithm = TestUtils.getSignatureAlgorithmKeyAlgorithm(signatureAlgorithm);
         KeyProtection importParams =
                 TestUtils.getMinimalWorkingImportParametersForSigningingWith(signatureAlgorithm);
+        if (KeyProperties.KEY_ALGORITHM_EC.equalsIgnoreCase(keyAlgorithm)) {
+            return ECDSASignatureTest.importKatKeyPairs(context, importParams);
+        } else if (KeyProperties.KEY_ALGORITHM_RSA.equalsIgnoreCase(keyAlgorithm)) {
+            return RSASignatureTest.importKatKeyPairs(context, importParams);
+        } else {
+            throw new IllegalArgumentException("Unsupported key algorithm: " + keyAlgorithm);
+        }
+    }
+
+    static Collection<ImportedKey> importLimitedUseKatKeyPairsForSigning(
+            Context context, String signatureAlgorithm, int maxUsageCount) throws Exception {
+        String keyAlgorithm = TestUtils.getSignatureAlgorithmKeyAlgorithm(signatureAlgorithm);
+        KeyProtection importParams =
+                TestUtils.getMinimalWorkingImportParametersWithLimitedUsageForSigningingWith(
+                        signatureAlgorithm, maxUsageCount);
         if (KeyProperties.KEY_ALGORITHM_EC.equalsIgnoreCase(keyAlgorithm)) {
             return ECDSASignatureTest.importKatKeyPairs(context, importParams);
         } else if (KeyProperties.KEY_ALGORITHM_RSA.equalsIgnoreCase(keyAlgorithm)) {

@@ -21,6 +21,7 @@ import org.bouncycastle.crypto.params.ECKeyGenerationParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import org.bouncycastle.jcajce.provider.asymmetric.util.EC5Util;
+import org.bouncycastle.jcajce.provider.asymmetric.util.ECUtil;
 import org.bouncycastle.jcajce.provider.config.ProviderConfiguration;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECNamedCurveGenParameterSpec;
@@ -153,7 +154,16 @@ public abstract class KeyPairGeneratorSpi
             }
             else
             {
-                throw new InvalidAlgorithmParameterException("parameter object not a ECParameterSpec");
+                String name = ECUtil.getNameFrom(params);
+
+                if (name != null)
+                {
+                    initializeNamedCurve(name, random);
+                }
+                else
+                {
+                    throw new InvalidAlgorithmParameterException("invalid parameterSpec: " + params);
+                }
             }
 
             engine.init(param);
@@ -201,8 +211,20 @@ public abstract class KeyPairGeneratorSpi
 
         protected ECKeyGenerationParameters createKeyGenParamsJCE(java.security.spec.ECParameterSpec p, SecureRandom r)
         {
+            if (p instanceof ECNamedCurveSpec)
+            {
+                X9ECParameters x9P = ECUtils.getDomainParametersFromName(((ECNamedCurveSpec)p).getName());
+
+                if (x9P != null)
+                {
+                    ECDomainParameters dp = new ECDomainParameters(x9P.getCurve(), x9P.getG(), x9P.getN(), x9P.getH());
+
+                    return new ECKeyGenerationParameters(dp, r);
+                }
+            }
+
             ECCurve curve = EC5Util.convertCurve(p.getCurve());
-            ECPoint g = EC5Util.convertPoint(curve, p.getGenerator(), false);
+            ECPoint g = EC5Util.convertPoint(curve, p.getGenerator());
             BigInteger n = p.getOrder();
             BigInteger h = BigInteger.valueOf(p.getCofactor());
             ECDomainParameters dp = new ECDomainParameters(curve, g, n, h);

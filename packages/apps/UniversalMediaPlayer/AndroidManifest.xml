@@ -34,6 +34,7 @@
 
         <activity
             android:name=".activity.PumpActivity"
+            android:exported="true"
             android:screenOrientation="portrait">
 
             <intent-filter>
@@ -78,6 +79,7 @@
 
         <activity
             android:name=".activity.AudioPlayerActivity"
+            android:exported="true"
             android:configChanges="keyboardHidden|orientation|screenSize">
 
             <intent-filter>
@@ -92,6 +94,7 @@
 
         <activity
             android:name=".activity.VideoPlayerActivity"
+            android:exported="true"
             android:configChanges="keyboardHidden|orientation|screenSize">
 
             <intent-filter>

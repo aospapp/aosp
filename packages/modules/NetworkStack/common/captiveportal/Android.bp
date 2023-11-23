@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "captiveportal-lib",
     srcs: ["src/**/*.java"],
@@ -21,4 +25,6 @@ java_library {
         "androidx.annotation_annotation",
     ],
     sdk_version: "system_current",
+    // this is part of updatable modules(NetworkStack) which targets 29(Q)
+    min_sdk_version: "29",
 }

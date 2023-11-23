@@ -47,6 +47,11 @@ final class CommonResults {
     public static final int STATUS_INVALID_REQUEST = 5;
 
     /**
+     * Operation failed because of driving safety UX restrictions.
+     */
+    public static final int STATUS_UX_RESTRICTION_FAILURE = 6;
+
+    /**
      * Reference for common status - anything higher than this can be used for custom status
      */
     static final int LAST_COMMON_STATUS = 100;

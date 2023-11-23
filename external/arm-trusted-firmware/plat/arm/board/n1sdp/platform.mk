@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2019, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -14,14 +14,16 @@ PLAT_INCLUDES		:=	-I${N1SDP_BASE}/include
 
 N1SDP_CPU_SOURCES	:=	lib/cpus/aarch64/neoverse_n1.S
 
+# GIC-600 configuration
+GICV3_SUPPORT_GIC600		:=	1
+GICV3_IMPL_GIC600_MULTICHIP	:=	1
 
-N1SDP_GIC_SOURCES	:=	drivers/arm/gic/common/gic_common.c	\
-				drivers/arm/gic/v3/gicv3_main.c		\
-				drivers/arm/gic/v3/gicv3_helpers.c	\
-				drivers/arm/gic/v3/gic600_multichip.c	\
+# Include GICv3 driver files
+include drivers/arm/gic/v3/gicv3.mk
+
+N1SDP_GIC_SOURCES	:=	${GICV3_SOURCES}			\
 				plat/common/plat_gicv3.c		\
 				plat/arm/common/arm_gicv3.c		\
-				drivers/arm/gic/v3/gic600.c
 
 PLAT_BL_COMMON_SOURCES	:=	${N1SDP_BASE}/n1sdp_plat.c	        \
 				${N1SDP_BASE}/aarch64/n1sdp_helper.S
@@ -36,6 +38,8 @@ BL31_SOURCES		:=	${N1SDP_CPU_SOURCES}			\
 				${N1SDP_BASE}/n1sdp_security.c		\
 				drivers/arm/css/sds/sds.c
 
+FDT_SOURCES		+=	fdts/${PLAT}-single-chip.dts	\
+				fdts/${PLAT}-multi-chip.dts
 
 # TF-A not required to load the SCP Images
 override CSS_LOAD_SCP_IMAGES	  	:=	0
@@ -63,6 +67,9 @@ HW_ASSISTED_COHERENCY			:=	1
 # When building for systems with hardware-assisted coherency, there's no need to
 # use USE_COHERENT_MEM. Require that USE_COHERENT_MEM must be set to 0 too.
 USE_COHERENT_MEM			:=	0
+
+# Enable the flag since N1SDP has a system level cache
+NEOVERSE_Nx_EXTERNAL_LLC		:=	1
 include plat/arm/common/arm_common.mk
 include plat/arm/css/common/css_common.mk
 include plat/arm/board/common/board_common.mk

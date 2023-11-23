@@ -21,6 +21,7 @@
 #include <string>
 
 #include <base/time/time.h>
+#include <base/version.h>
 #include <policy/libpolicy.h>
 
 #include "update_engine/update_manager/provider.h"
@@ -44,6 +45,8 @@ class DevicePolicyProvider : public Provider {
 
   virtual Variable<bool>* var_release_channel_delegated() = 0;
 
+  virtual Variable<std::string>* var_release_lts_tag() = 0;
+
   virtual Variable<bool>* var_update_disabled() = 0;
 
   virtual Variable<std::string>* var_target_version_prefix() = 0;
@@ -66,9 +69,9 @@ class DevicePolicyProvider : public Provider {
   virtual Variable<std::set<chromeos_update_engine::ConnectionType>>*
   var_allowed_connection_types_for_update() = 0;
 
-  // Variable stating the name of the device owner. For enterprise enrolled
-  // devices, this will be an empty string.
-  virtual Variable<std::string>* var_owner() = 0;
+  // Variable stating whether the device has an owner. For enterprise enrolled
+  // devices, this will be false as the device owner has an empty string.
+  virtual Variable<bool>* var_has_owner() = 0;
 
   virtual Variable<bool>* var_http_downloads_enabled() = 0;
 
@@ -84,6 +87,19 @@ class DevicePolicyProvider : public Provider {
   // checks are disallowed.
   virtual Variable<WeeklyTimeIntervalVector>*
   var_disallowed_time_intervals() = 0;
+
+  // Variable that determins whether we should powerwash and rollback on channel
+  // downgrade for enrolled devices.
+  virtual Variable<ChannelDowngradeBehavior>*
+  var_channel_downgrade_behavior() = 0;
+
+  // Variable that contains Chrome OS minimum required version. It contains a
+  // Chrome OS version number.
+  virtual Variable<base::Version>* var_device_minimum_version() = 0;
+
+  // Variable that contains a token which maps to a Chrome OS Quick Fix Build to
+  // which the device would be updated if not blocked by another policy.
+  virtual Variable<std::string>* var_quick_fix_build_token() = 0;
 
  protected:
   DevicePolicyProvider() {}

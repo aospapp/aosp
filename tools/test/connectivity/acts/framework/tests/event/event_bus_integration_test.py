@@ -13,7 +13,6 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-import shutil
 import tempfile
 import unittest
 from unittest import TestCase
@@ -34,7 +33,8 @@ class TestClass(BaseTestClass):
     def __init__(self, configs):
         import mock
         self.log = mock.Mock()
-        super().__init__(configs)
+        with mock.patch('mobly.utils.create_dir'):
+            super().__init__(configs)
 
     @subscribe(Event)
     def subscribed_instance_member(self, event):

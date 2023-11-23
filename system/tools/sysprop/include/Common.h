@@ -26,6 +26,7 @@ inline static constexpr const char* kGeneratedFileFooterComments =
 std::string ApiNameToIdentifier(const std::string& name);
 std::string GetModuleName(const sysprop::Properties& props);
 bool IsListProp(const sysprop::Property& prop);
+std::vector<std::string> ParseEnumValues(const std::string& enum_values);
 android::base::Result<sysprop::Properties> ParseProps(
     const std::string& file_path);
 android::base::Result<sysprop::SyspropLibraryApis> ParseApiFile(

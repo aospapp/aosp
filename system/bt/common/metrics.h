@@ -18,9 +18,9 @@
 
 #pragma once
 
-#include <android/bluetooth/hci/enums.pb.h>
 #include <bta/include/bta_api.h>
-#include <frameworks/base/core/proto/android/bluetooth/enums.pb.h>
+#include <frameworks/proto_logging/stats/enums/bluetooth/enums.pb.h>
+#include <frameworks/proto_logging/stats/enums/bluetooth/hci/enums.pb.h>
 #include <stdint.h>
 #include <memory>
 #include <string>
@@ -360,6 +360,16 @@ void LogA2dpAudioOverrunEvent(const RawAddress& address,
                               int num_dropped_encoded_bytes);
 
 /**
+ * Log A2DP playback state changed event
+ *
+ * @param address A2DP device associated with this event
+ * @param playback_state audio playback state
+ * @param audio_coding_mode audio codec encoding mode
+ */
+void LogA2dpPlaybackEvent(const RawAddress& address, int playback_state,
+                          int audio_coding_mode);
+
+/**
  * Log read RSSI result
  *
  * @param address device associated with this event
@@ -479,6 +489,16 @@ void LogManufacturerInfo(const RawAddress& address,
                          const std::string& model,
                          const std::string& hardware_version,
                          const std::string& software_version);
+
+/**
+ * Logs when received Bluetooth HAL crash reason report.
+ *
+ * @param address current connected address.
+ * @param error_code the crash reason from bluetooth hal
+ * @param vendor_error_code the vendor crash reason from bluetooth Firmware
+ */
+void LogBluetoothHalCrashReason(const RawAddress& address, uint32_t error_code,
+                                uint32_t vendor_error_code);
 }  // namespace common
 
 }  // namespace bluetooth

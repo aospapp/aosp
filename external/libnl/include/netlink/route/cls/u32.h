@@ -23,13 +23,17 @@ extern "C" {
 
 extern void	rtnl_u32_set_handle(struct rtnl_cls *, int, int, int);
 extern int	rtnl_u32_set_classid(struct rtnl_cls *, uint32_t);
+extern int	rtnl_u32_get_classid(struct rtnl_cls *, uint32_t *);
 extern int	rtnl_u32_set_divisor(struct rtnl_cls *, uint32_t);
 extern int	rtnl_u32_set_link(struct rtnl_cls *, uint32_t);
 extern int	rtnl_u32_set_hashtable(struct rtnl_cls *, uint32_t);
 extern int	rtnl_u32_set_hashmask(struct rtnl_cls *, uint32_t, uint32_t);
+extern int	rtnl_u32_set_selector(struct rtnl_cls *, int, uint32_t, char, uint16_t, char);
 extern int	rtnl_u32_set_cls_terminal(struct rtnl_cls *);
 
 extern int	rtnl_u32_set_flags(struct rtnl_cls *, int);
+extern int	rtnl_u32_add_mark(struct rtnl_cls *, uint32_t, uint32_t);
+extern int	rtnl_u32_del_mark(struct rtnl_cls *);
 extern int	rtnl_u32_add_key(struct rtnl_cls *, uint32_t, uint32_t,
 				 int, int);
 extern int	rtnl_u32_get_key(struct rtnl_cls *, uint8_t, uint32_t *, uint32_t *,
@@ -46,6 +50,7 @@ extern int	rtnl_u32_add_key_in6_addr(struct rtnl_cls *, const struct in6_addr *,
 					  uint8_t, int, int);
 extern int	rtnl_u32_add_action(struct rtnl_cls *, struct rtnl_act *);
 extern int	rtnl_u32_del_action(struct rtnl_cls *, struct rtnl_act *);
+extern struct rtnl_act* rtnl_u32_get_action(struct rtnl_cls *);
 
 #ifdef __cplusplus
 }

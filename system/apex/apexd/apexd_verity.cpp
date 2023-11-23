@@ -29,6 +29,7 @@
 #include "apex_file.h"
 #include "apexd_utils.h"
 
+using android::base::Dirname;
 using android::base::ErrnoError;
 using android::base::Error;
 using android::base::ReadFully;
@@ -59,7 +60,8 @@ std::vector<uint8_t> HexToBin(const std::string& hex) {
 Result<void> GenerateHashTree(const ApexFile& apex,
                               const ApexVerityData& verity_data,
                               const std::string& hashtree_file) {
-  unique_fd fd(TEMP_FAILURE_RETRY(open(apex.GetPath().c_str(), O_RDONLY)));
+  unique_fd fd(
+      TEMP_FAILURE_RETRY(open(apex.GetPath().c_str(), O_RDONLY | O_CLOEXEC)));
   if (fd.get() == -1) {
     return ErrnoError() << "Failed to open " << apex.GetPath();
   }
@@ -78,7 +80,10 @@ Result<void> GenerateHashTree(const ApexFile& apex,
     return Error() << "Invalid image size " << image_size;
   }
 
-  if (lseek(fd, apex.GetImageOffset(), SEEK_SET) == -1) {
+  if (!apex.GetImageOffset()) {
+    return Error() << "Cannot generate HashTree without image offset";
+  }
+  if (lseek(fd, apex.GetImageOffset().value(), SEEK_SET) == -1) {
     return ErrnoError() << "Failed to seek";
   }
 
@@ -105,8 +110,8 @@ Result<void> GenerateHashTree(const ApexFile& apex,
     return Error() << "Failed to build hashtree: root digest mismatch";
   }
 
-  unique_fd out_fd(TEMP_FAILURE_RETRY(
-      open(hashtree_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600)));
+  unique_fd out_fd(TEMP_FAILURE_RETRY(open(
+      hashtree_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600)));
   if (!builder->WriteHashTreeToFd(out_fd, 0)) {
     return Error() << "Failed to write hashtree to " << hashtree_file;
   }
@@ -115,7 +120,8 @@ Result<void> GenerateHashTree(const ApexFile& apex,
 
 Result<std::string> CalculateRootDigest(const std::string& hashtree_file,
                                         const ApexVerityData& verity_data) {
-  unique_fd fd(TEMP_FAILURE_RETRY(open(hashtree_file.c_str(), O_RDONLY)));
+  unique_fd fd(
+      TEMP_FAILURE_RETRY(open(hashtree_file.c_str(), O_RDONLY | O_CLOEXEC)));
   if (fd.get() == -1) {
     return ErrnoError() << "Failed to open " << hashtree_file;
   }
@@ -149,7 +155,11 @@ Result<std::string> CalculateRootDigest(const std::string& hashtree_file,
 Result<PrepareHashTreeResult> PrepareHashTree(
     const ApexFile& apex, const ApexVerityData& verity_data,
     const std::string& hashtree_file) {
-  if (auto st = createDirIfNeeded(kApexHashTreeDir, 0700); !st.ok()) {
+  if (apex.IsCompressed()) {
+    return Error() << "Cannot prepare HashTree of compressed APEX";
+  }
+
+  if (auto st = CreateDirIfNeeded(Dirname(hashtree_file), 0700); !st.ok()) {
     return st.error();
   }
   bool should_regenerate_hashtree = false;

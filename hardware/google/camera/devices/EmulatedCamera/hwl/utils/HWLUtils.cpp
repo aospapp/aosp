@@ -16,31 +16,14 @@
 
 #define LOG_TAG "HWLUtils"
 #include "HWLUtils.h"
-
 #include <log/log.h>
+#include "utils.h"
 
 #include <map>
 
 namespace android {
 
-bool HasCapability(const HalCameraMetadata* metadata, uint8_t capability) {
-  if (metadata == nullptr) {
-    return false;
-  }
-
-  camera_metadata_ro_entry_t entry;
-  auto ret = metadata->Get(ANDROID_REQUEST_AVAILABLE_CAPABILITIES, &entry);
-  if (ret != OK) {
-    return false;
-  }
-  for (size_t i = 0; i < entry.count; i++) {
-    if (entry.data.u8[i] == capability) {
-      return true;
-    }
-  }
-
-  return false;
-}
+using google_camera_hal::utils::HasCapability;
 
 status_t GetSensorCharacteristics(const HalCameraMetadata* metadata,
                                   SensorCharacteristics* sensor_chars /*out*/) {
@@ -57,6 +40,16 @@ status_t GetSensorCharacteristics(const HalCameraMetadata* metadata,
   }
   sensor_chars->width = entry.data.i32[0];
   sensor_chars->height = entry.data.i32[1];
+  sensor_chars->full_res_width = sensor_chars->width;
+  sensor_chars->full_res_height = sensor_chars->height;
+
+  ret = metadata->Get(ANDROID_SENSOR_INFO_PIXEL_ARRAY_SIZE_MAXIMUM_RESOLUTION,
+                      &entry);
+  if ((ret == OK) && (entry.count == 2)) {
+    sensor_chars->full_res_width = entry.data.i32[0];
+    sensor_chars->full_res_height = entry.data.i32[1];
+    sensor_chars->quad_bayer_sensor = true;
+  }
 
   ret = metadata->Get(ANDROID_REQUEST_MAX_NUM_OUTPUT_STREAMS, &entry);
   if ((ret != OK) || (entry.count != 3)) {

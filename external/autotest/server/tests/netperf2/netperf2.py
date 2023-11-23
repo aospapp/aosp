@@ -1,3 +1,7 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 from autotest_lib.server import autotest, hosts, subcommand, test
 from autotest_lib.server import utils
 
@@ -5,7 +9,7 @@ class netperf2(test.test):
     version = 2
 
     def run_once(self, pair, test, time, stream_list, cycles):
-        print "running on %s and %s\n" % (pair[0], pair[1])
+        print("running on %s and %s\n" % (pair[0], pair[1]))
 
         # Designate a label for the server side tests.
         server_label = 'net_server'

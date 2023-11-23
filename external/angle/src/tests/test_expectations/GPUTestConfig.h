@@ -47,6 +47,7 @@ struct GPUTestConfig
         kConditionMacHighSierra,
         kConditionMacMojave,
         kConditionMac,
+        kConditionIOS,
         kConditionLinux,
         kConditionAndroid,
         kConditionNVIDIA,
@@ -63,8 +64,13 @@ struct GPUTestConfig
         kConditionMetal,
         kConditionNexus5X,
         kConditionPixel2OrXL,
+        kConditionPixel4OrXL,
         kConditionNVIDIAQuadroP400,
         kConditionSwiftShader,
+        kConditionPreRotation,
+        kConditionPreRotation90,
+        kConditionPreRotation180,
+        kConditionPreRotation270,
 
         kNumberOfConditions,
     };
@@ -72,7 +78,8 @@ struct GPUTestConfig
     using ConditionArray = angle::BitSet<GPUTestConfig::kNumberOfConditions>;
 
     GPUTestConfig();
-    GPUTestConfig(const API &api);
+    GPUTestConfig(bool isSwiftShader);
+    GPUTestConfig(const API &api, uint32_t preRotation);
 
     const GPUTestConfig::ConditionArray &getConditions() const;
 

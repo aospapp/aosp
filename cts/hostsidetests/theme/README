@@ -47,7 +47,7 @@ generate a new set of reference images from an emulator, do the following:
 
   4. From the console, set up your build environment for x86_64 and build CTS:
 
-     lunch sdk_x86_64-eng && make cts -j32
+     source build/envsetup.sh && lunch sdk_x86_64-eng && make cts -j32
 
   5. Use the reference image script to generate the reference images. The script
      will automatically start the emulator in the required configurations and

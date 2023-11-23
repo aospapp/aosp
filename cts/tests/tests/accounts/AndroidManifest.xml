@@ -16,59 +16,61 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.accounts.cts"
-        android:targetSandboxVersion="2">
+     package="android.accounts.cts"
+     android:targetSandboxVersion="2">
     <uses-sdk android:minSdkVersion="1"
-          android:targetSdkVersion="26"/>
+         android:targetSdkVersion="26"/>
 
     <!-- Don't need GET_ACCOUNTS because share a Uid with the relevant
-         authenticators -->
+                 authenticators -->
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <activity android:name="android.accounts.cts.AccountDummyActivity" >
+        <activity android:name="android.accounts.cts.AccountDummyActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-        <activity android:name="android.accounts.cts.AccountRemovalDummyActivity" >
+        <activity android:name="android.accounts.cts.AccountRemovalDummyActivity">
         </activity>
 
-        <activity android:name="android.accounts.cts.AccountAuthenticatorDummyActivity" />
+        <activity android:name="android.accounts.cts.AccountAuthenticatorDummyActivity"/>
 
-        <service android:name="MockAccountService" android:exported="true"
-                 android:process="android.accounts.cts">
+        <service android:name="MockAccountService"
+             android:exported="true"
+             android:process="android.accounts.cts">
             <intent-filter>
-                <action android:name="android.accounts.AccountAuthenticator" />
+                <action android:name="android.accounts.AccountAuthenticator"/>
             </intent-filter>
             <meta-data android:name="android.accounts.AccountAuthenticator"
-                       android:resource="@xml/authenticator" />
+                 android:resource="@xml/authenticator"/>
         </service>
 
-        <service android:name="MockCustomTokenAccountService" android:exported="true"
-                 android:process="android.accounts.cts">
+        <service android:name="MockCustomTokenAccountService"
+             android:exported="true"
+             android:process="android.accounts.cts">
             <intent-filter>
-                <action android:name="android.accounts.AccountAuthenticator" />
+                <action android:name="android.accounts.AccountAuthenticator"/>
             </intent-filter>
             <meta-data android:name="android.accounts.AccountAuthenticator"
-                       android:resource="@xml/custom_token_authenticator" />
+                 android:resource="@xml/custom_token_authenticator"/>
             <meta-data android:name="android.accounts.AccountAuthenticator.customTokens"
-                       android:value="1" />
+                 android:value="1"/>
 
         </service>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.accounts.cts"
-                     android:label="CTS tests for android.accounts">
+         android:targetPackage="android.accounts.cts"
+         android:label="CTS tests for android.accounts">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>
-

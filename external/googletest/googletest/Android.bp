@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_googletest_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-BSD
+    default_applicable_licenses: ["external_googletest_license"],
+}
+
 cc_defaults {
     name: "libgtest_defaults",
     export_include_dirs: ["include"],
@@ -57,6 +66,7 @@ cc_library_static {
     defaults: ["libgtest_defaults", "libgtest_host_defaults"],
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     native_bridge_supported: true,
     srcs: ["src/gtest-all.cc"],
     rtti: true,
@@ -67,6 +77,7 @@ cc_library_static {
     defaults: ["libgtest_defaults", "libgtest_host_defaults"],
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     native_bridge_supported: true,
     srcs: ["src/gtest_main.cc"],
 }
@@ -84,13 +95,15 @@ cc_library_host_static {
     defaults: ["libgtest_host_defaults"],
 }
 
-cc_library {  // TODO: make this a cc_library_headers module
-    name: "libgtest_prod",
+cc_library_headers {
+    name: "libgtest_prod_headers",
     defaults: ["libgtest_defaults", "libgtest_host_defaults"],
     host_supported: true,
     native_bridge_supported: true,
     recovery_available: true,
+    vendor_ramdisk_available: true,
     vendor_available: true,
+    product_available: true,
     export_include_dirs: ["include"],
     apex_available: [
         "//apex_available:anyapex",

@@ -29,7 +29,7 @@ namespace dbus_utils {
 // cause the Bus to crash the process on destruction.
 class BRILLO_EXPORT DBusServiceWatcher {
  public:
-  DBusServiceWatcher(scoped_refptr<dbus::Bus> bus,
+  DBusServiceWatcher(scoped_refptr<::dbus::Bus> bus,
                      const std::string& connection_name,
                      const base::Closure& on_connection_vanish);
   virtual ~DBusServiceWatcher();
@@ -38,9 +38,9 @@ class BRILLO_EXPORT DBusServiceWatcher {
  private:
   void OnServiceOwnerChange(const std::string& service_owner);
 
-  scoped_refptr<dbus::Bus> bus_;
+  scoped_refptr<::dbus::Bus> bus_;
   const std::string connection_name_;
-  dbus::Bus::GetServiceOwnerCallback monitoring_callback_;
+  ::dbus::Bus::GetServiceOwnerCallback monitoring_callback_;
   base::Closure on_connection_vanish_;
 
   base::WeakPtrFactory<DBusServiceWatcher> weak_factory_{this};

@@ -23,15 +23,28 @@
 
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <android-base/file.h>
 #include <android-base/parseint.h>
+#include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <packagelistparser/packagelistparser.h>
 #include <private/android_filesystem_config.h>
 #include <scoped_minijail.h>
 #include <selinux/android.h>
+
+#include "../cmd_api_impl.h"
+#include "../cmd_record_impl.h"
+#include "../cmd_stat_impl.h"
+
+using android::base::ParseInt;
+using android::base::ParseUint;
+using android::base::Realpath;
+using android::base::StartsWith;
+using android::base::StringPrintf;
+using namespace simpleperf;
 
 // simpleperf_app_runner is used to run simpleperf to profile apps with <profileable shell="true">
 // on user devices. It works as below:
@@ -97,110 +110,107 @@ std::vector<gid_t> GetSupplementaryGids(uid_t userAppId) {
   return gids;
 }
 
-static void CheckSimpleperfArguments(const char* cmdname, char** args) {
-  if (strcmp(cmdname, "stat") != 0 && strcmp(cmdname, "record") != 0 &&
-      strcmp(cmdname, "api-collect") != 0) {
-    error(1, 0, "cmd isn't allowed: %s", cmdname);
+static void CheckSimpleperfArguments(std::string_view cmd_name, char** args) {
+  const OptionFormatMap& common_formats = GetCommonOptionFormatMap();
+  const OptionFormatMap* formats = nullptr;
+  if (cmd_name == "api-collect") {
+    formats = &GetApiCollectCmdOptionFormats();
+  } else if (cmd_name == "record") {
+    formats = &GetRecordCmdOptionFormats();
+  } else if (cmd_name == "stat") {
+    formats = &GetStatCmdOptionFormats();
+  } else {
+    error(1, 0, "cmd isn't allowed: %s", cmd_name.data());
   }
-  std::set<std::string> zero_arg_options = {
-      "-b",
-      "--csv",
-      "--exclude-perf",
-      "--exit-with-parent",
-      "-g",
-      "--in-app",
-      "--interval-only-values",
-      "--log-to-android-buffer",
-      "--no-callchain-joiner",
-      "--no-cut-samples",
-      "--no-dump-kernel-symbols",
-      "--no-dump-symbols",
-      "--no-inherit",
-      "--no-unwind",
-      "--per-core",
-      "--per-thread",
-      "--post-unwind=no",
-      "--post-unwind=yes",
-      "--trace-offcpu",
-      "--verbose",
-  };
-  std::set<std::string> one_arg_options = {
-      "--aux-buffer-size",
-      "-c",
-      "--call-graph",
-      "--callchain-joiner-min-matching-nodes",
-      "--clockid",
-      "--cpu",
-      "--cpu-percent",
-      "--duration",
-      "-e",
-      "-f",
-      "--group",
-      "--include-filter",
-      "--interval",
-      "-j",
-      "--log",
-      "-m",
-      "-p",
-      "--size-limit",
-      "-t",
-  };
-  // options with a file descriptor
-  std::set<std::string> fd_options = {
-      "--start_profiling_fd",
-      "--stop-signal-fd",
-      "--out-fd",
-  };
-  // options with path from /data/local/tmp/
-  std::set<std::string> path_options = {
-      "--symfs",
-      "--tracepoint-events",
-  };
-  one_arg_options.insert(fd_options.begin(), fd_options.end());
-  one_arg_options.insert(path_options.begin(), path_options.end());
-  for (int i = 0; args[i] != nullptr; ++i) {
-    if (zero_arg_options.count(args[i])) {
-      continue;
-    } else if (one_arg_options.count(args[i])) {
-      if (args[i + 1] == nullptr) {
-        error(1, 0, "invalid arg: %s", args[i]);
+
+  for (size_t i = 0; args[i] != nullptr; ++i) {
+    auto it = formats->find(args[i]);
+    if (it == formats->end()) {
+      it = common_formats.find(args[i]);
+      if (it == common_formats.end()) {
+        error(1, 0, "arg isn't allowed: %s", args[i]);
       }
-      if (fd_options.count(args[i])) {
-        // Check if the file descriptor is valid.
+    }
+    const OptionFormat& format = it->second;
+    if (format.value_type != OptionValueType::NONE && args[i + 1] == nullptr) {
+      error(1, 0, "invalid arg: %s", args[i]);
+    }
+    switch (format.app_runner_type) {
+      case AppRunnerType::ALLOWED:
+        break;
+      case AppRunnerType::NOT_ALLOWED:
+        error(1, 0, "arg isn't allowed: %s", args[i]);
+        break;
+      case AppRunnerType::CHECK_FD: {
         int fd;
-        if (!android::base::ParseInt(args[i + 1], &fd) || fd < 3 || fcntl(fd, F_GETFD) == -1) {
+        if (!ParseInt(args[i + 1], &fd) || fd < 3 || fcntl(fd, F_GETFD) == -1) {
           error(1, 0, "invalid fd for arg: %s", args[i]);
         }
-      } else if (path_options.count(args[i])) {
+        break;
+      }
+      case AppRunnerType::CHECK_PATH: {
         std::string path;
-        if (!android::base::Realpath(args[i + 1], &path) ||
-            !android::base::StartsWith(path, "/data/local/tmp/")) {
+        if (!Realpath(args[i + 1], &path) || !StartsWith(path, "/data/local/tmp/")) {
           error(1, 0, "invalid path for arg: %s", args[i]);
         }
+        break;
       }
+    }
+    if (format.value_type != OptionValueType::NONE) {
       ++i;
-    } else {
-      error(1, 0, "arg isn't allowed: %s", args[i]);
     }
   }
 }
 
 int main(int argc, char* argv[]) {
-  if (argc < 2) {
-    error(1, 0, "usage: simpleperf_app_runner package_name simpleperf_cmd simpleperf_cmd_args...");
-  }
   if (argc < 3) {
+    fprintf(
+        stderr,
+        // clang-format off
+"Usage: simpleperf_app_runner package_name [options] [simpleperf cmd simpleperf_cmd_args]\n"
+"Options:\n"
+"--user uid        profile app process run by uid\n"
+"--show-app-type   show if the app is debuggable or profileable\n"
+        // clang-format on
+    );
+    return 1;
+  }
+  int i = 1;
+  char* pkgname = argv[i++];
+  uint32_t user_id = 0;
+  if (i + 1 < argc && strcmp(argv[i], "--user") == 0) {
+    if (!ParseUint(argv[i + 1], &user_id)) {
+      error(1, 0, "invalid uid");
+    }
+    i += 2;
+  }
+  if (i < argc && strcmp(argv[i], "--show-app-type") == 0) {
+    pkg_info* info = ReadPackageInfo(pkgname);
+    if (info == nullptr) {
+      error(1, 0, "failed to find package %s", pkgname);
+    }
+    if (info->debuggable) {
+      printf("debuggable\n");
+    } else if (info->profileable_from_shell) {
+      printf("profileable\n");
+    } else {
+      printf("non_profileable\n");
+    }
+    return 0;
+  }
+
+  if (i == argc) {
     error(1, 0, "no simpleperf command name");
   }
-  char* pkgname = argv[1];
-  char* simpleperf_cmdname = argv[2];
-  int simpleperf_arg_start = 3;
+  char* simpleperf_cmdname = argv[i];
+  int simpleperf_arg_start = i + 1;
   CheckSimpleperfArguments(simpleperf_cmdname, argv + simpleperf_arg_start);
 
   if (getuid() != AID_SHELL && getuid() != AID_ROOT) {
     error(1, 0, "program can only run from shell or root");
   }
 
+  // Get package info.
   pkg_info* info = ReadPackageInfo(pkgname);
   if (info == nullptr) {
     error(1, 0, "failed to find package %s", pkgname);
@@ -208,14 +218,25 @@ int main(int argc, char* argv[]) {
   if (info->uid < AID_APP_START || info->uid > AID_APP_END) {
     error(1, 0, "package isn't an application: %s", pkgname);
   }
-  if (!info->profileable_from_shell) {
-    error(1, 0, "package isn't profileable from shell: %s", pkgname);
+  if (!(info->debuggable || info->profileable_from_shell)) {
+    error(1, 0, "package is neither debuggable nor profileable from shell: %s", pkgname);
+  }
+
+  uid_t user_app_id = info->uid;
+  std::string data_dir = info->data_dir;
+  if (user_id > 0) {
+    // Make sure user_app_id doesn't overflow.
+    if ((UID_MAX - info->uid) / AID_USER_OFFSET < user_id) {
+      error(1, 0, "user id is too big: %d", user_id);
+    }
+    user_app_id = (AID_USER_OFFSET * user_id) + info->uid;
+    data_dir = StringPrintf("/data/user/%d/%s", user_id, pkgname);
   }
 
   // Switch to the app's user id and group id.
-  uid_t uid = info->uid;
-  gid_t gid = info->uid;
-  std::vector<gid_t> supplementary_gids = GetSupplementaryGids(info->uid);
+  uid_t uid = user_app_id;
+  gid_t gid = user_app_id;
+  std::vector<gid_t> supplementary_gids = GetSupplementaryGids(user_app_id);
   ScopedMinijail j(minijail_new());
   minijail_change_uid(j.get(), uid);
   minijail_change_gid(j.get(), gid);
@@ -228,7 +249,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Switch to the app's data directory.
-  if (TEMP_FAILURE_RETRY(chdir(info->data_dir)) == -1) {
+  if (TEMP_FAILURE_RETRY(chdir(data_dir.c_str())) == -1) {
     error(1, errno, "couldn't chdir to package's data directory");
   }
 

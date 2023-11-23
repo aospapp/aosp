@@ -2,13 +2,18 @@
 
 """Tests for autotest_lib.client.bin.partition."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 __author__ = 'gps@google.com (Gregory P. Smith)'
 
 import os, sys, unittest
-from cStringIO import StringIO
+from six import StringIO
 import common
 from autotest_lib.client.common_lib.test_utils import mock
 from autotest_lib.client.bin import partition
+from six.moves import range
 
 
 class FsOptions_common(object):
@@ -74,7 +79,7 @@ class get_partition_list_common(object):
 
 
     def test_is_linux_fs_type(self):
-        for unused in xrange(4):
+        for unused in range(4):
             os.popen.expect_call(SAMPLE_FDISK).and_return(
                     StringIO(SAMPLE_FDISK_OUTPUT))
         self.assertFalse(partition.is_linux_fs_type('/dev/hdc1'))

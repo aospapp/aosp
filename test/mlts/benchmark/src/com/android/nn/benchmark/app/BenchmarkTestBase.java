@@ -16,7 +16,6 @@
 
 package com.android.nn.benchmark.app;
 
-
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -34,8 +33,6 @@ import com.android.nn.benchmark.core.BenchmarkResult;
 import com.android.nn.benchmark.core.TestModels;
 import com.android.nn.benchmark.core.TestModels.TestModelEntry;
 
-import java.util.concurrent.CountDownLatch;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.runner.RunWith;
@@ -44,6 +41,7 @@ import org.junit.runners.Parameterized.Parameters;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Benchmark test-case super-class.
@@ -73,6 +71,11 @@ public class BenchmarkTestBase extends ActivityInstrumentationTestCase2<NNBenchm
     // For running a complete dataset, the run should complete under 5 minutes.
     protected static final float COMPLETE_SET_TIMEOUT_SECOND = 300.f;
 
+    // For running compilation benchmarks.
+    protected static final float COMPILATION_WARMUP_SECONDS = 2.f;
+    protected static final float COMPILATION_RUNTIME_SECONDS = 10.f;
+    protected static final int COMPILATION_MAX_ITERATIONS = 100;
+
     public BenchmarkTestBase(TestModelEntry model) {
         super(NNBenchmark.class);
         mModel = model;
@@ -82,8 +85,17 @@ public class BenchmarkTestBase extends ActivityInstrumentationTestCase2<NNBenchm
         mActivity.setUseNNApi(useNNApi);
     }
 
+    protected void setNnApiAcceleratorName(String acceleratorName) {
+        mActivity.setNnApiAcceleratorName(acceleratorName);
+    }
+
     protected void setCompleteInputSet(boolean completeInputSet) {
         mActivity.setCompleteInputSet(completeInputSet);
+    }
+
+    protected void enableCompilationCachingBenchmarks() {
+        mActivity.enableCompilationCachingBenchmarks(COMPILATION_WARMUP_SECONDS,
+                COMPILATION_RUNTIME_SECONDS, COMPILATION_MAX_ITERATIONS);
     }
 
     // Initialize the parameter for ImageProcessingActivityJB.
@@ -94,7 +106,11 @@ public class BenchmarkTestBase extends ActivityInstrumentationTestCase2<NNBenchm
         setUseNNApi(true);
     }
 
-    protected void waitUntilCharged() {
+    public void waitUntilCharged() {
+        BenchmarkTestBase.waitUntilCharged(mActivity, -1);
+    }
+
+    public static void waitUntilCharged(Context context, int minChargeLevel) {
         Log.v(NNBenchmark.TAG, "Waiting for the device to charge");
 
         final CountDownLatch chargedLatch = new CountDownLatch(1);
@@ -104,7 +120,20 @@ public class BenchmarkTestBase extends ActivityInstrumentationTestCase2<NNBenchm
                 int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
                 int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
                 int percentage = level * 100 / scale;
-                Log.v(NNBenchmark.TAG, "Battery level: " + percentage + "%");
+                if (minChargeLevel > 0 && minChargeLevel < 100) {
+                    if (percentage >= minChargeLevel) {
+                        Log.v(NNBenchmark.TAG,
+                                String.format(
+                                        "Battery level: %d%% is greater than requested %d%%. "
+                                                + "Considering the device ready.",
+                                        percentage, minChargeLevel));
+
+                        chargedLatch.countDown();
+                        return;
+                    }
+                }
+
+                Log.v(NNBenchmark.TAG, String.format("Battery level: %d%%", percentage));
 
                 int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
                 if (status == BatteryManager.BATTERY_STATUS_FULL) {
@@ -116,14 +145,14 @@ public class BenchmarkTestBase extends ActivityInstrumentationTestCase2<NNBenchm
             }
         };
 
-        mActivity.registerReceiver(receiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        context.registerReceiver(receiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         try {
             chargedLatch.await();
         } catch (InterruptedException ignored) {
             Thread.currentThread().interrupt();
         }
 
-        mActivity.unregisterReceiver(receiver);
+        context.unregisterReceiver(receiver);
     }
 
     @Override
@@ -148,30 +177,36 @@ public class BenchmarkTestBase extends ActivityInstrumentationTestCase2<NNBenchm
     class TestAction implements Joinable {
 
         private final TestModelEntry mTestModel;
-        private final float mWarmupTimeSeconds;
-        private final float mRunTimeSeconds;
+        private final float mMaxWarmupTimeSeconds;
+        private final float mMaxRunTimeSeconds;
         private final CountDownLatch actionComplete;
+        private final boolean mSampleResults;
 
         BenchmarkResult mResult;
         Throwable mException;
 
-        public TestAction(TestModelEntry testName, float warmupTimeSeconds, float runTimeSeconds) {
+        public TestAction(TestModelEntry testName, float maxWarmupTimeSeconds,
+                float maxRunTimeSeconds) {
+            this(testName, maxWarmupTimeSeconds, maxRunTimeSeconds, false);
+        }
+
+        public TestAction(TestModelEntry testName, float maxWarmupTimeSeconds,
+                float maxRunTimeSeconds, boolean sampleResults) {
             mTestModel = testName;
-            mWarmupTimeSeconds = warmupTimeSeconds;
-            mRunTimeSeconds = runTimeSeconds;
+            mMaxWarmupTimeSeconds = maxWarmupTimeSeconds;
+            mMaxRunTimeSeconds = maxRunTimeSeconds;
+            mSampleResults = sampleResults;
             actionComplete = new CountDownLatch(1);
         }
 
         public void run() {
             Log.v(NNBenchmark.TAG, String.format(
-                    "Starting benchmark for test '%s' running for at least %f seconds",
+                    "Starting benchmark for test '%s' running for max %f seconds",
                     mTestModel.mTestName,
-                    mRunTimeSeconds));
+                    mMaxRunTimeSeconds));
             try {
                 mResult = mActivity.runSynchronously(
-                        mTestModel, mWarmupTimeSeconds, mRunTimeSeconds);
-                Log.v(NNBenchmark.TAG,
-                        String.format("Benchmark for test '%s' is: %s", mTestModel, mResult));
+                        mTestModel, mMaxWarmupTimeSeconds, mMaxRunTimeSeconds, mSampleResults);
             } catch (BenchmarkException | IOException e) {
                 mException = e;
                 Log.e(NNBenchmark.TAG,
@@ -218,7 +253,9 @@ public class BenchmarkTestBase extends ActivityInstrumentationTestCase2<NNBenchm
         final String traceName = "[NN_LA_PO]" + testName;
         try {
             Trace.beginSection(traceName);
+            Log.i(NNBenchmark.TAG, "Starting test " + testName);
             runOnUiThread(ta);
+            Log.i(NNBenchmark.TAG, "Test " + testName + " completed");
         } finally {
             Trace.endSection();
         }

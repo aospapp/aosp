@@ -20,7 +20,7 @@
     <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="27" />
 
     <application android:useEmbeddedDex="false">
-        <activity android:name=".DummyActivity"/>
+        <activity android:name=".EmptyActivity"/>
     </application>
 
 </manifest>

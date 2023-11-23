@@ -199,9 +199,9 @@ loops that truncate the stream.
 
    Return *r* length subsequences of elements from the input *iterable*.
 
-   Combinations are emitted in lexicographic sort order.  So, if the
-   input *iterable* is sorted, the combination tuples will be produced
-   in sorted order.
+   The combination tuples are emitted in lexicographic ordering according to
+   the order of the input *iterable*. So, if the input *iterable* is sorted,
+   the combination tuples will be produced in sorted order.
 
    Elements are treated as unique based on their position, not on their
    value.  So if the input elements are unique, there will be no repeat
@@ -248,9 +248,9 @@ loops that truncate the stream.
    Return *r* length subsequences of elements from the input *iterable*
    allowing individual elements to be repeated more than once.
 
-   Combinations are emitted in lexicographic sort order.  So, if the
-   input *iterable* is sorted, the combination tuples will be produced
-   in sorted order.
+   The combination tuples are emitted in lexicographic ordering according to
+   the order of the input *iterable*. So, if the input *iterable* is sorted,
+   the combination tuples will be produced in sorted order.
 
    Elements are treated as unique based on their position, not on their
    value.  So if the input elements are unique, the generated combinations
@@ -484,9 +484,9 @@ loops that truncate the stream.
    of the *iterable* and all possible full-length permutations
    are generated.
 
-   Permutations are emitted in lexicographic sort order.  So, if the
-   input *iterable* is sorted, the permutation tuples will be produced
-   in sorted order.
+   The permutation tuples are emitted in lexicographic ordering according to
+   the order of the input *iterable*. So, if the input *iterable* is sorted,
+   the combination tuples will be produced in sorted order.
 
    Elements are treated as unique based on their position, not on their
    value.  So if the input elements are unique, there will be no repeat
@@ -563,6 +563,9 @@ loops that truncate the stream.
            for prod in result:
                yield tuple(prod)
 
+   Before :func:`product` runs, it completely consumes the input iterables,
+   keeping pools of values in memory to generate the products.  Accordingly,
+   it only useful with finite inputs.
 
 .. function:: repeat(object[, times])
 
@@ -752,7 +755,7 @@ which incur interpreter overhead.
        "Count how many times the predicate is true"
        return sum(map(pred, iterable))
 
-   def padnone(iterable):
+   def pad_none(iterable):
        """Returns the sequence elements and then returns None indefinitely.
 
        Useful for emulating the behavior of the built-in map() function.
@@ -806,7 +809,7 @@ which incur interpreter overhead.
                nexts = cycle(islice(nexts, num_active))
 
    def partition(pred, iterable):
-       'Use a predicate to partition entries into false entries and true entries'
+       "Use a predicate to partition entries into false entries and true entries"
        # partition(is_odd, range(10)) --> 0 2 4 6 8   and  1 3 5 7 9
        t1, t2 = tee(iterable)
        return filterfalse(pred, t1), filter(pred, t2)
@@ -878,7 +881,7 @@ which incur interpreter overhead.
    def random_product(*args, repeat=1):
        "Random selection from itertools.product(*args, **kwds)"
        pools = [tuple(pool) for pool in args] * repeat
-       return tuple(random.choice(pool) for pool in pools)
+       return tuple(map(random.choice, pools))
 
    def random_permutation(iterable, r=None):
        "Random selection from itertools.permutations(iterable, r)"
@@ -897,11 +900,11 @@ which incur interpreter overhead.
        "Random selection from itertools.combinations_with_replacement(iterable, r)"
        pool = tuple(iterable)
        n = len(pool)
-       indices = sorted(random.randrange(n) for i in range(r))
+       indices = sorted(random.choices(range(n), k=r))
        return tuple(pool[i] for i in indices)
 
    def nth_combination(iterable, r, index):
-       'Equivalent to list(combinations(iterable, r))[index]'
+       "Equivalent to list(combinations(iterable, r))[index]"
        pool = tuple(iterable)
        n = len(pool)
        if r < 0 or r > n:

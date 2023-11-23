@@ -73,6 +73,9 @@
 /* Define to 1 if you have the `acosh' function. */
 #undef HAVE_ACOSH
 
+/* Define to 1 if you have the `aligned_malloc' function. */
+#undef HAVE_ALIGNED_MALLOC
+
 /* Define to 1 if you have the <arm/limits.h> header file. */
 #undef HAVE_ARM_LIMITS_H
 
@@ -179,6 +182,9 @@
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
 
+/* Define to 1 if you have the <float.h> header file. */
+#undef HAVE_FLOAT_H
+
 /* Define to 1 if you have the `floor' function. */
 #undef HAVE_FLOOR
 
@@ -227,7 +233,7 @@
 /* Define to 1 if you have the `gmtime_r' function. */
 #undef HAVE_GMTIME_R
 
-/* Compile with hugepage support */
+/* [Compile with hugepage support] */
 #undef HAVE_HUGEPAGES
 
 /* Define to 1 if the system has the type `intmax_t'. */
@@ -248,6 +254,9 @@
 /* Define to 1 if you have the `j1' function. */
 #undef HAVE_J1
 
+/* Define if you have jemalloc memory allocation library */
+#undef HAVE_JEMALLOC
+
 /* Define if you have the <lcms2.h> header file. */
 #undef HAVE_LCMS2_H
 
@@ -259,6 +268,9 @@
 
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
+
+/* Define if you have Linux-compatible sendfile() */
+#undef HAVE_LINUX_SENDFILE
 
 /* Define to 1 if you have the <linux/unistd.h> header file. */
 #undef HAVE_LINUX_UNISTD_H
@@ -284,6 +296,13 @@
 /* Define to 1 if you have the <mach-o/dyld.h> header file. */
 #undef HAVE_MACH_O_DYLD_H
 
+/* Define to 1 if your system has a GNU libc compatible `malloc' function, and
+   to 0 otherwise. */
+#undef HAVE_MALLOC
+
+/* Define to 1 if you have the <malloc.h> header file. */
+#undef HAVE_MALLOC_H
+
 /* Define to 1 if <wchar.h> declares mbstate_t. */
 #undef HAVE_MBSTATE_T
 
@@ -295,6 +314,9 @@
 
 /* Define to 1 if you have the `memset' function. */
 #undef HAVE_MEMSET
+
+/* Define to 1 if you have the `mkdir' function. */
+#undef HAVE_MKDIR
 
 /* Define to 1 if you have the `mkstemp' function. */
 #undef HAVE_MKSTEMP
@@ -316,6 +338,9 @@
 
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 #undef HAVE_NDIR_H
+
+/* Define to 1 if you have the <netdb.h> header file. */
+#undef HAVE_NETDB_H
 
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #undef HAVE_NETINET_IN_H
@@ -368,6 +393,9 @@
 /* Have PTHREAD_PRIO_INHERIT. */
 #undef HAVE_PTHREAD_PRIO_INHERIT
 
+/* Define to 1 if you have the `putenv' function. */
+#undef HAVE_PUTENV
+
 /* Define to 1 if you have the `pwrite' function. */
 #undef HAVE_PWRITE
 
@@ -382,6 +410,10 @@
 
 /* Define to 1 if you have the `readlink' function. */
 #undef HAVE_READLINK
+
+/* Define to 1 if your system has a GNU libc compatible `realloc' function,
+   and to 0 otherwise. */
+#undef HAVE_REALLOC
 
 /* Define to 1 if you have the `realpath' function. */
 #undef HAVE_REALPATH
@@ -430,6 +462,9 @@
 
 /* Define to 1 if stdbool.h conforms to C99. */
 #undef HAVE_STDBOOL_H
+
+/* Define to 1 if you have the <stddef.h> header file. */
+#undef HAVE_STDDEF_H
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -562,6 +597,9 @@
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
 
+/* Define to 1 if you have the <sys/uio.h> header file. */
+#undef HAVE_SYS_UIO_H
+
 /* Define to 1 if you have the <sys/wait.h> header file. */
 #undef HAVE_SYS_WAIT_H
 
@@ -588,6 +626,9 @@
 
 /* Define to 1 if you have the `TIFFReadEXIFDirectory' function. */
 #undef HAVE_TIFFREADEXIFDIRECTORY
+
+/* Define to 1 if you have the `TIFFReadGPSDirectory' function. */
+#undef HAVE_TIFFREADGPSDIRECTORY
 
 /* Define to 1 if you have the `TIFFSetErrorHandlerExt' function. */
 #undef HAVE_TIFFSETERRORHANDLEREXT
@@ -672,9 +713,6 @@
 /* Define to 1 if you have the <wchar.h> header file. */
 #undef HAVE_WCHAR_H
 
-/* Define to 1 if you have the <windows.h> header file. */
-#undef HAVE_WINDOWS_H
-
 /* Define to 1 if `fork' works. */
 #undef HAVE_WORKING_FORK
 
@@ -717,9 +755,6 @@
 /* Define if you have libheif library */
 #undef HEIC_DELEGATE
 
-/* Define if you have jemalloc memory allocation library */
-#undef HasJEMALLOC
-
 /* Directory where ImageMagick architecture headers live. */
 #undef INCLUDEARCH_PATH
 
@@ -735,7 +770,7 @@
 /* Define if you have JPEG library */
 #undef JPEG_DELEGATE
 
-/* Define if you have brunsli library */
+/* Define if you have jpeg-xl library */
 #undef JXL_DELEGATE
 
 /* Define if you have LCMS library */
@@ -801,9 +836,6 @@
 /* Define if you have OPENEXR library */
 #undef OPENEXR_DELEGATE
 
-/* Name of package */
-#undef PACKAGE
-
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
@@ -862,6 +894,9 @@
 /* Define to the type of arg 5 for `select'. */
 #undef SELECT_TYPE_ARG5
 
+/* Setjmp/longjmp are thread safe */
+#undef SETJMP_IS_THREAD_SAFE
+
 /* Sharearch directory name without ABI part. */
 #undef SHAREARCH_BASEDIRNAME
 
@@ -889,6 +924,9 @@
 
 /* The size of `long double', as computed by sizeof. */
 #undef SIZEOF_LONG_DOUBLE
+
+/* The size of `ssize_t', as computed by sizeof. */
+#undef SIZEOF_SSIZE_T
 
 /* The size of `unsigned long long', as computed by sizeof. */
 #undef SIZEOF_UNSIGNED_LONG_LONG
@@ -939,9 +977,6 @@
 #endif
 
 
-/* Version number of package */
-#undef VERSION
-
 /* Define if you have WEBPMUX library */
 #undef WEBPMUX_DELEGATE
 
@@ -984,6 +1019,9 @@
 /* Build self-contained, embeddable, zero-configuration ImageMagick */
 #undef ZERO_CONFIGURATION_SUPPORT
 
+/* Define if you have ZIP library */
+#undef ZIP_DELEGATE
+
 /* Define if you have ZLIB library */
 #undef ZLIB_DELEGATE
 
@@ -1009,9 +1047,6 @@
 
 /* Define to 1 if on MINIX. */
 #undef _MINIX
-
-/* Define this for the OpenCL Accelerator */
-#undef _OPENCL
 
 /* Define to 2 if the system does not provide POSIX.1 features except with
    this defined. */
@@ -1079,6 +1114,9 @@
    if such a type exists, and if the system does not define it. */
 #undef intptr_t
 
+/* Define to rpl_malloc if the replacement function should be used. */
+#undef malloc
+
 /* Define to a type if <wchar.h> does not define. */
 #undef mbstate_t
 
@@ -1090,6 +1128,9 @@
 
 /* Define to `int' if <sys/types.h> does not define. */
 #undef pid_t
+
+/* Define to rpl_realloc if the replacement function should be used. */
+#undef realloc
 
 /* Define to the equivalent of the C99 'restrict' keyword, or to
    nothing if this is not supported.  Do not define if restrict is

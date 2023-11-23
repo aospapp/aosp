@@ -111,10 +111,18 @@
 
     <!-- Channel name for connection-related notifications [CHAR LIMIT=40] -->
     <string name="connections">Connections</string>
-    <!-- Message shown in dialog, toast, or notification if the service cannot get Wi-Fi Direct permissions [CHAR LIMIT=UNLIMITED] -->
+    <!-- Message shown in notification if there is a problem accessing Wi-Fi Direct [CHAR LIMIT=UNLIMITED] -->
+    <string name="wifi_direct_problem">Default Print Service cannot find Wi-Fi Direct printers</string>
+    <!-- Button with negative response to permissions or location request, disabling Wi-Fi Direct [CHAR LIMIT=20] -->
+    <string name="disable_wifi_direct">Disable Wi-Fi Direct</string>
+    <!-- Message shown in dialog or toast if the service cannot get Wi-Fi Direct permissions [CHAR LIMIT=UNLIMITED] -->
     <string name="wifi_direct_permission_rationale">Default Print Service needs location permission to find nearby devices.</string>
     <!-- Button label in a notification or dialog. This button leads to a request to grant permissions [CHAR LIMIT=20] -->
     <string name="fix">Review permission</string>
+    <!-- Message shown in dialog or toast if location is required but disabled [CHAR LIMIT=UNLIMITED] -->
+    <string name="wifi_direct_location_rationale">Default Print Service needs location services enabled to find nearby devices.</string>
+    <!-- Button label in a notification or dialog. This button leads to location settings [CHAR LIMIT=20] -->
+    <string name="enable_location">Enable location</string>
 
     <!-- Share-to-print label [CHAR LIMIT=20] -->
     <string name="print">Print</string>

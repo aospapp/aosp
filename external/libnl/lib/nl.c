@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/nl.c		Core Netlink Interface
  *
@@ -27,11 +28,13 @@
 
 #include <netlink-private/netlink.h>
 #include <netlink-private/socket.h>
+#include <netlink-private/utils.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
 #include <netlink/handlers.h>
 #include <netlink/msg.h>
 #include <netlink/attr.h>
+#include <linux/socket.h>
 
 /**
  * @defgroup core_types Data Types
@@ -86,8 +89,13 @@
  *       This capability is indicated by
  *       `%NL_CAPABILITY_NL_CONNECT_RETRY_GENERATE_PORT_ON_ADDRINUSE`.
  *
+ * @note nl_connect() creates and sets the file descriptor. You can setup the file
+ *       descriptor yourself by creating and binding it, and then calling
+ *       nl_socket_set_fd(). The result will be the same.
+ *
  * @see nl_socket_alloc()
  * @see nl_close()
+ * @see nl_socket_set_fd()
  *
  * @return 0 on success or a negative error code.
  *
@@ -98,95 +106,113 @@ int nl_connect(struct nl_sock *sk, int protocol)
 	int err, flags = 0;
 	int errsv;
 	socklen_t addrlen;
+	struct sockaddr_nl local = { 0 };
+	int try_bind = 1;
 
 #ifdef SOCK_CLOEXEC
 	flags |= SOCK_CLOEXEC;
 #endif
 
-        if (sk->s_fd != -1)
-                return -NLE_BAD_SOCK;
+	if (sk->s_fd != -1)
+		return -NLE_BAD_SOCK;
 
 	sk->s_fd = socket(AF_NETLINK, SOCK_RAW | flags, protocol);
 	if (sk->s_fd < 0) {
 		errsv = errno;
-		NL_DBG(4, "nl_connect(%p): socket() failed with %d\n", sk, errsv);
+		NL_DBG(4, "nl_connect(%p): socket() failed with %d (%s)\n", sk, errsv,
+			nl_strerror_l(errsv));
 		err = -nl_syserr2nlerr(errsv);
 		goto errout;
 	}
 
-	if (!(sk->s_flags & NL_SOCK_BUFSIZE_SET)) {
-		err = nl_socket_set_buffer_size(sk, 0, 0);
-		if (err < 0)
-			goto errout;
-	}
+	err = nl_socket_set_buffer_size(sk, 0, 0);
+	if (err < 0)
+		goto errout;
 
 	if (_nl_socket_is_local_port_unspecified (sk)) {
 		uint32_t port;
 		uint32_t used_ports[32] = { 0 };
+		int ntries = 0;
 
 		while (1) {
-			port = _nl_socket_generate_local_port_no_release(sk);
-
-			if (port == UINT32_MAX) {
-				NL_DBG(4, "nl_connect(%p): no more unused local ports.\n", sk);
-				_nl_socket_used_ports_release_all(used_ports);
-				err = -NLE_EXIST;
-				goto errout;
+			if (ntries++ > 5) {
+				/* try only a few times. We hit this only if many ports are already in
+				 * use but allocated *outside* libnl/generate_local_port(). */
+				_nl_socket_set_local_port_no_release (sk, 0);
+				break;
 			}
+
+			port = _nl_socket_set_local_port_no_release(sk, 1);
+			if (port == 0)
+				break;
+
 			err = bind(sk->s_fd, (struct sockaddr*) &sk->s_local,
 				   sizeof(sk->s_local));
-			if (err == 0)
+			if (err == 0) {
+				try_bind = 0;
 				break;
+			}
 
 			errsv = errno;
 			if (errsv == EADDRINUSE) {
 				NL_DBG(4, "nl_connect(%p): local port %u already in use. Retry.\n", sk, (unsigned) port);
 				_nl_socket_used_ports_set(used_ports, port);
 			} else {
-				NL_DBG(4, "nl_connect(%p): bind() for port %u failed with %d\n", sk, (unsigned) port, errsv);
+				NL_DBG(4, "nl_connect(%p): bind() for port %u failed with %d (%s)\n",
+					sk, (unsigned) port, errsv, nl_strerror_l(errsv));
 				_nl_socket_used_ports_release_all(used_ports);
 				err = -nl_syserr2nlerr(errsv);
 				goto errout;
 			}
 		}
 		_nl_socket_used_ports_release_all(used_ports);
-	} else {
+	}
+	if (try_bind) {
 		err = bind(sk->s_fd, (struct sockaddr*) &sk->s_local,
 			   sizeof(sk->s_local));
 		if (err != 0) {
 			errsv = errno;
-			NL_DBG(4, "nl_connect(%p): bind() failed with %d\n", sk, errsv);
+			NL_DBG(4, "nl_connect(%p): bind() failed with %d (%s)\n",
+				sk, errsv, nl_strerror_l(errsv));
 			err = -nl_syserr2nlerr(errsv);
 			goto errout;
 		}
 	}
 
-	addrlen = sizeof(sk->s_local);
-	err = getsockname(sk->s_fd, (struct sockaddr *) &sk->s_local,
+	addrlen = sizeof(local);
+	err = getsockname(sk->s_fd, (struct sockaddr *) &local,
 			  &addrlen);
 	if (err < 0) {
+		NL_DBG(4, "nl_connect(%p): getsockname() failed with %d (%s)\n",
+			sk, errno, nl_strerror_l(errno));
 		err = -nl_syserr2nlerr(errno);
 		goto errout;
 	}
 
-	if (addrlen != sizeof(sk->s_local)) {
+	if (addrlen != sizeof(local)) {
 		err = -NLE_NOADDR;
 		goto errout;
 	}
 
-	if (sk->s_local.nl_family != AF_NETLINK) {
+	if (local.nl_family != AF_NETLINK) {
 		err = -NLE_AF_NOSUPPORT;
 		goto errout;
 	}
 
+	if (sk->s_local.nl_pid != local.nl_pid) {
+		/* The port id is different. That can happen if the port id was zero
+		 * and kernel assigned a local port. */
+		nl_socket_set_local_port (sk, local.nl_pid);
+	}
+	sk->s_local = local;
 	sk->s_proto = protocol;
 
 	return 0;
 errout:
-        if (sk->s_fd != -1) {
-    		close(sk->s_fd);
-    		sk->s_fd = -1;
-        }
+	if (sk->s_fd != -1) {
+		close(sk->s_fd);
+		sk->s_fd = -1;
+	}
 
 	return err;
 }
@@ -254,8 +280,11 @@ int nl_sendto(struct nl_sock *sk, void *buf, size_t size)
 
 	ret = sendto(sk->s_fd, buf, size, 0, (struct sockaddr *)
 		     &sk->s_peer, sizeof(sk->s_peer));
-	if (ret < 0)
+	if (ret < 0) {
+		NL_DBG(4, "nl_sendto(%p): sendto() failed with %d (%s)\n",
+			sk, errno, nl_strerror_l(errno));
 		return -nl_syserr2nlerr(errno);
+	}
 
 	return ret;
 }
@@ -312,8 +341,11 @@ int nl_sendmsg(struct nl_sock *sk, struct nl_msg *msg, struct msghdr *hdr)
 			return ret;
 
 	ret = sendmsg(sk->s_fd, hdr, 0);
-	if (ret < 0)
+	if (ret < 0) {
+		NL_DBG(4, "nl_sendmsg(%p): sendmsg() failed with %d (%s)\n",
+			sk, errno, nl_strerror_l(errno));
 		return -nl_syserr2nlerr(errno);
+	}
 
 	NL_DBG(4, "sent %d bytes\n", ret);
 	return ret;
@@ -349,6 +381,7 @@ int nl_send_iovec(struct nl_sock *sk, struct nl_msg *msg, struct iovec *iov, uns
 		.msg_iov = iov,
 		.msg_iovlen = iovlen,
 	};
+	char buf[CMSG_SPACE(sizeof(struct ucred))];
 
 	/* Overwrite destination if specified in the message itself, defaults
 	 * to the peer address of the socket.
@@ -360,7 +393,6 @@ int nl_send_iovec(struct nl_sock *sk, struct nl_msg *msg, struct iovec *iov, uns
 	/* Add credentials if present. */
 	creds = nlmsg_get_creds(msg);
 	if (creds != NULL) {
-		char buf[CMSG_SPACE(sizeof(struct ucred))];
 		struct cmsghdr *cmsg;
 
 		hdr.msg_control = buf;
@@ -590,7 +622,9 @@ errout:
  *
  * This function blocks until data is available to be read unless the socket
  * has been put into non-blocking mode using nl_socket_set_nonblocking() in
- * which case this function will return immediately with a return value of 0.
+ * which case this function will return immediately with a return value of
+ * -NLA_AGAIN (versions before 3.2.22 returned instead 0, in which case you
+ * should check first clear errno and then check for errno EAGAIN).
  *
  * The buffer size used when reading from the netlink socket and thus limiting
  * the maximum size of a netlink message that can be read defaults to the size
@@ -641,13 +675,14 @@ int nl_recv(struct nl_sock *sk, struct sockaddr_nl *nla,
 	if (!buf || !nla)
 		return -NLE_INVAL;
 
-	if (sk->s_flags & NL_MSG_PEEK)
+	if (   (sk->s_flags & NL_MSG_PEEK)
+	    || (!(sk->s_flags & NL_MSG_PEEK_EXPLICIT) && sk->s_bufsize == 0))
 		flags |= MSG_PEEK | MSG_TRUNC;
 
 	if (page_size == 0)
 		page_size = getpagesize() * 4;
 
-	iov.iov_len = sk->s_bufsize ? : page_size;
+	iov.iov_len = sk->s_bufsize ? sk->s_bufsize : page_size;
 	iov.iov_base = malloc(iov.iov_len);
 
 	if (!iov.iov_base) {
@@ -675,12 +710,22 @@ retry:
 			NL_DBG(3, "recvmsg() returned EINTR, retrying\n");
 			goto retry;
 		}
+
+		NL_DBG(4, "recvmsg(%p): nl_recv() failed with %d (%s)\n",
+			sk, errno, nl_strerror_l(errno));
 		retval = -nl_syserr2nlerr(errno);
 		goto abort;
 	}
 
 	if (msg.msg_flags & MSG_CTRUNC) {
 		void *tmp;
+
+		if (msg.msg_controllen == 0) {
+			retval = -NLE_MSG_TRUNC;
+			NL_DBG(4, "recvmsg(%p): Received unexpected control data", sk);
+			goto abort;
+		}
+
 		msg.msg_controllen *= 2;
 		tmp = realloc(msg.msg_control, msg.msg_controllen);
 		if (!tmp) {
@@ -693,6 +738,13 @@ retry:
 
 	if (iov.iov_len < n || (msg.msg_flags & MSG_TRUNC)) {
 		void *tmp;
+
+		/* respond with error to an incomplete message */
+		if (flags == 0) {
+			retval = -NLE_MSG_TRUNC;
+			goto abort;
+		}
+
 		/* Provided buffer is not long enough, enlarge it
 		 * to size of n (which should be total length of the message)
 		 * and try again. */
@@ -707,7 +759,7 @@ retry:
 		goto retry;
 	}
 
-        if (flags != 0) {
+	if (flags != 0) {
 		/* Buffer is big enough, do the actual reading */
 		flags = 0;
 		goto retry;
@@ -867,7 +919,7 @@ continue_reading:
 				interrupted = 1;
 			}
 		}
-	
+
 		/* Other side wishes to see an ack for this message */
 		if (hdr->nlmsg_flags & NLM_F_ACK) {
 			if (cb->cb_set[NL_CB_SEND_ACK])
@@ -926,10 +978,13 @@ continue_reading:
 					goto out;
 				}
 			} else if (e->error) {
+				NL_DBG(4, "recvmsgs(%p): RTNETLINK responded with %d (%s)\n",
+					sk, -e->error, nl_strerror_l(-e->error));
+
 				/* Error message reported back from kernel. */
 				if (cb->cb_err) {
 					err = cb->cb_err(&nla, e,
-							   cb->cb_err_arg);
+							 cb->cb_err_arg);
 					if (err < 0)
 						goto out;
 					else if (err == NL_SKIP)
@@ -955,7 +1010,7 @@ skip:
 		err = 0;
 		hdr = nlmsg_next(hdr, &n);
 	}
-	
+
 	nlmsg_free(msg);
 	free(buf);
 	free(creds);
@@ -1077,6 +1132,7 @@ struct pickup_param
 	int (*parser)(struct nl_cache_ops *, struct sockaddr_nl *,
 		      struct nlmsghdr *, struct nl_parser_param *);
 	struct nl_object *result;
+	int *syserror;
 };
 
 static int __store_answer(struct nl_object *obj, struct nl_parser_param *p)
@@ -1103,20 +1159,45 @@ static int __pickup_answer(struct nl_msg *msg, void *arg)
 	return pp->parser(NULL, &msg->nm_src, msg->nm_nlh, &parse_arg);
 }
 
+static int __pickup_answer_syserr(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg)
+{
+	*(((struct pickup_param *) arg)->syserror) = nlerr->error;
+
+	return -nl_syserr2nlerr(nlerr->error);
+}
+
 /** @endcond */
 
 /**
  * Pickup netlink answer, parse is and return object
- * @arg sk		Netlink socket
- * @arg parser		Parser function to parse answer
- * @arg result		Result pointer to return parsed object
+ * @arg sk              Netlink socket
+ * @arg parser          Parser function to parse answer
+ * @arg result          Result pointer to return parsed object
  *
  * @return 0 on success or a negative error code.
  */
 int nl_pickup(struct nl_sock *sk,
-	      int (*parser)(struct nl_cache_ops *, struct sockaddr_nl *,
-			    struct nlmsghdr *, struct nl_parser_param *),
-	      struct nl_object **result)
+              int (*parser)(struct nl_cache_ops *, struct sockaddr_nl *,
+                            struct nlmsghdr *, struct nl_parser_param *),
+              struct nl_object **result)
+{
+	return nl_pickup_keep_syserr(sk, parser, result, NULL);
+}
+
+/**
+ * Pickup netlink answer, parse is and return object with preserving system error
+ * @arg sk              Netlink socket
+ * @arg parser          Parser function to parse answer
+ * @arg result          Result pointer to return parsed object
+ * @arg syserr          Result pointer for the system error in case of failure
+ *
+ * @return 0 on success or a negative error code.
+ */
+int nl_pickup_keep_syserr(struct nl_sock *sk,
+                          int (*parser)(struct nl_cache_ops *, struct sockaddr_nl *,
+                                        struct nlmsghdr *, struct nl_parser_param *),
+                          struct nl_object **result,
+                          int *syserror)
 {
 	struct nl_cb *cb;
 	int err;
@@ -1129,6 +1210,11 @@ int nl_pickup(struct nl_sock *sk,
 		return -NLE_NOMEM;
 
 	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, __pickup_answer, &pp);
+	if (syserror) {
+		*syserror = 0;
+		pp.syserror = syserror;
+		nl_cb_err(cb, NL_CB_CUSTOM, __pickup_answer_syserr, &pp);
+	}
 
 	err = nl_recvmsgs(sk, cb);
 	if (err < 0)

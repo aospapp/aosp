@@ -18,6 +18,8 @@
         package="com.android.providers.blockednumber"
         android:sharedUserId="android.uid.shared">
 
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+
     <application
         android:process="android.process.acore"
         android:label="@string/app_label"

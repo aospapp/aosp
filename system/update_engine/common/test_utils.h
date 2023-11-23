@@ -78,7 +78,7 @@ std::string Readlink(const std::string& path);
 
 void FillWithData(brillo::Blob* buffer);
 
-// Compare the value of native array for download source parameter.
+// Compare the value of builtin array for download source parameter.
 MATCHER_P(DownloadSourceMatcher, source_array, "") {
   return std::equal(source_array, source_array + kNumDownloadSources, arg);
 }
@@ -136,22 +136,6 @@ class ScopedLoopbackDeviceBinder {
   std::string dev_;
   bool is_bound_;
   DISALLOW_COPY_AND_ASSIGN(ScopedLoopbackDeviceBinder);
-};
-
-class ScopedTempFile {
- public:
-  ScopedTempFile() : ScopedTempFile("update_engine_test_temp_file.XXXXXX") {}
-
-  explicit ScopedTempFile(const std::string& pattern) {
-    EXPECT_TRUE(utils::MakeTempFile(pattern, &path_, nullptr));
-    unlinker_.reset(new ScopedPathUnlinker(path_));
-  }
-
-  const std::string& path() const { return path_; }
-
- private:
-  std::string path_;
-  std::unique_ptr<ScopedPathUnlinker> unlinker_;
 };
 
 class ScopedLoopMounter {

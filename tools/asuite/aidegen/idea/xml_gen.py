@@ -127,7 +127,7 @@ def gen_vcs_xml(module_path, git_paths):
         module_path: A string, the absolute path of the module.
         git_paths: A list of git paths.
     """
-    git_mappings = [_GIT_PATH.format(GIT_DIR=p) for p in git_paths]
+    git_mappings = [_GIT_PATH.format(GIT_DIR=p) for p in git_paths if p]
     vcs = XMLGenerator(module_path, 'vcs.xml')
     if module_path != common_util.get_android_root_dir() or not vcs.xml_obj:
         common_util.file_generate(vcs.xml_path, templates.XML_VCS.format(

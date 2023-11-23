@@ -55,8 +55,14 @@
 #include "glcShaderMacroTests.hpp"
 #include "glcShaderMultisampleInterpolationTests.hpp"
 #include "glcShaderNegativeTests.hpp"
+#include "glcNearestEdgeTests.hpp"
+#include "glcFramebufferCompleteness.hpp"
 
 #include "gluStateReset.hpp"
+#include "gluContextInfo.hpp"
+#include "tcuCommandLine.hpp"
+#include "tcuWaiverUtil.hpp"
+#include "glwEnums.hpp"
 
 #include "../glesext/draw_buffers_indexed/esextcDrawBuffersIndexedTests.hpp"
 #include "../glesext/geometry_shader/esextcGeometryShaderTests.hpp"
@@ -66,6 +72,7 @@
 #include "../glesext/texture_buffer/esextcTextureBufferTests.hpp"
 #include "../glesext/texture_cube_map_array/esextcTextureCubeMapArrayTests.hpp"
 #include "glcViewportArrayTests.hpp"
+#include "glcPixelStorageModesTests.hpp"
 
 namespace es31cts
 {
@@ -73,7 +80,7 @@ namespace es31cts
 class TestCaseWrapper : public tcu::TestCaseExecutor
 {
 public:
-	TestCaseWrapper(ES31TestPackage& package);
+	TestCaseWrapper(ES31TestPackage& package, de::SharedPtr<tcu::WaiverUtil> waiverMechanism);
 	~TestCaseWrapper(void);
 
 	void init(tcu::TestCase* testCase, const std::string& path);
@@ -82,9 +89,11 @@ public:
 
 private:
 	ES31TestPackage& m_testPackage;
+	de::SharedPtr<tcu::WaiverUtil> m_waiverMechanism;
 };
 
-TestCaseWrapper::TestCaseWrapper(ES31TestPackage& package) : m_testPackage(package)
+TestCaseWrapper::TestCaseWrapper(ES31TestPackage& package, de::SharedPtr<tcu::WaiverUtil> waiverMechanism)
+	: m_testPackage(package), m_waiverMechanism(waiverMechanism)
 {
 }
 
@@ -92,8 +101,11 @@ TestCaseWrapper::~TestCaseWrapper(void)
 {
 }
 
-void TestCaseWrapper::init(tcu::TestCase* testCase, const std::string&)
+void TestCaseWrapper::init(tcu::TestCase* testCase, const std::string& path)
 {
+	if (m_waiverMechanism->isOnWaiverList(path))
+		throw tcu::TestException("Waived test", QP_TEST_RESULT_WAIVER);
+
 	glu::resetState(m_testPackage.getContext().getRenderContext(), m_testPackage.getContext().getContextInfo());
 
 	testCase->init();
@@ -201,6 +213,8 @@ void ES31TestPackage::init(void)
 		coreGroup->addChild(new glcts::PolygonOffsetClamp(getContext()));
 		coreGroup->addChild(new glcts::ShaderGroupVote(getContext()));
 		coreGroup->addChild(new glcts::InternalformatTests(getContext()));
+		coreGroup->addChild(new glcts::NearestEdgeCases(getContext()));
+		coreGroup->addChild(new glcts::FramebufferCompletenessTests(getContext()));
 
 		glcts::ExtParameters extParams(glu::GLSL_VERSION_310_ES, glcts::EXTENSIONTYPE_OES);
 		coreGroup->addChild(new glcts::GeometryShaderTests(getContext(), extParams));
@@ -211,6 +225,7 @@ void ES31TestPackage::init(void)
 		coreGroup->addChild(new glcts::TextureBufferTests(getContext(), extParams));
 		coreGroup->addChild(new glcts::DrawBuffersIndexedTests(getContext(), extParams));
 		coreGroup->addChild(new glcts::ViewportArrayTests(getContext(), extParams));
+		coreGroup->addChild(new glcts::PixelStorageModesTests(getContext(), glu::GLSL_VERSION_310_ES));
 
 		addChild(coreGroup);
 
@@ -226,7 +241,7 @@ void ES31TestPackage::init(void)
 
 tcu::TestCaseExecutor* ES31TestPackage::createExecutor(void) const
 {
-	return new TestCaseWrapper(const_cast<ES31TestPackage&>(*this));
+	return new TestCaseWrapper(const_cast<ES31TestPackage&>(*this), m_waiverMechanism);
 }
 
 } // es31cts

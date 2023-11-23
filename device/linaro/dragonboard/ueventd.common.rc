@@ -1,5 +1,8 @@
 modalias_handling enabled
 
+subsystem usbmisc
+    devname uevent_devname
+
 /dev/sw_sync              0660   root       graphics
 
 # gpu

@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"আপুনি বাহ্যিক সঞ্চয়াগাৰত থকা %1$s বা %2$s এক্সটেনশ্বনযুক্ত এটা PKCS#12 ফাইলৰ পৰা প্ৰমাণপত্ৰসমূহ ইনষ্টল কৰিব পাৰে৷"</string>
     <string name="allow_button" msgid="3030990695030371561">"বাছনি কৰক"</string>
     <string name="deny_button" msgid="3766539809121892584">"প্ৰত্যাখ্যান কৰক"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"প্ৰমাণপত্ৰসমূহ ল’ড কৰি থকা হৈছে..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%sএ প্ৰমাণপত্ৰ আছে নে নাই সেয়া পৰীক্ষা কৰি আছে…"</string>
 </resources>

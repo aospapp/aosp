@@ -8,9 +8,9 @@
 
 # The following environment variables enable optional behavior in "testing":
 #    DEBUG - Show every command run by test script.
-#    VERBOSE - Print the diff -u of each failed test case.
-#              If equal to "fail", stop after first failed test.
-#              "nopass" to not show successful tests
+#    VERBOSE - "all" continue after failed test
+#              "quiet" like all but just print FAIL (no diff -u).
+#              "nopass" don't show successful tests
 #
 # The "testcmd" function takes five arguments:
 #	$1) Description to display when running command
@@ -61,7 +61,7 @@ optional()
   # Not set?
   if [ -z "$1" ] || [ -z "$OPTIONFLAGS" ] || [ ${#option} -ne 0 ]
   then
-    SKIP=""
+    unset SKIP
     return
   fi
   SKIP=1
@@ -69,7 +69,7 @@ optional()
 
 skipnot()
 {
-  if [ -z "$VERBOSE" ]
+  if [ "$VERBOSE" == quiet ]
   then
     eval "$@" 2>/dev/null
   else
@@ -81,7 +81,13 @@ skipnot()
 toyonly()
 {
   IS_TOYBOX="$("$C" --version 2>/dev/null)"
-  [ "${IS_TOYBOX/toybox/}" == "$IS_TOYBOX" ] && SKIPNEXT=1
+  # Ideally we'd just check for "toybox", but toybox sed lies to make autoconf
+  # happy, so we have at least two things to check for.
+  case "$IS_TOYBOX" in
+    toybox*) ;;
+    This\ is\ not\ GNU*) ;;
+    *) SKIPNEXT=1 ;;
+  esac
 
   "$@"
 }
@@ -114,7 +120,7 @@ testing()
 
   if [ -n "$SKIP" -o -n "$SKIP_HOST" -a -n "$TEST_HOST" -o -n "$SKIPNEXT" ]
   then
-    [ ! -z "$VERBOSE" ] && printf "%s\n" "$SHOWSKIP: $NAME"
+    [ "$VERBOSE" != quiet ] && printf "%s\n" "$SHOWSKIP: $NAME"
     unset SKIPNEXT
     return 0
   fi
@@ -132,12 +138,12 @@ testing()
   then
     FAILCOUNT=$(($FAILCOUNT+1))
     printf "%s\n" "$SHOWFAIL: $NAME"
-    if [ -n "$VERBOSE" ]
+    if [ "$VERBOSE" != quiet ]
     then
       [ ! -z "$4" ] && printf "%s\n" "echo -ne \"$4\" > input"
       printf "%s\n" "echo -ne '$5' |$EVAL $2"
       printf "%s\n" "$DIFF"
-      [ "$VERBOSE" == fail ] && exit 1
+      [ "$VERBOSE" != all ] && exit 1
     fi
   else
     [ "$VERBOSE" != "nopass" ] && printf "%s\n" "$SHOWPASS: $NAME"
@@ -168,7 +174,7 @@ do_fail()
     echo "Expected '$CASE'"
     echo "Got '$A'"
   fi
-  [ "$VERBOSE" == fail ] && exit 1
+  [ "$VERBOSE" != all ] && [ "$VERBOSE" != quiet ] && exit 1
 }
 
 # txpect NAME COMMAND [I/O/E/Xstring]...
@@ -177,9 +183,12 @@ do_fail()
 # X means close stdin/stdout/stderr and match return code (blank means nonzero)
 txpect()
 {
+  local NAME CASE VERBOSITY LEN A B
+
   # Run command with redirection through fifos
-  NAME="$1"
+  NAME="$CMDNAME $1"
   CASE=
+  VERBOSITY=
 
   if [ $# -lt 2 ] || ! mkfifo in-$$ out-$$ err-$$
   then
@@ -195,29 +204,32 @@ txpect()
   # Loop through challenge/response pairs, with 2 second timeout
   while [ $# -gt 0 ]
   do
-    [ "$VERBOSE" == xpect ] && echo "$1" >&2
+    VERBOSITY="$VERBOSITY"$'\n'"$1"
     LEN=$((${#1}-1))
     CASE="$1"
     A=
+    B=
     case ${1::1} in
 
       # send input to child
-      I) echo -en "${1:1}" >&$IN || { do_fail;break;} ;;
+      I) printf %s "${1:1}" >&$IN || { do_fail;break;} ;;
 
+      R) LEN=0; B=1; ;&
       # check output from child
       [OE])
         [ $LEN == 0 ] && LARG="" || LARG="-rN $LEN"
         O=$OUT
-        [ ${1::1} == 'E' ] && O=$ERR
+        [ "${1:$B:1}" == 'E' ] && O=$ERR
         A=
         read -t2 $LARG A <&$O
-        [ "$VERBOSE" == xpect ] && echo "$A" >&2
+        VERBOSITY="$VERBOSITY"$'\n'"$A"
         if [ $LEN -eq 0 ]
         then
           [ -z "$A" ] && { do_fail;break;}
         else
-          if [ "$A" != "${1:1}" ]
-          then
+          if [ ${1::1} == 'R' ] && [[ "$A" =~ "${1:2}" ]]; then true
+          elif [ ${1::1} != 'R' ] && [ "$A" == "${1:1}" ]; then true
+          else
             # Append the rest of the output if there is any.
             read -t.1 B <&$O
             A="$A$B"
@@ -246,7 +258,12 @@ txpect()
   # In case we already closed it
   exec {IN}<&- {OUT}<&- {ERR}<&-
 
-  [ $# -eq 0 ] && do_pass
+  if [ $# -eq 0 ]
+  then
+    do_pass
+  else
+    [ "$VERBOSE" != quiet ] && echo "$VERBOSITY" >&2
+  fi
 }
 
 # Recursively grab an executable and all the libraries needed to run it.

@@ -75,7 +75,8 @@
         <service android:name="EpgDataCleanupService" />
 
         <!-- Handles database upgrades after OTAs -->
-        <receiver android:name="TvProviderUpgradeReceiver">
+        <receiver android:name="TvProviderUpgradeReceiver"
+            android:exported="true">
             <!-- This broadcast is sent after the core system has finished
                  booting, before the home app is launched or BOOT_COMPLETED
                  is sent. -->
@@ -85,14 +86,16 @@
         </receiver>
 
         <!-- Deletes transient rows on boot. -->
-        <receiver android:name="BootCompletedReceiver">
+        <receiver android:name="BootCompletedReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
 
         <!-- Removes channels and programs when some package is fully removed. -->
-        <receiver android:name="PackageRemovedReceiver">
+        <receiver android:name="PackageRemovedReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED"/>
                 <data android:scheme="package"/>
@@ -101,7 +104,8 @@
 
         <!-- Removes preview programs, watch next programs, and preview channels when some
              package is disabled. -->
-        <receiver android:name="PackageChangedReceiver">
+        <receiver android:name="PackageChangedReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_CHANGED"/>
                 <data android:scheme="package"/>

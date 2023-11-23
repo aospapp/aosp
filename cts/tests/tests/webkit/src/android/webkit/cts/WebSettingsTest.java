@@ -18,6 +18,7 @@ package android.webkit.cts;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThan;
+import static org.junit.Assert.assertNotEquals;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -236,37 +237,41 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         assertEquals(customUserAgent, mOnUiThread.getTitle());
     }
 
-    public void testAccessAllowFileAccess() {
+    public void testAccessAllowFileAccess() throws Exception {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }
-        // This test is not compatible with 4.0.3
-        if ("4.0.3".equals(Build.VERSION.RELEASE)) {
-            return;
-        }
+
+        // prepare an HTML file in the data directory we can access to test the setting.
+        final String dataDirTitle = "Loaded from data dir";
+        final String dataDirFile = "datadir.html";
+        final String dataDirPath = mContext.getFileStreamPath(dataDirFile).getAbsolutePath();
+        final String dataDirUrl = "file://" + dataDirPath;
+        writeFile(dataDirFile, "<html><title>" + dataDirTitle + "</title></html>");
 
         assertFalse("File access should be off by default", mSettings.getAllowFileAccess());
 
         mSettings.setAllowFileAccess(true);
         assertTrue("Explicitly setting file access to true should work",
                 mSettings.getAllowFileAccess());
-        String fileUrl = TestHtmlConstants.getFileUrl(TestHtmlConstants.HELLO_WORLD_URL);
-        mOnUiThread.loadUrlAndWaitForCompletion(fileUrl);
-        assertEquals("Loading files on the file system should work with file access enabled",
-                TestHtmlConstants.HELLO_WORLD_TITLE, mOnUiThread.getTitle());
 
-        fileUrl = TestHtmlConstants.getFileUrl(TestHtmlConstants.BR_TAG_URL);
+        mOnUiThread.loadUrlAndWaitForCompletion(dataDirUrl);
+        assertEquals("Loading files on the file system should work with file access enabled",
+                dataDirTitle, mOnUiThread.getTitle());
+
         mSettings.setAllowFileAccess(false);
         assertFalse("Explicitly setting file access to false should work",
                 mSettings.getAllowFileAccess());
-        mOnUiThread.loadUrlAndWaitForCompletion(fileUrl);
+
+        String assetUrl = TestHtmlConstants.getFileUrl(TestHtmlConstants.BR_TAG_URL);
+        mOnUiThread.loadUrlAndWaitForCompletion(assetUrl);
         assertEquals(
                 "android_asset URLs should still be loaded when even with file access disabled",
                 TestHtmlConstants.BR_TAG_TITLE, mOnUiThread.getTitle());
 
-        mOnUiThread.loadUrlAndWaitForCompletion(TestHtmlConstants.LOCAL_FILESYSTEM_URL);
-        assertEquals("Files on the file system should not be loaded with file access disabled",
-                TestHtmlConstants.WEBPAGE_NOT_AVAILABLE_TITLE, mOnUiThread.getTitle());
+        mOnUiThread.loadUrlAndWaitForCompletion(dataDirUrl);
+        assertFalse("Files on the file system should not be loaded with file access disabled",
+                dataDirTitle.equals(mOnUiThread.getTitle()));
     }
 
     public void testAccessCacheMode_defaultValue() throws Throwable {
@@ -951,7 +956,7 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         mOnUiThread.clearCache(true);
         mOnUiThread.loadUrlAndWaitForCompletion(
             mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL));
-        assertFalse(TestHtmlConstants.HELLO_WORLD_TITLE.equals(mOnUiThread.getTitle()));
+        assertNotEquals(TestHtmlConstants.HELLO_WORLD_TITLE, mOnUiThread.getTitle());
         mOnUiThread.loadDataAndWaitForCompletion(getNetworkImageHtml(), "text/html", null);
         assertEquals(EMPTY_IMAGE_HEIGHT, mOnUiThread.getTitle());
         mOnUiThread.loadDataAndWaitForCompletion(DATA_URL_IMAGE_HTML, "text/html", null);
@@ -1221,6 +1226,11 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         }
 
         setWebViewSize(64, 64);
+
+        // Set the webview non-focusable to avoid drawing the focus highlight.
+        WebkitUtils.onMainThreadSync(() -> {
+            mOnUiThread.getWebView().setFocusable(false);
+        });
 
         Map<Integer, Integer> histogram;
         Integer[] colourValues;

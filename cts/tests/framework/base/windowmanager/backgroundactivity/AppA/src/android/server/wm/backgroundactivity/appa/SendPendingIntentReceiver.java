@@ -55,14 +55,14 @@ public class SendPendingIntentReceiver extends BroadcastReceiver {
             newIntent.putExtra(START_ACTIVITY_DELAY_MS_EXTRA, startActivityDelayMs);
             newIntent.putExtra(EVENT_NOTIFIER_EXTRA, eventNotifier);
             pendingIntent = PendingIntent.getBroadcast(context, 0,
-                    newIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                    newIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         } else {
             // Create a pendingIntent to launch appA's BackgroundActivity
             Intent newIntent = new Intent();
             newIntent.setComponent(APP_A_BACKGROUND_ACTIVITY);
             newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             pendingIntent = PendingIntent.getActivity(context, 0,
-                    newIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                    newIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         }
 
         // Send the pendingIntent to appB

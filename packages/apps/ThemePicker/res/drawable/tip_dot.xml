@@ -20,8 +20,8 @@
   <size
       android:width="@dimen/tip_dot_size"
       android:height="@dimen/tip_dot_size" />
-  <solid android:color="@color/tip_dot_color" />
+  <solid android:color="?android:colorAccent" />
   <stroke
-      android:color="@color/tip_dot_line_color"
+      android:color="?android:colorPrimary"
       android:width="@dimen/tip_dot_line_width" />
 </shape>

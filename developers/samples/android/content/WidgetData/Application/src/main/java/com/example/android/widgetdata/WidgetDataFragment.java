@@ -8,7 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 /**
- * A Dummy Fragment that shows the intro text from a layout.
+ * A Placeholder Fragment that shows the intro text from a layout.
  */
 public class WidgetDataFragment extends Fragment {
 

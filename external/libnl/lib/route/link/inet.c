@@ -61,6 +61,7 @@
 #include <netlink/netlink.h>
 #include <netlink/attr.h>
 #include <netlink/route/rtnl.h>
+#include <netlink/route/link/inet.h>
 #include <netlink-private/route/link/api.h>
 
 /** @cond SKIP */
@@ -91,7 +92,7 @@ static void inet_free(struct rtnl_link *link, void *data)
 	free(data);
 }
 
-static struct nla_policy inet_policy[IFLA_INET6_MAX+1] = {
+static struct nla_policy inet_policy[IFLA_INET_MAX+1] = {
 	[IFLA_INET_CONF]	= { .minlen = 4 },
 };
 
@@ -141,34 +142,34 @@ nla_put_failure:
 }
 
 static const struct trans_tbl inet_devconf[] = {
-	__ADD(IPV4_DEVCONF_FORWARDING, forwarding)
-	__ADD(IPV4_DEVCONF_MC_FORWARDING, mc_forwarding)
-	__ADD(IPV4_DEVCONF_PROXY_ARP, proxy_arp)
-	__ADD(IPV4_DEVCONF_ACCEPT_REDIRECTS, accept_redirects)
-	__ADD(IPV4_DEVCONF_SECURE_REDIRECTS, secure_redirects)
-	__ADD(IPV4_DEVCONF_SEND_REDIRECTS, send_redirects)
-	__ADD(IPV4_DEVCONF_SHARED_MEDIA, shared_media)
-	__ADD(IPV4_DEVCONF_RP_FILTER, rp_filter)
-	__ADD(IPV4_DEVCONF_ACCEPT_SOURCE_ROUTE, accept_source_route)
-	__ADD(IPV4_DEVCONF_BOOTP_RELAY, bootp_relay)
-	__ADD(IPV4_DEVCONF_LOG_MARTIANS, log_martians)
-	__ADD(IPV4_DEVCONF_TAG, tag)
-	__ADD(IPV4_DEVCONF_ARPFILTER, arpfilter)
-	__ADD(IPV4_DEVCONF_MEDIUM_ID, medium_id)
-	__ADD(IPV4_DEVCONF_NOXFRM, noxfrm)
-	__ADD(IPV4_DEVCONF_NOPOLICY, nopolicy)
-	__ADD(IPV4_DEVCONF_FORCE_IGMP_VERSION, force_igmp_version)
-	__ADD(IPV4_DEVCONF_ARP_ANNOUNCE, arp_announce)
-	__ADD(IPV4_DEVCONF_ARP_IGNORE, arp_ignore)
-	__ADD(IPV4_DEVCONF_PROMOTE_SECONDARIES, promote_secondaries)
-	__ADD(IPV4_DEVCONF_ARP_ACCEPT, arp_accept)
-	__ADD(IPV4_DEVCONF_ARP_NOTIFY, arp_notify)
-	__ADD(IPV4_DEVCONF_ACCEPT_LOCAL, accept_local)
-	__ADD(IPV4_DEVCONF_SRC_VMARK, src_vmark)
-	__ADD(IPV4_DEVCONF_PROXY_ARP_PVLAN, proxy_arp_pvlan)
-	__ADD(IPV4_DEVCONF_ROUTE_LOCALNET, route_localnet)
-	__ADD(IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL, igmpv2_unsolicited_report_interval)
-	__ADD(IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL, igmpv3_unsolicited_report_interval)
+	__ADD(IPV4_DEVCONF_FORWARDING, forwarding),
+	__ADD(IPV4_DEVCONF_MC_FORWARDING, mc_forwarding),
+	__ADD(IPV4_DEVCONF_PROXY_ARP, proxy_arp),
+	__ADD(IPV4_DEVCONF_ACCEPT_REDIRECTS, accept_redirects),
+	__ADD(IPV4_DEVCONF_SECURE_REDIRECTS, secure_redirects),
+	__ADD(IPV4_DEVCONF_SEND_REDIRECTS, send_redirects),
+	__ADD(IPV4_DEVCONF_SHARED_MEDIA, shared_media),
+	__ADD(IPV4_DEVCONF_RP_FILTER, rp_filter),
+	__ADD(IPV4_DEVCONF_ACCEPT_SOURCE_ROUTE, accept_source_route),
+	__ADD(IPV4_DEVCONF_BOOTP_RELAY, bootp_relay),
+	__ADD(IPV4_DEVCONF_LOG_MARTIANS, log_martians),
+	__ADD(IPV4_DEVCONF_TAG, tag),
+	__ADD(IPV4_DEVCONF_ARPFILTER, arpfilter),
+	__ADD(IPV4_DEVCONF_MEDIUM_ID, medium_id),
+	__ADD(IPV4_DEVCONF_NOXFRM, noxfrm),
+	__ADD(IPV4_DEVCONF_NOPOLICY, nopolicy),
+	__ADD(IPV4_DEVCONF_FORCE_IGMP_VERSION, force_igmp_version),
+	__ADD(IPV4_DEVCONF_ARP_ANNOUNCE, arp_announce),
+	__ADD(IPV4_DEVCONF_ARP_IGNORE, arp_ignore),
+	__ADD(IPV4_DEVCONF_PROMOTE_SECONDARIES, promote_secondaries),
+	__ADD(IPV4_DEVCONF_ARP_ACCEPT, arp_accept),
+	__ADD(IPV4_DEVCONF_ARP_NOTIFY, arp_notify),
+	__ADD(IPV4_DEVCONF_ACCEPT_LOCAL, accept_local),
+	__ADD(IPV4_DEVCONF_SRC_VMARK, src_vmark),
+	__ADD(IPV4_DEVCONF_PROXY_ARP_PVLAN, proxy_arp_pvlan),
+	__ADD(IPV4_DEVCONF_ROUTE_LOCALNET, route_localnet),
+	__ADD(IPV4_DEVCONF_IGMPV2_UNSOLICITED_REPORT_INTERVAL, igmpv2_unsolicited_report_interval),
+	__ADD(IPV4_DEVCONF_IGMPV3_UNSOLICITED_REPORT_INTERVAL, igmpv3_unsolicited_report_interval),
 };
 
 const char *rtnl_link_inet_devconf2str(int type, char *buf, size_t len)
@@ -242,7 +243,7 @@ int rtnl_link_inet_get_conf(struct rtnl_link *link, const unsigned int cfgid,
 	if (cfgid == 0 || cfgid > IPV4_DEVCONF_MAX)
 		return -NLE_RANGE;
 
-	if (!(id = rtnl_link_af_alloc(link, &inet_ops)))
+	if (!(id = rtnl_link_af_data(link, &inet_ops)))
 		return -NLE_NOATTR;
 
 	if (!id->i_confset[cfgid - 1])

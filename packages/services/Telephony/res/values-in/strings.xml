@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Setelan Pesan Suara hanya dapat diubah oleh Pengguna Utama."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Kartu SIM Anda tidak lagi dicekal. Ponsel Anda sedang dibuka kuncinya..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"PIN pembuka kunci jaringan SIM"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"SIM dikunci untuk operator"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Buka kunci"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Tutup"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Meminta membuka jaringan..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Meneruskan ke <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Nonaktif"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Operator Anda tidak mendukung penonaktifan penerusan panggilan ketika ponsel tidak dapat dijangkau."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Operator Anda tidak mendukung penerusan panggilan."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Aktifkan nada tunggu?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Selama melakukan panggilan, Anda akan menerima notifikasi jika ada panggilan masuk"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Aktifkan"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Batal"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"Nada tunggu CDMA dalam IMS aktif"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Nada tunggu CDMA dalam IMS nonaktif"</string>
     <string name="updating_title" msgid="6130548922615719689">"Setelan panggilan"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Setelan panggilan telepon hanya dapat diubah oleh pengguna admin."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Setelan (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -274,8 +282,8 @@
     <string name="data_enable_summary" msgid="696860063456536557">"Izinkan penggunaan data"</string>
     <string name="dialog_alert_title" msgid="5260471806940268478">"Perhatian"</string>
     <string name="roaming" msgid="1576180772877858949">"Roaming"</string>
-    <string name="roaming_enable" msgid="6853685214521494819">"Sambungkan ke layanan data ketika roaming"</string>
-    <string name="roaming_disable" msgid="8856224638624592681">"Sambungkan ke layanan data ketika roaming"</string>
+    <string name="roaming_enable" msgid="6853685214521494819">"Hubungkan ke layanan data ketika roaming"</string>
+    <string name="roaming_disable" msgid="8856224638624592681">"Hubungkan ke layanan data ketika roaming"</string>
     <string name="roaming_reenable_message" msgid="1951802463885727915">"Roaming data dinonaktifkan. Ketuk untuk mengaktifkan."</string>
     <string name="roaming_enabled_message" msgid="9022249120750897">"Biaya roaming dapat berlaku. Ketuk untuk mengubah."</string>
     <string name="roaming_notification_title" msgid="3590348480688047320">"Koneksi data seluler terputus"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Fungsi SIM terbatas"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Layanan data dan panggilan <xliff:g id="CARRIER_NAME">%1$s</xliff:g> dapat diblokir saat menggunakan <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Layanan data dan panggilan <xliff:g id="CARRIER_NAME">%1$s</xliff:g> dapat diblokir saat menggunakan SIM lain."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Akun SIP yang tidak digunakan lagi telah ditemukan dan dihapus"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Panggilan SIP tidak lagi didukung oleh platform Android.\nAkun SIP yang ada, <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>, telah dihapus.\nHarap konfirmasi setelan akun panggilan default Anda."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Buka setelan"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Penggunaan data aplikasi"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> data seluler digunakan pada <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Lanjutan"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Sandi salah. SIM kini dikunci. Masukkan PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 diblokir selamanya."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Tersisa <xliff:g id="NUMBER">%d</xliff:g> upaya lagi."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 terkunci. Hubungi penyedia layanan untuk membuka kunci."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 tidak lagi diblokir"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Kesalahan jaringan atau kartu SIM"</string>
     <string name="doneButton" msgid="7371209609238460207">"Selesai"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Aktifkan jaringan seluler, lalu nonaktifkan mode pesawat atau penghemat baterai untuk melakukan panggilan."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Nonaktifkan mode pesawat untuk melakukan panggilan"</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Nonaktifkan mode pesawat atau sambungkan ke jaringan nirkabel untuk melakukan panggilan"</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Ponsel terlalu panas"</b>\n\n"Tidak dapat menyelesaikan panggilan ini. Coba lagi saat ponsel mendingin.\n\nAnda masih dapat melakukan panggilan darurat."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Keluar dari mode telepon balik darurat untuk melakukan panggilan non-darurat."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Tidak terdaftar pada jaringan."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Jaringan seluler tidak tersedia."</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"SubId SIM data default:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Bandwidth DL (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Bandwidth UL (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Info Lokasi Sel (tidak digunakan lagi):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Konfigurasi Saluran Fisik LTE:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Rasio Pembaruan Info Sel"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Semua Info Pengukuran Sel:"</string>
@@ -875,7 +887,7 @@
     <string name="radio_info_roaming_label" msgid="6636932886446857120">"Roaming:"</string>
     <string name="radio_info_imei_label" msgid="8947899706930120368">"IMEI"</string>
     <string name="radio_info_call_redirect_label" msgid="4526480903023362276">"Pengalihan Panggilan:"</string>
-    <string name="radio_info_ppp_resets_label" msgid="9131901102339077661">"Jumlah Setel Ulang PPP Sejak Boot:"</string>
+    <string name="radio_info_ppp_resets_label" msgid="9131901102339077661">"Jumlah Reset PPP Sejak Boot:"</string>
     <string name="radio_info_current_network_label" msgid="3052098695239642450">"Jaringan Saat Ini:"</string>
     <string name="radio_info_ppp_received_label" msgid="5753592451640644889">"Data Diterima:"</string>
     <string name="radio_info_gsm_service_label" msgid="6443348321714241328">"Layanan Suara:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Perbarui"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Aktifkan Pemeriksaan DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Info spesifik OEM/Setelan"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC Tersedia:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"Dibatasi DCNR:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR Tersedia:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"Status NR:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Frekuensi NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Setel Mode Band Radio"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Memuat Daftar Band…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Setel"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Info telepon"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Info Provisioning Operator"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Memicu Provisioning Operator"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Sinyal bluetooth Anda lemah. Coba beralih ke speaker ponsel."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Notifikasi Kualitas Panggilan"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Akun SIP yang tidak digunakan lagi"</string>
 </resources>

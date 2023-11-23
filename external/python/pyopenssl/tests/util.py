@@ -6,7 +6,7 @@ Helpers for the OpenSSL test suite, largely copied from
 U{Twisted<http://twistedmatrix.com/>}.
 """
 
-from six import PY3
+from six import PY2
 
 
 # This is the UTF-8 encoding of the SNOWMAN unicode code point.
@@ -59,7 +59,7 @@ class EqualityTestsMixin(object):
         An object compares equal to itself using the C{==} operator.
         """
         o = self.anInstance()
-        assert (o == o)
+        assert o == o
 
     def test_identicalNe(self):
         """
@@ -75,7 +75,7 @@ class EqualityTestsMixin(object):
         """
         a = self.anInstance()
         b = self.anInstance()
-        assert (a == b)
+        assert a == b
 
     def test_sameNe(self):
         """
@@ -102,7 +102,7 @@ class EqualityTestsMixin(object):
         """
         a = self.anInstance()
         b = self.anotherInstance()
-        assert (a != b)
+        assert a != b
 
     def test_anotherTypeEq(self):
         """
@@ -120,13 +120,14 @@ class EqualityTestsMixin(object):
         """
         a = self.anInstance()
         b = object()
-        assert (a != b)
+        assert a != b
 
     def test_delegatedEq(self):
         """
         The result of comparison using C{==} is delegated to the right-hand
         operand if it is of an unrelated type.
         """
+
         class Delegate(object):
             def __eq__(self, other):
                 # Do something crazy and obvious.
@@ -141,6 +142,7 @@ class EqualityTestsMixin(object):
         The result of comparison using C{!=} is delegated to the right-hand
         operand if it is of an unrelated type.
         """
+
         class Delegate(object):
             def __ne__(self, other):
                 # Do something crazy and obvious.
@@ -152,7 +154,7 @@ class EqualityTestsMixin(object):
 
 
 # The type name expected in warnings about using the wrong string type.
-if PY3:
-    WARNING_TYPE_EXPECTED = "str"
-else:
+if PY2:
     WARNING_TYPE_EXPECTED = "unicode"
+else:
+    WARNING_TYPE_EXPECTED = "str"

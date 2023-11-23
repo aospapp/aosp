@@ -214,21 +214,6 @@ def assert_new_users(settings, new_users):
         raise OwnershipError('Incorrect allow new users setting.')
 
 
-def assert_users_on_whitelist(settings, users):
-    """Assert that given protobuf has given users on the whitelist.
-
-    @param settings: a ChromeDeviceSettingsProto protobuf.
-    @param users: iterable containing usernames that should be on whitelist.
-    @raises OwnershipError if settings doesn't enforce the provided setting.
-    """
-    if settings.HasField("user_whitelist"):
-        for user in users:
-            if user not in settings.user_whitelist.user_whitelist:
-                raise OwnershipError(user + ' not whitelisted.')
-    else:
-        raise OwnershipError('No user whitelist.')
-
-
 def __user_nssdb(user):
     """Returns the path to the NSSDB for the provided user.
 

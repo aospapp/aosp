@@ -92,7 +92,7 @@ class MetricsBase:
         _user_key = str(asuite_metrics._get_grouping_key())
     #pylint: disable=broad-except
     except Exception:
-        _user_key = asuite_metrics.DUMMY_UUID
+        _user_key = asuite_metrics.UNUSED_UUID
     _user_type = get_user_type()
     _log_source = ATEST_LOG_SOURCE[_user_type]
     cc = clearcut_client.Clearcut(_log_source)

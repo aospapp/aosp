@@ -3,11 +3,10 @@
 # found in the LICENSE file.
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.cros.network import iw_runner
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.server.cros.network import hostap_config
 from autotest_lib.server.cros.network import wifi_cell_test_base
+import logging
 
 class network_WiFi_RoamDbus(wifi_cell_test_base.WiFiCellTestBase):
     """Tests an intentional client-driven roam between APs
@@ -22,19 +21,6 @@ class network_WiFi_RoamDbus(wifi_cell_test_base.WiFiCellTestBase):
 
     version = 1
     TIMEOUT_SECONDS = 15
-
-    def dut_sees_bss(self, bssid):
-        """
-        Check if a DUT can see a BSS in scan results.
-
-        @param bssid: string bssid of AP we expect to see in scan results.
-        @return True iff scan results from DUT include the specified BSS.
-
-        """
-        runner = iw_runner.IwRunner(remote_host=self.context.client.host)
-        is_requested_bss = lambda iw_bss: iw_bss.bss == bssid
-        scan_results = runner.scan(self.context.client.wifi_if)
-        return scan_results and filter(is_requested_bss, scan_results)
 
     def run_once(self,host):
         """Test body."""
@@ -60,12 +46,7 @@ class network_WiFi_RoamDbus(wifi_cell_test_base.WiFiCellTestBase):
         bssid1 = self.context.router.get_hostapd_mac(1)
 
         # Wait for DUT to see the second AP
-        utils.poll_for_condition(
-                condition=lambda: self.dut_sees_bss(bssid1),
-                exception=error.TestFail(
-                        'Timed out waiting for DUT to see second AP'),
-                timeout=self.TIMEOUT_SECONDS,
-                sleep_interval=1)
+        self.context.client.wait_for_bss(bssid1)
 
         # Check which AP we are currently connected.
         # This is to include the case that wpa_supplicant
@@ -76,9 +57,12 @@ class network_WiFi_RoamDbus(wifi_cell_test_base.WiFiCellTestBase):
             roam_to_bssid = bssid1
         else:
             roam_to_bssid = bssid0
+
+        logging.info('Requesting roam from %s to %s', current_bssid, roam_to_bssid)
         # Send roam command to shill,
         # and shill will send dbus roam command to wpa_supplicant
-        self.context.client.request_roam_dbus(roam_to_bssid, interface)
+        if not self.context.client.request_roam_dbus(roam_to_bssid, interface):
+            raise error.TestFail('Failed to send roam command')
 
         # Expect that the DUT will re-connect to the new AP.
         if not self.context.client.wait_for_roam(

@@ -54,9 +54,11 @@ final class CodeWriter {
   private final List<TypeSpec> typeSpecStack = new ArrayList<>();
   private final Set<String> staticImportClassNames;
   private final Set<String> staticImports;
+  private final Set<String> alwaysQualify;
   private final Map<String, ClassName> importedTypes;
   private final Map<String, ClassName> importableTypes = new LinkedHashMap<>();
   private final Set<String> referencedNames = new LinkedHashSet<>();
+  private final Multiset<String> currentTypeVariables = new Multiset<>();
   private boolean trailingNewline;
 
   /**
@@ -67,19 +69,23 @@ final class CodeWriter {
   int statementLine = -1;
 
   CodeWriter(Appendable out) {
-    this(out, "  ", Collections.emptySet());
+    this(out, "  ", Collections.emptySet(), Collections.emptySet());
   }
 
-  CodeWriter(Appendable out, String indent, Set<String> staticImports) {
-    this(out, indent, Collections.emptyMap(), staticImports);
+  CodeWriter(Appendable out, String indent, Set<String> staticImports, Set<String> alwaysQualify) {
+    this(out, indent, Collections.emptyMap(), staticImports, alwaysQualify);
   }
 
-  CodeWriter(Appendable out, String indent, Map<String, ClassName> importedTypes,
-      Set<String> staticImports) {
+  CodeWriter(Appendable out,
+      String indent,
+      Map<String, ClassName> importedTypes,
+      Set<String> staticImports,
+      Set<String> alwaysQualify) {
     this.out = new LineWrapper(out, indent, 100);
     this.indent = checkNotNull(indent, "indent == null");
     this.importedTypes = checkNotNull(importedTypes, "importedTypes == null");
     this.staticImports = checkNotNull(staticImports, "staticImports == null");
+    this.alwaysQualify = checkNotNull(alwaysQualify, "alwaysQualify == null");
     this.staticImportClassNames = new LinkedHashSet<>();
     for (String signature : staticImports) {
       staticImportClassNames.add(signature.substring(0, signature.lastIndexOf('.')));
@@ -148,7 +154,7 @@ final class CodeWriter {
     emit("/**\n");
     javadoc = true;
     try {
-      emit(javadocCodeBlock);
+      emit(javadocCodeBlock, true);
     } finally {
       javadoc = false;
     }
@@ -187,6 +193,8 @@ final class CodeWriter {
   public void emitTypeVariables(List<TypeVariableName> typeVariables) throws IOException {
     if (typeVariables.isEmpty()) return;
 
+    typeVariables.forEach(typeVariable -> currentTypeVariables.add(typeVariable.name));
+
     emit("<");
     boolean firstTypeVariable = true;
     for (TypeVariableName typeVariable : typeVariables) {
@@ -203,6 +211,10 @@ final class CodeWriter {
     emit(">");
   }
 
+  public void popTypeVariables(List<TypeVariableName> typeVariables) throws IOException {
+    typeVariables.forEach(typeVariable -> currentTypeVariables.remove(typeVariable.name));
+  }
+
   public CodeWriter emit(String s) throws IOException {
     return emitAndIndent(s);
   }
@@ -212,6 +224,10 @@ final class CodeWriter {
   }
 
   public CodeWriter emit(CodeBlock codeBlock) throws IOException {
+    return emit(codeBlock, false);
+  }
+
+  public CodeWriter emit(CodeBlock codeBlock, boolean ensureTrailingNewline) throws IOException {
     int a = 0;
     ClassName deferredTypeName = null; // used by "import static" logic
     ListIterator<String> partIterator = codeBlock.formatParts.listIterator();
@@ -300,6 +316,9 @@ final class CodeWriter {
           break;
       }
     }
+    if (ensureTrailingNewline && out.lastChar() != '\n') {
+      emit("\n");
+    }
     return this;
   }
 
@@ -353,6 +372,12 @@ final class CodeWriter {
    * names visible due to inheritance.
    */
   String lookupName(ClassName className) {
+    // If the top level simple name is masked by a current type variable, use the canonical name.
+    String topLevelSimpleName = className.topLevelClassName().simpleName();
+    if (currentTypeVariables.contains(topLevelSimpleName)) {
+      return className.canonicalName;
+    }
+
     // Find the shortest suffix of className that resolves to className. This uses both local type
     // names (so `Entry` in `Map` refers to `Map.Entry`). Also uses imports.
     boolean nameResolved = false;
@@ -374,7 +399,7 @@ final class CodeWriter {
 
     // If the class is in the same package, we're done.
     if (Objects.equals(packageName, className.packageName())) {
-      referencedNames.add(className.topLevelClassName().simpleName());
+      referencedNames.add(topLevelSimpleName);
       return join(".", className.simpleNames());
     }
 
@@ -388,6 +413,9 @@ final class CodeWriter {
 
   private void importableType(ClassName className) {
     if (className.packageName().isEmpty()) {
+      return;
+    } else if (alwaysQualify.contains(className.simpleName)) {
+      // TODO what about nested types like java.util.Map.Entry?
       return;
     }
     ClassName topLevelClassName = className.topLevelClassName();
@@ -407,10 +435,8 @@ final class CodeWriter {
     // Match a child of the current (potentially nested) class.
     for (int i = typeSpecStack.size() - 1; i >= 0; i--) {
       TypeSpec typeSpec = typeSpecStack.get(i);
-      for (TypeSpec visibleChild : typeSpec.typeSpecs) {
-        if (Objects.equals(visibleChild.name, simpleName)) {
-          return stackClassName(i, simpleName);
-        }
+      if (typeSpec.nestedTypesSimpleNames.contains(simpleName)) {
+        return stackClassName(i, simpleName);
       }
     }
 
@@ -443,7 +469,7 @@ final class CodeWriter {
    */
   CodeWriter emitAndIndent(String s) throws IOException {
     boolean first = true;
-    for (String line : s.split("\n", -1)) {
+    for (String line : s.split("\\R", -1)) {
       // Emit a newline character. Make sure blank lines in Javadoc & comments look good.
       if (!first) {
         if ((javadoc || comment) && trailingNewline) {
@@ -493,5 +519,27 @@ final class CodeWriter {
     Map<String, ClassName> result = new LinkedHashMap<>(importableTypes);
     result.keySet().removeAll(referencedNames);
     return result;
+  }
+
+  // A makeshift multi-set implementation
+  private static final class Multiset<T> {
+    private final Map<T, Integer> map = new LinkedHashMap<>();
+
+    void add(T t) {
+      int count = map.getOrDefault(t, 0);
+      map.put(t, count + 1);
+    }
+
+    void remove(T t) {
+      int count = map.getOrDefault(t, 0);
+      if (count == 0) {
+        throw new IllegalStateException(t + " is not in the multiset");
+      }
+      map.put(t, count - 1);
+    }
+
+    boolean contains(T t) {
+      return map.getOrDefault(t, 0) > 0;
+    }
   }
 }

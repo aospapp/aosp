@@ -21,18 +21,6 @@ from cros_utils import command_executer
 class TrybotTest(unittest.TestCase):
   """Test for CommandExecuter class."""
 
-  old_tryjob_out = (
-      'Verifying patches...\n'
-      'Submitting tryjob...\n'
-      'Successfully sent PUT request to [buildbucket_bucket:master.chromiumos.t'
-      'ryserver] with [config:success-build] [buildbucket_id:895272114382368817'
-      '6].\n'
-      'Tryjob submitted!\n'
-      'To view your tryjobs, visit:\n'
-      '  http://cros-goldeneye/chromeos/healthmonitoring/buildDetails?buildbuck'
-      'etId=8952721143823688176\n'
-      '  https://uberchromegw.corp.google.com/i/chromiumos.tryserver/waterfall?'
-      'committer=laszio@chromium.org&builder=etc\n')
   tryjob_out = (
       '[{"buildbucket_id": "8952721143823688176", "build_config": '
       '"cave-llvm-toolchain-tryjob", "url": '
@@ -44,9 +32,12 @@ class TrybotTest(unittest.TestCase):
       'gs://chromeos-image-archive/{0}/R78-12421.0.0/',
       'gs://chromeos-image-archive/{0}/R78-12422.0.0/',
       'gs://chromeos-image-archive/{0}/R78-12423.0.0/',
-      # "R79-12384.0.0" image should be blacklisted.
-      # TODO(crbug.com/992242): Remove the filter by 2019-09-05.
-      'gs://chromeos-image-archive/{0}/R79-12384.0.0/',
+  ])
+
+  GSUTILS_LS_RECIPE = '\n'.join([
+      'gs://chromeos-image-archive/{0}/R83-12995.0.0-30031-8885075268947031/',
+      'gs://chromeos-image-archive/{0}/R83-13003.0.0-30196-8884755532184725/',
+      'gs://chromeos-image-archive/{0}/R83-13003.0.0-30218-8884712858556419/',
   ])
 
   buildresult_out = (
@@ -143,6 +134,44 @@ class TrybotTest(unittest.TestCase):
         mocked_imageexist.return_value = False
         image = buildbot_utils.GetLatestImage('', IMAGE_DIR)
         self.assertIsNone(image)
+
+  def testGetLatestRecipeImageValid(self):
+    with patch.object(command_executer.CommandExecuter,
+                      'ChrootRunCommandWOutput') as mocked_run:
+      with patch.object(buildbot_utils, 'DoesImageExist') as mocked_imageexist:
+        IMAGE_DIR = 'lulu-llvm-next-nightly'
+        mocked_run.return_value = (0, self.GSUTILS_LS_RECIPE.format(IMAGE_DIR),
+                                   '')
+        mocked_imageexist.return_value = True
+        image = buildbot_utils.GetLatestRecipeImage('', IMAGE_DIR)
+        self.assertEqual(
+            image, '{0}/R83-13003.0.0-30218-8884712858556419'.format(IMAGE_DIR))
+
+  def testGetLatestRecipeImageInvalid(self):
+    with patch.object(command_executer.CommandExecuter,
+                      'ChrootRunCommandWOutput') as mocked_run:
+      with patch.object(buildbot_utils, 'DoesImageExist') as mocked_imageexist:
+        IMAGE_DIR = 'kefka-llvm-next-nightly'
+        mocked_run.return_value = (0, self.GSUTILS_LS_RECIPE.format(IMAGE_DIR),
+                                   '')
+        mocked_imageexist.return_value = False
+        image = buildbot_utils.GetLatestRecipeImage('', IMAGE_DIR)
+        self.assertIsNone(image)
+
+  def testGetLatestRecipeImageTwodays(self):
+    with patch.object(command_executer.CommandExecuter,
+                      'ChrootRunCommandWOutput') as mocked_run:
+      with patch.object(buildbot_utils, 'DoesImageExist') as mocked_imageexist:
+        IMAGE_DIR = 'lulu-llvm-next-nightly'
+        mocked_run.return_value = (0, self.GSUTILS_LS_RECIPE.format(IMAGE_DIR),
+                                   '')
+        mocked_imageexist.side_effect = [False, False, True]
+        image = buildbot_utils.GetLatestRecipeImage('', IMAGE_DIR)
+        self.assertIsNone(image)
+        mocked_imageexist.side_effect = [False, True, True]
+        image = buildbot_utils.GetLatestRecipeImage('', IMAGE_DIR)
+        self.assertEqual(
+            image, '{0}/R83-13003.0.0-30196-8884755532184725'.format(IMAGE_DIR))
 
 
 if __name__ == '__main__':

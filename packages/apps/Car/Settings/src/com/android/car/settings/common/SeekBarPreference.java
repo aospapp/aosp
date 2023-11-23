@@ -23,6 +23,7 @@ import android.os.Parcelable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -31,6 +32,7 @@ import androidx.preference.PreferenceViewHolder;
 
 import com.android.car.settings.R;
 import com.android.car.ui.preference.CarUiPreference;
+import com.android.car.ui.utils.DirectManipulationHelper;
 
 /**
  * Car Setting's own version of SeekBarPreference.
@@ -52,13 +54,14 @@ public class SeekBarPreference extends CarUiPreference {
     private boolean mAdjustable; // whether the seekbar should respond to the left/right keys
     private boolean mShowSeekBarValue; // whether to show the seekbar value TextView next to the bar
     private boolean mContinuousUpdate; // whether scrolling provides continuous calls to listener
+    private boolean mInDirectManipulationMode;
 
     private static final String TAG = "SeekBarPreference";
 
     /**
      * Listener reacting to the SeekBar changing value by the user
      */
-    private SeekBar.OnSeekBarChangeListener mSeekBarChangeListener =
+    private final SeekBar.OnSeekBarChangeListener mSeekBarChangeListener =
             new SeekBar.OnSeekBarChangeListener() {
                 @Override
                 public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -84,33 +87,83 @@ public class SeekBarPreference extends CarUiPreference {
     /**
      * Listener reacting to the user pressing DPAD left/right keys if {@code
      * adjustable} attribute is set to true; it transfers the key presses to the SeekBar
-     * to be handled accordingly.
+     * to be handled accordingly. Also handles entering and exiting direct manipulation
+     * mode for rotary.
      */
-    private View.OnKeyListener mSeekBarKeyListener = new View.OnKeyListener() {
+    private final View.OnKeyListener mSeekBarKeyListener = new View.OnKeyListener() {
         @Override
         public boolean onKey(View v, int keyCode, KeyEvent event) {
-            if (event.getAction() != KeyEvent.ACTION_DOWN) {
+            // Don't allow events through if there is no SeekBar or we're in non-adjustable mode.
+            if (mSeekBar == null || !mAdjustable) {
                 return false;
             }
 
-            if (!mAdjustable && (keyCode == KeyEvent.KEYCODE_DPAD_LEFT
-                    || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT)) {
-                // Right or left keys are pressed when in non-adjustable mode; Skip the keys.
+            // Consume nudge events in direct manipulation mode.
+            if (mInDirectManipulationMode
+                    && (keyCode == KeyEvent.KEYCODE_DPAD_LEFT
+                    || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
+                    || keyCode == KeyEvent.KEYCODE_DPAD_UP
+                    || keyCode == KeyEvent.KEYCODE_DPAD_DOWN)) {
+                return true;
+            }
+
+            // Handle events to enter or exit direct manipulation mode.
+            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    setInDirectManipulationMode(v, !mInDirectManipulationMode);
+                }
+                return true;
+            }
+            if (keyCode == KeyEvent.KEYCODE_BACK) {
+                if (mInDirectManipulationMode) {
+                    if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                        setInDirectManipulationMode(v, false);
+                    }
+                    return true;
+                }
+            }
+
+            // Don't propagate confirm keys to the SeekBar to prevent a ripple effect on the thumb.
+            if (KeyEvent.isConfirmKey(keyCode)) {
                 return false;
             }
 
-            // We don't want to propagate the click keys down to the seekbar view since it will
-            // create the ripple effect for the thumb.
-            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
-                return false;
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                return mSeekBar.onKeyDown(keyCode, event);
+            } else {
+                return mSeekBar.onKeyUp(keyCode, event);
             }
-
-            if (mSeekBar == null) {
-                Log.e(TAG, "SeekBar view is null and hence cannot be adjusted.");
-                return false;
-            }
-            return mSeekBar.onKeyDown(keyCode, event);
         }
+    };
+
+    /** Listener to exit rotary direct manipulation mode when the user switches to touch. */
+    private final View.OnFocusChangeListener mSeekBarFocusChangeListener =
+            (v, hasFocus) -> {
+                if (!hasFocus && mInDirectManipulationMode && mSeekBar != null) {
+                    setInDirectManipulationMode(v, false);
+                }
+            };
+
+    /** Listener to handle rotate events from the rotary controller in direct manipulation mode. */
+    private final View.OnGenericMotionListener mSeekBarScrollListener = (v, event) -> {
+        if (!mInDirectManipulationMode || !mAdjustable || mSeekBar == null) {
+            return false;
+        }
+        int adjustment = Math.round(event.getAxisValue(MotionEvent.AXIS_SCROLL));
+        if (adjustment == 0) {
+            return false;
+        }
+        int count = Math.abs(adjustment);
+        int keyCode = adjustment < 0 ? KeyEvent.KEYCODE_DPAD_LEFT : KeyEvent.KEYCODE_DPAD_RIGHT;
+        KeyEvent downEvent = new KeyEvent(event.getDownTime(), event.getEventTime(),
+                KeyEvent.ACTION_DOWN, keyCode, /* repeat= */ 0);
+        KeyEvent upEvent = new KeyEvent(event.getDownTime(), event.getEventTime(),
+                KeyEvent.ACTION_UP, keyCode, /* repeat= */ 0);
+        for (int i = 0; i < count; i++) {
+            mSeekBar.onKeyDown(keyCode, downEvent);
+            mSeekBar.onKeyUp(keyCode, upEvent);
+        }
+        return true;
     };
 
     public SeekBarPreference(
@@ -149,6 +202,8 @@ public class SeekBarPreference extends CarUiPreference {
     public void onBindViewHolder(PreferenceViewHolder view) {
         super.onBindViewHolder(view);
         view.itemView.setOnKeyListener(mSeekBarKeyListener);
+        view.itemView.setOnFocusChangeListener(mSeekBarFocusChangeListener);
+        view.itemView.setOnGenericMotionListener(mSeekBarScrollListener);
         mSeekBar = (SeekBar) view.findViewById(R.id.seekbar);
         mSeekBarValueTextView = (TextView) view.findViewById(R.id.seekbar_value);
         if (mShowSeekBarValue) {
@@ -312,6 +367,18 @@ public class SeekBarPreference extends CarUiPreference {
                 seekBar.setProgress(mSeekBarValue - mMin);
             }
         }
+    }
+
+    private void setInDirectManipulationMode(View view, boolean enable) {
+        mInDirectManipulationMode = enable;
+        DirectManipulationHelper.enableDirectManipulationMode(mSeekBar, enable);
+        // The preference is highlighted when it's focused with one exception. In direct
+        // manipulation (DM) mode, the SeekBar's thumb is highlighted instead. In DM mode, the
+        // preference and SeekBar are selected. The preference's highlight is drawn when it's
+        // focused but not selected, while the SeekBar's thumb highlight is drawn when the SeekBar
+        // is selected.
+        view.setSelected(enable);
+        mSeekBar.setSelected(enable);
     }
 
     @Override

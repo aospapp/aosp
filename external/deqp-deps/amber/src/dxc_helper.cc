@@ -18,6 +18,7 @@
 #include <sstream>
 
 #include "src/platform.h"
+#include "src/virtual_file_store.h"
 
 #if AMBER_PLATFORM_WINDOWS
 #pragma warning(push)
@@ -25,19 +26,38 @@
 #pragma warning(disable : 4003)
 #endif  // AMBER_PLATFORM_WINDOWS
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wreserved-id-macro"
+#pragma clang diagnostic ignored "-Wextra-semi"
+#pragma clang diagnostic ignored "-Wdeprecated-dynamic-exception-spec"
+#pragma clang diagnostic ignored "-Wold-style-cast"
+#pragma clang diagnostic ignored "-Wshadow-field-in-constructor"
+#pragma clang diagnostic ignored "-Wconversion"
+#pragma clang diagnostic ignored "-Wsign-conversion"
+#pragma clang diagnostic ignored "-Wshadow"
+#pragma clang diagnostic ignored "-Wweak-vtables"
+#pragma clang diagnostic ignored "-Wdocumentation-unknown-command"
+#pragma clang diagnostic ignored "-Wundef"
+#pragma clang diagnostic ignored "-Wunused-function"
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wzero-as-null-pointer-constant"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#ifndef __STDC_LIMIT_MACROS
+#define __STDC_LIMIT_MACROS
+#endif  // __STDC_LIMIT_MACROS
+#ifndef __STDC_CONSTANT_MACROS
+#define __STDC_CONSTANT_MACROS
+#endif  // __STDC_CONSTANT_MACROS
+
 // clang-format off
 // The order here matters, so don't reformat.
-#include "dxc/Support/WinAdapter.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
-#include "dxc/Support/dxcapi.use.h"
 #include "dxc/dxcapi.h"
+#include "dxc/Support/microcom.h"
 // clang-format on
-
-#if AMBER_PLATFORM_WINDOWS
-#pragma warning(pop)
-#endif  // AMBER_PLATFORM_WINDOWS
 
 namespace amber {
 namespace dxchelper {
@@ -62,15 +82,63 @@ void ConvertIDxcBlobToUint32(IDxcBlob* blob,
   memcpy(binaryWords->data(), binaryStr.data(), binaryStr.size());
 }
 
+class IncludeHandler : public IDxcIncludeHandler {
+ public:
+  IncludeHandler(const VirtualFileStore* file_store,
+                 IDxcLibrary* dxc_lib,
+                 IDxcIncludeHandler* fallback)
+      : file_store_(file_store), dxc_lib_(dxc_lib), fallback_(fallback) {}
+
+  HRESULT STDMETHODCALLTYPE LoadSource(LPCWSTR pFilename,
+                                       IDxcBlob** ppIncludeSource) override {
+    std::wstring wide_path(pFilename);
+    std::string path = std::string(wide_path.begin(), wide_path.end());
+
+    std::string content;
+    Result r = file_store_->Get(path, &content);
+    if (r.IsSuccess()) {
+      IDxcBlobEncoding* source;
+      auto res = dxc_lib_->CreateBlobWithEncodingOnHeapCopy(
+          content.data(), static_cast<uint32_t>(content.size()), CP_UTF8,
+          &source);
+      if (res != S_OK) {
+        DxcCleanupThreadMalloc();
+        return res;
+      }
+      *ppIncludeSource = source;
+      return S_OK;
+    }
+
+    return fallback_->LoadSource(pFilename, ppIncludeSource);
+  }
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void** ppvObject) override {
+    return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
+  }
+
+ private:
+  const VirtualFileStore* const file_store_;
+  IDxcLibrary* const dxc_lib_;
+  IDxcIncludeHandler* const fallback_;
+};
+
+#pragma GCC diagnostic pop
+#pragma clang diagnostic pop
+#if AMBER_PLATFORM_WINDOWS
+#pragma warning(pop)
+#endif  // AMBER_PLATFORM_WINDOWS
+
 }  // namespace
 
 Result Compile(const std::string& src,
                const std::string& entry,
                const std::string& profile,
                const std::string& spv_env,
+               const std::string& filename,
+               const VirtualFileStore* virtual_files,
+               bool emit_debug_info,
                std::vector<uint32_t>* generated_binary) {
-  DxcInitThreadMalloc();
-
   if (hlsl::options::initHlslOptTable()) {
     DxcCleanupThreadMalloc();
     return Result("DXC compile failure: initHlslOptTable");
@@ -91,11 +159,14 @@ Result Compile(const std::string& src,
     return Result("DXC compile failure: CreateBlobFromFile");
   }
 
-  IDxcIncludeHandler* include_handler;
-  if (dxc_lib->CreateIncludeHandler(&include_handler) < 0) {
+  IDxcIncludeHandler* fallback_include_handler;
+  if (dxc_lib->CreateIncludeHandler(&fallback_include_handler) < 0) {
     DxcCleanupThreadMalloc();
     return Result("DXC compile failure: CreateIncludeHandler");
   }
+
+  CComPtr<IDxcIncludeHandler> include_handler(
+      new IncludeHandler(virtual_files, dxc_lib, fallback_include_handler));
 
   IDxcCompiler* compiler;
   if (DxcCreateInstance(CLSID_DxcCompiler, __uuidof(IDxcCompiler),
@@ -104,11 +175,13 @@ Result Compile(const std::string& src,
     return Result("DXCCreateInstance for DXCCompiler failed");
   }
 
-  IDxcOperationResult* result;
-  std::wstring src_filename =
-      L"amber." + std::wstring(profile.begin(), profile.end());
+  std::string filepath = filename.empty() ? ("amber." + profile) : filename;
 
   std::vector<const wchar_t*> dxc_flags(kDxcFlags, &kDxcFlags[kDxcFlagsCount]);
+  if (emit_debug_info) {  // Enable debug info generation
+    dxc_flags.emplace_back(L"-fspv-debug=rich");
+  }
+
   const wchar_t* target_env = nullptr;
   if (!spv_env.compare("spv1.3") || !spv_env.compare("vulkan1.1")) {
     target_env = L"-fspv-target-env=vulkan1.1";
@@ -122,18 +195,21 @@ Result Compile(const std::string& src,
   if (target_env)
     dxc_flags.push_back(target_env);
 
-  if (compiler->Compile(source,               /* source text */
-                        src_filename.c_str(), /* original file source */
-                        std::wstring(entry.begin(), entry.end())
-                            .c_str(), /* entry point name */
-                        std::wstring(profile.begin(), profile.end())
-                            .c_str(),     /* shader profile to compile */
-                        dxc_flags.data(), /* arguments */
-                        dxc_flags.size(), /* argument count */
-                        nullptr,          /* defines */
-                        0,                /* define count */
-                        include_handler,  /* handler for #include */
-                        &result /* output status */) < 0) {
+  IDxcOperationResult* result;
+  if (compiler->Compile(
+          source, /* source text */
+          std::wstring(filepath.begin(), filepath.end())
+              .c_str(), /* original file source */
+          std::wstring(entry.begin(), entry.end())
+              .c_str(), /* entry point name */
+          std::wstring(profile.begin(), profile.end())
+              .c_str(),     /* shader profile to compile */
+          dxc_flags.data(), /* arguments */
+          static_cast<uint32_t>(dxc_flags.size()), /* argument count */
+          nullptr,                                 /* defines */
+          0,                                       /* define count */
+          include_handler,                         /* handler for #include */
+          &result /* output status */) < 0) {
     DxcCleanupThreadMalloc();
     return Result("DXC compile failure: Compile");
   }
@@ -160,7 +236,7 @@ Result Compile(const std::string& src,
       error_buffer->GetBufferSize());
 
   bool success = true;
-  if (SUCCEEDED(result_status)) {
+  if (static_cast<HRESULT>(result_status) >= 0) {
     IDxcBlob* compiled_blob;
     if (result->GetResult(&compiled_blob) < 0) {
       DxcCleanupThreadMalloc();

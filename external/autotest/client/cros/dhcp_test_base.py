@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,7 +11,13 @@ ethernet interface to shill.  Child classes should override test_body() with the
 logic of their test.  The plumbing of DhcpTestBase is accessible via properties.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
+from six.moves import filter
+from six.moves import range
 import socket
 import struct
 import time
@@ -116,9 +123,9 @@ class DhcpTestBase(test.test):
         proxy = self.shill_proxy
 
         ipconfig_object = proxy.DBUS_TYPE_IPCONFIG
-        return filter(bool,
+        return list(filter(bool,
                       [ proxy.get_dbus_object(ipconfig_object, property_path)
-                        for property_path in device_properties['IPConfigs'] ])
+                        for property_path in device_properties['IPConfigs'] ]))
 
 
     def get_interface_ipconfig(self, interface_name):

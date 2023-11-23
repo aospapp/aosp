@@ -13,7 +13,7 @@
 #include "compiler/translator/VersionGLSL.h"
 #include "compiler/translator/tree_ops/RewriteRowMajorMatrices.h"
 #include "compiler/translator/tree_ops/RewriteTexelFetchOffset.h"
-#include "compiler/translator/tree_ops/RewriteUnaryMinusOperatorFloat.h"
+#include "compiler/translator/tree_ops/gl/mac/RewriteUnaryMinusOperatorFloat.h"
 
 namespace sh
 {
@@ -25,17 +25,17 @@ TranslatorGLSL::TranslatorGLSL(sh::GLenum type, ShShaderSpec spec, ShShaderOutpu
 void TranslatorGLSL::initBuiltInFunctionEmulator(BuiltInFunctionEmulator *emu,
                                                  ShCompileOptions compileOptions)
 {
-    if (compileOptions & SH_EMULATE_ABS_INT_FUNCTION)
+    if ((compileOptions & SH_EMULATE_ABS_INT_FUNCTION) != 0)
     {
         InitBuiltInAbsFunctionEmulatorForGLSLWorkarounds(emu, getShaderType());
     }
 
-    if (compileOptions & SH_EMULATE_ISNAN_FLOAT_FUNCTION)
+    if ((compileOptions & SH_EMULATE_ISNAN_FLOAT_FUNCTION) != 0)
     {
         InitBuiltInIsnanFunctionEmulatorForGLSLWorkarounds(emu, getShaderVersion());
     }
 
-    if (compileOptions & SH_EMULATE_ATAN2_FLOAT_FUNCTION)
+    if ((compileOptions & SH_EMULATE_ATAN2_FLOAT_FUNCTION) != 0)
     {
         InitBuiltInAtanFunctionEmulatorForGLSLWorkarounds(emu);
     }
@@ -58,7 +58,7 @@ bool TranslatorGLSL::translate(TIntermBlock *root,
 
     // Write pragmas after extensions because some drivers consider pragmas
     // like non-preprocessor tokens.
-    writePragma(compileOptions);
+    WritePragma(sink, compileOptions, getPragma());
 
     // If flattening the global invariant pragma, write invariant declarations for built-in
     // variables. It should be harmless to do this twice in the case that the shader also explicitly
@@ -130,9 +130,6 @@ bool TranslatorGLSL::translate(TIntermBlock *root,
         sink << "// END: Generated code for built-in function emulation\n\n";
     }
 
-    // Write array bounds clamping emulation if needed.
-    getArrayBoundsClamper().OutputClampingFunctionDefinition(sink);
-
     // Declare gl_FragColor and glFragData as webgl_FragColor and webgl_FragData
     // if it's core profile shaders and they are used.
     if (getShaderType() == GL_FRAGMENT_SHADER)
@@ -192,11 +189,11 @@ bool TranslatorGLSL::translate(TIntermBlock *root,
         }
         if (hasGLSecondaryFragColor)
         {
-            sink << "out vec4 angle_SecondaryFragColor;\n";
+            sink << "out vec4 webgl_SecondaryFragColor;\n";
         }
         if (hasGLSecondaryFragData)
         {
-            sink << "out vec4 angle_SecondaryFragData[" << getResources().MaxDualSourceDrawBuffers
+            sink << "out vec4 webgl_SecondaryFragData[" << getResources().MaxDualSourceDrawBuffers
                  << "];\n";
         }
 
@@ -216,9 +213,8 @@ bool TranslatorGLSL::translate(TIntermBlock *root,
     }
 
     // Write translated shader.
-    TOutputGLSL outputGLSL(sink, getArrayIndexClampingStrategy(), getHashFunction(), getNameMap(),
-                           &getSymbolTable(), getShaderType(), getShaderVersion(), getOutputType(),
-                           compileOptions);
+    TOutputGLSL outputGLSL(sink, getHashFunction(), getNameMap(), &getSymbolTable(),
+                           getShaderType(), getShaderVersion(), getOutputType(), compileOptions);
 
     root->traverse(&outputGLSL);
 
@@ -234,7 +230,7 @@ bool TranslatorGLSL::shouldFlattenPragmaStdglInvariantAll()
 
 bool TranslatorGLSL::shouldCollectVariables(ShCompileOptions compileOptions)
 {
-    return (compileOptions & SH_FLATTEN_PRAGMA_STDGL_INVARIANT_ALL) ||
+    return (compileOptions & SH_FLATTEN_PRAGMA_STDGL_INVARIANT_ALL) != 0 ||
            TCompiler::shouldCollectVariables(compileOptions);
 }
 
@@ -254,6 +250,9 @@ void TranslatorGLSL::writeVersion(TIntermNode *root)
 
 void TranslatorGLSL::writeExtensionBehavior(TIntermNode *root, ShCompileOptions compileOptions)
 {
+    bool usesTextureCubeMapArray = false;
+    bool usesTextureBuffer       = false;
+
     TInfoSinkBase &sink                   = getInfoSink().obj;
     const TExtensionBehavior &extBehavior = getExtensionBehavior();
     for (const auto &iter : extBehavior)
@@ -279,7 +278,8 @@ void TranslatorGLSL::writeExtensionBehavior(TIntermNode *root, ShCompileOptions 
                      << "\n";
             }
 
-            if (iter.first == TExtension::EXT_geometry_shader)
+            if (iter.first == TExtension::EXT_geometry_shader ||
+                iter.first == TExtension::OES_geometry_shader)
             {
                 sink << "#extension GL_ARB_geometry_shader4 : " << GetBehaviorString(iter.second)
                      << "\n";
@@ -305,6 +305,20 @@ void TranslatorGLSL::writeExtensionBehavior(TIntermNode *root, ShCompileOptions 
             sink << "#extension GL_ARB_texture_multisample : " << GetBehaviorString(iter.second)
                  << "\n";
         }
+
+        if ((iter.first == TExtension::OES_texture_cube_map_array ||
+             iter.first == TExtension::EXT_texture_cube_map_array) &&
+            (iter.second == EBhRequire || iter.second == EBhEnable))
+        {
+            usesTextureCubeMapArray = true;
+        }
+
+        if ((iter.first == TExtension::OES_texture_buffer ||
+             iter.first == TExtension::EXT_texture_buffer) &&
+            (iter.second == EBhRequire || iter.second == EBhEnable))
+        {
+            usesTextureBuffer = true;
+        }
     }
 
     // GLSL ES 3 explicit location qualifiers need to use an extension before GLSL 330
@@ -323,6 +337,35 @@ void TranslatorGLSL::writeExtensionBehavior(TIntermNode *root, ShCompileOptions 
         // on drivers that don't have the extension at all as it would break WebGL 1 for
         // some users.
         sink << "#extension GL_ARB_gpu_shader5 : enable\n";
+        sink << "#extension GL_EXT_gpu_shader5 : enable\n";
+    }
+
+    if (usesTextureCubeMapArray)
+    {
+        if (getOutputType() >= SH_GLSL_COMPATIBILITY_OUTPUT &&
+            getOutputType() < SH_GLSL_400_CORE_OUTPUT)
+        {
+            sink << "#extension GL_ARB_texture_cube_map_array : enable\n";
+        }
+        else if (getOutputType() == SH_ESSL_OUTPUT && getShaderVersion() < 320)
+        {
+            sink << "#extension GL_OES_texture_cube_map_array : enable\n";
+            sink << "#extension GL_EXT_texture_cube_map_array : enable\n";
+        }
+    }
+
+    if (usesTextureBuffer)
+    {
+        if (getOutputType() >= SH_GLSL_COMPATIBILITY_OUTPUT &&
+            getOutputType() < SH_GLSL_400_CORE_OUTPUT)
+        {
+            sink << "#extension GL_ARB_texture_buffer_objects : enable\n";
+        }
+        else if (getOutputType() == SH_ESSL_OUTPUT && getShaderVersion() < 320)
+        {
+            sink << "#extension GL_OES_texture_buffer : enable\n";
+            sink << "#extension GL_EXT_texture_buffer : enable\n";
+        }
     }
 
     TExtensionGLSL extensionGLSL(getOutputType());

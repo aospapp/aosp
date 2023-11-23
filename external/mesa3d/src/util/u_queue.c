@@ -26,12 +26,22 @@
 
 #include "u_queue.h"
 
-#include <time.h>
+#include "c11/threads.h"
 
 #include "util/os_time.h"
 #include "util/u_string.h"
 #include "util/u_thread.h"
 #include "u_process.h"
+
+#if defined(__linux__)
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#endif
+
+
+/* Define 256MB */
+#define S_256MB (256 * 1024 * 1024)
 
 static void
 util_queue_kill_threads(struct util_queue *queue, unsigned keep_num_threads,
@@ -64,7 +74,7 @@ atexit_handler(void)
 static void
 global_init(void)
 {
-   LIST_INITHEAD(&queue_list);
+   list_inithead(&queue_list);
    atexit(atexit_handler);
 }
 
@@ -74,7 +84,7 @@ add_to_atexit_list(struct util_queue *queue)
    call_once(&atexit_once_flag, global_init);
 
    mtx_lock(&exit_mutex);
-   LIST_ADD(&queue->head, &queue_list);
+   list_add(&queue->head, &queue_list);
    mtx_unlock(&exit_mutex);
 }
 
@@ -86,7 +96,7 @@ remove_from_atexit_list(struct util_queue *queue)
    mtx_lock(&exit_mutex);
    LIST_FOR_EACH_ENTRY_SAFE(iter, tmp, &queue_list, head) {
       if (iter == queue) {
-         LIST_DEL(&iter->head);
+         list_del(&iter->head);
          break;
       }
    }
@@ -173,7 +183,11 @@ _util_queue_fence_wait_timeout(struct util_queue_fence *fence,
    if (rel > 0) {
       struct timespec ts;
 
+#ifdef HAVE_TIMESPEC_GET
       timespec_get(&ts, TIME_UTC);
+#else
+      clock_gettime(CLOCK_REALTIME, &ts);
+#endif
 
       ts.tv_sec += abs_timeout / (1000*1000*1000);
       ts.tv_nsec += abs_timeout % (1000*1000*1000);
@@ -241,23 +255,26 @@ util_queue_thread_func(void *input)
 
    free(input);
 
-#ifdef HAVE_PTHREAD_SETAFFINITY
    if (queue->flags & UTIL_QUEUE_INIT_SET_FULL_THREAD_AFFINITY) {
       /* Don't inherit the thread affinity from the parent thread.
        * Set the full mask.
        */
-      cpu_set_t cpuset;
-      CPU_ZERO(&cpuset);
-      for (unsigned i = 0; i < CPU_SETSIZE; i++)
-         CPU_SET(i, &cpuset);
+      uint32_t mask[UTIL_MAX_CPUS / 32];
 
-      pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset);
+      memset(mask, 0xff, sizeof(mask));
+      util_set_current_thread_affinity(mask, NULL, UTIL_MAX_CPUS);
+   }
+
+#if defined(__linux__)
+   if (queue->flags & UTIL_QUEUE_INIT_USE_MINIMUM_PRIORITY) {
+      /* The nice() function can only set a maximum of 19. */
+      setpriority(PRIO_PROCESS, syscall(SYS_gettid), 19);
    }
 #endif
 
    if (strlen(queue->name) > 0) {
       char name[16];
-      util_snprintf(name, sizeof(name), "%s%i", queue->name, thread_index);
+      snprintf(name, sizeof(name), "%s%i", queue->name, thread_index);
       u_thread_setname(name);
    }
 
@@ -283,6 +300,8 @@ util_queue_thread_func(void *input)
 
       queue->num_queued--;
       cnd_signal(&queue->has_space_cond);
+      if (job.job)
+         queue->total_jobs_size -= job.job_size;
       mtx_unlock(&queue->lock);
 
       if (job.job) {
@@ -326,16 +345,17 @@ util_queue_create_thread(struct util_queue *queue, unsigned index)
    }
 
    if (queue->flags & UTIL_QUEUE_INIT_USE_MINIMUM_PRIORITY) {
-#if defined(__linux__) && defined(SCHED_IDLE)
+#if defined(__linux__) && defined(SCHED_BATCH)
       struct sched_param sched_param = {0};
 
       /* The nice() function can only set a maximum of 19.
-       * SCHED_IDLE is the same as nice = 20.
+       * SCHED_BATCH gives the scheduler a hint that this is a latency
+       * insensitive thread.
        *
        * Note that Linux only allows decreasing the priority. The original
        * priority can't be restored.
        */
-      pthread_setschedparam(queue->threads[index], SCHED_IDLE, &sched_param);
+      pthread_setschedparam(queue->threads[index], SCHED_BATCH, &sched_param);
 #endif
    }
    return true;
@@ -405,10 +425,10 @@ util_queue_init(struct util_queue *queue,
    memset(queue, 0, sizeof(*queue));
 
    if (process_len) {
-      util_snprintf(queue->name, sizeof(queue->name), "%.*s:%s",
-                    process_len, process_name, name);
+      snprintf(queue->name, sizeof(queue->name), "%.*s:%s",
+               process_len, process_name, name);
    } else {
-      util_snprintf(queue->name, sizeof(queue->name), "%s", name);
+      snprintf(queue->name, sizeof(queue->name), "%s", name);
    }
 
    queue->flags = flags;
@@ -513,7 +533,8 @@ util_queue_add_job(struct util_queue *queue,
                    void *job,
                    struct util_queue_fence *fence,
                    util_queue_execute_func execute,
-                   util_queue_execute_func cleanup)
+                   util_queue_execute_func cleanup,
+                   const size_t job_size)
 {
    struct util_queue_job *ptr;
 
@@ -531,7 +552,8 @@ util_queue_add_job(struct util_queue *queue,
    assert(queue->num_queued >= 0 && queue->num_queued <= queue->max_jobs);
 
    if (queue->num_queued == queue->max_jobs) {
-      if (queue->flags & UTIL_QUEUE_INIT_RESIZE_IF_FULL) {
+      if (queue->flags & UTIL_QUEUE_INIT_RESIZE_IF_FULL &&
+          queue->total_jobs_size + job_size < S_256MB) {
          /* If the queue is full, make it larger to avoid waiting for a free
           * slot.
           */
@@ -570,7 +592,10 @@ util_queue_add_job(struct util_queue *queue,
    ptr->fence = fence;
    ptr->execute = execute;
    ptr->cleanup = cleanup;
+   ptr->job_size = job_size;
+
    queue->write_idx = (queue->write_idx + 1) % queue->max_jobs;
+   queue->total_jobs_size += ptr->job_size;
 
    queue->num_queued++;
    cnd_signal(&queue->has_queued_cond);
@@ -637,12 +662,20 @@ util_queue_finish(struct util_queue *queue)
     * wait for it exclusively.
     */
    mtx_lock(&queue->finish_lock);
+
+   /* The number of threads can be changed to 0, e.g. by the atexit handler. */
+   if (!queue->num_threads) {
+      mtx_unlock(&queue->finish_lock);
+      return;
+   }
+
    fences = malloc(queue->num_threads * sizeof(*fences));
    util_barrier_init(&barrier, queue->num_threads);
 
    for (unsigned i = 0; i < queue->num_threads; ++i) {
       util_queue_fence_init(&fences[i]);
-      util_queue_add_job(queue, &barrier, &fences[i], util_queue_finish_execute, NULL);
+      util_queue_add_job(queue, &barrier, &fences[i],
+                         util_queue_finish_execute, NULL, 0);
    }
 
    for (unsigned i = 0; i < queue->num_threads; ++i) {
@@ -663,5 +696,5 @@ util_queue_get_thread_time_nano(struct util_queue *queue, unsigned thread_index)
    if (thread_index >= queue->num_threads)
       return 0;
 
-   return u_thread_get_time_nano(queue->threads[thread_index]);
+   return util_thread_get_time_nano(queue->threads[thread_index]);
 }

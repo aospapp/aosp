@@ -30,7 +30,6 @@
 #include "bt_common.h"
 #include "bt_types.h"
 #include "btm_api.h"
-#include "btm_int.h"
 #include "btu.h"
 #include "device/include/controller.h"
 #include "hcidefs.h"
@@ -38,6 +37,10 @@
 #include "l2c_api.h"
 #include "main/shim/btm_api.h"
 #include "main/shim/shim.h"
+#include "stack/btm/btm_dev.h"
+#include "stack/include/acl_api.h"
+
+extern tBTM_CB btm_cb;
 
 /*******************************************************************************
  *
@@ -52,19 +55,14 @@
  *                  bd_name          - Name of the peer device. NULL if unknown.
  *                  features         - Remote device's features (up to 3 pages).
  *                                     NULL if not known
- *                  trusted_mask     - Bitwise OR of services that do not
- *                                     require authorization.
- *                                     (array of uint32_t)
  *                  link_key         - Connection link key. NULL if unknown.
  *
  * Returns          true if added OK, else false
  *
  ******************************************************************************/
 bool BTM_SecAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
-                      BD_NAME bd_name, uint8_t* features,
-                      uint32_t trusted_mask[], LinkKey* p_link_key,
-                      uint8_t key_type, tBTM_IO_CAP io_cap,
-                      uint8_t pin_length) {
+                      BD_NAME bd_name, uint8_t* features, LinkKey* p_link_key,
+                      uint8_t key_type, uint8_t pin_length) {
   BTM_TRACE_API("%s: link key type:%x", __func__, key_type);
 
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
@@ -89,7 +87,7 @@ bool BTM_SecAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
      * bond state for an existing device here? This logic should be verified
      * as part of a larger refactor.
      */
-    p_dev_rec->bond_type = BOND_TYPE_UNKNOWN;
+    p_dev_rec->bond_type = tBTM_SEC_DEV_REC::BOND_TYPE_UNKNOWN;
   }
 
   if (dev_class) memcpy(p_dev_rec->dev_class, dev_class, DEV_CLASS_LEN);
@@ -99,28 +97,8 @@ bool BTM_SecAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
   if (bd_name && bd_name[0]) {
     p_dev_rec->sec_flags |= BTM_SEC_NAME_KNOWN;
     strlcpy((char*)p_dev_rec->sec_bd_name, (char*)bd_name,
-            BTM_MAX_REM_BD_NAME_LEN);
+            BTM_MAX_REM_BD_NAME_LEN + 1);
   }
-
-  p_dev_rec->num_read_pages = 0;
-  if (features) {
-    bool found = false;
-    memcpy(p_dev_rec->feature_pages, features,
-           sizeof(p_dev_rec->feature_pages));
-    for (int i = HCI_EXT_FEATURES_PAGE_MAX; !found && i >= 0; i--) {
-      for (int j = 0; j < HCI_FEATURE_BYTES_PER_PAGE; j++) {
-        if (p_dev_rec->feature_pages[i][j] != 0) {
-          found = true;
-          p_dev_rec->num_read_pages = i + 1;
-          break;
-        }
-      }
-    }
-  } else {
-    memset(p_dev_rec->feature_pages, 0, sizeof(p_dev_rec->feature_pages));
-  }
-
-  BTM_SEC_COPY_TRUSTED_DEVICE(trusted_mask, p_dev_rec->trusted_mask);
 
   if (p_link_key) {
     VLOG(2) << __func__ << ": BDA: " << bd_addr;
@@ -138,14 +116,7 @@ bool BTM_SecAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
     }
   }
 
-#if (BTIF_MIXED_MODE_INCLUDED == TRUE)
-  if (key_type < BTM_MAX_PRE_SM4_LKEY_TYPE)
-    p_dev_rec->sm4 = BTM_SM4_KNOWN;
-  else
-    p_dev_rec->sm4 = BTM_SM4_TRUE;
-#endif
-
-  p_dev_rec->rmt_io_caps = io_cap;
+  p_dev_rec->rmt_io_caps = BTM_IO_CAP_OUT;
   p_dev_rec->device_type |= BT_DEVICE_TYPE_BREDR;
 
   return true;
@@ -201,7 +172,7 @@ bool BTM_SecDeleteDevice(const RawAddress& bd_addr) {
  *                  remove device.
  *
  ******************************************************************************/
-extern void BTM_SecClearSecurityFlags(const RawAddress& bd_addr) {
+void BTM_SecClearSecurityFlags(const RawAddress& bd_addr) {
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
   if (p_dev_rec == NULL) return;
 
@@ -245,8 +216,7 @@ tBTM_SEC_DEV_REC* btm_sec_alloc_dev(const RawAddress& bd_addr) {
 
   tBTM_SEC_DEV_REC* p_dev_rec = btm_sec_allocate_dev_rec();
 
-  BTM_TRACE_EVENT("%s: allocated p_dev_rec=%p, bd_addr=%s", __func__, p_dev_rec,
-                  bd_addr.ToString().c_str());
+  LOG_DEBUG("Allocated device record bd_addr:%s", PRIVATE_ADDRESS(bd_addr));
 
   /* Check with the BT manager if details about remote device are known */
   /* outgoing connection */
@@ -272,7 +242,7 @@ tBTM_SEC_DEV_REC* btm_sec_alloc_dev(const RawAddress& bd_addr) {
 
 /*******************************************************************************
  *
- * Function         btm_dev_support_switch
+ * Function         btm_dev_support_role_switch
  *
  * Description      This function is called by the L2CAP to check if remote
  *                  device supports role switch
@@ -280,40 +250,41 @@ tBTM_SEC_DEV_REC* btm_sec_alloc_dev(const RawAddress& bd_addr) {
  * Parameters:      bd_addr       - Address of the peer device
  *
  * Returns          true if device is known and role switch is supported
+ *                  for the link.
  *
  ******************************************************************************/
-bool btm_dev_support_switch(const RawAddress& bd_addr) {
-  tBTM_SEC_DEV_REC* p_dev_rec;
-  uint8_t xx;
-  bool feature_empty = true;
-
-  /* Role switch is not allowed if a SCO is up */
-  if (btm_is_sco_active_by_bdaddr(bd_addr)) return (false);
-  p_dev_rec = btm_find_dev(bd_addr);
-  if (p_dev_rec &&
-      controller_get_interface()->supports_master_slave_role_switch()) {
-    if (HCI_SWITCH_SUPPORTED(p_dev_rec->feature_pages[0])) {
-      BTM_TRACE_DEBUG("btm_dev_support_switch return true (feature found)");
-      return (true);
-    }
-
-    /* If the feature field is all zero, we never received them */
-    for (xx = 0; xx < BD_FEATURES_LEN; xx++) {
-      if (p_dev_rec->feature_pages[0][xx] != 0x00) {
-        feature_empty = false; /* at least one is != 0 */
-        break;
-      }
-    }
-
-    /* If we don't know peer's capabilities, assume it supports Role-switch */
-    if (feature_empty) {
-      BTM_TRACE_DEBUG("btm_dev_support_switch return true (feature empty)");
-      return (true);
-    }
+bool btm_dev_support_role_switch(const RawAddress& bd_addr) {
+  if (BTM_IsScoActiveByBdaddr(bd_addr)) {
+    BTM_TRACE_DEBUG("%s Role switch is not allowed if a SCO is up", __func__);
+    return false;
   }
 
-  BTM_TRACE_DEBUG("btm_dev_support_switch return false");
-  return (false);
+  tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
+  if (p_dev_rec == nullptr) {
+    BTM_TRACE_DEBUG("%s Unknown address for role switch", __func__);
+    return false;
+  }
+
+  if (!controller_get_interface()->supports_central_peripheral_role_switch()) {
+    BTM_TRACE_DEBUG("%s Local controller does not support role switch",
+                    __func__);
+    return false;
+  }
+
+  if (p_dev_rec->remote_supports_hci_role_switch) {
+    BTM_TRACE_DEBUG("%s Peer controller supports role switch", __func__);
+    return true;
+  }
+
+  if (!p_dev_rec->remote_feature_received) {
+    BTM_TRACE_DEBUG(
+        "%s Unknown peer capabilities, assuming peer supports role switch",
+        __func__);
+    return true;
+  }
+
+  BTM_TRACE_DEBUG("%s Peer controller does not support role switch", __func__);
+  return false;
 }
 
 bool is_handle_equal(void* data, void* context) {
@@ -409,7 +380,6 @@ void btm_consolidate_dev(tBTM_SEC_DEV_REC* p_target_rec) {
 
       p_target_rec->new_encryption_key_is_p256 =
           temp_rec.new_encryption_key_is_p256;
-      p_target_rec->no_smp_on_br = temp_rec.no_smp_on_br;
       p_target_rec->bond_type = temp_rec.bond_type;
 
       /* remove the combined record */
@@ -523,7 +493,7 @@ tBTM_SEC_DEV_REC* btm_sec_allocate_dev_rec(void) {
 
   // Initialize defaults
   p_dev_rec->sec_flags = BTM_SEC_IN_USE;
-  p_dev_rec->bond_type = BOND_TYPE_UNKNOWN;
+  p_dev_rec->bond_type = tBTM_SEC_DEV_REC::BOND_TYPE_UNKNOWN;
   p_dev_rec->timestamp = btm_cb.dev_rec_count++;
   p_dev_rec->rmt_io_caps = BTM_IO_CAP_UNKNOWN;
 
@@ -540,10 +510,11 @@ tBTM_SEC_DEV_REC* btm_sec_allocate_dev_rec(void) {
  * Returns          The device bond type if known, otherwise BOND_TYPE_UNKNOWN
  *
  ******************************************************************************/
-tBTM_BOND_TYPE btm_get_bond_type_dev(const RawAddress& bd_addr) {
+tBTM_SEC_DEV_REC::tBTM_BOND_TYPE btm_get_bond_type_dev(
+    const RawAddress& bd_addr) {
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
 
-  if (p_dev_rec == NULL) return BOND_TYPE_UNKNOWN;
+  if (p_dev_rec == NULL) return tBTM_SEC_DEV_REC::BOND_TYPE_UNKNOWN;
 
   return p_dev_rec->bond_type;
 }
@@ -559,7 +530,7 @@ tBTM_BOND_TYPE btm_get_bond_type_dev(const RawAddress& bd_addr) {
  *
  ******************************************************************************/
 bool btm_set_bond_type_dev(const RawAddress& bd_addr,
-                           tBTM_BOND_TYPE bond_type) {
+                           tBTM_SEC_DEV_REC::tBTM_BOND_TYPE bond_type) {
   tBTM_SEC_DEV_REC* p_dev_rec = btm_find_dev(bd_addr);
 
   if (p_dev_rec == NULL) return false;

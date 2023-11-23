@@ -16,6 +16,7 @@
 
 package com.android.bluetooth.hfp;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
 import static org.mockito.Mockito.*;
 
 import android.bluetooth.BluetoothAdapter;
@@ -171,7 +172,8 @@ public class HeadsetStateMachineTest {
     public void testStateTransition_DisconnectedToConnecting_Connect() {
         mHeadsetStateMachine.sendMessage(HeadsetStateMachine.CONNECT, mTestDevice);
         verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_DISCONNECTED,
                 mIntentArgument.getValue());
@@ -188,7 +190,8 @@ public class HeadsetStateMachineTest {
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED,
                         HeadsetHalConstants.CONNECTION_STATE_CONNECTED, mTestDevice));
         verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_DISCONNECTED,
                 mIntentArgument.getValue());
@@ -205,7 +208,8 @@ public class HeadsetStateMachineTest {
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED,
                         HeadsetHalConstants.CONNECTION_STATE_CONNECTING, mTestDevice));
         verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_DISCONNECTED,
                 mIntentArgument.getValue());
@@ -227,7 +231,7 @@ public class HeadsetStateMachineTest {
         // Should do nothing new
         verify(mHeadsetService,
                 after(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                any(Intent.class), any(UserHandle.class), anyString());
+                any(Intent.class), any(UserHandle.class), anyString(), any(Bundle.class));
         Assert.assertThat(mHeadsetStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HeadsetStateMachine.Connecting.class));
 
@@ -239,7 +243,8 @@ public class HeadsetStateMachineTest {
         numBroadcastsSent++;
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_DISCONNECTED, BluetoothProfile.STATE_CONNECTING,
                 mIntentArgument.getValue());
@@ -257,7 +262,8 @@ public class HeadsetStateMachineTest {
         numBroadcastsSent++;
         verify(mHeadsetService, timeout(CONNECT_TIMEOUT_TEST_WAIT_MILLIS).times(
                 numBroadcastsSent)).sendBroadcastAsUser(mIntentArgument.capture(),
-                eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_DISCONNECTED, BluetoothProfile.STATE_CONNECTING,
                 mIntentArgument.getValue());
@@ -278,7 +284,7 @@ public class HeadsetStateMachineTest {
         // Should do nothing
         verify(mHeadsetService,
                 after(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                any(Intent.class), any(UserHandle.class), anyString());
+                any(Intent.class), any(UserHandle.class), anyString(), any(Bundle.class));
         Assert.assertThat(mHeadsetStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HeadsetStateMachine.Connecting.class));
 
@@ -289,7 +295,7 @@ public class HeadsetStateMachineTest {
         // Should do nothing
         verify(mHeadsetService,
                 after(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                any(Intent.class), any(UserHandle.class), anyString());
+                any(Intent.class), any(UserHandle.class), anyString(), any(Bundle.class));
         Assert.assertThat(mHeadsetStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HeadsetStateMachine.Connecting.class));
 
@@ -300,7 +306,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_SLC_CONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_CONNECTED, BluetoothProfile.STATE_CONNECTING,
                 mIntentArgument.getValue());
@@ -322,7 +329,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_DISCONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_DISCONNECTED, BluetoothProfile.STATE_DISCONNECTING,
                 mIntentArgument.getValue());
@@ -341,7 +349,8 @@ public class HeadsetStateMachineTest {
         numBroadcastsSent++;
         verify(mHeadsetService, timeout(CONNECT_TIMEOUT_TEST_WAIT_MILLIS).times(
                 numBroadcastsSent)).sendBroadcastAsUser(mIntentArgument.capture(),
-                eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_DISCONNECTED, BluetoothProfile.STATE_DISCONNECTING,
                 mIntentArgument.getValue());
@@ -363,7 +372,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_SLC_CONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_CONNECTED, BluetoothProfile.STATE_DISCONNECTING,
                 mIntentArgument.getValue());
@@ -382,7 +392,8 @@ public class HeadsetStateMachineTest {
         mHeadsetStateMachine.sendMessage(HeadsetStateMachine.DISCONNECT, mTestDevice);
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_DISCONNECTING, BluetoothProfile.STATE_CONNECTED,
                 mIntentArgument.getValue());
@@ -404,7 +415,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_DISCONNECTING, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_DISCONNECTING, BluetoothProfile.STATE_CONNECTED,
                 mIntentArgument.getValue());
@@ -426,7 +438,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_DISCONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_DISCONNECTED, BluetoothProfile.STATE_CONNECTED,
                 mIntentArgument.getValue());
@@ -445,7 +458,8 @@ public class HeadsetStateMachineTest {
         mHeadsetStateMachine.sendMessage(HeadsetStateMachine.CONNECT_AUDIO, mTestDevice);
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_CONNECTING, BluetoothHeadset.STATE_AUDIO_DISCONNECTED,
                 mIntentArgument.getValue());
@@ -467,7 +481,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.AUDIO_STATE_CONNECTING, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_CONNECTING, BluetoothHeadset.STATE_AUDIO_DISCONNECTED,
                 mIntentArgument.getValue());
@@ -488,7 +503,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.AUDIO_STATE_CONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_CONNECTED, BluetoothHeadset.STATE_AUDIO_DISCONNECTED,
                 mIntentArgument.getValue());
@@ -506,7 +522,8 @@ public class HeadsetStateMachineTest {
         numBroadcastsSent++;
         verify(mHeadsetService, timeout(CONNECT_TIMEOUT_TEST_WAIT_MILLIS).times(
                 numBroadcastsSent)).sendBroadcastAsUser(mIntentArgument.capture(),
-                eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTING,
                 mIntentArgument.getValue());
@@ -528,7 +545,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.AUDIO_STATE_DISCONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTING,
                 mIntentArgument.getValue());
@@ -550,7 +568,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_DISCONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTING,
                 mIntentArgument.getAllValues().get(mIntentArgument.getAllValues().size() - 2));
@@ -575,7 +594,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_DISCONNECTING, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTING,
                 mIntentArgument.getAllValues().get(mIntentArgument.getAllValues().size() - 2));
@@ -600,7 +620,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.AUDIO_STATE_CONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_CONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTING,
                 mIntentArgument.getValue());
@@ -621,7 +642,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.AUDIO_STATE_DISCONNECTING, mTestDevice));
         verify(mHeadsetService,
                 after(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                any(Intent.class), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                any(Intent.class), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         Assert.assertThat(mHeadsetStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HeadsetStateMachine.AudioDisconnecting.class));
     }
@@ -638,7 +660,8 @@ public class HeadsetStateMachineTest {
         // Should not sent any broadcast due to lack of AUDIO_DISCONNECTING intent value
         verify(mHeadsetService,
                 after(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                any(Intent.class), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                any(Intent.class), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         Assert.assertThat(mHeadsetStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HeadsetStateMachine.AudioDisconnecting.class));
     }
@@ -657,7 +680,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.AUDIO_STATE_DISCONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTED,
                 mIntentArgument.getValue());
@@ -679,7 +703,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_DISCONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTED,
                 mIntentArgument.getAllValues().get(mIntentArgument.getAllValues().size() - 2));
@@ -704,7 +729,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_DISCONNECTING, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTED,
                 mIntentArgument.getAllValues().get(mIntentArgument.getAllValues().size() - 2));
@@ -726,7 +752,8 @@ public class HeadsetStateMachineTest {
         numBroadcastsSent++;
         verify(mHeadsetService, timeout(CONNECT_TIMEOUT_TEST_WAIT_MILLIS).times(
                 numBroadcastsSent)).sendBroadcastAsUser(mIntentArgument.capture(),
-                eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTED,
                 mIntentArgument.getValue());
@@ -748,7 +775,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.AUDIO_STATE_DISCONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTED,
                 mIntentArgument.getValue());
@@ -770,7 +798,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.AUDIO_STATE_CONNECTED, mTestDevice));
         verify(mHeadsetService,
                 after(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_CONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTED,
                 mIntentArgument.getValue());
@@ -792,7 +821,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_DISCONNECTING, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTED,
                 mIntentArgument.getAllValues().get(mIntentArgument.getAllValues().size() - 2));
@@ -817,7 +847,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.CONNECTION_STATE_DISCONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_DISCONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTED,
                 mIntentArgument.getAllValues().get(mIntentArgument.getAllValues().size() - 2));
@@ -957,8 +988,10 @@ public class HeadsetStateMachineTest {
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_BIND, atString, mTestDevice));
         ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
         verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcast(
-                intentArgument.capture(), eq(HeadsetService.BLUETOOTH_PERM));
-        verify(mHeadsetService, times(1)).sendBroadcast(any(), any());
+                intentArgument.capture(), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
+        verify(mHeadsetService, times(1)).sendBroadcast(any(), any(),
+                any());
         Assert.assertEquals(mTestDevice, intentArgument.getValue().getExtra(
                 BluetoothDevice.EXTRA_DEVICE, null));
         Assert.assertEquals(HeadsetHalConstants.HF_INDICATOR_ENHANCED_DRIVER_SAFETY,
@@ -980,8 +1013,10 @@ public class HeadsetStateMachineTest {
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_BIND, atString, mTestDevice));
         ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
         verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcast(
-                intentArgument.capture(), eq(HeadsetService.BLUETOOTH_PERM));
-        verify(mHeadsetService, times(1)).sendBroadcast(any(), any());
+                intentArgument.capture(), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
+        verify(mHeadsetService, times(1)).sendBroadcast(any(), any(),
+                any());
         Assert.assertEquals(mTestDevice, intentArgument.getValue().getExtra(
                 BluetoothDevice.EXTRA_DEVICE, null));
         Assert.assertEquals(HeadsetHalConstants.HF_INDICATOR_BATTERY_LEVEL_STATUS,
@@ -1003,8 +1038,10 @@ public class HeadsetStateMachineTest {
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_BIND, atString, mTestDevice));
         ArgumentCaptor<Intent> intentArgument = ArgumentCaptor.forClass(Intent.class);
         verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcast(
-                intentArgument.capture(), eq(HeadsetService.BLUETOOTH_PERM));
-        verify(mHeadsetService, times(1)).sendBroadcast(any(), any());
+                intentArgument.capture(), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
+        verify(mHeadsetService, times(1)).sendBroadcast(any(), any(),
+                any());
         Assert.assertEquals(mTestDevice, intentArgument.getValue().getExtra(
                 BluetoothDevice.EXTRA_DEVICE, null));
         Assert.assertEquals(HeadsetHalConstants.HF_INDICATOR_ENHANCED_DRIVER_SAFETY,
@@ -1034,7 +1071,8 @@ public class HeadsetStateMachineTest {
         // Put test state machine in connecting state
         mHeadsetStateMachine.sendMessage(HeadsetStateMachine.CONNECT, mTestDevice);
         verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_DISCONNECTED,
                 mIntentArgument.getValue());
@@ -1053,7 +1091,8 @@ public class HeadsetStateMachineTest {
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED,
                         HeadsetHalConstants.CONNECTION_STATE_CONNECTED, mTestDevice));
         verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_DISCONNECTED,
                 mIntentArgument.getValue());
@@ -1063,7 +1102,8 @@ public class HeadsetStateMachineTest {
                 new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED,
                         HeadsetHalConstants.CONNECTION_STATE_SLC_CONNECTED, mTestDevice));
         verify(mHeadsetService, timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(2)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_CONNECTED, BluetoothProfile.STATE_CONNECTING,
                 mIntentArgument.getValue());
@@ -1079,7 +1119,8 @@ public class HeadsetStateMachineTest {
         mHeadsetStateMachine.sendMessage(HeadsetStateMachine.CONNECT_AUDIO, mTestDevice);
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_CONNECTING, BluetoothHeadset.STATE_AUDIO_DISCONNECTED,
                 mIntentArgument.getValue());
@@ -1097,7 +1138,8 @@ public class HeadsetStateMachineTest {
                         HeadsetHalConstants.AUDIO_STATE_CONNECTED, mTestDevice));
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyAudioStateBroadcast(mTestDevice,
                 BluetoothHeadset.STATE_AUDIO_CONNECTED, BluetoothHeadset.STATE_AUDIO_CONNECTING,
                 mIntentArgument.getValue());
@@ -1112,7 +1154,8 @@ public class HeadsetStateMachineTest {
         // No new broadcast due to lack of AUDIO_DISCONNECTING intent variable
         verify(mHeadsetService,
                 after(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                any(Intent.class), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                any(Intent.class), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         Assert.assertThat(mHeadsetStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HeadsetStateMachine.AudioDisconnecting.class));
         return numBroadcastsSent;
@@ -1125,7 +1168,8 @@ public class HeadsetStateMachineTest {
         mHeadsetStateMachine.sendMessage(HeadsetStateMachine.DISCONNECT, mTestDevice);
         verify(mHeadsetService,
                 timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(numBroadcastsSent)).sendBroadcastAsUser(
-                mIntentArgument.capture(), eq(UserHandle.ALL), eq(HeadsetService.BLUETOOTH_PERM));
+                mIntentArgument.capture(), eq(UserHandle.ALL), eq(BLUETOOTH_CONNECT),
+                any(Bundle.class));
         HeadsetTestUtils.verifyConnectionStateBroadcast(mTestDevice,
                 BluetoothProfile.STATE_DISCONNECTING, BluetoothProfile.STATE_CONNECTED,
                 mIntentArgument.getValue());

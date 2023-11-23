@@ -16,14 +16,15 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.netlegacy22.permission.cts">
+     package="android.netlegacy22.permission.cts">
 
-    <uses-permission android:name="android.permission.INJECT_EVENTS" />
-    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.INJECT_EVENTS"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
         <activity android:name="android.permission.cts.PermissionStubActivity"
-                  android:label="PermissionStubActivity">
+             android:label="PermissionStubActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
@@ -32,21 +33,20 @@
     </application>
 
     <!--
-        The CTS stubs package cannot be used as the target application here,
-        since that requires many permissions to be set. Instead, specify this
-        package itself as the target and include any stub activities needed.
+                The CTS stubs package cannot be used as the target application here,
+                since that requires many permissions to be set. Instead, specify this
+                package itself as the target and include any stub activities needed.
 
-        This test package uses the default InstrumentationTestRunner, because
-        the InstrumentationCtsTestRunner is only available in the stubs
-        package. That runner cannot be added to this package either, since it
-        relies on hidden APIs.
-    -->
+                This test package uses the default InstrumentationTestRunner, because
+                the InstrumentationCtsTestRunner is only available in the stubs
+                package. That runner cannot be added to this package either, since it
+                relies on hidden APIs.
+            -->
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.netlegacy22.permission.cts"
-                     android:label="CTS tests of legacy android.net permissions as of API 22">
+         android:targetPackage="android.netlegacy22.permission.cts"
+         android:label="CTS tests of legacy android.net permissions as of API 22">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>
-

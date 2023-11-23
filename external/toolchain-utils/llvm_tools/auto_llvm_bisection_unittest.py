@@ -15,10 +15,10 @@ import traceback
 import unittest
 import unittest.mock as mock
 
-from test_helpers import ArgsOutputTest
-from test_helpers import CallCountsToMockFunctions
 import auto_llvm_bisection
+import chroot
 import llvm_bisection
+import test_helpers
 
 
 class AutoLLVMBisectionTest(unittest.TestCase):
@@ -26,8 +26,7 @@ class AutoLLVMBisectionTest(unittest.TestCase):
 
   # Simulate the behavior of `VerifyOutsideChroot()` when successfully invoking
   # the script outside of the chroot.
-  @mock.patch.object(
-      auto_llvm_bisection, 'VerifyOutsideChroot', return_value=True)
+  @mock.patch.object(chroot, 'VerifyOutsideChroot', return_value=True)
   # Simulate behavior of `time.sleep()` when waiting for errors to settle caused
   # by `llvm_bisection.main()` (e.g. network issue, etc.).
   @mock.patch.object(time, 'sleep')
@@ -49,12 +48,14 @@ class AutoLLVMBisectionTest(unittest.TestCase):
   # Simulate `llvm_bisection.GetCommandLineArgs()` when parsing the command line
   # arguments required by the bisection script.
   @mock.patch.object(
-      llvm_bisection, 'GetCommandLineArgs', return_value=ArgsOutputTest())
+      llvm_bisection,
+      'GetCommandLineArgs',
+      return_value=test_helpers.ArgsOutputTest())
   def testFailedToStartBisection(
       self, mock_get_args, mock_get_auto_script, mock_is_file,
       mock_llvm_bisection, mock_traceback, mock_sleep, mock_outside_chroot):
 
-    def MockLLVMBisectionRaisesException(args_output):
+    def MockLLVMBisectionRaisesException(_args_output):
       raise ValueError('Failed to launch more tryjobs.')
 
     # Use the test function to simulate the behavior of an exception happening
@@ -82,8 +83,7 @@ class AutoLLVMBisectionTest(unittest.TestCase):
   @mock.patch.object(subprocess, 'call', return_value=0)
   # Simulate the behavior of `VerifyOutsideChroot()` when successfully invoking
   # the script outside of the chroot.
-  @mock.patch.object(
-      auto_llvm_bisection, 'VerifyOutsideChroot', return_value=True)
+  @mock.patch.object(chroot, 'VerifyOutsideChroot', return_value=True)
   # Simulate behavior of `time.sleep()` when waiting for errors to settle caused
   # by `llvm_bisection.main()` (e.g. network issue, etc.).
   @mock.patch.object(time, 'sleep')
@@ -105,7 +105,9 @@ class AutoLLVMBisectionTest(unittest.TestCase):
   # Simulate `llvm_bisection.GetCommandLineArgs()` when parsing the command line
   # arguments required by the bisection script.
   @mock.patch.object(
-      llvm_bisection, 'GetCommandLineArgs', return_value=ArgsOutputTest())
+      llvm_bisection,
+      'GetCommandLineArgs',
+      return_value=test_helpers.ArgsOutputTest())
   def testSuccessfullyBisectedLLVMRevision(
       self, mock_get_args, mock_get_auto_script, mock_is_file,
       mock_llvm_bisection, mock_traceback, mock_sleep, mock_outside_chroot,
@@ -113,8 +115,8 @@ class AutoLLVMBisectionTest(unittest.TestCase):
 
     # Simulate the behavior of `os.path.isfile()` when checking whether the
     # status file provided exists.
-    @CallCountsToMockFunctions
-    def MockStatusFileCheck(call_count, last_tested):
+    @test_helpers.CallCountsToMockFunctions
+    def MockStatusFileCheck(call_count, _last_tested):
       # Simulate that the status file does not exist, so the LLVM bisection
       # script would create the status file and launch tryjobs.
       if call_count < 2:
@@ -130,8 +132,8 @@ class AutoLLVMBisectionTest(unittest.TestCase):
 
     # Simulate behavior of `llvm_bisection.main()` when successfully bisected
     # between the good and bad LLVM revision.
-    @CallCountsToMockFunctions
-    def MockLLVMBisectionReturnValue(call_count, args_output):
+    @test_helpers.CallCountsToMockFunctions
+    def MockLLVMBisectionReturnValue(call_count, _args_output):
       # Simulate that successfully launched more tryjobs.
       if call_count == 0:
         return 0
@@ -176,8 +178,7 @@ class AutoLLVMBisectionTest(unittest.TestCase):
   @mock.patch.object(time, 'time')
   # Simulate the behavior of `VerifyOutsideChroot()` when successfully invoking
   # the script outside of the chroot.
-  @mock.patch.object(
-      auto_llvm_bisection, 'VerifyOutsideChroot', return_value=True)
+  @mock.patch.object(chroot, 'VerifyOutsideChroot', return_value=True)
   # Simulate behavior of `time.sleep()` when waiting for errors to settle caused
   # by `llvm_bisection.main()` (e.g. network issue, etc.).
   @mock.patch.object(time, 'sleep')
@@ -193,13 +194,15 @@ class AutoLLVMBisectionTest(unittest.TestCase):
   # Simulate `llvm_bisection.GetCommandLineArgs()` when parsing the command line
   # arguments required by the bisection script.
   @mock.patch.object(
-      llvm_bisection, 'GetCommandLineArgs', return_value=ArgsOutputTest())
+      llvm_bisection,
+      'GetCommandLineArgs',
+      return_value=test_helpers.ArgsOutputTest())
   def testFailedToUpdatePendingTryJobs(
       self, mock_get_args, mock_get_auto_script, mock_is_file, mock_sleep,
       mock_outside_chroot, mock_time, mock_update_tryjobs):
 
     # Simulate behavior of `time.time()` for time passed.
-    @CallCountsToMockFunctions
+    @test_helpers.CallCountsToMockFunctions
     def MockTimePassed(call_count):
       if call_count < 3:
         return call_count

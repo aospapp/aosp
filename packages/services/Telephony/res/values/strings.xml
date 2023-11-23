@@ -107,6 +107,8 @@
     <!-- network depersonalization -->
     <!-- Label text for PIN entry widget on SIM Network Depersonalization panel -->
     <string name="label_ndp">SIM network unlock PIN</string>
+    <!-- Label text for Operator displayName on SIM Network Depersonalization panel -->
+    <string name="label_phoneid">SIM locked for operator</string>
     <!-- Button label on SIM Network Depersonalization panel -->
     <string name="sim_ndp_unlock_text">Unlock</string>
     <!-- Button label on SIM Network Depersonalization panel -->
@@ -273,6 +275,15 @@
     <string name="sum_cfnrc_disabled">Off</string>
     <!-- Error message displayed after failing to disable forwarding calls when the phone is unreachable -->
     <string name="disable_cfnrc_forbidden">Your carrier doesn\'t support disabling call forwarding when your phone is unreachable.</string>
+    <string name="registration_cf_forbidden">Your carrier doesn\'t support call forwarding.</string>
+
+    <!-- Cdma Call waiting settings screen, setting option name -->
+    <string name="cdma_call_waiting">Turn on call waiting?</string>
+    <string name="enable_cdma_call_waiting_setting">During a call, you\'ll be notified about incoming calls</string>
+    <string name="enable_cdma_cw">Turn on</string>
+    <string name="disable_cdma_cw">Cancel</string>
+    <string name="cdma_call_waiting_in_ims_on">CDMA Call Waiting under IMS On</string>
+    <string name="cdma_call_waiting_in_ims_off">CDMA Call Waiting under IMS Off</string>
 
     <!-- Title of the progress dialog displayed while updating Call settings -->
     <string name="updating_title">Call settings</string>
@@ -633,6 +644,13 @@
     <string name="limited_sim_function_with_phone_num_notification_message"><xliff:g id="carrier_name">%1$s</xliff:g> calls and data services may be blocked while using <xliff:g id="phone_number">%2$s</xliff:g>.</string>
     <!-- Notification message for limited sim function during dual sim [CHAR LIMIT=80]-->
     <string name="limited_sim_function_notification_message"><xliff:g id="carrier_name">%1$s</xliff:g> calls and data services may be blocked while using another SIM.</string>
+    <!-- Notification title for SIP accounts removed -->
+    <string name="sip_accounts_removed_notification_title">Deprecated SIP accounts found and removed</string>
+    <!-- Notification message for SIP accoutns removed -->
+    <string name="sip_accounts_removed_notification_message">
+        SIP calling is no longer supported by Android platform.\nYour existing SIP accounts <xliff:g id="removed_sip_accounts">%s</xliff:g> have been removed.\nPlease confirm your default calling account setting.
+    </string>
+    <string name="sip_accounts_removed_notification_action">Go to settings</string>
     <!-- Mobile network settings screen, data usage setting check box name -->
     <string name="data_usage_title">App data usage</string>
     <!-- Summary about how much data has been used in a date range [CHAR LIMIT=100] -->
@@ -1114,6 +1132,8 @@
     <string name="puk2_blocked">PUK2 is permanently blocked.</string>
     <!-- SIM PIN2 screen: error message -->
     <string name="pin2_attempts">\nYou have <xliff:g id="number">%d</xliff:g> remaining attempts.</string>
+    <!-- SIM PIN2 screen: error message displayed in a dialog -->
+    <string name="puk2_locked">PUK2 locked. Contact service provider to unlock.</string>
     <!-- SIM PIN screen: status message displayed in a popup (toast) -->
     <string name="pin2_unblocked">PIN2 no longer blocked</string>
     <!-- SIM PIN screen: error message shown in dialog when there is a network or sim error.
@@ -1175,6 +1195,8 @@
     <string name="incall_error_power_off" product="default">Turn off airplane mode to make a call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog when in airplane mode, WFC is enabled, not wifi-only, and not connected to wireless networks. [CHAR_LIMIT=NONE] -->
     <string name="incall_error_power_off_wfc">Turn off airplane mode or connect to a wireless network to make a call.</string>
+    <!-- In-call screen: call failure message displayed in an error dialog when radio off due to thermal mitigation. [CHAR_LIMIT=NONE] -->
+    <string name="incall_error_power_off_thermal" product="default"><b>Phone too hot</b>\n\nCan\'t complete this call. Try again when your phone cools down.\n\nYou can still make emergency calls.</string>
     <!-- In-call screen: call failure message displayed when the user attempts to make a non-emergency call while the phone is in emergency callback mode. -->
     <string name="incall_error_ecm_emergency_only">Exit emergency callback mode to make a non-emergency call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog.
@@ -2068,8 +2090,6 @@
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radio_info_ul_kbps">UL Bandwidth (kbps):</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
-    <string name="radio_info_signal_location_label">Cell Location Info (deprecated):</string>
-    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radio_info_phy_chan_config">LTE Physical Channel Configuration:</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radio_info_cell_info_refresh_rate">Cell Info Refresh Rate:</string>
@@ -2131,6 +2151,18 @@
     <string name="radio_info_toggle_dns_check_label">Toggle DNS Check</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="oem_radio_info_label">OEM-specific Info/Settings</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_endc_available">EN-DC Available:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_dcnr_restricted">DCNR Restricted:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_nr_available">NR Available:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_nr_state">NR State:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_nr_frequency">NR Frequency:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_network_slicing_config" translatable="false">Network slicing config:</string>
 
     <!-- Band Mode Selection -->
     <!-- Band mode screen.  Title of activity. -->
@@ -2154,4 +2186,14 @@
     <!-- Trigger Carrier Provisioning [CHAR LIMIT=NONE] -->
     <string name="trigger_carrier_provisioning">Trigger Carrier Provisioning</string>
 
+    <!-- details of the message popped up when there is
+    bad call quality caused by bluetooth connection-->
+    <string name="call_quality_notification_bluetooth_details">
+        Your bluetooth signal is weak.  Try switching to speakerphone.</string>
+    <!-- name of the notification that pops up during
+    a phone call when there is bad call quality -->
+    <string name="call_quality_notification_name">Call Quality Notification</string>
+    <!-- Telephony notification channel name for a channel containing SIP accounts removed
+     notificatios -->
+    <string name="notification_channel_sip_account">Deprecated SIP accounts</string>
 </resources>

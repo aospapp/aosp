@@ -69,7 +69,7 @@ public class StorageConstraintTest extends BaseJobSchedulerTest {
      * Schedule a job that requires the device storage is not low, when it is actually not low.
      */
     public void testNotLowConstraintExecutes() throws Exception {
-        setStorageState(false);
+        setStorageStateLow(false);
 
         kTestEnvironment.setExpectedExecutions(1);
         kTestEnvironment.setExpectedWaitForRun();
@@ -89,7 +89,7 @@ public class StorageConstraintTest extends BaseJobSchedulerTest {
      * Schedule a job that requires the device storage is not low, when it actually is low.
      */
     public void testNotLowConstraintFails() throws Exception {
-        setStorageState(true);
+        setStorageStateLow(true);
 
         kTestEnvironment.setExpectedExecutions(0);
         kTestEnvironment.setExpectedWaitForRun();
@@ -104,7 +104,7 @@ public class StorageConstraintTest extends BaseJobSchedulerTest {
         // And for good measure, ensure the job runs once storage is okay.
         kTestEnvironment.setExpectedExecutions(1);
         kTestEnvironment.setExpectedWaitForRun();
-        setStorageState(false);
+        setStorageStateLow(false);
         assertJobReady();
         kTestEnvironment.readyToRun();
         assertTrue("Job with storage not low constraint did not fire when storage not low.",
@@ -115,7 +115,7 @@ public class StorageConstraintTest extends BaseJobSchedulerTest {
      * Test that a job that requires the device storage is not low is stopped when it becomes low.
      */
     public void testJobStoppedWhenStorageLow() throws Exception {
-        setStorageState(false);
+        setStorageStateLow(false);
 
         kTestEnvironment.setExpectedExecutions(1);
         kTestEnvironment.setContinueAfterStart();
@@ -128,7 +128,7 @@ public class StorageConstraintTest extends BaseJobSchedulerTest {
         assertTrue("Job with storage not low constraint did not fire when storage not low.",
                 kTestEnvironment.awaitExecution());
 
-        setStorageState(true);
+        setStorageStateLow(true);
         assertTrue("Job with storage not low constraint was not stopped when storage became low.",
                 kTestEnvironment.awaitStopped());
     }

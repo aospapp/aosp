@@ -99,8 +99,11 @@ Status HloCostAnalysis::HandleElementwiseOp(
   auto opcode = hlo_instruction->opcode();
   // We treat transcendental operations separately since one transcendental
   // operation can correspond to several floating point ops.
+  // kLogistic is included in "trascendental" as it is implemented using
+  // trascendental ops (tanh or exp).
   if (opcode == HloOpcode::kExp || opcode == HloOpcode::kLog ||
-      opcode == HloOpcode::kPower || opcode == HloOpcode::kSqrt ||
+      opcode == HloOpcode::kLogistic || opcode == HloOpcode::kPower ||
+      opcode == HloOpcode::kSqrt || opcode == HloOpcode::kCbrt ||
       opcode == HloOpcode::kRsqrt || opcode == HloOpcode::kTanh ||
       opcode == HloOpcode::kSin || opcode == HloOpcode::kCos ||
       opcode == HloOpcode::kExpm1 || opcode == HloOpcode::kLog1p ||
@@ -143,7 +146,8 @@ int64 HloCostAnalysis::FusionParameterReadBytes(
     const HloInstruction* hlo) const {
   int64 size = 0;
   bool seen_trivial_user = false;
-  CHECK(hlo->IsFused() && hlo->opcode() == HloOpcode::kParameter);
+  CHECK(hlo->IsFused() && (hlo->opcode() == HloOpcode::kParameter ||
+                           hlo->opcode() == HloOpcode::kGetTupleElement));
   for (const HloInstruction* user : hlo->users()) {
     switch (user->opcode()) {
       case HloOpcode::kFusion: {
@@ -332,11 +336,34 @@ Status HloCostAnalysis::HandleDot(const HloInstruction* dot) {
   return Status::OK();
 }
 
-Status HloCostAnalysis::HandleInfeed(const HloInstruction*) {
+Status HloCostAnalysis::HandleInfeed(const HloInstruction* infeed) {
+  // Count nested infeed output tuples.
+  int64 size = 0;
+  for (const auto& indexed_shape : ShapeUtil::GetLeafShapes(infeed->shape())) {
+    size += GetShapeSize(indexed_shape.shape);
+    SetOutputBytesAccessed(indexed_shape.index,
+                           GetShapeSize(indexed_shape.shape));
+  }
+  SetOutputBytesAccessed(size);
+  current_properties_[kBytesAccessedKey] = size;
   return Status::OK();
 }
 
-Status HloCostAnalysis::HandleOutfeed(const HloInstruction*) {
+Status HloCostAnalysis::HandleOutfeed(const HloInstruction* outfeed) {
+  // Count nested outfeed operand tuples.
+  current_properties_[kBytesAccessedKey] = 0;
+  for (int64 i = 0; i < outfeed->operand_count(); ++i) {
+    const HloInstruction* operand = outfeed->operand(i);
+    int64 size = 0;
+    for (const auto& indexed_shape :
+         ShapeUtil::GetLeafShapes(operand->shape())) {
+      size += GetShapeSize(indexed_shape.shape);
+      SetOperandBytesAccessed(i, indexed_shape.index,
+                              GetShapeSize(indexed_shape.shape));
+    }
+    SetOperandBytesAccessed(i, size);
+    current_properties_[kBytesAccessedKey] += size;
+  }
   return Status::OK();
 }
 
@@ -393,8 +420,11 @@ Status HloCostAnalysis::HandleReduceWindow(
   for (const auto& dimension : window.dimensions()) {
     window_element_count *= dimension.size();
   }
+
   const int64 output_element_count =
-      ShapeUtil::ElementsIn(reduce_window->shape());
+      ShapeUtil::ElementsIn(reduce_window->shape().IsArray()
+                                ? reduce_window->shape()
+                                : reduce_window->shape().tuple_shapes(0));
   const int64 reduction_count =
       (window_element_count - 1) * output_element_count;
   for (const auto& property : sub_properties) {
@@ -483,6 +513,10 @@ Status HloCostAnalysis::HandleReshape(const HloInstruction*) {
   return Status::OK();
 }
 
+Status HloCostAnalysis::HandleDynamicReshape(const HloInstruction*) {
+  return Status::OK();
+}
+
 Status HloCostAnalysis::HandleBatchNormTraining(const HloInstruction*) {
   // TODO(b/62294698): Implement cost analysis for batch-norm-training.
   return Status::OK();
@@ -498,7 +532,10 @@ Status HloCostAnalysis::HandleBatchNormGrad(const HloInstruction*) {
   return Status::OK();
 }
 
-Status HloCostAnalysis::HandleTranspose(const HloInstruction*) {
+Status HloCostAnalysis::HandleTranspose(const HloInstruction* transpose) {
+  if (transpose->IsEffectiveBitcast()) {
+    return HandleBitcast(transpose);
+  }
   return Status::OK();
 }
 
@@ -704,6 +741,10 @@ Status HloCostAnalysis::HandleCholesky(const HloInstruction* hlo) {
   return Status::OK();
 }
 
+Status HloCostAnalysis::HandleAllGather(const HloInstruction* hlo) {
+  return Status::OK();
+}
+
 Status HloCostAnalysis::HandleAllReduce(const HloInstruction* crs) {
   // We assume 2 replicas, so that each output element is the sum of two input
   // elements.
@@ -729,6 +770,16 @@ Status HloCostAnalysis::HandleCollectivePermute(const HloInstruction* /*hlo*/) {
   return Status::OK();
 }
 
+Status HloCostAnalysis::HandleCollectivePermuteStart(
+    const HloInstruction* /*hlo*/) {
+  return Status::OK();
+}
+
+Status HloCostAnalysis::HandleCollectivePermuteDone(
+    const HloInstruction* /*hlo*/) {
+  return Status::OK();
+}
+
 Status HloCostAnalysis::HandlePartitionId(const HloInstruction* /*hlo*/) {
   return Status::OK();
 }
@@ -743,6 +794,15 @@ Status HloCostAnalysis::HandleRng(const HloInstruction* random) {
   // the cost of each RNG is same as a transcendental operation.
   current_properties_[kTranscendentalsKey] =
       ShapeUtil::ElementsIn(random->shape());
+  return Status::OK();
+}
+
+Status HloCostAnalysis::HandleRngBitGenerator(const HloInstruction* random) {
+  // TODO(b/26346211): Implement better estimates for the RNG cost, since the
+  // cost changes with the implementation and the distribution. For now, assume
+  // the cost of each RNG is same as a transcendental operation.
+  current_properties_[kTranscendentalsKey] =
+      ShapeUtil::ElementsInRecursive(random->shape());
   return Status::OK();
 }
 
@@ -836,9 +896,31 @@ Status HloCostAnalysis::HandleFusion(const HloInstruction* fusion) {
 
   for (int64 i = 0; i < fusion->fused_parameters().size(); ++i) {
     const HloInstruction* operand = fusion->fused_parameter(i);
-    int64 size = FusionParameterReadBytes(operand);
-    current_properties_[kBytesAccessedKey] += size;
-    SetOperandBytesAccessed(i, size);
+    int64 operand_size = 0;
+    if (!fusion->shape().IsTuple()) {
+      operand_size = FusionParameterReadBytes(operand);
+    } else {
+      // If the fusion parameter is a tuple type, find the gte for the leaf
+      // shape and calculate the bytes accessed for those array types.
+      for (const auto& indexed_shape :
+           ShapeUtil::GetLeafShapes(operand->shape())) {
+        const HloInstruction* gte = operand;
+        for (int64 index : indexed_shape.index) {
+          for (const HloInstruction* user : gte->users()) {
+            if (user->opcode() == HloOpcode::kGetTupleElement &&
+                user->tuple_index() == index) {
+              gte = user;
+              break;
+            }
+          }
+        }
+        int64 size = FusionParameterReadBytes(gte);
+        operand_size += size;
+        SetOperandBytesAccessed(i, indexed_shape.index, size);
+      }
+    }
+    current_properties_[kBytesAccessedKey] += operand_size;
+    SetOperandBytesAccessed(i, operand_size);
   }
 
   return Status::OK();
@@ -1013,6 +1095,42 @@ int64 HloCostAnalysis::output_bytes_accessed(const HloInstruction& hlo,
 
 float HloCostAnalysis::optimal_seconds(const HloInstruction& hlo) const {
   return GetPropertyForHlo(hlo, kOptimalSecondsKey, hlo_properties_);
+}
+
+int64 HloCostAnalysis::GetBytesRead(const HloInstruction& hlo,
+                                    absl::optional<int64> memory_space) const {
+  int64 bytes_read = 0;
+  for (int operand_number = 0; operand_number < hlo.operand_count();
+       ++operand_number) {
+    for (const ShapeUtil::IndexedShape& indexed_shape :
+         ShapeUtil::GetLeafShapes(hlo.operand(operand_number)->shape())) {
+      absl::optional<int64> index_memory_space;
+      if (indexed_shape.shape.has_layout()) {
+        index_memory_space = indexed_shape.shape.layout().memory_space();
+      }
+      if (!memory_space || memory_space == index_memory_space) {
+        bytes_read +=
+            operand_bytes_accessed(hlo, operand_number, indexed_shape.index);
+      }
+    }
+  }
+  return bytes_read;
+}
+
+int64 HloCostAnalysis::GetBytesWritten(
+    const HloInstruction& hlo, absl::optional<int64> memory_space) const {
+  int64 bytes_written = 0;
+  for (const ShapeUtil::IndexedShape& indexed_shape :
+       ShapeUtil::GetLeafShapes(hlo.shape())) {
+    absl::optional<int64> index_memory_space;
+    if (indexed_shape.shape.has_layout()) {
+      index_memory_space = indexed_shape.shape.layout().memory_space();
+    }
+    if (!memory_space || memory_space == index_memory_space) {
+      bytes_written += output_bytes_accessed(hlo, indexed_shape.index);
+    }
+  }
+  return bytes_written;
 }
 
 StatusOr<HloCostAnalysis::Properties> HloCostAnalysis::ProcessSubcomputation(

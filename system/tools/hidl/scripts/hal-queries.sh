@@ -138,3 +138,23 @@ function hidl-doc-generate-sources() {
     echo "Done: generated sources are in $outputDir"
 }
 
+# WARNING, must have all branches in question downloaded
+# Example:
+# $ cd $ANDROID_BUILD_TOP/hardware/interfaces
+# $ repo sync -j128 . # must not use -c
+# $ hidl_current_check aosp/oreo-release aosp/oreo-mr1-release aosp/pie-release # etc..
+#
+# This can be used to make sure interfaces are not removed.
+function hidl_current_check() {
+    local args=("$@")
+    for ((i=0;i<${#args[@]} - 1;++i)); do
+        local parent="${args[i]}"
+        local child="${args[i+1]}"
+        git show-ref -q $parent || { echo "$parent doesn't exist" && continue; }
+        echo "$parent .. $child"
+        diff <(git show "$parent":current.txt | grep -oP "^[^ ]+ [^ ]+" | sort) \
+             <(git show "$child":current.txt | grep -oP "^[^ ]+ [^ ]+" | sort) |
+             grep "<"
+    done
+}
+

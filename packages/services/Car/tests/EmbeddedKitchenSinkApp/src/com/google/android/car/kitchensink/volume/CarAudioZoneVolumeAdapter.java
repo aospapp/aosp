@@ -23,6 +23,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.ToggleButton;
 
 import com.google.android.car.kitchensink.R;
 import com.google.android.car.kitchensink.volume.VolumeTestFragment.CarAudioZoneVolumeInfo;
@@ -30,18 +31,20 @@ import com.google.android.car.kitchensink.volume.VolumeTestFragment.CarAudioZone
 public final class CarAudioZoneVolumeAdapter extends ArrayAdapter<CarAudioZoneVolumeInfo> {
 
     private final Context mContext;
+    private final boolean mGroupMuteEnabled;
     private CarAudioZoneVolumeInfo[] mVolumeList;
     private final int mLayoutResourceId;
     private CarAudioZoneVolumeFragment mFragment;
 
     public CarAudioZoneVolumeAdapter(Context context,
             int layoutResourceId, CarAudioZoneVolumeInfo[] volumeList,
-            CarAudioZoneVolumeFragment fragment) {
+            CarAudioZoneVolumeFragment fragment, boolean groupMuteEnabled) {
         super(context, layoutResourceId, volumeList);
         mFragment = fragment;
         mContext = context;
-        this.mLayoutResourceId = layoutResourceId;
-        this.mVolumeList = volumeList;
+        mLayoutResourceId = layoutResourceId;
+        mVolumeList = volumeList;
+        mGroupMuteEnabled = groupMuteEnabled;
     }
 
     @Override
@@ -53,6 +56,7 @@ public final class CarAudioZoneVolumeAdapter extends ArrayAdapter<CarAudioZoneVo
             vh.id = convertView.findViewById(R.id.stream_id);
             vh.maxVolume = convertView.findViewById(R.id.volume_limit);
             vh.currentVolume = convertView.findViewById(R.id.current_volume);
+            vh.muteButton = convertView.findViewById(R.id.volume_mute);
             vh.upButton = convertView.findViewById(R.id.volume_up);
             vh.downButton = convertView.findViewById(R.id.volume_down);
             vh.requestButton = convertView.findViewById(R.id.request);
@@ -61,28 +65,34 @@ public final class CarAudioZoneVolumeAdapter extends ArrayAdapter<CarAudioZoneVo
             vh = (ViewHolder) convertView.getTag();
         }
         if (mVolumeList[position] != null) {
-            vh.id.setText(mVolumeList[position].mId);
-            vh.maxVolume.setText(String.valueOf(mVolumeList[position].mMax));
-            vh.currentVolume.setText(String.valueOf(mVolumeList[position].mCurrent));
-            int color = mVolumeList[position].mHasFocus ? Color.GREEN : Color.GRAY;
+            vh.id.setText(mVolumeList[position].id);
+            vh.maxVolume.setText(String.valueOf(mVolumeList[position].maxGain));
+            vh.currentVolume.setText(String.valueOf(mVolumeList[position].currentGain));
+            int color = mVolumeList[position].hasAudioFocus ? Color.GREEN : Color.GRAY;
             vh.requestButton.setBackgroundColor(color);
             if (position == 0) {
                 vh.upButton.setVisibility(View.INVISIBLE);
                 vh.downButton.setVisibility(View.INVISIBLE);
                 vh.requestButton.setVisibility(View.INVISIBLE);
+                vh.muteButton.setVisibility(View.INVISIBLE);
             } else {
                 vh.upButton.setVisibility(View.VISIBLE);
                 vh.downButton.setVisibility(View.VISIBLE);
                 vh.requestButton.setVisibility(View.VISIBLE);
+                vh.muteButton.setVisibility(mGroupMuteEnabled ? View.VISIBLE : View.INVISIBLE);
                 vh.upButton.setOnClickListener((view) -> {
-                    mFragment.adjustVolumeByOne(mVolumeList[position].mGroupId, true);
+                    mFragment.adjustVolumeByOne(mVolumeList[position].groupId, true);
                 });
                 vh.downButton.setOnClickListener((view) -> {
-                    mFragment.adjustVolumeByOne(mVolumeList[position].mGroupId, false);
+                    mFragment.adjustVolumeByOne(mVolumeList[position].groupId, false);
+                });
+                vh.muteButton.setChecked(mVolumeList[position].isMuted);
+                vh.muteButton.setOnClickListener((view) -> {
+                    mFragment.toggleMute(mVolumeList[position].groupId);
                 });
 
                 vh.requestButton.setOnClickListener((view) -> {
-                    mFragment.requestFocus(mVolumeList[position].mGroupId);
+                    mFragment.requestFocus(mVolumeList[position].groupId);
                 });
             }
         }
@@ -103,6 +113,7 @@ public final class CarAudioZoneVolumeAdapter extends ArrayAdapter<CarAudioZoneVo
         public TextView id;
         public TextView maxVolume;
         public TextView currentVolume;
+        public ToggleButton muteButton;
         public Button upButton;
         public Button downButton;
         public Button requestButton;

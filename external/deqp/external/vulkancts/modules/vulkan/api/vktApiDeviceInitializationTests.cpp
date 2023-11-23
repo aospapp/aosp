@@ -34,6 +34,7 @@
 #include "vkMemUtil.hpp"
 #include "vkDeviceUtil.hpp"
 #include "vkApiVersion.hpp"
+#include "vkAllocationCallbackUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuResultCollector.hpp"
@@ -555,6 +556,58 @@ tcu::TestStatus createInstanceWithLayerNameAbuseTest (Context& context)
 	return tcu::TestStatus::pass("Pass, creating instances with unsupported layers were rejected.");
 }
 
+tcu::TestStatus enumerateDevicesAllocLeakTest(Context& context)
+{
+	// enumeratePhysicalDevices uses instance-provided allocator
+	// and this test checks if all alocated memory is freed
+
+	typedef AllocationCallbackRecorder::RecordIterator RecordIterator;
+
+	const PlatformInterface&	vkp				(context.getPlatformInterface());
+	const deUint32				apiVersion		(context.getUsedApiVersion());
+	DeterministicFailAllocator	objAllocator	(getSystemAllocator(), DeterministicFailAllocator::MODE_DO_NOT_COUNT, 0);
+	AllocationCallbackRecorder	recorder		(objAllocator.getCallbacks(), 128);
+	Move<VkInstance>			instance		(vk::createDefaultInstance(vkp, apiVersion, {}, {}, recorder.getCallbacks()));
+	InstanceDriver				vki				(vkp, *instance);
+	vector<VkPhysicalDevice>	devices			(enumeratePhysicalDevices(vki, *instance));
+	RecordIterator				recordToCheck	(recorder.getRecordsEnd());
+
+	try
+	{
+		devices = enumeratePhysicalDevices(vki, *instance);
+	}
+	catch (const vk::OutOfMemoryError& e)
+	{
+		if (e.getError() != VK_ERROR_OUT_OF_HOST_MEMORY)
+			return tcu::TestStatus(QP_TEST_RESULT_QUALITY_WARNING, "Got out of memory error - leaks in enumeratePhysicalDevices not tested.");
+	}
+
+	// make sure that same number of allocations and frees was done
+	deInt32			allocationRecords	(0);
+	RecordIterator	lastRecordToCheck	(recorder.getRecordsEnd());
+	while (recordToCheck != lastRecordToCheck)
+	{
+		const AllocationCallbackRecord& record = *recordToCheck;
+		switch (record.type)
+		{
+		case AllocationCallbackRecord::TYPE_ALLOCATION:
+			++allocationRecords;
+			break;
+		case AllocationCallbackRecord::TYPE_FREE:
+			if (record.data.free.mem != DE_NULL)
+				--allocationRecords;
+			break;
+		default:
+			break;
+		}
+		++recordToCheck;
+	}
+
+	if (allocationRecords)
+		return tcu::TestStatus::fail("enumeratePhysicalDevices leaked memory");
+	return tcu::TestStatus::pass("Ok");
+}
+
 tcu::TestStatus createDeviceTest (Context& context)
 {
 	const PlatformInterface&		platformInterface		= context.getPlatformInterface();
@@ -836,6 +889,105 @@ tcu::TestStatus createDeviceWithVariousQueueCountsTest (Context& context)
 			}
 		}
 	}
+	return tcu::TestStatus::pass("Pass");
+}
+
+void checkGlobalPrioritySupport (Context& context)
+{
+	context.requireDeviceFunctionality("VK_EXT_global_priority");
+}
+
+tcu::TestStatus createDeviceWithGlobalPriorityTest (Context& context)
+{
+	tcu::TestLog&							log						= context.getTestContext().getLog();
+	const PlatformInterface&				platformInterface		= context.getPlatformInterface();
+	const CustomInstance					instance				(createCustomInstanceFromContext(context));
+	const InstanceDriver&					instanceDriver			(instance.getDriver());
+	const VkPhysicalDevice					physicalDevice			= chooseDevice(instanceDriver, instance, context.getTestContext().getCommandLine());
+	const vector<float>						queuePriorities			(1, 1.0f);
+	const VkQueueGlobalPriorityEXT			globalPriorities[]		= { VK_QUEUE_GLOBAL_PRIORITY_LOW_EXT, VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT, VK_QUEUE_GLOBAL_PRIORITY_HIGH_EXT, VK_QUEUE_GLOBAL_PRIORITY_REALTIME_EXT };
+
+	for (VkQueueGlobalPriorityEXT globalPriority : globalPriorities)
+	{
+		const VkDeviceQueueGlobalPriorityCreateInfoEXT	queueGlobalPriority		=
+		{
+			VK_STRUCTURE_TYPE_DEVICE_QUEUE_GLOBAL_PRIORITY_CREATE_INFO_EXT,	//sType;
+			DE_NULL,														//pNext;
+			globalPriority													//globalPriority;
+		};
+
+		const VkDeviceQueueCreateInfo	queueCreateInfo		=
+		{
+			VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,	//sType;
+			&queueGlobalPriority,						//pNext;
+			(VkDeviceQueueCreateFlags)0u,				//flags;
+			0,											//queueFamilyIndex;
+			1,											//queueCount;
+			queuePriorities.data()						//pQueuePriorities;
+		};
+
+		const VkDeviceCreateInfo		deviceCreateInfo	=
+		{
+			VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,	//sType;
+			DE_NULL,								//pNext;
+			(VkDeviceCreateFlags)0u,				//flags;
+			1,										//queueRecordCount;
+			&queueCreateInfo,						//pRequestedQueues;
+			0,										//layerCount;
+			DE_NULL,								//ppEnabledLayerNames;
+			0,										//extensionCount;
+			DE_NULL,								//ppEnabledExtensionNames;
+			DE_NULL,								//pEnabledFeatures;
+		};
+
+		const bool		mayBeDenied				= globalPriority > VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT;
+
+		try
+		{
+			const Unique<VkDevice>		device				(createCustomDevice(context.getTestContext().getCommandLine().isValidationEnabled(), platformInterface, instance, instanceDriver, physicalDevice, &deviceCreateInfo));
+			const DeviceDriver			deviceDriver		(platformInterface, instance, device.get());
+			const deUint32				queueFamilyIndex	= deviceCreateInfo.pQueueCreateInfos->queueFamilyIndex;
+			const VkQueue				queue				= getDeviceQueue(deviceDriver, *device, queueFamilyIndex, 0);
+			VkResult					result;
+
+			TCU_CHECK(!!queue);
+
+			result = deviceDriver.queueWaitIdle(queue);
+			if (result == VK_ERROR_NOT_PERMITTED_EXT && mayBeDenied)
+			{
+				continue;
+			}
+
+			if (result != VK_SUCCESS)
+			{
+				log << TestLog::Message
+					<< "vkQueueWaitIdle failed"
+					<< ", globalPriority = " << globalPriority
+					<< ", queueCreateInfo " << queueCreateInfo
+					<< ", Error Code: " << result
+					<< TestLog::EndMessage;
+				return tcu::TestStatus::fail("Fail");
+			}
+		}
+		catch (const Error& error)
+		{
+			if (error.getError() == VK_ERROR_NOT_PERMITTED_EXT && mayBeDenied)
+			{
+				continue;
+			}
+			else
+			{
+				log << TestLog::Message
+					<< "exception thrown " << error.getMessage()
+					<< ", globalPriority = " << globalPriority
+					<< ", queueCreateInfo " << queueCreateInfo
+					<< ", Error Code: " << error.getError()
+					<< TestLog::EndMessage;
+				return tcu::TestStatus::fail("Fail");
+			}
+		}
+	}
+
 	return tcu::TestStatus::pass("Pass");
 }
 
@@ -1569,10 +1721,12 @@ tcu::TestCaseGroup* createDeviceInitializationTests (tcu::TestContext& testCtx)
 	addFunctionCase(deviceInitializationTests.get(), "create_instance_unsupported_extensions",			"", createInstanceWithUnsupportedExtensionsTest);
 	addFunctionCase(deviceInitializationTests.get(), "create_instance_extension_name_abuse",			"", createInstanceWithExtensionNameAbuseTest);
 	addFunctionCase(deviceInitializationTests.get(), "create_instance_layer_name_abuse",				"", createInstanceWithLayerNameAbuseTest);
+	addFunctionCase(deviceInitializationTests.get(), "enumerate_devices_alloc_leak",					"", enumerateDevicesAllocLeakTest);
 	addFunctionCase(deviceInitializationTests.get(), "create_device",									"", createDeviceTest);
 	addFunctionCase(deviceInitializationTests.get(), "create_multiple_devices",							"", createMultipleDevicesTest);
 	addFunctionCase(deviceInitializationTests.get(), "create_device_unsupported_extensions",			"", createDeviceWithUnsupportedExtensionsTest);
 	addFunctionCase(deviceInitializationTests.get(), "create_device_various_queue_counts",				"", createDeviceWithVariousQueueCountsTest);
+	addFunctionCase(deviceInitializationTests.get(), "create_device_global_priority",					"", checkGlobalPrioritySupport, createDeviceWithGlobalPriorityTest);
 	addFunctionCase(deviceInitializationTests.get(), "create_device_features2",							"", createDeviceFeatures2Test);
 	addFunctionCase(deviceInitializationTests.get(), "create_device_unsupported_features",				"", createDeviceWithUnsupportedFeaturesTest);
 	addFunctionCase(deviceInitializationTests.get(), "create_device_queue2",							"", createDeviceQueue2Test);

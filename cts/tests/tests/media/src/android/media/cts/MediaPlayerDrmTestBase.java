@@ -175,19 +175,28 @@ public class MediaPlayerDrmTestBase extends ActivityInstrumentationTestCase2<Med
     // the asset such that each asset is downloaded once and played back with multiple tests.
     protected void playModularDrmVideoDownload(Uri uri, Uri path, int width, int height,
             ModularDrmTestType testType) throws Exception {
-        final long DOWNLOAD_TIMEOUT_SECONDS = 600;
-        Log.i(TAG, "Downloading file:" + path);
+        Uri file = uri;
+        long id = -1;
         MediaDownloadManager mediaDownloadManager = new MediaDownloadManager(mContext);
-        final long id = mediaDownloadManager.downloadFileWithRetries(
-                uri, path, DOWNLOAD_TIMEOUT_SECONDS, STREAM_RETRIES);
-        assertFalse("Download " + uri + " failed.", id == -1);
-        Uri file = mediaDownloadManager.getUriForDownloadedFile(id);
-        Log.i(TAG, "Downloaded file:" + path + " id:" + id + " uri:" + file);
+        if (uri.getScheme().startsWith("file")) {
+            Log.i(TAG, "Playing existing file:" + uri);
+            // file = uri;
+        } else {
+            final long DOWNLOAD_TIMEOUT_SECONDS = 600;
+            Log.i(TAG, "Downloading file:" + path);
+            id = mediaDownloadManager.downloadFileWithRetries(
+                    uri, path, DOWNLOAD_TIMEOUT_SECONDS, STREAM_RETRIES);
+            assertFalse("Download " + uri + " failed.", id == -1);
+            file = mediaDownloadManager.getUriForDownloadedFile(id);
+            Log.i(TAG, "Downloaded file:" + path + " id:" + id + " uri:" + file);
+        }
 
         try {
             playModularDrmVideo(file, width, height, testType);
         } finally {
-            mediaDownloadManager.removeFile(id);
+            if (id != -1) {
+                mediaDownloadManager.removeFile(id);
+            }
         }
     }
 

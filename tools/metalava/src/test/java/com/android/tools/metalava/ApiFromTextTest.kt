@@ -793,10 +793,18 @@ class ApiFromTextTest : DriverTest() {
                 }
                 """
 
+        val expectedApi = """
+                package android.app {
+                  public static class ActionBar {
+                    field public int gravity;
+                  }
+                }
+                """
+
         check(
             compatibilityMode = false,
             signatureSource = source,
-            api = source
+            api = expectedApi
         )
     }
 }

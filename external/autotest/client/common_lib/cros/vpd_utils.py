@@ -90,13 +90,17 @@ def vpd_set(host, vpd_dict, partition='RW_VPD', dump=False, force_dump=False,
         dump_vpd_log(host, force=force_dump, retries=retries)
 
 
-def vpd_delete(host, key, partition='RW_VPD', retries=3):
+def vpd_delete(host, key, partition='RW_VPD', dump=False, force_dump=False,
+               retries=3):
     """
     Deletes the specified key from the specified VPD partition.
 
     @param host: Host to run the command on.
     @param key: The VPD value to delete.
     @param partition: Which partition to access. 'RO_VPD' or 'RW_VPD'.
+    @param dump: If True, also run dump_vpd_log command after deleting the
+                 vpd value.
+    @param force_dump: Whether or not to forcefully dump the vpd log.
     @param retries: Number of times to try rerunning the command in case of
                     error.
 
@@ -108,3 +112,6 @@ def vpd_delete(host, key, partition='RW_VPD', retries=3):
     del_cmd = _VPD_BASE_CMD % (partition, '-d', key)
     retry_util.RetryException(error.AutoservRunError, retries, host.run,
                               del_cmd).stdout
+
+    if dump:
+        dump_vpd_log(host, force=force_dump, retries=retries)

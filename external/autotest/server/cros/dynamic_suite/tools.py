@@ -1,18 +1,22 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import random
 import re
+import six
 
 import common
 
 from autotest_lib.client.common_lib import global_config
 
-
 _CONFIG = global_config.global_config
-
 
 # comments injected into the control file.
 _INJECT_BEGIN = '# INJECT_BEGIN - DO NOT DELETE THIS LINE'
@@ -216,7 +220,7 @@ def inject_vars(vars, control_file_in):
     """
     control_file = ''
     control_file += _INJECT_BEGIN + '\n'
-    for key, value in vars.iteritems():
+    for key, value in six.iteritems(vars):
         # None gets injected as 'None' without this check; same for digits.
         if isinstance(value, str):
             control_file += "%s=%s\n" % (key, repr(value))

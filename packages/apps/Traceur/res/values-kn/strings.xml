@@ -20,6 +20,9 @@
     <string name="saving_trace" msgid="1468692734770800541">"ಟ್ರೇಸ್ ಅನ್ನು ಉಳಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="trace_saved" msgid="5869970594780992309">"ಟ್ರೇಸ್ ಅನ್ನು ಉಳಿಸಲಾಗಿದೆ"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"ನಿಮ್ಮ ಟ್ರೇಸ್ ಅನ್ನು ಹಂಚಿಕೊಳ್ಳಲು ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"ಬಗ್ ವರದಿಗೆ ಟ್ರೇಸ್ ಅನ್ನು ಲಗತ್ತಿಸಲಾಗುತ್ತಿದೆ"</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"ಬಗ್ ವರದಿಗೆ ಟ್ರೇಸ್ ಅನ್ನು ಲಗತ್ತಿಸಲಾಗಿದೆ"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"BetterBug ತೆರೆಯಲು ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
     <string name="stop_tracing" msgid="8916938308534164152">"ಟ್ರೇಸಿಂಗ್ ಅನ್ನು ನಿಲ್ಲಿಸಿ"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"ಕೆಲವು ಟ್ರೇಸಿಂಗ್ ವಿಭಾಗಗಳು ಲಭ್ಯವಿಲ್ಲ:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"ಟ್ರೇಸ್ ಅನ್ನು ರೆಕಾರ್ಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ"</string>
@@ -56,4 +59,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65536 KB"</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"ದೋಷದ ವರದಿಗಳನ್ನು ಟ್ರೇಸ್ ಮಾಡುವುದನ್ನು ನಿಲ್ಲಿಸಿ"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"ಬಗ್ ವರದಿಮಾಡುವಿಕೆ ಪ್ರಾರಂಭವಾದಾಗ ಸಕ್ರಿಯವಾಗಿರುವ ಟ್ರೇಸ್ ರೆಕಾರ್ಡಿಂಗ್‌ಗಳನ್ನು ಕೊನೆಗೊಳಿಸುತ್ತದೆ"</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"ಬಗ್ ವರದಿಗಳಿಗೆ ಟ್ರೇಸ್‌ಗಳನ್ನು ಲಗತ್ತಿಸಿ"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"ಬಗ್ ವರದಿಯೊಂದನ್ನು ಸಂಗ್ರಹಿಸಿದಾಗ BetterBug ಗೆ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಪ್ರಗತಿಯಲ್ಲಿರುವ ಟ್ರೇಸ್‌ಗಳನ್ನು ಕಳುಹಿಸಿ"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"ಟ್ರೇಸ್ ಫೈಲ್‌ಗಳನ್ನು ವೀಕ್ಷಿಸಿ"</string>
 </resources>

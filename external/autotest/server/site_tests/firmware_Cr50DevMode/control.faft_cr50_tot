@@ -10,7 +10,7 @@ PURPOSE = "Verify cr50 dev mode."
 ATTRIBUTES = "suite:faft_cr50_tot"
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Verify cr50 can tell the state of the dev mode switch.

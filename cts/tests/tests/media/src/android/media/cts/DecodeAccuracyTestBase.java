@@ -46,6 +46,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.Pair;
@@ -70,6 +71,7 @@ import org.junit.Rule;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -362,7 +364,7 @@ public class DecodeAccuracyTestBase {
         private boolean setExtractorDataSource(VideoFormat videoFormat) {
             checkNotNull(videoFormat);
             try {
-                final AssetFileDescriptor afd = videoFormat.getAssetFileDescriptor(context);
+                final AssetFileDescriptor afd = videoFormat.getAssetFileDescriptor();
                 extractor.setDataSource(
                         afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
                 afd.close();
@@ -546,7 +548,7 @@ public class DecodeAccuracyTestBase {
             }
 
             public PlayerResult() {
-                // Dummy PlayerResult.
+                // Fake PlayerResult.
                 this(false, false, false, UNSET);
             }
 
@@ -1663,13 +1665,11 @@ class VideoFormat {
         return getParsedName().toPrettyString();
     }
 
-    public AssetFileDescriptor getAssetFileDescriptor(Context context) {
-        try {
-            return context.getAssets().openFd(filename);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
+    public AssetFileDescriptor getAssetFileDescriptor() throws FileNotFoundException {
+        File inpFile = new File(WorkDir.getMediaDirString() + "assets/decode_accuracy/" + filename);
+        ParcelFileDescriptor parcelFD =
+                ParcelFileDescriptor.open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
+        return new AssetFileDescriptor(parcelFD, 0, parcelFD.getStatSize());
     }
 
 }
@@ -1797,7 +1797,7 @@ class BitmapCompare {
         }
         return new Difference(greatestDifference, Pair.create(
             greatestDifferenceIndex % bitmap1.getWidth(),
-            greatestDifferenceIndex / bitmap1.getHeight()));
+            greatestDifferenceIndex / bitmap1.getWidth()));
     }
 
     @SuppressLint("UseSparseArrays")

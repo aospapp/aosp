@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-#include    "LVPSA.h"
-#include    "LVPSA_Private.h"
-#include    "InstAlloc.h"
+#include <stdlib.h>
+#include "LVPSA.h"
+#include "LVPSA_Private.h"
 
 /************************************************************************************/
 /*                                                                                  */
 /* FUNCTION:            LVPSA_Init                                                  */
 /*                                                                                  */
 /* DESCRIPTION:                                                                     */
-/*  Initialize the LVPSA module                                                     */
+/*  Create and Initialize the LVPSA module including instance handle                */
 /*                                                                                  */
 /*                                                                                  */
 /* PARAMETERS:                                                                      */
-/*  phInstance          Pointer to pointer to the instance                          */
+/*  phInstance          Pointer to the instance handle                              */
 /*  InitParams          Init parameters structure                                   */
 /*  ControlParams       Control parameters structure                                */
-/*  pMemoryTable        Memory table that contains memory areas definition          */
+/*  pScratch            Pointer to bundle scratch memory area                       */
 /*                                                                                  */
 /*                                                                                  */
 /* RETURNS:                                                                         */
@@ -39,75 +39,19 @@
 /*  otherwise           Error due to bad parameters                                 */
 /*                                                                                  */
 /************************************************************************************/
-LVPSA_RETURN LVPSA_Init              ( pLVPSA_Handle_t             *phInstance,
-                                       LVPSA_InitParams_t          *pInitParams,
-                                       LVPSA_ControlParams_t       *pControlParams,
-                                       LVPSA_MemTab_t              *pMemoryTable )
-{
-    LVPSA_InstancePr_t          *pLVPSA_Inst;
-    LVPSA_RETURN                errorCode       = LVPSA_OK;
-    LVM_UINT32                  ii;
-    extern LVM_FLOAT            LVPSA_Float_GainTable[];
-    LVM_UINT32                  BufferLength = 0;
-
-    /* Ints_Alloc instances, needed for memory alignment management */
-    INST_ALLOC          Instance;
-    INST_ALLOC          Scratch;
-    INST_ALLOC          Data;
-    INST_ALLOC          Coef;
-
-    /* Check parameters */
-    if((phInstance == LVM_NULL) || (pInitParams == LVM_NULL) || (pControlParams == LVM_NULL) || (pMemoryTable == LVM_NULL))
-    {
-        return(LVPSA_ERROR_NULLADDRESS);
-    }
-    if( (pInitParams->SpectralDataBufferDuration > LVPSA_MAXBUFFERDURATION)   ||
-        (pInitParams->SpectralDataBufferDuration == 0)                        ||
-        (pInitParams->MaxInputBlockSize > LVPSA_MAXINPUTBLOCKSIZE)      ||
-        (pInitParams->MaxInputBlockSize == 0)                           ||
-        (pInitParams->nBands < LVPSA_NBANDSMIN)                         ||
-        (pInitParams->nBands > LVPSA_NBANDSMAX)                         ||
-        (pInitParams->pFiltersParams == 0))
-    {
-        return(LVPSA_ERROR_INVALIDPARAM);
-    }
-    for(ii = 0; ii < pInitParams->nBands; ii++)
-    {
-        if((pInitParams->pFiltersParams[ii].CenterFrequency > LVPSA_MAXCENTERFREQ) ||
-           (pInitParams->pFiltersParams[ii].PostGain        > LVPSA_MAXPOSTGAIN)   ||
-           (pInitParams->pFiltersParams[ii].PostGain        < LVPSA_MINPOSTGAIN)   ||
-           (pInitParams->pFiltersParams[ii].QFactor < LVPSA_MINQFACTOR)            ||
-           (pInitParams->pFiltersParams[ii].QFactor > LVPSA_MAXQFACTOR))
-           {
-                return(LVPSA_ERROR_INVALIDPARAM);
-           }
-    }
-
-    /*Inst_Alloc instances initialization */
-    InstAlloc_Init( &Instance   , pMemoryTable->Region[LVPSA_MEMREGION_INSTANCE].pBaseAddress);
-    InstAlloc_Init( &Scratch    , pMemoryTable->Region[LVPSA_MEMREGION_SCRATCH].pBaseAddress);
-    InstAlloc_Init( &Data       , pMemoryTable->Region[LVPSA_MEMREGION_PERSISTENT_DATA].pBaseAddress);
-    InstAlloc_Init( &Coef       , pMemoryTable->Region[LVPSA_MEMREGION_PERSISTENT_COEF].pBaseAddress);
+LVPSA_RETURN LVPSA_Init(pLVPSA_Handle_t* phInstance, LVPSA_InitParams_t* pInitParams,
+                        LVPSA_ControlParams_t* pControlParams, void* pScratch) {
+    LVPSA_InstancePr_t* pLVPSA_Inst;
+    LVPSA_RETURN errorCode = LVPSA_OK;
+    LVM_UINT32 ii;
+    extern LVM_FLOAT LVPSA_Float_GainTable[];
+    LVM_UINT32 BufferLength = 0;
 
     /* Set the instance handle if not already initialised */
-    if (*phInstance == LVM_NULL)
-    {
-        *phInstance = InstAlloc_AddMember( &Instance, sizeof(LVPSA_InstancePr_t) );
-    }
-    pLVPSA_Inst =(LVPSA_InstancePr_t*)*phInstance;
+    *phInstance = new LVPSA_InstancePr_t{};
+    pLVPSA_Inst = (LVPSA_InstancePr_t*)*phInstance;
 
-    /* Check the memory table for NULL pointers */
-    for (ii = 0; ii < LVPSA_NR_MEMORY_REGIONS; ii++)
-    {
-        if (pMemoryTable->Region[ii].Size!=0)
-        {
-            if (pMemoryTable->Region[ii].pBaseAddress==LVM_NULL)
-            {
-                return(LVPSA_ERROR_NULLADDRESS);
-            }
-            pLVPSA_Inst->MemoryTable.Region[ii] = pMemoryTable->Region[ii];
-        }
-    }
+    pLVPSA_Inst->pScratch = pScratch;
 
     /* Initialize module's internal parameters */
     pLVPSA_Inst->bControlPending = LVM_FALSE;
@@ -117,81 +61,132 @@ LVPSA_RETURN LVPSA_Init              ( pLVPSA_Handle_t             *phInstance,
     pLVPSA_Inst->CurrentParams.Fs = LVM_FS_DUMMY;
     pLVPSA_Inst->CurrentParams.LevelDetectionSpeed = LVPSA_SPEED_DUMMY;
 
-    {   /* for avoiding QAC warnings */
-        LVM_INT32 SDBD=(LVM_INT32)pLVPSA_Inst->SpectralDataBufferDuration;
-        LVM_INT32 IRTI=(LVM_INT32)LVPSA_InternalRefreshTimeInv;
+    { /* for avoiding QAC warnings */
+        LVM_INT32 SDBD = (LVM_INT32)pLVPSA_Inst->SpectralDataBufferDuration;
+        LVM_INT32 IRTI = (LVM_INT32)LVPSA_InternalRefreshTimeInv;
         LVM_INT32 BL;
 
-        MUL32x32INTO32(SDBD,IRTI,BL,LVPSA_InternalRefreshTimeShift)
+        MUL32x32INTO32(SDBD, IRTI, BL, LVPSA_InternalRefreshTimeShift)
 
-        BufferLength=(LVM_UINT32)BL;
+                BufferLength = (LVM_UINT32)BL;
     }
 
-    if((BufferLength * LVPSA_InternalRefreshTime) != pLVPSA_Inst->SpectralDataBufferDuration)
-    {
+    if ((BufferLength * LVPSA_InternalRefreshTime) != pLVPSA_Inst->SpectralDataBufferDuration) {
         pLVPSA_Inst->SpectralDataBufferLength = BufferLength + 1;
-    }
-    else
-    {
+    } else {
         pLVPSA_Inst->SpectralDataBufferLength = BufferLength;
     }
 
     /* Assign the pointers */
-    pLVPSA_Inst->pPostGains             =
-        (LVM_FLOAT *)InstAlloc_AddMember(&Instance, pInitParams->nBands * sizeof(LVM_FLOAT));
-    pLVPSA_Inst->pFiltersParams             = (LVPSA_FilterParam_t *)
-        InstAlloc_AddMember(&Instance, pInitParams->nBands * sizeof(LVPSA_FilterParam_t));
-    pLVPSA_Inst->pSpectralDataBufferStart   = (LVM_UINT8 *)
-        InstAlloc_AddMember(&Instance, pInitParams->nBands * \
-                                pLVPSA_Inst->SpectralDataBufferLength * sizeof(LVM_UINT8));
-    pLVPSA_Inst->pPreviousPeaks             = (LVM_UINT8 *)
-                  InstAlloc_AddMember(&Instance, pInitParams->nBands * sizeof(LVM_UINT8));
-    pLVPSA_Inst->pBPFiltersPrecision        = (LVPSA_BPFilterPrecision_en *)
-                  InstAlloc_AddMember(&Instance, pInitParams->nBands * \
-                                                       sizeof(LVPSA_BPFilterPrecision_en));
-    pLVPSA_Inst->pBP_Instances          = (Biquad_FLOAT_Instance_t *)
-                  InstAlloc_AddMember(&Coef, pInitParams->nBands * \
-                                                          sizeof(Biquad_FLOAT_Instance_t));
-    pLVPSA_Inst->pQPD_States            = (QPD_FLOAT_State_t *)
-                  InstAlloc_AddMember(&Coef, pInitParams->nBands * \
-                                                                sizeof(QPD_FLOAT_State_t));
-
-    pLVPSA_Inst->pBP_Taps               = (Biquad_1I_Order2_FLOAT_Taps_t *)
-        InstAlloc_AddMember(&Data, pInitParams->nBands * \
-                                                     sizeof(Biquad_1I_Order2_FLOAT_Taps_t));
-    pLVPSA_Inst->pQPD_Taps              = (QPD_FLOAT_Taps_t *)
-        InstAlloc_AddMember(&Data, pInitParams->nBands * \
-                                                    sizeof(QPD_FLOAT_Taps_t));
+    pLVPSA_Inst->pPostGains =
+            (LVM_FLOAT*)calloc(pInitParams->nBands, sizeof(*(pLVPSA_Inst->pPostGains)));
+    if (pLVPSA_Inst->pPostGains == LVM_NULL) {
+        return LVPSA_ERROR_NULLADDRESS;
+    }
+    pLVPSA_Inst->pFiltersParams = (LVPSA_FilterParam_t*)calloc(
+            pInitParams->nBands, sizeof(*(pLVPSA_Inst->pFiltersParams)));
+    if (pLVPSA_Inst->pFiltersParams == LVM_NULL) {
+        return LVPSA_ERROR_NULLADDRESS;
+    }
+    pLVPSA_Inst->pSpectralDataBufferStart = (LVM_UINT8*)calloc(
+            pInitParams->nBands, pLVPSA_Inst->SpectralDataBufferLength *
+                                         sizeof(*(pLVPSA_Inst->pSpectralDataBufferStart)));
+    if (pLVPSA_Inst->pSpectralDataBufferStart == LVM_NULL) {
+        return LVPSA_ERROR_NULLADDRESS;
+    }
+    pLVPSA_Inst->pPreviousPeaks =
+            (LVM_UINT8*)calloc(pInitParams->nBands, sizeof(*(pLVPSA_Inst->pPreviousPeaks)));
+    if (pLVPSA_Inst->pPreviousPeaks == LVM_NULL) {
+        return LVPSA_ERROR_NULLADDRESS;
+    }
+    pLVPSA_Inst->pBPFiltersPrecision = (LVPSA_BPFilterPrecision_en*)calloc(
+            pInitParams->nBands, sizeof(*(pLVPSA_Inst->pBPFiltersPrecision)));
+    if (pLVPSA_Inst->pBPFiltersPrecision == LVM_NULL) {
+        return LVPSA_ERROR_NULLADDRESS;
+    }
+    pLVPSA_Inst->pQPD_States =
+            (QPD_FLOAT_State_t*)calloc(pInitParams->nBands, sizeof(*(pLVPSA_Inst->pQPD_States)));
+    if (pLVPSA_Inst->pQPD_States == LVM_NULL) {
+        return LVPSA_ERROR_NULLADDRESS;
+    }
+    pLVPSA_Inst->pQPD_Taps =
+            (QPD_FLOAT_Taps_t*)calloc(pInitParams->nBands, sizeof(*(pLVPSA_Inst->pQPD_Taps)));
+    if (pLVPSA_Inst->pQPD_Taps == LVM_NULL) {
+        return LVPSA_ERROR_NULLADDRESS;
+    }
 
     /* Copy filters parameters in the private instance */
-    for(ii = 0; ii < pLVPSA_Inst->nBands; ii++)
-    {
+    for (ii = 0; ii < pLVPSA_Inst->nBands; ii++) {
         pLVPSA_Inst->pFiltersParams[ii] = pInitParams->pFiltersParams[ii];
     }
 
     /* Set Post filters gains*/
-    for(ii = 0; ii < pLVPSA_Inst->nBands; ii++)
-    {
-        pLVPSA_Inst->pPostGains[ii] = LVPSA_Float_GainTable[15 + \
-                                                        pInitParams->pFiltersParams[ii].PostGain];
+    for (ii = 0; ii < pLVPSA_Inst->nBands; ii++) {
+        pLVPSA_Inst->pPostGains[ii] =
+                LVPSA_Float_GainTable[15 + pInitParams->pFiltersParams[ii].PostGain];
     }
     pLVPSA_Inst->pSpectralDataBufferWritePointer = pLVPSA_Inst->pSpectralDataBufferStart;
 
     /* Initialize control dependant internal parameters */
-    errorCode = LVPSA_Control (*phInstance, pControlParams);
+    errorCode = LVPSA_Control(*phInstance, pControlParams);
 
-    if(errorCode!=0)
-    {
+    if (errorCode != 0) {
         return errorCode;
     }
 
-    errorCode = LVPSA_ApplyNewSettings (pLVPSA_Inst);
+    errorCode = LVPSA_ApplyNewSettings(pLVPSA_Inst);
 
-    if(errorCode!=0)
-    {
+    if (errorCode != 0) {
         return errorCode;
     }
 
-    return(errorCode);
+    return (errorCode);
 }
 
+/************************************************************************************/
+/*                                                                                  */
+/* FUNCTION:            LVPSA_DeInit                                                */
+/*                                                                                  */
+/* DESCRIPTION:                                                                     */
+/*    Free the memories created in LVPSA_Init call including instance handle        */
+/*                                                                                  */
+/* PARAMETERS:                                                                      */
+/*  phInstance          Pointer to the instance handle                              */
+/*                                                                                  */
+/************************************************************************************/
+void LVPSA_DeInit(pLVPSA_Handle_t* phInstance) {
+    LVPSA_InstancePr_t* pLVPSA_Inst = (LVPSA_InstancePr_t*)*phInstance;
+    if (pLVPSA_Inst == LVM_NULL) {
+        return;
+    }
+    if (pLVPSA_Inst->pPostGains != LVM_NULL) {
+        free(pLVPSA_Inst->pPostGains);
+        pLVPSA_Inst->pPostGains = LVM_NULL;
+    }
+    if (pLVPSA_Inst->pFiltersParams != LVM_NULL) {
+        free(pLVPSA_Inst->pFiltersParams);
+        pLVPSA_Inst->pFiltersParams = LVM_NULL;
+    }
+    if (pLVPSA_Inst->pSpectralDataBufferStart != LVM_NULL) {
+        free(pLVPSA_Inst->pSpectralDataBufferStart);
+        pLVPSA_Inst->pSpectralDataBufferStart = LVM_NULL;
+    }
+    if (pLVPSA_Inst->pPreviousPeaks != LVM_NULL) {
+        free(pLVPSA_Inst->pPreviousPeaks);
+        pLVPSA_Inst->pPreviousPeaks = LVM_NULL;
+    }
+    if (pLVPSA_Inst->pBPFiltersPrecision != LVM_NULL) {
+        free(pLVPSA_Inst->pBPFiltersPrecision);
+        pLVPSA_Inst->pBPFiltersPrecision = LVM_NULL;
+    }
+    if (pLVPSA_Inst->pQPD_States != LVM_NULL) {
+        free(pLVPSA_Inst->pQPD_States);
+        pLVPSA_Inst->pQPD_States = LVM_NULL;
+    }
+    if (pLVPSA_Inst->pQPD_Taps != LVM_NULL) {
+        free(pLVPSA_Inst->pQPD_Taps);
+        pLVPSA_Inst->pQPD_Taps = LVM_NULL;
+    }
+    delete pLVPSA_Inst;
+    *phInstance = LVM_NULL;
+}

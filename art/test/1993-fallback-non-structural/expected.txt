@@ -1,3 +1,0 @@
-Can structurally Redefine: true
-hello
-Goodbye

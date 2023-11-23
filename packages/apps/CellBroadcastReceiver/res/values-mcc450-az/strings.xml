@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Mühüm təcili siqnal"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"Telefonunuz təbii fəlakətlər zamanı evakuasiya təlimatları kimi xəbərdarlıqlar göndərə bilər. Bu xidmət Milli Fövqəladə Hallara Nəzarət İdarəsi, şəbəkə provayderləri və cihaz istehsalçıları arasında əməkdaşlıq şəklində təmin edilir.\n\nCihazda və ya şəbəkədə problem olduqda xəbərdarlıq almaya bilərsiniz."</string>
 </resources>

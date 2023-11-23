@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!--
  * Copyright (C) 2015 The Android Open Source Project
  *
@@ -15,51 +16,54 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.voicesettings.service">
+     package="android.voicesettings.service">
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
         <service android:name=".MainInteractionService"
-                android:label="CTS test voice interaction service"
-                android:permission="android.permission.BIND_VOICE_INTERACTION"
-                android:process=":interactor"
-                android:exported="true">
+             android:label="CTS test voice interaction service"
+             android:permission="android.permission.BIND_VOICE_INTERACTION"
+             android:process=":interactor"
+             android:exported="true">
             <meta-data android:name="android.voice_interaction"
-                       android:resource="@xml/interaction_service" />
+                 android:resource="@xml/interaction_service"/>
             <intent-filter>
-                <action android:name="android.service.voice.VoiceInteractionService" />
+                <action android:name="android.service.voice.VoiceInteractionService"/>
             </intent-filter>
         </service>
-        <activity android:name=".VoiceInteractionMain" >
+        <activity android:name=".VoiceInteractionMain"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.VIMAIN_ZEN_MODE_ON" />
-                <action android:name="android.intent.action.VIMAIN_ZEN_MODE_OFF" />
-                <action android:name="android.intent.action.VIMAIN_AIRPLANE_MODE_ON" />
-                <action android:name="android.intent.action.VIMAIN_AIRPLANE_MODE_OFF" />
-                <action android:name="android.intent.action.VIMAIN_BATTERYSAVER_MODE_ON" />
-                <action android:name="android.intent.action.VIMAIN_BATTERYSAVER_MODE_OFF" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.VIMAIN_ZEN_MODE_ON"/>
+                <action android:name="android.intent.action.VIMAIN_ZEN_MODE_OFF"/>
+                <action android:name="android.intent.action.VIMAIN_AIRPLANE_MODE_ON"/>
+                <action android:name="android.intent.action.VIMAIN_AIRPLANE_MODE_OFF"/>
+                <action android:name="android.intent.action.VIMAIN_BATTERYSAVER_MODE_ON"/>
+                <action android:name="android.intent.action.VIMAIN_BATTERYSAVER_MODE_OFF"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
         <activity android:name=".SettingsActivity"
-                  android:label="Voice Interaction Settings">
+             android:label="Voice Interaction Settings"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
         <service android:name=".MainInteractionSessionService"
-                android:permission="android.permission.BIND_VOICE_INTERACTION"
-                android:process=":session">
+             android:permission="android.permission.BIND_VOICE_INTERACTION"
+             android:process=":session">
         </service>
         <service android:name=".MainRecognitionService"
-                android:label="CTS Voice Recognition Service">
+             android:label="CTS Voice Recognition Service"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.speech.RecognitionService" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.speech.RecognitionService"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
-            <meta-data android:name="android.speech" android:resource="@xml/recognition_service" />
+            <meta-data android:name="android.speech"
+                 android:resource="@xml/recognition_service"/>
         </service>
     </application>
 </manifest>
-

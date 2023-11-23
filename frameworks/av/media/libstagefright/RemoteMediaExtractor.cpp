@@ -40,6 +40,16 @@ static const char *kExtractorFormat = "android.media.mediaextractor.fmt";
 static const char *kExtractorMime = "android.media.mediaextractor.mime";
 static const char *kExtractorTracks = "android.media.mediaextractor.ntrk";
 
+// The following are not available in frameworks/base/media/java/android/media/MediaExtractor.java
+// because they are not applicable or useful to that API.
+static const char *kExtractorEntryPoint = "android.media.mediaextractor.entry";
+static const char *kExtractorLogSessionId = "android.media.mediaextractor.logSessionId";
+
+static const char *kEntryPointSdk = "sdk";
+static const char *kEntryPointWithJvm = "ndk-with-jvm";
+static const char *kEntryPointNoJvm = "ndk-no-jvm";
+static const char *kEntryPointOther = "other";
+
 RemoteMediaExtractor::RemoteMediaExtractor(
         MediaExtractor *extractor,
         const sp<DataSource> &source,
@@ -74,6 +84,9 @@ RemoteMediaExtractor::RemoteMediaExtractor(
             }
             // what else is interesting and not already available?
         }
+        // By default, we set the entry point to be "other". Clients of this
+        // class will override this value by calling setEntryPoint.
+        mMetricsItem->setCString(kExtractorEntryPoint, kEntryPointOther);
     }
 }
 
@@ -141,6 +154,33 @@ status_t RemoteMediaExtractor::setMediaCas(const HInterfaceToken &casToken) {
 
 String8 RemoteMediaExtractor::name() {
     return String8(mExtractor->name());
+}
+
+status_t RemoteMediaExtractor::setEntryPoint(EntryPoint entryPoint) {
+    const char* entryPointString;
+    switch (entryPoint) {
+      case EntryPoint::SDK:
+            entryPointString = kEntryPointSdk;
+            break;
+        case EntryPoint::NDK_WITH_JVM:
+            entryPointString = kEntryPointWithJvm;
+            break;
+        case EntryPoint::NDK_NO_JVM:
+            entryPointString = kEntryPointNoJvm;
+            break;
+        case EntryPoint::OTHER:
+            entryPointString = kEntryPointOther;
+            break;
+        default:
+            return BAD_VALUE;
+    }
+    mMetricsItem->setCString(kExtractorEntryPoint, entryPointString);
+    return OK;
+}
+
+status_t RemoteMediaExtractor::setLogSessionId(const String8& logSessionId) {
+    mMetricsItem->setCString(kExtractorLogSessionId, logSessionId.c_str());
+    return OK;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

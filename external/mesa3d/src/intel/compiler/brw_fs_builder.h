@@ -140,7 +140,7 @@ namespace brw {
        * Alias for group() with width equal to eight.
        */
       fs_builder
-      half(unsigned i) const
+      quarter(unsigned i) const
       {
          return group(8, i);
       }
@@ -243,24 +243,6 @@ namespace brw {
       }
 
       /**
-       * Get the mask of SIMD channels enabled by dispatch and not yet
-       * disabled by discard.
-       */
-      src_reg
-      sample_mask_reg() const
-      {
-         if (shader->stage != MESA_SHADER_FRAGMENT) {
-            return brw_imm_d(0xffffffff);
-         } else if (brw_wm_prog_data(shader->stage_prog_data)->uses_kill) {
-            return brw_flag_reg(0, 1);
-         } else {
-            assert(shader->devinfo->gen >= 6 && dispatch_width() <= 16);
-            return retype(brw_vec1_grf((_group >= 16 ? 2 : 1), 7),
-                          BRW_REGISTER_TYPE_UD);
-         }
-      }
-
-      /**
        * Insert an instruction into the program.
        */
       instruction *
@@ -322,11 +304,11 @@ namespace brw {
          case SHADER_OPCODE_INT_REMAINDER:
             return emit(instruction(opcode, dispatch_width(), dst,
                                     fix_math_operand(src0),
-                                    fix_math_operand(fix_byte_src(src1))));
+                                    fix_math_operand(src1)));
 
          default:
             return emit(instruction(opcode, dispatch_width(), dst,
-                                    src0, fix_byte_src(src1)));
+                                    src0, src1));
 
          }
       }
@@ -345,12 +327,12 @@ namespace brw {
          case BRW_OPCODE_LRP:
             return emit(instruction(opcode, dispatch_width(), dst,
                                     fix_3src_operand(src0),
-                                    fix_3src_operand(fix_byte_src(src1)),
-                                    fix_3src_operand(fix_byte_src(src2))));
+                                    fix_3src_operand(src1),
+                                    fix_3src_operand(src2)));
 
          default:
             return emit(instruction(opcode, dispatch_width(), dst,
-                                    src0, fix_byte_src(src1), fix_byte_src(src2)));
+                                    src0, src1, src2));
          }
       }
 
@@ -362,7 +344,16 @@ namespace brw {
       emit(enum opcode opcode, const dst_reg &dst, const src_reg srcs[],
            unsigned n) const
       {
-         return emit(instruction(opcode, dispatch_width(), dst, srcs, n));
+         /* Use the emit() methods for specific operand counts to ensure that
+          * opcode-specific operand fixups occur.
+          */
+         if (n == 2) {
+            return emit(opcode, dst, srcs[0], srcs[1]);
+         } else if (n == 3) {
+            return emit(opcode, dst, srcs[0], srcs[1], srcs[2]);
+         } else {
+            return emit(instruction(opcode, dispatch_width(), dst, srcs, n));
+         }
       }
 
       /**
@@ -403,8 +394,8 @@ namespace brw {
          /* In some cases we can't have bytes as operand for src1, so use the
           * same type for both operand.
           */
-         return set_condmod(mod, SEL(dst, fix_unsigned_negate(fix_byte_src(src0)),
-                                     fix_unsigned_negate(fix_byte_src(src1))));
+         return set_condmod(mod, SEL(dst, fix_unsigned_negate(src0),
+                                     fix_unsigned_negate(src1)));
       }
 
       /**
@@ -424,7 +415,7 @@ namespace brw {
          const dst_reg chan_index = vgrf(BRW_REGISTER_TYPE_UD);
          const dst_reg dst = vgrf(src.type);
 
-         ubld.emit(SHADER_OPCODE_FIND_LIVE_CHANNEL, chan_index)->flag_subreg = 2;
+         ubld.emit(SHADER_OPCODE_FIND_LIVE_CHANNEL, chan_index);
          ubld.emit(SHADER_OPCODE_BROADCAST, dst, src, component(chan_index, 0));
 
          return src_reg(component(dst, 0));
@@ -503,24 +494,29 @@ namespace brw {
             }
          }
 
-         if (cluster_size > 4) {
-            const fs_builder ubld = exec_all().group(4, 0);
-            src_reg left = component(tmp, 3);
-            dst_reg right = horiz_offset(tmp, 4);
+         for (unsigned i = 4;
+              i < MIN2(cluster_size, dispatch_width());
+              i *= 2) {
+            const fs_builder ubld = exec_all().group(i, 0);
+            src_reg left = component(tmp, i - 1);
+            dst_reg right = horiz_offset(tmp, i);
             set_condmod(mod, ubld.emit(opcode, right, left, right));
 
-            if (dispatch_width() > 8) {
-               left = component(tmp, 8 + 3);
-               right = horiz_offset(tmp, 8 + 4);
+            if (dispatch_width() > i * 2) {
+               left = component(tmp, i * 3 - 1);
+               right = horiz_offset(tmp, i * 3);
                set_condmod(mod, ubld.emit(opcode, right, left, right));
             }
-         }
 
-         if (cluster_size > 8 && dispatch_width() > 8) {
-            const fs_builder ubld = exec_all().group(8, 0);
-            src_reg left = component(tmp, 7);
-            dst_reg right = horiz_offset(tmp, 8);
-            set_condmod(mod, ubld.emit(opcode, right, left, right));
+            if (dispatch_width() > i * 4) {
+               left = component(tmp, i * 5 - 1);
+               right = horiz_offset(tmp, i * 5);
+               set_condmod(mod, ubld.emit(opcode, right, left, right));
+
+               left = component(tmp, i * 7 - 1);
+               right = horiz_offset(tmp, i * 7);
+               set_condmod(mod, ubld.emit(opcode, right, left, right));
+            }
          }
       }
 
@@ -594,6 +590,8 @@ namespace brw {
       ALU1(RNDE)
       ALU1(RNDU)
       ALU1(RNDZ)
+      ALU2(ROL)
+      ALU2(ROR)
       ALU2(SAD2)
       ALU2_ACC(SADA2)
       ALU2(SEL)
@@ -661,8 +659,8 @@ namespace brw {
                             emit(BRW_OPCODE_CSEL,
                                  retype(dst, BRW_REGISTER_TYPE_F),
                                  retype(src0, BRW_REGISTER_TYPE_F),
-                                 retype(fix_byte_src(src1), BRW_REGISTER_TYPE_F),
-                                 fix_byte_src(src2)));
+                                 retype(src1, BRW_REGISTER_TYPE_F),
+                                 src2));
       }
 
       /**
@@ -710,23 +708,18 @@ namespace brw {
          return inst;
       }
 
-      backend_shader *shader;
-
-      /**
-       * Byte sized operands are not supported for src1 on Gen11+.
-       */
-      src_reg
-      fix_byte_src(const src_reg &src) const
+      instruction *
+      UNDEF(const dst_reg &dst) const
       {
-         if ((shader->devinfo->gen < 11 && !shader->devinfo->is_geminilake) ||
-             type_sz(src.type) != 1)
-            return src;
+         assert(dst.file == VGRF);
+         instruction *inst = emit(SHADER_OPCODE_UNDEF,
+                                  retype(dst, BRW_REGISTER_TYPE_UD));
+         inst->size_written = shader->alloc.sizes[dst.nr] * REG_SIZE;
 
-         dst_reg temp = vgrf(src.type == BRW_REGISTER_TYPE_UB ?
-                             BRW_REGISTER_TYPE_UD : BRW_REGISTER_TYPE_D);
-         MOV(temp, src);
-         return src_reg(temp);
+         return inst;
       }
+
+      backend_shader *shader;
 
    private:
       /**

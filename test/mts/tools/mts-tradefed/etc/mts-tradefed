@@ -80,29 +80,8 @@ fi;
 
 JAR_DIR=${MTS_ROOT}/android-mts/tools
 
-TRADEFED_JAR="tradefed"
-
-JARS="tradefed
-  loganalysis
-  hosttestlib
-  compatibility-host-util
-  mts-tradefed
-  mts-tradefed-tests"
-
-for JAR in $JARS; do
-    checkFile ${JAR_DIR}/${JAR}.jar
-    JAR_PATH=${JAR_PATH}:${JAR_DIR}/${JAR}.jar
-done
-
-OPTIONAL_JARS="
-  google-tradefed
-  google-tradefed-tests
-  google-tf-prod-tests"
-
-for JAR in $OPTIONAL_JARS; do
-    if [ -f "$JAR.jar" ]; then
-        JAR_PATH=${JAR_PATH}:${JAR_DIR}/${JAR}.jar
-    fi;
+for JAR in ${JAR_DIR}/*.jar; do
+    JAR_PATH=${JAR_PATH}:${JAR}
 done
 
 # check if APE_API_KEY is set in the env by user.

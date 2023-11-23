@@ -19,11 +19,17 @@ package com.android.tv.settings.connectivity.setup;
 import android.content.Context;
 import android.os.Bundle;
 import android.text.InputType;
+import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
+import android.text.TextUtils;
+import android.text.style.ImageSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -90,6 +96,7 @@ public class EnterPasswordState implements State {
     public static class EnterPasswordFragment extends WifiConnectivityGuidedStepFragment {
         private static final int PSK_MIN_LENGTH = 8;
         private static final int WEP_MIN_LENGTH = 5;
+        private static final String SUBMIT_TOKEN = "done";
         private UserChoiceInfo mUserChoiceInfo;
         private StateMachine mStateMachine;
         private EditText mTextInput;
@@ -144,13 +151,15 @@ public class EnterPasswordState implements State {
                     } else if (action.getId() == GuidedAction.ACTION_ID_CONTINUE) {
                         mTextInput = (EditText) vh.itemView.findViewById(
                                 R.id.guidedactions_item_title);
+                        mTextInput.setImeOptions(
+                                EditorInfo.IME_ACTION_DONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
                         openInEditMode(action);
                     }
                 }
 
                 @Override
-                protected void onEditingModeChange(ViewHolder vh, boolean editing,
-                        boolean withTransition) {
+                protected void onEditingModeChange(
+                        ViewHolder vh, boolean editing, boolean withTransition) {
                     super.onEditingModeChange(vh, editing, withTransition);
                     updatePasswordInputObfuscation();
                 }
@@ -175,6 +184,39 @@ public class EnterPasswordState implements State {
                     .of(getActivity())
                     .get(StateMachine.class);
             super.onCreate(savedInstanceState);
+        }
+
+        @Override
+        public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                Bundle savedInstanceState) {
+            View view = super.onCreateView(inflater, container, savedInstanceState);
+
+            // Update guidance to contain subtitle with action done icon
+            TextView guidanceDescription = (TextView) view.findViewById(R.id.guidance_description);
+            String description = getString(
+                    R.string.wifi_setup_description, SUBMIT_TOKEN);
+            if (TextUtils.isEmpty(description)) {
+                return view;
+            }
+            SpannableStringBuilder builder = new SpannableStringBuilder(description);
+            int indexOfSubmitImage = description.indexOf(SUBMIT_TOKEN);
+            ImageSpan imageSpan = new ImageSpan(getActivity(), R.drawable.ic_done);
+            if (indexOfSubmitImage != -1) {
+                builder.setSpan(
+                        imageSpan,
+                        indexOfSubmitImage,
+                        indexOfSubmitImage + SUBMIT_TOKEN.length(),
+                        SpannableString.SPAN_INCLUSIVE_INCLUSIVE);
+            }
+            guidanceDescription.setText(builder);
+
+            // set content description for action done icon for talkback mode
+            String actionDoneDescription = getString(R.string.label_done_key);
+            if (!TextUtils.isEmpty(actionDoneDescription)) {
+                guidanceDescription.setContentDescription(
+                        getString(R.string.wifi_setup_description, actionDoneDescription));
+            }
+            return view;
         }
 
         @Override
@@ -222,10 +264,12 @@ public class EnterPasswordState implements State {
         }
 
         private void updatePasswordInputObfuscation() {
-            mTextInput.setInputType(InputType.TYPE_CLASS_TEXT
-                    | (mCheckBox.isChecked()
-                    ? InputType.TYPE_TEXT_VARIATION_PASSWORD
-                    : InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD));
+            if (mTextInput != null && mCheckBox != null) {
+                mTextInput.setInputType(InputType.TYPE_CLASS_TEXT
+                        | (mCheckBox.isChecked()
+                        ? InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        : InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD));
+            }
         }
 
 

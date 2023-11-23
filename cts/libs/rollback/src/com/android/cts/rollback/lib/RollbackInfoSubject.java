@@ -32,7 +32,9 @@ import java.util.List;
 /**
  * Subject for asserting things about RollbackInfo instances.
  */
-public final class RollbackInfoSubject extends Subject<RollbackInfoSubject, RollbackInfo> {
+public final class RollbackInfoSubject extends Subject {
+    private final RollbackInfo mActual;
+
     /**
      * Asserts something about RollbackInfo.
      */
@@ -57,27 +59,28 @@ public final class RollbackInfoSubject extends Subject<RollbackInfoSubject, Roll
 
     private RollbackInfoSubject(FailureMetadata failureMetadata, RollbackInfo subject) {
         super(failureMetadata, subject);
+        mActual = subject;
     }
 
     /**
      * Asserts that the RollbackInfo has given rollbackId.
      */
     public void hasRollbackId(int rollbackId) {
-        check().that(getSubject().getRollbackId()).isEqualTo(rollbackId);
+        check("getRollbackId()").that(mActual.getRollbackId()).isEqualTo(rollbackId);
     }
 
     /**
      * Asserts that the RollbackInfo is for a staged rollback.
      */
     public void isStaged() {
-        check().that(getSubject().isStaged()).isTrue();
+        check("isStaged()").that(mActual.isStaged()).isTrue();
     }
 
     /**
      * Asserts that the RollbackInfo is not for a staged rollback.
      */
     public void isNotStaged() {
-        check().that(getSubject().isStaged()).isFalse();
+        check("isStaged()").that(mActual.isStaged()).isFalse();
     }
 
     /**
@@ -86,10 +89,10 @@ public final class RollbackInfoSubject extends Subject<RollbackInfoSubject, Roll
      */
     public void packagesContainsExactly(Rollback... expected) {
         List<Rollback> actualPackages = new ArrayList<>();
-        for (PackageRollbackInfo info : getSubject().getPackages()) {
+        for (PackageRollbackInfo info : mActual.getPackages()) {
             actualPackages.add(new Rollback(info));
         }
-        check().that(actualPackages).containsExactly((Object[]) expected);
+        check("actualPackages").that(actualPackages).containsExactly((Object[]) expected);
     }
 
     /**
@@ -102,6 +105,7 @@ public final class RollbackInfoSubject extends Subject<RollbackInfoSubject, Roll
             expectedVps.add(cause.getVersionedPackage());
         }
 
-        check().that(getSubject().getCausePackages()).containsExactlyElementsIn(expectedVps);
+        check("getCausePackages()").that(mActual.getCausePackages())
+                .containsExactlyElementsIn(expectedVps);
     }
 }

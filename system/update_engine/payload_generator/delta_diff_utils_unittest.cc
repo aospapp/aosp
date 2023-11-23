@@ -69,13 +69,12 @@ bool WriteExtents(const string& part_path,
 // Create a fake filesystem of the given |size| and initialize the partition
 // holding it in the PartitionConfig |part|.
 void CreatePartition(PartitionConfig* part,
-                     const string& pattern,
+                     ScopedTempFile* part_file,
                      uint64_t block_size,
                      off_t size) {
-  int fd = -1;
-  ASSERT_TRUE(utils::MakeTempFile(pattern.c_str(), &part->path, &fd));
-  ASSERT_EQ(0, ftruncate(fd, size));
-  ASSERT_EQ(0, close(fd));
+  part->path = part_file->path();
+  ASSERT_EQ(0, ftruncate(part_file->fd(), size));
+  part_file->CloseFd();
   part->fs_interface.reset(new FakeFilesystem(block_size, size / block_size));
   part->size = size;
 }
@@ -112,31 +111,21 @@ class DeltaDiffUtilsTest : public ::testing::Test {
 
   void SetUp() override {
     CreatePartition(&old_part_,
-                    "DeltaDiffUtilsTest-old_part-XXXXXX",
+                    &old_part_file_,
                     block_size_,
                     block_size_ * kDefaultBlockCount);
     CreatePartition(&new_part_,
-                    "DeltaDiffUtilsTest-old_part-XXXXXX",
+                    &new_part_file_,
                     block_size_,
                     block_size_ * kDefaultBlockCount);
-    ASSERT_TRUE(utils::MakeTempFile(
-        "DeltaDiffUtilsTest-blob-XXXXXX", &blob_path_, &blob_fd_));
-  }
-
-  void TearDown() override {
-    unlink(old_part_.path.c_str());
-    unlink(new_part_.path.c_str());
-    if (blob_fd_ != -1)
-      close(blob_fd_);
-    unlink(blob_path_.c_str());
   }
 
   // Helper function to call DeltaMovedAndZeroBlocks() using this class' data
   // members. This simply avoids repeating all the arguments that never change.
   bool RunDeltaMovedAndZeroBlocks(ssize_t chunk_blocks,
                                   uint32_t minor_version) {
-    BlobFileWriter blob_file(blob_fd_, &blob_size_);
-    PayloadVersion version(kChromeOSMajorPayloadVersion, minor_version);
+    BlobFileWriter blob_file(tmp_blob_file_.fd(), &blob_size_);
+    PayloadVersion version(kBrilloMajorPayloadVersion, minor_version);
     ExtentRanges old_zero_blocks;
     return diff_utils::DeltaMovedAndZeroBlocks(&aops_,
                                                old_part_.path,
@@ -155,10 +144,11 @@ class DeltaDiffUtilsTest : public ::testing::Test {
   // with
   PartitionConfig old_part_{"part"};
   PartitionConfig new_part_{"part"};
+  ScopedTempFile old_part_file_{"DeltaDiffUtilsTest-old_part-XXXXXX", true};
+  ScopedTempFile new_part_file_{"DeltaDiffUtilsTest-new_part-XXXXXX", true};
 
   // The file holding the output blob from the various diff utils functions.
-  string blob_path_;
-  int blob_fd_{-1};
+  ScopedTempFile tmp_blob_file_{"DeltaDiffUtilsTest-blob-XXXXXX", true};
   off_t blob_size_{0};
 
   size_t block_size_{kBlockSize};
@@ -173,7 +163,7 @@ TEST_F(DeltaDiffUtilsTest, SkipVerityExtentsTest) {
   new_part_.verity.hash_tree_extent = ExtentForRange(20, 30);
   new_part_.verity.fec_extent = ExtentForRange(40, 50);
 
-  BlobFileWriter blob_file(blob_fd_, &blob_size_);
+  BlobFileWriter blob_file(tmp_blob_file_.fd(), &blob_size_);
   EXPECT_TRUE(diff_utils::DeltaReadPartition(
       &aops_,
       old_part_,
@@ -192,164 +182,6 @@ TEST_F(DeltaDiffUtilsTest, SkipVerityExtentsTest) {
     EXPECT_FALSE(
         ExtentRanges::ExtentsOverlap(extent, new_part_.verity.fec_extent));
   }
-}
-
-TEST_F(DeltaDiffUtilsTest, MoveSmallTest) {
-  brillo::Blob data_blob(block_size_);
-  test_utils::FillWithData(&data_blob);
-
-  // The old file is on a different block than the new one.
-  vector<Extent> old_extents = {ExtentForRange(11, 1)};
-  vector<Extent> new_extents = {ExtentForRange(1, 1)};
-
-  EXPECT_TRUE(WriteExtents(old_part_.path, old_extents, kBlockSize, data_blob));
-  EXPECT_TRUE(WriteExtents(new_part_.path, new_extents, kBlockSize, data_blob));
-
-  brillo::Blob data;
-  InstallOperation op;
-  EXPECT_TRUE(diff_utils::ReadExtentsToDiff(
-      old_part_.path,
-      new_part_.path,
-      old_extents,
-      new_extents,
-      {},  // old_deflates
-      {},  // new_deflates
-      PayloadVersion(kChromeOSMajorPayloadVersion, kInPlaceMinorPayloadVersion),
-      &data,
-      &op));
-  EXPECT_TRUE(data.empty());
-
-  EXPECT_TRUE(op.has_type());
-  EXPECT_EQ(InstallOperation::MOVE, op.type());
-  EXPECT_FALSE(op.has_data_offset());
-  EXPECT_FALSE(op.has_data_length());
-  EXPECT_EQ(1, op.src_extents_size());
-  EXPECT_EQ(kBlockSize, op.src_length());
-  EXPECT_EQ(1, op.dst_extents_size());
-  EXPECT_EQ(kBlockSize, op.dst_length());
-  EXPECT_EQ(utils::BlocksInExtents(op.src_extents()),
-            utils::BlocksInExtents(op.dst_extents()));
-  EXPECT_EQ(1U, utils::BlocksInExtents(op.dst_extents()));
-}
-
-TEST_F(DeltaDiffUtilsTest, MoveWithSameBlock) {
-  // Setup the old/new files so that it has immobile chunks; we make sure to
-  // utilize all sub-cases of such chunks: blocks 21--22 induce a split (src)
-  // and complete removal (dst), whereas blocks 24--25 induce trimming of the
-  // tail (src) and head (dst) of extents. The final block (29) is used for
-  // ensuring we properly account for the number of bytes removed in cases where
-  // the last block is partly filled. The detailed configuration:
-  //
-  // Old:  [ 20     21 22     23     24 25 ] [ 28     29 ]
-  // New:  [ 18 ] [ 21 22 ] [ 20 ] [ 24 25     26 ] [ 29 ]
-  // Same:          ^^ ^^            ^^ ^^            ^^
-  vector<Extent> old_extents = {ExtentForRange(20, 6), ExtentForRange(28, 2)};
-  vector<Extent> new_extents = {ExtentForRange(18, 1),
-                                ExtentForRange(21, 2),
-                                ExtentForRange(20, 1),
-                                ExtentForRange(24, 3),
-                                ExtentForRange(29, 1)};
-
-  uint64_t num_blocks = utils::BlocksInExtents(old_extents);
-  EXPECT_EQ(num_blocks, utils::BlocksInExtents(new_extents));
-
-  // The size of the data should match the total number of blocks. Each block
-  // has a different content.
-  brillo::Blob file_data;
-  for (uint64_t i = 0; i < num_blocks; ++i) {
-    file_data.resize(file_data.size() + kBlockSize, 'a' + i);
-  }
-
-  EXPECT_TRUE(WriteExtents(old_part_.path, old_extents, kBlockSize, file_data));
-  EXPECT_TRUE(WriteExtents(new_part_.path, new_extents, kBlockSize, file_data));
-
-  brillo::Blob data;
-  InstallOperation op;
-  EXPECT_TRUE(diff_utils::ReadExtentsToDiff(
-      old_part_.path,
-      new_part_.path,
-      old_extents,
-      new_extents,
-      {},  // old_deflates
-      {},  // new_deflates
-      PayloadVersion(kChromeOSMajorPayloadVersion, kInPlaceMinorPayloadVersion),
-      &data,
-      &op));
-
-  EXPECT_TRUE(data.empty());
-
-  EXPECT_TRUE(op.has_type());
-  EXPECT_EQ(InstallOperation::MOVE, op.type());
-  EXPECT_FALSE(op.has_data_offset());
-  EXPECT_FALSE(op.has_data_length());
-
-  // The expected old and new extents that actually moved. See comment above.
-  old_extents = {
-      ExtentForRange(20, 1), ExtentForRange(23, 1), ExtentForRange(28, 1)};
-  new_extents = {
-      ExtentForRange(18, 1), ExtentForRange(20, 1), ExtentForRange(26, 1)};
-  num_blocks = utils::BlocksInExtents(old_extents);
-
-  EXPECT_EQ(num_blocks * kBlockSize, op.src_length());
-  EXPECT_EQ(num_blocks * kBlockSize, op.dst_length());
-
-  EXPECT_EQ(old_extents.size(), static_cast<size_t>(op.src_extents_size()));
-  for (int i = 0; i < op.src_extents_size(); i++) {
-    EXPECT_EQ(old_extents[i].start_block(), op.src_extents(i).start_block())
-        << "i == " << i;
-    EXPECT_EQ(old_extents[i].num_blocks(), op.src_extents(i).num_blocks())
-        << "i == " << i;
-  }
-
-  EXPECT_EQ(new_extents.size(), static_cast<size_t>(op.dst_extents_size()));
-  for (int i = 0; i < op.dst_extents_size(); i++) {
-    EXPECT_EQ(new_extents[i].start_block(), op.dst_extents(i).start_block())
-        << "i == " << i;
-    EXPECT_EQ(new_extents[i].num_blocks(), op.dst_extents(i).num_blocks())
-        << "i == " << i;
-  }
-}
-
-TEST_F(DeltaDiffUtilsTest, BsdiffSmallTest) {
-  // Test a BSDIFF operation from block 1 to block 2.
-  brillo::Blob data_blob(kBlockSize);
-  test_utils::FillWithData(&data_blob);
-
-  // The old file is on a different block than the new one.
-  vector<Extent> old_extents = {ExtentForRange(1, 1)};
-  vector<Extent> new_extents = {ExtentForRange(2, 1)};
-
-  EXPECT_TRUE(WriteExtents(old_part_.path, old_extents, kBlockSize, data_blob));
-  // Modify one byte in the new file.
-  data_blob[0]++;
-  EXPECT_TRUE(WriteExtents(new_part_.path, new_extents, kBlockSize, data_blob));
-
-  brillo::Blob data;
-  InstallOperation op;
-  EXPECT_TRUE(diff_utils::ReadExtentsToDiff(
-      old_part_.path,
-      new_part_.path,
-      old_extents,
-      new_extents,
-      {},  // old_deflates
-      {},  // new_deflates
-      PayloadVersion(kChromeOSMajorPayloadVersion, kInPlaceMinorPayloadVersion),
-      &data,
-      &op));
-
-  EXPECT_FALSE(data.empty());
-
-  EXPECT_TRUE(op.has_type());
-  EXPECT_EQ(InstallOperation::BSDIFF, op.type());
-  EXPECT_FALSE(op.has_data_offset());
-  EXPECT_FALSE(op.has_data_length());
-  EXPECT_EQ(1, op.src_extents_size());
-  EXPECT_EQ(kBlockSize, op.src_length());
-  EXPECT_EQ(1, op.dst_extents_size());
-  EXPECT_EQ(kBlockSize, op.dst_length());
-  EXPECT_EQ(utils::BlocksInExtents(op.src_extents()),
-            utils::BlocksInExtents(op.dst_extents()));
-  EXPECT_EQ(1U, utils::BlocksInExtents(op.dst_extents()));
 }
 
 TEST_F(DeltaDiffUtilsTest, ReplaceSmallTest) {
@@ -383,8 +215,7 @@ TEST_F(DeltaDiffUtilsTest, ReplaceSmallTest) {
         new_extents,
         {},  // old_deflates
         {},  // new_deflates
-        PayloadVersion(kChromeOSMajorPayloadVersion,
-                       kInPlaceMinorPayloadVersion),
+        PayloadVersion(kBrilloMajorPayloadVersion, kSourceMinorPayloadVersion),
         &data,
         &op));
     EXPECT_FALSE(data.empty());
@@ -426,7 +257,7 @@ TEST_F(DeltaDiffUtilsTest, SourceCopyTest) {
       new_extents,
       {},  // old_deflates
       {},  // new_deflates
-      PayloadVersion(kChromeOSMajorPayloadVersion, kSourceMinorPayloadVersion),
+      PayloadVersion(kBrilloMajorPayloadVersion, kSourceMinorPayloadVersion),
       &data,
       &op));
   EXPECT_TRUE(data.empty());
@@ -460,7 +291,7 @@ TEST_F(DeltaDiffUtilsTest, SourceBsdiffTest) {
       new_extents,
       {},  // old_deflates
       {},  // new_deflates
-      PayloadVersion(kChromeOSMajorPayloadVersion, kSourceMinorPayloadVersion),
+      PayloadVersion(kBrilloMajorPayloadVersion, kSourceMinorPayloadVersion),
       &data,
       &op));
 
@@ -500,49 +331,6 @@ TEST_F(DeltaDiffUtilsTest, PreferReplaceTest) {
   EXPECT_EQ(InstallOperation::REPLACE_BZ, op.type());
 }
 
-TEST_F(DeltaDiffUtilsTest, IsNoopOperationTest) {
-  InstallOperation op;
-  op.set_type(InstallOperation::REPLACE_BZ);
-  EXPECT_FALSE(diff_utils::IsNoopOperation(op));
-  op.set_type(InstallOperation::MOVE);
-  EXPECT_TRUE(diff_utils::IsNoopOperation(op));
-  *(op.add_src_extents()) = ExtentForRange(3, 2);
-  *(op.add_dst_extents()) = ExtentForRange(3, 2);
-  EXPECT_TRUE(diff_utils::IsNoopOperation(op));
-  *(op.add_src_extents()) = ExtentForRange(7, 5);
-  *(op.add_dst_extents()) = ExtentForRange(7, 5);
-  EXPECT_TRUE(diff_utils::IsNoopOperation(op));
-  *(op.add_src_extents()) = ExtentForRange(20, 2);
-  *(op.add_dst_extents()) = ExtentForRange(20, 1);
-  *(op.add_dst_extents()) = ExtentForRange(21, 1);
-  EXPECT_TRUE(diff_utils::IsNoopOperation(op));
-  *(op.add_src_extents()) = ExtentForRange(24, 1);
-  *(op.add_dst_extents()) = ExtentForRange(25, 1);
-  EXPECT_FALSE(diff_utils::IsNoopOperation(op));
-}
-
-TEST_F(DeltaDiffUtilsTest, FilterNoopOperations) {
-  AnnotatedOperation aop1;
-  aop1.op.set_type(InstallOperation::REPLACE_BZ);
-  *(aop1.op.add_dst_extents()) = ExtentForRange(3, 2);
-  aop1.name = "aop1";
-
-  AnnotatedOperation aop2 = aop1;
-  aop2.name = "aop2";
-
-  AnnotatedOperation noop;
-  noop.op.set_type(InstallOperation::MOVE);
-  *(noop.op.add_src_extents()) = ExtentForRange(3, 2);
-  *(noop.op.add_dst_extents()) = ExtentForRange(3, 2);
-  noop.name = "noop";
-
-  vector<AnnotatedOperation> ops = {noop, aop1, noop, noop, aop2, noop};
-  diff_utils::FilterNoopOperations(&ops);
-  EXPECT_EQ(2u, ops.size());
-  EXPECT_EQ("aop1", ops[0].name);
-  EXPECT_EQ("aop2", ops[1].name);
-}
-
 // Test the simple case where all the blocks are different and no new blocks are
 // zeroed.
 TEST_F(DeltaDiffUtilsTest, NoZeroedOrUniqueBlocksDetected) {
@@ -550,33 +338,10 @@ TEST_F(DeltaDiffUtilsTest, NoZeroedOrUniqueBlocksDetected) {
   InitializePartitionWithUniqueBlocks(new_part_, block_size_, 42);
 
   EXPECT_TRUE(RunDeltaMovedAndZeroBlocks(-1,  // chunk_blocks
-                                         kInPlaceMinorPayloadVersion));
+                                         kSourceMinorPayloadVersion));
 
   EXPECT_EQ(0U, old_visited_blocks_.blocks());
   EXPECT_EQ(0U, new_visited_blocks_.blocks());
-  EXPECT_EQ(0, blob_size_);
-  EXPECT_TRUE(aops_.empty());
-}
-
-// Test that when the partitions have identical blocks in the same positions no
-// MOVE operation is performed and all the blocks are handled.
-TEST_F(DeltaDiffUtilsTest, IdenticalPartitionsDontMove) {
-  InitializePartitionWithUniqueBlocks(old_part_, block_size_, 42);
-  InitializePartitionWithUniqueBlocks(new_part_, block_size_, 42);
-
-  // Mark some of the blocks as already visited.
-  vector<Extent> already_visited = {ExtentForRange(5, 10),
-                                    ExtentForRange(25, 10)};
-  old_visited_blocks_.AddExtents(already_visited);
-  new_visited_blocks_.AddExtents(already_visited);
-
-  // Most of the blocks rest in the same place, but there's no need for MOVE
-  // operations on those blocks.
-  EXPECT_TRUE(RunDeltaMovedAndZeroBlocks(-1,  // chunk_blocks
-                                         kInPlaceMinorPayloadVersion));
-
-  EXPECT_EQ(kDefaultBlockCount, old_visited_blocks_.blocks());
-  EXPECT_EQ(kDefaultBlockCount, new_visited_blocks_.blocks());
   EXPECT_EQ(0, blob_size_);
   EXPECT_TRUE(aops_.empty());
 }
@@ -701,16 +466,14 @@ TEST_F(DeltaDiffUtilsTest, ZeroBlocksUseReplaceBz) {
   EXPECT_TRUE(WriteExtents(old_part_.path, old_zeros, block_size_, zeros_data));
 
   EXPECT_TRUE(RunDeltaMovedAndZeroBlocks(5,  // chunk_blocks
-                                         kInPlaceMinorPayloadVersion));
+                                         kSourceMinorPayloadVersion));
 
-  // Zeroed blocks from old_visited_blocks_ were copied over, so me actually
-  // use them regardless of the trivial MOVE operation not being emitted.
+  // Zeroed blocks from |old_visited_blocks_| were copied over.
   EXPECT_EQ(old_zeros,
             old_visited_blocks_.GetExtentsForBlockCount(
                 old_visited_blocks_.blocks()));
 
-  // All the new zeroed blocks should be used, part with REPLACE_BZ and part
-  // trivial MOVE operations (not included).
+  // All the new zeroed blocks should be used with REPLACE_BZ.
   EXPECT_EQ(new_zeros,
             new_visited_blocks_.GetExtentsForBlockCount(
                 new_visited_blocks_.blocks()));
@@ -721,7 +484,8 @@ TEST_F(DeltaDiffUtilsTest, ZeroBlocksUseReplaceBz) {
       // This range should be split.
       ExtentForRange(30, 5),
       ExtentForRange(35, 5),
-      ExtentForRange(40, 3),
+      ExtentForRange(40, 5),
+      ExtentForRange(45, 5),
   };
 
   EXPECT_EQ(expected_op_extents.size(), aops_.size());
@@ -821,6 +585,8 @@ TEST_F(DeltaDiffUtilsTest, GetOldFileTest) {
       "update_engine");
   EXPECT_EQ(diff_utils::GetOldFile(old_files_map, "bin/delta_generator").name,
             "delta_generator");
+  // Check file name with minimum size.
+  EXPECT_EQ(diff_utils::GetOldFile(old_files_map, "a").name, "filename");
 }
 
 }  // namespace chromeos_update_engine

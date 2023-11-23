@@ -20,13 +20,7 @@ import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PRO
 
 import static com.android.internal.util.Preconditions.checkNotNull;
 
-import android.app.Activity;
-import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.os.UserHandle;
-import android.os.UserManager;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.common.ProvisionLogger;
@@ -44,17 +38,17 @@ import com.android.managedprovisioning.model.ProvisioningParams;
  * {@link FinalizationController}.
  */
 public final class PreFinalizationController {
-    private final Activity mActivity;
+    private final Context mContext;
     private final Utils mUtils;
     private final SettingsFacade mSettingsFacade;
     private final UserProvisioningStateHelper mUserProvisioningStateHelper;
     private final ProvisioningParamsUtils mProvisioningParamsUtils;
     private final SendDpcBroadcastServiceUtils mSendDpcBroadcastServiceUtils;
 
-    public PreFinalizationController(Activity activity,
+    public PreFinalizationController(Context context,
           UserProvisioningStateHelper userProvisioningStateHelper) {
         this(
-                activity,
+                context,
                 new Utils(),
                 new SettingsFacade(),
                 userProvisioningStateHelper,
@@ -62,24 +56,24 @@ public final class PreFinalizationController {
                 new SendDpcBroadcastServiceUtils());
     }
 
-    public PreFinalizationController(Activity activity) {
+    public PreFinalizationController(Context context) {
         this(
-                activity,
+                context,
                 new Utils(),
                 new SettingsFacade(),
-                new UserProvisioningStateHelper(activity),
+                new UserProvisioningStateHelper(context),
                 new ProvisioningParamsUtils(),
                 new SendDpcBroadcastServiceUtils());
     }
 
     @VisibleForTesting
-    PreFinalizationController(Activity activity,
+    PreFinalizationController(Context context,
             Utils utils,
             SettingsFacade settingsFacade,
             UserProvisioningStateHelper helper,
             ProvisioningParamsUtils provisioningParamsUtils,
             SendDpcBroadcastServiceUtils sendDpcBroadcastServiceUtils) {
-        mActivity = checkNotNull(activity);
+        mContext = checkNotNull(context);
         mUtils = checkNotNull(utils);
         mSettingsFacade = checkNotNull(settingsFacade);
         mUserProvisioningStateHelper = checkNotNull(helper);
@@ -101,10 +95,8 @@ public final class PreFinalizationController {
      */
     public final void deviceManagementEstablished(ProvisioningParams params) {
         if (!mUserProvisioningStateHelper.isStateUnmanagedOrFinalized()) {
-            // In any other state than STATE_USER_UNMANAGED and STATE_USER_SETUP_FINALIZED, we've
-            // already run this method, so don't do anything.
-            // STATE_USER_SETUP_FINALIZED can occur here if a managed profile is provisioned on a
-            // device owner device.
+            // In any other state than STATE_USER_SETUP_FINALIZED, STATE_USER_PROFILE_FINALIZED and
+            // STATE_USER_UNMANAGED, we've already run this method, so don't do anything.
             ProvisionLogger.logw("deviceManagementEstablished called, but state is not finalized "
                     + "or unmanaged");
             return;
@@ -112,45 +104,20 @@ public final class PreFinalizationController {
 
         mUserProvisioningStateHelper.markUserProvisioningStateInitiallyDone(params);
         if (ACTION_PROVISION_MANAGED_PROFILE.equals(params.provisioningAction)) {
-            if (params.isOrganizationOwnedProvisioning) {
-                markIsProfileOwnerOnOrganizationOwnedDevice();
-                restrictRemovalOfManagedProfile();
-            }
-            if (!mSettingsFacade.isDuringSetupWizard(mActivity)) {
-                // If a managed profile was provisioned after SUW, notify the DPC straight away.
-                mSendDpcBroadcastServiceUtils.startSendDpcBroadcastService(mActivity, params);
+            if (!params.returnBeforePolicyCompliance) {
+                // If a managed profile was provisioned and the provisioning initiator has requested
+                // managed profile provisioning and DPC setup to happen in one step, notify the
+                // DPC straight away.
+                mSendDpcBroadcastServiceUtils.startSendDpcBroadcastService(mContext, params);
             }
         }
-        if (mSettingsFacade.isDuringSetupWizard(mActivity)) {
+        if (params.returnBeforePolicyCompliance) {
             // Store the information and wait for provisioningFinalized to be called
             storeProvisioningParams(params);
         }
     }
 
-    private void restrictRemovalOfManagedProfile() {
-        final UserManager userManager = UserManager.get(mActivity);
-        userManager.setUserRestriction(UserManager.DISALLOW_REMOVE_MANAGED_PROFILE, true);
-    }
-
-    private void markIsProfileOwnerOnOrganizationOwnedDevice() {
-        final DevicePolicyManager dpm = mActivity.getSystemService(DevicePolicyManager.class);
-        final int managedProfileUserId = mUtils.getManagedProfile(mActivity).getIdentifier();
-        final ComponentName admin = dpm.getProfileOwnerAsUser(managedProfileUserId);
-        if (admin != null) {
-            try {
-                final Context profileContext = mActivity.createPackageContextAsUser(
-                        mActivity.getPackageName(), 0 /* flags */,
-                        UserHandle.of(managedProfileUserId));
-                final DevicePolicyManager profileDpm =
-                        profileContext.getSystemService(DevicePolicyManager.class);
-                profileDpm.markProfileOwnerOnOrganizationOwnedDevice(admin);
-            } catch (NameNotFoundException e) {
-                ProvisionLogger.logw("Error setting access to Device IDs: " + e.getMessage());
-            }
-        }
-    }
-
     private void storeProvisioningParams(ProvisioningParams params) {
-        params.save(mProvisioningParamsUtils.getProvisioningParamsFile(mActivity));
+        params.save(mProvisioningParamsUtils.getProvisioningParamsFile(mContext));
     }
 }

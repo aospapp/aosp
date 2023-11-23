@@ -20,13 +20,17 @@ This module has a collection of functions that provide helper functions for
 launching native projects in IDE.
 """
 
-import fnmatch
 import os
 
 from aidegen import constant
 from aidegen.lib import clion_project_file_gen
 from aidegen.lib import common_util
 from aidegen.lib import native_module_info
+
+_RUST_JSON_NOT_EXIST = 'The json file: {} does not exist.'
+_RUST_DICT_BROKEN = 'The rust dictionary does not have "{}" key. It\'s broken.'
+_CRATES_KEY = 'crates'
+_ROOT_MODULE_KEY = 'root_module'
 
 
 def generate_clion_projects(targets):
@@ -52,16 +56,17 @@ def generate_clion_projects(targets):
     """
     cc_module_info = native_module_info.NativeModuleInfo()
     parent_dir, targets = _get_merged_native_target(cc_module_info, targets)
-    module_names = []
-    for target in targets:
-        mod_info = cc_module_info.get_module_info(target)
-        clion_gen = clion_project_file_gen.CLionProjectFileGenerator(mod_info)
-        clion_gen.generate_cmakelists_file()
-        module_names.append(mod_info[constant.KEY_MODULE_NAME])
     rel_path = os.path.relpath(parent_dir, common_util.get_android_root_dir())
     # If the relative path is Android root, we won't show '.' in the path.
     if rel_path == '.':
         rel_path = ''
+    module_names = []
+    for target in targets:
+        mod_info = cc_module_info.get_module_info(target)
+        clion_gen = clion_project_file_gen.CLionProjectFileGenerator(
+            mod_info, rel_path)
+        clion_gen.generate_cmakelists_file()
+        module_names.append(mod_info[constant.KEY_MODULE_NAME])
     return clion_project_file_gen.generate_base_cmakelists_file(
         cc_module_info, rel_path, module_names)
 
@@ -136,13 +141,13 @@ def _get_merged_native_target(cc_module_info, targets):
     return parent_folder, new_targets
 
 
-def get_native_and_java_projects(atest_module_info, cc_module_info, targets):
+def get_java_cc_and_rust_projects(atest_module_info, cc_module_info, targets):
     """Gets native and java projects from targets.
 
     Separates native and java projects from targets.
     1. If it's a native module, add it to native projects.
     2. If it's a java module, add it to java projects.
-    3. Calls _analyze_native_and_java_projects to analyze the remaining targets.
+    3. If it's a rust module, add it to rust targets.
 
     Args:
         atest_module_info: A ModuleInfo instance contains the merged data of
@@ -152,9 +157,10 @@ def get_native_and_java_projects(atest_module_info, cc_module_info, targets):
         targets: A list of targets to be analyzed.
 
     Returns:
-        A tuple of a list of java build targets and a list of native build
-        targets.
+        A tuple of a list of java build targets, a list of C/C++ build
+        targets and a list of rust build targets.
     """
+    rtargets = _filter_out_rust_projects(targets)
     ctargets, lefts = _filter_out_modules(targets, cc_module_info.is_module)
     jtargets, lefts = _filter_out_modules(lefts, atest_module_info.is_module)
     path_info = cc_module_info.path_to_module_info
@@ -162,7 +168,7 @@ def get_native_and_java_projects(atest_module_info, cc_module_info, targets):
         atest_module_info, path_info, lefts)
     ctargets.extend(ctars)
     jtargets.extend(jtars)
-    return jtargets, ctargets
+    return jtargets, ctargets, rtargets
 
 
 def _analyze_native_and_java_projects(atest_module_info, path_info, targets):
@@ -171,12 +177,12 @@ def _analyze_native_and_java_projects(atest_module_info, path_info, targets):
     Args:
         atest_module_info: A ModuleInfo instance contains the merged data of
                            module-info.json and module_bp_java_deps.json.
-        path_info: A dictionary contains native projects' path as key
+        path_info: A dictionary contains C/C++ projects' path as key
                    and module's info dictionary as value.
         targets: A list of targets to be analyzed.
 
     Returns:
-        A tuple of a list of java build targets and a list of native build
+        A tuple of a list of java build targets and a list of C/C++ build
         targets.
     """
     jtargets = []
@@ -184,30 +190,15 @@ def _analyze_native_and_java_projects(atest_module_info, path_info, targets):
     for target in targets:
         rel_path, abs_path = common_util.get_related_paths(
             atest_module_info, target)
-        if _check_java_file_exists(abs_path):
+        if common_util.check_java_or_kotlin_file_exists(abs_path):
             jtargets.append(target)
         if _check_native_project_exists(path_info, rel_path):
             ctargets.append(target)
     return jtargets, ctargets
 
 
-def _check_java_file_exists(abs_path):
-    """Checks if any Java files exist in an abs_path directory.
-
-    Args:
-        abs_path: A string of absolute path of a directory to be check.
-
-    Returns:
-        True if any Java files exist otherwise False.
-    """
-    for _, _, filenames in os.walk(abs_path):
-        if fnmatch.filter(filenames, constant.JAVA_FILES):
-            return True
-    return False
-
-
 def _check_native_project_exists(path_to_module_info, rel_path):
-    """Checks if any native project exists in a rel_path directory.
+    """Checks if any C/C++ project exists in a rel_path directory.
 
     Args:
         path_to_module_info: A dictionary contains data of relative path as key
@@ -215,9 +206,62 @@ def _check_native_project_exists(path_to_module_info, rel_path):
         rel_path: A string of relative path of a directory to be check.
 
     Returns:
-        True if any native project exists otherwise False.
+        True if any C/C++ project exists otherwise False.
     """
     for path in path_to_module_info:
         if common_util.is_source_under_relative_path(path, rel_path):
             return True
     return False
+
+
+def _filter_out_rust_projects(targets):
+    """Filters out if the input targets contain any Rust project.
+
+    Args:
+        targets: A list of targets to be checked.
+
+    Returns:
+        A list of Rust projects.
+    """
+    root_dir = common_util.get_android_root_dir()
+    rust_project_json = os.path.join(
+        root_dir,
+        common_util.get_blueprint_json_path(constant.RUST_PROJECT_JSON))
+    if not os.path.isfile(rust_project_json):
+        message = _RUST_JSON_NOT_EXIST.format(rust_project_json)
+        print(constant.WARN_MSG.format(
+            common_util.COLORED_INFO('Warning:'), message))
+        return None
+    rust_dict = common_util.get_json_dict(rust_project_json)
+    if _CRATES_KEY not in rust_dict:
+        message = _RUST_DICT_BROKEN.format(_CRATES_KEY)
+        print(constant.WARN_MSG.format(
+            common_util.COLORED_INFO('Warning:'), message))
+        return None
+    return _get_rust_targets(targets, rust_dict[_CRATES_KEY], root_dir)
+
+
+def _get_rust_targets(targets, rust_modules_info, root_dir):
+    """Gets Rust targets by checking input targets with a rust info dictionary.
+
+    Args:
+        targets: A list of targets to be checked.
+        rust_modules_info: A list of the Android Rust modules info.
+        root_dir: A string of the Android root directory.
+
+    Returns:
+        A list of Rust targets.
+    """
+    rtargets = []
+    for target in targets:
+        # The Rust project can be expressed only in the path but not the module
+        # right now.
+        if not os.path.isdir(os.path.join(root_dir, target)):
+            continue
+        for mod_info in rust_modules_info:
+            if _ROOT_MODULE_KEY not in mod_info:
+                continue
+            path = mod_info[_ROOT_MODULE_KEY]
+            if common_util.is_source_under_relative_path(path, target):
+                rtargets.append(target)
+    return rtargets

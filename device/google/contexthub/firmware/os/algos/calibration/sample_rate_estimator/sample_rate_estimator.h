@@ -43,6 +43,7 @@
 #define LOCATION_LBS_CONTEXTHUB_NANOAPPS_CALIBRATION_SAMPLE_RATE_ESTIMATOR_SAMPLE_RATE_ESTIMATOR_H_
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
 

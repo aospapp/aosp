@@ -33,7 +33,7 @@ public class ShortcutManagerPreBackupTest extends ShortcutManagerDeviceTestBase 
     protected void setUp() throws Exception {
         super.setUp();
 
-        setAsDefaultLauncher(MainActivity.class);
+        setAsDefaultLauncher();
     }
 
     public void testPreBackup() {

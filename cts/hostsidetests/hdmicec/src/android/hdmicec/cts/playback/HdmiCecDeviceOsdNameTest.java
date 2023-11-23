@@ -16,28 +16,42 @@
 
 package android.hdmicec.cts.playback;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
-import android.hdmicec.cts.CecDevice;
+import android.hdmicec.cts.BaseHdmiCecCtsTest;
 import android.hdmicec.cts.CecMessage;
+import android.hdmicec.cts.CecOperand;
 import android.hdmicec.cts.HdmiCecClientWrapper;
+import android.hdmicec.cts.HdmiCecConstants;
+import android.hdmicec.cts.LogicalAddress;
+import android.hdmicec.cts.RequiredPropertyRule;
+import android.hdmicec.cts.RequiredFeatureRule;
 
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import org.junit.Rule;
+import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 import org.junit.Test;
 
 /** HDMI CEC tests related to the device reporting the device OSD name (Section 11.2.11) */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public final class HdmiCecDeviceOsdNameTest extends BaseHostJUnit4Test {
-    private static final CecDevice PLAYBACK_DEVICE = CecDevice.PLAYBACK_1;
+public final class HdmiCecDeviceOsdNameTest extends BaseHdmiCecCtsTest {
+
+    private static final LogicalAddress PLAYBACK_DEVICE = LogicalAddress.PLAYBACK_1;
+
+    public HdmiCecDeviceOsdNameTest() {
+        super(HdmiCecConstants.CEC_DEVICE_TYPE_PLAYBACK_DEVICE);
+    }
 
     @Rule
-    public HdmiCecClientWrapper hdmiCecClient =
-        new HdmiCecClientWrapper(CecDevice.PLAYBACK_1, this);
+    public RuleChain ruleChain =
+        RuleChain
+            .outerRule(CecRules.requiresCec(this))
+            .around(CecRules.requiresLeanback(this))
+            .around(CecRules.requiresDeviceType(this, PLAYBACK_DEVICE))
+            .around(hdmiCecClient);
 
     /**
      * Test 11.2.11-1a
@@ -53,9 +67,9 @@ public final class HdmiCecDeviceOsdNameTest extends BaseHostJUnit4Test {
         if (deviceName.length() > nameLength) {
             deviceName = deviceName.substring(0, nameLength).trim();
         }
-        hdmiCecClient.sendCecMessage(CecDevice.TV, CecMessage.GIVE_OSD_NAME);
-        String message = hdmiCecClient.checkExpectedOutput(CecDevice.TV, CecMessage.SET_OSD_NAME);
-        assertEquals(deviceName, hdmiCecClient.getAsciiStringFromMessage(message));
+        hdmiCecClient.sendCecMessage(LogicalAddress.TV, CecOperand.GIVE_OSD_NAME);
+        String message = hdmiCecClient.checkExpectedOutput(LogicalAddress.TV, CecOperand.SET_OSD_NAME);
+        assertThat(CecMessage.getAsciiString(message)).isEqualTo(deviceName);
     }
 
     /**
@@ -70,10 +84,10 @@ public final class HdmiCecDeviceOsdNameTest extends BaseHostJUnit4Test {
         String originalName = device.executeShellCommand("settings get global device_name").trim();
         try {
             device.executeShellCommand("settings put global device_name '" + testName + "'");
-            hdmiCecClient.sendCecMessage(CecDevice.TV, CecMessage.GIVE_OSD_NAME);
-            String message = hdmiCecClient.checkExpectedOutput(CecDevice.TV,
-                    CecMessage.SET_OSD_NAME);
-            assertEquals(testName, hdmiCecClient.getAsciiStringFromMessage(message));
+            hdmiCecClient.sendCecMessage(LogicalAddress.TV, CecOperand.GIVE_OSD_NAME);
+            String message = hdmiCecClient.checkExpectedOutput(LogicalAddress.TV,
+                    CecOperand.SET_OSD_NAME);
+            assertThat(CecMessage.getAsciiString(message)).isEqualTo(testName);
         } finally {
             device.executeShellCommand("settings put global device_name '" + originalName + "'");
         }
@@ -85,11 +99,11 @@ public final class HdmiCecDeviceOsdNameTest extends BaseHostJUnit4Test {
      */
     @Test
     public void cect_11_2_11_2_UnregisteredDeviceGiveOsdNameTest() throws Exception {
-        hdmiCecClient.sendCecMessage(CecDevice.PLAYBACK_1, CecMessage.GIVE_OSD_NAME);
-        hdmiCecClient.checkOutputDoesNotContainMessage(CecDevice.PLAYBACK_1,
-                CecMessage.SET_OSD_NAME);
-        hdmiCecClient.sendCecMessage(CecDevice.BROADCAST, CecMessage.GIVE_OSD_NAME);
-        hdmiCecClient.checkOutputDoesNotContainMessage(CecDevice.BROADCAST,
-                CecMessage.SET_OSD_NAME);
+        hdmiCecClient.sendCecMessage(LogicalAddress.PLAYBACK_1, CecOperand.GIVE_OSD_NAME);
+        hdmiCecClient.checkOutputDoesNotContainMessage(LogicalAddress.PLAYBACK_1,
+                CecOperand.SET_OSD_NAME);
+        hdmiCecClient.sendCecMessage(LogicalAddress.BROADCAST, CecOperand.GIVE_OSD_NAME);
+        hdmiCecClient.checkOutputDoesNotContainMessage(LogicalAddress.BROADCAST,
+                CecOperand.SET_OSD_NAME);
     }
 }

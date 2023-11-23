@@ -285,7 +285,7 @@ bool RemoteConnection::sendFrame(std::unique_ptr<Frame> frame) {
         }
         totalSize -= written;
         // Determine how much is left to write after this
-        while (current < count && written >= iov[current].iov_len) {
+        while (current < count && static_cast<size_t>(written) >= iov[current].iov_len) {
             written -= iov[current++].iov_len;
         }
         if (current == count) {

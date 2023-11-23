@@ -25,10 +25,8 @@ import android.accounts.AccountManager;
 import android.accounts.AccountManagerFuture;
 import android.app.UiAutomation;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Process;
 import android.os.UserHandle;
 
 import androidx.test.InstrumentationRegistry;
@@ -44,6 +42,9 @@ public class AccountManagerCrossUserTest {
 
     private static final Account TEST_ACCOUNT = new Account(MockAuthenticator.ACCOUNT_NAME,
             MockAuthenticator.ACCOUNT_TYPE);
+    private static final String AUTH_TOKEN_TYPE = "testAuthTokenType";
+    private static final String[] REQUIRED_FEATURES =
+            new String[]{"testRequiredFeature1", "testRequiredFeature2"};
 
     private Context mContext;
     private UiAutomation uiAutomation;
@@ -106,6 +107,20 @@ public class AccountManagerCrossUserTest {
 
         Account[] accounts = accountManagerAsUser.getAccounts();
         assertThat(accounts).hasLength(1);
+    }
+
+    @Test
+    public void testAccountManager_addMockAccountForCurrentUser() throws Exception {
+        AccountManager accountManager = mContext.getSystemService(AccountManager.class);
+
+        accountManager.addAccount(
+                MockAuthenticator.ACCOUNT_TYPE,
+                AUTH_TOKEN_TYPE,
+                REQUIRED_FEATURES,
+                /* addAccountOptions= */ null,
+                /* activity= */ null,
+                /* callback= */ null,
+                /* handler= */ null);
     }
 
     @Test
@@ -189,6 +204,31 @@ public class AccountManagerCrossUserTest {
                 profileHandle, 0).getSystemService(Context.ACCOUNT_SERVICE);
 
         assertThat(accountManagerAsUser).isNotNull();
+    }
+
+    @Test
+    public void testAccountManager_getAuthTokenForCurrentUser() throws Exception {
+        AccountManager accountManager = mContext.getSystemService(AccountManager.class);
+        MockAuthenticator.addTestAccount(mContext);
+        accountManager.getAuthToken(TEST_ACCOUNT,
+                AUTH_TOKEN_TYPE,
+                /* options= */ null,
+                /* activity= */ null,
+                /* callback= */ null,
+                /* handler= */ null);
+    }
+
+    @Test
+    public void testAccountManager_startAddAccountSessionForCurrentUser() throws Exception {
+        AccountManager accountManager = mContext.getSystemService(AccountManager.class);
+        accountManager.startAddAccountSession(
+                MockAuthenticator.ACCOUNT_TYPE,
+                AUTH_TOKEN_TYPE,
+                REQUIRED_FEATURES,
+                /* options= */ null,
+                /* activity= */ null,
+                /* callback= */ null,
+                /* handler= */ null);
     }
 
     private void assertPermissionRevoked(String permission) throws Exception {

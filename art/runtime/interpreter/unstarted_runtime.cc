@@ -24,7 +24,6 @@
 #include <initializer_list>
 #include <limits>
 #include <locale>
-#include <unordered_map>
 
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
@@ -32,6 +31,7 @@
 #include "art_method-inl.h"
 #include "base/casts.h"
 #include "base/enums.h"
+#include "base/hash_map.h"
 #include "base/macros.h"
 #include "base/quasi_atomic.h"
 #include "base/zip_archive.h"
@@ -48,7 +48,7 @@
 #include "mirror/array-inl.h"
 #include "mirror/class-alloc-inl.h"
 #include "mirror/executable-inl.h"
-#include "mirror/field-inl.h"
+#include "mirror/field.h"
 #include "mirror/method.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-alloc-inl.h"
@@ -60,6 +60,7 @@
 #include "reflection.h"
 #include "thread-inl.h"
 #include "transaction.h"
+#include "unstarted_runtime_list.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -126,24 +127,17 @@ void UnstartedRuntime::UnstartedCharacterToUpperCase(
 }
 
 // Helper function to deal with class loading in an unstarted runtime.
-static void UnstartedRuntimeFindClass(Thread* self, Handle<mirror::String> className,
-                                      Handle<mirror::ClassLoader> class_loader, JValue* result,
-                                      const std::string& method_name, bool initialize_class,
-                                      bool abort_if_not_found)
+static void UnstartedRuntimeFindClass(Thread* self,
+                                      Handle<mirror::String> className,
+                                      Handle<mirror::ClassLoader> class_loader,
+                                      JValue* result,
+                                      bool initialize_class)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   CHECK(className != nullptr);
   std::string descriptor(DotToDescriptor(className->ToModifiedUtf8().c_str()));
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
 
   ObjPtr<mirror::Class> found = class_linker->FindClass(self, descriptor.c_str(), class_loader);
-  if (found == nullptr && abort_if_not_found) {
-    if (!self->IsExceptionPending()) {
-      AbortTransactionOrFail(self, "%s failed in un-started runtime for class: %s",
-                             method_name.c_str(),
-                             PrettyDescriptor(descriptor.c_str()).c_str());
-    }
-    return;
-  }
   if (found != nullptr && initialize_class) {
     StackHandleScope<1> hs(self);
     HandleWrapperObjPtr<mirror::Class> h_class = hs.NewHandleWrapper(&found);
@@ -163,9 +157,23 @@ static void UnstartedRuntimeFindClass(Thread* self, Handle<mirror::String> class
 static void CheckExceptionGenerateClassNotFound(Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   if (self->IsExceptionPending()) {
-    // If it is not the transaction abort exception, wrap it.
-    std::string type(mirror::Object::PrettyTypeOf(self->GetException()));
-    if (type != Transaction::kAbortExceptionDescriptor) {
+    Runtime* runtime = Runtime::Current();
+    DCHECK_EQ(runtime->IsTransactionAborted(),
+              self->GetException()->GetClass()->DescriptorEquals(
+                  Transaction::kAbortExceptionDescriptor))
+        << self->GetException()->GetClass()->PrettyDescriptor();
+    if (runtime->IsActiveTransaction()) {
+      // The boot class path at run time may contain additional dex files with
+      // the required class definition(s). We cannot throw a normal exception at
+      // compile time because a class initializer could catch it and successfully
+      // initialize a class differently than when executing at run time.
+      // If we're not aborting the transaction yet, abort now. b/183691501
+      if (!runtime->IsTransactionAborted()) {
+        AbortTransactionF(self, "ClassNotFoundException");
+      }
+    } else {
+      // If not in a transaction, it cannot be the transaction abort exception. Wrap it.
+      DCHECK(!runtime->IsTransactionAborted());
       self->ThrowNewWrappedException("Ljava/lang/ClassNotFoundException;",
                                      "ClassNotFoundException");
     }
@@ -205,8 +213,7 @@ void UnstartedRuntime::UnstartedClassForNameCommon(Thread* self,
                                                    ShadowFrame* shadow_frame,
                                                    JValue* result,
                                                    size_t arg_offset,
-                                                   bool long_form,
-                                                   const char* caller) {
+                                                   bool long_form) {
   ObjPtr<mirror::String> class_name = GetClassName(self, shadow_frame, arg_offset);
   if (class_name == nullptr) {
     return;
@@ -238,20 +245,18 @@ void UnstartedRuntime::UnstartedClassForNameCommon(Thread* self,
                             h_class_name,
                             ScopedNullHandle<mirror::ClassLoader>(),
                             result,
-                            caller,
-                            initialize_class,
-                            false);
+                            initialize_class);
   CheckExceptionGenerateClassNotFound(self);
 }
 
 void UnstartedRuntime::UnstartedClassForName(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
-  UnstartedClassForNameCommon(self, shadow_frame, result, arg_offset, false, "Class.forName");
+  UnstartedClassForNameCommon(self, shadow_frame, result, arg_offset, /*long_form=*/ false);
 }
 
 void UnstartedRuntime::UnstartedClassForNameLong(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
-  UnstartedClassForNameCommon(self, shadow_frame, result, arg_offset, true, "Class.forName");
+  UnstartedClassForNameCommon(self, shadow_frame, result, arg_offset, /*long_form=*/ true);
 }
 
 void UnstartedRuntime::UnstartedClassGetPrimitiveClass(
@@ -270,7 +275,7 @@ void UnstartedRuntime::UnstartedClassGetPrimitiveClass(
 
 void UnstartedRuntime::UnstartedClassClassForName(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
-  UnstartedClassForNameCommon(self, shadow_frame, result, arg_offset, true, "Class.classForName");
+  UnstartedClassForNameCommon(self, shadow_frame, result, arg_offset, /*long_form=*/ true);
 }
 
 void UnstartedRuntime::UnstartedClassNewInstance(
@@ -360,26 +365,7 @@ void UnstartedRuntime::UnstartedClassGetDeclaredField(
                            klass->PrettyDescriptor().c_str());
     return;
   }
-  Runtime* runtime = Runtime::Current();
-  PointerSize pointer_size = runtime->GetClassLinker()->GetImagePointerSize();
-  ObjPtr<mirror::Field> field;
-  if (runtime->IsActiveTransaction()) {
-    if (pointer_size == PointerSize::k64) {
-      field = mirror::Field::CreateFromArtField<PointerSize::k64, true>(
-          self, found, true);
-    } else {
-      field = mirror::Field::CreateFromArtField<PointerSize::k32, true>(
-          self, found, true);
-    }
-  } else {
-    if (pointer_size == PointerSize::k64) {
-      field = mirror::Field::CreateFromArtField<PointerSize::k64, false>(
-          self, found, true);
-    } else {
-      field = mirror::Field::CreateFromArtField<PointerSize::k32, false>(
-          self, found, true);
-    }
-  }
+  ObjPtr<mirror::Field> field = mirror::Field::CreateFromArtField(self, found, true);
   result->SetL(field);
 }
 
@@ -395,28 +381,13 @@ void UnstartedRuntime::UnstartedClassGetDeclaredMethod(
   ObjPtr<mirror::String> name = shadow_frame->GetVRegReference(arg_offset + 1)->AsString();
   ObjPtr<mirror::ObjectArray<mirror::Class>> args =
       shadow_frame->GetVRegReference(arg_offset + 2)->AsObjectArray<mirror::Class>();
-  Runtime* runtime = Runtime::Current();
-  bool transaction = runtime->IsActiveTransaction();
-  PointerSize pointer_size = runtime->GetClassLinker()->GetImagePointerSize();
+  PointerSize pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
   auto fn_hiddenapi_access_context = GetHiddenapiAccessContextFunction(shadow_frame);
-  ObjPtr<mirror::Method> method;
-  if (transaction) {
-    if (pointer_size == PointerSize::k64) {
-      method = mirror::Class::GetDeclaredMethodInternal<PointerSize::k64, true>(
-          self, klass, name, args, fn_hiddenapi_access_context);
-    } else {
-      method = mirror::Class::GetDeclaredMethodInternal<PointerSize::k32, true>(
-          self, klass, name, args, fn_hiddenapi_access_context);
-    }
-  } else {
-    if (pointer_size == PointerSize::k64) {
-      method = mirror::Class::GetDeclaredMethodInternal<PointerSize::k64, false>(
-          self, klass, name, args, fn_hiddenapi_access_context);
-    } else {
-      method = mirror::Class::GetDeclaredMethodInternal<PointerSize::k32, false>(
-          self, klass, name, args, fn_hiddenapi_access_context);
-    }
-  }
+  ObjPtr<mirror::Method> method = (pointer_size == PointerSize::k64)
+      ? mirror::Class::GetDeclaredMethodInternal<PointerSize::k64>(
+            self, klass, name, args, fn_hiddenapi_access_context)
+      : mirror::Class::GetDeclaredMethodInternal<PointerSize::k32>(
+            self, klass, name, args, fn_hiddenapi_access_context);
   if (method != nullptr && ShouldDenyAccessToMember(method->GetArtMethod(), shadow_frame)) {
     method = nullptr;
   }
@@ -433,27 +404,10 @@ void UnstartedRuntime::UnstartedClassGetDeclaredConstructor(
   }
   ObjPtr<mirror::ObjectArray<mirror::Class>> args =
       shadow_frame->GetVRegReference(arg_offset + 1)->AsObjectArray<mirror::Class>();
-  Runtime* runtime = Runtime::Current();
-  bool transaction = runtime->IsActiveTransaction();
-  PointerSize pointer_size = runtime->GetClassLinker()->GetImagePointerSize();
-  ObjPtr<mirror::Constructor> constructor;
-  if (transaction) {
-    if (pointer_size == PointerSize::k64) {
-      constructor = mirror::Class::GetDeclaredConstructorInternal<PointerSize::k64,
-                                                                  true>(self, klass, args);
-    } else {
-      constructor = mirror::Class::GetDeclaredConstructorInternal<PointerSize::k32,
-                                                                  true>(self, klass, args);
-    }
-  } else {
-    if (pointer_size == PointerSize::k64) {
-      constructor = mirror::Class::GetDeclaredConstructorInternal<PointerSize::k64,
-                                                                  false>(self, klass, args);
-    } else {
-      constructor = mirror::Class::GetDeclaredConstructorInternal<PointerSize::k32,
-                                                                  false>(self, klass, args);
-    }
-  }
+  PointerSize pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
+  ObjPtr<mirror::Constructor> constructor = (pointer_size == PointerSize::k64)
+      ? mirror::Class::GetDeclaredConstructorInternal<PointerSize::k64>(self, klass, args)
+      : mirror::Class::GetDeclaredConstructorInternal<PointerSize::k32>(self, klass, args);
   if (constructor != nullptr &&
       ShouldDenyAccessToMember(constructor->GetArtMethod(), shadow_frame)) {
     constructor = nullptr;
@@ -738,7 +692,12 @@ void UnstartedRuntime::UnstartedConstructorNewInstance0(
                                        soa.AddLocalReference<jobject>(receiver.Get()));
     ScopedLocalRef<jobject> args_ref(self->GetJniEnv(),
                                      soa.AddLocalReference<jobject>(args.Get()));
-    InvokeMethod(soa, method_ref.get(), object_ref.get(), args_ref.get(), 2);
+    PointerSize pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
+    if (pointer_size == PointerSize::k64) {
+      InvokeMethod<PointerSize::k64>(soa, method_ref.get(), object_ref.get(), args_ref.get(), 2);
+    } else {
+      InvokeMethod<PointerSize::k32>(soa, method_ref.get(), object_ref.get(), args_ref.get(), 2);
+    }
   }
   if (self->IsExceptionPending()) {
     AbortTransactionOrFail(self, "Failed running constructor");
@@ -755,13 +714,27 @@ void UnstartedRuntime::UnstartedVmClassLoaderFindLoadedClass(
   StackHandleScope<2> hs(self);
   Handle<mirror::String> h_class_name(hs.NewHandle(class_name));
   Handle<mirror::ClassLoader> h_class_loader(hs.NewHandle(class_loader));
-  UnstartedRuntimeFindClass(self, h_class_name, h_class_loader, result,
-                            "VMClassLoader.findLoadedClass", false, false);
+  UnstartedRuntimeFindClass(self,
+                            h_class_name,
+                            h_class_loader,
+                            result,
+                            /*initialize_class=*/ false);
   // This might have an error pending. But semantics are to just return null.
   if (self->IsExceptionPending()) {
-    // If it is an InternalError, keep it. See CheckExceptionGenerateClassNotFound.
-    std::string type(mirror::Object::PrettyTypeOf(self->GetException()));
-    if (type != "java.lang.InternalError") {
+    Runtime* runtime = Runtime::Current();
+    DCHECK_EQ(runtime->IsTransactionAborted(),
+              self->GetException()->GetClass()->DescriptorEquals(
+                  Transaction::kAbortExceptionDescriptor))
+        << self->GetException()->GetClass()->PrettyDescriptor();
+    if (runtime->IsActiveTransaction()) {
+      // If we're not aborting the transaction yet, abort now. b/183691501
+      // See CheckExceptionGenerateClassNotFound() for more detailed explanation.
+      if (!runtime->IsTransactionAborted()) {
+        AbortTransactionF(self, "ClassNotFoundException");
+      }
+    } else {
+      // If not in a transaction, it cannot be the transaction abort exception. Clear it.
+      DCHECK(!runtime->IsTransactionAborted());
       self->ClearException();
     }
   }
@@ -1416,7 +1389,7 @@ void UnstartedRuntime::UnstartedStringToCharArray(
 // This allows statically initializing ConcurrentHashMap and SynchronousQueue.
 void UnstartedRuntime::UnstartedReferenceGetReferent(
     Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
-  const ObjPtr<mirror::Reference> ref = down_cast<mirror::Reference*>(
+  const ObjPtr<mirror::Reference> ref = ObjPtr<mirror::Reference>::DownCast(
       shadow_frame->GetVRegReference(arg_offset));
   if (ref == nullptr) {
     AbortTransactionOrFail(self, "Reference.getReferent() with null object");
@@ -1425,6 +1398,22 @@ void UnstartedRuntime::UnstartedReferenceGetReferent(
   const ObjPtr<mirror::Object> referent =
       Runtime::Current()->GetHeap()->GetReferenceProcessor()->GetReferent(self, ref);
   result->SetL(referent);
+}
+
+void UnstartedRuntime::UnstartedReferenceRefersTo(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  // Use the naive implementation that may block and needlessly extend the lifetime
+  // of the referenced object.
+  const ObjPtr<mirror::Reference> ref = ObjPtr<mirror::Reference>::DownCast(
+      shadow_frame->GetVRegReference(arg_offset));
+  if (ref == nullptr) {
+    AbortTransactionOrFail(self, "Reference.refersTo() with null object");
+    return;
+  }
+  const ObjPtr<mirror::Object> referent =
+      Runtime::Current()->GetHeap()->GetReferenceProcessor()->GetReferent(self, ref);
+  const ObjPtr<mirror::Object> o = shadow_frame->GetVRegReference(arg_offset + 1);
+  result->SetZ(o == referent);
 }
 
 // This allows statically initializing ConcurrentHashMap and SynchronousQueue. We use a somewhat
@@ -1695,8 +1684,17 @@ void UnstartedRuntime::UnstartedMethodInvoke(
   ScopedLocalRef<jobject> java_args(env,
       java_args_obj == nullptr ? nullptr : env->AddLocalReference<jobject>(java_args_obj));
 
+  PointerSize pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
   ScopedLocalRef<jobject> result_jobj(env,
-      InvokeMethod(soa, java_method.get(), java_receiver.get(), java_args.get()));
+      (pointer_size == PointerSize::k64)
+          ? InvokeMethod<PointerSize::k64>(soa,
+                                           java_method.get(),
+                                           java_receiver.get(),
+                                           java_args.get())
+          : InvokeMethod<PointerSize::k32>(soa,
+                                           java_method.get(),
+                                           java_receiver.get(),
+                                           java_args.get()));
 
   result->SetL(self->DecodeJObject(result_jobj.get()));
 
@@ -1885,17 +1883,8 @@ void UnstartedRuntime::UnstartedJNIThrowableNativeFillInStackTrace(
     Thread* self, ArtMethod* method ATTRIBUTE_UNUSED, mirror::Object* receiver ATTRIBUTE_UNUSED,
     uint32_t* args ATTRIBUTE_UNUSED, JValue* result) {
   ScopedObjectAccessUnchecked soa(self);
-  if (Runtime::Current()->IsActiveTransaction()) {
-    result->SetL(soa.Decode<mirror::Object>(self->CreateInternalStackTrace<true>(soa)));
-  } else {
-    result->SetL(soa.Decode<mirror::Object>(self->CreateInternalStackTrace<false>(soa)));
-  }
-}
-
-void UnstartedRuntime::UnstartedJNIByteOrderIsLittleEndian(
-    Thread* self ATTRIBUTE_UNUSED, ArtMethod* method ATTRIBUTE_UNUSED,
-    mirror::Object* receiver ATTRIBUTE_UNUSED, uint32_t* args ATTRIBUTE_UNUSED, JValue* result) {
-  result->SetZ(JNI_TRUE);
+  ScopedLocalRef<jobject> stack_trace(self->GetJniEnv(), self->CreateInternalStackTrace(soa));
+  result->SetL(soa.Decode<mirror::Object>(stack_trace.get()));
 }
 
 void UnstartedRuntime::UnstartedJNIUnsafeCompareAndSwapInt(
@@ -2012,37 +2001,95 @@ using JNIHandler = void(*)(Thread* self,
                            uint32_t* args,
                            JValue* result);
 
-static bool tables_initialized_ = false;
-static std::unordered_map<std::string, InvokeHandler> invoke_handlers_;
-static std::unordered_map<std::string, JNIHandler> jni_handlers_;
+#define ONE_PLUS(ShortNameIgnored, DescriptorIgnored, NameIgnored, SignatureIgnored) 1 +
+static constexpr size_t kInvokeHandlersSize = UNSTARTED_RUNTIME_DIRECT_LIST(ONE_PLUS) 0;
+static constexpr size_t kJniHandlersSize = UNSTARTED_RUNTIME_JNI_LIST(ONE_PLUS) 0;
+#undef ONE_PLUS
 
-void UnstartedRuntime::InitializeInvokeHandlers() {
-#define UNSTARTED_DIRECT(ShortName, Sig) \
-  invoke_handlers_.insert(std::make_pair(Sig, & UnstartedRuntime::Unstarted ## ShortName));
-#include "unstarted_runtime_list.h"
-  UNSTARTED_RUNTIME_DIRECT_LIST(UNSTARTED_DIRECT)
-#undef UNSTARTED_RUNTIME_DIRECT_LIST
-#undef UNSTARTED_RUNTIME_JNI_LIST
-#undef UNSTARTED_DIRECT
+// The actual value of `kMinLoadFactor` is irrelevant because the HashMap<>s below
+// are never resized, but we still need to pass a reasonable value to the constructor.
+static constexpr double kMinLoadFactor = 0.5;
+static constexpr double kMaxLoadFactor = 0.7;
+
+constexpr size_t BufferSize(size_t size) {
+  // Note: ceil() is not suitable for constexpr, so cast to size_t and adjust by 1 if needed.
+  const size_t estimate = static_cast<size_t>(size / kMaxLoadFactor);
+  return static_cast<size_t>(estimate * kMaxLoadFactor) == size ? estimate : estimate + 1u;
 }
 
-void UnstartedRuntime::InitializeJNIHandlers() {
-#define UNSTARTED_JNI(ShortName, Sig) \
-  jni_handlers_.insert(std::make_pair(Sig, & UnstartedRuntime::UnstartedJNI ## ShortName));
-#include "unstarted_runtime_list.h"
+static constexpr size_t kInvokeHandlersBufferSize = BufferSize(kInvokeHandlersSize);
+static_assert(
+    static_cast<size_t>(kInvokeHandlersBufferSize * kMaxLoadFactor) == kInvokeHandlersSize);
+static constexpr size_t kJniHandlersBufferSize = BufferSize(kJniHandlersSize);
+static_assert(static_cast<size_t>(kJniHandlersBufferSize * kMaxLoadFactor) == kJniHandlersSize);
+
+static bool tables_initialized_ = false;
+static std::pair<ArtMethod*, InvokeHandler> kInvokeHandlersBuffer[kInvokeHandlersBufferSize];
+static HashMap<ArtMethod*, InvokeHandler> invoke_handlers_(
+    kMinLoadFactor, kMaxLoadFactor, kInvokeHandlersBuffer, kInvokeHandlersBufferSize);
+static std::pair<ArtMethod*, JNIHandler> kJniHandlersBuffer[kJniHandlersBufferSize];
+static HashMap<ArtMethod*, JNIHandler> jni_handlers_(
+    kMinLoadFactor, kMaxLoadFactor, kJniHandlersBuffer, kJniHandlersBufferSize);
+
+static ArtMethod* FindMethod(Thread* self,
+                             ClassLinker* class_linker,
+                             const char* descriptor,
+                             std::string_view name,
+                             std::string_view signature) REQUIRES_SHARED(Locks::mutator_lock_) {
+  ObjPtr<mirror::Class> klass = class_linker->FindSystemClass(self, descriptor);
+  DCHECK(klass != nullptr) << descriptor;
+  ArtMethod* method = klass->FindClassMethod(name, signature, class_linker->GetImagePointerSize());
+  DCHECK(method != nullptr) << descriptor << "." << name << signature;
+  return method;
+}
+
+void UnstartedRuntime::InitializeInvokeHandlers(Thread* self) {
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+#define UNSTARTED_DIRECT(ShortName, Descriptor, Name, Signature) \
+  { \
+    ArtMethod* method = FindMethod(self, class_linker, Descriptor, Name, Signature); \
+    invoke_handlers_.insert(std::make_pair(method, & UnstartedRuntime::Unstarted ## ShortName)); \
+  }
+  UNSTARTED_RUNTIME_DIRECT_LIST(UNSTARTED_DIRECT)
+#undef UNSTARTED_DIRECT
+  DCHECK_EQ(invoke_handlers_.NumBuckets(), kInvokeHandlersBufferSize);
+}
+
+void UnstartedRuntime::InitializeJNIHandlers(Thread* self) {
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+#define UNSTARTED_JNI(ShortName, Descriptor, Name, Signature) \
+  { \
+    ArtMethod* method = FindMethod(self, class_linker, Descriptor, Name, Signature); \
+    jni_handlers_.insert(std::make_pair(method, & UnstartedRuntime::UnstartedJNI ## ShortName)); \
+  }
   UNSTARTED_RUNTIME_JNI_LIST(UNSTARTED_JNI)
-#undef UNSTARTED_RUNTIME_DIRECT_LIST
-#undef UNSTARTED_RUNTIME_JNI_LIST
 #undef UNSTARTED_JNI
+  DCHECK_EQ(jni_handlers_.NumBuckets(), kJniHandlersBufferSize);
 }
 
 void UnstartedRuntime::Initialize() {
   CHECK(!tables_initialized_);
 
-  InitializeInvokeHandlers();
-  InitializeJNIHandlers();
+  ScopedObjectAccess soa(Thread::Current());
+  InitializeInvokeHandlers(soa.Self());
+  InitializeJNIHandlers(soa.Self());
 
   tables_initialized_ = true;
+}
+
+void UnstartedRuntime::Reinitialize() {
+  CHECK(tables_initialized_);
+
+  // Note: HashSet::clear() abandons the pre-allocated storage which we need to keep.
+  while (!invoke_handlers_.empty()) {
+    invoke_handlers_.erase(invoke_handlers_.begin());
+  }
+  while (!jni_handlers_.empty()) {
+    jni_handlers_.erase(jni_handlers_.begin());
+  }
+
+  tables_initialized_ = false;
+  Initialize();
 }
 
 void UnstartedRuntime::Invoke(Thread* self, const CodeItemDataAccessor& accessor,
@@ -2051,8 +2098,7 @@ void UnstartedRuntime::Invoke(Thread* self, const CodeItemDataAccessor& accessor
   // problems in core libraries.
   CHECK(tables_initialized_);
 
-  std::string name(ArtMethod::PrettyMethod(shadow_frame->GetMethod()));
-  const auto& iter = invoke_handlers_.find(name);
+  const auto& iter = invoke_handlers_.find(shadow_frame->GetMethod());
   if (iter != invoke_handlers_.end()) {
     // Clear out the result in case it's not zeroed out.
     result->SetL(nullptr);
@@ -2072,15 +2118,14 @@ void UnstartedRuntime::Invoke(Thread* self, const CodeItemDataAccessor& accessor
 // Hand select a number of methods to be run in a not yet started runtime without using JNI.
 void UnstartedRuntime::Jni(Thread* self, ArtMethod* method, mirror::Object* receiver,
                            uint32_t* args, JValue* result) {
-  std::string name(ArtMethod::PrettyMethod(method));
-  const auto& iter = jni_handlers_.find(name);
+  const auto& iter = jni_handlers_.find(method);
   if (iter != jni_handlers_.end()) {
     // Clear out the result in case it's not zeroed out.
     result->SetL(nullptr);
     (*iter->second)(self, method, receiver, args, result);
   } else if (Runtime::Current()->IsActiveTransaction()) {
     AbortTransactionF(self, "Attempt to invoke native method in non-started runtime: %s",
-                      name.c_str());
+                      ArtMethod::PrettyMethod(method).c_str());
   } else {
     LOG(FATAL) << "Calling native method " << ArtMethod::PrettyMethod(method) << " in an unstarted "
         "non-transactional runtime";

@@ -116,6 +116,10 @@ public class SignatureTest {
                 // https://bugs.openjdk.java.net/browse/JDK-8044554), but skip verifying it all
                 // the same.
                 .skipProvider("SunPKCS11-NSS")
+                // We don't have code to generate key pairs for these yet.
+                .skipAlgorithm("Ed448")
+                .skipAlgorithm("Ed25519")
+                .skipAlgorithm("EdDSA")
                 .run(new ServiceTester.Test() {
                     @Override
                     public void test(Provider provider, String algorithm) throws Exception {
@@ -2939,13 +2943,54 @@ public class SignatureTest {
      * randomized, so this won't be the exact signature you'll get out of
      * another signing operation unless you use a fixed RNG.
      */
-    public static final byte[] SHA1withDSA_Vector2Signature = new byte[] {
-        (byte) 0x30, (byte) 0x2d, (byte) 0x02, (byte) 0x15, (byte) 0x00, (byte) 0x88, (byte) 0xef, (byte) 0xac,
-        (byte) 0x2b, (byte) 0x8b, (byte) 0xe2, (byte) 0x61, (byte) 0xc6, (byte) 0x2b, (byte) 0xea, (byte) 0xd5,
-        (byte) 0x96, (byte) 0xbc, (byte) 0xb0, (byte) 0xa1, (byte) 0x30, (byte) 0x0c, (byte) 0x1f, (byte) 0xed,
-        (byte) 0x11, (byte) 0x02, (byte) 0x14, (byte) 0x15, (byte) 0xc4, (byte) 0xfc, (byte) 0x82, (byte) 0x6f,
-        (byte) 0x17, (byte) 0xdc, (byte) 0x87, (byte) 0x82, (byte) 0x75, (byte) 0x23, (byte) 0xd4, (byte) 0x58,
-        (byte) 0xdc, (byte) 0x73, (byte) 0x3d, (byte) 0xf3, (byte) 0x51, (byte) 0xc0, (byte) 0x57,
+    private static final byte[] SHA1withDSA_Vector2Signature = new byte[] {
+            (byte) 0x30,
+            (byte) 0x2d,
+            (byte) 0x02,
+            (byte) 0x15,
+            (byte) 0x00,
+            (byte) 0x88,
+            (byte) 0xef,
+            (byte) 0xac,
+            (byte) 0x2b,
+            (byte) 0x8b,
+            (byte) 0xe2,
+            (byte) 0x61,
+            (byte) 0xc6,
+            (byte) 0x2b,
+            (byte) 0xea,
+            (byte) 0xd5,
+            (byte) 0x96,
+            (byte) 0xbc,
+            (byte) 0xb0,
+            (byte) 0xa1,
+            (byte) 0x30,
+            (byte) 0x0c,
+            (byte) 0x1f,
+            (byte) 0xed,
+            (byte) 0x11,
+            (byte) 0x02,
+            (byte) 0x14,
+            (byte) 0x15,
+            (byte) 0xc4,
+            (byte) 0xfc,
+            (byte) 0x82,
+            (byte) 0x6f,
+            (byte) 0x17,
+            (byte) 0xdc,
+            (byte) 0x87,
+            (byte) 0x82,
+            (byte) 0x75,
+            (byte) 0x23,
+            (byte) 0xd4,
+            (byte) 0x58,
+            (byte) 0xdc,
+            (byte) 0x73,
+            (byte) 0x3d,
+            (byte) 0xf3,
+            (byte) 0x51,
+            (byte) 0xc0,
+            (byte) 0x57,
     };
 
     /**
@@ -2953,28 +2998,30 @@ public class SignatureTest {
      * randomized, so this won't be the exact signature you'll get out of
      * another signing operation unless you use a fixed RNG.
      */
-    public static final byte[] SHA224withDSA_Vector2Signature = new byte[] {
-        (byte) 0x30, (byte) 0x2D, (byte) 0x02, (byte) 0x15, (byte) 0x00, (byte) 0xAD, (byte) 0xE5, (byte) 0x6D,
-        (byte) 0xF5, (byte) 0x11, (byte) 0x8D, (byte) 0x2E, (byte) 0x62, (byte) 0x5D, (byte) 0x98, (byte) 0x8A,
-        (byte) 0xC4, (byte) 0x88, (byte) 0x7E, (byte) 0xE6, (byte) 0xA3, (byte) 0x44, (byte) 0x99, (byte) 0xEF,
-        (byte) 0x49, (byte) 0x02, (byte) 0x14, (byte) 0x15, (byte) 0x3E, (byte) 0x32, (byte) 0xD6, (byte) 0xF9,
-        (byte) 0x79, (byte) 0x2C, (byte) 0x60, (byte) 0x6E, (byte) 0xF9, (byte) 0xA9, (byte) 0x78, (byte) 0xE7,
-        (byte) 0x4B, (byte) 0x87, (byte) 0x08, (byte) 0x96, (byte) 0x60, (byte) 0xDE, (byte) 0xB5
-    };
+    private static final byte[] SHA224withDSA_Vector2Signature =
+            new byte[] {(byte) 0x30, (byte) 0x2D, (byte) 0x02, (byte) 0x15, (byte) 0x00,
+                    (byte) 0xAD, (byte) 0xE5, (byte) 0x6D, (byte) 0xF5, (byte) 0x11, (byte) 0x8D,
+                    (byte) 0x2E, (byte) 0x62, (byte) 0x5D, (byte) 0x98, (byte) 0x8A, (byte) 0xC4,
+                    (byte) 0x88, (byte) 0x7E, (byte) 0xE6, (byte) 0xA3, (byte) 0x44, (byte) 0x99,
+                    (byte) 0xEF, (byte) 0x49, (byte) 0x02, (byte) 0x14, (byte) 0x15, (byte) 0x3E,
+                    (byte) 0x32, (byte) 0xD6, (byte) 0xF9, (byte) 0x79, (byte) 0x2C, (byte) 0x60,
+                    (byte) 0x6E, (byte) 0xF9, (byte) 0xA9, (byte) 0x78, (byte) 0xE7, (byte) 0x4B,
+                    (byte) 0x87, (byte) 0x08, (byte) 0x96, (byte) 0x60, (byte) 0xDE, (byte) 0xB5};
 
     /**
      * A possible signature using SHA256withDSA of Vector2Data. Note that DSS is
      * randomized, so this won't be the exact signature you'll get out of
      * another signing operation unless you use a fixed RNG.
      */
-    public static final byte[] SHA256withDSA_Vector2Signature = new byte[] {
-        (byte) 0x30, (byte) 0x2D, (byte) 0x02, (byte) 0x14, (byte) 0x0A, (byte) 0xB1, (byte) 0x74, (byte) 0x45,
-        (byte) 0xE1, (byte) 0x63, (byte) 0x43, (byte) 0x68, (byte) 0x65, (byte) 0xBC, (byte) 0xCA, (byte) 0x45,
-        (byte) 0x27, (byte) 0x11, (byte) 0x4D, (byte) 0x52, (byte) 0xFB, (byte) 0x22, (byte) 0x93, (byte) 0xDD,
-        (byte) 0x02, (byte) 0x15, (byte) 0x00, (byte) 0x98, (byte) 0x32, (byte) 0x1A, (byte) 0x16, (byte) 0x77,
-        (byte) 0x49, (byte) 0xA7, (byte) 0x78, (byte) 0xFD, (byte) 0xE0, (byte) 0xF7, (byte) 0x71, (byte) 0xD4,
-        (byte) 0x80, (byte) 0x50, (byte) 0xA7, (byte) 0xDD, (byte) 0x94, (byte) 0xD1, (byte) 0x6C
-    };
+    private static final byte[] SHA256withDSA_Vector2Signature =
+            new byte[] {(byte) 0x30, (byte) 0x2D, (byte) 0x02, (byte) 0x14, (byte) 0x0A,
+                    (byte) 0xB1, (byte) 0x74, (byte) 0x45, (byte) 0xE1, (byte) 0x63, (byte) 0x43,
+                    (byte) 0x68, (byte) 0x65, (byte) 0xBC, (byte) 0xCA, (byte) 0x45, (byte) 0x27,
+                    (byte) 0x11, (byte) 0x4D, (byte) 0x52, (byte) 0xFB, (byte) 0x22, (byte) 0x93,
+                    (byte) 0xDD, (byte) 0x02, (byte) 0x15, (byte) 0x00, (byte) 0x98, (byte) 0x32,
+                    (byte) 0x1A, (byte) 0x16, (byte) 0x77, (byte) 0x49, (byte) 0xA7, (byte) 0x78,
+                    (byte) 0xFD, (byte) 0xE0, (byte) 0xF7, (byte) 0x71, (byte) 0xD4, (byte) 0x80,
+                    (byte) 0x50, (byte) 0xA7, (byte) 0xDD, (byte) 0x94, (byte) 0xD1, (byte) 0x6C};
 
     @Test
     public void testSign_SHA1withDSA_Key_Success() throws Exception {

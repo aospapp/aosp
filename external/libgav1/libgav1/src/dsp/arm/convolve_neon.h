@@ -17,8 +17,8 @@
 #ifndef LIBGAV1_SRC_DSP_ARM_CONVOLVE_NEON_H_
 #define LIBGAV1_SRC_DSP_ARM_CONVOLVE_NEON_H_
 
-#include "src/dsp/cpu.h"
 #include "src/dsp/dsp.h"
+#include "src/utils/cpu.h"
 
 namespace libgav1 {
 namespace dsp {
@@ -30,17 +30,21 @@ void ConvolveInit_NEON();
 }  // namespace libgav1
 
 #if LIBGAV1_ENABLE_NEON
-#define LIBGAV1_Dsp8bpp_ConvolveHorizontal LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_ConvolveVertical LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_Convolve2D LIBGAV1_DSP_NEON
+#define LIBGAV1_Dsp8bpp_ConvolveHorizontal LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_ConvolveVertical LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_Convolve2D LIBGAV1_CPU_NEON
 
-#define LIBGAV1_Dsp8bpp_ConvolveCompoundCopy LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_ConvolveCompoundHorizontal LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_ConvolveCompoundVertical LIBGAV1_DSP_NEON
-#define LIBGAV1_Dsp8bpp_ConvolveCompound2D LIBGAV1_DSP_NEON
+#define LIBGAV1_Dsp8bpp_ConvolveCompoundCopy LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_ConvolveCompoundHorizontal LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_ConvolveCompoundVertical LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_ConvolveCompound2D LIBGAV1_CPU_NEON
 
-// TODO(petersonab,b/139707209): Fix source buffer overreads.
-// #define LIBGAV1_Dsp8bpp_ConvolveCompoundScale2D LIBGAV1_DSP_NEON
+#define LIBGAV1_Dsp8bpp_ConvolveIntraBlockCopyHorizontal LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_ConvolveIntraBlockCopyVertical LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_ConvolveIntraBlockCopy2D LIBGAV1_CPU_NEON
+
+#define LIBGAV1_Dsp8bpp_ConvolveScale2D LIBGAV1_CPU_NEON
+#define LIBGAV1_Dsp8bpp_ConvolveCompoundScale2D LIBGAV1_CPU_NEON
 #endif  // LIBGAV1_ENABLE_NEON
 
 #endif  // LIBGAV1_SRC_DSP_ARM_CONVOLVE_NEON_H_

@@ -17,8 +17,9 @@ package com.android.devicehealth.tests;
 
 import android.content.Context;
 import android.os.DropBoxManager;
-import android.support.test.InstrumentationRegistry;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.Assert;
 import org.junit.Before;

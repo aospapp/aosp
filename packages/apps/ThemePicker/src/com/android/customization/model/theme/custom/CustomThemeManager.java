@@ -16,20 +16,29 @@
 package com.android.customization.model.theme.custom;
 
 import android.content.Context;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 
 import com.android.customization.model.CustomizationManager;
 import com.android.customization.model.theme.ThemeBundle.PreviewInfo;
+import com.android.customization.model.theme.ThemeBundleProvider;
 import com.android.customization.model.theme.ThemeManager;
 import com.android.customization.model.theme.custom.CustomTheme.Builder;
+
+import org.json.JSONException;
 
 import java.util.Map;
 
 public class CustomThemeManager implements CustomizationManager<ThemeComponentOption> {
 
+    private static final String TAG = "CustomThemeManager";
+    private static final String KEY_STATE_CURRENT_SELECTION = "CustomThemeManager.currentSelection";
+
     private final CustomTheme mOriginalTheme;
-    private final CustomTheme.Builder mBuilder;
+    private CustomTheme.Builder mBuilder;
 
     private CustomThemeManager(Map<String, String> overlayPackages,
             @Nullable CustomTheme originalTheme) {
@@ -70,6 +79,29 @@ public class CustomThemeManager implements CustomizationManager<ThemeComponentOp
 
     public PreviewInfo buildCustomThemePreviewInfo(Context context) {
         return mBuilder.createPreviewInfo(context);
+    }
+
+    /** Saves the custom theme selections while system config changes. */
+    public void saveCustomTheme(Context context, Bundle savedInstanceState) {
+        CustomTheme customTheme =
+                buildPartialCustomTheme(context, /* id= */ null, /* title= */ null);
+        savedInstanceState.putString(KEY_STATE_CURRENT_SELECTION,
+                customTheme.getSerializedPackages());
+    }
+
+    /** Reads the saved custom theme after system config changed. */
+    public void readCustomTheme(ThemeBundleProvider themeBundleProvider,
+                                Bundle savedInstanceState) {
+        String packages = savedInstanceState.getString(KEY_STATE_CURRENT_SELECTION);
+        if (!TextUtils.isEmpty(packages)) {
+            try {
+                mBuilder = themeBundleProvider.parseCustomTheme(packages);
+            } catch (JSONException e) {
+                Log.w(TAG, "Couldn't parse provided custom theme.");
+            }
+        } else {
+            Log.w(TAG, "No custom theme being restored.");
+        }
     }
 
     public static CustomThemeManager create(

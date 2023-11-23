@@ -190,12 +190,19 @@ char* canonicalise(char* in, int* nomem) {
     return ret;
 }
 
-unsigned char* do_rfc1035_name(unsigned char* p, char* sval) {
+unsigned char* do_rfc1035_name(unsigned char* p, char* sval, char *limit) {
     int j;
 
     while (sval && *sval) {
+        if (limit && p + 1 > (unsigned char*)limit)
+            return p;
+
         unsigned char* cp = p++;
-        for (j = 0; *sval && (*sval != '.'); sval++, j++) *p++ = *sval;
+        for (j = 0; *sval && (*sval != '.'); sval++, j++) {
+            if (limit && p + 1 > (unsigned char*)limit)
+                return p;
+            *p++ = *sval;
+        }
         *cp = j;
         if (*sval) sval++;
     }
@@ -266,12 +273,12 @@ int hostname_isequal(char* a, char* b) {
 
 time_t dnsmasq_time(void) {
 #ifdef HAVE_BROKEN_RTC
-    struct tms dummy;
+    struct tms unused;
     static long tps = 0;
 
     if (tps == 0) tps = sysconf(_SC_CLK_TCK);
 
-    return (time_t)(times(&dummy) / tps);
+    return (time_t)(times(&unused) / tps);
 #else
     return time(NULL);
 #endif

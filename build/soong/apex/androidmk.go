@@ -33,17 +33,49 @@ func (a *apexBundle) AndroidMk() android.AndroidMkData {
 			Disabled: true,
 		}
 	}
-	writers := []android.AndroidMkData{}
-	writers = append(writers, a.androidMkForType())
-	return android.AndroidMkData{
-		Custom: func(w io.Writer, name, prefix, moduleDir string, data android.AndroidMkData) {
-			for _, data := range writers {
-				data.Custom(w, name, prefix, moduleDir, data)
-			}
-		}}
+	return a.androidMkForType()
 }
 
-func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, moduleDir string) []string {
+// nameInMake converts apexFileClass into the corresponding class name in Make.
+func (class apexFileClass) nameInMake() string {
+	switch class {
+	case etc:
+		return "ETC"
+	case nativeSharedLib:
+		return "SHARED_LIBRARIES"
+	case nativeExecutable, shBinary, pyBinary, goBinary:
+		return "EXECUTABLES"
+	case javaSharedLib:
+		return "JAVA_LIBRARIES"
+	case nativeTest:
+		return "NATIVE_TESTS"
+	case app, appSet:
+		// b/142537672 Why isn't this APP? We want to have full control over
+		// the paths and file names of the apk file under the flattend APEX.
+		// If this is set to APP, then the paths and file names are modified
+		// by the Make build system. For example, it is installed to
+		// /system/apex/<apexname>/app/<Appname>/<apexname>.<Appname>/ instead of
+		// /system/apex/<apexname>/app/<Appname> because the build system automatically
+		// appends module name (which is <apexname>.<Appname> to the path.
+		return "ETC"
+	default:
+		panic(fmt.Errorf("unknown class %d", class))
+	}
+}
+
+// Return the full module name for a dependency module, which appends the apex module name unless re-using a system lib.
+func (a *apexBundle) fullModuleName(apexBundleName string, fi *apexFile) string {
+	linkToSystemLib := a.linkToSystemLib && fi.transitiveDep && fi.availableToPlatform()
+
+	if linkToSystemLib {
+		return fi.androidMkModuleName
+	}
+	return fi.androidMkModuleName + "." + apexBundleName + a.suffix
+}
+
+func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, moduleDir string,
+	apexAndroidMkData android.AndroidMkData) []string {
+
 	// apexBundleName comes from the 'name' property; apexName comes from 'apex_name' property.
 	// An apex is installed to /system/apex/<apexBundleName> and is activated at /apex/<apexName>
 	// In many cases, the two names are the same, but could be different in general.
@@ -54,6 +86,11 @@ func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, mo
 	// to install symbol files in $(PRODUCT_OUT}/apex.
 	// And if apexType is flattened, run this function to install files in $(PRODUCT_OUT}/system/apex.
 	if !a.primaryApexType && apexType != flattenedApex {
+		return moduleNames
+	}
+
+	// b/162366062. Prevent GKI APEXes to emit make rules to avoid conflicts.
+	if strings.HasPrefix(apexName, "com.android.gki.") && apexType != flattenedApex {
 		return moduleNames
 	}
 
@@ -68,32 +105,35 @@ func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, mo
 
 	var postInstallCommands []string
 	for _, fi := range a.filesInfo {
-		if a.linkToSystemLib && fi.transitiveDep && fi.AvailableToPlatform() {
+		if a.linkToSystemLib && fi.transitiveDep && fi.availableToPlatform() {
 			// TODO(jiyong): pathOnDevice should come from fi.module, not being calculated here
-			linkTarget := filepath.Join("/system", fi.Path())
-			linkPath := filepath.Join(a.installDir.ToMakePath().String(), apexBundleName, fi.Path())
+			linkTarget := filepath.Join("/system", fi.path())
+			linkPath := filepath.Join(a.installDir.ToMakePath().String(), apexBundleName, fi.path())
 			mkdirCmd := "mkdir -p " + filepath.Dir(linkPath)
 			linkCmd := "ln -sfn " + linkTarget + " " + linkPath
 			postInstallCommands = append(postInstallCommands, mkdirCmd, linkCmd)
 		}
 	}
 
+	seenDataOutPaths := make(map[string]bool)
+
 	for _, fi := range a.filesInfo {
-		if ccMod, ok := fi.module.(*cc.Module); ok && ccMod.Properties.HideFromMake {
-			continue
+		linkToSystemLib := a.linkToSystemLib && fi.transitiveDep && fi.availableToPlatform()
+
+		moduleName := a.fullModuleName(apexBundleName, &fi)
+
+		// This name will be added to LOCAL_REQUIRED_MODULES of the APEX. We need to be
+		// arch-specific otherwise we will end up installing both ABIs even when only
+		// either of the ABI is requested.
+		aName := moduleName
+		switch fi.multilib {
+		case "lib32":
+			aName = aName + ":32"
+		case "lib64":
+			aName = aName + ":64"
 		}
-
-		linkToSystemLib := a.linkToSystemLib && fi.transitiveDep && fi.AvailableToPlatform()
-
-		var moduleName string
-		if linkToSystemLib {
-			moduleName = fi.moduleName
-		} else {
-			moduleName = fi.moduleName + "." + apexBundleName + a.suffix
-		}
-
-		if !android.InList(moduleName, moduleNames) {
-			moduleNames = append(moduleNames, moduleName)
+		if !android.InList(aName, moduleNames) {
+			moduleNames = append(moduleNames, aName)
 		}
 
 		if linkToSystemLib {
@@ -124,9 +164,20 @@ func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, mo
 			if len(fi.symlinks) > 0 {
 				fmt.Fprintln(w, "LOCAL_MODULE_SYMLINKS :=", strings.Join(fi.symlinks, " "))
 			}
+			newDataPaths := []android.DataPath{}
+			for _, path := range fi.dataPaths {
+				dataOutPath := modulePath + ":" + path.SrcPath.Rel()
+				if ok := seenDataOutPaths[dataOutPath]; !ok {
+					newDataPaths = append(newDataPaths, path)
+					seenDataOutPaths[dataOutPath] = true
+				}
+			}
+			if len(newDataPaths) > 0 {
+				fmt.Fprintln(w, "LOCAL_TEST_DATA :=", strings.Join(android.AndroidMkDataPaths(newDataPaths), " "))
+			}
 
-			if fi.module != nil && fi.module.NoticeFile().Valid() {
-				fmt.Fprintln(w, "LOCAL_NOTICE_FILE :=", fi.module.NoticeFile().Path().String())
+			if fi.module != nil && len(fi.module.NoticeFiles()) > 0 {
+				fmt.Fprintln(w, "LOCAL_NOTICE_FILE :=", strings.Join(fi.module.NoticeFiles().Strings(), " "))
 			}
 		} else {
 			modulePath = pathWhenActivated
@@ -138,19 +189,20 @@ func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, mo
 			fmt.Fprintln(w, "LOCAL_NO_NOTICE_FILE := true")
 		}
 		fmt.Fprintln(w, "LOCAL_PREBUILT_MODULE_FILE :=", fi.builtFile.String())
-		fmt.Fprintln(w, "LOCAL_MODULE_CLASS :=", fi.class.NameInMake())
+		fmt.Fprintln(w, "LOCAL_MODULE_CLASS :=", fi.class.nameInMake())
 		if fi.module != nil {
 			archStr := fi.module.Target().Arch.ArchType.String()
 			host := false
 			switch fi.module.Target().Os.Class {
 			case android.Host:
-				if fi.module.Target().Arch.ArchType != android.Common {
-					fmt.Fprintln(w, "LOCAL_MODULE_HOST_ARCH :=", archStr)
-				}
-				host = true
-			case android.HostCross:
-				if fi.module.Target().Arch.ArchType != android.Common {
-					fmt.Fprintln(w, "LOCAL_MODULE_HOST_CROSS_ARCH :=", archStr)
+				if fi.module.Target().HostCross {
+					if fi.module.Target().Arch.ArchType != android.Common {
+						fmt.Fprintln(w, "LOCAL_MODULE_HOST_CROSS_ARCH :=", archStr)
+					}
+				} else {
+					if fi.module.Target().Arch.ArchType != android.Common {
+						fmt.Fprintln(w, "LOCAL_MODULE_HOST_ARCH :=", archStr)
+					}
 				}
 				host = true
 			case android.Device:
@@ -175,7 +227,7 @@ func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, mo
 			// soong_java_prebuilt.mk sets LOCAL_MODULE_SUFFIX := .jar  Therefore
 			// we need to remove the suffix from LOCAL_MODULE_STEM, otherwise
 			// we will have foo.jar.jar
-			fmt.Fprintln(w, "LOCAL_MODULE_STEM :=", strings.TrimSuffix(fi.Stem(), ".jar"))
+			fmt.Fprintln(w, "LOCAL_MODULE_STEM :=", strings.TrimSuffix(fi.stem(), ".jar"))
 			if javaModule, ok := fi.module.(java.ApexDependency); ok {
 				fmt.Fprintln(w, "LOCAL_SOONG_CLASSES_JAR :=", javaModule.ImplementationAndResourcesJars()[0].String())
 				fmt.Fprintln(w, "LOCAL_SOONG_HEADER_JAR :=", javaModule.HeaderJars()[0].String())
@@ -191,7 +243,7 @@ func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, mo
 			// soong_app_prebuilt.mk sets LOCAL_MODULE_SUFFIX := .apk  Therefore
 			// we need to remove the suffix from LOCAL_MODULE_STEM, otherwise
 			// we will have foo.apk.apk
-			fmt.Fprintln(w, "LOCAL_MODULE_STEM :=", strings.TrimSuffix(fi.Stem(), ".apk"))
+			fmt.Fprintln(w, "LOCAL_MODULE_STEM :=", strings.TrimSuffix(fi.stem(), ".apk"))
 			if app, ok := fi.module.(*java.AndroidApp); ok {
 				if jniCoverageOutputs := app.JniCoverageOutputs(); len(jniCoverageOutputs) > 0 {
 					fmt.Fprintln(w, "LOCAL_PREBUILT_COVERAGE_ARCHIVE :=", strings.Join(jniCoverageOutputs.Strings(), " "))
@@ -206,11 +258,11 @@ func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, mo
 			if !ok {
 				panic(fmt.Sprintf("Expected %s to be AndroidAppSet", fi.module))
 			}
-			fmt.Fprintln(w, "LOCAL_APK_SET_MASTER_FILE :=", as.MasterFile())
+			fmt.Fprintln(w, "LOCAL_APK_SET_INSTALL_FILE :=", as.InstallFile())
 			fmt.Fprintln(w, "LOCAL_APKCERTS_FILE :=", as.APKCertsFile().String())
 			fmt.Fprintln(w, "include $(BUILD_SYSTEM)/soong_android_app_set.mk")
 		case nativeSharedLib, nativeExecutable, nativeTest:
-			fmt.Fprintln(w, "LOCAL_MODULE_STEM :=", fi.Stem())
+			fmt.Fprintln(w, "LOCAL_MODULE_STEM :=", fi.stem())
 			if ccMod, ok := fi.module.(*cc.Module); ok {
 				if ccMod.UnstrippedOutputFile() != nil {
 					fmt.Fprintln(w, "LOCAL_SOONG_UNSTRIPPED_BINARY :=", ccMod.UnstrippedOutputFile().String())
@@ -222,22 +274,38 @@ func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, mo
 			}
 			fmt.Fprintln(w, "include $(BUILD_SYSTEM)/soong_cc_prebuilt.mk")
 		default:
-			fmt.Fprintln(w, "LOCAL_MODULE_STEM :=", fi.Stem())
+			fmt.Fprintln(w, "LOCAL_MODULE_STEM :=", fi.stem())
 			if fi.builtFile == a.manifestPbOut && apexType == flattenedApex {
 				if a.primaryApexType {
+					// To install companion files (init_rc, vintf_fragments)
+					// Copy some common properties of apexBundle to apex_manifest
+					commonProperties := []string{
+						"LOCAL_FULL_INIT_RC", "LOCAL_FULL_VINTF_FRAGMENTS",
+					}
+					for _, name := range commonProperties {
+						if value, ok := apexAndroidMkData.Entries.EntryMap[name]; ok {
+							fmt.Fprintln(w, name+" := "+strings.Join(value, " "))
+						}
+					}
+
 					// Make apex_manifest.pb module for this APEX to override all other
 					// modules in the APEXes being overridden by this APEX
 					var patterns []string
 					for _, o := range a.overridableProperties.Overrides {
 						patterns = append(patterns, "%."+o+a.suffix)
 					}
-					fmt.Fprintln(w, "LOCAL_OVERRIDES_MODULES :=", strings.Join(patterns, " "))
-
+					if len(patterns) > 0 {
+						fmt.Fprintln(w, "LOCAL_OVERRIDES_MODULES :=", strings.Join(patterns, " "))
+					}
 					if len(a.compatSymlinks) > 0 {
 						// For flattened apexes, compat symlinks are attached to apex_manifest.json which is guaranteed for every apex
 						postInstallCommands = append(postInstallCommands, a.compatSymlinks...)
 					}
 				}
+
+				// File_contexts of flattened APEXes should be merged into file_contexts.bin
+				fmt.Fprintln(w, "LOCAL_FILE_CONTEXTS :=", a.fileContexts)
+
 				if len(postInstallCommands) > 0 {
 					fmt.Fprintln(w, "LOCAL_POST_INSTALL_CMD :=", strings.Join(postInstallCommands, " && "))
 				}
@@ -246,22 +314,24 @@ func (a *apexBundle) androidMkForFiles(w io.Writer, apexBundleName, apexName, mo
 		}
 
 		// m <module_name> will build <module_name>.<apex_name> as well.
-		if fi.moduleName != moduleName && a.primaryApexType {
-			fmt.Fprintln(w, ".PHONY: "+fi.moduleName)
-			fmt.Fprintln(w, fi.moduleName+": "+moduleName)
+		if fi.androidMkModuleName != moduleName && a.primaryApexType {
+			fmt.Fprintf(w, ".PHONY: %s\n", fi.androidMkModuleName)
+			fmt.Fprintf(w, "%s: %s\n", fi.androidMkModuleName, moduleName)
 		}
 	}
 	return moduleNames
 }
 
-func (a *apexBundle) writeRequiredModules(w io.Writer) {
+func (a *apexBundle) writeRequiredModules(w io.Writer, apexBundleName string) {
 	var required []string
 	var targetRequired []string
 	var hostRequired []string
+	installMapSet := make(map[string]bool) // set of dependency module:location mappings
 	for _, fi := range a.filesInfo {
 		required = append(required, fi.requiredModuleNames...)
 		targetRequired = append(targetRequired, fi.targetRequiredModuleNames...)
 		hostRequired = append(hostRequired, fi.hostRequiredModuleNames...)
+		installMapSet[a.fullModuleName(apexBundleName, &fi)+":"+fi.installDir+"/"+fi.builtFile.Base()] = true
 	}
 
 	if len(required) > 0 {
@@ -273,6 +343,11 @@ func (a *apexBundle) writeRequiredModules(w io.Writer) {
 	if len(hostRequired) > 0 {
 		fmt.Fprintln(w, "LOCAL_HOST_REQUIRED_MODULES +=", strings.Join(hostRequired, " "))
 	}
+	if len(installMapSet) > 0 {
+		var installs []string
+		installs = append(installs, android.SortedStringKeys(installMapSet)...)
+		fmt.Fprintln(w, "LOCAL_LICENSE_INSTALL_MAP +=", strings.Join(installs, " "))
+	}
 }
 
 func (a *apexBundle) androidMkForType() android.AndroidMkData {
@@ -282,7 +357,7 @@ func (a *apexBundle) androidMkForType() android.AndroidMkData {
 			apexType := a.properties.ApexType
 			if a.installable() {
 				apexName := proptools.StringDefault(a.properties.Apex_name, name)
-				moduleNames = a.androidMkForFiles(w, name, apexName, moduleDir)
+				moduleNames = a.androidMkForFiles(w, name, apexName, moduleDir, data)
 			}
 
 			if apexType == flattenedApex {
@@ -290,29 +365,51 @@ func (a *apexBundle) androidMkForType() android.AndroidMkData {
 				fmt.Fprintln(w, "\ninclude $(CLEAR_VARS)")
 				fmt.Fprintln(w, "LOCAL_PATH :=", moduleDir)
 				fmt.Fprintln(w, "LOCAL_MODULE :=", name+a.suffix)
+				data.Entries.WriteLicenseVariables(w)
 				if len(moduleNames) > 0 {
 					fmt.Fprintln(w, "LOCAL_REQUIRED_MODULES :=", strings.Join(moduleNames, " "))
 				}
-				a.writeRequiredModules(w)
+				a.writeRequiredModules(w, name)
 				fmt.Fprintln(w, "include $(BUILD_PHONY_PACKAGE)")
 
 			} else {
 				fmt.Fprintln(w, "\ninclude $(CLEAR_VARS)")
 				fmt.Fprintln(w, "LOCAL_PATH :=", moduleDir)
 				fmt.Fprintln(w, "LOCAL_MODULE :=", name+a.suffix)
+				data.Entries.WriteLicenseVariables(w)
 				fmt.Fprintln(w, "LOCAL_MODULE_CLASS := ETC") // do we need a new class?
 				fmt.Fprintln(w, "LOCAL_PREBUILT_MODULE_FILE :=", a.outputFile.String())
 				fmt.Fprintln(w, "LOCAL_MODULE_PATH :=", a.installDir.ToMakePath().String())
-				fmt.Fprintln(w, "LOCAL_MODULE_STEM :=", name+apexType.suffix())
+				stemSuffix := apexType.suffix()
+				if a.isCompressed {
+					stemSuffix = ".capex"
+				}
+				fmt.Fprintln(w, "LOCAL_MODULE_STEM :=", name+stemSuffix)
 				fmt.Fprintln(w, "LOCAL_UNINSTALLABLE_MODULE :=", !a.installable())
-				fmt.Fprintln(w, "LOCAL_OVERRIDES_MODULES :=", strings.Join(a.overridableProperties.Overrides, " "))
+
+				// Because apex writes .mk with Custom(), we need to write manually some common properties
+				// which are available via data.Entries
+				commonProperties := []string{
+					"LOCAL_FULL_INIT_RC", "LOCAL_FULL_VINTF_FRAGMENTS",
+					"LOCAL_PROPRIETARY_MODULE", "LOCAL_VENDOR_MODULE", "LOCAL_ODM_MODULE", "LOCAL_PRODUCT_MODULE", "LOCAL_SYSTEM_EXT_MODULE",
+					"LOCAL_MODULE_OWNER",
+				}
+				for _, name := range commonProperties {
+					if value, ok := data.Entries.EntryMap[name]; ok {
+						fmt.Fprintln(w, name+" := "+strings.Join(value, " "))
+					}
+				}
+
+				if len(a.overridableProperties.Overrides) > 0 {
+					fmt.Fprintln(w, "LOCAL_OVERRIDES_MODULES :=", strings.Join(a.overridableProperties.Overrides, " "))
+				}
 				if len(moduleNames) > 0 {
 					fmt.Fprintln(w, "LOCAL_REQUIRED_MODULES +=", strings.Join(moduleNames, " "))
 				}
 				if len(a.requiredDeps) > 0 {
 					fmt.Fprintln(w, "LOCAL_REQUIRED_MODULES +=", strings.Join(a.requiredDeps, " "))
 				}
-				a.writeRequiredModules(w)
+				a.writeRequiredModules(w, name)
 				var postInstallCommands []string
 				if a.prebuiltFileToDelete != "" {
 					postInstallCommands = append(postInstallCommands, "rm -rf "+
@@ -331,7 +428,11 @@ func (a *apexBundle) androidMkForType() android.AndroidMkData {
 				fmt.Fprintln(w, "include $(BUILD_PREBUILT)")
 
 				if apexType == imageApex {
-					fmt.Fprintln(w, "ALL_MODULES.$(LOCAL_MODULE).BUNDLE :=", a.bundleModuleFile.String())
+					fmt.Fprintln(w, "ALL_MODULES.$(my_register_name).BUNDLE :=", a.bundleModuleFile.String())
+				}
+				if len(a.lintReports) > 0 {
+					fmt.Fprintln(w, "ALL_MODULES.$(my_register_name).LINT_REPORTS :=",
+						strings.Join(a.lintReports.Strings(), " "))
 				}
 
 				if a.installedFilesFile != nil {
@@ -340,6 +441,27 @@ func (a *apexBundle) androidMkForType() android.AndroidMkData {
 					fmt.Fprintln(w, ".PHONY:", goal)
 					fmt.Fprintf(w, "$(call dist-for-goals,%s,%s:%s)\n",
 						goal, a.installedFilesFile.String(), distFile)
+				}
+				for _, dist := range data.Entries.GetDistForGoals(a) {
+					fmt.Fprintf(w, dist)
+				}
+
+				if a.apisUsedByModuleFile.String() != "" {
+					goal := "apps_only"
+					distFile := a.apisUsedByModuleFile.String()
+					fmt.Fprintf(w, "ifneq (,$(filter $(my_register_name),$(TARGET_BUILD_APPS)))\n"+
+						" $(call dist-for-goals,%s,%s:ndk_apis_usedby_apex/$(notdir %s))\n"+
+						"endif\n",
+						goal, distFile, distFile)
+				}
+
+				if a.apisBackedByModuleFile.String() != "" {
+					goal := "apps_only"
+					distFile := a.apisBackedByModuleFile.String()
+					fmt.Fprintf(w, "ifneq (,$(filter $(my_register_name),$(TARGET_BUILD_APPS)))\n"+
+						" $(call dist-for-goals,%s,%s:ndk_apis_backedby_apex/$(notdir %s))\n"+
+						"endif\n",
+						goal, distFile, distFile)
 				}
 			}
 		}}

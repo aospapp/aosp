@@ -34,8 +34,7 @@ from acloud.public import report
 
 logger = logging.getLogger(__name__)
 
-_REMOTE_LOG_FOLDER = "/home/%s/cuttlefish_runtime" % constants.GCE_USER
-_FIND_LOG_FILE_CMD = "find %s -type f" % _REMOTE_LOG_FOLDER
+_FIND_LOG_FILE_CMD = "find -L %s -type f" % constants.REMOTE_LOG_FOLDER
 # Black list for log files.
 _KERNEL = "kernel"
 _IMG_FILE_EXTENSION = ".img"
@@ -143,7 +142,7 @@ def SelectLogFileToPull(ssh, file_name=None):
     """
     log_files = GetAllLogFilePaths(ssh)
     if file_name:
-        file_path = os.path.join(_REMOTE_LOG_FOLDER, file_name)
+        file_path = os.path.join(constants.REMOTE_LOG_FOLDER, file_name)
         if file_path in log_files:
             return [file_path]
         raise errors.CheckPathError("Can't find this log file(%s) from remote "
@@ -157,7 +156,7 @@ def SelectLogFileToPull(ssh, file_name=None):
         return utils.GetAnswerFromList(log_files, enable_choose_all=True)
 
     raise errors.CheckPathError("Can't find any log file in folder(%s) from "
-                                "remote instance." % _REMOTE_LOG_FOLDER)
+                                "remote instance." % constants.REMOTE_LOG_FOLDER)
 
 
 def GetAllLogFilePaths(ssh):
@@ -172,11 +171,11 @@ def GetAllLogFilePaths(ssh):
     ssh_cmd = [ssh.GetBaseCmd(constants.SSH_BIN), _FIND_LOG_FILE_CMD]
     log_files = []
     try:
-        files_output = subprocess.check_output(" ".join(ssh_cmd), shell=True)
+        files_output = utils.CheckOutput(" ".join(ssh_cmd), shell=True)
         log_files = FilterLogfiles(files_output.splitlines())
     except subprocess.CalledProcessError:
         logger.debug("The folder(%s) that running launch_cvd doesn't exist.",
-                     _REMOTE_LOG_FOLDER)
+                     constants.REMOTE_LOG_FOLDER)
     return log_files
 
 

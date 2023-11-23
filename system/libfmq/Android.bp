@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library {
     name: "libfmq",
     shared_libs: [
@@ -31,6 +35,12 @@ cc_library {
     ],
     export_include_dirs: ["include"],
     local_include_dirs: ["include"],
+    header_libs: [
+        "libfmq-base",
+    ],
+    export_header_lib_headers: [
+        "libfmq-base",
+    ],
     srcs: [
         "EventFlag.cpp",
         "FmqInternal.cpp",
@@ -40,11 +50,29 @@ cc_library {
         "-Werror",
     ],
     vendor_available: true,
+    product_available: true,
     // TODO(b/153609531): remove when no longer needed.
     native_bridge_supported: true,
     vndk: {
         enabled: true,
     },
     double_loadable: true,
+    min_sdk_version: "29",
+    host_supported: true,
+}
+
+// Header only lib to share type between HIDL and AIDL MQDescriptor
+cc_library_headers {
+    name: "libfmq-base",
+    host_supported: true,
+    vendor_available: true,
+    product_available: true,
+    native_bridge_supported: true,
+    recovery_available: true,
+    apex_available: [
+        "//apex_available:anyapex",
+        "//apex_available:platform",
+    ],
+    export_include_dirs: ["base"],
     min_sdk_version: "29",
 }

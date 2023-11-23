@@ -39,30 +39,30 @@ public class AlwaysOnVpnMultiStageTest extends BaseDeviceAdminTest {
     public void testAlwaysOnSet() throws Exception {
         // Setup always-on vpn
         VpnTestHelper.waitForVpn(mContext, VPN_PACKAGE,
-                /* usable */ true, /* lockdown */ true, /* whitelist */ false);
+                /* usable */ true, /* lockdown */ true, /* allowlist */ false);
         assertTrue(VpnTestHelper.isNetworkVpn(mContext));
         VpnTestHelper.checkPing(TEST_ADDRESS);
     }
 
-    public void testAlwaysOnSetWithWhitelist() throws Exception {
+    public void testAlwaysOnSetWithAllowlist() throws Exception {
         VpnTestHelper.waitForVpn(mContext, VPN_PACKAGE,
-                /* usable */ true, /* lockdown */ true, /* whitelist */ true);
+                /* usable */ true, /* lockdown */ true, /* allowlist */ true);
         assertTrue(VpnTestHelper.isNetworkVpn(mContext));
         VpnTestHelper.checkPing(TEST_ADDRESS);
     }
 
-    // Should be run after running testAlwaysOnSetWithWhitelist and rebooting.
+    // Should be run after running testAlwaysOnSetWithAllowlist and rebooting.
     public void testAlwaysOnSetAfterReboot() throws Exception {
         VpnTestHelper.waitForVpn(mContext, null,
-                /* usable */ true, /* lockdown */ true, /* whitelist */ true);
+                /* usable */ true, /* lockdown */ true, /* allowlist */ true);
         VpnTestHelper.checkPing(TEST_ADDRESS);
-        final Set<String> whitelist =
+        final Set<String> allowlist =
                 mDevicePolicyManager.getAlwaysOnVpnLockdownWhitelist(ADMIN_RECEIVER_COMPONENT);
         assertTrue("Lockdown bit lost after reboot",
                 mDevicePolicyManager.isAlwaysOnVpnLockdownEnabled(ADMIN_RECEIVER_COMPONENT));
-        assertNotNull("whitelist is lost after reboot", whitelist);
-        assertEquals("whitelist changed after reboot",
-                Collections.singleton(mContext.getPackageName()), whitelist);
+        assertNotNull("allowlist is lost after reboot", allowlist);
+        assertEquals("allowlist changed after reboot",
+                Collections.singleton(mContext.getPackageName()), allowlist);
     }
 
     public void testNetworkBlocked() throws Exception {

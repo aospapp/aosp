@@ -16,8 +16,9 @@
 
 package com.android.cts.devicepolicy;
 
+import static com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.FEATURE_BACKUP;
+import static com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.FEATURE_MANAGED_USERS;
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
-import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.isStatsdEnabled;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -26,21 +27,19 @@ import static org.junit.Assert.fail;
 
 import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.LargeTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.stats.devicepolicy.EventId;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.compatibility.common.util.LocationModeSetter;
+import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresAdditionalFeatures;
 import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
-import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
 
 import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -48,17 +47,12 @@ import java.util.Map;
 /**
  * Set of tests for Device Owner use cases.
  */
-public class DeviceOwnerTest extends BaseDevicePolicyTest {
-
-    private static final String DEVICE_OWNER_PKG = "com.android.cts.deviceowner";
-    private static final String DEVICE_OWNER_APK = "CtsDeviceOwnerApp.apk";
+public class DeviceOwnerTest extends BaseDeviceOwnerTest {
 
     private static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
     private static final String MANAGED_PROFILE_APK = "CtsManagedProfileApp.apk";
     private static final String MANAGED_PROFILE_ADMIN =
             MANAGED_PROFILE_PKG + ".BaseManagedProfileTest$BasicAdminReceiver";
-
-    private static final String FEATURE_BACKUP = "android.software.backup";
 
     private static final String INTENT_RECEIVER_PKG = "com.android.cts.intent.receiver";
     private static final String INTENT_RECEIVER_APK = "CtsIntentReceiverApp.apk";
@@ -73,11 +67,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     private static final String WIFI_CONFIG_CREATOR_PKG =
             "com.android.cts.deviceowner.wificonfigcreator";
     private static final String WIFI_CONFIG_CREATOR_APK = "CtsWifiConfigCreator.apk";
-
-    private static final String ADMIN_RECEIVER_TEST_CLASS =
-            DEVICE_OWNER_PKG + ".BasicAdminReceiver";
-    private static final String DEVICE_OWNER_COMPONENT = DEVICE_OWNER_PKG + "/"
-            + ADMIN_RECEIVER_TEST_CLASS;
 
     private static final String TEST_APP_APK = "CtsEmptyTestApp.apk";
     private static final String TEST_APP_PKG = "android.packageinstaller.emptytestapp.cts";
@@ -97,9 +86,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     private static final int TYPE_INSTALL_WINDOWED = 2;
     private static final int TYPE_POSTPONE = 3;
 
-    /** CreateAndManageUser is available and an additional user can be created. */
-    private boolean mHasCreateAndManageUserFeature;
-
     /**
      * Copied from {@link android.app.admin.DevicePolicyManager}
      */
@@ -109,38 +95,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     private static final String GLOBAL_SETTING_USB_MASS_STORAGE_ENABLED =
             "usb_mass_storage_enabled";
 
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        if (mHasFeature) {
-            installAppAsUser(DEVICE_OWNER_APK, mPrimaryUserId);
-            if (!setDeviceOwner(DEVICE_OWNER_COMPONENT, mPrimaryUserId,
-                    /*expectFailure*/ false)) {
-                removeAdmin(DEVICE_OWNER_COMPONENT, mPrimaryUserId);
-                getDevice().uninstallPackage(DEVICE_OWNER_PKG);
-                fail("Failed to set device owner");
-            }
-
-            // Enable the notification listener
-            getDevice().executeShellCommand("cmd notification allow_listener com.android.cts.deviceowner/com.android.cts.deviceowner.NotificationListener");
-        }
-        mHasCreateAndManageUserFeature = mHasFeature && canCreateAdditionalUsers(1)
-                && hasDeviceFeature("android.software.managed_users");
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        if (mHasFeature) {
-            assertTrue("Failed to remove device owner.",
-                    removeAdmin(DEVICE_OWNER_COMPONENT, mPrimaryUserId));
-            getDevice().uninstallPackage(DEVICE_OWNER_PKG);
-            switchUser(USER_SYSTEM);
-            removeTestUsers();
-        }
-
-        super.tearDown();
-    }
-
     @Test
     public void testDeviceOwnerSetup() throws Exception {
         executeDeviceOwnerTest("DeviceOwnerSetupTest");
@@ -148,25 +102,17 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testProxyStaticProxyTest() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         executeDeviceOwnerTest("proxy.StaticProxyTest");
     }
 
     @Test
     public void testProxyPacProxyTest() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         executeDeviceOwnerTest("proxy.PacProxyTest");
     }
 
     @Test
     public void testRemoteBugreportWithTwoUsers() throws Exception {
-        if (!mHasFeature || !canCreateAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanCreateAdditionalUsers(1);
         final int userId = createUser();
         try {
             executeDeviceTestMethod(".RemoteBugreportTest",
@@ -179,9 +125,7 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     @FlakyTest(bugId = 137071121)
     @Test
     public void testCreateAndManageUser_LowStorage() throws Exception {
-        if (!mHasCreateAndManageUserFeature) {
-            return;
-        }
+        assumeCanCreateOneManagedUser();
 
         try {
             // Force low storage
@@ -190,8 +134,7 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
                     String.valueOf(Long.MAX_VALUE));
 
             // The next createAndManageUser should return USER_OPERATION_ERROR_LOW_STORAGE.
-            executeDeviceTestMethod(".CreateAndManageUserTest",
-                    "testCreateAndManageUser_LowStorage");
+            executeCreateAndManageUserTest("testCreateAndManageUser_LowStorage");
         } finally {
             getDevice().executeShellCommand(
                     "settings delete global sys_storage_threshold_percentage");
@@ -202,19 +145,26 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testCreateAndManageUser_MaxUsers() throws Exception {
-        if (!mHasCreateAndManageUserFeature) {
-            return;
-        }
+        assumeCanCreateOneManagedUser();
 
         int maxUsers = getDevice().getMaxNumberOfUsersSupported();
-        // Primary user is already there, so we can create up to maxUsers -1.
-        for (int i = 0; i < maxUsers - 1; i++) {
-            executeDeviceTestMethod(".CreateAndManageUserTest",
-                    "testCreateAndManageUser");
+
+        // System user is already there, so we can create up to maxUsers - 1.
+        int existingUsers = 1;
+
+        // On headless user mode, current user is also there
+        if (isHeadlessSystemUserMode()) {
+            existingUsers++;
+        }
+
+        CLog.d("testCreateAndManageUser_MaxUsers(): maxUxers=%d, existingUsers=%d", maxUsers,
+                existingUsers);
+
+        for (int i = 0; i < maxUsers - existingUsers; i++) {
+            executeCreateAndManageUserTest("testCreateAndManageUser");
         }
         // The next createAndManageUser should return USER_OPERATION_ERROR_MAX_USERS.
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_MaxUsers");
+        executeCreateAndManageUserTest("testCreateAndManageUser_MaxUsers");
     }
 
     /**
@@ -223,12 +173,9 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testCreateAndManageUser_GetSecondaryUsers() throws Exception {
-        if (!mHasCreateAndManageUserFeature) {
-            return;
-        }
+        assumeCanCreateOneManagedUser();
 
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_GetSecondaryUsers");
+        executeCreateAndManageUserTest("testCreateAndManageUser_GetSecondaryUsers");
     }
 
     /**
@@ -239,12 +186,9 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     @FlakyTest(bugId = 131743223)
     @Test
     public void testCreateAndManageUser_SwitchUser() throws Exception {
-        if (!mHasCreateAndManageUserFeature || !canStartAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanStartNewUser();
 
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_SwitchUser");
+        executeCreateAndManageUserTest("testCreateAndManageUser_SwitchUser");
     }
 
     /**
@@ -254,12 +198,9 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testCreateAndManageUser_CannotStopCurrentUser() throws Exception {
-        if (!mHasCreateAndManageUserFeature || !canStartAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanStartNewUser();
 
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_CannotStopCurrentUser");
+        executeCreateAndManageUserTest("testCreateAndManageUser_CannotStopCurrentUser");
     }
 
     /**
@@ -269,12 +210,9 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testCreateAndManageUser_StartInBackground() throws Exception {
-        if (!mHasCreateAndManageUserFeature || !canStartAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanStartNewUser();
 
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_StartInBackground");
+        executeCreateAndManageUserTest("testCreateAndManageUser_StartInBackground");
     }
 
     /**
@@ -284,27 +222,33 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testCreateAndManageUser_StartInBackground_MaxRunningUsers() throws Exception {
-        if (!mHasCreateAndManageUserFeature) {
-            return;
-        }
+        assumeCanStartNewUser();
 
         int maxUsers = getDevice().getMaxNumberOfUsersSupported();
         int maxRunningUsers = getDevice().getMaxNumberOfRunningUsersSupported();
 
         // Primary user is already running, so we can create and start up to minimum of above - 1.
         int usersToCreateAndStart = Math.min(maxUsers, maxRunningUsers) - 1;
+
+        // On headless user mode, system user is also running
+        if (isHeadlessSystemUserMode()) {
+            usersToCreateAndStart--;
+        }
+
+        CLog.d("testCreateAndManageUser_StartInBackground_MaxRunningUsers(): maxUxers=%d, "
+                + "maxRunningUsers=%d, usersToCreateAndStart=%d", maxUsers, maxRunningUsers,
+                usersToCreateAndStart);
         for (int i = 0; i < usersToCreateAndStart; i++) {
-            executeDeviceTestMethod(".CreateAndManageUserTest",
-                    "testCreateAndManageUser_StartInBackground");
+            executeCreateAndManageUserTest("testCreateAndManageUser_StartInBackground");
         }
 
         if (maxUsers > maxRunningUsers) {
             // The next startUserInBackground should return USER_OPERATION_ERROR_MAX_RUNNING_USERS.
-            executeDeviceTestMethod(".CreateAndManageUserTest",
+            executeCreateAndManageUserTest(
                     "testCreateAndManageUser_StartInBackground_MaxRunningUsers");
         } else {
             // The next createAndManageUser should return USER_OPERATION_ERROR_MAX_USERS.
-            executeDeviceTestMethod(".CreateAndManageUserTest", "testCreateAndManageUser_MaxUsers");
+            executeCreateAndManageUserTest("testCreateAndManageUser_MaxUsers");
         }
     }
 
@@ -315,12 +259,9 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testCreateAndManageUser_StopUser() throws Exception {
-        if (!mHasCreateAndManageUserFeature || !canStartAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanStartNewUser();
 
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_StopUser");
+        executeCreateAndManageUserTest("testCreateAndManageUser_StopUser");
         assertNewUserStopped();
     }
 
@@ -331,11 +272,9 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testCreateAndManageUser_StopEphemeralUser_DisallowRemoveUser() throws Exception {
-        if (!mHasCreateAndManageUserFeature || !canStartAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanStartNewUser();
 
-        executeDeviceTestMethod(".CreateAndManageUserTest",
+        executeCreateAndManageUserTest(
                 "testCreateAndManageUser_StopEphemeralUser_DisallowRemoveUser");
         assertEquals(0, getUsersCreatedByTests().size());
     }
@@ -347,12 +286,9 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testCreateAndManageUser_LogoutUser() throws Exception {
-        if (!mHasCreateAndManageUserFeature || !canStartAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanStartNewUser();
 
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_LogoutUser");
+        executeCreateAndManageUserTest("testCreateAndManageUser_LogoutUser");
         assertNewUserStopped();
     }
 
@@ -363,12 +299,9 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testCreateAndManageUser_Affiliated() throws Exception {
-        if (!mHasCreateAndManageUserFeature || !canStartAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanStartNewUser();
 
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_Affiliated");
+        executeCreateAndManageUserTest("testCreateAndManageUser_Affiliated");
     }
 
     /**
@@ -378,12 +311,9 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testCreateAndManageUser_Ephemeral() throws Exception {
-        if (!mHasCreateAndManageUserFeature || !canStartAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanStartNewUser();
 
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_Ephemeral");
+        executeCreateAndManageUserTest("testCreateAndManageUser_Ephemeral");
 
         List<Integer> newUsers = getUsersCreatedByTests();
         assertEquals(1, newUsers.size());
@@ -400,61 +330,49 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      * {@link android.app.admin.DevicePolicyManager#LEAVE_ALL_SYSTEM_APPS_ENABLED} is tested.
      */
     @Test
-    public void testCreateAndManageUser_LeaveAllSystemApps() throws Exception {
-        if (!mHasCreateAndManageUserFeature || !canStartAdditionalUsers(1)) {
-            return;
-        }
+   public void testCreateAndManageUser_LeaveAllSystemApps() throws Exception {
+        assumeCanStartNewUser();
 
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_LeaveAllSystemApps");
+        executeCreateAndManageUserTest("testCreateAndManageUser_LeaveAllSystemApps");
     }
 
     @Test
     public void testCreateAndManageUser_SkipSetupWizard() throws Exception {
-        if (mHasCreateAndManageUserFeature) {
-            executeDeviceTestMethod(".CreateAndManageUserTest",
-                    "testCreateAndManageUser_SkipSetupWizard");
-       }
+        assumeCanCreateOneManagedUser();
+
+        executeCreateAndManageUserTest("testCreateAndManageUser_SkipSetupWizard");
     }
 
     @Test
     public void testCreateAndManageUser_AddRestrictionSet() throws Exception {
-        if (mHasCreateAndManageUserFeature) {
-            executeDeviceTestMethod(".CreateAndManageUserTest",
-                    "testCreateAndManageUser_AddRestrictionSet");
-        }
+        assumeCanCreateOneManagedUser();
+
+        executeCreateAndManageUserTest("testCreateAndManageUser_AddRestrictionSet");
     }
 
     @Test
     public void testCreateAndManageUser_RemoveRestrictionSet() throws Exception {
-        if (mHasCreateAndManageUserFeature) {
-            executeDeviceTestMethod(".CreateAndManageUserTest",
-                    "testCreateAndManageUser_RemoveRestrictionSet");
-        }
+        assumeCanCreateOneManagedUser();
+
+        executeCreateAndManageUserTest("testCreateAndManageUser_RemoveRestrictionSet");
     }
 
     @FlakyTest(bugId = 126955083)
     @Test
     public void testUserAddedOrRemovedBroadcasts() throws Exception {
-        if (mHasCreateAndManageUserFeature) {
-            executeDeviceTestMethod(".CreateAndManageUserTest",
-                    "testUserAddedOrRemovedBroadcasts");
-        }
+        assumeCanCreateOneManagedUser();
+
+        executeCreateAndManageUserTest("testUserAddedOrRemovedBroadcasts");
     }
 
     @Test
     public void testUserSession() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         executeDeviceOwnerTest("UserSessionTest");
     }
 
     @Test
     public void testNetworkLoggingWithTwoUsers() throws Exception {
-        if (!mHasFeature || !canCreateAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanCreateAdditionalUsers(1);
 
         final int userId = createUser();
         try {
@@ -470,9 +388,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     @FlakyTest(bugId = 137092833)
     @Test
     public void testNetworkLoggingWithSingleUser() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         executeDeviceTestMethod(".NetworkLoggingTest", "testProvidingWrongBatchTokenReturnsNull");
         executeDeviceTestMethod(".NetworkLoggingTest", "testNetworkLoggingAndRetrieval",
                 Collections.singletonMap(ARG_NETWORK_LOGGING_BATCH_COUNT, Integer.toString(1)));
@@ -480,9 +395,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testNetworkLogging_multipleBatches() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         executeDeviceTestMethod(".NetworkLoggingTest", "testNetworkLoggingAndRetrieval",
                 Collections.singletonMap(ARG_NETWORK_LOGGING_BATCH_COUNT, Integer.toString(2)));
     }
@@ -490,9 +402,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     @LargeTest
     @Test
     public void testNetworkLogging_rebootResetsId() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         // First batch: retrieve and verify the events.
         executeDeviceTestMethod(".NetworkLoggingTest", "testNetworkLoggingAndRetrieval",
                 Collections.singletonMap(ARG_NETWORK_LOGGING_BATCH_COUNT, Integer.toString(1)));
@@ -508,9 +417,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testSetAffiliationId_IllegalArgumentException() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         executeDeviceTestMethod(".AffiliationTest", "testSetAffiliationId_null");
         executeDeviceTestMethod(".AffiliationTest", "testSetAffiliationId_containsEmptyString");
     }
@@ -518,9 +424,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     @Test
     @Ignore("b/145932189")
     public void testSetSystemUpdatePolicyLogged() throws Exception {
-        if (!mHasFeature || !isStatsdEnabled(getDevice())) {
-            return;
-        }
         assertMetricsLogged(getDevice(), () -> {
             executeDeviceTestMethod(".SystemUpdatePolicyTest", "testSetAutomaticInstallPolicy");
         }, new DevicePolicyEventWrapper.Builder(EventId.SET_SYSTEM_UPDATE_POLICY_VALUE)
@@ -550,15 +453,14 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     @FlakyTest(bugId = 127101449)
     @Test
     public void testWifiConfigLockdown() throws Exception {
-        final boolean hasWifi = hasDeviceFeature("android.hardware.wifi");
-        if (hasWifi && mHasFeature) {
-            try (LocationModeSetter locationModeSetter = new LocationModeSetter(getDevice())) {
-                installAppAsUser(WIFI_CONFIG_CREATOR_APK, mPrimaryUserId);
-                locationModeSetter.setLocationEnabled(true);
-                executeDeviceOwnerTest("WifiConfigLockdownTest");
-            } finally {
-                getDevice().uninstallPackage(WIFI_CONFIG_CREATOR_PKG);
-            }
+        assumeHasWifiFeature();
+
+        try (LocationModeSetter locationModeSetter = new LocationModeSetter(getDevice())) {
+            installAppAsUser(WIFI_CONFIG_CREATOR_APK, mPrimaryUserId);
+            locationModeSetter.setLocationEnabled(true);
+            executeDeviceOwnerTest("WifiConfigLockdownTest");
+        } finally {
+            getDevice().uninstallPackage(WIFI_CONFIG_CREATOR_PKG);
         }
     }
 
@@ -567,20 +469,15 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testWifiSetHttpProxyTest() throws Exception {
-        final boolean hasWifi = hasDeviceFeature("android.hardware.wifi");
-        if (hasWifi && mHasFeature) {
-            try (LocationModeSetter locationModeSetter = new LocationModeSetter(getDevice())) {
-                locationModeSetter.setLocationEnabled(true);
-                executeDeviceOwnerTest("WifiSetHttpProxyTest");
-            }
+        assumeHasWifiFeature();
+        try (LocationModeSetter locationModeSetter = new LocationModeSetter(getDevice())) {
+            locationModeSetter.setLocationEnabled(true);
+            executeDeviceOwnerTest("WifiSetHttpProxyTest");
         }
     }
 
     @Test
     public void testCannotSetDeviceOwnerAgain() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         // verify that we can't set the same admin receiver as device owner again
         assertFalse(setDeviceOwner(
                 DEVICE_OWNER_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mPrimaryUserId,
@@ -602,9 +499,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     // Execute HardwarePropertiesManagerTest as a device owner.
     @Test
     public void testHardwarePropertiesManagerAsDeviceOwner() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
 
         executeDeviceTestMethod(".HardwarePropertiesManagerTest", "testHardwarePropertiesManager");
     }
@@ -612,18 +506,12 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     // Execute VrTemperatureTest as a device owner.
     @Test
     public void testVrTemperaturesAsDeviceOwner() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
 
         executeDeviceTestMethod(".VrTemperatureTest", "testVrTemperatures");
     }
 
     @Test
     public void testIsManagedDeviceProvisioningAllowed() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         // This case runs when DO is provisioned
         // mHasFeature == true and provisioned, can't provision DO again.
         executeDeviceTestMethod(".PreDeviceOwnerTest", "testIsProvisioningAllowedFalse");
@@ -633,13 +521,8 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
      * Can provision Managed Profile when DO is set by default if they are the same admin.
      */
     @Test
+    @RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
     public void testIsManagedProfileProvisioningAllowed_deviceOwnerIsSet() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        if (!hasDeviceFeature("android.software.managed_users")) {
-            return;
-        }
         executeDeviceTestMethod(".PreDeviceOwnerTest",
                 "testIsProvisioningNotAllowedForManagedProfileAction");
     }
@@ -647,58 +530,64 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     @FlakyTest(bugId = 137096267)
     @Test
     public void testAdminActionBookkeeping() throws Exception {
-        if (!mHasFeature) {
-            return;
+        if (isHeadlessSystemUserMode()) {
+            // TODO(b/176993670):ALLOW_TEST_API_ACCESS is needed by DevicePolicyManagerWrapper to
+            // access test apis
+            allowTestApiAccess(DEVICE_OWNER_PKG);
+            // This test has to run as system user since the test will get KeyStore instance for
+            // current user.
+            executeDeviceOwnerTestMethod(".AdminActionBookkeepingTest",
+                    "testGetPolicyInstalledCaCerts");
+        } else {
+            // This test will be skipped for headless system user mode since headless system user
+            // does not have IME.
+            executeDeviceTestMethod(".AdminActionBookkeepingTest",
+                    "testIsDefaultInputMethodSet");
+            executeDeviceTestMethod(".AdminActionBookkeepingTest",
+                    "testGetPolicyInstalledCaCerts");
         }
-        executeDeviceOwnerTest("AdminActionBookkeepingTest");
-        if (isStatsdEnabled(getDevice())) {
-            assertMetricsLogged(getDevice(), () -> {
-                executeDeviceTestMethod(".AdminActionBookkeepingTest", "testRetrieveSecurityLogs");
-            }, new DevicePolicyEventWrapper.Builder(EventId.RETRIEVE_SECURITY_LOGS_VALUE)
-                    .setAdminPackageName(DEVICE_OWNER_PKG)
-                    .build(),
-            new DevicePolicyEventWrapper.Builder(
-                    EventId.RETRIEVE_PRE_REBOOT_SECURITY_LOGS_VALUE)
-                    .setAdminPackageName(DEVICE_OWNER_PKG)
-                    .build());
-            assertMetricsLogged(getDevice(), () -> {
-                executeDeviceTestMethod(".AdminActionBookkeepingTest", "testRequestBugreport");
-            }, new DevicePolicyEventWrapper.Builder(EventId.REQUEST_BUGREPORT_VALUE)
-                    .setAdminPackageName(DEVICE_OWNER_PKG)
-                    .build());
-        }
+
+        executeDeviceTestMethod(".AdminActionBookkeepingTest",
+                "testRetrieveSecurityLogs");
+        executeDeviceTestMethod(".AdminActionBookkeepingTest",
+                "testRequestBugreport");
+        executeDeviceTestMethod(".AdminActionBookkeepingTest",
+                "testGetLastNetworkLogRetrievalTime");
+        executeDeviceTestMethod(".AdminActionBookkeepingTest",
+                "testDeviceOwnerOrganizationName");
+        executeDeviceTestMethod(".AdminActionBookkeepingTest",
+                "testIsDeviceManaged");
+
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".AdminActionBookkeepingTest", "testRetrieveSecurityLogs");
+        }, new DevicePolicyEventWrapper.Builder(EventId.RETRIEVE_SECURITY_LOGS_VALUE)
+                .setAdminPackageName(DEVICE_OWNER_PKG)
+                .build(),
+        new DevicePolicyEventWrapper.Builder(EventId.RETRIEVE_PRE_REBOOT_SECURITY_LOGS_VALUE)
+                .setAdminPackageName(DEVICE_OWNER_PKG)
+                .build());
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".AdminActionBookkeepingTest", "testRequestBugreport");
+        }, new DevicePolicyEventWrapper.Builder(EventId.REQUEST_BUGREPORT_VALUE)
+                .setAdminPackageName(DEVICE_OWNER_PKG)
+                .build());
     }
 
     @Test
     public void testBluetoothRestriction() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         executeDeviceOwnerTest("BluetoothRestrictionTest");
     }
 
     @Test
     public void testSetTime() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         executeDeviceOwnerTest("SetTimeTest");
     }
 
     @Test
     public void testSetLocationEnabled() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        executeDeviceOwnerTest("SetLocationEnabledTest");
-    }
-
-    @Test
-    public void testDeviceOwnerProvisioning() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        executeDeviceOwnerTest("DeviceOwnerProvisioningTest");
+        // Currently this method is only available for device owners, so on headless system user
+        // it must run on system user.
+        executeDeviceOwnerTestOnDeviceOwnerUser("SetLocationEnabledTest");
     }
 
     /**
@@ -708,59 +597,53 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     public void testAllowProvisioningProperty() throws Exception {
         boolean isProvisioningAllowedForNormalUsers =
                 getBooleanSystemProperty("ro.config.allowuserprovisioning", true);
-        boolean isTv = hasDeviceFeature("android.software.leanback");
-        assertTrue(isProvisioningAllowedForNormalUsers || isTv);
+        assertTrue(isProvisioningAllowedForNormalUsers || isTv());
     }
 
     @Test
     public void testDisallowFactoryReset() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         int adminVersion = 24;
-        changeUserRestrictionOrFail("no_factory_reset", true, mPrimaryUserId,
-                DEVICE_OWNER_PKG);
+        // NOTE: the restriction must be set on primary user as it will launch SetPolicyActivity,
+        // but the admin must be installed on USER_SYSTEM, otherwise wipeData() on headless system
+        // user mode would wipe the current user (instead of factory resetting the device)
+        changeUserRestrictionOrFail("no_factory_reset", true, mPrimaryUserId, DEVICE_OWNER_PKG);
+        int adminUserId = USER_SYSTEM;
+
+        String deviceAdminPkg = DeviceAdminHelper.getDeviceAdminApkPackage(adminVersion);
+        String deviceAdminReceiver = DeviceAdminHelper.getAdminReceiverComponent(adminVersion);
         try {
             installAppAsUser(DeviceAdminHelper.getDeviceAdminApkFileName(adminVersion),
-                    mPrimaryUserId);
-            setDeviceAdmin(DeviceAdminHelper.getAdminReceiverComponent(adminVersion),
-                    mPrimaryUserId);
+                    adminUserId);
+            setDeviceAdmin(deviceAdminReceiver, adminUserId);
             runDeviceTestsAsUser(
-                    DeviceAdminHelper.getDeviceAdminApkPackage(adminVersion),
+                    deviceAdminPkg,
                     DeviceAdminHelper.getDeviceAdminJavaPackage() + ".WipeDataTest",
-                    "testWipeDataThrowsSecurityException", mPrimaryUserId);
+                    "testWipeDataThrowsSecurityException", adminUserId);
         } finally {
-            removeAdmin(DeviceAdminHelper.getAdminReceiverComponent(adminVersion), mPrimaryUserId);
-            getDevice().uninstallPackage(DeviceAdminHelper.getDeviceAdminApkPackage(adminVersion));
+            removeAdmin(deviceAdminReceiver, adminUserId);
+            getDevice().uninstallPackage(deviceAdminPkg);
         }
     }
 
+    // The backup service cannot be enabled if the backup feature is not supported.
+    @RequiresAdditionalFeatures({FEATURE_BACKUP})
     @Test
     public void testBackupServiceEnabling() throws Exception {
-        final boolean hasBackupService = getDevice().hasFeature(FEATURE_BACKUP);
-        // The backup service cannot be enabled if the backup feature is not supported.
-        if (!mHasFeature || !hasBackupService) {
-            return;
-        }
         executeDeviceTestMethod(".BackupServicePoliciesTest",
                 "testEnablingAndDisablingBackupService");
     }
 
     @Test
+    @AsbSecurityTest(cveBugId = 173421434)
     public void testDeviceOwnerCanGetDeviceIdentifiers() throws Exception {
         // The Device Owner should have access to all device identifiers.
-        if (!mHasFeature) {
-            return;
-        }
-        executeDeviceTestMethod(".DeviceIdentifiersTest",
+
+        executeDeviceOwnerTestMethod(".DeviceIdentifiersTest",
                 "testDeviceOwnerCanGetDeviceIdentifiersWithPermission");
     }
 
     @Test
     public void testPackageInstallCache() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
         final File apk = buildHelper.getTestFile(TEST_APP_APK);
         try {
@@ -770,7 +653,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
             // Install the package in primary user
             runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".PackageInstallTest",
                     "testPackageInstall", mPrimaryUserId);
-
             assertMetricsLogged(getDevice(), () -> {
                 runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".PackageInstallTest",
                         "testKeepPackageCache", mPrimaryUserId);
@@ -803,9 +685,8 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     @LargeTest
     @Test
     public void testPackageInstallCache_multiUser() throws Exception {
-        if (!mHasFeature || !canCreateAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanCreateAdditionalUsers(1);
+
         final int userId = createAffiliatedSecondaryUser();
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
         final File apk = buildHelper.getTestFile(TEST_APP_APK);
@@ -859,34 +740,29 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testAirplaneModeRestriction() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         executeDeviceOwnerTest("AirplaneModeRestrictionTest");
     }
 
     @Test
+    public void testSensorToggleRestriction() throws Exception {
+        executeDeviceOwnerTest("SensorToggleRestrictionTest");
+    }
+
+    @Test
     public void testOverrideApn() throws Exception {
-        if (!mHasFeature || !hasDeviceFeature("android.hardware.telephony")) {
-            return;
-        }
+        assumeHasTelephonyFeature();
+
         executeDeviceOwnerTest("OverrideApnTest");
     }
 
     @FlakyTest(bugId = 134487729)
     @Test
     public void testPrivateDnsPolicy() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         executeDeviceOwnerTest("PrivateDnsPolicyTest");
     }
 
     @Test
     public void testSetKeyguardDisabledLogged() throws Exception {
-        if (!mHasFeature || !isStatsdEnabled(getDevice())) {
-            return;
-        }
         assertMetricsLogged(getDevice(), () -> {
             executeDeviceTestMethod(".DevicePolicyLoggingTest", "testSetKeyguardDisabledLogged");
         }, new DevicePolicyEventWrapper.Builder(EventId.SET_KEYGUARD_DISABLED_VALUE)
@@ -896,9 +772,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testSetStatusBarDisabledLogged() throws Exception {
-        if (!mHasFeature || !isStatsdEnabled(getDevice())) {
-            return;
-        }
         assertMetricsLogged(getDevice(), () -> {
             executeDeviceTestMethod(".DevicePolicyLoggingTest", "testSetStatusBarDisabledLogged");
         }, new DevicePolicyEventWrapper.Builder(EventId.SET_STATUS_BAR_DISABLED_VALUE)
@@ -913,9 +786,7 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testDefaultSmsApplication() throws Exception {
-        if (!mHasFeature || !mHasTelephony) {
-            return;
-        }
+        assumeHasTelephonyFeature();
 
         installAppAsUser(SIMPLE_SMS_APP_APK, mPrimaryUserId);
 
@@ -926,9 +797,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testNoHiddenActivityFoundTest() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         try {
             // Install app to primary user
             installAppAsUser(BaseLauncherAppsTest.LAUNCHER_TESTS_APK, mPrimaryUserId);
@@ -936,7 +804,7 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
             installAppAsUser(LAUNCHER_TESTS_HAS_LAUNCHER_ACTIVITY_APK, mPrimaryUserId);
 
             // Run test to check if launcher api shows hidden app
-            String mSerialNumber = Integer.toString(getUserSerialNumber(USER_SYSTEM));
+            String mSerialNumber = Integer.toString(getUserSerialNumber(mPrimaryUserId));
             runDeviceTestsAsUser(BaseLauncherAppsTest.LAUNCHER_TESTS_PKG,
                     BaseLauncherAppsTest.LAUNCHER_TESTS_CLASS,
                     "testDoPoNoTestAppInjectedActivityFound",
@@ -951,9 +819,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
 
     @Test
     public void testSetGlobalSettingLogged() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         assertMetricsLogged(getDevice(), () -> {
             executeDeviceTestMethod(".DevicePolicyLoggingTest", "testSetGlobalSettingLogged");
         }, new DevicePolicyEventWrapper.Builder(EventId.SET_GLOBAL_SETTING_VALUE)
@@ -975,14 +840,13 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     }
 
     @Test
-    public void testSetUserControlDisabledPackages() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
+    public void testSetUserControlDisabledPackages_singleUser_verifyMetricIsLogged()
+            throws Exception {
+        final List<Integer> otherUserIds = new ArrayList<>();
         try {
-            installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
-            // launch the app once before starting the test.
-            startActivityAsUser(mPrimaryUserId, SIMPLE_APP_PKG, SIMPLE_APP_ACTIVITY);
+            setupDeviceForSetUserControlDisabledPackagesTesting(otherUserIds);
+
+            // Set the package under test as a protected package.
             assertMetricsLogged(getDevice(),
                     () -> executeDeviceTestMethod(".UserControlDisabledPackagesTest",
                             "testSetUserControlDisabledPackages"),
@@ -991,68 +855,366 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
                             .setAdminPackageName(DEVICE_OWNER_PKG)
                             .setStrings(new String[] {SIMPLE_APP_PKG})
                             .build());
-            forceStopPackageForUser(SIMPLE_APP_PKG, mPrimaryUserId);
+        } finally {
+            cleanupProtectedPackage(otherUserIds);
+            getDevice().uninstallPackageForUser(SIMPLE_APP_APK, mPrimaryUserId);
+        }
+    }
+
+    @Test
+    public void testSetUserControlDisabledPackages_singleUser_verifyPackageNotStopped()
+            throws Exception {
+        final List<Integer> otherUserIds = new ArrayList<>();
+        try {
+            setupDeviceForSetUserControlDisabledPackagesTesting(otherUserIds);
+            // Set the package under test as a protected package.
             executeDeviceTestMethod(".UserControlDisabledPackagesTest",
-                    "testForceStopWithUserControlDisabled");
+                    "testSetUserControlDisabledPackages");
+
+            // Try to stop the package on the primary user.
+            tryStoppingProtectedPackage(otherUserIds, /* canUserStopPackage= */ false);
+        } finally {
+            cleanupProtectedPackage(otherUserIds);
+            getDevice().uninstallPackageForUser(SIMPLE_APP_APK, mPrimaryUserId);
+        }
+    }
+
+    @Test
+    public void testSetUserControlDisabledPackages_singleUser_reboot_verifyPackageNotStopped()
+            throws Exception {
+        final List<Integer> otherUserIds = new ArrayList<>();
+        try {
+            setupDeviceForSetUserControlDisabledPackagesTesting(otherUserIds);
+            // Set the package under test as a protected package.
+            executeDeviceTestMethod(".UserControlDisabledPackagesTest",
+                    "testSetUserControlDisabledPackages");
+
             // Reboot and verify protected packages are persisted
             rebootAndWaitUntilReady();
+
             // The simple app package seems to be set into stopped state on reboot.
-            // Launch the activity again to get it out of stopped state.
-            startActivityAsUser(mPrimaryUserId, SIMPLE_APP_PKG, SIMPLE_APP_ACTIVITY);
-            forceStopPackageForUser(SIMPLE_APP_PKG, mPrimaryUserId);
+            // Launch the activity again to get it out of stopped state on the primary user.
+            startProtectedPackage(otherUserIds);
+            // Try to stop the package on the primary user.
+            tryStoppingProtectedPackage(otherUserIds, /* canUserStopPackage= */ false);
+        } finally {
+            cleanupProtectedPackage(otherUserIds);
+            getDevice().uninstallPackageForUser(SIMPLE_APP_APK, mPrimaryUserId);
+        }
+    }
+
+    @Test
+    public void testSetUserControlDisabledPackages_multiUser_verifyMetricIsLogged()
+            throws Exception {
+        assumeCanCreateAdditionalUsers(1);
+        final int userId = createUser();
+        final List<Integer> otherUserIds = new ArrayList<>();
+        otherUserIds.add(userId);
+        try {
+            setupDeviceForSetUserControlDisabledPackagesTesting(otherUserIds);
+
+            // Set the package under test as a protected package.
+            assertMetricsLogged(getDevice(),
+                    () -> executeDeviceTestMethod(".UserControlDisabledPackagesTest",
+                            "testSetUserControlDisabledPackages"),
+                    new DevicePolicyEventWrapper.Builder(
+                            EventId.SET_USER_CONTROL_DISABLED_PACKAGES_VALUE)
+                            .setAdminPackageName(DEVICE_OWNER_PKG)
+                            .setStrings(new String[] {SIMPLE_APP_PKG})
+                            .build());
+        } finally {
+            cleanupProtectedPackage(otherUserIds);
+            getDevice().uninstallPackageForUser(SIMPLE_APP_APK, mPrimaryUserId);
+            getDevice().uninstallPackageForUser(SIMPLE_APP_APK, userId);
+            removeUser(userId);
+        }
+    }
+
+    @Test
+    public void testSetUserControlDisabledPackages_multiUser_verifyPackageNotStopped()
+            throws Exception {
+        assumeCanCreateAdditionalUsers(1);
+        final int userId = createUser();
+        final List<Integer> otherUserIds = new ArrayList<>();
+        otherUserIds.add(userId);
+        try {
+            setupDeviceForSetUserControlDisabledPackagesTesting(otherUserIds);
+            // Set the package under test as a protected package.
             executeDeviceTestMethod(".UserControlDisabledPackagesTest",
-                    "testForceStopWithUserControlDisabled");
+                    "testSetUserControlDisabledPackages");
+
+            // Try to stop the package under test on all users.
+            tryStoppingProtectedPackage(otherUserIds, /* canUserStopPackage= */ false);
+        } finally {
+            cleanupProtectedPackage(otherUserIds);
+            getDevice().uninstallPackageForUser(SIMPLE_APP_APK, mPrimaryUserId);
+            getDevice().uninstallPackageForUser(SIMPLE_APP_APK, userId);
+            removeUser(userId);
+        }
+    }
+
+    @Test
+    public void testSetUserControlDisabledPackages_multiUser_reboot_verifyPackageNotStopped()
+            throws Exception {
+        assumeCanCreateAdditionalUsers(1);
+        final int userId = createUser();
+        final List<Integer> otherUserIds = new ArrayList<>();
+        otherUserIds.add(userId);
+        try {
+            setupDeviceForSetUserControlDisabledPackagesTesting(otherUserIds);
+            // Set the package under test as a protected package.
             executeDeviceTestMethod(".UserControlDisabledPackagesTest",
-                    "testClearSetUserControlDisabledPackages");
-            forceStopPackageForUser(SIMPLE_APP_PKG, mPrimaryUserId);
+                    "testSetUserControlDisabledPackages");
+
+            // Reboot and verify protected packages are persisted.
+            rebootAndWaitUntilReady();
+
+            // The simple app package seems to be set into stopped state on reboot.
+            // Launch the activity again to get it out of stopped state for all users.
+            startProtectedPackage(otherUserIds);
+            // Try to stop the package under test on all users.
+            tryStoppingProtectedPackage(otherUserIds, /* canUserStopPackage= */ false);
+        } finally {
+            cleanupProtectedPackage(otherUserIds);
+            getDevice().uninstallPackageForUser(SIMPLE_APP_APK, mPrimaryUserId);
+            getDevice().uninstallPackageForUser(SIMPLE_APP_APK, userId);
+            removeUser(userId);
+        }
+    }
+
+    /**
+     * Helper when testing {@link DevicePolicyManager#setUserControlDisabledPackages} API that
+     * installs the app and starts the activity for the package that is under test for the primary
+     * user and provided users.
+     * @param otherUserIds The user Ids apart from the primary user that were created
+     */
+    private void setupDeviceForSetUserControlDisabledPackagesTesting(List<Integer> otherUserIds)
+            throws Exception {
+        // Install app on the primary user and other users.
+        installAppAsUser(SIMPLE_APP_APK, mPrimaryUserId);
+        if (!otherUserIds.isEmpty()) {
+            for (Integer userId : otherUserIds) {
+                installAppAsUser(SIMPLE_APP_APK, userId);
+            }
+        }
+
+        // Start the activity of the package under test on the primary user and other users.
+        startProtectedPackage(otherUserIds);
+    }
+
+    /**
+     * Helper when testing {@link DevicePolicyManager#setUserControlDisabledPackages} API that
+     * starts the activity for the package that is under test for the primary user and provided
+     * users.
+     * @param otherUserIds The user Ids apart from the primary user that were created
+     */
+    private void startProtectedPackage(List<Integer> otherUserIds) throws Exception {
+        startProtectedPackage(mPrimaryUserId);
+        if (!otherUserIds.isEmpty()) {
+            for (Integer userId : otherUserIds) {
+                switchUser(userId);
+                startProtectedPackage(userId);
+            }
+            switchUser(mPrimaryUserId);
+        }
+    }
+
+    /**
+     * Helper when testing {@link DevicePolicyManager#setUserControlDisabledPackages} API that
+     * starts the activity for the package that is under test for a given user.
+     * @param userId The user Id to start the package for
+     */
+    private void startProtectedPackage(int userId) throws Exception {
+        // Launch the app once before starting the test.
+        startActivityAsUser(userId, SIMPLE_APP_PKG, SIMPLE_APP_ACTIVITY);
+        executeDeviceTestMethod(".UserControlDisabledPackagesTest",
+                "testLaunchActivity");
+    }
+
+    /**
+     * Helper when testing {@link DevicePolicyManager#setUserControlDisabledPackages} API that
+     * removes the package under test as a protected package and stops the package under test for
+     * the primary user and provided users.
+     * @param otherUserIds The user Ids apart from the primary user that were created
+     */
+    private void cleanupProtectedPackage(List<Integer> otherUserIds) throws Exception {
+        executeDeviceTestMethod(".UserControlDisabledPackagesTest",
+                "testClearSetUserControlDisabledPackages");
+        tryStoppingProtectedPackage(otherUserIds, /* canUserStopPackage= */ true);
+    }
+
+    /**
+     * Helper when testing {@link DevicePolicyManager#setUserControlDisabledPackages} API that
+     * attempts to stop protected package under test for the primary user and provided users.
+     * @param otherUserIds The user Ids apart from the primary user that were created
+     * @param canUserStopPackage Whether the user can force stop the protected package
+     */
+    private void tryStoppingProtectedPackage(List<Integer> otherUserIds, boolean canUserStopPackage)
+            throws Exception {
+        if (!otherUserIds.isEmpty()) {
+            for (Integer userId : otherUserIds) {
+                // TODO(b/188464764): Run device tests on the required user instead of switching
+                //  users
+                switchUser(userId);
+                tryStoppingProtectedPackage(userId, canUserStopPackage);
+            }
+            switchUser(mPrimaryUserId);
+        }
+        tryStoppingProtectedPackage(mPrimaryUserId, canUserStopPackage);
+    }
+
+    /**
+     * Helper when testing {@link DevicePolicyManager#setUserControlDisabledPackages} API that
+     * attempts to stop the protected package under test for a given user.
+     * @param userId The user Id to stop the package for
+     * @param canUserStopPackage Whether the user can force stop the protected package
+     */
+    private void tryStoppingProtectedPackage(int userId, boolean canUserStopPackage)
+            throws Exception {
+        forceStopPackageForUser(SIMPLE_APP_PKG, userId);
+        if (canUserStopPackage) {
             executeDeviceTestMethod(".UserControlDisabledPackagesTest",
                     "testForceStopWithUserControlEnabled");
+        } else {
+            executeDeviceTestMethod(".UserControlDisabledPackagesTest",
+                    "testForceStopWithUserControlDisabled");
+        }
+    }
+
+    @Test
+    public void testDevicePolicySafetyCheckerIntegration_allOperations() throws Exception {
+        executeDeviceTestMethod(".DevicePolicySafetyCheckerIntegrationTest", "testAllOperations");
+    }
+
+    @Test
+    public void testDevicePolicySafetyCheckerIntegration_isSafeOperation() throws Exception {
+        executeDeviceTestMethod(".DevicePolicySafetyCheckerIntegrationTest", "testIsSafeOperation");
+    }
+
+    @Test
+    public void testDevicePolicySafetyCheckerIntegration_unsafeStateException() throws Exception {
+        executeDeviceTestMethod(".DevicePolicySafetyCheckerIntegrationTest",
+                "testUnsafeStateException");
+    }
+
+    @Test
+    public void testDevicePolicySafetyCheckerIntegration_onOperationSafetyStateChanged()
+            throws Exception {
+        executeDeviceTestMethod(".DevicePolicySafetyCheckerIntegrationTest",
+                "testOnOperationSafetyStateChanged");
+    }
+
+    @Test
+    public void testListForegroundAffiliatedUsers_notDeviceOwner() throws Exception {
+        if (!removeAdmin(DEVICE_OWNER_COMPONENT, mDeviceOwnerUserId)) {
+            fail("Failed to remove device owner for user " + mDeviceOwnerUserId);
+        }
+
+        executeDeviceTestMethod(".PreDeviceOwnerTest",
+                "testListForegroundAffiliatedUsers_notDeviceOwner");
+    }
+
+    @Test
+    public void testListForegroundAffiliatedUsers_onlyForegroundUser() throws Exception {
+        executeDeviceTestMethod(".ListForegroundAffiliatedUsersTest",
+                "testListForegroundAffiliatedUsers_onlyForegroundUser");
+    }
+
+    @Test
+    public void testListForegroundAffiliatedUsers_onlyForegroundUserCalledByDeviceOwner()
+            throws Exception {
+        assumeHeadlessSystemUserMode("redundant, same as "
+                + "testListForegroundAffiliatedUsers_onlyForegroundUser");
+
+        // Must temporarily revoke permission to make sure internal checks are allowing it to be
+        // called by profile owner
+        revokePermission(DEVICE_OWNER_PKG, PERMISSION_INTERACT_ACROSS_USERS, mDeviceOwnerUserId);
+
+        try {
+            executeDeviceOwnerTestMethod(".ListForegroundAffiliatedUsersTest",
+                    "testListForegroundAffiliatedUsers_onlyForegroundUser");
         } finally {
-            getDevice().uninstallPackage(SIMPLE_APP_APK);
+            grantPermission(DEVICE_OWNER_PKG, PERMISSION_INTERACT_ACROSS_USERS, mDeviceOwnerUserId,
+                    /* reason= */ null);
         }
     }
 
-    private void executeDeviceOwnerTest(String testClassName) throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        String testClass = DEVICE_OWNER_PKG + "." + testClassName;
-        runDeviceTestsAsUser(DEVICE_OWNER_PKG, testClass, mPrimaryUserId);
+    @Test
+    public void testListForegroundAffiliatedUsers_extraUser() throws Exception {
+        assumeCanCreateAdditionalUsers(1);
+        createAffiliatedSecondaryUser();
+
+        executeDeviceTestMethod(".ListForegroundAffiliatedUsersTest",
+                "testListForegroundAffiliatedUsers_onlyForegroundUser");
     }
 
-    private void executeDeviceTestMethod(String className, String testName) throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        runDeviceTestsAsUser(DEVICE_OWNER_PKG, className, testName,
-                /* deviceOwnerUserId */ mPrimaryUserId);
+    @Test
+    public void testListForegroundAffiliatedUsers_notAffiliated() throws Exception {
+        assumeCanCreateAdditionalUsers(1);
+        int userId = createUser();
+        switchUser(userId);
+
+        executeListForegroundAffiliatedUsersTest("testListForegroundAffiliatedUsers_empty");
+    }
+
+    @Test
+    public void testListForegroundAffiliatedUsers_affiliated() throws Exception {
+        assumeCanCreateAdditionalUsers(1);
+        int userId = createAffiliatedSecondaryUser();
+        switchUser(userId);
+
+        executeListForegroundAffiliatedUsersTest(
+                "testListForegroundAffiliatedUsers_onlyForegroundUser");
+    }
+
+    @Test
+    public void testWifiNetworkConfigurationWithoutFineLocationPermission() throws Exception {
+        executeShellCommand("pm revoke --user %d %s android.permission.ACCESS_FINE_LOCATION",
+                mPrimaryUserId, DEVICE_OWNER_PKG);
+
+        executeDeviceOwnerTest("WifiNetworkConfigurationWithoutFineLocationPermissionTest");
     }
 
     private int createAffiliatedSecondaryUser() throws Exception {
         final int userId = createUser();
         installAppAsUser(INTENT_RECEIVER_APK, userId);
-        installAppAsUser(DEVICE_OWNER_APK, userId);
-        setProfileOwnerOrFail(DEVICE_OWNER_COMPONENT, userId);
-
-        switchUser(userId);
-        waitForBroadcastIdle();
+        // For headless system user mode, after DO is setup, PO is already
+        // set on the secondary user. Meanwhile, it requires additional permission while
+        // using DevicePolicyManagerWrapper while using DPM APIs from secondary user.
+        if (!isHeadlessSystemUserMode()) {
+            installAppAsUser(DEVICE_OWNER_APK, userId);
+            setProfileOwnerOrFail(DEVICE_OWNER_COMPONENT, userId);
+        } else {
+            grantDpmWrapperPermissions(DEVICE_OWNER_PKG, userId);
+        }
         wakeupAndDismissKeyguard();
 
         // Setting the same affiliation ids on both users
-        runDeviceTestsAsUser(
-                DEVICE_OWNER_PKG, ".AffiliationTest", "testSetAffiliationId1", mPrimaryUserId);
-        runDeviceTestsAsUser(
-                DEVICE_OWNER_PKG, ".AffiliationTest", "testSetAffiliationId1", userId);
+        CLog.d("createAffiliatedSecondaryUser(): deviceOwnerId=" + mDeviceOwnerUserId
+                + ", primaryUserId=" + mPrimaryUserId + ", newUserId=" + userId);
+        affiliateUsers(DEVICE_OWNER_PKG, mDeviceOwnerUserId, userId);
+
         return userId;
     }
 
     private void executeDeviceTestMethod(String className, String testName,
             Map<String, String> params) throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         runDeviceTestsAsUser(DEVICE_OWNER_PKG, className, testName,
                 /* deviceOwnerUserId */ mPrimaryUserId, params);
+    }
+
+    private void executeCreateAndManageUserTest(String testMethod) throws Exception {
+        // These test must be run on device owner user, as it's the only user that's guaranteed  to
+        // be always running (otherwise, the test case would crash on headless system user mode if
+        // the current user is switched out)
+        executeDeviceOwnerTestMethod(".CreateAndManageUserTest", testMethod);
+    }
+
+    private void executeListForegroundAffiliatedUsersTest(String testMethod) throws Exception {
+        // These test must be run on device owner user, as it's the only user that's guaranteed  to
+        // be always running (otherwise, the test case would crash on headless system user mode if
+        // the current user is switched out)
+        executeDeviceOwnerTestMethod(".ListForegroundAffiliatedUsersTest", testMethod);
     }
 
     private void assertNewUserStopped() throws Exception {

@@ -17,10 +17,13 @@
 package com.android.car.settings.search;
 
 import static com.android.car.settings.common.PreferenceXmlParser.METADATA_KEY;
+import static com.android.car.settings.common.PreferenceXmlParser.METADATA_SEARCHABLE;
 import static com.android.car.settings.common.PreferenceXmlParser.MetadataFlag.FLAG_NEED_KEY;
+import static com.android.car.settings.common.PreferenceXmlParser.MetadataFlag.FLAG_NEED_SEARCHABLE;
 
 import android.annotation.Nullable;
 import android.content.Context;
+import android.os.Bundle;
 import android.provider.SearchIndexableResource;
 
 import androidx.annotation.NonNull;
@@ -34,9 +37,9 @@ import com.android.settingslib.search.SearchIndexableRaw;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * A basic SearchIndexProvider.
@@ -82,18 +85,21 @@ public class CarBaseSearchIndexProvider implements Indexable.SearchIndexProvider
 
     @Override
     public List<String> getNonIndexableKeys(Context context) {
-        if (!isPageSearchEnabled(context)) {
-            try {
-                return PreferenceXmlParser.extractMetadata(context, mXmlRes, FLAG_NEED_KEY)
-                        .stream()
-                        .map(bundle -> bundle.getString(METADATA_KEY))
-                        .collect(Collectors.toList());
-            } catch (IOException | XmlPullParserException e) {
-                LOG.w("Error parsing non-indexable XML - " + mXmlRes);
+        boolean searchEnabled = isPageSearchEnabled(context);
+        List<String> keys = new ArrayList<>();
+        try {
+            List<Bundle> metadata = PreferenceXmlParser.extractMetadata(context, mXmlRes,
+                    FLAG_NEED_KEY | FLAG_NEED_SEARCHABLE);
+            for (Bundle bundle : metadata) {
+                if (!searchEnabled || !bundle.getBoolean(METADATA_SEARCHABLE, true)) {
+                    keys.add(bundle.getString(METADATA_KEY));
+                }
             }
+        } catch (IOException | XmlPullParserException e) {
+            LOG.w("Error parsing non-indexable XML - " + mXmlRes);
         }
 
-        return null;
+        return keys;
     }
 
     /**

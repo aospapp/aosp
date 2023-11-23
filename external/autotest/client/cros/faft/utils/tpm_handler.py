@@ -41,7 +41,10 @@ class TpmNvRam(object):
         """Initialize the object, loading tpm nvram information from the device.
         """
         cmd = 'tpmc read 0x%x 0x%x' % (self.addr, self.size)
-        nvram_data = self.os_if.run_shell_command_get_output(cmd)[0].split()
+        output = self.os_if.run_shell_command_get_output(cmd)
+        if not output:
+            raise TpmError('Failed to read Nvram')
+        nvram_data = output[0].split()
         self.contents = [int(x, 16) for x in nvram_data]
         if self.pattern:
             pattern_offset = self.pattern[0]
@@ -60,6 +63,38 @@ class TpmNvRam(object):
                 self.version_offset + 2]
 
 
+class TpmNvRamOptions(object):
+    """An object representing a number of potential TPM NvRam objects.
+
+    @ivar nvrams: A list of TpmNvRam objects. The first TpmNvRam that
+        successfully initializes is selected and used so more specific
+        selectors should be listed earlier.
+    """
+
+    def __init__(self, nvrams):
+        self._nvrams = nvrams
+        self._valid_nvram = None
+
+    def init(self):
+        """Selects a valid TpmNvRam and initializes it."""
+        for nvram in self._nvrams:
+            try:
+                nvram.init()
+            except TpmError:
+                continue
+            else:
+                self._valid_nvram = nvram
+                break
+        else:
+            raise TpmError('No Nvram pattern matched')
+
+    def get_body_version(self):
+        return self._valid_nvram.get_body_version()
+
+    def get_key_version(self):
+        return self._valid_nvram.get_key_version()
+
+
 class TpmHandler(object):
     """An object to control TPM device's NVRAM.
 
@@ -75,12 +110,20 @@ class TpmHandler(object):
         self.os_if = os_if
         self.nvrams = {
                 'kernel':
-                TpmNvRam(
-                        self.os_if,
-                        addr=KERNEL_NV_ADDRESS,
-                        size=13,
-                        version_offset=5,
-                        data_pattern=(1, [0x4c, 0x57, 0x52, 0x47])),
+                TpmNvRamOptions([
+                        TpmNvRam(
+                                self.os_if,
+                                addr=KERNEL_NV_ADDRESS,
+                                size=13,
+                                version_offset=5,
+                                data_pattern=(1, [0x4c, 0x57, 0x52, 0x47])),
+                        TpmNvRam(
+                                self.os_if,
+                                addr=KERNEL_NV_ADDRESS,
+                                size=0x28,
+                                version_offset=4,
+                                data_pattern=(0, [0x10, 0x28])),
+                ]),
                 'bios':
                 TpmNvRam(
                         self.os_if,

@@ -16,6 +16,7 @@ class CellularProxy(shill_proxy.ShillProxy):
     # Properties exposed by shill.
     DEVICE_PROPERTY_DBUS_OBJECT = 'DBus.Object'
     DEVICE_PROPERTY_MODEL_ID = 'Cellular.ModelID'
+    DEVICE_PROPERTY_MANUFACTURER = 'Cellular.Manufacturer'
     DEVICE_PROPERTY_OUT_OF_CREDITS = 'Cellular.OutOfCredits'
     DEVICE_PROPERTY_SIM_LOCK_STATUS = 'Cellular.SIMLockStatus'
     DEVICE_PROPERTY_SIM_PRESENT = 'Cellular.SIMPresent'
@@ -136,40 +137,49 @@ class CellularProxy(shill_proxy.ShillProxy):
             raise shill_proxy.ShillProxyError(
                     'Failed to get the mm object path for the modem.')
 
-        modem.Reset()
-
-        # (1) Wait for the old modem to disappear
-        utils.poll_for_condition(
-                lambda: self._is_old_modem_gone(old_modem_path,
-                                                old_modem_mm_object),
-                exception=shill_proxy.ShillProxyTimeoutError(
-                        'Old modem disappeared'),
-                timeout=60)
-
-
-        # (2) Wait for the device to reappear
-        if not expect_device:
-            return None, None
-        # The timeout here should be sufficient for our slowest modem to
-        # reappear.
-        new_modem = utils.poll_for_condition(
-                lambda: self._get_reappeared_modem(model_id,
-                                                   old_modem_mm_object),
-                exception=shill_proxy.ShillProxyTimeoutError(
-                        'The modem reappeared after reset.'),
-                timeout=60)
-
-        # (3) Check powered state of the device
-        if not expect_powered:
-            return new_modem, None
-        success, _, _ = self.wait_for_property_in(new_modem,
-                                                  self.DEVICE_PROPERTY_POWERED,
-                                                  [self.VALUE_POWERED_ON],
-                                                  timeout_seconds=10)
-        if not success:
+        manufacturer = properties.get(self.DEVICE_PROPERTY_MANUFACTURER)
+        if not manufacturer:
             raise shill_proxy.ShillProxyError(
-                    'After modem reset, new modem failed to enter powered '
-                    'state.')
+                    'Failed to get the manufacturer for the modem.')
+        if "QUALCOMM" in manufacturer:
+            logging.info(
+                    'Qualcomm modem found. Bypassing modem reset (b/168113309)'
+            )
+            new_modem = modem
+        else:
+            modem.Reset()
+
+            # (1) Wait for the old modem to disappear
+            utils.poll_for_condition(lambda: self._is_old_modem_gone(
+                    old_modem_path, old_modem_mm_object),
+                                     exception=shill_proxy.
+                                     ShillProxyTimeoutError(
+                                             'Old modem disappeared'),
+                                     timeout=60)
+
+            # (2) Wait for the device to reappear
+            if not expect_device:
+                return None, None
+            # The timeout here should be sufficient for our slowest modem to
+            # reappear.
+            new_modem = utils.poll_for_condition(
+                    lambda: self._get_reappeared_modem(model_id,
+                                                       old_modem_mm_object),
+                    exception=shill_proxy.ShillProxyTimeoutError(
+                            'The modem reappeared after reset.'),
+                    timeout=60)
+
+            # (3) Check powered state of the device
+            if not expect_powered:
+                return new_modem, None
+            success, _, _ = self.wait_for_property_in(
+                    new_modem,
+                    self.DEVICE_PROPERTY_POWERED, [self.VALUE_POWERED_ON],
+                    timeout_seconds=10)
+            if not success:
+                raise shill_proxy.ShillProxyError(
+                        'After modem reset, new modem failed to enter powered '
+                        'state.')
 
         # (4) Check that service reappears
         if not expect_service:

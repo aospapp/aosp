@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_binary_host {
 
     name: "VtsSecuritySelinuxPolicyHostTest",
@@ -31,8 +35,4 @@ cc_binary_host {
         "-Werror",
     ],
 
-}
-
-vts_config {
-    name: "VtsSecuritySelinuxPolicyHost",
 }

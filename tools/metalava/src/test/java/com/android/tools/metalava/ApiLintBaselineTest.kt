@@ -107,12 +107,9 @@ class ApiLintBaselineTest : DriverTest() {
                     Enums are discouraged in Android APIs
             """,
             expectedIssues = """
-                src/android/pkg/MyEnum.java:3: error: Enums are discouraged in Android APIs [Enum] [Rule F5 in go/android-api-guidelines]
+                src/android/pkg/MyEnum.java:3: error: Enums are discouraged in Android APIs [Enum] [See https://s.android.com/api-guidelines#avoid-enum]
                 """,
-            expectedFail = """
-                1 new API lint issues were found.
-                See tools/metalava/API-LINT.md for how to handle these.
-            """,
+            expectedFail = DefaultLintErrorMessage,
             sourceFiles = arrayOf(
                 java(
                     """
@@ -135,7 +132,7 @@ class ApiLintBaselineTest : DriverTest() {
             baselineApiLint = "",
             errorMessageApiLint = "*** api-lint failed ***",
             expectedIssues = """
-                src/android/pkg/MyClassImpl.java:3: error: Don't expose your implementation details: `MyClassImpl` ends with `Impl` [EndsWithImpl]
+                src/android/pkg/MyClassImpl.java:3: error: Don't expose your implementation details: `MyClassImpl` ends with `Impl` [EndsWithImpl] [See https://s.android.com/api-guidelines#dont-end-with-impl]
                 """,
             sourceFiles = arrayOf(
                 java(
@@ -148,13 +145,9 @@ class ApiLintBaselineTest : DriverTest() {
                 )
             ),
             expectedFail = """
-                1 new API lint issues were found.
-                See tools/metalava/API-LINT.md for how to handle these.
                 *** api-lint failed ***
             """,
             expectedOutput = """
-                1 new API lint issues were found.
-                See tools/metalava/API-LINT.md for how to handle these.
                 *** api-lint failed ***
                 """
         )
@@ -167,7 +160,7 @@ class ApiLintBaselineTest : DriverTest() {
             compatibilityMode = false,
             baselineApiLint = "",
             expectedIssues = """
-                src/android/pkg/MyClassImpl.java:3: error: Don't expose your implementation details: `MyClassImpl` ends with `Impl` [EndsWithImpl]
+                src/android/pkg/MyClassImpl.java:3: error: Don't expose your implementation details: `MyClassImpl` ends with `Impl` [EndsWithImpl] [See https://s.android.com/api-guidelines#dont-end-with-impl]
                 """,
             sourceFiles = arrayOf(
                 java(
@@ -179,14 +172,8 @@ class ApiLintBaselineTest : DriverTest() {
                     """
                 )
             ),
-            expectedFail = """
-                1 new API lint issues were found.
-                See tools/metalava/API-LINT.md for how to handle these.
-            """,
-            expectedOutput = """
-                1 new API lint issues were found.
-                See tools/metalava/API-LINT.md for how to handle these.
-                """
+            expectedFail = DefaultLintErrorMessage,
+            expectedOutput = DefaultLintErrorMessage
         )
     }
 }

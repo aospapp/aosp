@@ -23,12 +23,12 @@
 #include <vector>
 
 #include "base/array_ref.h"
+#include "base/compiler_filter.h"
 #include "base/mutex.h"
 #include "base/os.h"
 #include "base/safe_map.h"
 #include "base/tracking_safe_map.h"
 #include "class_status.h"
-#include "compiler_filter.h"
 #include "dex/dex_file_layout.h"
 #include "dex/type_lookup_table.h"
 #include "dex/utf.h"
@@ -55,7 +55,7 @@ struct ClassDef;
 
 namespace gc {
 namespace collector {
-class DummyOatFile;
+class FakeOatFile;
 }  // namespace collector
 }  // namespace gc
 
@@ -63,14 +63,14 @@ class DummyOatFile;
 // save even one OatMethodOffsets struct, the more complicated encoding
 // using a bitmap pays for itself since few classes will have 160
 // methods.
-enum OatClassType {
-  kOatClassAllCompiled = 0,   // OatClass is followed by an OatMethodOffsets for each method.
-  kOatClassSomeCompiled = 1,  // A bitmap of OatMethodOffsets that are present follows the OatClass.
-  kOatClassNoneCompiled = 2,  // All methods are interpreted so no OatMethodOffsets are necessary.
+enum class OatClassType : uint8_t {
+  kAllCompiled = 0,   // OatClass is followed by an OatMethodOffsets for each method.
+  kSomeCompiled = 1,  // A bitmap of OatMethodOffsets that are present follows the OatClass.
+  kNoneCompiled = 2,  // All methods are interpreted so no OatMethodOffsets are necessary.
   kOatClassMax = 3,
 };
 
-std::ostream& operator<<(std::ostream& os, const OatClassType& rhs);
+std::ostream& operator<<(std::ostream& os, OatClassType rhs);
 
 class PACKED(4) OatMethodOffsets {
  public:
@@ -94,9 +94,6 @@ class PACKED(4) OatMethodOffsets {
 
 class OatFile {
  public:
-  // Special classpath that skips shared library check.
-  static constexpr const char* kSpecialSharedLibrary = "&";
-
   // Open an oat file. Returns null on failure.
   // The `dex_filenames` argument, if provided, overrides the dex locations
   // from oat file when opening the dex files if they are not embedded in the
@@ -163,6 +160,16 @@ class OatFile {
                                std::unique_ptr<VdexFile>&& vdex_file,
                                const std::string& location);
 
+  // Initialize OatFile instance from an already loaded VdexFile. The dex files
+  // will be opened through `zip_fd` or `dex_location` if `zip_fd` is -1.
+  static OatFile* OpenFromVdex(int zip_fd,
+                               std::unique_ptr<VdexFile>&& vdex_file,
+                               const std::string& location,
+                               std::string* error_msg);
+
+  // Return whether the `OatFile` uses a vdex-only file.
+  bool IsBackedByVdexOnly() const;
+
   virtual ~OatFile();
 
   bool IsExecutable() const {
@@ -192,7 +199,6 @@ class OatFile {
 
     // Returns size of quick code.
     uint32_t GetQuickCodeSize() const;
-    uint32_t GetQuickCodeSizeOffset() const;
 
     // Returns OatQuickMethodHeader for debugging. Most callers should
     // use more specific methods such as GetQuickCodeSize.
@@ -205,7 +211,6 @@ class OatFile {
 
     const uint8_t* GetVmapTable() const;
     uint32_t GetVmapTableOffset() const;
-    uint32_t GetVmapTableOffsetOffset() const;
 
     // Create an OatMethod with offsets relative to the given base address
     OatMethod(const uint8_t* base, const uint32_t code_offset)
@@ -268,7 +273,7 @@ class OatFile {
     static OatClass Invalid() {
       return OatClass(/* oat_file= */ nullptr,
                       ClassStatus::kErrorUnresolved,
-                      kOatClassNoneCompiled,
+                      OatClassType::kNoneCompiled,
                       /* bitmap_size= */ 0,
                       /* bitmap_pointer= */ nullptr,
                       /* methods_pointer= */ nullptr);
@@ -278,18 +283,15 @@ class OatFile {
     OatClass(const OatFile* oat_file,
              ClassStatus status,
              OatClassType type,
-             uint32_t bitmap_size,
+             uint32_t num_methods,
              const uint32_t* bitmap_pointer,
              const OatMethodOffsets* methods_pointer);
 
     const OatFile* const oat_file_;
-
     const ClassStatus status_;
-
     const OatClassType type_;
-
+    const uint32_t num_methods_;
     const uint32_t* const bitmap_;
-
     const OatMethodOffsets* const methods_pointer_;
 
     friend class art::OatDexFile;
@@ -378,6 +380,9 @@ class OatFile {
     return external_dex_files_.empty();
   }
 
+  // Returns whether an image (e.g. app image) is required to safely execute this OAT file.
+  bool RequiresImage() const;
+
  protected:
   OatFile(const std::string& filename, bool executable);
 
@@ -460,10 +465,11 @@ class OatFile {
   // by the `dex_filenames` parameter, in case the OatFile does not embed the dex code.
   std::vector<std::unique_ptr<const DexFile>> external_dex_files_;
 
-  friend class gc::collector::DummyOatFile;  // For modifying begin_ and end_.
+  friend class gc::collector::FakeOatFile;  // For modifying begin_ and end_.
   friend class OatClass;
   friend class art::OatDexFile;
   friend class OatDumper;  // For GetBase and GetLimit
+  friend class OatFileBackedByVdex;
   friend class OatFileBase;
   DISALLOW_COPY_AND_ASSIGN(OatFile);
 };
@@ -519,6 +525,14 @@ class OatDexFile final {
     return type_bss_mapping_;
   }
 
+  const IndexBssMapping* GetPublicTypeBssMapping() const {
+    return public_type_bss_mapping_;
+  }
+
+  const IndexBssMapping* GetPackageTypeBssMapping() const {
+    return package_type_bss_mapping_;
+  }
+
   const IndexBssMapping* GetStringBssMapping() const {
     return string_bss_mapping_;
   }
@@ -526,9 +540,6 @@ class OatDexFile final {
   const uint8_t* GetDexFilePointer() const {
     return dex_file_pointer_;
   }
-
-  ArrayRef<const uint8_t> GetQuickenedInfoOf(const DexFile& dex_file,
-                                             uint32_t dex_method_idx) const;
 
   // Looks up a class definition by its class descriptor. Hash must be
   // ComputeModifiedUtf8Hash(descriptor).
@@ -562,6 +573,8 @@ class OatDexFile final {
              const uint8_t* lookup_table_data,
              const IndexBssMapping* method_bss_mapping,
              const IndexBssMapping* type_bss_mapping,
+             const IndexBssMapping* public_type_bss_mapping,
+             const IndexBssMapping* package_type_bss_mapping,
              const IndexBssMapping* string_bss_mapping,
              const uint32_t* oat_class_offsets_pointer,
              const DexLayoutSections* dex_layout_sections);
@@ -569,11 +582,14 @@ class OatDexFile final {
   // Create an OatDexFile wrapping an existing DexFile. Will set the OatDexFile
   // pointer in the DexFile.
   OatDexFile(const OatFile* oat_file,
-             const DexFile* dex_file,
+             const uint8_t* dex_file_pointer,
+             uint32_t dex_file_checksum,
              const std::string& dex_file_location,
-             const std::string& canonical_dex_file_location);
+             const std::string& canonical_dex_file_location,
+             const uint8_t* lookup_table_data);
 
   bool IsBackedByVdexOnly() const;
+  void InitializeTypeLookupTable();
 
   static void AssertAotCompiler();
 
@@ -585,6 +601,8 @@ class OatDexFile final {
   const uint8_t* const lookup_table_data_ = nullptr;
   const IndexBssMapping* const method_bss_mapping_ = nullptr;
   const IndexBssMapping* const type_bss_mapping_ = nullptr;
+  const IndexBssMapping* const public_type_bss_mapping_ = nullptr;
+  const IndexBssMapping* const package_type_bss_mapping_ = nullptr;
   const IndexBssMapping* const string_bss_mapping_ = nullptr;
   const uint32_t* const oat_class_offsets_pointer_ = nullptr;
   TypeLookupTable lookup_table_;
@@ -592,6 +610,7 @@ class OatDexFile final {
 
   friend class OatFile;
   friend class OatFileBase;
+  friend class OatFileBackedByVdex;
   DISALLOW_COPY_AND_ASSIGN(OatDexFile);
 };
 

@@ -23,6 +23,8 @@ import android.media.audiopolicy.AudioMix;
 import android.media.audiopolicy.AudioMixingRule;
 import android.media.audiopolicy.AudioPolicy;
 import android.util.Log;
+import android.util.Slog;
+import android.util.SparseArray;
 
 import com.android.car.CarLog;
 
@@ -31,7 +33,7 @@ import java.util.Arrays;
 /**
  * Builds dynamic audio routing in a car from audio zone configuration.
  */
-/* package */ class CarAudioDynamicRouting {
+final class CarAudioDynamicRouting {
     // For legacy stream type based volume control.
     // Values in STREAM_TYPES and STREAM_TYPE_USAGES should be aligned.
     static final int[] STREAM_TYPES = new int[] {
@@ -45,14 +47,10 @@ import java.util.Arrays;
             AudioAttributes.USAGE_NOTIFICATION_RINGTONE
     };
 
-    private final CarAudioZone[] mCarAudioZones;
-
-    CarAudioDynamicRouting(CarAudioZone[] carAudioZones) {
-        mCarAudioZones = carAudioZones;
-    }
-
-    void setupAudioDynamicRouting(AudioPolicy.Builder builder) {
-        for (CarAudioZone zone : mCarAudioZones) {
+    static void setupAudioDynamicRouting(AudioPolicy.Builder builder,
+            SparseArray<CarAudioZone> carAudioZones) {
+        for (int i = 0; i < carAudioZones.size(); i++) {
+            CarAudioZone zone = carAudioZones.valueAt(i);
             for (CarVolumeGroup group : zone.getVolumeGroups()) {
                 setupAudioDynamicRoutingForGroup(group, builder);
             }
@@ -64,7 +62,7 @@ import java.util.Arrays;
      * @param group {@link CarVolumeGroup} instance to enumerate the buses with
      * @param builder {@link AudioPolicy.Builder} to attach the mixing rules
      */
-    private void setupAudioDynamicRoutingForGroup(CarVolumeGroup group,
+    private static void setupAudioDynamicRoutingForGroup(CarVolumeGroup group,
             AudioPolicy.Builder builder) {
         // Note that one can not register audio mix for same bus more than once.
         for (String address : group.getAddresses()) {
@@ -85,7 +83,7 @@ import java.util.Arrays;
                             AudioMixingRule.RULE_MATCH_ATTRIBUTE_USAGE);
                 }
                 if (Log.isLoggable(CarLog.TAG_AUDIO, Log.DEBUG)) {
-                    Log.d(CarLog.TAG_AUDIO, String.format(
+                    Slog.d(CarLog.TAG_AUDIO, String.format(
                             "Address: %s AudioContext: %s sampleRate: %d channels: %d usages: %s",
                             address, carAudioContext, info.getSampleRate(), info.getChannelCount(),
                             Arrays.toString(usages)));
@@ -105,7 +103,7 @@ import java.util.Arrays;
         }
     }
 
-    private AudioAttributes buildAttributesWithUsage(@AttributeUsage int usage) {
+    private static AudioAttributes buildAttributesWithUsage(@AttributeUsage int usage) {
         AudioAttributes.Builder attributesBuilder = new AudioAttributes.Builder();
         if (AudioAttributes.isSystemUsage(usage)) {
             attributesBuilder.setSystemUsage(usage);

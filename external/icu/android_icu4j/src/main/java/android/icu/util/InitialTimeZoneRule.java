@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 2007-2008, International Business Machines Corporation and    *
@@ -18,7 +18,6 @@ import java.util.Date;
  *
  * @hide Only a subset of ICU is exposed in Android
  */
-@libcore.api.IntraCoreApi
 public class InitialTimeZoneRule extends TimeZoneRule {
 
     private static final long serialVersionUID = 1876594993064051206L;

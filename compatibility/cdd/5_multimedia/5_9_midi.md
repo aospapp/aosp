@@ -9,10 +9,12 @@ class, they:
 which they provide generic non-MIDI connectivity, where such transports are:
 
     *   USB host mode, [section 7.7](#7_7_USB)
-    *   USB peripheral mode, [section 7.7](#7_7_USB)
     *   MIDI over Bluetooth LE acting in central role, [section 7.4.3](#7_4_3_bluetooth)
 
 *    [C-1-2] MUST support the inter-app MIDI software transport
 (virtual MIDI devices)
 
 *    [C-1-3] MUST include libamidi.so (native MIDI support)
+
+*    SHOULD support MIDI over USB peripheral mode, [section 7.7](#7_7_USB)
+

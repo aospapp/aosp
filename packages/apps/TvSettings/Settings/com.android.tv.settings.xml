@@ -26,6 +26,7 @@
         <permission name="android.permission.MANAGE_USERS"/>
         <permission name="android.permission.OVERRIDE_WIFI_CONFIG"/>
         <permission name="android.permission.REBOOT"/>
+        <permission name="android.permission.SUGGEST_MANUAL_TIME_AND_ZONE"/>
         <permission name="android.permission.SET_TIME"/>
         <permission name="android.permission.SET_TIME_ZONE"/>
         <permission name="android.permission.USE_RESERVED_DISK"/>

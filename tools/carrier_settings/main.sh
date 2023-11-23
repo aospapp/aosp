@@ -53,10 +53,12 @@ cp $INPUT_APNS_XML_FILE "$TMP_DIR"/apns-full-conf.xml > /dev/null
 
 # 2c. Convert XMLs to TEXTPB
 
-# DO NOT change the EPOCH date. It's used by CarrierSettings server.
 EPOCH=$(date -d '2018-06-01T00:00:00Z' +%s)
 NOW=$(date +%s)
 TIMESTAMP="$((NOW-EPOCH))"
+# Use TIMESTAMP as version number
+# To customize the version number, assign the customized value to VERSION.
+VERSION="$TIMESTAMP"
 
 SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 UPDATE_APN=$SCRIPT_DIR/bin/update_apn
@@ -71,7 +73,7 @@ out/host/linux-x86/bin/CarrierConfigConverterV2 \
   --output_dir="$TMP_DIR"/data \
   --vendor_xml="$TMP_DIR"/vendor.xml \
   --assets="$ASSETS_DIR"/ \
-  --version=$TIMESTAMP > /dev/null
+  --version=$VERSION > /dev/null
 "$UPDATE_APN" \
   --apn_file="$TMP_DIR"/apns-full-conf.xml \
   --data_dir="$TMP_DIR"/data \

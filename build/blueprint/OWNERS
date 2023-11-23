@@ -1,4 +1,2 @@
-asmundak@google.com
-ccross@android.com
-dwillemsen@google.com
-jungjw@google.com
+include platform/build/soong:/OWNERS
+

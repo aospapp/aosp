@@ -14,16 +14,16 @@ public class FallbackIteratorDataGenerator {
 
     public static void main(String[] args) {
         final StandardCodes sc = testInfo.getStandardCodes();
-        List<String> decanonicalizeList = new ArrayList<String>();
+        List<String> decanonicalizeList = new ArrayList<>();
         System.out.println();
         System.out.println("\t\t\"canonicalize\",\t\t// mechanically generated");
         System.out.println();
 
         for (String type : sc.getAvailableTypes()) {
             final boolean isLanguage = type.equals("language");
-            final boolean isGrandfathered = type.equals("grandfathered");
+            final boolean isLegacy = type.equals("legacy");
             final boolean isRegion = type.equals("territory");
-            final String canonicalizationFormat = isGrandfathered ? "\t\t\"%s;%s\","
+            final String canonicalizationFormat = isLegacy ? "\t\t\"%s;%s\","
                 : isLanguage ? "\t\t\"%s(-.*)?;%s$1\","
                     : isRegion ? "\t\t\"(.*-)%s(-.*)?;$1%s$2\","
                         : null;
@@ -42,8 +42,8 @@ public class FallbackIteratorDataGenerator {
 
                 if (canonicalValue == null || canonicalValue.length() == 0) {
                     // System.out.println("\t\t\\\\ skipping " + code);
-                    if (isGrandfathered) {
-                        System.out.println("\t\t// Grandfathered code with no replacement " + code);
+                    if (isLegacy) {
+                        System.out.println("\t\t// Legacy code with no replacement " + code);
                         continue;
                     } else {
                         continue;
@@ -55,10 +55,10 @@ public class FallbackIteratorDataGenerator {
                 }
                 System.out.format(canonicalizationFormat, code, canonicalValue);
                 if (special != null) {
-                    System.out.print("\t\t// Grandfathered code with special replacement: " + code);
+                    System.out.print("\t\t// Legacy code with special replacement: " + code);
                 }
                 System.out.println();
-                if (!isGrandfathered) {
+                if (!isLegacy) {
                     decanonicalizeList.add(String.format(canonicalizationFormat, canonicalValue, code));
                 }
             }

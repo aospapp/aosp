@@ -16,6 +16,7 @@
 
 package com.google.android.textclassifier;
 
+import android.content.res.AssetFileDescriptor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -45,6 +46,29 @@ public final class LangIdModel implements AutoCloseable {
     modelPtr = nativeNewFromPath(modelPath);
     if (modelPtr == 0L) {
       throw new IllegalArgumentException("Couldn't initialize LangId from given file.");
+    }
+  }
+
+  /**
+   * Creates a new instance of LangId predictor, using the provided model image, given as an {@link
+   * AssetFileDescriptor}.
+   */
+  public LangIdModel(AssetFileDescriptor assetFileDescriptor) {
+    modelPtr =
+        nativeNewWithOffset(
+            assetFileDescriptor.getParcelFileDescriptor().getFd(),
+            assetFileDescriptor.getStartOffset(),
+            assetFileDescriptor.getLength());
+    if (modelPtr == 0L) {
+      throw new IllegalArgumentException("Couldn't initialize LangId from asset file descriptor.");
+    }
+  }
+
+  /** Creates a new instance of LangId predictor, using the provided model image. */
+  public LangIdModel(int fd, long offset, long size) {
+    modelPtr = nativeNewWithOffset(fd, offset, size);
+    if (modelPtr == 0L) {
+      throw new IllegalArgumentException("Couldn't initialize LangId from given file descriptor.");
     }
   }
 
@@ -95,12 +119,20 @@ public final class LangIdModel implements AutoCloseable {
     return nativeGetVersion(modelPtr);
   }
 
-  public float getLangIdThreshold() {
-    return nativeGetLangIdThreshold(modelPtr);
-  }
-
   public static int getVersion(int fd) {
     return nativeGetVersionFromFd(fd);
+  }
+
+  /** Returns the version of the model. */
+  public static int getVersion(AssetFileDescriptor assetFileDescriptor) {
+    return nativeGetVersionWithOffset(
+        assetFileDescriptor.getParcelFileDescriptor().getFd(),
+        assetFileDescriptor.getStartOffset(),
+        assetFileDescriptor.getLength());
+  }
+
+  public float getLangIdThreshold() {
+    return nativeGetLangIdThreshold(modelPtr);
   }
 
   /** Retrieves the pointer to the native object. */
@@ -130,6 +162,8 @@ public final class LangIdModel implements AutoCloseable {
 
   private static native long nativeNewFromPath(String path);
 
+  private static native long nativeNewWithOffset(int fd, long offset, long size);
+
   private native LanguageResult[] nativeDetectLanguages(long nativePtr, String text);
 
   private native void nativeClose(long nativePtr);
@@ -143,4 +177,6 @@ public final class LangIdModel implements AutoCloseable {
   private native float nativeGetLangIdNoiseThreshold(long nativePtr);
 
   private native int nativeGetMinTextSizeInBytes(long nativePtr);
+
+  private static native int nativeGetVersionWithOffset(int fd, long offset, long size);
 }

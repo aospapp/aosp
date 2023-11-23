@@ -1,12 +1,16 @@
 // Copyright (c) Facebook, Inc. and its affiliates.
 // All rights reserved.
 //
+// Copyright 2020 Google LLC
+//
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -24,13 +28,15 @@
 #endif  // BENCHMARK_TENSORFLOW_LITE
 
 
-static void xnnpack_sigmoid_q8(benchmark::State& state) {
+#ifndef XNN_NO_QU8_OPERATORS
+static void xnnpack_sigmoid_qu8(benchmark::State& state) {
   const size_t batch_size = state.range(0);
   const size_t channels = state.range(1);
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto u8rng = std::bind(std::uniform_int_distribution<uint8_t>(), rng);
+  auto u8rng = std::bind(
+    std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), std::ref(rng));
 
   std::vector<uint8_t> input(batch_size * channels);
   std::vector<uint8_t> output(batch_size * channels);
@@ -44,7 +50,7 @@ static void xnnpack_sigmoid_q8(benchmark::State& state) {
   }
 
   xnn_operator_t sigmoid_op = nullptr;
-  status = xnn_create_sigmoid_nc_q8(
+  status = xnn_create_sigmoid_nc_qu8(
     channels, channels /* input stride */, channels /* output stride */,
     127 /* input zero point */, 1.0f /* input scale */,
     0 /* output zero point */, 1.0f / 256.0f /* output scale */,
@@ -55,7 +61,7 @@ static void xnnpack_sigmoid_q8(benchmark::State& state) {
     return;
   }
 
-  status = xnn_setup_sigmoid_nc_q8(
+  status = xnn_setup_sigmoid_nc_qu8(
     sigmoid_op,
     batch_size,
     input.data(), output.data(),
@@ -79,7 +85,10 @@ static void xnnpack_sigmoid_q8(benchmark::State& state) {
     return;
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
 
   const size_t elements_per_iteration = batch_size * channels;
   state.counters["elements"] =
@@ -89,6 +98,7 @@ static void xnnpack_sigmoid_q8(benchmark::State& state) {
   state.counters["bytes"] =
     benchmark::Counter(uint64_t(state.iterations()) * bytes_per_iteration, benchmark::Counter::kIsRate);
 }
+#endif  // XNN_NO_QU8_OPERATORS
 
 static void xnnpack_sigmoid_f32(benchmark::State& state) {
   const size_t batch_size = state.range(0);
@@ -96,7 +106,7 @@ static void xnnpack_sigmoid_f32(benchmark::State& state) {
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto f32rng = std::bind(std::uniform_real_distribution<float>(-10.0f, 10.0f), rng);
+  auto f32rng = std::bind(std::uniform_real_distribution<float>(-10.0f, 10.0f), std::ref(rng));
 
   std::vector<float> input(batch_size * channels);
   std::vector<float> output(batch_size * channels);
@@ -142,7 +152,10 @@ static void xnnpack_sigmoid_f32(benchmark::State& state) {
     return;
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
 
   const size_t elements_per_iteration = batch_size * channels;
   state.counters["elements"] =
@@ -160,63 +173,61 @@ static void tflite_sigmoid_f32(benchmark::State& state) {
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto f32rng = std::bind(std::uniform_real_distribution<float>(-10.0f, 10.0f), rng);
+  auto f32rng = std::bind(std::uniform_real_distribution<float>(-10.0f, 10.0f), std::ref(rng));
 
   flatbuffers::FlatBufferBuilder builder;
-  flatbuffers::Offset<tflite::OperatorCode> operator_code =
+  const flatbuffers::Offset<tflite::OperatorCode> operator_code =
       CreateOperatorCode(builder, tflite::BuiltinOperator_LOGISTIC);
 
-  flatbuffers::Offset<tflite::Buffer> buffers[1] = {
+  const std::array<flatbuffers::Offset<tflite::Buffer>, 1> buffers{{
     tflite::CreateBuffer(builder, builder.CreateVector({})),
-  };
+  }};
 
-  const int32_t input_shape[4] = {
+  const std::array<int32_t, 4> input_shape{{
     static_cast<int32_t>(batch_size),
     static_cast<int32_t>(1 /* height */),
     static_cast<int32_t>(1 /* width */),
     static_cast<int32_t>(channels)
-  };
-  const int32_t output_shape[4] = {
+  }};
+  const std::array<int32_t, 4> output_shape{{
     static_cast<int32_t>(batch_size),
     static_cast<int32_t>(1 /* height */),
     static_cast<int32_t>(1 /* width */),
     static_cast<int32_t>(channels)
-  };
+  }};
 
-  flatbuffers::Offset<tflite::Tensor> tensors[2] = {
+  const std::array<flatbuffers::Offset<tflite::Tensor>, 2> tensors{{
     tflite::CreateTensor(builder,
-                         builder.CreateVector<int32_t>(input_shape, 4),
+                         builder.CreateVector<int32_t>(input_shape.data(), input_shape.size()),
                          tflite::TensorType_FLOAT32),
     tflite::CreateTensor(builder,
-                         builder.CreateVector<int32_t>(output_shape, 4),
+                         builder.CreateVector<int32_t>(output_shape.data(), output_shape.size()),
                          tflite::TensorType_FLOAT32),
-  };
+  }};
 
-  const int32_t op_inputs[1] = { 0 };
-  const int32_t op_outputs[1] = { 1 };
+  const std::array<int32_t, 1> op_inputs{{ 0 }};
+  const std::array<int32_t, 1> op_outputs{{ 1 }};
   flatbuffers::Offset<tflite::Operator> op = tflite::CreateOperator(
       builder,
       0 /* opcode_index */,
-      builder.CreateVector<int32_t>(op_inputs, 1),
-      builder.CreateVector<int32_t>(op_outputs, 1));
+      builder.CreateVector<int32_t>(op_inputs.data(), op_inputs.size()),
+      builder.CreateVector<int32_t>(op_outputs.data(), op_outputs.size()));
 
-  const int32_t graph_inputs[1] = { 0 };
-  const int32_t graph_outputs[1] = { 1 };
-  flatbuffers::Offset<tflite::SubGraph> subgraph = tflite::CreateSubGraph(
+  const std::array<int32_t, 1> graph_inputs{{ 0 }};
+  const std::array<int32_t, 1> graph_outputs{{ 1 }};
+  const flatbuffers::Offset<tflite::SubGraph> subgraph = tflite::CreateSubGraph(
       builder,
-      builder.CreateVector(tensors, 2),
-      builder.CreateVector<int32_t>(graph_inputs, 1),
-      builder.CreateVector<int32_t>(graph_outputs, 1),
+      builder.CreateVector(tensors.data(), tensors.size()),
+      builder.CreateVector<int32_t>(graph_inputs.data(), graph_inputs.size()),
+      builder.CreateVector<int32_t>(graph_outputs.data(), graph_outputs.size()),
       builder.CreateVector(&op, 1));
 
-  flatbuffers::Offset<flatbuffers::String> description = builder.CreateString("Sigmoid model");
-
-  flatbuffers::Offset<tflite::Model> model_buffer = tflite::CreateModel(builder,
+  const flatbuffers::Offset<tflite::Model> model_buffer = tflite::CreateModel(builder,
       TFLITE_SCHEMA_VERSION,
       builder.CreateVector(&operator_code, 1),
       builder.CreateVector(&subgraph, 1),
-      description,
-      builder.CreateVector(buffers, 1));
+      builder.CreateString("Sigmoid model"),
+      builder.CreateVector(buffers.data(), buffers.size()));
 
   builder.Finish(model_buffer);
 
@@ -251,7 +262,10 @@ static void tflite_sigmoid_f32(benchmark::State& state) {
     }
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
 
   const size_t elements_per_iteration = batch_size * channels;
   state.counters["elements"] =
@@ -276,7 +290,9 @@ static void CharacteristicArguments(benchmark::internal::Benchmark* b)
   }
 }
 
-BENCHMARK(xnnpack_sigmoid_q8)->Apply(CharacteristicArguments)->UseRealTime();
+#ifndef XNN_NO_QU8_OPERATORS
+BENCHMARK(xnnpack_sigmoid_qu8)->Apply(CharacteristicArguments)->UseRealTime();
+#endif  // XNN_NO_QU8_OPERATORS
 BENCHMARK(xnnpack_sigmoid_f32)->Apply(CharacteristicArguments)->UseRealTime();
 
 #ifdef BENCHMARK_TENSORFLOW_LITE

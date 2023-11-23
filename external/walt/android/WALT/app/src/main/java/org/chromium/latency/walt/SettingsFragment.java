@@ -18,19 +18,21 @@ package org.chromium.latency.walt;
 
 
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v4.app.DialogFragment;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceFragmentCompat;
-import android.support.v7.preference.PreferenceScreen;
-import android.support.v7.widget.Toolbar;
 import android.view.View;
 
+import androidx.annotation.Nullable;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceScreen;
 
-public class SettingsFragment extends PreferenceFragmentCompat implements PreferenceFragmentCompat.OnPreferenceStartScreenCallback {
+
+public class SettingsFragment extends PreferenceFragmentCompat implements
+    PreferenceFragmentCompat.OnPreferenceStartScreenCallback {
 
     private Toolbar toolbar;
 
@@ -70,8 +72,8 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
             DialogFragment fragment = NumberPickerPreference.
                     NumberPickerPreferenceDialogFragmentCompat.newInstance(preference.getKey());
             fragment.setTargetFragment(this, 0);
-            fragment.show(getFragmentManager(),
-                    "android.support.v7.preference.PreferenceFragment.DIALOG");
+            fragment.show(getParentFragmentManager(),
+                    "androidx.preference.PreferenceFragment.DIALOG");
         } else {
             super.onDisplayPreferenceDialog(preference);
         }
@@ -90,7 +92,8 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
         args.putString(PreferenceFragmentCompat.ARG_PREFERENCE_ROOT, preferenceScreen.getKey());
         fragment.setArguments(args);
 
-        FragmentTransaction ft = preferenceFragmentCompat.getFragmentManager().beginTransaction();
+        FragmentTransaction ft = preferenceFragmentCompat.
+                getParentFragmentManager().beginTransaction();
         ft.add(R.id.fragment_container, fragment, preferenceScreen.getKey());
         ft.addToBackStack(preferenceScreen.getTitle().toString());
         ft.commit();

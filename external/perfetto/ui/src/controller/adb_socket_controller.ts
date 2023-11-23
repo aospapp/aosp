@@ -161,7 +161,11 @@ export class AdbSocketConsumerPort extends AdbBaseConsumerPort {
   }
 
   private parseMessage(frameBuffer: Uint8Array) {
-    const frame = perfetto.protos.IPCFrame.decode(frameBuffer);
+    // Copy message to new array:
+    const buf = new ArrayBuffer(frameBuffer.byteLength);
+    const arr = new Uint8Array(buf);
+    arr.set(frameBuffer);
+    const frame = perfetto.protos.IPCFrame.decode(arr);
     this.handleIncomingFrame(frame);
   }
 
@@ -287,6 +291,7 @@ export class AdbSocketConsumerPort extends AdbBaseConsumerPort {
   sendReadBufferResponse() {
     this.sendMessage(this.generateChunkReadResponse(
         this.traceProtoWriter.finish(), /* last */ true));
+    this.traceProtoWriter = protobuf.Writer.create();
   }
 
   bind() {
@@ -321,7 +326,7 @@ export class AdbSocketConsumerPort extends AdbBaseConsumerPort {
   }
 
   handleIncomingFrame(frame: perfetto.protos.IPCFrame) {
-    const requestId = frame.requestId as number;
+    const requestId = frame.requestId;
     switch (frame.msg) {
       case 'msgBindServiceReply': {
         const msgBindServiceReply = frame.msgBindServiceReply;

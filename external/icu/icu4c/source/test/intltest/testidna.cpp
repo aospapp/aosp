@@ -1595,10 +1595,7 @@ void TestIDNA::TestRefIDNA(){
 
 
 void TestIDNA::TestDataFile(){
-    // Android patch: b/145129186 Disable failing tests
-    #ifndef ANDROID
      testData(*this);
-    #endif /* ANDROID */
 }
 
 TestIDNA::~TestIDNA(){

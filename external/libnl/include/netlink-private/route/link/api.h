@@ -60,6 +60,10 @@ struct rtnl_link_info_ops
 	 * in either io_alloc() or io_parse(). */
 	void	      (*io_free)(struct rtnl_link *);
 
+	/** Called to compare link info parameters between two links. */
+	int	      (*io_compare)(struct rtnl_link *, struct rtnl_link *,
+				    int flags);
+
 	struct nl_list_head		io_list;
 };
 
@@ -115,6 +119,16 @@ struct rtnl_link_af_ops
 	int		      (*ao_fill_af)(struct rtnl_link *,
 					    struct nl_msg *msg, void *);
 
+	/** Called if the full IFLA_AF_SPEC data needs to be parsed. Typically
+	 * stores the parsed data in the address family specific buffer. */
+	int                   (*ao_parse_af_full)(struct rtnl_link *,
+	                                          struct nlattr *, void *);
+
+	/** Called for GETLINK message to the kernel. Used to append
+	 * link address family specific attributes to the request message. */
+	int		      (*ao_get_af)(struct nl_msg *msg,
+					   uint32_t *ext_filter_mask);
+
 	/** Dump address family specific link attributes */
 	void		      (*ao_dump[NL_DUMP_MAX+1])(struct rtnl_link *,
 							struct nl_dump_params *,
@@ -132,6 +146,35 @@ struct rtnl_link_af_ops
 	 */
 	int		      (*ao_compare)(struct rtnl_link *,
 					    struct rtnl_link *, int, uint32_t, int);
+
+	/* RTM_NEWLINK override
+	 *
+	 * Called if a change link request is set to the kernel. If this returns
+	 * anything other than zero, RTM_NEWLINK will be overriden with
+	 * RTM_SETLINK when rtnl_link_build_change_request() is called.
+	 */
+	int		      (*ao_override_rtm)(struct rtnl_link *);
+
+	/** Called if a link message is sent to the kernel. Must append the
+	 * link protocol specific attributes to the message. (IFLA_PROTINFO) */
+	int		      (*ao_fill_pi)(struct rtnl_link *,
+								struct nl_msg *msg, void *);
+
+	/** PROTINFO type
+	 *
+	 * Called if a link message is sent to the kernel. If this is set,
+	 * the default IFLA_PROTINFO is bitmasked with what is specified
+	 * here. (eg. NLA_F_NESTED)
+	 */
+	const int ao_fill_pi_flags;
+
+	/** IFLA_AF_SPEC nesting override
+	 *
+	 * Called if a link message is sent to the kernel. If this is set,
+	 * the AF specific nest is not created. Instead, AF specific attributes
+	 * are nested directly in the IFLA_AF_SPEC attribute.
+	 */
+	 const int ao_fill_af_no_nest;
 };
 
 extern struct rtnl_link_af_ops *rtnl_link_af_ops_lookup(unsigned int);
@@ -145,6 +188,9 @@ extern int			rtnl_link_af_unregister(struct rtnl_link_af_ops *);
 extern int			rtnl_link_af_data_compare(struct rtnl_link *a,
 							  struct rtnl_link *b,
 							  int family);
+extern int			rtnl_link_info_data_compare(struct rtnl_link *a,
+							    struct rtnl_link *b,
+							    int flags);
 
 #ifdef __cplusplus
 }

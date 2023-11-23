@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_defaults {
     name: "CtsAppEnumerationQueriesDefaults",
     srcs: ["src/**/*.java"],
@@ -26,7 +30,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -38,7 +41,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -50,7 +52,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -62,7 +63,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -74,7 +74,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -86,7 +85,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -98,7 +96,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -110,7 +107,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -122,7 +118,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -134,7 +129,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -146,7 +140,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -158,7 +151,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -170,7 +162,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -182,7 +173,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -194,7 +184,28 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
+        "general-tests",
+    ],
+}
+
+android_test_helper_app {
+    name: "CtsAppEnumerationQueriesNothingUsesLibrary",
+    manifest: "AndroidManifest-queriesNothing-usesLibrary.xml",
+    defaults: ["CtsAppEnumerationQueriesDefaults"],
+    // Tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+}
+
+android_test_helper_app {
+    name: "CtsAppEnumerationQueriesNothingUsesOptionalLibrary",
+    manifest: "AndroidManifest-queriesNothing-usesOptionalLibrary.xml",
+    defaults: ["CtsAppEnumerationQueriesDefaults"],
+    // Tag this module as a cts test artifact
+    test_suites: [
+        "cts",
         "general-tests",
     ],
 }
@@ -206,7 +217,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -218,7 +228,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -230,7 +239,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -241,7 +249,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -253,7 +260,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -265,7 +271,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -277,7 +282,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -289,7 +293,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -301,8 +304,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
-

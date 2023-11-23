@@ -18,6 +18,9 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := android.hardware.graphics.allocator@3.0-service
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES := allocator3.cpp
@@ -32,7 +35,7 @@ LOCAL_SHARED_LIBRARIES += \
     libcutils \
     libhidlbase \
     liblog \
-    libutils
+    libutils \
 
 LOCAL_STATIC_LIBRARIES += libqemupipe.ranchu libGoldfishAddressSpace$(GOLDFISH_OPENGL_LIB_SUFFIX)
 LOCAL_HEADER_LIBRARIES += libgralloc_cb.ranchu
@@ -45,11 +48,18 @@ LOCAL_C_INCLUDES += \
     device/generic/goldfish-opengl/host/include/libOpenglRender \
     device/generic/goldfish-opengl/system/renderControl_enc \
 
+LOCAL_CFLAGS += -DVIRTIO_GPU
+LOCAL_C_INCLUDES += external/libdrm external/minigbm/cros_gralloc
+LOCAL_SHARED_LIBRARIES += libdrm
+
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := android.hardware.graphics.mapper@3.0-impl-ranchu
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES := mapper3.cpp
@@ -65,7 +75,8 @@ LOCAL_SHARED_LIBRARIES += \
     libhidlbase \
     liblog \
     libutils \
-    libsync
+    libsync \
+	libandroidemu \
 
 LOCAL_STATIC_LIBRARIES += libqemupipe.ranchu libGoldfishAddressSpace$(GOLDFISH_OPENGL_LIB_SUFFIX)
 LOCAL_HEADER_LIBRARIES += libgralloc_cb.ranchu
@@ -78,5 +89,8 @@ LOCAL_C_INCLUDES += \
     device/generic/goldfish-opengl/host/include/libOpenglRender \
     device/generic/goldfish-opengl/system/renderControl_enc \
 
-include $(BUILD_SHARED_LIBRARY)
+LOCAL_CFLAGS += -DVIRTIO_GPU
+LOCAL_C_INCLUDES += external/libdrm external/minigbm/cros_gralloc
+LOCAL_SHARED_LIBRARIES += libdrm
 
+include $(BUILD_SHARED_LIBRARY)

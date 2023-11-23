@@ -36,7 +36,7 @@
                 android:id="@+id/clock_preview_pager"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/preview_pager_background"
+                android:background="?android:colorSecondary"
                 app:layout_constrainedHeight="true"
                 app:layout_constraintBottom_toTopOf="@id/options_container"
                 app:layout_constraintEnd_toEndOf="parent"

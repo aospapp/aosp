@@ -1215,6 +1215,52 @@ WORD32 ihevcd_allocate_static_bufs(iv_obj_t **pps_codec_obj,
                         (UWORD8 *)pv_buf + (i * handle_size);
     }
 
+#ifdef KEEP_THREADS_ACTIVE
+    /* Request memory to hold mutex (start/done) for each processing thread */
+    size = 2 * MAX_PROCESS_THREADS * ithread_get_mutex_lock_size();
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+
+    for(i = 0; i < MAX_PROCESS_THREADS; i++)
+    {
+        WORD32 ret;
+        WORD32 mutex_size = ithread_get_mutex_lock_size();
+        ps_codec->apv_proc_start_mutex[i] =
+                        (UWORD8 *)pv_buf + (2 * i * mutex_size);
+        ps_codec->apv_proc_done_mutex[i] =
+                        (UWORD8 *)pv_buf + ((2 * i + 1) * mutex_size);
+
+        ret = ithread_mutex_init(ps_codec->apv_proc_start_mutex[i]);
+        RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+
+        ret = ithread_mutex_init(ps_codec->apv_proc_done_mutex[i]);
+        RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+    }
+
+    size = 2 * MAX_PROCESS_THREADS * ithread_get_cond_struct_size();
+    pv_buf = ps_codec->pf_aligned_alloc(pv_mem_ctxt, 128, size);
+    RETURN_IF((NULL == pv_buf), IV_FAIL);
+    memset(pv_buf, 0, size);
+
+    for(i = 0; i < MAX_PROCESS_THREADS; i++)
+    {
+        WORD32 ret;
+        WORD32 cond_size = ithread_get_cond_struct_size();
+        ps_codec->apv_proc_start_condition[i] =
+                        (UWORD8 *)pv_buf + (2 * i * cond_size);
+        ps_codec->apv_proc_done_condition[i] =
+                        (UWORD8 *)pv_buf + ((2 * i + 1) * cond_size);
+
+        ret = ithread_cond_init(ps_codec->apv_proc_start_condition[i]);
+        RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+
+        ret = ithread_cond_init(ps_codec->apv_proc_done_condition[i]);
+        RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+    }
+
+#endif
+
     /* Request memory for static bitstream buffer which holds bitstream after emulation prevention */
     size = MIN_BITSBUF_SIZE;
     pv_buf = pf_aligned_alloc(pv_mem_ctxt, 128, size + 16); //Alloc extra for parse optimization
@@ -1433,6 +1479,43 @@ WORD32 ihevcd_free_static_bufs(iv_obj_t *ps_codec_obj)
     pf_aligned_free = ps_codec->pf_aligned_free;
     pv_mem_ctxt = ps_codec->pv_mem_ctxt;
 
+#ifdef KEEP_THREADS_ACTIVE
+    /* Wait for threads */
+    ps_codec->i4_break_threads = 1;
+    for(int i = 0; i < MAX_PROCESS_THREADS; i++)
+    {
+        WORD32 ret;
+        if(ps_codec->ai4_process_thread_created[i])
+        {
+            ret = ithread_mutex_lock(ps_codec->apv_proc_start_mutex[i]);
+            RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+
+            ps_codec->ai4_process_start[i] = 1;
+            ret = ithread_cond_signal(ps_codec->apv_proc_start_condition[i]);
+            RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+
+            ret = ithread_mutex_unlock(ps_codec->apv_proc_start_mutex[i]);
+            RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+
+            ithread_join(ps_codec->apv_process_thread_handle[i], NULL);
+
+            ps_codec->ai4_process_thread_created[i] = 0;
+        }
+        ret = ithread_cond_destroy(ps_codec->apv_proc_start_condition[i]);
+        RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+
+        ret = ithread_cond_destroy(ps_codec->apv_proc_done_condition[i]);
+        RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+
+        ret = ithread_mutex_destroy(ps_codec->apv_proc_start_mutex[i]);
+        RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+
+        ret = ithread_mutex_destroy(ps_codec->apv_proc_done_mutex[i]);
+        RETURN_IF((ret != (IHEVCD_ERROR_T)IHEVCD_SUCCESS), ret);
+    }
+    ALIGNED_FREE(ps_codec, ps_codec->apv_proc_start_mutex[0]);
+    ALIGNED_FREE(ps_codec, ps_codec->apv_proc_start_condition[0]);
+#endif
 
     ALIGNED_FREE(ps_codec, ps_codec->apv_process_thread_handle[0]);
     ALIGNED_FREE(ps_codec, ps_codec->pu1_bitsbuf_static);

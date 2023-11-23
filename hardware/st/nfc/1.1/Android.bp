@@ -12,6 +12,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "hardware_st_nfc_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_st_nfc_license"],
+}
+
 cc_binary {
     name: "android.hardware.nfc@1.1-service.st",
     defaults: ["hidl_defaults"],
@@ -35,4 +43,8 @@ cc_binary {
         "android.hardware.nfc@1.1",
         "libhidlbase",
     ],
+
+    sanitize: {
+        memtag_heap: true,
+    },
 }

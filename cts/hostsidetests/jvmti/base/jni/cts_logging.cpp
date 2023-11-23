@@ -25,18 +25,33 @@
 
 namespace art {
 
+typedef jvmtiError (*SetVerboseFlagExt)(jvmtiEnv*, const char*, jboolean);
 extern "C" JNIEXPORT void JNICALL
-Java_android_jvmti_cts_JvmtiRunTestBasedTest_setupExtraLogging(JNIEnv* env, jclass) {
-  JvmtiErrorToException(env, jvmti_env, jvmti_env->SetVerboseFlag(JVMTI_VERBOSE_OTHER, true));
+Java_android_jvmti_cts_JvmtiRunTestBasedTest_setupExtraLogging(JNIEnv* env, jclass, jstring arg) {
+  SetVerboseFlagExt set_flag_ext = GetExtensionFunction<SetVerboseFlagExt>(
+      env, jvmti_env, "com.android.art.misc.set_verbose_flag_ext");
+  if (set_flag_ext == nullptr) {
+    // Just do backup and enable everything.
+    JvmtiErrorToException(env, jvmti_env, jvmti_env->SetVerboseFlag(JVMTI_VERBOSE_OTHER, true));
+  } else {
+    // UTFChars doesn't need to be null terminated.
+    const char* data_raw = env->GetStringUTFChars(arg, nullptr);
+    std::string data;
+    data.resize(env->GetStringUTFLength(arg));
+    memcpy(data.data(), data_raw, data.size());
+    env->ReleaseStringUTFChars(arg, data_raw);
+    JvmtiErrorToException(env, jvmti_env, set_flag_ext(jvmti_env, data.c_str(), true));
+  }
 }
 
 static JNINativeMethod gMethods[] = {
-  { "setupExtraLogging", "()V",
-          (void*)Java_android_jvmti_cts_JvmtiRunTestBasedTest_setupExtraLogging },
+  { "setupExtraLogging",
+    "(Ljava/lang/String;)V",
+    (void*)Java_android_jvmti_cts_JvmtiRunTestBasedTest_setupExtraLogging },
 };
 void register_android_jvmti_cts_JvmtiRunTestBasedTest(jvmtiEnv* jenv, JNIEnv* env) {
-  ScopedLocalRef<jclass> klass(env, GetClass(jenv, env,
-          "android/jvmti/cts/JvmtiRunTestBasedTest", nullptr));
+  ScopedLocalRef<jclass> klass(
+      env, GetClass(jenv, env, "android/jvmti/cts/JvmtiRunTestBasedTest", nullptr));
   if (klass.get() == nullptr) {
     env->ExceptionClear();
     return;

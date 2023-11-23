@@ -1,5 +1,6 @@
 allow surfaceflinger self:process execmem;
 
-# Read GCE initial metadata file
-allow surfaceflinger initial_metadata_file:file r_file_perms;
+allow surfaceflinger hal_graphics_composer_default:dir search;
+allow surfaceflinger hal_graphics_composer_default:file r_file_perms;
+
 gpu_access(surfaceflinger)

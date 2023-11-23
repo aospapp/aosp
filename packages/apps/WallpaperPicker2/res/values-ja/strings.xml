@@ -27,21 +27,21 @@
     <string name="set_wallpaper_error_message" msgid="6819986999041085130">"壁紙を設定できませんでした。"</string>
     <string name="load_wallpaper_error_message" msgid="7913278480467707374">"壁紙を読み込めません。画像が破損しているか、使用できません。"</string>
     <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"現在の設定"</string>
-    <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"毎日の壁紙"</string>
+    <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"日替り壁紙"</string>
     <string name="wallpaper_destination_both" msgid="1124197176741944063">"ホーム画面とロック画面"</string>
     <string name="home_screen_message" msgid="106444102822522813">"ホーム画面"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"ロック画面"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"ホーム画面とロック画面"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"壁紙の設定"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"壁紙の設定"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"ホーム画面"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"ロック画面"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"ホーム画面とロック画面"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"ホーム画面とロック画面"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"画像が切り替わる壁紙"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"現在の壁紙をここに表示するには、<xliff:g id="APP_NAME">%1$s</xliff:g>にデバイスのストレージへのアクセスを許可する必要があります。"</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"現在の壁紙をここに表示するには、壁紙にデバイスのストレージへのアクセス権限を許可する必要があります。\n\nこの設定を変更するには、壁紙のアプリ情報の [権限] に移動してください。"</string>
     <string name="permission_needed_allow_access_button_label" msgid="1943133660612924306">"アクセスを許可"</string>
     <string name="no_backup_image_wallpaper_description" msgid="8303268619408738057">"画像が切り替わるライブ壁紙サービス"</string>
-    <string name="daily_refresh_tile_title" msgid="3270456074558525091">"毎日の壁紙"</string>
+    <string name="daily_refresh_tile_title" msgid="3270456074558525091">"日替わり壁紙"</string>
     <string name="daily_refresh_tile_subtitle" msgid="3976682014885446443">"タップすると有効になります"</string>
     <string name="start_rotation_dialog_body_live_wallpaper_needed" msgid="5132580257563846082">"毎日、壁紙が自動的に変わります。設定を完了するには、次の画面で [&lt;strong&gt;壁紙を設定&lt;/strong&gt;] をタップします。"</string>
     <string name="start_rotation_dialog_wifi_only_option_message" msgid="3126269859713666225">"今後、Wi-Fi 接続時のみ壁紙をダウンロードする"</string>
@@ -62,12 +62,10 @@
     <string name="wallpaper_thumbnail" msgid="569931475923605974">"壁紙のサムネイル"</string>
     <string name="explore_home_screen" msgid="8756346794535765482">"ホーム画面の壁紙の詳細"</string>
     <string name="explore_lock_screen" msgid="268938342103703665">"ロック画面の壁紙の詳細"</string>
-    <string name="refresh_daily_wallpaper_home_content_description" msgid="2770445044556164259">"ホーム画面の毎日の壁紙を更新"</string>
+    <string name="refresh_daily_wallpaper_home_content_description" msgid="2770445044556164259">"ホーム画面の日替り壁紙を更新"</string>
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"毎日の壁紙を更新"</string>
-    <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"毎日の壁紙を更新しています…"</string>
-    <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"毎日の壁紙を更新できませんでした。ネットワーク接続を確認してからもう一度お試しください。"</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"壁紙の情報パネルを折りたたむ"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"壁紙の情報パネルを展開"</string>
+    <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"日替り壁紙を更新しています…"</string>
+    <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"日替り壁紙を更新できませんでした。ネットワーク接続を確認してからもう一度お試しください。"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"デバイスに保存されている壁紙"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"デバイス上"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Android の壁紙"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"中央で切り抜き"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"拡大"</string>
     <string name="preview" msgid="1774602101743861071">"プレビュー"</string>
+    <string name="tab_info" msgid="818614080690111416">"情報"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"カスタマイズ"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"設定…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"削除"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"スマートフォンからこの壁紙を削除しますか？"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"戻る"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"編集"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"ダウンロード"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"スライドショーの壁紙"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"適用"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"<xliff:g id="ID_1">%1$d</xliff:g>/<xliff:g id="ID_2">%2$d</xliff:g> ページ目"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"次へ"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"前へ"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"壁紙"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"壁紙のプレビュー"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"コレクションは存在しません"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"UI プレビューを非表示"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"UI プレビューを表示"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"壁紙の変更"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"ロック画面の壁紙のプレビュー"</string>
 </resources>

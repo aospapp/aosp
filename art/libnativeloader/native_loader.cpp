@@ -30,10 +30,11 @@
 #include <android-base/file.h>
 #include <android-base/macros.h>
 #include <android-base/strings.h>
+#include <android-base/thread_annotations.h>
 #include <nativebridge/native_bridge.h>
 #include <nativehelper/scoped_utf_chars.h>
 
-#ifdef __ANDROID__
+#ifdef ART_TARGET_ANDROID
 #include <log/log.h>
 #include "library_namespaces.h"
 #include "nativeloader/dlext_namespaces.h"
@@ -42,63 +43,165 @@
 namespace android {
 
 namespace {
-#if defined(__ANDROID__)
-using android::nativeloader::LibraryNamespaces;
 
-constexpr const char* kApexPath = "/apex/";
+#if defined(ART_TARGET_ANDROID)
+
+// NATIVELOADER_DEFAULT_NAMESPACE_LIBS is an environment variable that can be
+// used to list extra libraries (separated by ":") that libnativeloader will
+// load from the default namespace. The libraries must be listed without paths,
+// and then LD_LIBRARY_PATH is typically set to the directories to load them
+// from. The libraries will be available in all classloader namespaces, and also
+// in the fallback namespace used when no classloader is given.
+//
+// kNativeloaderExtraLibs is the name of that fallback namespace.
+//
+// NATIVELOADER_DEFAULT_NAMESPACE_LIBS is intended to be used for testing only,
+// and in particular in the ART run tests that are executed through dalvikvm in
+// the APEX. In that case the default namespace links to the ART namespace
+// (com_android_art) for all libraries, which means this can be used to load
+// test libraries that depend on ART internal libraries.
+constexpr const char* kNativeloaderExtraLibs = "nativeloader-extra-libs";
+
+using android::nativeloader::LibraryNamespaces;
 
 std::mutex g_namespaces_mutex;
 LibraryNamespaces* g_namespaces = new LibraryNamespaces;
+NativeLoaderNamespace* g_nativeloader_extra_libs_namespace = nullptr;
 
 android_namespace_t* FindExportedNamespace(const char* caller_location) {
-  std::string location = caller_location;
-  // Lots of implicit assumptions here: we expect `caller_location` to be of the form:
-  // /apex/modulename/...
-  //
-  // And we extract from it 'modulename', which is the name of the linker namespace.
-  if (android::base::StartsWith(location, kApexPath)) {
-    size_t start_index = strlen(kApexPath);
-    size_t slash_index = location.find_first_of('/', start_index);
-    LOG_ALWAYS_FATAL_IF((slash_index == std::string::npos),
-                        "Error finding namespace of apex: no slash in path %s", caller_location);
-    std::string name = location.substr(start_index, slash_index - start_index);
-    std::replace(name.begin(), name.end(), '.', '_');
-    android_namespace_t* boot_namespace = android_get_exported_namespace(name.c_str());
+  auto name = nativeloader::FindApexNamespaceName(caller_location);
+  if (name.ok()) {
+    android_namespace_t* boot_namespace = android_get_exported_namespace(name->c_str());
     LOG_ALWAYS_FATAL_IF((boot_namespace == nullptr),
-                        "Error finding namespace of apex: no namespace called %s", name.c_str());
+                        "Error finding namespace of apex: no namespace called %s", name->c_str());
     return boot_namespace;
   }
   return nullptr;
 }
-#endif  // #if defined(__ANDROID__)
+
+Result<void> CreateNativeloaderDefaultNamespaceLibsLink(NativeLoaderNamespace& ns)
+    REQUIRES(g_namespaces_mutex) {
+  const char* links = getenv("NATIVELOADER_DEFAULT_NAMESPACE_LIBS");
+  if (links == nullptr || *links == 0) {
+    return {};
+  }
+  // Pass nullptr to Link() to create a link to the default namespace without
+  // requiring it to be visible.
+  return ns.Link(nullptr, links);
+}
+
+Result<NativeLoaderNamespace*> GetNativeloaderExtraLibsNamespace() REQUIRES(g_namespaces_mutex) {
+  if (g_nativeloader_extra_libs_namespace != nullptr) {
+    return g_nativeloader_extra_libs_namespace;
+  }
+
+  Result<NativeLoaderNamespace> ns =
+      NativeLoaderNamespace::Create(kNativeloaderExtraLibs,
+                                    /*search_paths=*/"",
+                                    /*permitted_paths=*/"",
+                                    /*parent=*/nullptr,
+                                    /*is_shared=*/false,
+                                    /*is_exempt_list_enabled=*/false,
+                                    /*also_used_as_anonymous=*/false);
+  if (!ns.ok()) {
+    return ns.error();
+  }
+  g_nativeloader_extra_libs_namespace = new NativeLoaderNamespace(std::move(ns.value()));
+  Result<void> linked =
+      CreateNativeloaderDefaultNamespaceLibsLink(*g_nativeloader_extra_libs_namespace);
+  if (!linked.ok()) {
+    return linked.error();
+  }
+  return g_nativeloader_extra_libs_namespace;
+}
+
+// If the given path matches a library in NATIVELOADER_DEFAULT_NAMESPACE_LIBS
+// then load it in the nativeloader-extra-libs namespace, otherwise return
+// nullptr without error.
+Result<void*> TryLoadNativeloaderExtraLib(const char* path) {
+  const char* links = getenv("NATIVELOADER_DEFAULT_NAMESPACE_LIBS");
+  if (links == nullptr || *links == 0) {
+    return nullptr;
+  }
+  std::vector<std::string> lib_list = base::Split(links, ":");
+  if (std::find(lib_list.begin(), lib_list.end(), path) == lib_list.end()) {
+    return nullptr;
+  }
+
+  std::lock_guard<std::mutex> guard(g_namespaces_mutex);
+  Result<NativeLoaderNamespace*> ns = GetNativeloaderExtraLibsNamespace();
+  if (!ns.ok()) {
+    return ns.error();
+  }
+  return ns.value()->Load(path);
+}
+
+Result<NativeLoaderNamespace*> CreateClassLoaderNamespaceLocked(JNIEnv* env,
+                                                                int32_t target_sdk_version,
+                                                                jobject class_loader,
+                                                                bool is_shared,
+                                                                jstring dex_path,
+                                                                jstring library_path,
+                                                                jstring permitted_path,
+                                                                jstring uses_library_list)
+    REQUIRES(g_namespaces_mutex) {
+  Result<NativeLoaderNamespace*> ns = g_namespaces->Create(env,
+                                                           target_sdk_version,
+                                                           class_loader,
+                                                           is_shared,
+                                                           dex_path,
+                                                           library_path,
+                                                           permitted_path,
+                                                           uses_library_list);
+  if (!ns.ok()) {
+    return ns;
+  }
+  Result<void> linked = CreateNativeloaderDefaultNamespaceLibsLink(*ns.value());
+  if (!linked.ok()) {
+    return linked.error();
+  }
+  return ns;
+}
+
+#endif  // #if defined(ART_TARGET_ANDROID)
+
 }  // namespace
 
 void InitializeNativeLoader() {
-#if defined(__ANDROID__)
+#if defined(ART_TARGET_ANDROID)
   std::lock_guard<std::mutex> guard(g_namespaces_mutex);
   g_namespaces->Initialize();
 #endif
 }
 
 void ResetNativeLoader() {
-#if defined(__ANDROID__)
+#if defined(ART_TARGET_ANDROID)
   std::lock_guard<std::mutex> guard(g_namespaces_mutex);
   g_namespaces->Reset();
+  delete g_nativeloader_extra_libs_namespace;
+  g_nativeloader_extra_libs_namespace = nullptr;
 #endif
 }
 
 jstring CreateClassLoaderNamespace(JNIEnv* env, int32_t target_sdk_version, jobject class_loader,
                                    bool is_shared, jstring dex_path, jstring library_path,
-                                   jstring permitted_path) {
-#if defined(__ANDROID__)
+                                   jstring permitted_path, jstring uses_library_list) {
+#if defined(ART_TARGET_ANDROID)
   std::lock_guard<std::mutex> guard(g_namespaces_mutex);
-  auto ns = g_namespaces->Create(env, target_sdk_version, class_loader, is_shared, dex_path,
-                                 library_path, permitted_path);
+  Result<NativeLoaderNamespace*> ns = CreateClassLoaderNamespaceLocked(env,
+                                                                       target_sdk_version,
+                                                                       class_loader,
+                                                                       is_shared,
+                                                                       dex_path,
+                                                                       library_path,
+                                                                       permitted_path,
+                                                                       uses_library_list);
   if (!ns.ok()) {
     return env->NewStringUTF(ns.error().message().c_str());
   }
 #else
-  UNUSED(env, target_sdk_version, class_loader, is_shared, dex_path, library_path, permitted_path);
+  UNUSED(env, target_sdk_version, class_loader, is_shared, dex_path, library_path, permitted_path,
+         uses_library_list);
 #endif
   return nullptr;
 }
@@ -106,8 +209,9 @@ jstring CreateClassLoaderNamespace(JNIEnv* env, int32_t target_sdk_version, jobj
 void* OpenNativeLibrary(JNIEnv* env, int32_t target_sdk_version, const char* path,
                         jobject class_loader, const char* caller_location, jstring library_path,
                         bool* needs_native_bridge, char** error_msg) {
-#if defined(__ANDROID__)
+#if defined(ART_TARGET_ANDROID)
   UNUSED(target_sdk_version);
+
   if (class_loader == nullptr) {
     *needs_native_bridge = false;
     if (caller_location != nullptr) {
@@ -124,7 +228,25 @@ void* OpenNativeLibrary(JNIEnv* env, int32_t target_sdk_version, const char* pat
         return handle;
       }
     }
-    void* handle = dlopen(path, RTLD_NOW);
+
+    // Check if the library is in NATIVELOADER_DEFAULT_NAMESPACE_LIBS and should
+    // be loaded from the kNativeloaderExtraLibs namespace.
+    {
+      Result<void*> handle = TryLoadNativeloaderExtraLib(path);
+      if (!handle.ok()) {
+        *error_msg = strdup(handle.error().message().c_str());
+        return nullptr;
+      }
+      if (handle.value() != nullptr) {
+        return handle.value();
+      }
+    }
+
+    // Fall back to the system namespace. This happens for preloaded JNI
+    // libraries in the zygote.
+    // TODO(b/185833744): Investigate if this should fall back to the app main
+    // namespace (aka anonymous namespace) instead.
+    void* handle = OpenSystemLibrary(path, RTLD_NOW);
     if (handle == nullptr) {
       *error_msg = strdup(dlerror());
     }
@@ -138,8 +260,14 @@ void* OpenNativeLibrary(JNIEnv* env, int32_t target_sdk_version, const char* pat
     // This is the case where the classloader was not created by ApplicationLoaders
     // In this case we create an isolated not-shared namespace for it.
     Result<NativeLoaderNamespace*> isolated_ns =
-        g_namespaces->Create(env, target_sdk_version, class_loader, false /* is_shared */, nullptr,
-                             library_path, nullptr);
+        CreateClassLoaderNamespaceLocked(env,
+                                         target_sdk_version,
+                                         class_loader,
+                                         /*is_shared=*/false,
+                                         /*dex_path=*/nullptr,
+                                         library_path,
+                                         /*permitted_path=*/nullptr,
+                                         /*uses_library_list=*/nullptr);
     if (!isolated_ns.ok()) {
       *error_msg = strdup(isolated_ns.error().message().c_str());
       return nullptr;
@@ -220,7 +348,7 @@ void NativeLoaderFreeErrorMessage(char* msg) {
   free(msg);
 }
 
-#if defined(__ANDROID__)
+#if defined(ART_TARGET_ANDROID)
 void* OpenNativeLibraryInNamespace(NativeLoaderNamespace* ns, const char* path,
                                    bool* needs_native_bridge, char** error_msg) {
   auto handle = ns->Load(path);
@@ -249,6 +377,24 @@ NativeLoaderNamespace* FindNativeLoaderNamespaceByClassLoader(JNIEnv* env, jobje
   std::lock_guard<std::mutex> guard(g_namespaces_mutex);
   return g_namespaces->FindNamespaceByClassLoader(env, class_loader);
 }
-#endif
+
+void LinkNativeLoaderNamespaceToExportedNamespaceLibrary(struct NativeLoaderNamespace* ns,
+                                                         const char* exported_ns_name,
+                                                         const char* library_name,
+                                                         char** error_msg) {
+  Result<NativeLoaderNamespace> exported_ns =
+      NativeLoaderNamespace::GetExportedNamespace(exported_ns_name, ns->IsBridged());
+  if (!exported_ns.ok()) {
+    *error_msg = strdup(exported_ns.error().message().c_str());
+    return;
+  }
+
+  Result<void> linked = ns->Link(&exported_ns.value(), std::string(library_name));
+  if (!linked.ok()) {
+    *error_msg = strdup(linked.error().message().c_str());
+  }
+}
+
+#endif  // ART_TARGET_ANDROID
 
 };  // namespace android

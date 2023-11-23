@@ -36,6 +36,7 @@ on early-init
 
     # Disable EAS
     write /proc/sys/kernel/sched_energy_aware 0
+    mount_all /vendor/etc/fstab.persist --early
 
 # Skip init trigger for charger mode
 on early-init && property:ro.boot.mode=charger
@@ -49,34 +50,27 @@ on init
     write /sys/block/sda/queue/iostats 0
     write /sys/block/sda/queue/scheduler cfq
     write /sys/block/sda/queue/iosched/slice_idle 0
-    write /sys/block/sda/queue/read_ahead_kb 2048
     write /sys/block/sda/queue/nr_requests 256
     write /sys/block/sde/queue/iostats 0
     write /sys/block/sde/queue/scheduler cfq
     write /sys/block/sde/queue/iosched/slice_idle 0
-    write /sys/block/sde/queue/read_ahead_kb 2048
     write /sys/block/sde/queue/nr_requests 256
     write /sys/block/sdf/queue/iostats 0
     write /sys/block/sdf/queue/scheduler cfq
     write /sys/block/sdf/queue/iosched/slice_idle 0
-    write /sys/block/sdf/queue/read_ahead_kb 2048
     write /sys/block/sdf/queue/nr_requests 256
-    write /sys/block/dm-0/queue/read_ahead_kb 2048
-    write /sys/block/dm-1/queue/read_ahead_kb 2048
-    write /sys/block/dm-2/queue/read_ahead_kb 2048
-    write /sys/block/dm-3/queue/read_ahead_kb 2048
-    write /sys/block/dm-4/queue/read_ahead_kb 2048
-    write /sys/block/dm-5/queue/read_ahead_kb 2048
-    write /sys/block/dm-6/queue/read_ahead_kb 2048
-
-    # Disable UFS powersaving
-    write /sys/devices/platform/soc/${ro.boot.bootdevice}/clkgate_enable 0
 
     # Disable powersaving
     write /sys/module/lpm_levels/parameters/sleep_disabled 1
 
-    wait /dev/block/platform/soc/${ro.boot.bootdevice}
-    symlink /dev/block/platform/soc/${ro.boot.bootdevice} /dev/block/bootdevice
+    wait /dev/block/platform/${ro.boot.boot_devices}
+    symlink /dev/block/platform/${ro.boot.boot_devices} /dev/block/bootdevice
+
+    # to access UFS/eMMC sysfs directly
+    symlink /sys/devices/platform/${ro.boot.boot_devices} /dev/sys/block/bootdevice
+
+    # Disable UFS powersaving
+    write /dev/sys/block/bootdevice/clkgate_enable 0
 
     # start qseecomd early as we mount system/ vendor/ early
     # vold needs keymaster that needs qseecomd
@@ -118,9 +112,6 @@ on init
     write /sys/block/zram0/comp_algorithm lz4
     write /proc/sys/vm/page-cluster 0
 
-    # Freezer setup
-    write /dev/freezer/frozen/freezer.killable 1
-
     # Some user code relies on ro.boot.hardware.revision
     setprop ro.boot.hardware.revision ${ro.revision}
 
@@ -129,21 +120,9 @@ on init
     write /dev/stune/top-app/schedtune.boost 10
     write /dev/stune/top-app/schedtune.prefer_idle 1
 
-    # create a cpuset for camera-specific processes
-    mkdir /dev/cpuset/camera-daemon
-    write /dev/cpuset/camera-daemon/cpus 0-7
-    write /dev/cpuset/camera-daemon/mems 0
-    chown system system /dev/cpuset/camera-daemon
-    chown system system /dev/cpuset/camera-daemon/tasks
-    chmod 0664 /dev/cpuset/camera-daemon/tasks
-
-    # create an stune group for camera-specific processes
-    mkdir /dev/stune/camera-daemon
+    # set default schedTune value for camera-daemon
     write /dev/stune/camera-daemon/schedtune.prefer_idle 1
     write /dev/stune/camera-daemon/schedtune.boost 0
-    chown system system /dev/stune/camera-daemon
-    chown system system /dev/stune/camera-daemon/tasks
-    chmod 0664 /dev/stune/camera-daemon/tasks
 
     # Wireless charging
     chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/rxdata
@@ -153,6 +132,7 @@ on init
     chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/ccreset
     chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/status
     chown system system /sys/devices/platform/soc/880000.i2c/i2c-1/1-0061/version
+    chown system system /sys/class/power_supply/wireless/capacity
 
     # Allow PAI targeting per hardware SKU
     setprop ro.oem.key1 ${ro.boot.hardware.sku}
@@ -163,6 +143,37 @@ on init
     # Battery Defender
     chown system system /sys/devices/platform/soc/soc:google,charger/charge_stop_level
     chown system system /sys/devices/platform/soc/soc:google,charger/charge_start_level
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_drainto_soc
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_recharge_soc
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_recharge_voltage
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_abs_temp
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_soc
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_temp
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_time
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_temp
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_time
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_voltage
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_temp_enable
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_temp_dry_run
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_clear
+    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_enable
+    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_recharge_soc
+    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_cnt
+    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_dry_run
+    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_trickle_reset_sec
+    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/bd_clear
+    chown system system /sys/devices/platform/soc/soc:google,battery/power_supply/battery/health_safety_margin
+    chown system system /sys/class/power_supply/wireless/device/mitigate_threshold
+
+    # Charge stats (write 0)
+    chown system system /sys/class/power_supply/battery/charge_stats
+
+    # Report max frequency to unity tasks.
+    write /proc/sys/kernel/sched_lib_name "UnityMain,libunity.so"
+    write /proc/sys/kernel/sched_lib_mask_force 255
+
+    # NFC streset tool name
+    setprop persist.vendor.nfc.streset libstreset
 
 # b/134578585
 on charger
@@ -259,8 +270,6 @@ on late-fs
 
     # Mount RW partitions which need run fsck
     mount_all /vendor/etc/fstab.${ro.boot.hardware.platform} --late
-    # Boot time fs tune
-    write /sys/block/dm-7/queue/read_ahead_kb 2048
 
     # Required for time_daemon
     mkdir /mnt/vendor/persist/time 0770 system system
@@ -366,6 +375,10 @@ on early-boot
     mkdir /data/vendor/sensors 0770
     chown system system /data/vendor/sensors
 
+    # Restore SeLinux Context for preventing temp.json with
+    # incorrect security context
+    restorecon /mnt/vendor/persist/sensors/registry/temp.json
+
     chmod 770 /mnt/vendor/persist/audio
     chmod 660 /mnt/vendor/persist/audio/audio.cal
     chown media audio /mnt/vendor/persist/audio
@@ -450,10 +463,10 @@ on early-boot
 
     # Permission for Pixelstats
     chown system system /sys/class/misc/msm_cirrus_playback/resistance_left_right
-    chown system system /sys/devices/platform/soc/1d84000.ufshc/slowio_read_cnt
-    chown system system /sys/devices/platform/soc/1d84000.ufshc/slowio_write_cnt
-    chown system system /sys/devices/platform/soc/1d84000.ufshc/slowio_unmap_cnt
-    chown system system /sys/devices/platform/soc/1d84000.ufshc/slowio_sync_cnt
+    chown system system /dev/sys/block/bootdevice/slowio_read_cnt
+    chown system system /dev/sys/block/bootdevice/slowio_write_cnt
+    chown system system /dev/sys/block/bootdevice/slowio_unmap_cnt
+    chown system system /dev/sys/block/bootdevice/slowio_sync_cnt
     chown system system /sys/devices/platform/soc/a8c000.spi/spi_master/spi4/spi4.0/iaxxx-dev/iaxxx_misc/codec_state
     chown system system /sys/devices/platform/soc/a8c000.spi/spi_master/spi4/spi4.0/iaxxx-dev/iaxxx_misc/wdsp_stat
     chown system system /sys/devices/platform/soc/a8c000.spi/spi_master/spi5/spi5.0/iaxxx-dev/iaxxx_misc/codec_state
@@ -464,7 +477,7 @@ on early-boot
     chmod 0444 /sys/devices/platform/soc/a8c000.spi/spi_master/spi5/spi5.0/iaxxx-dev/iaxxx_misc/hwinfo_part_number
 
     # Permission for Health Storage HAL
-    chown system system /sys/devices/platform/soc/1d84000.ufshc/manual_gc
+    chown system system /dev/sys/block/bootdevice/manual_gc
 
     # Permissions for reading display native color gamut
     chown system graphics /mnt/vendor/persist/display/native_gamut.csv
@@ -526,23 +539,12 @@ on property:sys.boot_completed=1
     setprop vendor.setup.power 1
 
     # Runtime fs tuning
-    write /sys/block/sda/queue/read_ahead_kb 128
     write /sys/block/sda/queue/nr_requests 128
     write /sys/block/sda/queue/iostats 1
-    write /sys/block/sde/queue/read_ahead_kb 128
     write /sys/block/sde/queue/nr_requests 128
     write /sys/block/sde/queue/iostats 1
-    write /sys/block/sdf/queue/read_ahead_kb 128
     write /sys/block/sdf/queue/nr_requests 128
     write /sys/block/sdf/queue/iostats 1
-    write /sys/block/dm-0/queue/read_ahead_kb 128
-    write /sys/block/dm-1/queue/read_ahead_kb 128
-    write /sys/block/dm-2/queue/read_ahead_kb 128
-    write /sys/block/dm-3/queue/read_ahead_kb 128
-    write /sys/block/dm-4/queue/read_ahead_kb 128
-    write /sys/block/dm-5/queue/read_ahead_kb 128
-    write /sys/block/dm-6/queue/read_ahead_kb 128
-    write /sys/block/dm-7/queue/read_ahead_kb 128
 
     # Back to default VM settings
     write /proc/sys/vm/dirty_expire_centisecs 3000
@@ -701,11 +703,6 @@ service vendor.ims_rtp_daemon /system/vendor/bin/ims_rtp_daemon
    user radio
    group radio inet log
 
-service cnd /vendor/bin/cnd
-   class main
-   user system
-   group system wifi inet radio wakelock net_admin
-
 service wait_for_strongbox /vendor/bin/hw/wait_for_strongbox
     user root
     group root system
@@ -760,7 +757,7 @@ on post-fs-data && property:persist.vendor.sys.ssr.enable_ramdumps=1 && property
     mkdir /data/vendor/wifidump 771 root system
     mkdir /data/vendor/ramdump 771 root system
     mkdir /data/vendor/ssrdump 771 root system
-    mkdir /data/vendor/ssrlog  771 root system
+    mkdir /data/vendor/ssrlog  775 root system
     start vendor.ss_ramdump
     start vendor.crash_event_logger
 
@@ -869,14 +866,3 @@ service vendor.crash_event_logger /vendor/bin/crash_event_logger -m
 # it should be written by the system init.
 on property:ro.boot.hardware.radio.subtype=1
     setprop audio.camerasound.force true
-
-on init && property:ro.boot.slot_successful=no
-    write /sys/module/msm_poweroff/parameters/warm_reset 1
-
-# Set or clear the warm reset flag upon the change of system property. The flag itself is set
-# by writing a sysfs file; and the file will be read by kernel.
-on property:ota.warm_reset=1
-    write /sys/module/msm_poweroff/parameters/warm_reset 1
-
-on property:ota.warm_reset=0
-    write /sys/module/msm_poweroff/parameters/warm_reset 0

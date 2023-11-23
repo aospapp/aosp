@@ -16,8 +16,15 @@
 
 package android.server.wm;
 
+import static android.app.WindowConfiguration.ACTIVITY_TYPE_ASSISTANT;
+import static android.app.WindowConfiguration.ACTIVITY_TYPE_DREAM;
+import static android.app.WindowConfiguration.ACTIVITY_TYPE_HOME;
+import static android.app.WindowConfiguration.ACTIVITY_TYPE_RECENTS;
+import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
+import static android.server.wm.WindowManagerState.STATE_INITIALIZING;
 import static android.server.wm.WindowManagerState.STATE_STOPPED;
+import static android.server.wm.app.Components.BROADCAST_RECEIVER_ACTIVITY;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
 import static android.server.wm.app.Components.NO_RELAUNCH_ACTIVITY;
 import static android.server.wm.app.Components.TEST_ACTIVITY;
@@ -37,19 +44,20 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 
 import android.app.Activity;
-import android.app.WindowConfiguration;
+import android.app.ActivityOptions;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.CommandSession.ActivitySession;
-import android.server.wm.app.Components;
 import android.server.wm.intent.Activities;
-
 
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Build/Install/Run:
@@ -60,18 +68,22 @@ public class StartActivityTests extends ActivityManagerTestBase {
 
     @Test
     public void testStartHomeIfNoActivities() {
+        if (!hasHomeScreen()) {
+	    return;
+	}
+
         final ComponentName defaultHome = getDefaultHomeComponent();
         final int[] allActivityTypes = Arrays.copyOf(ALL_ACTIVITY_TYPE_BUT_HOME,
                 ALL_ACTIVITY_TYPE_BUT_HOME.length + 1);
-        allActivityTypes[allActivityTypes.length - 1] = WindowConfiguration.ACTIVITY_TYPE_HOME;
-        removeStacksWithActivityTypes(allActivityTypes);
+        allActivityTypes[allActivityTypes.length - 1] = ACTIVITY_TYPE_HOME;
+        removeRootTasksWithActivityTypes(allActivityTypes);
 
-        waitAndAssertTopResumedActivity(defaultHome, DEFAULT_DISPLAY,
+        waitAndAssertResumedActivity(defaultHome,
                 "Home activity should be restarted after force-finish");
 
         stopTestPackage(defaultHome.getPackageName());
 
-        waitAndAssertTopResumedActivity(defaultHome, DEFAULT_DISPLAY,
+        waitAndAssertResumedActivity(defaultHome,
                 "Home activity should be restarted after force-stop");
     }
 
@@ -194,9 +206,11 @@ public class StartActivityTests extends ActivityManagerTestBase {
     @Test
     public void testStartActivityByNavigateUpToFromDiffUid() {
         final Intent intent1 = new Intent(mContext, Activities.RegularActivity.class);
+        final String regularActivityName = Activities.RegularActivity.class.getName();
         final TestActivitySession<Activities.RegularActivity> activitySession1 =
                 createManagedTestActivitySession();
-        activitySession1.launchTestActivityOnDisplaySync(intent1, DEFAULT_DISPLAY);
+        activitySession1.launchTestActivityOnDisplaySync(regularActivityName, intent1,
+                DEFAULT_DISPLAY);
         final TestActivitySession<Activities.SingleTopActivity> activitySession2 =
                 createManagedTestActivitySession();
         activitySession2.launchTestActivityOnDisplaySync(Activities.SingleTopActivity.class,
@@ -247,6 +261,49 @@ public class StartActivityTests extends ActivityManagerTestBase {
                 taskIds[1], taskIds[2]);
     }
 
+    @Test
+    public void testNormalActivityCanNotSetActivityType() {
+        // Activities should not be started if the launch activity type is set.
+        boolean useShellPermission = false;
+        startingActivityWithType(ACTIVITY_TYPE_STANDARD, useShellPermission);
+        startingActivityWithType(ACTIVITY_TYPE_HOME, useShellPermission);
+        startingActivityWithType(ACTIVITY_TYPE_RECENTS, useShellPermission);
+        startingActivityWithType(ACTIVITY_TYPE_ASSISTANT, useShellPermission);
+        startingActivityWithType(ACTIVITY_TYPE_DREAM, useShellPermission);
+
+        // Activities can be started because they are started with shell permissions.
+        useShellPermission = true;
+        startingActivityWithType(ACTIVITY_TYPE_STANDARD, useShellPermission);
+        startingActivityWithType(ACTIVITY_TYPE_HOME, useShellPermission);
+        startingActivityWithType(ACTIVITY_TYPE_RECENTS, useShellPermission);
+        startingActivityWithType(ACTIVITY_TYPE_ASSISTANT, useShellPermission);
+        startingActivityWithType(ACTIVITY_TYPE_DREAM, useShellPermission);
+    }
+
+    private void startingActivityWithType(int type, boolean useShellPermission) {
+        separateTestJournal();
+        getLaunchActivityBuilder()
+                .setTargetActivity(BROADCAST_RECEIVER_ACTIVITY)
+                .setUseInstrumentation()
+                .setWithShellPermission(useShellPermission)
+                .setActivityType(type)
+                .setWaitForLaunched(false)
+                .setMultipleTask(true)
+                .execute();
+
+        mWmState.computeState();
+        if (useShellPermission) {
+            waitAndAssertResumedActivity(BROADCAST_RECEIVER_ACTIVITY,
+                    "Activity should be started and resumed");
+            mWmState.assertFrontStackActivityType("The activity type should be same as requested.",
+                    type);
+            mBroadcastActionTrigger.finishBroadcastReceiverActivity();
+            mWmState.waitAndAssertActivityRemoved(BROADCAST_RECEIVER_ACTIVITY);
+        } else {
+            assertSecurityExceptionFromActivityLauncher();
+        }
+    }
+
     /**
      * Assume there are 3 activities (A1, A2, B1) with default launch mode. The uid of B1 is
      * different from A1 and A2. After A1 called {@link Activity#startActivities} to start B1 and
@@ -264,6 +321,54 @@ public class StartActivityTests extends ActivityManagerTestBase {
         assertWithMessage("The last started activity should be in a different task because "
                 + SECOND_ACTIVITY + " has a different uid from the source caller")
                         .that(taskIds[2]).isNotIn(Arrays.asList(taskIds[0], taskIds[1]));
+    }
+
+    /**
+     * Test the activity launched with ActivityOptions#setTaskOverlay should remain on top of the
+     * task after start another activity.
+     */
+    @Test
+    public void testStartActivitiesTaskOverlayStayOnTop() {
+        final Intent baseIntent = new Intent(mContext, Activities.RegularActivity.class);
+        final String regularActivityName = Activities.RegularActivity.class.getName();
+        final TestActivitySession<Activities.RegularActivity> activitySession =
+                createManagedTestActivitySession();
+        activitySession.launchTestActivityOnDisplaySync(regularActivityName, baseIntent,
+                DEFAULT_DISPLAY);
+        mWmState.computeState(baseIntent.getComponent());
+        final int taskId = mWmState.getTaskByActivity(baseIntent.getComponent()).getTaskId();
+        final Activity baseActivity = activitySession.getActivity();
+
+        final ActivityOptions overlayOptions = ActivityOptions.makeBasic();
+        overlayOptions.setTaskOverlay(true, true);
+        overlayOptions.setLaunchTaskId(taskId);
+        final Intent taskOverlay = new Intent().setComponent(SECOND_ACTIVITY);
+        runWithShellPermission(() ->
+                baseActivity.startActivity(taskOverlay, overlayOptions.toBundle()));
+
+        waitAndAssertResumedActivity(taskOverlay.getComponent(),
+                "taskOverlay activity on top");
+        final Intent behindOverlay = new Intent().setComponent(TEST_ACTIVITY);
+        baseActivity.startActivity(behindOverlay);
+
+        waitAndAssertActivityState(TEST_ACTIVITY, STATE_INITIALIZING,
+                "Activity behind taskOverlay should not resumed");
+        // check order: SecondActivity(top) -> TestActivity -> RegularActivity(base)
+        final List<String> activitiesOrder = mWmState.getTaskByActivity(baseIntent.getComponent())
+                .mActivities
+                .stream()
+                .map(WindowManagerState.Activity::getName)
+                .collect(Collectors.toList());
+
+        final List<String> expectedOrder = Stream.of(
+                SECOND_ACTIVITY,
+                TEST_ACTIVITY,
+                baseIntent.getComponent())
+                .map(c -> c.flattenToShortString())
+                .collect(Collectors.toList());
+        assertEquals(activitiesOrder, expectedOrder);
+        mWmState.assertResumedActivity("TaskOverlay activity should be remained on top and "
+                        + "resumed", taskOverlay.getComponent());
     }
 
     /**

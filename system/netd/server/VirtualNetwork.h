@@ -19,7 +19,6 @@
 #include <set>
 
 #include "Network.h"
-#include "UidRanges.h"
 
 namespace android::net {
 
@@ -34,23 +33,16 @@ class VirtualNetwork : public Network {
 public:
     VirtualNetwork(unsigned netId, bool secure);
     virtual ~VirtualNetwork();
-
-    bool isSecure() const;
-    bool appliesToUser(uid_t uid) const;
-
-    [[nodiscard]] int addUsers(const UidRanges& uidRanges, const std::set<uid_t>& protectableUsers);
-    [[nodiscard]] int removeUsers(const UidRanges& uidRanges,
-                                  const std::set<uid_t>& protectableUsers);
+    [[nodiscard]] int addUsers(const UidRanges& uidRanges, uint32_t subPriority) override;
+    [[nodiscard]] int removeUsers(const UidRanges& uidRanges, uint32_t subPriority) override;
+    bool isVirtual() override { return true; }
+    bool canAddUsers() override { return true; }
 
   private:
-    Type getType() const override;
+    std::string getTypeString() const override { return "VIRTUAL"; };
     [[nodiscard]] int addInterface(const std::string& interface) override;
     [[nodiscard]] int removeInterface(const std::string& interface) override;
-    int maybeCloseSockets(bool add, const UidRanges& uidRanges,
-                          const std::set<uid_t>& protectableUsers);
-
-    const bool mSecure;
-    UidRanges mUidRanges;
+    bool isValidSubPriority(uint32_t priority) override;
 };
 
 }  // namespace android::net

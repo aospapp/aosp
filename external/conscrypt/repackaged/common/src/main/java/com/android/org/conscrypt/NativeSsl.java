@@ -26,11 +26,15 @@ import static com.android.org.conscrypt.NativeConstants.SSL_VERIFY_FAIL_IF_NO_PE
 import static com.android.org.conscrypt.NativeConstants.SSL_VERIFY_NONE;
 import static com.android.org.conscrypt.NativeConstants.SSL_VERIFY_PEER;
 
+import com.android.org.conscrypt.NativeCrypto.SSLHandshakeCallbacks;
+import com.android.org.conscrypt.SSLParametersImpl.AliasChooser;
+import com.android.org.conscrypt.SSLParametersImpl.PSKCallbacks;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.SocketException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -47,9 +51,6 @@ import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.X509KeyManager;
 import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
-import com.android.org.conscrypt.NativeCrypto.SSLHandshakeCallbacks;
-import com.android.org.conscrypt.SSLParametersImpl.AliasChooser;
-import com.android.org.conscrypt.SSLParametersImpl.PSKCallbacks;
 
 /**
  * A utility wrapper that abstracts operations on the underlying native SSL instance.
@@ -212,7 +213,7 @@ final class NativeSsl {
             byte[][] asn1DerEncodedPrincipals)
             throws SSLException, CertificateEncodingException {
         Set<String> keyTypesSet = SSLUtils.getSupportedClientKeyTypes(keyTypeBytes, signatureAlgs);
-        String[] keyTypes = keyTypesSet.toArray(new String[keyTypesSet.size()]);
+        String[] keyTypes = keyTypesSet.toArray(new String[0]);
 
         X500Principal[] issuers;
         if (asn1DerEncodedPrincipals == null) {
@@ -637,6 +638,7 @@ final class NativeSsl {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     protected final void finalize() throws Throwable {
         try {
             close();
@@ -656,27 +658,51 @@ final class NativeSsl {
         }
 
         int getPendingWrittenBytes() {
-            if (bio != 0) {
-                return NativeCrypto.SSL_pending_written_bytes_in_BIO(bio);
-            } else {
-                return 0;
+            lock.readLock().lock();
+            try {
+                return (bio == 0L) ? 0 : NativeCrypto.SSL_pending_written_bytes_in_BIO(bio);
+            } finally {
+                lock.readLock().unlock();
             }
         }
 
         int writeDirectByteBuffer(long address, int length) throws IOException {
-            return NativeCrypto.ENGINE_SSL_write_BIO_direct(
-                    ssl, NativeSsl.this, bio, address, length, handshakeCallbacks);
+            lock.readLock().lock();
+            try {
+                if (isClosed()) {
+                    throw new SSLException("Connection closed");
+                }
+                return NativeCrypto.ENGINE_SSL_write_BIO_direct(
+                        ssl, NativeSsl.this, bio, address, length, handshakeCallbacks);
+            } finally {
+                lock.readLock().unlock();
+            }
         }
 
         int readDirectByteBuffer(long destAddress, int destLength) throws IOException {
-            return NativeCrypto.ENGINE_SSL_read_BIO_direct(
-                    ssl, NativeSsl.this, bio, destAddress, destLength, handshakeCallbacks);
+            lock.readLock().lock();
+            try {
+                if (isClosed()) {
+                    throw new SSLException("Connection closed");
+                }
+                return NativeCrypto.ENGINE_SSL_read_BIO_direct(
+                        ssl, NativeSsl.this, bio, destAddress, destLength, handshakeCallbacks);
+            } finally {
+                lock.readLock().unlock();
+            }
         }
 
         void close() {
-            long toFree = bio;
-            bio = 0L;
-            NativeCrypto.BIO_free_all(toFree);
+            lock.writeLock().lock();
+            try {
+                long toFree = bio;
+                bio = 0L;
+                if (toFree != 0L) {
+                    NativeCrypto.BIO_free_all(toFree);
+                }
+            } finally {
+                lock.writeLock().unlock();
+            }
         }
     }
 }

@@ -220,6 +220,7 @@ struct rtnl_ematch_tree *rtnl_basic_get_ematch(struct rtnl_cls *cls)
 int rtnl_basic_add_action(struct rtnl_cls *cls, struct rtnl_act *act)
 {
 	struct rtnl_basic *b;
+	int err;
 
 	if (!act)
 		return 0;
@@ -228,9 +229,25 @@ int rtnl_basic_add_action(struct rtnl_cls *cls, struct rtnl_act *act)
 		return -NLE_NOMEM;
 
 	b->b_mask |= BASIC_ATTR_ACTION;
+	if ((err = rtnl_act_append(&b->b_act, act)))
+		return err;
+
 	/* In case user frees it */
 	rtnl_act_get(act);
-	return rtnl_act_append(&b->b_act, act);
+	return 0;
+}
+
+struct rtnl_act* rtnl_basic_get_action(struct rtnl_cls *cls)
+{
+	struct rtnl_basic *b;
+
+	if (!(b = rtnl_tc_data_peek(TC_CAST(cls))))
+		return NULL;
+
+	if (!(b->b_mask & BASIC_ATTR_ACTION))
+		return NULL;
+
+	return b->b_act;
 }
 
 int rtnl_basic_del_action(struct rtnl_cls *cls, struct rtnl_act *act)

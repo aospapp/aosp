@@ -30,6 +30,7 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.widget.Toast;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.annotation.XmlRes;
 
 import com.android.car.settings.R;
@@ -49,6 +50,8 @@ public class ResetAppPrefFragment extends SettingsFragment {
     private static final Logger LOG = new Logger(ResetAppPrefFragment.class);
 
     private MenuItem mResetButton;
+    @VisibleForTesting
+    AsyncTask<Void, Void, Void> mResetTask;
 
     @Override
     @XmlRes
@@ -72,7 +75,8 @@ public class ResetAppPrefFragment extends SettingsFragment {
     }
 
     private void resetAppPreferences() {
-        new ResetTask(requireContext().getApplicationContext()).execute();
+        mResetTask = new ResetTask(requireContext().getApplicationContext());
+        mResetTask.execute();
     }
 
     private static class ResetTask extends AsyncTask<Void, Void, Void> {
@@ -139,7 +143,7 @@ public class ResetAppPrefFragment extends SettingsFragment {
             }
 
             // Cleanup.
-            ((AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE)).resetAllModes();
+            context.getSystemService(AppOpsManager.class).resetAllModes();
 
             return null;
         }

@@ -5,6 +5,7 @@
 #include <brillo/streams/fake_stream.h>
 
 #include <algorithm>
+#include <utility>
 
 #include <base/bind.h>
 #include <brillo/message_loops/message_loop.h>
@@ -185,7 +186,7 @@ bool FakeStream::IsReadBufferEmpty() const {
 bool FakeStream::PopReadPacket() {
   if (incoming_queue_.empty())
     return false;
-  const InputDataPacket& packet = incoming_queue_.front();
+  InputDataPacket& packet = incoming_queue_.front();
   input_ptr_ = 0;
   input_buffer_ = std::move(packet.data);
   delay_input_until_ = clock_->Now() + packet.delay_before;
@@ -250,7 +251,7 @@ bool FakeStream::IsWriteBufferFull() const {
 bool FakeStream::PopWritePacket() {
   if (outgoing_queue_.empty())
     return false;
-  const OutputDataPacket& packet = outgoing_queue_.front();
+  OutputDataPacket& packet = outgoing_queue_.front();
   expected_output_data_ = std::move(packet.data);
   delay_output_until_ = clock_->Now() + packet.delay_before;
   max_output_buffer_size_ = packet.expected_size;

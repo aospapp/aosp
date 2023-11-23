@@ -16,14 +16,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"android/soong/shared"
 	"android/soong/ui/build"
 	"android/soong/ui/logger"
 	"android/soong/ui/metrics"
@@ -32,17 +35,22 @@ import (
 	"android/soong/ui/tracer"
 )
 
+const (
+	configDir  = "vendor/google/tools/soong_config"
+	jsonSuffix = "json"
+)
+
 // A command represents an operation to be executed in the soong build
 // system.
 type command struct {
-	// the flag name (must have double dashes)
+	// The flag name (must have double dashes).
 	flag string
 
-	// description for the flag (to display when running help)
+	// Description for the flag (to display when running help).
 	description string
 
-	// Forces the status output into dumb terminal mode.
-	forceDumbOutput bool
+	// Stream the build status output into the simple terminal mode.
+	simpleOutput bool
 
 	// Sets a prefix string to use for filenames of log files.
 	logsPrefix string
@@ -57,40 +65,38 @@ type command struct {
 	run func(ctx build.Context, config build.Config, args []string, logsDir string)
 }
 
-const makeModeFlagName = "--make-mode"
-
 // list of supported commands (flags) supported by soong ui
 var commands []command = []command{
 	{
-		flag:        makeModeFlagName,
+		flag:        "--make-mode",
 		description: "build the modules by the target name (i.e. soong_docs)",
 		config: func(ctx build.Context, args ...string) build.Config {
 			return build.NewConfig(ctx, args...)
 		},
 		stdio: stdio,
-		run:   make,
+		run:   runMake,
 	}, {
-		flag:            "--dumpvar-mode",
-		description:     "print the value of the legacy make variable VAR to stdout",
-		forceDumbOutput: true,
-		logsPrefix:      "dumpvars-",
-		config:          dumpVarConfig,
-		stdio:           customStdio,
-		run:             dumpVar,
+		flag:         "--dumpvar-mode",
+		description:  "print the value of the legacy make variable VAR to stdout",
+		simpleOutput: true,
+		logsPrefix:   "dumpvars-",
+		config:       dumpVarConfig,
+		stdio:        customStdio,
+		run:          dumpVar,
 	}, {
-		flag:            "--dumpvars-mode",
-		description:     "dump the values of one or more legacy make variables, in shell syntax",
-		forceDumbOutput: true,
-		logsPrefix:      "dumpvars-",
-		config:          dumpVarConfig,
-		stdio:           customStdio,
-		run:             dumpVars,
+		flag:         "--dumpvars-mode",
+		description:  "dump the values of one or more legacy make variables, in shell syntax",
+		simpleOutput: true,
+		logsPrefix:   "dumpvars-",
+		config:       dumpVarConfig,
+		stdio:        customStdio,
+		run:          dumpVars,
 	}, {
 		flag:        "--build-mode",
 		description: "build modules based on the specified build action",
 		config:      buildActionConfig,
 		stdio:       stdio,
-		run:         make,
+		run:         runMake,
 	},
 }
 
@@ -110,6 +116,34 @@ func inList(s string, list []string) bool {
 	return indexList(s, list) != -1
 }
 
+func loadEnvConfig() error {
+	bc := os.Getenv("ANDROID_BUILD_ENVIRONMENT_CONFIG")
+	if bc == "" {
+		return nil
+	}
+	cfgFile := filepath.Join(os.Getenv("TOP"), configDir, fmt.Sprintf("%s.%s", bc, jsonSuffix))
+
+	envVarsJSON, err := ioutil.ReadFile(cfgFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\033[33mWARNING:\033[0m failed to open config file %s: %s\n", cfgFile, err.Error())
+		return nil
+	}
+
+	var envVars map[string]map[string]string
+	if err := json.Unmarshal(envVarsJSON, &envVars); err != nil {
+		return fmt.Errorf("env vars config file: %s did not parse correctly: %s", cfgFile, err.Error())
+	}
+	for k, v := range envVars["env"] {
+		if os.Getenv(k) != "" {
+			continue
+		}
+		if err := os.Setenv(k, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Main execution of soong_ui. The command format is as follows:
 //
 //    soong_ui <command> [<arg 1> <arg 2> ... <arg n>]
@@ -117,31 +151,45 @@ func inList(s string, list []string) bool {
 // Command is the type of soong_ui execution. Only one type of
 // execution is specified. The args are specific to the command.
 func main() {
-	c, args := getCommand(os.Args)
-	if c == nil {
-		fmt.Fprintf(os.Stderr, "The `soong` native UI is not yet available.\n")
+	shared.ReexecWithDelveMaybe(os.Getenv("SOONG_UI_DELVE"), shared.ResolveDelveBinary())
+
+	buildStarted := time.Now()
+
+	c, args, err := getCommand(os.Args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing `soong` args: %s.\n", err)
 		os.Exit(1)
 	}
 
-	output := terminal.NewStatusOutput(c.stdio().Stdout(), os.Getenv("NINJA_STATUS"), c.forceDumbOutput,
+	// Create a terminal output that mimics Ninja's.
+	output := terminal.NewStatusOutput(c.stdio().Stdout(), os.Getenv("NINJA_STATUS"), c.simpleOutput,
 		build.OsEnvironment().IsEnvTrue("ANDROID_QUIET_BUILD"))
 
+	// Attach a new logger instance to the terminal output.
 	log := logger.New(output)
 	defer log.Cleanup()
 
+	// Create a context to simplify the program termination process.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Create a new trace file writer, making it log events to the log instance.
 	trace := tracer.New(log)
 	defer trace.Close()
 
+	// Create and start a new metric record.
 	met := metrics.New()
+	met.SetBuildDateTime(buildStarted)
+	met.SetBuildCommand(os.Args)
 
+	// Create a new Status instance, which manages action counts and event output channels.
 	stat := &status.Status{}
 	defer stat.Finish()
+	// Hook up the terminal output and tracer to Status.
 	stat.AddOutput(output)
 	stat.AddOutput(trace.StatusTracer())
 
+	// Set up a cleanup procedure in case the normal termination process doesn't work.
 	build.SetupSignals(log, cancel, func() {
 		trace.Close()
 		log.Cleanup()
@@ -159,28 +207,62 @@ func main() {
 
 	config := c.config(buildCtx, args...)
 
+	if err := loadEnvConfig(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse env config files: %v", err)
+		os.Exit(1)
+	}
+
+
 	build.SetupOutDir(buildCtx, config)
 
-	logsDir := config.OutDir()
-	if config.Dist() {
-		logsDir = filepath.Join(config.DistDir(), "logs")
+	if config.UseBazel() && config.Dist() {
+		defer populateExternalDistDir(buildCtx, config)
 	}
+
+	// Set up files to be outputted in the log directory.
+	logsDir := config.LogsDir()
+
+	// Common list of metric file definition.
+	buildErrorFile := filepath.Join(logsDir, c.logsPrefix+"build_error")
+	rbeMetricsFile := filepath.Join(logsDir, c.logsPrefix+"rbe_metrics.pb")
+	soongMetricsFile := filepath.Join(logsDir, c.logsPrefix+"soong_metrics")
+
+	build.PrintOutDirWarning(buildCtx, config)
 
 	os.MkdirAll(logsDir, 0777)
 	log.SetOutput(filepath.Join(logsDir, c.logsPrefix+"soong.log"))
 	trace.SetOutput(filepath.Join(logsDir, c.logsPrefix+"build.trace"))
 	stat.AddOutput(status.NewVerboseLog(log, filepath.Join(logsDir, c.logsPrefix+"verbose.log")))
 	stat.AddOutput(status.NewErrorLog(log, filepath.Join(logsDir, c.logsPrefix+"error.log")))
-	stat.AddOutput(status.NewProtoErrorLog(log, filepath.Join(logsDir, c.logsPrefix+"build_error")))
+	stat.AddOutput(status.NewProtoErrorLog(log, buildErrorFile))
 	stat.AddOutput(status.NewCriticalPath(log))
+	stat.AddOutput(status.NewBuildProgressLog(log, filepath.Join(logsDir, c.logsPrefix+"build_progress.pb")))
 
 	buildCtx.Verbosef("Detected %.3v GB total RAM", float32(config.TotalRAM())/(1024*1024*1024))
 	buildCtx.Verbosef("Parallelism (local/remote/highmem): %v/%v/%v",
 		config.Parallel(), config.RemoteParallel(), config.HighmemParallel())
 
-	defer met.Dump(filepath.Join(logsDir, c.logsPrefix+"soong_metrics"))
+	{
+		// The order of the function calls is important. The last defer function call
+		// is the first one that is executed to save the rbe metrics to a protobuf
+		// file. The soong metrics file is then next. Bazel profiles are written
+		// before the uploadMetrics is invoked. The written files are then uploaded
+		// if the uploading of the metrics is enabled.
+		files := []string{
+			buildErrorFile,           // build error strings
+			rbeMetricsFile,           // high level metrics related to remote build execution.
+			soongMetricsFile,         // high level metrics related to this build system.
+			config.BazelMetricsDir(), // directory that contains a set of bazel metrics.
+		}
+		defer build.UploadMetrics(buildCtx, config, c.simpleOutput, buildStarted, files...)
+		defer met.Dump(soongMetricsFile)
+		defer build.DumpRBEMetrics(buildCtx, config, rbeMetricsFile)
+	}
 
+	// Read the time at the starting point.
 	if start, ok := os.LookupEnv("TRACE_BEGIN_SOONG"); ok {
+		// soong_ui.bash uses the date command's %N (nanosec) flag when getting the start time,
+		// which Darwin doesn't support. Check if it was executed properly before parsing the value.
 		if !strings.HasSuffix(start, "N") {
 			if start_time, err := strconv.ParseUint(start, 10, 64); err == nil {
 				log.Verbosef("Took %dms to start up.",
@@ -199,6 +281,7 @@ func main() {
 	fixBadDanglingLink(buildCtx, "hardware/qcom/sdm710/Android.bp")
 	fixBadDanglingLink(buildCtx, "hardware/qcom/sdm710/Android.mk")
 
+	// Create a source finder.
 	f := build.NewSourceFinder(buildCtx, config)
 	defer f.Shutdown()
 	build.FindSources(buildCtx, config, f)
@@ -342,6 +425,8 @@ func stdio() terminal.StdioInterface {
 	return terminal.StdioImpl{}
 }
 
+// dumpvar and dumpvars use stdout to output variable values, so use stderr instead of stdout when
+// reporting events to keep stdout clean from noise.
 func customStdio() terminal.StdioInterface {
 	return terminal.NewCustomStdio(os.Stdin, os.Stderr, os.Stderr)
 }
@@ -431,7 +516,7 @@ func buildActionConfig(ctx build.Context, args ...string) build.Config {
 	return build.NewBuildActionConfig(buildAction, *dir, ctx, args...)
 }
 
-func make(ctx build.Context, config build.Config, _ []string, logsDir string) {
+func runMake(ctx build.Context, config build.Config, _ []string, logsDir string) {
 	if config.IsVerbose() {
 		writer := ctx.Writer
 		fmt.Fprintln(writer, "! The argument `showcommands` is no longer supported.")
@@ -459,36 +544,97 @@ func make(ctx build.Context, config build.Config, _ []string, logsDir string) {
 		ctx.Fatal("done")
 	}
 
-	toBuild := build.BuildAll
-	if config.Checkbuild() {
-		toBuild |= build.RunBuildTests
-	}
-	build.Build(ctx, config, toBuild)
+	build.Build(ctx, config)
 }
 
 // getCommand finds the appropriate command based on args[1] flag. args[0]
 // is the soong_ui filename.
-func getCommand(args []string) (*command, []string) {
+func getCommand(args []string) (*command, []string, error) {
 	if len(args) < 2 {
-		return nil, args
+		return nil, nil, fmt.Errorf("Too few arguments: %q", args)
 	}
 
 	for _, c := range commands {
 		if c.flag == args[1] {
-			return &c, args[2:]
-		}
-
-		// special case for --make-mode: if soong_ui was called from
-		// build/make/core/main.mk, the makeparallel with --ninja
-		// option specified puts the -j<num> before --make-mode.
-		// TODO: Remove this hack once it has been fixed.
-		if c.flag == makeModeFlagName {
-			if inList(makeModeFlagName, args) {
-				return &c, args[1:]
-			}
+			return &c, args[2:], nil
 		}
 	}
 
 	// command not found
-	return nil, args
+	return nil, nil, fmt.Errorf("Command not found: %q", args)
+}
+
+// For Bazel support, this moves files and directories from e.g. out/dist/$f to DIST_DIR/$f if necessary.
+func populateExternalDistDir(ctx build.Context, config build.Config) {
+	// Make sure that internalDistDirPath and externalDistDirPath are both absolute paths, so we can compare them
+	var err error
+	var internalDistDirPath string
+	var externalDistDirPath string
+	if internalDistDirPath, err = filepath.Abs(config.DistDir()); err != nil {
+		ctx.Fatalf("Unable to find absolute path of %s: %s", internalDistDirPath, err)
+	}
+	if externalDistDirPath, err = filepath.Abs(config.RealDistDir()); err != nil {
+		ctx.Fatalf("Unable to find absolute path of %s: %s", externalDistDirPath, err)
+	}
+	if externalDistDirPath == internalDistDirPath {
+		return
+	}
+
+	// Make sure the internal DIST_DIR actually exists before trying to read from it
+	if _, err = os.Stat(internalDistDirPath); os.IsNotExist(err) {
+		ctx.Println("Skipping Bazel dist dir migration - nothing to do!")
+		return
+	}
+
+	// Make sure the external DIST_DIR actually exists before trying to write to it
+	if err = os.MkdirAll(externalDistDirPath, 0755); err != nil {
+		ctx.Fatalf("Unable to make directory %s: %s", externalDistDirPath, err)
+	}
+
+	ctx.Println("Populating external DIST_DIR...")
+
+	populateExternalDistDirHelper(ctx, config, internalDistDirPath, externalDistDirPath)
+}
+
+func populateExternalDistDirHelper(ctx build.Context, config build.Config, internalDistDirPath string, externalDistDirPath string) {
+	files, err := ioutil.ReadDir(internalDistDirPath)
+	if err != nil {
+		ctx.Fatalf("Can't read internal distdir %s: %s", internalDistDirPath, err)
+	}
+	for _, f := range files {
+		internalFilePath := filepath.Join(internalDistDirPath, f.Name())
+		externalFilePath := filepath.Join(externalDistDirPath, f.Name())
+
+		if f.IsDir() {
+			// Moving a directory - check if there is an existing directory to merge with
+			externalLstat, err := os.Lstat(externalFilePath)
+			if err != nil {
+				if !os.IsNotExist(err) {
+					ctx.Fatalf("Can't lstat external %s: %s", externalDistDirPath, err)
+				}
+				// Otherwise, if the error was os.IsNotExist, that's fine and we fall through to the rename at the bottom
+			} else {
+				if externalLstat.IsDir() {
+					// Existing dir - try to merge the directories?
+					populateExternalDistDirHelper(ctx, config, internalFilePath, externalFilePath)
+					continue
+				} else {
+					// Existing file being replaced with a directory. Delete the existing file...
+					if err := os.RemoveAll(externalFilePath); err != nil {
+						ctx.Fatalf("Unable to remove existing %s: %s", externalFilePath, err)
+					}
+				}
+			}
+		} else {
+			// Moving a file (not a dir) - delete any existing file or directory
+			if err := os.RemoveAll(externalFilePath); err != nil {
+				ctx.Fatalf("Unable to remove existing %s: %s", externalFilePath, err)
+			}
+		}
+
+		// The actual move - do a rename instead of a copy in order to save disk space.
+		if err := os.Rename(internalFilePath, externalFilePath); err != nil {
+			ctx.Fatalf("Unable to rename %s -> %s due to error %s", internalFilePath, externalFilePath, err)
+		}
+	}
 }

@@ -12,6 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "packages_apps_CellBroadcastReceiver_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: [
+        "packages_apps_CellBroadcastReceiver_license",
+    ],
+}
+
 java_defaults {
     name: "CellBroadcastTestCommon",
     libs: [
@@ -55,7 +66,12 @@ android_test {
         "androidx.preference_preference",
         "androidx.appcompat_appcompat",
         "androidx.legacy_legacy-preference-v14",
+        "SettingsLibSettingsTheme",
+        "SettingsLibCollapsingToolbarBaseActivity",
+        "SettingsLibMainSwitchPreference",
+        "modules-utils-build_system",
     ],
+    min_sdk_version: "30",
 }
 
 

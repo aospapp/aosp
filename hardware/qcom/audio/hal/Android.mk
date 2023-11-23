@@ -226,7 +226,7 @@ endif
 
 LOCAL_SHARED_LIBRARIES += libbase libhidlbase libutils android.hardware.power@1.2 liblog
 
-LOCAL_SHARED_LIBRARIES += android.hardware.power-ndk_platform
+LOCAL_SHARED_LIBRARIES += android.hardware.power-V1-ndk_platform
 LOCAL_SHARED_LIBRARIES += libbinder_ndk
 
 LOCAL_SRC_FILES += audio_perf.cpp
@@ -234,6 +234,8 @@ LOCAL_SRC_FILES += audio_perf.cpp
 LOCAL_HEADER_LIBRARIES += libhardware_headers
 
 LOCAL_MODULE := audio.primary.$(TARGET_BOARD_PLATFORM)
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_MODULE_RELATIVE_PATH := hw
 

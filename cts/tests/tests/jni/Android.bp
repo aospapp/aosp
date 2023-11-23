@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsJniTestCases",
     defaults: ["cts_defaults"],
@@ -21,12 +25,12 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     static_libs: [
         "ctstestrunner-axt",
         "androidx.test.rules",
+        "compatibility-device-util-axt",
     ],
     jni_libs: [
         "libjni_test_dlclose",
@@ -49,6 +53,7 @@ cc_test_library {
         "-Wall",
         "-Werror",
     ],
+    header_libs: ["jni_headers"],
     local_include_dirs: ["libjnicommon"],
     host_ldlibs: ["-llog"],
     shared_libs: [
@@ -66,6 +71,7 @@ cc_test_library {
         "-Wall",
         "-Werror",
     ],
+    header_libs: ["jni_headers"],
     local_include_dirs: ["libjnicommon"],
     host_ldlibs: ["-llog"],
     shared_libs: [
@@ -83,6 +89,7 @@ cc_test_library {
         "-Wall",
         "-Werror",
     ],
+    header_libs: ["jni_headers"],
     local_include_dirs: ["libjnicommon"],
     host_ldlibs: ["-llog"],
     shared_libs: [

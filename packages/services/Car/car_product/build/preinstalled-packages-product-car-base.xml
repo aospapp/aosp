@@ -26,6 +26,35 @@
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
 
+    <!-- Failed to complete CtsShortcutHostTestCases if LocalTransport is not
+    installed for system user  -->
+    <install-in-user-type package="com.android.localtransport">
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
+    <!-- This package is required for system user to test cluster_home_service -->
+    <install-in-user-type package="com.android.car.cluster.home">
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
+    <!-- RemoteProvisioner app does not have any UI and will only be run as
+    a background service -->
+    <install-in-user-type package="com.android.remoteprovisioner">
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
+    <install-in-user-type package="android.car.cluster">
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
+    <!-- These two packages should only support one proxy device-wide, and that
+    the proxy depends on the network, which are independent of users. -->
+    <install-in-user-type package="com.android.pacprocessor">
+        <install-in user-type="SYSTEM"/>
+    </install-in-user-type>
+    <install-in-user-type package="com.android.proxyhandler">
+        <install-in user-type="SYSTEM"/>
+    </install-in-user-type>
 <!--
   Apps that need to run on SYSTEM and evaluated by package owner.
   Here the apps will have FULL and SYSTEM.
@@ -34,11 +63,11 @@
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
-    <install-in-user-type package="android.car.cluster">
+    <install-in-user-type package="com.android.car">
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.car">
+        <install-in-user-type package="com.android.car.shell">
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
@@ -118,8 +147,14 @@
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
 
-    <!-- Required StorageManagerService to bind to the ExternalStorageService -->
+    <!-- Required by StorageManagerService to bind to the ExternalStorageService -->
     <install-in-user-type package="com.android.providers.media.module">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
+    <!-- Required by StorageManagerService  -->
+    <install-in-user-type package="com.android.externalstorage">
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
@@ -174,6 +209,12 @@
 
     <!-- Failed to pass CTS if not installed for system user -->
     <install-in-user-type package="com.android.car.ui.sharedlibrary">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
+
+    <!-- Needed for new developer options module (under settings package) -->
+    <install-in-user-type package="com.android.settings">
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
@@ -233,12 +274,6 @@
     <install-in-user-type package="com.android.statementservice">
         <install-in user-type="FULL" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.backupconfirm">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-   <install-in-user-type package="com.android.calllogbackup">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
     <install-in-user-type package="com.android.providers.blockednumber">
         <install-in user-type="FULL" />
     </install-in-user-type>
@@ -257,22 +292,10 @@
     <install-in-user-type package="com.android.voicetrigger">
         <install-in user-type="FULL" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.internal.display.cutout.emulation.hole">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.internal.display.cutout.emulation.waterfall">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="android.auto_generated_rro_product__">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="android.auto_generated_rro_vendor__">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
     <install-in-user-type package="com.android.car.calendar">
         <install-in user-type="FULL" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.wifi.inprocess.overlay.car">
+    <install-in-user-type package="com.android.car.activityresolver">
         <install-in user-type="FULL" />
     </install-in-user-type>
     <install-in-user-type package="com.android.cellbroadcastreceiver">
@@ -290,22 +313,17 @@
     <install-in-user-type package="com.android.certinstaller">
         <install-in user-type="FULL" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.pacprocessor">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.proxyhandler">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
     <install-in-user-type package="com.android.vpndialogs">
         <install-in user-type="FULL" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.sharedstoragebackup">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.externalstorage">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
     <install-in-user-type package="com.android.hotspot2.osulogin">
+        <install-in user-type="FULL" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.permissioncontroller.car.rro">
+        <install-in user-type="FULL" />
+    </install-in-user-type>
+    <!-- Provides ability to configure network preferences. -->
+    <install-in-user-type package="com.google.android.car.networking.preferenceupdater">
         <install-in user-type="FULL" />
     </install-in-user-type>
 </config>

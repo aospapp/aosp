@@ -37,8 +37,6 @@ class enterprise_RemoraRequisitionDisplayUsage(test.test):
 
     def run_once(self):
         with chrome.Chrome(auto_login=False) as cr:
-            enrollment.SwitchToRemora(cr.browser)
-
             if not self.supports_display_fetching(cr.browser.oobe):
                 return
 

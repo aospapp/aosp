@@ -34,10 +34,4 @@
         <option name="collect-on-run-ended-only" value="true" />
         <option name="clean-up" value="false" />
     </metrics_collector>
-    <!-- Automotive tests run on user 10 -->
-    <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
-        <option name="directory-keys" value="/storage/emulated/10/CtsPreferenceTestCases" />
-        <option name="collect-on-run-ended-only" value="true" />
-        <option name="clean-up" value="false" />
-    </metrics_collector>
 </configuration>

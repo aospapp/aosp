@@ -54,8 +54,6 @@ class BpfMapTest : public testing::Test {
     BpfMapTest() {}
 
     void SetUp() {
-        SKIP_IF_BPF_NOT_SUPPORTED;
-
         EXPECT_EQ(0, setrlimitForTest());
         if (!access(PINNED_MAP_PATH, R_OK)) {
             EXPECT_EQ(0, remove(PINNED_MAP_PATH));
@@ -63,8 +61,6 @@ class BpfMapTest : public testing::Test {
     }
 
     void TearDown() {
-        SKIP_IF_BPF_NOT_SUPPORTED;
-
         if (!access(PINNED_MAP_PATH, R_OK)) {
             EXPECT_EQ(0, remove(PINNED_MAP_PATH));
         }
@@ -107,8 +103,6 @@ class BpfMapTest : public testing::Test {
 };
 
 TEST_F(BpfMapTest, constructor) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     BpfMap<uint32_t, uint32_t> testMap1;
     checkMapInvalid(testMap1);
 
@@ -117,8 +111,6 @@ TEST_F(BpfMapTest, constructor) {
 }
 
 TEST_F(BpfMapTest, basicHelpers) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     BpfMap<uint32_t, uint32_t> testMap(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE, BPF_F_NO_PREALLOC);
     uint32_t key = TEST_KEY1;
     uint32_t value_write = TEST_VALUE1;
@@ -133,8 +125,6 @@ TEST_F(BpfMapTest, basicHelpers) {
 }
 
 TEST_F(BpfMapTest, reset) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     BpfMap<uint32_t, uint32_t> testMap(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE, BPF_F_NO_PREALLOC);
     uint32_t key = TEST_KEY1;
     uint32_t value_write = TEST_VALUE1;
@@ -147,8 +137,6 @@ TEST_F(BpfMapTest, reset) {
 }
 
 TEST_F(BpfMapTest, moveConstructor) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     BpfMap<uint32_t, uint32_t> testMap1(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE, BPF_F_NO_PREALLOC);
     BpfMap<uint32_t, uint32_t> testMap2;
     testMap2 = std::move(testMap1);
@@ -159,8 +147,6 @@ TEST_F(BpfMapTest, moveConstructor) {
 }
 
 TEST_F(BpfMapTest, SetUpMap) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     EXPECT_NE(0, access(PINNED_MAP_PATH, R_OK));
     BpfMap<uint32_t, uint32_t> testMap1(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE, BPF_F_NO_PREALLOC);
     ASSERT_EQ(0, bpfFdPin(testMap1.getMap(), PINNED_MAP_PATH));
@@ -177,8 +163,6 @@ TEST_F(BpfMapTest, SetUpMap) {
 }
 
 TEST_F(BpfMapTest, iterate) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     BpfMap<uint32_t, uint32_t> testMap(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE, BPF_F_NO_PREALLOC);
     populateMap(TEST_MAP_SIZE, testMap);
     int totalCount = 0;
@@ -197,8 +181,6 @@ TEST_F(BpfMapTest, iterate) {
 }
 
 TEST_F(BpfMapTest, iterateWithValue) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     BpfMap<uint32_t, uint32_t> testMap(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE, BPF_F_NO_PREALLOC);
     populateMap(TEST_MAP_SIZE, testMap);
     int totalCount = 0;
@@ -219,8 +201,6 @@ TEST_F(BpfMapTest, iterateWithValue) {
 }
 
 TEST_F(BpfMapTest, mapIsEmpty) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     BpfMap<uint32_t, uint32_t> testMap(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE, BPF_F_NO_PREALLOC);
     expectMapEmpty(testMap);
     uint32_t key = TEST_KEY1;
@@ -251,8 +231,6 @@ TEST_F(BpfMapTest, mapIsEmpty) {
 }
 
 TEST_F(BpfMapTest, mapClear) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     BpfMap<uint32_t, uint32_t> testMap(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE, BPF_F_NO_PREALLOC);
     populateMap(TEST_MAP_SIZE, testMap);
     Result<bool> isEmpty = testMap.isEmpty();

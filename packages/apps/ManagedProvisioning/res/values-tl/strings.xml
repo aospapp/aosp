@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Papamahalaan ng sumusunod na app ang iyong device:"</string>
     <string name="next" msgid="1004321437324424398">"Susunod"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Nagse-set up ng profile sa trabaho…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"May kakayahan ang iyong IT admin na subaybayan at pamahalaan ang mga setting, pangkumpanyang access, app, pahintulot, at data na nauugnay sa profile na ito, kasama ang aktibidad mo sa network, pati na rin ang lokasyon, history ng tawag, at history ng paghahanap ng contact ng device mo.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Makipag-ugnayan sa iyong IT admin para sa higit pang impormasyon, kasama ang mga patakaran sa privacy ng organisasyon mo."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"May kakayahan ang iyong IT admin na subaybayan at pamahalaan ang mga setting, pangkumpanyang access, app, pahintulot, at data na nauugnay sa device na ito, kasama ang aktibidad mo sa network, pati na rin ang lokasyon, history ng tawag, at history ng paghahanap ng contact ng device mo.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Makipag-ugnayan sa iyong IT admin para sa higit pang impormasyon, kasama ang mga patakaran sa privacy ng organisasyon mo."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"May kakayahan ang iyong IT admin na subaybayan at pamahalaan ang mga setting, pangkumpanyang access, app, pahintulot, at data na nauugnay sa profile na ito, kasama ang aktibidad mo sa network, pati na rin ang lokasyon, history ng tawag, at history ng paghahanap ng contact ng device mo.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Makipag-ugnayan sa iyong IT admin para sa higit pang impormasyon, kasama ang mga patakaran sa privacy ng organisasyon mo."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"May kakayahan ang iyong IT admin na subaybayan at pamahalaan ang mga setting, pangkumpanyang access, app, pahintulot, at data na nauugnay sa device na ito, kasama ang aktibidad mo sa network, pati na rin ang lokasyon, history ng tawag, at history ng paghahanap ng contact ng device mo.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Makipag-ugnayan sa iyong IT admin para sa higit pang impormasyon, kasama ang mga patakaran sa privacy ng organisasyon mo."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Upang magamit ang mga feature ng proteksyon laban sa pagnanakaw, dapat ay mayroon kang screen lock na protektado ng password para sa iyong device."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Makipag-ugnayan sa iyong IT admin para sa higit pang impormasyon, kasama ang mga patakaran sa privacy ng organisasyon mo."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Matuto pa"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"Ok"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Pahihintulutan ko"</string>
     <string name="url_error" msgid="5958494012986243186">"Hindi maipakita ang link na ito."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Mag-navigate pataas"</string>
     <string name="terms" msgid="8295436105384703903">"Mga Tuntunin"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Impormasyon ng profile sa trabaho"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Impormasyon ng pinamamahalaang device"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Profile sa trabaho"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Pangunahing user"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"I-delete ang kasalukuyang profile?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Mayroon ka nang profile sa trabaho. Pinamamahalaan ito gamit ang sumusunod na app:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Bago magpatuloy, "<a href="#read_this_link">"basahin ito"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Hindi Natapos ang Pag-setup ng User"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"User ng device sa trabaho"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Nagse-setup ng device sa trabaho…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Pinoproseso ang data ng pag-setup…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Kumokonekta sa Wi-Fi…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Kumokonekta sa mobile network…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Dina-download ang admin app…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"Ini-install ang admin app…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Inaalis ang mga hindi kailangang system app…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Mayroon lang ilang tinatapos pa…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Itinatakda ang may-ari ng device…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Sinisimulan ang device…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Hindi pinapayagan ng device na ito ang pag-encrypt, na kailangan para sa pag-set up. Para sa tulong, makipag-ugnayan sa iyong IT admin."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Ihinto ang pag-set up at i-reset ang device?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Ire-reset nito ang iyong device at ibabalik ka sa unang screen"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"Ang device na ito ay pamamahalaan at pananatilihing secure ng iyong organisasyon"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Naghahandang i-set up ang device sa trabaho…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Sine-set up ang admin app"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"I-set up ang lahat ng iba pa"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Magdagdag ng personal na account para mas masulit ang iyong device"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Ngayong nakahanda na ang iyong profile sa trabaho, puwede ka ring magdagdag ng personal na Google Account para ma-access ang mga app at content mo."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Pagmamay-ari ng iyong organisasyon ang device na ito"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Gagamitin ang sumusunod na app para pamahalaan at subaybayan ang teleponong ito"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Pinamamahalaan ang iyong account"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Gumagamit ang iyong IT admin ng pamamahala ng mobile device para magpatupad ng mga patakaran sa seguridad"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Naghahanda para sa pag-set up ng trabaho…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"I-set up natin ang iyong profile sa trabaho"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Pinapanatili sa iyong profile sa trabaho ang mga app para sa trabaho"</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Panatilihing abot-kamay mo ang iyong mga app para sa trabaho"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Hindi pribado ang device na ito"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Baka makita ng iyong IT admin ang data at aktibidad mo sa device na ito."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Iyong aktibidad at data"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Mga pahintulot sa app"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Puwedeng magtakda ng mga pahintulot ang iyong IT admin para sa mga app sa device na ito, gaya ng mga pahintulot sa mikropono, camera, at lokasyon."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Sine-set up ang iyong device…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Gamitin ang device na ito para madaling ma-access ang iyong mga app para sa trabaho. Hindi pribado ang device na ito, kaya baka makita ng iyong IT admin ang data at aktibidad mo. Para matuto pa, makipag-ugnayan sa iyong IT admin."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Gamitin ang device na ito para madaling ma-access ang iyong mga app para sa trabaho. Hindi pribado ang device na ito, kaya baka makita ng iyong IT admin ang data at aktibidad mo."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Gamitin ang device na ito para madaling ma-access ang iyong mga app para sa trabaho. Hindi pribado ang device na ito, kaya baka makita ng iyong IT admin ang aktibidad at data mo. Puwede ring magtakda ng mga pahintulot ang iyong IT admin para sa mga app sa device na ito, gaya ng mga pahintulot sa mikropono, camera, at lokasyon."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Ibalik ang device na ito sa iyong IT admin"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Bumalik sa nakaraang screen, o i-reset ang device na ito at ibalik ito sa iyong IT admin."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Kanselahin ang pag-set up"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"I-reset at ibalik ang device"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Nasa profile mo sa trabaho ang apps para sa trabaho at mina-manage ito ng IT admin mo"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Nakahiwalay ang mga personal na app at nakatago ito mula sa mga app para sa trabaho"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Makokontrol ng iyong IT admin ang device na ito at makakapag-block siya ng ilang apps"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"Sandali lang…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Paalala sa privacy"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Baka makita ng iyong IT admin ang data at aktibidad mo sa device na ito"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Handa na ang iyong device!"</string>
-    <string name="done" msgid="7755227776955952318">"Tapos na"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Binili ang device na ito sa <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> sa pamamagitan ng credit"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"Magagawa ng <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> na:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"I-install ang <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> app para makapagbayad ka para sa device na ito"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"Paghigpitan ang access sa device na ito kung hindi ka magbabayad"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Nagmula sa <xliff:g id="CREDITOR_NAME">%s</xliff:g> ang device na ito"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Magbayad para sa device na ito"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"Puwedeng i-install ng <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> ang <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> para makapagbayad ka para sa device na ito."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Puwedeng paghigpitan ang device na ito"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Puwedeng paghigpitan ng <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ang access sa device na ito kung hindi ka magbabayad."</string>
 </resources>

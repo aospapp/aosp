@@ -1,29 +1,28 @@
 /*
  * __strcmp_aarch64_sve - compare two strings
  *
- * Copyright (c) 2018, Arm Limited.
+ * Copyright (c) 2018-2021, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
+#include "../asmdefs.h"
+
+#if __ARM_FEATURE_SVE
 /* Assumptions:
  *
  * ARMv8-a, AArch64
  * SVE Available.
  */
 
-	.arch	armv8-a+sve
-	.text
-
-	.globl	__strcmp_aarch64_sve
-	.type	__strcmp_aarch64_sve, %function
-	.p2align 4
-__strcmp_aarch64_sve:
+ENTRY (__strcmp_aarch64_sve)
+	PTR_ARG (0)
+	PTR_ARG (1)
 	setffr				/* initialize FFR */
 	ptrue	p1.b, all		/* all ones; loop invariant */
 	mov	x2, 0			/* initialize offset */
-	nop
 
 	/* Read a vector's worth of bytes, stopping on first fault.  */
+	.p2align 4
 0:	ldff1b	z0.b, p1/z, [x0, x2]
 	ldff1b	z1.b, p1/z, [x1, x2]
 	rdffrs	p0.b, p1/z
@@ -54,4 +53,7 @@ __strcmp_aarch64_sve:
 	b.none	0b
 	b	1b
 
-	.size	__strcmp_aarch64_sve, . - __strcmp_aarch64_sve
+END (__strcmp_aarch64_sve)
+
+#endif
+

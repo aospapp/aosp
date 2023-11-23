@@ -14,7 +14,10 @@
 */
 package com.android.bluetooth.sdp;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.SdpDipRecord;
 import android.bluetooth.SdpMasRecord;
 import android.bluetooth.SdpMnsRecord;
 import android.bluetooth.SdpOppOpsRecord;
@@ -365,6 +368,39 @@ public class SdpManager {
         }
     }
 
+    void sdpDipRecordFoundCallback(int status, byte[] address,
+            byte[] uuid,  int specificationId,
+            int vendorId, int vendorIdSource,
+            int productId, int version,
+            boolean primaryRecord,
+            boolean moreResults) {
+        synchronized(TRACKER_LOCK) {
+            SdpSearchInstance inst = sSdpSearchTracker.getSearchInstance(address, uuid);
+            SdpDipRecord sdpRecord = null;
+            if (inst == null) {
+              Log.e(TAG, "sdpDipRecordFoundCallback: Search instance is NULL");
+              return;
+            }
+            inst.setStatus(status);
+            if (D) {
+                Log.d(TAG, "sdpDipRecordFoundCallback: status " + status);
+            }
+            if (status == AbstractionLayer.BT_STATUS_SUCCESS) {
+                sdpRecord = new SdpDipRecord(specificationId,
+                        vendorId, vendorIdSource,
+                        productId, version,
+                        primaryRecord);
+            }
+            if (D) {
+                Log.d(TAG, "UUID: " + Arrays.toString(uuid));
+            }
+            if (D) {
+                Log.d(TAG, "UUID in parcel: " + ((Utils.byteArrayToUuid(uuid))[0]).toString());
+            }
+            sendSdpIntent(inst, sdpRecord, moreResults);
+        }
+    }
+
     /* TODO: Test or remove! */
     void sdpRecordFoundCallback(int status, byte[] address, byte[] uuid, int sizeRecord,
             byte[] record) {
@@ -455,7 +491,8 @@ public class SdpManager {
          * Keep in mind that the MAP client needs to use this as well,
          * hence to make it call-backs, the MAP client profile needs to be
          * part of the Bluetooth APK. */
-        sAdapterService.sendBroadcast(intent, AdapterService.BLUETOOTH_ADMIN_PERM);
+        sAdapterService.sendBroadcast(intent, BLUETOOTH_CONNECT,
+                Utils.getTempAllowlistBroadcastOptions());
 
         if (!moreResults) {
             //Remove the outstanding UUID request

@@ -14,16 +14,28 @@
  * limitations under the License.
  */
 
-package hidl2aidl@1.1;
+package hidl2aidl.test@1.1;
 
 import @1.0::Value;
+import @1.0::Outer;
+import @1.0::NameCollision;
 
 struct OverrideMe {
     string a;
 };
 
+struct NameCollision {
+    string b;
+    @1.0::NameCollision reference;
+};
+
 struct OnlyIn11 {
     int32_t str;
+};
+
+struct Outer {
+    @1.0::Outer v1_0;
+    int32_t a;
 };
 
 enum Value : @1.0::Value {

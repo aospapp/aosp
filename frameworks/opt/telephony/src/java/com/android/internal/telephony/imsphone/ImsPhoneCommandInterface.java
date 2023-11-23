@@ -24,16 +24,19 @@ import android.os.Message;
 import android.telephony.ImsiEncryptionInfo;
 import android.telephony.NetworkScanRequest;
 import android.telephony.SignalThresholdInfo;
+import android.telephony.TelephonyManager;
 import android.telephony.data.DataProfile;
+import android.telephony.data.NetworkSliceInfo;
+import android.telephony.data.TrafficDescriptor;
 import android.telephony.emergency.EmergencyNumber;
 
 import com.android.internal.telephony.BaseCommands;
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.RadioCapability;
 import com.android.internal.telephony.UUSInfo;
-import com.android.internal.telephony.uicc.IccCardApplicationStatus.PersoSubState;
 import com.android.internal.telephony.cdma.CdmaSmsBroadcastConfigInfo;
 import com.android.internal.telephony.gsm.SmsBroadcastConfigInfo;
+import com.android.internal.telephony.uicc.IccCardApplicationStatus.PersoSubState;
 
 /**
  * Volte doesn't need CommandsInterface. The class does nothing but made to work
@@ -282,8 +285,9 @@ class ImsPhoneCommandInterface extends BaseCommands implements CommandsInterface
 
     @Override
     public void setupDataCall(int accessNetworkType, DataProfile dataProfile, boolean isRoaming,
-                              boolean allowRoaming, int reason, LinkProperties linkProperties,
-                              Message result) {
+            boolean allowRoaming, int reason, LinkProperties linkProperties, int pduSessionId,
+            NetworkSliceInfo sliceInfo, TrafficDescriptor trafficDescriptor,
+            boolean matchAllRuleAllowed, Message result) {
     }
 
     @Override
@@ -452,6 +456,15 @@ class ImsPhoneCommandInterface extends BaseCommands implements CommandsInterface
 
     @Override
     public void getPreferredNetworkType(Message response) {
+    }
+
+    @Override
+    public void setAllowedNetworkTypesBitmap(
+            @TelephonyManager.NetworkTypeBitMask int networkTypeBitmask, Message response) {
+    }
+
+    @Override
+    public void getAllowedNetworkTypesBitmap(Message response) {
     }
 
     @Override
@@ -662,5 +675,21 @@ class ImsPhoneCommandInterface extends BaseCommands implements CommandsInterface
 
     @Override
     public void stopNattKeepalive(int sessionHandle, Message result) {
+    }
+
+    @Override
+    public void allocatePduSessionId(Message result) {
+    }
+
+    @Override
+    public void releasePduSessionId(Message result, int pduSessionId) {
+    }
+
+    @Override
+    public void startHandover(Message result, int callId) {
+    }
+
+    @Override
+    public void cancelHandover(Message result, int callId) {
     }
 }

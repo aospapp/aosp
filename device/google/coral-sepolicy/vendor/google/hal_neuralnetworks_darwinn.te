@@ -31,6 +31,8 @@ hal_client_domain(hal_neuralnetworks_darwinn, hal_power);
 # Allow DarwiNN HAL to talk to stats service, and to make binder calls to it.
 allow hal_neuralnetworks_darwinn fwk_stats_hwservice:hwservice_manager find;
 binder_call(hal_neuralnetworks_darwinn, stats_service_server)
+allow hal_neuralnetworks_darwinn fwk_stats_service:service_manager find;
+binder_use(hal_neuralnetworks_darwinn)
 
 # Allow DarwiNN HAL full access to its shared files with Camera HAL.
 allow hal_neuralnetworks_darwinn hal_neuralnetworks_darwinn_hal_camera_data_file:file create_file_perms;

@@ -77,6 +77,7 @@ class xfstests_env:
         mnt_options = ''
         if crypto:
             mkfs_args += '-O encrypt'
+            # TODO: update this when blockers are updated b:169251326
             mnt_options += '-o test_dummy_encryption'
 
         for fs_type in self.fs_types:

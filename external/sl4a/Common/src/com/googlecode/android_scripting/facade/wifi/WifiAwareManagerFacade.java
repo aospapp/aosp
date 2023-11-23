@@ -882,6 +882,16 @@ public class WifiAwareManagerFacade extends RpcReceiver {
             mResults.putString("messageAsString", new String(message));
             postEvent("WifiAwareSessionOnMessageReceived", mResults);
         }
+
+        @Override
+        public void onServiceLost(PeerHandle peerHandle, @WifiAwareManager.DiscoveryLostReasonCode
+                int reason) {
+            Bundle mResults = new Bundle();
+            mResults.putInt("discoverySessionId", mDiscoverySessionId);
+            mResults.putInt("peerId", peerHandle.peerId);
+            mResults.putInt("lostReason", reason);
+            postEvent("WifiAwareSessionOnServiceLost", mResults);
+        }
     }
 
     class WifiAwareRangingListener implements RttManager.RttListener {

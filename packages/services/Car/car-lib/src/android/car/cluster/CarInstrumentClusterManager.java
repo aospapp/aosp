@@ -16,12 +16,16 @@
 
 package android.car.cluster;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DEPRECATED_CODE;
+
 import android.annotation.SystemApi;
 import android.car.Car;
 import android.car.CarManagerBase;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 /**
  * API to work with instrument cluster.
@@ -35,6 +39,7 @@ import android.os.IBinder;
  */
 @Deprecated
 @SystemApi
+@ExcludeFromCodeCoverageGeneratedReport(reason = DEPRECATED_CODE)
 public class CarInstrumentClusterManager extends CarManagerBase {
     /**
      * @deprecated use {@link android.car.Car#CATEGORY_NAVIGATION} instead

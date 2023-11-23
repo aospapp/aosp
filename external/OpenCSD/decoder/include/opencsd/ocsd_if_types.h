@@ -273,16 +273,18 @@ typedef enum _ocsd_dcd_tree_src_t {
 
 /** Core Architecture Version */
 typedef enum _ocsd_arch_version {
-    ARCH_UNKNOWN,   /**< unknown architecture */
-    ARCH_CUSTOM,    /**< None ARM, custom architecture */
-    ARCH_V7,        /**< V7 architecture */
-    ARCH_V8,        /**< V8 architecture */
-    ARCH_V8r3,      /**< V8.3 architecture */
+    ARCH_UNKNOWN = 0x0000,   /**< unknown architecture */
+    ARCH_CUSTOM = 0x0001,    /**< None ARM, custom architecture */
+    ARCH_V7 = 0x0700,        /**< V7 architecture */
+    ARCH_V8 = 0x0800,        /**< V8 architecture */
+    ARCH_V8r3 = 0x0803,      /**< V8.3 architecture */
+    ARCH_AA64 = 0x0864,      /**< Min v8r3 plus additional AA64 PE features */
+    ARCH_V8_max = ARCH_AA64,
 } ocsd_arch_version_t;
 
 // macros for arch version comparisons.
-#define OCSD_IS_V8_ARCH(arch) ((arch >= ARCH_V8) && (arch <= ARCH_V8r3))
-#define OCSD_MIN_V8_ARCH(arch) (arch >= ARCH_V8)
+#define OCSD_IS_V8_ARCH(arch) ((arch >= ARCH_V8) && (arch <= ARCH_V8_max))
+#define OCSD_IS_ARCH_MINVER(arch, min_arch) (arch >= min_arch)
 
 /** Core Profile  */
 typedef enum _ocsd_core_profile {
@@ -352,7 +354,7 @@ typedef enum _ocsd_ex_level
 } ocsd_ex_level;
 
 
-/** instruction types - significant for waypoint calculaitons */
+/** instruction types - significant for waypoint calculations */
 typedef enum _ocsd_instr_type {
     OCSD_INSTR_OTHER,          /**< Other instruction - not significant for waypoints. */
     OCSD_INSTR_BR,             /**< Immediate Branch instruction */
@@ -360,6 +362,7 @@ typedef enum _ocsd_instr_type {
     OCSD_INSTR_ISB,            /**< Barrier : ISB instruction */
     OCSD_INSTR_DSB_DMB,        /**< Barrier : DSB or DMB instruction */
     OCSD_INSTR_WFI_WFE,        /**< WFI or WFE traced as direct branch */
+    OCSD_INSTR_TSTART,         /**< PE Arch feature FEAT_TME - TSTART instruction */
 } ocsd_instr_type;
 
 /** instruction sub types - addiitonal information passed to the output packets
@@ -547,6 +550,7 @@ typedef struct _ocsd_file_mem_region {
 #define OCSD_BUILTIN_DCD_ETMV4I     "ETMV4I"    /**< ETMv4 instruction decoder */
 #define OCSD_BUILTIN_DCD_ETMV4D     "ETMV4D"    /**< ETMv4 data decoder */
 #define OCSD_BUILTIN_DCD_PTM        "PTM"       /**< PTM decoder */
+#define OCSD_BUILTIN_DCD_ETE        "ETE"       /**< ETE decoder */
 
 /*! Trace Protocol Builtin Types + extern
  */
@@ -559,6 +563,7 @@ typedef enum _ocsd_trace_protocol_t {
     OCSD_PROTOCOL_ETMV4D,  /**< ETMV4 data trace protocol decoder. */
     OCSD_PROTOCOL_PTM,     /**< PTM program flow instruction trace protocol decoder. */
     OCSD_PROTOCOL_STM,     /**< STM system trace protocol decoder. */
+    OCSD_PROTOCOL_ETE,     /**< ETE trace protocol decoder */
 
 /* others to be added here */
     OCSD_PROTOCOL_BUILTIN_END,  /**< Invalid protocol - built-in protocol types end marker */

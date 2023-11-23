@@ -26,12 +26,17 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.CrossProfileApps;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.Bundle;
-import android.provider.Settings;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.bedstead.nene.TestApis;
+import com.android.bedstead.nene.permissions.PermissionContext;
 
 import org.junit.After;
 import org.junit.Test;
@@ -49,11 +54,14 @@ public class CrossProfileAppsPermissionToInteractTest {
             "android.permission.INTERACT_ACROSS_USERS";
     public static final String INTERACT_ACROSS_USERS_FULL_PERMISSION =
             "android.permission.INTERACT_ACROSS_USERS_FULL";
+    public static final String ACTION_MANAGE_CROSS_PROFILE_ACCESS =
+            "android.settings.MANAGE_CROSS_PROFILE_ACCESS";
 
     private static final ComponentName ADMIN_RECEIVER_COMPONENT =
             new ComponentName(
                     AdminReceiver.class.getPackage().getName(), AdminReceiver.class.getName());
     private static final String PARAM_CROSS_PROFILE_PACKAGE = "crossProfilePackage";
+    private static final TestApis sTestApis = new TestApis();
 
     private final Context mContext = InstrumentationRegistry.getContext();
     private final CrossProfileApps mCrossProfileApps =
@@ -78,54 +86,69 @@ public class CrossProfileAppsPermissionToInteractTest {
 
     @Test
     public void testCanInteractAcrossProfiles_withAppOpEnabled_returnsTrue() {
-        InstrumentationRegistry.getInstrumentation().getUiAutomation()
-            .adoptShellPermissionIdentity(MANAGE_APP_OPS_MODES_PERMISSION);
-        mAppOpsManager.setMode(AppOpsManager.OP_INTERACT_ACROSS_PROFILES,
-                Binder.getCallingUid(), mContext.getPackageName(), AppOpsManager.MODE_ALLOWED);
+        setAppOpOnAllProfiles(AppOpsManager.MODE_ALLOWED);
 
         assertThat(mCrossProfileApps.canInteractAcrossProfiles()).isTrue();
     }
 
     @Test
     public void testCanInteractAcrossProfiles_withCrossProfilesPermission_returnsTrue() {
-        InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .adoptShellPermissionIdentity(INTERACT_ACROSS_PROFILES_PERMISSION);
+        // Ideally we want to grant the permission in the other profile instead of allowing the
+        // appop, however UiAutomation#adoptShellPermission can't be used for multiple UIDs.
+        setAppOpOnAllProfiles(AppOpsManager.MODE_ALLOWED, /* includeCallingProfile= */ false);
+        setAppOpOnCurrentProfile(AppOpsManager.MODE_IGNORED);
 
-        assertThat(mCrossProfileApps.canInteractAcrossProfiles()).isTrue();
+        try (PermissionContext p = sTestApis.permissions().withPermission(
+                INTERACT_ACROSS_PROFILES_PERMISSION)) {
+            assertThat(mCrossProfileApps.canInteractAcrossProfiles()).isTrue();
+        }
     }
 
     @Test
     public void testCanInteractAcrossProfiles_withCrossUsersPermission_returnsTrue() {
-        InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .adoptShellPermissionIdentity(INTERACT_ACROSS_USERS_PERMISSION);
+        // Ideally we want to grant the permission in the other profile instead of allowing the
+        // appop, however UiAutomation#adoptShellPermission can't be used for multiple UIDs.
+        setAppOpOnAllProfiles(AppOpsManager.MODE_ALLOWED, /* includeCallingProfile= */ false);
+        setAppOpOnCurrentProfile(AppOpsManager.MODE_IGNORED);
 
-        assertThat(mCrossProfileApps.canInteractAcrossProfiles()).isTrue();
+        try (PermissionContext p = sTestApis.permissions().withPermission(
+                INTERACT_ACROSS_USERS_PERMISSION)) {
+            assertThat(mCrossProfileApps.canInteractAcrossProfiles()).isTrue();
+        }
     }
 
     @Test
     public void testCanInteractAcrossProfiles_withCrossUsersFullPermission_returnsTrue() {
-        InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .adoptShellPermissionIdentity(INTERACT_ACROSS_USERS_FULL_PERMISSION);
+        // Ideally we want to grant the permission in the other profile instead of allowing the
+        // appop, however UiAutomation#adoptShellPermission can't be used for multiple UIDs.
+        setAppOpOnAllProfiles(AppOpsManager.MODE_ALLOWED, /* includeCallingProfile= */ false);
+        setAppOpOnCurrentProfile(AppOpsManager.MODE_IGNORED);
 
-        assertThat(mCrossProfileApps.canInteractAcrossProfiles()).isTrue();
+        try (PermissionContext p = sTestApis.permissions().withPermission(
+                INTERACT_ACROSS_USERS_FULL_PERMISSION)) {
+            assertThat(mCrossProfileApps.canInteractAcrossProfiles()).isTrue();
+        }
     }
 
     @Test
-    public void testCanInteractAcrossProfiles_withAppOpDisabled_returnsFalse() {
-        InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .adoptShellPermissionIdentity(MANAGE_APP_OPS_MODES_PERMISSION);
-        mAppOpsManager.setMode(AppOpsManager.OP_INTERACT_ACROSS_PROFILES,
-                Binder.getCallingUid(), mContext.getPackageName(), AppOpsManager.MODE_IGNORED);
+    public void testCanInteractAcrossProfiles_withAppOpDisabledOnCallingProfile_returnsFalse() {
+        setAppOpOnAllProfiles(AppOpsManager.MODE_ALLOWED, /* includeCallingProfile= */ false);
+        setAppOpOnCurrentProfile(AppOpsManager.MODE_IGNORED);
+
+        assertThat(mCrossProfileApps.canInteractAcrossProfiles()).isFalse();
+    }
+
+    @Test
+    public void testCanInteractAcrossProfiles_withAppOpDisabledOnOtherProfiles_returnsFalse() {
+        setAppOpOnAllProfiles(AppOpsManager.MODE_IGNORED, /* includeCallingProfile= */ false);
+        setAppOpOnCurrentProfile(AppOpsManager.MODE_ALLOWED);
 
         assertThat(mCrossProfileApps.canInteractAcrossProfiles()).isFalse();
     }
 
     @Test
     public void testCanInteractAcrossProfiles_withNoOtherProfile_returnsFalse() {
-        InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .adoptShellPermissionIdentity(MANAGE_APP_OPS_MODES_PERMISSION);
-        mAppOpsManager.setMode(AppOpsManager.OP_INTERACT_ACROSS_PROFILES,
-                Binder.getCallingUid(), mContext.getPackageName(), AppOpsManager.MODE_ALLOWED);
+        setAppOpOnCurrentProfile(AppOpsManager.MODE_ALLOWED);
 
         assertThat(mCrossProfileApps.canInteractAcrossProfiles()).isFalse();
     }
@@ -135,7 +158,7 @@ public class CrossProfileAppsPermissionToInteractTest {
         Intent intent = mCrossProfileApps.createRequestInteractAcrossProfilesIntent();
 
         assertThat(intent).isNotNull();
-        assertThat(intent.getAction()).isEqualTo(Settings.ACTION_MANAGE_CROSS_PROFILE_ACCESS);
+        assertThat(intent.getAction()).isEqualTo(ACTION_MANAGE_CROSS_PROFILE_ACCESS);
         assertThat(intent.getData()).isNotNull();
         assertThat(intent.getData().getSchemeSpecificPart()).isEqualTo(mContext.getPackageName());
     }
@@ -177,5 +200,38 @@ public class CrossProfileAppsPermissionToInteractTest {
         }
         fail("cross profile package param not found.");
         return null;
+    }
+
+    private void setAppOpOnCurrentProfile(int mode) {
+        try (PermissionContext p = sTestApis.permissions().withPermission(
+                MANAGE_APP_OPS_MODES_PERMISSION)) {
+            mAppOpsManager.setMode(AppOpsManager.OPSTR_INTERACT_ACROSS_PROFILES,
+                    Binder.getCallingUid(), mContext.getPackageName(), mode);
+        }
+    }
+
+    private void setAppOpOnAllProfiles(int mode) {
+        setAppOpOnAllProfiles(mode, /* includeCallingProfile= */ true);
+    }
+
+    private void setAppOpOnAllProfiles(int mode, boolean includeCallingProfile) {
+        try (PermissionContext p = sTestApis.permissions().withPermission(
+                MANAGE_APP_OPS_MODES_PERMISSION, INTERACT_ACROSS_USERS_PERMISSION)) {
+            for (UserHandle profile : mContext.getSystemService(
+                    UserManager.class).getAllProfiles()) {
+                if (!includeCallingProfile && profile.getIdentifier() == mContext.getUserId()) {
+                    continue;
+                }
+                try {
+                    final int uid = mContext.createContextAsUser(profile, /* flags= */ 0)
+                            .getPackageManager().getPackageUid(
+                                    mContext.getPackageName(), /* flags= */ 0);
+                    mAppOpsManager.setMode(AppOpsManager.OPSTR_INTERACT_ACROSS_PROFILES,
+                            uid, mContext.getPackageName(), mode);
+                } catch (PackageManager.NameNotFoundException e) {
+                    // Do nothing
+                }
+            }
+        }
     }
 }

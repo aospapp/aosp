@@ -2,13 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import dbus
 import subprocess
-
-from autotest_lib.client.common_lib.cros import dbus_send
 
 # Full path of the CUPS configuration file
 _CUPS_CONF_FILE = '/etc/cups/cupsd.conf'
+
+class CommandFailedException(Exception):
+    """
+    An simple exception that is thrown when OS command fails.
+
+    """
+    pass
 
 class Configurator():
     """
@@ -26,54 +30,6 @@ class Configurator():
         """
         self._cupsd_conf_loglevel_line_no = None
         self._cupsd_conf_loglevel_content = None
-        self._loaded_components = []
-        self._components_to_load = ['epson-inkjet-printer-escpr',
-                'star-cups-driver']
-
-
-    def _load_component(self, component):
-        """
-        Download filter component via dbus API
-
-        @param component: name of component
-
-        @raises Exception if component is not loaded.
-
-        """
-        if component in self._loaded_components:
-            return
-        res = dbus_send.dbus_send(
-            'org.chromium.ComponentUpdaterService',
-            'org.chromium.ComponentUpdaterService',
-            '/org/chromium/ComponentUpdaterService',
-            'LoadComponent',
-            timeout_seconds=20,
-            user='root',
-            args=[dbus.String(component)])
-        if res.response == '':
-            message = 'Component %s could not be loaded.' % component
-            raise Exception(message)
-        self._loaded_components.append(component)
-
-
-    def _delete_component(self, component):
-        """
-        Delete filter component via dbus API
-
-        @param component: name of component
-
-        """
-        if component not in self._loaded_components:
-            return
-        dbus_send.dbus_send(
-            'org.chromium.ComponentUpdaterService',
-            'org.chromium.ComponentUpdaterService',
-            '/org/chromium/ComponentUpdaterService',
-            'UnloadComponent',
-            timeout_seconds=20,
-            user='root',
-            args=[dbus.String(component)])
-        self._loaded_components.remove(component)
 
 
     def _run_as_root(self, argv):
@@ -93,7 +49,7 @@ class Configurator():
         p1.stdout.close()
         out,err = p2.communicate()
         if p2.returncode != 0:
-            raise Exception("The command '%s' returns %d" %
+            raise CommandFailedException("The command '%s' returns %d" %
                     (' '.join(argv),p2.returncode));
         return out
 
@@ -123,8 +79,8 @@ class Configurator():
         # if CUPS is started, we have to stop
         try:
             self._run_as_root(['stop', 'cupsd'])
-        except:
-            None
+        except CommandFailedException:
+            pass
 
 
     def _restore_cups_logging_level(self):
@@ -151,14 +107,6 @@ class Configurator():
         self._run_as_root(['mount', '-o', 'rw,remount', '/'])
 
 
-    def _set_root_partition_as_read_only(self):
-        """
-        Remount the root partition in read-only mode.
-
-        """
-        self._run_as_root(['mount', '-o', 'ro,remount', '/'])
-
-
     def configure(self, set_cups_logging_level):
         """
         Apply the configuration required by the test.
@@ -167,14 +115,10 @@ class Configurator():
                 the root partition is remounted in R/W mode and the CUPS
                 configuration file is updated to set "LogLevel" to "debug".
         """
-        # Load components required by some printers (Epson and Star)
-        for component in self._components_to_load:
-            self._load_component(component)
         # Update CUPS logging level
         if set_cups_logging_level:
             self._set_root_partition_as_read_write()
             self._set_cups_logging_level()
-            self._set_root_partition_as_read_only()
 
 
     def restore(self):
@@ -185,9 +129,4 @@ class Configurator():
         """
         # Restore CUPS logging level
         if self._cupsd_conf_loglevel_content is not None:
-            self._set_root_partition_as_read_write()
             self._restore_cups_logging_level()
-            self._set_root_partition_as_read_write()
-        # Deleted components loaded during initialization
-        for component in self._components_to_load:
-            self._delete_component(component)

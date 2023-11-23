@@ -68,6 +68,7 @@ public class CellBroadcastChannelManager {
             ));
 
     private static ArrayList<CellBroadcastChannelRange> sAllCellBroadcastChannelRanges = null;
+    private static final Object channelRangesLock = new Object();
 
     private final Context mContext;
 
@@ -94,6 +95,21 @@ public class CellBroadcastChannelManager {
         private static final String KEY_OVERRIDE_DND = "override_dnd";
         /** Defines whether writing alert message should exclude from SMS inbox. */
         private static final String KEY_EXCLUDE_FROM_SMS_INBOX = "exclude_from_sms_inbox";
+        /** Define whether to display this cellbroadcast messages. */
+        private static final String KEY_DISPLAY = "display";
+        /** Define whether to enable this only in test/debug mode. */
+        private static final String KEY_TESTING_MODE_ONLY = "testing_mode";
+        /** Define the channels which not allow opt-out. */
+        private static final String KEY_ALWAYS_ON = "always_on";
+        /** Define the duration of screen on in milliseconds. */
+        private static final String KEY_SCREEN_ON_DURATION = "screen_on_duration";
+        /** Define whether to display warning icon in the alert dialog. */
+        private static final String KEY_DISPLAY_ICON = "display_icon";
+        /** Define whether to dismiss the alert dialog for outside touches */
+        private static final String KEY_DISMISS_ON_OUTSIDE_TOUCH = "dismiss_on_outside_touch";
+        /** Define the ISO-639-1 language code associated with the alert message. */
+        private static final String KEY_LANGUAGE_CODE = "language";
+
 
         /**
          * Defines whether the channel needs language filter or not. True indicates that the alert
@@ -119,12 +135,25 @@ public class CellBroadcastChannelManager {
         public int mScope;
         public int[] mVibrationPattern;
         public boolean mFilterLanguage;
+        public boolean mDisplay;
+        public boolean mTestMode;
         // by default no custom alert duration. play the alert tone with the tone's duration.
         public int mAlertDuration = -1;
         public boolean mOverrideDnd = false;
         // If enable_write_alerts_to_sms_inbox is true, write to sms inbox is enabled by default
         // for all channels except for channels which explicitly set to exclude from sms inbox.
         public boolean mWriteToSmsInbox = true;
+        // only set to true for channels not allow opt-out. e.g, presidential alert.
+        public boolean mAlwaysOn = false;
+        // de default screen duration is 1min;
+        public int mScreenOnDuration = 60000;
+        // whether to display warning icon in the pop-up dialog;
+        public boolean mDisplayIcon = true;
+        // whether to dismiss the alert dialog on outside touch. Typically this should be false
+        // to avoid accidental dismisses of emergency messages
+        public boolean mDismissOnOutsideTouch = false;
+        // This is used to override dialog title language
+        public String mLanguageCode;
 
         public CellBroadcastChannelRange(Context context, int subId, String channelRange) {
 
@@ -136,6 +165,10 @@ public class CellBroadcastChannelManager {
                     CellBroadcastSettings.getResources(context, subId)
                             .getIntArray(R.array.default_vibration_pattern);
             mFilterLanguage = false;
+            // by default all received messages should be displayed.
+            mDisplay = true;
+            mTestMode = false;
+            boolean hasVibrationPattern = false;
 
             int colonIndex = channelRange.indexOf(':');
             if (colonIndex != -1) {
@@ -179,6 +212,7 @@ public class CellBroadcastChannelManager {
                                     for (int i = 0; i < vibration.length; i++) {
                                         mVibrationPattern[i] = Integer.parseInt(vibration[i]);
                                     }
+                                    hasVibrationPattern = true;
                                 }
                                 break;
                             case KEY_FILTER_LANGUAGE:
@@ -199,10 +233,47 @@ public class CellBroadcastChannelManager {
                                     mWriteToSmsInbox = false;
                                 }
                                 break;
+                            case KEY_DISPLAY:
+                                if (value.equalsIgnoreCase("false")) {
+                                    mDisplay = false;
+                                }
+                                break;
+                            case KEY_TESTING_MODE_ONLY:
+                                if (value.equalsIgnoreCase("true")) {
+                                    mTestMode = true;
+                                }
+                                break;
+                            case KEY_ALWAYS_ON:
+                                if (value.equalsIgnoreCase("true")) {
+                                    mAlwaysOn = true;
+                                }
+                                break;
+                            case KEY_SCREEN_ON_DURATION:
+                                mScreenOnDuration = Integer.parseInt(value);
+                                break;
+                            case KEY_DISPLAY_ICON:
+                                if (value.equalsIgnoreCase("false")) {
+                                    mDisplayIcon = false;
+                                }
+                                break;
+                            case KEY_DISMISS_ON_OUTSIDE_TOUCH:
+                                if (value.equalsIgnoreCase("true")) {
+                                    mDismissOnOutsideTouch = true;
+                                }
+                                break;
+                            case KEY_LANGUAGE_CODE:
+                                mLanguageCode = value;
+                                break;
                         }
                     }
                 }
                 channelRange = channelRange.substring(0, colonIndex).trim();
+            }
+
+            // If alert type is info, override vibration pattern
+            if (!hasVibrationPattern && mAlertType.equals(AlertType.INFO)) {
+                mVibrationPattern = CellBroadcastSettings.getResources(context, subId)
+                        .getIntArray(R.array.default_notification_vibration_pattern);
             }
 
             // Parse the channel range
@@ -222,7 +293,11 @@ public class CellBroadcastChannelManager {
             return "Range:[channels=" + mStartId + "-" + mEndId + ",emergency level="
                     + mEmergencyLevel + ",type=" + mAlertType + ",scope=" + mScope + ",vibration="
                     + Arrays.toString(mVibrationPattern) + ",alertDuration=" + mAlertDuration
-                    + ",filter_language=" + mFilterLanguage + ",override_dnd=" + mOverrideDnd + "]";
+                    + ",filter_language=" + mFilterLanguage + ",override_dnd=" + mOverrideDnd
+                    + ",display=" + mDisplay + ",testMode=" + mTestMode + ",mAlwaysOn="
+                    + mAlwaysOn + ",ScreenOnDuration=" + mScreenOnDuration + ", displayIcon="
+                    + mDisplayIcon + "dismissOnOutsideTouch=" + mDismissOnOutsideTouch
+                    + ", languageCode=" + mLanguageCode + "]";
         }
     }
 
@@ -248,15 +323,15 @@ public class CellBroadcastChannelManager {
         ArrayList<CellBroadcastChannelRange> result = new ArrayList<>();
         String[] ranges =
                 CellBroadcastSettings.getResources(mContext, mSubId).getStringArray(key);
-
-        for (String range : ranges) {
-            try {
-                result.add(new CellBroadcastChannelRange(mContext, mSubId, range));
-            } catch (Exception e) {
-                loge("Failed to parse \"" + range + "\". e=" + e);
+        if (ranges != null) {
+            for (String range : ranges) {
+                try {
+                    result.add(new CellBroadcastChannelRange(mContext, mSubId, range));
+                } catch (Exception e) {
+                    loge("Failed to parse \"" + range + "\". e=" + e);
+                }
             }
         }
-
         return result;
     }
 
@@ -266,16 +341,31 @@ public class CellBroadcastChannelManager {
      * @return all cell broadcast channels
      */
     public @NonNull ArrayList<CellBroadcastChannelRange> getAllCellBroadcastChannelRanges() {
-        if (sAllCellBroadcastChannelRanges != null) return sAllCellBroadcastChannelRanges;
+        synchronized(channelRangesLock) {
+            if (sAllCellBroadcastChannelRanges != null) return sAllCellBroadcastChannelRanges;
 
-        ArrayList<CellBroadcastChannelRange> result = new ArrayList<>();
+            Log.d(TAG, "Create new channel range list");
+            ArrayList<CellBroadcastChannelRange> result = new ArrayList<>();
 
-        for (int key : sCellBroadcastRangeResourceKeys) {
-            result.addAll(getCellBroadcastChannelRanges(key));
+            for (int key : sCellBroadcastRangeResourceKeys) {
+                result.addAll(getCellBroadcastChannelRanges(key));
+            }
+
+            sAllCellBroadcastChannelRanges = result;
+            return result;
         }
+    }
 
-        sAllCellBroadcastChannelRanges = result;
-        return result;
+    /**
+     * Clear broadcast channel range list
+     */
+    public static void clearAllCellBroadcastChannelRanges() {
+        synchronized(channelRangesLock) {
+            if (sAllCellBroadcastChannelRanges != null) {
+                Log.d(TAG, "Clear channel range list");
+                sAllCellBroadcastChannelRanges = null;
+            }
+        }
     }
 
     /**
@@ -414,10 +504,6 @@ public class CellBroadcastChannelManager {
         // emergency property from the message itself, which is checking if the channel is between
         // MESSAGE_ID_PWS_FIRST_IDENTIFIER (4352) and MESSAGE_ID_PWS_LAST_IDENTIFIER (6399).
         return message.isEmergencyMessage();
-    }
-
-    private static void log(String msg) {
-        Log.d(TAG, msg);
     }
 
     private static void loge(String msg) {

@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
  cc_test_library {
      name: "libpath_checker_jni",
      cpp_std: "c++2a",
@@ -25,6 +29,7 @@
          "-Wunreachable-code",
          "-Wno-unused-parameter",
      ],
+     header_libs: ["jni_headers"],
      srcs: [
        "path_checker.cpp",
      ],

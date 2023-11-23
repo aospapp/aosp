@@ -163,9 +163,16 @@ public class IndicatorControlWheel extends IndicatorControl implements
         setPreferenceGroup(group);
 
         // Add the ZoomControl if supported.
+        mZoomControl = (ZoomControlWheel) findViewById(R.id.zoom_control);
         if (isZoomSupported) {
-            mZoomControl = (ZoomControlWheel) findViewById(R.id.zoom_control);
             mZoomControl.setVisibility(View.VISIBLE);
+        } else {
+            // ZoomControlWheel is default added in res/layout-sw600dp/camera_control.xml,
+            // If zoom not supported, should remove this view, or the radians of other view
+            // will be calculated incorrectly, thus control wheel show abnormal.
+            if (mZoomControl != null) {
+                removeView(mZoomControl);
+            }
         }
 
         // Add CameraPicker.

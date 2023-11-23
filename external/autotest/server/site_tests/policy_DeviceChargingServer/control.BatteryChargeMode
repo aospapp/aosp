@@ -6,7 +6,7 @@ from autotest_lib.client.common_lib import utils
 from autotest_lib.server.hosts import cros_host
 
 AUTHOR = 'ncrews'
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 NAME = 'policy_DeviceChargingServer.BatteryChargeMode'
 TIME = 'LONG'
 TEST_CATEGORY = 'General'

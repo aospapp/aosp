@@ -32,7 +32,7 @@
 #include <map>
 #include <utility>
 
-#include "VtsIdentityTestUtils.h"
+#include "Util.h"
 
 namespace android::hardware::identity {
 
@@ -123,9 +123,9 @@ vector<uint8_t> generateReaderCert(const vector<uint8_t>& publicKey,
                                    const vector<uint8_t>& signingKey) {
     time_t validityNotBefore = 0;
     time_t validityNotAfter = 0xffffffff;
-    optional<vector<uint8_t>> cert =
-            support::ecPublicKeyGenerateCertificate(publicKey, signingKey, "24601", "Issuer",
-                                                    "Subject", validityNotBefore, validityNotAfter);
+    optional<vector<uint8_t>> cert = support::ecPublicKeyGenerateCertificate(
+            publicKey, signingKey, "24601", "Issuer", "Subject", validityNotBefore,
+            validityNotAfter, {});
     return cert.value();
 }
 
@@ -262,8 +262,8 @@ void ReaderAuthTests::retrieveData(const vector<uint8_t>& readerPrivateKey,
     vector<uint8_t> deviceEngagementBytes = deviceEngagement.encode();
     vector<uint8_t> eReaderPubBytes = cppbor::Tstr("ignored").encode();
     cppbor::Array sessionTranscript = cppbor::Array()
-                                              .add(cppbor::Semantic(24, deviceEngagementBytes))
-                                              .add(cppbor::Semantic(24, eReaderPubBytes));
+                                              .add(cppbor::SemanticTag(24, deviceEngagementBytes))
+                                              .add(cppbor::SemanticTag(24, eReaderPubBytes));
     vector<uint8_t> sessionTranscriptBytes = sessionTranscript.encode();
 
     vector<uint8_t> itemsRequestBytes;
@@ -293,10 +293,10 @@ void ReaderAuthTests::retrieveData(const vector<uint8_t>& readerPrivateKey,
             cppbor::Array()
                     .add("ReaderAuthentication")
                     .add(sessionTranscript.clone())
-                    .add(cppbor::Semantic(24, itemsRequestBytes))
+                    .add(cppbor::SemanticTag(24, itemsRequestBytes))
                     .encode();
     vector<uint8_t> encodedReaderAuthenticationBytes =
-            cppbor::Semantic(24, encodedReaderAuthentication).encode();
+            cppbor::SemanticTag(24, encodedReaderAuthentication).encode();
 
     optional<vector<uint8_t>> readerSignature =
             support::coseSignEcDsa(readerPrivateKey,                  // private key for reader
@@ -517,8 +517,8 @@ TEST_P(ReaderAuthTests, ephemeralKeyNotInSessionTranscript) {
     vector<uint8_t> deviceEngagementBytes = deviceEngagement.encode();
     vector<uint8_t> eReaderPubBytes = cppbor::Tstr("ignored").encode();
     cppbor::Array sessionTranscript = cppbor::Array()
-                                              .add(cppbor::Semantic(24, deviceEngagementBytes))
-                                              .add(cppbor::Semantic(24, eReaderPubBytes));
+                                              .add(cppbor::SemanticTag(24, deviceEngagementBytes))
+                                              .add(cppbor::SemanticTag(24, eReaderPubBytes));
     vector<uint8_t> sessionTranscriptBytes = sessionTranscript.encode();
 
     vector<uint8_t> itemsRequestBytes;
@@ -535,10 +535,10 @@ TEST_P(ReaderAuthTests, ephemeralKeyNotInSessionTranscript) {
             cppbor::Array()
                     .add("ReaderAuthentication")
                     .add(sessionTranscript.clone())
-                    .add(cppbor::Semantic(24, itemsRequestBytes))
+                    .add(cppbor::SemanticTag(24, itemsRequestBytes))
                     .encode();
     vector<uint8_t> encodedReaderAuthenticationBytes =
-            cppbor::Semantic(24, encodedReaderAuthentication).encode();
+            cppbor::SemanticTag(24, encodedReaderAuthentication).encode();
 
     vector<vector<uint8_t>> readerCertChain = {cert_reader_SelfSigned_};
     optional<vector<uint8_t>> readerSignature =
@@ -594,6 +594,7 @@ TEST_P(ReaderAuthTests, ephemeralKeyNotInSessionTranscript) {
               status.serviceSpecificErrorCode());
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ReaderAuthTests);
 INSTANTIATE_TEST_SUITE_P(
         Identity, ReaderAuthTests,
         testing::ValuesIn(android::getAidlHalInstanceNames(IIdentityCredentialStore::descriptor)),

@@ -53,6 +53,53 @@ base::Optional<std::string> HasDuplicateColumns(
   return base::nullopt;
 }
 
+std::string OpToString(int op) {
+  switch (op) {
+    case SQLITE_INDEX_CONSTRAINT_EQ:
+      return "=";
+    case SQLITE_INDEX_CONSTRAINT_NE:
+      return "!=";
+    case SQLITE_INDEX_CONSTRAINT_GE:
+      return ">=";
+    case SQLITE_INDEX_CONSTRAINT_GT:
+      return ">";
+    case SQLITE_INDEX_CONSTRAINT_LE:
+      return "<=";
+    case SQLITE_INDEX_CONSTRAINT_LT:
+      return "<";
+    case SQLITE_INDEX_CONSTRAINT_LIKE:
+      return "like";
+    case SQLITE_INDEX_CONSTRAINT_ISNULL:
+      // The "null" will be added below in EscapedSqliteValueAsString.
+      return " is ";
+    case SQLITE_INDEX_CONSTRAINT_ISNOTNULL:
+      // The "null" will be added below in EscapedSqliteValueAsString.
+      return " is not";
+    default:
+      PERFETTO_FATAL("Operator to string conversion not impemented for %d", op);
+  }
+}
+
+std::string EscapedSqliteValueAsString(sqlite3_value* value) {
+  switch (sqlite3_value_type(value)) {
+    case SQLITE_INTEGER:
+      return std::to_string(sqlite3_value_int64(value));
+    case SQLITE_FLOAT:
+      return std::to_string(sqlite3_value_double(value));
+    case SQLITE_TEXT: {
+      // If str itself contains a single quote, we need to escape it with
+      // another single quote.
+      const char* str =
+          reinterpret_cast<const char*>(sqlite3_value_text(value));
+      return "'" + base::ReplaceAll(str, "'", "''") + "'";
+    }
+    case SQLITE_NULL:
+      return " null";
+    default:
+      PERFETTO_FATAL("Unknown value type %d", sqlite3_value_type(value));
+  }
+}
+
 }  // namespace
 
 SpanJoinOperatorTable::SpanJoinOperatorTable(sqlite3* db, const TraceStorage*)
@@ -225,7 +272,27 @@ int SpanJoinOperatorTable::BestIndex(const QueryConstraints& qc,
         (ob.size() == 1 && is_first_ob_partition) ||
         (ob.size() == 2 && is_first_ob_partition && is_second_ob_ts);
   }
+
+  const auto& cs = qc.constraints();
+  for (uint32_t i = 0; i < cs.size(); ++i) {
+    if (cs[i].op == kSourceGeqOpCode) {
+      info->sqlite_omit_constraint[i] = true;
+    }
+  }
+
   return SQLITE_OK;
+}
+
+int SpanJoinOperatorTable::FindFunction(const char* name,
+                                        FindFunctionFn* fn,
+                                        void**) {
+  if (base::CaseInsensitiveEqual(name, "source_geq")) {
+    *fn = [](sqlite3_context* ctx, int, sqlite3_value**) {
+      sqlite3_result_error(ctx, "Should not be called.", -1);
+    };
+    return kSourceGeqOpCode;
+  }
+  return 0;
 }
 
 std::vector<std::string>
@@ -237,15 +304,30 @@ SpanJoinOperatorTable::ComputeSqlConstraintsForDefinition(
   for (size_t i = 0; i < qc.constraints().size(); i++) {
     const auto& cs = qc.constraints()[i];
     auto col_name = GetNameForGlobalColumnIndex(defn, cs.column);
-    if (col_name == "")
+    if (col_name.empty())
       continue;
 
-    if (col_name == kTsColumnName || col_name == kDurColumnName) {
-      // Allow SQLite handle any constraints on ts or duration.
+    // Le constraints can be passed straight to the child tables as they won't
+    // affect the span join computation. Similarily, source_geq constraints
+    // explicitly request that they are passed as geq constraints to the source
+    // tables.
+    if (col_name == kTsColumnName && !sqlite_utils::IsOpLe(cs.op) &&
+        cs.op != kSourceGeqOpCode)
       continue;
-    }
-    auto op = sqlite_utils::OpToString(cs.op);
-    auto value = sqlite_utils::SqliteValueAsString(argv[i]);
+
+    // Allow SQLite handle any constraints on duration apart from source_geq
+    // constraints.
+    if (col_name == kDurColumnName && cs.op != kSourceGeqOpCode)
+      continue;
+
+    // If we're emitting shadow slices, don't propogate any constraints
+    // on this table as this will break the shadow slice computation.
+    if (defn.ShouldEmitPresentPartitionShadow())
+      continue;
+
+    auto op = OpToString(cs.op == kSourceGeqOpCode ? SQLITE_INDEX_CONSTRAINT_GE
+                                                   : cs.op);
+    auto value = EscapedSqliteValueAsString(argv[i]);
 
     constraints.emplace_back("`" + col_name + "`" + op + value);
   }
@@ -263,7 +345,11 @@ util::Status SpanJoinOperatorTable::CreateTableDefinition(
         desc.name.c_str());
   }
 
-  auto cols = sqlite_utils::GetColumnsForTable(db_, desc.name);
+  std::vector<SqliteTable::Column> cols;
+  auto status = sqlite_utils::GetColumnsForTable(db_, desc.name, cols);
+  if (!status.ok()) {
+    return status;
+  }
 
   uint32_t required_columns_found = 0;
   uint32_t ts_idx = std::numeric_limits<uint32_t>::max();
@@ -335,11 +421,16 @@ int SpanJoinOperatorTable::Cursor::Filter(const QueryConstraints& qc,
                                           FilterHistory) {
   PERFETTO_TP_TRACE("SPAN_JOIN_XFILTER");
 
-  util::Status status = t1_.Initialize(qc, argv);
+  util::Status status =
+      t1_.Initialize(qc, argv, Query::InitialEofBehavior::kTreatAsEof);
   if (!status.ok())
     return SQLITE_ERROR;
 
-  status = t2_.Initialize(qc, argv);
+  status = t2_.Initialize(
+      qc, argv,
+      table_->IsLeftJoin()
+          ? Query::InitialEofBehavior::kTreatAsMissingPartitionShadow
+          : Query::InitialEofBehavior::kTreatAsEof);
   if (!status.ok())
     return SQLITE_ERROR;
 
@@ -417,7 +508,7 @@ util::Status SpanJoinOperatorTable::Cursor::FindOverlappingSpan() {
     // Find which slice finishes first.
     next_query_ = FindEarliestFinishQuery();
 
-    // If the current span is overlapping, just finsh there to emit the current
+    // If the current span is overlapping, just finish there to emit the current
     // slice.
     if (IsOverlappingSpan())
       break;
@@ -529,11 +620,19 @@ SpanJoinOperatorTable::Query::~Query() = default;
 
 util::Status SpanJoinOperatorTable::Query::Initialize(
     const QueryConstraints& qc,
-    sqlite3_value** argv) {
+    sqlite3_value** argv,
+    InitialEofBehavior eof_behavior) {
   *this = Query(table_, definition(), db_);
   sql_query_ = CreateSqlQuery(
       table_->ComputeSqlConstraintsForDefinition(*defn_, qc, argv));
-  return Rewind();
+  util::Status status = Rewind();
+  if (!status.ok())
+    return status;
+  if (eof_behavior == InitialEofBehavior::kTreatAsMissingPartitionShadow &&
+      IsEof()) {
+    state_ = State::kMissingPartitionShadow;
+  }
+  return status;
 }
 
 util::Status SpanJoinOperatorTable::Query::Next() {

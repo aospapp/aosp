@@ -5,6 +5,7 @@
 # New added for moving to /system
 type mobile_log_d_exec, system_file_type, exec_type, file_type;
 typeattribute mobile_log_d coredomain;
+typeattribute mobile_log_d mlstrustedsubject;
 
 init_daemon_domain(mobile_log_d)
 
@@ -62,9 +63,9 @@ allow mobile_log_d toolbox_exec:file rx_file_perms;
 allow mobile_log_d rootfs:file r_file_perms;
 
 #dev/__properties__ access
-allow mobile_log_d device_logging_prop:file { getattr open };
-allow mobile_log_d mmc_prop:file { getattr open };
-allow mobile_log_d safemode_prop:file { getattr open };
+get_prop(mobile_log_d, device_logging_prop)
+get_prop(mobile_log_d, mmc_prop)
+get_prop(mobile_log_d, safemode_prop)
 
 # purpose: allow MobileLog to access storage in N version
 allow mobile_log_d media_rw_data_file:file  create_file_perms;
@@ -86,3 +87,21 @@ allow mobile_log_d sysfs_mcupm:file w_file_perms;
 allow mobile_log_d sysfs_mcupm:dir search;
 
 allow mobile_log_d sysfs_boot_info:file r_file_perms;
+
+#for logpost feature
+userdebug_or_eng(`
+  allow mobile_log_d domain:dir r_dir_perms;
+  allow mobile_log_d domain:{file lnk_file} r_file_perms;
+  allow mobile_log_d dnsproxyd_socket:sock_file write;
+  allow mobile_log_d self:udp_socket create;
+  allow mobile_log_d netd:unix_stream_socket connectto;
+  allow mobile_log_d self:tcp_socket getopt;
+  allow mobile_log_d fwmarkd_socket:sock_file write;
+  set_prop(mobile_log_d, system_mtk_mobile_log_post_prop)
+')
+
+#mobile itself property
+set_prop(mobile_log_d, system_mtk_mobile_log_prop)
+
+# purpose: allow mobile_log_d to read persist.vendor.mtk.aee
+get_prop(mobile_log_d, system_mtk_persist_mtk_aee_prop)

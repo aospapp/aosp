@@ -19,7 +19,6 @@ package com.android.ide.common.resources.deprecated;
 import com.android.ide.common.rendering.api.ResourceValue;
 import com.android.ide.common.resources.configuration.Configurable;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
-import com.android.io.IAbstractFile;
 import com.android.resources.ResourceType;
 
 /**
@@ -29,10 +28,10 @@ import com.android.resources.ResourceType;
 @Deprecated
 public abstract class ResourceFile implements Configurable {
 
-    private final IAbstractFile mFile;
+    private final TestFileWrapper mFile;
     private final ResourceFolder mFolder;
 
-    protected ResourceFile(IAbstractFile file, ResourceFolder folder) {
+    protected ResourceFile(TestFileWrapper file, ResourceFolder folder) {
         mFile = file;
         mFolder = folder;
     }
@@ -48,7 +47,7 @@ public abstract class ResourceFile implements Configurable {
     /**
      * Returns the IFile associated with the ResourceFile.
      */
-    public final IAbstractFile getFile() {
+    public final TestFileWrapper getFile() {
         return mFile;
     }
 

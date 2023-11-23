@@ -45,11 +45,11 @@
     <item msgid="1456504206632415023">"スモールキャピタル"</item>
   </string-array>
   <string-array name="captioning_font_size_selector_titles">
-    <item msgid="2544683044075498815">"極小"</item>
+    <item msgid="2544683044075498815">"最小"</item>
     <item msgid="4812733698855185131">"小"</item>
     <item msgid="628695363180883207">"標準"</item>
     <item msgid="7397980392121949818">"大"</item>
-    <item msgid="8774213681644780958">"極大"</item>
+    <item msgid="8774213681644780958">"最大"</item>
   </string-array>
   <string-array name="captioning_edge_type_selector_titles">
     <item msgid="4482240152068132930">"なし"</item>
@@ -63,6 +63,12 @@
     <item msgid="6571958570070138850">"50%"</item>
     <item msgid="8127599536762217559">"75%"</item>
     <item msgid="4680121960387090302">"100%"</item>
+  </string-array>
+  <string-array name="font_scale_entries">
+    <item msgid="6953338104484431184">"小"</item>
+    <item msgid="3988732129988118066">"デフォルト"</item>
+    <item msgid="366536516474422757">"大"</item>
+    <item msgid="2224819763437549790">"最大"</item>
   </string-array>
   <string-array name="wifi_peap_phase2_entries">
     <item msgid="5504589898033185752">"なし"</item>

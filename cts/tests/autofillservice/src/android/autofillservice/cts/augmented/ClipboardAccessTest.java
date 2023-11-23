@@ -20,6 +20,7 @@ import static android.content.Context.CLIPBOARD_SERVICE;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.autofillservice.cts.commontests.AugmentedAutofillManualActivityLaunchTestCase;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.platform.test.annotations.AppModeFull;
@@ -46,7 +47,7 @@ public class ClipboardAccessTest extends AugmentedAutofillManualActivityLaunchTe
 
     @Test
     public void testDoIt() throws Exception {
-        // Sanity check to make sure test is in a state where it cannot write to the clipboard.
+        // Check to make sure test is in a state where it cannot write to the clipboard.
         mClipboardManager.setPrimaryClip(ClipData.newPlainText(null, "Y U SET?"));
         assertWithMessage("should not be able to set clipboard yet")
                 .that(mClipboardManager.getPrimaryClip()).isNull();

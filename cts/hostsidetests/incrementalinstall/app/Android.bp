@@ -13,6 +13,10 @@
 // limitations under the License.
 
 // v1 implementation of test app built with v1 manifest.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "IncrementalTestApp",
     srcs: ["v1/src/**/*.java"],
@@ -24,6 +28,7 @@ android_test_helper_app {
     },
     test_suites: [
         "cts",
+        "general-tests",
     ],
     v4_signature: true,
     static_libs: [
@@ -39,6 +44,34 @@ android_test_helper_app {
     use_embedded_native_libs: false,
 }
 
+// v1 implementation of test app built with v1 manifest with uncompressed native libs.
+android_test_helper_app {
+    name: "IncrementalTestAppUncompressed",
+    srcs: ["v1/src/**/*.java"],
+    dex_preopt: {
+        enabled: false,
+    },
+    optimize: {
+        enabled: false,
+    },
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    v4_signature: true,
+    static_libs: [
+        "incremental-install-common-lib",
+    ],
+    sdk_version: "test_current",
+    export_package_resources: true,
+    aapt_include_all_resources: true,
+    manifest: "AndroidManifestV1.xml",
+
+    // This flag allow the native lib to be uncompressed in the apk or associated split apk, and
+    // does not need to be extracted by the installer.
+    use_embedded_native_libs: true,
+}
+
 // v2 implementation of test app built with v1 manifest for zero version update test.
 android_test_helper_app {
     name: "IncrementalTestApp2_v1",
@@ -51,6 +84,7 @@ android_test_helper_app {
     },
     test_suites: [
         "cts",
+        "general-tests",
     ],
     v4_signature: true,
     static_libs: [
@@ -74,6 +108,7 @@ android_test_helper_app {
     },
     test_suites: [
         "cts",
+        "general-tests",
     ],
     v4_signature: true,
     static_libs: [

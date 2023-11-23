@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.toList;
 
 import android.content.ComponentName;
 import android.content.Intent;
+import android.net.Uri;
 import android.server.wm.WindowManagerState;
 
 import com.google.common.collect.Lists;
@@ -225,22 +226,29 @@ public class Persistence {
         private static final String FLAGS_KEY = "flags";
         private static final String PACKAGE_KEY = "package";
         private static final String CLASS_KEY = "class";
+        private static final String DATA_KEY = "data";
         private static final String START_FOR_RESULT_KEY = "startForResult";
 
         private final List<IntentFlag> mIntentFlags;
         private final ComponentName mComponentName;
+        private final String mData;
         private final boolean mStartForResult;
 
-        public LaunchIntent(List<IntentFlag> intentFlags, ComponentName componentName,
+        public LaunchIntent(List<IntentFlag> intentFlags, ComponentName componentName, String data,
                 boolean startForResult) {
             mIntentFlags = intentFlags;
             mComponentName = componentName;
+            mData = data;
             mStartForResult = startForResult;
         }
 
         @Override
         public Intent getActualIntent() {
-            return new Intent().setComponent(mComponentName).setFlags(buildFlag());
+            final Intent intent = new Intent().setComponent(mComponentName).setFlags(buildFlag());
+            if (mData != null && !mData.isEmpty()) {
+                intent.setData(Uri.parse(mData));
+            }
+            return intent;
         }
 
         @Override
@@ -272,11 +280,13 @@ public class Persistence {
             List<IntentFlag> flags = IntentFlag.parse(table, fakeIntent.getString(FLAGS_KEY));
 
             boolean startForResult = fakeIntent.optBoolean(START_FOR_RESULT_KEY, false);
+            String uri = fakeIntent.optString(DATA_KEY);
             return new LaunchIntent(flags,
                     new ComponentName(
                             fakeIntent.getString(PACKAGE_KEY),
-                            fakeIntent.getString(CLASS_KEY)), startForResult);
-
+                            fakeIntent.getString(CLASS_KEY)),
+                            uri,
+                            startForResult);
         }
 
         @Override
@@ -290,7 +300,7 @@ public class Persistence {
         public LaunchIntent withFlags(IntentFlag... flags) {
             List<IntentFlag> intentFlags = Lists.newArrayList(mIntentFlags);
             Collections.addAll(intentFlags, flags);
-            return new LaunchIntent(intentFlags, mComponentName, mStartForResult);
+            return new LaunchIntent(intentFlags, mComponentName, mData, mStartForResult);
         }
 
         public List<IntentFlag> getIntentFlags() {
@@ -299,10 +309,6 @@ public class Persistence {
 
         public ComponentName getComponentName() {
             return mComponentName;
-        }
-
-        public boolean isStartForResult() {
-            return mStartForResult;
         }
     }
 

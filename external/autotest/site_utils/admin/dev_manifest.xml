@@ -12,6 +12,9 @@
   <project path="autotest"
            name="chromiumos/third_party/autotest" />
 
+  <project path="autotest/server/cros/faft/fw-testing-configs"
+           name="chromiumos/platform/fw-testing-configs" />
+
   <project path="autotest/site_utils/devserver"
            name="chromiumos/platform/dev-util" />
 

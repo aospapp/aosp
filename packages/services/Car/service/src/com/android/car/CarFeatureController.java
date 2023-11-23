@@ -25,8 +25,9 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.AtomicFile;
-import android.util.Log;
+import android.util.IndentingPrintWriter;
 import android.util.Pair;
+import android.util.Slog;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
@@ -40,7 +41,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,7 +54,7 @@ import java.util.List;
  */
 public final class CarFeatureController implements CarServiceBase {
 
-    private static final String TAG = "CAR.FEATURE";
+    private static final String TAG = CarLog.tagFor(CarFeatureController.class);
 
     // Use HaseSet for better search performance. Memory consumption is fixed and it not an issue.
     // Should keep alphabetical order under each bucket.
@@ -64,23 +64,21 @@ public final class CarFeatureController implements CarServiceBase {
             Car.AUDIO_SERVICE,
             Car.BLUETOOTH_SERVICE,
             Car.CAR_BUGREPORT_SERVICE,
-            Car.CAR_CONFIGURATION_SERVICE,
+            Car.CAR_DEVICE_POLICY_SERVICE,
             Car.CAR_DRIVING_STATE_SERVICE,
             Car.CAR_INPUT_SERVICE,
             Car.CAR_MEDIA_SERVICE,
             Car.CAR_OCCUPANT_ZONE_SERVICE,
-            Car.CAR_TRUST_AGENT_ENROLLMENT_SERVICE,
             Car.CAR_USER_SERVICE,
             Car.CAR_UX_RESTRICTION_SERVICE,
+            Car.CAR_WATCHDOG_SERVICE,
             Car.INFO_SERVICE,
             Car.PACKAGE_SERVICE,
             Car.POWER_SERVICE,
             Car.PROJECTION_SERVICE,
             Car.PROPERTY_SERVICE,
             Car.TEST_SERVICE,
-            Car.CAR_WATCHDOG_SERVICE,
             // All items below here are deprecated, but still should be supported
-            Car.CAR_INSTRUMENT_CLUSTER_SERVICE,
             Car.CABIN_SERVICE,
             Car.HVAC_SERVICE,
             Car.SENSOR_SERVICE,
@@ -89,11 +87,21 @@ public final class CarFeatureController implements CarServiceBase {
 
     private static final HashSet<String> OPTIONAL_FEATURES = new HashSet<>(Arrays.asList(
             CarFeatures.FEATURE_CAR_USER_NOTICE_SERVICE,
+            Car.CLUSTER_HOME_SERVICE,
             Car.CAR_NAVIGATION_SERVICE,
             Car.DIAGNOSTIC_SERVICE,
             Car.OCCUPANT_AWARENESS_SERVICE,
             Car.STORAGE_MONITORING_SERVICE,
-            Car.VEHICLE_MAP_SERVICE
+            Car.VEHICLE_MAP_SERVICE,
+            Car.CAR_TELEMETRY_SERVICE,
+            // All items below here are deprecated, but still could be supported
+            Car.CAR_INSTRUMENT_CLUSTER_SERVICE
+    ));
+
+    // This is a feature still under development and cannot be enabled in user build.
+    private static final HashSet<String> NON_USER_ONLY_FEATURES = new HashSet<>(Arrays.asList(
+            Car.CAR_EVS_SERVICE,
+            Car.CAR_TELEMETRY_SERVICE
     ));
 
     // Features that depend on another feature being enabled (i.e. legacy API support).
@@ -105,7 +113,7 @@ public final class CarFeatureController implements CarServiceBase {
 
     private static final String FEATURE_CONFIG_FILE_NAME = "car_feature_config.txt";
 
-    // Last line starts with this with number of features for extra sanity check.
+    // Last line starts with this with number of features for extra confidence check.
     private static final String CONFIG_FILE_LAST_LINE_MARKER = ",,";
 
     // Set once in constructor and not updated. Access it without lock so that it can be accessed
@@ -137,10 +145,13 @@ public final class CarFeatureController implements CarServiceBase {
     public CarFeatureController(@NonNull Context context,
             @NonNull String[] defaultEnabledFeaturesFromConfig,
             @NonNull String[] disabledFeaturesFromVhal, @NonNull File dataDir) {
+        if (!Build.IS_USER) {
+            OPTIONAL_FEATURES.addAll(NON_USER_ONLY_FEATURES);
+        }
         mContext = context;
         mDefaultEnabledFeaturesFromConfig = Arrays.asList(defaultEnabledFeaturesFromConfig);
         mDisabledFeaturesFromVhal = Arrays.asList(disabledFeaturesFromVhal);
-        Log.i(TAG, "mDefaultEnabledFeaturesFromConfig:" + mDefaultEnabledFeaturesFromConfig
+        Slog.i(TAG, "mDefaultEnabledFeaturesFromConfig:" + mDefaultEnabledFeaturesFromConfig
                 + ",mDisabledFeaturesFromVhal:" + mDisabledFeaturesFromVhal);
         mEnabledFeatures = new HashSet<>(MANDATORY_FEATURES);
         mFeatureConfigFile = new AtomicFile(new File(dataDir, FEATURE_CONFIG_FILE_NAME), TAG);
@@ -179,7 +190,7 @@ public final class CarFeatureController implements CarServiceBase {
     }
 
     @Override
-    public void dump(PrintWriter writer) {
+    public void dump(IndentingPrintWriter writer) {
         writer.println("*CarFeatureController*");
         writer.println(" mEnabledFeatures:" + mEnabledFeatures);
         writer.println(" mDefaultEnabledFeaturesFromConfig:" + mDefaultEnabledFeaturesFromConfig);
@@ -200,7 +211,7 @@ public final class CarFeatureController implements CarServiceBase {
         // Ensure that mandatory features are always there
         for (String feature: MANDATORY_FEATURES) {
             if (!mEnabledFeatures.contains(feature)) {
-                Log.e(TAG, "Mandatory feature missing in mEnabledFeatures:" + feature);
+                Slog.e(TAG, "Mandatory feature missing in mEnabledFeatures:" + feature);
                 return false;
             }
         }
@@ -215,7 +226,7 @@ public final class CarFeatureController implements CarServiceBase {
         if (!OPTIONAL_FEATURES.contains(featureName)) {
             synchronized (mLock) {
                 if (!mAvailableExperimentalFeatures.contains(featureName)) {
-                    Log.e(TAG, "enableFeature requested for non-existing feature:"
+                    Slog.e(TAG, "enableFeature requested for non-existing feature:"
                             + featureName);
                     return Car.FEATURE_REQUEST_NOT_EXISTING;
                 }
@@ -244,7 +255,7 @@ public final class CarFeatureController implements CarServiceBase {
             }
         }
         if (shouldUpdateConfigFile) {
-            Log.w(TAG, "Enabling feature in config file:" + featureName);
+            Slog.w(TAG, "Enabling feature in config file:" + featureName);
             dispatchDefaultConfigUpdate();
         }
         if (alreadyEnabled) {
@@ -274,7 +285,7 @@ public final class CarFeatureController implements CarServiceBase {
             }
         }
         if (shouldUpdateConfigFile) {
-            Log.w(TAG, "Disabling feature in config file:" + featureName);
+            Slog.w(TAG, "Disabling feature in config file:" + featureName);
             dispatchDefaultConfigUpdate();
         }
         if (alreadyDisabled) {
@@ -293,7 +304,7 @@ public final class CarFeatureController implements CarServiceBase {
     public boolean setAvailableExperimentalFeatureList(List<String> experimentalFeatures) {
         assertPermission();
         if (Build.IS_USER) {
-            Log.e(TAG, "Experimental feature list set for USER build",
+            Slog.e(TAG, "Experimental feature list set for USER build",
                     new RuntimeException());
             return false;
         }
@@ -329,7 +340,7 @@ public final class CarFeatureController implements CarServiceBase {
     /** Returns currently enabled experimental features */
     public @NonNull List<String> getEnabledExperimentalFeatures() {
         if (Build.IS_USER) {
-            Log.e(TAG, "getEnabledExperimentalFeatures called in USER build",
+            Slog.e(TAG, "getEnabledExperimentalFeatures called in USER build",
                     new RuntimeException());
             return Collections.emptyList();
         }
@@ -347,7 +358,7 @@ public final class CarFeatureController implements CarServiceBase {
     }
 
     void handleCorruptConfigFileLocked(String msg, String line) {
-        Log.e(TAG, msg + ", considered as corrupt, line:" + line);
+        Slog.e(TAG, msg + ", considered as corrupt, line:" + line);
         mEnabledFeatures.clear();
     }
 
@@ -357,7 +368,7 @@ public final class CarFeatureController implements CarServiceBase {
         try {
             fis = mFeatureConfigFile.openRead();
         } catch (FileNotFoundException e) {
-            Log.i(TAG, "Feature config file not found, this could be 1st boot");
+            Slog.i(TAG, "Feature config file not found, this could be 1st boot");
             return false;
         }
         try (BufferedReader reader = new BufferedReader(
@@ -403,10 +414,10 @@ public final class CarFeatureController implements CarServiceBase {
                 }
             }
         } catch (IOException e) {
-            Log.w(TAG, "Cannot load config file", e);
+            Slog.w(TAG, "Cannot load config file", e);
             return false;
         }
-        Log.i(TAG, "Loaded features:" + mEnabledFeatures);
+        Slog.i(TAG, "Loaded features:" + mEnabledFeatures);
         return true;
     }
 
@@ -419,12 +430,12 @@ public final class CarFeatureController implements CarServiceBase {
             try {
                 fos = mFeatureConfigFile.startWrite();
             } catch (IOException e) {
-                Log.e(TAG, "Cannot create config file", e);
+                Slog.e(TAG, "Cannot create config file", e);
                 return;
             }
             try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fos,
                     StandardCharsets.UTF_8))) {
-                Log.i(TAG, "Updating features:" + features);
+                Slog.i(TAG, "Updating features:" + features);
                 for (String feature : features) {
                     writer.write(feature);
                     writer.newLine();
@@ -434,7 +445,7 @@ public final class CarFeatureController implements CarServiceBase {
                 mFeatureConfigFile.finishWrite(fos);
             } catch (IOException e) {
                 mFeatureConfigFile.failWrite(fos);
-                Log.e(TAG, "Cannot create config file", e);
+                Slog.e(TAG, "Cannot create config file", e);
             }
         }
     }
@@ -451,17 +462,22 @@ public final class CarFeatureController implements CarServiceBase {
 
     private void parseDefaultConfig() {
         for (String feature : mDefaultEnabledFeaturesFromConfig) {
-            if (!OPTIONAL_FEATURES.contains(feature)) {
+            if (mDisabledFeaturesFromVhal.contains(feature)) {
+                continue;
+            }
+            if (OPTIONAL_FEATURES.contains(feature)) {
+                mEnabledFeatures.add(feature);
+            } else if (NON_USER_ONLY_FEATURES.contains(feature)) {
+                Slog.e(TAG,
+                        "config_default_enabled_optional_car_features including "
+                                + "user build only feature, will be ignored:" + feature);
+            } else {
                 throw new IllegalArgumentException(
                         "config_default_enabled_optional_car_features include non-optional "
                                 + "features:" + feature);
             }
-            if (mDisabledFeaturesFromVhal.contains(feature)) {
-                continue;
-            }
-            mEnabledFeatures.add(feature);
         }
-        Log.i(TAG, "Loaded default features:" + mEnabledFeatures);
+        Slog.i(TAG, "Loaded default features:" + mEnabledFeatures);
     }
 
     private static void addSupportFeatures(Collection<String> features) {

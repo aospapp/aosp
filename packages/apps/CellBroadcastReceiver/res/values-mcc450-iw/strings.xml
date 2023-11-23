@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"התרעה על מקרה חירום קריטי"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"במהלך אסונות טבע, הטלפון יכול לשלוח הוראות לפינוי והתרעות נוספות. השירות ניתן במסגרת שיתוף פעולה בין הסוכנות הלאומית לניהול מצבי חירום, ספקי רשתות ויצרני מכשירים.\n\nייתכן שלא יוצגו לך התרעות אם יש בעיה במכשיר או בעיות באיכות הרשת."</string>
 </resources>

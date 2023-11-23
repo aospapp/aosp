@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Сертыфікаты можна ўсталяваць з файла PKCS#12 з пашырэннем %1$s або %2$s, якi знаходзіцца на вонкавым сховішчы."</string>
     <string name="allow_button" msgid="3030990695030371561">"Выбраць"</string>
     <string name="deny_button" msgid="3766539809121892584">"Адмовіць"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Ідзе загрузка сертыфікатаў…"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s правярае наяўнасць сертыфіката…"</string>
 </resources>

@@ -25,12 +25,14 @@ import android.telephony.ims.aidl.IImsConfig;
 import android.telephony.ims.aidl.IImsMmTelFeature;
 import android.telephony.ims.aidl.IImsRcsFeature;
 import android.telephony.ims.aidl.IImsRegistration;
+import android.telephony.ims.aidl.ISipTransport;
 import android.telephony.ims.compat.ImsService;
 import android.telephony.ims.compat.feature.ImsFeature;
 import android.telephony.ims.compat.feature.MMTelFeature;
 import android.util.Log;
 import android.util.SparseArray;
 
+import com.android.ims.ImsFeatureBinderRepository;
 import com.android.ims.internal.IImsFeatureStatusCallback;
 import com.android.ims.internal.IImsMMTelFeature;
 import com.android.ims.internal.IImsServiceController;
@@ -56,8 +58,9 @@ public class ImsServiceControllerCompat extends ImsServiceController {
             new SparseArray<>();
 
     public ImsServiceControllerCompat(Context context, ComponentName componentName,
-            ImsServiceController.ImsServiceControllerCallbacks callbacks) {
-        super(context, componentName, callbacks);
+            ImsServiceController.ImsServiceControllerCallbacks callbacks,
+            ImsFeatureBinderRepository repo) {
+        super(context, componentName, callbacks, repo);
     }
 
     @Override
@@ -126,6 +129,21 @@ public class ImsServiceControllerCompat extends ImsServiceController {
         return adapter.getIImsConfig();
     }
 
+    /**
+     * Return the SIP transport interface, which is not supported on the compat version of
+     * ImsService, so return null.
+     */
+    @Override
+    public ISipTransport getSipTransport(int slotId) {
+        return null;
+    }
+
+    @Override
+    protected long getStaticServiceCapabilities() {
+        // Older implementations do not support optional static capabilities
+        return 0L;
+    }
+
     @Override
     protected final void notifyImsServiceReady() {
         Log.d(TAG, "notifyImsServiceReady");
@@ -133,15 +151,15 @@ public class ImsServiceControllerCompat extends ImsServiceController {
     }
 
     @Override
-    protected final IInterface createImsFeature(int slotId, int featureType,
-            IImsFeatureStatusCallback c)
+    protected final IInterface createImsFeature(int slotId, int featureType)
             throws RemoteException {
         switch (featureType) {
             case ImsFeature.MMTEL: {
-                return createMMTelCompat(slotId, c);
+                return createMMTelCompat(slotId);
             }
             case ImsFeature.RCS: {
-                return createRcsFeature(slotId, c);
+
+                return createRcsFeature(slotId);
             }
             default:
                 return null;
@@ -149,7 +167,23 @@ public class ImsServiceControllerCompat extends ImsServiceController {
     }
 
     @Override
-    protected final void removeImsFeature(int slotId, int featureType, IImsFeatureStatusCallback c)
+    protected void registerImsFeatureStatusCallback(int slotId, int featureType,
+            IImsFeatureStatusCallback c) throws RemoteException {
+        mServiceController.addFeatureStatusCallback(slotId, featureType, c);
+    }
+
+    @Override
+    protected void unregisterImsFeatureStatusCallback(int slotId, int featureType,
+            IImsFeatureStatusCallback c) {
+        try {
+            mServiceController.removeFeatureStatusCallback(slotId, featureType, c);
+        } catch (RemoteException e) {
+            Log.w(TAG, "compat - unregisterImsFeatureStatusCallback - couldn't remove " + c);
+        }
+    }
+
+    @Override
+    protected final void removeImsFeature(int slotId, int featureType)
             throws RemoteException {
         if (featureType == ImsFeature.MMTEL) {
             mMmTelCompatAdapters.remove(slotId);
@@ -157,7 +191,7 @@ public class ImsServiceControllerCompat extends ImsServiceController {
             mConfigCompatAdapters.remove(slotId);
         }
         if (mServiceController != null) {
-            mServiceController.removeImsFeature(slotId, featureType, c);
+            mServiceController.removeImsFeature(slotId, featureType);
         }
     }
 
@@ -171,9 +205,9 @@ public class ImsServiceControllerCompat extends ImsServiceController {
         return mServiceController != null;
     }
 
-    private MmTelInterfaceAdapter getInterface(int slotId, IImsFeatureStatusCallback c)
+    private MmTelInterfaceAdapter getInterface(int slotId)
             throws RemoteException {
-        IImsMMTelFeature feature = mServiceController.createMMTelFeature(slotId, c);
+        IImsMMTelFeature feature = mServiceController.createMMTelFeature(slotId);
         if (feature == null) {
             Log.w(TAG, "createMMTelCompat: createMMTelFeature returned null.");
             return null;
@@ -181,9 +215,9 @@ public class ImsServiceControllerCompat extends ImsServiceController {
         return new MmTelInterfaceAdapter(slotId, feature.asBinder());
     }
 
-    private IImsMmTelFeature createMMTelCompat(int slotId, IImsFeatureStatusCallback c)
+    private IImsMmTelFeature createMMTelCompat(int slotId)
             throws RemoteException {
-        MmTelInterfaceAdapter interfaceAdapter = getInterface(slotId, c);
+        MmTelInterfaceAdapter interfaceAdapter = getInterface(slotId);
         MmTelFeatureCompatAdapter mmTelAdapter = new MmTelFeatureCompatAdapter(mContext, slotId,
                 interfaceAdapter);
         mMmTelCompatAdapters.put(slotId, mmTelAdapter);
@@ -195,7 +229,7 @@ public class ImsServiceControllerCompat extends ImsServiceController {
         return mmTelAdapter.getBinder();
     }
 
-    private IImsRcsFeature createRcsFeature(int slotId, IImsFeatureStatusCallback c) {
+    private IImsRcsFeature createRcsFeature(int slotId) {
         // Return non-null if there is a custom RCS implementation that needs a compatability layer.
         return null;
     }

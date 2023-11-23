@@ -96,6 +96,9 @@
 #define MAGICKCORE_HAVE_ACOSH 1
 #endif
 
+/* Define to 1 if you have the `aligned_malloc' function. */
+/* #undef HAVE_ALIGNED_MALLOC */
+
 /* Define to 1 if you have the <arm/limits.h> header file. */
 /* #undef HAVE_ARM_LIMITS_H */
 
@@ -305,6 +308,11 @@
 /* Define to 1 if you have the `getpid' function. */
 #ifndef MAGICKCORE_HAVE_GETPID
 #define MAGICKCORE_HAVE_GETPID 1
+#endif
+
+/* Define to 1 if you have the `getpwnam_r' function. */
+#ifndef MAGICKCORE_HAVE_GETPWNAM_R
+#define MAGICKCORE_HAVE_GETPWNAM_R 1
 #endif
 
 /* Define to 1 if you have the `getrlimit' function. */
@@ -1082,13 +1090,13 @@
 
 /* Directory where architecture-dependent files live. */
 #ifndef MAGICKCORE_LIBRARY_PATH
-#define MAGICKCORE_LIBRARY_PATH "/usr/local/lib/ImageMagick-7.0.9/"
+#define MAGICKCORE_LIBRARY_PATH "/usr/local/lib/ImageMagick-7.0.10/"
 #endif
 
 /* Subdirectory of lib where ImageMagick architecture dependent files are
    installed. */
 #ifndef MAGICKCORE_LIBRARY_RELATIVE_PATH
-#define MAGICKCORE_LIBRARY_RELATIVE_PATH "ImageMagick-7.0.9"
+#define MAGICKCORE_LIBRARY_RELATIVE_PATH "ImageMagick-7.0.10"
 #endif
 
 /* Binaries in libraries path base name (will be during install linked to bin)
@@ -1113,7 +1121,9 @@
 #endif
 
 /* Define if you have LZMA library */
-/* #undef LZMA_DELEGATE */
+#ifndef MAGICKCORE_LZMA_DELEGATE
+#define MAGICKCORE_LZMA_DELEGATE 1
+#endif
 
 /* Define to prepend to default font search path. */
 /* #undef MAGICK_FONT_PATH */
@@ -1170,7 +1180,7 @@
 
 /* Define to the full name and version of this package. */
 #ifndef MAGICKCORE_PACKAGE_STRING
-#define MAGICKCORE_PACKAGE_STRING "ImageMagick 7.0.9-13"
+#define MAGICKCORE_PACKAGE_STRING "ImageMagick 7.0.10-12"
 #endif
 
 /* Define to the one symbol short name of this package. */
@@ -1185,7 +1195,7 @@
 
 /* Define to the version of this package. */
 #ifndef MAGICKCORE_PACKAGE_VERSION
-#define MAGICKCORE_PACKAGE_VERSION "7.0.9-13"
+#define MAGICKCORE_PACKAGE_VERSION "7.0.10-12"
 #endif
 
 /* Define if you have PANGOCAIRO library */
@@ -1198,7 +1208,9 @@
 /* #undef PIPES_SUPPORT */
 
 /* Define if you have PNG library */
-/* #undef PNG_DELEGATE */
+#ifndef MAGICKCORE_PNG_DELEGATE
+#define MAGICKCORE_PNG_DELEGATE 1
+#endif
 
 /* Define to necessary symbol if this constant uses a non-standard name on
    your system. */
@@ -1343,7 +1355,7 @@
 
 /* Version number of package */
 #ifndef MAGICKCORE_VERSION
-#define MAGICKCORE_VERSION "7.0.9-13"
+#define MAGICKCORE_VERSION "7.0.10-12"
 #endif
 
 /* Define if you have WEBPMUX library */

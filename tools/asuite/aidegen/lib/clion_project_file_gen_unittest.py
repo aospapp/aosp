@@ -566,6 +566,31 @@ class ClionProjectFileGenUnittests(unittest.TestCase):
                 clion_project_file_gen._SOURCE_FILES_HEADER))
         self.assertEqual(content, expected)
 
+    def test_get_module_path(self):
+        """Test get_module_path function with conditions."""
+        path_b = 'a/b/path_a_to_A'
+        path_c = 'a/c/path_a_to_A'
+        path_d = 'a/d/path_a_to_A'
+        mod_info = {
+            'module_name': 'A_Mod',
+            'path': [
+                path_b,
+                path_c,
+                path_d,
+            ]
+        }
+        res = clion_project_file_gen.CLionProjectFileGenerator.get_module_path(
+            mod_info)
+        self.assertEqual(res, path_b)
+        res = clion_project_file_gen.CLionProjectFileGenerator.get_module_path(
+            mod_info, 'a/b')
+        self.assertEqual(res, path_b)
+        res = clion_project_file_gen.CLionProjectFileGenerator.get_module_path(
+            mod_info, 'a/c')
+        self.assertEqual(res, path_c)
+        res = clion_project_file_gen.CLionProjectFileGenerator.get_module_path(
+            mod_info, 'a/d')
+        self.assertEqual(res, path_d)
 
 if __name__ == '__main__':
     unittest.main()

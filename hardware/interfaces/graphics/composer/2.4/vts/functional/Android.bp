@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_test {
     name: "VtsHalGraphicsComposerV2_4TargetTest",
     defaults: ["VtsHalTargetTestDefaults"],
@@ -21,6 +30,7 @@ cc_test {
 
     // TODO(b/64437680): Assume these libs are always available on the device.
     shared_libs: [
+        "libbase",
         "libfmq",
         "libsync",
         "android.hardware.graphics.mapper@2.0",

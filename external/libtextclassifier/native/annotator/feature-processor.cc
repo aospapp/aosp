@@ -67,8 +67,8 @@ TokenFeatureExtractorOptions BuildTokenFeatureExtractorOptions(
   extractor_options.extract_selection_mask_feature =
       options->extract_selection_mask_feature();
   if (options->regexp_feature() != nullptr) {
-    for (const auto& regexp_feauture : *options->regexp_feature()) {
-      extractor_options.regexp_features.push_back(regexp_feauture->str());
+    for (const auto& regexp_feature : *options->regexp_feature()) {
+      extractor_options.regexp_features.push_back(regexp_feature->str());
     }
   }
   extractor_options.remap_digits = options->remap_digits();
@@ -82,7 +82,7 @@ TokenFeatureExtractorOptions BuildTokenFeatureExtractorOptions(
   return extractor_options;
 }
 
-void SplitTokensOnSelectionBoundaries(CodepointSpan selection,
+void SplitTokensOnSelectionBoundaries(const CodepointSpan& selection,
                                       std::vector<Token>* tokens) {
   for (auto it = tokens->begin(); it != tokens->end(); ++it) {
     const UnicodeText token_word =
@@ -137,30 +137,27 @@ void SplitTokensOnSelectionBoundaries(CodepointSpan selection,
 }  // namespace internal
 
 void FeatureProcessor::StripTokensFromOtherLines(
-    const std::string& context, CodepointSpan span,
+    const std::string& context, const CodepointSpan& span,
     std::vector<Token>* tokens) const {
   const UnicodeText context_unicode = UTF8ToUnicodeText(context,
                                                         /*do_copy=*/false);
-  StripTokensFromOtherLines(context_unicode, span, tokens);
+  const auto [span_begin, span_end] =
+      CodepointSpanToUnicodeTextRange(context_unicode, span);
+  StripTokensFromOtherLines(context_unicode, span_begin, span_end, span,
+                            tokens);
 }
 
 void FeatureProcessor::StripTokensFromOtherLines(
-    const UnicodeText& context_unicode, CodepointSpan span,
+    const UnicodeText& context_unicode,
+    const UnicodeText::const_iterator& span_begin,
+    const UnicodeText::const_iterator& span_end, const CodepointSpan& span,
     std::vector<Token>* tokens) const {
   std::vector<UnicodeTextRange> lines =
       SplitContext(context_unicode, options_->use_pipe_character_for_newline());
 
-  auto span_start = context_unicode.begin();
-  if (span.first > 0) {
-    std::advance(span_start, span.first);
-  }
-  auto span_end = context_unicode.begin();
-  if (span.second > 0) {
-    std::advance(span_end, span.second);
-  }
   for (const UnicodeTextRange& line : lines) {
     // Find the line that completely contains the span.
-    if (line.first <= span_start && line.second >= span_end) {
+    if (line.first <= span_begin && line.second >= span_end) {
       const CodepointIndex last_line_begin_index =
           std::distance(context_unicode.begin(), line.first);
       const CodepointIndex last_line_end_index =
@@ -198,9 +195,9 @@ std::vector<Token> FeatureProcessor::Tokenize(
   return tokenizer_.Tokenize(text_unicode);
 }
 
-bool FeatureProcessor::LabelToSpan(
-    const int label, const VectorSpan<Token>& tokens,
-    std::pair<CodepointIndex, CodepointIndex>* span) const {
+bool FeatureProcessor::LabelToSpan(const int label,
+                                   const VectorSpan<Token>& tokens,
+                                   CodepointSpan* span) const {
   if (tokens.size() != GetNumContextTokens()) {
     return false;
   }
@@ -221,7 +218,7 @@ bool FeatureProcessor::LabelToSpan(
 
   if (result_begin_codepoint == kInvalidIndex ||
       result_end_codepoint == kInvalidIndex) {
-    *span = CodepointSpan({kInvalidIndex, kInvalidIndex});
+    *span = CodepointSpan::kInvalid;
   } else {
     const UnicodeText token_begin_unicode =
         UTF8ToUnicodeText(result_begin_token.value, /*do_copy=*/false);
@@ -241,8 +238,8 @@ bool FeatureProcessor::LabelToSpan(
     if (begin_ignored == (result_end_codepoint - result_begin_codepoint)) {
       *span = {result_begin_codepoint, result_begin_codepoint};
     } else {
-      *span = CodepointSpan({result_begin_codepoint + begin_ignored,
-                             result_end_codepoint - end_ignored});
+      *span = CodepointSpan(result_begin_codepoint + begin_ignored,
+                            result_end_codepoint - end_ignored);
     }
   }
   return true;
@@ -258,9 +255,9 @@ bool FeatureProcessor::LabelToTokenSpan(const int label,
   }
 }
 
-bool FeatureProcessor::SpanToLabel(
-    const std::pair<CodepointIndex, CodepointIndex>& span,
-    const std::vector<Token>& tokens, int* label) const {
+bool FeatureProcessor::SpanToLabel(const CodepointSpan& span,
+                                   const std::vector<Token>& tokens,
+                                   int* label) const {
   if (tokens.size() != GetNumContextTokens()) {
     return false;
   }
@@ -323,8 +320,8 @@ bool FeatureProcessor::SpanToLabel(
   return true;
 }
 
-int FeatureProcessor::TokenSpanToLabel(const TokenSpan& span) const {
-  auto it = selection_to_label_.find(span);
+int FeatureProcessor::TokenSpanToLabel(const TokenSpan& token_span) const {
+  auto it = selection_to_label_.find(token_span);
   if (it != selection_to_label_.end()) {
     return it->second;
   } else {
@@ -333,10 +330,10 @@ int FeatureProcessor::TokenSpanToLabel(const TokenSpan& span) const {
 }
 
 TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
-                                   CodepointSpan codepoint_span,
+                                   const CodepointSpan& codepoint_span,
                                    bool snap_boundaries_to_containing_tokens) {
-  const int codepoint_start = std::get<0>(codepoint_span);
-  const int codepoint_end = std::get<1>(codepoint_span);
+  const int codepoint_start = codepoint_span.first;
+  const int codepoint_end = codepoint_span.second;
 
   TokenIndex start_token = kInvalidIndex;
   TokenIndex end_token = kInvalidIndex;
@@ -360,18 +357,31 @@ TokenSpan CodepointSpanToTokenSpan(const std::vector<Token>& selectable_tokens,
 }
 
 CodepointSpan TokenSpanToCodepointSpan(
-    const std::vector<Token>& selectable_tokens, TokenSpan token_span) {
+    const std::vector<Token>& selectable_tokens, const TokenSpan& token_span) {
   return {selectable_tokens[token_span.first].start,
           selectable_tokens[token_span.second - 1].end};
+}
+
+UnicodeTextRange CodepointSpanToUnicodeTextRange(
+    const UnicodeText& unicode_text, const CodepointSpan& span) {
+  auto begin = unicode_text.begin();
+  if (span.first > 0) {
+    std::advance(begin, span.first);
+  }
+  auto end = unicode_text.begin();
+  if (span.second > 0) {
+    std::advance(end, span.second);
+  }
+  return {begin, end};
 }
 
 namespace {
 
 // Finds a single token that completely contains the given span.
 int FindTokenThatContainsSpan(const std::vector<Token>& selectable_tokens,
-                              CodepointSpan codepoint_span) {
-  const int codepoint_start = std::get<0>(codepoint_span);
-  const int codepoint_end = std::get<1>(codepoint_span);
+                              const CodepointSpan& codepoint_span) {
+  const int codepoint_start = codepoint_span.first;
+  const int codepoint_end = codepoint_span.second;
 
   for (int i = 0; i < selectable_tokens.size(); ++i) {
     if (codepoint_start >= selectable_tokens[i].start &&
@@ -386,12 +396,12 @@ int FindTokenThatContainsSpan(const std::vector<Token>& selectable_tokens,
 
 namespace internal {
 
-int CenterTokenFromClick(CodepointSpan span,
+int CenterTokenFromClick(const CodepointSpan& span,
                          const std::vector<Token>& selectable_tokens) {
-  int range_begin;
-  int range_end;
-  std::tie(range_begin, range_end) =
+  const TokenSpan token_span =
       CodepointSpanToTokenSpan(selectable_tokens, span);
+  int range_begin = token_span.first;
+  int range_end = token_span.second;
 
   // If no exact match was found, try finding a token that completely contains
   // the click span. This is useful e.g. when Android builds the selection
@@ -414,11 +424,11 @@ int CenterTokenFromClick(CodepointSpan span,
 }
 
 int CenterTokenFromMiddleOfSelection(
-    CodepointSpan span, const std::vector<Token>& selectable_tokens) {
-  int range_begin;
-  int range_end;
-  std::tie(range_begin, range_end) =
+    const CodepointSpan& span, const std::vector<Token>& selectable_tokens) {
+  const TokenSpan token_span =
       CodepointSpanToTokenSpan(selectable_tokens, span);
+  const int range_begin = token_span.first;
+  const int range_end = token_span.second;
 
   // Center the clicked token in the selection range.
   if (range_begin != kInvalidIndex && range_end != kInvalidIndex) {
@@ -430,7 +440,7 @@ int CenterTokenFromMiddleOfSelection(
 
 }  // namespace internal
 
-int FeatureProcessor::FindCenterToken(CodepointSpan span,
+int FeatureProcessor::FindCenterToken(const CodepointSpan& span,
                                       const std::vector<Token>& tokens) const {
   if (options_->center_token_selection_method() ==
       FeatureProcessorOptions_::
@@ -464,13 +474,20 @@ bool FeatureProcessor::SelectionLabelSpans(
     const VectorSpan<Token> tokens,
     std::vector<CodepointSpan>* selection_label_spans) const {
   for (int i = 0; i < label_to_selection_.size(); ++i) {
-    CodepointSpan span;
+    CodepointSpan span = CodepointSpan::kInvalid;
     if (!LabelToSpan(i, tokens, &span)) {
       TC3_LOG(ERROR) << "Could not convert label to span: " << i;
       return false;
     }
     selection_label_spans->push_back(span);
   }
+  return true;
+}
+
+bool FeatureProcessor::SelectionLabelRelativeTokenSpans(
+    std::vector<TokenSpan>* selection_label_relative_token_spans) const {
+  selection_label_relative_token_spans->assign(label_to_selection_.begin(),
+                                               label_to_selection_.end());
   return true;
 }
 
@@ -486,15 +503,6 @@ int FeatureProcessor::CountIgnoredSpanBoundaryCodepoints(
     const UnicodeText::const_iterator& span_start,
     const UnicodeText::const_iterator& span_end,
     bool count_from_beginning) const {
-  return CountIgnoredSpanBoundaryCodepoints(span_start, span_end,
-                                            count_from_beginning,
-                                            ignored_span_boundary_codepoints_);
-}
-
-int FeatureProcessor::CountIgnoredSpanBoundaryCodepoints(
-    const UnicodeText::const_iterator& span_start,
-    const UnicodeText::const_iterator& span_end, bool count_from_beginning,
-    const std::unordered_set<int>& ignored_span_boundary_codepoints) const {
   if (span_start == span_end) {
     return 0;
   }
@@ -517,8 +525,8 @@ int FeatureProcessor::CountIgnoredSpanBoundaryCodepoints(
 
   // Move until we encounter a non-ignored character.
   int num_ignored = 0;
-  while (ignored_span_boundary_codepoints.find(*it) !=
-         ignored_span_boundary_codepoints.end()) {
+  while (ignored_span_boundary_codepoints_.find(*it) !=
+         ignored_span_boundary_codepoints_.end()) {
     ++num_ignored;
 
     if (it == it_last) {
@@ -571,74 +579,36 @@ std::vector<UnicodeTextRange> FeatureProcessor::SplitContext(
 }
 
 CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
-    const std::string& context, CodepointSpan span) const {
-  return StripBoundaryCodepoints(context, span,
-                                 ignored_span_boundary_codepoints_,
-                                 ignored_span_boundary_codepoints_);
-}
-
-CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
-    const std::string& context, CodepointSpan span,
-    const std::unordered_set<int>& ignored_prefix_span_boundary_codepoints,
-    const std::unordered_set<int>& ignored_suffix_span_boundary_codepoints)
-    const {
+    const std::string& context, const CodepointSpan& span) const {
   const UnicodeText context_unicode =
       UTF8ToUnicodeText(context, /*do_copy=*/false);
-  return StripBoundaryCodepoints(context_unicode, span,
-                                 ignored_prefix_span_boundary_codepoints,
-                                 ignored_suffix_span_boundary_codepoints);
+  return StripBoundaryCodepoints(context_unicode, span);
 }
 
 CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
-    const UnicodeText& context_unicode, CodepointSpan span) const {
-  return StripBoundaryCodepoints(context_unicode, span,
-                                 ignored_span_boundary_codepoints_,
-                                 ignored_span_boundary_codepoints_);
-}
-
-CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
-    const UnicodeText& context_unicode, CodepointSpan span,
-    const std::unordered_set<int>& ignored_prefix_span_boundary_codepoints,
-    const std::unordered_set<int>& ignored_suffix_span_boundary_codepoints)
-    const {
-  if (context_unicode.empty() || !ValidNonEmptySpan(span)) {
+    const UnicodeText& context_unicode, const CodepointSpan& span) const {
+  if (context_unicode.empty() || !span.IsValid() || span.IsEmpty()) {
     return span;
   }
 
-  UnicodeText::const_iterator span_begin = context_unicode.begin();
-  std::advance(span_begin, span.first);
-  UnicodeText::const_iterator span_end = context_unicode.begin();
-  std::advance(span_end, span.second);
+  const auto [span_begin, span_end] =
+      CodepointSpanToUnicodeTextRange(context_unicode, span);
 
-  return StripBoundaryCodepoints(span_begin, span_end, span,
-                                 ignored_prefix_span_boundary_codepoints,
-                                 ignored_suffix_span_boundary_codepoints);
+  return StripBoundaryCodepoints(span_begin, span_end, span);
 }
 
 CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
     const UnicodeText::const_iterator& span_begin,
-    const UnicodeText::const_iterator& span_end, CodepointSpan span) const {
-  return StripBoundaryCodepoints(span_begin, span_end, span,
-                                 ignored_span_boundary_codepoints_,
-                                 ignored_span_boundary_codepoints_);
-}
-
-CodepointSpan FeatureProcessor::StripBoundaryCodepoints(
-    const UnicodeText::const_iterator& span_begin,
-    const UnicodeText::const_iterator& span_end, CodepointSpan span,
-    const std::unordered_set<int>& ignored_prefix_span_boundary_codepoints,
-    const std::unordered_set<int>& ignored_suffix_span_boundary_codepoints)
-    const {
-  if (!ValidNonEmptySpan(span) || span_begin == span_end) {
+    const UnicodeText::const_iterator& span_end,
+    const CodepointSpan& span) const {
+  if (!span.IsValid() || span.IsEmpty() || span_begin == span_end) {
     return span;
   }
 
   const int start_offset = CountIgnoredSpanBoundaryCodepoints(
-      span_begin, span_end, /*count_from_beginning=*/true,
-      ignored_prefix_span_boundary_codepoints);
+      span_begin, span_end, /*count_from_beginning=*/true);
   const int end_offset = CountIgnoredSpanBoundaryCodepoints(
-      span_begin, span_end, /*count_from_beginning=*/false,
-      ignored_suffix_span_boundary_codepoints);
+      span_begin, span_end, /*count_from_beginning=*/false);
 
   if (span.first + start_offset < span.second - end_offset) {
     return {span.first + start_offset, span.second - end_offset};
@@ -670,21 +640,10 @@ float FeatureProcessor::SupportedCodepointsRatio(
 
 const std::string& FeatureProcessor::StripBoundaryCodepoints(
     const std::string& value, std::string* buffer) const {
-  return StripBoundaryCodepoints(value, buffer,
-                                 ignored_span_boundary_codepoints_,
-                                 ignored_span_boundary_codepoints_);
-}
-
-const std::string& FeatureProcessor::StripBoundaryCodepoints(
-    const std::string& value, std::string* buffer,
-    const std::unordered_set<int>& ignored_prefix_span_boundary_codepoints,
-    const std::unordered_set<int>& ignored_suffix_span_boundary_codepoints)
-    const {
   const UnicodeText value_unicode = UTF8ToUnicodeText(value, /*do_copy=*/false);
   const CodepointSpan initial_span{0, value_unicode.size_codepoints()};
-  const CodepointSpan stripped_span = StripBoundaryCodepoints(
-      value_unicode, initial_span, ignored_prefix_span_boundary_codepoints,
-      ignored_suffix_span_boundary_codepoints);
+  const CodepointSpan stripped_span =
+      StripBoundaryCodepoints(value_unicode, initial_span);
 
   if (initial_span != stripped_span) {
     const UnicodeText stripped_token_value =
@@ -735,20 +694,24 @@ void FeatureProcessor::MakeLabelMaps() {
 }
 
 void FeatureProcessor::RetokenizeAndFindClick(const std::string& context,
-                                              CodepointSpan input_span,
+                                              const CodepointSpan& input_span,
                                               bool only_use_line_with_click,
                                               std::vector<Token>* tokens,
                                               int* click_pos) const {
   const UnicodeText context_unicode =
       UTF8ToUnicodeText(context, /*do_copy=*/false);
-  RetokenizeAndFindClick(context_unicode, input_span, only_use_line_with_click,
-                         tokens, click_pos);
+  const auto [span_begin, span_end] =
+      CodepointSpanToUnicodeTextRange(context_unicode, input_span);
+  RetokenizeAndFindClick(context_unicode, span_begin, span_end, input_span,
+                         only_use_line_with_click, tokens, click_pos);
 }
 
 void FeatureProcessor::RetokenizeAndFindClick(
-    const UnicodeText& context_unicode, CodepointSpan input_span,
-    bool only_use_line_with_click, std::vector<Token>* tokens,
-    int* click_pos) const {
+    const UnicodeText& context_unicode,
+    const UnicodeText::const_iterator& span_begin,
+    const UnicodeText::const_iterator& span_end,
+    const CodepointSpan& input_span, bool only_use_line_with_click,
+    std::vector<Token>* tokens, int* click_pos) const {
   TC3_CHECK(tokens != nullptr);
 
   if (options_->split_tokens_on_selection_boundaries()) {
@@ -756,7 +719,8 @@ void FeatureProcessor::RetokenizeAndFindClick(
   }
 
   if (only_use_line_with_click) {
-    StripTokensFromOtherLines(context_unicode, input_span, tokens);
+    StripTokensFromOtherLines(context_unicode, span_begin, span_end, input_span,
+                              tokens);
   }
 
   int local_click_pos;
@@ -773,7 +737,7 @@ void FeatureProcessor::RetokenizeAndFindClick(
 
 namespace internal {
 
-void StripOrPadTokens(TokenSpan relative_click_span, int context_size,
+void StripOrPadTokens(const TokenSpan& relative_click_span, int context_size,
                       std::vector<Token>* tokens, int* click_pos) {
   int right_context_needed = relative_click_span.second + context_size;
   if (*click_pos + right_context_needed + 1 >= tokens->size()) {
@@ -810,7 +774,7 @@ void StripOrPadTokens(TokenSpan relative_click_span, int context_size,
 }  // namespace internal
 
 bool FeatureProcessor::HasEnoughSupportedCodepoints(
-    const std::vector<Token>& tokens, TokenSpan token_span) const {
+    const std::vector<Token>& tokens, const TokenSpan& token_span) const {
   if (options_->min_supported_codepoint_ratio() > 0) {
     const float supported_codepoint_ratio =
         SupportedCodepointsRatio(token_span, tokens);
@@ -824,13 +788,13 @@ bool FeatureProcessor::HasEnoughSupportedCodepoints(
 }
 
 bool FeatureProcessor::ExtractFeatures(
-    const std::vector<Token>& tokens, TokenSpan token_span,
-    CodepointSpan selection_span_for_feature,
+    const std::vector<Token>& tokens, const TokenSpan& token_span,
+    const CodepointSpan& selection_span_for_feature,
     const EmbeddingExecutor* embedding_executor,
     EmbeddingCache* embedding_cache, int feature_vector_size,
     std::unique_ptr<CachedFeatures>* cached_features) const {
   std::unique_ptr<std::vector<float>> features(new std::vector<float>());
-  features->reserve(feature_vector_size * TokenSpanSize(token_span));
+  features->reserve(feature_vector_size * token_span.Size());
   for (int i = token_span.first; i < token_span.second; ++i) {
     if (!AppendTokenFeaturesWithCache(tokens[i], selection_span_for_feature,
                                       embedding_executor, embedding_cache,
@@ -862,7 +826,7 @@ bool FeatureProcessor::ExtractFeatures(
 }
 
 bool FeatureProcessor::AppendTokenFeaturesWithCache(
-    const Token& token, CodepointSpan selection_span_for_feature,
+    const Token& token, const CodepointSpan& selection_span_for_feature,
     const EmbeddingExecutor* embedding_executor,
     EmbeddingCache* embedding_cache,
     std::vector<float>* output_features) const {

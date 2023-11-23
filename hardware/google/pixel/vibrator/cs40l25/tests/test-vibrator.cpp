@@ -66,6 +66,7 @@ static EffectScale Scale(float intensity);
 
 // Constants With Arbitrary Values
 
+static constexpr uint32_t CAL_VERSION = 1;
 static constexpr std::array<EffectLevel, 6> V_LEVELS{40, 50, 60, 70, 80, 90};
 static constexpr std::array<EffectDuration, 10> EFFECT_DURATIONS{0,   0,   15,  0,   50,
                                                                  100, 150, 200, 250, 8};
@@ -176,6 +177,9 @@ class VibratorTest : public Test {
 
         ON_CALL(*mMockCal, destructor()).WillByDefault(Assign(&mMockCal, nullptr));
 
+        ON_CALL(*mMockCal, getVersion(_))
+                .WillByDefault(DoAll(SetArgPointee<0>(CAL_VERSION), Return(true)));
+
         ON_CALL(*mMockCal, getVolLevels(_))
                 .WillByDefault(DoAll(SetArgPointee<0>(V_LEVELS), Return(true)));
 
@@ -265,6 +269,7 @@ TEST_F(VibratorTest, Constructor) {
     uint32_t f0Val = std::rand();
     uint32_t redcVal = std::rand();
     uint32_t qVal = std::rand();
+    uint32_t calVer;
     Expectation volGet;
     Sequence f0Seq, redcSeq, qSeq, volSeq, durSeq;
 
@@ -289,8 +294,13 @@ TEST_F(VibratorTest, Constructor) {
             .InSequence(qSeq)
             .WillOnce(DoAll(SetArgPointee<0>(qVal), Return(true)));
     EXPECT_CALL(*mMockApi, setQ(qVal)).InSequence(qSeq).WillOnce(Return(true));
-
-    volGet = EXPECT_CALL(*mMockCal, getVolLevels(_)).WillOnce(DoDefault());
+    if (mMockCal->getVersion(&calVer) == 1) {
+        volGet = EXPECT_CALL(*mMockCal, getVolLevels(_)).WillOnce(DoDefault());
+    } else {
+        volGet = EXPECT_CALL(*mMockCal, getTickVolLevels(_)).WillOnce(DoDefault());
+        volGet = EXPECT_CALL(*mMockCal, getClickVolLevels(_)).WillOnce(DoDefault());
+        volGet = EXPECT_CALL(*mMockCal, getLongVolLevels(_)).WillOnce(DoDefault());
+    }
 
     EXPECT_CALL(*mMockApi, setState(true)).WillOnce(Return(true));
     EXPECT_CALL(*mMockApi, getEffectCount(_)).InSequence(durSeq).WillOnce(DoDefault());
@@ -527,6 +537,7 @@ class PrimitiveTest : public VibratorTest, public WithParamInterface<PrimitivePa
 
 const std::vector<PrimitiveParam> kPrimitiveParams = {
         {CompositePrimitive::NOOP, 0},       {CompositePrimitive::CLICK, 2},
+        {CompositePrimitive::THUD, 4},       {CompositePrimitive::SPIN, 5},
         {CompositePrimitive::QUICK_RISE, 6}, {CompositePrimitive::SLOW_RISE, 7},
         {CompositePrimitive::QUICK_FALL, 8},
 };
@@ -586,18 +597,23 @@ TEST_P(ComposeTest, compose) {
 
 const std::vector<ComposeParam> kComposeParams = {
         {"click", {{0, CompositePrimitive::CLICK, 1.0f}}, Queue(QueueEffect(2, Level(1.0f)), 0)},
+        {"thud", {{1, CompositePrimitive::THUD, 0.8f}}, Queue(1, QueueEffect(4, Level(0.8f)), 0)},
+        {"spin", {{2, CompositePrimitive::SPIN, 0.6f}}, Queue(2, QueueEffect(5, Level(0.6f)), 0)},
         {"quick_rise",
          {{3, CompositePrimitive::QUICK_RISE, 0.4f}},
-         Queue(3, QueueEffect(6, Level(0.4f)), 0)},
+         Queue(3, QueueEffect(6, 0.4f * V_LEVELS[5]), 0)},
         {"slow_rise",
          {{4, CompositePrimitive::SLOW_RISE, 0.0f}},
          Queue(4, QueueEffect(7, Level(0.0f)), 0)},
         {"quick_fall",
          {{5, CompositePrimitive::QUICK_FALL, 1.0f}},
-         Queue(5, QueueEffect(8, Level(1.0f)), 0)},
+         Queue(5, QueueEffect(8, 1.0f * V_LEVELS[5]), 0)},
+        {"pop",
+         {{6, CompositePrimitive::SLOW_RISE, 1.0f}, {50, CompositePrimitive::THUD, 1.0f}},
+         Queue(6, QueueEffect(7, Level(1.0f)), 50, QueueEffect(4, Level(1.0f)), 0)},
         {"snap",
          {{7, CompositePrimitive::QUICK_RISE, 1.0f}, {0, CompositePrimitive::QUICK_FALL, 1.0f}},
-         Queue(7, QueueEffect(6, Level(1.0f)), QueueEffect(8, Level(1.0f)), 0)},
+         Queue(7, QueueEffect(6, 1.0f * V_LEVELS[5]), QueueEffect(8, 1.0f * V_LEVELS[5]), 0)},
 };
 
 INSTANTIATE_TEST_CASE_P(VibratorTests, ComposeTest,

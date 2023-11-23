@@ -19,13 +19,14 @@ import static android.app.admin.DevicePolicyManager.ACTION_APPLICATION_DELEGATIO
 import static android.app.admin.DevicePolicyManager.EXTRA_DELEGATION_SCOPES;
 
 import android.app.Activity;
-
+import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-
 import android.os.Bundle;
+import android.os.Process;
+import android.util.Log;
 
 import java.util.List;
 
@@ -36,6 +37,8 @@ import java.util.List;
  * {@link DevicePolicyManager#setDelegatedScopes}.
  */
 public class DelegatedScopesReceiverActivity extends Activity {
+
+    private static final String TAG = DelegatedScopesReceiverActivity.class.getSimpleName();
 
     /**
      * Broadcast action sent reporting the scopes delegated to this app.
@@ -50,6 +53,7 @@ public class DelegatedScopesReceiverActivity extends Activity {
     private final BroadcastReceiver mScopesChangedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "Received intent " + intent.getAction() + " on UID " + Process.myUid());
             if (ACTION_APPLICATION_DELEGATION_SCOPES_CHANGED.equals(intent.getAction())) {
                 handleIntent(intent);
             }
@@ -71,8 +75,7 @@ public class DelegatedScopesReceiverActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(ACTION_APPLICATION_DELEGATION_SCOPES_CHANGED);
+        IntentFilter filter = new IntentFilter(ACTION_APPLICATION_DELEGATION_SCOPES_CHANGED);
         registerReceiver(mScopesChangedReceiver, filter);
         sendRunningBroadcast();
     }
@@ -84,6 +87,7 @@ public class DelegatedScopesReceiverActivity extends Activity {
     }
 
     private void handleIntent(Intent intent) {
+        Log.d(TAG, "handleIntent(): " + intent);
         if (intent == null) {
             return;
         }
@@ -99,6 +103,7 @@ public class DelegatedScopesReceiverActivity extends Activity {
         Intent intent = new Intent();
         intent.setAction(ACTION_REPORT_SCOPES);
         intent.putExtra(EXTRA_DELEGATION_SCOPES, scopes.toArray(new String[scopes.size()]));
+        Log.d(TAG, "Broadcasting " + ACTION_REPORT_SCOPES + " with scopes " + scopes);
         sendBroadcast(intent);
     }
 

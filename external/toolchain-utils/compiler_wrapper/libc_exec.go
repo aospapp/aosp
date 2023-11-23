@@ -7,15 +7,31 @@
 package main
 
 // #include <errno.h>
+// #include <stdio.h>
 // #include <stdlib.h>
 // #include <string.h>
 // #include <unistd.h>
+// #include <sys/types.h>
+// #include <sys/wait.h>
 //
 // int libc_exec(const char *pathname, char *const argv[], char *const envp[]) {
-//	if (execve(pathname, argv, envp) != 0) {
+//	// Since fork() brings us to one thread, we can only use async-signal-safe funcs below.
+//	pid_t pid = fork();
+//	if (pid == 0) {
+//		execve(pathname, argv, envp);
+//		fprintf(stderr, "exec failed (errno: %d)\n", errno);
+//		_exit(1);
+//	}
+//	if (pid < 0) {
 //		return errno;
 //	}
-//	return 0;
+//
+//	int wstatus;
+//	pid_t waited = waitpid(pid, &wstatus, 0);
+//	if (waited == -1) {
+//		return errno;
+//	}
+//	exit(WEXITSTATUS(wstatus));
 //}
 import "C"
 import (
@@ -29,7 +45,7 @@ import (
 // Note that this changes the go binary to be a dynamically linked one.
 // See crbug.com/1000863 for details.
 // To use this version of exec, please add '-tags libc_exec' when building Go binary.
-// Without the tags, libc_exec.go will be used.
+// Without the tags, libc_exec.go will not be used.
 
 func execCmd(env env, cmd *command) error {
 	freeList := []unsafe.Pointer{}

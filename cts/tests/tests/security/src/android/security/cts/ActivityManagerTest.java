@@ -16,15 +16,17 @@
 package android.security.cts;
 
 import android.app.ActivityManager;
+import android.app.ApplicationExitInfo;
+import android.content.Context;
 import android.os.IBinder;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
 import junit.framework.TestCase;
 
 import java.lang.reflect.InvocationTargetException;
 
-@SecurityTest
 public class ActivityManagerTest extends TestCase {
 
     @Override
@@ -32,7 +34,7 @@ public class ActivityManagerTest extends TestCase {
         super.setUp();
     }
 
-    @SecurityTest(minPatchLevel = "2015-03")
+    @AsbSecurityTest(cveBugId = 19394591)
     public void testActivityManager_injectInputEvents() throws ClassNotFoundException {
         try {
             /*
@@ -50,7 +52,7 @@ public class ActivityManagerTest extends TestCase {
     }
 
     // b/144285917
-    @SecurityTest(minPatchLevel = "2020-05")
+    @AsbSecurityTest(cveBugId = 144285917)
     public void testActivityManager_attachNullApplication() {
         SecurityException securityException = null;
         Exception unexpectedException = null;
@@ -75,5 +77,43 @@ public class ActivityManagerTest extends TestCase {
         }
 
         assertNotNull("Expect SecurityException by attaching null application", securityException);
+    }
+
+    // b/166667403
+    @AsbSecurityTest(cveBugId = 166667403)
+    public void testActivityManager_appExitReasonPackageNames() {
+        final String mockPackage = "com.foo.bar";
+        final String realPackage = "com.android.compatibility.common.deviceinfo";
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final ActivityManager am = context.getSystemService(ActivityManager.class);
+        try {
+            am.getHistoricalProcessExitReasons(mockPackage, 0, 0);
+            fail("Expecting SecurityException");
+        } catch (SecurityException e) {
+            // expected
+        }
+
+        final int totalLoops = 10000;
+        int mockPackagescores = 0;
+        final double tolerance = 0.2d;
+        for (int i = 0; i < totalLoops; i++) {
+            final long realPackageTiming = measureGetHistoricalProcessExitReasons(am, realPackage);
+            final long mockPackageTiming = measureGetHistoricalProcessExitReasons(am, mockPackage);
+            mockPackagescores += mockPackageTiming < realPackageTiming ? 1 : 0;
+        }
+
+        assertTrue(Math.abs((double) mockPackagescores / totalLoops - 0.5d) < tolerance);
+    }
+
+    /**
+     * Run ActivityManager.getHistoricalProcessExitReasons once, return the time spent on it.
+     */
+    private long measureGetHistoricalProcessExitReasons(ActivityManager am, String pkg) {
+        final long start = System.nanoTime();
+        try {
+            am.getHistoricalProcessExitReasons(pkg, 0, 0);
+        } catch (Exception e) {
+        }
+        return System.nanoTime() - start;
     }
 }

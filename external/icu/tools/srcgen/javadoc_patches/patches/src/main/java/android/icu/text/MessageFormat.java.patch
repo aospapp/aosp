@@ -1,5 +1,5 @@
---- android_icu4j/src/main/java/android/icu/text/MessageFormat.java	2019-12-18 23:17:58.070206945 +0000
-+++ android_icu4j/src/main/java/android/icu/text/MessageFormat.java	2019-12-18 23:18:19.478279221 +0000
+--- android_icu4j/src/main/java/android/icu/text/MessageFormat.java	2021-01-19 16:26:30.210690045 +0000
++++ android_icu4j/src/main/java/android/icu/text/MessageFormat.java	2021-01-19 16:26:51.134838576 +0000
 @@ -124,7 +124,7 @@
   * argNumber = '0' | ('1'..'9' ('0'..'9')*)
   *
@@ -65,7 +65,7 @@
 - * or preformatted values, but not pattern strings or custom format objects.</p>
 - *
 - * <p>For more details, see the
-- * <a href="http://userguide.icu-project.org/formatparse/messages">ICU User Guide</a>.</p>
+- * <a href="https://unicode-org.github.io/icu/userguide/format_parse/messages">ICU User Guide</a>.</p>
   *
   * <h4>Usage Information</h4>
   *

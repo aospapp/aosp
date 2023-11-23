@@ -28,6 +28,7 @@ import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.MediaUtils;
@@ -54,6 +55,8 @@ import javax.microedition.khronos.opengles.GL10;
 @Presubmit
 @SmallTest
 @RequiresDevice
+// TODO: b/186001256
+@FlakyTest
 public class EncodeDecodeTest extends AndroidTestCase {
     private static final String TAG = "EncodeDecodeTest";
     private static final boolean VERBOSE = false;           // lots of logging
@@ -500,6 +503,12 @@ public class EncodeDecodeTest extends AndroidTestCase {
             format.setInteger(MediaFormat.KEY_BIT_RATE, mBitRate);
             format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+
+            // Set color parameters
+            format.setInteger(MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED);
+            format.setInteger(MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT601_PAL);
+            format.setInteger(MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
+
             if (VERBOSE) Log.d(TAG, "format: " + format);
 
             // Create the output surface.

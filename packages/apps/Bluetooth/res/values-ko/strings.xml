@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"다운로드 관리자에 액세스합니다."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"앱에서 BluetoothShare 관리자에 액세스하고 이를 사용하여 파일을 전송할 수 있도록 합니다."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"블루투스 기기에 액세스하도록 허용합니다."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"일시적으로 앱에서 블루투스 기기를 허용하여 사용자 확인을 받지 않고 해당 기기로 파일을 보내도록 허용합니다."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"블루투스 기기 액세스 허용"</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"일시적으로 앱에서 블루투스 기기를 허용하여 사용자 확인을 받지 않고 블루투스 기기에서 이 기기로 파일을 보내도록 허용합니다."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"블루투스"</string>
     <string name="unknown_device" msgid="9221903979877041009">"알 수 없는 장치"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"알 수 없음"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"확인"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\'<xliff:g id="SENDER">%1$s</xliff:g>\'님이 보내는 파일을 수락하는 동안 제한 시간을 초과했습니다."</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"수신 파일"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g>님이 <xliff:g id="FILE">%2$s</xliff:g>을(를) 보낼 준비가 되었습니다."</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g>에서 <xliff:g id="FILE">%2$s</xliff:g> 파일을 전송할 준비가 되었습니다."</string>
     <string name="notification_receiving" msgid="4674648179652543984">"블루투스 공유: <xliff:g id="FILE">%1$s</xliff:g> 받는 중"</string>
     <string name="notification_received" msgid="3324588019186687985">"블루투스 공유: <xliff:g id="FILE">%1$s</xliff:g> 받음"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"블루투스 공유: <xliff:g id="FILE">%1$s</xliff:g> 파일이 수신되지 않았습니다."</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\'<xliff:g id="RECIPIENT">%1$s</xliff:g>\'님에게 파일을 보내는 중"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\'<xliff:g id="RECIPIENT">%2$s</xliff:g>\'에 <xliff:g id="NUMBER">%1$s</xliff:g>개 파일을 보내는 중"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\'<xliff:g id="RECIPIENT">%1$s</xliff:g>\'님에게 파일 보내기가 중지되었습니다."</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"USB 저장소 공간이 부족해 \'<xliff:g id="SENDER">%1$s</xliff:g>\'님이 보낸 파일을 저장할 수 없습니다."</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"SD 카드 공간이 부족해 \'<xliff:g id="SENDER">%1$s</xliff:g>\'님이 보낸 파일을 저장할 수 없습니다."</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"USB 저장소에 파일을 저장할 공간이 부족합니다."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"SD 카드에 파일을 저장할 공간이 부족합니다."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"필요한 공간: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"처리 중인 요청이 너무 많습니다. 잠시 후에 다시 시도해 주세요."</string>
     <string name="status_pending" msgid="2503691772030877944">"파일 전송을 시작하지 않았습니다."</string>

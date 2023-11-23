@@ -39,6 +39,9 @@ LOCAL_SRC_FILES := \
 	$(DRM_SOURCES)
 
 LOCAL_MODULE := libmesa_pipe_loader
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../LICENSE
 
 LOCAL_STATIC_LIBRARIES := libmesa_loader libmesa_util
 

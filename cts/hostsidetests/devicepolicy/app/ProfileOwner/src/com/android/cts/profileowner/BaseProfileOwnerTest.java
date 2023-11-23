@@ -19,12 +19,31 @@ import android.app.admin.DeviceAdminReceiver;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.test.AndroidTestCase;
+import android.util.Log;
+
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
+import com.android.cts.devicepolicy.OperationSafetyChangedCallback;
+import com.android.cts.devicepolicy.OperationSafetyChangedEvent;
 
 public abstract class BaseProfileOwnerTest extends AndroidTestCase {
 
     public static class BasicAdminReceiver extends DeviceAdminReceiver {
+
+        @Override
+        public void onOperationSafetyStateChanged(Context context, int reason, boolean isSafe) {
+            OperationSafetyChangedEvent event = new OperationSafetyChangedEvent(reason, isSafe);
+            Log.d(TAG, "onOperationSafetyStateChanged() on user " + context.getUserId() + ": "
+                    + event);
+
+            Intent intent = OperationSafetyChangedCallback.intentFor(event);
+            LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
+        }
     }
+
+    private static final String TAG = BaseProfileOwnerTest.class.getSimpleName();
 
     public static final String PACKAGE_NAME = BaseProfileOwnerTest.class.getPackage().getName();
 

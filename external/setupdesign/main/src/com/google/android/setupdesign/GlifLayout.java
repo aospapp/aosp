@@ -22,11 +22,8 @@ import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Build.VERSION_CODES;
-import androidx.annotation.ColorInt;
-import androidx.annotation.LayoutRes;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -35,16 +32,25 @@ import android.view.ViewStub;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import androidx.annotation.ColorInt;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import com.google.android.setupcompat.PartnerCustomizationLayout;
 import com.google.android.setupcompat.partnerconfig.PartnerConfig;
 import com.google.android.setupcompat.partnerconfig.PartnerConfigHelper;
 import com.google.android.setupcompat.template.StatusBarMixin;
+import com.google.android.setupdesign.template.DescriptionMixin;
 import com.google.android.setupdesign.template.HeaderMixin;
 import com.google.android.setupdesign.template.IconMixin;
+import com.google.android.setupdesign.template.IllustrationProgressMixin;
 import com.google.android.setupdesign.template.ProgressBarMixin;
 import com.google.android.setupdesign.template.RequireScrollMixin;
 import com.google.android.setupdesign.template.ScrollViewScrollHandlingDelegate;
 import com.google.android.setupdesign.util.DescriptionStyler;
+import com.google.android.setupdesign.util.LayoutStyler;
+import com.google.android.setupdesign.util.PartnerStyleHelper;
 
 /**
  * Layout for the GLIF theme used in Setup Wizard for N.
@@ -66,8 +72,6 @@ import com.google.android.setupdesign.util.DescriptionStyler;
  * }</pre>
  */
 public class GlifLayout extends PartnerCustomizationLayout {
-
-  private static final String TAG = "GlifLayout";
 
   private ColorStateList primaryColor;
 
@@ -105,6 +109,9 @@ public class GlifLayout extends PartnerCustomizationLayout {
   // All the constructors delegate to this init method. The 3-argument constructor is not
   // available in LinearLayout before v11, so call super with the exact same arguments.
   private void init(AttributeSet attrs, int defStyleAttr) {
+    if (isInEditMode()) {
+      return;
+    }
 
     TypedArray a =
         getContext().obtainStyledAttributes(attrs, R.styleable.SudGlifLayout, defStyleAttr, 0);
@@ -113,8 +120,10 @@ public class GlifLayout extends PartnerCustomizationLayout {
     applyPartnerHeavyThemeResource = shouldApplyPartnerResource() && usePartnerHeavyTheme;
 
     registerMixin(HeaderMixin.class, new HeaderMixin(this, attrs, defStyleAttr));
+    registerMixin(DescriptionMixin.class, new DescriptionMixin(this, attrs, defStyleAttr));
     registerMixin(IconMixin.class, new IconMixin(this, attrs, defStyleAttr));
-    registerMixin(ProgressBarMixin.class, new ProgressBarMixin(this));
+    registerMixin(ProgressBarMixin.class, new ProgressBarMixin(this, attrs, defStyleAttr));
+    registerMixin(IllustrationProgressMixin.class, new IllustrationProgressMixin(this));
     final RequireScrollMixin requireScrollMixin = new RequireScrollMixin(this);
     registerMixin(RequireScrollMixin.class, requireScrollMixin);
 
@@ -131,7 +140,21 @@ public class GlifLayout extends PartnerCustomizationLayout {
 
     if (applyPartnerHeavyThemeResource) {
       updateContentBackgroundColorWithPartnerConfig();
+
+      View view = findManagedViewById(R.id.sud_layout_content);
+      if (view != null) {
+        // The margin of content is defined by @style/SudContentFrame. The Setupdesign library
+        // cannot obtain the content resource ID of the client, so the value of the content margin
+        // cannot be adjusted through GlifLayout. If the margin sides are changed through the
+        // partner config, it can only be based on the increased or decreased value to adjust the
+        // value of pading. In this way, the value of content margin plus padding will be equal to
+        // the value of partner config.
+        LayoutStyler.applyPartnerCustomizationExtraPaddingStyle(view);
+
+        applyPartnerCustomizationContentPaddingTopStyle(view);
+      }
     }
+    updateLandscapeMiddleHorizontalSpacing();
 
     ColorStateList backgroundColor =
         a.getColorStateList(R.styleable.SudGlifLayout_sudBackgroundBaseColor);
@@ -153,15 +176,79 @@ public class GlifLayout extends PartnerCustomizationLayout {
     super.onFinishInflate();
     getMixin(IconMixin.class).tryApplyPartnerCustomizationStyle();
     getMixin(HeaderMixin.class).tryApplyPartnerCustomizationStyle();
+    getMixin(DescriptionMixin.class).tryApplyPartnerCustomizationStyle();
     tryApplyPartnerCustomizationStyleToShortDescription();
   }
 
+  // TODO: remove when all sud_layout_description has migrated to
+  // DescriptionMixin(sud_layout_subtitle)
   private void tryApplyPartnerCustomizationStyleToShortDescription() {
-    if (applyPartnerHeavyThemeResource) {
-      TextView description =
-          this.findManagedViewById(com.google.android.setupdesign.R.id.sud_layout_description);
-      if (description != null) {
-        DescriptionStyler.applyPartnerCustomizationStyle(description);
+    TextView description = this.findManagedViewById(R.id.sud_layout_description);
+    if (description != null) {
+      if (applyPartnerHeavyThemeResource) {
+        DescriptionStyler.applyPartnerCustomizationHeavyStyle(description);
+      } else if (shouldApplyPartnerResource()) {
+        DescriptionStyler.applyPartnerCustomizationLightStyle(description);
+      }
+    }
+  }
+
+  protected void updateLandscapeMiddleHorizontalSpacing() {
+    int horizontalSpacing =
+        getResources().getDimensionPixelSize(R.dimen.sud_glif_land_middle_horizontal_spacing);
+
+    View headerView = this.findManagedViewById(R.id.sud_landscape_header_area);
+    if (headerView != null) {
+      if (PartnerConfigHelper.get(getContext())
+          .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_END)) {
+        int layoutMarginEnd =
+            (int)
+                PartnerConfigHelper.get(getContext())
+                    .getDimension(getContext(), PartnerConfig.CONFIG_LAYOUT_MARGIN_END);
+
+        int paddingEnd = (horizontalSpacing / 2) - layoutMarginEnd;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+          headerView.setPadding(
+              headerView.getPaddingStart(),
+              headerView.getPaddingTop(),
+              paddingEnd,
+              headerView.getPaddingBottom());
+        } else {
+          headerView.setPadding(
+              headerView.getPaddingLeft(),
+              headerView.getPaddingTop(),
+              paddingEnd,
+              headerView.getPaddingBottom());
+        }
+      }
+    }
+
+    View contentView = this.findManagedViewById(R.id.sud_landscape_content_area);
+    if (contentView != null) {
+      if (PartnerConfigHelper.get(getContext())
+          .isPartnerConfigAvailable(PartnerConfig.CONFIG_LAYOUT_MARGIN_START)) {
+        int layoutMarginStart =
+            (int)
+                PartnerConfigHelper.get(getContext())
+                    .getDimension(getContext(), PartnerConfig.CONFIG_LAYOUT_MARGIN_START);
+
+        int paddingStart = 0;
+        if (headerView != null) {
+          paddingStart = (horizontalSpacing / 2) - layoutMarginStart;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+          contentView.setPadding(
+              paddingStart,
+              contentView.getPaddingTop(),
+              contentView.getPaddingEnd(),
+              contentView.getPaddingBottom());
+        } else {
+          contentView.setPadding(
+              paddingStart,
+              contentView.getPaddingTop(),
+              contentView.getPaddingRight(),
+              contentView.getPaddingBottom());
+        }
       }
     }
   }
@@ -187,8 +274,8 @@ public class GlifLayout extends PartnerCustomizationLayout {
    * the content area outside of the scrolling container. The header can only be inflated once per
    * instance of this layout.
    *
-   * @param header The layout to be inflated as the header.
-   * @return The root of the inflated header view.
+   * @param header The layout to be inflated as the header
+   * @return The root of the inflated header view
    */
   public View inflateStickyHeader(@LayoutRes int header) {
     ViewStub stickyHeaderStub = findManagedViewById(R.id.sud_layout_sticky_header);
@@ -217,6 +304,35 @@ public class GlifLayout extends PartnerCustomizationLayout {
     return getMixin(HeaderMixin.class).getText();
   }
 
+  public TextView getDescriptionTextView() {
+    return getMixin(DescriptionMixin.class).getTextView();
+  }
+
+  /**
+   * Sets the description text and also sets the text visibility to visible. This can also be set
+   * via the XML attribute {@code app:sudDescriptionText}.
+   *
+   * @param title The resource ID of the text to be set as description
+   */
+  public void setDescriptionText(@StringRes int title) {
+    getMixin(DescriptionMixin.class).setText(title);
+  }
+
+  /**
+   * Sets the description text and also sets the text visibility to visible. This can also be set
+   * via the XML attribute {@code app:sudDescriptionText}.
+   *
+   * @param title The text to be set as description
+   */
+  public void setDescriptionText(CharSequence title) {
+    getMixin(DescriptionMixin.class).setText(title);
+  }
+
+  /** Returns the current description text. */
+  public CharSequence getDescriptionText() {
+    return getMixin(DescriptionMixin.class).getText();
+  }
+
   public void setHeaderColor(ColorStateList color) {
     getMixin(HeaderMixin.class).setTextColor(color);
   }
@@ -231,6 +347,24 @@ public class GlifLayout extends PartnerCustomizationLayout {
 
   public Drawable getIcon() {
     return getMixin(IconMixin.class).getIcon();
+  }
+
+  /**
+   * Sets the visibility of header area in landscape mode. These views inlcudes icon, header title
+   * and subtitle. It can make the content view become full screen when set false.
+   */
+  @TargetApi(Build.VERSION_CODES.S)
+  public void setLandscapeHeaderAreaVisible(boolean visible) {
+    View view = this.findManagedViewById(R.id.sud_landscape_header_area);
+    if (view == null) {
+      return;
+    }
+    if (visible) {
+      view.setVisibility(View.VISIBLE);
+    } else {
+      view.setVisibility(View.GONE);
+    }
+    updateLandscapeMiddleHorizontalSpacing();
   }
 
   /**
@@ -253,7 +387,7 @@ public class GlifLayout extends PartnerCustomizationLayout {
    * drawn with this color.
    *
    * @param color The color to use as the base color of the background. If {@code null}, {@link
-   *     #getPrimaryColor()} will be used.
+   *     #getPrimaryColor()} will be used
    */
   public void setBackgroundBaseColor(@Nullable ColorStateList color) {
     backgroundBaseColor = color;
@@ -316,15 +450,45 @@ public class GlifLayout extends PartnerCustomizationLayout {
    * Returns if the current layout/activity applies heavy partner customized configurations or not.
    */
   public boolean shouldApplyPartnerHeavyThemeResource() {
-    return applyPartnerHeavyThemeResource;
+
+    return applyPartnerHeavyThemeResource
+        || (shouldApplyPartnerResource()
+            && PartnerConfigHelper.shouldApplyExtendedPartnerConfig(getContext()));
   }
 
   /** Updates the background color of this layout with the partner-customizable background color. */
   private void updateContentBackgroundColorWithPartnerConfig() {
+    // If full dynamic color enabled which means this activity is running outside of setup
+    // flow, the colors should refer to R.style.SudFullDynamicColorThemeGlifV3.
+    if (useFullDynamicColor()) {
+      return;
+    }
+
     @ColorInt
     int color =
         PartnerConfigHelper.get(getContext())
             .getColor(getContext(), PartnerConfig.CONFIG_LAYOUT_BACKGROUND_COLOR);
     this.getRootView().setBackgroundColor(color);
+  }
+
+  @TargetApi(VERSION_CODES.JELLY_BEAN_MR1)
+  protected static void applyPartnerCustomizationContentPaddingTopStyle(View view) {
+    Context context = view.getContext();
+    boolean partnerPaddingTopAvailable =
+        PartnerConfigHelper.get(context)
+            .isPartnerConfigAvailable(PartnerConfig.CONFIG_CONTENT_PADDING_TOP);
+
+    if (PartnerStyleHelper.shouldApplyPartnerHeavyThemeResource(view)
+        && partnerPaddingTopAvailable) {
+      int paddingTop =
+          (int)
+              PartnerConfigHelper.get(context)
+                  .getDimension(context, PartnerConfig.CONFIG_CONTENT_PADDING_TOP);
+
+      if (paddingTop != view.getPaddingTop()) {
+        view.setPadding(
+            view.getPaddingStart(), paddingTop, view.getPaddingEnd(), view.getPaddingBottom());
+      }
+    }
   }
 }

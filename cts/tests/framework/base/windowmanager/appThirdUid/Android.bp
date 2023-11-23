@@ -12,11 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsDeviceServicesTestThirdApp",
     defaults: ["cts_support_defaults"],
 
-    static_libs: ["cts-wm-app-base"],
+    static_libs: [
+        "cts-wm-app-base",
+        "cts-wm-overlayapp-base"
+    ],
 
     srcs: ["src/**/*.java"],
 
@@ -24,7 +31,7 @@ android_test {
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "sts",
     ],
 }

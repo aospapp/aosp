@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 2008-2014, International Business Machines Corporation and    *
@@ -29,7 +29,6 @@ import android.icu.util.TimeZone;
  * when the default timezone type in TimeZone class is TimeZone.TIMEZONE_JDK.
  * @hide Only a subset of ICU is exposed in Android
  */
-@libcore.api.IntraCoreApi
 public class JavaTimeZone extends TimeZone {
 
     private static final long serialVersionUID = 6977448185543929364L;
@@ -69,7 +68,6 @@ public class JavaTimeZone extends TimeZone {
      * @param id the ID of the zone. if null, the zone ID is initialized
      * by the given Java TimeZone's ID.
      */
-    @libcore.api.IntraCoreApi
     public JavaTimeZone(java.util.TimeZone jtz, String id) {
         if (id == null) {
             id = jtz.getID();

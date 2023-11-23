@@ -40,6 +40,10 @@ COMMON_SRCS += $(CHRE_PREFIX)/external/kiss_fft/kiss_fft.c
 COMMON_SRCS += $(CHRE_PREFIX)/external/kiss_fft/kiss_fftr.c
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/audio.cc
 
+# Permission declarations ######################################################
+
+CHRE_NANOAPP_USES_AUDIO = true
+
 # Makefile Includes ############################################################
 
 include $(CHRE_PREFIX)/build/nanoapp/app.mk

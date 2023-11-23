@@ -27,7 +27,7 @@
     <string name="enable_emergency_alerts_message_title">Alerts</string>
     <string name="enable_emergency_alerts_message_summary">Recommended actions that can save lives or property</string>
     <!-- Dialog title for test alert. [CHAR LIMIT=50] -->
-    <string name="cmas_required_monthly_test">Test Alerts</string>
+    <string name="cmas_required_monthly_test">Testing Alerts</string>
     <!-- Dialog title for exercise level alert. [CHAR LIMIT=50] -->
     <string name="cmas_exercise_alert">Exercises</string>
 </resources>

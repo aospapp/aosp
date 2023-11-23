@@ -180,6 +180,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
     private SelectionMetadata mSelectionMetadata;
     private KeyInputHandler mKeyListener;
     private @Nullable DragHoverListener mDragHoverListener;
+    private View mRootView;
     private IconHelper mIconHelper;
     private SwipeRefreshLayout mRefreshLayout;
     private RecyclerView mRecView;
@@ -348,12 +349,12 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
         mHandler = new Handler(Looper.getMainLooper());
         mActivity = (BaseActivity) getActivity();
-        final View view = inflater.inflate(R.layout.fragment_directory, container, false);
+        mRootView = inflater.inflate(R.layout.fragment_directory, container, false);
 
-        mProgressBar = view.findViewById(R.id.progressbar);
+        mProgressBar = mRootView.findViewById(R.id.progressbar);
         assert mProgressBar != null;
 
-        mRecView = (RecyclerView) view.findViewById(R.id.dir_list);
+        mRecView = (RecyclerView) mRootView.findViewById(R.id.dir_list);
         mRecView.setRecyclerListener(
                 new RecyclerListener() {
                     @Override
@@ -362,12 +363,12 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
                     }
                 });
 
-        mRefreshLayout = (SwipeRefreshLayout) view.findViewById(R.id.refresh_layout);
+        mRefreshLayout = (SwipeRefreshLayout) mRootView.findViewById(R.id.refresh_layout);
         mRefreshLayout.setOnRefreshListener(this);
         mRecView.setItemAnimator(new DirectoryItemAnimator());
 
         mInjector = mActivity.getInjector();
-        // Initially, this selection tracker (delegator) uses a dummy implementation, so it must be
+        // Initially, this selection tracker (delegator) uses a stub implementation, so it must be
         // updated (reset) when necessary things are ready.
         mSelectionMgr = mInjector.selectionMgr;
         mModel = mInjector.getModel();
@@ -398,7 +399,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
         setPreDrawListenerEnabled(true);
 
-        return view;
+        return mRootView;
     }
 
     @Override
@@ -492,7 +493,7 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
                         this::getModelId,
                         mRecView::findChildViewUnder,
                         DocumentsApplication.getDragAndDropManager(mActivity))
-                : DragStartListener.DUMMY;
+                : DragStartListener.STUB;
 
         {
             // Limiting the scope of the localTracker so nobody uses it.
@@ -585,6 +586,9 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
         // Add listener to update contents on sort model change
         mState.sortModel.addListener(mSortListener);
+        // After SD card is formatted, we go out of the view and come back. Similarly when users
+        // go out of the app to delete some files, we want to refresh the directory.
+        onRefresh();
     }
 
     @Override
@@ -684,6 +688,9 @@ public class DirectoryFragment extends Fragment implements SwipeRefreshLayout.On
 
     public void onViewModeChanged() {
         // Mode change is just visual change; no need to kick loader.
+        mRootView.announceForAccessibility(getString(
+                mState.derivedMode == State.MODE_GRID ? R.string.grid_mode_showing
+                        : R.string.list_mode_showing));
         onDisplayStateChanged();
     }
 

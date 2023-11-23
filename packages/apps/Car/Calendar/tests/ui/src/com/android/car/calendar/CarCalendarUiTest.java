@@ -35,6 +35,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.provider.CalendarContract;
+import android.telephony.TelephonyManager;
 import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
 
@@ -97,6 +98,9 @@ public class CarCalendarUiTest {
 
     private List<Object[]> mTestEventRows;
 
+    // If set to true fake dependencies will not be set and the real provider will be used.
+    private boolean mDoNotSetFakeDependencies;
+
     // These can be set in the test thread and read on the main thread.
     private volatile CountDownLatch mEventChangesLatch;
 
@@ -104,9 +108,12 @@ public class CarCalendarUiTest {
     public void setUp() {
         ActivityLifecycleMonitorRegistry.getInstance().addLifecycleCallback(mLifecycleCallback);
         mTestEventRows = new ArrayList<>();
+        mDoNotSetFakeDependencies = false;
     }
 
     private void onActivityLifecycleChanged(Activity activity, Stage stage) {
+        if (mDoNotSetFakeDependencies) return;
+
         if (stage.equals(Stage.PRE_ON_CREATE)) {
             setActivityDependencies((CarCalendarActivity) activity);
         } else if (stage.equals(Stage.CREATED)) {
@@ -122,7 +129,8 @@ public class CarCalendarUiTest {
                 new TestCalendarContentProvider(context);
         mockContentResolver.addProvider(CalendarContract.AUTHORITY, testCalendarContentProvider);
         activity.mDependencies =
-                new CarCalendarActivity.Dependencies(LOCALE, fixedTimeClock, mockContentResolver);
+                new CarCalendarActivity.Dependencies(LOCALE, fixedTimeClock, mockContentResolver,
+                        activity.getSystemService(TelephonyManager.class));
     }
 
     private void observeEventsLiveData(CarCalendarActivity activity) {
@@ -154,9 +162,18 @@ public class CarCalendarUiTest {
     }
 
     @Test
-    public void calendar_titleShows() {
+    public void withFakeDependencies_titleShows() {
         try (ActivityScenario<CarCalendarActivity> ignored =
-                ActivityScenario.launch(CarCalendarActivity.class)) {
+                     ActivityScenario.launch(CarCalendarActivity.class)) {
+            onView(withText(R.string.app_name)).check(matches(isDisplayed()));
+        }
+    }
+
+    @Test
+    public void withoutFakeDependencies_titleShows() {
+        mDoNotSetFakeDependencies = true;
+        try (ActivityScenario<CarCalendarActivity> ignored =
+                     ActivityScenario.launch(CarCalendarActivity.class)) {
             onView(withText(R.string.app_name)).check(matches(isDisplayed()));
         }
     }

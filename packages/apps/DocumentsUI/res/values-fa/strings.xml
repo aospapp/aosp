@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"باید نام این مورد را تغییر دهید"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"باید نامی به پوشه اضافه کنید"</string>
     <string name="files_label" msgid="771781190045103748">"فایل‌ها"</string>
     <string name="downloads_label" msgid="5462789470049501103">"بارگیری‌ها"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -204,7 +206,7 @@
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"به <xliff:g id="APPNAME"><b>^1</b></xliff:g> اجازه داده شود به فهرست راهنمای <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> دسترسی داشته باشد؟"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"به <xliff:g id="APPNAME"><b>^1</b></xliff:g> اجازه می‌دهید به داده‌هایتان دسترسی پیدا کند، از جمله عکس‌ها و ویدئوهایتان در <xliff:g id="STORAGE"><i>^2</i></xliff:g>؟"</string>
     <string name="allow" msgid="1275746941353040309">"اجازه دادن"</string>
-    <string name="deny" msgid="5127201668078153379">"اجازه ندارد"</string>
+    <string name="deny" msgid="5127201668078153379">"مجاز نبودن"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
       <item quantity="one">‏<xliff:g id="COUNT_1">%1$d</xliff:g> مورد انتخاب شد</item>
       <item quantity="other">‏<xliff:g id="COUNT_1">%1$d</xliff:g> مورد انتخاب شد</item>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"کاری"</string>
     <string name="a11y_work" msgid="7504431382825242153">"کاری"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"نمی‌توانید فایل‌ها را از برنامه دیگری انتقال دهید."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"نمایش در حالت جدولی."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"نمایش در حالت فهرست."</string>
 </resources>

@@ -7,10 +7,6 @@
 #ifndef _LTP_TRACE_PARSE_H_
 #define _LTP_TRACE_PARSE_H_
 
-/*
- * It is necessary to define TRACE_EVENTS to communicate the events to trace. */
-#define TRACING_DIR "/sys/kernel/debug/tracing/"
-
 enum {
 	TRACE_RECORD_OTHER = 0,
 	TRACE_RECORD_SCHED_PROCESS_EXIT,
@@ -91,7 +87,10 @@ struct trace_record {
 
 extern int num_trace_records;
 extern struct trace_record *trace;
+extern char *ftrace_root_dir;
 
+void tracefs_write(const char *file_name, const char *value);
+void trace_setup(void);
 void trace_cleanup(void);
 void print_trace_record(struct trace_record *tr);
 struct trace_record *load_trace(void);

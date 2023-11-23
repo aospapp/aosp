@@ -10,8 +10,6 @@
 #include <random>
 #include <vector>
 
-#include <cpuinfo.h>
-
 #include <benchmark/benchmark.h>
 #include "bench/dconv.h"
 #include "bench/utils.h"
@@ -25,10 +23,11 @@
 
 static void DConv3X3S2P1Benchmark(benchmark::State& state,
   xnn_f32_conv_hwc_ukernel_function conv,
-  uint32_t output_channels_tile)
+  uint32_t output_channels_tile,
+  benchmark::utils::IsaCheckFunction isa_check = nullptr)
 {
-  if (!cpuinfo_initialize()) {
-    state.SkipWithError("cpuinfo initialization failed");
+  if (isa_check && !isa_check(state)) {
+    return;
   }
 
   const size_t input_height = state.range(0);
@@ -37,7 +36,7 @@ static void DConv3X3S2P1Benchmark(benchmark::State& state,
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), rng);
+  auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), std::ref(rng));
 
   const size_t input_channels = 3;
   const size_t kernel_size = 3;
@@ -68,7 +67,7 @@ static void DConv3X3S2P1Benchmark(benchmark::State& state,
   xnn_pack_f32_dconv_oki_w(
     output_channels, input_channels, output_channels_tile,
     kernel_size /* kernel height */, kernel_size /* kernel width */,
-    kernel.data(), bias.data(), packed_weights.data());
+    kernel.data(), bias.data(), packed_weights.data(), nullptr);
   for (size_t n = 1; n < num_buffers; n++) {
     std::copy(packed_weights.cbegin(),
       packed_weights.cbegin() + weights_elements,
@@ -78,8 +77,8 @@ static void DConv3X3S2P1Benchmark(benchmark::State& state,
   std::vector<float> output(output_elements * num_buffers);
   std::fill(output.begin(), output.end(), std::nanf(""));
 
-  xnn_f32_output_params output_params =
-    xnn_init_f32_output_params(-std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
+  xnn_f32_minmax_params params =
+    xnn_init_f32_minmax_params(-std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
 
   size_t buffer_index = 0;
   for (auto _ : state) {
@@ -97,10 +96,14 @@ static void DConv3X3S2P1Benchmark(benchmark::State& state,
       padding, output_channels,
       output_channels * output_width * sizeof(float),
       output_channels * sizeof(float),
-      &output_params);
+      &params);
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
+
   state.counters["FLOPS"] = benchmark::Counter(
     uint64_t(state.iterations()) * 2 *
       output_height * output_width *
@@ -110,17 +113,44 @@ static void DConv3X3S2P1Benchmark(benchmark::State& state,
 }
 
 #if XNN_ARCH_ARM64
+  static void f32_conv_hwc_3x3s2p1c3x8__neonfma_2x1(benchmark::State& state, const char* net) {
+    DConv3X3S2P1Benchmark(state, xnn_f32_conv_hwc_ukernel_3x3s2p1c3x8__neonfma_2x1, 8, benchmark::utils::CheckNEONFMA);
+  }
+  static void f32_conv_hwc_3x3s2p1c3x4__neonfma_2x1(benchmark::State& state, const char* net) {
+    DConv3X3S2P1Benchmark(state, xnn_f32_conv_hwc_ukernel_3x3s2p1c3x4__neonfma_2x1, 4, benchmark::utils::CheckNEONFMA);
+  }
   static void f32_conv_hwc_3x3s2p1c3x8__neonfma_2x2(benchmark::State& state, const char* net) {
-    DConv3X3S2P1Benchmark(state, xnn_f32_conv_hwc_ukernel_3x3s2p1c3x8__neonfma_2x2, 8);
+    DConv3X3S2P1Benchmark(state, xnn_f32_conv_hwc_ukernel_3x3s2p1c3x8__neonfma_2x2, 8, benchmark::utils::CheckNEONFMA);
   }
-
   static void f32_conv_hwc_3x3s2p1c3x4__neonfma_2x2(benchmark::State& state, const char* net) {
-    DConv3X3S2P1Benchmark(state, xnn_f32_conv_hwc_ukernel_3x3s2p1c3x4__neonfma_2x2, 4);
+    DConv3X3S2P1Benchmark(state, xnn_f32_conv_hwc_ukernel_3x3s2p1c3x4__neonfma_2x2, 4, benchmark::utils::CheckNEONFMA);
   }
 
+  BENCHMARK_DCONV(f32_conv_hwc_3x3s2p1c3x8__neonfma_2x1);
+  BENCHMARK_DCONV(f32_conv_hwc_3x3s2p1c3x4__neonfma_2x1);
   BENCHMARK_DCONV(f32_conv_hwc_3x3s2p1c3x8__neonfma_2x2);
   BENCHMARK_DCONV(f32_conv_hwc_3x3s2p1c3x4__neonfma_2x2);
-#endif
+#endif  // XNN_ARCH_ARM64
+
+#if XNN_ARCH_ARM || XNN_ARCH_ARM64
+  static void f32_conv_hwc_3x3s2p1c3x8__neon_2x1(benchmark::State& state, const char* net) {
+    DConv3X3S2P1Benchmark(state, xnn_f32_conv_hwc_ukernel_3x3s2p1c3x8__neon_2x1, 8, benchmark::utils::CheckNEON);
+  }
+  static void f32_conv_hwc_3x3s2p1c3x4__neon_2x1(benchmark::State& state, const char* net) {
+    DConv3X3S2P1Benchmark(state, xnn_f32_conv_hwc_ukernel_3x3s2p1c3x4__neon_2x1, 4, benchmark::utils::CheckNEON);
+  }
+  static void f32_conv_hwc_3x3s2p1c3x8__neon_2x2(benchmark::State& state, const char* net) {
+    DConv3X3S2P1Benchmark(state, xnn_f32_conv_hwc_ukernel_3x3s2p1c3x8__neon_2x2, 8, benchmark::utils::CheckNEON);
+  }
+  static void f32_conv_hwc_3x3s2p1c3x4__neon_2x2(benchmark::State& state, const char* net) {
+    DConv3X3S2P1Benchmark(state, xnn_f32_conv_hwc_ukernel_3x3s2p1c3x4__neon_2x2, 4, benchmark::utils::CheckNEON);
+  }
+
+  BENCHMARK_DCONV(f32_conv_hwc_3x3s2p1c3x8__neon_2x1);
+  BENCHMARK_DCONV(f32_conv_hwc_3x3s2p1c3x4__neon_2x1);
+  BENCHMARK_DCONV(f32_conv_hwc_3x3s2p1c3x8__neon_2x2);
+  BENCHMARK_DCONV(f32_conv_hwc_3x3s2p1c3x4__neon_2x2);
+#endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
 
 #ifndef XNNPACK_BENCHMARK_NO_MAIN
 BENCHMARK_MAIN();

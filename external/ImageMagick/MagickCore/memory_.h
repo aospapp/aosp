@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -95,7 +95,7 @@ static inline MagickBooleanType HeapOverflowSanityCheckGetSize(
       errno=ENOMEM;
       return(MagickTrue);
     }
-  assert(extent != (size_t *const) NULL);
+  assert(extent != NULL);
   *extent=length;
   return(MagickFalse);
 }

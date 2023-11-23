@@ -17,8 +17,11 @@
 #include <chre.h>
 
 #include <cinttypes>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+
+#include "chre/util/macros.h"
 
 /**
  * @file
@@ -40,4 +43,13 @@ void chreAbort(uint32_t abortCode) {
   // want abort() semantics. Log the failure and abort().
   fprintf(stderr, "Aborting with code %" PRIu32 "\n", abortCode);
   abort();
+}
+
+WEAK_SYMBOL
+void chreLog(enum chreLogLevel level, const char *formatStr, ...) {
+  UNUSED_VAR(level);
+  va_list argList;
+  va_start(argList, formatStr);
+  vprintf(formatStr, argList);
+  va_end(argList);
 }

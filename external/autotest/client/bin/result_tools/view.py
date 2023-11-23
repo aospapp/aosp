@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -336,7 +337,7 @@ def _get_dirs_html(dirs, parent_path, total_bytes, indentation):
     top_size_limit = max([entry.original_size for entry in dirs])
     # A map between file name to ResultInfo that contains the summary of the
     # file.
-    entries = dict((entry.keys()[0], entry) for entry in dirs)
+    entries = dict((list(entry.keys())[0], entry) for entry in dirs)
     for name in sorted(entries.keys()):
         entry = entries[name]
         if not entry.is_dir and re.match(DIR_SUMMARY_PATTERN, name):

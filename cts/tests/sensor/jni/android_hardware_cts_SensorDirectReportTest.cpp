@@ -68,3 +68,10 @@ int register_android_hardware_cts_SensorDirectReportTest(JNIEnv* env) {
     return env->RegisterNatives(clazz, gMethods,
             sizeof(gMethods) / sizeof(JNINativeMethod));
 }
+
+int register_android_hardware_cts_helpers_SensorRatePermissionDirectReportTestHelper(JNIEnv* env) {
+    jclass clazz = env->FindClass(
+            "android/hardware/cts/helpers/SensorRatePermissionDirectReportTestHelper");
+    return env->RegisterNatives(clazz, gMethods,
+            sizeof(gMethods) / sizeof(JNINativeMethod));
+}

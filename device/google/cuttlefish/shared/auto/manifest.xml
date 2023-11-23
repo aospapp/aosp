@@ -9,7 +9,7 @@
 */
 -->
 <!-- Android Auto Embedded specific HALs-->
-<manifest version="1.0" type="device" target-level="5">
+<manifest version="1.0" type="device">
     <!-- FIXME: Implement automotive.evs HAL
     <hal format="hidl">
         <name>android.hardware.automotive.evs</name>

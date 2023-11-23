@@ -98,14 +98,14 @@ public final class UUID implements java.io.Serializable, java.lang.Comparable<ja
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private final long leastSigBits;
 
     {
         leastSigBits = 0;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private final long mostSigBits;
 
     {

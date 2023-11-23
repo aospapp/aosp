@@ -33,7 +33,7 @@ import os
 import threading
 import time
 
-ACTS_CONTROLLER_CONFIG_NAME = 'PacketCapture'
+MOBLY_CONTROLLER_CONFIG_NAME = 'PacketCapture'
 ACTS_CONTROLLER_REFERENCE_NAME = 'packet_capture'
 BSS = 'BSS'
 BSSID = 'BSSID'
@@ -102,7 +102,7 @@ class PacketCapture(object):
         self.ssh_settings = settings.from_config(configs['ssh_config'])
         self.ssh = connection.SshConnection(self.ssh_settings)
         self.log = logger.create_logger(lambda msg: '[%s|%s] %s' % (
-            ACTS_CONTROLLER_CONFIG_NAME, self.ssh_settings.hostname, msg))
+            MOBLY_CONTROLLER_CONFIG_NAME, self.ssh_settings.hostname, msg))
 
         self._create_interface(MON_2G, 'monitor')
         self._create_interface(MON_5G, 'monitor')

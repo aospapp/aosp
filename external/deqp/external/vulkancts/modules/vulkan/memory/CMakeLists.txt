@@ -1,6 +1,9 @@
 # Memory tests
 
-include_directories(..)
+include_directories(
+	..
+	../util
+	)
 
 set(DEQP_VK_MEMORY_SRCS
 	vktMemoryTests.cpp
@@ -17,6 +20,8 @@ set(DEQP_VK_MEMORY_SRCS
 	vktMemoryBindingTests.hpp
 	vktMemoryExternalMemoryHostTests.cpp
 	vktMemoryExternalMemoryHostTests.hpp
+	vktMemoryDeviceMemoryReportTests.cpp
+	vktMemoryDeviceMemoryReportTests.hpp
 	)
 
 set(DEQP_VK_MEMORY_LIBS

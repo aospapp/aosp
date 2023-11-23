@@ -16,6 +16,7 @@
 
 package com.android.bluetooth.a2dpsink;
 
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClientCall;
 import android.content.Context;

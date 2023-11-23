@@ -20,18 +20,4 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/setup_wizard_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-    <LinearLayout
-        android:layout_marginLeft="?attr/sudMarginSides"
-        android:layout_marginRight="?attr/sudMarginSides"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
-      <TextView
-          android:id="@+id/provider_info"
-          android:layout_width="match_parent"
-          android:layout_height="wrap_content"
-          android:layout_marginTop="@dimen/spacer_24"
-          style="@style/SudDescription.Glif"/>
-    </LinearLayout>
-</com.google.android.setupdesign.GlifLayout>
+    android:layout_height="match_parent" />

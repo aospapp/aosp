@@ -18,12 +18,17 @@
 
 import collections
 import io
+import json
 import logging
+import os
+import ssl
+import stat
 
 import apiclient
 
 from acloud import errors
 from acloud.internal.lib import base_cloud_client
+from acloud.internal.lib import utils
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +40,7 @@ BuildInfo = collections.namedtuple("BuildInfo", [
     "build_id",  # The build id string
     "build_target",  # The build target string
     "release_build_id"])  # The release build id string
+_DEFAULT_BRANCH = "aosp-master"
 
 
 class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
@@ -57,6 +63,11 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
     ONE_RESULT = 1
     BUILD_SUCCESSFUL = True
     LATEST = "latest"
+    # FETCH_CVD variables.
+    FETCHER_NAME = "fetch_cvd"
+    FETCHER_BUILD_TARGET = "aosp_cf_x86_phone-userdebug"
+    MAX_RETRY = 3
+    RETRY_SLEEP_SECS = 3
 
     # Message constant
     COPY_TO_MSG = ("build artifact (target: %s, build_id: %s, "
@@ -99,6 +110,155 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
         except (OSError, apiclient.errors.HttpError) as e:
             logger.error("Downloading artifact failed: %s", str(e))
             raise errors.DriverError(str(e))
+
+    def DownloadFetchcvd(self, local_dest, fetch_cvd_version):
+        """Get fetch_cvd from Android Build.
+
+        Args:
+            local_dest: A local path where the artifact should be stored.
+                        e.g. "/tmp/fetch_cvd"
+            fetch_cvd_version: String of fetch_cvd version.
+        """
+        utils.RetryExceptionType(
+            exception_types=ssl.SSLError,
+            max_retries=self.MAX_RETRY,
+            functor=self.DownloadArtifact,
+            sleep_multiplier=self.RETRY_SLEEP_SECS,
+            retry_backoff_factor=utils.DEFAULT_RETRY_BACKOFF_FACTOR,
+            build_target=self.FETCHER_BUILD_TARGET,
+            build_id=fetch_cvd_version,
+            resource_id=self.FETCHER_NAME,
+            local_dest=local_dest,
+            attempt_id=self.LATEST)
+        fetch_cvd_stat = os.stat(local_dest)
+        os.chmod(local_dest, fetch_cvd_stat.st_mode | stat.S_IEXEC)
+
+    @staticmethod
+    def ProcessBuild(build_id=None, branch=None, build_target=None):
+        """Create a Cuttlefish fetch_cvd build string.
+
+        Args:
+            build_id: A specific build number to load from. Takes precedence over `branch`.
+            branch: A manifest-branch at which to get the latest build.
+            build_target: A particular device to load at the desired build.
+
+        Returns:
+            A string, used in the fetch_cvd cmd or None if all args are None.
+        """
+        if not build_target:
+            return build_id or branch
+
+        if build_target and not branch:
+            branch = _DEFAULT_BRANCH
+        return (build_id or branch) + "/" + build_target
+
+    # pylint: disable=too-many-locals
+    def GetFetchBuildArgs(self, build_id, branch, build_target, system_build_id,
+                          system_branch, system_build_target, kernel_build_id,
+                          kernel_branch, kernel_build_target, bootloader_build_id,
+                          bootloader_branch, bootloader_build_target):
+        """Get args from build information for fetch_cvd.
+
+        Args:
+            build_id: String of build id, e.g. "2263051", "P2804227"
+            branch: String of branch name, e.g. "aosp-master"
+            build_target: String of target name.
+                          e.g. "aosp_cf_x86_phone-userdebug"
+            system_build_id: String of the system image build id.
+            system_branch: String of the system image branch name.
+            system_build_target: String of the system image target name,
+                                 e.g. "cf_x86_phone-userdebug"
+            kernel_build_id: String of the kernel image build id.
+            kernel_branch: String of the kernel image branch name.
+            kernel_build_target: String of the kernel image target name,
+            bootloader_build_id: String of the bootloader build id.
+            bootloader_branch: String of the bootloader branch name.
+            bootloader_build_target: String of the bootloader target name.
+
+        Returns:
+            List of string args for fetch_cvd.
+        """
+        fetch_cvd_args = []
+
+        default_build = self.ProcessBuild(build_id, branch, build_target)
+        if default_build:
+            fetch_cvd_args.append("-default_build=" + default_build)
+        system_build = self.ProcessBuild(
+            system_build_id, system_branch, system_build_target)
+        if system_build:
+            fetch_cvd_args.append("-system_build=" + system_build)
+        bootloader_build = self.ProcessBuild(bootloader_build_id,
+                                             bootloader_branch,
+                                             bootloader_build_target)
+        if bootloader_build:
+            fetch_cvd_args.append("-bootloader_build=%s" % bootloader_build)
+        kernel_build = self.GetKernelBuild(kernel_build_id,
+                                           kernel_branch,
+                                           kernel_build_target)
+        if kernel_build:
+            fetch_cvd_args.append("-kernel_build=" + kernel_build)
+
+        return fetch_cvd_args
+
+    @staticmethod
+    # pylint: disable=broad-except
+    def GetFetchCertArg(certification_file):
+        """Get cert arg from certification file for fetch_cvd.
+
+        Parse the certification file to get access token of the latest
+        credential data and pass it to fetch_cvd command.
+        Example of certification file:
+        {
+          "data": [
+          {
+            "credential": {
+              "_class": "OAuth2Credentials",
+              "_module": "oauth2client.client",
+              "access_token": "token_strings",
+              "client_id": "179485041932",
+            }
+          }]
+        }
+
+
+        Args:
+            certification_file: String of certification file path.
+
+        Returns:
+            String of certificate arg for fetch_cvd. If there is no
+            certification file, return empty string for aosp branch.
+        """
+        cert_arg = ""
+
+        try:
+            with open(certification_file) as cert_file:
+                auth_token = json.load(cert_file).get("data")[-1].get(
+                    "credential").get("access_token")
+                if auth_token:
+                    cert_arg = "-credential_source=%s" % auth_token
+        except Exception as e:
+            utils.PrintColorString(
+                "Fail to open the certification file(%s): %s" %
+                (certification_file, e), utils.TextColors.WARNING)
+        return cert_arg
+
+    def GetKernelBuild(self, kernel_build_id, kernel_branch, kernel_build_target):
+        """Get kernel build args for fetch_cvd.
+
+        Args:
+            kernel_branch: Kernel branch name, e.g. "kernel-common-android-4.14"
+            kernel_build_id: Kernel build id, a string, e.g. "223051", "P280427"
+            kernel_build_target: String, Kernel build target name.
+
+        Returns:
+            String of kernel build args for fetch_cvd.
+            If no kernel build then return None.
+        """
+        # kernel_target have default value "kernel". If user provide kernel_build_id
+        # or kernel_branch, then start to process kernel image.
+        if kernel_build_id or kernel_branch:
+            return self.ProcessBuild(kernel_build_id, kernel_branch, kernel_build_target)
+        return None
 
     def CopyTo(self,
                build_target,

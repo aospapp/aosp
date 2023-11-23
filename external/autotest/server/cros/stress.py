@@ -1,12 +1,18 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import logging
 import sys
 import threading
 import time
 from autotest_lib.client.common_lib import error
+import six
+from six.moves import range
 
 
 class BaseStressor(threading.Thread):
@@ -107,7 +113,7 @@ class BaseStressor(threading.Thread):
         if self._exc_info:
             exc_info = self._exc_info
             self._exc_info = None
-            raise exc_info[0], exc_info[1], exc_info[2]
+            six.reraise(exc_info[0], exc_info[1], exc_info[2])
 
 
 class ControlledStressor(BaseStressor):
@@ -177,7 +183,7 @@ class CountedStressor(BaseStressor):
     """
     def _loop_stressor(self):
         """Overloaded from parent."""
-        for iteration_num in xrange(1, self._iterations + 1):
+        for iteration_num in range(1, self._iterations + 1):
             logging.info('Stressor iteration: %d of %d',
                          iteration_num, self._iterations)
             self.stressor()

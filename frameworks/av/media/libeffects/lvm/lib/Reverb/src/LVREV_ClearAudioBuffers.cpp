@@ -41,17 +41,14 @@
 /*  1. This function must not be interrupted by the LVM_Process function                */
 /*                                                                                      */
 /****************************************************************************************/
-LVREV_ReturnStatus_en LVREV_ClearAudioBuffers(LVREV_Handle_t  hInstance)
-{
-
-   LVREV_Instance_st     *pLVREV_Private = (LVREV_Instance_st *)hInstance;
+LVREV_ReturnStatus_en LVREV_ClearAudioBuffers(LVREV_Handle_t hInstance) {
+    LVREV_Instance_st* pLVREV_Private = (LVREV_Instance_st*)hInstance;
 
     /*
      * Check for error conditions
      */
     /* Check for NULL pointers */
-    if(hInstance == LVM_NULL)
-    {
+    if (hInstance == LVM_NULL) {
         return LVREV_NULLADDRESS;
     }
 
@@ -59,38 +56,12 @@ LVREV_ReturnStatus_en LVREV_ClearAudioBuffers(LVREV_Handle_t  hInstance)
      * Clear all filter tap data, delay-lines and other signal related data
      */
 
-    LoadConst_Float(0,
-        (LVM_FLOAT *)&pLVREV_Private->pFastData->HPTaps,
-        2);
-    LoadConst_Float(0,
-        (LVM_FLOAT *)&pLVREV_Private->pFastData->LPTaps,
-        2);
-    if((LVM_UINT16)pLVREV_Private->InstanceParams.NumDelays == LVREV_DELAYLINES_4)
-    {
-        LoadConst_Float(0, (LVM_FLOAT *)&pLVREV_Private->pFastData->RevLPTaps[3], 2);
-        LoadConst_Float(0, (LVM_FLOAT *)&pLVREV_Private->pFastData->RevLPTaps[2], 2);
-        LoadConst_Float(0, (LVM_FLOAT *)&pLVREV_Private->pFastData->RevLPTaps[1], 2);
-        LoadConst_Float(0, (LVM_FLOAT *)&pLVREV_Private->pFastData->RevLPTaps[0], 2);
-
-        LoadConst_Float(0, pLVREV_Private->pDelay_T[3], LVREV_MAX_T3_DELAY);
-        LoadConst_Float(0, pLVREV_Private->pDelay_T[2], LVREV_MAX_T2_DELAY);
-        LoadConst_Float(0, pLVREV_Private->pDelay_T[1], LVREV_MAX_T1_DELAY);
-        LoadConst_Float(0, pLVREV_Private->pDelay_T[0], LVREV_MAX_T0_DELAY);
-    }
-
-    if((LVM_UINT16)pLVREV_Private->InstanceParams.NumDelays >= LVREV_DELAYLINES_2)
-    {
-        LoadConst_Float(0, (LVM_FLOAT *)&pLVREV_Private->pFastData->RevLPTaps[1], 2);
-        LoadConst_Float(0, (LVM_FLOAT *)&pLVREV_Private->pFastData->RevLPTaps[0], 2);
-
-        LoadConst_Float(0, pLVREV_Private->pDelay_T[1], LVREV_MAX_T1_DELAY);
-        LoadConst_Float(0, pLVREV_Private->pDelay_T[0], LVREV_MAX_T0_DELAY);
-    }
-
-    if((LVM_UINT16)pLVREV_Private->InstanceParams.NumDelays >= LVREV_DELAYLINES_1)
-    {
-        LoadConst_Float(0, (LVM_FLOAT *)&pLVREV_Private->pFastData->RevLPTaps[0], 2);
-        LoadConst_Float(0, pLVREV_Private->pDelay_T[0], LVREV_MAX_T0_DELAY);
+    pLVREV_Private->pRevHPFBiquad->clear();
+    pLVREV_Private->pRevLPFBiquad->clear();
+    for (size_t i = 0; i < pLVREV_Private->InstanceParams.NumDelays; i++) {
+        pLVREV_Private->revLPFBiquad[i]->clear();
+        memset(pLVREV_Private->pDelay_T[i], 0, LVREV_MAX_T_DELAY[i] *
+                sizeof(pLVREV_Private->pDelay_T[i][0]));
     }
     return LVREV_SUCCESS;
 }

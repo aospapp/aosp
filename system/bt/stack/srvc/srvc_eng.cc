@@ -244,7 +244,7 @@ uint8_t srvc_eng_process_write_req(uint8_t clcb_idx, tGATT_WRITE_REQ* p_data,
 static void srvc_eng_s_request_cback(uint16_t conn_id, uint32_t trans_id,
                                      tGATTS_REQ_TYPE type,
                                      tGATTS_DATA* p_data) {
-  uint8_t status = GATT_INVALID_PDU;
+  tGATT_STATUS status = GATT_INVALID_PDU;
   tGATTS_RSP rsp_msg;
   uint8_t act = SRVC_ACT_IGNORE;
   uint8_t clcb_idx = srvc_eng_find_clcb_idx_by_conn_id(conn_id);
@@ -329,8 +329,7 @@ static void srvc_eng_connect_cback(UNUSED_ATTR tGATT_IF gatt_if,
                                    bool connected, tGATT_DISCONN_REASON reason,
                                    UNUSED_ATTR tBT_TRANSPORT transport) {
   VLOG(1) << __func__ << ": from " << bda
-          << StringPrintf(" connected:%d conn_id=%d reason = 0x%04x", connected,
-                          conn_id, reason);
+          << StringPrintf(" connected:%d conn_id=%d", connected, conn_id);
 
   if (connected) {
     if (srvc_eng_clcb_alloc(conn_id, bda) == NULL) {
@@ -402,7 +401,8 @@ tGATT_STATUS srvc_eng_init(void) {
     /* Create a GATT profile service */
     bluetooth::Uuid app_uuid =
         bluetooth::Uuid::From16Bit(UUID_SERVCLASS_DEVICE_INFO);
-    srvc_eng_cb.gatt_if = GATT_Register(app_uuid, &srvc_gatt_cback);
+    srvc_eng_cb.gatt_if =
+        GATT_Register(app_uuid, "GattServiceEngine", &srvc_gatt_cback, false);
     GATT_StartIf(srvc_eng_cb.gatt_if);
 
     VLOG(1) << "Srvc_Init:  gatt_if=" << +srvc_eng_cb.gatt_if;

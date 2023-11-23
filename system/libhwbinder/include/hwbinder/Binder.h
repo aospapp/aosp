@@ -21,6 +21,10 @@
 #include <stdint.h>
 #include <hwbinder/IBinder.h>
 
+// WARNING: this code is part of libhwbinder, a fork of libbinder. Generally,
+// this means that it is only relevant to HIDL. Any AIDL- or libbinder-specific
+// code should not try to use these things.
+
 // ---------------------------------------------------------------------------
 namespace android {
 namespace hardware {
@@ -69,6 +73,9 @@ protected:
                                     TransactCallback callback = nullptr);
 
     // This must be called before the object is sent to another process. Not thread safe.
+    //
+    // If this is called with true, and the kernel supports it,
+    // IPCThreadState::getCallingSid will return values for remote processes.
     void                setRequestingSid(bool requestSid);
 
     int                 mSchedPolicy; // policy to run transaction from this node at

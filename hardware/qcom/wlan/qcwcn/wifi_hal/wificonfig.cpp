@@ -360,12 +360,14 @@ wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle,
 
     switch (scenario) {
         case WIFI_POWER_SCENARIO_VOICE_CALL:
-        case WIFI_POWER_SCENARIO_ON_HEAD_CELL_OFF:
         case WIFI_POWER_SCENARIO_ON_BODY_BT:
             bdf_file = QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_BDF0;
             break;
 
+        case WIFI_POWER_SCENARIO_ON_HEAD_CELL_OFF:
         case WIFI_POWER_SCENARIO_ON_HEAD_CELL_ON:
+        case WIFI_POWER_SCENARIO_ON_HEAD_HOTSPOT:
+        case WIFI_POWER_SCENARIO_ON_HEAD_HOTSPOT_MMW:
             bdf_file = QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_BDF1;
             break;
 
@@ -374,6 +376,11 @@ wifi_error wifi_select_tx_power_scenario(wifi_interface_handle handle,
             break;
 
         case WIFI_POWER_SCENARIO_ON_BODY_CELL_ON:
+        case WIFI_POWER_SCENARIO_ON_BODY_CELL_ON_BT:
+        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT:
+        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT_BT:
+        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT_MMW:
+        case WIFI_POWER_SCENARIO_ON_BODY_HOTSPOT_BT_MMW:
             bdf_file = QCA_WLAN_VENDOR_ATTR_SAR_LIMITS_SELECT_BDF3;
             break;
 

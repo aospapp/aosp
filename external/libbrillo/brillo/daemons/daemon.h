@@ -114,6 +114,8 @@ class BRILLO_EXPORT Daemon : public AsynchronousSignalHandlerInterface {
   AsynchronousSignalHandler async_signal_handler_;
   // Process exit code specified in QuitWithExitCode() method call.
   int exit_code_;
+  // Daemon is in the process of exiting.
+  bool exiting_;
 
   DISALLOW_COPY_AND_ASSIGN(Daemon);
 };

@@ -44,9 +44,17 @@ public class BatteryUtils {
         return InstrumentationRegistry.getContext().getSystemService(PowerManager.class);
     }
 
+    public static boolean hasBattery() {
+        final Intent batteryInfo = InstrumentationRegistry.getContext()
+                .registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        return batteryInfo.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true);
+    }
+
     /** Make the target device think it's off charger. */
-    public static void runDumpsysBatteryUnplug() {
+    public static void runDumpsysBatteryUnplug() throws Exception {
         SystemUtil.runShellCommandForNoOutput("cmd battery unplug");
+
+        waitForPlugStatus(false);
 
         Log.d(TAG, "Battery UNPLUGGED");
     }
@@ -66,10 +74,29 @@ public class BatteryUtils {
     public static void runDumpsysBatterySetPluggedIn(boolean pluggedIn) throws Exception {
         SystemUtil.runShellCommandForNoOutput(("cmd battery set ac " + (pluggedIn ? "1" : "0")));
 
+        waitForPlugStatus(pluggedIn);
+
         Log.d(TAG, "Battery AC set to " + pluggedIn);
     }
 
-    /** Reset the effect of all the previous {@code runDumpsysBattery*} call  */
+    private static void waitForPlugStatus(boolean pluggedIn) throws Exception {
+        if (InstrumentationRegistry.getContext().getPackageManager().isInstantApp()) {
+            // Instant apps are not allowed to query ACTION_BATTERY_CHANGED. Add short sleep as
+            // best-effort wait for status.
+            Thread.sleep(2000);
+            return;
+        }
+        IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        waitUntil("Device still " + (pluggedIn ? " not plugged" : " plugged"),
+                () -> {
+                    Intent batteryStatus =
+                            InstrumentationRegistry.getContext().registerReceiver(null, ifilter);
+                    int chargePlug = batteryStatus.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
+                    return pluggedIn == (chargePlug != 0);
+                });
+    }
+
+    /** Reset the effect of all the previous {@code runDumpsysBattery*} call */
     public static void runDumpsysBatteryReset() {
         SystemUtil.runShellCommandForNoOutput(("cmd battery reset"));
 
@@ -91,28 +118,11 @@ public class BatteryUtils {
             SystemUtil.runShellCommandForNoOutput("cmd power set-mode 1");
             putGlobalSetting(Global.LOW_POWER_MODE, "1");
             waitUntil("Battery saver still off", () -> getPowerManager().isPowerSaveMode());
-            waitUntil("Location mode still " + getPowerManager().getLocationPowerSaveMode(),
-                    () -> (PowerManager.LOCATION_MODE_NO_CHANGE
-                            != getPowerManager().getLocationPowerSaveMode()));
-
-            Thread.sleep(500);
-            waitUntil("Force all apps standby still off",
-                    () -> SystemUtil.runShellCommand("dumpsys alarm")
-                            .contains(" Force all apps standby: true\n"));
-
         } else {
             SystemUtil.runShellCommandForNoOutput("cmd power set-mode 0");
             putGlobalSetting(Global.LOW_POWER_MODE, "0");
             putGlobalSetting(Global.LOW_POWER_MODE_STICKY, "0");
             waitUntil("Battery saver still on", () -> !getPowerManager().isPowerSaveMode());
-            waitUntil("Location mode still " + getPowerManager().getLocationPowerSaveMode(),
-                    () -> (PowerManager.LOCATION_MODE_NO_CHANGE
-                            == getPowerManager().getLocationPowerSaveMode()));
-
-            Thread.sleep(500);
-            waitUntil("Force all apps standby still on",
-                    () -> SystemUtil.runShellCommand("dumpsys alarm")
-                            .contains(" Force all apps standby: false\n"));
         }
 
         AmUtils.waitForBroadcastIdle();
@@ -137,10 +147,8 @@ public class BatteryUtils {
 
     /** @return true if the device supports battery saver. */
     public static boolean isBatterySaverSupported() {
-        final Intent batteryInfo = InstrumentationRegistry.getContext().registerReceiver(
-                null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-        if (!batteryInfo.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true)) {
-            // Devices without battery does not support battery saver.
+        if (!hasBattery()) {
+            // Devices without a battery don't support battery saver.
             return false;
         }
 

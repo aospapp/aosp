@@ -242,6 +242,10 @@ const std::array<uint8_t, ETH_ALEN>& ClientInterfaceImpl::GetMacAddress() {
   return interface_mac_addr_;
 }
 
+const BandInfo& ClientInterfaceImpl::GetBandInfo() const {
+  return band_info_;
+}
+
 bool ClientInterfaceImpl::RefreshAssociateFreq() {
   // wpa_supplicant fetches associate frequency using the latest scan result.
   // We should follow the same method here before we find a better solution.

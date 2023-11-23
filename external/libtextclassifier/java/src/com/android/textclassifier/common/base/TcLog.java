@@ -16,6 +16,8 @@
 
 package com.android.textclassifier.common.base;
 
+import android.util.Log;
+
 /**
  * Logging for android.view.textclassifier package.
  *
@@ -31,27 +33,30 @@ public final class TcLog {
   public static final String TAG = "androidtc";
 
   /** true: Enables full logging. false: Limits logging to debug level. */
-  public static final boolean ENABLE_FULL_LOGGING =
-      android.util.Log.isLoggable(TAG, android.util.Log.VERBOSE);
+  public static final boolean ENABLE_FULL_LOGGING = Log.isLoggable(TAG, Log.VERBOSE);
 
   private TcLog() {}
 
   public static void v(String tag, String msg) {
     if (ENABLE_FULL_LOGGING) {
-      android.util.Log.v(getTag(tag), msg);
+      Log.v(getTag(tag), msg);
     }
   }
 
   public static void d(String tag, String msg) {
-    android.util.Log.d(getTag(tag), msg);
+    Log.d(getTag(tag), msg);
   }
 
   public static void w(String tag, String msg) {
-    android.util.Log.w(getTag(tag), msg);
+    Log.w(getTag(tag), msg);
+  }
+
+  public static void e(String tag, String msg) {
+    Log.e(getTag(tag), msg);
   }
 
   public static void e(String tag, String msg, Throwable tr) {
-    android.util.Log.e(getTag(tag), msg, tr);
+    Log.e(getTag(tag), msg, tr);
   }
 
   private static String getTag(String customTag) {

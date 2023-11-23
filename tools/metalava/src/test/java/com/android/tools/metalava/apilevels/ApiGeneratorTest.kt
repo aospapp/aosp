@@ -16,7 +16,6 @@
 
 package com.android.tools.metalava.apilevels
 
-import com.android.sdklib.repository.AndroidSdkHandler
 import com.android.tools.lint.LintCliClient
 import com.android.tools.lint.checks.ApiLookup
 import com.android.tools.metalava.ARG_ANDROID_JAR_PATTERN
@@ -105,10 +104,6 @@ class ApiGeneratorTest : DriverTest() {
                     return output
                 }
                 return super.findResource(relativePath)
-            }
-
-            override fun getSdk(): AndroidSdkHandler? {
-                return null
             }
 
             override fun getCacheDir(name: String?, create: Boolean): File? {

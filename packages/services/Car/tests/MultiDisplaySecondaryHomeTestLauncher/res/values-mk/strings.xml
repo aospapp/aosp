@@ -19,7 +19,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="3477029631237519798">"Повеќе екрани"</string>
     <string name="md_launcher" msgid="327845696688732506">"Стартер на повеќе екрани"</string>
-    <string name="couldnt_launch" msgid="7815676424138012351">"Активноста не можеше да се стартува"</string>
+    <string name="couldnt_launch" msgid="7815676424138012351">"Активноста не може да се стартува"</string>
     <string name="select_display" msgid="1682700853391296117">"Изберете екран"</string>
     <string name="add_app_shortcut" msgid="8873512136913188432">"Додајте кратенка за апликација"</string>
     <string name="set_wallpaper" msgid="3650915172749345197">"Поставете го тапетот"</string>

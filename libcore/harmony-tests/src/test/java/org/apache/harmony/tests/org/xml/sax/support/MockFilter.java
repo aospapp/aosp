@@ -29,7 +29,7 @@ import org.xml.sax.SAXNotSupportedException;
 import org.xml.sax.helpers.XMLFilterImpl;
 
 /**
- * A helper class that extends XMLFilterImpl, provides dummy feature/property
+ * A helper class that extends XMLFilterImpl, provides fake feature/property
  * management, and logs some method calls.
  */
 public class MockFilter extends XMLFilterImpl {

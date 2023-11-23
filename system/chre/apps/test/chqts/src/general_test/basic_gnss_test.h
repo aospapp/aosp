@@ -20,6 +20,8 @@
 
 #include <cstdint>
 
+#include <shared/test_success_marker.h>
+
 #include <chre.h>
 
 namespace general_test {
@@ -32,6 +34,19 @@ class BasicGnssTest : public Test {
   void handleEvent(uint32_t senderInstanceId, uint16_t eventType,
                    const void *eventData) override;
   void setUp(uint32_t messageSize, const void *message) override;
+
+ private:
+  enum BasicGnssTestStage {
+    BASIC_GNSS_TEST_STAGE_LOCATION = 0,
+    BASIC_GNSS_TEST_STAGE_MEASUREMENT,
+    BASIC_GNSS_TEST_STAGE_LISTENER,
+    BASIC_GNSS_TEST_STAGE_COUNT,
+  };
+
+  nanoapp_testing::TestSuccessMarker mTestSuccessMarker =
+      nanoapp_testing::TestSuccessMarker(BASIC_GNSS_TEST_STAGE_COUNT);
+
+  void handleGnssAsyncResult(const chreAsyncResult *result);
 };
 
 }  // namespace general_test

@@ -847,10 +847,10 @@ public class BundleTest extends AndroidTestCase {
     }
 
     private void assertSpannableEquals(Spannable expected, CharSequence observed) {
-        Spannable s = (Spannable) observed;
+        final Spannable observedSpan = (Spannable) observed;
         assertEquals(expected.toString(), observed.toString());
         Object[] expectedSpans = expected.getSpans(0, expected.length(), Object.class);
-        Object[] observedSpans = expected.getSpans(0, expected.length(), Object.class);
+        Object[] observedSpans = observedSpan.getSpans(0, observedSpan.length(), Object.class);
         assertEquals(expectedSpans.length, observedSpans.length);
         for (int i = 0; i < expectedSpans.length; i++) {
             // Can't compare values of arbitrary objects

@@ -29,8 +29,6 @@
 #define ALOGI(...) ALOG(LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define ALOGE(...) ALOG(LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-#define PER_USER_RANGE  100000
-
 /*
  * Function: testSyscallBlocked
  * Purpose: test that the syscall listed is blocked by seccomp
@@ -79,21 +77,17 @@ static jboolean testSyscallBlocked(JNIEnv *, jobject, jint nr) {
 }
 
 static jboolean testSetresuidBlocked(JNIEnv *, jobject, jint ruid, jint euid, jint suid) {
-    jint userId = getuid() / PER_USER_RANGE;
-    jint userRuid = userId * PER_USER_RANGE + ruid;
-    jint userEuid = userId * PER_USER_RANGE + euid;
-    jint userSuid = userId * PER_USER_RANGE + suid;
-
-    return doTestSyscallBlocked([&] {ALOGE("Calling setresuid\n"); setresuid(userRuid, userEuid, userSuid);});
+  return doTestSyscallBlocked([&] {
+    ALOGE("Calling setresuid\n");
+    setresuid(ruid, euid, suid);
+  });
 }
 
 static jboolean testSetresgidBlocked(JNIEnv *, jobject, jint rgid, jint egid, jint sgid) {
-    jint userId = getuid() / PER_USER_RANGE;
-    jint userRgid = userId * PER_USER_RANGE + rgid;
-    jint userEgid = userId * PER_USER_RANGE + egid;
-    jint userSgid = userId * PER_USER_RANGE + sgid;
-
-    return doTestSyscallBlocked([&] {ALOGE("Calling setresgid\n"); setresgid(userRgid, userEgid, userSgid);});
+  return doTestSyscallBlocked([&] {
+    ALOGE("Calling setresgid\n");
+    setresgid(rgid, egid, sgid);
+  });
 }
 
 static JNINativeMethod gMethods[] = {

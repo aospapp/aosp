@@ -16,28 +16,23 @@
 package com.android.managedprovisioning.preprovisioning.consent;
 
 import android.app.Activity;
-import android.content.pm.PackageManager;
-import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
-import com.android.managedprovisioning.common.SettingsFacade;
+
+import com.android.managedprovisioning.common.ThemeHelper;
 import com.android.managedprovisioning.common.Utils;
+import com.android.managedprovisioning.preprovisioning.PreProvisioningActivityBridgeCallbacks;
 
 /**
  * A factory which returns the appropriate {@link ConsentUiHelper} instance.
  */
 public class ConsentUiHelperFactory {
     public static ConsentUiHelper getInstance(
-        Activity activity, AccessibilityContextMenuMaker contextMenuMaker,
-        ConsentUiHelperCallback callback, Utils utils,
-        SettingsFacade settingsFacade) {
-        if (shouldShowLegacyUi(activity)) {
-            return new LegacyConsentUiHelper(activity, contextMenuMaker, callback, utils);
-        } else {
-            return new PrimaryConsentUiHelper(activity, callback, utils);
-        }
-    }
-
-    private static boolean shouldShowLegacyUi(Activity activity) {
-        // Android Auto still uses the old UI, so we need to ensure compatibility with it.
-        return activity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+            Activity activity,
+            ConsentUiHelperCallback callback,
+            Utils utils,
+            PreProvisioningActivityBridgeCallbacks preProvisioningActivityBridgeCallbacks,
+            ThemeHelper themeHelper) {
+        // Currently there's just one
+        return new ConsentUiHelperImpl(activity, callback, utils,
+                preProvisioningActivityBridgeCallbacks, themeHelper);
     }
 }

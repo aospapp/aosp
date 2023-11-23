@@ -14,8 +14,24 @@
 // limitations under the License.
 //
 
-cc_library_static {
-    name: "libgoogle-benchmark",
+package {
+    default_applicable_licenses: ["external_google-benchmark_license"],
+}
+
+// Added automatically by a large-scale-change
+license {
+    name: "external_google-benchmark_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
+cc_defaults {
+    name: "libgoogle-benchmark-defaults",
     host_supported: true,
     local_include_dirs: ["include"],
     vendor_available: true,
@@ -25,14 +41,26 @@ cc_library_static {
         "-Werror",
         "-Wno-deprecated-declarations",
     ],
-
-    exclude_srcs: [
-        "src/benchmark_main.cc",
-    ],
     srcs: [
         "src/*.cc",
     ],
     export_include_dirs: ["include"],
+}
+
+// For benchmarks that define their own main().
+cc_library_static {
+    name: "libgoogle-benchmark",
+    defaults: ["libgoogle-benchmark-defaults"],
+    exclude_srcs: [
+        "src/benchmark_main.cc",
+    ],
+}
+
+// For benchmarks that want to use the default main().
+// Make sure this dependency is in the whole_static_libs attribute.
+cc_library_static {
+    name: "libgoogle-benchmark-main",
+    defaults: ["libgoogle-benchmark-defaults"],
 }
 
 cc_test {

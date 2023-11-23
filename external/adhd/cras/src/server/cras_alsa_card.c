@@ -14,7 +14,7 @@
 #include "cras_alsa_io.h"
 #include "cras_alsa_mixer.h"
 #include "cras_alsa_ucm.h"
-#include "cras_device_blacklist.h"
+#include "cras_device_blocklist.h"
 #include "cras_card_config.h"
 #include "cras_config.h"
 #include "cras_iodev.h"
@@ -25,8 +25,8 @@
 #include "utlist.h"
 
 #define MAX_ALSA_CARDS 32 /* Alsa limit on number of cards. */
-#define MAX_ALSA_PCM_NAME_LENGTH 6 /* Alsa names "hw:XX" + 1 for null. */
-#define MAX_INI_NAME_LENGTH 63 /* 63 chars + 1 for null where declared. */
+#define MAX_ALSA_CARD_NAME_LENGTH 6 /* Alsa card name "hw:XX" + 1 for null. */
+#define MAX_ALSA_PCM_NAME_LENGTH 9 /* Alsa pcm name "hw:XX,YY" + 1 for null. */
 #define MAX_COUPLED_OUTPUT_SIZE 4
 
 struct iodev_list_node {
@@ -43,7 +43,7 @@ struct hctl_poll_fd {
 };
 
 /* Holds information about each sound card on the system.
- * name - of the form hw:XX,YY.
+ * name - of the form hw:XX.
  * card_index - 0 based index, value of "XX" in the name.
  * iodevs - Input and output devices for this card.
  * mixer - Controls the mixer controls for this card.
@@ -53,7 +53,7 @@ struct hctl_poll_fd {
  * config - Config info for this card, can be NULL if none found.
  */
 struct cras_alsa_card {
-	char name[MAX_ALSA_PCM_NAME_LENGTH];
+	char name[MAX_ALSA_CARD_NAME_LENGTH];
 	size_t card_index;
 	struct iodev_list_node *iodevs;
 	struct cras_alsa_mixer *mixer;
@@ -84,6 +84,7 @@ struct cras_iodev *create_iodev_for_device(
 	struct iodev_list_node *new_dev;
 	struct iodev_list_node *node;
 	int first = 1;
+	char pcm_name[MAX_ALSA_PCM_NAME_LENGTH];
 
 	/* Find whether this is the first device in this direction, and
 	 * avoid duplicate device indexes. */
@@ -103,22 +104,28 @@ struct cras_iodev *create_iodev_for_device(
 	if (new_dev == NULL)
 		return NULL;
 
+	/* Append device index to card namem, ex: 'hw:0', for the PCM name of
+	 * target iodev. */
+	snprintf(pcm_name, MAX_ALSA_PCM_NAME_LENGTH, "%s,%u", alsa_card->name,
+		 device_index);
+
 	new_dev->direction = direction;
-	new_dev->iodev = alsa_iodev_create(
-		info->card_index, card_name, device_index, dev_name, dev_id,
-		info->card_type, first, alsa_card->mixer, alsa_card->config,
-		alsa_card->ucm, alsa_card->hctl, direction, info->usb_vendor_id,
-		info->usb_product_id, info->usb_serial_number);
+	new_dev->iodev =
+		alsa_iodev_create(info->card_index, card_name, device_index,
+				  pcm_name, dev_name, dev_id, info->card_type,
+				  first, alsa_card->mixer, alsa_card->config,
+				  alsa_card->ucm, alsa_card->hctl, direction,
+				  info->usb_vendor_id, info->usb_product_id,
+				  info->usb_serial_number);
 	if (new_dev->iodev == NULL) {
-		syslog(LOG_ERR, "Couldn't create alsa_iodev for %u:%u\n",
-		       info->card_index, device_index);
+		syslog(LOG_ERR, "Couldn't create alsa_iodev for %s", pcm_name);
 		free(new_dev);
 		return NULL;
 	}
 
-	syslog(LOG_DEBUG, "New %s device %u:%d",
+	syslog(LOG_DEBUG, "New %s device %s",
 	       direction == CRAS_STREAM_OUTPUT ? "playback" : "capture",
-	       info->card_index, device_index);
+	       pcm_name);
 
 	DL_APPEND(alsa_card->iodevs, new_dev);
 	return new_dev->iodev;
@@ -139,15 +146,15 @@ static int card_has_hctl_jack(struct cras_alsa_card *alsa_card)
 }
 
 /* Check if a device should be ignored for this card. Returns non-zero if the
- * device is in the blacklist and should be ignored.
+ * device is in the blocklist and should be ignored.
  */
 static int should_ignore_dev(struct cras_alsa_card_info *info,
-			     struct cras_device_blacklist *blacklist,
+			     struct cras_device_blocklist *blocklist,
 			     size_t device_index)
 {
 	if (info->card_type == ALSA_CARD_TYPE_USB)
-		return cras_device_blacklist_check(
-			blacklist, info->usb_vendor_id, info->usb_product_id,
+		return cras_device_blocklist_check(
+			blocklist, info->usb_vendor_id, info->usb_product_id,
 			info->usb_desc_checksum, device_index);
 	return 0;
 }
@@ -171,7 +178,7 @@ static struct mixer_name *filter_controls(struct cras_use_case_mgr *ucm,
 
 /* Handles notifications from alsa controls.  Called by main thread when a poll
  * fd provided by alsa signals there is an event available. */
-static void alsa_control_event_pending(void *arg)
+static void alsa_control_event_pending(void *arg, int revent)
 {
 	struct cras_alsa_card *card;
 
@@ -188,7 +195,7 @@ static void alsa_control_event_pending(void *arg)
 
 static int
 add_controls_and_iodevs_by_matching(struct cras_alsa_card_info *info,
-				    struct cras_device_blacklist *blacklist,
+				    struct cras_device_blocklist *blocklist,
 				    struct cras_alsa_card *alsa_card,
 				    const char *card_name, snd_ctl_t *handle)
 {
@@ -251,7 +258,7 @@ add_controls_and_iodevs_by_matching(struct cras_alsa_card_info *info,
 		/* Check for playback devices. */
 		snd_pcm_info_set_stream(dev_info, SND_PCM_STREAM_PLAYBACK);
 		if (snd_ctl_pcm_info(handle, dev_info) == 0 &&
-		    !should_ignore_dev(info, blacklist, dev_idx)) {
+		    !should_ignore_dev(info, blocklist, dev_idx)) {
 			struct cras_iodev *iodev = create_iodev_for_device(
 				alsa_card, info, card_name,
 				snd_pcm_info_get_name(dev_info),
@@ -338,6 +345,11 @@ static int add_controls_and_iodevs_with_ucm(struct cras_alsa_card_info *info,
 
 	/* Create all of the devices. */
 	DL_FOREACH (ucm_sections, section) {
+		/* If a UCM section specifies certain device as dependency
+		 * then don't create an alsa iodev for it, just append it
+		 * as node later. */
+		if (section->dependent_dev_idx != -1)
+			continue;
 		snd_pcm_info_set_device(dev_info, section->dev_idx);
 		snd_pcm_info_set_subdevice(dev_info, 0);
 		if (section->dir == CRAS_STREAM_OUTPUT)
@@ -365,11 +377,17 @@ static int add_controls_and_iodevs_with_ucm(struct cras_alsa_card_info *info,
 					section->dev_idx, section->dir);
 	}
 
-	/* Setup jacks and controls for the devices. */
+	/* Setup jacks and controls for the devices. If a SectionDevice is
+	 * dependent on another SectionDevice, it'll be added as a node to
+	 * a existing ALSA iodev. */
 	DL_FOREACH (ucm_sections, section) {
 		DL_FOREACH (alsa_card->iodevs, node) {
-			if (node->direction == section->dir &&
-			    alsa_iodev_index(node->iodev) == section->dev_idx)
+			if (node->direction != section->dir)
+				continue;
+			if (alsa_iodev_index(node->iodev) == section->dev_idx)
+				break;
+			if (alsa_iodev_index(node->iodev) ==
+			    section->dependent_dev_idx)
 				break;
 		}
 		if (node) {
@@ -431,7 +449,7 @@ static void configure_echo_reference_dev(struct cras_alsa_card *alsa_card)
 
 struct cras_alsa_card *cras_alsa_card_create(
 	struct cras_alsa_card_info *info, const char *device_config_dir,
-	struct cras_device_blacklist *blacklist, const char *ucm_suffix)
+	struct cras_device_blocklist *blocklist, const char *ucm_suffix)
 {
 	snd_ctl_t *handle = NULL;
 	int rc, n;
@@ -451,7 +469,7 @@ struct cras_alsa_card *cras_alsa_card_create(
 		return NULL;
 	alsa_card->card_index = info->card_index;
 
-	snprintf(alsa_card->name, MAX_ALSA_PCM_NAME_LENGTH, "hw:%u",
+	snprintf(alsa_card->name, MAX_ALSA_CARD_NAME_LENGTH, "hw:%u",
 		 info->card_index);
 
 	rc = snd_ctl_open(&handle, alsa_card->name, 0);
@@ -471,6 +489,10 @@ struct cras_alsa_card *cras_alsa_card_create(
 		syslog(LOG_ERR, "Error getting card name.");
 		goto error_bail;
 	}
+
+	if (info->card_type != ALSA_CARD_TYPE_INTERNAL ||
+	    cras_system_check_ignore_ucm_suffix(card_name))
+		ucm_suffix = NULL;
 
 	/* Read config file for this card if it exists. */
 	alsa_card->config =
@@ -494,6 +516,9 @@ struct cras_alsa_card *cras_alsa_card_create(
 		syslog(LOG_INFO, "Card %s (%s) has UCM: %s", alsa_card->name,
 		       card_name, alsa_card->ucm ? "yes" : "no");
 	}
+
+	if (info->card_type == ALSA_CARD_TYPE_INTERNAL && !alsa_card->ucm)
+		syslog(LOG_ERR, "No ucm config on internal card %s", card_name);
 
 	rc = snd_hctl_open(&alsa_card->hctl, alsa_card->name, SND_CTL_NONBLOCK);
 	if (rc < 0) {
@@ -528,7 +553,7 @@ struct cras_alsa_card *cras_alsa_card_create(
 						      card_name, handle);
 	else
 		rc = add_controls_and_iodevs_by_matching(
-			info, blacklist, alsa_card, card_name, handle);
+			info, blocklist, alsa_card, card_name, handle);
 	if (rc)
 		goto error_bail;
 
@@ -559,7 +584,7 @@ struct cras_alsa_card *cras_alsa_card_create(
 			DL_APPEND(alsa_card->hctl_poll_fds, registered_fd);
 			rc = cras_system_add_select_fd(
 				registered_fd->fd, alsa_control_event_pending,
-				alsa_card);
+				alsa_card, POLLIN);
 			if (rc < 0) {
 				DL_DELETE(alsa_card->hctl_poll_fds,
 					  registered_fd);

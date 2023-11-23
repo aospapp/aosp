@@ -11,6 +11,9 @@ using std::vector;
 
 namespace brillo {
 
+static base::LazyInstance<Minijail>::DestructorAtExit g_minijail
+    = LAZY_INSTANCE_INITIALIZER;
+
 Minijail::Minijail() {}
 
 Minijail::~Minijail() {}
@@ -65,6 +68,14 @@ void Minijail::ResetSignalMask(struct minijail* jail) {
   minijail_reset_signal_mask(jail);
 }
 
+void Minijail::CloseOpenFds(struct minijail* jail) {
+  minijail_close_open_fds(jail);
+}
+
+void Minijail::PreserveFd(struct minijail* jail, int parent_fd, int child_fd) {
+  minijail_preserve_fd(jail, parent_fd, child_fd);
+}
+
 void Minijail::Enter(struct minijail* jail) {
   minijail_enter(jail);
 }
@@ -110,6 +121,23 @@ bool Minijail::RunPipes(struct minijail* jail,
 #endif  // __ANDROID__
 }
 
+bool Minijail::RunEnvPipes(struct minijail* jail,
+                           vector<char*> args,
+                           vector<char*> env,
+                           pid_t* pid,
+                           int* stdin,
+                           int* stdout,
+                           int* stderr) {
+#if defined(__ANDROID__)
+  return minijail_run_env_pid_pipes_no_preload(jail, args[0], args.data(),
+                                               env.data(), pid, stdin, stdout,
+                                               stderr) == 0;
+#else
+  return minijail_run_env_pid_pipes(jail, args[0], args.data(), env.data(), pid,
+                                    stdin, stdout, stderr) == 0;
+#endif  // __ANDROID__
+}
+
 bool Minijail::RunAndDestroy(struct minijail* jail,
                              vector<char*> args,
                              pid_t* pid) {
@@ -142,6 +170,18 @@ bool Minijail::RunPipesAndDestroy(struct minijail* jail,
                                   int* stdout,
                                   int* stderr) {
   bool res = RunPipes(jail, args, pid, stdin, stdout, stderr);
+  Destroy(jail);
+  return res;
+}
+
+bool Minijail::RunEnvPipesAndDestroy(struct minijail* jail,
+                                     vector<char*> args,
+                                     vector<char*> env,
+                                     pid_t* pid,
+                                     int* stdin,
+                                     int* stdout,
+                                     int* stderr) {
+  bool res = RunEnvPipes(jail, args, env, pid, stdin, stdout, stderr);
   Destroy(jail);
   return res;
 }

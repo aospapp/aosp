@@ -16,9 +16,13 @@
 package com.android.wallpaper.model;
 
 import android.app.Activity;
+import android.app.WallpaperColors;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Parcel;
 import android.os.Parcelable;
 
 import androidx.annotation.DrawableRes;
@@ -29,11 +33,30 @@ import com.android.wallpaper.R;
 import com.android.wallpaper.asset.Asset;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Interface for wallpaper info model.
  */
 public abstract class WallpaperInfo implements Parcelable {
+
+    private static final ExecutorService sExecutor = Executors.newCachedThreadPool();
+
+    private int mPlaceholderColor = Color.TRANSPARENT;
+
+    public WallpaperInfo() {}
+
+    protected WallpaperInfo(Parcel in) {
+        mPlaceholderColor = in.readInt();
+    }
+
+    @Override
+    public void writeToParcel(Parcel parcel, int flags) {
+        parcel.writeInt(mPlaceholderColor);
+    }
 
     @DrawableRes
     public static int getDefaultActionIcon() {
@@ -179,6 +202,36 @@ public abstract class WallpaperInfo implements Parcelable {
      */
     public abstract void showPreview(Activity srcActivity, InlinePreviewIntentFactory factory,
                                      int requestCode);
+
+
+    /**
+     * Returns a Future to obtain a placeholder color calculated in a background thread for this
+     * wallpaper's thumbnail.
+     * If it's already available, the Future will return the color immediately.
+     * This is intended to be a "best effort" attempt and might not obtain a color if no low res
+     * thumbnail is available.
+     */
+    public Future<Integer> computePlaceholderColor(Context context) {
+        if (mPlaceholderColor != Color.TRANSPARENT) {
+            return CompletableFuture.completedFuture(mPlaceholderColor);
+        }
+        final Context appContext = context.getApplicationContext();
+        return sExecutor.submit(() -> {
+            synchronized (WallpaperInfo.this) {
+                if (mPlaceholderColor != Color.TRANSPARENT) {
+                    return mPlaceholderColor;
+                }
+                Asset thumbAsset = getThumbAsset(appContext);
+                Bitmap lowResBitmap = thumbAsset.getLowResBitmap(appContext);
+                if (lowResBitmap == null) {
+                    return Color.TRANSPARENT;
+                }
+                mPlaceholderColor = WallpaperColors.fromBitmap(
+                        lowResBitmap).getPrimaryColor().toArgb();
+                return mPlaceholderColor;
+            }
+        });
+    }
 
     /**
      * Whether backup is allowed for this type of wallpaper.

@@ -17,6 +17,7 @@
 package android.content.cts;
 
 import android.content.ClipData;
+import android.content.ClipDescription;
 import android.content.ClipboardManager.OnPrimaryClipChangedListener;
 import android.net.Uri;
 import android.test.ActivityInstrumentationTestCase2;
@@ -44,17 +45,24 @@ public class ClipboardManagerListenerTest
 
     public void testListener() throws Exception {
         mActivity.addPrimaryClipChangedListener(mListener);
-        assertClipChangedCount(0);
+        int expectedCount = 0;
+        assertClipChangedCount(expectedCount);
 
         mActivity.setPrimaryClip(ClipData.newPlainText("Label", "Text"));
-        assertClipChangedCount(1);
+        expectedCount += expectedCallbackCount();
+        assertClipChangedCount(expectedCount);
 
-        mActivity.setPrimaryClip(ClipData.newPlainText("Label", "Text"));
-        assertClipChangedCount(2);
+        mActivity.setPrimaryClip(ClipData.newRawUri("Label", Uri.parse("http://www.google.com")));
+        expectedCount += expectedCallbackCount();
+        assertClipChangedCount(expectedCount);
+
+        mActivity.setPrimaryClip(ClipData.newPlainText("Label", ""));
+        expectedCount += expectedCallbackCount();
+        assertClipChangedCount(expectedCount);
 
         mActivity.removePrimaryClipChangedListener(mListener);
         mActivity.setPrimaryClip(ClipData.newRawUri("Label", Uri.parse("http://www.google.com")));
-        assertNoClipChange(2);
+        assertNoClipChange(expectedCount);
     }
 
     private void assertClipChangedCount(final int expectedCount) {
@@ -69,6 +77,16 @@ public class ClipboardManagerListenerTest
     private void assertNoClipChange(int expectedCount) throws InterruptedException {
         Thread.sleep(1000);
         assertEquals(expectedCount, mListener.getCount());
+    }
+
+    private int expectedCallbackCount() {
+        ClipData clipData = mActivity.getPrimaryClip();
+        // If text classification is not performed, expect one callback. Otherwise, expect two.
+        if (clipData.getDescription().getClassificationStatus()
+                == ClipDescription.CLASSIFICATION_NOT_PERFORMED) {
+            return 1;
+        }
+        return 2;
     }
 
     class CountingClipChangedListener implements OnPrimaryClipChangedListener {

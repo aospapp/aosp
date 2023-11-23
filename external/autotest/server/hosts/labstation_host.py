@@ -7,29 +7,27 @@
 import logging
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.server import afe_utils
 from autotest_lib.server.hosts import base_label
 from autotest_lib.server.hosts import cros_label
-from autotest_lib.server.cros import autoupdater
 from autotest_lib.server.hosts import labstation_repair
 from autotest_lib.server.cros import provision
 from autotest_lib.server.hosts import base_servohost
-from autotest_lib.client.cros import constants as client_constants
 from autotest_lib.server.cros.dynamic_suite import constants as ds_constants
 from autotest_lib.server.cros.dynamic_suite import tools
-from autotest_lib.client.common_lib import lsbrelease_utils
 from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.server import utils as server_utils
-
+from autotest_lib.site_utils.rpm_control_system import rpm_client
 
 class LabstationHost(base_servohost.BaseServoHost):
     """Labstation specific host class"""
 
     # Threshold we decide to ignore a in_use file lock. In minutes
-    IN_USE_FILE_EXPIRE_MINS = 120
+    IN_USE_FILE_EXPIRE_MINS = 90
 
     # Uptime threshold to perform a labstation reboot, this is to prevent a
     # broken DUT keep trying to reboot a labstation. In hours
-    UP_TIME_THRESH_HOLD_HOURS = 24
+    UP_TIME_THRESH_HOLD_HOURS = 6
 
     VERSION_PREFIX = provision.CROS_VERSION_PREFIX
 
@@ -62,13 +60,6 @@ class LabstationHost(base_servohost.BaseServoHost):
         self._repair_strategy = (
             labstation_repair.create_labstation_repair_strategy())
         self.labels = base_label.LabelRetriever(cros_label.LABSTATION_LABELS)
-        logging.info('adding fake host_info_store to LabstationHost')
-        try:
-            host_info = self.host_info_store.get()
-            host_info.stable_versions['servo-cros'] = host_info.stable_versions['cros']
-            self.set_dut_host_info(host_info)
-        except Exception as e:
-            logging.exception(e)
 
 
     def is_reboot_requested(self):
@@ -79,14 +70,15 @@ class LabstationHost(base_servohost.BaseServoHost):
 
         @returns True if a reboot is required, otherwise False
         """
-        if self._check_update_status() == autoupdater.UPDATER_NEED_REBOOT:
+        if self._check_update_status() == self.UPDATE_STATE.PENDING_REBOOT:
             logging.info('Labstation reboot requested from labstation for'
                          ' update image')
             return True
 
         if not self._validate_uptime():
             logging.info('Ignoring DUTs reboot request because %s was'
-                         ' rebooted in last 24 hours.', self.hostname)
+                         ' rebooted in last %d hours.',
+                         self.hostname, self.UP_TIME_THRESH_HOLD_HOURS)
             return False
 
         cmd = 'find %s*%s' % (self.TEMP_FILE_DIR, self.REBOOT_FILE_POSTFIX)
@@ -104,13 +96,21 @@ class LabstationHost(base_servohost.BaseServoHost):
         """Try to reboot the labstation if it's safe to do(no servo in use,
          and not processing updates), and cleanup reboot control file.
         """
-        if (self._is_servo_in_use() or self._check_update_status()
-            in autoupdater.UPDATER_PROCESSING_UPDATE):
+        if self._is_servo_in_use():
             logging.info('Aborting reboot action because some DUT(s) are'
-                         ' currently using servo(s) or'
-                         ' labstation update is in processing.')
+                         ' currently using servo(s).')
             return
-        self._servo_host_reboot()
+
+        update_state = self._check_update_status()
+        if update_state == self.UPDATE_STATE.RUNNING:
+            logging.info('Aborting reboot action because an update process'
+                         ' is running.')
+            return
+        if update_state == self.UPDATE_STATE.PENDING_REBOOT:
+            self._post_update_reboot()
+        else:
+            self._servo_host_reboot()
+        self.update_cros_version_label()
         logging.info('Cleaning up reboot control files.')
         self._cleanup_post_reboot()
 
@@ -123,29 +123,6 @@ class LabstationHost(base_servohost.BaseServoHost):
     def get_os_type(self):
         return 'labstation'
 
-
-    def prepare_for_update(self):
-        """Prepares the DUT for an update.
-        Subclasses may override this to perform any special actions
-        required before updating.
-        """
-        pass
-
-
-    def _get_lsb_release_content(self):
-        """Return the content of lsb-release file of host."""
-        return self.run(
-            'cat "%s"' % client_constants.LSB_RELEASE).stdout.strip()
-
-
-    def get_release_version(self):
-        """Get the value of attribute CHROMEOS_RELEASE_VERSION from lsb-release.
-
-        @returns The version string in lsb-release, under attribute
-                 CHROMEOS_RELEASE_VERSION.
-        """
-        return lsbrelease_utils.get_chromeos_release_version(
-            lsb_release_content=self._get_lsb_release_content())
 
     def verify_job_repo_url(self, tag=''):
         """
@@ -250,13 +227,25 @@ class LabstationHost(base_servohost.BaseServoHost):
 
 
     def repair(self):
-        """Attempt to repair a labstation.
-        """
+        """Attempt to repair a labstation."""
         message = 'Beginning repair for host %s board %s model %s'
         info = self.host_info_store.get()
         message %= (self.hostname, info.board, info.model)
         self.record('INFO', None, None, message)
         self._repair_strategy.repair(self)
+
+
+    def update_cros_version_label(self):
+        """Update cros-version label on labstation"""
+        image_name = self.get_full_release_path()
+        if not image_name:
+            logging.info('Could not get labstation version, it could be'
+                         ' the labstation is running a customized image.')
+            info = self.host_info_store.get()
+            info.clear_version_labels(version_prefix=self.VERSION_PREFIX)
+            self.host_info_store.commit(info)
+            return
+        afe_utils.add_provision_labels(self, self.VERSION_PREFIX, image_name)
 
 
     def _validate_uptime(self):
@@ -282,3 +271,35 @@ class LabstationHost(base_servohost.BaseServoHost):
         """Clean up all xxxx_reboot file after reboot."""
         cmd = 'rm %s*%s' % (self.TEMP_FILE_DIR, self.REBOOT_FILE_POSTFIX)
         self.run(cmd, ignore_status=True)
+
+    def rpm_power_on_and_wait(self, _rpm_client=None):
+        """Power on a labstation through RPM and wait for it to come up"""
+        return self.change_rpm_state_and_wait("ON", _rpm_client=_rpm_client)
+
+    def rpm_power_off_and_wait(self, _rpm_client=None):
+        """Power off a labstation through RPM and wait for it to shut down"""
+        return self.change_rpm_state_and_wait("OFF", _rpm_client=_rpm_client)
+
+    def change_rpm_state_and_wait(self, state, _rpm_client=None):
+        """Change the state of a labstation
+
+        @param state: on or off
+        @param _rpm_client: rpm_client module, to support testing
+        """
+        _rpm_client = _rpm_client or rpm_client
+        wait = {
+            "ON":  self.wait_up,
+            "OFF": self.wait_down,
+        }[state]
+        timeout = {
+            "ON": self.BOOT_TIMEOUT,
+            "OFF": self.WAIT_DOWN_REBOOT_TIMEOUT,
+        }[state]
+        _rpm_client.set_power(self, state)
+        if not wait(timeout=timeout):
+            msg = "%s didn't enter %s state in %s seconds" % (
+                getattr(self, 'hostname', None),
+                state,
+                timeout,
+            )
+            raise Exception(msg)

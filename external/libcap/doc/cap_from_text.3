@@ -6,17 +6,15 @@
 cap_from_text, cap_to_text, cap_to_name, cap_from_name \- capability
 state textual representation translation
 .SH SYNOPSIS
-.B #include <sys/capability.h>
-.sp
-.BI "cap_t cap_from_text(const char *" buf_p );
-.sp
-.BI "char *cap_to_text(cap_t " caps ", ssize_t *" length_p );
-.sp
-.BI "int cap_from_name(const char *" name ", cap_value_t *" cap_p );
-.sp
-.BI "char *cap_to_name(cap_value_t " cap );
-.sp
-Link with \fI-lcap\fP.
+.nf
+#include <sys/capability.h>
+
+cap_t cap_from_text(const char* buf_p );
+char *cap_to_text(cap_t caps, ssize_t * length_p);
+int cap_from_name(const char* name , cap_value_t* cap_p);
+char *cap_to_name(cap_value_t cap);
+.fi
+Link with \fI\-lcap\fP.
 .SH DESCRIPTION
 These functions translate a capability state between
 an internal representation and a textual one.
@@ -100,7 +98,7 @@ followed by an
 An action-list consists of a sequence of
 .I operator flag
 pairs.  Legal operators are:
-.RB ` = "', '" + "', and `" - "'."
+.RB ` = "', '" + "', and `" \- "'."
 Legal flags are:
 .RB ` e "', `" i "', and `" p "'."
 These flags are case-sensitive and specify the Effective, Inheritable
@@ -136,15 +134,22 @@ refer to `all' capabilities.  For example, the following three
 clauses are equivalent to each other (and indicate a completely empty
 capability set): "all="; "="; "cap_chown,<every-other-capability>=".
 .PP
-The operators, `+' and `-' both require an explicit preceding
+The operators, `+' and `\-' both require an explicit preceding
 capability list and one or more explicit trailing flags.  The `+'
 operator will raise all of the listed capabilities in the flagged
-capability sets.  The `-' operator will lower all of the listed
+capability sets.  The `\-' operator will lower all of the listed
 capabilities in the flagged capability sets.  For example:
-"all+p" will raise all of the Permitted capabilities; "cap_fowner+p-i"
-will raise the override-file-ownership capability in the Permitted
-capability set and lower this Inheritable capability;
-"cap_fowner+pe-i" and "cap_fowner=+pe" are equivalent.
+"all+p" will raise all of the Permitted capabilities and
+"cap_fowner\-i" will lower the override-file-ownership in the Inheritable set.
+.PP
+The action list can consist of multiple
+.I operator flag
+pairs; the actions are performed in left-to-right order.
+Thus, for example,
+"cap_fowner+p\-i"
+is equivalent to "cap_fowner+p cap_fowner\-i".
+As another example,
+"cap_fowner+pe\-i" and "cap_fowner=+pe" are equivalent.
 .SH "RETURN VALUE"
 .BR cap_from_text (),
 .BR cap_to_text ()
@@ -152,7 +157,7 @@ and
 .BR cap_to_name ()
 return a non-NULL value on success, and NULL on failure.
 .BR cap_from_name ()
-returns 0 for success, and -1 on failure (unknown capability).
+returns 0 for success, and \-1 on failure (unknown capability).
 .PP
 On failure,
 .I errno
@@ -174,17 +179,15 @@ The example program below demonstrates the use of
 .BR cap_from_text ()
 and
 .BR cap_to_text ().
-The following shell session shows a some example runs:
-.in +4n
+The following shell session shows some example runs:
 .nf
 
 $ ./a.out "cap_chown=p cap_chown+e"
-caps_to_text() returned "= cap_chown+ep"
-$ ./a.out "all=pe cap_chown-e cap_kill-pe"
-caps_to_text() returned "=ep cap_chown-e cap_kill-ep"
+caps_to_text() returned "cap_chown=ep"
+$ ./a.out "all=pe cap_chown\-e cap_kill\-pe"
+caps_to_text() returned "=ep cap_chown\-e cap_kill\-ep"
 
 .fi
-.in
 The source code of the program is as follows:
 .nf
 
@@ -225,7 +228,6 @@ main(int argc, char *argv[])
 .SH "SEE ALSO"
 .BR libcap (3),
 .BR cap_clear (3),
-.BR cap_compare (3),
 .BR cap_copy_ext (3),
 .BR cap_get_file (3),
 .BR cap_get_proc (3),

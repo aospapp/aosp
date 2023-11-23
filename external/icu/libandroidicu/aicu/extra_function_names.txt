@@ -1,3 +1,0 @@
-# Add extra function names here to have them included in the global symbols
-# file during code generation.
-AIcu_initializeIcuOrDie

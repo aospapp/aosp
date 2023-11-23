@@ -54,7 +54,6 @@ import com.intellij.psi.impl.source.tree.java.PsiReferenceExpressionImpl
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.util.PsiUtil
 import com.intellij.psi.util.PsiUtilCore
-import java.util.Arrays
 import java.util.function.Predicate
 
 /**
@@ -138,7 +137,7 @@ class PsiTypePrinter(
                 return getCanonicalText(type.wildcard, elementAnnotations)
             is PsiDisjunctionType ->
                 // Based on PsiDisjunctionType.getCanonicalText(true)
-                return StringUtil.join<PsiType>(type.disjunctions, { psiType ->
+                return StringUtil.join(type.disjunctions, { psiType ->
                     getCanonicalText(
                         psiType,
                         elementAnnotations
@@ -267,7 +266,7 @@ class PsiTypePrinter(
                         tailStart = prefix.length + 1
                     }
 
-                    appendAnnotations(sb, Arrays.asList(*annotations), elementAnnotations)
+                    appendAnnotations(sb, listOf(*annotations), elementAnnotations)
 
                     sb.append(text, tailStart, text.length)
 
@@ -300,8 +299,7 @@ class PsiTypePrinter(
         allowKotlinSuffix: Boolean
     ): String {
         var remaining = annotations
-        val kind = reference.getKindEnum(containingFile)
-        when (kind) {
+        when (val kind = reference.getKindEnum(containingFile)) {
             PsiJavaCodeReferenceElementImpl.Kind.CLASS_NAME_KIND,
             PsiJavaCodeReferenceElementImpl.Kind.CLASS_OR_PACKAGE_NAME_KIND,
             PsiJavaCodeReferenceElementImpl.Kind.CLASS_IN_QUALIFIED_NEW_KIND -> {
@@ -312,8 +310,7 @@ class PsiTypePrinter(
                     false,
                     PsiReferenceExpressionImpl.OurGenericsResolver.INSTANCE
                 )
-                val target = if (results.size == 1) results[0].element else null
-                when (target) {
+                when (val target = if (results.size == 1) results[0].element else null) {
                     is PsiClass -> {
                         val buffer = StringBuilder()
                         val qualifier = reference.qualifier
@@ -339,7 +336,7 @@ class PsiTypePrinter(
                             buffer.append('.')
                         }
 
-                        val list = if (remaining != null) Arrays.asList(*remaining) else getAnnotations(reference)
+                        val list = if (remaining != null) listOf(*remaining) else getAnnotations(reference)
                         appendAnnotations(buffer, list, elementAnnotations)
 
                         buffer.append(target.name)
@@ -460,8 +457,7 @@ class PsiTypePrinter(
     private fun getOuterClassRef(ref: String): String {
         var stack = 0
         for (i in ref.length - 1 downTo 0) {
-            val c = ref[i]
-            when (c) {
+            when (ref[i]) {
                 '<' -> stack--
                 '>' -> stack++
                 '.' -> if (stack == 0) return ref.substring(0, i)
@@ -478,7 +474,7 @@ class PsiTypePrinter(
         annotations: Array<PsiAnnotation>,
         elementAnnotations: List<AnnotationItem>?
     ): Boolean {
-        return appendAnnotations(sb, Arrays.asList(*annotations), elementAnnotations)
+        return appendAnnotations(sb, listOf(*annotations), elementAnnotations)
     }
 
     private fun mapAnnotation(qualifiedName: String?): String? {

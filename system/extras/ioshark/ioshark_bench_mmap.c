@@ -180,7 +180,7 @@ ioshark_handle_mmap(void *db_node,
 		exit(EXIT_FAILURE);
 	}
 	/*
-	 * The size of the file better accomodate offset + len
+	 * The size of the file better accommodate offset + len
 	 * Else there is an issue with pre-creation
 	 */
 	assert(offset + len <= statbuf.st_size);

@@ -16,10 +16,10 @@ package com.android.tv.settings.name.setup;
 import android.animation.Animator;
 import android.animation.AnimatorInflater;
 import android.annotation.Nullable;
-import android.app.Activity;
 import android.os.Bundle;
 
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.leanback.app.GuidedStepSupportFragment;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.name.DeviceNameSetFragment;
@@ -29,7 +29,7 @@ import com.android.tv.settings.name.DeviceNameSetFragment;
  * This activity needs to have transparent background to show the background drawable of the
  * setup flow.
  */
-public class DeviceNameFlowStartActivity extends Activity {
+public class DeviceNameFlowStartActivity extends FragmentActivity {
     private static final String EXTRA_MOVING_FORWARD = "movingForward";
     private boolean mResultOk = false;
 
@@ -37,7 +37,7 @@ public class DeviceNameFlowStartActivity extends Activity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState == null) {
-            GuidedStepFragment.addAsRoot(this, DeviceNameSetFragment.newInstance(),
+            GuidedStepSupportFragment.addAsRoot(this, DeviceNameSetFragment.newInstance(),
                     android.R.id.content);
 
             // Because our fragment transition is added as root, the animation is dependent

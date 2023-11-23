@@ -17,7 +17,7 @@
 import importlib
 import logging
 
-ACTS_CONTROLLER_CONFIG_NAME = "Sniffer"
+MOBLY_CONTROLLER_CONFIG_NAME = "Sniffer"
 ACTS_CONTROLLER_REFERENCE_NAME = "sniffers"
 
 

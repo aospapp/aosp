@@ -79,7 +79,7 @@ create_iview(struct radv_cmd_buffer *cmd_buffer,
 					     .baseArrayLayer = surf->layer,
 					     .layerCount = 1
 				     },
-			     });
+			     }, NULL);
 }
 
 static void
@@ -299,19 +299,21 @@ radv_meta_blit2d_normal_dst(struct radv_cmd_buffer *cmd_buffer,
 					}
 				}
 
-				radv_CmdBeginRenderPass(radv_cmd_buffer_to_handle(cmd_buffer),
-							&(VkRenderPassBeginInfo) {
-								.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+				radv_cmd_buffer_begin_render_pass(cmd_buffer,
+								  &(VkRenderPassBeginInfo) {
+									.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 									.renderPass = device->meta_state.blit2d_render_passes[fs_key][dst_layout],
 									.framebuffer = dst_temps.fb,
 									.renderArea = {
-									.offset = { rects[r].dst_x, rects[r].dst_y, },
-									.extent = { rects[r].width, rects[r].height },
-								},
+										.offset = { rects[r].dst_x, rects[r].dst_y, },
+										.extent = { rects[r].width, rects[r].height },
+									},
 									.clearValueCount = 0,
-										.pClearValues = NULL,
-										}, VK_SUBPASS_CONTENTS_INLINE);
+									.pClearValues = NULL,
+								  });
 
+				radv_cmd_buffer_set_subpass(cmd_buffer,
+							    &cmd_buffer->state.pass->subpasses[0]);
 
 				bind_pipeline(cmd_buffer, src_type, fs_key, log2_samples);
 			} else if (aspect_mask == VK_IMAGE_ASPECT_DEPTH_BIT) {
@@ -325,19 +327,21 @@ radv_meta_blit2d_normal_dst(struct radv_cmd_buffer *cmd_buffer,
 					}
 				}
 
-				radv_CmdBeginRenderPass(radv_cmd_buffer_to_handle(cmd_buffer),
-							&(VkRenderPassBeginInfo) {
-								.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+				radv_cmd_buffer_begin_render_pass(cmd_buffer,
+								  &(VkRenderPassBeginInfo) {
+									.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 									.renderPass = device->meta_state.blit2d_depth_only_rp[ds_layout],
 									.framebuffer = dst_temps.fb,
 									.renderArea = {
-									.offset = { rects[r].dst_x, rects[r].dst_y, },
-									.extent = { rects[r].width, rects[r].height },
-								},
+										.offset = { rects[r].dst_x, rects[r].dst_y, },
+										.extent = { rects[r].width, rects[r].height },
+									},
 									.clearValueCount = 0,
-										.pClearValues = NULL,
-										}, VK_SUBPASS_CONTENTS_INLINE);
+									.pClearValues = NULL,
+								  });
 
+				radv_cmd_buffer_set_subpass(cmd_buffer,
+							    &cmd_buffer->state.pass->subpasses[0]);
 
 				bind_depth_pipeline(cmd_buffer, src_type, log2_samples);
 
@@ -352,19 +356,21 @@ radv_meta_blit2d_normal_dst(struct radv_cmd_buffer *cmd_buffer,
 					}
 				}
 
-				radv_CmdBeginRenderPass(radv_cmd_buffer_to_handle(cmd_buffer),
-							&(VkRenderPassBeginInfo) {
-								.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+				radv_cmd_buffer_begin_render_pass(cmd_buffer,
+								  &(VkRenderPassBeginInfo) {
+									.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 									.renderPass = device->meta_state.blit2d_stencil_only_rp[ds_layout],
 									.framebuffer = dst_temps.fb,
 									.renderArea = {
-									.offset = { rects[r].dst_x, rects[r].dst_y, },
-									.extent = { rects[r].width, rects[r].height },
-								},
+										.offset = { rects[r].dst_x, rects[r].dst_y, },
+										.extent = { rects[r].width, rects[r].height },
+									},
 									.clearValueCount = 0,
-										.pClearValues = NULL,
-										}, VK_SUBPASS_CONTENTS_INLINE);
+									.pClearValues = NULL,
+								   });
 
+				radv_cmd_buffer_set_subpass(cmd_buffer,
+							    &cmd_buffer->state.pass->subpasses[0]);
 
 				bind_stencil_pipeline(cmd_buffer, src_type, log2_samples);
 			} else
@@ -387,7 +393,7 @@ radv_meta_blit2d_normal_dst(struct radv_cmd_buffer *cmd_buffer,
 
 
 			radv_CmdDraw(radv_cmd_buffer_to_handle(cmd_buffer), 3, 1, 0, 0);
-			radv_CmdEndRenderPass(radv_cmd_buffer_to_handle(cmd_buffer));
+			radv_cmd_buffer_end_render_pass(cmd_buffer);
 
 fail_pipeline:
 			/* At the point where we emit the draw call, all data from the
@@ -511,7 +517,6 @@ build_nir_texel_fetch(struct nir_builder *b, struct radv_device *device,
 	}
 	if (is_multisampled) {
 		sample_idx = nir_intrinsic_instr_create(b->shader, nir_intrinsic_load_sample_id);
-		sample_idx->num_components = 1;
 		nir_ssa_dest_init(&sample_idx->instr, &sample_idx->dest, 1, 32, "sample_idx");
 		nir_builder_instr_insert(b, &sample_idx->instr);
 	}
@@ -698,7 +703,7 @@ radv_device_finish_meta_blit2d_state(struct radv_device *device)
 				       state->blit2d_stencil_only_rp[j], &state->alloc);
 	}
 
-	for (unsigned log2_samples = 0; log2_samples < 1 + MAX_SAMPLES_LOG2; ++log2_samples) {
+	for (unsigned log2_samples = 0; log2_samples < MAX_SAMPLES_LOG2; ++log2_samples) {
 		for (unsigned src = 0; src < BLIT2D_NUM_SRC_TYPES; src++) {
 			radv_DestroyPipelineLayout(radv_device_to_handle(device),
 						   state->blit2d[log2_samples].p_layouts[src],
@@ -817,7 +822,27 @@ blit2d_init_color_pipeline(struct radv_device *device,
 						.preserveAttachmentCount = 0,
 						.pPreserveAttachments = NULL,
 						},
-						.dependencyCount = 0,
+						.dependencyCount = 2,
+						.pDependencies = (VkSubpassDependency[]) {
+							{
+								.srcSubpass = VK_SUBPASS_EXTERNAL,
+								.dstSubpass = 0,
+								.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+								.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+								.srcAccessMask = 0,
+								.dstAccessMask = 0,
+								.dependencyFlags = 0
+							},
+							{
+								.srcSubpass = 0,
+								.dstSubpass = VK_SUBPASS_EXTERNAL,
+								.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+								.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+								.srcAccessMask = 0,
+								.dstAccessMask = 0,
+								.dependencyFlags = 0
+							}
+						},
 					}, &device->meta_state.alloc, &device->meta_state.blit2d_render_passes[fs_key][dst_layout]);
 		}
 	}
@@ -988,7 +1013,27 @@ blit2d_init_depth_only_pipeline(struct radv_device *device,
 								       .preserveAttachmentCount = 0,
 								       .pPreserveAttachments = NULL,
 							       },
-							       .dependencyCount = 0,
+							       .dependencyCount = 2,
+							       .pDependencies = (VkSubpassDependency[]) {
+								{
+									.srcSubpass = VK_SUBPASS_EXTERNAL,
+									.dstSubpass = 0,
+									.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+									.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									.srcAccessMask = 0,
+									.dstAccessMask = 0,
+									.dependencyFlags = 0
+								},
+								{
+									.srcSubpass = 0,
+									.dstSubpass = VK_SUBPASS_EXTERNAL,
+									.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+									.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									.srcAccessMask = 0,
+									.dstAccessMask = 0,
+									.dependencyFlags = 0
+								}
+							},
 							}, &device->meta_state.alloc, &device->meta_state.blit2d_depth_only_rp[ds_layout]);
 		}
 	}
@@ -1158,7 +1203,27 @@ blit2d_init_stencil_only_pipeline(struct radv_device *device,
 								       .preserveAttachmentCount = 0,
 								       .pPreserveAttachments = NULL,
 							       },
-							       .dependencyCount = 0,
+							       .dependencyCount = 2,
+							       .pDependencies = (VkSubpassDependency[]) {
+								{
+									.srcSubpass = VK_SUBPASS_EXTERNAL,
+									.dstSubpass = 0,
+									.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+									.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									.srcAccessMask = 0,
+									.dstAccessMask = 0,
+									.dependencyFlags = 0
+								},
+								{
+									.srcSubpass = 0,
+									.dstSubpass = VK_SUBPASS_EXTERNAL,
+									.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+									.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									.srcAccessMask = 0,
+									.dstAccessMask = 0,
+									.dependencyFlags = 0
+								}
+							},
 						       }, &device->meta_state.alloc, &device->meta_state.blit2d_stencil_only_rp[ds_layout]);
 		}
 	}
@@ -1310,7 +1375,7 @@ radv_device_init_meta_blit2d_state(struct radv_device *device, bool on_demand)
 	VkResult result;
 	bool create_3d = device->physical_device->rad_info.chip_class >= GFX9;
 
-	for (unsigned log2_samples = 0; log2_samples < 1 + MAX_SAMPLES_LOG2; log2_samples++) {
+	for (unsigned log2_samples = 0; log2_samples < MAX_SAMPLES_LOG2; log2_samples++) {
 		for (unsigned src = 0; src < BLIT2D_NUM_SRC_TYPES; src++) {
 			if (src == BLIT2D_SRC_TYPE_IMAGE_3D && !create_3d)
 				continue;

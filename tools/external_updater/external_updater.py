@@ -1,3 +1,4 @@
+#
 # Copyright (C) 2018 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,42 +17,58 @@
 Example usage:
 updater.sh checkall
 updater.sh update kotlinc
+updater.sh update --refresh --keep_date rust/crates/libc
 """
 
 import argparse
+import enum
 import json
 import os
 import sys
 import subprocess
 import time
+from typing import Dict, Iterator, List, Union, Tuple, Type
+from pathlib import Path
 
-from google.protobuf import text_format    # pylint: disable=import-error
-
+from base_updater import Updater
+from crates_updater import CratesUpdater
 from git_updater import GitUpdater
 from github_archive_updater import GithubArchiveUpdater
 import fileutils
 import git_utils
+# pylint: disable=import-error
+import metadata_pb2  # type: ignore
 import updater_utils
 
+UPDATERS: List[Type[Updater]] = [
+    CratesUpdater,
+    GithubArchiveUpdater,
+    GitUpdater,
+]
 
-UPDATERS = [GithubArchiveUpdater, GitUpdater]
-
+TMP_BRANCH_NAME = 'tmp_auto_upgrade'
 USE_COLOR = sys.stdout.isatty()
 
-def color_string(string, color):
+
+@enum.unique
+class Color(enum.Enum):
+    """Colors for output to console."""
+    FRESH = '\x1b[32m'
+    STALE = '\x1b[31;1m'
+    ERROR = '\x1b[31m'
+
+
+END_COLOR = '\033[0m'
+
+
+def color_string(string: str, color: Color) -> str:
     """Changes the color of a string when print to terminal."""
     if not USE_COLOR:
         return string
-    colors = {
-        'FRESH': '\x1b[32m',
-        'STALE': '\x1b[31;1m',
-        'ERROR': '\x1b[31m',
-    }
-    end_color = '\033[0m'
-    return colors[color] + string + end_color
+    return color.value + string + END_COLOR
 
 
-def build_updater(proj_path):
+def build_updater(proj_path: Path) -> Tuple[Updater, metadata_pb2.MetaData]:
     """Build updater for a project specified by proj_path.
 
     Reads and parses METADATA file. And builds updater based on the information.
@@ -64,156 +81,129 @@ def build_updater(proj_path):
     """
 
     proj_path = fileutils.get_absolute_project_path(proj_path)
-    try:
-        metadata = fileutils.read_metadata(proj_path)
-    except text_format.ParseError as err:
-        print('{} {}.'.format(color_string('Invalid metadata file:', 'ERROR'),
-                              err))
-        return None
-
-    try:
-        updater = updater_utils.create_updater(metadata, proj_path, UPDATERS)
-    except ValueError:
-        print(color_string('No supported URL.', 'ERROR'))
-        return None
-    return updater
+    metadata = fileutils.read_metadata(proj_path)
+    updater = updater_utils.create_updater(metadata, proj_path, UPDATERS)
+    return (updater, metadata)
 
 
-def has_new_version(updater):
-    """Whether an updater found a new version."""
-    return updater.get_current_version() != updater.get_latest_version()
+def _do_update(args: argparse.Namespace, updater: Updater,
+               metadata: metadata_pb2.MetaData) -> None:
+    full_path = updater.project_path
 
-
-def _message_for_calledprocesserror(error):
-    return '\n'.join([error.stdout.decode('utf-8'),
-                      error.stderr.decode('utf-8')])
-
-
-def check_update(proj_path):
-    """Checks updates for a project. Prints result on console.
-
-    Args:
-      proj_path: Absolute or relative path to the project.
-    """
-
-    print(
-        'Checking {}. '.format(fileutils.get_relative_project_path(proj_path)),
-        end='')
-    updater = build_updater(proj_path)
-    if updater is None:
-        return (None, 'Failed to create updater')
-    try:
-        updater.check()
-        if has_new_version(updater):
-            print(color_string(' Out of date!', 'STALE'))
-        else:
-            print(color_string(' Up to date.', 'FRESH'))
-        return (updater, None)
-    except (IOError, ValueError) as err:
-        print('{} {}.'.format(color_string('Failed.', 'ERROR'),
-                              err))
-        return (updater, str(err))
-    except subprocess.CalledProcessError as err:
-        msg = _message_for_calledprocesserror(err)
-        print('{}\n{}'.format(msg, color_string('Failed.', 'ERROR')))
-        return (updater, msg)
-
-
-def _process_update_result(path):
-    res = {}
-    updater, err = check_update(path)
-    if err is not None:
-        res['error'] = str(err)
-    else:
-        res['current'] = updater.get_current_version()
-        res['latest'] = updater.get_latest_version()
-    return res
-
-
-def _check_some(paths, delay):
-    results = {}
-    for path in paths:
-        relative_path = fileutils.get_relative_project_path(path)
-        results[relative_path] = _process_update_result(path)
-        time.sleep(delay)
-    return results
-
-
-def _check_all(delay):
-    results = {}
-    for path, dirs, files in os.walk(fileutils.EXTERNAL_PATH):
-        dirs.sort(key=lambda d: d.lower())
-        if fileutils.METADATA_FILENAME in files:
-            # Skip sub directories.
-            dirs[:] = []
-            relative_path = fileutils.get_relative_project_path(path)
-            results[relative_path] = _process_update_result(path)
-            time.sleep(delay)
-    return results
-
-
-def check(args):
-    """Handler for check command."""
-    if args.all:
-        results = _check_all(args.delay)
-    else:
-        results = _check_some(args.paths, args.delay)
-
-    if args.json_output is not None:
-        with open(args.json_output, 'w') as f:
-            json.dump(results, f, sort_keys=True, indent=4)
-
-
-def update(args):
-    """Handler for update command."""
-    try:
-        _do_update(args)
-    except subprocess.CalledProcessError as err:
-        msg = _message_for_calledprocesserror(err)
-        print(
-            '{}\n{}'.format(
-                msg,
-                color_string(
-                    'Failed to upgrade.',
-                    'ERROR')))
-
-
-TMP_BRANCH_NAME = 'tmp_auto_upgrade'
-
-
-def _do_update(args):
-    updater, _ = check_update(args.path)
-    if updater is None:
-        return
-    if not has_new_version(updater) and not args.force:
-        return
-
-    full_path = fileutils.get_absolute_project_path(args.path)
     if args.branch_and_commit:
         git_utils.checkout(full_path, args.remote_name + '/master')
-        try:
-            git_utils.delete_branch(full_path, TMP_BRANCH_NAME)
-        except subprocess.CalledProcessError:
-            # Still continue if the branch doesn't exist.
-            pass
         git_utils.start_branch(full_path, TMP_BRANCH_NAME)
 
     updater.update()
 
+    updated_metadata = metadata_pb2.MetaData()
+    updated_metadata.CopyFrom(metadata)
+    updated_metadata.third_party.version = updater.latest_version
+    for metadata_url in updated_metadata.third_party.url:
+        if metadata_url == updater.current_url:
+            metadata_url.CopyFrom(updater.latest_url)
+    # For Rust crates, replace GIT url with ARCHIVE url
+    if isinstance(updater, CratesUpdater):
+        updater.update_metadata(updated_metadata, full_path)
+    fileutils.write_metadata(full_path, updated_metadata, args.keep_date)
+    git_utils.add_file(full_path, 'METADATA')
+
     if args.branch_and_commit:
-        msg = 'Upgrade {} to {}\n\nTest: None'.format(
-            args.path, updater.get_latest_version())
+        msg = 'Upgrade {} to {}\n\nTest: make\n'.format(
+            args.path, updater.latest_version)
         git_utils.add_file(full_path, '*')
         git_utils.commit(full_path, msg)
 
     if args.push_change:
-        git_utils.push(full_path, args.remote_name)
+        git_utils.push(full_path, args.remote_name, updater.has_errors)
 
     if args.branch_and_commit:
         git_utils.checkout(full_path, args.remote_name + '/master')
 
 
-def parse_args():
+def check_and_update(args: argparse.Namespace,
+                     proj_path: Path,
+                     update_lib=False) -> Union[Updater, str]:
+    """Checks updates for a project. Prints result on console.
+
+    Args:
+      args: commandline arguments
+      proj_path: Absolute or relative path to the project.
+      update: If false, will only check for new version, but not update.
+    """
+
+    try:
+        rel_proj_path = fileutils.get_relative_project_path(proj_path)
+        print(f'Checking {rel_proj_path}. ', end='')
+        updater, metadata = build_updater(proj_path)
+        updater.check()
+
+        current_ver = updater.current_version
+        latest_ver = updater.latest_version
+        print('Current version: {}. Latest version: {}'.format(
+            current_ver, latest_ver),
+              end='')
+
+        has_new_version = current_ver != latest_ver
+        if has_new_version:
+            print(color_string(' Out of date!', Color.STALE))
+        else:
+            print(color_string(' Up to date.', Color.FRESH))
+
+        if update_lib and args.refresh:
+            print('Refreshing the current version')
+            updater.use_current_as_latest()
+        if update_lib and (has_new_version or args.force or args.refresh):
+            _do_update(args, updater, metadata)
+        return updater
+    # pylint: disable=broad-except
+    except Exception as err:
+        print('{} {}.'.format(color_string('Failed.', Color.ERROR), err))
+        return str(err)
+
+
+def _check_path(args: argparse.Namespace, paths: Iterator[str],
+                delay: int) -> Dict[str, Dict[str, str]]:
+    results = {}
+    for path in paths:
+        res = {}
+        updater = check_and_update(args, Path(path))
+        if isinstance(updater, str):
+            res['error'] = updater
+        else:
+            res['current'] = updater.current_version
+            res['latest'] = updater.latest_version
+        relative_path = fileutils.get_relative_project_path(Path(path))
+        results[str(relative_path)] = res
+        time.sleep(delay)
+    return results
+
+
+def _list_all_metadata() -> Iterator[str]:
+    for path, dirs, files in os.walk(fileutils.EXTERNAL_PATH):
+        if fileutils.METADATA_FILENAME in files:
+            # Skip sub directories.
+            dirs[:] = []
+            yield path
+        dirs.sort(key=lambda d: d.lower())
+
+
+def check(args: argparse.Namespace) -> None:
+    """Handler for check command."""
+    paths = _list_all_metadata() if args.all else args.paths
+    results = _check_path(args, paths, args.delay)
+
+    if args.json_output is not None:
+        with Path(args.json_output).open('w') as res_file:
+            json.dump(results, res_file, sort_keys=True, indent=4)
+
+
+def update(args: argparse.Namespace) -> None:
+    """Handler for update command."""
+    check_and_update(args, args.path, update_lib=True)
+
+
+def parse_args() -> argparse.Namespace:
     """Parses commandline arguments."""
 
     parser = argparse.ArgumentParser(
@@ -222,20 +212,23 @@ def parse_args():
     subparsers.required = True
 
     # Creates parser for check command.
-    check_parser = subparsers.add_parser(
-        'check', help='Check update for one project.')
+    check_parser = subparsers.add_parser('check',
+                                         help='Check update for one project.')
     check_parser.add_argument(
-        'paths', nargs='*',
+        'paths',
+        nargs='*',
         help='Paths of the project. '
         'Relative paths will be resolved from external/.')
+    check_parser.add_argument('--json_output',
+                              help='Path of a json file to write result to.')
     check_parser.add_argument(
-        '--json_output',
-        help='Path of a json file to write result to.')
-    check_parser.add_argument(
-        '--all', action='store_true',
+        '--all',
+        action='store_true',
         help='If set, check updates for all supported projects.')
     check_parser.add_argument(
-        '--delay', default=0, type=int,
+        '--delay',
+        default=0,
+        type=int,
         help='Time in seconds to wait between checking two projects.')
     check_parser.set_defaults(func=check)
 
@@ -250,20 +243,29 @@ def parse_args():
         help='Run update even if there\'s no new version.',
         action='store_true')
     update_parser.add_argument(
-        '--branch_and_commit', action='store_true',
-        help='Starts a new branch and commit changes.')
+        '--refresh',
+        help='Run update and refresh to the current version.',
+        action='store_true')
     update_parser.add_argument(
-        '--push_change', action='store_true',
-        help='Pushes change to Gerrit.')
-    update_parser.add_argument(
-        '--remote_name', default='aosp', required=False,
-        help='Upstream remote name.')
+        '--keep_date',
+        help='Run update and do not change date in METADATA.',
+        action='store_true')
+    update_parser.add_argument('--branch_and_commit',
+                               action='store_true',
+                               help='Starts a new branch and commit changes.')
+    update_parser.add_argument('--push_change',
+                               action='store_true',
+                               help='Pushes change to Gerrit.')
+    update_parser.add_argument('--remote_name',
+                               default='aosp',
+                               required=False,
+                               help='Upstream remote name.')
     update_parser.set_defaults(func=update)
 
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     """The main entry."""
 
     args = parse_args()

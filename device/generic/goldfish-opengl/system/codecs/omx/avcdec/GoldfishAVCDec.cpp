@@ -14,8 +14,15 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+
 #include <utils/Log.h>
+
+#define DEBUG  0
+#if DEBUG
+#  define  DDD(...)    ALOGD(__VA_ARGS__)
+#else
+#  define  DDD(...)    ((void)0)
+#endif
 
 #include "GoldfishAVCDec.h"
 
@@ -86,17 +93,17 @@ GoldfishAVCDec::GoldfishAVCDec(
     // If input dump is enabled, then open create an empty file
     GENERATE_FILE_NAMES();
     CREATE_DUMP_FILE(mInFile);
-    ALOGD("created %s %d object %p", __func__, __LINE__, this);
+    ALOGI("created %s %d object %p", __func__, __LINE__, this);
 }
 
 GoldfishAVCDec::~GoldfishAVCDec() {
     CHECK_EQ(deInitDecoder(), (status_t)OK);
-    ALOGD("destroyed %s %d object %p", __func__, __LINE__, this);
+    DDD("destroyed %s %d object %p", __func__, __LINE__, this);
 }
 
 void GoldfishAVCDec::logVersion() {
     // TODO: get emulation decoder implementation version from the host.
-    ALOGV("GoldfishAVC decoder version 1.0");
+    ALOGI("GoldfishAVC decoder version 1.0");
 }
 
 status_t GoldfishAVCDec::resetPlugin() {
@@ -129,6 +136,9 @@ status_t GoldfishAVCDec::setFlushMode() {
 
 status_t GoldfishAVCDec::initDecoder() {
     /* Initialize the decoder */
+    if (mEnableAndroidNativeBuffers == false) {
+        mRenderMode = RenderMode::RENDER_BY_GUEST_CPU;
+    }
     mContext.reset(new MediaH264Decoder(mRenderMode));
     mContext->initH264Context(mWidth,
                               mHeight,
@@ -175,7 +185,7 @@ bool GoldfishAVCDec::getVUIParams(h264_image_t& img) {
     ColorUtils::convertIsoColorAspectsToCodecAspects(
             primaries, transfer, coeffs, fullRange, colorAspects);
 
-    ALOGD("img pts %lld, primaries %d, range %d transfer %d colorspace %d", (long long)img.pts,
+    DDD("img pts %lld, primaries %d, range %d transfer %d colorspace %d", (long long)img.pts,
             (int)img.color_primaries, (int)img.color_range, (int)img.color_trc, (int)img.colorspace);
 
     // Update color aspects if necessary.
@@ -198,7 +208,7 @@ bool GoldfishAVCDec::setDecodeArgs(
     if (inHeader) {
         mConsumedBytes = inHeader->nFilledLen - mInputOffset;
         mInPBuffer = inHeader->pBuffer + inHeader->nOffset + mInputOffset;
-        ALOGD("got input timestamp %lld in-addr-base %p real-data-offset %d inputoffset %d", (long long)(inHeader->nTimeStamp),
+        DDD("got input timestamp %lld in-addr-base %p real-data-offset %d inputoffset %d", (long long)(inHeader->nTimeStamp),
                 inHeader->pBuffer, (int)(inHeader->nOffset + mInputOffset), (int)mInputOffset);
     } else {
         mConsumedBytes = 0;
@@ -224,7 +234,7 @@ void GoldfishAVCDec::readAndDiscardAllHostBuffers() {
     while (mContext) {
         h264_image_t img = mContext->getImage();
         if (img.data != nullptr) {
-            ALOGD("img pts %lld is discarded", (long long)img.pts);
+            DDD("img pts %lld is discarded", (long long)img.pts);
         } else {
             return;
         }
@@ -235,7 +245,7 @@ void GoldfishAVCDec::onPortFlushCompleted(OMX_U32 portIndex) {
     /* Once the output buffers are flushed, ignore any buffers that are held in decoder */
     if (kOutputPortIndex == portIndex) {
         setFlushMode();
-        ALOGD("%s %d", __func__, __LINE__);
+        DDD("%s %d", __func__, __LINE__);
         readAndDiscardAllHostBuffers();
         mContext->resetH264Context(mWidth, mHeight, mWidth, mHeight, MediaH264Decoder::PixelFormat::YUV420P);
         if (!mCsd0.empty() && !mCsd1.empty()) {
@@ -267,18 +277,18 @@ void GoldfishAVCDec::copyImageData( OMX_BUFFERHEADERTYPE *outHeader, h264_image_
 
 int GoldfishAVCDec::getHostColorBufferId(void* header) {
   if (mNWBuffers.find(header) == mNWBuffers.end()) {
-      ALOGD("cannot find color buffer for header %p", header);
+      DDD("cannot find color buffer for header %p", header);
     return -1;
   }
   sp<ANativeWindowBuffer> nBuf = mNWBuffers[header];
   cb_handle_t *handle = (cb_handle_t*)nBuf->handle;
-  ALOGD("found color buffer for header %p --> %d", header, handle->hostHandle);
+  DDD("found color buffer for header %p --> %d", header, handle->hostHandle);
   return handle->hostHandle;
 }
 
 void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
     static int count1=0;
-    ALOGD("calling %s count %d object %p", __func__, ++count1, this);
+    DDD("calling %s count %d object %p", __func__, ++count1, this);
     UNUSED(portIndex);
     OMX_BUFFERHEADERTYPE *inHeader = NULL;
     BufferInfo *inInfo = NULL;
@@ -304,7 +314,7 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
 
     int count2=0;
     while (!outQueue.empty()) {
-        ALOGD("calling %s in while loop count %d", __func__, ++count2);
+        DDD("calling %s in while loop count %d", __func__, ++count2);
         BufferInfo *outInfo;
         OMX_BUFFERHEADERTYPE *outHeader;
 
@@ -376,7 +386,7 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
                         mCsd1.assign(mydata, mydata + mysize);
                     }
                 }
-                ALOGD("Decoding frame(sz=%lu)", (unsigned long)(inHeader->nFilledLen - mInputOffset));
+                DDD("Decoding frame(sz=%lu)", (unsigned long)(inHeader->nFilledLen - mInputOffset));
                 h264Res = mContext->decodeFrame(mInPBuffer,
                                                 inHeader->nFilledLen - mInputOffset,
                                                 inHeader->nTimeStamp);
@@ -385,7 +395,7 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
                     mChangingResolution = true;
                 }
             } else {
-                ALOGD("No more input data. Attempting to get a decoded frame, if any.");
+                DDD("No more input data. Attempting to get a decoded frame, if any.");
             }
             h264_image_t img = {};
 
@@ -413,19 +423,19 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
 
 
             if (inHeader) {
-                ALOGD("input time stamp %lld flag %d", inHeader->nTimeStamp, (int)(inHeader->nFlags));
+                DDD("input time stamp %lld flag %d", inHeader->nTimeStamp, (int)(inHeader->nFlags));
             }
 
             // If the decoder is in the changing resolution mode and there is no output present,
             // that means the switching is done and it's ready to reset the decoder and the plugin.
             if (mChangingResolution && img.data == nullptr) {
                 mChangingResolution = false;
-                ALOGD("re-create decoder because resolution changed");
+                DDD("re-create decoder because resolution changed");
                 bool portWillReset = false;
                 handlePortSettingsChange(&portWillReset, img.width, img.height);
                 {
-                    ALOGD("handling port reset");
-                    ALOGD("port resetting (img.width=%u, img.height=%u, mWidth=%u, mHeight=%u)",
+                    DDD("handling port reset");
+                    DDD("port resetting (img.width=%u, img.height=%u, mWidth=%u, mHeight=%u)",
                           img.width, img.height, mWidth, mHeight);
                     //resetDecoder();
                     resetPlugin();
@@ -452,10 +462,10 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
                     mWidth = myWidth;
                     mHeight = myHeight;
                     if (portWillReset) {
-                        ALOGD("port will reset return now");
+                        DDD("port will reset return now");
                         return;
                     } else {
-                        ALOGD("port will NOT reset keep going now");
+                        DDD("port will NOT reset keep going now");
                     }
                 }
                 outHeader->nFilledLen =  (outputBufferWidth() * outputBufferHeight() * 3) / 2;
@@ -468,7 +478,7 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
                 }
 
                 outHeader->nTimeStamp = img.pts;
-                ALOGD("got output timestamp %lld", (long long)(img.pts));
+                DDD("got output timestamp %lld", (long long)(img.pts));
 
                 outInfo->mOwnedByUs = false;
                 outQueue.erase(outQueue.begin());
@@ -476,7 +486,7 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
                 notifyFillBufferDone(outHeader);
                 outHeader = NULL;
             } else if (mIsInFlush) {
-                ALOGD("not img.data and it is in flush mode");
+                DDD("not img.data and it is in flush mode");
                 /* If in flush mode and no output is returned by the codec,
                  * then come out of flush mode */
                 mIsInFlush = false;
@@ -484,7 +494,7 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
                 /* If EOS was recieved on input port and there is no output
                  * from the codec, then signal EOS on output port */
                 if (mReceivedEOS) {
-                    ALOGD("recived EOS, re-create host context");
+                    ALOGI("received EOS, re-create host context");
                     outHeader->nFilledLen = 0;
                     outHeader->nFlags |= OMX_BUFFERFLAG_EOS;
 
@@ -536,7 +546,7 @@ OMX_ERRORTYPE GoldfishAVCDec::internalGetParameter(
     switch (indexFull) {
         case kGetAndroidNativeBufferUsageIndex:
         {
-            ALOGD("calling kGetAndroidNativeBufferUsageIndex");
+            DDD("calling kGetAndroidNativeBufferUsageIndex");
             GetAndroidNativeBufferUsageParams* nativeBuffersUsage = (GetAndroidNativeBufferUsageParams *) params;
             nativeBuffersUsage->nUsage = (unsigned int)(BufferUsage::GPU_DATA_BUFFER);
             return OMX_ErrorNone;
@@ -555,15 +565,15 @@ OMX_ERRORTYPE GoldfishAVCDec::internalSetParameter(
     switch (indexFull) {
         case kEnableAndroidNativeBuffersIndex:
         {
-            ALOGD("calling kEnableAndroidNativeBuffersIndex");
+            DDD("calling kEnableAndroidNativeBuffersIndex");
             EnableAndroidNativeBuffersParams* enableNativeBuffers = (EnableAndroidNativeBuffersParams *) params;
             if (enableNativeBuffers) {
                 mEnableAndroidNativeBuffers = enableNativeBuffers->enable;
                 if (mEnableAndroidNativeBuffers == false) {
                     mNWBuffers.clear();
-                    ALOGD("disabled kEnableAndroidNativeBuffersIndex");
+                    DDD("disabled kEnableAndroidNativeBuffersIndex");
                 } else {
-                    ALOGD("enabled kEnableAndroidNativeBuffersIndex");
+                    DDD("enabled kEnableAndroidNativeBuffersIndex");
                 }
             }
             return OMX_ErrorNone;
@@ -580,7 +590,7 @@ OMX_ERRORTYPE GoldfishAVCDec::internalSetParameter(
                 sp<ANativeWindowBuffer> nBuf = use_buffer_params->nativeBuffer;
                 cb_handle_t *handle = (cb_handle_t*)nBuf->handle;
                 void* dst = NULL;
-                ALOGD("kUseAndroidNativeBufferIndex with handle %p host color handle %d calling usebuffer", handle,
+                DDD("kUseAndroidNativeBufferIndex with handle %p host color handle %d calling usebuffer", handle,
                       handle->hostHandle);
                 useBufferCallerLockedAlready(use_buffer_params->bufferHeader,use_buffer_params->nPortIndex,
                         use_buffer_params->pAppPrivate,handle->allocatedSize(), (OMX_U8*)dst);
@@ -599,7 +609,7 @@ OMX_ERRORTYPE GoldfishAVCDec::getExtensionIndex(
 
     if (mRenderMode == RenderMode::RENDER_BY_HOST_GPU) {
         if (!strcmp(name, "OMX.google.android.index.enableAndroidNativeBuffers")) {
-            ALOGD("calling getExtensionIndex for enable ANB");
+            DDD("calling getExtensionIndex for enable ANB");
             *(int32_t*)index = kEnableAndroidNativeBuffersIndex;
             return OMX_ErrorNone;
         } else if (!strcmp(name, "OMX.google.android.index.useAndroidNativeBuffer")) {

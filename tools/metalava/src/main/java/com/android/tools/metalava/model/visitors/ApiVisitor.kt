@@ -16,7 +16,8 @@
 
 package com.android.tools.metalava.model.visitors
 
-import com.android.tools.metalava.doclava1.ApiPredicate
+import com.android.tools.metalava.Options
+import com.android.tools.metalava.ApiPredicate
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.FieldItem
 import com.android.tools.metalava.model.Item
@@ -97,12 +98,15 @@ open class ApiVisitor(
         methodComparator: Comparator<MethodItem>? = null,
 
         /** Comparator to sort fields with, or null to use natural (source) order */
-        fieldComparator: Comparator<FieldItem>? = null
+        fieldComparator: Comparator<FieldItem>? = null,
+
+        /** Whether to include "for stub purposes" APIs. See [Options.showForStubPurposesAnnotations] */
+        includeApisForStubPurposes: Boolean = true
     ) : this(
         visitConstructorsAsMethods, nestInnerClasses,
         true, methodComparator,
         fieldComparator,
-        ApiPredicate(ignoreShown = ignoreShown, matchRemoved = remove),
+        ApiPredicate(ignoreShown = ignoreShown, matchRemoved = remove, includeApisForStubPurposes = includeApisForStubPurposes),
         ApiPredicate(ignoreShown = true, ignoreRemoved = remove)
     )
 
@@ -147,13 +151,11 @@ open class ApiVisitor(
     /**
      * @return Whether the body of this class (everything other than the inner classes) emits anything
      */
-    fun shouldEmitClassBody(vc: VisitCandidate): Boolean {
-        return if (filterEmit.test(vc.cls)) {
-            true
-        } else if (vc.nonEmpty()) {
-            filterReference.test(vc.cls)
-        } else {
-            false
+    private fun shouldEmitClassBody(vc: VisitCandidate): Boolean {
+        return when {
+            filterEmit.test(vc.cls) -> true
+            vc.nonEmpty() -> filterReference.test(vc.cls)
+            else -> false
         }
     }
 
@@ -167,7 +169,7 @@ open class ApiVisitor(
     /**
      * @return Whether this class will emit anything
      */
-    fun shouldEmitAnyClass(vc: VisitCandidate): Boolean {
+    private fun shouldEmitAnyClass(vc: VisitCandidate): Boolean {
         return shouldEmitClassBody(vc) || shouldEmitInnerClasses(vc)
     }
 }

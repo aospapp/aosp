@@ -101,6 +101,6 @@ public class NotificationManager28Test {
 
     private PendingIntent getPendingIntent() {
         return PendingIntent.getActivity(
-                mContext, 0, new Intent(mContext, this.getClass()), 0);
+                mContext, 0, new Intent(mContext, this.getClass()), PendingIntent.FLAG_MUTABLE_UNAUDITED);
     }
 }

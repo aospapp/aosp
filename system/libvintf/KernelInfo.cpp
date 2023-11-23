@@ -17,12 +17,11 @@
 
 #include "parse_string.h"
 #include "parse_xml.h"
+#include "parse_xml_internal.h"
 #include "utils.h"
 
 namespace android {
 namespace vintf {
-
-extern XmlConverter<KernelInfo>& gKernelInfoConverter;
 
 using details::mergeField;
 
@@ -148,7 +147,7 @@ std::vector<const MatrixKernel*> KernelInfo::getMatchedKernelRequirements(
                          to_string(mVersion) +
                          " is found. Fix by specifying kernel FCM version in device manifest. "
                          "For example, for a *-r kernel:\n" +
-                         gKernelInfoConverter(msg);
+                         toXml(msg);
             }
             return {};
         }

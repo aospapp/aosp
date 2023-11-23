@@ -30,6 +30,9 @@ std::string Variant::ToString() const {
     case Variant::TYPE_INT_VALUE:
       return std::to_string(Value<int>());
       break;
+    case Variant::TYPE_UINT_VALUE:
+      return std::to_string(Value<unsigned int>());
+      break;
     case Variant::TYPE_INT64_VALUE:
       return std::to_string(Value<int64>());
       break;

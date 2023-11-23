@@ -279,14 +279,14 @@ public class WidgetCtsProvider extends AppWidgetProvider {
         pass.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
         pass.setData(Uri.parse(pass.toUri(Intent.URI_INTENT_SCHEME)));
         final PendingIntent passPendingIntent = PendingIntent.getBroadcast(context, 0, pass,
-                PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
         final Intent fail = new Intent(context, WidgetCtsProvider.class);
         fail.setAction(WidgetCtsProvider.FAIL);
         fail.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
         fail.setData(Uri.parse(fail.toUri(Intent.URI_INTENT_SCHEME)));
         final PendingIntent failPendingIntent = PendingIntent.getBroadcast(context, 0, fail,
-                PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
         rv.setOnClickPendingIntent(R.id.pass, passPendingIntent);
         rv.setOnClickPendingIntent(R.id.fail, failPendingIntent);

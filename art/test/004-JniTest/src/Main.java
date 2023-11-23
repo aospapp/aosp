@@ -65,6 +65,9 @@ public class Main {
         testClinitMethodLookup();
 
         testDoubleLoad(args[0]);
+        testUTFRegion("\0\0\0");
+
+        testBadFastCriticalNatives();
     }
 
     static class ABC { public static int XYZ = 12; }
@@ -77,6 +80,8 @@ public class Main {
         throw new RuntimeException("Failed to test get static field on a subclass", e);
       }
     }
+
+    public static native void testUTFRegion(String null_str);
 
     public static native int getFieldSubclass(Field f, Class sub);
 
@@ -246,14 +251,14 @@ public class Main {
         void a();
     }
 
-    private static class DummyInvocationHandler implements InvocationHandler {
+    private static class MinimalInvocationHandler implements InvocationHandler {
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
             return null;
         }
     }
 
     private static void testProxyGetMethodID() {
-        InvocationHandler handler = new DummyInvocationHandler();
+        InvocationHandler handler = new MinimalInvocationHandler();
         SimpleInterface proxy =
                 (SimpleInterface) Proxy.newProxyInstance(SimpleInterface.class.getClassLoader(),
                         new Class<?>[] {SimpleInterface.class}, handler);
@@ -417,6 +422,24 @@ public class Main {
       throw new RuntimeException(t);
     }
   }
+
+  private static void testBadFastCriticalNatives() {
+    testBadFastCriticalNative("BadFastNative");
+    testBadFastCriticalNative("BadCriticalNative");
+    testBadFastCriticalNative("BadCriticalNative2");
+    testBadFastCriticalNative("BadCriticalNative3");
+  }
+
+  private static void testBadFastCriticalNative(String className) {
+    try {
+      Class.forName(className);
+      throw new Error("Expected verification error");
+    } catch (VerifyError e) {
+      // Expected.
+    } catch (Throwable e) {
+      throw new Error("Expected verification error");
+    }
+  }
 }
 
 @FunctionalInterface
@@ -462,4 +485,24 @@ class JniCallNonvirtualTestSubclass extends JniCallNonvirtualTest {
         System.out.println("Subclass.nonstaticMethod");
         nonstaticMethodSubCalled = true;
     }
+}
+
+class BadFastNative {
+  @FastNative
+  public static native synchronized void test();
+}
+
+class BadCriticalNative {
+  @CriticalNative
+  public static native synchronized void test();
+}
+
+class BadCriticalNative2 {
+  @CriticalNative
+  public native void test();
+}
+
+class BadCriticalNative3 {
+  @CriticalNative
+  public static native void test(Object o);
 }

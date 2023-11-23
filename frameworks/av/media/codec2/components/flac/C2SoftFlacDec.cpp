@@ -221,6 +221,11 @@ void C2SoftFlacDec::process(
 
     uint8_t *input = const_cast<uint8_t *>(rView.data() + inOffset);
     if (codecConfig) {
+        if (mHasStreamInfo) {
+            ALOGV("Ignore Codec Config");
+            fillEmptyWork(work);
+            return;
+        }
         status_t decoderErr = mFLACDecoder->parseMetadata(input, inSize);
         if (decoderErr != OK && decoderErr != WOULD_BLOCK) {
             ALOGE("process: FLACDecoder parseMetaData returns error %d", decoderErr);
@@ -367,11 +372,13 @@ private:
 
 }  // namespace android
 
+__attribute__((cfi_canonical_jump_table))
 extern "C" ::C2ComponentFactory* CreateCodec2Factory() {
     ALOGV("in %s", __func__);
     return new ::android::C2SoftFlacDecFactory();
 }
 
+__attribute__((cfi_canonical_jump_table))
 extern "C" void DestroyCodec2Factory(::C2ComponentFactory* factory) {
     ALOGV("in %s", __func__);
     delete factory;

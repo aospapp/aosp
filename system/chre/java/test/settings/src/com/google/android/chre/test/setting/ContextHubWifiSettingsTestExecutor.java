@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.location.NanoAppBinary;
 import android.net.wifi.WifiManager;
+import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
  * A test to check for behavior when WiFi settings are changed.
  */
 public class ContextHubWifiSettingsTestExecutor {
+    private static final String TAG = "ContextHubWifiSettingsTestExecutor";
     private final ContextHubSettingsTestExecutor mExecutor;
 
     private final Instrumentation mInstrumentation = InstrumentationRegistry.getInstrumentation();
@@ -87,6 +89,9 @@ public class ContextHubWifiSettingsTestExecutor {
         mInitialLocationEnabled = mSettingsUtil.isLocationEnabled();
         mInitialWifiEnabled = mSettingsUtil.isWifiEnabled();
         mInitialWifiScanningAlwaysEnabled = mSettingsUtil.isWifiScanningAlwaysEnabled();
+        Log.d(TAG, "isLocationEnalbed=" + mInitialLocationEnabled
+                + ", isWifiEnabled=" + mInitialWifiEnabled
+                + ", isWifiScanningAlwaysEnabled=" + mInitialWifiScanningAlwaysEnabled);
         mExecutor.init();
     }
 
@@ -127,7 +132,7 @@ public class ContextHubWifiSettingsTestExecutor {
             wifiUpdateListener.mWifiLatch.await(30, TimeUnit.SECONDS);
 
             // Wait a few seconds to ensure setting is propagated to CHRE path
-            Thread.sleep(5000);
+            Thread.sleep(10000);
         } catch (InterruptedException e) {
             Assert.fail(e.getMessage());
         }

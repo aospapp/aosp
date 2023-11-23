@@ -19,43 +19,37 @@
                   android:title="@string/languages_and_input_settings"
                   android:key="@string/psk_languages_and_input">
     <Preference
+        android:fragment="com.android.car.settings.language.LanguagePickerFragment"
         android:icon="@drawable/ic_translate"
         android:key="@string/pk_language_settings_entry"
         android:title="@string/language_settings"
-        settings:controller="com.android.car.settings.language.LanguageSettingsEntryPreferenceController">
-        <intent android:targetPackage="com.android.car.settings"
-                android:targetClass="com.android.car.settings.common.CarSettingActivities$LanguagePickerActivity"/>
-    </Preference>
-    <com.android.car.settings.common.ButtonPreference
+        settings:controller="com.android.car.settings.language.LanguageSettingsEntryPreferenceController"/>
+    <com.android.car.ui.preference.CarUiTwoActionIconPreference
+        android:fragment="com.android.car.settings.applications.defaultapps.DefaultAutofillPickerFragment"
         android:key="@string/pk_autofill_picker_entry"
         android:summary="@string/app_list_preference_none"
         android:title="@string/autofill_settings_title"
-        android:widgetLayout="@layout/details_preference_widget"
         settings:controller="com.android.car.settings.applications.defaultapps.DefaultAutofillPickerEntryPreferenceController"
-        settings:iconSpaceReserved="true">
-        <intent android:targetPackage="com.android.car.settings"
-                android:targetClass="com.android.car.settings.common.CarSettingActivities$DefaultAutofillPickerActivity"/>
-    </com.android.car.settings.common.ButtonPreference>
+        settings:iconSpaceReserved="true"
+        settings:secondaryActionIcon="@drawable/ic_settings_gear"/>
     <Preference
+        android:fragment="com.android.car.settings.inputmethod.KeyboardFragment"
         android:key="@string/pk_keyboard_entry"
         android:title="@string/keyboard_settings"
         settings:controller="com.android.car.settings.inputmethod.KeyboardPreferenceController"
-        settings:iconSpaceReserved="true">
-        <intent android:targetPackage="com.android.car.settings"
-                android:targetClass="com.android.car.settings.common.CarSettingActivities$KeyboardActivity"/>
-    </Preference>
+        settings:iconSpaceReserved="true"
+        settings:searchable="false"/>
     <Preference
+        android:fragment="com.android.car.settings.tts.TextToSpeechOutputFragment"
         android:key="@string/pk_tts_settings_entry"
         android:title="@string/text_to_speech_settings"
         settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"
-        settings:iconSpaceReserved="true">
-        <intent android:targetPackage="com.android.car.settings"
-                android:targetClass="com.android.car.settings.common.CarSettingActivities$TextToSpeechOutputActivity"/>
-    </Preference>
+        settings:iconSpaceReserved="true"
+        settings:searchable="false"/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_language_and_input_extra_settings"
         settings:controller="com.android.car.settings.common.ExtraSettingsPreferenceController">
-        <intent android:action="com.android.settings.action.EXTRA_SETTINGS">
+        <intent>
             <extra android:name="com.android.settings.category"
                    android:value="com.android.settings.category.ia.language"/>
         </intent>

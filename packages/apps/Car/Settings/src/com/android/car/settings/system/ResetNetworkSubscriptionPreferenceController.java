@@ -44,8 +44,7 @@ public class ResetNetworkSubscriptionPreferenceController extends
     public ResetNetworkSubscriptionPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mSubscriptionManager = (SubscriptionManager) context.getSystemService(
-                Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+        mSubscriptionManager = context.getSystemService(SubscriptionManager.class);
     }
 
     @Override

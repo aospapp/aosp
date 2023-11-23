@@ -16,8 +16,10 @@
 
 #include "host/frontend/vnc_server/vnc_server.h"
 
-#include <glog/logging.h>
-#include "common/libs/tcp_socket/tcp_socket.h"
+#include <memory>
+
+#include <android-base/logging.h>
+#include "common/libs/utils/tcp_socket.h"
 #include "host/frontend/vnc_server/blackboard.h"
 #include "host/frontend/vnc_server/frame_buffer_watcher.h"
 #include "host/frontend/vnc_server/jpeg_compressor.h"
@@ -25,19 +27,21 @@
 #include "host/frontend/vnc_server/vnc_client_connection.h"
 #include "host/frontend/vnc_server/vnc_utils.h"
 
-using cvd::vnc::VncServer;
+using cuttlefish::vnc::VncServer;
 
-VncServer::VncServer(int port, bool aggressive)
+VncServer::VncServer(int port, bool aggressive,
+                     cuttlefish::vnc::ScreenConnector& screen_connector,
+                     cuttlefish::confui::HostVirtualInput& confui_input)
     : server_(port),
-    virtual_inputs_(VirtualInputs::Get()),
-    frame_buffer_watcher_{&bb_},
-    aggressive_{aggressive} {}
+      virtual_inputs_(VirtualInputs::Get(confui_input)),
+      frame_buffer_watcher_{&bb_, screen_connector},
+      aggressive_{aggressive} {}
 
 void VncServer::MainLoop() {
   while (true) {
-    LOG(INFO) << "Awaiting connections";
+    LOG(DEBUG) << "Awaiting connections";
     auto connection = server_.Accept();
-    LOG(INFO) << "Accepted a client connection";
+    LOG(DEBUG) << "Accepted a client connection";
     StartClient(std::move(connection));
   }
 }
@@ -53,7 +57,9 @@ void VncServer::StartClientThread(ClientSocket sock) {
   // data members. In the current setup, if the VncServer is destroyed with
   // clients still running, the clients will all be left with dangling
   // pointers.
+  frame_buffer_watcher_.IncClientCount();
   VncClientConnection client(std::move(sock), virtual_inputs_, &bb_,
                              aggressive_);
   client.StartSession();
+  frame_buffer_watcher_.DecClientCount();
 }

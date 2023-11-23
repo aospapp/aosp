@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -11,6 +11,8 @@
 #include <arch.h>
 #include <bl1/bl1.h>
 #include <common/bl_common.h>
+#include <lib/fconf/fconf.h>
+#include <lib/fconf/fconf_dyn_cfg_getter.h>
 #include <lib/utils.h>
 #include <lib/xlat_tables/xlat_tables_compat.h>
 #include <plat/arm/common/plat_arm.h>
@@ -51,6 +53,9 @@
 
 /* Data structure which holds the extents of the trusted SRAM for BL1*/
 static meminfo_t bl1_tzram_layout;
+
+/* Boolean variable to hold condition whether firmware update needed or not */
+static bool is_fwu_needed;
 
 struct meminfo *bl1_plat_sec_mem_layout(void)
 {
@@ -141,9 +146,59 @@ void bl1_plat_arch_setup(void)
  */
 void arm_bl1_platform_setup(void)
 {
+	const struct dyn_cfg_dtb_info_t *fw_config_info;
+	image_desc_t *desc;
+	uint32_t fw_config_max_size;
+	int err = -1;
+
 	/* Initialise the IO layer and register platform IO devices */
 	plat_arm_io_setup();
-	arm_load_tb_fw_config();
+
+	/* Check if we need FWU before further processing */
+	is_fwu_needed = plat_arm_bl1_fwu_needed();
+	if (is_fwu_needed) {
+		ERROR("Skip platform setup as FWU detected\n");
+		return;
+	}
+
+	/* Set global DTB info for fixed fw_config information */
+	fw_config_max_size = ARM_FW_CONFIG_LIMIT - ARM_FW_CONFIG_BASE;
+	set_config_info(ARM_FW_CONFIG_BASE, fw_config_max_size, FW_CONFIG_ID);
+
+	/* Fill the device tree information struct with the info from the config dtb */
+	err = fconf_load_config(FW_CONFIG_ID);
+	if (err < 0) {
+		ERROR("Loading of FW_CONFIG failed %d\n", err);
+		plat_error_handler(err);
+	}
+
+	/*
+	 * FW_CONFIG loaded successfully. If FW_CONFIG device tree parsing
+	 * is successful then load TB_FW_CONFIG device tree.
+	 */
+	fw_config_info = FCONF_GET_PROPERTY(dyn_cfg, dtb, FW_CONFIG_ID);
+	if (fw_config_info != NULL) {
+		err = fconf_populate_dtb_registry(fw_config_info->config_addr);
+		if (err < 0) {
+			ERROR("Parsing of FW_CONFIG failed %d\n", err);
+			plat_error_handler(err);
+		}
+		/* load TB_FW_CONFIG */
+		err = fconf_load_config(TB_FW_CONFIG_ID);
+		if (err < 0) {
+			ERROR("Loading of TB_FW_CONFIG failed %d\n", err);
+			plat_error_handler(err);
+		}
+	} else {
+		ERROR("Invalid FW_CONFIG address\n");
+		plat_error_handler(err);
+	}
+
+	/* The BL2 ep_info arg0 is modified to point to FW_CONFIG */
+	desc = bl1_plat_get_image_desc(BL2_IMAGE_ID);
+	assert(desc != NULL);
+	desc->ep_info.args.arg0 = fw_config_info->config_addr;
+
 #if TRUSTED_BOARD_BOOT
 	/* Share the Mbed TLS heap info with other images */
 	arm_bl1_set_mbedtls_heap();
@@ -184,9 +239,9 @@ void bl1_plat_prepare_exit(entry_point_info_t *ep_info)
  * On Arm platforms, the FWU process is triggered when the FIP image has
  * been tampered with.
  */
-int plat_arm_bl1_fwu_needed(void)
+bool plat_arm_bl1_fwu_needed(void)
 {
-	return (arm_io_is_toc_valid() != 1);
+	return !arm_io_is_toc_valid();
 }
 
 /*******************************************************************************
@@ -195,8 +250,5 @@ int plat_arm_bl1_fwu_needed(void)
  ******************************************************************************/
 unsigned int bl1_plat_get_next_image_id(void)
 {
-	if (plat_arm_bl1_fwu_needed() != 0)
-		return NS_BL1U_IMAGE_ID;
-
-	return BL2_IMAGE_ID;
+	return  is_fwu_needed ? NS_BL1U_IMAGE_ID : BL2_IMAGE_ID;
 }

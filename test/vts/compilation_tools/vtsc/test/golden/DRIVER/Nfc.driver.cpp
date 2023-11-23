@@ -2,6 +2,7 @@
 #include "vts_measurement.h"
 #include <android-base/logging.h>
 #include <android/hidl/allocator/1.0/IAllocator.h>
+#include <fcntl.h>
 #include <fmq/MessageQueue.h>
 #include <sys/stat.h>
 #include <unistd.h>

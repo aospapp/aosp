@@ -18,7 +18,6 @@ package com.android.tv.settings;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
@@ -30,16 +29,11 @@ import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.service.settings.suggestions.Suggestion;
 import android.telephony.SignalStrength;
 
 import androidx.preference.Preference;
-import androidx.preference.PreferenceCategory;
-import androidx.preference.PreferenceManager;
 
-import com.android.settingslib.utils.IconCache;
 import com.android.tv.settings.connectivity.ConnectivityListener;
-import com.android.tv.settings.suggestions.SuggestionPreference;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -50,9 +44,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.shadows.ShadowAccountManager;
 
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 @RunWith(RobolectricTestRunner.class)
@@ -312,39 +304,5 @@ public class MainFragmentTest {
         mMainFragment.updateAccessoryPref();
 
         assertTrue(mMainFragment.mHasBtAccessories);
-    }
-
-    @Test
-    public void testUpdateSuggestionList_hasTheSameSuggestion() {
-        SuggestionPreference pref = mock(SuggestionPreference.class);
-        PreferenceCategory suggestionCategory = mock(PreferenceCategory.class);
-        Suggestion suggestion = new Suggestion.Builder("xyz").setSummary("abc").build();
-        List<Suggestion> suggestions = Arrays.asList(suggestion);
-        mMainFragment.mSuggestionsList = suggestionCategory;
-        doReturn(pref).when(mMainFragment)
-                .findPreference(SuggestionPreference.SUGGESTION_PREFERENCE_KEY + "xyz");
-        mMainFragment.mIconCache = mock(IconCache.class);
-
-        mMainFragment.updateSuggestionList(suggestions);
-
-        verify(pref, atLeastOnce()).setSummary("abc");
-    }
-
-    @Test
-    public void testUpdateSuggestionList_hasNewSuggestion() {
-        PreferenceCategory suggestionCategory = mock(PreferenceCategory.class);
-        Suggestion suggestion = new Suggestion.Builder("xyz").setSummary("abc").build();
-        List<Suggestion> suggestions = Arrays.asList(suggestion);
-        mMainFragment.mSuggestionsList = suggestionCategory;
-        PreferenceManager preferenceManager = mock(PreferenceManager.class);
-        doReturn(preferenceManager).when(mMainFragment).getPreferenceManager();
-        doReturn(RuntimeEnvironment.application).when(preferenceManager).getContext();
-        doReturn(null).when(mMainFragment)
-                .findPreference(SuggestionPreference.SUGGESTION_PREFERENCE_KEY + "xyz");
-        mMainFragment.mIconCache = mock(IconCache.class);
-
-        mMainFragment.updateSuggestionList(suggestions);
-
-        verify(suggestionCategory, atLeastOnce()).addPreference(any());
     }
 }

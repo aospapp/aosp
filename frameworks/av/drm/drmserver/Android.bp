@@ -14,6 +14,23 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["frameworks_av_drm_drmserver_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_drm_drmserver_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_binary {
     name: "drmserver",
 
@@ -31,11 +48,10 @@ cc_binary {
         "liblog",
         "libbinder",
         "libdl",
+        "libdrmframeworkcommon",
         "libselinux",
         "libstagefright_foundation",
     ],
-
-    static_libs: ["libdrmframeworkcommon"],
 
     cflags: [
         "-Wall",
@@ -43,7 +59,7 @@ cc_binary {
         "-Werror",
     ],
 
-    compile_multilib: "32",
+    compile_multilib: "prefer32",
 
     init_rc: ["drmserver.rc"],
 }

@@ -17,7 +17,7 @@ public class CmdTest {
     @Parameters(commandNames = "--cmd-two")
     class CmdTwo {
         @Parameter
-        List<String> params = new java.util.LinkedList<String>();
+        List<String> params = new java.util.LinkedList<>();
     }
 
     public String parseArgs(boolean withDefault, String[] args) {
@@ -35,7 +35,7 @@ public class CmdTest {
             // is named "WithoutValidation".
             jc.parseWithoutValidation(args);
             if (jc.getParsedCommand() == null) {
-                LinkedList<String> newArgs = new LinkedList<String>();
+                LinkedList<String> newArgs = new LinkedList<>();
                 newArgs.add("--cmd-two");
                 newArgs.addAll(Arrays.asList(args));
                 jc.parse(newArgs.toArray(new String[0]));
@@ -70,7 +70,12 @@ public class CmdTest {
     public void testArgsWithoutDefaultCmdFail(String expected,
             boolean requireDefault, String[] args) {
         if (requireDefault) {
-            parseArgs(false, args);
+            try {
+                parseArgs(false, args);
+            } catch (MissingCommandException e) {
+                Assert.assertEquals(e.getUnknownCommand(), args[0]);
+                throw e;
+            }
         } else {
             throw new MissingCommandException("irrelevant test case");
         }
@@ -83,4 +88,20 @@ public class CmdTest {
         Assert.assertEquals(parseArgs(true, args), expected);
     }
 
+    @Test
+    public void testIssue244() throws Exception {
+        class P1 {}
+        class P2 {
+            @Parameter(names = "--hello")
+            private int test;
+        }
+        P1 p1 = new P1();
+        P2 p2 = new P2();
+        JCommander j = new JCommander(p1);
+        j.addCommand("wonderful", p2);
+        j.setAllowAbbreviatedOptions(true);
+        j.parse("wond", "--he", "47");
+        Assert.assertEquals("wonderful", j.getParsedCommand());
+        Assert.assertEquals(47, p2.test);
+    }
 }

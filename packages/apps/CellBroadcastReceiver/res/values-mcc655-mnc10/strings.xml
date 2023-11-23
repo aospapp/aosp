@@ -18,4 +18,8 @@
            xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Display cell broadcasts for messages -->
     <string name="pws_other_message_identifiers">@string/cb_other_message_identifiers</string>
+    <!-- Preference title for enable area update information broadcasts. [CHAR LIMIT=50] -->
+    <string name="enable_area_update_info_alerts_title">Channel 50 alerts</string>
+    <!-- Preference summary for enable area update information broadcasts. [CHAR LIMIT=100] -->
+    <string name="enable_area_update_info_alerts_summary">Show channel 50 broadcasts in South Africa</string>
 </resources>

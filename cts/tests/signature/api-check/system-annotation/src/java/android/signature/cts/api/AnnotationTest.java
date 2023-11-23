@@ -20,8 +20,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.signature.cts.AnnotationChecker;
 import android.signature.cts.ApiDocumentParser;
+import android.signature.cts.JDiffClassDescription;
 
 import com.android.compatibility.common.util.PropertyUtil;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.function.Predicate;
 
 /**
  * Checks that parts of the device's API that are annotated (e.g. with android.annotation.SystemApi)
@@ -31,13 +37,22 @@ public class AnnotationTest extends AbstractApiTest {
 
     private static final String TAG = AnnotationTest.class.getSimpleName();
 
-    private String[] expectedApiFiles;
-    private String annotationForExactMatch;
+    private String[] mExpectedApiFiles;
+    private String mAnnotationForExactMatch;
 
     @Override
     protected void initializeFromArgs(Bundle instrumentationArgs) throws Exception {
-        expectedApiFiles = getCommaSeparatedList(instrumentationArgs, "expected-api-files");
-        annotationForExactMatch = instrumentationArgs.getString("annotation-for-exact-match");
+        mExpectedApiFiles = getCommaSeparatedList(instrumentationArgs, "expected-api-files");
+        mAnnotationForExactMatch = instrumentationArgs.getString("annotation-for-exact-match");
+    }
+
+    private Predicate<? super JDiffClassDescription> androidAutoClassesFilter() {
+        if (getInstrumentation().getContext().getPackageManager().hasSystemFeature(
+                "android.hardware.type.automotive")) {
+            return clz -> true;
+        } else {
+            return clz -> !clz.getAbsoluteClassName().startsWith("android.car.");
+        }
     }
 
     /**
@@ -45,20 +60,42 @@ public class AnnotationTest extends AbstractApiTest {
      * android.annotation.SystemApi) match the API definition.
      */
     public void testAnnotation() {
-        if ("true".equals(PropertyUtil.getProperty("ro.treble.enabled")) &&
-                PropertyUtil.getFirstApiLevel() > Build.VERSION_CODES.O_MR1) {
-            runWithTestResultObserver(resultObserver -> {
-                AnnotationChecker complianceChecker = new AnnotationChecker(resultObserver,
-                        classProvider, annotationForExactMatch);
+       AnnotationChecker.ResultFilter filter = new AnnotationChecker.ResultFilter() {
+            @Override
+            public boolean skip(Class<?> clazz) {
+                return false;
+            }
 
-                ApiDocumentParser apiDocumentParser = new ApiDocumentParser(TAG);
+            @Override
+            public boolean skip(Constructor<?> ctor) {
+                return false;
+            }
 
-                parseApiResourcesAsStream(apiDocumentParser, expectedApiFiles)
-                        .forEach(complianceChecker::checkSignatureCompliance);
+            @Override
+            public boolean skip(Method m) {
+                return false;
+            }
 
-                // After done parsing all expected API files, perform any deferred checks.
-                complianceChecker.checkDeferred();
-            });
-        }
+            @Override
+            public boolean skip(Field f) {
+                // The R.styleable class is not part of the API because it's annotated with
+                // @doconly. But the class actually exists in the runtime classpath.  To avoid
+                // the mismatch, skip the check for fields from the class.
+                return "android.R$styleable".equals(f.getDeclaringClass().getName());
+            }
+        };
+        runWithTestResultObserver(resultObserver -> {
+            AnnotationChecker complianceChecker = new AnnotationChecker(resultObserver,
+                    mClassProvider, mAnnotationForExactMatch, filter);
+
+            ApiDocumentParser apiDocumentParser = new ApiDocumentParser(TAG);
+
+            parseApiResourcesAsStream(apiDocumentParser, mExpectedApiFiles)
+                    .filter(androidAutoClassesFilter())
+                    .forEach(complianceChecker::checkSignatureCompliance);
+
+            // After done parsing all expected API files, perform any deferred checks.
+            complianceChecker.checkDeferred();
+        });
     }
 }

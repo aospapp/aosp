@@ -10,10 +10,8 @@
 #include <random>
 #include <vector>
 
-#include <cpuinfo.h>
-
 #include <benchmark/benchmark.h>
-#include "bench/gemm.h"
+#include "bench/spmm.h"
 #include "bench/utils.h"
 #include <xnnpack/AlignedAllocator.h>
 #include <xnnpack/common.h>
@@ -23,10 +21,10 @@
 
 
 static void SpMMBenchmark(benchmark::State& state,
-  xnn_f32_spmm_ukernel_function spmm, uint32_t mr, uint32_t nr, float sparsity)
+  xnn_f32_spmm_minmax_ukernel_function spmm, uint32_t mr, uint32_t nr, float sparsity,
+  benchmark::utils::IsaCheckFunction isa_check = nullptr)
 {
-  if (!cpuinfo_initialize()) {
-    state.SkipWithError("cpuinfo initialization failed");
+  if (isa_check && !isa_check(state)) {
     return;
   }
 
@@ -36,7 +34,7 @@ static void SpMMBenchmark(benchmark::State& state,
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto f32rng = std::bind(std::uniform_real_distribution<float>(), rng);
+  auto f32rng = std::bind(std::uniform_real_distribution<float>(), std::ref(rng));
 
   // if using blocks, generate the reduced matrix first and then extrude along
   // the block dimension (n), to get the full matrix
@@ -127,8 +125,8 @@ static void SpMMBenchmark(benchmark::State& state,
   std::generate(a.begin(), a.end(), std::ref(f32rng));
   std::fill(c.begin(), c.end(), nanf(""));
 
-  xnn_f32_output_params output_params =
-    xnn_init_f32_output_params(-std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
+  xnn_f32_minmax_params params =
+    xnn_init_f32_minmax_params(-std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
 
   size_t buffer_index = 0;
   for (auto _ : state) {
@@ -141,16 +139,20 @@ static void SpMMBenchmark(benchmark::State& state,
     buffer_index = (buffer_index + 1) % num_buffers;
     state.ResumeTiming();
 
-    spmm(mc, nc,
+    spmm(mc * sizeof(float), nc,
       a.data() + a_offsets[buffer_index],
       w.data() + buffer_index * w_elements,
       dmap.data() + buffer_index * dmap_elements,
       nmap.data() + buffer_index * nmap_elements,
-      c.data() + buffer_index * c_elements,
-      &output_params);
+      c.data() + buffer_index * c_elements, mc * sizeof(float),
+      &params);
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
+
   state.counters["FLOPS"] = benchmark::Counter(
     uint64_t(state.iterations()) * 2 * mc * num_nonzeroes, benchmark::Counter::kIsRate);
 
@@ -159,160 +161,468 @@ static void SpMMBenchmark(benchmark::State& state,
 }
 
 
+#if XNN_ARCH_ARM || XNN_ARCH_ARM64
+  static void spmm80_4x1__neon(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__neon, 4, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_8x1__neon(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__neon, 8, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_12x1__neon(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_12x1__neon, 12, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_16x1__neon(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__neon, 16, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_32x1__neon(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__neon, 32, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_4x1__neon_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__neon_x2, 4, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_8x1__neon_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__neon_x2, 8, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_16x1__neon_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__neon_x2, 16, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_32x1__neon_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__neon_x2, 32, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_4x1__neon_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__neon_pipelined, 4, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_8x1__neon_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__neon_pipelined, 8, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_16x1__neon_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__neon_pipelined, 16, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  static void spmm80_32x1__neon_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__neon_pipelined, 32, 1, 0.8f, benchmark::utils::CheckNEON);
+  }
+
+  BENCHMARK_SPMM(spmm80_4x1__neon)
+  BENCHMARK_SPMM(spmm80_4x1__neon_pipelined)
+  BENCHMARK_SPMM(spmm80_4x1__neon_x2)
+  BENCHMARK_SPMM(spmm80_8x1__neon)
+  BENCHMARK_SPMM(spmm80_8x1__neon_pipelined)
+  BENCHMARK_SPMM(spmm80_8x1__neon_x2)
+  BENCHMARK_SPMM(spmm80_12x1__neon)
+  BENCHMARK_SPMM(spmm80_16x1__neon)
+  BENCHMARK_SPMM(spmm80_16x1__neon_pipelined)
+  BENCHMARK_SPMM(spmm80_16x1__neon_x2)
+  BENCHMARK_SPMM(spmm80_32x1__neon)
+  BENCHMARK_SPMM(spmm80_32x1__neon_pipelined)
+  BENCHMARK_SPMM(spmm80_32x1__neon_x2)
+#endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
+
 #if XNN_ARCH_ARM64
   static void spmm80_4x1__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_4x1__neonfma, 4, 1, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__neonfma, 4, 1, 0.8f);
   }
+
   static void spmm80_4x2__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_4x2__neonfma, 4, 2, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x2__neonfma, 4, 2, 0.8f);
   }
+
   static void spmm80_4x4__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_4x4__neonfma, 4, 4, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x4__neonfma, 4, 4, 0.8f);
   }
 
   static void spmm80_8x1__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_8x1__neonfma, 8, 1, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__neonfma, 8, 1, 0.8f);
   }
 
   static void spmm80_8x2__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_8x2__neonfma, 8, 2, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x2__neonfma, 8, 2, 0.8f);
   }
 
   static void spmm80_8x4__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_8x4__neonfma, 8, 4, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x4__neonfma, 8, 4, 0.8f);
   }
 
   static void spmm80_12x1__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_12x1__neonfma, 12, 1, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_12x1__neonfma, 12, 1, 0.8f);
   }
 
   static void spmm80_12x2__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_12x2__neonfma, 12, 2, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_12x2__neonfma, 12, 2, 0.8f);
   }
 
   static void spmm80_12x4__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_12x4__neonfma, 12, 4, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_12x4__neonfma, 12, 4, 0.8f);
   }
 
   static void spmm80_16x1__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_16x1__neonfma, 16, 1, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__neonfma, 16, 1, 0.8f);
   }
 
   static void spmm80_16x2__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_16x2__neonfma, 16, 2, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x2__neonfma, 16, 2, 0.8f);
   }
 
   static void spmm80_16x4__neonfma(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_16x4__neonfma, 16, 4, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x4__neonfma, 16, 4, 0.8f);
   }
 
-  static void spmm80_4x1__neonfma_unroll2(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_4x1__neonfma_unroll2, 4, 1, 0.8f);
+  static void spmm80_32x1__neonfma(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__neonfma, 32, 1, 0.8f);
   }
 
-  static void spmm80_8x1__neonfma_unroll2(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_8x1__neonfma_unroll2, 8, 1, 0.8f);
+  static void spmm80_32x2__neonfma(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x2__neonfma, 32, 2, 0.8f);
   }
 
-  static void spmm80_16x1__neonfma_unroll2(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_16x1__neonfma_unroll2, 16, 1, 0.8f);
+  static void spmm80_32x4__neonfma(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x4__neonfma, 32, 4, 0.8f);
+  }
+
+  static void spmm80_4x1__neonfma_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__neonfma_x2, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__neonfma_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__neonfma_x2, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__neonfma_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__neonfma_x2, 16, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__neonfma_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__neonfma_x2, 32, 1, 0.8f);
   }
 
   static void spmm80_4x1__neonfma_pipelined(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_4x1__neonfma_pipelined, 4, 1, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__neonfma_pipelined, 4, 1, 0.8f);
   }
 
   static void spmm80_8x1__neonfma_pipelined(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_8x1__neonfma_pipelined, 8, 1, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__neonfma_pipelined, 8, 1, 0.8f);
   }
 
   static void spmm80_16x1__neonfma_pipelined(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_16x1__neonfma_pipelined, 16, 1, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__neonfma_pipelined, 16, 1, 0.8f);
   }
 
-  BENCHMARK_GEMM(spmm80_4x1__neonfma)
-  BENCHMARK_GEMM(spmm80_4x2__neonfma)
-  BENCHMARK_GEMM(spmm80_4x4__neonfma)
-  BENCHMARK_GEMM(spmm80_8x1__neonfma)
-  BENCHMARK_GEMM(spmm80_8x2__neonfma)
-  BENCHMARK_GEMM(spmm80_8x4__neonfma)
-  BENCHMARK_GEMM(spmm80_12x1__neonfma)
-  BENCHMARK_GEMM(spmm80_12x2__neonfma)
-  BENCHMARK_GEMM(spmm80_12x4__neonfma)
-  BENCHMARK_GEMM(spmm80_16x1__neonfma)
-  BENCHMARK_GEMM(spmm80_16x2__neonfma)
-  BENCHMARK_GEMM(spmm80_16x4__neonfma)
-  BENCHMARK_GEMM(spmm80_4x1__neonfma_unroll2)
-  BENCHMARK_GEMM(spmm80_8x1__neonfma_unroll2)
-  BENCHMARK_GEMM(spmm80_16x1__neonfma_unroll2)
-  BENCHMARK_GEMM(spmm80_4x1__neonfma_pipelined)
-  BENCHMARK_GEMM(spmm80_8x1__neonfma_pipelined)
-  BENCHMARK_GEMM(spmm80_16x1__neonfma_pipelined)
+  static void spmm80_32x1__neonfma_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__neonfma_pipelined, 32, 1, 0.8f);
+  }
+
+  BENCHMARK_SPMM(spmm80_4x1__neonfma)
+  BENCHMARK_SPMM(spmm80_4x1__neonfma_pipelined)
+  BENCHMARK_SPMM(spmm80_4x1__neonfma_x2)
+  BENCHMARK_SPMM(spmm80_4x2__neonfma)
+  BENCHMARK_SPMM(spmm80_4x4__neonfma)
+  BENCHMARK_SPMM(spmm80_8x1__neonfma)
+  BENCHMARK_SPMM(spmm80_8x1__neonfma_pipelined)
+  BENCHMARK_SPMM(spmm80_8x1__neonfma_x2)
+  BENCHMARK_SPMM(spmm80_8x2__neonfma)
+  BENCHMARK_SPMM(spmm80_8x4__neonfma)
+  BENCHMARK_SPMM(spmm80_12x1__neonfma)
+  BENCHMARK_SPMM(spmm80_12x2__neonfma)
+  BENCHMARK_SPMM(spmm80_12x4__neonfma)
+  BENCHMARK_SPMM(spmm80_16x1__neonfma)
+  BENCHMARK_SPMM(spmm80_16x1__neonfma_pipelined)
+  BENCHMARK_SPMM(spmm80_16x1__neonfma_x2)
+  BENCHMARK_SPMM(spmm80_16x2__neonfma)
+  BENCHMARK_SPMM(spmm80_16x4__neonfma)
+  BENCHMARK_SPMM(spmm80_32x1__neonfma)
+  BENCHMARK_SPMM(spmm80_32x1__neonfma_pipelined)
+  BENCHMARK_SPMM(spmm80_32x1__neonfma_x2)
+  BENCHMARK_SPMM(spmm80_32x2__neonfma)
+  BENCHMARK_SPMM(spmm80_32x4__neonfma)
 #endif  // XNN_ARCH_ARM64
 
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
   static void spmm80_4x1__sse(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_4x1__sse, 4, 1, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__sse, 4, 1, 0.8f);
   }
 
   static void spmm80_8x1__sse(benchmark::State& state, const char* net) {
-    SpMMBenchmark(state, xnn_f32_spmm_ukernel_8x1__sse, 8, 1, 0.8f);
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__sse, 8, 1, 0.8f);
   }
 
-  BENCHMARK_GEMM(spmm80_4x1__sse)
-  BENCHMARK_GEMM(spmm80_8x1__sse)
+  static void spmm80_16x1__sse(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__sse, 16, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__sse(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__sse, 32, 1, 0.8f);
+  }
+
+  BENCHMARK_SPMM(spmm80_4x1__sse)
+  BENCHMARK_SPMM(spmm80_8x1__sse)
+  BENCHMARK_SPMM(spmm80_16x1__sse)
+  BENCHMARK_SPMM(spmm80_32x1__sse)
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
 static void spmm80_1x1__scalar(benchmark::State& state, const char* net) {
-  SpMMBenchmark(state, xnn_f32_spmm_ukernel_1x1__scalar, 1, 1, 0.8f);
+  SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_1x1__scalar, 1, 1, 0.8f);
 }
 
 static void spmm80_2x1__scalar(benchmark::State& state, const char* net) {
-  SpMMBenchmark(state, xnn_f32_spmm_ukernel_2x1__scalar, 2, 1, 0.8f);
+  SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_2x1__scalar, 2, 1, 0.8f);
 }
 
 static void spmm80_4x1__scalar(benchmark::State& state, const char* net) {
-  SpMMBenchmark(state, xnn_f32_spmm_ukernel_4x1__scalar, 4, 1, 0.8f);
+  SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__scalar, 4, 1, 0.8f);
 }
 
 static void spmm80_8x1__scalar(benchmark::State& state, const char* net) {
-  SpMMBenchmark(state, xnn_f32_spmm_ukernel_8x1__scalar, 8, 1, 0.8f);
+  SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__scalar, 8, 1, 0.8f);
 }
 
 static void spmm80_8x2__scalar(benchmark::State& state, const char* net) {
-  SpMMBenchmark(state, xnn_f32_spmm_ukernel_8x2__scalar, 8, 2, 0.8f);
+  SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x2__scalar, 8, 2, 0.8f);
 }
 
 static void spmm80_8x4__scalar(benchmark::State& state, const char* net) {
-  SpMMBenchmark(state, xnn_f32_spmm_ukernel_8x4__scalar, 8, 4, 0.8f);
+  SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x4__scalar, 8, 4, 0.8f);
 }
 
 static void spmm80_1x1__scalar_pipelined(benchmark::State& state, const char* net) {
-  SpMMBenchmark(state, xnn_f32_spmm_ukernel_1x1__scalar_pipelined, 1, 1, 0.8f);
+  SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_1x1__scalar_pipelined, 1, 1, 0.8f);
 }
 
 static void spmm80_2x1__scalar_pipelined(benchmark::State& state, const char* net) {
-  SpMMBenchmark(state, xnn_f32_spmm_ukernel_2x1__scalar_pipelined, 2, 1, 0.8f);
+  SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_2x1__scalar_pipelined, 2, 1, 0.8f);
 }
 
 static void spmm80_4x1__scalar_pipelined(benchmark::State& state, const char* net) {
-  SpMMBenchmark(state, xnn_f32_spmm_ukernel_4x1__scalar_pipelined, 4, 1, 0.8f);
+  SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__scalar_pipelined, 4, 1, 0.8f);
 }
 
 static void spmm80_8x1__scalar_pipelined(benchmark::State& state, const char* net) {
-  SpMMBenchmark(state, xnn_f32_spmm_ukernel_8x1__scalar_pipelined, 8, 1, 0.8f);
+  SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__scalar_pipelined, 8, 1, 0.8f);
 }
 
-BENCHMARK_GEMM(spmm80_1x1__scalar)
-BENCHMARK_GEMM(spmm80_2x1__scalar)
-BENCHMARK_GEMM(spmm80_4x1__scalar)
-BENCHMARK_GEMM(spmm80_8x1__scalar)
-BENCHMARK_GEMM(spmm80_8x2__scalar)
-BENCHMARK_GEMM(spmm80_8x4__scalar)
-BENCHMARK_GEMM(spmm80_1x1__scalar_pipelined)
-BENCHMARK_GEMM(spmm80_2x1__scalar_pipelined)
-BENCHMARK_GEMM(spmm80_4x1__scalar_pipelined)
-BENCHMARK_GEMM(spmm80_8x1__scalar_pipelined)
+BENCHMARK_SPMM(spmm80_1x1__scalar)
+BENCHMARK_SPMM(spmm80_2x1__scalar)
+BENCHMARK_SPMM(spmm80_4x1__scalar)
+BENCHMARK_SPMM(spmm80_8x1__scalar)
+BENCHMARK_SPMM(spmm80_8x2__scalar)
+BENCHMARK_SPMM(spmm80_8x4__scalar)
+BENCHMARK_SPMM(spmm80_1x1__scalar_pipelined)
+BENCHMARK_SPMM(spmm80_2x1__scalar_pipelined)
+BENCHMARK_SPMM(spmm80_4x1__scalar_pipelined)
+BENCHMARK_SPMM(spmm80_8x1__scalar_pipelined)
+
+#if XNN_ARCH_WASMSIMD
+  static void spmm80_4x1__wasmsimd_arm(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_arm, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__wasmsimd_arm(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__wasmsimd_arm, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__wasmsimd_arm(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__wasmsimd_arm, 16, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__wasmsimd_arm(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_arm, 32, 1, 0.8f);
+  }
+
+  static void spmm80_4x1__wasmsimd_x86(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_x86, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__wasmsimd_x86(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__wasmsimd_x86, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__wasmsimd_x86(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__wasmsimd_x86, 16, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__wasmsimd_x86(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_x86, 32, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__wasmsimd_arm_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_arm_x2, 32, 1, 0.8f);
+  }
+
+  static void spmm80_4x1__wasmsimd_arm_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_arm_x2, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__wasmsimd_arm_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__wasmsimd_arm_x2, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__wasmsimd_arm_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__wasmsimd_arm_x2, 16, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__wasmsimd_x86_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_x86_x2, 32, 1, 0.8f);
+  }
+
+  static void spmm80_4x1__wasmsimd_x86_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_x86_x2, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__wasmsimd_x86_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__wasmsimd_x86_x2, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__wasmsimd_x86_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__wasmsimd_x86_x2, 16, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__wasmsimd_arm_x4(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_arm_x4, 32, 1, 0.8f);
+  }
+
+  static void spmm80_4x1__wasmsimd_arm_x4(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_arm_x4, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__wasmsimd_arm_x4(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__wasmsimd_arm_x4, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__wasmsimd_arm_x4(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__wasmsimd_arm_x4, 16, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__wasmsimd_x86_x4(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_x86_x4, 32, 1, 0.8f);
+  }
+
+  static void spmm80_4x1__wasmsimd_x86_x4(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_x86_x4, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__wasmsimd_x86_x4(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__wasmsimd_x86_x4, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__wasmsimd_x86_x4(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__wasmsimd_x86_x4, 16, 1, 0.8f);
+  }
+  static void spmm80_4x1__wasmsimd_arm_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_arm_pipelined, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__wasmsimd_arm_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__wasmsimd_arm_pipelined, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__wasmsimd_arm_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__wasmsimd_arm_pipelined, 16, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__wasmsimd_arm_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_arm_pipelined, 32, 1, 0.8f);
+  }
+
+  static void spmm80_4x1__wasmsimd_x86_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_x86_pipelined, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__wasmsimd_x86_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__wasmsimd_x86_pipelined, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__wasmsimd_x86_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__wasmsimd_x86_pipelined, 16, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__wasmsimd_x86_pipelined(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_x86_pipelined, 32, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__wasmsimd_arm_pipelined_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_arm_pipelined_x2, 32, 1, 0.8f);
+  }
+
+  static void spmm80_4x1__wasmsimd_arm_pipelined_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_arm_pipelined_x2, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__wasmsimd_arm_pipelined_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__wasmsimd_arm_pipelined_x2, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__wasmsimd_arm_pipelined_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__wasmsimd_arm_pipelined_x2, 16, 1, 0.8f);
+  }
+
+  static void spmm80_32x1__wasmsimd_x86_pipelined_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_32x1__wasmsimd_x86_pipelined_x2, 32, 1, 0.8f);
+  }
+
+  static void spmm80_4x1__wasmsimd_x86_pipelined_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_4x1__wasmsimd_x86_pipelined_x2, 4, 1, 0.8f);
+  }
+
+  static void spmm80_8x1__wasmsimd_x86_pipelined_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_8x1__wasmsimd_x86_pipelined_x2, 8, 1, 0.8f);
+  }
+
+  static void spmm80_16x1__wasmsimd_x86_pipelined_x2(benchmark::State& state, const char* net) {
+    SpMMBenchmark(state, xnn_f32_spmm_minmax_ukernel_16x1__wasmsimd_x86_pipelined_x2, 16, 1, 0.8f);
+  }
+
+  BENCHMARK_SPMM(spmm80_4x1__wasmsimd_arm)
+  BENCHMARK_SPMM(spmm80_4x1__wasmsimd_arm_x2)
+  BENCHMARK_SPMM(spmm80_4x1__wasmsimd_arm_x4)
+  BENCHMARK_SPMM(spmm80_4x1__wasmsimd_x86)
+  BENCHMARK_SPMM(spmm80_4x1__wasmsimd_x86_x2)
+  BENCHMARK_SPMM(spmm80_4x1__wasmsimd_x86_x4)
+  BENCHMARK_SPMM(spmm80_8x1__wasmsimd_arm)
+  BENCHMARK_SPMM(spmm80_8x1__wasmsimd_arm_x2)
+  BENCHMARK_SPMM(spmm80_8x1__wasmsimd_arm_x4)
+  BENCHMARK_SPMM(spmm80_8x1__wasmsimd_x86)
+  BENCHMARK_SPMM(spmm80_8x1__wasmsimd_x86_x2)
+  BENCHMARK_SPMM(spmm80_8x1__wasmsimd_x86_x4)
+  BENCHMARK_SPMM(spmm80_16x1__wasmsimd_arm)
+  BENCHMARK_SPMM(spmm80_16x1__wasmsimd_arm_x2)
+  BENCHMARK_SPMM(spmm80_16x1__wasmsimd_arm_x4)
+  BENCHMARK_SPMM(spmm80_16x1__wasmsimd_x86)
+  BENCHMARK_SPMM(spmm80_16x1__wasmsimd_x86_x2)
+  BENCHMARK_SPMM(spmm80_16x1__wasmsimd_x86_x4)
+  BENCHMARK_SPMM(spmm80_32x1__wasmsimd_arm)
+  BENCHMARK_SPMM(spmm80_32x1__wasmsimd_arm_x2)
+  BENCHMARK_SPMM(spmm80_32x1__wasmsimd_arm_x4)
+  BENCHMARK_SPMM(spmm80_32x1__wasmsimd_x86)
+  BENCHMARK_SPMM(spmm80_32x1__wasmsimd_x86_x2)
+  BENCHMARK_SPMM(spmm80_32x1__wasmsimd_x86_x4)
+  BENCHMARK_SPMM(spmm80_4x1__wasmsimd_arm_pipelined)
+  BENCHMARK_SPMM(spmm80_4x1__wasmsimd_arm_pipelined_x2)
+  BENCHMARK_SPMM(spmm80_4x1__wasmsimd_x86_pipelined)
+  BENCHMARK_SPMM(spmm80_4x1__wasmsimd_x86_pipelined_x2)
+  BENCHMARK_SPMM(spmm80_8x1__wasmsimd_arm_pipelined)
+  BENCHMARK_SPMM(spmm80_8x1__wasmsimd_arm_pipelined_x2)
+  BENCHMARK_SPMM(spmm80_8x1__wasmsimd_x86_pipelined)
+  BENCHMARK_SPMM(spmm80_8x1__wasmsimd_x86_pipelined_x2)
+  BENCHMARK_SPMM(spmm80_16x1__wasmsimd_arm_pipelined)
+  BENCHMARK_SPMM(spmm80_16x1__wasmsimd_arm_pipelined_x2)
+  BENCHMARK_SPMM(spmm80_16x1__wasmsimd_x86_pipelined)
+  BENCHMARK_SPMM(spmm80_16x1__wasmsimd_x86_pipelined_x2)
+  BENCHMARK_SPMM(spmm80_32x1__wasmsimd_arm_pipelined)
+  BENCHMARK_SPMM(spmm80_32x1__wasmsimd_arm_pipelined_x2)
+  BENCHMARK_SPMM(spmm80_32x1__wasmsimd_x86_pipelined)
+  BENCHMARK_SPMM(spmm80_32x1__wasmsimd_x86_pipelined_x2)
+
+#endif  // XNN_ARCH_WASMSIMD
 
 #ifndef XNNPACK_BENCHMARK_NO_MAIN
 BENCHMARK_MAIN();

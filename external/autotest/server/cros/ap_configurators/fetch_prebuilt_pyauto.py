@@ -18,6 +18,8 @@ Examples:
       http://build.chromium.org/f/chromium/continuous/win/LATEST
 """
 
+from __future__ import print_function
+
 import glob
 import httplib
 import optparse
@@ -134,33 +136,33 @@ class FetchPrebuilt(object):
     get_remoting = pyauto_utils.DoesUrlExist(self._remoting_zip_url)
 
     # Fetch chrome & pyauto binaries
-    print 'Fetching', self._chrome_zip_url
+    print('Fetching', self._chrome_zip_url)
     chrome_zip = urllib.urlretrieve(self._chrome_zip_url)[0]
 
     if get_remoting:
-      print 'Fetching', self._remoting_zip_url
+      print('Fetching', self._remoting_zip_url)
       remoting_zip = urllib.urlretrieve(self._remoting_zip_url)[0]
     else:
-      print 'Warning: %s does not exist.' % self._remoting_zip_url
+      print('Warning: %s does not exist.' % self._remoting_zip_url)
 
-    print 'Fetching', self._pyautolib_py_url
+    print('Fetching', self._pyautolib_py_url)
     pyautolib_py = urllib.urlretrieve(self._pyautolib_py_url)[0]
 
-    print 'Fetching', self._pyautolib_so_url
+    print('Fetching', self._pyautolib_so_url)
     pyautolib_so = urllib.urlretrieve(self._pyautolib_so_url)[0]
 
     if self._options.platform == 'mac':
-      print 'Fetching', self._ffmpegsumo_so_url
+      print('Fetching', self._ffmpegsumo_so_url)
       ffmpegsumo_so = urllib.urlretrieve(self._ffmpegsumo_so_url)[0]
 
-    print 'Fetching', self._chromedriver_url
+    print('Fetching', self._chromedriver_url)
     chromedriver = urllib.urlretrieve(self._chromedriver_url)[0]
 
     chrome_unzip_dir = os.path.join(self._outdir, self._chrome_zip_name)
     if os.path.exists(chrome_unzip_dir):
-      print 'Cleaning', chrome_unzip_dir
+      print('Cleaning', chrome_unzip_dir)
       pyauto_utils.RemovePath(chrome_unzip_dir)
-    print 'Unzipping'
+    print('Unzipping')
     pyauto_utils.UnzipFilenameToDir(chrome_zip, self._outdir)
     if get_remoting:
       pyauto_utils.UnzipFilenameToDir(remoting_zip, self._outdir)
@@ -184,14 +186,14 @@ class FetchPrebuilt(object):
 
     for src, dest in items_to_copy.iteritems():
       pyauto_utils.RemovePath(dest)
-      print '%s ==> %s' % (os.path.basename(src), dest)
+      print('%s ==> %s' % (os.path.basename(src), dest))
       shutil.move(src, dest)
     pyauto_utils.RemovePath(chrome_unzip_dir)
 
     # Final setup (if any)
     # Set executable bit on chromedriver binary.
     if not self._options.platform == 'win':
-      os.chmod(items_to_copy[chromedriver], 0700)
+      os.chmod(items_to_copy[chromedriver], 0o0700)
 
     # Create symlink to .framework on Mac
     if self._options.platform == 'mac':
@@ -200,13 +202,13 @@ class FetchPrebuilt(object):
       os.chdir(self._outdir)
       framework = glob.glob(os.path.join(
           mac_app_name, 'Contents', 'Versions', '*', '*.framework'))[0]
-      print framework
+      print(framework)
       dest = os.path.basename(framework)
       os.path.lexists(dest) and os.remove(dest)
-      print 'Creating symlink "%s"' % dest
+      print('Creating symlink "%s"' % dest)
       os.symlink(framework, dest)
 
-    print 'Prepared binaries in "%s"' % self._outdir
+    print('Prepared binaries in "%s"' % self._outdir)
     return 0
 
 

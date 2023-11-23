@@ -173,10 +173,10 @@ public class RootItemListBuilderTest {
 
         List<RootItem> result = mBuilder.getList();
         assertThat(result).containsExactlyElementsIn(Lists.newArrayList(
-                RootItem.createDummyItem(
+                RootItem.createStubItem(
                         DOWNLOADS_DEFAULT_USER, TestProvidersAccess.OtherUser.USER_ID),
                 SDCARD_DEFAULT_USER,
-                RootItem.createDummyItem(HOME_DEFAULT_USER, TestProvidersAccess.OtherUser.USER_ID),
+                RootItem.createStubItem(HOME_DEFAULT_USER, TestProvidersAccess.OtherUser.USER_ID),
                 IMAGE_OTHER_USER,
                 PICKLES_DEFAULT_USER));
     }

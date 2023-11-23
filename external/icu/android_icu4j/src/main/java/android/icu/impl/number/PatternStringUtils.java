@@ -1,11 +1,12 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2017 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.impl.number;
 
 import java.math.BigDecimal;
 
 import android.icu.impl.StandardPlural;
+import android.icu.impl.number.Modifier.Signum;
 import android.icu.impl.number.Padder.PadPosition;
 import android.icu.number.NumberFormatter.SignDisplay;
 import android.icu.text.DecimalFormatSymbols;
@@ -16,6 +17,21 @@ import android.icu.text.DecimalFormatSymbols;
  */
 public class PatternStringUtils {
 
+    // Note: the order of fields in this enum matters for parsing.
+    /**
+     * @hide Only a subset of ICU is exposed in Android
+     */
+    public static enum PatternSignType {
+        // Render using normal positive subpattern rules
+        POS,
+        // Render using rules to force the display of a plus sign
+        POS_SIGN,
+        // Render using negative subpattern rules
+        NEG;
+
+        public static final PatternSignType[] VALUES = PatternSignType.values();
+    };
+
     /**
      * Determine whether a given roundingIncrement should be ignored for formatting
      * based on the current maxFrac value (maximum fraction digits). For example a
@@ -25,7 +41,7 @@ public class PatternStringUtils {
      * it should not be ignored if maxFrac is 2 or more (but a roundingIncrement of
      * 0.005 is treated like 0.001 for significance).
      *
-     * This test is needed for both NumberPropertyMapper.oldToNew and 
+     * This test is needed for both NumberPropertyMapper.oldToNew and
      * PatternStringUtils.propertiesToPatternString, but NumberPropertyMapper
      * is package-private so we have it here.
      *
@@ -82,7 +98,7 @@ public class PatternStringUtils {
         boolean alwaysShowDecimal = properties.getDecimalSeparatorAlwaysShown();
         int exponentDigits = Math.min(properties.getMinimumExponentDigits(), dosMax);
         boolean exponentShowPlusSign = properties.getExponentSignAlwaysShown();
-        PropertiesAffixPatternProvider affixes = new PropertiesAffixPatternProvider(properties);
+        AffixPatternProvider affixes = PropertiesAffixPatternProvider.forProperties(properties);
 
         // Prefixes
         sb.append(affixes.getString(AffixPatternProvider.FLAG_POS_PREFIX));
@@ -418,25 +434,19 @@ public class PatternStringUtils {
     public static void patternInfoToStringBuilder(
             AffixPatternProvider patternInfo,
             boolean isPrefix,
-            int signum,
-            SignDisplay signDisplay,
+            PatternSignType patternSignType,
             StandardPlural plural,
             boolean perMilleReplacesPercent,
             StringBuilder output) {
 
-        // Should the output render '+' where '-' would normally appear in the pattern?
-        boolean plusReplacesMinusSign = signum != -1
-                && (signDisplay == SignDisplay.ALWAYS
-                        || signDisplay == SignDisplay.ACCOUNTING_ALWAYS
-                        || (signum == 1
-                                && (signDisplay == SignDisplay.EXCEPT_ZERO
-                                        || signDisplay == SignDisplay.ACCOUNTING_EXCEPT_ZERO)))
-                && patternInfo.positiveHasPlusSign() == false;
+        boolean plusReplacesMinusSign = (patternSignType == PatternSignType.POS_SIGN)
+                && !patternInfo.positiveHasPlusSign();
 
-        // Should we use the affix from the negative subpattern? (If not, we will use the positive
-        // subpattern.)
+        // Should we use the affix from the negative subpattern?
+        // (If not, we will use the positive subpattern.)
         boolean useNegativeAffixPattern = patternInfo.hasNegativeSubpattern()
-                && (signum == -1 || (patternInfo.negativeHasMinusSign() && plusReplacesMinusSign));
+                && (patternSignType == PatternSignType.NEG
+                    || (patternInfo.negativeHasMinusSign() && plusReplacesMinusSign));
 
         // Resolve the flags for the affix pattern.
         int flags = 0;
@@ -455,8 +465,8 @@ public class PatternStringUtils {
         boolean prependSign;
         if (!isPrefix || useNegativeAffixPattern) {
             prependSign = false;
-        } else if (signum == -1) {
-            prependSign = signDisplay != SignDisplay.NEVER;
+        } else if (patternSignType == PatternSignType.NEG) {
+            prependSign = true;
         } else {
             prependSign = plusReplacesMinusSign;
         }
@@ -483,6 +493,55 @@ public class PatternStringUtils {
             }
             output.append(candidate);
         }
+    }
+
+    public static PatternSignType resolveSignDisplay(SignDisplay signDisplay, Signum signum) {
+        switch (signDisplay) {
+            case AUTO:
+            case ACCOUNTING:
+                switch (signum) {
+                    case NEG:
+                    case NEG_ZERO:
+                        return PatternSignType.NEG;
+                    case POS_ZERO:
+                    case POS:
+                        return PatternSignType.POS;
+                }
+                break;
+
+            case ALWAYS:
+            case ACCOUNTING_ALWAYS:
+                switch (signum) {
+                    case NEG:
+                    case NEG_ZERO:
+                        return PatternSignType.NEG;
+                    case POS_ZERO:
+                    case POS:
+                        return PatternSignType.POS_SIGN;
+                }
+                break;
+
+            case EXCEPT_ZERO:
+            case ACCOUNTING_EXCEPT_ZERO:
+                switch (signum) {
+                    case NEG:
+                        return PatternSignType.NEG;
+                    case NEG_ZERO:
+                    case POS_ZERO:
+                        return PatternSignType.POS;
+                    case POS:
+                        return PatternSignType.POS_SIGN;
+                }
+                break;
+
+            case NEVER:
+                return PatternSignType.POS;
+
+            default:
+                break;
+        }
+
+        throw new AssertionError("Unreachable");
     }
 
 }

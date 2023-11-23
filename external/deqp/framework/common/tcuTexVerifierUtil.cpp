@@ -31,6 +31,9 @@ namespace TexVerifierUtil
 
 float computeFloatingPointError (const float value, const int numAccurateBits)
 {
+	DE_ASSERT(numAccurateBits >= 0);
+	DE_ASSERT(numAccurateBits <= 23);
+
 	const int		numGarbageBits	= 23-numAccurateBits;
 	const deUint32	mask			= (1u<<numGarbageBits)-1u;
 	const int		exp				= tcu::Float32(value).exponent();
@@ -41,6 +44,15 @@ float computeFloatingPointError (const float value, const int numAccurateBits)
 float computeFixedPointError (const int numAccurateBits)
 {
 	return computeFloatingPointError(1.0f, numAccurateBits);
+}
+
+float computeColorBitsError(const int bits, const int numAccurateBits)
+{
+	// Color bits error is not a generic function, it just for compute the error value that cannot be accurately shown in integer data format.
+	//
+	//		"bits" is color bit width, "numAccurateBits" is the number of accurate bits in color bits, "1 << (bits - numAccurateBits)" is the threshold in integer.
+	//		"1.0f / 256.0f" is epsilon value, to make sure the threshold use to calculate in float can be a little bigger than the real value.
+	return (float(1 << (bits - numAccurateBits)) + 1.0f / 256.0f) / float((1 << bits) - 1);
 }
 
 Vec2 computeNonNormalizedCoordBounds (const bool normalizedCoords, const int dim, const float coord, const int coordBits, const int uvBits)

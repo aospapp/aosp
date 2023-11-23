@@ -126,8 +126,9 @@ class TFIntegrationFinderUnittests(unittest.TestCase):
     def test_load_xml_file(self, search):
         """Test _load_xml_file and _load_include_tags methods."""
         search.return_value = [os.path.join(uc.TEST_DATA_DIR,
-                                            'CtsUiDeviceTestCases.xml')]
-        xml_file = os.path.join(uc.TEST_DATA_DIR, constants.MODULE_CONFIG)
+                                            'CtsUiDeviceTestCases.xml.data')]
+        xml_file = os.path.join(uc.TEST_DATA_DIR,
+                                constants.MODULE_CONFIG + '.data')
         xml_root = self.tf_finder._load_xml_file(xml_file)
         include_tags = xml_root.findall('.//include')
         self.assertEqual(0, len(include_tags))
@@ -138,6 +139,32 @@ class TFIntegrationFinderUnittests(unittest.TestCase):
                 included = True
         self.assertTrue(included)
 
+    @mock.patch.object(tf_integration_finder.TFIntegrationFinder,
+                       '_get_prebuilt_jars')
+    def test_search_prebuilt_jars(self, prebuilt_jars):
+        """Test _search_prebuilt_jars method."""
+        test_plan = 'performance/inodeop-benchmark'
+        prebuilt_jars.return_value = [
+            os.path.join(
+                uc.TEST_DATA_DIR,
+                'tradefed_prebuilt/prebuilts/filegroups/tradefed/tradefed-contrib.jar')]
+        expect_path = [
+            os.path.join(self.tf_finder.temp_dir.name, 'tradefed-contrib.jar',
+                         'config', test_plan + '.xml')]
+        self.assertEqual(self.tf_finder._search_prebuilt_jars(test_plan),
+                         expect_path)
+
+    def test_get_prebuilt_jars(self):
+        """Test _get_prebuilt_jars method."""
+        tf_int_finder = tf_integration_finder.TFIntegrationFinder()
+        tf_int_finder.tf_dirs = ['tradefed_prebuilt/prebuilts/test_harness']
+        tf_int_finder.root_dir = uc.TEST_DATA_DIR
+        expect_prebuilt_jars = [
+            os.path.join(uc.TEST_DATA_DIR,
+                         'tradefed_prebuilt/prebuilts/test_harness/..',
+                         'filegroups/tradefed/tradefed-contrib.jar')]
+        self.assertEqual(tf_int_finder._get_prebuilt_jars(),
+                         expect_prebuilt_jars)
 
 if __name__ == '__main__':
     unittest.main()

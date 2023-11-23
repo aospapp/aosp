@@ -20,6 +20,8 @@ import android.security.identity.ResultData;
 import android.security.identity.IdentityCredentialStore;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.pm.FeatureInfo;
 import android.os.SystemProperties;
 import android.security.keystore.KeyProperties;
 import android.util.Log;
@@ -37,6 +39,7 @@ import java.security.InvalidKeyException;
 import java.security.KeyStore;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.PrivateKey;
@@ -67,6 +70,9 @@ import javax.crypto.spec.SecretKeySpec;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECPoint;
 
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1OctetString;
+
 import co.nstant.in.cbor.CborBuilder;
 import co.nstant.in.cbor.CborDecoder;
 import co.nstant.in.cbor.CborEncoder;
@@ -88,6 +94,40 @@ import co.nstant.in.cbor.model.UnsignedInteger;
 
 class Util {
     private static final String TAG = "Util";
+
+    // Returns 0 if not implemented. Otherwise returns the feature version.
+    //
+    static int getFeatureVersion() {
+        Context appContext = InstrumentationRegistry.getTargetContext();
+        PackageManager pm = appContext.getPackageManager();
+
+        int featureVersionFromPm = 0;
+        if (pm.hasSystemFeature(PackageManager.FEATURE_IDENTITY_CREDENTIAL_HARDWARE)) {
+            FeatureInfo info = null;
+            FeatureInfo[] infos = pm.getSystemAvailableFeatures();
+            for (int n = 0; n < infos.length; n++) {
+                FeatureInfo i = infos[n];
+                if (i.name.equals(PackageManager.FEATURE_IDENTITY_CREDENTIAL_HARDWARE)) {
+                    info = i;
+                    break;
+                }
+            }
+            if (info != null) {
+                featureVersionFromPm = info.version;
+            }
+        }
+
+        // Use of the system feature is not required since Android 12. So for Android 11
+        // return 202009 which is the feature version shipped with Android 11.
+        if (featureVersionFromPm == 0) {
+            IdentityCredentialStore store = IdentityCredentialStore.getInstance(appContext);
+            if (store != null) {
+                featureVersionFromPm = 202009;
+            }
+        }
+
+        return featureVersionFromPm;
+    }
 
     static byte[] canonicalizeCbor(byte[] encodedCbor) throws CborException {
         ByteArrayInputStream bais = new ByteArrayInputStream(encodedCbor);
@@ -1002,15 +1042,10 @@ Certificate:
 
             byte[] sessionTranscriptBytes =
                     Util.prependSemanticTagForEncodedCbor(encodedSessionTranscript);
-            byte[] sharedSecretWithSessionTranscriptBytes =
-                    Util.concatArrays(sharedSecret, sessionTranscriptBytes);
 
-            byte[] salt = new byte[1];
-            byte[] info = new byte[0];
-
-            salt[0] = 0x00;
-            byte[] derivedKey = Util.computeHkdf("HmacSha256",
-                    sharedSecretWithSessionTranscriptBytes, salt, info, 32);
+            byte[] salt = MessageDigest.getInstance("SHA-256").digest(sessionTranscriptBytes);
+            byte[] info = new byte[] {'E', 'M', 'a', 'c', 'K', 'e', 'y'};
+            byte[] derivedKey = Util.computeHkdf("HmacSha256", sharedSecret, salt, info, 32);
             SecretKey secretKey = new SecretKeySpec(derivedKey, "");
             return secretKey;
         } catch (InvalidKeyException
@@ -1266,4 +1301,63 @@ Certificate:
         }
         return false;
     }
+
+    // Returns true if, and only if, the Direct Access Identity Credential HAL (and credstore) is
+    // implemented on the device under test.
+    static boolean isDirectAccessHalImplemented() {
+        Context appContext = InstrumentationRegistry.getTargetContext();
+        IdentityCredentialStore store = IdentityCredentialStore.getDirectAccessInstance(appContext);
+        if (store != null) {
+            return true;
+        }
+        return false;
+    }
+
+    static byte[] getPopSha256FromAuthKeyCert(X509Certificate cert) {
+        byte[] octetString = cert.getExtensionValue("1.3.6.1.4.1.11129.2.1.26");
+        if (octetString == null) {
+            return null;
+        }
+        Util.hexdump("octetString", octetString);
+
+        try {
+            ASN1InputStream asn1InputStream = new ASN1InputStream(octetString);
+            byte[] cborBytes = ((ASN1OctetString) asn1InputStream.readObject()).getOctets();
+            Util.hexdump("cborBytes", cborBytes);
+
+            ByteArrayInputStream bais = new ByteArrayInputStream(cborBytes);
+            List<DataItem> dataItems = new CborDecoder(bais).decode();
+            if (dataItems.size() != 1) {
+                throw new RuntimeException("Expected 1 item, found " + dataItems.size());
+            }
+            if (!(dataItems.get(0) instanceof co.nstant.in.cbor.model.Array)) {
+                throw new RuntimeException("Item is not a map");
+            }
+            co.nstant.in.cbor.model.Array array = (co.nstant.in.cbor.model.Array) dataItems.get(0);
+            List<DataItem> items = array.getDataItems();
+            if (items.size() < 2) {
+                throw new RuntimeException("Expected at least 2 array items, found " + items.size());
+            }
+            if (!(items.get(0) instanceof UnicodeString)) {
+                throw new RuntimeException("First array item is not a string");
+            }
+            String id = ((UnicodeString) items.get(0)).getString();
+            if (!id.equals("ProofOfBinding")) {
+                throw new RuntimeException("Expected ProofOfBinding, got " + id);
+            }
+            if (!(items.get(1) instanceof ByteString)) {
+                throw new RuntimeException("Second array item is not a bytestring");
+            }
+            byte[] popSha256 = ((ByteString) items.get(1)).getBytes();
+            if (popSha256.length != 32) {
+                throw new RuntimeException("Expected bstr to be 32 bytes, it is " + popSha256.length);
+            }
+            return popSha256;
+        } catch (IOException e) {
+            throw new RuntimeException("Error decoding extension data", e);
+        } catch (CborException e) {
+            throw new RuntimeException("Error decoding data", e);
+        }
+    }
+
 }

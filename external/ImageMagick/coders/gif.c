@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -202,7 +202,7 @@ static LZWInfo *AcquireLZWInfo(Image *image,const size_t data_size)
   LZWInfo
     *lzw_info;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -267,7 +267,7 @@ static inline int GetNextLZWCode(LZWInfo *lzw_info,const size_t bits)
   int
     code;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -430,10 +430,10 @@ static MagickBooleanType DecodeImage(Image *image,const ssize_t opacity,
   offset=0;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register ssize_t
+    ssize_t
       x;
 
-    register Quantum
+    Quantum
       *magick_restrict q;
 
     q=QueueAuthenticPixels(image,0,offset,image->columns,1,exception);
@@ -553,10 +553,10 @@ static MagickBooleanType EncodeImage(const ImageInfo *image_info,Image *image,
   while (bits >= 8) \
   { \
     /*  \
-      Add a character to current packet. \
+      Add a character to current packet.  Maximum packet size is 255.
     */ \
     packet[length++]=(unsigned char) (datum & 0xff); \
-    if (length >= 254) \
+    if (length == 255) \
       { \
         (void) WriteBlobByte(image,(unsigned char) length); \
         (void) WriteBlob(image,length,packet); \
@@ -654,10 +654,10 @@ static MagickBooleanType EncodeImage(const ImageInfo *image_info,Image *image,
   waiting_code=0;
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
     p=GetVirtualPixels(image,0,offset,image->columns,1,exception);
@@ -785,10 +785,10 @@ static MagickBooleanType EncodeImage(const ImageInfo *image_info,Image *image,
   if (bits > 0)
     {
       /*
-        Add a character to current packet.
+        Add a character to current packet.  Maximum packet size is 255.
       */
       packet[length++]=(unsigned char) (datum & 0xff);
-      if (length >= 254)
+      if (length == 255)
         {
           (void) WriteBlobByte(image,(unsigned char) length);
           (void) WriteBlob(image,length,packet);
@@ -978,10 +978,10 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
-  register unsigned char
+  unsigned char
     *p;
 
   size_t
@@ -1175,6 +1175,7 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
                 if (info == (unsigned char *) NULL)
                   ThrowGIFException(ResourceLimitError,
                     "MemoryAllocationFailed");
+                (void) memset(info,0,reserved_length*sizeof(*info));
                 for (info_length=0; ; )
                 {
                   block_length=(int) ReadBlobBlock(image,info+info_length);
@@ -1272,11 +1273,10 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
     local_colors=BitSet((int) flag,0x80) == 0 ? global_colors : one <<
       ((size_t) (flag & 0x07)+1);
     image->colors=local_colors;
-    if (opacity >= (ssize_t) image->colors)
-      {
-        image->colors++;
-        opacity=(-1);
-      }
+    if (opacity == (ssize_t) image->colors)
+      image->colors++;
+    else if (opacity > (ssize_t) image->colors)
+      opacity=(-1);
     image->ticks_per_second=100;
     image->alpha_trait=opacity >= 0 ? BlendPixelTrait : UndefinedPixelTrait;
     if ((image->columns == 0) || (image->rows == 0))
@@ -1526,10 +1526,10 @@ static MagickBooleanType WriteGIFImage(const ImageInfo *image_info,Image *image,
   RectangleInfo
     page;
 
-  register ssize_t
+  ssize_t
     i;
 
-  register unsigned char
+  unsigned char
     *q;
 
   size_t
@@ -1606,9 +1606,6 @@ static MagickBooleanType WriteGIFImage(const ImageInfo *image_info,Image *image,
   /*
     Write images to file.
   */
-  if ((write_info->adjoin != MagickFalse) &&
-      (GetNextImageInList(image) != (Image *) NULL))
-    write_info->interlace=NoInterlace;
   scene=0;
   one=1;
   imageListLength=GetImageListLength(image);
@@ -1732,7 +1729,7 @@ static MagickBooleanType WriteGIFImage(const ImageInfo *image_info,Image *image,
         value=GetImageProperty(image,"comment",exception);
         if (value != (const char *) NULL)
           {
-            register const char
+            const char
               *p;
 
             size_t

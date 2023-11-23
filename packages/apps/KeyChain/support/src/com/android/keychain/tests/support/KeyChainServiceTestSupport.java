@@ -23,39 +23,14 @@ import android.os.RemoteException;
 import android.security.IKeyChainService;
 import android.security.KeyChain;
 import android.security.KeyStore;
-import android.security.keymaster.KeymasterCertificateChain;
 import android.security.keystore.ParcelableKeyGenParameterSpec;
 import android.util.Log;
 
 public class KeyChainServiceTestSupport extends Service {
     private static final String TAG = "KeyChainServiceTest";
 
-    private final KeyStore mKeyStore = KeyStore.getInstance();
-
     private final IKeyChainServiceTestSupport.Stub mIKeyChainServiceTestSupport
             = new IKeyChainServiceTestSupport.Stub() {
-        @Override public boolean keystoreReset() {
-            Log.d(TAG, "keystoreReset");
-            for (String key : mKeyStore.list("")) {
-                if (!mKeyStore.delete(key, KeyStore.UID_SELF)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        @Override public boolean keystoreSetPassword(String password) {
-            Log.d(TAG, "keystoreSetPassword");
-            return mKeyStore.onUserPasswordChanged(password);
-        }
-        @Override public boolean keystorePut(String key, byte[] value) {
-            Log.d(TAG, "keystorePut");
-            return mKeyStore.put(key, value, KeyStore.UID_SELF, KeyStore.FLAG_NONE);
-        }
-        @Override public boolean keystoreImportKey(String key, byte[] value) {
-            Log.d(TAG, "keystoreImport");
-            return mKeyStore.importKey(key, value, KeyStore.UID_SELF, KeyStore.FLAG_NONE);
-        }
-
         @Override public void revokeAppPermission(final int uid, final String alias)
                 throws RemoteException {
             Log.d(TAG, "revokeAppPermission");
@@ -99,16 +74,6 @@ public class KeyChainServiceTestSupport extends Service {
                 throws RemoteException {
             return performBlockingKeyChainCall(keyChainService -> {
                 return keyChainService.generateKeyPair(algorithm, spec);
-            });
-        }
-
-        @Override public int attestKey(
-                String alias, byte[] attestationChallenge,
-                int[] idAttestationFlags) throws RemoteException {
-            KeymasterCertificateChain attestationChain = new KeymasterCertificateChain();
-            return performBlockingKeyChainCall(keyChainService -> {
-                return keyChainService.attestKey(alias, attestationChallenge, idAttestationFlags,
-                        attestationChain);
             });
         }
 

@@ -18,7 +18,6 @@
 
 #include "utils/base/logging.h"
 #include "utils/zlib/buffer_generated.h"
-#include "utils/zlib/zlib.h"
 
 namespace libtextclassifier3 {
 namespace {
@@ -128,121 +127,8 @@ bool Resources::GetResourceContent(const std::vector<Locale>& locales,
   if (resource->content() != nullptr) {
     *result = resource->content()->str();
     return true;
-  } else if (resource->compressed_content() != nullptr) {
-    std::unique_ptr<ZlibDecompressor> decompressor = ZlibDecompressor::Instance(
-        resources_->compression_dictionary()->data(),
-        resources_->compression_dictionary()->size());
-    if (decompressor != nullptr &&
-        decompressor->MaybeDecompress(resource->compressed_content(), result)) {
-      return true;
-    }
   }
   return false;
-}
-
-bool CompressResources(ResourcePoolT* resources,
-                       const bool build_compression_dictionary,
-                       const int dictionary_sample_every) {
-  std::vector<unsigned char> dictionary;
-  if (build_compression_dictionary) {
-    {
-      // Build up a compression dictionary.
-      std::unique_ptr<ZlibCompressor> compressor = ZlibCompressor::Instance();
-      int i = 0;
-      for (auto& entry : resources->resource_entry) {
-        for (auto& resource : entry->resource) {
-          if (resource->content.empty()) {
-            continue;
-          }
-          i++;
-
-          // Use a sample of the entries to build up a custom compression
-          // dictionary. Using all entries will generally not give a benefit
-          // for small data sizes, so we subsample here.
-          if (i % dictionary_sample_every != 0) {
-            continue;
-          }
-          CompressedBufferT compressed_content;
-          compressor->Compress(resource->content, &compressed_content);
-        }
-      }
-      compressor->GetDictionary(&dictionary);
-      resources->compression_dictionary.assign(
-          dictionary.data(), dictionary.data() + dictionary.size());
-    }
-  }
-
-  for (auto& entry : resources->resource_entry) {
-    for (auto& resource : entry->resource) {
-      if (resource->content.empty()) {
-        continue;
-      }
-      // Try compressing the data.
-      std::unique_ptr<ZlibCompressor> compressor =
-          build_compression_dictionary
-              ? ZlibCompressor::Instance(dictionary.data(), dictionary.size())
-              : ZlibCompressor::Instance();
-      if (!compressor) {
-        TC3_LOG(ERROR) << "Cannot create zlib compressor.";
-        return false;
-      }
-
-      CompressedBufferT compressed_content;
-      compressor->Compress(resource->content, &compressed_content);
-
-      // Only keep compressed version if smaller.
-      if (compressed_content.uncompressed_size >
-          compressed_content.buffer.size()) {
-        resource->content.clear();
-        resource->compressed_content.reset(new CompressedBufferT);
-        *resource->compressed_content = compressed_content;
-      }
-    }
-  }
-  return true;
-}
-
-std::string CompressSerializedResources(const std::string& resources,
-                                        const int dictionary_sample_every) {
-  std::unique_ptr<ResourcePoolT> unpacked_resources(
-      flatbuffers::GetRoot<ResourcePool>(resources.data())->UnPack());
-  TC3_CHECK(unpacked_resources != nullptr);
-  TC3_CHECK(
-      CompressResources(unpacked_resources.get(), dictionary_sample_every));
-  flatbuffers::FlatBufferBuilder builder;
-  builder.Finish(ResourcePool::Pack(builder, unpacked_resources.get()));
-  return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
-                     builder.GetSize());
-}
-
-bool DecompressResources(ResourcePoolT* resources,
-                         const bool build_compression_dictionary) {
-  std::vector<unsigned char> dictionary;
-
-  for (auto& entry : resources->resource_entry) {
-    for (auto& resource : entry->resource) {
-      if (resource->compressed_content == nullptr) {
-        continue;
-      }
-
-      std::unique_ptr<ZlibDecompressor> zlib_decompressor =
-          build_compression_dictionary
-              ? ZlibDecompressor::Instance(dictionary.data(), dictionary.size())
-              : ZlibDecompressor::Instance();
-      if (!zlib_decompressor) {
-        TC3_LOG(ERROR) << "Cannot initialize decompressor.";
-        return false;
-      }
-
-      if (!zlib_decompressor->MaybeDecompress(
-              resource->compressed_content.get(), &resource->content)) {
-        TC3_LOG(ERROR) << "Cannot decompress resource.";
-        return false;
-      }
-      resource->compressed_content.reset(nullptr);
-    }
-  }
-  return true;
 }
 
 }  // namespace libtextclassifier3

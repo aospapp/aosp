@@ -1,6 +1,12 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import copy
 import datetime
 import re
+import six
 
 import common
 
@@ -102,7 +108,7 @@ class BugTemplate(object):
                                               'dictionary.')
 
         unexpected_keys = []
-        for key, value in bug_template.iteritems():
+        for key, value in six.iteritems(bug_template):
             if not key in cls.EXPECTED_BUG_TEMPLATE_ATTRIBUTES:
                 raise InvalidBugTemplateException('Key %s is not expected in '
                                                   'bug template.' % key)
@@ -160,13 +166,13 @@ class BugTemplate(object):
         self.validate_bug_template(test_template)
 
         merged_template = test_template
-        merged_template.update((k, v) for k, v in self.bug_template.iteritems()
+        merged_template.update((k, v) for k, v in six.iteritems(self.bug_template)
                                if k not in merged_template)
 
         # test_template wins for common keys, unless values are list that can be
         # merged.
         for key in set(merged_template.keys()).intersection(
-                                                    self.bug_template.keys()):
+                                                    list(self.bug_template.keys())):
             if (type(merged_template[key]) is list and
                 type(self.bug_template[key]) is list):
                 merged_template[key] = (merged_template[key] +

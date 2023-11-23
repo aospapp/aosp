@@ -20,18 +20,18 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string-array name="wifi_status">
-    <item msgid="8763475525292171481"></item>
-    <item msgid="903308535197209786">"درحال اسکن کردن…"</item>
-    <item msgid="6222852518007967736">"درحال اتصال…"</item>
-    <item msgid="1176401854208153464">"درحال احراز هویت…"</item>
-    <item msgid="1377026397901197257">"‏درحال دریافت نشانی IP…"</item>
-    <item msgid="7627139816052121509">"متصل"</item>
-    <item msgid="1598801023719359130">"معلق"</item>
-    <item msgid="9160765456671002324">"درحال قطع اتصال…"</item>
-    <item msgid="8013176736494493734">"قطع اتصال"</item>
-    <item msgid="4077393480368783785">"ناموفق"</item>
-    <item msgid="605372180740008604">"مسدود"</item>
-    <item msgid="5102306451432929048">"جلوگیری موقت از اتصال ضعیف"</item>
+  <string-array name="wifitrackerlib_wifi_status">
+    <item msgid="4878873480828298657"></item>
+    <item msgid="5782995872855767551">"درحال اسکن کردن…"</item>
+    <item msgid="9055468790485684083">"درحال اتصال…"</item>
+    <item msgid="6099499723199990208">"درحال راستی‌آزمایی…"</item>
+    <item msgid="6794055951297347103">"‏درحال دریافت نشانی IP…"</item>
+    <item msgid="5450920562291300229">"متصل"</item>
+    <item msgid="6332116533879646145">"معلق"</item>
+    <item msgid="294459081501073818">"درحال قطع اتصال…"</item>
+    <item msgid="1577368920272598676">"اتصال قطع شد"</item>
+    <item msgid="7655843177582495451">"ناموفق"</item>
+    <item msgid="8953752690917593623">"مسدود"</item>
+    <item msgid="4400457817750243671">"اجتناب موقت از اتصال ضعیف"</item>
   </string-array>
 </resources>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2019 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -899,7 +899,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 			<subdivision type="inmp" draft="contributed">Madhya Pradesh</subdivision>
 			<subdivision type="inmz" draft="contributed">Mizoram</subdivision>
 			<subdivision type="innl" draft="contributed">Nagaland</subdivision>
-			<subdivision type="inor" draft="contributed">Orissa</subdivision>
+			<subdivision type="inor" draft="contributed">Odisha</subdivision>
 			<subdivision type="inpb" draft="contributed">Pandžab</subdivision>
 			<subdivision type="inpy" draft="contributed">Puducherry liiduterritoorium</subdivision>
 			<subdivision type="inrj" draft="contributed">Rājasthān</subdivision>

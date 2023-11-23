@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -30,7 +30,7 @@ public class Poc17_04 extends SecurityTestCase {
      * b/32342065
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-04")
+    @AsbSecurityTest(cveBugId = 32342065)
     public void testPocCVE_2017_0553() throws Exception {
       // Error code of 139 represents segmentation fault
       getDevice().executeShellCommand("chmod +x /data/local/tmp/CVE-2017-0553");
@@ -42,7 +42,7 @@ public class Poc17_04 extends SecurityTestCase {
      * b/72460737
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-04")
+    @AsbSecurityTest(cveBugId = 34469585)
     public void testPocCVE_2014_3145() throws Exception {
       assertFalse("VULNERABLE DEVICE DETECTED",
                   AdbUtils.runPocCheckExitCode("CVE-2014-3145", getDevice(), 60));
@@ -52,7 +52,7 @@ public class Poc17_04 extends SecurityTestCase {
      * b/32813456
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-04")
+    @AsbSecurityTest(cveBugId = 32813456)
     public void testPocCVE_2016_10229() throws Exception {
       String out = AdbUtils.runPoc("CVE-2016-10229", getDevice());
       assertNotMatchesMultiLine("OVERWRITE", out);
@@ -62,7 +62,7 @@ public class Poc17_04 extends SecurityTestCase {
      * b/33621647
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-04")
+    @AsbSecurityTest(cveBugId = 33621647)
     public void testPocCVE_2017_0477() throws Exception {
         AdbUtils.pushResource("/CVE-2017-0477.gif", "/data/local/tmp/CVE-2017-0477.gif",
                 getDevice());

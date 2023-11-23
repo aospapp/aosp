@@ -23,15 +23,15 @@ import org.eclipse.jdt.core.dom.Modifier;
 import java.util.List;
 
 /**
- * Hides any public class that is not found in the whitelist.
+ * Hides any public class that is not found in the allowlist.
  */
 public final class HidePublicClasses extends BaseJavadocTagClasses {
 
-  private final List<TypeLocator> whitelist;
+  private final List<TypeLocator> allowlist;
 
-  public HidePublicClasses(List<TypeLocator> whitelist, String reason) {
+  public HidePublicClasses(List<TypeLocator> allowlist, String reason) {
     super("@hide " + reason);
-    this.whitelist = whitelist;
+    this.allowlist = allowlist;
   }
 
   @Override
@@ -39,8 +39,8 @@ public final class HidePublicClasses extends BaseJavadocTagClasses {
     boolean mustTag = false;
     if ((node.getModifiers() & Modifier.PUBLIC) > 0) {
       mustTag = true;
-      for (TypeLocator whitelistedType : whitelist) {
-        if (whitelistedType.matches(node)) {
+      for (TypeLocator allowlistedType : allowlist) {
+        if (allowlistedType.matches(node)) {
           mustTag = false;
           break;
         }
@@ -52,7 +52,7 @@ public final class HidePublicClasses extends BaseJavadocTagClasses {
   @Override
   public String toString() {
     return "HidePublicClasses{" +
-        "whitelist=" + whitelist +
+        "allowlist=" + allowlist +
         '}';
   }
 }

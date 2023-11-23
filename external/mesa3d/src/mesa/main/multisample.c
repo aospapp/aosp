@@ -41,7 +41,7 @@ _mesa_SampleCoverage(GLclampf value, GLboolean invert)
 {
    GET_CURRENT_CONTEXT(ctx);
 
-   value = CLAMP(value, 0.0f, 1.0f);
+   value = SATURATE(value);
 
    if (ctx->Multisample.SampleCoverageInvert == invert &&
        ctx->Multisample.SampleCoverageValue == value)
@@ -63,6 +63,7 @@ _mesa_init_multisample(struct gl_context *ctx)
 {
    ctx->Multisample.Enabled = GL_TRUE;
    ctx->Multisample.SampleAlphaToCoverage = GL_FALSE;
+   ctx->Multisample.SampleAlphaToCoverageDitherControl = GL_ALPHA_TO_COVERAGE_DITHER_DEFAULT_NV;
    ctx->Multisample.SampleAlphaToOne = GL_FALSE;
    ctx->Multisample.SampleCoverage = GL_FALSE;
    ctx->Multisample.SampleCoverageValue = 1.0;
@@ -164,7 +165,7 @@ _mesa_SampleMaski(GLuint index, GLbitfield mask)
 static void
 min_sample_shading(struct gl_context *ctx, GLclampf value)
 {
-   value = CLAMP(value, 0.0f, 1.0f);
+   value = SATURATE(value);
 
    if (ctx->Multisample.MinSampleShadingValue == value)
       return;
@@ -350,4 +351,34 @@ _mesa_check_sample_count(struct gl_context *ctx, GLenum target,
     */
    return (GLuint) samples > ctx->Const.MaxSamples
       ? GL_INVALID_VALUE : GL_NO_ERROR;
+}
+
+void GLAPIENTRY
+_mesa_AlphaToCoverageDitherControlNV_no_error(GLenum mode)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   FLUSH_VERTICES(ctx, ctx->DriverFlags.NewSampleAlphaToXEnable ? 0 :
+                                                   _NEW_MULTISAMPLE);
+   ctx->NewDriverState |= ctx->DriverFlags.NewSampleAlphaToXEnable;
+   ctx->Multisample.SampleAlphaToCoverageDitherControl = mode;
+}
+
+void GLAPIENTRY
+_mesa_AlphaToCoverageDitherControlNV(GLenum mode)
+{
+   GET_CURRENT_CONTEXT(ctx);
+
+   FLUSH_VERTICES(ctx, ctx->DriverFlags.NewSampleAlphaToXEnable ? 0 :
+                                                   _NEW_MULTISAMPLE);
+   ctx->NewDriverState |= ctx->DriverFlags.NewSampleAlphaToXEnable;
+   switch (mode) {
+      case GL_ALPHA_TO_COVERAGE_DITHER_DEFAULT_NV:
+      case GL_ALPHA_TO_COVERAGE_DITHER_ENABLE_NV:
+      case GL_ALPHA_TO_COVERAGE_DITHER_DISABLE_NV:
+         ctx->Multisample.SampleAlphaToCoverageDitherControl = mode;
+         break;
+      default:
+         _mesa_error(ctx, GL_INVALID_ENUM, "glAlphaToCoverageDitherControlNV(invalid parameter)");
+   }
 }

@@ -318,6 +318,82 @@ static jboolean nativeTestIfGetSampleFormatBeforeSelectTrack(JNIEnv* env, jobjec
     return static_cast<jboolean>(isPass);
 }
 
+static jboolean nativeTestVideoSampleFileOffsetByGetSampleFormat(JNIEnv* env, jobject,
+                                                             jstring jsrcPath) {
+    int64_t video_sample_offsets[] = {6522, 95521, 118719, 126219, 137578};
+    bool isPass = true;
+    const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
+    AMediaExtractor* extractor = AMediaExtractor_new();
+    AMediaFormat* format = AMediaFormat_new();
+    FILE* srcFp = fopen(csrcPath, "rbe");
+    if (AMEDIA_OK == setExtractorDataSource(extractor, srcFp)) {
+        if (AMEDIA_OK == AMediaExtractor_selectTrack(extractor, 0 /* video */)) {
+            for(int i = 0; i < sizeof(video_sample_offsets)/sizeof(int64_t); ++i) {
+                if (AMEDIA_OK == AMediaExtractor_getSampleFormat(extractor, format)) {
+                    ALOGV("AMediaFormat_toString:%s", AMediaFormat_toString(format));
+                    int64_t offset = 0;
+                    if (AMediaFormat_getInt64(format, "sample-file-offset", &offset)) {
+                        if (offset != video_sample_offsets[i]) {
+                            ALOGD("offset:%lld, video_sample_offsets[%d]:%lld",
+                                        (long long)offset, i, (long long)video_sample_offsets[i]);
+                            isPass = false;
+                            break;
+                        }
+                    } else {
+                        ALOGD("error: sample-file-offset not found");
+                        isPass = false;
+                        break;
+                    }
+                }
+                AMediaExtractor_advance(extractor);
+            }
+        }
+    }
+    AMediaExtractor_delete(extractor);
+    AMediaFormat_delete(format);
+    if (srcFp) fclose(srcFp);
+    env->ReleaseStringUTFChars(jsrcPath, csrcPath);
+    return static_cast<jboolean>(isPass);
+}
+
+static jboolean nativeTestAudioSampleFileOffsetByGetSampleFormat(JNIEnv* env, jobject,
+                                                             jstring jsrcPath) {
+    int64_t audio_sample_offsets[] = {186125, 186682, 187286, 187944, 188551};
+    bool isPass = true;
+    const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
+    AMediaExtractor* extractor = AMediaExtractor_new();
+    AMediaFormat* format = AMediaFormat_new();
+    FILE* srcFp = fopen(csrcPath, "rbe");
+    if (AMEDIA_OK == setExtractorDataSource(extractor, srcFp)) {
+        if (AMEDIA_OK == AMediaExtractor_selectTrack(extractor, 1 /* audio */)) {
+            for(int i = 0; i < sizeof(audio_sample_offsets)/sizeof(int64_t); ++i) {
+                if (AMEDIA_OK == AMediaExtractor_getSampleFormat(extractor, format)) {
+                    ALOGV("AMediaFormat_toString:%s", AMediaFormat_toString(format));
+                    int64_t offset = 0;
+                    if (AMediaFormat_getInt64(format, "sample-file-offset", &offset)) {
+                        if (offset != audio_sample_offsets[i]) {
+                            ALOGD("offset:%lld, audio_sample_offsets[%d]:%lld",
+                                        (long long)offset, i, (long long)audio_sample_offsets[i]);
+                            isPass = false;
+                            break;
+                        }
+                    } else {
+                        ALOGE("error: sample-file-offset not found");
+                        isPass = false;
+                        break;
+                    }
+                }
+                AMediaExtractor_advance(extractor);
+            }
+        }
+    }
+    AMediaExtractor_delete(extractor);
+    AMediaFormat_delete(format);
+    if (srcFp) fclose(srcFp);
+    env->ReleaseStringUTFChars(jsrcPath, csrcPath);
+    return static_cast<jboolean>(isPass);
+}
+
 static jboolean nativeTestGetSampleTrackIndexBeforeSetDataSource(JNIEnv*, jobject) {
     AMediaExtractor* extractor = AMediaExtractor_new();
     bool isPass = AMediaExtractor_getSampleTrackIndex(extractor) == -1;
@@ -483,6 +559,10 @@ int registerAndroidMediaV2CtsExtractorUnitTestApi(JNIEnv* env) {
              (void*)nativeTestReadSampleDataBeforeSelectTrack},
             {"nativeTestIfNullLocationIsRejectedBySetDataSource", "()Z",
              (void*)nativeTestIfNullLocationIsRejectedBySetDataSource},
+            {"nativeTestVideoSampleFileOffsetByGetSampleFormat", "(Ljava/lang/String;)Z",
+             (void*)nativeTestVideoSampleFileOffsetByGetSampleFormat},
+            {"nativeTestAudioSampleFileOffsetByGetSampleFormat", "(Ljava/lang/String;)Z",
+             (void*)nativeTestAudioSampleFileOffsetByGetSampleFormat},
     };
     jclass c = env->FindClass("android/mediav2/cts/ExtractorUnitTest$TestApiNative");
     return env->RegisterNatives(c, methodTable, sizeof(methodTable) / sizeof(JNINativeMethod));

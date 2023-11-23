@@ -15,29 +15,29 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.taskswitching.appa"
-        android:targetSandboxVersion="2">
+     package="android.taskswitching.appa"
+     android:targetSandboxVersion="2">
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <activity
-            android:name=".AppAActivity"
-            android:screenOrientation="portrait" >
+        <activity android:name=".AppAActivity"
+             android:screenOrientation="portrait"
+             android:exported="true">
 
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" />
-                <data android:host="foo.com" />
-                <data android:path="/appa" />
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"/>
+                <data android:host="foo.com"/>
+                <data android:path="/appa"/>
             </intent-filter>
 
         </activity>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.taskswitching.appa" />
+         android:targetPackage="android.taskswitching.appa"/>
 
 </manifest>

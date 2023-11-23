@@ -103,6 +103,84 @@ TEST(StatusOrTest, HandlesValueConversion) {
   EXPECT_FALSE(moved_error_status.ok());
 }
 
+// Create a class that has validly defined copy and move operators, but will
+// cause a crash if assignment operators are invoked on an instance that was
+// never initialized.
+class Baz {
+ public:
+  Baz() : i_(new int), invalid_(false) {}
+  Baz(const Baz& other) {
+    i_ = new int;
+    *i_ = *other.i_;
+    invalid_ = false;
+  }
+  Baz(const Foo& other) {  // NOLINT
+    i_ = new int;
+    *i_ = other.i();
+    invalid_ = false;
+  }
+  Baz(Baz&& other) {
+    // Copy other.i_ into this so that this holds it now. Mark other as invalid
+    // so that it doesn't destroy the int that this now owns when other is
+    // destroyed.
+    i_ = other.i_;
+    other.invalid_ = true;
+    invalid_ = false;
+  }
+  Baz& operator=(const Baz& rhs) {
+    // Copy rhs.i_ into tmp. Then swap this with tmp so that this no has the
+    // value that rhs had and tmp will destroy the value that this used to hold.
+    Baz tmp(rhs);
+    std::swap(i_, tmp.i_);
+    return *this;
+  }
+  Baz& operator=(Baz&& rhs) {
+    std::swap(i_, rhs.i_);
+    return *this;
+  }
+  ~Baz() {
+    if (!invalid_) delete i_;
+  }
+
+ private:
+  int* i_;
+  bool invalid_;
+};
+
+TEST(StatusOrTest, CopyAssignment) {
+  StatusOr<Baz> baz_or;
+  EXPECT_FALSE(baz_or.ok());
+  Baz b;
+  StatusOr<Baz> other(b);
+  baz_or = other;
+  EXPECT_TRUE(baz_or.ok());
+  EXPECT_TRUE(other.ok());
+}
+
+TEST(StatusOrTest, MoveAssignment) {
+  StatusOr<Baz> baz_or;
+  EXPECT_FALSE(baz_or.ok());
+  baz_or = StatusOr<Baz>(Baz());
+  EXPECT_TRUE(baz_or.ok());
+}
+
+TEST(StatusOrTest, CopyConversionAssignment) {
+  StatusOr<Baz> baz_or;
+  EXPECT_FALSE(baz_or.ok());
+  StatusOr<Foo> foo_or(Foo(12));
+  baz_or = foo_or;
+  EXPECT_TRUE(baz_or.ok());
+  EXPECT_TRUE(foo_or.ok());
+}
+
+TEST(StatusOrTest, MoveConversionAssignment) {
+  StatusOr<Baz> baz_or;
+  EXPECT_FALSE(baz_or.ok());
+  StatusOr<Foo> foo_or(Foo(12));
+  baz_or = std::move(foo_or);
+  EXPECT_TRUE(baz_or.ok());
+}
+
 struct OkFn {
   StatusOr<int> operator()() { return 42; }
 };

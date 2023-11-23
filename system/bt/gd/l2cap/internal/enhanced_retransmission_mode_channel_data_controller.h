@@ -72,9 +72,6 @@ class ErtmController : public DataController {
   uint16_t remote_tx_window_ = 10;
   uint16_t remote_mps_ = 1010;
 
-  uint16_t size_each_packet_ =
-      (remote_mps_ - 4 /* basic L2CAP header */ - 2 /* SDU length */ - 2 /* Extended control */ - 2 /* FCS */);
-
   class PacketViewForReassembly : public packet::PacketView<kLittleEndian> {
    public:
     PacketViewForReassembly(const PacketView& packetView) : PacketView(packetView) {}
@@ -95,7 +92,7 @@ class ErtmController : public DataController {
     std::shared_ptr<packet::RawBuilder> builder_;
   };
 
-  PacketViewForReassembly reassembly_stage_{std::make_shared<std::vector<uint8_t>>()};
+  PacketViewForReassembly reassembly_stage_{PacketView<kLittleEndian>(std::make_shared<std::vector<uint8_t>>())};
   SegmentationAndReassembly sar_state_ = SegmentationAndReassembly::END;
   uint16_t remaining_sdu_continuation_packet_size_ = 0;
 

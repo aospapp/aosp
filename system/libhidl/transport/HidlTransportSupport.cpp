@@ -128,12 +128,7 @@ bool interfacesEqual(const sp<IBase>& left, const sp<IBase>& right) {
 
 namespace details {
 int32_t getPidIfSharable() {
-#if LIBHIDL_TARGET_DEBUGGABLE
     return getpid();
-#else
-    using android::hidl::manager::V1_0::IServiceManager;
-    return static_cast<int32_t>(IServiceManager::PidConstant::NO_PID);
-#endif
 }
 }  // namespace details
 

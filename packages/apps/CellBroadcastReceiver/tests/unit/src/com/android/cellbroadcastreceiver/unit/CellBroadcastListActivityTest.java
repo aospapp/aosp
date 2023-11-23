@@ -34,8 +34,11 @@ import static com.android.cellbroadcastreceiver.CellBroadcastListActivity.Cursor
 import static com.android.cellbroadcastreceiver.CellBroadcastListActivity.CursorLoaderListFragment.LOADER_HISTORY_FROM_CBS;
 import static com.android.cellbroadcastreceiver.CellBroadcastListActivity.CursorLoaderListFragment.MENU_DELETE;
 import static com.android.cellbroadcastreceiver.CellBroadcastListActivity.CursorLoaderListFragment.MENU_DELETE_ALL;
+import static com.android.cellbroadcastreceiver.CellBroadcastListActivity.CursorLoaderListFragment.MENU_SHOW_ALL_MESSAGES;
+import static com.android.cellbroadcastreceiver.CellBroadcastListActivity.CursorLoaderListFragment.MENU_SHOW_REGULAR_MESSAGES;
 import static com.android.cellbroadcastreceiver.CellBroadcastListActivity.CursorLoaderListFragment.MENU_VIEW_DETAILS;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -48,13 +51,15 @@ import android.app.NotificationManager;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
+import android.os.UserManager;
 import android.provider.Telephony;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
 
-import com.android.cellbroadcastreceiver.CellBroadcastAlertService;
 import com.android.cellbroadcastreceiver.CellBroadcastListActivity;
 import com.android.cellbroadcastreceiver.CellBroadcastListItem;
 import com.android.cellbroadcastreceiver.R;
@@ -70,9 +75,13 @@ import java.util.List;
 
 public class CellBroadcastListActivityTest extends
         CellBroadcastActivityTestCase<CellBroadcastListActivity> {
+    private static final int TEST_TIMEOUT_MILLIS = 1000;
 
     @Mock
     private NotificationManager mMockNotificationManager;
+
+    @Mock
+    private UserManager mMockUserManager;
 
 
     @Captor
@@ -83,6 +92,9 @@ public class CellBroadcastListActivityTest extends
         super.setUp();
         MockitoAnnotations.initMocks(this);
         injectSystemService(NotificationManager.class, mMockNotificationManager);
+        injectSystemService(UserManager.class, mMockUserManager);
+
+        doReturn(true).when(mMockUserManager).isAdminUser();
     }
 
     @After
@@ -96,7 +108,6 @@ public class CellBroadcastListActivityTest extends
 
     public void testOnCreate() throws Throwable {
         startActivity();
-        verify(mMockNotificationManager).cancel(eq(CellBroadcastAlertService.NOTIFICATION_ID));
         stopActivity();
     }
 
@@ -208,21 +219,19 @@ public class CellBroadcastListActivityTest extends
         // create mock delete menu item
         MenuItem mockMenuItem = mock(MenuItem.class);
         doReturn(MENU_DELETE).when(mockMenuItem).getItemId();
+        activity.mListFragment.toggleSelectedItem(1, 1);
 
         // must call looper.prepare to create alertdialog
         Looper.prepare();
-        boolean alertDialogCreated = false;
-        try {
-            activity.mListFragment.onContextItemSelected(mockMenuItem);
-        } catch (WindowManager.BadTokenException e) {
-            // We can't mock WindowManager because WindowManagerImpl is final, so instead we just
-            // verify that this exception is thrown when we try to create the AlertDialog
-            alertDialogCreated = true;
-        }
+        activity.mListFragment.onContextItemSelected(mockMenuItem);
+        waitForHandlerAction(Handler.getMain(), TEST_TIMEOUT_MILLIS);
 
-        assertTrue("onContextItemSelected - MENU_DELETE should create alert dialog",
-                alertDialogCreated);
+        assertNotNull("onContextItemSelected - MENU_DELETE_ALL should create alert dialog",
+                activity.mListFragment.getFragmentManager().findFragmentByTag(
+                        CellBroadcastListActivity.CursorLoaderListFragment.KEY_DELETE_DIALOG));
+
         verify(mockCursor, atLeastOnce()).getColumnIndexOrThrow(eq(Telephony.CellBroadcasts._ID));
+        activity.mListFragment.clearSelectedMessages();
         stopActivity();
     }
 
@@ -284,6 +293,17 @@ public class CellBroadcastListActivityTest extends
 
     public void testOnOptionsItemSelected() throws Throwable {
         CellBroadcastListActivity activity = startActivity();
+
+        // create mock home menu item
+        MenuItem mockMenuItem = mock(MenuItem.class);
+        doReturn(android.R.id.home).when(mockMenuItem).getItemId();
+
+        // the activity should hkandle home button press
+        assertTrue(activity.onOptionsItemSelected(mockMenuItem));
+    }
+
+    public void testFragmentOnOptionsItemSelected() throws Throwable {
+        CellBroadcastListActivity activity = startActivity();
         assertNotNull(activity.mListFragment);
 
         // create mock delete all menu item
@@ -292,17 +312,55 @@ public class CellBroadcastListActivityTest extends
 
         // must call looper.prepare to create alertdialog
         Looper.prepare();
-        boolean alertDialogCreated = false;
-        try {
-            activity.mListFragment.onOptionsItemSelected(mockMenuItem);
-        } catch (WindowManager.BadTokenException e) {
-            // We can't mock WindowManager because WindowManagerImpl is final, so instead we just
-            // verify that this exception is thrown when we try to create the AlertDialog
-            alertDialogCreated = true;
-        }
+        activity.mListFragment.onOptionsItemSelected(mockMenuItem);
+        waitForHandlerAction(Handler.getMain(), TEST_TIMEOUT_MILLIS);
 
-        assertTrue("onContextItemSelected - MENU_DELETE_ALL should create alert dialog",
-                alertDialogCreated);
+        assertNotNull("onContextItemSelected - MENU_DELETE_ALL should create alert dialog",
+                activity.mListFragment.getFragmentManager().findFragmentByTag(
+                        CellBroadcastListActivity.CursorLoaderListFragment.KEY_DELETE_DIALOG));
+
+        // "show all messages" and "show regular messages" options return false to allow normal
+        // menu  processing to continue
+        doReturn(MENU_SHOW_ALL_MESSAGES).when(mockMenuItem).getItemId();
+        assertFalse(activity.mListFragment.onOptionsItemSelected(mockMenuItem));
+        doReturn(MENU_SHOW_REGULAR_MESSAGES).when(mockMenuItem).getItemId();
+        assertFalse(activity.mListFragment.onOptionsItemSelected(mockMenuItem));
+
         stopActivity();
+    }
+
+    public void testFragmentOnCreateOptionsMenu() throws Throwable {
+        CellBroadcastListActivity activity = startActivity();
+        assertNotNull(activity.mListFragment);
+
+        // create mock menu
+        Menu mockMenu = mock(Menu.class);
+        MenuItem mockMenuItem = mock(MenuItem.class);
+        doReturn(mockMenuItem).when(mockMenu).add(anyInt(), anyInt(), anyInt(), anyInt());
+
+        activity.mListFragment.onCreateOptionsMenu(mockMenu, null);
+        verify(mockMenu, times(4)).add(anyInt(), anyInt(), anyInt(), anyInt());
+    }
+
+    public void testFragmentOnPrepareOptionsMenu() throws Throwable {
+        CellBroadcastListActivity activity = startActivity();
+        assertNotNull(activity.mListFragment);
+
+        // create mock menu
+        Menu mockMenu = mock(Menu.class);
+        MenuItem mockMenuItem = mock(MenuItem.class);
+        doReturn(mockMenuItem).when(mockMenu).findItem(anyInt());
+
+        activity.mListFragment.onPrepareOptionsMenu(mockMenu);
+        verify(mockMenuItem, times(3)).setVisible(anyBoolean());
+    }
+
+    public void testFragmentOnSaveInstanceState() throws Throwable {
+        CellBroadcastListActivity activity = startActivity();
+        assertNotNull(activity.mListFragment);
+
+        Bundle bundle = new Bundle();
+        activity.mListFragment.onSaveInstanceState(bundle);
+        assertTrue(bundle.containsKey(KEY_LOADER_ID));
     }
 }

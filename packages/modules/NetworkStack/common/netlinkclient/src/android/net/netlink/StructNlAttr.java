@@ -16,10 +16,12 @@
 
 package android.net.netlink;
 
+import androidx.annotation.Nullable;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.ByteOrder;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 
 /**
@@ -48,9 +50,7 @@ public class StructNlAttr {
         }
         final int baseOffset = byteBuffer.position();
 
-        // Assume the byte order of the buffer is the expected byte order of the value.
-        final StructNlAttr struct = new StructNlAttr(byteBuffer.order());
-        // The byte order of nla_len and nla_type is always native.
+        final StructNlAttr struct = new StructNlAttr();
         final ByteOrder originalOrder = byteBuffer.order();
         byteBuffer.order(ByteOrder.nativeOrder());
         try {
@@ -87,19 +87,38 @@ public class StructNlAttr {
         return struct;
     }
 
+    /**
+     * Find next netlink attribute with a given type from {@link ByteBuffer}.
+     *
+     * @param attrType The given netlink attribute type is requested for.
+     * @param byteBuffer The buffer from which to find the netlink attribute.
+     * @return the found netlink attribute, or {@code null} if the netlink attribute could not be
+     *         found or parsed successfully (for example, if it was truncated).
+     */
+    @Nullable
+    public static StructNlAttr findNextAttrOfType(short attrType,
+            @Nullable ByteBuffer byteBuffer) {
+        while (byteBuffer != null && byteBuffer.remaining() > 0) {
+            final StructNlAttr nlAttr = StructNlAttr.peek(byteBuffer);
+            if (nlAttr == null) {
+                break;
+            }
+            if (nlAttr.nla_type == attrType) {
+                return StructNlAttr.parse(byteBuffer);
+            }
+            if (byteBuffer.remaining() < nlAttr.getAlignedLength()) {
+                break;
+            }
+            byteBuffer.position(byteBuffer.position() + nlAttr.getAlignedLength());
+        }
+        return null;
+    }
+
     public short nla_len = (short) NLA_HEADERLEN;
     public short nla_type;
     public byte[] nla_value;
 
-    // The byte order used to read/write the value member. Netlink length and
-    // type members are always read/written in native order.
-    private ByteOrder mByteOrder = ByteOrder.nativeOrder();
-
     public StructNlAttr() {}
-
-    public StructNlAttr(ByteOrder byteOrder) {
-        mByteOrder = byteOrder;
-    }
 
     public StructNlAttr(short type, byte value) {
         nla_type = type;
@@ -112,10 +131,16 @@ public class StructNlAttr {
     }
 
     public StructNlAttr(short type, short value, ByteOrder order) {
-        this(order);
         nla_type = type;
         setValue(new byte[Short.BYTES]);
-        getValueAsByteBuffer().putShort(value);
+        final ByteBuffer buf = getValueAsByteBuffer();
+        final ByteOrder originalOrder = buf.order();
+        try {
+            buf.order(order);
+            buf.putShort(value);
+        } finally {
+            buf.order(originalOrder);
+        }
     }
 
     public StructNlAttr(short type, int value) {
@@ -123,10 +148,16 @@ public class StructNlAttr {
     }
 
     public StructNlAttr(short type, int value, ByteOrder order) {
-        this(order);
         nla_type = type;
         setValue(new byte[Integer.BYTES]);
-        getValueAsByteBuffer().putInt(value);
+        final ByteBuffer buf = getValueAsByteBuffer();
+        final ByteOrder originalOrder = buf.order();
+        try {
+            buf.order(order);
+            buf.putInt(value);
+        } finally {
+            buf.order(originalOrder);
+        }
     }
 
     public StructNlAttr(short type, InetAddress ip) {
@@ -152,11 +183,56 @@ public class StructNlAttr {
         return NetlinkConstants.alignedLengthOf(nla_len);
     }
 
+    /**
+     * Get attribute value as BE16.
+     */
+    public short getValueAsBe16(short defaultValue) {
+        final ByteBuffer byteBuffer = getValueAsByteBuffer();
+        if (byteBuffer == null || byteBuffer.remaining() != Short.BYTES) {
+            return defaultValue;
+        }
+        final ByteOrder originalOrder = byteBuffer.order();
+        try {
+            byteBuffer.order(ByteOrder.BIG_ENDIAN);
+            return byteBuffer.getShort();
+        } finally {
+            byteBuffer.order(originalOrder);
+        }
+    }
+
+    public int getValueAsBe32(int defaultValue) {
+        final ByteBuffer byteBuffer = getValueAsByteBuffer();
+        if (byteBuffer == null || byteBuffer.remaining() != Integer.BYTES) {
+            return defaultValue;
+        }
+        final ByteOrder originalOrder = byteBuffer.order();
+        try {
+            byteBuffer.order(ByteOrder.BIG_ENDIAN);
+            return byteBuffer.getInt();
+        } finally {
+            byteBuffer.order(originalOrder);
+        }
+    }
+
     public ByteBuffer getValueAsByteBuffer() {
         if (nla_value == null) { return null; }
         final ByteBuffer byteBuffer = ByteBuffer.wrap(nla_value);
-        byteBuffer.order(mByteOrder);
+        // By convention, all buffers in this library are in native byte order because netlink is in
+        // native byte order. It's the order that is used by NetlinkSocket.recvMessage and the only
+        // order accepted by NetlinkMessage.parse.
+        byteBuffer.order(ByteOrder.nativeOrder());
         return byteBuffer;
+    }
+
+    /**
+     * Get attribute value as byte.
+     */
+    public byte getValueAsByte(byte defaultValue) {
+        final ByteBuffer byteBuffer = getValueAsByteBuffer();
+        if (byteBuffer == null || byteBuffer.remaining() != Byte.BYTES) {
+            return defaultValue;
+        }
+        return getValueAsByteBuffer().get();
     }
 
     public int getValueAsInt(int defaultValue) {

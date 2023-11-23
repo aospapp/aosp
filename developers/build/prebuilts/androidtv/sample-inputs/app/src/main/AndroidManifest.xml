@@ -101,9 +101,9 @@
                 android:resource="@xml/syncadapter" />
         </service>
 
-        <!-- Since the channel/program feed here does not require any authentication, we use a dummy
+        <!-- Since the channel/program feed here does not require any authentication, we use a stub
         account used for SyncAdapter. -->
-        <service android:name=".syncadapter.DummyAccountService">
+        <service android:name=".syncadapter.StubAccountService">
             <intent-filter>
                 <action android:name="android.accounts.AccountAuthenticator" />
             </intent-filter>

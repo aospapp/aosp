@@ -5,14 +5,15 @@
 from autotest_lib.server import utils
 
 AUTHOR = "Chrome OS Team"
-NAME = "platform_ServoPowerStateController_USBUnplugged"
+NAME = "platform_ServoPowerStateController.USBUnplugged"
 PURPOSE = "Verify servo PowerStateController functions."
 CRITERIA = "This test will fail if servo does not work as expected."
+ATTRIBUTES = "suite:servo_lab"
 TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 The test exercises these transitions:

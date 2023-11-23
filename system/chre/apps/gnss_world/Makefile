@@ -35,6 +35,10 @@ COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG
 
 COMMON_SRCS += gnss_world.cc
 
+# Permission declarations ######################################################
+
+CHRE_NANOAPP_USES_GNSS = true
+
 # Makefile Includes ############################################################
 
 include $(CHRE_PREFIX)/build/nanoapp/app.mk

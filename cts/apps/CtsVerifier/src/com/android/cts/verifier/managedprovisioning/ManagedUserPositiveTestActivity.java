@@ -157,7 +157,7 @@ public class ManagedUserPositiveTestActivity extends PassFailButtons.TestListAct
                 new ButtonInfo[]{
                         new ButtonInfo(
                                 R.string.device_owner_user_restriction_set,
-                                CommandReceiverActivity.createSetUserRestrictionIntent(
+                                CommandReceiverActivity.createSetCurrentUserRestrictionIntent(
                                         UserManager.DISALLOW_REMOVE_USER, true)),
                         new ButtonInfo(
                                 R.string.device_owner_settings_go,

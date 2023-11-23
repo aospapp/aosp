@@ -26,7 +26,7 @@ import android.app.ActivityOptions;
 import android.content.Intent;
 import android.graphics.Rect;
 
-public class AlwaysFocusablePipActivity extends Activity {
+public class AlwaysFocusablePipActivity extends PipActivity {
 
     static void launchAlwaysFocusablePipActivity(Activity caller, boolean newTask) {
         launchAlwaysFocusablePipActivity(caller, newTask, false /* multiTask */);

@@ -19,9 +19,8 @@
 import time
 
 import unittest
-import mock
 
-import apiclient
+from unittest import mock
 
 from acloud import errors
 from acloud.internal.lib import base_cloud_client
@@ -59,7 +58,8 @@ class BaseCloudApiClientTest(driver_test_lib.BaseDriverTest):
             return_value=mock.MagicMock())
         return base_cloud_client.BaseCloudApiClient(mock.MagicMock())
 
-    def _SetupBatchHttpRequestMock(self, rid_to_responses, rid_to_exceptions):
+    def _SetupBatchHttpRequestMock(self, rid_to_responses, rid_to_exceptions,
+                                   client):
         """Setup BatchHttpRequest mock."""
 
         rid_to_exceptions = rid_to_exceptions or {}
@@ -86,10 +86,8 @@ class BaseCloudApiClientTest(driver_test_lib.BaseDriverTest):
             mock_batch.execute = _Execute
             return mock_batch
 
-        self.Patch(
-            apiclient.http,
-            "BatchHttpRequest",
-            side_effect=_CreatMockBatchHttpRequest)
+        self.Patch(client.service, "new_batch_http_request",
+                   side_effect=_CreatMockBatchHttpRequest)
 
     def testBatchExecute(self):
         """Test BatchExecute."""
@@ -103,7 +101,7 @@ class BaseCloudApiClientTest(driver_test_lib.BaseDriverTest):
         error_2 = FakeError("fake retriable error.")
         responses = {"r1": response, "r2": None, "r3": None}
         exceptions = {"r1": None, "r2": error_1, "r3": error_2}
-        self._SetupBatchHttpRequestMock(responses, exceptions)
+        self._SetupBatchHttpRequestMock(responses, exceptions, client)
         results = client.BatchExecute(
             requests, other_retriable_errors=(FakeError, ))
         expected_results = {

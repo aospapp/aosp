@@ -17,6 +17,8 @@ package rust
 import (
 	"strings"
 	"testing"
+
+	"android/soong/android"
 )
 
 // Test that feature flags are being correctly generated.
@@ -40,10 +42,31 @@ func TestFeaturesToFlags(t *testing.T) {
 	}
 }
 
+// Test that cfgs flags are being correctly generated.
+func TestCfgsToFlags(t *testing.T) {
+	ctx := testRust(t, `
+		rust_library_host {
+			name: "libfoo",
+			srcs: ["foo.rs"],
+			crate_name: "foo",
+			cfgs: [
+				"std",
+				"cfg1=\"one\""
+			],
+		}`)
+
+	libfooDylib := ctx.ModuleForTests("libfoo", "linux_glibc_x86_64_dylib").Rule("rustc")
+
+	if !strings.Contains(libfooDylib.Args["rustcFlags"], "cfg 'std'") ||
+		!strings.Contains(libfooDylib.Args["rustcFlags"], "cfg 'cfg1=\"one\"'") {
+		t.Fatalf("missing std and cfg1 flags for libfoo dylib, rustcFlags: %#v", libfooDylib.Args["rustcFlags"])
+	}
+}
+
 // Test that we reject multiple source files.
 func TestEnforceSingleSourceFile(t *testing.T) {
 
-	singleSrcError := "srcs can only contain one path for rust modules"
+	singleSrcError := "srcs can only contain one path for a rust file and source providers prefixed by \":\""
 
 	// Test libraries
 	testRustError(t, singleSrcError, `
@@ -73,4 +96,115 @@ func TestEnforceSingleSourceFile(t *testing.T) {
 			srcs: ["liby.so", "libz.so"],
 		  host_supported: true,
 		}`)
+}
+
+func TestInstallDir(t *testing.T) {
+	ctx := testRust(t, `
+		rust_library_dylib {
+			name: "libfoo",
+			srcs: ["foo.rs"],
+			crate_name: "foo",
+		}
+		rust_binary {
+			name: "fizzbuzz",
+			srcs: ["foo.rs"],
+		}`)
+
+	install_path_lib64 := ctx.ModuleForTests("libfoo",
+		"android_arm64_armv8-a_dylib").Module().(*Module).compiler.(*libraryDecorator).path.String()
+	install_path_lib32 := ctx.ModuleForTests("libfoo",
+		"android_arm_armv7-a-neon_dylib").Module().(*Module).compiler.(*libraryDecorator).path.String()
+	install_path_bin := ctx.ModuleForTests("fizzbuzz",
+		"android_arm64_armv8-a").Module().(*Module).compiler.(*binaryDecorator).path.String()
+
+	if !strings.HasSuffix(install_path_lib64, "system/lib64/libfoo.dylib.so") {
+		t.Fatalf("unexpected install path for 64-bit library: %#v", install_path_lib64)
+	}
+	if !strings.HasSuffix(install_path_lib32, "system/lib/libfoo.dylib.so") {
+		t.Fatalf("unexpected install path for 32-bit library: %#v", install_path_lib32)
+	}
+	if !strings.HasSuffix(install_path_bin, "system/bin/fizzbuzz") {
+		t.Fatalf("unexpected install path for binary: %#v", install_path_bin)
+	}
+}
+
+func TestLints(t *testing.T) {
+
+	bp := `
+		// foo uses the default value of lints
+		rust_library {
+			name: "libfoo",
+			srcs: ["foo.rs"],
+			crate_name: "foo",
+		}
+		// bar forces the use of the "android" lint set
+		rust_library {
+			name: "libbar",
+			srcs: ["foo.rs"],
+			crate_name: "bar",
+			lints: "android",
+		}
+		// foobar explicitly disable all lints
+		rust_library {
+			name: "libfoobar",
+			srcs: ["foo.rs"],
+			crate_name: "foobar",
+			lints: "none",
+		}`
+
+	var lintTests = []struct {
+		modulePath string
+		fooFlags   string
+	}{
+		{"", "${config.RustDefaultLints}"},
+		{"external/", "${config.RustAllowAllLints}"},
+		{"hardware/", "${config.RustVendorLints}"},
+	}
+
+	for _, tc := range lintTests {
+		t.Run("path="+tc.modulePath, func(t *testing.T) {
+
+			result := android.GroupFixturePreparers(
+				prepareForRustTest,
+				// Test with the blueprint file in different directories.
+				android.FixtureAddTextFile(tc.modulePath+"Android.bp", bp),
+			).RunTest(t)
+
+			r := result.ModuleForTests("libfoo", "android_arm64_armv8-a_dylib").MaybeRule("rustc")
+			android.AssertStringDoesContain(t, "libfoo flags", r.Args["rustcFlags"], tc.fooFlags)
+
+			r = result.ModuleForTests("libbar", "android_arm64_armv8-a_dylib").MaybeRule("rustc")
+			android.AssertStringDoesContain(t, "libbar flags", r.Args["rustcFlags"], "${config.RustDefaultLints}")
+
+			r = result.ModuleForTests("libfoobar", "android_arm64_armv8-a_dylib").MaybeRule("rustc")
+			android.AssertStringDoesContain(t, "libfoobar flags", r.Args["rustcFlags"], "${config.RustAllowAllLints}")
+		})
+	}
+}
+
+// Test that devices are linking the stdlib dynamically
+func TestStdDeviceLinkage(t *testing.T) {
+	ctx := testRust(t, `
+		rust_binary {
+			name: "fizz",
+			srcs: ["foo.rs"],
+		}
+		rust_library {
+			name: "libfoo",
+			srcs: ["foo.rs"],
+			crate_name: "foo",
+		}`)
+	fizz := ctx.ModuleForTests("fizz", "android_arm64_armv8-a").Module().(*Module)
+	fooRlib := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_rlib_dylib-std").Module().(*Module)
+	fooDylib := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_dylib").Module().(*Module)
+
+	if !android.InList("libstd", fizz.Properties.AndroidMkDylibs) {
+		t.Errorf("libstd is not linked dynamically for device binaries")
+	}
+	if !android.InList("libstd", fooRlib.Properties.AndroidMkDylibs) {
+		t.Errorf("libstd is not linked dynamically for rlibs")
+	}
+	if !android.InList("libstd", fooDylib.Properties.AndroidMkDylibs) {
+		t.Errorf("libstd is not linked dynamically for dylibs")
+	}
 }

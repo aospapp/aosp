@@ -34,23 +34,34 @@ function die {
 }
 
 function setup_die {
-  die "You need to source and lunch before you can use this script."
+  die "You need to run lunch, banchan, or tapas before you can use this script."
 }
 
 [[ -n "$ANDROID_BUILD_TOP" ]] || setup_die
 [[ -n "$ANDROID_PRODUCT_OUT" ]] || setup_die
 [[ -n "$ANDROID_HOST_OUT" ]] || setup_die
 
-flattened_apex_p=$($ANDROID_BUILD_TOP/build/soong/soong_ui.bash --dumpvar-mode TARGET_FLATTEN_APEX)\
+flattened_apex_p=$($ANDROID_BUILD_TOP/build/soong/soong_ui.bash \
+    --dumpvar-mode TARGET_FLATTEN_APEX) \
   || setup_die
 
-have_debugfs_p=false
+compressed_apex_p=$($ANDROID_BUILD_TOP/build/soong/soong_ui.bash \
+    --dumpvar-mode PRODUCT_COMPRESSED_APEX) \
+  || setup_die
+
+# Switch the build system to unbundled mode in the reduced manifest branch.
+if [ ! -d $ANDROID_BUILD_TOP/frameworks/base ]; then
+  export TARGET_BUILD_UNBUNDLED=true
+fi
+
+have_deapexer_p=false
 if $flattened_apex_p; then :; else
-  if [ ! -e "$ANDROID_HOST_OUT/bin/debugfs" ] ; then
-    say "Could not find debugfs, building now."
-    build/soong/soong_ui.bash --make-mode debugfs-host || die "Cannot build debugfs"
+  if [ ! -e "$ANDROID_HOST_OUT/bin/deapexer" -o ! -e "$ANDROID_HOST_OUT/bin/debugfs_static" ] ; then
+    say "Could not find deapexer and/or debugfs_static, building now."
+    build/soong/soong_ui.bash --make-mode deapexer debugfs_static-host || \
+      die "Cannot build deapexer and debugfs_static"
   fi
-  have_debugfs_p=true
+  have_deapexer_p=true
 fi
 
 # Fail early.
@@ -63,8 +74,9 @@ print_file_sizes_p=false
 
 function usage {
   cat <<EOF
-Usage: $0 [OPTION]
-Build (optional) and run tests on ART APEX package (on host).
+Usage: $0 [OPTION] [apexes...]
+Build (optional) and run tests on ART APEX package (on host). Defaults to all
+applicable APEXes if none is given on the command line.
 
   -B, --skip-build    skip the build step
   -l, --list-files    list the contents of the ext4 image (\`find\`-like style)
@@ -76,6 +88,8 @@ EOF
   exit
 }
 
+apex_modules=()
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     (-B|--skip-build)  build_apex_p=false;;
@@ -83,8 +97,9 @@ while [[ $# -gt 0 ]]; do
     (-t|--print-tree)  print_image_tree_p=true;;
     (-s|--print-sizes) print_file_sizes_p=true;;
     (-h|--help) usage;;
-    (*) die "Unknown option: '$1'
+    (-*) die "Unknown option: '$1'
 Try '$0 --help' for more information.";;
+    (*) apex_modules+=($1);;
   esac
   shift
 done
@@ -124,17 +139,18 @@ function fail_check {
   exit_status=1
 }
 
-# Test all modules, if possible.
-
-apex_modules=(
-  "com.android.art.release"
-  "com.android.art.debug"
-  "com.android.art.testing"
-)
-if [[ "$HOST_PREFER_32_BIT" = true ]]; then
-  say "Skipping com.android.art.host, as \`HOST_PREFER_32_BIT\` equals \`true\`"
-else
-  apex_modules+=("com.android.art.host")
+if [ ${#apex_modules[@]} -eq 0 ]; then
+  # Test as many modules as possible.
+  apex_modules=(
+    "com.android.art"
+    "com.android.art.debug"
+    "com.android.art.testing"
+  )
+  if [[ "$HOST_PREFER_32_BIT" = true ]]; then
+    say "Skipping com.android.art.host, as \`HOST_PREFER_32_BIT\` equals \`true\`"
+  else
+    apex_modules+=("com.android.art.host")
+  fi
 fi
 
 # Build the APEX packages (optional).
@@ -169,15 +185,21 @@ for apex_module in ${apex_modules[@]}; do
       apex_path="$ANDROID_PRODUCT_OUT/system/apex/${apex_module}"
       art_apex_test_args="$art_apex_test_args --flattened"
     else
-      apex_path="$ANDROID_PRODUCT_OUT/system/apex/${apex_module}.apex"
+      # Note: The Testing ART APEX is never built as a Compressed APEX.
+      if $compressed_apex_p && [[ $apex_module != *.testing ]]; then
+        apex_path="$ANDROID_PRODUCT_OUT/system/apex/${apex_module}.capex"
+      else
+        apex_path="$ANDROID_PRODUCT_OUT/system/apex/${apex_module}.apex"
+      fi
     fi
-    if $have_debugfs_p; then
-      art_apex_test_args="$art_apex_test_args --debugfs $ANDROID_HOST_OUT/bin/debugfs"
+    if $have_deapexer_p; then
+      art_apex_test_args="$art_apex_test_args --deapexer $ANDROID_HOST_OUT/bin/deapexer"
+      art_apex_test_args="$art_apex_test_args --debugfs $ANDROID_HOST_OUT/bin/debugfs_static"
     fi
     case $apex_module in
-      (*.release) test_only_args="--flavor release";;
       (*.debug)   test_only_args="--flavor debug";;
       (*.testing) test_only_args="--flavor testing";;
+      (*)         test_only_args="--flavor release";;
     esac
   fi
   say "APEX package path: $apex_path"

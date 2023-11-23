@@ -30,7 +30,7 @@ namespace iorap::db {
 
 static constexpr const char* kRootPathProp = "iorapd.root.dir";
 static const unsigned int kPerfettoMaxTraces =
-    ::android::base::GetUintProperty("iorapd.perfetto.max_traces", /*default*/10u);
+    ::android::base::GetUintProperty("iorapd.perfetto.max_traces", /*default*/2u);
 
 static uint64_t GetTimeNanoseconds() {
   struct timespec now;
@@ -130,6 +130,19 @@ std::string PerfettoTraceFileModel::BaseFile() const {
   std::stringstream ss;
   ss << timestamp_ << ".perfetto_trace.pb";
   return ss.str();
+}
+
+bool PerfettoTraceFileModel::NeedMorePerfettoTraces(DbHandle& db,
+                                                    VersionedComponentName vcn) {
+  std::vector<RawTraceModel> raw_traces =
+      RawTraceModel::SelectByVersionedComponentName(db, vcn);
+
+  size_t raw_traces_size = raw_traces.size();
+  LOG(VERBOSE) << "The number of perfetto traces is "
+               << raw_traces_size
+               << " The cap is "
+               << kPerfettoMaxTraces ;
+  return raw_traces_size < kPerfettoMaxTraces;
 }
 
 void PerfettoTraceFileModel::DeleteOlderFiles(DbHandle& db, VersionedComponentName vcn) {

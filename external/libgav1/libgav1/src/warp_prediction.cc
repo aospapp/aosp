@@ -21,6 +21,7 @@
 #include "src/tile.h"
 #include "src/utils/block_parameters_holder.h"
 #include "src/utils/common.h"
+#include "src/utils/constants.h"
 #include "src/utils/logging.h"
 
 namespace libgav1 {
@@ -79,25 +80,21 @@ void GenerateApproximateDivisor(T value, int16_t* division_factor,
 int LeastSquareProduct(int a, int b) { return ((a * b) >> 2) + a + b; }
 
 // 7.11.3.8.
-int DiagonalClamp(int64_t value, int16_t division_factor,
-                  int16_t division_shift) {
-  return Clip3(
-      RightShiftWithRoundingSigned(value * division_factor, division_shift),
-      (1 << kWarpedModelPrecisionBits) - kWarpModelAffineClamp + 1,
-      (1 << kWarpedModelPrecisionBits) + kWarpModelAffineClamp - 1);
+int DiagonalClamp(int32_t value) {
+  return Clip3(value,
+               (1 << kWarpedModelPrecisionBits) - kWarpModelAffineClamp + 1,
+               (1 << kWarpedModelPrecisionBits) + kWarpModelAffineClamp - 1);
 }
 
 // 7.11.3.8.
-int NonDiagonalClamp(int64_t value, int16_t division_factor,
-                     int16_t division_shift) {
-  return Clip3(
-      RightShiftWithRoundingSigned(value * division_factor, division_shift),
-      -kWarpModelAffineClamp + 1, kWarpModelAffineClamp - 1);
+int NonDiagonalClamp(int32_t value) {
+  return Clip3(value, -kWarpModelAffineClamp + 1, kWarpModelAffineClamp - 1);
 }
 
 int16_t GetShearParameter(int value) {
   return static_cast<int16_t>(
-      LeftShift(RightShiftWithRoundingSigned(value, kWarpParamRoundingBits),
+      LeftShift(RightShiftWithRoundingSigned(Clip3(value, INT16_MIN, INT16_MAX),
+                                             kWarpParamRoundingBits),
                 kWarpParamRoundingBits));
 }
 
@@ -109,19 +106,16 @@ bool SetupShear(GlobalMotion* const warp_params) {
   const auto* const params = warp_params->params;
   GenerateApproximateDivisor<int32_t>(params[2], &division_factor,
                                       &division_shift);
-  const int alpha =
-      Clip3(params[2] - (1 << kWarpedModelPrecisionBits), INT16_MIN, INT16_MAX);
-  const int beta = Clip3(params[3], INT16_MIN, INT16_MAX);
+  const int alpha = params[2] - (1 << kWarpedModelPrecisionBits);
+  const int beta = params[3];
   const int64_t v = LeftShift(params[4], kWarpedModelPrecisionBits);
   const int gamma =
-      Clip3(RightShiftWithRoundingSigned(v * division_factor, division_shift),
-            INT16_MIN, INT16_MAX);
+      RightShiftWithRoundingSigned(v * division_factor, division_shift);
   const int64_t w = static_cast<int64_t>(params[3]) * params[4];
-  const int delta = Clip3(
+  const int delta =
       params[5] -
-          RightShiftWithRoundingSigned(w * division_factor, division_shift) -
-          (1 << kWarpedModelPrecisionBits),
-      INT16_MIN, INT16_MAX);
+      RightShiftWithRoundingSigned(w * division_factor, division_shift) -
+      (1 << kWarpedModelPrecisionBits);
 
   warp_params->alpha = GetShearParameter(alpha);
   warp_params->beta = GetShearParameter(beta);
@@ -200,20 +194,34 @@ bool WarpEstimation(const int num_samples, const int block_width4x4,
                                       &division_shift);
 
   division_shift -= kWarpedModelPrecisionBits;
-  if (division_shift < 0) {
+
+  const int64_t params_2 = a[1][1] * bx[0] - a[0][1] * bx[1];
+  const int64_t params_3 = -a[0][1] * bx[0] + a[0][0] * bx[1];
+  const int64_t params_4 = a[1][1] * by[0] - a[0][1] * by[1];
+  const int64_t params_5 = -a[0][1] * by[0] + a[0][0] * by[1];
+  auto* const params = warp_params->params;
+
+  if (division_shift <= 0) {
     division_factor <<= -division_shift;
-    division_shift = 0;
+    params[2] = static_cast<int32_t>(params_2) * division_factor;
+    params[3] = static_cast<int32_t>(params_3) * division_factor;
+    params[4] = static_cast<int32_t>(params_4) * division_factor;
+    params[5] = static_cast<int32_t>(params_5) * division_factor;
+  } else {
+    params[2] = RightShiftWithRoundingSigned(params_2 * division_factor,
+                                             division_shift);
+    params[3] = RightShiftWithRoundingSigned(params_3 * division_factor,
+                                             division_shift);
+    params[4] = RightShiftWithRoundingSigned(params_4 * division_factor,
+                                             division_shift);
+    params[5] = RightShiftWithRoundingSigned(params_5 * division_factor,
+                                             division_shift);
   }
 
-  auto* const params = warp_params->params;
-  params[2] = DiagonalClamp(a[1][1] * bx[0] - a[0][1] * bx[1], division_factor,
-                            division_shift);
-  params[3] = NonDiagonalClamp(-a[0][1] * bx[0] + a[0][0] * bx[1],
-                               division_factor, division_shift);
-  params[4] = NonDiagonalClamp(a[1][1] * by[0] - a[0][1] * by[1],
-                               division_factor, division_shift);
-  params[5] = DiagonalClamp(-a[0][1] * by[0] + a[0][0] * by[1], division_factor,
-                            division_shift);
+  params[2] = DiagonalClamp(params[2]);
+  params[3] = NonDiagonalClamp(params[3]);
+  params[4] = NonDiagonalClamp(params[4]);
+  params[5] = DiagonalClamp(params[5]);
 
   const int vx =
       mv.mv[MotionVector::kColumn] * (1 << (kWarpedModelPrecisionBits - 3)) -

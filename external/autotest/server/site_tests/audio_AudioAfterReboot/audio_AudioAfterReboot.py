@@ -1,7 +1,6 @@
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """This is a server side audio test using the Chameleon board."""
 
 import logging
@@ -9,12 +8,12 @@ import os
 import time
 
 from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import audio_widget_link
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.server.cros.audio import audio_test
-from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
 class audio_AudioAfterReboot(audio_test.AudioTest):
@@ -55,14 +54,13 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
             recorder_widget.stop_recording()
             logging.debug('Stopped recording.')
 
-            audio_test_utils.dump_cros_audio_logs(
-                    self.host, self.audio_facade, self.resultsdir,
-                    'after_recording')
+            audio_test_utils.dump_cros_audio_logs(self.host, self.facade,
+                                                  self.resultsdir,
+                                                  'after_recording')
 
             recorder_widget.read_recorded_binary()
         else:
             time.sleep(self.RECORD_SECONDS)
-
 
     def save_and_check_data(self, recorder_widget):
         """Saves and checks the data from the recorder.
@@ -82,24 +80,25 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
 
         # Removes noise by a lowpass filter.
         recorder_widget.lowpass_filter(self.low_pass_freq)
-        recorded_file = os.path.join(self.resultsdir,
-                                     "recorded_filtered.raw")
+        recorded_file = os.path.join(self.resultsdir, "recorded_filtered.raw")
         logging.debug('Saving filtered data to %s', recorded_file)
         recorder_widget.save_file(recorded_file)
 
         # Compares data by frequency.
         audio_test_utils.check_recorded_frequency(
-                self.golden_file, recorder_widget,
+                self.golden_file,
+                recorder_widget,
                 second_peak_ratio=self.second_peak_ratio,
                 ignore_frequencies=self.ignore_frequencies)
 
-
     def check_correct_audio_node_selected(self):
         """Checks the node selected by Cras is correct."""
-        audio_test_utils.check_audio_nodes(self.audio_facade, self.audio_nodes)
+        # Selects and checks the node selected by cras is correct.
+        audio_test_utils.check_and_set_chrome_active_node_types(
+                self.facade, self.audio_nodes[0][0], self.audio_nodes[1][0])
+        audio_test_utils.check_audio_nodes(self.facade, self.audio_nodes)
 
-
-    def play_reboot_play_and_record (self, source_widget, recorder_widget):
+    def play_reboot_play_and_record(self, source_widget, recorder_widget):
         """Play audio, then reboot, and play and record.
 
         @param source_widget: source widget to play with
@@ -117,13 +116,14 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
             self.widget_link.disconnect_audio_bus()
 
         self.host.reboot()
-        utils.poll_for_condition(condition=self.factory.ready,
-                                 timeout=self.PRC_RECONNECT_TIMEOUT,)
+        utils.poll_for_condition(
+                condition=self.factory.ready,
+                timeout=self.PRC_RECONNECT_TIMEOUT,
+        )
         logging.debug('After reboot')
 
-        audio_test_utils.dump_cros_audio_logs(
-                self.host, self.audio_facade, self.resultsdir,
-                'after_reboot')
+        audio_test_utils.dump_cros_audio_logs(self.host, self.facade,
+                                              self.resultsdir, 'after_reboot')
 
         self.check_correct_audio_node_selected()
 
@@ -131,15 +131,21 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
             logging.info('Reconnecting audio bus after reboot before playback')
             self.widget_link.reconnect_audio_bus()
 
-        audio_test_utils.dump_cros_audio_logs(
-                self.host, self.audio_facade, self.resultsdir,
-                'after_bus_reconnect')
+        audio_test_utils.dump_cros_audio_logs(self.host, self.facade,
+                                              self.resultsdir,
+                                              'after_bus_reconnect')
 
         self.play_and_record(source_widget, recorder_widget)
 
-
-    def run_once(self, host, golden_data, audio_nodes, bind_from=None,
-                 bind_to=None, source=None, recorder=None, is_internal=False,
+    def run_once(self,
+                 host,
+                 golden_data,
+                 audio_nodes,
+                 bind_from=None,
+                 bind_to=None,
+                 source=None,
+                 recorder=None,
+                 is_internal=False,
                  cfm_speaker=False):
         """Runs the test main workflow.
 
@@ -160,36 +166,39 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
             external USB speaker on CFM (ChromeBox For Meetings) devices.
 
         """
+        if ((bind_from == chameleon_audio_ids.CrosIds.HEADPHONE
+             or bind_to == chameleon_audio_ids.CrosIds.EXTERNAL_MIC)
+                    and not audio_test_utils.has_audio_jack(self.host)):
+            raise error.TestNAError(
+                    'No audio jack for the DUT.'
+                    ' Confirm swarming bot dimension and control file'
+                    ' dependency for audio jack is matching.'
+                    ' For new boards, has_audio_jack might need to be updated.'
+            )
+
         if (recorder == chameleon_audio_ids.CrosIds.INTERNAL_MIC and
-            (not cfm_speaker and
-            not audio_test_utils.has_internal_microphone(host))):
+            (not cfm_speaker
+             and not audio_test_utils.has_internal_microphone(host))):
             return
 
-        if (source == chameleon_audio_ids.CrosIds.SPEAKER and
-            (not cfm_speaker and
-            not audio_test_utils.has_internal_speaker(host))):
+        if (source == chameleon_audio_ids.CrosIds.SPEAKER
+                    and (not cfm_speaker
+                         and not audio_test_utils.has_internal_speaker(host))):
             return
 
-        self.host = host
         self.audio_nodes = audio_nodes
         self.golden_file, self.low_pass_freq = golden_data
-        chameleon_board = self.host.chameleon
-        self.factory = remote_facade_factory.RemoteFacadeFactory(
-                self.host, results_dir=self.resultsdir)
-        self.audio_facade = self.factory.create_audio_facade()
-        chameleon_board.setup_and_reset(self.outputdir)
         widget_factory = chameleon_audio_helper.AudioWidgetFactory(
                 self.factory, host)
-        self.audio_board = chameleon_board.get_audio_board()
         self.widget_link = None
         self.use_audio_bus = False
 
         self.second_peak_ratio = audio_test_utils.get_second_peak_ratio(
-                source_id=source,
-                recorder_id=recorder)
+                source_id=source, recorder_id=recorder)
 
         self.ignore_frequencies = None
-        if source == chameleon_audio_ids.CrosIds.SPEAKER:
+        if (source == chameleon_audio_ids.CrosIds.SPEAKER
+                    or bind_to == chameleon_audio_ids.CrosIds.EXTERNAL_MIC):
             self.ignore_frequencies = [50, 60]
 
         # Two widgets are binded in the factory if necessary
@@ -199,8 +208,8 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
         if bind_from != None and bind_to != None:
             bind_from_widget = widget_factory.create_widget(bind_from)
             bind_to_widget = widget_factory.create_widget(bind_to)
-            binder_widget = widget_factory.create_binder(bind_from_widget,
-                                                         bind_to_widget)
+            binder_widget = widget_factory.create_binder(
+                    bind_from_widget, bind_to_widget)
             self.widget_link = binder_widget.get_link()
             if isinstance(self.widget_link, audio_widget_link.AudioBusLink):
                 self.use_audio_bus = True
@@ -223,7 +232,8 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
         if binder_widget != None:
             with chameleon_audio_helper.bind_widgets(binder_widget):
                 time.sleep(self.DELAY_AFTER_BINDING)
-                self.play_reboot_play_and_record(source_widget, recorder_widget)
+                self.play_reboot_play_and_record(source_widget,
+                                                 recorder_widget)
         else:
             self.play_reboot_play_and_record(source_widget, recorder_widget)
 

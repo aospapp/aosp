@@ -43,7 +43,7 @@ public class WifiSignalStrengthPreferenceController
 
     @Override
     protected void updateState(WifiDetailsPreference preference) {
-        mRssiSignalLevel = getAccessPoint().getLevel();
+        mRssiSignalLevel = getWifiEntry().getLevel();
         preference.setDetailText(mSignalStr[mRssiSignalLevel]);
     }
 }

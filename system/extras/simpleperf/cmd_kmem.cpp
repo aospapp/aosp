@@ -29,22 +29,22 @@
 #include "tracing.h"
 #include "utils.h"
 
+namespace simpleperf {
 namespace {
 
 struct SlabSample {
-  const Symbol* symbol;            // the function making allocation
-  uint64_t ptr;                    // the start address of the allocated space
-  uint64_t bytes_req;              // requested space size
-  uint64_t bytes_alloc;            // allocated space size
-  uint64_t sample_count;           // count of allocations
-  uint64_t gfp_flags;              // flags used for allocation
-  uint64_t cross_cpu_allocations;  // count of allocations freed not on the
-                                   // cpu allocating them
+  const Symbol* symbol;                 // the function making allocation
+  uint64_t ptr;                         // the start address of the allocated space
+  uint64_t bytes_req;                   // requested space size
+  uint64_t bytes_alloc;                 // allocated space size
+  uint64_t sample_count;                // count of allocations
+  uint64_t gfp_flags;                   // flags used for allocation
+  uint64_t cross_cpu_allocations;       // count of allocations freed not on the
+                                        // cpu allocating them
   CallChainRoot<SlabSample> callchain;  // a callchain tree representing all
                                         // callchains in this sample
-  SlabSample(const Symbol* symbol, uint64_t ptr, uint64_t bytes_req,
-             uint64_t bytes_alloc, uint64_t sample_count, uint64_t gfp_flags,
-             uint64_t cross_cpu_allocations)
+  SlabSample(const Symbol* symbol, uint64_t ptr, uint64_t bytes_req, uint64_t bytes_alloc,
+             uint64_t sample_count, uint64_t gfp_flags, uint64_t cross_cpu_allocations)
       : symbol(symbol),
         ptr(ptr),
         bytes_req(bytes_req),
@@ -53,9 +53,7 @@ struct SlabSample {
         gfp_flags(gfp_flags),
         cross_cpu_allocations(cross_cpu_allocations) {}
 
-  uint64_t GetPeriod() const {
-    return sample_count;
-  }
+  uint64_t GetPeriod() const { return sample_count; }
 };
 
 struct SlabAccumulateInfo {
@@ -67,26 +65,22 @@ BUILD_COMPARE_VALUE_FUNCTION(ComparePtr, ptr);
 BUILD_COMPARE_VALUE_FUNCTION_REVERSE(CompareBytesReq, bytes_req);
 BUILD_COMPARE_VALUE_FUNCTION_REVERSE(CompareBytesAlloc, bytes_alloc);
 BUILD_COMPARE_VALUE_FUNCTION(CompareGfpFlags, gfp_flags);
-BUILD_COMPARE_VALUE_FUNCTION_REVERSE(CompareCrossCpuAllocations,
-                                     cross_cpu_allocations);
+BUILD_COMPARE_VALUE_FUNCTION_REVERSE(CompareCrossCpuAllocations, cross_cpu_allocations);
 
 BUILD_DISPLAY_HEX64_FUNCTION(DisplayPtr, ptr);
 BUILD_DISPLAY_UINT64_FUNCTION(DisplayBytesReq, bytes_req);
 BUILD_DISPLAY_UINT64_FUNCTION(DisplayBytesAlloc, bytes_alloc);
 BUILD_DISPLAY_HEX64_FUNCTION(DisplayGfpFlags, gfp_flags);
-BUILD_DISPLAY_UINT64_FUNCTION(DisplayCrossCpuAllocations,
-                              cross_cpu_allocations);
+BUILD_DISPLAY_UINT64_FUNCTION(DisplayCrossCpuAllocations, cross_cpu_allocations);
 
-static int CompareFragment(const SlabSample* sample1,
-                           const SlabSample* sample2) {
+static int CompareFragment(const SlabSample* sample1, const SlabSample* sample2) {
   uint64_t frag1 = sample1->bytes_alloc - sample1->bytes_req;
   uint64_t frag2 = sample2->bytes_alloc - sample2->bytes_req;
   return Compare(frag2, frag1);
 }
 
 static std::string DisplayFragment(const SlabSample* sample) {
-  return android::base::StringPrintf("%" PRIu64,
-                                     sample->bytes_alloc - sample->bytes_req);
+  return android::base::StringPrintf("%" PRIu64, sample->bytes_alloc - sample->bytes_req);
 }
 
 struct SlabSampleTree {
@@ -110,8 +104,7 @@ struct SlabFormat {
   TracingFieldPlace gfp_flags;
 };
 
-class SlabSampleTreeBuilder
-    : public SampleTreeBuilder<SlabSample, SlabAccumulateInfo> {
+class SlabSampleTreeBuilder : public SampleTreeBuilder<SlabSample, SlabAccumulateInfo> {
  public:
   SlabSampleTreeBuilder(const SampleComparator<SlabSample>& sample_comparator,
                         ThreadTree* thread_tree)
@@ -133,8 +126,7 @@ class SlabSampleTreeBuilder
     return sample_tree;
   }
 
-  void AddSlabFormat(const std::vector<uint64_t>& event_ids,
-                     SlabFormat format) {
+  void AddSlabFormat(const std::vector<uint64_t>& event_ids, SlabFormat format) {
     std::unique_ptr<SlabFormat> p(new SlabFormat(format));
     for (auto id : event_ids) {
       event_id_to_format_map_[id] = p.get();
@@ -182,11 +174,9 @@ class SlabSampleTreeBuilder
       uint64_t bytes_req = format->bytes_req.ReadFromData(raw_data);
       uint64_t bytes_alloc = format->bytes_alloc.ReadFromData(raw_data);
       uint64_t gfp_flags = format->gfp_flags.ReadFromData(raw_data);
-      SlabSample* sample =
-          InsertSample(std::unique_ptr<SlabSample>(new SlabSample(
-              symbol, ptr, bytes_req, bytes_alloc, 1, gfp_flags, 0)));
-      alloc_cpu_record_map_.insert(
-          std::make_pair(ptr, std::make_pair(r.cpu_data.cpu, sample)));
+      SlabSample* sample = InsertSample(std::unique_ptr<SlabSample>(
+          new SlabSample(symbol, ptr, bytes_req, bytes_alloc, 1, gfp_flags, 0)));
+      alloc_cpu_record_map_.insert(std::make_pair(ptr, std::make_pair(r.cpu_data.cpu, sample)));
       acc_info->bytes_req = bytes_req;
       acc_info->bytes_alloc = bytes_alloc;
       return sample;
@@ -206,23 +196,20 @@ class SlabSampleTreeBuilder
     return nullptr;
   }
 
-  SlabSample* CreateBranchSample(const SampleRecord&,
-                                 const BranchStackItemType&) override {
+  SlabSample* CreateBranchSample(const SampleRecord&, const BranchStackItemType&) override {
     return nullptr;
   }
 
-  SlabSample* CreateCallChainSample(const ThreadEntry*,
-      const SlabSample* sample, uint64_t ip, bool in_kernel,
-      const std::vector<SlabSample*>& callchain,
-      const SlabAccumulateInfo& acc_info) override {
+  SlabSample* CreateCallChainSample(const ThreadEntry*, const SlabSample* sample, uint64_t ip,
+                                    bool in_kernel, const std::vector<SlabSample*>& callchain,
+                                    const SlabAccumulateInfo& acc_info) override {
     if (!in_kernel) {
       return nullptr;
     }
     const Symbol* symbol = thread_tree_->FindKernelSymbol(ip);
     return InsertCallChainSample(
-        std::unique_ptr<SlabSample>(
-            new SlabSample(symbol, sample->ptr, acc_info.bytes_req,
-                           acc_info.bytes_alloc, 1, sample->gfp_flags, 0)),
+        std::unique_ptr<SlabSample>(new SlabSample(symbol, sample->ptr, acc_info.bytes_req,
+                                                   acc_info.bytes_alloc, 1, sample->gfp_flags, 0)),
         callchain);
   }
 
@@ -256,14 +243,12 @@ class SlabSampleTreeBuilder
 
   std::unordered_map<uint64_t, SlabFormat*> event_id_to_format_map_;
   std::vector<std::unique_ptr<SlabFormat>> formats_;
-  std::unordered_map<uint64_t, std::pair<uint32_t, SlabSample*>>
-      alloc_cpu_record_map_;
+  std::unordered_map<uint64_t, std::pair<uint32_t, SlabSample*>> alloc_cpu_record_map_;
 };
 
 using SlabSampleTreeSorter = SampleTreeSorter<SlabSample>;
 using SlabSampleTreeDisplayer = SampleTreeDisplayer<SlabSample, SlabSampleTree>;
-using SlabSampleCallgraphDisplayer =
-    CallgraphDisplayer<SlabSample, CallChainNode<SlabSample>>;
+using SlabSampleCallgraphDisplayer = CallgraphDisplayer<SlabSample, CallChainNode<SlabSample>>;
 
 struct EventAttrWithName {
   perf_event_attr attr;
@@ -274,9 +259,8 @@ struct EventAttrWithName {
 class KmemCommand : public Command {
  public:
   KmemCommand()
-      : Command(
-            "kmem", "collect kernel memory allocation information",
-            // clang-format off
+      : Command("kmem", "collect kernel memory allocation information",
+                // clang-format off
 "Usage: kmem (record [record options] | report [report options])\n"
 "kmem record\n"
 "-g        Enable call graph recording. Same as '--call-graph fp'.\n"
@@ -309,8 +293,8 @@ class KmemCommand : public Command {
 "                             the cpu allocating them.\n"
 "            The default slab sort keys are:\n"
 "              hit,caller,bytes_req,bytes_alloc,fragment,pingpong.\n"
-            // clang-format on
-            ),
+                // clang-format on
+                ),
         is_record_(false),
         use_slab_(false),
         accumulate_callchain_(false),
@@ -322,8 +306,7 @@ class KmemCommand : public Command {
   bool Run(const std::vector<std::string>& args);
 
  private:
-  bool ParseOptions(const std::vector<std::string>& args,
-                    std::vector<std::string>* left_args);
+  bool ParseOptions(const std::vector<std::string>& args, std::vector<std::string>* left_args);
   bool RecordKmemInfo(const std::vector<std::string>& record_args);
   bool ReportKmemInfo();
   bool PrepareToBuildSampleTree();
@@ -449,10 +432,9 @@ bool KmemCommand::ParseOptions(const std::vector<std::string>& args,
 bool KmemCommand::RecordKmemInfo(const std::vector<std::string>& record_args) {
   std::vector<std::string> args;
   if (use_slab_) {
-    std::vector<std::string> trace_events = {
-        "kmem:kmalloc",      "kmem:kmem_cache_alloc",
-        "kmem:kmalloc_node", "kmem:kmem_cache_alloc_node",
-        "kmem:kfree",        "kmem:kmem_cache_free"};
+    std::vector<std::string> trace_events = {"kmem:kmalloc",      "kmem:kmem_cache_alloc",
+                                             "kmem:kmalloc_node", "kmem:kmem_cache_alloc_node",
+                                             "kmem:kfree",        "kmem:kmem_cache_free"};
     for (const auto& name : trace_events) {
       if (ParseEventType(name)) {
         args.insert(args.end(), {"-e", name});
@@ -497,8 +479,7 @@ bool KmemCommand::ReportKmemInfo() {
 bool KmemCommand::PrepareToBuildSampleTree() {
   if (use_slab_) {
     if (slab_sort_keys_.empty()) {
-      slab_sort_keys_ = {"hit",         "caller",   "bytes_req",
-                         "bytes_alloc", "fragment", "pingpong"};
+      slab_sort_keys_ = {"hit", "caller", "bytes_req", "bytes_alloc", "fragment", "pingpong"};
     }
     SampleComparator<SlabSample> comparator;
     SampleComparator<SlabSample> sort_comparator;
@@ -512,8 +493,7 @@ bool KmemCommand::PrepareToBuildSampleTree() {
     for (const auto& key : slab_sort_keys_) {
       if (key == "hit") {
         sort_comparator.AddCompareFunction(CompareSampleCount);
-        displayer.AddDisplayFunction(accumulated_name + "Hit",
-                                     DisplaySampleCount);
+        displayer.AddDisplayFunction(accumulated_name + "Hit", DisplaySampleCount);
       } else if (key == "caller") {
         comparator.AddCompareFunction(CompareSymbol);
         displayer.AddDisplayFunction("Caller", DisplaySymbol);
@@ -522,16 +502,13 @@ bool KmemCommand::PrepareToBuildSampleTree() {
         displayer.AddDisplayFunction("Ptr", DisplayPtr);
       } else if (key == "bytes_req") {
         sort_comparator.AddCompareFunction(CompareBytesReq);
-        displayer.AddDisplayFunction(accumulated_name + "BytesReq",
-                                     DisplayBytesReq);
+        displayer.AddDisplayFunction(accumulated_name + "BytesReq", DisplayBytesReq);
       } else if (key == "bytes_alloc") {
         sort_comparator.AddCompareFunction(CompareBytesAlloc);
-        displayer.AddDisplayFunction(accumulated_name + "BytesAlloc",
-                                     DisplayBytesAlloc);
+        displayer.AddDisplayFunction(accumulated_name + "BytesAlloc", DisplayBytesAlloc);
       } else if (key == "fragment") {
         sort_comparator.AddCompareFunction(CompareFragment);
-        displayer.AddDisplayFunction(accumulated_name + "Fragment",
-                                     DisplayFragment);
+        displayer.AddDisplayFunction(accumulated_name + "Fragment", DisplayFragment);
       } else if (key == "gfp_flags") {
         comparator.AddCompareFunction(CompareGfpFlags);
         displayer.AddDisplayFunction("GfpFlags", DisplayGfpFlags);
@@ -542,10 +519,9 @@ bool KmemCommand::PrepareToBuildSampleTree() {
         LOG(ERROR) << "Unknown sort key for slab allocation: " << key;
         return false;
       }
-      slab_sample_tree_builder_.reset(
-          new SlabSampleTreeBuilder(comparator, &thread_tree_));
-      slab_sample_tree_builder_->SetCallChainSampleOptions(
-          accumulate_callchain_, print_callgraph_, !callgraph_show_callee_);
+      slab_sample_tree_builder_.reset(new SlabSampleTreeBuilder(comparator, &thread_tree_));
+      slab_sample_tree_builder_->SetCallChainSampleOptions(accumulate_callchain_, print_callgraph_,
+                                                           !callgraph_show_callee_);
       sort_comparator.AddComparator(comparator);
       slab_sample_tree_sorter_.reset(new SlabSampleTreeSorter(sort_comparator));
       slab_sample_tree_displayer_.reset(new SlabSampleTreeDisplayer(displayer));
@@ -567,8 +543,7 @@ void KmemCommand::ReadEventAttrsFromRecordFile() {
 
 bool KmemCommand::ReadFeaturesFromRecordFile() {
   record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree_);
-  std::string arch =
-      record_file_reader_->ReadFeatureString(PerfFileFormat::FEAT_ARCH);
+  std::string arch = record_file_reader_->ReadFeatureString(PerfFileFormat::FEAT_ARCH);
   if (!arch.empty()) {
     record_file_arch_ = GetArchType(arch);
     if (record_file_arch_ == ARCH_UNSUPPORTED) {
@@ -581,8 +556,8 @@ bool KmemCommand::ReadFeaturesFromRecordFile() {
   }
   if (record_file_reader_->HasFeature(PerfFileFormat::FEAT_TRACING_DATA)) {
     std::vector<char> tracing_data;
-    if (!record_file_reader_->ReadFeatureSection(
-            PerfFileFormat::FEAT_TRACING_DATA, &tracing_data)) {
+    if (!record_file_reader_->ReadFeatureSection(PerfFileFormat::FEAT_TRACING_DATA,
+                                                 &tracing_data)) {
       return false;
     }
     ProcessTracingData(tracing_data);
@@ -592,9 +567,7 @@ bool KmemCommand::ReadFeaturesFromRecordFile() {
 
 bool KmemCommand::ReadSampleTreeFromRecordFile() {
   if (!record_file_reader_->ReadDataSection(
-          [this](std::unique_ptr<Record> record) {
-            return ProcessRecord(std::move(record));
-          })) {
+          [this](std::unique_ptr<Record> record) { return ProcessRecord(std::move(record)); })) {
     return false;
   }
   if (use_slab_) {
@@ -628,8 +601,7 @@ void KmemCommand::ProcessTracingData(const std::vector<char>& data) {
       TracingFormat format = tracing.GetTracingFormatHavingId(trace_event_id);
       if (use_slab_) {
         if (format.name == "kmalloc" || format.name == "kmem_cache_alloc" ||
-            format.name == "kmalloc_node" ||
-            format.name == "kmem_cache_alloc_node") {
+            format.name == "kmalloc_node" || format.name == "kmem_cache_alloc_node") {
           SlabFormat f;
           f.type = SlabFormat::KMEM_ALLOC;
           format.GetField("call_site", f.call_site);
@@ -665,8 +637,8 @@ bool KmemCommand::PrintReport() {
   if (use_slab_) {
     fprintf(report_fp, "\n\n");
     PrintSlabReportContext(report_fp);
-    slab_sample_tree_displayer_->DisplaySamples(
-        report_fp, slab_sample_tree_.samples, &slab_sample_tree_);
+    slab_sample_tree_displayer_->DisplaySamples(report_fp, slab_sample_tree_.samples,
+                                                &slab_sample_tree_);
   }
   return true;
 }
@@ -677,31 +649,28 @@ void KmemCommand::PrintReportContext(FILE* fp) {
   }
   fprintf(fp, "Arch: %s\n", GetArchString(record_file_arch_).c_str());
   for (const auto& attr : event_attrs_) {
-    fprintf(fp, "Event: %s (type %u, config %llu)\n", attr.name.c_str(),
-            attr.attr.type, attr.attr.config);
+    fprintf(fp, "Event: %s (type %u, config %llu)\n", attr.name.c_str(), attr.attr.type,
+            attr.attr.config);
   }
 }
 
 void KmemCommand::PrintSlabReportContext(FILE* fp) {
   fprintf(fp, "Slab allocation information:\n");
-  fprintf(fp, "Total requested bytes: %" PRIu64 "\n",
-          slab_sample_tree_.total_requested_bytes);
-  fprintf(fp, "Total allocated bytes: %" PRIu64 "\n",
-          slab_sample_tree_.total_allocated_bytes);
-  uint64_t fragment = slab_sample_tree_.total_allocated_bytes -
-                      slab_sample_tree_.total_requested_bytes;
+  fprintf(fp, "Total requested bytes: %" PRIu64 "\n", slab_sample_tree_.total_requested_bytes);
+  fprintf(fp, "Total allocated bytes: %" PRIu64 "\n", slab_sample_tree_.total_allocated_bytes);
+  uint64_t fragment =
+      slab_sample_tree_.total_allocated_bytes - slab_sample_tree_.total_requested_bytes;
   double percentage = 0.0;
   if (slab_sample_tree_.total_allocated_bytes != 0) {
     percentage = 100.0 * fragment / slab_sample_tree_.total_allocated_bytes;
   }
   fprintf(fp, "Total fragment: %" PRIu64 ", %f%%\n", fragment, percentage);
-  fprintf(fp, "Total allocations: %" PRIu64 "\n",
-          slab_sample_tree_.nr_allocations);
+  fprintf(fp, "Total allocations: %" PRIu64 "\n", slab_sample_tree_.nr_allocations);
   fprintf(fp, "Total frees: %" PRIu64 "\n", slab_sample_tree_.nr_frees);
   percentage = 0.0;
   if (slab_sample_tree_.nr_allocations != 0) {
-    percentage = 100.0 * slab_sample_tree_.nr_cross_cpu_allocations /
-                 slab_sample_tree_.nr_allocations;
+    percentage =
+        100.0 * slab_sample_tree_.nr_cross_cpu_allocations / slab_sample_tree_.nr_allocations;
   }
   fprintf(fp, "Total cross cpu allocation/free: %" PRIu64 ", %f%%\n",
           slab_sample_tree_.nr_cross_cpu_allocations, percentage);
@@ -711,6 +680,7 @@ void KmemCommand::PrintSlabReportContext(FILE* fp) {
 }  // namespace
 
 void RegisterKmemCommand() {
-  RegisterCommand("kmem",
-                  [] { return std::unique_ptr<Command>(new KmemCommand()); });
+  RegisterCommand("kmem", [] { return std::unique_ptr<Command>(new KmemCommand()); });
 }
+
+}  // namespace simpleperf

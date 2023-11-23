@@ -38,6 +38,14 @@ except ImportError:
 _HOSTNAME_PATTERN = 'chromeos[0-9]-row[0-9]+[a-z]?-rack[0-9]+[a-z]?-host[0-9]+'
 _DISALLOWED_HOSTNAME = 'disallowed_hostname'
 
+# States of verifiers
+# True - verifier run and passed
+# False - verifier run and failed
+# None - verifier did not run or dependency failed
+VERIFY_SUCCESS = True
+VERIFY_FAILED = False
+VERIFY_NOT_RUN = None
+
 
 class AutoservVerifyError(error.AutoservError):
     """
@@ -49,8 +57,20 @@ class AutoservVerifyError(error.AutoservError):
     pass
 
 
+class AutoservNonCriticalVerifyError(error.AutoservError):
+    """
+    Exception for failures from `Verifier` objects that not critical enough to
+    conclude the target host is in a bad state.
+    """
+    pass
+
+
 _DependencyFailure = collections.namedtuple(
         '_DependencyFailure', ('dependency', 'error', 'tag'))
+
+
+_NonCriticalDependencyFailure = collections.namedtuple(
+    '_NonCriticalDependencyFailure', ('dependency', 'error', 'tag'))
 
 
 class AutoservVerifyDependencyError(error.AutoservError):
@@ -117,6 +137,18 @@ class AutoservVerifyDependencyError(error.AutoservError):
         for failure in self.failures:
             logging.debug('    %s', failure.dependency)
 
+    def is_critical(self, silent=False):
+        """Check if the error is considered to be critical to repair process."""
+        for error in self.failures:
+            if isinstance(error, _NonCriticalDependencyFailure):
+                if not silent:
+                    logging.warning("%s is still failing but forgiven because"
+                                    " it raised a non-critical error.",
+                                    error.tag)
+            else:
+                return True
+        return False
+
 
 class AutoservRepairError(error.AutoservError):
     """
@@ -152,6 +184,16 @@ class _DependencyNode(object):
         self._dependency_list = dependencies
         self._tag = tag
         self._record_tag = record_type + '.' + tag
+
+    def _is_applicable(self, host):
+        """
+        Check if the action is applicable to target host. Subclasses
+        can override this method per their need.
+
+        @param host     Target host to check.
+        @return         A bool value.
+        """
+        return True
 
     def _record(self, host, silent, status_code, *record_args):
         """
@@ -219,6 +261,9 @@ class _DependencyNode(object):
         for v in verifiers:
             try:
                 v._verify_host(host, silent)
+            except AutoservNonCriticalVerifyError as e:
+                failures.add(_NonCriticalDependencyFailure(v.description,
+                                                           str(e), v.tag))
             except AutoservVerifyDependencyError as e:
                 failures.update(e.failures)
             except Exception as e:
@@ -274,6 +319,16 @@ class _DependencyNode(object):
         return ('Class %s fails to implement description().' %
                 type(self).__name__)
 
+    def _get_node_by_tag(self, tag):
+        """Find verifier by tag, recursive."""
+        if self._tag == tag:
+            return self
+        for child in self._dependency_list:
+            node = child._get_node_by_tag(tag)
+            if node is not None:
+                return node
+        return None
+
 
 class Verifier(_DependencyNode):
     """
@@ -313,6 +368,9 @@ class Verifier(_DependencyNode):
 
     The base class manages the following private data:
       * `_result`:  The cached result of verification.
+                    None - did not run
+                    True - successful pass
+                    Exception - fail during execution
       * `_dependency_list`:  The list of dependencies.
     Subclasses should not use these attributes.
 
@@ -330,10 +388,9 @@ class Verifier(_DependencyNode):
         Reset the cached verification result for this node, and for the
         transitive closure of all dependencies.
         """
-        if self._result is not None:
-            self._result = None
-            for v in self._dependency_list:
-                v._reverify()
+        self._result = None
+        for v in self._dependency_list:
+            v._reverify()
 
     def _verify_host(self, host, silent):
         """
@@ -350,12 +407,22 @@ class Verifier(_DependencyNode):
         @param host     The host to be tested for a problem.
         @param silent   If true, don't log host status records.
         """
+        try:
+            if not self._is_applicable(host):
+                logging.info('Verify %s is not applicable to %s, skipping...',
+                             self.description, host.hostname)
+                return
+        except Exception as e:
+            logging.error('Skipping %s verifier due to unexpect error during'
+                          ' check applicability; %s', self.tag, e)
+            return
+
         if self._result is not None:
             if isinstance(self._result, Exception):
                 raise self._result  # cached failure
             elif self._result:
                 return              # cached success
-        self._result = False
+
         self._verify_dependencies(host, silent)
         logging.info('Verifying this condition: %s', self.description)
         try:
@@ -363,9 +430,16 @@ class Verifier(_DependencyNode):
             self.verify(host)
             self._record_good(host, silent)
         except Exception as e:
-            logging.exception('Failed: %s', self.description)
+            message = 'Failed: %s'
+            if isinstance(e, AutoservNonCriticalVerifyError):
+                message = '(Non-critical)Failed: %s'
+            logging.exception(message, self.description)
             self._result = e
             self._record_fail(host, silent, e)
+            # Increase verifier fail count if device health profile is
+            # available to the host class.
+            if hasattr(host, 'health_profile') and host.health_profile:
+                host.health_profile.insert_failed_verifier(self.tag)
             raise
         finally:
             logging.debug('Finished verify task: %s.', type(self).__name__)
@@ -408,6 +482,21 @@ class Verifier(_DependencyNode):
         """
         raise NotImplementedError('Class %s does not implement '
                                   'verify()' % type(self).__name__)
+
+    def _is_good(self):
+        """Provide result of the verifier
+
+        @returns: a boolean or None value:
+            True - verifier passed
+            False - verifier did not pass
+            None - verifier did not run because it is not applicable
+                   or blocked due to dependency failure
+        """
+        if type(self._result) == type(True):
+            return self._result
+        elif isinstance(self._result, Exception):
+            return False
+        return None
 
 
 class RepairAction(_DependencyNode):
@@ -554,6 +643,17 @@ class RepairAction(_DependencyNode):
         #
         # If we're blocked by a failed dependency, we exit with an
         # exception.  So set status to 'blocked' first.
+        self.status = 'skipped'
+        try:
+            if not self._is_applicable(host):
+                logging.info('RepairAction is not applicable, skipping repair: %s',
+                             self.description)
+                return
+        except Exception as e:
+            logging.error('Skipping %s repair action due to unexpect error'
+                          ' during check applicability; %s', self.tag, e)
+            return
+
         self.status = 'blocked'
         try:
             self._verify_dependencies(host, silent)
@@ -574,11 +674,19 @@ class RepairAction(_DependencyNode):
             self._record_start(host, silent)
             try:
                 self.repair(host)
+                # Increase action success count if device health profile is
+                # available to the host class.
+                if hasattr(host, 'health_profile') and host.health_profile:
+                    host.health_profile.insert_succeed_repair_action(self.tag)
             except Exception as e:
                 logging.exception('Repair failed: %s', self.description)
                 self._record_fail(host, silent, e)
                 self._record_end_fail(host, silent, 'repair_failure')
                 self._send_failure_metrics(host, e, 'repair')
+                # Increase action fail count if device health profile is
+                # available to the host class.
+                if hasattr(host, 'health_profile') and host.health_profile:
+                    host.health_profile.insert_failed_repair_action(self.tag)
                 raise
             try:
                 for v in self._trigger_list:
@@ -603,7 +711,7 @@ class RepairAction(_DependencyNode):
                 raise
         else:
             self.status = 'skipped'
-            logging.info('No failed triggers, skipping repair:  %s',
+            logging.info('No failed triggers, skipping repair: %s',
                          self.description)
 
     def repair(self, host):
@@ -887,6 +995,32 @@ class RepairStrategy(object):
         finally:
             self._send_strategy_metrics(host, result)
 
+    def verifier_is_good(self, tag):
+        """Find and return result of a verifier.
+
+        @param tag: key to be associated with verifier
+
+        @returns: a boolean or None value:
+            True - verifier passed
+            False - verifier did not pass
+            None - verifier did not run because it is not applicable
+                   or blocked due to dependency failure
+        """
+        verifier = self._verify_root._get_node_by_tag(tag)
+        if verifier is not None:
+            result = verifier._is_good()
+            logging.debug('Verifier with associated tag: %s found', tag)
+            if result is None:
+                logging.debug('%s did not run; it is not applicable to run '
+                              'or blocked due to dependency failure', tag)
+            elif result == True:
+                logging.debug('Cached result of %s verifier is pass', tag)
+            else:
+                logging.debug('Cached result of %s verifier is fail', tag)
+            return result
+        logging.debug('Verifier with associated tag: %s not found', tag)
+        return None
+
 
 def _filter_metrics_hostname(host):
     """
@@ -898,4 +1032,3 @@ def _filter_metrics_hostname(host):
         return host.hostname
     else:
         return _DISALLOWED_HOSTNAME
-

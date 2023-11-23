@@ -56,6 +56,23 @@ static const struct _renderControl_funcs_by_name {
 	{"rcSetColorBufferVulkanMode", (void*)rcSetColorBufferVulkanMode},
 	{"rcReadColorBufferYUV", (void*)rcReadColorBufferYUV},
 	{"rcIsSyncSignaled", (void*)rcIsSyncSignaled},
+	{"rcCreateColorBufferWithHandle", (void*)rcCreateColorBufferWithHandle},
+	{"rcCreateBuffer", (void*)rcCreateBuffer},
+	{"rcCloseBuffer", (void*)rcCloseBuffer},
+	{"rcSetColorBufferVulkanMode2", (void*)rcSetColorBufferVulkanMode2},
+	{"rcMapGpaToBufferHandle", (void*)rcMapGpaToBufferHandle},
+	{"rcCreateBuffer2", (void*)rcCreateBuffer2},
+	{"rcMapGpaToBufferHandle2", (void*)rcMapGpaToBufferHandle2},
+	{"rcFlushWindowColorBufferAsyncWithFrameNumber", (void*)rcFlushWindowColorBufferAsyncWithFrameNumber},
+	{"rcSetTracingForPuid", (void*)rcSetTracingForPuid},
+	{"rcMakeCurrentAsync", (void*)rcMakeCurrentAsync},
+	{"rcComposeAsync", (void*)rcComposeAsync},
+	{"rcDestroySyncKHRAsync", (void*)rcDestroySyncKHRAsync},
+	{"rcComposeWithoutPost", (void*)rcComposeWithoutPost},
+	{"rcComposeAsyncWithoutPost", (void*)rcComposeAsyncWithoutPost},
+	{"rcCreateDisplayById", (void*)rcCreateDisplayById},
+	{"rcSetDisplayPoseDpi", (void*)rcSetDisplayPoseDpi},
+	{"rcReadColorBufferDMA", (void*)rcReadColorBufferDMA},
 };
 static const int renderControl_num_funcs = sizeof(renderControl_funcs_by_name) / sizeof(struct _renderControl_funcs_by_name);
 

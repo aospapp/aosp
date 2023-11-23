@@ -139,14 +139,14 @@ public class PackageDeviceInfo extends DeviceInfo {
         store.startArray(REQUESTED_PERMISSIONS);
         if (pkg.requestedPermissions != null && pkg.requestedPermissions.length > 0) {
             for (String permission : pkg.requestedPermissions) {
+                if (permission == null) continue;
+
                 try {
                     final PermissionInfo pi = pm.getPermissionInfo(permission, 0);
 
                     store.startGroup();
                     store.addResult(PERMISSION_NAME, permission);
                     writePermissionsDetails(pi, store);
-
-                    if (permission == null) continue;
 
                     final boolean isPlatformPermission = systemPermissions.contains(permission);
                     if (isPlatformPermission) {

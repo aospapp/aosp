@@ -66,6 +66,13 @@ class Sensor : public PlatformSensor {
   }
 
   /**
+   * @return true if the sensor has bias updates enabled.
+   */
+  bool biasEventsEnabled() const {
+    return mSensorRequests.getCurrentMaximalRequest().getBiasUpdatesRequested();
+  }
+
+  /**
    * @return A const reference to the maximal request.
    */
   const SensorRequest &getMaximalRequest() const {
@@ -207,6 +214,8 @@ class Sensor : public PlatformSensor {
   /**
    * Sets the current status of this sensor in the CHRE API format.
    *
+   * Note: This method is called on a thread other than the main event loop.
+   *
    * @param status The current sampling status.
    */
   void setSamplingStatus(const struct chreSensorSamplingStatus &status);
@@ -219,6 +228,11 @@ class Sensor : public PlatformSensor {
   size_t getLastEventSize() {
     return SensorTypeHelpers::getLastEventSize(getSensorType());
   }
+
+  //! Mutex used to lock setting / getting the sampling status information for
+  //! sensors. Share it among all sensors since nanoapps can only request a
+  //! single sensor status at a time.
+  static Mutex mSamplingStatusMutex;
 
   //! The latest sampling status provided by the sensor.
   struct chreSensorSamplingStatus mSamplingStatus = {};

@@ -30,6 +30,10 @@ typedef struct SpiDriver_config {
    * e.g. On Linux based systems this would be /dev/p73
    */
 
+  int bgt;
+
+  int polling_interval;
+
   uint32_t devMaxFreq;
   /*!< Communication speed between DH and ESE
    *

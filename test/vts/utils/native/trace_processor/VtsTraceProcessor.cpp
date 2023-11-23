@@ -291,7 +291,7 @@ void VtsTraceProcessor::ProcessTraceForLatencyProfiling(
         int64_t start_timestamp = entry_record.timestamp();
         int64_t end_timestamp = record.timestamp();
         int64_t latency = end_timestamp - start_timestamp;
-        // sanity check.
+        // Negative latency check.
         if (latency < 0) {
           cerr << __func__ << ": got negative latency for " << full_api_name
                << endl;

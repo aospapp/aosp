@@ -30,6 +30,7 @@ class ZoomRatioMapper {
     std::unordered_map<uint32_t, Dimension> physical_cam_active_array_dimension;
     ZoomRatioRange zoom_ratio_range;
     std::unique_ptr<ZoomRatioMapperHwl> zoom_ratio_mapper_hwl;
+    uint32_t camera_id;
   };
 
   void Initialize(InitParams* params);
@@ -76,6 +77,8 @@ class ZoomRatioMapper {
   bool is_zoom_ratio_supported_ = false;
 
   std::unique_ptr<ZoomRatioMapperHwl> zoom_ratio_mapper_hwl_;
+
+  uint32_t camera_id_;
 };
 
 }  // namespace google_camera_hal

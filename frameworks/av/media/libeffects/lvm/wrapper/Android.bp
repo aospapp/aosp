@@ -1,5 +1,24 @@
 // music bundle wrapper
-cc_library_shared {
+package {
+    default_applicable_licenses: [
+        "frameworks_av_media_libeffects_lvm_wrapper_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_media_libeffects_lvm_wrapper_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
+cc_library {
     name: "libbundlewrapper",
 
     arch: {
@@ -9,11 +28,11 @@ cc_library_shared {
     },
 
     vendor: true,
+    host_supported: true,
     srcs: ["Bundle/EffectBundle.cpp"],
 
     cppflags: [
         "-fvisibility=hidden",
-        "-DSUPPORT_MC",
 
         "-Wall",
         "-Werror",
@@ -26,7 +45,6 @@ cc_library_shared {
     shared_libs: [
         "libaudioutils",
         "libcutils",
-        "libdl",
         "liblog",
     ],
 
@@ -39,7 +57,7 @@ cc_library_shared {
 }
 
 // reverb wrapper
-cc_library_shared {
+cc_library {
     name: "libreverbwrapper",
 
     arch: {
@@ -49,6 +67,7 @@ cc_library_shared {
     },
 
     vendor: true,
+    host_supported: true,
     srcs: ["Reverb/EffectReverb.cpp"],
 
     cppflags: [
@@ -65,7 +84,6 @@ cc_library_shared {
     shared_libs: [
         "libaudioutils",
         "libcutils",
-        "libdl",
         "liblog",
     ],
 

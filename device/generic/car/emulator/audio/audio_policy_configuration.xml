@@ -78,56 +78,47 @@
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
-                <mixPort name="mixport_bus1_navigation_out" role="source"
-                        flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                <mixPort name="mixport_bus1_navigation_out" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
-                <mixPort name="mixport_bus2_voice_command_out" role="source"
-                        flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                <mixPort name="mixport_bus2_voice_command_out" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
-                <mixPort name="mixport_bus3_call_ring_out" role="source"
-                        flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                <mixPort name="mixport_bus3_call_ring_out" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
-                <mixPort name="mixport_bus4_call_out" role="source"
-                        flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                <mixPort name="mixport_bus4_call_out" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
-                <mixPort name="mixport_bus5_alarm_out" role="source"
-                        flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                <mixPort name="mixport_bus5_alarm_out" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
-                <mixPort name="mixport_bus6_notification_out" role="source"
-                        flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                <mixPort name="mixport_bus6_notification_out" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
-                <mixPort name="mixport_bus7_system_sound_out" role="source"
-                        flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                <mixPort name="mixport_bus7_system_sound_out" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
-                <mixPort name="mixport_bus100_audio_zone_1" role="source"
-                        flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                <mixPort name="mixport_bus100_audio_zone_1" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
                 </mixPort>
-                <mixPort name="mixport_bus200_audio_zone_2" role="source"
-                         flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                <mixPort name="mixport_bus200_audio_zone_2" role="source">
                     <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                              samplingRates="48000"
                              channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>

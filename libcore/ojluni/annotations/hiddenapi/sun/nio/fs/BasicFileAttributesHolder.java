@@ -28,7 +28,7 @@ package sun.nio.fs;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public interface BasicFileAttributesHolder {
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public java.nio.file.attribute.BasicFileAttributes get();
 
     public void invalidate();

@@ -16,16 +16,17 @@
 
 package com.android.car.dialer.ui.favorite;
 
-import android.app.Application;
+import android.content.Context;
 
-import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
 
 import com.android.car.arch.common.FutureData;
 import com.android.car.arch.common.LiveDataFunctions;
 import com.android.car.dialer.R;
+import com.android.car.dialer.livedata.SharedPreferencesLiveData;
 import com.android.car.dialer.storage.FavoriteNumberRepository;
+import com.android.car.dialer.ui.common.DialerListViewModel;
 import com.android.car.dialer.ui.common.entity.ActionButton;
 import com.android.car.dialer.ui.common.entity.Header;
 import com.android.car.telephony.common.Contact;
@@ -34,28 +35,43 @@ import com.android.car.telephony.common.PhoneNumber;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import dagger.hilt.android.lifecycle.HiltViewModel;
+import dagger.hilt.android.qualifiers.ApplicationContext;
+
 /**
  * View model for {@link FavoriteFragment}.
  */
-public class FavoriteViewModel extends AndroidViewModel {
+@HiltViewModel
+public class FavoriteViewModel extends DialerListViewModel {
     private final FavoriteNumberRepository mFavoriteNumberRepository;
-    private final LiveData<FutureData<List<Object>>> mFavoriteContacts;
     private final LiveData<List<Contact>> mBluetoothFavoriteContacts;
+    private final LiveData<List<Contact>> mLocalFavoriteContacts;
+    private final LiveData<FutureData<List<Object>>> mFavoriteContacts;
 
-    public FavoriteViewModel(Application application) {
-        super(application);
-        mFavoriteNumberRepository = FavoriteNumberRepository.getRepository(application);
-        mBluetoothFavoriteContacts = new BluetoothFavoriteContactsLiveData(application);
+    @Inject
+    public FavoriteViewModel(
+            @ApplicationContext Context context,
+            SharedPreferencesLiveData.Factory sharedPreferencesFactory,
+            FavoriteNumberRepository favoriteNumberRepository,
+            @Named("BluetoothFavorite") LiveData<List<Contact>> bluetoothFavoriteContacts,
+            @Named("LocalFavorite") LiveData<List<Contact>> localFavoriteContacts) {
+        super(context, sharedPreferencesFactory);
+        mFavoriteNumberRepository = favoriteNumberRepository;
+        mBluetoothFavoriteContacts = bluetoothFavoriteContacts;
+        mLocalFavoriteContacts = localFavoriteContacts;
 
         MediatorLiveData<List<Object>> favoriteContacts = new MediatorLiveData<>();
-        favoriteContacts.addSource(mFavoriteNumberRepository.getFavoriteContacts(), contacts -> {
+        favoriteContacts.addSource(mLocalFavoriteContacts, contacts -> {
             List<Object> contactList = new ArrayList<>();
             if (mBluetoothFavoriteContacts.getValue() != null
                     && !mBluetoothFavoriteContacts.getValue().isEmpty()) {
-                contactList.add(new Header(application.getString(R.string.phone_favorites)));
+                contactList.add(new Header(context.getString(R.string.phone_favorites)));
                 contactList.addAll(mBluetoothFavoriteContacts.getValue());
             }
-            contactList.add(new Header(application.getString(R.string.local_favorites)));
+            contactList.add(new Header(context.getString(R.string.local_favorites)));
             if (contacts != null) {
                 contactList.addAll(contacts);
             }
@@ -65,12 +81,12 @@ public class FavoriteViewModel extends AndroidViewModel {
         favoriteContacts.addSource(mBluetoothFavoriteContacts, contacts -> {
             List<Object> contactList = new ArrayList<>();
             if (contacts != null && !contacts.isEmpty()) {
-                contactList.add(new Header(application.getString(R.string.phone_favorites)));
+                contactList.add(new Header(context.getString(R.string.phone_favorites)));
                 contactList.addAll(contacts);
             }
-            contactList.add(new Header(application.getString(R.string.local_favorites)));
-            if (mFavoriteNumberRepository.getFavoriteContacts().getValue() != null) {
-                contactList.addAll(mFavoriteNumberRepository.getFavoriteContacts().getValue());
+            contactList.add(new Header(context.getString(R.string.local_favorites)));
+            if (mLocalFavoriteContacts.getValue() != null) {
+                contactList.addAll(mLocalFavoriteContacts.getValue());
             }
             contactList.add(new ActionButton());
             favoriteContacts.setValue(contactList);

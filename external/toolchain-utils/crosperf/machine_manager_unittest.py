@@ -44,8 +44,8 @@ class MyMachineManager(machine_manager.MachineManager):
         assert m.name != machine_name, 'Tried to double-add %s' % machine_name
       cm = machine_manager.MockCrosMachine(machine_name, self.chromeos_root,
                                            'average')
-      assert cm.machine_checksum, (
-          'Could not find checksum for machine %s' % machine_name)
+      assert cm.machine_checksum, ('Could not find checksum for machine %s' %
+                                   machine_name)
       self._all_machines.append(cm)
 
 
@@ -87,9 +87,10 @@ class MachineManagerTest(unittest.TestCase):
   def setUp(self, mock_isdir):
 
     mock_isdir.return_value = True
-    self.mm = machine_manager.MachineManager(
-        '/usr/local/chromeos', 0, 'average', None, self.mock_cmd_exec,
-        self.mock_logger)
+    self.mm = machine_manager.MachineManager('/usr/local/chromeos', 0,
+                                             'average', None,
+                                             self.mock_cmd_exec,
+                                             self.mock_logger)
 
     self.mock_lumpy1.name = 'lumpy1'
     self.mock_lumpy2.name = 'lumpy2'
@@ -225,15 +226,14 @@ class MachineManagerTest(unittest.TestCase):
     self.assertEqual(mock_sleep.call_count, 0)
 
   def test_compute_common_checksum(self):
-
     self.mm.machine_checksum = {}
     self.mm.ComputeCommonCheckSum(LABEL_LUMPY)
     self.assertEqual(self.mm.machine_checksum['lumpy'], 'lumpy123')
     self.assertEqual(len(self.mm.machine_checksum), 1)
 
     self.mm.machine_checksum = {}
-    self.assertRaises(machine_manager.BadChecksum,
-                      self.mm.ComputeCommonCheckSum, LABEL_MIX)
+    self.assertRaisesRegex(machine_manager.BadChecksum, r'daisy.*\n.*lumpy',
+                           self.mm.ComputeCommonCheckSum, LABEL_MIX)
 
   def test_compute_common_checksum_string(self):
     self.mm.machine_checksum_string = {}
@@ -583,8 +583,8 @@ power management:
 CHECKSUM_STRING = ('processor: 0vendor_id: GenuineIntelcpu family: 6model: '
                    '42model name: Intel(R) Celeron(R) CPU 867 @ '
                    '1.30GHzstepping: 7microcode: 0x25cache size: 2048 '
-                   'KBphysical id: 0siblings: 2core id: 0cpu cores: 2apicid: '
-                   '0initial apicid: 0fpu: yesfpu_exception: yescpuid level: '
+                   'KBphysical id: 0siblings: 2cpu cores: 2'
+                   'fpu: yesfpu_exception: yescpuid level: '
                    '13wp: yesflags: fpu vme de pse tsc msr pae mce cx8 apic sep'
                    ' mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse '
                    'sse2 ss ht tm pbe syscall nx rdtscp lm constant_tsc '
@@ -597,8 +597,8 @@ CHECKSUM_STRING = ('processor: 0vendor_id: GenuineIntelcpu family: 6model: '
                    'bits virtualpower management:processor: 1vendor_id: '
                    'GenuineIntelcpu family: 6model: 42model name: Intel(R) '
                    'Celeron(R) CPU 867 @ 1.30GHzstepping: 7microcode: 0x25cache'
-                   ' size: 2048 KBphysical id: 0siblings: 2core id: 1cpu cores:'
-                   ' 2apicid: 2initial apicid: 2fpu: yesfpu_exception: yescpuid'
+                   ' size: 2048 KBphysical id: 0siblings: 2cpu cores:'
+                   ' 2fpu: yesfpu_exception: yescpuid'
                    ' level: 13wp: yesflags: fpu vme de pse tsc msr pae mce cx8 '
                    'apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx '
                    'fxsr sse sse2 ss ht tm pbe syscall nx rdtscp lm '

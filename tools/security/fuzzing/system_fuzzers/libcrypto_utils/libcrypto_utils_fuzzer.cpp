@@ -21,6 +21,7 @@
 #include <openssl/obj_mac.h>
 #include <openssl/rsa.h>
 #include <cstdio>
+#include <limits>
 
 #define ANDROID_PUBKEY_MODULUS_SIZE_WORDS (ANDROID_PUBKEY_MODULUS_SIZE / 4)
 
@@ -35,7 +36,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, std::size_t size) {
     uint32_t modulus_size_words = ANDROID_PUBKEY_MODULUS_SIZE_WORDS;
     memcpy(buffer, &modulus_size_words, sizeof(uint32_t));
 
-    uint32_t n0inv = fdp.ConsumeIntegralInRange<uint32_t>(0,2^32);
+    uint32_t n0inv = fdp.ConsumeIntegralInRange<uint32_t>(0,std::numeric_limits<uint32_t>::max());
     memcpy(buffer+sizeof(uint32_t), &n0inv, sizeof(uint32_t));
 
     std::string s = fdp.ConsumeBytesAsString(ANDROID_PUBKEY_MODULUS_SIZE);

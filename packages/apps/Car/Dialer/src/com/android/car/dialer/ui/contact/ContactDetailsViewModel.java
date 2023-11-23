@@ -16,16 +16,15 @@
 
 package com.android.car.dialer.ui.contact;
 
-import android.app.Application;
 import android.content.Context;
 import android.net.Uri;
 import android.provider.ContactsContract;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MediatorLiveData;
+import androidx.lifecycle.ViewModel;
 
 import com.android.car.arch.common.FutureData;
 import com.android.car.arch.common.LiveDataFunctions;
@@ -38,15 +37,24 @@ import com.android.car.telephony.common.WorkerExecutor;
 import java.util.List;
 import java.util.concurrent.Future;
 
+import javax.inject.Inject;
+
+import dagger.hilt.android.lifecycle.HiltViewModel;
+import dagger.hilt.android.qualifiers.ApplicationContext;
+
 /**
  * View model for the contact details page.
  */
-public class ContactDetailsViewModel extends AndroidViewModel {
+@HiltViewModel
+public class ContactDetailsViewModel extends ViewModel {
+    private final Context mContext;
     private final FavoriteNumberRepository mFavoriteNumberRepository;
 
-    public ContactDetailsViewModel(@NonNull Application application) {
-        super(application);
-        mFavoriteNumberRepository = FavoriteNumberRepository.getRepository(application);
+    @Inject
+    public ContactDetailsViewModel(@ApplicationContext Context context,
+            FavoriteNumberRepository favoriteNumberRepository) {
+        mContext = context;
+        mFavoriteNumberRepository = favoriteNumberRepository;
     }
 
     /**
@@ -62,7 +70,7 @@ public class ContactDetailsViewModel extends AndroidViewModel {
             return LiveDataFunctions.dataOf(new FutureData<>(false, null));
         }
 
-        LiveData<Contact> contactLiveData = new ContactDetailsLiveData(getApplication(), contact);
+        LiveData<Contact> contactLiveData = new ContactDetailsLiveData(mContext, contact);
         return LiveDataFunctions.loadingSwitchMap(contactLiveData,
                 input -> LiveDataFunctions.dataOf(input));
     }

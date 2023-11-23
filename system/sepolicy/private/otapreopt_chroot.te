@@ -1,10 +1,18 @@
 # otapreopt_chroot executable
-type otapreopt_chroot, domain, coredomain;
-type otapreopt_chroot_exec, system_file_type, exec_type, file_type;
+typeattribute otapreopt_chroot coredomain;
+type otapreopt_chroot_exec, exec_type, file_type, system_file_type;
 
 # Chroot preparation and execution.
 # We need to create an unshared mount namespace, and then mount /data.
 allow otapreopt_chroot postinstall_file:dir { search mounton };
+allow otapreopt_chroot apex_mnt_dir:dir mounton;
+allow otapreopt_chroot device:dir mounton;
+allow otapreopt_chroot linkerconfig_file:dir mounton;
+allow otapreopt_chroot rootfs:dir mounton;
+allow otapreopt_chroot sysfs:dir mounton;
+allow otapreopt_chroot system_data_root_file:dir mounton;
+allow otapreopt_chroot system_file:dir mounton;
+allow otapreopt_chroot vendor_file:dir mounton;
 allow otapreopt_chroot self:global_capability_class_set { sys_admin sys_chroot };
 
 # This is required to mount /vendor and mount/unmount ext4 images from
@@ -35,13 +43,20 @@ allow otapreopt_chroot update_engine:fd use;
 allow otapreopt_chroot update_engine:fifo_file write;
 
 # Allow to transition to postinstall_dexopt, to run otapreopt in its own sandbox.
-domain_auto_trans(otapreopt_chroot, postinstall_file, postinstall_dexopt)
+domain_auto_trans(otapreopt_chroot, postinstall_dexopt_exec, postinstall_dexopt)
+domain_auto_trans(otapreopt_chroot, linkerconfig_exec, linkerconfig)
+domain_auto_trans(otapreopt_chroot, apexd_exec, apexd)
+
+# Allow otapreopt_chroot to control linkerconfig
+allow otapreopt_chroot linkerconfig_file:dir { create_dir_perms relabelto };
+allow otapreopt_chroot linkerconfig_file:file create_file_perms;
 
 # Allow otapreopt_chroot to create loop devices with /dev/loop-control.
 allow otapreopt_chroot loop_control_device:chr_file rw_file_perms;
 # Allow otapreopt_chroot to access loop devices.
 allow otapreopt_chroot loop_device:blk_file rw_file_perms;
 allowxperm otapreopt_chroot loop_device:blk_file ioctl {
+  LOOP_CONFIGURE
   LOOP_GET_STATUS64
   LOOP_SET_STATUS64
   LOOP_SET_FD
@@ -63,6 +78,7 @@ allow otapreopt_chroot postinstall_apex_mnt_dir:dir relabelto;
 
 # Allow otapreopt_chroot to manipulate directory /postinstall/apex.
 allow otapreopt_chroot postinstall_apex_mnt_dir:dir create_dir_perms;
+allow otapreopt_chroot postinstall_apex_mnt_dir:file create_file_perms;
 # Allow otapreopt_chroot to mount APEX packages in /postinstall/apex.
 allow otapreopt_chroot postinstall_apex_mnt_dir:dir mounton;
 
@@ -72,3 +88,11 @@ allow otapreopt_chroot block_device:dir r_dir_perms;
 
 # Allow to access the linker through the symlink.
 allow otapreopt_chroot postinstall_file:lnk_file r_file_perms;
+
+# Allow otapreopt_chroot to read ro.cold_boot_done prop.
+# This is a temporary solution to make sure that otapreopt_chroot doesn't block indefinetelly.
+# TODO(b/165948777): remove this once otapreopt_chroot is migrated to libapexmount.
+get_prop(otapreopt_chroot, cold_boot_done_prop)
+
+# allow otapreopt_chroot to run the linkerconfig from the new image.
+allow otapreopt_chroot linkerconfig_exec:file rx_file_perms;

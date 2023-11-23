@@ -33,10 +33,32 @@ namespace minikin {
 
 class FontFamily {
 public:
-    explicit FontFamily(std::vector<Font>&& fonts);
-    FontFamily(FamilyVariant variant, std::vector<Font>&& fonts);
-    FontFamily(uint32_t localeListId, FamilyVariant variant, std::vector<Font>&& fonts,
-               bool isCustomFallback);
+    explicit FontFamily(std::vector<std::shared_ptr<Font>>&& fonts);
+    FontFamily(FamilyVariant variant, std::vector<std::shared_ptr<Font>>&& fonts);
+    FontFamily(uint32_t localeListId, FamilyVariant variant,
+               std::vector<std::shared_ptr<Font>>&& fonts, bool isCustomFallback);
+
+    template <Font::TypefaceReader typefaceReader>
+    static std::shared_ptr<FontFamily> readFrom(BufferReader* reader) {
+        uint32_t localeListId = readLocaleListInternal(reader);
+        uint32_t fontsCount = reader->read<uint32_t>();
+        std::vector<std::shared_ptr<Font>> fonts;
+        fonts.reserve(fontsCount);
+        for (uint32_t i = 0; i < fontsCount; i++) {
+            fonts.emplace_back(Font::readFrom<typefaceReader>(reader, localeListId));
+        }
+        return readFromInternal(reader, std::move(fonts), localeListId);
+    }
+
+    template <Font::TypefaceWriter typefaceWriter>
+    void writeTo(BufferWriter* writer) const {
+        writeLocaleListInternal(writer);
+        writer->write<uint32_t>(mFonts.size());
+        for (const std::shared_ptr<Font>& font : mFonts) {
+            font->writeTo<typefaceWriter>(writer);
+        }
+        writeToInternal(writer);
+    }
 
     FakedFont getClosestMatch(FontStyle style) const;
 
@@ -45,8 +67,9 @@ public:
 
     // API's for enumerating the fonts in a family. These don't guarantee any particular order
     size_t getNumFonts() const { return mFonts.size(); }
-    const Font* getFont(size_t index) const { return &mFonts[index]; }
-    FontStyle getStyle(size_t index) const { return mFonts[index].style(); }
+    const Font* getFont(size_t index) const { return mFonts[index].get(); }
+    const std::shared_ptr<Font>& getFontRef(size_t index) const { return mFonts[index]; }
+    FontStyle getStyle(size_t index) const { return mFonts[index]->style(); }
     bool isColorEmojiFamily() const { return mIsColorEmoji; }
     const std::unordered_set<AxisTag>& supportedAxes() const { return mSupportedAxes; }
     bool isCustomFallback() const { return mIsCustomFallback; }
@@ -67,11 +90,24 @@ public:
             const std::vector<FontVariation>& variations) const;
 
 private:
+    FontFamily(uint32_t localeListId, FamilyVariant variant,
+               std::vector<std::shared_ptr<Font>>&& fonts,
+               std::unordered_set<AxisTag>&& supportedAxes, bool isColorEmoji,
+               bool isCustomFallback, SparseBitSet&& coverage,
+               std::vector<std::unique_ptr<SparseBitSet>>&& cmapFmt14Coverage);
+
+    static uint32_t readLocaleListInternal(BufferReader* reader);
+    static std::shared_ptr<FontFamily> readFromInternal(BufferReader* reader,
+                                                        std::vector<std::shared_ptr<Font>>&& fonts,
+                                                        uint32_t localeListId);
+    void writeLocaleListInternal(BufferWriter* writer) const;
+    void writeToInternal(BufferWriter* writer) const;
+
     void computeCoverage();
 
     uint32_t mLocaleListId;
     FamilyVariant mVariant;
-    std::vector<Font> mFonts;
+    std::vector<std::shared_ptr<Font>> mFonts;
     std::unordered_set<AxisTag> mSupportedAxes;
     bool mIsColorEmoji;
     bool mIsCustomFallback;

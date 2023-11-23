@@ -14,29 +14,8 @@
 
 package android
 
-import (
-	"fmt"
-	"os"
-)
-
-func init() {
-	// Stash the working directory in a private variable and then change the working directory
-	// to "/", which will prevent untracked accesses to files by Go Soong plugins. The
-	// SOONG_SANDBOX_SOONG_BUILD environment variable is set by soong_ui, and is not
-	// overrideable on the command line.
-
-	orig, err := os.Getwd()
-	if err != nil {
-		panic(fmt.Errorf("failed to get working directory: %s", err))
-	}
-	absSrcDir = orig
-
-	if getenv("SOONG_SANDBOX_SOONG_BUILD") == "true" {
-		err = os.Chdir("/")
-		if err != nil {
-			panic(fmt.Errorf("failed to change working directory to '/': %s", err))
-		}
-	}
+func InitSandbox(topDir string) {
+	absSrcDir = topDir
 }
 
 // DO NOT USE THIS FUNCTION IN NEW CODE.

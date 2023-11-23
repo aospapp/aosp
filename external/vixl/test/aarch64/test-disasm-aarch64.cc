@@ -92,6 +92,19 @@ TEST(mov_mvn) {
   CLEANUP();
 }
 
+TEST(mvn_macro) {
+  SETUP();
+
+  // Mvn uses the destination register as a scratch if it can. This only occurs
+  // when `operand.IsExtendedRegister()`.
+  COMPARE_MACRO(Mvn(x0, Operand(w1, SXTW)),
+                "sxtw x0, w1\n"
+                "mvn x0, x0");
+  COMPARE_MACRO(Mvn(x0, Operand(x0, SXTW)),
+                "sxtw x0, w0\n"
+                "mvn x0, x0");
+}
+
 
 TEST(move_immediate) {
   SETUP();
@@ -1955,11 +1968,10 @@ TEST(prfm_operations) {
   const int expected_count = sizeof(expected) / sizeof(expected[0]);
   VIXL_STATIC_ASSERT((1 << ImmPrefetchOperation_width) == expected_count);
 
-  for (int i = 0; i < (1 << ImmPrefetchOperation_width); i++) {
-    PrefetchOperation op = static_cast<PrefetchOperation>(i);
-    COMPARE_PREFIX(prfm(op, INT64_C(0)), expected[i]);
-    COMPARE_PREFIX(prfm(op, MemOperand(x0, 0)), expected[i]);
-    COMPARE_PREFIX(prfm(op, MemOperand(x0, x1)), expected[i]);
+  for (int op = 0; op < (1 << ImmPrefetchOperation_width); op++) {
+    COMPARE_PREFIX(prfm(op, INT64_C(0)), expected[op]);
+    COMPARE_PREFIX(prfm(op, MemOperand(x0, 0)), expected[op]);
+    COMPARE_PREFIX(prfm(op, MemOperand(x0, x1)), expected[op]);
   }
 
   CLEANUP();
@@ -1986,9 +1998,8 @@ TEST(prfum_operations) {
   const int expected_count = sizeof(expected) / sizeof(expected[0]);
   VIXL_STATIC_ASSERT((1 << ImmPrefetchOperation_width) == expected_count);
 
-  for (int i = 0; i < (1 << ImmPrefetchOperation_width); i++) {
-    PrefetchOperation op = static_cast<PrefetchOperation>(i);
-    COMPARE_PREFIX(prfum(op, MemOperand(x0, 0)), expected[i]);
+  for (int op = 0; op < (1 << ImmPrefetchOperation_width); op++) {
+    COMPARE_PREFIX(prfum(op, MemOperand(x0, 0)), expected[op]);
   }
 
   CLEANUP();
@@ -2743,6 +2754,53 @@ TEST(add_sub_negative) {
   CLEANUP();
 }
 
+TEST(add_sub_macro) {
+  SETUP();
+
+  // Add and Sub use their destination register as a scratch if they can.
+  COMPARE_MACRO(Add(x0, x1, 0x4242),
+                "mov x0, #0x4242\n"
+                "add x0, x1, x0");
+  COMPARE_MACRO(Add(x0, x0, 0x4242),
+                "mov x16, #0x4242\n"
+                "add x0, x0, x16");
+  COMPARE_MACRO(Adds(x0, xzr, Operand(w1, SXTW)),
+                "sxtw x0, w1\n"
+                "adds x0, xzr, x0");
+  COMPARE_MACRO(Sub(x0, x1, 0x4242),
+                "mov x0, #0x4242\n"
+                "sub x0, x1, x0");
+  COMPARE_MACRO(Sub(x0, x0, 0x4242),
+                "mov x16, #0x4242\n"
+                "sub x0, x0, x16");
+  COMPARE_MACRO(Subs(x0, xzr, Operand(w1, SXTW)),
+                "sxtw x0, w1\n"
+                "negs x0, x0");
+}
+
+TEST(adc_sbc_macro) {
+  SETUP();
+
+  // Adc and Sbc use their destination register as a scratch if they can.
+  COMPARE_MACRO(Adc(x0, x1, 0x4242),
+                "mov x0, #0x4242\n"
+                "adc x0, x1, x0");
+  COMPARE_MACRO(Adc(x0, x0, 0x4242),
+                "mov x16, #0x4242\n"
+                "adc x0, x0, x16");
+  COMPARE_MACRO(Adcs(x0, xzr, Operand(w1, SXTW)),
+                "sxtw x0, w1\n"
+                "adcs x0, xzr, x0");
+  COMPARE_MACRO(Sbc(x0, x1, 0x4242),
+                "mov x0, #0x4242\n"
+                "sbc x0, x1, x0");
+  COMPARE_MACRO(Sbc(x0, x0, 0x4242),
+                "mov x16, #0x4242\n"
+                "sbc x0, x0, x16");
+  COMPARE_MACRO(Sbcs(x0, xzr, Operand(w1, SXTW)),
+                "sxtw x0, w1\n"
+                "ngcs x0, x0");
+}
 
 TEST(logical_immediate_move) {
   SETUP();
@@ -2793,6 +2851,29 @@ TEST(logical_immediate_move) {
   CLEANUP();
 }
 
+TEST(logical_macro) {
+  SETUP();
+
+  // LogicalMacro uses the destination register as a scratch if it can.
+  COMPARE_MACRO(And(x0, x1, 0x4242),
+                "mov x0, #0x4242\n"
+                "and x0, x1, x0");
+  COMPARE_MACRO(Bic(x0, x0, 0x4242),
+                "mov x16, #0xffffffffffffbdbd\n"
+                "and x0, x0, x16");
+  COMPARE_MACRO(Orn(x0, xzr, Operand(w1, SXTW)),
+                "sxtw x0, w1\n"
+                "mvn x0, x0");
+  COMPARE_MACRO(Orr(x0, x1, 0x4242),
+                "mov x0, #0x4242\n"
+                "orr x0, x1, x0");
+  COMPARE_MACRO(Ands(x0, x0, 0x4242),
+                "mov x16, #0x4242\n"
+                "ands x0, x0, x16");
+  COMPARE_MACRO(Tst(xzr, Operand(w1, SXTW)),
+                "sxtw x16, w1\n"
+                "tst xzr, x16");
+}
 
 TEST(barriers) {
   SETUP();
@@ -2967,11 +3048,11 @@ TEST(bti) {
   COMPARE(hint(BTI_j), "bti j");
   COMPARE(hint(BTI_jc), "bti jc");
 
-  Label dummy1, dummy2, dummy3, dummy4;
-  COMPARE_MACRO(Bind(&dummy1, EmitBTI), "bti");
-  COMPARE_MACRO(Bind(&dummy2, EmitBTI_c), "bti c");
-  COMPARE_MACRO(Bind(&dummy3, EmitBTI_j), "bti j");
-  COMPARE_MACRO(Bind(&dummy4, EmitBTI_jc), "bti jc");
+  Label placeholder1, placeholder2, placeholder3, placeholder4;
+  COMPARE_MACRO(Bind(&placeholder1, EmitBTI), "bti");
+  COMPARE_MACRO(Bind(&placeholder2, EmitBTI_c), "bti c");
+  COMPARE_MACRO(Bind(&placeholder3, EmitBTI_j), "bti j");
+  COMPARE_MACRO(Bind(&placeholder4, EmitBTI_jc), "bti jc");
 
   CLEANUP();
 }

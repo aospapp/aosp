@@ -61,7 +61,7 @@ uint8_t* Initialize(ReplyFunction reply_function, uint32_t req_buffer_size) {
 
 // Ingests trace data.
 void EMSCRIPTEN_KEEPALIVE trace_processor_parse(uint32_t);
-void trace_processor_parse(size_t size) {
+void trace_processor_parse(uint32_t size) {
   // TODO(primiano): Parse() makes a copy of the data, which is unfortunate.
   // Ideally there should be a way to take the Blob coming from JS and move it.
   // See https://github.com/WebAssembly/design/issues/1162.
@@ -97,6 +97,14 @@ void trace_processor_compute_metric(uint32_t size) {
           static_cast<uint32_t>(res.size()));
 }
 
+void EMSCRIPTEN_KEEPALIVE trace_processor_get_metric_descriptors(uint32_t);
+void trace_processor_get_metric_descriptors(uint32_t size) {
+  std::vector<uint8_t> res =
+      g_trace_processor_rpc->GetMetricDescriptors(g_req_buf, size);
+  g_reply(reinterpret_cast<const char*>(res.data()),
+          static_cast<uint32_t>(res.size()));
+}
+
 void EMSCRIPTEN_KEEPALIVE trace_processor_enable_metatrace(uint32_t);
 void trace_processor_enable_metatrace(uint32_t) {
   g_trace_processor_rpc->EnableMetatrace();
@@ -111,6 +119,19 @@ void trace_processor_disable_and_read_metatrace(uint32_t) {
 }
 
 }  // extern "C"
-
 }  // namespace trace_processor
 }  // namespace perfetto
+
+int main(int, char**) {
+  // This is unused but is needed for the following series of reason:
+  // - We need the callMain() Emscripten JS helper function for traceconv (but
+  //   not for trace_processor).
+  // - Newer versions of emscripten require that callMain is explicitly exported
+  //   via EXTRA_EXPORTED_RUNTIME_METHODS = ['callMain'].
+  // - We have one set of EXTRA_EXPORTED_RUNTIME_METHODS for both
+  //   trace_processor.wasm (which does not need a main) and traceconv (which
+  //   does).
+  // - Without this main(), the Wasm bootstrap code will cause a JS error at
+  //   runtime when trying to load trace_processor.js.
+  return 0;
+}

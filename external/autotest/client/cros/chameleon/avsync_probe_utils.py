@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -30,11 +31,15 @@ Example:
 
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import collections
 import logging
 import math
 import os
 import sys
+from six.moves import range
 
 
 # Indices for binarize_data, audio_events and video_events.
@@ -191,7 +196,7 @@ class AVSyncProbeDataParser(object):
         self._log_dir = log_dir
         self._raw_data = capture_raw_data
         # Translate to millisecond for each video frame.
-        self._video_duration = 1000 / video_fps
+        self._video_duration = 1000 // video_fps
         self._sound_interval_frames = sound_interval_frames
         self._log_list_data_to_file('raw.txt', capture_raw_data)
 
@@ -255,7 +260,7 @@ class AVSyncProbeDataParser(object):
         decoded_data = []
 
         hystersis_switch = []
-        for i in xrange(5):
+        for i in range(5):
             hystersis_switch.append(self._get_hysteresis_switch(i))
 
         for data in self._raw_data:
@@ -264,7 +269,7 @@ class AVSyncProbeDataParser(object):
             # There are 3 black or white boxes sensed by the sensors.
             # Each square represents a single bit (white = 1, black = 0) coding
             # an integer in Gray code.
-            for i in xrange(1, 4):
+            for i in range(1, 4):
                 # Lower sensor value for brighter light(square painted white).
                 is_white = not hystersis_switch[i].adjust_state(data[i])
                 if is_white:
@@ -360,7 +365,7 @@ class AVSyncProbeDataParser(object):
                   - time delay between audio and video frame.
 
         """
-        closest_difference = sys.maxint
+        closest_difference = sys.maxsize
         audio_time = 0
         for audio_event in self.audio_events:
             difference = audio_event[TIME_INDEX] - video_time

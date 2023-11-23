@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -27,72 +26,64 @@ import (
 
 	"android/soong/android"
 	"android/soong/cc"
+	"android/soong/dexpreopt"
+	"android/soong/genrule"
 )
 
-var (
-	resourceFiles = []string{
+// testApp runs tests using the prepareForJavaTest
+//
+// See testJava for an explanation as to how to stop using this deprecated method.
+//
+// deprecated
+func testApp(t *testing.T, bp string) *android.TestContext {
+	t.Helper()
+	result := prepareForJavaTest.RunTestWithBp(t, bp)
+	return result.TestContext
+}
+
+func TestApp(t *testing.T) {
+	resourceFiles := []string{
 		"res/layout/layout.xml",
 		"res/values/strings.xml",
 		"res/values-en-rUS/strings.xml",
 	}
 
-	compiledResourceFiles = []string{
+	compiledResourceFiles := []string{
 		"aapt2/res/layout_layout.xml.flat",
 		"aapt2/res/values_strings.arsc.flat",
 		"aapt2/res/values-en-rUS_strings.arsc.flat",
 	}
-)
 
-func testAppConfig(env map[string]string, bp string, fs map[string][]byte) android.Config {
-	appFS := map[string][]byte{}
-	for k, v := range fs {
-		appFS[k] = v
-	}
-
-	for _, file := range resourceFiles {
-		appFS[file] = nil
-	}
-
-	return testConfig(env, bp, appFS)
-}
-
-func testApp(t *testing.T, bp string) *android.TestContext {
-	config := testAppConfig(nil, bp, nil)
-
-	ctx := testContext()
-
-	run(t, ctx, config)
-
-	return ctx
-}
-
-func TestApp(t *testing.T) {
 	for _, moduleType := range []string{"android_app", "android_library"} {
 		t.Run(moduleType, func(t *testing.T) {
-			ctx := testApp(t, moduleType+` {
+			result := android.GroupFixturePreparers(
+				prepareForJavaTest,
+				android.FixtureModifyMockFS(func(fs android.MockFS) {
+					for _, file := range resourceFiles {
+						fs[file] = nil
+					}
+				}),
+			).RunTestWithBp(t, moduleType+` {
 					name: "foo",
 					srcs: ["a.java"],
 					sdk_version: "current"
 				}
 			`)
 
-			foo := ctx.ModuleForTests("foo", "android_common")
+			foo := result.ModuleForTests("foo", "android_common")
 
 			var expectedLinkImplicits []string
 
 			manifestFixer := foo.Output("manifest_fixer/AndroidManifest.xml")
 			expectedLinkImplicits = append(expectedLinkImplicits, manifestFixer.Output.String())
 
-			frameworkRes := ctx.ModuleForTests("framework-res", "android_common")
+			frameworkRes := result.ModuleForTests("framework-res", "android_common")
 			expectedLinkImplicits = append(expectedLinkImplicits,
 				frameworkRes.Output("package-res.apk").Output.String())
 
 			// Test the mapping from input files to compiled output file names
 			compile := foo.Output(compiledResourceFiles[0])
-			if !reflect.DeepEqual(resourceFiles, compile.Inputs.Strings()) {
-				t.Errorf("expected aapt2 compile inputs expected:\n  %#v\n got:\n  %#v",
-					resourceFiles, compile.Inputs.Strings())
-			}
+			android.AssertDeepEquals(t, "aapt2 compile inputs", resourceFiles, compile.Inputs.Strings())
 
 			compiledResourceOutputs := compile.Outputs.Strings()
 			sort.Strings(compiledResourceOutputs)
@@ -103,11 +94,8 @@ func TestApp(t *testing.T) {
 			expectedLinkImplicits = append(expectedLinkImplicits, list.Output.String())
 
 			// Check that the link rule uses
-			res := ctx.ModuleForTests("foo", "android_common").Output("package-res.apk")
-			if !reflect.DeepEqual(expectedLinkImplicits, res.Implicits.Strings()) {
-				t.Errorf("expected aapt2 link implicits expected:\n  %#v\n got:\n  %#v",
-					expectedLinkImplicits, res.Implicits.Strings())
-			}
+			res := result.ModuleForTests("foo", "android_common").Output("package-res.apk")
+			android.AssertDeepEquals(t, "aapt2 link implicits", expectedLinkImplicits, res.Implicits.Strings())
 		})
 	}
 }
@@ -124,9 +112,9 @@ func TestAppSplits(t *testing.T) {
 	foo := ctx.ModuleForTests("foo", "android_common")
 
 	expectedOutputs := []string{
-		filepath.Join(buildDir, ".intermediates/foo/android_common/foo.apk"),
-		filepath.Join(buildDir, ".intermediates/foo/android_common/foo_v4.apk"),
-		filepath.Join(buildDir, ".intermediates/foo/android_common/foo_v7_hdpi.apk"),
+		"out/soong/.intermediates/foo/android_common/foo.apk",
+		"out/soong/.intermediates/foo/android_common/foo_v4.apk",
+		"out/soong/.intermediates/foo/android_common/foo_v7_hdpi.apk",
 	}
 	for _, expectedOutput := range expectedOutputs {
 		foo.Output(expectedOutput)
@@ -136,102 +124,7 @@ func TestAppSplits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if g, w := outputFiles.Strings(), expectedOutputs; !reflect.DeepEqual(g, w) {
-		t.Errorf(`want OutputFiles("") = %q, got %q`, w, g)
-	}
-}
-
-func TestAndroidAppSet(t *testing.T) {
-	ctx, config := testJava(t, `
-		android_app_set {
-			name: "foo",
-			set: "prebuilts/apks/app.apks",
-			prerelease: true,
-		}`)
-	module := ctx.ModuleForTests("foo", "android_common")
-	const packedSplitApks = "foo.zip"
-	params := module.Output(packedSplitApks)
-	if params.Rule == nil {
-		t.Errorf("expected output %s is missing", packedSplitApks)
-	}
-	if s := params.Args["allow-prereleased"]; s != "true" {
-		t.Errorf("wrong allow-prereleased value: '%s', expected 'true'", s)
-	}
-	if s := params.Args["partition"]; s != "system" {
-		t.Errorf("wrong partition value: '%s', expected 'system'", s)
-	}
-	mkEntries := android.AndroidMkEntriesForTest(t, config, "", module.Module())[0]
-	actualMaster := mkEntries.EntryMap["LOCAL_APK_SET_MASTER_FILE"]
-	expectedMaster := []string{"foo.apk"}
-	if !reflect.DeepEqual(actualMaster, expectedMaster) {
-		t.Errorf("Unexpected LOCAL_APK_SET_MASTER_FILE value: '%s', expected: '%s',",
-			actualMaster, expectedMaster)
-	}
-}
-
-func TestAndroidAppSet_Variants(t *testing.T) {
-	bp := `
-		android_app_set {
-			name: "foo",
-			set: "prebuilts/apks/app.apks",
-		}`
-	testCases := []struct {
-		name            string
-		targets         []android.Target
-		aaptPrebuiltDPI []string
-		sdkVersion      int
-		expected        map[string]string
-	}{
-		{
-			name: "One",
-			targets: []android.Target{
-				{Os: android.Android, Arch: android.Arch{ArchType: android.X86}},
-			},
-			aaptPrebuiltDPI: []string{"ldpi", "xxhdpi"},
-			sdkVersion:      29,
-			expected: map[string]string{
-				"abis":              "X86",
-				"allow-prereleased": "false",
-				"screen-densities":  "LDPI,XXHDPI",
-				"sdk-version":       "29",
-				"stem":              "foo",
-			},
-		},
-		{
-			name: "Two",
-			targets: []android.Target{
-				{Os: android.Android, Arch: android.Arch{ArchType: android.X86_64}},
-				{Os: android.Android, Arch: android.Arch{ArchType: android.X86}},
-			},
-			aaptPrebuiltDPI: nil,
-			sdkVersion:      30,
-			expected: map[string]string{
-				"abis":              "X86_64,X86",
-				"allow-prereleased": "false",
-				"screen-densities":  "all",
-				"sdk-version":       "30",
-				"stem":              "foo",
-			},
-		},
-	}
-
-	for _, test := range testCases {
-		config := testAppConfig(nil, bp, nil)
-		config.TestProductVariables.AAPTPrebuiltDPI = test.aaptPrebuiltDPI
-		config.TestProductVariables.Platform_sdk_version = &test.sdkVersion
-		config.Targets[android.Android] = test.targets
-		ctx := testContext()
-		run(t, ctx, config)
-		module := ctx.ModuleForTests("foo", "android_common")
-		const packedSplitApks = "foo.zip"
-		params := module.Output(packedSplitApks)
-		for k, v := range test.expected {
-			if actual := params.Args[k]; actual != v {
-				t.Errorf("%s: bad build arg value for '%s': '%s', expected '%s'",
-					test.name, k, actual, v)
-			}
-		}
-	}
+	android.AssertPathsRelativeToTopEquals(t, `OutputFiles("")`, expectedOutputs, outputFiles)
 }
 
 func TestPlatformAPIs(t *testing.T) {
@@ -291,7 +184,7 @@ func TestAndroidAppLinkType(t *testing.T) {
 		}
 	`)
 
-	testJavaError(t, "Adjust sdk_version: property of the source or target module so that target module is built with the same or smaller API set than the source.", `
+	testJavaError(t, "consider adjusting sdk_version: OR platform_apis:", `
 		android_app {
 			name: "foo",
 			srcs: ["a.java"],
@@ -335,7 +228,7 @@ func TestAndroidAppLinkType(t *testing.T) {
 		}
 	`)
 
-	testJavaError(t, "Adjust sdk_version: property of the source or target module so that target module is built with the same or smaller API set than the source.", `
+	testJavaError(t, "consider adjusting sdk_version: OR platform_apis:", `
 		android_app {
 			name: "foo",
 			srcs: ["a.java"],
@@ -469,13 +362,35 @@ func TestUpdatableApps(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			if test.expectedError == "" {
-				testJava(t, test.bp)
-			} else {
-				testJavaError(t, test.expectedError, test.bp)
+			errorHandler := android.FixtureExpectsNoErrors
+			if test.expectedError != "" {
+				errorHandler = android.FixtureExpectsAtLeastOneErrorMatchingPattern(test.expectedError)
 			}
+			android.GroupFixturePreparers(
+				prepareForJavaTest, FixtureWithPrebuiltApis(map[string][]string{
+					"29": {"foo"},
+				})).
+				ExtendWithErrorHandler(errorHandler).RunTestWithBp(t, test.bp)
 		})
 	}
+}
+
+func TestUpdatableApps_TransitiveDepsShouldSetMinSdkVersion(t *testing.T) {
+	testJavaError(t, `module "bar".*: should support min_sdk_version\(29\)`, cc.GatherRequiredDepsForTest(android.Android)+`
+		android_app {
+			name: "foo",
+			srcs: ["a.java"],
+			updatable: true,
+			sdk_version: "current",
+			min_sdk_version: "29",
+			static_libs: ["bar"],
+		}
+
+		java_library {
+			name: "bar",
+			sdk_version: "current",
+		}
+	`)
 }
 
 func TestUpdatableApps_JniLibsShouldShouldSupportMinSdkVersion(t *testing.T) {
@@ -515,16 +430,6 @@ func TestUpdatableApps_JniLibShouldBeBuiltAgainstMinSdkVersion(t *testing.T) {
 			system_shared_libs: [],
 			sdk_version: "29",
 		}
-
-		ndk_prebuilt_object {
-			name: "ndk_crtbegin_so.29",
-			sdk_version: "29",
-		}
-
-		ndk_prebuilt_object {
-			name: "ndk_crtend_so.29",
-			sdk_version: "29",
-		}
 	`
 	fs := map[string][]byte{
 		"prebuilts/ndk/current/platforms/android-29/arch-arm64/usr/lib/crtbegin_so.o": nil,
@@ -533,20 +438,32 @@ func TestUpdatableApps_JniLibShouldBeBuiltAgainstMinSdkVersion(t *testing.T) {
 		"prebuilts/ndk/current/platforms/android-29/arch-arm/usr/lib/crtend_so.o":     nil,
 	}
 
-	ctx, _ := testJavaWithConfig(t, testConfig(nil, bp, fs))
+	ctx, _ := testJavaWithFS(t, bp, fs)
 
 	inputs := ctx.ModuleForTests("libjni", "android_arm64_armv8-a_sdk_shared").Description("link").Implicits
 	var crtbeginFound, crtendFound bool
+	expectedCrtBegin := ctx.ModuleForTests("crtbegin_so",
+		"android_arm64_armv8-a_sdk_29").Rule("partialLd").Output
+	expectedCrtEnd := ctx.ModuleForTests("crtend_so",
+		"android_arm64_armv8-a_sdk_29").Rule("partialLd").Output
+	implicits := []string{}
 	for _, input := range inputs {
-		switch input.String() {
-		case "prebuilts/ndk/current/platforms/android-29/arch-arm64/usr/lib/crtbegin_so.o":
+		implicits = append(implicits, input.String())
+		if strings.HasSuffix(input.String(), expectedCrtBegin.String()) {
 			crtbeginFound = true
-		case "prebuilts/ndk/current/platforms/android-29/arch-arm64/usr/lib/crtend_so.o":
+		} else if strings.HasSuffix(input.String(), expectedCrtEnd.String()) {
 			crtendFound = true
 		}
 	}
-	if !crtbeginFound || !crtendFound {
-		t.Error("should link with ndk_crtbegin_so.29 and ndk_crtend_so.29")
+	if !crtbeginFound {
+		t.Error(fmt.Sprintf(
+			"expected implicit with suffix %q, have the following implicits:\n%s",
+			expectedCrtBegin, strings.Join(implicits, "\n")))
+	}
+	if !crtendFound {
+		t.Error(fmt.Sprintf(
+			"expected implicit with suffix %q, have the following implicits:\n%s",
+			expectedCrtEnd, strings.Join(implicits, "\n")))
 	}
 }
 
@@ -622,7 +539,7 @@ func TestResourceDirs(t *testing.T) {
 		},
 	}
 
-	fs := map[string][]byte{
+	fs := android.MockFS{
 		"res/res/values/strings.xml": nil,
 	}
 
@@ -636,11 +553,13 @@ func TestResourceDirs(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			config := testConfig(nil, fmt.Sprintf(bp, testCase.prop), fs)
-			ctx := testContext()
-			run(t, ctx, config)
+			result := android.GroupFixturePreparers(
+				PrepareForTestWithJavaDefaultModules,
+				PrepareForTestWithOverlayBuildComponents,
+				fs.AddToFixture(),
+			).RunTestWithBp(t, fmt.Sprintf(bp, testCase.prop))
 
-			module := ctx.ModuleForTests("foo", "android_common")
+			module := result.ModuleForTests("foo", "android_common")
 			resourceList := module.MaybeOutput("aapt2/res.list")
 
 			var resources []string
@@ -650,10 +569,7 @@ func TestResourceDirs(t *testing.T) {
 				}
 			}
 
-			if !reflect.DeepEqual(resources, testCase.resources) {
-				t.Errorf("expected resource files %q, got %q",
-					testCase.resources, resources)
-			}
+			android.AssertDeepEquals(t, "resource files", testCase.resources, resources)
 		})
 	}
 }
@@ -699,9 +615,9 @@ func TestLibraryAssets(t *testing.T) {
 			name: "foo",
 			// lib1 has its own asset. lib3 doesn't have any, but provides lib4's transitively.
 			assetPackages: []string{
-				buildDir + "/.intermediates/foo/android_common/aapt2/package-res.apk",
-				buildDir + "/.intermediates/lib1/android_common/assets.zip",
-				buildDir + "/.intermediates/lib3/android_common/assets.zip",
+				"out/soong/.intermediates/foo/android_common/aapt2/package-res.apk",
+				"out/soong/.intermediates/lib1/android_common/assets.zip",
+				"out/soong/.intermediates/lib3/android_common/assets.zip",
 			},
 		},
 		{
@@ -714,8 +630,8 @@ func TestLibraryAssets(t *testing.T) {
 		{
 			name: "lib3",
 			assetPackages: []string{
-				buildDir + "/.intermediates/lib3/android_common/aapt2/package-res.apk",
-				buildDir + "/.intermediates/lib4/android_common/assets.zip",
+				"out/soong/.intermediates/lib3/android_common/aapt2/package-res.apk",
+				"out/soong/.intermediates/lib4/android_common/assets.zip",
 			},
 		},
 		{
@@ -736,26 +652,65 @@ func TestLibraryAssets(t *testing.T) {
 			} else {
 				aapt2link = m.Output("package-res.apk")
 			}
+			aapt2link = aapt2link
 			aapt2Flags := aapt2link.Args["flags"]
 			if test.assetFlag != "" {
-				if !strings.Contains(aapt2Flags, test.assetFlag) {
-					t.Errorf("Can't find asset flag %q in aapt2 link flags %q", test.assetFlag, aapt2Flags)
-				}
+				android.AssertStringDoesContain(t, "asset flag", aapt2Flags, test.assetFlag)
 			} else {
-				if strings.Contains(aapt2Flags, " -A ") {
-					t.Errorf("aapt2 link flags %q contain unexpected asset flag", aapt2Flags)
-				}
+				android.AssertStringDoesNotContain(t, "aapt2 link flags", aapt2Flags, " -A ")
 			}
 
 			// Check asset merge rule.
 			if len(test.assetPackages) > 0 {
 				mergeAssets := m.Output("package-res.apk")
-				if !reflect.DeepEqual(test.assetPackages, mergeAssets.Inputs.Strings()) {
-					t.Errorf("Unexpected mergeAssets inputs: %v, expected: %v",
-						mergeAssets.Inputs.Strings(), test.assetPackages)
-				}
+				android.AssertPathsRelativeToTopEquals(t, "mergeAssets inputs", test.assetPackages, mergeAssets.Inputs)
 			}
 		})
+	}
+}
+
+func TestAppJavaResources(t *testing.T) {
+	bp := `
+			android_app {
+				name: "foo",
+				sdk_version: "current",
+				java_resources: ["resources/a"],
+				srcs: ["a.java"],
+			}
+
+			android_app {
+				name: "bar",
+				sdk_version: "current",
+				java_resources: ["resources/a"],
+			}
+		`
+
+	ctx := testApp(t, bp)
+
+	foo := ctx.ModuleForTests("foo", "android_common")
+	fooResources := foo.Output("res/foo.jar")
+	fooDexJar := foo.Output("dex-withres/foo.jar")
+	fooDexJarAligned := foo.Output("dex-withres-aligned/foo.jar")
+	fooApk := foo.Rule("combineApk")
+
+	if g, w := fooDexJar.Inputs.Strings(), fooResources.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected resource jar %q in foo dex jar inputs %q", w, g)
+	}
+
+	if g, w := fooDexJarAligned.Input.String(), fooDexJar.Output.String(); g != w {
+		t.Errorf("expected dex jar %q in foo aligned dex jar inputs %q", w, g)
+	}
+
+	if g, w := fooApk.Inputs.Strings(), fooDexJarAligned.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected aligned dex jar %q in foo apk inputs %q", w, g)
+	}
+
+	bar := ctx.ModuleForTests("bar", "android_common")
+	barResources := bar.Output("res/bar.jar")
+	barApk := bar.Rule("combineApk")
+
+	if g, w := barApk.Inputs.Strings(), barResources.Output.String(); !android.InList(w, g) {
+		t.Errorf("expected resources jar %q in bar apk inputs %q", w, g)
 	}
 }
 
@@ -780,9 +735,9 @@ func TestAndroidResources(t *testing.T) {
 			},
 			overlayFiles: map[string][]string{
 				"foo": {
-					buildDir + "/.intermediates/lib2/android_common/package-res.apk",
-					buildDir + "/.intermediates/lib/android_common/package-res.apk",
-					buildDir + "/.intermediates/lib3/android_common/package-res.apk",
+					"out/soong/.intermediates/lib2/android_common/package-res.apk",
+					"out/soong/.intermediates/lib/android_common/package-res.apk",
+					"out/soong/.intermediates/lib3/android_common/package-res.apk",
 					"foo/res/res/values/strings.xml",
 					"device/vendor/blah/static_overlay/foo/res/values/strings.xml",
 					"device/vendor/blah/overlay/foo/res/values/strings.xml",
@@ -793,7 +748,7 @@ func TestAndroidResources(t *testing.T) {
 					"device/vendor/blah/overlay/bar/res/values/strings.xml",
 				},
 				"lib": {
-					buildDir + "/.intermediates/lib2/android_common/package-res.apk",
+					"out/soong/.intermediates/lib2/android_common/package-res.apk",
 					"lib/res/res/values/strings.xml",
 					"device/vendor/blah/overlay/lib/res/values/strings.xml",
 				},
@@ -815,9 +770,9 @@ func TestAndroidResources(t *testing.T) {
 			},
 			overlayFiles: map[string][]string{
 				"foo": {
-					buildDir + "/.intermediates/lib2/android_common/package-res.apk",
-					buildDir + "/.intermediates/lib/android_common/package-res.apk",
-					buildDir + "/.intermediates/lib3/android_common/package-res.apk",
+					"out/soong/.intermediates/lib2/android_common/package-res.apk",
+					"out/soong/.intermediates/lib/android_common/package-res.apk",
+					"out/soong/.intermediates/lib3/android_common/package-res.apk",
 					"foo/res/res/values/strings.xml",
 					"device/vendor/blah/static_overlay/foo/res/values/strings.xml",
 				},
@@ -826,21 +781,19 @@ func TestAndroidResources(t *testing.T) {
 					"device/vendor/blah/overlay/bar/res/values/strings.xml",
 				},
 				"lib": {
-					buildDir + "/.intermediates/lib2/android_common/package-res.apk",
+					"out/soong/.intermediates/lib2/android_common/package-res.apk",
 					"lib/res/res/values/strings.xml",
-					"device/vendor/blah/overlay/lib/res/values/strings.xml",
 				},
 			},
 
 			rroDirs: map[string][]string{
 				"foo": {
 					"device:device/vendor/blah/overlay/foo/res",
-					// Enforce RRO on "foo" could imply RRO on static dependencies, but for now it doesn't.
-					// "device/vendor/blah/overlay/lib/res",
 					"product:product/vendor/blah/overlay/foo/res",
+					"device:device/vendor/blah/overlay/lib/res",
 				},
 				"bar": nil,
-				"lib": nil,
+				"lib": {"device:device/vendor/blah/overlay/lib/res"},
 			},
 		},
 		{
@@ -859,15 +812,15 @@ func TestAndroidResources(t *testing.T) {
 			},
 			overlayFiles: map[string][]string{
 				"foo": {
-					buildDir + "/.intermediates/lib2/android_common/package-res.apk",
-					buildDir + "/.intermediates/lib/android_common/package-res.apk",
-					buildDir + "/.intermediates/lib3/android_common/package-res.apk",
+					"out/soong/.intermediates/lib2/android_common/package-res.apk",
+					"out/soong/.intermediates/lib/android_common/package-res.apk",
+					"out/soong/.intermediates/lib3/android_common/package-res.apk",
 					"foo/res/res/values/strings.xml",
 					"device/vendor/blah/static_overlay/foo/res/values/strings.xml",
 				},
 				"bar": {"device/vendor/blah/static_overlay/bar/res/values/strings.xml"},
 				"lib": {
-					buildDir + "/.intermediates/lib2/android_common/package-res.apk",
+					"out/soong/.intermediates/lib2/android_common/package-res.apk",
 					"lib/res/res/values/strings.xml",
 				},
 			},
@@ -894,7 +847,7 @@ func TestAndroidResources(t *testing.T) {
 		"product/vendor/blah/overlay",
 	}
 
-	fs := map[string][]byte{
+	fs := android.MockFS{
 		"foo/res/res/values/strings.xml":                               nil,
 		"bar/res/res/values/strings.xml":                               nil,
 		"lib/res/res/values/strings.xml":                               nil,
@@ -945,18 +898,21 @@ func TestAndroidResources(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			config := testAppConfig(nil, bp, fs)
-			config.TestProductVariables.DeviceResourceOverlays = deviceResourceOverlays
-			config.TestProductVariables.ProductResourceOverlays = productResourceOverlays
-			if testCase.enforceRROTargets != nil {
-				config.TestProductVariables.EnforceRROTargets = testCase.enforceRROTargets
-			}
-			if testCase.enforceRROExcludedOverlays != nil {
-				config.TestProductVariables.EnforceRROExcludedOverlays = testCase.enforceRROExcludedOverlays
-			}
-
-			ctx := testContext()
-			run(t, ctx, config)
+			result := android.GroupFixturePreparers(
+				PrepareForTestWithJavaDefaultModules,
+				PrepareForTestWithOverlayBuildComponents,
+				fs.AddToFixture(),
+				android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+					variables.DeviceResourceOverlays = deviceResourceOverlays
+					variables.ProductResourceOverlays = productResourceOverlays
+					if testCase.enforceRROTargets != nil {
+						variables.EnforceRROTargets = testCase.enforceRROTargets
+					}
+					if testCase.enforceRROExcludedOverlays != nil {
+						variables.EnforceRROExcludedOverlays = testCase.enforceRROExcludedOverlays
+					}
+				}),
+			).RunTestWithBp(t, bp)
 
 			resourceListToFiles := func(module android.TestingModule, list []string) (files []string) {
 				for _, o := range list {
@@ -974,14 +930,14 @@ func TestAndroidResources(t *testing.T) {
 			}
 
 			getResources := func(moduleName string) (resourceFiles, overlayFiles, rroDirs []string) {
-				module := ctx.ModuleForTests(moduleName, "android_common")
+				module := result.ModuleForTests(moduleName, "android_common")
 				resourceList := module.MaybeOutput("aapt2/res.list")
 				if resourceList.Rule != nil {
-					resourceFiles = resourceListToFiles(module, resourceList.Inputs.Strings())
+					resourceFiles = resourceListToFiles(module, android.PathsRelativeToTop(resourceList.Inputs))
 				}
 				overlayList := module.MaybeOutput("aapt2/overlay.list")
 				if overlayList.Rule != nil {
-					overlayFiles = resourceListToFiles(module, overlayList.Inputs.Strings())
+					overlayFiles = resourceListToFiles(module, android.PathsRelativeToTop(overlayList.Inputs))
 				}
 
 				for _, d := range module.Module().(AndroidLibraryDependency).ExportedRRODirs() {
@@ -993,7 +949,7 @@ func TestAndroidResources(t *testing.T) {
 					} else {
 						t.Fatalf("Unexpected overlayType %d", d.overlayType)
 					}
-					rroDirs = append(rroDirs, prefix+d.path.String())
+					rroDirs = append(rroDirs, prefix+android.PathRelativeToTop(d.path))
 				}
 
 				return resourceFiles, overlayFiles, rroDirs
@@ -1020,6 +976,25 @@ func TestAndroidResources(t *testing.T) {
 	}
 }
 
+func checkSdkVersion(t *testing.T, result *android.TestResult, expectedSdkVersion string) {
+	foo := result.ModuleForTests("foo", "android_common")
+	link := foo.Output("package-res.apk")
+	linkFlags := strings.Split(link.Args["flags"], " ")
+	min := android.IndexList("--min-sdk-version", linkFlags)
+	target := android.IndexList("--target-sdk-version", linkFlags)
+
+	if min == -1 || target == -1 || min == len(linkFlags)-1 || target == len(linkFlags)-1 {
+		t.Fatalf("missing --min-sdk-version or --target-sdk-version in link flags: %q", linkFlags)
+	}
+
+	gotMinSdkVersion := linkFlags[min+1]
+	gotTargetSdkVersion := linkFlags[target+1]
+
+	android.AssertStringEquals(t, "incorrect --min-sdk-version", expectedSdkVersion, gotMinSdkVersion)
+
+	android.AssertStringEquals(t, "incorrect --target-sdk-version", expectedSdkVersion, gotTargetSdkVersion)
+}
+
 func TestAppSdkVersion(t *testing.T) {
 	testCases := []struct {
 		name                  string
@@ -1029,6 +1004,7 @@ func TestAppSdkVersion(t *testing.T) {
 		platformSdkFinal      bool
 		expectedMinSdkVersion string
 		platformApis          bool
+		activeCodenames       []string
 	}{
 		{
 			name:                  "current final SDK",
@@ -1045,6 +1021,7 @@ func TestAppSdkVersion(t *testing.T) {
 			platformSdkCodename:   "OMR1",
 			platformSdkFinal:      false,
 			expectedMinSdkVersion: "OMR1",
+			activeCodenames:       []string{"OMR1"},
 		},
 		{
 			name:                  "default final SDK",
@@ -1063,11 +1040,14 @@ func TestAppSdkVersion(t *testing.T) {
 			platformSdkCodename:   "OMR1",
 			platformSdkFinal:      false,
 			expectedMinSdkVersion: "OMR1",
+			activeCodenames:       []string{"OMR1"},
 		},
 		{
 			name:                  "14",
 			sdkVersion:            "14",
 			expectedMinSdkVersion: "14",
+			platformSdkCodename:   "S",
+			activeCodenames:       []string{"S"},
 		},
 	}
 
@@ -1085,38 +1065,94 @@ func TestAppSdkVersion(t *testing.T) {
 					%s
 				}`, moduleType, test.sdkVersion, platformApiProp)
 
-				config := testAppConfig(nil, bp, nil)
-				config.TestProductVariables.Platform_sdk_version = &test.platformSdkInt
-				config.TestProductVariables.Platform_sdk_codename = &test.platformSdkCodename
-				config.TestProductVariables.Platform_sdk_final = &test.platformSdkFinal
+				result := android.GroupFixturePreparers(
+					prepareForJavaTest,
+					android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+						variables.Platform_sdk_version = &test.platformSdkInt
+						variables.Platform_sdk_codename = &test.platformSdkCodename
+						variables.Platform_version_active_codenames = test.activeCodenames
+						variables.Platform_sdk_final = &test.platformSdkFinal
+					}),
+					FixtureWithPrebuiltApis(map[string][]string{
+						"14": {"foo"},
+					}),
+				).RunTestWithBp(t, bp)
 
-				ctx := testContext()
-
-				run(t, ctx, config)
-
-				foo := ctx.ModuleForTests("foo", "android_common")
-				link := foo.Output("package-res.apk")
-				linkFlags := strings.Split(link.Args["flags"], " ")
-				min := android.IndexList("--min-sdk-version", linkFlags)
-				target := android.IndexList("--target-sdk-version", linkFlags)
-
-				if min == -1 || target == -1 || min == len(linkFlags)-1 || target == len(linkFlags)-1 {
-					t.Fatalf("missing --min-sdk-version or --target-sdk-version in link flags: %q", linkFlags)
-				}
-
-				gotMinSdkVersion := linkFlags[min+1]
-				gotTargetSdkVersion := linkFlags[target+1]
-
-				if gotMinSdkVersion != test.expectedMinSdkVersion {
-					t.Errorf("incorrect --min-sdk-version, expected %q got %q",
-						test.expectedMinSdkVersion, gotMinSdkVersion)
-				}
-
-				if gotTargetSdkVersion != test.expectedMinSdkVersion {
-					t.Errorf("incorrect --target-sdk-version, expected %q got %q",
-						test.expectedMinSdkVersion, gotTargetSdkVersion)
-				}
+				checkSdkVersion(t, result, test.expectedMinSdkVersion)
 			})
+		}
+	}
+}
+
+func TestVendorAppSdkVersion(t *testing.T) {
+	testCases := []struct {
+		name                                  string
+		sdkVersion                            string
+		platformSdkInt                        int
+		platformSdkCodename                   string
+		platformSdkFinal                      bool
+		deviceCurrentApiLevelForVendorModules string
+		expectedMinSdkVersion                 string
+	}{
+		{
+			name:                                  "current final SDK",
+			sdkVersion:                            "current",
+			platformSdkInt:                        29,
+			platformSdkCodename:                   "REL",
+			platformSdkFinal:                      true,
+			deviceCurrentApiLevelForVendorModules: "29",
+			expectedMinSdkVersion:                 "29",
+		},
+		{
+			name:                                  "current final SDK",
+			sdkVersion:                            "current",
+			platformSdkInt:                        29,
+			platformSdkCodename:                   "REL",
+			platformSdkFinal:                      true,
+			deviceCurrentApiLevelForVendorModules: "28",
+			expectedMinSdkVersion:                 "28",
+		},
+		{
+			name:                                  "current final SDK",
+			sdkVersion:                            "current",
+			platformSdkInt:                        29,
+			platformSdkCodename:                   "Q",
+			platformSdkFinal:                      false,
+			deviceCurrentApiLevelForVendorModules: "28",
+			expectedMinSdkVersion:                 "28",
+		},
+	}
+
+	for _, moduleType := range []string{"android_app", "android_library"} {
+		for _, sdkKind := range []string{"", "system_"} {
+			for _, test := range testCases {
+				t.Run(moduleType+" "+test.name, func(t *testing.T) {
+					bp := fmt.Sprintf(`%s {
+						name: "foo",
+						srcs: ["a.java"],
+						sdk_version: "%s%s",
+						vendor: true,
+					}`, moduleType, sdkKind, test.sdkVersion)
+
+					result := android.GroupFixturePreparers(
+						prepareForJavaTest,
+						android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+							variables.Platform_sdk_version = &test.platformSdkInt
+							variables.Platform_sdk_codename = &test.platformSdkCodename
+							variables.Platform_sdk_final = &test.platformSdkFinal
+							variables.DeviceCurrentApiLevelForVendorModules = &test.deviceCurrentApiLevelForVendorModules
+							variables.DeviceSystemSdkVersions = []string{"28", "29"}
+						}),
+						FixtureWithPrebuiltApis(map[string][]string{
+							"28":      {"foo"},
+							"29":      {"foo"},
+							"current": {"foo"},
+						}),
+					).RunTestWithBp(t, bp)
+
+					checkSdkVersion(t, result, test.expectedMinSdkVersion)
+				})
+			}
 		}
 	}
 }
@@ -1223,13 +1259,19 @@ func TestAppSdkVersionByPartition(t *testing.T) {
 			}
 		`
 
-		config := testAppConfig(nil, bp, nil)
-		config.TestProductVariables.EnforceProductPartitionInterface = proptools.BoolPtr(enforce)
+		errorHandler := android.FixtureExpectsNoErrors
 		if enforce {
-			testJavaErrorWithConfig(t, "sdk_version must have a value when the module is located at vendor or product", config)
-		} else {
-			testJavaWithConfig(t, config)
+			errorHandler = android.FixtureExpectsAtLeastOneErrorMatchingPattern("sdk_version must have a value when the module is located at vendor or product")
 		}
+
+		android.GroupFixturePreparers(
+			PrepareForTestWithJavaDefaultModules,
+			android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+				variables.EnforceProductPartitionInterface = proptools.BoolPtr(enforce)
+			}),
+		).
+			ExtendWithErrorHandler(errorHandler).
+			RunTestWithBp(t, bp)
 	}
 }
 
@@ -1534,29 +1576,52 @@ func TestCertificates(t *testing.T) {
 			expectedLineage:     "--lineage lineage.bin",
 			expectedCertificate: "cert/new_cert.x509.pem cert/new_cert.pk8",
 		},
+		{
+			name: "lineage from filegroup",
+			bp: `
+				android_app {
+					name: "foo",
+					srcs: ["a.java"],
+					certificate: ":new_certificate",
+					lineage: ":lineage_bin",
+					sdk_version: "current",
+				}
+
+				android_app_certificate {
+					name: "new_certificate",
+					certificate: "cert/new_cert",
+				}
+
+				filegroup {
+					name: "lineage_bin",
+					srcs: ["lineage.bin"],
+				}
+			`,
+			certificateOverride: "",
+			expectedLineage:     "--lineage lineage.bin",
+			expectedCertificate: "cert/new_cert.x509.pem cert/new_cert.pk8",
+		},
 	}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			config := testAppConfig(nil, test.bp, nil)
-			if test.certificateOverride != "" {
-				config.TestProductVariables.CertificateOverrides = []string{test.certificateOverride}
-			}
-			ctx := testContext()
+			result := android.GroupFixturePreparers(
+				PrepareForTestWithJavaDefaultModules,
+				android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+					if test.certificateOverride != "" {
+						variables.CertificateOverrides = []string{test.certificateOverride}
+					}
+				}),
+			).RunTestWithBp(t, test.bp)
 
-			run(t, ctx, config)
-			foo := ctx.ModuleForTests("foo", "android_common")
+			foo := result.ModuleForTests("foo", "android_common")
 
 			signapk := foo.Output("foo.apk")
 			signCertificateFlags := signapk.Args["certificates"]
-			if test.expectedCertificate != signCertificateFlags {
-				t.Errorf("Incorrect signing flags, expected: %q, got: %q", test.expectedCertificate, signCertificateFlags)
-			}
+			android.AssertStringEquals(t, "certificates flags", test.expectedCertificate, signCertificateFlags)
 
 			signFlags := signapk.Args["flags"]
-			if test.expectedLineage != signFlags {
-				t.Errorf("Incorrect signing flags, expected: %q, got: %q", test.expectedLineage, signFlags)
-			}
+			android.AssertStringEquals(t, "signing flags", test.expectedLineage, signFlags)
 		})
 	}
 }
@@ -1606,17 +1671,15 @@ func TestRequestV4SigningFlag(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			config := testAppConfig(nil, test.bp, nil)
-			ctx := testContext()
+			result := android.GroupFixturePreparers(
+				PrepareForTestWithJavaDefaultModules,
+			).RunTestWithBp(t, test.bp)
 
-			run(t, ctx, config)
-			foo := ctx.ModuleForTests("foo", "android_common")
+			foo := result.ModuleForTests("foo", "android_common")
 
 			signapk := foo.Output("foo.apk")
 			signFlags := signapk.Args["flags"]
-			if test.expected != signFlags {
-				t.Errorf("Incorrect signing flags, expected: %q, got: %q", test.expected, signFlags)
-			}
+			android.AssertStringEquals(t, "signing flags", test.expected, signFlags)
 		})
 	}
 }
@@ -1639,8 +1702,8 @@ func TestPackageNameOverride(t *testing.T) {
 			`,
 			packageNameOverride: "",
 			expected: []string{
-				buildDir + "/.intermediates/foo/android_common/foo.apk",
-				buildDir + "/target/product/test_device/system/app/foo/foo.apk",
+				"out/soong/.intermediates/foo/android_common/foo.apk",
+				"out/soong/target/product/test_device/system/app/foo/foo.apk",
 			},
 		},
 		{
@@ -1655,27 +1718,31 @@ func TestPackageNameOverride(t *testing.T) {
 			packageNameOverride: "foo:bar",
 			expected: []string{
 				// The package apk should be still be the original name for test dependencies.
-				buildDir + "/.intermediates/foo/android_common/bar.apk",
-				buildDir + "/target/product/test_device/system/app/bar/bar.apk",
+				"out/soong/.intermediates/foo/android_common/bar.apk",
+				"out/soong/target/product/test_device/system/app/bar/bar.apk",
 			},
 		},
 	}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			config := testAppConfig(nil, test.bp, nil)
-			if test.packageNameOverride != "" {
-				config.TestProductVariables.PackageNameOverrides = []string{test.packageNameOverride}
-			}
-			ctx := testContext()
+			result := android.GroupFixturePreparers(
+				PrepareForTestWithJavaDefaultModules,
+				android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+					if test.packageNameOverride != "" {
+						variables.PackageNameOverrides = []string{test.packageNameOverride}
+					}
+				}),
+			).RunTestWithBp(t, test.bp)
 
-			run(t, ctx, config)
-			foo := ctx.ModuleForTests("foo", "android_common")
+			foo := result.ModuleForTests("foo", "android_common")
+
+			outSoongDir := result.Config.BuildDir()
 
 			outputs := foo.AllOutputs()
 			outputMap := make(map[string]bool)
 			for _, o := range outputs {
-				outputMap[o] = true
+				outputMap[android.StringPathRelativeToTop(outSoongDir, o)] = true
 			}
 			for _, e := range test.expected {
 				if _, exist := outputMap[e]; !exist {
@@ -1700,13 +1767,15 @@ func TestInstrumentationTargetOverridden(t *testing.T) {
 			sdk_version: "current",
 		}
 		`
-	config := testAppConfig(nil, bp, nil)
-	config.TestProductVariables.ManifestPackageNameOverrides = []string{"foo:org.dandroid.bp"}
-	ctx := testContext()
 
-	run(t, ctx, config)
+	result := android.GroupFixturePreparers(
+		PrepareForTestWithJavaDefaultModules,
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.ManifestPackageNameOverrides = []string{"foo:org.dandroid.bp"}
+		}),
+	).RunTestWithBp(t, bp)
 
-	bar := ctx.ModuleForTests("bar", "android_common")
+	bar := result.ModuleForTests("bar", "android_common")
 	res := bar.Output("package-res.apk")
 	aapt2Flags := res.Args["flags"]
 	e := "--rename-instrumentation-target-package org.dandroid.bp"
@@ -1716,7 +1785,8 @@ func TestInstrumentationTargetOverridden(t *testing.T) {
 }
 
 func TestOverrideAndroidApp(t *testing.T) {
-	ctx, _ := testJava(t, `
+	result := PrepareForTestWithJavaDefaultModules.RunTestWithBp(
+		t, `
 		android_app {
 			name: "foo",
 			srcs: ["a.java"],
@@ -1743,100 +1813,155 @@ func TestOverrideAndroidApp(t *testing.T) {
 			base: "foo",
 			package_name: "org.dandroid.bp",
 		}
+
+		override_android_app {
+			name: "baz_no_rename_resources",
+			base: "foo",
+			package_name: "org.dandroid.bp",
+			rename_resources_package: false,
+		}
+
+		android_app {
+			name: "foo_no_rename_resources",
+			srcs: ["a.java"],
+			certificate: "expiredkey",
+			overrides: ["qux"],
+			rename_resources_package: false,
+			sdk_version: "current",
+		}
+
+		override_android_app {
+			name: "baz_base_no_rename_resources",
+			base: "foo_no_rename_resources",
+			package_name: "org.dandroid.bp",
+		}
+
+		override_android_app {
+			name: "baz_override_base_rename_resources",
+			base: "foo_no_rename_resources",
+			package_name: "org.dandroid.bp",
+			rename_resources_package: true,
+		}
 		`)
 
 	expectedVariants := []struct {
-		moduleName     string
-		variantName    string
-		apkName        string
-		apkPath        string
-		certFlag       string
-		lineageFlag    string
-		overrides      []string
-		aaptFlag       string
-		logging_parent string
+		name            string
+		moduleName      string
+		variantName     string
+		apkName         string
+		apkPath         string
+		certFlag        string
+		lineageFlag     string
+		overrides       []string
+		packageFlag     string
+		renameResources bool
+		logging_parent  string
 	}{
 		{
-			moduleName:     "foo",
-			variantName:    "android_common",
-			apkPath:        "/target/product/test_device/system/app/foo/foo.apk",
-			certFlag:       "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
-			lineageFlag:    "",
-			overrides:      []string{"qux"},
-			aaptFlag:       "",
-			logging_parent: "",
+			name:            "foo",
+			moduleName:      "foo",
+			variantName:     "android_common",
+			apkPath:         "out/soong/target/product/test_device/system/app/foo/foo.apk",
+			certFlag:        "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
+			lineageFlag:     "",
+			overrides:       []string{"qux"},
+			packageFlag:     "",
+			renameResources: false,
+			logging_parent:  "",
 		},
 		{
-			moduleName:     "bar",
-			variantName:    "android_common_bar",
-			apkPath:        "/target/product/test_device/system/app/bar/bar.apk",
-			certFlag:       "cert/new_cert.x509.pem cert/new_cert.pk8",
-			lineageFlag:    "--lineage lineage.bin",
-			overrides:      []string{"qux", "foo"},
-			aaptFlag:       "",
-			logging_parent: "bah",
+			name:            "foo",
+			moduleName:      "bar",
+			variantName:     "android_common_bar",
+			apkPath:         "out/soong/target/product/test_device/system/app/bar/bar.apk",
+			certFlag:        "cert/new_cert.x509.pem cert/new_cert.pk8",
+			lineageFlag:     "--lineage lineage.bin",
+			overrides:       []string{"qux", "foo"},
+			packageFlag:     "",
+			renameResources: false,
+			logging_parent:  "bah",
 		},
 		{
-			moduleName:     "baz",
-			variantName:    "android_common_baz",
-			apkPath:        "/target/product/test_device/system/app/baz/baz.apk",
-			certFlag:       "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
-			lineageFlag:    "",
-			overrides:      []string{"qux", "foo"},
-			aaptFlag:       "--rename-manifest-package org.dandroid.bp",
-			logging_parent: "",
+			name:            "foo",
+			moduleName:      "baz",
+			variantName:     "android_common_baz",
+			apkPath:         "out/soong/target/product/test_device/system/app/baz/baz.apk",
+			certFlag:        "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
+			lineageFlag:     "",
+			overrides:       []string{"qux", "foo"},
+			packageFlag:     "org.dandroid.bp",
+			renameResources: true,
+			logging_parent:  "",
+		},
+		{
+			name:            "foo",
+			moduleName:      "baz_no_rename_resources",
+			variantName:     "android_common_baz_no_rename_resources",
+			apkPath:         "out/soong/target/product/test_device/system/app/baz_no_rename_resources/baz_no_rename_resources.apk",
+			certFlag:        "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
+			lineageFlag:     "",
+			overrides:       []string{"qux", "foo"},
+			packageFlag:     "org.dandroid.bp",
+			renameResources: false,
+			logging_parent:  "",
+		},
+		{
+			name:            "foo_no_rename_resources",
+			moduleName:      "baz_base_no_rename_resources",
+			variantName:     "android_common_baz_base_no_rename_resources",
+			apkPath:         "out/soong/target/product/test_device/system/app/baz_base_no_rename_resources/baz_base_no_rename_resources.apk",
+			certFlag:        "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
+			lineageFlag:     "",
+			overrides:       []string{"qux", "foo_no_rename_resources"},
+			packageFlag:     "org.dandroid.bp",
+			renameResources: false,
+			logging_parent:  "",
+		},
+		{
+			name:            "foo_no_rename_resources",
+			moduleName:      "baz_override_base_rename_resources",
+			variantName:     "android_common_baz_override_base_rename_resources",
+			apkPath:         "out/soong/target/product/test_device/system/app/baz_override_base_rename_resources/baz_override_base_rename_resources.apk",
+			certFlag:        "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
+			lineageFlag:     "",
+			overrides:       []string{"qux", "foo_no_rename_resources"},
+			packageFlag:     "org.dandroid.bp",
+			renameResources: true,
+			logging_parent:  "",
 		},
 	}
 	for _, expected := range expectedVariants {
-		variant := ctx.ModuleForTests("foo", expected.variantName)
+		variant := result.ModuleForTests(expected.name, expected.variantName)
 
 		// Check the final apk name
-		outputs := variant.AllOutputs()
-		expectedApkPath := buildDir + expected.apkPath
-		found := false
-		for _, o := range outputs {
-			if o == expectedApkPath {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Can't find %q in output files.\nAll outputs:%v", expectedApkPath, outputs)
-		}
+		variant.Output(expected.apkPath)
 
 		// Check the certificate paths
 		signapk := variant.Output(expected.moduleName + ".apk")
 		certFlag := signapk.Args["certificates"]
-		if expected.certFlag != certFlag {
-			t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected.certFlag, certFlag)
-		}
+		android.AssertStringEquals(t, "certificates flags", expected.certFlag, certFlag)
 
 		// Check the lineage flags
 		lineageFlag := signapk.Args["flags"]
-		if expected.lineageFlag != lineageFlag {
-			t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected.lineageFlag, lineageFlag)
-		}
+		android.AssertStringEquals(t, "signing flags", expected.lineageFlag, lineageFlag)
 
 		// Check if the overrides field values are correctly aggregated.
 		mod := variant.Module().(*AndroidApp)
-		if !reflect.DeepEqual(expected.overrides, mod.appProperties.Overrides) {
-			t.Errorf("Incorrect overrides property value, expected: %q, got: %q",
-				expected.overrides, mod.appProperties.Overrides)
-		}
+		android.AssertDeepEquals(t, "overrides property", expected.overrides, mod.appProperties.Overrides)
 
 		// Test Overridable property: Logging_parent
 		logging_parent := mod.aapt.LoggingParent
-		if expected.logging_parent != logging_parent {
-			t.Errorf("Incorrect overrides property value for logging parent, expected: %q, got: %q",
-				expected.logging_parent, logging_parent)
-		}
+		android.AssertStringEquals(t, "overrides property value for logging parent", expected.logging_parent, logging_parent)
 
 		// Check the package renaming flag, if exists.
 		res := variant.Output("package-res.apk")
 		aapt2Flags := res.Args["flags"]
-		if !strings.Contains(aapt2Flags, expected.aaptFlag) {
-			t.Errorf("package renaming flag, %q is missing in aapt2 link flags, %q", expected.aaptFlag, aapt2Flags)
+		checkAapt2LinkFlag(t, aapt2Flags, "rename-manifest-package", expected.packageFlag)
+		expectedPackage := expected.packageFlag
+		if !expected.renameResources {
+			expectedPackage = ""
 		}
+		checkAapt2LinkFlag(t, aapt2Flags, "rename-resources-package", expectedPackage)
 	}
 }
 
@@ -1869,14 +1994,14 @@ func TestOverrideAndroidAppDependency(t *testing.T) {
 
 	// Verify baz, which depends on the overridden module foo, has the correct classpath javac arg.
 	javac := ctx.ModuleForTests("baz", "android_common").Rule("javac")
-	fooTurbine := filepath.Join(buildDir, ".intermediates", "foo", "android_common", "turbine-combined", "foo.jar")
+	fooTurbine := "out/soong/.intermediates/foo/android_common/turbine-combined/foo.jar"
 	if !strings.Contains(javac.Args["classpath"], fooTurbine) {
 		t.Errorf("baz classpath %v does not contain %q", javac.Args["classpath"], fooTurbine)
 	}
 
 	// Verify qux, which depends on the overriding module bar, has the correct classpath javac arg.
 	javac = ctx.ModuleForTests("qux", "android_common").Rule("javac")
-	barTurbine := filepath.Join(buildDir, ".intermediates", "foo", "android_common_bar", "turbine-combined", "foo.jar")
+	barTurbine := "out/soong/.intermediates/foo/android_common_bar/turbine-combined/foo.jar"
 	if !strings.Contains(javac.Args["classpath"], barTurbine) {
 		t.Errorf("qux classpath %v does not contain %q", javac.Args["classpath"], barTurbine)
 	}
@@ -1942,18 +2067,7 @@ func TestOverrideAndroidTest(t *testing.T) {
 		variant := ctx.ModuleForTests("foo_test", expected.variantName)
 
 		// Check the final apk name
-		outputs := variant.AllOutputs()
-		expectedApkPath := buildDir + expected.apkPath
-		found := false
-		for _, o := range outputs {
-			if o == expectedApkPath {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Can't find %q in output files.\nAll outputs:%v", expectedApkPath, outputs)
-		}
+		variant.Output("out/soong" + expected.apkPath)
 
 		// Check if the overrides field values are correctly aggregated.
 		mod := variant.Module().(*AndroidTest)
@@ -1964,7 +2078,7 @@ func TestOverrideAndroidTest(t *testing.T) {
 
 		// Check if javac classpath has the correct jar file path. This checks instrumentation_for overrides.
 		javac := variant.Rule("javac")
-		turbine := filepath.Join(buildDir, ".intermediates", "foo", expected.targetVariant, "turbine-combined", "foo.jar")
+		turbine := filepath.Join("out", "soong", ".intermediates", "foo", expected.targetVariant, "turbine-combined", "foo.jar")
 		if !strings.Contains(javac.Args["classpath"], turbine) {
 			t.Errorf("classpath %q does not contain %q", javac.Args["classpath"], turbine)
 		}
@@ -1973,6 +2087,7 @@ func TestOverrideAndroidTest(t *testing.T) {
 		res := variant.Output("package-res.apk")
 		aapt2Flags := res.Args["flags"]
 		checkAapt2LinkFlag(t, aapt2Flags, "rename-manifest-package", expected.packageFlag)
+		checkAapt2LinkFlag(t, aapt2Flags, "rename-resources-package", expected.packageFlag)
 		checkAapt2LinkFlag(t, aapt2Flags, "rename-instrumentation-target-package", expected.targetPackageFlag)
 	}
 }
@@ -2019,7 +2134,7 @@ func TestAndroidTest_FixTestConfig(t *testing.T) {
 			moduleName:  "bar_test",
 			variantName: "android_common",
 			expectedFlags: []string{
-				"--manifest " + buildDir + "/.intermediates/bar_test/android_common/manifest_fixer/AndroidManifest.xml",
+				"--manifest out/soong/.intermediates/bar_test/android_common/manifest_fixer/AndroidManifest.xml",
 				"--package-name com.android.bar.test",
 			},
 		},
@@ -2027,8 +2142,7 @@ func TestAndroidTest_FixTestConfig(t *testing.T) {
 			moduleName:  "foo_test",
 			variantName: "android_common_baz_test",
 			expectedFlags: []string{
-				"--manifest " + buildDir +
-					"/.intermediates/foo_test/android_common_baz_test/manifest_fixer/AndroidManifest.xml",
+				"--manifest out/soong/.intermediates/foo_test/android_common_baz_test/manifest_fixer/AndroidManifest.xml",
 				"--package-name com.android.baz.test",
 				"--test-file-name baz_test.apk",
 			},
@@ -2055,423 +2169,6 @@ func TestAndroidTest_FixTestConfig(t *testing.T) {
 			}
 		}
 
-	}
-}
-
-func TestAndroidAppImport(t *testing.T) {
-	ctx, _ := testJava(t, `
-		android_app_import {
-			name: "foo",
-			apk: "prebuilts/apk/app.apk",
-			certificate: "platform",
-			dex_preopt: {
-				enabled: true,
-			},
-		}
-		`)
-
-	variant := ctx.ModuleForTests("foo", "android_common")
-
-	// Check dexpreopt outputs.
-	if variant.MaybeOutput("dexpreopt/oat/arm64/package.vdex").Rule == nil ||
-		variant.MaybeOutput("dexpreopt/oat/arm64/package.odex").Rule == nil {
-		t.Errorf("can't find dexpreopt outputs")
-	}
-
-	// Check cert signing flag.
-	signedApk := variant.Output("signed/foo.apk")
-	signingFlag := signedApk.Args["certificates"]
-	expected := "build/make/target/product/security/platform.x509.pem build/make/target/product/security/platform.pk8"
-	if expected != signingFlag {
-		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected, signingFlag)
-	}
-}
-
-func TestAndroidAppImport_NoDexPreopt(t *testing.T) {
-	ctx, _ := testJava(t, `
-		android_app_import {
-			name: "foo",
-			apk: "prebuilts/apk/app.apk",
-			certificate: "platform",
-			dex_preopt: {
-				enabled: false,
-			},
-		}
-		`)
-
-	variant := ctx.ModuleForTests("foo", "android_common")
-
-	// Check dexpreopt outputs. They shouldn't exist.
-	if variant.MaybeOutput("dexpreopt/oat/arm64/package.vdex").Rule != nil ||
-		variant.MaybeOutput("dexpreopt/oat/arm64/package.odex").Rule != nil {
-		t.Errorf("dexpreopt shouldn't have run.")
-	}
-}
-
-func TestAndroidAppImport_Presigned(t *testing.T) {
-	ctx, _ := testJava(t, `
-		android_app_import {
-			name: "foo",
-			apk: "prebuilts/apk/app.apk",
-			presigned: true,
-			dex_preopt: {
-				enabled: true,
-			},
-		}
-		`)
-
-	variant := ctx.ModuleForTests("foo", "android_common")
-
-	// Check dexpreopt outputs.
-	if variant.MaybeOutput("dexpreopt/oat/arm64/package.vdex").Rule == nil ||
-		variant.MaybeOutput("dexpreopt/oat/arm64/package.odex").Rule == nil {
-		t.Errorf("can't find dexpreopt outputs")
-	}
-	// Make sure signing was skipped and aligning was done.
-	if variant.MaybeOutput("signed/foo.apk").Rule != nil {
-		t.Errorf("signing rule shouldn't be included.")
-	}
-	if variant.MaybeOutput("zip-aligned/foo.apk").Rule == nil {
-		t.Errorf("can't find aligning rule")
-	}
-}
-
-func TestAndroidAppImport_SigningLineage(t *testing.T) {
-	ctx, _ := testJava(t, `
-	  android_app_import {
-			name: "foo",
-			apk: "prebuilts/apk/app.apk",
-			certificate: "platform",
-			lineage: "lineage.bin",
-		}
-	`)
-
-	variant := ctx.ModuleForTests("foo", "android_common")
-
-	// Check cert signing lineage flag.
-	signedApk := variant.Output("signed/foo.apk")
-	signingFlag := signedApk.Args["flags"]
-	expected := "--lineage lineage.bin"
-	if expected != signingFlag {
-		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected, signingFlag)
-	}
-}
-
-func TestAndroidAppImport_DefaultDevCert(t *testing.T) {
-	ctx, _ := testJava(t, `
-		android_app_import {
-			name: "foo",
-			apk: "prebuilts/apk/app.apk",
-			default_dev_cert: true,
-			dex_preopt: {
-				enabled: true,
-			},
-		}
-		`)
-
-	variant := ctx.ModuleForTests("foo", "android_common")
-
-	// Check dexpreopt outputs.
-	if variant.MaybeOutput("dexpreopt/oat/arm64/package.vdex").Rule == nil ||
-		variant.MaybeOutput("dexpreopt/oat/arm64/package.odex").Rule == nil {
-		t.Errorf("can't find dexpreopt outputs")
-	}
-
-	// Check cert signing flag.
-	signedApk := variant.Output("signed/foo.apk")
-	signingFlag := signedApk.Args["certificates"]
-	expected := "build/make/target/product/security/testkey.x509.pem build/make/target/product/security/testkey.pk8"
-	if expected != signingFlag {
-		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected, signingFlag)
-	}
-}
-
-func TestAndroidAppImport_DpiVariants(t *testing.T) {
-	bp := `
-		android_app_import {
-			name: "foo",
-			apk: "prebuilts/apk/app.apk",
-			dpi_variants: {
-				xhdpi: {
-					apk: "prebuilts/apk/app_xhdpi.apk",
-				},
-				xxhdpi: {
-					apk: "prebuilts/apk/app_xxhdpi.apk",
-				},
-			},
-			presigned: true,
-			dex_preopt: {
-				enabled: true,
-			},
-		}
-		`
-	testCases := []struct {
-		name                string
-		aaptPreferredConfig *string
-		aaptPrebuiltDPI     []string
-		expected            string
-	}{
-		{
-			name:                "no preferred",
-			aaptPreferredConfig: nil,
-			aaptPrebuiltDPI:     []string{},
-			expected:            "prebuilts/apk/app.apk",
-		},
-		{
-			name:                "AAPTPreferredConfig matches",
-			aaptPreferredConfig: proptools.StringPtr("xhdpi"),
-			aaptPrebuiltDPI:     []string{"xxhdpi", "ldpi"},
-			expected:            "prebuilts/apk/app_xhdpi.apk",
-		},
-		{
-			name:                "AAPTPrebuiltDPI matches",
-			aaptPreferredConfig: proptools.StringPtr("mdpi"),
-			aaptPrebuiltDPI:     []string{"xxhdpi", "xhdpi"},
-			expected:            "prebuilts/apk/app_xxhdpi.apk",
-		},
-		{
-			name:                "non-first AAPTPrebuiltDPI matches",
-			aaptPreferredConfig: proptools.StringPtr("mdpi"),
-			aaptPrebuiltDPI:     []string{"ldpi", "xhdpi"},
-			expected:            "prebuilts/apk/app_xhdpi.apk",
-		},
-		{
-			name:                "no matches",
-			aaptPreferredConfig: proptools.StringPtr("mdpi"),
-			aaptPrebuiltDPI:     []string{"ldpi", "xxxhdpi"},
-			expected:            "prebuilts/apk/app.apk",
-		},
-	}
-
-	jniRuleRe := regexp.MustCompile("^if \\(zipinfo (\\S+)")
-	for _, test := range testCases {
-		config := testAppConfig(nil, bp, nil)
-		config.TestProductVariables.AAPTPreferredConfig = test.aaptPreferredConfig
-		config.TestProductVariables.AAPTPrebuiltDPI = test.aaptPrebuiltDPI
-		ctx := testContext()
-
-		run(t, ctx, config)
-
-		variant := ctx.ModuleForTests("foo", "android_common")
-		jniRuleCommand := variant.Output("jnis-uncompressed/foo.apk").RuleParams.Command
-		matches := jniRuleRe.FindStringSubmatch(jniRuleCommand)
-		if len(matches) != 2 {
-			t.Errorf("failed to extract the src apk path from %q", jniRuleCommand)
-		}
-		if test.expected != matches[1] {
-			t.Errorf("wrong src apk, expected: %q got: %q", test.expected, matches[1])
-		}
-	}
-}
-
-func TestAndroidAppImport_Filename(t *testing.T) {
-	ctx, config := testJava(t, `
-		android_app_import {
-			name: "foo",
-			apk: "prebuilts/apk/app.apk",
-			presigned: true,
-		}
-
-		android_app_import {
-			name: "bar",
-			apk: "prebuilts/apk/app.apk",
-			presigned: true,
-			filename: "bar_sample.apk"
-		}
-		`)
-
-	testCases := []struct {
-		name     string
-		expected string
-	}{
-		{
-			name:     "foo",
-			expected: "foo.apk",
-		},
-		{
-			name:     "bar",
-			expected: "bar_sample.apk",
-		},
-	}
-
-	for _, test := range testCases {
-		variant := ctx.ModuleForTests(test.name, "android_common")
-		if variant.MaybeOutput(test.expected).Rule == nil {
-			t.Errorf("can't find output named %q - all outputs: %v", test.expected, variant.AllOutputs())
-		}
-
-		a := variant.Module().(*AndroidAppImport)
-		expectedValues := []string{test.expected}
-		actualValues := android.AndroidMkEntriesForTest(
-			t, config, "", a)[0].EntryMap["LOCAL_INSTALLED_MODULE_STEM"]
-		if !reflect.DeepEqual(actualValues, expectedValues) {
-			t.Errorf("Incorrect LOCAL_INSTALLED_MODULE_STEM value '%s', expected '%s'",
-				actualValues, expectedValues)
-		}
-	}
-}
-
-func TestAndroidAppImport_ArchVariants(t *testing.T) {
-	// The test config's target arch is ARM64.
-	testCases := []struct {
-		name     string
-		bp       string
-		expected string
-	}{
-		{
-			name: "matching arch",
-			bp: `
-				android_app_import {
-					name: "foo",
-					apk: "prebuilts/apk/app.apk",
-					arch: {
-						arm64: {
-							apk: "prebuilts/apk/app_arm64.apk",
-						},
-					},
-					presigned: true,
-					dex_preopt: {
-						enabled: true,
-					},
-				}
-			`,
-			expected: "prebuilts/apk/app_arm64.apk",
-		},
-		{
-			name: "no matching arch",
-			bp: `
-				android_app_import {
-					name: "foo",
-					apk: "prebuilts/apk/app.apk",
-					arch: {
-						arm: {
-							apk: "prebuilts/apk/app_arm.apk",
-						},
-					},
-					presigned: true,
-					dex_preopt: {
-						enabled: true,
-					},
-				}
-			`,
-			expected: "prebuilts/apk/app.apk",
-		},
-	}
-
-	jniRuleRe := regexp.MustCompile("^if \\(zipinfo (\\S+)")
-	for _, test := range testCases {
-		ctx, _ := testJava(t, test.bp)
-
-		variant := ctx.ModuleForTests("foo", "android_common")
-		jniRuleCommand := variant.Output("jnis-uncompressed/foo.apk").RuleParams.Command
-		matches := jniRuleRe.FindStringSubmatch(jniRuleCommand)
-		if len(matches) != 2 {
-			t.Errorf("failed to extract the src apk path from %q", jniRuleCommand)
-		}
-		if test.expected != matches[1] {
-			t.Errorf("wrong src apk, expected: %q got: %q", test.expected, matches[1])
-		}
-	}
-}
-
-func TestAndroidTestImport(t *testing.T) {
-	ctx, config := testJava(t, `
-		android_test_import {
-			name: "foo",
-			apk: "prebuilts/apk/app.apk",
-			presigned: true,
-			data: [
-				"testdata/data",
-			],
-		}
-		`)
-
-	test := ctx.ModuleForTests("foo", "android_common").Module().(*AndroidTestImport)
-
-	// Check android mks.
-	entries := android.AndroidMkEntriesForTest(t, config, "", test)[0]
-	expected := []string{"tests"}
-	actual := entries.EntryMap["LOCAL_MODULE_TAGS"]
-	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("Unexpected module tags - expected: %q, actual: %q", expected, actual)
-	}
-	expected = []string{"testdata/data:testdata/data"}
-	actual = entries.EntryMap["LOCAL_COMPATIBILITY_SUPPORT_FILES"]
-	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("Unexpected test data - expected: %q, actual: %q", expected, actual)
-	}
-}
-
-func TestAndroidTestImport_NoJinUncompressForPresigned(t *testing.T) {
-	ctx, _ := testJava(t, `
-		android_test_import {
-			name: "foo",
-			apk: "prebuilts/apk/app.apk",
-			certificate: "cert/new_cert",
-			data: [
-				"testdata/data",
-			],
-		}
-
-		android_test_import {
-			name: "foo_presigned",
-			apk: "prebuilts/apk/app.apk",
-			presigned: true,
-			data: [
-				"testdata/data",
-			],
-		}
-		`)
-
-	variant := ctx.ModuleForTests("foo", "android_common")
-	jniRule := variant.Output("jnis-uncompressed/foo.apk").RuleParams.Command
-	if !strings.HasPrefix(jniRule, "if (zipinfo") {
-		t.Errorf("Unexpected JNI uncompress rule command: " + jniRule)
-	}
-
-	variant = ctx.ModuleForTests("foo_presigned", "android_common")
-	jniRule = variant.Output("jnis-uncompressed/foo_presigned.apk").BuildParams.Rule.String()
-	if jniRule != android.Cp.String() {
-		t.Errorf("Unexpected JNI uncompress rule: " + jniRule)
-	}
-	if variant.MaybeOutput("zip-aligned/foo_presigned.apk").Rule == nil {
-		t.Errorf("Presigned test apk should be aligned")
-	}
-}
-
-func TestAndroidTestImport_Preprocessed(t *testing.T) {
-	ctx, _ := testJava(t, `
-		android_test_import {
-			name: "foo",
-			apk: "prebuilts/apk/app.apk",
-			presigned: true,
-			preprocessed: true,
-		}
-
-		android_test_import {
-			name: "foo_cert",
-			apk: "prebuilts/apk/app.apk",
-			certificate: "cert/new_cert",
-			preprocessed: true,
-		}
-		`)
-
-	testModules := []string{"foo", "foo_cert"}
-	for _, m := range testModules {
-		apkName := m + ".apk"
-		variant := ctx.ModuleForTests(m, "android_common")
-		jniRule := variant.Output("jnis-uncompressed/" + apkName).BuildParams.Rule.String()
-		if jniRule != android.Cp.String() {
-			t.Errorf("Unexpected JNI uncompress rule: " + jniRule)
-		}
-
-		// Make sure signing and aligning were skipped.
-		if variant.MaybeOutput("signed/"+apkName).Rule != nil {
-			t.Errorf("signing rule shouldn't be included for preprocessed.")
-		}
-		if variant.MaybeOutput("zip-aligned/"+apkName).Rule != nil {
-			t.Errorf("aligning rule shouldn't be for preprocessed")
-		}
 	}
 }
 
@@ -2562,17 +2259,59 @@ func TestUsesLibraries(t *testing.T) {
 		}
 
 		java_sdk_library {
+			name: "fred",
+			srcs: ["a.java"],
+			api_packages: ["fred"],
+			sdk_version: "current",
+		}
+
+		java_sdk_library {
 			name: "bar",
 			srcs: ["a.java"],
 			api_packages: ["bar"],
 			sdk_version: "current",
 		}
 
+		java_sdk_library {
+			name: "runtime-library",
+			srcs: ["a.java"],
+			sdk_version: "current",
+		}
+
+		java_library {
+			name: "static-runtime-helper",
+			srcs: ["a.java"],
+			libs: ["runtime-library"],
+			sdk_version: "current",
+		}
+
+		// A library that has to use "provides_uses_lib", because:
+		//    - it is not an SDK library
+		//    - its library name is different from its module name
+		java_library {
+			name: "non-sdk-lib",
+			provides_uses_lib: "com.non.sdk.lib",
+			installable: true,
+			srcs: ["a.java"],
+		}
+
 		android_app {
 			name: "app",
 			srcs: ["a.java"],
-			libs: ["qux", "quuz.stubs"],
-			uses_libs: ["foo"],
+			libs: [
+				"qux",
+				"quuz.stubs"
+			],
+			static_libs: [
+				"static-runtime-helper",
+				// statically linked component libraries should not pull their SDK libraries,
+				// so "fred" should not be added to class loader context
+				"fred.stubs",
+			],
+			uses_libs: [
+				"foo",
+				"non-sdk-lib"
+			],
 			sdk_version: "current",
 			optional_uses_libs: [
 				"bar",
@@ -2584,7 +2323,11 @@ func TestUsesLibraries(t *testing.T) {
 			name: "prebuilt",
 			apk: "prebuilts/apk/app.apk",
 			certificate: "platform",
-			uses_libs: ["foo"],
+			uses_libs: [
+				"foo",
+				"non-sdk-lib",
+				"android.test.runner"
+			],
 			optional_uses_libs: [
 				"bar",
 				"baz",
@@ -2592,56 +2335,151 @@ func TestUsesLibraries(t *testing.T) {
 		}
 	`
 
-	config := testAppConfig(nil, bp, nil)
-	config.TestProductVariables.MissingUsesLibraries = []string{"baz"}
+	result := android.GroupFixturePreparers(
+		prepareForJavaTest,
+		PrepareForTestWithJavaSdkLibraryFiles,
+		FixtureWithLastReleaseApis("runtime-library", "foo", "quuz", "qux", "bar", "fred"),
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.MissingUsesLibraries = []string{"baz"}
+		}),
+	).RunTestWithBp(t, bp)
 
-	ctx := testContext()
-
-	run(t, ctx, config)
-
-	app := ctx.ModuleForTests("app", "android_common")
-	prebuilt := ctx.ModuleForTests("prebuilt", "android_common")
+	app := result.ModuleForTests("app", "android_common")
+	prebuilt := result.ModuleForTests("prebuilt", "android_common")
 
 	// Test that implicit dependencies on java_sdk_library instances are passed to the manifest.
-	manifestFixerArgs := app.Output("manifest_fixer/AndroidManifest.xml").Args["args"]
-	if w := "--uses-library qux"; !strings.Contains(manifestFixerArgs, w) {
-		t.Errorf("unexpected manifest_fixer args: wanted %q in %q", w, manifestFixerArgs)
-	}
-	if w := "--uses-library quuz"; !strings.Contains(manifestFixerArgs, w) {
-		t.Errorf("unexpected manifest_fixer args: wanted %q in %q", w, manifestFixerArgs)
-	}
+	// This should not include explicit `uses_libs`/`optional_uses_libs` entries.
+	actualManifestFixerArgs := app.Output("manifest_fixer/AndroidManifest.xml").Args["args"]
+	expectManifestFixerArgs := `--extract-native-libs=true ` +
+		`--uses-library qux ` +
+		`--uses-library quuz ` +
+		`--uses-library foo ` + // TODO(b/132357300): "foo" should not be passed to manifest_fixer
+		`--uses-library com.non.sdk.lib ` + // TODO(b/132357300): "com.non.sdk.lib" should not be passed to manifest_fixer
+		`--uses-library bar ` + // TODO(b/132357300): "bar" should not be passed to manifest_fixer
+		`--uses-library runtime-library`
+	android.AssertStringEquals(t, "manifest_fixer args", expectManifestFixerArgs, actualManifestFixerArgs)
 
-	// Test that all libraries are verified
-	cmd := app.Rule("verify_uses_libraries").RuleParams.Command
-	if w := "--uses-library foo"; !strings.Contains(cmd, w) {
-		t.Errorf("wanted %q in %q", w, cmd)
-	}
+	// Test that all libraries are verified (library order matters).
+	verifyCmd := app.Rule("verify_uses_libraries").RuleParams.Command
+	verifyArgs := `--uses-library foo ` +
+		`--uses-library com.non.sdk.lib ` +
+		`--uses-library qux ` +
+		`--uses-library quuz ` +
+		`--uses-library runtime-library ` +
+		`--optional-uses-library bar ` +
+		`--optional-uses-library baz `
+	android.AssertStringDoesContain(t, "verify cmd args", verifyCmd, verifyArgs)
 
-	if w := "--optional-uses-library bar --optional-uses-library baz"; !strings.Contains(cmd, w) {
-		t.Errorf("wanted %q in %q", w, cmd)
-	}
+	// Test that all libraries are verified for an APK (library order matters).
+	verifyApkCmd := prebuilt.Rule("verify_uses_libraries").RuleParams.Command
+	verifyApkArgs := `--uses-library foo ` +
+		`--uses-library com.non.sdk.lib ` +
+		`--uses-library android.test.runner ` +
+		`--optional-uses-library bar ` +
+		`--optional-uses-library baz `
+	android.AssertStringDoesContain(t, "verify apk cmd args", verifyApkCmd, verifyApkArgs)
 
-	cmd = prebuilt.Rule("verify_uses_libraries").RuleParams.Command
+	// Test that all present libraries are preopted, including implicit SDK dependencies, possibly stubs
+	cmd := app.Rule("dexpreopt").RuleParams.Command
+	w := `--target-context-for-sdk any ` +
+		`PCL[/system/framework/qux.jar]#` +
+		`PCL[/system/framework/quuz.jar]#` +
+		`PCL[/system/framework/foo.jar]#` +
+		`PCL[/system/framework/non-sdk-lib.jar]#` +
+		`PCL[/system/framework/bar.jar]#` +
+		`PCL[/system/framework/runtime-library.jar]`
+	android.AssertStringDoesContain(t, "dexpreopt app cmd args", cmd, w)
 
-	if w := `uses_library_names="foo"`; !strings.Contains(cmd, w) {
-		t.Errorf("wanted %q in %q", w, cmd)
-	}
+	// Test conditional context for target SDK version 28.
+	android.AssertStringDoesContain(t, "dexpreopt app cmd 28", cmd,
+		`--target-context-for-sdk 28`+
+			` PCL[/system/framework/org.apache.http.legacy.jar] `)
 
-	if w := `optional_uses_library_names="bar baz"`; !strings.Contains(cmd, w) {
-		t.Errorf("wanted %q in %q", w, cmd)
-	}
+	// Test conditional context for target SDK version 29.
+	android.AssertStringDoesContain(t, "dexpreopt app cmd 29", cmd,
+		`--target-context-for-sdk 29`+
+			` PCL[/system/framework/android.hidl.manager-V1.0-java.jar]`+
+			`#PCL[/system/framework/android.hidl.base-V1.0-java.jar] `)
 
-	// Test that only present libraries are preopted
-	cmd = app.Rule("dexpreopt").RuleParams.Command
-
-	if w := `dex_preopt_target_libraries="/system/framework/foo.jar /system/framework/bar.jar"`; !strings.Contains(cmd, w) {
-		t.Errorf("wanted %q in %q", w, cmd)
-	}
+	// Test conditional context for target SDK version 30.
+	// "android.test.mock" is absent because "android.test.runner" is not used.
+	android.AssertStringDoesContain(t, "dexpreopt app cmd 30", cmd,
+		`--target-context-for-sdk 30`+
+			` PCL[/system/framework/android.test.base.jar] `)
 
 	cmd = prebuilt.Rule("dexpreopt").RuleParams.Command
+	android.AssertStringDoesContain(t, "dexpreopt prebuilt cmd", cmd,
+		`--target-context-for-sdk any`+
+			` PCL[/system/framework/foo.jar]`+
+			`#PCL[/system/framework/non-sdk-lib.jar]`+
+			`#PCL[/system/framework/android.test.runner.jar]`+
+			`#PCL[/system/framework/bar.jar] `)
 
-	if w := `dex_preopt_target_libraries="/system/framework/foo.jar /system/framework/bar.jar"`; !strings.Contains(cmd, w) {
-		t.Errorf("wanted %q in %q", w, cmd)
+	// Test conditional context for target SDK version 30.
+	// "android.test.mock" is present because "android.test.runner" is used.
+	android.AssertStringDoesContain(t, "dexpreopt prebuilt cmd 30", cmd,
+		`--target-context-for-sdk 30`+
+			` PCL[/system/framework/android.test.base.jar]`+
+			`#PCL[/system/framework/android.test.mock.jar] `)
+}
+
+func TestDexpreoptBcp(t *testing.T) {
+	bp := `
+		java_sdk_library {
+			name: "foo",
+			srcs: ["a.java"],
+			api_packages: ["foo"],
+			sdk_version: "current",
+		}
+
+		java_sdk_library {
+			name: "bar",
+			srcs: ["a.java"],
+			api_packages: ["bar"],
+			permitted_packages: ["bar"],
+			sdk_version: "current",
+		}
+
+		android_app {
+			name: "app",
+			srcs: ["a.java"],
+			sdk_version: "current",
+		}
+	`
+
+	testCases := []struct {
+		name   string
+		with   bool
+		expect string
+	}{
+		{
+			name:   "with updatable bcp",
+			with:   true,
+			expect: "/system/framework/foo.jar:/system/framework/bar.jar",
+		},
+		{
+			name:   "without updatable bcp",
+			with:   false,
+			expect: "/system/framework/foo.jar",
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			result := android.GroupFixturePreparers(
+				prepareForJavaTest,
+				PrepareForTestWithJavaSdkLibraryFiles,
+				FixtureWithLastReleaseApis("runtime-library", "foo", "bar"),
+				dexpreopt.FixtureSetBootJars("platform:foo"),
+				dexpreopt.FixtureSetUpdatableBootJars("platform:bar"),
+				dexpreopt.FixtureSetPreoptWithUpdatableBcp(test.with),
+			).RunTestWithBp(t, bp)
+
+			app := result.ModuleForTests("app", "android_common")
+			cmd := app.Rule("dexpreopt").RuleParams.Command
+			bcp := " -Xbootclasspath-locations:" + test.expect + " " // space at the end matters
+			android.AssertStringDoesContain(t, "dexpreopt app bcp", cmd, bcp)
+		})
 	}
 }
 
@@ -2722,7 +2560,17 @@ func TestCodelessApp(t *testing.T) {
 }
 
 func TestEmbedNotice(t *testing.T) {
-	ctx, _ := testJavaWithFS(t, cc.GatherRequiredDepsForTest(android.Android)+`
+	result := android.GroupFixturePreparers(
+		PrepareForTestWithJavaDefaultModules,
+		cc.PrepareForTestWithCcDefaultModules,
+		genrule.PrepareForTestWithGenRuleBuildComponents,
+		android.MockFS{
+			"APP_NOTICE":     nil,
+			"GENRULE_NOTICE": nil,
+			"LIB_NOTICE":     nil,
+			"TOOL_NOTICE":    nil,
+		}.AddToFixture(),
+	).RunTestWithBp(t, `
 		android_app {
 			name: "foo",
 			srcs: ["a.java"],
@@ -2778,15 +2626,10 @@ func TestEmbedNotice(t *testing.T) {
 			srcs: ["b.java"],
 			notice: "TOOL_NOTICE",
 		}
-	`, map[string][]byte{
-		"APP_NOTICE":     nil,
-		"GENRULE_NOTICE": nil,
-		"LIB_NOTICE":     nil,
-		"TOOL_NOTICE":    nil,
-	})
+	`)
 
 	// foo has NOTICE files to process, and embed_notices is true.
-	foo := ctx.ModuleForTests("foo", "android_common")
+	foo := result.ModuleForTests("foo", "android_common")
 	// verify merge notices rule.
 	mergeNotices := foo.Rule("mergeNoticesRule")
 	noticeInputs := mergeNotices.Inputs.Strings()
@@ -2806,25 +2649,21 @@ func TestEmbedNotice(t *testing.T) {
 	// aapt2 flags should include -A <NOTICE dir> so that its contents are put in the APK's /assets.
 	res := foo.Output("package-res.apk")
 	aapt2Flags := res.Args["flags"]
-	e := "-A " + buildDir + "/.intermediates/foo/android_common/NOTICE"
-	if !strings.Contains(aapt2Flags, e) {
-		t.Errorf("asset dir flag for NOTICE, %q is missing in aapt2 link flags, %q", e, aapt2Flags)
-	}
+	e := "-A out/soong/.intermediates/foo/android_common/NOTICE"
+	android.AssertStringDoesContain(t, "expected.apkPath", aapt2Flags, e)
 
 	// bar has NOTICE files to process, but embed_notices is not set.
-	bar := ctx.ModuleForTests("bar", "android_common")
+	bar := result.ModuleForTests("bar", "android_common")
 	res = bar.Output("package-res.apk")
 	aapt2Flags = res.Args["flags"]
-	e = "-A " + buildDir + "/.intermediates/bar/android_common/NOTICE"
-	if strings.Contains(aapt2Flags, e) {
-		t.Errorf("bar shouldn't have the asset dir flag for NOTICE: %q", e)
-	}
+	e = "-A out/soong/.intermediates/bar/android_common/NOTICE"
+	android.AssertStringDoesNotContain(t, "bar shouldn't have the asset dir flag for NOTICE", aapt2Flags, e)
 
 	// baz's embed_notice is true, but it doesn't have any NOTICE files.
-	baz := ctx.ModuleForTests("baz", "android_common")
+	baz := result.ModuleForTests("baz", "android_common")
 	res = baz.Output("package-res.apk")
 	aapt2Flags = res.Args["flags"]
-	e = "-A " + buildDir + "/.intermediates/baz/android_common/NOTICE"
+	e = "-A out/soong/.intermediates/baz/android_common/NOTICE"
 	if strings.Contains(aapt2Flags, e) {
 		t.Errorf("baz shouldn't have the asset dir flag for NOTICE: %q", e)
 	}
@@ -2907,27 +2746,25 @@ func TestUncompressDex(t *testing.T) {
 	test := func(t *testing.T, bp string, want bool, unbundled bool) {
 		t.Helper()
 
-		config := testAppConfig(nil, bp, nil)
-		if unbundled {
-			config.TestProductVariables.Unbundled_build = proptools.BoolPtr(true)
-		}
+		result := android.GroupFixturePreparers(
+			prepareForJavaTest,
+			PrepareForTestWithPrebuiltsOfCurrentApi,
+			android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+				if unbundled {
+					variables.Unbundled_build = proptools.BoolPtr(true)
+					variables.Always_use_prebuilt_sdks = proptools.BoolPtr(true)
+				}
+			}),
+		).RunTestWithBp(t, bp)
 
-		ctx := testContext()
-
-		run(t, ctx, config)
-
-		foo := ctx.ModuleForTests("foo", "android_common")
+		foo := result.ModuleForTests("foo", "android_common")
 		dex := foo.Rule("r8")
 		uncompressedInDexJar := strings.Contains(dex.Args["zipFlags"], "-L 0")
 		aligned := foo.MaybeRule("zipalign").Rule != nil
 
-		if uncompressedInDexJar != want {
-			t.Errorf("want uncompressed in dex %v, got %v", want, uncompressedInDexJar)
-		}
+		android.AssertBoolEquals(t, "uncompressed in dex", want, uncompressedInDexJar)
 
-		if aligned != want {
-			t.Errorf("want aligned %v, got %v", want, aligned)
-		}
+		android.AssertBoolEquals(t, "aligne", want, aligned)
 	}
 
 	for _, tt := range testCases {
@@ -2956,240 +2793,33 @@ func checkAapt2LinkFlag(t *testing.T, aapt2Flags, flagName, expectedValue string
 	}
 }
 
-func TestRuntimeResourceOverlay(t *testing.T) {
-	fs := map[string][]byte{
-		"baz/res/res/values/strings.xml": nil,
-		"bar/res/res/values/strings.xml": nil,
-	}
-	bp := `
-		runtime_resource_overlay {
+func TestExportedProguardFlagFiles(t *testing.T) {
+	ctx, _ := testJava(t, `
+		android_app {
 			name: "foo",
-			certificate: "platform",
-			lineage: "lineage.bin",
-			product_specific: true,
-			static_libs: ["bar"],
-			resource_libs: ["baz"],
-			aaptflags: ["--keep-raw-values"],
-		}
-
-		runtime_resource_overlay {
-			name: "foo_themed",
-			certificate: "platform",
-			product_specific: true,
-			theme: "faza",
-			overrides: ["foo"],
+			sdk_version: "current",
+			static_libs: ["lib1"],
 		}
 
 		android_library {
-			name: "bar",
-			resource_dirs: ["bar/res"],
-		}
-
-		android_app {
-			name: "baz",
+			name: "lib1",
 			sdk_version: "current",
-			resource_dirs: ["baz/res"],
-		}
-		`
-	config := testAppConfig(nil, bp, fs)
-	ctx := testContext()
-	run(t, ctx, config)
-
-	m := ctx.ModuleForTests("foo", "android_common")
-
-	// Check AAPT2 link flags.
-	aapt2Flags := m.Output("package-res.apk").Args["flags"]
-	expectedFlags := []string{"--keep-raw-values", "--no-resource-deduping", "--no-resource-removal"}
-	absentFlags := android.RemoveListFromList(expectedFlags, strings.Split(aapt2Flags, " "))
-	if len(absentFlags) > 0 {
-		t.Errorf("expected values, %q are missing in aapt2 link flags, %q", absentFlags, aapt2Flags)
-	}
-
-	// Check overlay.list output for static_libs dependency.
-	overlayList := m.Output("aapt2/overlay.list").Inputs.Strings()
-	staticLibPackage := buildDir + "/.intermediates/bar/android_common/package-res.apk"
-	if !inList(staticLibPackage, overlayList) {
-		t.Errorf("Stactic lib res package %q missing in overlay list: %q", staticLibPackage, overlayList)
-	}
-
-	// Check AAPT2 link flags for resource_libs dependency.
-	resourceLibFlag := "-I " + buildDir + "/.intermediates/baz/android_common/package-res.apk"
-	if !strings.Contains(aapt2Flags, resourceLibFlag) {
-		t.Errorf("Resource lib flag %q missing in aapt2 link flags: %q", resourceLibFlag, aapt2Flags)
-	}
-
-	// Check cert signing flag.
-	signedApk := m.Output("signed/foo.apk")
-	lineageFlag := signedApk.Args["flags"]
-	expectedLineageFlag := "--lineage lineage.bin"
-	if expectedLineageFlag != lineageFlag {
-		t.Errorf("Incorrect signing lineage flags, expected: %q, got: %q", expectedLineageFlag, lineageFlag)
-	}
-	signingFlag := signedApk.Args["certificates"]
-	expected := "build/make/target/product/security/platform.x509.pem build/make/target/product/security/platform.pk8"
-	if expected != signingFlag {
-		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected, signingFlag)
-	}
-	androidMkEntries := android.AndroidMkEntriesForTest(t, config, "", m.Module())[0]
-	path := androidMkEntries.EntryMap["LOCAL_CERTIFICATE"]
-	expectedPath := []string{"build/make/target/product/security/platform.x509.pem"}
-	if !reflect.DeepEqual(path, expectedPath) {
-		t.Errorf("Unexpected LOCAL_CERTIFICATE value: %v, expected: %v", path, expectedPath)
-	}
-
-	// Check device location.
-	path = androidMkEntries.EntryMap["LOCAL_MODULE_PATH"]
-	expectedPath = []string{"/tmp/target/product/test_device/product/overlay"}
-	if !reflect.DeepEqual(path, expectedPath) {
-		t.Errorf("Unexpected LOCAL_MODULE_PATH value: %v, expected: %v", path, expectedPath)
-	}
-
-	// A themed module has a different device location
-	m = ctx.ModuleForTests("foo_themed", "android_common")
-	androidMkEntries = android.AndroidMkEntriesForTest(t, config, "", m.Module())[0]
-	path = androidMkEntries.EntryMap["LOCAL_MODULE_PATH"]
-	expectedPath = []string{"/tmp/target/product/test_device/product/overlay/faza"}
-	if !reflect.DeepEqual(path, expectedPath) {
-		t.Errorf("Unexpected LOCAL_MODULE_PATH value: %v, expected: %v", path, expectedPath)
-	}
-
-	overrides := androidMkEntries.EntryMap["LOCAL_OVERRIDES_PACKAGES"]
-	expectedOverrides := []string{"foo"}
-	if !reflect.DeepEqual(overrides, expectedOverrides) {
-		t.Errorf("Unexpected LOCAL_OVERRIDES_PACKAGES value: %v, expected: %v", overrides, expectedOverrides)
-	}
-}
-
-func TestRuntimeResourceOverlay_JavaDefaults(t *testing.T) {
-	ctx, config := testJava(t, `
-		java_defaults {
-			name: "rro_defaults",
-			theme: "default_theme",
-			product_specific: true,
-			aaptflags: ["--keep-raw-values"],
-		}
-
-		runtime_resource_overlay {
-			name: "foo_with_defaults",
-			defaults: ["rro_defaults"],
-		}
-
-		runtime_resource_overlay {
-			name: "foo_barebones",
-		}
-		`)
-
-	//
-	// RRO module with defaults
-	//
-	m := ctx.ModuleForTests("foo_with_defaults", "android_common")
-
-	// Check AAPT2 link flags.
-	aapt2Flags := strings.Split(m.Output("package-res.apk").Args["flags"], " ")
-	expectedFlags := []string{"--keep-raw-values", "--no-resource-deduping", "--no-resource-removal"}
-	absentFlags := android.RemoveListFromList(expectedFlags, aapt2Flags)
-	if len(absentFlags) > 0 {
-		t.Errorf("expected values, %q are missing in aapt2 link flags, %q", absentFlags, aapt2Flags)
-	}
-
-	// Check device location.
-	path := android.AndroidMkEntriesForTest(t, config, "", m.Module())[0].EntryMap["LOCAL_MODULE_PATH"]
-	expectedPath := []string{"/tmp/target/product/test_device/product/overlay/default_theme"}
-	if !reflect.DeepEqual(path, expectedPath) {
-		t.Errorf("Unexpected LOCAL_MODULE_PATH value: %q, expected: %q", path, expectedPath)
-	}
-
-	//
-	// RRO module without defaults
-	//
-	m = ctx.ModuleForTests("foo_barebones", "android_common")
-
-	// Check AAPT2 link flags.
-	aapt2Flags = strings.Split(m.Output("package-res.apk").Args["flags"], " ")
-	unexpectedFlags := "--keep-raw-values"
-	if inList(unexpectedFlags, aapt2Flags) {
-		t.Errorf("unexpected value, %q is present in aapt2 link flags, %q", unexpectedFlags, aapt2Flags)
-	}
-
-	// Check device location.
-	path = android.AndroidMkEntriesForTest(t, config, "", m.Module())[0].EntryMap["LOCAL_MODULE_PATH"]
-	expectedPath = []string{"/tmp/target/product/test_device/system/overlay"}
-	if !reflect.DeepEqual(path, expectedPath) {
-		t.Errorf("Unexpected LOCAL_MODULE_PATH value: %v, expected: %v", path, expectedPath)
-	}
-}
-
-func TestOverrideRuntimeResourceOverlay(t *testing.T) {
-	ctx, _ := testJava(t, `
-		runtime_resource_overlay {
-			name: "foo_overlay",
-			certificate: "platform",
-			product_specific: true,
-			sdk_version: "current",
-		}
-
-		override_runtime_resource_overlay {
-			name: "bar_overlay",
-			base: "foo_overlay",
-			package_name: "com.android.bar.overlay",
-			target_package_name: "com.android.bar",
-		}
-		`)
-
-	expectedVariants := []struct {
-		moduleName        string
-		variantName       string
-		apkPath           string
-		overrides         []string
-		targetVariant     string
-		packageFlag       string
-		targetPackageFlag string
-	}{
-		{
-			variantName:       "android_common",
-			apkPath:           "/target/product/test_device/product/overlay/foo_overlay.apk",
-			overrides:         nil,
-			targetVariant:     "android_common",
-			packageFlag:       "",
-			targetPackageFlag: "",
-		},
-		{
-			variantName:       "android_common_bar_overlay",
-			apkPath:           "/target/product/test_device/product/overlay/bar_overlay.apk",
-			overrides:         []string{"foo_overlay"},
-			targetVariant:     "android_common_bar",
-			packageFlag:       "com.android.bar.overlay",
-			targetPackageFlag: "com.android.bar",
-		},
-	}
-	for _, expected := range expectedVariants {
-		variant := ctx.ModuleForTests("foo_overlay", expected.variantName)
-
-		// Check the final apk name
-		outputs := variant.AllOutputs()
-		expectedApkPath := buildDir + expected.apkPath
-		found := false
-		for _, o := range outputs {
-			if o == expectedApkPath {
-				found = true
-				break
+			optimize: {
+				proguard_flags_files: ["lib1proguard.cfg"],
 			}
 		}
-		if !found {
-			t.Errorf("Can't find %q in output files.\nAll outputs:%v", expectedApkPath, outputs)
-		}
+	`)
 
-		// Check if the overrides field values are correctly aggregated.
-		mod := variant.Module().(*RuntimeResourceOverlay)
-		if !reflect.DeepEqual(expected.overrides, mod.properties.Overrides) {
-			t.Errorf("Incorrect overrides property value, expected: %q, got: %q",
-				expected.overrides, mod.properties.Overrides)
+	m := ctx.ModuleForTests("foo", "android_common")
+	hasLib1Proguard := false
+	for _, s := range m.Rule("java.r8").Implicits.Strings() {
+		if s == "lib1proguard.cfg" {
+			hasLib1Proguard = true
+			break
 		}
+	}
 
-		// Check aapt2 flags.
-		res := variant.Output("package-res.apk")
-		aapt2Flags := res.Args["flags"]
-		checkAapt2LinkFlag(t, aapt2Flags, "rename-manifest-package", expected.packageFlag)
-		checkAapt2LinkFlag(t, aapt2Flags, "rename-overlay-target-package", expected.targetPackageFlag)
+	if !hasLib1Proguard {
+		t.Errorf("App does not use library proguard config")
 	}
 }

@@ -10,7 +10,7 @@ PURPOSE = "Verify set or get TPM mode"
 ATTRIBUTES = "suite:faft_cr50_pvt, suite:faft_cr50_prepvt"
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """Verify TPM disabling and getting back enabled after reset."""
 

@@ -46,18 +46,27 @@ struct MatrixHal {
 
     inline const std::string& getName() const { return name; }
 
+    // Assumes isValid().
     bool forEachInstance(const std::function<bool(const MatrixInstance&)>& func) const;
 
    private:
     friend struct HalManifest;
     friend struct CompatibilityMatrix;
+    friend struct MatrixHalConverter;
+
+    // Whether this hal is a valid one. Note that an empty MatrixHal
+    // (constructed via MatrixHal()) is valid.
+    [[nodiscard]] bool isValid(std::string* error = nullptr) const;
+
     friend std::string expandInstances(const MatrixHal& req, const VersionRange& vr, bool brace);
     friend std::vector<std::string> expandInstances(const MatrixHal& req);
 
     // Loop over interface/instance for a specific VersionRange.
+    // Assumes isValid().
     bool forEachInstance(const VersionRange& vr,
                          const std::function<bool(const MatrixInstance&)>& func) const;
     // Loop over interface/instance. VersionRange is supplied to the function as a vector.
+    // Assumes isValid().
     bool forEachInstance(
         const std::function<bool(const std::vector<VersionRange>&, const std::string&,
                                  const std::string& instanceOrPattern, bool isRegex)>& func) const;

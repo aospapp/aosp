@@ -12,8 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "device_google_atv_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["device_google_atv_license"],
+}
+
 cc_binary {
-  name: "device.google.atv.audio_proxy@5.0-service",
+  name: "device.google.atv.audio_proxy@5.1-service",
   vendor: true,
   relative_install_path: "hw",
 
@@ -22,11 +31,13 @@ cc_binary {
     "BusDeviceProvider.cpp",
     "DeviceImpl.cpp",
     "DevicesFactoryImpl.cpp",
+    "DummyBusDevice.cpp",
+    "DummyOutputStream.cpp",
     "main.cpp",
   ],
 
   init_rc: [
-    "device.google.atv.audio_proxy@5.0-service.rc",
+    "device.google.atv.audio_proxy@5.1-service.rc",
   ],
 
   vintf_fragments: [ "manifest_audio_proxy.xml" ],
@@ -34,20 +45,18 @@ cc_binary {
   shared_libs: [
     "android.hardware.audio@5.0",
     "android.hardware.audio.common@5.0",
-    "android.hardware.audio.common@5.0-util",
     "libhidlbase",
     "liblog",
+    "libcutils",
     "libutils",
     "device.google.atv.audio_proxy@5.0",
-  ],
-
-  header_libs: [
-    "android.hardware.audio.common.util@all-versions",
+    "device.google.atv.audio_proxy@5.1",
   ],
 
   cflags: [
     "-DMAJOR_VERSION=5",
     "-DMINOR_VERSION=0",
-    "-include common/all-versions/VersionMacro.h",
+    "-DAUDIO_PROXY_MINOR_VERSION=1",
+    "-include ../common/AudioProxyVersionMacro.h",
   ],
 }

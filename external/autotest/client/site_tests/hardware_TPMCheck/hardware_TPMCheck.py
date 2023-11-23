@@ -131,7 +131,18 @@ class hardware_TPMCheck(test.test):
             check_perm(index, perm_expected[index])
 
         # Check kernel space UID
-        check_tpmc('read 0x1008 0x5', '.* 4c 57 52 47$')
+        # First check the TPM data version. If it is ver 1.0, then skip
+        # the kernel UID because it is not available.
+        try:
+            # Read the first two bytes of TPM kernel data, and check if it is
+            # in the format version 1.0.
+            #   byte[0]: version. bit[7:4]=Major, bit[3:0]=Minor.
+            #   byte[1]: byte size. 0x28, 40(0x28) bytes
+            check_tpmc('read 0x1008 0x2', '^10 28')
+        except error.TestError as e:
+            # If TPM ver 1.0 format pattern matching fails, then it should be in
+            # the old format. Let's check kernel space UID.
+            check_tpmc('read 0x1008 0x5', '^.* 4c 57 52 47$')
 
 
     def cleanup(self):

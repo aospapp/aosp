@@ -17,7 +17,8 @@
 import unittest
 import mock
 from acts.controllers import adb
-from acts.controllers.adb import AdbError
+from acts.controllers.adb_lib.error import AdbCommandError
+from acts.controllers.adb_lib.error import AdbError
 
 
 class MockJob(object):
@@ -39,7 +40,7 @@ class ADBTest(unittest.TestCase):
         mock_job = MockJob(exit_status=1, stderr='error: device not found')
         cmd = ['adb', '-s', '"SOME_SERIAL"', 'shell', '"SOME_SHELL_CMD"']
         with mock.patch('acts.libs.proc.job.run', return_value=mock_job):
-            with self.assertRaises(adb.AdbError):
+            with self.assertRaises(AdbError):
                 MockAdbProxy()._exec_cmd(cmd)
 
     def test__exec_cmd_failure_new_adb(self):
@@ -47,26 +48,36 @@ class ADBTest(unittest.TestCase):
             exit_status=1, stderr='error: device \'DEADBEEF\' not found')
         cmd = ['adb', '-s', '"SOME_SERIAL"', 'shell', '"SOME_SHELL_CMD"']
         with mock.patch('acts.libs.proc.job.run', return_value=mock_job):
-            with self.assertRaises(adb.AdbError):
+            with self.assertRaises(AdbError):
                 MockAdbProxy()._exec_cmd(cmd)
 
-    def test__exec_cmd_pass_ret_1(self):
+    def test__exec_cmd_pass_basic(self):
+        mock_job = MockJob(exit_status=0, stderr='DEADBEEF', stdout='FEEDACAB')
+        cmd = ['adb', '-s', '"SOME_SERIAL"', 'shell', '"SOME_SHELL_CMD"']
+        with mock.patch('acts.libs.proc.job.run', return_value=mock_job):
+            result = MockAdbProxy()._exec_cmd(cmd)
+        self.assertEqual(result, 'FEEDACAB')
+
+    def test__exec_cmd_ignore_status(self):
+        mock_job = MockJob(exit_status=0, stderr='DEADBEEF', stdout='')
+        cmd = ['adb', '-s', '"SOME_SERIAL"', 'shell', '"SOME_SHELL_CMD"']
+        with mock.patch('acts.libs.proc.job.run', return_value=mock_job):
+            result = MockAdbProxy()._exec_cmd(cmd, ignore_status=True)
+        self.assertEqual(result, 'DEADBEEF')
+
+    def test__exec_cmd_pass_grep(self):
+        mock_job = MockJob(exit_status=1, stderr='', stdout='foo')
+        cmd = ['adb', '-s', '"SOME_SERIAL"', 'shell', '"grep foo"']
+        with mock.patch('acts.libs.proc.job.run', return_value=mock_job):
+            result = MockAdbProxy()._exec_cmd(cmd)
+        self.assertEqual(result, 'foo')
+
+    def test__exec_cmd_failure_ret_nonzero(self):
         mock_job = MockJob(exit_status=1, stderr='error not related to adb')
         cmd = ['adb', '-s', '"SOME_SERIAL"', 'shell', '"SOME_SHELL_CMD"']
         with mock.patch('acts.libs.proc.job.run', return_value=mock_job):
-            MockAdbProxy()._exec_cmd(cmd)
-
-    def test__exec_cmd_pass_basic(self):
-        mock_job = MockJob(exit_status=0, stderr='', stdout='FEEDACAB')
-        cmd = ['adb', '-s', '"SOME_SERIAL"', 'shell', '"SOME_SHELL_CMD"']
-        with mock.patch('acts.libs.proc.job.run', return_value=mock_job):
-            MockAdbProxy()._exec_cmd(cmd)
-
-    def test__exec_cmd_pass_no_stdout(self):
-        mock_job = MockJob(exit_status=0, stderr='', stdout='')
-        cmd = ['adb', '-s', '"SOME_SERIAL"', 'shell', '"SOME_SHELL_CMD"']
-        with mock.patch('acts.libs.proc.job.run', return_value=mock_job):
-            MockAdbProxy()._exec_cmd(cmd)
+            with self.assertRaises(AdbCommandError):
+                MockAdbProxy()._exec_cmd(cmd)
 
     def test__exec_cmd_raises_on_bind_error(self):
         """Tests _exec_cmd raises an AdbError on port forwarding failure."""

@@ -87,28 +87,29 @@ class CoreApiTest : DriverTest() {
                   }
                 }
                 """,
-            stubs = arrayOf(
-                """
-                /**
-                 * Hide everything in this package:
-                 */
-                package test.pkg;
-                """,
-                // Specify target with [] since NotExposed is not included in the stubs, so
-                // matching up stub expected files here with source inputs doesn't match
-                """
-                [test/pkg/Exposed.java]
-                package test.pkg;
-                /**
-                 * Included because it is annotated with a --show-single-annotation
-                 */
-                @SuppressWarnings({"unchecked", "deprecation", "all"})
-                public class Exposed {
-                Exposed() { throw new RuntimeException("Stub!"); }
-                public void exposed() { throw new RuntimeException("Stub!"); }
-                public java.lang.String exposed;
-                }
-                """
+            stubFiles = arrayOf(
+                java(
+                    """
+                    /**
+                     * Hide everything in this package:
+                     */
+                    package test.pkg;
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    /**
+                     * Included because it is annotated with a --show-single-annotation
+                     */
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class Exposed {
+                    Exposed() { throw new RuntimeException("Stub!"); }
+                    public void exposed() { throw new RuntimeException("Stub!"); }
+                    public java.lang.String exposed;
+                    }
+                    """
+                )
             ),
             extraArguments = arrayOf(
                 ARG_SHOW_SINGLE_ANNOTATION, "libcore.api.IntraCoreApi",
@@ -178,29 +179,30 @@ class CoreApiTest : DriverTest() {
                   }
                 }
                 """,
-            stubs = arrayOf(
-                """
-                /**
-                 * Hide everything in this package:
-                 * @hide
-                 */
-                package test.pkg;
-                """,
-                // Specify target with [] since NotExposed is not included in the stubs, so
-                // matching up stub expected files here with source inputs doesn't match
-                """
-                [test/pkg/Exposed.java]
-                package test.pkg;
-                /**
-                 * Included because it is annotated with a --show-single-annotation
-                 * @hide
-                 */
-                @SuppressWarnings({"unchecked", "deprecation", "all"})
-                public class Exposed {
-                Exposed() { throw new RuntimeException("Stub!"); }
-                public void exposed() { throw new RuntimeException("Stub!"); }
-                }
-                """
+            stubFiles = arrayOf(
+                java(
+                    """
+                    /**
+                     * Hide everything in this package:
+                     * @hide
+                     */
+                    package test.pkg;
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    /**
+                     * Included because it is annotated with a --show-single-annotation
+                     * @hide
+                     */
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class Exposed {
+                    Exposed() { throw new RuntimeException("Stub!"); }
+                    public void exposed() { throw new RuntimeException("Stub!"); }
+                    }
+                    """
+                )
             ),
             extraArguments = arrayOf(
                 ARG_SHOW_SINGLE_ANNOTATION, "libcore.api.IntraCoreApi",
@@ -338,19 +340,18 @@ class CoreApiTest : DriverTest() {
                   }
                 }
                 """,
-            stubs = arrayOf(
-                NO_STUB,
-                NO_STUB,
-                """
-                package test.pkg;
-                @SuppressWarnings({"unchecked", "deprecation", "all"})
-                public class ExposedClass {
-                public ExposedClass() { throw new RuntimeException("Stub!"); }
-                public void exposedMethod() { throw new RuntimeException("Stub!"); }
-                public java.lang.String exposedField;
-                }
-                """,
-                NO_STUB
+            stubFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class ExposedClass {
+                    public ExposedClass() { throw new RuntimeException("Stub!"); }
+                    public void exposedMethod() { throw new RuntimeException("Stub!"); }
+                    public java.lang.String exposedField;
+                    }
+                    """
+                )
             ),
             extraArguments = arrayOf(
                 ARG_HIDE_META_ANNOTATION, "libcore.api.LibCoreMetaHidden"

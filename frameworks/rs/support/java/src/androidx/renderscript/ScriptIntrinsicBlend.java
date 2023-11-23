@@ -20,7 +20,12 @@ package androidx.renderscript;
 /**
  * Intrinsic kernels for blending two
  * {@link androidx.renderscript.Allocation} objects.
+ *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public class ScriptIntrinsicBlend extends ScriptIntrinsic {
     // API level for the intrinsic
     private static final int INTRINSIC_API_LEVEL = 19;

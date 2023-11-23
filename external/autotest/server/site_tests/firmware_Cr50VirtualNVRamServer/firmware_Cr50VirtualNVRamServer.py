@@ -21,10 +21,10 @@ class firmware_Cr50VirtualNVRamServer(test.test):
 
         # Skip the test if the TPM is unavailable.
         tpm_status = tpm_utils.TPMStatus(self.client)
-        if 'Enabled' not in tpm_status:
+        if 'is_enabled' not in tpm_status:
             raise error.TestError('Error obtaining TPM enabled state. Status '
                                   'returned by cryptohome: ' + str(tpm_status))
-        if not tpm_status['Enabled']:
+        if not tpm_status['is_enabled']:
             raise error.TestNAError("TPM is not enabled")
 
         # Clear the TPM, so that the client test is able to obtain the TPM owner

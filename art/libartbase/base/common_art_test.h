@@ -45,7 +45,7 @@ class DexFile;
 
 class ScratchDir {
  public:
-  ScratchDir();
+  explicit ScratchDir(bool keep_files = false);
 
   ~ScratchDir();
 
@@ -55,6 +55,7 @@ class ScratchDir {
 
  private:
   std::string path_;
+  bool keep_files_;  // Useful for debugging.
 
   DISALLOW_COPY_AND_ASSIGN(ScratchDir);
 };
@@ -93,69 +94,32 @@ class ScratchFile {
   std::unique_ptr<File> file_;
 };
 
-// Close to store a fake dex file and its underlying data.
-class FakeDex {
+// Helper class that removes an environment variable whilst in scope.
+class ScopedUnsetEnvironmentVariable {
  public:
-  static std::unique_ptr<FakeDex> Create(
-      const std::string& location,
-      uint32_t checksum,
-      uint32_t num_method_ids) {
-    FakeDex* fake_dex = new FakeDex();
-    fake_dex->dex = CreateFakeDex(location, checksum, num_method_ids, &fake_dex->storage);
-    return std::unique_ptr<FakeDex>(fake_dex);
+  explicit ScopedUnsetEnvironmentVariable(const char* variable)
+      : variable_{variable}, old_value_{GetOldValue(variable)} {
+    unsetenv(variable);
   }
 
-  static std::unique_ptr<const DexFile> CreateFakeDex(
-      const std::string& location,
-      uint32_t checksum,
-      uint32_t num_method_ids,
-      std::vector<uint8_t>* storage) {
-    storage->resize(kPageSize);
-    CompactDexFile::Header* header =
-        const_cast<CompactDexFile::Header*>(CompactDexFile::Header::At(storage->data()));
-    CompactDexFile::WriteMagic(header->magic_);
-    CompactDexFile::WriteCurrentVersion(header->magic_);
-    header->data_off_ = 0;
-    header->data_size_ = storage->size();
-    header->method_ids_size_ = num_method_ids;
-
-    const DexFileLoader dex_file_loader;
-    std::string error_msg;
-    std::unique_ptr<const DexFile> dex(dex_file_loader.Open(storage->data(),
-                                                            storage->size(),
-                                                            location,
-                                                            checksum,
-                                                            /*oat_dex_file=*/nullptr,
-                                                            /*verify=*/false,
-                                                            /*verify_checksum=*/false,
-                                                            &error_msg));
-    CHECK(dex != nullptr) << error_msg;
-    return dex;
-  }
-
-  std::unique_ptr<const DexFile>& Dex() {
-    return dex;
+  ~ScopedUnsetEnvironmentVariable() {
+    if (old_value_.has_value()) {
+      static constexpr int kReplace = 1;  // tidy-issue: replace argument has libc dependent name.
+      setenv(variable_, old_value_.value().c_str(), kReplace);
+    } else {
+      unsetenv(variable_);
+    }
   }
 
  private:
-  std::vector<uint8_t> storage;
-  std::unique_ptr<const DexFile> dex;
-};
-
-// Convenience class to store multiple fake dex files in order to make
-// allocation/de-allocation easier in tests.
-class FakeDexStorage {
- public:
-  const DexFile* AddFakeDex(
-      const std::string& location,
-      uint32_t checksum,
-      uint32_t num_method_ids) {
-    fake_dex_files.push_back(FakeDex::Create(location, checksum, num_method_ids));
-    return fake_dex_files.back()->Dex().get();
+  static std::optional<std::string> GetOldValue(const char* variable) {
+    const char* value = getenv(variable);
+    return value != nullptr ? std::optional<std::string>{value} : std::nullopt;
   }
 
- private:
-  std::vector<std::unique_ptr<FakeDex>> fake_dex_files;
+  const char* variable_;
+  std::optional<std::string> old_value_;
+  DISALLOW_COPY_AND_ASSIGN(ScopedUnsetEnvironmentVariable);
 };
 
 class CommonArtTestImpl {
@@ -192,9 +156,6 @@ class CommonArtTestImpl {
 
   static std::string GetClassPathOption(const char* option,
                                         const std::vector<std::string>& class_path);
-
-  // Returns bin directory which contains host's prebuild tools.
-  static std::string GetAndroidHostToolsDir();
 
   // Retuerns the filename for a test dex (i.e. XandY or ManyMethods).
   std::string GetTestDexFileName(const char* name) const;
@@ -248,21 +209,24 @@ class CommonArtTestImpl {
                                        const PostForkFn& post_fork,
                                        std::string* output);
 
+  // Helper - find prebuilt tool (e.g. objdump).
+  static std::string GetAndroidTool(const char* name, InstructionSet isa = InstructionSet::kX86_64);
+
  protected:
   static bool IsHost() {
     return !kIsTargetBuild;
   }
 
-  // Helper - find directory with the following format:
-  // ${ANDROID_BUILD_TOP}/${subdir1}/${subdir2}-${version}/${subdir3}/bin/
-  static std::string GetAndroidToolsDir(const std::string& subdir1,
-                                        const std::string& subdir2,
-                                        const std::string& subdir3);
+  // Returns ${ANDROID_BUILD_TOP}. Ensure it has tailing /.
+  static std::string GetAndroidBuildTop();
 
-  // File location to core.art, e.g. $ANDROID_HOST_OUT/system/framework/core.art
+  // Returns ${ANDROID_HOST_OUT}.
+  static std::string GetAndroidHostOut();
+
+  // File location to boot.art, e.g. /apex/com.android.art/javalib/boot.art
   static std::string GetCoreArtLocation();
 
-  // File location to core.oat, e.g. $ANDROID_HOST_OUT/system/framework/core.oat
+  // File location to boot.oat, e.g. /apex/com.android.art/javalib/boot.oat
   static std::string GetCoreOatLocation();
 
   std::unique_ptr<const DexFile> LoadExpectSingleDexFile(const char* location);
@@ -280,8 +244,8 @@ class CommonArtTestImpl {
 
   std::unique_ptr<const DexFile> OpenTestDexFile(const char* name);
 
-
   std::string android_data_;
+  std::string android_system_ext_;
   std::string dalvik_cache_;
 
   virtual void SetUp();
@@ -296,6 +260,7 @@ class CommonArtTestImpl {
   std::string CreateClassPathWithChecksums(
       const std::vector<std::unique_ptr<const DexFile>>& dex_files);
 
+  static std::string GetImageDirectory();
   static std::string GetCoreFileLocation(const char* suffix);
 
   std::vector<std::unique_ptr<const DexFile>> loaded_dex_files_;

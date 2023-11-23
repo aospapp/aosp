@@ -25,6 +25,7 @@
 #include "utils/base/integral_types.h"
 #include "utils/grammar/rules_generated.h"
 #include "utils/grammar/types.h"
+#include "utils/grammar/utils/locale-shard-map.h"
 
 namespace libtextclassifier3::grammar {
 
@@ -96,19 +97,25 @@ class Ir {
     std::unordered_map<TwoNonterms, LhsSet, BinaryRuleHasher> binary_rules;
   };
 
-  explicit Ir(const std::unordered_set<CallbackId>& filters = {},
-              const int num_shards = 1)
-      : num_nonterminals_(0), filters_(filters), shards_(num_shards) {}
+  explicit Ir(const LocaleShardMap& locale_shard_map)
+      : num_nonterminals_(0),
+        locale_shard_map_(locale_shard_map),
+        shards_(locale_shard_map_.GetNumberOfShards()) {}
 
   // Adds a new non-terminal.
   Nonterm AddNonterminal(const std::string& name = "") {
     const Nonterm nonterminal = ++num_nonterminals_;
     if (!name.empty()) {
       // Record debug information.
-      nonterminal_names_[nonterminal] = name;
-      nonterminal_ids_[name] = nonterminal;
+      SetNonterminal(name, nonterminal);
     }
     return nonterminal;
+  }
+
+  // Sets the name of a nonterminal.
+  void SetNonterminal(const std::string& name, const Nonterm nonterminal) {
+    nonterminal_names_[nonterminal] = name;
+    nonterminal_ids_[name] = nonterminal;
   }
 
   // Defines a nonterminal if not yet defined.
@@ -183,6 +190,12 @@ class Ir {
       bool include_debug_information = false) const;
 
   const std::vector<RulesShard>& shards() const { return shards_; }
+  const std::vector<std::pair<std::string, Nonterm>>& regex_rules() const {
+    return regex_rules_;
+  }
+  const std::vector<std::pair<std::string, Nonterm>>& annotations() const {
+    return annotations_;
+  }
 
  private:
   template <typename R, typename H>
@@ -214,9 +227,8 @@ class Ir {
   Nonterm num_nonterminals_;
   std::unordered_set<Nonterm> nonshareable_;
 
-  // The set of callbacks that should be treated as filters.
-  std::unordered_set<CallbackId> filters_;
-
+  // Locale information for Rules
+  const LocaleShardMap& locale_shard_map_;
   // The sharded rules.
   std::vector<RulesShard> shards_;
 

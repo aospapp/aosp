@@ -17,15 +17,16 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "GCH_HdrplusCaptureSession"
 #define ATRACE_TAG ATRACE_TAG_CAMERA
+#include "hdrplus_capture_session.h"
+
 #include <cutils/properties.h>
+#include <inttypes.h>
 #include <log/log.h>
 #include <utils/Trace.h>
 
-#include <inttypes.h>
 #include <set>
 
 #include "hal_utils.h"
-#include "hdrplus_capture_session.h"
 #include "hdrplus_process_block.h"
 #include "hdrplus_request_processor.h"
 #include "hdrplus_result_processor.h"
@@ -80,7 +81,7 @@ std::unique_ptr<HdrplusCaptureSession> HdrplusCaptureSession::Create(
     CameraDeviceSessionHwl* device_session_hwl,
     const StreamConfiguration& stream_config,
     ProcessCaptureResultFunc process_capture_result, NotifyFunc notify,
-    HwlRequestBuffersFunc /*request_stream_buffers*/,
+    HwlSessionCallback /*session_callback*/,
     std::vector<HalStream>* hal_configured_streams,
     CameraBufferAllocatorHwl* /*camera_allocator_hwl*/) {
   ATRACE_CALL();
@@ -357,7 +358,8 @@ status_t HdrplusCaptureSession::SetupRealtimeProcessChain(
   }
 
   // Create realtime request processor.
-  request_processor_ = RealtimeZslRequestProcessor::Create(device_session_hwl_);
+  request_processor_ = RealtimeZslRequestProcessor::Create(
+      device_session_hwl_, HAL_PIXEL_FORMAT_RAW10);
   if (request_processor_ == nullptr) {
     ALOGE("%s: Creating RealtimeZslsRequestProcessor failed.", __FUNCTION__);
     return UNKNOWN_ERROR;
@@ -373,7 +375,7 @@ status_t HdrplusCaptureSession::SetupRealtimeProcessChain(
 
   // Create realtime result processor.
   auto result_processor = RealtimeZslResultProcessor::Create(
-      internal_stream_manager_.get(), *raw_stream_id);
+      internal_stream_manager_.get(), *raw_stream_id, HAL_PIXEL_FORMAT_RAW10);
   if (result_processor == nullptr) {
     ALOGE("%s: Creating RealtimeZslResultProcessor failed.", __FUNCTION__);
     return UNKNOWN_ERROR;

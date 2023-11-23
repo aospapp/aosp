@@ -19,11 +19,12 @@
 
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "actions/actions-entity-data_generated.h"
 #include "annotator/types.h"
-#include "utils/flatbuffers.h"
+#include "utils/flatbuffers/flatbuffers.h"
 
 namespace libtextclassifier3 {
 
@@ -55,6 +56,13 @@ struct ActionSuggestionAnnotation {
   std::string name;
 };
 
+// A slot associated with an action {
+struct Slot {
+  std::string type;
+  MessageTextSpan span;
+  float confidence_score;
+};
+
 // Action suggestion that contains a response text and the type of the response.
 struct ActionSuggestion {
   // Text of the action suggestion.
@@ -75,10 +83,19 @@ struct ActionSuggestion {
   // Extras information.
   std::string serialized_entity_data;
 
-  const ActionsEntityData* entity_data() {
+  // Slots corresponding to the action suggestion.
+  std::vector<Slot> slots;
+
+  const ActionsEntityData* entity_data() const {
     return LoadAndVerifyFlatbuffer<ActionsEntityData>(
         serialized_entity_data.data(), serialized_entity_data.size());
   }
+};
+
+// Options for suggesting actions.
+struct ActionSuggestionOptions {
+  static ActionSuggestionOptions Default() { return ActionSuggestionOptions(); }
+  std::unordered_map<std::string, Variant> model_parameters;
 };
 
 // Actions suggestions result containing meta - information and the suggested
@@ -88,8 +105,8 @@ struct ActionsSuggestionsResponse {
   float sensitivity_score = -1.f;
   float triggering_score = -1.f;
 
-  // Whether the output was suppressed by the sensitivity threshold.
-  bool output_filtered_sensitivity = false;
+  // Whether the input conversation is considered as sensitive.
+  bool is_sensitive = false;
 
   // Whether the output was suppressed by the triggering score threshold.
   bool output_filtered_min_triggering_score = false;

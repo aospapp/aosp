@@ -22,9 +22,9 @@ native_bridge_trace:
   bx r3
 
 .text
-.globl native_bridge_find_proxy_library_symbol
-.type native_bridge_find_proxy_library_symbol, #function
-native_bridge_find_proxy_library_symbol:
+.globl native_bridge_intercept_symbol
+.type native_bridge_intercept_symbol, #function
+native_bridge_intercept_symbol:
   ldr r3, =0
   bx r3
 

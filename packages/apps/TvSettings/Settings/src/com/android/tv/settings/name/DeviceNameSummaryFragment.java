@@ -24,7 +24,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 import androidx.leanback.widget.GuidedActionsStylist;
@@ -37,7 +37,7 @@ import java.util.List;
 /**
  * Fragment responsible for showing the device name summary.
  */
-public class DeviceNameSummaryFragment extends GuidedStepFragment {
+public class DeviceNameSummaryFragment extends GuidedStepSupportFragment {
 
     public static DeviceNameSummaryFragment newInstance() {
         return new DeviceNameSummaryFragment();
@@ -88,7 +88,8 @@ public class DeviceNameSummaryFragment extends GuidedStepFragment {
     public void onGuidedActionClicked(GuidedAction action) {
         final long actionId = action.getId();
         if (actionId == GuidedAction.ACTION_ID_CONTINUE) {
-            GuidedStepFragment.add(getFragmentManager(), DeviceNameSetFragment.newInstance());
+            GuidedStepSupportFragment.add(
+                    getFragmentManager(), DeviceNameSetFragment.newInstance());
         } else if (actionId == GuidedAction.ACTION_ID_CANCEL) {
             getActivity().finish();
         } else {

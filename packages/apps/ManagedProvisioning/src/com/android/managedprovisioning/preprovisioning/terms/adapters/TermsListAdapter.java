@@ -15,140 +15,207 @@
  */
 package com.android.managedprovisioning.preprovisioning.terms.adapters;
 
-import static com.android.internal.util.Preconditions.checkNotNull;
+import static android.view.View.TEXT_ALIGNMENT_TEXT_START;
 
-import android.annotation.ColorInt;
+import static java.util.Objects.requireNonNull;
+
 import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.accessibility.AccessibilityNodeInfo;
-import android.widget.BaseExpandableListAdapter;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
+import com.android.managedprovisioning.common.ClickableSpanFactory;
+import com.android.managedprovisioning.common.StylerHelper;
+import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.preprovisioning.terms.TermsDocument;
+
+import com.google.android.setupdesign.util.DescriptionStyler;
 
 import java.util.List;
 
 /**
- * Allows for displaying {@link TermsDocument} objects in an
- * {@link android.widget.ExpandableListView}.
+ * Displays {@link TermsDocument} objects in a {@link RecyclerView}.
  */
-public class TermsListAdapter extends BaseExpandableListAdapter {
+public class TermsListAdapter extends RecyclerView.Adapter<TermsListAdapter.TermsViewHolder> {
+    private static final int VIEW_TYPE_GENERAL_DISCLAIMER = 1;
+    private static final int VIEW_TYPE_REGULAR_DISCLAIMER = 2;
+
+    private final TermsDocument mGenericDisclaimer;
     private final List<TermsDocument> mTermsDocuments;
     private final LayoutInflater mInflater;
     private final AccessibilityContextMenuMaker mContextMenuMaker;
-    private final GroupExpandedInfo mGroupExpandedInfo;
     private final Context mContext;
-    private final int mStatusBarColor;
+    private final TermsBridge mTermsBridge;
+    private final Utils mUtils;
+    private final StylerHelper mStylerHelper;
 
-    /**
-     * Creates a new instance of the class.
-     */
-    public TermsListAdapter(Context context, List<TermsDocument> termsDocuments,
-            LayoutInflater layoutInflater, AccessibilityContextMenuMaker
-            contextMenuMaker, GroupExpandedInfo groupExpandedInfo,
-            @ColorInt int statusBarColor) {
-        mTermsDocuments = checkNotNull(termsDocuments);
-        mInflater = checkNotNull(layoutInflater);
-        mGroupExpandedInfo = checkNotNull(groupExpandedInfo);
-        mContextMenuMaker = checkNotNull(contextMenuMaker);
-        mContext = checkNotNull(context);
-        mStatusBarColor = statusBarColor;
+    public TermsListAdapter(Context context, TermsDocument genericDisclaimer,
+            List<TermsDocument> termsDocuments, LayoutInflater layoutInflater,
+            AccessibilityContextMenuMaker contextMenuMaker, TermsBridge termsBridge, Utils utils,
+            StylerHelper stylerHelper) {
+        mGenericDisclaimer = requireNonNull(genericDisclaimer);
+        mTermsDocuments = requireNonNull(termsDocuments);
+        mInflater = requireNonNull(layoutInflater);
+        mContextMenuMaker = requireNonNull(contextMenuMaker);
+        mContext = requireNonNull(context);
+        mTermsBridge = requireNonNull(termsBridge);
+        mUtils = requireNonNull(utils);
+        mStylerHelper = requireNonNull(stylerHelper);
     }
 
     @Override
-    public int getGroupCount() {
-        return mTermsDocuments.size();
+    public TermsViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        View rootView = null;
+        switch (viewType) {
+            case VIEW_TYPE_GENERAL_DISCLAIMER:
+                rootView = createGeneralDisclaimerView(parent);
+                break;
+            case VIEW_TYPE_REGULAR_DISCLAIMER:
+                rootView = createRegularDisclaimerView(parent);
+                break;
+        }
+        return new TermsViewHolder(rootView);
+    }
+
+    private View createRegularDisclaimerView(ViewGroup parent) {
+        View rootView = mInflater.inflate(
+                R.layout.terms_disclaimer_header, parent, /* attachToRoot= */ false);
+        mStylerHelper.applyListItemStyling(rootView,
+                new LinearLayout.LayoutParams(rootView.getLayoutParams()));
+        return rootView;
+    }
+
+    private View createGeneralDisclaimerView(ViewGroup parent) {
+        View rootView = mInflater.inflate(
+                R.layout.terms_disclaimer_general, parent, /* attachToRoot= */ false);
+        TextView textView = rootView.findViewById(R.id.terms_disclaimer_general);
+        DescriptionStyler.applyPartnerCustomizationHeavyStyle(textView);
+        textView.setTextAlignment(TEXT_ALIGNMENT_TEXT_START);
+        return rootView;
     }
 
     @Override
-    public int getChildrenCount(int groupPosition) {
-        return 1; // one content piece per header
+    public void onBindViewHolder(TermsViewHolder holder, int position) {
+        int itemViewType = getItemViewType(position);
+        switch (itemViewType) {
+            case VIEW_TYPE_GENERAL_DISCLAIMER:
+                onBindGeneralDisclaimerViewHolder(holder);
+                break;
+            case VIEW_TYPE_REGULAR_DISCLAIMER:
+                onBindDisclaimerViewHolder(holder, /* disclaimerIndex= */ position - 1);
+                break;
+        }
+    }
+
+    private void onBindGeneralDisclaimerViewHolder(TermsViewHolder holder) {
+        holder.mGeneralDisclaimer.setText(mGenericDisclaimer.getContent());
+    }
+
+    private void onBindDisclaimerViewHolder(TermsViewHolder holder, int disclaimerIndex) {
+        TermsDocument disclaimer = getDisclaimer(disclaimerIndex);
+        String heading = disclaimer.getHeading();
+        setupRootView(disclaimerIndex, heading, holder);
+        setupDisclaimerHeading(heading, holder);
+        setupDisclaimerContent(disclaimer, holder);
+        setExpanded(isExpanded(disclaimerIndex), disclaimerIndex, holder);
     }
 
     @Override
-    public TermsDocument getGroup(int groupPosition) {
-        return getDisclaimer(groupPosition);
+    public int getItemViewType(int position) {
+        if (position == 0) {
+            return VIEW_TYPE_GENERAL_DISCLAIMER;
+        }
+        return VIEW_TYPE_REGULAR_DISCLAIMER;
+    }
+
+    private void setupRootView(int position, String heading, TermsViewHolder viewHolder) {
+        viewHolder.itemView
+                .setContentDescription(mContext.getString(R.string.section_heading, heading));
+        viewHolder.itemView.setOnClickListener(view ->
+                setExpanded(!isExpanded(position), position, viewHolder));
+    }
+
+    private void setupDisclaimerHeading(String heading, TermsViewHolder viewHolder) {
+        viewHolder.mDisclaimerHeader.setText(heading);
+    }
+
+    private void setupDisclaimerContent(TermsDocument disclaimer, TermsViewHolder viewHolder) {
+        TextView disclaimerContent = viewHolder.mDisclaimerContent;
+        TermsAdapterUtils.populateContentTextView(
+                mContext, disclaimerContent, disclaimer, new ClickableSpanFactory(
+                        mUtils.getAccentColor(mContext),
+                        mTermsBridge::onLinkClicked));
+        mContextMenuMaker.registerWithActivity(disclaimerContent);
+    }
+
+    private void updateViewsForExpandedState(boolean expanded, TermsViewHolder viewHolder) {
+        viewHolder.mDisclaimerContentContainer.setVisibility(expanded ? View.VISIBLE : View.GONE);
+        viewHolder.mChevron.setRotation(expanded ? 90 : -90);
     }
 
     @Override
-    public TermsDocument getChild(int groupPosition, int childPosition) {
-        return getDisclaimer(groupPosition);
-    }
-
-    @Override
-    public long getGroupId(int groupPosition) {
-        return groupPosition;
-    }
-
-    @Override
-    public long getChildId(int groupPosition, int childPosition) {
-        return childPosition;
-    }
-
-    @Override
-    public boolean hasStableIds() {
-        return true;
-    }
-
-    // TODO: encapsulate this logic - too much direct view manipulation
-    @Override
-    public View getGroupView(int groupPosition, boolean isExpanded, View convertView,
-            ViewGroup parent) {
-        String heading = getDisclaimer(groupPosition).getHeading();
-
-        View groupView = convertView != null ? convertView : mInflater.inflate(
-                R.layout.terms_disclaimer_header, parent, false);
-        groupView.setContentDescription(
-                parent.getResources().getString(R.string.section_heading, heading));
-
-        TextView textView = groupView.findViewById(R.id.header_text);
-        textView.setText(heading);
-
-        ImageView chevron = groupView.findViewById(R.id.chevron);
-        chevron.setRotation(isExpanded ? 90 : -90); // chevron down / up retrospectively
-        groupView.findViewById(R.id.divider).setVisibility(
-                shouldShowGroupDivider(groupPosition) ? View.VISIBLE : View.INVISIBLE);
-
-        return groupView;
-    }
-
-    /**
-     * Helps avoid a double thick divider line: one above header, one from the bottom of prev child
-     */
-    private boolean shouldShowGroupDivider(int groupPosition) {
-        return mGroupExpandedInfo.isGroupExpanded(groupPosition)
-                && (groupPosition == 0 || !mGroupExpandedInfo.isGroupExpanded(groupPosition - 1));
-    }
-
-    // TODO: encapsulate this logic - too much direct view manipulation
-    @Override
-    public View getChildView(int groupPosition, int childPosition, boolean isLastChild,
-            View convertView, ViewGroup parent) {
-        View view = convertView != null ? convertView : mInflater.inflate(
-                R.layout.terms_disclaimer_content, parent, false);
-
-        TermsDocument disclaimer = getDisclaimer(groupPosition);
-        TextView textView = view.findViewById(R.id.disclaimer_content);
-        TermsAdapterUtils.populateContentTextView(mContext, textView, disclaimer, mStatusBarColor);
-        mContextMenuMaker.registerWithActivity(textView);
-        return view;
+    public int getItemCount() {
+        // First item is always the general disclaimer
+        return 1 + mTermsDocuments.size();
     }
 
     private TermsDocument getDisclaimer(int index) {
         return mTermsDocuments.get(index);
     }
 
-    @Override
-    public boolean isChildSelectable(int groupPosition, int childPosition) {
-        return false;
+    private Boolean isExpanded(int position) {
+        return mTermsBridge.isTermExpanded(position);
     }
 
-    public interface GroupExpandedInfo {
-        boolean isGroupExpanded(int groupPosition);
+    private void setExpanded(boolean expanded, int position, TermsViewHolder viewHolder) {
+        mTermsBridge.onTermExpanded(position, expanded);
+        updateViewsForExpandedState(expanded, viewHolder);
+    }
+
+    /**
+     * Used for communicating with the owner of the adapter.
+     */
+    public interface TermsBridge {
+        /**
+         * Returns whether the disclaimer at position {@code position} is expanded.
+         */
+        boolean isTermExpanded(int position);
+
+        /**
+         * Expands the disclaimer at position {@code position} if {@code expanded} is {@code true},
+         * otherwise collapses it.
+         */
+        void onTermExpanded(int position, boolean expanded);
+
+        /**
+         * Callback invoked when a link is tapped from the terms content text.
+         * @param intent a web intent ready to be launched.
+         */
+        void onLinkClicked(Intent intent);
+    }
+
+    static class TermsViewHolder extends RecyclerView.ViewHolder {
+        final TextView mGeneralDisclaimer;
+        final TextView mDisclaimerHeader;
+        final TextView mDisclaimerContent;
+        final ViewGroup mDisclaimerContentContainer;
+        final ImageView mChevron;
+
+        TermsViewHolder(View itemView) {
+            super(itemView);
+            mGeneralDisclaimer = itemView.findViewById(R.id.terms_disclaimer_general);
+            mDisclaimerHeader = itemView.findViewById(R.id.sud_items_title);
+            mDisclaimerContent = itemView.findViewById(R.id.disclaimer_content);
+            mDisclaimerContentContainer = itemView.findViewById(R.id.disclaimer_content_container);
+            mChevron = itemView.findViewById(R.id.chevron);
+        }
     }
 }

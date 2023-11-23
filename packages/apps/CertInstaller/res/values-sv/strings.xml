@@ -54,7 +54,7 @@
     <string name="wifi_certificate" msgid="5356595832360140989">"Wi‑Fi-certifikat"</string>
     <string name="ca_cert_is_added" msgid="2847081843756291802">"CA-certifikatet har installerats"</string>
     <string name="user_cert_is_added" msgid="3088794616560630823">"Användarcertifikatet har installerats"</string>
-    <string name="wifi_cert_is_added" msgid="333220613655140428">"Wi-Fi-certifikatet har installerats"</string>
+    <string name="wifi_cert_is_added" msgid="333220613655140428">"wifi-certifikatet har installerats"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"Det gick inte att installera eftersom certifikatet är för stort."</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"Det gick inte att installera eftersom certifikatfilen inte hittades."</string>
     <string name="cert_read_error" msgid="7353463360652419796">"Det gick inte att installera eftersom certifikatfilen inte kunde läsas."</string>
@@ -63,10 +63,10 @@
     <string name="credential_usage_label" msgid="1513892208033156805">"Användning av användaruppgifter:"</string>
   <string-array name="credential_usage">
     <item msgid="375085478373011304">"VPN och appar"</item>
-    <item msgid="692322974985472861">"Wi-Fi"</item>
+    <item msgid="692322974985472861">"Wifi"</item>
   </string-array>
     <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Obs! Certifikatets utfärdare kan granska all trafik till och från enheten."</string>
-    <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi-profil"</string>
+    <string name="wifi_title" msgid="8475811746333426489">"wifi-profil"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Information för %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Information"</string>
     <string name="wifi_install_label" msgid="1449629407724323233">"Installera"</string>
@@ -80,12 +80,12 @@
     <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM: %s\n"</string>
     <string name="wifi_trust_config_text" msgid="5916047381475747783">"Förtroendecertifikat:\n%s\n"</string>
     <string name="install_done_title" msgid="4822989918460334497">"Användaruppgifter har installerats"</string>
-    <string name="install_done" msgid="1522718684172097080">"Användaruppgifter för <xliff:g id="NAME">%1$s</xliff:g> har lagts till för sparade Wi-Fi-nätverk."</string>
+    <string name="install_done" msgid="1522718684172097080">"Användaruppgifter för <xliff:g id="NAME">%1$s</xliff:g> har lagts till för sparade wifi-nätverk."</string>
     <string name="done_label" msgid="5597425930652904250">"KLAR"</string>
-    <string name="wifi_installer_detail" msgid="63879632832701669">"Installera Wi-Fi-användaruppgifter och anslut till nätverk som är tillgängliga via <xliff:g id="NAME">%1$s</xliff:g>."</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"Installera wifi-användaruppgifter och anslut till nätverk som är tillgängliga via <xliff:g id="NAME">%1$s</xliff:g>."</string>
     <string name="wifi_installer_download_error" msgid="5429453090956277692">"Det går inte att installera den nedladdade filen på grund av problem med den. Kontrollera att du laddade ned filen från rätt källa."</string>
-    <string name="wifi_installer_fail" msgid="894483173306576331">"Det går inte att installera användaruppgifter för Wi-Fi. Testa att ladda ned filen igen."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"Det går inte att installera användaruppgifter för wifi. Testa att ladda ned filen igen."</string>
     <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Installationen avbröts"</string>
     <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Det gick inte att installera"</string>
-    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Aktivera Wi-Fi och försök igen."</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Aktivera wifi och försök igen."</string>
 </resources>

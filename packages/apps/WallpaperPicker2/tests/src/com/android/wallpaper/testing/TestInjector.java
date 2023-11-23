@@ -16,6 +16,8 @@
 package com.android.wallpaper.testing;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 
 import androidx.fragment.app.Fragment;
 
@@ -29,6 +31,7 @@ import com.android.wallpaper.module.DefaultLiveWallpaperInfoFactory;
 import com.android.wallpaper.module.DrawableLayerResolver;
 import com.android.wallpaper.module.ExploreIntentChecker;
 import com.android.wallpaper.module.FormFactorChecker;
+import com.android.wallpaper.module.CustomizationSections;
 import com.android.wallpaper.module.Injector;
 import com.android.wallpaper.module.LiveWallpaperInfoFactory;
 import com.android.wallpaper.module.LoggingOptInStatusProvider;
@@ -210,8 +213,9 @@ public class TestInjector implements Injector {
 
     @Override
     public Fragment getPreviewFragment(Context context, WallpaperInfo wallpaperInfo, int mode,
-            boolean testingModeEnabled) {
-        return ImagePreviewFragment.newInstance(wallpaperInfo, mode, testingModeEnabled);
+            boolean viewAsHome, boolean testingModeEnabled) {
+        return ImagePreviewFragment.newInstance(wallpaperInfo, mode, viewAsHome,
+                testingModeEnabled);
     }
 
     @Override
@@ -235,10 +239,25 @@ public class TestInjector implements Injector {
     }
 
     @Override
+    public Intent getDeepLinkRedirectIntent(Context context, Uri uri) {
+        return null;
+    }
+
+    @Override
+    public String getDownloadableIntentAction() {
+        return null;
+    }
+
+    @Override
     public PerformanceMonitor getPerformanceMonitor() {
         if (mPerformanceMonitor == null) {
             mPerformanceMonitor = new TestPerformanceMonitor();
         }
         return mPerformanceMonitor;
+    }
+
+    @Override
+    public CustomizationSections getCustomizationSections() {
+        return null;
     }
 }

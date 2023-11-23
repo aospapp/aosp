@@ -30,8 +30,9 @@
  * when creating the global instance of the nanoapp.
  * @param appId the app's unique 64-bit ID
  * @param appVersion the application-defined 32-bit version number
+ * @param appPerms the declared CHRE_PERMS_ permissions for the nanoapp.
  */
-#define CHRE_STATIC_NANOAPP_INIT(appName, appId_, appVersion_)               \
+#define CHRE_STATIC_NANOAPP_INIT(appName, appId_, appVersion_, appPerms)     \
   namespace chre {                                                           \
                                                                              \
   UniquePtr<Nanoapp> initializeStaticNanoapp##appName() {                    \
@@ -50,6 +51,7 @@
     appInfo.entryPoints.handleEvent = nanoappHandleEvent;                    \
     appInfo.entryPoints.end = nanoappEnd;                                    \
     appInfo.appVersionString = "<undefined>";                                \
+    appInfo.appPermissions = appPerms;                                       \
     if (nanoapp.isNull()) {                                                  \
       FATAL_ERROR("Failed to allocate nanoapp " #appName);                   \
     } else {                                                                 \

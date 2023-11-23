@@ -3,6 +3,8 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := END_USER_LICENCE_AGREEMENT.txt
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_STRIP_MODULE := false
 LOCAL_SRC_FILES_arm := $(LOCAL_MODULE)
@@ -13,6 +15,8 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libGLES_mali.so
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_STRIP_MODULE := false
 LOCAL_SRC_FILES_arm := lib/egl/$(LOCAL_MODULE)
@@ -24,5 +28,3 @@ LOCAL_SHARED_LIBRARIES := libc++ libc libdl liblog libm
 include $(BUILD_PREBUILT)
 
 endif
-
-

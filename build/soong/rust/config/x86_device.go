@@ -64,7 +64,8 @@ func (t *toolchainX86) RustTriple() string {
 }
 
 func (t *toolchainX86) ToolchainLinkFlags() string {
-	return "${config.DeviceGlobalLinkFlags} ${config.X86ToolchainLinkFlags}"
+	// Prepend the lld flags from cc_config so we stay in sync with cc
+	return "${config.DeviceGlobalLinkFlags} ${cc_config.X86ClangLldflags} ${config.X86ToolchainLinkFlags}"
 }
 
 func (t *toolchainX86) ToolchainRustFlags() string {
@@ -77,6 +78,10 @@ func (t *toolchainX86) RustFlags() string {
 
 func (t *toolchainX86) Supported() bool {
 	return true
+}
+
+func (toolchainX86) LibclangRuntimeLibraryArch() string {
+	return "i686"
 }
 
 func x86ToolchainFactory(arch android.Arch) Toolchain {

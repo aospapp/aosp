@@ -20,10 +20,12 @@
 #include <unistd.h>
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 #define LOG_TAG "APM_Test"
 #include <Serializer.h>
 #include <android-base/file.h>
+#include <android/content/AttributionSourceState.h>
 #include <media/AudioPolicy.h>
 #include <media/PatchBuilder.h>
 #include <media/RecordingActivityTracker.h>
@@ -32,10 +34,13 @@
 
 #include "AudioPolicyInterface.h"
 #include "AudioPolicyManagerTestClient.h"
+#include "AudioPolicyManagerTestClientForHdmi.h"
 #include "AudioPolicyTestClient.h"
 #include "AudioPolicyTestManager.h"
 
 using namespace android;
+using testing::UnorderedElementsAre;
+using android::content::AttributionSourceState;
 
 TEST(AudioPolicyManagerTestInit, EngineFailure) {
     AudioPolicyTestClient client;
@@ -54,6 +59,34 @@ TEST(AudioPolicyManagerTestInit, ClientFailure) {
     // APM should indicate that the initialization didn't succeed.
     ASSERT_EQ(NO_INIT, manager.initialize());
     ASSERT_EQ(NO_INIT, manager.initCheck());
+}
+
+// Verifies that a failure while loading a config doesn't leave
+// APM config in a "dirty" state. Since AudioPolicyConfig object
+// is a proxy for the data hosted by APM, it isn't possible
+// to "deep copy" it, and thus we have to test its elements
+// individually.
+TEST(AudioPolicyManagerTestInit, ConfigLoadingIsTransactional) {
+    AudioPolicyTestClient client;
+    AudioPolicyTestManager manager(&client);
+    ASSERT_TRUE(manager.getConfig().getHwModules().isEmpty());
+    ASSERT_TRUE(manager.getConfig().getInputDevices().isEmpty());
+    ASSERT_TRUE(manager.getConfig().getOutputDevices().isEmpty());
+    status_t status = deserializeAudioPolicyFile(
+            (base::GetExecutableDirectory() +
+                    "/test_invalid_audio_policy_configuration.xml").c_str(),
+            &manager.getConfig());
+    ASSERT_NE(NO_ERROR, status);
+    EXPECT_TRUE(manager.getConfig().getHwModules().isEmpty());
+    EXPECT_TRUE(manager.getConfig().getInputDevices().isEmpty());
+    EXPECT_TRUE(manager.getConfig().getOutputDevices().isEmpty());
+    status = deserializeAudioPolicyFile(
+            (base::GetExecutableDirectory() + "/test_audio_policy_configuration.xml").c_str(),
+            &manager.getConfig());
+    ASSERT_EQ(NO_ERROR, status);
+    EXPECT_FALSE(manager.getConfig().getHwModules().isEmpty());
+    EXPECT_FALSE(manager.getConfig().getInputDevices().isEmpty());
+    EXPECT_FALSE(manager.getConfig().getOutputDevices().isEmpty());
 }
 
 
@@ -87,7 +120,7 @@ class AudioPolicyManagerTest : public testing::Test {
     void getOutputForAttr(
             audio_port_handle_t *selectedDeviceId,
             audio_format_t format,
-            int channelMask,
+            audio_channel_mask_t channelMask,
             int sampleRate,
             audio_output_flags_t flags = AUDIO_OUTPUT_FLAG_NONE,
             audio_io_handle_t *output = nullptr,
@@ -98,7 +131,7 @@ class AudioPolicyManagerTest : public testing::Test {
             audio_unique_id_t riid,
             audio_port_handle_t *selectedDeviceId,
             audio_format_t format,
-            int channelMask,
+            audio_channel_mask_t channelMask,
             int sampleRate,
             audio_input_flags_t flags = AUDIO_INPUT_FLAG_NONE,
             audio_port_handle_t *portId = nullptr);
@@ -107,15 +140,16 @@ class AudioPolicyManagerTest : public testing::Test {
     // Tries to find a device port. If 'foundPort' isn't nullptr,
     // will generate a failure if the port hasn't been found.
     bool findDevicePort(audio_port_role_t role, audio_devices_t deviceType,
-            const std::string &address, audio_port *foundPort);
+            const std::string &address, audio_port_v7 *foundPort);
     static audio_port_handle_t getDeviceIdFromPatch(const struct audio_patch* patch);
+    virtual AudioPolicyManagerTestClient* getClient() { return new AudioPolicyManagerTestClient; }
 
     std::unique_ptr<AudioPolicyManagerTestClient> mClient;
     std::unique_ptr<AudioPolicyTestManager> mManager;
 };
 
 void AudioPolicyManagerTest::SetUp() {
-    mClient.reset(new AudioPolicyManagerTestClient);
+    mClient.reset(getClient());
     mManager.reset(new AudioPolicyTestManager(mClient.get()));
     SetUpManagerConfig();  // Subclasses may want to customize the config.
     ASSERT_EQ(NO_ERROR, mManager->initialize());
@@ -164,7 +198,7 @@ void AudioPolicyManagerTest::dumpToLog() {
 void AudioPolicyManagerTest::getOutputForAttr(
         audio_port_handle_t *selectedDeviceId,
         audio_format_t format,
-        int channelMask,
+        audio_channel_mask_t channelMask,
         int sampleRate,
         audio_output_flags_t flags,
         audio_io_handle_t *output,
@@ -182,8 +216,12 @@ void AudioPolicyManagerTest::getOutputForAttr(
     if (!portId) portId = &localPortId;
     *portId = AUDIO_PORT_HANDLE_NONE;
     AudioPolicyInterface::output_type_t outputType;
+    // TODO b/182392769: use attribution source util
+    AttributionSourceState attributionSource = AttributionSourceState();
+    attributionSource.uid = 0;
+    attributionSource.token = sp<BBinder>::make();
     ASSERT_EQ(OK, mManager->getOutputForAttr(
-                    &attr, output, AUDIO_SESSION_NONE, &stream, 0 /*uid*/, &config, &flags,
+                    &attr, output, AUDIO_SESSION_NONE, &stream, attributionSource, &config, &flags,
                     selectedDeviceId, portId, {}, &outputType));
     ASSERT_NE(AUDIO_PORT_HANDLE_NONE, *portId);
     ASSERT_NE(AUDIO_IO_HANDLE_NONE, *output);
@@ -194,7 +232,7 @@ void AudioPolicyManagerTest::getInputForAttr(
         audio_unique_id_t riid,
         audio_port_handle_t *selectedDeviceId,
         audio_format_t format,
-        int channelMask,
+        audio_channel_mask_t channelMask,
         int sampleRate,
         audio_input_flags_t flags,
         audio_port_handle_t *portId) {
@@ -207,14 +245,18 @@ void AudioPolicyManagerTest::getInputForAttr(
     if (!portId) portId = &localPortId;
     *portId = AUDIO_PORT_HANDLE_NONE;
     AudioPolicyInterface::input_type_t inputType;
+    // TODO b/182392769: use attribution source util
+    AttributionSourceState attributionSource = AttributionSourceState();
+    attributionSource.uid = 0;
+    attributionSource.token = sp<BBinder>::make();
     ASSERT_EQ(OK, mManager->getInputForAttr(
-            &attr, &input, riid, AUDIO_SESSION_NONE, 0 /*uid*/, &config, flags,
+            &attr, &input, riid, AUDIO_SESSION_NONE, attributionSource, &config, flags,
             selectedDeviceId, &inputType, portId));
     ASSERT_NE(AUDIO_PORT_HANDLE_NONE, *portId);
 }
 
 bool AudioPolicyManagerTest::findDevicePort(audio_port_role_t role,
-        audio_devices_t deviceType, const std::string &address, audio_port *foundPort) {
+        audio_devices_t deviceType, const std::string &address, audio_port_v7 *foundPort) {
     uint32_t numPorts = 0;
     uint32_t generation1;
     status_t ret;
@@ -224,7 +266,7 @@ bool AudioPolicyManagerTest::findDevicePort(audio_port_role_t role,
     if (HasFailure()) return false;
 
     uint32_t generation2;
-    struct audio_port ports[numPorts];
+    struct audio_port_v7 ports[numPorts];
     ret = mManager->listAudioPorts(role, AUDIO_PORT_TYPE_DEVICE, &numPorts, ports, &generation2);
     EXPECT_EQ(NO_ERROR, ret) << "mManager->listAudioPorts returned error";
     EXPECT_EQ(generation1, generation2) << "Generations changed during ports retrieval";
@@ -317,14 +359,45 @@ TEST_F(AudioPolicyManagerTest, CreateAudioPatchFromMix) {
 
 // TODO: Add patch creation tests that involve already existing patch
 
-class AudioPolicyManagerTestMsd : public AudioPolicyManagerTest {
+enum
+{
+    MSD_AUDIO_PATCH_COUNT_NUM_AUDIO_PATCHES_INDEX = 0,
+    MSD_AUDIO_PATCH_COUNT_NAME_INDEX = 1
+};
+using MsdAudioPatchCountSpecification = std::tuple<size_t, std::string>;
+
+class AudioPolicyManagerTestMsd : public AudioPolicyManagerTest,
+        public ::testing::WithParamInterface<MsdAudioPatchCountSpecification> {
+  public:
+    AudioPolicyManagerTestMsd();
   protected:
     void SetUpManagerConfig() override;
     void TearDown() override;
 
     sp<DeviceDescriptor> mMsdOutputDevice;
     sp<DeviceDescriptor> mMsdInputDevice;
+    sp<DeviceDescriptor> mDefaultOutputDevice;
+
+    const size_t mExpectedAudioPatchCount;
+    sp<DeviceDescriptor> mSpdifDevice;
+
+    sp<DeviceDescriptor> mHdmiInputDevice;
 };
+
+AudioPolicyManagerTestMsd::AudioPolicyManagerTestMsd()
+    : mExpectedAudioPatchCount(std::get<MSD_AUDIO_PATCH_COUNT_NUM_AUDIO_PATCHES_INDEX>(
+            GetParam())) {}
+
+INSTANTIATE_TEST_CASE_P(
+        MsdAudioPatchCount,
+        AudioPolicyManagerTestMsd,
+        ::testing::Values(
+                MsdAudioPatchCountSpecification(1u, "single"),
+                MsdAudioPatchCountSpecification(2u, "dual")
+        ),
+        [](const ::testing::TestParamInfo<MsdAudioPatchCountSpecification> &info) {
+                return std::get<MSD_AUDIO_PATCH_COUNT_NAME_INDEX>(info.param); }
+);
 
 void AudioPolicyManagerTestMsd::SetUpManagerConfig() {
     // TODO: Consider using Serializer to load part of the config from a string.
@@ -335,8 +408,11 @@ void AudioPolicyManagerTestMsd::SetUpManagerConfig() {
             AUDIO_FORMAT_PCM_16_BIT, AUDIO_CHANNEL_OUT_STEREO, 48000);
     sp<AudioProfile> ac3OutputProfile = new AudioProfile(
             AUDIO_FORMAT_AC3, AUDIO_CHANNEL_OUT_5POINT1, 48000);
+    sp<AudioProfile> iec958OutputProfile = new AudioProfile(
+            AUDIO_FORMAT_IEC60958, AUDIO_CHANNEL_OUT_STEREO, 48000);
     mMsdOutputDevice->addAudioProfile(pcmOutputProfile);
     mMsdOutputDevice->addAudioProfile(ac3OutputProfile);
+    mMsdOutputDevice->addAudioProfile(iec958OutputProfile);
     mMsdInputDevice = new DeviceDescriptor(AUDIO_DEVICE_IN_BUS);
     // Match output profile from AudioPolicyConfig::setDefault.
     sp<AudioProfile> pcmInputProfile = new AudioProfile(
@@ -344,6 +420,19 @@ void AudioPolicyManagerTestMsd::SetUpManagerConfig() {
     mMsdInputDevice->addAudioProfile(pcmInputProfile);
     config.addDevice(mMsdOutputDevice);
     config.addDevice(mMsdInputDevice);
+
+    if (mExpectedAudioPatchCount == 2) {
+        // Add SPDIF device with PCM output profile as a second device for dual MSD audio patching.
+        mSpdifDevice = new DeviceDescriptor(AUDIO_DEVICE_OUT_SPDIF);
+        mSpdifDevice->addAudioProfile(pcmOutputProfile);
+        config.addDevice(mSpdifDevice);
+
+        sp<OutputProfile> spdifOutputProfile = new OutputProfile("spdif output");
+        spdifOutputProfile->addAudioProfile(pcmOutputProfile);
+        spdifOutputProfile->addSupportedDevice(mSpdifDevice);
+        config.getHwModules().getModuleFromName(AUDIO_HARDWARE_MODULE_ID_PRIMARY)->
+                addOutputProfile(spdifOutputProfile);
+    }
 
     sp<HwModule> msdModule = new HwModule(AUDIO_HARDWARE_MODULE_ID_MSD, 2 /*halVersionMajor*/);
     HwModuleCollection modules = config.getHwModules();
@@ -361,6 +450,11 @@ void AudioPolicyManagerTestMsd::SetUpManagerConfig() {
             AUDIO_OUTPUT_FLAG_NON_BLOCKING);
     msdCompressedOutputProfile->addSupportedDevice(mMsdOutputDevice);
     msdModule->addOutputProfile(msdCompressedOutputProfile);
+    sp<OutputProfile> msdIec958OutputProfile = new OutputProfile("msd iec958 input");
+    msdIec958OutputProfile->addAudioProfile(iec958OutputProfile);
+    msdIec958OutputProfile->setFlags(AUDIO_OUTPUT_FLAG_DIRECT);
+    msdIec958OutputProfile->addSupportedDevice(mMsdOutputDevice);
+    msdModule->addOutputProfile(msdIec958OutputProfile);
 
     sp<InputProfile> msdInputProfile = new InputProfile("msd output");
     msdInputProfile->addAudioProfile(pcmInputProfile);
@@ -378,62 +472,104 @@ void AudioPolicyManagerTestMsd::SetUpManagerConfig() {
     primaryEncodedOutputProfile->addSupportedDevice(config.getDefaultOutputDevice());
     config.getHwModules().getModuleFromName(AUDIO_HARDWARE_MODULE_ID_PRIMARY)->
             addOutputProfile(primaryEncodedOutputProfile);
+
+    mDefaultOutputDevice = config.getDefaultOutputDevice();
+    if (mExpectedAudioPatchCount == 2) {
+        mSpdifDevice->addAudioProfile(dtsOutputProfile);
+        primaryEncodedOutputProfile->addSupportedDevice(mSpdifDevice);
+    }
+
+    // Add HDMI input device with IEC60958 profile for HDMI in -> MSD patching.
+    mHdmiInputDevice = new DeviceDescriptor(AUDIO_DEVICE_IN_HDMI);
+    sp<AudioProfile> iec958InputProfile = new AudioProfile(
+            AUDIO_FORMAT_IEC60958, AUDIO_CHANNEL_IN_STEREO, 48000);
+    mHdmiInputDevice->addAudioProfile(iec958InputProfile);
+    config.addDevice(mHdmiInputDevice);
+    sp<InputProfile> hdmiInputProfile = new InputProfile("hdmi input");
+    hdmiInputProfile->addAudioProfile(iec958InputProfile);
+    hdmiInputProfile->setFlags(AUDIO_INPUT_FLAG_DIRECT);
+    hdmiInputProfile->addSupportedDevice(mHdmiInputDevice);
+    config.getHwModules().getModuleFromName(AUDIO_HARDWARE_MODULE_ID_PRIMARY)->
+            addInputProfile(hdmiInputProfile);
 }
 
 void AudioPolicyManagerTestMsd::TearDown() {
     mMsdOutputDevice.clear();
     mMsdInputDevice.clear();
+    mDefaultOutputDevice.clear();
+    mSpdifDevice.clear();
+    mHdmiInputDevice.clear();
     AudioPolicyManagerTest::TearDown();
 }
 
-TEST_F(AudioPolicyManagerTestMsd, InitSuccess) {
+TEST_P(AudioPolicyManagerTestMsd, InitSuccess) {
     ASSERT_TRUE(mMsdOutputDevice);
     ASSERT_TRUE(mMsdInputDevice);
+    ASSERT_TRUE(mDefaultOutputDevice);
 }
 
-TEST_F(AudioPolicyManagerTestMsd, Dump) {
+TEST_P(AudioPolicyManagerTestMsd, Dump) {
     dumpToLog();
 }
 
-TEST_F(AudioPolicyManagerTestMsd, PatchCreationOnSetForceUse) {
+TEST_P(AudioPolicyManagerTestMsd, PatchCreationOnSetForceUse) {
     const PatchCountCheck patchCount = snapshotPatchCount();
     mManager->setForceUse(AUDIO_POLICY_FORCE_FOR_ENCODED_SURROUND,
             AUDIO_POLICY_FORCE_ENCODED_SURROUND_ALWAYS);
-    ASSERT_EQ(1, patchCount.deltaFromSnapshot());
+    ASSERT_EQ(mExpectedAudioPatchCount, patchCount.deltaFromSnapshot());
 }
 
-TEST_F(AudioPolicyManagerTestMsd, GetOutputForAttrEncodedRoutesToMsd) {
+TEST_P(AudioPolicyManagerTestMsd, PatchCreationSetReleaseMsdOutputPatches) {
+    const PatchCountCheck patchCount = snapshotPatchCount();
+    DeviceVector devices = mManager->getAvailableOutputDevices();
+    // Remove MSD output device to avoid patching to itself
+    devices.remove(mMsdOutputDevice);
+    ASSERT_EQ(mExpectedAudioPatchCount, devices.size());
+    mManager->setMsdOutputPatches(&devices);
+    ASSERT_EQ(mExpectedAudioPatchCount, patchCount.deltaFromSnapshot());
+    // Dual patch: exercise creating one new audio patch and reusing another existing audio patch.
+    DeviceVector singleDevice(devices[0]);
+    mManager->releaseMsdOutputPatches(singleDevice);
+    ASSERT_EQ(mExpectedAudioPatchCount - 1, patchCount.deltaFromSnapshot());
+    mManager->setMsdOutputPatches(&devices);
+    ASSERT_EQ(mExpectedAudioPatchCount, patchCount.deltaFromSnapshot());
+    mManager->releaseMsdOutputPatches(devices);
+    ASSERT_EQ(0, patchCount.deltaFromSnapshot());
+}
+
+TEST_P(AudioPolicyManagerTestMsd, GetOutputForAttrEncodedRoutesToMsd) {
     const PatchCountCheck patchCount = snapshotPatchCount();
     audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE;
     getOutputForAttr(&selectedDeviceId,
             AUDIO_FORMAT_AC3, AUDIO_CHANNEL_OUT_5POINT1, 48000, AUDIO_OUTPUT_FLAG_DIRECT);
-    ASSERT_EQ(selectedDeviceId, mMsdOutputDevice->getId());
-    ASSERT_EQ(1, patchCount.deltaFromSnapshot());
+    ASSERT_EQ(selectedDeviceId, mDefaultOutputDevice->getId());
+    ASSERT_EQ(mExpectedAudioPatchCount, patchCount.deltaFromSnapshot());
 }
 
-TEST_F(AudioPolicyManagerTestMsd, GetOutputForAttrPcmRoutesToMsd) {
+TEST_P(AudioPolicyManagerTestMsd, GetOutputForAttrPcmRoutesToMsd) {
     const PatchCountCheck patchCount = snapshotPatchCount();
     audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE;
     getOutputForAttr(&selectedDeviceId,
             AUDIO_FORMAT_PCM_16_BIT, AUDIO_CHANNEL_OUT_STEREO, 48000);
-    ASSERT_EQ(selectedDeviceId, mMsdOutputDevice->getId());
-    ASSERT_EQ(1, patchCount.deltaFromSnapshot());
+    ASSERT_EQ(selectedDeviceId, mDefaultOutputDevice->getId());
+    ASSERT_EQ(mExpectedAudioPatchCount, patchCount.deltaFromSnapshot());
 }
 
-TEST_F(AudioPolicyManagerTestMsd, GetOutputForAttrEncodedPlusPcmRoutesToMsd) {
+TEST_P(AudioPolicyManagerTestMsd, GetOutputForAttrEncodedPlusPcmRoutesToMsd) {
     const PatchCountCheck patchCount = snapshotPatchCount();
     audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE;
     getOutputForAttr(&selectedDeviceId,
             AUDIO_FORMAT_AC3, AUDIO_CHANNEL_OUT_5POINT1, 48000, AUDIO_OUTPUT_FLAG_DIRECT);
-    ASSERT_EQ(selectedDeviceId, mMsdOutputDevice->getId());
-    ASSERT_EQ(1, patchCount.deltaFromSnapshot());
+    ASSERT_EQ(selectedDeviceId, mDefaultOutputDevice->getId());
+    ASSERT_EQ(mExpectedAudioPatchCount, patchCount.deltaFromSnapshot());
+    selectedDeviceId = AUDIO_PORT_HANDLE_NONE;
     getOutputForAttr(&selectedDeviceId,
             AUDIO_FORMAT_PCM_16_BIT, AUDIO_CHANNEL_OUT_STEREO, 48000);
-    ASSERT_EQ(selectedDeviceId, mMsdOutputDevice->getId());
-    ASSERT_EQ(1, patchCount.deltaFromSnapshot());
+    ASSERT_EQ(selectedDeviceId, mDefaultOutputDevice->getId());
+    ASSERT_EQ(mExpectedAudioPatchCount, patchCount.deltaFromSnapshot());
 }
 
-TEST_F(AudioPolicyManagerTestMsd, GetOutputForAttrUnsupportedFormatBypassesMsd) {
+TEST_P(AudioPolicyManagerTestMsd, GetOutputForAttrUnsupportedFormatBypassesMsd) {
     const PatchCountCheck patchCount = snapshotPatchCount();
     audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE;
     getOutputForAttr(&selectedDeviceId,
@@ -442,7 +578,7 @@ TEST_F(AudioPolicyManagerTestMsd, GetOutputForAttrUnsupportedFormatBypassesMsd) 
     ASSERT_EQ(0, patchCount.deltaFromSnapshot());
 }
 
-TEST_F(AudioPolicyManagerTestMsd, GetOutputForAttrFormatSwitching) {
+TEST_P(AudioPolicyManagerTestMsd, GetOutputForAttrFormatSwitching) {
     // Switch between formats that are supported and not supported by MSD.
     {
         const PatchCountCheck patchCount = snapshotPatchCount();
@@ -451,10 +587,10 @@ TEST_F(AudioPolicyManagerTestMsd, GetOutputForAttrFormatSwitching) {
         getOutputForAttr(&selectedDeviceId,
                 AUDIO_FORMAT_AC3, AUDIO_CHANNEL_OUT_5POINT1, 48000, AUDIO_OUTPUT_FLAG_DIRECT,
                 nullptr /*output*/, &portId);
-        ASSERT_EQ(selectedDeviceId, mMsdOutputDevice->getId());
-        ASSERT_EQ(1, patchCount.deltaFromSnapshot());
+        ASSERT_EQ(selectedDeviceId, mDefaultOutputDevice->getId());
+        ASSERT_EQ(mExpectedAudioPatchCount, patchCount.deltaFromSnapshot());
         mManager->releaseOutput(portId);
-        ASSERT_EQ(1, patchCount.deltaFromSnapshot());
+        ASSERT_EQ(mExpectedAudioPatchCount, patchCount.deltaFromSnapshot());
     }
     {
         const PatchCountCheck patchCount = snapshotPatchCount();
@@ -464,7 +600,7 @@ TEST_F(AudioPolicyManagerTestMsd, GetOutputForAttrFormatSwitching) {
                 AUDIO_FORMAT_DTS, AUDIO_CHANNEL_OUT_5POINT1, 48000, AUDIO_OUTPUT_FLAG_DIRECT,
                 nullptr /*output*/, &portId);
         ASSERT_NE(selectedDeviceId, mMsdOutputDevice->getId());
-        ASSERT_EQ(-1, patchCount.deltaFromSnapshot());
+        ASSERT_EQ(-static_cast<int>(mExpectedAudioPatchCount), patchCount.deltaFromSnapshot());
         mManager->releaseOutput(portId);
         ASSERT_EQ(0, patchCount.deltaFromSnapshot());
     }
@@ -473,9 +609,37 @@ TEST_F(AudioPolicyManagerTestMsd, GetOutputForAttrFormatSwitching) {
         audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE;
         getOutputForAttr(&selectedDeviceId,
                 AUDIO_FORMAT_AC3, AUDIO_CHANNEL_OUT_5POINT1, 48000, AUDIO_OUTPUT_FLAG_DIRECT);
-        ASSERT_EQ(selectedDeviceId, mMsdOutputDevice->getId());
+        ASSERT_EQ(selectedDeviceId, mDefaultOutputDevice->getId());
         ASSERT_EQ(0, patchCount.deltaFromSnapshot());
     }
+}
+
+TEST_P(AudioPolicyManagerTestMsd, PatchCreationFromHdmiInToMsd) {
+    audio_patch_handle_t handle = AUDIO_PATCH_HANDLE_NONE;
+    uid_t uid = 42;
+    const PatchCountCheck patchCount = snapshotPatchCount();
+    ASSERT_FALSE(mManager->getAvailableInputDevices().isEmpty());
+    PatchBuilder patchBuilder;
+    patchBuilder.
+            addSource(mManager->getAvailableInputDevices().
+                    getDevice(AUDIO_DEVICE_IN_HDMI, String8(""), AUDIO_FORMAT_DEFAULT)).
+            addSink(mManager->getAvailableOutputDevices().
+                    getDevice(AUDIO_DEVICE_OUT_BUS, String8(""), AUDIO_FORMAT_DEFAULT));
+    ASSERT_EQ(NO_ERROR, mManager->createAudioPatch(patchBuilder.patch(), &handle, uid));
+    ASSERT_NE(AUDIO_PATCH_HANDLE_NONE, handle);
+    AudioPatchCollection patches = mManager->getAudioPatches();
+    sp<AudioPatch> patch = patches.valueFor(handle);
+    ASSERT_EQ(1, patch->mPatch.num_sources);
+    ASSERT_EQ(1, patch->mPatch.num_sinks);
+    ASSERT_EQ(AUDIO_PORT_ROLE_SOURCE, patch->mPatch.sources[0].role);
+    ASSERT_EQ(AUDIO_PORT_ROLE_SINK, patch->mPatch.sinks[0].role);
+    ASSERT_EQ(AUDIO_FORMAT_IEC60958, patch->mPatch.sources[0].format);
+    ASSERT_EQ(AUDIO_FORMAT_IEC60958, patch->mPatch.sinks[0].format);
+    ASSERT_EQ(AUDIO_CHANNEL_IN_STEREO, patch->mPatch.sources[0].channel_mask);
+    ASSERT_EQ(AUDIO_CHANNEL_OUT_STEREO, patch->mPatch.sinks[0].channel_mask);
+    ASSERT_EQ(48000, patch->mPatch.sources[0].sample_rate);
+    ASSERT_EQ(48000, patch->mPatch.sinks[0].sample_rate);
+    ASSERT_EQ(1, patchCount.deltaFromSnapshot());
 }
 
 class AudioPolicyManagerTestWithConfigurationFile : public AudioPolicyManagerTest {
@@ -638,6 +802,188 @@ TEST_F(AudioPolicyManagerTestDynamicPolicy, UnregisterPolicyMixes) {
     ASSERT_EQ(INVALID_OPERATION, ret);
 }
 
+class AudioPolicyManagerTestForHdmi
+        : public AudioPolicyManagerTestWithConfigurationFile {
+protected:
+    void SetUp() override;
+    std::string getConfigFile() override { return sTvConfig; }
+    std::map<audio_format_t, bool> getSurroundFormatsHelper();
+    std::vector<audio_format_t> getReportedSurroundFormatsHelper();
+    std::unordered_set<audio_format_t> getFormatsFromPorts();
+    AudioPolicyManagerTestClient* getClient() override {
+        return new AudioPolicyManagerTestClientForHdmi;
+    }
+    void TearDown() override;
+
+    static const std::string sTvConfig;
+
+};
+
+const std::string AudioPolicyManagerTestForHdmi::sTvConfig =
+        AudioPolicyManagerTestForHdmi::sExecutableDir +
+        "test_settop_box_surround_configuration.xml";
+
+void AudioPolicyManagerTestForHdmi::SetUp() {
+    AudioPolicyManagerTest::SetUp();
+    mClient->addSupportedFormat(AUDIO_FORMAT_E_AC3);
+    mManager->setDeviceConnectionState(
+            AUDIO_DEVICE_OUT_HDMI, AUDIO_POLICY_DEVICE_STATE_AVAILABLE,
+            "" /*address*/, "" /*name*/, AUDIO_FORMAT_DEFAULT);
+}
+
+void AudioPolicyManagerTestForHdmi::TearDown() {
+    mManager->setDeviceConnectionState(
+            AUDIO_DEVICE_OUT_HDMI, AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE,
+            "" /*address*/, "" /*name*/, AUDIO_FORMAT_DEFAULT);
+    AudioPolicyManagerTest::TearDown();
+}
+
+std::map<audio_format_t, bool>
+        AudioPolicyManagerTestForHdmi::getSurroundFormatsHelper() {
+    unsigned int numSurroundFormats = 0;
+    std::map<audio_format_t, bool> surroundFormatsMap;
+    status_t ret = mManager->getSurroundFormats(
+            &numSurroundFormats, nullptr /* surroundFormats */,
+            nullptr /* surroundFormatsEnabled */);
+    EXPECT_EQ(NO_ERROR, ret);
+    if (ret != NO_ERROR) {
+        return surroundFormatsMap;
+    }
+    audio_format_t surroundFormats[numSurroundFormats];
+    memset(surroundFormats, 0, sizeof(audio_format_t) * numSurroundFormats);
+    bool surroundFormatsEnabled[numSurroundFormats];
+    memset(surroundFormatsEnabled, 0, sizeof(bool) * numSurroundFormats);
+    ret = mManager->getSurroundFormats(
+            &numSurroundFormats, surroundFormats, surroundFormatsEnabled);
+    EXPECT_EQ(NO_ERROR, ret);
+    if (ret != NO_ERROR) {
+        return surroundFormatsMap;
+    }
+    for (int i = 0; i< numSurroundFormats; i++) {
+        surroundFormatsMap[surroundFormats[i]] = surroundFormatsEnabled[i];
+    }
+    return surroundFormatsMap;
+}
+
+std::vector<audio_format_t> AudioPolicyManagerTestForHdmi::getReportedSurroundFormatsHelper() {
+    unsigned int numSurroundFormats = 0;
+    std::vector<audio_format_t>  surroundFormatsVector;
+    status_t ret = mManager->getReportedSurroundFormats(
+            &numSurroundFormats, nullptr /* surroundFormats */);
+    EXPECT_EQ(NO_ERROR, ret);
+    if (ret != NO_ERROR) {
+        return surroundFormatsVector;
+    }
+    audio_format_t surroundFormats[numSurroundFormats];
+    memset(surroundFormats, 0, sizeof(audio_format_t) * numSurroundFormats);
+    ret = mManager->getReportedSurroundFormats(&numSurroundFormats, surroundFormats);
+    EXPECT_EQ(NO_ERROR, ret);
+    if (ret != NO_ERROR) {
+        return surroundFormatsVector;
+    }
+    for (const auto &surroundFormat : surroundFormats) {
+        surroundFormatsVector.push_back(surroundFormat);
+    }
+    return surroundFormatsVector;
+}
+
+std::unordered_set<audio_format_t>
+        AudioPolicyManagerTestForHdmi::getFormatsFromPorts() {
+    uint32_t numPorts = 0;
+    uint32_t generation1;
+    status_t ret;
+    std::unordered_set<audio_format_t> formats;
+    ret = mManager->listAudioPorts(
+            AUDIO_PORT_ROLE_SINK, AUDIO_PORT_TYPE_DEVICE, &numPorts, nullptr, &generation1);
+    EXPECT_EQ(NO_ERROR, ret) << "mManager->listAudioPorts returned error";
+    if (ret != NO_ERROR) {
+        return formats;
+    }
+    struct audio_port_v7 ports[numPorts];
+    ret = mManager->listAudioPorts(
+            AUDIO_PORT_ROLE_SINK, AUDIO_PORT_TYPE_DEVICE, &numPorts, ports, &generation1);
+    EXPECT_EQ(NO_ERROR, ret) << "mManager->listAudioPorts returned error";
+    if (ret != NO_ERROR) {
+        return formats;
+    }
+    for (const auto &port : ports) {
+        for (size_t i = 0; i < port.num_audio_profiles; ++i) {
+            formats.insert(port.audio_profiles[i].format);
+        }
+    }
+    return formats;
+}
+
+TEST_F(AudioPolicyManagerTestForHdmi, GetSurroundFormatsReturnsSupportedFormats) {
+    mManager->setForceUse(
+            AUDIO_POLICY_FORCE_FOR_ENCODED_SURROUND, AUDIO_POLICY_FORCE_ENCODED_SURROUND_ALWAYS);
+    auto surroundFormats = getSurroundFormatsHelper();
+    ASSERT_EQ(1, surroundFormats.count(AUDIO_FORMAT_E_AC3));
+}
+
+TEST_F(AudioPolicyManagerTestForHdmi,
+        GetSurroundFormatsReturnsManipulatedFormats) {
+    mManager->setForceUse(
+            AUDIO_POLICY_FORCE_FOR_ENCODED_SURROUND, AUDIO_POLICY_FORCE_ENCODED_SURROUND_MANUAL);
+
+    status_t ret =
+            mManager->setSurroundFormatEnabled(AUDIO_FORMAT_E_AC3, false /*enabled*/);
+    ASSERT_EQ(NO_ERROR, ret);
+    auto surroundFormats = getSurroundFormatsHelper();
+    ASSERT_EQ(1, surroundFormats.count(AUDIO_FORMAT_E_AC3));
+    ASSERT_FALSE(surroundFormats[AUDIO_FORMAT_E_AC3]);
+
+    ret = mManager->setSurroundFormatEnabled(AUDIO_FORMAT_E_AC3, true /*enabled*/);
+    ASSERT_EQ(NO_ERROR, ret);
+    surroundFormats = getSurroundFormatsHelper();
+    ASSERT_EQ(1, surroundFormats.count(AUDIO_FORMAT_E_AC3));
+    ASSERT_TRUE(surroundFormats[AUDIO_FORMAT_E_AC3]);
+
+    ret = mManager->setSurroundFormatEnabled(AUDIO_FORMAT_E_AC3, false /*enabled*/);
+    ASSERT_EQ(NO_ERROR, ret);
+    surroundFormats = getSurroundFormatsHelper();
+    ASSERT_EQ(1, surroundFormats.count(AUDIO_FORMAT_E_AC3));
+    ASSERT_FALSE(surroundFormats[AUDIO_FORMAT_E_AC3]);
+}
+
+TEST_F(AudioPolicyManagerTestForHdmi,
+        ListAudioPortsReturnManipulatedHdmiFormats) {
+    mManager->setForceUse(
+            AUDIO_POLICY_FORCE_FOR_ENCODED_SURROUND, AUDIO_POLICY_FORCE_ENCODED_SURROUND_MANUAL);
+
+    ASSERT_EQ(NO_ERROR, mManager->setSurroundFormatEnabled(AUDIO_FORMAT_E_AC3, false /*enabled*/));
+    auto formats = getFormatsFromPorts();
+    ASSERT_EQ(0, formats.count(AUDIO_FORMAT_E_AC3));
+
+    ASSERT_EQ(NO_ERROR, mManager->setSurroundFormatEnabled(AUDIO_FORMAT_E_AC3, true /*enabled*/));
+    formats = getFormatsFromPorts();
+    ASSERT_EQ(1, formats.count(AUDIO_FORMAT_E_AC3));
+}
+
+TEST_F(AudioPolicyManagerTestForHdmi,
+        GetReportedSurroundFormatsReturnsHdmiReportedFormats) {
+    mManager->setForceUse(
+            AUDIO_POLICY_FORCE_FOR_ENCODED_SURROUND, AUDIO_POLICY_FORCE_ENCODED_SURROUND_ALWAYS);
+    auto surroundFormats = getReportedSurroundFormatsHelper();
+    ASSERT_EQ(1, std::count(surroundFormats.begin(), surroundFormats.end(), AUDIO_FORMAT_E_AC3));
+}
+
+TEST_F(AudioPolicyManagerTestForHdmi,
+        GetReportedSurroundFormatsReturnsNonManipulatedHdmiReportedFormats) {
+    mManager->setForceUse(
+            AUDIO_POLICY_FORCE_FOR_ENCODED_SURROUND, AUDIO_POLICY_FORCE_ENCODED_SURROUND_MANUAL);
+
+    status_t ret = mManager->setSurroundFormatEnabled(AUDIO_FORMAT_E_AC3, false /*enabled*/);
+    ASSERT_EQ(NO_ERROR, ret);
+    auto surroundFormats = getReportedSurroundFormatsHelper();
+    ASSERT_EQ(1, std::count(surroundFormats.begin(), surroundFormats.end(), AUDIO_FORMAT_E_AC3));
+
+    ret = mManager->setSurroundFormatEnabled(AUDIO_FORMAT_E_AC3, true /*enabled*/);
+    ASSERT_EQ(NO_ERROR, ret);
+    surroundFormats = getReportedSurroundFormatsHelper();
+    ASSERT_EQ(1, std::count(surroundFormats.begin(), surroundFormats.end(), AUDIO_FORMAT_E_AC3));
+}
+
 class AudioPolicyManagerTestDPNoRemoteSubmixModule : public AudioPolicyManagerTestDynamicPolicy {
 protected:
     std::string getConfigFile() override { return sPrimaryOnlyConfig; }
@@ -684,7 +1030,7 @@ protected:
             {AUDIO_USAGE_ALARM, AUDIO_SOURCE_DEFAULT, RULE_MATCH_ATTRIBUTE_USAGE}
     };
 
-    struct audio_port mInjectionPort;
+    struct audio_port_v7 mInjectionPort;
     audio_port_handle_t mPortId = AUDIO_PORT_HANDLE_NONE;
 };
 
@@ -701,13 +1047,14 @@ void AudioPolicyManagerTestDPPlaybackReRouting::SetUp() {
             AUDIO_DEVICE_OUT_REMOTE_SUBMIX, mMixAddress, audioConfig, mUsageRules);
     ASSERT_EQ(NO_ERROR, ret);
 
-    struct audio_port extractionPort;
+    struct audio_port_v7 extractionPort;
     ASSERT_TRUE(findDevicePort(AUDIO_PORT_ROLE_SOURCE, AUDIO_DEVICE_IN_REMOTE_SUBMIX,
                     mMixAddress, &extractionPort));
 
     audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE;
     audio_source_t source = AUDIO_SOURCE_REMOTE_SUBMIX;
-    audio_attributes_t attr = {AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN, source, 0, ""};
+    audio_attributes_t attr = {
+        AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN, source, AUDIO_FLAG_NONE, ""};
     std::string tags = "addr=" + mMixAddress;
     strncpy(attr.tags, tags.c_str(), AUDIO_ATTRIBUTES_TAGS_MAX_SIZE - 1);
     getInputForAttr(attr, mTracker->getRiid(), &selectedDeviceId, AUDIO_FORMAT_PCM_16_BIT,
@@ -757,9 +1104,9 @@ INSTANTIATE_TEST_CASE_P(
         AudioPolicyManagerTestDPPlaybackReRouting,
         testing::Values(
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_MEDIA,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_ALARM,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""}
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""}
                 )
         );
 
@@ -768,47 +1115,47 @@ INSTANTIATE_TEST_CASE_P(
         AudioPolicyManagerTestDPPlaybackReRouting,
         testing::Values(
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_MEDIA,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_VOICE_COMMUNICATION,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
-                                     AUDIO_USAGE_VOICE_COMMUNICATION_SIGNALLING,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_USAGE_VOICE_COMMUNICATION_SIGNALLING,
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_ALARM,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_NOTIFICATION,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
-                                     AUDIO_USAGE_NOTIFICATION_TELEPHONY_RINGTONE,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_USAGE_NOTIFICATION_TELEPHONY_RINGTONE,
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
-                                     AUDIO_USAGE_NOTIFICATION_COMMUNICATION_REQUEST,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_USAGE_NOTIFICATION_COMMUNICATION_REQUEST,
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
-                                     AUDIO_USAGE_NOTIFICATION_COMMUNICATION_INSTANT,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_USAGE_NOTIFICATION_COMMUNICATION_INSTANT,
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
-                                     AUDIO_USAGE_NOTIFICATION_COMMUNICATION_DELAYED,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_USAGE_NOTIFICATION_COMMUNICATION_DELAYED,
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_NOTIFICATION_EVENT,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
-                                     AUDIO_USAGE_ASSISTANCE_ACCESSIBILITY,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_USAGE_ASSISTANCE_ACCESSIBILITY,
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
-                                     AUDIO_USAGE_ASSISTANCE_NAVIGATION_GUIDANCE,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_USAGE_ASSISTANCE_NAVIGATION_GUIDANCE,
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
-                                     AUDIO_USAGE_ASSISTANCE_SONIFICATION,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_USAGE_ASSISTANCE_SONIFICATION,
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_GAME,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_VIRTUAL_SOURCE,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_ASSISTANT,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"},
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_SPEECH, AUDIO_USAGE_ASSISTANT,
-                                     AUDIO_SOURCE_DEFAULT, 0, "addr=remote_submix_media"}
+                    AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, "addr=remote_submix_media"}
                 )
         );
 
@@ -817,41 +1164,41 @@ INSTANTIATE_TEST_CASE_P(
         AudioPolicyManagerTestDPPlaybackReRouting,
         testing::Values(
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_VOICE_COMMUNICATION,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
                                      AUDIO_USAGE_VOICE_COMMUNICATION_SIGNALLING,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_NOTIFICATION,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
                                      AUDIO_USAGE_NOTIFICATION_TELEPHONY_RINGTONE,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
                                      AUDIO_USAGE_NOTIFICATION_COMMUNICATION_REQUEST,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
                                      AUDIO_USAGE_NOTIFICATION_COMMUNICATION_INSTANT,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
                                      AUDIO_USAGE_NOTIFICATION_COMMUNICATION_DELAYED,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_NOTIFICATION_EVENT,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
                                      AUDIO_USAGE_ASSISTANCE_ACCESSIBILITY,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
                                      AUDIO_USAGE_ASSISTANCE_NAVIGATION_GUIDANCE,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC,
                                      AUDIO_USAGE_ASSISTANCE_SONIFICATION,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_GAME,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_MUSIC, AUDIO_USAGE_ASSISTANT,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""},
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_SPEECH, AUDIO_USAGE_ASSISTANT,
-                                     AUDIO_SOURCE_DEFAULT, 0, ""}
+                                     AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""}
                 )
         );
 
@@ -869,7 +1216,7 @@ protected:
         {AUDIO_USAGE_UNKNOWN, AUDIO_SOURCE_VOICE_COMMUNICATION, RULE_MATCH_ATTRIBUTE_CAPTURE_PRESET}
     };
 
-    struct audio_port mExtractionPort;
+    struct audio_port_v7 mExtractionPort;
     audio_port_handle_t mPortId = AUDIO_PORT_HANDLE_NONE;
 };
 
@@ -886,13 +1233,14 @@ void AudioPolicyManagerTestDPMixRecordInjection::SetUp() {
             AUDIO_DEVICE_IN_REMOTE_SUBMIX, mMixAddress, audioConfig, mSourceRules);
     ASSERT_EQ(NO_ERROR, ret);
 
-    struct audio_port injectionPort;
+    struct audio_port_v7 injectionPort;
     ASSERT_TRUE(findDevicePort(AUDIO_PORT_ROLE_SINK, AUDIO_DEVICE_OUT_REMOTE_SUBMIX,
                     mMixAddress, &injectionPort));
 
     audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE;
     audio_usage_t usage = AUDIO_USAGE_VIRTUAL_SOURCE;
-    audio_attributes_t attr = {AUDIO_CONTENT_TYPE_UNKNOWN, usage, AUDIO_SOURCE_DEFAULT, 0, ""};
+    audio_attributes_t attr =
+            {AUDIO_CONTENT_TYPE_UNKNOWN, usage, AUDIO_SOURCE_DEFAULT, AUDIO_FLAG_NONE, ""};
     std::string tags = std::string("addr=") + mMixAddress;
     strncpy(attr.tags, tags.c_str(), AUDIO_ATTRIBUTES_TAGS_MAX_SIZE - 1);
     getOutputForAttr(&selectedDeviceId, AUDIO_FORMAT_PCM_16_BIT, AUDIO_CHANNEL_OUT_STEREO,
@@ -941,17 +1289,19 @@ INSTANTIATE_TEST_CASE_P(
         AudioPolicyManagerTestDPMixRecordInjection,
         testing::Values(
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN,
-                                     AUDIO_SOURCE_CAMCORDER, 0, ""},
+                                     AUDIO_SOURCE_CAMCORDER, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN,
-                                     AUDIO_SOURCE_CAMCORDER, 0, "addr=remote_submix_media"},
+                                     AUDIO_SOURCE_CAMCORDER, AUDIO_FLAG_NONE,
+                                     "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN,
-                                     AUDIO_SOURCE_MIC, 0, "addr=remote_submix_media"},
+                                     AUDIO_SOURCE_MIC, AUDIO_FLAG_NONE,
+                                     "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN,
-                                     AUDIO_SOURCE_MIC, 0, ""},
+                                     AUDIO_SOURCE_MIC, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN,
-                                     AUDIO_SOURCE_VOICE_COMMUNICATION, 0, ""},
+                                     AUDIO_SOURCE_VOICE_COMMUNICATION, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN,
-                                     AUDIO_SOURCE_VOICE_COMMUNICATION, 0,
+                                     AUDIO_SOURCE_VOICE_COMMUNICATION, AUDIO_FLAG_NONE,
                                      "addr=remote_submix_media"}
                 )
         );
@@ -962,14 +1312,15 @@ INSTANTIATE_TEST_CASE_P(
         AudioPolicyManagerTestDPMixRecordInjection,
         testing::Values(
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN,
-                                     AUDIO_SOURCE_VOICE_RECOGNITION, 0, ""},
+                                     AUDIO_SOURCE_VOICE_RECOGNITION, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN,
-                                     AUDIO_SOURCE_HOTWORD, 0, ""},
+                                     AUDIO_SOURCE_HOTWORD, AUDIO_FLAG_NONE, ""},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN,
-                                     AUDIO_SOURCE_VOICE_RECOGNITION, 0,
+                                     AUDIO_SOURCE_VOICE_RECOGNITION, AUDIO_FLAG_NONE,
                                      "addr=remote_submix_media"},
                 (audio_attributes_t){AUDIO_CONTENT_TYPE_UNKNOWN, AUDIO_USAGE_UNKNOWN,
-                                     AUDIO_SOURCE_HOTWORD, 0, "addr=remote_submix_media"}
+                                     AUDIO_SOURCE_HOTWORD, AUDIO_FLAG_NONE,
+                                     "addr=remote_submix_media"}
                 )
         );
 
@@ -986,6 +1337,34 @@ TEST_F(AudioPolicyManagerTestDeviceConnection, InitSuccess) {
 
 TEST_F(AudioPolicyManagerTestDeviceConnection, Dump) {
     dumpToLog();
+}
+
+TEST_F(AudioPolicyManagerTestDeviceConnection, RoutingUpdate) {
+    mClient->resetRoutingUpdatedCounter();
+    // Connecting a valid output device with valid parameters should trigger a routing update
+    ASSERT_EQ(NO_ERROR, mManager->setDeviceConnectionState(
+            AUDIO_DEVICE_OUT_BLUETOOTH_SCO, AUDIO_POLICY_DEVICE_STATE_AVAILABLE,
+            "a", "b", AUDIO_FORMAT_DEFAULT));
+    ASSERT_EQ(1, mClient->getRoutingUpdatedCounter());
+
+    // Disconnecting a connected device should succeed and trigger a routing update
+    ASSERT_EQ(NO_ERROR, mManager->setDeviceConnectionState(
+            AUDIO_DEVICE_OUT_BLUETOOTH_SCO, AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE,
+            "a", "b", AUDIO_FORMAT_DEFAULT));
+    ASSERT_EQ(2, mClient->getRoutingUpdatedCounter());
+
+    // Disconnecting a disconnected device should fail and not trigger a routing update
+    ASSERT_EQ(INVALID_OPERATION, mManager->setDeviceConnectionState(
+            AUDIO_DEVICE_OUT_BLUETOOTH_SCO, AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE,
+            "a", "b",  AUDIO_FORMAT_DEFAULT));
+    ASSERT_EQ(2, mClient->getRoutingUpdatedCounter());
+
+    // Changing force use should trigger an update
+    auto config = mManager->getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
+    auto newConfig = config == AUDIO_POLICY_FORCE_BT_A2DP ?
+            AUDIO_POLICY_FORCE_NONE : AUDIO_POLICY_FORCE_BT_A2DP;
+    mManager->setForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA, newConfig);
+    ASSERT_EQ(3, mClient->getRoutingUpdatedCounter());
 }
 
 TEST_P(AudioPolicyManagerTestDeviceConnection, SetDeviceConnectionState) {
@@ -1033,7 +1412,7 @@ TEST_P(AudioPolicyManagerTestDeviceConnection, ExplicitlyRoutingAfterConnection)
             type, AUDIO_POLICY_DEVICE_STATE_AVAILABLE,
             address.c_str(), name.c_str(), AUDIO_FORMAT_DEFAULT));
 
-    audio_port devicePort;
+    audio_port_v7 devicePort;
     const audio_port_role_t role = audio_is_output_device(type)
             ? AUDIO_PORT_ROLE_SINK : AUDIO_PORT_ROLE_SOURCE;
     ASSERT_TRUE(findDevicePort(role, type, address, &devicePort));
@@ -1094,7 +1473,7 @@ void AudioPolicyManagerTVTest::testHDMIPortSelection(
             flags, &output, &portId);
     sp<SwAudioOutputDescriptor> outDesc = mManager->getOutputs().valueFor(output);
     ASSERT_NE(nullptr, outDesc.get());
-    audio_port port = {};
+    audio_port_v7 port = {};
     outDesc->toAudioPort(&port);
     mManager->releaseOutput(portId);
     ASSERT_EQ(NO_ERROR, mManager->setDeviceConnectionState(
@@ -1176,7 +1555,7 @@ TEST_F(AudioPolicyManagerDynamicHwModulesTest, ListAddedAudioPorts) {
             findDevicePort(AUDIO_PORT_ROLE_SOURCE, AUDIO_DEVICE_IN_REMOTE_SUBMIX, "0", nullptr));
     mClient->swapAllowedModuleNames({"primary", "r_submix"});
     mManager->onNewAudioModulesAvailable();
-    struct audio_port port;
+    struct audio_port_v7 port;
     ASSERT_TRUE(findDevicePort(AUDIO_PORT_ROLE_SOURCE, AUDIO_DEVICE_IN_REMOTE_SUBMIX, "0", &port));
 }
 
@@ -1188,3 +1567,109 @@ TEST_F(AudioPolicyManagerDynamicHwModulesTest, ClientIsUpdated) {
     EXPECT_GT(mClient->getAudioPortListUpdateCount(), prevAudioPortListUpdateCount);
     EXPECT_GT(mManager->getAudioPortGeneration(), prevAudioPortGeneration);
 }
+
+using DevicesRoleForCapturePresetParam = std::tuple<audio_source_t, device_role_t>;
+
+class AudioPolicyManagerDevicesRoleForCapturePresetTest
+        : public AudioPolicyManagerTestWithConfigurationFile,
+          public testing::WithParamInterface<DevicesRoleForCapturePresetParam> {
+protected:
+    // The `inputDevice` and `inputDevice2` indicate the audio devices type to be used for setting
+    // device role. They must be declared in the test_audio_policy_configuration.xml
+    AudioDeviceTypeAddr inputDevice = AudioDeviceTypeAddr(AUDIO_DEVICE_IN_BUILTIN_MIC, "");
+    AudioDeviceTypeAddr inputDevice2 = AudioDeviceTypeAddr(AUDIO_DEVICE_IN_HDMI, "");
+};
+
+TEST_P(AudioPolicyManagerDevicesRoleForCapturePresetTest, DevicesRoleForCapturePreset) {
+    const audio_source_t audioSource = std::get<0>(GetParam());
+    const device_role_t role = std::get<1>(GetParam());
+
+    // Test invalid device when setting
+    const AudioDeviceTypeAddr outputDevice(AUDIO_DEVICE_OUT_SPEAKER, "");
+    const AudioDeviceTypeAddrVector outputDevices = {outputDevice};
+    ASSERT_EQ(BAD_VALUE,
+              mManager->setDevicesRoleForCapturePreset(audioSource, role, outputDevices));
+    ASSERT_EQ(BAD_VALUE,
+              mManager->addDevicesRoleForCapturePreset(audioSource, role, outputDevices));
+    AudioDeviceTypeAddrVector devices;
+    ASSERT_EQ(NAME_NOT_FOUND,
+              mManager->getDevicesForRoleAndCapturePreset(audioSource, role, devices));
+    ASSERT_TRUE(devices.empty());
+    ASSERT_EQ(BAD_VALUE,
+              mManager->removeDevicesRoleForCapturePreset(audioSource, role, outputDevices));
+
+    // Without setting, call get/remove/clear must fail
+    ASSERT_EQ(NAME_NOT_FOUND,
+              mManager->getDevicesForRoleAndCapturePreset(audioSource, role, devices));
+    ASSERT_EQ(NAME_NOT_FOUND,
+              mManager->removeDevicesRoleForCapturePreset(audioSource, role, devices));
+    ASSERT_EQ(NAME_NOT_FOUND,
+              mManager->clearDevicesRoleForCapturePreset(audioSource, role));
+
+    // Test set/get devices role
+    const AudioDeviceTypeAddrVector inputDevices = {inputDevice};
+    ASSERT_EQ(NO_ERROR,
+              mManager->setDevicesRoleForCapturePreset(audioSource, role, inputDevices));
+    ASSERT_EQ(NO_ERROR, mManager->getDevicesForRoleAndCapturePreset(audioSource, role, devices));
+    EXPECT_THAT(devices, UnorderedElementsAre(inputDevice));
+
+    // Test setting will change the previously set devices
+    const AudioDeviceTypeAddrVector inputDevices2 = {inputDevice2};
+    ASSERT_EQ(NO_ERROR,
+              mManager->setDevicesRoleForCapturePreset(audioSource, role, inputDevices2));
+    devices.clear();
+    ASSERT_EQ(NO_ERROR, mManager->getDevicesForRoleAndCapturePreset(audioSource, role, devices));
+    EXPECT_THAT(devices, UnorderedElementsAre(inputDevice2));
+
+    // Test add devices
+    ASSERT_EQ(NO_ERROR,
+              mManager->addDevicesRoleForCapturePreset(audioSource, role, inputDevices));
+    devices.clear();
+    ASSERT_EQ(NO_ERROR, mManager->getDevicesForRoleAndCapturePreset(audioSource, role, devices));
+    EXPECT_THAT(devices, UnorderedElementsAre(inputDevice, inputDevice2));
+
+    // Test remove devices
+    ASSERT_EQ(NO_ERROR,
+              mManager->removeDevicesRoleForCapturePreset(audioSource, role, inputDevices));
+    devices.clear();
+    ASSERT_EQ(NO_ERROR, mManager->getDevicesForRoleAndCapturePreset(audioSource, role, devices));
+    EXPECT_THAT(devices, UnorderedElementsAre(inputDevice2));
+
+    // Test remove devices that are not set as the device role
+    ASSERT_EQ(BAD_VALUE,
+              mManager->removeDevicesRoleForCapturePreset(audioSource, role, inputDevices));
+
+    // Test clear devices
+    ASSERT_EQ(NO_ERROR,
+              mManager->clearDevicesRoleForCapturePreset(audioSource, role));
+    devices.clear();
+    ASSERT_EQ(NAME_NOT_FOUND,
+              mManager->getDevicesForRoleAndCapturePreset(audioSource, role, devices));
+}
+
+INSTANTIATE_TEST_CASE_P(
+        DevicesRoleForCapturePresetOperation,
+        AudioPolicyManagerDevicesRoleForCapturePresetTest,
+        testing::Values(
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_MIC, DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_VOICE_UPLINK,
+                                                  DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_VOICE_DOWNLINK,
+                                                  DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_VOICE_CALL, DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_CAMCORDER, DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_VOICE_RECOGNITION,
+                                                  DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_VOICE_COMMUNICATION,
+                                                  DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_REMOTE_SUBMIX,
+                                                  DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_UNPROCESSED, DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_VOICE_PERFORMANCE,
+                                                  DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_ECHO_REFERENCE,
+                                                  DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_FM_TUNER, DEVICE_ROLE_PREFERRED}),
+                DevicesRoleForCapturePresetParam({AUDIO_SOURCE_HOTWORD, DEVICE_ROLE_PREFERRED})
+                )
+        );

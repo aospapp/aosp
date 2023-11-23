@@ -16,8 +16,10 @@
 
 package com.google.android.textclassifier;
 
+import android.content.res.AssetFileDescriptor;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * Java wrapper for Annotator native library interface. This library is used for detecting entities
@@ -49,7 +51,7 @@ public final class AnnotatorModel implements AutoCloseable {
 
   private long annotatorPtr;
   // To tell GC to keep the LangID model alive at least as long as this object.
-  private LangIdModel langIdModel;
+  @Nullable private LangIdModel langIdModel;
 
   /** Enumeration for specifying the usecase of the annotations. */
   public static enum AnnotationUsecase {
@@ -65,6 +67,25 @@ public final class AnnotatorModel implements AutoCloseable {
     private final int value;
 
     AnnotationUsecase(int value) {
+      this.value = value;
+    }
+
+    public int getValue() {
+      return value;
+    }
+  };
+
+  /** Enumeration for specifying the annotate mode. */
+  public static enum AnnotateMode {
+    /** Result contains entity annotation for each input fragment. */
+    ENTITY_ANNOTATION(0),
+
+    /** Result will include both entity annotation and topicality annotation. */
+    ENTITY_AND_TOPICALITY_ANNOTATION(1);
+
+    private final int value;
+
+    AnnotateMode(int value) {
       this.value = value;
     }
 
@@ -95,6 +116,21 @@ public final class AnnotatorModel implements AutoCloseable {
     }
   }
 
+  /**
+   * Creates a new instance of SmartSelect predictor, using the provided model image, given as an
+   * {@link AssetFileDescriptor}.
+   */
+  public AnnotatorModel(AssetFileDescriptor assetFileDescriptor) {
+    annotatorPtr =
+        nativeNewAnnotatorWithOffset(
+            assetFileDescriptor.getParcelFileDescriptor().getFd(),
+            assetFileDescriptor.getStartOffset(),
+            assetFileDescriptor.getLength());
+    if (annotatorPtr == 0L) {
+      throw new IllegalArgumentException("Couldn't initialize TC from asset file descriptor.");
+    }
+  }
+
   /** Initializes the knowledge engine, passing the given serialized config to it. */
   public void initializeKnowledgeEngine(byte[] serializedConfig) {
     if (!nativeInitializeKnowledgeEngine(annotatorPtr, serializedConfig)) {
@@ -121,9 +157,23 @@ public final class AnnotatorModel implements AutoCloseable {
    * before this object is closed. Also, this object does not take the memory ownership of the given
    * LangIdModel object.
    */
-  public void setLangIdModel(LangIdModel langIdModel) {
+  public void setLangIdModel(@Nullable LangIdModel langIdModel) {
     this.langIdModel = langIdModel;
     nativeSetLangId(annotatorPtr, langIdModel == null ? 0 : langIdModel.getNativePointer());
+  }
+
+  /**
+   * Initializes the person name engine, using the provided model image, given as an {@link
+   * AssetFileDescriptor}.
+   */
+  public void initializePersonNameEngine(AssetFileDescriptor assetFileDescriptor) {
+    if (!nativeInitializePersonNameEngine(
+        annotatorPtr,
+        assetFileDescriptor.getParcelFileDescriptor().getFd(),
+        assetFileDescriptor.getStartOffset(),
+        assetFileDescriptor.getLength())) {
+      throw new IllegalArgumentException("Couldn't initialize the person name engine");
+    }
   }
 
   /**
@@ -183,8 +233,7 @@ public final class AnnotatorModel implements AutoCloseable {
    * Annotates multiple fragments of text at once. There will be one AnnotatedSpan array for each
    * input fragment to annotate.
    */
-  public AnnotatedSpan[][] annotateStructuredInput(
-      InputFragment[] fragments, AnnotationOptions options) {
+  public Annotations annotateStructuredInput(InputFragment[] fragments, AnnotationOptions options) {
     return nativeAnnotateStructuredInput(annotatorPtr, fragments, options);
   }
 
@@ -219,14 +268,38 @@ public final class AnnotatorModel implements AutoCloseable {
     return nativeGetLocales(fd);
   }
 
+  /** Returns a comma separated list of locales supported by the model as BCP 47 tags. */
+  public static String getLocales(AssetFileDescriptor assetFileDescriptor) {
+    return nativeGetLocalesWithOffset(
+        assetFileDescriptor.getParcelFileDescriptor().getFd(),
+        assetFileDescriptor.getStartOffset(),
+        assetFileDescriptor.getLength());
+  }
+
   /** Returns the version of the model. */
   public static int getVersion(int fd) {
     return nativeGetVersion(fd);
   }
 
+  /** Returns the version of the model. */
+  public static int getVersion(AssetFileDescriptor assetFileDescriptor) {
+    return nativeGetVersionWithOffset(
+        assetFileDescriptor.getParcelFileDescriptor().getFd(),
+        assetFileDescriptor.getStartOffset(),
+        assetFileDescriptor.getLength());
+  }
+
   /** Returns the name of the model. */
   public static String getName(int fd) {
     return nativeGetName(fd);
+  }
+
+  /** Returns the name of the model. */
+  public static String getName(AssetFileDescriptor assetFileDescriptor) {
+    return nativeGetNameWithOffset(
+        assetFileDescriptor.getParcelFileDescriptor().getFd(),
+        assetFileDescriptor.getStartOffset(),
+        assetFileDescriptor.getLength());
   }
 
   /** Information about a parsed time/date. */
@@ -261,20 +334,22 @@ public final class AnnotatorModel implements AutoCloseable {
   public static final class ClassificationResult {
     private final String collection;
     private final float score;
-    private final DatetimeResult datetimeResult;
-    private final byte[] serializedKnowledgeResult;
-    private final String contactName;
-    private final String contactGivenName;
-    private final String contactFamilyName;
-    private final String contactNickname;
-    private final String contactEmailAddress;
-    private final String contactPhoneNumber;
-    private final String contactId;
-    private final String appName;
-    private final String appPackageName;
-    private final NamedVariant[] entityData;
-    private final byte[] serializedEntityData;
-    private final RemoteActionTemplate[] remoteActionTemplates;
+    @Nullable private final DatetimeResult datetimeResult;
+    @Nullable private final byte[] serializedKnowledgeResult;
+    @Nullable private final String contactName;
+    @Nullable private final String contactGivenName;
+    @Nullable private final String contactFamilyName;
+    @Nullable private final String contactNickname;
+    @Nullable private final String contactEmailAddress;
+    @Nullable private final String contactPhoneNumber;
+    @Nullable private final String contactAccountType;
+    @Nullable private final String contactAccountName;
+    @Nullable private final String contactId;
+    @Nullable private final String appName;
+    @Nullable private final String appPackageName;
+    @Nullable private final NamedVariant[] entityData;
+    @Nullable private final byte[] serializedEntityData;
+    @Nullable private final RemoteActionTemplate[] remoteActionTemplates;
     private final long durationMs;
     private final long numericValue;
     private final double numericDoubleValue;
@@ -282,20 +357,22 @@ public final class AnnotatorModel implements AutoCloseable {
     public ClassificationResult(
         String collection,
         float score,
-        DatetimeResult datetimeResult,
-        byte[] serializedKnowledgeResult,
-        String contactName,
-        String contactGivenName,
-        String contactFamilyName,
-        String contactNickname,
-        String contactEmailAddress,
-        String contactPhoneNumber,
-        String contactId,
-        String appName,
-        String appPackageName,
-        NamedVariant[] entityData,
-        byte[] serializedEntityData,
-        RemoteActionTemplate[] remoteActionTemplates,
+        @Nullable DatetimeResult datetimeResult,
+        @Nullable byte[] serializedKnowledgeResult,
+        @Nullable String contactName,
+        @Nullable String contactGivenName,
+        @Nullable String contactFamilyName,
+        @Nullable String contactNickname,
+        @Nullable String contactEmailAddress,
+        @Nullable String contactPhoneNumber,
+        @Nullable String contactAccountType,
+        @Nullable String contactAccountName,
+        @Nullable String contactId,
+        @Nullable String appName,
+        @Nullable String appPackageName,
+        @Nullable NamedVariant[] entityData,
+        @Nullable byte[] serializedEntityData,
+        @Nullable RemoteActionTemplate[] remoteActionTemplates,
         long durationMs,
         long numericValue,
         double numericDoubleValue) {
@@ -309,6 +386,8 @@ public final class AnnotatorModel implements AutoCloseable {
       this.contactNickname = contactNickname;
       this.contactEmailAddress = contactEmailAddress;
       this.contactPhoneNumber = contactPhoneNumber;
+      this.contactAccountType = contactAccountType;
+      this.contactAccountName = contactAccountName;
       this.contactId = contactId;
       this.appName = appName;
       this.appPackageName = appPackageName;
@@ -330,58 +409,82 @@ public final class AnnotatorModel implements AutoCloseable {
       return score;
     }
 
+    @Nullable
     public DatetimeResult getDatetimeResult() {
       return datetimeResult;
     }
 
+    @Nullable
     public byte[] getSerializedKnowledgeResult() {
       return serializedKnowledgeResult;
     }
 
+    @Nullable
     public String getContactName() {
       return contactName;
     }
 
+    @Nullable
     public String getContactGivenName() {
       return contactGivenName;
     }
 
+    @Nullable
     public String getContactFamilyName() {
       return contactFamilyName;
     }
 
+    @Nullable
     public String getContactNickname() {
       return contactNickname;
     }
 
+    @Nullable
     public String getContactEmailAddress() {
       return contactEmailAddress;
     }
 
+    @Nullable
     public String getContactPhoneNumber() {
       return contactPhoneNumber;
     }
 
+    @Nullable
+    public String getContactAccountType() {
+      return contactAccountType;
+    }
+
+    @Nullable
+    public String getContactAccountName() {
+      return contactAccountName;
+    }
+
+    @Nullable
     public String getContactId() {
       return contactId;
     }
 
+    @Nullable
     public String getAppName() {
       return appName;
     }
 
+    @Nullable
     public String getAppPackageName() {
       return appPackageName;
     }
 
+    @Nullable
     public NamedVariant[] getEntityData() {
       return entityData;
     }
 
+    @Nullable
     public byte[] getSerializedEntityData() {
       return serializedEntityData;
     }
 
+    @Nullable
     public RemoteActionTemplate[] getRemoteActionTemplates() {
       return remoteActionTemplates;
     }
@@ -424,6 +527,28 @@ public final class AnnotatorModel implements AutoCloseable {
     }
   }
 
+  /**
+   * Represents a result of Annotate call, which will include both entity annotations and topicality
+   * annotations.
+   */
+  public static final class Annotations {
+    private final AnnotatedSpan[][] annotatedSpans;
+    private final ClassificationResult[] topicalityResults;
+
+    Annotations(AnnotatedSpan[][] annotatedSpans, ClassificationResult[] topicalityResults) {
+      this.annotatedSpans = annotatedSpans;
+      this.topicalityResults = topicalityResults;
+    }
+
+    public AnnotatedSpan[][] getAnnotatedSpans() {
+      return annotatedSpans;
+    }
+
+    public ClassificationResult[] getTopicalityResults() {
+      return topicalityResults;
+    }
+  }
+
   /** Represents a fragment of text to the AnnotateStructuredInput call. */
   public static final class InputFragment {
 
@@ -441,20 +566,38 @@ public final class AnnotatorModel implements AutoCloseable {
     public InputFragment(String text) {
       this.text = text;
       this.datetimeOptionsNullable = null;
+      this.boundingBoxTop = 0;
+      this.boundingBoxHeight = 0;
     }
 
-    public InputFragment(String text, DatetimeOptions datetimeOptions) {
+    public InputFragment(
+        String text,
+        DatetimeOptions datetimeOptions,
+        float boundingBoxTop,
+        float boundingBoxHeight) {
       this.text = text;
       this.datetimeOptionsNullable = datetimeOptions;
+      this.boundingBoxTop = boundingBoxTop;
+      this.boundingBoxHeight = boundingBoxHeight;
     }
 
     private final String text;
     // The DatetimeOptions can't be Optional because the _api16 build of the TCLib SDK does not
     // support java.util.Optional.
     private final DatetimeOptions datetimeOptionsNullable;
+    private final float boundingBoxTop;
+    private final float boundingBoxHeight;
 
     public String getText() {
       return text;
+    }
+
+    public float getBoundingBoxTop() {
+      return boundingBoxTop;
+    }
+
+    public float getBoundingBoxHeight() {
+      return boundingBoxHeight;
     }
 
     public boolean hasDatetimeOptions() {
@@ -470,37 +613,111 @@ public final class AnnotatorModel implements AutoCloseable {
     }
   }
 
-  /**
-   * Represents options for the suggestSelection call. TODO(b/63427420): Use location with Selection
-   * options.
-   */
+  /** Represents options for the suggestSelection call. */
   public static final class SelectionOptions {
-    private final String locales;
-    private final String detectedTextLanguageTags;
+    @Nullable private final String locales;
+    @Nullable private final String detectedTextLanguageTags;
     private final int annotationUsecase;
     private final double userLocationLat;
     private final double userLocationLng;
     private final float userLocationAccuracyMeters;
+    private final boolean usePodNer;
+    private final boolean useVocabAnnotator;
 
-    public SelectionOptions(
-        String locales, String detectedTextLanguageTags, int annotationUsecase) {
+    private SelectionOptions(
+        @Nullable String locales,
+        @Nullable String detectedTextLanguageTags,
+        int annotationUsecase,
+        double userLocationLat,
+        double userLocationLng,
+        float userLocationAccuracyMeters,
+        boolean usePodNer,
+        boolean useVocabAnnotator) {
       this.locales = locales;
       this.detectedTextLanguageTags = detectedTextLanguageTags;
       this.annotationUsecase = annotationUsecase;
-      this.userLocationLat = INVALID_LATITUDE;
-      this.userLocationLng = INVALID_LONGITUDE;
-      this.userLocationAccuracyMeters = INVALID_LOCATION_ACCURACY_METERS;
+      this.userLocationLat = userLocationLat;
+      this.userLocationLng = userLocationLng;
+      this.userLocationAccuracyMeters = userLocationAccuracyMeters;
+      this.usePodNer = usePodNer;
+      this.useVocabAnnotator = useVocabAnnotator;
     }
 
-    public SelectionOptions(String locales, String detectedTextLanguageTags) {
-      this(locales, detectedTextLanguageTags, AnnotationUsecase.SMART.getValue());
+    /** Can be used to build a SelectionsOptions instance. */
+    public static class Builder {
+      @Nullable private String locales;
+      @Nullable private String detectedTextLanguageTags;
+      private int annotationUsecase = AnnotationUsecase.SMART.getValue();
+      private double userLocationLat = INVALID_LATITUDE;
+      private double userLocationLng = INVALID_LONGITUDE;
+      private float userLocationAccuracyMeters = INVALID_LOCATION_ACCURACY_METERS;
+      private boolean usePodNer = true;
+      private boolean useVocabAnnotator = true;
+
+      public Builder setLocales(@Nullable String locales) {
+        this.locales = locales;
+        return this;
+      }
+
+      public Builder setDetectedTextLanguageTags(@Nullable String detectedTextLanguageTags) {
+        this.detectedTextLanguageTags = detectedTextLanguageTags;
+        return this;
+      }
+
+      public Builder setAnnotationUsecase(int annotationUsecase) {
+        this.annotationUsecase = annotationUsecase;
+        return this;
+      }
+
+      public Builder setUserLocationLat(double userLocationLat) {
+        this.userLocationLat = userLocationLat;
+        return this;
+      }
+
+      public Builder setUserLocationLng(double userLocationLng) {
+        this.userLocationLng = userLocationLng;
+        return this;
+      }
+
+      public Builder setUserLocationAccuracyMeters(float userLocationAccuracyMeters) {
+        this.userLocationAccuracyMeters = userLocationAccuracyMeters;
+        return this;
+      }
+
+      public Builder setUsePodNer(boolean usePodNer) {
+        this.usePodNer = usePodNer;
+        return this;
+      }
+
+      public Builder setUseVocabAnnotator(boolean useVocabAnnotator) {
+        this.useVocabAnnotator = useVocabAnnotator;
+        return this;
+      }
+
+      public SelectionOptions build() {
+        return new SelectionOptions(
+            locales,
+            detectedTextLanguageTags,
+            annotationUsecase,
+            userLocationLat,
+            userLocationLng,
+            userLocationAccuracyMeters,
+            usePodNer,
+            useVocabAnnotator);
+      }
     }
 
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    @Nullable
     public String getLocales() {
       return locales;
     }
 
     /** Returns a comma separated list of BCP 47 language tags. */
+    @Nullable
     public String getDetectedTextLanguageTags() {
       return detectedTextLanguageTags;
     }
@@ -520,53 +737,153 @@ public final class AnnotatorModel implements AutoCloseable {
     public float getUserLocationAccuracyMeters() {
       return userLocationAccuracyMeters;
     }
+
+    public boolean getUsePodNer() {
+      return usePodNer;
+    }
+
+    public boolean getUseVocabAnnotator() {
+      return useVocabAnnotator;
+    }
   }
 
-  /**
-   * Represents options for the classifyText call. TODO(b/63427420): Use location with
-   * Classification options.
-   */
+  /** Represents options for the classifyText call. */
   public static final class ClassificationOptions {
     private final long referenceTimeMsUtc;
     private final String referenceTimezone;
-    private final String locales;
-    private final String detectedTextLanguageTags;
+    @Nullable private final String locales;
+    @Nullable private final String detectedTextLanguageTags;
     private final int annotationUsecase;
     private final double userLocationLat;
     private final double userLocationLng;
     private final float userLocationAccuracyMeters;
     private final String userFamiliarLanguageTags;
+    private final boolean usePodNer;
+    private final boolean triggerDictionaryOnBeginnerWords;
+    private final boolean useVocabAnnotator;
 
-    public ClassificationOptions(
+    private ClassificationOptions(
         long referenceTimeMsUtc,
         String referenceTimezone,
-        String locales,
-        String detectedTextLanguageTags,
+        @Nullable String locales,
+        @Nullable String detectedTextLanguageTags,
         int annotationUsecase,
-        String userFamiliarLanguageTags) {
+        double userLocationLat,
+        double userLocationLng,
+        float userLocationAccuracyMeters,
+        String userFamiliarLanguageTags,
+        boolean usePodNer,
+        boolean triggerDictionaryOnBeginnerWords,
+        boolean useVocabAnnotator) {
       this.referenceTimeMsUtc = referenceTimeMsUtc;
       this.referenceTimezone = referenceTimezone;
       this.locales = locales;
       this.detectedTextLanguageTags = detectedTextLanguageTags;
       this.annotationUsecase = annotationUsecase;
-      this.userLocationLat = INVALID_LATITUDE;
-      this.userLocationLng = INVALID_LONGITUDE;
-      this.userLocationAccuracyMeters = INVALID_LOCATION_ACCURACY_METERS;
+      this.userLocationLat = userLocationLat;
+      this.userLocationLng = userLocationLng;
+      this.userLocationAccuracyMeters = userLocationAccuracyMeters;
       this.userFamiliarLanguageTags = userFamiliarLanguageTags;
+      this.usePodNer = usePodNer;
+      this.triggerDictionaryOnBeginnerWords = triggerDictionaryOnBeginnerWords;
+      this.useVocabAnnotator = useVocabAnnotator;
     }
 
-    public ClassificationOptions(
-        long referenceTimeMsUtc,
-        String referenceTimezone,
-        String locales,
-        String detectedTextLanguageTags) {
-      this(
-          referenceTimeMsUtc,
-          referenceTimezone,
-          locales,
-          detectedTextLanguageTags,
-          AnnotationUsecase.SMART.getValue(),
-          "");
+    /** Can be used to build a ClassificationOptions instance. */
+    public static class Builder {
+      private long referenceTimeMsUtc;
+      @Nullable private String referenceTimezone;
+      @Nullable private String locales;
+      @Nullable private String detectedTextLanguageTags;
+      private int annotationUsecase = AnnotationUsecase.SMART.getValue();
+      private double userLocationLat = INVALID_LATITUDE;
+      private double userLocationLng = INVALID_LONGITUDE;
+      private float userLocationAccuracyMeters = INVALID_LOCATION_ACCURACY_METERS;
+      private String userFamiliarLanguageTags = "";
+      private boolean usePodNer = true;
+      private boolean triggerDictionaryOnBeginnerWords = false;
+      private boolean useVocabAnnotator = true;
+
+      public Builder setReferenceTimeMsUtc(long referenceTimeMsUtc) {
+        this.referenceTimeMsUtc = referenceTimeMsUtc;
+        return this;
+      }
+
+      public Builder setReferenceTimezone(String referenceTimezone) {
+        this.referenceTimezone = referenceTimezone;
+        return this;
+      }
+
+      public Builder setLocales(@Nullable String locales) {
+        this.locales = locales;
+        return this;
+      }
+
+      public Builder setDetectedTextLanguageTags(@Nullable String detectedTextLanguageTags) {
+        this.detectedTextLanguageTags = detectedTextLanguageTags;
+        return this;
+      }
+
+      public Builder setAnnotationUsecase(int annotationUsecase) {
+        this.annotationUsecase = annotationUsecase;
+        return this;
+      }
+
+      public Builder setUserLocationLat(double userLocationLat) {
+        this.userLocationLat = userLocationLat;
+        return this;
+      }
+
+      public Builder setUserLocationLng(double userLocationLng) {
+        this.userLocationLng = userLocationLng;
+        return this;
+      }
+
+      public Builder setUserLocationAccuracyMeters(float userLocationAccuracyMeters) {
+        this.userLocationAccuracyMeters = userLocationAccuracyMeters;
+        return this;
+      }
+
+      public Builder setUserFamiliarLanguageTags(String userFamiliarLanguageTags) {
+        this.userFamiliarLanguageTags = userFamiliarLanguageTags;
+        return this;
+      }
+
+      public Builder setUsePodNer(boolean usePodNer) {
+        this.usePodNer = usePodNer;
+        return this;
+      }
+
+      public Builder setTrigerringDictionaryOnBeginnerWords(
+          boolean triggerDictionaryOnBeginnerWords) {
+        this.triggerDictionaryOnBeginnerWords = triggerDictionaryOnBeginnerWords;
+        return this;
+      }
+
+      public Builder setUseVocabAnnotator(boolean useVocabAnnotator) {
+        this.useVocabAnnotator = useVocabAnnotator;
+        return this;
+      }
+
+      public ClassificationOptions build() {
+        return new ClassificationOptions(
+            referenceTimeMsUtc,
+            referenceTimezone,
+            locales,
+            detectedTextLanguageTags,
+            annotationUsecase,
+            userLocationLat,
+            userLocationLng,
+            userLocationAccuracyMeters,
+            userFamiliarLanguageTags,
+            usePodNer,
+            triggerDictionaryOnBeginnerWords,
+            useVocabAnnotator);
+      }
+    }
+
+    public static Builder builder() {
+      return new Builder();
     }
 
     public long getReferenceTimeMsUtc() {
@@ -577,11 +894,13 @@ public final class AnnotatorModel implements AutoCloseable {
       return referenceTimezone;
     }
 
+    @Nullable
     public String getLocale() {
       return locales;
     }
 
     /** Returns a comma separated list of BCP 47 language tags. */
+    @Nullable
     public String getDetectedTextLanguageTags() {
       return detectedTextLanguageTags;
     }
@@ -605,15 +924,28 @@ public final class AnnotatorModel implements AutoCloseable {
     public String getUserFamiliarLanguageTags() {
       return userFamiliarLanguageTags;
     }
+
+    public boolean getUsePodNer() {
+      return usePodNer;
+    }
+
+    public boolean getTriggerDictionaryOnBeginnerWords() {
+      return triggerDictionaryOnBeginnerWords;
+    }
+
+    public boolean getUseVocabAnnotator() {
+      return useVocabAnnotator;
+    }
   }
 
   /** Represents options for the annotate call. */
   public static final class AnnotationOptions {
     private final long referenceTimeMsUtc;
     private final String referenceTimezone;
-    private final String locales;
-    private final String detectedTextLanguageTags;
+    @Nullable private final String locales;
+    @Nullable private final String detectedTextLanguageTags;
     private final String[] entityTypes;
+    private final int annotateMode;
     private final int annotationUsecase;
     private final boolean hasLocationPermission;
     private final boolean hasPersonalizationPermission;
@@ -621,25 +953,33 @@ public final class AnnotatorModel implements AutoCloseable {
     private final double userLocationLat;
     private final double userLocationLng;
     private final float userLocationAccuracyMeters;
+    private final boolean usePodNer;
+    private final boolean triggerDictionaryOnBeginnerWords;
+    private final boolean useVocabAnnotator;
 
-    public AnnotationOptions(
+    private AnnotationOptions(
         long referenceTimeMsUtc,
         String referenceTimezone,
-        String locales,
-        String detectedTextLanguageTags,
-        Collection<String> entityTypes,
+        @Nullable String locales,
+        @Nullable String detectedTextLanguageTags,
+        @Nullable Collection<String> entityTypes,
+        int annotateMode,
         int annotationUsecase,
         boolean hasLocationPermission,
         boolean hasPersonalizationPermission,
         boolean isSerializedEntityDataEnabled,
         double userLocationLat,
         double userLocationLng,
-        float userLocationAccuracyMeters) {
+        float userLocationAccuracyMeters,
+        boolean usePodNer,
+        boolean triggerDictionaryOnBeginnerWords,
+        boolean useVocabAnnotator) {
       this.referenceTimeMsUtc = referenceTimeMsUtc;
       this.referenceTimezone = referenceTimezone;
       this.locales = locales;
       this.detectedTextLanguageTags = detectedTextLanguageTags;
       this.entityTypes = entityTypes == null ? new String[0] : entityTypes.toArray(new String[0]);
+      this.annotateMode = annotateMode;
       this.annotationUsecase = annotationUsecase;
       this.isSerializedEntityDataEnabled = isSerializedEntityDataEnabled;
       this.userLocationLat = userLocationLat;
@@ -647,68 +987,133 @@ public final class AnnotatorModel implements AutoCloseable {
       this.userLocationAccuracyMeters = userLocationAccuracyMeters;
       this.hasLocationPermission = hasLocationPermission;
       this.hasPersonalizationPermission = hasPersonalizationPermission;
+      this.usePodNer = usePodNer;
+      this.triggerDictionaryOnBeginnerWords = triggerDictionaryOnBeginnerWords;
+      this.useVocabAnnotator = useVocabAnnotator;
     }
 
-    public AnnotationOptions(
-        long referenceTimeMsUtc,
-        String referenceTimezone,
-        String locales,
-        String detectedTextLanguageTags,
-        Collection<String> entityTypes,
-        int annotationUsecase,
-        boolean isSerializedEntityDataEnabled,
-        double userLocationLat,
-        double userLocationLng,
-        float userLocationAccuracyMeters) {
-      this(
-          referenceTimeMsUtc,
-          referenceTimezone,
-          locales,
-          detectedTextLanguageTags,
-          entityTypes,
-          annotationUsecase,
-          /* hasLocationPermission */ true,
-          /* hasPersonalizationPermission */ true,
-          isSerializedEntityDataEnabled,
-          userLocationLat,
-          userLocationLng,
-          userLocationAccuracyMeters);
+    /** Can be used to build an AnnotationOptions instance. */
+    public static class Builder {
+      private long referenceTimeMsUtc;
+      @Nullable private String referenceTimezone;
+      @Nullable private String locales;
+      @Nullable private String detectedTextLanguageTags;
+      @Nullable private Collection<String> entityTypes;
+      private int annotateMode = AnnotateMode.ENTITY_ANNOTATION.getValue();
+      private int annotationUsecase = AnnotationUsecase.SMART.getValue();
+      private boolean hasLocationPermission = true;
+      private boolean hasPersonalizationPermission = true;
+      private boolean isSerializedEntityDataEnabled = false;
+      private double userLocationLat = INVALID_LATITUDE;
+      private double userLocationLng = INVALID_LONGITUDE;
+      private float userLocationAccuracyMeters = INVALID_LOCATION_ACCURACY_METERS;
+      private boolean usePodNer = true;
+      private boolean triggerDictionaryOnBeginnerWords = false;
+      private boolean useVocabAnnotator = true;
+
+      public Builder setReferenceTimeMsUtc(long referenceTimeMsUtc) {
+        this.referenceTimeMsUtc = referenceTimeMsUtc;
+        return this;
+      }
+
+      public Builder setReferenceTimezone(String referenceTimezone) {
+        this.referenceTimezone = referenceTimezone;
+        return this;
+      }
+
+      public Builder setLocales(@Nullable String locales) {
+        this.locales = locales;
+        return this;
+      }
+
+      public Builder setDetectedTextLanguageTags(@Nullable String detectedTextLanguageTags) {
+        this.detectedTextLanguageTags = detectedTextLanguageTags;
+        return this;
+      }
+
+      public Builder setEntityTypes(Collection<String> entityTypes) {
+        this.entityTypes = entityTypes;
+        return this;
+      }
+
+      public Builder setAnnotateMode(int annotateMode) {
+        this.annotateMode = annotateMode;
+        return this;
+      }
+
+      public Builder setAnnotationUsecase(int annotationUsecase) {
+        this.annotationUsecase = annotationUsecase;
+        return this;
+      }
+
+      public Builder setHasLocationPermission(boolean hasLocationPermission) {
+        this.hasLocationPermission = hasLocationPermission;
+        return this;
+      }
+
+      public Builder setHasPersonalizationPermission(boolean hasPersonalizationPermission) {
+        this.hasPersonalizationPermission = hasPersonalizationPermission;
+        return this;
+      }
+
+      public Builder setIsSerializedEntityDataEnabled(boolean isSerializedEntityDataEnabled) {
+        this.isSerializedEntityDataEnabled = isSerializedEntityDataEnabled;
+        return this;
+      }
+
+      public Builder setUserLocationLat(double userLocationLat) {
+        this.userLocationLat = userLocationLat;
+        return this;
+      }
+
+      public Builder setUserLocationLng(double userLocationLng) {
+        this.userLocationLng = userLocationLng;
+        return this;
+      }
+
+      public Builder setUserLocationAccuracyMeters(float userLocationAccuracyMeters) {
+        this.userLocationAccuracyMeters = userLocationAccuracyMeters;
+        return this;
+      }
+
+      public Builder setUsePodNer(boolean usePodNer) {
+        this.usePodNer = usePodNer;
+        return this;
+      }
+
+      public Builder setTriggerDictionaryOnBeginnerWords(boolean triggerDictionaryOnBeginnerWords) {
+        this.triggerDictionaryOnBeginnerWords = triggerDictionaryOnBeginnerWords;
+        return this;
+      }
+
+      public Builder setUseVocabAnnotator(boolean useVocabAnnotator) {
+        this.useVocabAnnotator = useVocabAnnotator;
+        return this;
+      }
+
+      public AnnotationOptions build() {
+        return new AnnotationOptions(
+            referenceTimeMsUtc,
+            referenceTimezone,
+            locales,
+            detectedTextLanguageTags,
+            entityTypes,
+            annotateMode,
+            annotationUsecase,
+            hasLocationPermission,
+            hasPersonalizationPermission,
+            isSerializedEntityDataEnabled,
+            userLocationLat,
+            userLocationLng,
+            userLocationAccuracyMeters,
+            usePodNer,
+            triggerDictionaryOnBeginnerWords,
+            useVocabAnnotator);
+      }
     }
 
-    public AnnotationOptions(
-        long referenceTimeMsUtc,
-        String referenceTimezone,
-        String locales,
-        String detectedTextLanguageTags,
-        Collection<String> entityTypes,
-        int annotationUsecase,
-        boolean isSerializedEntityDataEnabled) {
-      this(
-          referenceTimeMsUtc,
-          referenceTimezone,
-          locales,
-          detectedTextLanguageTags,
-          entityTypes,
-          annotationUsecase,
-          isSerializedEntityDataEnabled,
-          INVALID_LATITUDE,
-          INVALID_LONGITUDE,
-          INVALID_LOCATION_ACCURACY_METERS);
-    }
-
-    public AnnotationOptions(
-        long referenceTimeMsUtc,
-        String referenceTimezone,
-        String locales,
-        String detectedTextLanguageTags) {
-      this(
-          referenceTimeMsUtc,
-          referenceTimezone,
-          locales,
-          detectedTextLanguageTags,
-          null,
-          AnnotationUsecase.SMART.getValue(),
-          /* isSerializedEntityDataEnabled */ false);
+    public static Builder builder() {
+      return new Builder();
     }
 
     public long getReferenceTimeMsUtc() {
@@ -719,17 +1124,23 @@ public final class AnnotatorModel implements AutoCloseable {
       return referenceTimezone;
     }
 
+    @Nullable
     public String getLocale() {
       return locales;
     }
 
     /** Returns a comma separated list of BCP 47 language tags. */
+    @Nullable
     public String getDetectedTextLanguageTags() {
       return detectedTextLanguageTags;
     }
 
     public String[] getEntityTypes() {
       return entityTypes;
+    }
+
+    public int getAnnotateMode() {
+      return annotateMode;
     }
 
     public int getAnnotationUsecase() {
@@ -758,6 +1169,18 @@ public final class AnnotatorModel implements AutoCloseable {
 
     public boolean hasPersonalizationPermission() {
       return hasPersonalizationPermission;
+    }
+
+    public boolean getUsePodNer() {
+      return usePodNer;
+    }
+
+    public boolean getTriggerDictionaryOnBeginnerWords() {
+      return triggerDictionaryOnBeginnerWords;
+    }
+
+    public boolean getUseVocabAnnotator() {
+      return useVocabAnnotator;
     }
   }
 
@@ -815,7 +1238,7 @@ public final class AnnotatorModel implements AutoCloseable {
   private native AnnotatedSpan[] nativeAnnotate(
       long context, String text, AnnotationOptions options);
 
-  private native AnnotatedSpan[][] nativeAnnotateStructuredInput(
+  private native Annotations nativeAnnotateStructuredInput(
       long context, InputFragment[] inputFragments, AnnotationOptions options);
 
   private native byte[] nativeLookUpKnowledgeEntity(long context, String id);

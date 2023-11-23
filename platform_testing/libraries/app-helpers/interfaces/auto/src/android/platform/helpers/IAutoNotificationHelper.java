@@ -16,7 +16,7 @@
 
 package android.platform.helpers;
 
-public interface IAutoNotificationHelper extends INotificationHelper, Scrollable, IAppHelper {
+public interface IAutoNotificationHelper extends Scrollable, IAppHelper {
     /**
      * Setup expectations: Notification app is open and scrolled to the bottom.
      *

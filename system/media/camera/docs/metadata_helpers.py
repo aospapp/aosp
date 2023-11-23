@@ -180,7 +180,8 @@ def protobuf_type(entry):
     "int64"                  : "int64",
     "enumList"               : "int32",
     "string"                 : "string",
-    "capability"             : "Capability"
+    "capability"             : "Capability",
+    "multiResolutionStreamConfigurationMap" : "MultiResolutionStreamConfigurations"
   }
 
   if typeName not in typename_to_protobuftype:
@@ -1346,6 +1347,18 @@ def filter_visibility(entries, visibilities):
   """
   return (e for e in entries if e.applied_visibility in visibilities)
 
+def remove_synthetic_or_fwk_only(entries):
+  """
+  Filter the given entries by removing those that are synthetic or fwk_only.
+
+  Args:
+    entries: An iterable of Entry nodes
+
+  Yields:
+    An iterable of Entry nodes
+  """
+  return (e for e in entries if not (e.synthetic or e.visibility == 'fwk_only'))
+
 def remove_synthetic(entries):
   """
   Filter the given entries by removing those that are synthetic.
@@ -1399,7 +1412,7 @@ def permission_needed_count(root):
   """
   ret = 0
   for sec in find_all_sections(root):
-      ret += len(list(filter_has_permission_needed(remove_synthetic(find_unique_entries(sec)))))
+      ret += len(list(filter_has_permission_needed(remove_synthetic_or_fwk_only(find_unique_entries(sec)))))
 
   return ret
 
@@ -1487,6 +1500,9 @@ def wbr(text):
 
   return soup.decode()
 
+def copyright_year():
+  return _copyright_year
+
 def hal_major_version():
   return _hal_major_version
 
@@ -1518,7 +1534,7 @@ def find_all_sections_added_in_hal(root, hal_major_version, hal_minor_version):
   for section in all_sections:
     min_major_version = None
     min_minor_version = None
-    for entry in remove_synthetic(find_unique_entries(section)):
+    for entry in remove_synthetic_or_fwk_only(find_unique_entries(section)):
       min_major_version = (min_major_version or entry.hal_major_version)
       min_minor_version = (min_minor_version or entry.hal_minor_version)
       if entry.hal_major_version < min_major_version or \

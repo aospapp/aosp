@@ -20,6 +20,7 @@ import android.apex.ApexInfo;
 import android.apex.ApexInfoList;
 import android.apex.ApexSessionInfo;
 import android.apex.ApexSessionParams;
+import android.apex.CompressedApexInfoList;
 
 interface IApexService {
    void submitStagedSession(in ApexSessionParams params, out ApexInfoList packages);
@@ -36,9 +37,9 @@ interface IApexService {
 
    /**
     * Copies the CE apex data directory for the given user to the backup
-    * location, and returns the inode of the snapshot directory.
+    * location.
     */
-   long snapshotCeData(int user_id, int rollback_id, in @utf8InCpp String apex_name);
+   void snapshotCeData(int user_id, int rollback_id, in @utf8InCpp String apex_name);
 
    /**
     * Restores the snapshot of the CE apex data directory for the given user and
@@ -50,6 +51,11 @@ interface IApexService {
     * Deletes device-encrypted snapshots for the given rollback id.
     */
    void destroyDeSnapshots(int rollback_id);
+
+   /**
+    * Deletes credential-encrypted snapshots for the given user, for the given rollback id.
+    */
+   void destroyCeSnapshots(int user_id, int rollback_id);
 
    /**
     * Deletes all credential-encrypted snapshots for the given user, except for
@@ -115,4 +121,42 @@ interface IApexService {
     * on user builds. Only root is allowed to call this method.
     */
    void remountPackages();
+   /**
+    * Forces apexd to recollect pre-installed data from the given |paths|.
+    *
+    * Not meant for use outside of testing. This call will not be functional
+    * on user builds. Only root is allowed to call this method.
+    */
+   void recollectPreinstalledData(in @utf8InCpp List<String> paths);
+   /**
+    * Forces apexd to recollect data apex from the given |path|.
+    *
+    * Not meant for use outside of testing. This call will not be functional
+    * on user builds. Only root is allowed to call this method.
+    */
+   void recollectDataApex(in @utf8InCpp String path, in@utf8InCpp String decompression_dir);
+
+   /**
+    * Informs apexd that the boot has completed.
+    */
+   void markBootCompleted();
+
+   /**
+   * Assuming the provided compressed APEX will be installed on next boot,
+   * calculate how much space will be required for decompression
+   */
+   long calculateSizeForCompressedApex(in CompressedApexInfoList compressed_apex_info_list);
+
+   /**
+   * Reserve space on /data partition for compressed APEX decompression. Returns error if
+   * reservation fails. If empty list is passed, then reserved space is deallocated.
+   */
+   void reserveSpaceForCompressedApex(in CompressedApexInfoList compressed_apex_info_list);
+
+   /**
+    * Performs a non-staged install of the given APEX.
+    * Note: don't confuse this to preInstall and postInstall binder calls which are only used to
+    * test corresponding features of APEX packages.
+    */
+   ApexInfo installAndActivatePackage(in @utf8InCpp String packagePath);
 }

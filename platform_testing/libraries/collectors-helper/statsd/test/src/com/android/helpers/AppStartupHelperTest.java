@@ -17,13 +17,18 @@ package com.android.helpers;
 
 import android.os.SystemClock;
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.ICalendarHelper;
+import android.platform.helpers.ICalculatorHelper;
+import android.platform.helpers.IClockHelper;
+import android.platform.test.rule.FinishActivitiesWithoutProcessKillRule;
 import androidx.test.runner.AndroidJUnit4;
+
 
 import com.android.helpers.AppStartupHelper;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 
 import java.util.Map;
@@ -44,14 +49,14 @@ import static org.junit.Assert.assertEquals;
 @RunWith(AndroidJUnit4.class)
 public class AppStartupHelperTest {
 
-    // Kill the calendar app.
+    // Kill the calculator app.
     private static final String KILL_TEST_APP_CMD_TEMPLATE = "am force-stop %s";
     // Package names used for testing.
-    private static final String CALENDAR_PKG_NAME = "com.google.android.calendar";
-    private static final String SETTINGS_PKG_NAME = "com.android.settings";
-    // Key prefixes to store the cold, warm or hot launch time of the calendar app, respectively.
+    private static final String CALCULATOR_PKG_NAME = "com.google.android.calculator";
+    private static final String CLOCK_PKG_NAME = "com.google.android.deskclock";
+    // Key prefixes to store the cold, warm or hot launch time of the calculator app, respectively.
     private static final String COLD_LAUNCH_KEY_TEMPLATE = "cold_startup_%s";
-    private static final String COLD_LAUNCH_PROCESSS_FG_KEY_TEMPLATE =
+    private static final String COLD_LAUNCH_PROCESS_FG_KEY_TEMPLATE =
             "cold_startup_process_start_delay_%s_fg";
     private static final String COLD_LAUNCH_TRANSITION_DELAY_MILLIS_KEY_TEMPLATE =
             "cold_startup_transition_delay_millis_%s";
@@ -68,6 +73,8 @@ public class AppStartupHelperTest {
             "cold_startup_process_start_total_count";
     private static final String WARM_LAUNCH_KEY_TEMPLATE = "warm_startup_%s";
     private static final String HOT_LAUNCH_KEY_TEMPLATE = "hot_startup_%s";
+    private static final String SOURCE_EVENT_DELAY_MILLIS_KEY_TEMPLATE =
+            "source_event_delay_millis_%s";
     // Keyword for keys to store the app startup fully drawn metric.
     private static final String FULLY_DRAWN_KEY_KEYWORD = "fully_drawn";
 
@@ -75,17 +82,21 @@ public class AppStartupHelperTest {
     private static final String KEYCODE_HOME = "KEYCODE_HOME";
 
     private AppStartupHelper mAppStartupHelper = new AppStartupHelper();
-    private HelperAccessor<ICalendarHelper> mHelper =
-            new HelperAccessor<>(ICalendarHelper.class);
+    private HelperAccessor<ICalculatorHelper> mHelper =
+            new HelperAccessor<>(ICalculatorHelper.class);
+    private HelperAccessor<IClockHelper> mClockHelper =
+            new HelperAccessor<>(IClockHelper.class);
 
     @Before
     public void setUp() {
         mAppStartupHelper = new AppStartupHelper();
         // Make sure the apps are starting from the clean state.
-        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CALENDAR_PKG_NAME));
-        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, SETTINGS_PKG_NAME));
+        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CALCULATOR_PKG_NAME));
+        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CLOCK_PKG_NAME));
         // Make sure display is on and unlocked.
         HelperTestUtility.wakeUpAndUnlock();
+        // Lock the orientation.
+        HelperTestUtility.setOrientationNatural();
     }
 
     /**
@@ -116,9 +127,9 @@ public class AppStartupHelperTest {
         mHelper.get().open();
         Map<String, StringBuilder> appLaunchMetrics = mAppStartupHelper.getMetrics();
         // A metric key for the app cold launching should exist, and should only hold one value.
-        String coldLaunchMetricKey = String.format(COLD_LAUNCH_KEY_TEMPLATE, CALENDAR_PKG_NAME);
+        String coldLaunchMetricKey = String.format(COLD_LAUNCH_KEY_TEMPLATE, CALCULATOR_PKG_NAME);
         String coldLaunchCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+                CALCULATOR_PKG_NAME);
         assertTrue(appLaunchMetrics.keySet().contains(coldLaunchMetricKey));
         assertEquals(1, appLaunchMetrics.get(coldLaunchMetricKey).toString().split(",").length);
         assertEquals(1, Integer.parseInt(appLaunchMetrics.get(coldLaunchCountPkgKey).toString()));
@@ -128,16 +139,16 @@ public class AppStartupHelperTest {
         // Verify transition metrics.
         String coldLaunchTransitionMetricKey = String.format(
                 COLD_LAUNCH_TRANSITION_DELAY_MILLIS_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+                CALCULATOR_PKG_NAME);
         assertTrue(appLaunchMetrics.keySet().contains(coldLaunchTransitionMetricKey));
         assertEquals(1,
                 appLaunchMetrics.get(coldLaunchTransitionMetricKey).toString().split(",").length);
 
         // Verify process start values.
-        String coldLaunchProcessMetricKey = String.format(COLD_LAUNCH_PROCESSS_FG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+        String coldLaunchProcessMetricKey = String.format(COLD_LAUNCH_PROCESS_FG_KEY_TEMPLATE,
+                CALCULATOR_PKG_NAME);
         String coldLaunchProcessCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+                CALCULATOR_PKG_NAME);
         assertTrue(appLaunchMetrics.keySet().contains(coldLaunchProcessMetricKey));
         assertEquals(1,
                 appLaunchMetrics.get(coldLaunchProcessMetricKey).toString().split(",").length);
@@ -148,6 +159,14 @@ public class AppStartupHelperTest {
                 Integer.parseInt(appLaunchMetrics.get(
                         COLD_LAUNCH_PROCESS_START_TOTAL_COUNT_KEY_TEMPLATE)
                         .toString()));
+
+        // Verify source event metrics (see ActivityOptionsCompat#setLauncherSourceInfo).
+        String sourceEventDelayMetricKey = String.format(SOURCE_EVENT_DELAY_MILLIS_KEY_TEMPLATE,
+                CALCULATOR_PKG_NAME);
+        assertTrue(appLaunchMetrics.keySet().contains(sourceEventDelayMetricKey));
+        assertEquals(1,
+                appLaunchMetrics.get(sourceEventDelayMetricKey).toString().split(",").length);
+
         assertTrue(mAppStartupHelper.stopCollecting());
         mHelper.get().exit();
     }
@@ -161,13 +180,13 @@ public class AppStartupHelperTest {
         mHelper.get().open();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
         mHelper.get().exit();
-        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CALENDAR_PKG_NAME));
+        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CALCULATOR_PKG_NAME));
         mHelper.get().open();
         Map<String, StringBuilder> appLaunchMetrics = mAppStartupHelper.getMetrics();
         // A metric key for the app cold launching should exist, and should hold two values.
-        String coldLaunchMetricKey = String.format(COLD_LAUNCH_KEY_TEMPLATE, CALENDAR_PKG_NAME);
+        String coldLaunchMetricKey = String.format(COLD_LAUNCH_KEY_TEMPLATE, CALCULATOR_PKG_NAME);
         String coldLaunchCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+                CALCULATOR_PKG_NAME);
         assertTrue(appLaunchMetrics.keySet().contains(coldLaunchMetricKey));
         assertEquals(2, appLaunchMetrics.get(coldLaunchMetricKey).toString().split(",").length);
         assertEquals(2, Integer.parseInt(appLaunchMetrics.get(coldLaunchCountPkgKey).toString()));
@@ -175,10 +194,10 @@ public class AppStartupHelperTest {
                 .toString()));
 
         // Verify process start values.
-        String coldLaunchProcessMetricKey = String.format(COLD_LAUNCH_PROCESSS_FG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+        String coldLaunchProcessMetricKey = String.format(COLD_LAUNCH_PROCESS_FG_KEY_TEMPLATE,
+                CALCULATOR_PKG_NAME);
         String coldLaunchProcessCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+                CALCULATOR_PKG_NAME);
         assertTrue(appLaunchMetrics.keySet().contains(coldLaunchProcessMetricKey));
         assertEquals(2,
                 appLaunchMetrics.get(coldLaunchProcessMetricKey).toString().split(",").length);
@@ -201,50 +220,50 @@ public class AppStartupHelperTest {
     @Test
     public void testDifferentAppColdLaunchMetric() throws Exception {
 
-        // Open the calendar app.
+        // Open the calculator app.
         assertTrue(mAppStartupHelper.startCollecting());
         mHelper.get().open();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
         mHelper.get().exit();
-        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CALENDAR_PKG_NAME));
+        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CALCULATOR_PKG_NAME));
 
-        // Open settings app
-        HelperTestUtility.launchPackageViaAdb(SETTINGS_PKG_NAME);
+        // Open clock app
+        mClockHelper.get().open();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
-        HelperTestUtility.sendKeyCode(KEYCODE_HOME);
+        mClockHelper.get().exit();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
-        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, SETTINGS_PKG_NAME));
+        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CLOCK_PKG_NAME));
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
 
         Map<String, StringBuilder> appLaunchMetrics = mAppStartupHelper.getMetrics();
-        String coldLaunchCalendarMetricKey = String.format(COLD_LAUNCH_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
-        String coldLaunchSettingsMetricKey = String.format(COLD_LAUNCH_KEY_TEMPLATE,
-                SETTINGS_PKG_NAME);
-        String coldLaunchCalendarCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
-        String coldLaunchSettingsCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
-        assertTrue(appLaunchMetrics.keySet().contains(coldLaunchCalendarMetricKey));
-        assertTrue(appLaunchMetrics.keySet().contains(coldLaunchSettingsMetricKey));
+        String coldLaunchCalculatorMetricKey = String.format(COLD_LAUNCH_KEY_TEMPLATE,
+                CALCULATOR_PKG_NAME);
+        String coldLaunchClockMetricKey = String.format(COLD_LAUNCH_KEY_TEMPLATE,
+                CLOCK_PKG_NAME);
+        String coldLaunchCalculatorCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
+                CALCULATOR_PKG_NAME);
+        String coldLaunchClockCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
+                CALCULATOR_PKG_NAME);
+        assertTrue(appLaunchMetrics.keySet().contains(coldLaunchCalculatorMetricKey));
+        assertTrue(appLaunchMetrics.keySet().contains(coldLaunchClockMetricKey));
         assertEquals(1,
-                appLaunchMetrics.get(coldLaunchCalendarMetricKey).toString().split(",").length);
+                appLaunchMetrics.get(coldLaunchCalculatorMetricKey).toString().split(",").length);
         assertEquals(1,
-                appLaunchMetrics.get(coldLaunchSettingsCountPkgKey).toString().split(",").length);
+                appLaunchMetrics.get(coldLaunchClockCountPkgKey).toString().split(",").length);
         assertEquals(1,
-                Integer.parseInt(appLaunchMetrics.get(coldLaunchCalendarCountPkgKey).toString()));
+                Integer.parseInt(appLaunchMetrics.get(coldLaunchCalculatorCountPkgKey).toString()));
         assertEquals(1,
-                Integer.parseInt(appLaunchMetrics.get(coldLaunchSettingsCountPkgKey).toString()));
+                Integer.parseInt(appLaunchMetrics.get(coldLaunchClockCountPkgKey).toString()));
         assertEquals(2, Integer.parseInt(appLaunchMetrics.get(COLD_LAUNCH_TOTAL_COUNT_KEY_TEMPLATE)
                 .toString()));
 
         // Verify transition metrics.
         String coldLaunchTransCalMetricKey = String.format(
                 COLD_LAUNCH_TRANSITION_DELAY_MILLIS_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+                CALCULATOR_PKG_NAME);
         String coldLaunchTransSetMetricKey = String.format(
                 COLD_LAUNCH_TRANSITION_DELAY_MILLIS_KEY_TEMPLATE,
-                SETTINGS_PKG_NAME);
+                CLOCK_PKG_NAME);
         assertTrue(appLaunchMetrics.keySet().contains(coldLaunchTransCalMetricKey));
         assertTrue(appLaunchMetrics.keySet().contains(coldLaunchTransSetMetricKey));
         assertEquals(1,
@@ -253,15 +272,15 @@ public class AppStartupHelperTest {
                 appLaunchMetrics.get(coldLaunchTransSetMetricKey).toString().split(",").length);
 
         // Verify process start values.
-        String coldLaunchProcessMetricKey = String.format(COLD_LAUNCH_PROCESSS_FG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+        String coldLaunchProcessMetricKey = String.format(COLD_LAUNCH_PROCESS_FG_KEY_TEMPLATE,
+                CALCULATOR_PKG_NAME);
         String coldLaunchProcessCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
-        String coldLaunchProcessMetricSettingsKey = String.format(
-                COLD_LAUNCH_PROCESSS_FG_KEY_TEMPLATE, SETTINGS_PKG_NAME);
-        String coldLaunchProcessCountSettingsPkgKey = String.format(
+                CALCULATOR_PKG_NAME);
+        String coldLaunchProcessMetricClockKey = String.format(
+                COLD_LAUNCH_PROCESS_FG_KEY_TEMPLATE, CLOCK_PKG_NAME);
+        String coldLaunchProcessCountClockPkgKey = String.format(
                 COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
-                SETTINGS_PKG_NAME);
+                CLOCK_PKG_NAME);
 
         assertTrue(appLaunchMetrics.keySet().contains(coldLaunchProcessMetricKey));
         assertEquals(1,
@@ -270,8 +289,8 @@ public class AppStartupHelperTest {
                 Integer.parseInt(appLaunchMetrics.get(coldLaunchProcessCountPkgKey).toString()));
         assertEquals(
                 1, appLaunchMetrics.get(
-                        coldLaunchProcessMetricSettingsKey).toString().split(",").length);
-        assertEquals(1, Integer.parseInt(appLaunchMetrics.get(coldLaunchProcessCountSettingsPkgKey)
+                        coldLaunchProcessMetricClockKey).toString().split(",").length);
+        assertEquals(1, Integer.parseInt(appLaunchMetrics.get(coldLaunchProcessCountClockPkgKey)
                 .toString()));
 
         // Sometimes I see background process started during the test counted towards total count
@@ -284,17 +303,30 @@ public class AppStartupHelperTest {
 
     }
 
+    public class TestableRule extends FinishActivitiesWithoutProcessKillRule {
+
+        public TestableRule(String appPackageName) {
+            super(appPackageName);
+        }
+
+        @Override
+        public void starting(Description description) {
+            super.starting(description);
+        }
+    }
+
     /**
      * Test warm launch metric.
      */
     @Test
     public void testWarmLaunchMetric() throws Exception {
-        // Launch the app once and exit it so it resides in memory.
+        TestableRule finishActivitiesRule = new TestableRule(CALCULATOR_PKG_NAME);
+
+
         mHelper.get().open();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
-        // Press home and clear the cache explicitly.
-        HelperTestUtility.sendKeyCode(KEYCODE_HOME);
-        HelperTestUtility.clearCache();
+        finishActivitiesRule.starting(Description.createTestDescription("clzz", "mthd"));
+
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
         // Start the collection here to test warm launch.
         assertTrue(mAppStartupHelper.startCollecting());
@@ -302,15 +334,15 @@ public class AppStartupHelperTest {
         mHelper.get().open();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
         Map<String, StringBuilder> appLaunchMetrics = mAppStartupHelper.getMetrics();
-        String calendarWarmLaunchKey = String.format(WARM_LAUNCH_KEY_TEMPLATE, CALENDAR_PKG_NAME);
-        assertTrue(appLaunchMetrics.keySet().contains(calendarWarmLaunchKey));
-        assertEquals(1, appLaunchMetrics.get(calendarWarmLaunchKey).toString().split(",").length);
+        String calculatorWarmLaunchKey = String.format(WARM_LAUNCH_KEY_TEMPLATE, CALCULATOR_PKG_NAME);
+        assertTrue(appLaunchMetrics.keySet().contains(calculatorWarmLaunchKey));
+        assertEquals(1, appLaunchMetrics.get(calculatorWarmLaunchKey).toString().split(",").length);
         assertTrue(mAppStartupHelper.stopCollecting());
 
         // Verify transition metrics.
         String warmLaunchTransitionMetricKey = String.format(
                 WARM_LAUNCH_TRANSITION_DELAY_MILLIS_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+                CALCULATOR_PKG_NAME);
         assertTrue(appLaunchMetrics.keySet().contains(warmLaunchTransitionMetricKey));
         assertEquals(1,
                 appLaunchMetrics.get(warmLaunchTransitionMetricKey).toString().split(",").length);
@@ -319,33 +351,34 @@ public class AppStartupHelperTest {
     }
 
     /**
-     * Test hot launch metric on settings, which is lightweight enough to trigger a hot launch.
+     * Test hot launch metric on clock, which is lightweight enough to trigger a hot launch.
      */
     @Test
     public void testHotLaunchMetric() throws Exception {
         // Launch the app once and go home so the app resides in memory.
-        HelperTestUtility.launchPackageViaAdb(SETTINGS_PKG_NAME);
-        HelperTestUtility.sendKeyCode(KEYCODE_HOME);
+        mHelper.get().open();
+        SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
+        mHelper.get().exit();
         // Start the collection here to test hot launch.
         assertTrue(mAppStartupHelper.startCollecting());
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
         // Launch the app; a hot launch occurs.
-        HelperTestUtility.launchPackageViaAdb(SETTINGS_PKG_NAME);
+        mHelper.get().open();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
         Map<String, StringBuilder> appLaunchMetrics = mAppStartupHelper.getMetrics();
-        String calculatoHotLaunchKey = String.format(HOT_LAUNCH_KEY_TEMPLATE, SETTINGS_PKG_NAME);
-        assertTrue(appLaunchMetrics.keySet().contains(calculatoHotLaunchKey));
-        assertEquals(1, appLaunchMetrics.get(calculatoHotLaunchKey).toString().split(",").length);
+        String calculatorHotLaunchKey = String.format(HOT_LAUNCH_KEY_TEMPLATE, CALCULATOR_PKG_NAME);
+        assertTrue(appLaunchMetrics.keySet().contains(calculatorHotLaunchKey));
+        assertEquals(1, appLaunchMetrics.get(calculatorHotLaunchKey).toString().split(",").length);
         assertTrue(mAppStartupHelper.stopCollecting());
-        HelperTestUtility.sendKeyCode(KEYCODE_HOME);
+        mHelper.get().exit();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
-        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, SETTINGS_PKG_NAME));
+        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CALCULATOR_PKG_NAME));
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
 
         // Verify transition metrics.
         String hotLaunchTransitionMetricKey = String.format(
                 HOT_LAUNCH_TRANSITION_DELAY_MILLIS_KEY_TEMPLATE,
-                SETTINGS_PKG_NAME);
+                CALCULATOR_PKG_NAME);
         assertTrue(appLaunchMetrics.keySet().contains(hotLaunchTransitionMetricKey));
         assertEquals(1,
                 appLaunchMetrics.get(hotLaunchTransitionMetricKey).toString().split(",").length);
@@ -357,25 +390,25 @@ public class AppStartupHelperTest {
      */
     @Test
     public void testSingleLaunchStartupFullyDrawnMetric() throws Exception {
-        // The Settings app is used here as it calls reportFullyDrawn(), which is required for the
+        // The Clock app is used here as it calls reportFullyDrawn(), which is required for the
         // AppStartFullyDrawn metric to be collected.
-        // Start metric collection and then launch the Settings app.
+        // Start metric collection and then launch the Clock app.
         assertTrue(mAppStartupHelper.startCollecting());
-        HelperTestUtility.launchPackageViaAdb(SETTINGS_PKG_NAME);
+        mClockHelper.get().open();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
         // Check that the collected metrics contains the key for the AppStartFullyDrawn metric.
         boolean hasFullyDrawnKey = false;
         Map<String, StringBuilder> appLaunchMetrics = mAppStartupHelper.getMetrics();
         for (String key : appLaunchMetrics.keySet()) {
-            if (key.contains(FULLY_DRAWN_KEY_KEYWORD) && key.contains(SETTINGS_PKG_NAME)) {
+            if (key.contains(FULLY_DRAWN_KEY_KEYWORD) && key.contains(CLOCK_PKG_NAME)) {
                 hasFullyDrawnKey = true;
             }
         }
         assertTrue(hasFullyDrawnKey);
         assertTrue(mAppStartupHelper.stopCollecting());
-        HelperTestUtility.sendKeyCode(KEYCODE_HOME);
+        mClockHelper.get().exit();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
-        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, SETTINGS_PKG_NAME));
+        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CLOCK_PKG_NAME));
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
     }
 
@@ -384,28 +417,28 @@ public class AppStartupHelperTest {
      */
     @Test
     public void testMultipleLaunchStartupFullyDrawnMetric() throws Exception {
-        // The Settings app is used here as it calls reportFullyDrawn(), which is required for the
+        // The Clock app is used here as it calls reportFullyDrawn(), which is required for the
         // AppStartFullyDrawn metric to be collected.
-        // Start metric collection and then cold launch the Settings app twice, as in this app
+        // Start metric collection and then cold launch the clock app twice, as in this app
         // reportFullyDrawn() is only called during cold launch (the calling function is only called
         // during onCreate()).
         assertTrue(mAppStartupHelper.startCollecting());
         // 1st launch and kill.
-        HelperTestUtility.launchPackageViaAdb(SETTINGS_PKG_NAME);
+        mClockHelper.get().open();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
-        HelperTestUtility.sendKeyCode(KEYCODE_HOME);
+        mClockHelper.get().exit();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
-        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, SETTINGS_PKG_NAME));
+        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CLOCK_PKG_NAME));
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
         // 2nd launch.
-        HelperTestUtility.launchPackageViaAdb(SETTINGS_PKG_NAME);
+        mClockHelper.get().open();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
         // Check that the collected metrics contains the key for the AppStartFullyDrawn metric,
         // and that there are two values under this key.
         boolean hasFullyDrawnKey = false;
         Map<String, StringBuilder> appLaunchMetrics = mAppStartupHelper.getMetrics();
         for (String key : appLaunchMetrics.keySet()) {
-            if (key.contains(FULLY_DRAWN_KEY_KEYWORD) && key.contains(SETTINGS_PKG_NAME)) {
+            if (key.contains(FULLY_DRAWN_KEY_KEYWORD) && key.contains(CLOCK_PKG_NAME)) {
                 hasFullyDrawnKey = true;
                 // There should be two values under this key.
                 assertEquals(2, appLaunchMetrics.get(key).toString().split(",").length);
@@ -413,9 +446,9 @@ public class AppStartupHelperTest {
         }
         assertTrue(hasFullyDrawnKey);
         assertTrue(mAppStartupHelper.stopCollecting());
-        HelperTestUtility.sendKeyCode(KEYCODE_HOME);
+        mClockHelper.get().exit();
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
-        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, SETTINGS_PKG_NAME));
+        HelperTestUtility.clearApp(String.format(KILL_TEST_APP_CMD_TEMPLATE, CLOCK_PKG_NAME));
         SystemClock.sleep(HelperTestUtility.ACTION_DELAY);
     }
 
@@ -429,9 +462,9 @@ public class AppStartupHelperTest {
         mHelper.get().open();
         Map<String, StringBuilder> appLaunchMetrics = mAppStartupHelper.getMetrics();
         // A metric key for the app cold launching should exist, and should only hold one value.
-        String coldLaunchMetricKey = String.format(COLD_LAUNCH_KEY_TEMPLATE, CALENDAR_PKG_NAME);
+        String coldLaunchMetricKey = String.format(COLD_LAUNCH_KEY_TEMPLATE, CALCULATOR_PKG_NAME);
         String coldLaunchCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+                CALCULATOR_PKG_NAME);
         assertTrue(appLaunchMetrics.keySet().contains(coldLaunchMetricKey));
         assertEquals(1, appLaunchMetrics.get(coldLaunchMetricKey).toString().split(",").length);
         assertEquals(1, Integer.parseInt(appLaunchMetrics.get(coldLaunchCountPkgKey).toString()));
@@ -439,10 +472,10 @@ public class AppStartupHelperTest {
                 .toString()));
 
         // Verify process start detailed values are not added.
-        String coldLaunchProcessMetricKey = String.format(COLD_LAUNCH_PROCESSS_FG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+        String coldLaunchProcessMetricKey = String.format(COLD_LAUNCH_PROCESS_FG_KEY_TEMPLATE,
+                CALCULATOR_PKG_NAME);
         String coldLaunchProcessCountPkgKey = String.format(COLD_LAUNCH_COUNT_PKG_KEY_TEMPLATE,
-                CALENDAR_PKG_NAME);
+                CALCULATOR_PKG_NAME);
         assertFalse(appLaunchMetrics.keySet().contains(coldLaunchProcessMetricKey));
         assertTrue(appLaunchMetrics.keySet().contains(coldLaunchProcessCountPkgKey));
 
@@ -451,5 +484,12 @@ public class AppStartupHelperTest {
                         COLD_LAUNCH_PROCESS_START_TOTAL_COUNT_KEY_TEMPLATE));
         assertTrue(mAppStartupHelper.stopCollecting());
         mHelper.get().exit();
+    }
+
+    @After
+    public void tearDown() {
+        mAppStartupHelper.stopCollecting();
+        // Unlock the orientation
+        HelperTestUtility.unfreezeRotation();
     }
 }

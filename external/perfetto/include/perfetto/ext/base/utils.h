@@ -22,11 +22,19 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
-#if !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
 #include <sys/types.h>
-#endif
 
+#include <atomic>
+#include <string>
+
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+// Even if Windows has errno.h, the all syscall-restart behavior does not apply.
+// Trying to handle EINTR can cause more harm than good if errno is left stale.
+// Chromium does the same.
+#define PERFETTO_EINTR(x) (x)
+#else
 #define PERFETTO_EINTR(x)                                   \
   ([&] {                                                    \
     decltype(x) eintr_wrapper_result;                       \
@@ -35,11 +43,15 @@
     } while (eintr_wrapper_result == -1 && errno == EINTR); \
     return eintr_wrapper_result;                            \
   }())
+#endif
 
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
-// TODO(brucedawson) - create a ::perfetto::base::IOSize to replace this.
+using uid_t = unsigned int;
+#if !PERFETTO_BUILDFLAG(PERFETTO_COMPILER_GCC)
+using pid_t = unsigned int;
+#endif
 #if defined(_WIN64)
-using ssize_t = __int64;
+using ssize_t = int64_t;
 #else
 using ssize_t = long;
 #endif
@@ -48,12 +60,20 @@ using ssize_t = long;
 namespace perfetto {
 namespace base {
 
-#if !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
 constexpr uid_t kInvalidUid = static_cast<uid_t>(-1);
 constexpr pid_t kInvalidPid = static_cast<pid_t>(-1);
-#endif
 
+// Do not add new usages of kPageSize, consider using GetSysPageSize() below.
+// TODO(primiano): over time the semantic of kPageSize became too ambiguous.
+// Strictly speaking, this constant is incorrect on some new devices where the
+// page size can be 16K (e.g., crbug.com/1116576). Unfortunately too much code
+// ended up depending on kPageSize for purposes that are not strictly related
+// with the kernel's mm subsystem.
 constexpr size_t kPageSize = 4096;
+
+// Returns the system's page size. Use this when dealing with mmap, madvise and
+// similar mm-related syscalls.
+uint32_t GetSysPageSize();
 
 template <typename T>
 constexpr size_t ArraySize(const T& array) {
@@ -71,8 +91,9 @@ struct FreeDeleter {
 
 template <typename T>
 constexpr T AssumeLittleEndian(T value) {
-  static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
-                "Unimplemented on big-endian archs");
+#if !PERFETTO_IS_LITTLE_ENDIAN()
+  static_assert(false, "Unimplemented on big-endian archs");
+#endif
   return value;
 }
 
@@ -86,6 +107,22 @@ constexpr size_t AlignUp(size_t size) {
 inline bool IsAgain(int err) {
   return err == EAGAIN || err == EWOULDBLOCK;
 }
+
+// setenv(2)-equivalent. Deals with Windows vs Posix discrepancies.
+void SetEnv(const std::string& key, const std::string& value);
+
+// Calls mallopt(M_PURGE, 0) on Android. Does nothing on other platforms.
+// This forces the allocator to release freed memory. This is used to work
+// around various Scudo inefficiencies. See b/170217718.
+void MaybeReleaseAllocatorMemToOS();
+
+// geteuid() on POSIX OSes, returns 0 on Windows (See comment in utils.cc).
+uid_t GetCurrentUserId();
+
+// Forks the process.
+// Parent: prints the PID of the child and exit(0).
+// Child: redirects stdio onto /dev/null and chdirs into .
+void Daemonize();
 
 }  // namespace base
 }  // namespace perfetto

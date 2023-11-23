@@ -9,7 +9,6 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "Stress"
 TEST_TYPE = "server"
-ATTRIBUTES = 'suite:graphics_per-week, suite:reboot_stress'
 
 DOC = """
 This test reboots the machine and checks whether GL/GLES works on each boot.

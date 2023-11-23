@@ -15,6 +15,7 @@
 #include "common/ieee802_11_defs.h"
 #include "common/ieee802_11_common.h"
 #include "common/ocv.h"
+#include "common/wpa_ctrl.h"
 #include "drivers/driver.h"
 #include "wpa.h"
 #include "wpa_i.h"
@@ -23,6 +24,15 @@
 
 #ifdef CONFIG_IEEE80211R
 
+#ifdef CONFIG_PASN
+static void wpa_ft_pasn_store_r1kh(struct wpa_sm *sm, const u8 *bssid);
+#else /* CONFIG_PASN */
+static void wpa_ft_pasn_store_r1kh(struct wpa_sm *sm, const u8 *bssid)
+{
+}
+#endif /* CONFIG_PASN */
+
+
 int wpa_derive_ptk_ft(struct wpa_sm *sm, const unsigned char *src_addr,
 		      const struct wpa_eapol_key *key, struct wpa_ptk *ptk)
 {
@@ -30,7 +40,7 @@ int wpa_derive_ptk_ft(struct wpa_sm *sm, const unsigned char *src_addr,
 	const u8 *anonce = key->key_nonce;
 	int use_sha384 = wpa_key_mgmt_sha384(sm->key_mgmt);
 	const u8 *mpmk;
-	size_t mpmk_len;
+	size_t mpmk_len, kdk_len;
 
 	if (sm->xxkey_len > 0) {
 		mpmk = sm->xxkey;
@@ -50,20 +60,25 @@ int wpa_derive_ptk_ft(struct wpa_sm *sm, const unsigned char *src_addr,
 			      sm->r0kh_id, sm->r0kh_id_len, sm->own_addr,
 			      sm->pmk_r0, sm->pmk_r0_name, use_sha384) < 0)
 		return -1;
-	wpa_hexdump_key(MSG_DEBUG, "FT: PMK-R0", sm->pmk_r0, sm->pmk_r0_len);
-	wpa_hexdump(MSG_DEBUG, "FT: PMKR0Name",
-		    sm->pmk_r0_name, WPA_PMK_NAME_LEN);
 	sm->pmk_r1_len = sm->pmk_r0_len;
 	if (wpa_derive_pmk_r1(sm->pmk_r0, sm->pmk_r0_len, sm->pmk_r0_name,
 			      sm->r1kh_id, sm->own_addr, sm->pmk_r1,
 			      sm->pmk_r1_name) < 0)
 		return -1;
-	wpa_hexdump_key(MSG_DEBUG, "FT: PMK-R1", sm->pmk_r1, sm->pmk_r1_len);
-	wpa_hexdump(MSG_DEBUG, "FT: PMKR1Name", sm->pmk_r1_name,
-		    WPA_PMK_NAME_LEN);
+
+	wpa_ft_pasn_store_r1kh(sm, src_addr);
+
+	if (sm->force_kdk_derivation ||
+	    (sm->secure_ltf && sm->ap_rsnxe && sm->ap_rsnxe_len >= 4 &&
+	     sm->ap_rsnxe[3] & BIT(WLAN_RSNX_CAPAB_SECURE_LTF - 8)))
+		kdk_len = WPA_KDK_MAX_LEN;
+	else
+		kdk_len = 0;
+
 	return wpa_pmk_r1_to_ptk(sm->pmk_r1, sm->pmk_r1_len, sm->snonce, anonce,
 				 sm->own_addr, sm->bssid, sm->pmk_r1_name, ptk,
-				 ptk_name, sm->key_mgmt, sm->pairwise_cipher);
+				 ptk_name, sm->key_mgmt, sm->pairwise_cipher,
+				 kdk_len);
 }
 
 
@@ -358,6 +373,14 @@ static u8 * wpa_ft_gen_req_ies(struct wpa_sm *sm, size_t *len,
 			os_free(buf);
 			return NULL;
 		}
+#ifdef CONFIG_TESTING_OPTIONS
+		if (sm->oci_freq_override_ft_assoc) {
+			wpa_printf(MSG_INFO,
+				   "TEST: Override OCI KDE frequency %d -> %d MHz",
+				   ci.frequency, sm->oci_freq_override_ft_assoc);
+			ci.frequency = sm->oci_freq_override_ft_assoc;
+		}
+#endif /* CONFIG_TESTING_OPTIONS */
 
 		*pos++ = FTIE_SUBELEM_OCI;
 		*pos++ = OCV_OCI_LEN;
@@ -445,6 +468,8 @@ static int wpa_ft_install_ptk(struct wpa_sm *sm, const u8 *bssid)
 		return -1;
 	}
 
+	wpa_sm_store_ptk(sm, sm->bssid, sm->pairwise_cipher,
+			 sm->dot11RSNAConfigPMKLifetime, &sm->ptk);
 	return 0;
 }
 
@@ -521,7 +546,7 @@ int wpa_ft_process_response(struct wpa_sm *sm, const u8 *ies, size_t ies_len,
 	int ret;
 	const u8 *bssid;
 	const u8 *kck;
-	size_t kck_len;
+	size_t kck_len, kdk_len;
 	int use_sha384 = wpa_key_mgmt_sha384(sm->key_mgmt);
 	const u8 *anonce, *snonce;
 
@@ -641,15 +666,23 @@ int wpa_ft_process_response(struct wpa_sm *sm, const u8 *ies, size_t ies_len,
 			      sm->pmk_r1_name) < 0)
 		return -1;
 	sm->pmk_r1_len = sm->pmk_r0_len;
-	wpa_hexdump_key(MSG_DEBUG, "FT: PMK-R1", sm->pmk_r1, sm->pmk_r1_len);
-	wpa_hexdump(MSG_DEBUG, "FT: PMKR1Name",
-		    sm->pmk_r1_name, WPA_PMK_NAME_LEN);
 
 	bssid = target_ap;
+
+	wpa_ft_pasn_store_r1kh(sm, bssid);
+
+	if (sm->force_kdk_derivation ||
+	    (sm->secure_ltf && sm->ap_rsnxe && sm->ap_rsnxe_len >= 4 &&
+	     sm->ap_rsnxe[3] & BIT(WLAN_RSNX_CAPAB_SECURE_LTF - 8)))
+		kdk_len = WPA_KDK_MAX_LEN;
+	else
+		kdk_len = 0;
+
 	if (wpa_pmk_r1_to_ptk(sm->pmk_r1, sm->pmk_r1_len, sm->snonce,
 			      anonce, sm->own_addr, bssid,
 			      sm->pmk_r1_name, &sm->ptk, ptk_name, sm->key_mgmt,
-			      sm->pairwise_cipher) < 0)
+			      sm->pairwise_cipher,
+			      kdk_len) < 0)
 		return -1;
 
 	if (wpa_key_mgmt_fils(sm->key_mgmt)) {
@@ -710,6 +743,18 @@ int wpa_ft_is_completed(struct wpa_sm *sm)
 	return sm->ft_completed;
 }
 
+#ifdef CONFIG_DRIVER_NL80211_BRCM
+int wpa_ft_is_ft_protocol(struct wpa_sm *sm)
+{
+	if (sm == NULL)
+		return 0;
+
+	if (!wpa_key_mgmt_ft(sm->key_mgmt))
+		return 0;
+
+	return sm->ft_protocol;
+}
+#endif /* CONFIG_DRIVER_NL80211_BRCM */
 
 void wpa_reset_ft_completed(struct wpa_sm *sm)
 {
@@ -717,6 +762,12 @@ void wpa_reset_ft_completed(struct wpa_sm *sm)
 		sm->ft_completed = 0;
 }
 
+
+void wpa_set_ft_completed(struct wpa_sm *sm)
+{
+	if (sm != NULL)
+		sm->ft_completed = 1;
+}
 
 static int wpa_ft_process_gtk_subelem(struct wpa_sm *sm, const u8 *gtk_elem,
 				      size_t gtk_elem_len)
@@ -1167,8 +1218,10 @@ int wpa_ft_validate_reassoc_resp(struct wpa_sm *sm, const u8 *ies,
 
 		if (ocv_verify_tx_params(parse.oci, parse.oci_len, &ci,
 					 channel_width_to_int(ci.chanwidth),
-					 ci.seg1_idx) != 0) {
-			wpa_printf(MSG_WARNING, "%s", ocv_errorstr);
+					 ci.seg1_idx) != OCI_SUCCESS) {
+			wpa_msg(sm->ctx->msg_ctx, MSG_INFO, OCV_FAILURE
+				"addr=" MACSTR " frame=ft-assoc error=%s",
+				MAC2STR(sm->bssid), ocv_errorstr);
 			return -1;
 		}
 	}
@@ -1235,5 +1288,89 @@ int wpa_ft_start_over_ds(struct wpa_sm *sm, const u8 *target_ap,
 
 	return 0;
 }
+
+
+#ifdef CONFIG_PASN
+
+static struct pasn_ft_r1kh * wpa_ft_pasn_get_r1kh(struct wpa_sm *sm,
+						  const u8 *bssid)
+{
+	size_t i;
+
+	for (i = 0; i < sm->n_pasn_r1kh; i++)
+		if (os_memcmp(sm->pasn_r1kh[i].bssid, bssid, ETH_ALEN) == 0)
+			return &sm->pasn_r1kh[i];
+
+	return NULL;
+}
+
+
+static void wpa_ft_pasn_store_r1kh(struct wpa_sm *sm, const u8 *bssid)
+{
+	struct pasn_ft_r1kh *tmp = wpa_ft_pasn_get_r1kh(sm, bssid);
+
+	if (tmp)
+		return;
+
+	tmp = os_realloc_array(sm->pasn_r1kh, sm->n_pasn_r1kh + 1,
+			       sizeof(*tmp));
+	if (!tmp) {
+		wpa_printf(MSG_DEBUG, "PASN: FT: Failed to store R1KH");
+		return;
+	}
+
+	sm->pasn_r1kh = tmp;
+	tmp = &sm->pasn_r1kh[sm->n_pasn_r1kh];
+
+	wpa_printf(MSG_DEBUG, "PASN: FT: Store R1KH for " MACSTR,
+		   MAC2STR(bssid));
+
+	os_memcpy(tmp->bssid, bssid, ETH_ALEN);
+	os_memcpy(tmp->r1kh_id, sm->r1kh_id, FT_R1KH_ID_LEN);
+
+	sm->n_pasn_r1kh++;
+}
+
+
+int wpa_pasn_ft_derive_pmk_r1(struct wpa_sm *sm, int akmp, const u8 *bssid,
+			      u8 *pmk_r1, size_t *pmk_r1_len, u8 *pmk_r1_name)
+{
+	struct pasn_ft_r1kh *r1kh_entry;
+
+	if (sm->key_mgmt != (unsigned int) akmp) {
+		wpa_printf(MSG_DEBUG,
+			   "PASN: FT: Key management mismatch: %u != %u",
+			   sm->key_mgmt, akmp);
+		return -1;
+	}
+
+	r1kh_entry = wpa_ft_pasn_get_r1kh(sm, bssid);
+	if (!r1kh_entry) {
+		wpa_printf(MSG_DEBUG,
+			   "PASN: FT: Cannot find R1KH-ID for " MACSTR,
+			   MAC2STR(bssid));
+		return -1;
+	}
+
+	/*
+	 * Note: PMK R0 etc. were already derived and are maintained by the
+	 * state machine, and as the same key hierarchy is used, there is no
+	 * need to derive them again, so only derive PMK R1 etc.
+	 */
+	if (wpa_derive_pmk_r1(sm->pmk_r0, sm->pmk_r0_len, sm->pmk_r0_name,
+			      r1kh_entry->r1kh_id, sm->own_addr, pmk_r1,
+			      pmk_r1_name) < 0)
+		return -1;
+
+	*pmk_r1_len = sm->pmk_r0_len;
+
+	wpa_hexdump_key(MSG_DEBUG, "PASN: FT: PMK-R1", pmk_r1, sm->pmk_r0_len);
+	wpa_hexdump(MSG_DEBUG, "PASN: FT: PMKR1Name", pmk_r1_name,
+		    WPA_PMK_NAME_LEN);
+
+	return 0;
+}
+
+#endif /* CONFIG_PASN */
 
 #endif /* CONFIG_IEEE80211R */

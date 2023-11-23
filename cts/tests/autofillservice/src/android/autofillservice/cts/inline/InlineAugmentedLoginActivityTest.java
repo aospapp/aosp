@@ -16,26 +16,28 @@
 
 package android.autofillservice.cts.inline;
 
-import static android.autofillservice.cts.CannedFillResponse.NO_RESPONSE;
-import static android.autofillservice.cts.Helper.ID_USERNAME;
-import static android.autofillservice.cts.Helper.NULL_DATASET_ID;
-import static android.autofillservice.cts.Helper.assertFillEventForDatasetSelected;
-import static android.autofillservice.cts.Helper.assertFillEventForDatasetShown;
-import static android.autofillservice.cts.augmented.AugmentedHelper.assertBasicRequestInfo;
-import static android.autofillservice.cts.augmented.CannedAugmentedFillResponse.CLIENT_STATE_KEY;
-import static android.autofillservice.cts.augmented.CannedAugmentedFillResponse.CLIENT_STATE_VALUE;
+import static android.autofillservice.cts.testcore.AugmentedHelper.assertBasicRequestInfo;
+import static android.autofillservice.cts.testcore.CannedAugmentedFillResponse.CLIENT_STATE_KEY;
+import static android.autofillservice.cts.testcore.CannedAugmentedFillResponse.CLIENT_STATE_VALUE;
+import static android.autofillservice.cts.testcore.CannedFillResponse.NO_RESPONSE;
+import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
+import static android.autofillservice.cts.testcore.Helper.NULL_DATASET_ID;
+import static android.autofillservice.cts.testcore.Helper.assertFillEventForDatasetSelected;
+import static android.autofillservice.cts.testcore.Helper.assertFillEventForDatasetShown;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.autofillservice.cts.AutofillActivityTestRule;
-import android.autofillservice.cts.Helper;
-import android.autofillservice.cts.MyAutofillCallback;
-import android.autofillservice.cts.augmented.AugmentedAutofillAutoActivityLaunchTestCase;
-import android.autofillservice.cts.augmented.AugmentedLoginActivity;
-import android.autofillservice.cts.augmented.CannedAugmentedFillResponse;
-import android.autofillservice.cts.augmented.CtsAugmentedAutofillService;
-import android.autofillservice.cts.augmented.CtsAugmentedAutofillService.AugmentedFillRequest;
+import android.autofillservice.cts.activities.AugmentedLoginActivity;
+import android.autofillservice.cts.commontests.AugmentedAutofillAutoActivityLaunchTestCase;
+import android.autofillservice.cts.testcore.AutofillActivityTestRule;
+import android.autofillservice.cts.testcore.CannedAugmentedFillResponse;
+import android.autofillservice.cts.testcore.CtsAugmentedAutofillService;
+import android.autofillservice.cts.testcore.CtsAugmentedAutofillService.AugmentedFillRequest;
+import android.autofillservice.cts.testcore.Helper;
+import android.autofillservice.cts.testcore.InlineUiBot;
+import android.autofillservice.cts.testcore.MyAutofillCallback;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.service.autofill.FillEventHistory;
 import android.service.autofill.FillEventHistory.Event;
 import android.view.autofill.AutofillId;
@@ -47,6 +49,7 @@ import org.junit.rules.TestRule;
 
 import java.util.List;
 
+@Presubmit
 public class InlineAugmentedLoginActivityTest
         extends AugmentedAutofillAutoActivityLaunchTestCase<AugmentedLoginActivity> {
 

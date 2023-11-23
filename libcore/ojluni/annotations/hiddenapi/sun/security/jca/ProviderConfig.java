@@ -47,7 +47,7 @@ final class ProviderConfig {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private boolean hasArgument() {
         throw new RuntimeException("Stub!");
     }
@@ -56,7 +56,7 @@ final class ProviderConfig {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private void disableLoad() {
         throw new RuntimeException("Stub!");
     }
@@ -94,7 +94,7 @@ final class ProviderConfig {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage private static final java.lang.Class[] CL_STRING;
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553) private static final java.lang.Class[] CL_STRING;
 
     static {
         CL_STRING = new java.lang.Class[0];
@@ -107,7 +107,7 @@ final class ProviderConfig {
 
     private static final java.lang.String P11_SOL_NAME = "sun.security.pkcs11.SunPKCS11";
 
-    @android.compat.annotation.UnsupportedAppUsage private final java.lang.String argument;
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553) private final java.lang.String argument;
 
     {
         argument = null;

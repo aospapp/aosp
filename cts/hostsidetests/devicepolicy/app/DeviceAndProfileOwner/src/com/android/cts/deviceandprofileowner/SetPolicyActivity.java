@@ -17,12 +17,13 @@ package com.android.cts.deviceandprofileowner;
 
 import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
 import android.os.Process;
 import android.util.Log;
+
+import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,7 +34,7 @@ import java.util.List;
  */
 public class SetPolicyActivity extends Activity {
 
-    private static final String TAG = SetPolicyActivity.class.getName();
+    private static final String TAG = SetPolicyActivity.class.getSimpleName();
 
     private static final String EXTRA_RESTRICTION_KEY = "extra-restriction-key";
     private static final String EXTRA_COMMAND = "extra-command";
@@ -51,6 +52,7 @@ public class SetPolicyActivity extends Activity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        Log.v(TAG, "onCreate(): uid=" + Process.myUid());
         super.onCreate(savedInstanceState);
         handleIntent(getIntent());
     }
@@ -63,10 +65,10 @@ public class SetPolicyActivity extends Activity {
     }
 
     private void handleIntent(Intent intent) {
-        DevicePolicyManager dpm = (DevicePolicyManager)
-                getSystemService(Context.DEVICE_POLICY_SERVICE);
+        DevicePolicyManager dpm = TestAppSystemServiceFactory.getDevicePolicyManager(this,
+                BaseDeviceAdminTest.BasicAdminReceiver.class);
         String command = intent.getStringExtra(EXTRA_COMMAND);
-        Log.i(TAG, "Command: " + command);
+        Log.i(TAG, "Command: " + command + " UID: " + Process.myUid() + " DPM: " + dpm);
 
         if (COMMAND_ADD_USER_RESTRICTION.equals(command)) {
             String restrictionKey = intent.getStringExtra(EXTRA_RESTRICTION_KEY);
@@ -103,11 +105,11 @@ public class SetPolicyActivity extends Activity {
         } else if (COMMAND_SET_DELEGATED_SCOPES.equals(command)) {
             String packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME);
             String scopeArray[] = intent.getStringArrayExtra(EXTRA_SCOPES_LIST);
-            List<String> scopes = scopeArray == null ? new ArrayList() : Arrays.asList(scopeArray);
+            List<String> scopes = scopeArray == null ? new ArrayList<>()
+                    : Arrays.asList(scopeArray);
+            Log.i(TAG, "Setting delegated scopes for package: " + packageName + " " + scopes);
             dpm.setDelegatedScopes(BaseDeviceAdminTest.ADMIN_RECEIVER_COMPONENT,
                     packageName, scopes);
-            Log.i(TAG, "Setting delegated scopes for package: " + packageName + " "
-                    + Arrays.toString(scopeArray));
         } else {
             Log.e(TAG, "Invalid command: " + command);
         }

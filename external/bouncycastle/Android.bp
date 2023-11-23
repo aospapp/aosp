@@ -16,6 +16,34 @@
 
 package {
     default_visibility: ["//visibility:private"],
+    default_applicable_licenses: ["external_bouncycastle_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_bouncycastle_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
 }
 
 java_defaults {
@@ -57,20 +85,23 @@ filegroup {
 }
 
 // A bouncycastle library repackaged in com.android.org.bouncycastle for use
-// in the Android platform where it is important not to conflict with the
+// in the ART module. Repackaging is needed to avoid conflict with the
 // original org.bouncycastle package.
 java_library {
     name: "bouncycastle",
     // Restrict visibility to only those targets that need to access it.
     visibility: [
         "//art/build/apex",
+        "//art/build/sdk",
         "//external/wycheproof",
         "//libcore",
+        "//packages/modules/ArtPrebuilt",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
+    min_sdk_version: "31",
     defaults: ["bouncycastle-defaults"],
     installable: true,
 
@@ -82,30 +113,28 @@ java_library {
     system_modules: "art-module-intra-core-api-stubs-system-modules",
 }
 
-// A guaranteed unstripped version of bouncycastle.
-// The build system may or may not strip the bouncycastle jar, but this one will
-// not be stripped. See b/24535627.
+// A bouncycastle library repackaged in com.android.internal.org.bouncycastle
+// for use in the Android platform where it is important not to conflict with
+// the original org.bouncycastle package or the one in the ART module.
 java_library {
-    name: "bouncycastle-testdex",
+    name: "bouncycastle-repackaged-unbundled",
     visibility: [
-        "//art:__subpackages__",
+        "//cts/tests/libcore/wycheproof-bc",
+        "//external/sl4a/Common",
+        "//external/wycheproof",
+        "//frameworks/base",
+        "//frameworks/base/packages/Connectivity/tests/unit",
+        "//frameworks/base/tests/net",
+        "//packages/modules/Connectivity/tests/unit",
     ],
     defaults: ["bouncycastle-defaults"],
     installable: true,
-
-    srcs: [":bouncycastle_java_files"],
-
-    libs: ["unsupportedappusage"],
-
-    sdk_version: "none",
-    system_modules: "art-module-intra-core-api-stubs-system-modules",
-    dex_preopt: {
-        enabled: false,
-    },
-    java_version: "1.7",
+    sdk_version: "core_current",
+    srcs: ["repackaged_platform/bcprov/src/main/java/**/*.java"],
 }
 
 unbundled_visibility = [
+    "//art/build/sdk",
     "//build/make/tools/signapk",
     "//build/make/tools/signtos",
     "//cts/hostsidetests/devicepolicy/app/DeviceOwner",
@@ -120,8 +149,16 @@ unbundled_visibility = [
     "//external/robolectric-shadows/shadows/httpclient",
     "//frameworks/opt/net/wifi/service",
     "//frameworks/opt/net/wifi/tests/wifitests",
+    "//packages/apps/CertInstaller",
+    "//packages/apps/KeyChain",
+    "//packages/apps/RemoteProvisioner/tests/unittests",
+    "//packages/modules/Connectivity/tests/cts/net",
+    "//packages/modules/Wifi/service",
+    "//packages/modules/Wifi/service/tests/wifitests",
     "//libcore",
     "//system/extras/verity",
+    "//tools/security/remote_provisioning/attestation_testing",
+    "//vendor:__subpackages__",
 ]
 
 // A bouncycastle library in the original org.bouncycastle package for use
@@ -138,6 +175,7 @@ java_library {
     ],
 
     sdk_version: "core_current",
+    min_sdk_version: "30",
     java_version: "1.7",
 }
 
@@ -185,15 +223,18 @@ java_library_host {
     static_libs: ["bouncycastle-unbundled"],
 }
 
-// Bouncycastle subset for use by platform/packages/modules/IPsec project.
+// Bouncycastle subset for use by frameworks/opt/net/ike project.
 //
-// Avoids including the whole of bouncycastle_unbundled in IPsec.
+// Avoids including the whole of bouncycastle_unbundled in ike.
 //
 // Specifically, SHA1Digest and MD4Digest (and their dependencies) must be used by IKEv2 to support
 // legacy authentication methods.
 java_library {
     name: "bouncycastle_ike_digests",
-    visibility: ["//packages/modules/IPsec"],
+    visibility: [
+        "//art/build/sdk",
+        "//packages/modules/IPsec",
+    ],
     apex_available: [
         "com.android.ipsec",
         "test_com.android.ipsec",

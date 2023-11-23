@@ -40,7 +40,7 @@ public class TestService extends Service {
                         new Intent(this, Activities.ActivityOne.class)
                                 .setAction(Intent.ACTION_MAIN)
                                 .addCategory(Intent.CATEGORY_LAUNCHER)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), 0))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_MUTABLE_UNAUDITED))
                 .setOngoing(true)
                 .build();
         startForeground(1, status);

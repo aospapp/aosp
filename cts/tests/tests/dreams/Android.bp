@@ -12,14 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsDreamsTestCases",
     defaults: ["cts_defaults"],
     static_libs: [
         "ctstestrunner-axt",
         "junit",
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+    ],
+    libs: [
+        "android.test.runner",
+        "android.test.base",
     ],
     srcs: ["src/**/*.java"],
     // Need access to ServiceManager - see b/13307221
@@ -28,7 +34,6 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

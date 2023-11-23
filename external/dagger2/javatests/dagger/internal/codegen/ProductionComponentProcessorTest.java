@@ -19,8 +19,9 @@ package dagger.internal.codegen;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.JavaSourceSubjectFactory.javaSource;
+import static dagger.internal.codegen.Compilers.compilerWithOptions;
 import static dagger.internal.codegen.Compilers.daggerCompiler;
-import static dagger.internal.codegen.GeneratedLines.GENERATED_ANNOTATION;
+import static dagger.internal.codegen.GeneratedLines.GENERATED_CODE_ANNOTATIONS;
 import static dagger.internal.codegen.GeneratedLines.IMPORT_GENERATED_ANNOTATION;
 
 import com.google.testing.compile.Compilation;
@@ -69,7 +70,7 @@ public class ProductionComponentProcessorTest {
         "  INSTANCE",
         "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation).hadErrorContaining("interface");
   }
@@ -83,7 +84,7 @@ public class ProductionComponentProcessorTest {
         "@ProductionComponent",
         "@interface NotAComponent {}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation).hadErrorContaining("interface");
   }
@@ -97,7 +98,7 @@ public class ProductionComponentProcessorTest {
         "@ProductionComponent(modules = Object.class)",
         "interface NotAComponent {}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(componentFile);
+        compilerWithOptions(compilerMode.javacopts()).compile(componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
         .hadErrorContaining("is not annotated with one of @Module, @ProducerModule");
@@ -161,17 +162,16 @@ public class ProductionComponentProcessorTest {
             .compile(moduleFile, producerModuleFile, componentFile);
     assertThat(compilation).failed();
     assertThat(compilation)
-        .hadErrorContaining("java.lang.String may not depend on the production executor")
+        .hadErrorContaining("String may not depend on the production executor")
         .inFile(componentFile)
         .onLineContaining("interface SimpleComponent");
 
     compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=ERROR")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=ERROR")
             .compile(producerModuleFile);
     assertThat(compilation).failed();
     assertThat(compilation)
-        .hadErrorContaining("java.lang.String may not depend on the production executor")
+        .hadErrorContaining("String may not depend on the production executor")
         .inFile(producerModuleFile)
         .onLineContaining("class SimpleModule");
     // TODO(dpb): Report at the binding if enclosed in the module.
@@ -248,7 +248,7 @@ public class ProductionComponentProcessorTest {
                 IMPORT_GENERATED_ANNOTATION,
                 "import javax.inject.Provider;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerTestClass_SimpleComponent",
                 "    implements TestClass.SimpleComponent, CancellationListener {",
                 "  private final TestClass.BModule bModule;",
@@ -278,7 +278,7 @@ public class ProductionComponentProcessorTest {
                 "    return new Builder().build();",
                 "  }",
                 "",
-                "  private Executor getProductionImplementationExecutor() {",
+                "  private Executor productionImplementationExecutor() {",
                 "    Object local = productionImplementationExecutor;",
                 "    if (local instanceof MemoizedSentinel) {",
                 "      synchronized (local) {",
@@ -295,7 +295,7 @@ public class ProductionComponentProcessorTest {
                 "    return (Executor) local;",
                 "  }",
                 "",
-                "  private Provider<Executor> getProductionImplementationExecutorProvider() {",
+                "  private Provider<Executor> productionImplementationExecutorProvider() {",
                 "    Object local = productionImplementationExecutorProvider;",
                 "    if (local == null) {",
                 "      local = new SwitchingProvider<>(0);",
@@ -304,7 +304,7 @@ public class ProductionComponentProcessorTest {
                 "    return (Provider<Executor>) local;",
                 "  }",
                 "",
-                "  private ProductionComponentMonitor getProductionComponentMonitor() {",
+                "  private ProductionComponentMonitor productionComponentMonitor() {",
                 "    Object local = productionComponentMonitor;",
                 "    if (local instanceof MemoizedSentinel) {",
                 "      synchronized (local) {",
@@ -325,7 +325,7 @@ public class ProductionComponentProcessorTest {
                 "  }",
                 "",
                 "  private Provider<ProductionComponentMonitor>",
-                "      getProductionComponentMonitorProvider() {",
+                "      productionComponentMonitorProvider() {",
                 "      Object local = monitorProvider;",
                 "      if (local == null) {",
                 "        local = new SwitchingProvider<>(1);",
@@ -334,11 +334,11 @@ public class ProductionComponentProcessorTest {
                 "      return (Provider<ProductionComponentMonitor>) local;",
                 "  }",
                 "",
-                "  private TestClass.B getB() {",
+                "  private TestClass.B b() {",
                 "    return TestClass_BModule_BFactory.b(bModule, new TestClass.C());",
                 "  }",
                 "",
-                "  private Provider<TestClass.B> getBProvider() {",
+                "  private Provider<TestClass.B> bProvider() {",
                 "    Object local = bProvider;",
                 "    if (local == null) {",
                 "      local = new SwitchingProvider<>(2);",
@@ -353,12 +353,12 @@ public class ProductionComponentProcessorTest {
                 "      final TestClass.BModule bModuleParam) {",
                 "    this.simpleComponentProvider =",
                 "        InstanceFactory.create((TestClass.SimpleComponent) this);",
-                "    this.bProducer = Producers.producerFromProvider(getBProvider());",
+                "    this.bProducer = Producers.producerFromProvider(bProvider());",
                 "    this.aProducer =",
                 "        TestClass_AModule_AFactory.create(",
                 "            aModuleParam,",
-                "            getProductionImplementationExecutorProvider(),",
-                "            getProductionComponentMonitorProvider(),",
+                "            productionImplementationExecutorProvider(),",
+                "            productionComponentMonitorProvider(),",
                 "            bProducer);",
                 "    this.aEntryPoint = Producers.entryPointViewOf(aProducer, this);",
                 "  }",
@@ -413,11 +413,11 @@ public class ProductionComponentProcessorTest {
                 "    public T get() {",
                 "      switch (id) {",
                 "        case 0: return (T) DaggerTestClass_SimpleComponent.this",
-                "            .getProductionImplementationExecutor();",
+                "            .productionImplementationExecutor();",
                 "        case 1: return (T)",
-                "            DaggerTestClass_SimpleComponent.this.getProductionComponentMonitor();",
+                "            DaggerTestClass_SimpleComponent.this.productionComponentMonitor();",
                 "        case 2: return (T)",
-                "            DaggerTestClass_SimpleComponent.this.getB();",
+                "            DaggerTestClass_SimpleComponent.this.b();",
                 "        default: throw new AssertionError(id);",
                 "      }",
                 "    }",
@@ -443,7 +443,7 @@ public class ProductionComponentProcessorTest {
                 IMPORT_GENERATED_ANNOTATION,
                 "import javax.inject.Provider;",
                 "",
-                GENERATED_ANNOTATION,
+                GENERATED_CODE_ANNOTATIONS,
                 "final class DaggerTestClass_SimpleComponent",
                 "    implements TestClass.SimpleComponent, CancellationListener {",
                 "  private Producer<TestClass.A> aEntryPoint;",
@@ -592,7 +592,7 @@ public class ProductionComponentProcessorTest {
         "  }",
         "}");
     Compilation compilation =
-        daggerCompiler().withOptions(compilerMode.javacopts()).compile(component);
+        compilerWithOptions(compilerMode.javacopts()).compile(component);
     assertThat(compilation).succeeded();
     assertThat(compilation)
         .hadWarningContaining("@Nullable on @Produces methods does not do anything")
@@ -641,8 +641,7 @@ public class ProductionComponentProcessorTest {
             "  ProductionScoped productionScoped();",
             "}");
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(compilerMode.javacopts())
+        compilerWithOptions(compilerMode.javacopts())
             .compile(productionScoped, parent, child);
     assertThat(compilation).succeeded();
     assertThat(compilation)
@@ -651,7 +650,7 @@ public class ProductionComponentProcessorTest {
             new JavaFileBuilder(compilerMode, "test.DaggerRoot")
                 .addLines(
                     "package test;",
-                    GENERATED_ANNOTATION,
+                    GENERATED_CODE_ANNOTATIONS,
                     "final class DaggerParent implements Parent, CancellationListener {",
                     "  private final class ChildImpl implements Child, CancellationListener {",
                     "    @Override",
@@ -661,7 +660,7 @@ public class ProductionComponentProcessorTest {
                     "      return DaggerParent.this.productionScopedProvider.get();")
                 .addLinesIn(
                     CompilerMode.FAST_INIT_MODE, //
-                    "      return DaggerParent.this.getProductionScoped();")
+                    "      return DaggerParent.this.productionScoped();")
                 .addLines(
                     "    }", //
                     "  }", //

@@ -27,14 +27,14 @@
         <item name="android:clipChildren">false</item>
         <item name="android:clipToPadding">false</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:minHeight">@dimen/suc_customization_footer_min_height</item>
+        <item name="android:minHeight">?attr/sucFooterBarMinHeight</item>
         <item name="android:orientation">horizontal</item>
         <item name="android:paddingTop">?attr/sucFooterBarPaddingVertical</item>
         <item name="android:paddingBottom">?attr/sucFooterBarPaddingVertical</item>
-        <item name="android:paddingEnd" tools:ignore="NewApi">@dimen/suc_customization_button_margin_end</item>
-        <item name="android:paddingLeft">@dimen/suc_customization_button_margin_start</item>
-        <item name="android:paddingRight">@dimen/suc_customization_button_margin_end</item>
-        <item name="android:paddingStart" tools:ignore="NewApi">@dimen/suc_customization_button_margin_start</item>
+        <item name="android:paddingEnd" tools:ignore="NewApi">?attr/sucFooterBarPaddingEnd</item>
+        <item name="android:paddingLeft">?attr/sucFooterBarPaddingStart</item>
+        <item name="android:paddingRight">?attr/sucFooterBarPaddingEnd</item>
+        <item name="android:paddingStart" tools:ignore="NewApi">?attr/sucFooterBarPaddingStart</item>
     </style>
 
     <style name="SucPartnerCustomizationButton.Primary" parent="android:Widget.Material.Button.Colored">
@@ -46,8 +46,10 @@
 
         <!-- Values used in styles -->
         <item name="android:fontFamily">?attr/sucFooterBarButtonFontFamily</item>
-        <item name="android:paddingLeft">@dimen/suc_customization_button_padding</item>
-        <item name="android:paddingRight">@dimen/suc_customization_button_padding</item>
+        <item name="android:paddingLeft">?attr/sucFooterButtonPaddingStart</item>
+        <item name="android:paddingStart" tools:ignore="NewApi">?attr/sucFooterButtonPaddingStart</item>
+        <item name="android:paddingRight">?attr/sucFooterButtonPaddingEnd</item>
+        <item name="android:paddingEnd" tools:ignore="NewApi">?attr/sucFooterButtonPaddingEnd</item>
         <item name="android:textAllCaps">?attr/sucFooterBarButtonAllCaps</item>
         <item name="android:stateListAnimator">@null</item>
 
@@ -65,8 +67,10 @@
         <!-- Values used in styles -->
         <item name="android:fontFamily">?attr/sucFooterBarButtonFontFamily</item>
         <item name="android:minWidth">0dp</item>
-        <item name="android:paddingLeft">@dimen/suc_customization_button_padding</item>
-        <item name="android:paddingRight">@dimen/suc_customization_button_padding</item>
+        <item name="android:paddingLeft">?attr/sucFooterButtonPaddingStart</item>
+        <item name="android:paddingStart" tools:ignore="NewApi">?attr/sucFooterButtonPaddingStart</item>
+        <item name="android:paddingRight">?attr/sucFooterButtonPaddingEnd</item>
+        <item name="android:paddingEnd" tools:ignore="NewApi">?attr/sucFooterButtonPaddingEnd</item>
         <item name="android:textAllCaps">?attr/sucFooterBarButtonAllCaps</item>
 
         <!-- Values used in themes -->

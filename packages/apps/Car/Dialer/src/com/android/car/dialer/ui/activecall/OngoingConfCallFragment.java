@@ -31,16 +31,19 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.ViewModelProviders;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.dialer.R;
 import com.android.car.telephony.common.TelecomUtils;
 import com.android.car.ui.recyclerview.CarUiRecyclerView;
 
+import dagger.hilt.android.AndroidEntryPoint;
+
 /**
  * A fragment that displays information about an on-going call with options to hang up.
  */
-public class OngoingConfCallFragment extends Fragment {
+@AndroidEntryPoint(Fragment.class)
+public class OngoingConfCallFragment extends Hilt_OngoingConfCallFragment {
     private static final String TAG = "CD.OngoingConfCallFrag";
 
     private Fragment mDialpadFragment;
@@ -72,7 +75,8 @@ public class OngoingConfCallFragment extends Fragment {
         mOnholdCallFragment = getChildFragmentManager().findFragmentById(R.id.onhold_user_profile);
         mDialpadFragment = getChildFragmentManager().findFragmentById(R.id.incall_dialpad_fragment);
         mConferenceCallProfilesView = fragmentView.findViewById(R.id.conference_profiles);
-        mRecyclerView = mConferenceCallProfilesView.findViewById(R.id.recycler_view);
+        mRecyclerView = mConferenceCallProfilesView.findViewById(
+                R.id.conference_call_profiles_recycler_view);
         mConferenceTimeTextView = mConferenceCallProfilesView.findViewById(R.id.call_duration);
         mConferenceTitle = mConferenceCallProfilesView.findViewById(R.id.conference_title);
 
@@ -81,7 +85,7 @@ public class OngoingConfCallFragment extends Fragment {
         }
         mRecyclerView.setAdapter(mConfProfileAdapter);
 
-        InCallViewModel inCallViewModel = ViewModelProviders.of(getActivity()).get(
+        InCallViewModel inCallViewModel = new ViewModelProvider(getActivity()).get(
                 InCallViewModel.class);
 
         inCallViewModel.getCallStateAndConnectTime().observe(this,

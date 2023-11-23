@@ -17,50 +17,50 @@
 // This is a compilation test only, to see that types are generated as
 // expected.
 
-#include <aidl/hidl2aidl/BnBar.h>
-#include <aidl/hidl2aidl/BnFoo.h>
-#include <aidl/hidl2aidl/BpBar.h>
-#include <aidl/hidl2aidl/BpFoo.h>
-#include <aidl/hidl2aidl/IBar.h>
-#include <aidl/hidl2aidl/IBarInner.h>
-#include <aidl/hidl2aidl/IFoo.h>
-#include <aidl/hidl2aidl/IFooBigStruct.h>
-#include <aidl/hidl2aidl/OnlyIn10.h>
-#include <aidl/hidl2aidl/OnlyIn11.h>
-#include <aidl/hidl2aidl/Outer.h>
-#include <aidl/hidl2aidl/OuterInner.h>
-#include <aidl/hidl2aidl/OverrideMe.h>
-#include <aidl/hidl2aidl/Value.h>
-#include <aidl/hidl2aidl2/BnFoo.h>
-#include <aidl/hidl2aidl2/BpFoo.h>
-#include <aidl/hidl2aidl2/IFoo.h>
+#include <aidl/hidl2aidl/test/BnBar.h>
+#include <aidl/hidl2aidl/test/BnFoo.h>
+#include <aidl/hidl2aidl/test/BpBar.h>
+#include <aidl/hidl2aidl/test/BpFoo.h>
+#include <aidl/hidl2aidl/test/IBar.h>
+#include <aidl/hidl2aidl/test/IBarInner.h>
+#include <aidl/hidl2aidl/test/IFoo.h>
+#include <aidl/hidl2aidl/test/IFooBigStruct.h>
+#include <aidl/hidl2aidl/test/OnlyIn10.h>
+#include <aidl/hidl2aidl/test/OnlyIn11.h>
+#include <aidl/hidl2aidl/test/Outer.h>
+#include <aidl/hidl2aidl/test/OuterInner.h>
+#include <aidl/hidl2aidl/test/OverrideMe.h>
+#include <aidl/hidl2aidl/test/Value.h>
+#include <aidl/hidl2aidl/test2/BnFoo.h>
+#include <aidl/hidl2aidl/test2/BpFoo.h>
+#include <aidl/hidl2aidl/test2/IFoo.h>
 
-void testIFoo(const std::shared_ptr<aidl::hidl2aidl::IFoo>& foo) {
-    ndk::ScopedAStatus status1 = foo->someBar(std::string());
+void testIFoo(const std::shared_ptr<aidl::hidl2aidl::test::IFoo>& foo) {
+    ndk::ScopedAStatus status1 = foo->someBar(std::string(), std::string());
     (void)status1;
     std::string f;
     ndk::ScopedAStatus status2 = foo->oneOutput(&f);
     (void)status2;
 }
 
-void testIBar(const std::shared_ptr<aidl::hidl2aidl::IBar>& bar) {
+void testIBar(const std::shared_ptr<aidl::hidl2aidl::test::IBar>& bar) {
     std::string out;
     ndk::ScopedAStatus status1 = bar->someBar(std::string(), 3, &out);
     (void)status1;
-    aidl::hidl2aidl::IBarInner inner;
+    aidl::hidl2aidl::test::IBarInner inner;
     inner.a = 3;
     ndk::ScopedAStatus status2 = bar->extraMethod(inner);
     (void)status2;
 }
 
-static_assert(static_cast<int>(aidl::hidl2aidl::Value::A) == 3);
-static_assert(static_cast<int>(aidl::hidl2aidl::Value::B) == 7);
-static_assert(static_cast<int>(aidl::hidl2aidl::Value::C) == 8);
-static_assert(static_cast<int>(aidl::hidl2aidl::Value::D) == 9);
-static_assert(static_cast<int>(aidl::hidl2aidl::Value::E) == 27);
-static_assert(static_cast<int>(aidl::hidl2aidl::Value::F) == 28);
+static_assert(static_cast<int>(aidl::hidl2aidl::test::Value::A) == 3);
+static_assert(static_cast<int>(aidl::hidl2aidl::test::Value::B) == 7);
+static_assert(static_cast<int>(aidl::hidl2aidl::test::Value::C) == 8);
+static_assert(static_cast<int>(aidl::hidl2aidl::test::Value::D) == 9);
+static_assert(static_cast<int>(aidl::hidl2aidl::test::Value::E) == 27);
+static_assert(static_cast<int>(aidl::hidl2aidl::test::Value::F) == 28);
 
-void testIFoo2(const std::shared_ptr<aidl::hidl2aidl2::IFoo>& foo) {
+void testIFoo2(const std::shared_ptr<aidl::hidl2aidl::test2::IFoo>& foo) {
     ndk::ScopedAStatus status = foo->someFoo(3);
     (void)status;
 }

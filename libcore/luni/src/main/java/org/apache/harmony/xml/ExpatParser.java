@@ -268,7 +268,7 @@ class ExpatParser {
          * specify how to tell whether or not the systemId is a URL let alone
          * how to resolve it.
          *
-         * Other implementations do various insane things. We try to keep it
+         * Other implementations do various dangerous things. We try to keep it
          * simple: if the systemId parses as a URI and it's relative, we try to
          * resolve it against the parent document's systemId. If anything goes
          * wrong, we go with the original systemId. If crazybob had designed

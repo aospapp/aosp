@@ -30,7 +30,7 @@ def playback_thd(inputData, inputTypes):
     output = []
     outputData = []
     outputTypes = []
-    # basic sanity check
+    # basic validate
     inputError = False
     if (inputTypes[0] != TYPE_MONO):
         inputError = True

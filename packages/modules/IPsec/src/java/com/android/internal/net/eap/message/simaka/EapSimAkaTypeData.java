@@ -39,19 +39,30 @@ import java.util.Set;
  */
 public abstract class EapSimAkaTypeData {
     private static final int MIN_LEN_BYTES = 3; // subtype (1B) + reserved bytes (2B)
-    private static final int RESERVED_BYTES = 2; // RFC 4186#8.1, RFC 4187#8.1
+    private static final int RESERVED_BYTES_LEN = 2; // RFC 4186#8.1, RFC 4187#8.1
 
     public final int eapSubtype;
+
+    /** Save (but ignore) the 2B reserved section after EAP-Type and EAP-SIM/AKA subtype. */
+    final byte[] mReservedBytes;
 
     // LinkedHashMap used to preserve encoded ordering of attributes. This is necessary for checking
     // the MAC value for the message
     public final LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap;
 
+    protected EapSimAkaTypeData(
+            int eapSubType, LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap) {
+        this(eapSubType, attributeMap, new byte[RESERVED_BYTES_LEN]);
+    }
+
     public EapSimAkaTypeData(
             int eapSubType,
-            LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap) {
+            LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap,
+            byte[] reservedBytes) {
         this.eapSubtype = eapSubType;
         this.attributeMap = attributeMap;
+
+        mReservedBytes = reservedBytes.clone();
     }
 
     /**
@@ -69,7 +80,7 @@ public abstract class EapSimAkaTypeData {
         output.put((byte) eapSubtype);
 
         // two reserved bytes (RFC 4186#8.1, RFC 4187#8.1)
-        output.put(new byte[RESERVED_BYTES]);
+        output.put(mReservedBytes);
 
         for (EapSimAkaAttribute attribute : attributeMap.values()) {
             attribute.encode(output);
@@ -118,7 +129,8 @@ public abstract class EapSimAkaTypeData {
                 }
 
                 // next two bytes are reserved (RFC 4186#8.1, RFC 4187#8.1)
-                byteBuffer.get(new byte[RESERVED_BYTES]);
+                byte[] reservedBytes = new byte[RESERVED_BYTES_LEN];
+                byteBuffer.get(reservedBytes);
 
                 // read attributes
                 LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap = new LinkedHashMap<>();
@@ -138,7 +150,7 @@ public abstract class EapSimAkaTypeData {
                     attributeMap.put(attribute.attributeType, attribute);
                 }
 
-                T eapSimAkaTypeData = getInstance(eapSubType, attributeMap);
+                T eapSimAkaTypeData = getInstance(eapSubType, attributeMap, reservedBytes);
 
                 logDecodedEapSimAkaTypeData(eapSimAkaTypeData);
 
@@ -157,7 +169,8 @@ public abstract class EapSimAkaTypeData {
 
         protected abstract T getInstance(
                 int eapSubType,
-                LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap);
+                LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap,
+                byte[] reservedBytes);
 
         private void logDecodedEapSimAkaTypeData(EapSimAkaTypeData eapSimAkaTypeData) {
             StringBuilder msg = new StringBuilder();

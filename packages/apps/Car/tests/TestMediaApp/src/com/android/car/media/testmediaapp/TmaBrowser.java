@@ -19,7 +19,10 @@ import static com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaBrowseNod
 import static com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaBrowseNodeType.QUEUE_ONLY;
 import static com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaLoginEventOrder.PLAYBACK_STATE_UPDATE_FIRST;
 
+import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -31,14 +34,17 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.media.MediaBrowserServiceCompat;
+import androidx.media.session.MediaButtonReceiver;
 
 import com.android.car.media.testmediaapp.loader.TmaLoader;
 import com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaAccountType;
+import com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaBrowseNodeType;
 import com.android.car.media.testmediaapp.prefs.TmaEnumPrefs.TmaReplyDelay;
 import com.android.car.media.testmediaapp.prefs.TmaPrefs;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -72,12 +78,23 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
 
     private BrowserRoot mRoot;
 
+    public TmaBrowser() {
+        super();
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
         mPrefs = TmaPrefs.getInstance(this);
         mHandler = new Handler();
-        mSession = new MediaSessionCompat(this, MEDIA_SESSION_TAG);
+
+        ComponentName mbrComponent = MediaButtonReceiver.getMediaButtonReceiverComponent(this);
+        Intent mediaButtonIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+        mediaButtonIntent.setComponent(mbrComponent);
+        PendingIntent mbrIntent = PendingIntent.getBroadcast(this, 0, mediaButtonIntent,
+                PendingIntent.FLAG_IMMUTABLE);
+
+        mSession = new MediaSessionCompat(this, MEDIA_SESSION_TAG, mbrComponent, mbrIntent);
         setSessionToken(mSession.getSessionToken());
 
         mLibrary = new TmaLibrary(new TmaLoader(this));
@@ -91,14 +108,9 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
         mediaSessionExtras.putString(BROWSE_SERVICE_FOR_SESSION_KEY, TmaBrowser.class.getName());
         mSession.setExtras(mediaSessionExtras);
 
-        mPrefs.mAccountType.registerChangeListener(
-                (oldValue, newValue) -> onAccountChanged(newValue));
-
-        mPrefs.mRootNodeType.registerChangeListener(
-                (oldValue, newValue) -> invalidateRoot());
-
-        mPrefs.mRootReplyDelay.registerChangeListener(
-                (oldValue, newValue) -> invalidateRoot());
+        mPrefs.mAccountType.registerChangeListener(mOnAccountChanged);
+        mPrefs.mRootNodeType.registerChangeListener(mOnRootNodeTypeChanged);
+        mPrefs.mRootReplyDelay.registerChangeListener(mOnReplyDelayChanged);
 
         Bundle browserRootExtras = new Bundle();
         browserRootExtras.putBoolean(SEARCH_SUPPORTED, true);
@@ -109,23 +121,33 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
 
     @Override
     public void onDestroy() {
+        mPrefs.mAccountType.unregisterChangeListener(mOnAccountChanged);
+        mPrefs.mRootNodeType.unregisterChangeListener(mOnRootNodeTypeChanged);
+        mPrefs.mRootReplyDelay.unregisterChangeListener(mOnReplyDelayChanged);
         mSession.release();
         mHandler = null;
         mPrefs = null;
         super.onDestroy();
     }
 
-    private void onAccountChanged(TmaAccountType accountType) {
-        if (PLAYBACK_STATE_UPDATE_FIRST.equals(mPrefs.mLoginEventOrder.getValue())) {
-            updatePlaybackState(accountType);
-            invalidateRoot();
-        } else {
-            invalidateRoot();
-            (new Handler()).postDelayed(() -> {
-                updatePlaybackState(accountType);
-            }, 3000);
-        }
-    }
+    private final TmaPrefs.PrefValueChangedListener<TmaAccountType> mOnAccountChanged =
+            (oldValue, newValue) -> {
+                if (PLAYBACK_STATE_UPDATE_FIRST.equals(mPrefs.mLoginEventOrder.getValue())) {
+                    updatePlaybackState(newValue);
+                    invalidateRoot();
+                } else {
+                    invalidateRoot();
+                    (new Handler()).postDelayed(() -> {
+                        updatePlaybackState(newValue);
+                    }, 3000);
+                }
+            };
+
+    private final TmaPrefs.PrefValueChangedListener<TmaBrowseNodeType> mOnRootNodeTypeChanged =
+            (oldValue, newValue) -> invalidateRoot();
+
+    private final TmaPrefs.PrefValueChangedListener<TmaReplyDelay> mOnReplyDelayChanged =
+            (oldValue, newValue) -> invalidateRoot();
 
     private void updatePlaybackState(TmaAccountType accountType) {
         if (accountType == TmaAccountType.NONE) {
@@ -137,7 +159,7 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
                             getResources().getString(R.string.no_account),
                             getResources().getString(R.string.select_account),
                             TmaMediaEvent.ResolutionIntent.PREFS,
-                            TmaMediaEvent.Action.NONE, 0, null));
+                            TmaMediaEvent.Action.NONE, 0, null, null));
         } else {
             // TODO don't reset error in all cases...
             PlaybackStateCompat.Builder playbackState = new PlaybackStateCompat.Builder();
@@ -182,6 +204,10 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
         getMediaItemsWithDelay(ROOT_ID, result, query);
     }
 
+    private TmaMediaItem getRoot() {
+        return mLibrary.getRoot(mPrefs.mRootNodeType.getValue());
+    }
+
     private void getMediaItemsWithDelay(@NonNull String parentId,
             @NonNull Result<List<MediaItem>> result, @Nullable String filter) {
         // TODO: allow per item override of the delay ?
@@ -191,7 +217,7 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
             if (TmaAccountType.NONE.equals(mPrefs.mAccountType.getValue())) {
                 node = null;
             } else if (ROOT_ID.equals(parentId)) {
-                node = mLibrary.getRoot(mPrefs.mRootNodeType.getValue());
+                node = getRoot();
             } else {
                 node = mLibrary.getMediaItemById(parentId);
             }
@@ -213,7 +239,11 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
                     int selfUpdateDelay = node.getSelfUpdateDelay();
                     int toShow = (selfUpdateDelay > 0) ? 1 + node.mRevealCounter : childrenCount;
                     for (int childIndex = 0 ; childIndex < toShow; childIndex++) {
-                        items.add(children.get(childIndex).toMediaItem());
+                        TmaMediaItem child = children.get(childIndex);
+                        if (child.mIsHidden) {
+                            continue;
+                        }
+                        items.add(child.toMediaItem());
                     }
                     result.sendResult(items);
 
@@ -239,6 +269,9 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
         }
 
         for (TmaMediaItem child : node.getChildren()) {
+            if (child.mIsHidden) {
+                continue;
+            }
             MediaItem item = child.toMediaItem();
             CharSequence title = item.getDescription().getTitle();
             if (title != null) {
@@ -251,6 +284,20 @@ public class TmaBrowser extends MediaBrowserServiceCompat {
             // Ask the library to load the grand children
             child = mLibrary.getMediaItemById(child.getMediaId());
             addSearchResults(child, matcher, hits, currentDepth - 1);
+        }
+    }
+
+    void toggleItem(@Nullable TmaMediaItem item) {
+        if (item == null) {
+            return;
+        }
+        item.mIsHidden = !item.mIsHidden;
+        if (item.getParent() != null) {
+            String parentId = item.getParent().getMediaId();
+            if (Objects.equals(parentId, getRoot().getMediaId())) {
+                parentId = ROOT_ID;
+            }
+            notifyChildrenChanged(parentId);
         }
     }
 

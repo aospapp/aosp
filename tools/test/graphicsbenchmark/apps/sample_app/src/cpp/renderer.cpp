@@ -17,8 +17,9 @@
 
 #include "renderer.h"
 
-#include <vector>
+#include <cassert>
 #include <memory>
+#include <vector>
 
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>

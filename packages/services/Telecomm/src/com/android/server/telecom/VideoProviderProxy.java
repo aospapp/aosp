@@ -55,6 +55,7 @@ public class VideoProviderProxy extends Connection.VideoProvider {
      */
     public interface Listener {
         void onSessionModifyRequestReceived(Call call, VideoProfile videoProfile);
+        void onSetCamera(Call call, String cameraId);
     }
 
     /**
@@ -346,6 +347,12 @@ public class VideoProviderProxy extends Connection.VideoProvider {
                     return;
                 }
             }
+
+            // Inform other Telecom components of the change in camera status.
+            for (Listener listener : mListeners) {
+                listener.onSetCamera(mCall, cameraId);
+            }
+
             try {
                 mConectionServiceVideoProvider.setCamera(cameraId, callingPackage,
                         targetSdkVersion);

@@ -14,13 +14,47 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["external_gwp_asan_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_gwp_asan_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-NCSA",
+    ],
+    license_text: [
+        "LICENSE.TXT",
+    ],
+}
+
 cc_defaults {
     name: "gwp_asan_defaults",
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     recovery_available: true,
     native_bridge_supported: true,
     ramdisk_available: true,
+    vendor_ramdisk_available: true,
 
     // GWP-ASan currently has no support for darwin.
     target: {
@@ -28,6 +62,7 @@ cc_defaults {
             enabled: false,
         },
     },
+    min_sdk_version: "S",
 }
 
 cc_defaults {
@@ -56,8 +91,8 @@ cc_library_headers {
         "//apex_available:platform",
         "com.android.runtime",
         // GWP-ASan headers are currently referenced by the following additional APEXes
+        "com.android.art",
         "com.android.art.debug",
-        "com.android.art.release",
         "com.android.media",
         "com.android.media.swcodec",
     ],
@@ -78,7 +113,6 @@ cc_library_static {
         "gwp_asan/platform_specific/guarded_pool_allocator_posix.cpp",
         "gwp_asan/platform_specific/mutex_posix.cpp",
         "gwp_asan/platform_specific/utilities_posix.cpp",
-        "gwp_asan/random.cpp",
         "gwp_asan/stack_trace_compressor.cpp",
     ],
     // GWP-ASan requires platform (non-emulated) TLS. We use thread local
@@ -127,6 +161,16 @@ cc_fuzz {
     static_libs: ["gwp_asan"],
 }
 
+cc_fuzz {
+    name: "options_parser_fuzzer",
+    host_supported: true,
+    srcs: [
+        "tools/options_parser_fuzzer.cpp",
+        "gwp_asan/optional/options_parser.cpp",
+    ],
+    static_libs: ["gwp_asan"],
+}
+
 // These unit tests are also continuously run upstream in LLVM's buildbots.
 cc_test {
     name: "gwp_asan_unittest",
@@ -136,8 +180,11 @@ cc_test {
         "gwp_asan_crash_handler",
         "libasync_safe",
         "liblog",
-        "libunwindstack",
+        "libunwindstack_no_dex",
         "liblzma", // Dependency from libunwindstack.
+    ],
+    shared_libs: [
+        "libbase",
     ],
 
     ldflags: [
@@ -149,6 +196,7 @@ cc_test {
     srcs: [
         "android/test_backtrace.cpp",
         "android/test_printf.cpp",
+        "gwp_asan/optional/options_parser.cpp",
         "gwp_asan/optional/segv_handler_posix.cpp",
         "gwp_asan/tests/alignment.cpp",
         "gwp_asan/tests/backtrace.cpp",
@@ -160,6 +208,7 @@ cc_test {
         "gwp_asan/tests/iterate.cpp",
         "gwp_asan/tests/late_init.cpp",
         "gwp_asan/tests/mutex_test.cpp",
+        "gwp_asan/tests/options.cpp",
         "gwp_asan/tests/slot_reuse.cpp",
         "gwp_asan/tests/thread_contention.cpp",
     ],
@@ -178,8 +227,4 @@ cc_test {
         // and so we disable it (as we rely on optnone for tests/backtrace.cpp).
         "-fno-experimental-new-pass-manager",
     ],
-
-    // Late initialisation tests should run isolated, as the platform IE TLS
-    // PRNG should be initialised to its default state.
-    isolated: true,
 }

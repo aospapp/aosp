@@ -17,6 +17,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := VtsHalNeuralnetworksV1_2BenchmarkTestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 # Don't include this package in any target
 LOCAL_MODULE_TAGS := optional
@@ -32,6 +34,10 @@ LOCAL_COMPATIBILITY_SUITE := vts vts10
 LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules android.hidl.manager-V1.2-java \
     compatibility-device-util-axt ctstestrunner-axt junit NeuralNetworksApiBenchmark_Lib
 LOCAL_JNI_SHARED_LIBRARIES := libnnbenchmark_jni
+
+# Disable dexpreopt and <uses-library> check for test.
+LOCAL_ENFORCE_USES_LIBRARIES := false
+LOCAL_DEX_PREOPT := false
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_ASSET_DIR := test/mlts/models/assets

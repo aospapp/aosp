@@ -22,6 +22,7 @@
 #include "actions/actions_model_generated.h"
 #include "actions/types.h"
 #include "utils/zlib/zlib.h"
+#include "flatbuffers/reflection.h"
 
 namespace libtextclassifier3 {
 

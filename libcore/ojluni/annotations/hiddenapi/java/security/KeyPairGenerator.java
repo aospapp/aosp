@@ -38,7 +38,7 @@ public abstract class KeyPairGenerator extends java.security.KeyPairGeneratorSpi
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private static java.security.KeyPairGenerator getInstance(
             sun.security.jca.GetInstance.Instance instance, java.lang.String algorithm) {
         throw new RuntimeException("Stub!");

@@ -25,6 +25,8 @@ class KernelHandler(object):
 
     Mostly it allows to corrupt and restore a particular kernel partition
     (designated by the partition name, A or B.
+
+    @type os_if: autotest_lib.client.cros.faft.utils.os_interface.OSInterface
     """
 
     # This value is used to alter contents of a byte in the appropriate kernel
@@ -35,11 +37,12 @@ class KernelHandler(object):
     # The maximum kernel size in MB.
     KERNEL_SIZE_MB = 16
 
-    def __init__(self):
-        self.os_if = None
+    def __init__(self, os_if):
+        self.os_if = os_if
         self.dump_file_name = None
         self.partition_map = {}
         self.root_dev = None
+        self.initialized = False
 
     def _get_version(self, device):
         """Get version of the kernel hosted on the passed in partition."""
@@ -190,13 +193,13 @@ class KernelHandler(object):
         self._modify_kernel(section.upper(), self.get_version(section),
                             KERNEL_RESIGN_MOD, key_path)
 
-    def init(self, os_if, dev_key_path='.', internal_disk=True):
+    def init(self, dev_key_path='.', internal_disk=True):
         """Initialize the kernel handler object.
 
         Input argument is an OS interface object reference.
         """
-        self.os_if = os_if
         self.dev_key_path = dev_key_path
-        self.root_dev = os_if.get_root_dev()
-        self.dump_file_name = os_if.state_dir_file(TMP_FILE_NAME)
+        self.root_dev = self.os_if.get_root_dev()
+        self.dump_file_name = self.os_if.state_dir_file(TMP_FILE_NAME)
         self._get_partition_map(internal_disk)
+        self.initialized = True

@@ -2,7 +2,12 @@
 
 # pylint: disable=missing-docstring
 
-import StringIO
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from six.moves import range
+import six
 import errno
 import itertools
 import logging
@@ -12,7 +17,7 @@ import socket
 import subprocess
 import time
 import unittest
-import urllib2
+from six.moves import urllib
 
 import common
 from autotest_lib.client.common_lib import autotemp
@@ -69,7 +74,7 @@ class test_read_one_line(unittest.TestCase):
 
 
     def create_test_file(self, contents):
-        test_file = StringIO.StringIO(contents)
+        test_file = six.StringIO(contents)
         utils.open.expect_call("filename", "r").and_return(test_file)
 
 
@@ -180,7 +185,7 @@ class test_read_keyval(unittest.TestCase):
 
 
     def create_test_file(self, filename, contents):
-        test_file = StringIO.StringIO(contents)
+        test_file = six.StringIO(contents)
         os.path.exists.expect_call(filename).and_return(True)
         utils.open.expect_call(filename).and_return(test_file)
 
@@ -290,7 +295,7 @@ class test_write_keyval(unittest.TestCase):
                      type_tag=None):
         if expected_filename is None:
             expected_filename = filename
-        test_file = StringIO.StringIO()
+        test_file = six.StringIO()
         self.god.stub_function(test_file, "close")
         utils.open.expect_call(expected_filename, "a").and_return(test_file)
         test_file.close.expect_call()
@@ -393,7 +398,7 @@ class test_urlopen(unittest.TestCase):
             self.assertEquals(expected_args, (url,data))
             test_func(socket.getdefaulttimeout())
             return expected_return
-        self.god.stub_with(urllib2, "urlopen", urlopen)
+        self.god.stub_with(urllib.request, "urlopen", urlopen)
 
 
     def stub_urlopen_with_timeout_check(self, expected_timeout,
@@ -515,35 +520,43 @@ class test_merge_trees(unittest.TestCase):
 
 
     def test_file_only_at_src(self):
-        print >> open(self.src("src_only"), "w"), "line 1"
+        with open(self.src("src_only"), "w") as wf:
+            print("line 1", file=wf)
         utils.merge_trees(*self.paths("src_only"))
         self.assertFileEqual("src_only")
 
 
     def test_file_only_at_dest(self):
-        print >> open(self.dest("dest_only"), "w"), "line 1"
+        with open(self.dest("dest_only"), "w") as wf:
+            print("line 1", file=wf)
         utils.merge_trees(*self.paths("dest_only"))
         self.assertEqual(False, os.path.exists(self.src("dest_only")))
         self.assertFileContents("line 1\n", "dest_only")
 
 
     def test_file_at_both(self):
-        print >> open(self.dest("in_both"), "w"), "line 1"
-        print >> open(self.src("in_both"), "w"), "line 2"
+        with open(self.dest("in_both"), "w") as wf1:
+            print("line 1", file=wf1)
+        with open(self.src("in_both"), "w") as wf2:
+            print("line 2", file=wf2)
         utils.merge_trees(*self.paths("in_both"))
         self.assertFileContents("line 1\nline 2\n", "in_both")
 
 
     def test_directory_with_files_in_both(self):
-        print >> open(self.dest("in_both"), "w"), "line 1"
-        print >> open(self.src("in_both"), "w"), "line 3"
+        with open(self.dest("in_both"), "w") as wf1:
+            print("line 1", file=wf1)
+        with open(self.src("in_both"), "w") as wf2:
+            print("line 3", file=wf2)
         utils.merge_trees(*self.paths())
         self.assertFileContents("line 1\nline 3\n", "in_both")
 
 
     def test_directory_with_mix_of_files(self):
-        print >> open(self.dest("in_dest"), "w"), "dest line"
-        print >> open(self.src("in_src"), "w"), "src line"
+        with open(self.dest("in_dest"), "w") as wf1:
+            print("dest line", file=wf1)
+        with open(self.src("in_src"), "w") as wf2:
+            print("src line", file=wf2)
         utils.merge_trees(*self.paths())
         self.assertFileContents("dest line\n", "in_dest")
         self.assertFileContents("src line\n", "in_src")
@@ -551,11 +564,14 @@ class test_merge_trees(unittest.TestCase):
 
     def test_directory_with_subdirectories(self):
         os.mkdir(self.src("src_subdir"))
-        print >> open(self.src("src_subdir", "subfile"), "w"), "subdir line"
+        with open(self.src("src_subdir", "subfile"), "w") as wf1:
+            print("subdir line", file=wf1)
         os.mkdir(self.src("both_subdir"))
         os.mkdir(self.dest("both_subdir"))
-        print >> open(self.src("both_subdir", "subfile"), "w"), "src line"
-        print >> open(self.dest("both_subdir", "subfile"), "w"), "dest line"
+        with open(self.src("both_subdir", "subfile"), "w") as wf2:
+            print("src line", file=wf2)
+        with open(self.dest("both_subdir", "subfile"), "w") as wf3:
+            print("dest line", file=wf3)
         utils.merge_trees(*self.paths())
         self.assertFileContents("subdir line\n", "src_subdir", "subfile")
         self.assertFileContents("dest line\nsrc line\n", "both_subdir",
@@ -709,7 +725,7 @@ class test_run(unittest.TestCase):
         # Log level -> StringIO.StringIO.
         self.logs = {}
         for level in self.LOG_LEVELS:
-            self.logs[level] = StringIO.StringIO()
+            self.logs[level] = six.StringIO()
 
         # Override logging_manager.LoggingFile to return buffers.
         def logging_file(level=None, prefix=None):
@@ -748,7 +764,7 @@ class test_run(unittest.TestCase):
         cmd = 'exit 11'
         try:
             utils.run(cmd, verbose=False)
-        except utils.error.CmdError, err:
+        except utils.error.CmdError as err:
             self.__check_result(err.result_obj, cmd, exit_status=11)
 
 
@@ -763,14 +779,14 @@ class test_run(unittest.TestCase):
         utils.logging.warning.expect_any_call()
         try:
             utils.run('echo -n output && sleep 10', timeout=1, verbose=False)
-        except utils.error.CmdError, err:
+        except utils.error.CmdError as err:
             self.assertEquals(err.result_obj.stdout, 'output')
 
 
     def test_stdout_stderr_tee(self):
         cmd = 'echo output && echo error >&2'
-        stdout_tee = StringIO.StringIO()
-        stderr_tee = StringIO.StringIO()
+        stdout_tee = six.StringIO()
+        stderr_tee = six.StringIO()
 
         self.__check_result(utils.run(
                 cmd, stdout_tee=stdout_tee, stderr_tee=stderr_tee,
@@ -925,7 +941,7 @@ class test_get_random_port(unittest.TestCase):
 
 
     def test_get_port(self):
-        for _ in xrange(100):
+        for _ in range(100):
             p = utils.get_unused_port()
             s = self.do_bind(p, socket.SOCK_STREAM, socket.IPPROTO_TCP)
             self.assert_(s.getsockname())

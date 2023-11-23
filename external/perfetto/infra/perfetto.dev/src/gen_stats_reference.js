@@ -17,7 +17,6 @@
 'use strict';
 
 const fs = require('fs');
-const path = require('path');
 const argv = require('yargs').argv
 
 // Removes \n due to 80col wrapping and preserves only end-of-sentence line
@@ -66,13 +65,14 @@ function parseTablesInCppFile(filePath) {
 
 function tableToMarkdown(table) {
   let md = `# Trace Processor Stats\n\n`;
-  md += 'Name | Cardinality | Type | Scope | Description |\n';
-  md += '---- | ----------- | ---- | ----- | ----------- |\n';
+  md += `<table><thead><tr><td>Name</td><td>Cardinality</td><td>Type</td>
+  <td>Scope</td><td>Description</td></tr></thead>\n`;
   for (const col of table) {
-    md += `${col.name} | ${col.cardinality} | ${col.type} | ${col.scope} | ${
-        singleLineComment(col.comment)} |\n`
+    md += `<tr id="${col.name}"><td>${col.name}</td>
+    <td>${col.cardinality}</td><td>${col.type}</td><td>${col.scope}</td>
+    <td>${singleLineComment(col.comment)} </td></tr>\n`
   }
-  md += '\n\n';
+  md += '</table>\n\n';
   return md;
 }
 

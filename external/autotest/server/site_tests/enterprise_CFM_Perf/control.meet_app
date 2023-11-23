@@ -9,8 +9,6 @@ NAME = "enterprise_CFM_Perf.meet_app"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "enterprise"
-ATTRIBUTES = "suite:hotrod"
-DEPENDENCIES = "meet_app"
 TEST_TYPE = "server"
 JOB_RETRIES = 3
 

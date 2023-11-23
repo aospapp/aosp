@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Səsli E-məktub Ayarları yalnız Əsas İstifadəçi tərəfindən dəyişdirilə bilər."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"SIM kartınızın kilidi açıldı. Telefonunuzun da kilidi açılır…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"SIM şəbəkəni kiliddən çıxaran PIN"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"SİM operator üçün kilidlənib"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Kilidi aç"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Kənarlaşdır"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Şəbəkə kilidinin açılması tələbi göndərilir…"</string>
@@ -60,7 +61,7 @@
     <string name="labelGsmMore_with_label" msgid="3206015314393246224">"GSM zəng ayarları (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="7937441382611224632">"CDMA zəng parametrləri"</string>
     <string name="labelCdmaMore_with_label" msgid="7759692829160238152">"CDMA zəng ayarları (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="apn_settings" msgid="1978652203074756623">"Çatma Nöqtəsi Adları"</string>
+    <string name="apn_settings" msgid="1978652203074756623">"Giriş nöqtəsi adları"</string>
     <string name="settings_label" msgid="9101778088412567956">"Şəbəkə ayarları"</string>
     <string name="phone_accounts" msgid="1216879437523774604">"Hesabların çağırılması"</string>
     <string name="phone_accounts_make_calls_with" msgid="16747814788918145">"Zənglər et"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> nömrəsinə yönləndirilir"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Deaktiv"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Sizin mobil daşıyıcı telefon əlçatmaz olduğu zaman zəng yönləndirməni deaktiv etməyi dəstəkləmir."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Operatorunuz zəngin yönləndirilməsini dəstəkləmir."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Zəng gözlətmə aktiv edilsin?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Zəng zamanı gələn zənglər haqqında bildiriş alacaqsınız"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Aktiv edin"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Ləğv edin"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS ilə CDMA zəng gözlətməsi aktivdir"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS ilə CDMA zəng gözlətməsi deaktivdir"</string>
     <string name="updating_title" msgid="6130548922615719689">"Zəng ayarları"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Zəng parametrləri yalnız admin olan istifadəçi tərəfindən dəyişdirilə bilər."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Ayarlar ( <xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g> )"</string>
@@ -174,15 +182,15 @@
     <string name="connect_later" msgid="1950138106010005425">"Hazırda bu şəbəkəyə qoşulmaq olmur. Sonra təkrar sınayın."</string>
     <string name="registration_done" msgid="5337407023566953292">"Şəbəkədə qeydiyyatdan keçib."</string>
     <string name="already_auto" msgid="8607068290733079336">"Artıq avtomatik seçimdədir."</string>
-    <string name="select_automatically" msgid="779750291257872651">"Avtomatik olaraq şəbəkə seçin"</string>
+    <string name="select_automatically" msgid="779750291257872651">"Şəbəkə avtomatik seçilsin"</string>
     <string name="manual_mode_disallowed_summary" msgid="3970048592179890197">"%1$s ünvanına qoşulduqda əlçatan olmur"</string>
     <string name="network_select_title" msgid="4117305053881611988">"Şəbəkə"</string>
     <string name="register_automatically" msgid="3907580547590554834">"Avtomatik qeydiyyat ..."</string>
-    <string name="preferred_network_mode_title" msgid="5253395265169539830">"Tərcih edilən şəbəkə növü"</string>
+    <string name="preferred_network_mode_title" msgid="5253395265169539830">"Şəbəkə növü"</string>
     <string name="preferred_network_mode_summary" msgid="3787989000044330064">"Şəbəkə əməliyyat rejimini dəyişin"</string>
-    <string name="preferred_network_mode_dialogtitle" msgid="2781447433514459696">"Tərcih edilən şəbəkə növü"</string>
+    <string name="preferred_network_mode_dialogtitle" msgid="2781447433514459696">"Şəbəkə növü"</string>
     <string name="forbidden_network" msgid="5081729819561333023">"(qadağandır)"</string>
-    <string name="choose_network_title" msgid="5335832663422653082">"Şəbəkəni seçin"</string>
+    <string name="choose_network_title" msgid="5335832663422653082">"Şəbəkə seçin"</string>
     <string name="network_disconnected" msgid="8844141106841160825">"Bağlantı kəsildi"</string>
     <string name="network_connected" msgid="2760235679963580224">"Qoşuldu"</string>
     <string name="network_connecting" msgid="160901383582774987">"Qoşulur..."</string>
@@ -274,26 +282,29 @@
     <string name="data_enable_summary" msgid="696860063456536557">"Data istifadəsinə icazə verin"</string>
     <string name="dialog_alert_title" msgid="5260471806940268478">"Diqqət"</string>
     <string name="roaming" msgid="1576180772877858949">"Rominq"</string>
-    <string name="roaming_enable" msgid="6853685214521494819">"Rouminq zamanı data xidmətlərinə qoşulun"</string>
-    <string name="roaming_disable" msgid="8856224638624592681">"Rouminq zamanı data xidmətlərinə qoşulun"</string>
+    <string name="roaming_enable" msgid="6853685214521494819">"Rominq zamanı data xidmətinə qoşulun"</string>
+    <string name="roaming_disable" msgid="8856224638624592681">"Rominq zamanı data xidmətinə qoşulun"</string>
     <string name="roaming_reenable_message" msgid="1951802463885727915">"Data rominqi deaktivdir. Aktiv etmək üçün klikləyin."</string>
     <string name="roaming_enabled_message" msgid="9022249120750897">"Rominq xərcləri çıxıla bilər. Dəyişmək üçün toxunun."</string>
     <string name="roaming_notification_title" msgid="3590348480688047320">"Mobil data bağlantısı itdi"</string>
     <string name="roaming_on_notification_title" msgid="7451473196411559173">"Data rominqi aktivdir"</string>
     <string name="roaming_warning" msgid="7855681468067171971">"Sizə əhəmiyyətli xərclər tətbiq edilə bilər."</string>
     <string name="roaming_check_price_warning" msgid="8212484083990570215">"Qiymətləndirmə üçün şəbəkə provayderi ilə yoxlayın."</string>
-    <string name="roaming_alert_title" msgid="5689615818220960940">"Məlumat rominqinə icazə verilsin?"</string>
+    <string name="roaming_alert_title" msgid="5689615818220960940">"Data rominqə icazə verilsin?"</string>
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Məhdud SIM funksionallığı"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> nömrəsindən istifadə edərkən <xliff:g id="CARRIER_NAME">%1$s</xliff:g> zəng və data xidmətləri bloklana bilər."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Başqa SIM-dən istifadə edərkən <xliff:g id="CARRIER_NAME">%1$s</xliff:g> zəng və data xidmətləri bloklana bilər."</string>
-    <string name="data_usage_title" msgid="8438592133893837464">"Tətbiq data istifadəsi"</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Ləğv edilmiş SIP hesabları tapıldı və silindi"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP zəngi artıq Android platforması tərəfindən dəstəklənmir.\nMövcud SIP hesablarınız <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> silinib.\nDefolt zəng hesabı ayarınızı təsdiq edin."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Ayarlara keçin"</string>
+    <string name="data_usage_title" msgid="8438592133893837464">"Tətbiq trafiki"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g> ərzində <xliff:g id="ID_1">%1$s</xliff:g> mobil data istifadə edildi"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Qabaqcıl"</string>
     <string name="carrier_settings_euicc" msgid="1190237227261337749">"Mobil Operator"</string>
     <string name="keywords_carrier_settings_euicc" msgid="8540160967922063745">"operator, esim, sim, euicc, operatoru dəyişin, operator əlavə edin"</string>
     <string name="carrier_settings_euicc_summary" msgid="2027941166597330117">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="7228249980933944101">"Mobil data"</string>
-    <string name="mobile_data_settings_summary" msgid="5012570152029118471">"Mobil şəbəkədən istifadə edərək dataya daxil olun"</string>
+    <string name="mobile_data_settings_summary" msgid="5012570152029118471">"Mobil internetə giriş"</string>
     <string name="data_usage_disable_mobile" msgid="5669109209055988308">"Mobil data söndürülsün?"</string>
     <string name="sim_selection_required_pref" msgid="6985901872978341314">"Seçim tələb olunur"</string>
     <string name="sim_change_data_title" msgid="9142726786345906606">"Data SİM-i dəyişilsin?"</string>
@@ -454,7 +465,7 @@
     <string name="get_pin2" msgid="4221654606863196332">"PIN2 daxil edin"</string>
     <string name="name" msgid="1347432469852527784">"Ad"</string>
     <string name="number" msgid="1564053487748491000">"Nömrə"</string>
-    <string name="save" msgid="983805790346099749">"Yadda saxla"</string>
+    <string name="save" msgid="983805790346099749">"Yadda saxlayın"</string>
     <string name="add_fdn_contact" msgid="1169713422306640887">"Sabit yığım nömrəsi əlavə edin"</string>
     <string name="adding_fdn_contact" msgid="3112531600824361259">"Sabit yığım nömrəsi əlavə olunur..."</string>
     <string name="fdn_contact_added" msgid="2840016151693394596">"Sabit yığım nömrəsi əlavə edildi."</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Parol səhvdir. SIM indi kilidlənib. PUK2-ni daxil et."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 həmişəlik qapadıldı."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Sizin <xliff:g id="NUMBER">%d</xliff:g> cəhdiniz qalıb."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 kilidlidir. Açmaq üçün xidmət provayderi ilə əlaqə saxlayın."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 artıq bloklanmayıb"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Şəbəkə və ya SIM kart xətası"</string>
     <string name="doneButton" msgid="7371209609238460207">"Tamam"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Zəng etmək üçün mobil şəbəkəni aktiv edin, uçuş rejimini deaktiv edin və ya enerji qənaətini deaktiv edin."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Zəng etmək üçün təyyarə rejimini deaktiv edin."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Zəng etmək üçün təyyarə rejimini deaktiv edin və ya Wi-Fi şəbəkəsinə qoşulun."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Telefonunuz çox qızıb"</b>\n\n"Bu zəngi tamamlamaq mümkün deyil. Telefonunuz soyuduqda yenidən cəhd edin.\n\nHələ də təcili zənglər edə bilərsiniz."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Qeyri-fövqəladə zəng etmək üçün fövqəladə zəng rejimindən çıxın."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Şəbəkədə qeydə alınmayıb."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Mobil şəbəkə əlçatımlı deyil."</string>
@@ -579,7 +592,7 @@
     <string name="importToFDNfromContacts" msgid="5068664870738407341">"Kontaktlardan import edin"</string>
     <string name="singleContactImportedMsg" msgid="3619804066300998934">"Idxal olunmuş kontakt"</string>
     <string name="failedToImportSingleContactMsg" msgid="228095510489830266">"Kontakt idxalı uğursuz oldu"</string>
-    <string name="hac_mode_title" msgid="4127986689621125468">"Eşitmə yardımı"</string>
+    <string name="hac_mode_title" msgid="4127986689621125468">"Eşitmə cihazları"</string>
     <string name="hac_mode_summary" msgid="7774989500136009881">"Eşitmə yardımı uyğunluğunu aktivləşdirin"</string>
     <string name="rtt_mode_title" msgid="3075948111362818043">"Real zaman mətn (RTT) zəngi"</string>
     <string name="rtt_mode_summary" msgid="8631541375609989562">"Səsli zəng daxilində mesajlaşmaya icazə verin"</string>
@@ -689,7 +702,7 @@
     <string name="change_pin_enter_new_pin_header" msgid="4739465616733486118">"Yeni PIN kodu təyin edin"</string>
     <string name="change_pin_enter_new_pin_hint" msgid="2326038476516364210">"PIN <xliff:g id="MIN">%1$d</xliff:g>-<xliff:g id="MAX">%2$d</xliff:g> rəqəm olmalıdır."</string>
     <string name="change_pin_confirm_pin_header" msgid="2606303906320705726">"PİN kodunuzu təsdiq edin"</string>
-    <string name="change_pin_confirm_pins_dont_match" msgid="305164501222587215">"PIN kodlar üst-üstə düşmür"</string>
+    <string name="change_pin_confirm_pins_dont_match" msgid="305164501222587215">"PIN-lər eyni deyil"</string>
     <string name="change_pin_succeeded" msgid="2504705600693014403">"Səsli poçtun PIN kodu yeniləndi"</string>
     <string name="change_pin_system_error" msgid="7772788809875146873">"PIN kodu ayarlamaq olmur"</string>
     <string name="mobile_data_status_roaming_turned_off_subtext" msgid="6840673347416227054">"Data rominq deaktivdir"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Defolt data SIM üçün alt Id:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL Buraxılışı (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL Buraxılışı (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Xananın məkan məlumatı (ləğv edilib):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE Fiziki Kanal Konfiqurasiyası:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Mobil məlumatın yenilənmə göstəricisi:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Operatorun bütün mobil ölçü məlumatı:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Yeniləyin"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS Yoxlanışına keçin"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Orijinal Avadanlıq İstehsalçısının Məlumatı/Ayarlar"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC Əlçatandır:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR Məhdudlaşdırılıb:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR Əlçatandır:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR Statusu:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR Tezliyi:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Radio Diapazon Rejimini Quraşdırın"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Diapazon Siyahısı Yüklənir…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Ayarlayın"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Telefon məlumatı"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Operator Təchizat Məlumatı"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Operator Təchizatlanmasını aktiv edin"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Bluetooth siqnalı zəifdir. Telefon spikerinə keçin."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Zəng keyfiyyəti bildirişi"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Ləğv edilmiş SIP hesabları"</string>
 </resources>

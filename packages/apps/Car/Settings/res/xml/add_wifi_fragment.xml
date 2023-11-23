@@ -20,11 +20,12 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/wifi_setup_add_network"
     android:key="@string/psk_add_wifi">
-    <EditTextPreference
+    <com.android.car.ui.preference.CarUiEditTextPreference
         android:key="@string/pk_add_wifi_network_name"
         android:persistent="false"
         android:title="@string/wifi_ssid"
-        settings:controller="com.android.car.settings.wifi.NetworkNamePreferenceController"/>
+        settings:controller="com.android.car.settings.wifi.NetworkNamePreferenceController"
+        settings:showChevron="false"/>
     <ListPreference
         android:dialogTitle="@string/wifi_security"
         android:key="@string/pk_add_wifi_security"
@@ -37,5 +38,6 @@
         android:persistent="false"
         android:summary="@string/default_password_summary"
         android:title="@string/wifi_password"
-        settings:controller="com.android.car.settings.wifi.NetworkPasswordPreferenceController"/>
+        settings:controller="com.android.car.settings.wifi.NetworkPasswordPreferenceController"
+        settings:showChevron="false"/>
 </PreferenceScreen>

@@ -32,13 +32,10 @@ allow goldfish_setup proc_net:file rw_file_perms;
 allow goldfish_setup proc:file r_file_perms;
 allow goldfish_setup nsfs:file r_file_perms;
 allow goldfish_setup system_data_file:dir getattr;
-allow goldfish_setup kernel:system module_request;
-set_prop(goldfish_setup, qemu_prop);
-get_prop(goldfish_setup, net_share_prop);
+set_prop(goldfish_setup, vendor_qemu_prop);
+get_prop(goldfish_setup, vendor_net_share_prop);
 # Allow goldfish_setup to run init.wifi.sh
 allow goldfish_setup goldfish_setup_exec:file execute_no_trans;
-#Allow goldfish_setup to run createns in its own domain
-domain_auto_trans(goldfish_setup, createns_exec, createns);
 # iw
 allow goldfish_setup sysfs:file { read open };
 # iptables

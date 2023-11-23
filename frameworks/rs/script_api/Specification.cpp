@@ -937,7 +937,7 @@ bool SystemSpecification::generateFiles(unsigned int maxApiLevel) const {
     bool success = generateHeaderFiles("include") &&
                    generateDocumentation("docs") &&
                    generateTestFiles("test", maxApiLevel) &&
-                   generateStubsWhiteList("slangtest", maxApiLevel);
+                   generateRSFunctionsList("slangtest", maxApiLevel);
     if (success) {
         cout << "Successfully processed " << mTypes.size() << " types, " << mConstants.size()
              << " constants, and " << mFunctions.size() << " functions.\n";

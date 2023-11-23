@@ -29,7 +29,8 @@ enum class FileFormat(val description: String, val version: String? = null) {
     // signature formats should be last to make comparisons work (for example in [configureOptions])
     V1("Doclava signature file", "1.0"),
     V2("Metalava signature file", "2.0"),
-    V3("Metalava signature file", "3.0");
+    V3("Metalava signature file", "3.0"),
+    V4("Metalava signature file", "4.0");
 
     /** Configures the option object such that the output format will be the given format */
     fun configureOptions(options: Options, compatibility: Compatibility) {
@@ -40,6 +41,7 @@ enum class FileFormat(val description: String, val version: String? = null) {
         options.compatOutput = this == V1
         options.outputKotlinStyleNulls = this >= V3
         options.outputDefaultValues = this >= V2
+        options.outputConciseDefaultValues = this >= V4
         compatibility.omitCommonPackages = this >= V2
         options.includeSignatureFormatVersion = this >= V2
     }
@@ -48,11 +50,12 @@ enum class FileFormat(val description: String, val version: String? = null) {
         return this >= V3
     }
 
-    fun signatureFormatAsInt(): Int {
+    private fun signatureFormatAsInt(): Int {
         return when (this) {
             V1 -> 1
             V2 -> 2
             V3 -> 3
+            V4 -> 4
 
             BASELINE,
             JDIFF,
@@ -73,7 +76,8 @@ enum class FileFormat(val description: String, val version: String? = null) {
         return when (this) {
             V1,
             V2,
-            V3 -> DOT_TXT
+            V3,
+            V4 -> DOT_TXT
 
             BASELINE -> DOT_TXT
 
@@ -88,10 +92,10 @@ enum class FileFormat(val description: String, val version: String? = null) {
         return prefix + version + "\n"
     }
 
-    fun headerPrefix(): String? {
+    private fun headerPrefix(): String? {
         return when (this) {
             V1 -> null
-            V2, V3 -> "// Signature format: "
+            V2, V3, V4 -> "// Signature format: "
             BASELINE -> "// Baseline format: "
             JDIFF, SINCE_XML -> "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
             UNKNOWN -> null
@@ -99,7 +103,7 @@ enum class FileFormat(val description: String, val version: String? = null) {
     }
 
     fun isSignatureFormat(): Boolean {
-        return this == V1 || this == V2 || this == V3
+        return this == V1 || this == V2 || this == V3 || this == V4
     }
 
     companion object {
@@ -132,7 +136,7 @@ enum class FileFormat(val description: String, val version: String? = null) {
                             return UNKNOWN
                         }
                         // Both JDiff and API-level files use <api> as the root tag (unfortunate but too late to
-                        // change) so distinguish on whether the file contains any since elementss
+                        // change) so distinguish on whether the file contains any since elements
                         if (fileContents.contains("since=")) {
                             return SINCE_XML
                         }

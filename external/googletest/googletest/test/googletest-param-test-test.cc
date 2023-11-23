@@ -490,16 +490,17 @@ TEST(CombineTest, CombineWithMaxNumberOfParameters) {
 class NonDefaultConstructAssignString {
  public:
   NonDefaultConstructAssignString(const std::string& s) : str_(s) {}
+  NonDefaultConstructAssignString() = delete;
+  NonDefaultConstructAssignString(const NonDefaultConstructAssignString&) =
+      default;
+  NonDefaultConstructAssignString& operator=(
+      const NonDefaultConstructAssignString&) = delete;
+  ~NonDefaultConstructAssignString() = default;
 
   const std::string& str() const { return str_; }
 
  private:
   std::string str_;
-
-  // Not default constructible
-  NonDefaultConstructAssignString();
-  // Not assignable
-  void operator=(const NonDefaultConstructAssignString&);
 };
 
 TEST(CombineTest, NonDefaultConstructAssign) {
@@ -834,14 +835,14 @@ TEST(MacroNameing, LookupNames) {
     }
   }
 
-  // Check that the expected form of the test suit name actualy exists.
+  // Check that the expected form of the test suit name actually exists.
   EXPECT_NE(  //
       know_suite_names.find("FortyTwo/MacroNamingTest"),
       know_suite_names.end());
   EXPECT_NE(
       know_suite_names.find("MacroNamingTestNonParametrized"),
       know_suite_names.end());
-  // Check that the expected form of the test name actualy exists.
+  // Check that the expected form of the test name actually exists.
   EXPECT_NE(  //
       know_test_names.find("FortyTwo/MacroNamingTest.FooSomeTestName/0"),
       know_test_names.end());
@@ -1077,6 +1078,27 @@ class NotUsedTest : public testing::TestWithParam<int> {};
 template <typename T>
 class NotUsedTypeTest : public testing::Test {};
 TYPED_TEST_SUITE_P(NotUsedTypeTest);
+
+// Used but not instantiated, this would fail. but...
+class NotInstantiatedTest : public testing::TestWithParam<int> {};
+// ... we mark is as allowed.
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(NotInstantiatedTest);
+
+TEST_P(NotInstantiatedTest, Used) { }
+
+using OtherName = NotInstantiatedTest;
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(OtherName);
+TEST_P(OtherName, Used) { }
+
+// Used but not instantiated, this would fail. but...
+template <typename T>
+class NotInstantiatedTypeTest : public testing::Test {};
+TYPED_TEST_SUITE_P(NotInstantiatedTypeTest);
+// ... we mark is as allowed.
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(NotInstantiatedTypeTest);
+
+TYPED_TEST_P(NotInstantiatedTypeTest, Used) { }
+REGISTER_TYPED_TEST_SUITE_P(NotInstantiatedTypeTest, Used);
 }  // namespace works_here
 
 int main(int argc, char **argv) {

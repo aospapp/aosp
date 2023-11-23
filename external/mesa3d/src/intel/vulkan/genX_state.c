@@ -29,75 +29,89 @@
 
 #include "anv_private.h"
 
+#include "common/gen_aux_map.h"
 #include "common/gen_sample_positions.h"
 #include "genxml/gen_macros.h"
 #include "genxml/genX_pack.h"
 
 #include "vk_util.h"
 
-#if GEN_GEN == 10
-/**
- * From Gen10 Workarounds page in h/w specs:
- * WaSampleOffsetIZ:
- *    "Prior to the 3DSTATE_SAMPLE_PATTERN driver must ensure there are no
- *     markers in the pipeline by programming a PIPE_CONTROL with stall."
- */
 static void
-gen10_emit_wa_cs_stall_flush(struct anv_batch *batch)
+genX(emit_slice_hashing_state)(struct anv_device *device,
+                               struct anv_batch *batch)
 {
+   device->slice_hash = (struct anv_state) { 0 };
 
-   anv_batch_emit(batch, GENX(PIPE_CONTROL), pc) {
-      pc.CommandStreamerStallEnable = true;
-      pc.StallAtPixelScoreboard = true;
+#if GEN_GEN == 11
+   const unsigned *ppipe_subslices = device->info.ppipe_subslices;
+   int subslices_delta = ppipe_subslices[0] - ppipe_subslices[1];
+   if (subslices_delta == 0)
+      return;
+
+   unsigned size = GENX(SLICE_HASH_TABLE_length) * 4;
+   device->slice_hash =
+      anv_state_pool_alloc(&device->dynamic_state_pool, size, 64);
+
+   struct GENX(SLICE_HASH_TABLE) table0 = {
+      .Entry = {
+         { 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1 },
+         { 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1 },
+         { 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0 },
+         { 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1 },
+         { 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1 },
+         { 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0 },
+         { 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1 },
+         { 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1 },
+         { 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0 },
+         { 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1 },
+         { 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1 },
+         { 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0 },
+         { 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1 },
+         { 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1 },
+         { 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0 },
+         { 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1 }
+      }
+   };
+
+   struct GENX(SLICE_HASH_TABLE) table1 = {
+      .Entry = {
+         { 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0 },
+         { 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0 },
+         { 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 },
+         { 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0 },
+         { 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0 },
+         { 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 },
+         { 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0 },
+         { 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0 },
+         { 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 },
+         { 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0 },
+         { 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0 },
+         { 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 },
+         { 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0 },
+         { 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0 },
+         { 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 },
+         { 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0 }
+      }
+   };
+
+   const struct GENX(SLICE_HASH_TABLE) *table =
+      subslices_delta < 0 ? &table0 : &table1;
+   GENX(SLICE_HASH_TABLE_pack)(NULL, device->slice_hash.map, table);
+
+   anv_batch_emit(batch, GENX(3DSTATE_SLICE_TABLE_STATE_POINTERS), ptr) {
+      ptr.SliceHashStatePointerValid = true;
+      ptr.SliceHashTableStatePointer = device->slice_hash.offset;
    }
-}
 
-/**
- * From Gen10 Workarounds page in h/w specs:
- * WaSampleOffsetIZ:_cs_stall_flush
- *    "When 3DSTATE_SAMPLE_PATTERN is programmed, driver must then issue an
- *     MI_LOAD_REGISTER_IMM command to an offset between 0x7000 and 0x7FFF(SVL)
- *     after the command to ensure the state has been delivered prior to any
- *     command causing a marker in the pipeline."
- */
-static void
-gen10_emit_wa_lri_to_cache_mode_zero(struct anv_batch *batch)
-{
-   /* Before changing the value of CACHE_MODE_0 register, GFX pipeline must
-    * be idle; i.e., full flush is required.
-    */
-   anv_batch_emit(batch, GENX(PIPE_CONTROL), pc) {
-      pc.DepthCacheFlushEnable = true;
-      pc.DCFlushEnable = true;
-      pc.RenderTargetCacheFlushEnable = true;
-      pc.InstructionCacheInvalidateEnable = true;
-      pc.StateCacheInvalidationEnable = true;
-      pc.TextureCacheInvalidationEnable = true;
-      pc.VFCacheInvalidationEnable = true;
-      pc.ConstantCacheInvalidationEnable =true;
+   anv_batch_emit(batch, GENX(3DSTATE_3D_MODE), mode) {
+      mode.SliceHashingTableEnable = true;
    }
-
-   /* Write to CACHE_MODE_0 (0x7000) */
-   uint32_t cache_mode_0 = 0;
-   anv_pack_struct(&cache_mode_0, GENX(CACHE_MODE_0));
-
-   anv_batch_emit(batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-      lri.RegisterOffset = GENX(CACHE_MODE_0_num);
-      lri.DataDWord      = cache_mode_0;
-   }
-}
 #endif
+}
 
 VkResult
 genX(init_device_state)(struct anv_device *device)
 {
-   device->default_mocs = GENX(MOCS);
-#if GEN_GEN >= 8
-   device->external_mocs = GENX(EXTERNAL_MOCS);
-#else
-   device->external_mocs = device->default_mocs;
-#endif
-
    struct anv_batch batch;
 
    uint32_t cmds[64];
@@ -106,7 +120,8 @@ genX(init_device_state)(struct anv_device *device)
 
    anv_batch_emit(&batch, GENX(PIPELINE_SELECT), ps) {
 #if GEN_GEN >= 9
-      ps.MaskBits = 3;
+      ps.MaskBits = GEN_GEN >= 12 ? 0x13 : 3;
+      ps.MediaSamplerDOPClockGateEnable = GEN_GEN >= 12;
 #endif
       ps.PipelineSelection = _3D;
    }
@@ -116,6 +131,8 @@ genX(init_device_state)(struct anv_device *device)
    anv_pack_struct(&cache_mode_1, GENX(CACHE_MODE_1),
                    .FloatBlendOptimizationEnable = true,
                    .FloatBlendOptimizationEnableMask = true,
+                   .MSCRAWHazardAvoidanceBit = true,
+                   .MSCRAWHazardAvoidanceBitMask = true,
                    .PartialResolveDisableInVC = true,
                    .PartialResolveDisableInVCMask = true);
 
@@ -139,10 +156,6 @@ genX(init_device_state)(struct anv_device *device)
 #if GEN_GEN >= 8
    anv_batch_emit(&batch, GENX(3DSTATE_WM_CHROMAKEY), ck);
 
-#if GEN_GEN == 10
-   gen10_emit_wa_cs_stall_flush(&batch);
-#endif
-
    /* See the Vulkan 1.0 spec Table 24.1 "Standard sample locations" and
     * VkPhysicalDeviceFeatures::standardSampleLocations.
     */
@@ -165,10 +178,6 @@ genX(init_device_state)(struct anv_device *device)
     * number of GPU hangs on ICL.
     */
    anv_batch_emit(&batch, GENX(3DSTATE_WM_HZ_OP), hzp);
-#endif
-
-#if GEN_GEN == 10
-   gen10_emit_wa_lri_to_cache_mode_zero(&batch);
 #endif
 
 #if GEN_GEN == 11
@@ -200,16 +209,67 @@ genX(init_device_state)(struct anv_device *device)
       lri.DataDWord      = half_slice_chicken7;
    }
 
-   /* WaEnableStateCacheRedirectToCS:icl */
-   uint32_t slice_common_eco_chicken1;
-   anv_pack_struct(&slice_common_eco_chicken1,
-                   GENX(SLICE_COMMON_ECO_CHICKEN1),
-                   .StateCacheRedirectToCSSectionEnable = true,
-                   .StateCacheRedirectToCSSectionEnableMask = true);
+   uint32_t tccntlreg;
+   anv_pack_struct(&tccntlreg, GENX(TCCNTLREG),
+                   .L3DataPartialWriteMergingEnable = true,
+                   .ColorZPartialWriteMergingEnable = true,
+                   .URBPartialWriteMergingEnable = true,
+                   .TCDisable = true);
 
    anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
-      lri.RegisterOffset = GENX(SLICE_COMMON_ECO_CHICKEN1_num);
-      lri.DataDWord      = slice_common_eco_chicken1;
+      lri.RegisterOffset = GENX(TCCNTLREG_num);
+      lri.DataDWord      = tccntlreg;
+   }
+
+#endif
+   genX(emit_slice_hashing_state)(device, &batch);
+
+#if GEN_GEN >= 11
+   /* hardware specification recommends disabling repacking for
+    * the compatibility with decompression mechanism in display controller.
+    */
+   if (device->info.disable_ccs_repack) {
+      uint32_t cache_mode_0;
+      anv_pack_struct(&cache_mode_0,
+                      GENX(CACHE_MODE_0),
+                      .DisableRepackingforCompression = true,
+                      .DisableRepackingforCompressionMask = true);
+
+      anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
+         lri.RegisterOffset = GENX(CACHE_MODE_0_num);
+         lri.DataDWord      = cache_mode_0;
+      }
+   }
+
+   /* an unknown issue is causing vs push constants to become
+    * corrupted during object-level preemption. For now, restrict
+    * to command buffer level preemption to avoid rendering
+    * corruption.
+    */
+   uint32_t cs_chicken1;
+   anv_pack_struct(&cs_chicken1,
+                   GENX(CS_CHICKEN1),
+                   .ReplayMode = MidcmdbufferPreemption,
+                   .ReplayModeMask = true);
+
+   anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
+      lri.RegisterOffset = GENX(CS_CHICKEN1_num);
+      lri.DataDWord      = cs_chicken1;
+   }
+#endif
+
+#if GEN_GEN == 12
+   if (device->info.has_aux_map) {
+      uint64_t aux_base_addr = gen_aux_map_get_base(device->aux_map_ctx);
+      assert(aux_base_addr % (32 * 1024) == 0);
+      anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
+         lri.RegisterOffset = GENX(GFX_AUX_TABLE_BASE_ADDR_num);
+         lri.DataDWord = aux_base_addr & 0xffffffff;
+      }
+      anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
+         lri.RegisterOffset = GENX(GFX_AUX_TABLE_BASE_ADDR_num) + 4;
+         lri.DataDWord = aux_base_addr >> 32;
+      }
    }
 #endif
 
@@ -218,8 +278,7 @@ genX(init_device_state)(struct anv_device *device)
     *
     * This is only safe on kernels with context isolation support.
     */
-   if (GEN_GEN >= 8 &&
-       device->instance->physicalDevice.has_context_isolation) {
+   if (GEN_GEN >= 8 && device->physical->has_context_isolation) {
       UNUSED uint32_t tmp_reg;
 #if GEN_GEN >= 9
       anv_pack_struct(&tmp_reg, GENX(CS_DEBUG_MODE2),
@@ -240,11 +299,25 @@ genX(init_device_state)(struct anv_device *device)
 #endif
    }
 
+#if GEN_GEN >= 12
+   const struct gen_l3_config *cfg = gen_get_default_l3_config(&device->info);
+   if (!cfg) {
+      /* Platforms with no configs just setup full-way allocation. */
+      uint32_t l3cr;
+      anv_pack_struct(&l3cr, GENX(L3ALLOC),
+                      .L3FullWayAllocationEnable = true);
+      anv_batch_emit(&batch, GENX(MI_LOAD_REGISTER_IMM), lri) {
+         lri.RegisterOffset = GENX(L3ALLOC_num);
+         lri.DataDWord      = l3cr;
+      }
+   }
+#endif
+
    anv_batch_emit(&batch, GENX(MI_BATCH_BUFFER_END), bbe);
 
    assert(batch.next <= batch.end);
 
-   return anv_device_submit_simple_batch(device, &batch);
+   return anv_queue_submit_simple_batch(&device->queue, &batch);
 }
 
 static uint32_t
@@ -316,21 +389,31 @@ VkResult genX(CreateSampler)(
     VkSampler*                                  pSampler)
 {
    ANV_FROM_HANDLE(anv_device, device, _device);
-   const struct anv_physical_device *pdevice =
-      &device->instance->physicalDevice;
    struct anv_sampler *sampler;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
 
-   sampler = vk_zalloc2(&device->alloc, pAllocator, sizeof(*sampler), 8,
+   sampler = vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*sampler), 8,
                         VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!sampler)
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
+   vk_object_base_init(&device->vk, &sampler->base, VK_OBJECT_TYPE_SAMPLER);
    sampler->n_planes = 1;
 
-   uint32_t border_color_offset = device->border_colors.offset +
-                                  pCreateInfo->borderColor * 64;
+   uint32_t border_color_stride = GEN_IS_HASWELL ? 512 : 64;
+   uint32_t border_color_offset;
+   ASSERTED bool has_custom_color = false;
+   if (pCreateInfo->borderColor <= VK_BORDER_COLOR_INT_OPAQUE_WHITE) {
+      border_color_offset = device->border_colors.offset +
+                            pCreateInfo->borderColor *
+                            border_color_stride;
+   } else {
+      assert(GEN_GEN >= 8);
+      sampler->custom_border_color =
+         anv_state_reserved_pool_alloc(&device->custom_border_colors);
+      border_color_offset = sampler->custom_border_color.offset;
+   }
 
 #if GEN_GEN >= 9
    unsigned sampler_reduction_mode = STD_FILTER;
@@ -358,22 +441,47 @@ VkResult genX(CreateSampler)(
          break;
       }
 #if GEN_GEN >= 9
-      case VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT: {
-         struct VkSamplerReductionModeCreateInfoEXT *sampler_reduction =
-            (struct VkSamplerReductionModeCreateInfoEXT *) ext;
+      case VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO: {
+         VkSamplerReductionModeCreateInfo *sampler_reduction =
+            (VkSamplerReductionModeCreateInfo *) ext;
          sampler_reduction_mode =
             vk_to_gen_sampler_reduction_mode[sampler_reduction->reductionMode];
          enable_sampler_reduction = true;
          break;
       }
 #endif
+      case VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT: {
+         VkSamplerCustomBorderColorCreateInfoEXT *custom_border_color =
+            (VkSamplerCustomBorderColorCreateInfoEXT *) ext;
+         if (sampler->custom_border_color.map == NULL)
+            break;
+         struct gen8_border_color *cbc = sampler->custom_border_color.map;
+         if (custom_border_color->format == VK_FORMAT_B4G4R4A4_UNORM_PACK16) {
+            /* B4G4R4A4_UNORM_PACK16 is treated as R4G4B4A4_UNORM_PACK16 with
+             * a swizzle, but this does not carry over to the sampler for
+             * border colors, so we need to do the swizzle ourselves here.
+             */
+            cbc->uint32[0] = custom_border_color->customBorderColor.uint32[2];
+            cbc->uint32[1] = custom_border_color->customBorderColor.uint32[1];
+            cbc->uint32[2] = custom_border_color->customBorderColor.uint32[0];
+            cbc->uint32[3] = custom_border_color->customBorderColor.uint32[3];
+         } else {
+            /* Both structs share the same layout, so just copy them over. */
+            memcpy(cbc, &custom_border_color->customBorderColor,
+                   sizeof(VkClearColorValue));
+         }
+         has_custom_color = true;
+         break;
+      }
       default:
          anv_debug_ignored_stype(ext->sType);
          break;
       }
    }
 
-   if (pdevice->has_bindless_samplers) {
+   assert((sampler->custom_border_color.map == NULL) || has_custom_color);
+
+   if (device->physical->has_bindless_samplers) {
       /* If we have bindless, allocate enough samplers.  We allocate 32 bytes
        * for each sampler instead of 16 bytes because we want all bindless
        * samplers to be 32-byte aligned so we don't have to use indirect
@@ -418,13 +526,16 @@ VkResult genX(CreateSampler)(
          .MagModeFilter = vk_to_gen_tex_filter(mag_filter, pCreateInfo->anisotropyEnable),
          .MinModeFilter = vk_to_gen_tex_filter(min_filter, pCreateInfo->anisotropyEnable),
          .TextureLODBias = anv_clamp_f(pCreateInfo->mipLodBias, -16, 15.996),
-         .AnisotropicAlgorithm = EWAApproximation,
+         .AnisotropicAlgorithm =
+            pCreateInfo->anisotropyEnable ? EWAApproximation : LEGACY,
          .MinLOD = anv_clamp_f(pCreateInfo->minLod, 0, 14),
          .MaxLOD = anv_clamp_f(pCreateInfo->maxLod, 0, 14),
          .ChromaKeyEnable = 0,
          .ChromaKeyIndex = 0,
          .ChromaKeyMode = 0,
-         .ShadowFunction = vk_to_gen_shadow_compare_op[pCreateInfo->compareOp],
+         .ShadowFunction =
+            vk_to_gen_shadow_compare_op[pCreateInfo->compareEnable ?
+                                        pCreateInfo->compareOp : VK_COMPARE_OP_NEVER],
          .CubeSurfaceControlMode = OVERRIDE,
 
          .BorderColorPointer = border_color_offset,

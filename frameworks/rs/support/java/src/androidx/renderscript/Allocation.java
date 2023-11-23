@@ -54,7 +54,12 @@ import android.view.Surface;
  * <a href="{@docRoot}guide/topics/renderscript/index.html">RenderScript</a>
  * developer guide.</p>
  * </div>
+ *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public class Allocation extends BaseObj {
     Type mType;
     Bitmap mBitmap;
@@ -225,7 +230,7 @@ public class Allocation extends BaseObj {
     }
 
     /**
-     * Getter & Setter for the dummy allocation for Inc Support Lib.
+     * Getter & Setter for the placeholder allocation for Inc Support Lib.
      *
      */
     public long getIncAllocID() {

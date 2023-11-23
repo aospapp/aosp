@@ -44,7 +44,6 @@ import java.util.ArrayList;
  * Action used to send an outgoing message. It writes MMS messages to the telephony db
  * ({@link InsertNewMessageAction}) writes SMS messages to the telephony db). It also
  * initiates the actual sending. It will all be used for re-sending a failed message.
- * NOTE: This action must queue a ProcessPendingMessagesAction when it is done (success or failure).
  * <p>
  * This class is public (not package-private) because the SMS/MMS (e.g. MmsUtils) classes need to
  * access the EXTRA_* fields for setting up the 'sent' pending intent.
@@ -96,13 +95,17 @@ public class SendMessageAction extends Action implements Parcelable {
     private boolean queueAction(final String messageId, final Action processingAction) {
         actionParameters.putString(KEY_MESSAGE_ID, messageId);
 
-        final long timestamp = System.currentTimeMillis();
         final DatabaseWrapper db = DataModel.get().getDatabase();
 
         final MessageData message = BugleDatabaseOperations.readMessage(db, messageId);
         // Check message can be resent
         if (message != null && message.canSendMessage()) {
-            final boolean isSms = (message.getProtocol() == MessageData.PROTOCOL_SMS);
+            final boolean isSms = message.getIsSms();
+            long timestamp = System.currentTimeMillis();
+            if (!isSms) {
+                // MMS expects timestamp rounded to nearest second
+                timestamp = 1000 * ((timestamp + 500) / 1000);
+            }
 
             final ParticipantData self = BugleDatabaseOperations.getExistingParticipant(
                     db, message.getSelfId());
@@ -111,8 +114,13 @@ public class SendMessageAction extends Action implements Parcelable {
 
             // Update message status
             if (message.getYetToSend()) {
-                // Initial sending of message
-                message.markMessageSending(timestamp);
+                if (message.getReceivedTimeStamp() == message.getRetryStartTimestamp()) {
+                    // Initial sending of message
+                    message.markMessageSending(timestamp);
+                } else {
+                    // Manual resend of message
+                    message.markMessageManualResend(timestamp);
+                }
             } else {
                 // Automatic resend of message
                 message.markMessageResending(timestamp);
@@ -293,9 +301,6 @@ public class SendMessageAction extends Action implements Parcelable {
         ProcessSentMessageAction.processResult(messageId, null /* updatedMessageUri */,
                 MmsUtils.MMS_REQUEST_MANUAL_RETRY, MessageData.RAW_TELEPHONY_STATUS_UNDEFINED,
                 isSms, this, subId, resultCode, httpStatusCode);
-
-        // Whether we succeeded or failed we will check and maybe schedule some more work
-        ProcessPendingMessagesAction.scheduleProcessPendingMessagesAction(true, this);
 
         return null;
     }

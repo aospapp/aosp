@@ -20,7 +20,7 @@
     <string name="ssl_security_warning_title" msgid="7912335118289529802">"اخطار امنیتی"</string>
     <string name="ssl_error_view_certificate" msgid="3447891108083278449">"مشاهده گواهی"</string>
     <string name="custom_scheme_warning" msgid="1809266150423969087">"شبکه‌ای که سعی دارید به آن بپیوندید درخواست کرده است برنامه دیگری را باز کنید."</string>
-    <string name="custom_scheme_example" msgid="7126568152528588592">"به‌عنوان مثال، صفحه ورود به سیستم ممکن است برای احراز هویت به برنامه‌ای خاص نیاز داشته باشد"</string>
+    <string name="custom_scheme_example" msgid="7126568152528588592">"به‌عنوان مثال، صفحه ورود به سیستم ممکن است برای اصالت‌سنجی به برنامه‌ای خاص نیاز داشته باشد"</string>
     <string name="ok" msgid="6584612582120777209">"تأیید"</string>
     <string name="page_info_address" msgid="1290683284404217554">"نشانی:"</string>
     <string name="page_info" msgid="46593086046896385">"اطلاعات صفحه"</string>

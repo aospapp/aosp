@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013-2019, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2013-2021, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -7,6 +7,12 @@
 ################################################################################
 # Include Makefile for the SPM-MM implementation
 ################################################################################
+ifeq (${SUPPORT_UNKNOWN_MPID},1)
+  ifeq (${DEBUG},0)
+    $(warning WARNING: SUPPORT_UNKNOWN_MPID enabled)
+  endif
+endif
+
 ifeq (${SPM_MM},1)
   ifeq (${EL3_EXCEPTION_HANDLING},0)
     $(error EL3_EXCEPTION_HANDLING must be 1 for SPM-MM support)
@@ -31,8 +37,12 @@ BL31_SOURCES		+=	bl31/bl31_main.c				\
 				services/arm_arch_svc/arm_arch_svc_setup.c	\
 				services/std_svc/std_svc_setup.c		\
 				${PSCI_LIB_SOURCES}				\
+				${SPMD_SOURCES}					\
 				${SPM_SOURCES}
 
+ifeq (${DISABLE_MTPMU},1)
+BL31_SOURCES		+=	lib/extensions/mtpmu/aarch64/mtpmu.S
+endif
 
 ifeq (${ENABLE_PMF}, 1)
 BL31_SOURCES		+=	lib/pmf/pmf_main.c
@@ -56,6 +66,11 @@ BL31_SOURCES		+=	services/std_svc/sdei/sdei_dispatch.S	\
 				services/std_svc/sdei/sdei_intr_mgmt.c	\
 				services/std_svc/sdei/sdei_main.c	\
 				services/std_svc/sdei/sdei_state.c
+endif
+
+ifeq (${TRNG_SUPPORT},1)
+BL31_SOURCES		+=	services/std_svc/trng/trng_main.c	\
+				services/std_svc/trng/trng_entropy_pool.c
 endif
 
 ifeq (${ENABLE_SPE_FOR_LOWER_ELS},1)
@@ -88,10 +103,16 @@ ifndef CRASH_REPORTING
 CRASH_REPORTING		:=	$(DEBUG)
 endif
 
-$(eval $(call assert_boolean,CRASH_REPORTING))
-$(eval $(call assert_boolean,EL3_EXCEPTION_HANDLING))
-$(eval $(call assert_boolean,SDEI_SUPPORT))
+$(eval $(call assert_booleans,\
+    $(sort \
+	CRASH_REPORTING \
+	EL3_EXCEPTION_HANDLING \
+	SDEI_SUPPORT \
+)))
 
-$(eval $(call add_define,CRASH_REPORTING))
-$(eval $(call add_define,EL3_EXCEPTION_HANDLING))
-$(eval $(call add_define,SDEI_SUPPORT))
+$(eval $(call add_defines,\
+    $(sort \
+        CRASH_REPORTING \
+        EL3_EXCEPTION_HANDLING \
+        SDEI_SUPPORT \
+)))

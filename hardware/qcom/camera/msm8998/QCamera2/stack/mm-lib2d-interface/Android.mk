@@ -29,6 +29,8 @@ LOCAL_SRC_FILES := \
     src/mm_lib2d.c
 
 LOCAL_MODULE           := libmmlib2d_interface
+LOCAL_LICENSE_KINDS    := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_PRELINK_MODULE   := false
 LOCAL_SHARED_LIBRARIES := libdl libcutils liblog libmmcamera_interface
 LOCAL_MODULE_TAGS := optional

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"कॉल व्यवस्थापन"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"फोन कॉल"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"फोन"</string>
     <string name="unknown" msgid="6993977514360123431">"अज्ञात"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"सुटलेला कॉल"</string>
@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"आणीबाणी कॉल केल्यामुळे <xliff:g id="CALLER">%s</xliff:g> ला केलेला कॉल डिस्कनेक्ट केला गेला."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"आणीबाणी कॉल केल्यामुळे तुमचा कॉल डिस्कनेक्ट केला गेला आहे."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"बॅकग्राउंड कॉल"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> यांनी कॉल बॅकग्राउंडवर ठेवला आहे हे ॲप कदाचित कॉलद्वारे ऑडिओ ॲक्सेस आणि प्ले करत आहे."</string>
+    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> यांनी कॉल बॅकग्राउंडवर ठेवला आहे हे अ‍ॅप कदाचित कॉलद्वारे ऑडिओ ॲक्सेस आणि प्ले करत आहे."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> ने प्रतिसाद देणे थांबवले आहे"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"तुमच्या कॉलने डिव्हाइससोबत दिलेले फोन अ‍ॅप वापरले आहे"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"कॉल नि.शब्‍द केला."</string>
@@ -94,7 +94,7 @@
     <string name="cant_call_due_to_ongoing_call" msgid="8004235328451385493">"आपल्या <xliff:g id="OTHER_CALL">%1$s</xliff:g> कॉलमुळे कॉल केला जाऊ शकत नाही."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="6379163795277824868">"आपल्या <xliff:g id="OTHER_CALL">%1$s</xliff:g> कॉलमुळे कॉल केला जाऊ शकत नाही."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="8243532328969433172">"दुसर्‍या ॲपमधील कॉलमुळे कॉल केला जाऊ शकत नाही."</string>
-    <string name="notification_channel_incoming_call" msgid="5245550964701715662">"येणारे कॉल"</string>
+    <string name="notification_channel_incoming_call" msgid="5245550964701715662">"इनकमिंग कॉल"</string>
     <string name="notification_channel_missed_call" msgid="7168893015283909012">"मिस्ड कॉल"</string>
     <string name="notification_channel_call_blocking" msgid="2028807677868598710">"कॉल ब्‍लॉक करणे"</string>
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"बॅकग्राउंड कॉल"</string>
@@ -111,9 +111,9 @@
     <string name="phone_settings_private_num_txt" msgid="6339272760338475619">"खाजगी"</string>
     <string name="phone_settings_private_num_summary_txt" msgid="6755758240544021037">"अशा कॉलरना ब्‍लॉक करा, जे त्‍यांचे क्रमांक उघड करत नाहीत"</string>
     <string name="phone_settings_payphone_txt" msgid="5003987966052543965">"पे फोन"</string>
-    <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"पे फोनवरून येणारे कॉल ब्‍लॉक करा"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"पे फोनवरून इनकमिंग कॉल ब्‍लॉक करा"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"अज्ञात"</string>
-    <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"अनोळखी कॉलरकडून येणारे कॉल ब्‍लॉक करा"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"अनोळखी कॉलरकडून इनकमिंग कॉल ब्‍लॉक करा"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"कॉल ब्‍लॉक करणे"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"कॉल ब्‍लॉक करणे बंद केले"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"आणीबाणी कॉल केला"</string>

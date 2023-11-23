@@ -110,7 +110,7 @@ public class NewOutgoingCallIntentBroadcasterTest extends TelecomTestCase {
         when(mPhoneAccountRegistrar.getPhoneAccountUnchecked(
             any(PhoneAccountHandle.class))).thenReturn(mPhoneAccount);
         when(mPhoneAccount.isSelfManaged()).thenReturn(true);
-        when(mSystemStateHelper.isCarMode()).thenReturn(false);
+        when(mSystemStateHelper.isCarModeOrProjectionActive()).thenReturn(false);
     }
 
     @Override
@@ -229,7 +229,7 @@ public class NewOutgoingCallIntentBroadcasterTest extends TelecomTestCase {
         mComponentContextFixture.putResource(R.string.dialer_default_class,
                 dialer_default_class_string);
         when(mDefaultDialerCache.getSystemDialerApplication()).thenReturn(ui_package_string);
-        when(mDefaultDialerCache.getSystemDialerComponent()).thenReturn(
+        when(mDefaultDialerCache.getDialtactsSystemDialerComponent()).thenReturn(
                 new ComponentName(ui_package_string, dialer_default_class_string));
 
         int result = processIntent(intent, false).disconnectCause;

@@ -32,6 +32,7 @@ import androidx.loader.content.Loader;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.Logger;
+import com.android.settingslib.core.lifecycle.HideNonSystemOverlayMixin;
 
 import java.io.File;
 
@@ -50,6 +51,7 @@ public class ThirdPartyLicensesActivity extends FragmentActivity implements
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getLifecycle().addObserver(new HideNonSystemOverlayMixin(this));
 
         final String licenseHtmlPath =
                 SystemProperties.get(PROPERTY_LICENSE_PATH, DEFAULT_LICENSE_PATH);

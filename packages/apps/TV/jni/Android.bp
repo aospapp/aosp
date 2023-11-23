@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "libtunertvinput_jni",
     srcs: [
@@ -26,5 +30,6 @@ cc_library_shared {
     ],
     sdk_version: "23",
     stl: "c++_static",
+    header_libs: ["jni_headers"],
     shared_libs: ["liblog"],
 }

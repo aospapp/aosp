@@ -16,6 +16,9 @@
 
 package dalvik.system;
 
+import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
+
+import android.annotation.SystemApi;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.system.ErrnoException;
 
@@ -27,6 +30,8 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import libcore.io.Libcore;
+import libcore.util.NonNull;
+import libcore.util.Nullable;
 
 import dalvik.annotation.optimization.ReachabilitySensitive;
 
@@ -40,7 +45,6 @@ import dalvik.annotation.optimization.ReachabilitySensitive;
  *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
  *     in a future Android release</b>.
  */
-@libcore.api.CorePlatformApi
 @Deprecated
 public final class DexFile {
   /**
@@ -398,15 +402,11 @@ public final class DexFile {
      * DexPathList to have been initialized for its classes to be resolvable by ART.
      * DexPathList will open the dex files first, finalize `dexElements` and then call this.
      */
-    /*package*/ void verifyInBackground(ClassLoader classLoader, String classLoaderContext) {
-        verifyInBackgroundNative(mCookie, classLoader, classLoaderContext);
+    /*package*/ void verifyInBackground(ClassLoader classLoader) {
+        verifyInBackgroundNative(mCookie, classLoader);
     }
 
-    private static native void verifyInBackgroundNative(Object mCookie, ClassLoader classLoader,
-            String classLoaderContext);
-
-    /*package*/ static native String getClassLoaderContext(ClassLoader classLoader,
-            DexPathList.Element[] elements);
+    private static native void verifyInBackgroundNative(Object mCookie, ClassLoader classLoader);
 
     /*
      * Returns true if the dex file is backed by a valid oat file.
@@ -464,7 +464,8 @@ public final class DexFile {
      *
      * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int NO_DEXOPT_NEEDED = 0;
 
     /**
@@ -494,7 +495,8 @@ public final class DexFile {
      *
      * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final int DEX2OAT_FOR_FILTER = 3;
 
 
@@ -519,6 +521,7 @@ public final class DexFile {
      * is used to indicate whether profile information has changed recently.
      *
      * @param fileName the absolute path to the apk/jar file to examine.
+     * @param instructionSet instruction set to examine
      * @param compilerFilter a compiler filter to use for what a caller considers up-to-date.
      * @param classLoaderContext a string encoding the class loader context the dex file
      *        is intended to have at runtime.
@@ -536,13 +539,14 @@ public final class DexFile {
      *         not a file, or not present.
      * @throws java.io.IOException if fileName is not a valid apk/jar file or
      *         if problems occur while parsing it.
-     * @throws java.lang.NullPointerException if fileName is null.
+     * @throws java.lang.NullPointerException if {@code fileName} is {@code null}.
      *
      * @hide
      */
-    @libcore.api.CorePlatformApi
-    public static native int getDexOptNeeded(String fileName,
-            String instructionSet, String compilerFilter, String classLoaderContext,
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public static native int getDexOptNeeded(@NonNull String fileName,
+            @NonNull String instructionSet, @NonNull String compilerFilter, @Nullable String classLoaderContext,
             boolean newProfile, boolean downgrade)
             throws FileNotFoundException, IOException;
 
@@ -565,9 +569,10 @@ public final class DexFile {
      *
      * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final class OptimizationInfo {
-        // The optimization status.
+        // The human readable refined optimization status of the validity of the odex file.
         private final String status;
         // The optimization reason. The reason might be "unknown" if the
         // the compiler artifacts were not annotated during optimizations.
@@ -578,13 +583,29 @@ public final class DexFile {
             this.reason = reason;
         }
 
-        @libcore.api.CorePlatformApi
-        public String getStatus() {
+        /**
+         * Returns the human readable refined status of the validity of the odex file.
+         *
+         * @return optimization status
+         *
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+        public @NonNull String getStatus() {
             return status;
         }
 
-        @libcore.api.CorePlatformApi
-        public String getReason() {
+        /**
+         * Returns the reason of a particular optimization used.
+         *
+         * @return optimization reason
+         *
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+        public @NonNull String getReason() {
             return reason;
         }
     }
@@ -592,11 +613,17 @@ public final class DexFile {
     /**
      * Retrieves the optimization info for a dex file.
      *
+     * @param fileName       path to dex file
+     * @param instructionSet instruction set to get optimization info for
+     * @return {@link OptimizationInfo} for {@code fileName} dex file
+     * @throws FileNotFoundException if {@code fileName} not found
+     *
      * @hide
      */
-    @libcore.api.CorePlatformApi
-    public static OptimizationInfo getDexFileOptimizationInfo(
-            String fileName, String instructionSet) throws FileNotFoundException {
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public static @NonNull OptimizationInfo getDexFileOptimizationInfo(
+            @NonNull String fileName, @NonNull String instructionSet) throws FileNotFoundException {
         String[] status = getDexFileOptimizationStatus(fileName, instructionSet);
         return new OptimizationInfo(status[0], status[1]);
     }
@@ -618,33 +645,51 @@ public final class DexFile {
 
     /**
      * Returns the paths of the optimized files generated for {@code fileName}.
-     * If no optimized code exists the method returns null.
+     * If no optimized code exists the method returns {@code null}.
+     *
+     * @param fileName       path to dex file
+     * @param instructionSet instruction set to get optimized files for
+     * @return paths to optimized code, or {@code null} if they do not exist
+     * @throws FileNotFoundException
+     *
      * @hide
      */
-    @libcore.api.CorePlatformApi
-    public static native String[] getDexFileOutputPaths(String fileName, String instructionSet)
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public static native @Nullable String[] getDexFileOutputPaths(@NonNull String fileName, @NonNull String instructionSet)
         throws FileNotFoundException;
 
     /**
      * Returns whether the given filter is a valid filter.
      *
+     * @param filter filter string
+     * @return whether given filter string is a valid filter
+     *
      * @hide
      */
-    @libcore.api.CorePlatformApi
-    public native static boolean isValidCompilerFilter(String filter);
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public native static boolean isValidCompilerFilter(@NonNull String filter);
 
     /**
      * Returns whether the given filter is based on profiles.
      *
+     * @param filter filter string
+     * @return whether given filter string is based on profiles
+     *
      * @hide
      */
-    @libcore.api.CorePlatformApi
-    public native static boolean isProfileGuidedCompilerFilter(String filter);
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public native static boolean isProfileGuidedCompilerFilter(@NonNull String filter);
 
     /**
      * Returns the version of the compiler filter that is not based on profiles.
      * If the input is not a valid filter, or the filter is already not based on
      * profiles, this returns the input.
+     *
+     * @param filter filter string
+     * @return version of the compiler filter that is not based on profiles
      *
      * @hide
      */
@@ -655,10 +700,14 @@ public final class DexFile {
      * If the input is not a valid filter, or the filter is already suitable for
      * safe mode, this returns the input.
      *
+     * @param filter filter string
+     * @return version of the compiler filter that is suitable for safe mode
+     *
      * @hide
      */
-    @libcore.api.CorePlatformApi
-    public native static String getSafeModeCompilerFilter(String filter);
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public native static @NonNull String getSafeModeCompilerFilter(@NonNull String filter);
 
     /**
      * Returns the static file size of the original dex file.

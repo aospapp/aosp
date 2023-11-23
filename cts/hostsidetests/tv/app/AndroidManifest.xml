@@ -15,22 +15,22 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.tv.hostside">
+     package="com.android.cts.tv.hostside">
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
         <service android:name=".StubTvInputService"
-                 android:permission="android.permission.BIND_TV_INPUT">
+             android:permission="android.permission.BIND_TV_INPUT"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.media.tv.TvInputService"/>
             </intent-filter>
             <meta-data android:name="android.media.tv.input"
-                       android:resource="@xml/stub_tv_input_service" />
+                 android:resource="@xml/stub_tv_input_service"/>
         </service>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.tv.hostside" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="com.android.cts.tv.hostside"/>
 
 </manifest>

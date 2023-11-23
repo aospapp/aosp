@@ -24,6 +24,8 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.UserHandle;
+import android.os.UserManager;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.analytics.MetricsWriterFactory;
@@ -33,6 +35,10 @@ import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
+import com.android.managedprovisioning.task.DownloadPackageTask;
+import com.android.managedprovisioning.task.InstallExistingPackageTask;
+import com.android.managedprovisioning.task.InstallPackageTask;
+import com.android.managedprovisioning.task.VerifyPackageTask;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,8 +90,6 @@ public abstract class AbstractProvisioningController implements AbstractProvisio
         mProvisioningAnalyticsTracker = new ProvisioningAnalyticsTracker(
                 MetricsWriterFactory.getMetricsWriter(mContext, new SettingsFacade()),
                 new ManagedProvisioningSharedPreferences(context));
-
-        setUpTasks();
     }
 
     @MainThread
@@ -96,7 +100,6 @@ public abstract class AbstractProvisioningController implements AbstractProvisio
     }
 
     protected abstract void setUpTasks();
-    protected abstract void performCleanup();
     protected abstract int getErrorTitle();
     protected abstract int getErrorMsgId(AbstractProvisioningTask task, int errorCode);
     protected abstract boolean getRequireFactoryReset(AbstractProvisioningTask task, int errorCode);
@@ -176,10 +179,26 @@ public abstract class AbstractProvisioningController implements AbstractProvisio
 
     private void cleanup(final int newStatus) {
         mWorkerHandler.post(() -> {
-                performCleanup();
                 mStatus = newStatus;
                 mCallback.cleanUpCompleted();
             });
+    }
+
+    protected final void addDownloadAndInstallDeviceOwnerPackageTasks() {
+        if (mParams.deviceAdminDownloadInfo == null) return;
+
+        DownloadPackageTask downloadTask = new DownloadPackageTask(mContext, mParams, this);
+        addTasks(downloadTask,
+                new VerifyPackageTask(downloadTask, mContext, mParams, this),
+                new InstallPackageTask(downloadTask, mContext, mParams, this));
+
+        // TODO(b/170333009): add unit test for headless system user mode
+        if (UserManager.isHeadlessSystemUserMode() && mUserId != UserHandle.USER_SYSTEM) {
+            ProvisionLogger.logd("Adding InstallExistingPackageTask for system user on "
+                      + "headless system user mode");
+            addTasks(new InstallExistingPackageTask(mParams.inferDeviceAdminPackageName(),
+                    mContext, mParams, this, UserHandle.USER_SYSTEM));
+        }
     }
 
     /**
@@ -196,8 +215,10 @@ public abstract class AbstractProvisioningController implements AbstractProvisio
         public void handleMessage(Message msg) {
             if (msg.what == MSG_RUN_TASK) {
                 AbstractProvisioningTask task = (AbstractProvisioningTask) msg.obj;
-                ProvisionLogger.logd("Running task: " + task.getClass().getSimpleName());
-                task.run(msg.arg1);
+                int userId = msg.arg1;
+                ProvisionLogger.logd("Running task: " + task.getClass().getSimpleName()
+                        + " for user " + userId);
+                task.run(userId);
             } else {
                 ProvisionLogger.loge("Unknown message: " + msg.what);
             }

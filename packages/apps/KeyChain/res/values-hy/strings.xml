@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Կարող եք հավաստագրեր տեղադրել  %1$s կամ  %2$s  ընդլայնումով PKCS#12 ֆայլից, որը գտնվում է արտաքին կրիչի վրա։"</string>
     <string name="allow_button" msgid="3030990695030371561">"Ընտրել"</string>
     <string name="deny_button" msgid="3766539809121892584">"Մերժել"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Հավաստագրերի բեռնում..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s հավելվածը ստուգում է հավաստագրի առկայությունը…"</string>
 </resources>

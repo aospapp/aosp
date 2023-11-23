@@ -1,16 +1,11 @@
 /*
  * HTTP support routines for CUPS.
  *
- * Copyright 2007-2018 by Apple Inc.
+ * Copyright 2007-2019 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * missing or damaged, see the license at "http://www.cups.org/".
- *
- * This file is subject to the Apple OS-Developed Software exception.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -18,6 +13,7 @@
  */
 
 #include "cups-private.h"
+#include "debug-internal.h"
 #ifdef HAVE_DNSSD
 #  include <dns_sd.h>
 #  ifdef _WIN32
@@ -803,14 +799,12 @@ httpGetDateString2(time_t t,		/* I - Time in seconds */
                    char   *s,		/* I - String buffer */
 		   int    slen)		/* I - Size of string buffer */
 {
-  struct tm	*tdate;			/* UNIX date/time data */
+  struct tm	tdate;			/* UNIX date/time data */
 
 
-  tdate = gmtime(&t);
-  if (tdate)
-    snprintf(s, (size_t)slen, "%s, %02d %s %d %02d:%02d:%02d GMT", http_days[tdate->tm_wday], tdate->tm_mday, http_months[tdate->tm_mon], tdate->tm_year + 1900, tdate->tm_hour, tdate->tm_min, tdate->tm_sec);
-  else
-    s[0] = '\0';
+  gmtime_r(&t, &tdate);
+
+  snprintf(s, (size_t)slen, "%s, %02d %s %d %02d:%02d:%02d GMT", http_days[tdate.tm_wday], tdate.tm_mday, http_months[tdate.tm_mon], tdate.tm_year + 1900, tdate.tm_hour, tdate.tm_min, tdate.tm_sec);
 
   return (s);
 }
@@ -1325,9 +1319,10 @@ _httpSetDigestAuthString(
 		digest[1024];		/* Digest auth data */
   unsigned char	hash[32];		/* Hash buffer */
   size_t	hashsize;		/* Size of hash */
+  _cups_globals_t *cg = _cupsGlobals();	/* Per-thread globals */
 
 
-  DEBUG_printf(("2_httpSetDigestAuthString(http=%p, nonce=\"%s\", method=\"%s\", resource=\"%s\")", http, nonce, method, resource));
+  DEBUG_printf(("2_httpSetDigestAuthString(http=%p, nonce=\"%s\", method=\"%s\", resource=\"%s\")", (void *)http, nonce, method, resource));
 
   if (nonce && *nonce && strcmp(nonce, http->nonce))
   {
@@ -1366,6 +1361,12 @@ _httpSetDigestAuthString(
      /*
       * RFC 2617 Digest with MD5
       */
+
+      if (cg->digestoptions == _CUPS_DIGESTOPTIONS_DENYMD5)
+      {
+	DEBUG_puts("3_httpSetDigestAuthString: MD5 Digest is disabled.");
+	return (0);
+      }
 
       hashalg = "md5";
     }

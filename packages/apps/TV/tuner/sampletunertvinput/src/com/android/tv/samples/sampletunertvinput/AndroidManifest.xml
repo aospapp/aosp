@@ -39,7 +39,8 @@
       android:icon="@mipmap/ic_launcher"
       android:theme="@android:style/Theme.Holo.Light.NoActionBar"
       android:appComponentFactory="android.support.v4.app.CoreComponentFactory" >
-    <activity android:name=".SampleTunerTvInputSetupActivity" >
+    <activity android:name=".SampleTunerTvInputSetupActivity"
+      android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
       </intent-filter>
@@ -47,7 +48,8 @@
     <service android:name=".SampleTunerTvInputService"
         android:permission="android.permission.BIND_TV_INPUT"
         android:label="@string/sample_tuner_tv_input"
-        android:process="com.android.tv.samples.sampletunertvinput">
+        android:process="com.android.tv.samples.sampletunertvinput"
+        android:exported="true">
       <intent-filter>
         <action android:name="android.media.tv.TvInputService" />
       </intent-filter>

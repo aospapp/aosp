@@ -22,9 +22,17 @@
         android:orderInCategory="100"
         android:title="@string/text_elements"/>
     <item
+        android:id="@+id/button_elements"
+        android:orderInCategory="100"
+        android:title="@string/button_elements"/>
+    <item
         android:id="@+id/panel_elements"
         android:orderInCategory="100"
         android:title="@string/panel_elements"/>
+    <item
+        android:id="@+id/progress_bar_elements"
+        android:orderInCategory="100"
+        android:title="@string/progress_bar_elements"/>
     <item
         android:id="@+id/dialog_elements"
         android:orderInCategory="100"

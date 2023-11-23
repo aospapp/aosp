@@ -24,7 +24,7 @@ import (
 var pctx = android.NewPackageContext("android/soong/rust/config")
 
 var (
-	RustDefaultVersion = "1.40.0"
+	RustDefaultVersion = "1.51.0"
 	RustDefaultBase    = "prebuilts/rust/"
 	DefaultEdition     = "2018"
 	Stdlibs            = []string{
@@ -32,30 +32,44 @@ var (
 		"libtest",
 	}
 
-	DefaultDenyWarnings = true
+	// Mapping between Soong internal arch types and std::env constants.
+	// Required as Rust uses aarch64 when Soong uses arm64.
+	StdEnvArch = map[android.ArchType]string{
+		android.Arm:    "arm",
+		android.Arm64:  "aarch64",
+		android.X86:    "x86",
+		android.X86_64: "x86_64",
+	}
 
 	GlobalRustFlags = []string{
 		"--remap-path-prefix $$(pwd)=",
 		"-C codegen-units=1",
+		"-C debuginfo=2",
 		"-C opt-level=3",
 		"-C relocation-model=pic",
+		"-C overflow-checks=on",
+		// Use v0 mangling to distinguish from C++ symbols
+		"-Z symbol-mangling-version=v0",
 	}
 
-	deviceGlobalRustFlags = []string{}
+	deviceGlobalRustFlags = []string{
+		"-C panic=abort",
+		"-Z link-native-libraries=no",
+	}
 
 	deviceGlobalLinkFlags = []string{
-		"-Bdynamic",
-		"-nostdlib",
-		"-Wl,-z,noexecstack",
-		"-Wl,-z,relro",
-		"-Wl,-z,now",
-		"-Wl,--build-id=md5",
-		"-Wl,--warn-shared-textrel",
-		"-Wl,--fatal-warnings",
+		// Prepend the lld flags from cc_config so we stay in sync with cc
+		"${cc_config.DeviceGlobalLldflags}",
 
+		// Override cc's --no-undefined-version to allow rustc's generated alloc functions
+		"-Wl,--undefined-version",
+
+		"-Wl,-Bdynamic",
+		"-nostdlib",
 		"-Wl,--pack-dyn-relocs=android+relr",
+		"-Wl,--use-android-relr-tags",
 		"-Wl,--no-undefined",
-		"-Wl,--hash-style=gnu",
+		"-B${cc_config.ClangBin}",
 	}
 )
 
@@ -80,9 +94,9 @@ func init() {
 	pctx.StaticVariable("RustPath", "${RustBase}/${HostPrebuiltTag}/${RustVersion}")
 	pctx.StaticVariable("RustBin", "${RustPath}/bin")
 
-	pctx.ImportAs("ccConfig", "android/soong/cc/config")
-	pctx.StaticVariable("RustLinker", "${ccConfig.ClangBin}/clang++")
-	pctx.StaticVariable("RustLinkerArgs", "-B ${ccConfig.ClangBin} -fuse-ld=lld")
+	pctx.ImportAs("cc_config", "android/soong/cc/config")
+	pctx.StaticVariable("RustLinker", "${cc_config.ClangBin}/clang++")
+	pctx.StaticVariable("RustLinkerArgs", "")
 
 	pctx.StaticVariable("DeviceGlobalLinkFlags", strings.Join(deviceGlobalLinkFlags, " "))
 

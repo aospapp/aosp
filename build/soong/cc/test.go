@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/blueprint/proptools"
+
 	"android/soong/android"
 	"android/soong/tradefed"
 )
@@ -29,17 +31,36 @@ type TestProperties struct {
 
 	// if set, use the isolated gtest runner. Defaults to false.
 	Isolated *bool
-
-	// List of APEXes that this module tests. The module has access to
-	// the private part of the listed APEXes even when it is not included in the
-	// APEXes.
-	Test_for []string
 }
 
 // Test option struct.
 type TestOptions struct {
 	// The UID that you want to run the test as on a device.
 	Run_test_as *string
+
+	// A list of free-formed strings without spaces that categorize the test.
+	Test_suite_tag []string
+
+	// a list of extra test configuration files that should be installed with the module.
+	Extra_test_configs []string `android:"path,arch_variant"`
+
+	// If the test is a hostside(no device required) unittest that shall be run during presubmit check.
+	Unit_test *bool
+
+	// Add ShippingApiLevelModuleController to auto generated test config. If the device properties
+	// for the shipping api level is less than the min_shipping_api_level, skip this module.
+	Min_shipping_api_level *int64
+
+	// Add ShippingApiLevelModuleController to auto generated test config. If any of the device
+	// shipping api level and vendor api level properties are less than the
+	// vsr_min_shipping_api_level, skip this module.
+	// As this includes the shipping api level check, it is not allowed to define
+	// min_shipping_api_level at the same time with this property.
+	Vsr_min_shipping_api_level *int64
+
+	// Add MinApiLevelModuleController with ro.vndk.version property. If ro.vndk.version has an
+	// integer value and the value is less than the min_vndk_version, skip this module.
+	Min_vndk_version *int64
 }
 
 type TestBinaryProperties struct {
@@ -55,6 +76,9 @@ type TestBinaryProperties struct {
 	// list of files or filegroup modules that provide data that should be installed alongside
 	// the test
 	Data []string `android:"path,arch_variant"`
+
+	// list of shared library modules that should be installed alongside the test
+	Data_libs []string `android:"arch_variant"`
 
 	// list of compatibility suites (for example "cts", "vts") that the module should be
 	// installed into.
@@ -78,13 +102,10 @@ type TestBinaryProperties struct {
 	// Add RunCommandTargetPreparer to stop framework before the test and start it after the test.
 	Disable_framework *bool
 
-	// Add MinApiLevelModuleController to auto generated test config. If the device property of
-	// "ro.product.first_api_level" < Test_min_api_level, then skip this module.
+	// Add ShippingApiLevelModuleController to auto generated test config. If the device properties
+	// for the shipping api level is less than the test_min_api_level, skip this module.
+	// Deprecated (b/187258404). Use test_options.min_shipping_api_level instead.
 	Test_min_api_level *int64
-
-	// Add MinApiLevelModuleController to auto generated test config. If the device property of
-	// "ro.build.version.sdk" < Test_min_sdk_version, then skip this module.
-	Test_min_sdk_version *int64
 
 	// Flag to indicate whether or not to create test config automatically. If AndroidTest.xml
 	// doesn't exist next to the Android.bp, this attribute doesn't need to be set to true
@@ -160,6 +181,10 @@ func (test *testBinary) srcs() []string {
 	return test.baseCompiler.Properties.Srcs
 }
 
+func (test *testBinary) dataPaths() []android.DataPath {
+	return test.data
+}
+
 func (test *testBinary) isAllTestsVariation() bool {
 	stem := test.binaryDecorator.Properties.Stem
 	return stem != nil && *stem == ""
@@ -200,16 +225,17 @@ func TestPerSrcMutator(mctx android.BottomUpMutatorContext) {
 				// name or even their number.
 				testNames = append(testNames, "")
 				tests := mctx.CreateLocalVariations(testNames...)
-				all_tests := tests[numTests]
-				all_tests.(*Module).linker.(testPerSrc).unsetSrc()
+				allTests := tests[numTests]
+				allTests.(*Module).linker.(testPerSrc).unsetSrc()
 				// Prevent the "all tests" variation from being installable nor
 				// exporting to Make, as it won't create any output file.
-				all_tests.(*Module).Properties.PreventInstall = true
-				all_tests.(*Module).Properties.HideFromMake = true
+				allTests.(*Module).Properties.PreventInstall = true
+				allTests.(*Module).Properties.HideFromMake = true
 				for i, src := range test.srcs() {
 					tests[i].(*Module).linker.(testPerSrc).setSrc(testNames[i], src)
-					mctx.AddInterVariantDependency(testPerSrcDepTag, all_tests, tests[i])
+					mctx.AddInterVariantDependency(testPerSrcDepTag, allTests, tests[i])
 				}
+				mctx.AliasVariation("")
 			}
 		}
 	}
@@ -224,8 +250,8 @@ func (test *testDecorator) gtest() bool {
 	return BoolDefault(test.Properties.Gtest, true)
 }
 
-func (test *testDecorator) testFor() []string {
-	return test.Properties.Test_for
+func (test *testDecorator) testBinary() bool {
+	return true
 }
 
 func (test *testDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags {
@@ -300,9 +326,10 @@ type testBinary struct {
 	testDecorator
 	*binaryDecorator
 	*baseCompiler
-	Properties TestBinaryProperties
-	data       android.Paths
-	testConfig android.Path
+	Properties       TestBinaryProperties
+	data             []android.DataPath
+	testConfig       android.Path
+	extraTestConfigs android.Paths
 }
 
 func (test *testBinary) linkerProps() []interface{} {
@@ -319,6 +346,7 @@ func (test *testBinary) linkerInit(ctx BaseModuleContext) {
 func (test *testBinary) linkerDeps(ctx DepsContext, deps Deps) Deps {
 	deps = test.testDecorator.linkerDeps(ctx, deps)
 	deps = test.binaryDecorator.linkerDeps(ctx, deps)
+	deps.DataLibs = append(deps.DataLibs, test.Properties.Data_libs...)
 	return deps
 }
 
@@ -329,10 +357,37 @@ func (test *testBinary) linkerFlags(ctx ModuleContext, flags Flags) Flags {
 }
 
 func (test *testBinary) install(ctx ModuleContext, file android.Path) {
-	test.data = android.PathsForModuleSrc(ctx, test.Properties.Data)
-	var api_level_prop string
+	// TODO: (b/167308193) Switch to /data/local/tests/unrestricted as the default install base.
+	testInstallBase := "/data/local/tmp"
+	if ctx.inVendor() || ctx.useVndk() {
+		testInstallBase = "/data/local/tests/vendor"
+	}
+
+	dataSrcPaths := android.PathsForModuleSrc(ctx, test.Properties.Data)
+
+	for _, dataSrcPath := range dataSrcPaths {
+		test.data = append(test.data, android.DataPath{SrcPath: dataSrcPath})
+	}
+
+	ctx.VisitDirectDepsWithTag(dataLibDepTag, func(dep android.Module) {
+		depName := ctx.OtherModuleName(dep)
+		ccDep, ok := dep.(LinkableInterface)
+
+		if !ok {
+			ctx.ModuleErrorf("data_lib %q is not a linkable cc module", depName)
+		}
+		ccModule, ok := dep.(*Module)
+		if !ok {
+			ctx.ModuleErrorf("data_lib %q is not a cc module", depName)
+		}
+		if ccDep.OutputFile().Valid() {
+			test.data = append(test.data,
+				android.DataPath{SrcPath: ccDep.OutputFile().Path(),
+					RelativeInstallPath: ccModule.installer.relativeInstallPath()})
+		}
+	})
+
 	var configs []tradefed.Config
-	var min_level string
 	for _, module := range test.Properties.Test_mainline_modules {
 		configs = append(configs, tradefed.Option{Name: "config-descriptor:metadata", Key: "mainline-param", Value: module})
 	}
@@ -353,24 +408,41 @@ func (test *testBinary) install(ctx ModuleContext, file android.Path) {
 	if test.Properties.Test_options.Run_test_as != nil {
 		configs = append(configs, tradefed.Option{Name: "run-test-as", Value: String(test.Properties.Test_options.Run_test_as)})
 	}
-	if test.Properties.Test_min_api_level != nil && test.Properties.Test_min_sdk_version != nil {
-		ctx.PropertyErrorf("test_min_api_level", "'test_min_api_level' and 'test_min_sdk_version' should not be set at the same time.")
-	} else if test.Properties.Test_min_api_level != nil {
-		api_level_prop = "ro.product.first_api_level"
-		min_level = strconv.FormatInt(int64(*test.Properties.Test_min_api_level), 10)
-	} else if test.Properties.Test_min_sdk_version != nil {
-		api_level_prop = "ro.build.version.sdk"
-		min_level = strconv.FormatInt(int64(*test.Properties.Test_min_sdk_version), 10)
+	for _, tag := range test.Properties.Test_options.Test_suite_tag {
+		configs = append(configs, tradefed.Option{Name: "test-suite-tag", Value: tag})
 	}
-	if api_level_prop != "" {
+	if test.Properties.Test_options.Min_shipping_api_level != nil {
+		if test.Properties.Test_options.Vsr_min_shipping_api_level != nil {
+			ctx.PropertyErrorf("test_options.min_shipping_api_level", "must not be set at the same time as 'vsr_min_shipping_api_level'.")
+		}
 		var options []tradefed.Option
-		options = append(options, tradefed.Option{Name: "min-api-level", Value: min_level})
-		options = append(options, tradefed.Option{Name: "api-level-prop", Value: api_level_prop})
+		options = append(options, tradefed.Option{Name: "min-api-level", Value: strconv.FormatInt(int64(*test.Properties.Test_options.Min_shipping_api_level), 10)})
+		configs = append(configs, tradefed.Object{"module_controller", "com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController", options})
+	} else if test.Properties.Test_min_api_level != nil {
+		// TODO: (b/187258404) Remove test.Properties.Test_min_api_level
+		if test.Properties.Test_options.Vsr_min_shipping_api_level != nil {
+			ctx.PropertyErrorf("test_min_api_level", "must not be set at the same time as 'vsr_min_shipping_api_level'.")
+		}
+		var options []tradefed.Option
+		options = append(options, tradefed.Option{Name: "min-api-level", Value: strconv.FormatInt(int64(*test.Properties.Test_min_api_level), 10)})
+		configs = append(configs, tradefed.Object{"module_controller", "com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController", options})
+	}
+	if test.Properties.Test_options.Vsr_min_shipping_api_level != nil {
+		var options []tradefed.Option
+		options = append(options, tradefed.Option{Name: "vsr-min-api-level", Value: strconv.FormatInt(int64(*test.Properties.Test_options.Vsr_min_shipping_api_level), 10)})
+		configs = append(configs, tradefed.Object{"module_controller", "com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController", options})
+	}
+	if test.Properties.Test_options.Min_vndk_version != nil {
+		var options []tradefed.Option
+		options = append(options, tradefed.Option{Name: "min-api-level", Value: strconv.FormatInt(int64(*test.Properties.Test_options.Min_vndk_version), 10)})
+		options = append(options, tradefed.Option{Name: "api-level-prop", Value: "ro.vndk.version"})
 		configs = append(configs, tradefed.Object{"module_controller", "com.android.tradefed.testtype.suite.module.MinApiLevelModuleController", options})
 	}
 
 	test.testConfig = tradefed.AutoGenNativeTestConfig(ctx, test.Properties.Test_config,
-		test.Properties.Test_config_template, test.Properties.Test_suites, configs, test.Properties.Auto_gen_config)
+		test.Properties.Test_config_template, test.Properties.Test_suites, configs, test.Properties.Auto_gen_config, testInstallBase)
+
+	test.extraTestConfigs = android.PathsForModuleSrc(ctx, test.Properties.Test_options.Extra_test_configs)
 
 	test.binaryDecorator.baseInstaller.dir = "nativetest"
 	test.binaryDecorator.baseInstaller.dir64 = "nativetest64"
@@ -381,6 +453,9 @@ func (test *testBinary) install(ctx ModuleContext, file android.Path) {
 		ctx.PropertyErrorf("no_named_install_directory", "Module install directory may only be disabled if relative_install_path is set")
 	}
 
+	if ctx.Host() && test.gtest() && test.Properties.Test_options.Unit_test == nil {
+		test.Properties.Test_options.Unit_test = proptools.BoolPtr(true)
+	}
 	test.binaryDecorator.baseInstaller.install(ctx, file)
 }
 
@@ -498,6 +573,7 @@ func (benchmark *benchmarkDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps
 
 func (benchmark *benchmarkDecorator) install(ctx ModuleContext, file android.Path) {
 	benchmark.data = android.PathsForModuleSrc(ctx, benchmark.Properties.Data)
+
 	var configs []tradefed.Config
 	if Bool(benchmark.Properties.Require_root) {
 		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.RootTargetPreparer", nil})

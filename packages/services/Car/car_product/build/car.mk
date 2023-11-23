@@ -21,17 +21,17 @@ PRODUCT_PRIVATE_SEPOLICY_DIRS += packages/services/Car/car_product/sepolicy/priv
 
 PRODUCT_PACKAGES += \
     Bluetooth \
+    CarActivityResolver \
     CarDeveloperOptions \
-    CompanionDeviceSupport \
+    CarSettingsIntelligence \
     OneTimeInitializer \
-    Provision \
+    CarProvision \
     StatementService \
     SystemUpdater
 
 
 PRODUCT_PACKAGES += \
     clatd \
-    clatd.conf \
     pppd \
     screenrecord
 
@@ -40,15 +40,24 @@ ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
 PRODUCT_PACKAGES += \
     DefaultStorageMonitoringCompanionApp \
     EmbeddedKitchenSinkApp \
-    DirectRenderingCluster \
     GarageModeTestApp \
     ExperimentalCarService \
-    RotaryPlayground \
     BugReportApp \
+    NetworkPreferenceApp \
+    SampleCustomInputService \
 
 # SEPolicy for test apps / services
 BOARD_SEPOLICY_DIRS += packages/services/Car/car_product/sepolicy/test
 endif
+
+# ClusterOsDouble is the testing app to test Cluster2 framework and it can handle Cluster VHAL
+# and do some Cluster OS role.
+ifeq ($(ENABLE_CLUSTER_OS_DOUBLE), true)
+PRODUCT_PACKAGES += ClusterHomeSample ClusterOsDouble
+else
+# DirectRenderingCluster is the sample app for the old Cluster framework.
+PRODUCT_PACKAGES += DirectRenderingCluster
+endif  # ENABLE_CLUSTER_OS_DOUBLE
 
 PRODUCT_COPY_FILES += \
     frameworks/av/media/libeffects/data/audio_effects.conf:system/etc/audio_effects.conf
@@ -58,8 +67,22 @@ PRODUCT_PROPERTY_OVERRIDES += \
     ro.carrier=unknown
 
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
-    ro.fw.mu.headless_system_user=true \
     config.disable_systemtextclassifier=true
+
+###
+### Suggested values for multi-user properties - can be overridden
+###
+
+# Enable headless system user mode
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    ro.fw.mu.headless_system_user?=true
+
+# Enable user pre-creation
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    android.car.number_pre_created_users?=1 \
+    android.car.number_pre_created_guests?=1
+
+### end of multi-user properties ###
 
 # Overlay for Google network and fused location providers
 $(call inherit-product, device/sample/products/location_overlay.mk)
@@ -86,6 +109,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PACKAGES += \
     CarFrameworkPackageStubs \
     CarService \
+    CarShell \
     CarDialerApp \
     CarRadioApp \
     OverviewApp \
@@ -94,6 +118,7 @@ PRODUCT_PACKAGES += \
     LocalMediaPlayer \
     CarMediaApp \
     CarMessengerApp \
+    CarHTMLViewer \
     CarHvacApp \
     CarMapsPlaceholder \
     CarLatinIME \
@@ -104,9 +129,17 @@ PRODUCT_PACKAGES += \
     com.android.car.procfsinspector \
     libcar-framework-service-jni \
 
+# RROs
+PRODUCT_PACKAGES += \
+    CarPermissionControllerRRO \
+
 # System Server components
 # Order is important: if X depends on Y, then Y should precede X on the list.
 PRODUCT_SYSTEM_SERVER_JARS += car-frameworks-service
+# TODO: make the order optimal by appending 'car-frameworks-service' at the end
+# after its dependency 'services'. Currently the order is violated because this
+# makefile is included before AOSP makefile.
+PRODUCT_BROKEN_SUBOPTIMAL_ORDER_OF_SYSTEM_SERVER_JARS := true
 
 # Boot animation
 PRODUCT_COPY_FILES += \

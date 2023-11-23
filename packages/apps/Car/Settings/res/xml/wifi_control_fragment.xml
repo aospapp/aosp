@@ -20,6 +20,13 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/wifi_control_title"
     android:key="@string/psk_wifi_control">
+    <com.android.car.settings.common.ColoredSwitchPreference
+        android:key="@string/pk_wifi_control_hide_system_switch"
+        android:title="@string/hide_system_apps"
+        style="@style/ColoredSwitchPreferenceStyle"
+        settings:controller="com.android.car.settings.applications.HideSystemSwitchPreferenceController"
+        settings:searchable="false"/>
+    <com.android.car.settings.common.DividerPreference/>
     <Preference
         android:key="@string/pk_wifi_control_description"
         android:selectable="false"

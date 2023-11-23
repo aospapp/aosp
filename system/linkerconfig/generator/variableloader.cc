@@ -38,42 +38,6 @@ using android::linkerconfig::modules::Variables;
 namespace {
 using namespace android::linkerconfig::generator;
 
-// Stub libraries are list of libraries which has stub interface and installed
-// in system image so other partition and APEX modules can link to it.
-// TODO(b/147210213) : Generate this list on build and read from the file
-std::vector<std::string> stub_libraries = {
-    "libEGL.so",
-    "libGLESv1_CM.so",
-    "libGLESv2.so",
-    "libGLESv3.so",
-    "libRS.so",
-    "libaaudio.so",
-    "libadbd_auth.so",
-    "libadbd_fs.so",
-    "libandroid.so",
-    "libandroid_net.so",
-    "libbinder_ndk.so",
-    "libc.so",
-    "libcgrouprc.so",
-    "libclang_rt.asan-arm-android.so",
-    "libclang_rt.asan-i686-android.so",
-    "libclang_rt.asan-x86_64-android.so",
-    "libdl.so",
-    "libdl_android.so",
-    "libft2.so",
-    "libincident.so",
-    "liblog.so",
-    "libm.so",
-    "libmediametrics.so",
-    "libmediandk.so",
-    "libnativewindow.so",
-    "libneuralnetworks_packageinfo.so",
-    "libsync.so",
-    "libvndksupport.so",
-    "libvulkan.so",
-    "libselinux.so",
-};
-
 void LoadVndkVersionVariable() {
   Variables::AddValue("VENDOR_VNDK_VERSION", GetVendorVndkVersion());
   Variables::AddValue("PRODUCT_VNDK_VERSION", GetProductVndkVersion());
@@ -116,6 +80,7 @@ void LoadVndkLibraryListVariables(const std::string& root,
   const std::string vndk_path = root + "/apex/com.android.vndk.v" + vndk_version;
   // Skip loading if VNDK APEX is not available
   if (::access(vndk_path.c_str(), F_OK) != 0) {
+    PLOG(ERROR) << "Unable to access VNDK APEX at path: " << vndk_path;
     return;
   }
   const std::string llndk_libraries_path =
@@ -165,9 +130,6 @@ void LoadLibraryListVariables(const std::string& root) {
   auto sanitizer_library_path = root + "/system/etc/sanitizer.libraries.txt";
   Variables::AddValue("SANITIZER_RUNTIME_LIBRARIES",
                       GetLibrariesString(sanitizer_library_path));
-
-  Variables::AddValue("STUB_LIBRARIES",
-                      android::base::Join(stub_libraries, ':'));
 }
 }  // namespace
 

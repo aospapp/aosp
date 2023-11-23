@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka.attributes;
+package com.android.internal.net.eap.test.message.simaka.attributes;
 
 import static com.android.internal.net.TestUtils.hexStringToInt;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_CLIENT_ERROR_CODE;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_CLIENT_ERROR_CODE;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_CLIENT_ERROR_CODE_INVALID_LENGTH;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.ERROR_CODE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_CLIENT_ERROR_CODE;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_CLIENT_ERROR_CODE;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_CLIENT_ERROR_CODE_INVALID_LENGTH;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.ERROR_CODE;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -28,9 +28,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtClientErrorCode;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttributeFactory;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtClientErrorCode;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttributeFactory;
 
 import org.junit.Before;
 import org.junit.Test;

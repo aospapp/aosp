@@ -39,20 +39,21 @@ public class StorageEncryptionTest extends BaseDeviceAdminTest {
 
     private static final ComponentName ADMIN_RECEIVER_COMPONENT =
         BaseDeviceAdminTest.ADMIN_RECEIVER_COMPONENT;
-    private static final String IS_PRIMARY_USER_PARAM = "isPrimaryUser";
+    private static final String IS_SYSTEM_USER_PARAM = "isSystemUser";
 
     /**
-     * When the test is run from the managed profile user, {@link
-     * DevicePolicyManager#setStorageEncryption(ComponentName, boolean)} is expected to return
-     * {@link DevicePolicyManager#ENCRYPTION_STATUS_UNSUPPORTED}, as it is not the primary user.
+     * When the test is run from the managed profile user or when the profile owner is set
+     * on secondary user, {@link DevicePolicyManager#setStorageEncryption(ComponentName, boolean)}
+     * is expected to return {@link DevicePolicyManager#ENCRYPTION_STATUS_UNSUPPORTED}
+     * as it is only allowed to run on system user.
      */
-    private boolean mIsPrimaryUser;
+    private boolean mIsSystemUser;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mIsPrimaryUser = Boolean.parseBoolean(
-                InstrumentationRegistry.getArguments().getString(IS_PRIMARY_USER_PARAM));
+        mIsSystemUser = Boolean.parseBoolean(
+                InstrumentationRegistry.getArguments().getString(IS_SYSTEM_USER_PARAM));
     }
 
     public void testSetStorageEncryption_enabled() {
@@ -60,9 +61,10 @@ public class StorageEncryptionTest extends BaseDeviceAdminTest {
             return;
         }
         assertThat(mDevicePolicyManager.setStorageEncryption(ADMIN_RECEIVER_COMPONENT, true))
-            .isEqualTo(mIsPrimaryUser ? ENCRYPTION_STATUS_ACTIVE : ENCRYPTION_STATUS_UNSUPPORTED);
+                .isEqualTo(mIsSystemUser ? ENCRYPTION_STATUS_ACTIVE
+                        : ENCRYPTION_STATUS_UNSUPPORTED);
         assertThat(mDevicePolicyManager.getStorageEncryption(ADMIN_RECEIVER_COMPONENT))
-                .isEqualTo(mIsPrimaryUser);
+                .isEqualTo(mIsSystemUser);
     }
 
     public void testSetStorageEncryption_disabled() {
@@ -70,8 +72,8 @@ public class StorageEncryptionTest extends BaseDeviceAdminTest {
             return;
         }
         assertThat(mDevicePolicyManager.setStorageEncryption(ADMIN_RECEIVER_COMPONENT, false))
-            .isEqualTo(mIsPrimaryUser ? ENCRYPTION_STATUS_INACTIVE
-                    : ENCRYPTION_STATUS_UNSUPPORTED);
+                .isEqualTo(mIsSystemUser ? ENCRYPTION_STATUS_INACTIVE
+                        : ENCRYPTION_STATUS_UNSUPPORTED);
         assertThat(mDevicePolicyManager.getStorageEncryption(ADMIN_RECEIVER_COMPONENT)).isFalse();
     }
 }

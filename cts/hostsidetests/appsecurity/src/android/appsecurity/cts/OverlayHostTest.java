@@ -37,6 +37,7 @@ public class OverlayHostTest extends BaseAppSecurityTest {
 
     private static final String OVERLAY_ANDROID_APK = "CtsOverlayAndroid.apk";
     private static final String OVERLAY_ALL_APK = "CtsOverlayPolicyAll.apk";
+    private static final String OVERLAY_ALL_HAS_CODE_APK = "CtsOverlayPolicyAllHasCode.apk";
     private static final String OVERLAY_ALL_NO_NAME_APK = "CtsOverlayPolicyAllNoName.apk";
     private static final String OVERLAY_ALL_NO_NAME_DIFFERENT_CERT_APK =
             "CtsOverlayPolicyAllNoNameDifferentCert.apk";
@@ -229,6 +230,7 @@ public class OverlayHostTest extends BaseAppSecurityTest {
                     .contains(" " + OVERLAY_ALL_PACKAGE + "\n"));
         } finally {
             getDevice().uninstallPackage(OVERLAY_ALL_PACKAGE);
+            getDevice().uninstallPackage(TARGET_PACKAGE);
         }
     }
 
@@ -262,6 +264,13 @@ public class OverlayHostTest extends BaseAppSecurityTest {
     public void testOverlayPolicyAll() throws Exception {
         String testMethod = "testOverlayPolicyAll";
         runOverlayDeviceTest(TARGET_OVERLAYABLE_APK, OVERLAY_ALL_APK, OVERLAY_ALL_PACKAGE,
+                testMethod);
+    }
+
+    @Test
+    public void testOverlayCodeNotLoaded() throws Exception {
+        String testMethod = "testOverlayCodeNotLoaded";
+        runOverlayDeviceTest(TARGET_OVERLAYABLE_APK, OVERLAY_ALL_HAS_CODE_APK, OVERLAY_ALL_PACKAGE,
                 testMethod);
     }
 

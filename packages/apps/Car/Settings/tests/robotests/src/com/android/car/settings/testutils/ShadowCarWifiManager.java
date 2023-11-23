@@ -21,7 +21,7 @@ import android.net.wifi.SoftApConfiguration;
 import android.net.wifi.WifiManager;
 
 import com.android.car.settings.wifi.CarWifiManager;
-import com.android.settingslib.wifi.AccessPoint;
+import com.android.wifitrackerlib.WifiEntry;
 
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
@@ -107,24 +107,13 @@ public class ShadowCarWifiManager {
     }
 
     @Implementation
-    public List<AccessPoint> getAllAccessPoints() {
-        return sInstance.getAllAccessPoints();
+    public List<WifiEntry> getAllWifiEntries() {
+        return sInstance.getAllWifiEntries();
     }
 
     @Implementation
-    public List<AccessPoint> getSavedAccessPoints() {
-        return sInstance.getSavedAccessPoints();
-    }
-
-    @Implementation
-    public void connectToPublicWifi(AccessPoint accessPoint, WifiManager.ActionListener listener) {
-        sInstance.connectToPublicWifi(accessPoint, listener);
-    }
-
-    @Implementation
-    protected void connectToSavedWifi(AccessPoint accessPoint,
-            WifiManager.ActionListener listener) {
-        sInstance.connectToSavedWifi(accessPoint, listener);
+    public List<WifiEntry> getSavedWifiEntries() {
+        return sInstance.getSavedWifiEntries();
     }
 
     @Implementation

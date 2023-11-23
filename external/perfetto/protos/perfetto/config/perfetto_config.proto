@@ -25,7 +25,8 @@ message GpuCounterDescriptor {
     VERTICES = 2;
     FRAGMENTS = 3;
     PRIMITIVES = 4;
-    MEMORY = 5;  // Includes counters relating to caching and bandwidth.
+    // Includes counters relating to caching and bandwidth.
+    MEMORY = 5;
     COMPUTE = 6;
   }
 
@@ -33,7 +34,8 @@ message GpuCounterDescriptor {
     optional uint32 counter_id = 1;
     optional string name = 2;
     optional string description = 3;
-    reserved 4;  // MeasureUnit unit (deprecated)
+    // MeasureUnit unit (deprecated)
+    reserved 4;
     oneof peak_value {
       int64 int_peak_value = 5;
       double double_peak_value = 6;
@@ -153,7 +155,8 @@ message TrackEventDescriptor {
 // to advertise their capabilities. It describes the structure of tracing
 // protos that will be produced by the data source and the supported filters.
 message DataSourceDescriptor {
-  optional string name = 1;  // e.g., "linux.ftrace", "chromium.tracing"
+  // e.g., "linux.ftrace", "chromium.tracing"
+  optional string name = 1;
 
   // When true the data source is expected to ack the stop request through the
   // NotifyDataSourceStopped() IPC. This field has been introduced after
@@ -186,9 +189,20 @@ message DataSourceDescriptor {
 message TracingServiceState {
   // Describes a producer process.
   message Producer {
-    optional int32 id = 1;     // Unique ID of the producer (monotonic counter).
-    optional string name = 2;  // Typically matches the process name.
-    optional int32 uid = 3;    // Unix uid of the remote process.
+    // Unique ID of the producer (monotonic counter).
+    optional int32 id = 1;
+
+    // Typically matches the process name.
+    optional string name = 2;
+
+    // Unix uid of the remote process.
+    optional int32 uid = 3;
+
+    // The version of the client library used by the producer.
+    // This is a human readable string with and its format varies depending on
+    // the build system and the repo (standalone vs AOSP).
+    // This is intended for human debugging only.
+    optional string sdk_version = 4;
   }
 
   // Describes a data source registered by a producer. Data sources are listed
@@ -212,6 +226,12 @@ message TracingServiceState {
 
   // Number of tracing sessions in the started state. Always <= num_sessions.
   optional int32 num_sessions_started = 4;
+
+  // The version of traced (the same returned by `traced --version`).
+  // This is a human readable string with and its format varies depending on
+  // the build system and the repo (standalone vs AOSP).
+  // This is intended for human debugging only.
+  optional string tracing_service_version = 5;
 }
 
 // End of protos/perfetto/common/tracing_service_state.proto
@@ -237,7 +257,9 @@ enum BuiltinClock {
 
 // Values from NDK's android/log.h.
 enum AndroidLogId {
-  LID_DEFAULT = 0;  // MAIN.
+  // MAIN.
+  LID_DEFAULT = 0;
+
   LID_RADIO = 1;
   LID_EVENTS = 2;
   LID_SYSTEM = 3;
@@ -249,7 +271,10 @@ enum AndroidLogId {
 
 enum AndroidLogPriority {
   PRIO_UNSPECIFIED = 0;
-  PRIO_UNUSED = 1;  // _DEFAULT, but should never be seen in logs.
+
+  // _DEFAULT, but should never be seen in logs.
+  PRIO_UNUSED = 1;
+
   PRIO_VERBOSE = 2;
   PRIO_DEBUG = 3;
   PRIO_INFO = 4;
@@ -265,7 +290,8 @@ enum AndroidLogPriority {
 message AndroidLogConfig {
   repeated AndroidLogId log_ids = 1;
 
-  reserved 2;  // Was |poll_ms|, deprecated.
+  // Was |poll_ms|, deprecated.
+  reserved 2;
 
   // If set ignores all log messages whose prio is < the given value.
   optional AndroidLogPriority min_prio = 3;
@@ -309,6 +335,27 @@ message ChromeConfig {
   // When enabled, the data source should only fill in fields in the output that
   // are not potentially privacy sensitive.
   optional bool privacy_filtering_enabled = 2;
+
+  // Instead of emitting binary protobuf, convert the trace data to the legacy
+  // JSON format. Note that the trace data will still be returned as a series of
+  // TracePackets, but the embedded data will be JSON instead of serialized
+  // protobuf.
+  optional bool convert_to_legacy_json = 3;
+
+  // Priority of the tracing session client. A higher priority session may
+  // preempt a lower priority one in configurations where concurrent sessions
+  // aren't supported.
+  enum ClientPriority {
+    UNKNOWN = 0;
+    BACKGROUND = 1;
+    USER_INITIATED = 2;
+  }
+  optional ClientPriority client_priority = 4;
+
+  // Applicable only when using legacy JSON format.
+  // If |json_agent_label_filter| is not empty, only data pertaining to
+  // the specified tracing agent label (e.g. "traceEvents") will be returned.
+  optional string json_agent_label_filter = 5;
 }
 
 // End of protos/perfetto/config/chrome/chrome_config.proto
@@ -332,6 +379,19 @@ message FtraceConfig {
     optional bool enabled = 1;
   }
   optional CompactSchedConfig compact_sched = 12;
+
+  // Enables symbol name resolution against /proc/kallsyms.
+  // It requires that either traced_probes is running as root or that
+  // kptr_restrict has been manually lowered.
+  // It does not disclose KASLR, symbol addresses are mangled.
+  optional bool symbolize_ksyms = 13;
+
+  // By default the kernel symbolizer is lazily initialized on a deferred task
+  // to reduce ftrace's time-to-start-recording. Unfortunately that makes
+  // ksyms integration tests hard. This flag forces the kernel symbolizer to be
+  // initialized synchronously on the data source start and hence avoiding
+  // timing races in tests.
+  optional bool initialize_ksyms_synchronously_for_testing = 14;
 }
 
 // End of protos/perfetto/config/ftrace/ftrace_config.proto
@@ -398,21 +458,61 @@ message InodeFileConfig {
 
 // End of protos/perfetto/config/inode_file/inode_file_config.proto
 
+// Begin of protos/perfetto/config/interceptors/console_config.proto
+
+message ConsoleConfig {
+  enum Output {
+    OUTPUT_UNSPECIFIED = 0;
+    OUTPUT_STDOUT = 1;
+    OUTPUT_STDERR = 2;
+  }
+  optional Output output = 1;
+  optional bool enable_colors = 2;
+}
+
+// End of protos/perfetto/config/interceptors/console_config.proto
+
+// Begin of protos/perfetto/config/interceptor_config.proto
+
+// Configuration for trace packet interception. Used for diverting trace data to
+// non-Perfetto sources (e.g., logging to the console, ETW) when using the
+// Perfetto SDK.
+message InterceptorConfig {
+  // Matches the name given to RegisterInterceptor().
+  optional string name = 1;
+
+  optional ConsoleConfig console_config = 100 [lazy = true];
+}
+
+// End of protos/perfetto/config/interceptor_config.proto
+
 // Begin of protos/perfetto/config/power/android_power_config.proto
 
 message AndroidPowerConfig {
   enum BatteryCounters {
     BATTERY_COUNTER_UNSPECIFIED = 0;
-    BATTERY_COUNTER_CHARGE = 1;            // Coulomb counter.
-    BATTERY_COUNTER_CAPACITY_PERCENT = 2;  // Charge (%).
-    BATTERY_COUNTER_CURRENT = 3;           // Instantaneous current.
-    BATTERY_COUNTER_CURRENT_AVG = 4;       // Avg current.
+
+    // Coulomb counter.
+    BATTERY_COUNTER_CHARGE = 1;
+
+    // Charge (%).
+    BATTERY_COUNTER_CAPACITY_PERCENT = 2;
+
+    // Instantaneous current.
+    BATTERY_COUNTER_CURRENT = 3;
+
+    // Avg current.
+    BATTERY_COUNTER_CURRENT_AVG = 4;
   }
   optional uint32 battery_poll_ms = 1;
   repeated BatteryCounters battery_counters = 2;
 
   // Where available enables per-power-rail measurements.
   optional bool collect_power_rails = 3;
+
+  // Provides a breakdown of energy estimation for various subsystem (e.g. GPU).
+  // Available from Android S.
+  optional bool collect_energy_estimation_breakdown = 4;
 }
 
 // End of protos/perfetto/config/power/android_power_config.proto
@@ -471,7 +571,7 @@ message ProcessStatsConfig {
 // Begin of protos/perfetto/config/profiling/heapprofd_config.proto
 
 // Configuration for go/heapprofd.
-// Next id: 19
+// Next id: 27
 message HeapprofdConfig {
   message ContinuousDumpConfig {
     // ms to wait before first dump.
@@ -480,12 +580,32 @@ message HeapprofdConfig {
     optional uint32 dump_interval_ms = 6;
   }
 
+  // Sampling rate for all heaps not specified via heap_sampling_intervals.
+  //
+  // These are:
+  // * All heaps if heap_sampling_intervals is empty.
+  // * Those profiled due to all_heaps and not named in heaps if
+  //   heap_sampling_intervals is not empty.
+  // * The implicit libc.malloc heap if heaps is empty.
+  //
   // Set to 1 for perfect accuracy.
   // Otherwise, sample every sample_interval_bytes on average.
   //
-  // See https://docs.perfetto.dev/#/heapprofd?id=sampling-interval for more
-  // details.
+  // See
+  // https://perfetto.dev/docs/data-sources/native-heap-profiler#sampling-interval
+  // for more details.
+  //
+  // BUGS
+  // Before Android 12, setting this to 0 would crash the target process.
   optional uint64 sampling_interval_bytes = 1;
+
+  // If less than the given numbers of bytes are left free in the shared
+  // memory buffer, increase sampling interval by a factor of two.
+  // Adaptive sampling is disabled when set to 0.
+  optional uint64 adaptive_sampling_shmem_threshold = 24;
+  // Stop doubling the sampling_interval once the sampling interval has reached
+  // this value.
+  optional uint64 adaptive_sampling_max_sampling_interval_bytes = 25;
 
   // E.g. surfaceflinger, com.android.phone
   // This input is normalized in the following way: if it contains slashes,
@@ -499,9 +619,47 @@ message HeapprofdConfig {
   // For watermark based triggering or local debugging.
   repeated uint64 pid = 4;
 
+  // Only profile target if it was installed by one of the packages given.
+  // Special values are:
+  // * @system: installed on the system partition
+  // * @product: installed on the product partition
+  // * @null: sideloaded
+  // Supported on Android 12+.
+  repeated string target_installed_by = 26;
+
+  // Which heaps to sample, e.g. "libc.malloc". If left empty, only samples
+  // "malloc".
+  //
+  // Introduced in Android 12.
+  repeated string heaps = 20;
+
+  // Which heaps not to sample, e.g. "libc.malloc". This is useful when used in
+  // combination with all_heaps;
+  //
+  // Introduced in Android 12.
+  repeated string exclude_heaps = 27;
+
+  optional bool stream_allocations = 23;
+
+  // If given, needs to be the same length as heaps and gives the sampling
+  // interval for the respective entry in heaps.
+  //
+  // Otherwise, sampling_interval_bytes is used.
+  //
+  // It is recommended to set sampling_interval_bytes to a reasonable default
+  // value when using this, as a value of 0 for sampling_interval_bytes will
+  // crash the target process before Android 12.
+  //
+  // Introduced in Android 12.
+  repeated uint64 heap_sampling_intervals = 22;
+
+  // Sample all heaps registered by target process. Introduced in Android 12.
+  optional bool all_heaps = 21;
+
   // Profile all processes eligible for profiling on the system.
-  // See https://docs.perfetto.dev/#/heapprofd?id=target-processes for which
-  // processes are eligible.
+  // See
+  // https://perfetto.dev/docs/data-sources/native-heap-profiler#heapprofd-targets
+  // for which processes are eligible.
   //
   // On unmodified userdebug builds, this will lead to system crashes. Zygote
   // will crash when trying to launch a new process as it will have an
@@ -564,17 +722,8 @@ message HeapprofdConfig {
   // Introduced in Android 11.
   optional bool no_running = 11;
 
-  // Gather information on how many bytes of allocations are on non-referenced
-  // pages. The way to use this generally is:
-  // 1. Start profile of app.
-  // 2. Start app.
-  // 3. Trigger a dump by sending SIGUSR1 to heapprofd.
-  // 4. Do operations.
-  // 5. End profile.
-  //
-  // You can then find the allocations that were not used for the operations you
-  // did in step 4.
-  optional bool idle_allocations = 12;
+  // deprecated idle_allocations.
+  reserved 12;
 
   // Cause heapprofd to emit a single dump at the end, showing the memory usage
   // at the point in time when the sampled heap usage of the process was at its
@@ -624,6 +773,14 @@ message JavaHprofConfig {
   // For watermark based triggering or local debugging.
   repeated uint64 pid = 2;
 
+  // Only profile target if it was installed by one of the packages given.
+  // Special values are:
+  // * @system: installed on the system partition
+  // * @product: installed on the product partition
+  // * @null: sideloaded
+  // Supported on Android 12+.
+  repeated string target_installed_by = 7;
+
   // Dump at a predefined interval.
   optional ContinuousDumpConfig continuous_dump_config = 3;
 
@@ -637,24 +794,107 @@ message JavaHprofConfig {
   // * start with /data/app
   // * contain "extracted in memory from Y", where Y matches any of the above
   optional bool dump_smaps = 5;
+
+  // Exclude objects of the following types from the profile. This can be
+  // useful if lots of uninteresting objects, e.g. "sun.misc.Cleaner".
+  repeated string ignored_types = 6;
 }
 
 // End of protos/perfetto/config/profiling/java_hprof_config.proto
+
+// Begin of protos/perfetto/common/perf_events.proto
+
+message PerfEvents {
+  // What event to sample on, and how often. Commented from the perspective of
+  // its use in |PerfEventConfig|.
+  message Timebase {
+    // How often the per-cpu sampling will occur. Not guaranteed to be honored
+    // as the kernel can throttle the sampling rate if it's too high.
+    // If unset, an implementation-defined default is used.
+    oneof interval {
+      // Per-cpu sampling frequency in Hz, as requested from the kernel. Not the
+      // same as 1/period.
+      // Details: the actual sampling will still be based on a period, but the
+      // kernel will dynamically adjust it based on the observed event rate, to
+      // approximate this frequency. Works best with steady-rate events like
+      // timers.
+      uint64 frequency = 2;
+
+      // Per-cpu sampling will occur every |period| counts of |event|.
+      // Prefer |frequency| by default, as it's easier to oversample with a
+      // fixed period.
+      uint64 period = 1;
+    }
+
+    // Counting event to use as a timebase for the sampling.
+    // If unset, implies the CPU timer (SW_CPU_CLOCK) as the event,
+    // which is what you usually want.
+    // See common/perf_events.proto for the definitions.
+    oneof event {
+      Counter counter = 4;
+      Tracepoint tracepoint = 3;
+    }
+  }
+
+  enum Counter {
+    UNKNOWN_COUNTER = 0;
+    // software:
+    SW_CPU_CLOCK = 1;
+    SW_PAGE_FAULTS = 2;
+    // hardware:
+    HW_CPU_CYCLES = 10;
+    HW_INSTRUCTIONS = 11;
+  }
+
+  message Tracepoint {
+    // Group and name for the tracepoint, acceptable forms:
+    // * "sched/sched_switch"
+    // * "sched:sched_switch"
+    optional string name = 1;
+
+    // Optional field-level filter for the tracepoint. Only events matching this
+    // filter will be counted (and therefore contribute to the sampling period).
+    // Example: "prev_pid >= 42 && next_pid == 0".
+    // For full syntax, see kernel documentation on "Event filtering":
+    // https://www.kernel.org/doc/Documentation/trace/events.txt
+    optional string filter = 2;
+  }
+}
+
+// End of protos/perfetto/common/perf_events.proto
 
 // Begin of protos/perfetto/config/profiling/perf_event_config.proto
 
 // Configuration for the traced_perf profiler.
 //
-// At the time of writing, the config options are restricted to the periodic
-// system-wide stack sampling use-case (|all_cpus| must be true).
+// Example config for basic cpu profiling:
+//   perf_event_config {
+//     timebase {
+//       frequency: 80
+//     }
+//     callstack_sampling {
+//       scope {
+//         target_cmdline: "surfaceflinger"
+//         target_cmdline: "system_server"
+//       }
+//       kernel_frames: true
+//     }
+//   }
+//
+// Next id: 19
 message PerfEventConfig {
-  // If true, sample events on all CPUs.
-  optional bool all_cpus = 1;
+  // What event to sample on, and how often.
+  // Defined in common/perf_events.proto.
+  optional PerfEvents.Timebase timebase = 15;
 
-  // Per-cpu sampling frequency (requested from the kernel). Not guaranteed to
-  // be honored as the kernel can throttle the sampling rate if it's too high.
-  // If unset, an implementation-defined default is used.
-  optional uint32 sampling_frequency = 2;
+  // If set, the profiler will sample userspace processes' callstacks at the
+  // interval specified by the |timebase|.
+  // If unset, the profiler will record only the event counts.
+  optional CallstackSampling callstack_sampling = 16;
+
+  //
+  // Kernel <-> userspace ring buffer options:
+  //
 
   // How often the per-cpu ring buffers are read by the producer.
   // If unset, an implementation-defined default is used.
@@ -665,27 +905,23 @@ message PerfEventConfig {
   // If unset, an implementation-defined default is used.
   optional uint32 ring_buffer_pages = 3;
 
-  // Process ID (TGID) whitelist. If this list is not empty, only matching
-  // samples will be retained. If multiple whitelists and blacklists are
-  // specified by the config, then all of them are evaluated for each sampled
-  // process.
-  repeated int32 target_pid = 4;
+  //
+  // Daemon's resource usage limits:
+  //
 
-  // Command line whitelist, matched against the
-  // /proc/<pid>/cmdline (not the comm string), with both sides being
-  // "normalized". Normalization is as follows: (1) trim everything beyond the
-  // first null or "@" byte; (2) if the string contains forward slashes, trim
-  // everything up to and including the last one.
-  repeated string target_cmdline = 5;
+  // Drop samples if the heap memory held by the samples in the unwinder queue
+  // is above the given limit. This counts the memory across all concurrent data
+  // sources (not just this one's), and there is no fairness guarantee - the
+  // whole quota might be used up by a concurrent source.
+  optional uint64 max_enqueued_footprint_kb = 17;
 
-  // PID blacklist.
-  repeated int32 exclude_pid = 6;
+  // Stop the data source if traced_perf's combined {RssAnon + Swap} memory
+  // footprint exceeds this value.
+  optional uint32 max_daemon_memory_kb = 13;
 
-  // Command line blacklist. Normalized in the same way as |target_cmdline|.
-  repeated string exclude_cmdline = 7;
-
-  ////////////////////
+  //
   // Uncommon options:
+  //
 
   // Timeout for the remote /proc/<pid>/{maps,mem} file descriptors for a
   // sampled process. This is primarily for Android, where this lookup is
@@ -702,6 +938,80 @@ message PerfEventConfig {
   // processes, and require the memory footprint to be reset periodically.
   // If unset, the cached state will not be cleared.
   optional uint32 unwind_state_clear_period_ms = 10;
+
+  //
+  // Deprecated (superseded by options above):
+  //
+  // Do not set *any* of these fields in new configs.
+  //
+
+  // Note: legacy configs had to set |all_cpus| to true to pass parsing.
+  // We rely on this to detect such configs.
+  optional bool all_cpus = 1;
+  optional uint32 sampling_frequency = 2;
+  optional bool kernel_frames = 12;
+  repeated int32 target_pid = 4;
+  repeated string target_cmdline = 5;
+
+  // Only profile target if it was installed by one of the packages given.
+  // Special values are:
+  // * @system: installed on the system partition
+  // * @product: installed on the product partition
+  // * @null: sideloaded
+  // Supported on Android 12+.
+  repeated string target_installed_by = 18;
+  repeated int32 exclude_pid = 6;
+  repeated string exclude_cmdline = 7;
+  optional uint32 additional_cmdline_count = 11;
+  // previously |tracepoint|
+  reserved 14;
+
+  //
+  // Sub-messages (nested for generated code namespacing).
+  //
+
+  message CallstackSampling {
+    // Defines a set of processes for which samples are retained/skipped. If
+    // unset, all userspace samples are kept, but beware that it will be very
+    // heavy on the stack unwinder, which might start dropping samples due to
+    // overload.
+    optional Scope scope = 1;
+
+    // If true, callstacks will include the kernel-space frames. Such frames can
+    // be identified by a magical "kernel" string as their mapping name.
+    // Requires traced_perf to be running as root, or kptr_restrict to have been
+    // manually unrestricted. On Android, the platform should do the right thing
+    // on debug builds.
+    // This does *not* disclose KASLR, as only the function names are emitted.
+    optional bool kernel_frames = 2;
+  }
+
+  message Scope {
+    // Process ID (TGID) allowlist. If this list is not empty, only matching
+    // samples will be retained. If multiple allow/deny-lists are
+    // specified by the config, then all of them are evaluated for each sampled
+    // process.
+    repeated int32 target_pid = 1;
+
+    // Command line allowlist, matched against the
+    // /proc/<pid>/cmdline (not the comm string), with both sides being
+    // "normalized". Normalization is as follows: (1) trim everything beyond the
+    // first null or "@" byte; (2) if the string contains forward slashes, trim
+    // everything up to and including the last one.
+    repeated string target_cmdline = 2;
+
+    // List of excluded pids.
+    repeated int32 exclude_pid = 3;
+
+    // List of excluded cmdlines. Normalized in the same way as
+    // |target_cmdline|.
+    repeated string exclude_cmdline = 4;
+
+    // Number of additional command lines to sample. Only those which are
+    // neither explicitly included nor excluded will be considered. Processes
+    // are accepted on a first come, first served basis.
+    optional uint32 additional_cmdline_count = 5;
+  }
 }
 
 // End of protos/perfetto/config/profiling/perf_event_config.proto
@@ -847,6 +1157,39 @@ enum VmstatCounters {
   VMSTAT_NR_ZSPAGES = 93;
   VMSTAT_NR_ION_HEAP = 94;
   VMSTAT_NR_GPU_HEAP = 95;
+  VMSTAT_ALLOCSTALL_DMA = 96;
+  VMSTAT_ALLOCSTALL_MOVABLE = 97;
+  VMSTAT_ALLOCSTALL_NORMAL = 98;
+  VMSTAT_COMPACT_DAEMON_FREE_SCANNED = 99;
+  VMSTAT_COMPACT_DAEMON_MIGRATE_SCANNED = 100;
+  VMSTAT_NR_FASTRPC = 101;
+  VMSTAT_NR_INDIRECTLY_RECLAIMABLE = 102;
+  VMSTAT_NR_ION_HEAP_POOL = 103;
+  VMSTAT_NR_KERNEL_MISC_RECLAIMABLE = 104;
+  VMSTAT_NR_SHADOW_CALL_STACK_BYTES = 105;
+  VMSTAT_NR_SHMEM_HUGEPAGES = 106;
+  VMSTAT_NR_SHMEM_PMDMAPPED = 107;
+  VMSTAT_NR_UNRECLAIMABLE_PAGES = 108;
+  VMSTAT_NR_ZONE_ACTIVE_ANON = 109;
+  VMSTAT_NR_ZONE_ACTIVE_FILE = 110;
+  VMSTAT_NR_ZONE_INACTIVE_ANON = 111;
+  VMSTAT_NR_ZONE_INACTIVE_FILE = 112;
+  VMSTAT_NR_ZONE_UNEVICTABLE = 113;
+  VMSTAT_NR_ZONE_WRITE_PENDING = 114;
+  VMSTAT_OOM_KILL = 115;
+  VMSTAT_PGLAZYFREE = 116;
+  VMSTAT_PGLAZYFREED = 117;
+  VMSTAT_PGREFILL = 118;
+  VMSTAT_PGSCAN_DIRECT = 119;
+  VMSTAT_PGSCAN_KSWAPD = 120;
+  VMSTAT_PGSKIP_DMA = 121;
+  VMSTAT_PGSKIP_MOVABLE = 122;
+  VMSTAT_PGSKIP_NORMAL = 123;
+  VMSTAT_PGSTEAL_DIRECT = 124;
+  VMSTAT_PGSTEAL_KSWAPD = 125;
+  VMSTAT_SWAP_RA = 126;
+  VMSTAT_SWAP_RA_HIT = 127;
+  VMSTAT_WORKINGSET_RESTORE = 128;
 }
 // End of protos/perfetto/common/sys_stats_counters.proto
 
@@ -889,6 +1232,12 @@ message SysStatsConfig {
     STAT_FORK_COUNT = 4;
   }
   repeated StatCounters stat_counters = 6;
+
+  // Polls /sys/devfreq/*/curfreq every X ms, if non-zero.
+  // This is required to be > 10ms to avoid excessive CPU usage.
+  // This option can be used to record unchanging values.
+  // Updates from frequency changes can come from ftrace/set_clock_rate.
+  optional uint32 devfreq_period_ms = 7;
 }
 
 // End of protos/perfetto/config/sys_stats/sys_stats_config.proto
@@ -977,10 +1326,18 @@ message TrackEventConfig {
   //       disabled_tags = ["*"]
   //       enabled_tags = ["my_tag"]
   //
-  repeated string disabled_categories = 1;  // Default: []
-  repeated string enabled_categories = 2;   // Default: []
-  repeated string disabled_tags = 3;  // Default: [“slow”, “debug”]
-  repeated string enabled_tags = 4;   // Default: []
+
+  // Default: []
+  repeated string disabled_categories = 1;
+
+  // Default: []
+  repeated string enabled_categories = 2;
+
+  // Default: [“slow”, “debug”]
+  repeated string disabled_tags = 3;
+
+  // Default: []
+  repeated string enabled_tags = 4;
 }
 
 // End of protos/perfetto/config/track_event/track_event_config.proto
@@ -988,7 +1345,16 @@ message TrackEventConfig {
 // Begin of protos/perfetto/config/data_source_config.proto
 
 // The configuration that is passed to each data source when starting tracing.
+// Next id: 116
 message DataSourceConfig {
+  enum SessionInitiator {
+    SESSION_INITIATOR_UNSPECIFIED = 0;
+    // This trace was initiated from a trusted system app has DUMP and
+    // USAGE_STATS permission. This system app is expected to not expose the
+    // trace to the user of the device.
+    // This is determined by checking the UID initiating the trace.
+    SESSION_INITIATOR_TRUSTED_SYSTEM = 1;
+  };
   // Data source unique name, e.g., "linux.ftrace". This must match
   // the name passed by the data source when it registers (see
   // RegisterDataSource()).
@@ -1015,11 +1381,16 @@ message DataSourceConfig {
   // DO NOT SET in consumer as this will be overridden by the service.
   optional bool enable_extra_guardrails = 6;
 
+  // Set by the service to indicate which user initiated this trace.
+  // DO NOT SET in consumer as this will be overridden by the service.
+  optional SessionInitiator session_initiator = 8;
+
   // Set by the service to indicate which tracing session the data source
   // belongs to. The intended use case for this is checking if two data sources,
   // one of which produces metadata for the other one, belong to the same trace
   // session and hence should be linked together.
   // This field was introduced in Aug 2018 after Android P.
+  // DO NOT SET in consumer as this will be overridden by the service.
   optional uint64 tracing_session_id = 4;
 
   // Keeep the lower IDs (up to 99) for fields that are *not* specific to
@@ -1068,6 +1439,16 @@ message DataSourceConfig {
   // C++ class for it so it can pass around plain C++ objets.
   optional ChromeConfig chrome_config = 101;
 
+  // If an interceptor is specified here, packets for this data source will be
+  // rerouted to the interceptor instead of the main trace buffer. This can be
+  // used, for example, to write trace data into ETW or for logging trace points
+  // to the console.
+  //
+  // Note that interceptors are only supported by data sources registered
+  // through the Perfetto SDK API. Data sources that don't use that API (e.g.,
+  // traced_probes) may not support interception.
+  optional InterceptorConfig interceptor_config = 115;
+
   // This is a fallback mechanism to send a free-form text config to the
   // producer. In theory this should never be needed. All the code that
   // is part of the platform (i.e. traced service) is supposed to *not* truncate
@@ -1080,7 +1461,8 @@ message DataSourceConfig {
   // This field is only used for testing.
   optional TestConfig for_testing = 1001;
 
-  reserved 268435455;  // Was |for_testing|. Caused more problems then found.
+  // Was |for_testing|. Caused more problems then found.
+  reserved 268435455;
 }
 
 // End of protos/perfetto/config/data_source_config.proto
@@ -1092,13 +1474,16 @@ message DataSourceConfig {
 // It contains the general config for the logging buffer(s) and the configs for
 // all the data source being enabled.
 //
-// Next id: 30.
+// Next id: 33.
 message TraceConfig {
   message BufferConfig {
     optional uint32 size_kb = 1;
 
-    reserved 2;  // |page_size|, now deprecated.
-    reserved 3;  // |optimize_for|, now deprecated.
+    // |page_size|, now deprecated.
+    reserved 2;
+
+    // |optimize_for|, now deprecated.
+    reserved 3;
 
     enum FillPolicy {
       UNSPECIFIED = 0;
@@ -1166,6 +1551,21 @@ message TraceConfig {
     // only keeps track of the first and the most recent snapshot until
     // ReadBuffers() is called.
     optional uint32 snapshot_interval_ms = 6;
+
+    // Hints to the service that a suspend-aware (i.e. counting time in suspend)
+    // clock should be used for periodic snapshots of service-emitted events.
+    // This means, if a snapshot *should* have happened during suspend, it will
+    // happen immediately after the device resumes.
+    //
+    // Choosing a clock like this is done on best-effort basis; not all
+    // platforms (e.g. Windows) expose a clock which can be used for periodic
+    // tasks counting suspend. If such a clock is not available, the service
+    // falls back to the best-available alternative.
+    //
+    // Introduced in Android S.
+    // TODO(lalitm): deprecate this in T and make this the default if nothing
+    // crashes in S.
+    optional bool prefer_suspend_clock_for_snapshot = 7;
   }
   optional BuiltinDataSource builtin_data_sources = 20;
 
@@ -1249,13 +1649,14 @@ message TraceConfig {
   optional uint64 max_file_size_bytes = 10;
 
   // Contains flags which override the default values of the guardrails inside
-  // Perfetto. These values are only affect userdebug builds.
+  // Perfetto.
   message GuardrailOverrides {
     // Override the default limit (in bytes) for uploading data to server within
     // a 24 hour period.
+    // On R-, this override only affected userdebug builds. Since S, it also
+    // affects user builds.
     optional uint64 max_upload_per_day_bytes = 1;
   }
-
   optional GuardrailOverrides guardrail_overrides = 11;
 
   // When true, data sources are not started until an explicit call to
@@ -1280,11 +1681,21 @@ message TraceConfig {
   // Default 5s.
   optional uint32 data_source_stop_timeout_ms = 23;
 
-  reserved 15;  // |disable_clock_snapshotting| moved.
+  // |disable_clock_snapshotting| moved.
+  reserved 15;
 
   // Android-only. If set, sends an intent to the Traceur system app when the
   // trace ends to notify it about the trace readiness.
   optional bool notify_traceur = 16;
+
+  // Android-only. If set to a value > 0, marks the trace session as a candidate
+  // for being attached to a bugreport. This field effectively acts as a z-index
+  // for bugreports. When Android's dumpstate runs perfetto
+  // --save-for-bugreport, traced will pick the tracing session with the highest
+  // score (score <= 0 is ignored), will steal its contents, save the trace into
+  // a known path and stop prematurely.
+  // This field was introduced in Android S.
+  optional int32 bugreport_score = 30;
 
   // Triggers allow producers to start or stop the tracing session when an event
   // occurs.
@@ -1321,7 +1732,7 @@ message TraceConfig {
       // The producer must specify this name to activate the trigger.
       optional string name = 1;
 
-      // The a std::regex that will match the producer that can activate this
+      // An std::regex that will match the producer that can activate this
       // trigger. This is optional. If unset any producers can activate this
       // trigger.
       optional string producer_name_regex = 2;
@@ -1329,6 +1740,24 @@ message TraceConfig {
       // After a trigger is received either in START_TRACING or STOP_TRACING
       // mode then the trace will end |stop_delay_ms| after triggering.
       optional uint32 stop_delay_ms = 3;
+
+      // Limits the number of traces this trigger can start/stop in a rolling
+      // 24 hour window. If this field is unset or zero, no limit is applied and
+      // activiation of this trigger *always* starts/stops the trace.
+      optional uint32 max_per_24_h = 4;
+
+      // A value between 0 and 1 which encodes the probability of skipping a
+      // trigger with this name. This is useful for reducing the probability
+      // of high-frequency triggers from dominating trace finaization. If this
+      // field is unset or zero, the trigger will *never* be skipped. If this
+      // field is greater than or equal to 1, this trigger will *always* be
+      // skipped i.e. it will be as if this trigger was never included in the
+      // first place.
+      // This probability check is applied *before* any other limits. For
+      // example, if |max_per_24_h| is also set, first we will check if the
+      // probability bar is met and only then will we check the |max_per_24_h|
+      // limit.
+      optional double skip_probability = 5;
     }
     // A list of triggers which are related to this configuration. If ANY
     // trigger is seen then an action will be performed based on |trigger_mode|.
@@ -1387,20 +1816,52 @@ message TraceConfig {
   }
   optional CompressionType compression_type = 24;
 
-  // Android-only. Debug builds only. Not for general use. If set, saves a
-  // Dropbox trace into an incident. This field is read by perfetto_cmd, rather
-  // than the tracing service. All fields are mandatory.
+  // Android-only. Not for general use. If set, saves the trace into an
+  // incident. This field is read by perfetto_cmd, rather than the tracing
+  // service. This field must be set when passing the --upload flag to
+  // perfetto_cmd.
   message IncidentReportConfig {
+    // In this message, either:
+    //  * all of |destination_package|, |destination_class| and |privacy_level|
+    //    must be set.
+    //  * |skip_incidentd| must be explicitly set to true.
+
     optional string destination_package = 1;
     optional string destination_class = 2;
     // Level of filtering in the requested incident. See |Destination| in
     // frameworks/base/core/proto/android/privacy.proto.
     optional int32 privacy_level = 3;
+
+    // If true, then skips saving the trace to incidentd.
+    //
+    // This flag is useful in testing (e.g. Perfetto-statsd integration tests)
+    // or when we explicitly don't want traces to go to incidentd even when they
+    // usually would (e.g. configs deployed using statsd but only used for
+    // inclusion in bugreports using |bugreport_score|).
+    //
+    // The motivation for having this flag, instead of just not setting
+    // |incident_report_config|, is prevent accidents where
+    // |incident_report_config| is omitted by mistake.
+    optional bool skip_incidentd = 5;
+
     // If true, do not write the trace into dropbox (i.e. incident only).
     // Otherwise, write to both dropbox and incident.
-    optional bool skip_dropbox = 4;
+    // TODO(lalitm): remove this field as we no longer use Dropbox.
+    optional bool skip_dropbox = 4 [deprecated = true];
   }
   optional IncidentReportConfig incident_report_config = 25;
+
+  enum StatsdLogging {
+    STATSD_LOGGING_UNSPECIFIED = 0;
+    STATSD_LOGGING_ENABLED = 1;
+    STATSD_LOGGING_DISABLED = 2;
+  }
+
+  // Android-only. Not for general use. If specified, sets the logging to statsd
+  // of guardrails and checkpoints in the tracing service. perfetto_cmd sets
+  // this to enabled (if not explicitly set in the config) when specifying
+  // --upload.
+  optional StatsdLogging statsd_logging = 31;
 
   // DEPRECATED. Was trace_uuid, use trace_uuid_msb and trace_uuid_lsb instead.
   reserved 26;
@@ -1408,6 +1869,15 @@ message TraceConfig {
   // Alternative encoding of trace_uuid as two int64s.
   optional int64 trace_uuid_msb = 27;
   optional int64 trace_uuid_lsb = 28;
+
+  // When set applies a post-filter to the trace contents using the filter
+  // provided. The filter is applied at ReadBuffers() time and works both in the
+  // case of IPC readback and write_into_file. This filter can be generated
+  // using `tools/proto_filter -s schema.proto -F filter_out.bytes` or
+  // `-T filter_out.escaped_string` (for .pbtx).
+  // Introduced in Android S. See go/trace-filtering for design.
+  message TraceFilter { optional bytes bytecode = 1; }
+  optional TraceFilter trace_filter = 32;
 }
 
 // End of protos/perfetto/config/trace_config.proto

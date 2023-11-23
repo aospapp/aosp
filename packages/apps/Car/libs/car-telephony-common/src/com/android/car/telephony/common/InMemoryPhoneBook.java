@@ -16,17 +16,23 @@
 
 package com.android.car.telephony.common;
 
+import android.Manifest;
 import android.content.Context;
 import android.database.Cursor;
 import android.provider.ContactsContract;
+import android.provider.ContactsContract.CommonDataKinds;
+import android.provider.ContactsContract.Data;
 import android.text.TextUtils;
+import android.util.ArrayMap;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
+import androidx.lifecycle.Transformations;
 
 import com.android.car.apps.common.log.L;
+import com.android.car.telephony.common.QueryParam.QueryBuilder.Condition;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,6 +61,11 @@ public class InMemoryPhoneBook implements Observer<List<Contact>> {
      * key to contacts for one account.
      */
     private final Map<String, Map<String, Contact>> mLookupKeyContactMap = new HashMap<>();
+
+    /**
+     * A map which divides contacts by account.
+     */
+    private final Map<String, List<Contact>> mAccountContactsMap = new ArrayMap<>();
     private boolean mIsLoaded = false;
 
     /**
@@ -101,18 +112,16 @@ public class InMemoryPhoneBook implements Observer<List<Contact>> {
 
     private InMemoryPhoneBook(Context context) {
         mContext = context;
+        QueryParam contactListQueryParam = new QueryParam.QueryBuilder(Data.CONTENT_URI)
+                .projectAll()
+                .where(Condition
+                        .is(Data.MIMETYPE, "=", CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
+                        .or(Data.MIMETYPE, "=", CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                        .or(Data.MIMETYPE, "=", CommonDataKinds.StructuredPostal.CONTENT_ITEM_TYPE))
+                .orderAscBy(ContactsContract.Contacts.DISPLAY_NAME)
+                .checkPermission(Manifest.permission.READ_CONTACTS)
+                .toQueryParam();
 
-        QueryParam contactListQueryParam = new QueryParam(
-                ContactsContract.Data.CONTENT_URI,
-                null,
-                ContactsContract.Data.MIMETYPE + " = ? OR "
-                        + ContactsContract.Data.MIMETYPE + " = ? OR "
-                        + ContactsContract.Data.MIMETYPE + " = ?",
-                new String[]{
-                        ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE,
-                        ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE,
-                        ContactsContract.CommonDataKinds.StructuredPostal.CONTENT_ITEM_TYPE},
-                ContactsContract.Contacts.DISPLAY_NAME + " ASC ");
         mContactListAsyncQueryLiveData = new AsyncQueryLiveData<List<Contact>>(mContext,
                 QueryParam.of(contactListQueryParam), Executors.newSingleThreadExecutor()) {
             @Override
@@ -136,9 +145,24 @@ public class InMemoryPhoneBook implements Observer<List<Contact>> {
 
     /**
      * Returns a {@link LiveData} which monitors the contact list changes.
+     *
+     * @deprecated Use {@link #getContactsLiveDataByAccount(String)} instead.
      */
+    @Deprecated
     public LiveData<List<Contact>> getContactsLiveData() {
         return mContactListAsyncQueryLiveData;
+    }
+
+    /**
+     * Returns a LiveData that represents all contacts within an account.
+     *
+     * @param accountName the name of an account that contains all the contacts. For the contacts
+     *                    from a Bluetooth connected phone, the account name is equal to the
+     *                    Bluetooth address.
+     */
+    public LiveData<List<Contact>> getContactsLiveDataByAccount(String accountName) {
+        return Transformations.map(mContactListAsyncQueryLiveData,
+                contacts -> contacts == null ? null : mAccountContactsMap.get(accountName));
     }
 
     /**
@@ -215,7 +239,7 @@ public class InMemoryPhoneBook implements Observer<List<Contact>> {
         while (cursor.moveToNext()) {
             int accountNameColumn = cursor.getColumnIndex(
                     ContactsContract.RawContacts.ACCOUNT_NAME);
-            int lookupKeyColumn = cursor.getColumnIndex(ContactsContract.Data.LOOKUP_KEY);
+            int lookupKeyColumn = cursor.getColumnIndex(Data.LOOKUP_KEY);
             String accountName = cursor.getString(accountNameColumn);
             String lookupKey = cursor.getString(lookupKeyColumn);
 
@@ -227,8 +251,13 @@ public class InMemoryPhoneBook implements Observer<List<Contact>> {
             subMap.put(lookupKey, Contact.fromCursor(mContext, cursor, subMap.get(lookupKey)));
         }
 
-        for (Map<String, Contact> subMap : contactMap.values()) {
+        mAccountContactsMap.clear();
+        for (String accountName : contactMap.keySet()) {
+            Map<String, Contact> subMap = contactMap.get(accountName);
             contactList.addAll(subMap.values());
+            List<Contact> accountContacts = new ArrayList<>();
+            accountContacts.addAll(subMap.values());
+            mAccountContactsMap.put(accountName, accountContacts);
         }
 
         mLookupKeyContactMap.clear();

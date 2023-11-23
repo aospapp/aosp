@@ -25,14 +25,14 @@
 #include <thread>
 #include <utility>
 
-#include <glog/logging.h>
+#include <android-base/logging.h>
 #include "host/frontend/vnc_server/vnc_utils.h"
-#include "host/libs/screen_connector/screen_connector.h"
 
-using cvd::vnc::FrameBufferWatcher;
+using cuttlefish::vnc::FrameBufferWatcher;
 
-FrameBufferWatcher::FrameBufferWatcher(BlackBoard* bb)
-    : bb_{bb}, hwcomposer{bb_} {
+FrameBufferWatcher::FrameBufferWatcher(BlackBoard* bb,
+                                       ScreenConnector& screen_connector)
+    : bb_{bb}, hwcomposer{bb_, screen_connector} {
   for (auto& stripes_vec : stripes_) {
     std::generate_n(std::back_inserter(stripes_vec),
                     SimulatedHWComposer::NumberOfStripes(),
@@ -60,7 +60,7 @@ bool FrameBufferWatcher::closed() const {
   return closed_;
 }
 
-cvd::vnc::Stripe FrameBufferWatcher::Rotated(Stripe stripe) {
+cuttlefish::vnc::Stripe FrameBufferWatcher::Rotated(Stripe stripe) {
   if (stripe.orientation == ScreenOrientation::Landscape) {
     LOG(FATAL) << "Rotating a landscape stripe, this is a mistake";
   }
@@ -71,17 +71,17 @@ cvd::vnc::Stripe FrameBufferWatcher::Rotated(Stripe stripe) {
   Message rotated(raw.size(), 0xAA);
   for (std::uint16_t i = 0; i < w; ++i) {
     for (std::uint16_t j = 0; j < h; ++j) {
-      size_t to = (i * h + j) * ScreenConnector::BytesPerPixel();
-      size_t from = (w - (i + 1)) * ScreenConnector::BytesPerPixel() + s * j;
+      size_t to = (i * h + j) * ScreenConnectorInfo::BytesPerPixel();
+      size_t from = (w - (i + 1)) * ScreenConnectorInfo::BytesPerPixel() + s * j;
       CHECK(from < raw.size());
       CHECK(to < rotated.size());
-      std::memcpy(&rotated[to], &raw[from], ScreenConnector::BytesPerPixel());
+      std::memcpy(&rotated[to], &raw[from], ScreenConnectorInfo::BytesPerPixel());
     }
   }
   std::swap(stripe.x, stripe.y);
   std::swap(stripe.width, stripe.height);
   // The new stride after rotating is the height, as it is not aligned again.
-  stripe.stride = stripe.width * ScreenConnector::BytesPerPixel();
+  stripe.stride = stripe.width * ScreenConnectorInfo::BytesPerPixel();
   stripe.raw_data = std::move(rotated);
   stripe.orientation = ScreenOrientation::Landscape;
   return stripe;
@@ -92,7 +92,7 @@ bool FrameBufferWatcher::StripeIsDifferentFromPrevious(
   return Stripes(stripe.orientation)[stripe.index]->raw_data != stripe.raw_data;
 }
 
-cvd::vnc::StripePtrVec FrameBufferWatcher::StripesNewerThan(
+cuttlefish::vnc::StripePtrVec FrameBufferWatcher::StripesNewerThan(
     ScreenOrientation orientation, const SeqNumberVec& seq_numbers) const {
   std::lock_guard<std::mutex> guard(stripes_lock_);
   const auto& stripes = Stripes(orientation);
@@ -106,12 +106,12 @@ cvd::vnc::StripePtrVec FrameBufferWatcher::StripesNewerThan(
   return new_stripes;
 }
 
-cvd::vnc::StripePtrVec& FrameBufferWatcher::Stripes(
+cuttlefish::vnc::StripePtrVec& FrameBufferWatcher::Stripes(
     ScreenOrientation orientation) {
   return stripes_[static_cast<int>(orientation)];
 }
 
-const cvd::vnc::StripePtrVec& FrameBufferWatcher::Stripes(
+const cuttlefish::vnc::StripePtrVec& FrameBufferWatcher::Stripes(
     ScreenOrientation orientation) const {
   return stripes_[static_cast<int>(orientation)];
 }
@@ -189,4 +189,12 @@ void FrameBufferWatcher::Worker() {
 
 int FrameBufferWatcher::StripesPerFrame() {
   return SimulatedHWComposer::NumberOfStripes();
+}
+
+void FrameBufferWatcher::IncClientCount() {
+  hwcomposer.ReportClientsConnected();
+}
+
+void FrameBufferWatcher::DecClientCount() {
+  // Do nothing
 }

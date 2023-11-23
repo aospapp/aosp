@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2019 The ANGLE Project Authors. All rights reserved.
+// Copyright 2019 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -7,6 +7,9 @@
 //    This is a special version Vulkan GLSL output that will make some special
 //    considerations for Metal backend limitations.
 //
+
+#ifndef COMPILER_TRANSLATOR_OUTPUTVULKANGLSLFORMETAL_H_
+#define COMPILER_TRANSLATOR_OUTPUTVULKANGLSLFORMETAL_H_
 
 #include "compiler/translator/OutputVulkanGLSL.h"
 
@@ -17,7 +20,6 @@ class TOutputVulkanGLSLForMetal : public TOutputVulkanGLSL
 {
   public:
     TOutputVulkanGLSLForMetal(TInfoSinkBase &objSink,
-                              ShArrayIndexClampingStrategy clampingStrategy,
                               ShHashFunction64 hashFunction,
                               NameMap &nameMap,
                               TSymbolTable *symbolTable,
@@ -37,3 +39,5 @@ class TOutputVulkanGLSLForMetal : public TOutputVulkanGLSL
 };
 
 }  // namespace sh
+
+#endif  // COMPILER_TRANSLATOR_OUTPUTVULKANGLSLFORMETAL_H_

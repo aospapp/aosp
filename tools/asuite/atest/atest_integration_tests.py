@@ -41,7 +41,7 @@ _LOG_FILE = 'integration_tests.log'
 _FAILED_LINE_LIMIT = 50
 _INTEGRATION_TESTS = 'INTEGRATION_TESTS'
 _EXIT_TEST_FAILED = 1
-
+_ALTERNATIVES = ('-dev', '-py2')
 
 class ATestIntegrationTest(unittest.TestCase):
     """ATest Integration Test Class."""
@@ -129,9 +129,14 @@ def create_test_run_dir():
 
 if __name__ == '__main__':
     # TODO(b/129029189) Implement detail comparison check for dry-run mode.
-    ARGS = ' '.join(sys.argv[1:])
+    ARGS = sys.argv[1:]
     if ARGS:
-        ATestIntegrationTest.OPTIONS = ARGS
+        for exe in _ALTERNATIVES:
+            if exe in ARGS:
+                ARGS.remove(exe)
+                ATestIntegrationTest.EXECUTABLE += exe
+        ATestIntegrationTest.OPTIONS = ' '.join(ARGS)
+    print('Running tests with {}\n'.format(ATestIntegrationTest.EXECUTABLE))
     TEST_PLANS = os.path.join(os.path.dirname(__file__), _INTEGRATION_TESTS)
     try:
         LOG_PATH = os.path.join(create_test_run_dir(), _LOG_FILE)

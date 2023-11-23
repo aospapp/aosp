@@ -11,30 +11,39 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""CameraITS test that a capture result is returned from a manual capture.
+"""
 
-import its.caps
-import its.image
-import its.device
-import its.objects
-import its.target
 import pprint
+from mobly import test_runner
 
-def main():
-    """Test that a capture result is returned from a manual capture; dump it.
-    """
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import its_session_utils
 
-    with its.device.ItsSession() as cam:
-        # Arbitrary capture request exposure values; image content is not
-        # important for this test, only the metadata.
-        props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.manual_sensor(props))
 
-        req,fmt = its.objects.get_fastest_manual_capture_settings(props)
-        cap = cam.do_capture(req, fmt)
-        pprint.pprint(cap["metadata"])
+class CaptureResultDumpTest(its_base_test.ItsBaseTest):
+  """Test that a capture result is returned from a manual capture and dump it.
+  """
 
-        # No pass/fail check; test passes if it completes.
+  def test_capture_result_dump(self):
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      # Arbitrary capture request exposure values; image content is not
+      # important for this test, only the metadata.
+      props = cam.get_camera_properties()
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.manual_sensor(props))
+
+      req, fmt = capture_request_utils.get_fastest_manual_capture_settings(
+          props)
+      cap = cam.do_capture(req, fmt)
+      pprint.pprint(cap['metadata'])
+
+      # No pass/fail check; test passes if it completes.
 
 if __name__ == '__main__':
-    main()
-
+  test_runner.main()

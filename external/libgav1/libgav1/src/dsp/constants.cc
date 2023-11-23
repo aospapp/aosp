@@ -20,7 +20,7 @@ namespace libgav1 {
 
 // Each set of 7 taps is padded with a 0 to easily align and pack into the high
 // and low 8 bytes. This way, we can load 16 at a time to fit mulhi and mullo.
-const int8_t kFilterIntraTaps[kNumFilterIntraPredictors][8][8] = {
+alignas(16) const int8_t kFilterIntraTaps[kNumFilterIntraPredictors][8][8] = {
     {{-6, 10, 0, 0, 0, 12, 0, 0},
      {-5, 2, 10, 0, 0, 9, 0, 0},
      {-3, 1, 1, 10, 0, 7, 0, 0},
@@ -77,6 +77,27 @@ const uint16_t kSgrScaleParameter[16][2] = {
     {140, 3236}, {112, 2158}, {93, 1618}, {80, 1438}, {70, 1295}, {58, 1177},
     {47, 1079},  {37, 996},   {30, 925},  {25, 863},  {0, 2589},  {0, 1618},
     {0, 1177},   {0, 925},    {56, 0},    {22, 0},
+};
+
+const uint8_t kCdefPrimaryTaps[2][2] = {{4, 2}, {3, 3}};
+
+// This is Cdef_Directions (section 7.15.3) with 2 padding entries at the
+// beginning and end of the table. The cdef direction range is [0, 7] and the
+// first index is offset +/-2. This removes the need to constrain the first
+// index to the same range using e.g., & 7.
+const int8_t kCdefDirectionsPadded[12][2][2] = {
+    {{1, 0}, {2, 0}},    // Padding: Cdef_Directions[6]
+    {{1, 0}, {2, -1}},   // Padding: Cdef_Directions[7]
+    {{-1, 1}, {-2, 2}},  // Begin Cdef_Directions
+    {{0, 1}, {-1, 2}},   //
+    {{0, 1}, {0, 2}},    //
+    {{0, 1}, {1, 2}},    //
+    {{1, 1}, {2, 2}},    //
+    {{1, 0}, {2, 1}},    //
+    {{1, 0}, {2, 0}},    //
+    {{1, 0}, {2, -1}},   // End Cdef_Directions
+    {{-1, 1}, {-2, 2}},  // Padding: Cdef_Directions[0]
+    {{0, 1}, {-1, 2}},   // Padding: Cdef_Directions[1]
 };
 
 }  // namespace libgav1

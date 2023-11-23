@@ -20,6 +20,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
 import com.android.car.settings.R;
@@ -31,9 +32,20 @@ import com.android.car.settings.common.FragmentController;
 public class BluetoothAddressPreferenceController extends
         BluetoothPreferenceController<Preference> {
 
+    private final BluetoothAdapter mBluetoothAdapter;
+
     public BluetoothAddressPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions,
+                BluetoothAdapter.getDefaultAdapter());
+    }
+
+    @VisibleForTesting
+    BluetoothAddressPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            BluetoothAdapter bluetoothAdapter) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
+        mBluetoothAdapter = bluetoothAdapter;
     }
 
     @Override
@@ -43,9 +55,9 @@ public class BluetoothAddressPreferenceController extends
 
     @Override
     protected void updateState(Preference preference) {
-        String address = BluetoothAdapter.getDefaultAdapter().getAddress();
+        String address = mBluetoothAdapter.getAddress();
         String formattedAddress = getContext().getString(R.string.bluetooth_vehicle_mac_address,
                 address);
-        preference.setTitle(formattedAddress);
+        preference.setSummary(formattedAddress);
     }
 }

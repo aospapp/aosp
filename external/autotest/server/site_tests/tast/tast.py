@@ -11,10 +11,14 @@ import dateutil.parser
 from autotest_lib.client.common_lib import base_job
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import dev_server
+from autotest_lib.client.common_lib.cros import tpm_utils
 from autotest_lib.server import test
 from autotest_lib.server import utils
+from autotest_lib.server.cros.network import wifi_test_context_manager
 from autotest_lib.server.hosts import cros_host
 from autotest_lib.server.hosts import servo_host
+from autotest_lib.server.hosts import servo_constants
+from autotest_lib.utils import labellib
 
 
 # A datetime.DateTime representing the Unix epoch in UTC.
@@ -75,11 +79,7 @@ class tast(test.test):
     _MAX_TEST_NAMES_IN_ERROR = 3
 
     # Default paths where Tast files are installed by Portage packages.
-    _TAST_PATH = '/usr/bin/tast'
-    _REMOTE_BUNDLE_DIR = '/usr/libexec/tast/bundles/remote'
-    _REMOTE_DATA_DIR = '/usr/share/tast/data'
-    _REMOTE_TEST_RUNNER_PATH = '/usr/bin/remote_test_runner'
-    _DEFAULT_VARS_DIR_PATH = '/etc/tast/vars/private'
+    _PORTAGE_TAST_PATH = '/usr/bin/tast'
 
     # Alternate locations for Tast files when using Server-Side Packaging.
     # These files are installed from autotest_server_package.tar.bz2.
@@ -112,9 +112,21 @@ class tast(test.test):
     # Status reason used when an individual Tast test doesn't finish running.
     _TEST_DID_NOT_FINISH_MSG = 'Test did not finish'
 
-    def initialize(self, host, test_exprs, ignore_test_failures=False,
-                   max_run_sec=3600, command_args=[], install_root='/',
-                   run_private_tests=True, varsfiles=None):
+    def initialize(self,
+                   host,
+                   test_exprs,
+                   ignore_test_failures=False,
+                   max_run_sec=3600,
+                   command_args=[],
+                   install_root='/',
+                   ssp=None,
+                   build=None,
+                   build_bundle='cros',
+                   run_private_tests=True,
+                   varsfiles=[],
+                   download_data_lazily=True,
+                   clear_tpm=False,
+                   varslist=[]):
         """
         @param host: remote.RemoteHost instance representing DUT.
         @param test_exprs: Array of strings describing tests to run.
@@ -129,21 +141,46 @@ class tast(test.test):
             test_that's --args flag, i.e. |args| in control file.
         @param install_root: Root directory under which Tast binaries are
             installed. Alternate values may be passed by unit tests.
-        @param run_private_tests: Download and run private tests.
+        @param ssp: Whether to use SSP files. Default is to auto-detect.
+        @param build: Whether to build test runners and test bundles.
+            Default is to build if and only if SSP is unavailable
+            (i.e. build = not ssp).
+        @param build_bundle: Test bundle name to build. Effective only when
+            build=True.
+        @param run_private_tests: Download and run private tests. Effective
+            only when build=False. When build=True, build_bundle can be
+            specified to build and run a private bundle.
         @param varsfiles: list of names of yaml files containing variables set
             in |-varsfile| arguments.
+        @param download_data_lazily: If True, external data files are downloaded
+            lazily between tests. If false, external data files are downloaded
+            in a batch before running tests.
+        @param clear_tpm: clear the TPM first before running the tast tests.
+        @param varslist: list of strings to pass to tast run command as |-vars|
+            arguments. Each string should be formatted as "name=value".
 
         @raises error.TestFail if the Tast installation couldn't be found.
         """
+        if ssp is None:
+            ssp = os.path.exists(self._SSP_TAST_PATH)
+        if build is None:
+            build = not ssp
+
         self._host = host
         self._test_exprs = test_exprs
         self._ignore_test_failures = ignore_test_failures
         self._max_run_sec = max_run_sec
         self._command_args = command_args
         self._install_root = install_root
+        self._ssp = ssp
+        self._build = build
+        self._build_bundle = build_bundle
         self._run_private_tests = run_private_tests
         self._fake_now = None
         self._varsfiles = varsfiles
+        self._varslist = varslist
+        self._download_data_lazily = download_data_lazily
+        self._clear_tpm = clear_tpm
 
         # List of JSON objects describing tests that will be run. See Test in
         # src/platform/tast/src/chromiumos/tast/testing/test.go for details.
@@ -157,21 +194,8 @@ class tast(test.test):
         # Error message read from _RUN_ERROR_FILENAME, if any.
         self._run_error = None
 
-        self._tast_path = self._get_path((self._TAST_PATH, self._SSP_TAST_PATH))
-        self._remote_bundle_dir = self._get_path((self._REMOTE_BUNDLE_DIR,
-                                                  self._SSP_REMOTE_BUNDLE_DIR))
-        # The data dir can be missing if no remote tests registered data files.
-        self._remote_data_dir = self._get_path((self._REMOTE_DATA_DIR,
-                                                self._SSP_REMOTE_DATA_DIR),
-                                               allow_missing=True)
-        self._remote_test_runner_path = self._get_path(
-                (self._REMOTE_TEST_RUNNER_PATH,
-                 self._SSP_REMOTE_TEST_RUNNER_PATH))
-        # Secret vars dir can be missing on public repos.
-        self._default_vars_dir_path = self._get_path(
-                (self._DEFAULT_VARS_DIR_PATH,
-                 self._SSP_DEFAULT_VARS_DIR_PATH),
-                 allow_missing=True)
+        self._tast_path = self._get_path(
+            self._SSP_TAST_PATH if ssp else self._PORTAGE_TAST_PATH)
 
         # Register a hook to write the results of individual Tast tests as
         # top-level entries in the TKO status.log file.
@@ -180,9 +204,15 @@ class tast(test.test):
     def run_once(self):
         """Runs a single iteration of the test."""
 
+        if self._clear_tpm:
+            tpm_utils.ClearTPMOwnerRequest(self._host, wait_for_ready=True)
+
         self._log_version()
         self._find_devservers()
-        self._get_tests_to_run()
+
+        # Shortcut if no test belongs to the specified test_exprs.
+        if not self._get_tests_to_run():
+            return
 
         run_failed = False
         try:
@@ -202,28 +232,15 @@ class tast(test.test):
         """
         self._fake_now = now
 
-    def _get_path(self, paths, allow_missing=False):
+    def _get_path(self, path):
         """Returns the path to an installed Tast-related file or directory.
 
-        @param paths: Tuple or list of absolute paths in root filesystem, e.g.
-            ("/usr/bin/tast", "/usr/local/tast/tast").
-        @param allow_missing: True if it's okay for the path to be missing.
+        @param path: Absolute paths in root filesystem, e.g. "/usr/bin/tast".
 
-        @returns Absolute path within install root, e.g. "/usr/bin/tast", or an
-            empty string if the path wasn't found and allow_missing is True.
-
-        @raises error.TestFail if the path couldn't be found and allow_missing
-            is False.
+        @returns Absolute path within install root, e.g.
+            "/usr/local/tast/usr/bin/tast".
         """
-        for path in paths:
-            abs_path = os.path.join(self._install_root,
-                                    os.path.relpath(path, '/'))
-            if os.path.exists(abs_path):
-                return abs_path
-
-        if allow_missing:
-            return ''
-        raise error.TestFail('None of %s exist' % list(paths))
+        return os.path.join(self._install_root, os.path.relpath(path, '/'))
 
     def _get_servo_args(self):
         """Gets servo-related arguments to pass to "tast run".
@@ -242,11 +259,56 @@ class tast(test.test):
         merged_args.update(cros_host.CrosHost.get_servo_arguments(args_dict))
 
         logging.info('Autotest servo-related args: %s', merged_args)
-        host_arg = merged_args.get(servo_host.SERVO_HOST_ATTR)
-        port_arg = merged_args.get(servo_host.SERVO_PORT_ATTR)
+        host_arg = merged_args.get(servo_constants.SERVO_HOST_ATTR)
+        port_arg = merged_args.get(servo_constants.SERVO_PORT_ATTR)
         if not host_arg or not port_arg:
             return []
         return ['-var=servo=%s:%s' % (host_arg, port_arg)]
+
+    def _get_wificell_args(self):
+        """Gets wificell-related (router, pcap) arguments to pass to "tast run".
+
+        @returns List of command-line flag strings that should be inserted in
+            the command line after "tast run".
+        """
+        # Incorporate information that was passed manually.
+        args_dict = utils.args_to_dict(self._command_args)
+        args = []
+        # Alias of WiFiTestContextManager.
+        WiFiManager = wifi_test_context_manager.WiFiTestContextManager
+        # TODO(crbug.com/1065601): plumb other WiFi test specific arguments,
+        #     e.g. pcap address. See: WiFiTestContextManager's constants.
+        forward_args = [
+            (WiFiManager.CMDLINE_ROUTER_ADDR, 'router=%s'),
+            (WiFiManager.CMDLINE_PCAP_ADDR, 'pcap=%s'),
+        ]
+        for key, var_arg in forward_args:
+            if key in args_dict:
+                args += ['-var=' + var_arg % args_dict[key]]
+        logging.info('Autotest wificell-related args: %s', args)
+        return args
+
+    def _get_cloud_storage_info(self):
+        """Gets the cloud storage bucket URL to pass to tast.
+
+        @returns Cloud storage bucket URL that should be inserted in
+            the command line after "tast run".
+        """
+        gs_bucket = dev_server._get_image_storage_server()
+        args_dict = utils.args_to_dict(self._command_args)
+        build = args_dict.get('build')
+        if not build:
+            labels = self._host.host_info_store.get().labels
+            build = labellib.LabelsMapping(labels).get(
+                labellib.Key.CROS_VERSION)
+
+        if not gs_bucket or not build:
+            return []
+        gs_path = gs_bucket + build
+        if not gs_path.endswith('/'):
+            gs_path += '/'
+        logging.info('Cloud storage bucket: %s', gs_path)
+        return ['-buildartifactsurl=%s' % gs_path]
 
     def _find_devservers(self):
         """Finds available devservers.
@@ -254,7 +316,7 @@ class tast(test.test):
         The result is saved as self._devserver_args.
         """
         devservers, _ = dev_server.ImageServer.get_available_devservers(
-            self._host.hostname)
+            self._host.hostname, prefer_local_devserver=True)
         logging.info('Using devservers: %s', ', '.join(devservers))
         self._devserver_args = ['-devservers=%s' % ','.join(devservers)]
 
@@ -291,14 +353,38 @@ class tast(test.test):
             '-verbose=true',
             '-logtime=false',
             subcommand,
-            '-build=false',
-            '-remotebundledir=' + self._remote_bundle_dir,
-            '-remotedatadir=' + self._remote_data_dir,
-            '-remoterunner=' + self._remote_test_runner_path,
             '-sshretries=%d' % self._SSH_CONNECT_RETRIES,
+            '-downloaddata=%s' % (
+                'lazy' if self._download_data_lazily else 'batch'),
         ]
-        if subcommand == 'run':
-            cmd.append('-defaultvarsdir=' + self._default_vars_dir_path)
+        if self._build:
+            cmd.extend([
+                '-build=true',
+                '-buildbundle=%s' % self._build_bundle,
+                '-checkbuilddeps=false',
+            ])
+        else:
+            cmd.append('-build=false')
+            if self._ssp:
+                remote_test_runner_path = self._get_path(
+                    self._SSP_REMOTE_TEST_RUNNER_PATH)
+                if not os.path.exists(remote_test_runner_path):
+                    raise error.TestFail(
+                        '%s does not exist (broken SSP?)' %
+                        remote_test_runner_path)
+                cmd.extend([
+                    '-remotebundledir=%s' % self._get_path(
+                        self._SSP_REMOTE_BUNDLE_DIR),
+                    '-remotedatadir=%s' % self._get_path(
+                        self._SSP_REMOTE_DATA_DIR),
+                    '-remoterunner=%s' % remote_test_runner_path,
+                ])
+                if subcommand == 'run':
+                    cmd.append('-defaultvarsdir=%s' %
+                               self._get_path(self._SSP_DEFAULT_VARS_DIR_PATH))
+            if self._run_private_tests:
+                cmd.append('-downloadprivatebundles=true')
+        cmd.extend(self._devserver_args)
         cmd.extend(extra_subcommand_args)
         cmd.append('%s:%d' % (self._host.hostname, self._host.port))
         cmd.extend(self._test_exprs)
@@ -332,12 +418,12 @@ class tast(test.test):
     def _get_tests_to_run(self):
         """Runs the tast command to update the list of tests that will be run.
 
+        @returns False if no tests matched by test_exprs; True otherwise
+
         @raises error.TestFail if the tast command fails or times out.
         """
         logging.info('Getting list of tests that will be run')
-        args = ['-json=true'] + self._devserver_args
-        if self._run_private_tests:
-            args.append('-downloadprivatebundles=true')
+        args = ['-json=true'] + self._get_cloud_storage_info()
         result = self._run_tast('list', args, self._LIST_TIMEOUT_SEC)
         try:
             self._tests_to_run = _encode_utf8_json(
@@ -346,9 +432,11 @@ class tast(test.test):
             raise error.TestFail('Failed to parse tests: %s' % str(e))
         if len(self._tests_to_run) == 0:
             expr = ' '.join([utils.sh_quote_word(a) for a in self._test_exprs])
-            raise error.TestFail('No tests matched by %s' % expr)
+            logging.warning('No tests matched by %s', expr)
+            return False
 
         logging.info('Expect to run %d test(s)', len(self._tests_to_run))
+        return True
 
     def _run_tests(self):
         """Runs the tast command to perform testing.
@@ -361,14 +449,13 @@ class tast(test.test):
             '-waituntilready=true',
             '-timeout=' + str(self._max_run_sec),
             '-continueafterfailure=true',
-        ] + self._devserver_args + self._get_servo_args()
+        ] + self._get_servo_args() + self._get_wificell_args() + self._get_cloud_storage_info()
 
-        if self._varsfiles:
-            for varsfile in self._varsfiles:
-                args.append('-varsfile=%s' % varsfile)
+        for varsfile in self._varsfiles:
+            args.append('-varsfile=%s' % varsfile)
 
-        if self._run_private_tests:
-            args.append('-downloadprivatebundles=true')
+        for var in self._varslist:
+            args.append('-var=%s' % var)
 
         logging.info('Running tests with timeout of %d sec', self._max_run_sec)
         self._run_tast('run', args, self._max_run_sec + tast._RUN_EXIT_SEC,

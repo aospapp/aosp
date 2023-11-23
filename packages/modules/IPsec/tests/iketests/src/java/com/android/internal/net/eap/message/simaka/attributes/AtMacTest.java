@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka.attributes;
+package com.android.internal.net.eap.test.message.simaka.attributes;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_MAC;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_MAC_INVALID_LENGTH;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.MAC;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_MAC;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_MAC_INVALID_LENGTH;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.MAC;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -28,10 +28,10 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAttributeException;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtMac;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttributeFactory;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaInvalidAttributeException;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtMac;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttributeFactory;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -43,6 +43,7 @@ public class AtMacTest {
     private static final int MAC_LENGTH = 16;
     private static final byte[] MAC_BYTES = hexStringToByteArray(MAC);
     private static final byte[] INVALID_MAC = {(byte) 1, (byte) 2, (byte) 3};
+    private static final byte[] RESERVED_BYTES = {(byte) 0x0A, (byte) 0x0B};
 
     private EapSimAkaAttributeFactory mAttributeFactory;
 
@@ -106,5 +107,14 @@ public class AtMacTest {
         ByteBuffer result = ByteBuffer.allocate(EXPECTED_LENGTH);
         atMac.encode(result);
         assertArrayEquals(AT_MAC, result.array());
+    }
+
+    @Test
+    public void testGetAtMacWithMacCleared() throws Exception {
+        AtMac original = new AtMac(RESERVED_BYTES, MAC_BYTES);
+
+        AtMac clearedMac = original.getAtMacWithMacCleared();
+        assertArrayEquals(RESERVED_BYTES, clearedMac.reservedBytes);
+        assertArrayEquals(new byte[MAC_LENGTH], clearedMac.mac);
     }
 }

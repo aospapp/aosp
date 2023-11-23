@@ -27,6 +27,19 @@ class ZoomRatioMapperHwl {
  public:
   virtual ~ZoomRatioMapperHwl() = default;
 
+  // Limit zoom ratio if concurrent mode is on
+  virtual void LimitZoomRatioIfConcurrent(float* zoom_ratio) const = 0;
+
+  // Helper method to get the active array size for this particular capture
+  // request / result (which might be useful for device specific features).
+  // Returns a bool specifying whether the 'out' Dimension parameter has a valid
+  // dimension.
+  virtual bool GetActiveArrayDimensionToBeUsed(
+      uint32_t /*camera_id*/,
+      const HalCameraMetadata* /*settings / result_metadata*/,
+      Dimension* /*active_array_dimension*/) const {
+    return false;
+  }
   // Apply zoom ratio to capture request
   virtual void UpdateCaptureRequest(CaptureRequest* request) = 0;
 

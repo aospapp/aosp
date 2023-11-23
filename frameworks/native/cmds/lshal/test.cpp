@@ -24,7 +24,7 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <android/hardware/tests/baz/1.0/IQuux.h>
+#include <android/hardware/tests/inheritance/1.0/IChild.h>
 #include <hidl/HidlTransportSupport.h>
 #include <vintf/parse_xml.h>
 
@@ -44,10 +44,9 @@ using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::hidl_handle;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
+using ::android::hardware::Void;
 using android::vintf::Arch;
 using android::vintf::CompatibilityMatrix;
-using android::vintf::gCompatibilityMatrixConverter;
-using android::vintf::gHalManifestConverter;
 using android::vintf::HalManifest;
 using android::vintf::Transport;
 using android::vintf::VintfObject;
@@ -59,10 +58,14 @@ using hidl_hash = hidl_array<uint8_t, 32>;
 namespace android {
 namespace hardware {
 namespace tests {
-namespace baz {
+namespace inheritance {
 namespace V1_0 {
 namespace implementation {
-struct Quux : android::hardware::tests::baz::V1_0::IQuux {
+struct Child : android::hardware::tests::inheritance::V1_0::IChild {
+    ::android::hardware::Return<void> doChild() override { return Void(); }
+    ::android::hardware::Return<void> doParent() override { return Void(); }
+    ::android::hardware::Return<void> doGrandparent() override { return Void(); }
+
     ::android::hardware::Return<void> debug(const hidl_handle& hh, const hidl_vec<hidl_string>& options) override {
         const native_handle_t *handle = hh.getNativeHandle();
         if (handle->numFds < 1) {
@@ -76,7 +79,7 @@ struct Quux : android::hardware::tests::baz::V1_0::IQuux {
         }
         ssize_t written = write(fd, content.c_str(), content.size());
         if (written != (ssize_t)content.size()) {
-            LOG(WARNING) << "SERVER(Quux) debug writes " << written << " bytes < "
+            LOG(WARNING) << "SERVER(Child) debug writes " << written << " bytes < "
                     << content.size() << " bytes, errno = " << errno;
         }
         return Void();
@@ -85,7 +88,7 @@ struct Quux : android::hardware::tests::baz::V1_0::IQuux {
 
 } // namespace implementation
 } // namespace V1_0
-} // namespace baz
+} // namespace inheritance
 } // namespace tests
 } // namespace hardware
 
@@ -124,18 +127,24 @@ public:
 class DebugTest : public ::testing::Test {
 public:
     void SetUp() override {
-        using ::android::hardware::tests::baz::V1_0::IQuux;
-        using ::android::hardware::tests::baz::V1_0::implementation::Quux;
+        using ::android::hardware::tests::inheritance::V1_0::IChild;
+        using ::android::hardware::tests::inheritance::V1_0::IParent;
+        using ::android::hardware::tests::inheritance::V1_0::IGrandparent;
+        using ::android::hardware::tests::inheritance::V1_0::implementation::Child;
 
         err.str("");
         out.str("");
         serviceManager = new testing::NiceMock<MockServiceManager>();
-        ON_CALL(*serviceManager, get(_, _)).WillByDefault(Invoke(
-            [](const auto &iface, const auto &inst) -> ::android::hardware::Return<sp<IBase>> {
-                if (iface == IQuux::descriptor && inst == "default")
-                    return new Quux();
-                return nullptr;
-            }));
+        ON_CALL(*serviceManager, get(_, _))
+                .WillByDefault(
+                        Invoke([](const auto& iface,
+                                  const auto& inst) -> ::android::hardware::Return<sp<IBase>> {
+                            if (inst != "default") return nullptr;
+                            if (iface == IChild::descriptor || iface == IParent::descriptor ||
+                                iface == IGrandparent::descriptor)
+                                return new Child();
+                            return nullptr;
+                        }));
 
         lshal = std::make_unique<Lshal>(out, err, serviceManager, serviceManager);
     }
@@ -159,17 +168,17 @@ static Status callMain(const std::unique_ptr<T>& lshal, const std::vector<const 
 
 TEST_F(DebugTest, Debug) {
     EXPECT_EQ(0u, callMain(lshal, {
-        "lshal", "debug", "android.hardware.tests.baz@1.0::IQuux/default", "foo", "bar"
+        "lshal", "debug", "android.hardware.tests.inheritance@1.0::IChild/default", "foo", "bar"
     }));
-    EXPECT_THAT(out.str(), StrEq("android.hardware.tests.baz@1.0::IQuux\nfoo\nbar"));
+    EXPECT_THAT(out.str(), StrEq("android.hardware.tests.inheritance@1.0::IChild\nfoo\nbar"));
     EXPECT_THAT(err.str(), IsEmpty());
 }
 
 TEST_F(DebugTest, Debug2) {
     EXPECT_EQ(0u, callMain(lshal, {
-        "lshal", "debug", "android.hardware.tests.baz@1.0::IQuux", "baz", "quux"
+        "lshal", "debug", "android.hardware.tests.inheritance@1.0::IChild", "baz", "quux"
     }));
-    EXPECT_THAT(out.str(), StrEq("android.hardware.tests.baz@1.0::IQuux\nbaz\nquux"));
+    EXPECT_THAT(out.str(), StrEq("android.hardware.tests.inheritance@1.0::IChild\nbaz\nquux"));
     EXPECT_THAT(err.str(), IsEmpty());
 }
 
@@ -178,6 +187,22 @@ TEST_F(DebugTest, Debug3) {
         "lshal", "debug", "android.hardware.tests.doesnotexist@1.0::IDoesNotExist",
     }));
     EXPECT_THAT(err.str(), HasSubstr("does not exist"));
+}
+
+TEST_F(DebugTest, DebugParent) {
+    EXPECT_EQ(0u, callMain(lshal, {
+        "lshal", "debug", "android.hardware.tests.inheritance@1.0::IParent", "calling parent"
+    }));
+    EXPECT_THAT(out.str(), StrEq("android.hardware.tests.inheritance@1.0::IChild\ncalling parent"));
+    EXPECT_THAT(err.str(), IsEmpty());
+}
+
+TEST_F(DebugTest, DebugParentExclude) {
+    EXPECT_EQ(0u, callMain(lshal, {
+        "lshal", "debug", "-E", "android.hardware.tests.inheritance@1.0::IParent", "excluding"
+    }));
+    EXPECT_THAT(out.str(), IsEmpty());
+    EXPECT_THAT(err.str(), IsEmpty());
 }
 
 class MockLshal : public Lshal {
@@ -206,12 +231,12 @@ public:
         return ListCommand::dumpVintf(out);
     }
     void internalPostprocess() { ListCommand::postprocess(); }
-    const PidInfo* getPidInfoCached(pid_t serverPid) {
+    const BinderPidInfo* getPidInfoCached(pid_t serverPid) {
         return ListCommand::getPidInfoCached(serverPid);
     }
 
     MOCK_METHOD0(postprocess, void());
-    MOCK_CONST_METHOD2(getPidInfo, bool(pid_t, PidInfo*));
+    MOCK_CONST_METHOD2(getPidInfo, bool(pid_t, BinderPidInfo*));
     MOCK_CONST_METHOD1(parseCmdline, std::string(pid_t));
     MOCK_METHOD1(getPartition, Partition(pid_t));
 
@@ -272,8 +297,8 @@ static uint64_t getPtr(pid_t serverId) { return 10000 + serverId; }
 static std::vector<pid_t> getClients(pid_t serverId) {
     return {serverId + 1, serverId + 3};
 }
-static PidInfo getPidInfoFromId(pid_t serverId) {
-    PidInfo info;
+static BinderPidInfo getPidInfoFromId(pid_t serverId) {
+    BinderPidInfo info;
     info.refPids[getPtr(serverId)] = getClients(serverId);
     info.threadUsage = 10 + serverId;
     info.threadCount = 20 + serverId;
@@ -336,7 +361,7 @@ public:
     void initMockList() {
         mockList = std::make_unique<NiceMock<MockListCommand>>(lshal.get());
         ON_CALL(*mockList, getPidInfo(_,_)).WillByDefault(Invoke(
-            [](pid_t serverPid, PidInfo* info) {
+            [](pid_t serverPid, BinderPidInfo* info) {
                 *info = getPidInfoFromId(serverPid);
                 return true;
             }));
@@ -452,8 +477,7 @@ TEST_F(ListTest, Fetch) {
 }
 
 TEST_F(ListTest, DumpVintf) {
-    const std::string expected = "<manifest version=\"2.0\" type=\"device\">\n"
-                                 "    <hal format=\"hidl\">\n"
+    const std::string expected = "    <hal format=\"hidl\">\n"
                                  "        <name>a.h.foo1</name>\n"
                                  "        <transport>hwbinder</transport>\n"
                                  "        <fqname>@1.0::IFoo/1</fqname>\n"
@@ -472,8 +496,7 @@ TEST_F(ListTest, DumpVintf) {
                                  "        <name>a.h.foo4</name>\n"
                                  "        <transport arch=\"32\">passthrough</transport>\n"
                                  "        <fqname>@4.0::IFoo/4</fqname>\n"
-                                 "    </hal>\n"
-                                 "</manifest>";
+                                 "    </hal>\n";
 
     optind = 1; // mimic Lshal::parseArg()
     EXPECT_EQ(0u, mockList->main(createArg({"lshal", "--init-vintf"})));
@@ -483,10 +506,10 @@ TEST_F(ListTest, DumpVintf) {
     EXPECT_THAT(output, HasSubstr("a.h.foo6@6.0::IFoo/6"));
     EXPECT_EQ("", err.str());
 
+    std::string error;
     vintf::HalManifest m;
-    EXPECT_EQ(true, vintf::gHalManifestConverter(&m, out.str()))
-        << "--init-vintf does not emit valid HAL manifest: "
-        << vintf::gHalManifestConverter.lastError();
+    EXPECT_EQ(true, vintf::fromXml(&m, out.str(), &error))
+        << "--init-vintf does not emit valid HAL manifest: " << error;
 }
 
 // test default columns
@@ -681,8 +704,8 @@ TEST_F(ListTest, DumpEmptyAndDuplicateHalTypes) {
 
 TEST_F(ListTest, UnknownHalType) {
     optind = 1; // mimic Lshal::parseArg()
-    EXPECT_EQ(1u, mockList->main(createArg({"lshal", "-itrepac", "--types=c,a"})));
-    EXPECT_THAT(err.str(), HasSubstr("Unrecognized HAL type: a"));
+    EXPECT_EQ(1u, mockList->main(createArg({"lshal", "-itrepac", "--types=c,r"})));
+    EXPECT_THAT(err.str(), HasSubstr("Unrecognized HAL type: r"));
 }
 
 TEST_F(ListTest, Vintf) {
@@ -750,10 +773,10 @@ TEST_F(ListTest, Vintf) {
     auto deviceMatrix = std::make_shared<CompatibilityMatrix>();
     auto frameworkMatrix = std::make_shared<CompatibilityMatrix>();
 
-    ASSERT_TRUE(gHalManifestConverter(deviceManifest.get(), deviceManifestXml));
-    ASSERT_TRUE(gHalManifestConverter(frameworkManifest.get(), frameworkManifestXml));
-    ASSERT_TRUE(gCompatibilityMatrixConverter(deviceMatrix.get(), deviceMatrixXml));
-    ASSERT_TRUE(gCompatibilityMatrixConverter(frameworkMatrix.get(), frameworkMatrixXml));
+    ASSERT_TRUE(fromXml(deviceManifest.get(), deviceManifestXml));
+    ASSERT_TRUE(fromXml(frameworkManifest.get(), frameworkManifestXml));
+    ASSERT_TRUE(fromXml(deviceMatrix.get(), deviceMatrixXml));
+    ASSERT_TRUE(fromXml(frameworkMatrix.get(), frameworkMatrixXml));
 
     ON_CALL(*mockList, getDeviceManifest()).WillByDefault(Return(deviceManifest));
     ON_CALL(*mockList, getDeviceMatrix()).WillByDefault(Return(deviceMatrix));
@@ -763,6 +786,156 @@ TEST_F(ListTest, Vintf) {
     optind = 1; // mimic Lshal::parseArg()
     EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-Vi", "--neat"})));
     EXPECT_THAT(out.str(), HasSubstr(expected));
+    EXPECT_EQ("", err.str());
+}
+
+TEST_F(ListTest, AllColumns) {
+    // clang-format off
+    const std::string expected =
+        "[fake description 0]\n"
+        "Interface            Transport Server PTR              Arch Thread Use R Hash                                                             VINTF Status Clients\n"
+        "a.h.foo1@1.0::IFoo/1 hwbinder  1      0000000000002711 64   11/21      N 0000000000000000000000000000000000000000000000000000000000000000 X     alive  2 4\n"
+        "a.h.foo2@2.0::IFoo/2 hwbinder  2      0000000000002712 64   12/22      Y 0202020202020202020202020202020202020202020202020202020202020202 X     alive  3 5\n"
+        "\n"
+        "[fake description 1]\n"
+        "Interface            Transport   Server PTR Arch Thread Use R Hash VINTF Status Clients\n"
+        "a.h.foo3@3.0::IFoo/3 passthrough N/A    N/A 32   N/A        ?      X     N/A    4 6\n"
+        "a.h.foo4@4.0::IFoo/4 passthrough N/A    N/A 32   N/A        ?      X     N/A    5 7\n"
+        "\n"
+        "[fake description 2]\n"
+        "Interface            Transport   Server PTR Arch Thread Use R Hash VINTF Status Clients\n"
+        "a.h.foo5@5.0::IFoo/5 passthrough N/A    N/A 32   N/A        ?      X     N/A    6 8\n"
+        "a.h.foo6@6.0::IFoo/6 passthrough N/A    N/A 32   N/A        ?      X     N/A    7 9\n"
+        "\n";
+    // clang-format on
+
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "--all"})));
+    EXPECT_EQ(expected, out.str());
+    EXPECT_EQ("", err.str());
+}
+
+TEST_F(ListTest, AllColumnsWithCmd) {
+    // clang-format off
+    const std::string expected =
+        "[fake description 0]\n"
+        "Interface            Transport Server CMD     PTR              Arch Thread Use R Hash                                                             VINTF Status Clients CMD\n"
+        "a.h.foo1@1.0::IFoo/1 hwbinder  command_line_1 0000000000002711 64   11/21      N 0000000000000000000000000000000000000000000000000000000000000000 X     alive  command_line_2;command_line_4\n"
+        "a.h.foo2@2.0::IFoo/2 hwbinder  command_line_2 0000000000002712 64   12/22      Y 0202020202020202020202020202020202020202020202020202020202020202 X     alive  command_line_3;command_line_5\n"
+        "\n"
+        "[fake description 1]\n"
+        "Interface            Transport   Server CMD PTR Arch Thread Use R Hash VINTF Status Clients CMD\n"
+        "a.h.foo3@3.0::IFoo/3 passthrough            N/A 32   N/A        ?      X     N/A    command_line_4;command_line_6\n"
+        "a.h.foo4@4.0::IFoo/4 passthrough            N/A 32   N/A        ?      X     N/A    command_line_5;command_line_7\n"
+        "\n"
+        "[fake description 2]\n"
+        "Interface            Transport   Server CMD PTR Arch Thread Use R Hash VINTF Status Clients CMD\n"
+        "a.h.foo5@5.0::IFoo/5 passthrough            N/A 32   N/A        ?      X     N/A    command_line_6;command_line_8\n"
+        "a.h.foo6@6.0::IFoo/6 passthrough            N/A 32   N/A        ?      X     N/A    command_line_7;command_line_9\n"
+        "\n";
+    // clang-format on
+
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "-Am"})));
+    EXPECT_EQ(expected, out.str());
+    EXPECT_EQ("", err.str());
+}
+
+TEST_F(ListTest, AllSections) {
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "--types=all"})));
+    using HalTypeBase = std::underlying_type_t<HalType>;
+    for (HalTypeBase i = 0; i < static_cast<HalTypeBase>(HalType::LAST); ++i) {
+        EXPECT_THAT(out.str(), HasSubstr("[fake description " + std::to_string(i) + "]"));
+    }
+    EXPECT_THAT(out.str(),
+                Not(HasSubstr("[fake description " +
+                              std::to_string(static_cast<HalTypeBase>(HalType::LAST)) + "]")));
+    EXPECT_EQ("", err.str());
+}
+
+// Fake service returned by mocked IServiceManager::get for DumpDebug.
+// The interfaceChain and getHashChain functions returns
+// foo(id - 1) -> foo(id - 2) -> ... foo1 -> IBase.
+class InheritingService : public IBase {
+public:
+    explicit InheritingService(pid_t id) : mId(id) {}
+    android::hardware::Return<void> interfaceDescriptor(interfaceDescriptor_cb cb) override {
+        cb(getInterfaceName(mId));
+        return hardware::Void();
+    }
+    android::hardware::Return<void> interfaceChain(interfaceChain_cb cb) override {
+        std::vector<hidl_string> ret;
+        for (auto i = mId; i > 0; --i) {
+            ret.push_back(getInterfaceName(i));
+        }
+        ret.push_back(IBase::descriptor);
+        cb(ret);
+        return hardware::Void();
+    }
+    android::hardware::Return<void> getHashChain(getHashChain_cb cb) override {
+        std::vector<hidl_hash> ret;
+        for (auto i = mId; i > 0; --i) {
+            ret.push_back(getHashFromId(i));
+        }
+        ret.push_back(getHashFromId(0xff));
+        cb(ret);
+        return hardware::Void();
+    }
+    android::hardware::Return<void> debug(const hidl_handle& hh,
+                                          const hidl_vec<hidl_string>&) override {
+        const native_handle_t* handle = hh.getNativeHandle();
+        if (handle->numFds < 1) {
+            return Void();
+        }
+        int fd = handle->data[0];
+        std::string content = "debug info for ";
+        content += getInterfaceName(mId);
+        ssize_t written = write(fd, content.c_str(), content.size());
+        if (written != (ssize_t)content.size()) {
+            LOG(WARNING) << "SERVER(" << descriptor << ") debug writes " << written << " bytes < "
+                         << content.size() << " bytes, errno = " << errno;
+        }
+        return Void();
+    }
+
+private:
+    pid_t mId;
+};
+
+TEST_F(ListTest, DumpDebug) {
+    size_t inheritanceLevel = 3;
+    sp<IBase> service = new InheritingService(inheritanceLevel);
+
+    EXPECT_CALL(*serviceManager, list(_)).WillRepeatedly(Invoke([&](IServiceManager::list_cb cb) {
+        std::vector<hidl_string> ret;
+        for (auto i = 1; i <= inheritanceLevel; ++i) {
+            ret.push_back(getInterfaceName(i) + "/default");
+        }
+        cb(ret);
+        return hardware::Void();
+    }));
+    EXPECT_CALL(*serviceManager, get(_, _))
+            .WillRepeatedly(
+                    Invoke([&](const hidl_string&, const hidl_string& instance) -> sp<IBase> {
+                        int id = getIdFromInstanceName(instance);
+                        if (id > inheritanceLevel) return nullptr;
+                        return sp<IBase>(service);
+                    }));
+
+    const std::string expected = "[fake description 0]\n"
+                                 "Interface\n"
+                                 "a.h.foo1@1.0::IFoo/default\n"
+                                 "[See a.h.foo3@3.0::IFoo/default]\n"
+                                 "a.h.foo2@2.0::IFoo/default\n"
+                                 "[See a.h.foo3@3.0::IFoo/default]\n"
+                                 "a.h.foo3@3.0::IFoo/default\n"
+                                 "debug info for a.h.foo3@3.0::IFoo\n"
+                                 "\n";
+
+    optind = 1; // mimic Lshal::parseArg()
+    EXPECT_EQ(0u, mockList->main(createArg({"lshal", "--types=b", "-id"})));
+    EXPECT_EQ(expected, out.str());
     EXPECT_EQ("", err.str());
 }
 
@@ -789,7 +962,7 @@ public:
                 "    </hal>\n"
                 "</manifest>";
         auto manifest = std::make_shared<HalManifest>();
-        EXPECT_TRUE(gHalManifestConverter(manifest.get(), mockManifestXml));
+        EXPECT_TRUE(fromXml(manifest.get(), mockManifestXml));
         EXPECT_CALL(*mockList, getDeviceManifest())
             .Times(AnyNumber())
             .WillRepeatedly(Return(manifest));

@@ -35,12 +35,10 @@
 #include "compiler.h"
 #include "dex/class_reference.h"
 #include "dex/dex_file_types.h"
-#include "dex/dex_to_dex_compiler.h"
 #include "dex/method_reference.h"
 #include "driver/compiled_method_storage.h"
 #include "thread_pool.h"
 #include "utils/atomic_dex_ref_map.h"
-#include "utils/dex_cache_arrays_layout.h"
 
 namespace art {
 
@@ -129,6 +127,7 @@ class CompilerDriver {
   std::unique_ptr<const std::vector<uint8_t>> CreateQuickImtConflictTrampoline() const;
   std::unique_ptr<const std::vector<uint8_t>> CreateQuickResolutionTrampoline() const;
   std::unique_ptr<const std::vector<uint8_t>> CreateQuickToInterpreterBridge() const;
+  std::unique_ptr<const std::vector<uint8_t>> CreateNterpTrampoline() const;
 
   ClassStatus GetClassStatus(const ClassReference& ref) const;
   bool GetCompiledClass(const ClassReference& ref, ClassStatus* status) const;
@@ -183,8 +182,6 @@ class CompilerDriver {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
 
-  bool IsSafeCast(const DexCompilationUnit* mUnit, uint32_t dex_pc);
-
   size_t GetThreadCount() const {
     return parallel_thread_count_;
   }
@@ -223,10 +220,6 @@ class CompilerDriver {
 
   CompiledMethodStorage* GetCompiledMethodStorage() {
     return &compiled_method_storage_;
-  }
-
-  optimizer::DexToDexCompiler& GetDexToDexCompiler() {
-    return dex_to_dex_compiler_;
   }
 
  private:
@@ -337,9 +330,6 @@ class CompilerDriver {
   CompiledMethodStorage compiled_method_storage_;
 
   size_t max_arena_alloc_;
-
-  // Compiler for dex to dex (quickening).
-  optimizer::DexToDexCompiler dex_to_dex_compiler_;
 
   friend class CommonCompilerDriverTest;
   friend class CompileClassVisitor;

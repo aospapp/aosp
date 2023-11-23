@@ -88,25 +88,50 @@ class WakeLock::WakeLockImpl {
   public:
     WakeLockImpl(const std::string& name);
     ~WakeLockImpl();
+    bool acquireOk();
 
   private:
     sp<IWakeLock> mWakeLock;
 };
 
-WakeLock::WakeLock(const std::string& name) : mImpl(std::make_unique<WakeLockImpl>(name)) {}
+std::optional<WakeLock> WakeLock::tryGet(const std::string& name) {
+    std::unique_ptr<WakeLockImpl> wlImpl = std::make_unique<WakeLockImpl>(name);
+    if (wlImpl->acquireOk()) {
+        return { std::move(wlImpl) };
+    } else {
+        LOG(ERROR) << "Failed to acquire wakelock: " << name;
+        return {};
+    }
+}
+
+WakeLock::WakeLock(std::unique_ptr<WakeLockImpl> wlImpl) : mImpl(std::move(wlImpl)) {}
 
 WakeLock::~WakeLock() = default;
 
 WakeLock::WakeLockImpl::WakeLockImpl(const std::string& name) : mWakeLock(nullptr) {
     static sp<ISystemSuspend> suspendService = ISystemSuspend::getService();
-    mWakeLock = suspendService->acquireWakeLock(WakeLockType::PARTIAL, name);
+    auto ret = suspendService->acquireWakeLock(WakeLockType::PARTIAL, name);
+    // It's possible that during device SystemSuspend service is not avaiable. In these
+    // situations HIDL calls to it will result in a DEAD_OBJECT transaction error.
+    if (ret.isDeadObject()) {
+        LOG(ERROR) << "ISuspendService::acquireWakeLock() call failed: " << ret.description();
+    } else {
+        mWakeLock = ret;
+    }
 }
 
 WakeLock::WakeLockImpl::~WakeLockImpl() {
+    if (!acquireOk()) {
+        return;
+    }
     auto ret = mWakeLock->release();
     if (!ret.isOk()) {
         LOG(ERROR) << "IWakeLock::release() call failed: " << ret.description();
     }
+}
+
+bool WakeLock::WakeLockImpl::acquireOk() {
+    return mWakeLock != nullptr;
 }
 
 }  // namespace wakelock

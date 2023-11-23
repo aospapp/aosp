@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package android.net.ipsec.ike;
+package android.net.ipsec.test.ike;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -24,9 +24,10 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.net.InetAddresses;
+import android.net.ipsec.test.ike.exceptions.InvalidSyntaxException;
+import android.os.PersistableBundle;
 
 import com.android.internal.net.TestUtils;
-import com.android.internal.net.ipsec.ike.exceptions.InvalidSyntaxException;
 
 import org.junit.Test;
 
@@ -173,6 +174,22 @@ public final class IkeTrafficSelectorTest {
 
         assertTrue(mTsOne.contains(mTsOne));
         assertFalse(mTsOne.contains(mTsTwo));
+    }
+
+    private static void verifyPersistableBundleEncodeDecodeIsLossless(IkeTrafficSelector ts) {
+        PersistableBundle bundle = ts.toPersistableBundle();
+        IkeTrafficSelector resultTs = IkeTrafficSelector.fromPersistableBundle(bundle);
+        assertEquals(ts, resultTs);
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeIsLosslessIpv4Ts() throws Exception {
+        verifyPersistableBundleEncodeDecodeIsLossless(mTsOne);
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeIsLosslessIpv6Ts() throws Exception {
+        verifyPersistableBundleEncodeDecodeIsLossless(mTsIpv6Three);
     }
 
     @Test

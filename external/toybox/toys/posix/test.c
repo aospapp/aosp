@@ -3,9 +3,11 @@
  * Copyright 2018 Rob Landley <rob@landley.net>
  *
  * See http://pubs.opengroup.org/onlinepubs/9699919799/utilities/test.html
+ *
+ * TODO sh [[ ]] options: <   aaa<bbb  >   bbb>aaa   ~= regex
 
 USE_TEST(NEWTOY(test, 0, TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_NOHELP|TOYFLAG_MAYFORK))
-USE_TEST(OLDTOY([, test, TOYFLAG_NOFORK|TOYFLAG_NOHELP))
+USE_TEST_GLUE(OLDTOY([, test, TOYFLAG_BIN|TOYFLAG_MAYFORK|TOYFLAG_NOHELP))
 
 config TEST
   bool "test"
@@ -20,7 +22,7 @@ config TEST
       -b  block device   -f  regular file   -p  fifo           -u  setuid bit
       -c  char device    -g  setgid         -r  read bit       -w  write bit
       -d  directory      -h  symlink        -S  socket         -x  execute bit
-      -e  exists         -L  symlink        -s  nonzero size
+      -e  exists         -L  symlink        -s  nonzero size   -k  sticky bit
     STRING is:
       -n  nonzero size   -z  zero size      (STRING by itself implies -n)
     FD (integer file descriptor) is:
@@ -29,6 +31,7 @@ config TEST
     --- Tests with one argument on each side of an operator:
     Two strings:
       =  are identical   !=  differ
+
     Two integers:
       -eq  equal         -gt  first > second    -lt  first < second
       -ne  not equal     -ge  first >= second   -le  first <= second
@@ -36,12 +39,17 @@ config TEST
     --- Modify or combine tests:
       ! EXPR     not (swap true/false)   EXPR -a EXPR    and (are both true)
       ( EXPR )   evaluate this first     EXPR -o EXPR    or (is either true)
+
+config TEST_GLUE
+  bool
+  default y
+  depends on TEST || SH
 */
 
 #include "toys.h"
 
 // Consume 3, 2, or 1 argument test, returning result and *count used.
-int do_test(char **args, int *count)
+static int do_test(char **args, int *count)
 {
   char c, *s;
   int i;
@@ -66,16 +74,16 @@ int do_test(char **args, int *count)
   if (*count>=2 && *s == '-' && s[1] && !s[2]) {
     *count = 2;
     c = s[1];
-    if (-1 != (i = stridx("hLbcdefgpSusxwr", c))) {
+    if (-1 != (i = stridx("hLbcdefgkpSusxwr", c))) {
       struct stat st;
 
       // stat or lstat, then handle rwx and s
       if (-1 == ((i<2) ? lstat : stat)(args[1], &st)) return 0;
-      if (i>=12) return !!(st.st_mode&(0x111<<(i-12)));
+      if (i>=13) return !!(st.st_mode&(0111<<(i-13)));
       if (c == 's') return !!st.st_size; // otherwise 1<<32 == 0
 
       // handle file type checking and SUID/SGID
-      if ((i = (unsigned short []){80,80,48,16,32,0,64,2,8,96,4}[i]<<9)>=4096)
+      if ((i = ((char []){80,80,48,16,32,0,64,2,1,8,96,4}[i])<<9)>=4096)
         return (st.st_mode&S_IFMT) == i;
       else return (st.st_mode & i) == i;
     } else if (c == 'z') return !*args[1];
@@ -94,7 +102,7 @@ void test_main(void)
   int pos, paren, pstack, result = 0;
 
   toys.exitval = 2;
-  if (!strcmp("[", toys.which->name))
+  if (CFG_TOYBOX && !strcmp("[", toys.which->name))
     if (!toys.optc || strcmp("]", toys.optargs[--toys.optc]))
       error_exit("Missing ']'");
 
@@ -102,7 +110,7 @@ void test_main(void)
   if (toys.optc) for (pos = paren = pstack = 0; ; pos++) {
     int len = toys.optc-pos;
 
-    if (!toys.optargs[pos]) perror_exit("need arg @%d", pos);
+    if (!len) perror_exit("need arg @%d", pos);
 
     // Evaluate next test
     result = do_test(toys.optargs+pos, &len);
@@ -132,14 +140,14 @@ void test_main(void)
       else if (pstack&AND) result = 0;
 
       // Do it again for every )
-      if (!paren || !s || strcmp(")", s)) break;
+      if (!paren || pos==toys.optc || strcmp(")", s)) break;
       paren--;
       pstack >>= 3;
       s = toys.optargs[++pos];
     }
 
     // Out of arguments?
-    if (!s) {
+    if (pos==toys.optc) {
       if (paren) perror_exit("need )");
       break;
     }

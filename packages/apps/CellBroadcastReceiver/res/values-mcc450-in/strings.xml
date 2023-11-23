@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Peringatan darurat kritis"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"Ponsel dapat menerima peringatan, seperti petunjuk evakuasi, selama bencana alam. Layanan ini adalah kolaborasi antara National Emergency Management Agency (Badan Nasional Penanggulangan Bencana), penyedia jaringan, dan produsen perangkat.\n\nAnda mungkin tidak akan menerima peringatan jika perangkat bermasalah atau kondisi jaringan buruk."</string>
 </resources>

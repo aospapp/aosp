@@ -10,6 +10,10 @@ on post-fs-data
 on fs
     mount_all /vendor/etc/fstab.beagle_x15board
 
+on post-fs
+    # set RLIMIT_MEMLOCK to 64MB
+    setrlimit 8 67108864 67108864
+
 service pvrsrvinit /vendor/bin/pvrsrvctl --start
     class core
     user root

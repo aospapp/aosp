@@ -22,6 +22,7 @@ void hs20_parse_rx_hs20_anqp_resp(struct wpa_supplicant *wpa_s,
 				  struct wpa_bss *bss, const u8 *sa,
 				  const u8 *data, size_t slen, u8 dialog_token);
 int get_hs20_version(struct wpa_bss *bss);
+int is_hs20_config(struct wpa_supplicant *wpa_s);
 int is_hs20_network(struct wpa_supplicant *wpa_s, struct wpa_ssid *ssid,
 		    struct wpa_bss *bss);
 int hs20_get_pps_mo_id(struct wpa_supplicant *wpa_s, struct wpa_ssid *ssid);

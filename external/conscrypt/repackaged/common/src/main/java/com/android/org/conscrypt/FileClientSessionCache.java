@@ -40,7 +40,7 @@ import javax.net.ssl.SSLSession;
  * underlying directory at a time.
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.CorePlatformApi
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @Internal
 public final class FileClientSessionCache {
     private static final Logger logger = Logger.getLogger(FileClientSessionCache.class.getName());
@@ -333,7 +333,7 @@ public final class FileClientSessionCache {
      */
     @android.compat.annotation
             .UnsupportedAppUsage
-            @libcore.api.CorePlatformApi
+            @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
             public static synchronized SSLClientSessionCache usingDirectory(File directory)
             throws IOException {
         FileClientSessionCache.Impl cache = caches.get(directory);

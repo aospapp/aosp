@@ -16,8 +16,8 @@
 
 package com.android.cts.verifier;
 
-import com.android.compatibility.common.util.ReportLog;
-import com.android.compatibility.common.util.TestResultHistory;
+import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
+import static com.android.cts.verifier.TestListActivity.sInitialLaunch;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -32,6 +32,9 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
+
+import com.android.compatibility.common.util.ReportLog;
+import com.android.cts.verifier.TestListActivity.DisplayMode;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -75,10 +78,25 @@ public abstract class TestListAdapter extends BaseAdapter {
     /** Map from test name to {@link ReportLog}. */
     private final Map<String, ReportLog> mReportLogs = new HashMap<String, ReportLog>();
 
-    /** Map from test name to {@link TestResultHistory}. */
+    /** Map from test name to {@link TestResultHistoryCollection}. */
     private final Map<String, TestResultHistoryCollection> mHistories = new HashMap<>();
 
     private final LayoutInflater mLayoutInflater;
+
+    /** Map from display mode to the list of {@link TestListItem}.
+     *  Records the TestListItem from main view only, including unfolded mode and folded mode
+     *  respectively. */
+    protected Map<String, List<TestListItem>> mDisplayModesTests = new HashMap<>();
+
+    /** Flag to identify the test data from {@link ManifestTestListAdapter}.
+     *  The source of data for the adapter is various, such as ManifestTestListAdapter and
+     *  ArrayTestListAdapter, and the data of foldable tests are from ManifestTestListAdapter. */
+    protected static boolean adapterFromManifest;
+
+    /** Flag to identify the test data in main view from {@link ManifestTestListAdapter}.
+     *  ManifestTestListAdapter provides test data for main view and subtests.
+     *  Getting foldable tests is from main view only. */
+    protected static boolean hasTestParentInManifestAdapter;
 
     /** {@link ListView} row that is either a test category header or a test. */
     public static class TestListItem {
@@ -87,7 +105,7 @@ public abstract class TestListAdapter extends BaseAdapter {
         final String title;
 
         /** Test name with class and test ID to uniquely identify the test. Null for categories. */
-        final String testName;
+        String testName;
 
         /** Intent used to launch the activity from the list. Null for categories. */
         final Intent intent;
@@ -98,53 +116,74 @@ public abstract class TestListAdapter extends BaseAdapter {
         /** Configs necessary to run this test. */
         final String[] requiredConfigs;
 
+        /** Intent actions necessary to run this test. */
+        final String[] requiredActions;
+
         /** Features such that, if any present, the test gets excluded from being shown. */
         final String[] excludedFeatures;
 
         /** If any of of the features are present the test is meaningful to run. */
         final String[] applicableFeatures;
 
+        /** Configs display mode to run this test. */
+        final String displayMode;
+
+        // TODO: refactor to use a Builder approach instead
+
         public static TestListItem newTest(Context context, int titleResId, String testName,
-                Intent intent, String[] requiredFeatures, String[] excludedFeatures,
-                String[] applicableFeatures) {
+            Intent intent, String[] requiredFeatures, String[] excludedFeatures,
+            String[] applicableFeatures) {
             return newTest(context.getString(titleResId), testName, intent, requiredFeatures,
-                    excludedFeatures, applicableFeatures);
+                excludedFeatures, applicableFeatures);
         }
 
         public static TestListItem newTest(Context context, int titleResId, String testName,
                 Intent intent, String[] requiredFeatures, String[] excludedFeatures) {
             return newTest(context.getString(titleResId), testName, intent, requiredFeatures,
-                    excludedFeatures, null);
+                    excludedFeatures, /* applicableFeatures= */ null);
         }
 
         public static TestListItem newTest(Context context, int titleResId, String testName,
                 Intent intent, String[] requiredFeatures) {
-            return newTest(context.getString(titleResId), testName, intent, requiredFeatures, null,
-                    null);
+            return newTest(context.getString(titleResId), testName, intent, requiredFeatures,
+                    /* excludedFeatures= */ null, /* applicableFeatures= */ null);
         }
 
         public static TestListItem newTest(String title, String testName, Intent intent,
-                String[] requiredFeatures, String[] requiredConfigs, String[] excludedFeatures,
-                String[] applicableFeatures) {
+                String[] requiredFeatures, String[] requiredConfigs, String[] requiredActions,
+                String[] excludedFeatures, String[] applicableFeatures, String displayMode) {
             return new TestListItem(title, testName, intent, requiredFeatures, requiredConfigs,
-                    excludedFeatures, applicableFeatures);
+                    requiredActions, excludedFeatures, applicableFeatures, displayMode);
+        }
+
+        public static TestListItem newTest(String title, String testName, Intent intent,
+            String[] requiredFeatures, String[] requiredConfigs, String[] excludedFeatures,
+            String[] applicableFeatures) {
+            return new TestListItem(title, testName, intent, requiredFeatures, requiredConfigs,
+                    /* requiredActions = */ null, excludedFeatures, applicableFeatures,
+                    /* displayMode= */ null);
         }
 
         public static TestListItem newTest(String title, String testName, Intent intent,
                 String[] requiredFeatures, String[] excludedFeatures, String[] applicableFeatures) {
-            return new TestListItem(title, testName, intent, requiredFeatures, null, excludedFeatures,
-                    applicableFeatures);
+            return new TestListItem(title, testName, intent, requiredFeatures,
+                    /* requiredConfigs= */ null, /* requiredActions = */ null, excludedFeatures,
+                    applicableFeatures, /* displayMode= */ null);
         }
 
         public static TestListItem newTest(String title, String testName, Intent intent,
                 String[] requiredFeatures, String[] excludedFeatures) {
-            return new TestListItem(title, testName, intent, requiredFeatures, null, excludedFeatures,
-                    null);
+            return new TestListItem(title, testName, intent, requiredFeatures,
+                    /* requiredConfigs= */ null, /* requiredActions = */ null, excludedFeatures,
+                    /* applicableFeatures= */ null, /* displayMode= */ null);
         }
 
         public static TestListItem newTest(String title, String testName, Intent intent,
                 String[] requiredFeatures) {
-            return new TestListItem(title, testName, intent, requiredFeatures, null, null, null);
+            return new TestListItem(title, testName, intent, requiredFeatures,
+                    /* requiredConfigs= */ null, /* requiredActions = */ null,
+                    /* excludedFeatures= */ null, /* applicableFeatures= */ null,
+                    /* displayMode= */ null);
         }
 
         public static TestListItem newCategory(Context context, int titleResId) {
@@ -152,24 +191,34 @@ public abstract class TestListAdapter extends BaseAdapter {
         }
 
         public static TestListItem newCategory(String title) {
-            return new TestListItem(title, null, null, null, null, null, null);
+            return new TestListItem(title, /* testName= */ null, /* intent= */ null,
+                    /* requiredFeatures= */ null,  /* requiredConfigs= */ null,
+                    /* requiredActions = */ null, /* excludedFeatures= */ null,
+                    /* applicableFeatures= */ null, /* displayMode= */ null);
         }
 
         protected TestListItem(String title, String testName, Intent intent,
                 String[] requiredFeatures, String[] excludedFeatures, String[] applicableFeatures) {
-            this(title, testName, intent, requiredFeatures, null, excludedFeatures, applicableFeatures);
+            this(title, testName, intent, requiredFeatures, /* requiredConfigs= */ null,
+                    /* requiredActions = */ null, excludedFeatures, applicableFeatures,
+                    /* displayMode= */ null);
         }
 
         protected TestListItem(String title, String testName, Intent intent,
-                String[] requiredFeatures, String[] requiredConfigs, String[] excludedFeatures,
-                String[] applicableFeatures) {
+                String[] requiredFeatures, String[] requiredConfigs, String[] requiredActions,
+                String[] excludedFeatures, String[] applicableFeatures, String displayMode) {
             this.title = title;
+            if (!sInitialLaunch) {
+                testName = setTestNameSuffix(sCurrentDisplayMode, testName);
+            }
             this.testName = testName;
             this.intent = intent;
+            this.requiredActions = requiredActions;
             this.requiredFeatures = requiredFeatures;
             this.requiredConfigs = requiredConfigs;
             this.excludedFeatures = excludedFeatures;
             this.applicableFeatures = applicableFeatures;
+            this.displayMode = displayMode;
         }
 
         boolean isTest() {
@@ -209,7 +258,19 @@ public abstract class TestListAdapter extends BaseAdapter {
     class RefreshTestResultsTask extends AsyncTask<Void, Void, RefreshResult> {
         @Override
         protected RefreshResult doInBackground(Void... params) {
-            List<TestListItem> rows = getRows();
+            List<TestListItem> rows;
+            // When initial launch, needs to fetch tests in the unfolded/folded mode
+            // to be stored in mDisplayModesTests as the basis for the future switch.
+            if (sInitialLaunch) {
+                getRows();
+                sInitialLaunch = false;
+            }
+
+            if (checkTestsFromMainView()) {
+                rows = mDisplayModesTests.get(sCurrentDisplayMode);
+            }else {
+                rows = getRows();
+            }
             return getRefreshResults(rows);
         }
 
@@ -369,11 +430,17 @@ public abstract class TestListAdapter extends BaseAdapter {
 
     @Override
     public int getCount() {
+        if (!sInitialLaunch && checkTestsFromMainView()) {
+            return mDisplayModesTests.get(sCurrentDisplayMode).size();
+        }
         return mRows.size();
     }
 
     @Override
     public TestListItem getItem(int position) {
+        if (checkTestsFromMainView()) {
+            return mDisplayModesTests.get(sCurrentDisplayMode).get(position);
+        }
         return mRows.get(position);
     }
 
@@ -411,6 +478,84 @@ public abstract class TestListAdapter extends BaseAdapter {
      */
     public TestResultHistoryCollection getHistoryCollection(int position) {
         TestListItem item = getItem(position);
+        return mHistories.containsKey(item.testName)
+            ? mHistories.get(item.testName)
+            : null;
+    }
+
+    /**
+     * Get test item by the given display mode and position.
+     *
+     * @param mode The display mode.
+     * @param position The position of test.
+     * @return A {@link TestListItem} object containing the test item.
+     */
+    public TestListItem getItem(String mode, int position) {
+        return mDisplayModesTests.get(mode).get(position);
+    }
+
+    /**
+     * Get test item count by the given display mode.
+     *
+     * @param mode The display mode.
+     * @return A count of test items.
+     */
+    public int getCount(String mode){
+        return mDisplayModesTests.get(mode).size();
+    }
+
+    /**
+     * Get test result by the given display mode and position.
+     *
+     * @param mode The display mode.
+     * @param position The position of test.
+     * @return The test item result.
+     */
+    public int getTestResult(String mode, int position) {
+        TestListItem item = mDisplayModesTests.get(mode).get(position);
+        return mTestResults.containsKey(item.testName)
+            ? mTestResults.get(item.testName)
+            : TestResult.TEST_RESULT_NOT_EXECUTED;
+    }
+
+    /**
+     * Get test details by the given display mode and position.
+     *
+     * @param mode The display mode.
+     * @param position The position of test.
+     * @return A string containing the test details.
+     */
+    public String getTestDetails(String mode, int position) {
+        TestListItem item = mDisplayModesTests.get(mode).get(position);
+        return mTestDetails.containsKey(item.testName)
+            ? mTestDetails.get(item.testName)
+            : null;
+    }
+
+    /**
+     * Get test report log by the given display mode and position.
+     *
+     * @param mode The display mode.
+     * @param position The position of test.
+     * @return A {@link ReportLog} object containing the test report log of the test item.
+     */
+    public ReportLog getReportLog(String mode, int position) {
+        TestListItem item = mDisplayModesTests.get(mode).get(position);
+        return mReportLogs.containsKey(item.testName)
+            ? mReportLogs.get(item.testName)
+            : null;
+    }
+
+    /**
+     * Get test result histories by the given display mode and position.
+     *
+     * @param mode The display mode.
+     * @param position The position of test.
+     * @return A {@link TestResultHistoryCollection} object containing the test result histories of
+     *         the test item.
+     */
+    public TestResultHistoryCollection getHistoryCollection(String mode, int position) {
+        TestListItem item = mDisplayModesTests.get(mode).get(position);
         return mHistories.containsKey(item.testName)
             ? mHistories.get(item.testName)
             : null;
@@ -508,5 +653,31 @@ public abstract class TestListAdapter extends BaseAdapter {
                 // Ignore close exception.
             }
         }
+    }
+
+    /**
+     * Sets test name suffix. In the folded mode, the suffix is [folded]; otherwise, it is empty
+     * string.
+     *
+     * @param mode A string of current display mode.
+     * @param name A string of test name.
+     * @return A string of test name with suffix, [folded], in the folded mode.
+     *         A string of input test name in the unfolded mode.
+     */
+    public static String setTestNameSuffix(String mode, String name) {
+        if (name != null && mode.equals(DisplayMode.FOLDED.toString())
+            && !name.endsWith(DisplayMode.FOLDED.asSuffix())){
+            return name + DisplayMode.FOLDED.asSuffix();
+        }
+        return name;
+    }
+
+    /**
+     * Checks if the tests are from main view for foldable tests.
+     *
+     * @return True if the tests from main view, otherwise, return false.
+     */
+    private static boolean checkTestsFromMainView() {
+        return adapterFromManifest && !hasTestParentInManifestAdapter;
     }
 }

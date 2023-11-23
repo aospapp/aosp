@@ -1,8 +1,6 @@
 # Google API Client
 
 [![PyPI version](https://badge.fury.io/py/google-api-python-client.svg)](https://badge.fury.io/py/google-api-python-client)
-[![Compat check PyPI](https://python-compatibility-tools.appspot.com/one_badge_image?package=google-api-python-client)](https://python-compatibility-tools.appspot.com/one_badge_target?package=google-api-python-client)
-[![Compat check github](https://python-compatibility-tools.appspot.com/one_badge_image?package=git%2Bgit%3A//github.com/googleapis/google-api-python-client.git)](https://python-compatibility-tools.appspot.com/one_badge_target?package=git%2Bgit%3A//github.com/googleapis/google-api-python-client.git)
 
 This is the Python client library for Google's discovery based APIs. To get started, please see the [docs folder](docs/README.md).
 
@@ -12,22 +10,38 @@ These client libraries are officially supported by Google.  However, the librari
 
 See the [docs folder](docs/README.md) for more detailed instructions and additional documentation.
 
-## Google Cloud Platform
+## Google Cloud Platform / Google Ads
 
-For Google Cloud Platform APIs such as Datastore, Cloud Storage or Pub/Sub, we recommend using [Cloud Client Libraries for Python](https://github.com/GoogleCloudPlatform/google-cloud-python) which is under active development.
+For Google Cloud Platform APIs such as Datastore, Cloud Storage or Pub/Sub, we recommend using [Cloud Client Libraries for Python](https://github.com/GoogleCloudPlatform/google-cloud-python).
+
+For Google Ads API, we recommend using [Google Ads API Client Library for Python](https://github.com/googleads/google-ads-python/).
 
 ## Installation
 
-To install, simply use `pip` or `easy_install`:
+Install this library in a [virtualenv](https://virtualenv.pypa.io/en/latest/) using pip. virtualenv is a tool to
+create isolated Python environments. The basic problem it addresses is one of
+dependencies and versions, and indirectly permissions.
 
-```bash
-pip install --upgrade google-api-python-client
+With virtualenv, it's possible to install this library without needing system
+install permissions, and without clashing with the installed system
+dependencies.
+
+### Mac/Linux
+
+```
+pip install virtualenv
+virtualenv <your-env>
+source <your-env>/bin/activate
+<your-env>/bin/pip install google-api-python-client
 ```
 
-or
+### Windows
 
-```bash
-easy_install --upgrade google-api-python-client
+```
+pip install virtualenv
+virtualenv <your-env>
+<your-env>\Scripts\activate
+<your-env>\Scripts\pip.exe install google-api-python-client
 ```
 
 ## Supported Python Versions
@@ -46,7 +60,6 @@ The following libraries will be installed when you install the client library:
 
 For development you will also need the following libraries:
 * [WebTest](http://webtest.pythonpaste.org/en/latest/index.html)
-* [pycrypto](https://pypi.python.org/pypi/pycrypto)
 * [pyopenssl](https://pypi.python.org/pypi/pyOpenSSL)
 
 ## Contributing

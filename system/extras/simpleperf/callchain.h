@@ -27,6 +27,8 @@
 
 #include <android-base/logging.h>
 
+namespace simpleperf {
+
 template <typename EntryT>
 struct CallChainNode {
   uint64_t period;
@@ -46,9 +48,8 @@ struct CallChainRoot {
 
   CallChainRoot() : duplicated(false), children_period(0) {}
 
-  void AddCallChain(
-      const std::vector<EntryT*>& callchain, uint64_t period,
-      std::function<bool(const EntryT*, const EntryT*)> is_same_sample) {
+  void AddCallChain(const std::vector<EntryT*>& callchain, uint64_t period,
+                    std::function<bool(const EntryT*, const EntryT*)> is_same_sample) {
     children_period += period;
     NodeT* p = FindMatchingNode(children, callchain[0], is_same_sample);
     if (p == nullptr) {
@@ -58,8 +59,7 @@ struct CallChainRoot {
     }
     size_t callchain_pos = 0;
     while (true) {
-      size_t match_length =
-          GetMatchingLengthInNode(p, callchain, callchain_pos, is_same_sample);
+      size_t match_length = GetMatchingLengthInNode(p, callchain, callchain_pos, is_same_sample);
       CHECK_GT(match_length, 0u);
       callchain_pos += match_length;
       bool find_child = true;
@@ -73,15 +73,13 @@ struct CallChainRoot {
       }
       p->children_period += period;
       if (find_child) {
-        NodeT* np = FindMatchingNode(p->children, callchain[callchain_pos],
-                                     is_same_sample);
+        NodeT* np = FindMatchingNode(p->children, callchain[callchain_pos], is_same_sample);
         if (np != nullptr) {
           p = np;
           continue;
         }
       }
-      std::unique_ptr<NodeT> new_node =
-          AllocateNode(callchain, callchain_pos, period, 0);
+      std::unique_ptr<NodeT> new_node = AllocateNode(callchain, callchain_pos, period, 0);
       p->children.push_back(std::move(new_node));
       break;
     }
@@ -103,9 +101,8 @@ struct CallChainRoot {
   }
 
  private:
-  NodeT* FindMatchingNode(
-      const std::vector<std::unique_ptr<NodeT>>& nodes, const EntryT* sample,
-      std::function<bool(const EntryT*, const EntryT*)> is_same_sample) {
+  NodeT* FindMatchingNode(const std::vector<std::unique_ptr<NodeT>>& nodes, const EntryT* sample,
+                          std::function<bool(const EntryT*, const EntryT*)> is_same_sample) {
     for (auto& node : nodes) {
       if (is_same_sample(node->chain.front(), sample)) {
         return node.get();
@@ -114,12 +111,10 @@ struct CallChainRoot {
     return nullptr;
   }
 
-  size_t GetMatchingLengthInNode(
-      NodeT* node, const std::vector<EntryT*>& chain, size_t chain_start,
-      std::function<bool(const EntryT*, const EntryT*)> is_same_sample) {
+  size_t GetMatchingLengthInNode(NodeT* node, const std::vector<EntryT*>& chain, size_t chain_start,
+                                 std::function<bool(const EntryT*, const EntryT*)> is_same_sample) {
     size_t i, j;
-    for (i = 0, j = chain_start; i < node->chain.size() && j < chain.size();
-         ++i, ++j) {
+    for (i = 0, j = chain_start; i < node->chain.size() && j < chain.size(); ++i, ++j) {
       if (!is_same_sample(node->chain[i], chain[j])) {
         break;
       }
@@ -128,8 +123,8 @@ struct CallChainRoot {
   }
 
   void SplitNode(NodeT* parent, size_t parent_length) {
-    std::unique_ptr<NodeT> child = AllocateNode(
-        parent->chain, parent_length, parent->period, parent->children_period);
+    std::unique_ptr<NodeT> child =
+        AllocateNode(parent->chain, parent_length, parent->period, parent->children_period);
     child->children = std::move(parent->children);
     parent->period = 0;
     parent->children_period = child->period + child->children_period;
@@ -138,9 +133,8 @@ struct CallChainRoot {
     parent->children.push_back(std::move(child));
   }
 
-  std::unique_ptr<NodeT> AllocateNode(const std::vector<EntryT*>& chain,
-                                      size_t chain_start, uint64_t period,
-                                      uint64_t children_period) {
+  std::unique_ptr<NodeT> AllocateNode(const std::vector<EntryT*>& chain, size_t chain_start,
+                                      uint64_t period, uint64_t children_period) {
     std::unique_ptr<NodeT> node(new NodeT);
     for (size_t i = chain_start; i < chain.size(); ++i) {
       node->chain.push_back(chain[i]);
@@ -157,5 +151,7 @@ struct CallChainRoot {
     return period1 > period2;
   }
 };
+
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_CALLCHAIN_H_

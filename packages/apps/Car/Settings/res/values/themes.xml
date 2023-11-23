@@ -16,16 +16,17 @@
 -->
 
 <resources>
-    <style name="CarSettingTheme" parent="@style/Theme.CarUi.WithToolbar">
+    <style name="CarSettingTheme" parent="@style/Theme.CarUi.NoToolbar">
         <item name="wifi_signal">@drawable/wifi_signal</item>
         <item name="wifiSignalColor">?android:attr/textColorPrimary</item>
-        <item name="iconColor">?android:attr/textColorPrimary</item>
+        <item name="iconColor">@color/car_ui_text_color_primary</item>
         <item name="dividerColor">@*android:color/car_list_divider</item>
-        <item name="userSwitcherBackground">@android:color/transparent</item>
-        <item name="userSwitcherCurrentUserColor">?android:attr/colorAccent</item>
-        <item name="userSwitcherAddIconColor">@*android:color/car_tint</item>
-        <item name="userSwitcherAddIconBackgroundColor">?android:attr/colorPrimaryDark</item>
-        <item name="userSwitcherNameTextAppearance">?android:attr/textAppearanceLarge</item>
+        <item name="preferenceTheme">@style/CarSettingsPreferenceTheme</item>
+        <item name="profileSwitcherBackground">@android:color/transparent</item>
+        <item name="profileSwitcherCurrentProfileColor">?android:attr/colorAccent</item>
+        <item name="profileSwitcherAddIconColor">@*android:color/car_tint</item>
+        <item name="profileSwitcherAddIconBackgroundColor">?android:attr/colorPrimaryDark</item>
+        <item name="profileSwitcherNameTextAppearance">?android:attr/textAppearanceLarge</item>
         <item name="quickSettingsEnabledColor">?android:attr/colorControlActivated</item>
         <item name="quickSettingsDisabledColor">?android:attr/colorControlNormal</item>
         <item name="quickSettingsIconEnabledColor">?android:attr/colorPrimary</item>
@@ -59,6 +60,11 @@
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowAnimationStyle">@android:style/Animation</item>
         <item name="android:windowIsFloating">true</item>
+    </style>
+
+    <style name="CarSettingsPreferenceTheme" parent="@style/CarUiPreferenceTheme">
+        <item name="preferenceFragmentCompatStyle">@style/CarSettingsPreferenceFragment</item>
+        <item name="preferenceFragmentStyle">@style/CarSettingsPreferenceFragment</item>
     </style>
 
     <!-- Themes for Setup Wizard -->

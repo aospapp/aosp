@@ -75,7 +75,7 @@ public class SafeCleanerRuleTest {
         final SafeCleanerRule rule = new SafeCleanerRule();
         final Throwable actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(new FailureStatement(mRuntimeException), mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
     }
 
     @Test
@@ -83,7 +83,7 @@ public class SafeCleanerRuleTest {
         final SafeCleanerRule rule = new SafeCleanerRule().setDumper(mDumper);
         final Throwable actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(new FailureStatement(mRuntimeException), mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
         verify(mDumper).dump("Whatever", actualException);
     }
 
@@ -94,7 +94,7 @@ public class SafeCleanerRuleTest {
                 .add(mGoodGuyExtraExceptions1);
         final Throwable actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(new FailureStatement(mRuntimeException), mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
         verify(mGoodGuyRunner1).run();
         verify(mGoodGuyExtraExceptions1).call();
     }
@@ -107,7 +107,7 @@ public class SafeCleanerRuleTest {
                 .add(mGoodGuyExtraExceptions1);
         final Throwable actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(new FailureStatement(mRuntimeException), mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
         verify(mGoodGuyRunner1).run();
         verify(mGoodGuyExtraExceptions1).call();
         verify(mDumper).dump("Whatever", actualException);
@@ -122,7 +122,7 @@ public class SafeCleanerRuleTest {
                 .add(mGoodGuyExtraExceptions1);
         final Throwable actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mGoodGuyStatement, mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
         verify(mGoodGuyRunner1).run();
         verify(mGoodGuyRunner2).run();
         verify(mGoodGuyExtraExceptions1).call();
@@ -140,7 +140,7 @@ public class SafeCleanerRuleTest {
                 .add(mGoodGuyExtraExceptions1);
         final Throwable actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mGoodGuyStatement, mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
         verify(mGoodGuyRunner1).run();
         verify(mGoodGuyRunner2).run();
         verify(mGoodGuyExtraExceptions1).call();
@@ -156,7 +156,7 @@ public class SafeCleanerRuleTest {
                 .run(mGoodGuyRunner2);
         final Throwable actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mGoodGuyStatement, mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
         verify(mGoodGuyRunner1).run();
         verify(mGoodGuyRunner2).run();
         verify(mGoodGuyExtraExceptions1).call();
@@ -173,7 +173,7 @@ public class SafeCleanerRuleTest {
                 .run(mGoodGuyRunner2);
         final Throwable actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mGoodGuyStatement, mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
         verify(mGoodGuyRunner1).run();
         verify(mGoodGuyRunner2).run();
         verify(mGoodGuyExtraExceptions1).call();
@@ -189,7 +189,7 @@ public class SafeCleanerRuleTest {
                 .run(mGoodGuyRunner2);
         final Throwable actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mGoodGuyStatement, mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
         verify(mGoodGuyRunner1).run();
         verify(mGoodGuyRunner2).run();
         verify(mGoodGuyExtraExceptions1).call();

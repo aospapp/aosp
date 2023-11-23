@@ -14,88 +14,109 @@
 
 #include "src/internal_frame_buffer_list.h"
 
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <new>
 #include <utility>
 
-namespace libgav1 {
+#include "src/utils/common.h"
 
+namespace libgav1 {
 extern "C" {
 
-int GetInternalFrameBuffer(void* private_data, size_t y_plane_min_size,
-                           size_t uv_plane_min_size,
-                           FrameBuffer* frame_buffer) {
-  auto* buffer_list = static_cast<InternalFrameBufferList*>(private_data);
-  // buffer_list is a null pointer if the InternalFrameBufferList::Create()
-  // call fails. For simplicity, we handle the unlikely failure of
-  // InternalFrameBufferList::Create() here, rather than at the call sites.
-  if (buffer_list == nullptr) return -1;
-  return buffer_list->GetFrameBuffer(y_plane_min_size, uv_plane_min_size,
-                                     frame_buffer);
+Libgav1StatusCode OnInternalFrameBufferSizeChanged(
+    void* callback_private_data, int bitdepth, Libgav1ImageFormat image_format,
+    int width, int height, int left_border, int right_border, int top_border,
+    int bottom_border, int stride_alignment) {
+  auto* buffer_list =
+      static_cast<InternalFrameBufferList*>(callback_private_data);
+  return buffer_list->OnFrameBufferSizeChanged(
+      bitdepth, image_format, width, height, left_border, right_border,
+      top_border, bottom_border, stride_alignment);
 }
 
-int ReleaseInternalFrameBuffer(void* private_data, FrameBuffer* frame_buffer) {
-  auto* buffer_list = static_cast<InternalFrameBufferList*>(private_data);
-  return buffer_list->ReleaseFrameBuffer(frame_buffer);
+Libgav1StatusCode GetInternalFrameBuffer(
+    void* callback_private_data, int bitdepth, Libgav1ImageFormat image_format,
+    int width, int height, int left_border, int right_border, int top_border,
+    int bottom_border, int stride_alignment, Libgav1FrameBuffer* frame_buffer) {
+  auto* buffer_list =
+      static_cast<InternalFrameBufferList*>(callback_private_data);
+  return buffer_list->GetFrameBuffer(
+      bitdepth, image_format, width, height, left_border, right_border,
+      top_border, bottom_border, stride_alignment, frame_buffer);
+}
+
+void ReleaseInternalFrameBuffer(void* callback_private_data,
+                                void* buffer_private_data) {
+  auto* buffer_list =
+      static_cast<InternalFrameBufferList*>(callback_private_data);
+  buffer_list->ReleaseFrameBuffer(buffer_private_data);
 }
 
 }  // extern "C"
 
-// static
-std::unique_ptr<InternalFrameBufferList> InternalFrameBufferList::Create(
-    size_t num_buffers) {
-  std::unique_ptr<InternalFrameBufferList> buffer_list;
-  std::unique_ptr<Buffer[]> buffers(new (std::nothrow) Buffer[num_buffers]);
-  if (buffers != nullptr) {
-    buffer_list.reset(new (std::nothrow) InternalFrameBufferList(
-        std::move(buffers), num_buffers));
-  }
-  return buffer_list;
+StatusCode InternalFrameBufferList::OnFrameBufferSizeChanged(
+    int /*bitdepth*/, Libgav1ImageFormat /*image_format*/, int /*width*/,
+    int /*height*/, int /*left_border*/, int /*right_border*/,
+    int /*top_border*/, int /*bottom_border*/, int /*stride_alignment*/) {
+  return kStatusOk;
 }
 
-InternalFrameBufferList::InternalFrameBufferList(
-    std::unique_ptr<Buffer[]> buffers, size_t num_buffers)
-    : buffers_(std::move(buffers)), num_buffers_(num_buffers) {}
+StatusCode InternalFrameBufferList::GetFrameBuffer(
+    int bitdepth, Libgav1ImageFormat image_format, int width, int height,
+    int left_border, int right_border, int top_border, int bottom_border,
+    int stride_alignment, Libgav1FrameBuffer* frame_buffer) {
+  FrameBufferInfo info;
+  StatusCode status = ComputeFrameBufferInfo(
+      bitdepth, image_format, width, height, left_border, right_border,
+      top_border, bottom_border, stride_alignment, &info);
+  if (status != kStatusOk) return status;
 
-int InternalFrameBufferList::GetFrameBuffer(size_t y_plane_min_size,
-                                            size_t uv_plane_min_size,
-                                            FrameBuffer* frame_buffer) {
-  if (uv_plane_min_size > SIZE_MAX / 2 ||
-      y_plane_min_size > SIZE_MAX - 2 * uv_plane_min_size) {
-    return -1;
+  if (info.uv_buffer_size > SIZE_MAX / 2 ||
+      info.y_buffer_size > SIZE_MAX - 2 * info.uv_buffer_size) {
+    return kStatusInvalidArgument;
   }
-  const size_t min_size = y_plane_min_size + 2 * uv_plane_min_size;
+  const size_t min_size = info.y_buffer_size + 2 * info.uv_buffer_size;
 
-  size_t i;
-  for (i = 0; i < num_buffers_; ++i) {
-    if (!buffers_[i].in_use) break;
+  Buffer* buffer = nullptr;
+  for (auto& buffer_ptr : buffers_) {
+    if (!buffer_ptr->in_use) {
+      buffer = buffer_ptr.get();
+      break;
+    }
   }
-  if (i == num_buffers_) return -1;
+  if (buffer == nullptr) {
+    std::unique_ptr<Buffer> new_buffer(new (std::nothrow) Buffer);
+    if (new_buffer == nullptr || !buffers_.push_back(std::move(new_buffer))) {
+      return kStatusOutOfMemory;
+    }
+    buffer = buffers_.back().get();
+  }
 
-  if (buffers_[i].size < min_size) {
+  if (buffer->size < min_size) {
     std::unique_ptr<uint8_t[], MallocDeleter> new_data(
         static_cast<uint8_t*>(malloc(min_size)));
-    if (new_data == nullptr) return -1;
-    buffers_[i].data = std::move(new_data);
-    buffers_[i].size = min_size;
+    if (new_data == nullptr) return kStatusOutOfMemory;
+    buffer->data = std::move(new_data);
+    buffer->size = min_size;
   }
 
-  frame_buffer->data[0] = buffers_[i].data.get();
-  frame_buffer->size[0] = y_plane_min_size;
-  frame_buffer->data[1] = frame_buffer->data[0] + y_plane_min_size;
-  frame_buffer->size[1] = uv_plane_min_size;
-  frame_buffer->data[2] = frame_buffer->data[1] + uv_plane_min_size;
-  frame_buffer->size[2] = uv_plane_min_size;
-  frame_buffer->private_data = &buffers_[i];
-  buffers_[i].in_use = true;
-  return 0;
+  uint8_t* const y_buffer = buffer->data.get();
+  uint8_t* const u_buffer =
+      (info.uv_buffer_size == 0) ? nullptr : y_buffer + info.y_buffer_size;
+  uint8_t* const v_buffer =
+      (info.uv_buffer_size == 0) ? nullptr : u_buffer + info.uv_buffer_size;
+  status = Libgav1SetFrameBuffer(&info, y_buffer, u_buffer, v_buffer, buffer,
+                                 frame_buffer);
+  if (status != kStatusOk) return status;
+  buffer->in_use = true;
+  return kStatusOk;
 }
 
-int InternalFrameBufferList::ReleaseFrameBuffer(FrameBuffer* frame_buffer) {
-  auto* const buffer = static_cast<Buffer*>(frame_buffer->private_data);
+void InternalFrameBufferList::ReleaseFrameBuffer(void* buffer_private_data) {
+  auto* const buffer = static_cast<Buffer*>(buffer_private_data);
   buffer->in_use = false;
-  return 0;
 }
 
 }  // namespace libgav1

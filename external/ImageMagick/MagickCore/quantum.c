@@ -16,7 +16,7 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -156,7 +156,7 @@ MagickExport QuantumInfo *AcquireQuantumInfo(const ImageInfo *image_info,
 static MagickBooleanType AcquireQuantumPixels(QuantumInfo *quantum_info,
   const size_t extent)
 {
-  register ssize_t
+  ssize_t
     i;
 
   assert(quantum_info != (QuantumInfo *) NULL);
@@ -174,7 +174,7 @@ static MagickBooleanType AcquireQuantumPixels(QuantumInfo *quantum_info,
     unsigned char
       *pixels;
 
-    quantum_info->pixels[i]=AcquireVirtualMemory((extent+1),sizeof(*pixels));
+    quantum_info->pixels[i]=AcquireVirtualMemory(extent+1,sizeof(*pixels));
     if (quantum_info->pixels[i] == (MemoryInfo *) NULL)
       {
         DestroyQuantumPixels(quantum_info);
@@ -247,7 +247,7 @@ MagickExport QuantumInfo *DestroyQuantumInfo(QuantumInfo *quantum_info)
 */
 static void DestroyQuantumPixels(QuantumInfo *quantum_info)
 {
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -681,10 +681,13 @@ MagickExport MagickBooleanType SetQuantumDepth(const Image *image,
       if (quantum_info->depth > 32)
         quantum_info->depth=64;
       else
-        if (quantum_info->depth > 16)
+        if (quantum_info->depth > 24)
           quantum_info->depth=32;
         else
-          quantum_info->depth=16;
+          if (quantum_info->depth > 16)
+            quantum_info->depth=24;
+          else
+            quantum_info->depth=16;
     }
   if (quantum_info->pixels != (MemoryInfo **) NULL)
     DestroyQuantumPixels(quantum_info);

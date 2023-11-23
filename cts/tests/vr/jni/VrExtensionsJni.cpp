@@ -449,7 +449,7 @@ static void testLinearMagnification(JNIEnv* env, uint32_t flags, uint32_t* middl
         desc.layers = 1;
         desc.format = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
         desc.usage =
-                AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE | AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT;
+                AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE | AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT | AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN;
         AHardwareBuffer* hwbuffer = nullptr;
         int error = AHardwareBuffer_allocate(&desc, &hwbuffer);
         ASSERT_EQ(error, NO_ERROR);

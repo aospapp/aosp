@@ -5,32 +5,31 @@
 use std::collections::hash_map::{Entry, HashMap, VacantEntry};
 use std::env::set_var;
 use std::fs::File;
-use std::io::Write;
+use std::io::{IoSlice, Write};
 use std::mem::transmute;
-use std::os::unix::io::{AsRawFd, RawFd};
 use std::os::unix::net::UnixDatagram;
 use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 
-use net_util;
 use net_util::Error as NetError;
 
 use libc::{pid_t, waitpid, EINVAL, ENODATA, ENOTTY, WEXITSTATUS, WIFEXITED, WNOHANG, WTERMSIG};
 
-use protobuf;
 use protobuf::Message;
 
-use io_jail::Minijail;
+use base::{
+    error, AsRawDescriptor, Error as SysError, Event, IntoRawDescriptor, Killable,
+    MemoryMappingBuilder, RawDescriptor, Result as SysResult, ScmSocket, SharedMemory,
+    SharedMemoryUnix, SIGRTMIN,
+};
 use kvm::{dirty_log_bitmap_size, Datamatch, IoeventAddress, IrqRoute, IrqSource, PicId, Vm};
 use kvm_sys::{kvm_clock_data, kvm_ioapic_state, kvm_pic_state, kvm_pit_state2};
+use minijail::Minijail;
 use protos::plugin::*;
 use sync::Mutex;
-use sys_util::{
-    error, Error as SysError, EventFd, GuestAddress, Killable, MemoryMapping, Result as SysResult,
-    ScmSocket, SharedMemory, SIGRTMIN,
-};
+use vm_memory::GuestAddress;
 
 use super::*;
 
@@ -121,7 +120,7 @@ pub struct Process {
     per_vcpu_states: Vec<Arc<Mutex<PerVcpuState>>>,
 
     // Resource to sent to plugin
-    kill_evt: EventFd,
+    kill_evt: Event,
     vcpu_pipes: Vec<VcpuPipe>,
 
     // Socket Transmission
@@ -163,13 +162,19 @@ impl Process {
 
         let plugin_pid = match jail {
             Some(jail) => {
-                set_var("CROSVM_SOCKET", child_socket.as_raw_fd().to_string());
-                jail.run(cmd, &[0, 1, 2, child_socket.as_raw_fd()], args)
+                set_var(
+                    "CROSVM_SOCKET",
+                    child_socket.as_raw_descriptor().to_string(),
+                );
+                jail.run(cmd, &[0, 1, 2, child_socket.as_raw_descriptor()], args)
                     .map_err(Error::PluginRunJail)?
             }
             None => Command::new(cmd)
                 .args(args)
-                .env("CROSVM_SOCKET", child_socket.as_raw_fd().to_string())
+                .env(
+                    "CROSVM_SOCKET",
+                    child_socket.as_raw_descriptor().to_string(),
+                )
                 .spawn()
                 .map_err(Error::PluginSpawn)?
                 .id() as pid_t,
@@ -182,7 +187,7 @@ impl Process {
             objects: Default::default(),
             shared_vcpu_state: Default::default(),
             per_vcpu_states,
-            kill_evt: EventFd::new().map_err(Error::CreateEventFd)?,
+            kill_evt: Event::new().map_err(Error::CreateEvent)?,
             vcpu_pipes,
             request_buffer: vec![0; MAX_DATAGRAM_SIZE],
             response_buffer: Vec::new(),
@@ -288,16 +293,14 @@ impl Process {
             -1 => Err(SysError::last()),
             0 => Ok(ProcessStatus::Running),
             _ => {
-                // Trivially safe
-                if unsafe { WIFEXITED(status) } {
-                    match unsafe { WEXITSTATUS(status) } {
-                        // Trivially safe
+                if WIFEXITED(status) {
+                    match WEXITSTATUS(status) {
                         0 => Ok(ProcessStatus::Success),
                         code => Ok(ProcessStatus::Fail(code)),
                     }
                 } else {
                     // Plugin terminated but has no exit status, so it must have been signaled.
-                    Ok(ProcessStatus::Signal(unsafe { WTERMSIG(status) })) // Trivially safe
+                    Ok(ProcessStatus::Signal(WTERMSIG(status)))
                 }
             }
         }
@@ -307,8 +310,8 @@ impl Process {
         entry: VacantEntry<u32, PluginObject>,
         vm: &mut Vm,
         io_event: &MainRequest_Create_IoEvent,
-    ) -> SysResult<RawFd> {
-        let evt = EventFd::new()?;
+    ) -> SysResult<RawDescriptor> {
+        let evt = Event::new()?;
         let addr = match io_event.space {
             AddressSpace::IOPORT => IoeventAddress::Pio(io_event.address),
             AddressSpace::MMIO => IoeventAddress::Mmio(io_event.address),
@@ -328,7 +331,7 @@ impl Process {
             _ => return Err(SysError::new(EINVAL)),
         };
 
-        let fd = evt.as_raw_fd();
+        let fd = evt.as_raw_descriptor();
         entry.insert(PluginObject::IoEvent {
             evt,
             addr,
@@ -348,7 +351,7 @@ impl Process {
         read_only: bool,
         dirty_log: bool,
     ) -> SysResult<()> {
-        let shm = SharedMemory::from_raw_fd(memfd)?;
+        let shm = SharedMemory::from_file(memfd)?;
         // Checking the seals ensures the plugin process won't shrink the mmapped file, causing us
         // to SIGBUS in the future.
         let seals = shm.get_seals()?;
@@ -361,9 +364,13 @@ impl Process {
             None => return Err(SysError::new(EOVERFLOW)),
             _ => {}
         }
-        let mem = MemoryMapping::from_fd_offset(&shm, length as usize, offset as usize)
+        let mem = MemoryMappingBuilder::new(length as usize)
+            .from_shared_memory(&shm)
+            .offset(offset)
+            .build()
             .map_err(mmap_to_sys_err)?;
-        let slot = vm.add_device_memory(GuestAddress(start), mem, read_only, dirty_log)?;
+        let slot =
+            vm.add_memory_region(GuestAddress(start), Box::new(mem), read_only, dirty_log)?;
         entry.insert(PluginObject::Memory {
             slot,
             length: length as usize,
@@ -380,7 +387,12 @@ impl Process {
                 };
                 match reserve_range.length {
                     0 => lock.unreserve_range(space, reserve_range.start),
-                    _ => lock.reserve_range(space, reserve_range.start, reserve_range.length),
+                    _ => lock.reserve_range(
+                        space,
+                        reserve_range.start,
+                        reserve_range.length,
+                        reserve_range.async_write,
+                    ),
                 }
             }
             Err(_) => Err(SysError::new(EDEADLK)),
@@ -416,6 +428,35 @@ impl Process {
             });
         }
         vm.set_gsi_routing(&routes[..])
+    }
+
+    fn handle_set_call_hint(&mut self, hints: &MainRequest_SetCallHint) -> SysResult<()> {
+        let mut regs: Vec<CallHintDetails> = vec![];
+        for hint in &hints.hints {
+            regs.push(CallHintDetails {
+                match_rax: hint.match_rax,
+                match_rbx: hint.match_rbx,
+                match_rcx: hint.match_rcx,
+                match_rdx: hint.match_rdx,
+                rax: hint.rax,
+                rbx: hint.rbx,
+                rcx: hint.rcx,
+                rdx: hint.rdx,
+                send_sregs: hint.send_sregs,
+                send_debugregs: hint.send_debugregs,
+            });
+        }
+        match self.shared_vcpu_state.write() {
+            Ok(mut lock) => {
+                let space = match hints.space {
+                    AddressSpace::IOPORT => IoSpace::Ioport,
+                    AddressSpace::MMIO => IoSpace::Mmio,
+                };
+                lock.set_hint(space, hints.address, hints.on_write, regs);
+                Ok(())
+            }
+            Err(_) => Err(SysError::new(EDEADLK)),
+        }
     }
 
     fn handle_pause_vcpus(&self, vcpu_handles: &[JoinHandle<()>], cpu_mask: u64, user_data: u64) {
@@ -483,7 +524,14 @@ impl Process {
         let request = protobuf::parse_from_bytes::<MainRequest>(&self.request_buffer[..msg_size])
             .map_err(Error::DecodeRequest)?;
 
-        let mut response_files = Vec::new();
+        /// Use this to make it easier to stuff various kinds of File-like objects into the
+        /// `boxed_fds` list.
+        fn box_owned_fd<F: IntoRawDescriptor + 'static>(f: F) -> Box<dyn IntoRawDescriptor> {
+            Box::new(f)
+        }
+
+        // This vec is used to extend ownership of certain FDs until the end of this function.
+        let mut boxed_fds = Vec::new();
         let mut response_fds = Vec::new();
         let mut response = MainResponse::new();
         let res = if request.has_create() {
@@ -516,16 +564,16 @@ impl Process {
                         }
                     } else if create.has_irq_event() {
                         let irq_event = create.get_irq_event();
-                        match (EventFd::new(), EventFd::new()) {
+                        match (Event::new(), Event::new()) {
                             (Ok(evt), Ok(resample_evt)) => match vm.register_irqfd_resample(
                                 &evt,
                                 &resample_evt,
                                 irq_event.irq_id,
                             ) {
                                 Ok(()) => {
-                                    response_fds.push(evt.as_raw_fd());
-                                    response_fds.push(resample_evt.as_raw_fd());
-                                    response_files.push(downcast_file(resample_evt));
+                                    response_fds.push(evt.as_raw_descriptor());
+                                    response_fds.push(resample_evt.as_raw_descriptor());
+                                    boxed_fds.push(box_owned_fd(resample_evt));
                                     entry.insert(PluginObject::IrqEvent {
                                         irq_id: irq_event.irq_id,
                                         evt,
@@ -553,15 +601,15 @@ impl Process {
             match new_seqpacket_pair() {
                 Ok((request_socket, child_socket)) => {
                     self.request_sockets.push(request_socket);
-                    response_fds.push(child_socket.as_raw_fd());
-                    response_files.push(downcast_file(child_socket));
+                    response_fds.push(child_socket.as_raw_descriptor());
+                    boxed_fds.push(box_owned_fd(child_socket));
                     Ok(())
                 }
                 Err(e) => Err(e),
             }
         } else if request.has_get_shutdown_eventfd() {
             response.mut_get_shutdown_eventfd();
-            response_fds.push(self.kill_evt.as_raw_fd());
+            response_fds.push(self.kill_evt.as_raw_descriptor());
             Ok(())
         } else if request.has_check_extension() {
             // Safe because the Cap enum is not read by the check_extension method. In that method,
@@ -606,8 +654,8 @@ impl Process {
         } else if request.has_get_vcpus() {
             response.mut_get_vcpus();
             for pipe in self.vcpu_pipes.iter() {
-                response_fds.push(pipe.plugin_write.as_raw_fd());
-                response_fds.push(pipe.plugin_read.as_raw_fd());
+                response_fds.push(pipe.plugin_write.as_raw_descriptor());
+                response_fds.push(pipe.plugin_read.as_raw_descriptor());
             }
             Ok(())
         } else if request.has_start() {
@@ -623,7 +671,7 @@ impl Process {
                 Some(tap) => {
                     match Self::handle_get_net_config(tap, response.mut_get_net_config()) {
                         Ok(_) => {
-                            response_fds.push(tap.as_raw_fd());
+                            response_fds.push(tap.as_raw_descriptor());
                             Ok(())
                         }
                         Err(e) => Err(e),
@@ -631,6 +679,9 @@ impl Process {
                 }
                 None => Err(SysError::new(ENODATA)),
             }
+        } else if request.has_set_call_hint() {
+            response.mut_set_call_hint();
+            self.handle_set_call_hint(request.get_set_call_hint())
         } else if request.has_dirty_log() {
             let dirty_log_response = response.mut_dirty_log();
             match self.objects.get(&request.get_dirty_log().id) {
@@ -688,7 +739,7 @@ impl Process {
             .map_err(Error::EncodeResponse)?;
         assert_ne!(self.response_buffer.len(), 0);
         self.request_sockets[index]
-            .send_with_fds(&self.response_buffer[..], &response_fds)
+            .send_with_fds(&[IoSlice::new(&self.response_buffer[..])], &response_fds)
             .map_err(Error::PluginSocketSend)?;
 
         Ok(())

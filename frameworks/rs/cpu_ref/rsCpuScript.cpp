@@ -357,7 +357,7 @@ bool RsdCpuScriptImpl::init(char const *resName, char const *cacheDir,
         }
     }
     else {
-        // add a dummy/constant as a checksum if verification is disabled
+        // add a placeholder/constant as a checksum if verification is disabled
         mBuildChecksum = 0xabadcafe;
     }
 

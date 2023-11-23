@@ -48,6 +48,11 @@ class network_WiFi_CSA(wifi_cell_test_base.WiFiCellTestBase):
 
                 # Test to see if the router received a deauth message from
                 # the client.
+                # TODO (b/154879577): 'detect_client_deauth' may trigger based
+                # on a DEAUTH that happens during initial authentication.
+                # (e.g., clients may AUTH, retry (DEAUTH+AUTH), etc.) That may
+                # cause us to 'break' out here before the client _really_ sees
+                # the CSA.
                 if self.context.router.detect_client_deauth(client_mac):
                     break
 

@@ -60,14 +60,14 @@ func console_a3700_core_init
 	str	w3, [x0, #UART_POSSR_REG]
 
 	/*
-	 * Wait for the TX FIFO to be empty. If wait for 20ms, the TX FIFO is
+	 * Wait for the TX (THR and TSR) to be empty. If wait for 20ms, the TX FIFO is
 	 * still not empty, TX FIFO will reset by all means.
 	 */
 	mov	w1, #20				/* max time out 20ms */
 2:
-	/* Check whether TX FIFO is empty */
+	/* Check whether TX (THR and TSR) is empty */
 	ldr	w3, [x0, #UART_STATUS_REG]
-	and	w3, w3, #UARTLSR_TXFIFOEMPTY
+	and	w3, w3, #UARTLSR_TXEMPTY
 	cmp	w3, #0
 	b.ne	4f
 
@@ -110,7 +110,7 @@ endfunc console_a3700_core_init
 	.globl console_a3700_register
 
 	/* -----------------------------------------------
-	 * int console_a3700_register(console_16550_t *console,
+	 * int console_a3700_register(console_t *console,
 		uintptr_t base, uint32_t clk, uint32_t baud)
 	 * Function to initialize and register a new a3700
 	 * console. Storage passed in for the console struct
@@ -118,7 +118,7 @@ endfunc console_a3700_core_init
 	 * In: x0 - UART register base address
 	 *     w1 - UART clock in Hz
 	 *     w2 - Baud rate
-	 *     x3 - pointer to empty console_a3700_t struct
+	 *     x3 - pointer to empty console_t struct
 	 * Out: return 1 on success, 0 on error
 	 * Clobber list : x0, x1, x2, x6, x7, x14
 	 * -----------------------------------------------
@@ -127,7 +127,7 @@ func console_a3700_register
 	mov	x7, x30
 	mov	x6, x3
 	cbz	x6, register_fail
-	str	x0, [x6, #CONSOLE_T_A3700_BASE]
+	str	x0, [x6, #CONSOLE_T_BASE]
 
 	bl	console_a3700_core_init
 	cbz	x0, register_fail
@@ -178,7 +178,7 @@ putc_error:
 endfunc console_a3700_core_putc
 
 	/* --------------------------------------------------------
-	 * int console_a3700_putc(int c, console_a3700_t *console)
+	 * int console_a3700_putc(int c, console_t *console)
 	 * Function to output a character over the console. It
 	 * returns the character printed on success or -1 on error.
 	 * In : w0 - character to be printed
@@ -188,7 +188,7 @@ endfunc console_a3700_core_putc
 	 * --------------------------------------------------------
 	 */
 func console_a3700_putc
-	ldr	x1, [x1, #CONSOLE_T_A3700_BASE]
+	ldr	x1, [x1, #CONSOLE_T_BASE]
 	b	console_a3700_core_putc
 endfunc console_a3700_putc
 
@@ -196,19 +196,28 @@ endfunc console_a3700_putc
 	 * int console_a3700_core_getc(void)
 	 * Function to get a character from the console.
 	 * It returns the character grabbed on success
-	 * or -1 on error.
+	 * or -1 if no character is available.
 	 * In : w0 - console base address
-	 * Out : return -1 on error else return character.
+	 * Out : w0 - character if available, else -1
 	 * Clobber list : x0, x1
 	 * ---------------------------------------------
 	 */
 func console_a3700_core_getc
-	mov	w0, #-1
+	/* Check if there is a pending character */
+	ldr	w1, [x0, #UART_STATUS_REG]
+	and	w1, w1, #UARTLSR_RXRDY
+	cmp	w1, #UARTLSR_RXRDY
+	b.ne	getc_no_char
+	ldr	w0, [x0, #UART_RX_REG]
+	and	w0, w0, #0xff
+	ret
+getc_no_char:
+	mov	w0, #ERROR_NO_PENDING_CHAR
 	ret
 endfunc console_a3700_core_getc
 
 	/* ---------------------------------------------
-	 * int console_a3700_getc(console_a3700_t *console)
+	 * int console_a3700_getc(console_t *console)
 	 * Function to get a character from the console.
 	 * It returns the character grabbed on success
 	 * or -1 on if no character is available.
@@ -218,35 +227,39 @@ endfunc console_a3700_core_getc
 	 * ---------------------------------------------
 	 */
 func console_a3700_getc
-	ldr	x0, [x0, #CONSOLE_T_A3700_BASE]
+	ldr	x0, [x0, #CONSOLE_T_BASE]
 	b	console_a3700_core_getc
 endfunc console_a3700_getc
 
 	/* ---------------------------------------------
-	 * int console_a3700_core_flush(uintptr_t base_addr)
+	 * void console_a3700_core_flush(uintptr_t base_addr)
 	 * Function to force a write of all buffered
 	 * data that hasn't been output.
 	 * In : x0 - console base address
-	 * Out : return -1 on error else return 0.
+	 * Out : void.
 	 * Clobber list : x0, x1
 	 * ---------------------------------------------
 	 */
 func console_a3700_core_flush
-	mov	w0, #0
+	/* Wait for the TX (THR and TSR) to be empty */
+1:	ldr	w1, [x0, #UART_STATUS_REG]
+	and	w1, w1, #UARTLSR_TXEMPTY
+	cmp	w1, #UARTLSR_TXEMPTY
+	b.ne	1b
 	ret
 endfunc console_a3700_core_flush
 
 	/* ---------------------------------------------
-	 * int console_a3700_flush(console_a3700_t *console)
+	 * void console_a3700_flush(console_t *console)
 	 * Function to force a write of all buffered
 	 * data that hasn't been output.
 	 * In : x0 - pointer to console_t structure
-	 * Out : return -1 on error else return 0.
+	 * Out : void.
 	 * Clobber list : x0, x1
 	 * ---------------------------------------------
 	 */
 func console_a3700_flush
-	ldr	x0, [x0, #CONSOLE_T_A3700_BASE]
+	ldr	x0, [x0, #CONSOLE_T_BASE]
 	b	console_a3700_core_flush
 endfunc console_a3700_flush
 

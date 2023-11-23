@@ -8,12 +8,12 @@ AUTHOR = "chromeos-chameleon"
 NAME = "platform_RotationFps"
 PURPOSE = "Remotely controlled screen rotation test."
 CRITERIA = "This test will fail if slow fps while changing screen rotation."
-ATTRIBUTES = "suite:crosbolt_arc_perf_nightly"
+ATTRIBUTES = ""
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-DEPENDENCIES = 'chameleon, servo'
+DEPENDENCIES = 'chameleon, servo_state:WORKING'
 JOB_RETRIES = 2
 
 DOC = """

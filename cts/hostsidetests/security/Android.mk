@@ -21,10 +21,12 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_MODULE_TAGS := optional
 
 # tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 
 # Must match the package name in CtsTestCaseList.mk
 LOCAL_MODULE := CtsSecurityHostTestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 
@@ -71,6 +73,8 @@ $(LOCAL_GENERATED_SOURCES) : PRIVATE_SELINUX_GENERAL_POLICY := $(selinux_general
 $(LOCAL_GENERATED_SOURCES) : $(selinux_neverallow_gen) $(selinux_general_policy) $(selinux_neverallow_gen_data)
 	mkdir -p $(dir $@)
 	$< $(PRIVATE_SELINUX_GENERAL_POLICY) $@
+
+LOCAL_TARGET_REQUIRED_MODULES := CtsDeviceInfo
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 

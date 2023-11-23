@@ -162,6 +162,17 @@ func (n *NinjaReader) run() {
 					Action: started,
 					Output: msg.EdgeFinished.GetOutput(),
 					Error:  err,
+					Stats: ActionResultStats{
+						UserTime:                   msg.EdgeFinished.GetUserTime(),
+						SystemTime:                 msg.EdgeFinished.GetSystemTime(),
+						MaxRssKB:                   msg.EdgeFinished.GetMaxRssKb(),
+						MinorPageFaults:            msg.EdgeFinished.GetMinorPageFaults(),
+						MajorPageFaults:            msg.EdgeFinished.GetMajorPageFaults(),
+						IOInputKB:                  msg.EdgeFinished.GetIoInputKb(),
+						IOOutputKB:                 msg.EdgeFinished.GetIoOutputKb(),
+						VoluntaryContextSwitches:   msg.EdgeFinished.GetVoluntaryContextSwitches(),
+						InvoluntaryContextSwitches: msg.EdgeFinished.GetInvoluntaryContextSwitches(),
+					},
 				})
 			}
 		}
@@ -174,6 +185,8 @@ func (n *NinjaReader) run() {
 				n.status.Print("warning: " + message)
 			case ninja_frontend.Status_Message_ERROR:
 				n.status.Error(message)
+			case ninja_frontend.Status_Message_DEBUG:
+				n.status.Verbose(message)
 			default:
 				n.status.Print(message)
 			}

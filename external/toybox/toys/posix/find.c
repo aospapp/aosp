@@ -35,7 +35,7 @@ config FIND
     -inum N          inode number N            -empty      empty files and dirs
     -type [bcdflps]  type is (block, char, dir, file, symlink, pipe, socket)
     -true            always true               -false      always false
-    -context PATTERN security context
+    -context PATTERN security context          -executable access(X_OK) perm+ACL
     -newerXY FILE    X=acm time > FILE's Y=acm time (Y=t: FILE is literal time)
 
     Numbers N may be prefixed by a - (less than) or + (greater than). Units for
@@ -345,11 +345,13 @@ static int do_find(struct dirtree *new)
         } else test = 0;
       }
     } else if (!strcmp(s, "nouser")) {
-      if (check) if (bufgetpwuid(new->st.st_uid)) test = 0;
+      if (check && bufgetpwuid(new->st.st_uid)) test = 0;
     } else if (!strcmp(s, "nogroup")) {
-      if (check) if (bufgetgrgid(new->st.st_gid)) test = 0;
+      if (check && bufgetgrgid(new->st.st_gid)) test = 0;
     } else if (!strcmp(s, "prune")) {
       if (check && S_ISDIR(new->st.st_mode) && !TT.depth) recurse = 0;
+    } else if (!strcmp(s, "executable")) {
+      if (check && faccessat(dirtree_parentfd(new), new->name,X_OK,0)) test = 0;
 
     // Remaining filters take an argument
     } else {
@@ -398,10 +400,16 @@ static int do_find(struct dirtree *new)
       } else if (!strcmp(s, "type")) {
         if (check) {
           int types[] = {S_IFBLK, S_IFCHR, S_IFDIR, S_IFLNK, S_IFIFO,
-                         S_IFREG, S_IFSOCK}, i = stridx("bcdlpfs", *ss[1]);
+                         S_IFREG, S_IFSOCK}, i;
+          char *t = ss[1];
 
-          if (i<0) error_exit("bad -type '%c'", *ss[1]);
-          if ((new->st.st_mode & S_IFMT) != types[i]) test = 0;
+          for (; *t; t++) {
+            if (*t == ',') continue;
+            i = stridx("bcdlpfs", *t);
+            if (i<0) error_exit("bad -type '%c'", *t);
+            if ((new->st.st_mode & S_IFMT) == types[i]) break;
+          }
+          test = *t;
         }
 
       } else if (strchr("acm", *s)
@@ -585,16 +593,12 @@ static int do_find(struct dirtree *new)
         if (check) for (fmt = ss[1]; *fmt; fmt++) {
           // Print the parts that aren't escapes
           if (*fmt == '\\') {
-            int slash = *++fmt, n = unescape(slash);
+            unsigned u;
 
-            if (n) ch = n;
-            else if (slash=='c') break;
-            else if (slash=='0') {
-              ch = 0;
-              while (*fmt>='0' && *fmt<='7' && n++<3) ch=(ch*8)+*(fmt++)-'0';
-              --fmt;
-            } else error_exit("bad \\%c", *fmt);
-            putchar(ch);
+            if (fmt[1] == 'c') break;
+            if ((u = unescape2(&fmt, 0))<128) putchar(u);
+            else printf("%.*s", (int)wcrtomb(buf, u, 0), buf);
+            fmt--;
           } else if (*fmt != '%') putchar(*fmt);
           else if (*++fmt == '%') putchar('%');
           else {
@@ -688,7 +692,7 @@ void find_main(void)
 
   // Distinguish paths from filters
   for (len = 0; toys.optargs[len]; len++)
-    if (strchr("-!(", *toys.optargs[len])) break;
+    if (*toys.optargs[len] && strchr("-!(", *toys.optargs[len])) break;
   TT.filter = toys.optargs+len;
 
   // use "." if no paths

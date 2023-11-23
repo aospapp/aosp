@@ -42,6 +42,9 @@ import android.provider.MediaStore;
 import android.util.Log;
 
 import java.io.UnsupportedEncodingException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 
 /**
  * This class stores information about a single receiving file. It will only be
@@ -53,8 +56,8 @@ public class BluetoothOppReceiveFileInfo {
     private static final boolean V = Constants.VERBOSE;
     private static String sDesiredStoragePath = null;
 
-    /* To truncate the name of the received file if the length exceeds 245 */
-    private static final int OPP_LENGTH_OF_FILE_NAME = 244;
+    /* To truncate the name of the received file if the length exceeds 237 */
+    private static final int OPP_LENGTH_OF_FILE_NAME = 237;
 
 
     /** absolute store file name */
@@ -160,7 +163,9 @@ public class BluetoothOppReceiveFileInfo {
             }
         }
 
-        String fullfilename = filename + extension;
+        DateFormat dateFormat = new SimpleDateFormat("_hhmmss");
+        String currentTime = dateFormat.format(Calendar.getInstance().getTime());
+        String fullfilename = filename + currentTime + extension;
 
         if (V) {
             Log.v(Constants.TAG, "Generated received filename " + fullfilename);

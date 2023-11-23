@@ -61,6 +61,12 @@ class Monitor {
   // a lock word. See Runtime::max_spins_before_thin_lock_inflation_.
   constexpr static size_t kDefaultMaxSpinsBeforeThinLockInflation = 50;
 
+  static constexpr int kDefaultMonitorTimeoutMs = 500;
+
+  static constexpr int kMonitorTimeoutMinMs = 200;
+
+  static constexpr int kMonitorTimeoutMaxMs = 1000;  // 1 second
+
   ~Monitor();
 
   static void Init(uint32_t lock_profiling_threshold, uint32_t stack_dump_lock_profiling_threshold);
@@ -350,11 +356,11 @@ class Monitor {
   // - If contention reporting is enabled, we use the lock_owner_request_ field to have the
   //   contending thread request them. The current owner then sets them when releasing the monitor,
   //   making them available when the contending thread acquires the monitor.
-  // - If both are enabled, we blindly do both. This usually prevents us from switching between
-  //   reporting the end and beginning of critical sections for contention logging when tracing is
-  //   enabled.  We expect that tracing overhead is normally much higher than for contention
-  //   logging, so the added cost should be small. It also minimizes glitches when enabling and
-  //   disabling traces.
+  // - If tracing and contention reporting are enabled, we do both. This usually prevents us from
+  //   switching between reporting the end and beginning of critical sections for contention logging
+  //   when tracing is enabled.  We expect that tracing overhead is normally much higher than for
+  //   contention logging, so the added cost should be small. It also minimizes glitches when
+  //   enabling and disabling traces.
   // We're tolerant of missing information. E.g. when tracing is initially turned on, we may
   // not have the lock holder information if the holder acquired the lock with tracing off.
   //
@@ -412,6 +418,8 @@ class Monitor {
   // Check for and act on a pending lock_owner_request_
   void CheckLockOwnerRequest(Thread* self)
       REQUIRES(monitor_lock_) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void MaybeEnableTimeout() REQUIRES(Locks::mutator_lock_);
 
   // The denser encoded version of this monitor as stored in the lock word.
   MonitorId monitor_id_;

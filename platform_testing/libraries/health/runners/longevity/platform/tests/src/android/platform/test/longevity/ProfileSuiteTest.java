@@ -326,6 +326,66 @@ public class ProfileSuiteTest {
         // Scenario names from the profile.
         final String firstScenarioName =
                 "android.platform.test.longevity.samples.testing."
+                        + "SampleBasicProfileSuite$PassingTest2";
+        final String secondScenarioName =
+                "android.platform.test.longevity.samples.testing."
+                        + "SampleBasicProfileSuite$PassingTest1";
+        final String thirdScenarioName =
+                "android.platform.test.longevity.samples.testing."
+                        + "SampleBasicProfileSuite$PassingTest1";
+        ProfileSuite suite =
+                spy(
+                        new ProfileSuite(
+                                SampleBasicProfileSuite.class,
+                                new AllDefaultPossibilitiesBuilder(true),
+                                mInstrumentation,
+                                mContext,
+                                args));
+
+        InOrder inOrderVerifier = inOrder(suite);
+
+        suite.run(mRunNotifier);
+        // Verify that the first scenario is started.
+        inOrderVerifier
+                .verify(suite)
+                .runChild(
+                        argThat(
+                                runner ->
+                                        runner.getDescription()
+                                                .getDisplayName()
+                                                .equals(firstScenarioName)),
+                        argThat(notifier -> notifier.equals(mRunNotifier)));
+        // Verify that the second scenario is started.
+        inOrderVerifier
+                .verify(suite)
+                .runChild(
+                        argThat(
+                                runner ->
+                                        runner.getDescription()
+                                                .getDisplayName()
+                                                .equals(secondScenarioName)),
+                        argThat(notifier -> notifier.equals(mRunNotifier)));
+        // Verify that the third scenario is started.
+        inOrderVerifier
+                .verify(suite)
+                .runChild(
+                        argThat(
+                                runner ->
+                                        runner.getDescription()
+                                                .getDisplayName()
+                                                .equals(thirdScenarioName)),
+                        argThat(notifier -> notifier.equals(mRunNotifier)));
+    }
+
+    /** Test that a sequential profile's scheduling is followed. */
+    @Test
+    public void testSequentialScheduling_respectsSchedule() throws InitializationError {
+        // Arguments with the profile under test.
+        Bundle args = new Bundle();
+        args.putString(Profile.PROFILE_OPTION_NAME, "testSequentialScheduling_respectsSchedule");
+        // Scenario names from the profile.
+        final String firstScenarioName =
+                "android.platform.test.longevity.samples.testing."
                         + "SampleBasicProfileSuite$PassingTest1";
         final String secondScenarioName =
                 "android.platform.test.longevity.samples.testing."

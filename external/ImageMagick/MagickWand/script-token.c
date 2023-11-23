@@ -15,7 +15,7 @@
 %                               January 2012                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -33,8 +33,8 @@
 %
 %  Read a stream of characters and return tokens one at a time.
 %
-%  The input stream is dived into individual 'tokens' (representing 'words' or
-%  'options'), in a way that is as close to a UNIX shell, as is feasable.
+%  The input stream is divided into individual 'tokens' (representing 'words'
+%  or 'options'), in a way that is as close to a UNIX shell, as is feasable.
 %  Only shell variable, and command substitutions will not be performed.
 %  Tokens can be any length.
 %
@@ -231,7 +231,7 @@ WandExport ScriptTokenInfo *AcquireScriptTokenInfo(const char *filename)
 
   token_info->curr_line=1;
   token_info->length=INITAL_TOKEN_LENGTH;
-  token_info->token=(char *) AcquireMagickMemory(token_info->length);
+  token_info->token=(char *) AcquireQuantumMemory(1,token_info->length);
 
   token_info->status=(token_info->token != (char *) NULL)
                       ? TokenStatusOK : TokenStatusMemoryFailed;
@@ -341,8 +341,8 @@ WandExport ScriptTokenInfo * DestroyScriptTokenInfo(ScriptTokenInfo *token_info)
       token_info->length += MagickPathExtent; \
     else \
       token_info->length *= 4; \
-    token_info->token = (char *) \
-         ResizeMagickMemory(token_info->token, token_info->length); \
+    token_info->token=(char *) ResizeQuantumMemory(token_info->token, \
+      token_info->length,sizeof(*token_info->token)); \
     if ( token_info->token == (char *) NULL ) { \
       token_info->status=TokenStatusMemoryFailed; \
       break; \

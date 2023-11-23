@@ -106,7 +106,7 @@ enum class StreamRotation : uint32_t {
 };
 
 // See the definition of
-// ::android::hardware::camera::device::V3_4::Stream;
+// ::android::hardware::camera::device::V3_7::Stream;
 struct Stream {
   int32_t id = -1;
   StreamType stream_type = StreamType::kOutput;
@@ -119,6 +119,9 @@ struct Stream {
   bool is_physical_camera_stream = false;
   uint32_t physical_camera_id = 0;
   uint32_t buffer_size = 0;
+  int32_t group_id = -1;
+  bool used_in_max_resolution_mode = false;
+  bool used_in_default_resolution_mode = true;
 };
 
 // See the definition of
@@ -129,12 +132,13 @@ enum class StreamConfigurationMode : uint32_t {
 };
 
 // See the definition of
-// ::android::hardware::camera::device::V3_5::StreamConfiguration;
+// ::android::hardware::camera::device::V3_7::StreamConfiguration;
 struct StreamConfiguration {
   std::vector<Stream> streams;
   StreamConfigurationMode operation_mode;
   std::unique_ptr<HalCameraMetadata> session_params;
   uint32_t stream_config_counter = 0;
+  bool multi_resolution_input_image = false;
 };
 
 struct CameraIdAndStreamConfiguration {
@@ -207,6 +211,9 @@ struct CaptureRequest {
   // Maps from physical camera ID to physical camera settings.
   std::unordered_map<uint32_t, std::unique_ptr<HalCameraMetadata>>
       physical_camera_settings;
+
+  uint32_t input_width;
+  uint32_t input_height;
 };
 
 // See the definition of
@@ -293,13 +300,18 @@ struct WeightedRect : Rect {
 };
 
 struct Dimension {
-  uint32_t width;
-  uint32_t height;
+  uint32_t width = 0;
+  uint32_t height = 0;
 };
 
 struct Point {
   uint32_t x;
   uint32_t y;
+};
+
+struct PointI {
+  int32_t x;
+  int32_t y;
 };
 
 struct PointF {

@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <keymaster/new.h>
-
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/logger.h>
 
@@ -62,8 +60,7 @@ AuthorizationSet::~AuthorizationSet() {
 }
 
 bool AuthorizationSet::reserve_elems(size_t count) {
-    if (is_valid() != OK)
-        return false;
+    if (is_valid() != OK) return false;
 
     if (count > elems_capacity_) {
         keymaster_key_param_t* new_elems = new (std::nothrow) keymaster_key_param_t[count];
@@ -80,8 +77,7 @@ bool AuthorizationSet::reserve_elems(size_t count) {
 }
 
 bool AuthorizationSet::reserve_indirect(size_t length) {
-    if (is_valid() != OK)
-        return false;
+    if (is_valid() != OK) return false;
 
     if (length > indirect_data_capacity_) {
         uint8_t* new_data = new (std::nothrow) uint8_t[length];
@@ -128,11 +124,9 @@ bool AuthorizationSet::Reinitialize(const keymaster_key_param_t* elems, const si
         return true;
     }
 
-    if (!reserve_elems(count))
-        return false;
+    if (!reserve_elems(count)) return false;
 
-    if (!reserve_indirect(ComputeIndirectDataSize(elems, count)))
-        return false;
+    if (!reserve_indirect(ComputeIndirectDataSize(elems, count))) return false;
 
     memcpy(elems_, elems, sizeof(keymaster_key_param_t) * count);
     elems_size_ = count;
@@ -166,11 +160,9 @@ void AuthorizationSet::Deduplicate() {
             ++invalid_count;
         }
     }
-    if (size() > 0 && elems_[size() - 1].tag == KM_TAG_INVALID)
-        ++invalid_count;
+    if (size() > 0 && elems_[size() - 1].tag == KM_TAG_INVALID) ++invalid_count;
 
-    if (invalid_count == 0)
-        return;
+    if (invalid_count == 0) return;
 
     Sort();
 
@@ -180,16 +172,14 @@ void AuthorizationSet::Deduplicate() {
 }
 
 void AuthorizationSet::Union(const keymaster_key_param_set_t& set) {
-    if (set.length == 0)
-        return;
+    if (set.length == 0) return;
 
     push_back(set);
     Deduplicate();
 }
 
 void AuthorizationSet::Difference(const keymaster_key_param_set_t& set) {
-    if (set.length == 0)
-        return;
+    if (set.length == 0) return;
 
     Deduplicate();
 
@@ -227,8 +217,7 @@ void AuthorizationSet::CopyToParamSet(keymaster_key_param_set_t* set) const {
 }
 
 int AuthorizationSet::find(keymaster_tag_t tag, int begin) const {
-    if (is_valid() != OK)
-        return -1;
+    if (is_valid() != OK) return -1;
 
     int i = ++begin;
     while (i < (int)elems_size_ && elems_[i].tag != tag)
@@ -240,8 +229,7 @@ int AuthorizationSet::find(keymaster_tag_t tag, int begin) const {
 }
 
 bool AuthorizationSet::erase(int index) {
-    if (index < 0 || index >= static_cast<int>(size()))
-        return false;
+    if (index < 0 || index >= static_cast<int>(size())) return false;
 
     --elems_size_;
     for (size_t i = index; i < elems_size_; ++i)
@@ -267,25 +255,21 @@ const keymaster_key_param_t& AuthorizationSet::operator[](int at) const {
 }
 
 bool AuthorizationSet::push_back(const keymaster_key_param_set_t& set) {
-    if (is_valid() != OK)
-        return false;
+    if (is_valid() != OK) return false;
 
-    if (!reserve_elems(elems_size_ + set.length))
-        return false;
+    if (!reserve_elems(elems_size_ + set.length)) return false;
 
     if (!reserve_indirect(indirect_data_size_ + ComputeIndirectDataSize(set.params, set.length)))
         return false;
 
     for (size_t i = 0; i < set.length; ++i)
-        if (!push_back(set.params[i]))
-            return false;
+        if (!push_back(set.params[i])) return false;
 
     return true;
 }
 
 bool AuthorizationSet::push_back(keymaster_key_param_t elem) {
-    if (is_valid() != OK)
-        return false;
+    if (is_valid() != OK) return false;
 
     if (elems_size_ >= elems_capacity_)
         if (!reserve_elems(elems_capacity_ ? elems_capacity_ * 2 : STARTING_ELEMS_CAPACITY))
@@ -350,8 +334,7 @@ static uint8_t* serialize(const keymaster_key_param_t& param, uint8_t* buf, cons
         buf = append_uint64_to_buf(buf, end, param.date_time);
         break;
     case KM_BOOL:
-        if (buf < end)
-            *buf = static_cast<uint8_t>(param.boolean);
+        if (buf < end) *buf = static_cast<uint8_t>(param.boolean);
         buf++;
         break;
     case KM_BIGNUM:
@@ -365,8 +348,7 @@ static uint8_t* serialize(const keymaster_key_param_t& param, uint8_t* buf, cons
 
 static bool deserialize(keymaster_key_param_t* param, const uint8_t** buf_ptr, const uint8_t* end,
                         const uint8_t* indirect_base, const uint8_t* indirect_end) {
-    if (!copy_uint32_from_buf(buf_ptr, end, &param->tag))
-        return false;
+    if (!copy_uint32_from_buf(buf_ptr, end, &param->tag)) return false;
 
     switch (keymaster_tag_get_type(param->tag)) {
     case KM_INVALID:
@@ -465,11 +447,11 @@ bool AuthorizationSet::DeserializeElementsData(const uint8_t** buf_ptr, const ui
     // elems_ arrays which are clearly too large to be reasonable.
     size_t elems_refs_size;
     size_t elems_alloc_size;
-    bool refs_size_overflow = __builtin_mul_overflow(elements_count, sizeof(uint32_t),
-                                                     &elems_refs_size);
-    bool alloc_size_overflow = __builtin_mul_overflow(elements_count, sizeof(*elems_),
-                                                      &elems_alloc_size);
-        /* elements_size must fit in the buffer */
+    bool refs_size_overflow =
+        __builtin_mul_overflow(elements_count, sizeof(uint32_t), &elems_refs_size);
+    bool alloc_size_overflow =
+        __builtin_mul_overflow(elements_count, sizeof(*elems_), &elems_alloc_size);
+    /* elements_size must fit in the buffer */
     if (static_cast<ptrdiff_t>(elements_size) > end - *buf_ptr ||
         /* The element refs must all fit within elements_size */
         elems_refs_size > elements_size ||
@@ -482,8 +464,7 @@ bool AuthorizationSet::DeserializeElementsData(const uint8_t** buf_ptr, const ui
         return false;
     }
 
-    if (!reserve_elems(elements_count))
-        return false;
+    if (!reserve_elems(elements_count)) return false;
 
     uint8_t* indirect_end = indirect_data_ + indirect_data_size_;
     const uint8_t* elements_end = *buf_ptr + elements_size;
@@ -677,15 +658,13 @@ bool AuthorizationSet::GetTagValueBool(keymaster_tag_t tag) const {
 
 bool AuthorizationSet::ContainsEnumValue(keymaster_tag_t tag, uint32_t value) const {
     for (auto& entry : *this)
-        if (entry.tag == tag && entry.enumerated == value)
-            return true;
+        if (entry.tag == tag && entry.enumerated == value) return true;
     return false;
 }
 
 bool AuthorizationSet::ContainsIntValue(keymaster_tag_t tag, uint32_t value) const {
     for (auto& entry : *this)
-        if (entry.tag == tag && entry.integer == value)
-            return true;
+        if (entry.tag == tag && entry.integer == value) return true;
     return false;
 }
 

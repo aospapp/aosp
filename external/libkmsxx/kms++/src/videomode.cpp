@@ -1,7 +1,8 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
-#include <math.h>
+#include <cmath>
 #include <sstream>
+#include <fmt/format.h>
 
 #include <kms++/kms++.h>
 #include "helpers.h"
@@ -10,6 +11,10 @@ using namespace std;
 
 namespace kms
 {
+bool Videomode::valid() const
+{
+	return !!clock;
+}
 
 unique_ptr<Blob> Videomode::to_blob(Card& card) const
 {
@@ -88,21 +93,60 @@ void Videomode::set_vsync(SyncPolarity pol)
 	}
 }
 
-string Videomode::to_string() const
+string Videomode::to_string_short() const
 {
-	std::stringstream ss;
-	ss << hdisplay << "x" << vdisplay;
-	if (interlace())
-		ss << "i";
-	ss << "@" << calculated_vrefresh();
-	return ss.str();
+	return fmt::format("{}x{}{}@{:.2f}", hdisplay, vdisplay, interlace() ? "i" : "", calculated_vrefresh());
+}
+
+static char sync_to_char(SyncPolarity pol)
+{
+	switch (pol) {
+	case SyncPolarity::Positive:
+		return '+';
+	case SyncPolarity::Negative:
+		return '-';
+	default:
+		return '?';
+	}
+}
+
+string Videomode::to_string_long() const
+{
+	string h = fmt::format("{}/{}/{}/{}/{}", hdisplay, hfp(), hsw(), hbp(), sync_to_char(hsync()));
+	string v = fmt::format("{}/{}/{}/{}/{}", vdisplay, vfp(), vsw(), vbp(), sync_to_char(vsync()));
+
+	string str = fmt::format("{} {:.3f} {} {} {} ({:.2f}) {:#x} {:#x}",
+				 to_string_short(),
+				 clock / 1000.0,
+				 h, v,
+				 vrefresh, calculated_vrefresh(),
+				 flags,
+				 type);
+
+	return str;
+}
+
+string Videomode::to_string_long_padded() const
+{
+	string h = fmt::format("{}/{}/{}/{}/{}", hdisplay, hfp(), hsw(), hbp(), sync_to_char(hsync()));
+	string v = fmt::format("{}/{}/{}/{}/{}", vdisplay, vfp(), vsw(), vbp(), sync_to_char(vsync()));
+
+	string str = fmt::format("{:<16} {:7.3f} {:<18} {:<18} {:2} ({:.2f}) {:#10x} {:#6x}",
+				 to_string_short(),
+				 clock / 1000.0,
+				 h, v,
+				 vrefresh, calculated_vrefresh(),
+				 flags,
+				 type);
+
+	return str;
 }
 
 Videomode videomode_from_timings(uint32_t clock_khz,
 				 uint16_t hact, uint16_t hfp, uint16_t hsw, uint16_t hbp,
 				 uint16_t vact, uint16_t vfp, uint16_t vsw, uint16_t vbp)
 {
-	Videomode m { };
+	Videomode m{};
 	m.clock = clock_khz;
 
 	m.hdisplay = hact;
@@ -118,4 +162,4 @@ Videomode videomode_from_timings(uint32_t clock_khz,
 	return m;
 }
 
-}
+} // namespace kms

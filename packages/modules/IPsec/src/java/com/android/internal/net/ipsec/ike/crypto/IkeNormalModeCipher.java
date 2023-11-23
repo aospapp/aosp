@@ -22,6 +22,7 @@ import android.net.ipsec.ike.SaProposal;
 import java.nio.ByteBuffer;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.util.Arrays;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -37,9 +38,25 @@ import javax.crypto.spec.SecretKeySpec;
  *     Protocol Version 2 (IKEv2)</a>
  */
 public final class IkeNormalModeCipher extends IkeCipher {
+    // Block counter field should be 32 bits and starts from value one.
+    static final byte[] AES_CTR_INITIAL_COUNTER = new byte[] {0x00, 0x00, 0x00, 0x01};
+
     /** Package private */
     IkeNormalModeCipher(int algorithmId, int keyLength, int ivLength, String algorithmName) {
-        super(algorithmId, keyLength, ivLength, algorithmName, false /*isAead*/);
+        this(algorithmId, keyLength, ivLength, algorithmName, SALT_LEN_NOT_INCLUDED);
+    }
+
+    /** Package private */
+    IkeNormalModeCipher(
+            int algorithmId, int keyLength, int ivLength, String algorithmName, int saltLen) {
+        super(
+                algorithmId,
+                keyLength,
+                ivLength,
+                algorithmName,
+                false /*isAead*/,
+                saltLen,
+                BLOCK_SIZE_NOT_SPECIFIED);
     }
 
     private byte[] doCipherAction(byte[] data, byte[] keyBytes, byte[] ivBytes, int opmode)
@@ -52,8 +69,16 @@ public final class IkeNormalModeCipher extends IkeCipher {
                             + keyBytes.length);
         }
         try {
-            SecretKeySpec key = new SecretKeySpec(keyBytes, getAlgorithmName());
-            IvParameterSpec iv = new IvParameterSpec(ivBytes);
+            byte[] secretKeyBytes = Arrays.copyOfRange(keyBytes, 0, keyBytes.length - mSaltLen);
+            byte[] salt = Arrays.copyOfRange(keyBytes, secretKeyBytes.length, keyBytes.length);
+
+            byte[] nonce = concatenateByteArray(salt, ivBytes);
+            if (getAlgorithmId() == SaProposal.ENCRYPTION_ALGORITHM_AES_CTR) {
+                nonce = concatenateByteArray(nonce, AES_CTR_INITIAL_COUNTER);
+            }
+
+            SecretKeySpec key = new SecretKeySpec(secretKeyBytes, getAlgorithmName());
+            IvParameterSpec iv = new IvParameterSpec(nonce);
             mCipher.init(opmode, key, iv);
 
             ByteBuffer inputBuffer = ByteBuffer.wrap(data);
@@ -105,18 +130,15 @@ public final class IkeNormalModeCipher extends IkeCipher {
     }
 
     @Override
-    public IpSecAlgorithm buildIpSecAlgorithmWithKey(byte[] key) {
-        validateKeyLenOrThrow(key);
+    protected IpSecAlgorithm buildIpSecAlgorithmWithKeyImpl(byte[] key) {
+        return new IpSecAlgorithm(getIpSecAlgorithmName(getAlgorithmId()), key);
+    }
 
-        switch (getAlgorithmId()) {
-            case SaProposal.ENCRYPTION_ALGORITHM_3DES:
-                // TODO: Consider supporting 3DES in IpSecTransform.
-                throw new UnsupportedOperationException("Do not support 3Des encryption.");
-            case SaProposal.ENCRYPTION_ALGORITHM_AES_CBC:
-                return new IpSecAlgorithm(IpSecAlgorithm.CRYPT_AES_CBC, key);
-            default:
-                throw new IllegalArgumentException(
-                        "Unrecognized Encryption Algorithm ID: " + getAlgorithmId());
-        }
+    private static byte[] concatenateByteArray(byte[] left, byte[] right) {
+        byte[] result = new byte[left.length + right.length];
+        System.arraycopy(left, 0, result, 0, left.length);
+        System.arraycopy(right, 0, result, left.length, right.length);
+
+        return result;
     }
 }

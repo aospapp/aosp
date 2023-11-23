@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -273,7 +273,7 @@ static Image *ReadTEXTImage(const ImageInfo *image_info,
       draw_info=DestroyDrawInfo(draw_info);
       ThrowReaderException(TypeError,"UnableToGetTypeMetrics");
     }
-  page.y=(ssize_t) ceil((double) page.y+metrics.ascent-0.5);
+  page.y=CastDoubleToLong(ceil((double) page.y+metrics.ascent-0.5));
   (void) FormatLocaleString(geometry,MagickPathExtent,"%gx%g%+g%+g",(double)
     image->columns,(double) image->rows,(double) page.x,(double) page.y);
   (void) CloneString(&draw_info->geometry,geometry);
@@ -403,11 +403,11 @@ static Image *ReadTXTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   QuantumAny
     range;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
-  register Quantum
+  Quantum
     *q;
 
   ssize_t
@@ -443,6 +443,7 @@ static Image *ReadTXTImage(const ImageInfo *image_info,ExceptionInfo *exception)
     ThrowReaderException(CorruptImageError,"ImproperImageHeader");
   x_offset=(-1.0);
   y_offset=(-1.0);
+  q=(Quantum *) NULL;
   do
   {
     width=0;
@@ -457,7 +458,7 @@ static Image *ReadTXTImage(const ImageInfo *image_info,ExceptionInfo *exception)
     image->rows=height;
     if ((max_value == 0.0) || (max_value > 18446744073709551615.0))
       ThrowReaderException(CorruptImageError,"ImproperImageHeader");
-    for (depth=1; (GetQuantumRange(depth)+1.0) < max_value; depth++) ;
+    for (depth=1; ((double) GetQuantumRange(depth)+1) < max_value; depth++) ;
     image->depth=depth;
     status=SetImageExtent(image,image->columns,image->rows,exception);
     if (status != MagickFalse)
@@ -573,10 +574,13 @@ static Image *ReadTXTImage(const ImageInfo *image_info,ExceptionInfo *exception)
           MagickMax(black+0.5,0.0),range);
         pixel.alpha=(MagickRealType) ScaleAnyToQuantum((QuantumAny)
           MagickMax(alpha+0.5,0.0),range);
-        q=GetAuthenticPixels(image,(ssize_t) x_offset,(ssize_t) y_offset,1,1,
-          exception);
+        q=GetAuthenticPixels(image,CastDoubleToLong(x_offset),
+          CastDoubleToLong(y_offset),1,1,exception);
         if (q == (Quantum *) NULL)
-          continue;
+          {
+            status=MagickFalse;
+            break;
+          }
         SetPixelViaPixelInfo(image,&pixel,q);
         if (SyncAuthenticPixels(image,exception) == MagickFalse)
           {
@@ -608,8 +612,8 @@ static Image *ReadTXTImage(const ImageInfo *image_info,ExceptionInfo *exception)
       }
   } while (LocaleNCompare((char *) text,MagickTXTID,strlen(MagickTXTID)) == 0);
   (void) CloseBlob(image);
-  if (status == MagickFalse)
-    return(DestroyImageList(image));
+  if (q == (Quantum *) NULL)
+    return(DestroyImage(image));
   return(GetFirstImageInList(image));
 }
 
@@ -730,10 +734,10 @@ static MagickBooleanType WriteTXTImage(const ImageInfo *image_info,Image *image,
   PixelInfo
     pixel;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     x;
 
   size_t
@@ -777,15 +781,10 @@ static MagickBooleanType WriteTXTImage(const ImageInfo *image_info,Image *image,
         MagickFalse,value);
     if (LocaleCompare(image_info->magick,"SPARSE-COLOR") != 0)
       {
-        size_t
-          depth;
-
-        depth=compliance == SVGCompliance ? image->depth :
-          MAGICKCORE_QUANTUM_DEPTH;
         (void) FormatLocaleString(buffer,MagickPathExtent,
           "# ImageMagick pixel enumeration: %.20g,%.20g,%.20g,%s\n",(double)
-          image->columns,(double) image->rows,(double) GetQuantumRange(depth),
-          colorspace);
+          image->columns,(double) image->rows,(double)
+          GetQuantumRange(image->depth),colorspace);
         (void) WriteBlobString(image,buffer);
       }
     GetPixelInfo(image,&pixel);

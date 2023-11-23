@@ -16,28 +16,30 @@
  * limitations under the License.
  */
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.basicsmsreceiver">
+     package="com.android.basicsmsreceiver">
 
-    <original-package android:name="com.android.basicsmsreceiver" />
+    <original-package android:name="com.android.basicsmsreceiver"/>
 
-    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_SMS"/>
 
     <!-- Needed just for the unit tests -->
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.SEND_SMS"/>
 
     <application android:name="BasicSmsReceiverApp"
-            android:label="@string/sms_app_name"
-            android:hardwareAccelerated="true">
+         android:label="@string/sms_app_name"
+         android:hardwareAccelerated="true">
 
         <activity android:name=".DialogSmsDisplay"
-                  android:theme="@android:style/Theme.Material.Light.Dialog"
-                  android:launchMode="singleTop" />
+             android:theme="@android:style/Theme.Material.Light.Dialog"
+             android:launchMode="singleTop"/>
 
-        <receiver android:name=".SmsMessageReceiver">
+        <receiver android:name=".SmsMessageReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+                <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
             </intent-filter>
         </receiver>
 

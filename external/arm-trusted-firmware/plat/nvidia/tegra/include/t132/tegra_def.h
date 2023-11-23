@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -8,6 +9,11 @@
 #define TEGRA_DEF_H
 
 #include <lib/utils_def.h>
+
+/*******************************************************************************
+ * Platform BL31 specific defines.
+ ******************************************************************************/
+#define BL31_SIZE			U(0x40000)
 
 /*******************************************************************************
  * This value is used by the PSCI implementation during the `SYSTEM_SUSPEND`
@@ -103,11 +109,19 @@
 #define MC_VIDEO_PROTECT_BASE_HI	U(0x978)
 #define MC_VIDEO_PROTECT_BASE_LO	U(0x648)
 #define MC_VIDEO_PROTECT_SIZE_MB	U(0x64c)
+#define MC_VIDEO_PROTECT_REG_CTRL	U(0x650)
+#define MC_VIDEO_PROTECT_WRITE_ACCESS_ENABLED	U(3)
 
 /*******************************************************************************
  * Tegra TZRAM constants
  ******************************************************************************/
 #define TEGRA_TZRAM_BASE		U(0x7C010000)
 #define TEGRA_TZRAM_SIZE		U(0x10000)
+
+/*******************************************************************************
+ * Tegra DRAM memory base address
+ ******************************************************************************/
+#define TEGRA_DRAM_BASE			ULL(0x80000000)
+#define TEGRA_DRAM_END			ULL(0x27FFFFFFF)
 
 #endif /* TEGRA_DEF_H */

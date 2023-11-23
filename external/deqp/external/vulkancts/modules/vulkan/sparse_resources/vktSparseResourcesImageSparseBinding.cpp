@@ -41,6 +41,7 @@
 
 #include "deUniquePtr.hpp"
 #include "deStringUtil.hpp"
+#include "tcuTextureUtil.hpp"
 
 #include <string>
 #include <vector>
@@ -97,6 +98,16 @@ void ImageSparseBindingCase::checkSupport (Context& context) const
 
 	if (!isImageSizeSupported(context.getInstanceInterface(), context.getPhysicalDevice(), m_imageType, m_imageSize))
 		TCU_THROW(NotSupportedError, "Image size not supported for device");
+
+	if (formatIsR64(m_format))
+	{
+		context.requireDeviceFunctionality("VK_EXT_shader_image_atomic_int64");
+
+		if (context.getShaderImageAtomicInt64FeaturesEXT().sparseImageInt64Atomics == VK_FALSE)
+		{
+			TCU_THROW(NotSupportedError, "sparseImageInt64Atomics is not supported for device");
+		}
+	}
 }
 
 class ImageSparseBindingInstance : public SparseResourcesBaseInstance
@@ -180,9 +191,6 @@ tcu::TestStatus ImageSparseBindingInstance::iterate (void)
 			imageSparseInfo.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 		}
 
-		if (!checkSparseSupportForImageFormat(instance, physicalDevice, imageSparseInfo))
-			TCU_THROW(NotSupportedError, "The image format does not support sparse operations");
-
 		{
 			VkImageFormatProperties imageFormatProperties;
 			if (instance.getPhysicalDeviceImageFormatProperties(physicalDevice,
@@ -193,7 +201,7 @@ tcu::TestStatus ImageSparseBindingInstance::iterate (void)
 				imageSparseInfo.flags,
 				&imageFormatProperties) == VK_ERROR_FORMAT_NOT_SUPPORTED)
 			{
-				TCU_THROW(NotSupportedError, "Image format does not support sparse operations");
+				TCU_THROW(NotSupportedError, "Image format does not support sparse binding operations");
 			}
 
 			imageSparseInfo.mipLevels = getMipmapCount(m_format, formatDescription, imageFormatProperties, imageSparseInfo.extent);
@@ -412,17 +420,49 @@ tcu::TestStatus ImageSparseBindingInstance::iterate (void)
 		// Wait for sparse queue to become idle
 		deviceInterface.queueWaitIdle(sparseQueue.queueHandle);
 
-		const deUint8* outputData = static_cast<const deUint8*>(outputBufferAlloc->getHostPtr());
+		const deUint8*	outputData		= static_cast<const deUint8*>(outputBufferAlloc->getHostPtr());
+		bool			ignoreLsb6Bits	= areLsb6BitsDontCare(imageSparseInfo.format);
+		bool			ignoreLsb4Bits	= areLsb4BitsDontCare(imageSparseInfo.format);
 
 		for (deUint32 planeNdx = 0; planeNdx < formatDescription.numPlanes; ++planeNdx)
 		{
 			for (deUint32 mipmapNdx = 0; mipmapNdx < imageSparseInfo.mipLevels; ++mipmapNdx)
 			{
-				const deUint32 mipLevelSizeInBytes	= getImageMipLevelSizeInBytes(imageSparseInfo.extent, imageSparseInfo.arrayLayers, formatDescription, planeNdx, mipmapNdx);
-				const deUint32 bufferOffset			= static_cast<deUint32>(bufferImageCopy[ planeNdx * imageSparseInfo.mipLevels + mipmapNdx].bufferOffset);
+				const deUint32	mipLevelSizeInBytes		= getImageMipLevelSizeInBytes(imageSparseInfo.extent, imageSparseInfo.arrayLayers, formatDescription, planeNdx, mipmapNdx);
+				const deUint32	bufferOffset			= static_cast<deUint32>(bufferImageCopy[ planeNdx * imageSparseInfo.mipLevels + mipmapNdx].bufferOffset);
+				bool			is8bitSnormComponent	= false;
 
-				if (deMemCmp(outputData + bufferOffset, &referenceData[bufferOffset], mipLevelSizeInBytes) != 0)
-					return tcu::TestStatus::fail("Failed");
+				// Validate results
+				for (deUint32 channelNdx = 0; channelNdx < 4; ++channelNdx)
+				{
+					if (!formatDescription.hasChannelNdx(channelNdx))
+						continue;
+
+					if ((formatDescription.channels[channelNdx].type == tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT) &&
+						(formatDescription.channels[channelNdx].sizeBits == 8))
+					{
+						is8bitSnormComponent = true;
+						break;
+					}
+				}
+
+				for (size_t byteNdx = 0; byteNdx < mipLevelSizeInBytes; byteNdx++)
+				{
+					const deUint8	res	= *(outputData + bufferOffset + byteNdx);
+					const deUint8	ref	= referenceData[bufferOffset + byteNdx];
+
+					deUint8 mask = 0xFF;
+
+					if (!(byteNdx & 0x01) && (ignoreLsb6Bits))
+						mask = 0xC0;
+					else if (!(byteNdx & 0x01) && (ignoreLsb4Bits))
+						mask = 0xF0;
+
+					if (((!is8bitSnormComponent) || (ref != 0x80)) &&  ((res & mask) != (ref & mask)))
+					{
+						return tcu::TestStatus::fail("Failed");
+					}
+				}
 			}
 		}
 	}

@@ -15,43 +15,39 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.intent.sender">
+     package="com.android.cts.intent.sender">
 
-    <permission
-        android:name="com.android.cts.intent.sender.permission.SAMPLE"
-        android:label="Sample Permission" />
+    <permission android:name="com.android.cts.intent.sender.permission.SAMPLE"
+         android:label="Sample Permission"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <activity android:name=".IntentSenderActivity">
+        <activity android:name=".IntentSenderActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
             </intent-filter>
         </activity>
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="com.android.cts.intent.sender.fileprovider"
-            android:grantUriPermissions="true"
-            android:exported="false">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/filepaths" />
+        <provider android:name="androidx.core.content.FileProvider"
+             android:authorities="com.android.cts.intent.sender.fileprovider"
+             android:grantUriPermissions="true"
+             android:exported="false">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                 android:resource="@xml/filepaths"/>
         </provider>
 
-        <provider
-            android:name=".BasicContentProvider"
-            android:authorities="com.android.cts.intent.sender.provider"
-            android:grantUriPermissions="true"
-            android:exported="true"
-            android:permission="com.android.cts.intent.sender.permission.SAMPLE" />
+        <provider android:name=".BasicContentProvider"
+             android:authorities="com.android.cts.intent.sender.provider"
+             android:grantUriPermissions="true"
+             android:exported="true"
+             android:permission="com.android.cts.intent.sender.permission.SAMPLE"/>
 
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.intent.sender"
-        android:label="Intent Sender CTS Tests" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="com.android.cts.intent.sender"
+         android:label="Intent Sender CTS Tests"/>
 
 </manifest>

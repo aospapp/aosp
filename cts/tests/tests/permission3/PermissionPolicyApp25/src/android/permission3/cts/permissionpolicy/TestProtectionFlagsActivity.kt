@@ -42,10 +42,11 @@ class TestProtectionFlagsActivity : Activity() {
         val errorMessageBuilder = StringBuilder()
         for (declaredPermissionInfo in packageInfo.permissions) {
             val permissionInfo = packageManager.getPermissionInfo(declaredPermissionInfo.name, 0)
-            val protection = permissionInfo.protectionLevel and (
+            val protection = permissionInfo.protection and (
                 PermissionInfo.PROTECTION_NORMAL
                     or PermissionInfo.PROTECTION_DANGEROUS
                     or PermissionInfo.PROTECTION_SIGNATURE
+                    or PermissionInfo.PROTECTION_INTERNAL
                 )
             val protectionFlags = permissionInfo.protectionLevel and protection.inv()
             if ((protection == PermissionInfo.PROTECTION_NORMAL ||
@@ -68,6 +69,7 @@ class TestProtectionFlagsActivity : Activity() {
             PermissionInfo.PROTECTION_NORMAL -> "normal"
             PermissionInfo.PROTECTION_DANGEROUS -> "dangerous"
             PermissionInfo.PROTECTION_SIGNATURE -> "signature"
+            PermissionInfo.PROTECTION_INTERNAL -> "internal"
             else -> Integer.toHexString(protection)
         }
 
@@ -95,6 +97,7 @@ class TestProtectionFlagsActivity : Activity() {
         appendProtectionFlag(PermissionInfo.PROTECTION_FLAG_SETUP, "setup")
         appendProtectionFlag(PermissionInfo.PROTECTION_FLAG_INSTANT, "instant")
         appendProtectionFlag(PermissionInfo.PROTECTION_FLAG_RUNTIME_ONLY, "runtimeOnly")
+        appendProtectionFlag(PermissionInfo.PROTECTION_FLAG_ROLE, "role")
         if (unknownProtectionFlags != 0) {
             appendProtectionFlag(
                 unknownProtectionFlags, Integer.toHexString(unknownProtectionFlags)

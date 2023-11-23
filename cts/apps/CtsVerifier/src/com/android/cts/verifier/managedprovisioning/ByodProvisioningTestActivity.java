@@ -15,12 +15,11 @@
  */
 package com.android.cts.verifier.managedprovisioning;
 
-import android.app.admin.DevicePolicyManager;
 import android.app.Activity;
+import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Intent;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PersistableBundle;
@@ -39,12 +38,6 @@ public class ByodProvisioningTestActivity extends PassFailButtons.TestListActivi
 
         final ArrayTestListAdapter adapter = new ArrayTestListAdapter(this);
 
-        Intent colorIntent = new Intent(this, ProvisioningStartingActivity.class)
-                .putExtra(DevicePolicyManager.EXTRA_PROVISIONING_MAIN_COLOR, Color.GREEN);
-        adapter.add(Utils.createInteractiveTestItem(this, "BYOD_CustomColor",
-                        R.string.provisioning_tests_byod_custom_color,
-                        R.string.provisioning_tests_byod_custom_color_info,
-                        new ButtonInfo(R.string.go_button_text, colorIntent)));
         adapter.add(Utils.createInteractiveTestItem(this, "BYOD_CustomImage",
                         R.string.provisioning_tests_byod_custom_image,
                         R.string.provisioning_tests_byod_custom_image_info,

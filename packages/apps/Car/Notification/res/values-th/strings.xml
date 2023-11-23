@@ -39,4 +39,5 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> ข้อความใหม่</item>
       <item quantity="one">1 ข้อความใหม่</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"จัดการ"</string>
 </resources>

@@ -67,11 +67,11 @@ type proc_atf_log, fs_type, proc_type;
 type proc_gz_log, fs_type, proc_type;
 type proc_last_kmsg, fs_type, proc_type;
 type proc_bootprof, fs_type, proc_type;
+type proc_mtprintk, fs_type, proc_type;
 type proc_pl_lk, fs_type, proc_type;
 type proc_msdc_debug, fs_type, proc_type;
 type proc_ufs_debug, fs_type, proc_type;
 type proc_pidmap, fs_type, proc_type;
-#type proc_kpageflags, fs_type, proc_type;
 type proc_slabtrace, fs_type, proc_type;
 type proc_cmdq_debug, fs_type, proc_type;
 type proc_isp_p2, fs_type, proc_type;
@@ -80,6 +80,8 @@ type proc_isp_p2_dump, fs_type, proc_type;
 type proc_isp_p2_kedump, fs_type, proc_type;
 type proc_memory_usage, fs_type, proc_type;
 type proc_mtk_es_reg_dump, fs_type, proc_type;
+type proc_ccci_dump, fs_type, proc_type;
+type proc_log_much, fs_type, proc_type;
 type sysfs_execstate, fs_type, sysfs_type;
 type sysfs_therm, fs_type, sysfs_type;
 type sysfs_fps, fs_type, sysfs_type;
@@ -117,6 +119,23 @@ type mediaserver_data_file, file_type, data_file_type;
 type mediacodec_data_file, file_type, data_file_type;
 type connsyslog_data_vendor_file, file_type, data_file_type;
 
+# AAO
+type data_vendor_aao_file, file_type, data_file_type;
+type data_vendor_aaoHwBuf_file, file_type, data_file_type;
+type data_vendor_AAObitTrue_file, file_type, data_file_type;
+
+# Flash
+type data_vendor_flash_file, file_type, data_file_type;
+
+# Flicker
+type data_vendor_flicker_file, file_type, data_file_type;
+
+# AFO
+type data_vendor_afo_file, file_type, data_file_type;
+
+# PDO
+type data_vendor_pdo_file, file_type, data_file_type;
+
 #mobilelog data/misc/mblog
 type logmisc_data_file, file_type, data_file_type, core_data_file_type;
 
@@ -145,6 +164,8 @@ type c2k_file, file_type, data_file_type;
 #For sensor
 type sensor_data_file, file_type, data_file_type;
 type stp_dump_data_file, file_type, data_file_type;
+type wifi_dump_data_file, file_type, data_file_type;
+type bt_dump_data_file, file_type, data_file_type;
 type sysfs_keypad_file, fs_type, sysfs_type;
 type rild_via_socket, file_type;
 type rpc_socket, file_type;
@@ -183,9 +204,6 @@ type fuseblk,sdcard_type,fs_type,mlstrustedobject;
 # for mt-ramdump reset
 type proc_mrdump_rst, fs_type, proc_type;
 
-# battery_cmd file
-type proc_battery_cmd, fs_type, proc_type;
-
 # binder debugfs file
 type debugfs_binder, fs_type, debugfs_type;
 
@@ -196,16 +214,13 @@ type debugfs_blockio, fs_type, debugfs_type;
 type debugfs_fuseio, fs_type, debugfs_type;
 
 # usb debugfs file
-type debugfs_usb, fs_type, debugfs_type;
+type debugfs_usb_nonplat, fs_type, debugfs_type;
 
 # display debugfs file
 type debugfs_fb, fs_type, debugfs_type;
 
 # cpuhvfs debugfs file
 type debugfs_cpuhvfs, fs_type, debugfs_type;
-
-#for engineermode Usb PHY Tuning
-type debugfs_usb20_phy, fs_type, debugfs_type;
 
 # dynamic_debug debugfs file
 type debugfs_dynamic_debug, fs_type, debugfs_type;
@@ -238,11 +253,24 @@ type debugfs_vpu_memory, fs_type, debugfs_type;
 # mdla debugfs file
 type debugfs_mdla_power, fs_type, debugfs_type;
 
+# apusys_midware debugfs file
+type debugfs_apusys_midware_queue_vpu, fs_type, debugfs_type;
+type debugfs_apusys_midware_queue_mdla, fs_type, debugfs_type;
+type debugfs_apusys_midware_register_all, fs_type, debugfs_type;
+type debugfs_apusys_mnoc_sta_dump, fs_type, debugfs_type;
+type debugfs_apusys_mdla_memory, fs_type, debugfs_type;
+type debugfs_apusys_power, fs_type, debugfs_type;
+type debugfs_apusys_debug_log, fs_type, debugfs_type;
+type debugfs_apusys_midware_mem, fs_type, debugfs_type;
+
 # memtrack debugfs file
 type debugfs_gpu_mali_midgard, fs_type, debugfs_type;
 type debugfs_gpu_mali_utgard, fs_type, debugfs_type;
 type debugfs_gpu_img, fs_type, debugfs_type;
 type debugfs_ion, fs_type, debugfs_type;
+
+# memtrack procfs file
+type procfs_gpu_img, fs_type, proc_type;
 
 # /sys/kernel/debug/ion/ion_mm_heap
 type debugfs_ion_mm_heap, fs_type, debugfs_type;
@@ -290,46 +318,25 @@ type consyslog_data_file, file_type, data_file_type, core_data_file_type;
 # Purpose : for meta to get com port type and uart port info
 type sysfs_comport_type, fs_type, sysfs_type;
 type sysfs_uart_info, fs_type, sysfs_type;
-type sysfs_usb_cmode, fs_type, sysfs_type;
+type sysfs_usb_nonplat, fs_type, sysfs_type;
 
 # Date : WK1820
-# Purpose : for charger to access vbus info and pump_express
-type sysfs_vbus, fs_type, sysfs_type;
+# Purpose : for charger to access pump_express
 type sysfs_pump_express, fs_type, sysfs_type;
+type sysfs_chg2_present, fs_type, sysfs_type;
 
 # Widevine move data/mediadrm folder from system to vendor
 type mediadrm_vendor_data_file, file_type, data_file_type;
-
-# mtk usb hal
-type sysfs_dual_role_usb20, fs_type, sysfs_type;
 
 # lbs debug file
 #type lbs_dbg_data_file, file_type, data_file_type, core_data_file_type;
 
 # Touch parameters file
 type sysfs_tpd_setting, fs_type, sysfs_type;
-type sysfs_tpd_debug, fs_type, sysfs_type;
 
-# Date : 2018/06/11
-# Purpose : mtk EM FreqHopping setting
-type proc_freqhop, fs_type, proc_type;
-
-# Date : 2018/06/11
-# Purpose : mtk EM flash reading
-type proc_flash, fs_type, proc_type;
-type proc_partition, fs_type, proc_type;
-
-# Date : 2018/06/11
-# Purpose : mtk EM PMU reading/setting
-type sysfs_pmu, fs_type, sysfs_type;
-
-# Date : 2018/06/11
-# Purpose : mtk EM Power debug_log setting
-type sysfs_spm, fs_type, sysfs_type;
-
-# Date : 2018/06/11
-# Purpose : mtk EM Audio headset detect
-type sysfs_headset, fs_type, sysfs_type;
+# Date : 2019/09/17
+# Purpose : mtk factory fingerprint settings
+type sysfs_gf_spi_tee, fs_type, sysfs_type;
 
 # socket between atci_service and audio-daemon
 type atci-audio_socket, file_type;
@@ -343,27 +350,11 @@ type rilproxy_atci_socket, file_type;
 type atci_service_socket, file_type;
 type adb_atci_socket, file_type;
 
-# EM Power PMU register reading/setting
-type debugfs_regmap, fs_type, debugfs_type;
-
-# Date : 2018/11/01
-# Purpose : mtk EM c2k bypass read usb file
-type sys_usb_rawbulk, fs_type, sysfs_type;
-
 # Backlight brightness file
 type sysfs_leds_setting, fs_type, sysfs_type;
 
 # Vibrator vibrate file
 type sysfs_vibrator_setting, fs_type, sysfs_type;
-
-# Date : 2019/04/09
-# Purpose: mtk EM battery settings
-type sysfs_battery_temp, fs_type, sysfs_type;
-type sysfs_battery_consumption, fs_type, sysfs_type;
-type sysfs_power_on_vol, fs_type, sysfs_type;
-type sysfs_power_off_vol, fs_type, sysfs_type;
-type sysfs_fg_disable, fs_type, sysfs_type;
-type sysfs_dis_nafg, fs_type, sysfs_type;
 
 # drm key manager
 type provision_file, file_type, data_file_type;
@@ -409,11 +400,30 @@ type proc_fliperfs, fs_type, proc_type;
 type sysfs_ged, fs_type, sysfs_type;
 type sysfs_fbt_cpu, fs_type, sysfs_type;
 type sysfs_fbt_fteh, fs_type, sysfs_type;
+type sysfs_fpsgo, fs_type, sysfs_type;
+type sysfs_xgf, fs_type, sysfs_type;
+type sysfs_gbe, fs_type, sysfs_type;
 
 # Date : 2019/09/17
 # Purpose: Allow powerhal to control cache audit
 type sysfs_ca_drv, fs_type, sysfs_type;
 type sysfs_pftch_qos, fs_type, sysfs_type;
+
+# Date : 2019/09/19
+# Purpose: Allow powerhal to trigger task-turbo
+type sysfs_task_turbo, fs_type, sysfs_type;
+
+# Date : 2019/09/23
+# Purpose: Define change_rate fs_type
+type sysfs_change_rate, fs_type, sysfs_type;
+
+# Date : 2019/10/16
+# Purpose: Define sysfs_ext4_disable_barrier fs_type
+type sysfs_ext4_disable_barrier, fs_type, sysfs_type;
+
+# Date : 2019/11/14
+# Purpose: Allow powerhal to control MCDI
+type proc_cpuidle, fs_type, proc_type;
 
 # Date : WK19.38
 # Purpose: Android Migration for video codec driver
@@ -432,12 +442,18 @@ type sysfs_pages_volatile, fs_type, sysfs_type;
 
 # Date : 2019/10/22
 # Purpose : allow aee_aedv write /sys/module/mrdump/parameters/lbaooo
-type sysfs_mrdump_lbaooo, fs_type, sysfs_type;
+type sysfs_mrdump, fs_type, sysfs_type;
+type sysfs_memory, fs_type, sysfs_type;
 
 # Date : 2019/10/25
 # Purpose : To avoid using the SELabel of u:object_r:proc:s0 or u:object_r:sysfs:s0
 # to access /proc/device-tree/chosen/atag,chipid or  /sysfs/firmware/devicetree/base/chosen/atag,chipid
 type sysfs_chipid, fs_type, sysfs_type;
+
+
+# Date : 2019/12/10
+# Purpose: Allow bt process or tool to control bt_dbg
+type proc_btdbg, fs_type, proc_type;
 
 # Date : 2019/12/12
 # Purpose : allow media sources to access /sys/bus/platform/drivers/mem_bw_ctrl/*
@@ -445,8 +461,65 @@ type sysfs_concurrency_scenario, fs_type, sysfs_type;
 
 type proc_wmt_aee, fs_type, proc_type;
 
+# Date : 2019/12/19
+# Purpose : Allow ccci_fsd read /vendor/etc/md
+type vendor_etc_md_file, vendor_file_type, file_type;
+
+# Date : 2019/12/23
+# Purpose : Allow ccci_fsd read /data/vendor_de/md
+type data_vendor_de_md_file, data_file_type, file_type;
+
 # Date : WK20.07
 # Operation: R migration
 # Purpose : Add permission for new device node.
 type sysfs_meta_info, fs_type, sysfs_type;
 
+type proc_aed, fs_type, proc_type;
+
+# Date : 2020/01/16
+# Purpose: Allow mtk_hal_neuralnetworks to read chip id and segment code
+type proc_devinfo, fs_type, proc_type;
+
+# Date : 2019/04/23
+# Operation: R migration
+# Purpose : Add permission for acess vendor_de.
+type factory_vendor_file, file_type, data_file_type;
+
+type debugfs_apusys_power_fail_log, fs_type, debugfs_type;
+
+type sysfs_cache_status, fs_type, sysfs_type;
+
+# Date : 2020/06/12
+# Purpose: define sysfs_mali_power_policy fs_type
+type sysfs_mali_power_policy, fs_type, sysfs_type;
+
+# Date : 2020/06/12
+# Operation: R migration
+# Purpose: Allow powerhal to control displowpower
+type proc_displowpower, fs_type, proc_type;
+
+# Date : 2020/06/29
+# Operation: R migration
+# Purpose: Add permission for access /proc/ion/*
+type proc_ion, fs_type, proc_type;
+
+# Date : 2020/07/01
+# Operation: R migration
+# Purpose: Add permission for access /proc/m4u_dbg/*
+type proc_m4u_dbg, fs_type, proc_type;
+
+# Date : 20120/07/02
+# Purpose: define sysfs_mtk_nanohub_state fs_type
+type sysfs_mtk_nanohub_state, fs_type, sysfs_type;
+
+type proc_mtkfb, fs_type, proc_type;
+
+# Date : 2020/07/08
+# Purpose: add permission for /proc/sys/vm/swappiness
+type proc_swappiness, fs_type, proc_type;
+
+type debugfs_cmdq, fs_type, debugfs_type;
+
+# Date : 20120/07/13
+# Purpose: define sysfs_dvfsrc_dbg fs_type
+type sysfs_dvfsrc_dbg, fs_type, sysfs_type;

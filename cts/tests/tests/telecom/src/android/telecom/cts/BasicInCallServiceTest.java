@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Sanity test that adding a new call via the CALL intent works correctly.
+ * Soundness test that adding a new call via the CALL intent works correctly.
  */
 public class BasicInCallServiceTest extends InstrumentationTestCase {
 

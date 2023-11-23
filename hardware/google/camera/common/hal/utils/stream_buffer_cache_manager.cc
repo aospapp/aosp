@@ -26,6 +26,7 @@
 #include <chrono>
 
 #include "stream_buffer_cache_manager.h"
+#include "utils.h"
 
 using namespace std::chrono_literals;
 
@@ -43,6 +44,14 @@ static constexpr auto kBufferWaitingTimeOutSec = 400ms;
 
 StreamBufferCacheManager::StreamBufferCacheManager() {
   workload_thread_ = std::thread([this] { this->WorkloadThreadLoop(); });
+  if (utils::SupportRealtimeThread()) {
+    status_t res = utils::SetRealtimeThread(workload_thread_.native_handle());
+    if (res != OK) {
+      ALOGE("%s: SetRealtimeThread fail", __FUNCTION__);
+    } else {
+      ALOGI("%s: SetRealtimeThread OK", __FUNCTION__);
+    }
+  }
 }
 
 StreamBufferCacheManager::~StreamBufferCacheManager() {
@@ -152,7 +161,7 @@ status_t StreamBufferCacheManager::NotifyProviderReadiness(int32_t stream_id) {
     return res;
   }
 
-  stream_buffer_cache->NotifyProviderReadiness();
+  stream_buffer_cache->SetManagerState(/*active=*/true);
 
   NotifyThreadWorkload();
   return OK;
@@ -171,7 +180,7 @@ status_t StreamBufferCacheManager::NotifyFlushingAll() {
   {
     std::unique_lock<std::mutex> flush_lock(flush_mutex_);
     for (auto& stream_buffer_cache : stream_buffer_caches) {
-      stream_buffer_cache->NotifyFlushing();
+      stream_buffer_cache->SetManagerState(/*active=*/false);
     }
   }
 
@@ -289,7 +298,7 @@ status_t StreamBufferCacheManager::StreamBufferCache::UpdateCache(
     bool forced_flushing) {
   status_t res = OK;
   std::unique_lock<std::mutex> cache_lock(cache_access_mutex_);
-  if (forced_flushing || notified_flushing_) {
+  if (forced_flushing || !is_active_) {
     res = FlushLocked(forced_flushing);
     if (res != OK) {
       ALOGE("%s: Failed to flush stream buffer cache for stream %d",
@@ -312,16 +321,15 @@ status_t StreamBufferCacheManager::StreamBufferCache::GetBuffer(
     StreamBufferRequestResult* res) {
   std::unique_lock<std::mutex> cache_lock(cache_access_mutex_);
 
-  // 0. the provider of the stream for this cache must be ready
-  if (!notified_provider_readiness_) {
-    ALOGW("%s: The provider of stream %d is not ready.", __FUNCTION__,
+  // 0. the buffer cache must be active
+  if (!is_active_) {
+    ALOGW("%s: The buffer cache for stream %d is not active.", __FUNCTION__,
           cache_info_.stream_id);
     return INVALID_OPERATION;
   }
 
-  // 1. check if the cache is deactived or the stream has been notified for
-  // flushing.
-  if (stream_deactived_ || notified_flushing_) {
+  // 1. check if the cache is deactived
+  if (stream_deactived_) {
     res->is_dummy_buffer = true;
     res->buffer = dummy_buffer_;
     return OK;
@@ -377,24 +385,19 @@ bool StreamBufferCacheManager::StreamBufferCache::IsStreamDeactivated() {
   return stream_deactived_;
 }
 
-void StreamBufferCacheManager::StreamBufferCache::NotifyProviderReadiness() {
+void StreamBufferCacheManager::StreamBufferCache::SetManagerState(bool active) {
   std::unique_lock<std::mutex> lock(cache_access_mutex_);
-  notified_provider_readiness_ = true;
-}
-
-void StreamBufferCacheManager::StreamBufferCache::NotifyFlushing() {
-  std::unique_lock<std::mutex> lock(cache_access_mutex_);
-  notified_flushing_ = true;
+  is_active_ = active;
 }
 
 status_t StreamBufferCacheManager::StreamBufferCache::FlushLocked(
     bool forced_flushing) {
-  if (notified_flushing_ != true && !forced_flushing) {
-    ALOGI("%s: Stream buffer cache is not notified for flushing.", __FUNCTION__);
+  if (is_active_ && !forced_flushing) {
+    ALOGI("%s: Active stream buffer cache is not notified for forced flushing.",
+          __FUNCTION__);
     return INVALID_OPERATION;
   }
 
-  notified_flushing_ = false;
   if (cache_info_.return_func == nullptr) {
     ALOGE("%s: return_func is nullptr.", __FUNCTION__);
     return UNKNOWN_ERROR;
@@ -427,14 +430,13 @@ status_t StreamBufferCacheManager::StreamBufferCache::Refill() {
       return UNKNOWN_ERROR;
     }
 
-    if (!notified_provider_readiness_) {
-      ALOGI("%s: Provider is not ready.", __FUNCTION__);
+    if (!is_active_) {
+      ALOGI("%s: Buffer cache is not active.", __FUNCTION__);
       return UNKNOWN_ERROR;
     }
 
-    if (stream_deactived_ || notified_flushing_) {
-      ALOGI("%s: Already notified for flushing or stream already deactived.",
-            __FUNCTION__);
+    if (stream_deactived_) {
+      ALOGI("%s: Stream already deactived.", __FUNCTION__);
       return OK;
     }
 
@@ -502,13 +504,8 @@ status_t StreamBufferCacheManager::StreamBufferCache::Refill() {
 }
 
 bool StreamBufferCacheManager::StreamBufferCache::RefillableLocked() const {
-  // No need to refill if the provider is not ready
-  if (!notified_provider_readiness_) {
-    return false;
-  }
-
-  // No need to refill if the stream buffer cache is notified for flushing
-  if (notified_flushing_) {
+  // No need to refill if the buffer cache is not active
+  if (!is_active_) {
     return false;
   }
 

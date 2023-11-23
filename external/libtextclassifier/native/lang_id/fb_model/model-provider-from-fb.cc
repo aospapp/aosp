@@ -48,6 +48,16 @@ ModelProviderFromFlatbuffer::ModelProviderFromFlatbuffer(
   Initialize(scoped_mmap_->handle().to_stringpiece());
 }
 
+ModelProviderFromFlatbuffer::ModelProviderFromFlatbuffer(
+    FileDescriptorOrHandle fd, std::size_t offset, std::size_t size)
+
+    // Using mmap as a fast way to read the model bytes.  As the file is
+    // unmapped only when the field scoped_mmap_ is destructed, the model bytes
+    // stay alive for the entire lifetime of this object.
+    : scoped_mmap_(new ScopedMmap(fd, offset, size)) {
+  Initialize(scoped_mmap_->handle().to_stringpiece());
+}
+
 void ModelProviderFromFlatbuffer::Initialize(StringPiece model_bytes) {
   // Note: valid_ was initialized to false.  In the code below, we set valid_ to
   // true only if all initialization steps completed successfully.  Otherwise,

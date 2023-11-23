@@ -47,6 +47,7 @@ class EntryHook : public Transformation {
     // have access to the actual type in its classpath.
     ThisAsObject,
     // Forward incoming arguments as an array. Zero-th element of the array is
+    // the method signature. First element of the array is
     // "this" object if instrumented method isn't static.
     // It is helpul, when you inject the same hook into the different
     // methods.
@@ -83,12 +84,14 @@ class EntryHook : public Transformation {
 class ExitHook : public Transformation {
  public:
   enum class Tweak {
-    None,
+    None = 0,
     // return value will be passed as "Object" type.
     // This can be helpful when the code you want to handle the hook doesn't
     // have access to the actual type in its classpath or when you want to inject
     // the same hook in multiple methods.
-    ReturnAsObject,
+    ReturnAsObject = 1 << 0,
+    // Pass method signature as the first parameter of the hook method.
+    PassMethodSignature = 1 << 1,
   };
 
    explicit ExitHook(const ir::MethodId& hook_method_id, Tweak tweak)
@@ -105,6 +108,14 @@ class ExitHook : public Transformation {
   ir::MethodId hook_method_id_;
   Tweak tweak_;
 };
+
+inline ExitHook::Tweak operator|(ExitHook::Tweak a, ExitHook::Tweak b) {
+  return static_cast<ExitHook::Tweak>(static_cast<int>(a) | static_cast<int>(b));
+}
+
+inline int operator&(ExitHook::Tweak a, ExitHook::Tweak b) {
+  return static_cast<int>(a) & static_cast<int>(b);
+}
 
 // Base class for detour hooks. Replace every occurrence of specific opcode with
 // something else. The detour is a static method which takes the same arguments

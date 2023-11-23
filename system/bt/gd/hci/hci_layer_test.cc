@@ -35,7 +35,20 @@ using std::vector;
 
 namespace {
 vector<uint8_t> information_request = {
-    0xfe, 0x2e, 0x0a, 0x00, 0x06, 0x00, 0x01, 0x00, 0x0a, 0x02, 0x02, 0x00, 0x02, 0x00,
+    0xfe,
+    0x2e,
+    0x0a,
+    0x00,
+    0x06,
+    0x00,
+    0x01,
+    0x00,
+    0x0a,
+    0x02,
+    0x02,
+    0x00,
+    0x02,
+    0x00,
 };
 // 0x00, 0x01, 0x02, 0x03, ...
 vector<uint8_t> counting_bytes;
@@ -77,7 +90,7 @@ class TestHciHal : public hal::HciHal {
   }
 
   void sendAclData(hal::HciPacket data) override {
-    outgoing_acl_.push_front(std::move(data));
+    outgoing_acl_.push_back(std::move(data));
     if (sent_acl_promise_ != nullptr) {
       auto promise = std::move(sent_acl_promise_);
       sent_acl_promise_.reset();
@@ -86,7 +99,16 @@ class TestHciHal : public hal::HciHal {
   }
 
   void sendScoData(hal::HciPacket data) override {
-    outgoing_sco_.push_front(std::move(data));
+    outgoing_sco_.push_back(std::move(data));
+  }
+
+  void sendIsoData(hal::HciPacket data) override {
+    outgoing_iso_.push_back(std::move(data));
+    if (sent_iso_promise_ != nullptr) {
+      auto promise = std::move(sent_iso_promise_);
+      sent_iso_promise_.reset();
+      promise->set_value();
+    }
   }
 
   hal::HciHalCallbacks* callbacks = nullptr;
@@ -106,10 +128,10 @@ class TestHciHal : public hal::HciHal {
     return sent_command_promise_->get_future();
   }
 
-  CommandPacketView GetSentCommand() {
+  CommandView GetSentCommand() {
     auto packetview = GetPacketView(std::move(outgoing_commands_.front()));
     outgoing_commands_.pop_front();
-    return CommandPacketView::Create(packetview);
+    return CommandView::Create(packetview);
   }
 
   std::future<void> GetSentAclFuture() {
@@ -124,11 +146,27 @@ class TestHciHal : public hal::HciHal {
     return packetview;
   }
 
+  std::future<void> GetSentIsoFuture() {
+    ASSERT_LOG(sent_iso_promise_ == nullptr, "Promises promises ... Only one at a time");
+    sent_iso_promise_ = std::make_unique<std::promise<void>>();
+    return sent_iso_promise_->get_future();
+  }
+
+  PacketView<kLittleEndian> GetSentIso() {
+    auto packetview = GetPacketView(std::move(outgoing_iso_.front()));
+    outgoing_iso_.pop_front();
+    return packetview;
+  }
+
   void Start() {}
 
   void Stop() {}
 
   void ListDependencies(ModuleList*) {}
+
+  std::string ToString() const override {
+    return std::string("TestHciHal");
+  }
 
   static const ModuleFactory Factory;
 
@@ -136,8 +174,10 @@ class TestHciHal : public hal::HciHal {
   std::list<hal::HciPacket> outgoing_commands_;
   std::list<hal::HciPacket> outgoing_acl_;
   std::list<hal::HciPacket> outgoing_sco_;
+  std::list<hal::HciPacket> outgoing_iso_;
   std::unique_ptr<std::promise<void>> sent_command_promise_;
   std::unique_ptr<std::promise<void>> sent_acl_promise_;
+  std::unique_ptr<std::promise<void>> sent_iso_promise_;
 };
 
 const ModuleFactory TestHciHal::Factory = ModuleFactory([]() { return new TestHciHal(); });
@@ -146,42 +186,44 @@ class DependsOnHci : public Module {
  public:
   DependsOnHci() : Module() {}
 
-  void SendHciCommandExpectingStatus(std::unique_ptr<CommandPacketBuilder> command) {
-    hci_->EnqueueCommand(std::move(command),
-                         common::Bind(&DependsOnHci::handle_event<CommandStatusView>, common::Unretained(this)),
-                         GetHandler());
+  void SendHciCommandExpectingStatus(std::unique_ptr<CommandBuilder> command) {
+    hci_->EnqueueCommand(
+        std::move(command), GetHandler()->BindOnceOn(this, &DependsOnHci::handle_event<CommandStatusView>));
   }
 
-  void SendHciCommandExpectingComplete(std::unique_ptr<CommandPacketBuilder> command) {
-    hci_->EnqueueCommand(std::move(command),
-                         common::Bind(&DependsOnHci::handle_event<CommandCompleteView>, common::Unretained(this)),
-                         GetHandler());
+  void SendHciCommandExpectingComplete(std::unique_ptr<CommandBuilder> command) {
+    hci_->EnqueueCommand(
+        std::move(command), GetHandler()->BindOnceOn(this, &DependsOnHci::handle_event<CommandCompleteView>));
   }
 
   void SendSecurityCommandExpectingComplete(std::unique_ptr<SecurityCommandBuilder> command) {
     if (security_interface_ == nullptr) {
-      security_interface_ = hci_->GetSecurityInterface(
-          common::Bind(&DependsOnHci::handle_event<EventPacketView>, common::Unretained(this)), GetHandler());
+      security_interface_ =
+          hci_->GetSecurityInterface(GetHandler()->BindOn(this, &DependsOnHci::handle_event<EventView>));
     }
-    hci_->EnqueueCommand(std::move(command),
-                         common::Bind(&DependsOnHci::handle_event<CommandCompleteView>, common::Unretained(this)),
-                         GetHandler());
+    hci_->EnqueueCommand(
+        std::move(command), GetHandler()->BindOnceOn(this, &DependsOnHci::handle_event<CommandCompleteView>));
   }
 
   void SendLeSecurityCommandExpectingComplete(std::unique_ptr<LeSecurityCommandBuilder> command) {
     if (le_security_interface_ == nullptr) {
-      le_security_interface_ = hci_->GetLeSecurityInterface(
-          common::Bind(&DependsOnHci::handle_event<LeMetaEventView>, common::Unretained(this)), GetHandler());
+      le_security_interface_ =
+          hci_->GetLeSecurityInterface(GetHandler()->BindOn(this, &DependsOnHci::handle_event<LeMetaEventView>));
     }
-    hci_->EnqueueCommand(std::move(command),
-                         common::Bind(&DependsOnHci::handle_event<CommandCompleteView>, common::Unretained(this)),
-                         GetHandler());
+    hci_->EnqueueCommand(
+        std::move(command), GetHandler()->BindOnceOn(this, &DependsOnHci::handle_event<CommandCompleteView>));
   }
 
-  void SendAclData(std::unique_ptr<AclPacketBuilder> acl) {
+  void SendAclData(std::unique_ptr<AclBuilder> acl) {
     outgoing_acl_.push(std::move(acl));
     auto queue_end = hci_->GetAclQueueEnd();
     queue_end->RegisterEnqueue(GetHandler(), common::Bind(&DependsOnHci::handle_enqueue, common::Unretained(this)));
+  }
+
+  void SendIsoData(std::unique_ptr<IsoBuilder> iso) {
+    outgoing_iso_.push(std::move(iso));
+    auto queue_end = hci_->GetIsoQueueEnd();
+    queue_end->RegisterEnqueue(GetHandler(), common::Bind(&DependsOnHci::handle_enqueue_iso, common::Unretained(this)));
   }
 
   std::future<void> GetReceivedEventFuture() {
@@ -190,8 +232,9 @@ class DependsOnHci : public Module {
     return event_promise_->get_future();
   }
 
-  EventPacketView GetReceivedEvent() {
-    EventPacketView packetview = incoming_events_.front();
+  EventView GetReceivedEvent() {
+    std::lock_guard<std::mutex> lock(list_protector_);
+    EventView packetview = incoming_events_.front();
     incoming_events_.pop_front();
     return packetview;
   }
@@ -206,30 +249,53 @@ class DependsOnHci : public Module {
     return incoming_acl_packets_.size();
   }
 
-  AclPacketView GetReceivedAcl() {
-    AclPacketView packetview = incoming_acl_packets_.front();
+  AclView GetReceivedAcl() {
+    std::lock_guard<std::mutex> lock(list_protector_);
+    AclView packetview = incoming_acl_packets_.front();
     incoming_acl_packets_.pop_front();
+    return packetview;
+  }
+
+  std::future<void> GetReceivedIsoFuture() {
+    ASSERT_LOG(iso_promise_ == nullptr, "Promises promises ... Only one at a time");
+    iso_promise_ = std::make_unique<std::promise<void>>();
+    return iso_promise_->get_future();
+  }
+
+  size_t GetNumReceivedIsoPackets() {
+    return incoming_iso_packets_.size();
+  }
+
+  IsoView GetReceivedIso() {
+    std::lock_guard<std::mutex> lock(list_protector_);
+    IsoView packetview = incoming_iso_packets_.front();
+    incoming_iso_packets_.pop_front();
     return packetview;
   }
 
   void Start() {
     hci_ = GetDependency<HciLayer>();
-    hci_->RegisterEventHandler(EventCode::CONNECTION_COMPLETE,
-                               common::Bind(&DependsOnHci::handle_event<EventPacketView>, common::Unretained(this)),
-                               GetHandler());
-    hci_->RegisterLeEventHandler(SubeventCode::CONNECTION_COMPLETE,
-                                 common::Bind(&DependsOnHci::handle_event<LeMetaEventView>, common::Unretained(this)),
-                                 GetHandler());
-    hci_->GetAclQueueEnd()->RegisterDequeue(GetHandler(),
-                                            common::Bind(&DependsOnHci::handle_acl, common::Unretained(this)));
+    hci_->RegisterEventHandler(
+        EventCode::CONNECTION_COMPLETE, GetHandler()->BindOn(this, &DependsOnHci::handle_event<EventView>));
+    hci_->RegisterLeEventHandler(
+        SubeventCode::CONNECTION_COMPLETE, GetHandler()->BindOn(this, &DependsOnHci::handle_event<LeMetaEventView>));
+    hci_->GetAclQueueEnd()->RegisterDequeue(
+        GetHandler(), common::Bind(&DependsOnHci::handle_acl, common::Unretained(this)));
+    hci_->GetIsoQueueEnd()->RegisterDequeue(
+        GetHandler(), common::Bind(&DependsOnHci::handle_iso, common::Unretained(this)));
   }
 
   void Stop() {
     hci_->GetAclQueueEnd()->UnregisterDequeue();
+    hci_->GetIsoQueueEnd()->UnregisterDequeue();
   }
 
   void ListDependencies(ModuleList* list) {
     list->add<HciLayer>();
+  }
+
+  std::string ToString() const override {
+    return std::string("DependsOnHci");
   }
 
   static const ModuleFactory Factory;
@@ -238,12 +304,17 @@ class DependsOnHci : public Module {
   HciLayer* hci_ = nullptr;
   const SecurityInterface* security_interface_;
   const LeSecurityInterface* le_security_interface_;
-  std::list<EventPacketView> incoming_events_;
-  std::list<AclPacketView> incoming_acl_packets_;
+  std::list<EventView> incoming_events_;
+  std::list<AclView> incoming_acl_packets_;
+  std::list<IsoView> incoming_iso_packets_;
   std::unique_ptr<std::promise<void>> event_promise_;
   std::unique_ptr<std::promise<void>> acl_promise_;
+  std::unique_ptr<std::promise<void>> iso_promise_;
+  /* This mutex is protecting lists above from being pushed/popped from different threads at same time */
+  std::mutex list_protector_;
 
   void handle_acl() {
+    std::lock_guard<std::mutex> lock(list_protector_);
     auto acl_ptr = hci_->GetAclQueueEnd()->TryDequeue();
     incoming_acl_packets_.push_back(*acl_ptr);
     if (acl_promise_ != nullptr) {
@@ -255,6 +326,7 @@ class DependsOnHci : public Module {
 
   template <typename T>
   void handle_event(T event) {
+    std::lock_guard<std::mutex> lock(list_protector_);
     incoming_events_.push_back(event);
     if (event_promise_ != nullptr) {
       auto promise = std::move(event_promise_);
@@ -263,13 +335,33 @@ class DependsOnHci : public Module {
     }
   }
 
-  std::queue<std::unique_ptr<AclPacketBuilder>> outgoing_acl_;
+  void handle_iso() {
+    std::lock_guard<std::mutex> lock(list_protector_);
+    auto iso_ptr = hci_->GetIsoQueueEnd()->TryDequeue();
+    incoming_iso_packets_.push_back(*iso_ptr);
+    if (iso_promise_ != nullptr) {
+      auto promise = std::move(iso_promise_);
+      iso_promise_.reset();
+      promise->set_value();
+    }
+  }
 
-  std::unique_ptr<AclPacketBuilder> handle_enqueue() {
+  std::queue<std::unique_ptr<AclBuilder>> outgoing_acl_;
+
+  std::unique_ptr<AclBuilder> handle_enqueue() {
     hci_->GetAclQueueEnd()->UnregisterEnqueue();
     auto acl = std::move(outgoing_acl_.front());
     outgoing_acl_.pop();
     return acl;
+  }
+
+  std::queue<std::unique_ptr<IsoBuilder>> outgoing_iso_;
+
+  std::unique_ptr<IsoBuilder> handle_enqueue_iso() {
+    hci_->GetIsoQueueEnd()->UnregisterEnqueue();
+    auto iso = std::move(outgoing_iso_.front());
+    outgoing_iso_.pop();
+    return iso;
   }
 };
 
@@ -292,7 +384,7 @@ class HciTest : public ::testing::Test {
     fake_registry_.Start<DependsOnHci>(&fake_registry_.GetTestThread());
     hci = static_cast<HciLayer*>(fake_registry_.GetModuleUnderTest(&HciLayer::Factory));
     upper = static_cast<DependsOnHci*>(fake_registry_.GetModuleUnderTest(&DependsOnHci::Factory));
-    ASSERT(fake_registry_.IsStarted<HciLayer>());
+    ASSERT_TRUE(fake_registry_.IsStarted<HciLayer>());
 
     auto reset_sent_status = command_future.wait_for(kTimeout);
     ASSERT_EQ(reset_sent_status, std::future_status::ready);
@@ -301,7 +393,7 @@ class HciTest : public ::testing::Test {
     ASSERT_EQ(1, hal->GetNumSentCommands());
 
     auto sent_command = hal->GetSentCommand();
-    auto reset_view = ResetView::Create(CommandPacketView::Create(sent_command));
+    auto reset_view = ResetView::Create(CommandView::Create(sent_command));
     ASSERT_TRUE(reset_view.IsValid());
 
     // Verify that only one was sent
@@ -339,23 +431,50 @@ TEST_F(HciTest, leMetaEvent) {
   // Send an LE event
   ErrorCode status = ErrorCode::SUCCESS;
   uint16_t handle = 0x123;
-  Role role = Role::MASTER;
+  Role role = Role::CENTRAL;
   AddressType peer_address_type = AddressType::PUBLIC_DEVICE_ADDRESS;
   Address peer_address = Address::kAny;
   uint16_t conn_interval = 0x0ABC;
   uint16_t conn_latency = 0x0123;
   uint16_t supervision_timeout = 0x0B05;
-  MasterClockAccuracy master_clock_accuracy = MasterClockAccuracy::PPM_50;
-  hal->callbacks->hciEventReceived(GetPacketBytes(
-      LeConnectionCompleteBuilder::Create(status, handle, role, peer_address_type, peer_address, conn_interval,
-                                          conn_latency, supervision_timeout, master_clock_accuracy)));
+  ClockAccuracy central_clock_accuracy = ClockAccuracy::PPM_50;
+  hal->callbacks->hciEventReceived(GetPacketBytes(LeConnectionCompleteBuilder::Create(
+      status,
+      handle,
+      role,
+      peer_address_type,
+      peer_address,
+      conn_interval,
+      conn_latency,
+      supervision_timeout,
+      central_clock_accuracy)));
 
   // Wait for the event
   auto event_status = event_future.wait_for(kTimeout);
   ASSERT_EQ(event_status, std::future_status::ready);
 
   auto event = upper->GetReceivedEvent();
-  ASSERT(LeConnectionCompleteView::Create(LeMetaEventView::Create(EventPacketView::Create(event))).IsValid());
+  ASSERT_TRUE(LeConnectionCompleteView::Create(LeMetaEventView::Create(EventView::Create(event))).IsValid());
+}
+
+TEST_F(HciTest, hciTimeOut) {
+  auto event_future = upper->GetReceivedEventFuture();
+  auto reset_command_future = hal->GetSentCommandFuture();
+  upper->SendHciCommandExpectingComplete(ResetBuilder::Create());
+  auto reset_command_sent_status = reset_command_future.wait_for(kTimeout);
+  ASSERT_EQ(reset_command_sent_status, std::future_status::ready);
+  auto reset = hal->GetSentCommand();
+  ASSERT_TRUE(reset.IsValid());
+  ASSERT_EQ(reset.GetOpCode(), OpCode::RESET);
+
+  auto debug_command_future = hal->GetSentCommandFuture();
+  auto event_status = event_future.wait_for(HciLayer::kHciTimeoutMs);
+  ASSERT_NE(event_status, std::future_status::ready);
+  auto debug_command_sent_status = debug_command_future.wait_for(kTimeout);
+  ASSERT_EQ(debug_command_sent_status, std::future_status::ready);
+  auto debug = hal->GetSentCommand();
+  ASSERT_TRUE(debug.IsValid());
+  ASSERT_EQ(debug.GetOpCode(), OpCode::CONTROLLER_DEBUG_INFO);
 }
 
 TEST_F(HciTest, noOpCredits) {
@@ -398,8 +517,8 @@ TEST_F(HciTest, noOpCredits) {
   ASSERT_EQ(event_status, std::future_status::ready);
 
   auto event = upper->GetReceivedEvent();
-  ASSERT(ReadLocalVersionInformationCompleteView::Create(CommandCompleteView::Create(EventPacketView::Create(event)))
-             .IsValid());
+  ASSERT_TRUE(
+      ReadLocalVersionInformationCompleteView::Create(CommandCompleteView::Create(EventView::Create(event))).IsValid());
 }
 
 TEST_F(HciTest, creditsTest) {
@@ -419,7 +538,7 @@ TEST_F(HciTest, creditsTest) {
   ASSERT_EQ(1, hal->GetNumSentCommands());
 
   auto sent_command = hal->GetSentCommand();
-  auto version_view = ReadLocalVersionInformationView::Create(CommandPacketView::Create(sent_command));
+  auto version_view = ReadLocalVersionInformationView::Create(CommandView::Create(sent_command));
   ASSERT_TRUE(version_view.IsValid());
 
   // Verify that only one was sent
@@ -445,8 +564,8 @@ TEST_F(HciTest, creditsTest) {
   ASSERT_EQ(event_status, std::future_status::ready);
 
   auto event = upper->GetReceivedEvent();
-  ASSERT(ReadLocalVersionInformationCompleteView::Create(CommandCompleteView::Create(EventPacketView::Create(event)))
-             .IsValid());
+  ASSERT_TRUE(
+      ReadLocalVersionInformationCompleteView::Create(CommandCompleteView::Create(EventView::Create(event))).IsValid());
 
   // Verify that the second one is sent
   command_sent_status = command_future.wait_for(kTimeout);
@@ -454,7 +573,7 @@ TEST_F(HciTest, creditsTest) {
   ASSERT_EQ(1, hal->GetNumSentCommands());
 
   sent_command = hal->GetSentCommand();
-  auto supported_commands_view = ReadLocalSupportedCommandsView::Create(CommandPacketView::Create(sent_command));
+  auto supported_commands_view = ReadLocalSupportedCommandsView::Create(CommandView::Create(sent_command));
   ASSERT_TRUE(supported_commands_view.IsValid());
 
   // Verify that only one was sent
@@ -474,15 +593,15 @@ TEST_F(HciTest, creditsTest) {
   ASSERT_EQ(event_status, std::future_status::ready);
 
   event = upper->GetReceivedEvent();
-  ASSERT(ReadLocalSupportedCommandsCompleteView::Create(CommandCompleteView::Create(EventPacketView::Create(event)))
-             .IsValid());
+  ASSERT_TRUE(
+      ReadLocalSupportedCommandsCompleteView::Create(CommandCompleteView::Create(EventView::Create(event))).IsValid());
   // Verify that the third one is sent
   command_sent_status = command_future.wait_for(kTimeout);
   ASSERT_EQ(command_sent_status, std::future_status::ready);
   ASSERT_EQ(1, hal->GetNumSentCommands());
 
   sent_command = hal->GetSentCommand();
-  auto supported_features_view = ReadLocalSupportedFeaturesView::Create(CommandPacketView::Create(sent_command));
+  auto supported_features_view = ReadLocalSupportedFeaturesView::Create(CommandView::Create(sent_command));
   ASSERT_TRUE(supported_features_view.IsValid());
 
   // Verify that only one was sent
@@ -498,8 +617,8 @@ TEST_F(HciTest, creditsTest) {
   event_status = event_future.wait_for(kTimeout);
   ASSERT_EQ(event_status, std::future_status::ready);
   event = upper->GetReceivedEvent();
-  ASSERT(ReadLocalSupportedFeaturesCompleteView::Create(CommandCompleteView::Create(EventPacketView::Create(event)))
-             .IsValid());
+  ASSERT_TRUE(
+      ReadLocalSupportedFeaturesCompleteView::Create(CommandCompleteView::Create(EventView::Create(event))).IsValid());
 }
 
 TEST_F(HciTest, leSecurityInterfaceTest) {
@@ -513,7 +632,7 @@ TEST_F(HciTest, leSecurityInterfaceTest) {
   // Check the command
   auto sent_command = hal->GetSentCommand();
   ASSERT_LT(0, sent_command.size());
-  LeRandView view = LeRandView::Create(LeSecurityCommandView::Create(CommandPacketView::Create(sent_command)));
+  LeRandView view = LeRandView::Create(LeSecurityCommandView::Create(CommandView::Create(sent_command)));
   ASSERT_TRUE(view.IsValid());
 
   // Send a Command Complete to the host
@@ -544,7 +663,7 @@ TEST_F(HciTest, securityInterfacesTest) {
   // Check the command
   auto sent_command = hal->GetSentCommand();
   ASSERT_LT(0, sent_command.size());
-  auto view = WriteSimplePairingModeView::Create(SecurityCommandView::Create(CommandPacketView::Create(sent_command)));
+  auto view = WriteSimplePairingModeView::Create(SecurityCommandView::Create(CommandView::Create(sent_command)));
   ASSERT_TRUE(view.IsValid());
 
   // Send a Command Complete to the host
@@ -581,8 +700,8 @@ TEST_F(HciTest, createConnectionTest) {
   // Check the command
   auto sent_command = hal->GetSentCommand();
   ASSERT_LT(0, sent_command.size());
-  CreateConnectionView view =
-      CreateConnectionView::Create(ConnectionManagementCommandView::Create(CommandPacketView::Create(sent_command)));
+  CreateConnectionView view = CreateConnectionView::Create(
+      ConnectionManagementCommandView::Create(AclCommandView::Create(CommandView::Create(sent_command))));
   ASSERT_TRUE(view.IsValid());
   ASSERT_EQ(bd_addr, view.GetBdAddr());
   ASSERT_EQ(packet_type, view.GetPacketType());
@@ -632,14 +751,14 @@ TEST_F(HciTest, createConnectionTest) {
   acl_payload->AddOctets2(handle);
   auto incoming_acl_future = upper->GetReceivedAclFuture();
   hal->callbacks->aclDataReceived(
-      GetPacketBytes(AclPacketBuilder::Create(handle, packet_boundary_flag, broadcast_flag, std::move(acl_payload))));
+      GetPacketBytes(AclBuilder::Create(handle, packet_boundary_flag, broadcast_flag, std::move(acl_payload))));
 
   // Verify the ACL packet
   auto incoming_acl_status = incoming_acl_future.wait_for(kAclTimeout);
   ASSERT_EQ(incoming_acl_status, std::future_status::ready);
   auto acl_view = upper->GetReceivedAcl();
   ASSERT_TRUE(acl_view.IsValid());
-  ASSERT_EQ(sizeof(bd_addr) + sizeof(handle), acl_view.GetPayload().size());
+  ASSERT_EQ(bd_addr.length() + sizeof(handle), acl_view.GetPayload().size());
   auto itr = acl_view.GetPayload().begin();
   ASSERT_EQ(bd_addr, itr.extract<Address>());
   ASSERT_EQ(handle, itr.extract<uint16_t>());
@@ -651,16 +770,16 @@ TEST_F(HciTest, createConnectionTest) {
   acl_payload2->AddOctets2(handle);
   acl_payload2->AddAddress(bd_addr);
   auto sent_acl_future = hal->GetSentAclFuture();
-  upper->SendAclData(AclPacketBuilder::Create(handle, packet_boundary_flag2, broadcast_flag2, std::move(acl_payload2)));
+  upper->SendAclData(AclBuilder::Create(handle, packet_boundary_flag2, broadcast_flag2, std::move(acl_payload2)));
 
   // Verify the ACL packet
   auto sent_acl_status = sent_acl_future.wait_for(kAclTimeout);
   ASSERT_EQ(sent_acl_status, std::future_status::ready);
   auto sent_acl = hal->GetSentAcl();
   ASSERT_LT(0, sent_acl.size());
-  AclPacketView sent_acl_view = AclPacketView::Create(sent_acl);
+  AclView sent_acl_view = AclView::Create(sent_acl);
   ASSERT_TRUE(sent_acl_view.IsValid());
-  ASSERT_EQ(sizeof(bd_addr) + sizeof(handle), sent_acl_view.GetPayload().size());
+  ASSERT_EQ(bd_addr.length() + sizeof(handle), sent_acl_view.GetPayload().size());
   auto sent_itr = sent_acl_view.GetPayload().begin();
   ASSERT_EQ(handle, sent_itr.extract<uint16_t>());
   ASSERT_EQ(bd_addr, sent_itr.extract<Address>());
@@ -670,7 +789,7 @@ TEST_F(HciTest, receiveMultipleAclPackets) {
   Address bd_addr;
   ASSERT_TRUE(Address::FromString("A1:A2:A3:A4:A5:A6", bd_addr));
   uint16_t handle = 0x0001;
-  uint16_t num_packets = 100;
+  const uint16_t num_packets = 100;
   PacketBoundaryFlag packet_boundary_flag = PacketBoundaryFlag::FIRST_AUTOMATICALLY_FLUSHABLE;
   BroadcastFlag broadcast_flag = BroadcastFlag::POINT_TO_POINT;
   for (uint16_t i = 0; i < num_packets; i++) {
@@ -679,20 +798,23 @@ TEST_F(HciTest, receiveMultipleAclPackets) {
     acl_payload->AddOctets2(handle);
     acl_payload->AddOctets2(i);
     hal->callbacks->aclDataReceived(
-        GetPacketBytes(AclPacketBuilder::Create(handle, packet_boundary_flag, broadcast_flag, std::move(acl_payload))));
+        GetPacketBytes(AclBuilder::Create(handle, packet_boundary_flag, broadcast_flag, std::move(acl_payload))));
   }
   auto incoming_acl_future = upper->GetReceivedAclFuture();
   uint16_t received_packets = 0;
   while (received_packets < num_packets - 1) {
-    auto incoming_acl_status = incoming_acl_future.wait_for(kAclTimeout);
-    // Get the next future.
-    incoming_acl_future = upper->GetReceivedAclFuture();
-    ASSERT_EQ(incoming_acl_status, std::future_status::ready);
-    size_t num_packets = upper->GetNumReceivedAclPackets();
-    for (size_t i = 0; i < num_packets; i++) {
+    size_t num_rcv_packets = upper->GetNumReceivedAclPackets();
+    if (num_rcv_packets == 0) {
+      auto incoming_acl_status = incoming_acl_future.wait_for(kAclTimeout);
+      // Get the next future.
+      ASSERT_EQ(incoming_acl_status, std::future_status::ready);
+      incoming_acl_future = upper->GetReceivedAclFuture();
+      num_rcv_packets = upper->GetNumReceivedAclPackets();
+    }
+    for (size_t i = 0; i < num_rcv_packets; i++) {
       auto acl_view = upper->GetReceivedAcl();
       ASSERT_TRUE(acl_view.IsValid());
-      ASSERT_EQ(sizeof(bd_addr) + sizeof(handle) + sizeof(received_packets), acl_view.GetPayload().size());
+      ASSERT_EQ(bd_addr.length() + sizeof(handle) + sizeof(received_packets), acl_view.GetPayload().size());
       auto itr = acl_view.GetPayload().begin();
       ASSERT_EQ(bd_addr, itr.extract<Address>());
       ASSERT_EQ(handle, itr.extract<uint16_t>());
@@ -714,14 +836,71 @@ TEST_F(HciTest, receiveMultipleAclPackets) {
   acl_payload->AddOctets2(handle);
   acl_payload->AddOctets2(num_packets);
   hal->callbacks->aclDataReceived(
-      GetPacketBytes(AclPacketBuilder::Create(handle, packet_boundary_flag, broadcast_flag, std::move(acl_payload))));
+      GetPacketBytes(AclBuilder::Create(handle, packet_boundary_flag, broadcast_flag, std::move(acl_payload))));
   auto incoming_acl_status = incoming_acl_future.wait_for(kAclTimeout);
   ASSERT_EQ(incoming_acl_status, std::future_status::ready);
   auto acl_view = upper->GetReceivedAcl();
   ASSERT_TRUE(acl_view.IsValid());
-  ASSERT_EQ(sizeof(bd_addr) + sizeof(handle) + sizeof(received_packets), acl_view.GetPayload().size());
+  ASSERT_EQ(bd_addr.length() + sizeof(handle) + sizeof(received_packets), acl_view.GetPayload().size());
   auto itr = acl_view.GetPayload().begin();
   ASSERT_EQ(bd_addr, itr.extract<Address>());
+  ASSERT_EQ(handle, itr.extract<uint16_t>());
+  ASSERT_EQ(received_packets, itr.extract<uint16_t>());
+}
+
+TEST_F(HciTest, receiveMultipleIsoPackets) {
+  uint16_t handle = 0x0001;
+  const uint16_t num_packets = 100;
+  IsoPacketBoundaryFlag packet_boundary_flag = IsoPacketBoundaryFlag::COMPLETE_SDU;
+  TimeStampFlag timestamp_flag = TimeStampFlag::NOT_PRESENT;
+  for (uint16_t i = 0; i < num_packets; i++) {
+    auto iso_payload = std::make_unique<RawBuilder>();
+    iso_payload->AddOctets2(handle);
+    iso_payload->AddOctets2(i);
+    hal->callbacks->isoDataReceived(
+        GetPacketBytes(IsoBuilder::Create(handle, packet_boundary_flag, timestamp_flag, std::move(iso_payload))));
+  }
+  auto incoming_iso_future = upper->GetReceivedIsoFuture();
+  uint16_t received_packets = 0;
+  while (received_packets < num_packets - 1) {
+    size_t num_rcv_packets = upper->GetNumReceivedIsoPackets();
+    if (num_rcv_packets == 0) {
+      auto incoming_iso_status = incoming_iso_future.wait_for(kAclTimeout);
+      // Get the next future.
+      ASSERT_EQ(incoming_iso_status, std::future_status::ready);
+      incoming_iso_future = upper->GetReceivedIsoFuture();
+      num_rcv_packets = upper->GetNumReceivedIsoPackets();
+    }
+    for (size_t i = 0; i < num_rcv_packets; i++) {
+      auto iso_view = upper->GetReceivedIso();
+      ASSERT_TRUE(iso_view.IsValid());
+      ASSERT_EQ(sizeof(handle) + sizeof(received_packets), iso_view.GetPayload().size());
+      auto itr = iso_view.GetPayload().begin();
+      ASSERT_EQ(handle, itr.extract<uint16_t>());
+      ASSERT_EQ(received_packets, itr.extract<uint16_t>());
+      received_packets += 1;
+    }
+  }
+
+  // Check to see if this future was already fulfilled.
+  auto iso_race_status = incoming_iso_future.wait_for(std::chrono::milliseconds(1));
+  if (iso_race_status == std::future_status::ready) {
+    // Get the next future.
+    incoming_iso_future = upper->GetReceivedIsoFuture();
+  }
+
+  // One last packet to make sure they were all sent.  Already got the future.
+  auto iso_payload = std::make_unique<RawBuilder>();
+  iso_payload->AddOctets2(handle);
+  iso_payload->AddOctets2(num_packets);
+  hal->callbacks->isoDataReceived(
+      GetPacketBytes(IsoBuilder::Create(handle, packet_boundary_flag, timestamp_flag, std::move(iso_payload))));
+  auto incoming_iso_status = incoming_iso_future.wait_for(kAclTimeout);
+  ASSERT_EQ(incoming_iso_status, std::future_status::ready);
+  auto iso_view = upper->GetReceivedIso();
+  ASSERT_TRUE(iso_view.IsValid());
+  ASSERT_EQ(sizeof(handle) + sizeof(received_packets), iso_view.GetPayload().size());
+  auto itr = iso_view.GetPayload().begin();
   ASSERT_EQ(handle, itr.extract<uint16_t>());
   ASSERT_EQ(received_packets, itr.extract<uint16_t>());
 }

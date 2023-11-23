@@ -15,8 +15,8 @@
 -->
 
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent" >
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
 
     <TextView
         android:id="@+id/tvPropertyName"
@@ -25,14 +25,13 @@
         android:layout_centerVertical="true"
         android:layout_alignParentLeft="true"
         android:paddingLeft="8dp"
-        android:textSize="@dimen/propertyTextSize" />
+        android:textSize="@dimen/propertyTextSize"/>
 
-    <ToggleButton
-        android:id="@+id/tbRegisterPropertyBtn"
+    <Spinner
+        android:id="@+id/tbRegisterPropertySpinner"
+        android:layout_alignParentRight="true"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentRight="true"
-        android:layout_centerVertical="true"
-        android:text="@string/property_register" />
+        android:gravity="right"/>
 
 </RelativeLayout>

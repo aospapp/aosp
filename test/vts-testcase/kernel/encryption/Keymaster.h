@@ -20,55 +20,41 @@
 
 #pragma once
 
-#include <android-base/macros.h>
-#include <keymasterV4_1/Keymaster.h>
-#include <keymasterV4_1/authorization_set.h>
-
 #include <memory>
 #include <string>
 #include <utility>
 
+#include <android-base/macros.h>
+#include <keymint_support/authorization_set.h>
+#include <keymint_support/keymint_tags.h>
+
+#include <aidl/android/hardware/security/keymint/ErrorCode.h>
+#include <aidl/android/system/keystore2/IKeystoreService.h>
+#include <android/binder_manager.h>
+
 namespace android {
 namespace kernel {
 
-namespace km {
+namespace ks2 = ::aidl::android::system::keystore2;
+namespace km = ::aidl::android::hardware::security::keymint;
 
-using namespace ::android::hardware::keymaster::V4_1;
-
-// Surprisingly -- to me, at least -- this is totally fine.  You can re-define
-// symbols that were brought in via a using directive (the "using namespace")
-// above.  In general this seems like a dangerous thing to rely on, but in this
-// case its implications are simple and straightforward: km::ErrorCode refers to
-// the 4.0 ErrorCode, though we pull everything else from 4.1.
-using ErrorCode = ::android::hardware::keymaster::V4_0::ErrorCode;
-using V4_1_ErrorCode = ::android::hardware::keymaster::V4_1::ErrorCode;
-
-}  // namespace km
-
-using KmDevice = km::support::Keymaster;
-
-// Wrapper for a Keymaster device
+// Wrapper for keystore2 methods that vold uses.
 class Keymaster {
  public:
   Keymaster();
-  // false if we failed to open the keymaster device.
-  explicit operator bool() { return mDevice.get() != nullptr; }
-  // Generate a key in the keymaster from the given params.
+  // false if we failed to get a keystore2 security level.
+  explicit operator bool() { return (bool)securityLevel; }
+  // Generate a key using keystore2 from the given params.
   bool generateKey(const km::AuthorizationSet& inParams, std::string* key);
-  // Import a key into the keymaster
-  bool importKey(const km::AuthorizationSet& inParams, km::KeyFormat format,
-                 const std::string& key, std::string* outKeyBlob);
-  // Exports a keymaster key with STORAGE_KEY tag wrapped with a per-boot
+  // Exports a keystore2 key with STORAGE_KEY tag wrapped with a per-boot
   // ephemeral key
   bool exportKey(const std::string& kmKey, std::string* key);
-  // If the keymaster supports it, permanently delete a key.
-  bool deleteKey(const std::string& key);
-  // Replace stored key blob in response to KM_ERROR_KEY_REQUIRES_UPGRADE.
-  bool upgradeKey(const std::string& oldKey,
-                  const km::AuthorizationSet& inParams, std::string* newKey);
+  // Import a key into the keymint
+  bool importKey(const km::AuthorizationSet& inParams, const std::string& key,
+                 std::string* outKeyBlob);
 
  private:
-  android::sp<KmDevice> mDevice;
+  std::shared_ptr<ks2::IKeystoreSecurityLevel> securityLevel;
   DISALLOW_COPY_AND_ASSIGN(Keymaster);
 };
 

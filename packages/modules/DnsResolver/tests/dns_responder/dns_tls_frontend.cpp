@@ -32,6 +32,7 @@
 #include <android-base/logging.h>
 #include <netdutils/InternetAddresses.h>
 #include <netdutils/SocketOption.h>
+#include "dns_responder.h"
 #include "dns_tls_certificate.h"
 
 using android::netdutils::enableSockopt;
@@ -114,7 +115,6 @@ bool DnsTlsFrontend::startServer() {
             PLOG(INFO) << "ignore creating socket failed " << s.get();
             continue;
         }
-        enableSockopt(s.get(), SOL_SOCKET, SO_REUSEPORT).ignoreError();
         enableSockopt(s.get(), SOL_SOCKET, SO_REUSEADDR).ignoreError();
         std::string host_str = addr2str(ai->ai_addr, ai->ai_addrlen);
         if (bind(s.get(), ai->ai_addr, ai->ai_addrlen)) {
@@ -152,7 +152,8 @@ bool DnsTlsFrontend::startServer() {
 
     // connect() always fails in the test DnsTlsSocketTest.SlowDestructor because of
     // no backend server. Don't check it.
-    connect(backend_socket_.get(), backend_ai_res->ai_addr, backend_ai_res->ai_addrlen);
+    static_cast<void>(
+            connect(backend_socket_.get(), backend_ai_res->ai_addr, backend_ai_res->ai_addrlen));
 
     // Set up eventfd socket.
     event_fd_.reset(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC));
@@ -222,6 +223,11 @@ void DnsTlsFrontend::requestHandler() {
                 // client, including cleanup actions.
                 queries_ += handleRequests(ssl.get(), client.get());
             }
+
+            if (passiveClose_) {
+                LOG(DEBUG) << "hold the current connection until next connection request";
+                clientFd = std::move(client);
+            }
         }
     }
     LOG(DEBUG) << "Ending loop";
@@ -229,7 +235,10 @@ void DnsTlsFrontend::requestHandler() {
 
 int DnsTlsFrontend::handleRequests(SSL* ssl, int clientFd) {
     int queryCounts = 0;
+    std::vector<uint8_t> reply;
+    bool isDotProbe = false;
     pollfd fds = {.fd = clientFd, .events = POLLIN};
+again:
     do {
         uint8_t queryHeader[2];
         if (SSL_read(ssl, &queryHeader, 2) != 2) {
@@ -252,6 +261,19 @@ int DnsTlsFrontend::handleRequests(SSL* ssl, int clientFd) {
             LOG(INFO) << "Failed to send query";
             return queryCounts;
         }
+
+        if (!isDotProbe) {
+            DNSHeader dnsHdr;
+            dnsHdr.read((char*)query, (char*)query + qlen);
+            for (const auto& question : dnsHdr.questions) {
+                if (question.qname.name.find("dnsotls-ds.metric.gstatic.com") !=
+                    std::string::npos) {
+                    isDotProbe = true;
+                    break;
+                }
+            }
+        }
+
         const int max_size = 4096;
         uint8_t recv_buffer[max_size];
         int rlen = recv(backend_socket_.get(), recv_buffer, max_size, 0);
@@ -262,16 +284,33 @@ int DnsTlsFrontend::handleRequests(SSL* ssl, int clientFd) {
         uint8_t responseHeader[2];
         responseHeader[0] = rlen >> 8;
         responseHeader[1] = rlen;
-        if (SSL_write(ssl, responseHeader, 2) != 2) {
-            LOG(INFO) << "Failed to write response header";
-            return queryCounts;
-        }
-        if (SSL_write(ssl, recv_buffer, rlen) != rlen) {
-            LOG(INFO) << "Failed to write response body";
-            return queryCounts;
-        }
+        reply.insert(reply.end(), responseHeader, responseHeader + 2);
+        reply.insert(reply.end(), recv_buffer, recv_buffer + rlen);
+
         ++queryCounts;
-    } while (poll(&fds, 1, 1) > 0);
+        if (queryCounts >= delayQueries_) {
+            break;
+        }
+    } while (poll(&fds, 1, delayQueriesTimeout_) > 0);
+
+    if (queryCounts < delayQueries_) {
+        LOG(WARNING) << "Expect " << delayQueries_ << " queries, but actually received "
+                     << queryCounts << " queries";
+    }
+
+    const int replyLen = reply.size();
+    LOG(DEBUG) << "Sending " << queryCounts << "queries at once, byte = " << replyLen;
+    if (SSL_write(ssl, reply.data(), replyLen) != replyLen) {
+        LOG(WARNING) << "Failed to write response body";
+    }
+
+    // Poll again because the same DoT probe might be sent again.
+    if (isDotProbe && queryCounts == 1) {
+        int n = poll(&fds, 1, 50);
+        if (n > 0 && fds.revents & POLLIN) {
+            goto again;
+        }
+    }
 
     LOG(DEBUG) << __func__ << " return: " << queryCounts;
     return queryCounts;

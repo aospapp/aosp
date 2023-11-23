@@ -198,6 +198,40 @@ namespace { namespace CompilationTests {
         REQUIRE(std::is_same<TypeList<int>, TypeList<int>>::value);
     }
 
-}} // namespace CompilationTests
+    // #925
+    using signal_t = void (*) (void*);
 
+    struct TestClass {
+        signal_t testMethod_uponComplete_arg = nullptr;
+    };
+
+    namespace utility {
+        inline static void synchronizing_callback( void * ) { }
+    }
+
+#if defined (_MSC_VER)
+#pragma warning(push)
+// The function pointer comparison below triggers warning because of
+// calling conventions
+#pragma warning(disable:4244)
+#endif
+    TEST_CASE("#925: comparing function pointer to function address failed to compile", "[!nonportable]" ) {
+        TestClass test;
+        REQUIRE(utility::synchronizing_callback != test.testMethod_uponComplete_arg);
+    }
+#if defined (_MSC_VER)
+#pragma warning(pop)
+#endif
+
+    TEST_CASE( "#1027: Bitfields can be captured" ) {
+        struct Y {
+            uint32_t v : 1;
+        };
+        Y y{ 0 };
+        REQUIRE( y.v == 0 );
+        REQUIRE( 0 == y.v );
+    }
+
+
+}} // namespace CompilationTests
 

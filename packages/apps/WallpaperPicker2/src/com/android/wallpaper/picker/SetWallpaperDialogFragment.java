@@ -15,21 +15,21 @@
  */
 package com.android.wallpaper.picker;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.fragment.app.DialogFragment;
 
 import com.android.wallpaper.R;
-import com.android.wallpaper.compat.ButtonDrawableSetterCompat;
 import com.android.wallpaper.module.WallpaperPersister;
 
 /**
@@ -65,31 +65,28 @@ public class SetWallpaperDialogFragment extends DialogFragment {
                         R.layout.dialog_set_wallpaper,
                         null);
 
+        View options = layout.findViewById(R.id.dialog_set_wallpaper_options);
+        options.setClipToOutline(true);
+
+        View customTitleView = View.inflate(context, R.layout.dialog_set_wallpaper_title,  null);
+        TextView title = customTitleView.findViewById(R.id.dialog_set_wallpaper_title);
+        title.setText(mTitleResId);
         AlertDialog dialog = new AlertDialog.Builder(context, R.style.LightDialogTheme)
-                .setTitle(mTitleResId)
+                .setCustomTitle(customTitleView)
                 .setView(layout)
                 .create();
 
         mSetHomeWallpaperButton = layout.findViewById(R.id.set_home_wallpaper_button);
         mSetHomeWallpaperButton.setOnClickListener(
                 v -> onSetWallpaperButtonClick(WallpaperPersister.DEST_HOME_SCREEN));
-        ButtonDrawableSetterCompat.setDrawableToButtonStart(
-                mSetHomeWallpaperButton,
-                context.getDrawable(R.drawable.ic_home_24px));
 
         mSetLockWallpaperButton = layout.findViewById(R.id.set_lock_wallpaper_button);
         mSetLockWallpaperButton.setOnClickListener(
                 v -> onSetWallpaperButtonClick(WallpaperPersister.DEST_LOCK_SCREEN));
-        ButtonDrawableSetterCompat.setDrawableToButtonStart(
-                mSetLockWallpaperButton,
-                context.getDrawable(R.drawable.ic_lock_outline_24px));
 
         mSetBothWallpaperButton = layout.findViewById(R.id.set_both_wallpaper_button);
         mSetBothWallpaperButton.setOnClickListener(
                 v -> onSetWallpaperButtonClick(WallpaperPersister.DEST_BOTH));
-        ButtonDrawableSetterCompat.setDrawableToButtonStart(
-                mSetBothWallpaperButton,
-                context.getDrawable(R.drawable.ic_smartphone_24px));
 
         updateButtonsVisibility();
 

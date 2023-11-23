@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "CtsAccountsHostTestCases",
     defaults: ["cts_defaults"],
@@ -23,11 +27,11 @@ java_test_host {
         "platform-test-annotations-host",
         "compatibility-host-util",
         "truth-prebuilt",
+        "device-policy-log-verifier-util",
     ],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

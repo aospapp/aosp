@@ -29,8 +29,8 @@
 #include <mediautils/LimitProcessMemory.h>
 #include <utils/Log.h>
 
-// from LOCAL_C_INCLUDES
-#include "aaudio/AAudioTesting.h"
+// from include_dirs
+#include "aaudio/AAudioTesting.h" // aaudio_policy_t, AAUDIO_PROP_MMAP_POLICY, AAUDIO_POLICY_*
 #include "AudioFlinger.h"
 #include "AudioPolicyService.h"
 #include "AAudioService.h"
@@ -49,7 +49,12 @@ int main(int argc __unused, char **argv)
 
     signal(SIGPIPE, SIG_IGN);
 
+#if 1
+    // FIXME See bug 165702394 and bug 168511485
+    const bool doLog = false;
+#else
     bool doLog = (bool) property_get_bool("ro.test_harness", 0);
+#endif
 
     pid_t childPid;
     // FIXME The advantage of making the process containing media.log service the parent process of

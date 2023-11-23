@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "gredelston, kmshelton, dgoyette, waihong"
+AUTHOR = "gredelston, kmshelton, waihong"
 NAME = "firmware_FAFTRPC.all"
 PURPOSE = "Verify that the RPC server, and all RPC functions, work as expected."
 CRITERIA = "This test will fail if the FAFT RPC system is not set up correctly."

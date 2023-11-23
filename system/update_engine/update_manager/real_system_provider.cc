@@ -20,14 +20,17 @@
 #include <base/callback.h>
 #include <base/logging.h>
 #include <base/time/time.h>
-#if USE_CHROME_KIOSK_APP
 #include <kiosk-app/dbus-proxies.h>
-#endif  // USE_CHROME_KIOSK_APP
 
+#include "update_engine/common/boot_control_interface.h"
+#include "update_engine/common/hardware_interface.h"
+#include "update_engine/common/system_state.h"
 #include "update_engine/common/utils.h"
+#include "update_engine/cros/omaha_request_params.h"
 #include "update_engine/update_manager/generic_variables.h"
 #include "update_engine/update_manager/variable.h"
 
+using chromeos_update_engine::SystemState;
 using std::string;
 
 namespace chromeos_update_manager {
@@ -64,9 +67,10 @@ class RetryPollVariable : public Variable<T> {
     std::unique_ptr<T> result(new T());
     if (!func_.Run(result.get())) {
       if (failed_attempts_ >= kRetryPollVariableMaxRetry) {
-        // Give up on the retries, set back the desired polling interval and
-        // return the default.
+        // Give up on the retries and set back the desired polling interval.
         this->SetPollInterval(base_interval_);
+        // Release the result instead of returning a |nullptr| to indicate that
+        // the result could not be fetched.
         return result.release();
       }
       this->SetPollInterval(
@@ -96,19 +100,20 @@ class RetryPollVariable : public Variable<T> {
 
 bool RealSystemProvider::Init() {
   var_is_normal_boot_mode_.reset(new ConstCopyVariable<bool>(
-      "is_normal_boot_mode", hardware_->IsNormalBootMode()));
+      "is_normal_boot_mode",
+      SystemState::Get()->hardware()->IsNormalBootMode()));
 
   var_is_official_build_.reset(new ConstCopyVariable<bool>(
-      "is_official_build", hardware_->IsOfficialBuild()));
+      "is_official_build", SystemState::Get()->hardware()->IsOfficialBuild()));
 
   var_is_oobe_complete_.reset(new CallCopyVariable<bool>(
       "is_oobe_complete",
       base::Bind(&chromeos_update_engine::HardwareInterface::IsOOBEComplete,
-                 base::Unretained(hardware_),
+                 base::Unretained(SystemState::Get()->hardware()),
                  nullptr)));
 
   var_num_slots_.reset(new ConstCopyVariable<unsigned int>(
-      "num_slots", boot_control_->GetNumSlots()));
+      "num_slots", SystemState::Get()->boot_control()->GetNumSlots()));
 
   var_kiosk_required_platform_version_.reset(new RetryPollVariable<string>(
       "kiosk_required_platform_version",
@@ -116,12 +121,15 @@ bool RealSystemProvider::Init() {
       base::Bind(&RealSystemProvider::GetKioskAppRequiredPlatformVersion,
                  base::Unretained(this))));
 
+  var_chromeos_version_.reset(new ConstCopyVariable<base::Version>(
+      "chromeos_version",
+      base::Version(SystemState::Get()->request_params()->app_version())));
+
   return true;
 }
 
 bool RealSystemProvider::GetKioskAppRequiredPlatformVersion(
     string* required_platform_version) {
-#if USE_CHROME_KIOSK_APP
   brillo::ErrorPtr error;
   if (!kiosk_app_proxy_->GetRequiredPlatformVersion(required_platform_version,
                                                     &error)) {
@@ -129,7 +137,6 @@ bool RealSystemProvider::GetKioskAppRequiredPlatformVersion(
     required_platform_version->clear();
     return false;
   }
-#endif  // USE_CHROME_KIOSK_APP
 
   return true;
 }

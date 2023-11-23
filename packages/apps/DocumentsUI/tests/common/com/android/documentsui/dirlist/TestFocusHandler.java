@@ -22,7 +22,7 @@ import android.view.KeyEvent;
 import android.view.View;
 
 /**
- * A purely dummy instance of FocusHandler.
+ * A purely placeholder instance of FocusHandler.
  */
 public final class TestFocusHandler implements FocusHandler {
 

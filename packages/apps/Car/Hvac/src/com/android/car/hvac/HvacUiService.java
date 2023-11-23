@@ -139,6 +139,7 @@ public class HvacUiService extends Service {
         addViewToWindowManagerAndTrack(windowSizeTest, testparams);
         IntentFilter filter = new IntentFilter();
         filter.addAction(CAR_INTENT_ACTION_TOGGLE_HVAC_CONTROLS);
+        filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         // Register receiver such that any user with climate control permission can call it.
         registerReceiverAsUser(mBroadcastReceiver, UserHandle.ALL, filter,
                 Car.PERMISSION_CONTROL_CAR_CLIMATE, null);
@@ -233,8 +234,10 @@ public class HvacUiService extends Service {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if(action.equals(CAR_INTENT_ACTION_TOGGLE_HVAC_CONTROLS)){
+            if (action.equals(CAR_INTENT_ACTION_TOGGLE_HVAC_CONTROLS)){
                 mHvacPanelController.toggleHvacUi();
+            } else if (action.equals(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)) {
+                mHvacPanelController.collapseHvacUi();
             }
         }
     };

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "intern_table.h"
+#include "intern_table-inl.h"
 
 #include <memory>
 
@@ -100,8 +100,8 @@ ObjPtr<mirror::String> InternTable::LookupStrong(Thread* self, ObjPtr<mirror::St
 }
 
 ObjPtr<mirror::String> InternTable::LookupStrong(Thread* self,
-                                          uint32_t utf16_length,
-                                          const char* utf8_data) {
+                                                 uint32_t utf16_length,
+                                                 const char* utf8_data) {
   DCHECK_EQ(utf16_length, CountModifiedUtf8Chars(utf8_data));
   Utf8String string(utf16_length,
                     utf8_data,
@@ -305,76 +305,6 @@ bool InternTable::ContainsWeak(ObjPtr<mirror::String> s) {
 void InternTable::SweepInternTableWeaks(IsMarkedVisitor* visitor) {
   MutexLock mu(Thread::Current(), *Locks::intern_table_lock_);
   weak_interns_.SweepWeaks(visitor);
-}
-
-size_t InternTable::WriteToMemory(uint8_t* ptr) {
-  MutexLock mu(Thread::Current(), *Locks::intern_table_lock_);
-  return strong_interns_.WriteToMemory(ptr);
-}
-
-std::size_t InternTable::StringHashEquals::operator()(const GcRoot<mirror::String>& root) const {
-  if (kIsDebugBuild) {
-    Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
-  }
-  // An additional cast to prevent undesired sign extension.
-  return static_cast<size_t>(
-      static_cast<uint32_t>(root.Read<kWithoutReadBarrier>()->GetHashCode()));
-}
-
-bool InternTable::StringHashEquals::operator()(const GcRoot<mirror::String>& a,
-                                               const GcRoot<mirror::String>& b) const {
-  if (kIsDebugBuild) {
-    Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
-  }
-  return a.Read<kWithoutReadBarrier>()->Equals(b.Read<kWithoutReadBarrier>());
-}
-
-bool InternTable::StringHashEquals::operator()(const GcRoot<mirror::String>& a,
-                                               const Utf8String& b) const {
-  if (kIsDebugBuild) {
-    Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
-  }
-  ObjPtr<mirror::String> a_string = a.Read<kWithoutReadBarrier>();
-  uint32_t a_length = static_cast<uint32_t>(a_string->GetLength());
-  if (a_length != b.GetUtf16Length()) {
-    return false;
-  }
-  if (a_string->IsCompressed()) {
-    size_t b_byte_count = strlen(b.GetUtf8Data());
-    size_t b_utf8_length = CountModifiedUtf8Chars(b.GetUtf8Data(), b_byte_count);
-    // Modified UTF-8 single byte character range is 0x01 .. 0x7f
-    // The string compression occurs on regular ASCII with same exact range,
-    // not on extended ASCII which up to 0xff
-    const bool is_b_regular_ascii = (b_byte_count == b_utf8_length);
-    if (is_b_regular_ascii) {
-      return memcmp(b.GetUtf8Data(),
-                    a_string->GetValueCompressed(), a_length * sizeof(uint8_t)) == 0;
-    } else {
-      return false;
-    }
-  } else {
-    const uint16_t* a_value = a_string->GetValue();
-    return CompareModifiedUtf8ToUtf16AsCodePointValues(b.GetUtf8Data(), a_value, a_length) == 0;
-  }
-}
-
-size_t InternTable::Table::WriteToMemory(uint8_t* ptr) {
-  if (tables_.empty()) {
-    return 0;
-  }
-  UnorderedSet* table_to_write;
-  UnorderedSet combined;
-  if (tables_.size() > 1) {
-    table_to_write = &combined;
-    for (InternalTable& table : tables_) {
-      for (GcRoot<mirror::String>& string : table.set_) {
-        combined.insert(string);
-      }
-    }
-  } else {
-    table_to_write = &tables_.back().set_;
-  }
-  return table_to_write->WriteToMemory(ptr);
 }
 
 void InternTable::Table::Remove(ObjPtr<mirror::String> s) {

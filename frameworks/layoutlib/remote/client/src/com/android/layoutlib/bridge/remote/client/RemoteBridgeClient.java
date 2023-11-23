@@ -18,12 +18,11 @@ package com.android.layoutlib.bridge.remote.client;
 
 import com.android.ide.common.rendering.api.Bridge;
 import com.android.ide.common.rendering.api.DrawableParams;
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.RenderSession;
 import com.android.ide.common.rendering.api.Result;
 import com.android.ide.common.rendering.api.SessionParams;
 import com.android.layout.remote.api.RemoteBridge;
-import com.android.layout.remote.api.RemoteDrawableParams;
 import com.android.layout.remote.api.RemoteSessionParams;
 import com.android.layoutlib.bridge.remote.client.adapters.RemoteDrawableParamsAdapter;
 import com.android.layoutlib.bridge.remote.client.adapters.RemoteLayoutLogAdapter;
@@ -60,7 +59,7 @@ public class RemoteBridgeClient extends Bridge {
             String nativeLibPath,
             String icuDataPath,
             Map<String, Map<String, Integer>> enumValueMap,
-            LayoutLog log) {
+            ILayoutLog log) {
         try {
             return mDelegate.init(platformProperties, fontLocation, nativeLibPath, icuDataPath,
                     enumValueMap, RemoteLayoutLogAdapter.create(log));

@@ -23,7 +23,6 @@
 #include "update_engine/common/clock_interface.h"
 #include "update_engine/common/constants.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/system_state.h"
 
 using base::Time;
 using base::TimeDelta;
@@ -95,6 +94,7 @@ metrics::AttemptResult GetAttemptResult(ErrorCode code) {
     case ErrorCode::kPostinstallRunnerError:
     case ErrorCode::kPostinstallBootedFromFirmwareB:
     case ErrorCode::kPostinstallFirmwareRONotUpdatable:
+    case ErrorCode::kPostInstallMountError:
       return metrics::AttemptResult::kPostInstallFailed;
 
     case ErrorCode::kUserCanceled:
@@ -111,10 +111,6 @@ metrics::AttemptResult GetAttemptResult(ErrorCode code) {
     case ErrorCode::kDownloadInvalidMetadataSignature:
     case ErrorCode::kOmahaResponseInvalid:
     case ErrorCode::kOmahaUpdateIgnoredPerPolicy:
-    // TODO(deymo): The next two items belong in their own category; they
-    // should not be counted as internal errors. b/27112092
-    case ErrorCode::kOmahaUpdateDeferredPerPolicy:
-    case ErrorCode::kNonCriticalUpdateInOOBE:
     case ErrorCode::kOmahaErrorInHTTPResponse:
     case ErrorCode::kDownloadMetadataSignatureMissingError:
     case ErrorCode::kOmahaUpdateDeferredForBackoff:
@@ -124,7 +120,12 @@ metrics::AttemptResult GetAttemptResult(ErrorCode code) {
     case ErrorCode::kOmahaUpdateIgnoredOverCellular:
     case ErrorCode::kNoUpdate:
     case ErrorCode::kFirstActiveOmahaPingSentPersistenceError:
+    case ErrorCode::kPackageExcludedFromUpdate:
       return metrics::AttemptResult::kInternalError;
+
+    case ErrorCode::kOmahaUpdateDeferredPerPolicy:
+    case ErrorCode::kNonCriticalUpdateInOOBE:
+      return metrics::AttemptResult::kUpdateSkipped;
 
     // Special flags. These can't happen (we mask them out above) but
     // the compiler doesn't know that. Just break out so we can warn and
@@ -188,6 +189,7 @@ metrics::DownloadErrorCode GetDownloadErrorCode(ErrorCode code) {
     case ErrorCode::kOmahaResponseHandlerError:
     case ErrorCode::kFilesystemCopierError:
     case ErrorCode::kPostinstallRunnerError:
+    case ErrorCode::kPostInstallMountError:
     case ErrorCode::kPayloadMismatchedType:
     case ErrorCode::kInstallDeviceOpenError:
     case ErrorCode::kKernelDeviceOpenError:
@@ -240,6 +242,7 @@ metrics::DownloadErrorCode GetDownloadErrorCode(ErrorCode code) {
     case ErrorCode::kVerityCalculationError:
     case ErrorCode::kNotEnoughSpace:
     case ErrorCode::kDeviceCorrupted:
+    case ErrorCode::kPackageExcludedFromUpdate:
       break;
 
     // Special flags. These can't happen (we mask them out above) but
@@ -280,12 +283,6 @@ metrics::ConnectionType GetConnectionType(ConnectionType type,
       else
         return metrics::ConnectionType::kWifi;
 
-    case ConnectionType::kWimax:
-      return metrics::ConnectionType::kWimax;
-
-    case ConnectionType::kBluetooth:
-      return metrics::ConnectionType::kBluetooth;
-
     case ConnectionType::kCellular:
       return metrics::ConnectionType::kCellular;
   }
@@ -295,48 +292,6 @@ metrics::ConnectionType GetConnectionType(ConnectionType type,
              << ", tethering=" << static_cast<int>(tethering);
 
   return metrics::ConnectionType::kUnknown;
-}
-
-bool WallclockDurationHelper(SystemState* system_state,
-                             const std::string& state_variable_key,
-                             TimeDelta* out_duration) {
-  bool ret = false;
-
-  Time now = system_state->clock()->GetWallclockTime();
-  int64_t stored_value;
-  if (system_state->prefs()->GetInt64(state_variable_key, &stored_value)) {
-    Time stored_time = Time::FromInternalValue(stored_value);
-    if (stored_time > now) {
-      LOG(ERROR) << "Stored time-stamp used for " << state_variable_key
-                 << " is in the future.";
-    } else {
-      *out_duration = now - stored_time;
-      ret = true;
-    }
-  }
-
-  if (!system_state->prefs()->SetInt64(state_variable_key,
-                                       now.ToInternalValue())) {
-    LOG(ERROR) << "Error storing time-stamp in " << state_variable_key;
-  }
-
-  return ret;
-}
-
-bool MonotonicDurationHelper(SystemState* system_state,
-                             int64_t* storage,
-                             TimeDelta* out_duration) {
-  bool ret = false;
-
-  Time now = system_state->clock()->GetMonotonicTime();
-  if (*storage != 0) {
-    Time stored_time = Time::FromInternalValue(*storage);
-    *out_duration = now - stored_time;
-    ret = true;
-  }
-  *storage = now.ToInternalValue();
-
-  return ret;
 }
 
 int64_t GetPersistedValue(const std::string& key, PrefsInterface* prefs) {
@@ -408,8 +363,7 @@ bool LoadAndReportTimeToReboot(MetricsReporterInterface* metrics_reporter,
     return false;
 
   Time system_updated_at = Time::FromInternalValue(stored_value);
-  base::TimeDelta time_to_reboot =
-      clock->GetMonotonicTime() - system_updated_at;
+  TimeDelta time_to_reboot = clock->GetMonotonicTime() - system_updated_at;
   if (time_to_reboot.ToInternalValue() < 0) {
     LOG(ERROR) << "time_to_reboot is negative - system_updated_at: "
                << utils::ToString(system_updated_at);

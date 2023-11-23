@@ -21,6 +21,7 @@ import dalvik.system.VMDebug;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.function.*;
 import java.util.zip.Adler32;
 import java.nio.*;
 
@@ -36,7 +37,7 @@ public class Test1940 {
   public static final boolean PRINT_ALL_CHUNKS = false;
 
   public static interface DdmHandler {
-    public void HandleChunk(int type, byte[] data);
+    public void HandleChunk(int type, byte[] data) throws Exception;
   }
 
   public static final class TestError extends Error {
@@ -49,6 +50,13 @@ public class Test1940 {
     }
   }
 
+  private static boolean chunkEq(Chunk a, Chunk b) {
+    return a.type == b.type &&
+           a.offset == b.offset &&
+           a.length == b.length &&
+           Arrays.equals(a.data, b.data);
+  }
+
   private static String printChunk(Chunk k) {
     byte[] out = new byte[k.length];
     System.arraycopy(k.data, k.offset, out, 0, k.length);
@@ -57,8 +65,8 @@ public class Test1940 {
   }
 
   private static final class MyDdmHandler extends ChunkHandler {
-    public void connected() {}
-    public void disconnected() {}
+    public void onConnected() {}
+    public void onDisconnected() {}
     public Chunk handleChunk(Chunk req) {
       System.out.println("MyDdmHandler: Chunk received: " + printChunk(req));
       if (req.type == MY_DDMS_TYPE) {
@@ -88,7 +96,7 @@ public class Test1940 {
 
   public static DdmHandler CURRENT_HANDLER;
 
-  public static void HandlePublish(int type, byte[] data) {
+  public static void HandlePublish(int type, byte[] data) throws Exception {
     if (PRINT_ALL_CHUNKS) {
       System.out.println(
           "Unknown Chunk published: " + printChunk(new Chunk(type, data, 0, data.length)));
@@ -114,13 +122,43 @@ public class Test1940 {
     return b.getInt() == (int) t.getId();
   }
 
+  public static final class AwaitChunkHandler implements DdmHandler {
+    public final Predicate<Chunk> needle;
+    public final DdmHandler chain;
+    private boolean found = false;
+    public AwaitChunkHandler(Predicate<Chunk> needle, DdmHandler chain) {
+      this.needle = needle;
+      this.chain = chain;
+    }
+    public void HandleChunk(int type, byte[] data) throws Exception {
+      chain.HandleChunk(type, data);
+      Chunk c = new Chunk(type, data, 0, data.length);
+      if (needle.test(c)) {
+        synchronized (this) {
+          found = true;
+          notifyAll();
+        }
+      }
+    }
+    public synchronized void Await() throws Exception {
+      while (!found) {
+        wait();
+      }
+    }
+  }
+
   public static void run() throws Exception {
-    CURRENT_HANDLER = (type, data) -> {
+    DdmHandler BaseHandler = (type, data) -> {
       System.out.println("Chunk published: " + printChunk(new Chunk(type, data, 0, data.length)));
     };
-    initializeTest(
-        Test1940.class,
-        Test1940.class.getDeclaredMethod("HandlePublish", Integer.TYPE, new byte[0].getClass()));
+    CURRENT_HANDLER = BaseHandler;
+    initializeTest();
+    Method publish = Test1940.class.getDeclaredMethod("HandlePublish",
+                                                      Integer.TYPE,
+                                                      new byte[0].getClass());
+    Thread listener = new Thread(() -> { Test1940.publishListen(publish); });
+    listener.setDaemon(true);
+    listener.start();
     // Test sending chunk directly.
     DdmServer.registerHandler(MY_DDMS_TYPE, SINGLE_HANDLER);
     DdmServer.registerHandler(MY_EMPTY_DDMS_TYPE, SINGLE_HANDLER);
@@ -139,8 +177,12 @@ public class Test1940 {
     // Test sending chunk through DdmServer#sendChunk
     Chunk c = new Chunk(
         MY_DDMS_TYPE, new byte[] { 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10 }, 0, 8);
+    AwaitChunkHandler h = new AwaitChunkHandler((x) -> chunkEq(c, x), CURRENT_HANDLER);
+    CURRENT_HANDLER = h;
     System.out.println("Sending chunk: " + printChunk(c));
     DdmServer.sendChunk(c);
+    h.Await();
+    CURRENT_HANDLER = BaseHandler;
 
     // Test getting back an empty chunk.
     data = new byte[] { 0x1 };
@@ -161,31 +203,35 @@ public class Test1940 {
 
     // Test thread chunks are sent.
     final boolean[] types_seen = new boolean[] { false, false, false };
-    CURRENT_HANDLER = (type, cdata) -> {
-      switch (type) {
-        case TYPE_THCR:
-          types_seen[0] = true;
-          break;
-        case TYPE_THNM:
-          types_seen[1] = true;
-          break;
-        case TYPE_THDE:
-          types_seen[2] = true;
-          break;
-        default:
-          // We don't want to print other types.
-          break;
-      }
-    };
-    DdmVmInternal.threadNotify(true);
+    AwaitChunkHandler wait_thd= new AwaitChunkHandler(
+      (x) -> types_seen[0] && types_seen[1] && types_seen[2],
+      (type, cdata) -> {
+        switch (type) {
+          case TYPE_THCR:
+            types_seen[0] = true;
+            break;
+          case TYPE_THNM:
+            types_seen[1] = true;
+            break;
+          case TYPE_THDE:
+            types_seen[2] = true;
+            break;
+          default:
+            // We don't want to print other types.
+            break;
+        }
+      });
+    CURRENT_HANDLER = wait_thd;
+    DdmVmInternal.setThreadNotifyEnabled(true);
     System.out.println("threadNotify started!");
     final Thread thr = new Thread(() -> { return; }, "THREAD");
     thr.start();
     System.out.println("Target thread started!");
     thr.join();
     System.out.println("Target thread finished!");
-    DdmVmInternal.threadNotify(false);
+    DdmVmInternal.setThreadNotifyEnabled(false);
     System.out.println("threadNotify Disabled!");
+    wait_thd.Await();
     // Make sure we saw at least one of Thread-create, Thread name, & thread death.
     if (!types_seen[0] || !types_seen[1] || !types_seen[2]) {
       System.out.println("Didn't see expected chunks for thread creation! got: " +
@@ -194,26 +240,14 @@ public class Test1940 {
       System.out.println("Saw expected thread events.");
     }
 
-    // Test heap chunks are sent.
-    CURRENT_HANDLER = (type, cdata) -> {
-      // The actual data is far to noisy for this test as it includes information about global heap
-      // state.
-      if (type == TYPE_HPIF) {
-        System.out.println("Expected chunk type published: " + type);
-      }
-    };
-    final int HPIF_WHEN_NOW = 1;
-    if (!DdmVmInternal.heapInfoNotify(HPIF_WHEN_NOW)) {
-      System.out.println("Unexpected failure for heapInfoNotify!");
-    }
-
     // method Tracing
-    CURRENT_HANDLER = (type, cdata) -> {
+    AwaitChunkHandler mpse = new AwaitChunkHandler((x) -> x.type == TYPE_MPSE, (type, cdata) -> {
       // This chunk includes timing and thread information so we just check the type.
       if (type == TYPE_MPSE) {
         System.out.println("Expected chunk type published: " + type);
       }
-    };
+    });
+    CURRENT_HANDLER = mpse;
     VMDebug.startMethodTracingDdms(/*size: default*/0,
                                    /*flags: none*/ 0,
                                    /*sampling*/ false,
@@ -223,6 +257,7 @@ public class Test1940 {
     doNothing();
     doNothing();
     VMDebug.stopMethodTracing();
+    mpse.Await();
   }
 
   private static void doNothing() {}
@@ -230,6 +265,7 @@ public class Test1940 {
     return processChunk(new Chunk(MY_DDMS_TYPE, val, 0, val.length));
   }
 
-  private static native void initializeTest(Class<?> k, Method m);
+  private static native void initializeTest();
   private static native Chunk processChunk(Chunk val);
+  private static native void publishListen(Method publish);
 }

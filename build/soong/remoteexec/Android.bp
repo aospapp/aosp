@@ -1,10 +1,10 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 bootstrap_go_package {
     name: "soong-remoteexec",
     pkgPath: "android/soong/remoteexec",
-    deps: [
-        "blueprint",
-        "soong-android",
-    ],
     srcs: [
         "remoteexec.go",
     ],

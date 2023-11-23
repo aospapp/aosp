@@ -421,7 +421,7 @@ bool DhcpClient::configureDhcp(const Message& msg) {
     }
 
     char propName[64];
-    snprintf(propName, sizeof(propName), "net.%s.gw",
+    snprintf(propName, sizeof(propName), "vendor.net.%s.gw",
              mInterface.getName().c_str());
     if (property_set(propName, addrToStr(mDhcpInfo.gateway).c_str()) != 0) {
         ALOGE("Failed to set %s: %s", propName, strerror(errno));
@@ -429,7 +429,7 @@ bool DhcpClient::configureDhcp(const Message& msg) {
 
     int numDnsEntries = sizeof(mDhcpInfo.dns) / sizeof(mDhcpInfo.dns[0]);
     for (int i = 0; i < numDnsEntries; ++i) {
-        snprintf(propName, sizeof(propName), "net.%s.dns%d",
+        snprintf(propName, sizeof(propName), "vendor.net.%s.dns%d",
                  mInterface.getName().c_str(), i + 1);
         if (mDhcpInfo.dns[i] != 0) {
             if (property_set(propName,

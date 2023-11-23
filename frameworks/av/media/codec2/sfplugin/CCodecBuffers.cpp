@@ -27,6 +27,7 @@
 #include <mediadrm/ICrypto.h>
 
 #include "CCodecBuffers.h"
+#include "Codec2Mapper.h"
 
 namespace android {
 
@@ -76,29 +77,39 @@ sp<AMessage> CCodecBuffers::dupFormat() {
 void CCodecBuffers::handleImageData(const sp<Codec2Buffer> &buffer) {
     sp<ABuffer> imageDataCandidate = buffer->getImageData();
     if (imageDataCandidate == nullptr) {
+        if (mFormatWithImageData) {
+            // We previously sent the format with image data, so use the same format.
+            buffer->setFormat(mFormatWithImageData);
+        }
         return;
     }
-    sp<ABuffer> imageData;
-    if (!mFormat->findBuffer("image-data", &imageData)
-            || imageDataCandidate->size() != imageData->size()
-            || memcmp(imageDataCandidate->data(), imageData->data(), imageData->size()) != 0) {
+    if (!mLastImageData
+            || imageDataCandidate->size() != mLastImageData->size()
+            || memcmp(imageDataCandidate->data(),
+                      mLastImageData->data(),
+                      mLastImageData->size()) != 0) {
         ALOGD("[%s] updating image-data", mName);
-        sp<AMessage> newFormat = dupFormat();
-        newFormat->setBuffer("image-data", imageDataCandidate);
+        mFormatWithImageData = dupFormat();
+        mLastImageData = imageDataCandidate;
+        mFormatWithImageData->setBuffer("image-data", imageDataCandidate);
         MediaImage2 *img = (MediaImage2*)imageDataCandidate->data();
         if (img->mNumPlanes > 0 && img->mType != img->MEDIA_IMAGE_TYPE_UNKNOWN) {
             int32_t stride = img->mPlane[0].mRowInc;
-            newFormat->setInt32(KEY_STRIDE, stride);
+            mFormatWithImageData->setInt32(KEY_STRIDE, stride);
             ALOGD("[%s] updating stride = %d", mName, stride);
             if (img->mNumPlanes > 1 && stride > 0) {
-                int32_t vstride = (img->mPlane[1].mOffset - img->mPlane[0].mOffset) / stride;
-                newFormat->setInt32(KEY_SLICE_HEIGHT, vstride);
+                int64_t offsetDelta =
+                    (int64_t)img->mPlane[1].mOffset - (int64_t)img->mPlane[0].mOffset;
+                int32_t vstride = int32_t(offsetDelta / stride);
+                mFormatWithImageData->setInt32(KEY_SLICE_HEIGHT, vstride);
                 ALOGD("[%s] updating vstride = %d", mName, vstride);
+                buffer->setRange(
+                        img->mPlane[0].mOffset,
+                        buffer->size() - img->mPlane[0].mOffset);
             }
         }
-        setFormat(newFormat);
-        buffer->setFormat(newFormat);
     }
+    buffer->setFormat(mFormatWithImageData);
 }
 
 // InputBuffers
@@ -156,8 +167,7 @@ void OutputBuffers::updateSkipCutBuffer(int32_t sampleRate, int32_t channelCount
     setSkipCutBuffer(delay, padding);
 }
 
-void OutputBuffers::updateSkipCutBuffer(
-        const sp<AMessage> &format, bool notify) {
+void OutputBuffers::updateSkipCutBuffer(const sp<AMessage> &format) {
     AString mediaType;
     if (format->findString(KEY_MIME, &mediaType)
             && mediaType == MIMETYPE_AUDIO_RAW) {
@@ -167,9 +177,6 @@ void OutputBuffers::updateSkipCutBuffer(
                 && format->findInt32(KEY_SAMPLE_RATE, &sampleRate)) {
             updateSkipCutBuffer(sampleRate, channelCount);
         }
-    }
-    if (notify) {
-        mUnreportedFormat = nullptr;
     }
 }
 
@@ -194,7 +201,6 @@ void OutputBuffers::clearStash() {
     mReorderStash.clear();
     mDepth = 0;
     mKey = C2Config::ORDINAL;
-    mUnreportedFormat = nullptr;
 }
 
 void OutputBuffers::flushStash() {
@@ -270,27 +276,15 @@ OutputBuffers::BufferAction OutputBuffers::popFromStashAndRegister(
     *c2Buffer = entry.buffer;
     sp<AMessage> outputFormat = entry.format;
 
-    // The output format can be processed without a registered slot.
-    if (outputFormat) {
-        ALOGD("[%s] popFromStashAndRegister: output format changed to %s",
-                mName, outputFormat->debugString().c_str());
-        updateSkipCutBuffer(outputFormat, entry.notify);
-    }
-
-    if (entry.notify) {
-        if (outputFormat) {
-            setFormat(outputFormat);
-        } else if (mUnreportedFormat) {
-            outputFormat = mUnreportedFormat;
-            setFormat(outputFormat);
-        }
-        mUnreportedFormat = nullptr;
-    } else {
-        if (outputFormat) {
-            mUnreportedFormat = outputFormat;
-        } else if (!mUnreportedFormat) {
-            mUnreportedFormat = mFormat;
-        }
+    if (entry.notify && mFormat != outputFormat) {
+        updateSkipCutBuffer(outputFormat);
+        // Trigger image data processing to the new format
+        mLastImageData.clear();
+        ALOGV("[%s] popFromStashAndRegister: output format reference changed: %p -> %p",
+                mName, mFormat.get(), outputFormat.get());
+        ALOGD("[%s] popFromStashAndRegister: at %lldus, output format changed to %s",
+                mName, (long long)entry.timestamp, outputFormat->debugString().c_str());
+        setFormat(outputFormat);
     }
 
     // Flushing mReorderStash because no other buffers should come after output
@@ -317,6 +311,7 @@ OutputBuffers::BufferAction OutputBuffers::popFromStashAndRegister(
     // Append information from the front stash entry to outBuffer.
     (*outBuffer)->meta()->setInt64("timeUs", entry.timestamp);
     (*outBuffer)->meta()->setInt32("flags", entry.flags);
+    (*outBuffer)->meta()->setInt64("frameIndex", entry.ordinal.frameIndex.peekll());
     ALOGV("[%s] popFromStashAndRegister: "
           "out buffer index = %zu [%p] => %p + %zu (%lld)",
           mName, *index, outBuffer->get(),
@@ -487,11 +482,12 @@ void FlexBuffersImpl::flush() {
     mBuffers.clear();
 }
 
-size_t FlexBuffersImpl::numClientBuffers() const {
+size_t FlexBuffersImpl::numActiveSlots() const {
     return std::count_if(
             mBuffers.begin(), mBuffers.end(),
             [](const Entry &entry) {
-                return (entry.clientBuffer != nullptr);
+                return (entry.clientBuffer != nullptr
+                        || !entry.compBuffer.expired());
             });
 }
 
@@ -637,11 +633,11 @@ void BuffersArrayImpl::grow(
     }
 }
 
-size_t BuffersArrayImpl::numClientBuffers() const {
+size_t BuffersArrayImpl::numActiveSlots() const {
     return std::count_if(
             mBuffers.begin(), mBuffers.end(),
             [](const Entry &entry) {
-                return entry.ownedByClient;
+                return entry.ownedByClient || !entry.compBuffer.expired();
             });
 }
 
@@ -691,8 +687,8 @@ void InputBuffersArray::flush() {
     mImpl.flush();
 }
 
-size_t InputBuffersArray::numClientBuffers() const {
-    return mImpl.numClientBuffers();
+size_t InputBuffersArray::numActiveSlots() const {
+    return mImpl.numActiveSlots();
 }
 
 sp<Codec2Buffer> InputBuffersArray::createNewBuffer() {
@@ -729,8 +725,8 @@ std::unique_ptr<InputBuffers> SlotInputBuffers::toArrayMode(size_t) {
     return nullptr;
 }
 
-size_t SlotInputBuffers::numClientBuffers() const {
-    return mImpl.numClientBuffers();
+size_t SlotInputBuffers::numActiveSlots() const {
+    return mImpl.numActiveSlots();
 }
 
 sp<Codec2Buffer> SlotInputBuffers::createNewBuffer() {
@@ -781,8 +777,8 @@ std::unique_ptr<InputBuffers> LinearInputBuffers::toArrayMode(size_t size) {
     return std::move(array);
 }
 
-size_t LinearInputBuffers::numClientBuffers() const {
-    return mImpl.numClientBuffers();
+size_t LinearInputBuffers::numActiveSlots() const {
+    return mImpl.numActiveSlots();
 }
 
 // static
@@ -795,8 +791,9 @@ sp<Codec2Buffer> LinearInputBuffers::Alloc(
         capacity = kMaxLinearBufferSize;
     }
 
-    // TODO: read usage from intf
-    C2MemoryUsage usage = { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE };
+    int64_t usageValue = 0;
+    (void)format->findInt64("android._C2MemoryUsage", &usageValue);
+    C2MemoryUsage usage{usageValue | C2MemoryUsage::CPU_READ | C2MemoryUsage::CPU_WRITE};
     std::shared_ptr<C2LinearBlock> block;
 
     c2_status_t err = pool->fetchLinearBlock(capacity, usage, &block);
@@ -958,8 +955,8 @@ std::unique_ptr<InputBuffers> GraphicMetadataInputBuffers::toArrayMode(
     return std::move(array);
 }
 
-size_t GraphicMetadataInputBuffers::numClientBuffers() const {
-    return mImpl.numClientBuffers();
+size_t GraphicMetadataInputBuffers::numActiveSlots() const {
+    return mImpl.numActiveSlots();
 }
 
 sp<Codec2Buffer> GraphicMetadataInputBuffers::createNewBuffer() {
@@ -1007,31 +1004,46 @@ void GraphicInputBuffers::flush() {
     // track of the flushed work.
 }
 
+static uint32_t extractPixelFormat(const sp<AMessage> &format) {
+    int32_t frameworkColorFormat = 0;
+    if (!format->findInt32("android._color-format", &frameworkColorFormat)) {
+        return PIXEL_FORMAT_UNKNOWN;
+    }
+    uint32_t pixelFormat = PIXEL_FORMAT_UNKNOWN;
+    if (C2Mapper::mapPixelFormatFrameworkToCodec(frameworkColorFormat, &pixelFormat)) {
+        return pixelFormat;
+    }
+    return PIXEL_FORMAT_UNKNOWN;
+}
+
 std::unique_ptr<InputBuffers> GraphicInputBuffers::toArrayMode(size_t size) {
     std::unique_ptr<InputBuffersArray> array(
             new InputBuffersArray(mComponentName.c_str(), "2D-BB-Input[N]"));
     array->setPool(mPool);
     array->setFormat(mFormat);
+    uint32_t pixelFormat = extractPixelFormat(mFormat);
     array->initialize(
             mImpl,
             size,
-            [pool = mPool, format = mFormat, lbp = mLocalBufferPool]() -> sp<Codec2Buffer> {
+            [pool = mPool, format = mFormat, lbp = mLocalBufferPool, pixelFormat]()
+                    -> sp<Codec2Buffer> {
                 C2MemoryUsage usage = { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE };
                 return AllocateGraphicBuffer(
-                        pool, format, HAL_PIXEL_FORMAT_YV12, usage, lbp);
+                        pool, format, pixelFormat, usage, lbp);
             });
     return std::move(array);
 }
 
-size_t GraphicInputBuffers::numClientBuffers() const {
-    return mImpl.numClientBuffers();
+size_t GraphicInputBuffers::numActiveSlots() const {
+    return mImpl.numActiveSlots();
 }
 
 sp<Codec2Buffer> GraphicInputBuffers::createNewBuffer() {
-    // TODO: read usage from intf
-    C2MemoryUsage usage = { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE };
+    int64_t usageValue = 0;
+    (void)mFormat->findInt64("android._C2MemoryUsage", &usageValue);
+    C2MemoryUsage usage{usageValue | C2MemoryUsage::CPU_READ | C2MemoryUsage::CPU_WRITE};
     return AllocateGraphicBuffer(
-            mPool, mFormat, HAL_PIXEL_FORMAT_YV12, usage, mLocalBufferPool);
+            mPool, mFormat, extractPixelFormat(mFormat), usage, mLocalBufferPool);
 }
 
 // OutputBuffersArray
@@ -1113,8 +1125,8 @@ void OutputBuffersArray::getArray(Vector<sp<MediaCodecBuffer>> *array) const {
     mImpl.getArray(array);
 }
 
-size_t OutputBuffersArray::numClientBuffers() const {
-    return mImpl.numClientBuffers();
+size_t OutputBuffersArray::numActiveSlots() const {
+    return mImpl.numActiveSlots();
 }
 
 void OutputBuffersArray::realloc(const std::shared_ptr<C2Buffer> &c2buffer) {
@@ -1167,7 +1179,6 @@ void OutputBuffersArray::grow(size_t newSize) {
 void OutputBuffersArray::transferFrom(OutputBuffers* source) {
     mFormat = source->mFormat;
     mSkipCutBuffer = source->mSkipCutBuffer;
-    mUnreportedFormat = source->mUnreportedFormat;
     mPending = std::move(source->mPending);
     mReorderStash = std::move(source->mReorderStash);
     mDepth = source->mDepth;
@@ -1224,8 +1235,8 @@ std::unique_ptr<OutputBuffersArray> FlexOutputBuffers::toArrayMode(size_t size) 
     return array;
 }
 
-size_t FlexOutputBuffers::numClientBuffers() const {
-    return mImpl.numClientBuffers();
+size_t FlexOutputBuffers::numActiveSlots() const {
+    return mImpl.numActiveSlots();
 }
 
 // LinearOutputBuffers
@@ -1290,17 +1301,7 @@ RawGraphicOutputBuffers::RawGraphicOutputBuffers(
 
 sp<Codec2Buffer> RawGraphicOutputBuffers::wrap(const std::shared_ptr<C2Buffer> &buffer) {
     if (buffer == nullptr) {
-        sp<Codec2Buffer> c2buffer = ConstGraphicBlockBuffer::AllocateEmpty(
-                mFormat,
-                [lbp = mLocalBufferPool](size_t capacity) {
-                    return lbp->newBuffer(capacity);
-                });
-        if (c2buffer == nullptr) {
-            ALOGD("[%s] ConstGraphicBlockBuffer::AllocateEmpty failed", mName);
-            return nullptr;
-        }
-        c2buffer->setRange(0, 0);
-        return c2buffer;
+        return new Codec2Buffer(mFormat, new ABuffer(nullptr, 0));
     } else {
         return ConstGraphicBlockBuffer::Allocate(
                 mFormat,

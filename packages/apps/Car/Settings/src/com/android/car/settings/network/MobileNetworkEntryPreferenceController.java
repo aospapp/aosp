@@ -18,7 +18,6 @@ package com.android.car.settings.network;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.os.UserManager;
 import android.telephony.SubscriptionInfo;
@@ -28,7 +27,6 @@ import android.telephony.TelephonyManager;
 import androidx.preference.Preference;
 
 import com.android.car.settings.R;
-import com.android.car.settings.common.CarSettingActivities;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
 
@@ -80,7 +78,7 @@ public class MobileNetworkEntryPreferenceController extends
         boolean hasRestriction =
                 mUserManager.hasUserRestriction(UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS);
         if (isNotAdmin || hasRestriction) {
-            return DISABLED_FOR_USER;
+            return DISABLED_FOR_PROFILE;
         }
         return AVAILABLE;
     }
@@ -102,15 +100,10 @@ public class MobileNetworkEntryPreferenceController extends
         }
 
         if (subs.size() == 1) {
-            Intent intent = new Intent(getContext(),
-                    CarSettingActivities.MobileNetworkActivity.class);
-            intent.putExtra(MobileNetworkFragment.ARG_NETWORK_SUB_ID,
-                    subs.get(0).getSubscriptionId());
-            getContext().startActivity(intent);
+            getFragmentController().launchFragment(
+                    MobileNetworkFragment.newInstance(subs.get(0).getSubscriptionId()));
         } else {
-            Intent intent = new Intent(getContext(),
-                    CarSettingActivities.MobileNetworkListActivity.class);
-            getContext().startActivity(intent);
+            getFragmentController().launchFragment(new MobileNetworkListFragment());
         }
         return true;
     }

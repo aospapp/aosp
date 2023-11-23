@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+
 import time
 
 from selenium.common.exceptions import NoSuchElementException
@@ -44,7 +46,7 @@ class WebDriverCoreHelpers(object):
         try:
             self.driver.find_element_by_xpath(xpath)
             return
-        except WebDriverException, e:
+        except WebDriverException as e:
             message = str(e)
             # The messages differ based on the webdriver version
             if (message.find('An open modal dialog blocked') == -1 and
@@ -130,7 +132,7 @@ class WebDriverCoreHelpers(object):
                                                             wait_time=0.25)
                     if element and element.is_displayed():
                         return xpath
-                except SeleniumTimeoutException, e:
+                except SeleniumTimeoutException as e:
                     exception = str(e)
                     pass
         raise SeleniumTimeoutException(exception)
@@ -174,7 +176,7 @@ class WebDriverCoreHelpers(object):
         if page_title:
             try:
                 self.wait.until(lambda _: page_title in self.driver.title)
-            except SeleniumTimeoutException, e:
+            except SeleniumTimeoutException as e:
                 self.driver.get(page_url)
                 self.wait.until(lambda _: self.driver.title)
             finally:
@@ -341,7 +343,7 @@ class WebDriverCoreHelpers(object):
         try:
             self.wait.until(lambda _:
                             len(popup.find_elements_by_tag_name('option')))
-        except SeleniumTimeoutException, e:
+        except SeleniumTimeoutException as e:
             return 0
         return len(popup.find_elements_by_tag_name('option'))
 
@@ -426,7 +428,7 @@ class WebDriverCoreHelpers(object):
         if text_field.get_attribute('type') != 'password' and not abort_check:
             try:
                 self.wait.until(lambda _: text_field.get_attribute('value'))
-            except SeleniumTimeoutException, e:
+            except SeleniumTimeoutException as e:
                 raise SeleniumTimeoutException('Unable to obtain the value of '
                                                'the text field %s.\nWebDriver '
                                                'exception:%s' % (xpath, str(e)))

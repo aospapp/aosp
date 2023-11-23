@@ -15,6 +15,7 @@
  */
 package android.media.cts;
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.AssetFileDescriptor;
 import android.media.AudioManager;
@@ -93,6 +94,7 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
     private Thread mThread;
     private Uri mAudioUri;
     private Uri mVideoUri;
+    private Context mContext;
     private Resources mResources;
     private Error mErrorFromThread;
 
@@ -143,11 +145,12 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
      * Media player class to stream CENC content using MediaCodec class.
      */
     public MediaCodecClearKeyPlayer(
-            List<Surface> surfaces, byte[] sessionId, boolean scrambled, Resources resources) {
+            List<Surface> surfaces, byte[] sessionId, boolean scrambled, Context context) {
         mSessionId = sessionId;
         mScrambled = scrambled;
         mSurfaces = new ArrayDeque<>(surfaces);
-        mResources = resources;
+        mContext = context;
+        mResources = context.getResources();
         mState = STATE_IDLE;
         mThread = new Thread(new Runnable() {
             @Override
@@ -156,7 +159,7 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
                 while (mThreadStarted == true) {
                     doSomeWork();
                     if (mAudioTrackState != null) {
-                        mAudioTrackState.process();
+                        mAudioTrackState.processAudioTrack();
                     }
                     try {
                         Thread.sleep(5);
@@ -168,7 +171,7 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
                     }
                 }
                 if (mAudioTrackState != null) {
-                    mAudioTrackState.stop();
+                    mAudioTrackState.stopAudioTrack();
                 }
             }
         });
@@ -300,22 +303,6 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
         }
     }
 
-    private void setDataSource(MediaExtractor extractor, Uri uri, Map<String, String> headers)
-            throws IOException, MediaCasException {
-        String scheme = uri.getScheme();
-        if (scheme.startsWith("http")) {
-            extractor.setDataSource(uri.toString(), headers);
-        } else if (scheme.startsWith(FILE_SCHEME)) {
-            extractor.setDataSource(uri.toString().substring(FILE_SCHEME.length()), headers);
-        } else if (scheme.equals("android.resource")) {
-            int res = Integer.parseInt(uri.getLastPathSegment());
-            AssetFileDescriptor fd = mResources.openRawResourceFd(res);
-            extractor.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
-        } else {
-            throw new IllegalArgumentException(uri.toString());
-        }
-    }
-
     private void initCasAndDescrambler(MediaExtractor extractor) throws MediaCasException {
         int trackCount = extractor.getTrackCount();
         for (int trackId = 0; trackId < trackCount; trackId++) {
@@ -370,7 +357,7 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
                 return;
             }
         }
-        setDataSource(mAudioExtractor, mAudioUri, mAudioHeaders);
+        mAudioExtractor.setDataSource(mContext, mAudioUri, mAudioHeaders);
 
         if (mScrambled) {
             initCasAndDescrambler(mAudioExtractor);
@@ -383,7 +370,7 @@ public class MediaCodecClearKeyPlayer implements MediaTimeProvider {
                     return;
                 }
             }
-            setDataSource(mVideoExtractor, mVideoUri, mVideoHeaders);
+            mVideoExtractor.setDataSource(mContext, mVideoUri, mVideoHeaders);
         }
 
         if (null == mVideoCodecStates) {

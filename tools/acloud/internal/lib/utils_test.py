@@ -15,6 +15,7 @@
 # limitations under the License.
 """Tests for acloud.internal.lib.utils."""
 
+import collections
 import errno
 import getpass
 import grp
@@ -23,15 +24,23 @@ import shutil
 import subprocess
 import tempfile
 import time
+import webbrowser
 
 import unittest
-import mock
+
+from unittest import mock
 import six
 
 from acloud import errors
 from acloud.internal.lib import driver_test_lib
 from acloud.internal.lib import utils
 
+
+GroupInfo = collections.namedtuple("GroupInfo", [
+    "gr_name",
+    "gr_passwd",
+    "gr_gid",
+    "gr_mem"])
 
 # Tkinter may not be supported so mock it out.
 try:
@@ -40,7 +49,7 @@ except ImportError:
     Tkinter = mock.Mock()
 
 
-class FakeTkinter(object):
+class FakeTkinter:
     """Fake implementation of Tkinter.Tk()"""
 
     def __init__(self, width=None, height=None):
@@ -300,28 +309,23 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         avd_w = 1080
         self.assertEqual(utils.CalculateVNCScreenRatio(avd_w, avd_h), 0.6)
 
-    # pylint: disable=protected-access
     def testCheckUserInGroups(self):
         """Test CheckUserInGroups."""
-        self.Patch(os, "getgroups", return_value=[1, 2, 3])
-        gr1 = mock.MagicMock()
-        gr1.gr_name = "fake_gr_1"
-        gr2 = mock.MagicMock()
-        gr2.gr_name = "fake_gr_2"
-        gr3 = mock.MagicMock()
-        gr3.gr_name = "fake_gr_3"
-        self.Patch(grp, "getgrgid", side_effect=[gr1, gr2, gr3])
+        self.Patch(getpass, "getuser", return_value="user_0")
+        self.Patch(grp, "getgrall", return_value=[
+            GroupInfo("fake_group1", "passwd_1", 0, ["user_1", "user_2"]),
+            GroupInfo("fake_group2", "passwd_2", 1, ["user_1", "user_2"])])
+        self.Patch(grp, "getgrnam", return_value=GroupInfo(
+            "fake_group1", "passwd_1", 0, ["user_1", "user_2"]))
+        # Test Group name doesn't exist.
+        self.assertFalse(utils.CheckUserInGroups(["Non_exist_group"]))
 
-        # User in all required groups should return true.
-        self.assertTrue(
-            utils.CheckUserInGroups(
-                ["fake_gr_1", "fake_gr_2"]))
+        # Test User isn't in group.
+        self.assertFalse(utils.CheckUserInGroups(["fake_group1"]))
 
-        # User not in all required groups should return False.
-        self.Patch(grp, "getgrgid", side_effect=[gr1, gr2, gr3])
-        self.assertFalse(
-            utils.CheckUserInGroups(
-                ["fake_gr_1", "fake_gr_4"]))
+        # Test User is in group.
+        self.Patch(getpass, "getuser", return_value="user_1")
+        self.assertTrue(utils.CheckUserInGroups(["fake_group1"]))
 
     @mock.patch.object(utils, "CheckUserInGroups")
     def testAddUserGroupsToCmd(self, mock_user_group):
@@ -382,7 +386,7 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
 
     # pylint: disable=protected-access,no-member
     def testExtraArgsSSHTunnel(self):
-        """Tesg extra args will be the same with expanded args."""
+        """Test extra args will be the same with expanded args."""
         fake_ip_addr = "1.1.1.1"
         fake_rsa_key_file = "/tmp/rsa_file"
         fake_target_vnc_port = 8888
@@ -403,13 +407,51 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         args_list = ["-i", "/tmp/rsa_file",
                      "-o", "UserKnownHostsFile=/dev/null",
                      "-o", "StrictHostKeyChecking=no",
-                     "-L", "12345:127.0.0.1:8888",
                      "-L", "12345:127.0.0.1:9999",
+                     "-L", "12345:127.0.0.1:8888",
                      "-N", "-f", "-l", "fake_user", "1.1.1.1",
                      "-o", "command=shell %s %h",
                      "-o", "command1=ls -la"]
         first_call_args = utils._ExecuteCommand.call_args_list[0][0]
         self.assertEqual(first_call_args[1], args_list)
+
+    # pylint: disable=protected-access,no-member
+    def testEstablishWebRTCSshTunnel(self):
+        """Test establish WebRTC ssh tunnel."""
+        fake_ip_addr = "1.1.1.1"
+        fake_rsa_key_file = "/tmp/rsa_file"
+        ssh_user = "fake_user"
+        self.Patch(utils, "ReleasePort")
+        self.Patch(utils, "_ExecuteCommand")
+        self.Patch(subprocess, "check_call", return_value=True)
+        extra_args_ssh_tunnel = "-o command='shell %s %h' -o command1='ls -la'"
+        utils.EstablishWebRTCSshTunnel(
+            ip_addr=fake_ip_addr, rsa_key_file=fake_rsa_key_file,
+            ssh_user=ssh_user, extra_args_ssh_tunnel=None)
+        args_list = ["-i", "/tmp/rsa_file",
+                     "-o", "UserKnownHostsFile=/dev/null",
+                     "-o", "StrictHostKeyChecking=no",
+                     "-L", "8443:127.0.0.1:8443",
+                     "-L", "15550:127.0.0.1:15550",
+                     "-L", "15551:127.0.0.1:15551",
+                     "-N", "-f", "-l", "fake_user", "1.1.1.1"]
+        first_call_args = utils._ExecuteCommand.call_args_list[0][0]
+        self.assertEqual(first_call_args[1], args_list)
+
+        extra_args_ssh_tunnel = "-o command='shell %s %h'"
+        utils.EstablishWebRTCSshTunnel(
+            ip_addr=fake_ip_addr, rsa_key_file=fake_rsa_key_file,
+            ssh_user=ssh_user, extra_args_ssh_tunnel=extra_args_ssh_tunnel)
+        args_list_with_extra_args = ["-i", "/tmp/rsa_file",
+                                     "-o", "UserKnownHostsFile=/dev/null",
+                                     "-o", "StrictHostKeyChecking=no",
+                                     "-L", "8443:127.0.0.1:8443",
+                                     "-L", "15550:127.0.0.1:15550",
+                                     "-L", "15551:127.0.0.1:15551",
+                                     "-N", "-f", "-l", "fake_user", "1.1.1.1",
+                                     "-o", "command=shell %s %h"]
+        first_call_args = utils._ExecuteCommand.call_args_list[1][0]
+        self.assertEqual(first_call_args[1], args_list_with_extra_args)
 
     # pylint: disable=protected-access, no-member
     def testCleanupSSVncviwer(self):
@@ -426,6 +468,51 @@ class UtilsTest(driver_test_lib.BaseDriverTest):
         self.Patch(utils, "IsCommandRunning", return_value=False)
         utils.CleanupSSVncviewer(fake_vnc_port)
         subprocess.check_call.assert_not_called()
+
+    def testLaunchBrowserFromReport(self):
+        """test launch browser from report."""
+        self.Patch(webbrowser, "open_new_tab")
+        fake_report = mock.MagicMock(data={})
+
+        # test remote instance
+        self.Patch(os.environ, "get", return_value=True)
+        fake_report.data = {
+            "devices": [{"instance_name": "remote_cf_instance_name",
+                         "ip": "192.168.1.1",},],}
+
+        utils.LaunchBrowserFromReport(fake_report)
+        webbrowser.open_new_tab.assert_called_once_with("https://localhost:8443")
+        webbrowser.open_new_tab.call_count = 0
+
+        # test local instance
+        fake_report.data = {
+            "devices": [{"instance_name": "local-instance1",
+                         "ip": "127.0.0.1:6250",},],}
+        utils.LaunchBrowserFromReport(fake_report)
+        webbrowser.open_new_tab.assert_called_once_with("https://localhost:8443")
+        webbrowser.open_new_tab.call_count = 0
+
+        # verify terminal can't support launch webbrowser.
+        self.Patch(os.environ, "get", return_value=False)
+        utils.LaunchBrowserFromReport(fake_report)
+        self.assertEqual(webbrowser.open_new_tab.call_count, 0)
+
+    def testSetExecutable(self):
+        """test setting a file to be executable."""
+        with tempfile.NamedTemporaryFile(delete=True) as temp_file:
+            utils.SetExecutable(temp_file.name)
+            self.assertEqual(os.stat(temp_file.name).st_mode & 0o777, 0o755)
+
+    def testSetDirectoryTreeExecutable(self):
+        """test setting a file in a directory to be executable."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            subdir = os.path.join(temp_dir, "subdir")
+            file_path = os.path.join(subdir, "file")
+            os.makedirs(subdir)
+            with open(file_path, "w"):
+                pass
+            utils.SetDirectoryTreeExecutable(temp_dir)
+            self.assertEqual(os.stat(file_path).st_mode & 0o777, 0o755)
 
 
 if __name__ == "__main__":

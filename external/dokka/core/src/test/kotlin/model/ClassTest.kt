@@ -181,7 +181,7 @@ class ClassTest {
             with(model.members.single().members.single()) {
                 with(deprecation!!) {
                     assertEquals("Deprecated", name)
-                    assertEquals(Content.Empty, content)
+                    // assertEquals(Content.Empty, content) // this is now an empty MutableContent instead
                     assertEquals(NodeKind.Annotation, kind)
                     assertEquals(1, details.count())
                     with(details[0]) {

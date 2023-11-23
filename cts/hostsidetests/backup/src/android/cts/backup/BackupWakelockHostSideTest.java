@@ -27,6 +27,7 @@ import static org.junit.Assume.assumeTrue;
 import android.platform.test.annotations.AppModeFull;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.After;
@@ -58,18 +59,12 @@ public class BackupWakelockHostSideTest extends BaseBackupHostSideTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-
-        assumeTrue("Backup feature not supported", mIsBackupSupported);
-
         installPackage(KEY_VALUE_RESTORE_APP_APK);
         clearPackageData(KEY_VALUE_RESTORE_APP_PACKAGE);
     }
 
     @After
-    @Override
     public void tearDown() throws Exception {
-        super.tearDown();
-
         clearBackupDataInLocalTransport(KEY_VALUE_RESTORE_APP_PACKAGE);
         assertNull(uninstallPackage(KEY_VALUE_RESTORE_APP_PACKAGE));
     }

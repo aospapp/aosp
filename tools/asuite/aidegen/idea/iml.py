@@ -173,27 +173,42 @@ class IMLGenerator:
     def _generate_srcs(self):
         """Generates the source urls of the project's iml file."""
         srcs = []
-        for src in self._mod_info[constant.KEY_SRCS]:
+        framework_srcs = []
+        for src in self._mod_info.get(constant.KEY_SRCS, []):
+            if constant.FRAMEWORK_PATH in src:
+                framework_srcs.append(templates.SOURCE.format(
+                    SRC=os.path.join(self._android_root, src),
+                    IS_TEST='false'))
+                continue
             srcs.append(templates.SOURCE.format(
                 SRC=os.path.join(self._android_root, src),
                 IS_TEST='false'))
-        for test in self._mod_info[constant.KEY_TESTS]:
+        for test in self._mod_info.get(constant.KEY_TESTS, []):
+            if constant.FRAMEWORK_PATH in test:
+                framework_srcs.append(templates.SOURCE.format(
+                    SRC=os.path.join(self._android_root, test),
+                    IS_TEST='true'))
+                continue
             srcs.append(templates.SOURCE.format(
                 SRC=os.path.join(self._android_root, test),
                 IS_TEST='true'))
         self._excludes = self._mod_info.get(constant.KEY_EXCLUDES, '')
+
+        #For sovling duplicate package name, frameworks/base will be higher
+        #priority.
+        srcs = sorted(framework_srcs) + sorted(srcs)
         self._srcs = templates.CONTENT.format(MODULE_PATH=self._mod_path,
                                               EXCLUDES=self._excludes,
-                                              SOURCES=''.join(sorted(srcs)))
+                                              SOURCES=''.join(srcs))
 
     def _generate_dep_srcs(self):
         """Generates the source urls of the dependencies.iml."""
         srcs = []
-        for src in self._mod_info[constant.KEY_SRCS]:
+        for src in self._mod_info.get(constant.KEY_SRCS, []):
             srcs.append(templates.OTHER_SOURCE.format(
                 SRC=os.path.join(self._android_root, src),
                 IS_TEST='false'))
-        for test in self._mod_info[constant.KEY_TESTS]:
+        for test in self._mod_info.get(constant.KEY_TESTS, []):
             srcs.append(templates.OTHER_SOURCE.format(
                 SRC=os.path.join(self._android_root, test),
                 IS_TEST='true'))
@@ -201,19 +216,19 @@ class IMLGenerator:
 
     def _generate_jars(self):
         """Generates the jar urls."""
-        for jar in self._mod_info[constant.KEY_JARS]:
+        for jar in self._mod_info.get(constant.KEY_JARS, []):
             self._jars.append(templates.JAR.format(
                 JAR=os.path.join(self._android_root, jar)))
 
     def _generate_srcjars(self):
         """Generates the srcjar urls."""
-        for srcjar in self._mod_info[constant.KEY_SRCJARS]:
+        for srcjar in self._mod_info.get(constant.KEY_SRCJARS, []):
             self._srcjars.append(templates.SRCJAR.format(
                 SRCJAR=os.path.join(self._android_root, srcjar)))
 
     def _generate_dependencies(self):
         """Generates the dependency module urls."""
-        for dep in self._mod_info[constant.KEY_DEPENDENCIES]:
+        for dep in self._mod_info.get(constant.KEY_DEPENDENCIES, []):
             self._deps.append(templates.DEPENDENCIES.format(MODULE=dep))
 
     def _create_iml(self):

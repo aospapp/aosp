@@ -65,13 +65,18 @@ public class PropagationTest extends BaseTransitionTest {
         mTransition.setEpicenterCallback(new Transition.EpicenterCallback() {
             @Override
             public Rect onGetEpicenter(Transition transition) {
-                return new Rect(0, 0, redValues.view.getWidth(), redValues.view.getHeight());
+                final int[] offset = new int[2];
+                redValues.view.getLocationOnScreen(offset);
+
+                return new Rect(
+                    offset[0], offset[1],
+                    offset[0] + redValues.view.getWidth(), offset[1] + redValues.view.getHeight());
             }
         });
 
         long redDelay = getDelay(R.id.redSquare);
-        // red square's delay should be roughly 0 since it is at the epicenter
-        assertEquals(0f, redDelay, 30f);
+        // red square's delay should be 0 since it is at the epicenter
+        assertEquals(0, redDelay);
 
         // The green square is on the upper-right
         long greenDelay = getDelay(R.id.greenSquare);

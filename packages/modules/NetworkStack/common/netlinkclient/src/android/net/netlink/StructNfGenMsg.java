@@ -16,7 +16,12 @@
 
 package android.net.netlink;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
+
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Objects;
 
 
 /**
@@ -35,6 +40,36 @@ public class StructNfGenMsg {
     final public byte version;
     final public short res_id;  // N.B.: this is big endian in the kernel
 
+    /**
+     * Parses a netfilter netlink header from a {@link ByteBuffer}.
+     *
+     * @param byteBuffer The buffer from which to parse the netfilter netlink header.
+     * @return the parsed netfilter netlink header, or {@code null} if the netfilter netlink header
+     *         could not be parsed successfully (for example, if it was truncated).
+     */
+    @Nullable
+    public static StructNfGenMsg parse(@NonNull ByteBuffer byteBuffer) {
+        Objects.requireNonNull(byteBuffer);
+
+        if (!hasAvailableSpace(byteBuffer)) return null;
+
+        final byte nfgen_family = byteBuffer.get();
+        final byte version = byteBuffer.get();
+
+        final ByteOrder originalOrder = byteBuffer.order();
+        byteBuffer.order(ByteOrder.BIG_ENDIAN);
+        final short res_id = byteBuffer.getShort();
+        byteBuffer.order(originalOrder);
+
+        return new StructNfGenMsg(nfgen_family, version, res_id);
+    }
+
+    public StructNfGenMsg(byte family, byte ver, short id) {
+        nfgen_family = family;
+        version = ver;
+        res_id = id;
+    }
+
     public StructNfGenMsg(byte family) {
         nfgen_family = family;
         version = (byte) NFNETLINK_V0;
@@ -44,6 +79,25 @@ public class StructNfGenMsg {
     public void pack(ByteBuffer byteBuffer) {
         byteBuffer.put(nfgen_family);
         byteBuffer.put(version);
+
+        final ByteOrder originalOrder = byteBuffer.order();
+        byteBuffer.order(ByteOrder.BIG_ENDIAN);
         byteBuffer.putShort(res_id);
+        byteBuffer.order(originalOrder);
+    }
+
+    private static boolean hasAvailableSpace(@NonNull ByteBuffer byteBuffer) {
+        return byteBuffer.remaining() >= STRUCT_SIZE;
+    }
+
+    @Override
+    public String toString() {
+        final String familyStr = NetlinkConstants.stringForAddressFamily(nfgen_family);
+
+        return "NfGenMsg{ "
+                + "nfgen_family{" + familyStr + "}, "
+                + "version{" + Byte.toUnsignedInt(version) + "}, "
+                + "res_id{" + Short.toUnsignedInt(res_id) + "} "
+                + "}";
     }
 }

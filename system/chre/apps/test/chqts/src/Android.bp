@@ -18,17 +18,26 @@
 // code here, it seems a long-term time saver to have Linux tests for
 // what we can easily test.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_chre_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_chre_license"],
+}
+
 cc_test_host {
     name: "nanoapp_chqts_shared_tests",
 
     srcs: [
         // Files under test
-        "shared/dumb_allocator.cc",
+        "shared/chunk_allocator.cc",
         "shared/nano_endian.cc",
         "shared/nano_string.cc",
 
         // Testing source
-        "shared/dumb_allocator_test.cc",
+        "shared/chunk_allocator_test.cc",
         "shared/nano_endian_be_test.cc",
         "shared/nano_endian_le_test.cc",
         "shared/nano_endian_test.cc",

@@ -57,7 +57,8 @@ template <typename T, typename = void>
 struct IsFlagEnum : std::false_type {};
 
 template <typename T>
-struct IsFlagEnum<T, Void<typename FlagEnumTraits<T>::EnumFlagType>> : std::true_type {};
+struct IsFlagEnum<T, Void<typename FlagEnumTraits<T>::EnumFlagType>>
+    : std::true_type {};
 
 }  // namespace enum_details
 
@@ -68,7 +69,8 @@ struct IsFlagEnum<T, Void<typename FlagEnumTraits<T>::EnumFlagType>> : std::true
 template <typename T>
 constexpr typename std::enable_if<enum_details::IsFlagEnum<T>::value, T>::type
 operator~(const T& l) {
-  return static_cast<T>( ~static_cast<typename std::underlying_type<T>::type>(l));
+  return static_cast<T>(
+      ~static_cast<typename std::underlying_type<T>::type>(l));
 }
 
 // T operator|(T&, T&)
@@ -91,37 +93,37 @@ operator&(const T& l, const T& r) {
 
 // T operator^(T&, T&)
 template <typename T>
-constexpr typename std::enable_if<enum_details::IsFlagEnum<T>::value, T>::type operator^(
-    const T& l, const T& r) {
+constexpr typename std::enable_if<enum_details::IsFlagEnum<T>::value, T>::type
+operator^(const T& l, const T& r) {
   return static_cast<T>(static_cast<typename std::underlying_type<T>::type>(l) ^
                         static_cast<typename std::underlying_type<T>::type>(r));
-};
+}
 
 // T operator|=(T&, T&)
 template <typename T>
-constexpr typename std::enable_if<enum_details::IsFlagEnum<T>::value, T>::type operator|=(
-    T& l, const T& r) {
+constexpr typename std::enable_if<enum_details::IsFlagEnum<T>::value, T>::type
+operator|=(T& l, const T& r) {
   return l = static_cast<T>(
              static_cast<typename std::underlying_type<T>::type>(l) |
              static_cast<typename std::underlying_type<T>::type>(r));
-};
+}
 
 // T operator&=(T&, T&)
 template <typename T>
-constexpr typename std::enable_if<enum_details::IsFlagEnum<T>::value, T>::type operator&=(
-    T& l, const T& r) {
+constexpr typename std::enable_if<enum_details::IsFlagEnum<T>::value, T>::type
+operator&=(T& l, const T& r) {
   return l = static_cast<T>(
              static_cast<typename std::underlying_type<T>::type>(l) &
              static_cast<typename std::underlying_type<T>::type>(r));
-};
+}
 
 // T operator^=(T&, T&)
 template <typename T>
-constexpr typename std::enable_if<enum_details::IsFlagEnum<T>::value, T>::type operator^=(
-    T& l, const T& r) {
+constexpr typename std::enable_if<enum_details::IsFlagEnum<T>::value, T>::type
+operator^=(T& l, const T& r) {
   return l = static_cast<T>(
              static_cast<typename std::underlying_type<T>::type>(l) ^
              static_cast<typename std::underlying_type<T>::type>(r));
-};
+}
 
 #endif  // LIBBRILLO_BRILLO_ENUM_FLAGS_H_

@@ -22,6 +22,7 @@ import static java.util.Collections.EMPTY_SET;
 import android.telephony.CellIdentity;
 import android.telephony.CellIdentityCdma;
 import android.telephony.CellIdentityGsm;
+import android.telephony.CellIdentityLte;
 import android.telephony.CellIdentityNr;
 import android.telephony.CellIdentityTdscdma;
 import android.telephony.CellIdentityWcdma;
@@ -97,14 +98,48 @@ public class CellIdentityTest {
     }
 
     @Test
-    public void testCellIdentityNr_asCellLocation() {
-        CellIdentity cellIdentity =
-                new CellIdentityNr(123, 456, 789, null, null, null, 0, null, null, EMPTY_SET);
+    public void testCellIdentityLte_asCellLocation() {
+        int tac = 1;
+        int ci = 2;
+        CellIdentity cellIdentity = new CellIdentityLte(123, 456, ci, 7, tac);
 
         CellLocation cellLocation = cellIdentity.asCellLocation();
 
         GsmCellLocation gsmCellLocation = (GsmCellLocation) cellLocation;
-        assertEquals(new GsmCellLocation(), gsmCellLocation);
+        assertEquals(tac, gsmCellLocation.getLac());
+        assertEquals(ci, gsmCellLocation.getCid());
+        // psc is not supported in LTE so always 0
+        assertEquals(0, gsmCellLocation.getPsc());
+    }
+
+    @Test
+    public void testCellIdentityLte_unavailable_asCellLocation() {
+        CellIdentity cellIdentity = new CellIdentityLte();
+
+        CellLocation cellLocation = cellIdentity.asCellLocation();
+
+        GsmCellLocation gsmCellLocation = (GsmCellLocation) cellLocation;
+        // -1 for unintialized lac and cid
+        assertEquals(-1, gsmCellLocation.getLac());
+        assertEquals(-1, gsmCellLocation.getCid());
+        // psc is not supported in LTE so always 0
+        assertEquals(0, gsmCellLocation.getPsc());
+    }
+
+    @Test
+    public void testCellIdentityNr_asCellLocation() {
+        int tac = 1;
+        CellIdentity cellIdentity =
+                new CellIdentityNr(123, tac, 789, null, null, null, 321, null, null, EMPTY_SET);
+
+        CellLocation cellLocation = cellIdentity.asCellLocation();
+
+        GsmCellLocation gsmCellLocation = (GsmCellLocation) cellLocation;
+        assertEquals(tac, gsmCellLocation.getLac());
+        // NR cid is 36 bits and can't fit into the 32-bit cid in GsmCellLocation, so always -1.
+        assertEquals(-1, gsmCellLocation.getCid());
+        // psc is not supported in NR so always 0, same as in LTE
+        assertEquals(0, gsmCellLocation.getPsc());
     }
 
     @Test

@@ -20,6 +20,7 @@ import ctypes
 import ctypes.util
 import os
 import socket
+import sys
 
 import net_test
 import sock_diag
@@ -112,10 +113,10 @@ def UnShare(flags):
 
 
 def DumpMounts(hdr):
-  print
-  print hdr
-  print open('/proc/mounts', 'r').read(),
-  print '---'
+  print('')
+  print(hdr)
+  sys.stdout.write(open('/proc/mounts', 'r').read())
+  print('---')
 
 
 # Requires at least kernel configuration options:
@@ -125,12 +126,12 @@ def DumpMounts(hdr):
 def IfPossibleEnterNewNetworkNamespace():
   """Instantiate and transition into a fresh new network namespace if possible."""
 
-  print 'Creating clean namespace...',
+  sys.stdout.write('Creating clean namespace... ')
 
   try:
     UnShare(CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWNET)
   except OSError as err:
-    print 'failed: %s (likely: no privs or lack of kernel support).' % err
+    print('failed: %s (likely: no privs or lack of kernel support).' % err)
     return False
 
   try:
@@ -143,11 +144,11 @@ def IfPossibleEnterNewNetworkNamespace():
     SetFileContents('/proc/sys/net/ipv4/ping_group_range', '0 2147483647')
     net_test.SetInterfaceUp('lo')
   except:
-    print 'failed.'
+    print('failed.')
     # We've already transitioned into the new netns -- it's too late to recover.
     raise
 
-  print 'succeeded.'
+  print('succeeded.')
   return True
 
 

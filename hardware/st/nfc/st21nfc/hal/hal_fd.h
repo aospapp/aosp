@@ -33,6 +33,8 @@ typedef struct FWInfo {
   uint32_t loaderVersion;
   uint16_t custVersion;
   uint16_t confVersion;
+  uint16_t uwbFwVersion;
+  uint16_t uwbVersion;
   bool hibernate_exited;
 } FWInfo;
 
@@ -52,9 +54,11 @@ typedef enum {
 
 #define FW_PATCH_AVAILABLE 1
 #define FW_CUSTOM_PARAM_AVAILABLE 2
+#define FW_UWB_PARAM_AVAILABLE 4
 
 #define FW_UPDATE_NEEDED 1
 #define CONF_UPDATE_NEEDED 2
+#define UWB_CONF_UPDATE_NEEDED 4
 
 #define MAX_BUFFER_SIZE 300
 
@@ -67,5 +71,8 @@ void ExitHibernateHandler(HALHANDLE mHalHandle, uint16_t data_len,
 void UpdateHandler(HALHANDLE mHalHandle, uint16_t data_len, uint8_t* p_data);
 void ApplyCustomParamHandler(HALHANDLE mHalHandle, uint16_t data_len,
                              uint8_t* p_data);
+void ApplyUwbParamHandler(HALHANDLE mHalHandle, uint16_t data_len,
+                             uint8_t* p_data);
 void resetHandlerState();
+bool ft_CheckUWBConf() ;
 #endif /* HAL_FD_H_ */

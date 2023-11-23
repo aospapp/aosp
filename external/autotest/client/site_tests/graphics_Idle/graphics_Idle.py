@@ -226,6 +226,7 @@ class graphics_Idle(graphics_utils.GraphicsTest):
         mt8173_node = '/sys/devices/soc/13000000.mfgsys-gpu/'
         mt8173_419_node = '/sys/devices/platform/soc/13000000.mfgsys-gpu/'
         mt8183_node = '/sys/devices/platform/soc/13040000.mali/'
+        mt8192_node = '/sys/devices/platform/soc/13000000.mali/'
 
         if self._cpu_type == 'exynos5':
             if os.path.isdir(exynos_node):
@@ -260,6 +261,9 @@ class graphics_Idle(graphics_utils.GraphicsTest):
                 use_devfreq = True
             elif os.path.isdir(mt8183_node):
                 node = mt8183_node
+                use_devfreq = True
+            elif os.path.isdir(mt8192_node):
+                node = mt8192_node
                 use_devfreq = True
             else:
                 logging.error('Error: unknown mediatek SoC.')

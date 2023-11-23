@@ -89,8 +89,11 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
             Arrays.asList(1, 0, 1, 0, 1, 0, 0, 0, 0);
     private static final java.util.Collection<Integer> CONFIG_ARRAY_2 =
             Arrays.asList(1, 1, 1, 0, 0, 0, 0, 2, 0);
+    private static final java.util.Collection<Integer> CONFIG_ARRAY_3 =
+            Arrays.asList(0, 1, 1, 0, 0, 0, 1, 0, 0);
     private static final Object[] EXPECTED_VALUE_1 = {"android", 1, 1L};
     private static final Object[] EXPECTED_VALUE_2 = {"android", true, 3, 1.1f, 2f};
+    private static final Object[] EXPECTED_VALUE_3 = {true, 1, 2.2f};
 
     private static final int CUSTOM_SEAT_INT_PROP_1 =
             0x1201 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.INT32 | VehicleArea.SEAT;
@@ -101,11 +104,30 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
             0x1101 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.MIXED | VehicleArea.SEAT;
     private static final int CUSTOM_GLOBAL_MIXED_PROP_ID_2 =
             0x1102 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.MIXED | VehicleArea.GLOBAL;
+    private static final int CUSTOM_GLOBAL_MIXED_PROP_ID_3 =
+            0x1110 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.MIXED | VehicleArea.GLOBAL;
 
     private static final int CUSTOM_GLOBAL_INT_ARRAY_PROP =
             0x1103 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.INT32_VEC
                     | VehicleArea.GLOBAL;
     private static final Integer[] FAKE_INT_ARRAY_VALUE = {1, 2};
+
+    private static final int INT_ARRAY_PROP_STATUS_ERROR =
+            0x1104 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.INT32_VEC
+                    | VehicleArea.GLOBAL;
+
+    private static final int BOOLEAN_PROP_STATUS_ERROR =
+            0x1105 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.BOOLEAN
+                    | VehicleArea.GLOBAL;
+    private static final boolean FAKE_BOOLEAN_PROPERTY_VALUE = true;
+    private static final int FLOAT_PROP_STATUS_UNAVAILABLE =
+            0x1106 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.FLOAT
+                    | VehicleArea.GLOBAL;
+    private static final float FAKE_FLOAT_PROPERTY_VALUE = 3f;
+    private static final int INT_PROP_STATUS_UNAVAILABLE =
+            0x1107 | VehiclePropertyGroup.VENDOR | VehiclePropertyType.INT32
+                    | VehicleArea.GLOBAL;
+    private static final int FAKE_INT_PROPERTY_VALUE = 3;
 
     // Vendor properties for testing exceptions.
     private static final int PROP_CAUSE_STATUS_CODE_TRY_AGAIN =
@@ -129,7 +151,7 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
                                                     | VehicleAreaSeat.ROW_2_RIGHT;
     private static final float INIT_TEMP_VALUE = 16f;
     private static final float CHANGED_TEMP_VALUE = 20f;
-    private static final int CALLBACK_SHORT_TIMEOUT_MS = 250; // ms
+    private static final int CALLBACK_SHORT_TIMEOUT_MS = 350; // ms
     // Wait for CarPropertyManager register/unregister listener
     private static final long WAIT_FOR_NO_EVENTS = 50;
 
@@ -156,8 +178,10 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
     private void setUpTargetSdk() {
         if (mTestName.getMethodName().endsWith("InQ")) {
             getContext().getApplicationInfo().targetSdkVersion = Build.VERSION_CODES.Q;
-        } else if (mTestName.getMethodName().endsWith("InR")) {
+        } else if (mTestName.getMethodName().endsWith("AfterQ")) {
             getContext().getApplicationInfo().targetSdkVersion = Build.VERSION_CODES.R;
+        } else if (mTestName.getMethodName().endsWith("AfterR")) {
+            getContext().getApplicationInfo().targetSdkVersion = Build.VERSION_CODES.S;
         }
     }
 
@@ -174,6 +198,10 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
                     assertThat(cfg.getConfigArray()).containsExactlyElementsIn(CONFIG_ARRAY_2)
                             .inOrder();
                     break;
+                case CUSTOM_GLOBAL_MIXED_PROP_ID_3:
+                    assertThat(cfg.getConfigArray()).containsExactlyElementsIn(CONFIG_ARRAY_3)
+                            .inOrder();
+                    break;
                 case VehiclePropertyIds.HVAC_TEMPERATURE_SET:
                 case PROP_CAUSE_STATUS_CODE_ACCESS_DENIED:
                 case PROP_CAUSE_STATUS_CODE_INTERNAL_ERROR:
@@ -183,6 +211,10 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
                 case CUSTOM_SEAT_INT_PROP_1:
                 case CUSTOM_SEAT_INT_PROP_2:
                 case CUSTOM_GLOBAL_INT_ARRAY_PROP:
+                case INT_ARRAY_PROP_STATUS_ERROR:
+                case BOOLEAN_PROP_STATUS_ERROR:
+                case INT_PROP_STATUS_UNAVAILABLE:
+                case FLOAT_PROP_STATUS_UNAVAILABLE:
                 case VehiclePropertyIds.INFO_VIN:
                     break;
                 default:
@@ -198,11 +230,18 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
         CarPropertyValue<Object[]> result = mManager.getProperty(
                 CUSTOM_SEAT_MIXED_PROP_ID_1, 0);
         assertThat(result.getValue()).isEqualTo(EXPECTED_VALUE_1);
+
         mManager.setProperty(Object[].class, CUSTOM_GLOBAL_MIXED_PROP_ID_2,
                 0, EXPECTED_VALUE_2);
         result = mManager.getProperty(
                 CUSTOM_GLOBAL_MIXED_PROP_ID_2, 0);
         assertThat(result.getValue()).isEqualTo(EXPECTED_VALUE_2);
+
+        mManager.setProperty(Object[].class, CUSTOM_GLOBAL_MIXED_PROP_ID_3,
+                0, EXPECTED_VALUE_3);
+        result = mManager.getProperty(
+                CUSTOM_GLOBAL_MIXED_PROP_ID_3, 0);
+        assertThat(result.getValue()).isEqualTo(EXPECTED_VALUE_3);
     }
 
     /**
@@ -216,6 +255,64 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
         int[] result = mManager.getIntArrayProperty(CUSTOM_GLOBAL_INT_ARRAY_PROP,
                 VehicleArea.GLOBAL);
         assertThat(result).asList().containsExactlyElementsIn(FAKE_INT_ARRAY_VALUE);
+    }
+
+    /**
+     * Test {@link CarPropertyManager#getIntArrayProperty(int, int)} when vhal returns a value with
+     * error status.
+     */
+    @Test
+    public void testGetIntArrayPropertyWithErrorStatusAfterR() {
+        Truth.assertThat(getContext().getApplicationInfo().targetSdkVersion)
+                .isGreaterThan(Build.VERSION_CODES.R);
+        mManager.setProperty(Integer[].class, INT_ARRAY_PROP_STATUS_ERROR,
+                VehicleArea.GLOBAL, FAKE_INT_ARRAY_VALUE);
+        assertThrows(CarInternalErrorException.class,
+                () -> mManager.getIntArrayProperty(INT_ARRAY_PROP_STATUS_ERROR,
+                        VehicleArea.GLOBAL));
+    }
+
+    /**
+     * Test {@link CarPropertyManager#getIntProperty(int, int)} when vhal returns a value with
+     * unavailable status.
+     */
+    @Test
+    public void testGetIntPropertyWithUnavailableStatusAfterR() {
+        Truth.assertThat(getContext().getApplicationInfo().targetSdkVersion)
+                .isGreaterThan(Build.VERSION_CODES.R);
+        mManager.setProperty(Integer.class, INT_PROP_STATUS_UNAVAILABLE,
+                VehicleArea.GLOBAL, FAKE_INT_PROPERTY_VALUE);
+        assertThrows(PropertyNotAvailableException.class,
+                () -> mManager.getIntProperty(INT_PROP_STATUS_UNAVAILABLE, VehicleArea.GLOBAL));
+
+    }
+
+    /**
+     * Test {@link CarPropertyManager#getBooleanProperty(int, int)} when vhal returns a value with
+     * error status.
+     */
+    @Test
+    public void testGetBooleanPropertyWithErrorStatusAfterR() {
+        Truth.assertThat(getContext().getApplicationInfo().targetSdkVersion)
+                .isGreaterThan(Build.VERSION_CODES.R);
+        mManager.setProperty(Boolean.class, BOOLEAN_PROP_STATUS_ERROR,
+                VehicleArea.GLOBAL, FAKE_BOOLEAN_PROPERTY_VALUE);
+        assertThrows(CarInternalErrorException.class,
+                () -> mManager.getBooleanProperty(BOOLEAN_PROP_STATUS_ERROR, VehicleArea.GLOBAL));
+    }
+
+    /**
+     * Test {@link CarPropertyManager#getFloatProperty(int, int)} when vhal returns a value with
+     * unavailable status.
+     */
+    @Test
+    public void testGetFloatPropertyWithUnavailableStatusAfterR() {
+        Truth.assertThat(getContext().getApplicationInfo().targetSdkVersion)
+                .isGreaterThan(Build.VERSION_CODES.R);
+        mManager.setProperty(Float.class, FLOAT_PROP_STATUS_UNAVAILABLE,
+                VehicleArea.GLOBAL, FAKE_FLOAT_PROPERTY_VALUE);
+        assertThrows(PropertyNotAvailableException.class,
+                () -> mManager.getFloatProperty(FLOAT_PROP_STATUS_UNAVAILABLE, VehicleArea.GLOBAL));
     }
 
     /**
@@ -282,6 +379,17 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
                 CUSTOM_SEAT_MIXED_PROP_ID_1, VehicleAreaSeat.ROW_3_CENTER));
         assertThrows(IllegalArgumentException.class, () -> mManager.getAreaId(FAKE_PROPERTY_ID,
                 VehicleAreaSeat.ROW_1_LEFT));
+    }
+
+    @Test
+    public void testRegisterPropertyUnavailable() throws Exception {
+        TestSequenceCallback callback = new TestSequenceCallback(1);
+        // Registering a property which has an unavailable initial value
+        // won't throw ServiceSpecificException.
+        mManager.registerCallback(callback, PROP_CAUSE_STATUS_CODE_NOT_AVAILABLE,
+                CarPropertyManager.SENSOR_RATE_ONCHANGE);
+        // initial value is unavailable, should not get any callback.
+        assertThrows(IllegalStateException.class, callback::assertOnChangeEventCalled);
     }
 
     @Test
@@ -357,9 +465,9 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
     }
 
     @Test
-    public void testSetterExceptionsInR() {
+    public void testSetterExceptionsAfterQ() {
         Truth.assertThat(getContext().getApplicationInfo().targetSdkVersion)
-                .isEqualTo(Build.VERSION_CODES.R);
+                .isGreaterThan(Build.VERSION_CODES.Q);
 
         assertThrows(PropertyAccessDeniedSecurityException.class,
                 ()->mManager.setProperty(Integer.class, PROP_CAUSE_STATUS_CODE_ACCESS_DENIED,
@@ -386,38 +494,73 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
         assertThrows(IllegalStateException.class,
                 ()->mManager.getProperty(PROP_CAUSE_STATUS_CODE_ACCESS_DENIED,
                         VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+        assertThrows(IllegalStateException.class,
+                ()->mManager.getIntProperty(PROP_CAUSE_STATUS_CODE_ACCESS_DENIED,
+                        VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+
         assertThrows(IllegalArgumentException.class,
                 ()->mManager.getProperty(PROP_CAUSE_STATUS_CODE_INVALID_ARG,
                         VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+        assertThrows(IllegalArgumentException.class,
+                ()->mManager.getIntProperty(PROP_CAUSE_STATUS_CODE_INVALID_ARG,
+                        VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+
         assertThrows(IllegalStateException.class,
                 ()->mManager.getProperty(PROP_CAUSE_STATUS_CODE_NOT_AVAILABLE,
                         VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
         assertThrows(IllegalStateException.class,
+                ()->mManager.getIntProperty(PROP_CAUSE_STATUS_CODE_NOT_AVAILABLE,
+                        VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+
+        assertThrows(IllegalStateException.class,
                 ()->mManager.getProperty(PROP_CAUSE_STATUS_CODE_INTERNAL_ERROR,
                         VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+        assertThrows(IllegalStateException.class,
+                ()->mManager.getIntProperty(PROP_CAUSE_STATUS_CODE_INTERNAL_ERROR,
+                        VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+
         Truth.assertThat(mManager.getProperty(PROP_CAUSE_STATUS_CODE_TRY_AGAIN,
                 VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL)).isNull();
     }
 
     @Test
-    public void testGetterExceptionsInR() {
+    public void testGetterExceptionsAfterQ() {
         Truth.assertThat(getContext().getApplicationInfo().targetSdkVersion)
-                .isEqualTo(Build.VERSION_CODES.R);
+                .isAtLeast(Build.VERSION_CODES.R);
 
         assertThrows(PropertyAccessDeniedSecurityException.class,
                 () -> mManager.getProperty(PROP_CAUSE_STATUS_CODE_ACCESS_DENIED,
                         VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+        assertThrows(PropertyAccessDeniedSecurityException.class,
+                () -> mManager.getIntProperty(PROP_CAUSE_STATUS_CODE_ACCESS_DENIED,
+                        VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+
         assertThrows(IllegalArgumentException.class,
                 () -> mManager.getProperty(PROP_CAUSE_STATUS_CODE_INVALID_ARG,
                         VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+        assertThrows(IllegalArgumentException.class,
+                () -> mManager.getIntProperty(PROP_CAUSE_STATUS_CODE_INVALID_ARG,
+                        VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+
         assertThrows(PropertyNotAvailableAndRetryException.class,
                 () -> mManager.getProperty(PROP_CAUSE_STATUS_CODE_TRY_AGAIN,
                         VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+        assertThrows(PropertyNotAvailableAndRetryException.class,
+                () -> mManager.getIntProperty(PROP_CAUSE_STATUS_CODE_TRY_AGAIN,
+                        VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+
         assertThrows(PropertyNotAvailableException.class,
                 () -> mManager.getProperty(PROP_CAUSE_STATUS_CODE_NOT_AVAILABLE,
                         VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+        assertThrows(PropertyNotAvailableException.class,
+                () -> mManager.getIntProperty(PROP_CAUSE_STATUS_CODE_NOT_AVAILABLE,
+                        VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+
         assertThrows(CarInternalErrorException.class,
                 () -> mManager.getProperty(PROP_CAUSE_STATUS_CODE_INTERNAL_ERROR,
+                        VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
+        assertThrows(CarInternalErrorException.class,
+                () -> mManager.getIntProperty(PROP_CAUSE_STATUS_CODE_INTERNAL_ERROR,
                         VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL));
     }
 
@@ -597,7 +740,13 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
         addProperty(CUSTOM_SEAT_MIXED_PROP_ID_1, handler).setConfigArray(CONFIG_ARRAY_1)
                 .addAreaConfig(DRIVER_SIDE_AREA_ID).addAreaConfig(PASSENGER_SIDE_AREA_ID);
         addProperty(CUSTOM_GLOBAL_MIXED_PROP_ID_2, handler).setConfigArray(CONFIG_ARRAY_2);
+        addProperty(CUSTOM_GLOBAL_MIXED_PROP_ID_3, handler).setConfigArray(CONFIG_ARRAY_3);
         addProperty(CUSTOM_GLOBAL_INT_ARRAY_PROP, handler);
+
+        addProperty(INT_ARRAY_PROP_STATUS_ERROR, handler);
+        addProperty(INT_PROP_STATUS_UNAVAILABLE, handler);
+        addProperty(FLOAT_PROP_STATUS_UNAVAILABLE, handler);
+        addProperty(BOOLEAN_PROP_STATUS_ERROR, handler);
 
         VehiclePropValue tempValue = new VehiclePropValue();
         tempValue.value.floatValues.add(INIT_TEMP_VALUE);
@@ -623,7 +772,7 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
         @Override
         public synchronized void onPropertySet(VehiclePropValue value) {
             // Simulate HalClient.set() behavior.
-            int statusCode = mapPropertyToStatusCode(value.prop);
+            int statusCode = mapPropertyToVhalStatusCode(value.prop);
             if (statusCode == VehicleHalStatusCode.STATUS_INVALID_ARG) {
                 throw new IllegalArgumentException();
             }
@@ -638,17 +787,23 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
         @Override
         public synchronized VehiclePropValue onPropertyGet(VehiclePropValue value) {
             // Simulate HalClient.get() behavior.
-            int statusCode = mapPropertyToStatusCode(value.prop);
-            if (statusCode == VehicleHalStatusCode.STATUS_INVALID_ARG) {
+            int vhalStatusCode = mapPropertyToVhalStatusCode(value.prop);
+            if (vhalStatusCode == VehicleHalStatusCode.STATUS_INVALID_ARG) {
                 throw new IllegalArgumentException();
             }
 
-            if (statusCode != VehicleHalStatusCode.STATUS_OK) {
-                throw new ServiceSpecificException(statusCode);
+            if (vhalStatusCode != VehicleHalStatusCode.STATUS_OK) {
+                throw new ServiceSpecificException(vhalStatusCode);
             }
 
+            int propertyStatus = mapPropertyToCarPropertyStatusCode(value.prop);
             VehiclePropValue currentValue = mMap.get(value.prop);
-            return currentValue != null ? currentValue : value;
+            if (currentValue == null) {
+                return value;
+            } else {
+                currentValue.status = propertyStatus;
+            }
+            return currentValue;
         }
 
         @Override
@@ -667,7 +822,7 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
         return VehiclePropertyIds.toString(propertyId) + " (" + propertyId + ")";
     }
 
-    private static int mapPropertyToStatusCode(int propId) {
+    private static int mapPropertyToVhalStatusCode(int propId) {
         switch (propId) {
             case PROP_CAUSE_STATUS_CODE_TRY_AGAIN:
                 return VehicleHalStatusCode.STATUS_TRY_AGAIN;
@@ -681,6 +836,19 @@ public class CarPropertyManagerTest extends MockedCarTestBase {
                 return VehicleHalStatusCode.STATUS_INTERNAL_ERROR;
             default:
                 return VehicleHalStatusCode.STATUS_OK;
+        }
+    }
+
+    private static int mapPropertyToCarPropertyStatusCode(int propId) {
+        switch (propId) {
+            case INT_ARRAY_PROP_STATUS_ERROR:
+            case BOOLEAN_PROP_STATUS_ERROR:
+                return CarPropertyValue.STATUS_ERROR;
+            case INT_PROP_STATUS_UNAVAILABLE:
+            case FLOAT_PROP_STATUS_UNAVAILABLE:
+                return CarPropertyValue.STATUS_UNAVAILABLE;
+            default:
+                return CarPropertyValue.STATUS_AVAILABLE;
         }
     }
 

@@ -27,11 +27,67 @@
 // included in the bootclasspath, they could incorrectly be included in the SDK documentation even
 // though they are not in the current.txt files.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+java_library {
+  name: "net-utils-device-common",
+  srcs: [
+      "device/com/android/net/module/util/**/*.java",
+      // This library is used by system modules, for which the system health impact of Kotlin
+      // has not yet been evaluated. Annotations may need jarjar'ing.
+      // "src_devicecommon/**/*.kt",
+      ":framework-annotations",
+  ],
+  sdk_version: "system_current",
+  min_sdk_version: "29",
+  target_sdk_version: "30",
+  apex_available: [
+      "//apex_available:anyapex",
+      "//apex_available:platform",
+  ],
+  visibility: [
+        "//frameworks/base/packages/Tethering",
+        "//packages/modules/Connectivity:__subpackages__",
+        "//packages/modules/Connectivity/framework:__subpackages__",
+        "//frameworks/opt/net/ike",
+        "//frameworks/opt/net/wifi/service",
+        "//packages/modules/Wifi/service",
+        "//frameworks/opt/net/telephony",
+        "//packages/modules/NetworkStack:__subpackages__",
+        "//packages/modules/CaptivePortalLogin",
+        "//frameworks/libs/net/common/tests:__subpackages__",
+        "//frameworks/libs/net/common/testutils:__subpackages__",
+  ],
+  static_libs: [
+      "net-utils-framework-common",
+  ],
+  libs: [
+      "androidx.annotation_annotation",
+  ],
+}
+
+java_defaults {
+    name: "lib_mockito_extended",
+    static_libs: [
+        "mockito-target-extended-minus-junit4"
+    ],
+    jni_libs: [
+        "libdexmakerjvmtiagent",
+        "libstaticjvmtiagent",
+    ],
+}
+
 filegroup {
     name: "net-utils-framework-common-srcs",
-    srcs: ["src_frameworkcommon/**/*.java"],
-    path: "src_frameworkcommon",
-    visibility: ["//frameworks/base"],
+    srcs: ["framework/**/*.java"],
+    path: "framework",
+    visibility: [
+        "//frameworks/base",
+        "//packages/modules/Connectivity:__subpackages__",
+        "//frameworks/base/packages/Connectivity/framework",
+    ],
 }
 
 java_library {
@@ -46,29 +102,49 @@ java_library {
     jarjar_rules: "jarjar-rules-shared.txt",
     visibility: [
         "//cts/tests/tests/net",
+        "//cts/tests/tests/wifi",
+        "//packages/modules/Connectivity/tests/cts/net",
         "//frameworks/base/packages/Tethering",
+        "//packages/modules/Connectivity/Tethering",
+        "//frameworks/base/tests:__subpackages__",
         "//frameworks/opt/net/ike",
         "//frameworks/opt/telephony",
-        "//packages/modules/NetworkStack",
+        "//frameworks/base/wifi:__subpackages__",
+        "//frameworks/base/packages/Connectivity:__subpackages__",
+        "//packages/modules/Connectivity:__subpackages__",
+        "//packages/modules/NetworkStack:__subpackages__",
         "//packages/modules/CaptivePortalLogin",
         "//frameworks/libs/net/common/tests:__subpackages__",
-    ]
+        "//frameworks/libs/net/common/device",
+        "//packages/modules/Wifi/framework/tests:__subpackages__",
+    ],
+}
+filegroup {
+    name: "net-utils-services-common-srcs",
+    srcs: [
+        "device/android/net/NetworkFactory.java",
+        "device/android/net/NetworkFactoryImpl.java",
+        "device/android/net/NetworkFactoryLegacyImpl.java",
+        "device/android/net/NetworkFactoryShim.java",
+    ],
+    visibility: [
+        "//frameworks/base/services/net",
+    ],
 }
 
 java_library {
     name: "net-utils-services-common",
     srcs: [
-        "src_servicescommon/**/*.java",
+        ":net-utils-services-common-srcs",
         ":framework-annotations",
     ],
     sdk_version: "system_current",
+    min_sdk_version: "30",
+    static_libs: [
+        "modules-utils-build_system",
+    ],
     visibility: [
         "//frameworks/base/services/net",
-        "//frameworks/base/packages/Tethering",
-        "//frameworks/opt/net/ike",
-        "//packages/modules/NetworkStack",
-        "//packages/modules/CaptivePortalLogin",
-        "//frameworks/libs/net/common/tests:__subpackages__",
     ],
 }
 
@@ -78,9 +154,12 @@ filegroup {
     name: "net-utils-telephony-common-srcs",
     srcs: [
         // Any class here *must* have a corresponding jarjar rule in the telephony build rules.
-        "src_servicescommon/android/net/NetworkFactory.java",
+        "device/android/net/NetworkFactory.java",
+        "device/android/net/NetworkFactoryImpl.java",
+        "device/android/net/NetworkFactoryLegacyImpl.java",
+        "device/android/net/NetworkFactoryShim.java",
     ],
-    path: "src_servicescommon",
+    path: "device",
     visibility: [
         "//frameworks/opt/telephony",
     ],
@@ -92,11 +171,9 @@ filegroup {
 filegroup {
     name: "net-utils-framework-wifi-common-srcs",
     srcs: [
-        "src_frameworkcommon/android/net/util/nsd/DnsSdTxtRecord.java",
-        "src_frameworkcommon/android/net/util/MacAddressUtils.java",
-        "src_frameworkcommon/com/android/net/module/util/**/*.java",
+        "framework/com/android/net/module/util/**/*.java",
     ],
-    path: "src_frameworkcommon",
+    path: "framework",
     visibility: [
         "//frameworks/base",
     ],
@@ -108,10 +185,14 @@ filegroup {
 filegroup {
     name: "net-utils-wifi-service-common-srcs",
     srcs: [
-        "src_frameworkcommon/android/net/util/NetUtils.java",
-        "src_servicescommon/android/net/NetworkFactory.java",
+       "device/android/net/NetworkFactory.java",
+       "device/android/net/NetworkFactoryImpl.java",
+       "device/android/net/NetworkFactoryLegacyImpl.java",
+       "device/android/net/NetworkFactoryShim.java",
+       "framework/com/android/net/module/util/NetUtils.java",
     ],
     visibility: [
         "//frameworks/opt/net/wifi/service",
+        "//packages/modules/Wifi/service",
     ],
 }

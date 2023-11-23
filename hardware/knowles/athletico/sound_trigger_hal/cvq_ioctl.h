@@ -116,6 +116,13 @@
 #define HOTWORD_DEFAULT_VER              0
 #define AMBIENT_DEFAULT_VER              0
 
+enum {
+    PARAM_BLOCK_GET_MIN = 0,
+    PARAM_BLOCK_GET_RECOGNITION_PAYLOAD = 100,
+    PARAM_BLOCK_GET_DSP_IDENTIFIER,
+    PARAM_BLOCK_GET_MAX,
+};
+
 #define BUFFER_PACKAGE              "BufferPackage.bin"
 #define BUFFER_CONFIG_OSLO_VAL      "BufferConfigValOslo.bin"
 #define BUFFER_CONFIG_VAL_MULTI_SEC "BufferConfigVal.bin"
@@ -130,6 +137,8 @@
 #define MIXER_PACKAGE               "AScalarSimpleMixerPackage.bin"
 #define SRC_PACKAGE                 "SampleRateConverterPackage.bin"
 #define SRC_CONFIG                  "SampleRateConverterCreateCfgBlkGen.bin"
+
+#define PAYLOAD_MAX_STRING_LEN 64
 
 /* The routing definition depend on the platform
    and the features plugin.
@@ -202,10 +211,12 @@ int setup_buffer_package(struct iaxxx_odsp_hw *odsp_hdl);
 int destroy_buffer_package(struct iaxxx_odsp_hw *odsp_hdl);
 int setup_hotword_package(struct iaxxx_odsp_hw *odsp_hdl);
 int destroy_hotword_package(struct iaxxx_odsp_hw *odsp_hdl);
-unsigned int get_hotword_version(struct iaxxx_odsp_hw *odsp_hdl);
+int get_hotword_info(struct iaxxx_odsp_hw *odsp_hdl,
+                     unsigned int *hotword_version, void *supported_model_arch);
 int setup_ambient_package(struct iaxxx_odsp_hw *odsp_hdl);
 int destroy_ambient_package(struct iaxxx_odsp_hw *odsp_hdl);
-unsigned int get_ambient_version(struct iaxxx_odsp_hw *odsp_hdl);
+int get_ambient_info(struct iaxxx_odsp_hw *odsp_hdl,
+                     unsigned int *ambient_version, void *supported_model_arch);
 int setup_aec_package(struct iaxxx_odsp_hw *odsp_hdl);
 int destroy_aec_package(struct iaxxx_odsp_hw *odsp_hdl);
 int setup_chre_package(struct iaxxx_odsp_hw *odsp_hdl);

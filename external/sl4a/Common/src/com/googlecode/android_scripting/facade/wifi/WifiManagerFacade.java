@@ -16,10 +16,15 @@
 
 package com.googlecode.android_scripting.facade.wifi;
 
+import static android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
+import static android.net.wifi.WifiScanner.WIFI_BAND_24_GHZ;
+import static android.net.wifi.WifiScanner.WIFI_BAND_5_GHZ;
 
 import static com.googlecode.android_scripting.jsonrpc.JsonBuilder.build;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -30,11 +35,13 @@ import android.net.ConnectivityManager.NetworkCallback;
 import android.net.DhcpInfo;
 import android.net.MacAddress;
 import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
 import android.net.NetworkRequest;
 import android.net.NetworkSpecifier;
 import android.net.Uri;
+import android.net.wifi.CoexUnsafeChannel;
 import android.net.wifi.EasyConnectStatusCallback;
 import android.net.wifi.ScanResult;
 import android.net.wifi.SoftApCapability;
@@ -49,6 +56,7 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.NetworkRequestMatchCallback;
 import android.net.wifi.WifiManager.NetworkRequestUserSelectionCallback;
+import android.net.wifi.WifiManager.SubsystemRestartTrackingCallback;
 import android.net.wifi.WifiManager.WifiLock;
 import android.net.wifi.WifiNetworkSpecifier;
 import android.net.wifi.WifiNetworkSuggestion;
@@ -67,8 +75,11 @@ import android.provider.Settings.SettingNotFoundException;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.SparseArray;
+import android.util.SparseIntArray;
+
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.modules.utils.build.SdkLevel;
 
 import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.facade.EventFacade;
@@ -101,8 +112,8 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -133,15 +144,17 @@ public class WifiManagerFacade extends RpcReceiver {
     private final WifiScanResultsReceiver mWifiScanResultsReceiver;
     private final WifiStateChangeReceiver mStateChangeReceiver;
     private final WifiNetworkSuggestionStateChangeReceiver mNetworkSuggestionStateChangeReceiver;
+    private SubsystemRestartTrackingCallbackFacade mSubsystemRestartTrackingCallback = null;
     private final HandlerThread mCallbackHandlerThread;
     private final Object mCallbackLock = new Object();
-    private final Map<NetworkSpecifier, NetworkCallback> mNetworkCallbacks = new HashMap<>();
     private boolean mTrackingWifiStateChange;
     private boolean mTrackingTetherStateChange;
     private boolean mTrackingNetworkSuggestionStateChange;
     @GuardedBy("mCallbackLock")
     private NetworkRequestUserSelectionCallback mNetworkRequestUserSelectionCallback;
     private final SparseArray<SoftApCallbackImp> mSoftapCallbacks;
+    // This is null if SdkLevel is not at least S
+    @Nullable private WifiManager.CoexCallback mCoexCallback;
 
     private final BroadcastReceiver mTetherStateReceiver = new BroadcastReceiver() {
         @Override
@@ -208,25 +221,6 @@ public class WifiManagerFacade extends RpcReceiver {
                 }
             };
 
-    private final class NetworkCallbackImpl extends NetworkCallback {
-        private static final String EVENT_TAG = mEventType + "NetworkCallback";
-
-        @Override
-        public void onAvailable(Network network) {
-            mEventFacade.postEvent(EVENT_TAG + "OnAvailable", mWifi.getConnectionInfo());
-        }
-
-        @Override
-        public void onUnavailable() {
-            mEventFacade.postEvent(EVENT_TAG + "OnUnavailable", null);
-        }
-
-        @Override
-        public void onLost(Network network) {
-            mEventFacade.postEvent(EVENT_TAG + "OnLost", null);
-        }
-    };
-
     private static class SoftApCallbackImp implements WifiManager.SoftApCallback {
         // A monotonic increasing counter for softap callback ids.
         private static int sCount = 0;
@@ -252,18 +246,33 @@ public class WifiManagerFacade extends RpcReceiver {
 
         @Override
         public void onConnectedClientsChanged(List<WifiClient> clients) {
-            ArrayList<String> macAddresses = new ArrayList<>();
-            clients.forEach(x -> macAddresses.add(x.getMacAddress().toString()));
+            ArrayList<MacAddress> macAddresses = new ArrayList<>();
+            clients.forEach(x -> macAddresses.add(x.getMacAddress()));
             Bundle msg = new Bundle();
             msg.putInt("NumClients", clients.size());
-            msg.putStringArrayList("MacAddresses", macAddresses);
+            msg.putParcelableArrayList("MacAddresses", macAddresses);
             mEventFacade.postEvent(mEventStr + "OnNumClientsChanged", msg);
             mEventFacade.postEvent(mEventStr + "OnConnectedClientsChanged", clients);
         }
 
         @Override
+        public void onConnectedClientsChanged(SoftApInfo info, List<WifiClient> clients) {
+            ArrayList<MacAddress> macAddresses = new ArrayList<>();
+            clients.forEach(x -> macAddresses.add(x.getMacAddress()));
+            Bundle msg = new Bundle();
+            msg.putParcelable("Info", info);
+            msg.putParcelableArrayList("ClientsMacAddress", macAddresses);
+            mEventFacade.postEvent(mEventStr + "OnConnectedClientsChangedWithInfo", msg);
+        }
+
+        @Override
         public void onInfoChanged(SoftApInfo softApInfo) {
             mEventFacade.postEvent(mEventStr + "OnInfoChanged", softApInfo);
+        }
+
+        @Override
+        public void onInfoChanged(List<SoftApInfo> infos) {
+            mEventFacade.postEvent(mEventStr + "OnInfoListChanged", infos);
         }
 
         @Override
@@ -277,6 +286,31 @@ public class WifiManagerFacade extends RpcReceiver {
             msg.putString("WifiClient", client.getMacAddress().toString());
             msg.putInt("BlockedReason", blockedReason);
             mEventFacade.postEvent(mEventStr + "OnBlockedClientConnecting", msg);
+        }
+    };
+
+    private static class CoexCallbackImpl extends WifiManager.CoexCallback {
+        private final EventFacade mEventFacade;
+        private final String mEventStr;
+
+        CoexCallbackImpl(EventFacade eventFacade) {
+            mEventFacade = eventFacade;
+            mEventStr = mEventType + "CoexCallback";
+        }
+
+        @Override
+        public void onCoexUnsafeChannelsChanged(
+                @NonNull List<CoexUnsafeChannel> unsafeChannels, int restrictions) {
+            Bundle event = new Bundle();
+            try {
+                event.putString("KEY_COEX_UNSAFE_CHANNELS",
+                        coexUnsafeChannelsToJson(unsafeChannels).toString());
+                event.putString("KEY_COEX_RESTRICTIONS",
+                        coexRestrictionsToJson(restrictions).toString());
+                mEventFacade.postEvent(mEventStr + "#onCoexUnsafeChannelsChanged", event);
+            } catch (JSONException e) {
+                Log.e("Failed to post event for onCoexUnsafeChannelsChanged: " + e);
+            }
         }
     };
 
@@ -313,6 +347,9 @@ public class WifiManagerFacade extends RpcReceiver {
         mTrackingNetworkSuggestionStateChange = false;
         mCallbackHandlerThread.start();
         mSoftapCallbacks = new SparseArray<>();
+        if (SdkLevel.isAtLeastS()) {
+            mCoexCallback = new CoexCallbackImpl(mEventFacade);
+        }
     }
 
     private void makeLock(int wifiMode) {
@@ -395,6 +432,53 @@ public class WifiManagerFacade extends RpcReceiver {
     public class WifiStateChangeReceiver extends BroadcastReceiver {
         String mCachedWifiInfo = "";
 
+        /**
+         * When a peer to peer request is active, WifiManager.getConnectionInfo() returns
+         * the peer to peer connection details. Hence use networking API's to retrieve the
+         * internet connection details.
+         *
+         * But on Android R, we will need to fallback to the legacy getConnectionInfo() API since
+         * WifiInfo doesn't implement TransportInfo.
+         */
+        private WifiInfo getInternetConnectivityWifiInfo() {
+            if (!SdkLevel.isAtLeastS()) {
+                return mWifi.getConnectionInfo();
+            }
+            // TODO (b/156867433): We need a location sensitive synchronous API proposed
+            // in aosp/1629501.
+            final CountDownLatch waitForNetwork = new CountDownLatch(1);
+            final class AnswerBox {
+                public WifiInfo wifiInfo;
+            }
+            final AnswerBox answerBox = new AnswerBox();
+            final NetworkCallback networkCallback =
+                    new NetworkCallback(NetworkCallback.FLAG_INCLUDE_LOCATION_INFO) {
+                @Override
+                public void onCapabilitiesChanged(@NonNull Network network,
+                        @NonNull NetworkCapabilities networkCapabilities) {
+                    answerBox.wifiInfo = (WifiInfo) networkCapabilities.getTransportInfo();
+                    waitForNetwork.countDown();
+                }
+            };
+            mCm.registerNetworkCallback(
+                    new NetworkRequest.Builder()
+                            .addTransportType(TRANSPORT_WIFI)
+                            .addCapability(NET_CAPABILITY_INTERNET)
+                            .build(), networkCallback);
+            try {
+                if (!waitForNetwork.await(5, TimeUnit.SECONDS)) {
+                    Log.e("Timed out waiting for network to connect");
+                    return null;
+                }
+                return answerBox.wifiInfo;
+            } catch (InterruptedException e) {
+                Log.e("Waiting for onAvailable failed", e);
+                return null;
+            } finally {
+                mCm.unregisterNetworkCallback(networkCallback);
+            }
+        }
+
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -405,7 +489,12 @@ public class WifiManagerFacade extends RpcReceiver {
                 // If network info is of type wifi, send wifi events.
                 if (nInfo.getType() == ConnectivityManager.TYPE_WIFI) {
                     if (nInfo.getDetailedState().equals(DetailedState.CONNECTED)) {
-                        WifiInfo wInfo = mWifi.getConnectionInfo();
+                        WifiInfo wInfo = getInternetConnectivityWifiInfo();
+                        if (wInfo == null) {
+                            Log.e("Failed to get WifiInfo for internet connection. "
+                                    + "Not sending wifi network connection event");
+                            return;
+                        }
                         String bssid = wInfo.getBSSID();
                         if (bssid != null && !mCachedWifiInfo.equals(wInfo.toString())) {
                             Log.d("WifiNetworkConnected");
@@ -519,28 +608,26 @@ public class WifiManagerFacade extends RpcReceiver {
             // Check if new security type SAE (WPA3) is present. Default to PSK
             if (j.has("security")) {
                 if (TextUtils.equals(j.getString("security"), "SAE")) {
-                    config.allowedKeyManagement.set(KeyMgmt.SAE);
-                    config.requirePmf = true;
+                    config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_SAE);
                 } else {
-                    config.allowedKeyManagement.set(KeyMgmt.WPA_PSK);
+                    config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK);
                 }
             } else {
-                config.allowedKeyManagement.set(KeyMgmt.WPA_PSK);
+                config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK);
             }
             config.preSharedKey = "\"" + j.getString("password") + "\"";
         } else if (j.has("preSharedKey")) {
-            config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+            config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK);
             config.preSharedKey = j.getString("preSharedKey");
         } else {
             if (j.has("security")) {
                 if (TextUtils.equals(j.getString("security"), "OWE")) {
-                    config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.OWE);
-                    config.requirePmf = true;
+                    config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OWE);
                 } else {
-                    config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+                    config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OPEN);
                 }
             } else {
-                config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+                config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OPEN);
             }
         }
         if (j.has("BSSID")) {
@@ -557,9 +644,7 @@ public class WifiManagerFacade extends RpcReceiver {
         }
         if (j.has("wepKeys")) {
             // Looks like we only support static WEP.
-            config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-            config.allowedAuthAlgorithms.set(AuthAlgorithm.OPEN);
-            config.allowedAuthAlgorithms.set(AuthAlgorithm.SHARED);
+            config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_WEP);
             JSONArray keys = j.getJSONArray("wepKeys");
             String[] wepKeys = new String[keys.length()];
             for (int i = 0; i < keys.length(); i++) {
@@ -582,7 +667,7 @@ public class WifiManagerFacade extends RpcReceiver {
         return config;
     }
 
-    private WifiEnterpriseConfig genWifiEnterpriseConfig(JSONObject j) throws JSONException,
+    private static WifiEnterpriseConfig genWifiEnterpriseConfig(JSONObject j) throws JSONException,
             GeneralSecurityException {
         WifiEnterpriseConfig eConfig = new WifiEnterpriseConfig();
         if (j.has(WifiEnterpriseConfig.EAP_KEY)) {
@@ -605,7 +690,11 @@ public class WifiManagerFacade extends RpcReceiver {
             Log.v("Client Cert String is " + certStr);
             Log.v("Client Key String is " + keyStr);
             X509Certificate cert = strToX509Cert(certStr);
-            PrivateKey privKey = strToPrivateKey(keyStr);
+            String certAlgo = "RSA";
+            if (j.has("cert_algo")) {
+                certAlgo = j.getString("cert_algo");
+            }
+            PrivateKey privKey = strToPrivateKey(keyStr, certAlgo);
             Log.v("Cert is " + cert);
             Log.v("Private Key is " + privKey);
             eConfig.setClientKeyEntry(privKey, cert);
@@ -649,13 +738,11 @@ public class WifiManagerFacade extends RpcReceiver {
             return null;
         }
         WifiConfiguration config = new WifiConfiguration();
-        config.allowedKeyManagement.set(KeyMgmt.WPA_EAP);
-        config.allowedKeyManagement.set(KeyMgmt.IEEE8021X);
+        config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP);
 
         if (j.has("security")) {
             if (TextUtils.equals(j.getString("security"), "SUITE_B_192")) {
-                config.allowedKeyManagement.set(KeyMgmt.SUITE_B_192);
-                config.requirePmf = true;
+                config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP_SUITE_B);
             }
         }
 
@@ -685,7 +772,10 @@ public class WifiManagerFacade extends RpcReceiver {
         return config;
     }
 
-    private NetworkSpecifier genWifiNetworkSpecifier(JSONObject j) throws JSONException,
+    /**
+     * Generate {@link WifiNetworkSpecifier} from the specified json.
+     */
+    public static NetworkSpecifier genWifiNetworkSpecifier(JSONObject j) throws JSONException,
             GeneralSecurityException {
         if (j == null) {
             return null;
@@ -794,6 +884,11 @@ public class WifiManagerFacade extends RpcReceiver {
                 }
             }
         }
+        if (j.has("enhancedMacRandomizationEnabled")
+                && j.getBoolean("enhancedMacRandomizationEnabled")) {
+            builder = builder.setMacRandomizationSetting(
+                WifiNetworkSuggestion.RANDOMIZATION_NON_PERSISTENT);
+        }
 
         return builder.build();
     }
@@ -837,22 +932,22 @@ public class WifiManagerFacade extends RpcReceiver {
         return info;
     }
 
-    private byte[] base64StrToBytes(String input) {
+    private static byte[] base64StrToBytes(String input) {
         return Base64.decode(input, Base64.DEFAULT);
     }
 
-    private X509Certificate strToX509Cert(String certStr) throws CertificateException {
+    private static X509Certificate strToX509Cert(String certStr) throws CertificateException {
         byte[] certBytes = base64StrToBytes(certStr);
         InputStream certStream = new ByteArrayInputStream(certBytes);
         CertificateFactory cf = CertificateFactory.getInstance("X509");
         return (X509Certificate) cf.generateCertificate(certStream);
     }
 
-    private PrivateKey strToPrivateKey(String key) throws NoSuchAlgorithmException,
-            InvalidKeySpecException {
+    private static PrivateKey strToPrivateKey(String key, String algo)
+            throws NoSuchAlgorithmException, InvalidKeySpecException {
         byte[] keyBytes = base64StrToBytes(key);
         PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
-        KeyFactory fact = KeyFactory.getInstance("RSA");
+        KeyFactory fact = KeyFactory.getInstance(algo);
         PrivateKey priv = fact.generatePrivate(keySpec);
         return priv;
     }
@@ -1083,6 +1178,27 @@ public class WifiManagerFacade extends RpcReceiver {
         }
     }
 
+    private class SubsystemRestartTrackingCallbackFacade extends SubsystemRestartTrackingCallback {
+        private final EventFacade mEventFacade;
+
+        SubsystemRestartTrackingCallbackFacade(EventFacade eventFacade) {
+            super();
+            mEventFacade = eventFacade;
+        }
+
+        @Override
+        public void onSubsystemRestarting() {
+            Log.v("onSubsystemRestarting");
+            mEventFacade.postEvent("WifiSubsystemRestarting", null);
+        }
+
+        @Override
+        public void onSubsystemRestarted() {
+            Log.v("onSubsystemRestarted");
+            mEventFacade.postEvent("WifiSubsystemRestarted", null);
+        }
+    }
+
     private OsuProvider buildTestOsuProvider(JSONObject config) {
         String osuServiceDescription = "Google Passpoint Test Service";
         List<Integer> osuMethodList =
@@ -1233,6 +1349,41 @@ public class WifiManagerFacade extends RpcReceiver {
         return mWifi.getConnectionInfo();
     }
 
+    /**
+     * Check if wifi network is temporary disabled.
+     * @param config JSONObject Dictionary of wifi connection parameters.
+     * @return True if network is disabled temporarily, False if not.
+     */
+    @Rpc(description = "Check if network is temporary disabled")
+    public boolean wifiIsNetworkTemporaryDisabledForNetwork(
+            @RpcParameter(name = "config") JSONObject config)
+                throws JSONException, GeneralSecurityException {
+        WifiConfiguration wifiConfig;
+        if (config.has(WifiEnterpriseConfig.EAP_KEY)) {
+            wifiConfig = genWifiConfigWithEnterpriseConfig(config);
+        } else {
+            wifiConfig = genWifiConfig(config);
+        }
+        List<WifiConfiguration> wifiConfigList = wifiGetConfiguredNetworks();
+        for (WifiConfiguration conf : wifiConfigList) {
+            if (conf.getSsidAndSecurityTypeString().equals(
+                    wifiConfig.getSsidAndSecurityTypeString())) {
+                Log.d("Found matching config in the configured networks.");
+                return conf.getNetworkSelectionStatus().isNetworkTemporaryDisabled();
+            }
+        }
+        Log.d("Wifi config is not in list of configured wifi networks.");
+        return false;
+    }
+
+    /**
+     * Get wifi standard for wifi connection.
+     */
+    @Rpc(description = "Return connection WiFi standard")
+    public Integer wifiGetConnectionStandard() {
+        return mWifi.getConnectionInfo().getWifiStandard();
+    }
+
     @Rpc(description = "Returns wifi activity and energy usage info.")
     public WifiActivityEnergyInfo wifiGetControllerActivityEnergyInfo() {
         WifiActivityEnergyInfo[] mutable = {null};
@@ -1296,14 +1447,51 @@ public class WifiManagerFacade extends RpcReceiver {
         return mWifi.isVerboseLoggingEnabled() ? 1 : 0;
     }
 
+    /**
+     * Query whether or not the device supports concurrency of Station (STA) + multiple access
+     * points (AP) (where the APs bridged together).
+     *
+     * @return true if this device supports concurrency of STA + multiple APs which are bridged
+     *         together, false otherwise.
+     */
+    @Rpc(description = "true if this adapter supports STA + bridged Soft AP concurrency.")
+    public Boolean wifiIsStaBridgedApConcurrencySupported() {
+        return mWifi.isStaBridgedApConcurrencySupported();
+    }
+
+    /**
+     * Query whether or not the device supports multiple Access point (AP) which are bridged
+     * together.
+     *
+     * @return true if this device supports concurrency of multiple AP which bridged together,
+     *         false otherwise.
+     */
+    @Rpc(description = "true if this adapter supports bridged Soft AP concurrency.")
+    public Boolean wifiIsBridgedApConcurrencySupported() {
+        return mWifi.isBridgedApConcurrencySupported();
+    }
+
     @Rpc(description = "true if this adapter supports 5 GHz band.")
     public Boolean wifiIs5GHzBandSupported() {
         return mWifi.is5GHzBandSupported();
     }
 
-    @Rpc(description = "true if this adapter supports multiple simultaneous connections.")
-    public Boolean wifiIsAdditionalStaSupported() {
-        return mWifi.isAdditionalStaSupported();
+    @Rpc(description = "true if this adapter supports multiple simultaneous connections for"
+            + "local only use-case.")
+    public Boolean wifiIsStaConcurrencyForLocalOnlyConnectionsSupported() {
+        return mWifi.isStaConcurrencyForLocalOnlyConnectionsSupported();
+    }
+
+    @Rpc(description = "true if this adapter supports multiple simultaneous connections for mbb "
+            + "wifi to wifi switching.")
+    public Boolean wifiIsMakeBeforeBreakWifiSwitchingSupported() {
+        return mWifi.isMakeBeforeBreakWifiSwitchingSupported();
+    }
+
+    @Rpc(description = "true if this adapter supports multiple simultaneous connections for "
+            + "restricted connection use-case.")
+    public Boolean wifiIsStaConcurrencyForRestrictedConnectionsSupported() {
+        return mWifi.isStaConcurrencyForRestrictedConnectionsSupported();
     }
 
     @Rpc(description = "Return true if WiFi is enabled.")
@@ -1413,6 +1601,17 @@ public class WifiManagerFacade extends RpcReceiver {
     public Boolean wifiIsEnhancedOpenSupported() {
         return mWifi.isEnhancedOpenSupported();
     }
+
+    /**
+     * @return true if this device supports Wi-Fi Device Provisioning Protocol (Easy-connect)
+     * Enrollee Responder mode
+     */
+    @Rpc(description = "Check if Easy Connect (DPP) Enrollee responder mode is supported "
+            + "on this device.")
+    public Boolean wifiIsEasyConnectEnrolleeResponderModeSupported() {
+        return mWifi.isEasyConnectEnrolleeResponderModeSupported();
+    }
+
     /**
      * @return true if this device supports Wi-Fi Device Provisioning Protocol (Easy-connect)
      */
@@ -1429,6 +1628,16 @@ public class WifiManagerFacade extends RpcReceiver {
     @Rpc(description = "Acquires a scan only Wifi lock.")
     public void wifiLockAcquireScanOnly() {
         makeLock(WifiManager.WIFI_MODE_SCAN_ONLY);
+    }
+
+    @Rpc(description = "Acquires a high performance Wifi lock.")
+    public void wifiLockAcquireFullHighPerf() {
+        makeLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF);
+    }
+
+    @Rpc(description = "Acquires a low latency Wifi lock.")
+    public void wifiLockAcquireFullLowLatency() {
+        makeLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY);
     }
 
     @Rpc(description = "Releases a previously acquired Wifi lock.")
@@ -1452,6 +1661,30 @@ public class WifiManagerFacade extends RpcReceiver {
     @Rpc(description = "Remove a configured network.", returns = "True if the operation succeeded.")
     public Boolean wifiRemoveNetwork(@RpcParameter(name = "netId") Integer netId) {
         return mWifi.removeNetwork(netId);
+    }
+
+    private int getApBandFromChannelFrequency(int freq) {
+        if (ScanResult.is24GHz(freq)) {
+            return SoftApConfiguration.BAND_2GHZ;
+        } else if (ScanResult.is5GHz(freq)) {
+            return SoftApConfiguration.BAND_5GHZ;
+        } else if (ScanResult.is6GHz(freq)) {
+            return SoftApConfiguration.BAND_6GHZ;
+        } else if (ScanResult.is60GHz(freq)) {
+            return SoftApConfiguration.BAND_60GHZ;
+        }
+        return -1;
+    }
+
+    private int[] convertJSONArrayToIntArray(JSONArray jArray) throws JSONException {
+        if (jArray == null) {
+            return null;
+        }
+        int[] iArray = new int[jArray.length()];
+        for (int i = 0; i < jArray.length(); i++) {
+            iArray[i] = jArray.getInt(i);
+        }
+        return iArray;
     }
 
     private SoftApConfiguration createSoftApConfiguration(JSONObject configJson)
@@ -1524,10 +1757,48 @@ public class WifiManagerFacade extends RpcReceiver {
             for (int j = 0; j < blockedList.length(); j++) {
                 blockedClientList.add(MacAddress.fromString(blockedList.getString(j)));
             }
-
         }
+
         configBuilder.setAllowedClientList(allowedClientList);
         configBuilder.setBlockedClientList(blockedClientList);
+
+        if (SdkLevel.isAtLeastS()) {
+            if (configJson.has("apBands")) {
+                JSONArray jBands = configJson.getJSONArray("apBands");
+                int[] bands = convertJSONArrayToIntArray(jBands);
+                configBuilder.setBands(bands);
+            }
+
+            if (configJson.has("apChannelFrequencies")) {
+                JSONArray jChannelFrequencys = configJson.getJSONArray("apChannelFrequencies");
+                int[] channelFrequencies = convertJSONArrayToIntArray(jChannelFrequencys);
+                SparseIntArray channels = new SparseIntArray();
+                for (int channelFrequency : channelFrequencies) {
+                    if (channelFrequency != 0) {
+                        channels.put(getApBandFromChannelFrequency(channelFrequency),
+                                ScanResult.convertFrequencyMhzToChannelIfSupported(
+                                        channelFrequency));
+                    }
+                }
+                if (channels.size() != 0) {
+                    configBuilder.setChannels(channels);
+                }
+            }
+
+            if (configJson.has("MacRandomizationSetting")) {
+                configBuilder.setMacRandomizationSetting(
+                        configJson.getInt("MacRandomizationSetting"));
+            }
+
+            if (configJson.has("BridgedModeOpportunisticShutdownEnabled")) {
+                configBuilder.setBridgedModeOpportunisticShutdownEnabled(
+                        configJson.getBoolean("BridgedModeOpportunisticShutdownEnabled"));
+            }
+
+            if (configJson.has("Ieee80211axEnabled")) {
+                configBuilder.setIeee80211axEnabled(configJson.getBoolean("Ieee80211axEnabled"));
+            }
+        }
         return configBuilder.build();
     }
 
@@ -1684,6 +1955,16 @@ public class WifiManagerFacade extends RpcReceiver {
         return enabled;
     }
 
+    @Rpc(description = "Restart the WiFi subsystem.")
+    public void restartWifiSubsystem() {
+        if (mSubsystemRestartTrackingCallback == null) {
+            // one-time registration if needed
+            mSubsystemRestartTrackingCallback = new SubsystemRestartTrackingCallbackFacade(
+                    mEventFacade);
+        }
+        mWifi.restartWifiSubsystem();
+    }
+
     @Rpc(description = "Toggle Wifi scan always available on and off.", returns = "True if Wifi scan is always available.")
     public Boolean wifiToggleScanAlwaysAvailable(
             @RpcParameter(name = "enabled") @RpcOptional Boolean enabled)
@@ -1697,91 +1978,6 @@ public class WifiManagerFacade extends RpcReceiver {
     public void wifiEnableWifiConnectivityManager(
             @RpcParameter(name = "enable") Boolean enable) {
         mWifi.allowAutojoinGlobal(enable);
-    }
-
-    private void wifiRequestNetworkWithSpecifierInternal(NetworkSpecifier wns, int timeoutInMs)
-            throws GeneralSecurityException {
-        NetworkRequest networkRequest = new NetworkRequest.Builder()
-                .addTransportType(TRANSPORT_WIFI)
-                .setNetworkSpecifier(wns)
-                .build();
-        NetworkCallback networkCallback = new NetworkCallbackImpl();
-        if (timeoutInMs != 0) {
-            mCm.requestNetwork(networkRequest, networkCallback,
-                    new Handler(mCallbackHandlerThread.getLooper()), timeoutInMs);
-        } else {
-            mCm.requestNetwork(networkRequest, networkCallback,
-                    new Handler(mCallbackHandlerThread.getLooper()));
-        }
-        // Store the callback for release later.
-        mNetworkCallbacks.put(wns, networkCallback);
-    }
-
-    /**
-     * Initiates a network request {@link NetworkRequest} using {@link WifiNetworkSpecifier}.
-     *
-     * @param wifiNetworkSpecifier JSONObject Dictionary of wifi network specifier parameters
-     * @throws JSONException
-     * @throws GeneralSecurityException
-     */
-    @Rpc(description = "Initiates a network request using the provided network specifier")
-    public void wifiRequestNetworkWithSpecifier(
-            @RpcParameter(name = "wifiNetworkSpecifier") JSONObject wifiNetworkSpecifier)
-            throws JSONException, GeneralSecurityException {
-        wifiRequestNetworkWithSpecifierInternal(genWifiNetworkSpecifier(wifiNetworkSpecifier), 0);
-    }
-
-    /**
-     * Initiates a network request {@link NetworkRequest} using {@link WifiNetworkSpecifier}.
-     *
-     * @param wifiNetworkSpecifier JSONObject Dictionary of wifi network specifier parameters
-     * @param timeoutInMs Timeout for the request.
-     * @throws JSONException
-     * @throws GeneralSecurityException
-     */
-    @Rpc(description = "Initiates a network request using the provided network specifier")
-    public void wifiRequestNetworkWithSpecifierWithTimeout(
-            @RpcParameter(name = "wifiNetworkSpecifier") JSONObject wifiNetworkSpecifier,
-            @RpcParameter(name = "timeout") Integer timeoutInMs)
-            throws JSONException, GeneralSecurityException {
-        wifiRequestNetworkWithSpecifierInternal(
-                genWifiNetworkSpecifier(wifiNetworkSpecifier), timeoutInMs);
-    }
-
-    /**
-     * Releases network request using {@link WifiNetworkSpecifier}.
-     *
-     * @throws JSONException
-     * @throws GeneralSecurityException
-     */
-    @Rpc(description = "Releases network request corresponding to the network specifier")
-    public void wifiReleaseNetwork(
-            @RpcParameter(name = "wifiNetworkSpecifier") JSONObject wifiNetworkSpecifier)
-            throws JSONException, GeneralSecurityException {
-        NetworkSpecifier wns = genWifiNetworkSpecifier(wifiNetworkSpecifier);
-        NetworkCallback networkCallback = mNetworkCallbacks.remove(wns);
-        if (networkCallback == null) {
-            throw new IllegalArgumentException("network callback is null");
-        }
-        mCm.unregisterNetworkCallback(networkCallback);
-    }
-
-    /**
-     * Releases all pending network requests.
-     *
-     * @throws JSONException
-     * @throws GeneralSecurityException
-     */
-    @Rpc(description = "Releases all pending network requests")
-    public void wifiReleaseNetworkAll() {
-        Iterator<Map.Entry<NetworkSpecifier, NetworkCallback>> it =
-                mNetworkCallbacks.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<NetworkSpecifier, NetworkCallback> entry = it.next();
-            NetworkCallback networkCallback = entry.getValue();
-            it.remove();
-            mCm.unregisterNetworkCallback(networkCallback);
-        }
     }
 
     /**
@@ -1874,7 +2070,6 @@ public class WifiManagerFacade extends RpcReceiver {
 
     @Override
     public void shutdown() {
-        wifiReleaseNetworkAll();
         wifiLockRelease();
         if (mTrackingWifiStateChange == true) {
             wifiStopTrackingStateChange();
@@ -1974,6 +2169,36 @@ public class WifiManagerFacade extends RpcReceiver {
             Log.d("Posting event: onProgress");
             mEventFacade.postEvent(EASY_CONNECT_CALLBACK_TAG, msg);
         }
+
+        @Override
+        public void onBootstrapUriGenerated(@NonNull Uri dppUri) {
+            Bundle msg = new Bundle();
+            msg.putString("Type", "onBootstrapUriGenerated");
+            Log.d("onBootstrapUriGenerated uri: " + dppUri.toString());
+            msg.putString("generatedUri", dppUri.toString());
+            Log.d("Posting event: onBootstrapUriGenerated");
+            mEventFacade.postEvent(EASY_CONNECT_CALLBACK_TAG, msg);
+        }
+    }
+
+    private static @WifiManager.EasyConnectCryptographyCurve
+            int getEasyConnectCryptographyCurve(String curve) {
+
+        switch (curve) {
+            case "secp384r1":
+                return WifiManager.EASY_CONNECT_CRYPTOGRAPHY_CURVE_SECP384R1;
+            case "secp521r1":
+                return WifiManager.EASY_CONNECT_CRYPTOGRAPHY_CURVE_SECP521R1;
+            case "brainpoolP256r1":
+                return WifiManager.EASY_CONNECT_CRYPTOGRAPHY_CURVE_BRAINPOOLP256R1;
+            case "brainpoolP384r1":
+                return WifiManager.EASY_CONNECT_CRYPTOGRAPHY_CURVE_BRAINPOOLP384R1;
+            case "brainpoolP512r1":
+                return WifiManager.EASY_CONNECT_CRYPTOGRAPHY_CURVE_BRAINPOOLP512R1;
+            case "prime256v1":
+            default:
+                return WifiManager.EASY_CONNECT_CRYPTOGRAPHY_CURVE_PRIME256V1;
+        }
     }
 
     /**
@@ -2017,6 +2242,24 @@ public class WifiManagerFacade extends RpcReceiver {
     }
 
     /**
+     * Start Easy Connect (DPP) in Responder-Enrollee role: Receive Wi-Fi configuration from a peer
+     *
+     * @param deviceInfo The device specific info to attach in the generated URI
+     * @param cryptographyCurve Elliptic curve cryptography used to generate DPP
+     *        public/private key pair
+     */
+    @Rpc(description = "Easy Connect Responder-Enrollee: Receive Wi-Fi configuration from peer")
+    public void startEasyConnectAsEnrolleeResponder(@RpcParameter(name = "deviceInfo") String
+            deviceInfo, @RpcParameter(name = "cryptographyCurve") String cryptographyCurve) {
+        EasyConnectCallback dppStatusCallback = new EasyConnectCallback();
+
+        // Start Easy Connect
+        mWifi.startEasyConnectAsEnrolleeResponder(deviceInfo,
+                getEasyConnectCryptographyCurve(cryptographyCurve), mService.getMainExecutor(),
+                dppStatusCallback);
+    }
+
+    /**
      * Stop Easy Connect (DPP) session
      *
      */
@@ -2042,5 +2285,166 @@ public class WifiManagerFacade extends RpcReceiver {
     public void wifiEnableAutojoinPasspoint(@RpcParameter(name = "FQDN") String fqdn,
             @RpcParameter(name = "enableAutojoin") Boolean enableAutojoin) {
         mWifi.allowAutojoinPasspoint(fqdn, enableAutojoin);
+    }
+
+    private static CoexUnsafeChannel genCoexUnsafeChannel(JSONObject j) throws JSONException {
+        if (j == null || !j.has("band") || !j.has("channel")) {
+            return null;
+        }
+
+        final int band;
+        final String jsonBand = j.getString("band");
+        if (TextUtils.equals(jsonBand, "24_GHZ")) {
+            band = WIFI_BAND_24_GHZ;
+        } else if (TextUtils.equals(jsonBand, "5_GHZ")) {
+            band = WIFI_BAND_5_GHZ;
+        } else {
+            return null;
+        }
+        if (j.has("powerCapDbm")) {
+            return new CoexUnsafeChannel(band, j.getInt("channel"), j.getInt("powerCapDbm"));
+        }
+        return new CoexUnsafeChannel(band, j.getInt("channel"));
+    }
+
+    private static List<CoexUnsafeChannel> genCoexUnsafeChannels(
+            JSONArray jsonCoexUnsafeChannelsArray) throws JSONException {
+        if (jsonCoexUnsafeChannelsArray == null) {
+            return Collections.emptyList();
+        }
+        List<CoexUnsafeChannel> unsafeChannels = new ArrayList<>();
+        for (int i = 0; i < jsonCoexUnsafeChannelsArray.length(); i++) {
+            unsafeChannels.add(
+                    genCoexUnsafeChannel(jsonCoexUnsafeChannelsArray.getJSONObject(i)));
+        }
+        return unsafeChannels;
+    }
+
+    private static int genCoexRestrictions(JSONArray jsonCoexRestrictionArray)
+            throws JSONException {
+        if (jsonCoexRestrictionArray == null) {
+            return 0;
+        }
+        int coexRestrictions = 0;
+        for (int i = 0; i < jsonCoexRestrictionArray.length(); i++) {
+            final String jsonRestriction = jsonCoexRestrictionArray.getString(i);
+            if (TextUtils.equals(jsonRestriction, "WIFI_DIRECT")) {
+                coexRestrictions |= WifiManager.COEX_RESTRICTION_WIFI_DIRECT;
+            }
+            if (TextUtils.equals(jsonRestriction, "SOFTAP")) {
+                coexRestrictions |= WifiManager.COEX_RESTRICTION_SOFTAP;
+            }
+            if (TextUtils.equals(jsonRestriction, "WIFI_AWARE")) {
+                coexRestrictions |= WifiManager.COEX_RESTRICTION_WIFI_AWARE;
+            }
+        }
+        return coexRestrictions;
+    }
+
+    /**
+     * Converts a set of {@link CoexUnsafeChannel} to a {@link JSONArray} of {@link JSONObject} of
+     * format:
+     *     {
+     *         "band": <"24_GHZ" or "5_GHZ">
+     *         "channel" : <Channel Number>
+     *         (Optional) "powerCapDbm" : <Power Cap in Dbm>
+     *     }
+     */
+    private static JSONArray coexUnsafeChannelsToJson(List<CoexUnsafeChannel> unsafeChannels)
+            throws JSONException {
+        final JSONArray jsonCoexUnsafeChannelArray = new JSONArray();
+        for (CoexUnsafeChannel unsafeChannel : unsafeChannels) {
+            final String jsonBand;
+            if (unsafeChannel.getBand() == WIFI_BAND_24_GHZ) {
+                jsonBand = "24_GHZ";
+            } else if (unsafeChannel.getBand() == WIFI_BAND_5_GHZ) {
+                jsonBand = "5_GHZ";
+            } else {
+                continue;
+            }
+            final JSONObject jsonUnsafeChannel = new JSONObject();
+            jsonUnsafeChannel.put("band", jsonBand);
+            jsonUnsafeChannel.put("channel", unsafeChannel.getChannel());
+            final int powerCapDbm = unsafeChannel.getPowerCapDbm();
+            if (powerCapDbm != CoexUnsafeChannel.POWER_CAP_NONE) {
+                jsonUnsafeChannel.put("powerCapDbm", powerCapDbm);
+            }
+            jsonCoexUnsafeChannelArray.put(jsonUnsafeChannel);
+        }
+        return jsonCoexUnsafeChannelArray;
+    }
+
+    /**
+     * Converts a coex restriction bitmask {@link WifiManager#getCoexRestrictions()} to a JSON array
+     * of possible values "WIFI_DIRECT", "SOFTAP", "WIFI_AWARE".
+     */
+    private static JSONArray coexRestrictionsToJson(int coexRestrictions) {
+        final JSONArray jsonCoexRestrictionArray = new JSONArray();
+        if ((coexRestrictions & WifiManager.COEX_RESTRICTION_WIFI_DIRECT) != 0) {
+            jsonCoexRestrictionArray.put("WIFI_DIRECT");
+        }
+        if ((coexRestrictions & WifiManager.COEX_RESTRICTION_SOFTAP) != 0) {
+            jsonCoexRestrictionArray.put("SOFTAP");
+        }
+        if ((coexRestrictions & WifiManager.COEX_RESTRICTION_WIFI_AWARE) != 0) {
+            jsonCoexRestrictionArray.put("WIFI_AWARE");
+        }
+        return jsonCoexRestrictionArray;
+    }
+
+    /**
+     * Returns whether the default coex algorithm is enabled or not
+     *
+     * @return {@code true} if the default coex algorithm is enabled, {@code false} otherwise.
+     */
+    @Rpc(description = "Returns whether the default coex algorithm is enabled or not")
+    public boolean wifiIsDefaultCoexAlgorithmEnabled() {
+        if (!SdkLevel.isAtLeastS()) {
+            return false;
+        }
+        return mWifi.isDefaultCoexAlgorithmEnabled();
+    }
+
+    /**
+     * Sets the active list of unsafe channels to avoid for coex and the restricted Wifi interfaces.
+     *
+     * @param unsafeChannels JSONArray representation of {@link CoexUnsafeChannel}.
+     *                       See {@link #coexUnsafeChannelsToJson(List)}.
+     * @param restrictions JSONArray representation of coex restrictions.
+     *                     See {@link #coexRestrictionsToJson(int)}.
+     * @throws JSONException
+     */
+    @Rpc(description = "Set the unsafe channels to avoid for coex")
+    public void wifiSetCoexUnsafeChannels(
+            @RpcParameter(name = "unsafeChannels") JSONArray unsafeChannels,
+            @RpcParameter(name = "restrictions") JSONArray restrictions) throws JSONException {
+        if (!SdkLevel.isAtLeastS()) {
+            return;
+        }
+        mWifi.setCoexUnsafeChannels(
+                genCoexUnsafeChannels(unsafeChannels), genCoexRestrictions(restrictions));
+    }
+
+    /**
+     * Registers a coex callback to start receiving coex update events.
+     */
+    @Rpc(description = "Registers a coex callback to start receiving coex update events")
+    public void wifiRegisterCoexCallback() {
+        if (!SdkLevel.isAtLeastS()) {
+            return;
+        }
+        mWifi.registerCoexCallback(
+                new HandlerExecutor(mCallbackHandlerThread.getThreadHandler()), mCoexCallback);
+    }
+
+    /**
+     * Unregisters the coex callback to stop receiving coex update events.
+     */
+    @Rpc(description = "Unregisters the coex callback to stop receiving coex update events")
+    public void wifiUnregisterCoexCallback() {
+        if (!SdkLevel.isAtLeastS()) {
+            return;
+        }
+        mWifi.unregisterCoexCallback(mCoexCallback);
     }
 }

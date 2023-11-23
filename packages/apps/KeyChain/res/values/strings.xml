@@ -35,5 +35,5 @@
     <string name="deny_button">Deny</string>
 
     <!-- Text to show while the KeyChain activity is loading certificates. -->
-    <string name="loading_certs_message">Loading certificates...</string>
+    <string name="loading_certs_message">%s is checking for a certificate&#8230;</string>
 </resources>

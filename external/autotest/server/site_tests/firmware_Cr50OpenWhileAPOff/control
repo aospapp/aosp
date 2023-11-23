@@ -10,7 +10,7 @@ PURPOSE = "Verify console open when the AP is off"
 ATTRIBUTES = "suite:faft_cr50_pvt, suite:faft_cr50_prepvt"
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Verify the console can be opened while the AP is off.

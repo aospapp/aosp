@@ -39,6 +39,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.time.Instant;
 import java.util.function.Function;
 
 
@@ -64,6 +65,10 @@ public class BugStorageProvider extends ContentProvider {
     static final String URL_SEGMENT_DELETE_FILES = "deleteZipFile";
     /** Destructively deletes a bug report. */
     static final String URL_SEGMENT_COMPLETE_DELETE = "completeDelete";
+    /**
+     * Deletes all files for given bugreport and sets the status to {@link Status#STATUS_EXPIRED}.
+     */
+    static final String URL_SEGMENT_EXPIRE = "expire";
     /** Opens bugreport file of a bug report, uses column {@link #COLUMN_BUGREPORT_FILENAME}. */
     static final String URL_SEGMENT_OPEN_BUGREPORT_FILE = "openBugReportFile";
     /** Opens audio file of a bug report, uses column {@link #URL_MATCHED_OPEN_AUDIO_FILE}. */
@@ -82,9 +87,10 @@ public class BugStorageProvider extends ContentProvider {
     private static final int URL_MATCHED_BUG_REPORT_ID_URI = 2;
     private static final int URL_MATCHED_DELETE_FILES = 3;
     private static final int URL_MATCHED_COMPLETE_DELETE = 4;
-    private static final int URL_MATCHED_OPEN_BUGREPORT_FILE = 5;
-    private static final int URL_MATCHED_OPEN_AUDIO_FILE = 6;
-    private static final int URL_MATCHED_OPEN_FILE = 7;
+    private static final int URL_MATCHED_EXPIRE = 5;
+    private static final int URL_MATCHED_OPEN_BUGREPORT_FILE = 6;
+    private static final int URL_MATCHED_OPEN_AUDIO_FILE = 7;
+    private static final int URL_MATCHED_OPEN_FILE = 8;
 
     @StringDef({
             URL_SEGMENT_DELETE_FILES,
@@ -113,6 +119,12 @@ public class BugStorageProvider extends ContentProvider {
     static final String COLUMN_TYPE = "type";
     static final String COLUMN_BUGREPORT_FILENAME = "bugreport_filename";
     static final String COLUMN_AUDIO_FILENAME = "audio_filename";
+    static final String COLUMN_TTL_POINTS = "ttl_points";
+    /**
+     * Retaining bugreports for {@code 50} reboots is good enough.
+     * See {@link TtlPointsDecremental} for more details.
+     */
+    private static final int DEFAULT_TTL_POINTS = 50;
 
     private DatabaseHelper mDatabaseHelper;
     private final UriMatcher mUriMatcher;
@@ -129,13 +141,15 @@ public class BugStorageProvider extends ContentProvider {
         /**
          * All changes in database versions should be recorded here.
          * 1: Initial version.
-         * 2: Add integer column details_needed.
+         * 2: Add integer column: type.
          * 3: Add string column audio_filename and bugreport_filename.
+         * 4: Add integer column: ttl_points.
          */
         private static final int INITIAL_VERSION = 1;
         private static final int TYPE_VERSION = 2;
         private static final int AUDIO_VERSION = 3;
-        private static final int DATABASE_VERSION = AUDIO_VERSION;
+        private static final int TTL_POINTS_VERSION = 4;
+        private static final int DATABASE_VERSION = TTL_POINTS_VERSION;
 
         private static final String CREATE_TABLE = "CREATE TABLE " + BUG_REPORTS_TABLE + " ("
                 + COLUMN_ID + " INTEGER PRIMARY KEY,"
@@ -148,7 +162,8 @@ public class BugStorageProvider extends ContentProvider {
                 + COLUMN_STATUS_MESSAGE + " TEXT NULL,"
                 + COLUMN_TYPE + " INTEGER DEFAULT " + MetaBugReport.TYPE_INTERACTIVE + ","
                 + COLUMN_BUGREPORT_FILENAME + " TEXT DEFAULT NULL,"
-                + COLUMN_AUDIO_FILENAME + " TEXT DEFAULT NULL"
+                + COLUMN_AUDIO_FILENAME + " TEXT DEFAULT NULL,"
+                + COLUMN_TTL_POINTS + " INTEGER DEFAULT " + DEFAULT_TTL_POINTS
                 + ");";
 
         DatabaseHelper(Context context) {
@@ -173,6 +188,10 @@ public class BugStorageProvider extends ContentProvider {
                 db.execSQL("ALTER TABLE " + BUG_REPORTS_TABLE + " ADD COLUMN "
                         + COLUMN_AUDIO_FILENAME + " TEXT DEFAULT NULL");
             }
+            if (oldVersion < TTL_POINTS_VERSION) {
+                db.execSQL("ALTER TABLE " + BUG_REPORTS_TABLE + " ADD COLUMN "
+                        + COLUMN_TTL_POINTS + " INTEGER DEFAULT " + DEFAULT_TTL_POINTS);
+            }
         }
     }
 
@@ -195,6 +214,9 @@ public class BugStorageProvider extends ContentProvider {
         mUriMatcher.addURI(
                 AUTHORITY, BUG_REPORTS_TABLE + "/" + URL_SEGMENT_COMPLETE_DELETE + "/#",
                 URL_MATCHED_COMPLETE_DELETE);
+        mUriMatcher.addURI(
+                AUTHORITY, BUG_REPORTS_TABLE + "/" + URL_SEGMENT_EXPIRE + "/#",
+                URL_MATCHED_EXPIRE);
         mUriMatcher.addURI(
                 AUTHORITY, BUG_REPORTS_TABLE + "/" + URL_SEGMENT_OPEN_BUGREPORT_FILE + "/#",
                 URL_MATCHED_OPEN_BUGREPORT_FILE);
@@ -330,6 +352,22 @@ public class BugStorageProvider extends ContentProvider {
                 deleteFilesFor(getBugReportFromUri(uri));
                 getContext().getContentResolver().notifyChange(uri, null);
                 return db.delete(BUG_REPORTS_TABLE, selection, selectionArgs);
+            case URL_MATCHED_EXPIRE:
+                if (selection != null || selectionArgs != null) {
+                    throw new IllegalArgumentException("selection is not allowed for "
+                            + URL_MATCHED_EXPIRE);
+                }
+                if (deleteFilesFor(getBugReportFromUri(uri))) {
+                    ContentValues values = new ContentValues();
+                    values.put(COLUMN_STATUS, Status.STATUS_EXPIRED.getValue());
+                    values.put(COLUMN_STATUS_MESSAGE, "Expired at " + Instant.now());
+                    selection = COLUMN_ID + " = ?";
+                    selectionArgs = new String[]{uri.getLastPathSegment()};
+                    int rowCount = db.update(BUG_REPORTS_TABLE, values, selection, selectionArgs);
+                    getContext().getContentResolver().notifyChange(uri, null);
+                    return rowCount;
+                }
+                return 0;
             default:
                 throw new IllegalArgumentException("Unknown URL " + uri);
         }

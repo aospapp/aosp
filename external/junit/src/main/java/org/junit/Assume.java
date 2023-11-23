@@ -14,7 +14,7 @@ import org.hamcrest.Matcher;
  * basically means "don't run this test if these conditions don't apply". The default JUnit runner skips tests with
  * failing assumptions. Custom runners may behave differently.
  * <p>
- *     A good example of using assumptions is in <a href="https://github.com/junit-team/junit/wiki/Theories">Theories</a> where they are needed to exclude certain datapoints that aren't suitable or allowed for a certain test case.
+ *     A good example of using assumptions is in <a href="https://github.com/junit-team/junit4/wiki/Theories">Theories</a> where they are needed to exclude certain datapoints that aren't suitable or allowed for a certain test case.
  * </p>
  * Failed assumptions are usually not logged, because there may be many tests that don't apply to certain
  * configurations.
@@ -29,11 +29,20 @@ import org.hamcrest.Matcher;
  * </pre>
  * </p>
  *
- * @see <a href="https://github.com/junit-team/junit/wiki/Theories">Theories</a>
+ * @see <a href="https://github.com/junit-team/junit4/wiki/Theories">Theories</a>
  *
  * @since 4.4
  */
 public class Assume {
+
+    /**
+     * Do not instantiate.
+     * @deprecated since 4.13.
+     */
+    @Deprecated
+    public Assume() {
+    }
+
     /**
      * If called with an expression evaluating to {@code false}, the test will halt and be ignored.
      */
@@ -45,7 +54,7 @@ public class Assume {
      * The inverse of {@link #assumeTrue(boolean)}.
      */
     public static void assumeFalse(boolean b) {
-        assumeTrue(!b);
+        assumeThat(b, is(false));
     }
 
     /**
@@ -67,9 +76,11 @@ public class Assume {
     }
 
     /**
-     * If called with one or more null elements in <code>objects</code>, the test will halt and be ignored.
+     * If called with a {@code null} array or one or more {@code null} elements in {@code objects},
+     * the test will halt and be ignored.
      */
     public static void assumeNotNull(Object... objects) {
+        assumeThat(objects, notNullValue());
         assumeThat(asList(objects), everyItem(notNullValue()));
     }
 

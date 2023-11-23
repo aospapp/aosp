@@ -16,10 +16,8 @@
 
 package android.server.wm;
 
+import static android.app.WindowConfiguration.WINDOWING_MODE_UNDEFINED;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-import static android.server.wm.ActivityManagerTestBase.launchHomeActivityNoWait;
-import static android.server.wm.UiDeviceUtils.pressUnlockButton;
-import static android.server.wm.UiDeviceUtils.pressWakeupButton;
 import static android.view.Display.DEFAULT_DISPLAY;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -33,32 +31,42 @@ import android.os.Bundle;
 
 import com.android.compatibility.common.util.SystemUtil;
 
-import org.junit.Before;
-
 import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.annotation.concurrent.GuardedBy;
 
 public class WindowManagerTestBase extends MultiDisplayTestBase {
     static final long TIMEOUT_WINDOW_FOCUS_CHANGED = 1000; // milliseconds
 
-    @Before
-    public void setupBase() {
-        pressWakeupButton();
-        pressUnlockButton();
-        launchHomeActivityNoWait();
-    }
-
     static <T extends FocusableActivity> T startActivity(Class<T> cls) {
         return startActivity(cls, DEFAULT_DISPLAY);
     }
 
+    static <T extends FocusableActivity> T startActivity(Class<T> cls, int displayId) {
+        return startActivity(cls, displayId, true /* hasFocus */);
+    }
+
+    static <T extends FocusableActivity> T startActivity(
+            Class<T> cls, int displayId, boolean hasFocus) {
+        return startActivity(cls, displayId, hasFocus, WINDOWING_MODE_UNDEFINED);
+    }
+
+    static <T extends FocusableActivity> T startActivityInWindowingMode(
+            Class<T> cls, int windowingMode) {
+        return startActivity(cls, DEFAULT_DISPLAY, true /* hasFocus */, windowingMode);
+    }
+
     static <T extends FocusableActivity> T startActivity(Class<T> cls, int displayId,
-            boolean hasFocus) {
-        final Bundle options = (displayId == DEFAULT_DISPLAY
-                ? null : ActivityOptions.makeBasic().setLaunchDisplayId(displayId).toBundle());
+            boolean hasFocus, int windowingMode) {
+        final Bundle options;
+        if (displayId == DEFAULT_DISPLAY && windowingMode == WINDOWING_MODE_UNDEFINED) {
+            options = null;
+        } else {
+            final ActivityOptions ap= ActivityOptions.makeBasic();
+            if (displayId != DEFAULT_DISPLAY) ap.setLaunchDisplayId(displayId);
+            if (windowingMode != WINDOWING_MODE_UNDEFINED) ap.setLaunchWindowingMode(windowingMode);
+            options = ap.toBundle();
+        }
         final T[] activity = (T[]) Array.newInstance(FocusableActivity.class, 1);
         SystemUtil.runWithShellPermissionIdentity(() -> {
             activity[0] = (T) getInstrumentation().startActivitySync(
@@ -67,10 +75,6 @@ public class WindowManagerTestBase extends MultiDisplayTestBase {
             activity[0].waitAndAssertWindowFocusState(hasFocus);
         });
         return activity[0];
-    }
-
-    static <T extends FocusableActivity> T startActivity(Class<T> cls, int displayId) {
-      return startActivity(cls, displayId, true /* hasFocus */);
     }
 
     static class FocusableActivity extends Activity {

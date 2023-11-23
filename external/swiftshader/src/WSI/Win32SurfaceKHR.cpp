@@ -22,6 +22,8 @@
 namespace {
 VkExtent2D getWindowSize(HWND hwnd)
 {
+	ASSERT(IsWindow(hwnd) == TRUE);
+
 	RECT clientRect = {};
 	BOOL status = GetClientRect(hwnd, &clientRect);
 	ASSERT(status != 0);
@@ -56,13 +58,24 @@ size_t Win32SurfaceKHR::ComputeRequiredAllocationSize(const VkWin32SurfaceCreate
 	return 0;
 }
 
-void Win32SurfaceKHR::getSurfaceCapabilities(VkSurfaceCapabilitiesKHR *pSurfaceCapabilities) const
+VkResult Win32SurfaceKHR::getSurfaceCapabilities(VkSurfaceCapabilitiesKHR *pSurfaceCapabilities) const
 {
-	SurfaceKHR::getSurfaceCapabilities(pSurfaceCapabilities);
+	setCommonSurfaceCapabilities(pSurfaceCapabilities);
+
+	if(!IsWindow(hwnd))
+	{
+		VkExtent2D extent = { 0, 0 };
+		pSurfaceCapabilities->currentExtent = extent;
+		pSurfaceCapabilities->minImageExtent = extent;
+		pSurfaceCapabilities->maxImageExtent = extent;
+		return VK_ERROR_SURFACE_LOST_KHR;
+	}
+
 	VkExtent2D extent = getWindowSize(hwnd);
 	pSurfaceCapabilities->currentExtent = extent;
 	pSurfaceCapabilities->minImageExtent = extent;
 	pSurfaceCapabilities->maxImageExtent = extent;
+	return VK_SUCCESS;
 }
 
 void Win32SurfaceKHR::attachImage(PresentImage *image)
@@ -88,18 +101,14 @@ VkResult Win32SurfaceKHR::present(PresentImage *image)
 		return VK_SUCCESS;
 	}
 
-	VkExtent3D extent = image->getImage()->getMipLevelExtent(VK_IMAGE_ASPECT_COLOR_BIT, 0);
+	const VkExtent3D &extent = image->getImage()->getExtent();
 
 	if(windowExtent.width != extent.width || windowExtent.height != extent.height)
 	{
 		return VK_ERROR_OUT_OF_DATE_KHR;
 	}
 
-	VkImageSubresourceLayers subresourceLayers{};
-	subresourceLayers.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	subresourceLayers.layerCount = 1;
-
-	image->getImage()->blitToBuffer(subresourceLayers, VkOffset3D{}, extent, reinterpret_cast<uint8_t *>(framebuffer), bitmapRowPitch, 0);
+	image->getImage()->copyTo(reinterpret_cast<uint8_t *>(framebuffer), bitmapRowPitch);
 
 	StretchBlt(windowContext, 0, 0, extent.width, extent.height, bitmapContext, 0, 0, extent.width, extent.height, SRCCOPY);
 

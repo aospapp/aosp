@@ -17,7 +17,7 @@
 %                                July 1992                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -105,6 +105,7 @@ static MagickBooleanType AnimateUsage(void)
       "  -channel mask        set the image channel mask\n"
       "  -colors value        preferred number of colors in the image\n"
       "  -crop geometry       preferred size and location of the cropped image\n"
+      "  -extent geometry     set the image size\n"
       "  -extract geometry    extract area from image\n"
       "  -monochrome          transform image to black and white\n"
       "  -resample geometry   change the resolution of an image\n"
@@ -200,7 +201,7 @@ static MagickBooleanType AnimateUsage(void)
   (void) printf("'-' for standard input or output.\n");
   (void) printf("\nButtons: \n");
   (void) puts(buttons);
-  return(MagickFalse);
+  return(MagickTrue);
 }
 
 WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
@@ -263,7 +264,7 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
   QuantizeInfo
     *quantize_info;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -335,7 +336,10 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
       }
     if ((LocaleCompare("help",option+1) == 0) ||
         (LocaleCompare("-help",option+1) == 0))
-      return(AnimateUsage());
+      {
+        DestroyAnimate();
+        return(AnimateUsage());
+      }
   }
   /*
     Get user defaults from X resource database.
@@ -756,6 +760,17 @@ WandExport MagickBooleanType AnimateImageCommand(ImageInfo *image_info,
       }
       case 'e':
       {
+        if (LocaleCompare("extent",option+1) == 0)
+          {
+            if (*option == '+')
+              break;
+            i++;
+            if (i == (ssize_t) argc)
+              ThrowAnimateException(OptionError,"MissingArgument",option);
+            if (IsGeometry(argv[i]) == MagickFalse)
+              ThrowAnimateInvalidArgumentException(option,argv[i]);
+            break;
+          }
         if (LocaleCompare("extract",option+1) == 0)
           {
             if (*option == '+')

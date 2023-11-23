@@ -37,7 +37,8 @@ extern "C" {
 #define BO_USE_HW_VIDEO_DECODER         (1ull << 13)
 #define BO_USE_HW_VIDEO_ENCODER         (1ull << 14)
 #define BO_USE_TEST_ALLOC		(1ull << 15)
-#define BO_USE_RENDERSCRIPT		(1ull << 16)
+#define BO_USE_FRONT_RENDERING		(1ull << 16)
+#define BO_USE_RENDERSCRIPT		(1ull << 17)
 
 /* Quirks for allocating a buffer. */
 #define BO_QUIRK_NONE			0
@@ -85,10 +86,11 @@ struct drv_import_fd_data {
 	int fds[DRV_MAX_PLANES];
 	uint32_t strides[DRV_MAX_PLANES];
 	uint32_t offsets[DRV_MAX_PLANES];
-	uint64_t format_modifiers[DRV_MAX_PLANES];
+	uint64_t format_modifier;
 	uint32_t width;
 	uint32_t height;
 	uint32_t format;
+	uint32_t tiling;
 	uint64_t use_flags;
 };
 
@@ -165,7 +167,7 @@ uint32_t drv_bo_get_plane_size(struct bo *bo, size_t plane);
 
 uint32_t drv_bo_get_plane_stride(struct bo *bo, size_t plane);
 
-uint64_t drv_bo_get_plane_format_modifier(struct bo *bo, size_t plane);
+uint64_t drv_bo_get_format_modifier(struct bo *bo);
 
 uint32_t drv_bo_get_format(struct bo *bo);
 
@@ -182,7 +184,7 @@ size_t drv_num_planes_from_modifier(struct driver *drv, uint32_t format, uint64_
 uint32_t drv_num_buffers_per_bo(struct bo *bo);
 
 int drv_resource_info(struct bo *bo, uint32_t strides[DRV_MAX_PLANES],
-		      uint32_t offsets[DRV_MAX_PLANES]);
+		      uint32_t offsets[DRV_MAX_PLANES], uint64_t *format_modifier);
 
 #define drv_log(format, ...)                                                                       \
 	do {                                                                                       \

@@ -67,5 +67,5 @@ class policy_ArcBackupRestoreServiceEnabled(
                'ArcBackupRestoreServiceEnabled': case}
         self.setup_case(user_policies=pol,
                         arc_mode='enabled',
-                        use_clouddpc_test=True)
+                        use_clouddpc_test=False)
         self.verify_policy(case)

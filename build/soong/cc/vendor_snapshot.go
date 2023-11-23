@@ -13,529 +13,157 @@
 // limitations under the License.
 package cc
 
+// This file contains singletons to capture vendor and recovery snapshot. They consist of prebuilt
+// modules under AOSP so older vendor and recovery can be built with a newer system in a single
+// source tree.
+
 import (
 	"encoding/json"
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
-
-	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
 )
 
-const (
-	vendorSnapshotHeaderSuffix = ".vendor_header."
-	vendorSnapshotSharedSuffix = ".vendor_shared."
-	vendorSnapshotStaticSuffix = ".vendor_static."
-	vendorSnapshotBinarySuffix = ".vendor_binary."
-	vendorSnapshotObjectSuffix = ".vendor_object."
-)
-
-var (
-	vendorSnapshotsLock         sync.Mutex
-	vendorSuffixModulesKey      = android.NewOnceKey("vendorSuffixModules")
-	vendorSnapshotHeaderLibsKey = android.NewOnceKey("vendorSnapshotHeaderLibs")
-	vendorSnapshotStaticLibsKey = android.NewOnceKey("vendorSnapshotStaticLibs")
-	vendorSnapshotSharedLibsKey = android.NewOnceKey("vendorSnapshotSharedLibs")
-	vendorSnapshotBinariesKey   = android.NewOnceKey("vendorSnapshotBinaries")
-	vendorSnapshotObjectsKey    = android.NewOnceKey("vendorSnapshotObjects")
-)
-
-// vendor snapshot maps hold names of vendor snapshot modules per arch
-func vendorSuffixModules(config android.Config) map[string]bool {
-	return config.Once(vendorSuffixModulesKey, func() interface{} {
-		return make(map[string]bool)
-	}).(map[string]bool)
+var vendorSnapshotSingleton = snapshotSingleton{
+	"vendor",
+	"SOONG_VENDOR_SNAPSHOT_ZIP",
+	android.OptionalPath{},
+	true,
+	vendorSnapshotImageSingleton,
+	false, /* fake */
 }
 
-func vendorSnapshotHeaderLibs(config android.Config) *snapshotMap {
-	return config.Once(vendorSnapshotHeaderLibsKey, func() interface{} {
-		return newSnapshotMap()
-	}).(*snapshotMap)
+var vendorFakeSnapshotSingleton = snapshotSingleton{
+	"vendor",
+	"SOONG_VENDOR_FAKE_SNAPSHOT_ZIP",
+	android.OptionalPath{},
+	true,
+	vendorSnapshotImageSingleton,
+	true, /* fake */
 }
 
-func vendorSnapshotSharedLibs(config android.Config) *snapshotMap {
-	return config.Once(vendorSnapshotSharedLibsKey, func() interface{} {
-		return newSnapshotMap()
-	}).(*snapshotMap)
-}
-
-func vendorSnapshotStaticLibs(config android.Config) *snapshotMap {
-	return config.Once(vendorSnapshotStaticLibsKey, func() interface{} {
-		return newSnapshotMap()
-	}).(*snapshotMap)
-}
-
-func vendorSnapshotBinaries(config android.Config) *snapshotMap {
-	return config.Once(vendorSnapshotBinariesKey, func() interface{} {
-		return newSnapshotMap()
-	}).(*snapshotMap)
-}
-
-func vendorSnapshotObjects(config android.Config) *snapshotMap {
-	return config.Once(vendorSnapshotObjectsKey, func() interface{} {
-		return newSnapshotMap()
-	}).(*snapshotMap)
-}
-
-type vendorSnapshotLibraryProperties struct {
-	// snapshot version.
-	Version string
-
-	// Target arch name of the snapshot (e.g. 'arm64' for variant 'aosp_arm64')
-	Target_arch string
-
-	// Prebuilt file for each arch.
-	Src *string `android:"arch_variant"`
-
-	// list of flags that will be used for any module that links against this module.
-	Export_flags []string `android:"arch_variant"`
-
-	// Check the prebuilt ELF files (e.g. DT_SONAME, DT_NEEDED, resolution of undefined symbols,
-	// etc).
-	Check_elf_files *bool
-
-	// Whether this prebuilt needs to depend on sanitize ubsan runtime or not.
-	Sanitize_ubsan_dep *bool `android:"arch_variant"`
-
-	// Whether this prebuilt needs to depend on sanitize minimal runtime or not.
-	Sanitize_minimal_dep *bool `android:"arch_variant"`
-}
-
-type vendorSnapshotLibraryDecorator struct {
-	*libraryDecorator
-	properties            vendorSnapshotLibraryProperties
-	androidMkVendorSuffix bool
-}
-
-func (p *vendorSnapshotLibraryDecorator) Name(name string) string {
-	return name + p.NameSuffix()
-}
-
-func (p *vendorSnapshotLibraryDecorator) NameSuffix() string {
-	versionSuffix := p.version()
-	if p.arch() != "" {
-		versionSuffix += "." + p.arch()
-	}
-
-	var linkageSuffix string
-	if p.buildShared() {
-		linkageSuffix = vendorSnapshotSharedSuffix
-	} else if p.buildStatic() {
-		linkageSuffix = vendorSnapshotStaticSuffix
-	} else {
-		linkageSuffix = vendorSnapshotHeaderSuffix
-	}
-
-	return linkageSuffix + versionSuffix
-}
-
-func (p *vendorSnapshotLibraryDecorator) version() string {
-	return p.properties.Version
-}
-
-func (p *vendorSnapshotLibraryDecorator) arch() string {
-	return p.properties.Target_arch
-}
-
-func (p *vendorSnapshotLibraryDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags {
-	p.libraryDecorator.libName = strings.TrimSuffix(ctx.ModuleName(), p.NameSuffix())
-	return p.libraryDecorator.linkerFlags(ctx, flags)
-}
-
-func (p *vendorSnapshotLibraryDecorator) matchesWithDevice(config android.DeviceConfig) bool {
-	arches := config.Arches()
-	if len(arches) == 0 || arches[0].ArchType.String() != p.arch() {
-		return false
-	}
-	if !p.header() && p.properties.Src == nil {
-		return false
-	}
-	return true
-}
-
-func (p *vendorSnapshotLibraryDecorator) link(ctx ModuleContext,
-	flags Flags, deps PathDeps, objs Objects) android.Path {
-	m := ctx.Module().(*Module)
-	p.androidMkVendorSuffix = vendorSuffixModules(ctx.Config())[m.BaseModuleName()]
-
-	if p.header() {
-		return p.libraryDecorator.link(ctx, flags, deps, objs)
-	}
-
-	if !p.matchesWithDevice(ctx.DeviceConfig()) {
-		return nil
-	}
-
-	p.libraryDecorator.exportIncludes(ctx)
-	p.libraryDecorator.reexportFlags(p.properties.Export_flags...)
-
-	in := android.PathForModuleSrc(ctx, *p.properties.Src)
-	p.unstrippedOutputFile = in
-
-	if p.shared() {
-		libName := in.Base()
-		builderFlags := flagsToBuilderFlags(flags)
-
-		// Optimize out relinking against shared libraries whose interface hasn't changed by
-		// depending on a table of contents file instead of the library itself.
-		tocFile := android.PathForModuleOut(ctx, libName+".toc")
-		p.tocFile = android.OptionalPathForPath(tocFile)
-		TransformSharedObjectToToc(ctx, in, tocFile, builderFlags)
-	}
-
-	return in
-}
-
-func (p *vendorSnapshotLibraryDecorator) nativeCoverage() bool {
-	return false
-}
-
-func (p *vendorSnapshotLibraryDecorator) isSnapshotPrebuilt() bool {
-	return true
-}
-
-func (p *vendorSnapshotLibraryDecorator) install(ctx ModuleContext, file android.Path) {
-	if p.matchesWithDevice(ctx.DeviceConfig()) && (p.shared() || p.static()) {
-		p.baseInstaller.install(ctx, file)
-	}
-}
-
-type vendorSnapshotInterface interface {
-	version() string
-}
-
-func vendorSnapshotLoadHook(ctx android.LoadHookContext, p vendorSnapshotInterface) {
-	if p.version() != ctx.DeviceConfig().VndkVersion() {
-		ctx.Module().Disable()
-		return
-	}
-}
-
-func vendorSnapshotLibrary() (*Module, *vendorSnapshotLibraryDecorator) {
-	module, library := NewLibrary(android.DeviceSupported)
-
-	module.stl = nil
-	module.sanitize = nil
-	library.StripProperties.Strip.None = BoolPtr(true)
-
-	prebuilt := &vendorSnapshotLibraryDecorator{
-		libraryDecorator: library,
-	}
-
-	prebuilt.baseLinker.Properties.No_libcrt = BoolPtr(true)
-	prebuilt.baseLinker.Properties.Nocrt = BoolPtr(true)
-
-	// Prevent default system libs (libc, libm, and libdl) from being linked
-	if prebuilt.baseLinker.Properties.System_shared_libs == nil {
-		prebuilt.baseLinker.Properties.System_shared_libs = []string{}
-	}
-
-	module.compiler = nil
-	module.linker = prebuilt
-	module.installer = prebuilt
-
-	module.AddProperties(
-		&prebuilt.properties,
-	)
-
-	return module, prebuilt
-}
-
-func VendorSnapshotSharedFactory() android.Module {
-	module, prebuilt := vendorSnapshotLibrary()
-	prebuilt.libraryDecorator.BuildOnlyShared()
-	android.AddLoadHook(module, func(ctx android.LoadHookContext) {
-		vendorSnapshotLoadHook(ctx, prebuilt)
-	})
-	return module.Init()
-}
-
-func VendorSnapshotStaticFactory() android.Module {
-	module, prebuilt := vendorSnapshotLibrary()
-	prebuilt.libraryDecorator.BuildOnlyStatic()
-	android.AddLoadHook(module, func(ctx android.LoadHookContext) {
-		vendorSnapshotLoadHook(ctx, prebuilt)
-	})
-	return module.Init()
-}
-
-func VendorSnapshotHeaderFactory() android.Module {
-	module, prebuilt := vendorSnapshotLibrary()
-	prebuilt.libraryDecorator.HeaderOnly()
-	android.AddLoadHook(module, func(ctx android.LoadHookContext) {
-		vendorSnapshotLoadHook(ctx, prebuilt)
-	})
-	return module.Init()
-}
-
-type vendorSnapshotBinaryProperties struct {
-	// snapshot version.
-	Version string
-
-	// Target arch name of the snapshot (e.g. 'arm64' for variant 'aosp_arm64_ab')
-	Target_arch string
-
-	// Prebuilt file for each arch.
-	Src *string `android:"arch_variant"`
-}
-
-type vendorSnapshotBinaryDecorator struct {
-	*binaryDecorator
-	properties            vendorSnapshotBinaryProperties
-	androidMkVendorSuffix bool
-}
-
-func (p *vendorSnapshotBinaryDecorator) Name(name string) string {
-	return name + p.NameSuffix()
-}
-
-func (p *vendorSnapshotBinaryDecorator) NameSuffix() string {
-	versionSuffix := p.version()
-	if p.arch() != "" {
-		versionSuffix += "." + p.arch()
-	}
-	return vendorSnapshotBinarySuffix + versionSuffix
-}
-
-func (p *vendorSnapshotBinaryDecorator) version() string {
-	return p.properties.Version
-}
-
-func (p *vendorSnapshotBinaryDecorator) arch() string {
-	return p.properties.Target_arch
-}
-
-func (p *vendorSnapshotBinaryDecorator) matchesWithDevice(config android.DeviceConfig) bool {
-	if config.DeviceArch() != p.arch() {
-		return false
-	}
-	if p.properties.Src == nil {
-		return false
-	}
-	return true
-}
-
-func (p *vendorSnapshotBinaryDecorator) link(ctx ModuleContext,
-	flags Flags, deps PathDeps, objs Objects) android.Path {
-	if !p.matchesWithDevice(ctx.DeviceConfig()) {
-		return nil
-	}
-
-	in := android.PathForModuleSrc(ctx, *p.properties.Src)
-	builderFlags := flagsToBuilderFlags(flags)
-	p.unstrippedOutputFile = in
-	binName := in.Base()
-	if p.needsStrip(ctx) {
-		stripped := android.PathForModuleOut(ctx, "stripped", binName)
-		p.stripExecutableOrSharedLib(ctx, in, stripped, builderFlags)
-		in = stripped
-	}
-
-	m := ctx.Module().(*Module)
-	p.androidMkVendorSuffix = vendorSuffixModules(ctx.Config())[m.BaseModuleName()]
-
-	// use cpExecutable to make it executable
-	outputFile := android.PathForModuleOut(ctx, binName)
-	ctx.Build(pctx, android.BuildParams{
-		Rule:        android.CpExecutable,
-		Description: "prebuilt",
-		Output:      outputFile,
-		Input:       in,
-	})
-
-	return outputFile
-}
-
-func (p *vendorSnapshotBinaryDecorator) isSnapshotPrebuilt() bool {
-	return true
-}
-
-func VendorSnapshotBinaryFactory() android.Module {
-	module, binary := NewBinary(android.DeviceSupported)
-	binary.baseLinker.Properties.No_libcrt = BoolPtr(true)
-	binary.baseLinker.Properties.Nocrt = BoolPtr(true)
-
-	// Prevent default system libs (libc, libm, and libdl) from being linked
-	if binary.baseLinker.Properties.System_shared_libs == nil {
-		binary.baseLinker.Properties.System_shared_libs = []string{}
-	}
-
-	prebuilt := &vendorSnapshotBinaryDecorator{
-		binaryDecorator: binary,
-	}
-
-	module.compiler = nil
-	module.sanitize = nil
-	module.stl = nil
-	module.linker = prebuilt
-
-	android.AddLoadHook(module, func(ctx android.LoadHookContext) {
-		vendorSnapshotLoadHook(ctx, prebuilt)
-	})
-
-	module.AddProperties(&prebuilt.properties)
-	return module.Init()
-}
-
-type vendorSnapshotObjectProperties struct {
-	// snapshot version.
-	Version string
-
-	// Target arch name of the snapshot (e.g. 'arm64' for variant 'aosp_arm64_ab')
-	Target_arch string
-
-	// Prebuilt file for each arch.
-	Src *string `android:"arch_variant"`
-}
-
-type vendorSnapshotObjectLinker struct {
-	objectLinker
-	properties            vendorSnapshotObjectProperties
-	androidMkVendorSuffix bool
-}
-
-func (p *vendorSnapshotObjectLinker) Name(name string) string {
-	return name + p.NameSuffix()
-}
-
-func (p *vendorSnapshotObjectLinker) NameSuffix() string {
-	versionSuffix := p.version()
-	if p.arch() != "" {
-		versionSuffix += "." + p.arch()
-	}
-	return vendorSnapshotObjectSuffix + versionSuffix
-}
-
-func (p *vendorSnapshotObjectLinker) version() string {
-	return p.properties.Version
-}
-
-func (p *vendorSnapshotObjectLinker) arch() string {
-	return p.properties.Target_arch
-}
-
-func (p *vendorSnapshotObjectLinker) matchesWithDevice(config android.DeviceConfig) bool {
-	if config.DeviceArch() != p.arch() {
-		return false
-	}
-	if p.properties.Src == nil {
-		return false
-	}
-	return true
-}
-
-func (p *vendorSnapshotObjectLinker) link(ctx ModuleContext,
-	flags Flags, deps PathDeps, objs Objects) android.Path {
-	if !p.matchesWithDevice(ctx.DeviceConfig()) {
-		return nil
-	}
-
-	m := ctx.Module().(*Module)
-	p.androidMkVendorSuffix = vendorSuffixModules(ctx.Config())[m.BaseModuleName()]
-
-	return android.PathForModuleSrc(ctx, *p.properties.Src)
-}
-
-func (p *vendorSnapshotObjectLinker) nativeCoverage() bool {
-	return false
-}
-
-func (p *vendorSnapshotObjectLinker) isSnapshotPrebuilt() bool {
-	return true
-}
-
-func VendorSnapshotObjectFactory() android.Module {
-	module := newObject()
-
-	prebuilt := &vendorSnapshotObjectLinker{
-		objectLinker: objectLinker{
-			baseLinker: NewBaseLinker(nil),
-		},
-	}
-	module.linker = prebuilt
-
-	android.AddLoadHook(module, func(ctx android.LoadHookContext) {
-		vendorSnapshotLoadHook(ctx, prebuilt)
-	})
-
-	module.AddProperties(&prebuilt.properties)
-	return module.Init()
-}
-
-func init() {
-	android.RegisterSingletonType("vendor-snapshot", VendorSnapshotSingleton)
-	android.RegisterModuleType("vendor_snapshot_shared", VendorSnapshotSharedFactory)
-	android.RegisterModuleType("vendor_snapshot_static", VendorSnapshotStaticFactory)
-	android.RegisterModuleType("vendor_snapshot_header", VendorSnapshotHeaderFactory)
-	android.RegisterModuleType("vendor_snapshot_binary", VendorSnapshotBinaryFactory)
-	android.RegisterModuleType("vendor_snapshot_object", VendorSnapshotObjectFactory)
+var recoverySnapshotSingleton = snapshotSingleton{
+	"recovery",
+	"SOONG_RECOVERY_SNAPSHOT_ZIP",
+	android.OptionalPath{},
+	false,
+	recoverySnapshotImageSingleton,
+	false, /* fake */
 }
 
 func VendorSnapshotSingleton() android.Singleton {
-	return &vendorSnapshotSingleton{}
+	return &vendorSnapshotSingleton
 }
 
-type vendorSnapshotSingleton struct {
-	vendorSnapshotZipFile android.OptionalPath
+func VendorFakeSnapshotSingleton() android.Singleton {
+	return &vendorFakeSnapshotSingleton
 }
 
-var (
-	// Modules under following directories are ignored. They are OEM's and vendor's
-	// proprietary modules(device/, vendor/, and hardware/).
-	// TODO(b/65377115): Clean up these with more maintainable way
-	vendorProprietaryDirs = []string{
-		"device",
-		"vendor",
-		"hardware",
+func RecoverySnapshotSingleton() android.Singleton {
+	return &recoverySnapshotSingleton
+}
+
+type snapshotSingleton struct {
+	// Name, e.g., "vendor", "recovery", "ramdisk".
+	name string
+
+	// Make variable that points to the snapshot file, e.g.,
+	// "SOONG_RECOVERY_SNAPSHOT_ZIP".
+	makeVar string
+
+	// Path to the snapshot zip file.
+	snapshotZipFile android.OptionalPath
+
+	// Whether the image supports VNDK extension modules.
+	supportsVndkExt bool
+
+	// Implementation of the image interface specific to the image
+	// associated with this snapshot (e.g., specific to the vendor image,
+	// recovery image, etc.).
+	image snapshotImage
+
+	// Whether this singleton is for fake snapshot or not.
+	// Fake snapshot is a snapshot whose prebuilt binaries and headers are empty.
+	// It is much faster to generate, and can be used to inspect dependencies.
+	fake bool
+}
+
+// Determine if a dir under source tree is an SoC-owned proprietary directory based
+// on vendor snapshot configuration
+// Examples: device/, vendor/
+func isVendorProprietaryPath(dir string, deviceConfig android.DeviceConfig) bool {
+	return VendorSnapshotSingleton().(*snapshotSingleton).image.isProprietaryPath(dir, deviceConfig)
+}
+
+// Determine if a dir under source tree is an SoC-owned proprietary directory based
+// on recovery snapshot configuration
+// Examples: device/, vendor/
+func isRecoveryProprietaryPath(dir string, deviceConfig android.DeviceConfig) bool {
+	return RecoverySnapshotSingleton().(*snapshotSingleton).image.isProprietaryPath(dir, deviceConfig)
+}
+
+func isVendorProprietaryModule(ctx android.BaseModuleContext) bool {
+	// Any module in a vendor proprietary path is a vendor proprietary
+	// module.
+	if isVendorProprietaryPath(ctx.ModuleDir(), ctx.DeviceConfig()) {
+		return true
 	}
 
-	// Modules under following directories are included as they are in AOSP,
-	// although hardware/ is normally for vendor's own.
-	// TODO(b/65377115): Clean up these with more maintainable way
-	aospDirsUnderProprietary = []string{
-		"hardware/interfaces",
-		"hardware/libhardware",
-		"hardware/libhardware_legacy",
-		"hardware/ril",
-	}
-)
-
-// Determine if a dir under source tree is an SoC-owned proprietary directory, such as
-// device/, vendor/, etc.
-func isVendorProprietaryPath(dir string) bool {
-	for _, p := range vendorProprietaryDirs {
-		if strings.HasPrefix(dir, p) {
-			// filter out AOSP defined directories, e.g. hardware/interfaces/
-			aosp := false
-			for _, p := range aospDirsUnderProprietary {
-				if strings.HasPrefix(dir, p) {
-					aosp = true
-					break
-				}
-			}
-			if !aosp {
-				return true
-			}
+	// However if the module is not in a vendor proprietary path, it may
+	// still be a vendor proprietary module. This happens for cc modules
+	// that are excluded from the vendor snapshot, and it means that the
+	// vendor has assumed control of the framework-provided module.
+	if c, ok := ctx.Module().(LinkableInterface); ok {
+		if c.ExcludeFromVendorSnapshot() {
+			return true
 		}
 	}
+
 	return false
 }
 
-// Determine if a module is going to be included in vendor snapshot or not.
-//
-// Targets of vendor snapshot are "vendor: true" or "vendor_available: true" modules in
-// AOSP. They are not guaranteed to be compatible with older vendor images. (e.g. might
-// depend on newer VNDK) So they are captured as vendor snapshot To build older vendor
-// image and newer system image altogether.
-func isVendorSnapshotModule(m *Module, moduleDir string) bool {
-	if !m.Enabled() || m.Properties.HideFromMake {
+func isRecoveryProprietaryModule(ctx android.BaseModuleContext) bool {
+
+	// Any module in a recovery proprietary path is a recovery proprietary
+	// module.
+	if isRecoveryProprietaryPath(ctx.ModuleDir(), ctx.DeviceConfig()) {
+		return true
+	}
+
+	// However if the module is not in a recovery proprietary path, it may
+	// still be a recovery proprietary module. This happens for cc modules
+	// that are excluded from the recovery snapshot, and it means that the
+	// vendor has assumed control of the framework-provided module.
+
+	if c, ok := ctx.Module().(LinkableInterface); ok {
+		if c.ExcludeFromRecoverySnapshot() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Determines if the module is a candidate for snapshot.
+func isSnapshotAware(cfg android.DeviceConfig, m LinkableInterface, inProprietaryPath bool, apexInfo android.ApexInfo, image snapshotImage) bool {
+	if !m.Enabled() || m.HiddenFromMake() {
 		return false
 	}
-	// skip proprietary modules, but include all VNDK (static)
-	if isVendorProprietaryPath(moduleDir) && !m.IsVndk() {
+	// When android/prebuilt.go selects between source and prebuilt, it sets
+	// HideFromMake on the other one to avoid duplicate install rules in make.
+	if m.IsHideFromMake() {
+		return false
+	}
+	// skip proprietary modules, but (for the vendor snapshot only)
+	// include all VNDK (static)
+	if inProprietaryPath && (!image.includeVndk() || !m.IsVndk()) {
+		return false
+	}
+	// If the module would be included based on its path, check to see if
+	// the module is marked to be excluded. If so, skip it.
+	if image.excludeFromSnapshot(m) {
 		return false
 	}
 	if m.Target().Os.Class != android.Device {
@@ -544,53 +172,90 @@ func isVendorSnapshotModule(m *Module, moduleDir string) bool {
 	if m.Target().NativeBridge == android.NativeBridgeEnabled {
 		return false
 	}
-	// the module must be installed in /vendor
-	if !m.IsForPlatform() || m.isSnapshotPrebuilt() || !m.inVendor() {
+	// the module must be installed in target image
+	if !apexInfo.IsForPlatform() || m.IsSnapshotPrebuilt() || !image.inImage(m)() {
 		return false
 	}
 	// skip kernel_headers which always depend on vendor
-	if _, ok := m.linker.(*kernelHeadersDecorator); ok {
+	if m.KernelHeadersDecorator() {
+		return false
+	}
+
+	if m.IsLlndk() {
 		return false
 	}
 
 	// Libraries
-	if l, ok := m.linker.(snapshotLibraryInterface); ok {
-		// TODO(b/65377115): add full support for sanitizer
-		if m.sanitize != nil {
-			// cfi, scs and hwasan export both sanitized and unsanitized variants for static and header
+	if sanitizable, ok := m.(PlatformSanitizeable); ok && sanitizable.IsSnapshotLibrary() {
+		if sanitizable.SanitizePropDefined() {
+			// scs and hwasan export both sanitized and unsanitized variants for static and header
 			// Always use unsanitized variants of them.
-			for _, t := range []sanitizerType{cfi, scs, hwasan} {
-				if !l.shared() && m.sanitize.isSanitizerEnabled(t) {
+			for _, t := range []SanitizerType{scs, Hwasan} {
+				if !sanitizable.Shared() && sanitizable.IsSanitizerEnabled(t) {
 					return false
 				}
 			}
-		}
-		if l.static() {
-			return m.outputFile.Valid() && proptools.BoolDefault(m.VendorProperties.Vendor_available, true)
-		}
-		if l.shared() {
-			if !m.outputFile.Valid() {
+			// cfi also exports both variants. But for static, we capture both.
+			// This is because cfi static libraries can't be linked from non-cfi modules,
+			// and vice versa. This isn't the case for scs and hwasan sanitizers.
+			if !sanitizable.Static() && !sanitizable.Shared() && sanitizable.IsSanitizerEnabled(cfi) {
 				return false
 			}
-			if !m.IsVndk() {
-				return true
+		}
+		if sanitizable.Static() {
+			return sanitizable.OutputFile().Valid() && !image.private(m)
+		}
+		if sanitizable.Shared() {
+			if !sanitizable.OutputFile().Valid() {
+				return false
 			}
-			return m.isVndkExt()
+			if image.includeVndk() {
+				if !sanitizable.IsVndk() {
+					return true
+				}
+				return sanitizable.IsVndkExt()
+			}
 		}
 		return true
 	}
 
 	// Binaries and Objects
-	if m.binary() || m.object() {
-		return m.outputFile.Valid() && proptools.BoolDefault(m.VendorProperties.Vendor_available, true)
+	if m.Binary() || m.Object() {
+		return m.OutputFile().Valid()
 	}
 
 	return false
 }
 
-func (c *vendorSnapshotSingleton) GenerateBuildActions(ctx android.SingletonContext) {
-	// BOARD_VNDK_VERSION must be set to 'current' in order to generate a vendor snapshot.
-	if ctx.DeviceConfig().VndkVersion() != "current" {
+// This is to be saved as .json files, which is for development/vendor_snapshot/update.py.
+// These flags become Android.bp snapshot module properties.
+type snapshotJsonFlags struct {
+	ModuleName          string `json:",omitempty"`
+	RelativeInstallPath string `json:",omitempty"`
+
+	// library flags
+	ExportedDirs       []string `json:",omitempty"`
+	ExportedSystemDirs []string `json:",omitempty"`
+	ExportedFlags      []string `json:",omitempty"`
+	Sanitize           string   `json:",omitempty"`
+	SanitizeMinimalDep bool     `json:",omitempty"`
+	SanitizeUbsanDep   bool     `json:",omitempty"`
+
+	// binary flags
+	Symlinks []string `json:",omitempty"`
+
+	// dependencies
+	SharedLibs  []string `json:",omitempty"`
+	RuntimeLibs []string `json:",omitempty"`
+	Required    []string `json:",omitempty"`
+
+	// extra config files
+	InitRc         []string `json:",omitempty"`
+	VintfFragments []string `json:",omitempty"`
+}
+
+func (c *snapshotSingleton) GenerateBuildActions(ctx android.SingletonContext) {
+	if !c.image.shouldGenerateSnapshot(ctx) {
 		return
 	}
 
@@ -629,7 +294,12 @@ func (c *vendorSnapshotSingleton) GenerateBuildActions(ctx android.SingletonCont
 				(header files of same directory structure with source tree)
 	*/
 
-	snapshotDir := "vendor-snapshot"
+	snapshotDir := c.name + "-snapshot"
+	if c.fake {
+		// If this is a fake snapshot singleton, place all files under fake/ subdirectory to avoid
+		// collision with real snapshot files
+		snapshotDir = filepath.Join("fake", snapshotDir)
+	}
 	snapshotArchDir := filepath.Join(snapshotDir, ctx.DeviceConfig().DeviceArch())
 
 	includeDir := filepath.Join(snapshotArchDir, "include")
@@ -641,7 +311,19 @@ func (c *vendorSnapshotSingleton) GenerateBuildActions(ctx android.SingletonCont
 
 	var headers android.Paths
 
-	installSnapshot := func(m *Module) android.Paths {
+	copyFile := func(ctx android.SingletonContext, path android.Path, out string, fake bool) android.OutputPath {
+		if fake {
+			// All prebuilt binaries and headers are installed by copyFile function. This makes a fake
+			// snapshot just touch prebuilts and headers, rather than installing real files.
+			return writeStringToFileRule(ctx, "", out)
+		} else {
+			return copyFileRule(ctx, path, out)
+		}
+	}
+
+	// installSnapshot function copies prebuilt file (.so, .a, or executable) and json flag file.
+	// For executables, init_rc and vintf_fragments files are also copied.
+	installSnapshot := func(m LinkableInterface, fake bool) android.Paths {
 		targetArch := "arch-" + m.Target().Arch.ArchType.String()
 		if m.Target().Arch.ArchVariant != "" {
 			targetArch += "-" + m.Target().Arch.ArchVariant
@@ -649,35 +331,13 @@ func (c *vendorSnapshotSingleton) GenerateBuildActions(ctx android.SingletonCont
 
 		var ret android.Paths
 
-		prop := struct {
-			ModuleName          string `json:",omitempty"`
-			RelativeInstallPath string `json:",omitempty"`
-
-			// library flags
-			ExportedDirs       []string `json:",omitempty"`
-			ExportedSystemDirs []string `json:",omitempty"`
-			ExportedFlags      []string `json:",omitempty"`
-			SanitizeMinimalDep bool     `json:",omitempty"`
-			SanitizeUbsanDep   bool     `json:",omitempty"`
-
-			// binary flags
-			Symlinks []string `json:",omitempty"`
-
-			// dependencies
-			SharedLibs  []string `json:",omitempty"`
-			RuntimeLibs []string `json:",omitempty"`
-			Required    []string `json:",omitempty"`
-
-			// extra config files
-			InitRc         []string `json:",omitempty"`
-			VintfFragments []string `json:",omitempty"`
-		}{}
+		prop := snapshotJsonFlags{}
 
 		// Common properties among snapshots.
 		prop.ModuleName = ctx.ModuleName(m)
-		if m.isVndkExt() {
+		if c.supportsVndkExt && m.IsVndkExt() {
 			// vndk exts are installed to /vendor/lib(64)?/vndk(-sp)?
-			if m.isVndkSp() {
+			if m.IsVndkSp() {
 				prop.RelativeInstallPath = "vndk-sp"
 			} else {
 				prop.RelativeInstallPath = "vndk"
@@ -685,7 +345,7 @@ func (c *vendorSnapshotSingleton) GenerateBuildActions(ctx android.SingletonCont
 		} else {
 			prop.RelativeInstallPath = m.RelativeInstallPath()
 		}
-		prop.RuntimeLibs = m.Properties.SnapshotRuntimeLibs
+		prop.RuntimeLibs = m.SnapshotRuntimeLibs()
 		prop.Required = m.RequiredModuleNames()
 		for _, path := range m.InitRc() {
 			prop.InitRc = append(prop.InitRc, filepath.Join("configs", path.Base()))
@@ -699,34 +359,39 @@ func (c *vendorSnapshotSingleton) GenerateBuildActions(ctx android.SingletonCont
 			out := filepath.Join(configsDir, path.Base())
 			if !installedConfigs[out] {
 				installedConfigs[out] = true
-				ret = append(ret, copyFile(ctx, path, out))
+				ret = append(ret, copyFile(ctx, path, out, fake))
 			}
 		}
 
 		var propOut string
 
-		if l, ok := m.linker.(snapshotLibraryInterface); ok {
+		if m.IsSnapshotLibrary() {
+			exporterInfo := ctx.ModuleProvider(m.Module(), FlagExporterInfoProvider).(FlagExporterInfo)
+
 			// library flags
-			prop.ExportedFlags = l.exportedFlags()
-			for _, dir := range l.exportedDirs() {
+			prop.ExportedFlags = exporterInfo.Flags
+			for _, dir := range exporterInfo.IncludeDirs {
 				prop.ExportedDirs = append(prop.ExportedDirs, filepath.Join("include", dir.String()))
 			}
-			for _, dir := range l.exportedSystemDirs() {
+			for _, dir := range exporterInfo.SystemIncludeDirs {
 				prop.ExportedSystemDirs = append(prop.ExportedSystemDirs, filepath.Join("include", dir.String()))
 			}
+
 			// shared libs dependencies aren't meaningful on static or header libs
-			if l.shared() {
-				prop.SharedLibs = m.Properties.SnapshotSharedLibs
+			if m.Shared() {
+				prop.SharedLibs = m.SnapshotSharedLibs()
 			}
-			if l.static() && m.sanitize != nil {
-				prop.SanitizeMinimalDep = m.sanitize.Properties.MinimalRuntimeDep || enableMinimalRuntime(m.sanitize)
-				prop.SanitizeUbsanDep = m.sanitize.Properties.UbsanRuntimeDep || enableUbsanRuntime(m.sanitize)
+			if sanitizable, ok := m.(PlatformSanitizeable); ok {
+				if sanitizable.Static() && sanitizable.SanitizePropDefined() {
+					prop.SanitizeMinimalDep = sanitizable.MinimalRuntimeDep() || sanitizable.MinimalRuntimeNeeded()
+					prop.SanitizeUbsanDep = sanitizable.UbsanRuntimeDep() || sanitizable.UbsanRuntimeNeeded()
+				}
 			}
 
 			var libType string
-			if l.static() {
+			if m.Static() {
 				libType = "static"
-			} else if l.shared() {
+			} else if m.Shared() {
 				libType = "shared"
 			} else {
 				libType = "header"
@@ -736,32 +401,43 @@ func (c *vendorSnapshotSingleton) GenerateBuildActions(ctx android.SingletonCont
 
 			// install .a or .so
 			if libType != "header" {
-				libPath := m.outputFile.Path()
+				libPath := m.OutputFile().Path()
 				stem = libPath.Base()
+				if sanitizable, ok := m.(PlatformSanitizeable); ok {
+					if sanitizable.Static() && sanitizable.SanitizePropDefined() && sanitizable.IsSanitizerEnabled(cfi) {
+						// both cfi and non-cfi variant for static libraries can exist.
+						// attach .cfi to distinguish between cfi and non-cfi.
+						// e.g. libbase.a -> libbase.cfi.a
+						ext := filepath.Ext(stem)
+						stem = strings.TrimSuffix(stem, ext) + ".cfi" + ext
+						prop.Sanitize = "cfi"
+						prop.ModuleName += ".cfi"
+					}
+				}
 				snapshotLibOut := filepath.Join(snapshotArchDir, targetArch, libType, stem)
-				ret = append(ret, copyFile(ctx, libPath, snapshotLibOut))
+				ret = append(ret, copyFile(ctx, libPath, snapshotLibOut, fake))
 			} else {
 				stem = ctx.ModuleName(m)
 			}
 
 			propOut = filepath.Join(snapshotArchDir, targetArch, libType, stem+".json")
-		} else if m.binary() {
+		} else if m.Binary() {
 			// binary flags
 			prop.Symlinks = m.Symlinks()
-			prop.SharedLibs = m.Properties.SnapshotSharedLibs
+			prop.SharedLibs = m.SnapshotSharedLibs()
 
 			// install bin
-			binPath := m.outputFile.Path()
+			binPath := m.OutputFile().Path()
 			snapshotBinOut := filepath.Join(snapshotArchDir, targetArch, "binary", binPath.Base())
-			ret = append(ret, copyFile(ctx, binPath, snapshotBinOut))
+			ret = append(ret, copyFile(ctx, binPath, snapshotBinOut, fake))
 			propOut = snapshotBinOut + ".json"
-		} else if m.object() {
+		} else if m.Object() {
 			// object files aren't installed to the device, so their names can conflict.
 			// Use module name as stem.
-			objPath := m.outputFile.Path()
+			objPath := m.OutputFile().Path()
 			snapshotObjOut := filepath.Join(snapshotArchDir, targetArch, "object",
 				ctx.ModuleName(m)+filepath.Ext(objPath.Base()))
-			ret = append(ret, copyFile(ctx, objPath, snapshotObjOut))
+			ret = append(ret, copyFile(ctx, objPath, snapshotObjOut, fake))
 			propOut = snapshotObjOut + ".json"
 		} else {
 			ctx.Errorf("unknown module %q in vendor snapshot", m.String())
@@ -773,43 +449,64 @@ func (c *vendorSnapshotSingleton) GenerateBuildActions(ctx android.SingletonCont
 			ctx.Errorf("json marshal to %q failed: %#v", propOut, err)
 			return nil
 		}
-		ret = append(ret, writeStringToFile(ctx, string(j), propOut))
+		ret = append(ret, writeStringToFileRule(ctx, string(j), propOut))
 
 		return ret
 	}
 
 	ctx.VisitAllModules(func(module android.Module) {
-		m, ok := module.(*Module)
+		m, ok := module.(LinkableInterface)
 		if !ok {
 			return
 		}
 
 		moduleDir := ctx.ModuleDir(module)
-		if !isVendorSnapshotModule(m, moduleDir) {
+		inProprietaryPath := c.image.isProprietaryPath(moduleDir, ctx.DeviceConfig())
+		apexInfo := ctx.ModuleProvider(module, android.ApexInfoProvider).(android.ApexInfo)
+
+		if c.image.excludeFromSnapshot(m) {
+			if inProprietaryPath {
+				// Error: exclude_from_vendor_snapshot applies
+				// to framework-path modules only.
+				ctx.Errorf("module %q in vendor proprietary path %q may not use \"exclude_from_vendor_snapshot: true\"", m.String(), moduleDir)
+				return
+			}
+		}
+
+		if !isSnapshotAware(ctx.DeviceConfig(), m, inProprietaryPath, apexInfo, c.image) {
 			return
 		}
 
-		snapshotOutputs = append(snapshotOutputs, installSnapshot(m)...)
-		if l, ok := m.linker.(snapshotLibraryInterface); ok {
-			headers = append(headers, l.snapshotHeaders()...)
+		// If we are using directed snapshot and a module is not included in the
+		// list, we will still include the module as if it was a fake module.
+		// The reason is that soong needs all the dependencies to be present, even
+		// if they are not using during the build.
+		installAsFake := c.fake
+		if c.image.excludeFromDirectedSnapshot(ctx.DeviceConfig(), m.BaseModuleName()) {
+			installAsFake = true
 		}
 
-		if m.NoticeFile().Valid() {
+		// installSnapshot installs prebuilts and json flag files
+		snapshotOutputs = append(snapshotOutputs, installSnapshot(m, installAsFake)...)
+		// just gather headers and notice files here, because they are to be deduplicated
+		if m.IsSnapshotLibrary() {
+			headers = append(headers, m.SnapshotHeaders()...)
+		}
+
+		if len(m.NoticeFiles()) > 0 {
 			noticeName := ctx.ModuleName(m) + ".txt"
 			noticeOut := filepath.Join(noticeDir, noticeName)
 			// skip already copied notice file
 			if !installedNotices[noticeOut] {
 				installedNotices[noticeOut] = true
-				snapshotOutputs = append(snapshotOutputs, copyFile(
-					ctx, m.NoticeFile().Path(), noticeOut))
+				snapshotOutputs = append(snapshotOutputs, combineNoticesRule(ctx, m.NoticeFiles(), noticeOut))
 			}
 		}
 	})
 
 	// install all headers after removing duplicates
 	for _, header := range android.FirstUniquePaths(headers) {
-		snapshotOutputs = append(snapshotOutputs, copyFile(
-			ctx, header, filepath.Join(includeDir, header.String())))
+		snapshotOutputs = append(snapshotOutputs, copyFile(ctx, header, filepath.Join(includeDir, header.String()), c.fake))
 	}
 
 	// All artifacts are ready. Sort them to normalize ninja and then zip.
@@ -817,167 +514,39 @@ func (c *vendorSnapshotSingleton) GenerateBuildActions(ctx android.SingletonCont
 		return snapshotOutputs[i].String() < snapshotOutputs[j].String()
 	})
 
-	zipPath := android.PathForOutput(ctx, snapshotDir, "vendor-"+ctx.Config().DeviceName()+".zip")
-	zipRule := android.NewRuleBuilder()
+	zipPath := android.PathForOutput(
+		ctx,
+		snapshotDir,
+		c.name+"-"+ctx.Config().DeviceName()+".zip")
+	zipRule := android.NewRuleBuilder(pctx, ctx)
 
 	// filenames in rspfile from FlagWithRspFileInputList might be single-quoted. Remove it with tr
-	snapshotOutputList := android.PathForOutput(ctx, snapshotDir, "vendor-"+ctx.Config().DeviceName()+"_list")
+	snapshotOutputList := android.PathForOutput(
+		ctx,
+		snapshotDir,
+		c.name+"-"+ctx.Config().DeviceName()+"_list")
+	rspFile := snapshotOutputList.ReplaceExtension(ctx, "rsp")
 	zipRule.Command().
 		Text("tr").
 		FlagWithArg("-d ", "\\'").
-		FlagWithRspFileInputList("< ", snapshotOutputs).
+		FlagWithRspFileInputList("< ", rspFile, snapshotOutputs).
 		FlagWithOutput("> ", snapshotOutputList)
 
 	zipRule.Temporary(snapshotOutputList)
 
 	zipRule.Command().
-		BuiltTool(ctx, "soong_zip").
+		BuiltTool("soong_zip").
 		FlagWithOutput("-o ", zipPath).
 		FlagWithArg("-C ", android.PathForOutput(ctx, snapshotDir).String()).
 		FlagWithInput("-l ", snapshotOutputList)
 
-	zipRule.Build(pctx, ctx, zipPath.String(), "vendor snapshot "+zipPath.String())
+	zipRule.Build(zipPath.String(), c.name+" snapshot "+zipPath.String())
 	zipRule.DeleteTemporaryFiles()
-	c.vendorSnapshotZipFile = android.OptionalPathForPath(zipPath)
+	c.snapshotZipFile = android.OptionalPathForPath(zipPath)
 }
 
-func (c *vendorSnapshotSingleton) MakeVars(ctx android.MakeVarsContext) {
-	ctx.Strict("SOONG_VENDOR_SNAPSHOT_ZIP", c.vendorSnapshotZipFile.String())
-}
-
-type snapshotInterface interface {
-	matchesWithDevice(config android.DeviceConfig) bool
-}
-
-var _ snapshotInterface = (*vndkPrebuiltLibraryDecorator)(nil)
-var _ snapshotInterface = (*vendorSnapshotLibraryDecorator)(nil)
-var _ snapshotInterface = (*vendorSnapshotBinaryDecorator)(nil)
-var _ snapshotInterface = (*vendorSnapshotObjectLinker)(nil)
-
-// gathers all snapshot modules for vendor, and disable unnecessary snapshots
-// TODO(b/145966707): remove mutator and utilize android.Prebuilt to override source modules
-func VendorSnapshotMutator(ctx android.BottomUpMutatorContext) {
-	vndkVersion := ctx.DeviceConfig().VndkVersion()
-	// don't need snapshot if current
-	if vndkVersion == "current" || vndkVersion == "" {
-		return
-	}
-
-	module, ok := ctx.Module().(*Module)
-	if !ok || !module.Enabled() || module.VndkVersion() != vndkVersion {
-		return
-	}
-
-	if !module.isSnapshotPrebuilt() {
-		return
-	}
-
-	// isSnapshotPrebuilt ensures snapshotInterface
-	if !module.linker.(snapshotInterface).matchesWithDevice(ctx.DeviceConfig()) {
-		// Disable unnecessary snapshot module, but do not disable
-		// vndk_prebuilt_shared because they might be packed into vndk APEX
-		if !module.IsVndk() {
-			module.Disable()
-		}
-		return
-	}
-
-	var snapshotMap *snapshotMap
-
-	if lib, ok := module.linker.(libraryInterface); ok {
-		if lib.static() {
-			snapshotMap = vendorSnapshotStaticLibs(ctx.Config())
-		} else if lib.shared() {
-			snapshotMap = vendorSnapshotSharedLibs(ctx.Config())
-		} else {
-			// header
-			snapshotMap = vendorSnapshotHeaderLibs(ctx.Config())
-		}
-	} else if _, ok := module.linker.(*vendorSnapshotBinaryDecorator); ok {
-		snapshotMap = vendorSnapshotBinaries(ctx.Config())
-	} else if _, ok := module.linker.(*vendorSnapshotObjectLinker); ok {
-		snapshotMap = vendorSnapshotObjects(ctx.Config())
-	} else {
-		return
-	}
-
-	vendorSnapshotsLock.Lock()
-	defer vendorSnapshotsLock.Unlock()
-	snapshotMap.add(module.BaseModuleName(), ctx.Arch().ArchType, ctx.ModuleName())
-}
-
-// Disables source modules which have snapshots
-func VendorSnapshotSourceMutator(ctx android.BottomUpMutatorContext) {
-	if !ctx.Device() {
-		return
-	}
-
-	vndkVersion := ctx.DeviceConfig().VndkVersion()
-	// don't need snapshot if current
-	if vndkVersion == "current" || vndkVersion == "" {
-		return
-	}
-
-	module, ok := ctx.Module().(*Module)
-	if !ok {
-		return
-	}
-
-	// vendor suffix should be added to snapshots if the source module isn't vendor: true.
-	if !module.SocSpecific() {
-		// But we can't just check SocSpecific() since we already passed the image mutator.
-		// Check ramdisk and recovery to see if we are real "vendor: true" module.
-		ramdisk_available := module.InRamdisk() && !module.OnlyInRamdisk()
-		recovery_available := module.InRecovery() && !module.OnlyInRecovery()
-
-		if !ramdisk_available && !recovery_available {
-			vendorSnapshotsLock.Lock()
-			defer vendorSnapshotsLock.Unlock()
-
-			vendorSuffixModules(ctx.Config())[ctx.ModuleName()] = true
-		}
-	}
-
-	if module.isSnapshotPrebuilt() || module.VndkVersion() != ctx.DeviceConfig().VndkVersion() {
-		// only non-snapshot modules with BOARD_VNDK_VERSION
-		return
-	}
-
-	// .. and also filter out llndk library
-	if module.isLlndk(ctx.Config()) {
-		return
-	}
-
-	var snapshotMap *snapshotMap
-
-	if lib, ok := module.linker.(libraryInterface); ok {
-		if lib.static() {
-			snapshotMap = vendorSnapshotStaticLibs(ctx.Config())
-		} else if lib.shared() {
-			snapshotMap = vendorSnapshotSharedLibs(ctx.Config())
-		} else {
-			// header
-			snapshotMap = vendorSnapshotHeaderLibs(ctx.Config())
-		}
-	} else if module.binary() {
-		snapshotMap = vendorSnapshotBinaries(ctx.Config())
-	} else if module.object() {
-		snapshotMap = vendorSnapshotObjects(ctx.Config())
-	} else {
-		return
-	}
-
-	if _, ok := snapshotMap.get(ctx.ModuleName(), ctx.Arch().ArchType); !ok {
-		// Corresponding snapshot doesn't exist
-		return
-	}
-
-	// Disables source modules if corresponding snapshot exists.
-	if lib, ok := module.linker.(libraryInterface); ok && lib.buildStatic() && lib.buildShared() {
-		// But do not disable because the shared variant depends on the static variant.
-		module.SkipInstall()
-		module.Properties.HideFromMake = true
-	} else {
-		module.Disable()
-	}
+func (c *snapshotSingleton) MakeVars(ctx android.MakeVarsContext) {
+	ctx.Strict(
+		c.makeVar,
+		c.snapshotZipFile.String())
 }

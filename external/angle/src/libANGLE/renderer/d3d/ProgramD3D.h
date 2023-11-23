@@ -233,7 +233,8 @@ class ProgramD3D : public ProgramImpl
                                                            gl::InfoLog *infoLog);
     std::unique_ptr<LinkEvent> link(const gl::Context *context,
                                     const gl::ProgramLinkedResources &resources,
-                                    gl::InfoLog &infoLog) override;
+                                    gl::InfoLog &infoLog,
+                                    const gl::ProgramMergedVaryings &mergedVaryings) override;
     GLboolean validate(const gl::Caps &caps, gl::InfoLog *infoLog) override;
 
     void updateUniformBufferCache(const gl::Caps &caps);
@@ -339,7 +340,7 @@ class ProgramD3D : public ProgramImpl
 
     bool hasShaderStage(gl::ShaderType shaderType) const
     {
-        return mState.getProgramExecutable().getLinkedShaderStages()[shaderType];
+        return mState.getExecutable().getLinkedShaderStages()[shaderType];
     }
 
     void assignImage2DRegisters(unsigned int startImageIndex,
@@ -480,7 +481,8 @@ class ProgramD3D : public ProgramImpl
     void getUniformInternal(GLint location, DestT *dataOut) const;
 
     template <typename T>
-    void setUniformImpl(const gl::VariableLocation &locationInfo,
+    void setUniformImpl(D3DUniform *targetUniform,
+                        const gl::VariableLocation &locationInfo,
                         GLsizei count,
                         const T *v,
                         uint8_t *targetData,
@@ -582,7 +584,7 @@ class ProgramD3D : public ProgramImpl
     std::map<std::string, int> mAtomicBindingMap;
     std::vector<D3DUniformBlock> mD3DUniformBlocks;
     std::vector<D3DInterfaceBlock> mD3DShaderStorageBlocks;
-    std::array<unsigned int, gl::IMPLEMENTATION_MAX_ATOMIC_COUNTER_BUFFERS>
+    std::array<unsigned int, gl::IMPLEMENTATION_MAX_ATOMIC_COUNTER_BUFFER_BINDINGS>
         mComputeAtomicCounterBufferRegisterIndices;
 
     std::vector<sh::ShaderVariable> mImage2DUniforms;

@@ -49,7 +49,8 @@
     <string name="add_vm_number_str" msgid="7368168964435881637">"Gehitu zenbakia"</string>
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Erabiltzaile nagusiak bakarrik alda ditzake erantzungailuaren ezarpenak."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"SIM txartela desblokeatu da. Telefonoa desblokeatzen…"</string>
-    <string name="label_ndp" msgid="7617392683877410341">"SIM sarea desblokeatzeko PIN kodea"</string>
+    <string name="label_ndp" msgid="7617392683877410341">"SIMaren sarea desblokeatzeko PINa"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"Operadore hau dauka finkatuta SIM txartelak:"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Desblokeatu"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Baztertu"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Sarea desblokeatzeko eskatzen…"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> zenbakira desbideratzen dira"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Desaktibatuta"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Operadoreak ez du dei-desbideratzeak desgaitzea onartzen telefonoa eskuragarri ez dagoen bitartean."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Operadoreak ez du onartzen dei-desbideratzea."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Deia zain uzteko aukera aktibatu nahi duzu?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Dei batean zaudenean, jakinarazpen bat jasoko duzu deiak jasotzen badituzu"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Aktibatu"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Utzi"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS zerbitzupean CDMA deiak zain uzteko aukera aktibatuta dago"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS zerbitzupean CDMA deiak zain uzteko aukera desaktibatuta dago"</string>
     <string name="updating_title" msgid="6130548922615719689">"Deien ezarpenak"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Administratzaileak soilik alda ditzake deien ezarpenak."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Ezarpenak (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -154,15 +162,15 @@
     <string name="no_change" msgid="3737264882821031892">"Ez da aldaketarik egin."</string>
     <string name="sum_voicemail_choose_provider" msgid="6750824719081403773">"Aukeratu erantzungailu-zerbitzua"</string>
     <string name="voicemail_default" msgid="6427575113775462077">"Operadorea"</string>
-    <string name="vm_change_pin_old_pin" msgid="7154951790929009241">"PIN kode zaharra"</string>
-    <string name="vm_change_pin_new_pin" msgid="2656200418481288069">"PIN kode berria"</string>
+    <string name="vm_change_pin_old_pin" msgid="7154951790929009241">"PIN zaharra"</string>
+    <string name="vm_change_pin_new_pin" msgid="2656200418481288069">"PIN berria"</string>
     <string name="vm_change_pin_progress_message" msgid="626015184502739044">"Itxaron, mesedez."</string>
-    <string name="vm_change_pin_error_too_short" msgid="1789139338449945483">"Laburregia da PIN kode berria."</string>
-    <string name="vm_change_pin_error_too_long" msgid="3634907034310018954">"Luzeegia da PIN kode berria."</string>
-    <string name="vm_change_pin_error_too_weak" msgid="8581892952627885719">"Ez da batere segurua PIN kode berria. Pasahitza segurua izan dadin, ez du izan behar zenbaki-segidarik edo errepikatutako zenbakirik."</string>
-    <string name="vm_change_pin_error_mismatch" msgid="5364847280026257331">"PIN kode zaharra ez dator bat."</string>
-    <string name="vm_change_pin_error_invalid" msgid="5230002671175580674">"Balio ez duten karaktereak ditu PIN kode berriak."</string>
-    <string name="vm_change_pin_error_system_error" msgid="9116483527909681791">"Ezin da aldatu PIN kodea"</string>
+    <string name="vm_change_pin_error_too_short" msgid="1789139338449945483">"Laburregia da PIN berria."</string>
+    <string name="vm_change_pin_error_too_long" msgid="3634907034310018954">"Luzeegia da PIN berria."</string>
+    <string name="vm_change_pin_error_too_weak" msgid="8581892952627885719">"Ez da batere segurua PIN berria. Pasahitza segurua izan dadin, ez du izan behar zenbaki-segidarik edo errepikatutako zenbakirik."</string>
+    <string name="vm_change_pin_error_mismatch" msgid="5364847280026257331">"PIN zaharra ez dator bat."</string>
+    <string name="vm_change_pin_error_invalid" msgid="5230002671175580674">"Balio ez duten karaktereak ditu PIN berriak."</string>
+    <string name="vm_change_pin_error_system_error" msgid="9116483527909681791">"Ezin da aldatu PINa"</string>
     <string name="vvm_unsupported_message_format" msgid="4206402558577739713">"Ez dira onartzen mota honetako mezuak. Entzuteko, deitu <xliff:g id="NUMBER">%s</xliff:g> zenbakira."</string>
     <string name="network_settings_title" msgid="7560807107123171541">"Sare mugikorra"</string>
     <string name="label_available" msgid="1316084116670821258">"Sare erabilgarriak"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"SIMaren funtzionaltasuna mugatua da"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Baliteke <xliff:g id="CARRIER_NAME">%1$s</xliff:g> bidezko deiak eta datu-zerbitzuak blokeatuta egotea <xliff:g id="PHONE_NUMBER">%2$s</xliff:g> telefono-zenbakia erabiltzean."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Baliteke <xliff:g id="CARRIER_NAME">%1$s</xliff:g> bidezko deiak eta datu-zerbitzuak blokeatuta egotea beste SIM txartel bat erabiltzean."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"SIP-eko kontu zaharkituak aurkitu eta kendu dira"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP bidezko deiak jadanik ez dira bateragarriak Android-en plataformarekin.\nZeneuzkan SIP-eko kontuak (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>) kendu egin dira.\nBerretsi deietarako ezarri duzun kontu lehenetsia."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Joan ezarpenetara"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Aplikazioak erabilitako datuak"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"Datuen <xliff:g id="ID_1">%1$s</xliff:g> erabili dira data hauen artean: <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Aurreratuak"</string>
@@ -348,7 +359,7 @@
   <string-array name="list_language_entries">
     <item msgid="2347238508726934281">"Ingelesa"</item>
     <item msgid="5172468397620875174">"Frantsesa"</item>
-    <item msgid="3978110664146015398">"Espainiera"</item>
+    <item msgid="3978110664146015398">"Gaztelania"</item>
     <item msgid="2637764545851526369">"Japoniera"</item>
     <item msgid="6103816221834932751">"Koreera"</item>
     <item msgid="3127367370005168399">"Txinera"</item>
@@ -430,7 +441,7 @@
     <string name="manage_fdn_list" msgid="3341716430375195441">"Markatze finkoko zenbakien zerrenda"</string>
     <string name="fdn_list_with_label" msgid="1409655283510382556">"Markatze finkoko zenbakiak (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="fdn_activation" msgid="2178637004710435895">"Markatze finkoko zenbakiaren aktibazioa"</string>
-    <string name="fdn_enabled" msgid="7017355494808056447">"Markatze finkoko zenbakiak gaituta daude"</string>
+    <string name="fdn_enabled" msgid="7017355494808056447">"Markatze finkoko zenbakiak gaituta"</string>
     <string name="fdn_disabled" msgid="6696468878037736600">"Markatze finkoko zenbakiak desgaituta daude"</string>
     <string name="enable_fdn" msgid="4830555730418033723">"Gaitu markatze finkoko zenbakiak"</string>
     <string name="disable_fdn" msgid="3918794950264647541">"Desgaitu markatze finkoko zenbakia"</string>
@@ -438,7 +449,7 @@
     <string name="enable_fdn_ok" msgid="5080925177369329827">"Desgaitu markatze finkoko zenbakia"</string>
     <string name="disable_fdn_ok" msgid="3745475926874838676">"Gaitu markatze finkoko zenbakiak"</string>
     <string name="sum_fdn" msgid="6152246141642323582">"Kudeatu Markatze finkoko zenbakiak"</string>
-    <string name="sum_fdn_change_pin" msgid="3510994280557335727">"Aldatu markatze finkoko zenbakien PIN kodea"</string>
+    <string name="sum_fdn_change_pin" msgid="3510994280557335727">"Aldatu markatze finkoko zenbakien PINa"</string>
     <string name="sum_fdn_manage_list" msgid="3311397063233992907">"Kudeatu telefono-zenbakien zerrenda"</string>
     <string name="voice_privacy" msgid="7346935172372181951">"Ahots-pribatutasuna"</string>
     <string name="voice_privacy_summary" msgid="3556460926168473346">"Gaitu pribatutasun modu hobetua"</string>
@@ -464,7 +475,7 @@
     <string name="delete_fdn_contact" msgid="7027405651994507077">"Ezabatu markatze finkoko zenbakia"</string>
     <string name="deleting_fdn_contact" msgid="6872320570844460428">"Markatze finkoko zenbakia ezabatzen…"</string>
     <string name="fdn_contact_deleted" msgid="1680714996763848838">"Markatze finkoko zenbakia ezabatu da."</string>
-    <string name="pin2_invalid" msgid="2313954262684494442">"Ez da eguneratu markatze finkoko zenbakia, PIN kode okerra idatzi duzulako."</string>
+    <string name="pin2_invalid" msgid="2313954262684494442">"Ez da eguneratu markatze finkoko zenbakia, PIN okerra idatzi duzulako."</string>
     <string name="fdn_invalid_number" msgid="9067189814657840439">"Ez da eguneratu markatze finkoko zenbakia, zenbakiak <xliff:g id="FDN_NUMBER_LIMIT_LENGTH">%d</xliff:g> digitu baino gehiago dituelako."</string>
     <string name="pin2_or_fdn_invalid" msgid="7542639487955868181">"Ez da eguneratu markatze finkoko zenbakia. PIN2 kodea ez da zuzena edo telefono-zenbakia baztertu da."</string>
     <string name="fdn_failed" msgid="216592346853420250">"Markatze finkoko zenbakiaren eragiketak huts egin du."</string>
@@ -472,23 +483,23 @@
     <string name="simContacts_empty" msgid="1135632055473689521">"Ez duzu kontakturik SIM txartelean."</string>
     <string name="simContacts_title" msgid="2714029230160136647">"Aukeratu inportatu beharreko kontaktuak"</string>
     <string name="simContacts_airplaneMode" msgid="4654884030631503808">"SIM txarteleko kontaktuak inportatzeko, desaktibatu hegaldi modua."</string>
-    <string name="enable_pin" msgid="967674051730845376">"Gaitu/Desgaitu SIM txartelaren PIN kodea"</string>
-    <string name="change_pin" msgid="3657869530942905790">"Aldatu SIM txartelaren PIN kodea"</string>
-    <string name="enter_pin_text" msgid="3182311451978663356">"SIM txartelaren PIN kodea:"</string>
+    <string name="enable_pin" msgid="967674051730845376">"Gaitu/Desgaitu SIMaren PINa"</string>
+    <string name="change_pin" msgid="3657869530942905790">"Aldatu SIMaren PINa"</string>
+    <string name="enter_pin_text" msgid="3182311451978663356">"SIMaren PINa:"</string>
     <string name="oldPinLabel" msgid="8618515202411987721">"PIN zaharra"</string>
     <string name="newPinLabel" msgid="3585899083055354732">"PIN berria"</string>
-    <string name="confirmPinLabel" msgid="7783531218662473778">"Berretsi PIN kode berria"</string>
-    <string name="badPin" msgid="4549286285015892321">"Idatzi duzun PIN kode zaharra ez da zuzena. Saiatu berriro."</string>
+    <string name="confirmPinLabel" msgid="7783531218662473778">"Berretsi PIN berria"</string>
+    <string name="badPin" msgid="4549286285015892321">"Idatzi duzun PIN zaharra ez da zuzena. Saiatu berriro."</string>
     <string name="mismatchPin" msgid="1467254768290323845">"Idatzi dituzun PIN kodeak ez datoz bat. Saiatu berriro."</string>
-    <string name="invalidPin" msgid="7363723429414001979">"Idatzi 4 eta 8 zenbaki arteko PIN kodea."</string>
-    <string name="disable_sim_pin" msgid="3112303905548613752">"Garbitu SIM txartelaren PIN kodea"</string>
-    <string name="enable_sim_pin" msgid="445461050748318980">"Ezarri SIM txartelaren PIN kodea"</string>
-    <string name="enable_in_progress" msgid="4135305985717272592">"PIN kodea ezartzen…"</string>
-    <string name="enable_pin_ok" msgid="2877428038280804256">"PIN kodea ezarri da"</string>
-    <string name="disable_pin_ok" msgid="888505244389647754">"PIN kodea garbitu da"</string>
-    <string name="pin_failed" msgid="4527347792881939652">"PIN kodea ez da zuzena"</string>
-    <string name="pin_changed" msgid="7291153750090452808">"PIN kodea eguneratu da"</string>
-    <string name="puk_requested" msgid="2061337960609806851">"Pasahitza ez da zuzena. PIN kodea blokeatu egin da. PUK kodea behar da."</string>
+    <string name="invalidPin" msgid="7363723429414001979">"Idatzi 4 eta 8 zenbaki arteko PIN bat."</string>
+    <string name="disable_sim_pin" msgid="3112303905548613752">"Garbitu SIMaren PINa"</string>
+    <string name="enable_sim_pin" msgid="445461050748318980">"Ezarri SIMaren PINa"</string>
+    <string name="enable_in_progress" msgid="4135305985717272592">"PINa ezartzen…"</string>
+    <string name="enable_pin_ok" msgid="2877428038280804256">"Ezarri da PINa"</string>
+    <string name="disable_pin_ok" msgid="888505244389647754">"Garbitu da PINa"</string>
+    <string name="pin_failed" msgid="4527347792881939652">"PINa ez da zuzena"</string>
+    <string name="pin_changed" msgid="7291153750090452808">"Eguneratu da PINa"</string>
+    <string name="puk_requested" msgid="2061337960609806851">"Pasahitza ez da zuzena. PINa blokeatu egin da. PUKa behar da."</string>
     <string name="enter_pin2_text" msgid="7266379426804295979">"PIN2 kodea"</string>
     <string name="oldPin2Label" msgid="4648543187859997203">"PIN2 kode zaharra"</string>
     <string name="newPin2Label" msgid="1840905981784453939">"PIN2 berria"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Pasahitza ez da zuzena. SIM txartela blokeatu egin da. Idatzi PUK2 kodea."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 kodea betiko blokeatu da."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"<xliff:g id="NUMBER">%d</xliff:g> saiakera gelditzen zaizkizu."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 kodearekin blokeatuta dago SIM txartela. Desblokeatzeko, jarri operadorearekin harremanetan."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 kodea desblokeatu da"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Sarearen edo SIM txartelaren errorea"</string>
     <string name="doneButton" msgid="7371209609238460207">"Eginda"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Deitzeko, aktibatu sare mugikorra, desaktibatu hegaldi modua edo desaktibatu bateria-aurrezlea."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Deia egiteko, desaktibatu hegaldi modua."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Deia egiteko, desaktibatu hegaldi modua edo konektatu haririk gabeko sare batera."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Telefonoa beroegi dago"</b>\n\n"Ezin da egin deia. Saiatu berriro telefonoa hozten denean.\n\nHala ere, larrialdi-deiak egin ditzakezu."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Larrialdikoak ez diren deiak egiteko, irten larrialdi-zerbitzuen deiak jasotzeko modutik."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Ez dago sarean erregistratuta."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Sare mugikorra ez dago erabilgarri."</string>
@@ -542,7 +555,7 @@
     <string name="incall_error_supp_service_hangup" msgid="836524952243836735">"Ezin dira deiak bereizi."</string>
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Ezin dira zain utzi deiak."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Deia egiteko, konektatu haririk gabeko sare batera."</string>
-    <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Deia egiteko, gaitu Wi-Fi bidezko deiak."</string>
+    <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Deia egiteko, gaitu wifi bidezko deiak."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Larrialdietarako informazioa"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Jabea"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Informazioa ikusteko, sakatu berriro"</string>
@@ -656,8 +669,8 @@
     <string name="description_dialpad_button" msgid="7395114120463883623">"erakutsi markagailua"</string>
     <string name="pane_title_emergency_dialpad" msgid="3627372514638694401">"Larrialdietarako markagailua"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="6610414098912832120">"Ikusizko erantzungailua"</string>
-    <string name="voicemail_set_pin_dialog_title" msgid="7005128605986960003">"Ezarri PIN kodea"</string>
-    <string name="voicemail_change_pin_dialog_title" msgid="4633077715231764435">"Aldatu PIN kodea"</string>
+    <string name="voicemail_set_pin_dialog_title" msgid="7005128605986960003">"Ezarri PINa"</string>
+    <string name="voicemail_change_pin_dialog_title" msgid="4633077715231764435">"Aldatu PINa"</string>
     <string name="preference_category_ringtone" msgid="8787281191375434976">"Tonua eta dardara"</string>
     <string name="pstn_connection_service_label" msgid="9200102709997537069">"SIM txartel integratuak"</string>
     <string name="enable_video_calling_title" msgid="7246600931634161830">"Aktibatu bideo-deiak"</string>
@@ -675,23 +688,23 @@
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM txartel batek zerbitzua aktibatu du eta telefonoaren ibiltaritza-gaitasunak eguneratu ditu."</string>
     <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"Dei gehiegi daude aktibo. Amaitu edo bateratu abian diren deiak beste bat egin aurretik."</string>
     <string name="callFailed_imei_not_accepted" msgid="7257903653685147251">"Ezin da konektatu. Erabili balio duen SIM txartel bat."</string>
-    <string name="callFailed_wifi_lost" msgid="1788036730589163141">"Galdu egin da wifi bidezko konexioa. Amaitu da deia."</string>
+    <string name="callFailed_wifi_lost" msgid="1788036730589163141">"Galdu egin da wifi-konexioa. Amaitu da deia."</string>
     <string name="dialFailed_low_battery" msgid="6857904237423407056">"Ezin da egin deia, bateria gutxi gelditzen delako."</string>
     <string name="callFailed_low_battery" msgid="4056828320214416182">"Bideo-deia amaitu egin da bateria gutxi gelditzen delako."</string>
     <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"Ez daude erabilgarri wifi bidezko larrialdi-deiak kokapen honetan."</string>
     <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"Ez daude erabilgarri wifi bidezko deiak kokapen honetan."</string>
-    <string name="change_pin_title" msgid="3564254326626797321">"Aldatu erantzungailuaren PIN kodea"</string>
+    <string name="change_pin_title" msgid="3564254326626797321">"Aldatu erantzungailuaren PINa"</string>
     <string name="change_pin_continue_label" msgid="5177011752453506371">"Egin aurrera"</string>
     <string name="change_pin_cancel_label" msgid="2301711566758827936">"Utzi"</string>
     <string name="change_pin_ok_label" msgid="6861082678817785330">"Ados"</string>
-    <string name="change_pin_enter_old_pin_header" msgid="853151335217594829">"Berretsi PIN kode zaharra"</string>
-    <string name="change_pin_enter_old_pin_hint" msgid="8801292976275169367">"Idatzi erantzungailuaren PIN kodea jarraitzeko."</string>
-    <string name="change_pin_enter_new_pin_header" msgid="4739465616733486118">"Ezarri PIN kode berria"</string>
+    <string name="change_pin_enter_old_pin_header" msgid="853151335217594829">"Berretsi PIN zaharra"</string>
+    <string name="change_pin_enter_old_pin_hint" msgid="8801292976275169367">"Aurrera egiteko, idatzi erantzungailuaren PINa."</string>
+    <string name="change_pin_enter_new_pin_header" msgid="4739465616733486118">"Ezarri PIN berri bat"</string>
     <string name="change_pin_enter_new_pin_hint" msgid="2326038476516364210">"<xliff:g id="MIN">%1$d</xliff:g> eta <xliff:g id="MAX">%2$d</xliff:g> digituren artean izan behar ditu PIN kodeak."</string>
-    <string name="change_pin_confirm_pin_header" msgid="2606303906320705726">"Berretsi PIN kodea"</string>
-    <string name="change_pin_confirm_pins_dont_match" msgid="305164501222587215">"Ez datoz bat PIN kodeak"</string>
-    <string name="change_pin_succeeded" msgid="2504705600693014403">"Eguneratu da erantzungailuaren PIN kodea"</string>
-    <string name="change_pin_system_error" msgid="7772788809875146873">"Ezin da ezarri PIN kodea"</string>
+    <string name="change_pin_confirm_pin_header" msgid="2606303906320705726">"Berretsi PINa"</string>
+    <string name="change_pin_confirm_pins_dont_match" msgid="305164501222587215">"PINak ez datoz bat"</string>
+    <string name="change_pin_succeeded" msgid="2504705600693014403">"Eguneratu da erantzungailuaren PINa"</string>
+    <string name="change_pin_system_error" msgid="7772788809875146873">"Ezin da ezarri PINa"</string>
     <string name="mobile_data_status_roaming_turned_off_subtext" msgid="6840673347416227054">"Desaktibatuta daude ibiltaritzako datuak"</string>
     <string name="mobile_data_status_roaming_turned_on_subtext" msgid="5615757897768777865">"Aktibatuta daude ibiltaritzako datuak"</string>
     <string name="mobile_data_status_roaming_without_plan_subtext" msgid="6536671968072284677">"Ibiltaritza moduan zaude une honetan. Datu-plan bat behar duzu."</string>
@@ -863,11 +876,10 @@
     <string name="radioInfo_display_asu" msgid="2247752203249646956">"asu"</string>
     <string name="radioInfo_lac" msgid="3892986460272607013">"LAC"</string>
     <string name="radioInfo_cid" msgid="1423185536264406705">"CID"</string>
-    <string name="radio_info_subid" msgid="6839966868621703203">"Uneko azpiIDa:"</string>
+    <string name="radio_info_subid" msgid="6839966868621703203">"Oraingo azpiIDa:"</string>
     <string name="radio_info_dds" msgid="1122593144425697126">"Datu-konexioetarako SIM lehenetsiaren azpiIDa:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Deskargatzeko banda-zabalera (Kb/s):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Kargen banda-zabalera (Kb/s):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Sare mugikorraren kokapenaren informazioa (zaharkitua):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE kanal fisikoaren konfigurazioa:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Sare mugikorraren informazioa eguneratzeko maiztasuna:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Sare mugikorraren neurketa guztien informazioa:"</string>
@@ -876,7 +888,7 @@
     <string name="radio_info_imei_label" msgid="8947899706930120368">"IMEI:"</string>
     <string name="radio_info_call_redirect_label" msgid="4526480903023362276">"Dei-desbideratzea:"</string>
     <string name="radio_info_ppp_resets_label" msgid="9131901102339077661">"PPP berrezarpen kopurua abiarazi ezkero:"</string>
-    <string name="radio_info_current_network_label" msgid="3052098695239642450">"Uneko sarea:"</string>
+    <string name="radio_info_current_network_label" msgid="3052098695239642450">"Oraingo sarea:"</string>
     <string name="radio_info_ppp_received_label" msgid="5753592451640644889">"Jasotako datuak:"</string>
     <string name="radio_info_gsm_service_label" msgid="6443348321714241328">"Ahots-deien zerbitzua:"</string>
     <string name="radio_info_signal_strength_label" msgid="5545444702102543260">"Seinalearen indarra:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Freskatu"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Aldatu DNS egiaztapenaren egoera"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Jatorrizko fabrikatzailearen berariazko informazioa edota ezarpenak"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC erabilgarri:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR mugatuta:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR erabilgarri:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR estatua:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR maiztasuna:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Ezarri irrati-bandaren modua"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Banden zerrenda kargatzen…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Ezarri"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Telefonoaren informazioa"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Operadorearen hornikuntza-informazioa"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Abiarazi operadorearen hornikuntza"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Bluetooth seinalea ahula da. Erabili telefonoko bozgorailua."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Deien kalitateari buruzko jakinarazpena"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"SIP-eko kontu zaharkituak"</string>
 </resources>

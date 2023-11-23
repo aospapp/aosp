@@ -78,11 +78,6 @@ public class Runtime {
      */
     private boolean shuttingDown;
 
-    /**
-     * Reflects whether we are tracing method calls.
-     */
-    private boolean tracingMethods;
-
     private static native void nativeExit(int code);
 
     /**
@@ -845,13 +840,8 @@ public class Runtime {
      *               <code>false</code> to disable this feature.
      */
     public void traceMethodCalls(boolean on) {
-        if (on != tracingMethods) {
-            if (on) {
-                VMDebug.startMethodTracing();
-            } else {
-                VMDebug.stopMethodTracing();
-            }
-            tracingMethods = on;
+        if (on) {
+            throw new UnsupportedOperationException();
         }
     }
 

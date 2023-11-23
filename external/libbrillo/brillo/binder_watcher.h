@@ -17,8 +17,10 @@
 #ifndef LIBBRILLO_BRILLO_BINDER_WATCHER_H_
 #define LIBBRILLO_BRILLO_BINDER_WATCHER_H_
 
+#include <memory>
+
+#include <base/files/file_descriptor_watcher_posix.h>
 #include <base/macros.h>
-#include <brillo/message_loops/message_loop.h>
 
 namespace brillo {
 
@@ -26,9 +28,6 @@ namespace brillo {
 // make the message loop watch for binder events and pass them to libbinder.
 class BinderWatcher final {
  public:
-  // Construct the BinderWatcher using the passed |message_loop| if not null or
-  // the current MessageLoop otherwise.
-  explicit BinderWatcher(MessageLoop* message_loop);
   BinderWatcher();
   ~BinderWatcher();
 
@@ -36,8 +35,7 @@ class BinderWatcher final {
   bool Init();
 
  private:
-  MessageLoop::TaskId task_id_{MessageLoop::kTaskIdNull};
-  MessageLoop* message_loop_;
+  std::unique_ptr<base::FileDescriptorWatcher::Controller> watcher_;
 
   DISALLOW_COPY_AND_ASSIGN(BinderWatcher);
 };

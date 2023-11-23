@@ -22,7 +22,7 @@
 // WifiFacade provides simple wrappers to call Wi-Fi HAL APIs.
 //
 // Each public function returns a tuple: <result, code>, where:
-//     result: result of HAL API or a dummy value (of the correct type)
+//     result: result of HAL API or a mock value (of the correct type)
 //             on failure.
 //     code: sl4n_error_codes::kPassInt or sl4n_error_codes::kFailInt on
 //           success or failure respectively.

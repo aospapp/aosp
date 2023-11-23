@@ -17,19 +17,25 @@
 <androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/FullContentPreviewCard"
+    android:id="@+id/grid_preview_card"
+    android:contentDescription="@string/grid_preview_card_content_description"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:layout_gravity="center">
 
     <ImageView
-        android:id="@+id/grid_preview_image"
+        android:id="@+id/wallpaper_preview_image"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/primary_color" />
+        android:layout_height="match_parent" />
 
     <SurfaceView
-        android:id="@+id/grid_preview_surface"
+        android:id="@+id/wallpaper_preview_surface"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <FrameLayout
+        android:id="@+id/grid_preview_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/primary_color" />
-
+        android:importantForAccessibility="noHideDescendants" />
 </androidx.cardview.widget.CardView>

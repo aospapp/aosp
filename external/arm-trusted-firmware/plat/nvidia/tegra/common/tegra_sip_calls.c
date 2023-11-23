@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -24,32 +25,6 @@
 #define TEGRA_SIP_NEW_VIDEOMEM_REGION		0x82000003
 #define TEGRA_SIP_FIQ_NS_ENTRYPOINT		0x82000005
 #define TEGRA_SIP_FIQ_NS_GET_CONTEXT		0x82000006
-
-/*******************************************************************************
- * SoC specific SiP handler
- ******************************************************************************/
-#pragma weak plat_sip_handler
-int32_t plat_sip_handler(uint32_t smc_fid,
-		     uint64_t x1,
-		     uint64_t x2,
-		     uint64_t x3,
-		     uint64_t x4,
-		     const void *cookie,
-		     void *handle,
-		     uint64_t flags)
-{
-	/* unused parameters */
-	(void)smc_fid;
-	(void)x1;
-	(void)x2;
-	(void)x3;
-	(void)x4;
-	(void)cookie;
-	(void)handle;
-	(void)flags;
-
-	return -ENOTSUP;
-}
 
 /*******************************************************************************
  * This function is responsible for handling all SiP calls
@@ -77,6 +52,12 @@ uintptr_t tegra_sip_handler(uint32_t smc_fid,
 		switch (smc_fid) {
 
 		case TEGRA_SIP_NEW_VIDEOMEM_REGION:
+			/* Check whether Video memory resize is enabled */
+			if (mmio_read_32(TEGRA_MC_BASE + MC_VIDEO_PROTECT_REG_CTRL)
+				!= MC_VIDEO_PROTECT_WRITE_ACCESS_ENABLED) {
+				ERROR("Video Memory Resize isn't enabled! \n");
+				SMC_RET1(handle, (uint64_t)-ENOTSUP);
+			}
 
 			/*
 			 * Check if Video Memory overlaps TZDRAM (contains bl31/bl32)

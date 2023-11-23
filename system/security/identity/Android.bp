@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_security_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_security_license"],
+}
+
 cc_defaults {
     name: "identity_defaults",
     cflags: [
@@ -5,6 +14,7 @@ cc_defaults {
         // "-Werror",
         "-Wextra",
         "-Wunused",
+        "-Wno-deprecated-declarations",
     ],
     sanitize: {
         misc_undefined : ["integer"],
@@ -29,18 +39,22 @@ cc_binary {
     shared_libs: [
         "libbase",
         "libbinder",
-        "libkeystore_aidl",
+        "libbinder_ndk",
+        "android.hardware.keymaster@4.0",
         "libcredstore_aidl",
+        "libcrypto",
         "libutils",
         "libhidlbase",
         "android.hardware.identity-support-lib",
         "libkeymaster4support",
         "libkeystore-attestation-application-id",
+        "android.hardware.security.keymint-V1-ndk_platform",
+        "android.security.authorization-ndk_platform",
     ],
     static_libs: [
-        "android.hardware.identity-cpp",
-        "android.hardware.keymaster-cpp",
-        "libcppbor",
+        "android.hardware.identity-V3-cpp",
+        "android.hardware.keymaster-V3-cpp",
+        "libcppbor_external",
     ]
 }
 

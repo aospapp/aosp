@@ -15,7 +15,11 @@
  #include <netlink/netlink.h>
  #include <netlink/route/cls/ematch.h>
  #include <netlink/route/cls/ematch/cmp.h>
+ #include <linux/tc_ematch/tc_em_cmp.h>
  #include "ematch_syntax.h"
+
+ int ematch_get_column(yyscan_t);
+ void ematch_set_column(int, yyscan_t);
 %}
 
 %option 8bit

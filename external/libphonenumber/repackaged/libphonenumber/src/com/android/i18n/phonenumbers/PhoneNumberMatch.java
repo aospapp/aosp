@@ -81,25 +81,25 @@ public final class PhoneNumberMatch {
   }
 
   /** Returns the phone number matched by the receiver. */
-  @android.compat.annotation.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
   public PhoneNumber number() {
     return number;
   }
 
   /** Returns the start index of the matched phone number within the searched text. */
-  @android.compat.annotation.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
   public int start() {
     return start;
   }
 
   /** Returns the exclusive end index of the matched phone number within the searched text. */
-  @android.compat.annotation.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
   public int end() {
     return start + rawString.length();
   }
 
   /** Returns the raw string matched as a phone number in the searched text. */
-  @android.compat.annotation.UnsupportedAppUsage
+  @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
   public String rawString() {
     return rawString;
   }

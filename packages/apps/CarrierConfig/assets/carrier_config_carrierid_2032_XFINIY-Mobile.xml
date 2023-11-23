@@ -43,7 +43,7 @@
     <boolean name="support_pause_ims_video_calls_bool" value="true"/>
     <boolean name="support_swap_after_merge_bool" value="false"/>
     <boolean name="treat_downgraded_video_calls_as_video_calls_bool" value="true"/>
-    <boolean name="use_rcs_presence_bool" value="true"/>
+    <boolean name="ims.enable_presence_publish_bool" value="true"/>
     <boolean name="video_calls_can_be_hd_audio" value="false"/>
     <boolean name="voicemail_notification_persistent_bool" value="true"/>
     <boolean name="wifi_calls_can_be_hd_audio" value="false"/>

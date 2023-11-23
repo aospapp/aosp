@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2017-2018, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2017-2020, ARM Limited and Contributors. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -11,9 +11,8 @@ COLD_BOOT_SINGLE_CPU	:=	1
 # We can choose where a core starts executing
 PROGRAMMABLE_RESET_ADDRESS:=	1
 
-# System coherency is managed in hardware
+# ARM coherency is managed in hardware
 WARMBOOT_ENABLE_DCACHE_EARLY :=	1
-USE_COHERENT_MEM	:=	1
 
 # A53 erratum for SoC. (enable them all)
 ERRATA_A53_826319	:=	1
@@ -21,9 +20,11 @@ ERRATA_A53_835769	:=	1
 ERRATA_A53_836870	:=	1
 ERRATA_A53_843419	:=	1
 ERRATA_A53_855873	:=	1
+ERRATA_A53_1530924	:=	1
 
 # A72 Erratum for SoC
 ERRATA_A72_859971	:=	1
+ERRATA_A72_1319367	:=	1
 
 CRASH_REPORTING		:= 1
 HANDLE_EA_EL3_FIRST	:= 1
@@ -36,6 +37,9 @@ ENABLE_PIE		:=	1
 
 TI_16550_MDR_QUIRK	:=	1
 $(eval $(call add_define,TI_16550_MDR_QUIRK))
+
+K3_USART		:=	0
+$(eval $(call add_define,K3_USART))
 
 # Allow customizing the UART baud rate
 K3_USART_BAUD		:=	115200
@@ -53,10 +57,11 @@ K3_CONSOLE_SOURCES	+=	\
 				drivers/ti/uart/aarch64/16550_console.S	\
 				${PLAT_PATH}/common/k3_console.c	\
 
+# Include GICv3 driver files
+include drivers/arm/gic/v3/gicv3.mk
+
 K3_GIC_SOURCES		+=	\
-				drivers/arm/gic/common/gic_common.c	\
-				drivers/arm/gic/v3/gicv3_main.c		\
-				drivers/arm/gic/v3/gicv3_helpers.c	\
+				${GICV3_SOURCES}			\
 				plat/common/plat_gicv3.c		\
 				${PLAT_PATH}/common/k3_gicv3.c		\
 

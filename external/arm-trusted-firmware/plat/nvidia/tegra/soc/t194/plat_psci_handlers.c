@@ -10,14 +10,17 @@
 #include <string.h>
 
 #include <arch_helpers.h>
+#include <bpmp_ipc.h>
 #include <common/bl_common.h>
 #include <common/debug.h>
 #include <context.h>
+#include <drivers/delay_timer.h>
 #include <denver.h>
 #include <lib/el3_runtime/context_mgmt.h>
 #include <lib/psci/psci.h>
 #include <mce.h>
 #include <mce_private.h>
+#include <memctrl_v2.h>
 #include <plat/common/platform.h>
 #include <se.h>
 #include <smmu.h>
@@ -43,14 +46,6 @@ extern uint32_t __tegra194_cpu_reset_handler_data,
 static struct t19x_psci_percpu_data {
 	uint32_t wake_time;
 } __aligned(CACHE_WRITEBACK_GRANULE) t19x_percpu_data[PLATFORM_CORE_COUNT];
-
-/*
- * tegra_fake_system_suspend acts as a boolean var controlling whether
- * we are going to take fake system suspend code or normal system suspend code
- * path. This variable is set inside the sip call handlers, when the kernel
- * requests an SIP call to set the suspend debug flags.
- */
-bool tegra_fake_system_suspend;
 
 int32_t tegra_soc_validate_power_state(uint32_t power_state,
 					psci_power_state_t *req_state)
@@ -78,17 +73,14 @@ int32_t tegra_soc_validate_power_state(uint32_t power_state,
 	switch (state_id) {
 	case PSTATE_ID_CORE_IDLE:
 
+		if (psci_get_pstate_type(power_state) != PSTATE_TYPE_STANDBY) {
+			ret = PSCI_E_INVALID_PARAMS;
+			break;
+		}
+
 		/* Core idle request */
 		req_state->pwr_domain_state[MPIDR_AFFLVL0] = PLAT_MAX_RET_STATE;
 		req_state->pwr_domain_state[MPIDR_AFFLVL1] = PSCI_LOCAL_STATE_RUN;
-		break;
-
-	case PSTATE_ID_CORE_POWERDN:
-
-		/* Core powerdown request */
-		req_state->pwr_domain_state[MPIDR_AFFLVL0] = state_id;
-		req_state->pwr_domain_state[MPIDR_AFFLVL1] = state_id;
-
 		break;
 
 	default:
@@ -122,9 +114,9 @@ int32_t tegra_soc_cpu_standby(plat_local_state_t cpu_state)
 int32_t tegra_soc_pwr_domain_suspend(const psci_power_state_t *target_state)
 {
 	const plat_local_state_t *pwr_domain_state;
-	uint8_t stateid_afflvl0, stateid_afflvl2;
+	uint8_t stateid_afflvl2;
 	plat_params_from_bl2_t *params_from_bl2 = bl31_get_plat_params();
-	uint64_t smmu_ctx_base;
+	uint64_t mc_ctx_base;
 	uint32_t val;
 	mce_cstate_info_t sc7_cstate_info = {
 		.cluster = (uint32_t)TEGRA_NVG_CLUSTER_CC6,
@@ -133,34 +125,23 @@ int32_t tegra_soc_pwr_domain_suspend(const psci_power_state_t *target_state)
 		.system_state_force = 1U,
 		.update_wake_mask = 1U,
 	};
-	uint32_t cpu = plat_my_core_pos();
 	int32_t ret = 0;
 
 	/* get the state ID */
 	pwr_domain_state = target_state->pwr_domain_state;
-	stateid_afflvl0 = pwr_domain_state[MPIDR_AFFLVL0] &
-		TEGRA194_STATE_ID_MASK;
 	stateid_afflvl2 = pwr_domain_state[PLAT_MAX_PWR_LVL] &
 		TEGRA194_STATE_ID_MASK;
 
-	if ((stateid_afflvl0 == PSTATE_ID_CORE_POWERDN)) {
-
-		/* Enter CPU powerdown */
-		(void)mce_command_handler((uint64_t)MCE_CMD_ENTER_CSTATE,
-					  (uint64_t)TEGRA_NVG_CORE_C7,
-					  t19x_percpu_data[cpu].wake_time,
-					  0U);
-
-	} else if (stateid_afflvl2 == PSTATE_ID_SOC_POWERDN) {
+	if (stateid_afflvl2 == PSTATE_ID_SOC_POWERDN) {
 
 		/* save 'Secure Boot' Processor Feature Config Register */
 		val = mmio_read_32(TEGRA_MISC_BASE + MISCREG_PFCFG);
 		mmio_write_32(TEGRA_SCRATCH_BASE + SCRATCH_SECURE_BOOTP_FCFG, val);
 
-		/* save SMMU context */
-		smmu_ctx_base = params_from_bl2->tzdram_base +
-				tegra194_get_smmu_ctx_offset();
-		tegra_smmu_save_context((uintptr_t)smmu_ctx_base);
+		/* save MC context */
+		mc_ctx_base = params_from_bl2->tzdram_base +
+				tegra194_get_mc_ctx_offset();
+		tegra_mc_save_context((uintptr_t)mc_ctx_base);
 
 		/*
 		 * Suspend SE, RNG1 and PKA1 only on silcon and fpga,
@@ -171,32 +152,27 @@ int32_t tegra_soc_pwr_domain_suspend(const psci_power_state_t *target_state)
 			assert(ret == 0);
 		}
 
-		if (!tegra_fake_system_suspend) {
+		/* Prepare for system suspend */
+		mce_update_cstate_info(&sc7_cstate_info);
 
-			/* Prepare for system suspend */
-			mce_update_cstate_info(&sc7_cstate_info);
-
-			do {
-				val = (uint32_t)mce_command_handler(
-						(uint32_t)MCE_CMD_IS_SC7_ALLOWED,
-						(uint32_t)TEGRA_NVG_CORE_C7,
-						MCE_CORE_SLEEP_TIME_INFINITE,
-						0U);
-			} while (val == 0U);
-
-			/* Instruct the MCE to enter system suspend state */
-			ret = mce_command_handler(
-					(uint64_t)MCE_CMD_ENTER_CSTATE,
-					(uint64_t)TEGRA_NVG_CORE_C7,
+		do {
+			val = (uint32_t)mce_command_handler(
+					(uint32_t)MCE_CMD_IS_SC7_ALLOWED,
+					(uint32_t)TEGRA_NVG_CORE_C7,
 					MCE_CORE_SLEEP_TIME_INFINITE,
 					0U);
-			assert(ret == 0);
+		} while (val == 0U);
 
-			/* set system suspend state for house-keeping */
-			tegra194_set_system_suspend_entry();
-		}
-	} else {
-		; /* do nothing */
+		/* Instruct the MCE to enter system suspend state */
+		ret = mce_command_handler(
+				(uint64_t)MCE_CMD_ENTER_CSTATE,
+				(uint64_t)TEGRA_NVG_CORE_C7,
+				MCE_CORE_SLEEP_TIME_INFINITE,
+				0U);
+		assert(ret == 0);
+
+		/* set system suspend state for house-keeping */
+		tegra194_set_system_suspend_entry();
 	}
 
 	return PSCI_E_SUCCESS;
@@ -233,15 +209,6 @@ static plat_local_state_t tegra_get_afflvl1_pwr_state(const plat_local_state_t *
 	uint32_t core_pos = (uint32_t)read_mpidr() & (uint32_t)MPIDR_CPU_MASK;
 	plat_local_state_t target = states[core_pos];
 	mce_cstate_info_t cstate_info = { 0 };
-
-	/* CPU suspend */
-	if (target == PSTATE_ID_CORE_POWERDN) {
-
-		/* Program default wake mask */
-		cstate_info.wake_mask = TEGRA194_CORE_WAKE_MASK;
-		cstate_info.update_wake_mask = 1;
-		mce_update_cstate_info(&cstate_info);
-	}
 
 	/* CPU off */
 	if (target == PLAT_MAX_OFF_STATE) {
@@ -300,10 +267,34 @@ int32_t tegra_soc_pwr_domain_power_down_wfi(const psci_power_state_t *target_sta
 	plat_params_from_bl2_t *params_from_bl2 = bl31_get_plat_params();
 	uint8_t stateid_afflvl2 = pwr_domain_state[PLAT_MAX_PWR_LVL] &
 		TEGRA194_STATE_ID_MASK;
+	uint64_t src_len_in_bytes = (uintptr_t)&__BL31_END__ - (uintptr_t)BL31_BASE;
 	uint64_t val;
-	u_register_t ns_sctlr_el1;
+	int32_t ret = PSCI_E_SUCCESS;
 
 	if (stateid_afflvl2 == PSTATE_ID_SOC_POWERDN) {
+		val = params_from_bl2->tzdram_base +
+		      tegra194_get_cpu_reset_handler_size();
+
+		/* initialise communication channel with BPMP */
+		ret = tegra_bpmp_ipc_init();
+		assert(ret == 0);
+
+		/* Enable SE clock before SE context save */
+		ret = tegra_bpmp_ipc_enable_clock(TEGRA194_CLK_SE);
+		assert(ret == 0);
+
+		/*
+		 * It is very unlikely that the BL31 image would be
+		 * bigger than 2^32 bytes
+		 */
+		assert(src_len_in_bytes < UINT32_MAX);
+
+		if (tegra_se_calculate_save_sha256(BL31_BASE,
+					(uint32_t)src_len_in_bytes) != 0) {
+			ERROR("Hash calculation failed. Reboot\n");
+			(void)tegra_soc_prepare_system_reset();
+		}
+
 		/*
 		 * The TZRAM loses power when we enter system suspend. To
 		 * allow graceful exit from system suspend, we need to copy
@@ -312,34 +303,19 @@ int32_t tegra_soc_pwr_domain_power_down_wfi(const psci_power_state_t *target_sta
 		val = params_from_bl2->tzdram_base +
 		      tegra194_get_cpu_reset_handler_size();
 		memcpy((void *)(uintptr_t)val, (void *)(uintptr_t)BL31_BASE,
-		       (uintptr_t)&__BL31_END__ - (uintptr_t)BL31_BASE);
+		       src_len_in_bytes);
 
-		/*
-		 * In fake suspend mode, ensure that the loopback procedure
-		 * towards system suspend exit is started, instead of calling
-		 * WFI. This is done by disabling both MMU's of EL1 & El3
-		 * and calling tegra_secure_entrypoint().
-		 */
-		if (tegra_fake_system_suspend) {
-
-			/*
-			 * Disable EL1's MMU.
-			 */
-			ns_sctlr_el1 = read_sctlr_el1();
-			ns_sctlr_el1 &= (~((u_register_t)SCTLR_M_BIT));
-			write_sctlr_el1(ns_sctlr_el1);
-
-			/*
-			 * Disable MMU to power up the CPU in a "clean"
-			 * state
-			 */
-			disable_mmu_el3();
-			tegra_secure_entrypoint();
-			panic();
-		}
+		/* Disable SE clock after SE context save */
+		ret = tegra_bpmp_ipc_disable_clock(TEGRA194_CLK_SE);
+		assert(ret == 0);
 	}
 
-	return PSCI_E_SUCCESS;
+	return ret;
+}
+
+int32_t tegra_soc_pwr_domain_suspend_pwrdown_early(const psci_power_state_t *target_state)
+{
+	return PSCI_E_NOT_SUPPORTED;
 }
 
 int32_t tegra_soc_pwr_domain_on(u_register_t mpidr)
@@ -367,7 +343,11 @@ int32_t tegra_soc_pwr_domain_on(u_register_t mpidr)
 
 int32_t tegra_soc_pwr_domain_on_finish(const psci_power_state_t *target_state)
 {
+	const plat_params_from_bl2_t *params_from_bl2 = bl31_get_plat_params();
+	uint8_t enable_ccplex_lock_step = params_from_bl2->enable_ccplex_lock_step;
 	uint8_t stateid_afflvl2 = target_state->pwr_domain_state[PLAT_MAX_PWR_LVL];
+	cpu_context_t *ctx = cm_get_context(NON_SECURE);
+	uint64_t actlr_elx;
 
 	/*
 	 * Reset power state info for CPUs when onlining, we set
@@ -376,6 +356,10 @@ int32_t tegra_soc_pwr_domain_on_finish(const psci_power_state_t *target_state)
 	 * will re-init this info from non-secure software when the
 	 * core come online.
 	 */
+	actlr_elx = read_ctx_reg((get_el1_sysregs_ctx(ctx)), (CTX_ACTLR_EL1));
+	actlr_elx &= ~DENVER_CPU_PMSTATE_MASK;
+	actlr_elx |= DENVER_CPU_PMSTATE_C1;
+	write_ctx_reg((get_el1_sysregs_ctx(ctx)), (CTX_ACTLR_EL1), (actlr_elx));
 
 	/*
 	 * Check if we are exiting from deep sleep and restore SE
@@ -434,24 +418,46 @@ int32_t tegra_soc_pwr_domain_on_finish(const psci_power_state_t *target_state)
 
 			mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 				XUSB_PADCTL_HOST_AXI_STREAMID_PF_0, TEGRA_SID_XUSB_HOST);
+			assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+				XUSB_PADCTL_HOST_AXI_STREAMID_PF_0) == TEGRA_SID_XUSB_HOST);
 			mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 				XUSB_PADCTL_HOST_AXI_STREAMID_VF_0, TEGRA_SID_XUSB_VF0);
+			assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+				XUSB_PADCTL_HOST_AXI_STREAMID_VF_0) == TEGRA_SID_XUSB_VF0);
 			mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 				XUSB_PADCTL_HOST_AXI_STREAMID_VF_1, TEGRA_SID_XUSB_VF1);
+			assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+				XUSB_PADCTL_HOST_AXI_STREAMID_VF_1) == TEGRA_SID_XUSB_VF1);
 			mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 				XUSB_PADCTL_HOST_AXI_STREAMID_VF_2, TEGRA_SID_XUSB_VF2);
+			assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+				XUSB_PADCTL_HOST_AXI_STREAMID_VF_2) == TEGRA_SID_XUSB_VF2);
 			mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 				XUSB_PADCTL_HOST_AXI_STREAMID_VF_3, TEGRA_SID_XUSB_VF3);
+			assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+				XUSB_PADCTL_HOST_AXI_STREAMID_VF_3) == TEGRA_SID_XUSB_VF3);
 			mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 				XUSB_PADCTL_DEV_AXI_STREAMID_PF_0, TEGRA_SID_XUSB_DEV);
+			assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+				XUSB_PADCTL_DEV_AXI_STREAMID_PF_0) == TEGRA_SID_XUSB_DEV);
 		}
+	}
 
-		/*
-		 * Reset power state info for the last core doing SC7
-		 * entry and exit, we set deepest power state as CC7
-		 * and SC7 for SC7 entry which may not be requested by
-		 * non-secure SW which controls idle states.
-		 */
+	/*
+	 * Enable dual execution optimized translations for all ELx.
+	 */
+	if (enable_ccplex_lock_step != 0U) {
+		actlr_elx = read_actlr_el3();
+		actlr_elx |= DENVER_CPU_ENABLE_DUAL_EXEC_EL3;
+		write_actlr_el3(actlr_elx);
+
+		actlr_elx = read_actlr_el2();
+		actlr_elx |= DENVER_CPU_ENABLE_DUAL_EXEC_EL2;
+		write_actlr_el2(actlr_elx);
+
+		actlr_elx = read_actlr_el1();
+		actlr_elx |= DENVER_CPU_ENABLE_DUAL_EXEC_EL1;
+		write_actlr_el1(actlr_elx);
 	}
 
 	return PSCI_E_SUCCESS;

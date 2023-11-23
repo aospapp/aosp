@@ -21,8 +21,8 @@
 
 #include <set>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 namespace android {
 namespace dmabufinfo {
@@ -83,8 +83,7 @@ struct DmaBuffer {
         // The first time we find a ref, we set the ref count to 1
         // otherwise, increment the existing ref count
         auto [it, inserted] = map->insert(std::make_pair(pid, 1));
-        if (!inserted)
-            it->second++;
+        if (!inserted) it->second++;
         pids_.insert(pid);
     }
 };
@@ -96,18 +95,37 @@ struct DmaBuffer {
 bool ReadDmaBufInfo(std::vector<DmaBuffer>* dmabufs,
                     const std::string& path = "/sys/kernel/debug/dma_buf/bufinfo");
 
-
 // Read and return dmabuf objects for a given process without the help
 // of DEBUGFS
 // Returns false if something went wrong with the function, true otherwise.
-bool ReadDmaBufInfo(pid_t pid, std::vector<DmaBuffer>* dmabufs, bool read_fdrefs = true);
+bool ReadDmaBufInfo(pid_t pid, std::vector<DmaBuffer>* dmabufs, bool read_fdrefs = true,
+                    const std::string& procfs_path = "/proc",
+                    const std::string& dmabuf_sysfs_path = "/sys/kernel/dmabuf/buffers");
 
-// Append new dmabuf objects from a given process to an existing vector.
-// When the vector contains an existing element with a matching inode,
-// the reference counts will be updated.
-// Does not depend on DEBUGFS.
-// Returns false if something went wrong with the function, true otherwise.
-bool AppendDmaBufInfo(pid_t pid, std::vector<DmaBuffer>* dmabufs, bool read_fdrefs = true);
+// Appends new fd-referenced dmabuf objects from a given process to an existing vector.
+// If the vector contains an existing element with a matching inode, the reference
+// counts are updated.
+// On common kernels earlier than 5.4, reading fd-referenced dmabufs of other processes
+// is only possible if the caller has root privileges. On 5.4+ common kernels the caller
+// can read this information with the PTRACE_MODE_READ permission.
+// Returns true on success, otherwise false.
+bool ReadDmaBufFdRefs(int pid, std::vector<DmaBuffer>* dmabufs,
+                      const std::string& procfs_path = "/proc");
+
+// Appends new mapped dmabuf objects from a given process to an existing vector.
+// If the vector contains an existing element with a matching inode, the reference
+// counts are updated.
+// Returns true on success, otherwise false.
+bool ReadDmaBufMapRefs(pid_t pid, std::vector<DmaBuffer>* dmabufs,
+                       const std::string& procfs_path = "/proc",
+                       const std::string& dmabuf_sysfs_path = "/sys/kernel/dmabuf/buffers");
+
+
+
+// Get the DMA buffers PSS contribution for the specified @pid
+// Returns true on success, false otherwise
+bool ReadDmaBufPss(int pid, uint64_t* pss, const std::string& procfs_path = "/proc",
+                   const std::string& dmabuf_sysfs_path = "/sys/kernel/dmabuf/buffers");
 
 }  // namespace dmabufinfo
 }  // namespace android

@@ -13,18 +13,31 @@
 #include <netlink/netlink.h>
 #include <netlink/attr.h>
 #include <netlink/route/rtnl.h>
+#include <netlink/route/link/inet6.h>
 #include <netlink-private/route/link/api.h>
+
+#include "netlink-private/utils.h"
+
+#define I6_ADDR_GEN_MODE_UNKNOWN	UINT8_MAX
 
 struct inet6_data
 {
 	uint32_t		i6_flags;
 	struct ifla_cacheinfo	i6_cacheinfo;
 	uint32_t		i6_conf[DEVCONF_MAX];
+	struct in6_addr		i6_token;
+	uint8_t			i6_addr_gen_mode;
 };
 
 static void *inet6_alloc(struct rtnl_link *link)
 {
-	return calloc(1, sizeof(struct inet6_data));
+	struct inet6_data *i6;
+
+	i6 = calloc(1, sizeof(struct inet6_data));
+	if (i6)
+		i6->i6_addr_gen_mode = I6_ADDR_GEN_MODE_UNKNOWN;
+
+	return i6;
 }
 
 static void *inet6_clone(struct rtnl_link *link, void *data)
@@ -43,11 +56,13 @@ static void inet6_free(struct rtnl_link *link, void *data)
 }
 
 static struct nla_policy inet6_policy[IFLA_INET6_MAX+1] = {
-	[IFLA_INET6_FLAGS]	= { .type = NLA_U32 },
-	[IFLA_INET6_CACHEINFO]	= { .minlen = sizeof(struct ifla_cacheinfo) },
-	[IFLA_INET6_CONF]	= { .minlen = 4 },
-	[IFLA_INET6_STATS]	= { .minlen = 8 },
-	[IFLA_INET6_ICMP6STATS]	= { .minlen = 8 },
+	[IFLA_INET6_FLAGS]		= { .type = NLA_U32 },
+	[IFLA_INET6_CACHEINFO]		= { .minlen = sizeof(struct ifla_cacheinfo) },
+	[IFLA_INET6_CONF]		= { .minlen = 4 },
+	[IFLA_INET6_STATS]		= { .minlen = 8 },
+	[IFLA_INET6_ICMP6STATS]		= { .minlen = 8 },
+	[IFLA_INET6_TOKEN]		= { .minlen = sizeof(struct in6_addr) },
+	[IFLA_INET6_ADDR_GEN_MODE]	= { .type = NLA_U8 },
 };
 
 static const uint8_t map_stat_id_from_IPSTATS_MIB_v1[__IPSTATS_MIB_MAX] = {
@@ -155,7 +170,14 @@ static int inet6_parse_protinfo(struct rtnl_link *link, struct nlattr *attr,
 	if (tb[IFLA_INET6_CONF])
 		nla_memcpy(&i6->i6_conf, tb[IFLA_INET6_CONF],
 			   sizeof(i6->i6_conf));
- 
+
+	if (tb[IFLA_INET6_TOKEN])
+		nla_memcpy(&i6->i6_token, tb[IFLA_INET6_TOKEN],
+		           sizeof(struct in6_addr));
+
+	if (tb[IFLA_INET6_ADDR_GEN_MODE])
+		i6->i6_addr_gen_mode = nla_get_u8 (tb[IFLA_INET6_ADDR_GEN_MODE]);
+
 	/*
 	 * Due to 32bit data alignment, these addresses must be copied to an
 	 * aligned location prior to access.
@@ -200,6 +222,19 @@ static int inet6_parse_protinfo(struct rtnl_link *link, struct nlattr *attr,
 	return 0;
 }
 
+static int inet6_fill_af(struct rtnl_link *link, struct nl_msg *msg, void *data)
+{
+	struct inet6_data *id = data;
+
+	if (id->i6_addr_gen_mode != I6_ADDR_GEN_MODE_UNKNOWN)
+		NLA_PUT_U8(msg, IFLA_INET6_ADDR_GEN_MODE, id->i6_addr_gen_mode);
+
+	return 0;
+
+nla_put_failure:
+	return -NLE_MSGSIZE;
+}
+
 /* These live in include/net/if_inet6.h and should be moved to include/linux */
 #define IF_RA_OTHERCONF	0x80
 #define IF_RA_MANAGED	0x40
@@ -208,49 +243,54 @@ static int inet6_parse_protinfo(struct rtnl_link *link, struct nlattr *attr,
 #define IF_READY	0x80000000
 
 static const struct trans_tbl inet6_flags[] = {
-	__ADD(IF_RA_OTHERCONF, ra_otherconf)
-	__ADD(IF_RA_MANAGED, ra_managed)
-	__ADD(IF_RA_RCVD, ra_rcvd)
-	__ADD(IF_RS_SENT, rs_sent)
-	__ADD(IF_READY, ready)
+	__ADD(IF_RA_OTHERCONF, ra_otherconf),
+	__ADD(IF_RA_MANAGED, ra_managed),
+	__ADD(IF_RA_RCVD, ra_rcvd),
+	__ADD(IF_RS_SENT, rs_sent),
+	__ADD(IF_READY, ready),
 };
 
-static char *inet6_flags2str(int flags, char *buf, size_t len)
+char *rtnl_link_inet6_flags2str(int flags, char *buf, size_t len)
 {
 	return __flags2str(flags, buf, len, inet6_flags,
 			   ARRAY_SIZE(inet6_flags));
 }
 
+int rtnl_link_inet6_str2flags(const char *name)
+{
+	return __str2flags(name, inet6_flags, ARRAY_SIZE(inet6_flags));
+}
+
 static const struct trans_tbl inet6_devconf[] = {
-	__ADD(DEVCONF_FORWARDING, forwarding)
-	__ADD(DEVCONF_HOPLIMIT, hoplimit)
-	__ADD(DEVCONF_MTU6, mtu6)
-	__ADD(DEVCONF_ACCEPT_RA, accept_ra)
-	__ADD(DEVCONF_ACCEPT_REDIRECTS, accept_redirects)
-	__ADD(DEVCONF_AUTOCONF, autoconf)
-	__ADD(DEVCONF_DAD_TRANSMITS, dad_transmits)
-	__ADD(DEVCONF_RTR_SOLICITS, rtr_solicits)
-	__ADD(DEVCONF_RTR_SOLICIT_INTERVAL, rtr_solicit_interval)
-	__ADD(DEVCONF_RTR_SOLICIT_DELAY, rtr_solicit_delay)
-	__ADD(DEVCONF_USE_TEMPADDR, use_tempaddr)
-	__ADD(DEVCONF_TEMP_VALID_LFT, temp_valid_lft)
-	__ADD(DEVCONF_TEMP_PREFERED_LFT, temp_prefered_lft)
-	__ADD(DEVCONF_REGEN_MAX_RETRY, regen_max_retry)
-	__ADD(DEVCONF_MAX_DESYNC_FACTOR, max_desync_factor)
-	__ADD(DEVCONF_MAX_ADDRESSES, max_addresses)
-	__ADD(DEVCONF_FORCE_MLD_VERSION, force_mld_version)
-	__ADD(DEVCONF_ACCEPT_RA_DEFRTR, accept_ra_defrtr)
-	__ADD(DEVCONF_ACCEPT_RA_PINFO, accept_ra_pinfo)
-	__ADD(DEVCONF_ACCEPT_RA_RTR_PREF, accept_ra_rtr_pref)
-	__ADD(DEVCONF_RTR_PROBE_INTERVAL, rtr_probe_interval)
-	__ADD(DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN, accept_ra_rt_info)
-	__ADD(DEVCONF_PROXY_NDP, proxy_ndp)
-	__ADD(DEVCONF_OPTIMISTIC_DAD, optimistic_dad)
-	__ADD(DEVCONF_ACCEPT_SOURCE_ROUTE, accept_source_route)
-	__ADD(DEVCONF_MC_FORWARDING, mc_forwarding)
-	__ADD(DEVCONF_DISABLE_IPV6, disable_ipv6)
-	__ADD(DEVCONF_ACCEPT_DAD, accept_dad)
-	__ADD(DEVCONF_FORCE_TLLAO, force_tllao)
+	__ADD(DEVCONF_FORWARDING, forwarding),
+	__ADD(DEVCONF_HOPLIMIT, hoplimit),
+	__ADD(DEVCONF_MTU6, mtu6),
+	__ADD(DEVCONF_ACCEPT_RA, accept_ra),
+	__ADD(DEVCONF_ACCEPT_REDIRECTS, accept_redirects),
+	__ADD(DEVCONF_AUTOCONF, autoconf),
+	__ADD(DEVCONF_DAD_TRANSMITS, dad_transmits),
+	__ADD(DEVCONF_RTR_SOLICITS, rtr_solicits),
+	__ADD(DEVCONF_RTR_SOLICIT_INTERVAL, rtr_solicit_interval),
+	__ADD(DEVCONF_RTR_SOLICIT_DELAY, rtr_solicit_delay),
+	__ADD(DEVCONF_USE_TEMPADDR, use_tempaddr),
+	__ADD(DEVCONF_TEMP_VALID_LFT, temp_valid_lft),
+	__ADD(DEVCONF_TEMP_PREFERED_LFT, temp_prefered_lft),
+	__ADD(DEVCONF_REGEN_MAX_RETRY, regen_max_retry),
+	__ADD(DEVCONF_MAX_DESYNC_FACTOR, max_desync_factor),
+	__ADD(DEVCONF_MAX_ADDRESSES, max_addresses),
+	__ADD(DEVCONF_FORCE_MLD_VERSION, force_mld_version),
+	__ADD(DEVCONF_ACCEPT_RA_DEFRTR, accept_ra_defrtr),
+	__ADD(DEVCONF_ACCEPT_RA_PINFO, accept_ra_pinfo),
+	__ADD(DEVCONF_ACCEPT_RA_RTR_PREF, accept_ra_rtr_pref),
+	__ADD(DEVCONF_RTR_PROBE_INTERVAL, rtr_probe_interval),
+	__ADD(DEVCONF_ACCEPT_RA_RT_INFO_MAX_PLEN, accept_ra_rt_info),
+	__ADD(DEVCONF_PROXY_NDP, proxy_ndp),
+	__ADD(DEVCONF_OPTIMISTIC_DAD, optimistic_dad),
+	__ADD(DEVCONF_ACCEPT_SOURCE_ROUTE, accept_source_route),
+	__ADD(DEVCONF_MC_FORWARDING, mc_forwarding),
+	__ADD(DEVCONF_DISABLE_IPV6, disable_ipv6),
+	__ADD(DEVCONF_ACCEPT_DAD, accept_dad),
+	__ADD(DEVCONF_FORCE_TLLAO, force_tllao),
 };
 
 static char *inet6_devconf2str(int type, char *buf, size_t len)
@@ -259,32 +299,59 @@ static char *inet6_devconf2str(int type, char *buf, size_t len)
 			  ARRAY_SIZE(inet6_devconf));
 }
 
+static const struct trans_tbl inet6_addr_gen_mode[] = {
+	__ADD(IN6_ADDR_GEN_MODE_EUI64, eui64),
+	__ADD(IN6_ADDR_GEN_MODE_NONE, none),
+	__ADD(IN6_ADDR_GEN_MODE_STABLE_PRIVACY, stable_privacy),
+};
+
+const char *rtnl_link_inet6_addrgenmode2str(uint8_t mode, char *buf, size_t len)
+{
+	return __type2str(mode, buf, len, inet6_addr_gen_mode,
+			  ARRAY_SIZE(inet6_addr_gen_mode));
+}
+
+uint8_t rtnl_link_inet6_str2addrgenmode(const char *mode)
+{
+	return (uint8_t) __str2type(mode, inet6_addr_gen_mode,
+			            ARRAY_SIZE(inet6_addr_gen_mode));
+}
 
 static void inet6_dump_details(struct rtnl_link *link,
 				struct nl_dump_params *p, void *data)
 {
 	struct inet6_data *i6 = data;
-	char buf[64], buf2[64];
+	struct nl_addr *addr;
 	int i, n = 0;
+	char buf[64];
 
 	nl_dump_line(p, "    ipv6 max-reasm-len %s",
-		nl_size2str(i6->i6_cacheinfo.max_reasm_len, buf, sizeof(buf)));
+	             nl_size2str(i6->i6_cacheinfo.max_reasm_len, buf, sizeof(buf)));
 
 	nl_dump(p, " <%s>\n",
-		inet6_flags2str(i6->i6_flags, buf, sizeof(buf)));
-
+	        rtnl_link_inet6_flags2str(i6->i6_flags, buf, sizeof(buf)));
 
 	nl_dump_line(p, "      create-stamp %.2fs reachable-time %s",
-		(double) i6->i6_cacheinfo.tstamp / 100.,
-		nl_msec2str(i6->i6_cacheinfo.reachable_time, buf, sizeof(buf)));
+	             (double) i6->i6_cacheinfo.tstamp / 100.,
+	             nl_msec2str(i6->i6_cacheinfo.reachable_time, buf, sizeof(buf)));
 
 	nl_dump(p, " retrans-time %s\n",
-		nl_msec2str(i6->i6_cacheinfo.retrans_time, buf, sizeof(buf)));
+	        nl_msec2str(i6->i6_cacheinfo.retrans_time, buf, sizeof(buf)));
+
+	addr = nl_addr_build(AF_INET6, &i6->i6_token, sizeof(i6->i6_token));
+	nl_dump(p, "      token %s\n",
+	        nl_addr2str(addr, buf, sizeof(buf)));
+	nl_addr_put(addr);
+
+	nl_dump(p, "      link-local address mode %s\n",
+	        rtnl_link_inet6_addrgenmode2str(i6->i6_addr_gen_mode,
+	                                        buf, sizeof(buf)));
 
 	nl_dump_line(p, "      devconf:\n");
 	nl_dump_line(p, "      ");
 
 	for (i = 0; i < DEVCONF_MAX; i++) {
+		char buf2[64];
 		uint32_t value = i6->i6_conf[i];
 		int x, offset;
 
@@ -303,7 +370,6 @@ static void inet6_dump_details(struct rtnl_link *link,
 		default:
 			snprintf(buf2, sizeof(buf2), "%u", value);
 			break;
-			
 		}
 
 		inet6_devconf2str(i, buf, sizeof(buf));
@@ -315,7 +381,7 @@ static void inet6_dump_details(struct rtnl_link *link,
 		for (x = strlen(buf); x < offset; x++)
 			buf[x] = ' ';
 
-		strncpy(&buf[offset], buf2, strlen(buf2));
+		_nl_strncpy_trunc(&buf[offset], buf2, sizeof(buf) - offset);
 
 		nl_dump_line(p, "%s", buf);
 
@@ -468,10 +534,159 @@ static struct rtnl_link_af_ops inet6_ops = {
 	.ao_free			= &inet6_free,
 	.ao_parse_protinfo		= &inet6_parse_protinfo,
 	.ao_parse_af			= &inet6_parse_protinfo,
+	.ao_fill_af			= &inet6_fill_af,
 	.ao_dump[NL_DUMP_DETAILS]	= &inet6_dump_details,
 	.ao_dump[NL_DUMP_STATS]		= &inet6_dump_stats,
 	.ao_protinfo_policy		= &protinfo_policy,
 };
+
+/**
+ * Return IPv6 specific flags
+ * @arg link		Link object
+ * @arg out_flags	Flags on success
+ *
+ * Returns the link's IPv6 flags.
+ *
+ * @return 0 on success
+ * @return -NLE_NOATTR configuration setting not available
+ */
+int rtnl_link_inet6_get_flags(struct rtnl_link *link, uint32_t* out_flags)
+{
+	struct inet6_data *id = NULL;
+
+	if (!(id = rtnl_link_af_data(link, &inet6_ops)))
+		return -NLE_NOATTR;
+
+	*out_flags = id->i6_flags;
+	return 0;
+}
+
+/**
+ * Set IPv6 specific flags
+ * @arg link		Link object
+ * @arg flags		Flags to set
+ *
+ * Sets the link's IPv6 specific flags. Overwrites currently set flags.
+ *
+ * @return 0 on success
+ * @return -NLE_NOMEM could not allocate inet6 data
+ */
+int rtnl_link_inet6_set_flags(struct rtnl_link *link, uint32_t flags)
+{
+	struct inet6_data *id;
+
+	if (!(id = rtnl_link_af_alloc(link, &inet6_ops)))
+		return -NLE_NOMEM;
+
+	id->i6_flags = flags;
+	return 0;
+}
+
+/**
+ * Get IPv6 tokenized interface identifier
+ * @arg link		Link object
+ * @arg token		Tokenized interface identifier on success
+ *
+ * Returns the link's IPv6 tokenized interface identifier.
+ *
+ * @return 0 on success
+ * @return -NLE_NOMEM  failure to allocate struct nl_addr result
+ * @return -NLE_NOATTR configuration setting not available
+ * @return -NLE_NOADDR tokenized interface identifier is not set
+ */
+int rtnl_link_inet6_get_token(struct rtnl_link *link, struct nl_addr **addr)
+{
+	struct inet6_data *id;
+
+	if (!(id = rtnl_link_af_data(link, &inet6_ops)))
+		return -NLE_NOATTR;
+
+	*addr = nl_addr_build(AF_INET6, &id->i6_token, sizeof(id->i6_token));
+	if (!*addr)
+		return -NLE_NOMEM;
+	if (nl_addr_iszero(*addr)) {
+		nl_addr_put(*addr);
+		*addr = NULL;
+		return -NLE_NOADDR;
+	}
+
+	return 0;
+}
+
+/**
+ * Set IPv6 tokenized interface identifier
+ * @arg link		Link object
+ * @arg token		Tokenized interface identifier
+ *
+ * Sets the link's IPv6 tokenized interface identifier.
+ *
+ * @return 0 on success
+ * @return -NLE_NOMEM could not allocate inet6 data
+ * @return -NLE_INVAL addr is not a valid inet6 address
+ */
+int rtnl_link_inet6_set_token(struct rtnl_link *link, struct nl_addr *addr)
+{
+	struct inet6_data *id;
+
+	if ((nl_addr_get_family(addr) != AF_INET6) ||
+	    (nl_addr_get_len(addr) != sizeof(id->i6_token)))
+		return -NLE_INVAL;
+
+	if (!(id = rtnl_link_af_alloc(link, &inet6_ops)))
+		return -NLE_NOMEM;
+
+	memcpy(&id->i6_token, nl_addr_get_binary_addr(addr),
+	       sizeof(id->i6_token));
+	return 0;
+}
+
+/**
+ * Get IPv6 link-local address generation mode
+ * @arg link		Link object
+ * @arg mode		Generation mode on success
+ *
+ * Returns the link's IPv6 link-local address generation mode.
+ *
+ * @return 0 on success
+ * @return -NLE_NOATTR configuration setting not available
+ * @return -NLE_INVAL generation mode unknown. If the link was received via
+ *                    netlink, it means that address generation mode is not
+ *                    supported by the kernel.
+ */
+int rtnl_link_inet6_get_addr_gen_mode(struct rtnl_link *link, uint8_t *mode)
+{
+	struct inet6_data *id;
+
+	if (!(id = rtnl_link_af_data(link, &inet6_ops)))
+		return -NLE_NOATTR;
+
+	if (id->i6_addr_gen_mode == I6_ADDR_GEN_MODE_UNKNOWN)
+		return -NLE_INVAL;
+
+	*mode = id->i6_addr_gen_mode;
+	return 0;
+}
+
+/**
+ * Set IPv6 link-local address generation mode
+ * @arg link		Link object
+ * @arg mode		Generation mode
+ *
+ * Sets the link's IPv6 link-local address generation mode.
+ *
+ * @return 0 on success
+ * @return -NLE_NOMEM could not allocate inet6 data
+ */
+int rtnl_link_inet6_set_addr_gen_mode(struct rtnl_link *link, uint8_t mode)
+{
+	struct inet6_data *id;
+
+	if (!(id = rtnl_link_af_alloc(link, &inet6_ops)))
+		return -NLE_NOMEM;
+
+	id->i6_addr_gen_mode = mode;
+	return 0;
+}
 
 static void __init inet6_init(void)
 {

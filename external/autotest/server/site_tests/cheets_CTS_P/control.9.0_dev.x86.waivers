@@ -23,13 +23,13 @@ def run_TS(machine):
         needs_push_media=False,
         tag='9.0_dev.x86.waivers',
         test_name='cheets_CTS_P.9.0_dev.x86.waivers',
-        run_template=['run', 'commandAndExit', 'cts', '--subplan', 'waivers'],
-        retry_template=['run', 'commandAndExit', 'retry', '--retry', '{session_id}'],
+        run_template=['run', 'commandAndExit', 'cts', '--subplan', 'waivers', '--module-arg', 'CtsMediaTestCases:skip-media-download:true'],
+        retry_template=['run', 'commandAndExit', 'retry', '--retry', '{session_id}', '--module-arg', 'CtsMediaTestCases:skip-media-download:true'],
         target_module='cts-dev',
         target_plan='waivers',
         load_waivers=False,
         bundle='x86',
-        uri='gs://chromeos-arc-images/cts/bundle/P/android-cts-6191687-linux_x86-x86.zip',
+        uri='gs://chromeos-arc-images/cts/bundle/P/android-cts-6970114-linux_x86-x86.zip',
         timeout=14400)
 
 parallel_simple(run_TS, machines)

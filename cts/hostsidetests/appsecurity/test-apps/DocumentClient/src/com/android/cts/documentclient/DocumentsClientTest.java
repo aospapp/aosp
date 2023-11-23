@@ -16,13 +16,20 @@
 
 package com.android.cts.documentclient;
 
+import static android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION;
+import static android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+
 import android.app.Activity;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
@@ -37,8 +44,12 @@ import android.test.MoreAsserts;
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.android.cts.documentclient.MyActivity.Result;
 
+import java.io.File;
 import java.util.List;
 
 /**
@@ -47,6 +58,19 @@ import java.util.List;
  */
 public class DocumentsClientTest extends DocumentsClientTestCase {
     private static final String TAG = "DocumentsClientTest";
+    private static final String DOWNLOAD_PATH =
+            Environment.getExternalStorageDirectory().getAbsolutePath() + File.separatorChar
+                    + Environment.DIRECTORY_DOWNLOADS;
+    private static final String TEST_DESTINATION_DIRECTORY_NAME = "TEST_PERMISSION_DESTINATION";
+    private static final String TEST_DESTINATION_DIRECTORY_PATH =
+            DOWNLOAD_PATH + File.separatorChar + TEST_DESTINATION_DIRECTORY_NAME;
+    private static final String TEST_SOURCE_DIRECTORY_NAME = "TEST_PERMISSION_SOURCE";
+    private static final String TEST_SOURCE_DIRECTORY_PATH =
+            DOWNLOAD_PATH + File.separatorChar + TEST_SOURCE_DIRECTORY_NAME;
+    private static final String TEST_TARGET_DIRECTORY_NAME = "TEST_TARGET";
+    private static final String TEST_TARGET_DIRECTORY_PATH =
+            TEST_SOURCE_DIRECTORY_PATH + File.separatorChar + TEST_TARGET_DIRECTORY_NAME;
+    private static final String STORAGE_AUTHORITY = "com.android.externalstorage.documents";
 
     private UiSelector findRootListSelector() throws UiObjectNotFoundException {
         return new UiSelector().resourceId(
@@ -100,9 +124,7 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
     }
 
     private UiObject findDocument(String label) throws UiObjectNotFoundException {
-        final UiSelector docList = new UiSelector().resourceId(
-                getDocumentsUiPackageId() + ":id/container_directory").childSelector(
-                new UiSelector().resourceId(getDocumentsUiPackageId() + ":id/dir_list"));
+        final UiSelector docList = new UiSelector().resourceId(getDocumentsUiPackageId() + ":id/dir_list");
 
         // Wait for the first list item to appear
         assertTrue("First list item",
@@ -111,15 +133,34 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         try {
             //Enfornce to set the list mode
             //Because UiScrollable can't reach the real bottom (when WEB_LINKABLE_FILE item) in grid mode when screen landscape mode
-            new UiObject(new UiSelector().resourceId("com.android.documentsui:id/option_menu_list")).click();
+            new UiObject(new UiSelector().resourceId(getDocumentsUiPackageId() + ":id/sub_menu_list")).click();
             mDevice.waitForIdle();
         }catch (UiObjectNotFoundException e){
             //do nothing, already be in list mode.
         }
 
-        // Now scroll around to find our item
-        new UiScrollable(docList).scrollIntoView(new UiSelector().text(label));
-        return new UiObject(docList.childSelector(new UiSelector().text(label)));
+        // Repeat swipe gesture to find our item
+        // (UiScrollable#scrollIntoView does not seem to work well with SwipeRefreshLayout)
+        UiObject targetObject = new UiObject(docList.childSelector(new UiSelector().text(label)));
+        UiObject saveButton = findSaveButton();
+        int stepLimit = 10;
+        while (stepLimit-- > 0) {
+            if (targetObject.exists()) {
+                boolean targetObjectFullyVisible = !saveButton.exists()
+                        || targetObject.getVisibleBounds().bottom
+                        <= saveButton.getVisibleBounds().top;
+                if (targetObjectFullyVisible) {
+                    break;
+                }
+            }
+
+            mDevice.swipe(/* startX= */ mDevice.getDisplayWidth() / 2,
+                    /* startY= */ mDevice.getDisplayHeight() / 2,
+                    /* endX= */ mDevice.getDisplayWidth() / 2,
+                    /* endY= */ 0,
+                    /* steps= */ 40);
+        }
+        return targetObject;
     }
 
     private UiObject findSaveButton() throws UiObjectNotFoundException {
@@ -138,6 +179,25 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
                 new UiSelector().className("android.widget.TextView").text(label)));
 
         assertTrue(title.waitForExists(TIMEOUT));
+    }
+
+    private String getDeviceName() {
+        final String deviceName = Settings.Global.getString(
+                mActivity.getContentResolver(), Settings.Global.DEVICE_NAME);
+        // Device name should always be set. In case it isn't, fall back to "Internal Storage"
+        return !TextUtils.isEmpty(deviceName) ? deviceName : "Internal Storage";
+    }
+
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        deleteTestDirectory();
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        super.tearDown();
+        deleteTestDirectory();
     }
 
     public void testOpenSimple() throws Exception {
@@ -371,6 +431,16 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         // save button is disabled for the storage root
         assertFalse(findSaveButton().isEnabled());
 
+        // We should always have Android directory available
+        findDocument("Android").click();
+        mDevice.waitForIdle();
+
+        // save button is disabled for Android folder
+        assertFalse(findSaveButton().isEnabled());
+
+        findRoot(getDeviceName()).click();
+        mDevice.waitForIdle();
+
         try {
             findDocument("Download").click();
             mDevice.waitForIdle();
@@ -409,6 +479,16 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         // save button is enabled for for the storage root
         assertTrue(findSaveButton().isEnabled());
 
+        // We should always have Android directory available
+        findDocument("Android").click();
+        mDevice.waitForIdle();
+
+        // save button is enabled for Android folder
+        assertTrue(findSaveButton().isEnabled());
+
+        findRoot(getDeviceName()).click();
+        mDevice.waitForIdle();
+
         try {
             findDocument("Download").click();
             mDevice.waitForIdle();
@@ -441,17 +521,25 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         mActivity.startActivityForResult(intent, REQUEST_CODE);
 
         // Look around, we should be able to see both DocumentsProviders and
-        // other GET_CONTENT sources. If the DocumentsProvider and GetContent
-        // root has the same package, they will be combined as one root item.
+        // other GET_CONTENT sources.
         mDevice.waitForIdle();
         assertTrue("CtsLocal root", findRoot("CtsLocal").exists());
         assertTrue("CtsCreate root", findRoot("CtsCreate").exists());
-        assertFalse("CtsGetContent root", findRoot("CtsGetContent").exists());
 
+        // Find and click GetContent item.
+        UiObject getContentRoot = findRoot("CtsGetContent");
         mDevice.waitForIdle();
-        // Both CtsLocal and CtsLocal have action icon and have the same action.
-        findActionIcon("CtsCreate");
-        findActionIcon("CtsLocal").click();
+        if (getContentRoot.exists()) {
+            // Case 1: GetContent is presented as an independent root item.
+            findRoot("CtsGetContent").click();
+        } else {
+            // Case 2: GetContent is presented as an action icon next to the DocumentsProvider root
+            // from the same package.
+            // In this case, both CtsLocal and CtsLocal have action icon and have the same action.
+            findActionIcon("CtsCreate");
+            findActionIcon("CtsLocal").click();
+        }
+
         Result result = mActivity.getResult();
         assertEquals("ReSuLt", result.data.getAction());
     }
@@ -702,15 +790,8 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         mActivity.startActivityForResult(intent, REQUEST_CODE);
         mDevice.waitForIdle();
 
-        final String deviceName = Settings.Global.getString(
-                mActivity.getContentResolver(), Settings.Global.DEVICE_NAME);
-
-        // Device name should always be set. In case it isn't, though,
-        // fall back to "Internal Storage".
-        final String title = !TextUtils.isEmpty(deviceName) ? deviceName : "Internal Storage";
-
         // assert the default root is internal storage root
-        assertToolbarTitleEquals(title);
+        assertToolbarTitleEquals(getDeviceName());
 
         // no Downloads root
         assertFalse(findRoot("Downloads").exists());
@@ -814,5 +895,76 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         } catch(UiObjectNotFoundException e) {
             // expected
         }
+    }
+
+    public void testAfterMoveDocumentInStorage_revokeUriPermission() throws Exception {
+        if (!supportedHardware()) return;
+
+        final Context context = getInstrumentation().getContext();
+        final Uri initUri = DocumentsContract.buildDocumentUri(STORAGE_AUTHORITY,
+                "primary:" + Environment.DIRECTORY_DOWNLOADS);
+
+        // create the source directory
+        final Uri sourceUri = assertCreateDocumentSuccess(initUri, TEST_SOURCE_DIRECTORY_NAME,
+                Document.MIME_TYPE_DIR);
+
+        // create the target directory
+        final Uri targetUri = assertCreateDocumentSuccess(sourceUri, TEST_TARGET_DIRECTORY_NAME,
+                Document.MIME_TYPE_DIR);
+        final int permissionFlag = FLAG_GRANT_READ_URI_PERMISSION | FLAG_GRANT_WRITE_URI_PERMISSION;
+
+        // check permission for the target uri
+        assertEquals(PackageManager.PERMISSION_GRANTED,
+                context.checkCallingOrSelfUriPermission(targetUri, permissionFlag));
+
+        // create the destination directory
+        final Uri destinationUri = assertCreateDocumentSuccess(initUri,
+                TEST_DESTINATION_DIRECTORY_NAME, Document.MIME_TYPE_DIR);
+
+        final ContentResolver resolver = context.getContentResolver();
+        final Uri movedFileUri = DocumentsContract.moveDocument(resolver, targetUri, sourceUri,
+                destinationUri);
+        assertTrue(movedFileUri != null);
+
+        // after moving the document,  the permission of targetUri is revoked
+        assertEquals(PackageManager.PERMISSION_DENIED,
+                context.checkCallingOrSelfUriPermission(targetUri, permissionFlag));
+
+        // create the target directory again, it still has no permission for targetUri
+        executeShellCommand("mkdir " + TEST_TARGET_DIRECTORY_PATH);
+
+        assertEquals(PackageManager.PERMISSION_DENIED,
+                context.checkCallingOrSelfUriPermission(targetUri, permissionFlag));
+    }
+
+    private Uri assertCreateDocumentSuccess(@Nullable Uri initUri, @NonNull String displayName,
+            @NonNull String mimeType) throws Exception {
+        // Clear DocsUI's storage to avoid it opening stored last location.
+        clearDocumentsUi();
+
+        // create document
+        final Intent createIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        createIntent.addCategory(Intent.CATEGORY_OPENABLE);
+        createIntent.putExtra(Intent.EXTRA_TITLE, displayName);
+        createIntent.setType(mimeType);
+        if (initUri != null) {
+            createIntent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initUri);
+        }
+        mActivity.startActivityForResult(createIntent, REQUEST_CODE);
+
+        mDevice.waitForIdle();
+        findSaveButton().click();
+
+        // check result
+        final Uri uri = mActivity.getResult().data.getData();
+        assertEquals(displayName, getColumn(uri, Document.COLUMN_DISPLAY_NAME));
+        assertEquals(mimeType, getColumn(uri, Document.COLUMN_MIME_TYPE));
+
+        return uri;
+    }
+
+    private void deleteTestDirectory() throws Exception{
+        executeShellCommand("rm -rf " + TEST_DESTINATION_DIRECTORY_PATH);
+        executeShellCommand("rm -rf " + TEST_SOURCE_DIRECTORY_PATH);
     }
 }

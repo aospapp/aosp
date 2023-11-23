@@ -27,8 +27,6 @@ import static org.mockito.Mockito.when;
 import android.os.Looper;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import com.android.internal.telephony.PhoneConstants;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -112,12 +110,10 @@ public class ImsConferenceControllerTest {
     @Test
     @SmallTest
     public void testMergeMultiPartyCalls() {
-        when(mTestTelephonyConnectionA.mMockRadioConnection.getPhoneType())
-                .thenReturn(PhoneConstants.PHONE_TYPE_IMS);
-        when(mTestTelephonyConnectionB.mMockRadioConnection.getPhoneType())
-                .thenReturn(PhoneConstants.PHONE_TYPE_IMS);
-        when(mTestTelephonyConnectionA.mMockRadioConnection.isMultiparty()).thenReturn(true);
-        when(mTestTelephonyConnectionB.mMockRadioConnection.isMultiparty()).thenReturn(true);
+        mTestTelephonyConnectionA.setIsImsConnection(true);
+        mTestTelephonyConnectionB.setIsImsConnection(true);
+        when(mTestTelephonyConnectionA.mImsPhoneConnection.isMultiparty()).thenReturn(true);
+        when(mTestTelephonyConnectionB.mImsPhoneConnection.isMultiparty()).thenReturn(true);
 
         mControllerTest.add(mTestTelephonyConnectionB);
         mControllerTest.add(mTestTelephonyConnectionA);

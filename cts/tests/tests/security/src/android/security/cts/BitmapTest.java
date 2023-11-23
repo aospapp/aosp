@@ -17,14 +17,13 @@
 package android.security.cts;
 
 import android.graphics.Bitmap;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@SecurityTest
 @RunWith(AndroidJUnit4.class)
 public class BitmapTest {
     /**
@@ -34,7 +33,7 @@ public class BitmapTest {
      * OOME is more appropriate.
      */
     @Test(expected=OutOfMemoryError.class)
-    @SecurityTest(minPatchLevel = "2018-01")
+    @AsbSecurityTest(cveBugId = 33846679)
     public void test_33846679() {
         // This size is based on the max size possible in a GIF file,
         // which might be passed to createBitmap from a Java decoder.

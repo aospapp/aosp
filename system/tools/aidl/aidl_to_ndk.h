@@ -40,6 +40,12 @@ std::string NdkFullClassName(const AidlDefinedType& type, cpp::ClassNames name);
 // array modifiers.
 std::string NdkNameOf(const AidlTypenames& types, const AidlTypeSpecifier& aidl, StorageMode mode);
 
+// Return the alignment of known types and enum backing types.
+// If the alignment is unknown, or it is a FizedSize parcelable with its
+// own guaranteed alignment(so it does not need to be specified), 0 will be
+// returned.
+size_t NdkAlignmentOf(const AidlTypenames& types, const AidlTypeSpecifier& aidl);
+
 struct CodeGeneratorContext {
   CodeWriter& writer;
 

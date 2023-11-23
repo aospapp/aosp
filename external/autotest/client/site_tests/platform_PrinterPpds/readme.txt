@@ -1,13 +1,24 @@
 Tests naming convention
 -----------------------
 Names of tests (suffixes of control.* files) are build from 2 or 3 words
-separated by an underscore character. The first one is '100' or 'all', what
-defines the set of PPD files to test: '100' means 100 chosen (most often used)
-PPD files (stored in the archive ppds_100) while 'all' means all available PPD
-files (stored in the archive ppds_all). The second word of the name is either
-'test' or 'dump'. The third and optional word is 'debug'. All these three words
-influence testing procedure used by the autotest, their meanings are described
-in next paragraphs.
+separated by an underscore character. The first one is 'core' or 'ext', what
+defines the set of PPD files to test. These two are described in the section
+below. The second word of the name is either 'test' or 'dump'. The third and
+optional word is 'debug'. All these three words influence the testing
+procedure used by the autotest, their meanings are described in the next
+paragraphs.
+
+Input sets of PPD files ('core' and 'ext')
+------------------------------------------
+There are two input sets of PPD files to test: 'core' and 'ext'. 'core' is the
+smaller one and represents clusters defined in the file large_clusters.txt; it
+is built by taking the first element (PPD filename) from every line of this
+file. The set 'ext' is built in similar way by taking the first element (PPD
+filename) from every line of small_clusters.txt file; however the elements
+already present in 'core' are omitted. Currently, 'core' contains around ~130
+PPD files; the exact size equals the number of lines in large_clusters.txt.
+The set 'ext' contains around ~1400 PPD files; the exact size equals the number
+of lines in small_clusters.txt minus the number of lines in large_clusters.txt.
 
 Overall testing procedure
 -------------------------
@@ -22,7 +33,7 @@ in ChromeOS. Each PPD file is tested with the following procedure:
 7. All obtained outputs & logs are saved on the device (see below) - dump only.
 8. The printer driver is removed from CUPS server.
 This procedure is repeated for every PPD file. The number of PPD files may be
-large (3K+ files). To decrease amount of time needed by the autotest, several
+large (~2K files). To decrease amount of time needed by the autotest, several
 PPD files are tested simultaneously in parallel threads. Autotest always run
 the procedure for all given PPD files and print a summary report at the end.
 If at least one of PPD files fails, whole autotest is finished with failure
@@ -37,7 +48,7 @@ calculated for each obtained document and it is used for comparison.
 A function for digests calculation is in the 'helpers.py' file. Not all
 outputs can be tested this way because for some PPD files produced contents
 differ between runs. List of PPD files for which we cannot calculate
-constant digest is saved in the file digests_blacklist.txt. Files with
+constant digest is saved in the file digests_denylist.txt. Files with
 expected digests for every test document are stored in the directory "digests".
 If a digests for given pair (test document, PPD file) is missing, the test
 checks only check if the output is not empty (or not too short).
@@ -60,8 +71,9 @@ a pipeline used by CUPS can are extracted from CUPS logs after the job is
 completed. To do that, CUPS configuration must be modified: the LogLevel
 option in /etc/cups/cupsd.conf must be set to "debug". This modification is
 done when the autotest is initialized; the original setting is restored in
-the cleaup stage. 
-
+the cleaup stage. To make these modifications, 'debug' tests remount the root
+partition in read-write mode. The partition is NOT remounted back to read-only
+mode.
 
 Save outputs and logs ('dump')
 ------------------------------
@@ -72,8 +84,8 @@ are grouped together and stored in single archive to limit usage of disk space.
 Test parameters
 ---------------
 path_docs - path to directory with test documents (PDF files)
-path_ppds - path to directory with PPD files, if not set then all available PPD
-            files are downloaded and tested
+path_ppds - path to directory with PPD files, it is supposed to be compressed
+            as .tar.xz files (with a command "tar cJf ...")
 path_digests - path to directory with files containing digests for
             verification, if not set then outputs are not verified
 path_outputs - if set, then all outputs are dumped there (given directory is
@@ -91,14 +103,21 @@ The following procedure can be used to update digests:
         rsync root@<device IP>:/tmp/PrinterPpds_outputs/*.digests <local dir>
 3. Replace the files from the "digests" directory and commit changes
 
-Updating the archive with PPD files
------------------------------------
+Updating the archives with PPD files
+------------------------------------
 Currently, all tests are based on PPD files stored in local directories. The
 autotest can download all PPD files by itself, but we do not use this option
-to limit the number of possible points of failures during testing. PPD files
-are stored in the archive 'ppds_all.tar.xz'. To replace the archive with the
-current list of supported PPD files, one can use the script 
-'download_ppds_make_archive.py'.
+to limit the number of possible points of failures during testing. Archives
+with PPD files are prepared with ppdTool.go:
+1. Delete old files:
+    rm ppds_core.tar.xz ppds_ext.tar.xz large_clusters.txt small_clusters.txt
+2. Download all PPD files to ppds_all directory:
+    go run ppdTool.go download
+3. Calculate new clusters:
+    go run ppdTool.go compare
+4. Compress new directories with PPD files:
+    tar cJf ppds_core.tar.xz ppds_core
+    tar cJf ppds_ext.tar.xz ppds_ext
 
 Others
 ------

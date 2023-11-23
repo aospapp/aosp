@@ -58,6 +58,7 @@ static const char *tgsi_file_names[] =
    "SVIEW",
    "BUFFER",
    "MEMORY",
+   "HWATOMIC",
 };
 
 const char *tgsi_semantic_names[TGSI_SEMANTIC_COUNT] =
@@ -149,6 +150,10 @@ const char *tgsi_property_names[TGSI_PROPERTY_COUNT] =
    "CS_FIXED_BLOCK_HEIGHT",
    "CS_FIXED_BLOCK_DEPTH",
    "MUL_ZERO_WINS",
+   "VS_BLIT_SGPRS_AMD",
+   "CS_USER_DATA_COMPONENTS_AMD",
+   "LAYER_VIEWPORT_RELATIVE",
+   "FS_BLEND_EQUATION_ADVANCED",
 };
 
 const char *tgsi_return_type_names[TGSI_RETURN_TYPE_COUNT] =

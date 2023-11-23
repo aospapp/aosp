@@ -1,4 +1,4 @@
-# Copyright © 2017-2018 Intel Corporation
+# Copyright © 2017-2019 Intel Corporation
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,22 +23,29 @@ option(
   type : 'array',
   value : ['auto'],
   choices : [
-    '', 'auto', 'x11', 'wayland', 'drm', 'surfaceless', 'haiku', 'android',
+    'auto', 'x11', 'wayland', 'haiku', 'android', 'windows',
   ],
   description : 'window systems to support. If this is set to `auto`, all platforms applicable will be enabled.'
 )
 option(
+  'android-stub',
+  type : 'boolean',
+  value : false,
+  description : 'Build against android-stub',
+)
+
+option(
   'dri3',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'disabled', 'enabled'],
   description : 'enable support for dri3'
 )
 option(
   'dri-drivers',
   type : 'array',
   value : ['auto'],
-  choices : ['', 'auto', 'i915', 'i965', 'r100', 'r200', 'nouveau', 'swrast'],
+  choices : ['auto', 'i915', 'i965', 'r100', 'r200', 'nouveau', 'swrast'],
   description : 'List of dri drivers to build. If this is set to auto all drivers applicable to the target OS/architecture will be built'
 )
 option(
@@ -58,9 +65,9 @@ option(
   type : 'array',
   value : ['auto'],
   choices : [
-    '', 'auto', 'kmsro', 'radeonsi', 'r300', 'r600', 'nouveau', 'freedreno',
+    'auto', 'kmsro', 'radeonsi', 'r300', 'r600', 'nouveau', 'freedreno',
     'swrast', 'v3d', 'vc4', 'etnaviv', 'tegra', 'i915', 'svga', 'virgl',
-    'swr', 'panfrost', 'iris', 'lima'
+    'swr', 'panfrost', 'iris', 'lima', 'zink'
   ],
   description : 'List of gallium drivers to build. If this is set to auto all drivers applicable to the target OS/architecture will be built'
 )
@@ -74,8 +81,8 @@ option(
   'gallium-vdpau',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
-  description : 'enable gallium vdpau state tracker.',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'enable gallium vdpau frontend.',
 )
 option(
   'vdpau-libs-path',
@@ -87,8 +94,8 @@ option(
   'gallium-xvmc',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
-  description : 'enable gallium xvmc state tracker.',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'enable gallium xvmc frontend.',
 )
 option(
   'xvmc-libs-path',
@@ -101,7 +108,7 @@ option(
   type : 'combo',
   value : 'auto',
   choices : ['auto', 'disabled', 'bellagio', 'tizonia'],
-  description : 'enable gallium omx state tracker.',
+  description : 'enable gallium omx frontend.',
 )
 option(
   'omx-libs-path',
@@ -113,8 +120,8 @@ option(
   'gallium-va',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
-  description : 'enable gallium va state tracker.',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'enable gallium va frontend.',
 )
 option(
   'va-libs-path',
@@ -126,21 +133,34 @@ option(
   'gallium-xa',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
-  description : 'enable gallium xa state tracker.',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'enable gallium xa frontend.',
 )
 option(
   'gallium-nine',
   type : 'boolean',
   value : false,
-  description : 'build gallium "nine" Direct3D 9.x state tracker.',
+  description : 'build gallium "nine" Direct3D 9.x frontend.',
 )
 option(
   'gallium-opencl',
   type : 'combo',
   choices : ['icd', 'standalone', 'disabled'],
   value : 'disabled',
-  description : 'build gallium "clover" OpenCL state tracker.',
+  description : 'build gallium "clover" OpenCL frontend.',
+)
+option(
+  'opencl-spirv',
+  type : 'boolean',
+  value : false,
+  description : 'build gallium "clover" OpenCL frontend with SPIR-V binary support.',
+)
+option(
+  'static-libclc',
+  type : 'array',
+  value : [],
+  choices : ['spirv', 'spirv64', 'all'],
+  description : 'Link libclc SPIR-V statically.',
 )
 option(
   'd3d-drivers-path',
@@ -152,15 +172,27 @@ option(
   'vulkan-drivers',
   type : 'array',
   value : ['auto'],
-  choices : ['', 'auto', 'amd', 'freedreno', 'intel'],
+  choices : ['auto', 'amd', 'broadcom', 'freedreno', 'intel', 'swrast'],
   description : 'List of vulkan drivers to build. If this is set to auto all drivers applicable to the target OS/architecture will be built'
+)
+option(
+  'freedreno-kgsl',
+  type : 'boolean',
+  value : false,
+  description : 'use kgsl backend for freedreno vulkan driver',
 )
 option(
   'shader-cache',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
-  description : 'Build with on-disk shader cache support'
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Build with on-disk shader cache support.',
+)
+option(
+  'shader-cache-default',
+  type : 'boolean',
+  value : true,
+  description : 'If set to false, the feature is only activated when environment variable MESA_GLSL_CACHE_DISABLE is set to false',
 )
 option(
   'vulkan-icd-dir',
@@ -175,23 +207,30 @@ option(
   description : 'Whether to build the vulkan overlay layer'
 )
 option(
-  'shared-glapi',
+  'vulkan-device-select-layer',
   type : 'boolean',
-  value : true,
-  description : 'Whether to build a shared or static glapi'
+  value : false,
+  description : 'Whether to build the vulkan device select layer'
+)
+option(
+  'shared-glapi',
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Whether to build a shared or static glapi. Defaults to false on Windows, true elsewhere'
 )
 option(
   'gles1',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
   description : 'Build support for OpenGL ES 1.x'
 )
 option(
   'gles2',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
   description : 'Build support for OpenGL ES 2.x and 3.x'
 )
 option(
@@ -204,7 +243,7 @@ option(
   'gbm',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
   description : 'Build support for gbm platform'
 )
 option(
@@ -218,7 +257,7 @@ option(
   'egl',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
   description : 'Build support for EGL platform'
 )
 option(
@@ -226,12 +265,6 @@ option(
   type : 'boolean',
   value : false,
   description : 'Enable GLVND support.'
-)
-option(
-  'asm',
-  type : 'boolean',
-  value : true,
-  description : 'Build assembly code if possible'
 )
 option(
    'glx-read-only-text',
@@ -243,41 +276,48 @@ option(
   'llvm',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
   description : 'Build with LLVM support.'
 )
 option(
   'shared-llvm',
-  type : 'boolean',
-  value : true,
-  description : 'Whether to link llvm shared or statically.'
+  type : 'combo',
+  value : 'auto',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  description : 'Whether to link LLVM shared or statically.'
 )
 option(
   'valgrind',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
   description : 'Build with valgrind support'
 )
 option(
   'libunwind',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
   description : 'Use libunwind for stack-traces'
 )
 option(
   'lmsensors',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
   description : 'Enable HUD lmsensors support.'
 )
 option(
   'build-tests',
   type : 'boolean',
   value : false,
-  description : 'Build unit tests. Currently this will build *all* unit tests, which may build more than expected.'
+  description : 'Build unit tests. Currently this will build *all* unit tests except the ACO tests, which may build more than expected.'
+)
+option(
+  'build-aco-tests',
+  type : 'boolean',
+  value : false,
+  description : 'Build ACO tests. These require RADV and glslang but not an AMD GPU.'
 )
 option(
   'install-intel-gpu-tests',
@@ -313,24 +353,31 @@ option(
   description : 'Architectures to build SWR support for.',
 )
 option(
+  'shared-swr',
+  type : 'boolean',
+  value : true,
+  description : 'Whether to link SWR shared or statically.',
+)
+
+option(
   'tools',
   type : 'array',
   value : [],
-  choices : ['etnaviv', 'freedreno', 'glsl', 'intel', 'intel-ui', 'nir', 'nouveau', 'xvmc', 'all'],
+  choices : ['drm-shim', 'etnaviv', 'freedreno', 'glsl', 'intel', 'intel-ui', 'nir', 'nouveau', 'xvmc', 'lima', 'panfrost', 'all'],
   description : 'List of tools to build. (Note: `intel-ui` selects `intel`)',
 )
 option(
   'power8',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
   description : 'Enable power8 optimizations.',
 )
 option(
   'xlib-lease',
   type : 'combo',
   value : 'auto',
-  choices : ['auto', 'true', 'false'],
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
   description : 'Enable VK_EXT_acquire_xlib_display.'
 )
 option(
@@ -340,10 +387,10 @@ option(
   description : 'Enable direct rendering in GLX and EGL for DRI',
 )
 option(
-  'I-love-half-baked-turnips',
+  'prefer-iris',
   type : 'boolean',
-  value : false,
-  description : 'Allow work-in-progress freedreno vulkan driver to be enabled',
+  value : true,
+  description : 'Prefer new Intel iris driver over older i965 driver'
 )
 option('egl-lib-suffix',
   type : 'string',
@@ -363,4 +410,11 @@ option(
   max : 28,
   value : 25,
   description : 'Android Platform SDK version. Default: Nougat version.'
+)
+option(
+  'zstd',
+  type : 'combo',
+  choices : ['auto', 'true', 'false', 'enabled', 'disabled'],
+  value : 'auto',
+  description : 'Use ZSTD instead of ZLIB in some cases.'
 )

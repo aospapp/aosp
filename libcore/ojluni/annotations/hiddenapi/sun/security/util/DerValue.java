@@ -146,7 +146,7 @@ public class DerValue {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public java.math.BigInteger getPositiveBigInteger() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

@@ -42,8 +42,6 @@ public class AccessibilityServiceResultTask extends SearchQueryTask.QueryWorker 
     public static final int QUERY_WORKER_ID = SettingsIntelligenceLogProto.SettingsIntelligenceEvent
             .SEARCH_QUERY_ACCESSIBILITY_SERVICES;
 
-    private static final String ACCESSIBILITY_SETTINGS_CLASSNAME =
-            "com.android.settings.accessibility.AccessibilitySettings";
     private static final int NAME_NO_MATCH = -1;
 
     private final AccessibilityManager mAccessibilityManager;
@@ -88,7 +86,8 @@ public class AccessibilityServiceResultTask extends SearchQueryTask.QueryWorker 
             final String componentName = new ComponentName(serviceInfo.packageName,
                     serviceInfo.name).flattenToString();
             final Intent intent = DatabaseIndexingUtils.buildSearchTrampolineIntent(mContext,
-                    ACCESSIBILITY_SETTINGS_CLASSNAME, componentName, screenTitle);
+                    mContext.getString(R.string.accessibility_settings_classname),
+                    componentName, screenTitle);
 
             results.add(new SearchResult.Builder()
                     .setTitle(title)
@@ -111,7 +110,7 @@ public class AccessibilityServiceResultTask extends SearchQueryTask.QueryWorker 
     private List<String> getBreadCrumb() {
         if (mBreadcrumb == null || mBreadcrumb.isEmpty()) {
             mBreadcrumb = mSiteMapManager.buildBreadCrumb(
-                    mContext, ACCESSIBILITY_SETTINGS_CLASSNAME,
+                    mContext, mContext.getString(R.string.accessibility_settings_classname),
                     mContext.getString(R.string.accessibility_settings));
         }
         return mBreadcrumb;

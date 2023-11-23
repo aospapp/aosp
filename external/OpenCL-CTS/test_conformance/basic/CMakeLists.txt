@@ -37,8 +37,12 @@ set(${MODULE_NAME}_SOURCES
     test_work_item_functions.cpp
     test_astype.cpp
     test_async_copy.cpp
+    test_async_copy2D.cpp
+    test_async_copy3D.cpp
+    test_async_copy_fence.cpp	
     test_sizeof.cpp
     test_vector_creation.cpp
+    test_vector_swizzle.cpp
     test_vec_type_hint.cpp
     test_numeric_constants.cpp
     test_constant_source.cpp

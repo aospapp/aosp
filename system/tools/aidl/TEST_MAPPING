@@ -4,6 +4,9 @@
       "name": "aidl_unittests"
     },
     {
+      "name": "aidl_integration_test"
+    },
+    {
       "name": "CtsNdkBinderTestCases"
     },
     {

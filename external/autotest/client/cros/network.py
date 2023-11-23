@@ -1,12 +1,13 @@
+# Lint as: python2, python3
 # Copyright (c) 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging
 import re
+from six.moves import urllib
 import socket
 import time
-import urllib2
 
 import common
 
@@ -95,7 +96,7 @@ def FetchUrl(url_pattern, bytes_to_fetch=10, fetch_timeout=10):
     url = url_pattern % bytes_to_fetch
     logging.info('FetchUrl %s', url)
     start_time = time.time()
-    result = urllib2.urlopen(url, timeout=fetch_timeout)
+    result = urllib.request.urlopen(url, timeout=fetch_timeout)
     bytes_fetched = 0
     while bytes_fetched < bytes_to_fetch:
         bytes_left = bytes_to_fetch - bytes_fetched

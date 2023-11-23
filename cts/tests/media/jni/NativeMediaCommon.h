@@ -17,6 +17,7 @@
 #ifndef MEDIACTSNATIVE_NATIVE_MEDIA_COMMON_H
 #define MEDIACTSNATIVE_NATIVE_MEDIA_COMMON_H
 
+#include <inttypes.h>
 #include <NdkMediaFormat.h>
 
 extern const char* AMEDIA_MIMETYPE_VIDEO_VP8;
@@ -30,8 +31,14 @@ extern const char* AMEDIA_MIMETYPE_VIDEO_H263;
 extern const char* AMEDIA_MIMETYPE_AUDIO_AMR_NB;
 extern const char* AMEDIA_MIMETYPE_AUDIO_AMR_WB;
 extern const char* AMEDIA_MIMETYPE_AUDIO_AAC;
+extern const char* AMEDIA_MIMETYPE_AUDIO_FLAC;
 extern const char* AMEDIA_MIMETYPE_AUDIO_VORBIS;
 extern const char* AMEDIA_MIMETYPE_AUDIO_OPUS;
+
+extern const float kRmsErrorTolerance;
+
+extern const long kQDeQTimeOutUs;
+extern const int kRetryLimit;
 
 // TODO(b/146420990)
 typedef enum {
@@ -61,5 +68,9 @@ static const int kBitrateModeConstant = 2;
 
 // common utility functions
 bool isCSDIdentical(AMediaFormat* refFormat, AMediaFormat* testFormat);
+bool isFormatSimilar(AMediaFormat* refFormat, AMediaFormat* testFormat);
+
+template <class T>
+void flattenField(uint8_t* buffer, int* pos, T value);
 
 #endif  // MEDIACTSNATIVE_NATIVE_MEDIA_COMMON_H

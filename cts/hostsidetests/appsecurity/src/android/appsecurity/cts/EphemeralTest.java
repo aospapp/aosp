@@ -17,11 +17,12 @@
 package android.appsecurity.cts;
 
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 
 import android.platform.test.annotations.AppModeFull;
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import android.platform.test.annotations.AsbSecurityTest;
+
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
@@ -378,6 +379,26 @@ public class EphemeralTest extends BaseAppSecurityTest {
                 "testInstallPermissionGranted");
     }
 
+    @Test
+    @AsbSecurityTest(cveBugId = 140256621)
+    public void testInstallPermissionNotGrantedInPackageInfo() throws Exception {
+        if (mIsUnsupportedDevice) {
+            return;
+        }
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), EPHEMERAL_1_PKG, TEST_CLASS,
+                "testInstallPermissionNotGrantedInPackageInfo");
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 140256621)
+    public void testInstallPermissionGrantedInPackageInfo() throws Exception {
+        if (mIsUnsupportedDevice) {
+            return;
+        }
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), EPHEMERAL_1_PKG, TEST_CLASS,
+                "testInstallPermissionGrantedInPackageInfo");
+    }
+
     /** Test for android.permission.INSTANT_APP_FOREGROUND_SERVICE */
     @Test
     public void testStartForegroundService() throws Exception {
@@ -487,6 +508,35 @@ public class EphemeralTest extends BaseAppSecurityTest {
                 "testFullApplicationReadPreferences");
         Utils.runDeviceTestsAsCurrentUser(getDevice(), UPGRADED_PKG, TEST_CLASS,
                 "testFullApplicationReadFile");
+    }
+
+    @Test
+    public void testGetChangedPackages() throws Throwable {
+        if (mIsUnsupportedDevice) {
+            return;
+        }
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), NORMAL_PKG, TEST_CLASS,
+                "testGetChangedPackages");
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), EPHEMERAL_1_PKG, TEST_CLASS,
+                "testGetChangedPackages");
+    }
+
+    @Test
+    public void uninstall_userInstalledApp_shouldBeUserInitiated() throws Throwable {
+        assumeFalse("Device does not support instant app", mIsUnsupportedDevice);
+        installEphemeralApp(EPHEMERAL_1_APK, NORMAL_PKG);
+
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), NORMAL_PKG, TEST_CLASS,
+                "uninstall_userInstalledApp_shouldBeUserInitiated");
+    }
+
+    @Test
+    public void uninstall_pruneInstantApp_shouldNotBeUserInitiated()
+            throws Throwable {
+        assumeFalse("Device does not support instant app", mIsUnsupportedDevice);
+
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), NORMAL_PKG, TEST_CLASS,
+                "uninstall_pruneInstantApp_shouldNotBeUserInitiated");
     }
 
     private static final HashMap<String, String> makeArgs(

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_headers {
     name: "libminikin-headers-for-tests",
     export_include_dirs: ["."],
@@ -24,10 +28,13 @@ cc_library {
     host_supported: true,
     srcs: [
         "BidiUtils.cpp",
+        "BoundsCache.cpp",
         "CmapCoverage.cpp",
         "Emoji.cpp",
+        "Font.cpp",
         "FontCollection.cpp",
         "FontFamily.cpp",
+        "FontFileParser.cpp",
         "FontUtils.cpp",
         "GraphemeBreak.cpp",
         "GreedyLineBreaker.cpp",
@@ -81,7 +88,6 @@ cc_library {
         "libutils_headers",
     ],
     export_header_lib_headers: ["libminikin_headers"],
-    whole_static_libs: ["libgtest_prod"],
 
     clang: true,
 

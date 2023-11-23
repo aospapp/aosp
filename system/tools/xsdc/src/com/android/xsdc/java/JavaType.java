@@ -24,4 +24,8 @@ interface JavaType {
     String getNullableName();
 
     String getParsingExpression();
+
+    String getWritingExpression(String getValue, String name);
+
+    boolean isPrimitiveType();
 }

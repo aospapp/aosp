@@ -110,6 +110,9 @@ class Metadata {
             case BluetoothProfile.HEARING_AID:
                 profileConnectionPolicies.hearing_aid_connection_policy = connectionPolicy;
                 break;
+            case BluetoothProfile.LE_AUDIO:
+                profileConnectionPolicies.le_audio_connection_policy = connectionPolicy;
+                break;
             default:
                 throw new IllegalArgumentException("invalid profile " + profile);
         }
@@ -141,6 +144,8 @@ class Metadata {
                 return profileConnectionPolicies.sap_connection_policy;
             case BluetoothProfile.HEARING_AID:
                 return profileConnectionPolicies.hearing_aid_connection_policy;
+            case BluetoothProfile.LE_AUDIO:
+                return profileConnectionPolicies.le_audio_connection_policy;
         }
         return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
     }
@@ -197,6 +202,27 @@ class Metadata {
                 break;
             case BluetoothDevice.METADATA_ENHANCED_SETTINGS_UI_URI:
                 publicMetadata.enhanced_settings_ui_uri = value;
+                break;
+            case BluetoothDevice.METADATA_DEVICE_TYPE:
+                publicMetadata.device_type = value;
+                break;
+            case BluetoothDevice.METADATA_MAIN_BATTERY:
+                publicMetadata.main_battery = value;
+                break;
+            case BluetoothDevice.METADATA_MAIN_CHARGING:
+                publicMetadata.main_charging = value;
+                break;
+            case BluetoothDevice.METADATA_MAIN_LOW_BATTERY_THRESHOLD:
+                publicMetadata.main_low_battery_threshold = value;
+                break;
+            case BluetoothDevice.METADATA_UNTETHERED_LEFT_LOW_BATTERY_THRESHOLD:
+                publicMetadata.untethered_left_low_battery_threshold = value;
+                break;
+            case BluetoothDevice.METADATA_UNTETHERED_RIGHT_LOW_BATTERY_THRESHOLD:
+                publicMetadata.untethered_right_low_battery_threshold = value;
+                break;
+            case BluetoothDevice.METADATA_UNTETHERED_CASE_LOW_BATTERY_THRESHOLD:
+                publicMetadata.untethered_case_low_battery_threshold = value;
                 break;
         }
     }
@@ -255,62 +281,37 @@ class Metadata {
             case BluetoothDevice.METADATA_ENHANCED_SETTINGS_UI_URI:
                 value = publicMetadata.enhanced_settings_ui_uri;
                 break;
+            case BluetoothDevice.METADATA_DEVICE_TYPE:
+                value = publicMetadata.device_type;
+                break;
+            case BluetoothDevice.METADATA_MAIN_BATTERY:
+                value = publicMetadata.main_battery;
+                break;
+            case BluetoothDevice.METADATA_MAIN_CHARGING:
+                value = publicMetadata.main_charging;
+                break;
+            case BluetoothDevice.METADATA_MAIN_LOW_BATTERY_THRESHOLD:
+                value = publicMetadata.main_low_battery_threshold;
+                break;
+            case BluetoothDevice.METADATA_UNTETHERED_LEFT_LOW_BATTERY_THRESHOLD:
+                value = publicMetadata.untethered_left_low_battery_threshold;
+                break;
+            case BluetoothDevice.METADATA_UNTETHERED_RIGHT_LOW_BATTERY_THRESHOLD:
+                value = publicMetadata.untethered_right_low_battery_threshold;
+                break;
+            case BluetoothDevice.METADATA_UNTETHERED_CASE_LOW_BATTERY_THRESHOLD:
+                value = publicMetadata.untethered_case_low_battery_threshold;
+                break;
         }
         return value;
     }
 
     List<Integer> getChangedCustomizedMeta() {
         List<Integer> list = new ArrayList<>();
-        if (publicMetadata.manufacturer_name != null) {
-            list.add(BluetoothDevice.METADATA_MANUFACTURER_NAME);
-        }
-        if (publicMetadata.model_name != null) {
-            list.add(BluetoothDevice.METADATA_MODEL_NAME);
-        }
-        if (publicMetadata.software_version != null) {
-            list.add(BluetoothDevice.METADATA_SOFTWARE_VERSION);
-        }
-        if (publicMetadata.hardware_version != null) {
-            list.add(BluetoothDevice.METADATA_HARDWARE_VERSION);
-        }
-        if (publicMetadata.companion_app != null) {
-            list.add(BluetoothDevice.METADATA_COMPANION_APP);
-        }
-        if (publicMetadata.main_icon != null) {
-            list.add(BluetoothDevice.METADATA_MAIN_ICON);
-        }
-        if (publicMetadata.is_untethered_headset != null) {
-            list.add(BluetoothDevice.METADATA_IS_UNTETHERED_HEADSET);
-        }
-        if (publicMetadata.untethered_left_icon != null) {
-            list.add(BluetoothDevice.METADATA_UNTETHERED_LEFT_ICON);
-        }
-        if (publicMetadata.untethered_right_icon != null) {
-            list.add(BluetoothDevice.METADATA_UNTETHERED_RIGHT_ICON);
-        }
-        if (publicMetadata.untethered_case_icon != null) {
-            list.add(BluetoothDevice.METADATA_UNTETHERED_CASE_ICON);
-        }
-        if (publicMetadata.untethered_left_battery != null) {
-            list.add(BluetoothDevice.METADATA_UNTETHERED_LEFT_BATTERY);
-        }
-        if (publicMetadata.untethered_right_battery != null) {
-            list.add(BluetoothDevice.METADATA_UNTETHERED_RIGHT_BATTERY);
-        }
-        if (publicMetadata.untethered_case_battery != null) {
-            list.add(BluetoothDevice.METADATA_UNTETHERED_CASE_BATTERY);
-        }
-        if (publicMetadata.untethered_left_charging != null) {
-            list.add(BluetoothDevice.METADATA_UNTETHERED_LEFT_CHARGING);
-        }
-        if (publicMetadata.untethered_right_charging != null) {
-            list.add(BluetoothDevice.METADATA_UNTETHERED_RIGHT_CHARGING);
-        }
-        if (publicMetadata.untethered_case_charging != null) {
-            list.add(BluetoothDevice.METADATA_UNTETHERED_CASE_CHARGING);
-        }
-        if (publicMetadata.enhanced_settings_ui_uri != null) {
-            list.add(BluetoothDevice.METADATA_ENHANCED_SETTINGS_UI_URI);
+        for (int key = 0; key <= BluetoothDevice.getMaxMetadataKey(); key++) {
+            if (getCustomizedMeta(key) != null) {
+                list.add(key);
+            }
         }
         return list;
     }

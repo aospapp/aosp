@@ -16,6 +16,10 @@
 
 package com.android.tv.settings.about;
 
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 
 import android.app.tvsettings.TvSettingsEnums;
@@ -30,12 +34,13 @@ import android.os.PersistableBundle;
 import android.os.SELinux;
 import android.os.SystemClock;
 import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.sysprop.TelephonyProperties;
 import android.telephony.CarrierConfigManager;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.Pair;
 import android.widget.Toast;
 
 import androidx.annotation.Keep;
@@ -44,8 +49,9 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settingslib.DeviceInfoUtils;
+import com.android.settingslib.RestrictedLockUtils;
+import com.android.settingslib.RestrictedLockUtilsInternal;
 import com.android.settingslib.Utils;
 import com.android.settingslib.development.DevelopmentSettingsEnabler;
 import com.android.tv.settings.MainFragment;
@@ -53,6 +59,8 @@ import com.android.tv.settings.PreferenceUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.name.DeviceManager;
+import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.twopanelsettings.slices.CustomContentDescriptionPreference;
 
 import java.util.stream.Collectors;
 
@@ -83,6 +91,7 @@ public class AboutFragment extends SettingsPreferenceFragment {
     private static final String KEY_DEVICE_NAME = "device_name";
     private static final String KEY_TUTORIALS = "tutorials";
     private static final String KEY_RESET = "reset";
+    private static final String KEY_RESET_OPTIONS = "reset_options";
 
     static final int TAPS_TO_BE_A_DEVELOPER = 7;
 
@@ -110,9 +119,23 @@ public class AboutFragment extends SettingsPreferenceFragment {
         super.onCreate(savedInstanceState);
     }
 
+    private int getPreferenceScreenResId() {
+        switch (FlavorUtils.getFlavor(getContext())) {
+            case FLAVOR_CLASSIC:
+            case FLAVOR_TWO_PANEL:
+                return R.xml.device_info_settings;
+            case FLAVOR_X:
+                return R.xml.device_info_settings_x;
+            case FLAVOR_VENDOR:
+                return R.xml.device_info_settings_vendor;
+            default:
+                return R.xml.device_info_settings;
+        }
+    }
+
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        setPreferencesFromResource(R.xml.device_info_settings, null);
+        setPreferencesFromResource(getPreferenceScreenResId(), null);
         final PreferenceScreen screen = getPreferenceScreen();
 
         refreshDeviceName();
@@ -182,10 +205,35 @@ public class AboutFragment extends SettingsPreferenceFragment {
             removePreference(findPreference(KEY_DEVICE_FEEDBACK));
         }
 
+        final Preference resetPreference = findPreference(KEY_RESET);
+        if (resetPreference instanceof CustomContentDescriptionPreference) {
+            ((CustomContentDescriptionPreference) resetPreference).setContentDescription(
+                    getResources().getString(R.string.factory_reset_content_description));
+        }
+
+        // Don't show the reset options if factory reset is restricted
+        final Preference resetOptionsPreference = findPreference(KEY_RESET_OPTIONS);
+        if (resetOptionsPreference != null
+                && RestrictedLockUtilsInternal.checkIfRestrictionEnforced(getContext(),
+                UserManager.DISALLOW_FACTORY_RESET, UserHandle.myUserId()) != null) {
+            resetOptionsPreference.setFragment(null);
+        }
+
         final Preference updateSettingsPref = findPreference(KEY_SYSTEM_UPDATE_SETTINGS);
+        if (updateSettingsPref instanceof CustomContentDescriptionPreference) {
+            ((CustomContentDescriptionPreference) updateSettingsPref).setContentDescription(
+                    getResources().getString(R.string.system_update_content_description));
+        }
+
         if (mUm.isAdminUser()) {
-            PreferenceUtils.resolveSystemActivityOrRemove(getActivity(), screen,
-                    updateSettingsPref, PreferenceUtils.FLAG_SET_TITLE);
+            final Intent systemUpdateIntent = new Intent(Settings.ACTION_SYSTEM_UPDATE_SETTINGS);
+            final ResolveInfo info =
+                    MainFragment.systemIntentIsHandled(getContext(), systemUpdateIntent);
+            if (info == null) {
+                removePreference(updateSettingsPref);
+            } else {
+                updateSettingsPref.setTitle(info.loadLabel(getContext().getPackageManager()));
+            }
         } else if (updateSettingsPref != null) {
             // Remove for secondary users
             removePreference(updateSettingsPref);
@@ -251,6 +299,14 @@ public class AboutFragment extends SettingsPreferenceFragment {
                 mHits[mHits.length - 1] = SystemClock.uptimeMillis();
                 if (mHits[0] >= (SystemClock.uptimeMillis() - 500)) {
                     if (mUm.hasUserRestriction(UserManager.DISALLOW_FUN)) {
+                        final RestrictedLockUtils.EnforcedAdmin admin = RestrictedLockUtilsInternal
+                                .checkIfRestrictionEnforced(getContext(), UserManager.DISALLOW_FUN,
+                                        UserHandle.myUserId());
+                        if (admin != null) {
+                            RestrictedLockUtils.sendShowAdminSupportDetailsIntent(getContext(),
+                                    admin);
+                        }
+
                         Log.d(TAG, "Sorry, no fun for you!");
                         return false;
                     }
@@ -269,14 +325,16 @@ public class AboutFragment extends SettingsPreferenceFragment {
                 logEntrySelected(TvSettingsEnums.SYSTEM_ABOUT_BUILD);
                 // Don't enable developer options for secondary users.
                 if (!mUm.isAdminUser()) {
-                    mMetricsFeatureProvider.action(getContext(),
-                            MetricsEvent.ACTION_SETTINGS_BUILD_NUMBER_PREF);
                     return true;
                 }
 
                 if (mUm.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)) {
-                    mMetricsFeatureProvider.action(getContext(),
-                            MetricsEvent.ACTION_SETTINGS_BUILD_NUMBER_PREF);
+                    final RestrictedLockUtils.EnforcedAdmin admin = RestrictedLockUtilsInternal
+                            .checkIfRestrictionEnforced(getContext(),
+                                    UserManager.DISALLOW_DEBUGGING_FEATURES, UserHandle.myUserId());
+                    if (admin != null) {
+                        RestrictedLockUtils.sendShowAdminSupportDetailsIntent(getContext(), admin);
+                    }
                     return true;
                 }
 
@@ -295,11 +353,6 @@ public class AboutFragment extends SettingsPreferenceFragment {
 //                    Index.getInstance(
 //                            getActivity().getApplicationContext()).updateFromClassNameResource(
 //                            DevelopmentSettings.class.getName(), true, true);
-                        mMetricsFeatureProvider.action(
-                                getContext(), MetricsEvent.ACTION_SETTINGS_BUILD_NUMBER_PREF,
-                                Pair.create(MetricsEvent
-                                        .FIELD_SETTINGS_BUILD_NUMBER_DEVELOPER_MODE_ENABLED,
-                                0));
                     } else if (mDevHitCountdown > 0
                             && mDevHitCountdown < (TAPS_TO_BE_A_DEVELOPER - 2)) {
                         if (mDevHitToast != null) {
@@ -312,11 +365,6 @@ public class AboutFragment extends SettingsPreferenceFragment {
                                         Toast.LENGTH_SHORT);
                         mDevHitToast.show();
                     }
-                    mMetricsFeatureProvider.action(
-                            getContext(), MetricsEvent.ACTION_SETTINGS_BUILD_NUMBER_PREF,
-                            Pair.create(
-                                    MetricsEvent.FIELD_SETTINGS_BUILD_NUMBER_DEVELOPER_MODE_ENABLED,
-                            0));
                 } else if (mDevHitCountdown < 0) {
                     if (mDevHitToast != null) {
                         mDevHitToast.cancel();
@@ -324,11 +372,6 @@ public class AboutFragment extends SettingsPreferenceFragment {
                     mDevHitToast = Toast.makeText(getActivity(), R.string.show_dev_already,
                             Toast.LENGTH_LONG);
                     mDevHitToast.show();
-                    mMetricsFeatureProvider.action(
-                            getContext(), MetricsEvent.ACTION_SETTINGS_BUILD_NUMBER_PREF,
-                            Pair.create(
-                                    MetricsEvent.FIELD_SETTINGS_BUILD_NUMBER_DEVELOPER_MODE_ENABLED,
-                            1));
                 }
                 break;
             case KEY_DEVICE_FEEDBACK:
@@ -343,12 +386,18 @@ public class AboutFragment extends SettingsPreferenceFragment {
                         b.getBoolean(CarrierConfigManager.KEY_CI_ACTION_ON_SYS_UPDATE_BOOL)) {
                     ciActionOnSysUpdate(b);
                 }
+                startActivity(new Intent(Settings.ACTION_SYSTEM_UPDATE_SETTINGS));
                 break;
             case KEY_DEVICE_NAME:
                 logEntrySelected(TvSettingsEnums.SYSTEM_ABOUT_DEVICE_NAME);
                 break;
             case KEY_RESET:
                 logEntrySelected(TvSettingsEnums.SYSTEM_ABOUT_FACTORY_RESET);
+                Intent factoryResetIntent = new Intent();
+                factoryResetIntent.setClassName(
+                        "com.android.tv.settings",
+                        "com.android.tv.settings.device.storage.ResetActivity");
+                startActivity(factoryResetIntent);
                 break;
         }
         return super.onPreferenceTreeClick(preference);
@@ -401,11 +450,6 @@ public class AboutFragment extends SettingsPreferenceFragment {
                 deviceTutorialsPref.setTitle(info.loadLabel(getContext().getPackageManager()));
             }
         }
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsEvent.DEVICEINFO;
     }
 
     @Override

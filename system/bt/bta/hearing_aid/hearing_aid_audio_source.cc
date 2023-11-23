@@ -16,23 +16,46 @@
  *
  ******************************************************************************/
 
+#include <base/files/file_util.h>
+#include <cstdint>
+#include <memory>
+#include <sstream>
+#include <vector>
+
 #include "audio_hal_interface/hearing_aid_software_encoding.h"
 #include "audio_hearing_aid_hw/include/audio_hearing_aid_hw.h"
-#include "bta_hearing_aid_api.h"
-#include "btu.h"
-#include "osi/include/wakelock.h"
-#include "uipc.h"
-
-#include <base/files/file_util.h>
-#include <include/hardware/bt_av.h>
-
+#include "bta/include/bta_hearing_aid_api.h"
 #include "common/repeating_timer.h"
 #include "common/time_util.h"
+#include "osi/include/wakelock.h"
+#include "stack/include/btu.h"  // get_main_thread
+#include "udrv/include/uipc.h"
 
 using base::FilePath;
-extern const char* audio_ha_hw_dump_ctrl_event(tHEARING_AID_CTRL_CMD event);
 
 namespace {
+#define CASE_RETURN_STR(const) \
+  case const:                  \
+    return #const;
+
+const char* audio_ha_hw_dump_ctrl_event(tHEARING_AID_CTRL_CMD event) {
+  switch (event) {
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_NONE)
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_CHECK_READY)
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_START)
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_STOP)
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_SUSPEND)
+    CASE_RETURN_STR(HEARING_AID_CTRL_GET_INPUT_AUDIO_CONFIG)
+    CASE_RETURN_STR(HEARING_AID_CTRL_GET_OUTPUT_AUDIO_CONFIG)
+    CASE_RETURN_STR(HEARING_AID_CTRL_SET_OUTPUT_AUDIO_CONFIG)
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_OFFLOAD_START)
+    default:
+      break;
+  }
+
+  return "UNKNOWN HEARING_AID_CTRL_CMD";
+}
+
 int bit_rate = -1;
 int sample_rate = -1;
 int data_interval_ms = -1;

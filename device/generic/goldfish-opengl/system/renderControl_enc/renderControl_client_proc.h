@@ -60,6 +60,23 @@ typedef int (renderControl_APIENTRY *rcSetDisplayPose_client_proc_t) (void * ctx
 typedef GLint (renderControl_APIENTRY *rcSetColorBufferVulkanMode_client_proc_t) (void * ctx, uint32_t, uint32_t);
 typedef void (renderControl_APIENTRY *rcReadColorBufferYUV_client_proc_t) (void * ctx, uint32_t, GLint, GLint, GLint, GLint, void*, uint32_t);
 typedef int (renderControl_APIENTRY *rcIsSyncSignaled_client_proc_t) (void * ctx, uint64_t);
+typedef void (renderControl_APIENTRY *rcCreateColorBufferWithHandle_client_proc_t) (void * ctx, uint32_t, uint32_t, GLenum, uint32_t);
+typedef uint32_t (renderControl_APIENTRY *rcCreateBuffer_client_proc_t) (void * ctx, uint32_t);
+typedef void (renderControl_APIENTRY *rcCloseBuffer_client_proc_t) (void * ctx, uint32_t);
+typedef GLint (renderControl_APIENTRY *rcSetColorBufferVulkanMode2_client_proc_t) (void * ctx, uint32_t, uint32_t, uint32_t);
+typedef int (renderControl_APIENTRY *rcMapGpaToBufferHandle_client_proc_t) (void * ctx, uint32_t, uint64_t);
+typedef uint32_t (renderControl_APIENTRY *rcCreateBuffer2_client_proc_t) (void * ctx, uint64_t, uint32_t);
+typedef int (renderControl_APIENTRY *rcMapGpaToBufferHandle2_client_proc_t) (void * ctx, uint32_t, uint64_t, uint64_t);
+typedef void (renderControl_APIENTRY *rcFlushWindowColorBufferAsyncWithFrameNumber_client_proc_t) (void * ctx, uint32_t, uint32_t);
+typedef void (renderControl_APIENTRY *rcSetTracingForPuid_client_proc_t) (void * ctx, uint64_t, uint32_t, uint64_t);
+typedef void (renderControl_APIENTRY *rcMakeCurrentAsync_client_proc_t) (void * ctx, uint32_t, uint32_t, uint32_t);
+typedef void (renderControl_APIENTRY *rcComposeAsync_client_proc_t) (void * ctx, uint32_t, void*);
+typedef void (renderControl_APIENTRY *rcDestroySyncKHRAsync_client_proc_t) (void * ctx, uint64_t);
+typedef GLint (renderControl_APIENTRY *rcComposeWithoutPost_client_proc_t) (void * ctx, uint32_t, void*);
+typedef void (renderControl_APIENTRY *rcComposeAsyncWithoutPost_client_proc_t) (void * ctx, uint32_t, void*);
+typedef int (renderControl_APIENTRY *rcCreateDisplayById_client_proc_t) (void * ctx, uint32_t);
+typedef int (renderControl_APIENTRY *rcSetDisplayPoseDpi_client_proc_t) (void * ctx, uint32_t, GLint, GLint, uint32_t, uint32_t, uint32_t);
+typedef int (renderControl_APIENTRY *rcReadColorBufferDMA_client_proc_t) (void * ctx, uint32_t, GLint, GLint, GLint, GLint, GLenum, GLenum, void*, uint32_t);
 
 
 #endif

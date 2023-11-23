@@ -15,10 +15,10 @@
  */
 package com.android.libcore.timezone.tzlookup.zonetree;
 
+import com.android.libcore.timezone.countryzones.proto.CountryZonesFile.Country;
+import com.android.libcore.timezone.countryzones.proto.CountryZonesFile.CountryZones;
 import com.android.libcore.timezone.tzlookup.CountryZonesFileSupport;
 import com.android.libcore.timezone.tzlookup.TzLookupGenerator;
-import com.android.libcore.timezone.tzlookup.proto.CountryZonesFile.Country;
-import com.android.libcore.timezone.tzlookup.proto.CountryZonesFile.CountryZones;
 
 import java.io.IOException;
 import java.time.Instant;

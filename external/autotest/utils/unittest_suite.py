@@ -149,7 +149,7 @@ def run_test(mod_names, options):
 
 def scan_for_modules(start, options):
     """Scan folders and find all test modules that are not included in the
-    blacklist (defined in LONG_TESTS).
+    denylist (defined in LONG_TESTS).
 
     @param start: The absolute directory to look for tests under.
     @param options: optparse options.

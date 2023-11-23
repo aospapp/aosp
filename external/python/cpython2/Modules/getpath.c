@@ -7,6 +7,7 @@
 #include <string.h>
 
 #ifdef __APPLE__
+#include <AvailabilityMacros.h>
 #include <mach-o/dyld.h>
 #endif
 

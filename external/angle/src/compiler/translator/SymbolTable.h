@@ -42,14 +42,16 @@
 #include "compiler/translator/Symbol.h"
 #include "compiler/translator/SymbolTable_autogen.h"
 
-enum class Shader
+enum class Shader : uint8_t
 {
     ALL,
-    FRAGMENT,      // GL_FRAGMENT_SHADER
-    VERTEX,        // GL_VERTEX_SHADER
-    COMPUTE,       // GL_COMPUTE_SHADER
-    GEOMETRY,      // GL_GEOMETRY_SHADER
-    GEOMETRY_EXT,  // GL_GEOMETRY_SHADER_EXT
+    FRAGMENT,             // GL_FRAGMENT_SHADER
+    VERTEX,               // GL_VERTEX_SHADER
+    COMPUTE,              // GL_COMPUTE_SHADER
+    GEOMETRY,             // GL_GEOMETRY_SHADER
+    GEOMETRY_EXT,         // GL_GEOMETRY_SHADER_EXT
+    TESS_CONTROL_EXT,     // GL_TESS_CONTROL_SHADER_EXT
+    TESS_EVALUATION_EXT,  // GL_TESS_EVALUATION_SHADER_EXT
     NOT_COMPUTE
 };
 
@@ -66,7 +68,7 @@ struct UnmangledBuiltIn
 using VarPointer        = TSymbol *(TSymbolTableBase::*);
 using ValidateExtension = int ShBuiltInResources::*;
 
-enum class Spec
+enum class Spec : uint8_t
 {
     GLSL,
     ESSL
@@ -169,8 +171,9 @@ const TSymbol *FindMangledBuiltIn(ShShaderSpec shaderSpec,
 class UnmangledEntry
 {
   public:
+    template <size_t ESSLExtCount>
     constexpr UnmangledEntry(const char *name,
-                             TExtension esslExtension,
+                             const std::array<TExtension, ESSLExtCount> &esslExtensions,
                              TExtension glslExtension,
                              int esslVersion,
                              int glslVersion,
@@ -184,22 +187,42 @@ class UnmangledEntry
 
   private:
     const char *mName;
-    uint8_t mESSLExtension;
-    uint8_t mGLSLExtension;
+    std::array<TExtension, 2u> mESSLExtensions;
+    TExtension mGLSLExtension;
     uint8_t mShaderType;
     uint16_t mESSLVersion;
     uint16_t mGLSLVersion;
 };
 
+template <>
 constexpr UnmangledEntry::UnmangledEntry(const char *name,
-                                         TExtension esslExtension,
+                                         const std::array<TExtension, 1> &esslExtensions,
                                          TExtension glslExtension,
                                          int esslVersion,
                                          int glslVersion,
                                          Shader shaderType)
     : mName(name),
-      mESSLExtension(static_cast<uint8_t>(esslExtension)),
-      mGLSLExtension(static_cast<uint8_t>(glslExtension)),
+      mESSLExtensions{esslExtensions[0], TExtension::UNDEFINED},
+      mGLSLExtension(glslExtension),
+      mShaderType(static_cast<uint8_t>(shaderType)),
+      mESSLVersion(esslVersion < 0 ? std::numeric_limits<uint16_t>::max()
+                                   : static_cast<uint16_t>(esslVersion)),
+      mGLSLVersion(glslVersion < 0 ? std::numeric_limits<uint16_t>::max()
+                                   : static_cast<uint16_t>(glslVersion))
+{}
+
+// Note: Until C++17, std::array functions are not constexpr, so the constructor is necessarily
+// duplicated.
+template <>
+constexpr UnmangledEntry::UnmangledEntry(const char *name,
+                                         const std::array<TExtension, 2> &esslExtensions,
+                                         TExtension glslExtension,
+                                         int esslVersion,
+                                         int glslVersion,
+                                         Shader shaderType)
+    : mName(name),
+      mESSLExtensions{esslExtensions[0], esslExtensions[1]},
+      mGLSLExtension(glslExtension),
       mShaderType(static_cast<uint8_t>(shaderType)),
       mESSLVersion(esslVersion < 0 ? std::numeric_limits<uint16_t>::max()
                                    : static_cast<uint16_t>(esslVersion)),
@@ -294,6 +317,13 @@ class TSymbolTable : angle::NonCopyable, TSymbolTableBase
                             ShShaderSpec spec,
                             const ShBuiltInResources &resources);
     void clearCompilationResults();
+
+    int getDefaultUniformsBindingIndex() const { return mResources.DriverUniformsBindingIndex; }
+    int getDriverUniformsBindingIndex() const { return mResources.DefaultUniformsBindingIndex; }
+    int getUBOArgumentBufferBindingIndex() const
+    {
+        return mResources.UBOArgumentBufferBindingIndex;
+    }
 
   private:
     friend class TSymbolUniqueId;

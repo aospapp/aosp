@@ -55,6 +55,14 @@ TEST_P(RealtimeTest, RealtimeFirstPassProducesFrames) {
   EXPECT_EQ(kFramesToEncode, frame_packets_);
 }
 
+TEST_P(RealtimeTest, IntegerOverflow) {
+  ::libvpx_test::RandomVideoSource video;
+  video.SetSize(800, 480);
+  video.set_limit(20);
+  cfg_.rc_target_bitrate = 140000000;
+  ASSERT_NO_FATAL_FAILURE(RunLoop(&video));
+}
+
 VP8_INSTANTIATE_TEST_CASE(RealtimeTest,
                           ::testing::Values(::libvpx_test::kRealTime));
 VP9_INSTANTIATE_TEST_CASE(RealtimeTest,

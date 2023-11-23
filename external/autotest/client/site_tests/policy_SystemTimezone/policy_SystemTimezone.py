@@ -109,7 +109,7 @@ class policy_SystemTimezone(
         Set and verify the timezone when the policy is empty.
 
         This will be done by adjusting the setting on the ://settings page,
-        and verfying the date reported. Additionally log out, then verify the
+        and verifying the date reported. Additionally log out, then verify the
         timezone matches as well.
 
         """

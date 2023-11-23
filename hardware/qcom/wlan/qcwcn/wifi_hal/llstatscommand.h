@@ -83,7 +83,10 @@ private:
 
     u32 mRadioStatsSize;
 
+    // mNumRadios is decoded from tb_vendor[QCA_WLAN_VENDOR_ATTR_LL_STATS_NUM_RADIOS]
+    // nNumRadiosAllocated is the actual radio stats received.
     u8 mNumRadios;
+    u8 mNumRadiosAllocated;
 
     LLStatsCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
 

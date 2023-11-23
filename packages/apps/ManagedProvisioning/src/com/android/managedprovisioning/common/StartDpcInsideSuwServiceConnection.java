@@ -223,6 +223,10 @@ public class StartDpcInsideSuwServiceConnection implements ServiceConnection {
     }
 
     private void cacheInitialNetworkInterceptSetting() {
+        if (mNetworkInterceptService == null) {
+            ProvisionLogger.loge("Attempt to cache network interception when service is null");
+            return;
+        }
         try {
             mNetworkInterceptWasInitiallyEnabled =
                     mNetworkInterceptService.isNetworkIntentIntercepted();
@@ -232,6 +236,10 @@ public class StartDpcInsideSuwServiceConnection implements ServiceConnection {
     }
 
     private void disableNetworkIntentIntercept() {
+        if (mNetworkInterceptService == null) {
+            ProvisionLogger.loge("Attempt to disable network interception when service is null");
+            return;
+        }
         try {
             if (!mNetworkInterceptService.disableNetworkIntentIntercept()) {
                 ProvisionLogger.loge(

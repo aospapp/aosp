@@ -102,7 +102,7 @@ function build() {
   SANITIZE_HOST="address" \
     SANITIZE_TARGET="hwaddress fuzzer" \
     NATIVE_COVERAGE="true" \
-    COVERAGE_PATHS="system/nfc/src" \
+    NATIVE_COVERAGE_PATHS="system/nfc/src" \
     make -j $FUZZER_NAME
   popd
   adb shell mkdir -p /$FUZZ_DIR

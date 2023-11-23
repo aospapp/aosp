@@ -28,6 +28,7 @@
 #include "DnsTlsServer.h"
 #include "DnsTlsTransport.h"
 #include "IDnsTlsSocketFactory.h"
+#include "PrivateDnsValidationObserver.h"
 #include "resolv_private.h"
 
 namespace android {
@@ -35,14 +36,14 @@ namespace net {
 
 // This is a singleton class that manages the collection of active DnsTlsTransports.
 // Queries made here are dispatched to an existing or newly constructed DnsTlsTransport.
-class DnsTlsDispatcher {
+// TODO: PrivateDnsValidationObserver is not implemented in this class. Remove it.
+class DnsTlsDispatcher : public PrivateDnsValidationObserver {
   public:
-    // Default constructor.
-    DnsTlsDispatcher();
-
     // Constructor with dependency injection for testing.
     explicit DnsTlsDispatcher(std::unique_ptr<IDnsTlsSocketFactory> factory)
         : mFactory(std::move(factory)) {}
+
+    static DnsTlsDispatcher& getInstance();
 
     // Enqueues |query| for resolution via the given |tlsServers| on the
     // network indicated by |mark|; writes the response into |ans|, and stores
@@ -57,11 +58,18 @@ class DnsTlsDispatcher {
     // and writes the response into |ans|, and indicates the number of bytes written in |resplen|.
     // If the whole procedure above triggers (or experiences) any new connection, |connectTriggered|
     // is set. Returns a success or error code.
-    DnsTlsTransport::Response query(const DnsTlsServer& server, unsigned mark,
+    DnsTlsTransport::Response query(const DnsTlsServer& server, unsigned netId, unsigned mark,
                                     const netdutils::Slice query, const netdutils::Slice ans,
                                     int* _Nonnull resplen, bool* _Nonnull connectTriggered);
 
+    // Implement PrivateDnsValidationObserver.
+    void onValidationStateUpdate(const std::string&, Validation, uint32_t) override{};
+
+    void forceCleanup(unsigned netId) EXCLUDES(sLock);
+
   private:
+    DnsTlsDispatcher();
+
     // This lock is static so that it can be used to annotate the Transport struct.
     // DnsTlsDispatcher is a singleton in practice, so making this static does not change
     // the locking behavior.
@@ -73,33 +81,93 @@ class DnsTlsDispatcher {
     // Transport is a thin wrapper around DnsTlsTransport, adding reference counting and
     // usage monitoring so we can expire idle sessions from the cache.
     struct Transport {
-        Transport(const DnsTlsServer& server, unsigned mark, IDnsTlsSocketFactory* _Nonnull factory)
-            : transport(server, mark, factory) {}
+        Transport(const DnsTlsServer& server, unsigned mark, unsigned netId,
+                  IDnsTlsSocketFactory* _Nonnull factory, bool revalidationEnabled, int triggerThr,
+                  int unusableThr, int timeout)
+            : transport(server, mark, factory),
+              mNetId(netId),
+              revalidationEnabled(revalidationEnabled),
+              triggerThreshold(triggerThr),
+              unusableThreshold(unusableThr),
+              mTimeout(timeout) {}
+
         // DnsTlsTransport is thread-safe, so it doesn't need to be guarded.
         DnsTlsTransport transport;
+
+        // The expected network, assigned from dns_netid, to which Transport will send DNS packets.
+        const unsigned mNetId;
+
         // This use counter and timestamp are used to ensure that only idle sessions are
         // destroyed.
         int useCount GUARDED_BY(sLock) = 0;
         // lastUsed is only guaranteed to be meaningful after useCount is decremented to zero.
         std::chrono::time_point<std::chrono::steady_clock> lastUsed GUARDED_BY(sLock);
+
+        // If DoT revalidation is disabled, it returns true; otherwise, it returns
+        // whether or not this Transport is usable.
+        bool usable() const REQUIRES(sLock);
+
+        bool checkRevalidationNecessary(DnsTlsTransport::Response code) REQUIRES(sLock);
+
+        std::chrono::milliseconds timeout() const { return mTimeout; }
+
+        static constexpr int kDotRevalidationThreshold = -1;
+        static constexpr int kDotXportUnusableThreshold = -1;
+        static constexpr int kDotQueryTimeoutMs = -1;
+
+      private:
+        // Used to track if this Transport is usable.
+        int continuousfailureCount GUARDED_BY(sLock) = 0;
+
+        // Used to indicate whether DoT revalidation is enabled for this Transport.
+        // The value is set to true only if:
+        //    1. both triggerThreshold and unusableThreshold are  positive values.
+        //    2. private DNS mode is opportunistic.
+        const bool revalidationEnabled;
+
+        // The number of continuous failures to trigger a validation. It takes effect when DoT
+        // revalidation is on. If the value is not a positive value, DoT revalidation is disabled.
+        // Note that it must be at least 10, or it breaks ConnectTlsServerTimeout_ConcurrentQueries
+        // test.
+        const int triggerThreshold;
+
+        // The threshold to determine if this Transport is considered unusable.
+        // If continuousfailureCount reaches this value, this Transport is no longer used. It
+        // takes effect when DoT revalidation is on. If the value is not a positive value, DoT
+        // revalidation is disabled.
+        const int unusableThreshold;
+
+        // The time to await a future (the result of a DNS request) from the DnsTlsTransport
+        // of this Transport.
+        // To set an infinite timeout, assign the value to -1.
+        const std::chrono::milliseconds mTimeout;
     };
+
+    Transport* _Nullable addTransport(const DnsTlsServer& server, unsigned mark, unsigned netId)
+            REQUIRES(sLock);
+    Transport* _Nullable getTransport(const Key& key) REQUIRES(sLock);
 
     // Cache of reusable DnsTlsTransports.  Transports stay in cache as long as
     // they are in use and for a few minutes after.
-    // The key is a (netid, server) pair.  The netid is first for lexicographic comparison speed.
     std::map<Key, std::unique_ptr<Transport>> mStore GUARDED_BY(sLock);
 
     // The last time we did a cleanup.  For efficiency, we only perform a cleanup once every
     // few minutes.
     std::chrono::time_point<std::chrono::steady_clock> mLastCleanup GUARDED_BY(sLock);
 
+    DnsTlsTransport::Result queryInternal(Transport& transport, const netdutils::Slice query)
+            EXCLUDES(sLock);
+
     // Drop any cache entries whose useCount is zero and which have not been used recently.
     // This function performs a linear scan of mStore.
     void cleanup(std::chrono::time_point<std::chrono::steady_clock> now) REQUIRES(sLock);
 
-    // Return a sorted list of DnsTlsServers in preference order.
-    std::list<DnsTlsServer> getOrderedServerList(const std::list<DnsTlsServer>& tlsServers,
-                                                 unsigned mark) const;
+    // Force dropping any Transports whose useCount is zero.
+    void forceCleanupLocked(unsigned netId) REQUIRES(sLock);
+
+    // Return a sorted list of usable DnsTlsServers in preference order.
+    std::list<DnsTlsServer> getOrderedAndUsableServerList(const std::list<DnsTlsServer>& tlsServers,
+                                                          unsigned netId, unsigned mark);
 
     // Trivial factory for DnsTlsSockets.  Dependency injection is only used for testing.
     std::unique_ptr<IDnsTlsSocketFactory> mFactory;

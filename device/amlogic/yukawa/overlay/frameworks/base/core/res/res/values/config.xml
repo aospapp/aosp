@@ -83,6 +83,4 @@
         <item>7</item>
     </integer-array>
 
-    <!-- Package name of the required service extension package. -->
-    <string name="config_servicesExtensionPackage" translatable="false">android.ext.services</string>
 </resources>

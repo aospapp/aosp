@@ -39,4 +39,5 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> പുതിയ സന്ദേശങ്ങൾ</item>
       <item quantity="one">ഒരു പുതിയ സന്ദേശം</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"മാനേജ് ചെയ്യുക"</string>
 </resources>

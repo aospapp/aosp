@@ -23,5 +23,6 @@
         <option name="package" value="com.android.server.networkstack.coverage" />
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="hidden-api-checks" value="false"/>
+        <option name="device-listeners" value="com.android.modules.utils.testing.NativeCoverageHackInstrumentationListener" />
     </test>
 </configuration>

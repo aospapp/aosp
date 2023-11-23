@@ -16,6 +16,8 @@
 
 package com.google.security.wycheproof;
 
+import com.google.security.wycheproof.WycheproofRunner.ExcludedTest;
+import com.google.security.wycheproof.WycheproofRunner.ProviderType;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
@@ -827,6 +829,9 @@ public class EcdhTest extends TestCase {
   };
 
   /** Checks that key agreement using ECDH works. */
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "KeyPairGenerator.EC is removed")
   public void testBasic() throws Exception {
     KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
     ECGenParameterSpec ecSpec = new ECGenParameterSpec("secp256r1");
@@ -845,6 +850,9 @@ public class EcdhTest extends TestCase {
     assertEquals(TestUtil.bytesToHex(kAB), TestUtil.bytesToHex(kBA));
   }
 
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "KeyAgreement.ECDH is removed")
   public void testVectors() throws Exception {
     KeyAgreement ka = KeyAgreement.getInstance("ECDH");
     for (EcdhTestVector t : ECDH_TEST_VECTORS) {
@@ -859,6 +867,9 @@ public class EcdhTest extends TestCase {
     }
   }
 
+  @ExcludedTest(
+      providers = {ProviderType.BOUNCY_CASTLE},
+      comment = "KeyFactory.EC is removed")
   public void testDecode() throws Exception {
     KeyFactory kf = KeyFactory.getInstance("EC");
     ECPublicKey key1 = (ECPublicKey) kf.generatePublic(EC_VALID_PUBLIC_KEY.getSpec());

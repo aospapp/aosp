@@ -25,14 +25,13 @@ namespace chre {
 
 enum class Setting : uint8_t {
   LOCATION = 0,
+  WIFI_AVAILABLE,
+  AIRPLANE_MODE,
+  MICROPHONE,
   SETTING_MAX,
 };
 
-enum class SettingState : uint8_t {
-  ENABLED = 0,
-  DISABLED,
-  SETTING_STATE_MAX,
-};
+enum class SettingState : int8_t { UNKNOWN = -1, ENABLED = 0, DISABLED };
 
 /**
  * Updates the state of a given setting.
@@ -48,10 +47,21 @@ void postSettingChange(Setting setting, SettingState state);
  *
  * @param setting The setting to check the current state of.
  *
- * @return The current state of the setting, SETTING_STATE_MAX if the provided
- * setting is invalid.
+ * @return The current state of the setting, SETTING_STATE_UNKNOWN if the
+ * provided setting is invalid.
  */
 SettingState getSettingState(Setting setting);
+
+/**
+ * Gets the current state of a given setting, but returns the state as an
+ * int8_t. The state is guaranteed to be a member of enum chreUserSettingState.
+ *
+ * @param setting The setting to check the current state of (see
+ * CHRE_USER_SETTINGS).
+ *
+ * @return The current state of the setting (see enum chreUserSettingState)
+ */
+int8_t getSettingStateAsInt8(uint8_t setting);
 
 /**
  * Logs the settings related stats in the debug dump. Must be called from the

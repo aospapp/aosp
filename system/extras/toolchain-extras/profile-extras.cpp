@@ -29,13 +29,15 @@
 
 extern "C" {
 
-void __gcov_flush(void);
+void __gcov_dump(void);
+void __gcov_reset(void);
 
 // storing SIG_ERR helps us detect (unlikely) looping.
 static sighandler_t chained_gcov_signal_handler = SIG_ERR;
 
 static void gcov_signal_handler(int signum) {
-  __gcov_flush();
+  __gcov_dump();
+  __gcov_reset();
   if (chained_gcov_signal_handler != SIG_ERR &&
       chained_gcov_signal_handler != SIG_IGN &&
       chained_gcov_signal_handler != SIG_DFL) {

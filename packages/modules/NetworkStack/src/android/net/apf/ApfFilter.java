@@ -27,11 +27,12 @@ import static android.system.OsConstants.IPPROTO_TCP;
 import static android.system.OsConstants.IPPROTO_UDP;
 import static android.system.OsConstants.SOCK_RAW;
 
-import static com.android.server.util.NetworkStackConstants.ICMPV6_ECHO_REQUEST_TYPE;
-import static com.android.server.util.NetworkStackConstants.ICMPV6_NEIGHBOR_ADVERTISEMENT;
-import static com.android.server.util.NetworkStackConstants.ICMPV6_ROUTER_ADVERTISEMENT;
-import static com.android.server.util.NetworkStackConstants.ICMPV6_ROUTER_SOLICITATION;
-import static com.android.server.util.NetworkStackConstants.IPV6_ADDR_LEN;
+import static com.android.net.module.util.NetworkStackConstants.ETHER_BROADCAST;
+import static com.android.net.module.util.NetworkStackConstants.ICMPV6_ECHO_REQUEST_TYPE;
+import static com.android.net.module.util.NetworkStackConstants.ICMPV6_NEIGHBOR_ADVERTISEMENT;
+import static com.android.net.module.util.NetworkStackConstants.ICMPV6_ROUTER_ADVERTISEMENT;
+import static com.android.net.module.util.NetworkStackConstants.ICMPV6_ROUTER_SOLICITATION;
+import static com.android.net.module.util.NetworkStackConstants.IPV6_ADDR_LEN;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -64,6 +65,8 @@ import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.HexDump;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.net.module.util.CollectionUtils;
+import com.android.net.module.util.ConnectivityUtils;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -283,8 +286,6 @@ public class ApfFilter {
     private static final int ETH_ETHERTYPE_OFFSET = 12;
     private static final int ETH_TYPE_MIN = 0x0600;
     private static final int ETH_TYPE_MAX = 0xFFFF;
-    private static final byte[] ETH_BROADCAST_MAC_ADDRESS =
-            {(byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff };
     // TODO: Make these offsets relative to end of link-layer header; don't include ETH_HEADER_LEN.
     private static final int IPV4_TOTAL_LENGTH_OFFSET = ETH_HEADER_LEN + 2;
     private static final int IPV4_FRAGMENT_OFFSET_OFFSET = ETH_HEADER_LEN + 6;
@@ -778,7 +779,7 @@ public class ApfFilter {
             mPacket = ByteBuffer.wrap(Arrays.copyOf(packet, length));
             mLastSeen = currentTimeSeconds();
 
-            // Sanity check packet in case a packet arrives before we attach RA filter
+            // Check packet in case a packet arrives before we attach RA filter
             // to our packet socket. b/29586253
             if (getUint16(mPacket, ETH_ETHERTYPE_OFFSET) != ETH_P_IPV6 ||
                     getUint8(mPacket, IPV6_NEXT_HEADER_OFFSET) != IPPROTO_ICMPV6 ||
@@ -1027,9 +1028,9 @@ public class ApfFilter {
         public String toString() {
             try {
                 return String.format("%s -> %s",
-                        NetworkStackUtils.addressAndPortToString(
+                        ConnectivityUtils.addressAndPortToString(
                                 InetAddress.getByAddress(mPacket.srcAddress), mPacket.srcPort),
-                        NetworkStackUtils.addressAndPortToString(
+                        ConnectivityUtils.addressAndPortToString(
                                 InetAddress.getByAddress(mPacket.dstAddress), mPacket.dstPort));
             } catch (UnknownHostException e) {
                 return "Unknown host";
@@ -1082,9 +1083,9 @@ public class ApfFilter {
         public String toString() {
             try {
                 return String.format("%s -> %s , seq=%d, ack=%d",
-                        NetworkStackUtils.addressAndPortToString(
+                        ConnectivityUtils.addressAndPortToString(
                                 InetAddress.getByAddress(mPacket.srcAddress), mPacket.srcPort),
-                        NetworkStackUtils.addressAndPortToString(
+                        ConnectivityUtils.addressAndPortToString(
                                 InetAddress.getByAddress(mPacket.dstAddress), mPacket.dstPort),
                         Integer.toUnsignedLong(mPacket.seq),
                         Integer.toUnsignedLong(mPacket.ack));
@@ -1252,7 +1253,7 @@ public class ApfFilter {
         // Pass if unicast reply.
         gen.addLoadImmediate(Register.R0, ETH_DEST_ADDR_OFFSET);
         maybeSetupCounter(gen, Counter.PASSED_ARP_UNICAST_REPLY);
-        gen.addJumpIfBytesNotEqual(Register.R0, ETH_BROADCAST_MAC_ADDRESS, mCountAndPassLabel);
+        gen.addJumpIfBytesNotEqual(Register.R0, ETHER_BROADCAST, mCountAndPassLabel);
 
         // Either a unicast request, a unicast reply, or a broadcast reply.
         gen.defineLabel(checkTargetIPv4);
@@ -1348,7 +1349,7 @@ public class ApfFilter {
             // TODO: can we invert this condition to fall through to the common pass case below?
             maybeSetupCounter(gen, Counter.PASSED_IPV4_UNICAST);
             gen.addLoadImmediate(Register.R0, ETH_DEST_ADDR_OFFSET);
-            gen.addJumpIfBytesNotEqual(Register.R0, ETH_BROADCAST_MAC_ADDRESS, mCountAndPassLabel);
+            gen.addJumpIfBytesNotEqual(Register.R0, ETHER_BROADCAST, mCountAndPassLabel);
             maybeSetupCounter(gen, Counter.DROPPED_IPV4_L2_BROADCAST);
             gen.addJump(mCountAndDropLabel);
         } else {
@@ -1363,7 +1364,7 @@ public class ApfFilter {
 
     private void generateKeepaliveFilters(ApfGenerator gen, Class<?> filterType, int proto,
             int offset, String label) throws IllegalInstructionException {
-        final boolean haveKeepaliveResponses = NetworkStackUtils.any(mKeepalivePackets,
+        final boolean haveKeepaliveResponses = CollectionUtils.any(mKeepalivePackets,
                 ack -> filterType.isInstance(ack));
 
         // If no keepalive packets of this type
@@ -1410,7 +1411,7 @@ public class ApfFilter {
         //     pass
         // if it's ICMPv6 RS to any:
         //   drop
-        // if it's ICMPv6 NA to ff02::1:
+        // if it's ICMPv6 NA to ff02::1 or ff02::2:
         //   drop
         // if keepalive ack
         //   drop
@@ -1464,11 +1465,14 @@ public class ApfFilter {
         gen.addJumpIfR0Equals(ICMPV6_ROUTER_SOLICITATION, mCountAndDropLabel);
         // If not neighbor announcements, skip filter.
         gen.addJumpIfR0NotEquals(ICMPV6_NEIGHBOR_ADVERTISEMENT, skipUnsolicitedMulticastNALabel);
-        // If to ff02::1, drop.
+        // Drop all multicast NA to ff02::/120.
+        // This is a way to cover ff02::1 and ff02::2 with a single JNEBS.
         // TODO: Drop only if they don't contain the address of on-link neighbours.
+        final byte[] unsolicitedNaDropPrefix = Arrays.copyOf(IPV6_ALL_NODES_ADDRESS, 15);
         gen.addLoadImmediate(Register.R0, IPV6_DEST_ADDR_OFFSET);
-        gen.addJumpIfBytesNotEqual(Register.R0, IPV6_ALL_NODES_ADDRESS,
+        gen.addJumpIfBytesNotEqual(Register.R0, unsolicitedNaDropPrefix,
                 skipUnsolicitedMulticastNALabel);
+
         maybeSetupCounter(gen, Counter.DROPPED_IPV6_MULTICAST_NA);
         gen.addJump(mCountAndDropLabel);
         gen.defineLabel(skipUnsolicitedMulticastNALabel);
@@ -1491,7 +1495,7 @@ public class ApfFilter {
      * <li>Drop all broadcast non-IP non-ARP packets.
      * <li>Pass all non-ICMPv6 IPv6 packets,
      * <li>Pass all non-IPv4 and non-IPv6 packets,
-     * <li>Drop IPv6 ICMPv6 NAs to ff02::1.
+     * <li>Drop IPv6 ICMPv6 NAs to ff02::1 or ff02::2.
      * <li>Drop IPv6 ICMPv6 RSs.
      * <li>Filter IPv4 packets (see generateIPv4FilterLocked())
      * <li>Filter IPv6 packets (see generateIPv6FilterLocked())
@@ -1567,7 +1571,7 @@ public class ApfFilter {
         // Drop non-IP non-ARP broadcasts, pass the rest
         gen.addLoadImmediate(Register.R0, ETH_DEST_ADDR_OFFSET);
         maybeSetupCounter(gen, Counter.PASSED_NON_IP_UNICAST);
-        gen.addJumpIfBytesNotEqual(Register.R0, ETH_BROADCAST_MAC_ADDRESS, mCountAndPassLabel);
+        gen.addJumpIfBytesNotEqual(Register.R0, ETHER_BROADCAST, mCountAndPassLabel);
         maybeSetupCounter(gen, Counter.DROPPED_ETH_BROADCAST);
         gen.addJump(mCountAndDropLabel);
 

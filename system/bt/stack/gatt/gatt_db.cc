@@ -29,10 +29,12 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "btm_int.h"
 #include "gatt_int.h"
 #include "l2c_api.h"
 #include "osi/include/osi.h"
+#include "stack/btm/btm_ble_int.h"
+#include "stack/btm/btm_sec.h"
+#include "stack/include/acl_api.h"
 
 using base::StringPrintf;
 using bluetooth::Uuid;
@@ -43,8 +45,8 @@ using bluetooth::Uuid;
 static tGATT_ATTR& allocate_attr_in_db(tGATT_SVC_DB& db, const Uuid& uuid,
                                        tGATT_PERM perm);
 static tGATT_STATUS gatts_send_app_read_request(
-    tGATT_TCB& tcb, uint8_t op_code, uint16_t handle, uint16_t offset,
-    uint32_t trans_id, bt_gatt_db_attribute_type_t gatt_type);
+    tGATT_TCB& tcb, uint16_t cid, uint8_t op_code, uint16_t handle,
+    uint16_t offset, uint32_t trans_id, bt_gatt_db_attribute_type_t gatt_type);
 
 /**
  * Initialize a memory space to be a service database.
@@ -64,7 +66,7 @@ void gatts_init_service_db(tGATT_SVC_DB& db, const Uuid& service_uuid,
   Uuid uuid =
       Uuid::From16Bit(is_pri ? GATT_UUID_PRI_SERVICE : GATT_UUID_SEC_SERVICE);
   tGATT_ATTR& attr = allocate_attr_in_db(db, uuid, GATT_PERM_READ);
-  attr.p_value.reset((tGATT_ATTR_VALUE*)(new Uuid));
+  attr.p_value.reset(new tGATT_ATTR_VALUE);
   attr.p_value->uuid = service_uuid;
 }
 
@@ -229,7 +231,18 @@ static tGATT_STATUS read_attr_value(tGATT_ATTR& attr16, uint16_t offset,
     return GATT_SUCCESS;
   }
 
-  /* characteristic description or characteristic value (again) */
+  if (uuid16 == GATT_UUID_CHAR_EXT_PROP) {
+    // sometimes this descriptor is added by users manually, we need to check if
+    // the p_value is nullptr.
+    uint16_t char_ext_prop =
+        attr16.p_value ? attr16.p_value->char_ext_prop : 0x0000;
+    *p_len = 2;
+    UINT16_TO_STREAM(p, char_ext_prop);
+    *p_data = p;
+    return GATT_SUCCESS;
+  }
+
+  /* characteristic descriptor or characteristic value (again) */
   return GATT_PENDING;
 }
 
@@ -252,10 +265,10 @@ static tGATT_STATUS read_attr_value(tGATT_ATTR& attr16, uint16_t offset,
  *
  ******************************************************************************/
 tGATT_STATUS gatts_db_read_attr_value_by_type(
-    tGATT_TCB& tcb, tGATT_SVC_DB* p_db, uint8_t op_code, BT_HDR* p_rsp,
-    uint16_t s_handle, uint16_t e_handle, const Uuid& type, uint16_t* p_len,
-    tGATT_SEC_FLAG sec_flag, uint8_t key_size, uint32_t trans_id,
-    uint16_t* p_cur_handle) {
+    tGATT_TCB& tcb, uint16_t cid, tGATT_SVC_DB* p_db, uint8_t op_code,
+    BT_HDR* p_rsp, uint16_t s_handle, uint16_t e_handle, const Uuid& type,
+    uint16_t* p_len, tGATT_SEC_FLAG sec_flag, uint8_t key_size,
+    uint32_t trans_id, uint16_t* p_cur_handle) {
   tGATT_STATUS status = GATT_NOT_FOUND;
   uint16_t len = 0;
   uint8_t* p = (uint8_t*)(p_rsp + 1) + p_rsp->len + L2CAP_MIN_OFFSET;
@@ -274,8 +287,8 @@ tGATT_STATUS gatts_db_read_attr_value_by_type(
                                  &len, sec_flag, key_size);
 
         if (status == GATT_PENDING) {
-          status = gatts_send_app_read_request(tcb, op_code, attr.handle, 0,
-                                               trans_id, attr.gatt_type);
+          status = gatts_send_app_read_request(tcb, cid, op_code, attr.handle,
+                                               0, trans_id, attr.gatt_type);
 
           /* one callback at a time */
           break;
@@ -298,21 +311,6 @@ tGATT_STATUS gatts_db_read_attr_value_by_type(
     }
   }
 
-#if (BLE_DELAY_REQUEST_ENC == TRUE)
-  uint8_t flag = 0;
-  if (BTM_GetSecurityFlags(tcb.peer_bda, &flag)) {
-    if ((tcb.att_lcid == L2CAP_ATT_CID) && (status == GATT_PENDING) &&
-        (type.As16Bit() == GATT_UUID_GAP_DEVICE_NAME)) {
-      if ((flag & (BTM_SEC_LINK_KEY_KNOWN | BTM_SEC_FLAG_ENCRYPTED)) ==
-          BTM_SEC_LINK_KEY_KNOWN) {
-        tACL_CONN* p = btm_bda_to_acl(tcb.peer_bda, BT_TRANSPORT_LE);
-        if ((p != NULL) && (p->link_role == BTM_ROLE_MASTER))
-          btm_ble_set_encryption(tcb.peer_bda, BTM_BLE_SEC_ENCRYPT,
-                                 p->link_role);
-      }
-    }
-  }
-#endif
   return status;
 }
 
@@ -340,7 +338,7 @@ uint16_t gatts_add_included_service(tGATT_SVC_DB& db, uint16_t s_handle,
 
   tGATT_ATTR& attr = allocate_attr_in_db(db, uuid, GATT_PERM_READ);
 
-  attr.p_value.reset((tGATT_ATTR_VALUE*)(new tGATT_INCL_SRVC));
+  attr.p_value.reset(new tGATT_ATTR_VALUE);
   attr.p_value->incl_handle.s_handle = s_handle;
   attr.p_value->incl_handle.e_handle = e_handle;
   attr.p_value->incl_handle.service_type = service;
@@ -358,6 +356,7 @@ uint16_t gatts_add_included_service(tGATT_SVC_DB& db, uint16_t s_handle,
  * Parameter        db: database.
  *                  perm: permission (authentication and key size requirements)
  *                  property: property of the characteristic.
+ *                  extended_properties: characteristic extended properties.
  *                  p_char: characteristic value information.
  *
  * Returns          Status of te operation.
@@ -374,11 +373,39 @@ uint16_t gatts_add_characteristic(tGATT_SVC_DB& db, tGATT_PERM perm,
   tGATT_ATTR& char_decl = allocate_attr_in_db(db, uuid, GATT_PERM_READ);
   tGATT_ATTR& char_val = allocate_attr_in_db(db, char_uuid, perm);
 
-  char_decl.p_value.reset((tGATT_ATTR_VALUE*)(new tGATT_CHAR_DECL));
+  char_decl.p_value.reset(new tGATT_ATTR_VALUE);
   char_decl.p_value->char_decl.property = property;
   char_decl.p_value->char_decl.char_val_handle = char_val.handle;
   char_val.gatt_type = BTGATT_DB_CHARACTERISTIC;
+
   return char_val.handle;
+}
+
+/*******************************************************************************
+ *
+ * Function         gatts_add_char_ext_prop_descr
+ *
+ * Description      add a characteristics extended properties descriptor.
+ *
+ * Parameter        db: database pointer.
+ *                  extended_properties: characteristic descriptors values.
+ *
+ * Returns          Status of the operation.
+ *
+ ******************************************************************************/
+uint16_t gatts_add_char_ext_prop_descr(
+    tGATT_SVC_DB& db, uint16_t extended_properties) {
+  Uuid descr_uuid = Uuid::From16Bit(GATT_UUID_CHAR_EXT_PROP);
+
+  VLOG(1) << StringPrintf("gatts_add_char_ext_prop_descr uuid=%s",
+                          descr_uuid.ToString().c_str());
+
+  tGATT_ATTR& char_dscptr = allocate_attr_in_db(db, descr_uuid, GATT_PERM_READ);
+  char_dscptr.gatt_type = BTGATT_DB_DESCRIPTOR;
+  char_dscptr.p_value.reset(new tGATT_ATTR_VALUE);
+  char_dscptr.p_value->char_ext_prop = extended_properties;
+
+  return char_dscptr.handle;
 }
 
 /*******************************************************************************
@@ -440,9 +467,10 @@ tGATT_ATTR* find_attr_by_handle(tGATT_SVC_DB* p_db, uint16_t handle) {
  *
  ******************************************************************************/
 tGATT_STATUS gatts_read_attr_value_by_handle(
-    tGATT_TCB& tcb, tGATT_SVC_DB* p_db, uint8_t op_code, uint16_t handle,
-    uint16_t offset, uint8_t* p_value, uint16_t* p_len, uint16_t mtu,
-    tGATT_SEC_FLAG sec_flag, uint8_t key_size, uint32_t trans_id) {
+    tGATT_TCB& tcb, uint16_t cid, tGATT_SVC_DB* p_db, uint8_t op_code,
+    uint16_t handle, uint16_t offset, uint8_t* p_value, uint16_t* p_len,
+    uint16_t mtu, tGATT_SEC_FLAG sec_flag, uint8_t key_size,
+    uint32_t trans_id) {
   tGATT_ATTR* p_attr = find_attr_by_handle(p_db, handle);
   if (!p_attr) return GATT_NOT_FOUND;
 
@@ -452,8 +480,8 @@ tGATT_STATUS gatts_read_attr_value_by_handle(
                                         mtu, p_len, sec_flag, key_size);
 
   if (status == GATT_PENDING) {
-    status = gatts_send_app_read_request(tcb, op_code, p_attr->handle, offset,
-                                         trans_id, p_attr->gatt_type);
+    status = gatts_send_app_read_request(tcb, cid, op_code, p_attr->handle,
+                                         offset, trans_id, p_attr->gatt_type);
   }
   return status;
 }
@@ -676,14 +704,14 @@ static tGATT_ATTR& allocate_attr_in_db(tGATT_SVC_DB& db, const Uuid& uuid,
  *
  ******************************************************************************/
 static tGATT_STATUS gatts_send_app_read_request(
-    tGATT_TCB& tcb, uint8_t op_code, uint16_t handle, uint16_t offset,
-    uint32_t trans_id, bt_gatt_db_attribute_type_t gatt_type) {
+    tGATT_TCB& tcb, uint16_t cid, uint8_t op_code, uint16_t handle,
+    uint16_t offset, uint32_t trans_id, bt_gatt_db_attribute_type_t gatt_type) {
   tGATT_SRV_LIST_ELEM& el = *gatt_sr_find_i_rcb_by_handle(handle);
   uint16_t conn_id = GATT_CREATE_CONN_ID(tcb.tcb_idx, el.gatt_if);
 
   if (trans_id == 0) {
-    trans_id = gatt_sr_enqueue_cmd(tcb, op_code, handle);
-    gatt_sr_update_cback_cnt(tcb, el.gatt_if, true, true);
+    trans_id = gatt_sr_enqueue_cmd(tcb, cid, op_code, handle);
+    gatt_sr_update_cback_cnt(tcb, cid, el.gatt_if, true, true);
   }
 
   if (trans_id != 0) {

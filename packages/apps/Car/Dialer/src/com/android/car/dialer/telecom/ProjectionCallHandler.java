@@ -36,6 +36,12 @@ import com.android.car.dialer.log.L;
 import java.util.Collections;
 import java.util.List;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+import dagger.hilt.android.qualifiers.ApplicationContext;
+
+@Singleton
 class ProjectionCallHandler implements InCallServiceImpl.ActiveCallListChangedCallback,
         CarProjectionManager.ProjectionStatusListener {
     private static final String TAG = "CD.ProjectionCallHandler";
@@ -55,8 +61,9 @@ class ProjectionCallHandler implements InCallServiceImpl.ActiveCallListChangedCa
     private int mProjectionState = ProjectionStatus.PROJECTION_STATE_INACTIVE;
     private List<ProjectionStatus> mProjectionDetails = Collections.emptyList();
 
-    ProjectionCallHandler(Context context) {
-        this(context, context.getSystemService(TelecomManager.class),
+    @Inject
+    ProjectionCallHandler(@ApplicationContext Context context, TelecomManager telecomManager) {
+        this(context, telecomManager,
                 car -> (CarProjectionManager) car.getCarManager(Car.PROJECTION_SERVICE));
     }
 
@@ -99,9 +106,9 @@ class ProjectionCallHandler implements InCallServiceImpl.ActiveCallListChangedCa
     @Override
     public boolean onTelecomCallAdded(Call telecomCall) {
         L.d(TAG, "onTelecomCallAdded(%s)", telecomCall);
-        if (mProjectionState != ProjectionStatus.PROJECTION_STATE_ACTIVE_BACKGROUND
-                && mProjectionState != ProjectionStatus.PROJECTION_STATE_ACTIVE_FOREGROUND) {
-            // Nothing's actively projecting, so no need to even check anything else.
+        if (mProjectionState != ProjectionStatus.PROJECTION_STATE_ACTIVE_FOREGROUND) {
+            // Nothing's actively projecting in the foreground, so no need to even check anything
+            // else.
             return false;
         }
 

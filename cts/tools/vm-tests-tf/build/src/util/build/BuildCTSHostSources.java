@@ -39,6 +39,7 @@ public class BuildCTSHostSources extends BuildUtilBase {
     private static String HOSTJUNIT_SRC_OUTPUT_FOLDER = "";
 
     private static final String TARGET_JAR_ROOT_PATH = "/data/local/tmp/vm-tests";
+    private static final String APEX_ART_BIN_PATH = "/apex/com.android.art/bin";
 
     /**
      * @param args
@@ -178,9 +179,9 @@ public class BuildCTSHostSources extends BuildUtilBase {
     }
 
     private static String getShellExecJavaLine(String classpath, String mainclass) {
-      String cmd = String.format("ANDROID_DATA=%s dalvikvm|#ABI#| -Xmx512M -Xss32K " +
-              "-Djava.io.tmpdir=%s -classpath %s %s", TARGET_JAR_ROOT_PATH, TARGET_JAR_ROOT_PATH,
-              classpath, mainclass);
+      String cmd = String.format("ANDROID_DATA=%s %s/dalvikvm|#ABI#| -Xmx512M -Xss32K " +
+              "-Djava.io.tmpdir=%s -classpath %s %s", TARGET_JAR_ROOT_PATH, APEX_ART_BIN_PATH,
+              TARGET_JAR_ROOT_PATH, classpath, mainclass);
       StringBuilder code = new StringBuilder();
       code.append("    String cmd = AbiFormatter.formatCmdForAbi(\"")
           .append(cmd)

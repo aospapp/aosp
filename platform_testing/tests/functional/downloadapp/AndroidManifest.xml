@@ -27,7 +27,7 @@
         <uses-library android:name="android.test.runner"/>
     </application>
     <instrumentation
-            android:name="android.support.test.runner.AndroidJUnitRunner"
+            android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.functional.downloadapp"
             android:label="DownloadApp Functional Tests" />
 </manifest>

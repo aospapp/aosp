@@ -20,32 +20,35 @@
 
 #include "hci_layer.h"
 
+#include <iomanip>
+
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
-#include <base/location.h>
-#include <base/logging.h>
-#include "buffer_allocator.h"
-#include "osi/include/log.h"
 
 #include <android/hardware/bluetooth/1.0/IBluetoothHci.h>
 #include <android/hardware/bluetooth/1.0/IBluetoothHciCallbacks.h>
 #include <android/hardware/bluetooth/1.0/types.h>
 #include <android/hardware/bluetooth/1.1/IBluetoothHci.h>
 #include <android/hardware/bluetooth/1.1/IBluetoothHciCallbacks.h>
-#include <hwbinder/ProcessState.h>
+
+#include <base/location.h>
+#include <base/logging.h>
+
+#include "buffer_allocator.h"
+#include "common/stop_watch_legacy.h"
+#include "osi/include/log.h"
 
 #define LOG_PATH "/data/misc/bluetooth/logs/firmware_events.log"
 #define LAST_LOG_PATH "/data/misc/bluetooth/logs/firmware_events.log.last"
 
 using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::hidl_vec;
-using ::android::hardware::ProcessState;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
 using ::android::hardware::bluetooth::V1_0::HciPacket;
 using ::android::hardware::bluetooth::V1_0::Status;
+using ::bluetooth::common::StopWatchLegacy;
 
 using namespace ::android::hardware::bluetooth;
 
@@ -60,10 +63,27 @@ extern bool hci_is_root_inflammation_event_received();
 android::sp<V1_0::IBluetoothHci> btHci;
 android::sp<V1_1::IBluetoothHci> btHci_1_1;
 
+std::string GetTimerText(std::string func_name, const hidl_vec<uint8_t>& vec) {
+  std::stringstream ss;
+  const unsigned char* vec_char =
+      reinterpret_cast<const unsigned char*>(vec.data());
+  int length = 5;
+  if ((int)vec.size() < 5) {
+    length = vec.size();
+  }
+  for (int i = 0; i < length; i++) {
+    ss << std::setw(2) << std::setfill('0') << std::hex << (int)vec_char[i];
+  }
+  std::string text = func_name + ": len " + std::to_string(vec.size()) +
+                     ", 1st 5 bytes '" + ss.str() + "'";
+  return text;
+}
+
 class BluetoothHciDeathRecipient : public hidl_death_recipient {
  public:
   virtual void serviceDied(uint64_t /*cookie*/, const android::wp<::android::hidl::base::V1_0::IBase>& /*who*/) {
-    LOG_ERROR(LOG_TAG, "Bluetooth HAL service died!");
+    LOG_ERROR("Bluetooth HAL service died!");
+    StopWatchLegacy::DumpStopWatchLog();
     hal_service_died();
   }
 };
@@ -90,11 +110,11 @@ class BluetoothHciCallbacks : public V1_1::IBluetoothHciCallbacks {
   }
 
   Return<void> initializationComplete(Status status) override {
+    StopWatchLegacy(__func__);
     if (hci_is_root_inflammation_event_received()) {
       // Ignore the initializationComplete here as we have already received
       // root inflammation event earlier.
       LOG_ERROR(
-          LOG_TAG,
           "initializationComplete after root inflammation event! status=%d",
           status);
       return Void();
@@ -105,24 +125,28 @@ class BluetoothHciCallbacks : public V1_1::IBluetoothHciCallbacks {
   }
 
   Return<void> hciEventReceived(const hidl_vec<uint8_t>& event) override {
+    StopWatchLegacy(GetTimerText(__func__, event));
     BT_HDR* packet = WrapPacketAndCopy(MSG_HC_TO_STACK_HCI_EVT, event);
     hci_event_received(FROM_HERE, packet);
     return Void();
   }
 
   Return<void> aclDataReceived(const hidl_vec<uint8_t>& data) override {
+    StopWatchLegacy(GetTimerText(__func__, data));
     BT_HDR* packet = WrapPacketAndCopy(MSG_HC_TO_STACK_HCI_ACL, data);
     acl_event_received(packet);
     return Void();
   }
 
   Return<void> scoDataReceived(const hidl_vec<uint8_t>& data) override {
+    StopWatchLegacy(GetTimerText(__func__, data));
     BT_HDR* packet = WrapPacketAndCopy(MSG_HC_TO_STACK_HCI_SCO, data);
     sco_data_received(packet);
     return Void();
   }
 
   Return<void> isoDataReceived(const hidl_vec<uint8_t>& data) override {
+    StopWatchLegacy(GetTimerText(__func__, data));
     BT_HDR* packet = WrapPacketAndCopy(MSG_HC_TO_STACK_HCI_ISO, data);
     iso_data_received(packet);
     return Void();
@@ -132,7 +156,7 @@ class BluetoothHciCallbacks : public V1_1::IBluetoothHciCallbacks {
 };
 
 void hci_initialize() {
-  LOG_INFO(LOG_TAG, "%s", __func__);
+  LOG_INFO("%s", __func__);
 
   btHci_1_1 = V1_1::IBluetoothHci::getService();
 
@@ -146,11 +170,12 @@ void hci_initialize() {
   CHECK(btHci != nullptr);
   auto death_link = btHci->linkToDeath(bluetoothHciDeathRecipient, 0);
   if (!death_link.isOk()) {
-    LOG_ERROR(LOG_TAG, "%s: Unable to set the death recipient for the Bluetooth HAL", __func__);
+    LOG_ERROR("%s: Unable to set the death recipient for the Bluetooth HAL",
+              __func__);
     abort();
   }
-  LOG_INFO(LOG_TAG, "%s: IBluetoothHci::getService() returned %p (%s)",
-           __func__, btHci.get(), (btHci->isRemote() ? "remote" : "local"));
+  LOG_INFO("%s: IBluetoothHci::getService() returned %p (%s)", __func__,
+           btHci.get(), (btHci->isRemote() ? "remote" : "local"));
 
   // Block allows allocation of a variable that might be bypassed by goto.
   {
@@ -168,11 +193,12 @@ void hci_close() {
   if (btHci != nullptr) {
     auto death_unlink = btHci->unlinkToDeath(bluetoothHciDeathRecipient);
     if (!death_unlink.isOk()) {
-      LOG_ERROR(LOG_TAG, "%s: Error unlinking death recipient from the Bluetooth HAL", __func__);
+      LOG_ERROR("%s: Error unlinking death recipient from the Bluetooth HAL",
+                __func__);
     }
     auto close_status = btHci->close();
     if (!close_status.isOk()) {
-      LOG_ERROR(LOG_TAG, "%s: Error closing the Bluetooth HAL", __func__);
+      LOG_ERROR("%s: Error closing the Bluetooth HAL", __func__);
     }
     btHci = nullptr;
   }
@@ -197,19 +223,19 @@ void hci_transmit(BT_HDR* packet) {
       if (btHci_1_1 != nullptr) {
         btHci_1_1->sendIsoData(data);
       } else {
-        LOG_ERROR(LOG_TAG, "ISO is not supported in HAL v1.0");
+        LOG_ERROR("ISO is not supported in HAL v1.0");
       }
       break;
     default:
-      LOG_ERROR(LOG_TAG, "Unknown packet type (%d)", event);
+      LOG_ERROR("Unknown packet type (%d)", event);
       break;
   }
 }
 
 int hci_open_firmware_log_file() {
   if (rename(LOG_PATH, LAST_LOG_PATH) == -1 && errno != ENOENT) {
-    LOG_ERROR(LOG_TAG, "%s unable to rename '%s' to '%s': %s", __func__,
-              LOG_PATH, LAST_LOG_PATH, strerror(errno));
+    LOG_ERROR("%s unable to rename '%s' to '%s': %s", __func__, LOG_PATH,
+              LAST_LOG_PATH, strerror(errno));
   }
 
   mode_t prevmask = umask(0);
@@ -217,7 +243,7 @@ int hci_open_firmware_log_file() {
                         S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
   umask(prevmask);
   if (logfile_fd == INVALID_FD) {
-    LOG_ERROR(LOG_TAG, "%s unable to open '%s': %s", __func__, LOG_PATH,
+    LOG_ERROR("%s unable to open '%s': %s", __func__, LOG_PATH,
               strerror(errno));
   }
 

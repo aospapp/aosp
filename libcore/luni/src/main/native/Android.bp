@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "libcore_luni_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["libcore_luni_license"],
+}
+
 filegroup {
     name: "luni_native_srcs",
     visibility: [
@@ -30,9 +38,8 @@ filegroup {
         "java_lang_StringToReal.cpp",
         "java_lang_invoke_MethodHandle.cpp",
         "java_lang_invoke_VarHandle.cpp",
-        "java_math_NativeBN.cpp",
+        "libcore_math_NativeBN.cpp",
         "libcore_icu_ICU.cpp",
-        "libcore_icu_TimeZoneNames.cpp",
         "libcore_io_AsynchronousCloseMonitor.cpp",
         "libcore_io_Linux.cpp",
         "libcore_io_Memory.cpp",

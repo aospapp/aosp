@@ -14,19 +14,8 @@
 # limitations under the License.
 #
 
-PRODUCT_HARDWARE := coral
+PHONE_CAR_BOARD_CONFIG := device/google_car/coral_car/BoardConfig.mk
 
 $(call inherit-product, packages/services/Car/car_product/build/car.mk)
-include device/google_car/coral_car/device-common.mk
 
-DEVICE_PACKAGE_OVERLAYS += device/google/coral/coral/overlay
-
-PRODUCT_PROPERTY_OVERRIDES += ro.sf.lcd_density=250
-
-# Audio XMLs for coral
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/audio/audio_policy_volumes_coral.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_volumes.xml
-
-# Bluetooth Tx power caps for coral
-PRODUCT_COPY_FILES += \
-    device/google/coral/bluetooth_power_limits_coral.csv:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_power_limits.csv
+$(call inherit-product, device/google/coral/device-coral.mk)

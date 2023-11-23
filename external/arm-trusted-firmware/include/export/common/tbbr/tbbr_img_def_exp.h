@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2019-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -85,7 +85,13 @@
 /* Binary with STM32 header */
 #define STM32_IMAGE_ID			U(29)
 
-/* Define size of the array */
-#define MAX_NUMBER_IDS			U(30)
+/* Encrypted image identifier */
+#define ENC_IMAGE_ID			U(30)
+
+/* FW_CONFIG */
+#define FW_CONFIG_ID			U(31)
+
+/* Max Images */
+#define MAX_IMAGE_IDS			U(32)
 
 #endif /* ARM_TRUSTED_FIRMWARE_EXPORT_COMMON_TBBR_TBBR_IMG_DEF_EXP_H */

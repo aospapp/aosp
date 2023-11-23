@@ -800,7 +800,10 @@ IHEVCE_PLUGIN_STATUS_T allocate_input(appl_ctxt_t *ps_ctxt, ihevce_inp_buf_t *in
 #ifdef X86_MINGW
     pu1_buf = (UWORD8 *)_aligned_malloc(pic_size, 64);
 #else
-    posix_memalign((void **)&pu1_buf, 64, pic_size);
+    if (0 != posix_memalign((void **)&pu1_buf, 64, pic_size))
+    {
+        return (IHEVCE_EFAIL);
+    }
 #endif
     if(NULL == pu1_buf)
     {

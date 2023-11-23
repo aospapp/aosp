@@ -7,7 +7,7 @@ TIME = 'SHORT'
 NAME = 'network_WiFi_RoamSuspendEndToEnd'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:wifi_endtoend'
-DEPENDENCIES = 'servo, wificell'
+DEPENDENCIES = 'wificell'
 
 DOC = """
 WiFi_RoamSuspendEndToEnd test configures two APs with the same ssid and runs the
@@ -18,10 +18,9 @@ WiFi roaming between two Open Networks after a Suspend/Resume.
 from autotest_lib.server import utils
 
 args_dict = utils.args_to_dict(args)
-servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
 def run(machine):
-    host = hosts.create_host(machine, servo_args=servo_args)
+    host = hosts.create_host(machine)
     job.run_test('network_WiFi_RoamSuspendEndToEnd',
                  host=host,
                  raw_cmdline_args=args)

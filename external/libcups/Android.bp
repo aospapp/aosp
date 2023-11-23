@@ -12,6 +12,52 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+//     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+//     DEPENDING ON IT IN YOUR PROJECT. ***
+package {
+    default_applicable_licenses: ["external_libcups_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+//
+// large-scale-change included anything that looked like it might be a license
+// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
+//
+// Please consider removing redundant or irrelevant files from 'license_text:'.
+// See: http://go/android-license-faq
+license {
+    name: "external_libcups_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-GPL",
+        "SPDX-license-identifier-GPL-2.0",
+        "SPDX-license-identifier-ISC",
+        "SPDX-license-identifier-LGPL",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-Zlib",
+        "legacy_by_exception_only", // by exception only
+    ],
+    license_text: [
+        "LICENSE",
+        "NOTICE",
+    ],
+}
+
 cc_library_shared {
     name: "libcups",
 
@@ -21,7 +67,6 @@ cc_library_shared {
         "cups/array.c",
         "cups/auth.c",
         "cups/backchannel.c",
-        "cups/backend.c",
         "cups/debug.c",
         "cups/dest.c",
         "cups/dest-job.c",
@@ -31,7 +76,6 @@ cc_library_shared {
         "cups/encode.c",
         "cups/file.c",
         "cups/getdevices.c",
-        "cups/getifaddrs.c",
         "cups/getputfile.c",
         "cups/globals.c",
         "cups/hash.c",
@@ -47,30 +91,20 @@ cc_library_shared {
         "cups/md5passwd.c",
         "cups/notify.c",
         "cups/options.c",
-        "cups/ppd.c",
-        "cups/ppd-attr.c",
-        "cups/ppd-cache.c",
-        "cups/ppd-conflicts.c",
-        "cups/ppd-custom.c",
-        "cups/ppd-emit.c",
-        "cups/ppd-localize.c",
-        "cups/ppd-mark.c",
-        "cups/ppd-page.c",
-        "cups/ppd-util.c",
         "cups/pwg-media.c",
+        "cups/raster-error.c",
+        "cups/raster-stream.c",
+        "cups/raster-stubs.c",
         "cups/request.c",
         "cups/sidechannel.c",
         "cups/snmp.c",
-        "cups/snprintf.c",
         "cups/string.c",
         "cups/tempfile.c",
-        "cups/tls-boringssl.c",
         "cups/thread.c",
+        "cups/tls-boringssl.c",
         "cups/transcode.c",
         "cups/usersys.c",
         "cups/util.c",
-        "filter/error.c",
-        "filter/raster.c",
     ],
 
     cflags: [
@@ -81,9 +115,11 @@ cc_library_shared {
         "-Wno-unused-parameter",
         "-Wno-unused-function",
         "-Wno-unused-variable",
+        "-Wno-unused-value",
         "-Wno-sign-compare",
         "-Wno-missing-field-initializers",
         "-Wno-implicit-function-declaration",
+        "-Wno-deprecated-declarations",
         "-Werror",
     ],
 

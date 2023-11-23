@@ -16,26 +16,25 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.cts.backup.sharedprefrestoreapp">
+     package="android.cts.backup.sharedprefrestoreapp">
 
-    <application
-        android:backupAgent=".SharedPreferencesBackupAgent"
-        android:killAfterRestore="false" >
+    <application android:backupAgent=".SharedPreferencesBackupAgent"
+         android:killAfterRestore="false">
 
         <activity android:name=".SharedPrefsRestoreTestActivity"
-            android:launchMode="singleInstance">
+             android:launchMode="singleInstance"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.backup.cts.backuprestore.INIT" />
-                <action android:name="android.backup.cts.backuprestore.UPDATE" />
-                <action android:name="android.backup.cts.backuprestore.TEST" />
+                <action android:name="android.backup.cts.backuprestore.INIT"/>
+                <action android:name="android.backup.cts.backuprestore.UPDATE"/>
+                <action android:name="android.backup.cts.backuprestore.TEST"/>
             </intent-filter>
         </activity>
 
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android.cts.backup.sharedprefrestoreapp" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="android.cts.backup.sharedprefrestoreapp"/>
 
 </manifest>

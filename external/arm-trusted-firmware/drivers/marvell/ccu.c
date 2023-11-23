@@ -26,9 +26,39 @@
 #define ADDRESS_MASK			(0xFFFFFFF0)
 #define CCU_WIN_ALIGNMENT		(0x100000)
 
+/*
+ * Physical address of the highest address of window bits[31:19] = 0x6FF
+ * Physical address of the lowest address of window bits[18:6] = 0x6E0
+ * Unit Id bits [5:2] = 2
+ * RGF Window Enable bit[0] = 1
+ * 0x37f9b809 - 11011111111 0011011100000 0010 0 1
+ */
+#define ERRATA_WA_CCU_WIN4	0x37f9b809U
+
+/*
+ * Physical address of the highest address of window bits[31:19] = 0xFFF
+ * Physical address of the lowest address of window bits[18:6] = 0x800
+ * Unit Id bits [5:2] = 2
+ * RGF Window Enable bit[0] = 1
+ * 0x7ffa0009 - 111111111111 0100000000000 0010 0 1
+ */
+#define ERRATA_WA_CCU_WIN5	0x7ffa0009U
+
+/*
+ * Physical address of the highest address of window bits[31:19] = 0x1FFF
+ * Physical address of the lowest address of window bits[18:6] = 0x1000
+ * Unit Id bits [5:2] = 2
+ * RGF Window Enable bit[0] = 1
+ * 0xfffc000d - 1111111111111 1000000000000 0011 0 1
+ */
+#define ERRATA_WA_CCU_WIN6	0xfffc000dU
+
 #define IS_DRAM_TARGET(tgt)		((((tgt) == DRAM_0_TID) || \
 					((tgt) == DRAM_1_TID) || \
 					((tgt) == RAR_TID)) ? 1 : 0)
+
+#define CCU_RGF(win)			(MVEBU_CCU_BASE(MVEBU_AP0) + \
+					 0x90 + 4 * (win))
 
 /* For storage of CR, SCR, ALR, AHR abd GCR */
 static uint32_t ccu_regs_save[MVEBU_CCU_MAX_WINS * 4 + 1];
@@ -54,8 +84,8 @@ static void dump_ccu(int ap_index)
 							      win_id));
 			start = ((uint64_t)alr << ADDRESS_SHIFT);
 			end = (((uint64_t)ahr + 0x10) << ADDRESS_SHIFT);
-			printf("\tccu    %02x     0x%016llx 0x%016llx\n",
-			       target_id, start, end);
+			printf("\tccu%d    %02x     0x%016llx 0x%016llx\n",
+			       win_id, target_id, start, end);
 		}
 	}
 	win_cr = mmio_read_32(CCU_WIN_GCR_OFFSET(ap_index));
@@ -79,6 +109,12 @@ void ccu_win_check(struct addr_map_win *win)
 		NOTICE("%s: Aligning size to 0x%llx\n",
 		       __func__, win->win_size);
 	}
+}
+
+int ccu_is_win_enabled(int ap_index, uint32_t win_id)
+{
+	return mmio_read_32(CCU_WIN_CR_OFFSET(ap_index, win_id)) &
+			    WIN_ENABLE_BIT;
 }
 
 void ccu_enable_win(int ap_index, struct addr_map_win *win, uint32_t win_id)
@@ -359,4 +395,20 @@ int init_ccu(int ap_index)
 	INFO("Done CCU Address decoding Initializing\n");
 
 	return 0;
+}
+
+void errata_wa_init(void)
+{
+	/*
+	 * EERATA ID: RES-3033912 - Internal Address Space Init state causes
+	 * a hang upon accesses to [0xf070_0000, 0xf07f_ffff]
+	 * Workaround: Boot Firmware (ATF) should configure CCU_RGF_WIN(4) to
+	 * split [0x6e_0000, 0x1ff_ffff] to values [0x6e_0000, 0x6f_ffff] and
+	 * [0x80_0000, 0xff_ffff] and [0x100_0000, 0x1ff_ffff],that cause
+	 * accesses to the segment of [0xf070_0000, 0xf1ff_ffff]
+	 * to act as RAZWI.
+	 */
+	mmio_write_32(CCU_RGF(4), ERRATA_WA_CCU_WIN4);
+	mmio_write_32(CCU_RGF(5), ERRATA_WA_CCU_WIN5);
+	mmio_write_32(CCU_RGF(6), ERRATA_WA_CCU_WIN6);
 }

@@ -47,11 +47,6 @@ void GenerateServerHeader(CodeWriter& out, const AidlTypenames& types,
 void GenerateInterfaceHeader(CodeWriter& out, const AidlTypenames& types,
                              const AidlInterface& defined_type, const Options& options);
 
-void GenerateParcelHeader(CodeWriter& out, const AidlTypenames& types,
-                          const AidlStructuredParcelable& defined_type, const Options& options);
-void GenerateParcelSource(CodeWriter& out, const AidlTypenames& types,
-                          const AidlStructuredParcelable& defined_type, const Options& options);
-
 void GenerateEnumHeader(CodeWriter& out, const AidlTypenames& types,
                         const AidlEnumDeclaration& enum_decl, const Options& options);
 

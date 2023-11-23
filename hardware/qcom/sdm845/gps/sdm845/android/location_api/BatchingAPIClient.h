@@ -33,7 +33,7 @@
 #include <android/hardware/gnss/1.0/IGnssBatching.h>
 #include <android/hardware/gnss/1.0/IGnssBatchingCallback.h>
 #include <pthread.h>
-
+#include <mutex>
 #include <LocationAPIClientBase.h>
 
 namespace android {
@@ -41,6 +41,8 @@ namespace hardware {
 namespace gnss {
 namespace V1_1 {
 namespace implementation {
+
+enum BATCHING_STATE { STARTED, STOPPING, STOPPED };
 
 class BatchingAPIClient : public LocationAPIClientBase
 {
@@ -62,8 +64,12 @@ public:
 
 private:
     sp<V1_0::IGnssBatchingCallback> mGnssBatchingCbIface;
+    std::mutex mMutex;
     uint32_t mDefaultId;
     LocationCapabilitiesMask mLocationCapabilitiesMask;
+    volatile BATCHING_STATE mState = STOPPED;
+
+    std::vector<Location> mBatchedLocationInCache;
 };
 
 }  // namespace implementation

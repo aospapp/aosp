@@ -16,7 +16,7 @@
 
 package android.graphics;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 
 import android.annotation.NonNull;
@@ -222,7 +222,7 @@ public class BidiRenderer {
     }
 
     private static void logFontWarning() {
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_BROKEN,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_BROKEN,
                 "Some fonts could not be loaded. The rendering may not be perfect.", null, null,
                 null);
     }

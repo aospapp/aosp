@@ -27,7 +27,7 @@
     <test class="com.android.tradefed.testtype.UiAutomatorTest">
         <option name="instrumentation" value="true"/>
         <option name="package" value="com.android.uibench.janktests" />
-        <option name="runner" value="android.support.test.runner.AndroidJUnitRunner" />
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="isolated-storage" value="false" />
     </test>
 </configuration>

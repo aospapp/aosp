@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding:utf-8 -*-
 # Copyright 2016 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,8 +15,6 @@
 
 """Wrapper to run pylint with the right settings."""
 
-from __future__ import print_function
-
 import argparse
 import errno
 import os
@@ -26,8 +23,8 @@ import sys
 import subprocess
 
 
-assert (sys.version_info.major, sys.version_info.minor) >= (3, 5), (
-    'Python 3.5 or newer is required; found %s' % (sys.version,))
+assert (sys.version_info.major, sys.version_info.minor) >= (3, 6), (
+    'Python 3.6 or newer is required; found %s' % (sys.version,))
 
 
 DEFAULT_PYLINTRC_PATH = os.path.join(

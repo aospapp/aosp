@@ -4,20 +4,13 @@
 
 // Exported interface to basic qcow functionality to be used from C.
 
-use libc::{EBADFD, EINVAL, EIO, ENOSYS};
+use libc::{EINVAL, EIO, ENOSYS};
 use std::ffi::CStr;
-use std::fs::{File, OpenOptions};
-use std::io::{Seek, SeekFrom};
-use std::mem::forget;
+use std::fs::OpenOptions;
 use std::os::raw::{c_char, c_int};
-use std::os::unix::io::FromRawFd;
-use std::panic::catch_unwind;
 
-use qcow::{ImageType, QcowFile};
-use sys_util::{flock, FileSetLen, FlockOperation};
-
-trait DiskFile: FileSetLen + Seek {}
-impl<D: FileSetLen + Seek> DiskFile for D {}
+use base::{flock, FlockOperation};
+use disk::{DiskFile, ImageType, QcowFile};
 
 #[no_mangle]
 pub unsafe extern "C" fn create_qcow_with_size(path: *const c_char, virtual_size: u64) -> c_int {
@@ -71,17 +64,18 @@ pub unsafe extern "C" fn expand_disk_image(path: *const c_char, virtual_size: u6
         return -EIO;
     }
 
-    let image_type = match qcow::detect_image_type(&raw_image) {
+    let image_type = match disk::detect_image_type(&raw_image) {
         Ok(t) => t,
         Err(_) => return -EINVAL,
     };
 
-    let mut disk_image: Box<DiskFile> = match image_type {
+    let disk_image: Box<dyn DiskFile> = match image_type {
         ImageType::Raw => Box::new(raw_image),
         ImageType::Qcow2 => match QcowFile::from(raw_image) {
             Ok(f) => Box::new(f),
             Err(_) => return -EINVAL,
         },
+        _ => return -EINVAL,
     };
 
     // For safety against accidentally shrinking the disk image due to a
@@ -91,7 +85,7 @@ pub unsafe extern "C" fn expand_disk_image(path: *const c_char, virtual_size: u6
     // acquired by other instances of this function as well as crosvm
     // itself when running a VM, so this should be safe in all cases that
     // can access a disk image in normal operation.
-    let current_size = match disk_image.seek(SeekFrom::End(0)) {
+    let current_size = match disk_image.get_len() {
         Ok(len) => len,
         Err(_) => return -EIO,
     };
@@ -102,55 +96,5 @@ pub unsafe extern "C" fn expand_disk_image(path: *const c_char, virtual_size: u6
     match disk_image.set_len(virtual_size) {
         Ok(_) => 0,
         Err(_) => -ENOSYS,
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn convert_to_qcow2(src_fd: c_int, dst_fd: c_int) -> c_int {
-    // The caller is responsible for passing valid file descriptors.
-    // The caller retains ownership of the file descriptors.
-    let src_file = File::from_raw_fd(src_fd);
-    let src_file_owned = src_file.try_clone();
-    forget(src_file);
-
-    let dst_file = File::from_raw_fd(dst_fd);
-    let dst_file_owned = dst_file.try_clone();
-    forget(dst_file);
-
-    match (src_file_owned, dst_file_owned) {
-        (Ok(src_file), Ok(dst_file)) => {
-            catch_unwind(
-                || match qcow::convert(src_file, dst_file, ImageType::Qcow2) {
-                    Ok(_) => 0,
-                    Err(_) => -EIO,
-                },
-            )
-            .unwrap_or(-EIO)
-        }
-        _ => -EBADFD,
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn convert_to_raw(src_fd: c_int, dst_fd: c_int) -> c_int {
-    // The caller is responsible for passing valid file descriptors.
-    // The caller retains ownership of the file descriptors.
-    let src_file = File::from_raw_fd(src_fd);
-    let src_file_owned = src_file.try_clone();
-    forget(src_file);
-
-    let dst_file = File::from_raw_fd(dst_fd);
-    let dst_file_owned = dst_file.try_clone();
-    forget(dst_file);
-
-    match (src_file_owned, dst_file_owned) {
-        (Ok(src_file), Ok(dst_file)) => {
-            catch_unwind(|| match qcow::convert(src_file, dst_file, ImageType::Raw) {
-                Ok(_) => 0,
-                Err(_) => -EIO,
-            })
-            .unwrap_or(-EIO)
-        }
-        _ => -EBADFD,
     }
 }

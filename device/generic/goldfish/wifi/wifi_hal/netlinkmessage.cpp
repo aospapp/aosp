@@ -22,6 +22,7 @@
 #include <linux/rtnetlink.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <netlink/msg.h>
 
 size_t getSpaceForMessageType(uint16_t type) {
     switch (type) {
@@ -51,13 +52,12 @@ NetlinkMessage::NetlinkMessage(const char* data, size_t size)
 
 bool NetlinkMessage::getAttribute(int attributeId, void* data, size_t size) const {
     const void* value = nullptr;
-    uint16_t attrSize = 0;
-    if (!findAttribute(attributeId, &value, &attrSize)) {
+    const auto attr = nlmsg_find_attr((struct nlmsghdr*)mData.data(), sizeof(ifinfomsg), attributeId);
+    if (!attr) {
         return false;
     }
-    if (size > attrSize) {
-        return false;
-    }
+    value = (const uint8_t*) attr + NLA_HDRLEN;
+    size = attr->nla_len;
     memcpy(data, value, size);
     return true;
 }
@@ -70,31 +70,4 @@ uint16_t NetlinkMessage::type() const {
 uint32_t NetlinkMessage::sequence() const {
     auto header = reinterpret_cast<const nlmsghdr*>(mData.data());
     return header->nlmsg_seq;
-}
-
-bool NetlinkMessage::findAttribute(int attributeId,
-                                   const void** value,
-                                   uint16_t* size) const {
-    const uint8_t* end = mData.data() + mData.size();
-    size_t attrOffset = getSpaceForMessageType(type());
-    if (attrOffset == 0) {
-        return false;
-    }
-    const uint8_t* attribute = mData.data() + attrOffset;
-    while (attribute < end) {
-        auto header = reinterpret_cast<const nlattr*>(attribute);
-        if (header->nla_len == 0) {
-            // The length should include the header so the length should always
-            // be greater than zero. If it doesn't we're going to end up looping
-            // forever so ignore this.
-            return false;
-        }
-        if (header->nla_type == attributeId) {
-            *value = attribute + NLA_HDRLEN;
-            *size = header->nla_len;
-            return true;
-        }
-        attribute += header->nla_len;
-    }
-    return false;
 }

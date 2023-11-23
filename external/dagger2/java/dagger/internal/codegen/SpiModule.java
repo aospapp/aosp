@@ -24,6 +24,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import com.google.common.collect.ImmutableSet;
 import dagger.Module;
 import dagger.Provides;
+import dagger.internal.codegen.validation.BindingGraphValidator;
 import dagger.spi.BindingGraphPlugin;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -40,16 +41,21 @@ abstract class SpiModule {
   @Provides
   @Singleton
   static ImmutableSet<BindingGraphPlugin> externalPlugins(
-      @TestingPlugins Optional<ImmutableSet<BindingGraphPlugin>> testingPlugins) {
+      @TestingPlugins Optional<ImmutableSet<BindingGraphPlugin>> testingPlugins,
+      @ProcessorClassLoader ClassLoader processorClassLoader) {
     return testingPlugins.orElseGet(
         () ->
             ImmutableSet.copyOf(
-                ServiceLoader.load(
-                    BindingGraphPlugin.class, BindingGraphValidator.class.getClassLoader())));
+                ServiceLoader.load(BindingGraphPlugin.class, processorClassLoader)));
   }
 
   @Qualifier
   @Retention(RUNTIME)
   @Target({FIELD, PARAMETER, METHOD})
   @interface TestingPlugins {}
+
+  @Qualifier
+  @Retention(RUNTIME)
+  @Target({PARAMETER, METHOD})
+  @interface ProcessorClassLoader {}
 }

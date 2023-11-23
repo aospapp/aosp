@@ -6,14 +6,11 @@
 Core V4L2 API and codec utilities, ported from Chromium project.
 
 * common/
-Common helper classes for both components/ and store/.
+Common helper classes for components.
 
 * components/
-The C2Component implementations based on V4L2 API.
-
-* store/
-The implementation of C2ComponentStore. It is used for creating all the
-C2Components implemented at components/ folder.
+The C2Component implementations based on V4L2 API, and the implementation of
+C2ComponentStore for creating all the C2Components.
 
 * service/
 The Codec2's V4L2 IComponentStore service. The service initiates the component

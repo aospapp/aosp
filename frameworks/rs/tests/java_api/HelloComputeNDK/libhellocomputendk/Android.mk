@@ -20,13 +20,14 @@ include $(CLEAR_VARS)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_MODULE := libhellocomputendk
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := tests
 LOCAL_SRC_FILES := helloComputeNDK.cpp mono.rscript
 
-LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
-
 LOCAL_CFLAGS := -Wall -Werror
 LOCAL_LDFLAGS := -Wl,-Bsymbolic
+LOCAL_HEADER_LIBRARIES := jni_headers
 LOCAL_SHARED_LIBRARIES := libdl liblog libjnigraphics
 LOCAL_STATIC_LIBRARIES := libRScpp_static
 

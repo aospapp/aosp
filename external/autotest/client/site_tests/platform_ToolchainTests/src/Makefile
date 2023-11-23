@@ -17,10 +17,17 @@ fortify-runtime-tests: clang-fortify-driver.o clang-fortify-tests-1.o \
                        clang-fortify-tests-2.o
 	$(CXX) $(LDFLAGS) -o $@ $+
 
+# Test FORTIFY diagnostics in the same target as generating the .o file for
+# convenience. Testing diagnostics takes <1sec, and these tests silently fell
+# off the radar before (crbug.com/1159199).
 clang-fortify-tests-1.o: $(fortify-test-src)
+	# FIXME(crbug.com/1159199): Reenable this once the glibc fix is live.
+	# $(fortify-cxx) $(fortify-diag-flags) -D_FORTIFY_SOURCE=1
 	$(fortify-cxx) $(fortify-runtime-flags) -c -D_FORTIFY_SOURCE=1 -o $@
 
 clang-fortify-tests-2.o: $(fortify-test-src)
+	# FIXME(crbug.com/1159199): Reenable this once the glibc fix is live.
+	# $(fortify-cxx) $(fortify-diag-flags) -D_FORTIFY_SOURCE=2
 	$(fortify-cxx) $(fortify-runtime-flags) -c -D_FORTIFY_SOURCE=2 -o $@
 
 clean:
@@ -31,7 +38,3 @@ install:
 	install -m 0755 toolchain-tests $(DESTDIR)/usr/local/bin
 	install -m 0755 fortify-runtime-tests $(DESTDIR)/usr/local/bin
 
-.PHONY: check
-check:
-	$(fortify-cxx) $(fortify-diag-flags) -D_FORTIFY_SOURCE=1
-	$(fortify-cxx) $(fortify-diag-flags) -D_FORTIFY_SOURCE=2

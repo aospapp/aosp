@@ -166,11 +166,15 @@ enum RestrictedState : int32_t {
 };
 
 enum CardState : int32_t {
+    /* card is physically absent from device. (Some old modems use CardState.ABSENT when the SIM
+       is powered off. This is no longer correct, however the platform will still support this
+       legacy behavior.) */
     ABSENT,
+    /* card is inserted in the device */
     PRESENT,
     ERROR,
-    RESTRICTED,                           // card is present but not usable due to carrier
-                                          // restrictions
+    /* card is present but not usable due to carrier restrictions */
+    RESTRICTED,
 };
 
 enum PinState : int32_t {
@@ -1890,8 +1894,8 @@ struct Carrier {
 };
 
 struct CarrierRestrictions {
-    vec<Carrier> allowedCarriers;         // whitelist for allowed carriers
-    vec<Carrier> excludedCarriers;        // blacklist for explicitly excluded carriers
+    vec<Carrier> allowedCarriers;         // Allowed carriers
+    vec<Carrier> excludedCarriers;        // Explicitly excluded carriers
                                           // which match allowed_carriers. Eg. allowedCarriers
                                           // match mcc/mnc, excludedCarriers has same mcc/mnc and
                                           // gid1 is ABCD. It means except the carrier whose gid1

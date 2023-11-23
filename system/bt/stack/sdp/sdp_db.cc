@@ -32,7 +32,6 @@
 #include "sdp_api.h"
 #include "sdpint.h"
 
-#if (SDP_SERVER_ENABLED == TRUE)
 /******************************************************************************/
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */
 /******************************************************************************/
@@ -232,8 +231,6 @@ static int sdp_compose_proto_list(uint8_t* p, uint16_t num_elem,
   return (p - p_head);
 }
 
-#endif /* SDP_SERVER_ENABLED == TRUE */
-
 /*******************************************************************************
  *
  * Function         SDP_CreateRecord
@@ -247,7 +244,6 @@ static int sdp_compose_proto_list(uint8_t* p, uint16_t num_elem,
  *
  ******************************************************************************/
 uint32_t SDP_CreateRecord(void) {
-#if (SDP_SERVER_ENABLED == TRUE)
   uint32_t handle;
   uint8_t buf[4];
   tSDP_DB* p_db = &sdp_cb.server_db;
@@ -276,7 +272,6 @@ uint32_t SDP_CreateRecord(void) {
   } else
     SDP_TRACE_ERROR("SDP_CreateRecord fail, exceed maximum records:%d",
                     SDP_MAX_RECORDS);
-#endif
   return (0);
 }
 
@@ -294,7 +289,6 @@ uint32_t SDP_CreateRecord(void) {
  *
  ******************************************************************************/
 bool SDP_DeleteRecord(uint32_t handle) {
-#if (SDP_SERVER_ENABLED == TRUE)
   uint16_t xx, yy, zz;
   tSDP_RECORD* p_rec = &sdp_cb.server_db.record[0];
 
@@ -333,7 +327,6 @@ bool SDP_DeleteRecord(uint32_t handle) {
       }
     }
   }
-#endif
   return (false);
 }
 
@@ -353,7 +346,6 @@ bool SDP_DeleteRecord(uint32_t handle) {
  ******************************************************************************/
 bool SDP_AddAttribute(uint32_t handle, uint16_t attr_id, uint8_t attr_type,
                       uint32_t attr_len, uint8_t* p_val) {
-#if (SDP_SERVER_ENABLED == TRUE)
   uint16_t xx, yy, zz;
   tSDP_RECORD* p_rec = &sdp_cb.server_db.record[0];
 
@@ -380,11 +372,22 @@ bool SDP_AddAttribute(uint32_t handle, uint16_t attr_id, uint8_t attr_type,
           "SDP_AddAttribute: handle:%X, id:%04X, type:%d, len:%d, p_val:%p, "
           "*p_val:%d",
           handle, attr_id, attr_type, attr_len, p_val, *p_val);
+    } else if ((attr_type == TEXT_STR_DESC_TYPE) ||
+               (attr_type == URL_DESC_TYPE)) {
+      if (p_val[attr_len - 1] == '\0') {
+        SDP_TRACE_DEBUG(
+            "SDP_AddAttribute: handle:%X, id:%04X, type:%d, len:%d, p_val:%p, "
+            "*p_val:%s",
+            handle, attr_id, attr_type, attr_len, p_val, (char*)p_val);
+      } else {
+        SDP_TRACE_DEBUG(
+            "SDP_AddAttribute: handle:%X, id:%04X, type:%d, len:%d, p_val:%p",
+            handle, attr_id, attr_type, attr_len, p_val);
+      }
     } else {
       SDP_TRACE_DEBUG(
-          "SDP_AddAttribute: handle:%X, id:%04X, type:%d, len:%d, p_val:%p, "
-          "*p_val:%s",
-          handle, attr_id, attr_type, attr_len, p_val, p_val);
+          "SDP_AddAttribute: handle:%X, id:%04X, type:%d, len:%d, p_val:%p",
+          handle, attr_id, attr_type, attr_len, p_val);
     }
   }
 
@@ -451,7 +454,6 @@ bool SDP_AddAttribute(uint32_t handle, uint16_t attr_id, uint8_t attr_type,
       return (true);
     }
   }
-#endif
   return (false);
 }
 
@@ -471,7 +473,6 @@ bool SDP_AddAttribute(uint32_t handle, uint16_t attr_id, uint8_t attr_type,
  ******************************************************************************/
 bool SDP_AddSequence(uint32_t handle, uint16_t attr_id, uint16_t num_elem,
                      uint8_t type[], uint8_t len[], uint8_t* p_val[]) {
-#if (SDP_SERVER_ENABLED == TRUE)
   uint16_t xx;
   uint8_t* p;
   uint8_t* p_head;
@@ -526,9 +527,6 @@ bool SDP_AddSequence(uint32_t handle, uint16_t attr_id, uint16_t num_elem,
                             (uint32_t)(p - p_buff), p_buff);
   osi_free(p_buff);
   return result;
-#else /* SDP_SERVER_ENABLED == FALSE */
-  return (false);
-#endif
 }
 
 /*******************************************************************************
@@ -545,7 +543,6 @@ bool SDP_AddSequence(uint32_t handle, uint16_t attr_id, uint16_t num_elem,
  ******************************************************************************/
 bool SDP_AddUuidSequence(uint32_t handle, uint16_t attr_id, uint16_t num_uuids,
                          uint16_t* p_uuids) {
-#if (SDP_SERVER_ENABLED == TRUE)
   uint16_t xx;
   uint8_t* p;
   int32_t max_len = SDP_MAX_ATTR_LEN - 3;
@@ -571,9 +568,6 @@ bool SDP_AddUuidSequence(uint32_t handle, uint16_t attr_id, uint16_t num_uuids,
                             (uint32_t)(p - p_buff), p_buff);
   osi_free(p_buff);
   return result;
-#else /* SDP_SERVER_ENABLED == FALSE */
-  return (false);
-#endif
 }
 
 /*******************************************************************************
@@ -590,7 +584,6 @@ bool SDP_AddUuidSequence(uint32_t handle, uint16_t attr_id, uint16_t num_uuids,
  ******************************************************************************/
 bool SDP_AddProtocolList(uint32_t handle, uint16_t num_elem,
                          tSDP_PROTOCOL_ELEM* p_elem_list) {
-#if (SDP_SERVER_ENABLED == TRUE)
   int offset;
   bool result;
   uint8_t* p_buff =
@@ -601,9 +594,6 @@ bool SDP_AddProtocolList(uint32_t handle, uint16_t num_elem,
                             DATA_ELE_SEQ_DESC_TYPE, (uint32_t)offset, p_buff);
   osi_free(p_buff);
   return result;
-#else /* SDP_SERVER_ENABLED == FALSE */
-  return (false);
-#endif
 }
 
 /*******************************************************************************
@@ -620,7 +610,6 @@ bool SDP_AddProtocolList(uint32_t handle, uint16_t num_elem,
  ******************************************************************************/
 bool SDP_AddAdditionProtoLists(uint32_t handle, uint16_t num_elem,
                                tSDP_PROTO_LIST_ELEM* p_proto_list) {
-#if (SDP_SERVER_ENABLED == TRUE)
   uint16_t xx;
   uint8_t* p;
   uint8_t* p_len;
@@ -647,10 +636,6 @@ bool SDP_AddAdditionProtoLists(uint32_t handle, uint16_t num_elem,
                        DATA_ELE_SEQ_DESC_TYPE, (uint32_t)(p - p_buff), p_buff);
   osi_free(p_buff);
   return result;
-
-#else /* SDP_SERVER_ENABLED == FALSE */
-  return (false);
-#endif
 }
 
 /*******************************************************************************
@@ -667,7 +652,6 @@ bool SDP_AddAdditionProtoLists(uint32_t handle, uint16_t num_elem,
  ******************************************************************************/
 bool SDP_AddProfileDescriptorList(uint32_t handle, uint16_t profile_uuid,
                                   uint16_t version) {
-#if (SDP_SERVER_ENABLED == TRUE)
   uint8_t* p;
   bool result;
   uint8_t* p_buff = (uint8_t*)osi_malloc(sizeof(uint8_t) * SDP_MAX_ATTR_LEN);
@@ -692,10 +676,6 @@ bool SDP_AddProfileDescriptorList(uint32_t handle, uint16_t profile_uuid,
                        DATA_ELE_SEQ_DESC_TYPE, (uint32_t)(p - p_buff), p_buff);
   osi_free(p_buff);
   return result;
-
-#else /* SDP_SERVER_ENABLED == FALSE */
-  return (false);
-#endif
 }
 
 /*******************************************************************************
@@ -712,7 +692,6 @@ bool SDP_AddProfileDescriptorList(uint32_t handle, uint16_t profile_uuid,
  ******************************************************************************/
 bool SDP_AddLanguageBaseAttrIDList(uint32_t handle, uint16_t lang,
                                    uint16_t char_enc, uint16_t base_id) {
-#if (SDP_SERVER_ENABLED == TRUE)
   uint8_t* p;
   bool result;
   uint8_t* p_buff = (uint8_t*)osi_malloc(sizeof(uint8_t) * SDP_MAX_ATTR_LEN);
@@ -735,9 +714,6 @@ bool SDP_AddLanguageBaseAttrIDList(uint32_t handle, uint16_t lang,
                        DATA_ELE_SEQ_DESC_TYPE, (uint32_t)(p - p_buff), p_buff);
   osi_free(p_buff);
   return result;
-#else /* SDP_SERVER_ENABLED == FALSE */
-  return (false);
-#endif
 }
 
 /*******************************************************************************
@@ -754,7 +730,6 @@ bool SDP_AddLanguageBaseAttrIDList(uint32_t handle, uint16_t lang,
  ******************************************************************************/
 bool SDP_AddServiceClassIdList(uint32_t handle, uint16_t num_services,
                                uint16_t* p_service_uuids) {
-#if (SDP_SERVER_ENABLED == TRUE)
   uint16_t xx;
   uint8_t* p;
   bool result;
@@ -773,9 +748,6 @@ bool SDP_AddServiceClassIdList(uint32_t handle, uint16_t num_services,
                        DATA_ELE_SEQ_DESC_TYPE, (uint32_t)(p - p_buff), p_buff);
   osi_free(p_buff);
   return result;
-#else /* SDP_SERVER_ENABLED == FALSE */
-  return (false);
-#endif
 }
 
 /*******************************************************************************
@@ -790,19 +762,18 @@ bool SDP_AddServiceClassIdList(uint32_t handle, uint16_t num_services,
  *
  ******************************************************************************/
 bool SDP_DeleteAttribute(uint32_t handle, uint16_t attr_id) {
-#if (SDP_SERVER_ENABLED == TRUE)
   tSDP_RECORD* p_rec = &sdp_cb.server_db.record[0];
   uint8_t* pad_ptr;
   uint32_t len; /* Number of bytes in the entry */
 
   /* Find the record in the database */
-  for (uint16_t xx = 0; xx < sdp_cb.server_db.num_records; xx++, p_rec++) {
+  for (uint16_t record_index = 0; record_index < sdp_cb.server_db.num_records; record_index++, p_rec++) {
     if (p_rec->record_handle == handle) {
       tSDP_ATTRIBUTE* p_attr = &p_rec->attribute[0];
 
       SDP_TRACE_API("Deleting attr_id 0x%04x for handle 0x%x", attr_id, handle);
       /* Found it. Now, find the attribute */
-      for (uint16_t yy = 0; yy < p_rec->num_attributes; yy++, p_attr++) {
+      for (uint16_t attribute_index = 0; attribute_index < p_rec->num_attributes; attribute_index++, p_attr++) {
         if (p_attr->id == attr_id) {
           pad_ptr = p_attr->value_ptr;
           len = p_attr->len;
@@ -817,15 +788,15 @@ bool SDP_DeleteAttribute(uint32_t handle, uint16_t attr_id) {
           /* Found it. Shift everything up one */
           p_rec->num_attributes--;
 
-          for (uint16_t zz = xx; zz < p_rec->num_attributes; zz++, p_attr++) {
+          for (uint16_t zz = attribute_index; zz < p_rec->num_attributes; zz++, p_attr++) {
             *p_attr = *(p_attr + 1);
           }
 
           /* adjust attribute values if needed */
           if (len) {
-            xx =
+            uint16_t last_attribute_to_adjust =
                 (p_rec->free_pad_ptr - ((pad_ptr + len) - &p_rec->attr_pad[0]));
-            for (uint16_t zz = 0; zz < xx; zz++, pad_ptr++) {
+            for (uint16_t zz = 0; zz < last_attribute_to_adjust; zz++, pad_ptr++) {
               *pad_ptr = *(pad_ptr + len);
             }
             p_rec->free_pad_ptr -= len;
@@ -835,7 +806,6 @@ bool SDP_DeleteAttribute(uint32_t handle, uint16_t attr_id) {
       }
     }
   }
-#endif
   /* If here, not found */
   return (false);
 }

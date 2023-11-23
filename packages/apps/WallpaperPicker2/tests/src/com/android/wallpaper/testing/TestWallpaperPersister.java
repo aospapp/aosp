@@ -85,6 +85,7 @@ public class TestWallpaperPersister implements WallpaperPersister {
             if (destination == DEST_LOCK_SCREEN || destination == DEST_BOTH) {
                 mPendingLockWallpaper = bitmap;
                 mPrefs.setLockWallpaperAttributions(wallpaperInfo.getAttributions(mAppContext));
+                mPrefs.setLockWallpaperRemoteId(wallpaperInfo.getWallpaperId());
             }
             mDestination = destination;
             mCallback = callback;
@@ -109,6 +110,7 @@ public class TestWallpaperPersister implements WallpaperPersister {
                 mPrefs.setWallpaperPresentationMode(WallpaperPreferences.PRESENTATION_MODE_STATIC);
                 mPendingLockWallpaper = bitmap;
                 mPrefs.setLockWallpaperAttributions(wallpaper.getAttributions(mAppContext));
+                mPrefs.setLockWallpaperRemoteId(wallpaper.getWallpaperId());
 
                 mDestination = WallpaperPersister.DEST_BOTH;
                 mCallback = callback;

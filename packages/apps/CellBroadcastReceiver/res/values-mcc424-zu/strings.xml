@@ -16,12 +16,17 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="175237477015066795">"Isaziso esiphuthumayo sikazwelonke"</string>
-    <string name="pws_other_message_identifiers" msgid="9062780351883657067">"Isexwayiso sokuxwayisa"</string>
-    <string name="public_safety_message" msgid="2187283654023170988">"Isexwayiso sokuphepha esidlangalaleni"</string>
+    <string name="cmas_presidential_level_alert" msgid="569470769079166304">"Isexwayiso Esiphuthumayo Sikazwelonke"</string>
+    <string name="cmas_extreme_alert" msgid="9135130008703049274">"Isexwayiso Esiphuthumayo"</string>
+    <string name="cmas_extreme_immediate_observed_alert" msgid="713620529362685655">"Isexwayiso Esiphuthumayo"</string>
+    <string name="cmas_extreme_immediate_likely_alert" msgid="6858545279275537101">"Isexwayiso Esiphuthumayo"</string>
+    <string name="cmas_severe_alert" msgid="6255792641522355328">"Isexwayiso Esiphuthumayo"</string>
+    <string name="pws_other_message_identifiers" msgid="2219849459734958071">"Isexwayiso Sokuxwayisa"</string>
+    <string name="public_safety_message" msgid="6430821308078207535">"Isexwayiso Sokuphepha Esidlangalaleni"</string>
     <string name="cmas_exercise_alert" msgid="5775307523978007483">"Ukuzivocavoca"</string>
-    <string name="cmas_required_monthly_test" msgid="7606843318721168353">"Isixwayiso sokuhlola"</string>
-    <string name="state_local_test_alert" msgid="3092681020067564217">"Isixwayiso sokuhlola"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="876981179796412627">"Izexwayiso"</string>
-    <string name="enable_public_safety_messages_title" msgid="4810131816678424099">"Izexwayiso zokuphepha esidlangalaleni"</string>
+    <string name="cmas_required_monthly_test" msgid="638043663020315444">"Isexwayiso Sokuhlola"</string>
+    <string name="state_local_test_alert" msgid="5347253401221487116">"Isexwayiso Sokuhlola"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="5365080705719184919">"Izexwayiso Zokuxwayisa"</string>
+    <string name="enable_public_safety_messages_title" msgid="4702006823902961758">"Izexwayiso Zokuphepha Esidlangalaleni"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="3586102183699625309">"Izexwayiso Zokuhlola"</string>
 </resources>

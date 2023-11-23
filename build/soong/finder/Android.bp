@@ -16,8 +16,12 @@
 // fast, parallel, caching implementation of `find`
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 subdirs = [
-    "cmd"
+    "cmd",
 ]
 
 bootstrap_go_package {
@@ -30,8 +34,6 @@ bootstrap_go_package {
         "finder_test.go",
     ],
     deps: [
-      "soong-finder-fs",
+        "soong-finder-fs",
     ],
 }
-
-

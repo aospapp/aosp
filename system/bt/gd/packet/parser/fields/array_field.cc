@@ -96,7 +96,7 @@ void ArrayField::GenExtractor(std::ostream& s, int num_leading_bits, bool for_st
   if (element_field_->BuilderParameterMustBeMoved()) {
     s << element_field_->GetDataType() << " " << element_field_->GetName() << "_ptr;";
   } else {
-    s << element_field_->GetDataType() << "* " << element_field_->GetName() << "_ptr = ret_it;";
+    s << "auto " << element_field_->GetName() << "_ptr = ret_it;";
   }
   element_field_->GenExtractor(s, num_leading_bits, for_struct);
   if (element_field_->BuilderParameterMustBeMoved()) {
@@ -119,7 +119,7 @@ void ArrayField::GenGetter(std::ostream& s, Size start_offset, Size end_offset) 
   s << "auto to_bound = begin();";
 
   int num_leading_bits = GenBounds(s, start_offset, end_offset, GetSize());
-  s << GetDataType() << " " << GetName() << "_value;";
+  s << GetDataType() << " " << GetName() << "_value{};";
   s << GetDataType() << "* " << GetName() << "_ptr = &" << GetName() << "_value;";
   GenExtractor(s, num_leading_bits, false);
 
@@ -174,4 +174,39 @@ bool ArrayField::IsContainerField() const {
 
 const PacketField* ArrayField::GetElementField() const {
   return element_field_;
+}
+
+void ArrayField::GenStringRepresentation(std::ostream& s, std::string accessor) const {
+  s << "\"ARRAY[\";";
+  s << "/* " << element_field_->GetDataType() << "   " << element_field_->GetFieldType() << " */";
+
+  std::string arr_idx = "arridx_" + accessor;
+  std::string arr_size = std::to_string(array_size_);
+  s << "for (size_t index = 0; index < " << arr_size << "; index++) {";
+  std::string element_accessor = "(" + accessor + "[index])";
+  s << "ss << ((index == 0) ? \"\" : \", \") << ";
+
+  if (element_field_->GetFieldType() == CustomField::kFieldType) {
+    s << element_accessor << ".ToString()";
+  } else {
+    element_field_->GenStringRepresentation(s, element_accessor);
+  }
+
+  s << ";}";
+  s << "ss << \"]\"";
+}
+
+std::string ArrayField::GetRustDataType() const {
+  return "[" + element_field_->GetRustDataType() + "; " + std::to_string(array_size_) + "]";
+}
+
+void ArrayField::GenRustGetter(std::ostream& s, Size start_offset, Size) const {
+  s << "let " << GetName() << " = ";
+  s << "bytes[" << start_offset.bytes() << "..";
+  s << start_offset.bytes() + GetSize().bytes() << "].try_into().unwrap();";
+}
+
+void ArrayField::GenRustWriter(std::ostream& s, Size start_offset, Size) const {
+  s << "&buffer[" << start_offset.bytes() << ".." << start_offset.bytes() + GetSize().bytes()
+    << "].copy_from_slice(&self." << GetName() << ");";
 }

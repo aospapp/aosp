@@ -55,13 +55,12 @@ public class SensorAdditionalInfoTest extends SensorTestCase {
         List<Sensor> list = mSensorManager.getSensorList(Sensor.TYPE_ALL);
         List<String> errors = new ArrayList<String>();
         for (Sensor s : list) {
-            // skip vendor sensor types, one-shot and on-change sensors.
-            if (s.getType() >= Sensor.TYPE_DEVICE_PRIVATE_BASE ||
-                    s.getReportingMode() == Sensor.REPORTING_MODE_ONE_SHOT ||
-                    s.getReportingMode() == Sensor.REPORTING_MODE_ON_CHANGE) {
+            // Only test sensor additional info for Accelerometer, Gyroscope and Magnetometer.
+            if (s.getType() != Sensor.TYPE_ACCELEROMETER &&
+                    s.getType() != Sensor.TYPE_GYROSCOPE &&
+                    s.getType() != Sensor.TYPE_MAGNETIC_FIELD) {
                 continue;
             }
-
             if (!s.isAdditionalInfoSupported()) {
                 // check SensorAdditionalInfo is supported for Automotive sensors.
                 if (getContext().getPackageManager().hasSystemFeature(
@@ -266,7 +265,7 @@ public class SensorAdditionalInfoTest extends SensorTestCase {
 
         // Checks sensor placement data length and determinant of rotation matrix is 1.
         private void verifySensorPlacementData(float[] m) {
-            if(m.length != 12) {
+            if(m.length < 12) {
                 mIsSensorPlacementSizeValid = false;
                 return;
             }

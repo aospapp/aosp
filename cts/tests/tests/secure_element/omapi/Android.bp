@@ -15,15 +15,17 @@
 //////////////////////////////////////////////////////////////////
 // Signed Package
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_import {
     name: "signed-CtsOmapiTestCases",
     apk: "apk/signed-CtsOmapiTestCases.apk",
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
-        "cts-instant",
     ],
     // Make sure the build system doesn't try to resign the APK
     presigned: true,
@@ -51,7 +53,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     dist: {

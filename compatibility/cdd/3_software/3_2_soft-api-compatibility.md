@@ -243,35 +243,31 @@ of these values to which device implementations MUST conform.
 
 ### 3.2.3\. Intent Compatibility
 
-#### 3.2.3.1\. Core Application Intents
+#### 3.2.3.1\. Common Application Intents
 
 Android intents allow application components to request functionality from
 other Android components. The Android upstream project includes a list of
-applications considered core Android applications, which implements several
-intent patterns to perform common actions.
+applications which implement several intent patterns to perform common actions.
 
-*   [C-0-1] Device implementations MUST preload one or more applications or
+Device implementations:
+
+*   [C-SR] Are STRONGLY RECOMMENDED to preload one or more applications or
 service components with an intent handler, for all the public intent filter
-patterns defined by the following core android applications in AOSP:
+patterns defined by the following application intents listed [here](https://developer.android.com/about/versions/11/reference/common-intents-30)
+and provide fulfillment i.e meet with the developer expectation for these common
+application intents as described in the SDK.
 
-     *   Desk Clock
-     *   Browser
-     *   Calendar
-     *   Contacts
-     *   Gallery
-     *   GlobalSearch
-     *   Launcher
-     *   Music
-     *   Settings
+Please refer to [Section 2](#2_device_types) for mandatory application intents
+for each device type.
 
 #### 3.2.3.2\. Intent Resolution
 
 *   [C-0-1] As Android is an extensible platform, device implementations MUST
-allow each intent pattern referenced in [section 3.2.3.1](#3_2_3_1_core_application_intents)
+allow each intent pattern referenced in [section 3.2.3.1](#3_2_3_1_common_application_intents)
 , except for Settings, to be overridden by third-party applications. The
 upstream Android open source implementation allows this by default.
 
-*   [C-0-2] Dvice implementers MUST NOT attach special privileges to system
+*   [C-0-2] Device implementers MUST NOT attach special privileges to system
 applications' use of these intent patterns, or prevent third-party applications
 from binding to and assuming control of these patterns. This prohibition
 specifically includes but is not limited to disabling the “Chooser” user
@@ -327,7 +323,7 @@ other key string in the android.* or com.android.* namespace.
 honor any new intent or broadcast intent patterns using an ACTION, CATEGORY, or
 other key string in a package space belonging to another organization.
 *   [C-0-3] Device implementers MUST NOT alter or extend any of the intent
-patterns used by the core apps listed in [section 3.2.3.1](#3_2_3_1_core_application_intents).
+patterns listed in [section 3.2.3.1](#3_2_3_1_common_application_intents).
 *   Device implementations MAY include intent patterns using namespaces clearly
 and obviously associated with their own organization. This prohibition is
 analogous to that specified for Java language classes in [section 3.6](#3_6_api_namespaces).
@@ -339,12 +335,15 @@ notify them of changes in the hardware or software environment.
 
 Device implementations:
 
-*   [C-0-1] MUST broadcast the public broadcast intents in response to
-    appropriate system events as described in the SDK documentation. Note that
-    this requirement is not conflicting with section 3.5 as the limitation for
-    background applications are also described in the SDK documentation.
+*   [C-0-1] MUST broadcast the public broadcast intents listed [here](https://developer.android.com/about/versions/11/reference/broadcast-intents-30)
+in response to appropriate system events as described in the SDK documentation.
+Note that this requirement is not conflicting with section 3.5 as the
+limitation for background applications are also described in the SDK
+documentation. Also certain broadcast intents are conditional upon hardware
+support, if the device supports the necessary hardware they MUST broadcast the
+intents and provide the behavior inline with SDK documentation.
 
-#### 3.2.3.5\. Default App Settings
+#### 3.2.3.5\. Conditional Application Intents
 
 Android includes settings that provide users an easy way to select their
 default applications, for example for Home screen or SMS.
@@ -384,28 +383,168 @@ well as a default PhoneAccount that the telecommunications service provider will
 use to place outgoing calls. The AOSP implementation meets this requirement by
 including a "Calling Accounts option" menu within the "Calls" settings menu.
 
-*   [C-2-4] MUST allow [`android.telecom.CallRedirectionService`](
-    https://developer.android.com/reference/android/telecom/CallRedirectionService) for an app
-    that holds the [`android.app.role.CALL_REDIRECTION`](
-    https://developer.android.com/reference/android/app/role/RoleManager#ROLE_CALL_REDIRECTION)
-    role.
-*   [C-2-5] MUST provide the user affordance to choose an app
-    that holds the [`android.app.role.CALL_REDIRECTION`](
-    https://developer.android.com/reference/android/app/role/RoleManager#ROLE_CALL_REDIRECTION)
-    role.
+*   [C-2-4] MUST allow [`android.telecom.CallRedirectionService`](https://developer.android.com/reference/android/telecom/CallRedirectionService)
+for an app that holds the [`android.app.role.CALL_REDIRECTION`](https://developer.android.com/reference/android/app/role/RoleManager#ROLE_CALL_REDIRECTION)
+role.
+*   [C-2-5] MUST provide the user affordance to choose an app that holds the
+[`android.app.role.CALL_REDIRECTION`](https://developer.android.com/reference/android/app/role/RoleManager#ROLE_CALL_REDIRECTION)
+role.
+*   [C-2-6] MUST honor the [android.intent.action.SENDTO](https://developer.android.com/reference/android/content/Intent#ACTION_SENDTO)
+and [android.intent.action.VIEW](https://developer.android.com/reference/android/content/Intent#ACTION_VIEW)
+intents and provide an activity to send/display SMS messages.
+*   [C-SR] Are Strongly Recommended to honor [android.intent.action.ANSWER](https://developer.android.com/reference/android/content/Intent#ACTION_ANSWER),
+[android.intent.action.CALL](https://developer.android.com/reference/android/content/Intent#ACTION_CALL),
+[android.intent.action.CALL_BUTTON](https://developer.android.com/reference/android/content/Intent#ACTION_CALL_BUTTON),
+[android.intent.action.VIEW](https://developer.android.com/reference/android/content/Intent#ACTION_VIEW)
+& [android.intent.action.DIAL](https://developer.android.com/reference/android/content/Intent#ACTION_DIAL)
+intents with a preloaded dialer application which can handle these intents and
+provide fulfillment as described in the SDK.
 
 If device implementations report `android.hardware.nfc.hce`, they:
 
 *   [C-3-1] MUST honor the [android.settings.NFC_PAYMENT_SETTINGS](
 http://developer.android.com/reference/android/provider/Settings.html#ACTION_NFC_PAYMENT_SETTINGS)
 intent to show a default app settings menu for Tap and Pay.
+*   [C-3-2] MUST honor [android.nfc.cardemulation.action.ACTION_CHANGE_DEFAULT](https://developer.android.com/reference/android/nfc/cardemulation/CardEmulation#ACTION_CHANGE_DEFAULT)
+intent to show an activity which opens a dialog to ask the user to change the
+default card emulation service for a certain category as described in the SDK.
+
+If device implementations report `android.hardware.nfc`, they:
+
+*   [C-4-1] MUST honor these intents [android.nfc.action.NDEF_DISCOVERED](https://developer.android.com/reference/android/nfc/NfcAdapter#ACTION_NDEF_DISCOVERED),
+[android.nfc.action.TAG_DISCOVERED](https://developer.android.com/reference/android/nfc/NfcAdapter#ACTION_TAG_DISCOVERED)
+& [android.nfc.action.TECH_DISCOVERED](https://developer.android.com/reference/android/nfc/NfcAdapter#ACTION_TECH_DISCOVERED),
+to show an activity which fulfils developer expectations for these intents as
+described in the SDK.
 
 If device implementations support the `VoiceInteractionService` and have more
 than one application using this API installed at a time, they:
 
-*   [C-4-1] MUST honor the [`android.settings.ACTION_VOICE_INPUT_SETTINGS`](
-    https://developer.android.com/reference/android/provider/Settings.html#ACTION_VOICE_INPUT_SETTINGS)
-    intent to show a default app settings menu for voice input and assist.
+*   [C-4-1] MUST honor the [`android.settings.ACTION_VOICE_INPUT_SETTINGS`](https://developer.android.com/reference/android/provider/Settings.html#ACTION_VOICE_INPUT_SETTINGS)
+intent to show a default app settings menu for voice input and assist.
+
+If device implementations report `android.hardware.bluetooth`, they:
+
+*   [C-5-1] MUST honor the [‘android.bluetooth.adapter.action.REQUEST_ENABLE’](https://developer.android.com/reference/kotlin/android/bluetooth/BluetoothAdapter#action_request_enable)
+intent and show a system activity to allow the user to turn on Bluetooth. 
+*   [C-5-2] MUST honor the
+[‘android.bluetooth.adapter.action.REQUEST_DISCOVERABLE’](https://developer.android.com/reference/android/bluetooth/BluetoothAdapter#ACTION_REQUEST_DISCOVERABLE)
+intent and show a system activity that requests discoverable mode.
+
+If device implementations support the DND feature, they:
+
+*   [C-6-1] MUST implement an activity that would respond to the intent
+[`ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS`](https://developer.android.com/reference/android/provider/Settings#ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
+which for implementations with UI_MODE_TYPE_NORMAL it MUST be an activity where
+the user can grant or deny the app access to DND policy configurations.
+
+If device implementations allow users to use third-party input methods on the
+device, they:
+
+*   [C-7-1] MUST provide a user-accessible mechanism to add and configure
+third-party input methods in response to the
+[`android.settings.INPUT_METHOD_SETTINGS`](https://developer.android.com/reference/android/provider/Settings#ACTION_INPUT_METHOD_SETTINGS)
+intent.
+
+If device implementations support third-party accessibility services, they:
+
+*   [C-8-1] MUST honor the [`android.settings.ACCESSIBILITY_SETTINGS`](https://developer.android.com/reference/android/provider/Settings#ACTION_ACCESSIBILITY_SETTINGS)
+intent to provide a user-accessible mechanism to enable and disable the
+third-party accessibility services alongside the preloaded accessibility
+services.
+
+If device implementations include support for Wi-Fi Easy Connect and expose the
+functionality to third-party apps, they:
+
+*   [C-9-1] MUST implement the [Settings#ACTION_PROCESS_WIFI_EASY_CONNECT_URI](https://developer.android.com/reference/android/provider/Settings.html#ACTION_PROCESS_WIFI_EASY_CONNECT_URI)
+Intent APIs as described in the SDK documentation.
+
+If device implementations provide the data saver mode, they:
+*   [C-10-1] MUST provide a user interface in the settings, that handles the
+[`Settings.ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS`](https://developer.android.com/reference/android/provider/Settings.html#ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS)
+intent, allowing users to add applications to or remove applications from
+the allow list.
+
+If device implementations do not provide the data saver mode, they:
+
+*   [C-11-1] MUST have an activity that handles the
+[`Settings.ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS`](https://developer.android.com/reference/android/provider/Settings#ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS)
+intent but MAY implement it as a no-op.
+
+If device implementations declare the support for camera via
+`android.hardware.camera.any` they:
+
+*   [C-12-1] MUST honor the [`android.media.action.STILL_IMAGE_CAMERA`](https://developer.android.com/reference/android/provider/MediaStore#INTENT_ACTION_STILL_IMAGE_CAMERA)
+and [`android.media.action.STILL_IMAGE_CAMERA_SECURE`](https://developer.android.com/reference/android/provider/MediaStore#INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE)
+intent and launch the camera in still image mode as described in the SDK.
+*   [C-12-2] MUST honor the [`android.media.action.VIDEO_CAMERA`](https://developer.android.com/reference/android/provider/MediaStore#INTENT_ACTION_VIDEO_CAMERA)
+intent to launch the camera in video mode as described in the SDK.
+*   [C-12-3] MUST honor only allow preinstalled Android applications to handle
+the following intents [`MediaStore.ACTION_IMAGE_CAPTURE`](https://developer.android.com/reference/android/provider/MediaStore.html#ACTION_IMAGE_CAPTURE),
+[`MediaStore.ACTION_IMAGE_CAPTURE_SECURE`](https://developer.android.com/reference/android/provider/MediaStore.html#ACTION_IMAGE_CAPTURE_SECURE),
+and [`MediaStore.ACTION_VIDEO_CAPTURE`](https://developer.android.com/reference/android/provider/MediaStore.html#ACTION_VIDEO_CAPTURE)
+as described in the [SDK document](https://developer.android.com/preview/behavior-changes-11?hl=zh-tw#media-capture).
+
+If device implementations report `android.software.device_admin`, they:
+
+*   [C-13-1] MUST honor the intent [`android.app.action.ADD_DEVICE_ADMIN`](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#ACTION_ADD_DEVICE_ADMIN)
+to invoke a UI to bring the user through adding the device administrator to
+the system (or allowing them to reject it).
+
+*   [C-13-2] MUST honor the  intents
+[android.app.action.ADMIN_POLICY_COMPLIANCE](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#ACTION_ADMIN_POLICY_COMPLIANCE),
+[android.app.action.GET_PROVISIONING_MODE](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#ACTION_GET_PROVISIONING_MODE),
+[android.app.action.PROVISIONING_SUCCESSFUL](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#ACTION_PROVISIONING_SUCCESSFUL),
+[android.app.action.PROVISION_MANAGED_DEVICE](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#ACTION_PROVISION_MANAGED_DEVICE),
+[android.app.action.PROVISION_MANAGED_PROFILE](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#ACTION_PROVISION_MANAGED_PROFILE),
+[android.app.action.SET_NEW_PARENT_PROFILE_PASSWORD](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#ACTION_SET_NEW_PARENT_PROFILE_PASSWORD),
+[android.app.action.SET_NEW_PASSWORD](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#ACTION_SET_NEW_PASSWORD)
+& [android.app.action.START_ENCRYPTION](https://developer.android.com/reference/android/app/admin/DevicePolicyManager#ACTION_START_ENCRYPTION)
+and have an activity to provide fulfillment for these intents as described
+in SDK [here](https://developer.android.com/reference/android/app/admin/DevicePolicyManager).
+
+If device implementations declare the [`android.software.autofill`](https://developer.android.com/reference/android/content/pm/PackageManager.html#FEATURE_AUTOFILL)
+feature flag, they:
+
+*   [C-14-1] MUST fully implement the [`AutofillService`](https://developer.android.com/reference/android/service/autofill/AutofillService.html)
+and [`AutofillManager`](https://developer.android.com/reference/android/view/autofill/AutofillManager.html)
+APIs and honor the [android.settings.REQUEST_SET_AUTOFILL_SERVICE](https://developer.android.com/reference/android/provider/Settings.html#ACTION_REQUEST_SET_AUTOFILL_SERVICE)
+intent to show a default app settings menu to enable and disable autofill and
+change the default autofill service for the user.
+
+If device implementations include a pre-installed app or wish to allow
+third-party apps to access the usage statistics, they:
+
+*   [C-SR] are STRONGLY RECOMMENDED provide user-accessible mechanism to grant
+or revoke access to the usage stats in response to the
+[android.settings.ACTION_USAGE_ACCESS_SETTINGS](https://developer.android.com/reference/android/provider/Settings.html#ACTION&lowbar;USAGE&lowbar;ACCESS&lowbar;SETTINGS)
+intent for apps that declare the `android.permission.PACKAGE_USAGE_STATS`
+permission.
+
+If device implementations intend to disallow any apps, including pre-installed
+apps, from accessing the usage statistics, they:
+
+*   [C-15-1] MUST still have an activity that handles the
+[android.settings.ACTION_USAGE_ACCESS_SETTINGS](https://developer.android.com/reference/android/provider/Settings.html#ACTION&lowbar;USAGE&lowbar;ACCESS&lowbar;SETTINGS)
+intent pattern but MUST implement it as a no-op, that is to have an equivalent
+behavior as when the user is declined for access.
+
+If device implementations report the feature `android.hardware.audio.output`,
+they:
+
+*   [C-SR] Are Strongly Recommended to honor android.intent.action.TTS_SERVICE,
+android.speech.tts.engine.INSTALL_TTS_DATA &
+android.speech.tts.engine.GET_SAMPLE_TEXT intents have an activity to provide
+fulfillment for these intents as described in SDK [here](https://developer.android.com/reference/android/speech/tts/TextToSpeech.Engine).
+
+Android includes support for interactive screensavers, previously referred to
+as Dreams. Screen Savers allow users to interact with applications when a device
+connected to a power source is idle or docked in a desk dock.
+Device Implementations:
+
+*   SHOULD include support for screen savers and provide a settings option for
+users to configure screen savers in response to the
+`android.settings.DREAM_SETTINGS` intent. 
 
 ### 3.2.4\. Activities on secondary/multiple displays
 

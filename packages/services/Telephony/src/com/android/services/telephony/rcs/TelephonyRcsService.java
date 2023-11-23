@@ -33,6 +33,7 @@ import android.util.SparseArray;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.PhoneConfigurationManager;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.phone.R;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -47,34 +48,60 @@ public class TelephonyRcsService {
     private static final String LOG_TAG = "TelephonyRcsService";
 
     /**
-     * Used to inject RcsFeatureController and UserCapabilityExchangeImpl instances for testing.
+     * Used to inject RcsFeatureController and UceController instances for testing.
      */
     @VisibleForTesting
     public interface FeatureFactory {
         /**
-         * @return an {@link RcsFeatureController} assoicated with the slot specified.
+         * @return an {@link RcsFeatureController} associated with the slot specified.
          */
-        RcsFeatureController createController(Context context, int slotId);
+        RcsFeatureController createController(Context context, int slotId, int subId);
 
         /**
-         * @return an instance of {@link UserCapabilityExchangeImpl} associated with the slot
+         * @return an instance of {@link UceControllerManager} associated with the slot specified.
+         */
+        UceControllerManager createUceControllerManager(Context context, int slotId, int subId);
+
+        /**
+         * @return an instance of {@link SipTransportController} for the slot and subscription
          * specified.
          */
-        UserCapabilityExchangeImpl createUserCapabilityExchange(Context context, int slotId,
-                int subId);
+        SipTransportController createSipTransportController(Context context, int slotId, int subId);
     }
 
     private FeatureFactory mFeatureFactory = new FeatureFactory() {
         @Override
-        public RcsFeatureController createController(Context context, int slotId) {
-            return new RcsFeatureController(context, slotId);
+        public RcsFeatureController createController(Context context, int slotId, int subId) {
+            return new RcsFeatureController(context, slotId, subId);
         }
 
         @Override
-        public UserCapabilityExchangeImpl createUserCapabilityExchange(Context context, int slotId,
+        public UceControllerManager createUceControllerManager(Context context, int slotId,
                 int subId) {
-            return new UserCapabilityExchangeImpl(context, slotId, subId);
+            return new UceControllerManager(context, slotId, subId);
         }
+
+        @Override
+        public SipTransportController createSipTransportController(Context context, int slotId,
+                int subId) {
+            return new SipTransportController(context, slotId, subId);
+        }
+    };
+
+    /**
+     * Used to inject device resource for testing.
+     */
+    @VisibleForTesting
+    public interface ResourceProxy {
+        /**
+         * @return an whether the device supports User Capability Exchange.
+         */
+        boolean getDeviceUceEnabled(Context context);
+    }
+
+    private static ResourceProxy sResourceProxy = context -> {
+        return context.getResources().getBoolean(
+                R.bool.config_rcs_user_capability_exchange_enabled);
     };
 
     // Notifies this service that there has been a change in available slots.
@@ -86,6 +113,11 @@ public class TelephonyRcsService {
 
     // Maps slot ID -> RcsFeatureController.
     private SparseArray<RcsFeatureController> mFeatureControllers;
+    // Maps slotId -> associatedSubIds
+    private SparseArray<Integer> mSlotToAssociatedSubIds;
+
+    // Whether the device supports User Capability Exchange
+    private boolean mRcsUceEnabled;
 
     private BroadcastReceiver mCarrierConfigChangedReceiver = new BroadcastReceiver() {
         @Override
@@ -102,7 +134,7 @@ public class TelephonyRcsService {
                         SubscriptionManager.INVALID_PHONE_INDEX);
                 int subId = bundle.getInt(CarrierConfigManager.EXTRA_SUBSCRIPTION_INDEX,
                         SubscriptionManager.INVALID_SUBSCRIPTION_ID);
-                updateFeatureControllerSubscription(slotId, subId);
+                onCarrierConfigChangedForSlot(slotId, subId);
             }
         }
     };
@@ -129,6 +161,18 @@ public class TelephonyRcsService {
         mContext = context;
         mNumSlots = numSlots;
         mFeatureControllers = new SparseArray<>(numSlots);
+        mSlotToAssociatedSubIds = new SparseArray<>(numSlots);
+        mRcsUceEnabled = sResourceProxy.getDeviceUceEnabled(mContext);
+    }
+
+    @VisibleForTesting
+    public TelephonyRcsService(Context context, int numSlots, ResourceProxy resourceProxy) {
+        mContext = context;
+        mNumSlots = numSlots;
+        mFeatureControllers = new SparseArray<>(numSlots);
+        mSlotToAssociatedSubIds = new SparseArray<>(numSlots);
+        sResourceProxy = resourceProxy;
+        mRcsUceEnabled = sResourceProxy.getDeviceUceEnabled(mContext);
     }
 
     /**
@@ -178,6 +222,8 @@ public class TelephonyRcsService {
                     // Do not add feature controllers for inactive subscriptions
                     if (c.hasActiveFeatures()) {
                         mFeatureControllers.put(i, c);
+                        // Do not change mSlotToAssociatedSubIds, it will be updated upon carrier
+                        // config change.
                     }
                 }
             } else {
@@ -185,6 +231,7 @@ public class TelephonyRcsService {
                     RcsFeatureController c = mFeatureControllers.get(i);
                     if (c != null) {
                         mFeatureControllers.remove(i);
+                        mSlotToAssociatedSubIds.remove(i);
                         c.destroy();
                     }
                 }
@@ -192,19 +239,29 @@ public class TelephonyRcsService {
         }
     }
 
-    private void updateFeatureControllerSubscription(int slotId, int newSubId) {
+    /**
+     * ACTION_CARRIER_CONFIG_CHANGED was received by this service for a specific slot.
+     * @param slotId The slotId associated with the event.
+     * @param subId The subId associated with the event. May cause the subId associated with the
+     *              RcsFeatureController to change if the subscription itself has changed.
+     */
+    private void onCarrierConfigChangedForSlot(int slotId, int subId) {
         synchronized (mLock) {
             RcsFeatureController f = mFeatureControllers.get(slotId);
-            Log.i(LOG_TAG, "updateFeatureControllerSubscription: slotId=" + slotId + " newSubId="
-                    + newSubId + ", existing feature=" + (f != null));
-            if (SubscriptionManager.isValidSubscriptionId(newSubId)) {
+            final int oldSubId = mSlotToAssociatedSubIds.get(slotId,
+                    SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+            mSlotToAssociatedSubIds.put(slotId, subId);
+            Log.i(LOG_TAG, "updateFeatureControllerSubscription: slotId=" + slotId
+                    + ", oldSubId= " + oldSubId + ", subId=" + subId + ", existing feature="
+                    + (f != null));
+            if (SubscriptionManager.isValidSubscriptionId(subId)) {
                 if (f == null) {
                     // A controller doesn't exist for this slot yet.
-                    f = mFeatureFactory.createController(mContext, slotId);
-                    updateSupportedFeatures(f, slotId, newSubId);
+                    f = mFeatureFactory.createController(mContext, slotId, subId);
+                    updateSupportedFeatures(f, slotId, subId);
                     if (f.hasActiveFeatures()) mFeatureControllers.put(slotId, f);
                 } else {
-                    updateSupportedFeatures(f, slotId, newSubId);
+                    updateSupportedFeatures(f, slotId, subId);
                     // Do not keep an empty container around.
                     if (!f.hasActiveFeatures()) {
                         f.destroy();
@@ -212,30 +269,61 @@ public class TelephonyRcsService {
                     }
                 }
             }
-            if (f != null) f.updateAssociatedSubscription(newSubId);
+            if (f != null) {
+                if (oldSubId == subId) {
+                    f.onCarrierConfigChangedForSubscription();
+                } else {
+                    f.updateAssociatedSubscription(subId);
+                }
+            }
         }
     }
 
     private RcsFeatureController constructFeatureController(int slotId) {
-        RcsFeatureController c = mFeatureFactory.createController(mContext, slotId);
         int subId = getSubscriptionFromSlot(slotId);
+        RcsFeatureController c = mFeatureFactory.createController(mContext, slotId, subId);
         updateSupportedFeatures(c, slotId, subId);
         return c;
     }
 
     private void updateSupportedFeatures(RcsFeatureController c, int slotId, int subId) {
-        if (doesSubscriptionSupportPresence(subId)) {
-            if (c.getFeature(UserCapabilityExchangeImpl.class) == null) {
-                c.addFeature(mFeatureFactory.createUserCapabilityExchange(mContext, slotId, subId),
-                        UserCapabilityExchangeImpl.class);
+        if (isDeviceUceEnabled() && doesSubscriptionSupportPresence(subId)) {
+            if (c.getFeature(UceControllerManager.class) == null) {
+                c.addFeature(mFeatureFactory.createUceControllerManager(mContext, slotId, subId),
+                        UceControllerManager.class);
             }
         } else {
-            if (c.getFeature(UserCapabilityExchangeImpl.class) != null) {
-                c.removeFeature(UserCapabilityExchangeImpl.class);
+            if (c.getFeature(UceControllerManager.class) != null) {
+                c.removeFeature(UceControllerManager.class);
+            }
+        }
+
+        if (doesSubscriptionSupportSingleRegistration(subId)) {
+            if (c.getFeature(SipTransportController.class) == null) {
+                c.addFeature(mFeatureFactory.createSipTransportController(mContext, slotId, subId),
+                        SipTransportController.class);
+            }
+        } else {
+            if (c.getFeature(SipTransportController.class) != null) {
+                c.removeFeature(SipTransportController.class);
             }
         }
         // Only start the connection procedure if we have active features.
         if (c.hasActiveFeatures()) c.connect();
+    }
+
+    /**
+     * Get whether the device supports RCS User Capability Exchange or not.
+     */
+    public boolean isDeviceUceEnabled() {
+        return mRcsUceEnabled;
+    }
+
+    /**
+     * Set the device supports RCS User Capability Exchange.
+     */
+    public void setDeviceUceEnabled(boolean isEnabled) {
+        mRcsUceEnabled = isEnabled;
     }
 
     private boolean doesSubscriptionSupportPresence(int subId) {
@@ -244,12 +332,20 @@ public class TelephonyRcsService {
                 mContext.getSystemService(CarrierConfigManager.class);
         if (carrierConfigManager == null) return false;
         boolean supportsUce = carrierConfigManager.getConfigForSubId(subId).getBoolean(
-                CarrierConfigManager.KEY_USE_RCS_PRESENCE_BOOL);
+                CarrierConfigManager.Ims.KEY_ENABLE_PRESENCE_PUBLISH_BOOL);
         supportsUce |= carrierConfigManager.getConfigForSubId(subId).getBoolean(
                 CarrierConfigManager.KEY_USE_RCS_SIP_OPTIONS_BOOL);
         return supportsUce;
     }
 
+    private boolean doesSubscriptionSupportSingleRegistration(int subId) {
+        if (!SubscriptionManager.isValidSubscriptionId(subId)) return false;
+        CarrierConfigManager carrierConfigManager =
+                mContext.getSystemService(CarrierConfigManager.class);
+        if (carrierConfigManager == null) return false;
+        return carrierConfigManager.getConfigForSubId(subId).getBoolean(
+                CarrierConfigManager.Ims.KEY_IMS_SINGLE_REGISTRATION_REQUIRED_BOOL);
+    }
 
     private int getSubscriptionFromSlot(int slotId) {
         SubscriptionManager manager = mContext.getSystemService(SubscriptionManager.class);
@@ -274,6 +370,7 @@ public class TelephonyRcsService {
         synchronized (mLock) {
             for (int i = 0; i < mNumSlots; i++) {
                 RcsFeatureController f = mFeatureControllers.get(i);
+                if (f == null) continue;
                 pw.increaseIndent();
                 f.dump(fd, printWriter, args);
                 pw.decreaseIndent();

@@ -98,18 +98,18 @@ class CfmFacadeNativeUnitTest(unittest.TestCase):
     def test_get_webview_context_during_oobe_with_two_screens(self,
                                                               mock_kiosk_utils):
         screen_param = 'foo'
-        slave_screen_ctx = create_mock_context(
-            'slave.screen.com?screen=hotrod&nooobestatesync&oobedone')
+        node_screen_ctx = create_mock_context(
+            'node.screen.com?screen=hotrod&nooobestatesync&oobedone')
         main_screen_ctx = create_mock_context(
             'mimo.screen.com?screen=%s' % screen_param)
         mock_kiosk_utils.get_webview_contexts.return_value = [
-            slave_screen_ctx, main_screen_ctx]
+            node_screen_ctx, main_screen_ctx]
         found_ctx = self.cfm_facade._get_webview_context_by_screen(screen_param)
         self.assertEqual(found_ctx, main_screen_ctx)
 
     @mock.patch.object(cfm_facade_native, 'kiosk_utils')
     def test_get_webview_context_no_screen_found(self, mock_kiosk_utils):
-        foo_ctx = create_mock_context('slave.screen.com?screen=foo')
+        foo_ctx = create_mock_context('node.screen.com?screen=foo')
         bar_ctx = create_mock_context('mimo.screen.com?screen=bar')
         mock_kiosk_utils.get_webview_contexts.return_value = [foo_ctx, bar_ctx]
         with self.assertRaises(error.TestFail):

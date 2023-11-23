@@ -110,7 +110,9 @@ int main() {
     gLog.info("netd 1.0 starting");
 
     android::net::process::removePidFile(PID_FILE_PATH);
+    gLog.info("Pid file removed");
     android::net::process::blockSigPipe();
+    gLog.info("SIGPIPE is blocked");
 
     // Before we do anything that could fork, mark CLOEXEC the UNIX sockets that we get from init.
     // FrameworkListener does this on initialization as well, but we only initialize these
@@ -118,16 +120,19 @@ int main() {
     for (const auto& sock :
          {DNSPROXYLISTENER_SOCKET_NAME, FwmarkServer::SOCKET_NAME, MDnsSdListener::SOCKET_NAME}) {
         setCloseOnExec(sock);
+        gLog.info("setCloseOnExec(%s)", sock);
     }
 
     // Make sure BPF programs are loaded before doing anything
     android::bpf::waitForProgsLoaded();
+    gLog.info("BPF programs are loaded");
 
     NetlinkManager *nm = NetlinkManager::Instance();
     if (nm == nullptr) {
         ALOGE("Unable to create NetlinkManager");
         exit(1);
     };
+    gLog.info("NetlinkManager instanced");
 
     gCtls = new android::net::Controllers();
     gCtls->init();

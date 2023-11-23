@@ -64,6 +64,8 @@ L_CFLAGS += -Wno-unused-parameter
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := lib_driver_cmd_simulated
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_SHARED_LIBRARIES := libc libcutils liblog
 LOCAL_HEADER_LIBRARIES := libcutils_headers

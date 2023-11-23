@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 
+#include "android/base/Tracing.h"
 namespace {
 
 void enc_unsupported()
@@ -21,6 +22,7 @@ void enc_unsupported()
 
 void glActiveTexture_enc(void *self , GLenum texture)
 {
+	AEMU_SCOPED_TRACE("glActiveTexture encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -46,6 +48,7 @@ void glActiveTexture_enc(void *self , GLenum texture)
 
 void glAttachShader_enc(void *self , GLuint program, GLuint shader)
 {
+	AEMU_SCOPED_TRACE("glAttachShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -72,6 +75,7 @@ void glAttachShader_enc(void *self , GLuint program, GLuint shader)
 
 void glBindAttribLocation_enc(void *self , GLuint program, GLuint index, const GLchar* name)
 {
+	AEMU_SCOPED_TRACE("glBindAttribLocation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -91,7 +95,7 @@ void glBindAttribLocation_enc(void *self , GLuint program, GLuint index, const G
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &index, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_name; ptr += 4;
+	memcpy(ptr, &__size_name, 4); ptr += 4;
 	memcpy(ptr, name, __size_name);ptr += __size_name;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -101,6 +105,7 @@ void glBindAttribLocation_enc(void *self , GLuint program, GLuint index, const G
 
 void glBindBuffer_enc(void *self , GLenum target, GLuint buffer)
 {
+	AEMU_SCOPED_TRACE("glBindBuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -127,6 +132,7 @@ void glBindBuffer_enc(void *self , GLenum target, GLuint buffer)
 
 void glBindFramebuffer_enc(void *self , GLenum target, GLuint framebuffer)
 {
+	AEMU_SCOPED_TRACE("glBindFramebuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -153,6 +159,7 @@ void glBindFramebuffer_enc(void *self , GLenum target, GLuint framebuffer)
 
 void glBindRenderbuffer_enc(void *self , GLenum target, GLuint renderbuffer)
 {
+	AEMU_SCOPED_TRACE("glBindRenderbuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -179,6 +186,7 @@ void glBindRenderbuffer_enc(void *self , GLenum target, GLuint renderbuffer)
 
 void glBindTexture_enc(void *self , GLenum target, GLuint texture)
 {
+	AEMU_SCOPED_TRACE("glBindTexture encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -205,6 +213,7 @@ void glBindTexture_enc(void *self , GLenum target, GLuint texture)
 
 void glBlendColor_enc(void *self , GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 {
+	AEMU_SCOPED_TRACE("glBlendColor encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -233,6 +242,7 @@ void glBlendColor_enc(void *self , GLclampf red, GLclampf green, GLclampf blue, 
 
 void glBlendEquation_enc(void *self , GLenum mode)
 {
+	AEMU_SCOPED_TRACE("glBlendEquation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -258,6 +268,7 @@ void glBlendEquation_enc(void *self , GLenum mode)
 
 void glBlendEquationSeparate_enc(void *self , GLenum modeRGB, GLenum modeAlpha)
 {
+	AEMU_SCOPED_TRACE("glBlendEquationSeparate encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -284,6 +295,7 @@ void glBlendEquationSeparate_enc(void *self , GLenum modeRGB, GLenum modeAlpha)
 
 void glBlendFunc_enc(void *self , GLenum sfactor, GLenum dfactor)
 {
+	AEMU_SCOPED_TRACE("glBlendFunc encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -310,6 +322,7 @@ void glBlendFunc_enc(void *self , GLenum sfactor, GLenum dfactor)
 
 void glBlendFuncSeparate_enc(void *self , GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
 {
+	AEMU_SCOPED_TRACE("glBlendFuncSeparate encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -338,6 +351,7 @@ void glBlendFuncSeparate_enc(void *self , GLenum srcRGB, GLenum dstRGB, GLenum s
 
 void glBufferData_enc(void *self , GLenum target, GLsizeiptr size, const GLvoid* data, GLenum usage)
 {
+	AEMU_SCOPED_TRACE("glBufferData encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -378,6 +392,7 @@ void glBufferData_enc(void *self , GLenum target, GLsizeiptr size, const GLvoid*
 
 void glBufferSubData_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr size, const GLvoid* data)
 {
+	AEMU_SCOPED_TRACE("glBufferSubData encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -414,6 +429,7 @@ void glBufferSubData_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr
 
 GLenum glCheckFramebufferStatus_enc(void *self , GLenum target)
 {
+	AEMU_SCOPED_TRACE("glCheckFramebufferStatus encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -454,6 +470,7 @@ GLenum glCheckFramebufferStatus_enc(void *self , GLenum target)
 
 void glClear_enc(void *self , GLbitfield mask)
 {
+	AEMU_SCOPED_TRACE("glClear encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -479,6 +496,7 @@ void glClear_enc(void *self , GLbitfield mask)
 
 void glClearColor_enc(void *self , GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)
 {
+	AEMU_SCOPED_TRACE("glClearColor encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -507,6 +525,7 @@ void glClearColor_enc(void *self , GLclampf red, GLclampf green, GLclampf blue, 
 
 void glClearDepthf_enc(void *self , GLclampf depth)
 {
+	AEMU_SCOPED_TRACE("glClearDepthf encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -532,6 +551,7 @@ void glClearDepthf_enc(void *self , GLclampf depth)
 
 void glClearStencil_enc(void *self , GLint s)
 {
+	AEMU_SCOPED_TRACE("glClearStencil encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -557,6 +577,7 @@ void glClearStencil_enc(void *self , GLint s)
 
 void glColorMask_enc(void *self , GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
 {
+	AEMU_SCOPED_TRACE("glColorMask encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -585,6 +606,7 @@ void glColorMask_enc(void *self , GLboolean red, GLboolean green, GLboolean blue
 
 void glCompileShader_enc(void *self , GLuint shader)
 {
+	AEMU_SCOPED_TRACE("glCompileShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -610,6 +632,7 @@ void glCompileShader_enc(void *self , GLuint shader)
 
 void glCompressedTexImage2D_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const GLvoid* data)
 {
+	AEMU_SCOPED_TRACE("glCompressedTexImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -650,6 +673,7 @@ void glCompressedTexImage2D_enc(void *self , GLenum target, GLint level, GLenum 
 
 void glCompressedTexSubImage2D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const GLvoid* data)
 {
+	AEMU_SCOPED_TRACE("glCompressedTexSubImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -691,6 +715,7 @@ void glCompressedTexSubImage2D_enc(void *self , GLenum target, GLint level, GLin
 
 void glCopyTexImage2D_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLint x, GLint y, GLsizei width, GLsizei height, GLint border)
 {
+	AEMU_SCOPED_TRACE("glCopyTexImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -723,6 +748,7 @@ void glCopyTexImage2D_enc(void *self , GLenum target, GLint level, GLenum intern
 
 void glCopyTexSubImage2D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	AEMU_SCOPED_TRACE("glCopyTexSubImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -755,6 +781,7 @@ void glCopyTexSubImage2D_enc(void *self , GLenum target, GLint level, GLint xoff
 
 GLuint glCreateProgram_enc(void *self )
 {
+	AEMU_SCOPED_TRACE("glCreateProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -794,6 +821,7 @@ GLuint glCreateProgram_enc(void *self )
 
 GLuint glCreateShader_enc(void *self , GLenum type)
 {
+	AEMU_SCOPED_TRACE("glCreateShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -834,6 +862,7 @@ GLuint glCreateShader_enc(void *self , GLenum type)
 
 void glCullFace_enc(void *self , GLenum mode)
 {
+	AEMU_SCOPED_TRACE("glCullFace encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -859,6 +888,7 @@ void glCullFace_enc(void *self , GLenum mode)
 
 void glDeleteBuffers_enc(void *self , GLsizei n, const GLuint* buffers)
 {
+	AEMU_SCOPED_TRACE("glDeleteBuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -877,7 +907,7 @@ void glDeleteBuffers_enc(void *self , GLsizei n, const GLuint* buffers)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_buffers; ptr += 4;
+	memcpy(ptr, &__size_buffers, 4); ptr += 4;
 	memcpy(ptr, buffers, __size_buffers);ptr += __size_buffers;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -887,6 +917,7 @@ void glDeleteBuffers_enc(void *self , GLsizei n, const GLuint* buffers)
 
 void glDeleteFramebuffers_enc(void *self , GLsizei n, const GLuint* framebuffers)
 {
+	AEMU_SCOPED_TRACE("glDeleteFramebuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -905,7 +936,7 @@ void glDeleteFramebuffers_enc(void *self , GLsizei n, const GLuint* framebuffers
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_framebuffers; ptr += 4;
+	memcpy(ptr, &__size_framebuffers, 4); ptr += 4;
 	memcpy(ptr, framebuffers, __size_framebuffers);ptr += __size_framebuffers;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -915,6 +946,7 @@ void glDeleteFramebuffers_enc(void *self , GLsizei n, const GLuint* framebuffers
 
 void glDeleteProgram_enc(void *self , GLuint program)
 {
+	AEMU_SCOPED_TRACE("glDeleteProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -940,6 +972,7 @@ void glDeleteProgram_enc(void *self , GLuint program)
 
 void glDeleteRenderbuffers_enc(void *self , GLsizei n, const GLuint* renderbuffers)
 {
+	AEMU_SCOPED_TRACE("glDeleteRenderbuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -958,7 +991,7 @@ void glDeleteRenderbuffers_enc(void *self , GLsizei n, const GLuint* renderbuffe
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_renderbuffers; ptr += 4;
+	memcpy(ptr, &__size_renderbuffers, 4); ptr += 4;
 	memcpy(ptr, renderbuffers, __size_renderbuffers);ptr += __size_renderbuffers;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -968,6 +1001,7 @@ void glDeleteRenderbuffers_enc(void *self , GLsizei n, const GLuint* renderbuffe
 
 void glDeleteShader_enc(void *self , GLuint shader)
 {
+	AEMU_SCOPED_TRACE("glDeleteShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -993,6 +1027,7 @@ void glDeleteShader_enc(void *self , GLuint shader)
 
 void glDeleteTextures_enc(void *self , GLsizei n, const GLuint* textures)
 {
+	AEMU_SCOPED_TRACE("glDeleteTextures encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1011,7 +1046,7 @@ void glDeleteTextures_enc(void *self , GLsizei n, const GLuint* textures)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_textures; ptr += 4;
+	memcpy(ptr, &__size_textures, 4); ptr += 4;
 	memcpy(ptr, textures, __size_textures);ptr += __size_textures;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -1021,6 +1056,7 @@ void glDeleteTextures_enc(void *self , GLsizei n, const GLuint* textures)
 
 void glDepthFunc_enc(void *self , GLenum func)
 {
+	AEMU_SCOPED_TRACE("glDepthFunc encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1046,6 +1082,7 @@ void glDepthFunc_enc(void *self , GLenum func)
 
 void glDepthMask_enc(void *self , GLboolean flag)
 {
+	AEMU_SCOPED_TRACE("glDepthMask encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1071,6 +1108,7 @@ void glDepthMask_enc(void *self , GLboolean flag)
 
 void glDepthRangef_enc(void *self , GLclampf zNear, GLclampf zFar)
 {
+	AEMU_SCOPED_TRACE("glDepthRangef encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1097,6 +1135,7 @@ void glDepthRangef_enc(void *self , GLclampf zNear, GLclampf zFar)
 
 void glDetachShader_enc(void *self , GLuint program, GLuint shader)
 {
+	AEMU_SCOPED_TRACE("glDetachShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1123,6 +1162,7 @@ void glDetachShader_enc(void *self , GLuint program, GLuint shader)
 
 void glDisable_enc(void *self , GLenum cap)
 {
+	AEMU_SCOPED_TRACE("glDisable encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1148,6 +1188,7 @@ void glDisable_enc(void *self , GLenum cap)
 
 void glDisableVertexAttribArray_enc(void *self , GLuint index)
 {
+	AEMU_SCOPED_TRACE("glDisableVertexAttribArray encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1173,6 +1214,7 @@ void glDisableVertexAttribArray_enc(void *self , GLuint index)
 
 void glDrawArrays_enc(void *self , GLenum mode, GLint first, GLsizei count)
 {
+	AEMU_SCOPED_TRACE("glDrawArrays encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1200,6 +1242,7 @@ void glDrawArrays_enc(void *self , GLenum mode, GLint first, GLsizei count)
 
 void glEnable_enc(void *self , GLenum cap)
 {
+	AEMU_SCOPED_TRACE("glEnable encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1225,6 +1268,7 @@ void glEnable_enc(void *self , GLenum cap)
 
 void glEnableVertexAttribArray_enc(void *self , GLuint index)
 {
+	AEMU_SCOPED_TRACE("glEnableVertexAttribArray encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1250,6 +1294,7 @@ void glEnableVertexAttribArray_enc(void *self , GLuint index)
 
 void glFinish_enc(void *self )
 {
+	AEMU_SCOPED_TRACE("glFinish encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1274,6 +1319,7 @@ void glFinish_enc(void *self )
 
 void glFlush_enc(void *self )
 {
+	AEMU_SCOPED_TRACE("glFlush encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1298,6 +1344,7 @@ void glFlush_enc(void *self )
 
 void glFramebufferRenderbuffer_enc(void *self , GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)
 {
+	AEMU_SCOPED_TRACE("glFramebufferRenderbuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1326,6 +1373,7 @@ void glFramebufferRenderbuffer_enc(void *self , GLenum target, GLenum attachment
 
 void glFramebufferTexture2D_enc(void *self , GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)
 {
+	AEMU_SCOPED_TRACE("glFramebufferTexture2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1355,6 +1403,7 @@ void glFramebufferTexture2D_enc(void *self , GLenum target, GLenum attachment, G
 
 void glFrontFace_enc(void *self , GLenum mode)
 {
+	AEMU_SCOPED_TRACE("glFrontFace encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1380,6 +1429,7 @@ void glFrontFace_enc(void *self , GLenum mode)
 
 void glGenBuffers_enc(void *self , GLsizei n, GLuint* buffers)
 {
+	AEMU_SCOPED_TRACE("glGenBuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1398,7 +1448,7 @@ void glGenBuffers_enc(void *self , GLsizei n, GLuint* buffers)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_buffers; ptr += 4;
+	memcpy(ptr, &__size_buffers, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1419,6 +1469,7 @@ void glGenBuffers_enc(void *self , GLsizei n, GLuint* buffers)
 
 void glGenerateMipmap_enc(void *self , GLenum target)
 {
+	AEMU_SCOPED_TRACE("glGenerateMipmap encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1444,6 +1495,7 @@ void glGenerateMipmap_enc(void *self , GLenum target)
 
 void glGenFramebuffers_enc(void *self , GLsizei n, GLuint* framebuffers)
 {
+	AEMU_SCOPED_TRACE("glGenFramebuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1462,7 +1514,7 @@ void glGenFramebuffers_enc(void *self , GLsizei n, GLuint* framebuffers)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_framebuffers; ptr += 4;
+	memcpy(ptr, &__size_framebuffers, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1483,6 +1535,7 @@ void glGenFramebuffers_enc(void *self , GLsizei n, GLuint* framebuffers)
 
 void glGenRenderbuffers_enc(void *self , GLsizei n, GLuint* renderbuffers)
 {
+	AEMU_SCOPED_TRACE("glGenRenderbuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1501,7 +1554,7 @@ void glGenRenderbuffers_enc(void *self , GLsizei n, GLuint* renderbuffers)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_renderbuffers; ptr += 4;
+	memcpy(ptr, &__size_renderbuffers, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1522,6 +1575,7 @@ void glGenRenderbuffers_enc(void *self , GLsizei n, GLuint* renderbuffers)
 
 void glGenTextures_enc(void *self , GLsizei n, GLuint* textures)
 {
+	AEMU_SCOPED_TRACE("glGenTextures encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1540,7 +1594,7 @@ void glGenTextures_enc(void *self , GLsizei n, GLuint* textures)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_textures; ptr += 4;
+	memcpy(ptr, &__size_textures, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1561,6 +1615,7 @@ void glGenTextures_enc(void *self , GLsizei n, GLuint* textures)
 
 void glGetActiveAttrib_enc(void *self , GLuint program, GLuint index, GLsizei bufsize, GLsizei* length, GLint* size, GLenum* type, GLchar* name)
 {
+	AEMU_SCOPED_TRACE("glGetActiveAttrib encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1584,10 +1639,10 @@ void glGetActiveAttrib_enc(void *self , GLuint program, GLuint index, GLsizei bu
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &index, 4); ptr += 4;
 		memcpy(ptr, &bufsize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_size; ptr += 4;
-	*(unsigned int *)(ptr) = __size_type; ptr += 4;
-	*(unsigned int *)(ptr) = __size_name; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_size, 4); ptr += 4;
+	memcpy(ptr, &__size_type, 4); ptr += 4;
+	memcpy(ptr, &__size_name, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1622,6 +1677,7 @@ void glGetActiveAttrib_enc(void *self , GLuint program, GLuint index, GLsizei bu
 
 void glGetActiveUniform_enc(void *self , GLuint program, GLuint index, GLsizei bufsize, GLsizei* length, GLint* size, GLenum* type, GLchar* name)
 {
+	AEMU_SCOPED_TRACE("glGetActiveUniform encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1645,10 +1701,10 @@ void glGetActiveUniform_enc(void *self , GLuint program, GLuint index, GLsizei b
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &index, 4); ptr += 4;
 		memcpy(ptr, &bufsize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_size; ptr += 4;
-	*(unsigned int *)(ptr) = __size_type; ptr += 4;
-	*(unsigned int *)(ptr) = __size_name; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_size, 4); ptr += 4;
+	memcpy(ptr, &__size_type, 4); ptr += 4;
+	memcpy(ptr, &__size_name, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1683,6 +1739,7 @@ void glGetActiveUniform_enc(void *self , GLuint program, GLuint index, GLsizei b
 
 void glGetAttachedShaders_enc(void *self , GLuint program, GLsizei maxcount, GLsizei* count, GLuint* shaders)
 {
+	AEMU_SCOPED_TRACE("glGetAttachedShaders encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1703,8 +1760,8 @@ void glGetAttachedShaders_enc(void *self , GLuint program, GLsizei maxcount, GLs
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &maxcount, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_count; ptr += 4;
-	*(unsigned int *)(ptr) = __size_shaders; ptr += 4;
+	memcpy(ptr, &__size_count, 4); ptr += 4;
+	memcpy(ptr, &__size_shaders, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1729,6 +1786,7 @@ void glGetAttachedShaders_enc(void *self , GLuint program, GLsizei maxcount, GLs
 
 int glGetAttribLocation_enc(void *self , GLuint program, const GLchar* name)
 {
+	AEMU_SCOPED_TRACE("glGetAttribLocation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1747,7 +1805,7 @@ int glGetAttribLocation_enc(void *self , GLuint program, const GLchar* name)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &program, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_name; ptr += 4;
+	memcpy(ptr, &__size_name, 4); ptr += 4;
 	memcpy(ptr, name, __size_name);ptr += __size_name;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -1772,6 +1830,7 @@ int glGetAttribLocation_enc(void *self , GLuint program, const GLchar* name)
 
 void glGetBooleanv_enc(void *self , GLenum pname, GLboolean* params)
 {
+	AEMU_SCOPED_TRACE("glGetBooleanv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1790,7 +1849,7 @@ void glGetBooleanv_enc(void *self , GLenum pname, GLboolean* params)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1811,6 +1870,7 @@ void glGetBooleanv_enc(void *self , GLenum pname, GLboolean* params)
 
 void glGetBufferParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetBufferParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1830,7 +1890,7 @@ void glGetBufferParameteriv_enc(void *self , GLenum target, GLenum pname, GLint*
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1851,6 +1911,7 @@ void glGetBufferParameteriv_enc(void *self , GLenum target, GLenum pname, GLint*
 
 GLenum glGetError_enc(void *self )
 {
+	AEMU_SCOPED_TRACE("glGetError encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1890,6 +1951,7 @@ GLenum glGetError_enc(void *self )
 
 void glGetFloatv_enc(void *self , GLenum pname, GLfloat* params)
 {
+	AEMU_SCOPED_TRACE("glGetFloatv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1908,7 +1970,7 @@ void glGetFloatv_enc(void *self , GLenum pname, GLfloat* params)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1929,6 +1991,7 @@ void glGetFloatv_enc(void *self , GLenum pname, GLfloat* params)
 
 void glGetFramebufferAttachmentParameteriv_enc(void *self , GLenum target, GLenum attachment, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetFramebufferAttachmentParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1949,7 +2012,7 @@ void glGetFramebufferAttachmentParameteriv_enc(void *self , GLenum target, GLenu
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &attachment, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -1970,6 +2033,7 @@ void glGetFramebufferAttachmentParameteriv_enc(void *self , GLenum target, GLenu
 
 void glGetIntegerv_enc(void *self , GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetIntegerv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -1988,7 +2052,7 @@ void glGetIntegerv_enc(void *self , GLenum pname, GLint* params)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2009,6 +2073,7 @@ void glGetIntegerv_enc(void *self , GLenum pname, GLint* params)
 
 void glGetProgramiv_enc(void *self , GLuint program, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetProgramiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2028,7 +2093,7 @@ void glGetProgramiv_enc(void *self , GLuint program, GLenum pname, GLint* params
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2049,6 +2114,7 @@ void glGetProgramiv_enc(void *self , GLuint program, GLenum pname, GLint* params
 
 void glGetProgramInfoLog_enc(void *self , GLuint program, GLsizei bufsize, GLsizei* length, GLchar* infolog)
 {
+	AEMU_SCOPED_TRACE("glGetProgramInfoLog encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2069,8 +2135,8 @@ void glGetProgramInfoLog_enc(void *self , GLuint program, GLsizei bufsize, GLsiz
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &bufsize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_infolog; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_infolog, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2095,6 +2161,7 @@ void glGetProgramInfoLog_enc(void *self , GLuint program, GLsizei bufsize, GLsiz
 
 void glGetRenderbufferParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetRenderbufferParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2114,7 +2181,7 @@ void glGetRenderbufferParameteriv_enc(void *self , GLenum target, GLenum pname, 
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2135,6 +2202,7 @@ void glGetRenderbufferParameteriv_enc(void *self , GLenum target, GLenum pname, 
 
 void glGetShaderiv_enc(void *self , GLuint shader, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetShaderiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2154,7 +2222,7 @@ void glGetShaderiv_enc(void *self , GLuint shader, GLenum pname, GLint* params)
 
 		memcpy(ptr, &shader, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2175,6 +2243,7 @@ void glGetShaderiv_enc(void *self , GLuint shader, GLenum pname, GLint* params)
 
 void glGetShaderInfoLog_enc(void *self , GLuint shader, GLsizei bufsize, GLsizei* length, GLchar* infolog)
 {
+	AEMU_SCOPED_TRACE("glGetShaderInfoLog encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2195,8 +2264,8 @@ void glGetShaderInfoLog_enc(void *self , GLuint shader, GLsizei bufsize, GLsizei
 
 		memcpy(ptr, &shader, 4); ptr += 4;
 		memcpy(ptr, &bufsize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_infolog; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_infolog, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2221,6 +2290,7 @@ void glGetShaderInfoLog_enc(void *self , GLuint shader, GLsizei bufsize, GLsizei
 
 void glGetShaderPrecisionFormat_enc(void *self , GLenum shadertype, GLenum precisiontype, GLint* range, GLint* precision)
 {
+	AEMU_SCOPED_TRACE("glGetShaderPrecisionFormat encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2241,8 +2311,8 @@ void glGetShaderPrecisionFormat_enc(void *self , GLenum shadertype, GLenum preci
 
 		memcpy(ptr, &shadertype, 4); ptr += 4;
 		memcpy(ptr, &precisiontype, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_range; ptr += 4;
-	*(unsigned int *)(ptr) = __size_precision; ptr += 4;
+	memcpy(ptr, &__size_range, 4); ptr += 4;
+	memcpy(ptr, &__size_precision, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2265,6 +2335,7 @@ void glGetShaderPrecisionFormat_enc(void *self , GLenum shadertype, GLenum preci
 
 void glGetShaderSource_enc(void *self , GLuint shader, GLsizei bufsize, GLsizei* length, GLchar* source)
 {
+	AEMU_SCOPED_TRACE("glGetShaderSource encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2285,8 +2356,8 @@ void glGetShaderSource_enc(void *self , GLuint shader, GLsizei bufsize, GLsizei*
 
 		memcpy(ptr, &shader, 4); ptr += 4;
 		memcpy(ptr, &bufsize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_source; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_source, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2311,6 +2382,7 @@ void glGetShaderSource_enc(void *self , GLuint shader, GLsizei bufsize, GLsizei*
 
 void glGetTexParameterfv_enc(void *self , GLenum target, GLenum pname, GLfloat* params)
 {
+	AEMU_SCOPED_TRACE("glGetTexParameterfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2330,7 +2402,7 @@ void glGetTexParameterfv_enc(void *self , GLenum target, GLenum pname, GLfloat* 
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2351,6 +2423,7 @@ void glGetTexParameterfv_enc(void *self , GLenum target, GLenum pname, GLfloat* 
 
 void glGetTexParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetTexParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2370,7 +2443,7 @@ void glGetTexParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* pa
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2391,6 +2464,7 @@ void glGetTexParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* pa
 
 void glGetUniformfv_enc(void *self , GLuint program, GLint location, GLfloat* params)
 {
+	AEMU_SCOPED_TRACE("glGetUniformfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2410,7 +2484,7 @@ void glGetUniformfv_enc(void *self , GLuint program, GLint location, GLfloat* pa
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2431,6 +2505,7 @@ void glGetUniformfv_enc(void *self , GLuint program, GLint location, GLfloat* pa
 
 void glGetUniformiv_enc(void *self , GLuint program, GLint location, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetUniformiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2450,7 +2525,7 @@ void glGetUniformiv_enc(void *self , GLuint program, GLint location, GLint* para
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2471,6 +2546,7 @@ void glGetUniformiv_enc(void *self , GLuint program, GLint location, GLint* para
 
 int glGetUniformLocation_enc(void *self , GLuint program, const GLchar* name)
 {
+	AEMU_SCOPED_TRACE("glGetUniformLocation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2489,7 +2565,7 @@ int glGetUniformLocation_enc(void *self , GLuint program, const GLchar* name)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &program, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_name; ptr += 4;
+	memcpy(ptr, &__size_name, 4); ptr += 4;
 	memcpy(ptr, name, __size_name);ptr += __size_name;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -2514,6 +2590,7 @@ int glGetUniformLocation_enc(void *self , GLuint program, const GLchar* name)
 
 void glGetVertexAttribfv_enc(void *self , GLuint index, GLenum pname, GLfloat* params)
 {
+	AEMU_SCOPED_TRACE("glGetVertexAttribfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2533,7 +2610,7 @@ void glGetVertexAttribfv_enc(void *self , GLuint index, GLenum pname, GLfloat* p
 
 		memcpy(ptr, &index, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2554,6 +2631,7 @@ void glGetVertexAttribfv_enc(void *self , GLuint index, GLenum pname, GLfloat* p
 
 void glGetVertexAttribiv_enc(void *self , GLuint index, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetVertexAttribiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2573,7 +2651,7 @@ void glGetVertexAttribiv_enc(void *self , GLuint index, GLenum pname, GLint* par
 
 		memcpy(ptr, &index, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -2594,6 +2672,7 @@ void glGetVertexAttribiv_enc(void *self , GLuint index, GLenum pname, GLint* par
 
 void glHint_enc(void *self , GLenum target, GLenum mode)
 {
+	AEMU_SCOPED_TRACE("glHint encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2620,6 +2699,7 @@ void glHint_enc(void *self , GLenum target, GLenum mode)
 
 GLboolean glIsBuffer_enc(void *self , GLuint buffer)
 {
+	AEMU_SCOPED_TRACE("glIsBuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2660,6 +2740,7 @@ GLboolean glIsBuffer_enc(void *self , GLuint buffer)
 
 GLboolean glIsEnabled_enc(void *self , GLenum cap)
 {
+	AEMU_SCOPED_TRACE("glIsEnabled encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2700,6 +2781,7 @@ GLboolean glIsEnabled_enc(void *self , GLenum cap)
 
 GLboolean glIsFramebuffer_enc(void *self , GLuint framebuffer)
 {
+	AEMU_SCOPED_TRACE("glIsFramebuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2740,6 +2822,7 @@ GLboolean glIsFramebuffer_enc(void *self , GLuint framebuffer)
 
 GLboolean glIsProgram_enc(void *self , GLuint program)
 {
+	AEMU_SCOPED_TRACE("glIsProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2780,6 +2863,7 @@ GLboolean glIsProgram_enc(void *self , GLuint program)
 
 GLboolean glIsRenderbuffer_enc(void *self , GLuint renderbuffer)
 {
+	AEMU_SCOPED_TRACE("glIsRenderbuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2820,6 +2904,7 @@ GLboolean glIsRenderbuffer_enc(void *self , GLuint renderbuffer)
 
 GLboolean glIsShader_enc(void *self , GLuint shader)
 {
+	AEMU_SCOPED_TRACE("glIsShader encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2860,6 +2945,7 @@ GLboolean glIsShader_enc(void *self , GLuint shader)
 
 GLboolean glIsTexture_enc(void *self , GLuint texture)
 {
+	AEMU_SCOPED_TRACE("glIsTexture encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2900,6 +2986,7 @@ GLboolean glIsTexture_enc(void *self , GLuint texture)
 
 void glLineWidth_enc(void *self , GLfloat width)
 {
+	AEMU_SCOPED_TRACE("glLineWidth encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2925,6 +3012,7 @@ void glLineWidth_enc(void *self , GLfloat width)
 
 void glLinkProgram_enc(void *self , GLuint program)
 {
+	AEMU_SCOPED_TRACE("glLinkProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2950,6 +3038,7 @@ void glLinkProgram_enc(void *self , GLuint program)
 
 void glPixelStorei_enc(void *self , GLenum pname, GLint param)
 {
+	AEMU_SCOPED_TRACE("glPixelStorei encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -2976,6 +3065,7 @@ void glPixelStorei_enc(void *self , GLenum pname, GLint param)
 
 void glPolygonOffset_enc(void *self , GLfloat factor, GLfloat units)
 {
+	AEMU_SCOPED_TRACE("glPolygonOffset encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3002,6 +3092,7 @@ void glPolygonOffset_enc(void *self , GLfloat factor, GLfloat units)
 
 void glReadPixels_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels)
 {
+	AEMU_SCOPED_TRACE("glReadPixels encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3025,7 +3116,7 @@ void glReadPixels_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei heig
 		memcpy(ptr, &height, 4); ptr += 4;
 		memcpy(ptr, &format, 4); ptr += 4;
 		memcpy(ptr, &type, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_pixels; ptr += 4;
+	memcpy(ptr, &__size_pixels, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -3046,6 +3137,7 @@ void glReadPixels_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei heig
 
 void glReleaseShaderCompiler_enc(void *self )
 {
+	AEMU_SCOPED_TRACE("glReleaseShaderCompiler encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3070,6 +3162,7 @@ void glReleaseShaderCompiler_enc(void *self )
 
 void glRenderbufferStorage_enc(void *self , GLenum target, GLenum internalformat, GLsizei width, GLsizei height)
 {
+	AEMU_SCOPED_TRACE("glRenderbufferStorage encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3098,6 +3191,7 @@ void glRenderbufferStorage_enc(void *self , GLenum target, GLenum internalformat
 
 void glSampleCoverage_enc(void *self , GLclampf value, GLboolean invert)
 {
+	AEMU_SCOPED_TRACE("glSampleCoverage encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3124,6 +3218,7 @@ void glSampleCoverage_enc(void *self , GLclampf value, GLboolean invert)
 
 void glScissor_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	AEMU_SCOPED_TRACE("glScissor encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3152,6 +3247,7 @@ void glScissor_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height)
 
 void glStencilFunc_enc(void *self , GLenum func, GLint ref, GLuint mask)
 {
+	AEMU_SCOPED_TRACE("glStencilFunc encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3179,6 +3275,7 @@ void glStencilFunc_enc(void *self , GLenum func, GLint ref, GLuint mask)
 
 void glStencilFuncSeparate_enc(void *self , GLenum face, GLenum func, GLint ref, GLuint mask)
 {
+	AEMU_SCOPED_TRACE("glStencilFuncSeparate encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3207,6 +3304,7 @@ void glStencilFuncSeparate_enc(void *self , GLenum face, GLenum func, GLint ref,
 
 void glStencilMask_enc(void *self , GLuint mask)
 {
+	AEMU_SCOPED_TRACE("glStencilMask encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3232,6 +3330,7 @@ void glStencilMask_enc(void *self , GLuint mask)
 
 void glStencilMaskSeparate_enc(void *self , GLenum face, GLuint mask)
 {
+	AEMU_SCOPED_TRACE("glStencilMaskSeparate encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3258,6 +3357,7 @@ void glStencilMaskSeparate_enc(void *self , GLenum face, GLuint mask)
 
 void glStencilOp_enc(void *self , GLenum fail, GLenum zfail, GLenum zpass)
 {
+	AEMU_SCOPED_TRACE("glStencilOp encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3285,6 +3385,7 @@ void glStencilOp_enc(void *self , GLenum fail, GLenum zfail, GLenum zpass)
 
 void glStencilOpSeparate_enc(void *self , GLenum face, GLenum fail, GLenum zfail, GLenum zpass)
 {
+	AEMU_SCOPED_TRACE("glStencilOpSeparate encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3313,6 +3414,7 @@ void glStencilOpSeparate_enc(void *self , GLenum face, GLenum fail, GLenum zfail
 
 void glTexImage2D_enc(void *self , GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid* pixels)
 {
+	AEMU_SCOPED_TRACE("glTexImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3354,6 +3456,7 @@ void glTexImage2D_enc(void *self , GLenum target, GLint level, GLint internalfor
 
 void glTexParameterf_enc(void *self , GLenum target, GLenum pname, GLfloat param)
 {
+	AEMU_SCOPED_TRACE("glTexParameterf encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3381,6 +3484,7 @@ void glTexParameterf_enc(void *self , GLenum target, GLenum pname, GLfloat param
 
 void glTexParameterfv_enc(void *self , GLenum target, GLenum pname, const GLfloat* params)
 {
+	AEMU_SCOPED_TRACE("glTexParameterfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3400,7 +3504,7 @@ void glTexParameterfv_enc(void *self , GLenum target, GLenum pname, const GLfloa
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 	memcpy(ptr, params, __size_params);ptr += __size_params;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3410,6 +3514,7 @@ void glTexParameterfv_enc(void *self , GLenum target, GLenum pname, const GLfloa
 
 void glTexParameteri_enc(void *self , GLenum target, GLenum pname, GLint param)
 {
+	AEMU_SCOPED_TRACE("glTexParameteri encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3437,6 +3542,7 @@ void glTexParameteri_enc(void *self , GLenum target, GLenum pname, GLint param)
 
 void glTexParameteriv_enc(void *self , GLenum target, GLenum pname, const GLint* params)
 {
+	AEMU_SCOPED_TRACE("glTexParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3456,7 +3562,7 @@ void glTexParameteriv_enc(void *self , GLenum target, GLenum pname, const GLint*
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 	memcpy(ptr, params, __size_params);ptr += __size_params;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3466,6 +3572,7 @@ void glTexParameteriv_enc(void *self , GLenum target, GLenum pname, const GLint*
 
 void glTexSubImage2D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid* pixels)
 {
+	AEMU_SCOPED_TRACE("glTexSubImage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3507,6 +3614,7 @@ void glTexSubImage2D_enc(void *self , GLenum target, GLint level, GLint xoffset,
 
 void glUniform1f_enc(void *self , GLint location, GLfloat x)
 {
+	AEMU_SCOPED_TRACE("glUniform1f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3533,6 +3641,7 @@ void glUniform1f_enc(void *self , GLint location, GLfloat x)
 
 void glUniform1fv_enc(void *self , GLint location, GLsizei count, const GLfloat* v)
 {
+	AEMU_SCOPED_TRACE("glUniform1fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3552,7 +3661,7 @@ void glUniform1fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_v; ptr += 4;
+	memcpy(ptr, &__size_v, 4); ptr += 4;
 	memcpy(ptr, v, __size_v);ptr += __size_v;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3562,6 +3671,7 @@ void glUniform1fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 void glUniform1i_enc(void *self , GLint location, GLint x)
 {
+	AEMU_SCOPED_TRACE("glUniform1i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3588,6 +3698,7 @@ void glUniform1i_enc(void *self , GLint location, GLint x)
 
 void glUniform1iv_enc(void *self , GLint location, GLsizei count, const GLint* v)
 {
+	AEMU_SCOPED_TRACE("glUniform1iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3607,7 +3718,7 @@ void glUniform1iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_v; ptr += 4;
+	memcpy(ptr, &__size_v, 4); ptr += 4;
 	memcpy(ptr, v, __size_v);ptr += __size_v;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3617,6 +3728,7 @@ void glUniform1iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 void glUniform2f_enc(void *self , GLint location, GLfloat x, GLfloat y)
 {
+	AEMU_SCOPED_TRACE("glUniform2f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3644,6 +3756,7 @@ void glUniform2f_enc(void *self , GLint location, GLfloat x, GLfloat y)
 
 void glUniform2fv_enc(void *self , GLint location, GLsizei count, const GLfloat* v)
 {
+	AEMU_SCOPED_TRACE("glUniform2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3663,7 +3776,7 @@ void glUniform2fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_v; ptr += 4;
+	memcpy(ptr, &__size_v, 4); ptr += 4;
 	memcpy(ptr, v, __size_v);ptr += __size_v;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3673,6 +3786,7 @@ void glUniform2fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 void glUniform2i_enc(void *self , GLint location, GLint x, GLint y)
 {
+	AEMU_SCOPED_TRACE("glUniform2i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3700,6 +3814,7 @@ void glUniform2i_enc(void *self , GLint location, GLint x, GLint y)
 
 void glUniform2iv_enc(void *self , GLint location, GLsizei count, const GLint* v)
 {
+	AEMU_SCOPED_TRACE("glUniform2iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3719,7 +3834,7 @@ void glUniform2iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_v; ptr += 4;
+	memcpy(ptr, &__size_v, 4); ptr += 4;
 	memcpy(ptr, v, __size_v);ptr += __size_v;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3729,6 +3844,7 @@ void glUniform2iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 void glUniform3f_enc(void *self , GLint location, GLfloat x, GLfloat y, GLfloat z)
 {
+	AEMU_SCOPED_TRACE("glUniform3f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3757,6 +3873,7 @@ void glUniform3f_enc(void *self , GLint location, GLfloat x, GLfloat y, GLfloat 
 
 void glUniform3fv_enc(void *self , GLint location, GLsizei count, const GLfloat* v)
 {
+	AEMU_SCOPED_TRACE("glUniform3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3776,7 +3893,7 @@ void glUniform3fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_v; ptr += 4;
+	memcpy(ptr, &__size_v, 4); ptr += 4;
 	memcpy(ptr, v, __size_v);ptr += __size_v;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3786,6 +3903,7 @@ void glUniform3fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 void glUniform3i_enc(void *self , GLint location, GLint x, GLint y, GLint z)
 {
+	AEMU_SCOPED_TRACE("glUniform3i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3814,6 +3932,7 @@ void glUniform3i_enc(void *self , GLint location, GLint x, GLint y, GLint z)
 
 void glUniform3iv_enc(void *self , GLint location, GLsizei count, const GLint* v)
 {
+	AEMU_SCOPED_TRACE("glUniform3iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3833,7 +3952,7 @@ void glUniform3iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_v; ptr += 4;
+	memcpy(ptr, &__size_v, 4); ptr += 4;
 	memcpy(ptr, v, __size_v);ptr += __size_v;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3843,6 +3962,7 @@ void glUniform3iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 void glUniform4f_enc(void *self , GLint location, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
 {
+	AEMU_SCOPED_TRACE("glUniform4f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3872,6 +3992,7 @@ void glUniform4f_enc(void *self , GLint location, GLfloat x, GLfloat y, GLfloat 
 
 void glUniform4fv_enc(void *self , GLint location, GLsizei count, const GLfloat* v)
 {
+	AEMU_SCOPED_TRACE("glUniform4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3891,7 +4012,7 @@ void glUniform4fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_v; ptr += 4;
+	memcpy(ptr, &__size_v, 4); ptr += 4;
 	memcpy(ptr, v, __size_v);ptr += __size_v;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3901,6 +4022,7 @@ void glUniform4fv_enc(void *self , GLint location, GLsizei count, const GLfloat*
 
 void glUniform4i_enc(void *self , GLint location, GLint x, GLint y, GLint z, GLint w)
 {
+	AEMU_SCOPED_TRACE("glUniform4i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3930,6 +4052,7 @@ void glUniform4i_enc(void *self , GLint location, GLint x, GLint y, GLint z, GLi
 
 void glUniform4iv_enc(void *self , GLint location, GLsizei count, const GLint* v)
 {
+	AEMU_SCOPED_TRACE("glUniform4iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3949,7 +4072,7 @@ void glUniform4iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_v; ptr += 4;
+	memcpy(ptr, &__size_v, 4); ptr += 4;
 	memcpy(ptr, v, __size_v);ptr += __size_v;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3959,6 +4082,7 @@ void glUniform4iv_enc(void *self , GLint location, GLsizei count, const GLint* v
 
 void glUniformMatrix2fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glUniformMatrix2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -3979,7 +4103,7 @@ void glUniformMatrix2fv_enc(void *self , GLint location, GLsizei count, GLboolea
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -3989,6 +4113,7 @@ void glUniformMatrix2fv_enc(void *self , GLint location, GLsizei count, GLboolea
 
 void glUniformMatrix3fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glUniformMatrix3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4009,7 +4134,7 @@ void glUniformMatrix3fv_enc(void *self , GLint location, GLsizei count, GLboolea
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -4019,6 +4144,7 @@ void glUniformMatrix3fv_enc(void *self , GLint location, GLsizei count, GLboolea
 
 void glUniformMatrix4fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glUniformMatrix4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4039,7 +4165,7 @@ void glUniformMatrix4fv_enc(void *self , GLint location, GLsizei count, GLboolea
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -4049,6 +4175,7 @@ void glUniformMatrix4fv_enc(void *self , GLint location, GLsizei count, GLboolea
 
 void glUseProgram_enc(void *self , GLuint program)
 {
+	AEMU_SCOPED_TRACE("glUseProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4074,6 +4201,7 @@ void glUseProgram_enc(void *self , GLuint program)
 
 void glValidateProgram_enc(void *self , GLuint program)
 {
+	AEMU_SCOPED_TRACE("glValidateProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4099,6 +4227,7 @@ void glValidateProgram_enc(void *self , GLuint program)
 
 void glVertexAttrib1f_enc(void *self , GLuint indx, GLfloat x)
 {
+	AEMU_SCOPED_TRACE("glVertexAttrib1f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4125,6 +4254,7 @@ void glVertexAttrib1f_enc(void *self , GLuint indx, GLfloat x)
 
 void glVertexAttrib1fv_enc(void *self , GLuint indx, const GLfloat* values)
 {
+	AEMU_SCOPED_TRACE("glVertexAttrib1fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4143,7 +4273,7 @@ void glVertexAttrib1fv_enc(void *self , GLuint indx, const GLfloat* values)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &indx, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_values; ptr += 4;
+	memcpy(ptr, &__size_values, 4); ptr += 4;
 	memcpy(ptr, values, __size_values);ptr += __size_values;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -4153,6 +4283,7 @@ void glVertexAttrib1fv_enc(void *self , GLuint indx, const GLfloat* values)
 
 void glVertexAttrib2f_enc(void *self , GLuint indx, GLfloat x, GLfloat y)
 {
+	AEMU_SCOPED_TRACE("glVertexAttrib2f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4180,6 +4311,7 @@ void glVertexAttrib2f_enc(void *self , GLuint indx, GLfloat x, GLfloat y)
 
 void glVertexAttrib2fv_enc(void *self , GLuint indx, const GLfloat* values)
 {
+	AEMU_SCOPED_TRACE("glVertexAttrib2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4198,7 +4330,7 @@ void glVertexAttrib2fv_enc(void *self , GLuint indx, const GLfloat* values)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &indx, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_values; ptr += 4;
+	memcpy(ptr, &__size_values, 4); ptr += 4;
 	memcpy(ptr, values, __size_values);ptr += __size_values;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -4208,6 +4340,7 @@ void glVertexAttrib2fv_enc(void *self , GLuint indx, const GLfloat* values)
 
 void glVertexAttrib3f_enc(void *self , GLuint indx, GLfloat x, GLfloat y, GLfloat z)
 {
+	AEMU_SCOPED_TRACE("glVertexAttrib3f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4236,6 +4369,7 @@ void glVertexAttrib3f_enc(void *self , GLuint indx, GLfloat x, GLfloat y, GLfloa
 
 void glVertexAttrib3fv_enc(void *self , GLuint indx, const GLfloat* values)
 {
+	AEMU_SCOPED_TRACE("glVertexAttrib3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4254,7 +4388,7 @@ void glVertexAttrib3fv_enc(void *self , GLuint indx, const GLfloat* values)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &indx, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_values; ptr += 4;
+	memcpy(ptr, &__size_values, 4); ptr += 4;
 	memcpy(ptr, values, __size_values);ptr += __size_values;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -4264,6 +4398,7 @@ void glVertexAttrib3fv_enc(void *self , GLuint indx, const GLfloat* values)
 
 void glVertexAttrib4f_enc(void *self , GLuint indx, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
 {
+	AEMU_SCOPED_TRACE("glVertexAttrib4f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4293,6 +4428,7 @@ void glVertexAttrib4f_enc(void *self , GLuint indx, GLfloat x, GLfloat y, GLfloa
 
 void glVertexAttrib4fv_enc(void *self , GLuint indx, const GLfloat* values)
 {
+	AEMU_SCOPED_TRACE("glVertexAttrib4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4311,7 +4447,7 @@ void glVertexAttrib4fv_enc(void *self , GLuint indx, const GLfloat* values)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &indx, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_values; ptr += 4;
+	memcpy(ptr, &__size_values, 4); ptr += 4;
 	memcpy(ptr, values, __size_values);ptr += __size_values;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -4321,6 +4457,7 @@ void glVertexAttrib4fv_enc(void *self , GLuint indx, const GLfloat* values)
 
 void glViewport_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	AEMU_SCOPED_TRACE("glViewport encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4349,6 +4486,7 @@ void glViewport_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height
 
 void glEGLImageTargetTexture2DOES_enc(void *self , GLenum target, GLeglImageOES image)
 {
+	AEMU_SCOPED_TRACE("glEGLImageTargetTexture2DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4375,6 +4513,7 @@ void glEGLImageTargetTexture2DOES_enc(void *self , GLenum target, GLeglImageOES 
 
 void glEGLImageTargetRenderbufferStorageOES_enc(void *self , GLenum target, GLeglImageOES image)
 {
+	AEMU_SCOPED_TRACE("glEGLImageTargetRenderbufferStorageOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4401,6 +4540,7 @@ void glEGLImageTargetRenderbufferStorageOES_enc(void *self , GLenum target, GLeg
 
 GLboolean glUnmapBufferOES_enc(void *self , GLenum target)
 {
+	AEMU_SCOPED_TRACE("glUnmapBufferOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4441,6 +4581,7 @@ GLboolean glUnmapBufferOES_enc(void *self , GLenum target)
 
 void glTexImage3DOES_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid* pixels)
 {
+	AEMU_SCOPED_TRACE("glTexImage3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4483,6 +4624,7 @@ void glTexImage3DOES_enc(void *self , GLenum target, GLint level, GLenum interna
 
 void glTexSubImage3DOES_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const GLvoid* pixels)
 {
+	AEMU_SCOPED_TRACE("glTexSubImage3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4526,6 +4668,7 @@ void glTexSubImage3DOES_enc(void *self , GLenum target, GLint level, GLint xoffs
 
 void glCopyTexSubImage3DOES_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	AEMU_SCOPED_TRACE("glCopyTexSubImage3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4559,6 +4702,7 @@ void glCopyTexSubImage3DOES_enc(void *self , GLenum target, GLint level, GLint x
 
 void glCompressedTexImage3DOES_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLsizei imageSize, const GLvoid* data)
 {
+	AEMU_SCOPED_TRACE("glCompressedTexImage3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4600,6 +4744,7 @@ void glCompressedTexImage3DOES_enc(void *self , GLenum target, GLint level, GLen
 
 void glCompressedTexSubImage3DOES_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const GLvoid* data)
 {
+	AEMU_SCOPED_TRACE("glCompressedTexSubImage3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4643,6 +4788,7 @@ void glCompressedTexSubImage3DOES_enc(void *self , GLenum target, GLint level, G
 
 void glFramebufferTexture3DOES_enc(void *self , GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level, GLint zoffset)
 {
+	AEMU_SCOPED_TRACE("glFramebufferTexture3DOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4673,6 +4819,7 @@ void glFramebufferTexture3DOES_enc(void *self , GLenum target, GLenum attachment
 
 void glBindVertexArrayOES_enc(void *self , GLuint array)
 {
+	AEMU_SCOPED_TRACE("glBindVertexArrayOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4698,6 +4845,7 @@ void glBindVertexArrayOES_enc(void *self , GLuint array)
 
 void glDeleteVertexArraysOES_enc(void *self , GLsizei n, const GLuint* arrays)
 {
+	AEMU_SCOPED_TRACE("glDeleteVertexArraysOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4716,7 +4864,7 @@ void glDeleteVertexArraysOES_enc(void *self , GLsizei n, const GLuint* arrays)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_arrays; ptr += 4;
+	memcpy(ptr, &__size_arrays, 4); ptr += 4;
 	memcpy(ptr, arrays, __size_arrays);ptr += __size_arrays;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -4726,6 +4874,7 @@ void glDeleteVertexArraysOES_enc(void *self , GLsizei n, const GLuint* arrays)
 
 void glGenVertexArraysOES_enc(void *self , GLsizei n, GLuint* arrays)
 {
+	AEMU_SCOPED_TRACE("glGenVertexArraysOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4744,7 +4893,7 @@ void glGenVertexArraysOES_enc(void *self , GLsizei n, GLuint* arrays)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_arrays; ptr += 4;
+	memcpy(ptr, &__size_arrays, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -4765,6 +4914,7 @@ void glGenVertexArraysOES_enc(void *self , GLsizei n, GLuint* arrays)
 
 GLboolean glIsVertexArrayOES_enc(void *self , GLuint array)
 {
+	AEMU_SCOPED_TRACE("glIsVertexArrayOES encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4805,6 +4955,7 @@ GLboolean glIsVertexArrayOES_enc(void *self , GLuint array)
 
 void glDiscardFramebufferEXT_enc(void *self , GLenum target, GLsizei numAttachments, const GLenum* attachments)
 {
+	AEMU_SCOPED_TRACE("glDiscardFramebufferEXT encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4824,7 +4975,7 @@ void glDiscardFramebufferEXT_enc(void *self , GLenum target, GLsizei numAttachme
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &numAttachments, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_attachments; ptr += 4;
+	memcpy(ptr, &__size_attachments, 4); ptr += 4;
 	memcpy(ptr, attachments, __size_attachments);ptr += __size_attachments;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -4834,6 +4985,7 @@ void glDiscardFramebufferEXT_enc(void *self , GLenum target, GLsizei numAttachme
 
 void glVertexAttribPointerData_enc(void *self , GLuint indx, GLint size, GLenum type, GLboolean normalized, GLsizei stride, void* data, GLuint datalen)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribPointerData encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4856,7 +5008,7 @@ void glVertexAttribPointerData_enc(void *self , GLuint indx, GLint size, GLenum 
 		memcpy(ptr, &type, 4); ptr += 4;
 		memcpy(ptr, &normalized, 1); ptr += 1;
 		memcpy(ptr, &stride, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_data; ptr += 4;
+	memcpy(ptr, &__size_data, 4); ptr += 4;
 	 glUtilsPackPointerData((unsigned char *)ptr, (unsigned char *)data, size, type, stride, datalen);ptr += __size_data;
 		memcpy(ptr, &datalen, 4); ptr += 4;
 
@@ -4867,6 +5019,7 @@ void glVertexAttribPointerData_enc(void *self , GLuint indx, GLint size, GLenum 
 
 void glVertexAttribPointerOffset_enc(void *self , GLuint indx, GLint size, GLenum type, GLboolean normalized, GLsizei stride, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribPointerOffset encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4897,6 +5050,7 @@ void glVertexAttribPointerOffset_enc(void *self , GLuint indx, GLint size, GLenu
 
 void glDrawElementsOffset_enc(void *self , GLenum mode, GLsizei count, GLenum type, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glDrawElementsOffset encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4925,6 +5079,7 @@ void glDrawElementsOffset_enc(void *self , GLenum mode, GLsizei count, GLenum ty
 
 void glDrawElementsData_enc(void *self , GLenum mode, GLsizei count, GLenum type, void* data, GLuint datalen)
 {
+	AEMU_SCOPED_TRACE("glDrawElementsData encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4945,7 +5100,7 @@ void glDrawElementsData_enc(void *self , GLenum mode, GLsizei count, GLenum type
 		memcpy(ptr, &mode, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &type, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_data; ptr += 4;
+	memcpy(ptr, &__size_data, 4); ptr += 4;
 	memcpy(ptr, data, __size_data);ptr += __size_data;
 		memcpy(ptr, &datalen, 4); ptr += 4;
 
@@ -4956,6 +5111,7 @@ void glDrawElementsData_enc(void *self , GLenum mode, GLsizei count, GLenum type
 
 void glGetCompressedTextureFormats_enc(void *self , int count, GLint* formats)
 {
+	AEMU_SCOPED_TRACE("glGetCompressedTextureFormats encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -4974,7 +5130,7 @@ void glGetCompressedTextureFormats_enc(void *self , int count, GLint* formats)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_formats; ptr += 4;
+	memcpy(ptr, &__size_formats, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -4995,6 +5151,7 @@ void glGetCompressedTextureFormats_enc(void *self , int count, GLint* formats)
 
 void glShaderString_enc(void *self , GLuint shader, const GLchar* string, GLsizei len)
 {
+	AEMU_SCOPED_TRACE("glShaderString encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5013,7 +5170,7 @@ void glShaderString_enc(void *self , GLuint shader, const GLchar* string, GLsize
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &shader, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_string; ptr += 4;
+	memcpy(ptr, &__size_string, 4); ptr += 4;
 	memcpy(ptr, string, __size_string);ptr += __size_string;
 		memcpy(ptr, &len, 4); ptr += 4;
 
@@ -5024,6 +5181,7 @@ void glShaderString_enc(void *self , GLuint shader, const GLchar* string, GLsize
 
 int glFinishRoundTrip_enc(void *self )
 {
+	AEMU_SCOPED_TRACE("glFinishRoundTrip encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5063,6 +5221,7 @@ int glFinishRoundTrip_enc(void *self )
 
 void glGenVertexArrays_enc(void *self , GLsizei n, GLuint* arrays)
 {
+	AEMU_SCOPED_TRACE("glGenVertexArrays encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5081,7 +5240,7 @@ void glGenVertexArrays_enc(void *self , GLsizei n, GLuint* arrays)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_arrays; ptr += 4;
+	memcpy(ptr, &__size_arrays, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -5102,6 +5261,7 @@ void glGenVertexArrays_enc(void *self , GLsizei n, GLuint* arrays)
 
 void glBindVertexArray_enc(void *self , GLuint array)
 {
+	AEMU_SCOPED_TRACE("glBindVertexArray encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5127,6 +5287,7 @@ void glBindVertexArray_enc(void *self , GLuint array)
 
 void glDeleteVertexArrays_enc(void *self , GLsizei n, const GLuint* arrays)
 {
+	AEMU_SCOPED_TRACE("glDeleteVertexArrays encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5145,7 +5306,7 @@ void glDeleteVertexArrays_enc(void *self , GLsizei n, const GLuint* arrays)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_arrays; ptr += 4;
+	memcpy(ptr, &__size_arrays, 4); ptr += 4;
 	memcpy(ptr, arrays, __size_arrays);ptr += __size_arrays;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -5155,6 +5316,7 @@ void glDeleteVertexArrays_enc(void *self , GLsizei n, const GLuint* arrays)
 
 GLboolean glIsVertexArray_enc(void *self , GLuint array)
 {
+	AEMU_SCOPED_TRACE("glIsVertexArray encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5195,6 +5357,7 @@ GLboolean glIsVertexArray_enc(void *self , GLuint array)
 
 void glMapBufferRangeAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* mapped)
 {
+	AEMU_SCOPED_TRACE("glMapBufferRangeAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5216,7 +5379,7 @@ void glMapBufferRangeAEMU_enc(void *self , GLenum target, GLintptr offset, GLsiz
 		memcpy(ptr, &offset, 4); ptr += 4;
 		memcpy(ptr, &length, 4); ptr += 4;
 		memcpy(ptr, &access, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_mapped; ptr += 4;
+	memcpy(ptr, &__size_mapped, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -5239,6 +5402,7 @@ void glMapBufferRangeAEMU_enc(void *self , GLenum target, GLintptr offset, GLsiz
 
 void glUnmapBufferAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer, GLboolean* out_res)
 {
+	AEMU_SCOPED_TRACE("glUnmapBufferAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5261,9 +5425,9 @@ void glUnmapBufferAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeip
 		memcpy(ptr, &offset, 4); ptr += 4;
 		memcpy(ptr, &length, 4); ptr += 4;
 		memcpy(ptr, &access, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_guest_buffer; ptr += 4;
+	memcpy(ptr, &__size_guest_buffer, 4); ptr += 4;
 	if (guest_buffer != NULL) memcpy(ptr, guest_buffer, __size_guest_buffer);ptr += __size_guest_buffer;
-	*(unsigned int *)(ptr) = __size_out_res; ptr += 4;
+	memcpy(ptr, &__size_out_res, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -5284,6 +5448,7 @@ void glUnmapBufferAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeip
 
 void glFlushMappedBufferRangeAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer)
 {
+	AEMU_SCOPED_TRACE("glFlushMappedBufferRangeAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5305,7 +5470,7 @@ void glFlushMappedBufferRangeAEMU_enc(void *self , GLenum target, GLintptr offse
 		memcpy(ptr, &offset, 4); ptr += 4;
 		memcpy(ptr, &length, 4); ptr += 4;
 		memcpy(ptr, &access, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_guest_buffer; ptr += 4;
+	memcpy(ptr, &__size_guest_buffer, 4); ptr += 4;
 	if (guest_buffer != NULL) memcpy(ptr, guest_buffer, __size_guest_buffer);ptr += __size_guest_buffer;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -5315,6 +5480,7 @@ void glFlushMappedBufferRangeAEMU_enc(void *self , GLenum target, GLintptr offse
 
 void glReadPixelsOffsetAEMU_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glReadPixelsOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5346,6 +5512,7 @@ void glReadPixelsOffsetAEMU_enc(void *self , GLint x, GLint y, GLsizei width, GL
 
 void glCompressedTexImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glCompressedTexImage2DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5378,6 +5545,7 @@ void glCompressedTexImage2DOffsetAEMU_enc(void *self , GLenum target, GLint leve
 
 void glCompressedTexSubImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glCompressedTexSubImage2DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5411,6 +5579,7 @@ void glCompressedTexSubImage2DOffsetAEMU_enc(void *self , GLenum target, GLint l
 
 void glTexImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glTexImage2DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5444,6 +5613,7 @@ void glTexImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint i
 
 void glTexSubImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glTexSubImage2DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5477,6 +5647,7 @@ void glTexSubImage2DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLin
 
 void glBindBufferRange_enc(void *self , GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size)
 {
+	AEMU_SCOPED_TRACE("glBindBufferRange encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5506,6 +5677,7 @@ void glBindBufferRange_enc(void *self , GLenum target, GLuint index, GLuint buff
 
 void glBindBufferBase_enc(void *self , GLenum target, GLuint index, GLuint buffer)
 {
+	AEMU_SCOPED_TRACE("glBindBufferBase encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5533,6 +5705,7 @@ void glBindBufferBase_enc(void *self , GLenum target, GLuint index, GLuint buffe
 
 void glCopyBufferSubData_enc(void *self , GLenum readtarget, GLenum writetarget, GLintptr readoffset, GLintptr writeoffset, GLsizeiptr size)
 {
+	AEMU_SCOPED_TRACE("glCopyBufferSubData encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5563,6 +5736,7 @@ void glCopyBufferSubData_enc(void *self , GLenum readtarget, GLenum writetarget,
 
 void glClearBufferiv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLint* value)
 {
+	AEMU_SCOPED_TRACE("glClearBufferiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5582,7 +5756,7 @@ void glClearBufferiv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLi
 
 		memcpy(ptr, &buffer, 4); ptr += 4;
 		memcpy(ptr, &drawBuffer, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -5592,6 +5766,7 @@ void glClearBufferiv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLi
 
 void glClearBufferuiv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLuint* value)
 {
+	AEMU_SCOPED_TRACE("glClearBufferuiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5611,7 +5786,7 @@ void glClearBufferuiv_enc(void *self , GLenum buffer, GLint drawBuffer, const GL
 
 		memcpy(ptr, &buffer, 4); ptr += 4;
 		memcpy(ptr, &drawBuffer, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -5621,6 +5796,7 @@ void glClearBufferuiv_enc(void *self , GLenum buffer, GLint drawBuffer, const GL
 
 void glClearBufferfv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glClearBufferfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5640,7 +5816,7 @@ void glClearBufferfv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLf
 
 		memcpy(ptr, &buffer, 4); ptr += 4;
 		memcpy(ptr, &drawBuffer, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -5650,6 +5826,7 @@ void glClearBufferfv_enc(void *self , GLenum buffer, GLint drawBuffer, const GLf
 
 void glClearBufferfi_enc(void *self , GLenum buffer, GLint drawBuffer, GLfloat depth, GLint stencil)
 {
+	AEMU_SCOPED_TRACE("glClearBufferfi encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5678,6 +5855,7 @@ void glClearBufferfi_enc(void *self , GLenum buffer, GLint drawBuffer, GLfloat d
 
 void glUniformBlockBinding_enc(void *self , GLuint program, GLuint uniformBlockIndex, GLuint uniformBlockBinding)
 {
+	AEMU_SCOPED_TRACE("glUniformBlockBinding encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5705,6 +5883,7 @@ void glUniformBlockBinding_enc(void *self , GLuint program, GLuint uniformBlockI
 
 GLuint glGetUniformBlockIndex_enc(void *self , GLuint program, const GLchar* uniformBlockName)
 {
+	AEMU_SCOPED_TRACE("glGetUniformBlockIndex encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5723,7 +5902,7 @@ GLuint glGetUniformBlockIndex_enc(void *self , GLuint program, const GLchar* uni
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &program, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_uniformBlockName; ptr += 4;
+	memcpy(ptr, &__size_uniformBlockName, 4); ptr += 4;
 	memcpy(ptr, uniformBlockName, __size_uniformBlockName);ptr += __size_uniformBlockName;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -5748,6 +5927,7 @@ GLuint glGetUniformBlockIndex_enc(void *self , GLuint program, const GLchar* uni
 
 void glGetUniformIndicesAEMU_enc(void *self , GLuint program, GLsizei uniformCount, const GLchar* packedUniformNames, GLsizei packedLen, GLuint* uniformIndices)
 {
+	AEMU_SCOPED_TRACE("glGetUniformIndicesAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5768,10 +5948,10 @@ void glGetUniformIndicesAEMU_enc(void *self , GLuint program, GLsizei uniformCou
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &uniformCount, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_packedUniformNames; ptr += 4;
+	memcpy(ptr, &__size_packedUniformNames, 4); ptr += 4;
 	memcpy(ptr, packedUniformNames, __size_packedUniformNames);ptr += __size_packedUniformNames;
 		memcpy(ptr, &packedLen, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_uniformIndices; ptr += 4;
+	memcpy(ptr, &__size_uniformIndices, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -5792,6 +5972,7 @@ void glGetUniformIndicesAEMU_enc(void *self , GLuint program, GLsizei uniformCou
 
 void glGetActiveUniformBlockiv_enc(void *self , GLuint program, GLuint uniformBlockIndex, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetActiveUniformBlockiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5812,7 +5993,7 @@ void glGetActiveUniformBlockiv_enc(void *self , GLuint program, GLuint uniformBl
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &uniformBlockIndex, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -5833,6 +6014,7 @@ void glGetActiveUniformBlockiv_enc(void *self , GLuint program, GLuint uniformBl
 
 void glGetActiveUniformBlockName_enc(void *self , GLuint program, GLuint uniformBlockIndex, GLsizei bufSize, GLsizei* length, GLchar* uniformBlockName)
 {
+	AEMU_SCOPED_TRACE("glGetActiveUniformBlockName encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5854,8 +6036,8 @@ void glGetActiveUniformBlockName_enc(void *self , GLuint program, GLuint uniform
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &uniformBlockIndex, 4); ptr += 4;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_uniformBlockName; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_uniformBlockName, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -5882,6 +6064,7 @@ void glGetActiveUniformBlockName_enc(void *self , GLuint program, GLuint uniform
 
 void glUniform1ui_enc(void *self , GLint location, GLuint v0)
 {
+	AEMU_SCOPED_TRACE("glUniform1ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5908,6 +6091,7 @@ void glUniform1ui_enc(void *self , GLint location, GLuint v0)
 
 void glUniform2ui_enc(void *self , GLint location, GLuint v0, GLuint v1)
 {
+	AEMU_SCOPED_TRACE("glUniform2ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5935,6 +6119,7 @@ void glUniform2ui_enc(void *self , GLint location, GLuint v0, GLuint v1)
 
 void glUniform3ui_enc(void *self , GLint location, GLuint v0, GLuint v1, GLuint v2)
 {
+	AEMU_SCOPED_TRACE("glUniform3ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5963,6 +6148,7 @@ void glUniform3ui_enc(void *self , GLint location, GLuint v0, GLuint v1, GLuint 
 
 void glUniform4ui_enc(void *self , GLint location, GLint v0, GLuint v1, GLuint v2, GLuint v3)
 {
+	AEMU_SCOPED_TRACE("glUniform4ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -5992,6 +6178,7 @@ void glUniform4ui_enc(void *self , GLint location, GLint v0, GLuint v1, GLuint v
 
 void glUniform1uiv_enc(void *self , GLint location, GLsizei count, const GLuint* value)
 {
+	AEMU_SCOPED_TRACE("glUniform1uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6011,7 +6198,7 @@ void glUniform1uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6021,6 +6208,7 @@ void glUniform1uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 void glUniform2uiv_enc(void *self , GLint location, GLsizei count, const GLuint* value)
 {
+	AEMU_SCOPED_TRACE("glUniform2uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6040,7 +6228,7 @@ void glUniform2uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6050,6 +6238,7 @@ void glUniform2uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 void glUniform3uiv_enc(void *self , GLint location, GLsizei count, const GLuint* value)
 {
+	AEMU_SCOPED_TRACE("glUniform3uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6069,7 +6258,7 @@ void glUniform3uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6079,6 +6268,7 @@ void glUniform3uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 void glUniform4uiv_enc(void *self , GLint location, GLsizei count, const GLuint* value)
 {
+	AEMU_SCOPED_TRACE("glUniform4uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6098,7 +6288,7 @@ void glUniform4uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6108,6 +6298,7 @@ void glUniform4uiv_enc(void *self , GLint location, GLsizei count, const GLuint*
 
 void glUniformMatrix2x3fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glUniformMatrix2x3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6128,7 +6319,7 @@ void glUniformMatrix2x3fv_enc(void *self , GLint location, GLsizei count, GLbool
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6138,6 +6329,7 @@ void glUniformMatrix2x3fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glUniformMatrix3x2fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glUniformMatrix3x2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6158,7 +6350,7 @@ void glUniformMatrix3x2fv_enc(void *self , GLint location, GLsizei count, GLbool
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6168,6 +6360,7 @@ void glUniformMatrix3x2fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glUniformMatrix2x4fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glUniformMatrix2x4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6188,7 +6381,7 @@ void glUniformMatrix2x4fv_enc(void *self , GLint location, GLsizei count, GLbool
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6198,6 +6391,7 @@ void glUniformMatrix2x4fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glUniformMatrix4x2fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glUniformMatrix4x2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6218,7 +6412,7 @@ void glUniformMatrix4x2fv_enc(void *self , GLint location, GLsizei count, GLbool
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6228,6 +6422,7 @@ void glUniformMatrix4x2fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glUniformMatrix3x4fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glUniformMatrix3x4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6248,7 +6443,7 @@ void glUniformMatrix3x4fv_enc(void *self , GLint location, GLsizei count, GLbool
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6258,6 +6453,7 @@ void glUniformMatrix3x4fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glUniformMatrix4x3fv_enc(void *self , GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glUniformMatrix4x3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6278,7 +6474,7 @@ void glUniformMatrix4x3fv_enc(void *self , GLint location, GLsizei count, GLbool
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6288,6 +6484,7 @@ void glUniformMatrix4x3fv_enc(void *self , GLint location, GLsizei count, GLbool
 
 void glGetUniformuiv_enc(void *self , GLuint program, GLint location, GLuint* params)
 {
+	AEMU_SCOPED_TRACE("glGetUniformuiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6307,7 +6504,7 @@ void glGetUniformuiv_enc(void *self , GLuint program, GLint location, GLuint* pa
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -6328,6 +6525,7 @@ void glGetUniformuiv_enc(void *self , GLuint program, GLint location, GLuint* pa
 
 void glGetActiveUniformsiv_enc(void *self , GLuint program, GLsizei uniformCount, const GLuint* uniformIndices, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetActiveUniformsiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6348,10 +6546,10 @@ void glGetActiveUniformsiv_enc(void *self , GLuint program, GLsizei uniformCount
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &uniformCount, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_uniformIndices; ptr += 4;
+	memcpy(ptr, &__size_uniformIndices, 4); ptr += 4;
 	memcpy(ptr, uniformIndices, __size_uniformIndices);ptr += __size_uniformIndices;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -6372,6 +6570,7 @@ void glGetActiveUniformsiv_enc(void *self , GLuint program, GLsizei uniformCount
 
 void glVertexAttribI4i_enc(void *self , GLuint index, GLint v0, GLint v1, GLint v2, GLint v3)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribI4i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6401,6 +6600,7 @@ void glVertexAttribI4i_enc(void *self , GLuint index, GLint v0, GLint v1, GLint 
 
 void glVertexAttribI4ui_enc(void *self , GLuint index, GLuint v0, GLuint v1, GLuint v2, GLuint v3)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribI4ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6430,6 +6630,7 @@ void glVertexAttribI4ui_enc(void *self , GLuint index, GLuint v0, GLuint v1, GLu
 
 void glVertexAttribI4iv_enc(void *self , GLuint index, const GLint* v)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribI4iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6448,7 +6649,7 @@ void glVertexAttribI4iv_enc(void *self , GLuint index, const GLint* v)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &index, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_v; ptr += 4;
+	memcpy(ptr, &__size_v, 4); ptr += 4;
 	memcpy(ptr, v, __size_v);ptr += __size_v;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6458,6 +6659,7 @@ void glVertexAttribI4iv_enc(void *self , GLuint index, const GLint* v)
 
 void glVertexAttribI4uiv_enc(void *self , GLuint index, const GLuint* v)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribI4uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6476,7 +6678,7 @@ void glVertexAttribI4uiv_enc(void *self , GLuint index, const GLuint* v)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &index, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_v; ptr += 4;
+	memcpy(ptr, &__size_v, 4); ptr += 4;
 	memcpy(ptr, v, __size_v);ptr += __size_v;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -6486,6 +6688,7 @@ void glVertexAttribI4uiv_enc(void *self , GLuint index, const GLuint* v)
 
 void glVertexAttribIPointerOffsetAEMU_enc(void *self , GLuint index, GLint size, GLenum type, GLsizei stride, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribIPointerOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6515,6 +6718,7 @@ void glVertexAttribIPointerOffsetAEMU_enc(void *self , GLuint index, GLint size,
 
 void glVertexAttribIPointerDataAEMU_enc(void *self , GLuint index, GLint size, GLenum type, GLsizei stride, void* data, GLuint datalen)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribIPointerDataAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6536,7 +6740,7 @@ void glVertexAttribIPointerDataAEMU_enc(void *self , GLuint index, GLint size, G
 		memcpy(ptr, &size, 4); ptr += 4;
 		memcpy(ptr, &type, 4); ptr += 4;
 		memcpy(ptr, &stride, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_data; ptr += 4;
+	memcpy(ptr, &__size_data, 4); ptr += 4;
 	 glUtilsPackPointerData((unsigned char *)ptr, (unsigned char *)data, size, type, stride, datalen);ptr += __size_data;
 		memcpy(ptr, &datalen, 4); ptr += 4;
 
@@ -6547,6 +6751,7 @@ void glVertexAttribIPointerDataAEMU_enc(void *self , GLuint index, GLint size, G
 
 void glGetVertexAttribIiv_enc(void *self , GLuint index, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetVertexAttribIiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6566,7 +6771,7 @@ void glGetVertexAttribIiv_enc(void *self , GLuint index, GLenum pname, GLint* pa
 
 		memcpy(ptr, &index, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -6587,6 +6792,7 @@ void glGetVertexAttribIiv_enc(void *self , GLuint index, GLenum pname, GLint* pa
 
 void glGetVertexAttribIuiv_enc(void *self , GLuint index, GLenum pname, GLuint* params)
 {
+	AEMU_SCOPED_TRACE("glGetVertexAttribIuiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6606,7 +6812,7 @@ void glGetVertexAttribIuiv_enc(void *self , GLuint index, GLenum pname, GLuint* 
 
 		memcpy(ptr, &index, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -6627,6 +6833,7 @@ void glGetVertexAttribIuiv_enc(void *self , GLuint index, GLenum pname, GLuint* 
 
 void glVertexAttribDivisor_enc(void *self , GLuint index, GLuint divisor)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribDivisor encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6653,6 +6860,7 @@ void glVertexAttribDivisor_enc(void *self , GLuint index, GLuint divisor)
 
 void glDrawArraysInstanced_enc(void *self , GLenum mode, GLint first, GLsizei count, GLsizei primcount)
 {
+	AEMU_SCOPED_TRACE("glDrawArraysInstanced encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6681,6 +6889,7 @@ void glDrawArraysInstanced_enc(void *self , GLenum mode, GLint first, GLsizei co
 
 void glDrawElementsInstancedDataAEMU_enc(void *self , GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei primcount, GLsizei datalen)
 {
+	AEMU_SCOPED_TRACE("glDrawElementsInstancedDataAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6701,7 +6910,7 @@ void glDrawElementsInstancedDataAEMU_enc(void *self , GLenum mode, GLsizei count
 		memcpy(ptr, &mode, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &type, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_indices; ptr += 4;
+	memcpy(ptr, &__size_indices, 4); ptr += 4;
 	memcpy(ptr, indices, __size_indices);ptr += __size_indices;
 		memcpy(ptr, &primcount, 4); ptr += 4;
 		memcpy(ptr, &datalen, 4); ptr += 4;
@@ -6713,6 +6922,7 @@ void glDrawElementsInstancedDataAEMU_enc(void *self , GLenum mode, GLsizei count
 
 void glDrawElementsInstancedOffsetAEMU_enc(void *self , GLenum mode, GLsizei count, GLenum type, GLuint offset, GLsizei primcount)
 {
+	AEMU_SCOPED_TRACE("glDrawElementsInstancedOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6742,6 +6952,7 @@ void glDrawElementsInstancedOffsetAEMU_enc(void *self , GLenum mode, GLsizei cou
 
 void glDrawRangeElementsDataAEMU_enc(void *self , GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid* indices, GLsizei datalen)
 {
+	AEMU_SCOPED_TRACE("glDrawRangeElementsDataAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6764,7 +6975,7 @@ void glDrawRangeElementsDataAEMU_enc(void *self , GLenum mode, GLuint start, GLu
 		memcpy(ptr, &end, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &type, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_indices; ptr += 4;
+	memcpy(ptr, &__size_indices, 4); ptr += 4;
 	memcpy(ptr, indices, __size_indices);ptr += __size_indices;
 		memcpy(ptr, &datalen, 4); ptr += 4;
 
@@ -6775,6 +6986,7 @@ void glDrawRangeElementsDataAEMU_enc(void *self , GLenum mode, GLuint start, GLu
 
 void glDrawRangeElementsOffsetAEMU_enc(void *self , GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glDrawRangeElementsOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6805,6 +7017,7 @@ void glDrawRangeElementsOffsetAEMU_enc(void *self , GLenum mode, GLuint start, G
 
 uint64_t glFenceSyncAEMU_enc(void *self , GLenum condition, GLbitfield flags)
 {
+	AEMU_SCOPED_TRACE("glFenceSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6846,6 +7059,7 @@ uint64_t glFenceSyncAEMU_enc(void *self , GLenum condition, GLbitfield flags)
 
 GLenum glClientWaitSyncAEMU_enc(void *self , uint64_t wait_on, GLbitfield flags, GLuint64 timeout)
 {
+	AEMU_SCOPED_TRACE("glClientWaitSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6888,6 +7102,7 @@ GLenum glClientWaitSyncAEMU_enc(void *self , uint64_t wait_on, GLbitfield flags,
 
 void glWaitSyncAEMU_enc(void *self , uint64_t wait_on, GLbitfield flags, GLuint64 timeout)
 {
+	AEMU_SCOPED_TRACE("glWaitSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6915,6 +7130,7 @@ void glWaitSyncAEMU_enc(void *self , uint64_t wait_on, GLbitfield flags, GLuint6
 
 void glDeleteSyncAEMU_enc(void *self , uint64_t to_delete)
 {
+	AEMU_SCOPED_TRACE("glDeleteSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6940,6 +7156,7 @@ void glDeleteSyncAEMU_enc(void *self , uint64_t to_delete)
 
 GLboolean glIsSyncAEMU_enc(void *self , uint64_t sync)
 {
+	AEMU_SCOPED_TRACE("glIsSyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -6980,6 +7197,7 @@ GLboolean glIsSyncAEMU_enc(void *self , uint64_t sync)
 
 void glGetSyncivAEMU_enc(void *self , uint64_t sync, GLenum pname, GLsizei bufSize, GLsizei* length, GLint* values)
 {
+	AEMU_SCOPED_TRACE("glGetSyncivAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7001,8 +7219,8 @@ void glGetSyncivAEMU_enc(void *self , uint64_t sync, GLenum pname, GLsizei bufSi
 		memcpy(ptr, &sync, 8); ptr += 8;
 		memcpy(ptr, &pname, 4); ptr += 4;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_values; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_values, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -7027,6 +7245,7 @@ void glGetSyncivAEMU_enc(void *self , uint64_t sync, GLenum pname, GLsizei bufSi
 
 void glDrawBuffers_enc(void *self , GLsizei n, const GLenum* bufs)
 {
+	AEMU_SCOPED_TRACE("glDrawBuffers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7045,7 +7264,7 @@ void glDrawBuffers_enc(void *self , GLsizei n, const GLenum* bufs)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_bufs; ptr += 4;
+	memcpy(ptr, &__size_bufs, 4); ptr += 4;
 	memcpy(ptr, bufs, __size_bufs);ptr += __size_bufs;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -7055,6 +7274,7 @@ void glDrawBuffers_enc(void *self , GLsizei n, const GLenum* bufs)
 
 void glReadBuffer_enc(void *self , GLenum src)
 {
+	AEMU_SCOPED_TRACE("glReadBuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7080,6 +7300,7 @@ void glReadBuffer_enc(void *self , GLenum src)
 
 void glBlitFramebuffer_enc(void *self , GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
 {
+	AEMU_SCOPED_TRACE("glBlitFramebuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7114,6 +7335,7 @@ void glBlitFramebuffer_enc(void *self , GLint srcX0, GLint srcY0, GLint srcX1, G
 
 void glInvalidateFramebuffer_enc(void *self , GLenum target, GLsizei numAttachments, const GLenum* attachments)
 {
+	AEMU_SCOPED_TRACE("glInvalidateFramebuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7133,7 +7355,7 @@ void glInvalidateFramebuffer_enc(void *self , GLenum target, GLsizei numAttachme
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &numAttachments, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_attachments; ptr += 4;
+	memcpy(ptr, &__size_attachments, 4); ptr += 4;
 	memcpy(ptr, attachments, __size_attachments);ptr += __size_attachments;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -7143,6 +7365,7 @@ void glInvalidateFramebuffer_enc(void *self , GLenum target, GLsizei numAttachme
 
 void glInvalidateSubFramebuffer_enc(void *self , GLenum target, GLsizei numAttachments, const GLenum* attachments, GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	AEMU_SCOPED_TRACE("glInvalidateSubFramebuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7162,7 +7385,7 @@ void glInvalidateSubFramebuffer_enc(void *self , GLenum target, GLsizei numAttac
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &numAttachments, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_attachments; ptr += 4;
+	memcpy(ptr, &__size_attachments, 4); ptr += 4;
 	memcpy(ptr, attachments, __size_attachments);ptr += __size_attachments;
 		memcpy(ptr, &x, 4); ptr += 4;
 		memcpy(ptr, &y, 4); ptr += 4;
@@ -7176,6 +7399,7 @@ void glInvalidateSubFramebuffer_enc(void *self , GLenum target, GLsizei numAttac
 
 void glFramebufferTextureLayer_enc(void *self , GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer)
 {
+	AEMU_SCOPED_TRACE("glFramebufferTextureLayer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7205,6 +7429,7 @@ void glFramebufferTextureLayer_enc(void *self , GLenum target, GLenum attachment
 
 void glRenderbufferStorageMultisample_enc(void *self , GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)
 {
+	AEMU_SCOPED_TRACE("glRenderbufferStorageMultisample encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7234,6 +7459,7 @@ void glRenderbufferStorageMultisample_enc(void *self , GLenum target, GLsizei sa
 
 void glTexStorage2D_enc(void *self , GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height)
 {
+	AEMU_SCOPED_TRACE("glTexStorage2D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7263,6 +7489,7 @@ void glTexStorage2D_enc(void *self , GLenum target, GLsizei levels, GLenum inter
 
 void glGetInternalformativ_enc(void *self , GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetInternalformativ encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7284,7 +7511,7 @@ void glGetInternalformativ_enc(void *self , GLenum target, GLenum internalformat
 		memcpy(ptr, &internalformat, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -7305,6 +7532,7 @@ void glGetInternalformativ_enc(void *self , GLenum target, GLenum internalformat
 
 void glBeginTransformFeedback_enc(void *self , GLenum primitiveMode)
 {
+	AEMU_SCOPED_TRACE("glBeginTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7330,6 +7558,7 @@ void glBeginTransformFeedback_enc(void *self , GLenum primitiveMode)
 
 void glEndTransformFeedback_enc(void *self )
 {
+	AEMU_SCOPED_TRACE("glEndTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7354,6 +7583,7 @@ void glEndTransformFeedback_enc(void *self )
 
 void glGenTransformFeedbacks_enc(void *self , GLsizei n, GLuint* ids)
 {
+	AEMU_SCOPED_TRACE("glGenTransformFeedbacks encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7372,7 +7602,7 @@ void glGenTransformFeedbacks_enc(void *self , GLsizei n, GLuint* ids)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_ids; ptr += 4;
+	memcpy(ptr, &__size_ids, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -7393,6 +7623,7 @@ void glGenTransformFeedbacks_enc(void *self , GLsizei n, GLuint* ids)
 
 void glDeleteTransformFeedbacks_enc(void *self , GLsizei n, const GLuint* ids)
 {
+	AEMU_SCOPED_TRACE("glDeleteTransformFeedbacks encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7411,7 +7642,7 @@ void glDeleteTransformFeedbacks_enc(void *self , GLsizei n, const GLuint* ids)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_ids; ptr += 4;
+	memcpy(ptr, &__size_ids, 4); ptr += 4;
 	memcpy(ptr, ids, __size_ids);ptr += __size_ids;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -7421,6 +7652,7 @@ void glDeleteTransformFeedbacks_enc(void *self , GLsizei n, const GLuint* ids)
 
 void glBindTransformFeedback_enc(void *self , GLenum target, GLuint id)
 {
+	AEMU_SCOPED_TRACE("glBindTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7447,6 +7679,7 @@ void glBindTransformFeedback_enc(void *self , GLenum target, GLuint id)
 
 void glPauseTransformFeedback_enc(void *self )
 {
+	AEMU_SCOPED_TRACE("glPauseTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7471,6 +7704,7 @@ void glPauseTransformFeedback_enc(void *self )
 
 void glResumeTransformFeedback_enc(void *self )
 {
+	AEMU_SCOPED_TRACE("glResumeTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7495,6 +7729,7 @@ void glResumeTransformFeedback_enc(void *self )
 
 GLboolean glIsTransformFeedback_enc(void *self , GLuint id)
 {
+	AEMU_SCOPED_TRACE("glIsTransformFeedback encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7535,6 +7770,7 @@ GLboolean glIsTransformFeedback_enc(void *self , GLuint id)
 
 void glTransformFeedbackVaryingsAEMU_enc(void *self , GLuint program, GLsizei count, const char* packedVaryings, GLuint packedVaryingsLen, GLenum bufferMode)
 {
+	AEMU_SCOPED_TRACE("glTransformFeedbackVaryingsAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7554,7 +7790,7 @@ void glTransformFeedbackVaryingsAEMU_enc(void *self , GLuint program, GLsizei co
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_packedVaryings; ptr += 4;
+	memcpy(ptr, &__size_packedVaryings, 4); ptr += 4;
 	memcpy(ptr, packedVaryings, __size_packedVaryings);ptr += __size_packedVaryings;
 		memcpy(ptr, &packedVaryingsLen, 4); ptr += 4;
 		memcpy(ptr, &bufferMode, 4); ptr += 4;
@@ -7566,6 +7802,7 @@ void glTransformFeedbackVaryingsAEMU_enc(void *self , GLuint program, GLsizei co
 
 void glGetTransformFeedbackVarying_enc(void *self , GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLsizei* size, GLenum* type, char* name)
 {
+	AEMU_SCOPED_TRACE("glGetTransformFeedbackVarying encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7589,10 +7826,10 @@ void glGetTransformFeedbackVarying_enc(void *self , GLuint program, GLuint index
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &index, 4); ptr += 4;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_size; ptr += 4;
-	*(unsigned int *)(ptr) = __size_type; ptr += 4;
-	*(unsigned int *)(ptr) = __size_name; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_size, 4); ptr += 4;
+	memcpy(ptr, &__size_type, 4); ptr += 4;
+	memcpy(ptr, &__size_name, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -7625,6 +7862,7 @@ void glGetTransformFeedbackVarying_enc(void *self , GLuint program, GLuint index
 
 void glGenSamplers_enc(void *self , GLsizei n, GLuint* samplers)
 {
+	AEMU_SCOPED_TRACE("glGenSamplers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7643,7 +7881,7 @@ void glGenSamplers_enc(void *self , GLsizei n, GLuint* samplers)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_samplers; ptr += 4;
+	memcpy(ptr, &__size_samplers, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -7664,6 +7902,7 @@ void glGenSamplers_enc(void *self , GLsizei n, GLuint* samplers)
 
 void glDeleteSamplers_enc(void *self , GLsizei n, const GLuint* samplers)
 {
+	AEMU_SCOPED_TRACE("glDeleteSamplers encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7682,7 +7921,7 @@ void glDeleteSamplers_enc(void *self , GLsizei n, const GLuint* samplers)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_samplers; ptr += 4;
+	memcpy(ptr, &__size_samplers, 4); ptr += 4;
 	memcpy(ptr, samplers, __size_samplers);ptr += __size_samplers;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -7692,6 +7931,7 @@ void glDeleteSamplers_enc(void *self , GLsizei n, const GLuint* samplers)
 
 void glBindSampler_enc(void *self , GLuint unit, GLuint sampler)
 {
+	AEMU_SCOPED_TRACE("glBindSampler encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7718,6 +7958,7 @@ void glBindSampler_enc(void *self , GLuint unit, GLuint sampler)
 
 void glSamplerParameterf_enc(void *self , GLuint sampler, GLenum pname, GLfloat param)
 {
+	AEMU_SCOPED_TRACE("glSamplerParameterf encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7745,6 +7986,7 @@ void glSamplerParameterf_enc(void *self , GLuint sampler, GLenum pname, GLfloat 
 
 void glSamplerParameteri_enc(void *self , GLuint sampler, GLenum pname, GLint param)
 {
+	AEMU_SCOPED_TRACE("glSamplerParameteri encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7772,6 +8014,7 @@ void glSamplerParameteri_enc(void *self , GLuint sampler, GLenum pname, GLint pa
 
 void glSamplerParameterfv_enc(void *self , GLuint sampler, GLenum pname, const GLfloat* params)
 {
+	AEMU_SCOPED_TRACE("glSamplerParameterfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7791,7 +8034,7 @@ void glSamplerParameterfv_enc(void *self , GLuint sampler, GLenum pname, const G
 
 		memcpy(ptr, &sampler, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 	memcpy(ptr, params, __size_params);ptr += __size_params;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -7801,6 +8044,7 @@ void glSamplerParameterfv_enc(void *self , GLuint sampler, GLenum pname, const G
 
 void glSamplerParameteriv_enc(void *self , GLuint sampler, GLenum pname, const GLint* params)
 {
+	AEMU_SCOPED_TRACE("glSamplerParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7820,7 +8064,7 @@ void glSamplerParameteriv_enc(void *self , GLuint sampler, GLenum pname, const G
 
 		memcpy(ptr, &sampler, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 	memcpy(ptr, params, __size_params);ptr += __size_params;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -7830,6 +8074,7 @@ void glSamplerParameteriv_enc(void *self , GLuint sampler, GLenum pname, const G
 
 void glGetSamplerParameterfv_enc(void *self , GLuint sampler, GLenum pname, GLfloat* params)
 {
+	AEMU_SCOPED_TRACE("glGetSamplerParameterfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7849,7 +8094,7 @@ void glGetSamplerParameterfv_enc(void *self , GLuint sampler, GLenum pname, GLfl
 
 		memcpy(ptr, &sampler, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -7870,6 +8115,7 @@ void glGetSamplerParameterfv_enc(void *self , GLuint sampler, GLenum pname, GLfl
 
 void glGetSamplerParameteriv_enc(void *self , GLuint sampler, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetSamplerParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7889,7 +8135,7 @@ void glGetSamplerParameteriv_enc(void *self , GLuint sampler, GLenum pname, GLin
 
 		memcpy(ptr, &sampler, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -7910,6 +8156,7 @@ void glGetSamplerParameteriv_enc(void *self , GLuint sampler, GLenum pname, GLin
 
 GLboolean glIsSampler_enc(void *self , GLuint sampler)
 {
+	AEMU_SCOPED_TRACE("glIsSampler encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7950,6 +8197,7 @@ GLboolean glIsSampler_enc(void *self , GLuint sampler)
 
 void glGenQueries_enc(void *self , GLsizei n, GLuint* queries)
 {
+	AEMU_SCOPED_TRACE("glGenQueries encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -7968,7 +8216,7 @@ void glGenQueries_enc(void *self , GLsizei n, GLuint* queries)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_queries; ptr += 4;
+	memcpy(ptr, &__size_queries, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -7989,6 +8237,7 @@ void glGenQueries_enc(void *self , GLsizei n, GLuint* queries)
 
 void glDeleteQueries_enc(void *self , GLsizei n, const GLuint* queries)
 {
+	AEMU_SCOPED_TRACE("glDeleteQueries encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8007,7 +8256,7 @@ void glDeleteQueries_enc(void *self , GLsizei n, const GLuint* queries)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_queries; ptr += 4;
+	memcpy(ptr, &__size_queries, 4); ptr += 4;
 	memcpy(ptr, queries, __size_queries);ptr += __size_queries;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -8017,6 +8266,7 @@ void glDeleteQueries_enc(void *self , GLsizei n, const GLuint* queries)
 
 void glBeginQuery_enc(void *self , GLenum target, GLuint query)
 {
+	AEMU_SCOPED_TRACE("glBeginQuery encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8043,6 +8293,7 @@ void glBeginQuery_enc(void *self , GLenum target, GLuint query)
 
 void glEndQuery_enc(void *self , GLenum target)
 {
+	AEMU_SCOPED_TRACE("glEndQuery encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8068,6 +8319,7 @@ void glEndQuery_enc(void *self , GLenum target)
 
 void glGetQueryiv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetQueryiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8087,7 +8339,7 @@ void glGetQueryiv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -8108,6 +8360,7 @@ void glGetQueryiv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 
 void glGetQueryObjectuiv_enc(void *self , GLuint query, GLenum pname, GLuint* params)
 {
+	AEMU_SCOPED_TRACE("glGetQueryObjectuiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8127,7 +8380,7 @@ void glGetQueryObjectuiv_enc(void *self , GLuint query, GLenum pname, GLuint* pa
 
 		memcpy(ptr, &query, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -8148,6 +8401,7 @@ void glGetQueryObjectuiv_enc(void *self , GLuint query, GLenum pname, GLuint* pa
 
 GLboolean glIsQuery_enc(void *self , GLuint query)
 {
+	AEMU_SCOPED_TRACE("glIsQuery encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8188,6 +8442,7 @@ GLboolean glIsQuery_enc(void *self , GLuint query)
 
 void glProgramParameteri_enc(void *self , GLuint program, GLenum pname, GLint value)
 {
+	AEMU_SCOPED_TRACE("glProgramParameteri encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8215,6 +8470,7 @@ void glProgramParameteri_enc(void *self , GLuint program, GLenum pname, GLint va
 
 void glProgramBinary_enc(void *self , GLuint program, GLenum binaryFormat, const void* binary, GLsizei length)
 {
+	AEMU_SCOPED_TRACE("glProgramBinary encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8234,7 +8490,7 @@ void glProgramBinary_enc(void *self , GLuint program, GLenum binaryFormat, const
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &binaryFormat, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_binary; ptr += 4;
+	memcpy(ptr, &__size_binary, 4); ptr += 4;
 	memcpy(ptr, binary, __size_binary);ptr += __size_binary;
 		memcpy(ptr, &length, 4); ptr += 4;
 
@@ -8245,6 +8501,7 @@ void glProgramBinary_enc(void *self , GLuint program, GLenum binaryFormat, const
 
 void glGetProgramBinary_enc(void *self , GLuint program, GLsizei bufSize, GLsizei* length, GLenum* binaryFormat, void* binary)
 {
+	AEMU_SCOPED_TRACE("glGetProgramBinary encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8266,9 +8523,9 @@ void glGetProgramBinary_enc(void *self , GLuint program, GLsizei bufSize, GLsize
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_binaryFormat; ptr += 4;
-	*(unsigned int *)(ptr) = __size_binary; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_binaryFormat, 4); ptr += 4;
+	memcpy(ptr, &__size_binary, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -8295,6 +8552,7 @@ void glGetProgramBinary_enc(void *self , GLuint program, GLsizei bufSize, GLsize
 
 GLint glGetFragDataLocation_enc(void *self , GLuint program, const char* name)
 {
+	AEMU_SCOPED_TRACE("glGetFragDataLocation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8313,7 +8571,7 @@ GLint glGetFragDataLocation_enc(void *self , GLuint program, const char* name)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &program, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_name; ptr += 4;
+	memcpy(ptr, &__size_name, 4); ptr += 4;
 	memcpy(ptr, name, __size_name);ptr += __size_name;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -8338,6 +8596,7 @@ GLint glGetFragDataLocation_enc(void *self , GLuint program, const char* name)
 
 void glGetInteger64v_enc(void *self , GLenum pname, GLint64* data)
 {
+	AEMU_SCOPED_TRACE("glGetInteger64v encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8356,7 +8615,7 @@ void glGetInteger64v_enc(void *self , GLenum pname, GLint64* data)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_data; ptr += 4;
+	memcpy(ptr, &__size_data, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -8377,6 +8636,7 @@ void glGetInteger64v_enc(void *self , GLenum pname, GLint64* data)
 
 void glGetIntegeri_v_enc(void *self , GLenum target, GLuint index, GLint* data)
 {
+	AEMU_SCOPED_TRACE("glGetIntegeri_v encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8396,7 +8656,7 @@ void glGetIntegeri_v_enc(void *self , GLenum target, GLuint index, GLint* data)
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &index, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_data; ptr += 4;
+	memcpy(ptr, &__size_data, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -8417,6 +8677,7 @@ void glGetIntegeri_v_enc(void *self , GLenum target, GLuint index, GLint* data)
 
 void glGetInteger64i_v_enc(void *self , GLenum target, GLuint index, GLint64* data)
 {
+	AEMU_SCOPED_TRACE("glGetInteger64i_v encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8436,7 +8697,7 @@ void glGetInteger64i_v_enc(void *self , GLenum target, GLuint index, GLint64* da
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &index, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_data; ptr += 4;
+	memcpy(ptr, &__size_data, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -8457,6 +8718,7 @@ void glGetInteger64i_v_enc(void *self , GLenum target, GLuint index, GLint64* da
 
 void glTexImage3D_enc(void *self , GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid* data)
 {
+	AEMU_SCOPED_TRACE("glTexImage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8499,6 +8761,7 @@ void glTexImage3D_enc(void *self , GLenum target, GLint level, GLint internalFor
 
 void glTexImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glTexImage3DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8533,6 +8796,7 @@ void glTexImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint i
 
 void glTexStorage3D_enc(void *self , GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)
 {
+	AEMU_SCOPED_TRACE("glTexStorage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8563,6 +8827,7 @@ void glTexStorage3D_enc(void *self , GLenum target, GLsizei levels, GLenum inter
 
 void glTexSubImage3D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const GLvoid* data)
 {
+	AEMU_SCOPED_TRACE("glTexSubImage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8606,6 +8871,7 @@ void glTexSubImage3D_enc(void *self , GLenum target, GLint level, GLint xoffset,
 
 void glTexSubImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glTexSubImage3DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8641,6 +8907,7 @@ void glTexSubImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLin
 
 void glCompressedTexImage3D_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLsizei imageSize, const GLvoid* data)
 {
+	AEMU_SCOPED_TRACE("glCompressedTexImage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8682,6 +8949,7 @@ void glCompressedTexImage3D_enc(void *self , GLenum target, GLint level, GLenum 
 
 void glCompressedTexImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLsizei imageSize, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glCompressedTexImage3DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8715,6 +8983,7 @@ void glCompressedTexImage3DOffsetAEMU_enc(void *self , GLenum target, GLint leve
 
 void glCompressedTexSubImage3D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const GLvoid* data)
 {
+	AEMU_SCOPED_TRACE("glCompressedTexSubImage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8758,6 +9027,7 @@ void glCompressedTexSubImage3D_enc(void *self , GLenum target, GLint level, GLin
 
 void glCompressedTexSubImage3DOffsetAEMU_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, GLuint data)
 {
+	AEMU_SCOPED_TRACE("glCompressedTexSubImage3DOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8793,6 +9063,7 @@ void glCompressedTexSubImage3DOffsetAEMU_enc(void *self , GLenum target, GLint l
 
 void glCopyTexSubImage3D_enc(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height)
 {
+	AEMU_SCOPED_TRACE("glCopyTexSubImage3D encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8826,6 +9097,7 @@ void glCopyTexSubImage3D_enc(void *self , GLenum target, GLint level, GLint xoff
 
 void glGetBooleani_v_enc(void *self , GLenum target, GLuint index, GLboolean* data)
 {
+	AEMU_SCOPED_TRACE("glGetBooleani_v encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8845,7 +9117,7 @@ void glGetBooleani_v_enc(void *self , GLenum target, GLuint index, GLboolean* da
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &index, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_data; ptr += 4;
+	memcpy(ptr, &__size_data, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -8866,6 +9138,7 @@ void glGetBooleani_v_enc(void *self , GLenum target, GLuint index, GLboolean* da
 
 void glMemoryBarrier_enc(void *self , GLbitfield barriers)
 {
+	AEMU_SCOPED_TRACE("glMemoryBarrier encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8891,6 +9164,7 @@ void glMemoryBarrier_enc(void *self , GLbitfield barriers)
 
 void glMemoryBarrierByRegion_enc(void *self , GLbitfield barriers)
 {
+	AEMU_SCOPED_TRACE("glMemoryBarrierByRegion encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8916,6 +9190,7 @@ void glMemoryBarrierByRegion_enc(void *self , GLbitfield barriers)
 
 void glGenProgramPipelines_enc(void *self , GLsizei n, GLuint* pipelines)
 {
+	AEMU_SCOPED_TRACE("glGenProgramPipelines encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8934,7 +9209,7 @@ void glGenProgramPipelines_enc(void *self , GLsizei n, GLuint* pipelines)
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_pipelines; ptr += 4;
+	memcpy(ptr, &__size_pipelines, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -8955,6 +9230,7 @@ void glGenProgramPipelines_enc(void *self , GLsizei n, GLuint* pipelines)
 
 void glDeleteProgramPipelines_enc(void *self , GLsizei n, const GLuint* pipelines)
 {
+	AEMU_SCOPED_TRACE("glDeleteProgramPipelines encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -8973,7 +9249,7 @@ void glDeleteProgramPipelines_enc(void *self , GLsizei n, const GLuint* pipeline
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &n, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_pipelines; ptr += 4;
+	memcpy(ptr, &__size_pipelines, 4); ptr += 4;
 	memcpy(ptr, pipelines, __size_pipelines);ptr += __size_pipelines;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -8983,6 +9259,7 @@ void glDeleteProgramPipelines_enc(void *self , GLsizei n, const GLuint* pipeline
 
 void glBindProgramPipeline_enc(void *self , GLuint pipeline)
 {
+	AEMU_SCOPED_TRACE("glBindProgramPipeline encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9008,6 +9285,7 @@ void glBindProgramPipeline_enc(void *self , GLuint pipeline)
 
 void glGetProgramPipelineiv_enc(void *self , GLuint pipeline, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetProgramPipelineiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9027,7 +9305,7 @@ void glGetProgramPipelineiv_enc(void *self , GLuint pipeline, GLenum pname, GLin
 
 		memcpy(ptr, &pipeline, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -9048,6 +9326,7 @@ void glGetProgramPipelineiv_enc(void *self , GLuint pipeline, GLenum pname, GLin
 
 void glGetProgramPipelineInfoLog_enc(void *self , GLuint pipeline, GLsizei bufSize, GLsizei* length, GLchar* infoLog)
 {
+	AEMU_SCOPED_TRACE("glGetProgramPipelineInfoLog encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9068,8 +9347,8 @@ void glGetProgramPipelineInfoLog_enc(void *self , GLuint pipeline, GLsizei bufSi
 
 		memcpy(ptr, &pipeline, 4); ptr += 4;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_infoLog; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_infoLog, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -9094,6 +9373,7 @@ void glGetProgramPipelineInfoLog_enc(void *self , GLuint pipeline, GLsizei bufSi
 
 void glValidateProgramPipeline_enc(void *self , GLuint pipeline)
 {
+	AEMU_SCOPED_TRACE("glValidateProgramPipeline encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9119,6 +9399,7 @@ void glValidateProgramPipeline_enc(void *self , GLuint pipeline)
 
 GLboolean glIsProgramPipeline_enc(void *self , GLuint pipeline)
 {
+	AEMU_SCOPED_TRACE("glIsProgramPipeline encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9159,6 +9440,7 @@ GLboolean glIsProgramPipeline_enc(void *self , GLuint pipeline)
 
 void glUseProgramStages_enc(void *self , GLuint pipeline, GLbitfield stages, GLuint program)
 {
+	AEMU_SCOPED_TRACE("glUseProgramStages encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9186,6 +9468,7 @@ void glUseProgramStages_enc(void *self , GLuint pipeline, GLbitfield stages, GLu
 
 void glActiveShaderProgram_enc(void *self , GLuint pipeline, GLuint program)
 {
+	AEMU_SCOPED_TRACE("glActiveShaderProgram encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9212,6 +9495,7 @@ void glActiveShaderProgram_enc(void *self , GLuint pipeline, GLuint program)
 
 GLuint glCreateShaderProgramvAEMU_enc(void *self , GLenum type, GLsizei count, const char* packedStrings, GLuint packedLen)
 {
+	AEMU_SCOPED_TRACE("glCreateShaderProgramvAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9231,7 +9515,7 @@ GLuint glCreateShaderProgramvAEMU_enc(void *self , GLenum type, GLsizei count, c
 
 		memcpy(ptr, &type, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_packedStrings; ptr += 4;
+	memcpy(ptr, &__size_packedStrings, 4); ptr += 4;
 	memcpy(ptr, packedStrings, __size_packedStrings);ptr += __size_packedStrings;
 		memcpy(ptr, &packedLen, 4); ptr += 4;
 
@@ -9257,6 +9541,7 @@ GLuint glCreateShaderProgramvAEMU_enc(void *self , GLenum type, GLsizei count, c
 
 void glProgramUniform1f_enc(void *self , GLuint program, GLint location, GLfloat v0)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform1f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9284,6 +9569,7 @@ void glProgramUniform1f_enc(void *self , GLuint program, GLint location, GLfloat
 
 void glProgramUniform2f_enc(void *self , GLuint program, GLint location, GLfloat v0, GLfloat v1)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform2f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9312,6 +9598,7 @@ void glProgramUniform2f_enc(void *self , GLuint program, GLint location, GLfloat
 
 void glProgramUniform3f_enc(void *self , GLuint program, GLint location, GLfloat v0, GLfloat v1, GLfloat v2)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform3f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9341,6 +9628,7 @@ void glProgramUniform3f_enc(void *self , GLuint program, GLint location, GLfloat
 
 void glProgramUniform4f_enc(void *self , GLuint program, GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform4f encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9371,6 +9659,7 @@ void glProgramUniform4f_enc(void *self , GLuint program, GLint location, GLfloat
 
 void glProgramUniform1i_enc(void *self , GLuint program, GLint location, GLint v0)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform1i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9398,6 +9687,7 @@ void glProgramUniform1i_enc(void *self , GLuint program, GLint location, GLint v
 
 void glProgramUniform2i_enc(void *self , GLuint program, GLint location, GLint v0, GLint v1)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform2i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9426,6 +9716,7 @@ void glProgramUniform2i_enc(void *self , GLuint program, GLint location, GLint v
 
 void glProgramUniform3i_enc(void *self , GLuint program, GLint location, GLint v0, GLint v1, GLint v2)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform3i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9455,6 +9746,7 @@ void glProgramUniform3i_enc(void *self , GLuint program, GLint location, GLint v
 
 void glProgramUniform4i_enc(void *self , GLuint program, GLint location, GLint v0, GLint v1, GLint v2, GLint v3)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform4i encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9485,6 +9777,7 @@ void glProgramUniform4i_enc(void *self , GLuint program, GLint location, GLint v
 
 void glProgramUniform1ui_enc(void *self , GLuint program, GLint location, GLuint v0)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform1ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9512,6 +9805,7 @@ void glProgramUniform1ui_enc(void *self , GLuint program, GLint location, GLuint
 
 void glProgramUniform2ui_enc(void *self , GLuint program, GLint location, GLint v0, GLuint v1)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform2ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9540,6 +9834,7 @@ void glProgramUniform2ui_enc(void *self , GLuint program, GLint location, GLint 
 
 void glProgramUniform3ui_enc(void *self , GLuint program, GLint location, GLint v0, GLint v1, GLuint v2)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform3ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9569,6 +9864,7 @@ void glProgramUniform3ui_enc(void *self , GLuint program, GLint location, GLint 
 
 void glProgramUniform4ui_enc(void *self , GLuint program, GLint location, GLint v0, GLint v1, GLint v2, GLuint v3)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform4ui encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9599,6 +9895,7 @@ void glProgramUniform4ui_enc(void *self , GLuint program, GLint location, GLint 
 
 void glProgramUniform1fv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform1fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9619,7 +9916,7 @@ void glProgramUniform1fv_enc(void *self , GLuint program, GLint location, GLsize
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9629,6 +9926,7 @@ void glProgramUniform1fv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform2fv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9649,7 +9947,7 @@ void glProgramUniform2fv_enc(void *self , GLuint program, GLint location, GLsize
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9659,6 +9957,7 @@ void glProgramUniform2fv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform3fv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9679,7 +9978,7 @@ void glProgramUniform3fv_enc(void *self , GLuint program, GLint location, GLsize
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9689,6 +9988,7 @@ void glProgramUniform3fv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform4fv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9709,7 +10009,7 @@ void glProgramUniform4fv_enc(void *self , GLuint program, GLint location, GLsize
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9719,6 +10019,7 @@ void glProgramUniform4fv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform1iv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLint* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform1iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9739,7 +10040,7 @@ void glProgramUniform1iv_enc(void *self , GLuint program, GLint location, GLsize
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9749,6 +10050,7 @@ void glProgramUniform1iv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform2iv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLint* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform2iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9769,7 +10071,7 @@ void glProgramUniform2iv_enc(void *self , GLuint program, GLint location, GLsize
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9779,6 +10081,7 @@ void glProgramUniform2iv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform3iv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLint* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform3iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9799,7 +10102,7 @@ void glProgramUniform3iv_enc(void *self , GLuint program, GLint location, GLsize
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9809,6 +10112,7 @@ void glProgramUniform3iv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform4iv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLint* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform4iv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9829,7 +10133,7 @@ void glProgramUniform4iv_enc(void *self , GLuint program, GLint location, GLsize
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9839,6 +10143,7 @@ void glProgramUniform4iv_enc(void *self , GLuint program, GLint location, GLsize
 
 void glProgramUniform1uiv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLuint* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform1uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9859,7 +10164,7 @@ void glProgramUniform1uiv_enc(void *self , GLuint program, GLint location, GLsiz
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9869,6 +10174,7 @@ void glProgramUniform1uiv_enc(void *self , GLuint program, GLint location, GLsiz
 
 void glProgramUniform2uiv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLuint* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform2uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9889,7 +10195,7 @@ void glProgramUniform2uiv_enc(void *self , GLuint program, GLint location, GLsiz
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9899,6 +10205,7 @@ void glProgramUniform2uiv_enc(void *self , GLuint program, GLint location, GLsiz
 
 void glProgramUniform3uiv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLuint* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform3uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9919,7 +10226,7 @@ void glProgramUniform3uiv_enc(void *self , GLuint program, GLint location, GLsiz
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9929,6 +10236,7 @@ void glProgramUniform3uiv_enc(void *self , GLuint program, GLint location, GLsiz
 
 void glProgramUniform4uiv_enc(void *self , GLuint program, GLint location, GLsizei count, const GLuint* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniform4uiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9949,7 +10257,7 @@ void glProgramUniform4uiv_enc(void *self , GLuint program, GLint location, GLsiz
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9959,6 +10267,7 @@ void glProgramUniform4uiv_enc(void *self , GLuint program, GLint location, GLsiz
 
 void glProgramUniformMatrix2fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniformMatrix2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -9980,7 +10289,7 @@ void glProgramUniformMatrix2fv_enc(void *self , GLuint program, GLint location, 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -9990,6 +10299,7 @@ void glProgramUniformMatrix2fv_enc(void *self , GLuint program, GLint location, 
 
 void glProgramUniformMatrix3fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniformMatrix3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10011,7 +10321,7 @@ void glProgramUniformMatrix3fv_enc(void *self , GLuint program, GLint location, 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -10021,6 +10331,7 @@ void glProgramUniformMatrix3fv_enc(void *self , GLuint program, GLint location, 
 
 void glProgramUniformMatrix4fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniformMatrix4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10042,7 +10353,7 @@ void glProgramUniformMatrix4fv_enc(void *self , GLuint program, GLint location, 
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -10052,6 +10363,7 @@ void glProgramUniformMatrix4fv_enc(void *self , GLuint program, GLint location, 
 
 void glProgramUniformMatrix2x3fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniformMatrix2x3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10073,7 +10385,7 @@ void glProgramUniformMatrix2x3fv_enc(void *self , GLuint program, GLint location
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -10083,6 +10395,7 @@ void glProgramUniformMatrix2x3fv_enc(void *self , GLuint program, GLint location
 
 void glProgramUniformMatrix3x2fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniformMatrix3x2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10104,7 +10417,7 @@ void glProgramUniformMatrix3x2fv_enc(void *self , GLuint program, GLint location
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -10114,6 +10427,7 @@ void glProgramUniformMatrix3x2fv_enc(void *self , GLuint program, GLint location
 
 void glProgramUniformMatrix2x4fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniformMatrix2x4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10135,7 +10449,7 @@ void glProgramUniformMatrix2x4fv_enc(void *self , GLuint program, GLint location
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -10145,6 +10459,7 @@ void glProgramUniformMatrix2x4fv_enc(void *self , GLuint program, GLint location
 
 void glProgramUniformMatrix4x2fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniformMatrix4x2fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10166,7 +10481,7 @@ void glProgramUniformMatrix4x2fv_enc(void *self , GLuint program, GLint location
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -10176,6 +10491,7 @@ void glProgramUniformMatrix4x2fv_enc(void *self , GLuint program, GLint location
 
 void glProgramUniformMatrix3x4fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniformMatrix3x4fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10197,7 +10513,7 @@ void glProgramUniformMatrix3x4fv_enc(void *self , GLuint program, GLint location
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -10207,6 +10523,7 @@ void glProgramUniformMatrix3x4fv_enc(void *self , GLuint program, GLint location
 
 void glProgramUniformMatrix4x3fv_enc(void *self , GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
+	AEMU_SCOPED_TRACE("glProgramUniformMatrix4x3fv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10228,7 +10545,7 @@ void glProgramUniformMatrix4x3fv_enc(void *self , GLuint program, GLint location
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &transpose, 1); ptr += 1;
-	*(unsigned int *)(ptr) = __size_value; ptr += 4;
+	memcpy(ptr, &__size_value, 4); ptr += 4;
 	memcpy(ptr, value, __size_value);ptr += __size_value;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -10238,6 +10555,7 @@ void glProgramUniformMatrix4x3fv_enc(void *self , GLuint program, GLint location
 
 void glGetProgramInterfaceiv_enc(void *self , GLuint program, GLenum programInterface, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetProgramInterfaceiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10258,7 +10576,7 @@ void glGetProgramInterfaceiv_enc(void *self , GLuint program, GLenum programInte
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &programInterface, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -10279,6 +10597,7 @@ void glGetProgramInterfaceiv_enc(void *self , GLuint program, GLenum programInte
 
 void glGetProgramResourceiv_enc(void *self , GLuint program, GLenum programInterface, GLuint index, GLsizei propCount, const GLenum* props, GLsizei bufSize, GLsizei* length, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetProgramResourceiv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10302,11 +10621,11 @@ void glGetProgramResourceiv_enc(void *self , GLuint program, GLenum programInter
 		memcpy(ptr, &programInterface, 4); ptr += 4;
 		memcpy(ptr, &index, 4); ptr += 4;
 		memcpy(ptr, &propCount, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_props; ptr += 4;
+	memcpy(ptr, &__size_props, 4); ptr += 4;
 	memcpy(ptr, props, __size_props);ptr += __size_props;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -10331,6 +10650,7 @@ void glGetProgramResourceiv_enc(void *self , GLuint program, GLenum programInter
 
 GLuint glGetProgramResourceIndex_enc(void *self , GLuint program, GLenum programInterface, const char* name)
 {
+	AEMU_SCOPED_TRACE("glGetProgramResourceIndex encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10350,7 +10670,7 @@ GLuint glGetProgramResourceIndex_enc(void *self , GLuint program, GLenum program
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &programInterface, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_name; ptr += 4;
+	memcpy(ptr, &__size_name, 4); ptr += 4;
 	memcpy(ptr, name, __size_name);ptr += __size_name;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -10375,6 +10695,7 @@ GLuint glGetProgramResourceIndex_enc(void *self , GLuint program, GLenum program
 
 GLint glGetProgramResourceLocation_enc(void *self , GLuint program, GLenum programInterface, const char* name)
 {
+	AEMU_SCOPED_TRACE("glGetProgramResourceLocation encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10394,7 +10715,7 @@ GLint glGetProgramResourceLocation_enc(void *self , GLuint program, GLenum progr
 
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &programInterface, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_name; ptr += 4;
+	memcpy(ptr, &__size_name, 4); ptr += 4;
 	memcpy(ptr, name, __size_name);ptr += __size_name;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -10419,6 +10740,7 @@ GLint glGetProgramResourceLocation_enc(void *self , GLuint program, GLenum progr
 
 void glGetProgramResourceName_enc(void *self , GLuint program, GLenum programInterface, GLuint index, GLsizei bufSize, GLsizei* length, char* name)
 {
+	AEMU_SCOPED_TRACE("glGetProgramResourceName encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10441,8 +10763,8 @@ void glGetProgramResourceName_enc(void *self , GLuint program, GLenum programInt
 		memcpy(ptr, &programInterface, 4); ptr += 4;
 		memcpy(ptr, &index, 4); ptr += 4;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_length; ptr += 4;
-	*(unsigned int *)(ptr) = __size_name; ptr += 4;
+	memcpy(ptr, &__size_length, 4); ptr += 4;
+	memcpy(ptr, &__size_name, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -10467,6 +10789,7 @@ void glGetProgramResourceName_enc(void *self , GLuint program, GLenum programInt
 
 void glBindImageTexture_enc(void *self , GLuint unit, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format)
 {
+	AEMU_SCOPED_TRACE("glBindImageTexture encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10498,6 +10821,7 @@ void glBindImageTexture_enc(void *self , GLuint unit, GLuint texture, GLint leve
 
 void glDispatchCompute_enc(void *self , GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z)
 {
+	AEMU_SCOPED_TRACE("glDispatchCompute encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10525,6 +10849,7 @@ void glDispatchCompute_enc(void *self , GLuint num_groups_x, GLuint num_groups_y
 
 void glDispatchComputeIndirect_enc(void *self , GLintptr indirect)
 {
+	AEMU_SCOPED_TRACE("glDispatchComputeIndirect encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10550,6 +10875,7 @@ void glDispatchComputeIndirect_enc(void *self , GLintptr indirect)
 
 void glBindVertexBuffer_enc(void *self , GLuint bindingindex, GLuint buffer, GLintptr offset, GLintptr stride)
 {
+	AEMU_SCOPED_TRACE("glBindVertexBuffer encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10578,6 +10904,7 @@ void glBindVertexBuffer_enc(void *self , GLuint bindingindex, GLuint buffer, GLi
 
 void glVertexAttribBinding_enc(void *self , GLuint attribindex, GLuint bindingindex)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribBinding encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10604,6 +10931,7 @@ void glVertexAttribBinding_enc(void *self , GLuint attribindex, GLuint bindingin
 
 void glVertexAttribFormat_enc(void *self , GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribFormat encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10633,6 +10961,7 @@ void glVertexAttribFormat_enc(void *self , GLuint attribindex, GLint size, GLenu
 
 void glVertexAttribIFormat_enc(void *self , GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
 {
+	AEMU_SCOPED_TRACE("glVertexAttribIFormat encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10661,6 +10990,7 @@ void glVertexAttribIFormat_enc(void *self , GLuint attribindex, GLint size, GLen
 
 void glVertexBindingDivisor_enc(void *self , GLuint bindingindex, GLuint divisor)
 {
+	AEMU_SCOPED_TRACE("glVertexBindingDivisor encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10687,6 +11017,7 @@ void glVertexBindingDivisor_enc(void *self , GLuint bindingindex, GLuint divisor
 
 void glDrawArraysIndirectDataAEMU_enc(void *self , GLenum mode, const void* indirect, GLuint datalen)
 {
+	AEMU_SCOPED_TRACE("glDrawArraysIndirectDataAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10705,7 +11036,7 @@ void glDrawArraysIndirectDataAEMU_enc(void *self , GLenum mode, const void* indi
 	memcpy(ptr, &totalSize, 4);  ptr += 4;
 
 		memcpy(ptr, &mode, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_indirect; ptr += 4;
+	memcpy(ptr, &__size_indirect, 4); ptr += 4;
 	memcpy(ptr, indirect, __size_indirect);ptr += __size_indirect;
 		memcpy(ptr, &datalen, 4); ptr += 4;
 
@@ -10716,6 +11047,7 @@ void glDrawArraysIndirectDataAEMU_enc(void *self , GLenum mode, const void* indi
 
 void glDrawArraysIndirectOffsetAEMU_enc(void *self , GLenum mode, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glDrawArraysIndirectOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10742,6 +11074,7 @@ void glDrawArraysIndirectOffsetAEMU_enc(void *self , GLenum mode, GLuint offset)
 
 void glDrawElementsIndirectDataAEMU_enc(void *self , GLenum mode, GLenum type, const void* indirect, GLuint datalen)
 {
+	AEMU_SCOPED_TRACE("glDrawElementsIndirectDataAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10761,7 +11094,7 @@ void glDrawElementsIndirectDataAEMU_enc(void *self , GLenum mode, GLenum type, c
 
 		memcpy(ptr, &mode, 4); ptr += 4;
 		memcpy(ptr, &type, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_indirect; ptr += 4;
+	memcpy(ptr, &__size_indirect, 4); ptr += 4;
 	memcpy(ptr, indirect, __size_indirect);ptr += __size_indirect;
 		memcpy(ptr, &datalen, 4); ptr += 4;
 
@@ -10772,6 +11105,7 @@ void glDrawElementsIndirectDataAEMU_enc(void *self , GLenum mode, GLenum type, c
 
 void glDrawElementsIndirectOffsetAEMU_enc(void *self , GLenum mode, GLenum type, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glDrawElementsIndirectOffsetAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10799,6 +11133,7 @@ void glDrawElementsIndirectOffsetAEMU_enc(void *self , GLenum mode, GLenum type,
 
 void glTexStorage2DMultisample_enc(void *self , GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
 {
+	AEMU_SCOPED_TRACE("glTexStorage2DMultisample encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10829,6 +11164,7 @@ void glTexStorage2DMultisample_enc(void *self , GLenum target, GLsizei samples, 
 
 void glSampleMaski_enc(void *self , GLuint maskNumber, GLbitfield mask)
 {
+	AEMU_SCOPED_TRACE("glSampleMaski encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10855,6 +11191,7 @@ void glSampleMaski_enc(void *self , GLuint maskNumber, GLbitfield mask)
 
 void glGetMultisamplefv_enc(void *self , GLenum pname, GLuint index, GLfloat* val)
 {
+	AEMU_SCOPED_TRACE("glGetMultisamplefv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10874,7 +11211,7 @@ void glGetMultisamplefv_enc(void *self , GLenum pname, GLuint index, GLfloat* va
 
 		memcpy(ptr, &pname, 4); ptr += 4;
 		memcpy(ptr, &index, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_val; ptr += 4;
+	memcpy(ptr, &__size_val, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -10895,6 +11232,7 @@ void glGetMultisamplefv_enc(void *self , GLenum pname, GLuint index, GLfloat* va
 
 void glFramebufferParameteri_enc(void *self , GLenum target, GLenum pname, GLint param)
 {
+	AEMU_SCOPED_TRACE("glFramebufferParameteri encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10922,6 +11260,7 @@ void glFramebufferParameteri_enc(void *self , GLenum target, GLenum pname, GLint
 
 void glGetFramebufferParameteriv_enc(void *self , GLenum target, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetFramebufferParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10941,7 +11280,7 @@ void glGetFramebufferParameteriv_enc(void *self , GLenum target, GLenum pname, G
 
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -10962,6 +11301,7 @@ void glGetFramebufferParameteriv_enc(void *self , GLenum target, GLenum pname, G
 
 void glGetTexLevelParameterfv_enc(void *self , GLenum target, GLint level, GLenum pname, GLfloat* params)
 {
+	AEMU_SCOPED_TRACE("glGetTexLevelParameterfv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -10982,7 +11322,7 @@ void glGetTexLevelParameterfv_enc(void *self , GLenum target, GLint level, GLenu
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &level, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -11003,6 +11343,7 @@ void glGetTexLevelParameterfv_enc(void *self , GLenum target, GLint level, GLenu
 
 void glGetTexLevelParameteriv_enc(void *self , GLenum target, GLint level, GLenum pname, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetTexLevelParameteriv encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11023,7 +11364,7 @@ void glGetTexLevelParameteriv_enc(void *self , GLenum target, GLint level, GLenu
 		memcpy(ptr, &target, 4); ptr += 4;
 		memcpy(ptr, &level, 4); ptr += 4;
 		memcpy(ptr, &pname, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -11044,6 +11385,7 @@ void glGetTexLevelParameteriv_enc(void *self , GLenum target, GLint level, GLenu
 
 void glMapBufferRangeDMA_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr)
 {
+	AEMU_SCOPED_TRACE("glMapBufferRangeDMA encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11073,6 +11415,7 @@ void glMapBufferRangeDMA_enc(void *self , GLenum target, GLintptr offset, GLsize
 
 void glUnmapBufferDMA_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr, GLboolean* out_res)
 {
+	AEMU_SCOPED_TRACE("glUnmapBufferDMA encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11095,7 +11438,7 @@ void glUnmapBufferDMA_enc(void *self , GLenum target, GLintptr offset, GLsizeipt
 		memcpy(ptr, &length, 4); ptr += 4;
 		memcpy(ptr, &access, 4); ptr += 4;
 		memcpy(ptr, &paddr, 8); ptr += 8;
-	*(unsigned int *)(ptr) = __size_out_res; ptr += 4;
+	memcpy(ptr, &__size_out_res, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -11116,6 +11459,7 @@ void glUnmapBufferDMA_enc(void *self , GLenum target, GLintptr offset, GLsizeipt
 
 uint64_t glMapBufferRangeDirect_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr)
 {
+	AEMU_SCOPED_TRACE("glMapBufferRangeDirect encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11160,6 +11504,7 @@ uint64_t glMapBufferRangeDirect_enc(void *self , GLenum target, GLintptr offset,
 
 void glUnmapBufferDirect_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr, uint64_t guest_ptr, GLboolean* out_res)
 {
+	AEMU_SCOPED_TRACE("glUnmapBufferDirect encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11183,7 +11528,7 @@ void glUnmapBufferDirect_enc(void *self , GLenum target, GLintptr offset, GLsize
 		memcpy(ptr, &access, 4); ptr += 4;
 		memcpy(ptr, &paddr, 8); ptr += 8;
 		memcpy(ptr, &guest_ptr, 8); ptr += 8;
-	*(unsigned int *)(ptr) = __size_out_res; ptr += 4;
+	memcpy(ptr, &__size_out_res, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -11204,6 +11549,7 @@ void glUnmapBufferDirect_enc(void *self , GLenum target, GLintptr offset, GLsize
 
 void glFlushMappedBufferRangeDirect_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access)
 {
+	AEMU_SCOPED_TRACE("glFlushMappedBufferRangeDirect encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11232,6 +11578,7 @@ void glFlushMappedBufferRangeDirect_enc(void *self , GLenum target, GLintptr off
 
 GLenum glGetGraphicsResetStatusEXT_enc(void *self )
 {
+	AEMU_SCOPED_TRACE("glGetGraphicsResetStatusEXT encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11271,6 +11618,7 @@ GLenum glGetGraphicsResetStatusEXT_enc(void *self )
 
 void glReadnPixelsEXT_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLsizei bufSize, GLvoid* data)
 {
+	AEMU_SCOPED_TRACE("glReadnPixelsEXT encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11295,7 +11643,7 @@ void glReadnPixelsEXT_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei 
 		memcpy(ptr, &format, 4); ptr += 4;
 		memcpy(ptr, &type, 4); ptr += 4;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_data; ptr += 4;
+	memcpy(ptr, &__size_data, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -11316,6 +11664,7 @@ void glReadnPixelsEXT_enc(void *self , GLint x, GLint y, GLsizei width, GLsizei 
 
 void glGetnUniformfvEXT_enc(void *self , GLuint program, GLint location, GLsizei bufSize, GLfloat* params)
 {
+	AEMU_SCOPED_TRACE("glGetnUniformfvEXT encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11336,7 +11685,7 @@ void glGetnUniformfvEXT_enc(void *self , GLuint program, GLint location, GLsizei
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -11357,6 +11706,7 @@ void glGetnUniformfvEXT_enc(void *self , GLuint program, GLint location, GLsizei
 
 void glGetnUniformivEXT_enc(void *self , GLuint program, GLint location, GLsizei bufSize, GLint* params)
 {
+	AEMU_SCOPED_TRACE("glGetnUniformivEXT encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11377,7 +11727,7 @@ void glGetnUniformivEXT_enc(void *self , GLuint program, GLint location, GLsizei
 		memcpy(ptr, &program, 4); ptr += 4;
 		memcpy(ptr, &location, 4); ptr += 4;
 		memcpy(ptr, &bufSize, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_params; ptr += 4;
+	memcpy(ptr, &__size_params, 4); ptr += 4;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
 	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
@@ -11398,6 +11748,7 @@ void glGetnUniformivEXT_enc(void *self , GLuint program, GLint location, GLsizei
 
 void glDrawArraysNullAEMU_enc(void *self , GLenum mode, GLint first, GLsizei count)
 {
+	AEMU_SCOPED_TRACE("glDrawArraysNullAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11425,6 +11776,7 @@ void glDrawArraysNullAEMU_enc(void *self , GLenum mode, GLint first, GLsizei cou
 
 void glDrawElementsOffsetNullAEMU_enc(void *self , GLenum mode, GLsizei count, GLenum type, GLuint offset)
 {
+	AEMU_SCOPED_TRACE("glDrawElementsOffsetNullAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11453,6 +11805,7 @@ void glDrawElementsOffsetNullAEMU_enc(void *self , GLenum mode, GLsizei count, G
 
 void glDrawElementsDataNullAEMU_enc(void *self , GLenum mode, GLsizei count, GLenum type, void* data, GLuint datalen)
 {
+	AEMU_SCOPED_TRACE("glDrawElementsDataNullAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11473,7 +11826,7 @@ void glDrawElementsDataNullAEMU_enc(void *self , GLenum mode, GLsizei count, GLe
 		memcpy(ptr, &mode, 4); ptr += 4;
 		memcpy(ptr, &count, 4); ptr += 4;
 		memcpy(ptr, &type, 4); ptr += 4;
-	*(unsigned int *)(ptr) = __size_data; ptr += 4;
+	memcpy(ptr, &__size_data, 4); ptr += 4;
 	memcpy(ptr, data, __size_data);ptr += __size_data;
 		memcpy(ptr, &datalen, 4); ptr += 4;
 
@@ -11484,6 +11837,7 @@ void glDrawElementsDataNullAEMU_enc(void *self , GLenum mode, GLsizei count, GLe
 
 void glUnmapBufferAsyncAEMU_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer, GLboolean* out_res)
 {
+	AEMU_SCOPED_TRACE("glUnmapBufferAsyncAEMU encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11517,7 +11871,7 @@ void glUnmapBufferAsyncAEMU_enc(void *self , GLenum target, GLintptr offset, GLs
 	}
 	buf = stream->alloc(__size_out_res + 1*4);
 	ptr = buf;
-	*(unsigned int *)(ptr) = __size_out_res; ptr += 4;
+	memcpy(ptr, &__size_out_res, 4); ptr += 4;
 	memcpy(ptr, out_res, __size_out_res);ptr += __size_out_res;
 
 	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
@@ -11528,6 +11882,7 @@ void glUnmapBufferAsyncAEMU_enc(void *self , GLenum target, GLintptr offset, GLs
 
 void glFlushMappedBufferRangeAEMU2_enc(void *self , GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer)
 {
+	AEMU_SCOPED_TRACE("glFlushMappedBufferRangeAEMU2 encode");
 
 	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
 	IOStream *stream = ctx->m_stream;
@@ -11561,6 +11916,52 @@ void glFlushMappedBufferRangeAEMU2_enc(void *self , GLenum target, GLintptr offs
 	buf = stream->alloc(checksumSize);
 	if (useChecksum) checksumCalculator->writeChecksum(buf, checksumSize);
 
+}
+
+GLboolean glBufferDataSyncAEMU_enc(void *self , GLenum target, GLsizeiptr size, const GLvoid* data, GLenum usage)
+{
+	AEMU_SCOPED_TRACE("glBufferDataSyncAEMU encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	const unsigned int __size_data = ((data != NULL) ?  size : 0);
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4 + __size_data + 4 + 1*4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glBufferDataSyncAEMU;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &target, 4); ptr += 4;
+		memcpy(ptr, &size, 4); ptr += 4;
+	memcpy(ptr, &__size_data, 4); ptr += 4;
+	if (data != NULL) memcpy(ptr, data, __size_data);ptr += __size_data;
+		memcpy(ptr, &usage, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+
+	GLboolean retval;
+	stream->readback(&retval, 1);
+	if (useChecksum) checksumCalculator->addBuffer(&retval, 1);
+	if (useChecksum) {
+		unsigned char *checksumBufPtr = NULL;
+		unsigned char checksumBuf[ChecksumCalculator::kMaxChecksumSize];
+		if (checksumSize > 0) checksumBufPtr = &checksumBuf[0];
+		stream->readback(checksumBufPtr, checksumSize);
+		if (!checksumCalculator->validate(checksumBufPtr, checksumSize)) {
+			ALOGE("glBufferDataSyncAEMU: GL communication error, please report this issue to b.android.com.\n");
+			abort();
+		}
+	}
+	return retval;
 }
 
 }  // namespace
@@ -11996,5 +12397,6 @@ gl2_encoder_context_t::gl2_encoder_context_t(IOStream *stream, ChecksumCalculato
 	this->glDrawElementsDataNullAEMU = &glDrawElementsDataNullAEMU_enc;
 	this->glUnmapBufferAsyncAEMU = &glUnmapBufferAsyncAEMU_enc;
 	this->glFlushMappedBufferRangeAEMU2 = &glFlushMappedBufferRangeAEMU2_enc;
+	this->glBufferDataSyncAEMU = &glBufferDataSyncAEMU_enc;
 }
 

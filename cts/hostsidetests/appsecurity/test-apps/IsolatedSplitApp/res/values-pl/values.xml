@@ -16,4 +16,5 @@
 
 <resources>
     <string name="base_string">Base String Polish</string>
+    <string name="theme_name">Base Theme Polish</string>
 </resources>

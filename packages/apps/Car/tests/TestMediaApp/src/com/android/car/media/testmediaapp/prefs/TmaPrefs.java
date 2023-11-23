@@ -110,6 +110,14 @@ public class TmaPrefs {
             mSharedPrefs.registerOnSharedPreferenceChangeListener(listenerWrapper);
             mListeners.put(listener, listenerWrapper);
         }
+
+        public void unregisterChangeListener(PrefValueChangedListener<T> listener) {
+            OnSharedPreferenceChangeListener listenerWrapper = mListeners.get(listener);
+            if (listenerWrapper != null) {
+                mSharedPrefs.unregisterOnSharedPreferenceChangeListener(listenerWrapper);
+                mListeners.remove(listener);
+            }
+        }
     }
 
 

@@ -1,5 +1,5 @@
---- android_icu4j/src/main/java/android/icu/text/DecimalFormatSymbols.java	2018-10-22 05:12:28.204618072 +0100
-+++ android_icu4j/src/main/java/android/icu/text/DecimalFormatSymbols.java	2018-10-22 05:12:45.596675565 +0100
+--- android_icu4j/src/main/java/android/icu/text/DecimalFormatSymbols.java	2021-01-19 16:26:30.314690782 +0000
++++ android_icu4j/src/main/java/android/icu/text/DecimalFormatSymbols.java	2021-01-19 16:26:51.034837866 +0000
 @@ -200,7 +200,6 @@
      /**
       * Returns the character used for zero. Different for Arabic, etc.
@@ -81,7 +81,7 @@
       */
      public char getPlusSign() {
          return plusSign;
-@@ -840,7 +829,6 @@
+@@ -863,7 +852,6 @@
      /**
       * Returns the monetary decimal separator.
       * @return the monetary decimal separator character
@@ -89,7 +89,7 @@
       */
      public char getMonetaryDecimalSeparator() {
          return monetarySeparator;
-@@ -891,7 +879,6 @@
+@@ -914,7 +902,6 @@
      /**
       * <strong>[icu]</strong> Returns the monetary grouping separator.
       * @return the monetary grouping separator character

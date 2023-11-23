@@ -26,6 +26,7 @@ import org.unicode.cldr.util.InputStreamFactory;
 import org.unicode.cldr.util.LanguageTagParser;
 import org.unicode.cldr.util.Level;
 import org.unicode.cldr.util.Organization;
+import org.unicode.cldr.util.PathUtilities;
 import org.unicode.cldr.util.PatternCache;
 import org.unicode.cldr.util.PrettyPath;
 import org.unicode.cldr.util.StandardCodes;
@@ -49,7 +50,7 @@ import com.ibm.icu.util.ULocale;
  * @author markdavis
  */
 public class QuickCheck {
-    private static final Set<String> skipAttributes = new HashSet<String>(Arrays.asList(new String[] {
+    private static final Set<String> skipAttributes = new HashSet<>(Arrays.asList(new String[] {
         "alt", "draft", "references" }));
 
     private static String localeRegex;
@@ -117,11 +118,11 @@ public class QuickCheck {
     private static void checkDtds(String directory) throws IOException {
         File directoryFile = new File(directory);
         File[] listFiles = directoryFile.listFiles();
-        String canonicalPath = directoryFile.getCanonicalPath();
+        String normalizedPath = PathUtilities.getNormalizedPathString(directoryFile);
         if (listFiles == null) {
-            throw new IllegalArgumentException("Empty directory: " + canonicalPath);
+            throw new IllegalArgumentException("Empty directory: " + normalizedPath);
         }
-        System.out.println("Checking files for DTD errors in: " + canonicalPath);
+        System.out.println("Checking files for DTD errors in: " + normalizedPath);
         for (File fileName : listFiles) {
             if (!fileName.toString().endsWith(".xml")) {
                 continue;
@@ -131,16 +132,19 @@ public class QuickCheck {
     }
 
     static class MyErrorHandler implements ErrorHandler {
+        @Override
         public void error(SAXParseException exception) throws SAXException {
             System.out.println("\nerror: " + XMLFileReader.showSAX(exception));
             throw exception;
         }
 
+        @Override
         public void fatalError(SAXParseException exception) throws SAXException {
             System.out.println("\nfatalError: " + XMLFileReader.showSAX(exception));
             throw exception;
         }
 
+        @Override
         public void warning(SAXParseException exception) throws SAXException {
             System.out.println("\nwarning: " + XMLFileReader.showSAX(exception));
             throw exception;
@@ -276,7 +280,7 @@ public class QuickCheck {
                     + CldrUtility.LINE_SEPARATOR);
             }
             PrettyPath prettyPath = new PrettyPath().setShowErrors(true);
-            Set<String> badPaths = new TreeSet<String>();
+            Set<String> badPaths = new TreeSet<>();
             for (String path : pathToLocale.keySet()) {
                 String prettied = prettyPath.getPrettyPath(path, false);
                 if (showInfo) System.out.println(prettied + "\t\t" + path);

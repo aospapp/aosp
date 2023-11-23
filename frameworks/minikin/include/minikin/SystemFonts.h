@@ -19,6 +19,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "minikin/FontCollection.h"
@@ -33,15 +34,29 @@ public:
         return getInstance().findFontCollectionInternal(familyName);
     }
 
-    // Do not call this function outside Zygote process.
     static void registerFallback(const std::string& familyName,
                                  const std::shared_ptr<FontCollection>& fc) {
         return getInstance().registerFallbackInternal(familyName, fc);
     }
 
-    // Do not call this function outside Zygote process.
     static void registerDefault(const std::shared_ptr<FontCollection>& fc) {
         return getInstance().registerDefaultInternal(fc);
+    }
+
+    using FontMapDeleter = std::function<void()>;
+
+    static void addFontMap(std::shared_ptr<FontCollection>&& collections) {
+        return getInstance().addFontMapInternal(std::move(collections));
+    }
+
+    // This obtains a mutex inside, so do not call this method inside callback.
+    static void getFontMap(
+            std::function<void(const std::vector<std::shared_ptr<FontCollection>>&)> func) {
+        return getInstance().getFontMapInternal(func);
+    }
+
+    static void getFontSet(std::function<void(const std::vector<std::shared_ptr<Font>>&)> func) {
+        return getInstance().getFontSetInternal(func);
     }
 
 protected:
@@ -49,23 +64,48 @@ protected:
     SystemFonts() {}
     virtual ~SystemFonts() {}
 
-    std::shared_ptr<FontCollection> findFontCollectionInternal(const std::string& familyName) const;
+    std::shared_ptr<FontCollection> findFontCollectionInternal(const std::string& familyName);
     void registerFallbackInternal(const std::string& familyName,
                                   const std::shared_ptr<FontCollection>& fc) {
-        mSystemFallbacks.insert(std::make_pair(familyName, fc));
+        std::lock_guard<std::mutex> lock(mMutex);
+        mSystemFallbacks[familyName] = fc;
     }
 
     void registerDefaultInternal(const std::shared_ptr<FontCollection>& fc) {
+        std::lock_guard<std::mutex> lock(mMutex);
         mDefaultFallback = fc;
+    }
+
+    void addFontMapInternal(std::shared_ptr<FontCollection>&& collections) {
+        std::lock_guard<std::mutex> lock(mMutex);
+        mCollections.emplace_back(std::move(collections));
+    }
+
+    void getFontMapInternal(
+            std::function<void(const std::vector<std::shared_ptr<FontCollection>>&)> func) {
+        std::lock_guard<std::mutex> lock(mMutex);
+        func(mCollections);
+    }
+
+    void getFontSetInternal(std::function<void(const std::vector<std::shared_ptr<Font>>&)> func) {
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (!mFonts) {
+            buildFontSetLocked();
+        }
+        func(mFonts.value());
     }
 
 private:
     static SystemFonts& getInstance();
 
-    // There is no mutex guard here since registerFallback is designed to be
-    // called only in Zygote.
-    std::map<std::string, std::shared_ptr<FontCollection>> mSystemFallbacks;
-    std::shared_ptr<FontCollection> mDefaultFallback;
+    void buildFontSetLocked() EXCLUSIVE_LOCKS_REQUIRED(mMutex);
+
+    std::map<std::string, std::shared_ptr<FontCollection>> mSystemFallbacks GUARDED_BY(mMutex);
+    std::shared_ptr<FontCollection> mDefaultFallback GUARDED_BY(mMutex);
+    std::vector<std::shared_ptr<FontCollection>> mCollections GUARDED_BY(mMutex);
+    std::optional<std::vector<std::shared_ptr<Font>>> mFonts GUARDED_BY(mMutex);
+
+    std::mutex mMutex;
 };
 
 }  // namespace minikin

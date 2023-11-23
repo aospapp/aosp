@@ -21,7 +21,6 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
-import android.annotation.TestApi;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.res.AssetFileDescriptor;
 import android.database.CrossProcessCursorWrapper;
@@ -80,7 +79,8 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
     private final IContentProvider mContentProvider;
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.P, trackingBug = 115609023)
     private final String mPackageName;
-    private final @Nullable String mAttributionTag;
+    private final @NonNull AttributionSource mAttributionSource;
+
     private final String mAuthority;
     private final boolean mStable;
 
@@ -104,7 +104,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
         mContentResolver = contentResolver;
         mContentProvider = contentProvider;
         mPackageName = contentResolver.mPackageName;
-        mAttributionTag = contentResolver.mAttributionTag;
+        mAttributionSource = contentResolver.getAttributionSource();
 
         mAuthority = authority;
         mStable = stable;
@@ -123,7 +123,6 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
      * @hide
      */
     @SystemApi
-    @TestApi
     @RequiresPermission(android.Manifest.permission.REMOVE_TASKS)
     public void setDetectNotResponding(@DurationMillisLong long timeoutMillis) {
         synchronized (ContentProviderClient.class) {
@@ -195,7 +194,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
                 cancellationSignal.setRemote(remoteCancellationSignal);
             }
             final Cursor cursor = mContentProvider.query(
-                    mPackageName, mAttributionTag, uri, projection, queryArgs,
+                    mAttributionSource, uri, projection, queryArgs,
                     remoteCancellationSignal);
             if (cursor == null) {
                 return null;
@@ -256,7 +255,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
 
         beforeRemote();
         try {
-            return mContentProvider.canonicalize(mPackageName, mAttributionTag, url);
+            return mContentProvider.canonicalize(mAttributionSource, url);
         } catch (DeadObjectException e) {
             if (!mStable) {
                 mContentResolver.unstableProviderDied(mContentProvider);
@@ -274,7 +273,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
 
         beforeRemote();
         try {
-            return mContentProvider.uncanonicalize(mPackageName, mAttributionTag, url);
+            return mContentProvider.uncanonicalize(mAttributionSource, url);
         } catch (DeadObjectException e) {
             if (!mStable) {
                 mContentResolver.unstableProviderDied(mContentProvider);
@@ -299,7 +298,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
                 remoteCancellationSignal = mContentProvider.createCancellationSignal();
                 cancellationSignal.setRemote(remoteCancellationSignal);
             }
-            return mContentProvider.refresh(mPackageName, mAttributionTag, url, extras,
+            return mContentProvider.refresh(mAttributionSource, url, extras,
                     remoteCancellationSignal);
         } catch (DeadObjectException e) {
             if (!mStable) {
@@ -319,7 +318,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
 
         beforeRemote();
         try {
-            return mContentProvider.checkUriPermission(mPackageName, mAttributionTag, uri, uid,
+            return mContentProvider.checkUriPermission(mAttributionSource, uri, uid,
                     modeFlags);
         } catch (DeadObjectException e) {
             if (!mStable) {
@@ -345,7 +344,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
 
         beforeRemote();
         try {
-            return mContentProvider.insert(mPackageName, mAttributionTag, url, initialValues,
+            return mContentProvider.insert(mAttributionSource, url, initialValues,
                     extras);
         } catch (DeadObjectException e) {
             if (!mStable) {
@@ -366,7 +365,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
 
         beforeRemote();
         try {
-            return mContentProvider.bulkInsert(mPackageName, mAttributionTag, url, initialValues);
+            return mContentProvider.bulkInsert(mAttributionSource, url, initialValues);
         } catch (DeadObjectException e) {
             if (!mStable) {
                 mContentResolver.unstableProviderDied(mContentProvider);
@@ -390,7 +389,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
 
         beforeRemote();
         try {
-            return mContentProvider.delete(mPackageName, mAttributionTag, url, extras);
+            return mContentProvider.delete(mAttributionSource, url, extras);
         } catch (DeadObjectException e) {
             if (!mStable) {
                 mContentResolver.unstableProviderDied(mContentProvider);
@@ -415,7 +414,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
 
         beforeRemote();
         try {
-            return mContentProvider.update(mPackageName, mAttributionTag, url, values, extras);
+            return mContentProvider.update(mAttributionSource, url, values, extras);
         } catch (DeadObjectException e) {
             if (!mStable) {
                 mContentResolver.unstableProviderDied(mContentProvider);
@@ -459,8 +458,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
                 remoteSignal = mContentProvider.createCancellationSignal();
                 signal.setRemote(remoteSignal);
             }
-            return mContentProvider.openFile(mPackageName, mAttributionTag, url, mode,
-                    remoteSignal, null);
+            return mContentProvider.openFile(mAttributionSource, url, mode, remoteSignal);
         } catch (DeadObjectException e) {
             if (!mStable) {
                 mContentResolver.unstableProviderDied(mContentProvider);
@@ -504,7 +502,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
                 remoteSignal = mContentProvider.createCancellationSignal();
                 signal.setRemote(remoteSignal);
             }
-            return mContentProvider.openAssetFile(mPackageName, mAttributionTag, url, mode,
+            return mContentProvider.openAssetFile(mAttributionSource, url, mode,
                     remoteSignal);
         } catch (DeadObjectException e) {
             if (!mStable) {
@@ -546,7 +544,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
                 signal.setRemote(remoteSignal);
             }
             return mContentProvider.openTypedAssetFile(
-                    mPackageName, mAttributionTag, uri, mimeTypeFilter, opts, remoteSignal);
+                    mAttributionSource, uri, mimeTypeFilter, opts, remoteSignal);
         } catch (DeadObjectException e) {
             if (!mStable) {
                 mContentResolver.unstableProviderDied(mContentProvider);
@@ -573,7 +571,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
 
         beforeRemote();
         try {
-            return mContentProvider.applyBatch(mPackageName, mAttributionTag, authority,
+            return mContentProvider.applyBatch(mAttributionSource, authority,
                     operations);
         } catch (DeadObjectException e) {
             if (!mStable) {
@@ -600,7 +598,7 @@ public class ContentProviderClient implements ContentInterface, AutoCloseable {
 
         beforeRemote();
         try {
-            return mContentProvider.call(mPackageName, mAttributionTag, authority, method, arg,
+            return mContentProvider.call(mAttributionSource, authority, method, arg,
                     extras);
         } catch (DeadObjectException e) {
             if (!mStable) {

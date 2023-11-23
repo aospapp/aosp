@@ -21,11 +21,15 @@
 #include <utility>
 #include <vector>
 
+#include "amber/amber.h"
 #include "amber/result.h"
 #include "amber/value.h"
 #include "src/format.h"
+#include "src/image.h"
 
 namespace amber {
+
+class Sampler;
 
 /// Types of buffers which can be created.
 enum class BufferType : int8_t {
@@ -34,19 +38,36 @@ enum class BufferType : int8_t {
   /// A color buffer.
   kColor = 0,
   /// A depth/stencil buffer.
-  kDepth,
+  kDepthStencil,
   /// An index buffer.
   kIndex,
-  /// A sampled buffer.
-  kSampled,
+  /// A sampled image.
+  kSampledImage,
+  /// A combined image sampler.
+  kCombinedImageSampler,
   /// A storage buffer.
   kStorage,
+  /// A dynamic storage buffer.
+  kStorageDynamic,
   /// A uniform buffer.
   kUniform,
+  /// A dynamic uniform buffer.
+  kUniformDynamic,
   /// A push constant buffer.
   kPushConstant,
   /// A vertex buffer.
-  kVertex
+  kVertex,
+  /// A storage image.
+  kStorageImage,
+  /// A uniform texel buffer.
+  kUniformTexelBuffer,
+  /// A storage texel buffer.
+  kStorageTexelBuffer
+};
+
+enum class InputRate : int8_t {
+  kVertex = 0,
+  kInstance,
 };
 
 /// A buffer stores data. The buffer maybe provided from the input script, or
@@ -55,15 +76,8 @@ class Buffer {
  public:
   /// Create a buffer of unknown type.
   Buffer();
-  /// Create a buffer of |type_|.
-  explicit Buffer(BufferType type);
 
   ~Buffer();
-
-  /// Returns the BufferType of this buffer.
-  BufferType GetBufferType() const { return buffer_type_; }
-  /// Sets the BufferType for this buffer.
-  void SetBufferType(BufferType type) { buffer_type_ = type; }
 
   /// Sets the Format of the buffer to |format|.
   void SetFormat(Format* format) {
@@ -72,6 +86,11 @@ class Buffer {
   }
   /// Returns the Format describing the buffer data.
   Format* GetFormat() const { return format_; }
+
+  /// Sets the sampler used with buffer of combined image sampler type.
+  void SetSampler(Sampler* sampler) { sampler_ = sampler; }
+  /// Returns the sampler of combined image sampler buffer.
+  Sampler* GetSampler() const { return sampler_; }
 
   void SetFormatIsDefault(bool val) { format_is_default_ = val; }
   bool FormatIsDefault() const { return format_is_default_; }
@@ -89,6 +108,15 @@ class Buffer {
   uint32_t GetHeight() const { return height_; }
   /// Set the number of elements high for the buffer.
   void SetHeight(uint32_t height) { height_ = height; }
+  /// Get the number of elements this buffer is deep.
+  uint32_t GetDepth() const { return depth_; }
+  /// Set the number of elements this buffer is deep.
+  void SetDepth(uint32_t depth) { depth_ = depth; }
+
+  /// Get the image dimensionality.
+  ImageDimension GetImageDimension() const { return image_dim_; }
+  /// Set the image dimensionality.
+  void SetImageDimension(ImageDimension dim) { image_dim_ = dim; }
 
   // | ---------- Element ---------- | ElementCount == 1
   // | Value | Value | Value | Value |   ValueCount == 4
@@ -175,6 +203,19 @@ class Buffer {
   /// Writes |src| data into buffer at |offset|.
   Result SetDataFromBuffer(const Buffer* src, uint32_t offset);
 
+  /// Sets the number of mip levels for a buffer used as a color buffer
+  /// or a texture.
+  void SetMipLevels(uint32_t mip_levels) { mip_levels_ = mip_levels; }
+
+  /// Returns the number of mip levels.
+  uint32_t GetMipLevels() const { return mip_levels_; }
+
+  /// Sets the number of samples.
+  void SetSamples(uint32_t samples) { samples_ = samples; }
+
+  /// Returns the number of samples.
+  uint32_t GetSamples() const { return samples_; }
+
   /// Returns a pointer to the internal storage of the buffer.
   std::vector<uint8_t>* ValuePtr() { return &bytes_; }
   /// Returns a pointer to the internal storage of the buffer.
@@ -217,17 +258,21 @@ class Buffer {
   // those stored in |buffer| and returns all the values.
   std::vector<double> CalculateDiffs(const Buffer* buffer) const;
 
-  BufferType buffer_type_ = BufferType::kUnknown;
   std::string name_;
   /// max_size_in_bytes_ is the total size in bytes needed to hold the buffer
   /// over all ubo, ssbo size and ssbo subdata size calls.
   uint32_t max_size_in_bytes_ = 0;
   uint32_t element_count_ = 0;
-  uint32_t width_ = 0;
-  uint32_t height_ = 0;
+  uint32_t width_ = 1;
+  uint32_t height_ = 1;
+  uint32_t depth_ = 1;
+  uint32_t mip_levels_ = 1;
+  uint32_t samples_ = 1;
   bool format_is_default_ = false;
   std::vector<uint8_t> bytes_;
   Format* format_ = nullptr;
+  Sampler* sampler_ = nullptr;
+  ImageDimension image_dim_ = ImageDimension::kUnknown;
 };
 
 }  // namespace amber

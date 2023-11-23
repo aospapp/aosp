@@ -27,17 +27,17 @@
 #include <shill/dbus-proxies.h>
 #include <shill/dbus-proxy-mocks.h>
 
-#include "update_engine/common/fake_clock.h"
 #include "update_engine/common/test_utils.h"
-#include "update_engine/dbus_test_utils.h"
-#include "update_engine/fake_shill_proxy.h"
+#include "update_engine/cros/dbus_test_utils.h"
+#include "update_engine/cros/fake_shill_proxy.h"
+#include "update_engine/cros/fake_system_state.h"
 #include "update_engine/update_manager/umtest_utils.h"
 
 using base::Time;
 using base::TimeDelta;
 using chromeos_update_engine::ConnectionTethering;
 using chromeos_update_engine::ConnectionType;
-using chromeos_update_engine::FakeClock;
+using chromeos_update_engine::FakeSystemState;
 using org::chromium::flimflam::ManagerProxyMock;
 using org::chromium::flimflam::ServiceProxyMock;
 using std::unique_ptr;
@@ -51,8 +51,6 @@ namespace {
 // Fake service paths.
 const char* const kFakeEthernetServicePath = "/fake/ethernet/service";
 const char* const kFakeWifiServicePath = "/fake/wifi/service";
-const char* const kFakeWimaxServicePath = "/fake/wimax/service";
-const char* const kFakeBluetoothServicePath = "/fake/bluetooth/service";
 const char* const kFakeCellularServicePath = "/fake/cellular/service";
 const char* const kFakeVpnServicePath = "/fake/vpn/service";
 const char* const kFakeUnknownServicePath = "/fake/unknown/service";
@@ -65,10 +63,10 @@ class UmRealShillProviderTest : public ::testing::Test {
  protected:
   // Initialize the RealShillProvider under test.
   void SetUp() override {
-    fake_clock_.SetWallclockTime(InitTime());
+    FakeSystemState::Get()->fake_clock()->SetWallclockTime(InitTime());
     loop_.SetAsCurrent();
     fake_shill_proxy_ = new chromeos_update_engine::FakeShillProxy();
-    provider_.reset(new RealShillProvider(fake_shill_proxy_, &fake_clock_));
+    provider_.reset(new RealShillProvider(fake_shill_proxy_));
 
     ManagerProxyMock* manager_proxy_mock = fake_shill_proxy_->GetManagerProxy();
 
@@ -129,11 +127,12 @@ class UmRealShillProviderTest : public ::testing::Test {
   void SendDefaultServiceSignal(const std::string& service_path,
                                 Time* conn_change_time_p) {
     const Time conn_change_time = ConnChangedTime();
-    fake_clock_.SetWallclockTime(conn_change_time);
+    FakeSystemState::Get()->fake_clock()->SetWallclockTime(conn_change_time);
     ASSERT_TRUE(manager_property_changed_.IsHandlerRegistered());
     manager_property_changed_.signal_callback().Run(
         shill::kDefaultServiceProperty, dbus::ObjectPath(service_path));
-    fake_clock_.SetWallclockTime(conn_change_time + TimeDelta::FromSeconds(5));
+    FakeSystemState::Get()->fake_clock()->SetWallclockTime(
+        conn_change_time + TimeDelta::FromSeconds(5));
     if (conn_change_time_p)
       *conn_change_time_p = conn_change_time;
   }
@@ -204,7 +203,6 @@ class UmRealShillProviderTest : public ::testing::Test {
   }
 
   brillo::FakeMessageLoop loop_{nullptr};
-  FakeClock fake_clock_;
   chromeos_update_engine::FakeShillProxy* fake_shill_proxy_;
 
   // The registered signal handler for the signal Manager.PropertyChanged.
@@ -315,21 +313,6 @@ TEST_F(UmRealShillProviderTest, ReadConnTypeWifi) {
   InitWithDefaultService("/");
   SetupConnectionAndTestType(
       kFakeWifiServicePath, shill::kTypeWifi, ConnectionType::kWifi);
-}
-
-// Test that Wimax connection is identified correctly.
-TEST_F(UmRealShillProviderTest, ReadConnTypeWimax) {
-  InitWithDefaultService("/");
-  SetupConnectionAndTestType(
-      kFakeWimaxServicePath, shill::kTypeWimax, ConnectionType::kWimax);
-}
-
-// Test that Bluetooth connection is identified correctly.
-TEST_F(UmRealShillProviderTest, ReadConnTypeBluetooth) {
-  InitWithDefaultService("/");
-  SetupConnectionAndTestType(kFakeBluetoothServicePath,
-                             shill::kTypeBluetooth,
-                             ConnectionType::kBluetooth);
 }
 
 // Test that Cellular connection is identified correctly.

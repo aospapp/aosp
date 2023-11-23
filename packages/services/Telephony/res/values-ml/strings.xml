@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"പ്രാഥമിക ഉപയോക്താവിന് മാത്രമേ വോയ്‌സ്‌മെയിൽ ക്രമീകരണം പരിഷ്‌ക്കരിക്കാനാവൂ."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"സിം കാർഡ് തടഞ്ഞത് മാറ്റി. നിങ്ങളുടെ ഫോൺ അൺലോക്കുചെയ്യുന്നു…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"സിം നെറ്റ്‌വർക്ക് അൺലോക്ക് പിൻ"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"ഓപ്പറേറ്റർക്കായി SIM ലോക്ക് ചെയ്‌തിരിക്കുന്നു"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"അൺലോക്കുചെയ്യുക"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"നിരസിക്കുക"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"നെറ്റ്‌വർക്ക് അൺലോക്ക് അഭ്യർത്ഥിക്കുന്നു…"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> എന്നതിലേക്ക് കൈമാറുന്നു"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"ഓഫ്"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"നിങ്ങളുടെ ഫോൺ പരിധിയ്ക്ക് പുറത്തായിരിക്കുമ്പോൾ കോൾ ഫോർവേഡിംഗ്  പ്രവർത്തനരഹിതമാക്കുന്നതിനെ നിങ്ങളുടെ ഓപ്പറേറ്റർ പിന്തുണയ്‌ക്കുന്നില്ല."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"നിങ്ങളുടെ സേവനദാതാവ് കോൾ കൈമാറ്റം പിന്തുണയ്ക്കുന്നില്ല."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"കോൾ വെയ്‌റ്റിംഗ് ഓണാക്കണോ?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"കോളിനിടയ്ക്ക് വരുന്ന മറ്റ് ഇൻകമിംഗ് കോളുകളെക്കുറിച്ച് നിങ്ങളെ അറിയിക്കും"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"ഓണാക്കുക"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"റദ്ദാക്കുക"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS-ന് കീഴിലുള്ള CDMA കോൾ വെയ്‌റ്റിംഗ് ഓണാണ്"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS-ന് കീഴിലുള്ള CDMA കോൾ വെയ്‌റ്റിംഗ് ഓഫാണ്"</string>
     <string name="updating_title" msgid="6130548922615719689">"കോൾ ക്രമീകരണങ്ങൾ"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"അഡ്മിൻ ഉപയോക്താവിന് മാത്രമേ കോൾ ക്രമീകരണം മാറ്റാൻ കഴിയൂ."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"ക്രമീകരണം (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"പരിമിതമായ സിം പ്രവർത്തനം"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> ഉപയോഗിക്കുമ്പോൾ <xliff:g id="CARRIER_NAME">%1$s</xliff:g> കോളുകളും ഡാറ്റാ സേവനങ്ങളും ബ്ലോക്ക് ചെയ്‌തേക്കാം."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"മറ്റൊരു SIM ഉപയോഗിക്കുമ്പോൾ <xliff:g id="CARRIER_NAME">%1$s</xliff:g> കോളുകളും ഡാറ്റാ സേവനവും ബ്ലോക്ക് ചെയ്‌തേക്കാം."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"അവസാനിപ്പിച്ച SIP അക്കൗണ്ടുകൾ കണ്ടെത്തി നീക്കം ചെയ്‌തു"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP കോൾ ചെയ്യലിന് ഇനി Android പ്ലാറ്റ്‌ഫോമിൽ പിന്തുണയുണ്ടാകില്ല.\nനിലവിലെ നിങ്ങളുടെ SIP അക്കൗണ്ടുകളായ <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> എന്നിവ നീക്കം ചെയ്‌തിരിക്കുന്നു.\nനിങ്ങളുടെ ഡിഫോൾട്ട് കോൾ ചെയ്യൽ അക്കൗണ്ട് ക്രമീകരണം സ്ഥിരീകരിക്കുക."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"ക്രമീകരണത്തിലേക്ക് പോകുക"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"ആപ്പ് ഡാറ്റ ഉപയോഗം"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g> തീയതികൾക്കിടയിൽ <xliff:g id="ID_1">%1$s</xliff:g> മൊബൈൽ ഡാറ്റ ഉപയോഗിച്ചു"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"വിപുലമായത്"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"പാസ്‌വേഡ് തെറ്റാണ്. SIM ഇപ്പോൾ ലോക്കുചെയ്‌തിരിക്കുന്നു. PUK2 നൽകുക."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 ശാശ്വതമായി തടഞ്ഞിരിക്കുന്നു."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"നിങ്ങൾക്ക് <xliff:g id="NUMBER">%d</xliff:g> ശ്രമങ്ങൾ ശേഷിക്കുന്നു."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 ലോക്ക് ആണ്. അൺലോക്ക് ചെയ്യാൻ സേവന ദാതാവിനെ ബന്ധപ്പെടുക."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 ഇനി തടയില്ല"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"നെറ്റ്‌വർക്ക് അല്ലെങ്കിൽ സിം കാർഡ് പിശക്"</string>
     <string name="doneButton" msgid="7371209609238460207">"പൂർത്തിയായി"</string>
@@ -522,9 +534,10 @@
     <string name="notification_voicemail_no_vm_number" msgid="3423686009815186750">"വോയ്‌സ്‌മെയിൽ നമ്പർ അജ്ഞാതമാണ്"</string>
     <string name="notification_network_selection_title" msgid="255595526707809121">"സേവനമില്ല"</string>
     <string name="notification_network_selection_text" msgid="553288408722427659">"തിരഞ്ഞെടുത്ത നെറ്റ്‌വർക്ക് (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) ലഭ്യമല്ല"</string>
-    <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"ഒരു കോൾ വിളിക്കാൻ മൊബൈൽ നെറ്റ്‌വർക്ക് ഓണാക്കുകയോ ഫ്ലൈറ്റ് മോഡ് അല്ലെങ്കിൽ ബാറ്ററി സേവർ മോഡ് ഓഫാക്കുകയോ ചെയ്യുക."</string>
+    <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"ഒരു കോൾ വിളിക്കാൻ മൊബൈൽ നെറ്റ്‌വർക്ക് ഓണാക്കുകയോ ഫ്ലൈറ്റ് മോഡ് അല്ലെങ്കിൽ ബാറ്ററി ലാഭിക്കൽ മോഡ് ഓഫാക്കുകയോ ചെയ്യുക."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"ഒരു കോൾ വിളിക്കാൻ വിമാന മോഡ് ഓഫാക്കുക."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"ഒരു കോൾ വിളിക്കാൻ വിമാന മോഡ് ഓഫാക്കുക അല്ലെങ്കിൽ വയർലെസ്സ് നെറ്റ്‌വർക്കിലേക്ക് കണക്റ്റുചെയ്യുക."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"ഫോൺ വളരെയധികം ചൂടായിരിക്കുന്നു"</b>\n\n"ഈ കോൾ പൂർത്തിയാക്കാനാകില്ല. ഫോൺ തണുക്കുമ്പോൾ വീണ്ടും ശ്രമിക്കുക.\n\nഎമർജൻസി കോളുകൾ നിങ്ങൾക്ക് ഇപ്പോഴും ചെയ്യാവുന്നതാണ്."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"അടിയന്തിരമല്ലാത്ത കോൾ ചെയ്യാൻ അടിയന്തിര കോൾബാക്ക് മോഡിൽ നിന്ന് പുറത്തുകടക്കുക."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"നെറ്റ്‌വർക്കിൽ രജിസ്റ്റർ ചെയ്‌തിട്ടില്ല."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"മൊബൈൽ നെറ്റ്‌വർക്ക് ലഭ്യമല്ല."</string>
@@ -865,9 +878,8 @@
     <string name="radioInfo_cid" msgid="1423185536264406705">"CID"</string>
     <string name="radio_info_subid" msgid="6839966868621703203">"നിലവിലെ ഉപ‌ഐഡി:"</string>
     <string name="radio_info_dds" msgid="1122593144425697126">"ഡിഫോൾട്ട് ഡാറ്റാ സിമ്മിന്റെ ഉപഐഡി:"</string>
-    <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL ബാൻഡ്‌വിത്ത് (kbps):"</string>
-    <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL ബാൻഡ്‍വിത്ത് (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"സെൽ ലൊക്കേഷൻ വിവരങ്ങൾ (അവസാനിപ്പിച്ചു):"</string>
+    <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL ബാൻഡ്‌വിഡ്‌ത് (kbps):"</string>
+    <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL ബാൻഡ്‌വിഡ്‌ത് (kbps):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE ഫിസിക്കൽ ചാനൽ കോൺഫിഗറേഷൻ:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"സെൽ വിവരങ്ങൾ പുതുക്കിയെടുക്കൽ നിരക്ക്:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"എല്ലാ സെൽ അളവ് വിവരങ്ങളും:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"പുതുക്കിയെടുക്കുക"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS പരിശോധന മാറ്റുക"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-നിർദ്ദിഷ്‌ട വിവരം/ക്രമീകരണം"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC ലഭ്യം:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR നിയന്ത്രിച്ചിരിക്കുന്നു:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR ലഭ്യം:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR നില:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR ഫ്രീക്വൻസി:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"റേഡിയോ ബാൻഡ് മോഡ് സജ്ജീകരിക്കുക"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"ബാൻഡ് ലിസ്‌റ്റ് ലോഡ് ചെയ്യുന്നു…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"സജ്ജീകരിക്കുക"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"ഫോൺ വിവരം"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"കാരിയർ പ്രൊവിഷനിംഗ് വിവരം"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"കാരിയർ പ്രൊവിഷനിംഗ് തുടങ്ങുക"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"നിങ്ങളുടെ Bluetooth സിഗ്നൽ ദുർബലമാണ്. സ്‌പീക്കർഫോണിലേക്ക് മാറ്റി നോക്കൂ."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"കോൾ നിലവാര അറിയിപ്പ്"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"അവസാനിപ്പിച്ച SIP അക്കൗണ്ടുകൾ"</string>
 </resources>

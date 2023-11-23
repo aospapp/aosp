@@ -23,8 +23,6 @@ import java.util.List;
 public enum ModeId {
     /** (Target) dalvikvm with "normal" jars */
     DEVICE,
-    /** (Target) dalvikvm with -testdex jars */
-    DEVICE_TESTDEX,
     /** (Host) dalvikvm with -hostdex jars */
     HOST,
     /** (Host) java */
@@ -105,7 +103,7 @@ public enum ModeId {
 
     /** Returns {@code true} if execution takes place with a device-mode Android runtime */
     public boolean isDevice() {
-        return this == ModeId.DEVICE || this == ModeId.DEVICE_TESTDEX || this == ModeId.APP_PROCESS;
+        return this == ModeId.DEVICE || this == ModeId.APP_PROCESS;
     }
 
     public boolean requiresAndroidSdk() {
@@ -116,7 +114,7 @@ public enum ModeId {
         if (variant == Variant.DEFAULT) {
             return true;
         } else if (variant == Variant.X64 || variant == Variant.X32) {
-            return this == HOST || this == DEVICE || this == DEVICE_TESTDEX || this == APP_PROCESS;
+            return this == HOST || this == DEVICE || this == APP_PROCESS;
         }
         // Unknown variant.
         return false;
@@ -125,7 +123,7 @@ public enum ModeId {
     /** Does this mode support chroot-based execution? */
     public boolean supportsChroot() {
         // We only support execution from a chroot directory in device mode for now.
-        return this == ModeId.DEVICE || this == ModeId.DEVICE_TESTDEX;
+        return this == ModeId.DEVICE;
     }
 
     public boolean supportsToolchain(Toolchain toolchain) {
@@ -140,7 +138,6 @@ public enum ModeId {
         }
         switch (this) {
             case DEVICE:
-            case DEVICE_TESTDEX:
             case HOST:
                 if (variant == Variant.DEFAULT) {
                     return "dalvikvm";
@@ -195,12 +192,6 @@ public enum ModeId {
             case DEVICE:
                 jarNames.addAll(Arrays.asList(DEVICE_JARS));
                 break;
-            case DEVICE_TESTDEX: {
-                for (String deviceJarName : Arrays.asList(DEVICE_JARS)) {
-                    jarNames.add(deviceJarName + "-testdex");
-                }
-                break;
-            }
             case HOST:
                 jarNames.addAll(Arrays.asList(HOST_JARS));
                 break;

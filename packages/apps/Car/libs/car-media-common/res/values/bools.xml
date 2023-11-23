@@ -22,4 +22,9 @@
     <!-- Whether to show a circular progress bar in control bar and minimized control bar or not. -->
     <bool name="show_circular_progress_bar">false</bool>
 
+    <!-- Whether the media source logo should be used for the app selector button. If the flag is
+        set to 'true', the main logo (which by default appears on the left hand side on toolbar)
+        will be hidden. -->
+    <bool name="use_media_source_logo_for_app_selector">false</bool>
+
 </resources>

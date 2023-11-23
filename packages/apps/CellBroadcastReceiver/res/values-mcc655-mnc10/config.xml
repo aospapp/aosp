@@ -18,12 +18,25 @@
     <!-- Channel 50. Even though it's for non-emergency, we mark it as
          emergency here so the dialog will pop-up. -->
     <string-array name="additional_cbs_channels_strings" translatable="false">
-        <item>0x032:type=area, emergency=true</item>
+        <item>0x032:type=area, emergency=true, display_icon=false</item>
     </string-array>
+    <!-- Whether to show main switch settings at the top -->
+    <bool name="show_main_switch_settings">false</bool>
 
     <!-- This is a special case that channel 50 is used as a regular message channel -->
     <bool name="config_showAreaUpdateInfoSettings">true</bool>
 
     <!-- Area info toggle default value -->
     <bool name="area_update_info_alerts_enabled_default">false</bool>
+
+    <!-- Disable other emergency alerts -->
+    <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false"></string-array>
+    <string-array name="cmas_alert_extreme_channels_range_strings" translatable="false"></string-array>
+    <string-array name="cmas_alerts_severe_range_strings" translatable="false"></string-array>
+    <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false"></string-array>
+    <string-array name="required_monthly_test_range_strings" translatable="false"></string-array>
+    <string-array name="exercise_alert_range_strings" translatable="false"></string-array>
+    <string-array name="operator_defined_alert_range_strings" translatable="false"></string-array>
+    <string-array name="etws_test_alerts_range_strings" translatable="false"></string-array>
+    <string-array name="etws_alerts_range_strings" translatable="false"></string-array>
 </resources>

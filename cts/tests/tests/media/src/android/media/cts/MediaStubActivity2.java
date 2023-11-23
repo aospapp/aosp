@@ -23,6 +23,7 @@ import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.TextureView.SurfaceTextureListener;
+import android.view.WindowManager;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +37,11 @@ public class MediaStubActivity2 extends Activity implements SurfaceTextureListen
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setTurnScreenOn(true);
+        setShowWhenLocked(true);
+
         setContentView(R.layout.mediacodecplayer);
 
         SurfaceView surfaceV = (SurfaceView)findViewById(R.id.surface);

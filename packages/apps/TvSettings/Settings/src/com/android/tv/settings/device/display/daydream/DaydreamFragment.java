@@ -18,6 +18,10 @@ package com.android.tv.settings.device.display.daydream;
 
 import static android.provider.Settings.System.SCREEN_OFF_TIMEOUT;
 
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
 import static com.android.tv.settings.util.InstrumentationUtils.logEntrySelected;
 
 import android.app.tvsettings.TvSettingsEnums;
@@ -27,6 +31,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.text.format.DateUtils;
 import android.util.ArrayMap;
@@ -36,10 +41,11 @@ import androidx.annotation.Keep;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.dream.DreamBackend;
 import com.android.tv.settings.R;
+import com.android.tv.settings.RestrictedPreferenceAdapter;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -67,6 +73,9 @@ public class DaydreamFragment extends SettingsPreferenceFragment
 
     private DreamBackend mBackend;
     private final Map<String, DreamBackend.DreamInfo> mDreamInfos = new ArrayMap<>();
+
+    private RestrictedPreferenceAdapter<ListPreference> mActiveDreamPref;
+    private RestrictedPreferenceAdapter<ListPreference> mDreamTimePref;
 
     public static DaydreamFragment newInstance() {
         return new DaydreamFragment();
@@ -100,39 +109,60 @@ public class DaydreamFragment extends SettingsPreferenceFragment
         getActivity().unregisterReceiver(mPackageReceiver);
     }
 
+
+    private int getPreferenceScreenResId() {
+        switch (FlavorUtils.getFlavor(getContext())) {
+            case FLAVOR_CLASSIC:
+            case FLAVOR_TWO_PANEL:
+                return R.xml.daydream;
+            case FLAVOR_X:
+            case FLAVOR_VENDOR:
+                return R.xml.daydream_x;
+            default:
+                return R.xml.daydream;
+        }
+    }
+
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        setPreferencesFromResource(R.xml.daydream, null);
+        setPreferencesFromResource(getPreferenceScreenResId(), null);
+        final String userRestriction = UserManager.DISALLOW_CONFIG_SCREEN_TIMEOUT;
 
         final ListPreference activeDreamPref = (ListPreference) findPreference(KEY_ACTIVE_DREAM);
-        refreshActiveDreamPref(activeDreamPref);
+        refreshActiveDreamPref();
         if (activeDreamPref != null) {
             activeDreamPref.setOnPreferenceChangeListener(this);
+            mActiveDreamPref = RestrictedPreferenceAdapter.adapt(activeDreamPref, userRestriction);
         }
 
         final ListPreference dreamTimePref = (ListPreference) findPreference(KEY_DREAM_TIME);
         if (dreamTimePref != null) {
             dreamTimePref.setValue(Integer.toString(getDreamTime()));
             dreamTimePref.setOnPreferenceChangeListener(this);
+            mDreamTimePref = RestrictedPreferenceAdapter.adapt(dreamTimePref, userRestriction);
         }
+
         final Preference dreamNowPref = findPreference(KEY_DREAM_NOW);
         dreamNowPref.setEnabled(mBackend.isEnabled());
     }
 
-    private void refreshActiveDreamPref(ListPreference activeDreamPref) {
+    private void refreshActiveDreamPref() {
+        if (mActiveDreamPref == null) {
+            return;
+        }
+
         final List<DreamBackend.DreamInfo> infos = mBackend.getDreamInfos();
         final CharSequence[] dreamEntries = new CharSequence[infos.size() + 1];
         final CharSequence[] dreamEntryValues = new CharSequence[infos.size() + 1];
         refreshDreamInfoMap(infos, dreamEntries, dreamEntryValues);
-        if (activeDreamPref != null) {
+        final ComponentName currentDreamComponent = mBackend.getActiveDream();
+
+        mActiveDreamPref.updatePreference(activeDreamPref -> {
             activeDreamPref.setEntries(dreamEntries);
             activeDreamPref.setEntryValues(dreamEntryValues);
-        }
-        final ComponentName currentDreamComponent = mBackend.getActiveDream();
-        if (activeDreamPref != null) {
             activeDreamPref.setValue(mBackend.isEnabled() && currentDreamComponent != null
                     ? currentDreamComponent.toShortString() : DREAM_COMPONENT_NONE);
-        }
+        });
     }
 
     private void refreshDreamInfoMap(List<DreamBackend.DreamInfo> infos,
@@ -215,25 +245,16 @@ public class DaydreamFragment extends SettingsPreferenceFragment
             return;
         }
 
-        final ListPreference activeDreamPref = (ListPreference) findPreference(KEY_ACTIVE_DREAM);
-        if (activeDreamPref != null) {
-            refreshActiveDreamPref(activeDreamPref);
-        }
-
-        final ListPreference dreamTimePref = (ListPreference) findPreference(KEY_DREAM_TIME);
-        if (dreamTimePref != null) {
-            dreamTimePref.setValue(Integer.toString(getDreamTime()));
+        refreshActiveDreamPref();
+        if (mDreamTimePref != null) {
+            mDreamTimePref.updatePreference(
+                    dreamTimePref -> dreamTimePref.setValue(Integer.toString(getDreamTime())));
         }
 
         final Preference dreamNowPref = findPreference(KEY_DREAM_NOW);
         if (dreamNowPref != null) {
             dreamNowPref.setEnabled(mBackend.isEnabled());
         }
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.DREAM;
     }
 
     private class PackageReceiver extends BroadcastReceiver {

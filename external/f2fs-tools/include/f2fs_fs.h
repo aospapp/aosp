@@ -5,6 +5,9 @@
  *             http://www.samsung.com/
  * Copyright (c) 2019 Google Inc.
  *             http://www.google.com/
+ * Copyright (c) 2020 Google Inc.
+ *   Robin Hsu <robinhsu@google.com>
+ *  : add sload compression support
  *
  * Dual licensed under the GPL or LGPL version 2 licenses.
  *
@@ -32,6 +35,7 @@
 #define WITH_DEFRAG
 #define WITH_RESIZE
 #define WITH_SLOAD
+#define WITH_LABEL
 #endif
 
 #include <inttypes.h>
@@ -68,6 +72,10 @@ typedef uint16_t u_int16_t;
 typedef uint8_t u_int8_t;
 #endif
 
+/* codes from kernel's f2fs.h, GPL-v2.0 */
+#define MIN_COMPRESS_LOG_SIZE	2
+#define MAX_COMPRESS_LOG_SIZE	8
+
 typedef u_int64_t	u64;
 typedef u_int32_t	u32;
 typedef u_int16_t	u16;
@@ -92,6 +100,31 @@ typedef u16	__be16;
 typedef u32	__be32;
 typedef u64	__be64;
 #endif
+
+/*
+ * code borrowed from kernel f2fs dirver: f2fs.h, GPL-2.0
+ *  : definitions of COMPRESS_DATA_RESERVED_SIZE,
+ *    struct compress_data, COMPRESS_HEADER_SIZE,
+ *    and struct compress_ctx
+ */
+#define COMPRESS_DATA_RESERVED_SIZE		4
+struct compress_data {
+	__le32 clen;			/* compressed data size */
+	__le32 chksum;			/* checksum of compressed data */
+	__le32 reserved[COMPRESS_DATA_RESERVED_SIZE];	/* reserved */
+	u8 cdata[];			/* compressed data */
+};
+#define COMPRESS_HEADER_SIZE	(sizeof(struct compress_data))
+/* compress context */
+struct compress_ctx {
+	unsigned int cluster_size;	/* page count in cluster */
+	unsigned int log_cluster_size;	/* log of cluster size */
+	void *rbuf;			/* compression input buffer */
+	struct compress_data *cbuf;	/* comprsssion output header + data */
+	size_t rlen;			/* valid data length in rbuf */
+	size_t clen;			/* valid data length in cbuf */
+	void *private;			/* work buf for compress algorithm */
+};
 
 #if HAVE_BYTESWAP_H
 #include <byteswap.h>
@@ -194,8 +227,8 @@ static inline uint64_t bswap_64(uint64_t val)
 #define ASSERT(exp)							\
 	do {								\
 		if (!(exp)) {						\
-			printf("[ASSERT] (%s:%4d) " #exp"\n",		\
-					__func__, __LINE__);		\
+			printf("[ASSERT] (%s:%4d) %s\n",		\
+					__func__, __LINE__, #exp);	\
 			exit(-1);					\
 		}							\
 	} while (0)
@@ -207,14 +240,14 @@ static inline uint64_t bswap_64(uint64_t val)
 
 #define MSG(n, fmt, ...)						\
 	do {								\
-		if (c.dbg_lv >= n) {					\
+		if (c.dbg_lv >= n && !c.layout) {			\
 			printf(fmt, ##__VA_ARGS__);			\
 		}							\
 	} while (0)
 
 #define DBG(n, fmt, ...)						\
 	do {								\
-		if (c.dbg_lv >= n) {					\
+		if (c.dbg_lv >= n && !c.layout) {			\
 			printf("[%s:%4d] " fmt,				\
 				__func__, __LINE__, ##__VA_ARGS__);	\
 		}							\
@@ -229,7 +262,11 @@ static inline uint64_t bswap_64(uint64_t val)
 #define DISP_u16(ptr, member)						\
 	do {								\
 		assert(sizeof((ptr)->member) == 2);			\
-		printf("%-30s" "\t\t[0x%8x : %u]\n",			\
+		if (c.layout)						\
+			printf("%-30s %u\n",				\
+			#member":", le16_to_cpu(((ptr)->member)));	\
+		else							\
+			printf("%-30s" "\t\t[0x%8x : %u]\n",		\
 			#member, le16_to_cpu(((ptr)->member)),		\
 			le16_to_cpu(((ptr)->member)));			\
 	} while (0)
@@ -237,7 +274,11 @@ static inline uint64_t bswap_64(uint64_t val)
 #define DISP_u32(ptr, member)						\
 	do {								\
 		assert(sizeof((ptr)->member) <= 4);			\
-		printf("%-30s" "\t\t[0x%8x : %u]\n",			\
+		if (c.layout)						\
+			printf("%-30s %u\n",				\
+			#member":", le32_to_cpu(((ptr)->member)));	\
+		else							\
+			printf("%-30s" "\t\t[0x%8x : %u]\n",		\
 			#member, le32_to_cpu(((ptr)->member)),		\
 			le32_to_cpu(((ptr)->member)));			\
 	} while (0)
@@ -245,14 +286,23 @@ static inline uint64_t bswap_64(uint64_t val)
 #define DISP_u64(ptr, member)						\
 	do {								\
 		assert(sizeof((ptr)->member) == 8);			\
-		printf("%-30s" "\t\t[0x%8llx : %llu]\n",		\
+		if (c.layout)						\
+			printf("%-30s %llu\n",				\
+			#member":", le64_to_cpu(((ptr)->member)));	\
+		else							\
+			printf("%-30s" "\t\t[0x%8llx : %llu]\n",	\
 			#member, le64_to_cpu(((ptr)->member)),		\
 			le64_to_cpu(((ptr)->member)));			\
 	} while (0)
 
 #define DISP_utf(ptr, member)						\
 	do {								\
-		printf("%-30s" "\t\t[%s]\n", #member, ((ptr)->member)); \
+		if (c.layout)						\
+			printf("%-30s %s\n", #member":",		\
+					((ptr)->member)); 		\
+		else							\
+			printf("%-30s" "\t\t[%s]\n", #member,		\
+					((ptr)->member));		\
 	} while (0)
 
 /* Display to buffer */
@@ -311,6 +361,7 @@ enum f2fs_config_func {
 	DEFRAG,
 	RESIZE,
 	SLOAD,
+	LABEL,
 };
 
 enum default_set {
@@ -332,6 +383,7 @@ struct device_info {
 	u_int32_t nr_zones;
 	u_int32_t nr_rnd_zones;
 	size_t zone_blocks;
+	size_t *zone_cap_blocks;
 };
 
 typedef struct {
@@ -343,6 +395,47 @@ typedef struct {
 
 	bool dbg_en;
 } dev_cache_config_t;
+
+/* f2fs_configration for compression used for sload.f2fs */
+typedef struct  {
+	void (*init)(struct compress_ctx *cc);
+	int (*compress)(struct compress_ctx *cc);
+	void (*reset)(struct compress_ctx *cc);
+} compress_ops;
+
+/* Should be aligned to supported_comp_names and support_comp_ops */
+enum compress_algorithms {
+	COMPR_LZO,
+	COMPR_LZ4,
+	MAX_COMPRESS_ALGS,
+};
+
+enum filter_policy {
+	COMPR_FILTER_UNASSIGNED = 0,
+	COMPR_FILTER_ALLOW,
+	COMPR_FILTER_DENY,
+};
+
+typedef struct {
+	void (*add)(const char *);
+	void (*destroy)(void);
+	bool (*filter)(const char *);
+} filter_ops;
+
+typedef struct {
+	bool enabled;			/* disabled by default */
+	bool required;			/* require to enable */
+	bool readonly;			/* readonly to release blocks */
+	struct compress_ctx cc;		/* work context */
+	enum compress_algorithms alg;	/* algorithm to compress */
+	compress_ops *ops;		/* ops per algorithm */
+	unsigned int min_blocks;	/* save more blocks than this */
+	enum filter_policy filter;	/* filter to try compression */
+	filter_ops *filter_ops;		/* filter ops */
+} compress_config_t;
+
+#define ALIGN_UP(value, size) ((value) + ((value) % (size) > 0 ? \
+		(size) - (value) % (size) : 0))
 
 struct f2fs_configuration {
 	u_int32_t reserved_segments;
@@ -365,12 +458,14 @@ struct f2fs_configuration {
 	u_int64_t wanted_total_sectors;
 	u_int64_t wanted_sector_size;
 	u_int64_t target_sectors;
+	u_int64_t max_size;
 	u_int32_t sectors_per_blk;
 	u_int32_t blks_per_seg;
 	__u8 init_version[VERSION_LEN + 1];
 	__u8 sb_version[VERSION_LEN + 1];
 	__u8 version[VERSION_LEN + 1];
 	char *vol_label;
+	char *vol_uuid;
 	u_int16_t s_encoding;
 	u_int16_t s_encoding_flags;
 	int heap;
@@ -395,6 +490,7 @@ struct f2fs_configuration {
 	int bug_nat_bits;
 	int alloc_failed;
 	int auto_fix;
+	int layout;
 	int quota_fix;
 	int preen_mode;
 	int ro;
@@ -402,8 +498,10 @@ struct f2fs_configuration {
 	int large_nat_bitmap;
 	int fix_chksum;			/* fix old cp.chksum position */
 	__le32 feature;			/* defined features */
+	time_t fixed_time;
 
 	/* mkfs parameters */
+	int fake_seed;
 	u_int32_t next_free_nid;
 	u_int32_t quota_inum;
 	u_int32_t quota_dnum;
@@ -424,11 +522,11 @@ struct f2fs_configuration {
 	char *mount_point;
 	char *target_out_dir;
 	char *fs_config_file;
-	time_t fixed_time;
 #ifdef HAVE_LIBSELINUX
 	struct selinux_opt seopt_file[8];
 	int nr_opt;
 #endif
+	int preserve_perms;
 
 	/* resize parameters */
 	int safe_resize;
@@ -438,6 +536,9 @@ struct f2fs_configuration {
 
 	/* cache parameters */
 	dev_cache_config_t cache_config;
+
+	/* compression support for sload.f2fs */
+	compress_config_t compress;
 };
 
 #ifdef CONFIG_64BIT
@@ -536,6 +637,7 @@ struct f2fs_configuration {
 	(void) (&_max1 == &_max2);		\
 	_max1 > _max2 ? _max1 : _max2; })
 
+#define round_up(x, y)		(((x) + (y) - 1) / (y))
 /*
  * Copied from fs/f2fs/f2fs.h
  */
@@ -615,7 +717,8 @@ enum {
 #define F2FS_FEATURE_VERITY		0x0400	/* reserved */
 #define F2FS_FEATURE_SB_CHKSUM		0x0800
 #define F2FS_FEATURE_CASEFOLD		0x1000
- #define F2FS_FEATURE_COMPRESSION	0x2000
+#define F2FS_FEATURE_COMPRESSION	0x2000
+#define F2FS_FEATURE_RO			0x4000
 
 #define MAX_VOLUME_NAME		512
 
@@ -786,6 +889,8 @@ struct f2fs_extent {
 #define F2FS_DATA_EXIST		0x08	/* file inline data exist flag */
 #define F2FS_INLINE_DOTS	0x10	/* file having implicit dot dentries */
 #define F2FS_EXTRA_ATTR		0x20	/* file having extra attribute */
+#define F2FS_PIN_FILE		0x40	/* file should not be gced */
+#define F2FS_COMPRESS_RELEASED	0x80	/* file released compressed blocks */
 
 #if !defined(offsetof)
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
@@ -1278,6 +1383,30 @@ static inline int get_inline_xattr_addrs(struct f2fs_inode *inode)
 
 #ifdef HAVE_LINUX_BLKZONED_H
 
+/* Let's just use v2, since v1 should be compatible with v2 */
+#define BLK_ZONE_REP_CAPACITY   (1 << 0)
+struct blk_zone_v2 {
+	__u64   start;          /* Zone start sector */
+	__u64   len;            /* Zone length in number of sectors */
+	__u64   wp;             /* Zone write pointer position */
+	__u8    type;           /* Zone type */
+	__u8    cond;           /* Zone condition */
+	__u8    non_seq;        /* Non-sequential write resources active */
+	__u8    reset;          /* Reset write pointer recommended */
+	__u8    resv[4];
+	__u64   capacity;       /* Zone capacity in number of sectors */
+	__u8    reserved[24];
+};
+#define blk_zone blk_zone_v2
+
+struct blk_zone_report_v2 {
+	__u64   sector;
+	__u32   nr_zones;
+	__u32   flags;
+	struct blk_zone zones[0];
+};
+#define blk_zone_report blk_zone_report_v2
+
 #define blk_zone_type(z)        (z)->type
 #define blk_zone_conv(z)	((z)->type == BLK_ZONE_TYPE_CONVENTIONAL)
 #define blk_zone_seq_req(z)	((z)->type == BLK_ZONE_TYPE_SEQWRITE_REQ)
@@ -1324,13 +1453,17 @@ blk_zone_cond_str(struct blk_zone *blkz)
 	return "Unknown-cond";
 }
 
+/*
+ * Handle kernel zone capacity support
+ */
 #define blk_zone_empty(z)	(blk_zone_cond(z) == BLK_ZONE_COND_EMPTY)
-
 #define blk_zone_sector(z)	(z)->start
 #define blk_zone_length(z)	(z)->len
 #define blk_zone_wp_sector(z)	(z)->wp
 #define blk_zone_need_reset(z)	(int)(z)->reset
 #define blk_zone_non_seq(z)	(int)(z)->non_seq
+#define blk_zone_capacity(z, f) ((f & BLK_ZONE_REP_CAPACITY) ? \
+					(z)->capacity : (z)->len)
 
 #endif
 
@@ -1342,8 +1475,9 @@ extern int f2fs_report_zones(int, report_zones_cb_t *, void *);
 extern int f2fs_check_zones(int);
 int f2fs_reset_zone(int, void *);
 extern int f2fs_reset_zones(int);
+extern uint32_t f2fs_get_usable_segments(struct f2fs_super_block *sb);
 
-#define SIZE_ALIGN(val, size)	((val) + (size) - 1) / (size)
+#define SIZE_ALIGN(val, size)	(((val) + (size) - 1) / (size))
 #define SEG_ALIGN(blks)		SIZE_ALIGN(blks, c.blks_per_seg)
 #define ZONE_ALIGN(blks)	SIZE_ALIGN(blks, c.blks_per_seg * \
 					c.segs_per_zone)
@@ -1352,6 +1486,7 @@ static inline double get_best_overprovision(struct f2fs_super_block *sb)
 {
 	double reserved, ovp, candidate, end, diff, space;
 	double max_ovp = 0, max_space = 0;
+	u_int32_t usable_main_segs = f2fs_get_usable_segments(sb);
 
 	if (get_sb(segment_count_main) < 256) {
 		candidate = 10;
@@ -1365,9 +1500,9 @@ static inline double get_best_overprovision(struct f2fs_super_block *sb)
 
 	for (; candidate <= end; candidate += diff) {
 		reserved = (2 * (100 / candidate + 1) + 6) *
-						get_sb(segs_per_sec);
-		ovp = (get_sb(segment_count_main) - reserved) * candidate / 100;
-		space = get_sb(segment_count_main) - reserved - ovp;
+				round_up(usable_main_segs, get_sb(section_count));
+		ovp = (usable_main_segs - reserved) * candidate / 100;
+		space = usable_main_segs - reserved - ovp;
 		if (max_space < space) {
 			max_space = space;
 			max_ovp = candidate;
@@ -1435,6 +1570,7 @@ struct feature feature_table[] = {					\
 	{ "sb_checksum",		F2FS_FEATURE_SB_CHKSUM },	\
 	{ "casefold",			F2FS_FEATURE_CASEFOLD },	\
 	{ "compression",		F2FS_FEATURE_COMPRESSION },	\
+	{ "ro",				F2FS_FEATURE_RO},		\
 	{ NULL,				0x0},				\
 };
 
@@ -1526,6 +1662,7 @@ extern const struct f2fs_nls_table *f2fs_load_nls_table(int encoding);
 #define F2FS_ENC_UTF8_12_0	1
 
 extern int f2fs_str2encoding(const char *string);
+extern char *f2fs_encoding2str(const int encoding);
 extern int f2fs_get_encoding_flags(int encoding);
 extern int f2fs_str2encoding_flags(char **param, __u16 *flags);
 

@@ -16,21 +16,18 @@
 
 package com.android.phone.settings.fdn;
 
-import static android.view.Window.PROGRESS_VISIBILITY_OFF;
-import static android.view.Window.PROGRESS_VISIBILITY_ON;
 
-import android.app.Activity;
-import android.content.AsyncQueryHandler;
-import android.content.ContentResolver;
+import static android.app.Activity.RESULT_OK;
+
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.PersistableBundle;
 import android.provider.ContactsContract.CommonDataKinds;
+import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
 import android.text.Editable;
 import android.text.Selection;
@@ -42,49 +39,30 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.android.internal.telephony.PhoneFactory;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
-import com.android.phone.SubscriptionInfoHelper;
-import android.telephony.CarrierConfigManager;
 
 /**
  * Activity to let the user add or edit an FDN contact.
  */
-public class EditFdnContactScreen extends Activity {
-    private static final String LOG_TAG = PhoneGlobals.LOG_TAG;
-    private static final boolean DBG = false;
+public class EditFdnContactScreen extends BaseFdnContactScreen {
 
     // Menu item codes
     private static final int MENU_IMPORT = 1;
     private static final int MENU_DELETE = 2;
 
-    private static final String INTENT_EXTRA_NAME = "name";
-    private static final String INTENT_EXTRA_NUMBER = "number";
-
-    private static final int PIN2_REQUEST_CODE = 100;
-
-    private SubscriptionInfoHelper mSubscriptionInfoHelper;
-
-    private String mName;
-    private String mNumber;
-    private String mPin2;
     private boolean mAddContact;
-    private QueryHandler mQueryHandler;
 
     private EditText mNameField;
     private EditText mNumberField;
     private LinearLayout mPinFieldContainer;
     private Button mButton;
-
-    private Handler mHandler = new Handler();
 
     /**
      * Constants used in importing from contacts
@@ -108,13 +86,10 @@ public class EditFdnContactScreen extends Activity {
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
 
-        resolveIntent();
-
-        getWindow().requestFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         setContentView(R.layout.edit_fdn_contact_screen);
         setupView();
         setTitle(mAddContact ? R.string.add_fdn_contact : R.string.edit_fdn_contact);
-        PersistableBundle b = null;
+        PersistableBundle b;
         if (mSubscriptionInfoHelper.hasSubId()) {
             b = PhoneGlobals.getInstance().getCarrierConfigForSubId(
                     mSubscriptionInfoHelper.getSubId());
@@ -145,11 +120,7 @@ public class EditFdnContactScreen extends Activity {
                 Bundle extras = (intent != null) ? intent.getExtras() : null;
                 if (extras != null) {
                     mPin2 = extras.getString("pin2");
-                    if (mAddContact) {
-                        addContact();
-                    } else {
-                        updateContact();
-                    }
+                    processPin2(mPin2);
                 } else if (resultCode != RESULT_OK) {
                     // if they cancelled, then we just cancel too.
                     if (DBG) log("onActivityResult: cancelled.");
@@ -231,20 +202,15 @@ public class EditFdnContactScreen extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void resolveIntent() {
-        Intent intent = getIntent();
-
-        mSubscriptionInfoHelper = new SubscriptionInfoHelper(this, intent);
-
-        mName =  intent.getStringExtra(INTENT_EXTRA_NAME);
-        mNumber =  intent.getStringExtra(INTENT_EXTRA_NUMBER);
-
+    @Override
+    protected void resolveIntent() {
+        super.resolveIntent();
         mAddContact = TextUtils.isEmpty(mNumber);
     }
 
     /**
      * We have multiple layouts, one to indicate that the user needs to
-     * open the keyboard to enter information (if the keybord is hidden).
+     * open the keyboard to enter information (if the keyboard is hidden).
      * So, we need to make sure that the layout here matches that in the
      * layout file.
      */
@@ -374,36 +340,18 @@ public class EditFdnContactScreen extends Activity {
         finish();
     }
 
-    private void authenticatePin2() {
-        Intent intent = new Intent();
-        intent.setClass(this, GetPin2Screen.class);
-        intent.setData(FdnList.getContentUri(mSubscriptionInfoHelper));
-        startActivityForResult(intent, PIN2_REQUEST_CODE);
-    }
-
-    private void displayProgress(boolean flag) {
+    @Override
+    protected void displayProgress(boolean flag) {
+        super.displayProgress(flag);
         // indicate we are busy.
         mDataBusy = flag;
-        getWindow().setFeatureInt(
-                Window.FEATURE_INDETERMINATE_PROGRESS,
-                mDataBusy ? PROGRESS_VISIBILITY_ON : PROGRESS_VISIBILITY_OFF);
         // make sure we don't allow calls to save when we're
         // not ready for them.
         mButton.setClickable(!mDataBusy);
     }
 
-    /**
-     * Removed the status field, with preference to displaying a toast
-     * to match the rest of settings UI.
-     */
-    private void showStatus(CharSequence statusMsg) {
-        if (statusMsg != null) {
-            Toast.makeText(this, statusMsg, Toast.LENGTH_LONG)
-                    .show();
-        }
-    }
-
-    private void handleResult(boolean success, boolean invalidNumber) {
+    @Override
+    protected void handleResult(boolean success, boolean invalidNumber) {
         if (success) {
             if (DBG) log("handleResult: success!");
             showStatus(getResources().getText(mAddContact ?
@@ -426,13 +374,7 @@ public class EditFdnContactScreen extends Activity {
             }
         }
 
-        mHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                finish();
-            }
-        }, 2000);
-
+        mHandler.postDelayed(() -> finish(), 2000);
     }
 
     private final View.OnClickListener mClicked = new View.OnClickListener() {
@@ -486,35 +428,12 @@ public class EditFdnContactScreen extends Activity {
         }
     };
 
-    private class QueryHandler extends AsyncQueryHandler {
-        public QueryHandler(ContentResolver cr) {
-            super(cr);
+    @Override
+    protected void pin2AuthenticationSucceed() {
+        if (mAddContact) {
+            addContact();
+        } else {
+            updateContact();
         }
-
-        @Override
-        protected void onQueryComplete(int token, Object cookie, Cursor c) {
-        }
-
-        @Override
-        protected void onInsertComplete(int token, Object cookie, Uri uri) {
-            if (DBG) log("onInsertComplete");
-            displayProgress(false);
-            handleResult(uri != null, false);
-        }
-
-        @Override
-        protected void onUpdateComplete(int token, Object cookie, int result) {
-            if (DBG) log("onUpdateComplete");
-            displayProgress(false);
-            handleResult(result > 0, false);
-        }
-
-        @Override
-        protected void onDeleteComplete(int token, Object cookie, int result) {
-        }
-    }
-
-    private void log(String msg) {
-        Log.d(LOG_TAG, "[EditFdnContact] " + msg);
     }
 }

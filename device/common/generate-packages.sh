@@ -84,7 +84,7 @@ do
 
     ONE_FILE_BASE=$(basename $ONE_FILE)
 
-    # Sanity check to make sure apk or jar files are not stripped
+    # Quick check to make sure apk or jar files are not stripped
     if [[ ${ONE_FILE_BASE} == *.apk ]] || [[ ${ONE_FILE_BASE} == *.jar ]]
     then
       zipinfo ${FILEDIR_NEW}/${ONE_FILE_BASE} | grep -q classes.dex > /dev/null
@@ -96,6 +96,7 @@ do
 
   done
   echo \ \ Copying $COMPANY-specific LICENSE
+  cp $COMPANY/COPYRIGHT ${MAKEFILEDIR} || echo \ \ \ \ Error copying COPYRIGHT
   cp $COMPANY/LICENSE ${MAKEFILEDIR} || echo \ \ \ \ Error copying LICENSE
   echo \ \ Setting up $COMPANY-specific makefiles
   cp -R $COMPANY/staging/* $MAKEFILEDIR || echo \ \ \ \ Error copying makefiles

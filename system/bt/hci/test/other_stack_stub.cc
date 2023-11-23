@@ -24,7 +24,7 @@
 
 const btsnoop_t* btsnoop_get_interface() { return nullptr; }
 const packet_fragmenter_t* packet_fragmenter_get_interface() { return nullptr; }
-base::MessageLoop* get_main_message_loop() { return nullptr; }
+bluetooth::common::MessageLoopThread* get_main_thread() { return nullptr; }
 
 namespace bluetooth {
 namespace bqr {
@@ -36,6 +36,7 @@ void DumpBtScheduling(unsigned char, unsigned char*) {}
 
 namespace shim {
 
+bool is_gd_hci_enabled() { return false; }
 bool is_gd_shim_enabled() { return false; }
 bool is_gd_stack_started_up() { return false; }
 void Post(base::OnceClosure task) {}

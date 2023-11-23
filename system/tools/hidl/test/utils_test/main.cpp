@@ -18,11 +18,14 @@
 
 #include <hidl-util/FqInstance.h>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <vector>
 
 using ::android::FqInstance;
 using ::android::FQName;
+using ::testing::Optional;
+using ::testing::Property;
 
 static const std::vector<std::string> kValidFqNames = {
         "android.hardware.foo@1.0::IFoo.Type",
@@ -189,6 +192,21 @@ TEST(LibHidlGenUtilsTest, FqDefaultVersion) {
     EXPECT_EQ((std::make_pair<size_t, size_t>(1u, 2u)), n.getVersion());
     ASSERT_TRUE(i.setTo("package@1.2::IFoo"));
     EXPECT_EQ((std::make_pair<size_t, size_t>(1u, 2u)), i.getVersion());
+}
+
+TEST(LibHidlGenUtilsTest, FqInstanceFrom) {
+    EXPECT_THAT(FqInstance::from("android.hardware.foo", 1, 0, "IFoo", "default"),
+                Optional(Property(&FqInstance::string, "android.hardware.foo@1.0::IFoo/default")));
+    EXPECT_THAT(FqInstance::from("android.hardware.foo", 1, 0, "IFoo"),
+                Optional(Property(&FqInstance::string, "android.hardware.foo@1.0::IFoo")));
+    EXPECT_THAT(FqInstance::from("android.hardware.foo", 1, 0),
+                Optional(Property(&FqInstance::string, "android.hardware.foo@1.0")));
+    EXPECT_THAT(FqInstance::from(1, 0, "IFoo", "default"),
+                Optional(Property(&FqInstance::string, "@1.0::IFoo/default")));
+    EXPECT_THAT(FqInstance::from(1, 0, "IFoo"),
+                Optional(Property(&FqInstance::string, "@1.0::IFoo")));
+    EXPECT_THAT(FqInstance::from("IFoo", "default"),
+                Optional(Property(&FqInstance::string, "IFoo/default")));
 }
 
 int main(int argc, char **argv) {

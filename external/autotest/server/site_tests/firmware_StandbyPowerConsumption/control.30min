@@ -12,7 +12,7 @@ TEST_CATEGORY = "Performance"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:powerplay"
-DEPENDENCIES = "servo, powerplay"
+DEPENDENCIES = "servo_state:WORKING, powerplay"
 
 DOC = """
 This test collects and reports the power consumtion data during hibernate state.

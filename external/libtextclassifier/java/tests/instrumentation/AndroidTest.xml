@@ -13,8 +13,8 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<!-- This test config file is auto-generated. -->
 <configuration description="Runs TextClassifierServiceTest.">
+    <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.extservices.apex" />
     <option name="test-suite-tag" value="apct" />
     <option name="test-suite-tag" value="apct-instrumentation" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
@@ -22,9 +22,15 @@
         <option name="test-file-name" value="TextClassifierServiceTest.apk" />
     </target_preparer>
 
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+        <option name="push" value="testdata->/data/local/tmp/TextClassifierServiceTest/testdata" />
+    </target_preparer>
+
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.textclassifier.tests" />
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
+        <option name="device-listeners" value="com.android.textclassifier.testing.TextClassifierInstrumentationListener" />
     </test>
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">

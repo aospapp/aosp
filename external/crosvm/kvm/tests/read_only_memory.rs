@@ -4,9 +4,10 @@
 
 #![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 
+use base::{MemoryMappingBuilder, SharedMemory};
 use kvm::*;
 use kvm_sys::kvm_regs;
-use sys_util::{GuestAddress, GuestMemory, MemoryMapping, SharedMemory};
+use vm_memory::{GuestAddress, GuestMemory};
 
 #[test]
 fn test_run() {
@@ -20,11 +21,11 @@ fn test_run() {
     let mem_size = 0x2000;
     let load_addr = GuestAddress(0x1000);
     let guest_mem = GuestMemory::new(&[]).unwrap();
-    let mut mem = SharedMemory::new(None).expect("failed to create shared memory");
-    mem.set_size(mem_size)
-        .expect("failed to set shared memory size");
-    let mmap =
-        MemoryMapping::from_fd(&mem, mem_size as usize).expect("failed to create memory mapping");
+    let mem = SharedMemory::anon(mem_size).expect("failed to create shared memory");
+    let mmap = MemoryMappingBuilder::new(mem_size as usize)
+        .from_shared_memory(&mem)
+        .build()
+        .expect("failed to create memory mapping");
 
     mmap.write_slice(&code[..], load_addr.offset() as usize)
         .expect("Writing code to memory failed.");
@@ -45,9 +46,14 @@ fn test_run() {
     vcpu_regs.rax = 0x66;
     vcpu_regs.rbx = 0;
     vcpu.set_regs(&vcpu_regs).expect("set regs failed");
-    vm.add_device_memory(
+    vm.add_memory_region(
         GuestAddress(0),
-        MemoryMapping::from_fd(&mem, mem_size as usize).expect("failed to create memory mapping"),
+        Box::new(
+            MemoryMappingBuilder::new(mem_size as usize)
+                .from_shared_memory(&mem)
+                .build()
+                .expect("failed to create memory mapping"),
+        ),
         false,
         false,
     )
@@ -55,17 +61,22 @@ fn test_run() {
 
     // Give some read only memory for the test code to read from and force a vcpu exit when it reads
     // from it.
-    let mut mem_ro = SharedMemory::new(None).expect("failed to create shared memory");
-    mem_ro
-        .set_size(0x1000)
-        .expect("failed to set shared memory size");
-    let mmap_ro = MemoryMapping::from_fd(&mem_ro, 0x1000).expect("failed to create memory mapping");
+    let mem_ro = SharedMemory::anon(0x1000).expect("failed to create shared memory");
+    let mmap_ro = MemoryMappingBuilder::new(0x1000)
+        .from_shared_memory(&mem_ro)
+        .build()
+        .expect("failed to create memory mapping");
     mmap_ro
         .write_obj(vcpu_regs.rax as u8, 0)
         .expect("failed writing data to ro memory");
-    vm.add_device_memory(
+    vm.add_memory_region(
         GuestAddress(vcpu_sregs.es.base),
-        MemoryMapping::from_fd(&mem_ro, 0x1000).expect("failed to create memory mapping"),
+        Box::new(
+            MemoryMappingBuilder::new(0x1000)
+                .from_shared_memory(&mem_ro)
+                .build()
+                .expect("failed to create memory mapping"),
+        ),
         true,
         false,
     )
@@ -74,8 +85,9 @@ fn test_run() {
     // Ensure we get exactly 1 exit from attempting to write to read only memory.
     let mut exits = 0;
 
+    let runnable_vcpu = vcpu.to_runnable(None).unwrap();
     loop {
-        match vcpu.run().expect("run failed") {
+        match runnable_vcpu.run().expect("run failed") {
             VcpuExit::Hlt => break,
             VcpuExit::MmioWrite {
                 address,

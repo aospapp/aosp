@@ -34,7 +34,7 @@ struct SoundTriggerHw : public ISoundTriggerHw {
 
         props.implementor = "The Android Open Source Project";
         props.description = "The Andtoid Studio Emulator Soundtrigger no-op implementation";
-        props.version = 0;
+        props.version = 254868980;
         props.uuid = (Uuid){
             .timeLow = 0x04030201,
             .timeMid = 0x0605,

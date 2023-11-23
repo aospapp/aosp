@@ -15,6 +15,7 @@
  */
 
 #include "chre/util/nanoapp/app_id.h"
+#include "chre/util/system/napp_header_utils.h"
 #include "chre_host/host_protocol_host.h"
 #include "chre_host/log.h"
 #include "chre_host/socket_client.h"
@@ -92,12 +93,15 @@ void sendLoadNanoappRequest(SocketClient &client, const char *filename,
     return;
   }
 
+  // All loaded nanoapps must be signed currently.
+  uint32_t appFlags = CHRE_NAPP_HEADER_SIGNED;
+
   // Perform loading with 1 fragment for simplicity
   FlatBufferBuilder builder(size + 128);
   FragmentedLoadTransaction transaction =
       FragmentedLoadTransaction(1 /* transactionId */, appId, appVersion,
-                                0x01000000 /* targetApiVersion */, buffer,
-                                buffer.size() /* fragmentSize */);
+                                appFlags, 0x01000000 /* targetApiVersion */,
+                                buffer, buffer.size() /* fragmentSize */);
   HostProtocolHost::encodeFragmentedLoadNanoappRequest(
       builder, transaction.getNextRequest());
 

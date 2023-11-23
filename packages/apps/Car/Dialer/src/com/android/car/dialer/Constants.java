@@ -16,8 +16,6 @@
 
 package com.android.car.dialer;
 
-import com.android.car.dialer.ui.TelecomActivity;
-
 /** Dialer constants. */
 public final class Constants {
     private Constants() {
@@ -25,13 +23,6 @@ public final class Constants {
 
     /** Constants used to build {@link android.content.Intent}s. */
     public static class Intents {
-        /** Intent action for {@link TelecomActivity} to show a tabbed page. */
-        public static final String ACTION_SHOW_PAGE = "com.android.car.dialer.ACTION_SHOW_PAGE";
-        /** Intent extra for {@link TelecomActivity} to show a tabbed page. */
-        public static final String EXTRA_SHOW_PAGE = "com.android.car.dialer.EXTRA_SHOW_PAGE";
-        /** Intent extra flag to mark unread missed calls as read. */
-        public static final String EXTRA_ACTION_READ_MISSED =
-                "com.android.car.dialer.EXTRA_ACTION_READ_MISSED";
         /** Intent extra flag to show incoming call. */
         public static final String EXTRA_SHOW_INCOMING_CALL = "show_incoming_call";
 
@@ -44,5 +35,11 @@ public final class Constants {
     }
 
     /** See {@link android.content.res.Resources#getIdentifier(String, String, String)} */
-    public static int INVALID_RES_ID = 0;
+    public static final int INVALID_RES_ID = 0;
+
+    public static final String EMPTY_STRING = "";
+
+    /** See {@link com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService}. */
+    public static final String HFP_CLIENT_CONNECTION_SERVICE_CLASS_NAME =
+            "com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService";
 }

@@ -92,6 +92,7 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
 
     private static final double FRAME_DURATION_THRESHOLD = 0.03;
     private static final double FOV_THRESHOLD = 0.03;
+    private static final double ZOOM_RATIO_THRESHOLD = 0.01;
     private static final long MAX_TIMESTAMP_DIFFERENCE_THRESHOLD = 10000000; // 10ms
 
     private StateWaiter mSessionWaiter;
@@ -1026,6 +1027,10 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
             SizeF physicalSensorSize = mStaticInfo.getValueFromKeyNonNull(
                     CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
 
+            // Physical result metadata's ZOOM_RATIO is 1.0f.
+            assertTrue("Physical result metadata ZOOM_RATIO should be 1.0f, but is " +
+                    physicalZoomRatio, Math.abs(physicalZoomRatio - 1.0f) < ZOOM_RATIO_THRESHOLD);
+
             double physicalFov = 2 * Math.toDegrees(Math.atan2(
                     physicalSensorSize.getWidth() * physicalCropRegion.width() /
                     (2 * physicalZoomRatio * physicalActiveArraySize.width()), physicalFocalLength));
@@ -1187,13 +1192,15 @@ public final class LogicalCameraDeviceTest extends Camera2SurfaceViewTestCase {
             Map<String, CaptureResult> physicalResultsDual =
                     totalCaptureResultDual.getPhysicalCameraResults();
             for (String physicalId : physicalCameraIds) {
-                 if (physicalResultsDual.containsKey(physicalId)) {
-                     physicalTimestamps[index][i] = physicalResultsDual.get(physicalId).get(
-                             CaptureResult.SENSOR_TIMESTAMP);
-                 } else {
-                     physicalTimestamps[index][i] = -1;
-                 }
-                 index++;
+                assertTrue("Physical capture result camera ID must match the right camera",
+                        physicalResultsDual.get(physicalId).getCameraId().equals(physicalId));
+                if (physicalResultsDual.containsKey(physicalId)) {
+                    physicalTimestamps[index][i] = physicalResultsDual.get(physicalId).get(
+                        CaptureResult.SENSOR_TIMESTAMP);
+                } else {
+                    physicalTimestamps[index][i] = -1;
+                }
+                index++;
             }
         }
 

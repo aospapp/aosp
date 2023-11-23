@@ -18,9 +18,9 @@ package com.google.turbine.binder.bytecode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.turbine.binder.bound.AnnotationValue;
 import com.google.turbine.binder.bound.EnumConstantValue;
 import com.google.turbine.binder.bound.ModuleInfo;
+import com.google.turbine.binder.bound.TurbineAnnotationValue;
 import com.google.turbine.binder.bound.TurbineClassValue;
 import com.google.turbine.binder.sym.ClassSymbol;
 import com.google.turbine.binder.sym.FieldSymbol;
@@ -81,9 +81,8 @@ public class BytecodeBinder {
       case UPPER:
         return Type.WildUpperBoundedTy.create(
             bindTy(((UpperBoundTySig) sig).bound(), scope), ImmutableList.of());
-      default:
-        throw new AssertionError(sig.boundKind());
     }
+    throw new AssertionError(sig.boundKind());
   }
 
   static Type bindTy(Sig.TySig sig, Function<String, TyVarSymbol> scope) {
@@ -100,23 +99,22 @@ public class BytecodeBinder {
         return wildTy((WildTySig) sig, scope);
       case VOID_TY_SIG:
         return Type.VOID;
-      default:
-        throw new AssertionError(sig.kind());
     }
+    throw new AssertionError(sig.kind());
   }
 
   private static Type bindArrayTy(Sig.ArrayTySig arrayTySig, Function<String, TyVarSymbol> scope) {
     return Type.ArrayTy.create(bindTy(arrayTySig.elementType(), scope), ImmutableList.of());
   }
 
-  public static Const bindValue(Type type, ElementValue value) {
+  public static Const bindValue(ElementValue value) {
     switch (value.kind()) {
       case ENUM:
         return bindEnumValue((EnumConstValue) value);
       case CONST:
-        return bindConstValue(type, ((ConstValue) value).value());
+        return ((ConstValue) value).value();
       case ARRAY:
-        return bindArrayValue(type, (ArrayValue) value);
+        return bindArrayValue((ArrayValue) value);
       case CLASS:
         return new TurbineClassValue(
             bindTy(
@@ -125,37 +123,45 @@ public class BytecodeBinder {
                   throw new IllegalStateException(x);
                 }));
       case ANNOTATION:
-        return bindAnnotationValue(type, ((ElementValue.AnnotationValue) value).annotation());
+        return bindAnnotationValue(((ElementValue.ConstTurbineAnnotationValue) value).annotation());
     }
     throw new AssertionError(value.kind());
   }
 
-  static AnnotationValue bindAnnotationValue(Type type, AnnotationInfo value) {
+  static TurbineAnnotationValue bindAnnotationValue(AnnotationInfo value) {
     ClassSymbol sym = asClassSymbol(value.typeName());
     ImmutableMap.Builder<String, Const> values = ImmutableMap.builder();
     for (Map.Entry<String, ElementValue> e : value.elementValuePairs().entrySet()) {
-      values.put(e.getKey(), bindValue(type, e.getValue()));
+      values.put(e.getKey(), bindValue(e.getValue()));
     }
-    return new AnnotationValue(sym, values.build());
+    return new TurbineAnnotationValue(new AnnoInfo(null, sym, null, values.build()));
   }
 
   static ImmutableList<AnnoInfo> bindAnnotations(List<AnnotationInfo> input) {
     ImmutableList.Builder<AnnoInfo> result = ImmutableList.builder();
     for (AnnotationInfo annotation : input) {
-      AnnotationValue anno = bindAnnotationValue(Type.VOID, annotation);
-      result.add(new AnnoInfo(null, anno.sym(), null, anno.values()));
+      TurbineAnnotationValue anno = bindAnnotationValue(annotation);
+      if (!shouldSkip(anno)) {
+        result.add(anno.info());
+      }
     }
     return result.build();
+  }
+
+  private static boolean shouldSkip(TurbineAnnotationValue anno) {
+    // ct.sym contains fake annotations without corresponding class files.
+    return anno.sym().equals(ClassSymbol.PROFILE_ANNOTATION)
+        || anno.sym().equals(ClassSymbol.PROPRIETARY_ANNOTATION);
   }
 
   private static ClassSymbol asClassSymbol(String s) {
     return new ClassSymbol(s.substring(1, s.length() - 1));
   }
 
-  private static Const bindArrayValue(Type type, ArrayValue value) {
+  private static Const bindArrayValue(ArrayValue value) {
     ImmutableList.Builder<Const> elements = ImmutableList.builder();
     for (ElementValue element : value.elements()) {
-      elements.add(bindValue(type, element));
+      elements.add(bindValue(element));
     }
     return new ArrayInitValue(elements.build());
   }
@@ -164,30 +170,22 @@ public class BytecodeBinder {
     if (type.tyKind() != Type.TyKind.PRIM_TY) {
       return value;
     }
+    // Deficient numberic types and booleans are all stored as ints in the class file,
+    // coerce them to the target type.
     // TODO(b/32626659): this is not bug-compatible with javac
     switch (((Type.PrimTy) type).primkind()) {
       case CHAR:
         return new Const.CharValue(value.asChar().value());
       case SHORT:
         return new Const.ShortValue(value.asShort().value());
-      case INT:
-        return new Const.IntValue(value.asInteger().value());
-      case LONG:
-        return new Const.LongValue(value.asLong().value());
-      case FLOAT:
-        return new Const.FloatValue(value.asFloat().value());
-      case DOUBLE:
-        return new Const.DoubleValue(value.asDouble().value());
       case BOOLEAN:
         // boolean constants are encoded as integers
         return new Const.BooleanValue(value.asInteger().value() != 0);
       case BYTE:
         return new Const.ByteValue(value.asByte().value());
-      case STRING:
-      case NULL:
+      default:
         return value;
     }
-    throw new AssertionError(type);
   }
 
   private static Const bindEnumValue(EnumConstValue value) {

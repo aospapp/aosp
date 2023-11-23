@@ -15,33 +15,11 @@
 -->
 
 <configuration description="List test modules of WIFI module. This is a placeholder xml instead of a runnable plan.">
-    <!-- This test is only run if the Wifi module is installed. It tests for functionality that is
-         not required for devices that don't take the Wifi module. -->
-    <option name="compatibility:include-filter" value="MtsWifiTestCases" />
+    <include name="mts-wifi-oem-tests-list" />
 
     <option name="compatibility:include-filter" value="FrameworksWifiApiTests" />
     <option name="compatibility:include-filter" value="FrameworksWifiTests" />
 
-    <!-- These tests are run no matter if the Wifi module is installed or not, since these are
-         CTS/GTS tests that should pass regardless.
-         Note: Gating these tests by whether the Wifi Module is installed will gate their entire
-         test suites, which is not desirable since other tests in the suite are used to qualify
-         mandatory modules. -->
-    <option name="compatibility:include-filter" value="CtsWifiTestCases" />
-    <option name="compatibility:include-filter" value="CtsNetTestCasesLatestSdk" />
-    <option name="compatibility:include-filter"
-            value="GtsGmscoreHostTestCases com.google.android.gts.wifi.WifiHostTest" />
-    <option name="compatibility:include-filter"
-            value="GtsBackupHostTestCases com.google.android.gts.backup.OldWifiSettingsRestoreHostSideTest" />
-    <option name="compatibility:include-filter"
-            value="GtsBackupHostTestCases com.google.android.gts.backup.WifiSettingsBackupHostSideTest" />
-    <option name="compatibility:include-filter"
-            value="GtsBackupHostTestCases com.google.android.gts.backup.WifiSettingsRestoreHostSideTest" />
-
-    <!-- Enable MainlineTestModuleController for Wifi MTS-only tests -->
-    <option name="compatibility:module-arg" value="MtsWifiTestCases:enable:true" />
     <option name="compatibility:module-arg" value="FrameworksWifiApiTests:enable:true" />
     <option name="compatibility:module-arg" value="FrameworksWifiTests:enable:true" />
-    <option name="compatibility:module-arg" value="GtsBackupHostTestCases:enable:true" />
-    <option name="compatibility:module-arg" value="GtsGmscoreHostTestCases:enable:true" />
 </configuration>

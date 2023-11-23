@@ -16,6 +16,7 @@
 
 package com.android.bips.ui;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
@@ -96,8 +97,8 @@ public class AddPrintersFragment extends PreferenceFragment implements ServiceCo
             mP2pPermissionManager.request(false, approve -> {
                 updateP2pPreferences();
                 if (!approve) {
-                    // The user is choosing to disable by denying Location.
-                    mP2pPermissionManager.setState(P2pPermissionManager.State.DISABLED);
+                    // Try again next time
+                    mP2pPermissionManager.setState(P2pPermissionManager.State.TEMPORARILY_DISABLED);
                 }
             });
         }
@@ -149,9 +150,11 @@ public class AddPrintersFragment extends PreferenceFragment implements ServiceCo
         if (mP2pPermissionManager.isP2pEnabled()) {
             mP2pEnablePreference.setChecked(true);
             getPreferenceScreen().addPreference(mFindP2pPrintersPreference);
-            if (getActivity().getIntent().getBooleanExtra(EXTRA_FIX_P2P_PERMISSION, false)) {
+            Activity activity = getActivity();
+            if (activity != null && activity.getIntent().getBooleanExtra(EXTRA_FIX_P2P_PERMISSION,
+                    false)) {
                 // If we were only here to enable P2P permissions, go back to the print now.
-                getActivity().finish();
+                activity.finish();
             }
         } else {
             mP2pEnablePreference.setChecked(false);

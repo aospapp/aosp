@@ -15,48 +15,54 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.car.test"
-        android:sharedUserId="com.google.android.car.uid.kitchensink">
+     package="com.android.car.test"
+     android:sharedUserId="com.google.android.car.uid.kitchensink">
 
-    <uses-permission android:name="android.Manifest.permission.MODIFY_AUDIO_ROUTING" />
-    <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE" />
-    <uses-permission android:name="android.car.permission.CONTROL_CAR_DOORS" />
-    <uses-permission android:name="android.car.permission.CONTROL_CAR_WINDOWS" />
-    <uses-permission android:name="android.car.permission.CONTROL_CAR_MIRRORS" />
-    <uses-permission android:name="android.car.permission.CONTROL_CAR_SEATS" />
-    <uses-permission android:name="android.car.permission.CAR_ENERGY" />
-    <uses-permission android:name="android.car.permission.CONTROL_APP_BLOCKING" />
-    <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME" />
-    <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS" />
-    <uses-permission android:name="android.car.permission.STORAGE_MONITORING" />
-    <uses-permission android:name="android.car.permission.READ_CAR_OCCUPANT_AWARENESS_STATE" />
+    <uses-permission android:name="android.Manifest.permission.MODIFY_AUDIO_ROUTING"/>
+    <uses-permission android:name="android.car.permission.ACCESS_PRIVATE_DISPLAY_ID"/>
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE"/>
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_DOORS"/>
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_WINDOWS"/>
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_MIRRORS"/>
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_SEATS"/>
+    <uses-permission android:name="android.car.permission.CAR_ENERGY"/>
+    <uses-permission android:name="android.car.permission.CAR_SPEED"/>
+    <uses-permission android:name="android.car.permission.CONTROL_APP_BLOCKING"/>
+    <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME"/>
+    <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.car.permission.CAR_MONITOR_INPUT"/>
+    <uses-permission android:name="android.car.permission.STORAGE_MONITORING"/>
+    <uses-permission android:name="android.car.permission.READ_CAR_OCCUPANT_AWARENESS_STATE"/>
+    <uses-permission android:name="android.car.permission.READ_CAR_POWER_POLICY"/>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-            android:targetPackage="com.android.car.test"
-            android:label="Tests for Car APIs"/>
+         android:targetPackage="com.android.car.test"
+         android:label="Tests for Car APIs"/>
 
-    <application android:label="CarServiceTest" android:name=".CarServiceTestApp"
-            android:debuggable="true">
-        <uses-library android:name="android.test.runner" />
+    <application android:label="@string/app_title"
+         android:name=".CarServiceTestApp"
+         android:debuggable="true">
+        <uses-library android:name="android.test.runner"/>
         <service android:name="com.android.car.TestAppBlockingPolicyService"
-            android:permission="android.car.permission.CONTROL_APP_BLOCKING">
+             android:permission="android.car.permission.CONTROL_APP_BLOCKING"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.car.content.pm.CarAppBlockingPolicyService"/>
             </intent-filter>
         </service>
 
-        <activity android:name="com.android.car.CarUxRestrictionsManagerServiceTest$ActivityViewTestActivity"/>
         <activity android:name="com.android.car.pm.ActivityBlockingActivityTest$NonDoNoHistoryActivity"
-                  android:noHistory="true"/>
+             android:noHistory="true"/>
         <activity android:name="com.android.car.pm.ActivityBlockingActivityTest$NonDoActivity"/>
         <activity android:name="com.android.car.pm.ActivityBlockingActivityTest$DoActivity"
-            android:label="DoActivity">
-            <meta-data android:name="distractionOptimized" android:value="true"/>
+             android:label="DoActivity">
+            <meta-data android:name="distractionOptimized"
+                 android:value="true"/>
         </activity>
 
         <receiver android:name="com.android.car.CarStorageMonitoringBroadcastReceiver"
-            android:exported="true"
-            android:permission="android.car.permission.STORAGE_MONITORING">
+             android:exported="true"
+             android:permission="android.car.permission.STORAGE_MONITORING">
             <intent-filter>
                 <action android:name="android.car.storagemonitoring.EXCESSIVE_IO"/>
             </intent-filter>

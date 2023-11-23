@@ -171,6 +171,10 @@ public final class Shared {
      * Whether the calling app should be restricted in Storage Access Framework or not.
      */
     public static boolean shouldRestrictStorageAccessFramework(Activity activity) {
+        if (VersionUtils.isAtLeastS()) {
+            return true;
+        }
+
         if (!VersionUtils.isAtLeastR()) {
             return false;
         }
@@ -314,7 +318,8 @@ public final class Shared {
     public static void ensureKeyboardPresent(Context context, AlertDialog dialog) {
         if (!isHardwareKeyboardAvailable(context)) {
             dialog.getWindow().setSoftInputMode(
-                    WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+                    WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
+                            | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN);
         }
     }
 

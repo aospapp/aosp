@@ -90,7 +90,11 @@ public class JvmtiRunTestBasedTest extends JvmtiTestBase {
         System.setErr(oldErr);
     }
 
-    private native void setupExtraLogging();
+    private void setupExtraLogging() {
+      setupExtraLogging("plugin,deopt,jdwp,jit,agents,threads");
+    }
+
+    private native void setupExtraLogging(String arg);
 
     protected boolean doExtraLogging() throws Exception {
         return mActivity

@@ -51,7 +51,7 @@ public final class jdi extends ListResourceBundle {{
 INSTANCE_FORMAT = '{{ "{key}", "{value}" }},\n'
 
 VALUES = ""
-with open(args[1], 'r+') as inp:
+with open(args[1], 'r') as inp:
   for l in inp.readlines():
     key, value = l.split('=')
     VALUES += INSTANCE_FORMAT.format(key = key.strip(), value = value.strip())

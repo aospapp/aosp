@@ -34,12 +34,24 @@ LOCAL_SRC_FILES := \
 	$(MESA_UTIL_FILES) \
 	$(XMLCONFIG_FILES)
 
+LOCAL_MODULE := libmesa_util
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-MIT legacy_by_exception_only legacy_notice legacy_unencumbered
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice unencumbered
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
+
+LOCAL_MODULE_CLASS := STATIC_LIBRARIES
+
+prebuilt_intermediates := $(MESA_TOP)/prebuilt-intermediates
+intermediates := $(call local-generated-sources-dir)
+
 LOCAL_C_INCLUDES := \
 	external/zlib \
 	$(MESA_TOP)/src/mesa \
 	$(MESA_TOP)/src/mapi \
 	$(MESA_TOP)/src/gallium/include \
-	$(MESA_TOP)/src/gallium/auxiliary
+	$(MESA_TOP)/src/gallium/auxiliary \
+	$(MESA_TOP)/src/util/format \
+	$(intermediates)/format
 
 # If Android version >=8 MESA should static link libexpat else should dynamic link
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 27; echo $$?), 0)
@@ -50,33 +62,33 @@ LOCAL_SHARED_LIBRARIES := \
 	libexpat
 endif
 
-LOCAL_MODULE := libmesa_util
+LOCAL_SHARED_LIBRARIES += liblog libsync
 
 # Generated sources
-
-LOCAL_MODULE_CLASS := STATIC_LIBRARIES
-
-prebuilt_intermediates := $(MESA_TOP)/prebuilt-intermediates
-intermediates := $(call local-generated-sources-dir)
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(intermediates)
 
 UTIL_GENERATED_SOURCES := $(addprefix $(intermediates)/,$(MESA_UTIL_GENERATED_FILES))
 LOCAL_GENERATED_SOURCES := $(UTIL_GENERATED_SOURCES)
 
-$(intermediates)/xmlpool/options.h: $(prebuilt_intermediates)/xmlpool/options.h
+format_srgb_gen := $(LOCAL_PATH)/format_srgb.py
+
+$(intermediates)/format_srgb.c: $(format_srgb_gen)
 	@mkdir -p $(dir $@)
-	@cp -f $< $@
+	$(hide) $(MESA_PYTHON2) $(format_srgb_gen) $< > $@
 
-MESA_DRI_OPTIONS_H := $(intermediates)/xmlpool/options.h
-LOCAL_GENERATED_SOURCES := $(MESA_DRI_OPTIONS_H)
+u_format_gen := $(LOCAL_PATH)/format/u_format_table.py
+u_format_deps := $(LOCAL_PATH)/format/u_format.csv \
+	$(LOCAL_PATH)/format/u_format_pack.py \
+	$(LOCAL_PATH)/format/u_format_parse.py
 
-$(intermediates)/format_srgb.c: $(prebuilt_intermediates)/util/format_srgb.c
+$(intermediates)/format/u_format_pack.h: $(u_format_deps)
 	@mkdir -p $(dir $@)
-	@cp -f $< $@
+	$(hide) $(MESA_PYTHON2) $(u_format_gen) --header $< > $@
 
-MESA_FORMAT_SRGB_C := $(intermediates)/format_srgb.c
-LOCAL_GENERATED_SOURCES += $(MESA_FORMAT_SRGB_C)
+$(intermediates)/format/u_format_table.c: $(u_format_deps)
+	@mkdir -p $(dir $@)
+	$(hide) $(MESA_PYTHON2) $(u_format_gen) $< > $@
 
 include $(MESA_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)

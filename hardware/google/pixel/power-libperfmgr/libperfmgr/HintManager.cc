@@ -20,9 +20,11 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 #include <json/reader.h>
 #include <json/value.h>
 
+#include <inttypes.h>
 #include <algorithm>
 #include <set>
 
@@ -31,6 +33,12 @@
 
 namespace android {
 namespace perfmgr {
+
+namespace {
+constexpr std::chrono::milliseconds kMilliSecondZero = std::chrono::milliseconds(0);
+constexpr std::chrono::steady_clock::time_point kTimePointMax =
+        std::chrono::steady_clock::time_point::max();
+}  // namespace
 
 bool HintManager::ValidateHint(const std::string& hint_type) const {
     if (nm_.get() == nullptr) {
@@ -48,32 +56,134 @@ bool HintManager::IsHintSupported(const std::string& hint_type) const {
     return true;
 }
 
+bool HintManager::IsHintEnabled(const std::string &hint_type) const {
+    return actions_.at(hint_type).enabled;
+}
+
+bool HintManager::InitHintStatus(const std::unique_ptr<HintManager> &hm) {
+    if (hm.get() == nullptr) {
+        return false;
+    }
+    for (auto &a : hm->actions_) {
+        // timeout_ms equaling kMilliSecondZero means forever until cancelling.
+        // As a result, if there's one NodeAction has timeout_ms of 0, we will store
+        // 0 instead of max. Also node actions could be empty, set to 0 in that case.
+        std::chrono::milliseconds timeout = kMilliSecondZero;
+        if (a.second.node_actions.size()) {
+            auto [min, max] =
+                    std::minmax_element(a.second.node_actions.begin(), a.second.node_actions.end(),
+                                        [](const auto act1, const auto act2) {
+                                            return act1.timeout_ms < act2.timeout_ms;
+                                        });
+            timeout = min->timeout_ms == kMilliSecondZero ? kMilliSecondZero : max->timeout_ms;
+        }
+        a.second.status.reset(new HintStatus(timeout));
+    }
+    return true;
+}
+
+void HintManager::DoHintStatus(const std::string &hint_type, std::chrono::milliseconds timeout_ms) {
+    std::lock_guard<std::mutex> lock(actions_.at(hint_type).status->mutex);
+    actions_.at(hint_type).status->stats.count.fetch_add(1);
+    auto now = std::chrono::steady_clock::now();
+    if (now > actions_.at(hint_type).status->end_time) {
+        actions_.at(hint_type).status->stats.duration_ms.fetch_add(
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                        actions_.at(hint_type).status->end_time -
+                        actions_.at(hint_type).status->start_time)
+                        .count());
+        actions_.at(hint_type).status->start_time = now;
+    }
+    actions_.at(hint_type).status->end_time =
+            (timeout_ms == kMilliSecondZero) ? kTimePointMax : now + timeout_ms;
+}
+
+void HintManager::EndHintStatus(const std::string &hint_type) {
+    std::lock_guard<std::mutex> lock(actions_.at(hint_type).status->mutex);
+    // Update HintStats if the hint ends earlier than expected end_time
+    auto now = std::chrono::steady_clock::now();
+    if (now < actions_.at(hint_type).status->end_time) {
+        actions_.at(hint_type).status->stats.duration_ms.fetch_add(
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                        now - actions_.at(hint_type).status->start_time)
+                        .count());
+        actions_.at(hint_type).status->end_time = now;
+    }
+}
+
+void HintManager::DoHintAction(const std::string &hint_type) {
+    for (auto &action : actions_.at(hint_type).hint_actions) {
+        switch (action.type) {
+            case HintActionType::DoHint:
+                // TODO: add parse logic to prevent circular hints.
+                DoHint(action.value);
+                break;
+            case HintActionType::EndHint:
+                EndHint(action.value);
+                break;
+            case HintActionType::MaskHint:
+                if (actions_.find(action.value) == actions_.end()) {
+                    LOG(ERROR) << "Failed to find " << action.value << " action";
+                } else {
+                    actions_.at(action.value).enabled = false;
+                }
+                break;
+            default:
+                // should not reach here
+                LOG(ERROR) << "Invalid "
+                           << static_cast<std::underlying_type<HintActionType>::type>(action.type)
+                           << " type";
+        }
+    }
+}
+
+void HintManager::EndHintAction(const std::string &hint_type) {
+    for (auto &action : actions_.at(hint_type).hint_actions) {
+        if (action.type == HintActionType::MaskHint &&
+            actions_.find(action.value) != actions_.end()) {
+            actions_.at(action.value).enabled = true;
+        }
+    }
+}
+
 bool HintManager::DoHint(const std::string& hint_type) {
     LOG(VERBOSE) << "Do Powerhint: " << hint_type;
-    return ValidateHint(hint_type)
-               ? nm_->Request(actions_.at(hint_type), hint_type)
-               : false;
+    if (!ValidateHint(hint_type) || !IsHintEnabled(hint_type) ||
+        !nm_->Request(actions_.at(hint_type).node_actions, hint_type)) {
+        return false;
+    }
+    DoHintStatus(hint_type, actions_.at(hint_type).status->max_timeout);
+    DoHintAction(hint_type);
+    return true;
 }
 
 bool HintManager::DoHint(const std::string& hint_type,
                          std::chrono::milliseconds timeout_ms_override) {
     LOG(VERBOSE) << "Do Powerhint: " << hint_type << " for "
                  << timeout_ms_override.count() << "ms";
-    if (!ValidateHint(hint_type)) {
+    if (!ValidateHint(hint_type) || !IsHintEnabled(hint_type)) {
         return false;
     }
-    std::vector<NodeAction> actions_override = actions_.at(hint_type);
+    std::vector<NodeAction> actions_override = actions_.at(hint_type).node_actions;
     for (auto& action : actions_override) {
         action.timeout_ms = timeout_ms_override;
     }
-    return nm_->Request(actions_override, hint_type);
+    if (!nm_->Request(actions_override, hint_type)) {
+        return false;
+    }
+    DoHintStatus(hint_type, timeout_ms_override);
+    DoHintAction(hint_type);
+    return true;
 }
 
 bool HintManager::EndHint(const std::string& hint_type) {
     LOG(VERBOSE) << "End Powerhint: " << hint_type;
-    return ValidateHint(hint_type)
-               ? nm_->Cancel(actions_.at(hint_type), hint_type)
-               : false;
+    if (!ValidateHint(hint_type) || !nm_->Cancel(actions_.at(hint_type).node_actions, hint_type)) {
+        return false;
+    }
+    EndHintStatus(hint_type);
+    EndHintAction(hint_type);
+    return true;
 }
 
 bool HintManager::IsRunning() const {
@@ -88,6 +198,17 @@ std::vector<std::string> HintManager::GetHints() const {
     return hints;
 }
 
+HintStats HintManager::GetHintStats(const std::string &hint_type) const {
+    HintStats hint_stats;
+    if (ValidateHint(hint_type)) {
+        hint_stats.count =
+                actions_.at(hint_type).status->stats.count.load(std::memory_order_relaxed);
+        hint_stats.duration_ms =
+                actions_.at(hint_type).status->stats.duration_ms.load(std::memory_order_relaxed);
+    }
+    return hint_stats;
+}
+
 void HintManager::DumpToFd(int fd) {
     std::string header(
         "========== Begin perfmgr nodes ==========\n"
@@ -100,6 +221,29 @@ void HintManager::DumpToFd(int fd) {
     }
     nm_->DumpToFd(fd);
     std::string footer("==========  End perfmgr nodes  ==========\n");
+    if (!android::base::WriteStringToFd(footer, fd)) {
+        LOG(ERROR) << "Failed to dump fd: " << fd;
+    }
+    header = "========== Begin perfmgr stats ==========\n"
+             "Hint Name\t"
+             "Counts\t"
+             "Duration\n";
+    if (!android::base::WriteStringToFd(header, fd)) {
+        LOG(ERROR) << "Failed to dump fd: " << fd;
+    }
+    std::string hint_stats_string;
+    std::vector<std::string> keys(GetHints());
+    std::sort(keys.begin(), keys.end());
+    for (const auto &ordered_key : keys) {
+        HintStats hint_stats(GetHintStats(ordered_key));
+        hint_stats_string +=
+                android::base::StringPrintf("%s\t%" PRIu32 "\t%" PRIu64 "\n", ordered_key.c_str(),
+                                            hint_stats.count, hint_stats.duration_ms);
+    }
+    if (!android::base::WriteStringToFd(hint_stats_string, fd)) {
+        LOG(ERROR) << "Failed to dump fd: " << fd;
+    }
+    footer = "==========  End perfmgr stats  ==========\n";
     if (!android::base::WriteStringToFd(footer, fd)) {
         LOG(ERROR) << "Failed to dump fd: " << fd;
     }
@@ -124,8 +268,7 @@ std::unique_ptr<HintManager> HintManager::GetFromJSON(
         LOG(ERROR) << "Failed to parse Nodes section from " << config_path;
         return nullptr;
     }
-    std::map<std::string, std::vector<NodeAction>> actions =
-        HintManager::ParseActions(json_doc, nodes);
+    std::unordered_map<std::string, Hint> actions = HintManager::ParseActions(json_doc, nodes);
 
     if (actions.empty()) {
         LOG(ERROR) << "Failed to parse Actions section from " << config_path;
@@ -135,6 +278,11 @@ std::unique_ptr<HintManager> HintManager::GetFromJSON(
     sp<NodeLooperThread> nm = new NodeLooperThread(std::move(nodes));
     std::unique_ptr<HintManager> hm =
         std::make_unique<HintManager>(std::move(nm), actions);
+
+    if (!HintManager::InitHintStatus(hm)) {
+        LOG(ERROR) << "Failed to initialize hint status";
+        return nullptr;
+    }
 
     LOG(INFO) << "Initialized HintManager from JSON config: " << config_path;
 
@@ -151,10 +299,12 @@ std::vector<std::unique_ptr<Node>> HintManager::ParseNodes(
     std::set<std::string> nodes_name_parsed;
     std::set<std::string> nodes_path_parsed;
     Json::Value root;
-    Json::Reader reader;
+    Json::CharReaderBuilder builder;
+    std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+    std::string errorMessage;
 
-    if (!reader.parse(json_doc, root)) {
-        LOG(ERROR) << "Failed to parse JSON config";
+    if (!reader->parse(&*json_doc.begin(), &*json_doc.end(), &root, &errorMessage)) {
+        LOG(ERROR) << "Failed to parse JSON config: " << errorMessage;
         return nodes_parsed;
     }
 
@@ -196,8 +346,8 @@ std::vector<std::unique_ptr<Node>> HintManager::ParseNodes(
         std::string node_type = nodes[i]["Type"].asString();
         LOG(VERBOSE) << "Node[" << i << "]'s Type: " << node_type;
         if (node_type.empty()) {
-            LOG(ERROR) << "Failed to read "
-                       << "Node[" << i << "]'s Type, set to 'File' as default";
+            LOG(VERBOSE) << "Failed to read "
+                         << "Node[" << i << "]'s Type, set to 'File' as default";
         } else if (node_type == "File") {
             is_file = true;
         } else if (node_type == "Property") {
@@ -290,15 +440,16 @@ std::vector<std::unique_ptr<Node>> HintManager::ParseNodes(
     return nodes_parsed;
 }
 
-std::map<std::string, std::vector<NodeAction>> HintManager::ParseActions(
-    const std::string& json_doc,
-    const std::vector<std::unique_ptr<Node>>& nodes) {
+std::unordered_map<std::string, Hint> HintManager::ParseActions(
+        const std::string &json_doc, const std::vector<std::unique_ptr<Node>> &nodes) {
     // function starts
-    std::map<std::string, std::vector<NodeAction>> actions_parsed;
+    std::unordered_map<std::string, Hint> actions_parsed;
     Json::Value root;
-    Json::Reader reader;
+    Json::CharReaderBuilder builder;
+    std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+    std::string errorMessage;
 
-    if (!reader.parse(json_doc, root)) {
+    if (!reader->parse(&*json_doc.begin(), &*json_doc.end(), &root, &errorMessage)) {
         LOG(ERROR) << "Failed to parse JSON config";
         return actions_parsed;
     }
@@ -321,48 +472,61 @@ std::map<std::string, std::vector<NodeAction>> HintManager::ParseActions(
             return actions_parsed;
         }
 
-        std::string node_name = actions[i]["Node"].asString();
-        LOG(VERBOSE) << "Action[" << i << "]'s Node: " << node_name;
-        std::size_t node_index;
-
-        if (nodes_index.find(node_name) == nodes_index.end()) {
-            LOG(ERROR) << "Failed to find "
-                       << "Action[" << i << "]'s Node from Nodes section: ["
-                       << node_name << "]";
-            actions_parsed.clear();
-            return actions_parsed;
-        }
-        node_index = nodes_index[node_name];
-
-        std::string value_name = actions[i]["Value"].asString();
-        LOG(VERBOSE) << "Action[" << i << "]'s Value: " << value_name;
-        std::size_t value_index = 0;
-
-        if (!nodes[node_index]->GetValueIndex(value_name, &value_index)) {
-            LOG(ERROR) << "Failed to read Action[" << i << "]'s Value";
-            LOG(ERROR) << "Action[" << i << "]'s Value " << value_name
-                       << " is not defined in Node[" << node_name << "]";
-            actions_parsed.clear();
-            return actions_parsed;
-        }
-        LOG(VERBOSE) << "Action[" << i << "]'s ValueIndex: " << value_index;
-
-        Json::UInt64 duration = 0;
-        if (actions[i]["Duration"].empty() ||
-            !actions[i]["Duration"].isUInt64()) {
-            LOG(ERROR) << "Failed to read Action[" << i << "]'s Duration";
-            actions_parsed.clear();
-            return actions_parsed;
+        HintActionType action_type = HintActionType::Node;
+        std::string type_string = actions[i]["Type"].asString();
+        LOG(VERBOSE) << "Action[" << i << "]'s Type: " << type_string;
+        if (type_string.empty()) {
+            LOG(VERBOSE) << "Failed to read "
+                         << "Action[" << i << "]'s Type, set to 'Node' as default";
+        } else if (type_string == "DoHint") {
+            action_type = HintActionType::DoHint;
+        } else if (type_string == "EndHint") {
+            action_type = HintActionType::EndHint;
+        } else if (type_string == "MaskHint") {
+            action_type = HintActionType::MaskHint;
         } else {
-            duration = actions[i]["Duration"].asUInt64();
+            LOG(ERROR) << "Invalid Action[" << i << "]'s Type: " << type_string;
+            actions_parsed.clear();
+            return actions_parsed;
         }
-        LOG(VERBOSE) << "Action[" << i << "]'s Duration: " << duration;
+        if (action_type == HintActionType::Node) {
+            std::string node_name = actions[i]["Node"].asString();
+            LOG(VERBOSE) << "Action[" << i << "]'s Node: " << node_name;
+            std::size_t node_index;
 
-        if (actions_parsed.find(hint_type) == actions_parsed.end()) {
-            actions_parsed[hint_type] = std::vector<NodeAction>{
-                {node_index, value_index, std::chrono::milliseconds(duration)}};
-        } else {
-            for (const auto& action : actions_parsed[hint_type]) {
+            if (nodes_index.find(node_name) == nodes_index.end()) {
+                LOG(ERROR) << "Failed to find "
+                           << "Action[" << i << "]'s Node from Nodes section: [" << node_name
+                           << "]";
+                actions_parsed.clear();
+                return actions_parsed;
+            }
+            node_index = nodes_index[node_name];
+
+            std::string value_name = actions[i]["Value"].asString();
+            LOG(VERBOSE) << "Action[" << i << "]'s Value: " << value_name;
+            std::size_t value_index = 0;
+
+            if (!nodes[node_index]->GetValueIndex(value_name, &value_index)) {
+                LOG(ERROR) << "Failed to read Action[" << i << "]'s Value";
+                LOG(ERROR) << "Action[" << i << "]'s Value " << value_name
+                           << " is not defined in Node[" << node_name << "]";
+                actions_parsed.clear();
+                return actions_parsed;
+            }
+            LOG(VERBOSE) << "Action[" << i << "]'s ValueIndex: " << value_index;
+
+            Json::UInt64 duration = 0;
+            if (actions[i]["Duration"].empty() || !actions[i]["Duration"].isUInt64()) {
+                LOG(ERROR) << "Failed to read Action[" << i << "]'s Duration";
+                actions_parsed.clear();
+                return actions_parsed;
+            } else {
+                duration = actions[i]["Duration"].asUInt64();
+            }
+            LOG(VERBOSE) << "Action[" << i << "]'s Duration: " << duration;
+
+            for (const auto &action : actions_parsed[hint_type].node_actions) {
                 if (action.node_index == node_index) {
                     LOG(ERROR)
                         << "Action[" << i
@@ -371,18 +535,30 @@ std::map<std::string, std::vector<NodeAction>> HintManager::ParseActions(
                     return actions_parsed;
                 }
             }
-            actions_parsed[hint_type].emplace_back(
-                node_index, value_index, std::chrono::milliseconds(duration));
+            actions_parsed[hint_type].node_actions.emplace_back(
+                    node_index, value_index, std::chrono::milliseconds(duration));
+
+        } else {
+            const std::string &hint_value = actions[i]["Value"].asString();
+            LOG(VERBOSE) << "Action[" << i << "]'s Value: " << hint_value;
+            if (hint_value.empty()) {
+                LOG(ERROR) << "Failed to read "
+                           << "Action[" << i << "]'s Value";
+                actions_parsed.clear();
+                return actions_parsed;
+            }
+            actions_parsed[hint_type].hint_actions.emplace_back(action_type, hint_value);
         }
 
         ++total_parsed;
     }
 
-    LOG(INFO) << total_parsed << " Actions parsed successfully";
+    LOG(INFO) << total_parsed << " actions parsed successfully";
 
     for (const auto& action : actions_parsed) {
-        LOG(INFO) << "PowerHint " << action.first << " has "
-                  << action.second.size() << " actions parsed";
+        LOG(INFO) << "PowerHint " << action.first << " has " << action.second.node_actions.size()
+                  << " node actions"
+                  << ", and " << action.second.hint_actions.size() << " hint actions parsed";
     }
 
     return actions_parsed;

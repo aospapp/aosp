@@ -55,9 +55,6 @@ LOCAL_C_INCLUDES :=	\
 	$(LLVM_ROOT_PATH)/host/include	\
 	$(LOCAL_C_INCLUDES)
 
-# Add on ncurses to have support for terminfo
-LOCAL_LDLIBS_darwin += -lncurses
-LOCAL_LDLIBS_linux += -lncurses
 LOCAL_LDLIBS_linux += -lgcc_s
 LOCAL_LDLIBS_windows += -luuid
 

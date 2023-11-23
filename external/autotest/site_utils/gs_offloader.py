@@ -127,10 +127,6 @@ DEFAULT_CTS_RESULTS_GSURI = global_config.global_config.get_config_value(
         'CROS', 'cts_results_server', default='')
 DEFAULT_CTS_APFE_GSURI = global_config.global_config.get_config_value(
         'CROS', 'cts_apfe_server', default='')
-DEFAULT_CTS_DELTA_RESULTS_GSURI = global_config.global_config.get_config_value(
-        'CROS', 'ctsdelta_results_server', default='')
-DEFAULT_CTS_DELTA_APFE_GSURI = global_config.global_config.get_config_value(
-        'CROS', 'ctsdelta_apfe_server', default='')
 DEFAULT_CTS_BVT_APFE_GSURI = global_config.global_config.get_config_value(
         'CROS', 'ctsbvt_apfe_server', default='')
 
@@ -423,30 +419,14 @@ def _upload_cts_testresult(dir_entry, multiprocessing):
                             (gts_v2_path, CTS_V2_RESULT_PATTERN)]:
             for path in glob.glob(result_path):
                 try:
-                    # CTS results from bvt-arc suites need to be only uploaded
-                    # to APFE from its designated gs bucket for early EDI
-                    # entries in APFE. These results need to copied only into
-                    # APFE bucket. Copying to results bucket is not required.
-                    if 'bvt-arc' in path:
-                        _upload_files(host, path, result_pattern,
-                                      multiprocessing,
-                                      None,
-                                      DEFAULT_CTS_BVT_APFE_GSURI)
-                        return
-                    # Non-bvt CTS results need to be uploaded to standard gs
-                    # buckets.
+                    # Treat BVT and non-BVT CTS test results same, offload them
+                    # to APFE and result buckets. More details in b/172869794.
+                    # We will make this more structured when moving to
+                    # synchronous offloading.
                     _upload_files(host, path, result_pattern,
                                   multiprocessing,
                                   DEFAULT_CTS_RESULTS_GSURI,
                                   DEFAULT_CTS_APFE_GSURI)
-                    # TODO(rohitbm): make better comparison using regex.
-                    # plan_follower CTS results go to plan_follower specific
-                    # gs buckets apart from standard gs buckets.
-                    if 'plan_follower' in path:
-                        _upload_files(host, path, result_pattern,
-                                      multiprocessing,
-                                      DEFAULT_CTS_DELTA_RESULTS_GSURI,
-                                      DEFAULT_CTS_DELTA_APFE_GSURI)
                 except Exception as e:
                     logging.error('ERROR uploading test results %s to GS: %s',
                                   path, e)
@@ -475,6 +455,7 @@ def _is_valid_result(build, result_pattern, suite):
             suite.startswith('arc-cts') or
             suite.startswith('arc-gts') or
             suite.startswith('bvt-arc') or
+            suite.startswith('bvt-perbuild') or
             suite.startswith('cros_test_platform') or
             suite.startswith('test_that_wrapper')):
         return False

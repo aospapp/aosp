@@ -16,33 +16,34 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.cts.userspacereboot.basic" >
+     package="com.android.cts.userspacereboot.basic">
 
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <application android:forceQueryable="true">
-        <activity android:name=".LauncherActivity">
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <application>
+        <activity android:name=".LauncherActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
         <receiver android:name=".BasicUserspaceRebootTest$BootReceiver"
-                  android:exported="true"
-                  android:directBootAware="true">
+             android:exported="true"
+             android:directBootAware="true">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
         <provider android:name=".BasicUserspaceRebootTest$Provider"
-                  android:authorities="com.android.cts.userspacereboot.basic"
-                  android:exported="true"
-                  android:directBootAware="true">
+             android:authorities="com.android.cts.userspacereboot.basic"
+             android:exported="true"
+             android:directBootAware="true">
         </provider>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.userspacereboot.basic"
-                     android:label="Basic userspace reboot device side tests"/>
+         android:targetPackage="com.android.cts.userspacereboot.basic"
+         android:label="Basic userspace reboot device side tests"/>
 </manifest>

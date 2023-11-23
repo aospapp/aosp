@@ -1,7 +1,7 @@
 /*
  * strchrnul - find a character or nul in a string
  *
- * Copyright (c) 2014-2019, Arm Limited.
+ * Copyright (c) 2014-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -47,6 +47,7 @@
 /* Locals and temporaries.  */
 
 ENTRY (__strchrnul_aarch64)
+	PTR_ARG (0)
 	/* Magic constant 0x40100401 to allow us to identify which lane
 	   matches the termination condition.  */
 	mov	wtmp2, #0x0401
@@ -63,14 +64,12 @@ ENTRY (__strchrnul_aarch64)
 	   syndrome that are related to the padding.  */
 	ld1	{vdata1.16b, vdata2.16b}, [src], #32
 	neg	tmp1, tmp1
-	cmeq	vhas_nul1.16b, vdata1.16b, #0
 	cmeq	vhas_chr1.16b, vdata1.16b, vrepchr.16b
-	cmeq	vhas_nul2.16b, vdata2.16b, #0
 	cmeq	vhas_chr2.16b, vdata2.16b, vrepchr.16b
-	orr	vhas_chr1.16b, vhas_chr1.16b, vhas_nul1.16b
-	orr	vhas_chr2.16b, vhas_chr2.16b, vhas_nul2.16b
-	and	vhas_chr1.16b, vhas_chr1.16b, vrepmask.16b
-	and	vhas_chr2.16b, vhas_chr2.16b, vrepmask.16b
+	cmhs	vhas_nul1.16b, vhas_chr1.16b, vdata1.16b
+	cmhs	vhas_nul2.16b, vhas_chr2.16b, vdata2.16b
+	and	vhas_chr1.16b, vhas_nul1.16b, vrepmask.16b
+	and	vhas_chr2.16b, vhas_nul2.16b, vrepmask.16b
 	lsl	tmp1, tmp1, #1
 	addp	vend1.16b, vhas_chr1.16b, vhas_chr2.16b	// 256->128
 	mov	tmp3, #~0
@@ -81,24 +80,22 @@ ENTRY (__strchrnul_aarch64)
 	bic	tmp1, tmp3, tmp1	// Mask padding bits.
 	cbnz	tmp1, L(tail)
 
+	.p2align 4
 L(loop):
 	ld1	{vdata1.16b, vdata2.16b}, [src], #32
-	cmeq	vhas_nul1.16b, vdata1.16b, #0
 	cmeq	vhas_chr1.16b, vdata1.16b, vrepchr.16b
-	cmeq	vhas_nul2.16b, vdata2.16b, #0
 	cmeq	vhas_chr2.16b, vdata2.16b, vrepchr.16b
-	/* Use a fast check for the termination condition.  */
-	orr	vhas_chr1.16b, vhas_nul1.16b, vhas_chr1.16b
-	orr	vhas_chr2.16b, vhas_nul2.16b, vhas_chr2.16b
-	orr	vend1.16b, vhas_chr1.16b, vhas_chr2.16b
-	addp	vend1.2d, vend1.2d, vend1.2d
+	cmhs	vhas_nul1.16b, vhas_chr1.16b, vdata1.16b
+	cmhs	vhas_nul2.16b, vhas_chr2.16b, vdata2.16b
+	orr	vend1.16b, vhas_nul1.16b, vhas_nul2.16b
+	umaxp	vend1.16b, vend1.16b, vend1.16b
 	mov	tmp1, vend1.d[0]
 	cbz	tmp1, L(loop)
 
 	/* Termination condition found.  Now need to establish exactly why
 	   we terminated.  */
-	and	vhas_chr1.16b, vhas_chr1.16b, vrepmask.16b
-	and	vhas_chr2.16b, vhas_chr2.16b, vrepmask.16b
+	and	vhas_chr1.16b, vhas_nul1.16b, vrepmask.16b
+	and	vhas_chr2.16b, vhas_nul2.16b, vrepmask.16b
 	addp	vend1.16b, vhas_chr1.16b, vhas_chr2.16b		// 256->128
 	addp	vend1.16b, vend1.16b, vend1.16b		// 128->64
 
@@ -114,3 +111,4 @@ L(tail):
 	ret
 
 END (__strchrnul_aarch64)
+

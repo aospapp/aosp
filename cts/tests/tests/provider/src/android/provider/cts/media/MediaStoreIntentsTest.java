@@ -24,11 +24,13 @@ import static org.junit.Assert.assertTrue;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.MediaStore;
 import android.provider.cts.ProviderTestUtils;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -43,6 +45,7 @@ import java.util.List;
  * Tests to verify that common actions on {@link MediaStore} content are
  * available.
  */
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 @RunWith(Parameterized.class)
 public class MediaStoreIntentsTest {
     private Uri mExternalAudio;

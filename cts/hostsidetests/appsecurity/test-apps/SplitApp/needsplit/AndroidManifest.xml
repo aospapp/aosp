@@ -15,44 +15,54 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.splitapp"
-    android:targetSandboxVersion="2"
-    android:isSplitRequired="true" >
+     xmlns:tools="http://schemas.android.com/tools"
+     package="com.android.cts.splitapp"
+     android:targetSandboxVersion="2"
+     android:isSplitRequired="true">
 
-    <uses-sdk android:minSdkVersion="4" android:targetSdkVersion="27" />
+    <!-- The androidx test libraries uses minSdkVersion 14. Applies an overrideLibrary rule here
+         to pass the build error, since tests need to use minSdkVersion 4. -->
+    <uses-sdk android:minSdkVersion="4" tools:overrideLibrary="androidx.test.runner,
+        androidx.test.rules, androidx.test.monitor, androidx.test.services.storage" android:targetSdkVersion="27"/>
 
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <application android:label="SplitApp">
-        <activity android:name=".MyActivity">
+        <activity android:name=".MyActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <meta-data android:name="android.service.wallpaper" android:resource="@xml/my_activity_meta" />
+            <meta-data android:name="android.service.wallpaper"
+                 android:resource="@xml/my_activity_meta"/>
         </activity>
         <receiver android:name=".MyReceiver"
-                android:enabled="@bool/my_receiver_enabled">
+             android:enabled="@bool/my_receiver_enabled"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED"/>
             </intent-filter>
         </receiver>
-        <receiver android:name=".LockedBootReceiver" android:exported="true" android:directBootAware="true">
+        <receiver android:name=".LockedBootReceiver"
+             android:exported="true"
+             android:directBootAware="true">
             <intent-filter>
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
-        <receiver android:name=".BootReceiver" android:exported="true">
+        <receiver android:name=".BootReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
 
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.splitapp" />
+         android:targetPackage="com.android.cts.splitapp"/>
 
 </manifest>

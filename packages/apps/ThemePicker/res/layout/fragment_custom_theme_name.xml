@@ -19,8 +19,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="?android:colorPrimary">
+    android:orientation="vertical">
     <include layout="@layout/section_header"/>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -31,65 +30,57 @@
             android:id="@+id/component_preview_container"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:background="@color/secondary_color"
+            android:paddingTop="@dimen/preview_content_padding_top"
+            android:paddingBottom="@dimen/preview_content_padding_bottom"
+            android:clipToPadding="false"
             app:layout_constrainedHeight="true"
-            app:layout_constraintBottom_toTopOf="@+id/guideline"
+            app:layout_constraintBottom_toTopOf="@+id/component_scroll_view"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHeight_max="@dimen/preview_pager_max_height"
-            app:layout_constraintHorizontal_bias="0.5"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.0">
+            app:layout_constraintVertical_bias="0.0"
+            app:layout_constraintHeight_percent="@dimen/preview_pager_maximum_height_ratio">
 
-            <include
-                android:id="@+id/component_preview_content"
-                layout="@layout/theme_preview_card"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginHorizontal="@dimen/preview_page_horizontal_margin"
-                android:layout_marginTop="@dimen/preview_page_top_margin"
-                android:layout_marginBottom="@dimen/indicator_container_height"/>
+            <include layout="@layout/theme_preview_card"/>
         </FrameLayout>
 
-        <androidx.constraintlayout.widget.Guideline
-            android:id="@+id/guideline"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            app:layout_constraintGuide_percent=".7"/>
+        <ScrollView
+                android:id="@+id/component_scroll_view"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:background="?android:colorPrimary"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/component_preview_container"
+                app:layout_constraintBottom_toBottomOf="parent">
 
-        <TextView
-            android:id="@+id/component_options_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:layout_marginStart="10dp"
-            android:layout_marginEnd="10dp"
-            android:layout_marginBottom="10dp"
-            android:textAlignment="center"
-            android:textAppearance="@style/TitleTextAppearance"
-            android:textSize="@dimen/component_options_title_size"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/component_preview_container"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintVertical_bias=".15"/>
+            <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
 
-        <EditText
-            android:id="@+id/custom_theme_name"
-            style="@style/CustomThemeNameEditText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:importantForAutofill="no"
-            android:minWidth="300dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.5"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/component_options_title"
-            app:layout_constraintVertical_bias=".25"/>
+                <TextView
+                        android:id="@+id/component_options_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginVertical="18dp"
+                        android:layout_marginHorizontal="16dp"
+                        android:textAlignment="center"
+                        android:textAppearance="@style/TitleTextAppearance"
+                        android:textSize="@dimen/component_options_title_size"/>
 
-
+                <EditText
+                        android:id="@+id/custom_theme_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginVertical="16dp"
+                        android:layout_marginHorizontal="16dp"
+                        android:layout_gravity="center|top"
+                        android:importantForAutofill="no"
+                        android:minWidth="300dp"
+                        style="@style/CustomThemeNameEditText"/>
+            </LinearLayout>
+        </ScrollView>
     </androidx.constraintlayout.widget.ConstraintLayout>
-
 </LinearLayout>

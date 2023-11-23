@@ -24,15 +24,24 @@ namespace chre {
 namespace test_shared {
 
 /**
+ * Same as sendTestResultWithMsgToHost, but doesn't accept an error message and
+ * uses the free callback specified in chre/util/nanoapp/callbacks.h
+ */
+void sendTestResultToHost(uint16_t hostEndpointId, uint32_t messageType,
+                          bool success);
+
+/**
  * Sends a test result to the host using the chre_test_common.TestResult
  * message.
  *
  * @param hostEndpointId The endpoint ID of the host to send the result to.
  * @param messageType The message type to associate with the test result.
  * @param success True if the test succeeded.
+ * @param errMessage Nullable error message to send to the host. Error message
+ *     will only be sent if success is false.
  */
-void sendTestResultToHost(uint16_t hostEndpointId, uint32_t messageType,
-                          bool success);
+void sendTestResultWithMsgToHost(uint16_t hostEndpointId, uint32_t messageType,
+                                 bool success, const char *errMessage);
 
 /**
  * Sends a message to the host with an empty payload.

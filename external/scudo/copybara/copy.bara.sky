@@ -2,7 +2,7 @@ core.workflow(
     name = "default",
     origin = git.origin(
         url = "https://github.com/llvm/llvm-project.git",
-        ref = "master",
+        ref = "main",
     ),
     origin_files = glob(
         [
@@ -26,16 +26,12 @@ core.workflow(
             "**/Android.bp"
         ],
     ),
-    mode = "SQUASH",
     authoring = authoring.pass_thru(
         "Dynamic Tools Team <dynamic-tools@google.com>"
     ),
+    mode = 'ITERATIVE',
     transformations = [
         core.move("compiler-rt/lib/scudo/standalone/", "standalone"),
         core.move("compiler-rt/LICENSE.TXT", "LICENSE.TXT"),
-        metadata.squash_notes(
-            prefix = "Imported Scudo Standalone changes:\n\n",
-            oldest_first = True,
-        ),
     ],
 )

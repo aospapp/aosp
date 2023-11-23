@@ -14,19 +14,24 @@
  * limitations under the License.
  */
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+// This needs to be on top of the file to work.
+#include "gmock-logging-compat.h"
+
 #include <stdio.h>
 #include <unistd.h>
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 #include <android-base/strings.h>
+#include <gtest/gtest.h>
 #include <hidl-util/FQName.h>
 
 #include <vintf/VintfObject.h>
 #include <vintf/parse_string.h>
 #include <vintf/parse_xml.h>
+#include "constants-private.h"
+#include "parse_xml_internal.h"
 #include "test_constants.h"
 #include "utils-fake.h"
 
@@ -44,9 +49,6 @@ static AssertionResult In(const std::string& sub, const std::string& str) {
 
 namespace android {
 namespace vintf {
-
-extern XmlConverter<KernelInfo>& gKernelInfoConverter;
-
 namespace testing {
 
 using namespace ::android::vintf::details;
@@ -233,6 +235,43 @@ const std::string systemMatrixLevel2 =
     "    </hal>\n"
     "    <hal format=\"hidl\" optional=\"true\">\n"
     "        <name>android.hardware.minor</name>\n"
+    "        <version>1.1</version>\n"
+    "        <interface>\n"
+    "            <name>IMinor</name>\n"
+    "            <instance>default</instance>\n"
+    "        </interface>\n"
+    "    </hal>\n"
+    "</compatibility-matrix>\n";
+
+//
+// Smaller product FCMs at different levels to test that framework and product
+// FCMs are combined when checking deprecation.
+//
+
+const std::string productMatrixLevel1 =
+    "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\" level=\"1\">\n"
+    "    <hal format=\"hidl\" optional=\"true\">\n"
+    "        <name>product.removed</name>\n"
+    "        <version>1.0</version>\n"
+    "        <interface>\n"
+    "            <name>IRemoved</name>\n"
+    "            <instance>default</instance>\n"
+    "        </interface>\n"
+    "    </hal>\n"
+    "    <hal format=\"hidl\" optional=\"true\">\n"
+    "        <name>product.minor</name>\n"
+    "        <version>1.0</version>\n"
+    "        <interface>\n"
+    "            <name>IMinor</name>\n"
+    "            <instance>default</instance>\n"
+    "        </interface>\n"
+    "    </hal>\n"
+    "</compatibility-matrix>\n";
+
+const std::string productMatrixLevel2 =
+    "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\" level=\"2\">\n"
+    "    <hal format=\"hidl\" optional=\"true\">\n"
+    "        <name>product.minor</name>\n"
     "        <version>1.1</version>\n"
     "        <interface>\n"
     "            <name>IMinor</name>\n"
@@ -534,8 +573,6 @@ class VintfObjectRuntimeInfoTest : public VintfObjectTestBase {
    protected:
     virtual void SetUp() {
         VintfObjectTestBase::SetUp();
-        setupMockFetcher(vendorManifestKernelFcm, "", "", "");
-        expectVendorManifest();
     }
     virtual void TearDown() {
         Mock::VerifyAndClear(&runtimeInfoFactory());
@@ -544,39 +581,63 @@ class VintfObjectRuntimeInfoTest : public VintfObjectTestBase {
 };
 
 TEST_F(VintfObjectRuntimeInfoTest, GetRuntimeInfo) {
-    // RuntimeInfo.fetchAllInformation is never called with KERNEL_FCM set.
-    auto allExceptKernelFcm = RuntimeInfo::FetchFlag::ALL & ~RuntimeInfo::FetchFlag::KERNEL_FCM;
-
+    setupMockFetcher(vendorManifestKernelFcm, "", "", "");
+    expectVendorManifest();
     InSequence s;
 
     EXPECT_CALL(*runtimeInfoFactory().getInfo(),
                 fetchAllInformation(RuntimeInfo::FetchFlag::CPU_VERSION));
     EXPECT_CALL(*runtimeInfoFactory().getInfo(), fetchAllInformation(RuntimeInfo::FetchFlag::NONE));
-    EXPECT_CALL(*runtimeInfoFactory().getInfo(),
-                fetchAllInformation(RuntimeInfo::FetchFlag::CPU_VERSION));
     EXPECT_CALL(
         *runtimeInfoFactory().getInfo(),
-        fetchAllInformation(allExceptKernelFcm & ~RuntimeInfo::FetchFlag::CPU_VERSION));
-    EXPECT_CALL(*runtimeInfoFactory().getInfo(), fetchAllInformation(allExceptKernelFcm));
+        fetchAllInformation(RuntimeInfo::FetchFlag::ALL & ~RuntimeInfo::FetchFlag::CPU_VERSION));
     EXPECT_CALL(*runtimeInfoFactory().getInfo(), fetchAllInformation(RuntimeInfo::FetchFlag::NONE));
 
-    EXPECT_NE(nullptr, vintfObject->getRuntimeInfo(false /* skipCache */,
+    EXPECT_NE(nullptr, vintfObject->getRuntimeInfo(
                                                    RuntimeInfo::FetchFlag::CPU_VERSION));
-    EXPECT_NE(nullptr, vintfObject->getRuntimeInfo(false /* skipCache */,
+    EXPECT_NE(nullptr, vintfObject->getRuntimeInfo(
                                                    RuntimeInfo::FetchFlag::CPU_VERSION));
-    EXPECT_NE(nullptr, vintfObject->getRuntimeInfo(true /* skipCache */,
-                                                   RuntimeInfo::FetchFlag::CPU_VERSION));
-    EXPECT_NE(nullptr, vintfObject->getRuntimeInfo(false /* skipCache */,
+    EXPECT_NE(nullptr, vintfObject->getRuntimeInfo(
                                                    RuntimeInfo::FetchFlag::ALL));
-    EXPECT_NE(nullptr, vintfObject->getRuntimeInfo(true /* skipCache */,
-                                                   RuntimeInfo::FetchFlag::ALL));
-    EXPECT_NE(nullptr, vintfObject->getRuntimeInfo(false /* skipCache */,
+    EXPECT_NE(nullptr, vintfObject->getRuntimeInfo(
                                                    RuntimeInfo::FetchFlag::ALL));
 }
 
-TEST_F(VintfObjectRuntimeInfoTest, GetRuntimeInfoKernelFcm) {
-    ASSERT_EQ(Level{92}, vintfObject->getKernelLevel());
+TEST_F(VintfObjectRuntimeInfoTest, GetRuntimeInfoHost) {
+    runtimeInfoFactory().getInfo()->failNextFetch();
+    EXPECT_EQ(nullptr, vintfObject->getRuntimeInfo(RuntimeInfo::FetchFlag::ALL));
 }
+
+class VintfObjectKernelFcmTest : public VintfObjectTestBase,
+                                 public WithParamInterface<std::tuple<bool, bool>> {
+   protected:
+    virtual void SetUp() {
+        VintfObjectTestBase::SetUp();
+        auto [isHost, hasDeviceManifest] = GetParam();
+        if (hasDeviceManifest) {
+            setupMockFetcher(vendorManifestKernelFcm, "", "", "");
+            expectVendorManifest();
+        }
+
+        if (isHost) {
+            runtimeInfoFactory().getInfo()->failNextFetch();
+        } else {
+            runtimeInfoFactory().getInfo()->setNextFetchKernelLevel(Level{92});
+        }
+    }
+
+    Level expectedKernelFcm() {
+        auto [isHost, hasDeviceManifest] = GetParam();
+        return !isHost || hasDeviceManifest ? Level{92} : Level::UNSPECIFIED;
+    }
+};
+
+TEST_P(VintfObjectKernelFcmTest, GetKernelLevel) {
+    ASSERT_EQ(expectedKernelFcm(), vintfObject->getKernelLevel());
+}
+
+INSTANTIATE_TEST_SUITE_P(KernelFcm, VintfObjectKernelFcmTest,
+    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
 // Test fixture that provides incompatible metadata from the mock device.
 class VintfObjectTest : public VintfObjectTestBase {
@@ -597,15 +658,15 @@ TEST_F(VintfObjectTest, FrameworkCompatibilityMatrixCombine) {
             };
             return ::android::OK;
         }));
-    expectFetch(kSystemVintfDir + "compatibility_matrix.1.xml",
+    expectFetch(kSystemVintfDir + "compatibility_matrix.1.xml"s,
                 "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\" level=\"1\"/>");
-    expectFetch(kSystemVintfDir + "compatibility_matrix.empty.xml",
+    expectFetch(kSystemVintfDir + "compatibility_matrix.empty.xml"s,
                 "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\"/>");
     expectFileNotExist(StrEq(kProductMatrix));
     expectFetch(kVendorManifest, "<manifest " + kMetaVersionStr + " type=\"device\" />\n");
     expectNeverFetch(kSystemLegacyMatrix);
 
-    EXPECT_NE(nullptr, vintfObject->getFrameworkCompatibilityMatrix(true /* skipCache */));
+    EXPECT_NE(nullptr, vintfObject->getFrameworkCompatibilityMatrix());
 }
 
 // Test product compatibility matrix is fetched
@@ -623,9 +684,9 @@ TEST_F(VintfObjectTest, ProductCompatibilityMatrix) {
             *out = {android::base::Basename(kProductMatrix)};
             return ::android::OK;
         }));
-    expectFetch(kSystemVintfDir + "compatibility_matrix.1.xml",
+    expectFetch(kSystemVintfDir + "compatibility_matrix.1.xml"s,
                 "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\" level=\"1\"/>");
-    expectFetch(kSystemVintfDir + "compatibility_matrix.empty.xml",
+    expectFetch(kSystemVintfDir + "compatibility_matrix.empty.xml"s,
                 "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\"/>");
     expectFetch(kProductMatrix,
                 "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\">\n"
@@ -641,7 +702,7 @@ TEST_F(VintfObjectTest, ProductCompatibilityMatrix) {
     expectFetch(kVendorManifest, "<manifest " + kMetaVersionStr + " type=\"device\" />\n");
     expectNeverFetch(kSystemLegacyMatrix);
 
-    auto fcm = vintfObject->getFrameworkCompatibilityMatrix(true /* skipCache */);
+    auto fcm = vintfObject->getFrameworkCompatibilityMatrix();
     ASSERT_NE(nullptr, fcm);
 
     FqInstance expectInstance;
@@ -652,7 +713,7 @@ TEST_F(VintfObjectTest, ProductCompatibilityMatrix) {
         return !found;  // continue if not found
     });
     EXPECT_TRUE(found) << "android.hardware.foo@1.0::IFoo/default should be found in matrix:\n"
-                       << gCompatibilityMatrixConverter(*fcm);
+                       << toXml(*fcm);
 }
 
 const std::string vendorEtcManifest =
@@ -740,7 +801,7 @@ class DeviceManifestTest : public VintfObjectTestBase {
     }
     void noOdmManifest() { expectFileNotExist(StartsWith("/odm/")); }
     std::shared_ptr<const HalManifest> get() {
-        return vintfObject->getDeviceHalManifest(true /* skipCache */);
+        return vintfObject->getDeviceHalManifest();
     }
 };
 
@@ -812,14 +873,14 @@ class OdmManifestTest : public VintfObjectTestBase,
             .WillByDefault(Return(productModel));
     }
     std::shared_ptr<const HalManifest> get() {
-        return vintfObject->getDeviceHalManifest(true /* skipCache */);
+        return vintfObject->getDeviceHalManifest();
     }
     std::string productModel;
 };
 
 TEST_P(OdmManifestTest, OdmProductManifest) {
     if (productModel.empty()) return;
-    expectFetch(kOdmVintfDir + "manifest_" + productModel + ".xml", odmProductManifest);
+    expectFetch(kOdmVintfDir + "manifest_"s + productModel + ".xml", odmProductManifest);
     // /odm/etc/vintf/manifest.xml should not be fetched when the product variant exists.
     expectNeverFetch(kOdmManifest);
     auto p = get();
@@ -836,7 +897,7 @@ TEST_P(OdmManifestTest, OdmManifest) {
 
 TEST_P(OdmManifestTest, OdmLegacyProductManifest) {
     if (productModel.empty()) return;
-    expectFetch(kOdmLegacyVintfDir + "manifest_" + productModel + ".xml", odmProductManifest);
+    expectFetch(kOdmLegacyVintfDir + "manifest_"s + productModel + ".xml", odmProductManifest);
     // /odm/manifest.xml should not be fetched when the product variant exists.
     expectNeverFetch(kOdmLegacyManifest);
     auto p = get();
@@ -889,8 +950,20 @@ class DeprecateTest : public VintfObjectTestBase {
                 };
                 return ::android::OK;
             }));
-        expectFetchRepeatedly(kSystemVintfDir + "compatibility_matrix.1.xml", systemMatrixLevel1);
-        expectFetchRepeatedly(kSystemVintfDir + "compatibility_matrix.2.xml", systemMatrixLevel2);
+        expectFetchRepeatedly(kSystemVintfDir + "compatibility_matrix.1.xml"s, systemMatrixLevel1);
+        expectFetchRepeatedly(kSystemVintfDir + "compatibility_matrix.2.xml"s, systemMatrixLevel2);
+        EXPECT_CALL(fetcher(), listFiles(StrEq(kProductVintfDir), _, _))
+            .WillRepeatedly(Invoke([](const auto&, auto* out, auto*) {
+                *out = {
+                    "compatibility_matrix.1.xml",
+                    "compatibility_matrix.2.xml",
+                };
+                return ::android::OK;
+            }));
+        expectFetchRepeatedly(kProductVintfDir + "compatibility_matrix.1.xml"s,
+                              productMatrixLevel1);
+        expectFetchRepeatedly(kProductVintfDir + "compatibility_matrix.2.xml"s,
+                              productMatrixLevel2);
         expectFileNotExist(StrEq(kProductMatrix));
         expectNeverFetch(kSystemLegacyMatrix);
 
@@ -900,7 +973,7 @@ class DeprecateTest : public VintfObjectTestBase {
 
         // Update the device manifest cache because CheckDeprecate does not fetch
         // device manifest again if cache exist.
-        vintfObject->getDeviceHalManifest(true /* skipCache */);
+        vintfObject->getDeviceHalManifest();
     }
 
 };
@@ -909,12 +982,13 @@ TEST_F(DeprecateTest, CheckNoDeprecate) {
     auto pred = getInstanceListFunc({
         "android.hardware.minor@1.1::IMinor/default",
         "android.hardware.major@2.0::IMajor/default",
+        "product.minor@1.1::IMinor/default",
     });
     std::string error;
     EXPECT_EQ(NO_DEPRECATED_HALS, vintfObject->checkDeprecation(pred, {}, &error)) << error;
 }
 
-TEST_F(DeprecateTest, CheckRemoved) {
+TEST_F(DeprecateTest, CheckRemovedSystem) {
     auto pred = getInstanceListFunc({
         "android.hardware.removed@1.0::IRemoved/default",
         "android.hardware.minor@1.1::IMinor/default",
@@ -925,10 +999,29 @@ TEST_F(DeprecateTest, CheckRemoved) {
         << "removed@1.0 should be deprecated. " << error;
 }
 
-TEST_F(DeprecateTest, CheckMinor) {
+TEST_F(DeprecateTest, CheckRemovedProduct) {
+    auto pred = getInstanceListFunc({
+        "product.removed@1.0::IRemoved/default",
+        "product.minor@1.1::IMinor/default",
+    });
+    std::string error;
+    EXPECT_EQ(DEPRECATED, vintfObject->checkDeprecation(pred, {}, &error))
+        << "removed@1.0 should be deprecated. " << error;
+}
+
+TEST_F(DeprecateTest, CheckMinorSystem) {
     auto pred = getInstanceListFunc({
         "android.hardware.minor@1.0::IMinor/default",
         "android.hardware.major@2.0::IMajor/default",
+    });
+    std::string error;
+    EXPECT_EQ(DEPRECATED, vintfObject->checkDeprecation(pred, {}, &error))
+        << "minor@1.0 should be deprecated. " << error;
+}
+
+TEST_F(DeprecateTest, CheckMinorProduct) {
+    auto pred = getInstanceListFunc({
+        "product.minor@1.0::IMinor/default",
     });
     std::string error;
     EXPECT_EQ(DEPRECATED, vintfObject->checkDeprecation(pred, {}, &error))
@@ -1039,7 +1132,7 @@ class MultiMatrixTest : public VintfObjectTestBase {
     void expectTargetFcmVersion(size_t level) {
         expectFetch(kVendorManifest, "<manifest " + kMetaVersionStr + " type=\"device\" target-level=\"" +
                                          to_string(static_cast<Level>(level)) + "\"/>");
-        vintfObject->getDeviceHalManifest(true /* skipCache */);
+        vintfObject->getDeviceHalManifest();
     }
 };
 
@@ -1053,9 +1146,9 @@ class RegexTest : public MultiMatrixTest {
 
 TEST_F(RegexTest, CombineLevel1) {
     expectTargetFcmVersion(1);
-    auto matrix = vintfObject->getFrameworkCompatibilityMatrix(true /* skipCache */);
+    auto matrix = vintfObject->getFrameworkCompatibilityMatrix();
     ASSERT_NE(nullptr, matrix);
-    std::string xml = gCompatibilityMatrixConverter(*matrix);
+    std::string xml = toXml(*matrix);
 
     EXPECT_IN(
         "    <hal format=\"hidl\" optional=\"false\">\n"
@@ -1108,9 +1201,9 @@ TEST_F(RegexTest, CombineLevel1) {
 
 TEST_F(RegexTest, CombineLevel2) {
     expectTargetFcmVersion(2);
-    auto matrix = vintfObject->getFrameworkCompatibilityMatrix(true /* skipCache */);
+    auto matrix = vintfObject->getFrameworkCompatibilityMatrix();
     ASSERT_NE(nullptr, matrix);
-    std::string xml = gCompatibilityMatrixConverter(*matrix);
+    std::string xml = toXml(*matrix);
 
     EXPECT_IN(
         "    <hal format=\"hidl\" optional=\"false\">\n"
@@ -1275,9 +1368,9 @@ TEST_F(KernelTest, Level1AndLevel2) {
     SetUpMockSystemMatrices({systemMatrixKernelXmls[0], systemMatrixKernelXmls[1]});
 
     expectTargetFcmVersion(1);
-    auto matrix = vintfObject->getFrameworkCompatibilityMatrix(true /* skipCache */);
+    auto matrix = vintfObject->getFrameworkCompatibilityMatrix();
     ASSERT_NE(nullptr, matrix);
-    std::string xml = gCompatibilityMatrixConverter(*matrix);
+    std::string xml = toXml(*matrix);
 
     EXPECT_IN(FAKE_KERNEL("1.0.0", "A1", 1), xml) << "\nOld requirements must not change.";
     EXPECT_IN(FAKE_KERNEL("2.0.0", "B1", 1), xml) << "\nOld requirements must not change.";
@@ -1293,9 +1386,9 @@ TEST_F(KernelTest, Level1AndMore) {
     SetUpMockSystemMatrices({systemMatrixKernelXmls});
 
     expectTargetFcmVersion(1);
-    auto matrix = vintfObject->getFrameworkCompatibilityMatrix(true /* skipCache */);
+    auto matrix = vintfObject->getFrameworkCompatibilityMatrix();
     ASSERT_NE(nullptr, matrix);
-    std::string xml = gCompatibilityMatrixConverter(*matrix);
+    std::string xml = toXml(*matrix);
 
     EXPECT_IN(FAKE_KERNEL("1.0.0", "A1", 1), xml) << "\nOld requirements must not change.";
     EXPECT_IN(FAKE_KERNEL("2.0.0", "B1", 1), xml) << "\nOld requirements must not change.";
@@ -1309,7 +1402,7 @@ TEST_F(KernelTest, Level1AndMore) {
 
 KernelInfo MakeKernelInfo(const std::string& version, const std::string& key) {
     KernelInfo info;
-    CHECK(gKernelInfoConverter(&info,
+    CHECK(fromXml(&info,
                                "    <kernel version=\"" + version + "\">\n"
                                "        <config>\n"
                                "            <key>CONFIG_" + key + "</key>\n"
@@ -1431,12 +1524,15 @@ std::vector<KernelTestP::ParamType> RKernelTestParamValues() {
     std::vector<KernelTestP::ParamType> ret;
     std::vector<std::string> matrices = systemMatrixKernelXmls;
 
-    // Must not use *-r+ kernels without specifying kernel FCM version
+    // Devices launching O~Q: Must not use *-r+ kernels without specifying kernel FCM version
     ret.emplace_back(matrices, MakeKernelInfo("7.0.0", "G5"), Level{1}, Level::UNSPECIFIED, false);
     ret.emplace_back(matrices, MakeKernelInfo("7.0.0", "G5"), Level{2}, Level::UNSPECIFIED, false);
     ret.emplace_back(matrices, MakeKernelInfo("7.0.0", "G5"), Level{3}, Level::UNSPECIFIED, false);
     ret.emplace_back(matrices, MakeKernelInfo("7.0.0", "G5"), Level{4}, Level::UNSPECIFIED, false);
-    ret.emplace_back(matrices, MakeKernelInfo("7.0.0", "G5"), Level{5}, Level::UNSPECIFIED, false);
+
+    // Devices launching R: may use r kernel without specifying kernel FCM version because
+    // assemble_vintf does not insert <kernel> tags to device manifest any more.
+    ret.emplace_back(matrices, MakeKernelInfo("7.0.0", "G5"), Level{5}, Level::UNSPECIFIED, true);
 
     // May use *-r+ kernels with kernel FCM version
     ret.emplace_back(matrices, MakeKernelInfo("7.0.0", "G5"), Level{1}, Level{5}, true);
@@ -1537,11 +1633,13 @@ class FrameworkManifestTest : public VintfObjectTestBase,
         ASSERT_NE(nullptr, manifest);
         EXPECT_NE(manifest->getHidlInstances("android.hardware.foo", {1, 0}, interface).empty(),
                   contains)
-            << interface << " is missing.";
+            << interface << " should " << (contains ? "" : "not ") << "exist.";
     }
 };
 
 TEST_P(FrameworkManifestTest, Existence) {
+    useEmptyFileSystem();
+
     expectFileNotExist(StrEq(kSystemLegacyManifest));
 
     expectManifest(kSystemManifest, "ISystemEtc", std::get<0>(GetParam()));
@@ -1567,6 +1665,116 @@ TEST_P(FrameworkManifestTest, Existence) {
 INSTANTIATE_TEST_SUITE_P(Vintf, FrameworkManifestTest,
                          ::testing::Combine(Bool(), Bool(), Bool(), Bool(), Bool(), Bool()));
 
+// clang-format on
+
+class FrameworkManifestLevelTest : public VintfObjectTestBase {
+   protected:
+    void SetUp() override {
+        VintfObjectTestBase::SetUp();
+        useEmptyFileSystem();
+
+        auto head = "<manifest " + kMetaVersionStr + R"( type="framework">)";
+        auto tail = "</manifest>";
+
+        auto systemManifest = head + getFragment(HalFormat::HIDL, 13, "@3.0::ISystemEtc") +
+                              getFragment(HalFormat::AIDL, 14, "ISystemEtc4") + tail;
+        expectFetch(kSystemManifest, systemManifest);
+
+        auto hidlFragment =
+            head + getFragment(HalFormat::HIDL, 14, "@4.0::ISystemEtcFragment") + tail;
+        expectFetch(kSystemManifestFragmentDir + "hidl.xml"s, hidlFragment);
+
+        auto aidlFragment = head + getFragment(HalFormat::AIDL, 13, "ISystemEtcFragment3") + tail;
+        expectFetch(kSystemManifestFragmentDir + "aidl.xml"s, aidlFragment);
+
+        EXPECT_CALL(fetcher(), listFiles(StrEq(kSystemManifestFragmentDir), _, _))
+            .Times(AnyNumber())
+            .WillRepeatedly(Invoke([](const auto&, auto* out, auto*) {
+                *out = {"hidl.xml", "aidl.xml"};
+                return ::android::OK;
+            }));
+    }
+
+    void expectTargetFcmVersion(size_t level) {
+        std::string xml = android::base::StringPrintf(
+            R"(<manifest %s type="device" target-level="%s"/>)", kMetaVersionStr.c_str(),
+            to_string(static_cast<Level>(level)).c_str());
+        expectFetch(kVendorManifest, xml);
+        (void)vintfObject->getDeviceHalManifest();
+    }
+
+    void expectContainsHidl(const Version& version, const std::string& interfaceName,
+                            bool exists = true) {
+        auto manifest = vintfObject->getFrameworkHalManifest();
+        ASSERT_NE(nullptr, manifest);
+        EXPECT_NE(
+            manifest->getHidlInstances("android.frameworks.foo", version, interfaceName).empty(),
+            exists)
+            << "@" << version << "::" << interfaceName << " should " << (exists ? "" : "not ")
+            << "exist.";
+    }
+
+    void expectContainsAidl(const std::string& interfaceName, bool exists = true) {
+        auto manifest = vintfObject->getFrameworkHalManifest();
+        ASSERT_NE(nullptr, manifest);
+        EXPECT_NE(manifest->getAidlInstances("android.frameworks.foo", interfaceName).empty(),
+                  exists)
+            << interfaceName << " should " << (exists ? "" : "not ") << "exist.";
+    }
+
+   private:
+    std::string getFragment(HalFormat halFormat, size_t maxLevel, const char* versionedInterface) {
+        auto format = R"(<hal format="%s" max-level="%s">
+                             <name>android.frameworks.foo</name>
+                             %s
+                             <fqname>%s/default</fqname>
+                         </hal>)";
+        std::string level = to_string(static_cast<Level>(maxLevel));
+        const char* transport = "";
+        if (halFormat == HalFormat::HIDL) {
+            transport = "<transport>hwbinder</transport>";
+        }
+        return android::base::StringPrintf(format, to_string(halFormat).c_str(), level.c_str(),
+                                           transport, versionedInterface);
+    }
+};
+
+TEST_F(FrameworkManifestLevelTest, NoTargetFcmVersion) {
+    auto xml =
+        android::base::StringPrintf(R"(<manifest %s type="device"/> )", kMetaVersionStr.c_str());
+    expectFetch(kVendorManifest, xml);
+
+    expectContainsHidl({3, 0}, "ISystemEtc");
+    expectContainsHidl({4, 0}, "ISystemEtcFragment");
+    expectContainsAidl("ISystemEtcFragment3");
+    expectContainsAidl("ISystemEtc4");
+}
+
+TEST_F(FrameworkManifestLevelTest, TargetFcmVersion13) {
+    expectTargetFcmVersion(13);
+    expectContainsHidl({3, 0}, "ISystemEtc");
+    expectContainsHidl({4, 0}, "ISystemEtcFragment");
+    expectContainsAidl("ISystemEtcFragment3");
+    expectContainsAidl("ISystemEtc4");
+}
+
+TEST_F(FrameworkManifestLevelTest, TargetFcmVersion14) {
+    expectTargetFcmVersion(14);
+    expectContainsHidl({3, 0}, "ISystemEtc", false);
+    expectContainsHidl({4, 0}, "ISystemEtcFragment");
+    expectContainsAidl("ISystemEtcFragment3", false);
+    expectContainsAidl("ISystemEtc4");
+}
+
+TEST_F(FrameworkManifestLevelTest, TargetFcmVersion15) {
+    expectTargetFcmVersion(15);
+    expectContainsHidl({3, 0}, "ISystemEtc", false);
+    expectContainsHidl({4, 0}, "ISystemEtcFragment", false);
+    expectContainsAidl("ISystemEtcFragment3", false);
+    expectContainsAidl("ISystemEtc4", false);
+}
+
+// clang-format off
 
 //
 // Set of OEM FCM matrices at different FCM version.
@@ -1662,11 +1870,170 @@ INSTANTIATE_TEST_SUITE_P(OemFcmLevel, OemFcmLevelTest, Combine(Values(1, 2), Boo
     OemFcmLevelTestParamToString);
 // clang-format on
 
+// A matcher that checks if a Result object contains an error message, and the error message
+// contains the given substring.
+class ErrorMessageMatcher {
+   public:
+    ErrorMessageMatcher(const std::string& message) : mMessage(message) {}
+    template <class T>
+    bool MatchAndExplain(const android::base::Result<T>& result,
+                         MatchResultListener* listener) const {
+        if (result.ok()) {
+            *listener << "result is ok";
+            return false;
+        }
+        *listener << "result has error message \"" << result.error().message() << "\"";
+        return result.error().message().find(mMessage) != std::string::npos;
+    }
+    void DescribeTo(std::ostream* os) const {
+        *os << "error message contains \"" << mMessage << "\"";
+    }
+    void DescribeNegationTo(std::ostream* os) const {
+        *os << "error message does not contain \"" << mMessage << "\"";
+    }
+
+   private:
+    std::string mMessage;
+};
+PolymorphicMatcher<ErrorMessageMatcher> HasErrorMessage(const std::string& message) {
+    return MakePolymorphicMatcher(ErrorMessageMatcher(message));
+}
+
+// Common test set up for checking matrices against lib*idlmetadata.
+class CheckMatricesWithHalDefTestBase : public MultiMatrixTest {
+    void SetUp() override {
+        MultiMatrixTest::SetUp();
+
+        // clang-format off
+        std::vector<std::string> matrices{
+            "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\" level=\"1\">\n"
+            "    <hal format=\"hidl\">\n"
+            "        <name>android.hardware.hidl</name>\n"
+            "        <version>1.0</version>\n"
+            "        <interface>\n"
+            "            <name>IHidl</name>\n"
+            "            <instance>default</instance>\n"
+            "        </interface>\n"
+            "    </hal>\n"
+            "    <hal format=\"aidl\">\n"
+            "        <name>android.hardware.aidl</name>\n"
+            "        <interface>\n"
+            "            <name>IAidl</name>\n"
+            "            <instance>default</instance>\n"
+            "        </interface>\n"
+            "    </hal>\n"
+            "</compatibility-matrix>\n",
+        };
+        // clang-format on
+
+        SetUpMockSystemMatrices(matrices);
+    }
+};
+
+// A set of tests on VintfObject::checkMissingHalsInMatrices
+class CheckMissingHalsTest : public CheckMatricesWithHalDefTestBase {};
+
+TEST_F(CheckMissingHalsTest, Empty) {
+    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices({}, {}));
+}
+
+TEST_F(CheckMissingHalsTest, Pass) {
+    std::vector<HidlInterfaceMetadata> hidl{{.name = "android.hardware.hidl@1.0::IHidl"}};
+    std::vector<AidlInterfaceMetadata> aidl{{.types = {"android.hardware.aidl.IAidl"}}};
+    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices(hidl, {}));
+    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices({}, aidl));
+    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices(hidl, aidl));
+}
+
+TEST_F(CheckMissingHalsTest, FailVendor) {
+    std::vector<HidlInterfaceMetadata> hidl{{.name = "vendor.foo.hidl@1.0"}};
+    std::vector<AidlInterfaceMetadata> aidl{{.types = {"vendor.foo.aidl.IAidl"}}};
+
+    auto res = vintfObject->checkMissingHalsInMatrices(hidl, {});
+    EXPECT_THAT(res, HasErrorMessage("vendor.foo.hidl@1.0"));
+
+    res = vintfObject->checkMissingHalsInMatrices({}, aidl);
+    EXPECT_THAT(res, HasErrorMessage("vendor.foo.aidl"));
+
+    res = vintfObject->checkMissingHalsInMatrices(hidl, aidl);
+    EXPECT_THAT(res, HasErrorMessage("vendor.foo.hidl@1.0"));
+    EXPECT_THAT(res, HasErrorMessage("vendor.foo.aidl"));
+
+    auto predicate = [](const auto& interfaceName) {
+        return android::base::StartsWith(interfaceName, "android.hardware");
+    };
+    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices(hidl, {}, predicate));
+    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices({}, aidl, predicate));
+    EXPECT_RESULT_OK(vintfObject->checkMissingHalsInMatrices(hidl, aidl, predicate));
+}
+
+TEST_F(CheckMissingHalsTest, FailVersion) {
+    std::vector<HidlInterfaceMetadata> hidl{{.name = "android.hardware.hidl@2.0"}};
+    std::vector<AidlInterfaceMetadata> aidl{{.types = {"android.hardware.aidl2.IAidl"}}};
+
+    auto res = vintfObject->checkMissingHalsInMatrices(hidl, {});
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@2.0"));
+
+    res = vintfObject->checkMissingHalsInMatrices({}, aidl);
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl2"));
+
+    res = vintfObject->checkMissingHalsInMatrices(hidl, aidl);
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@2.0"));
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl2"));
+
+    auto predicate = [](const auto& interfaceName) {
+        return android::base::StartsWith(interfaceName, "android.hardware");
+    };
+
+    res = vintfObject->checkMissingHalsInMatrices(hidl, {}, predicate);
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@2.0"));
+
+    res = vintfObject->checkMissingHalsInMatrices({}, aidl, predicate);
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl2"));
+
+    res = vintfObject->checkMissingHalsInMatrices(hidl, aidl, predicate);
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@2.0"));
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl2"));
+}
+
+// A set of tests on VintfObject::checkMatrixHalsHasDefinition
+class CheckMatrixHalsHasDefinitionTest : public CheckMatricesWithHalDefTestBase {};
+
+TEST_F(CheckMatrixHalsHasDefinitionTest, Pass) {
+    std::vector<HidlInterfaceMetadata> hidl{{.name = "android.hardware.hidl@1.0::IHidl"}};
+    std::vector<AidlInterfaceMetadata> aidl{{.types = {"android.hardware.aidl.IAidl"}}};
+    EXPECT_RESULT_OK(vintfObject->checkMatrixHalsHasDefinition(hidl, aidl));
+}
+
+TEST_F(CheckMatrixHalsHasDefinitionTest, FailMissingHidl) {
+    std::vector<AidlInterfaceMetadata> aidl{{.types = {"android.hardware.aidl.IAidl"}}};
+    auto res = vintfObject->checkMatrixHalsHasDefinition({}, aidl);
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@1.0::IHidl"));
+}
+
+TEST_F(CheckMatrixHalsHasDefinitionTest, FailMissingAidl) {
+    std::vector<HidlInterfaceMetadata> hidl{{.name = "android.hardware.hidl@1.0::IHidl"}};
+    auto res = vintfObject->checkMatrixHalsHasDefinition(hidl, {});
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl.IAidl"));
+}
+
+TEST_F(CheckMatrixHalsHasDefinitionTest, FailMissingBoth) {
+    auto res = vintfObject->checkMatrixHalsHasDefinition({}, {});
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.hidl@1.0::IHidl"));
+    EXPECT_THAT(res, HasErrorMessage("android.hardware.aidl.IAidl"));
+}
+
 }  // namespace testing
 }  // namespace vintf
 }  // namespace android
 
 int main(int argc, char** argv) {
+#ifndef LIBVINTF_TARGET
+    // Silence logs on host because they pollute the gtest output. Negative tests writes a lot
+    // of warning and error logs.
+    android::base::SetMinimumLogSeverity(android::base::LogSeverity::FATAL);
+#endif
+
     ::testing::InitGoogleMock(&argc, argv);
     return RUN_ALL_TESTS();
 }

@@ -57,7 +57,8 @@ GnssAPIClient::GnssAPIClient(const sp<IGnssCallback>& gpsCb,
     mGnssNiCbIface(nullptr),
     mControlClient(new LocationAPIControlClient()),
     mLocationCapabilitiesMask(0),
-    mLocationCapabilitiesCached(false)
+    mLocationCapabilitiesCached(false),
+    mTracking(false)
 {
     LOC_LOGD("%s]: (%p %p)", __FUNCTION__, &gpsCb, &niCb);
 
@@ -141,6 +142,11 @@ void GnssAPIClient::gnssUpdateCallbacks(const sp<IGnssCallback>& gpsCb,
 bool GnssAPIClient::gnssStart()
 {
     LOC_LOGD("%s]: ()", __FUNCTION__);
+
+    mMutex.lock();
+    mTracking = true;
+    mMutex.unlock();
+
     bool retVal = true;
     locAPIStartTracking(mTrackingOptions);
     return retVal;
@@ -149,6 +155,11 @@ bool GnssAPIClient::gnssStart()
 bool GnssAPIClient::gnssStop()
 {
     LOC_LOGD("%s]: ()", __FUNCTION__);
+
+    mMutex.lock();
+    mTracking = false;
+    mMutex.unlock();
+
     bool retVal = true;
     locAPIStopTracking();
     return retVal;
@@ -349,10 +360,16 @@ void GnssAPIClient::onCapabilitiesCb(LocationCapabilitiesMask capabilitiesMask)
 
 void GnssAPIClient::onTrackingCb(Location location)
 {
-    LOC_LOGD("%s]: (flags: %02x)", __FUNCTION__, location.flags);
     mMutex.lock();
     auto gnssCbIface(mGnssCbIface);
+    bool isTracking = mTracking;
     mMutex.unlock();
+
+    LOC_LOGD("%s]: (flags: %02x isTracking: %d)", __FUNCTION__, location.flags, isTracking);
+
+    if (!isTracking) {
+        return;
+    }
 
     if (gnssCbIface != nullptr) {
         GnssLocation gnssLocation;

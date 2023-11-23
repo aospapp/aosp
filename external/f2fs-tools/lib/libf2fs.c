@@ -637,20 +637,25 @@ char *get_rootdev()
 
 	ptr = strstr(uevent, "DEVNAME");
 	if (!ptr)
-		return NULL;
+		goto out_free;
 
 	ret = sscanf(ptr, "DEVNAME=%s\n", buf);
 	if (strlen(buf) == 0)
-		return NULL;
+		goto out_free;
 
 	ret = strlen(buf) + 5;
 	rootdev = malloc(ret + 1);
 	if (!rootdev)
-		return NULL;
+		goto out_free;
 	rootdev[ret] = '\0';
 
 	snprintf(rootdev, ret + 1, "/dev/%s", buf);
+	free(uevent);
 	return rootdev;
+
+out_free:
+	free(uevent);
+	return NULL;
 #endif
 }
 
@@ -830,7 +835,7 @@ void get_kernel_uname_version(__u8 *version)
 	if (uname(&buf))
 		return;
 
-#if !defined(WITH_KERNEL_VERSION)
+#if defined(WITH_KERNEL_VERSION)
 	snprintf((char *)version,
 		VERSION_LEN, "%s %s", buf.release, buf.version);
 #else
@@ -1158,6 +1163,8 @@ int get_device_info(int i)
 	c.sectors_per_blk = F2FS_BLKSIZE / c.sector_size;
 	c.total_sectors += dev->total_sectors;
 
+	if (c.sparse_mode && f2fs_init_sparse_file())
+		return -1;
 	return 0;
 }
 #endif
@@ -1302,6 +1309,17 @@ int f2fs_str2encoding(const char *string)
 			return f2fs_encoding_map[i].encoding_magic;
 
 	return -EINVAL;
+}
+
+char *f2fs_encoding2str(const int encoding)
+{
+	int i;
+
+	for (i = 0 ; i < ARRAY_SIZE(f2fs_encoding_map); i++)
+		if (f2fs_encoding_map[i].encoding_magic == encoding)
+			return f2fs_encoding_map[i].name;
+
+	return NULL;
 }
 
 int f2fs_get_encoding_flags(int encoding)

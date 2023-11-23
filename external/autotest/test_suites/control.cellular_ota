@@ -1,4 +1,4 @@
-# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -27,7 +27,7 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 # filing bugs on tests that are a part of this suite. If left unspecified
 # the bug filer will fallback to it's defaults.
 _BUG_TEMPLATE = {
-    'components': ['OS>Systems>Mobile'],
+    'components': ['OS>Systems>Network>Cellular'],
     'owner': 'benchan@chromium.org',
     'status': None,
     'summary': None,
@@ -35,7 +35,6 @@ _BUG_TEMPLATE = {
     'cc': ['benchan@chromium.org', 'ejcaruso@chromium.org']
 }
 
-args_dict['suite_dependencies'] = 'modem_repair'
 args_dict['max_runtime_mins'] = 20
 args_dict['job'] = job
 args_dict['add_experimental'] = True

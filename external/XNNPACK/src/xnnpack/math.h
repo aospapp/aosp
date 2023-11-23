@@ -15,6 +15,16 @@
 #include <xnnpack/common.h>
 
 
+// stdlib.h from Windows 10 SDK defines min & max macros.
+// Undefine them before defining the corresponding functions.
+#ifdef min
+  #undef min
+#endif
+#ifdef max
+  #undef max
+#endif
+
+
 inline static size_t min(size_t a, size_t b) {
   return XNN_UNPREDICTABLE(b < a) ? b : a;
 }
@@ -60,9 +70,38 @@ inline static uint32_t math_max_u32(uint32_t a, uint32_t b) {
 }
 
 inline static float math_min_f32(float a, float b) {
-  return XNN_UNPREDICTABLE(b < a) ? b : a;
+  #if defined(__GNUC__) && defined(__ARM_ARCH) && (__ARM_ARCH >= 8)
+    return __builtin_fminf(a, b);
+  #elif defined(__clang__) && defined(__riscv)
+    return __builtin_fminf(a, b);
+  #else
+    return XNN_UNPREDICTABLE(b < a) ? b : a;
+  #endif
 }
 
 inline static float math_max_f32(float a, float b) {
-  return XNN_UNPREDICTABLE(b < a) ? a : b;
+  #if defined(__GNUC__) && defined(__ARM_ARCH) && (__ARM_ARCH >= 8)
+    return __builtin_fmaxf(a, b);
+  #elif defined(__clang__) && defined(__riscv)
+    return __builtin_fmaxf(a, b);
+  #else
+    return XNN_UNPREDICTABLE(b < a) ? a : b;
+  #endif
 }
+
+inline static float math_nonsign_mask_f32() {
+  #if defined(__INTEL_COMPILER)
+    // Suprisingly, Intel compiler ignores __builtin_nanf payload
+    return _castu32_f32(0x7FFFFFFF);
+  #elif defined(__GNUC__)
+    return __builtin_nanf("0x7FFFFF");
+  #else
+    union {
+      uint32_t as_word;
+      float as_float;
+    } f;
+    f.as_word = 0x7FFFFFFF;
+    return f.as_float;
+  #endif
+}
+

@@ -16,12 +16,7 @@
 
 #include "gsi_service.h"
 
-#include <errno.h>
-#include <linux/fs.h>
-#include <stdio.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <sys/statvfs.h>
 #include <sys/vfs.h>
 #include <unistd.h>
 
@@ -38,6 +33,8 @@
 #include <android-base/strings.h>
 #include <android/gsi/BnImageService.h>
 #include <android/gsi/IGsiService.h>
+#include <android/os/IVold.h>
+#include <binder/IServiceManager.h>
 #include <binder/LazyServiceRegistrar.h>
 #include <ext4_utils/ext4_utils.h>
 #include <fs_mgr.h>
@@ -46,6 +43,8 @@
 #include <libfiemap/image_manager.h>
 #include <openssl/sha.h>
 #include <private/android_filesystem_config.h>
+#include <selinux/android.h>
+#include <storage_literals/storage_literals.h>
 
 #include "file_paths.h"
 #include "libgsi_private.h"
@@ -56,6 +55,7 @@ namespace gsi {
 using namespace std::literals;
 using namespace android::fs_mgr;
 using namespace android::fiemap;
+using namespace android::storage_literals;
 using android::base::ReadFileToString;
 using android::base::ReadFullyAtOffset;
 using android::base::RemoveFileIfExists;
@@ -67,12 +67,20 @@ using android::base::WriteStringToFile;
 using android::binder::LazyServiceRegistrar;
 using android::dm::DeviceMapper;
 
-static std::mutex sInstanceLock;
-
 // Default userdata image size.
 static constexpr int64_t kDefaultUserdataSize = int64_t(2) * 1024 * 1024 * 1024;
 
 static bool GetAvbPublicKeyFromFd(int fd, AvbPublicKey* dst);
+
+// Fix the file contexts of dsu metadata files.
+// By default, newly created files inherit the file contexts of their parent
+// directory. Since globally readable public metadata files are labeled with a
+// different context, gsi_public_metadata_file, we need to call this function to
+// fix their contexts after creating them.
+static void RestoreconMetadataFiles() {
+    auto flags = SELINUX_ANDROID_RESTORECON_RECURSE | SELINUX_ANDROID_RESTORECON_SKIP_SEHASH;
+    selinux_android_restorecon(DSU_METADATA_PREFIX, flags);
+}
 
 GsiService::GsiService() {
     progress_ = {};
@@ -118,6 +126,8 @@ int GsiService::SaveInstallation(const std::string& installation) {
     }
     return INSTALL_OK;
 }
+
+static bool IsExternalStoragePath(const std::string& path);
 
 binder::Status GsiService::openInstall(const std::string& install_dir, int* _aidl_return) {
     ENFORCE_SYSTEM;
@@ -165,9 +175,6 @@ binder::Status GsiService::createPartition(const ::std::string& name, int64_t si
         return binder::Status::ok();
     }
 
-    // Make sure a pending interrupted installations are cleaned up.
-    installer_ = nullptr;
-
     // Do some precursor validation on the arguments before diving into the
     // install process.
     if (size % LP_SECTOR_SIZE) {
@@ -179,14 +186,38 @@ binder::Status GsiService::createPartition(const ::std::string& name, int64_t si
     if (size == 0 && name == "userdata") {
         size = kDefaultUserdataSize;
     }
+
+    if (name == "userdata") {
+        auto dsu_slot = GetDsuSlot(install_dir_);
+        auto key_dir = DefaultDsuMetadataKeyDir(dsu_slot);
+        auto key_dir_file = DsuMetadataKeyDirFile(dsu_slot);
+        if (!android::base::WriteStringToFile(key_dir, key_dir_file)) {
+            PLOG(ERROR) << "write failed: " << key_dir_file;
+            *_aidl_return = INSTALL_ERROR_GENERIC;
+            return binder::Status::ok();
+        }
+        RestoreconMetadataFiles();
+    }
+
     installer_ = std::make_unique<PartitionInstaller>(this, install_dir_, name,
                                                       GetDsuSlot(install_dir_), size, readOnly);
     progress_ = {};
-    int status = installer_->StartInstall();
-    if (status != INSTALL_OK) {
-        installer_ = nullptr;
+    *_aidl_return = installer_->StartInstall();
+    return binder::Status::ok();
+}
+
+binder::Status GsiService::closePartition(int32_t* _aidl_return) {
+    ENFORCE_SYSTEM;
+    std::lock_guard<std::mutex> guard(lock_);
+
+    if (installer_ == nullptr) {
+        LOG(ERROR) << "createPartition() has to be called before closePartition()";
+        *_aidl_return = IGsiService::INSTALL_ERROR_GENERIC;
+        return binder::Status::ok();
     }
-    *_aidl_return = status;
+    // It is important to not reset |installer_| here because other methods such
+    // as enableGsi() relies on the state of |installer_|.
+    *_aidl_return = installer_->FinishInstall();
     return binder::Status::ok();
 }
 
@@ -278,6 +309,7 @@ binder::Status GsiService::enableGsi(bool one_shot, const std::string& dsuSlot, 
         *_aidl_return = INSTALL_ERROR_GENERIC;
         return binder::Status::ok();
     }
+    RestoreconMetadataFiles();
     if (installer_) {
         ENFORCE_SYSTEM;
         installer_ = {};
@@ -469,6 +501,31 @@ binder::Status GsiService::getAvbPublicKey(AvbPublicKey* dst, int32_t* _aidl_ret
         return binder::Status::ok();
     }
     *_aidl_return = INSTALL_OK;
+    return binder::Status::ok();
+}
+
+binder::Status GsiService::suggestScratchSize(int64_t* _aidl_return) {
+    ENFORCE_SYSTEM;
+
+    static constexpr uint64_t kMinScratchSize = 512_MiB;
+    static constexpr uint64_t kMaxScratchSize = 2_GiB;
+
+    uint64_t size = 0;
+    struct statvfs info;
+    if (statvfs(install_dir_.c_str(), &info)) {
+        PLOG(ERROR) << "Could not statvfs(" << install_dir_ << ")";
+    } else {
+        // Keep the storage device at least 40% free, plus 1% for jitter.
+        constexpr int jitter = 1;
+        const uint64_t reserved_blocks =
+                static_cast<uint64_t>(info.f_blocks) * (kMinimumFreeSpaceThreshold + jitter) / 100;
+        if (info.f_bavail > reserved_blocks) {
+            size = (info.f_bavail - reserved_blocks) * info.f_frsize;
+        }
+    }
+
+    // We can safely downcast the result here, since we clamped the result within int64_t range.
+    *_aidl_return = std::clamp(size, kMinScratchSize, kMaxScratchSize);
     return binder::Status::ok();
 }
 
@@ -707,6 +764,8 @@ bool ImageService::CheckUid() {
 
 binder::Status GsiService::openImageService(const std::string& prefix,
                                             android::sp<IImageService>* _aidl_return) {
+    using android::base::StartsWith;
+
     static constexpr char kImageMetadataPrefix[] = "/metadata/gsi/";
     static constexpr char kImageDataPrefix[] = "/data/gsi/";
 
@@ -728,9 +787,11 @@ binder::Status GsiService::openImageService(const std::string& prefix,
         PLOG(ERROR) << "realpath failed for data: " << in_data_dir;
         return BinderError("Invalid path");
     }
-    if (!android::base::StartsWith(metadata_dir, kImageMetadataPrefix) ||
-        !android::base::StartsWith(data_dir, kImageDataPrefix)) {
-        return BinderError("Invalid path");
+    if (!StartsWith(metadata_dir, kImageMetadataPrefix)) {
+        return BinderError("Invalid metadata path");
+    }
+    if (!StartsWith(data_dir, kImageDataPrefix) && !StartsWith(data_dir, kDsuSDPrefix)) {
+        return BinderError("Invalid data path");
     }
 
     uid_t uid = IPCThreadState::self()->getCallingUid();
@@ -763,7 +824,7 @@ binder::Status GsiService::CheckUid(AccessLevel level) {
 }
 
 static bool IsExternalStoragePath(const std::string& path) {
-    if (!android::base::StartsWith(path, "/mnt/media_rw/")) {
+    if (!android::base::StartsWith(path, kDsuSDPrefix)) {
         return false;
     }
     unique_fd fd(open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
@@ -788,6 +849,14 @@ int GsiService::ValidateInstallParams(std::string& install_dir) {
         install_dir = kDefaultDsuImageFolder;
     }
 
+    if (access(install_dir.c_str(), F_OK) != 0 && (errno == ENOENT)) {
+        if (android::base::StartsWith(install_dir, kDsuSDPrefix)) {
+            if (mkdir(install_dir.c_str(), 0755) != 0) {
+                PLOG(ERROR) << "Failed to create " << install_dir;
+                return INSTALL_ERROR_GENERIC;
+            }
+        }
+    }
     // Normalize the path and add a trailing slash.
     std::string origInstallDir = install_dir;
     if (!android::base::Realpath(origInstallDir, &install_dir)) {
@@ -878,6 +947,10 @@ int GsiService::ReenableGsi(bool one_shot) {
     return IGsiService::INSTALL_OK;
 }
 
+static android::sp<android::os::IVold> GetVoldService() {
+    return android::waitForService<android::os::IVold>(android::String16("vold"));
+}
+
 bool GsiService::RemoveGsiFiles(const std::string& install_dir) {
     bool ok = true;
     auto active_dsu = GetDsuSlot(install_dir);
@@ -906,6 +979,22 @@ bool GsiService::RemoveGsiFiles(const std::string& install_dir) {
             LOG(ERROR) << message;
             ok = false;
         }
+    }
+    if (auto vold = GetVoldService()) {
+        auto status = vold->destroyDsuMetadataKey(dsu_slot);
+        if (status.isOk()) {
+            std::string message;
+            if (!RemoveFileIfExists(DsuMetadataKeyDirFile(dsu_slot), &message)) {
+                LOG(ERROR) << message;
+                ok = false;
+            }
+        } else {
+            LOG(ERROR) << "Failed to destroy DSU metadata encryption key.";
+            ok = false;
+        }
+    } else {
+        LOG(ERROR) << "Failed to retrieve vold service.";
+        ok = false;
     }
     if (ok) {
         SetProperty(kGsiInstalledProp, "0");

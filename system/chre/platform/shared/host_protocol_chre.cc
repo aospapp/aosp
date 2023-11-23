@@ -22,7 +22,6 @@
 #include "chre/platform/log.h"
 #include "chre/platform/shared/generated/host_messages_generated.h"
 
-using flatbuffers::FlatBufferBuilder;
 using flatbuffers::Offset;
 using flatbuffers::Vector;
 
@@ -82,9 +81,10 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
             getStringFromByteVector(request->app_binary_file_name());
         HostMessageHandlers::handleLoadNanoappRequest(
             hostClientId, request->transaction_id(), request->app_id(),
-            request->app_version(), request->target_api_version(),
-            appBinary->data(), appBinary->size(), appBinaryFilename,
-            request->fragment_id(), request->total_app_size());
+            request->app_version(), request->app_flags(),
+            request->target_api_version(), appBinary->data(), appBinary->size(),
+            appBinaryFilename, request->fragment_id(),
+            request->total_app_size(), request->respond_before_start());
         break;
       }
 
@@ -117,6 +117,11 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
         break;
       }
 
+      case fbs::ChreMessage::SelfTestRequest: {
+        HostMessageHandlers::handleSelfTestRequest(hostClientId);
+        break;
+      }
+
       default:
         LOGW("Got invalid/unexpected message type %" PRIu8,
              static_cast<uint8_t>(container->message_type()));
@@ -128,7 +133,7 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
 }
 
 void HostProtocolChre::encodeHubInfoResponse(
-    FlatBufferBuilder &builder, const char *name, const char *vendor,
+    ChreFlatBufferBuilder &builder, const char *name, const char *vendor,
     const char *toolchain, uint32_t legacyPlatformVersion,
     uint32_t legacyToolchainVersion, float peakMips, float stoppedPower,
     float sleepPower, float peakPower, uint32_t maxMessageLen,
@@ -146,18 +151,19 @@ void HostProtocolChre::encodeHubInfoResponse(
 }
 
 void HostProtocolChre::addNanoappListEntry(
-    FlatBufferBuilder &builder,
+    ChreFlatBufferBuilder &builder,
     DynamicVector<Offset<fbs::NanoappListEntry>> &offsetVector, uint64_t appId,
-    uint32_t appVersion, bool enabled, bool isSystemNanoapp) {
+    uint32_t appVersion, bool enabled, bool isSystemNanoapp,
+    uint32_t appPermissions) {
   auto offset = fbs::CreateNanoappListEntry(builder, appId, appVersion, enabled,
-                                            isSystemNanoapp);
+                                            isSystemNanoapp, appPermissions);
   if (!offsetVector.push_back(offset)) {
     LOGE("Couldn't push nanoapp list entry offset!");
   }
 }
 
 void HostProtocolChre::finishNanoappListResponse(
-    FlatBufferBuilder &builder,
+    ChreFlatBufferBuilder &builder,
     DynamicVector<Offset<fbs::NanoappListEntry>> &offsetVector,
     uint16_t hostClientId) {
   auto vectorOffset =
@@ -167,9 +173,11 @@ void HostProtocolChre::finishNanoappListResponse(
            hostClientId);
 }
 
-void HostProtocolChre::encodeLoadNanoappResponse(
-    flatbuffers::FlatBufferBuilder &builder, uint16_t hostClientId,
-    uint32_t transactionId, bool success, uint32_t fragmentId) {
+void HostProtocolChre::encodeLoadNanoappResponse(ChreFlatBufferBuilder &builder,
+                                                 uint16_t hostClientId,
+                                                 uint32_t transactionId,
+                                                 bool success,
+                                                 uint32_t fragmentId) {
   auto response = fbs::CreateLoadNanoappResponse(builder, transactionId,
                                                  success, fragmentId);
   finalize(builder, fbs::ChreMessage::LoadNanoappResponse, response.Union(),
@@ -177,7 +185,7 @@ void HostProtocolChre::encodeLoadNanoappResponse(
 }
 
 void HostProtocolChre::encodeUnloadNanoappResponse(
-    flatbuffers::FlatBufferBuilder &builder, uint16_t hostClientId,
+    ChreFlatBufferBuilder &builder, uint16_t hostClientId,
     uint32_t transactionId, bool success) {
   auto response =
       fbs::CreateUnloadNanoappResponse(builder, transactionId, success);
@@ -185,18 +193,30 @@ void HostProtocolChre::encodeUnloadNanoappResponse(
            hostClientId);
 }
 
-void HostProtocolChre::encodeLogMessages(
-    flatbuffers::FlatBufferBuilder &builder, const char *logBuffer,
-    size_t bufferSize) {
+void HostProtocolChre::encodeLogMessages(ChreFlatBufferBuilder &builder,
+                                         const uint8_t *logBuffer,
+                                         size_t bufferSize) {
   auto logBufferOffset = builder.CreateVector(
       reinterpret_cast<const int8_t *>(logBuffer), bufferSize);
   auto message = fbs::CreateLogMessage(builder, logBufferOffset);
   finalize(builder, fbs::ChreMessage::LogMessage, message.Union());
 }
 
-void HostProtocolChre::encodeDebugDumpData(
-    flatbuffers::FlatBufferBuilder &builder, uint16_t hostClientId,
-    const char *debugStr, size_t debugStrSize) {
+void HostProtocolChre::encodeLogMessagesV2(ChreFlatBufferBuilder &builder,
+                                           const uint8_t *logBuffer,
+                                           size_t bufferSize,
+                                           uint32_t numLogsDropped) {
+  auto logBufferOffset = builder.CreateVector(
+      reinterpret_cast<const int8_t *>(logBuffer), bufferSize);
+  auto message =
+      fbs::CreateLogMessageV2(builder, logBufferOffset, numLogsDropped);
+  finalize(builder, fbs::ChreMessage::LogMessageV2, message.Union());
+}
+
+void HostProtocolChre::encodeDebugDumpData(ChreFlatBufferBuilder &builder,
+                                           uint16_t hostClientId,
+                                           const char *debugStr,
+                                           size_t debugStrSize) {
   auto debugStrOffset = builder.CreateVector(
       reinterpret_cast<const int8_t *>(debugStr), debugStrSize);
   auto message = fbs::CreateDebugDumpData(builder, debugStrOffset);
@@ -204,32 +224,82 @@ void HostProtocolChre::encodeDebugDumpData(
            hostClientId);
 }
 
-void HostProtocolChre::encodeDebugDumpResponse(
-    flatbuffers::FlatBufferBuilder &builder, uint16_t hostClientId,
-    bool success, uint32_t dataCount) {
+void HostProtocolChre::encodeDebugDumpResponse(ChreFlatBufferBuilder &builder,
+                                               uint16_t hostClientId,
+                                               bool success,
+                                               uint32_t dataCount) {
   auto response = fbs::CreateDebugDumpResponse(builder, success, dataCount);
   finalize(builder, fbs::ChreMessage::DebugDumpResponse, response.Union(),
            hostClientId);
 }
 
-void HostProtocolChre::encodeTimeSyncRequest(
-    flatbuffers::FlatBufferBuilder &builder) {
+void HostProtocolChre::encodeTimeSyncRequest(ChreFlatBufferBuilder &builder) {
   auto request = fbs::CreateTimeSyncRequest(builder);
   finalize(builder, fbs::ChreMessage::TimeSyncRequest, request.Union());
 }
 
 void HostProtocolChre::encodeLowPowerMicAccessRequest(
-    flatbuffers::FlatBufferBuilder &builder) {
+    ChreFlatBufferBuilder &builder) {
   auto request = fbs::CreateLowPowerMicAccessRequest(builder);
   finalize(builder, fbs::ChreMessage::LowPowerMicAccessRequest,
            request.Union());
 }
 
 void HostProtocolChre::encodeLowPowerMicAccessRelease(
-    flatbuffers::FlatBufferBuilder &builder) {
+    ChreFlatBufferBuilder &builder) {
   auto request = fbs::CreateLowPowerMicAccessRelease(builder);
   finalize(builder, fbs::ChreMessage::LowPowerMicAccessRelease,
            request.Union());
+}
+
+void HostProtocolChre::encodeSelfTestResponse(ChreFlatBufferBuilder &builder,
+                                              uint16_t hostClientId,
+                                              bool success) {
+  auto response = fbs::CreateSelfTestResponse(builder, success);
+  finalize(builder, fbs::ChreMessage::SelfTestResponse, response.Union(),
+           hostClientId);
+}
+
+bool HostProtocolChre::getSettingFromFbs(fbs::Setting setting,
+                                         Setting *chreSetting) {
+  bool success = true;
+  switch (setting) {
+    case fbs::Setting::LOCATION:
+      *chreSetting = Setting::LOCATION;
+      break;
+    case fbs::Setting::WIFI_AVAILABLE:
+      *chreSetting = Setting::WIFI_AVAILABLE;
+      break;
+    case fbs::Setting::AIRPLANE_MODE:
+      *chreSetting = Setting::AIRPLANE_MODE;
+      break;
+    case fbs::Setting::MICROPHONE:
+      *chreSetting = Setting::MICROPHONE;
+      break;
+    default:
+      LOGE("Unknown setting %" PRIu8, static_cast<uint8_t>(setting));
+      success = false;
+  }
+
+  return success;
+}
+
+bool HostProtocolChre::getSettingStateFromFbs(fbs::SettingState state,
+                                              SettingState *chreSettingState) {
+  bool success = true;
+  switch (state) {
+    case fbs::SettingState::DISABLED:
+      *chreSettingState = SettingState::DISABLED;
+      break;
+    case fbs::SettingState::ENABLED:
+      *chreSettingState = SettingState::ENABLED;
+      break;
+    default:
+      LOGE("Unknown state %" PRIu8, static_cast<uint8_t>(state));
+      success = false;
+  }
+
+  return success;
 }
 
 }  // namespace chre

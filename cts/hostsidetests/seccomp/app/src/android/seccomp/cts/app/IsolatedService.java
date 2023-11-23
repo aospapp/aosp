@@ -21,6 +21,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
+import android.os.Process;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -43,6 +44,18 @@ public class IsolatedService extends Service {
             switch (msg.what) {
                 case (MSG_GET_SECCOMP_RESULT):
                     int result = ZygotePreload.getSeccomptestResult() ? 1 : 0;
+                    if (result != 0) {
+                        // Verify that my UID falls within the verified isolated range
+                        int rangeBegin = ZygotePreload.getStartOfIsolatedRange();
+                        int rangeEnd = ZygotePreload.getStartOfIsolatedRange()
+                            + Process.NUM_UIDS_PER_APP_ZYGOTE - 1;
+                        if (Process.myUid() < rangeBegin || Process.myUid() > rangeEnd) {
+                            Log.e(TAG, "Isolated UID " + Process.myUid()
+                                    + " doesn't match allowed isolated range of app zygote: ["
+                                    + rangeBegin + "," + rangeEnd + "]");
+                            result = 0;
+                        }
+                    }
                     try {
                         msg.replyTo.send(Message.obtain(null, MSG_SECCOMP_RESULT, result, 0));
                     } catch (RemoteException e) {

@@ -15,7 +15,7 @@
  */
 package com.android.timezone.distro.tools;
 
-import libcore.timezone.TzDataSetVersion;
+import com.android.i18n.timezone.TzDataSetVersion;
 
 import com.android.timezone.distro.DistroVersion;
 import com.android.timezone.distro.TimeZoneDistro;

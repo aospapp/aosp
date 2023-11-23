@@ -204,7 +204,7 @@ public enum Watermark {
         // Search from the bottom line with an assumption that the IME is shown at the bottom.
         for (int offsetY = targetImage.getHeight() - 1; offsetY >= 0; --offsetY) {
             for (int offsetX = 0; offsetX < targetImage.getWidth(); ++offsetX) {
-                if (mImage.match(targetImage, offsetX, offsetY)) {
+                if (mImage.robustMatch(targetImage, offsetX, offsetY)) {
                     return true;
                 }
             }

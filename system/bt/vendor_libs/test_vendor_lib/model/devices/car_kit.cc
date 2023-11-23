@@ -24,6 +24,8 @@ using std::vector;
 namespace test_vendor_lib {
 
 bool CarKit::registered_ = DeviceBoutique::Register("car_kit", &CarKit::Create);
+const std::string kCarKitPropertiesFile =
+    "/etc/bluetooth/car_kit_controller_properties.json";
 
 CarKit::CarKit() : Device(kCarKitPropertiesFile) {
   advertising_interval_ms_ = std::chrono::milliseconds(0);
@@ -32,10 +34,11 @@ CarKit::CarKit() : Device(kCarKitPropertiesFile) {
 
   // Stub in packet handling for now
   link_layer_controller_.RegisterAclChannel(
-      [](std::shared_ptr<bluetooth::hci::AclPacketBuilder>) {});
+      [](std::shared_ptr<bluetooth::hci::AclBuilder>) {});
   link_layer_controller_.RegisterEventChannel(
-      [](std::shared_ptr<bluetooth::hci::EventPacketBuilder>) {});
-  link_layer_controller_.RegisterScoChannel([](std::shared_ptr<std::vector<uint8_t>>) {});
+      [](std::shared_ptr<bluetooth::hci::EventBuilder>) {});
+  link_layer_controller_.RegisterScoChannel(
+      [](std::shared_ptr<bluetooth::hci::ScoBuilder>) {});
   link_layer_controller_.RegisterRemoteChannel(
       [this](std::shared_ptr<model::packets::LinkLayerPacketBuilder> packet,
              Phy::Type phy_type) {
@@ -80,7 +83,7 @@ CarKit::CarKit() : Device(kCarKitPropertiesFile) {
 void CarKit::Initialize(const vector<std::string>& args) {
   if (args.size() < 2) return;
 
-  Address addr;
+  Address addr{};
   if (Address::FromString(args[1], addr)) properties_.SetAddress(addr);
   LOG_INFO("%s SetAddress %s", ToString().c_str(), addr.ToString().c_str());
 

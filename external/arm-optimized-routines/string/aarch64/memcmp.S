@@ -1,6 +1,6 @@
 /* memcmp - compare memory
  *
- * Copyright (c) 2013, Arm Limited.
+ * Copyright (c) 2013-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -28,6 +28,9 @@
 #define tmp2		x8
 
 ENTRY (__memcmp_aarch64)
+	PTR_ARG (0)
+	PTR_ARG (1)
+	SIZE_ARG (2)
 	subs	limit, limit, 8
 	b.lo	L(less8)
 
@@ -131,3 +134,4 @@ L(byte_loop):
 	ret
 
 END (__memcmp_aarch64)
+

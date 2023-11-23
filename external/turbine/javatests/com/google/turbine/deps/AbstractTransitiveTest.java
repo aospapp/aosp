@@ -36,7 +36,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -143,7 +142,7 @@ public abstract class AbstractTransitiveTest {
     // Explicitly use turbine; javac-turbine doesn't support direct-classpath compilations.
 
     Path libc = temporaryFolder.newFolder().toPath().resolve("out.jar");
-    List<String> sources =
+    ImmutableList<String> sources =
         new SourceBuilder()
                 .addSourceLines(
                     "c/C.java",
@@ -152,18 +151,17 @@ public abstract class AbstractTransitiveTest {
                     "  @Anno(x = 2) static final Inner i; // a.A$Inner ",
                     "  static final int X = CONST; // a.A#CONST",
                     "}")
-                .build().stream()
+                .build()
+                .stream()
                 .map(Path::toString)
                 .collect(toImmutableList());
-    boolean ok =
-        Main.compile(
-            optionsWithBootclasspath()
-                .addSources(sources)
-                .addClassPathEntries(
-                    ImmutableList.of(libb).stream().map(Path::toString).collect(toImmutableList()))
-                .setOutput(libc.toString())
-                .build());
-    assertThat(ok).isTrue();
+    Main.compile(
+        optionsWithBootclasspath()
+            .setSources(sources)
+            .setClassPath(
+                ImmutableList.of(libb).stream().map(Path::toString).collect(toImmutableList()))
+            .setOutput(libc.toString())
+            .build());
 
     assertThat(readJar(libc).keySet())
         .containsExactly(

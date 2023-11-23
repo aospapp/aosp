@@ -15,7 +15,8 @@
 # limitations under the License.
 """Driver test library."""
 import unittest
-import mock
+
+from unittest import mock
 
 
 class BaseDriverTest(unittest.TestCase):

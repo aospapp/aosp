@@ -19,6 +19,7 @@
 
 #include <android/media/eco/BnECOServiceStatsProvider.h>
 #include <android/media/eco/IECOSession.h>
+#include <android/media/eco/IECOService.h>
 #include <binder/BinderService.h>
 
 #include <condition_variable>
@@ -27,6 +28,7 @@
 #include <thread>
 
 #include "ECOData.h"
+#include "ECOServiceConstants.h"
 
 namespace android {
 namespace media {
@@ -43,20 +45,32 @@ class ECOServiceStatsProvider : public BinderService<IECOServiceStatsProvider>,
     friend class BinderService<IECOServiceStatsProvider>;
 
 public:
-    // Create a ECOServiceStatsProvider with specifed width, height and isCameraRecording.
-    ECOServiceStatsProvider(int32_t width, int32_t height, bool isCameraRecording);
-
     virtual ~ECOServiceStatsProvider() {}
 
-    virtual Status getType(int32_t* _aidl_return) = 0;
-    virtual Status getName(::android::String16* _aidl_return) = 0;
-    virtual Status getECOSession(::android::sp<::android::IBinder>* _aidl_return) = 0;
-    virtual Status isCameraRecording(bool* _aidl_return) = 0;
+    virtual Status getType(int32_t* _aidl_return);
+    virtual Status getName(::android::String16* _aidl_return);
+    virtual Status getECOSession(::android::sp<::android::IBinder>* _aidl_return);
+    virtual Status isCameraRecording(bool* _aidl_return);
 
     // IBinder::DeathRecipient implementation
     virtual void binderDied(const wp<IBinder>& who);
 
+    bool updateStats(const ECOData& data);
+    bool addProvider();
+    bool removeProvider();
+    float getFramerate(int64_t currTimestamp);
+    static android::sp<ECOServiceStatsProvider> create(
+        int32_t width, int32_t height, bool isCameraRecording, const char* name);
+
 private:
+    ECOServiceStatsProvider(int32_t width, int32_t height, bool isCameraRecording,
+                            android::sp<IECOSession>& session, const char* name);
+    int32_t mWidth = 0;
+    int32_t mHeight = 0;
+    bool mIsCameraRecording = false;
+    android::sp<IECOSession> mECOSession = nullptr;
+    const char* mProviderName = nullptr;
+    int64_t mLastFrameTimestamp = 0;
 };
 
 }  // namespace eco

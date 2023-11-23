@@ -1,8 +1,8 @@
 /**************************************************************************
- * 
+ *
  * Copyright 2007 VMware, Inc.
  * All Rights Reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -10,11 +10,11 @@
  * distribute, sub license, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice (including the
  * next paragraph) shall be included in all copies or substantial portions
  * of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
@@ -22,18 +22,18 @@
  * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- * 
+ *
  **************************************************************************/
 
 #include "main/bufferobj.h"
 #include "main/image.h"
 #include "main/pbo.h"
-#include "main/imports.h"
+
 #include "main/readpix.h"
 #include "main/enums.h"
 #include "main/framebuffer.h"
 #include "util/u_inlines.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "cso_cache/cso_context.h"
 
 #include "st_cb_fbo.h"
@@ -141,7 +141,7 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
                         CSO_BIT_RASTERIZER |
                         CSO_BIT_DEPTH_STENCIL_ALPHA |
                         CSO_BIT_STREAM_OUTPUTS |
-                        CSO_BIT_PAUSE_QUERIES |
+                        (st->active_queries ? CSO_BIT_PAUSE_QUERIES : 0) |
                         CSO_BIT_SAMPLE_MASK |
                         CSO_BIT_MIN_SAMPLES |
                         CSO_BIT_RENDER_CONDITION |
@@ -235,7 +235,7 @@ try_pbo_readpixels(struct st_context *st, struct st_renderbuffer *strb,
 
    /* Set up the fragment shader */
    {
-      void *fs = st_pbo_get_download_fs(st, view_target, src_format, dst_format);
+      void *fs = st_pbo_get_download_fs(st, view_target, src_format, dst_format, addr.depth != 1);
       if (!fs)
          goto fail;
 
@@ -470,7 +470,7 @@ st_ReadPixels(struct gl_context *ctx, GLint x, GLint y,
       goto fallback;
    }
 
-   if (st->pbo.download_enabled && _mesa_is_bufferobj(pack->BufferObj)) {
+   if (st->pbo.download_enabled && pack->BufferObj) {
       if (try_pbo_readpixels(st, strb,
                              st_fb_orientation(ctx->ReadBuffer) == Y_0_TOP,
                              x, y, width, height,
@@ -515,7 +515,7 @@ st_ReadPixels(struct gl_context *ctx, GLint x, GLint y,
    /* map resources */
    pixels = _mesa_map_pbo_dest(ctx, pack, pixels);
 
-   map = pipe_transfer_map_3d(pipe, dst, 0, PIPE_TRANSFER_READ,
+   map = pipe_transfer_map_3d(pipe, dst, 0, PIPE_MAP_READ,
                               dst_x, dst_y, 0, width, height, 1, &tex_xfer);
    if (!map) {
       _mesa_unmap_pbo_dest(ctx, pack);

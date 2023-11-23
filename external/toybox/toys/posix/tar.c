@@ -17,7 +17,7 @@
  * Why --exclude pattern but no --include? tar cvzf a.tgz dir --include '*.txt'
  *
 
-USE_TAR(NEWTOY(tar, "&(restrict)(full-time)(no-recursion)(numeric-owner)(no-same-permissions)(overwrite)(exclude)*(mode):(mtime):(group):(owner):(to-command):o(no-same-owner)p(same-permissions)k(keep-old)c(create)|h(dereference)x(extract)|t(list)|v(verbose)J(xz)j(bzip2)z(gzip)S(sparse)O(to-stdout)m(touch)X(exclude-from)*T(files-from)*C(directory):f(file):a[!txc][!jzJa]", TOYFLAG_USR|TOYFLAG_BIN))
+USE_TAR(NEWTOY(tar, "&(restrict)(full-time)(no-recursion)(numeric-owner)(no-same-permissions)(overwrite)(exclude)*(mode):(mtime):(group):(owner):(to-command):o(no-same-owner)p(same-permissions)k(keep-old)c(create)|h(dereference)x(extract)|t(list)|v(verbose)I(use-compress-program):J(xz)j(bzip2)z(gzip)S(sparse)O(to-stdout)P(absolute-names)m(touch)X(exclude-from)*T(files-from)*C(directory):f(file):a[!txc][!jzJa]", TOYFLAG_USR|TOYFLAG_BIN))
 
 config TAR
   bool "tar"
@@ -38,9 +38,10 @@ config TAR
     --mode MODE      Adjust modes           --mtime TIME  Override timestamps
     --owner NAME     Set file owner to NAME --group NAME  Set file group to NAME
     --sparse         Record sparse files
-    --restrict       All archive contents must extract under one subdirctory
+    --restrict       All archive contents must extract under one subdirectory
     --numeric-owner  Save/use/display uid and gid, not user/group name
     --no-recursion   Don't store directory contents
+    -I PROG          Filter through PROG to compress or PROG -d to decompress
 */
 
 #define FOR_tar
@@ -49,7 +50,7 @@ config TAR
 GLOBALS(
   char *f, *C;
   struct arg_list *T, *X;
-  char *to_command, *owner, *group, *mtime, *mode;
+  char *I, *to_command, *owner, *group, *mtime, *mode;
   struct arg_list *exclude;
 
   struct double_list *incl, *excl, *seen;
@@ -84,14 +85,19 @@ struct tar_hdr {
        prefix[155], padd[12];
 };
 
+// Tar uses ASCII octal when it fits, base-256 otherwise.
+static int ascii_fits(unsigned long long val, int len)
+{
+  return !(val>>(3*(len-1)));
+}
+
 // convert from int to octal (or base-256)
 static void itoo(char *str, int len, unsigned long long val)
 {
-  // Do we need binary encoding?
-  if (!(val>>(3*(len-1)))) sprintf(str, "%0*llo", len-1, val);
+  if (ascii_fits(val, len)) sprintf(str, "%0*llo", len-1, val);
   else {
+    for (str += len; len--; val >>= 8) *--str = val;
     *str = 128;
-    while (--len) *++str = val>>(3*len);
   }
 }
 #define ITOO(x, y) itoo(x, sizeof(x), y)
@@ -179,7 +185,7 @@ static int add_to_tar(struct dirtree *node)
   struct tar_hdr hdr;
   struct passwd *pw = pw;
   struct group *gr = gr;
-  int i, fd =-1;
+  int i, fd = -1, norecurse = FLAG(no_recursion);
   char *name, *lnk, *hname;
 
   if (!dirtree_notdotdot(node)) return 0;
@@ -189,11 +195,15 @@ static int add_to_tar(struct dirtree *node)
   }
 
   i = 1;
-  name = dirtree_path(node, &i);
+  name = hname = dirtree_path(node, &i);
 
   // exclusion defaults to --no-anchored and --wildcards-match-slash
   for (lnk = name; *lnk;) {
-    if (filter(TT.excl, lnk)) goto done;
+    if (filter(TT.excl, lnk)) {
+      norecurse++;
+
+      goto done;
+    }
     while (*lnk && *lnk!='/') lnk++;
     while (*lnk=='/') lnk++;
   }
@@ -202,7 +212,7 @@ static int add_to_tar(struct dirtree *node)
   if (S_ISDIR(st->st_mode) && name[i-1] != '/') strcat(name, "/");
 
   // remove leading / and any .. entries from saved name
-  for (hname = name; *hname == '/'; hname++);
+  if (!FLAG(P)) while (*hname == '/') hname++;
   for (lnk = hname;;) {
     if (!(lnk = strstr(lnk, ".."))) break;
     if (lnk == hname || lnk[-1] == '/') {
@@ -246,7 +256,8 @@ static int add_to_tar(struct dirtree *node)
       i = 1;
     } else {
       // first time we've seen it. Store as normal file, but remember it.
-      if (!(TT.hlc&255)) TT.hlx = xrealloc(TT.hlx, TT.hlc+256);
+      if (!(TT.hlc&255))
+        TT.hlx = xrealloc(TT.hlx, sizeof(*TT.hlx)*(TT.hlc+256));
       TT.hlx[TT.hlc].arg = xstrdup(hname);
       TT.hlx[TT.hlc].ino = st->st_ino;
       TT.hlx[TT.hlc].dev = st->st_dev;
@@ -255,22 +266,16 @@ static int add_to_tar(struct dirtree *node)
     }
   } else i = 0;
 
-  // !i because hardlink to a symlink is a thing.
-  if (!i && S_ISLNK(st->st_mode)) {
-    i = 2;
-    lnk = xreadlink(name);
-  }
-
   // Handle file types
-  if (i) {
-    hdr.type = '0'+i;
-    if (i==2 && !(lnk = xreadlink(name))) {
+  if (i || S_ISLNK(st->st_mode)) {
+    hdr.type = '1'+!i;
+    if (!i && !(lnk = xreadlink(name))) {
       perror_msg("readlink");
       goto done;
     }
     if (strlen(lnk) > sizeof(hdr.link)) write_longname(lnk, 'K');
     strncpy(hdr.link, lnk, sizeof(hdr.link));
-    if (i) free(lnk);
+    if (!i) free(lnk);
   } else if (S_ISREG(st->st_mode)) {
     hdr.type = '0';
     ITOO(hdr.size, st->st_size);
@@ -288,9 +293,11 @@ static int add_to_tar(struct dirtree *node)
   if (strlen(hname) > sizeof(hdr.name)) write_longname(hname, 'L');
 
   if (!FLAG(numeric_owner)) {
-    if (TT.owner || (pw = bufgetpwuid(st->st_uid)))
+    if ((TT.owner || (pw = bufgetpwuid(st->st_uid))) &&
+        ascii_fits(st->st_uid, sizeof(hdr.uid)))
       strncpy(hdr.uname, TT.owner ? TT.owner : pw->pw_name, sizeof(hdr.uname));
-    if (TT.group || (gr = bufgetgrgid(st->st_gid)))
+    if ((TT.group || (gr = bufgetgrgid(st->st_gid))) &&
+        ascii_fits(st->st_gid, sizeof(hdr.gid)))
       strncpy(hdr.gname, TT.group ? TT.group : gr->gr_name, sizeof(hdr.gname));
   }
 
@@ -338,7 +345,7 @@ static int add_to_tar(struct dirtree *node)
   itoo(hdr.chksum, sizeof(hdr.chksum)-1, tar_cksum(&hdr));
   hdr.chksum[7] = ' ';
 
-  if (FLAG(v)) dprintf(TT.fd ? 2 : 1, "%s\n", hname);
+  if (FLAG(v)) dprintf((TT.fd==1) ? 2 : 1, "%s\n", hname);
 
   // Write header and data to archive
   xwrite(TT.fd, &hdr, 512);
@@ -374,7 +381,7 @@ static int add_to_tar(struct dirtree *node)
 done:
   free(name);
 
-  return (DIRTREE_RECURSE|(FLAG(h)?DIRTREE_SYMFOLLOW:0))*!FLAG(no_recursion);
+  return (DIRTREE_RECURSE|(FLAG(h)?DIRTREE_SYMFOLLOW:0))*!norecurse;
 }
 
 static void wsettime(char *s, long long sec)
@@ -485,8 +492,10 @@ static void extract_to_disk(void)
       return perror_msg(":%s: can't mkdir", name);
 
   // remove old file, if exists
-  if (!FLAG(k) && !S_ISDIR(ala) && unlink(name) && errno!=ENOENT)
-    return perror_msg("can't remove: %s", name);
+  if (!FLAG(k) && !S_ISDIR(ala) && unlink(name)) {
+    if (errno==EISDIR && !rmdir(name));
+    else if (errno!=ENOENT) return perror_msg("can't remove: %s", name);
+  }
 
   if (S_ISREG(ala)) {
     // hardlink?
@@ -495,8 +504,9 @@ static void extract_to_disk(void)
         return perror_msg("can't link '%s' -> '%s'", name, TT.hdr.link_target);
     // write contents
     } else {
-      int fd = xcreate(name, O_WRONLY|O_CREAT|(FLAG(overwrite)?O_TRUNC:O_EXCL),
-        WARN_ONLY|(ala & 07777));
+      int fd = xcreate(name,
+        WARN_ONLY|O_WRONLY|O_CREAT|(FLAG(overwrite)?O_TRUNC:O_EXCL),
+        ala & 07777);
       if (fd != -1) sendfile_sparse(fd);
       else skippy(TT.hdr.size);
     }
@@ -589,7 +599,7 @@ static void unpack_tar(char *first)
       else if (tar.type == 'L') alloread(&TT.hdr.name, TT.hdr.size);
       else if (tar.type == 'x') {
         char *p, *buf = 0;
-        int i, len, n;
+        int i, len, n = 0;
 
         // Posix extended record "LEN NAME=VALUE\n" format
         alloread(&buf, TT.hdr.size);
@@ -600,7 +610,7 @@ static void unpack_tar(char *first)
             break;
           }
           p[len-1] = 0;
-          if (i == 2) {
+          if (n) {
             TT.hdr.name = xstrdup(p+n);
             break;
           }
@@ -790,7 +800,7 @@ static void do_XT(char **pline, long len)
 void tar_main(void)
 {
   char *s, **args = toys.optargs,
-    *archiver = FLAG(z) ? "gzip" : (FLAG(J) ? "xz" : "bzip2");
+    *archiver = FLAG(I) ? TT.I : (FLAG(z) ? "gzip" : (FLAG(J) ? "xz":"bzip2"));
   int len = 0;
 
   // Needed when extracting to command
@@ -842,7 +852,7 @@ void tar_main(void)
     char *hdr = 0;
 
     // autodetect compression type when not specified
-    if (!(FLAG(j)||FLAG(z)||FLAG(J))) {
+    if (!(FLAG(j)||FLAG(z)||FLAG(I)||FLAG(J))) {
       len = xread(TT.fd, hdr = toybuf+sizeof(toybuf)-512, 512);
       if (len!=512 || !is_tar_header(hdr)) {
         // detect gzip and bzip signatures
@@ -856,14 +866,14 @@ void tar_main(void)
       }
     }
 
-    if (FLAG(j)||FLAG(z)||FLAG(J)) {
+    if (FLAG(j)||FLAG(z)||FLAG(I)||FLAG(J)) {
       int pipefd[2] = {hdr ? -1 : TT.fd, -1}, i, pid;
-      struct string_list *zcat = find_in_path(getenv("PATH"),
+      struct string_list *zcat = FLAG(I) ? 0 : find_in_path(getenv("PATH"),
         FLAG(j) ? "bzcat" : FLAG(J) ? "xzcat" : "zcat");
 
       // Toybox provides more decompressors than compressors, so try them first
       xpopen_both(zcat ? (char *[]){zcat->str, 0} :
-        (char *[]){archiver, "-dc", 0}, pipefd);
+        (char *[]){archiver, "-d", 0}, pipefd);
       if (CFG_TOYBOX_FREE) llist_traverse(zcat, free);
 
       if (!hdr) {
@@ -920,7 +930,7 @@ void tar_main(void)
     struct double_list *dl = TT.incl;
 
     // autodetect compression type based on -f name. (Use > to avoid.)
-    if (TT.f && !FLAG(j) && !FLAG(z)) {
+    if (TT.f && !FLAG(j) && !FLAG(z) && !FLAG(I) && !FLAG(J)) {
       char *tbz[] = {".tbz", ".tbz2", ".tar.bz", ".tar.bz2"};
       if (strend(TT.f, ".tgz") || strend(TT.f, ".tar.gz"))
         toys.optflags |= FLAG_z;
@@ -930,10 +940,10 @@ void tar_main(void)
         if (strend(TT.f, tbz[len])) toys.optflags |= FLAG_j;
     }
 
-    if (FLAG(j)||FLAG(z)||FLAG(J)) {
+    if (FLAG(j)||FLAG(z)||FLAG(I)||FLAG(J)) {
       int pipefd[2] = {-1, TT.fd};
 
-      xpopen_both((char *[]){archiver, "-f", 0}, pipefd);
+      xpopen_both((char *[]){archiver, 0}, pipefd);
       close(TT.fd);
       TT.fd = pipefd[0];
     }

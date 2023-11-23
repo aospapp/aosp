@@ -20,16 +20,38 @@
 #include <bl31/interrupt_mgmt.h>
 #include <mce.h>
 #include <mce_private.h>
+#include <memctrl.h>
 #include <plat/common/platform.h>
+#include <smmu.h>
 #include <spe.h>
 #include <tegra_def.h>
-#include <tegra_mc_def.h>
 #include <tegra_platform.h>
 #include <tegra_private.h>
 #include <lib/xlat_tables/xlat_tables_v2.h>
 
 /* ID for spe-console */
 #define TEGRA_CONSOLE_SPE_ID		0xFE
+
+/*******************************************************************************
+ * Structure to store the SCR addresses and its expected settings.
+ *******************************************************************************
+ */
+typedef struct {
+	uint32_t scr_addr;
+	uint32_t scr_val;
+} scr_settings_t;
+
+static const scr_settings_t t194_scr_settings[] = {
+	{ SCRATCH_RSV68_SCR, SCRATCH_RSV68_SCR_VAL },
+	{ SCRATCH_RSV71_SCR, SCRATCH_RSV71_SCR_VAL },
+	{ SCRATCH_RSV72_SCR, SCRATCH_RSV72_SCR_VAL },
+	{ SCRATCH_RSV75_SCR, SCRATCH_RSV75_SCR_VAL },
+	{ SCRATCH_RSV81_SCR, SCRATCH_RSV81_SCR_VAL },
+	{ SCRATCH_RSV97_SCR, SCRATCH_RSV97_SCR_VAL },
+	{ SCRATCH_RSV99_SCR, SCRATCH_RSV99_SCR_VAL },
+	{ SCRATCH_RSV109_SCR, SCRATCH_RSV109_SCR_VAL },
+	{ MISCREG_SCR_SCRTZWELCK, MISCREG_SCR_SCRTZWELCK_VAL }
+};
 
 /*******************************************************************************
  * The Tegra power domain tree has a single system level power domain i.e. a
@@ -65,8 +87,6 @@ const uint8_t *plat_get_power_domain_tree_desc(void)
  */
 static const mmap_region_t tegra_mmap[] = {
 	MAP_REGION_FLAT(TEGRA_MISC_BASE, 0x4000U, /* 16KB */
-			(uint8_t)MT_DEVICE | (uint8_t)MT_RW | (uint8_t)MT_SECURE),
-	MAP_REGION_FLAT(TEGRA_TSA_BASE, 0x20000U, /* 128KB */
 			(uint8_t)MT_DEVICE | (uint8_t)MT_RW | (uint8_t)MT_SECURE),
 	MAP_REGION_FLAT(TEGRA_GPCDMA_BASE, 0x10000U, /* 64KB */
 			(uint8_t)MT_DEVICE | (uint8_t)MT_RW | (uint8_t)MT_SECURE),
@@ -163,18 +183,18 @@ void plat_enable_console(int32_t id)
 	uint32_t console_clock = 0U;
 
 #if ENABLE_CONSOLE_SPE
-	static console_spe_t spe_console;
+	static console_t spe_console;
 
 	if (id == TEGRA_CONSOLE_SPE_ID) {
 		(void)console_spe_register(TEGRA_CONSOLE_SPE_BASE,
 					   console_clock,
 					   TEGRA_CONSOLE_BAUDRATE,
 					   &spe_console);
-		console_set_scope(&spe_console.console, CONSOLE_FLAG_BOOT |
+		console_set_scope(&spe_console, CONSOLE_FLAG_BOOT |
 			CONSOLE_FLAG_RUNTIME | CONSOLE_FLAG_CRASH);
 	}
 #else
-	static console_16550_t uart_console;
+	static console_t uart_console;
 
 	if ((id > 0) && (id < TEGRA194_MAX_UART_PORTS)) {
 		/*
@@ -190,10 +210,28 @@ void plat_enable_console(int32_t id)
 					     console_clock,
 					     TEGRA_CONSOLE_BAUDRATE,
 					     &uart_console);
-		console_set_scope(&uart_console.console, CONSOLE_FLAG_BOOT |
+		console_set_scope(&uart_console, CONSOLE_FLAG_BOOT |
 			CONSOLE_FLAG_RUNTIME | CONSOLE_FLAG_CRASH);
 	}
 #endif
+}
+
+/*******************************************************************************
+ * Verify SCR settings
+ ******************************************************************************/
+static inline bool tegra194_is_scr_valid(void)
+{
+	uint32_t scr_val;
+	bool ret = true;
+
+	for (uint8_t i = 0U; i < ARRAY_SIZE(t194_scr_settings); i++) {
+		scr_val = mmio_read_32((uintptr_t)t194_scr_settings[i].scr_addr);
+		if (scr_val != t194_scr_settings[i].scr_val) {
+			ERROR("Mismatch at SCR addr = 0x%x\n", t194_scr_settings[i].scr_addr);
+			ret = false;
+		}
+	}
+	return ret;
 }
 
 /*******************************************************************************
@@ -201,8 +239,25 @@ void plat_enable_console(int32_t id)
  ******************************************************************************/
 void plat_early_platform_setup(void)
 {
+	const plat_params_from_bl2_t *params_from_bl2 = bl31_get_plat_params();
+	uint8_t enable_ccplex_lock_step = params_from_bl2->enable_ccplex_lock_step;
+	uint64_t actlr_elx;
+
+	/* Verify chip id is t194 */
+	assert(tegra_chipid_is_t194());
+
+	/* Verify SCR settings */
+	if (tegra_platform_is_silicon()) {
+		assert(tegra194_is_scr_valid());
+	}
+
 	/* sanity check MCE firmware compatibility */
 	mce_verify_firmware_version();
+
+#if RAS_EXTENSION
+	/* Enable Uncorrectable RAS error */
+	tegra194_ras_enable();
+#endif
 
 	/*
 	 * Program XUSB STREAMIDs
@@ -239,24 +294,59 @@ void plat_early_platform_setup(void)
 
 		mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 			XUSB_PADCTL_HOST_AXI_STREAMID_PF_0, TEGRA_SID_XUSB_HOST);
+		assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+			XUSB_PADCTL_HOST_AXI_STREAMID_PF_0) == TEGRA_SID_XUSB_HOST);
 		mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 			XUSB_PADCTL_HOST_AXI_STREAMID_VF_0, TEGRA_SID_XUSB_VF0);
+		assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+			XUSB_PADCTL_HOST_AXI_STREAMID_VF_0) == TEGRA_SID_XUSB_VF0);
 		mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 			XUSB_PADCTL_HOST_AXI_STREAMID_VF_1, TEGRA_SID_XUSB_VF1);
+		assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+			XUSB_PADCTL_HOST_AXI_STREAMID_VF_1) == TEGRA_SID_XUSB_VF1);
 		mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 			XUSB_PADCTL_HOST_AXI_STREAMID_VF_2, TEGRA_SID_XUSB_VF2);
+		assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+			XUSB_PADCTL_HOST_AXI_STREAMID_VF_2) == TEGRA_SID_XUSB_VF2);
 		mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 			XUSB_PADCTL_HOST_AXI_STREAMID_VF_3, TEGRA_SID_XUSB_VF3);
+		assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+			XUSB_PADCTL_HOST_AXI_STREAMID_VF_3) == TEGRA_SID_XUSB_VF3);
 		mmio_write_32(TEGRA_XUSB_PADCTL_BASE +
 			XUSB_PADCTL_DEV_AXI_STREAMID_PF_0, TEGRA_SID_XUSB_DEV);
+		assert(mmio_read_32(TEGRA_XUSB_PADCTL_BASE +
+			XUSB_PADCTL_DEV_AXI_STREAMID_PF_0) == TEGRA_SID_XUSB_DEV);
+	}
+
+	/*
+	 * Enable dual execution optimized translations for all ELx.
+	 */
+	if (enable_ccplex_lock_step != 0U) {
+		actlr_elx = read_actlr_el3();
+		actlr_elx |= DENVER_CPU_ENABLE_DUAL_EXEC_EL3;
+		write_actlr_el3(actlr_elx);
+		/* check if the bit is actually set */
+		assert((read_actlr_el3() & DENVER_CPU_ENABLE_DUAL_EXEC_EL3) != 0ULL);
+
+		actlr_elx = read_actlr_el2();
+		actlr_elx |= DENVER_CPU_ENABLE_DUAL_EXEC_EL2;
+		write_actlr_el2(actlr_elx);
+		/* check if the bit is actually set */
+		assert((read_actlr_el2() & DENVER_CPU_ENABLE_DUAL_EXEC_EL2) != 0ULL);
+
+		actlr_elx = read_actlr_el1();
+		actlr_elx |= DENVER_CPU_ENABLE_DUAL_EXEC_EL1;
+		write_actlr_el1(actlr_elx);
+		/* check if the bit is actually set */
+		assert((read_actlr_el1() & DENVER_CPU_ENABLE_DUAL_EXEC_EL1) != 0ULL);
 	}
 }
 
 /* Secure IRQs for Tegra194 */
 static const interrupt_prop_t tegra194_interrupt_props[] = {
-	INTR_PROP_DESC(TEGRA194_TOP_WDT_IRQ, GIC_HIGHEST_SEC_PRIORITY,
+	INTR_PROP_DESC(TEGRA_SDEI_SGI_PRIVATE, PLAT_SDEI_CRITICAL_PRI,
 			GICV2_INTR_GROUP0, GIC_INTR_CFG_EDGE),
-	INTR_PROP_DESC(TEGRA194_AON_WDT_IRQ, GIC_HIGHEST_SEC_PRIORITY,
+	INTR_PROP_DESC(TEGRA194_TOP_WDT_IRQ, PLAT_TEGRA_WDT_PRIO,
 			GICV2_INTR_GROUP0, GIC_INTR_CFG_EDGE)
 };
 
@@ -304,6 +394,9 @@ plat_params_from_bl2_t *plat_get_bl31_plat_params(void)
 	return (plat_params_from_bl2_t *)(uintptr_t)val;
 }
 
+/*******************************************************************************
+ * Handler for late platform setup
+ ******************************************************************************/
 void plat_late_platform_setup(void)
 {
 #if ENABLE_STRICT_CHECKING_MODE
@@ -312,5 +405,45 @@ void plat_late_platform_setup(void)
 	 * enabling TZSRAM and TZDRAM
 	 */
 	mce_enable_strict_checking();
+	mce_verify_strict_checking();
 #endif
+}
+
+/*******************************************************************************
+ * Handler to indicate support for System Suspend
+ ******************************************************************************/
+bool plat_supports_system_suspend(void)
+{
+	return true;
+}
+
+/*******************************************************************************
+ * Platform specific runtime setup.
+ ******************************************************************************/
+void plat_runtime_setup(void)
+{
+	/*
+	 * During cold boot, it is observed that the arbitration
+	 * bit is set in the Memory controller leading to false
+	 * error interrupts in the non-secure world. To avoid
+	 * this, clean the interrupt status register before
+	 * booting into the non-secure world
+	 */
+	tegra_memctrl_clear_pending_interrupts();
+
+	/*
+	 * During boot, USB3 and flash media (SDMMC/SATA) devices need
+	 * access to IRAM. Because these clients connect to the MC and
+	 * do not have a direct path to the IRAM, the MC implements AHB
+	 * redirection during boot to allow path to IRAM. In this mode
+	 * accesses to a programmed memory address aperture are directed
+	 * to the AHB bus, allowing access to the IRAM. This mode must be
+	 * disabled before we jump to the non-secure world.
+	 */
+	tegra_memctrl_disable_ahb_redirection();
+
+	/*
+	 * Verify the integrity of the previously configured SMMU(s) settings
+	 */
+	tegra_smmu_verify();
 }

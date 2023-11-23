@@ -27,6 +27,31 @@
     <!-- Leanback Launcher App Title for Restricted Profile app [CHAR LIMIT=40] -->
     <string name="launcher_restricted_profile_app_name">Restricted Profile</string>
 
+    <!-- General use strings -->
+    <skip />
+    <!-- General string for items such as buttons for confirmation [CHAR LIMIT=30] -->
+    <string name="general_action_yes">Yes</string>
+    <!-- General string for items such as buttons for rejection [CHAR LIMIT=30] -->
+    <string name="general_action_no">No</string>
+    <!-- Title for an action which turns a feature on [CHAR LIMIT=30] -->
+    <string name="action_on_title">On</string>
+    <!-- Title for an action which turns a feature off [CHAR LIMIT=30] -->
+    <string name="action_off_title">Off</string>
+    <!-- Title for a status description saying that a feature is on [CHAR LIMIT=30] -->
+    <string name="action_on_description">On</string>
+    <!-- Title for a status description saying that a feature is off [CHAR LIMIT=30] -->
+    <string name="action_off_description">Off</string>
+    <!-- Title for action which denotes the user agrees [CHAR LIMIT=50] -->
+    <string name="agree">Agree</string>
+    <!-- Title for action which denotes the user disagrees [CHAR LIMIT=50] -->
+    <string name="disagree">Disagree</string>
+    <!-- Title indicating a certain setting is enabled [CHAR LIMIT = 30] -->
+    <string name="enabled">Enabled</string>
+    <!-- Title indicating a certain setting is disabled [CHAR LIMIT = 30] -->
+    <string name="disabled">Disabled</string>
+    <!-- Title indicating a certain setting is unavailable [CHAR LIMIT = 30] -->
+    <string name="unavailable">Unavailable</string>
+
     <!-- Top level headers -->
     <skip />
 
@@ -49,7 +74,7 @@
     <!-- Header title for preferences [CHAR LIMIT=50] -->
     <string name="header_category_preferences">Preferences</string>
     <!-- Header title for accessories [CHAR LIMIT=50] -->
-    <string name="header_category_accessories">Remote &amp; accessories</string>
+    <string name="header_category_accessories">Remote &amp; Accessories</string>
     <!-- Header title for personal [CHAR LIMIT=50] -->
     <string name="header_category_personal">Personal</string>
 
@@ -98,6 +123,12 @@
     <string name="privacy_category_title">Privacy</string>
     <!-- Title for device-related privacy settings category [CHAR LIMIT=50] -->
     <string name="privacy_device_settings_category">Device Settings</string>
+    <!-- Title for account-related privacy settings category [CHAR LIMIT=50] -->
+    <string name="privacy_account_settings_category">Account Settings</string>
+    <!-- Title for Google Assistant privacy settings [CHAR LIMIT=50] -->
+    <string name="privacy_assistant_settings_title">Google Assistant</string>
+    <!-- Title for purchases-related privacy settings [CHAR LIMIT=50] -->
+    <string name="privacy_purchases_settings_title">Payment &amp; Purchases</string>
     <!-- Title for application-related privacy settings category [CHAR LIMIT=50] -->
     <string name="privacy_app_settings_category">App Settings</string>
     <!-- Summary for main screen preference for privacy settings [CHAR LIMIT=75] -->
@@ -147,10 +178,20 @@
     <!-- Title for always scan wifi. [CHAR LIMIT=50] -->
     <string name="wifi_setting_always_scan">Scanning always available</string>
     <!-- Context help for always scan wifi. [CHAR LIMIT=200] -->
-    <string name="wifi_setting_always_scan_context">Let Google\'s location service and other apps scan for networks, even when Wi-Fi is off</string>
+    <string name="wifi_setting_always_scan_context">Let Google\'s location
+        service and other apps scan for networks, even when Wi-Fi is off
+    </string>
+    <!-- Always scan wifi content description for talkback mode with
+        comma-separated title (wifi_setting_always_scan) and info text
+        (wifi_setting_always_scan_context) [CHAR LIMIT=NONE] -->
+    <string name="wifi_setting_always_scan_content_description">Scanning
+        always available, Let Google\'s location service and other apps scan
+        for networks, even when Wi-Fi is off</string>
     <!-- Title for enable wifi. [CHAR LIMIT=50] -->
     <string name="wifi_setting_enable_wifi">Wi-Fi</string>
     <string name="connectivity_hint_message">Connect to network</string>
+    <!-- Launch a connectivity diagnostics tool. [CHAR LIMIT=50] -->
+    <string name="connectivity_network_diagnostics">Network diagnostics</string>
 
     <!-- Application preferences -->
     <skip />
@@ -160,6 +201,10 @@
     <string name="apps_see_all_apps">See all apps</string>
     <!-- Title for a section that lets users modify permissions related app settings. [CHAR_LIMIT=50]-->
     <string name="apps_permissions_category_title">Permissions</string>
+    <!-- An item title on the privacy and apps screen. If clicked, the user is taken to screen listing Security options. [CHAR_LIMIT=50]-->
+    <string name="overlay_security_slice_title"/>
+    <!-- An item title on the privacy and apps screen. If clicked, the user is taken to screen listing Update options. [CHAR_LIMIT=50]-->
+    <string name="update_slice_title"/>
 
     <!-- All application preferences -->
     <skip />
@@ -188,6 +233,7 @@
     <string name="device_surround_sound">Surround sound</string>
     <!-- Preference and title which changes system sounds settings. [CHAR LIMIT=50] -->
     <string name="device_sound_effects">System sounds</string>
+    <string name="surround_sound_toggle_slice_uri" translatable="false" />
     <!-- Preference which manages apps. [CHAR LIMIT=50] -->
     <string name="device_apps">Applications</string>
     <!-- Preference which shows storage status. [CHAR LIMIT=50] -->
@@ -195,7 +241,7 @@
     <!-- Preference which shows reset settings. [CHAR LIMIT=50] -->
     <string name="device_reset">Factory reset</string>
     <!-- Preference which manages backup settings. [CHAR LIMIT=50] -->
-    <string name="device_backup_restore">Backup &amp; restore</string>
+    <string name="device_backup_restore">Backup &amp; Restore</string>
     <!-- Preference which shows reset options [CHAR LIMIT=50] -->
     <string name="device_factory_reset">Factory data reset</string>
     <!-- Preference which sets the device's display calibration. [CHAR LIMIT=50] -->
@@ -217,27 +263,196 @@
     <string name="surround_sound_format_dts">DTS</string>
     <!-- Name of the DTS-HD surround sound format that is displayed to the user [CHAR LIMIT=50] -->
     <string name="surround_sound_format_dts_hd">DTS-HD</string>
-    <!-- Name of the IEC61937 surround sound format that is displayed to the user [CHAR LIMIT=50] -->
-    <string name="surround_sound_format_iec61937">IEC61937</string>
+    <!-- Name of the DTS ultra HD surround sound format that is displayed to the user [CHAR LIMIT=50] -->
+    <string name="surround_sound_format_dts_uhd">DTS-UHD</string>
+    <!-- Name of the DOLBY_MAT surround sound format that is displayed to the user
+        [CHAR LIMIT=50] -->
+    <string name="surround_sound_format_dolby_mat">Dolby Atmos with Dolby TrueHD</string>
+    <!-- Name of the DOLBY_TRUEHD surround sound format that is displayed to the user
+        [CHAR LIMIT=50] -->
+    <string name="surround_sound_format_dolby_truehd">Dolby TrueHD</string>
+    <!-- Name of the E_AC3_JOC surround sound format that is displayed to the user
+        [CHAR LIMIT=50] -->
+    <string name="surround_sound_format_e_ac3_joc">Dolby Atmos with Dolby Digital Plus</string>
+    <!-- Name of the Dynamic Resolution Adaption sound format that is displayed to the user [CHAR LIMIT=50] -->
+    <string name="surround_sound_format_dra">DRA</string>
 
-    <!-- An informational message displayed in the surround sound settings, explaining to the user that the auto setting may sometimes cause issues. [CHAR LIMIT=100]-->
-    <string name="surround_sound_auto_info">Note: The Auto option may not work if your device does not report its supported formats correctly.</string>
-    <!-- Text for a radio button that if selected will cause the device to automatically select an appropriate surround sound format. [CHAR LIMIT=50] -->
-    <string name="surround_sound_auto_summary">Auto: Use the formats that your device reports supporting (recommended)</string>
-    <!-- Text for a radio button that if selected will cause the device to never use a surround sound format. [CHAR LIMIT=50] -->
-    <string name="surround_sound_none_summary">None: Never use surround sound</string>
-    <!-- Text for a radio button that if selected will allow the user to manually select surround sound formats. [CHAR LIMIT=50] -->
-    <string name="surround_sound_manual_summary">Manual: Select which formats to use</string>
+    <!-- An informational message displayed in the surround sound settings, explaining to the
+        user that the auto setting may sometimes cause issues. [CHAR LIMIT=135]-->
+    <string name="surround_sound_auto_info">Note: The Automatic option may not work if your device
+        does not report its supported formats correctly.</string>
+    <!-- Title for a radio button that if selected will cause the device to automatically select
+        an appropriate surround sound format. [CHAR LIMIT=165] -->
+    <string name="surround_sound_auto_title">Automatic: Enable only the formats that are supported
+        by your audio output device
+        "</string>
+    <!-- Summary for a radio button that if selected will cause the device to automatically select
+        an appropriate surround sound format. [CHAR LIMIT=300] -->
+    <string name="surround_sound_auto_summary">When selected, the system will allow apps to select
+        any sound format that is supported by your device chain. Apps may choose a format that is
+        not the highest-quality format.</string>
+    <!-- Title for a radio button that if selected will cause the device to never use a surround
+       sound format. [CHAR LIMIT=50] -->
+    <string name="surround_sound_none_title">None: Never use surround sound</string>
+    <!-- Title for a radio button that if selected will allow the user to manually select surround
+        sound formats. [CHAR LIMIT=187] -->
+    <string name="surround_sound_manual_title">Manual: Selectively enable or disable each format
+        supported by this device, regardless of what is supported by your audio output
+        device.</string>
+    <!-- Summary for a radio button that if selected will allow the user to manually select surround
+        sound formats. [CHAR LIMIT=300] -->
+    <string name="surround_sound_manual_summary">When selected, you can manually disable sound
+        formats that are supported by your device chain that cause problems with playback. Sound
+        formats not supported by your device chain can be enabled. In some cases apps may choose a
+        format that is not the highest-quality format.</string>
+    <!-- Title for warning dialog that is shown when user enables an unsupported surround sound
+        format. [CHAR LIMIT=70]-->
+    <string name="surround_sound_enable_unsupported_dialog_title">Enabling unsupported sound
+        format?</string>
+    <!-- Description for warning dialog that is shown when user enables an unsupported surround
+        sound format. [CHAR LIMIT=271]-->
+    <string name="surround_sound_enable_unsupported_dialog_desc">Your connected audio device does
+            not report support for this format. This may cause unexpected behaviours like loud
+            noises or pops from your device.</string>
+    <!-- Cancel button title for warning dialog that is shown when user enables an unsupported
+        surround sound format. [CHAR LIMIT=30]-->
+    <string name="surround_sound_enable_unsupported_dialog_cancel">Cancel</string>
+    <!-- Ok button title for warning dialog that is shown when user enables an unsupported surround
+        sound format. [CHAR LIMIT=50]-->
+    <string name="surround_sound_enable_unsupported_dialog_ok">Change anyway</string>
+    <!-- Title for supported surround sound section [CHAR LIMIT=50]-->
+    <string name="surround_sound_supported_title">SUPPORTED FORMATS</string>
+    <!-- Title for unsupported surround sound section [CHAR LIMIT=50]-->
+    <string name="surround_sound_unsupported_title">UNSUPPORTED FORMATS</string>
+    <!-- Title for surround sound format info section [CHAR LIMIT=50]-->
+    <string name="surround_sound_format_info">FORMAT INFO</string>
+    <!-- Title for surround sound show format section [CHAR LIMIT=50]-->
+    <string name="surround_sound_show_formats">Show formats</string>
+    <!-- Title for surround sound hide format section [CHAR LIMIT=50]-->
+    <string name="surround_sound_hide_formats">Hide formats</string>
+    <!-- Title for surround sound enabled format section [CHAR LIMIT=50]-->
+    <string name="surround_sound_enabled_formats">ENABLED FORMATS</string>
+    <!-- Title for surround sound disabled format section [CHAR LIMIT=50]-->
+    <string name="surround_sound_disabled_formats">DISABLED FORMATS</string>
+    <!-- Summary for toast shown on clicking the disabled format preference in Automatic mode
+        [CHAR LIMIT=250]-->
+    <string name="surround_sound_disabled_format_info_clicked">To enable, change the
+        format selection to Manual.</string>
+    <!-- Summary for toast shown on clicking the enabled format preference in Automatic mode
+        [CHAR LIMIT=250]-->
+    <string name="surround_sound_enabled_format_info_clicked">To disable, change the
+        format selection to Manual.</string>
 
     <!-- A category title for the settings related to display. [CHAR LIMIT=50] -->
     <string name="display_category_title">Display</string>
     <!-- Title for preference which when clicked lets the user configure advanced display settings. [CHAR LIMIT=50] -->
     <string name="advanced_display_settings_title">Advanced display settings</string>
+    <!-- Title for HDMI-CEC settings entry. [CHAR LIMIT=20] -->
+    <string name="hdmi_cec_settings_title">HDMI-CEC</string>
+    <string name="advanced_sound_settings_slice_uri" translatable="false" />
     <!-- Title for preference which when clicked lets the user configure advanced sound settings. [CHAR LIMIT=50] -->
     <string name="advanced_sound_settings_title">Advanced sound settings</string>
     <!-- Title for preference to allow game mode for display. [CHAR LIMIT=50] -->
     <string name="game_mode_title">Allow game mode</string>
+    <!-- Title for preference for forcing a display's frame
+    rate to match the content's frame rate. [CHAR LIMIT=60] -->
+    <string name="match_content_frame_rate_title">Match content frame rate</string>
+    <!-- Default preference for a display's frame rate to match the content's frame rate. [CHAR LIMIT=80] -->
+    <string name="match_content_frame_rate_seamless">Seamless</string>
+    <!-- Summary for default preference for a display's frame rate to match the content's frame rate. [CHAR LIMIT=250] -->
+    <string name="match_content_frame_rate_seamless_summary">If the app requests it, your device
+        will match its output to the original frame rate of the content you’re watching,
+        ONLY if your TV can perform a seamless transition.  </string>
+    <!-- Preference to force a display's frame rate to always match the content's frame rate. [CHAR LIMIT=80] -->
+    <string name="match_content_frame_rate_non_seamless">Non-seamless</string>
+    <!-- Summary for preference to force a display's frame rate to always match the content's frame rate. [CHAR LIMIT=250] -->
+    <string name="match_content_frame_rate_non_seamless_summary">If the app requests it, your
+        device will match its output to the original frame rate of the content you’re watching.
+        This may cause your screen to go blank for a second when exiting or entering a video
+        playback.</string>
+    <!-- Preference to force a display's frame rate to never match the content's frame rate. [CHAR LIMIT=50] -->
+    <string name="match_content_frame_rate_never">Never</string>
+    <!-- Summary for preference to force a display's frame rate to never match the content's frame rate. [CHAR LIMIT=250] -->
+    <string name="match_content_frame_rate_never_summary">Even if the app requests it, your device
+        will never try to match its output to the original frame rate of the content you’re
+        watching.</string>
+    <!-- Title for preference which when clicked lets the user configure text scaling. [CHAR LIMIT=50] -->
+    <string name="font_scale_settings_title">Text scaling</string>
+    <!-- A title for the section showing the text scaling preview. [CHAR LIMIT=50] -->
+    <string name="font_scale_item_detail">Scale to <xliff:g id="scale">%1$d</xliff:g>%%</string>
+    <!-- A title for the section showing the text scaling preview. [CHAR LIMIT=50] -->
+    <string name="font_scale_sample_text_title">Sample text</string>
+    <!-- Title text in sample text used to illustrate how the currently selected font scale will appear to the user. [CHAR LIMIT=50] -->
+    <string name="font_scale_preview_text_title"
+            translation_description="Translate manually. No not adopt any copyrighted material for translation.">
+        The Wonderful Wizard of Oz
+    </string>
+    <!-- Subtitle for sample text shown in the text scaling preview. [CHAR LIMIT=100] -->
+    <string name="font_scale_preview_text_subtitle">Chapter 11: The Wonderful Emerald City of Oz</string>
+    <!-- Sample text shown in the text scaling preview. [CHAR LIMIT=NONE] -->
+    <string name="font_scale_preview_text_body">
+        Even with eyes protected by the green spectacles Dorothy and her friends were at first dazzled by the brilliancy of the wonderful City.
+        The streets were lined with beautiful houses all built of green marble and studded everywhere with sparkling emeralds.
+        They walked over a pavement of the same green marble, and where the blocks were joined together were rows of emeralds, set closely, and glittering in the brightness of the sun.
+        The window panes were of green glass; even the sky above the City had a green tint, and the rays of the sun were green.
+        \n\nThere were many people, men, women and children, walking about, and these were all dressed in green clothes and had greenish skins.
+        They looked at Dorothy and her strangely assorted company with wondering eyes, and the children all ran away and hid behind their mothers when they saw the Lion; but no one spoke to them.
+        Many shops stood in the street, and Dorothy saw that everything in them was green.
+        Green candy and green pop-corn were offered for sale, as well as green shoes, green hats and green clothes of all sorts.
+        At one place a man was selling green lemonade, and when the children bought it Dorothy could see that they paid for it with green pennies.
+        \n\nThere seemed to be no horses nor animals of any kind; the men carried things around in little green carts, which they pushed before them.
+        Everyone seeemed happy and contented and prosperous.
+    </string>
 
+    <!-- Title for preference for HDR format selection. [CHAR LIMIT=50] -->
+    <string name="hdr_format_selection_title">Format selection</string>
+    <!-- Title for Automatic preference for HDR format selection. [CHAR LIMIT=50] -->
+    <string name="hdr_format_selection_auto_title">Automatic</string>
+    <!-- Title for Manual preference for HDR format selection. [CHAR LIMIT=50] -->
+    <string name="hdr_format_selection_manual_title">Manual</string>
+    <!-- Desc for Automatic preference for HDR format selection. [CHAR LIMIT=100] -->
+    <string name="hdr_format_selection_auto_desc">Use device reported formats</string>
+    <!-- Desc for Manual preference for HDR format selection. [CHAR LIMIT=100] -->
+    <string name="hdr_format_selection_manual_desc">Choose formats manually from available
+        formats</string>
+    <!-- Title for supported HDR format section [CHAR LIMIT=50]-->
+    <string name="hdr_format_supported_title">SUPPORTED FORMATS</string>
+    <!-- Title for unsupported HDR format [CHAR LIMIT=50]-->
+    <string name="hdr_format_unsupported_title">UNSUPPORTED FORMATS</string>
+    <!-- Title for HDR format type HDR10 [CHAR LIMIT=50]-->
+    <string name="hdr_format_hdr10">HDR10</string>
+    <!-- Title for HDR format type HLG [CHAR LIMIT=50]-->
+    <string name="hdr_format_hlg">HLG</string>
+    <!-- Title for HDR format type HDR10+ [CHAR LIMIT=50]-->
+    <string name="hdr_format_hdr10plus">HDR10+</string>
+    <!-- Title for HDR format type Dolby Vision [CHAR LIMIT=50]-->
+    <string name="hdr_format_dolby_vision">Dolby Vision</string>
+    <!-- Summary for a radio button that if selected will cause the device to automatically select
+            appropriate HDR formats. [CHAR LIMIT=300] -->
+    <string name="hdr_format_selection_auto_summary">When selected, the system will allow apps to
+        select any HDR format that is supported by your device chain. Apps may choose a format that
+        is not the highest-quality format.</string>
+    <!-- Summary for a radio button that if selected will allow the user to manually select HDR
+            formats. [CHAR LIMIT=300] -->
+    <string name="hdr_format_selection_manual_summary">When selected, you can manually disable HDR
+        formats that are supported by your device chain that cause problems with playback. HDR
+        formats not supported by your device chain cannot be forcibly enabled. Apps may choose a
+        format that is not the highest-quality format.</string>
+
+    <!-- Title for HDR format info section [CHAR LIMIT=50]-->
+    <string name="hdr_format_info">FORMAT INFO</string>
+    <!-- Title for HDR show format section [CHAR LIMIT=50]-->
+    <string name="hdr_show_formats">Show formats</string>
+    <!-- Title for HDR hide format section [CHAR LIMIT=50]-->
+    <string name="hdr_hide_formats">Hide formats</string>
+    <!-- Title for HDR enabled format section [CHAR LIMIT=50]-->
+    <string name="hdr_enabled_formats">ENABLED FORMATS</string>
+    <!-- Title for HDR disabled format section [CHAR LIMIT=50]-->
+    <string name="hdr_disabled_formats">DISABLED FORMATS</string>
+    <!-- Summary for toast shown on clicking the enabled format preference in Automatic mode
+        [CHAR LIMIT=250]-->
+    <string name="hdr_enabled_format_info_clicked">To disable, change the
+        format selection to Manual.</string>
 
     <!-- Title of dialog asking user to confirm before clearing all caches. [CHAR LIMIT=48] -->
     <string name="device_storage_clear_cache_title">Clear cached data?</string>
@@ -275,10 +490,17 @@
 
     <!-- Remote and Accessories -->
     <skip />
+    <!-- Title text for new accessories pairing screen used by Talkback. [CHAR LIMIT=50] -->
+    <string name="accessories_add_accessibility_title">Bluetooth pairing.</string>
     <!-- Description text for new accessories pairing screen. [CHAR LIMIT=150] -->
     <string name="accessories_add_title">Searching for accessories&#8230;</string>
     <!-- Description text for bluetooth device pairing instructions. [CHAR LIMIT=150] -->
-    <string name="accessories_add_bluetooth_inst">Before pairing your Bluetooth devices, make sure they\'re in pairing mode</string>
+    <string name="accessories_add_bluetooth_inst">Before pairing your Bluetooth devices, make sure they\'re in pairing mode.</string>
+    <!-- Extra description text for bluetooth device pairing instructions. It is a placeholder to be overrode. -->
+    <string name="accessories_add_bluetooth_inst_extra" translatable="false"/>
+    <!-- The extra description is presented with button icons. These two strings can be overrode to be used for describing the pairing buttons for accessibility feature such as Talkback. -->
+    <string name="accessories_pairing_button1" translatable="false"/>
+    <string name="accessories_pairing_button2" translatable="false"/>
     <!-- Description text for autopairing when the user is in the pairing activity due to pressing the back HW button.  %1 will be replaced with the countdown value. [CHAR LIMIT=150] -->
     <string name="accessories_autopair_msg">A device was found and will automatically pair in <xliff:g id="countdown">%1$s</xliff:g> seconds</string>
     <!-- Error message displayed to the user indicating that a selected action is not supported on this device. [CHAR LIMIT=150] -->
@@ -304,6 +526,59 @@
     <!-- Action title for Cancelling the Bluetooth secure Pair action [CHAR LIMIT=50] -->
     <string name="bluetooth_cancel">Cancel</string>
 
+    <!-- Toast message when a bluetooth device is connected. [CHAR LIMIT=NONE] -->
+    <string name="bluetooth_device_connected_toast">%1$s connected</string>
+    <!-- Toast message when a bluetooth device is disconnected. [CHAR LIMIT=NONE] -->
+    <string name="bluetooth_device_disconnected_toast">%1$s disconnected</string>
+
+    <!-- The title for "Remotes & Accessories" Slice [CHAR LIMIT = 50]-->
+    <string name="connected_devices_slice_pref_title">Remotes &amp; Accessories</string>
+    <!-- The title for the Bluetooth toggle [CHAR LIMIT=20] -->
+    <string name="bluetooth_toggle_title">Bluetooth</string>
+    <!-- The title for the confirmation dialog when users try to turn off bluetooth.
+        [CHAR LIMIT=50]-->
+    <string name="bluetooth_toggle_confirmation_dialog_title">Turn off Bluetooth</string>
+    <!-- The summary for the confirmation dialog when users try to turn off bluetooth.
+        [CHAR LIMIT=240]-->
+    <string name="bluetooth_toggle_confirmation_dialog_summary">You will not be able to
+        access Google Assistant from your remote while Bluetooth is off.</string>
+    <!-- The title on button that starts pairing flow. [CHAR LIMIT=40] -->
+    <string name="bluetooth_pair_accessory">Pair accessory</string>
+    <!-- The category title for connected/paired accessories. [CHAR LIMIT=30] -->
+    <string name="bluetooth_known_devices_category">Accessories</string>
+    <!-- Uri to be overlaid by partner to show official remote control settings. -->
+    <string name="bluetooth_official_remote_entry_slice_uri" translatable="false" />
+    <!-- Category for listing official remote control devices. Can be overlaid by OEM to something
+        like "Foobar Remote". -->
+    <string name="bluetooth_official_remote_category">Remote Control</string>
+    <!-- Title for official remote control settings. Can be overlaid by OEM to something like as
+        "Foobar Remote Settings". -->
+    <string name="bluetooth_official_remote_entry_title">Remote control settings</string>
+    <!-- Text on button that allows users to connect their Bluetooth devices. [CHAR LIMIT=30] -->
+    <string name="bluetooth_connect_action_title">Connect</string>
+    <!-- Text asking users to confirm connecting their Bluetooth devices. [CHAR LIMIT=40] -->
+    <string name="bluetooth_connect_confirm">Connect to %1$s</string>
+    <!-- Text on button that allows users to disconnect their Bluetooth devices. [CHAR LIMIT=30] -->
+    <string name="bluetooth_disconnect_action_title">Disconnect</string>
+    <!-- Text asking users to confirm disconnecting their Bluetooth devices. [CHAR LIMIT=40] -->
+    <string name="bluetooth_disconnect_confirm">Disconnect from %1$s</string>
+    <!-- Text on button that allows users to rename their Bluetooth devices. [CHAR LIMIT=30] -->
+    <string name="bluetooth_rename_action_title">Rename</string>
+    <!-- Text shown on Bluetooth devices renaming screen. [CHAR LIMIT=40] -->
+    <string name="bluetooth_rename">Rename your connected device</string>
+    <!-- Text on button that allows users to forget their Bluetooth devices. [CHAR LIMIT=30] -->
+    <string name="bluetooth_forget_action_title">Forget</string>
+    <!-- Text asking users to confirm forgetting their Bluetooth devices. [CHAR LIMIT=40] -->
+    <string name="bluetooth_forget_confirm">Forget %1$s</string>
+    <!-- Text preceded by the bluetooth serial. [CHAR LIMIT=40] -->
+    <string name="bluetooth_serial_number_label">Bluetooth address</string>
+    <!-- Subtitle showing connected connection status of Bluetooth device. [CHAR LIMIT=40] -->
+    <string name="bluetooth_connected_status">Connected</string>
+    <!-- Subtitle showing disconnected connection status of Bluetooth device. [CHAR LIMIT=40] -->
+    <string name="bluetooth_disconnected_status">Disconnected</string>
+    <!-- Bluetooth Settings. text displayed when user has restriction DISALLOW_CONFIG_BLUETOOTH [CHAR LIMIT=NONE]-->
+    <string name="bluetooth_empty_list_user_restricted">You don\u2019t have permission to change Bluetooth settings.</string>
+
     <!-- Help and feedback preferences -->
     <skip />
     <!-- Preference which manages sending feedback about an issue. [CHAR LIMIT=50] -->
@@ -316,9 +591,11 @@
     <!-- Preference which manages cast settings. [CHAR LIMIT=50] -->
     <string name="system_cast">Google Cast</string>
     <!-- Preference which manages date / time settings. [CHAR LIMIT=50] -->
-    <string name="system_date_time">Date &amp; time</string>
+    <string name="system_date_time">Date &amp; Time</string>
     <!-- Preference which manages language settings. [CHAR LIMIT=50] -->
     <string name="system_language">Language</string>
+    <!-- Text displayed when user has restriction DISALLOW_CONFIG_LOCALE [CHAR LIMIT=NONE]-->
+    <string name="language_empty_list_user_restricted">You don\u2019t have permission to change the device language.</string>
     <!-- Preference which manages input method settings (without autofill), see also system_keyboard_autofill [CHAR LIMIT=50] -->
     <string name="system_keyboard">Keyboard</string>
     <!-- Preference which manages both input method settings and autofill settings. [CHAR LIMIT=50] -->
@@ -332,13 +609,13 @@
     <!-- Preference which manages google and assistant settings. [CHAR LIMIT=50] -->
     <string name="system_google">Google</string>
     <!-- Preference which manages security settings. [CHAR LIMIT=50] -->
-    <string name="system_security">Security &amp; restrictions</string>
+    <string name="system_security">Security &amp; Restrictions</string>
     <!-- Preference which manages speech recognition settings. [CHAR LIMIT=50] -->
     <string name="system_speech">Speech</string>
     <!-- Preference which manages TV inputs. [CHAR LIMIT=50] -->
     <string name="system_inputs">Inputs</string>
     <!-- Preference which manages TV inputs and devices. [CHAR LIMIT=50] -->
-    <string name="system_inputs_devices">Inputs &amp; devices</string>
+    <string name="system_inputs_devices">Inputs &amp; Devices</string>
     <!-- Preference which manages home theater controls. [CHAR LIMIT=50] -->
     <string name="system_home_theater_control">Home theater control</string>
     <!-- Preference which manages accessibility settings. [CHAR LIMIT=50] -->
@@ -349,6 +626,159 @@
     <string name="accessibility_none">None</string>
     <!-- Preference which manages Diagnostic and Usage reporting -->
     <string name="system_diagnostic">Usage &amp; diagnostics</string>
+    <string name="cast_settings_title" translatable="false" />
+    <string name="cast_settings_slice_uri" translatable="false" />
+
+    <!-- Message when there are no available device admin apps to display -->
+    <string name="no_device_admins">No device admin apps available</string>
+
+    <!-- Summary for settings checkbox to disable widgets when the setting has been disabled by an installed device admin [CHAR LIMIT=50] -->
+    <string name="security_enable_widgets_disabled_summary">Disabled by admin</string>
+
+    <!-- Summary for settings preference disabled by administrator [CHAR LIMIT=50] -->
+    <string name="disabled_by_administrator_summary">Not available</string>
+
+    <!-- Title of preference to manage device admin apps, which are used by IT admins to manage devices -->
+    <string name="manage_device_admin">Device admin apps</string>
+
+    <!-- Summary of preference to manage device admin apps, informing the user that currently no device admin apps are installed and active -->
+    <string name="number_of_device_admins_none">No active apps</string>
+
+    <!-- Summary of preference to manage device admin apps, informing the user how many device admin apps are installed and active -->
+    <plurals name="number_of_device_admins">
+        <item quantity="one"><xliff:g id="count">%d</xliff:g> active app</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> active apps</item>
+    </plurals>
+
+    <!-- Summary for preference that has been disabled by because of the DevicePolicyAdmin, or because device encryption is enabled, or because there are credentials in the credential storage [CHAR LIMIT=50] -->
+    <string name="unlock_set_unlock_disabled_summary">Disabled by admin, encryption policy, or
+        credential storage</string>
+
+    <!-- Enterprise Privacy --> <skip />
+
+    <!-- Title of setting on security settings screen. This will take the user to a screen with information about admin powers and their impact on the user's privacy on a managed device. Shown on enterprise-managed devices only. Note: "Device" is singular and refers to the device (e.g. phone or tablet) that the user is holding in their hand. -->
+    <string name="enterprise_privacy_settings">Managed device info</string>
+    <!-- Summary for Enterprise Privacy settings, explaining what the user can expect to find under it [CHAR LIMIT=NONE]-->
+    <string name="enterprise_privacy_settings_summary_generic">Changes &amp; settings managed by your organization</string>
+    <!-- Summary for Enterprise Privacy settings, explaining what the user can expect to find under it [CHAR LIMIT=NONE]-->
+    <string name="enterprise_privacy_settings_summary_with_name">Changes &amp; settings managed by <xliff:g id="organization_name" example="Foo, Inc.">%s</xliff:g></string>
+    <!-- Enterprise Privacy settings activity header, summarizing the powers that the admin has. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_header">To provide access to your work data, your organization may change settings and install software on your device.\n\nFor more details, contact your organization\'s admin.</string>
+    <!-- Title for the 'Types of information your organization can see' preference category. [CHAR LIMIT=60] -->
+    <string name="enterprise_privacy_exposure_category">Types of information your organization can see</string>
+    <!-- Title for the 'Changes made by your organization’s admin' preference category. [CHAR LIMIT=60] -->
+    <string name="enterprise_privacy_exposure_changes_category">Changes made by your organization\'s admin</string>
+    <!-- Title for the 'Your access to this device' preference category. [CHAR LIMIT=60] -->
+    <string name="enterprise_privacy_device_access_category">Your access to this device</string>
+    <!-- Label explaining that the admin can see data associated with their work account. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_enterprise_data">Data associated with your work account, such as email and calendar</string>
+    <!-- Label explaining that the admin can see apps installed on the device. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_installed_packages">List of apps on your device</string>
+    <!-- Label explaining that the admin can see app usage statistics. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_usage_stats">Amount of time and data spent in each app</string>
+    <!-- Label explaining that the admin can retrieve network logs on the device. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_network_logs">Most recent network traffic log</string>
+    <!-- Label explaining that the admin can request bug reports on the device. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_bug_reports">Most recent bug report</string>
+    <!-- Label explaining that the admin can retrieve security on from the device. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_security_logs">Most recent security log</string>
+    <!-- Label indicating that the admin never took a given action so far (e.g. did not retrieve security logs or request bug reports). -->
+    <string name="enterprise_privacy_none">None</string>
+    <!-- Label indicating that the admin installed one or more apps on the device. -->
+    <string name="enterprise_privacy_enterprise_installed_packages">Apps installed</string>
+    <!-- Label explaining that the number of apps is an estimation. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_apps_count_estimation_info">Number of apps is estimated. It may not include apps installed outside of the Play Store.</string>
+    <!-- Summary indicating the number of apps that a label (e.g. installed apps or apps granted a particular permission) refers to. The number shown is a minimum as there may be additional apps we do not know about. [CHAR LIMIT=NONE] -->
+    <plurals name="enterprise_privacy_number_packages_lower_bound">
+        <item quantity="one">Minimum <xliff:g id="count">%d</xliff:g> app</item>
+        <item quantity="other">Minimum <xliff:g id="count">%d</xliff:g> apps</item>
+    </plurals>
+    <!-- Label indicating that the admin granted one or more apps access to the device's location. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_location_access">Location permissions</string>
+    <!-- Label indicating that the admin granted one or more apps access to the microphone. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_microphone_access">Microphone permissions</string>
+    <!-- Label indicating that the admin granted one or more apps access to the camera. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_camera_access">Camera permissions</string>
+    <!-- Label indicating that the admin set one or more apps as defaults for common actions (e.g. open browser, send e-mail). [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_enterprise_set_default_apps">Default apps</string>
+    <!-- Summary indicating the number of apps that a label (e.g. installed apps or apps granted a particular permission) refers to. [CHAR LIMIT=NONE] -->
+    <plurals name="enterprise_privacy_number_packages">
+        <item quantity="one"><xliff:g id="count">%d</xliff:g> app</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> apps</item>
+    </plurals>
+    <!-- Label explaining that the current input method was set by the admin. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_input_method">Default keyboard</string>
+    <!-- Summary indicating the input method set by the admin. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_input_method_name">Set to <xliff:g id="app_label" example="Example Keyboard">%s</xliff:g></string>
+    <!-- Label explaining that an always-on VPN was set by the admin for the entire device. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_always_on_vpn_device">Always-on VPN turned on</string>
+    <!-- Label explaining that an always-on VPN was set by the admin in the personal profile. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_always_on_vpn_personal">Always-on VPN turned on in your personal profile</string>
+    <!-- Label explaining that an always-on VPN was set by the admin in the work profile. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_always_on_vpn_work">Always-on VPN turned on in your work profile</string>
+    <!-- Label explaining that a global HTTP proxy was set by the admin. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_global_http_proxy">Global HTTP proxy set</string>
+    <!-- Label explaining that the admin installed trusted CA certificates for the entire device. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_ca_certs_device">Trusted credentials</string>
+    <!-- Label explaining that the admin installed trusted CA certificates in personal profile. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_ca_certs_personal">Trusted credentials in your personal profile</string>
+    <!-- Label explaining that the admin installed trusted CA certificates in work profile. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_ca_certs_work">Trusted credentials in your work profile</string>
+    <!-- Summary indicating the number of trusted CA certificates installed by the admin. The number shown is a minimum as there may be additional CA certificates we do not know about. [CHAR LIMIT=NONE] -->
+    <plurals name="enterprise_privacy_number_ca_certs">
+        <item quantity="one">Minimum <xliff:g id="count">%d</xliff:g> CA certificate</item>
+        <item quantity="other">Minimum <xliff:g id="count">%d</xliff:g> CA certificates</item>
+    </plurals>
+    <!-- Label explaining that the admin can lock the device and change the user's password. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_lock_device">Admin can lock the device and reset password</string>
+    <!-- Label explaining that the admin can wipe the device remotely. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_wipe_device">Admin can delete all device data</string>
+    <!-- Label explaining that the admin configured the device to wipe itself when the password is mistyped too many times. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_failed_password_wipe_device">Failed password attempts before deleting all device data</string>
+    <!-- Label explaining that the admin configured the work profile to wipe itself when the password is mistyped too many times. [CHAR LIMIT=NONE] -->
+    <string name="enterprise_privacy_failed_password_wipe_work">Failed password attempts before deleting work profile data</string>
+    <!-- Summary indicating the number of mistyped passwords after which the device or work profile wipes itself. [CHAR LIMIT=NONE] -->
+    <plurals name="enterprise_privacy_number_failed_password_wipe">
+        <item quantity="one"><xliff:g id="count">%d</xliff:g> attempt</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> attempts</item>
+    </plurals>
+    <!-- Message indicating that the device is enterprise-managed by a Device Owner [CHAR LIMIT=NONE] -->
+    <string name="do_disclosure_generic">This device is managed by your organization.</string>
+    <!-- Message indicating that the device is enterprise-managed by a Device Owner [CHAR LIMIT=NONE] -->
+    <string name="do_disclosure_with_name">This device is managed by <xliff:g id="organization_name" example="Foo, Inc.">%s</xliff:g>.</string>
+    <!-- Message indicating that the device is enterprise-managed: Space that separates the main text and the "learn more" link that follows it. [CHAR LIMIT=NONE] -->
+    <string name="do_disclosure_learn_more_separator">" "</string>
+    <!-- Button label to allow the user to view additional information [CHAR LIMIT=NONE BACKUP_MESSAGE_ID=2416766240581561009] -->
+    <string name="learn_more">Learn more</string>
+
+    <!-- Strings for displaying which applications were set as default for specific actions. -->
+    <!-- Title for the apps that have been set as default handlers of camera-related intents. [CHAR LIMIT=30] -->
+    <plurals name="default_camera_app_title">
+        <item quantity="one">Camera app</item>
+        <item quantity="other">Camera apps</item>
+    </plurals>
+    <!-- Title for the app that has been set as default handler of calendar-related intents. [CHAR LIMIT=30] -->
+    <string name="default_calendar_app_title">Calendar app</string>
+    <!-- Title for the app that has been set as default handler of contacts-related intents. [CHAR LIMIT=30] -->
+    <string name="default_contacts_app_title">Contacts app</string>
+    <!-- Title for the apps that have been set as default handlers of new email intents. [CHAR LIMIT=30] -->
+    <plurals name="default_email_app_title">
+        <item quantity="one">Email client app</item>
+        <item quantity="other">Email client apps</item>
+    </plurals>
+    <!-- Title for the app that has been set as default handler of geo-related intents. [CHAR LIMIT=30] -->
+    <string name="default_map_app_title">Map app</string>
+    <!-- Title for the apps that have been set as default handlers of call-related intents. [CHAR LIMIT=30] -->
+    <plurals name="default_phone_app_title">
+        <item quantity="one">Phone app</item>
+        <item quantity="other">Phone apps</item>
+    </plurals>
+    <!-- Title for Default Browser settings [CHAR LIMIT=30] -->
+    <string name="default_browser_title">Browser app</string>
+    <!-- Template for concatenating two app names -->
+    <string name="app_names_concatenation_template_2"><xliff:g id="first_app_name">%1$s</xliff:g>, <xliff:g id="second_app_name">%2$s</xliff:g></string>
+    <!-- Template for concatenating three app names -->
+    <string name="app_names_concatenation_template_3"><xliff:g id="first_app_name">%1$s</xliff:g>, <xliff:g id="second_app_name">%2$s</xliff:g>, <xliff:g id="third_app_name">%3$s</xliff:g></string>
 
     <!-- About -->
     <skip />
@@ -356,16 +786,26 @@
     <string name="tutorials">Tutorials</string>
     <!-- Preference which shows system update status. [CHAR LIMIT=50] -->
     <string name="about_system_update">System update</string>
+    <!-- System update info description about what happens if you perform a
+        system update [CHAR LIMIT=NONE] -->
+    <string name="system_update_description">This will update your system
+        software to the most recent version. Your device will restart.</string>
+    <!-- System update content description for talkback mode with
+        comma-separated title (about_system_update) and info text
+        (system_update_description) [CHAR LIMIT=NONE] -->
+    <string name="system_update_content_description">System update,
+        This will update your system software to the most recent version.
+        Your device will restart.</string>
     <!-- Preference which shows about screen with legal info, model, etc. [CHAR LIMIT=50] -->
     <string name="about_preference">About</string>
     <!-- Preference which shows name of device as it will appear when being accessed remotely [CHAR LIMIT=50] -->
     <string name="device_name">Device name</string>
     <!-- Button to reboot the device [CHAR LIMIT=40] -->
-    <string name="restart_button_label">Reboot</string>
+    <string name="restart_button_label">Restart</string>
     <!-- Preference which shows legal info. [CHAR LIMIT=50] -->
     <string name="about_legal_info">Legal information</string>
     <!-- Preference which shows open source licenses [CHAR LIMIT=50]-->
-    <string name="about_legal_license">Open source licenses</string>
+    <string name="about_legal_license">Third Party Source</string>
     <!-- Preference which shows terms of service and privacy info [CHAR LIMIT=50]-->
     <string name="about_terms_of_service">Google legal</string>
     <!-- Toast message displayed if the license data is unavailable [CHAR LIMIT=100] -->
@@ -373,11 +813,11 @@
     <!-- Preference which shows model. [CHAR LIMIT=50] -->
     <string name="about_model">Model</string>
     <!-- Preference which shows version. [CHAR LIMIT=50] -->
-    <string name="about_version">Version</string>
+    <string name="about_version">Android TV OS version</string>
     <!-- Preference which shows serial number. [CHAR LIMIT=50] -->
     <string name="about_serial">Serial number</string>
     <!-- Preference which shows build version. [CHAR LIMIT=50] -->
-    <string name="about_build">Build</string>
+    <string name="about_build">Android TV OS build</string>
     <!-- Device Info screen. Countdown for user taps to enable development settings [CHAR LIMIT=NONE] -->
     <plurals name="show_dev_countdown">
         <item quantity="one">You are now <xliff:g id="step_count">%1$d</xliff:g> step away from being a developer</item>
@@ -385,6 +825,12 @@
     </plurals>
     <!-- Preference which shows ads settings. [CHAR LIMIT=50] -->
     <string name="about_ads">Ads</string>
+    <!-- Ads info description outlining the Ads settings options [CHAR LIMIT=NONE] -->
+    <string name="ads_description">Manage your ads settings, such as resetting your advertising ID.</string>
+    <!-- Ads content description for talkback mode with comma-separated title
+        (about_ads) and info text (ads_description) [CHAR LIMIT=NONE] -->
+    <string name="ads_content_description">Ads, Manage your ads settings,
+        such as resetting your advertising ID.</string>
     <!-- Device Info screen. Confirmation that developer settings are enabled [CHAR LIMIT=NONE] -->
     <string name="show_dev_on">You are now a developer!</string>
     <!-- Device Info screen. Okay we get it, stop pressing, you already have it on [CHAR LIMIT=NONE] -->
@@ -404,6 +850,36 @@
         "system_update_settings_list_item_title" in this project. [CHAR LIMIT=50] -->
     <string name="additional_system_update_settings_list_item_title">Additional system updates</string>
 
+    <!-- Notification of installed CA Certs --> <skip/>
+
+    <!-- Shows up when there is a user SSL CA Cert installed on the
+         device.  Indicates to the user that SSL traffic can be intercepted.  [CHAR LIMIT=NONE] -->
+    <string name="ssl_ca_cert_warning">Network may be monitored</string>
+    <!-- Button to close the SSL CA cert warning dialog box, meaning the user is done reading.  [CHAR LIMIT=NONE] -->
+    <string name="done_button">Done</string>
+    <!-- Title of Dialog warning users of SSL monitoring. [CHAR LIMIT=NONE] -->
+    <plurals name="ssl_ca_cert_dialog_title">
+        <item quantity="one">Trust or remove certificate</item>
+        <item quantity="other">Trust or remove certificates</item>
+    </plurals>
+    <!-- Text of message to show to device owner user whose administrator has installed a SSL CA Cert.  [CHAR LIMIT=NONE] -->
+    <plurals name="ssl_ca_cert_info_message_device_owner">
+        <item quantity="one"><xliff:g id="managing_domain">%s</xliff:g> has installed a certificate authority on your device, which may allow them to monitor your device network activity, including emails, apps, and secure websites.\n\nFor more information about this certificate, contact your admin.</item>
+        <item quantity="other"><xliff:g id="managing_domain">%s</xliff:g> has installed certificate authorities on your device, which may allow them to monitor your device network activity, including emails, apps, and secure websites.\n\nFor more information about these certificates, contact your admin.</item>
+    </plurals>
+    <!-- Text of message to show to work profile users whose administrator has installed a SSL CA Cert.  [CHAR LIMIT=NONE] -->
+    <plurals name="ssl_ca_cert_info_message">
+        <item quantity="one"><xliff:g id="managing_domain">%s</xliff:g> has installed a certificate authority for your work profile, which may allow them to monitor work network activity, including emails, apps, and secure websites.\n\nFor more information about this certificate, contact your admin.</item>
+        <item quantity="other"><xliff:g id="managing_domain">%s</xliff:g> has installed certificate authorities for your work profile, which may allow them to monitor work network activity, including emails, apps, and secure websites.\n\nFor more information about these certificates, contact your admin.</item>
+    </plurals>
+    <!-- Text of warning to show to users that have a SSL CA Cert installed.  [CHAR LIMIT=NONE] -->
+    <string name="ssl_ca_cert_warning_message">A third party is capable of monitoring your network activity, including emails, apps, and secure websites.\n\nA trusted credential installed on your device is making this possible.</string>
+    <!-- Label on button that will take the user to the Trusted Credentials settings page.  [CHAR LIMIT=NONE]-->
+    <plurals name="ssl_ca_cert_settings_button">
+        <item quantity="one">Check certificate</item>
+        <item quantity="other">Check certificates</item>
+    </plurals>
+
     <!-- About screen, title of the item to go into the device status screen -->
     <string name="device_status">Status</string>
     <!-- About screen, summary of the item that takes you to device status screen -->
@@ -418,6 +894,19 @@
 
     <!-- Full package name of OEM preferred device feedback reporter. [DO NOT TRANSLATE] -->
     <string name="oem_preferred_feedback_reporter" translatable="false" />
+
+    <!-- OEM Unlock strings (duplicated with Settings) -->
+    <!-- setting enable OEM unlock Checkbox's summary to explain this Checkbox is disabled because the bootloader has been unlocked [CHAR_LIMIT=60] -->
+    <string name="oem_unlock_enable_disabled_summary_bootloader_unlocked">Bootloader is already unlocked</string>
+    <!-- setting enable OEM unlock Checkbox's summary to explain this Checkbox is disabled because there is no connectivity. [CHAR_LIMIT=60] -->
+    <string name="oem_unlock_enable_disabled_summary_connectivity">Connect to the internet first</string>
+    <!-- setting enable OEM unlock Checkbox's summary to explain this Checkbox is disabled because there is no connectivity or the device is locked by the carrier [CHAR_LIMIT=60] -->
+    <string name="oem_unlock_enable_disabled_summary_connectivity_or_locked">Connect to the internet or contact your carrier</string>
+    <!-- setting enable OEM unlock Checkbox's summary to explain this Checkbox is disabled because this setting is unavailable on sim-locked devices. [CHAR_LIMIT=60] -->
+    <string name="oem_unlock_enable_disabled_summary_sim_locked_device">Unavailable on carrier-locked devices</string>
+    <!-- Information displayed after user locks OEM lock [Char Limit=None]-->
+    <string name="oem_lock_info_message">Please restart the device to enable device protection feature.</string>
+    <string name="automatic_storage_manager_freed_bytes"><xliff:g id="size" example="3.25MB">%1$s</xliff:g> total made available\n\nLast ran on <xliff:g id="date" example="Jan 12">%2$s</xliff:g></string>
 
     <!-- About screen, fcc equipment id label  [CHAR LIMIT=40] -->
     <string name="fcc_equipment_id">Equipment ID</string>
@@ -435,10 +924,6 @@
     <string name="battery_status_title">Battery status</string>
     <!-- Phone info screen, section titles: -->
     <string name="battery_level_title">Battery level</string>
-    <!-- SIM status title  [CHAR LIMIT=40] -->
-    <string name="sim_status_title">SIM status</string>
-    <!-- Title for IMEI preference [CHAR LIMIT=30] -->
-    <string name="imei_information_title">IMEI information</string>
     <!-- About phone, status item title.  The bluetooth adapter's hardware address-->
     <string name="status_bt_address">Bluetooth address</string>
     <!-- About phone, status item title.  How long the device has been running since its last reboot. -->
@@ -459,6 +944,12 @@
     <!-- Note: this may be replaced by a more-specific title of the activity that will get launched --> <skip />
     <!-- About phone settings screen, setting option name to see licensing info for WebView component. [CHAR LIMIT=35] -->
     <string name="webview_license_title">System WebView License</string>
+    <!-- About screen, an item title that displays additional information to the consumer. [CHAR LIMIT=60] -->
+    <string name="consumer_information_title">Consumer Information</string>
+    <!-- Message about the content found on Android TV [CHAR LIMIT=500]-->
+    <string name="consumer_information_message">Content you find on Android TV comes from third-party partners such as app developers and movie studios, as well as from Google itself. For more information, please see <a href="g.co/tv/androidtvinfo">g.co/tv/androidtvinfo</a></string>
+    <!-- Ok action button text. [CHAR LIMIT=5]-->
+    <string name="consumer_information_button_ok">OK</string>
 
     <!-- Wifi -->
     <skip />
@@ -515,6 +1006,11 @@
 
     <!-- Other Options under Wifi Settings headers [CHAR LIMIT=50] -->
     <string name="wifi_setting_other_options_add_network">Add new network</string>
+    <string name="wifi_setting_other_options_add_network_via_easyconnect">Quick connect</string>
+    <!-- Summary text for EasyConnect [CHAR LIMIT=400]-->
+    <string name="wifi_setting_other_options_add_network_via_easyconnect_info_summary">
+        Quick connect helps you to quickly connect to your WiFi by scanning QR code on your phone.
+    </string>
 
     <!-- Strings for Add Network under Connectivity Setting -->
     <!-- Security type title on add network form page [CHAR LIMIT=30] -->
@@ -574,6 +1070,8 @@
     <string name="title_wifi_ip_settings_invalid">IP settings not valid</string>
     <!-- Title to show when the ip settings are invalid [CHAR LIMIT=80] -->
     <string name="title_wifi_known_network"><xliff:g id="ssid">%1$s</xliff:g> is a saved network</string>
+    <!-- Title to show when presenting a QR code to join a network [CHAR LIMIT=80] -->
+    <string name="title_wifi_scan_qr_code">Scan QR code to join</string>
     <!-- Label for action to try to connect to wifi again [CHAR LIMIT=50] -->
     <string name="wifi_action_try_again">Try again</string>
     <!-- Label for action to go back to the list of wifi networks [CHAR LIMIT=50] -->
@@ -588,6 +1086,12 @@
     <string name="wifi_forget_network">Forget network</string>
     <!-- Description for action to forget the wifi network configuration [CHAR LIMIT=100] -->
     <string name="wifi_forget_network_description">This clears information used to connect to this network, including a saved password</string>
+    <!-- Description for action to scan a QR code [CHAR LIMIT=300] -->
+    <string name="wifi_scan_qr_code_description">
+        Join a Wifi by scanning the QR code from your mobile phone and follow the instruction.
+    </string>
+    <!-- Description for action to scan a QR code [CHAR LIMIT=300] -->
+    <string name="wifi_scan_qr_code_back_description">Press the back button to cancel</string>
     <!-- Label for action to accept the currently connected wifi network [CHAR LIMIT=50] -->
     <string name="wifi_action_ok">OK</string>
     <!-- Label for action to continue in network summary screen in setup [CHAR LIMIT=50] -->
@@ -669,6 +1173,8 @@
     <string name="wifi_summary_description_connected_to_wifi_network">Already connected to <xliff:g id="ssid">%1$s</xliff:g>. Connect to a different network?</string>
     <!-- Name to use when we don't know the name of the wifi network the device is connected to [CHAR LIMIT=20] -->
     <string name="wifi_summary_unknown_network">an unknown network</string>
+    <!-- Wifi Settings. text displayed when user has restriction DISALLOW_CONFIG_WIFI [CHAR LIMIT=NONE]-->
+    <string name="wifi_empty_list_user_restricted">You don\u2019t have permission to change the Wi\u2011Fi network.</string>
 
     <!-- Strings for Ethernet under Connectivity Setting -->
     <!-- Title for OK [CHAR LIMIT=50] -->
@@ -689,7 +1195,7 @@
     <!-- Storage settings title. Displayed as a title when showing the total usage of /sdcard/Download on the device. Below it will be a number like "123.4 MB" indicating used storage. [CHAR LIMIT=50] -->
     <string name="storage_downloads_usage">Downloads</string>
     <!-- Storage settings title. Displayed as a title when showing the total usage of all pictures, videos in /sdcard/DCIM, /sdcard/Pictures folders on the device. Below it will be a number like "123.4 MB" indicating used storage. [CHAR LIMIT=50] -->
-    <string name="storage_dcim_usage">Photos &amp; videos</string>
+    <string name="storage_dcim_usage">Photos &amp; Videos</string>
     <!-- Storage settings title. Displayed as a title when showing the total usage of audio files in /sdcard on the device. Below it will be a number like "123.4 MB" indicating used storage. [CHAR LIMIT=50] -->
     <string name="storage_music_usage">Audio</string>
     <!-- Storage settings title. Displayed as a title when showing the total usage of misc files on the device. Below it will be a number like "123.4 MB" indicating used storage. [CHAR LIMIT=50] -->
@@ -699,7 +1205,7 @@
     <!-- Storage settings eject action [CHAR LIMIT=50] -->
     <string name="storage_eject">Eject</string>
     <!-- Storage settings erase and format action [CHAR LIMIT=50] -->
-    <string name="storage_format">Erase &amp; format</string>
+    <string name="storage_format">Erase &amp; Format</string>
     <!-- Storage settings erase and format action [CHAR LIMIT=50] -->
     <string name="storage_format_as_private">Erase &amp; format as device storage</string>
     <!-- Storage settings erase and format action [CHAR LIMIT=50] -->
@@ -720,6 +1226,8 @@
     <!-- Storage settings forget description [CHAR_LIMIT=NONE] -->
     <string name="storage_forget_wall_of_text">To use the apps or data this drive contains, replug it in. Alternatively, you can choose to forget this storage if the drive isn\'t available.\n\nIf you choose Forget, all the data the drive contains will be lost forever.\n\nYou can reinstall the apps later, but the data stored on this drive will be lost.</string>
 
+    <string name="storage_suggestions" translatable="false" />
+    <string name="ambient_slice_storage_uri" translatable="false" />
     <!-- Header title for device storage [CHAR_LIMIT=50] -->
     <string name="storage_device_storage_section">Device storage</string>
     <!-- Header title for removable storage [CHAR_LIMIT=50] -->
@@ -892,8 +1400,59 @@
         <item>off</item>
     </string-array>
 
+    <!-- Subtitle for the camera/microphone toggle [CHAR LIMIT=50] -->
+    <string name="sensor_toggle_description">For all apps and services</string>
+    <!-- Settings group name that is followed by a list of apps that have recently accessed the sensor [CHAR LIMIT=50] -->
+    <string name="recently_accessed_by_category">Recently Accessed By</string>
+    <!-- Placeholder that shows when no apps have recently accessed the camera/microphone [CHAR LIMIT=50] -->
+    <string name="no_recent_sensor_accesses">No recent accesses</string>
+    <!-- Element on which to click when there are more apps in the list that we want to show initially.
+    The rest of the apps will be shown when the element is clicked [CHAR LIMIT=50]-->
+    <string name="recently_accessed_show_all">See all</string>
+
+    <!-- Title for Microphone settings [CHAR LIMIT=30] -->
+    <string name="microphone">Microphone</string>
+    <!-- Title of the toggle that enables / disables microphone access for all apps [CHAR LIMIT=30] -->
+    <string name="mic_toggle_title">Microphone access</string>
+    <!-- Title for setting that opens the microphone permissions overview for all apps [CHAR LIMIT=50]-->
+    <string name="open_mic_permissions">App access to microphone</string>
+
+    <!-- Title for Camera settings [CHAR LIMIT=30] -->
+    <string name="camera">Camera</string>
+    <!-- Title of the toggle that enables / disables camera access for all apps [CHAR LIMIT=30] -->
+    <string name="camera_toggle_title">Camera access</string>
+    <!-- Title for setting that opens the camera permissions overview for all apps [CHAR LIMIT=50]-->
+    <string name="open_camera_permissions">App access to camera</string>
+
+    <!-- Title of the info panel that is shown on the side when the microphone toggle is selected.
+    The sensor_state is one of the following strings: sensor_toggle_info_on or sensor_toggle_info_off [CHAR LIMIT=30]-->
+    <string name="mic_toggle_info_title">Microphone Access:
+        <xliff:g id="sensor_state" example="On">%s</xliff:g></string>
+    <!-- Message shown in an info panel on the side when the microphone toggle is selected. [CHAR LIMIT=NONE] -->
+    <string name="mic_toggle_info_content">When turned on, all apps and services with permission can
+        access any microphone on this device.\n\nAudio peripherals with a custom protocol will not
+        be affected by this setting.
+    </string>
+
+    <!-- Title of the info panel that is shown on the side when the camera toggle is selected.
+    The camera_state is one of the following strings: sensor_toggle_info_on or sensor_toggle_info_off [CHAR LIMIT=30]-->
+    <string name="camera_toggle_info_title">Camera Access:
+        <xliff:g id="sensor_state" example="On">%s</xliff:g></string>
+    <!-- Message shown in an info panel on the side when the camera toggle is selected. [CHAR LIMIT=NONE] -->
+    <string name="camera_toggle_info_content">When turned on, all apps and services with permission
+        can access any camera on this device.\n\nCamera peripherals with a custom protocol will not
+        be affected by this setting.
+    </string>
+
+    <!-- Camera/Microphone state within mic_toggle_info_title and camera_toggle_info_title [CHAR LIMIT=20] -->
+    <string name="sensor_toggle_info_on">On</string>
+    <!-- Camera/Microphone state within mic_toggle_info_title and camera_toggle_info_title [CHAR LIMIT=20] -->
+    <string name="sensor_toggle_info_off">Off</string>
+
     <!-- Title for Location in System Settings [CHAR LIMIT=50] -->
     <string name="system_location">Location</string>
+    <!-- Summary for Location in System Settings. This shall be an empty string. [DO NOT TRANSLATE] -->
+    <string name="system_location_summary"></string>
     <!-- Description for Location in System Settings [CHAR LIMIT=NONE] -->
     <string name="system_desc_location">Let apps that have asked your permission use your location information</string>
     <!-- Title for confirming location consent [CHAR LIMIT=50] -->
@@ -909,7 +1468,7 @@
     <!-- [CHAR LIMIT=30] Location settings screen, recent location requests low battery use-->
     <string name="location_low_battery_use">Low battery use</string>
     <!-- [CHAR LIMIT=130] Location mode screen, description for wifi mode -->
-    <string name="location_mode_wifi_description">Use Wi\u2011Fi to estimate location </string>
+    <string name="location_mode_wifi_description">Use Wi\u2011Fi to estimate location</string>
 
     <!-- [CHAR LIMIT=60] Label for the status of location -->
     <string name="location_status">Location status</string>
@@ -1071,7 +1630,7 @@
     <!-- Title for HDMI optimization in System Settings Developer options [CHAR LIMIT=50] -->
     <string name="system_hdmi_optimization">HDMI optimization</string>
     <!-- Title for reboot confirmation in System Settings Developer options [CHAR LIMIT=50] -->
-    <string name="system_reboot_confirm">Reboot now?</string>
+    <string name="system_reboot_confirm">Restart now?</string>
     <!-- Description for reboot confirmation in System Settings Developer options [CHAR LIMIT=150] -->
     <string name="system_desc_reboot_confirm">To update this setting, your device needs to be restarted</string>
     <!-- Title for HDCP checking option in System Settings Developer options [CHAR LIMIT=50] -->
@@ -1159,21 +1718,6 @@
     <string name="system_desc_strict_mode_enabled">Flash screen when apps do long operations on main thread</string>
     <!-- Description for profile GPU rendering in System Settings Developer options [CHAR LIMIT=100] -->
     <string name="system_desc_profile_gpu_rendering">Measure rendering time in adb shell dumpsys gfxinfo</string>
-
-    <!-- General use strings -->
-    <skip />
-    <!-- Title for an action which turns a feature on [CHAR LIMIT=30] -->
-    <string name="action_on_title">On</string>
-    <!-- Title for an action which turns a feature off [CHAR LIMIT=30] -->
-    <string name="action_off_title">Off</string>
-    <!-- Title for a status description saying that a feature is on [CHAR LIMIT=30] -->
-    <string name="action_on_description">On</string>
-    <!-- Title for a status description saying that a feature is off [CHAR LIMIT=30] -->
-    <string name="action_off_description">Off</string>
-    <!-- Title for action which denotes the user agrees [CHAR LIMIT=50] -->
-    <string name="agree">Agree</string>
-    <!-- Title for action which denotes the user disagrees [CHAR LIMIT=50] -->
-    <string name="disagree">Disagree</string>
 
     <!-- Security -->
     <skip />
@@ -1461,6 +2005,10 @@
 
     <!-- Message displayed to prompt the user to input the network password, ^1 will be replaced with the name of the network and should be a possive form related to password [CHAR LIMIT=NONE] -->
     <string name="wifi_setup_input_password">Enter password for <xliff:g id="ssid">%1$s</xliff:g></string>
+    <!-- Summary displayed to explain next steps for user to submit network password, ^1 be replaced with keyboard icon to be selected [CHAR LIMIT=NONE] -->
+    <string name="wifi_setup_description">Select <xliff:g id="wifi_submit_icon">%1$s</xliff:g> to continue.</string>
+    <!-- The subtitle wifi setup description presents an action done icon to match the action done keyboard icon. This string, therefore, should match the content description of action done on the keyboard [CHAR LIMIT=NONE]-->
+    <string name="label_done_key">Done</string>
     <!-- Message displayed when the selected Wi-Fi network has been connected to [CHAR LIMIT=40] -->
     <string name="wifi_setup_connection_success">Connected successfully</string>
     <!-- Message displayed when the Wi-Fi network's configuration has been saved [CHAR LIMIT=40] -->
@@ -1507,13 +2055,15 @@
     <!-- Application management choice for changing the application's notifications option [CHAR LIMIT=40] -->
     <string name="device_apps_app_management_notifications">Notifications</string>
     <!-- Application management choice for displaying the application's open source licenses [CHAR LIMIT=40] -->
-    <string name="device_apps_app_management_licenses">Open source licenses</string>
+    <string name="device_apps_app_management_licenses">Third Party Source</string>
     <!-- Application management choice for displaying the application's permissions [CHAR LIMIT=40] -->
     <string name="device_apps_app_management_permissions">Permissions</string>
     <!-- Application management toast message when an app cannot be launched [CHAR LIMIT=100]-->
     <string name="device_apps_app_management_not_available">Application unavailable</string>
     <!-- General settings choice for agreeing to the displayed action [CHAR LIMIT=40] -->
     <string name="settings_ok">OK</string>
+    <!-- General settings choice for confirming the displayed action [CHAR LIMIT=40] -->
+    <string name="settings_confirm">Confirm</string>
     <!-- General settings choice for disagreeing with the displayed action [CHAR LIMIT=40] -->
     <string name="settings_cancel">Cancel</string>
     <!-- General settings choice for on [CHAR LIMIT=40] -->
@@ -1542,6 +2092,10 @@
     <string name="device_energy_saver_allow_turning_screen_off">Allow turning screen off</string>
     <!-- Energy saver description for allow turning screen off during media playback [CHAR LIMIT=NONE] -->
     <string name="device_energy_saver_allow_turning_screen_off_description">During media playback</string>
+    <!-- The title of dialog asking users to confirm long screen off delay. [CHAR LIMIT =70] -->
+    <string name="device_energy_saver_confirmation_title">Confirm Energy Saver setting</string>
+    <!-- The description of dialog asking users to confirm long screen off delay. [CHAR LIMIT=250] -->
+    <string name="device_energy_saver_confirmation_text">Please confirm new setting to <xliff:g id="sleep_time" example="8 hours">%1$s</xliff:g>, which has the potential for increased energy use.</string>
     <!-- Default summary text of the "Configure backup account" setting [CHAR LIMIT=80] -->
     <string name="backup_configure_account_default_summary">No account is currently storing backed up data</string>
     <!-- Dialog title for confirmation to erase backup data from server -->
@@ -1556,8 +2110,22 @@
     <string name="privacy_automatic_restore">Automatic restore</string>
     <!-- Factory reset choice for initiating a factory reset [CHAR LIMIT=40] -->
     <string name="factory_reset_device">Reset device</string>
-    <!-- Factory reset description about what happens when you perform a factory reset [CHAR LIMIT=NONE] -->
-    <string name="factory_reset_description">This will erase all data from your device\'s internal storage, including: your Google account, system and app data and settings, and downloaded apps</string>
+    <!-- Factory reset info description about what happens when
+        you perform a factory reset [CHAR LIMIT=NONE] -->
+    <string name="factory_reset_description">This will restore your device
+        to default settings and erase all data, accounts, files,
+        and downloaded apps.</string>
+    <!-- Factory reset info description about what happens when
+        you perform a factory reset [CHAR LIMIT=NONE] -->
+    <string name="factory_reset_info_description">This will restore your device
+        to default settings and erase all data, accounts, files,
+        and downloaded apps.</string>
+    <!-- Factory reset content description for talkback mode with
+        comma-separated title (device_reset) and info text
+        (factory_reset_description) [CHAR LIMIT=NONE] -->
+    <string name="factory_reset_content_description">Factory Reset, This will
+        restore your device to default settings and erase all data, accounts,
+        files, and downloaded apps.</string>
     <!-- Factory reset screen, message on screen after user selects Reset phone button -->
     <string name="confirm_factory_reset_description">Erase all your personal information and downloaded apps on this device? You can\'t reverse this action!</string>
     <!-- Factory reset screen, button on screen after user selects Reset phone button -->
@@ -1605,7 +2173,7 @@
     <string name="bluetooth_permission_request">"Bluetooth permission request"</string>
 
     <!-- About phone screen, status item label  [CHAR LIMIT=60] -->
-    <string name="security_patch">Android security patch level</string>
+    <string name="security_patch">Android TV OS security patch level</string>
 
     <!-- App picker screen title -->
     <string name="choose_application">Choose application</string>
@@ -1664,6 +2232,8 @@
         including personal information such as contact names and the text of messages you receive.
         They will also be able to dismiss notifications or trigger action buttons they contain.
     </string>
+    <!-- Summary to explain why the notification access setting is disabled for some apps. -->
+    <string name="default_notification_access_package_summary">Required by system</string>
 
     <!-- Title of directory access screen in settings [CHAR LIMIT=30] -->
     <string name="directory_access">Directory access</string>
@@ -1698,6 +2268,13 @@
     <string name="picture_in_picture_empty_text">No installed apps support Picture-in-picture</string>
     <!-- Apps > App Details > Picture-in-picture > Description. [CHAR LIMIT=NONE] -->
     <string name="picture_in_picture_app_detail_summary">Allow apps to create a picture-in-picture window while the app is open or after you leave it (for example, to continue watching a video).  This window displays on top of other apps you\'re using.</string>
+
+    <!-- Apps > App Details > Alarms & Reminders > Description. [CHAR LIMIT=NONE] -->
+    <string name="alarms_and_reminders_description">
+        Allow apps to set alarms and schedule time-sensitive actions.
+        This lets the apps run in the background, which may use more power.\n\nIf this permission
+        is off, existing alarms and time-based events scheduled by the app won\u2019t work.
+    </string>
 
     <!-- [CHAR_LIMIT=60] Label for special access screen -->
     <string name="special_access">Special app access</string>
@@ -1745,15 +2322,48 @@
     <!-- Title of the preference displaying data usages and alerts setting. [CHAR LIMIT=50] -->
     <string name="title_data_alert">Data usage and alerts</string>
 
+    <!-- Header info to educate users that they can connect to the internet via Wi-Fi, Ethernet, and phone's hotspot. [CHAR LIMIT=NONE] -->
+    <string name="data_saver_header_info">You can connect to the internet with Wi-Fi, Ethernet, or your phone\'s hotspot. For more help, visit <b>g.co/network</b>."</string>
+
     <!-- Slice uri for "Accounts & Sign in" -->
     <string name="account_slice_uri" translatable="false"/>
+    <!-- Slice uri and title for manange user services settings -->
+    <string name="manage_user_services_slice_uri" translatable="false" />
+    <string name="manage_user_services_slice_title" translatable="false" />
+
+    <!-- Title of preference for help center [CHAR LIMIT=60] -->
+    <string name="help_center_title" translatable="true"/>
+    <string name="help_center_link" translatable="false"/>
+
+    <!-- Slice uri for "Privacy" -->
+    <string name="privacy_assistant_slice_uri" translatable="false"/>
+    <string name="privacy_purchases_slice_uri" translatable="false"/>
+
+    <!-- Slice uri and title for "Ambient mode" -->
+    <string name="ambient_slice_uri" translatable="false" />
+    <string name="ambient_settings_title" translatable="false" />
 
     <!-- Slice uri for "Connected devices" -->
     <string name="connected_devices_slice_uri" translatable="false"/>
-    <!-- Slice uri for "hdr settings" -->
-    <string name="hdr_settings_slice_uri" translatable="false"/>
+    <string name="cec_settings_slice_uri" translatable="false"/>
 
     <string name="storage_summary_fragment_name" translatable="false"/>
+    <!-- Slice uri for hdr fomat selection -->
+    <string name="resolution_slice_uri" translatable="false"/>
+    <!-- Slice uri for hdr and color format -->
+    <string name="hdr_and_color_format_slice_uri" translatable="false"/>
+
+    <!-- Slice uri for general information -->
+    <string name="general_info_slice_uri" translatable="false"/>
+
+    <!-- Top level uri for settings slices -->
+    <string name="top_level_settings_slice_uri" translatable="false"/>
+
+    <!-- Slice uri for update settings -->
+    <string name="update_slice_uri" translatable="false"/>
+
+    <!-- Slice uri for overlay security settings -->
+    <string name="overlay_security_slice_uri" translatable="false"/>
 
     <!-- Title for dialog displayed when user selects on a setting locked by an admin [CHAR LIMIT=30 BACKUP_MESSAGE_ID:4867639270211833535] -->
     <string name="disabled_by_policy_title">Action not allowed</string>
@@ -1771,6 +2381,67 @@
     <string name="disabled_by_policy_title_suspend_packages">Can’t open this app</string>
 
     <string name="default_admin_support_msg">If you have questions, contact your IT admin</string>
+    <!-- Shown in dialog to allow user to see more information about the device admin [CHAR LIMIT=30] -->
+    <string name="admin_support_more_info">More details</string>
+    <!-- Shown in admin details page to warn user about policies the admin can set in a work profile. [CHAR LIMIT=NONE] -->
+    <string name="admin_profile_owner_message">Your admin can monitor and manage apps and data
+        associated with your work profile, including settings, permissions, corporate access,
+        network activity, and the device\'s location information.</string>
+    <!-- Shown in admin details page to warn user about policies the admin can set on a user. [CHAR LIMIT=NONE] -->
+    <string name="admin_profile_owner_user_message">Your admin can monitor and manage apps and data
+        associated with this user, including settings, permissions, corporate access,
+        network activity, and the device\'s location information.</string>
+    <!-- Shown in admin details page to warn user about policies the admin can set on a device. [CHAR LIMIT=NONE] -->
+    <string name="admin_device_owner_message">Your admin can monitor and manage apps and data
+        associated with this device, including settings, permissions, corporate access,
+        network activity, and the device\'s location information.</string>
+
+    <!-- Button label to remove the work profile [CHAR LIMIT=35] -->
+    <string name="remove_managed_profile_label">Remove work profile</string>
+    <!-- Label for screen showing the active device admin apps -->
+    <string name="active_device_admin_msg">Device admin app</string>
+    <!-- Label for button to remove the active device admin app [CHAR LIMIT=80] -->
+    <string name="remove_device_admin">Deactivate this device admin app</string>
+    <!-- Label for button to uninstall the device admin app [CHAR LIMIT=80] -->
+    <string name="uninstall_device_admin">Uninstall app</string>
+    <!-- Label for button to deactivate and uninstall the device admin app [CHAR_LIMIT=50]-->
+    <string name="remove_and_uninstall_device_admin">Deactivate &amp; uninstall</string>
+    <!-- Label for screen showing to select device admin apps -->
+    <string name="select_device_admin_msg">Device admin apps</string>
+    <!-- Title for screen to add a device admin app [CHAR LIMIT=40] -->
+    <string name="add_device_admin_msg">Activate device admin app?</string>
+    <!-- Label for button to set the active device admin [CHAR_LIMIT=80] -->
+    <string name="add_device_admin">Activate this device admin app</string>
+    <!-- Device admin warning message about policies an admin can use -->
+    <string name="device_admin_warning">Activating this admin app will allow
+        the app <xliff:g id="app_name">%1$s</xliff:g> to perform the
+        following operations:</string>
+    <!-- Simplified device admin warning message [CHAR LIMIT=NONE]-->
+    <string name="device_admin_warning_simplified">This device will be managed and monitored by
+        <xliff:g id="app_name" example="Example Supervisor">%1$s</xliff:g>.</string>
+    <!-- Device admin warning message about policies an admin can use -->
+    <string name="device_admin_status">This admin app is active and allows
+        the app <xliff:g id="app_name">%1$s</xliff:g> to perform the
+        following operations:</string>
+    <!-- Warning when trying to add a profile owner admin after setup has completed. [CHAR LIMIT=none] -->
+    <string name="adding_profile_owner_warning">By proceeding, your user will be managed by your
+        admin which may also be able to store associated data, in addition to your personal
+        data.\n\nYour admin has the ability to monitor and manage settings, access, apps,
+        and data associated with this user, including network activity and your device\'s location
+        information.</string>
+
+    <!-- Title of dialog shown to ask for user consent for sharing a bugreport that was requested remotely by the IT administrator. -->
+    <string name="share_remote_bugreport_dialog_title">Share bug report?</string>
+    <!-- Message of a dialog shown to ask for user consent for sharing a bugreport that was requested remotely by the IT administrator. -->
+    <string name="share_remote_bugreport_dialog_message_finished">Your IT admin requested a bug report to help troubleshoot this device. Apps and data may be shared.</string>
+    <!-- Message of a dialog shown to ask for user consent for sharing a bugreport that was requested remotely by the IT administrator and it's still being taken. -->
+    <string name="share_remote_bugreport_dialog_message">Your IT admin requested a bug report to help troubleshoot this device. Apps and data may be shared, and your device may temporarily slow down.</string>
+    <!-- Message of a dialog shown to inform that the remote bugreport that was requested remotely by the IT administrator is still being taken and will be shared when finished. -->
+    <string name="sharing_remote_bugreport_dialog_message">This bug report is being shared with your IT admin. Contact them for more details.</string>
+    <!-- Acceptance label of dialog shown to ask for user consent for sharing the remote bugreport. -->
+    <string name="share_remote_bugreport_action">Share</string>
+    <!-- Decline label of dialog shown to ask for user consent for sharing the remote bugreport. -->
+    <string name="decline_remote_bugreport_action">Decline</string>
 
     <!-- Title for Network connection request Dialog [CHAR LIMIT=60] -->
     <string name="network_connection_request_dialog_title">Device to use with <xliff:g id="appName" example="ThirdPartyAppName">%1$s</xliff:g></string>
@@ -1784,7 +2455,57 @@
     <string name="network_connection_connect_successful">Connection successful</string>
     <!-- Neutral button for Network connection request Dialog [CHAR LIMIT=30] -->
     <string name="network_connection_request_dialog_showall">Show all</string>
-    <!--Bluetooth settings screen, text that appears in heading bar when scanning for devices -->
+    <!-- Bluetooth settings screen, text that appears in heading bar when scanning for devices -->
     <string name="progress_scanning">Searching</string>
 
+    <!-- Placeholder font for compiling. The real font will be provided by RRO. -->
+    <string name="preference_title_text_font" translatable="false" />
+
+    <!-- Start up verification -->
+    <string name="startup_verification_action" translatable="false" />
+    <string name="startup_verification_package" translatable="false" />
+
+    <!-- Basic mode -->
+    <string name="basic_mode_provider_uri" translatable="false" />
+    <string name="basic_mode_exit_package" translatable="false" />
+    <string name="basic_mode_exit_component" translatable="false" />
+    <string name="basic_mode_exit_data" translatable="false" />
+    <string name="basic_mode_suggestion_category_title" translatable="false" />
+    <string name="basic_mode_exit_preference_title" translatable="false" />
+    <string name="basic_mode_exit_preference_subtitle" translatable="false" />
+    <string name="basic_mode_exit_info_title" translatable="false" />
+    <string name="basic_mode_exit_info_summary" translatable="false" />
+    <string name="basic_mode_accounts_and_sign_in_info_summary" translatable="false" />
+
+    <!-- Vendor & Samples -->
+    <string name="vendor_activity_title" translatable="false">Vendor sample activity</string>
+    <string name="vendor_sample_settings_summary" translatable="false">(Subtitle is suggested to give further information)</string>
+    <!-- Title for "Channels & Inputs" settings [CHAR LIMIT=60] -->
+    <string name="channels_and_inputs_title">Channels &amp; Inputs</string>
+    <!-- Summary for "Channels & Inputs" settings [CHAR LIMIT=60] -->
+    <string name="channels_and_inputs_summary">Channels, external inputs</string>
+    <!-- Title for "Channels" settings [CHAR LIMIT=60] -->
+    <string name="channels_settings_title">Channels</string>
+    <!-- Title for "External inputs" settings [CHAR LIMIT=60] -->
+    <string name="external_inputs_settings_title">External inputs</string>
+    <!-- Summary for vendor sample "Display & Sound" settings [CHAR LIMIT=60] -->
+    <string name="display_and_sound_vendor_summary">Picture, screen, sound</string>
+    <!-- Title for "Picture" settings [CHAR LIMIT=60] -->
+    <string name="picture_settings_title">Picture</string>
+    <!-- Title for "Screen" settings [CHAR LIMIT=60] -->
+    <string name="screen_settings_title">Screen</string>
+    <!-- Title for "Sound" settings [CHAR LIMIT=60] -->
+    <string name="sound_settings_title">Sound</string>
+    <!-- Title of power and energy page [CHAR LIMIT=60] -->
+    <string name="power_and_energy">Power &amp; Energy</string>
+    <!-- Title of power on behavior item [CHAR LIMIT=60] -->
+    <string name="power_on_behavior">Power on behavior</string>
+    <string name="power_boot_resume_slice_uri" translatable="false" />
+    <!-- Title of the Reset section, which lets user select from factory reset or other reset related operations. [CHAR LIMIT=60] -->
+    <string name="reset_options_title">Reset</string>
+
+    <string name="font_sans_serif" translatable="false">sans-serif</string>
+    <string name="font_sans_serif_light" translatable="false">sans-serif-light</string>
+    <string name="font_sans_serif_thin" translatable="false">sans-serif-thin</string>
+    <string name="font_sans_serif_condensed" translatable="false">sans-serif-condensed</string>
 </resources>

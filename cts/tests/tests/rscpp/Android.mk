@@ -18,6 +18,8 @@ include $(CLEAR_VARS)
 
 # Replace "Example" with your name.
 LOCAL_PACKAGE_NAME := CtsRsCppTestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 # Don't include this package in any target.
 LOCAL_MODULE_TAGS := optional
@@ -37,7 +39,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-fil
 LOCAL_SDK_VERSION := current
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 
 include $(BUILD_CTS_PACKAGE)
 include $(LOCAL_PATH)/librscpptest/Android.mk

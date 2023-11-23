@@ -862,6 +862,9 @@ Type* TypeManager::RecordIfTypeDefinition(const Instruction& inst) {
                                      inst.GetSingleWordInOperand(2),
                                      inst.GetSingleWordInOperand(3));
       break;
+    case SpvOpTypeRayQueryKHR:
+      type = new RayQueryKHR();
+      break;
     default:
       SPIRV_UNIMPLEMENTED(consumer_, "unhandled type");
       break;

@@ -16,7 +16,10 @@
 
 package com.android.libraries.tv.tvsystem.display;
 
-import java.util.Arrays;
+import android.annotation.IntDef;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.Objects;
 
 /**
@@ -25,13 +28,39 @@ import java.util.Objects;
  * product information about the intermediate device.
  */
 public final class DeviceProductInfo {
+    /** @hide */
+    @IntDef(prefix = {"CONNECTION_TO_SINK_"}, value = {
+            CONNECTION_TO_SINK_UNKNOWN,
+            CONNECTION_TO_SINK_BUILT_IN,
+            CONNECTION_TO_SINK_DIRECT,
+            CONNECTION_TO_SINK_TRANSITIVE
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface ConnectionToSinkType { }
+
+    /** The device connection to the display sink is unknown. */
+    public static final int CONNECTION_TO_SINK_UNKNOWN = 0;
+
+    /** The display sink is built-in to the device */
+    public static final int CONNECTION_TO_SINK_BUILT_IN = 1;
+
+    /** The device is directly connected to the display sink. */
+    public static final int CONNECTION_TO_SINK_DIRECT = 2;
+
+    /** The device is transitively connected to the display sink. */
+    public static final int CONNECTION_TO_SINK_TRANSITIVE = 3;
+
     private final String mName;
     private final String mManufacturerPnpId;
     private final String mProductId;
     private final Integer mModelYear;
     private final ManufactureDate mManufactureDate;
-    private final int[] mRelativeAddress;
+    private final @ConnectionToSinkType int mConnectionToSinkType;
 
+    /** @deprecated use
+     * {@link #DeviceProductInfo(String, String, String, Integer, ManufactureDate, int)} ()}
+     * instead.*/
+    @Deprecated
     public DeviceProductInfo(
             String name,
             String manufacturerPnpId,
@@ -44,7 +73,23 @@ public final class DeviceProductInfo {
         this.mProductId = productId;
         this.mModelYear = modelYear;
         this.mManufactureDate = manufactureDate;
-        this.mRelativeAddress = relativeAddress;
+        this.mConnectionToSinkType = CONNECTION_TO_SINK_UNKNOWN;
+    }
+
+    /** @hide */
+    public DeviceProductInfo(
+            String name,
+            String manufacturerPnpId,
+            String productId,
+            Integer modelYear,
+            ManufactureDate manufactureDate,
+            int connectionToSinkType) {
+        this.mName = name;
+        this.mManufacturerPnpId = manufacturerPnpId;
+        this.mProductId = productId;
+        this.mModelYear = modelYear;
+        this.mManufactureDate = manufactureDate;
+        this.mConnectionToSinkType = connectionToSinkType;
     }
 
     /**
@@ -87,9 +132,21 @@ public final class DeviceProductInfo {
     /**
      * @return Relative address in the display network. For example, for HDMI connected devices this
      * can be its physical address. Each component of the address is in the range [0, 255].
+     *
+     * @deprecated use {@link #getConnectionToSinkType()} instead.
      */
+    @Deprecated
     public int[] getRelativeAddress() {
-        return mRelativeAddress;
+        return null;
+    }
+
+    /**
+     * @return How the current device is connected to the display sink. For example, the display
+     * can be connected immediately to the device or there can be a receiver in between.
+     */
+    @ConnectionToSinkType
+    public int getConnectionToSinkType() {
+        return mConnectionToSinkType;
     }
 
     @Override
@@ -105,8 +162,8 @@ public final class DeviceProductInfo {
                 + mModelYear
                 + ", manufactureDate="
                 + mManufactureDate
-                + ", relativeAddress="
-                + Arrays.toString(mRelativeAddress)
+                + ", connectionToSinkType="
+                + mConnectionToSinkType
                 + '}';
     }
 
@@ -120,13 +177,13 @@ public final class DeviceProductInfo {
                 && Objects.equals(mProductId, that.mProductId)
                 && Objects.equals(mModelYear, that.mModelYear)
                 && Objects.equals(mManufactureDate, that.mManufactureDate)
-                && Arrays.equals(mRelativeAddress, that.mRelativeAddress);
+                && mConnectionToSinkType == that.mConnectionToSinkType;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(mName, mManufacturerPnpId, mProductId, mModelYear, mManufactureDate,
-                mRelativeAddress);
+                mConnectionToSinkType);
     }
 
     /**

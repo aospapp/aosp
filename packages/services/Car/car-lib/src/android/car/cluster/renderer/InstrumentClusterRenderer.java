@@ -15,11 +15,14 @@
  */
 package android.car.cluster.renderer;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DEPRECATED_CODE;
+
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.UiThread;
 import android.content.Context;
 
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.internal.annotations.GuardedBy;
 
 /**
@@ -30,6 +33,7 @@ import com.android.internal.annotations.GuardedBy;
  */
 @Deprecated
 @SystemApi
+@ExcludeFromCodeCoverageGeneratedReport(reason = DEPRECATED_CODE)
 public abstract class InstrumentClusterRenderer {
 
     private final Object mLock = new Object();

@@ -43,8 +43,7 @@ using namespace aaudio;
 // on the edge of being ridiculous.
 // TODO These defines should be moved to a central place in audio.
 #define SAMPLES_PER_FRAME_MIN        1
-// TODO Remove 8 channel limitation.
-#define SAMPLES_PER_FRAME_MAX        FCC_8
+#define SAMPLES_PER_FRAME_MAX        FCC_LIMIT
 #define SAMPLE_RATE_HZ_MIN           8000
 // HDMI supports up to 32 channels at 1536000 Hz.
 #define SAMPLE_RATE_HZ_MAX           1600000
@@ -63,27 +62,26 @@ AudioStreamBuilder::~AudioStreamBuilder() {
 static aaudio_result_t builder_createStream(aaudio_direction_t direction,
                                          aaudio_sharing_mode_t sharingMode,
                                          bool tryMMap,
-                                         AudioStream **audioStreamPtr) {
-    *audioStreamPtr = nullptr;
+                                         android::sp<AudioStream> &stream) {
     aaudio_result_t result = AAUDIO_OK;
 
     switch (direction) {
 
         case AAUDIO_DIRECTION_INPUT:
             if (tryMMap) {
-                *audioStreamPtr = new AudioStreamInternalCapture(AAudioBinderClient::getInstance(),
+                stream = new AudioStreamInternalCapture(AAudioBinderClient::getInstance(),
                                                                  false);
             } else {
-                *audioStreamPtr = new AudioStreamRecord();
+                stream = new AudioStreamRecord();
             }
             break;
 
         case AAUDIO_DIRECTION_OUTPUT:
             if (tryMMap) {
-                *audioStreamPtr = new AudioStreamInternalPlay(AAudioBinderClient::getInstance(),
+                stream = new AudioStreamInternalPlay(AAudioBinderClient::getInstance(),
                                                               false);
             } else {
-                *audioStreamPtr = new AudioStreamTrack();
+                stream = new AudioStreamTrack();
             }
             break;
 
@@ -98,7 +96,7 @@ static aaudio_result_t builder_createStream(aaudio_direction_t direction,
 // Fall back to Legacy path if MMAP not available.
 // Exact behavior is controlled by MMapPolicy.
 aaudio_result_t AudioStreamBuilder::build(AudioStream** streamPtr) {
-    AudioStream *audioStream = nullptr;
+
     if (streamPtr == nullptr) {
         ALOGE("%s() streamPtr is null", __func__);
         return AAUDIO_ERROR_NULL;
@@ -171,39 +169,47 @@ aaudio_result_t AudioStreamBuilder::build(AudioStream** streamPtr) {
         setPrivacySensitive(true);
     }
 
-    result = builder_createStream(getDirection(), sharingMode, allowMMap, &audioStream);
+    android::sp<AudioStream> audioStream;
+    result = builder_createStream(getDirection(), sharingMode, allowMMap, audioStream);
     if (result == AAUDIO_OK) {
         // Open the stream using the parameters from the builder.
         result = audioStream->open(*this);
-        if (result == AAUDIO_OK) {
-            *streamPtr = audioStream;
-        } else {
+        if (result != AAUDIO_OK) {
             bool isMMap = audioStream->isMMap();
-            delete audioStream;
-            audioStream = nullptr;
-
             if (isMMap && allowLegacy) {
                 ALOGV("%s() MMAP stream did not open so try Legacy path", __func__);
                 // If MMAP stream failed to open then TRY using a legacy stream.
                 result = builder_createStream(getDirection(), sharingMode,
-                                              false, &audioStream);
+                                              false, audioStream);
                 if (result == AAUDIO_OK) {
                     result = audioStream->open(*this);
-                    if (result == AAUDIO_OK) {
-                        *streamPtr = audioStream;
-                    } else {
-                        delete audioStream;
-                        audioStream = nullptr;
-                    }
                 }
             }
         }
-        if (audioStream != nullptr) {
-            audioStream->logOpen();
-        }
+        if (result == AAUDIO_OK) {
+            audioStream->registerPlayerBase();
+            audioStream->logOpenActual();
+            *streamPtr = startUsingStream(audioStream);
+        } // else audioStream will go out of scope and be deleted
     }
 
     return result;
+}
+
+AudioStream *AudioStreamBuilder::startUsingStream(android::sp<AudioStream> &audioStream) {
+    // Increment the smart pointer so it will not get deleted when
+    // we pass it to the C caller and it goes out of scope.
+    // The C code cannot hold a smart pointer so we increment the reference
+    // count to indicate that the C app owns a reference.
+    audioStream->incStrong(nullptr);
+    return audioStream.get();
+}
+
+void AudioStreamBuilder::stopUsingStream(AudioStream *stream) {
+    // Undo the effect of startUsingStream()
+    android::sp<AudioStream> spAudioStream(stream);
+    ALOGV("%s() strongCount = %d", __func__, spAudioStream->getStrongCount());
+    spAudioStream->decStrong(nullptr);
 }
 
 aaudio_result_t AudioStreamBuilder::validate() const {
@@ -275,4 +281,8 @@ void AudioStreamBuilder::logParameters() const {
     ALOGI("usage  = %6d, contentType = %d, inputPreset = %d, allowedCapturePolicy = %d",
           getUsage(), getContentType(), getInputPreset(), getAllowedCapturePolicy());
     ALOGI("privacy sensitive = %s", isPrivacySensitive() ? "true" : "false");
+    ALOGI("opPackageName = %s", !getOpPackageName().has_value() ?
+        "(null)" : getOpPackageName().value().c_str());
+    ALOGI("attributionTag = %s", !getAttributionTag().has_value() ?
+        "(null)" : getAttributionTag().value().c_str());
 }

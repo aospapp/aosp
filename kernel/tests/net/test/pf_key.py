@@ -190,6 +190,7 @@ def ParseExtension(exttype, data):
 
   return exttype, ext, attrs
 
+
 class PfKey(object):
 
   """PF_KEY interface to kernel IPsec implementation."""
@@ -202,7 +203,7 @@ class PfKey(object):
   def Recv(self):
     reply = self.sock.recv(4096)
     msg = SadbMsg(reply)
-    # print "RECV:", self.DecodeSadbMsg(msg)
+    # print("RECV: " + self.DecodeSadbMsg(msg))
     if msg.errno != 0:
       raise OSError(msg.errno, os.strerror(msg.errno))
     return reply
@@ -213,7 +214,7 @@ class PfKey(object):
     msg.pid = os.getpid()
     msg.len = (len(SadbMsg) + len(extensions)) / 8
     self.sock.send(msg.Pack() + extensions)
-    # print "SEND:", self.DecodeSadbMsg(msg)
+    # print("SEND: " + self.DecodeSadbMsg(msg))
     return self.Recv()
 
   def PackPfKeyExtensions(self, extlist):
@@ -314,13 +315,14 @@ class PfKey(object):
 
   def PrintSaInfos(self, dump):
     for msg, extensions in dump:
-      print self.DecodeSadbMsg(msg)
+      print(self.DecodeSadbMsg(msg))
       for exttype, ext, attrs in extensions:
         exttype = _GetMultiConstantName(exttype, ["SADB_EXT", "SADB_X_EXT"])
         if exttype == SADB_EXT_SA:
-          print " ", exttype, self.DecodeSadbSa(ext), attrs.encode("hex")
-        print " ", exttype, ext, attrs.encode("hex")
-      print
+          print(" %s %s %s" %
+                (exttype, self.DecodeSadbSa(ext), attrs.encode("hex")))
+        print(" %s %s %s" % (exttype, ext, attrs.encode("hex")))
+      print("")
 
 
 if __name__ == "__main__":

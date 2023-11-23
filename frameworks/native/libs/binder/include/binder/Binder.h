@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_BINDER_H
-#define ANDROID_BINDER_H
+#pragma once
 
 #include <atomic>
 #include <stdint.h>
@@ -72,6 +71,27 @@ public:
     // This must be called before the object is sent to another process. Not thread safe.
     void                setExtension(const sp<IBinder>& extension);
 
+    // This must be called before the object is sent to another process. Not thread safe.
+    //
+    // This function will abort if improper parameters are set. This is like
+    // sched_setscheduler. However, it sets the minimum scheduling policy
+    // only for the duration that this specific binder object is handling the
+    // call in a threadpool. By default, this API is set to SCHED_NORMAL/0. In
+    // this case, the scheduling priority will not actually be modified from
+    // binder defaults. See also IPCThreadState::disableBackgroundScheduling.
+    //
+    // Appropriate values are:
+    // SCHED_NORMAL: -20 <= priority <= 19
+    // SCHED_RR/SCHED_FIFO: 1 <= priority <= 99
+    void                setMinSchedulerPolicy(int policy, int priority);
+    int                 getMinSchedulerPolicy();
+    int                 getMinSchedulerPriority();
+
+    // Whether realtime scheduling policies are inherited.
+    bool                isInheritRt();
+    // This must be called before the object is sent to another process. Not thread safe.
+    void                setInheritRt(bool inheritRt);
+
     pid_t               getDebugPid();
 
 protected:
@@ -111,8 +131,8 @@ protected:
     virtual void            onLastStrongRef(const void* id);
     virtual bool            onIncStrongAttempted(uint32_t flags, const void* id);
 
-    inline  IBinder*        remote()                { return mRemote; }
-    inline  IBinder*        remote() const          { return mRemote; }
+    inline IBinder* remote() const { return mRemote; }
+    inline sp<IBinder> remoteStrong() const { return sp<IBinder>::fromExisting(mRemote); }
 
 private:
                             BpRefBase(const BpRefBase& o);
@@ -126,5 +146,3 @@ private:
 } // namespace android
 
 // ---------------------------------------------------------------------------
-
-#endif // ANDROID_BINDER_H

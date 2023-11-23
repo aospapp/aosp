@@ -21,6 +21,7 @@ import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -31,6 +32,9 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.rotary.DirectManipulationHandler;
+import com.android.car.settings.common.rotary.DirectManipulationState;
+import com.android.car.settings.common.rotary.SeekBarHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +52,7 @@ public class QuickSettingGridAdapter
     private final List<Tile> mTiles = new ArrayList<>();
     private final List<SeekbarTile> mSeekbarTiles = new ArrayList<>();
     private final QsSpanSizeLookup mQsSpanSizeLookup = new QsSpanSizeLookup();
+    private final DirectManipulationState mDirectManipulationMode = new DirectManipulationState();
 
     public QuickSettingGridAdapter(Context context) {
         mContext = context;
@@ -169,11 +174,13 @@ public class QuickSettingGridAdapter
     public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
         switch (holder.getItemViewType()) {
             case SEEKBAR_VIEWTYPE:
+                BrightnessViewHolder bvh = (BrightnessViewHolder) holder;
                 SeekbarTile seekbarTile = mSeekbarTiles.get(position);
-                SeekBar seekbar = ((BrightnessViewHolder) holder).mSeekBar;
+                SeekBar seekbar = bvh.mSeekBar;
                 seekbar.setMax(seekbarTile.getMax());
                 seekbar.setProgress(seekbarTile.getCurrent());
                 seekbar.setOnSeekBarChangeListener(seekbarTile);
+                bvh.registerDirectManipulation();
                 break;
             case TILE_VIEWTYPE:
                 Tile tile = mTiles.get(position - mSeekbarTiles.size());
@@ -211,7 +218,32 @@ public class QuickSettingGridAdapter
 
         BrightnessViewHolder(View view) {
             super(view);
-            mSeekBar = (SeekBar) view.findViewById(R.id.seekbar);
+            mSeekBar = view.findViewById(R.id.quick_settings_brightness_seekbar);
+        }
+
+        void registerDirectManipulation() {
+            DirectManipulationHandler.setDirectManipulationHandler(mSeekBar,
+                    new DirectManipulationHandler.Builder(mDirectManipulationMode)
+                            .setCenterButtonHandler(inDirectManipulationMode -> {
+                                mSeekBar.setSelected(!inDirectManipulationMode);
+                                return true;
+                            })
+                            .setBackHandler(inDirectManipulationMode -> {
+                                if (inDirectManipulationMode) {
+                                    mSeekBar.setSelected(false);
+                                    return true;
+                                }
+                                return false;
+                            })
+                            .setRotationHandler((v, event) -> {
+                                int scrollAmount = Math.round(
+                                        event.getAxisValue(MotionEvent.AXIS_SCROLL));
+                                mSeekBar.incrementProgressBy(
+                                        scrollAmount * SeekBarHelper.getScaledSeekBarIncrement(
+                                                mSeekBar));
+                                return true;
+                            })
+                            .build());
         }
     }
 

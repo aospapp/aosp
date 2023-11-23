@@ -6,11 +6,47 @@
 
 #include "bpf_map_def.h"
 
+/******************************************************************************
+ * WARNING: CHANGES TO THIS FILE OUTSIDE OF AOSP/MASTER ARE LIKELY TO BREAK   *
+ * DEVICE COMPATIBILITY WITH MAINLINE MODULES SHIPPING EBPF CODE.             *
+ *                                                                            *
+ * THIS WILL LIKELY RESULT IN BRICKED DEVICES AT SOME ARBITRARY FUTURE TIME   *
+ *                                                                            *
+ * THAT GOES ESPECIALLY FOR THE 'SEC' 'LICENSE' AND 'CRITICAL' MACRO DEFINES  *
+ *                                                                            *
+ * We strongly suggest that if you need changes to bpfloader functionality    *
+ * you get your changes reviewed and accepted into aosp/master.               *
+ *                                                                            *
+ ******************************************************************************/
+
 /* place things in different elf sections */
 #define SEC(NAME) __attribute__((section(NAME), used))
 
-/* Example use: LICENSE("GPL"); or LICENSE("Apache 2.0"); */
-#define LICENSE(NAME) char _license[] SEC("license") = (NAME)
+/* Must be present in every program, example usage:
+ *   LICENSE("GPL"); or LICENSE("Apache 2.0");
+ *
+ * We also take this opportunity to embed a bunch of other useful values in
+ * the resulting .o (This is to enable some limited forward compatibility
+ * with mainline module shipped ebpf programs)
+ *
+ * The bpfloader_{min/max}_ver defines the [min, max) range of bpfloader
+ * versions that should load this .o file (bpfloaders outside of this range
+ * will simply ignore/skip this *entire* .o)
+ * The [inclusive,exclusive) matches what we do for kernel ver dependencies.
+ *
+ * The size_of_bpf_{map,prog}_def allow the bpfloader to load programs where
+ * these structures have been extended with additional fields (they will of
+ * course simply be ignored then).
+ *
+ * If missing, bpfloader_{min/max}_ver default to 0/0x10000 ie. [v0.0, v1.0),
+ * while size_of_bpf_{map/prog}_def default to 32/20 which are the v0.0 sizes.
+ */
+#define LICENSE(NAME)                                                                       \
+    unsigned int _bpfloader_min_ver SEC("bpfloader_min_ver") = DEFAULT_BPFLOADER_MIN_VER;   \
+    unsigned int _bpfloader_max_ver SEC("bpfloader_max_ver") = DEFAULT_BPFLOADER_MAX_VER;   \
+    size_t _size_of_bpf_map_def SEC("size_of_bpf_map_def") = sizeof(struct bpf_map_def);    \
+    size_t _size_of_bpf_prog_def SEC("size_of_bpf_prog_def") = sizeof(struct bpf_prog_def); \
+    char _license[] SEC("license") = (NAME)
 
 /* flag the resulting bpf .o file as critical to system functionality,
  * loading all kernel version appropriate programs in it must succeed
@@ -22,6 +58,10 @@
  * Helper functions called from eBPF programs written in C. These are
  * implemented in the kernel sources.
  */
+
+#define KVER_NONE 0
+#define KVER(a, b, c) (((a) << 24) + ((b) << 16) + (c))
+#define KVER_INF 0xFFFFFFFFu
 
 /* generic functions */
 
@@ -47,18 +87,18 @@
  * This will make sure that if you change the type of a map you'll get compile
  * errors at any spots you forget to update with the new type.
  *
- * Note: these all take 'const void* map' because from the C/eBPF point of view
+ * Note: these all take pointers to const map because from the C/eBPF point of view
  * the map struct is really just a readonly map definition of the in kernel object.
  * Runtime modification of the map defining struct is meaningless, since
  * the contents is only ever used during bpf program loading & map creation
  * by the bpf loader, and not by the eBPF program itself.
  */
-static void* (*bpf_map_lookup_elem_unsafe)(const void* map,
+static void* (*bpf_map_lookup_elem_unsafe)(const struct bpf_map_def* map,
                                            const void* key) = (void*)BPF_FUNC_map_lookup_elem;
-static int (*bpf_map_update_elem_unsafe)(const void* map, const void* key, const void* value,
-                                         unsigned long long flags) = (void*)
+static int (*bpf_map_update_elem_unsafe)(const struct bpf_map_def* map, const void* key,
+                                         const void* value, unsigned long long flags) = (void*)
         BPF_FUNC_map_update_elem;
-static int (*bpf_map_delete_elem_unsafe)(const void* map,
+static int (*bpf_map_delete_elem_unsafe)(const struct bpf_map_def* map,
                                          const void* key) = (void*)BPF_FUNC_map_delete_elem;
 
 /* type safe macro to declare a map and related accessor functions */
@@ -68,9 +108,14 @@ static int (*bpf_map_delete_elem_unsafe)(const void* map,
             .key_size = sizeof(TypeOfKey),                                                       \
             .value_size = sizeof(TypeOfValue),                                                   \
             .max_entries = (num_entries),                                                        \
+            .map_flags = 0,                                                                      \
             .uid = (usr),                                                                        \
             .gid = (grp),                                                                        \
             .mode = (md),                                                                        \
+            .bpfloader_min_ver = DEFAULT_BPFLOADER_MIN_VER,                                      \
+            .bpfloader_max_ver = DEFAULT_BPFLOADER_MAX_VER,                                      \
+            .min_kver = KVER_NONE,                                                               \
+            .max_kver = KVER_INF,                                                                \
     };                                                                                           \
                                                                                                  \
     static inline __always_inline __unused TypeOfValue* bpf_##the_map##_lookup_elem(             \
@@ -102,14 +147,11 @@ static int (*bpf_map_delete_elem_unsafe)(const void* map,
 static int (*bpf_probe_read)(void* dst, int size, void* unsafe_ptr) = (void*) BPF_FUNC_probe_read;
 static int (*bpf_probe_read_str)(void* dst, int size, void* unsafe_ptr) = (void*) BPF_FUNC_probe_read_str;
 static unsigned long long (*bpf_ktime_get_ns)(void) = (void*) BPF_FUNC_ktime_get_ns;
+static unsigned long long (*bpf_ktime_get_boot_ns)(void) = (void*)BPF_FUNC_ktime_get_boot_ns;
 static int (*bpf_trace_printk)(const char* fmt, int fmt_size, ...) = (void*) BPF_FUNC_trace_printk;
 static unsigned long long (*bpf_get_current_pid_tgid)(void) = (void*) BPF_FUNC_get_current_pid_tgid;
 static unsigned long long (*bpf_get_current_uid_gid)(void) = (void*) BPF_FUNC_get_current_uid_gid;
 static unsigned long long (*bpf_get_smp_processor_id)(void) = (void*) BPF_FUNC_get_smp_processor_id;
-
-#define KVER_NONE 0
-#define KVER(a, b, c) ((a)*65536 + (b)*256 + (c))
-#define KVER_INF 0xFFFFFFFF
 
 #define DEFINE_BPF_PROG_KVER_RANGE_OPT(SECTION_NAME, prog_uid, prog_gid, the_prog, min_kv, max_kv, \
                                        opt)                                                        \
@@ -119,6 +161,8 @@ static unsigned long long (*bpf_get_smp_processor_id)(void) = (void*) BPF_FUNC_g
             .min_kver = (min_kv),                                                                  \
             .max_kver = (max_kv),                                                                  \
             .optional = (opt),                                                                     \
+            .bpfloader_min_ver = DEFAULT_BPFLOADER_MIN_VER,                                        \
+            .bpfloader_max_ver = DEFAULT_BPFLOADER_MAX_VER,                                        \
     };                                                                                             \
     SEC(SECTION_NAME)                                                                              \
     int the_prog

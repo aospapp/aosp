@@ -18,10 +18,14 @@ package com.android.car.settings.wifi;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
 
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.Lifecycle.Event;
 import androidx.preference.Preference;
 
@@ -66,7 +70,9 @@ public class WifiStatusPreferenceControllerTest {
                 new PreferenceControllerTestHelper<>(mContext,
                         WifiStatusPreferenceController.class, mPreference);
         mController = controllerHelper.getController();
-        ShadowCarWifiManager.setInstance(new CarWifiManager(mContext));
+        when(controllerHelper.getMockFragmentController().getSettingsLifecycle())
+                .thenReturn(mock(Lifecycle.class));
+        ShadowCarWifiManager.setInstance(new CarWifiManager(mContext, mock(Lifecycle.class)));
         controllerHelper.sendLifecycleEvent(Event.ON_CREATE);
     }
 

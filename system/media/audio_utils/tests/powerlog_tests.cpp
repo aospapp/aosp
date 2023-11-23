@@ -47,33 +47,60 @@ TEST(audio_utils_powerlog, basic) {
     plog->log(&half, 1 /* frame */, 2 /* nowNs */);
 
     // one line / signal
-    EXPECT_EQ((size_t)2, countNewLines(plog->dumpToString()));
+    EXPECT_EQ((size_t)2, countNewLines(plog->dumpToString(
+            "" /* prefix */, 0 /* lines */, 0 /* limitNs */, false /* logPlot */)));
+
+    // one line / signal + logplot
+    EXPECT_EQ((size_t)20, countNewLines(plog->dumpToString()));
 
     plog->log(&zero, 1 /* frame */, 3 /* nowNs */);
     // zero termination doesn't change this.
-    EXPECT_EQ((size_t)2, countNewLines(plog->dumpToString()));
+    EXPECT_EQ((size_t)20, countNewLines(plog->dumpToString()));
 
     // but adding next line does.
     plog->log(&half, 1 /* frame */, 4 /* nowNs */);
-    EXPECT_EQ((size_t)3, countNewLines(plog->dumpToString()));
+    EXPECT_EQ((size_t)21, countNewLines(plog->dumpToString()));
 
-    // truncating on lines
-    EXPECT_EQ((size_t)2, countNewLines(plog->dumpToString(
+    // truncating on lines (this does not include the logplot).
+    EXPECT_EQ((size_t)20, countNewLines(plog->dumpToString(
             "" /* prefix */, 2 /* lines */)));
 
-    // truncating on time
-    EXPECT_EQ((size_t)3, countNewLines(plog->dumpToString(
+    // truncating on time as well.
+    EXPECT_EQ((size_t)21, countNewLines(plog->dumpToString(
             "" /* prefix */, 0 /* lines */, 2 /* limitNs */)));
-    EXPECT_EQ((size_t)2, countNewLines(plog->dumpToString(
+    // truncating on different time limit.
+    EXPECT_EQ((size_t)20, countNewLines(plog->dumpToString(
             "" /* prefix */, 0 /* lines */, 3 /* limitNs */)));
+
+    // truncating on a larger line count (this doesn't include the logplot).
+    EXPECT_EQ((size_t)21, countNewLines(plog->dumpToString(
+            "" /* prefix */, 3 /* lines */, 2 /* limitNs */)));
+
     plog->dump(0 /* fd (stdout) */);
 
     // The output below depends on the local time zone.
     // The indentation below is exact, check alignment.
     /*
 Signal power history:
- 12-31 16:00:00.000: [   -6.0   -6.0   -6.0 ] sum(-1.2)
- 12-31 16:00:00.000: [   -6.0
+01-01 00:00:00.000: [   -6.0   -6.0   -6.0 ] sum(-1.2)
+01-01 00:00:00.000: [   -6.0
+
+-0.0 -|   |
+-1.0 -|   |
+-2.0 -|   |
+-3.0 -|   |
+-4.0 -|   |
+-5.0 -|   |
+-6.0 -|***|
+-7.0 -|   |
+-8.0 -|   |
+-9.0 -|   |
+-10.0 -|   |
+-11.0 -|   |
+-12.0 -|   |
+-13.0 -|   |
+|____
+
      */
 }
 
@@ -85,7 +112,7 @@ TEST(audio_utils_powerlog, c) {
             100 /* entries */,
             1 /* frames_per_entry */);
 
-    // sanity test
+    // soundness test
     const int16_t zero = 0;
     const int16_t quarter = 0x2000;
 

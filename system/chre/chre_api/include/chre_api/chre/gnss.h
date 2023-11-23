@@ -35,6 +35,7 @@
  * applicable.
  */
 
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -148,8 +149,13 @@ extern "C" {
 /**
  * The maximum number of instances of struct chreGnssMeasurement that may be
  * included in a single struct chreGnssDataEvent.
+ *
+ * The value of this struct was increased from 64 to 128 in CHRE v1.5. For
+ * nanoapps targeting CHRE v1.4 or lower, the measurement_count will be capped
+ * at 64.
  */
-#define CHRE_GNSS_MAX_MEASUREMENT  UINT8_C(64)
+#define CHRE_GNSS_MAX_MEASUREMENT  UINT8_C(128)
+#define CHRE_GNSS_MAX_MEASUREMENT_PRE_1_5  UINT8_C(64)
 
 // Flags indicating the GNSS measurement state (ref: GnssMeasurementState)
 #define CHRE_GNSS_MEASUREMENT_STATE_UNKNOWN                UINT16_C(0)
@@ -408,6 +414,16 @@ struct chreGnssLocationEvent {
 uint32_t chreGnssGetCapabilities(void);
 
 /**
+ * Nanoapps must define CHRE_NANOAPP_USES_GNSS somewhere in their build
+ * system (e.g. Makefile) if the nanoapp needs to use the following GNSS APIs.
+ * In addition to allowing access to these APIs, defining this macro will also
+ * ensure CHRE enforces that all host clients this nanoapp talks to have the
+ * required Android permissions needed to listen to GNSS data by adding metadata
+ * to the nanoapp.
+ */
+#if defined(CHRE_NANOAPP_USES_GNSS) || !defined(CHRE_IS_NANOAPP_BUILD)
+
+/**
  * Initiates a GNSS positioning session, or changes the requested interval of an
  * existing session. If starting or modifying the session was successful, then
  * the GNSS engine will work on determining the device's position.
@@ -437,6 +453,7 @@ uint32_t chreGnssGetCapabilities(void);
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
+ * @note Requires GNSS permission
  */
 bool chreGnssLocationSessionStartAsync(uint32_t minIntervalMs,
                                        uint32_t minTimeToNextFixMs,
@@ -464,6 +481,7 @@ bool chreGnssLocationSessionStartAsync(uint32_t minIntervalMs,
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
+ * @note Requires GNSS permission
  */
 bool chreGnssLocationSessionStopAsync(const void *cookie);
 
@@ -494,6 +512,7 @@ bool chreGnssLocationSessionStopAsync(const void *cookie);
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
+ * @note Requires GNSS permission
  */
 bool chreGnssMeasurementSessionStartAsync(uint32_t minIntervalMs,
                                           const void *cookie);
@@ -517,6 +536,7 @@ bool chreGnssMeasurementSessionStartAsync(uint32_t minIntervalMs,
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
+ * @note Requires GNSS permission
  */
 bool chreGnssMeasurementSessionStopAsync(const void *cookie);
 
@@ -552,8 +572,30 @@ bool chreGnssMeasurementSessionStopAsync(const void *cookie);
  *     or if this feature is not supported
  *
  * @since v1.2
+ * @note Requires GNSS permission
  */
 bool chreGnssConfigurePassiveLocationListener(bool enable);
+
+#else  /* defined(CHRE_NANOAPP_USES_GNSS) || !defined(CHRE_IS_NANOAPP_BUILD) */
+#define CHRE_GNSS_PERM_ERROR_STRING \
+    "CHRE_NANOAPP_USES_GNSS must be defined when building this nanoapp in " \
+    "order to refer to "
+#define chreGnssLocationSessionStartAsync(...) \
+    CHRE_BUILD_ERROR(CHRE_GNSS_PERM_ERROR_STRING \
+                     "chreGnssLocationSessionStartAsync")
+#define chreGnssLocationSessionStopAsync(...) \
+    CHRE_BUILD_ERROR(CHRE_GNSS_PERM_ERROR_STRING \
+                     "chreGnssLocationSessionStopAsync")
+#define chreGnssMeasurementSessionStartAsync(...) \
+    CHRE_BUILD_ERROR(CHRE_GNSS_PERM_ERROR_STRING \
+                     "chreGnssMeasurementSessionStartAsync")
+#define chreGnssMeasurementSessionStopAsync(...) \
+    CHRE_BUILD_ERROR(CHRE_GNSS_PERM_ERROR_STRING \
+                     "chreGnssMeasurementSessionStopAsync")
+#define chreGnssConfigurePassiveLocationListener(...) \
+    CHRE_BUILD_ERROR(CHRE_GNSS_PERM_ERROR_STRING \
+                     "chreGnssConfigurePassiveLocationListener")
+#endif  /* defined(CHRE_NANOAPP_USES_GNSS) || !defined(CHRE_IS_NANOAPP_BUILD) */
 
 #ifdef __cplusplus
 }

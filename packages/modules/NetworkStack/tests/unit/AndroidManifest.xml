@@ -15,7 +15,6 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.server.networkstack.tests">
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29" />
 
     <!-- DO NOT add privapp permissions here: they are inherited by
          NetworkStackCoverageTests, which is not signed by the platform key,

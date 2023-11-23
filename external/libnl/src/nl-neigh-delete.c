@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * src/nl-neigh-delete.c     Delete a neighbour
  *
@@ -12,6 +13,8 @@
 #include <netlink/cli/utils.h>
 #include <netlink/cli/neigh.h>
 #include <netlink/cli/link.h>
+
+#include <linux/netlink.h>
 
 static int quiet = 0, default_yes = 0, deleted = 0, interactive = 0;
 static struct nl_sock *sock;
@@ -67,13 +70,13 @@ int main(int argc, char *argv[])
 {
 	struct rtnl_neigh *neigh;
 	struct nl_cache *link_cache, *neigh_cache;
- 
+
 	sock = nl_cli_alloc_socket();
 	nl_cli_connect(sock, NETLINK_ROUTE);
 	link_cache = nl_cli_link_alloc_cache(sock);
 	neigh_cache = nl_cli_neigh_alloc_cache(sock);
- 	neigh = nl_cli_neigh_alloc();
- 
+	neigh = nl_cli_neigh_alloc();
+
 	for (;;) {
 		int c, optidx = 0;
 		enum {
@@ -94,7 +97,7 @@ int main(int argc, char *argv[])
 			{ "state", 1, 0, ARG_STATE },
 			{ 0, 0, 0, 0 }
 		};
-	
+
 		c = getopt_long(argc, argv, "qhva:l:d:", long_opts, &optidx);
 		if (c == -1)
 			break;
@@ -111,7 +114,7 @@ int main(int argc, char *argv[])
 		case ARG_FAMILY: nl_cli_neigh_parse_family(neigh, optarg); break;
 		case ARG_STATE: nl_cli_neigh_parse_state(neigh, optarg); break;
 		}
- 	}
+	}
 
 	nl_cache_foreach_filter(neigh_cache, OBJ_CAST(neigh), delete_cb, NULL);
 

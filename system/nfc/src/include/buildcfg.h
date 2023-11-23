@@ -43,6 +43,10 @@
 #define GKI_BUF0_SIZE 268
 #define GKI_BUF0_MAX 40
 
+#ifdef DYN_ALLOC
+#define GKI_NUM_FIXED_BUF_POOLS 0
+#else
 #define GKI_NUM_FIXED_BUF_POOLS 4
+#endif
 
 #endif

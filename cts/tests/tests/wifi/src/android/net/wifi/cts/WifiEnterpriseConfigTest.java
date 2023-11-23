@@ -22,8 +22,10 @@ import android.content.pm.PackageManager;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiEnterpriseConfig.Eap;
 import android.net.wifi.WifiEnterpriseConfig.Phase2;
+import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
+
+import androidx.test.filters.SdkSuppress;
 
 import java.io.ByteArrayInputStream;
 import java.security.KeyFactory;
@@ -48,6 +50,7 @@ public class WifiEnterpriseConfigTest extends WifiJUnit3TestBase {
     private static final String CA_PATH = "capath";
     private static final String CLIENT_CERTIFICATE_ALIAS = "clientcertificatealias";
     private static final String WAPI_CERT_SUITE = "wapicertsuite";
+    private static final String TEST_DECORATED_IDENTITY_PREFIX = "androidwifi.dev!";
 
     /*
      * The keys and certificates below are generated with:
@@ -822,6 +825,20 @@ public class WifiEnterpriseConfigTest extends WifiJUnit3TestBase {
         assertThat(config.getClientCertificateAlias()).isEqualTo(CLIENT_CERTIFICATE_ALIAS);
     }
 
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
+    public void testGetSetClientKeyPairAlias() {
+        if (!hasWifi()) {
+            return;
+        }
+        WifiEnterpriseConfig config = new WifiEnterpriseConfig();
+
+        config.setClientKeyPairAlias("");
+        assertThat(config.getClientKeyPairAlias()).isEmpty();
+
+        config.setClientKeyPairAlias(CLIENT_CERTIFICATE_ALIAS);
+        assertThat(config.getClientKeyPairAlias()).isEqualTo(CLIENT_CERTIFICATE_ALIAS);
+    }
+
     public void testGetSetOcsp() {
         if (!hasWifi()) {
             return;
@@ -895,5 +912,101 @@ public class WifiEnterpriseConfigTest extends WifiJUnit3TestBase {
         assertThat(copy.getCaPath()).isEqualTo(CA_PATH);
         assertThat(copy.getPassword()).isEqualTo(PASSWORD);
         assertThat(copy.getRealm()).isEqualTo(REALM);
+    }
+
+    public void testIsEnterpriseConfigServerCertNotEnabled() {
+        if (!hasWifi() || !WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(getContext())) {
+            return;
+        }
+        WifiEnterpriseConfig baseConfig = new WifiEnterpriseConfig();
+        baseConfig.setEapMethod(Eap.PEAP);
+        baseConfig.setPhase2Method(Phase2.MSCHAPV2);
+        assertTrue(baseConfig.isEapMethodServerCertUsed());
+        assertFalse(baseConfig.isServerCertValidationEnabled());
+
+        WifiEnterpriseConfig noMatchConfig = new WifiEnterpriseConfig(baseConfig);
+        noMatchConfig.setCaCertificate(FakeKeys.CA_CERT0);
+        // Missing match disables validation.
+        assertTrue(baseConfig.isEapMethodServerCertUsed());
+        assertFalse(baseConfig.isServerCertValidationEnabled());
+
+        WifiEnterpriseConfig noCaConfig = new WifiEnterpriseConfig(baseConfig);
+        noCaConfig.setDomainSuffixMatch(DOM_SUBJECT_MATCH);
+        // Missing CA certificate disables validation.
+        assertTrue(baseConfig.isEapMethodServerCertUsed());
+        assertFalse(baseConfig.isServerCertValidationEnabled());
+
+        WifiEnterpriseConfig noValidationConfig = new WifiEnterpriseConfig();
+        noValidationConfig.setEapMethod(Eap.AKA);
+        assertFalse(noValidationConfig.isEapMethodServerCertUsed());
+    }
+
+    public void testIsEnterpriseConfigServerCertEnabledWithPeap() {
+        if (!hasWifi() || !WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(getContext())) {
+            return;
+        }
+        testIsEnterpriseConfigServerCertEnabled(Eap.PEAP);
+    }
+
+    public void testIsEnterpriseConfigServerCertEnabledWithTls() {
+        if (!hasWifi() || !WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(getContext())) {
+            return;
+        }
+        testIsEnterpriseConfigServerCertEnabled(Eap.TLS);
+    }
+
+    public void testIsEnterpriseConfigServerCertEnabledWithTTLS() {
+        if (!hasWifi() || !WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(getContext())) {
+            return;
+        }
+        testIsEnterpriseConfigServerCertEnabled(Eap.TTLS);
+    }
+
+    private void testIsEnterpriseConfigServerCertEnabled(int eapMethod) {
+        WifiEnterpriseConfig configWithCertAndDomainSuffixMatch = createEnterpriseConfig(eapMethod,
+                Phase2.NONE, FakeKeys.CA_CERT0, null, DOM_SUBJECT_MATCH, null);
+        assertTrue(configWithCertAndDomainSuffixMatch.isEapMethodServerCertUsed());
+        assertTrue(configWithCertAndDomainSuffixMatch.isServerCertValidationEnabled());
+
+        WifiEnterpriseConfig configWithCertAndAltSubjectMatch = createEnterpriseConfig(eapMethod,
+                Phase2.NONE, FakeKeys.CA_CERT0, null, null, ALT_SUBJECT_MATCH);
+        assertTrue(configWithCertAndAltSubjectMatch.isEapMethodServerCertUsed());
+        assertTrue(configWithCertAndAltSubjectMatch.isServerCertValidationEnabled());
+
+        WifiEnterpriseConfig configWithAliasAndDomainSuffixMatch = createEnterpriseConfig(eapMethod,
+                Phase2.NONE, null, new String[]{"alias1", "alisa2"}, DOM_SUBJECT_MATCH,
+                null);
+        assertTrue(configWithAliasAndDomainSuffixMatch.isEapMethodServerCertUsed());
+        assertTrue(configWithAliasAndDomainSuffixMatch.isServerCertValidationEnabled());
+
+        WifiEnterpriseConfig configWithAliasAndAltSubjectMatch = createEnterpriseConfig(eapMethod,
+                Phase2.NONE, null, new String[]{"alias1", "alisa2"}, null, ALT_SUBJECT_MATCH);
+        assertTrue(configWithAliasAndAltSubjectMatch.isEapMethodServerCertUsed());
+        assertTrue(configWithAliasAndAltSubjectMatch.isServerCertValidationEnabled());
+    }
+
+    private WifiEnterpriseConfig createEnterpriseConfig(int eapMethod, int phase2Method,
+            X509Certificate caCertificate, String[] aliases, String domainSuffixMatch,
+            String altSubjectMatch) {
+        WifiEnterpriseConfig config = new WifiEnterpriseConfig();
+        config.setEapMethod(eapMethod);
+        config.setPhase2Method(phase2Method);
+        config.setCaCertificate(caCertificate);
+        config.setCaCertificateAliases(aliases);
+        config.setDomainSuffixMatch(domainSuffixMatch);
+        config.setAltSubjectMatch(altSubjectMatch);
+        return config;
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
+    public void testSetGetDecoratedIdentityPrefix() {
+        if (!hasWifi()) {
+            return;
+        }
+        WifiEnterpriseConfig config = new WifiEnterpriseConfig();
+
+        assertNull(config.getDecoratedIdentityPrefix());
+        config.setDecoratedIdentityPrefix(TEST_DECORATED_IDENTITY_PREFIX);
+        assertEquals(TEST_DECORATED_IDENTITY_PREFIX, config.getDecoratedIdentityPrefix());
     }
 }

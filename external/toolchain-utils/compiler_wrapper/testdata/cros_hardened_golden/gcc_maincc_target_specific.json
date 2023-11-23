@@ -28,7 +28,6 @@
             "-mno-movbe"
           ],
           "env_updates": [
-            "CCACHE_BASEDIR=/usr/x86_64-cros-linux-gnu",
             "CCACHE_DIR=/var/cache/distfiles/ccache",
             "CCACHE_UMASK=002"
           ]
@@ -65,7 +64,6 @@
             "-mno-movbe"
           ],
           "env_updates": [
-            "CCACHE_BASEDIR=/usr/x86_64-cros-eabi",
             "CCACHE_DIR=/var/cache/distfiles/ccache",
             "CCACHE_UMASK=002"
           ]
@@ -102,7 +100,6 @@
             "-mno-movbe"
           ],
           "env_updates": [
-            "CCACHE_BASEDIR=/usr/x86_64-cros-win-gnu",
             "CCACHE_DIR=/var/cache/distfiles/ccache",
             "CCACHE_UMASK=002"
           ]
@@ -138,7 +135,6 @@
             "main.cc"
           ],
           "env_updates": [
-            "CCACHE_BASEDIR=/usr/armv7m-cros-linux-gnu",
             "CCACHE_DIR=/var/cache/distfiles/ccache",
             "CCACHE_UMASK=002"
           ]
@@ -174,7 +170,6 @@
             "main.cc"
           ],
           "env_updates": [
-            "CCACHE_BASEDIR=/usr/armv7m-cros-eabi",
             "CCACHE_DIR=/var/cache/distfiles/ccache",
             "CCACHE_UMASK=002"
           ]
@@ -210,7 +205,6 @@
             "main.cc"
           ],
           "env_updates": [
-            "CCACHE_BASEDIR=/usr/armv7m-cros-win-gnu",
             "CCACHE_DIR=/var/cache/distfiles/ccache",
             "CCACHE_UMASK=002"
           ]
@@ -246,7 +240,6 @@
             "main.cc"
           ],
           "env_updates": [
-            "CCACHE_BASEDIR=/usr/armv8m-cros-linux-gnu",
             "CCACHE_DIR=/var/cache/distfiles/ccache",
             "CCACHE_UMASK=002"
           ]
@@ -282,7 +275,6 @@
             "main.cc"
           ],
           "env_updates": [
-            "CCACHE_BASEDIR=/usr/armv8m-cros-eabi",
             "CCACHE_DIR=/var/cache/distfiles/ccache",
             "CCACHE_UMASK=002"
           ]
@@ -318,7 +310,6 @@
             "main.cc"
           ],
           "env_updates": [
-            "CCACHE_BASEDIR=/usr/armv8m-cros-win-gnu",
             "CCACHE_DIR=/var/cache/distfiles/ccache",
             "CCACHE_UMASK=002"
           ]

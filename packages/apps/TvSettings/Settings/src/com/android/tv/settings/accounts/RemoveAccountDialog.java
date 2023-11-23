@@ -22,7 +22,6 @@ import android.accounts.AccountManagerCallback;
 import android.accounts.AccountManagerFuture;
 import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
-import android.app.Activity;
 import android.app.ActivityManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -30,7 +29,8 @@ import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
@@ -42,7 +42,8 @@ import java.util.List;
 /**
  * OK / Cancel dialog.
  */
-public class RemoveAccountDialog extends Activity implements AccountManagerCallback<Bundle> {
+public class RemoveAccountDialog extends FragmentActivity
+        implements AccountManagerCallback<Bundle> {
 
     private static final String TAG = "RemoveAccountDialog";
 
@@ -50,7 +51,7 @@ public class RemoveAccountDialog extends Activity implements AccountManagerCallb
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState == null) {
-            GuidedStepFragment.addAsRoot(this, RemoveAccountFragment.newInstance(
+            GuidedStepSupportFragment.addAsRoot(this, RemoveAccountFragment.newInstance(
                     getIntent().getStringExtra(AccountSyncActivity.EXTRA_ACCOUNT)),
                     android.R.id.content);
         }
@@ -77,7 +78,7 @@ public class RemoveAccountDialog extends Activity implements AccountManagerCallb
         finish();
     }
 
-    public static class RemoveAccountFragment extends GuidedStepFragment {
+    public static class RemoveAccountFragment extends GuidedStepSupportFragment {
         private static final String ARG_ACCOUNT_NAME = "accountName";
         private static final int ID_OK = 1;
         private static final int ID_CANCEL = 0;

@@ -32,7 +32,10 @@ const effect_uuid_t * const FX_IID_AEC = &FX_IID_AEC_;
 typedef enum
 {
     AEC_PARAM_ECHO_DELAY,           // echo delay in microseconds
-    AEC_PARAM_PROPERTIES
+    AEC_PARAM_PROPERTIES,
+#ifndef WEBRTC_LEGACY
+    AEC_PARAM_MOBILE_MODE,
+#endif
 } t_aec_params;
 
 //t_equalizer_settings groups all current aec settings for backup and restore.

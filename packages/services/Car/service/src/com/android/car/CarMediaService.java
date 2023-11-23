@@ -18,9 +18,15 @@ package com.android.car;
 import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_BROWSE;
 import static android.car.media.CarMediaManager.MEDIA_SOURCE_MODE_PLAYBACK;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.TestApi;
 import android.app.ActivityManager;
 import android.car.Car;
+import android.car.hardware.power.CarPowerPolicy;
+import android.car.hardware.power.CarPowerPolicyFilter;
+import android.car.hardware.power.ICarPowerPolicyListener;
+import android.car.hardware.power.PowerComponent;
 import android.car.media.CarMediaManager;
 import android.car.media.CarMediaManager.MediaSourceChangedListener;
 import android.car.media.CarMediaManager.MediaSourceMode;
@@ -45,6 +51,7 @@ import android.media.session.MediaSessionManager.OnActiveSessionsChangedListener
 import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerExecutor;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.RemoteCallbackList;
@@ -53,16 +60,15 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.service.media.MediaBrowserService;
 import android.text.TextUtils;
+import android.util.IndentingPrintWriter;
 import android.util.Log;
+import android.util.Slog;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
+import com.android.car.power.CarPowerManagementService;
 import com.android.car.user.CarUserService;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
-import java.io.PrintWriter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -108,15 +114,23 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
     private final MediaSessionUpdater mMediaSessionUpdater = new MediaSessionUpdater();
     @GuardedBy("mLock")
     private ComponentName[] mPrimaryMediaComponents = new ComponentName[MEDIA_SOURCE_MODES];
-    private SharedPreferences mSharedPrefs;
     // MediaController for the current active user's active media session. This controller can be
     // null if playback has not been started yet.
+    @GuardedBy("mLock")
     private MediaController mActiveUserMediaController;
+    @GuardedBy("mLock")
+    private int mCurrentPlaybackState;
+    @GuardedBy("mLock")
+    private boolean mIsDisabledByPowerPolicy;
+    @GuardedBy("mLock")
+    private boolean mWasPreviouslyDisabledByPowerPolicy;
+    @GuardedBy("mLock")
+    private boolean mWasPlayingBeforeDisabled;
+    private SharedPreferences mSharedPrefs;
     private SessionChangedListener mSessionsListener;
     private int mPlayOnMediaSourceChangedConfig;
     private int mPlayOnBootConfig;
     private boolean mIndependentPlaybackConfig;
-    private int mCurrentPlaybackState;
 
     private boolean mPendingInit;
 
@@ -167,7 +181,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
                                         mRemovedMediaSourceComponents[i] =
                                                 mPrimaryMediaComponents[i];
                                         if (Log.isLoggable(CarLog.TAG_MEDIA, Log.DEBUG)) {
-                                            Log.d(CarLog.TAG_MEDIA,
+                                            Slog.d(CarLog.TAG_MEDIA,
                                                     "temporarily replacing updated media source "
                                                             + mPrimaryMediaComponents[i]
                                                             + "with backup source: "
@@ -177,10 +191,10 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
                                         return;
                                     }
                                 }
-                                Log.e(CarLog.TAG_MEDIA, "No available backup media source");
+                                Slog.e(CarLog.TAG_MEDIA, "No available backup media source");
                             } else {
                                 if (Log.isLoggable(CarLog.TAG_MEDIA, Log.DEBUG)) {
-                                    Log.d(CarLog.TAG_MEDIA, "replacing removed media source "
+                                    Slog.d(CarLog.TAG_MEDIA, "replacing removed media source "
                                             + mPrimaryMediaComponents[i] + "with backup source: "
                                             + getLastMediaSource(i));
                                 }
@@ -196,7 +210,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
                     if (mRemovedMediaSourceComponents[i] != null && mRemovedMediaSourceComponents[i]
                             .getPackageName().equals(intentPackage)) {
                         if (Log.isLoggable(CarLog.TAG_MEDIA, Log.DEBUG)) {
-                            Log.d(CarLog.TAG_MEDIA, "restoring removed source: "
+                            Slog.d(CarLog.TAG_MEDIA, "restoring removed source: "
                                     + mRemovedMediaSourceComponents[i]);
                         }
                         setPrimaryMediaSource(mRemovedMediaSourceComponents[i], i);
@@ -208,13 +222,66 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
 
     private final UserLifecycleListener mUserLifecycleListener = event -> {
         if (Log.isLoggable(CarLog.TAG_MEDIA, Log.DEBUG)) {
-            Log.d(CarLog.TAG_MEDIA, "CarMediaService.onEvent(" + event + ")");
+            Slog.d(CarLog.TAG_MEDIA, "CarMediaService.onEvent(" + event + ")");
         }
-        if (CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING == event.getEventType()) {
-            maybeInitUser(event.getUserId());
-        } else if (CarUserManager.USER_LIFECYCLE_EVENT_TYPE_UNLOCKING == event.getEventType()) {
-            onUserUnlock(event.getUserId());
+
+        switch (event.getEventType()) {
+            case CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING:
+                maybeInitUser(event.getUserId());
+                break;
+            case CarUserManager.USER_LIFECYCLE_EVENT_TYPE_UNLOCKED:
+                onUserUnlock(event.getUserId());
+                break;
         }
+    };
+
+    private final ICarPowerPolicyListener mPowerPolicyListener =
+            new ICarPowerPolicyListener.Stub() {
+                @Override
+                public void onPolicyChanged(CarPowerPolicy appliedPolicy,
+                        CarPowerPolicy accumulatedPolicy) {
+                    boolean shouldBePlaying;
+                    MediaController mediaController;
+                    boolean isOff = !accumulatedPolicy.isComponentEnabled(PowerComponent.MEDIA);
+                    synchronized (mLock) {
+                        boolean weArePlaying = mCurrentPlaybackState == PlaybackState.STATE_PLAYING;
+                        mIsDisabledByPowerPolicy = isOff;
+                        if (isOff) {
+                            if (!mWasPreviouslyDisabledByPowerPolicy) {
+                                // We're disabling media component.
+                                // Remember if we are playing at this transition.
+                                mWasPlayingBeforeDisabled = weArePlaying;
+                                mWasPreviouslyDisabledByPowerPolicy = true;
+                            }
+                            shouldBePlaying = false;
+                        } else {
+                            mWasPreviouslyDisabledByPowerPolicy = false;
+                            shouldBePlaying = mWasPlayingBeforeDisabled;
+                        }
+                        if (shouldBePlaying == weArePlaying) {
+                            return;
+                        }
+                        // Make a change
+                        mediaController = mActiveUserMediaController;
+                        if (mediaController == null) {
+                            return;
+                        }
+                    }
+                    PlaybackState oldState = mediaController.getPlaybackState();
+                    savePlaybackState(
+                            // The new state is the same as the old state, except for play/pause
+                            new PlaybackState.Builder(oldState)
+                                    .setState(shouldBePlaying ? PlaybackState.STATE_PLAYING
+                                                    : PlaybackState.STATE_PAUSED,
+                                            oldState.getPosition(),
+                                            oldState.getPlaybackSpeed())
+                                    .build());
+                    if (shouldBePlaying) {
+                        mediaController.getTransportControls().play();
+                    } else {
+                        mediaController.getTransportControls().pause();
+                    }
+                }
     };
 
     public CarMediaService(Context context, CarUserService userService) {
@@ -244,6 +311,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
     public void init() {
         int currentUser = ActivityManager.getCurrentUser();
         maybeInitUser(currentUser);
+        setPowerPolicyListener();
     }
 
     private void maybeInitUser(int userId) {
@@ -263,29 +331,31 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
         // credential encrypted storage are not available until after user 0 is unlocked.
         // initUser() is called when the current foreground user is unlocked, and by that time user
         // 0 has been unlocked already, so initializing SharedPreferences in initUser() is fine.
-        if (mSharedPrefs == null) {
-            mSharedPrefs = mContext.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+        synchronized (mLock) {
+            if (mSharedPrefs == null) {
+                mSharedPrefs = mContext.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+            }
+
+            if (mIsPackageUpdateReceiverRegistered) {
+                mContext.unregisterReceiver(mPackageUpdateReceiver);
+            }
+            UserHandle currentUser = new UserHandle(userId);
+            mContext.registerReceiverAsUser(mPackageUpdateReceiver, currentUser,
+                    mPackageUpdateFilter, null, null);
+            mIsPackageUpdateReceiverRegistered = true;
+
+            mPrimaryMediaComponents[MEDIA_SOURCE_MODE_PLAYBACK] = isCurrentUserEphemeral()
+                    ? getDefaultMediaSource() : getLastMediaSource(MEDIA_SOURCE_MODE_PLAYBACK);
+            mPrimaryMediaComponents[MEDIA_SOURCE_MODE_BROWSE] = isCurrentUserEphemeral()
+                    ? getDefaultMediaSource() : getLastMediaSource(MEDIA_SOURCE_MODE_BROWSE);
+            mActiveUserMediaController = null;
+
+            updateMediaSessionCallbackForCurrentUser();
+            notifyListeners(MEDIA_SOURCE_MODE_PLAYBACK);
+            notifyListeners(MEDIA_SOURCE_MODE_BROWSE);
+
+            startMediaConnectorService(shouldStartPlayback(mPlayOnBootConfig), currentUser);
         }
-
-        if (mIsPackageUpdateReceiverRegistered) {
-            mContext.unregisterReceiver(mPackageUpdateReceiver);
-        }
-        UserHandle currentUser = new UserHandle(userId);
-        mContext.registerReceiverAsUser(mPackageUpdateReceiver, currentUser,
-                mPackageUpdateFilter, null, null);
-        mIsPackageUpdateReceiverRegistered = true;
-
-        mPrimaryMediaComponents[MEDIA_SOURCE_MODE_PLAYBACK] = isCurrentUserEphemeral()
-                ? getDefaultMediaSource() : getLastMediaSource(MEDIA_SOURCE_MODE_PLAYBACK);
-        mPrimaryMediaComponents[MEDIA_SOURCE_MODE_BROWSE] = isCurrentUserEphemeral()
-                ? getDefaultMediaSource() : getLastMediaSource(MEDIA_SOURCE_MODE_BROWSE);
-        mActiveUserMediaController = null;
-
-        updateMediaSessionCallbackForCurrentUser();
-        notifyListeners(MEDIA_SOURCE_MODE_PLAYBACK);
-        notifyListeners(MEDIA_SOURCE_MODE_BROWSE);
-
-        startMediaConnectorService(shouldStartPlayback(mPlayOnBootConfig), currentUser);
     }
 
     /**
@@ -305,13 +375,13 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
     private boolean sharedPrefsInitialized() {
         if (mSharedPrefs == null) {
             // It shouldn't reach this but let's be cautious.
-            Log.e(CarLog.TAG_MEDIA, "SharedPreferences are not initialized!");
+            Slog.e(CarLog.TAG_MEDIA, "SharedPreferences are not initialized!");
             String className = getClass().getName();
             for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {
                 // Let's print the useful logs only.
                 String log = ste.toString();
                 if (log.contains(className)) {
-                    Log.e(CarLog.TAG_MEDIA, log);
+                    Slog.e(CarLog.TAG_MEDIA, log);
                 }
             }
             return false;
@@ -323,39 +393,64 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
         return mUserManager.getUserInfo(ActivityManager.getCurrentUser()).isEphemeral();
     }
 
+    // Sets a listener to be notified when the current power policy changes.
+    // Basically, the listener pauses the audio when a media component is disabled and resumes
+    // the audio when a media component is enabled.
+    // This is called only from init().
+    private void setPowerPolicyListener() {
+        CarPowerPolicyFilter filter = new CarPowerPolicyFilter.Builder()
+                .setComponents(PowerComponent.MEDIA).build();
+        CarLocalServices.getService(CarPowerManagementService.class)
+                .addPowerPolicyListener(filter, mPowerPolicyListener);
+    }
+
     @Override
     public void release() {
         mMediaSessionUpdater.unregisterCallbacks();
         mUserService.removeUserLifecycleListener(mUserLifecycleListener);
+        CarLocalServices.getService(CarPowerManagementService.class)
+                .removePowerPolicyListener(mPowerPolicyListener);
     }
 
     @Override
-    public void dump(PrintWriter writer) {
-        writer.println("*CarMediaService*");
-        writer.println("\tCurrent playback media component: "
-                + (mPrimaryMediaComponents[MEDIA_SOURCE_MODE_PLAYBACK] == null ? "-"
-                : mPrimaryMediaComponents[MEDIA_SOURCE_MODE_PLAYBACK].flattenToString()));
-        writer.println("\tCurrent browse media component: "
-                + (mPrimaryMediaComponents[MEDIA_SOURCE_MODE_BROWSE] == null ? "-"
-                : mPrimaryMediaComponents[MEDIA_SOURCE_MODE_BROWSE].flattenToString()));
-        if (mActiveUserMediaController != null) {
-            writer.println(
-                    "\tCurrent media controller: " + mActiveUserMediaController.getPackageName());
-            writer.println(
-                    "\tCurrent browse service extra: " + getClassName(mActiveUserMediaController));
-        }
-        writer.println("\tNumber of active media sessions: " + mMediaSessionManager
-                .getActiveSessionsForUser(null, ActivityManager.getCurrentUser()).size());
+    public void dump(IndentingPrintWriter writer) {
+        synchronized (mLock) {
+            writer.println("*CarMediaService*");
+            writer.increaseIndent();
+            writer.printf("Current playback media component: %s\n",
+                    mPrimaryMediaComponents[MEDIA_SOURCE_MODE_PLAYBACK] == null ? "-"
+                    : mPrimaryMediaComponents[MEDIA_SOURCE_MODE_PLAYBACK].flattenToString());
+            writer.printf("Current browse media component: %s\n",
+                    mPrimaryMediaComponents[MEDIA_SOURCE_MODE_BROWSE] == null ? "-"
+                    : mPrimaryMediaComponents[MEDIA_SOURCE_MODE_BROWSE].flattenToString());
+            if (mActiveUserMediaController != null) {
+                writer.printf("Current media controller: %s\n",
+                        mActiveUserMediaController.getPackageName());
+                writer.printf("Current browse service extra: %s\n",
+                        getClassName(mActiveUserMediaController));
+            }
+            writer.printf("Number of active media sessions: %s\n", mMediaSessionManager
+                    .getActiveSessionsForUser(null,
+                            new UserHandle(ActivityManager.getCurrentUser())).size());
 
-        writer.println("\tPlayback media source history: ");
-        for (ComponentName name : getLastMediaSources(MEDIA_SOURCE_MODE_PLAYBACK)) {
-            writer.println("\t" + name.flattenToString());
+            writer.println("Playback media source history:");
+            writer.increaseIndent();
+            for (ComponentName name : getLastMediaSources(MEDIA_SOURCE_MODE_PLAYBACK)) {
+                writer.println(name.flattenToString());
+            }
+            writer.decreaseIndent();
+            writer.println("Browse media source history:");
+            writer.increaseIndent();
+            for (ComponentName name : getLastMediaSources(MEDIA_SOURCE_MODE_BROWSE)) {
+                writer.println(name.flattenToString());
+            }
+            writer.decreaseIndent();
+            writer.printf("Disabled by power policy: %s\n", mIsDisabledByPowerPolicy);
+            if (mIsDisabledByPowerPolicy) {
+                writer.printf("Before being disabled by power policy, audio was %s\n",
+                        mWasPlayingBeforeDisabled ? "active" : "inactive");
+            }
         }
-        writer.println("\tBrowse media source history: ");
-        for (ComponentName name : getLastMediaSources(MEDIA_SOURCE_MODE_BROWSE)) {
-            writer.println("\t" + name.flattenToString());
-        }
-
     }
 
     /**
@@ -366,7 +461,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
             @MediaSourceMode int mode) {
         ICarImpl.assertPermission(mContext, android.Manifest.permission.MEDIA_CONTENT_CONTROL);
         if (Log.isLoggable(CarLog.TAG_MEDIA, Log.DEBUG)) {
-            Log.d(CarLog.TAG_MEDIA, "Changing media source to: " + componentName.getPackageName());
+            Slog.d(CarLog.TAG_MEDIA, "Changing media source to: " + componentName.getPackageName());
         }
         setPrimaryMediaSource(componentName, mode);
     }
@@ -408,8 +503,9 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
 
     @Override
     public List<ComponentName> getLastMediaSources(@CarMediaManager.MediaSourceMode int mode) {
+        ICarImpl.assertPermission(mContext, android.Manifest.permission.MEDIA_CONTENT_CONTROL);
         String key = getMediaSourceKey(mode);
-        String serialized = mSharedPrefs.getString(key, null);
+        String serialized = mSharedPrefs.getString(key, "");
         return getComponentNameList(serialized).stream()
                 .map(name -> ComponentName.unflattenFromString(name)).collect(Collectors.toList());
     }
@@ -449,7 +545,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
                 initUser(userId);
                 mPendingInit = false;
                 if (Log.isLoggable(CarLog.TAG_MEDIA, Log.DEBUG)) {
-                    Log.d(CarLog.TAG_MEDIA,
+                    Slog.d(CarLog.TAG_MEDIA,
                             "User " + userId + " is now unlocked");
                 }
             }
@@ -461,10 +557,11 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
             mMediaSessionManager.removeOnActiveSessionsChangedListener(mSessionsListener);
         }
         mSessionsListener = new SessionChangedListener(ActivityManager.getCurrentUser());
-        mMediaSessionManager.addOnActiveSessionsChangedListener(mSessionsListener, null,
-                ActivityManager.getCurrentUser(), null);
-        mMediaSessionUpdater.registerCallbacks(mMediaSessionManager.getActiveSessionsForUser(
-                null, ActivityManager.getCurrentUser()));
+        UserHandle currentUserHandle = new UserHandle(ActivityManager.getCurrentUser());
+        mMediaSessionManager.addOnActiveSessionsChangedListener(null, currentUserHandle,
+                new HandlerExecutor(mHandler), mSessionsListener);
+        mMediaSessionUpdater.registerCallbacks(mMediaSessionManager.getActiveSessionsForUser(null,
+                currentUserHandle));
     }
 
     /**
@@ -473,17 +570,20 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
      * to preserve the PlaybackState before stopping.
      */
     private void stopAndUnregisterCallback() {
-        if (mActiveUserMediaController != null) {
-            mActiveUserMediaController.unregisterCallback(mMediaControllerCallback);
-            if (Log.isLoggable(CarLog.TAG_MEDIA, Log.DEBUG)) {
-                Log.d(CarLog.TAG_MEDIA, "stopping " + mActiveUserMediaController.getPackageName());
-            }
-            TransportControls controls = mActiveUserMediaController.getTransportControls();
-            if (controls != null) {
-                controls.stop();
-            } else {
-                Log.e(CarLog.TAG_MEDIA, "Can't stop playback, transport controls unavailable "
-                        + mActiveUserMediaController.getPackageName());
+        synchronized (mLock) {
+            if (mActiveUserMediaController != null) {
+                mActiveUserMediaController.unregisterCallback(mMediaControllerCallback);
+                if (Log.isLoggable(CarLog.TAG_MEDIA, Log.DEBUG)) {
+                    Slog.d(CarLog.TAG_MEDIA,
+                            "stopping " + mActiveUserMediaController.getPackageName());
+                }
+                TransportControls controls = mActiveUserMediaController.getTransportControls();
+                if (controls != null) {
+                    controls.stop();
+                } else {
+                    Slog.e(CarLog.TAG_MEDIA, "Can't stop playback, transport controls unavailable "
+                            + mActiveUserMediaController.getPackageName());
+                }
             }
         }
     }
@@ -498,7 +598,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
         @Override
         public void onActiveSessionsChanged(List<MediaController> controllers) {
             if (ActivityManager.getCurrentUser() != mCurrentUser) {
-                Log.e(CarLog.TAG_MEDIA, "Active session callback for old user: " + mCurrentUser);
+                Slog.e(CarLog.TAG_MEDIA, "Active session callback for old user: " + mCurrentUser);
                 return;
             }
             mMediaSessionUpdater.registerCallbacks(controllers);
@@ -533,7 +633,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
                 if (mediaSource != null
                         && !mediaSource.equals(mPrimaryMediaComponents[MEDIA_SOURCE_MODE_PLAYBACK])
                         && Log.isLoggable(CarLog.TAG_MEDIA, Log.INFO)) {
-                    Log.i(CarLog.TAG_MEDIA, "Changing media source due to playback state change: "
+                    Slog.i(CarLog.TAG_MEDIA, "Changing media source due to playback state change: "
                             + mediaSource.flattenToString());
                 }
                 setPrimaryMediaSource(mediaSource, MEDIA_SOURCE_MODE_PLAYBACK);
@@ -580,8 +680,10 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
             // for the active source, check the active sessions for a matching controller. If this
             // is called after a user switch, its possible for a matching controller to already be
             // active before the user is unlocked, so we check all of the current controllers
-            if (mActiveUserMediaController == null) {
-                updateActiveMediaController(newControllers);
+            synchronized (mLock) {
+                if (mActiveUserMediaController == null) {
+                    updateActiveMediaControllerLocked(newControllers);
+                }
             }
         }
 
@@ -621,8 +723,8 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
     private void setPlaybackMediaSource(ComponentName playbackMediaSource) {
         stopAndUnregisterCallback();
 
-        mActiveUserMediaController = null;
         synchronized (mLock) {
+            mActiveUserMediaController = null;
             mPrimaryMediaComponents[MEDIA_SOURCE_MODE_PLAYBACK] = playbackMediaSource;
         }
 
@@ -644,9 +746,12 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
         // Reset current playback state for the new source, in the case that the app is in an error
         // state (e.g. not signed in). This state will be updated from the app callback registered
         // below, to make sure mCurrentPlaybackState reflects the current source only.
-        mCurrentPlaybackState = PlaybackState.STATE_NONE;
-        updateActiveMediaController(mMediaSessionManager
-                .getActiveSessionsForUser(null, ActivityManager.getCurrentUser()));
+        synchronized (mLock) {
+            mCurrentPlaybackState = PlaybackState.STATE_NONE;
+            updateActiveMediaControllerLocked(mMediaSessionManager
+                    .getActiveSessionsForUser(null,
+                            new UserHandle(ActivityManager.getCurrentUser())));
+        }
     }
 
     private void setBrowseMediaSource(ComponentName browseMediaSource) {
@@ -676,7 +781,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
                             mMediaSourceListeners[mode].getBroadcastItem(i);
                     callback.onMediaSourceChanged(mPrimaryMediaComponents[mode]);
                 } catch (RemoteException e) {
-                    Log.e(CarLog.TAG_MEDIA, "calling onMediaSourceChanged failed " + e);
+                    Slog.e(CarLog.TAG_MEDIA, "calling onMediaSourceChanged failed " + e);
                 }
             }
             mMediaSourceListeners[mode].finishBroadcast();
@@ -686,9 +791,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
     private MediaController.Callback mMediaControllerCallback = new MediaController.Callback() {
         @Override
         public void onPlaybackStateChanged(PlaybackState state) {
-            if (!isCurrentUserEphemeral()) {
-                savePlaybackState(state);
-            }
+            savePlaybackState(state);
         }
     };
 
@@ -708,14 +811,14 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
                     ComponentName mediaSource = getMediaSource(newPackageName, newClassName);
                     if (Log.isLoggable(CarLog.TAG_MEDIA, Log.INFO)) {
                         if (mediaSource != null) {
-                            Log.i(CarLog.TAG_MEDIA,
+                            Slog.i(CarLog.TAG_MEDIA,
                                     "MediaController changed, updating media source to: "
                                             + mediaSource.flattenToString());
                         } else {
                             // Some apps, like Chrome, have a MediaSession but no
                             // MediaBrowseService. Media Center doesn't consider such apps as
                             // valid media sources.
-                            Log.i(CarLog.TAG_MEDIA,
+                            Slog.i(CarLog.TAG_MEDIA,
                                     "MediaController changed, but no media browse service found "
                                             + "in package: " + newPackageName);
                         }
@@ -780,7 +883,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
         }
 
         if (Log.isLoggable(CarLog.TAG_MEDIA, Log.DEBUG)) {
-            Log.d(CarLog.TAG_MEDIA, "No MediaBrowseService with ComponentName: "
+            Slog.d(CarLog.TAG_MEDIA, "No MediaBrowseService with ComponentName: "
                     + componentName.flattenToString());
         }
         return null;
@@ -814,7 +917,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
     private @NonNull ComponentName getLastMediaSource(int mode) {
         if (sharedPrefsInitialized()) {
             String key = getMediaSourceKey(mode);
-            String serialized = mSharedPrefs.getString(key, null);
+            String serialized = mSharedPrefs.getString(key, "");
             if (!TextUtils.isEmpty(serialized)) {
                 for (String name : getComponentNameList(serialized)) {
                     ComponentName componentName = ComponentName.unflattenFromString(name);
@@ -840,7 +943,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
         return componentNames.stream().collect(Collectors.joining(COMPONENT_NAME_SEPARATOR));
     }
 
-    private List<String> getComponentNameList(String serialized) {
+    private List<String> getComponentNameList(@NonNull String serialized) {
         String[] componentNames = serialized.split(COMPONENT_NAME_SEPARATOR);
         return (Arrays.asList(componentNames));
     }
@@ -849,8 +952,13 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
         if (!sharedPrefsInitialized()) {
             return;
         }
+        if (isCurrentUserEphemeral()) {
+            return;
+        }
         int state = playbackState != null ? playbackState.getState() : PlaybackState.STATE_NONE;
-        mCurrentPlaybackState = state;
+        synchronized (mLock) {
+            mCurrentPlaybackState = state;
+        }
         String key = getPlaybackStateKey();
         mSharedPrefs.edit().putInt(key, state).apply();
     }
@@ -874,7 +982,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
      * Updates active media controller from the list that has the same component name as the primary
      * media component. Clears callback and resets media controller to null if not found.
      */
-    private void updateActiveMediaController(List<MediaController> mediaControllers) {
+    private void updateActiveMediaControllerLocked(List<MediaController> mediaControllers) {
         if (mPrimaryMediaComponents[MEDIA_SOURCE_MODE_PLAYBACK] == null) {
             return;
         }
@@ -887,9 +995,7 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
                     MEDIA_SOURCE_MODE_PLAYBACK)) {
                 mActiveUserMediaController = controller;
                 PlaybackState state = mActiveUserMediaController.getPlaybackState();
-                if (!isCurrentUserEphemeral()) {
-                    savePlaybackState(state);
-                }
+                savePlaybackState(state);
                 // Specify Handler to receive callbacks on, to avoid defaulting to the calling
                 // thread; this method can be called from the MediaSessionManager callback.
                 // Using the version of this method without passing a handler causes a
@@ -916,9 +1022,11 @@ public class CarMediaService extends ICarMedia.Stub implements CarServiceBase {
                 return mSharedPrefs.getInt(getPlaybackStateKey(), PlaybackState.STATE_NONE)
                         == PlaybackState.STATE_PLAYING;
             case AUTOPLAY_CONFIG_RETAIN_PREVIOUS:
-                return mCurrentPlaybackState == PlaybackState.STATE_PLAYING;
+                synchronized (mLock) {
+                    return mCurrentPlaybackState == PlaybackState.STATE_PLAYING;
+                }
             default:
-                Log.e(CarLog.TAG_MEDIA, "Unsupported playback configuration: " + config);
+                Slog.e(CarLog.TAG_MEDIA, "Unsupported playback configuration: " + config);
                 return false;
         }
     }

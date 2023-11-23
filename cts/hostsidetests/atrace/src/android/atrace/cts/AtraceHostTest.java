@@ -248,6 +248,10 @@ public class AtraceHostTest extends AtraceHostTestBase {
         ThreadModel thread = findThread(result.getModel(), result.getPid());
         SliceQueriesKt.iterSlices(thread, (Slice slice) -> {
             requiredSections.remove(slice.getName());
+            // Quick hack to handle vsyncId being appended to doFrame
+            if (slice.getName().startsWith("Choreographer#doFrame ")) {
+                requiredSections.remove("Choreographer#doFrame");
+            }
             return Unit.INSTANCE;
         });
 

@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"只有主要使用者可以修改留言設定。"</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"您的 SIM 卡已解除封鎖。您的手機正在解除鎖定..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"SIM 網絡解除鎖定 PIN"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"流動網絡供應商的 SIM 卡已上鎖"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"解除鎖定"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"關閉"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"正在要求解除網絡鎖定..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"轉接至 <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"關閉"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"您的流動網絡供應商不支援在手機無法接通時停用轉接功能。"</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"您的流動網絡供應商不支援來電轉駁。"</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"要開啟來電等候功能嗎？"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"您會在通話期間收到來電通知"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"開啟"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"取消"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS 下的 CDMA 來電等候功能已開啟"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS 下的 CDMA 來電等候功能已關閉"</string>
     <string name="updating_title" msgid="6130548922615719689">"通話設定"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"只有管理員可以變更通話設定。"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"設定 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"SIM 卡功能受限"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"「<xliff:g id="CARRIER_NAME">%1$s</xliff:g>」通話和數據服務在使用 <xliff:g id="PHONE_NUMBER">%2$s</xliff:g> 卡時可能遭到封鎖。"</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"「<xliff:g id="CARRIER_NAME">%1$s</xliff:g>」通話和數據服務在使用其他 SIM 卡時可能遭到封鎖。"</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"已找到並移除已停用的 SIP 帳戶"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Android 平台不再支援 SIP 通話。\n您現有的 SIP 帳戶 (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>) 已移除。\n請確認您的預設通話帳戶設定。"</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"前往設定"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"應用程式數據用量"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g>期間使用了 <xliff:g id="ID_1">%1$s</xliff:g>流動數據"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"進階設定"</string>
@@ -504,13 +515,14 @@
     <string name="puk2_requested" msgid="6992374450720307514">"密碼不正確。SIM 現在已被封鎖，請輸入 PUK2。"</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 碼已被永久封鎖。"</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"您還有 <xliff:g id="NUMBER">%d</xliff:g> 次嘗試機會。"</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 已鎖定。請通知服務供應商解鎖。"</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 目前沒有封鎖"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"網絡或 SIM 卡錯誤。"</string>
     <string name="doneButton" msgid="7371209609238460207">"完成"</string>
     <string name="voicemail_settings_number_label" msgid="1265118640154688162">"留言信箱號碼"</string>
     <string name="card_title_dialing" msgid="8742182654254431781">"撥號中"</string>
     <string name="card_title_redialing" msgid="18130232613559964">"重撥"</string>
-    <string name="card_title_conf_call" msgid="901197309274457427">"視訊會議"</string>
+    <string name="card_title_conf_call" msgid="901197309274457427">"視像會議"</string>
     <string name="card_title_incoming_call" msgid="881424648458792430">"來電"</string>
     <string name="card_title_call_ended" msgid="650223980095026340">"通話已結束"</string>
     <string name="card_title_on_hold" msgid="9028319436626975207">"保留通話"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"開啟流動網絡、關閉飛行模式或關閉省電模式，以撥打電話。"</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"關閉飛行模式以撥打電話。"</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"關閉飛行模式或連接無線網絡，以撥打電話。"</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"電話過熱"</b>\n\n"無法完成此通話。請在電話冷卻後再試一次。\n\n您仍可進行緊急電話。"</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"離開緊急回撥模式即可撥打非緊急電話。"</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"未在網絡上完成註冊。"</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"無法使用流動網絡。"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"預設數據 SIM 卡的子 ID："</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"下載頻寬 (kbps)："</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"上載頻寬 (kbps)："</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"發射站位置資料 (已淘汰)："</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE 實體渠道設定："</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"發射站資料重新整理頻率："</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"所有發射站量度資料："</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"重新整理"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"切換 DNS 檢查"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM 專用資訊/設定"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC 可用："</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR 受限："</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR 可用："</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR 狀態："</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR 頻率："</string>
     <string name="band_mode_title" msgid="7988822920724576842">"設定無線電頻段模式"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"正在載入頻段清單…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"設定"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"手機資訊"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"流動網絡供應商佈建資料"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"觸發流動網絡供應商佈建程序"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"您的藍牙訊號微弱。請改用擴音器。"</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"通話品質通知"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"已停用的 SIP 帳戶"</string>
 </resources>

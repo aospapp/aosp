@@ -119,6 +119,11 @@ public class ShadowUserManager {
     return ImmutableList.copyOf(userProfiles.keySet());
   }
 
+  @Implementation
+  public List<UserHandle> getAllProfiles() {
+    return getUserProfiles();
+  }
+
   /**
    * If any profiles have been added using {@link #addProfile}, return those profiles.
    *
@@ -258,6 +263,12 @@ public class ShadowUserManager {
   public void setUserRestriction(UserHandle userHandle, String restrictionKey, boolean value) {
     Bundle bundle = getUserRestrictionsForUser(userHandle);
     bundle.putBoolean(restrictionKey, value);
+  }
+
+  @Implementation(minSdk = JELLY_BEAN_MR2)
+  protected void setUserRestriction(String key, boolean value) {
+    Bundle bundle = getUserRestrictionsForUser(Process.myUserHandle());
+    bundle.putBoolean(key, value);
   }
 
   /**

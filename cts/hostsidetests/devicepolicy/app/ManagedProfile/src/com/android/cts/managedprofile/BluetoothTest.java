@@ -16,13 +16,17 @@
 
 package com.android.cts.managedprofile;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
+import android.content.Intent;
 import android.test.AndroidTestCase;
 
+import com.android.compatibility.common.util.BlockingBroadcastReceiver;
+
 import java.io.IOException;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -36,11 +40,6 @@ import java.util.UUID;
  * TODO: Merge the primary and managed profile tests into one.
  */
 public class BluetoothTest extends AndroidTestCase {
-    private static final int DISABLE_TIMEOUT_MS = 8000;
-    private static final int ENABLE_TIMEOUT_MS = 10000;
-    private static final int POLL_TIME_MS = 400;
-    private static final int CHECK_WAIT_TIME_MS = 1000;
-
     private BluetoothAdapter mAdapter;
     private boolean mBtWasEnabled;
 
@@ -133,32 +132,21 @@ public class BluetoothTest extends AndroidTestCase {
      * Behavior of getState() and isEnabled() are validated along the way.
      */
     private void disable() {
-        sleep(CHECK_WAIT_TIME_MS);
         if (mAdapter.getState() == BluetoothAdapter.STATE_OFF) {
             assertFalse(mAdapter.isEnabled());
             return;
         }
 
-        assertEquals(BluetoothAdapter.STATE_ON, mAdapter.getState());
-        assertTrue(mAdapter.isEnabled());
-        assertTrue(mAdapter.disable());
-        boolean turnOff = false;
-        for (int i=0; i<DISABLE_TIMEOUT_MS/POLL_TIME_MS; i++) {
-            sleep(POLL_TIME_MS);
-            int state = mAdapter.getState();
-            switch (state) {
-            case BluetoothAdapter.STATE_OFF:
-                assertFalse(mAdapter.isEnabled());
-                return;
-            default:
-                if (state != BluetoothAdapter.STATE_ON || turnOff) {
-                    assertEquals(BluetoothAdapter.STATE_TURNING_OFF, state);
-                    turnOff = true;
-                }
-                break;
-            }
+        assertThat(mAdapter.getState()).isEqualTo(BluetoothAdapter.STATE_ON);
+        assertThat(mAdapter.isEnabled()).isTrue();
+        assertThat(mAdapter.disable()).isTrue();
+        try (BlockingBroadcastReceiver r = new BlockingBroadcastReceiver(
+                mContext,
+                BluetoothAdapter.ACTION_STATE_CHANGED,
+                this::isStateDisabled).register()) {
+            assertThat(mAdapter.disable()).isTrue();
         }
-        fail("disable() timeout");
+        assertThat(mAdapter.isEnabled()).isFalse();
     }
 
     /**
@@ -167,37 +155,29 @@ public class BluetoothTest extends AndroidTestCase {
      * Behavior of getState() and isEnabled() are validated along the way.
      */
     private void enable() {
-        sleep(CHECK_WAIT_TIME_MS);
         if (mAdapter.getState() == BluetoothAdapter.STATE_ON) {
             assertTrue(mAdapter.isEnabled());
             return;
         }
 
-        assertEquals(BluetoothAdapter.STATE_OFF, mAdapter.getState());
-        assertFalse(mAdapter.isEnabled());
-        assertTrue(mAdapter.enable());
-        boolean turnOn = false;
-        for (int i=0; i<ENABLE_TIMEOUT_MS/POLL_TIME_MS; i++) {
-            sleep(POLL_TIME_MS);
-            int state = mAdapter.getState();
-            switch (state) {
-            case BluetoothAdapter.STATE_ON:
-                assertTrue(mAdapter.isEnabled());
-                return;
-            default:
-                if (state != BluetoothAdapter.STATE_OFF || turnOn) {
-                    assertEquals(BluetoothAdapter.STATE_TURNING_ON, state);
-                    turnOn = true;
-                }
-                break;
-            }
+        assertThat(mAdapter.getState()).isEqualTo(BluetoothAdapter.STATE_OFF);
+        assertThat(mAdapter.isEnabled()).isFalse();
+        try (BlockingBroadcastReceiver r = new BlockingBroadcastReceiver(
+                mContext,
+                BluetoothAdapter.ACTION_STATE_CHANGED,
+                this::isStateEnabled).register()) {
+            assertThat(mAdapter.enable()).isTrue();
         }
-        fail("enable() timeout");
+        assertThat(mAdapter.isEnabled()).isTrue();
     }
 
-    private void sleep(long t) {
-        try {
-            Thread.sleep(t);
-        } catch (InterruptedException e) {}
+    private boolean isStateEnabled(Intent intent) {
+        return intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)
+                == BluetoothAdapter.STATE_ON;
+    }
+
+    private boolean isStateDisabled(Intent intent) {
+        return intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)
+                == BluetoothAdapter.STATE_OFF;
     }
 }

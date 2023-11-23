@@ -35,6 +35,8 @@
 #include "virgl_hw.h"
 #include "virglrenderer.h"
 
+int context_flags = VIRGL_RENDERER_USE_EGL;
+
 void testvirgl_init_simple_1d_resource(struct virgl_renderer_resource_create_args *res, int handle)
 {
     res->handle = handle;
@@ -116,7 +118,7 @@ int testvirgl_init_single_ctx(void)
 
     test_cbs.version = 1;
     test_cbs.write_fence = testvirgl_write_fence;
-    ret = virgl_renderer_init(&mystruct, VIRGL_RENDERER_USE_EGL, &test_cbs);
+    ret = virgl_renderer_init(&mystruct, context_flags, &test_cbs);
     ck_assert_int_eq(ret, 0);
     if (ret)
 	return ret;
@@ -264,6 +266,25 @@ int testvirgl_create_backed_simple_buffer(struct virgl_resource *res,
     res->niovs = 1;
 
     virgl_renderer_resource_attach_iov(res->handle, res->iovs, res->niovs);
+    return 0;
+}
+
+int testvirgl_create_unbacked_simple_buffer(struct virgl_resource *res,
+					    int handle, int size, int binding)
+{
+    struct virgl_renderer_resource_create_args args;
+    int ret;
+
+    testvirgl_init_simple_buffer_sized(&args, handle, size);
+    args.bind = binding;
+    ret = virgl_renderer_resource_create(&args, NULL, 0);
+    ck_assert_int_eq(ret, 0);
+
+    res->handle = handle;
+    res->base.target = args.target;
+    res->base.format = args.format;
+    res->base.bind = args.bind;
+
     return 0;
 }
 

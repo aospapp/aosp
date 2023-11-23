@@ -44,7 +44,7 @@ BOARD_USERDATAIMAGE_PARTITION_SIZE := 67108864 # 64M
 TARGET_COPY_OUT_VENDOR := vendor
 # ~100 MB vendor image. Please adjust system image / vendor image sizes
 # when finalizing them.
-BOARD_VENDORIMAGE_PARTITION_SIZE := 4194304 # 4M
+BOARD_VENDORIMAGE_PARTITION_SIZE := 8388608 # 8M
 BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_FLASH_BLOCK_SIZE := 512
 TARGET_USERIMAGES_SPARSE_EXT_DISABLED := true
@@ -59,3 +59,6 @@ BOARD_BUILD_SYSTEM_ROOT_IMAGE := true
 
 # Specify HALs
 DEVICE_MANIFEST_FILE := device/generic/trusty/manifest.xml
+
+# Enable full VNDK support
+BOARD_VNDK_VERSION := current

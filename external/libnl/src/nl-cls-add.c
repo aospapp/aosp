@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * src/nl-cls-add.c     Add classifier
  *
@@ -15,6 +16,8 @@
 
 #include <netlink-private/route/tc-api.h>
 
+#include <linux/netlink.h>
+
 static int quiet = 0;
 
 static void print_usage(void)
@@ -31,7 +34,7 @@ static void print_usage(void)
 " -d, --dev=DEV             Network device the classifier should be attached to.\n"
 " -i, --id=ID               ID of new classifier (default: auto-generated)\n"
 " -p, --parent=ID           ID of parent { root | ingress | class-ID }\n"
-"     --protocol=PROTO      Protocol to match (default: all)\n"
+"     --proto=PROTO         Protocol to match (default: all)\n"
 "     --prio=PRIO           Priority (default: 0)\n"
 "     --mtu=SIZE            Overwrite MTU (default: MTU of network device)\n"
 "     --mpu=SIZE            Minimum packet size on the link (default: 0).\n"
@@ -62,15 +65,15 @@ int main(int argc, char *argv[])
 	struct rtnl_tc_ops *ops;
 	int err, flags = NLM_F_CREATE | NLM_F_EXCL;
 	char *kind, *id = NULL;
- 
+
 	sock = nl_cli_alloc_socket();
 	nl_cli_connect(sock, NETLINK_ROUTE);
 
 	link_cache = nl_cli_link_alloc_cache(sock);
 
- 	cls = nl_cli_cls_alloc();
+	cls = nl_cli_cls_alloc();
 	tc = (struct rtnl_tc *) cls;
- 
+
 	for (;;) {
 		int c, optidx = 0;
 		enum {
@@ -100,7 +103,7 @@ int main(int argc, char *argv[])
 			{ "linktype", 1, 0, ARG_LINKTYPE },
 			{ 0, 0, 0, 0 }
 		};
-	
+
 		c = getopt_long(argc, argv, "+qhvd:p:i:",
 				long_opts, &optidx);
 		if (c == -1)
@@ -124,7 +127,7 @@ int main(int argc, char *argv[])
 			rtnl_cls_set_prio(cls, nl_cli_parse_u32(optarg));
 			break;
 		}
- 	}
+	}
 
 	if (optind >= argc)
 		print_usage();
@@ -154,7 +157,7 @@ int main(int argc, char *argv[])
 	if (!quiet) {
 		printf("Adding ");
 		nl_object_dump(OBJ_CAST(cls), &dp);
- 	}
+	}
 
 	if ((err = rtnl_cls_add(sock, cls, flags)) < 0)
 		nl_cli_fatal(EINVAL, "Unable to add classifier: %s", nl_geterror(err));

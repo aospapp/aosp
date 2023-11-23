@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Talepost-innstillinger kan bare endres av hovedbrukeren."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"SIM-kortet er blitt avblokkert. Telefonen låses opp…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"PIN-kode for å fjerne operatørlås"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"SIM-kortet er operatørlåst"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Lås opp"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Skjul"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Spør om fjerning av operatørlås…"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Viderekobler til <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Av"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Operatøren støtter ikke deaktivering av viderekobling når telefonen er utenfor dekning."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Operatøren støtter ikke viderekobling."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Vil du slå på «samtale venter»?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Du blir varslet om innkommende anrop under pågående samtaler"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Slå på"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Lukk"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"CDMA samtale venter under IMS er på"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA samtale venter under IMS er av"</string>
     <string name="updating_title" msgid="6130548922615719689">"Samtaleinnstillinger"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Anropsinnstillinger kan bare endres av administratoren."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Innstillinger (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Begrensede SIM-kortfunksjoner"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Det kan hende <xliff:g id="CARRIER_NAME">%1$s</xliff:g>-anrop og -datatjenester blir blokkert mens du bruker <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g>-anrop og -datatjenester kan bli blokkert mens du bruker et annet SIM-kort."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"De avviklede SIP-kontoene er funnet og fjernet"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP-anrop støttes ikke lenger på Android-plattformen.\nDe eksisterende SIP-kontoene dine (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>) er fjernet.\nBekreft innstillingen din for standardkonto for anrop."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Gå til innstillingene"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Appens databruk"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> mobildata er brukt i perioden <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Avansert"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Passordet er feil. PIN-koden er nå blokkert. Skriv inn en PUK2-kode."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 er permanent sperret."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Du har <xliff:g id="NUMBER">%d</xliff:g> forsøk igjen."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2-låst. Kontakt tjenesteleverandøren for å låse opp."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2-koden er ikke lenger blokkert"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Feil på nettverket eller SIM-kortet"</string>
     <string name="doneButton" msgid="7371209609238460207">"Ferdig"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Slå på mobilnettverket, slå av flymodus eller slå av batterisparingsmodus for å ringe ut."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Slå av flymodus for å ringe."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Slå av flymodus eller koble til et trådløst nettverk for å ringe."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Telefonen er for varm"</b>\n\n"Kan ikke fullføre dette anropet. Prøv igjen når telefonen har kjølt seg ned.\n\nDu kan fortsatt foreta nødanrop."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Avslutt modusen for nødanrop for å gjøre et vanlig anrop."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Ikke registrert på nettverket."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Mobilnettverket er ikke tilgjengelig."</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Under-ID for standard-SIM-kort for data:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Båndbredde for nedlasting (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Båndbredde for opplasting (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Informasjon om celleposisjonen (avviklet):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Konfigurering av fysisk LTE-kanal:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Oppdateringsfrekvens for celleinformasjon:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"All informasjon for cellemåling:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Last inn på nytt"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Slå av/på DNS-sjekk"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Produsentspesfikk informasjon og innstillinger"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC tilgjengelig:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR begrenset:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR tilgjengelig:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR-tilstand:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR-frekvens:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Angi båndmodus for radio"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Laster inn båndlisten …"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Angi"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Telefoninformasjon"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Informasjon om operatørhåndtering"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Utløs operatørhåndtering"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Bluetooth-signalet er svakt. Prøv å bytte til høyttaleren."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Varsel om anropskvalitet"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Avviklede SIP-kontoer"</string>
 </resources>

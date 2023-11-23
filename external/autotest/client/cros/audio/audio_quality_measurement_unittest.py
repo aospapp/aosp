@@ -3,6 +3,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import math
 import numpy
@@ -11,6 +15,7 @@ import unittest
 import common
 from autotest_lib.client.cros.audio import audio_data
 from autotest_lib.client.cros.audio import audio_quality_measurement
+from six.moves import range
 
 class NoiseLevelTest(unittest.TestCase):
     def setUp(self):
@@ -27,7 +32,7 @@ class NoiseLevelTest(unittest.TestCase):
         standard_noise = 0.05
 
         wave = []
-        for index in xrange(0, rate * length_in_secs):
+        for index in range(0, rate * length_in_secs):
             phase = 2.0 * math.pi * frequency * float(index) / float(rate)
             sine_wave = math.sin(phase)
             noise = standard_noise * numpy.random.standard_normal()
@@ -53,7 +58,7 @@ class ErrorTest(unittest.TestCase):
         value1 = [0.2, 0.4, 0.1, 0.01, 0.01, 0.01]
         value2 = [0.3, 0.3, 0.08, 0.0095, 0.0098, 0.0099]
         error  = [0.5, 0.25, 0.2, 0.05, 0.02, 0.01]
-        for i in xrange( len(value1) ):
+        for i in range( len(value1) ):
           ret = audio_quality_measurement.error(value1[i], value2[i])
           self.assertTrue(abs(ret - error[i]) < 0.001)
 
@@ -69,7 +74,7 @@ class QualityMeasurementTest(unittest.TestCase):
         length_in_secs = 2
         self.samples = length_in_secs * self.rate
         self.y = []
-        for index in xrange(self.samples):
+        for index in range(self.samples):
             phase = 2.0 * math.pi * self.freq * float(index) / float(self.rate)
             sine_wave = math.sin(phase)
             self.y.append(float(self.amplitude) * sine_wave)
@@ -78,7 +83,7 @@ class QualityMeasurementTest(unittest.TestCase):
     def add_noise(self):
         """Adds noise to the test signal."""
         noise_amplitude = 0.01 * self.amplitude
-        for index in xrange(self.samples):
+        for index in range(self.samples):
             noise = noise_amplitude * numpy.random.standard_normal()
             self.y[index] += noise
 
@@ -88,10 +93,10 @@ class QualityMeasurementTest(unittest.TestCase):
         self.delay_start_time = [0.200, 0.375, 0.513, 0.814, 1.000, 1.300]
         self.delay_end_time   = [0.201, 0.377, 0.516, 0.824, 1.100, 1.600]
 
-        for i in xrange(len(self.delay_start_time)):
+        for i in range(len(self.delay_start_time)):
             start_index = int(self.delay_start_time[i] * self.rate)
             end_index   = int(self.delay_end_time[i]   * self.rate)
-            for j in xrange(start_index,end_index):
+            for j in range(start_index,end_index):
                 self.y[j] = 0
 
 
@@ -99,11 +104,11 @@ class QualityMeasurementTest(unittest.TestCase):
         """Generates artifacts before playing."""
         silence_before_playback_end_time = 0.2
         end_index = int(silence_before_playback_end_time * self.rate)
-        for i in xrange(0, end_index):
+        for i in range(0, end_index):
             self.y[i] = 0
         noise_start_index = int(0.1 * self.rate)
         noise_end_index = int(0.1005 * self.rate)
-        for i in xrange(noise_start_index, noise_end_index):
+        for i in range(noise_start_index, noise_end_index):
             self.y[i] = 3 * self.amplitude
 
 
@@ -113,9 +118,9 @@ class QualityMeasurementTest(unittest.TestCase):
         noise_start_index = int(1.95 * self.rate)
         noise_end_index = int((1.95 + 0.02) * self.rate)
 
-        for i in xrange(silence_after_playback_start_time, self.samples):
+        for i in range(silence_after_playback_start_time, self.samples):
             self.y[i] = 0
-        for i in xrange(noise_start_index, noise_end_index):
+        for i in range(noise_start_index, noise_end_index):
             self.y[i] = self.amplitude
 
 
@@ -124,10 +129,10 @@ class QualityMeasurementTest(unittest.TestCase):
         self.burst_start_time = [0.300, 0.475, 0.613, 0.814, 1.300]
         self.burst_end_time   = [0.301, 0.476, 0.614, 0.815, 1.301]
 
-        for i in xrange(len(self.burst_start_time)):
+        for i in range(len(self.burst_start_time)):
             start_index = int(self.burst_start_time[i] * self.rate)
             end_index   = int(self.burst_end_time[i]   * self.rate)
-            for j in xrange(start_index, end_index):
+            for j in range(start_index, end_index):
                 self.y[j] = self.amplitude * (3 + numpy.random.uniform(-1, 1))
 
 
@@ -135,10 +140,10 @@ class QualityMeasurementTest(unittest.TestCase):
         "Generates volume changing during playing."
         start_time = [0.300, 1.400]
         end_time   = [0.600, 1.700]
-        for i in xrange(len(start_time)):
+        for i in range(len(start_time)):
             start_index = int(start_time[i] * self.rate)
             end_index   = int(end_time[i]   * self.rate)
-            for j in xrange(start_index,end_index):
+            for j in range(start_index,end_index):
                 self.y[j] *= 1.4
         self.volume_changing = [+1, -1, +1, -1]
         self.volume_changing_time = [0.3, 0.6, 1.4, 1.7]
@@ -183,7 +188,7 @@ class QualityMeasurementTest(unittest.TestCase):
 
         self.assertTrue(len(result['artifacts']['delay_during_playback']) ==
                         len(self.delay_start_time))
-        for i in xrange(len(result['artifacts']['delay_during_playback'])):
+        for i in range(len(result['artifacts']['delay_during_playback'])):
             delta = abs(result['artifacts']['delay_during_playback'][i][0] -
                         self.delay_start_time[i])
             self.assertTrue(delta < 0.001)
@@ -238,7 +243,7 @@ class QualityMeasurementTest(unittest.TestCase):
         self.assertTrue(len(result['artifacts']['burst_during_playback']) == 5)
         self.assertTrue(len(result['volume_changes']) == 10)
         self.assertTrue(result['equivalent_noise_level'] > 0.02)
-        for i in xrange(len(result['artifacts']['burst_during_playback'])):
+        for i in range(len(result['artifacts']['burst_during_playback'])):
             delta = abs(self.burst_start_time[i] -
                         result['artifacts']['burst_during_playback'][i])
             self.assertTrue(delta < 0.002)
@@ -256,7 +261,7 @@ class QualityMeasurementTest(unittest.TestCase):
         self.assertTrue(result['equivalent_noise_level'] < 0.005)
         self.assertTrue(len(result['volume_changes']) ==
                         len(self.volume_changing))
-        for i in xrange(len(self.volume_changing)):
+        for i in range(len(self.volume_changing)):
             self.assertTrue(abs(self.volume_changing_time[i] -
                                 result['volume_changes'][i][0]) < 0.01)
             self.assertTrue(self.volume_changing[i] ==

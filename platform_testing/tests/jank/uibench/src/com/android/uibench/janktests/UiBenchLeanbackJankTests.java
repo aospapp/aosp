@@ -16,26 +16,23 @@
 
 package com.android.uibench.janktests;
 
+import static com.android.uibench.janktests.UiBenchJankTestsHelper.PACKAGE_NAME;
+import static com.android.uibench.janktests.UiBenchJankTestsHelper.SHORT_EXPECTED_FRAMES;
+
 import android.os.Bundle;
-import android.support.test.jank.GfxMonitor;
-import android.support.test.jank.GfxFrameStatsMonitor;
-import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
 import android.support.test.uiautomator.UiDevice;
-import android.text.TextUtils;
 import android.view.KeyEvent;
 
-import static com.android.uibench.janktests.UiBenchJankTestsHelper.SHORT_EXPECTED_FRAMES;
-import static com.android.uibench.janktests.UiBenchJankTestsHelper.PACKAGE_NAME;
+import androidx.test.jank.GfxFrameStatsMonitor;
+import androidx.test.jank.GfxMonitor;
+import androidx.test.jank.JankTest;
+import androidx.test.jank.JankTestBase;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 
 /**
  * Jank benchmark tests for leanback

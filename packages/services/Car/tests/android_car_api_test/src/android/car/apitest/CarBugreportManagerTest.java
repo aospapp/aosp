@@ -27,16 +27,13 @@ import android.car.CarBugreportManager;
 import android.car.CarBugreportManager.CarBugreportManagerCallback;
 import android.os.ParcelFileDescriptor;
 import android.test.suitebuilder.annotation.LargeTest;
-import android.test.suitebuilder.annotation.MediumTest;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import java.io.File;
@@ -44,14 +41,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
-@MediumTest
+@LargeTest
 public class CarBugreportManagerTest extends CarApiTestBase {
-    // TODO: Use "dumpstate.dry_run" to make dumpstate faster.
-    // dumpstate runs around 3 minutes on emulator on a pretty fast computer.
-    private static final int BUGREPORT_TIMEOUT_MILLIS = 360_000;
+    // Note that most of the test environments have 300s time limit.
+    private static final int BUGREPORT_TIMEOUT_MILLIS = 250_000;
     private static final int NO_ERROR = -1;
-
-    @Rule public TestName testName = new TestName();
 
     private CarBugreportManager mManager;
     private FakeCarBugreportCallback mFakeCallback;
@@ -69,8 +63,11 @@ public class CarBugreportManagerTest extends CarApiTestBase {
     @After
     public void tearDown() throws Exception {
         getPermissions();  // For cancelBugreport()
-        mManager.cancelBugreport();
-        dropPermissions();
+        try {
+            mManager.cancelBugreport();
+        } finally {
+            dropPermissions();
+        }
     }
 
     @Test
@@ -79,17 +76,17 @@ public class CarBugreportManagerTest extends CarApiTestBase {
 
         SecurityException expected =
                 expectThrows(SecurityException.class,
-                        () -> mManager.requestBugreport(mOutput, mExtraOutput, mFakeCallback));
+                        () -> mManager.requestBugreportForTesting(
+                                mOutput, mExtraOutput, mFakeCallback));
         assertThat(expected).hasMessageThat().contains(
                 "nor current process has android.permission.DUMP.");
     }
 
     @Test
-    @LargeTest
     public void test_requestBugreport_works() throws Exception {
         getPermissions();
 
-        mManager.requestBugreport(mOutput, mExtraOutput, mFakeCallback);
+        mManager.requestBugreportForTesting(mOutput, mExtraOutput, mFakeCallback);
 
         // The FDs are duped and closed in requestBugreport().
         assertFdIsClosed(mOutput);
@@ -109,10 +106,10 @@ public class CarBugreportManagerTest extends CarApiTestBase {
         ParcelFileDescriptor extraOutput2 = createParcelFdInCache("screenshot2", "png");
 
         // 1st bugreport.
-        mManager.requestBugreport(mOutput, mExtraOutput, mFakeCallback);
+        mManager.requestBugreportForTesting(mOutput, mExtraOutput, mFakeCallback);
 
         // 2nd bugreport.
-        mManager.requestBugreport(output2, extraOutput2, callback2);
+        mManager.requestBugreportForTesting(output2, extraOutput2, callback2);
 
         callback2.waitTillDoneOrTimeout(BUGREPORT_TIMEOUT_MILLIS);
         assertThat(callback2.getErrorCode()).isEqualTo(
@@ -120,7 +117,6 @@ public class CarBugreportManagerTest extends CarApiTestBase {
     }
 
     @Test
-    @LargeTest
     public void test_cancelBugreport_works() throws Exception {
         getPermissions();
         FakeCarBugreportCallback callback2 = new FakeCarBugreportCallback();
@@ -128,14 +124,14 @@ public class CarBugreportManagerTest extends CarApiTestBase {
         ParcelFileDescriptor extraOutput2 = createParcelFdInCache("screenshot2", "png");
 
         // 1st bugreport.
-        mManager.requestBugreport(mOutput, mExtraOutput, mFakeCallback);
+        mManager.requestBugreportForTesting(mOutput, mExtraOutput, mFakeCallback);
         mManager.cancelBugreport();
 
         // Allow the system to finish the bugreport cancellation, 0.5 seconds is enough.
         Thread.sleep(500);
 
         // 2nd bugreport must work, because 1st bugreport was cancelled.
-        mManager.requestBugreport(output2, extraOutput2, callback2);
+        mManager.requestBugreportForTesting(output2, extraOutput2, callback2);
 
         callback2.waitTillProgressOrTimeout(BUGREPORT_TIMEOUT_MILLIS);
         assertThat(callback2.getErrorCode()).isEqualTo(NO_ERROR);
@@ -156,7 +152,7 @@ public class CarBugreportManagerTest extends CarApiTestBase {
     private ParcelFileDescriptor createParcelFdInCache(String prefix, String extension)
             throws Exception {
         File f = File.createTempFile(
-                prefix + "_" + testName.getMethodName(), extension, getContext().getCacheDir());
+                prefix + "_" + getTestName(), extension, getContext().getCacheDir());
         f.setReadable(true, true);
         f.setWritable(true, true);
 

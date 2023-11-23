@@ -20,6 +20,7 @@
 
 cc_defaults {
     name: "core_native_default_flags",
+    defaults: ["art_module_source_build_defaults"],
     host_supported: true,
     cflags: [
         "-Wall",
@@ -33,25 +34,28 @@ cc_defaults {
             enabled: false,
         },
     },
+    min_sdk_version: "S",
 }
 
 cc_defaults {
     name: "core_native_default_libs",
-
+    header_libs: ["jni_headers"],
     shared_libs: [
         "libbase",
         "liblog",
         "libnativehelper",
     ],
+    static_libs: ["libnativehelper_compat_libc++"],
 }
 
 cc_library_shared {
     name: "libjavacore",
     visibility: [
         "//art/build/apex",
+        "//art/runtime",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
     defaults: [
@@ -60,47 +64,29 @@ cc_library_shared {
     ],
     srcs: [
         ":luni_native_srcs",
-        "dalvik/src/main/native/org_apache_harmony_dalvik_NativeTestTarget.cpp",
     ],
     shared_libs: [
         "libandroidio",
-        "libbase",
         "libcrypto",
+        "libicu",
         "libexpat",
-        "libicuuc",
-        "libicui18n",
-        "libnativehelper",
         "libz",
     ],
     static_libs: [
-        "libandroidicuinit",
         "libziparchive",
     ],
-    target: {
-        android: {
-            cflags: [
-                // -DANDROID_LINK_SHARED_ICU4C to enable access to the full ICU4C.
-                // See external/icu/android_icu4c/include/uconfig_local.h
-                // for more information.
-                "-DANDROID_LINK_SHARED_ICU4C",
-            ],
-        },
-    },
 }
 
 cc_library_shared {
     name: "libandroidio",
     visibility: [
         "//art/build/apex",
+        "//art/build/sdk",
         "//external/conscrypt",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
-        // TODO(b/147813447) remove this. This is currently due to the 'runtime_libs'
-        // dependency from libjavacrypto in the conscrypt APEX.
-        "com.android.conscrypt",
-        "test_com.android.conscrypt",
     ],
     defaults: [
         "core_native_default_flags",
@@ -141,11 +127,12 @@ cc_defaults {
     shared_libs: [
         "libandroidio",
         "libcrypto",
-        "libicuuc",
-        "libnativehelper",
+        "libicu",
         "libz",
     ],
-    static_libs: ["libfdlibm"],
+    static_libs: [
+        "libfdlibm",
+    ],
 
     target: {
         linux_glibc: {
@@ -157,12 +144,6 @@ cc_defaults {
             ],
         },
         android: {
-            cflags: [
-                // -DANDROID_LINK_SHARED_ICU4C to enable access to the full ICU4C.
-                // See external/icu/android_icu4c/include/uconfig_local.h
-                // for more information.
-                "-DANDROID_LINK_SHARED_ICU4C",
-            ],
             shared_libs: [
                 "libdl_android",
             ],
@@ -178,7 +159,7 @@ cc_library_shared {
         "//art/build/apex",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
     defaults: ["libopenjdk_native_defaults"],
@@ -219,14 +200,10 @@ cc_library_shared {
         "luni/src/test/native/libcore_java_nio_BufferTest.cpp",
         "luni/src/test/native/libcore_libcore_util_NativeAllocationRegistryTest.cpp",
     ],
-    target: {
-        android: {
-            shared_libs: ["libnativehelper_compat_libc++"],
-        },
-        host: {
-            shared_libs: ["libnativehelper"],
-        },
-    },
+    shared_libs: [
+        "liblog",
+        "libnativehelper",
+    ],
 
     strip: {
         keep_symbols: true,
@@ -238,12 +215,26 @@ cc_test {
     name: "libjavacore-unit-tests",
     defaults: ["core_native_default_flags"],
 
+    // TODO(b/172480617): Fix this source dependency from
+    // platform_testing/build/tasks/tests/native_test_list.mk.
+    enabled: true,
+
     // Add -fno-builtin so that the compiler doesn't attempt to inline
     // memcpy calls that are not really aligned.
     cflags: ["-fno-builtin"],
-    srcs: ["luni/src/test/native/libcore_io_Memory_test.cpp"],
+    srcs: [
+        "luni/src/test/native/libcore_io_Memory_test.cpp",
+        // libcore_io_Memory_test.cpp includes libcore_io_Memory.cpp which
+        // depends on JniConstants.cpp (but these are not used in the tests).
+        "luni/src/main/native/JniConstants.cpp",
+    ],
 
-    shared_libs: ["libnativehelper"],
+    shared_libs: [
+        "liblog",
+        "libnativehelper",
+    ],
+
+    static_libs: ["libnativehelper_compat_libc++"],
 }
 
 // Set of benchmarks for libjavacore functions.
@@ -251,8 +242,20 @@ cc_benchmark {
     name: "libjavacore-benchmarks",
     defaults: ["core_native_default_flags"],
 
-    srcs: ["luni/src/benchmark/native/libcore_io_Memory_bench.cpp"],
+    // TODO(b/172480617): Fix this source dependency from
+    // platform_testing/build/tasks/tests/native_metric_test_list.mk.
+    enabled: true,
+
+    srcs: [
+        "luni/src/benchmark/native/libcore_io_Memory_bench.cpp",
+        // libcore_io_Memory_bench.cpp includes libcore_io_Memory.cpp which
+        // depends on JniConstants.cpp (but these are not used in the benchmark).
+        "luni/src/main/native/JniConstants.cpp",
+    ],
     test_suites: ["device-tests"],
 
-    shared_libs: ["libnativehelper"],
+    shared_libs: [
+        "liblog",
+        "libnativehelper",
+    ],
 }

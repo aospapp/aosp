@@ -1,7 +1,3 @@
-# coding: utf-8
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
-
 otData = [
 
 	#
@@ -88,7 +84,7 @@ otData = [
 
 	('Lookup', [
 		('uint16', 'LookupType', None, None, 'Different enumerations for GSUB and GPOS'),
-		('uint16', 'LookupFlag', None, None, 'Lookup qualifiers'),
+		('LookupFlag', 'LookupFlag', None, None, 'Lookup qualifiers'),
 		('uint16', 'SubTableCount', None, None, 'Number of SubTables for this lookup'),
 		('Offset', 'SubTable', 'SubTableCount', 0, 'Array of offsets to SubTables-from beginning of Lookup table'),
 		('uint16', 'MarkFilteringSet', None, 'LookupFlag & 0x0010', 'If set, indicates that the lookup table structure is followed by a MarkFilteringSet field. The layout engine skips over all mark glyphs not in the mark filtering set indicated.'),
@@ -703,6 +699,7 @@ otData = [
 		('Version', 'Version', None, None, 'Version of the BASE table-initially 0x00010000'),
 		('Offset', 'HorizAxis', None, None, 'Offset to horizontal Axis table-from beginning of BASE table-may be NULL'),
 		('Offset', 'VertAxis', None, None, 'Offset to vertical Axis table-from beginning of BASE table-may be NULL'),
+		('LOffset', 'VarStore', None, 'Version >= 0x00010001', 'Offset to variation store (may be NULL)'),
 	]),
 
 	('Axis', [
@@ -872,7 +869,7 @@ otData = [
 	('AxisValueFormat1', [
 		('uint16', 'Format', None, None, 'Format, = 1'),
 		('uint16', 'AxisIndex', None, None, 'Index into the axis record array identifying the axis of design variation to which the axis value record applies.'),
-		('uint16', 'Flags', None, None, 'Flags.'),
+		('STATFlags', 'Flags', None, None, 'Flags.'),
 		('NameID', 'ValueNameID', None, None, ''),
 		('Fixed', 'Value', None, None, ''),
 	]),
@@ -880,7 +877,7 @@ otData = [
 	('AxisValueFormat2', [
 		('uint16', 'Format', None, None, 'Format, = 2'),
 		('uint16', 'AxisIndex', None, None, 'Index into the axis record array identifying the axis of design variation to which the axis value record applies.'),
-		('uint16', 'Flags', None, None, 'Flags.'),
+		('STATFlags', 'Flags', None, None, 'Flags.'),
 		('NameID', 'ValueNameID', None, None, ''),
 		('Fixed', 'NominalValue', None, None, ''),
 		('Fixed', 'RangeMinValue', None, None, ''),
@@ -890,7 +887,7 @@ otData = [
 	('AxisValueFormat3', [
 		('uint16', 'Format', None, None, 'Format, = 3'),
 		('uint16', 'AxisIndex', None, None, 'Index into the axis record array identifying the axis of design variation to which the axis value record applies.'),
-		('uint16', 'Flags', None, None, 'Flags.'),
+		('STATFlags', 'Flags', None, None, 'Flags.'),
 		('NameID', 'ValueNameID', None, None, ''),
 		('Fixed', 'Value', None, None, ''),
 		('Fixed', 'LinkedValue', None, None, ''),
@@ -899,7 +896,7 @@ otData = [
 	('AxisValueFormat4', [
 		('uint16', 'Format', None, None, 'Format, = 4'),
 		('uint16', 'AxisCount', None, None, 'The total number of axes contributing to this axis-values combination.'),
-		('uint16', 'Flags', None, None, 'Flags.'),
+		('STATFlags', 'Flags', None, None, 'Flags.'),
 		('NameID', 'ValueNameID', None, None, ''),
 		('struct', 'AxisValueRecord', 'AxisCount', 0, 'Array of AxisValue records that provide the combination of axis values, one for each contributing axis. '),
 	]),
@@ -1539,4 +1536,275 @@ otData = [
 		('int16', 'CVTValueArray', 'NumCVTEntries', 0, 'CVT value'),
 	]),
 
+	#
+	# COLR
+	#
+
+	('COLR', [
+		('uint16', 'Version', None, None, 'Table version number (starts at 0).'),
+		('uint16', 'BaseGlyphRecordCount', None, None, 'Number of Base Glyph Records.'),
+		('LOffset', 'BaseGlyphRecordArray', None, None, 'Offset (from beginning of COLR table) to Base Glyph records.'),
+		('LOffset', 'LayerRecordArray', None, None, 'Offset (from beginning of COLR table) to Layer Records.'),
+		('uint16', 'LayerRecordCount', None, None, 'Number of Layer Records.'),
+		('LOffset', 'BaseGlyphV1List', None, 'Version >= 1', 'Offset (from beginning of COLR table) to array of Version-1 Base Glyph records.'),
+		('LOffset', 'LayerV1List', None, 'Version >= 1', 'Offset (from beginning of COLR table) to LayerV1List.'),
+		('LOffset', 'VarStore', None, 'Version >= 1', 'Offset to variation store (may be NULL)'),
+	]),
+
+	('BaseGlyphRecordArray', [
+		('BaseGlyphRecord', 'BaseGlyphRecord', 'BaseGlyphRecordCount', 0, 'Base Glyph records.'),
+	]),
+
+	('BaseGlyphRecord', [
+		('GlyphID', 'BaseGlyph', None, None, 'Glyph ID of reference glyph. This glyph is for reference only and is not rendered for color.'),
+		('uint16', 'FirstLayerIndex', None, None, 'Index (from beginning of the Layer Records) to the layer record. There will be numLayers consecutive entries for this base glyph.'),
+		('uint16', 'NumLayers', None, None, 'Number of color layers associated with this glyph.'),
+	]),
+
+	('LayerRecordArray', [
+		('LayerRecord', 'LayerRecord', 'LayerRecordCount', 0, 'Layer records.'),
+	]),
+
+	('LayerRecord', [
+		('GlyphID', 'LayerGlyph', None, None, 'Glyph ID of layer glyph (must be in z-order from bottom to top).'),
+		('uint16', 'PaletteIndex', None, None, 'Index value to use with a selected color palette.'),
+	]),
+
+	('BaseGlyphV1List', [
+		('uint32', 'BaseGlyphCount', None, None, 'Number of Version-1 Base Glyph records'),
+		('struct', 'BaseGlyphV1Record', 'BaseGlyphCount', 0, 'Array of Version-1 Base Glyph records'),
+	]),
+
+	('BaseGlyphV1Record', [
+		('GlyphID', 'BaseGlyph', None, None, 'Glyph ID of reference glyph.'),
+		('LOffset', 'Paint', None, None, 'Offset (from beginning of BaseGlyphV1Record) to Paint, typically a PaintColrLayers.'),
+	]),
+
+	('LayerV1List', [
+		('uint32', 'LayerCount', None, None, 'Number of Version-1 Layers'),
+		('LOffset', 'Paint', 'LayerCount', 0, 'Array of offsets to Paint tables, from the start of the LayerV1List table.'),
+	]),
+
+	# COLRv1 Affine2x3 uses the same column-major order to serialize a 2D
+	# Affine Transformation as the one used by fontTools.misc.transform.
+	# However, for historical reasons, the labels 'xy' and 'yx' are swapped.
+	# Their fundamental meaning is the same though.
+	# COLRv1 Affine2x3 follows the names found in FreeType and Cairo.
+	# In all case, the second element in the 6-tuple correspond to the
+	# y-part of the x basis vector, and the third to the x-part of the y
+	# basis vector.
+	# See https://github.com/googlefonts/colr-gradients-spec/pull/85
+	('Affine2x3', [
+		('Fixed', 'xx', None, None, 'x-part of x basis vector'),
+		('Fixed', 'yx', None, None, 'y-part of x basis vector'),
+		('Fixed', 'xy', None, None, 'x-part of y basis vector'),
+		('Fixed', 'yy', None, None, 'y-part of y basis vector'),
+		('Fixed', 'dx', None, None, 'Translation in x direction'),
+		('Fixed', 'dy', None, None, 'Translation in y direction'),
+	]),
+	('VarAffine2x3', [
+		('VarFixed', 'xx', None, None, 'x-part of x basis vector'),
+		('VarFixed', 'yx', None, None, 'y-part of x basis vector'),
+		('VarFixed', 'xy', None, None, 'x-part of y basis vector'),
+		('VarFixed', 'yy', None, None, 'y-part of y basis vector'),
+		('VarFixed', 'dx', None, None, 'Translation in x direction'),
+		('VarFixed', 'dy', None, None, 'Translation in y direction'),
+	]),
+
+	('ColorIndex', [
+		('uint16', 'PaletteIndex', None, None, 'Index value to use with a selected color palette.'),
+		('F2Dot14', 'Alpha', None, None, 'Values outsided [0.,1.] reserved'),
+	]),
+	('VarColorIndex', [
+		('uint16', 'PaletteIndex', None, None, 'Index value to use with a selected color palette.'),
+		('VarF2Dot14', 'Alpha', None, None, 'Values outsided [0.,1.] reserved'),
+	]),
+
+	('ColorStop', [
+		('F2Dot14', 'StopOffset', None, None, ''),
+		('ColorIndex', 'Color', None, None, ''),
+	]),
+	('VarColorStop', [
+		('VarF2Dot14', 'StopOffset', None, None, ''),
+		('VarColorIndex', 'Color', None, None, ''),
+	]),
+
+	('ColorLine', [
+		('ExtendMode', 'Extend', None, None, 'Enum {PAD = 0, REPEAT = 1, REFLECT = 2}'),
+		('uint16', 'StopCount', None, None, 'Number of Color stops.'),
+		('ColorStop', 'ColorStop', 'StopCount', 0, 'Array of Color stops.'),
+	]),
+	('VarColorLine', [
+		('ExtendMode', 'Extend', None, None, 'Enum {PAD = 0, REPEAT = 1, REFLECT = 2}'),
+		('uint16', 'StopCount', None, None, 'Number of Color stops.'),
+		('VarColorStop', 'ColorStop', 'StopCount', 0, 'Array of Color stops.'),
+	]),
+
+	# PaintColrLayers
+	('PaintFormat1', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 1'),
+		('uint8', 'NumLayers', None, None, 'Number of offsets to Paint to read from LayerV1List.'),
+		('uint32', 'FirstLayerIndex', None, None, 'Index into LayerV1List.'),
+	]),
+
+	# PaintSolid
+	('PaintFormat2', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 2'),
+		('ColorIndex', 'Color', None, None, 'A solid color paint.'),
+	]),
+	# PaintVarSolid
+	('PaintFormat3', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 3'),
+		('VarColorIndex', 'Color', None, None, 'A solid color paint.'),
+	]),
+
+	# PaintLinearGradient
+	('PaintFormat4', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 4'),
+		('Offset24', 'ColorLine', None, None, 'Offset (from beginning of PaintLinearGradient table) to ColorLine subtable.'),
+		('int16', 'x0', None, None, ''),
+		('int16', 'y0', None, None, ''),
+		('int16', 'x1', None, None, ''),
+		('int16', 'y1', None, None, ''),
+		('int16', 'x2', None, None, ''),
+		('int16', 'y2', None, None, ''),
+	]),
+	# PaintVarLinearGradient
+	('PaintFormat5', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 5'),
+		('LOffset24To(VarColorLine)', 'ColorLine', None, None, 'Offset (from beginning of PaintVarLinearGradient table) to VarColorLine subtable.'),
+		('VarInt16', 'x0', None, None, ''),
+		('VarInt16', 'y0', None, None, ''),
+		('VarInt16', 'x1', None, None, ''),
+		('VarInt16', 'y1', None, None, ''),
+		('VarInt16', 'x2', None, None, ''),
+		('VarInt16', 'y2', None, None, ''),
+	]),
+
+	# PaintRadialGradient
+	('PaintFormat6', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 6'),
+		('Offset24', 'ColorLine', None, None, 'Offset (from beginning of PaintRadialGradient table) to ColorLine subtable.'),
+		('int16', 'x0', None, None, ''),
+		('int16', 'y0', None, None, ''),
+		('uint16', 'r0', None, None, ''),
+		('int16', 'x1', None, None, ''),
+		('int16', 'y1', None, None, ''),
+		('uint16', 'r1', None, None, ''),
+	]),
+	# PaintVarRadialGradient
+	('PaintFormat7', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 7'),
+		('LOffset24To(VarColorLine)', 'ColorLine', None, None, 'Offset (from beginning of PaintVarRadialGradient table) to VarColorLine subtable.'),
+		('VarInt16', 'x0', None, None, ''),
+		('VarInt16', 'y0', None, None, ''),
+		('VarUInt16', 'r0', None, None, ''),
+		('VarInt16', 'x1', None, None, ''),
+		('VarInt16', 'y1', None, None, ''),
+		('VarUInt16', 'r1', None, None, ''),
+	]),
+
+	# PaintSweepGradient
+	('PaintFormat8', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 8'),
+		('Offset24', 'ColorLine', None, None, 'Offset (from beginning of PaintSweepGradient table) to ColorLine subtable.'),
+		('int16', 'centerX', None, None, 'Center x coordinate.'),
+		('int16', 'centerY', None, None, 'Center y coordinate.'),
+		('Fixed', 'startAngle', None, None, 'Start of the angular range of the gradient.'),
+		('Fixed', 'endAngle', None, None, 'End of the angular range of the gradient.'),
+	]),
+	# PaintVarSweepGradient
+	('PaintFormat9', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 9'),
+		('LOffset24To(VarColorLine)', 'ColorLine', None, None, 'Offset (from beginning of PaintVarSweepGradient table) to VarColorLine subtable.'),
+		('VarInt16', 'centerX', None, None, 'Center x coordinate.'),
+		('VarInt16', 'centerY', None, None, 'Center y coordinate.'),
+		('VarFixed', 'startAngle', None, None, 'Start of the angular range of the gradient.'),
+		('VarFixed', 'endAngle', None, None, 'End of the angular range of the gradient.'),
+	]),
+
+	# PaintGlyph
+	('PaintFormat10', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 10'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintGlyph table) to Paint subtable.'),
+		('GlyphID', 'Glyph', None, None, 'Glyph ID for the source outline.'),
+	]),
+
+	# PaintColrGlyph
+	('PaintFormat11', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 11'),
+		('GlyphID', 'Glyph', None, None, 'Virtual glyph ID for a BaseGlyphV1List base glyph.'),
+	]),
+
+	# PaintTransform
+	('PaintFormat12', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 12'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintTransform table) to Paint subtable.'),
+		('Affine2x3', 'Transform', None, None, '2x3 matrix for 2D affine transformations.'),
+	]),
+	# PaintVarTransform
+	('PaintFormat13', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 13'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarTransform table) to Paint subtable.'),
+		('VarAffine2x3', 'Transform', None, None, '2x3 matrix for 2D affine transformations.'),
+	]),
+
+	# PaintTranslate
+	('PaintFormat14', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 14'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintTranslate table) to Paint subtable.'),
+		('Fixed', 'dx', None, None, 'Translation in x direction.'),
+		('Fixed', 'dy', None, None, 'Translation in y direction.'),
+	]),
+	# PaintVarTranslate
+	('PaintFormat15', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 15'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarTranslate table) to Paint subtable.'),
+		('VarFixed', 'dx', None, None, 'Translation in x direction.'),
+		('VarFixed', 'dy', None, None, 'Translation in y direction.'),
+	]),
+
+	# PaintRotate
+	('PaintFormat16', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 16'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintRotate table) to Paint subtable.'),
+		('Fixed', 'angle', None, None, ''),
+		('Fixed', 'centerX', None, None, ''),
+		('Fixed', 'centerY', None, None, ''),
+	]),
+	# PaintVarRotate
+	('PaintFormat17', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 17'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarRotate table) to Paint subtable.'),
+		('VarFixed', 'angle', None, None, ''),
+		('VarFixed', 'centerX', None, None, ''),
+		('VarFixed', 'centerY', None, None, ''),
+	]),
+
+	# PaintSkew
+	('PaintFormat18', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 18'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintSkew table) to Paint subtable.'),
+		('Fixed', 'xSkewAngle', None, None, ''),
+		('Fixed', 'ySkewAngle', None, None, ''),
+		('Fixed', 'centerX', None, None, ''),
+		('Fixed', 'centerY', None, None, ''),
+	]),
+	# PaintVarSkew
+	('PaintFormat19', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 19'),
+		('Offset24', 'Paint', None, None, 'Offset (from beginning of PaintVarSkew table) to Paint subtable.'),
+		('VarFixed', 'xSkewAngle', None, None, ''),
+		('VarFixed', 'ySkewAngle', None, None, ''),
+		('VarFixed', 'centerX', None, None, ''),
+		('VarFixed', 'centerY', None, None, ''),
+	]),
+
+	# PaintComposite
+	('PaintFormat20', [
+		('uint8', 'PaintFormat', None, None, 'Format identifier-format = 20'),
+		('LOffset24To(Paint)', 'SourcePaint', None, None, 'Offset (from beginning of PaintComposite table) to source Paint subtable.'),
+		('CompositeMode', 'CompositeMode', None, None, 'A CompositeMode enumeration value.'),
+		('LOffset24To(Paint)', 'BackdropPaint', None, None, 'Offset (from beginning of PaintComposite table) to backdrop Paint subtable.'),
+	]),
 ]

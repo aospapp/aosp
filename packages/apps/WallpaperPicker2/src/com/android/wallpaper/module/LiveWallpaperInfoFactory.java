@@ -15,6 +15,9 @@
  */
 package com.android.wallpaper.module;
 
+import androidx.annotation.Nullable;
+
+import com.android.wallpaper.model.LiveWallpaperInfo;
 import com.android.wallpaper.model.WallpaperInfo;
 
 /**
@@ -22,7 +25,14 @@ import com.android.wallpaper.model.WallpaperInfo;
  */
 public interface LiveWallpaperInfoFactory {
 
+    /**
+     * @see LiveWallpaperInfo#LiveWallpaperInfo(android.app.WallpaperInfo)
+     */
     WallpaperInfo getLiveWallpaperInfo(android.app.WallpaperInfo info);
 
-    WallpaperInfo getLiveWallpaperInfo(android.app.WallpaperInfo info, boolean shouldShowTitle);
+    /**
+     * @see LiveWallpaperInfo#LiveWallpaperInfo(android.app.WallpaperInfo, boolean, String)
+     */
+    WallpaperInfo getLiveWallpaperInfo(android.app.WallpaperInfo info, boolean shouldShowTitle,
+            @Nullable String collectionId);
 }

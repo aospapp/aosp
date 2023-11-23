@@ -4,6 +4,8 @@ include $(LOCAL_PATH)/../common.mk
 include $(CLEAR_VARS)
 
 LOCAL_MODULE                  := gralloc.$(TARGET_BOARD_PLATFORM)
+LOCAL_LICENSE_KINDS           := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS      := by_exception_only not_allowed notice
 LOCAL_VENDOR_MODULE           := true
 LOCAL_MODULE_RELATIVE_PATH    := hw
 LOCAL_MODULE_TAGS             := optional
@@ -25,6 +27,8 @@ include $(BUILD_SHARED_LIBRARY)
 #libgrallocutils
 include $(CLEAR_VARS)
 LOCAL_MODULE                  := libgrallocutils
+LOCAL_LICENSE_KINDS           := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS      := by_exception_only not_allowed notice
 LOCAL_VENDOR_MODULE           := true
 LOCAL_MODULE_TAGS             := optional
 LOCAL_C_INCLUDES              := $(common_includes) $(kernel_includes)
@@ -40,6 +44,8 @@ include $(BUILD_SHARED_LIBRARY)
 #libgralloccore
 include $(CLEAR_VARS)
 LOCAL_MODULE                  := libgralloccore
+LOCAL_LICENSE_KINDS           := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS      := by_exception_only not_allowed notice
 LOCAL_VENDOR_MODULE           := true
 LOCAL_MODULE_TAGS             := optional
 LOCAL_C_INCLUDES              := $(common_includes) $(kernel_includes)
@@ -64,6 +70,8 @@ qti_allocator_version := $(shell \
 #mapper
 include $(CLEAR_VARS)
 LOCAL_MODULE                  := android.hardware.graphics.mapper@2.0-impl-qti-display
+LOCAL_LICENSE_KINDS           := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS      := by_exception_only not_allowed notice
 LOCAL_VENDOR_MODULE           := true
 LOCAL_MODULE_RELATIVE_PATH    := hw
 LOCAL_MODULE_TAGS             := optional
@@ -84,6 +92,8 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE                  := vendor.qti.hardware.display.allocator@1.0-service
+LOCAL_LICENSE_KINDS           := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS      := by_exception_only not_allowed notice
 LOCAL_VENDOR_MODULE           := true
 LOCAL_MODULE_RELATIVE_PATH    := hw
 LOCAL_MODULE_TAGS             := optional

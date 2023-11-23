@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+@file:JvmName("NetlinkTestUtils")
+
 package android.net.netlink
 
 import android.net.netlink.NetlinkConstants.RTM_DELNEIGH

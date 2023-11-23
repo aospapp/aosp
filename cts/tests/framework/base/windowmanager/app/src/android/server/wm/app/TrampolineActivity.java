@@ -35,7 +35,7 @@ public class TrampolineActivity extends AbstractLifecycleLogActivity {
         // activity is visible before it's launched, because its task is being brought
         // to foreground. We need to verify that 'am start' is unblocked correctly.
         SystemClock.sleep(2000);
-        Intent intent = new Intent(this, SingleTaskActivity.class);
+        Intent intent = new Intent(this,  SingleTaskActivity.class);
         intent.setFlags(FLAG_ACTIVITY_CLEAR_TOP | FLAG_ACTIVITY_NEW_TASK);
 
         startActivity(intent);

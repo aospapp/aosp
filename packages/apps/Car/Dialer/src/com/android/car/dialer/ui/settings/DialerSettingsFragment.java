@@ -18,13 +18,36 @@ package com.android.car.dialer.ui.settings;
 
 import android.os.Bundle;
 
+import androidx.annotation.Nullable;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.preference.Preference;
+
 import com.android.car.dialer.R;
 import com.android.car.ui.preference.PreferenceFragment;
+
+import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * A fragment that displays the settings page
  */
-public class DialerSettingsFragment extends PreferenceFragment {
+@AndroidEntryPoint(PreferenceFragment.class)
+public class DialerSettingsFragment extends Hilt_DialerSettingsFragment {
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        LiveData<String> connectedDeviceName = new ViewModelProvider(this)
+                .get(DialerSettingsViewModel.class)
+                .getCurrentHfpConnectedDeviceName();
+        connectedDeviceName.observe(this, (name) -> {
+            Preference preference = findPreference(getString((R.string.pref_connected_phone_key)));
+            if (preference != null) {
+                preference.setSummary(name);
+            }
+        });
+    }
+
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.settings_page, rootKey);

@@ -16,13 +16,13 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"కాల్ నిర్వహణ"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"ఫోన్ కాల్స్"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"ఫోన్"</string>
     <string name="unknown" msgid="6993977514360123431">"తెలియదు"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"సమాధానం ఇవ్వని కాల్"</string>
     <string name="notification_missedWorkCallTitle" msgid="6965463282259034953">"మిస్డ్ కార్యాలయ కాల్"</string>
     <string name="notification_missedCallsTitle" msgid="3910479625507893809">"సమాధానం ఇవ్వని కాల్స్"</string>
-    <string name="notification_missedCallsMsg" msgid="5055782736170916682">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> సమాధానం ఇవ్వని కాల్‌లు"</string>
+    <string name="notification_missedCallsMsg" msgid="5055782736170916682">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> సమాధానం ఇవ్వని కాల్స్‌"</string>
     <string name="notification_missedCallTicker" msgid="6731461957487087769">"<xliff:g id="MISSED_CALL_FROM">%s</xliff:g> నుండి సమాధానం ఇవ్వని కాల్"</string>
     <string name="notification_missedCall_call_back" msgid="7900333283939789732">"కాల్ చేయి"</string>
     <string name="notification_missedCall_message" msgid="4054698824390076431">"సందేశం"</string>
@@ -46,8 +46,8 @@
     <string name="respond_via_sms_confirmation_format" msgid="2932395476561267842">"<xliff:g id="PHONE_NUMBER">%s</xliff:g>కు సందేశం పంపబడింది."</string>
     <string name="respond_via_sms_failure_format" msgid="5198680980054596391">"<xliff:g id="PHONE_NUMBER">%s</xliff:g>కు సందేశాన్ని పంపడం విఫలమైంది."</string>
     <string name="enable_account_preference_title" msgid="6949224486748457976">"కాలింగ్ ఖాతాలు"</string>
-    <string name="outgoing_call_not_allowed_user_restriction" msgid="3424338207838851646">"కేవలం అత్యవసర కాల్‌లు మాత్రమే అనుమతించబడతాయి."</string>
-    <string name="outgoing_call_not_allowed_no_permission" msgid="8590468836581488679">"ఈ అనువర్తనం ఫోన్ అనుమతి లేకుండా అవుట్‌గోయింగ్ కాల్‌లను చేయలేదు."</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="3424338207838851646">"కేవలం అత్యవసర కాల్స్‌ మాత్రమే అనుమతించబడతాయి."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="8590468836581488679">"ఈ యాప్‌ ఫోన్ అనుమతి లేకుండా అవుట్‌గోయింగ్ కాల్స్‌ను చేయలేదు."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="7665135102566099778">"కాల్ చేయడానికి, చెల్లుబాటు అయ్యే నంబర్‌ను నమోదు చేయండి."</string>
     <string name="duplicate_video_call_not_allowed" msgid="5754746140185781159">"ఈ సమయంలో కాల్‌ను జోడించడం సాధ్యపడదు."</string>
     <string name="no_vm_number" msgid="2179959110602180844">"వాయిస్ మెయిల్ నంబర్ లేదు"</string>
@@ -56,18 +56,18 @@
     <string name="change_default_dialer_dialog_title" msgid="5861469279421508060">"<xliff:g id="NEW_APP">%s</xliff:g>ని మీ డిఫాల్ట్ ఫోన్ అనువర్తనంగా చేయాలా?"</string>
     <string name="change_default_dialer_dialog_affirmative" msgid="8604665314757739550">"డిఫాల్ట్‌గా సెట్ చేయండి"</string>
     <string name="change_default_dialer_dialog_negative" msgid="8648669840052697821">"రద్దు చేయి"</string>
-    <string name="change_default_dialer_warning_message" msgid="8461963987376916114">"<xliff:g id="NEW_APP">%s</xliff:g> అన్ని రకాల కాల్‌లను చేయగలదు మరియు సంబంధిత అన్ని అంశాలను నియంత్రించగలదు. మీరు విశ్వసించే అనువర్తనాలను మాత్రమే డిఫాల్ట్ ఫోన్ అనువర్తనంగా సెట్ చేయాలి."</string>
+    <string name="change_default_dialer_warning_message" msgid="8461963987376916114">"<xliff:g id="NEW_APP">%s</xliff:g> అన్ని రకాల కాల్స్‌ను చేయగలదు మరియు సంబంధిత అన్ని అంశాలను నియంత్రించగలదు. మీరు విశ్వసించే యాప్‌లను మాత్రమే డిఫాల్ట్ ఫోన్ అనువర్తనంగా సెట్ చేయాలి."</string>
     <string name="change_default_call_screening_dialog_title" msgid="5365787219927262408">"<xliff:g id="NEW_APP">%s</xliff:g>ని మీ డిఫాల్ట్ కాల్ స్క్రీనింగ్ యాప్‌గా సెట్ చేయాలా?"</string>
-    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="2039830033533243164">"<xliff:g id="OLD_APP">%s</xliff:g> ఇకపై స్క్రీన్ కాల్‌లను చేయలేదు."</string>
-    <string name="change_default_call_screening_warning_message" msgid="9020537562292754269">"<xliff:g id="NEW_APP">%s</xliff:g> మీ పరిచయాలలో లేని కాలర్‌ల గురించిన సమాచారాన్ని చూడగలుగుతుంది మరియు ఈ కాల్‌లను బ్లాక్ చేయగలుగుతుంది. మీరు విశ్వసించే యాప్‌లను మాత్రమే డిఫాల్ట్ కాల్ స్క్రీన్ యాప్‌గా సెట్ చేయాలి."</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="2039830033533243164">"<xliff:g id="OLD_APP">%s</xliff:g> ఇకపై స్క్రీన్ కాల్స్‌ను చేయలేదు."</string>
+    <string name="change_default_call_screening_warning_message" msgid="9020537562292754269">"<xliff:g id="NEW_APP">%s</xliff:g> మీ పరిచయాలలో లేని కాలర్‌ల గురించిన సమాచారాన్ని చూడగలుగుతుంది మరియు ఈ కాల్స్‌ను బ్లాక్ చేయగలుగుతుంది. మీరు విశ్వసించే యాప్‌లను మాత్రమే డిఫాల్ట్ కాల్ స్క్రీన్ యాప్‌గా సెట్ చేయాలి."</string>
     <string name="change_default_call_screening_dialog_affirmative" msgid="7162433828280058647">"డిఫాల్ట్‌గా సెట్ చేయి"</string>
     <string name="change_default_call_screening_dialog_negative" msgid="1839266125623106342">"రద్దు చేయి"</string>
     <string name="blocked_numbers" msgid="8322134197039865180">"బ్లాక్ చేయబడిన నంబర్‌లు"</string>
-    <string name="blocked_numbers_msg" msgid="2797422132329662697">"మీరు బ్లాక్ చేయబడిన నంబర్‌ల నుండి కాల్‌లు లేదా వచన సందేశాలను స్వీకరించరు."</string>
+    <string name="blocked_numbers_msg" msgid="2797422132329662697">"మీరు బ్లాక్ చేయబడిన నంబర్‌ల నుండి కాల్స్‌ లేదా వచన సందేశాలను స్వీకరించరు."</string>
     <string name="block_number" msgid="3784343046852802722">"నంబర్‌ను జోడించండి"</string>
     <string name="unblock_dialog_body" msgid="2723393535797217261">"<xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g>ని అన్‌బ్లాక్ చేయాలా?"</string>
     <string name="unblock_button" msgid="8732021675729981781">"అన్‌బ్లాక్ చేయి"</string>
-    <string name="add_blocked_dialog_body" msgid="8599974422407139255">"దీని నుండి కాల్‌లు మరియు సందేశాలను బ్లాక్ చేయండి"</string>
+    <string name="add_blocked_dialog_body" msgid="8599974422407139255">"దీని నుండి కాల్స్‌ మరియు సందేశాలను బ్లాక్ చేయండి"</string>
     <string name="add_blocked_number_hint" msgid="8769422085658041097">"ఫోన్ నంబర్"</string>
     <string name="block_button" msgid="485080149164258770">"బ్లాక్ చేయి"</string>
     <string name="non_primary_user" msgid="315564589279622098">"కేవలం పరికర యజమాని మాత్రమే బ్లాక్ చేసిన నంబర్‌లను వీక్షించగలరు మరియు నిర్వహించగలరు."</string>
@@ -83,17 +83,17 @@
     <string name="notification_incoming_call" msgid="1233481138362230894">"<xliff:g id="CALL_FROM">%2$s</xliff:g> నుండి <xliff:g id="CALL_VIA">%1$s</xliff:g> కాల్"</string>
     <string name="notification_incoming_video_call" msgid="5795968314037063900">"<xliff:g id="CALL_FROM">%2$s</xliff:g> నుండి <xliff:g id="CALL_VIA">%1$s</xliff:g> వీడియో కాల్"</string>
     <string name="answering_ends_other_call" msgid="8653544281903986641">"సమాధానమివ్వడం వలన మీ <xliff:g id="CALL_VIA">%1$s</xliff:g> కాల్ ముగుస్తుంది"</string>
-    <string name="answering_ends_other_calls" msgid="3702302838456922535">"సమాధానమివ్వడం వలన మీ <xliff:g id="CALL_VIA">%1$s</xliff:g> కాల్‌లు ముగుస్తాయి"</string>
+    <string name="answering_ends_other_calls" msgid="3702302838456922535">"సమాధానమివ్వడం వలన మీ <xliff:g id="CALL_VIA">%1$s</xliff:g> కాల్స్‌ ముగుస్తాయి"</string>
     <string name="answering_ends_other_video_call" msgid="8572022039304239958">"సమాధానమివ్వడం వలన మీ <xliff:g id="CALL_VIA">%1$s</xliff:g> వీడియో కాల్ ముగుస్తుంది"</string>
     <string name="answering_ends_other_managed_call" msgid="4031778317409881805">"సమాధానమివ్వడం వలన మీ కొనసాగుతున్న కాల్ ముగుస్తుంది"</string>
-    <string name="answering_ends_other_managed_calls" msgid="3974069768615307659">"సమాధానమివ్వడం వలన మీ కొనసాగుతున్న కాల్‌లు ముగుస్తాయి"</string>
+    <string name="answering_ends_other_managed_calls" msgid="3974069768615307659">"సమాధానమివ్వడం వలన మీ కొనసాగుతున్న కాల్స్‌ ముగుస్తాయి"</string>
     <string name="answering_ends_other_managed_video_call" msgid="1988508241432031327">"సమాధానమివ్వడం వలన మీ కొనసాగుతున్న వీడియో కాల్ ముగుస్తుంది"</string>
     <string name="answer_incoming_call" msgid="2045888814782215326">"సమాధానమివ్వండి"</string>
     <string name="decline_incoming_call" msgid="922147089348451310">"తిరస్కరించు"</string>
-    <string name="cant_call_due_to_no_supported_service" msgid="1635626384149947077">"కాల్ చేయడం సాధ్యపడదు ఎందుకంటే, ఈ రకమైన కాల్‌లకు మద్దతిచ్చే కాల్ చేయడానికి ఉపయోగించే ఖాతాలు లేవు."</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="1635626384149947077">"కాల్ చేయడం సాధ్యపడదు ఎందుకంటే, ఈ రకమైన కాల్స్‌కు మద్దతిచ్చే కాల్ చేయడానికి ఉపయోగించే ఖాతాలు లేవు."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="8004235328451385493">"మీ <xliff:g id="OTHER_CALL">%1$s</xliff:g> కాల్ కొనసాగుతున్నందున కాల్ చేయడం సాధ్యపడదు."</string>
-    <string name="cant_call_due_to_ongoing_calls" msgid="6379163795277824868">"మీ <xliff:g id="OTHER_CALL">%1$s</xliff:g> కాల్‌లు కొనసాగుతున్నందున కాల్ చేయడం సాధ్యపడదు."</string>
-    <string name="cant_call_due_to_ongoing_unknown_call" msgid="8243532328969433172">"వేరొక అనువర్తనంలో కాల్ కొనసాగుతున్నందున కాల్ చేయడం సాధ్యపడదు."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="6379163795277824868">"మీ <xliff:g id="OTHER_CALL">%1$s</xliff:g> కాల్స్‌ కొనసాగుతున్నందున కాల్ చేయడం సాధ్యపడదు."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="8243532328969433172">"వేరొక యాప్‌లో కాల్ కొనసాగుతున్నందున కాల్ చేయడం సాధ్యపడదు."</string>
     <string name="notification_channel_incoming_call" msgid="5245550964701715662">"ఇన్‌కమింగ్ కాల్స్"</string>
     <string name="notification_channel_missed_call" msgid="7168893015283909012">"సమాధానం ఇవ్వని కాల్స్"</string>
     <string name="notification_channel_call_blocking" msgid="2028807677868598710">"కాల్ బ్లాక్ చేయడం"</string>
@@ -111,13 +111,13 @@
     <string name="phone_settings_private_num_txt" msgid="6339272760338475619">"ప్రైవేట్"</string>
     <string name="phone_settings_private_num_summary_txt" msgid="6755758240544021037">"తమ నంబర్‌ను కనిపించకుండా చేసే కాలర్‌లను బ్లాక్ చేయండి"</string>
     <string name="phone_settings_payphone_txt" msgid="5003987966052543965">"పే ఫోన్"</string>
-    <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"పే ఫోన్‌ల నుండి కాల్‌లను బ్లాక్ చేయండి"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"పే ఫోన్‌ల నుండి కాల్స్‌ను బ్లాక్ చేయండి"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"తెలియని"</string>
-    <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"తెలియని కాలర్‌ల నుండి కాల్‌లను బ్లాక్ చేయండి"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"తెలియని కాలర్‌ల నుండి కాల్స్‌ను బ్లాక్ చేయండి"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"కాల్ బ్లాక్ చేయడం"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"కాల్ బ్లాక్ చేయడం నిలిపివేయబడింది"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"అత్యవసర కాల్ చేయబడింది"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"మిమ్మల్ని సంప్రదించడానికి అత్యవసర ప్రతిస్పందనదారులను అనుమతించడానికి కాల్ బ్లాక్ చేయడం నిలిపివేయబడింది."</string>
-    <string name="developer_title" msgid="9146088855661672353">"టెలికామ్ డెవలపర్ మెను"</string>
-    <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"అత్యవసర కాల్‌లో వున్నప్పుడు కాల్‌లను స్వీకరించడానికి వీలుపడదు."</string>
+    <string name="developer_title" msgid="9146088855661672353">"టెలికామ్ డెవలపర్ మెనూ"</string>
+    <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"అత్యవసర కాల్‌లో వున్నప్పుడు కాల్స్‌ను స్వీకరించడానికి వీలుపడదు."</string>
 </resources>

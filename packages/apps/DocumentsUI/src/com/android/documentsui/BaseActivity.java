@@ -167,6 +167,11 @@ public abstract class BaseActivity
 
         mNavigator = new NavigationViewManager(this, mDrawer, mState, this, breadcrumb,
                 profileTabsContainer, DocumentsApplication.getUserIdManager(this));
+        AppBarLayout appBarLayout = findViewById(R.id.app_bar);
+        if (appBarLayout != null) {
+            appBarLayout.addOnOffsetChangedListener(mNavigator);
+        }
+
         SearchManagerListener searchListener = new SearchManagerListener() {
             /**
              * Called when search results changed. Refreshes the content of the directory. It
@@ -934,7 +939,7 @@ public abstract class BaseActivity
                 getMainLooper().getQueue().addIdleHandler(new IdleHandler() {
                     @Override
                     public boolean queueIdle() {
-                        // If startup benchmark is requested by a whitelisted testing package, then
+                        // If startup benchmark is requested by an allowedlist testing package, then
                         // close the activity once idle, and notify the testing activity.
                         if (getIntent().getBooleanExtra(EXTRA_BENCHMARK, false) &&
                                 BENCHMARK_TESTING_PACKAGE.equals(getCallingPackage())) {

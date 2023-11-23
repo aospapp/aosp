@@ -31,6 +31,7 @@
 // dlopen_ext support from bionic.
 #ifdef ART_TARGET_ANDROID
 #include "android/dlext.h"
+#include "nativeloader/dlext_namespaces.h"
 #endif
 
 #include <android-base/logging.h>
@@ -166,7 +167,8 @@ class OatFileBase : public OatFile {
   virtual void PreSetup(const std::string& elf_filename) = 0;
 
   bool Setup(int zip_fd, ArrayRef<const std::string> dex_filenames, std::string* error_msg);
-  bool Setup(const std::vector<const DexFile*>& dex_files);
+
+  void Setup(const std::vector<const DexFile*>& dex_files);
 
   // Setters exposed for ElfOatFile.
 
@@ -275,7 +277,17 @@ bool OatFileBase::ShouldUnquickenVDex() const {
   // We sometimes load oat files without a runtime (eg oatdump) and don't want to do anything in
   // that case. If we are debuggable there are no -quick opcodes to unquicken. If the runtime is not
   // debuggable we don't care whether there are -quick opcodes or not so no need to do anything.
-  return Runtime::Current() != nullptr && !IsDebuggable() && Runtime::Current()->IsJavaDebuggable();
+  Runtime* runtime = Runtime::Current();
+  return (runtime != nullptr && runtime->IsJavaDebuggable()) &&
+         // Note: This is called before `OatFileBase::Setup()` where we validate the
+         // oat file contents. Check that we have at least a valid header, including
+         // oat file version, to avoid parsing the key-value store for a different
+         // version (out-of-date oat file) which can lead to crashes. b/179221298.
+         // TODO: While this is a poor workaround and the correct solution would be
+         // to postpone the unquickening check until after `OatFileBase::Setup()`,
+         // we prefer to avoid larger rewrites because quickening is deprecated and
+         // should be removed completely anyway. b/170086509
+         (GetOatHeader().IsValid() && !IsDebuggable());
 }
 
 bool OatFileBase::LoadVdex(const std::string& vdex_filename,
@@ -464,13 +476,28 @@ static bool ReadIndexBssMapping(OatFile* oat_file,
   return true;
 }
 
-bool OatFileBase::Setup(const std::vector<const DexFile*>& dex_files) {
+void OatFileBase::Setup(const std::vector<const DexFile*>& dex_files) {
+  uint32_t i = 0;
+  const uint8_t* type_lookup_table_start = nullptr;
   for (const DexFile* dex_file : dex_files) {
+    type_lookup_table_start = vdex_->GetNextTypeLookupTableData(type_lookup_table_start, i++);
     std::string dex_location = dex_file->GetLocation();
     std::string canonical_location = DexFileLoader::GetDexCanonicalLocation(dex_location.c_str());
 
+    const uint8_t* type_lookup_table_data = nullptr;
+    if (type_lookup_table_start != nullptr &&
+        (reinterpret_cast<uint32_t*>(type_lookup_table_start[0]) != 0)) {
+      type_lookup_table_data = type_lookup_table_start + sizeof(uint32_t);
+    }
     // Create an OatDexFile and add it to the owning container.
-    OatDexFile* oat_dex_file = new OatDexFile(this, dex_file, dex_location, canonical_location);
+    OatDexFile* oat_dex_file = new OatDexFile(
+        this,
+        dex_file->Begin(),
+        dex_file->GetLocationChecksum(),
+        dex_location,
+        canonical_location,
+        type_lookup_table_data);
+    dex_file->SetOatDexFile(oat_dex_file);
     oat_dex_files_storage_.push_back(oat_dex_file);
 
     // Add the location and canonical location (if different) to the oat_dex_files_ table.
@@ -481,8 +508,6 @@ bool OatFileBase::Setup(const std::vector<const DexFile*>& dex_files) {
       oat_dex_files_.Put(canonical_key, oat_dex_file);
     }
   }
-
-  return true;
 }
 
 bool OatFileBase::Setup(int zip_fd,
@@ -778,20 +803,18 @@ bool OatFileBase::Setup(int zip_fd,
     const bool valid_magic = DexFileLoader::IsMagicValid(dex_file_pointer);
     if (UNLIKELY(!valid_magic)) {
       *error_msg = StringPrintf("In oat file '%s' found OatDexFile #%zu for '%s' with invalid "
-                                    "dex file magic '%s'",
+                                    "dex file magic",
                                 GetLocation().c_str(),
                                 i,
-                                dex_file_location.c_str(),
-                                dex_file_pointer);
+                                dex_file_location.c_str());
       return false;
     }
     if (UNLIKELY(!DexFileLoader::IsVersionAndMagicValid(dex_file_pointer))) {
       *error_msg = StringPrintf("In oat file '%s' found OatDexFile #%zu for '%s' with invalid "
-                                    "dex file version '%s'",
+                                    "dex file version",
                                 GetLocation().c_str(),
                                 i,
-                                dex_file_location.c_str(),
-                                dex_file_pointer);
+                                dex_file_location.c_str());
       return false;
     }
     const DexFile::Header* header = reinterpret_cast<const DexFile::Header*>(dex_file_pointer);
@@ -850,11 +873,11 @@ bool OatFileBase::Setup(int zip_fd,
       return false;
     }
     const uint8_t* lookup_table_data = lookup_table_offset != 0u
-        ? Begin() + lookup_table_offset
+        ? DexBegin() + lookup_table_offset
         : nullptr;
     if (lookup_table_offset != 0u &&
-        (UNLIKELY(lookup_table_offset > Size()) ||
-            UNLIKELY(Size() - lookup_table_offset <
+        (UNLIKELY(lookup_table_offset > DexSize()) ||
+            UNLIKELY(DexSize() - lookup_table_offset <
                      TypeLookupTable::RawDataLength(header->class_defs_size_)))) {
       *error_msg = StringPrintf("In oat file '%s' found OatDexFile #%zu for '%s' with truncated "
                                     "type lookup table, offset %u of %zu, class defs %u",
@@ -882,11 +905,17 @@ bool OatFileBase::Setup(int zip_fd,
 
     const IndexBssMapping* method_bss_mapping;
     const IndexBssMapping* type_bss_mapping;
+    const IndexBssMapping* public_type_bss_mapping;
+    const IndexBssMapping* package_type_bss_mapping;
     const IndexBssMapping* string_bss_mapping;
     if (!ReadIndexBssMapping(
             this, &oat, i, dex_file_location, "method", &method_bss_mapping, error_msg) ||
         !ReadIndexBssMapping(
             this, &oat, i, dex_file_location, "type", &type_bss_mapping, error_msg) ||
+        !ReadIndexBssMapping(
+            this, &oat, i, dex_file_location, "type", &public_type_bss_mapping, error_msg) ||
+        !ReadIndexBssMapping(
+            this, &oat, i, dex_file_location, "type", &package_type_bss_mapping, error_msg) ||
         !ReadIndexBssMapping(
             this, &oat, i, dex_file_location, "string", &string_bss_mapping, error_msg)) {
       return false;
@@ -902,6 +931,8 @@ bool OatFileBase::Setup(int zip_fd,
         lookup_table_data,
         method_bss_mapping,
         type_bss_mapping,
+        public_type_bss_mapping,
+        package_type_bss_mapping,
         string_bss_mapping,
         class_offsets_pointer,
         dex_layout_sections);
@@ -1024,7 +1055,7 @@ class DlOpenOatFile final : public OatFileBase {
   // Guarded by host_dlopen_handles_lock_;
   static std::unordered_set<void*> host_dlopen_handles_;
 
-  // Reservation and dummy memory map objects corresponding to the regions mapped by dlopen.
+  // Reservation and placeholder memory map objects corresponding to the regions mapped by dlopen.
   // Note: Must be destroyed after dlclose() as it can hold the owning reservation.
   std::vector<MemMap> dlopen_mmaps_;
 
@@ -1106,6 +1137,26 @@ bool DlOpenOatFile::Load(const std::string& elf_filename,
   return success;
 }
 
+#ifdef ART_TARGET_ANDROID
+static struct android_namespace_t* GetSystemLinkerNamespace() {
+  static struct android_namespace_t* system_ns = []() {
+    // The system namespace is called "default" for binaries in /system and
+    // "system" for those in the ART APEX. Try "system" first since "default"
+    // always exists.
+    // TODO(b/185587109): Get rid of this error prone logic.
+    struct android_namespace_t* ns = android_get_exported_namespace("system");
+    if (ns == nullptr) {
+      ns = android_get_exported_namespace("default");
+      if (ns == nullptr) {
+        LOG(FATAL) << "Failed to get system namespace for loading OAT files";
+      }
+    }
+    return ns;
+  }();
+  return system_ns;
+}
+#endif  // ART_TARGET_ANDROID
+
 bool DlOpenOatFile::Dlopen(const std::string& elf_filename,
                            /*inout*/MemMap* reservation,
                            /*out*/std::string* error_msg) {
@@ -1135,6 +1186,19 @@ bool DlOpenOatFile::Dlopen(const std::string& elf_filename,
       extinfo.reserved_addr = reservation->Begin();
       extinfo.reserved_size = reservation->Size();
     }
+
+    if (strncmp(kAndroidArtApexDefaultPath,
+                absolute_path.get(),
+                sizeof(kAndroidArtApexDefaultPath) - 1) != 0 ||
+        absolute_path.get()[sizeof(kAndroidArtApexDefaultPath) - 1] != '/') {
+      // Use the system namespace for OAT files outside the ART APEX. Search
+      // paths and links don't matter here, but permitted paths do, and the
+      // system namespace is configured to allow loading from all appropriate
+      // locations.
+      extinfo.flags |= ANDROID_DLEXT_USE_NAMESPACE;
+      extinfo.library_namespace = GetSystemLinkerNamespace();
+    }
+
     dlopen_handle_ = android_dlopen_ext(absolute_path.get(), RTLD_NOW, &extinfo);
     if (reservation != nullptr && dlopen_handle_ != nullptr) {
       // Find used pages from the reservation.
@@ -1231,7 +1295,7 @@ void DlOpenOatFile::PreSetup(const std::string& elf_filename) {
   LOG(FATAL) << "Should not reach here.";
   UNREACHABLE();
 #else
-  struct DummyMapData {
+  struct PlaceholderMapData {
     const char* name;
     uint8_t* vaddr;
     size_t memsz;
@@ -1263,7 +1327,7 @@ void DlOpenOatFile::PreSetup(const std::string& elf_filename) {
           }
         }
       }
-      // Add dummy mmaps for this file.
+      // Add placeholder mmaps for this file.
       if (contains_begin) {
         for (Elf_Half i = 0; i < info->dlpi_phnum; i++) {
           if (info->dlpi_phdr[i].p_type == PT_LOAD) {
@@ -1271,17 +1335,19 @@ void DlOpenOatFile::PreSetup(const std::string& elf_filename) {
                 info->dlpi_phdr[i].p_vaddr);
             size_t memsz = info->dlpi_phdr[i].p_memsz;
             size_t name_size = strlen(info->dlpi_name) + 1u;
-            std::vector<char>* dummy_maps_names = context->dummy_maps_names_;
+            std::vector<char>* placeholder_maps_names = context->placeholder_maps_names_;
             // We must not allocate any memory in the callback, see b/156312036 .
-            if (name_size < dummy_maps_names->capacity() - dummy_maps_names->size() &&
-                context->dummy_maps_data_->size() < context->dummy_maps_data_->capacity()) {
-              dummy_maps_names->insert(
-                  dummy_maps_names->end(), info->dlpi_name, info->dlpi_name + name_size);
-              const char* name = &(*dummy_maps_names)[dummy_maps_names->size() - name_size];
-              context->dummy_maps_data_->push_back({ name, vaddr, memsz });
+            if (name_size < placeholder_maps_names->capacity() - placeholder_maps_names->size() &&
+                context->placeholder_maps_data_->size() <
+                    context->placeholder_maps_data_->capacity()) {
+              placeholder_maps_names->insert(
+                  placeholder_maps_names->end(), info->dlpi_name, info->dlpi_name + name_size);
+              const char* name =
+                  &(*placeholder_maps_names)[placeholder_maps_names->size() - name_size];
+              context->placeholder_maps_data_->push_back({ name, vaddr, memsz });
             }
-            context->num_dummy_maps_ += 1u;
-            context->dummy_maps_names_size_ += name_size;
+            context->num_placeholder_maps_ += 1u;
+            context->placeholder_maps_names_size_ += name_size;
           }
         }
         return 1;  // Stop iteration and return 1 from dl_iterate_phdr.
@@ -1289,27 +1355,27 @@ void DlOpenOatFile::PreSetup(const std::string& elf_filename) {
       return 0;  // Continue iteration and return 0 from dl_iterate_phdr when finished.
     }
     const uint8_t* const begin_;
-    std::vector<DummyMapData>* dummy_maps_data_;
-    size_t num_dummy_maps_;
-    std::vector<char>* dummy_maps_names_;
-    size_t dummy_maps_names_size_;
+    std::vector<PlaceholderMapData>* placeholder_maps_data_;
+    size_t num_placeholder_maps_;
+    std::vector<char>* placeholder_maps_names_;
+    size_t placeholder_maps_names_size_;
     size_t shared_objects_before;
     size_t shared_objects_seen;
   };
 
   // We must not allocate any memory in the callback, see b/156312036 .
-  // Therefore we pre-allocate storage for the data we need for creating the dummy maps.
-  std::vector<DummyMapData> dummy_maps_data;
-  dummy_maps_data.reserve(32);  // 32 should be enough. If not, we'll retry.
-  std::vector<char> dummy_maps_names;
-  dummy_maps_names.reserve(4 * KB);  // 4KiB should be enough. If not, we'll retry.
+  // Therefore we pre-allocate storage for the data we need for creating the placeholder maps.
+  std::vector<PlaceholderMapData> placeholder_maps_data;
+  placeholder_maps_data.reserve(32);  // 32 should be enough. If not, we'll retry.
+  std::vector<char> placeholder_maps_names;
+  placeholder_maps_names.reserve(4 * KB);  // 4KiB should be enough. If not, we'll retry.
 
   dl_iterate_context context = {
       Begin(),
-      &dummy_maps_data,
-      /*num_dummy_maps_*/ 0u,
-      &dummy_maps_names,
-      /*dummy_maps_names_size_*/ 0u,
+      &placeholder_maps_data,
+      /*num_placeholder_maps_*/ 0u,
+      &placeholder_maps_names,
+      /*placeholder_maps_names_size_*/ 0u,
       shared_objects_before_,
       /*shared_objects_seen*/ 0u
   };
@@ -1319,10 +1385,10 @@ void DlOpenOatFile::PreSetup(const std::string& elf_filename) {
     // before giving up. This should be unusual.
     VLOG(oat) << "Need a second run in PreSetup, didn't find with shared_objects_before="
               << shared_objects_before_;
-    DCHECK(dummy_maps_data.empty());
-    DCHECK_EQ(context.num_dummy_maps_, 0u);
-    DCHECK(dummy_maps_names.empty());
-    DCHECK_EQ(context.dummy_maps_names_size_, 0u);
+    DCHECK(placeholder_maps_data.empty());
+    DCHECK_EQ(context.num_placeholder_maps_, 0u);
+    DCHECK(placeholder_maps_names.empty());
+    DCHECK_EQ(context.placeholder_maps_names_size_, 0u);
     context.shared_objects_before = 0u;
     context.shared_objects_seen = 0u;
     if (dl_iterate_phdr(dl_iterate_context::callback, &context) == 0) {
@@ -1332,26 +1398,27 @@ void DlOpenOatFile::PreSetup(const std::string& elf_filename) {
     }
   }
 
-  if (dummy_maps_data.size() < context.num_dummy_maps_) {
+  if (placeholder_maps_data.size() < context.num_placeholder_maps_) {
     // Insufficient capacity. Reserve more space and retry.
-    dummy_maps_data.clear();
-    dummy_maps_data.reserve(context.num_dummy_maps_);
-    context.num_dummy_maps_ = 0u;
-    dummy_maps_names.clear();
-    dummy_maps_names.reserve(context.dummy_maps_names_size_);
-    context.dummy_maps_names_size_ = 0u;
+    placeholder_maps_data.clear();
+    placeholder_maps_data.reserve(context.num_placeholder_maps_);
+    context.num_placeholder_maps_ = 0u;
+    placeholder_maps_names.clear();
+    placeholder_maps_names.reserve(context.placeholder_maps_names_size_);
+    context.placeholder_maps_names_size_ = 0u;
     context.shared_objects_before = 0u;
     context.shared_objects_seen = 0u;
     bool success = (dl_iterate_phdr(dl_iterate_context::callback, &context) != 0);
     CHECK(success);
   }
 
-  CHECK_EQ(dummy_maps_data.size(), context.num_dummy_maps_);
-  CHECK_EQ(dummy_maps_names.size(), context.dummy_maps_names_size_);
-  DCHECK_EQ(static_cast<size_t>(std::count(dummy_maps_names.begin(), dummy_maps_names.end(), '\0')),
-            context.num_dummy_maps_);
-  for (const DummyMapData& data : dummy_maps_data) {
-    MemMap mmap = MemMap::MapDummy(data.name, data.vaddr, data.memsz);
+  CHECK_EQ(placeholder_maps_data.size(), context.num_placeholder_maps_);
+  CHECK_EQ(placeholder_maps_names.size(), context.placeholder_maps_names_size_);
+  DCHECK_EQ(static_cast<size_t>(std::count(placeholder_maps_names.begin(),
+                                           placeholder_maps_names.end(), '\0')),
+            context.num_placeholder_maps_);
+  for (const PlaceholderMapData& data : placeholder_maps_data) {
+    MemMap mmap = MemMap::MapPlaceholder(data.name, data.vaddr, data.memsz);
     dlopen_mmaps_.push_back(std::move(mmap));
   }
 #endif
@@ -1512,49 +1579,107 @@ class OatFileBackedByVdex final : public OatFileBase {
                                    std::unique_ptr<VdexFile>&& vdex_file,
                                    const std::string& location) {
     std::unique_ptr<OatFileBackedByVdex> oat_file(new OatFileBackedByVdex(location));
-    oat_file->Initialize(dex_files, std::move(vdex_file));
+    // SetVdex will take ownership of the VdexFile.
+    oat_file->SetVdex(vdex_file.release());
+    oat_file->SetupHeader(dex_files.size());
+    // Initialize OatDexFiles.
+    oat_file->Setup(dex_files);
     return oat_file.release();
   }
 
-  void Initialize(const std::vector<const DexFile*>& dex_files,
-                  std::unique_ptr<VdexFile>&& vdex_file) {
+  static OatFileBackedByVdex* Open(int zip_fd,
+                                   std::unique_ptr<VdexFile>&& unique_vdex_file,
+                                   const std::string& dex_location,
+                                   std::string* error_msg) {
+    VdexFile* vdex_file = unique_vdex_file.get();
+    std::unique_ptr<OatFileBackedByVdex> oat_file(new OatFileBackedByVdex(vdex_file->GetName()));
+    // SetVdex will take ownership of the VdexFile.
+    oat_file->SetVdex(unique_vdex_file.release());
+    if (vdex_file->HasDexSection()) {
+      uint32_t i = 0;
+      const uint8_t* type_lookup_table_start = nullptr;
+      for (const uint8_t* dex_file_start = vdex_file->GetNextDexFileData(nullptr, i);
+           dex_file_start != nullptr;
+           dex_file_start = vdex_file->GetNextDexFileData(dex_file_start, ++i)) {
+        if (UNLIKELY(!DexFileLoader::IsVersionAndMagicValid(dex_file_start))) {
+          *error_msg =
+              StringPrintf("In vdex file '%s' found dex file with invalid dex file version",
+                           dex_location.c_str());
+          return nullptr;
+        }
+        // Create the OatDexFile and add it to the owning container.
+        std::string location = DexFileLoader::GetMultiDexLocation(i, dex_location.c_str());
+        std::string canonical_location = DexFileLoader::GetDexCanonicalLocation(location.c_str());
+        type_lookup_table_start = vdex_file->GetNextTypeLookupTableData(type_lookup_table_start, i);
+        const uint8_t* type_lookup_table_data = nullptr;
+        if (type_lookup_table_start != nullptr &&
+            (reinterpret_cast<uint32_t*>(type_lookup_table_start[0]) != 0)) {
+          type_lookup_table_data = type_lookup_table_start + sizeof(uint32_t);
+        }
+        OatDexFile* oat_dex_file = new OatDexFile(oat_file.get(),
+                                                  dex_file_start,
+                                                  vdex_file->GetLocationChecksum(i),
+                                                  location,
+                                                  canonical_location,
+                                                  type_lookup_table_data);
+        oat_file->oat_dex_files_storage_.push_back(oat_dex_file);
+
+        std::string_view key(oat_dex_file->GetDexFileLocation());
+        oat_file->oat_dex_files_.Put(key, oat_dex_file);
+        if (canonical_location != location) {
+          std::string_view canonical_key(oat_dex_file->GetCanonicalDexFileLocation());
+          oat_file->oat_dex_files_.Put(canonical_key, oat_dex_file);
+        }
+      }
+      oat_file->SetupHeader(oat_file->oat_dex_files_storage_.size());
+    } else {
+      // No need for any verification when loading dex files as we already have
+      // a vdex file.
+      const ArtDexFileLoader dex_file_loader;
+      bool loaded = false;
+      if (zip_fd != -1) {
+        loaded = dex_file_loader.OpenZip(zip_fd,
+                                         dex_location,
+                                         /*verify=*/ false,
+                                         /*verify_checksum=*/ false,
+                                         error_msg,
+                                         &oat_file->external_dex_files_);
+      } else {
+        loaded = dex_file_loader.Open(dex_location.c_str(),
+                                      dex_location,
+                                      /*verify=*/ false,
+                                      /*verify_checksum=*/ false,
+                                      error_msg,
+                                      &oat_file->external_dex_files_);
+      }
+      if (!loaded) {
+        return nullptr;
+      }
+      oat_file->SetupHeader(oat_file->external_dex_files_.size());
+      oat_file->Setup(MakeNonOwningPointerVector(oat_file->external_dex_files_));
+    }
+
+    return oat_file.release();
+  }
+
+  void SetupHeader(size_t number_of_dex_files) {
     DCHECK(!IsExecutable());
 
-    // SetVdex will take ownership of the VdexFile.
-    SetVdex(vdex_file.release());
-
-    // Create a dummy OatHeader with a key store containing only the compiler
-    // filter (it helps debugging and is required by
-    // OatHeader::GetCompilerFilter).
+    // Create a fake OatHeader with a key store to help debugging.
     std::unique_ptr<const InstructionSetFeatures> isa_features =
         InstructionSetFeatures::FromCppDefines();
     SafeMap<std::string, std::string> store;
     store.Put(OatHeader::kCompilerFilter, CompilerFilter::NameOfFilter(CompilerFilter::kVerify));
+    store.Put(OatHeader::kCompilationReasonKey, "vdex");
+    store.Put(OatHeader::kConcurrentCopying,
+              kUseReadBarrier ? OatHeader::kTrueValue : OatHeader::kFalseValue);
     oat_header_.reset(OatHeader::Create(kRuntimeISA,
                                         isa_features.get(),
-                                        dex_files.size(),
+                                        number_of_dex_files,
                                         &store));
     const uint8_t* begin = reinterpret_cast<const uint8_t*>(oat_header_.get());
     SetBegin(begin);
     SetEnd(begin + oat_header_->GetHeaderSize());
-
-    // Load VerifierDeps from VDEX and copy bit vectors of verified classes.
-    ArrayRef<const uint8_t> deps_data = GetVdexFile()->GetVerifierDepsData();
-    verified_classes_per_dex_ = verifier::VerifierDeps::ParseVerifiedClasses(dex_files, deps_data);
-
-    // Initialize OatDexFiles.
-    Setup(dex_files);
-  }
-
-  bool IsClassVerifiedInVdex(const OatDexFile& oat_dex_file, uint16_t class_def_index) const {
-    // Determine the index of the DexFile, assuming the order of OatDexFiles
-    // in `oat_dex_files_storage_` is the same.
-    const std::vector<const OatDexFile*>& oat_dex_files = GetOatDexFiles();
-    auto oat_dex_file_it = std::find(oat_dex_files.begin(), oat_dex_files.end(), &oat_dex_file);
-    DCHECK(oat_dex_file_it != oat_dex_files.end());
-    size_t dex_index = oat_dex_file_it - oat_dex_files.begin();
-    // Check the bitvector of verified classes from the vdex.
-    return verified_classes_per_dex_[dex_index][class_def_index];
   }
 
  protected:
@@ -1590,7 +1715,6 @@ class OatFileBackedByVdex final : public OatFileBase {
 
  private:
   std::unique_ptr<OatHeader> oat_header_;
-  std::vector<std::vector<bool>> verified_classes_per_dex_;
 
   DISALLOW_COPY_AND_ASSIGN(OatFileBackedByVdex);
 };
@@ -1617,12 +1741,11 @@ OatFile* OatFile::Open(int zip_fd,
 
   std::string vdex_filename = GetVdexFilename(oat_filename);
 
-  // Check that the files even exist, fast-fail.
+  // Check that the vdex file even exists, fast-fail. We don't check the odex
+  // file as we use the absence of an odex file for test the functionality of
+  // vdex-only.
   if (!OS::FileExists(vdex_filename.c_str())) {
     *error_msg = StringPrintf("File %s does not exist.", vdex_filename.c_str());
-    return nullptr;
-  } else if (!OS::FileExists(oat_filename.c_str())) {
-    *error_msg = StringPrintf("File %s does not exist.", oat_filename.c_str());
     return nullptr;
   }
 
@@ -1639,6 +1762,17 @@ OatFile* OatFile::Open(int zip_fd,
                                                                  reservation,
                                                                  error_msg);
   if (with_dlopen != nullptr) {
+    Runtime* runtime = Runtime::Current();
+    // The runtime might not be available at this point if we're running
+    // dex2oat or oatdump.
+    if (runtime != nullptr) {
+      size_t madvise_size_limit = runtime->GetMadviseWillNeedSizeOdex();
+      Runtime::MadviseFileForRange(madvise_size_limit,
+                                   with_dlopen->Size(),
+                                   with_dlopen->Begin(),
+                                   with_dlopen->End(),
+                                   oat_location);
+    }
     return with_dlopen;
   }
   if (kPrintDlOpenErrorMessage) {
@@ -1702,6 +1836,14 @@ OatFile* OatFile::OpenFromVdex(const std::vector<const DexFile*>& dex_files,
                                const std::string& location) {
   CheckLocation(location);
   return OatFileBackedByVdex::Open(dex_files, std::move(vdex_file), location);
+}
+
+OatFile* OatFile::OpenFromVdex(int zip_fd,
+                               std::unique_ptr<VdexFile>&& vdex_file,
+                               const std::string& location,
+                               std::string* error_msg) {
+  CheckLocation(location);
+  return OatFileBackedByVdex::Open(zip_fd, std::move(vdex_file), location, error_msg);
 }
 
 OatFile::OatFile(const std::string& location, bool is_executable)
@@ -1856,6 +1998,8 @@ OatDexFile::OatDexFile(const OatFile* oat_file,
                        const uint8_t* lookup_table_data,
                        const IndexBssMapping* method_bss_mapping_data,
                        const IndexBssMapping* type_bss_mapping_data,
+                       const IndexBssMapping* public_type_bss_mapping_data,
+                       const IndexBssMapping* package_type_bss_mapping_data,
                        const IndexBssMapping* string_bss_mapping_data,
                        const uint32_t* oat_class_offsets_pointer,
                        const DexLayoutSections* dex_layout_sections)
@@ -1867,16 +2011,24 @@ OatDexFile::OatDexFile(const OatFile* oat_file,
       lookup_table_data_(lookup_table_data),
       method_bss_mapping_(method_bss_mapping_data),
       type_bss_mapping_(type_bss_mapping_data),
+      public_type_bss_mapping_(public_type_bss_mapping_data),
+      package_type_bss_mapping_(package_type_bss_mapping_data),
       string_bss_mapping_(string_bss_mapping_data),
       oat_class_offsets_pointer_(oat_class_offsets_pointer),
       lookup_table_(),
       dex_layout_sections_(dex_layout_sections) {
+  InitializeTypeLookupTable();
+  DCHECK(!IsBackedByVdexOnly());
+}
+
+void OatDexFile::InitializeTypeLookupTable() {
   // Initialize TypeLookupTable.
   if (lookup_table_data_ != nullptr) {
     // Peek the number of classes from the DexFile.
     const DexFile::Header* dex_header = reinterpret_cast<const DexFile::Header*>(dex_file_pointer_);
     const uint32_t num_class_defs = dex_header->class_defs_size_;
-    if (lookup_table_data_ + TypeLookupTable::RawDataLength(num_class_defs) > GetOatFile()->End()) {
+    if (lookup_table_data_ + TypeLookupTable::RawDataLength(num_class_defs) >
+            GetOatFile()->DexEnd()) {
       LOG(WARNING) << "found truncated lookup table in " << dex_file_location_;
     } else {
       const uint8_t* dex_data = dex_file_pointer_;
@@ -1887,19 +2039,21 @@ OatDexFile::OatDexFile(const OatFile* oat_file,
       lookup_table_ = TypeLookupTable::Open(dex_data, lookup_table_data_, num_class_defs);
     }
   }
-  DCHECK(!IsBackedByVdexOnly());
 }
 
 OatDexFile::OatDexFile(const OatFile* oat_file,
-                       const DexFile* dex_file,
+                       const uint8_t* dex_file_pointer,
+                       uint32_t dex_file_location_checksum,
                        const std::string& dex_file_location,
-                       const std::string& canonical_dex_file_location)
+                       const std::string& canonical_dex_file_location,
+                       const uint8_t* lookup_table_data)
     : oat_file_(oat_file),
       dex_file_location_(dex_file_location),
       canonical_dex_file_location_(canonical_dex_file_location),
-      dex_file_location_checksum_(dex_file->GetLocationChecksum()),
-      dex_file_pointer_(reinterpret_cast<const uint8_t*>(dex_file)) {
-  dex_file->SetOatDexFile(this);
+      dex_file_location_checksum_(dex_file_location_checksum),
+      dex_file_pointer_(dex_file_pointer),
+      lookup_table_data_(lookup_table_data) {
+  InitializeTypeLookupTable();
   DCHECK(IsBackedByVdexOnly());
 }
 
@@ -1943,69 +2097,64 @@ bool OatDexFile::IsBackedByVdexOnly() const {
 }
 
 OatFile::OatClass OatDexFile::GetOatClass(uint16_t class_def_index) const {
-  // If this is an OatFileBackedByVdex, initialize the OatClass using the vdex's VerifierDeps.
   if (IsBackedByVdexOnly()) {
-    bool is_vdex_verified = down_cast<const OatFileBackedByVdex*>(oat_file_)->IsClassVerifiedInVdex(
-        *this,
-        class_def_index);
+    // If there is only a vdex file, return that the class is not ready. The
+    // caller will have to call `VdexFile::ComputeClassStatus` to compute the
+    // actual class status, because we need to do the assignability type checks.
     return OatFile::OatClass(oat_file_,
-                             is_vdex_verified ? ClassStatus::kVerified : ClassStatus::kNotReady,
-                             /* type= */ kOatClassNoneCompiled,
+                             ClassStatus::kNotReady,
+                             /* type= */ OatClassType::kNoneCompiled,
                              /* bitmap_size= */ 0u,
                              /* bitmap_pointer= */ nullptr,
                              /* methods_pointer= */ nullptr);
   }
 
   uint32_t oat_class_offset = GetOatClassOffset(class_def_index);
+  CHECK_GE(oat_class_offset, sizeof(OatHeader)) << oat_file_->GetLocation();
+  CHECK_LT(oat_class_offset, oat_file_->Size()) << oat_file_->GetLocation();
+  CHECK_LE(/* status */ sizeof(uint16_t) + /* type */ sizeof(uint16_t),
+           oat_file_->Size() - oat_class_offset) << oat_file_->GetLocation();
+  const uint8_t* current_pointer = oat_file_->Begin() + oat_class_offset;
 
-  const uint8_t* oat_class_pointer = oat_file_->Begin() + oat_class_offset;
-  CHECK_LT(oat_class_pointer, oat_file_->End()) << oat_file_->GetLocation();
+  uint16_t status_value = *reinterpret_cast<const uint16_t*>(current_pointer);
+  current_pointer += sizeof(uint16_t);
+  uint16_t type_value = *reinterpret_cast<const uint16_t*>(current_pointer);
+  current_pointer += sizeof(uint16_t);
+  CHECK_LE(status_value, enum_cast<uint8_t>(ClassStatus::kLast))
+      << static_cast<uint32_t>(status_value) << " at " << oat_file_->GetLocation();
+  CHECK_LT(type_value, enum_cast<uint8_t>(OatClassType::kOatClassMax)) << oat_file_->GetLocation();
+  ClassStatus status = enum_cast<ClassStatus>(status_value);
+  OatClassType type = enum_cast<OatClassType>(type_value);
 
-  const uint8_t* status_pointer = oat_class_pointer;
-  CHECK_LT(status_pointer, oat_file_->End()) << oat_file_->GetLocation();
-  ClassStatus status = enum_cast<ClassStatus>(*reinterpret_cast<const int16_t*>(status_pointer));
-  CHECK_LE(status, ClassStatus::kLast) << static_cast<uint32_t>(status)
-      << " at " << oat_file_->GetLocation();
-
-  const uint8_t* type_pointer = status_pointer + sizeof(uint16_t);
-  CHECK_LT(type_pointer, oat_file_->End()) << oat_file_->GetLocation();
-  OatClassType type = static_cast<OatClassType>(*reinterpret_cast<const uint16_t*>(type_pointer));
-  CHECK_LT(type, kOatClassMax) << oat_file_->GetLocation();
-
-  const uint8_t* after_type_pointer = type_pointer + sizeof(int16_t);
-  CHECK_LE(after_type_pointer, oat_file_->End()) << oat_file_->GetLocation();
-
-  uint32_t bitmap_size = 0;
-  const uint8_t* bitmap_pointer = nullptr;
-  const uint8_t* methods_pointer = nullptr;
-  if (type != kOatClassNoneCompiled) {
-    if (type == kOatClassSomeCompiled) {
-      bitmap_size = static_cast<uint32_t>(*reinterpret_cast<const uint32_t*>(after_type_pointer));
-      bitmap_pointer = after_type_pointer + sizeof(bitmap_size);
-      CHECK_LE(bitmap_pointer, oat_file_->End()) << oat_file_->GetLocation();
-      methods_pointer = bitmap_pointer + bitmap_size;
+  uint32_t num_methods = 0;
+  const uint32_t* bitmap_pointer = nullptr;
+  const OatMethodOffsets* methods_pointer = nullptr;
+  if (type != OatClassType::kNoneCompiled) {
+    CHECK_LE(sizeof(uint32_t), static_cast<size_t>(oat_file_->End() - current_pointer))
+        << oat_file_->GetLocation();
+    num_methods = *reinterpret_cast<const uint32_t*>(current_pointer);
+    current_pointer += sizeof(uint32_t);
+    CHECK_NE(num_methods, 0u) << oat_file_->GetLocation();
+    uint32_t num_method_offsets;
+    if (type == OatClassType::kSomeCompiled) {
+      uint32_t bitmap_size = BitVector::BitsToWords(num_methods) * BitVector::kWordBytes;
+      CHECK_LE(bitmap_size, static_cast<size_t>(oat_file_->End() - current_pointer))
+          << oat_file_->GetLocation();
+      bitmap_pointer = reinterpret_cast<const uint32_t*>(current_pointer);
+      current_pointer += bitmap_size;
+      // Note: The bits in range [num_methods, bitmap_size * kBitsPerByte)
+      // should be zero but we're not verifying that.
+      num_method_offsets = BitVector::NumSetBits(bitmap_pointer, num_methods);
     } else {
-      methods_pointer = after_type_pointer;
+      num_method_offsets = num_methods;
     }
-    CHECK_LE(methods_pointer, oat_file_->End()) << oat_file_->GetLocation();
+    CHECK_LE(num_method_offsets,
+             static_cast<size_t>(oat_file_->End() - current_pointer) / sizeof(OatMethodOffsets))
+        << oat_file_->GetLocation();
+    methods_pointer = reinterpret_cast<const OatMethodOffsets*>(current_pointer);
   }
 
-  return OatFile::OatClass(oat_file_,
-                           status,
-                           type,
-                           bitmap_size,
-                           reinterpret_cast<const uint32_t*>(bitmap_pointer),
-                           reinterpret_cast<const OatMethodOffsets*>(methods_pointer));
-}
-
-ArrayRef<const uint8_t> OatDexFile::GetQuickenedInfoOf(const DexFile& dex_file,
-                                                       uint32_t dex_method_idx) const {
-  const OatFile* oat_file = GetOatFile();
-  if (oat_file == nullptr) {
-    return ArrayRef<const uint8_t>();
-  } else  {
-    return oat_file->GetVdexFile()->GetQuickenedInfoOf(dex_file, dex_method_idx);
-  }
+  return OatFile::OatClass(oat_file_, status, type, num_methods, bitmap_pointer, methods_pointer);
 }
 
 const dex::ClassDef* OatDexFile::FindClassDef(const DexFile& dex_file,
@@ -2018,9 +2167,10 @@ const dex::ClassDef* OatDexFile::FindClassDef(const DexFile& dex_file,
   if (LIKELY((oat_dex_file != nullptr) && oat_dex_file->GetTypeLookupTable().Valid())) {
     used_lookup_table = true;
     const uint32_t class_def_idx = oat_dex_file->GetTypeLookupTable().Lookup(descriptor, hash);
-    lookup_table_classdef = (class_def_idx != dex::kDexNoIndex)
-        ? &dex_file.GetClassDef(class_def_idx)
-        : nullptr;
+    if (class_def_idx != dex::kDexNoIndex) {
+      CHECK_LT(class_def_idx, dex_file.NumClassDefs()) << oat_dex_file->GetOatFile()->GetLocation();
+      lookup_table_classdef = &dex_file.GetClassDef(class_def_idx);
+    }
     if (!kIsDebugBuild) {
       return lookup_table_classdef;
     }
@@ -2063,43 +2213,29 @@ void OatDexFile::MadviseDexFile(const DexFile& dex_file, MadviseState state) {
   if (oat_dex_file != nullptr) {
     // Should always be there.
     const DexLayoutSections* const sections = oat_dex_file->GetDexLayoutSections();
-    CHECK(sections != nullptr);
-    sections->Madvise(&dex_file, state);
+    if (sections != nullptr) {
+      sections->Madvise(&dex_file, state);
+    } else {
+      DCHECK(oat_dex_file->IsBackedByVdexOnly());
+    }
   }
 }
 
 OatFile::OatClass::OatClass(const OatFile* oat_file,
                             ClassStatus status,
                             OatClassType type,
-                            uint32_t bitmap_size,
+                            uint32_t num_methods,
                             const uint32_t* bitmap_pointer,
                             const OatMethodOffsets* methods_pointer)
-    : oat_file_(oat_file), status_(status), type_(type),
-      bitmap_(bitmap_pointer), methods_pointer_(methods_pointer) {
-    switch (type_) {
-      case kOatClassAllCompiled: {
-        CHECK_EQ(0U, bitmap_size);
-        CHECK(bitmap_pointer == nullptr);
-        CHECK(methods_pointer != nullptr);
-        break;
-      }
-      case kOatClassSomeCompiled: {
-        CHECK_NE(0U, bitmap_size);
-        CHECK(bitmap_pointer != nullptr);
-        CHECK(methods_pointer != nullptr);
-        break;
-      }
-      case kOatClassNoneCompiled: {
-        CHECK_EQ(0U, bitmap_size);
-        CHECK(bitmap_pointer == nullptr);
-        CHECK(methods_pointer_ == nullptr);
-        break;
-      }
-      case kOatClassMax: {
-        LOG(FATAL) << "Invalid OatClassType " << type_;
-        UNREACHABLE();
-      }
-    }
+    : oat_file_(oat_file),
+      status_(status),
+      type_(type),
+      num_methods_(num_methods),
+      bitmap_(bitmap_pointer),
+      methods_pointer_(methods_pointer) {
+  DCHECK_EQ(num_methods != 0u, type != OatClassType::kNoneCompiled);
+  DCHECK_EQ(bitmap_pointer != nullptr, type == OatClassType::kSomeCompiled);
+  DCHECK_EQ(methods_pointer != nullptr, type != OatClassType::kNoneCompiled);
 }
 
 uint32_t OatFile::OatClass::GetOatMethodOffsetsOffset(uint32_t method_index) const {
@@ -2111,22 +2247,30 @@ uint32_t OatFile::OatClass::GetOatMethodOffsetsOffset(uint32_t method_index) con
 }
 
 const OatMethodOffsets* OatFile::OatClass::GetOatMethodOffsets(uint32_t method_index) const {
-  // NOTE: We don't keep the number of methods and cannot do a bounds check for method_index.
+  // NOTE: We don't keep the number of methods for `kNoneCompiled` and cannot do
+  // a bounds check for `method_index` in that case.
   if (methods_pointer_ == nullptr) {
-    CHECK_EQ(kOatClassNoneCompiled, type_);
+    CHECK_EQ(OatClassType::kNoneCompiled, type_);
     return nullptr;
   }
+  CHECK_LT(method_index, num_methods_) << oat_file_->GetLocation();
   size_t methods_pointer_index;
   if (bitmap_ == nullptr) {
-    CHECK_EQ(kOatClassAllCompiled, type_);
+    CHECK_EQ(OatClassType::kAllCompiled, type_);
     methods_pointer_index = method_index;
   } else {
-    CHECK_EQ(kOatClassSomeCompiled, type_);
+    CHECK_EQ(OatClassType::kSomeCompiled, type_);
     if (!BitVector::IsBitSet(bitmap_, method_index)) {
       return nullptr;
     }
     size_t num_set_bits = BitVector::NumSetBits(bitmap_, method_index);
     methods_pointer_index = num_set_bits;
+  }
+  if (kIsDebugBuild) {
+    size_t size_until_end = dchecked_integral_cast<size_t>(
+        oat_file_->End() - reinterpret_cast<const uint8_t*>(methods_pointer_));
+    CHECK_LE(methods_pointer_index, size_until_end / sizeof(OatMethodOffsets))
+        << oat_file_->GetLocation();
   }
   const OatMethodOffsets& oat_method_offsets = methods_pointer_[methods_pointer_index];
   return &oat_method_offsets;
@@ -2175,6 +2319,8 @@ OatFile::OatClass OatFile::FindOatClass(const DexFile& dex_file,
   *found = true;
   return oat_dex_file->GetOatClass(class_def_idx);
 }
+
+bool OatFile::RequiresImage() const { return GetOatHeader().RequiresImage(); }
 
 static void DCheckIndexToBssMapping(const OatFile* oat_file,
                                     uint32_t number_of_indexes,
@@ -2253,6 +2399,10 @@ void OatFile::InitializeRelocations() const {
 
 void OatDexFile::AssertAotCompiler() {
   CHECK(Runtime::Current()->IsAotCompiler());
+}
+
+bool OatFile::IsBackedByVdexOnly() const {
+  return oat_dex_files_storage_.size() >= 1 && oat_dex_files_storage_[0]->IsBackedByVdexOnly();
 }
 
 }  // namespace art

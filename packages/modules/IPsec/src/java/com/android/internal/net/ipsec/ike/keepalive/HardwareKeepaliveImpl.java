@@ -49,6 +49,7 @@ public class HardwareKeepaliveImpl implements IkeNattKeepalive.NattKeepalive {
     /** Construct an instance of HardwareKeepaliveImpl */
     public HardwareKeepaliveImpl(
             Context context,
+            ConnectivityManager connectMgr,
             int keepaliveDelaySeconds,
             Inet4Address src,
             Inet4Address dest,
@@ -61,10 +62,8 @@ public class HardwareKeepaliveImpl implements IkeNattKeepalive.NattKeepalive {
         mKeepaliveDelaySeconds = keepaliveDelaySeconds;
         mHardwareKeepaliveCb = hardwareKeepaliveCb;
 
-        ConnectivityManager connMgr =
-                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         mSocketKeepalive =
-                connMgr.createSocketKeepalive(
+                connectMgr.createSocketKeepalive(
                         network,
                         socket,
                         src,

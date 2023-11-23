@@ -25,6 +25,7 @@ import dagger.Lazy;
 import dagger.MembersInjector;
 import dagger.internal.DoubleCheck;
 import dagger.internal.Factory;
+import dagger.internal.InjectedFieldSignature;
 import dagger.internal.InstanceFactory;
 import dagger.internal.MapFactory;
 import dagger.internal.MapProviderFactory;
@@ -34,6 +35,7 @@ import dagger.internal.SetFactory;
 import dagger.internal.SingleCheck;
 import dagger.producers.Produced;
 import dagger.producers.Producer;
+import dagger.producers.ProducerModule;
 import dagger.producers.internal.AbstractProducer;
 import dagger.producers.internal.DependencyMethodProducer;
 import dagger.producers.internal.MapOfProducedProducer;
@@ -57,6 +59,8 @@ public final class TypeNames {
   public static final ClassName DOUBLE_CHECK = ClassName.get(DoubleCheck.class);
   public static final ClassName FACTORY = ClassName.get(Factory.class);
   public static final ClassName FUTURES = ClassName.get(Futures.class);
+  public static final ClassName INJECTED_FIELD_SIGNATURE =
+      ClassName.get(InjectedFieldSignature.class);
   public static final ClassName INSTANCE_FACTORY = ClassName.get(InstanceFactory.class);
   public static final ClassName LAZY = ClassName.get(Lazy.class);
   public static final ClassName LIST = ClassName.get(List.class);
@@ -74,6 +78,7 @@ public final class TypeNames {
   public static final ClassName PRODUCED = ClassName.get(Produced.class);
   public static final ClassName PRODUCER = ClassName.get(Producer.class);
   public static final ClassName PRODUCERS = ClassName.get(Producers.class);
+  public static final ClassName PRODUCER_MODULE = ClassName.get(ProducerModule.class);
   public static final ClassName PRODUCTION_COMPONENT_MONITOR_FACTORY =
       ClassName.get(ProductionComponentMonitor.Factory.class);
   public static final ClassName PROVIDER = ClassName.get(Provider.class);

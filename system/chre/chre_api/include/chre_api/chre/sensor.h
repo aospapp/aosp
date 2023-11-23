@@ -147,10 +147,44 @@ extern "C" {
  *
  * This data is generated every time a step is taken by the user.
  *
+ * This is backed by the same algorithm that feeds Android's
+ * SENSOR_TYPE_STEP_DETECTOR, and therefore sacrifices some accuracy to target
+ * an update latency of under 2 seconds.
+ *
  * @since v1.3
  */
 #define CHRE_EVENT_SENSOR_STEP_DETECT_DATA \
     (CHRE_EVENT_SENSOR_DATA_EVENT_BASE + CHRE_SENSOR_TYPE_STEP_DETECT)
+
+/**
+ * nanoappHandleEvent argument: struct chreSensorUint64Data
+ *
+ * The value of the data is the cumulative number of steps taken by the user
+ * since the last reboot while the sensor is active. This data is generated
+ * every time a step is taken by the user.
+ *
+ * This is backed by the same algorithm that feeds Android's
+ * SENSOR_TYPE_STEP_COUNTER, and therefore targets high accuracy with under
+ * 10 seconds of update latency.
+ *
+ * @since v1.5
+ */
+#define CHRE_EVENT_SENSOR_STEP_COUNTER_DATA \
+    (CHRE_EVENT_SENSOR_DATA_EVENT_BASE + CHRE_SENSOR_TYPE_STEP_COUNTER)
+
+/**
+ * nanoappHandleEvent argument: struct chreSensorFloatData
+ *
+ * The value of the data is the measured hinge angle between 0 and 360 degrees
+ * inclusive.
+ *
+ * This is backed by the same algorithm that feeds Android's
+ * SENSOR_TYPE_HINGE_ANGLE.
+ *
+ * @since v1.5
+ */
+#define CHRE_EVENT_SENSOR_HINGE_ANGLE_DATA \
+    (CHRE_EVENT_SENSOR_DATA_EVENT_BASE + CHRE_SENSOR_TYPE_HINGE_ANGLE)
 
 /**
  * nanoappHandleEvent argument: struct chreSensorThreeAxisData
@@ -394,6 +428,13 @@ extern "C" {
 #define CHRE_SENSOR_LATENCY_DEFAULT  UINT64_C(-1)
 
 /**
+ * A sensor index value indicating that it is the default sensor.
+ *
+ * @see chreSensorFind
+ */
+#define CHRE_SENSOR_INDEX_DEFAULT  UINT8_C(0)
+
+/**
  * Special value indicating non-importance of the batch interval.
  *
  * @see chreSensorConfigureWithBatchInterval
@@ -577,6 +618,20 @@ struct chreSensorInfo {
      * @since v1.1
      */
     uint64_t minInterval;
+
+    /**
+     * Uniquely identifies the sensor for a given type. A value of 0 indicates
+     * that this is the "default" sensor, which is returned by
+     * chreSensorFindDefault().
+     *
+     * The sensor index of a given type must be stable across boots (i.e. must
+     * not change), and a different sensor of the same type must have different
+     * sensor index values, and the set of sensorIndex values for a given sensor
+     * type must be continuguous.
+     *
+     * @since v1.5
+     */
+    uint8_t sensorIndex;
 };
 
 /**
@@ -670,9 +725,41 @@ struct chreSensorFlushCompleteEvent {
  * @param sensorType One of the CHRE_SENSOR_TYPE_* constants.
  * @param handle  If a sensor is found, then the memory will be filled with
  *     the value for the sensor's handle.  This argument must be non-NULL.
- * @returns true if a sensor was found, false otherwise.
+ * @return true if a sensor was found, false otherwise.
  */
 bool chreSensorFindDefault(uint8_t sensorType, uint32_t *handle);
+
+/**
+ * Finds a sensor of a given index and sensor type.
+ *
+ * For CHRE implementations that support multiple sensors of the same sensor
+ * type, this method can be used to get the non-default sensor(s). The default
+ * sensor, as defined in the chreSensorFindDefault(), will be returned if
+ * a sensor index of zero is specified.
+ *
+ * A simple example of iterating all available sensors of a given type is
+ * provided here:
+ *
+ * uint32_t handle;
+ * for (uint8_t i = 0; chreSensorFind(sensorType, i, &handle); i++) {
+ *   chreLog(CHRE_LOG_INFO,
+ *           "Found sensor index %" PRIu8 ", which has handle %" PRIu32,
+ *           i, handle);
+ * }
+ *
+ * If this method is invoked for CHRE versions prior to v1.5, invocations with
+ * sensorIndex value of 0 will be equivalent to using chreSensorFindDefault, and
+ * if sensorIndex is non-zero will return false.
+ *
+ * @param sensorType One of the CHRE_SENSOR_TYPE_* constants.
+ * @param sensorIndex The index of the desired sensor.
+ * @param handle  If a sensor is found, then the memory will be filled with
+ *     the value for the sensor's handle.  This argument must be non-NULL.
+ * @return true if a sensor was found, false otherwise.
+ *
+ * @since v1.5
+ */
+bool chreSensorFind(uint8_t sensorType, uint8_t sensorIndex, uint32_t *handle);
 
 /**
  * Get the chreSensorInfo struct for a given sensor.
@@ -682,7 +769,7 @@ bool chreSensorFindDefault(uint8_t sensorType, uint32_t *handle);
  * @param info  If the sensor is valid, then this memory will be filled with
  *     the SensorInfo contents for this sensor.  This argument must be
  *     non-NULL.
- * @returns true if the senor handle is valid and 'info' was filled in;
+ * @return true if the senor handle is valid and 'info' was filled in;
  *     false otherwise.
  */
 bool chreGetSensorInfo(uint32_t sensorHandle, struct chreSensorInfo *info);
@@ -707,7 +794,7 @@ bool chreGetSensorInfo(uint32_t sensorHandle, struct chreSensorInfo *info);
  * @param status  If the sensor is valid, then this memory will be filled with
  *     the sampling status contents for this sensor.  This argument must be
  *     non-NULL.
- * @returns true if the senor handle is valid and 'status' was filled in;
+ * @return true if the senor handle is valid and 'status' was filled in;
  *     false otherwise.
  */
 bool chreGetSensorSamplingStatus(uint32_t sensorHandle,
@@ -808,7 +895,7 @@ bool chreGetSensorSamplingStatus(uint32_t sensorHandle,
  *     nanoapp receives the information.  The current CHRE API has no
  *     real-time elements, although future versions may introduce some to
  *     help with this issue.
- * @returns true if the configuration succeeded, false otherwise.
+ * @return true if the configuration succeeded, false otherwise.
  *
  * @see chreSensorConfigureMode
  * @see chreSensorFindDefault

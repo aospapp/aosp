@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_tools_aidl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_tools_aidl_license"],
+}
+
 cc_test {
     name: "aidl_lazy_test",
     srcs: ["main.cpp"],
@@ -39,6 +48,7 @@ cc_binary {
 aidl_interface {
     name: "lazy_test_service_aidl",
     unstable: true,
+    flags: ["-Werror"],
     srcs: [
         "ILazyTestService.aidl",
     ],

@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
+#include <fcntl.h>
 #include <gtest/gtest.h>
+#include <sys/stat.h>
+
 #include "profile-extras.h"
 
 static int flush_count = 0;
@@ -30,7 +33,23 @@ TEST(profile_extras, smoke) {
   flush_count = 0;
 
   ASSERT_EQ(0, flush_count);
-  kill(getpid(), GCOV_FLUSH_SIGNAL);
+  kill(getpid(), COVERAGE_FLUSH_SIGNAL);
   sleep(2);
   ASSERT_EQ(1, flush_count);
+}
+
+static const char* OPEN_AT_TEST_FNAME = "/data/misc/trace/test.profraw";
+TEST(profile_extras, openat) {
+  mode_t old_umask = umask(0077);
+  unlink(OPEN_AT_TEST_FNAME);
+
+  int fd = open(OPEN_AT_TEST_FNAME, O_RDWR | O_CREAT, 0666);
+  ASSERT_NE(fd, -1);
+  close(fd);
+  umask(old_umask);
+
+  struct stat stat_buf;
+  ASSERT_EQ(stat(OPEN_AT_TEST_FNAME, &stat_buf), 0);
+  ASSERT_EQ(stat_buf.st_mode & 0777, 0666);
+  unlink(OPEN_AT_TEST_FNAME);
 }

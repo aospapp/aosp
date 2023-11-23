@@ -564,13 +564,9 @@ ssl_ctx_st::ssl_ctx_st(const SSL_METHOD *ssl_method)
       channel_id_enabled(false),
       grease_enabled(false),
       allow_unknown_alpn_protos(false),
-      ed25519_enabled(false),
-      rsa_pss_rsae_certs_enabled(true),
       false_start_allowed_without_alpn(false),
-      ignore_tls13_downgrade(false),
       handoff(false),
-      enable_early_data(false),
-      pq_experiment_signal(false) {
+      enable_early_data(false) {
   CRYPTO_MUTEX_init(&lock);
   CRYPTO_new_ex_data(&ex_data);
 }
@@ -699,7 +695,7 @@ SSL *SSL_new(SSL_CTX *ctx) {
 
   if (ctx->psk_identity_hint) {
     ssl->config->psk_identity_hint.reset(
-        BUF_strdup(ctx->psk_identity_hint.get()));
+        OPENSSL_strdup(ctx->psk_identity_hint.get()));
     if (ssl->config->psk_identity_hint == nullptr) {
       return nullptr;
     }
@@ -714,7 +710,6 @@ SSL *SSL_new(SSL_CTX *ctx) {
       ctx->signed_cert_timestamps_enabled;
   ssl->config->ocsp_stapling_enabled = ctx->ocsp_stapling_enabled;
   ssl->config->handoff = ctx->handoff;
-  ssl->config->ignore_tls13_downgrade = ctx->ignore_tls13_downgrade;
   ssl->quic_method = ctx->quic_method;
 
   if (!ssl->method->ssl_new(ssl.get()) ||
@@ -727,6 +722,7 @@ SSL *SSL_new(SSL_CTX *ctx) {
 
 SSL_CONFIG::SSL_CONFIG(SSL *ssl_arg)
     : ssl(ssl_arg),
+      ech_grease_enabled(false),
       signed_cert_timestamps_enabled(false),
       ocsp_stapling_enabled(false),
       channel_id_enabled(false),
@@ -734,8 +730,8 @@ SSL_CONFIG::SSL_CONFIG(SSL *ssl_arg)
       retain_only_sha256_of_client_certs(false),
       handoff(false),
       shed_handshake_config(false),
-      ignore_tls13_downgrade(false),
-      jdk11_workaround(false) {
+      jdk11_workaround(false),
+      quic_use_legacy_codepoint(true) {
   assert(ssl);
 }
 
@@ -1238,14 +1234,6 @@ int SSL_send_fatal_alert(SSL *ssl, uint8_t alert) {
   return ssl_send_alert_impl(ssl, SSL3_AL_FATAL, alert);
 }
 
-void SSL_CTX_enable_pq_experiment_signal(SSL_CTX *ctx) {
-  ctx->pq_experiment_signal = true;
-}
-
-int SSL_pq_experiment_signal_seen(const SSL *ssl) {
-  return ssl->s3->pq_experiment_signal_seen;
-}
-
 int SSL_set_quic_transport_params(SSL *ssl, const uint8_t *params,
                                   size_t params_len) {
   return ssl->config && ssl->config->quic_transport_params.CopyFrom(
@@ -1257,6 +1245,12 @@ void SSL_get_peer_quic_transport_params(const SSL *ssl,
                                         size_t *out_params_len) {
   *out_params = ssl->s3->peer_quic_transport_params.data();
   *out_params_len = ssl->s3->peer_quic_transport_params.size();
+}
+
+int SSL_set_quic_early_data_context(SSL *ssl, const uint8_t *context,
+                                    size_t context_len) {
+  return ssl->config && ssl->config->quic_early_data_context.CopyFrom(
+                            MakeConstSpan(context, context_len));
 }
 
 void SSL_CTX_set_early_data_enabled(SSL_CTX *ctx, int enabled) {
@@ -1297,6 +1291,43 @@ void SSL_reset_early_data_reject(SSL *ssl) {
 
 enum ssl_early_data_reason_t SSL_get_early_data_reason(const SSL *ssl) {
   return ssl->s3->early_data_reason;
+}
+
+const char *SSL_early_data_reason_string(enum ssl_early_data_reason_t reason) {
+  switch (reason) {
+    case ssl_early_data_unknown:
+      return "unknown";
+    case ssl_early_data_disabled:
+      return "disabled";
+    case ssl_early_data_accepted:
+      return "accepted";
+    case ssl_early_data_protocol_version:
+      return "protocol_version";
+    case ssl_early_data_peer_declined:
+      return "peer_declined";
+    case ssl_early_data_no_session_offered:
+      return "no_session_offered";
+    case ssl_early_data_session_not_resumed:
+      return "session_not_resumed";
+    case ssl_early_data_unsupported_for_session:
+      return "unsupported_for_session";
+    case ssl_early_data_hello_retry_request:
+      return "hello_retry_request";
+    case ssl_early_data_alpn_mismatch:
+      return "alpn_mismatch";
+    case ssl_early_data_channel_id:
+      return "channel_id";
+    case ssl_early_data_token_binding:
+      return "token_binding";
+    case ssl_early_data_ticket_age_skew:
+      return "ticket_age_skew";
+    case ssl_early_data_quic_parameter_mismatch:
+      return "quic_parameter_mismatch";
+    case ssl_early_data_alps_mismatch:
+      return "alps_mismatch";
+  }
+
+  return nullptr;
 }
 
 static int bio_retry_reason_to_error(int reason) {
@@ -1435,6 +1466,13 @@ const char *SSL_error_description(int err) {
     default:
       return nullptr;
   }
+}
+
+void SSL_set_enable_ech_grease(SSL *ssl, int enable) {
+  if (!ssl->config) {
+    return;
+  }
+  ssl->config->ech_grease_enabled = !!enable;
 }
 
 uint32_t SSL_CTX_set_options(SSL_CTX *ctx, uint32_t options) {
@@ -2129,7 +2167,7 @@ int SSL_set_tlsext_host_name(SSL *ssl, const char *name) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_SSL3_EXT_INVALID_SERVERNAME);
     return 0;
   }
-  ssl->hostname.reset(BUF_strdup(name));
+  ssl->hostname.reset(OPENSSL_strdup(name));
   if (ssl->hostname == nullptr) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_MALLOC_FAILURE);
     return 0;
@@ -2246,6 +2284,36 @@ void SSL_CTX_set_allow_unknown_alpn_protos(SSL_CTX *ctx, int enabled) {
   ctx->allow_unknown_alpn_protos = !!enabled;
 }
 
+int SSL_add_application_settings(SSL *ssl, const uint8_t *proto,
+                                 size_t proto_len, const uint8_t *settings,
+                                 size_t settings_len) {
+  if (!ssl->config) {
+    return 0;
+  }
+  ALPSConfig config;
+  if (!config.protocol.CopyFrom(MakeConstSpan(proto, proto_len)) ||
+      !config.settings.CopyFrom(MakeConstSpan(settings, settings_len)) ||
+      !ssl->config->alps_configs.Push(std::move(config))) {
+    return 0;
+  }
+  return 1;
+}
+
+void SSL_get0_peer_application_settings(const SSL *ssl,
+                                        const uint8_t **out_data,
+                                        size_t *out_len) {
+  const SSL_SESSION *session = SSL_get_session(ssl);
+  Span<const uint8_t> settings =
+      session ? session->peer_application_settings : Span<const uint8_t>();
+  *out_data = settings.data();
+  *out_len = settings.size();
+}
+
+int SSL_has_application_settings(const SSL *ssl) {
+  const SSL_SESSION *session = SSL_get_session(ssl);
+  return session && session->has_application_settings;
+}
+
 int SSL_CTX_add_cert_compression_alg(SSL_CTX *ctx, uint16_t alg_id,
                                      ssl_cert_compression_func_t compress,
                                      ssl_cert_decompression_func_t decompress) {
@@ -2360,6 +2428,16 @@ size_t SSL_get0_peer_verify_algorithms(const SSL *ssl,
   Span<const uint16_t> sigalgs;
   if (ssl->s3->hs != nullptr) {
     sigalgs = ssl->s3->hs->peer_sigalgs;
+  }
+  *out_sigalgs = sigalgs.data();
+  return sigalgs.size();
+}
+
+size_t SSL_get0_peer_delegation_algorithms(const SSL *ssl,
+                                           const uint16_t **out_sigalgs){
+  Span<const uint16_t> sigalgs;
+  if (ssl->s3->hs != nullptr) {
+    sigalgs = ssl->s3->hs->peer_delegated_credential_sigalgs;
   }
   *out_sigalgs = sigalgs.data();
   return sigalgs.size();
@@ -2496,6 +2574,11 @@ char *SSL_get_shared_ciphers(const SSL *ssl, char *buf, int len) {
   return buf;
 }
 
+int SSL_get_shared_sigalgs(SSL *ssl, int idx, int *psign, int *phash,
+                           int *psignandhash, uint8_t *rsig, uint8_t *rhash) {
+  return 0;
+}
+
 int SSL_CTX_set_quic_method(SSL_CTX *ctx, const SSL_QUIC_METHOD *quic_method) {
   if (ctx->method->is_dtls) {
     return 0;
@@ -2580,7 +2663,7 @@ static int use_psk_identity_hint(UniquePtr<char> *out,
   // ECDHE_PSK can only spell empty hint. Having different capabilities is odd,
   // so we interpret empty and missing as identical.
   if (identity_hint != NULL && identity_hint[0] != '\0') {
-    out->reset(BUF_strdup(identity_hint));
+    out->reset(OPENSSL_strdup(identity_hint));
     if (*out == nullptr) {
       return 0;
     }
@@ -2852,18 +2935,15 @@ void SSL_CTX_set_false_start_allowed_without_alpn(SSL_CTX *ctx, int allowed) {
   ctx->false_start_allowed_without_alpn = !!allowed;
 }
 
-int SSL_is_tls13_downgrade(const SSL *ssl) { return ssl->s3->tls13_downgrade; }
+int SSL_is_tls13_downgrade(const SSL *ssl) { return 0; }
 
-void SSL_CTX_set_ignore_tls13_downgrade(SSL_CTX *ctx, int ignore) {
-  ctx->ignore_tls13_downgrade = !!ignore;
+int SSL_used_hello_retry_request(const SSL *ssl) {
+  return ssl->s3->used_hello_retry_request;
 }
 
-void SSL_set_ignore_tls13_downgrade(SSL *ssl, int ignore) {
-  if (!ssl->config) {
-    return;
-  }
-  ssl->config->ignore_tls13_downgrade = !!ignore;
-}
+void SSL_CTX_set_ignore_tls13_downgrade(SSL_CTX *ctx, int ignore) {}
+
+void SSL_set_ignore_tls13_downgrade(SSL *ssl, int ignore) {}
 
 void SSL_set_shed_handshake_config(SSL *ssl, int enable) {
   if (!ssl->config) {
@@ -2877,6 +2957,13 @@ void SSL_set_jdk11_workaround(SSL *ssl, int enable) {
     return;
   }
   ssl->config->jdk11_workaround = !!enable;
+}
+
+void SSL_set_quic_use_legacy_codepoint(SSL *ssl, int use_legacy) {
+  if (!ssl->config) {
+    return;
+  }
+  ssl->config->quic_use_legacy_codepoint = !!use_legacy;
 }
 
 int SSL_clear(SSL *ssl) {
@@ -2962,6 +3049,34 @@ int SSL_set_tmp_ecdh(SSL *ssl, const EC_KEY *ec_key) {
 void SSL_CTX_set_ticket_aead_method(SSL_CTX *ctx,
                                     const SSL_TICKET_AEAD_METHOD *aead_method) {
   ctx->ticket_aead_method = aead_method;
+}
+
+SSL_SESSION *SSL_process_tls13_new_session_ticket(SSL *ssl, const uint8_t *buf,
+                                                  size_t buf_len) {
+  if (SSL_in_init(ssl) ||
+      ssl_protocol_version(ssl) != TLS1_3_VERSION ||
+      ssl->server) {
+    // Only TLS 1.3 clients are supported.
+    OPENSSL_PUT_ERROR(SSL, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
+    return nullptr;
+  }
+
+  CBS cbs, body;
+  CBS_init(&cbs, buf, buf_len);
+  uint8_t type;
+  if (!CBS_get_u8(&cbs, &type) ||
+      !CBS_get_u24_length_prefixed(&cbs, &body) ||
+      CBS_len(&cbs) != 0) {
+    OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
+    return nullptr;
+  }
+
+  UniquePtr<SSL_SESSION> session = tls13_create_session_with_ticket(ssl, &body);
+  if (!session) {
+    // |tls13_create_session_with_ticket| puts the correct error.
+    return nullptr;
+  }
+  return session.release();
 }
 
 int SSL_set_tlsext_status_type(SSL *ssl, int type) {

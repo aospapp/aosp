@@ -1,2 +1,0 @@
-Got expected ICCE
-Got expected VerifyError

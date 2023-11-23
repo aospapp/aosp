@@ -15,23 +15,21 @@
  */
 package android.app.stubs;
 
+import static android.view.Gravity.LEFT;
+import static android.view.Gravity.TOP;
+import static android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+import static android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+import static android.view.WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
+import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+
 import android.app.Service;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Point;
-import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
-
-import static android.view.Gravity.LEFT;
-import static android.view.Gravity.TOP;
-import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
-import static android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-import static android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
-import static android.view.WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
 
 public class LocalAlertService extends Service {
     public static final String COMMAND_SHOW_ALERT = "show";
@@ -48,6 +46,7 @@ public class LocalAlertService extends Service {
         } else if (COMMAND_HIDE_ALERT.equals(action)) {
             hideAlertWindow(mAlertWindow);
             mAlertWindow = null;
+            stopSelf();
         }
         return START_NOT_STICKY;
     }

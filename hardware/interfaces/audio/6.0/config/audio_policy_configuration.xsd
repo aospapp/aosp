@@ -363,6 +363,7 @@
             <xs:enumeration value="AUDIO_FORMAT_AC4"/>
             <xs:enumeration value="AUDIO_FORMAT_LDAC"/>
             <xs:enumeration value="AUDIO_FORMAT_E_AC3_JOC"/>
+            <xs:enumeration value="AUDIO_FORMAT_MAT"/>
             <xs:enumeration value="AUDIO_FORMAT_MAT_1_0"/>
             <xs:enumeration value="AUDIO_FORMAT_MAT_2_0"/>
             <xs:enumeration value="AUDIO_FORMAT_MAT_2_1"/>
@@ -613,13 +614,13 @@
         </xs:sequence>
     </xs:complexType>
     <xs:simpleType name="audioFormatsList">
-        <xs:list itemType="audioFormat" />
+        <xs:list itemType="extendableAudioFormat" />
     </xs:simpleType>
     <xs:complexType name="surroundFormats">
         <xs:sequence>
             <xs:element name="format" minOccurs="0" maxOccurs="unbounded">
                 <xs:complexType>
-                    <xs:attribute name="name" type="audioFormat" use="required"/>
+                    <xs:attribute name="name" type="extendableAudioFormat" use="required"/>
                     <xs:attribute name="subformats" type="audioFormatsList" />
                 </xs:complexType>
             </xs:element>

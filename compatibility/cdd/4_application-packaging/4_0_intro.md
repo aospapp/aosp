@@ -63,3 +63,13 @@ by the same system API `PackageManager.setHarmfulAppWarning` as potentially
 harmful.
 *    SHOULD provide a user affordance to choose to uninstall or launch an
 application on the warning dialog.
+
+*    [C-0-8] MUST implement support for Incremental File System as documented
+     [here](https://source.android.com/devices/architecture/kernel/incfs).
+
+*    [C-0-9] MUST support verifying .apk files using the
+     [APK Signature Scheme v4](https://source.android.com/security/apksigning/v4.html).
+
+*    If device implementations are already launched on an earlier Android
+     version and cannot meet the requirements [C-0-8] and [C-0-9] through a
+     system software update, they MAY be exempted from these requirements.

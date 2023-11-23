@@ -16,8 +16,8 @@
 #include <gtest/gtest.h>
 #include <utils/Log.h>
 
-#include <C2EncoderInterface.h>
-#include <v4l2_device.h>
+#include <v4l2_codec2/components/V4L2EncodeComponent.h>
+#include <v4l2_codec2/components/V4L2EncodeInterface.h>
 
 namespace android {
 
@@ -31,42 +31,13 @@ constexpr C2Allocator::id_t kInputAllocators[] = {C2PlatformAllocatorStore::GRAL
 constexpr C2Allocator::id_t kOutputAllocators[] = {C2PlatformAllocatorStore::BLOB};
 constexpr C2BlockPool::local_id_t kDefaultOutputBlockPool = C2BlockPool::BASIC_LINEAR;
 
-class C2V4L2EncoderInterface: public C2EncoderInterface {
-public:
-    C2V4L2EncoderInterface(const C2String& name, const std::shared_ptr<C2ReflectorHelper>& helper,
-            media::V4L2Device* device) :
-            C2EncoderInterface(helper) {
-        ALOGV("%s(%s)", __func__, name.c_str());
-        ALOG_ASSERT(device);
-
-        std::vector<VideoEncodeProfile> supportedProfiles;
-        for (const auto& supportedProfile : device->GetSupportedEncodeProfiles()) {
-            supportedProfiles.emplace_back(
-                    VideoEncodeProfile { .mProfile = supportedProfile.profile, .mMaxResolution =
-                            supportedProfile.max_resolution, .mMaxFramerateNumerator =
-                            supportedProfile.max_framerate_numerator, .mMaxFramerateDenominator =
-                            supportedProfile.max_framerate_denominator });
-        }
-
-        Initialize(name, supportedProfiles);
-        mInitStatus = C2_OK;
-    }
-
-    base::Optional<media::VideoCodec> getCodecFromComponentName(const std::string& /*name*/) const {
-        return media::VideoCodec::kCodecH264;
-    }
-};
-
 class C2VEACompIntfTest: public C2CompIntfTest {
 protected:
     C2VEACompIntfTest() {
         mReflector = std::make_shared<C2ReflectorHelper>();
-        scoped_refptr<media::V4L2Device> device = media::V4L2Device::Create();
-        auto componentInterface = std::make_shared<C2V4L2EncoderInterface>(
-                testCompName, mReflector, device.get());
-        mIntf = std::shared_ptr<C2ComponentInterface>(
-                new SimpleInterface<C2V4L2EncoderInterface>(
-                        testCompName, testCompNodeId, componentInterface));
+        auto componentInterface = std::make_shared<V4L2EncodeInterface>(testCompName, mReflector);
+        mIntf = std::shared_ptr<C2ComponentInterface>(new SimpleInterface<V4L2EncodeInterface>(
+                testCompName, testCompNodeId, componentInterface));
     }
     ~C2VEACompIntfTest() override {
     }

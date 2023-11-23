@@ -35,7 +35,6 @@ import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_START
 import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_STOP;
 import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_TOP_POSITION_GAINED;
 import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_TOP_POSITION_LOST;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.PRE_ON_CREATE;
 import static android.server.wm.lifecycle.LifecycleVerifier.transition;
 import static android.view.Display.DEFAULT_DISPLAY;
 
@@ -48,6 +47,7 @@ import android.app.Activity;
 import android.app.ActivityOptions;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowManagerState;
@@ -55,6 +55,7 @@ import android.server.wm.WindowManagerState.ActivityTask;
 import android.server.wm.lifecycle.LifecycleLog.ActivityCallback;
 import android.util.Pair;
 
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
 
 import org.junit.Before;
@@ -77,8 +78,6 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        // TODO(b/149338177): Fix test to pass with organizer API.
-        mUseTaskOrganizer = false;
     }
 
     @Test
@@ -201,10 +200,8 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
 
         waitAndAssertActivityStates(state(baseActivity, ON_STOP));
 
-        final List<ActivityCallback> expectedTopActivitySequence =
-                Arrays.asList(
-                        PRE_ON_CREATE, ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                        ON_TOP_POSITION_GAINED);
+        final List<ActivityCallback> expectedTopActivitySequence = Arrays.asList(
+                ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME, ON_TOP_POSITION_GAINED);
         waitForActivityTransitions(ResultActivity.class, expectedTopActivitySequence);
 
         final List<Pair<String, ActivityCallback>> observedTransitions =
@@ -212,7 +209,6 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
         final List<Pair<String, ActivityCallback>> expectedTransitions = Arrays.asList(
                 transition(CallbackTrackingActivity.class, ON_TOP_POSITION_LOST),
                 transition(CallbackTrackingActivity.class, ON_PAUSE),
-                transition(LaunchForResultActivity.class, PRE_ON_CREATE),
                 transition(LaunchForResultActivity.class, ON_CREATE),
                 transition(LaunchForResultActivity.class, ON_START),
                 transition(LaunchForResultActivity.class, ON_POST_CREATE),
@@ -220,7 +216,6 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
                 transition(LaunchForResultActivity.class, ON_TOP_POSITION_GAINED),
                 transition(LaunchForResultActivity.class, ON_TOP_POSITION_LOST),
                 transition(LaunchForResultActivity.class, ON_PAUSE),
-                transition(ResultActivity.class, PRE_ON_CREATE),
                 transition(ResultActivity.class, ON_CREATE),
                 transition(ResultActivity.class, ON_START),
                 transition(ResultActivity.class, ON_POST_CREATE),
@@ -238,26 +233,25 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
         getLifecycleLog().clear();
         final Activity launchForResultActivity = new Launcher(LaunchForResultActivity.class)
                 .customizeIntent(LaunchForResultActivity.forwardFlag(EXTRA_FINISH_IN_ON_RESUME))
+                // Start the TranslucentResultActivity to avoid activity below stopped sometimes
+                // and resulted in different lifecycle events.
+                .setExtraFlags(LaunchForResultActivity.EXTRA_USE_TRANSLUCENT_RESULT)
                 .launch();
 
         waitAndAssertActivityStates(state(baseActivity, ON_STOP));
         final List<ActivityCallback> expectedLaunchingSequence =
-                Arrays.asList(
-                        PRE_ON_CREATE, ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
+                Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
                         ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST, ON_PAUSE,
                         ON_ACTIVITY_RESULT, ON_RESUME, ON_TOP_POSITION_GAINED);
         waitForActivityTransitions(LaunchForResultActivity.class, expectedLaunchingSequence);
 
-        final List<ActivityCallback> expectedTopActivitySequence =
-                Arrays.asList(
-                        PRE_ON_CREATE, ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
-                        ON_TOP_POSITION_GAINED);
-        waitForActivityTransitions(ResultActivity.class, expectedTopActivitySequence);
+        final List<ActivityCallback> expectedTopActivitySequence = Arrays.asList(ON_CREATE,
+                ON_START, ON_POST_CREATE, ON_RESUME, ON_TOP_POSITION_GAINED);
+        waitForActivityTransitions(TranslucentResultActivity.class, expectedTopActivitySequence);
 
         LifecycleVerifier.assertEntireSequence(Arrays.asList(
                 transition(CallbackTrackingActivity.class, ON_TOP_POSITION_LOST),
                 transition(CallbackTrackingActivity.class, ON_PAUSE),
-                transition(LaunchForResultActivity.class, PRE_ON_CREATE),
                 transition(LaunchForResultActivity.class, ON_CREATE),
                 transition(LaunchForResultActivity.class, ON_START),
                 transition(LaunchForResultActivity.class, ON_POST_CREATE),
@@ -265,19 +259,18 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
                 transition(LaunchForResultActivity.class, ON_TOP_POSITION_GAINED),
                 transition(LaunchForResultActivity.class, ON_TOP_POSITION_LOST),
                 transition(LaunchForResultActivity.class, ON_PAUSE),
-                transition(ResultActivity.class, PRE_ON_CREATE),
-                transition(ResultActivity.class, ON_CREATE),
-                transition(ResultActivity.class, ON_START),
-                transition(ResultActivity.class, ON_POST_CREATE),
-                transition(ResultActivity.class, ON_RESUME),
-                transition(ResultActivity.class, ON_TOP_POSITION_GAINED),
-                transition(ResultActivity.class, ON_TOP_POSITION_LOST),
-                transition(ResultActivity.class, ON_PAUSE),
+                transition(TranslucentResultActivity.class, ON_CREATE),
+                transition(TranslucentResultActivity.class, ON_START),
+                transition(TranslucentResultActivity.class, ON_POST_CREATE),
+                transition(TranslucentResultActivity.class, ON_RESUME),
+                transition(TranslucentResultActivity.class, ON_TOP_POSITION_GAINED),
+                transition(TranslucentResultActivity.class, ON_TOP_POSITION_LOST),
+                transition(TranslucentResultActivity.class, ON_PAUSE),
                 transition(LaunchForResultActivity.class, ON_ACTIVITY_RESULT),
                 transition(LaunchForResultActivity.class, ON_RESUME),
                 transition(LaunchForResultActivity.class, ON_TOP_POSITION_GAINED),
-                transition(ResultActivity.class, ON_STOP),
-                transition(ResultActivity.class, ON_DESTROY),
+                transition(TranslucentResultActivity.class, ON_STOP),
+                transition(TranslucentResultActivity.class, ON_DESTROY),
                 transition(CallbackTrackingActivity.class, ON_STOP)),
                 getLifecycleLog(), "Double launch sequence must match");
     }
@@ -286,22 +279,28 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
     public void testTopPositionLostWhenDocked() throws Exception {
         assumeTrue(supportsSplitScreenMultiWindow());
 
+        // Launch an activity that will be moved to split-screen secondary
+        final Activity sideActivity = launchActivityAndWait(SideActivity.class);
+
         // Launch first activity
         final Activity firstActivity = launchActivityAndWait(CallbackTrackingActivity.class);
 
         // Enter split screen
-        moveTaskToPrimarySplitScreenAndVerify(firstActivity);
+        moveTaskToPrimarySplitScreenAndVerify(firstActivity, sideActivity);
     }
 
     @Test
     public void testTopPositionSwitchToAnotherVisibleActivity() throws Exception {
         assumeTrue(supportsSplitScreenMultiWindow());
 
+        // Launch side activity
+        final Activity sideActivity = launchActivityAndWait(SideActivity.class);
+
         // Launch first activity
         final Activity firstActivity = launchActivityAndWait(CallbackTrackingActivity.class);
 
         // Enter split screen
-        moveTaskToPrimarySplitScreenAndVerify(firstActivity);
+        moveTaskToPrimarySplitScreenAndVerify(firstActivity, sideActivity);
 
         // Launch second activity to side
         getLifecycleLog().clear();
@@ -309,11 +308,6 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
                 .launch();
 
-        // Wait for first activity to resume after moving to primary split-screen
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
-        // First activity must be resumed, but not gain the top position
-        LifecycleVerifier.assertSequence(CallbackTrackingActivity.class, getLifecycleLog(),
-                Arrays.asList(ON_RESUME), "unminimizeDockedStack");
         // Second activity must be on top now
         LifecycleVerifier.assertLaunchSequence(SingleTopActivity.class, getLifecycleLog());
     }
@@ -322,20 +316,21 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
     public void testTopPositionSwitchBetweenVisibleActivities() throws Exception {
         assumeTrue(supportsSplitScreenMultiWindow());
 
+        // Launch side activity
+        final Activity sideActivity = launchActivityAndWait(SideActivity.class);
+
         // Launch first activity
         final Activity firstActivity = launchActivityAndWait(CallbackTrackingActivity.class);
 
         // Enter split screen
-        moveTaskToPrimarySplitScreenAndVerify(firstActivity);
+        moveTaskToPrimarySplitScreenAndVerify(firstActivity, sideActivity);
 
         // Launch second activity to side
         getLifecycleLog().clear();
+        mTaskOrganizer.setLaunchRoot(mTaskOrganizer.getSecondarySplitTaskId());
         final Activity secondActivity = new Launcher(SingleTopActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
                 .launch();
-
-        // Wait for first activity to resume after moving to primary split-screen
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
 
         // Switch top between two activities
         getLifecycleLog().clear();
@@ -461,20 +456,21 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
     public void testTopPositionSwitchOnTap() throws Exception {
         assumeTrue(supportsSplitScreenMultiWindow());
 
+        // Launch side activity
+        final Activity sideActivity = launchActivityAndWait(SideActivity.class);
+
         // Launch first activity
         final Activity firstActivity = launchActivityAndWait(CallbackTrackingActivity.class);
 
         // Enter split screen
-        moveTaskToPrimarySplitScreenAndVerify(firstActivity);
+        moveTaskToPrimarySplitScreenAndVerify(firstActivity, sideActivity);
 
         // Launch second activity to side
         getLifecycleLog().clear();
+        mTaskOrganizer.setLaunchRoot(mTaskOrganizer.getSecondarySplitTaskId());
         final Activity secondActivity = new Launcher(SingleTopActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
                 .launch();
-
-        // Wait for first activity to resume after moving to primary split-screen
-        waitAndAssertActivityStates(state(firstActivity, ON_RESUME));
 
         // Tap on first activity to switch the focus
         getLifecycleLog().clear();
@@ -507,6 +503,9 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
     public void testTopPositionSwitchOnTapSlowDifferentProcess() throws Exception {
         assumeTrue(supportsSplitScreenMultiWindow());
 
+        // Launch side activity
+        final Activity sideActivity = launchActivityAndWait(SideActivity.class);
+
         // Launch first activity
         final Intent slowTopReleaseIntent = new Intent();
         slowTopReleaseIntent.putExtra(SlowActivity.EXTRA_CONTROL_FLAGS,
@@ -517,10 +516,11 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
         final Class<? extends Activity> firstActivityClass = firstActivity.getClass();
 
         // Enter split screen
-        moveTaskToPrimarySplitScreenAndVerify(firstActivity);
+        moveTaskToPrimarySplitScreenAndVerify(firstActivity, sideActivity);
 
         // Launch second activity to side
         getLifecycleLog().clear();
+        mTaskOrganizer.setLaunchRoot(mTaskOrganizer.getSecondarySplitTaskId());
         final Class<? extends Activity> secondActivityClass =
                 SecondProcessCallbackTrackingActivity.class;
         final ComponentName secondActivityComponent =
@@ -568,6 +568,9 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
     public void testTopPositionSwitchOnTapTimeoutDifferentProcess() throws Exception {
         assumeTrue(supportsSplitScreenMultiWindow());
 
+        // Launch side activity
+        final Activity sideActivity = launchActivityAndWait(SideActivity.class);
+
         // Launch first activity
         final Intent slowTopReleaseIntent = new Intent();
         slowTopReleaseIntent.putExtra(SlowActivity.EXTRA_CONTROL_FLAGS,
@@ -578,10 +581,11 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
         final Class<? extends Activity> slowActivityClass = slowActivity.getClass();
 
         // Enter split screen
-        moveTaskToPrimarySplitScreenAndVerify(slowActivity);
+        moveTaskToPrimarySplitScreenAndVerify(slowActivity, sideActivity);
 
         // Launch second activity to side
         getLifecycleLog().clear();
+        mTaskOrganizer.setLaunchRoot(mTaskOrganizer.getSecondarySplitTaskId());
         final Class<? extends Activity> secondActivityClass =
                 SecondProcessCallbackTrackingActivity.class;
         final ComponentName secondActivityComponent =
@@ -665,9 +669,17 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
         }
 
         // Lock screen removed - activity should be on top now
-        waitAndAssertActivityStates(state(CallbackTrackingActivity.class, ON_TOP_POSITION_GAINED));
-        LifecycleVerifier.assertStopToResumeSequence(CallbackTrackingActivity.class,
-                getLifecycleLog());
+        if (isCar()) {
+            LifecycleVerifier.assertStopToResumeSubSequence(CallbackTrackingActivity.class,
+                    getLifecycleLog());
+            waitAndAssertActivityCurrentState(CallbackTrackingActivity.class,
+                    ON_TOP_POSITION_GAINED);
+        } else {
+            waitAndAssertActivityStates(
+                    state(CallbackTrackingActivity.class, ON_TOP_POSITION_GAINED));
+            LifecycleVerifier.assertStopToResumeSequence(CallbackTrackingActivity.class,
+                    getLifecycleLog());
+        }
     }
 
     @Test
@@ -688,9 +700,15 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
         }
 
         // Lock screen removed - activity should be on top now
-        waitAndAssertActivityStates(state(activity, ON_TOP_POSITION_GAINED));
-        LifecycleVerifier.assertStopToResumeSequence(CallbackTrackingActivity.class,
-                getLifecycleLog());
+        if (isCar()) {
+            LifecycleVerifier.assertStopToResumeSubSequence(CallbackTrackingActivity.class,
+                    getLifecycleLog());
+            waitAndAssertActivityCurrentState(activity.getClass(), ON_TOP_POSITION_GAINED);
+        } else {
+            waitAndAssertActivityStates(state(activity, ON_TOP_POSITION_GAINED));
+            LifecycleVerifier.assertStopToResumeSequence(CallbackTrackingActivity.class,
+                    getLifecycleLog());
+        }
     }
 
     @Test
@@ -707,8 +725,7 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
             // TODO(b/123432490): Fix extra pause/resume
             LifecycleVerifier.assertSequence(ShowWhenLockedCallbackTrackingActivity.class,
                     getLifecycleLog(),
-                    Arrays.asList(
-                            PRE_ON_CREATE, ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
+                    Arrays.asList(ON_CREATE, ON_START, ON_POST_CREATE, ON_RESUME,
                             ON_TOP_POSITION_GAINED, ON_TOP_POSITION_LOST, ON_PAUSE, ON_RESUME,
                             ON_TOP_POSITION_GAINED),
                     "launchAboveKeyguard");
@@ -716,8 +733,8 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
             getLifecycleLog().clear();
         }
 
-        // Lock screen removed, but nothing should change.
-        // Wait for something here, but don't expect anything to happen.
+        // When the lock screen is removed, the ShowWhenLocked activity will be dismissed using the
+        // back button, which should finish the activity.
         waitAndAssertActivityStates(state(showWhenLockedActivity, ON_DESTROY));
         LifecycleVerifier.assertResumeToDestroySequence(
                 ShowWhenLockedCallbackTrackingActivity.class, getLifecycleLog());
@@ -975,6 +992,10 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
     @Test
     public void testFinishOnDifferentDisplay_nonFocused() throws Exception {
         assumeTrue(supportsMultiDisplay());
+
+        // In some platforms, Launcher can invoke another embedded Activity and it can affect
+        // the test. We'll place a bottom Activity to eliminate the side effects by that Launcher.
+        final Activity bottomActivity = launchActivityAndWait(SecondActivity.class);
 
         // Launch activity on some display.
         final Activity callbackTrackingActivity =

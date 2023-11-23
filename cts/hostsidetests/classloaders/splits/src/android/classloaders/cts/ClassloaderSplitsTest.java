@@ -117,6 +117,24 @@ public class ClassloaderSplitsTest extends BaseHostJUnit4Test {
         runDeviceTests(getDevice(), PKG, TEST_CLASS, "testAllReceivers");
     }
 
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testServiceClassLoaders_full() throws Exception {
+        testServiceClassLoaders(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testServiceClassLoaders_instant() throws Exception {
+        testServiceClassLoaders(true);
+    }
+    private void testServiceClassLoaders(boolean instant) throws Exception {
+        new InstallMultiple(instant)
+                .addApk(APK_BASE).addApk(APK_FEATURE_A).addApk(APK_FEATURE_B).run();
+        runDeviceTests(getDevice(), PKG, TEST_CLASS, "testBaseServiceClassLoader");
+        runDeviceTests(getDevice(), PKG, TEST_CLASS, "testFeatureAServiceClassLoader");
+        runDeviceTests(getDevice(), PKG, TEST_CLASS, "testFeatureBServiceClassLoader");
+    }
+
     protected class InstallMultiple extends BaseInstallMultiple<InstallMultiple> {
         public InstallMultiple() {
             this(false);

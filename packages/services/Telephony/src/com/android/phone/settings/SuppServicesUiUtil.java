@@ -84,7 +84,7 @@ public class SuppServicesUiUtil {
                 .create();
     }
 
-    private static String makeMessage(Context context, String preferenceKey, Phone phone) {
+    public static String makeMessage(Context context, String preferenceKey, Phone phone) {
         String message = "";
         int simSlot = (phone.getPhoneId() == 0) ? 1 : 2;
         String suppServiceName = getSuppServiceName(context, preferenceKey);

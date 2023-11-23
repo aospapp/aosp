@@ -18,6 +18,7 @@
 # is correct).
 
 export CAMERA_ITS_TOP=$PWD
+echo "CAMERA_ITS_TOP=$PWD"
 
 [[ "${BASH_SOURCE[0]}" != "${0}" ]] || \
     { echo ">> Script must be sourced with 'source $0'" >&2; exit 1; }
@@ -28,8 +29,8 @@ command -v adb >/dev/null 2>&1 || \
 command -v python >/dev/null 2>&1 || \
     echo ">> Require python executable to be in path" >&2
 
-python -V 2>&1 | grep -q "Python 2.7" || \
-    echo ">> Require python 2.7" >&2
+python -V 2>&1 | grep -q "Python 3.*" || \
+    echo ">> Require python version 3" >&2
 
 for M in numpy PIL matplotlib scipy.stats scipy.spatial serial
 do
@@ -44,22 +45,25 @@ do
         echo ">> Require Python $module module $submodule submodule" >&2
 done
 
-CV2_VER=$(python -c "\
+CV2_VER=$(python -c "
 try:
     import cv2
-    print cv2.__version__
+    print(cv2.__version__)
 except:
-    print \"N/A\"
+    print(\"N/A\")
 ")
 
-echo $CV2_VER | grep -q -e "^2.4" -e "^3.2" || \
-    echo ">> Require python opencv 2.4. or 3.2. Got $CV2_VER" >&2
+echo "$CV2_VER" | grep -q -e "^3.*" -e "^4.*" || \
+    echo ">> Require python opencv version greater than 3 or 4. Got $CV2_VER" >&2
 
-export PYTHONPATH="$PWD/pymodules:$PYTHONPATH"
+export PYTHONPATH="$PWD/utils:$PYTHONPATH"
+export PYTHONPATH="$PWD/tests:$PYTHONPATH"
 
-for M in device objects image caps dng target error
+
+
+for M in sensor_fusion_utils camera_properties_utils capture_request_utils opencv_processing_utils image_processing_utils its_session_utils scene_change_utils target_exposure_utils
 do
-    python "pymodules/its/$M.py" 2>&1 | grep -q "OK" || \
+    python "utils/$M.py" 2>&1 | grep -q "OK" || \
         echo ">> Unit test for $M failed" >&2
 done
 

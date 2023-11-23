@@ -12,41 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_visibility: [":__subpackages__"],
+    default_applicable_licenses: ["external_robolectric-shadows_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_robolectric-shadows_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-MIT",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
+// Empty library. Should be removed
 java_library {
     name: "robolectric_android-all-stub",
-
-    static_libs: [
-        "conscrypt",
-        "core-icu4j",
-        "core-libart",
-        "ext",
-        "framework-all",
-        "icu4j-icudata-jarjar",
-        "icu4j-icutzdata-jarjar",
-        "ims-common",
-        "android.test.base_static",
-        "libphonenumber-platform",
-        "okhttp",
-        "services",
-        "services.accessibility",
-        "telephony-common",
-
-        "robolectric_tzdata",
-        "robolectric_framework_res",
-        "robolectric_framework_raw_res",
-    ],
-
-    java_resources: [
-        // Copy the build.prop
-        ":robolectric_build_props",
-    ],
-    dist: {
-        targets: [
-            "sdk",
-            "win_sdk",
-        ],
-        dest: "android-all-robolectric.jar",
-    }
+    visibility: ["//visibility:public"],
 }
 
 // build.prop file created by module type defined in soong/robolectric.go
@@ -63,7 +63,7 @@ java_library {
 
 // Move the raw/uncompiled resources and assets into raw-res/
 // This logic can be removed once the transition to binary resources is complete
-java_genrule {
+java_genrule_host {
     name: "robolectric_framework_raw_res",
     out: ["robolectric_framework_raw_res.jar"],
     srcs: [":robolectric_framework_raw_res_orig"],
@@ -75,7 +75,7 @@ java_genrule {
         "**/*:raw-res/",
 }
 
-java_genrule {
+java_genrule_host {
     name: "robolectric_framework_res",
     tools: ["zip2zip"],
     srcs: [":framework-res"],
@@ -88,10 +88,51 @@ java_genrule {
         "-0 resources.arsc",
 }
 
-// Make robolectric_android-all-stub available as a host jar
 java_device_for_host {
+    name: "robolectric_android-all-device-deps",
+    libs: [
+        "conscrypt-for-host",
+        "core-icu4j-for-host",
+        "core-libart-for-host",
+        "ext",
+        "framework-all",
+        "icu4j-icudata-jarjar",
+        "icu4j-icutzdata-jarjar",
+        "ims-common",
+        "android.test.base_static",
+        "libphonenumber-platform",
+        "okhttp-for-host",
+        "services",
+        "services.accessibility",
+        "telephony-common",
+
+    ],
+}
+
+java_library_host {
     name: "robolectric-host-android_all",
-    libs: ["robolectric_android-all-stub"],
+    static_libs: [
+        "robolectric_android-all-device-deps",
+        "robolectric_tzdata",
+        "robolectric_framework_res",
+        "robolectric_framework_raw_res",
+    ],
+    dist: {
+        targets: [
+            "sdk",
+            "win_sdk",
+        ],
+        dest: "android-all-robolectric.jar",
+    },
+
+    java_resources: [
+        // Copy the build.prop
+        ":robolectric_build_props",
+    ],
+    visibility: [
+        ":__subpackages__",
+        "//prebuilts/misc/common/robolectric",
+    ],
 }
 
 //#############################################
@@ -137,6 +178,7 @@ java_library_host {
 java_host_for_device {
     name: "Robolectric_all-target",
     libs: ["Robolectric_all"],
+    visibility: ["//visibility:public"],
 }
 
 // Make dependencies available as host jars

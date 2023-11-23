@@ -16,16 +16,30 @@
 
 package android.media.cts;
 
+import android.annotation.NonNull;
 import android.media.MediaFormat;
 import android.test.AndroidTestCase;
+import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
+
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
 public class MediaFormatTest extends AndroidTestCase {
+    private static final String TAG = "MediaFormatTest";
     private static ByteBuffer defaultByteBuffer = ByteBuffer.allocateDirect(16);
 
     private void assertGetByteBuffersThrowClassCastException(
@@ -589,12 +603,16 @@ public class MediaFormatTest extends AndroidTestCase {
     public void testMediaFormatConstructors() {
         MediaFormat format;
         {
-            format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, 48000, 6);
-            assertEquals(MediaFormat.MIMETYPE_AUDIO_AAC, format.getString(MediaFormat.KEY_MIME));
-            assertEquals(48000, format.getInteger(MediaFormat.KEY_SAMPLE_RATE));
-            assertEquals(6, format.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
-            assertEquals(3, format.getKeys().size());
-            assertEquals(0, format.getFeatures().size());
+            String[] audioMimeTypes = { MediaFormat.MIMETYPE_AUDIO_AAC,
+                    MediaFormat.MIMETYPE_AUDIO_MPEGH_MHA1, MediaFormat.MIMETYPE_AUDIO_MPEGH_MHM1 };
+            for (String mime : audioMimeTypes) {
+                format = MediaFormat.createAudioFormat(mime, 48000, 6);
+                assertEquals(mime, format.getString(MediaFormat.KEY_MIME));
+                assertEquals(48000, format.getInteger(MediaFormat.KEY_SAMPLE_RATE));
+                assertEquals(6, format.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
+                assertEquals(3, format.getKeys().size());
+                assertEquals(0, format.getFeatures().size());
+            }
         }
 
         {
@@ -633,6 +651,185 @@ public class MediaFormatTest extends AndroidTestCase {
             assertEquals(3, other.getKeys().size());
             assertTrue(other.getFeatureEnabled("feature1"));
             assertEquals(1, other.getFeatures().size());
+        }
+    }
+
+    /**
+     * Check MediaFormat key name and string value consistency.
+     *
+     * The canonical key reads something like this:
+     * KEY_SOMETHING_HERE = "something-here";
+     *
+     * An exclusion list allows arbitrary keys as needed.
+     *
+     * This test uses introspection to find the key fields.
+     *
+     * @throws Exception
+     */
+    public void testKeyConsistency() throws Exception {
+        // Legacy MediaFormat keys inconsistent with the canonical format.
+        final Set<String> exclusions = Stream.of(
+            // <aac-drc-[cut-level]>
+            "KEY_AAC_DRC_ATTENUATION_FACTOR",
+            // <aac-drc-boost-[level]>
+            "KEY_AAC_DRC_BOOST_FACTOR",
+            // <aac-[target-ref]-level>
+            "KEY_AAC_DRC_TARGET_REFERENCE_LEVEL",
+            // <...c-max-output-channel[_]count>
+            "KEY_AAC_MAX_OUTPUT_CHANNEL_COUNT",
+            // <bit[]rate>
+            "KEY_BIT_RATE",
+            // <create-input-[buffers]-suspended>
+            "KEY_CREATE_INPUT_SURFACE_SUSPENDED",
+            // <duration[u]s>
+            "KEY_DURATION",
+            // <grid-col[]s>
+            "KEY_GRID_COLUMNS",
+            // <h[w]-av-sync-id>
+            "KEY_HARDWARE_AV_SYNC_ID",
+            // <max-bit[]rate>
+            "KEY_MAX_BIT_RATE",
+            // <max-b[]frames>
+            "KEY_MAX_B_FRAMES",
+            // <[sar]-height>
+            "KEY_PIXEL_ASPECT_RATIO_HEIGHT",
+            // <[sar]-width>
+            "KEY_PIXEL_ASPECT_RATIO_WIDTH",
+            // <prepend-[sps-pps-to-idr]-frames>
+            "KEY_PREPEND_HEADER_TO_SYNC_FRAMES",
+            // <...h-blank-buffers-on-s[hutdown]>
+            "KEY_PUSH_BLANK_BUFFERS_ON_STOP",
+            // <rotation[-degrees]>
+            "KEY_ROTATION",
+            // <t[s-schema]>
+            "KEY_TEMPORAL_LAYERING"
+            ).collect(Collectors.toCollection(HashSet::new));
+
+        ArrayList<String> failures = new ArrayList<>();
+        final Field[] fields = MediaFormat.class.getFields();
+        for (Field field : fields) {
+            final String key = field.getName();
+            if (!key.startsWith("KEY_")) continue;
+            if (exclusions.contains(key)) continue;
+
+            if (!key.equals(key.toUpperCase())) {
+                failures.add("Key field " + key + " must be upper case");
+            }
+            final String value = (String)field.get(null);
+            assertEquals("String value " + value + " must be lower case",
+                    value.toLowerCase(), value);
+
+            // What do we expect the key should look like for the value?
+            final String checkKey = "KEY_" + value.toUpperCase().replace('-', '_');
+            if (!checkKey.equals(key)) {
+                failures.add("Key field " + key + " should represent value " + value
+                        + " expected(" + checkKey + ")");
+            }
+        }
+        // There may be special vendor keys that are public.
+        // Log failures but don't fail test.
+        logFailures("testKeyConsistency", failures);
+    }
+
+    /**
+     * Check MediaFormat mime type field name and string value consistency.
+     *
+     * The typical mime type field reads as follows:
+     * MIMETYPE_CATEGORY_ANYCASE_HERE = "category/anYCaSE[-.+]HeRE";
+     *
+     * See here for the Internet Assigned Numbers Authority (IANA) list of media mime types:
+     * https://www.iana.org/assignments/media-types/media-types.xhtml
+     *
+     * An exclusion list allows arbitrary keys as needed.
+     *
+     * This test uses introspection to find the mime type fields.
+     *
+     * @throws Exception
+     */
+    public void testMimeTypeConsistency() throws Exception {
+        // Legacy inconsistent mime types with the exception
+        final Set<String> exclusions = Stream.of(
+                // <audio/[mp4a-latm]>
+                "MIMETYPE_AUDIO_AAC",
+                // <audio/[3gpp]>
+                "MIMETYPE_AUDIO_AMR_NB",
+                // audio/mhm1
+                "MIMETYPE_AUDIO_MPEGH_MHM1",
+                // audio/mha1
+                "MIMETYPE_AUDIO_MPEGH_MHA1",
+                // <audio/[]gsm>
+                "MIMETYPE_AUDIO_MSGSM",
+                // <image/[vnd.android.]heic>
+                "MIMETYPE_IMAGE_ANDROID_HEIC",
+                // <[application/x-]subrip>
+                "MIMETYPE_TEXT_SUBRIP",
+                // <video/av[0]1>
+                "MIMETYPE_VIDEO_AV1",
+                // <video/[3gpp]>
+                "MIMETYPE_VIDEO_H263",
+                // <video/mp[4v-es]>
+                "MIMETYPE_VIDEO_MPEG4",
+                // <video/[x-vnd.on2.]vp8>
+                "MIMETYPE_VIDEO_VP8",
+                // <video/[x-vnd.on2.]vp9>
+                "MIMETYPE_VIDEO_VP9"
+        ).collect(Collectors.toCollection(HashSet::new));
+
+        ArrayList<String> failures = new ArrayList<>();
+        final Field[] fields = MediaFormat.class.getFields();
+        for (Field field : fields) {
+            final String mimeType = field.getName();
+
+            if (!mimeType.startsWith("MIMETYPE_")) continue;
+            if (exclusions.contains(mimeType)) continue;
+
+            if (!mimeType.equals(mimeType.toUpperCase())) {
+                failures.add("mimeType field " + mimeType + " must be upper case");
+                continue;
+            }
+            final String value = (String)field.get(null);
+
+            // What do we expect the mime type field should be for the value?
+            final String checkMime = "MIMETYPE_"
+                    + value.toUpperCase().replace('/', '_').replace('-', '_')
+                            .replace('.', '_').replace('+', '_');
+            if (!mimeType.equals(checkMime)) {
+                failures.add("Mime type " + mimeType
+                        + " should represent value " + value
+                        + " expected(" + checkMime + ")");
+            }
+        }
+        // There may be special vendor keys that are public.
+        // Log failures but don't fail test.
+        logFailures("testMimeTypeConsistency", failures);
+    }
+
+    private static final String REPORT_LOG_NAME = "CtsMediaTestCases";
+    private static final int REPORT_SUMMARY_MAX_KEY_LEN = 240;
+
+    /**
+     * Log failures on atest, but don't raise an exception or fail CTS.
+     *
+     * This part is tricky:
+     * 1) We create a device report log so it is visible on the host.
+     * 2) We also write to logcat.
+     */
+    private static void logFailures(@NonNull String logName, @NonNull List<String> failures) {
+        if (failures.size() > 0) {
+            DeviceReportLog log = new DeviceReportLog(REPORT_LOG_NAME, logName);
+            StringBuilder sb = new StringBuilder("FAILED ON: ");
+            int i = 0;
+            for (String failure : failures) {
+                Log.w(TAG, failure);
+                log.addValue("failure_" + i++, failure, ResultType.NEUTRAL, ResultUnit.NONE);
+                sb.append("[" + failure + "] ");
+            }
+            if (sb.length() > REPORT_SUMMARY_MAX_KEY_LEN) {
+                sb.setLength(REPORT_SUMMARY_MAX_KEY_LEN);
+            }
+            log.setSummary(sb.toString(), failures.size(),
+                    ResultType.LOWER_BETTER, ResultUnit.COUNT);
+            log.submit(InstrumentationRegistry.getInstrumentation());
         }
     }
 }

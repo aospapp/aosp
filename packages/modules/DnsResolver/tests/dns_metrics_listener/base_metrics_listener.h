@@ -45,7 +45,12 @@ class BaseMetricsListener : public aidl::android::net::metrics::BnNetdEventListe
                                                 int32_t /*uid*/) override;
     virtual ::ndk::ScopedAStatus onWakeupEvent(const std::string& /*prefix*/, int32_t /*uid*/,
                                                int32_t /*ethertype*/, int32_t /*ipNextHeader*/,
+// TODO: remove build flag when mainline release branch migrates to Android S (b/168163123).
+#ifdef __ANDROID_API_S__
+                                               const std::vector<uint8_t>& /*dstHw*/,
+#else
                                                const std::vector<int8_t>& /*dstHw*/,
+#endif
                                                const std::string& /*srcIp*/,
                                                const std::string& /*dstIp*/, int32_t /*srcPort*/,
                                                int32_t /*dstPort*/,

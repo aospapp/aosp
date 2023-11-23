@@ -127,8 +127,35 @@ void UidRanges::remove(const UidRanges& other) {
     mRanges.erase(end, mRanges.end());
 }
 
+bool UidRanges::isOverlapped(const UidRangeParcel& r1, const UidRangeParcel& r2) const {
+    return (r1.stop >= r2.start) && (r1.start <= r2.stop);
+}
+
+bool UidRanges::overlapsSelf() const {
+    // Compare each element one by one
+    for (size_t i = 0; i < mRanges.size(); i++) {
+        for (size_t j = i + 1; j < mRanges.size(); j++) {
+            if (isOverlapped(mRanges[i], mRanges[j])) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool UidRanges::overlaps(const UidRanges& other) const {
+    for (const auto& thisRange : mRanges) {
+        for (const auto& inputRange : other.getRanges()) {
+            if (isOverlapped(thisRange, inputRange)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 std::string UidRanges::toString() const {
-    std::string s("UidRanges{ ");
+    std::string s("uids{ ");
     for (const auto &range : mRanges) {
         if (length(range) == 0) {
             StringAppendF(&s, "<BAD: %u-%u> ", range.start, range.stop);

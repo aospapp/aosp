@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <base/callback_forward.h>
+#include <base/files/file_path.h>
 #include <base/location.h>
 #include <base/macros.h>
 #include <base/time/time.h>
@@ -38,10 +39,26 @@ using ErrorCallback = base::Callback<void(RequestID, const brillo::Error*)>;
 ///////////////////////////////////////////////////////////////////////////////
 // Transport is a base class for specific implementation of HTTP communication.
 // This class (and its underlying implementation) is used by http::Request and
-// http::Response classes to provide HTTP functionality to the clients.
+// http::Response classes to provide HTTP functionality to the clients. By
+// default, this interface will use CA certificates that only allow secure
+// (HTTPS) communication with Google services.
 ///////////////////////////////////////////////////////////////////////////////
 class BRILLO_EXPORT Transport : public std::enable_shared_from_this<Transport> {
  public:
+  enum class Certificate {
+    // Default certificate; only allows communication with Google services.
+    kDefault,
+    // Certificates for communicating only with production SM-DP+ and SM-DS
+    // servers.
+    kHermesProd,
+    // Certificates for communicating only with test SM-DP+ and SM-DS servers.
+    kHermesTest,
+    // The NSS certificate store, which the curl command-line tool and libcurl
+    // library use by default. This set of certificates does not restrict
+    // secure communication to only Google services.
+    kNss,
+  };
+
   Transport() = default;
   virtual ~Transport() = default;
 
@@ -87,6 +104,28 @@ class BRILLO_EXPORT Transport : public std::enable_shared_from_this<Transport> {
   // Set the local IP address of requests
   virtual void SetLocalIpAddress(const std::string& ip_address) = 0;
 
+  // Use the default CA certificate for certificate verification. This
+  // means that clients are only allowed to communicate with Google services.
+  virtual void UseDefaultCertificate() {}
+
+  // Set the CA certificate to use for certificate verification.
+  //
+  // This call can allow a client to securly communicate with a different subset
+  // of services than it can otherwise. However, setting a custom certificate
+  // should be done only when necessary, and should be done with careful control
+  // over the certificates that are contained in the relevant path. See
+  // https://chromium.googlesource.com/chromiumos/docs/+/master/ca_certs.md for
+  // more information on certificates in Chrome OS.
+  virtual void UseCustomCertificate(Transport::Certificate cert) {}
+
+  // Appends host entry to DNS cache. curl can only do HTTPS request to a custom
+  // IP if it resolves an HTTPS hostname to that IP. This is useful in
+  // forcing a particular mapping for an HTTPS host. See CURLOPT_RESOLVE for
+  // more details.
+  virtual void ResolveHostToIp(const std::string& host,
+                               uint16_t port,
+                               const std::string& ip_address) {}
+
   // Creates a default http::Transport (currently, using http::curl::Transport).
   static std::shared_ptr<Transport> CreateDefault();
 
@@ -96,6 +135,12 @@ class BRILLO_EXPORT Transport : public std::enable_shared_from_this<Transport> {
   // string kDirectProxy (i.e. direct://) to indicate no proxy.
   static std::shared_ptr<Transport> CreateDefaultWithProxy(
       const std::string& proxy);
+
+ protected:
+  // Clears the forced DNS mappings created by ResolveHostToIp.
+  virtual void ClearHost() {}
+
+  static base::FilePath CertificateToPath(Certificate cert);
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Transport);

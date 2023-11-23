@@ -23,26 +23,20 @@ func init() {
 }
 
 type ProcMacroCompilerProperties struct {
-	// path to the source file that is the main entry point of the program (e.g. src/lib.rs)
-	Srcs []string `android:"path,arch_variant"`
-
-	// set name of the procMacro
-	Stem   *string `android:"arch_variant"`
-	Suffix *string `android:"arch_variant"`
 }
 
 type procMacroDecorator struct {
 	*baseCompiler
+	*flagExporter
 
-	Properties           ProcMacroCompilerProperties
-	distFile             android.OptionalPath
-	unstrippedOutputFile android.Path
+	Properties ProcMacroCompilerProperties
 }
 
 type procMacroInterface interface {
 }
 
 var _ compiler = (*procMacroDecorator)(nil)
+var _ exportedFlagsProducer = (*procMacroDecorator)(nil)
 
 func ProcMacroFactory() android.Module {
 	module, _ := NewProcMacro(android.HostSupportedNoCross)
@@ -54,8 +48,11 @@ func NewProcMacro(hod android.HostOrDeviceSupported) (*Module, *procMacroDecorat
 
 	procMacro := &procMacroDecorator{
 		baseCompiler: NewBaseCompiler("lib", "lib64", InstallInSystem),
+		flagExporter: NewFlagExporter(),
 	}
 
+	// Don't sanitize procMacros
+	module.sanitize = nil
 	module.compiler = procMacro
 
 	return module, procMacro
@@ -70,11 +67,8 @@ func (procMacro *procMacroDecorator) compile(ctx ModuleContext, flags Flags, dep
 	fileName := procMacro.getStem(ctx) + ctx.toolchain().ProcMacroSuffix()
 	outputFile := android.PathForModuleOut(ctx, fileName)
 
-	srcPath := srcPathFromModuleSrcs(ctx, procMacro.Properties.Srcs)
-
-	procMacro.unstrippedOutputFile = outputFile
-
-	TransformSrctoProcMacro(ctx, srcPath, deps, flags, outputFile, deps.linkDirs)
+	srcPath, _ := srcPathFromModuleSrcs(ctx, procMacro.baseCompiler.Properties.Srcs)
+	TransformSrctoProcMacro(ctx, srcPath, deps, flags, outputFile)
 	return outputFile
 }
 
@@ -83,4 +77,13 @@ func (procMacro *procMacroDecorator) getStem(ctx ModuleContext) string {
 	validateLibraryStem(ctx, stem, procMacro.crateName())
 
 	return stem + String(procMacro.baseCompiler.Properties.Suffix)
+}
+
+func (procMacro *procMacroDecorator) autoDep(ctx android.BottomUpMutatorContext) autoDep {
+	return rlibAutoDep
+}
+
+func (procMacro *procMacroDecorator) everInstallable() bool {
+	// Proc_macros are never installed
+	return false
 }

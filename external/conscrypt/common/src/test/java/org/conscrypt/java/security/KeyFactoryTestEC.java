@@ -27,21 +27,20 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.ClassRule;
 import org.junit.rules.TestRule;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import tests.util.ServiceTester;
 
 @RunWith(JUnit4.class)
-public class KeyFactoryTestEC extends
-    AbstractKeyFactoryTest<ECPublicKeySpec, ECPrivateKeySpec> {
-
-  // BEGIN Android-Added: Allow access to deprecated BC algorithms.
-  // Allow access to deprecated BC algorithms in this test, so we can ensure they
-  // continue to work
-  @ClassRule
-  public static TestRule enableDeprecatedBCAlgorithmsRule =
-      EnableDeprecatedBouncyCastleAlgorithmsRule.getInstance();
-  // END Android-Added: Allow access to deprecated BC algorithms.
+public class KeyFactoryTestEC extends AbstractKeyFactoryTest<ECPublicKeySpec, ECPrivateKeySpec> {
+    // BEGIN Android-Added: Allow access to deprecated BC algorithms.
+    // Allow access to deprecated BC algorithms in this test, so we can ensure they
+    // continue to work
+    @ClassRule
+    public static TestRule enableDeprecatedBCAlgorithmsRule =
+        EnableDeprecatedBouncyCastleAlgorithmsRule.getInstance();
+    // END Android-Added: Allow access to deprecated BC algorithms.
 
   public KeyFactoryTestEC() {
     super("EC", ECPublicKeySpec.class, ECPrivateKeySpec.class);

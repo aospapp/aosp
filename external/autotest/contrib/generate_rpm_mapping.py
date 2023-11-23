@@ -31,10 +31,11 @@ import sys
 
 import common
 
-from autotest_lib.client.common_lib import enum
+from autotest_lib.client.common_lib import autotest_enum
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 
-CHROMEOS_LABS = enum.Enum('OysterBay', 'Atlantis', 'Chaos', 'Destiny', start_value=1)
+CHROMEOS_LABS = autotest_enum.AutotestEnum('OysterBay', 'Atlantis',
+                                   'Chaos', 'Destiny', start_value=1)
 HOST_REGX = 'chromeos(\d+)(-row(\d+))*-rack(\d+)-host(\d+)'
 DeviceHostname = collections.namedtuple(
         'DeviceHostname', ['lab', 'row', 'rack', 'host'])

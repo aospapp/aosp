@@ -19,7 +19,8 @@
 
     <!-- Theme attributes -->
     <attr name="sudLayoutTheme" format="reference" />
-    <attr name="sudMarginSides" format="dimension|reference" />
+    <attr name="sudMarginStart" format="dimension|reference" />
+    <attr name="sudMarginEnd" format="dimension|reference" />
     <attr name="sudEditTextBackgroundColor" format="color" />
     <attr name="sudButtonHighlightAlpha" format="float" />
 
@@ -39,7 +40,24 @@
         <!-- Push object to the end of its container, not changing its size. -->
         <flag name="end" value="0x00800005" />
     </attr>
+
+    <attr name="sudGlifSubtitleGravity">
+        <!-- Push object to the left of its container, not changing its size. -->
+        <flag name="left" value="0x03" />
+        <!-- Push object to the right of its container, not changing its size. -->
+        <flag name="right" value="0x05" />
+        <!-- Place object in the horizontal center of its container, not changing its size. -->
+        <flag name="center_horizontal" value="0x01" />
+        <!-- Grow the horizontal size of the object if needed so it completely fills its container. -->
+        <flag name="fill_horizontal" value="0x07" />
+        <!-- Push object to the beginning of its container, not changing its size. -->
+        <flag name="start" value="0x00800003" />
+        <!-- Push object to the end of its container, not changing its size. -->
+        <flag name="end" value="0x00800005" />
+    </attr>
+
     <attr name="sudGlifIconStyle" format="reference" />
+    <attr name="sudGlifIconSize" format="dimension" />
 
     <attr name="sudButtonAllCaps" format="boolean" />
     <attr name="sudButtonCornerRadius" format="dimension" />
@@ -83,6 +101,9 @@
         <flag name="end" value="0x20" />
     </attr>
 
+    <!-- Custom the scroll bar indicator  -->
+    <attr name="sudScrollBarThumb" format="reference" />
+
     <!-- Custom view attributes -->
     <attr name="sudColorPrimary" format="color" />
     <attr name="sudHeader" format="reference" />
@@ -93,6 +114,8 @@
     <attr name="sudDividerInsetStartNoIcon" format="dimension|reference" />
     <attr name="sudItemDescriptionStyle" format="reference" />
     <attr name="sudItemDescriptionTitleStyle" format="reference" />
+    <attr name="sudContentFramePaddingTop" format="dimension|reference" />
+    <attr name="sudContentFramePaddingBottom" format="dimension|reference" />
 
     <attr name="sudHasStableIds" format="boolean|reference" />
 
@@ -110,6 +133,7 @@
 
     <declare-styleable name="SudIllustrationVideoView">
         <attr name="sudVideo" format="reference" />
+        <attr name="sudPauseVideoWhenFinished" format="boolean" />
     </declare-styleable>
 
     <declare-styleable name="SudGlifLayout">
@@ -128,6 +152,10 @@
         <attr name="android:width" />
     </declare-styleable>
 
+    <attr name="sudContentIllustrationMaxWidth" format="dimension" />
+    <attr name="sudContentIllustrationMaxHeight" format="dimension" />
+    <attr name="sudContentIllustrationPaddingTop" format="dimension" />
+    <attr name="sudContentIllustrationPaddingBottom" format="dimension" />
     <declare-styleable name="SudFillContentLayout">
         <attr name="android:maxHeight" />
         <attr name="android:maxWidth" />
@@ -211,4 +239,24 @@
         <attr name="sudCollapsedSummary" format="string" localization="suggested" />
         <attr name="sudExpandedSummary" format="string" localization="suggested" />
     </declare-styleable>
+
+    <declare-styleable name="SudDescriptionMixin">
+        <attr name="sudDescriptionText" format="string" localization="suggested" />
+        <attr name="sudDescriptionTextColor" format="reference|color" />
+        <attr name="sudGlifDescriptionMarginTop" format="dimension" />
+        <attr name="sudGlifDescriptionMarginBottom" format="dimension" />
+    </declare-styleable>
+
+    <declare-styleable name="SudProgressBarMixin">
+        <attr name="sudUseBottomProgressBar" format="boolean" />
+    </declare-styleable>
+
+    <declare-styleable name="SudGlifLoadingFramePadding">
+        <attr name="sudLoadingContentFramePaddingTop" format="dimension|reference" />
+        <attr name="sudLoadingContentFramePaddingStart" format="dimension|reference" />
+        <attr name="sudLoadingContentFramePaddingEnd" format="dimension|reference" />
+        <attr name="sudLoadingContentFramePaddingBottom" format="dimension|reference" />
+    </declare-styleable>
+
+    <attr name="sudLoadingHeaderHeight" format="dimension|reference" />
 </resources>

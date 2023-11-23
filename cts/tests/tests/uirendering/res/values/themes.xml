@@ -16,6 +16,7 @@ limitations under the License.
 <resources>
     <style name="DefaultTheme" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
         <item name="android:windowNoTitle">true</item>
+        <item name="android:windowDisablePreview">true</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowOverscan">true</item>
         <item name="android:fadingEdge">none</item>

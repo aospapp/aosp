@@ -21,7 +21,7 @@ import android.content.Context;
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
-import com.android.settingslib.wifi.AccessPoint;
+import com.android.wifitrackerlib.WifiEntry;
 
 /**
  * Shows frequency info about the Wifi connection.
@@ -42,17 +42,24 @@ public class WifiFrequencyPreferenceController extends
 
     @Override
     protected void updateState(WifiDetailsPreference preference) {
-        int frequency = getWifiInfoProvider().getWifiInfo().getFrequency();
+        WifiEntry.ConnectedInfo connectedInfo = getWifiEntry().getConnectedInfo();
+        if (connectedInfo == null) {
+            preference.setVisible(false);
+            return;
+        }
+
+        int frequency = connectedInfo.frequencyMhz;
         String band = null;
-        if (frequency >= AccessPoint.LOWER_FREQ_24GHZ
-                && frequency < AccessPoint.HIGHER_FREQ_24GHZ) {
+        if (frequency >= WifiEntry.MIN_FREQ_24GHZ && frequency < WifiEntry.MAX_FREQ_24GHZ) {
             band = getContext().getResources().getString(R.string.wifi_band_24ghz);
-        } else if (frequency >= AccessPoint.LOWER_FREQ_5GHZ
-                && frequency < AccessPoint.HIGHER_FREQ_5GHZ) {
+        } else if (frequency >= WifiEntry.MIN_FREQ_5GHZ && frequency < WifiEntry.MAX_FREQ_5GHZ) {
             band = getContext().getResources().getString(R.string.wifi_band_5ghz);
         } else {
             LOG.e("Unexpected frequency " + frequency);
+            preference.setVisible(false);
+            return;
         }
         preference.setDetailText(band);
+        preference.setVisible(true);
     }
 }

@@ -15,4 +15,5 @@
   * limitations under the License.
   -->
 
-<android.autofillservice.cts.MyDrawable xmlns:android="http://schemas.android.com/apk/res/android"/>
+<android.autofillservice.cts.testcore.MyDrawable
+    xmlns:android="http://schemas.android.com/apk/res/android"/>

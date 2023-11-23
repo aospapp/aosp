@@ -53,12 +53,15 @@ AssertionResult DescramblerTests::openCasSession(TunerKeyToken& sessionId,
         return failure();
     }
 
-    auto status = mCas->setSessionPrivateData(sessionId, hidlPvtData);
-    if (status != android::hardware::cas::V1_0::Status::OK) {
-        ALOGW("[vts] Failed to set session private data");
-        mCas->closeSession(sessionId);
-        return failure();
+    if (hidlPvtData.size() > 0) {
+        auto status = mCas->setSessionPrivateData(sessionId, hidlPvtData);
+        if (status != android::hardware::cas::V1_0::Status::OK) {
+            ALOGW("[vts] Failed to set session private data");
+            mCas->closeSession(sessionId);
+            return failure();
+        }
     }
+
     return success();
 }
 
@@ -102,13 +105,13 @@ AssertionResult DescramblerTests::openDescrambler(uint32_t demuxId) {
 
 AssertionResult DescramblerTests::setKeyToken(TunerKeyToken token) {
     Result status;
-    if (mDescrambler) {
+    if (!mDescrambler) {
         ALOGW("[vts] Descrambler is not opened yet.");
         return failure();
     }
 
     status = mDescrambler->setKeyToken(token);
-    if (status == Result::SUCCESS) {
+    if (status != Result::SUCCESS) {
         ALOGW("[vts] setKeyToken failed.");
         return failure();
     }
@@ -118,13 +121,13 @@ AssertionResult DescramblerTests::setKeyToken(TunerKeyToken token) {
 
 AssertionResult DescramblerTests::addPid(DemuxPid pid, sp<IFilter> optionalSourceFilter) {
     Result status;
-    if (mDescrambler) {
+    if (!mDescrambler) {
         ALOGW("[vts] Descrambler is not opened yet.");
         return failure();
     }
 
     status = mDescrambler->addPid(pid, optionalSourceFilter);
-    if (status == Result::SUCCESS) {
+    if (status != Result::SUCCESS) {
         ALOGW("[vts] addPid failed.");
         return failure();
     }
@@ -134,13 +137,13 @@ AssertionResult DescramblerTests::addPid(DemuxPid pid, sp<IFilter> optionalSourc
 
 AssertionResult DescramblerTests::removePid(DemuxPid pid, sp<IFilter> optionalSourceFilter) {
     Result status;
-    if (mDescrambler) {
+    if (!mDescrambler) {
         ALOGW("[vts] Descrambler is not opened yet.");
         return failure();
     }
 
     status = mDescrambler->removePid(pid, optionalSourceFilter);
-    if (status == Result::SUCCESS) {
+    if (status != Result::SUCCESS) {
         ALOGW("[vts] removePid failed.");
         return failure();
     }
@@ -150,14 +153,14 @@ AssertionResult DescramblerTests::removePid(DemuxPid pid, sp<IFilter> optionalSo
 
 AssertionResult DescramblerTests::closeDescrambler() {
     Result status;
-    if (mDescrambler) {
+    if (!mDescrambler) {
         ALOGW("[vts] Descrambler is not opened yet.");
         return failure();
     }
 
     status = mDescrambler->close();
     mDescrambler = nullptr;
-    if (status == Result::SUCCESS) {
+    if (status != Result::SUCCESS) {
         ALOGW("[vts] close Descrambler failed.");
         return failure();
     }

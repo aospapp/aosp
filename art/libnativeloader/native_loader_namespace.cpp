@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if defined(ART_TARGET_ANDROID)
+
 #define LOG_TAG "nativeloader"
 
 #include "native_loader_namespace.h"
@@ -84,7 +86,7 @@ Result<NativeLoaderNamespace> NativeLoaderNamespace::GetSystemNamespace(bool is_
 
 Result<NativeLoaderNamespace> NativeLoaderNamespace::Create(
     const std::string& name, const std::string& search_paths, const std::string& permitted_paths,
-    const NativeLoaderNamespace* parent, bool is_shared, bool is_greylist_enabled,
+    const NativeLoaderNamespace* parent, bool is_shared, bool is_exempt_list_enabled,
     bool also_used_as_anonymous) {
   bool is_bridged = false;
   if (parent != nullptr) {
@@ -114,8 +116,8 @@ Result<NativeLoaderNamespace> NativeLoaderNamespace::Create(
   if (is_shared) {
     type |= ANDROID_NAMESPACE_TYPE_SHARED;
   }
-  if (is_greylist_enabled) {
-    type |= ANDROID_NAMESPACE_TYPE_GREYLIST_ENABLED;
+  if (is_exempt_list_enabled) {
+    type |= ANDROID_NAMESPACE_TYPE_EXEMPT_LIST_ENABLED;
   }
 
   if (!is_bridged) {
@@ -137,18 +139,20 @@ Result<NativeLoaderNamespace> NativeLoaderNamespace::Create(
                 is_bridged ? "bridged" : "native", name, search_paths, permitted_paths);
 }
 
-Result<void> NativeLoaderNamespace::Link(const NativeLoaderNamespace& target,
+Result<void> NativeLoaderNamespace::Link(const NativeLoaderNamespace* target,
                                          const std::string& shared_libs) const {
   LOG_ALWAYS_FATAL_IF(shared_libs.empty(), "empty share lib when linking %s to %s",
-                      this->name().c_str(), target.name().c_str());
+                      this->name().c_str(), target == nullptr ? "default" : target->name().c_str());
   if (!IsBridged()) {
-    if (android_link_namespaces(this->ToRawAndroidNamespace(), target.ToRawAndroidNamespace(),
+    if (android_link_namespaces(this->ToRawAndroidNamespace(),
+                                target == nullptr ? nullptr : target->ToRawAndroidNamespace(),
                                 shared_libs.c_str())) {
       return {};
     }
   } else {
     if (NativeBridgeLinkNamespaces(this->ToRawNativeBridgeNamespace(),
-                                   target.ToRawNativeBridgeNamespace(), shared_libs.c_str())) {
+                                   target == nullptr ? nullptr : target->ToRawNativeBridgeNamespace(),
+                                   shared_libs.c_str())) {
       return {};
     }
   }
@@ -175,3 +179,5 @@ Result<void*> NativeLoaderNamespace::Load(const char* lib_name) const {
 }
 
 }  // namespace android
+
+#endif  // defined(ART_TARGET_ANDROID)

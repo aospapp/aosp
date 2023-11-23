@@ -24,7 +24,7 @@
 namespace android {
 namespace hardware {
 namespace boot {
-namespace V1_1 {
+namespace V1_2 {
 namespace implementation {
 
 using ::android::hardware::Return;
@@ -43,6 +43,9 @@ struct BootControl : public BootControlShared {
     Return<BoolResult> isSlotMarkedSuccessful(uint32_t slot) override;
     Return<void> getSuffix(uint32_t slot, getSuffix_cb _hidl_cb) override;
 
+    // Methods from ::android::hardware::boot::V1_2::IBootControl follow.
+    Return<uint32_t> getActiveBootSlot() override;
+
   private:
     boot_control_module_t *mModule;
 };
@@ -50,7 +53,7 @@ struct BootControl : public BootControlShared {
 extern "C" IBootControl *HIDL_FETCH_IBootControl(const char *name);
 
 }  // namespace implementation
-}  // namespace V1_1
+}  // namespace V1_2
 }  // namespace boot
 }  // namespace hardware
 }  // namespace android

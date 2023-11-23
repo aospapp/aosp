@@ -1,6 +1,6 @@
 # ==============================================
 # MTK Policy Rule
-# ============
+# ==============================================
 
 # Purpose : allow to access kpd driver file
 allow radio sysfs_keypad_file:dir { r_dir_perms };
@@ -26,7 +26,6 @@ allow radio media_rw_data_file:file { create_file_perms };
 #   Swift APK integration - access ccci dir/file
 allow radio ccci_fsd:dir { r_dir_perms };
 
-
 # Date : WK17.03
 # Operation : O Migration
 # Purpose : HIDL for rilproxy
@@ -34,7 +33,7 @@ binder_call(radio, hal_telephony)
 
 #Dat: 2017/02/14
 #Purpose: allow get telephony Sensitive property
-get_prop(radio, mtk_telephony_sensitive_prop)
+get_prop(radio, vendor_mtk_telephony_sensitive_prop)
 
 # Date : WK17.26
 # Operation : O Migration
@@ -53,32 +52,5 @@ binder_call(radio,mtk_hal_audio)
 
 # Date : WK18.16
 # Operation: P migration
-# Purpose: Allow radio to get tel_switch_prop
-get_prop(radio, tel_switch_prop)
-
-# Date : 2018/07/03
-# Purpose : Allow sim system to set prop
-set_prop(radio, vendor_sim_system_prop)
-
-# Date : 2018/07/03
-# Purpose : Allow Mwi to get vendor default properties (ro.vendor.*)
-get_prop(radio, vendor_default_prop)
-
-# Operation : DEBUG
-# Purpose : Allow to use mtk_bgdata_disabled
-set_prop(radio, mtk_bgdata_disabled)
-
-# Date : 2018/07/03
-# Operation : DEBUG
-# Purpose : Allow to use mtk_telecom_vibrate
-set_prop(radio, mtk_telecom_vibrate)
-
-# Date : 2018/07/03
-# Operation : DEBUG
-# Purpose : Allow to use mtk_gprs_attach_type
-set_prop(radio, mtk_gprs_attach_type)
-
-#Date : 2018/11/02
-# Operation : Allow radio persist_xcap_rawurl_prop:property_service set;
-# Purpose : for set telephony xcap use raw url property in IMS SS
-set_prop(radio, persist_xcap_rawurl_prop)
+# Purpose: Allow radio to get vendor_mtk_tel_switch_prop
+get_prop(radio, vendor_mtk_tel_switch_prop)

@@ -7,8 +7,12 @@ use std::mem;
 use std::result;
 use std::slice;
 
+use std::fs::OpenOptions;
+use std::io::prelude::*;
+use std::path::{Path, PathBuf};
+
 use data_model::DataInit;
-use sys_util::{GuestAddress, GuestMemory};
+use vm_memory::{GuestAddress, GuestMemory};
 
 #[derive(Debug)]
 pub enum Error {
@@ -22,6 +26,12 @@ pub enum Error {
     WriteSmbiosEp,
     /// Failure to write additional data to memory
     WriteData,
+    /// Failure while reading SMBIOS data file
+    IoFailed,
+    /// Incorrect or not readable host SMBIOS data
+    InvalidInput,
+    /// Invalid table entry point checksum
+    InvalidChecksum,
 }
 
 impl std::error::Error for Error {}
@@ -36,6 +46,9 @@ impl Display for Error {
             Clear => "Failure while zeroing out the memory for the SMBIOS table",
             WriteSmbiosEp => "Failure to write SMBIOS entrypoint structure",
             WriteData => "Failure to write additional data to memory",
+            IoFailed => "Failure while reading SMBIOS data file",
+            InvalidInput => "Failure to read host SMBIOS data",
+            InvalidChecksum => "Failure to verify host SMBIOS entry checksum",
         };
 
         write!(f, "SMBIOS error: {}", description)
@@ -46,10 +59,14 @@ pub type Result<T> = result::Result<T, Error>;
 
 const SMBIOS_START: u64 = 0xf0000; // First possible location per the spec.
 
+// Constants sourced from SMBIOS Spec 2.3.1.
+const SM2_MAGIC_IDENT: &[u8; 4usize] = b"_SM_";
+
 // Constants sourced from SMBIOS Spec 3.2.0.
 const SM3_MAGIC_IDENT: &[u8; 5usize] = b"_SM3_";
 const BIOS_INFORMATION: u8 = 0;
 const SYSTEM_INFORMATION: u8 = 1;
+const END_OF_TABLE: u8 = 127;
 const PCI_SUPPORTED: u64 = 1 << 7;
 const IS_VIRTUAL_MACHINE: u8 = 1 << 4;
 
@@ -61,6 +78,47 @@ fn compute_checksum<T: Copy>(v: &T) -> u8 {
         checksum = checksum.wrapping_add(*i);
     }
     (!checksum).wrapping_add(1)
+}
+
+#[repr(packed)]
+#[derive(Default, Copy)]
+pub struct Smbios23Intermediate {
+    pub signature: [u8; 5usize],
+    pub checksum: u8,
+    pub length: u16,
+    pub address: u32,
+    pub count: u16,
+    pub revision: u8,
+}
+
+unsafe impl data_model::DataInit for Smbios23Intermediate {}
+
+impl Clone for Smbios23Intermediate {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+#[repr(packed)]
+#[derive(Default, Copy)]
+pub struct Smbios23Entrypoint {
+    pub signature: [u8; 4usize],
+    pub checksum: u8,
+    pub length: u8,
+    pub majorver: u8,
+    pub minorver: u8,
+    pub max_size: u16,
+    pub revision: u8,
+    pub reserved: [u8; 5usize],
+    pub dmi: Smbios23Intermediate,
+}
+
+unsafe impl data_model::DataInit for Smbios23Entrypoint {}
+
+impl Clone for Smbios23Entrypoint {
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 
 #[repr(packed)]
@@ -150,11 +208,87 @@ fn write_string(mem: &GuestMemory, val: &str, mut curptr: GuestAddress) -> Resul
     for c in val.as_bytes().iter() {
         curptr = write_and_incr(mem, *c, curptr)?;
     }
-    curptr = write_and_incr(mem, 0 as u8, curptr)?;
+    curptr = write_and_incr(mem, 0_u8, curptr)?;
     Ok(curptr)
 }
 
-pub fn setup_smbios(mem: &GuestMemory) -> Result<()> {
+fn setup_smbios_from_file(mem: &GuestMemory, path: &Path) -> Result<()> {
+    let mut sme_path = PathBuf::from(path);
+    sme_path.push("smbios_entry_point");
+    let mut sme = Vec::new();
+    OpenOptions::new()
+        .read(true)
+        .open(&sme_path)
+        .map_err(|_| Error::IoFailed)?
+        .read_to_end(&mut sme)
+        .map_err(|_| Error::IoFailed)?;
+
+    let mut dmi_path = PathBuf::from(path);
+    dmi_path.push("DMI");
+    let mut dmi = Vec::new();
+    OpenOptions::new()
+        .read(true)
+        .open(&dmi_path)
+        .map_err(|_| Error::IoFailed)?
+        .read_to_end(&mut dmi)
+        .map_err(|_| Error::IoFailed)?;
+
+    // Try SMBIOS 3.0 format.
+    if sme.len() == mem::size_of::<Smbios30Entrypoint>() && sme.starts_with(SM3_MAGIC_IDENT) {
+        let mut smbios_ep = Smbios30Entrypoint::default();
+        smbios_ep.as_mut_slice().copy_from_slice(&sme);
+
+        let physptr = GuestAddress(SMBIOS_START)
+            .checked_add(mem::size_of::<Smbios30Entrypoint>() as u64)
+            .ok_or(Error::NotEnoughMemory)?;
+
+        mem.write_at_addr(&dmi, physptr)
+            .map_err(|_| Error::NotEnoughMemory)?;
+
+        // Update EP DMI location
+        smbios_ep.physptr = physptr.offset();
+        smbios_ep.checksum = 0;
+        smbios_ep.checksum = compute_checksum(&smbios_ep);
+
+        mem.write_obj_at_addr(smbios_ep, GuestAddress(SMBIOS_START))
+            .map_err(|_| Error::NotEnoughMemory)?;
+
+        return Ok(());
+    }
+
+    // Try SMBIOS 2.3 format.
+    if sme.len() == mem::size_of::<Smbios23Entrypoint>() && sme.starts_with(SM2_MAGIC_IDENT) {
+        let mut smbios_ep = Smbios23Entrypoint::default();
+        smbios_ep.as_mut_slice().copy_from_slice(&sme);
+
+        let physptr = GuestAddress(SMBIOS_START)
+            .checked_add(mem::size_of::<Smbios23Entrypoint>() as u64)
+            .ok_or(Error::NotEnoughMemory)?;
+
+        mem.write_at_addr(&dmi, physptr)
+            .map_err(|_| Error::NotEnoughMemory)?;
+
+        // Update EP DMI location
+        smbios_ep.dmi.address = physptr.offset() as u32;
+        smbios_ep.dmi.checksum = 0;
+        smbios_ep.dmi.checksum = compute_checksum(&smbios_ep.dmi);
+        smbios_ep.checksum = 0;
+        smbios_ep.checksum = compute_checksum(&smbios_ep);
+
+        mem.write_obj_at_addr(smbios_ep, GuestAddress(SMBIOS_START))
+            .map_err(|_| Error::WriteSmbiosEp)?;
+
+        return Ok(());
+    }
+
+    Err(Error::InvalidInput)
+}
+
+pub fn setup_smbios(mem: &GuestMemory, dmi_path: Option<PathBuf>) -> Result<()> {
+    if let Some(dmi_path) = dmi_path {
+        return setup_smbios_from_file(mem, &dmi_path);
+    }
+
     let physptr = GuestAddress(SMBIOS_START)
         .checked_add(mem::size_of::<Smbios30Entrypoint>() as u64)
         .ok_or(Error::NotEnoughMemory)?;
@@ -163,32 +297,48 @@ pub fn setup_smbios(mem: &GuestMemory) -> Result<()> {
 
     {
         handle += 1;
-        let mut smbios_biosinfo = SmbiosBiosInfo::default();
-        smbios_biosinfo.typ = BIOS_INFORMATION;
-        smbios_biosinfo.length = mem::size_of::<SmbiosBiosInfo>() as u8;
-        smbios_biosinfo.handle = handle;
-        smbios_biosinfo.vendor = 1; // First string written in this section
-        smbios_biosinfo.version = 2; // Second string written in this section
-        smbios_biosinfo.characteristics = PCI_SUPPORTED;
-        smbios_biosinfo.characteristics_ext2 = IS_VIRTUAL_MACHINE;
+        let smbios_biosinfo = SmbiosBiosInfo {
+            typ: BIOS_INFORMATION,
+            length: mem::size_of::<SmbiosBiosInfo>() as u8,
+            handle,
+            vendor: 1,  // First string written in this section
+            version: 2, // Second string written in this section
+            characteristics: PCI_SUPPORTED,
+            characteristics_ext2: IS_VIRTUAL_MACHINE,
+            ..Default::default()
+        };
         curptr = write_and_incr(mem, smbios_biosinfo, curptr)?;
         curptr = write_string(mem, "crosvm", curptr)?;
         curptr = write_string(mem, "0", curptr)?;
-        curptr = write_and_incr(mem, 0 as u8, curptr)?;
+        curptr = write_and_incr(mem, 0_u8, curptr)?;
     }
 
     {
         handle += 1;
-        let mut smbios_sysinfo = SmbiosSysInfo::default();
-        smbios_sysinfo.typ = SYSTEM_INFORMATION;
-        smbios_sysinfo.length = mem::size_of::<SmbiosSysInfo>() as u8;
-        smbios_sysinfo.handle = handle;
-        smbios_sysinfo.manufacturer = 1; // First string written in this section
-        smbios_sysinfo.product_name = 2; // Second string written in this section
+        let smbios_sysinfo = SmbiosSysInfo {
+            typ: SYSTEM_INFORMATION,
+            length: mem::size_of::<SmbiosSysInfo>() as u8,
+            handle,
+            manufacturer: 1, // First string written in this section
+            product_name: 2, // Second string written in this section
+            ..Default::default()
+        };
         curptr = write_and_incr(mem, smbios_sysinfo, curptr)?;
         curptr = write_string(mem, "ChromiumOS", curptr)?;
         curptr = write_string(mem, "crosvm", curptr)?;
-        curptr = write_and_incr(mem, 0 as u8, curptr)?;
+        curptr = write_and_incr(mem, 0u8, curptr)?;
+    }
+
+    {
+        handle += 1;
+        let smbios_sysinfo = SmbiosSysInfo {
+            typ: END_OF_TABLE,
+            length: mem::size_of::<SmbiosSysInfo>() as u8,
+            handle,
+            ..Default::default()
+        };
+        curptr = write_and_incr(mem, smbios_sysinfo, curptr)?;
+        curptr = write_and_incr(mem, 0_u8, curptr)?;
     }
 
     {
@@ -217,6 +367,11 @@ mod tests {
     #[test]
     fn struct_size() {
         assert_eq!(
+            mem::size_of::<Smbios23Entrypoint>(),
+            0x1fusize,
+            concat!("Size of: ", stringify!(Smbios23Entrypoint))
+        );
+        assert_eq!(
             mem::size_of::<Smbios30Entrypoint>(),
             0x18usize,
             concat!("Size of: ", stringify!(Smbios30Entrypoint))
@@ -237,7 +392,8 @@ mod tests {
     fn entrypoint_checksum() {
         let mem = GuestMemory::new(&[(GuestAddress(SMBIOS_START), 4096)]).unwrap();
 
-        setup_smbios(&mem).unwrap();
+        // Use default 3.0 SMBIOS format.
+        setup_smbios(&mem, None).unwrap();
 
         let smbios_ep: Smbios30Entrypoint =
             mem.read_obj_from_addr(GuestAddress(SMBIOS_START)).unwrap();

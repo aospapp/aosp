@@ -30,6 +30,7 @@ import android.content.res.Resources;
 import android.util.Log;
 
 import com.android.documentsui.theme.ThemeOverlayManager;
+import com.android.documentsui.util.VersionUtils;
 
 /**
  * A receiver listening action.PRE_BOOT_COMPLETED event for setting component enable or disable.
@@ -91,11 +92,15 @@ public class PreBootReceiver extends BroadcastReceiver {
         int resId = overlayRes.getIdentifier(config, "bool", overlayPkg);
         if (resId != 0) {
             final ComponentName component = new ComponentName(packageName, className);
-            final boolean value = overlayRes.getBoolean(resId);
-            if (DEBUG) {
-                Log.i(TAG, "Overlay package:" + overlayPkg + ", customize " + config + ":" + value);
+            boolean enabled = overlayRes.getBoolean(resId);
+            if (VersionUtils.isAtLeastS() && CONFIG_IS_LAUNCHER_ENABLED.equals(config)) {
+                enabled = false; // Do not allow LauncherActivity to be enabled for S+.
             }
-            pm.setComponentEnabledSetting(component, value
+            if (DEBUG) {
+                Log.i(TAG,
+                        "Overlay package:" + overlayPkg + ", customize " + config + ":" + enabled);
+            }
+            pm.setComponentEnabledSetting(component, enabled
                             ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                             : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                     PackageManager.DONT_KILL_APP);

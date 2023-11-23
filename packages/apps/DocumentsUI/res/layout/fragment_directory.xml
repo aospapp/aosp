@@ -49,7 +49,6 @@
             android:clipToPadding="false"
             android:scrollbars="none"
             android:drawSelectorOnTop="true"
-            android:overScrollMode="never"
             app:fastScrollEnabled="false"/>
 
     </com.android.documentsui.dirlist.DocumentsSwipeRefreshLayout>

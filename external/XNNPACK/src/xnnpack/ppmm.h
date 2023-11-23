@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
 
-#define DECLARE_F32_PPMM_UKERNEL_FUNCTION(fn_name) \
+#define DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(fn_name) \
   XNN_INTERNAL void fn_name(                       \
       size_t mr,                                   \
       size_t nc,                                   \
@@ -26,18 +26,23 @@ extern "C" {
       float* c,                                    \
       size_t cm_stride,                            \
       size_t cn_stride,                            \
-      const union xnn_f32_output_params* params);
+      const union xnn_f32_minmax_params* params);
 
-DECLARE_F32_PPMM_UKERNEL_FUNCTION(xnn_f32_ppmm_ukernel_2x4__scalar)
-DECLARE_F32_PPMM_UKERNEL_FUNCTION(xnn_f32_ppmm_ukernel_3x3__scalar)
-DECLARE_F32_PPMM_UKERNEL_FUNCTION(xnn_f32_ppmm_ukernel_4x2__scalar)
-DECLARE_F32_PPMM_UKERNEL_FUNCTION(xnn_f32_ppmm_ukernel_4x4__scalar)
-DECLARE_F32_PPMM_UKERNEL_FUNCTION(xnn_f32_ppmm_ukernel_4x8__neon)
-DECLARE_F32_PPMM_UKERNEL_FUNCTION(xnn_f32_ppmm_ukernel_4x8__neonfma)
-DECLARE_F32_PPMM_UKERNEL_FUNCTION(xnn_f32_ppmm_ukernel_4x8__psimd)
-DECLARE_F32_PPMM_UKERNEL_FUNCTION(xnn_f32_ppmm_ukernel_4x8__sse)
-DECLARE_F32_PPMM_UKERNEL_FUNCTION(xnn_f32_ppmm_ukernel_8x8__neon)
-DECLARE_F32_PPMM_UKERNEL_FUNCTION(xnn_f32_ppmm_ukernel_8x8__neonfma)
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_4x8__neon)
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_8x8__neon)
+
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_4x8__neonfma)
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_8x8__neonfma)
+
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_4x8__sse)
+
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_4x8__wasmsimd_arm_splat)
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_4x8__wasmsimd_x86_splat)
+
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_2x4__scalar)
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_3x3__scalar)
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_4x2__scalar)
+DECLARE_F32_PPMM_MINMAX_UKERNEL_FUNCTION(xnn_f32_ppmm_minmax_ukernel_4x4__scalar)
 
 
 #ifdef __cplusplus

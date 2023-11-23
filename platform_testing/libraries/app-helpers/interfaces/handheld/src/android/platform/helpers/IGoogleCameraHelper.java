@@ -78,11 +78,43 @@ public interface IGoogleCameraHelper extends IAppHelper {
     public void goToFrontCamera();
 
     /**
+     * Setup expectations: GoogleCamera is open and idle in either camera/portrait/video mode.
+     *
+     * <p>This method will change to nightsight mode and block until the transition is complete.
+     */
+    public default void goToNightSightMode() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+    ;
+
+    /**
+     * Setup expectations: GoogleCamera is open and idle in either camera/portrait/video mode.
+     *
+     * <p>This method will change to slow motion mode and block until the transition is complete.
+     */
+    public default void goToSlowMotionMode() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+    ;
+
+    /**
      * Setup expectation: in Camera/Portrait mode with the capture button present.
      *
      * This method will capture a photo and block until the transaction is complete.
      */
     public void capturePhoto();
+
+    /**
+     * Setup expectation: in Camera mode with the capture button present.
+     *
+     * <p>This method will capture a long shot and block until the transaction is complete.
+     *
+     * @param durationMs duration of video in milliseconds
+     */
+    public default void captureLongShot(long durationMs) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+    ;
 
     /**
      * Setup expectation: in Video mode with the capture button present.
@@ -92,6 +124,18 @@ public interface IGoogleCameraHelper extends IAppHelper {
      * @param time duration of video in milliseconds
      */
     public void captureVideo(long time);
+
+    /**
+     * Clicks the shutter button without synchronizing with UI animations a number of times. Can
+     * click without waiting for button to become clickable/enabled.
+     *
+     * @param shouldWaitClickable whether to wait until button becomes clickable
+     * @param times number of times to mash button
+     */
+    public default void mashShutterButton(boolean shouldWaitClickable, int times) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+    ;
 
     /**
      * Setup expectation:
@@ -224,4 +268,13 @@ public interface IGoogleCameraHelper extends IAppHelper {
      * @param direction scroll direction, either LEFT or RIGHT
      */
     public void scrollAlbum(Direction direction);
+
+    /**
+     * Setup expectations: Finished capture long shot in camera.
+     *
+     * <p>Clicks thumbnail of the longshot and view the top shot.
+     */
+    public default void viewTopShot(long timeout) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

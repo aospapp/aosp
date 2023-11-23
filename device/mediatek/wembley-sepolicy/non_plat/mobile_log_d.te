@@ -38,9 +38,6 @@ allow mobile_log_d logtemp_data_file:file create_file_perms;
 allow mobile_log_d data_tmpfs_log_file:dir create_dir_perms;
 allow mobile_log_d data_tmpfs_log_file:file create_file_perms;
 
-#mobile itself property
-set_prop(mobile_log_d, mobile_log_prop)
-
 # Date: 2016/11/11
 # purpose: allow MobileLog to access aee socket
 allow mobile_log_d crash_dump:unix_stream_socket connectto;
@@ -49,7 +46,7 @@ allow mobile_log_d crash_dump:unix_stream_socket connectto;
 allow mobile_log_d ttyGS_device:chr_file { read write ioctl open };
 
 # purpose: allow mobile_log_d to access persist.meta.connecttype
-get_prop(mobile_log_d, meta_connecttype_prop);
+get_prop(mobile_log_d, vendor_mtk_meta_connecttype_prop)
 
 # purpose: allow mobile_log_d to create socket
 allow mobile_log_d port:tcp_socket { name_connect name_bind };
@@ -58,7 +55,5 @@ allow mobile_log_d mobile_log_d:tcp_socket { bind setopt listen accept read writ
 allow mobile_log_d node:tcp_socket node_bind;
 
 # purpose: allow mobile_log_d to read system property init.svc.vendor.
-get_prop(mobile_log_d, vendor_default_prop)
-
-# purpose: allow mobile_log_d to read persist.vendor.mtk.aee
-get_prop(mobile_log_d, persist_mtk_aee_prop)
+# GOOGLE: Commented out for b/169606103
+#get_prop(mobile_log_d, vendor_default_prop)

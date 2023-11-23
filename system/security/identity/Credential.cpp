@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "Credential"
+#define LOG_TAG "credstore"
 
 #include <android-base/logging.h>
-
+#include <android/binder_manager.h>
 #include <android/hardware/identity/support/IdentityCredentialSupport.h>
 
 #include <android/security/identity/ICredentialStore.h>
 
-#include <android/security/keystore/BnCredstoreTokenCallback.h>
-#include <android/security/keystore/IKeystoreService.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
 #include <keymasterV4_0/keymaster_utils.h>
@@ -33,9 +31,15 @@
 #include <future>
 #include <tuple>
 
+#include <aidl/android/hardware/security/keymint/HardwareAuthToken.h>
+#include <aidl/android/hardware/security/secureclock/TimeStampToken.h>
+#include <aidl/android/security/authorization/AuthorizationTokens.h>
+#include <aidl/android/security/authorization/IKeystoreAuthorization.h>
+
 #include "Credential.h"
 #include "CredentialData.h"
 #include "Util.h"
+#include "WritableCredential.h"
 
 namespace android {
 namespace security {
@@ -45,38 +49,45 @@ using std::optional;
 using std::promise;
 using std::tuple;
 
-using android::security::keystore::IKeystoreService;
+using ::android::hardware::identity::IWritableIdentityCredential;
 
 using ::android::hardware::identity::support::ecKeyPairGetPkcs12;
 using ::android::hardware::identity::support::ecKeyPairGetPrivateKey;
 using ::android::hardware::identity::support::ecKeyPairGetPublicKey;
 using ::android::hardware::identity::support::sha256;
 
+using android::hardware::keymaster::SecurityLevel;
 using android::hardware::keymaster::V4_0::HardwareAuthToken;
 using android::hardware::keymaster::V4_0::VerificationToken;
 using AidlHardwareAuthToken = android::hardware::keymaster::HardwareAuthToken;
 using AidlVerificationToken = android::hardware::keymaster::VerificationToken;
 
+using KeyMintAuthToken = ::aidl::android::hardware::security::keymint::HardwareAuthToken;
+using ::aidl::android::hardware::security::secureclock::TimeStampToken;
+using ::aidl::android::security::authorization::AuthorizationTokens;
+using ::aidl::android::security::authorization::IKeystoreAuthorization;
+
 Credential::Credential(CipherSuite cipherSuite, const std::string& dataPath,
-                       const std::string& credentialName)
-    : cipherSuite_(cipherSuite), dataPath_(dataPath), credentialName_(credentialName) {}
+                       const std::string& credentialName, uid_t callingUid,
+                       HardwareInformation hwInfo, sp<IIdentityCredentialStore> halStoreBinder,
+                       int halApiVersion)
+    : cipherSuite_(cipherSuite), dataPath_(dataPath), credentialName_(credentialName),
+      callingUid_(callingUid), hwInfo_(std::move(hwInfo)), halStoreBinder_(halStoreBinder),
+      halApiVersion_(halApiVersion) {}
 
 Credential::~Credential() {}
 
-Status Credential::loadCredential(sp<IIdentityCredentialStore> halStoreBinder) {
-    uid_t callingUid = android::IPCThreadState::self()->getCallingUid();
-    sp<CredentialData> data = new CredentialData(dataPath_, callingUid, credentialName_);
+Status Credential::ensureOrReplaceHalBinder() {
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
     if (!data->loadFromDisk()) {
         LOG(ERROR) << "Error loading data for credential";
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Error loading data for credential");
     }
 
-    data_ = data;
-
     sp<IIdentityCredential> halBinder;
     Status status =
-        halStoreBinder->getCredential(cipherSuite_, data_->getCredentialData(), &halBinder);
+        halStoreBinder_->getCredential(cipherSuite_, data->getCredentialData(), &halBinder);
     if (!status.isOk() && status.exceptionCode() == binder::Status::EX_SERVICE_SPECIFIC) {
         int code = status.serviceSpecificErrorCode();
         if (code == IIdentityCredentialStore::STATUS_CIPHER_SUITE_NOT_SUPPORTED) {
@@ -87,95 +98,135 @@ Status Credential::loadCredential(sp<IIdentityCredentialStore> halStoreBinder) {
         LOG(ERROR) << "Error getting HAL binder";
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC);
     }
-
     halBinder_ = halBinder;
 
     return Status::ok();
 }
 
 Status Credential::getCredentialKeyCertificateChain(std::vector<uint8_t>* _aidl_return) {
-    *_aidl_return = data_->getAttestationCertificate();
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
+    *_aidl_return = data->getAttestationCertificate();
     return Status::ok();
 }
 
 // Returns operation handle
-Status Credential::selectAuthKey(bool allowUsingExhaustedKeys, int64_t* _aidl_return) {
+Status Credential::selectAuthKey(bool allowUsingExhaustedKeys, bool allowUsingExpiredKeys,
+                                 int64_t* _aidl_return) {
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
 
-    selectedAuthKey_ = data_->selectAuthKey(allowUsingExhaustedKeys);
-    if (selectedAuthKey_ == nullptr) {
+    // We just check if a key is available, we actually don't store it since we
+    // don't keep CredentialData around between binder calls.
+    const AuthKeyData* authKey =
+        data->selectAuthKey(allowUsingExhaustedKeys, allowUsingExpiredKeys);
+    if (authKey == nullptr) {
         return Status::fromServiceSpecificError(
             ICredentialStore::ERROR_NO_AUTHENTICATION_KEY_AVAILABLE,
             "No suitable authentication key available");
     }
 
-    int64_t challenge;
-    Status status = halBinder_->createAuthChallenge(&challenge);
-    if (!status.isOk()) {
-        return halStatusToGenericError(status);
-    }
-    if (challenge == 0) {
+    if (!ensureChallenge()) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
-                                                "Returned challenge is 0 (bug in HAL or TA)");
+                                                "Error getting challenge (bug in HAL or TA)");
     }
-
-    selectedChallenge_ = challenge;
-    *_aidl_return = challenge;
+    *_aidl_return = selectedChallenge_;
     return Status::ok();
 }
 
-class CredstoreTokenCallback : public android::security::keystore::BnCredstoreTokenCallback,
-                               public promise<tuple<bool, vector<uint8_t>, vector<uint8_t>>> {
-  public:
-    CredstoreTokenCallback() {}
-    virtual Status onFinished(bool success, const vector<uint8_t>& authToken,
-                              const vector<uint8_t>& verificationToken) override {
-        this->set_value({success, authToken, verificationToken});
-        return Status::ok();
+bool Credential::ensureChallenge() {
+    if (selectedChallenge_ != 0) {
+        return true;
     }
-};
+
+    int64_t challenge;
+    Status status = halBinder_->createAuthChallenge(&challenge);
+    if (!status.isOk()) {
+        LOG(ERROR) << "Error getting challenge: " << status.exceptionMessage();
+        return false;
+    }
+    if (challenge == 0) {
+        LOG(ERROR) << "Returned challenge is 0 (bug in HAL or TA)";
+        return false;
+    }
+
+    selectedChallenge_ = challenge;
+    return true;
+}
 
 // Returns false if an error occurred communicating with keystore.
 //
-bool getTokensFromKeystore(uint64_t challenge, uint64_t secureUserId,
-                           unsigned int authTokenMaxAgeMillis, vector<uint8_t>& authToken,
-                           vector<uint8_t>& verificationToken) {
-    sp<IServiceManager> sm = defaultServiceManager();
-    sp<IBinder> binder = sm->getService(String16("android.security.keystore"));
-    sp<IKeystoreService> keystore = interface_cast<IKeystoreService>(binder);
-    if (keystore == nullptr) {
-        return false;
-    }
+bool getTokensFromKeystore2(uint64_t challenge, uint64_t secureUserId,
+                            unsigned int authTokenMaxAgeMillis,
+                            AidlHardwareAuthToken& aidlAuthToken,
+                            AidlVerificationToken& aidlVerificationToken) {
+    // try to connect to IKeystoreAuthorization AIDL service first.
+    AIBinder* authzAIBinder = AServiceManager_checkService("android.security.authorization");
+    ::ndk::SpAIBinder authzBinder(authzAIBinder);
+    auto authzService = IKeystoreAuthorization::fromBinder(authzBinder);
+    if (authzService) {
+        AuthorizationTokens authzTokens;
+        auto result = authzService->getAuthTokensForCredStore(challenge, secureUserId,
+                                                              authTokenMaxAgeMillis, &authzTokens);
+        // Convert KeyMint auth token to KeyMaster authtoken, only if tokens are
+        // returned
+        if (result.isOk()) {
+            KeyMintAuthToken keymintAuthToken = authzTokens.authToken;
+            aidlAuthToken.challenge = keymintAuthToken.challenge;
+            aidlAuthToken.userId = keymintAuthToken.userId;
+            aidlAuthToken.authenticatorId = keymintAuthToken.authenticatorId;
+            aidlAuthToken.authenticatorType =
+                ::android::hardware::keymaster::HardwareAuthenticatorType(
+                    int32_t(keymintAuthToken.authenticatorType));
+            aidlAuthToken.timestamp.milliSeconds = keymintAuthToken.timestamp.milliSeconds;
+            aidlAuthToken.mac = keymintAuthToken.mac;
 
-    sp<CredstoreTokenCallback> callback = new CredstoreTokenCallback();
-    auto future = callback->get_future();
-
-    Status status =
-        keystore->getTokensForCredstore(challenge, secureUserId, authTokenMaxAgeMillis, callback);
-    if (!status.isOk()) {
+            // Convert timestamp token to KeyMaster verification token
+            TimeStampToken timestampToken = authzTokens.timestampToken;
+            aidlVerificationToken.challenge = timestampToken.challenge;
+            aidlVerificationToken.timestamp.milliSeconds = timestampToken.timestamp.milliSeconds;
+            // Legacy verification tokens were always minted by TEE.
+            aidlVerificationToken.securityLevel = SecurityLevel::TRUSTED_ENVIRONMENT;
+            aidlVerificationToken.mac = timestampToken.mac;
+        } else {
+            if (result.getServiceSpecificError() == 0) {
+                // Here we differentiate the errors occurred during communication
+                // from the service specific errors.
+                LOG(ERROR) << "Error getting tokens from keystore2: " << result.getDescription();
+                return false;
+            } else {
+                // Log the reason for not receiving auth tokens from keystore2.
+                LOG(INFO) << "Auth tokens were not received due to: " << result.getDescription();
+            }
+        }
+        return true;
+    } else {
+        LOG(ERROR) << "Error connecting to IKeystoreAuthorization service";
         return false;
     }
-
-    auto fstatus = future.wait_for(std::chrono::milliseconds(5000));
-    if (fstatus != std::future_status::ready) {
-        LOG(ERROR) << "Waited 5 seconds from tokens for credstore, aborting";
-        return false;
-    }
-    auto [success, returnedAuthToken, returnedVerificationToken] = future.get();
-    if (!success) {
-        LOG(ERROR) << "Error getting tokens from credstore";
-        return false;
-    }
-    authToken = returnedAuthToken;
-    verificationToken = returnedVerificationToken;
-    return true;
 }
 
 Status Credential::getEntries(const vector<uint8_t>& requestMessage,
                               const vector<RequestNamespaceParcel>& requestNamespaces,
                               const vector<uint8_t>& sessionTranscript,
                               const vector<uint8_t>& readerSignature, bool allowUsingExhaustedKeys,
-                              GetEntriesResultParcel* _aidl_return) {
+                              bool allowUsingExpiredKeys, GetEntriesResultParcel* _aidl_return) {
     GetEntriesResultParcel ret;
+
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
 
     // Calculate requestCounts ahead of time and be careful not to include
     // elements that don't exist.
@@ -183,7 +234,7 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
     // Also go through and figure out which access control profiles to include
     // in the startRetrieval() call.
     vector<int32_t> requestCounts;
-    const vector<SecureAccessControlProfile>& allProfiles = data_->getSecureAccessControlProfiles();
+    const vector<SecureAccessControlProfile>& allProfiles = data->getSecureAccessControlProfiles();
 
     // We don't support ACP identifiers which isn't in the range 0 to 31. This
     // guarantee exists so it's feasible to implement the TA part of an Identity
@@ -202,13 +253,13 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
     for (const RequestNamespaceParcel& rns : requestNamespaces) {
         size_t numEntriesInNsToRequest = 0;
         for (const RequestEntryParcel& rep : rns.entries) {
-            if (data_->hasEntryData(rns.namespaceName, rep.name)) {
+            if (data->hasEntryData(rns.namespaceName, rep.name)) {
                 numEntriesInNsToRequest++;
             }
 
-            optional<EntryData> data = data_->getEntryData(rns.namespaceName, rep.name);
-            if (data) {
-                for (int32_t id : data.value().accessControlProfileIds) {
+            optional<EntryData> eData = data->getEntryData(rns.namespaceName, rep.name);
+            if (eData) {
+                for (int32_t id : eData.value().accessControlProfileIds) {
                     if (id < 0 || id >= 32) {
                         LOG(ERROR) << "Invalid accessControlProfileId " << id << " for "
                                    << rns.namespaceName << ": " << rep.name;
@@ -256,13 +307,6 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
         }
     }
 
-    // If requesting a challenge-based authToken the idea is that authentication
-    // happens as part of the transaction. As such, authTokenMaxAgeMillis should
-    // be nearly zero. We'll use 10 seconds for this.
-    if (userAuthNeeded && selectedChallenge_ != 0) {
-        authTokenMaxAgeMillis = 10 * 1000;
-    }
-
     // Reset tokens and only get them if they're actually needed, e.g. if user authentication
     // is needed in any of the access control profiles for data items being requested.
     //
@@ -280,63 +324,58 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
     aidlVerificationToken.securityLevel = ::android::hardware::keymaster::SecurityLevel::SOFTWARE;
     aidlVerificationToken.mac.clear();
     if (userAuthNeeded) {
-        vector<uint8_t> authTokenBytes;
-        vector<uint8_t> verificationTokenBytes;
-        if (!getTokensFromKeystore(selectedChallenge_, data_->getSecureUserId(),
-                                   authTokenMaxAgeMillis, authTokenBytes, verificationTokenBytes)) {
-            LOG(ERROR) << "Error getting tokens from keystore";
+        // If user authentication is needed, always get a challenge from the
+        // HAL/TA since it'll need it to check the returned VerificationToken
+        // for freshness.
+        if (!ensureChallenge()) {
             return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
-                                                    "Error getting tokens from keystore");
+                                                    "Error getting challenge (bug in HAL or TA)");
         }
 
-        // It's entirely possible getTokensFromKeystore() succeeded but didn't
-        // return any tokens (in which case the returned byte-vectors are
-        // empty). For example, this can happen if no auth token is available
-        // which satifies e.g. |authTokenMaxAgeMillis|.
+        // Note: if all selected profiles require auth-on-every-presentation
+        // then authTokenMaxAgeMillis will be 0 (because timeoutMillis for each
+        // profile is 0). Which means that keystore will only return an
+        // AuthToken if its challenge matches what we pass, regardless of its
+        // age. This is intended b/c the HAL/TA will check not care about
+        // the age in this case, it only cares that the challenge matches.
         //
-        if (authTokenBytes.size() > 0) {
-            HardwareAuthToken authToken =
-                android::hardware::keymaster::V4_0::support::hidlVec2AuthToken(authTokenBytes);
-            // Convert from HIDL to AIDL...
-            aidlAuthToken.challenge = int64_t(authToken.challenge);
-            aidlAuthToken.userId = int64_t(authToken.userId);
-            aidlAuthToken.authenticatorId = int64_t(authToken.authenticatorId);
-            aidlAuthToken.authenticatorType =
-                ::android::hardware::keymaster::HardwareAuthenticatorType(
-                    int32_t(authToken.authenticatorType));
-            aidlAuthToken.timestamp.milliSeconds = int64_t(authToken.timestamp);
-            aidlAuthToken.mac = authToken.mac;
-        }
+        // Otherwise, if one or more of the profiles is auth-with-a-timeout then
+        // authTokenMaxAgeMillis will be set to the largest of those
+        // timeouts. We'll get an AuthToken which satisfies this deadline if it
+        // exists. This authToken _may_ have the requested challenge but it's
+        // not a guarantee and it's also not required.
+        //
 
-        if (verificationTokenBytes.size() > 0) {
-            optional<VerificationToken> token =
-                android::hardware::keymaster::V4_0::support::deserializeVerificationToken(
-                    verificationTokenBytes);
-            if (!token) {
-                LOG(ERROR) << "Error deserializing verification token";
-                return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
-                                                        "Error deserializing verification token");
-            }
-            aidlVerificationToken.challenge = token->challenge;
-            aidlVerificationToken.timestamp.milliSeconds = token->timestamp;
-            aidlVerificationToken.securityLevel =
-                ::android::hardware::keymaster::SecurityLevel(token->securityLevel);
-            aidlVerificationToken.mac = token->mac;
+        if (!getTokensFromKeystore2(selectedChallenge_, data->getSecureUserId(),
+                                    authTokenMaxAgeMillis, aidlAuthToken, aidlVerificationToken)) {
+            LOG(ERROR) << "Error getting tokens from keystore2";
+            return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                    "Error getting tokens from keystore2");
         }
     }
 
     // Note that the selectAuthKey() method is only called if a CryptoObject is involved at
     // the Java layer. So we could end up with no previously selected auth key and we may
     // need one.
-    const AuthKeyData* authKey = selectedAuthKey_;
-    if (sessionTranscript.size() > 0) {
-        if (authKey == nullptr) {
-            authKey = data_->selectAuthKey(allowUsingExhaustedKeys);
-            if (authKey == nullptr) {
-                return Status::fromServiceSpecificError(
-                    ICredentialStore::ERROR_NO_AUTHENTICATION_KEY_AVAILABLE,
-                    "No suitable authentication key available");
-            }
+    //
+    const AuthKeyData* authKey =
+        data->selectAuthKey(allowUsingExhaustedKeys, allowUsingExpiredKeys);
+    if (authKey == nullptr) {
+        // If no authKey is available, consider it an error only when a
+        // SessionTranscript was provided.
+        //
+        // We allow no SessionTranscript to be provided because it makes
+        // the API simpler to deal with insofar it can be used without having
+        // to generate any authentication keys.
+        //
+        // In this "no SessionTranscript is provided" mode we don't return
+        // DeviceNameSpaces nor a MAC over DeviceAuthentication so we don't
+        // need a device key.
+        //
+        if (sessionTranscript.size() > 0) {
+            return Status::fromServiceSpecificError(
+                ICredentialStore::ERROR_NO_AUTHENTICATION_KEY_AVAILABLE,
+                "No suitable authentication key available and one is needed");
         }
     }
     vector<uint8_t> signingKeyBlob;
@@ -351,7 +390,7 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
         RequestNamespace ns;
         ns.namespaceName = rns.namespaceName;
         for (const RequestEntryParcel& rep : rns.entries) {
-            optional<EntryData> entryData = data_->getEntryData(rns.namespaceName, rep.name);
+            optional<EntryData> entryData = data->getEntryData(rns.namespaceName, rep.name);
             if (entryData) {
                 RequestDataItem di;
                 di.name = rep.name;
@@ -406,16 +445,16 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
             ResultEntryParcel resultEntryParcel;
             resultEntryParcel.name = rep.name;
 
-            optional<EntryData> data = data_->getEntryData(rns.namespaceName, rep.name);
-            if (!data) {
+            optional<EntryData> eData = data->getEntryData(rns.namespaceName, rep.name);
+            if (!eData) {
                 resultEntryParcel.status = STATUS_NO_SUCH_ENTRY;
                 resultNamespaceParcel.entries.push_back(resultEntryParcel);
                 continue;
             }
 
             status =
-                halBinder_->startRetrieveEntryValue(rns.namespaceName, rep.name, data.value().size,
-                                                    data.value().accessControlProfileIds);
+                halBinder_->startRetrieveEntryValue(rns.namespaceName, rep.name, eData.value().size,
+                                                    eData.value().accessControlProfileIds);
             if (!status.isOk() && status.exceptionCode() == binder::Status::EX_SERVICE_SPECIFIC) {
                 int code = status.serviceSpecificErrorCode();
                 if (code == IIdentityCredentialStore::STATUS_USER_AUTHENTICATION_FAILED) {
@@ -441,7 +480,7 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
             }
 
             vector<uint8_t> value;
-            for (const auto& encryptedChunk : data.value().encryptedChunks) {
+            for (const auto& encryptedChunk : eData.value().encryptedChunks) {
                 vector<uint8_t> chunk;
                 status = halBinder_->retrieveEntryValue(encryptedChunk, &chunk);
                 if (!status.isOk()) {
@@ -467,7 +506,7 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
 
     // Ensure useCount is updated on disk.
     if (authKey != nullptr) {
-        if (!data_->saveToDisk()) {
+        if (!data->saveToDisk()) {
             return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                     "Error saving data");
         }
@@ -479,15 +518,64 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
 
 Status Credential::deleteCredential(vector<uint8_t>* _aidl_return) {
     vector<uint8_t> proofOfDeletionSignature;
+
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
+
     Status status = halBinder_->deleteCredential(&proofOfDeletionSignature);
     if (!status.isOk()) {
         return halStatusToGenericError(status);
     }
-    if (!data_->deleteCredential()) {
+    if (!data->deleteCredential()) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Error deleting credential data on disk");
     }
     *_aidl_return = proofOfDeletionSignature;
+    return Status::ok();
+}
+
+Status Credential::deleteWithChallenge(const vector<uint8_t>& challenge,
+                                       vector<uint8_t>* _aidl_return) {
+    if (halApiVersion_ < 3) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_NOT_SUPPORTED,
+                                                "Not implemented by HAL");
+    }
+    vector<uint8_t> proofOfDeletionSignature;
+
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
+
+    Status status = halBinder_->deleteCredentialWithChallenge(challenge, &proofOfDeletionSignature);
+    if (!status.isOk()) {
+        return halStatusToGenericError(status);
+    }
+    if (!data->deleteCredential()) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error deleting credential data on disk");
+    }
+    *_aidl_return = proofOfDeletionSignature;
+    return Status::ok();
+}
+
+Status Credential::proveOwnership(const vector<uint8_t>& challenge, vector<uint8_t>* _aidl_return) {
+    if (halApiVersion_ < 3) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_NOT_SUPPORTED,
+                                                "Not implemented by HAL");
+    }
+    vector<uint8_t> proofOfOwnershipSignature;
+    Status status = halBinder_->proveOwnership(challenge, &proofOfOwnershipSignature);
+    if (!status.isOk()) {
+        return halStatusToGenericError(status);
+    }
+    *_aidl_return = proofOfOwnershipSignature;
     return Status::ok();
 }
 
@@ -522,8 +610,14 @@ Status Credential::setReaderEphemeralPublicKey(const vector<uint8_t>& publicKey)
 }
 
 Status Credential::setAvailableAuthenticationKeys(int32_t keyCount, int32_t maxUsesPerKey) {
-    data_->setAvailableAuthenticationKeys(keyCount, maxUsesPerKey);
-    if (!data_->saveToDisk()) {
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
+    data->setAvailableAuthenticationKeys(keyCount, maxUsesPerKey);
+    if (!data->saveToDisk()) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Error saving data");
     }
@@ -531,8 +625,14 @@ Status Credential::setAvailableAuthenticationKeys(int32_t keyCount, int32_t maxU
 }
 
 Status Credential::getAuthKeysNeedingCertification(vector<AuthKeyParcel>* _aidl_return) {
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
     optional<vector<vector<uint8_t>>> keysNeedingCert =
-        data_->getAuthKeysNeedingCertification(halBinder_);
+        data->getAuthKeysNeedingCertification(halBinder_);
     if (!keysNeedingCert) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Error getting auth keys neededing certification");
@@ -543,7 +643,7 @@ Status Credential::getAuthKeysNeedingCertification(vector<AuthKeyParcel>* _aidl_
         authKeyParcel.x509cert = key;
         authKeyParcels.push_back(authKeyParcel);
     }
-    if (!data_->saveToDisk()) {
+    if (!data->saveToDisk()) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Error saving data");
     }
@@ -553,13 +653,48 @@ Status Credential::getAuthKeysNeedingCertification(vector<AuthKeyParcel>* _aidl_
 
 Status Credential::storeStaticAuthenticationData(const AuthKeyParcel& authenticationKey,
                                                  const vector<uint8_t>& staticAuthData) {
-    if (!data_->storeStaticAuthenticationData(authenticationKey.x509cert, staticAuthData)) {
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
+    if (!data->storeStaticAuthenticationData(authenticationKey.x509cert,
+                                             std::numeric_limits<int64_t>::max(), staticAuthData)) {
         return Status::fromServiceSpecificError(
             ICredentialStore::ERROR_AUTHENTICATION_KEY_NOT_FOUND,
             "Error finding authentication key to store static "
             "authentication data for");
     }
-    if (!data_->saveToDisk()) {
+    if (!data->saveToDisk()) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error saving data");
+    }
+    return Status::ok();
+}
+
+Status
+Credential::storeStaticAuthenticationDataWithExpiration(const AuthKeyParcel& authenticationKey,
+                                                        int64_t expirationDateMillisSinceEpoch,
+                                                        const vector<uint8_t>& staticAuthData) {
+    if (halApiVersion_ < 3) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_NOT_SUPPORTED,
+                                                "Not implemented by HAL");
+    }
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
+    if (!data->storeStaticAuthenticationData(authenticationKey.x509cert,
+                                             expirationDateMillisSinceEpoch, staticAuthData)) {
+        return Status::fromServiceSpecificError(
+            ICredentialStore::ERROR_AUTHENTICATION_KEY_NOT_FOUND,
+            "Error finding authentication key to store static "
+            "authentication data for");
+    }
+    if (!data->saveToDisk()) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Error saving data");
     }
@@ -567,13 +702,98 @@ Status Credential::storeStaticAuthenticationData(const AuthKeyParcel& authentica
 }
 
 Status Credential::getAuthenticationDataUsageCount(vector<int32_t>* _aidl_return) {
-    const vector<AuthKeyData>& authKeyDatas = data_->getAuthKeyDatas();
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
+    const vector<AuthKeyData>& authKeyDatas = data->getAuthKeyDatas();
     vector<int32_t> ret;
     for (const AuthKeyData& authKeyData : authKeyDatas) {
         ret.push_back(authKeyData.useCount);
     }
     *_aidl_return = ret;
     return Status::ok();
+}
+
+optional<string> extractDocType(const vector<uint8_t>& credentialData) {
+    auto [item, _ /* newPos */, message] = cppbor::parse(credentialData);
+    if (item == nullptr) {
+        LOG(ERROR) << "CredentialData is not valid CBOR: " << message;
+        return {};
+    }
+    const cppbor::Array* array = item->asArray();
+    if (array == nullptr || array->size() < 1) {
+        LOG(ERROR) << "CredentialData array with at least one element";
+        return {};
+    }
+    const cppbor::Tstr* tstr = ((*array)[0])->asTstr();
+    if (tstr == nullptr) {
+        LOG(ERROR) << "First item in CredentialData is not a string";
+        return {};
+    }
+    return tstr->value();
+}
+
+Status Credential::update(sp<IWritableCredential>* _aidl_return) {
+    if (halApiVersion_ < 3) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_NOT_SUPPORTED,
+                                                "Not implemented by HAL");
+    }
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
+
+    sp<IWritableIdentityCredential> halWritableCredential;
+    Status status = halBinder_->updateCredential(&halWritableCredential);
+    if (!status.isOk()) {
+        return halStatusToGenericError(status);
+    }
+
+    optional<string> docType = extractDocType(data->getCredentialData());
+    if (!docType) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Unable to extract DocType from CredentialData");
+    }
+
+    // NOTE: The caller is expected to call WritableCredential::personalize() which will
+    // write brand new data to disk, specifically it will overwrite any data already
+    // have _including_ authentication keys.
+    //
+    // It is because of this we need to set the CredentialKey certificate chain,
+    // keyCount, and maxUsesPerKey below.
+    sp<WritableCredential> writableCredential = new WritableCredential(
+        dataPath_, credentialName_, docType.value(), true, hwInfo_, halWritableCredential);
+
+    writableCredential->setAttestationCertificate(data->getAttestationCertificate());
+    auto [keyCount, maxUsesPerKey] = data->getAvailableAuthenticationKeys();
+    writableCredential->setAvailableAuthenticationKeys(keyCount, maxUsesPerKey);
+
+    // Because its data has changed, we need to replace the binder for the
+    // IIdentityCredential when the credential has been updated... otherwise the
+    // remote object will have stale data for future calls, for example
+    // getAuthKeysNeedingCertification().
+    //
+    // The way this is implemented is that setCredentialToReloadWhenUpdated()
+    // instructs the WritableCredential to call writableCredentialPersonalized()
+    // on |this|.
+    //
+    //
+    writableCredential->setCredentialToReloadWhenUpdated(this);
+
+    *_aidl_return = writableCredential;
+    return Status::ok();
+}
+
+void Credential::writableCredentialPersonalized() {
+    Status status = ensureOrReplaceHalBinder();
+    if (!status.isOk()) {
+        LOG(ERROR) << "Error reloading credential";
+    }
 }
 
 }  // namespace identity

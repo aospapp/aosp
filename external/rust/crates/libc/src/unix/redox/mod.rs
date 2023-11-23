@@ -258,7 +258,7 @@ pub const F_GETLK: ::c_int = 5;
 pub const F_SETLK: ::c_int = 6;
 pub const F_SETLKW: ::c_int = 7;
 
-// TODO: relibc {
+// FIXME: relibc {
 pub const RTLD_DEFAULT: *mut ::c_void = 0i64 as *mut ::c_void;
 // }
 
@@ -413,7 +413,7 @@ pub const F_GETFD: ::c_int = 1;
 pub const F_SETFD: ::c_int = 2;
 pub const F_GETFL: ::c_int = 3;
 pub const F_SETFL: ::c_int = 4;
-// TODO: relibc {
+// FIXME: relibc {
 pub const F_DUPFD_CLOEXEC: ::c_int = ::F_DUPFD;
 // }
 pub const FD_CLOEXEC: ::c_int = 0x0100_0000;
@@ -435,14 +435,21 @@ pub const O_DIRECTORY: ::c_int = 0x1000_0000;
 pub const O_PATH: ::c_int = 0x2000_0000;
 pub const O_SYMLINK: ::c_int = 0x4000_0000;
 // Negative to allow it to be used as int
-// TODO: Fix negative values missing from includes
+// FIXME: Fix negative values missing from includes
 pub const O_NOFOLLOW: ::c_int = -0x8000_0000;
 
 // netdb.h
 pub const EAI_SYSTEM: ::c_int = -11;
+pub const NI_MAXHOST: ::c_int = 1025;
+pub const NI_MAXSERV: ::c_int = 32;
+pub const NI_NUMERICHOST: ::c_int = 0x0001;
+pub const NI_NUMERICSERV: ::c_int = 0x0002;
+pub const NI_NOFQDN: ::c_int = 0x0004;
+pub const NI_NAMEREQD: ::c_int = 0x0008;
+pub const NI_DGRAM: ::c_int = 0x0010;
 
 // netinet/in.h
-// TODO: relibc {
+// FIXME: relibc {
 pub const IP_TTL: ::c_int = 2;
 pub const IPV6_UNICAST_HOPS: ::c_int = 16;
 pub const IPV6_MULTICAST_IF: ::c_int = 17;
@@ -460,7 +467,7 @@ pub const IP_DROP_MEMBERSHIP: ::c_int = 36;
 
 // netinet/tcp.h
 pub const TCP_NODELAY: ::c_int = 1;
-// TODO: relibc {
+// FIXME: relibc {
 pub const TCP_KEEPIDLE: ::c_int = 1;
 // }
 
@@ -526,6 +533,12 @@ pub const SA_RESTART: ::c_ulong = 0x10000000;
 pub const SA_NODEFER: ::c_ulong = 0x40000000;
 pub const SA_RESETHAND: ::c_ulong = 0x80000000;
 
+// sys/file.h
+pub const LOCK_SH: ::c_int = 1;
+pub const LOCK_EX: ::c_int = 2;
+pub const LOCK_NB: ::c_int = 4;
+pub const LOCK_UN: ::c_int = 8;
+
 // sys/epoll.h
 pub const EPOLL_CLOEXEC: ::c_int = 0x0100_0000;
 pub const EPOLL_CTL_ADD: ::c_int = 1;
@@ -575,7 +588,7 @@ pub const EXIT_SUCCESS: ::c_int = 0;
 pub const EXIT_FAILURE: ::c_int = 1;
 
 // sys/ioctl.h
-// TODO: relibc {
+// FIXME: relibc {
 pub const FIONBIO: ::c_ulong = 0x5421;
 pub const FIOCLEX: ::c_ulong = 0x5451;
 // }
@@ -587,29 +600,77 @@ pub const TIOCSPGRP: ::c_ulong = 0x5410;
 pub const TIOCGWINSZ: ::c_ulong = 0x5413;
 pub const TIOCSWINSZ: ::c_ulong = 0x5414;
 
+// sys/mman.h
+pub const PROT_NONE: ::c_int = 0x0000;
+pub const PROT_READ: ::c_int = 0x0004;
+pub const PROT_WRITE: ::c_int = 0x0002;
+pub const PROT_EXEC: ::c_int = 0x0001;
+
+pub const MAP_SHARED: ::c_int = 0x0001;
+pub const MAP_PRIVATE: ::c_int = 0x0002;
+pub const MAP_ANON: ::c_int = 0x0020;
+pub const MAP_ANONYMOUS: ::c_int = MAP_ANON;
+pub const MAP_FIXED: ::c_int = 0x0010;
+pub const MAP_FAILED: *mut ::c_void = !0 as _;
+
+pub const MS_ASYNC: ::c_int = 0x0001;
+pub const MS_INVALIDATE: ::c_int = 0x0002;
+pub const MS_SYNC: ::c_int = 0x0004;
+
 // sys/select.h
 pub const FD_SETSIZE: usize = 1024;
 
 // sys/socket.h
-pub const AF_UNIX: ::c_int = 1;
 pub const AF_INET: ::c_int = 2;
 pub const AF_INET6: ::c_int = 10;
+pub const AF_UNIX: ::c_int = 1;
+pub const AF_UNSPEC: ::c_int = 0;
+pub const PF_INET: ::c_int = 2;
+pub const PF_INET6: ::c_int = 10;
+pub const PF_UNIX: ::c_int = 1;
+pub const PF_UNSPEC: ::c_int = 0;
+pub const MSG_CTRUNC: ::c_int = 8;
+pub const MSG_DONTROUTE: ::c_int = 4;
+pub const MSG_EOR: ::c_int = 128;
+pub const MSG_OOB: ::c_int = 1;
 pub const MSG_PEEK: ::c_int = 2;
+pub const MSG_TRUNC: ::c_int = 32;
+pub const MSG_WAITALL: ::c_int = 256;
 pub const SHUT_RD: ::c_int = 0;
 pub const SHUT_WR: ::c_int = 1;
 pub const SHUT_RDWR: ::c_int = 2;
+pub const SO_DEBUG: ::c_int = 1;
 pub const SO_REUSEADDR: ::c_int = 2;
+pub const SO_TYPE: ::c_int = 3;
 pub const SO_ERROR: ::c_int = 4;
+pub const SO_DONTROUTE: ::c_int = 5;
 pub const SO_BROADCAST: ::c_int = 6;
 pub const SO_SNDBUF: ::c_int = 7;
 pub const SO_RCVBUF: ::c_int = 8;
 pub const SO_KEEPALIVE: ::c_int = 9;
+pub const SO_OOBINLINE: ::c_int = 10;
+pub const SO_NO_CHECK: ::c_int = 11;
+pub const SO_PRIORITY: ::c_int = 12;
 pub const SO_LINGER: ::c_int = 13;
+pub const SO_BSDCOMPAT: ::c_int = 14;
 pub const SO_REUSEPORT: ::c_int = 15;
+pub const SO_PASSCRED: ::c_int = 16;
+pub const SO_PEERCRED: ::c_int = 17;
+pub const SO_RCVLOWAT: ::c_int = 18;
+pub const SO_SNDLOWAT: ::c_int = 19;
 pub const SO_RCVTIMEO: ::c_int = 20;
 pub const SO_SNDTIMEO: ::c_int = 21;
+pub const SO_ACCEPTCONN: ::c_int = 30;
+pub const SO_PEERSEC: ::c_int = 31;
+pub const SO_SNDBUFFORCE: ::c_int = 32;
+pub const SO_RCVBUFFORCE: ::c_int = 33;
+pub const SO_PROTOCOL: ::c_int = 38;
+pub const SO_DOMAIN: ::c_int = 39;
 pub const SOCK_STREAM: ::c_int = 1;
 pub const SOCK_DGRAM: ::c_int = 2;
+pub const SOCK_NONBLOCK: ::c_int = 0o4_000;
+pub const SOCK_CLOEXEC: ::c_int = 0o2_000_000;
+pub const SOCK_SEQPACKET: ::c_int = 5;
 pub const SOL_SOCKET: ::c_int = 1;
 
 // sys/termios.h
@@ -806,37 +867,69 @@ pub const _PC_ALLOC_SIZE_MIN: ::c_int = 18;
 pub const _PC_SYMLINK_MAX: ::c_int = 19;
 pub const _PC_2_SYMLINKS: ::c_int = 20;
 
+pub const PRIO_PROCESS: ::c_int = 0;
+pub const PRIO_PGRP: ::c_int = 1;
+pub const PRIO_USER: ::c_int = 2;
+
 // wait.h
 f! {
-    pub fn WIFSTOPPED(status: ::c_int) -> bool {
+    pub fn FD_CLR(fd: ::c_int, set: *mut fd_set) -> () {
+        let fd = fd as usize;
+        let size = ::mem::size_of_val(&(*set).fds_bits[0]) * 8;
+        (*set).fds_bits[fd / size] &= !(1 << (fd % size));
+        return
+    }
+
+    pub fn FD_ISSET(fd: ::c_int, set: *mut fd_set) -> bool {
+        let fd = fd as usize;
+        let size = ::mem::size_of_val(&(*set).fds_bits[0]) * 8;
+        return ((*set).fds_bits[fd / size] & (1 << (fd % size))) != 0
+    }
+
+    pub fn FD_SET(fd: ::c_int, set: *mut fd_set) -> () {
+        let fd = fd as usize;
+        let size = ::mem::size_of_val(&(*set).fds_bits[0]) * 8;
+        (*set).fds_bits[fd / size] |= 1 << (fd % size);
+        return
+    }
+
+    pub fn FD_ZERO(set: *mut fd_set) -> () {
+        for slot in (*set).fds_bits.iter_mut() {
+            *slot = 0;
+        }
+    }
+}
+
+safe_f! {
+    pub {const} fn WIFSTOPPED(status: ::c_int) -> bool {
         (status & 0xff) == 0x7f
     }
 
-    pub fn WSTOPSIG(status: ::c_int) -> ::c_int {
+    pub {const} fn WSTOPSIG(status: ::c_int) -> ::c_int {
         (status >> 8) & 0xff
     }
 
-    pub fn WIFCONTINUED(status: ::c_int) -> bool {
+    pub {const} fn WIFCONTINUED(status: ::c_int) -> bool {
         status == 0xffff
     }
 
-    pub fn WIFSIGNALED(status: ::c_int) -> bool {
+    pub {const} fn WIFSIGNALED(status: ::c_int) -> bool {
         ((status & 0x7f) + 1) as i8 >= 2
     }
 
-    pub fn WTERMSIG(status: ::c_int) -> ::c_int {
+    pub {const} fn WTERMSIG(status: ::c_int) -> ::c_int {
         status & 0x7f
     }
 
-    pub fn WIFEXITED(status: ::c_int) -> bool {
+    pub {const} fn WIFEXITED(status: ::c_int) -> bool {
         (status & 0x7f) == 0
     }
 
-    pub fn WEXITSTATUS(status: ::c_int) -> ::c_int {
+    pub {const} fn WEXITSTATUS(status: ::c_int) -> ::c_int {
         (status >> 8) & 0xff
     }
 
-    pub fn WCOREDUMP(status: ::c_int) -> bool {
+    pub {const} fn WCOREDUMP(status: ::c_int) -> bool {
         (status & 0x80) != 0
     }
 }
@@ -844,11 +937,7 @@ f! {
 extern "C" {
     // errno.h
     pub fn __errno_location() -> *mut ::c_int;
-    pub fn strerror_r(
-        errnum: ::c_int,
-        buf: *mut c_char,
-        buflen: ::size_t,
-    ) -> ::c_int;
+    pub fn strerror_r(errnum: ::c_int, buf: *mut c_char, buflen: ::size_t) -> ::c_int;
 
     // unistd.h
     pub fn pipe2(fds: *mut ::c_int, flags: ::c_int) -> ::c_int;
@@ -898,26 +987,24 @@ extern "C" {
         maxevents: ::c_int,
         timeout: ::c_int,
     ) -> ::c_int;
-    pub fn epoll_ctl(
-        epfd: ::c_int,
-        op: ::c_int,
-        fd: ::c_int,
-        event: *mut ::epoll_event,
-    ) -> ::c_int;
+    pub fn epoll_ctl(epfd: ::c_int, op: ::c_int, fd: ::c_int, event: *mut ::epoll_event)
+        -> ::c_int;
 
     // sys/ioctl.h
     pub fn ioctl(fd: ::c_int, request: ::c_ulong, ...) -> ::c_int;
+
+    // sys/mman.h
+    pub fn msync(addr: *mut ::c_void, len: ::size_t, flags: ::c_int) -> ::c_int;
+    pub fn mprotect(addr: *mut ::c_void, len: ::size_t, prot: ::c_int) -> ::c_int;
+    pub fn shm_open(name: *const c_char, oflag: ::c_int, mode: mode_t) -> ::c_int;
+    pub fn shm_unlink(name: *const ::c_char) -> ::c_int;
 
     // sys/resource.h
     pub fn getrlimit(resource: ::c_int, rlim: *mut ::rlimit) -> ::c_int;
     pub fn setrlimit(resource: ::c_int, rlim: *const ::rlimit) -> ::c_int;
 
     // sys/socket.h
-    pub fn bind(
-        socket: ::c_int,
-        address: *const ::sockaddr,
-        address_len: ::socklen_t,
-    ) -> ::c_int;
+    pub fn bind(socket: ::c_int, address: *const ::sockaddr, address_len: ::socklen_t) -> ::c_int;
     pub fn recvfrom(
         socket: ::c_int,
         buf: *mut ::c_void,
@@ -931,16 +1018,8 @@ extern "C" {
     pub fn futimens(fd: ::c_int, times: *const ::timespec) -> ::c_int;
 
     // sys/uio.h
-    pub fn readv(
-        fd: ::c_int,
-        iov: *const ::iovec,
-        iovcnt: ::c_int,
-    ) -> ::ssize_t;
-    pub fn writev(
-        fd: ::c_int,
-        iov: *const ::iovec,
-        iovcnt: ::c_int,
-    ) -> ::ssize_t;
+    pub fn readv(fd: ::c_int, iov: *const ::iovec, iovcnt: ::c_int) -> ::ssize_t;
+    pub fn writev(fd: ::c_int, iov: *const ::iovec, iovcnt: ::c_int) -> ::ssize_t;
 
     // sys/utsname.h
     pub fn uname(utsname: *mut utsname) -> ::c_int;

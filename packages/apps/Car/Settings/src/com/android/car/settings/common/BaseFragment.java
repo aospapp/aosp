@@ -16,8 +16,7 @@
 
 package com.android.car.settings.common;
 
-import static com.android.car.ui.core.CarUi.requireInsets;
-import static com.android.car.ui.core.CarUi.requireToolbar;
+import static com.android.car.settings.common.BaseCarSettingsActivity.META_DATA_KEY_SINGLE_PANE;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
@@ -33,10 +32,8 @@ import androidx.annotation.StringRes;
 import androidx.fragment.app.Fragment;
 
 import com.android.car.settings.R;
-import com.android.car.ui.baselayout.Insets;
-import com.android.car.ui.baselayout.InsetsChangedListener;
 import com.android.car.ui.toolbar.MenuItem;
-import com.android.car.ui.toolbar.Toolbar;
+import com.android.car.ui.toolbar.NavButtonMode;
 import com.android.car.ui.toolbar.ToolbarController;
 
 import java.util.List;
@@ -45,7 +42,7 @@ import java.util.List;
  * Base fragment for setting activity.
  */
 public abstract class BaseFragment extends Fragment implements
-        CarUxRestrictionsManager.OnUxRestrictionsChangedListener, InsetsChangedListener {
+        CarUxRestrictionsManager.OnUxRestrictionsChangedListener {
 
     /**
      * Return the {@link FragmentHost}.
@@ -98,16 +95,12 @@ public abstract class BaseFragment extends Fragment implements
         return null;
     }
 
-    protected Toolbar.State getToolbarState() {
-        return Toolbar.State.SUBPAGE;
-    }
-
-    protected Toolbar.NavButtonMode getToolbarNavButtonStyle() {
-        return Toolbar.NavButtonMode.BACK;
+    protected NavButtonMode getToolbarNavButtonStyle() {
+        return NavButtonMode.BACK;
     }
 
     protected final ToolbarController getToolbar() {
-        return requireToolbar(requireActivity());
+        return getFragmentHost().getToolbar();
     }
 
     @Override
@@ -144,21 +137,9 @@ public abstract class BaseFragment extends Fragment implements
             }
             toolbar.setTitle(getTitleId());
             toolbar.setMenuItems(items);
-            toolbar.setState(getToolbarState());
-            toolbar.setNavButtonMode(getToolbarNavButtonStyle());
-        }
-    }
-
-    @Override
-    public void onCarUiInsetsChanged(Insets insets) {
-        View view = requireView();
-        View recyclerView = view.findViewById(R.id.recycler_view);
-        if (recyclerView != null) {
-            recyclerView.setPadding(0, insets.getTop(), 0, insets.getBottom());
-            view.setPadding(insets.getLeft(), 0, insets.getRight(), 0);
-        } else {
-            view.setPadding(insets.getLeft(), insets.getTop(),
-                    insets.getRight(), insets.getBottom());
+            if (getActivity().getIntent().getBooleanExtra(META_DATA_KEY_SINGLE_PANE, false)) {
+                toolbar.setNavButtonMode(getToolbarNavButtonStyle());
+            }
         }
     }
 
@@ -166,7 +147,6 @@ public abstract class BaseFragment extends Fragment implements
     public void onStart() {
         super.onStart();
         onUxRestrictionsChanged(getCurrentRestrictions());
-        onCarUiInsetsChanged(requireInsets(requireActivity()));
     }
 
     /**

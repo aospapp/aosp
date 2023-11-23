@@ -58,4 +58,7 @@ message SessionState {
   // The names of the apexes within this session. Only populated for sessions
   // that have been activated.
   repeated string apex_names = 9;
+
+  // Populated with error details when session fails to activate
+  string error_message = 10;
 }

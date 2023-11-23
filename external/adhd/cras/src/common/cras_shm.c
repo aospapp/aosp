@@ -116,35 +116,31 @@ int cras_audio_shm_create(struct cras_shm_info *header_info,
 	 * The parameters are cleared, and the owner of cras_audio_shm is now
 	 * responsible for closing the fds and unlinking any associated shm
 	 * files using cras_audio_shm_destroy.
-	 *
-	 * The source pointers are updated to point to the moved structs so that
-	 * they will be properly cleaned up in the error case.
 	 */
 	ret = cras_shm_info_move(header_info, &shm->header_info);
 	if (ret)
 		goto free_shm;
-	header_info = &shm->header_info;
 
 	ret = cras_shm_info_move(samples_info, &shm->samples_info);
 	if (ret)
 		goto free_shm;
-	samples_info = &shm->samples_info;
 
-	shm->header = mmap(NULL, header_info->length, PROT_READ | PROT_WRITE,
-			   MAP_SHARED, header_info->fd, 0);
+	shm->header =
+		mmap(NULL, shm->header_info.length, PROT_READ | PROT_WRITE,
+		     MAP_SHARED, shm->header_info.fd, 0);
 	if (shm->header == (struct cras_audio_shm_header *)-1) {
-		ret = errno;
+		ret = -errno;
 		syslog(LOG_ERR, "cras_shm: mmap failed to map shm for header.");
 		goto free_shm;
 	}
 
-	shm->samples = mmap(NULL, samples_info->length, samples_prot,
-			    MAP_SHARED, samples_info->fd, 0);
+	shm->samples = mmap(NULL, shm->samples_info.length, samples_prot,
+			    MAP_SHARED, shm->samples_info.fd, 0);
 	if (shm->samples == (uint8_t *)-1) {
-		ret = errno;
+		ret = -errno;
 		syslog(LOG_ERR,
 		       "cras_shm: mmap failed to map shm for samples.");
-		goto unmap_header;
+		goto free_shm;
 	}
 
 	cras_shm_set_volume_scaler(shm, 1.0);
@@ -152,10 +148,8 @@ int cras_audio_shm_create(struct cras_shm_info *header_info,
 	*shm_out = shm;
 	return 0;
 
-unmap_header:
-	munmap(shm->header, shm->header_info.length);
 free_shm:
-	free(shm);
+	cras_audio_shm_destroy(shm);
 cleanup_info:
 	cras_shm_info_cleanup(samples_info);
 	cras_shm_info_cleanup(header_info);
@@ -167,9 +161,12 @@ void cras_audio_shm_destroy(struct cras_audio_shm *shm)
 	if (!shm)
 		return;
 
-	munmap(shm->samples, shm->samples_info.length);
+	if (shm->samples != NULL && shm->samples != (uint8_t *)-1)
+		munmap(shm->samples, shm->samples_info.length);
 	cras_shm_info_cleanup(&shm->samples_info);
-	munmap(shm->header, shm->header_info.length);
+	if (shm->header != NULL &&
+	    shm->header != (struct cras_audio_shm_header *)-1)
+		munmap(shm->header, shm->header_info.length);
 	cras_shm_info_cleanup(&shm->header_info);
 	free(shm);
 }
@@ -253,7 +250,7 @@ int cras_shm_open_rw(const char *name, size_t size)
 		       strerror(-fd));
 		return fd;
 	}
-	rc = ftruncate(fd, size);
+	rc = posix_fallocate(fd, 0, size);
 	if (rc) {
 		rc = -errno;
 		syslog(LOG_ERR, "failed to set size of shm %s: %s\n", name,

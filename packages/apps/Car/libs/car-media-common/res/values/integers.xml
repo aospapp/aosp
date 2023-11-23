@@ -36,4 +36,7 @@
     -->
     <integer name="media_items_bitmap_max_size_px">256</integer>
 
+    <!-- The maximum number of lines for the error message in the media widget. -->
+    <integer name="widget_error_text_max_lines">3</integer>
+
 </resources>

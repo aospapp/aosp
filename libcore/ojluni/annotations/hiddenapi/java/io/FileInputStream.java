@@ -104,7 +104,7 @@ public class FileInputStream extends java.io.InputStream {
 
     private volatile boolean closed = false;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private final java.io.FileDescriptor fd;
 
     {

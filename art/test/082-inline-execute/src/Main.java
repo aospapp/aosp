@@ -44,6 +44,7 @@ public class Main {
     test_Math_isNaN_F();
     test_Math_isInfinite_D();
     test_Math_isInfinite_F();
+    test_Math_multiplyHigh();
     test_Short_reverseBytes();
     test_Integer_reverseBytes();
     test_Long_reverseBytes();
@@ -82,6 +83,8 @@ public class Main {
     test_Memory_pokeShort();
     test_Memory_pokeInt();
     test_Memory_pokeLong();
+    test_Integer_divideUnsigned();
+    test_Long_divideUnsigned();
     test_Integer_numberOfTrailingZeros();
     test_Long_numberOfTrailingZeros();
     test_Integer_rotateRight();
@@ -976,6 +979,12 @@ public class Main {
     Assert.assertFalse(Float.isInfinite(Float.intBitsToFloat(0x80000001)));
   }
 
+  public static void test_Math_multiplyHigh() {
+    Math.multiplyHigh(2L, 3L);
+    Assert.assertEquals(Math.multiplyHigh(2L, 3L), 0L);
+    Assert.assertEquals(Math.multiplyHigh(Long.MAX_VALUE, Long.MAX_VALUE), 4611686018427387903L);
+  }
+
   public static void test_StrictMath_abs_I() {
     StrictMath.abs(-1);
     Assert.assertEquals(StrictMath.abs(0), 0);
@@ -1374,6 +1383,65 @@ public class Main {
       throw new Error();
     }
     return 0;
+  }
+
+  public static void test_Integer_divideUnsigned() {
+    Assert.assertEquals(Integer.divideUnsigned(100, 10), 10);
+    Assert.assertEquals(Integer.divideUnsigned(100, 1), 100);
+    Assert.assertEquals(Integer.divideUnsigned(1024, 128), 8);
+    Assert.assertEquals(Integer.divideUnsigned(12345678, 264), 46763);
+    Assert.assertEquals(Integer.divideUnsigned(13, 5), 2);
+    Assert.assertEquals(Integer.divideUnsigned(-2, 2), Integer.MAX_VALUE);
+    Assert.assertEquals(Integer.divideUnsigned(-1, 2), Integer.MAX_VALUE);
+    Assert.assertEquals(Integer.divideUnsigned(100000, -1), 0);
+    Assert.assertEquals(Integer.divideUnsigned(Integer.MAX_VALUE, -1), 0);
+    Assert.assertEquals(Integer.divideUnsigned(-2, -1), 0);
+    Assert.assertEquals(Integer.divideUnsigned(-1, -2), 1);
+    Assert.assertEquals(Integer.divideUnsigned(-173448, 13), 330368757);
+    Assert.assertEquals(Integer.divideUnsigned(Integer.MIN_VALUE, 2), (1 << 30));
+    Assert.assertEquals(Integer.divideUnsigned(-1, Integer.MIN_VALUE), 1);
+    Assert.assertEquals(Integer.divideUnsigned(Integer.MAX_VALUE, Integer.MIN_VALUE), 0);
+    Assert.assertEquals(Integer.divideUnsigned(Integer.MIN_VALUE, Integer.MAX_VALUE), 1);
+
+    try {
+      Integer.divideUnsigned(1, 0);
+      Assert.fail("Unreachable");
+    } catch (ArithmeticException expected) {
+    }
+  }
+
+
+  private static final long BIG_LONG_VALUE = 739287620162442240L;
+
+  public static void test_Long_divideUnsigned() {
+    Assert.assertEquals(Long.divideUnsigned(100L, 10L), 10L);
+    Assert.assertEquals(Long.divideUnsigned(100L, 1L), 100L);
+    Assert.assertEquals(Long.divideUnsigned(1024L, 128L), 8L);
+    Assert.assertEquals(Long.divideUnsigned(12345678L, 264L), 46763L);
+    Assert.assertEquals(Long.divideUnsigned(13L, 5L), 2L);
+    Assert.assertEquals(Long.divideUnsigned(-2L, 2L), Long.MAX_VALUE);
+    Assert.assertEquals(Long.divideUnsigned(-1L, 2L), Long.MAX_VALUE);
+    Assert.assertEquals(Long.divideUnsigned(100000L, -1L), 0L);
+    Assert.assertEquals(Long.divideUnsigned(Long.MAX_VALUE, -1L), 0L);
+    Assert.assertEquals(Long.divideUnsigned(-2L, -1L), 0L);
+    Assert.assertEquals(Long.divideUnsigned(-1L, -2L), 1L);
+    Assert.assertEquals(Long.divideUnsigned(-173448L, 13L), 1418980313362259859L);
+    Assert.assertEquals(Long.divideUnsigned(Long.MIN_VALUE, 2L), (1L << 62));
+    Assert.assertEquals(Long.divideUnsigned(-1L, Long.MIN_VALUE), 1L);
+    Assert.assertEquals(Long.divideUnsigned(Long.MAX_VALUE, Long.MIN_VALUE), 0L);
+    Assert.assertEquals(Long.divideUnsigned(Long.MIN_VALUE, Long.MAX_VALUE), 1L);
+    Assert.assertEquals(Long.divideUnsigned(Long.MAX_VALUE, 1L), Long.MAX_VALUE);
+    Assert.assertEquals(Long.divideUnsigned(Long.MIN_VALUE, 1L), Long.MIN_VALUE);
+    Assert.assertEquals(Long.divideUnsigned(BIG_LONG_VALUE, BIG_LONG_VALUE), 1L);
+    Assert.assertEquals(Long.divideUnsigned(BIG_LONG_VALUE, 1L), BIG_LONG_VALUE);
+    Assert.assertEquals(Long.divideUnsigned(BIG_LONG_VALUE, 1024L), 721960566564885L);
+    Assert.assertEquals(Long.divideUnsigned(BIG_LONG_VALUE, 0x1FFFFFFFFL), 86064406L);
+
+    try {
+      Long.divideUnsigned(1L, 0L);
+      Assert.fail("Unreachable");
+    } catch (ArithmeticException expected) {
+    }
   }
 
   public static void test_Integer_numberOfLeadingZeros() {

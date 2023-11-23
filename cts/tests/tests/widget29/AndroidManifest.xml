@@ -16,31 +16,31 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.widget.cts29">
+     package="android.widget.cts29">
 
     <application android:label="Android TestCase 29"
-            android:maxRecents="1"
-            android:multiArch="true"
-            android:supportsRtl="true"
-            android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+         android:maxRecents="1"
+         android:multiArch="true"
+         android:supportsRtl="true"
+         android:theme="@android:style/Theme.Material.Light.DarkActionBar">
 
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
         <activity android:name="android.widget.cts29.CtsActivity"
-                  android:label="CtsActivity">
+             android:label="CtsActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.widget.cts29"
-                     android:label="(SDK 29) CTS tests of android.widget">
+         android:targetPackage="android.widget.cts29"
+         android:label="(SDK 29) CTS tests of android.widget">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>
-

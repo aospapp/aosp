@@ -17,19 +17,19 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "GCH_CameraProvider"
 #define ATRACE_TAG ATRACE_TAG_CAMERA
+#include "camera_provider.h"
+
+#include <dlfcn.h>
 #include <log/log.h>
 #include <utils/Trace.h>
 
-#include <dlfcn.h>
-
-#include "camera_provider.h"
 #include "vendor_tag_defs.h"
 #include "vendor_tag_utils.h"
 
 // HWL layer implementation path
 #if defined(_LP64)
 std::string kCameraHwlLib = "/vendor/lib64/libgooglecamerahwl_impl.so";
-#else // defined(_LP64)
+#else  // defined(_LP64)
 std::string kCameraHwlLib = "/vendor/lib/libgooglecamerahwl_impl.so";
 #endif
 
@@ -68,8 +68,7 @@ status_t CameraProvider::Initialize(
   ATRACE_CALL();
   // Advertise the HAL vendor tags to the camera metadata framework before
   // creating a HWL provider.
-  status_t res =
-      VendorTagManager::GetInstance().AddTags(kHalVendorTagSections);
+  status_t res = VendorTagManager::GetInstance().AddTags(kHalVendorTagSections);
   if (res != OK) {
     ALOGE("%s: Initializing VendorTagManager failed: %s(%d)", __FUNCTION__,
           strerror(-res), res);
@@ -77,7 +76,7 @@ status_t CameraProvider::Initialize(
   }
 
   if (camera_provider_hwl == nullptr) {
-    status_t res = CreateCameraProviderHwl(&camera_provider_hwl);
+    status_t res = CreateHwl(&camera_provider_hwl);
     if (res != OK) {
       ALOGE("%s: Creating CameraProviderHwlImpl failed.", __FUNCTION__);
       return NO_INIT;
@@ -265,7 +264,8 @@ status_t CameraProvider::CreateCameraDevice(
     return res;
   }
 
-  if (std::find(camera_ids.begin(), camera_ids.end(), camera_id) == camera_ids.end()) {
+  if (std::find(camera_ids.begin(), camera_ids.end(), camera_id) ==
+      camera_ids.end()) {
     ALOGE("%s: camera_id: %u  invalid.", __FUNCTION__, camera_id);
     return BAD_VALUE;
   }
@@ -279,8 +279,15 @@ status_t CameraProvider::CreateCameraDevice(
     return res;
   }
 
-  *device = CameraDevice::Create(std::move(camera_device_hwl),
-                                 camera_allocator_hwl_.get());
+  const std::vector<std::string>* configure_streams_libs = nullptr;
+
+#if GCH_HWL_USE_DLOPEN
+  configure_streams_libs = reinterpret_cast<decltype(configure_streams_libs)>(
+      dlsym(hwl_lib_handle_, "configure_streams_libraries"));
+#endif
+  *device =
+      CameraDevice::Create(std::move(camera_device_hwl),
+                           camera_allocator_hwl_.get(), configure_streams_libs);
   if (*device == nullptr) {
     return NO_INIT;
   }
@@ -288,16 +295,18 @@ status_t CameraProvider::CreateCameraDevice(
   return OK;
 }
 
-status_t CameraProvider::CreateCameraProviderHwl(
+status_t CameraProvider::CreateHwl(
     std::unique_ptr<CameraProviderHwl>* camera_provider_hwl) {
   ATRACE_CALL();
+#if GCH_HWL_USE_DLOPEN
   CreateCameraProviderHwl_t create_hwl;
 
   ALOGI("%s:Loading %s library", __FUNCTION__, kCameraHwlLib.c_str());
   hwl_lib_handle_ = dlopen(kCameraHwlLib.c_str(), RTLD_NOW);
 
   if (hwl_lib_handle_ == nullptr) {
-    ALOGE("HWL loading %s failed.", kCameraHwlLib.c_str());
+    ALOGE("HWL loading %s failed due to error: %s", kCameraHwlLib.c_str(),
+          dlerror());
     return NO_INIT;
   }
 
@@ -316,6 +325,10 @@ status_t CameraProvider::CreateCameraProviderHwl(
     ALOGE("Error! Creating CameraProviderHwl failed");
     return UNKNOWN_ERROR;
   }
+#else
+  *camera_provider_hwl =
+      std::unique_ptr<CameraProviderHwl>(CreateCameraProviderHwl());
+#endif
 
   return OK;
 }

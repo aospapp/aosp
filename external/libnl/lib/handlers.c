@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/handlers.c	default netlink message handlers
  *
@@ -26,6 +27,7 @@
  */
 
 #include <netlink-private/netlink.h>
+#include <netlink-private/utils.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
 #include <netlink/msg.h>
@@ -79,10 +81,9 @@ static int nl_error_handler_verbose(struct sockaddr_nl *who,
 				    struct nlmsgerr *e, void *arg)
 {
 	FILE *ofd = arg ? arg : stderr;
-	char buf[256];
 
 	fprintf(ofd, "-- Error received: %s\n-- Original message: ",
-		strerror_r(-e->error, buf, sizeof(buf)));
+		nl_strerror_l(-e->error));
 	print_header_content(ofd, &e->msg);
 	fprintf(ofd, "\n");
 
@@ -203,7 +204,7 @@ struct nl_cb *nl_cb_alloc(enum nl_cb_kind kind)
 	int i;
 	struct nl_cb *cb;
 
-	if (kind < 0 || kind > NL_CB_KIND_MAX)
+	if ((unsigned int) kind > NL_CB_KIND_MAX)
 		return NULL;
 
 	cb = calloc(1, sizeof(*cb));
@@ -293,10 +294,10 @@ enum nl_cb_type nl_cb_active_type(struct nl_cb *cb)
 int nl_cb_set(struct nl_cb *cb, enum nl_cb_type type, enum nl_cb_kind kind,
 	      nl_recvmsg_msg_cb_t func, void *arg)
 {
-	if (type < 0 || type > NL_CB_TYPE_MAX)
+	if ((unsigned int) type > NL_CB_TYPE_MAX)
 		return -NLE_RANGE;
 
-	if (kind < 0 || kind > NL_CB_KIND_MAX)
+	if ((unsigned int) kind > NL_CB_KIND_MAX)
 		return -NLE_RANGE;
 
 	if (kind == NL_CB_CUSTOM) {
@@ -343,7 +344,7 @@ int nl_cb_set_all(struct nl_cb *cb, enum nl_cb_kind kind,
 int nl_cb_err(struct nl_cb *cb, enum nl_cb_kind kind,
 	      nl_recvmsg_err_cb_t func, void *arg)
 {
-	if (kind < 0 || kind > NL_CB_KIND_MAX)
+	if ((unsigned int) kind > NL_CB_KIND_MAX)
 		return -NLE_RANGE;
 
 	if (kind == NL_CB_CUSTOM) {

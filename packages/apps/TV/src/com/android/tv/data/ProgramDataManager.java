@@ -402,7 +402,7 @@ public class ProgramDataManager implements MemoryManageable {
      *
      * <p>Prefetch should be enabled to call it.
      *
-     * @return {@link List} with Programs. It may includes dummy program if the entry needs DB
+     * @return {@link List} with Programs. It may includes stub program if the entry needs DB
      *     operations to get.
      */
     public List<Program> getPrograms(long channelId, long startTime) {
@@ -425,7 +425,7 @@ public class ProgramDataManager implements MemoryManageable {
     private int getProgramIndexAt(List<Program> programs, long time) {
         Program key = mZeroLengthProgramCache.get(time);
         if (key == null) {
-            key = createDummyProgram(time, time);
+            key = createStubProgram(time, time);
             mZeroLengthProgramCache.put(time, key);
         }
         int index = Collections.binarySearch(programs, key);
@@ -527,11 +527,11 @@ public class ProgramDataManager implements MemoryManageable {
                 continue;
             }
 
-            // Update dummy program around current program if any.
+            // Update stub program around current program if any.
             if (cachedProgram.getStartTimeUtcMillis() < currentProgram.getStartTimeUtcMillis()) {
-                // The dummy program starts earlier than the current program. Adjust its end time.
+                // The stub program starts earlier than the current program. Adjust its end time.
                 i.set(
-                        createDummyProgram(
+                        createStubProgram(
                                 cachedProgram.getStartTimeUtcMillis(),
                                 currentProgram.getStartTimeUtcMillis()));
                 i.add(currentProgram);
@@ -539,9 +539,9 @@ public class ProgramDataManager implements MemoryManageable {
                 i.set(currentProgram);
             }
             if (currentProgram.getEndTimeUtcMillis() < cachedProgram.getEndTimeUtcMillis()) {
-                // The dummy program ends later than the current program. Adjust its start time.
+                // The stub program ends later than the current program. Adjust its start time.
                 i.add(
-                        createDummyProgram(
+                        createStubProgram(
                                 currentProgram.getEndTimeUtcMillis(),
                                 cachedProgram.getEndTimeUtcMillis()));
             }
@@ -1010,8 +1010,8 @@ public class ProgramDataManager implements MemoryManageable {
         }
     }
 
-    // Create dummy program which indicates data isn't loaded yet so DB query is required.
-    private Program createDummyProgram(long startTimeMs, long endTimeMs) {
+    // Create stub program which indicates data isn't loaded yet so DB query is required.
+    private Program createStubProgram(long startTimeMs, long endTimeMs) {
         return new ProgramImpl.Builder()
                 .setChannelId(Channel.INVALID_ID)
                 .setStartTimeUtcMillis(startTimeMs)

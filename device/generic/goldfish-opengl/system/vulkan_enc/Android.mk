@@ -37,7 +37,8 @@ endif
 LOCAL_CFLAGS += \
     -DLOG_TAG=\"goldfish_vulkan\" \
     -DVK_ANDROID_native_buffer \
-    -DVK_GOOGLE_address_space \
+    -DVK_EXT_device_memory_report \
+    -DVK_GOOGLE_gfxstream \
     -Wno-missing-field-initializers \
     -Werror \
     -fstrict-aliasing \
@@ -45,6 +46,8 @@ LOCAL_CFLAGS += \
     -DVK_NO_PROTOTYPES \
 
 LOCAL_SRC_FILES := AndroidHardwareBuffer.cpp \
+    CommandBufferStagingStream.cpp \
+    DescriptorSetVirtualization.cpp \
     HostVisibleMemoryVirtualization.cpp \
     Resources.cpp \
     Validation.cpp \
@@ -54,9 +57,12 @@ LOCAL_SRC_FILES := AndroidHardwareBuffer.cpp \
     VkEncoder.cpp \
     goldfish_vk_extension_structs_guest.cpp \
     goldfish_vk_marshaling_guest.cpp \
+    goldfish_vk_reserved_marshaling_guest.cpp \
     goldfish_vk_deepcopy_guest.cpp \
+    goldfish_vk_counting_guest.cpp \
     goldfish_vk_handlemap_guest.cpp \
     goldfish_vk_transform_guest.cpp \
+	func_table.cpp \
 
 ifeq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 LOCAL_CFLAGS += -D__ANDROID_API__=28

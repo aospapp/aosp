@@ -3,6 +3,7 @@ package org.bouncycastle.operator;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERNull;
 // Android-removed: Unsupported algorithms
@@ -11,6 +12,7 @@ import org.bouncycastle.asn1.DERNull;
 // import org.bouncycastle.asn1.cryptopro.CryptoProObjectIdentifiers;
 // import org.bouncycastle.asn1.eac.EACObjectIdentifiers;
 // import org.bouncycastle.asn1.gm.GMObjectIdentifiers;
+// import org.bouncycastle.asn1.edec.EdECObjectIdentifiers;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -34,6 +36,7 @@ public class DefaultDigestAlgorithmIdentifierFinder
         // BEGIN Android-removed: Unsupported algorithms
         // digestOids.put(OIWObjectIdentifiers.md4WithRSAEncryption, PKCSObjectIdentifiers.md4);
         // digestOids.put(OIWObjectIdentifiers.md4WithRSA, PKCSObjectIdentifiers.md4);
+        // digestOids.put(OIWObjectIdentifiers.dsaWithSHA1, OIWObjectIdentifiers.idSHA1);
         // END Android-removed: Unsupported algorithms
         digestOids.put(OIWObjectIdentifiers.sha1WithRSA, OIWObjectIdentifiers.idSHA1);
 
@@ -104,6 +107,12 @@ public class DefaultDigestAlgorithmIdentifierFinder
         digestOids.put(BCObjectIdentifiers.sphincs256_with_SHA3_512, NISTObjectIdentifiers.id_sha3_512);
         digestOids.put(BCObjectIdentifiers.sphincs256_with_SHA512, NISTObjectIdentifiers.id_sha512);
 
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_rmd160, TeleTrusTObjectIdentifiers.ripemd160);
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_sha1, OIWObjectIdentifiers.idSHA1);
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_sha224, NISTObjectIdentifiers.id_sha224);
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_sha256, NISTObjectIdentifiers.id_sha256);
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_sha384, NISTObjectIdentifiers.id_sha384);
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_sha512, NISTObjectIdentifiers.id_sha512);
         digestOids.put(GMObjectIdentifiers.sm2sign_with_sm3, GMObjectIdentifiers.sm3);
         */
         // END Android-removed: Unsupported algorithms
@@ -163,6 +172,18 @@ public class DefaultDigestAlgorithmIdentifierFinder
         {
             digAlgId = RSASSAPSSparams.getInstance(sigAlgId.getParameters()).getHashAlgorithm();
         }
+        // BEGIN Android-removed: Unsupported algorithms
+        /*
+        else if (sigAlgId.getAlgorithm().equals(EdECObjectIdentifiers.id_Ed25519))
+        {
+            digAlgId = new AlgorithmIdentifier(NISTObjectIdentifiers.id_sha512);
+        }
+        else if (sigAlgId.getAlgorithm().equals(EdECObjectIdentifiers.id_Ed448))
+        {
+            digAlgId = new AlgorithmIdentifier(NISTObjectIdentifiers.id_shake256_len, new ASN1Integer(512));
+        }
+        */
+        // END Android-removed: Unsupported algorithms
         else
         {
             digAlgId = new AlgorithmIdentifier((ASN1ObjectIdentifier)digestOids.get(sigAlgId.getAlgorithm()), DERNull.INSTANCE);

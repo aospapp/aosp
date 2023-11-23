@@ -25,7 +25,6 @@ import android.content.Intent;
 import android.net.wifi.WifiManager;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
@@ -39,6 +38,8 @@ import android.support.test.uiautomator.Until;
 import android.util.Log;
 import android.widget.Switch;
 import android.widget.TextView;
+
+import androidx.test.InstrumentationRegistry;
 
 import junit.framework.Assert;
 

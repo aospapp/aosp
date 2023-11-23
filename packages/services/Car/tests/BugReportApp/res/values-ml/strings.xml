@@ -21,6 +21,7 @@
     <string name="bugreport_info_quit" msgid="5590138890181142473">"അടയ്ക്കുക"</string>
     <string name="bugreport_info_start" msgid="667324824650830832">"ബഗ് റിപ്പോർട്ട് ആരംഭിക്കുക"</string>
     <string name="bugreport_info_status" msgid="7211044508792815451">"നില:"</string>
+    <string name="bugreport_info_expires_soon_notice" msgid="927139313070992675">"ഈ ബഗ് റിപ്പോർട്ട് ഉടൻ കാലഹരണപ്പെടും"</string>
     <string name="bugreport_dialog_submit" msgid="2789636252713280633">"സമർപ്പിക്കുക"</string>
     <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"റദ്ദാക്കുക"</string>
     <string name="bugreport_dialog_upload" msgid="2517386929450370781">"അപ്‌ലോഡ് ചെയ്യുക"</string>

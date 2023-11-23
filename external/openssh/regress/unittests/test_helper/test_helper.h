@@ -1,4 +1,4 @@
-/*	$OpenBSD: test_helper.h,v 1.7 2017/03/14 01:10:07 dtucker Exp $	*/
+/*	$OpenBSD: test_helper.h,v 1.9 2018/10/17 23:28:05 djm Exp $	*/
 /*
  * Copyright (c) 2011 Damien Miller <djm@mindrot.org>
  *
@@ -27,8 +27,10 @@
 # include <stdint.h>
 #endif
 
+#ifdef WITH_OPENSSL
 #include <openssl/bn.h>
 #include <openssl/err.h>
+#endif
 
 enum test_predicate {
 	TEST_EQ, TEST_NE, TEST_LT, TEST_LE, TEST_GT, TEST_GE
@@ -43,12 +45,18 @@ void test_start(const char *n);
 void test_info(char *s, size_t len);
 void set_onerror_func(test_onerror_func_t *f, void *ctx);
 void test_done(void);
+int test_is_verbose(void);
+int test_is_quiet(void);
+int test_is_fast(void);
+int test_is_slow(void);
 void test_subtest_info(const char *fmt, ...)
     __attribute__((format(printf, 1, 2)));
 void ssl_err_check(const char *file, int line);
+#ifdef WITH_OPENSSL
 void assert_bignum(const char *file, int line,
     const char *a1, const char *a2,
     const BIGNUM *aa1, const BIGNUM *aa2, enum test_predicate pred);
+#endif
 void assert_string(const char *file, int line,
     const char *a1, const char *a2,
     const char *aa1, const char *aa2, enum test_predicate pred);

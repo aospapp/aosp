@@ -26,6 +26,7 @@
 #include <vector>
 #include <mutex>
 #include <thread>
+#include <fruit/impl/normalized_component_storage/normalized_component_storage_holder.h>
 
 namespace fruit {
 namespace impl {
@@ -218,7 +219,7 @@ public:
     bool operator==(const BindingDataNodeIter& other) const;
     bool operator!=(const BindingDataNodeIter& other) const;
 
-    std::ptrdiff_t operator-(BindingDataNodeIter other) const;
+    std::ptrdiff_t operator-(const BindingDataNodeIter& other) const;
 
     TypeId getId();
     NormalizedBinding getValue();

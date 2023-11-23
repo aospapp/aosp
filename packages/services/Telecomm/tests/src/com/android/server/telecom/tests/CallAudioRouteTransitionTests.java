@@ -384,8 +384,12 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
         // rest of the system
         verifyNoSystemAudioChanges();
 
+        // Special case for SPEAKER_ON -- we don't expect any route transitions to happen when
+        // there are no calls, so set the expected state to the initial route.
+        int expectedRoute = (mParams.action == CallAudioRouteStateMachine.SPEAKER_ON)
+                ? mParams.initialRoute : mParams.expectedRoute;
         // Verify the end state
-        CallAudioState expectedState = new CallAudioState(false, mParams.expectedRoute,
+        CallAudioState expectedState = new CallAudioState(false, expectedRoute,
                 mParams.expectedAvailableRoutes | CallAudioState.ROUTE_SPEAKER,
                 mParams.expectedBluetoothDevice, mParams.availableBluetoothDevices);
         assertEquals(expectedState, stateMachine.getCurrentCallAudioState());
@@ -811,7 +815,7 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
                 "Speakerphone turned off externally during speaker", // name
                 CallAudioState.ROUTE_SPEAKER, // initialRoute
                 CallAudioState.ROUTE_EARPIECE | CallAudioState.ROUTE_BLUETOOTH, // availableRoutes
-                NONE, // speakerInteraction
+                OFF, // speakerInteraction
                 ON, // bluetoothInteraction
                 CallAudioRouteStateMachine.SPEAKER_OFF, // action
                 CallAudioState.ROUTE_BLUETOOTH, // expectedRoute

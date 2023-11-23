@@ -22,6 +22,7 @@
 #include "chre/platform/assert.h"
 #include "chre/platform/log.h"
 #include "chre/platform/shared/nanoapp_dso_util.h"
+#include "chre/util/system/napp_permissions.h"
 #include "chre_api/chre/version.h"
 
 namespace chre {
@@ -60,11 +61,24 @@ const char *PlatformNanoapp::getAppName() const {
   return (mAppInfo != nullptr) ? mAppInfo->name : "Unknown";
 }
 
+bool PlatformNanoapp::supportsAppPermissions() const {
+  return (mAppInfo != nullptr) ? (mAppInfo->structMinorVersion >=
+                                  CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION)
+                               : false;
+}
+
+uint32_t PlatformNanoapp::getAppPermissions() const {
+  return (supportsAppPermissions())
+             ? mAppInfo->appPermissions
+             : static_cast<uint32_t>(chre::NanoappPermissions::CHRE_PERMS_NONE);
+}
+
 bool PlatformNanoapp::isSystemNanoapp() const {
   return (mAppInfo != nullptr && mAppInfo->isSystemNanoapp);
 }
 
-void PlatformNanoapp::logStateToBuffer(DebugDumpWrapper &debugDump) const {}
+void PlatformNanoapp::logStateToBuffer(
+    DebugDumpWrapper & /* debugDump */) const {}
 
 void PlatformNanoappBase::loadFromFile(const std::string &filename) {
   CHRE_ASSERT(!isLoaded());
@@ -118,11 +132,15 @@ bool PlatformNanoappBase::openNanoappFromFile() {
       if (!success) {
         mAppInfo = nullptr;
       } else {
-        LOGI("Successfully loaded nanoapp %s (0x%016" PRIx64
-             ") version 0x%" PRIx32 " uimg %d system %d from file %s",
+        LOGI("Nanoapp loaded: %s (0x%016" PRIx64 ") version 0x%" PRIx32
+             " uimg %d system %d from file %s",
              mAppInfo->name, mAppInfo->appId, mAppInfo->appVersion,
              mAppInfo->isTcmNanoapp, mAppInfo->isSystemNanoapp,
              mFilename.c_str());
+        if (mAppInfo->structMinorVersion >=
+            CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION) {
+          LOGI("Nanoapp permissions: 0x%" PRIx32, mAppInfo->appPermissions);
+        }
       }
     }
   }

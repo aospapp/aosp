@@ -24,6 +24,14 @@
 #define PLATFORM_CLUSTER1_CORE_COUNT	U(0)
 #else
 #define PLATFORM_MAX_CPUS_PER_CLUSTER	U(4)
+/*
+ * Define the number of cores per cluster used in calculating core position.
+ * The cluster number is shifted by this value and added to the core ID,
+ * so its value represents log2(cores/cluster).
+ * Default is 2**(2) = 4 cores per cluster.
+ */
+#define PLATFORM_CPU_PER_CLUSTER_SHIFT	U(2)
+
 #define PLATFORM_CLUSTER_COUNT		U(2)
 #define PLATFORM_CLUSTER0_CORE_COUNT	PLATFORM_MAX_CPUS_PER_CLUSTER
 #define PLATFORM_CLUSTER1_CORE_COUNT	PLATFORM_MAX_CPUS_PER_CLUSTER
@@ -172,7 +180,7 @@
 #define PLAT_VIRT_ADDR_SPACE_SIZE	(1ULL << 32)
 #define MAX_MMAP_REGIONS		11
 #define MAX_XLAT_TABLES			6
-#define MAX_IO_DEVICES			3
+#define MAX_IO_DEVICES			4
 #define MAX_IO_HANDLES			4
 
 /*
@@ -196,8 +204,8 @@
 #define QEMU_FLASH1_BASE		0x04000000
 #define QEMU_FLASH1_SIZE		0x04000000
 
-#define PLAT_QEMU_FIP_BASE		QEMU_FLASH1_BASE
-#define PLAT_QEMU_FIP_MAX_SIZE		QEMU_FLASH1_SIZE
+#define PLAT_QEMU_FIP_BASE		0x00040000
+#define PLAT_QEMU_FIP_MAX_SIZE		0x00400000
 
 #define DEVICE0_BASE			0x08000000
 #define DEVICE0_SIZE			0x01000000

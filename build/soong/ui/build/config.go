@@ -15,6 +15,7 @@
 package build
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -23,6 +24,10 @@ import (
 	"time"
 
 	"android/soong/shared"
+
+	"github.com/golang/protobuf/proto"
+
+	smpb "android/soong/ui/metrics/metrics_proto"
 )
 
 type Config struct{ *configImpl }
@@ -36,12 +41,16 @@ type configImpl struct {
 	buildDateTime string
 
 	// From the arguments
-	parallel   int
-	keepGoing  int
-	verbose    bool
-	checkbuild bool
-	dist       bool
-	skipMake   bool
+	parallel       int
+	keepGoing      int
+	verbose        bool
+	checkbuild     bool
+	dist           bool
+	skipConfig     bool
+	skipKati       bool
+	skipKatiNinja  bool
+	skipNinja      bool
+	skipSoongTests bool
 
 	// From the product config
 	katiArgs        []string
@@ -53,13 +62,20 @@ type configImpl struct {
 	// Autodetected
 	totalRAM uint64
 
-	pdkBuild bool
-
 	brokenDupRules     bool
 	brokenUsesNetwork  bool
 	brokenNinjaEnvVars []string
 
 	pathReplaced bool
+
+	useBazel bool
+
+	// During Bazel execution, Bazel cannot write outside OUT_DIR.
+	// So if DIST_DIR is set to an external dir (outside of OUT_DIR), we need to rig it temporarily and then migrate files at the end of the build.
+	riggedDistDirForBazel string
+
+	// Set by multiproduct_kati
+	emptyNinjaFile bool
 }
 
 const srcDirFileCheck = "build/soong/root.bp"
@@ -81,6 +97,21 @@ const (
 	BUILD_MODULES
 )
 
+type bazelBuildMode int
+
+// Bazel-related build modes.
+const (
+	// Don't use bazel at all.
+	noBazel bazelBuildMode = iota
+
+	// Only generate build files (in a subdirectory of the out directory) and exit.
+	generateBuildFiles
+
+	// Generate synthetic build files and incorporate these files into a build which
+	// partially uses Bazel. Build metadata may come from Android.bp or BUILD files.
+	mixedBuild
+)
+
 // checkTopDir validates that the current directory is at the root directory of the source tree.
 func checkTopDir(ctx Context) {
 	if _, err := os.Stat(srcDirFileCheck); err != nil {
@@ -96,7 +127,7 @@ func NewConfig(ctx Context, args ...string) Config {
 		environ: OsEnvironment(),
 	}
 
-	// Sane default matching ninja
+	// Default matching ninja
 	ret.parallel = runtime.NumCPU() + 2
 	ret.keepGoing = 1
 
@@ -176,15 +207,18 @@ func NewConfig(ctx Context, args ...string) Config {
 		"ANDROID_DEV_SCRIPTS",
 		"ANDROID_EMULATOR_PREBUILTS",
 		"ANDROID_PRE_BUILD_PATHS",
-
-		// Only set in multiproduct_kati after config generation
-		"EMPTY_NINJA_FILE",
 	)
+
+	if ret.UseGoma() || ret.ForceUseGoma() {
+		ctx.Println("Goma for Android has been deprecated and replaced with RBE. See go/rbe_for_android for instructions on how to use RBE.")
+		ctx.Fatalln("USE_GOMA / FORCE_USE_GOMA flag is no longer supported.")
+	}
 
 	// Tell python not to spam the source tree with .pyc files.
 	ret.environ.Set("PYTHONDONTWRITEBYTECODE", "1")
 
-	ret.environ.Set("TMPDIR", absPath(ctx, ret.TempDir()))
+	tmpDir := absPath(ctx, ret.TempDir())
+	ret.environ.Set("TMPDIR", tmpDir)
 
 	// Always set ASAN_SYMBOLIZER_PATH so that ASAN-based tools can symbolize any crashes
 	symbolizerPath := filepath.Join("prebuilts/clang/host", ret.HostPrebuiltTag(),
@@ -210,7 +244,7 @@ func NewConfig(ctx Context, args ...string) Config {
 		ctx.Fatalln("Directory names containing spaces are not supported")
 	}
 
-	if distDir := ret.DistDir(); strings.ContainsRune(distDir, ' ') {
+	if distDir := ret.RealDistDir(); strings.ContainsRune(distDir, ' ') {
 		ctx.Println("The absolute path of your dist directory ($DIST_DIR) contains a space character:")
 		ctx.Println()
 		ctx.Printf("%q\n", distDir)
@@ -256,18 +290,64 @@ func NewConfig(ctx Context, args ...string) Config {
 		ret.buildDateTime = strconv.FormatInt(time.Now().Unix(), 10)
 	}
 
-	if ctx.Metrics != nil {
-		ctx.Metrics.SetBuildDateTime(ret.buildDateTime)
-	}
 	ret.environ.Set("BUILD_DATETIME_FILE", buildDateTimeFile)
 
-	return Config{ret}
+	if ret.UseRBE() {
+		for k, v := range getRBEVars(ctx, Config{ret}) {
+			ret.environ.Set(k, v)
+		}
+	}
+
+	bpd := ret.BazelMetricsDir()
+	if err := os.RemoveAll(bpd); err != nil {
+		ctx.Fatalf("Unable to remove bazel profile directory %q: %v", bpd, err)
+	}
+
+	ret.useBazel = ret.environ.IsEnvTrue("USE_BAZEL")
+
+	if ret.UseBazel() {
+		if err := os.MkdirAll(bpd, 0777); err != nil {
+			ctx.Fatalf("Failed to create bazel profile directory %q: %v", bpd, err)
+		}
+	}
+
+	if ret.UseBazel() {
+		ret.riggedDistDirForBazel = filepath.Join(ret.OutDir(), "dist")
+	} else {
+		// Not rigged
+		ret.riggedDistDirForBazel = ret.distDir
+	}
+
+	c := Config{ret}
+	storeConfigMetrics(ctx, c)
+	return c
 }
 
 // NewBuildActionConfig returns a build configuration based on the build action. The arguments are
 // processed based on the build action and extracts any arguments that belongs to the build action.
 func NewBuildActionConfig(action BuildAction, dir string, ctx Context, args ...string) Config {
 	return NewConfig(ctx, getConfigArgs(action, dir, ctx, args)...)
+}
+
+// storeConfigMetrics selects a set of configuration information and store in
+// the metrics system for further analysis.
+func storeConfigMetrics(ctx Context, config Config) {
+	if ctx.Metrics == nil {
+		return
+	}
+
+	b := &smpb.BuildConfig{
+		ForceUseGoma: proto.Bool(config.ForceUseGoma()),
+		UseGoma:      proto.Bool(config.UseGoma()),
+		UseRbe:       proto.Bool(config.UseRBE()),
+	}
+	ctx.Metrics.BuildConfig(b)
+
+	s := &smpb.SystemResourceInfo{
+		TotalPhysicalMemory: proto.Uint64(config.TotalRAM()),
+		AvailableCpus:       proto.Int32(int32(runtime.NumCPU())),
+	}
+	ctx.Metrics.SystemResourceInfo(s)
 }
 
 // getConfigArgs processes the command arguments based on the build action and creates a set of new
@@ -486,11 +566,21 @@ func getTargetsFromDirs(ctx Context, relDir string, dirs []string, targetNamePre
 func (c *configImpl) parseArgs(ctx Context, args []string) {
 	for i := 0; i < len(args); i++ {
 		arg := strings.TrimSpace(args[i])
-		if arg == "--make-mode" {
-		} else if arg == "showcommands" {
+		if arg == "showcommands" {
 			c.verbose = true
+		} else if arg == "--skip-ninja" {
+			c.skipNinja = true
 		} else if arg == "--skip-make" {
-			c.skipMake = true
+			c.skipConfig = true
+			c.skipKati = true
+		} else if arg == "--skip-kati" {
+			// TODO: remove --skip-kati once module builds have been migrated to --song-only
+			c.skipKati = true
+		} else if arg == "--soong-only" {
+			c.skipKati = true
+			c.skipKatiNinja = true
+		} else if arg == "--skip-soong-tests" {
+			c.skipSoongTests = true
 		} else if len(arg) > 0 && arg[0] == '-' {
 			parseArgNum := func(def int) int {
 				if len(arg) > 2 {
@@ -517,6 +607,9 @@ func (c *configImpl) parseArgs(ctx Context, args []string) {
 				ctx.Fatalln("Unknown option:", arg)
 			}
 		} else if k, v, ok := decodeKeyValue(arg); ok && len(k) > 0 {
+			if k == "OUT_DIR" {
+				ctx.Fatalln("OUT_DIR may only be set in the environment, not as a command line option.")
+			}
 			c.environ.Set(k, v)
 		} else if arg == "dist" {
 			c.dist = true
@@ -546,19 +639,19 @@ func (c *configImpl) configureLocale(ctx Context) {
 
 	// For LANG and LC_*, only preserve the evaluated version of
 	// LC_MESSAGES
-	user_lang := ""
+	userLang := ""
 	if lc_all, ok := c.environ.Get("LC_ALL"); ok {
-		user_lang = lc_all
+		userLang = lc_all
 	} else if lc_messages, ok := c.environ.Get("LC_MESSAGES"); ok {
-		user_lang = lc_messages
+		userLang = lc_messages
 	} else if lang, ok := c.environ.Get("LANG"); ok {
-		user_lang = lang
+		userLang = lang
 	}
 
 	c.environ.UnsetWithPrefix("LC_")
 
-	if user_lang != "" {
-		c.environ.Set("LC_MESSAGES", user_lang)
+	if userLang != "" {
+		c.environ.Set("LC_MESSAGES", userLang)
 	}
 
 	// The for LANG, use C.UTF-8 if it exists (Debian currently, proposed
@@ -589,6 +682,7 @@ func (c *configImpl) Lunch(ctx Context, product, variant string) {
 	c.environ.Set("TARGET_BUILD_VARIANT", variant)
 	c.environ.Set("TARGET_BUILD_TYPE", "release")
 	c.environ.Unset("TARGET_BUILD_APPS")
+	c.environ.Unset("TARGET_BUILD_UNBUNDLED")
 }
 
 // Tapas configures the environment to build one or more unbundled apps,
@@ -611,10 +705,6 @@ func (c *configImpl) Tapas(ctx Context, apps []string, arch, variant string) {
 		product = "aosp_arm"
 	case "arm64":
 		product = "aosm_arm64"
-	case "mips":
-		product = "aosp_mips"
-	case "mips64":
-		product = "aosp_mips64"
 	case "x86":
 		product = "aosp_x86"
 	case "x86_64":
@@ -645,14 +735,26 @@ func (c *configImpl) OutDir() string {
 }
 
 func (c *configImpl) DistDir() string {
+	if c.UseBazel() {
+		return c.riggedDistDirForBazel
+	} else {
+		return c.distDir
+	}
+}
+
+func (c *configImpl) RealDistDir() string {
 	return c.distDir
 }
 
 func (c *configImpl) NinjaArgs() []string {
-	if c.skipMake {
+	if c.skipKati {
 		return c.arguments
 	}
 	return c.ninjaArgs
+}
+
+func (c *configImpl) BazelOutDir() string {
+	return filepath.Join(c.OutDir(), "bazel")
 }
 
 func (c *configImpl) SoongOutDir() string {
@@ -688,8 +790,24 @@ func (c *configImpl) IsVerbose() bool {
 	return c.verbose
 }
 
-func (c *configImpl) SkipMake() bool {
-	return c.skipMake
+func (c *configImpl) SkipKati() bool {
+	return c.skipKati
+}
+
+func (c *configImpl) SkipKatiNinja() bool {
+	return c.skipKatiNinja
+}
+
+func (c *configImpl) SkipNinja() bool {
+	return c.skipNinja
+}
+
+func (c *configImpl) SetSkipNinja(v bool) {
+	c.skipNinja = v
+}
+
+func (c *configImpl) SkipConfig() bool {
+	return c.skipConfig
 }
 
 func (c *configImpl) TargetProduct() string {
@@ -756,6 +874,18 @@ func (c *configImpl) TotalRAM() uint64 {
 	return c.totalRAM
 }
 
+// ForceUseGoma determines whether we should override Goma deprecation
+// and use Goma for the current build or not.
+func (c *configImpl) ForceUseGoma() bool {
+	if v, ok := c.environ.Get("FORCE_USE_GOMA"); ok {
+		v = strings.TrimSpace(v)
+		if v != "" && v != "false" {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *configImpl) UseGoma() bool {
 	if v, ok := c.environ.Get("USE_GOMA"); ok {
 		v = strings.TrimSpace(v)
@@ -790,6 +920,20 @@ func (c *configImpl) UseRBE() bool {
 	return false
 }
 
+func (c *configImpl) UseBazel() bool {
+	return c.useBazel
+}
+
+func (c *configImpl) bazelBuildMode() bazelBuildMode {
+	if c.Environment().IsEnvTrue("USE_BAZEL_ANALYSIS") {
+		return mixedBuild
+	} else if c.Environment().IsEnvTrue("GENERATE_BAZEL_FILES") {
+		return generateBuildFiles
+	} else {
+		return noBazel
+	}
+}
+
 func (c *configImpl) StartRBE() bool {
 	if !c.UseRBE() {
 		return false
@@ -802,6 +946,80 @@ func (c *configImpl) StartRBE() bool {
 		}
 	}
 	return true
+}
+
+func (c *configImpl) rbeLogDir() string {
+	for _, f := range []string{"RBE_log_dir", "FLAG_log_dir"} {
+		if v, ok := c.environ.Get(f); ok {
+			return v
+		}
+	}
+	if c.Dist() {
+		return c.LogsDir()
+	}
+	return c.OutDir()
+}
+
+func (c *configImpl) rbeStatsOutputDir() string {
+	for _, f := range []string{"RBE_output_dir", "FLAG_output_dir"} {
+		if v, ok := c.environ.Get(f); ok {
+			return v
+		}
+	}
+	return c.rbeLogDir()
+}
+
+func (c *configImpl) rbeLogPath() string {
+	for _, f := range []string{"RBE_log_path", "FLAG_log_path"} {
+		if v, ok := c.environ.Get(f); ok {
+			return v
+		}
+	}
+	return fmt.Sprintf("text://%v/reproxy_log.txt", c.rbeLogDir())
+}
+
+func (c *configImpl) rbeExecRoot() string {
+	for _, f := range []string{"RBE_exec_root", "FLAG_exec_root"} {
+		if v, ok := c.environ.Get(f); ok {
+			return v
+		}
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return wd
+}
+
+func (c *configImpl) rbeDir() string {
+	if v, ok := c.environ.Get("RBE_DIR"); ok {
+		return v
+	}
+	return "prebuilts/remoteexecution-client/live/"
+}
+
+func (c *configImpl) rbeReproxy() string {
+	for _, f := range []string{"RBE_re_proxy", "FLAG_re_proxy"} {
+		if v, ok := c.environ.Get(f); ok {
+			return v
+		}
+	}
+	return filepath.Join(c.rbeDir(), "reproxy")
+}
+
+func (c *configImpl) rbeAuth() (string, string) {
+	credFlags := []string{"use_application_default_credentials", "use_gce_credentials", "credential_file"}
+	for _, cf := range credFlags {
+		for _, f := range []string{"RBE_" + cf, "FLAG_" + cf} {
+			if v, ok := c.environ.Get(f); ok {
+				v = strings.TrimSpace(v)
+				if v != "" && v != "false" && v != "0" {
+					return "RBE_" + cf, v
+				}
+			}
+		}
+	}
+	return "RBE_use_application_default_credentials", "true"
 }
 
 func (c *configImpl) UseRemoteBuild() bool {
@@ -955,10 +1173,39 @@ func (c *configImpl) TargetDeviceDir() string {
 	return c.targetDeviceDir
 }
 
-func (c *configImpl) SetPdkBuild(pdk bool) {
-	c.pdkBuild = pdk
+func (c *configImpl) BuildDateTime() string {
+	return c.buildDateTime
 }
 
-func (c *configImpl) IsPdkBuild() bool {
-	return c.pdkBuild
+func (c *configImpl) MetricsUploaderApp() string {
+	if p, ok := c.environ.Get("ANDROID_ENABLE_METRICS_UPLOAD"); ok {
+		return p
+	}
+	return ""
+}
+
+// LogsDir returns the logs directory where build log and metrics
+// files are located. By default, the logs directory is the out
+// directory. If the argument dist is specified, the logs directory
+// is <dist_dir>/logs.
+func (c *configImpl) LogsDir() string {
+	if c.Dist() {
+		// Always write logs to the real dist dir, even if Bazel is using a rigged dist dir for other files
+		return filepath.Join(c.RealDistDir(), "logs")
+	}
+	return c.OutDir()
+}
+
+// BazelMetricsDir returns the <logs dir>/bazel_metrics directory
+// where the bazel profiles are located.
+func (c *configImpl) BazelMetricsDir() string {
+	return filepath.Join(c.LogsDir(), "bazel_metrics")
+}
+
+func (c *configImpl) SetEmptyNinjaFile(v bool) {
+	c.emptyNinjaFile = v
+}
+
+func (c *configImpl) EmptyNinjaFile() bool {
+	return c.emptyNinjaFile
 }

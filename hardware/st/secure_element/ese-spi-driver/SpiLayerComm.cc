@@ -35,6 +35,21 @@ int pollInterval;
 
 /*******************************************************************************
 **
+** Function         SpiLayerComm_init
+**
+** Description      Initialize
+**
+** Parameters       spiDevPath - Spi device path.
+**
+** Returns          null
+**
+*******************************************************************************/
+void SpiLayerComm_init(SpiDriver_config_t* tSpiDriver) {
+  pollInterval = tSpiDriver->polling_interval;
+  STLOG_HAL_D("SpiLayerDriver_init  pollInterval=  %d us", pollInterval);
+}
+/*******************************************************************************
+**
 ** Function         SpiLayerComm_waitForAtpLength
 **
 ** Description      Starts the polling mechanism to read the length of the ATP.
@@ -236,7 +251,8 @@ int SpiLayerComm_waitForResponse(Tpdu* respTpdu, int nBwt) {
   // Start the polling mechanism
   while (true) {
     // Wait between each polling sequence
-    usleep(1000);
+    usleep(pollInterval);
+
     // Read the slave response by sending three null bytes
     if (SpiLayerDriver_read(&pollingRxByte, 1) != 1) {
       STLOG_HAL_E("Error reading a valid NAD from the slave.");
@@ -255,7 +271,7 @@ int SpiLayerComm_waitForResponse(Tpdu* respTpdu, int nBwt) {
       unsigned int elapsedTimeInMs =
           Utils_getElapsedTimeInMs(startTime, currentTime);
       if (elapsedTimeInMs > maxWaitingTime) {
-        STLOG_HAL_D("BWT timed out after %d ms before receiving a valid NAD",
+        STLOG_HAL_E("BWT timed out after %d ms before receiving a valid NAD",
                     elapsedTimeInMs);
         return -2;
       }
@@ -268,7 +284,6 @@ int SpiLayerComm_waitForResponse(Tpdu* respTpdu, int nBwt) {
   if (SpiLayerDriver_read(buffer, 2) != 2) {
     return -1;
   }
-
   // Save the prologue read into the tpduRx
   respTpdu->nad = pollingRxByte;
   respTpdu->pcb = buffer[0];

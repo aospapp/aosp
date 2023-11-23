@@ -1,4 +1,24 @@
 // Signature format: 2.0
+package com.android.libraries.tv.tvsystem.media {
+
+  public final class AudioDeviceAttributes {
+    ctor public AudioDeviceAttributes(@NonNull android.media.AudioDeviceInfo);
+    ctor public AudioDeviceAttributes(int, int, @NonNull String);
+    method @NonNull public String getAddress();
+    method public int getRole();
+    method public int getType();
+    field public static final int ROLE_INPUT = 1; // 0x1
+    field public static final int ROLE_OUTPUT = 2; // 0x2
+  }
+
+  public final class TvAudioManager {
+    ctor public TvAudioManager(@NonNull android.content.Context);
+    method @RequiresPermission(android.Manifest.permission.MODIFY_AUDIO_ROUTING) public int getDeviceVolumeBehavior(@NonNull com.android.libraries.tv.tvsystem.media.AudioDeviceAttributes);
+    method @RequiresPermission(android.Manifest.permission.MODIFY_AUDIO_ROUTING) public void setDeviceVolumeBehavior(@NonNull com.android.libraries.tv.tvsystem.media.AudioDeviceAttributes, int);
+  }
+
+}
+
 package com.android.libraries.tv.tvsystem.wifi {
 
   public final class SoftApConfiguration implements android.os.Parcelable {

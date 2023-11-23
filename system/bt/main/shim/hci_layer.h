@@ -21,12 +21,14 @@
 
 #include "hci/include/hci_layer.h"
 
-static const char GD_HCI_MODULE[] = "gd_hci_module";
-
 namespace bluetooth {
 namespace shim {
 
 const hci_t* hci_layer_get_interface();
+
+void hci_on_reset_complete();
+
+void hci_on_shutting_down();
 
 }  // namespace shim
 }  // namespace bluetooth

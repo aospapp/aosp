@@ -32,13 +32,15 @@ LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt \
     CtsCameraUtils
 
 LOCAL_PACKAGE_NAME := CtsCameraApi25TestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_SDK_VERSION := 25
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts10
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 
 include $(BUILD_CTS_PACKAGE)
 

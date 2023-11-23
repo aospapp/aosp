@@ -197,9 +197,6 @@ type persist_alarm_file, file_type, vendor_persist_type;
 
 type persist_time_file, file_type, vendor_persist_type;
 
-# nfc file type for data vendor access
-type nfc_vendor_data_file, file_type, data_file_type;
-
 # kgsl file type for sysfs access
 type sysfs_kgsl, sysfs_type, fs_type;
 type sysfs_kgsl_proc, sysfs_type, fs_type;
@@ -289,12 +286,6 @@ type vendor_bt_data_file, file_type, data_file_type;
 #sysfs jpeg
 type sysfs_jpeg, fs_type, sysfs_type;
 
-#SSR Log Files
-type ramdump_vendor_data_file, file_type, data_file_type, mlstrustedobject;
-
-# RamdumpFs files
-type ramdump_vendor_mnt_file, file_type, data_file_type, mlstrustedobject;
-
 # npu file
 type sysfs_npu, fs_type, sysfs_type;
 
@@ -345,3 +336,6 @@ type cnss_vendor_data_file, file_type, data_file_type, mlstrustedobject;
 
 # modem factory data reset file
 type modem_fdr_file, file_type, data_file_type;
+
+# Warm reset
+type sysfs_poweroff, sysfs_type, fs_type;

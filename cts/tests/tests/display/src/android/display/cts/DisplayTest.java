@@ -16,32 +16,45 @@
 
 package android.display.cts;
 
+import static android.content.pm.PackageManager.FEATURE_LEANBACK;
 import static android.view.Display.DEFAULT_DISPLAY;
 
-import static org.junit.Assert.*;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
+import static org.junit.Assert.*;
+import static org.junit.Assume.*;
+
+import android.Manifest;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.Presentation;
 import android.app.UiModeManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.ColorSpace;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.hardware.display.DeviceProductInfo;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.DisplayManager.DisplayListener;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
+import android.os.SystemProperties;
 import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Display;
 import android.view.Display.HdrCapabilities;
+import android.view.SurfaceControl;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -49,6 +62,10 @@ import android.view.WindowManager;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.AdoptShellPermissionsRule;
+import com.android.compatibility.common.util.DisplayUtil;
+import com.android.compatibility.common.util.PropertyUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -58,14 +75,27 @@ import org.junit.runner.RunWith;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.Random;
 import java.util.Scanner;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Predicate;
 
 @RunWith(AndroidJUnit4.class)
 public class DisplayTest {
+    private static final String TAG = "DisplayTest";
+
     // The CTS package brings up an overlay display on the target device (see AndroidTest.xml).
     // The overlay display parameters must match the ones defined there which are
     // 181x161/214 (wxh/dpi).  It only matters that these values are different from any real
@@ -89,11 +119,55 @@ public class DisplayTest {
     private Context mContext;
     private ColorSpace[] mSupportedWideGamuts;
     private Display mDefaultDisplay;
+    private HdrSettings mOriginalHdrSettings;
 
     // To test display mode switches.
     private TestPresentation mPresentation;
 
     private Activity mScreenOnActivity;
+
+    private static class DisplayModeState {
+        public final int mHeight;
+        public final int mWidth;
+        public final float mRefreshRate;
+
+        DisplayModeState(Display display) {
+            mHeight = display.getMode().getPhysicalHeight();
+            mWidth = display.getMode().getPhysicalWidth();
+
+            // Starting Android S the, the platform might throttle down
+            // applications frame rate to a divisor of the refresh rate instead if changing the
+            // physical display refresh rate. Applications should use
+            // {@link android.view.Display#getRefreshRate} to know their frame rate as opposed to
+            // {@link android.view.Display.Mode#getRefreshRate} that returns the physical display
+            // refresh rate. See
+            // {@link com.android.server.display.DisplayManagerService.DISPLAY_MODE_RETURNS_PHYSICAL_REFRESH_RATE}
+            // for more details.
+            mRefreshRate = display.getRefreshRate();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof DisplayModeState)) {
+                return false;
+            }
+
+            DisplayModeState other = (DisplayModeState) obj;
+            return mHeight == other.mHeight
+                && mWidth == other.mWidth
+                && mRefreshRate == other.mRefreshRate;
+        }
+
+        @Override
+        public String toString() {
+            return new StringBuilder("{")
+                    .append("width=").append(mWidth)
+                    .append(", height=").append(mHeight)
+                    .append(", fps=").append(mRefreshRate)
+                    .append("}")
+                    .toString();
+        }
+    }
 
     @Rule
     public ActivityTestRule<DisplayTestActivity> mDisplayTestActivity =
@@ -102,19 +176,43 @@ public class DisplayTest {
                     false /* initialTouchMode */,
                     false /* launchActivity */);
 
+    @Rule
+    public ActivityTestRule<RetainedDisplayTestActivity> mRetainedDisplayTestActivity =
+            new ActivityTestRule<>(
+                    RetainedDisplayTestActivity.class,
+                    false /* initialTouchMode */,
+                    false /* launchActivity */);
+
+    /**
+     * This rule adopts the Shell process permissions, needed because OVERRIDE_DISPLAY_MODE_REQUESTS
+     * and ACCESS_SURFACE_FLINGER are privileged permission.
+     */
+    @Rule
+    public AdoptShellPermissionsRule mAdoptShellPermissionsRule = new AdoptShellPermissionsRule(
+            InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+            Manifest.permission.OVERRIDE_DISPLAY_MODE_REQUESTS,
+            Manifest.permission.ACCESS_SURFACE_FLINGER,
+            Manifest.permission.WRITE_SECURE_SETTINGS,
+            Manifest.permission.HDMI_CEC);
+
     @Before
     public void setUp() throws Exception {
         mScreenOnActivity = launchScreenOnActivity();
-        mContext = InstrumentationRegistry.getInstrumentation().getContext();
-        mDisplayManager = (DisplayManager) mContext.getSystemService(Context.DISPLAY_SERVICE);
-        mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
-        mUiModeManager = (UiModeManager) mContext.getSystemService(Context.UI_MODE_SERVICE);
+        mContext = getInstrumentation().getTargetContext();
+        assertTrue("Physical display is expected.", DisplayUtil.isDisplayConnected(mContext));
+
+        mDisplayManager = mContext.getSystemService(DisplayManager.class);
+        mWindowManager = mContext.getSystemService(WindowManager.class);
+        mUiModeManager = mContext.getSystemService(UiModeManager.class);
         mDefaultDisplay = mDisplayManager.getDisplay(DEFAULT_DISPLAY);
         mSupportedWideGamuts = mDefaultDisplay.getSupportedWideColorGamut();
+        mOriginalHdrSettings = new HdrSettings();
+        cacheAndClearOriginalHdrSettings();
     }
 
     @After
     public void tearDown() throws Exception {
+        restoreOriginalHdrSettings();
         if (mScreenOnActivity != null) {
             mScreenOnActivity.finish();
         }
@@ -200,8 +298,7 @@ public class DisplayTest {
      */
     @Test
     public void testDefaultDisplayHdrCapability() {
-        Display display = mDisplayManager.getDisplay(DEFAULT_DISPLAY);
-        HdrCapabilities cap = display.getHdrCapabilities();
+        HdrCapabilities cap = mDefaultDisplay.getHdrCapabilities();
         int[] hdrTypes = cap.getSupportedHdrTypes();
         for (int type : hdrTypes) {
             assertTrue(type >= 1 && type <= 4);
@@ -212,9 +309,176 @@ public class DisplayTest {
         assertTrue(cap.getDesiredMinLuminance() <= cap.getDesiredMaxAverageLuminance());
         assertTrue(cap.getDesiredMaxAverageLuminance() <= cap.getDesiredMaxLuminance());
         if (hdrTypes.length > 0) {
-            assertTrue(display.isHdr());
+            assertTrue(mDefaultDisplay.isHdr());
         } else {
-            assertFalse(display.isHdr());
+            assertFalse(mDefaultDisplay.isHdr());
+        }
+    }
+
+    /**
+     * Verifies that getHdrCapabilities filters out specified HDR types after
+     * setUserDisabledHdrTypes is called and setAreUserDisabledHdrTypes is false.
+     */
+    @Test
+    public void
+            testGetHdrCapabilitiesWhenUserDisabledFormatsAreNotAllowedReturnsFilteredHdrTypes()
+                    throws Exception {
+        waitUntil(
+                mDefaultDisplay,
+                mDefaultDisplay ->
+                        mDefaultDisplay.getHdrCapabilities().getSupportedHdrTypes().length == 4,
+                Duration.ofSeconds(5));
+
+        mDisplayManager.setAreUserDisabledHdrTypesAllowed(false);
+        int[] emptyUserDisabledFormats = new int[] {};
+        mDisplayManager.setUserDisabledHdrTypes(emptyUserDisabledFormats);
+        int[] expectedHdrTypes = new int[]{
+                HdrCapabilities.HDR_TYPE_DOLBY_VISION, HdrCapabilities.HDR_TYPE_HDR10,
+                HdrCapabilities.HDR_TYPE_HLG, HdrCapabilities.HDR_TYPE_HDR10_PLUS};
+        assertArrayEquals(expectedHdrTypes,
+                mDefaultDisplay.getHdrCapabilities().getSupportedHdrTypes());
+
+        int[] userDisabledHdrTypes =
+                {HdrCapabilities.HDR_TYPE_DOLBY_VISION,  HdrCapabilities.HDR_TYPE_HLG};
+        mDisplayManager.setUserDisabledHdrTypes(userDisabledHdrTypes);
+        expectedHdrTypes = new int[]{
+                HdrCapabilities.HDR_TYPE_HDR10,
+                HdrCapabilities.HDR_TYPE_HDR10_PLUS};
+        assertArrayEquals(expectedHdrTypes,
+                mDefaultDisplay.getHdrCapabilities().getSupportedHdrTypes());
+
+        mDisplayManager.setUserDisabledHdrTypes(emptyUserDisabledFormats);
+        expectedHdrTypes = new int[]{
+                HdrCapabilities.HDR_TYPE_DOLBY_VISION, HdrCapabilities.HDR_TYPE_HDR10,
+                HdrCapabilities.HDR_TYPE_HLG, HdrCapabilities.HDR_TYPE_HDR10_PLUS};
+        assertArrayEquals(expectedHdrTypes,
+                mDefaultDisplay.getHdrCapabilities().getSupportedHdrTypes());
+    }
+
+    /**
+     * Verifies that getHdrCapabilities doesn't filter out HDR types after
+     * setUserDisabledHdrTypes is called and setAreUserDisabledHdrTypes is true.
+     */
+    @Test
+    public void
+            testGetHdrCapabilitiesWhenUserDisabledFormatsAreAllowedReturnsNonFilteredHdrTypes()
+                    throws Exception {
+        waitUntil(
+                mDefaultDisplay,
+                mDefaultDisplay ->
+                        mDefaultDisplay.getHdrCapabilities().getSupportedHdrTypes().length == 4,
+                Duration.ofSeconds(5));
+
+        mDisplayManager.setAreUserDisabledHdrTypesAllowed(true);
+        int[] userDisabledHdrTypes =
+                {HdrCapabilities.HDR_TYPE_DOLBY_VISION,  HdrCapabilities.HDR_TYPE_HLG};
+        mDisplayManager.setUserDisabledHdrTypes(userDisabledHdrTypes);
+        int[] expectedHdrTypes = new int[]{
+                HdrCapabilities.HDR_TYPE_DOLBY_VISION, HdrCapabilities.HDR_TYPE_HDR10,
+                HdrCapabilities.HDR_TYPE_HLG, HdrCapabilities.HDR_TYPE_HDR10_PLUS};
+        assertArrayEquals(expectedHdrTypes,
+                mDefaultDisplay.getHdrCapabilities().getSupportedHdrTypes());
+
+        int[] emptyUserDisabledFormats = {};
+        mDisplayManager.setUserDisabledHdrTypes(emptyUserDisabledFormats);
+        assertArrayEquals(expectedHdrTypes,
+                mDefaultDisplay.getHdrCapabilities().getSupportedHdrTypes());
+    }
+
+    /**
+     * Verifies that if userDisabledFormats are not allowed, and are modified by
+     * setUserDisabledHdrTypes, the setting is persisted in Settings.Global.
+     */
+    @Test
+    public void testSetUserDisabledHdrTypesStoresDisabledFormatsInSettings() throws Exception {
+        waitUntil(
+                mDefaultDisplay,
+                mDefaultDisplay ->
+                        mDefaultDisplay.getHdrCapabilities().getSupportedHdrTypes().length == 4,
+                Duration.ofSeconds(5));
+
+        mDisplayManager.setAreUserDisabledHdrTypesAllowed(false);
+        int[] emptyUserDisabledFormats = {};
+        mDisplayManager.setUserDisabledHdrTypes(emptyUserDisabledFormats);
+
+        int[] userDisabledHdrTypes =
+                {HdrCapabilities.HDR_TYPE_DOLBY_VISION,  HdrCapabilities.HDR_TYPE_HLG};
+        mDisplayManager.setUserDisabledHdrTypes(userDisabledHdrTypes);
+        String userDisabledFormatsString =
+                Settings.Global.getString(mContext.getContentResolver(),
+                        Settings.Global.USER_DISABLED_HDR_FORMATS);
+        int[] userDisabledFormats = Arrays.stream(
+                TextUtils.split(userDisabledFormatsString, ","))
+                .mapToInt(Integer::parseInt).toArray();
+
+        assertEquals(HdrCapabilities.HDR_TYPE_DOLBY_VISION, userDisabledFormats[0]);
+        assertEquals(HdrCapabilities.HDR_TYPE_HLG, userDisabledFormats[1]);
+    }
+
+    private static final class HdrSettings  {
+        public boolean areUserDisabledHdrTypesAllowed;
+        public int[] userDisabledHdrTypes;
+    }
+
+    private void cacheAndClearOriginalHdrSettings() {
+        mOriginalHdrSettings.areUserDisabledHdrTypesAllowed =
+                mDisplayManager.areUserDisabledHdrTypesAllowed();
+        mOriginalHdrSettings.userDisabledHdrTypes =
+                mDisplayManager.getUserDisabledHdrTypes();
+        final IBinder displayToken = SurfaceControl.getInternalDisplayToken();
+        SurfaceControl.overrideHdrTypes(displayToken, new int[]{
+                HdrCapabilities.HDR_TYPE_DOLBY_VISION, HdrCapabilities.HDR_TYPE_HDR10,
+                HdrCapabilities.HDR_TYPE_HLG, HdrCapabilities.HDR_TYPE_HDR10_PLUS});
+        mDisplayManager.setAreUserDisabledHdrTypesAllowed(true);
+    }
+
+    private void restoreOriginalHdrSettings() {
+        final IBinder displayToken = SurfaceControl.getInternalDisplayToken();
+        SurfaceControl.overrideHdrTypes(displayToken, new int[]{});
+        if (mDisplayManager != null) {
+            mDisplayManager.setUserDisabledHdrTypes(
+                    mOriginalHdrSettings.userDisabledHdrTypes);
+            mDisplayManager.setAreUserDisabledHdrTypesAllowed(
+                    mOriginalHdrSettings.areUserDisabledHdrTypesAllowed);
+        }
+    }
+
+    private void waitUntil(Display display, Predicate<Display> pred, Duration maxWait)
+            throws Exception {
+        final int id = display.getDisplayId();
+        final Lock lock = new ReentrantLock();
+        final Condition displayChanged = lock.newCondition();
+        DisplayListener listener = new DisplayListener() {
+            @Override
+            public void onDisplayChanged(int displayId) {
+                if (displayId != id) {
+                    return;
+                }
+                lock.lock();
+                try {
+                    displayChanged.signal();
+                } finally {
+                    lock.unlock();
+                }
+            }
+            @Override
+            public void onDisplayAdded(int displayId) {}
+            @Override
+            public void onDisplayRemoved(int displayId) {}
+        };
+        Handler handler = new Handler(Looper.getMainLooper());
+        mDisplayManager.registerDisplayListener(listener, handler);
+        long remainingNanos = maxWait.toNanos();
+        lock.lock();
+        try {
+            while (!pred.test(display)) {
+                if (remainingNanos <= 0L) {
+                    throw new TimeoutException();
+                }
+                remainingNanos = displayChanged.awaitNanos(remainingNanos);
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -306,6 +570,140 @@ public class DisplayTest {
     }
 
     /**
+     * Test that a mode switch to every reported display mode is successful.
+     */
+    @Test
+    public void testModeSwitchOnPrimaryDisplay() throws Exception {
+        Display.Mode[] modes = mDefaultDisplay.getSupportedModes();
+        assumeTrue("Need two or more display modes to exercise switching.", modes.length > 1);
+
+        // Create a deterministically shuffled list of display modes, which ends with the
+        // current active mode. We'll switch to the modes in this order. The active mode is last
+        // so we don't need an extra mode switch in case the test completes successfully.
+        Display.Mode activeMode = mDefaultDisplay.getMode();
+        List<Display.Mode> modesList = new ArrayList<>(modes.length);
+        for (Display.Mode mode : modes) {
+            if (mode.getModeId() != activeMode.getModeId()) {
+                modesList.add(mode);
+            }
+        }
+        Random random = new Random(42);
+        Collections.shuffle(modesList, random);
+        modesList.add(activeMode);
+
+        try {
+            mDisplayManager.setShouldAlwaysRespectAppRequestedMode(true);
+            assertTrue(mDisplayManager.shouldAlwaysRespectAppRequestedMode());
+            final DisplayTestActivity activity = launchActivity(mRetainedDisplayTestActivity);
+            for (Display.Mode mode : modesList) {
+                testSwitchToModeId(activity, mode);
+            }
+        } finally {
+            mDisplayManager.setShouldAlwaysRespectAppRequestedMode(false);
+        }
+    }
+
+    /**
+     * Test that a mode switch to another display mode works when the requesting Activity
+     * is destroyed and re-created as part of the configuration change from the display mode.
+     */
+    @Test
+    public void testModeSwitchOnPrimaryDisplayWithRestart() throws Exception {
+        final Display.Mode oldMode = mDefaultDisplay.getMode();
+        final Optional<Display.Mode> newMode = Arrays.stream(mDefaultDisplay.getSupportedModes())
+                .filter(x -> !getPhysicalSize(x).equals(getPhysicalSize(oldMode)))
+                .findFirst();
+        assumeTrue("Modes with different sizes are not available", newMode.isPresent());
+
+        try {
+            mDisplayManager.setShouldAlwaysRespectAppRequestedMode(true);
+            assertTrue(mDisplayManager.shouldAlwaysRespectAppRequestedMode());
+            final DisplayTestActivity activity = launchActivity(mDisplayTestActivity);
+            testSwitchToModeId(launchActivity(mDisplayTestActivity), newMode.get());
+        } finally {
+            mDisplayManager.setShouldAlwaysRespectAppRequestedMode(false);
+        }
+    }
+
+    private static Point getPhysicalSize(Display.Mode mode) {
+        return new Point(mode.getPhysicalWidth(), mode.getPhysicalHeight());
+    }
+
+    private void testSwitchToModeId(DisplayTestActivity activity, Display.Mode mode)
+            throws Exception {
+        Log.i(TAG, "Switching to mode " + mode);
+
+        final CountDownLatch changeSignal = new CountDownLatch(1);
+        final AtomicInteger changeCounter = new AtomicInteger(0);
+        final DisplayModeState activeMode = new DisplayModeState(mDefaultDisplay);
+
+        DisplayListener listener = new DisplayListener() {
+            private DisplayModeState mLastMode = activeMode;
+            @Override
+            public void onDisplayAdded(int displayId) {}
+
+            @Override
+            public void onDisplayChanged(int displayId) {
+                if (displayId != mDefaultDisplay.getDisplayId()) {
+                    return;
+                }
+                DisplayModeState newMode = new DisplayModeState(mDefaultDisplay);
+                if (mLastMode.equals(newMode)) {
+                    // We assume this display change is caused by an external factor so it's
+                    // unrelated.
+                    return;
+                }
+
+                Log.i(TAG, "Switched mode from=" + mLastMode + " to=" + newMode);
+                changeCounter.incrementAndGet();
+                changeSignal.countDown();
+
+                mLastMode = newMode;
+            }
+
+            @Override
+            public void onDisplayRemoved(int displayId) {}
+        };
+
+        Handler handler = new Handler(Looper.getMainLooper());
+        mDisplayManager.registerDisplayListener(listener, handler);
+
+        final CountDownLatch presentationSignal = new CountDownLatch(1);
+        handler.post(() -> {
+            activity.setPreferredDisplayMode(mode);
+            presentationSignal.countDown();
+        });
+
+        assertTrue(presentationSignal.await(5, TimeUnit.SECONDS));
+
+        // Wait until the display change is effective.
+        assertTrue(changeSignal.await(5, TimeUnit.SECONDS));
+        DisplayModeState currentMode = new DisplayModeState(mDefaultDisplay);
+        assertEquals(mode.getPhysicalHeight(), currentMode.mHeight);
+        assertEquals(mode.getPhysicalWidth(), currentMode.mWidth);
+        assertEquals(mode.getRefreshRate(), currentMode.mRefreshRate, 0.001f);
+
+        // Make sure no more display mode changes are registered.
+        Thread.sleep(Duration.ofSeconds(3).toMillis());
+        assertEquals(1, changeCounter.get());
+
+        // Many TV apps use the vendor.display-size sysprop to detect the display size (although
+        // it's not an official API). In Android S the bugs which required this workaround were
+        // fixed and the sysprop should be either unset or should have the same value as the
+        // official API. The assertions are done after the delay above because on some
+        // devices the sysprop is not updated immediately after onDisplayChanged is called.
+        if (PropertyUtil.getVendorApiLevel() >= Build.VERSION_CODES.S) {
+            Point vendorDisplaySize = getVendorDisplaySize();
+            if (vendorDisplaySize != null) {
+                assertEquals(mode.getPhysicalWidth(), vendorDisplaySize.x);
+                assertEquals(mode.getPhysicalHeight(), vendorDisplaySize.y);
+            }
+        }
+
+        mDisplayManager.unregisterDisplayListener(listener);
+    }
+
+    /**
      * Tests that the mode-related attributes and methods work as expected.
      */
     @Test
@@ -320,10 +718,103 @@ public class DisplayTest {
     }
 
     /**
-     * Tests that mode switch requests are correctly executed.
+     * Tests that getSupportedModes works as expected.
      */
     @Test
-    public void testModeSwitch() throws Exception {
+    public void testGetSupportedModesOnDefaultDisplay() {
+        Display.Mode[] supportedModes = mDefaultDisplay.getSupportedModes();
+        // We need to check that the graph defined by getAlternativeRefreshRates() is symmetric and
+        // transitive.
+        // For that reason we run a primitive Union-Find algorithm. In the end of the algorithm
+        // groups[i] == groups[j] iff supportedModes[i] and supportedModes[j] are in the same
+        // connected component. The complexity is O(N^2*M) where N is the number of modes and M is
+        // the max number of alternative refresh rates). This is okay as we expect a relatively
+        // small number of supported modes.
+        int[] groups = new int[supportedModes.length];
+        for (int i = 0; i < groups.length; i++) {
+            groups[i] = i;
+        }
+
+        for (int i = 0; i < supportedModes.length; i++) {
+            Display.Mode supportedMode = supportedModes[i];
+            for (float alternativeRate : supportedMode.getAlternativeRefreshRates()) {
+                assertTrue(alternativeRate != supportedMode.getRefreshRate());
+
+                // The alternative exists.
+                int matchingModeIdx = -1;
+                for (int j = 0; j < supportedModes.length; j++) {
+                    boolean matches = displayModeMatches(supportedModes[j],
+                            supportedMode.getPhysicalWidth(),
+                            supportedMode.getPhysicalHeight(),
+                            alternativeRate);
+                    if (matches) {
+                        matchingModeIdx = j;
+                        break;
+                    }
+                }
+                String message = "Could not find alternative display mode with refresh rate "
+                        + alternativeRate + " for " + supportedMode +  ". All supported"
+                        + " modes are " + Arrays.toString(supportedModes);
+                assertNotEquals(message, -1, matchingModeIdx);
+
+                // Merge the groups of i and matchingModeIdx
+                for (int k = 0; k < groups.length; k++) {
+                    if (groups[k] == groups[matchingModeIdx]) {
+                        groups[k] = groups[i];
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < supportedModes.length; i++) {
+            for (int j = 0; j < supportedModes.length; j++) {
+                if (i != j && groups[i] == groups[j]) {
+                    float fpsI = supportedModes[i].getRefreshRate();
+                    boolean iIsAlternativeToJ = false;
+                    for (float alternatives : supportedModes[j].getAlternativeRefreshRates()) {
+                        if (alternatives == fpsI) {
+                            iIsAlternativeToJ = true;
+                            break;
+                        }
+                    }
+                    String message = "Expected " + supportedModes[i] + " to be listed as "
+                            + "alternative refresh rate of " + supportedModes[j] + ". All supported"
+                            + " modes are " + Arrays.toString(supportedModes);
+                    assertTrue(message, iIsAlternativeToJ);
+                }
+            }
+        }
+    }
+
+    private boolean displayModeMatches(Display.Mode mode, int width, int height,
+            float refreshRate) {
+        return mode.getPhysicalWidth() == width &&
+                mode.getPhysicalHeight() == height &&
+                Float.floatToIntBits(mode.getRefreshRate()) == Float.floatToIntBits(refreshRate);
+    }
+
+    /**
+     * Tests that getMode() returns a mode which is in getSupportedModes().
+     */
+    @Test
+    public void testActiveModeIsSupportedModesOnDefaultDisplay() {
+        Display.Mode[] supportedModes = mDefaultDisplay.getSupportedModes();
+        Display.Mode activeMode = mDefaultDisplay.getMode();
+        boolean activeModeIsSupported = false;
+        for (Display.Mode mode : supportedModes) {
+            if (mode.equals(activeMode)) {
+                activeModeIsSupported = true;
+                break;
+            }
+        }
+        assertTrue(activeModeIsSupported);
+    }
+
+    /**
+     * Test that refresh rate switch app requests are correctly executed on a secondary display.
+     */
+    @Test
+    public void testRefreshRateSwitchOnSecondaryDisplay() throws Exception {
         // Standalone VR devices globally ignore SYSTEM_ALERT_WINDOW via AppOps.
         // Skip this test, which depends on a Presentation SYSTEM_ALERT_WINDOW to pass.
         if (mUiModeManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_VR_HEADSET) {
@@ -359,15 +850,12 @@ public class DisplayTest {
 
         // Show the presentation.
         final CountDownLatch presentationSignal = new CountDownLatch(1);
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                mPresentation = new TestPresentation(
-                        InstrumentationRegistry.getInstrumentation().getContext(),
-                        display, newMode.getModeId());
-                mPresentation.show();
-                presentationSignal.countDown();
-            }
+        handler.post(() -> {
+            mPresentation = new TestPresentation(
+                    InstrumentationRegistry.getInstrumentation().getContext(),
+                    display, newMode.getModeId());
+            mPresentation.show();
+            presentationSignal.countDown();
         });
         assertTrue(presentationSignal.await(5, TimeUnit.SECONDS));
 
@@ -375,12 +863,7 @@ public class DisplayTest {
         assertTrue(changeSignal.await(5, TimeUnit.SECONDS));
 
         assertEquals(newMode, display.getMode());
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                mPresentation.dismiss();
-            }
-        });
+        handler.post(() -> mPresentation.dismiss());
     }
 
     /**
@@ -396,6 +879,56 @@ public class DisplayTest {
         } else {
             assertNull(colorSpace);
         }
+    }
+
+    @Test
+    public void testGetDeviceProductInfo() {
+        DeviceProductInfo deviceProductInfo = mDefaultDisplay.getDeviceProductInfo();
+        assumeNotNull(deviceProductInfo);
+
+        assertNotNull(deviceProductInfo.getManufacturerPnpId());
+
+        assertNotNull(deviceProductInfo.getProductId());
+
+        final boolean isYearPresent = (deviceProductInfo.getModelYear() != -1) ||
+                (deviceProductInfo.getManufactureYear() != -1);
+        assertTrue(isYearPresent);
+        int year = deviceProductInfo.getModelYear() != -1 ?
+                deviceProductInfo.getModelYear() : deviceProductInfo.getManufactureYear();
+        // Verify if the model year or manufacture year is greater than or equal to 1990.
+        // This assumption is based on Section of 3.4.4 - Week and Year of Manufacture or Model Year
+        // of VESA EDID STANDARD Version 1, Revision 4
+        assertTrue(year >= 1990);
+
+        int week = deviceProductInfo.getManufactureWeek();
+        assertTrue(week == -1 || (week >= 1 && week <= 53));
+
+        List<Integer> allowedConnectionToSinkValues = List.of(
+                DeviceProductInfo.CONNECTION_TO_SINK_UNKNOWN,
+                DeviceProductInfo.CONNECTION_TO_SINK_BUILT_IN,
+                DeviceProductInfo.CONNECTION_TO_SINK_DIRECT,
+                DeviceProductInfo.CONNECTION_TO_SINK_TRANSITIVE
+        );
+        assertTrue(
+                allowedConnectionToSinkValues.contains(
+                        deviceProductInfo.getConnectionToSinkType()));
+    }
+
+    @Test
+    public void testDeviceProductInfo() {
+        DeviceProductInfo deviceProductInfo = new DeviceProductInfo(
+                "DeviceName" /* name */,
+                "TTL" /* manufacturePnpId */,
+                "ProductId1" /* productId */,
+                2000 /* modelYear */,
+                DeviceProductInfo.CONNECTION_TO_SINK_DIRECT);
+
+        assertEquals("DeviceName", deviceProductInfo.getName());
+        assertEquals("TTL", deviceProductInfo.getManufacturerPnpId());
+        assertEquals("ProductId1", deviceProductInfo.getProductId());
+        assertEquals(2000, deviceProductInfo.getModelYear());
+        assertEquals(DeviceProductInfo.CONNECTION_TO_SINK_DIRECT,
+                deviceProductInfo.getConnectionToSinkType());
     }
 
     @Test
@@ -439,6 +972,21 @@ public class DisplayTest {
         assertEquals(supportsWideGamut, supportsP3);
     }
 
+    @Test
+    public void testRestrictedFramebufferSize() {
+        PackageManager packageManager = mContext.getPackageManager();
+        if (packageManager.hasSystemFeature(FEATURE_LEANBACK)) {
+            // TV devices are allowed to restrict their framebuffer size.
+            return;
+        }
+
+        // Non-TV devices are not allowed by Android CDD to restrict their framebuffer size.
+        String width = SystemProperties.get("ro.surface_flinger.max_graphics_width");
+        assertEquals("", width);
+        String height = SystemProperties.get("ro.surface_flinger.max_graphics_height");
+        assertEquals("", height);
+    }
+
     /**
      * Used to force mode changes on a display.
      * <p>
@@ -466,9 +1014,18 @@ public class DisplayTest {
 
             WindowManager.LayoutParams params = getWindow().getAttributes();
             params.preferredDisplayModeId = mModeId;
-            params.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
             params.setTitle("CtsTestPresentation");
             getWindow().setAttributes(params);
+        }
+
+        @Override
+        public void cancel() {
+            // Ignore attempts to force cancel the presentation. This is going to happen when we
+            // change the mode of the display since doing so will change the display metrics, which
+            // Presentations don't yet support. Ignoring it means the Presentation will stay up and
+            // the mode will stay changed until dismiss is called, preventing a race condition
+            // between the test checking the mode of the display and the mode changing back to the
+            // default because the requesting Presentation is no longer showing.
         }
     }
 
@@ -550,5 +1107,16 @@ public class DisplayTest {
     public boolean setBrightness(float value) throws Exception {
         Process process = Runtime.getRuntime().exec("cmd display set-brightness " + value);
         return 0 == process.waitFor();
+    }
+
+    private Point getVendorDisplaySize() {
+        String value = PropertyUtil.getProperty("vendor.display-size");
+        if (TextUtils.isEmpty(value)) {
+            return null;
+        }
+
+        String[] parts = value.split("x");
+        assertEquals(2, parts.length);
+        return new Point(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
     }
 }

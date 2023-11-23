@@ -70,7 +70,7 @@ public class CrossProcessExceptionService extends Service {
                     case "ARE":
                         final PendingIntent pi = PendingIntent.getActivity(
                                 CrossProcessExceptionService.this, 12, new Intent(),
-                                PendingIntent.FLAG_CANCEL_CURRENT);
+                                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
                         throw new AuthenticationRequiredException(new FileNotFoundException("FNFE"), pi);
                     case "RE":
                         throw new RuntimeException("RE");

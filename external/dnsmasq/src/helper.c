@@ -75,8 +75,8 @@ int create_helper(int event_fd, int err_fd, uid_t uid, gid_t gid, long max_fd) {
     sigaction(SIGALRM, &sigact, NULL);
 
     if (!(daemon->options & OPT_DEBUG) && uid != 0) {
-        gid_t dummy;
-        if (setgroups(0, &dummy) == -1 || setgid(gid) == -1 || setuid(uid) == -1) {
+        gid_t unused;
+        if (setgroups(0, &unused) == -1 || setgid(gid) == -1 || setuid(uid) == -1) {
             if (daemon->options & OPT_NO_FORK) /* send error to daemon process if no-fork */
                 send_event(event_fd, EVENT_HUSER_ERR, errno);
             else {

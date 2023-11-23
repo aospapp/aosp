@@ -18,6 +18,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.ims.tests">
 
+    <!--  For EabBulkCapabilityUpdaterTest, EabBulkCapabilityUpdater will register content
+     observer to contact provider but currently there is no better way to mock contact provider
+     (registerContentObserver() is final), so require the read_contacts permission to test APK.-->
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
+
     <application android:label="@string/app_name">
         <uses-library android:name="android.test.runner" />
     </application>

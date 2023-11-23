@@ -18,11 +18,11 @@ allow lbs_dbg storage_file:dir { write create add_name search mounton };
 allow lbs_dbg storage_file:lnk_file read;
 allow lbs_dbg lbs_dbg_data_file:file create_file_perms;
 
-#allow lbs_dbg mnld_device:chr_file rw_file_perms;
+allow lbs_dbg debuglog_data_file:lnk_file r_file_perms;
 
-allow lbs_dbg media_rw_data_file:dir search;
-allow lbs_dbg media_rw_data_file:dir { read open };
-
+allow lbs_dbg mnt_user_file:dir search;
+allow lbs_dbg fuse:dir create_dir_perms;
+allow lbs_dbg fuse:file create_file_perms;
 allow lbs_dbg sdcard_type:filesystem unmount;
 allow lbs_dbg tmpfs:filesystem unmount;
 allow lbs_dbg sysfs:dir { read open };
@@ -36,18 +36,15 @@ allow lbs_dbg self:netlink_route_socket { bind create getattr write nlmsg_read r
 allow lbs_dbg self:tcp_socket create_stream_socket_perms;
 allow lbs_dbg self:udp_socket create_socket_perms;
 
-allow lbs_dbg hwservicemanager_prop:file read;
+get_prop(lbs_dbg, hwservicemanager_prop)
 hal_client_domain(lbs_dbg, mtk_hal_lbs)
 
-allow lbs_dbg media_rw_data_file:dir { write remove_name };
-allow lbs_dbg media_rw_data_file:file getattr;
-allow lbs_dbg sdcardfs:dir { write remove_name create add_name };
-allow lbs_dbg sdcardfs:file { rename getattr };
-allow lbs_dbg media_rw_data_file:dir { create add_name };
-allow lbs_dbg media_rw_data_file:file { write rename create open };
-allow lbs_dbg sdcardfs:file { write create open };
-allow lbs_dbg media_rw_data_file:file unlink;
-allow lbs_dbg sdcardfs:file unlink;
 
 allow lbs_dbg vfat:dir { write remove_name create add_name };
 allow lbs_dbg vfat:file { write rename create open getattr unlink };
+allow lbs_dbg debuglog_data_file:dir { create_dir_perms };
+allow lbs_dbg debuglog_data_file:file { create_file_perms };
+allow lbs_dbg sdcardfs:dir { create_dir_perms };
+allow lbs_dbg sdcardfs:file { create_file_perms };
+allow lbs_dbg media_rw_data_file:dir { create_dir_perms };
+allow lbs_dbg media_rw_data_file:file { create_file_perms };

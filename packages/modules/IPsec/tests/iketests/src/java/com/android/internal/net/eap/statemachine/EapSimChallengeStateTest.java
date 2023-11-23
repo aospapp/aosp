@@ -14,33 +14,34 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.statemachine;
+package com.android.internal.net.eap.test.statemachine;
+
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_SIM;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.EapData.EAP_IDENTITY;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_SIM;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_FAILURE;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_REQUEST;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_SUCCESS;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.CHALLENGE_RESPONSE_INVALID_KC;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.CHALLENGE_RESPONSE_INVALID_SRES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_SIM_IDENTITY_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EMSK;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.ID_INT;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.KC_1_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.KC_2_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSK;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.SRES_1_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.SRES_2_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.VALID_CHALLENGE_RESPONSE;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
-import static com.android.internal.net.eap.message.simaka.EapSimTypeData.EAP_SIM_CHALLENGE;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.NONCE_MT;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1_BYTES;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RAND_2;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RAND_2_BYTES;
+import static com.android.internal.net.eap.test.message.EapData.EAP_IDENTITY;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_FAILURE;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_REQUEST;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_SUCCESS;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.CHALLENGE_RESPONSE_INVALID_KC;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.CHALLENGE_RESPONSE_INVALID_SRES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SIM_IDENTITY_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EMSK;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.ID_INT;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.KC_1_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.KC_2_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSK;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.SRES_1_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.SRES_2_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.VALID_CHALLENGE_RESPONSE;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_MAC;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
+import static com.android.internal.net.eap.test.message.simaka.EapSimTypeData.EAP_SIM_CHALLENGE;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.NONCE_MT;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1_BYTES;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_2;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_2_BYTES;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -56,25 +57,25 @@ import static org.mockito.Mockito.when;
 
 import android.telephony.TelephonyManager;
 
-import com.android.internal.net.eap.EapResult;
-import com.android.internal.net.eap.EapResult.EapError;
-import com.android.internal.net.eap.EapResult.EapFailure;
-import com.android.internal.net.eap.EapResult.EapSuccess;
-import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaAuthenticationFailureException;
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAttributeException;
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidLengthException;
-import com.android.internal.net.eap.message.EapData;
-import com.android.internal.net.eap.message.EapMessage;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtMac;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtNonceMt;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtRandSim;
-import com.android.internal.net.eap.message.simaka.EapSimAkaTypeData.DecodeResult;
-import com.android.internal.net.eap.message.simaka.EapSimTypeData;
-import com.android.internal.net.eap.statemachine.EapMethodStateMachine.FinalState;
-import com.android.internal.net.eap.statemachine.EapSimMethodStateMachine.ChallengeState;
-import com.android.internal.net.eap.statemachine.EapSimMethodStateMachine.ChallengeState.RandChallengeResult;
+import com.android.internal.net.eap.test.EapResult;
+import com.android.internal.net.eap.test.EapResult.EapError;
+import com.android.internal.net.eap.test.EapResult.EapFailure;
+import com.android.internal.net.eap.test.EapResult.EapSuccess;
+import com.android.internal.net.eap.test.exceptions.EapInvalidRequestException;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaAuthenticationFailureException;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaInvalidAttributeException;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaInvalidLengthException;
+import com.android.internal.net.eap.test.message.EapData;
+import com.android.internal.net.eap.test.message.EapMessage;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtMac;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtNonceMt;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRandSim;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaTypeData.DecodeResult;
+import com.android.internal.net.eap.test.message.simaka.EapSimTypeData;
+import com.android.internal.net.eap.test.statemachine.EapMethodStateMachine.FinalState;
+import com.android.internal.net.eap.test.statemachine.EapSimMethodStateMachine.ChallengeState;
+import com.android.internal.net.eap.test.statemachine.EapSimMethodStateMachine.ChallengeState.RandChallengeResult;
 
 import org.junit.Test;
 

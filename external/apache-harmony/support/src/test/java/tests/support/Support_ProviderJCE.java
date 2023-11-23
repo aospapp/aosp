@@ -22,7 +22,7 @@ import java.security.PrivilegedAction;
 import java.security.Provider;
 
 /**
- * This class implements a dummy security provider
+ * This class implements a fake security provider
  */
 public class Support_ProviderJCE extends Provider {
     private static final long serialVersionUID = 1L;
@@ -37,7 +37,7 @@ public class Support_ProviderJCE extends Provider {
             + " DSA key, parameter generation and signing; SHA-1 digest";
 
     /**
-     * Constructs a new instance of the dummy provider.
+     * Constructs a new instance of the fake provider.
      */
     public Support_ProviderJCE() {
         super(NAME, VERSION, INFO);

@@ -15,6 +15,9 @@
 ** limitations under the License.
 */
 
+//#define LOG_NDEBUG 0
+#define LOG_TAG "main_extractorservice"
+
 #include <fcntl.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
@@ -26,9 +29,8 @@
 
 #include <android-base/logging.h>
 #include <android-base/properties.h>
+#include <utils/Log.h>
 #include <utils/misc.h>
-
-#include <bionic/reserved_signals.h>
 
 // from LOCAL_C_INCLUDES
 #include "MediaExtractorService.h"
@@ -43,16 +45,18 @@ static const char kVendorSeccompPolicyPath[] =
 
 int main(int argc __unused, char** argv)
 {
+
+#if __has_feature(hwaddress_sanitizer)
+    ALOGI("disable media.extractor memory limits (hwasan enabled)");
+#else
+    ALOGI("enable media.extractor memory limits");
     limitProcessMemory(
         "ro.media.maxmem", /* property that defines limit */
         SIZE_MAX, /* upper limit in bytes */
         20 /* upper limit as percentage of physical RAM */);
+#endif
 
     signal(SIGPIPE, SIG_IGN);
-
-    // Do not assist platform profilers (relevant only on debug builds).
-    // Otherwise, the signal handler can violate the seccomp policy.
-    signal(BIONIC_SIGNAL_PROFILER, SIG_IGN);
 
     //b/62255959: this forces libutis.so to dlopen vendor version of libutils.so
     //before minijail is on. This is dirty but required since some syscalls such

@@ -38,7 +38,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:background="@color/secondary_color"
+                android:background="?android:colorSecondary"
                 app:card_style="screen_aspect_ratio"/>
 
             <LinearLayout

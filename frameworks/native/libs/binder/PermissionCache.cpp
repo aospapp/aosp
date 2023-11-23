@@ -27,7 +27,7 @@ namespace android {
 
 // ----------------------------------------------------------------------------
 
-ANDROID_SINGLETON_STATIC_INSTANCE(PermissionCache) ;
+ANDROID_SINGLETON_STATIC_INSTANCE(PermissionCache)
 
 // ----------------------------------------------------------------------------
 
@@ -107,6 +107,11 @@ bool PermissionCache::checkPermission(
         pc.cache(permission, uid, granted);
     }
     return granted;
+}
+
+void PermissionCache::purgeCache() {
+    PermissionCache& pc(PermissionCache::getInstance());
+    pc.purge();
 }
 
 // ---------------------------------------------------------------------------

@@ -5,16 +5,281 @@
 use std::ffi::OsString;
 use std::fs::remove_file;
 use std::io;
-use std::mem;
+use std::mem::{self, size_of};
+use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6, TcpListener, TcpStream, ToSocketAddrs};
 use std::ops::Deref;
 use std::os::unix::{
     ffi::{OsStrExt, OsStringExt},
-    io::{AsRawFd, FromRawFd, RawFd},
+    io::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
 };
 use std::path::Path;
 use std::path::PathBuf;
 use std::ptr::null_mut;
 use std::time::Duration;
+
+use libc::{
+    c_int, in6_addr, in_addr, recvfrom, sa_family_t, sockaddr, sockaddr_in, sockaddr_in6,
+    socklen_t, AF_INET, AF_INET6, MSG_PEEK, MSG_TRUNC, SOCK_CLOEXEC, SOCK_STREAM,
+};
+use serde::{Deserialize, Serialize};
+
+use crate::sock_ctrl_msg::{ScmSocket, SCM_SOCKET_MAX_FD_COUNT};
+use crate::{AsRawDescriptor, RawDescriptor};
+
+/// Assist in handling both IP version 4 and IP version 6.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum InetVersion {
+    V4,
+    V6,
+}
+
+impl InetVersion {
+    pub fn from_sockaddr(s: &SocketAddr) -> Self {
+        match s {
+            SocketAddr::V4(_) => InetVersion::V4,
+            SocketAddr::V6(_) => InetVersion::V6,
+        }
+    }
+}
+
+impl From<InetVersion> for sa_family_t {
+    fn from(v: InetVersion) -> sa_family_t {
+        match v {
+            InetVersion::V4 => AF_INET as sa_family_t,
+            InetVersion::V6 => AF_INET6 as sa_family_t,
+        }
+    }
+}
+
+fn sockaddrv4_to_lib_c(s: &SocketAddrV4) -> sockaddr_in {
+    sockaddr_in {
+        sin_family: AF_INET as sa_family_t,
+        sin_port: s.port().to_be(),
+        sin_addr: in_addr {
+            s_addr: u32::from_ne_bytes(s.ip().octets()),
+        },
+        sin_zero: [0; 8],
+    }
+}
+
+fn sockaddrv6_to_lib_c(s: &SocketAddrV6) -> sockaddr_in6 {
+    sockaddr_in6 {
+        sin6_family: AF_INET6 as sa_family_t,
+        sin6_port: s.port().to_be(),
+        sin6_flowinfo: 0,
+        sin6_addr: in6_addr {
+            s6_addr: s.ip().octets(),
+        },
+        sin6_scope_id: 0,
+    }
+}
+
+/// A TCP socket.
+///
+/// Do not use this class unless you need to change socket options or query the
+/// state of the socket prior to calling listen or connect. Instead use either TcpStream or
+/// TcpListener.
+#[derive(Debug)]
+pub struct TcpSocket {
+    inet_version: InetVersion,
+    fd: RawFd,
+}
+
+impl TcpSocket {
+    pub fn new(inet_version: InetVersion) -> io::Result<Self> {
+        let fd = unsafe {
+            libc::socket(
+                Into::<sa_family_t>::into(inet_version) as c_int,
+                SOCK_STREAM | SOCK_CLOEXEC,
+                0,
+            )
+        };
+        if fd < 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(TcpSocket { inet_version, fd })
+        }
+    }
+
+    pub fn bind<A: ToSocketAddrs>(&mut self, addr: A) -> io::Result<()> {
+        let sockaddr = addr
+            .to_socket_addrs()
+            .map_err(|_| io::Error::from_raw_os_error(libc::EINVAL))?
+            .next()
+            .unwrap();
+
+        let ret = match sockaddr {
+            SocketAddr::V4(a) => {
+                let sin = sockaddrv4_to_lib_c(&a);
+                // Safe because this doesn't modify any memory and we check the return value.
+                unsafe {
+                    libc::bind(
+                        self.fd,
+                        &sin as *const sockaddr_in as *const sockaddr,
+                        size_of::<sockaddr_in>() as socklen_t,
+                    )
+                }
+            }
+            SocketAddr::V6(a) => {
+                let sin6 = sockaddrv6_to_lib_c(&a);
+                // Safe because this doesn't modify any memory and we check the return value.
+                unsafe {
+                    libc::bind(
+                        self.fd,
+                        &sin6 as *const sockaddr_in6 as *const sockaddr,
+                        size_of::<sockaddr_in6>() as socklen_t,
+                    )
+                }
+            }
+        };
+        if ret < 0 {
+            let bind_err = io::Error::last_os_error();
+            Err(bind_err)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn connect<A: ToSocketAddrs>(self, addr: A) -> io::Result<TcpStream> {
+        let sockaddr = addr
+            .to_socket_addrs()
+            .map_err(|_| io::Error::from_raw_os_error(libc::EINVAL))?
+            .next()
+            .unwrap();
+
+        let ret = match sockaddr {
+            SocketAddr::V4(a) => {
+                let sin = sockaddrv4_to_lib_c(&a);
+                // Safe because this doesn't modify any memory and we check the return value.
+                unsafe {
+                    libc::connect(
+                        self.fd,
+                        &sin as *const sockaddr_in as *const sockaddr,
+                        size_of::<sockaddr_in>() as socklen_t,
+                    )
+                }
+            }
+            SocketAddr::V6(a) => {
+                let sin6 = sockaddrv6_to_lib_c(&a);
+                // Safe because this doesn't modify any memory and we check the return value.
+                unsafe {
+                    libc::connect(
+                        self.fd,
+                        &sin6 as *const sockaddr_in6 as *const sockaddr,
+                        size_of::<sockaddr_in>() as socklen_t,
+                    )
+                }
+            }
+        };
+
+        if ret < 0 {
+            let connect_err = io::Error::last_os_error();
+            Err(connect_err)
+        } else {
+            // Safe because the ownership of the raw fd is released from self and taken over by the
+            // new TcpStream.
+            Ok(unsafe { TcpStream::from_raw_fd(self.into_raw_fd()) })
+        }
+    }
+
+    pub fn listen(self) -> io::Result<TcpListener> {
+        // Safe because this doesn't modify any memory and we check the return value.
+        let ret = unsafe { libc::listen(self.fd, 1) };
+        if ret < 0 {
+            let listen_err = io::Error::last_os_error();
+            Err(listen_err)
+        } else {
+            // Safe because the ownership of the raw fd is released from self and taken over by the
+            // new TcpListener.
+            Ok(unsafe { TcpListener::from_raw_fd(self.into_raw_fd()) })
+        }
+    }
+
+    /// Returns the port that this socket is bound to. This can only succeed after bind is called.
+    pub fn local_port(&self) -> io::Result<u16> {
+        match self.inet_version {
+            InetVersion::V4 => {
+                let mut sin = sockaddr_in {
+                    sin_family: 0,
+                    sin_port: 0,
+                    sin_addr: in_addr { s_addr: 0 },
+                    sin_zero: [0; 8],
+                };
+
+                // Safe because we give a valid pointer for addrlen and check the length.
+                let mut addrlen = size_of::<sockaddr_in>() as socklen_t;
+                let ret = unsafe {
+                    // Get the socket address that was actually bound.
+                    libc::getsockname(
+                        self.fd,
+                        &mut sin as *mut sockaddr_in as *mut sockaddr,
+                        &mut addrlen as *mut socklen_t,
+                    )
+                };
+                if ret < 0 {
+                    let getsockname_err = io::Error::last_os_error();
+                    Err(getsockname_err)
+                } else {
+                    // If this doesn't match, it's not safe to get the port out of the sockaddr.
+                    assert_eq!(addrlen as usize, size_of::<sockaddr_in>());
+
+                    Ok(u16::from_be(sin.sin_port))
+                }
+            }
+            InetVersion::V6 => {
+                let mut sin6 = sockaddr_in6 {
+                    sin6_family: 0,
+                    sin6_port: 0,
+                    sin6_flowinfo: 0,
+                    sin6_addr: in6_addr { s6_addr: [0; 16] },
+                    sin6_scope_id: 0,
+                };
+
+                // Safe because we give a valid pointer for addrlen and check the length.
+                let mut addrlen = size_of::<sockaddr_in6>() as socklen_t;
+                let ret = unsafe {
+                    // Get the socket address that was actually bound.
+                    libc::getsockname(
+                        self.fd,
+                        &mut sin6 as *mut sockaddr_in6 as *mut sockaddr,
+                        &mut addrlen as *mut socklen_t,
+                    )
+                };
+                if ret < 0 {
+                    let getsockname_err = io::Error::last_os_error();
+                    Err(getsockname_err)
+                } else {
+                    // If this doesn't match, it's not safe to get the port out of the sockaddr.
+                    assert_eq!(addrlen as usize, size_of::<sockaddr_in>());
+
+                    Ok(u16::from_be(sin6.sin6_port))
+                }
+            }
+        }
+    }
+}
+
+impl IntoRawFd for TcpSocket {
+    fn into_raw_fd(self) -> RawFd {
+        let fd = self.fd;
+        mem::forget(self);
+        fd
+    }
+}
+
+impl AsRawFd for TcpSocket {
+    fn as_raw_fd(&self) -> RawFd {
+        self.fd
+    }
+}
+
+impl Drop for TcpSocket {
+    fn drop(&mut self) {
+        // Safe because this doesn't modify any memory and we are the only
+        // owner of the file descriptor.
+        unsafe { libc::close(self.fd) };
+    }
+}
 
 // Offset of sun_path in structure sockaddr_un.
 fn sun_path_offset() -> usize {
@@ -67,7 +332,9 @@ fn sockaddr_un<P: AsRef<Path>>(path: P) -> io::Result<(libc::sockaddr_un, libc::
 }
 
 /// A Unix `SOCK_SEQPACKET` socket point to given `path`
+#[derive(Serialize, Deserialize)]
 pub struct UnixSeqpacket {
+    #[serde(with = "crate::with_raw_descriptor")]
     fd: RawFd,
 }
 
@@ -129,23 +396,54 @@ impl UnixSeqpacket {
 
     /// Clone the underlying FD.
     pub fn try_clone(&self) -> io::Result<Self> {
-        // Calling `dup` is safe as the kernel doesn't touch any user memory it the process.
-        let new_fd = unsafe { libc::dup(self.fd) };
-        if new_fd < 0 {
+        // Safe because this doesn't modify any memory and we check the return value.
+        let fd = unsafe { libc::fcntl(self.fd, libc::F_DUPFD_CLOEXEC, 0) };
+        if fd < 0 {
             Err(io::Error::last_os_error())
         } else {
-            Ok(UnixSeqpacket { fd: new_fd })
+            Ok(Self { fd })
         }
     }
 
     /// Gets the number of bytes that can be read from this socket without blocking.
     pub fn get_readable_bytes(&self) -> io::Result<usize> {
-        let mut byte_count = 0 as libc::c_int;
+        let mut byte_count = 0i32;
         let ret = unsafe { libc::ioctl(self.fd, libc::FIONREAD, &mut byte_count) };
         if ret < 0 {
             Err(io::Error::last_os_error())
         } else {
             Ok(byte_count as usize)
+        }
+    }
+
+    /// Gets the number of bytes in the next packet. This blocks as if `recv` were called,
+    /// respecting the blocking and timeout settings of the underlying socket.
+    pub fn next_packet_size(&self) -> io::Result<usize> {
+        #[cfg(not(debug_assertions))]
+        let buf = null_mut();
+        // Work around for qemu's syscall translation which will reject null pointers in recvfrom.
+        // This only matters for running the unit tests for a non-native architecture. See the
+        // upstream thread for the qemu fix:
+        // https://lists.nongnu.org/archive/html/qemu-devel/2021-03/msg09027.html
+        #[cfg(debug_assertions)]
+        let buf = &mut 0 as *mut _ as *mut _;
+
+        // This form of recvfrom doesn't modify any data because all null pointers are used. We only
+        // use the return value and check for errors on an FD owned by this structure.
+        let ret = unsafe {
+            recvfrom(
+                self.fd,
+                buf,
+                0,
+                MSG_TRUNC | MSG_PEEK,
+                null_mut(),
+                null_mut(),
+            )
+        };
+        if ret < 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(ret as usize)
         }
     }
 
@@ -191,6 +489,52 @@ impl UnixSeqpacket {
                 Ok(ret as usize)
             }
         }
+    }
+
+    /// Read data from the socket fd to a given `Vec`, resizing it to the received packet's size.
+    ///
+    /// # Arguments
+    /// * `buf` - A mut reference to a `Vec` to resize and read into.
+    ///
+    /// # Errors
+    /// Returns error when `libc::read` or `get_readable_bytes` failed.
+    pub fn recv_to_vec(&self, buf: &mut Vec<u8>) -> io::Result<()> {
+        let packet_size = self.next_packet_size()?;
+        buf.resize(packet_size, 0);
+        let read_bytes = self.recv(buf)?;
+        buf.resize(read_bytes, 0);
+        Ok(())
+    }
+
+    /// Read data from the socket fd to a new `Vec`.
+    ///
+    /// # Returns
+    /// * `vec` - A new `Vec` with the entire received packet.
+    ///
+    /// # Errors
+    /// Returns error when `libc::read` or `get_readable_bytes` failed.
+    pub fn recv_as_vec(&self) -> io::Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        self.recv_to_vec(&mut buf)?;
+        Ok(buf)
+    }
+
+    /// Read data and fds from the socket fd to a new pair of `Vec`.
+    ///
+    /// # Returns
+    /// * `Vec<u8>` - A new `Vec` with the entire received packet's bytes.
+    /// * `Vec<RawFd>` - A new `Vec` with the entire received packet's fds.
+    ///
+    /// # Errors
+    /// Returns error when `recv_with_fds` or `get_readable_bytes` failed.
+    pub fn recv_as_vec_with_fds(&self) -> io::Result<(Vec<u8>, Vec<RawFd>)> {
+        let packet_size = self.next_packet_size()?;
+        let mut buf = vec![0; packet_size];
+        let mut fd_buf = vec![-1; SCM_SOCKET_MAX_FD_COUNT];
+        let (read_bytes, read_fds) = self.recv_with_fds(&mut buf, &mut fd_buf)?;
+        buf.resize(read_bytes, 0);
+        fd_buf.resize(read_fds, -1);
+        Ok((buf, fd_buf))
     }
 
     fn set_timeout(&self, timeout: Option<Duration>, kind: libc::c_int) -> io::Result<()> {
@@ -262,6 +606,18 @@ impl FromRawFd for UnixSeqpacket {
 
 impl AsRawFd for UnixSeqpacket {
     fn as_raw_fd(&self) -> RawFd {
+        self.fd
+    }
+}
+
+impl AsRawFd for &UnixSeqpacket {
+    fn as_raw_fd(&self) -> RawFd {
+        self.fd
+    }
+}
+
+impl AsRawDescriptor for UnixSeqpacket {
+    fn as_raw_descriptor(&self) -> RawDescriptor {
         self.fd
     }
 }
@@ -412,6 +768,7 @@ impl Drop for UnlinkUnixSeqpacketListener {
 mod tests {
     use super::*;
     use std::env;
+    use std::io::ErrorKind;
     use std::path::PathBuf;
 
     fn tmpdir() -> PathBuf {
@@ -450,8 +807,8 @@ mod tests {
 
         // Check `sun_path` in returned `sockaddr_un`
         let mut ref_sun_path = [0 as libc::c_char; 108];
-        for i in 0..path_size {
-            ref_sun_path[i] = 'a' as libc::c_char;
+        for path in ref_sun_path.iter_mut().take(path_size) {
+            *path = 'a' as libc::c_char;
         }
 
         for (addr_char, ref_char) in addr.sun_path.iter().zip(ref_sun_path.iter()) {
@@ -583,5 +940,46 @@ mod tests {
         s2.recv(recv_data).expect("failed to recv data");
         assert_eq!(s1.get_readable_bytes().unwrap(), 0);
         assert_eq!(s2.get_readable_bytes().unwrap(), 0);
+    }
+
+    #[test]
+    fn unix_seqpacket_next_packet_size() {
+        let (s1, s2) = UnixSeqpacket::pair().expect("failed to create socket pair");
+        let data1 = &[0, 1, 2, 3, 4];
+        s1.send(data1).expect("failed to send data");
+
+        assert_eq!(s2.next_packet_size().unwrap(), 5);
+        s1.set_read_timeout(Some(Duration::from_micros(1)))
+            .expect("failed to set read timeout");
+        assert_eq!(
+            s1.next_packet_size().unwrap_err().kind(),
+            ErrorKind::WouldBlock
+        );
+        drop(s2);
+        assert_eq!(
+            s1.next_packet_size().unwrap_err().kind(),
+            ErrorKind::ConnectionReset
+        );
+    }
+
+    #[test]
+    fn unix_seqpacket_recv_to_vec() {
+        let (s1, s2) = UnixSeqpacket::pair().expect("failed to create socket pair");
+        let data1 = &[0, 1, 2, 3, 4];
+        s1.send(data1).expect("failed to send data");
+
+        let recv_data = &mut vec![];
+        s2.recv_to_vec(recv_data).expect("failed to recv data");
+        assert_eq!(recv_data, &mut vec![0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn unix_seqpacket_recv_as_vec() {
+        let (s1, s2) = UnixSeqpacket::pair().expect("failed to create socket pair");
+        let data1 = &[0, 1, 2, 3, 4];
+        s1.send(data1).expect("failed to send data");
+
+        let recv_data = s2.recv_as_vec().expect("failed to recv data");
+        assert_eq!(recv_data, vec![0, 1, 2, 3, 4]);
     }
 }

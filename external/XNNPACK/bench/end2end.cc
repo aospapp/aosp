@@ -45,29 +45,100 @@ static void End2EndBenchmark(
       }
     }
   }
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
 }
 
-static void MobileNetV1(benchmark::State& state) {
-  End2EndBenchmark(state, models::MobileNetV1);
+static void FP32MobileNetV1(benchmark::State& state) {
+  End2EndBenchmark(state, models::FP32MobileNetV1);
 }
 
-static void MobileNetV2(benchmark::State& state) {
-  End2EndBenchmark(state, models::MobileNetV2);
+static void FP32MobileNetV2(benchmark::State& state) {
+  End2EndBenchmark(state, models::FP32MobileNetV2);
 }
 
-static void MobileNetV3Large(benchmark::State& state) {
-  End2EndBenchmark(state, models::MobileNetV3Large);
+static void FP32MobileNetV3Large(benchmark::State& state) {
+  End2EndBenchmark(state, models::FP32MobileNetV3Large);
 }
 
-static void MobileNetV3Small(benchmark::State& state) {
-  End2EndBenchmark(state, models::MobileNetV3Small);
+static void FP32MobileNetV3Small(benchmark::State& state) {
+  End2EndBenchmark(state, models::FP32MobileNetV3Small);
 }
 
-BENCHMARK(MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+static void FP32Sparse80MobileNetV1(benchmark::State& state) {
+  End2EndBenchmark(state, [](pthreadpool_t threadpool) {
+    return models::FP32SparseMobileNetV1(0.8f, threadpool);
+  });
+}
+
+static void FP32Sparse80MobileNetV2(benchmark::State& state) {
+  End2EndBenchmark(state, [](pthreadpool_t threadpool) {
+    return models::FP32SparseMobileNetV2(0.8f, threadpool);
+  });
+}
+
+static void FP32Sparse80MobileNetV3Large(benchmark::State& state) {
+  End2EndBenchmark(state, [](pthreadpool_t threadpool) {
+    return models::FP32SparseMobileNetV3Large(0.8f, threadpool);
+  });
+}
+
+static void FP32Sparse80MobileNetV3Small(benchmark::State& state) {
+  End2EndBenchmark(state, [](pthreadpool_t threadpool) {
+    return models::FP32SparseMobileNetV3Small(0.8f, threadpool);
+  });
+}
+
+static void FP16MobileNetV1(benchmark::State& state) {
+  End2EndBenchmark(state, models::FP16MobileNetV1);
+}
+
+static void FP16MobileNetV2(benchmark::State& state) {
+  End2EndBenchmark(state, models::FP16MobileNetV2);
+}
+
+static void FP16MobileNetV3Large(benchmark::State& state) {
+  End2EndBenchmark(state, models::FP16MobileNetV3Large);
+}
+
+static void FP16MobileNetV3Small(benchmark::State& state) {
+  End2EndBenchmark(state, models::FP16MobileNetV3Small);
+}
+
+static void QS8MobileNetV1(benchmark::State& state) {
+  End2EndBenchmark(state, models::QS8MobileNetV1);
+}
+
+static void QS8MobileNetV2(benchmark::State& state) {
+  End2EndBenchmark(state, models::QS8MobileNetV2);
+}
+
+static void QU8MobileNetV1(benchmark::State& state) {
+  End2EndBenchmark(state, models::QU8MobileNetV1);
+}
+
+BENCHMARK(FP32MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+
+BENCHMARK(FP32Sparse80MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32Sparse80MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32Sparse80MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32Sparse80MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+
+BENCHMARK(FP16MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP16MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP16MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP16MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+
+BENCHMARK(QS8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(QS8MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+
+BENCHMARK(QU8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 
 #ifndef XNNPACK_BENCHMARK_NO_MAIN
 BENCHMARK_MAIN();

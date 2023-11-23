@@ -55,9 +55,7 @@ public class AoapServiceManager {
 
     private static final int MSG_DISCONNECT = 1;
     private static final int DISCONNECT_DELAY_MS = 30000;
-
-    private static final int INVOCATION_TIMEOUT_MS = 5000;
-
+    private static final int INVOCATION_TIMEOUT_MS = 20000;
 
     private final HashMap<ComponentName, AoapServiceConnection> mConnections = new HashMap<>();
     private Context mContext;

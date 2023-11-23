@@ -10,7 +10,7 @@ PURPOSE = "Verify Jpeg encode accelerator works in USB HALv3."
 CRITERIA = """
 This test will fail if there is a JEA encode error.
 """
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = ""
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "video"

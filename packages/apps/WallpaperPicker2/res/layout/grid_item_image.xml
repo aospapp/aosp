@@ -13,76 +13,78 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/tile"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:layout_marginTop="8dp"
-    android:contentDescription="@string/wallpaper_thumbnail"
-    app:cardCornerRadius="?android:dialogCornerRadius"
-    app:cardElevation="0dp">
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
 
-    <RelativeLayout xmlns:tools="http://schemas.android.com/tools"
-        android:id="@+id/tile"
-        android:layout_width="wrap_content"
+    <androidx.cardview.widget.CardView
+        android:id="@+id/wallpaper_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/wallpaper_thumbnail"
+        app:cardCornerRadius="?android:dialogCornerRadius"
+        app:cardBackgroundColor="@android:color/transparent"
+        app:cardElevation="0dp">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:foreground="@drawable/wallpaper_option_border">
+
+            <ImageView
+                android:id="@+id/thumbnail"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop" />
+
+            <ImageView
+                android:id="@+id/overlay_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true" />
+
+            <ImageView
+                android:id="@+id/indicator_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentBottom="true"
+                android:layout_alignParentEnd="true"
+                android:visibility="gone" />
+
+            <FrameLayout
+                android:id="@+id/loading_indicator_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/loading_indicator"
+                    android:layout_width="@dimen/tile_desktop_progress_bar_size"
+                    android:layout_height="@dimen/tile_desktop_progress_bar_size"
+                    android:layout_gravity="center"
+                    android:indeterminate="true"
+                    android:indeterminateTint="?android:colorAccent" />
+
+            </FrameLayout>
+        </RelativeLayout>
+
+    </androidx.cardview.widget.CardView>
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="@dimen/option_border_width"
-        android:background="@drawable/option_border"
-        android:clickable="true"
-        android:focusable="true"
-        android:foreground="?attr/selectableItemBackground">
-
-        <ImageView
-            android:id="@+id/thumbnail"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@color/secondary_color"
-            android:scaleType="centerCrop" />
-
-        <ImageView
-            android:id="@+id/overlay_icon"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true" />
-
-        <TextView
-            android:id="@+id/title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_alignParentBottom="true"
-            android:background="@color/individual_tile_title_scrim_color"
-            android:padding="@dimen/grid_item_category_label_padding"
-            android:textColor="@color/individual_tile_title_text_color"
-            android:textSize="@dimen/abc_text_size_subhead_material"
-            android:visibility="gone"
-            tools:text="Wallpaper" />
-
-        <FrameLayout
-            android:id="@+id/loading_indicator_container"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@color/black_67_alpha"
-            android:visibility="gone">
-
-            <ProgressBar
-                android:id="@+id/loading_indicator"
-                android:layout_width="@dimen/tile_desktop_progress_bar_size"
-                android:layout_height="@dimen/tile_desktop_progress_bar_size"
-                android:layout_gravity="center"
-                android:indeterminate="true"
-                android:indeterminateTint="@color/accent_color" />
-
-        </FrameLayout>
-    </RelativeLayout>
-
-    <ImageView
-        android:id="@+id/check_circle"
-        android:layout_width="@dimen/grid_item_individual_wallpaper_check_circle_size"
-        android:layout_height="@dimen/grid_item_individual_wallpaper_check_circle_size"
-        android:layout_gravity="bottom|right"
-        android:layout_marginEnd="@dimen/grid_item_individual_wallpaper_check_circle_offset"
-        android:layout_marginBottom="@dimen/grid_item_individual_wallpaper_check_circle_offset"
-        android:src="@drawable/check_circle_blue"
-        android:visibility="gone" />
-
-</androidx.cardview.widget.CardView>
+        android:layout_marginTop="@dimen/grid_item_individual_label_padding_top"
+        android:layout_marginBottom="@dimen/grid_item_individual_label_padding_bottom"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="1"
+        android:minHeight="@dimen/grid_item_category_label_minimum_height"
+        android:textAppearance="@style/OptionTitleTextAppearance"
+        android:visibility="gone"
+        tools:text="Wallpaper" />
+</LinearLayout>

@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Átnevezés szükséges."</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"A mappa nevének megadása kötelező."</string>
     <string name="files_label" msgid="771781190045103748">"Fájlok"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Letöltések"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -96,9 +98,9 @@
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Rendszergazdája nem engedélyezi, hogy munkafájlokhoz férjen hozzá személyes alkalmazásból"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Nem választhatók ki személyes fájlok"</string>
     <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"Rendszergazdája nem engedélyezi, hogy személyes fájlokhoz férjen hozzá munkahelyi alkalmazásból"</string>
-    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Nem lehetséges a mentés a munkaprofilba"</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Nem lehet menteni a munkaprofilba"</string>
     <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"Rendszergazdája nem engedélyezi, hogy személyes fájlokat mentsen munkaprofiljába"</string>
-    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Nem lehetséges a mentés a személyes profilba"</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Nem lehet menteni a személyes profilba"</string>
     <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"Rendszergazdája nem engedélyezi, hogy munkafájlokat mentsen személyes profiljába"</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Ez a művelet nem engedélyezett"</string>
     <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"További információért forduljon rendszergazdájához"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Munkahelyi"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Munka"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Nem lehet áthelyezni fájlokat más alkalmazásból."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Megjelenítés rácsnézetben."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Megjelenítés listanézetben."</string>
 </resources>

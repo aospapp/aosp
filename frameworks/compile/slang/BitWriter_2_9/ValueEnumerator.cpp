@@ -263,7 +263,7 @@ void ValueEnumerator::EnumerateMetadata(const llvm::Metadata *MD) {
       (isa<MDNode>(MD) || isa<MDString>(MD) || isa<ConstantAsMetadata>(MD)) &&
       "Invalid metadata kind");
 
-  // Insert a dummy ID to block the co-recursive call to
+  // Insert a placeholder ID to block the co-recursive call to
   // EnumerateMDNodeOperands() from re-visiting MD in a cyclic graph.
   //
   // Return early if there's already an ID.
@@ -279,7 +279,7 @@ void ValueEnumerator::EnumerateMetadata(const llvm::Metadata *MD) {
   HasMDString |= isa<MDString>(MD);
   HasDILocation |= isa<DILocation>(MD);
 
-  // Replace the dummy ID inserted above with the correct one.  MDValueMap may
+  // Replace the placeholder ID inserted above with the correct one.  MDValueMap may
   // have changed by inserting operands, so we need a fresh lookup here.
   MDs.push_back(MD);
   MDValueMap[MD] = MDs.size();

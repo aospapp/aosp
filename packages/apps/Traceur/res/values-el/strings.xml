@@ -20,6 +20,9 @@
     <string name="saving_trace" msgid="1468692734770800541">"Αποθήκευση ίχνους"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Το ίχνος αποθηκεύτηκε"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"Πατήστε για κοινοποίηση του ίχνους σας"</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"Πραγματοποιείται επισύναψη ίχνους στην αναφορά σφάλματος"</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"Το ίχνος επισυνάφθηκε στην αναφορά σφάλματος"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"Πατήστε για άνοιγμα του BetterBug"</string>
     <string name="stop_tracing" msgid="8916938308534164152">"Διακοπή ανίχνευσης"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Ορισμένες κατηγορίες εντοπισμού δεν είναι διαθέσιμες:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Γίνεται εγγραφή του ίχνους"</string>
@@ -56,4 +59,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65536 KB"</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"Διακοπή ανίχνευσης για αναφορές σφαλμάτων"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Τερματίζει τις εγγραφές ενεργών ιχνών κατά την έναρξη μιας αναφοράς σφάλματος"</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"Επισύναψη ιχνών στις αναφορές σφαλμάτων"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Αυτόματη αποστολή ιχνών που βρίσκονται σε εξέλιξη στο BetterBug κατά τη συλλογή μιας αναφοράς σφάλματος"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"Προβολή αρχείων ιχνηλάτησης"</string>
 </resources>

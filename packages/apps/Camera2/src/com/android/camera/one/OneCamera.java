@@ -16,7 +16,7 @@
 
 package com.android.camera.one;
 
-import android.content.Context;
+import android.app.Activity;
 import android.location.Location;
 import android.net.Uri;
 import android.view.Surface;
@@ -428,9 +428,9 @@ public interface OneCamera {
      *            might choose not to obey these and therefore the returned
      *            preview size might not match the aspect ratio of the given
      *            size.
-     * @param context the android application context
+     * @param context the android activity context
      * @return The preview size that best matches the picture aspect ratio that
      *         will be taken.
      */
-    public Size pickPreviewSize(Size pictureSize, Context context);
+    public Size pickPreviewSize(Size pictureSize, Activity context);
 }

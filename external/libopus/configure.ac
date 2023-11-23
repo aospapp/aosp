@@ -22,9 +22,9 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 # For libtool.
 dnl Please update these for releases.
-OPUS_LT_CURRENT=7
+OPUS_LT_CURRENT=8
 OPUS_LT_REVISION=0
-OPUS_LT_AGE=7
+OPUS_LT_AGE=8
 
 AC_SUBST(OPUS_LT_CURRENT)
 AC_SUBST(OPUS_LT_REVISION)
@@ -691,6 +691,18 @@ AS_IF([test x"$enable_intrinsics" = x"yes"],[
                  unsigned int CPUInfo2;
                  unsigned int CPUInfo3;
                  unsigned int InfoType;
+                #if defined(__i386__) && defined(__PIC__)
+                 __asm__ __volatile__ (
+                 "xchg %%ebx, %1\n"
+                 "cpuid\n"
+                 "xchg %%ebx, %1\n":
+                 "=a" (CPUInfo0),
+                 "=r" (CPUInfo1),
+                 "=c" (CPUInfo2),
+                 "=d" (CPUInfo3) :
+                 "a" (InfoType), "c" (0)
+                );
+               #else
                  __asm__ __volatile__ (
                  "cpuid":
                  "=a" (CPUInfo0),
@@ -699,6 +711,7 @@ AS_IF([test x"$enable_intrinsics" = x"yes"],[
                  "=d" (CPUInfo3) :
                  "a" (InfoType), "c" (0)
                 );
+               #endif
             ]])],
             [get_cpuid_by_asm="yes"
              AC_MSG_RESULT([Inline Assembly])

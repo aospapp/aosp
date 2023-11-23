@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <android-base/macros.h>
-
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <android-base/result.h>
 
 #include "code_writer.h"
 #include "line_reader.h"
@@ -32,6 +32,11 @@ class IoDelegate {
  public:
   IoDelegate() = default;
   virtual ~IoDelegate() = default;
+
+  IoDelegate(const IoDelegate&) = delete;
+  IoDelegate(IoDelegate&&) = delete;
+  IoDelegate& operator=(const IoDelegate&) = delete;
+  IoDelegate& operator=(IoDelegate&&) = delete;
 
   // Stores an absolute version of |path| to |*absolute_path|,
   // possibly prefixing it with the current working directory.
@@ -55,14 +60,12 @@ class IoDelegate {
 
   virtual void RemovePath(const std::string& file_path) const;
 
-  virtual std::vector<std::string> ListFiles(const std::string& dir) const;
+  virtual android::base::Result<std::vector<std::string>> ListFiles(const std::string& dir) const;
 
  private:
   // Create the directory when path is a dir or the parent directory when
   // path is a file. Path is a dir if it ends with the path separator.
   bool CreateDirForPath(const std::string& path) const;
-
-  DISALLOW_COPY_AND_ASSIGN(IoDelegate);
 };  // class IoDelegate
 
 }  // namespace aidl

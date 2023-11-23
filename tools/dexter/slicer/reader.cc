@@ -113,23 +113,23 @@ dex::u4 Reader::FindClassIndex(const char* class_descriptor) const {
 //     .dex IR nodes is 1:1
 //  2. we do a single index lookup for both existing
 //     nodes as well as new nodes
-//  3. dummy is an invalid, but non-null pointer value
+//  3. placeholder is an invalid, but non-null pointer value
 //     used to check that the mapping loookup/update is atomic
 //  4. there should be no recursion with the same index
-//     (we use the dummy value to guard against this too)
+//     (we use the placeholder value to guard against this too)
 //
 ir::Class* Reader::GetClass(dex::u4 index) {
   SLICER_CHECK(index != dex::kNoIndex);
   auto& p = dex_ir_->classes_map[index];
-  auto dummy = reinterpret_cast<ir::Class*>(1);
+  auto placeholder = reinterpret_cast<ir::Class*>(1);
   if (p == nullptr) {
-    p = dummy;
+    p = placeholder;
     auto newClass = ParseClass(index);
-    SLICER_CHECK(p == dummy);
+    SLICER_CHECK(p == placeholder);
     p = newClass;
     dex_ir_->classes_indexes.MarkUsedIndex(index);
   }
-  SLICER_CHECK(p != dummy);
+  SLICER_CHECK(p != placeholder);
   return p;
 }
 
@@ -138,15 +138,15 @@ ir::Class* Reader::GetClass(dex::u4 index) {
 ir::Type* Reader::GetType(dex::u4 index) {
   SLICER_CHECK(index != dex::kNoIndex);
   auto& p = dex_ir_->types_map[index];
-  auto dummy = reinterpret_cast<ir::Type*>(1);
+  auto placeholder = reinterpret_cast<ir::Type*>(1);
   if (p == nullptr) {
-    p = dummy;
+    p = placeholder;
     auto newType = ParseType(index);
-    SLICER_CHECK(p == dummy);
+    SLICER_CHECK(p == placeholder);
     p = newType;
     dex_ir_->types_indexes.MarkUsedIndex(index);
   }
-  SLICER_CHECK(p != dummy);
+  SLICER_CHECK(p != placeholder);
   return p;
 }
 
@@ -155,15 +155,15 @@ ir::Type* Reader::GetType(dex::u4 index) {
 ir::FieldDecl* Reader::GetFieldDecl(dex::u4 index) {
   SLICER_CHECK(index != dex::kNoIndex);
   auto& p = dex_ir_->fields_map[index];
-  auto dummy = reinterpret_cast<ir::FieldDecl*>(1);
+  auto placeholder = reinterpret_cast<ir::FieldDecl*>(1);
   if (p == nullptr) {
-    p = dummy;
+    p = placeholder;
     auto newField = ParseFieldDecl(index);
-    SLICER_CHECK(p == dummy);
+    SLICER_CHECK(p == placeholder);
     p = newField;
     dex_ir_->fields_indexes.MarkUsedIndex(index);
   }
-  SLICER_CHECK(p != dummy);
+  SLICER_CHECK(p != placeholder);
   return p;
 }
 
@@ -172,15 +172,15 @@ ir::FieldDecl* Reader::GetFieldDecl(dex::u4 index) {
 ir::MethodDecl* Reader::GetMethodDecl(dex::u4 index) {
   SLICER_CHECK(index != dex::kNoIndex);
   auto& p = dex_ir_->methods_map[index];
-  auto dummy = reinterpret_cast<ir::MethodDecl*>(1);
+  auto placeholder = reinterpret_cast<ir::MethodDecl*>(1);
   if (p == nullptr) {
-    p = dummy;
+    p = placeholder;
     auto newMethod = ParseMethodDecl(index);
-    SLICER_CHECK(p == dummy);
+    SLICER_CHECK(p == placeholder);
     p = newMethod;
     dex_ir_->methods_indexes.MarkUsedIndex(index);
   }
-  SLICER_CHECK(p != dummy);
+  SLICER_CHECK(p != placeholder);
   return p;
 }
 
@@ -189,15 +189,15 @@ ir::MethodDecl* Reader::GetMethodDecl(dex::u4 index) {
 ir::Proto* Reader::GetProto(dex::u4 index) {
   SLICER_CHECK(index != dex::kNoIndex);
   auto& p = dex_ir_->protos_map[index];
-  auto dummy = reinterpret_cast<ir::Proto*>(1);
+  auto placeholder = reinterpret_cast<ir::Proto*>(1);
   if (p == nullptr) {
-    p = dummy;
+    p = placeholder;
     auto newProto = ParseProto(index);
-    SLICER_CHECK(p == dummy);
+    SLICER_CHECK(p == placeholder);
     p = newProto;
     dex_ir_->protos_indexes.MarkUsedIndex(index);
   }
-  SLICER_CHECK(p != dummy);
+  SLICER_CHECK(p != placeholder);
   return p;
 }
 
@@ -206,15 +206,15 @@ ir::Proto* Reader::GetProto(dex::u4 index) {
 ir::String* Reader::GetString(dex::u4 index) {
   SLICER_CHECK(index != dex::kNoIndex);
   auto& p = dex_ir_->strings_map[index];
-  auto dummy = reinterpret_cast<ir::String*>(1);
+  auto placeholder = reinterpret_cast<ir::String*>(1);
   if (p == nullptr) {
-    p = dummy;
+    p = placeholder;
     auto newString = ParseString(index);
-    SLICER_CHECK(p == dummy);
+    SLICER_CHECK(p == placeholder);
     p = newString;
     dex_ir_->strings_indexes.MarkUsedIndex(index);
   }
-  SLICER_CHECK(p != dummy);
+  SLICER_CHECK(p != placeholder);
   return p;
 }
 

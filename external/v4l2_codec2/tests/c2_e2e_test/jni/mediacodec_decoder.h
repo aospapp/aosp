@@ -10,6 +10,7 @@
 #include <mutex>
 #include <queue>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <media/NdkMediaCodec.h>
@@ -27,7 +28,7 @@ public:
                                                      VideoCodecProfile profile, bool use_sw_decoder,
                                                      const Size& video_size, int frame_rate,
                                                      ANativeWindow* surface, bool renderOnRelease,
-                                                     bool loop);
+                                                     bool loop, bool use_fake_renderer);
 
     MediaCodecDecoder() = delete;
     ~MediaCodecDecoder();
@@ -70,8 +71,10 @@ public:
     void OnAsyncOutputAvailable(int32_t idx, AMediaCodecBufferInfo* info);
     void OnAsyncFormatChanged(AMediaFormat* format);
 
+    void FakeRenderLoop();
+
 private:
-    enum CodecEventType { INPUT_AVAILABLE, OUTPUT_AVAILABLE, FORMAT_CHANGED };
+    enum CodecEventType { INPUT_AVAILABLE, OUTPUT_AVAILABLE, FORMAT_CHANGED, FAKE_FRAME_RENDERED };
     struct CodecEvent {
         CodecEventType type;
         int32_t idx;
@@ -80,7 +83,7 @@ private:
 
     MediaCodecDecoder(AMediaCodec* codec, std::unique_ptr<EncodedDataHelper> encoded_data_helper,
                       VideoCodecType type, const Size& size, int frame_rate, ANativeWindow* surface,
-                      bool renderOnRelease, bool loop);
+                      bool renderOnRelease, bool loop, bool use_fake_renderer);
 
     // Enum class of the status of dequeueing output buffer.
     enum class DequeueStatus { RETRY, SUCCESS, FAILURE };
@@ -103,7 +106,7 @@ private:
     // Receive the output buffer and make mOutputBufferReadyCb callback if given.
     // |index| is the index of the target output buffer.
     // |info| is the buffer info of the target output buffer.
-    bool ReceiveOutputBuffer(size_t index, const AMediaCodecBufferInfo& info, bool render_buffer);
+    bool ReceiveOutputBuffer(int32_t index, const AMediaCodecBufferInfo& info, bool render_buffer);
 
     // Get output format by AMediaCodec_getOutputFormat and make
     // |output_format_changed_cb_| callback if given.
@@ -153,6 +156,12 @@ private:
     std::queue<CodecEvent> event_queue_;  // guarded by event_queue_mut_
     std::mutex event_queue_mut_;
     std::condition_variable event_queue_cv_;
+
+    std::atomic<bool> fake_renderer_running_;
+    std::thread fake_render_thread_;
+    std::mutex fake_render_mut_;
+    std::condition_variable fake_render_cv_;
+    std::queue<std::pair<int32_t, int64_t>> fake_render_frames_;
 };
 
 }  // namespace android

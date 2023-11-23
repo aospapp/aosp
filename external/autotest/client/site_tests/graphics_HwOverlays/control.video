@@ -22,4 +22,5 @@ video turns into an overlay.
 
 job.run_test('graphics_HwOverlays',
              html_file=HTML_TEST_FILE,
-             data_file_url=DATA_FILE_URL)
+             data_file_url=DATA_FILE_URL,
+             is_video=True)

@@ -20,6 +20,8 @@
 #include <dataproviders/RailEnergyDataProvider.h>
 #include "CstateResidencyDataProvider.h"
 
+// TODO(sujee): Convert pwrstats_util implementation to use libraries in
+// //vendor/google/tools/powertools/powerstats_util
 int main(int argc, char** argv) {
 
     PowerStatsCollector collector;

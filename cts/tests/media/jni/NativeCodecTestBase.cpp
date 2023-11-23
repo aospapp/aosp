@@ -141,6 +141,7 @@ void CodecAsyncHandler::clearQueues() {
 }
 
 void CodecAsyncHandler::setOutputFormat(AMediaFormat* format) {
+    std::unique_lock<std::mutex> lock{mMutex};
     assert(format != nullptr);
     if (mOutFormat) {
         AMediaFormat_delete(mOutFormat);
@@ -151,10 +152,12 @@ void CodecAsyncHandler::setOutputFormat(AMediaFormat* format) {
 }
 
 AMediaFormat* CodecAsyncHandler::getOutputFormat() {
+    std::unique_lock<std::mutex> lock{mMutex};
     return mOutFormat;
 }
 
 bool CodecAsyncHandler::hasOutputFormatChanged() {
+    std::unique_lock<std::mutex> lock{mMutex};
     return mSignalledOutFormatChanged;
 }
 
@@ -188,37 +191,45 @@ media_status_t CodecAsyncHandler::setCallBack(AMediaCodec* codec, bool isCodecIn
     return status;
 }
 
-uint32_t OutputManager::adler32(const uint8_t* input, int offset, int len) {
-    constexpr uint32_t modAdler = 65521;
-    constexpr uint32_t overflowLimit = 5500;
-    uint32_t a = 1;
-    uint32_t b = 0;
-    for (int i = offset, count = 0; i < len; i++) {
-        a += input[i];
-        b += a;
-        count++;
-        if (count > overflowLimit) {
-            a %= modAdler;
-            b %= modAdler;
-            count = 0;
-        }
-    }
-    return b * 65536 + a;
-}
-
 bool OutputManager::isPtsStrictlyIncreasing(int64_t lastPts) {
     bool result = true;
     for (auto it1 = outPtsArray.cbegin(); it1 < outPtsArray.cend(); it1++) {
         if (lastPts < *it1) {
             lastPts = *it1;
         } else {
-            ALOGE("Timestamp ordering check failed: last timestamp: %d / current timestamp: %d",
-                  (int)lastPts, (int)*it1);
+            ALOGE("Timestamp ordering check failed: last timestamp: %" PRId64
+                  " / current timestamp: %" PRId64 "",
+                  lastPts, *it1);
             result = false;
             break;
         }
     }
     return result;
+}
+
+void OutputManager::updateChecksum(
+        uint8_t* buf, AMediaCodecBufferInfo* info, int width, int height, int stride) {
+    uint8_t flattenInfo[16];
+    int pos = 0;
+    if (width <= 0 || height <= 0 || stride <= 0) {
+        flattenField<int32_t>(flattenInfo, &pos, info->size);
+    }
+    flattenField<int32_t>(flattenInfo, &pos,
+                          info->flags & ~AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM);
+    flattenField<int64_t>(flattenInfo, &pos, info->presentationTimeUs);
+    crc32value = crc32(crc32value, flattenInfo, pos);
+    if (width > 0 && height > 0 && stride > 0) {
+        // Only checksum Y plane
+        std::vector<uint8_t> tmp(width * height, 0u);
+        size_t offset = 0;
+        for (int i = 0; i < height; ++i) {
+            memcpy(tmp.data() + (i * width), buf + offset, width);
+            offset += stride;
+        }
+        crc32value = crc32(crc32value, tmp.data(), width * height);
+    } else {
+        crc32value = crc32(crc32value, buf, info->size);
+    }
 }
 
 bool OutputManager::isOutPtsListIdenticalToInpPtsList(bool requireSorting) {
@@ -230,14 +241,15 @@ bool OutputManager::isOutPtsListIdenticalToInpPtsList(bool requireSorting) {
     if (outPtsArray != inpPtsArray) {
         if (outPtsArray.size() != inpPtsArray.size()) {
             ALOGE("input and output presentation timestamp list sizes are not identical sizes "
-                  "exp/rec %d/%d", (int)inpPtsArray.size(), (int)outPtsArray.size());
+                  "exp/rec %zu/%zu", inpPtsArray.size(), outPtsArray.size());
             isEqual = false;
         } else {
             int count = 0;
             for (auto it1 = outPtsArray.cbegin(), it2 = inpPtsArray.cbegin();
                  it1 < outPtsArray.cend(); it1++, it2++) {
                 if (*it1 != *it2) {
-                    ALOGE("input output pts mismatch, exp/rec %d/%d", (int)*it2, (int)*it1);
+                    ALOGE("input output pts mismatch, exp/rec %" PRId64 "/%" PRId64 "",
+                          *it2, *it1);
                     count++;
                 }
                 if (count == 20) {
@@ -255,15 +267,15 @@ bool OutputManager::equals(const OutputManager* that) {
     if (this == that) return true;
     if (outPtsArray != that->outPtsArray) {
         if (outPtsArray.size() != that->outPtsArray.size()) {
-            ALOGE("ref and test outputs presentation timestamp arrays are of unequal sizes %d, %d",
-                  (int)outPtsArray.size(), (int)that->outPtsArray.size());
+            ALOGE("ref and test outputs presentation timestamp arrays are of unequal sizes "
+                  "%zu, %zu", outPtsArray.size(), that->outPtsArray.size());
             return false;
         } else {
             int count = 0;
             for (auto it1 = outPtsArray.cbegin(), it2 = that->outPtsArray.cbegin();
                  it1 < outPtsArray.cend(); it1++, it2++) {
                 if (*it1 != *it2) {
-                    ALOGE("presentation timestamp exp/rec %d/%d", (int)*it1, (int)*it2);
+                    ALOGE("presentation timestamp exp/rec %" PRId64 "/%" PRId64 "", *it1, *it2);
                     count++;
                 }
                 if (count == 20) {
@@ -274,17 +286,17 @@ bool OutputManager::equals(const OutputManager* that) {
             if (count != 0) return false;
         }
     }
-    if (memory != that->memory) {
+    if (crc32value != that->crc32value) {
+        ALOGE("ref and test outputs checksum do not match %lu, %lu", crc32value, that->crc32value);
         if (memory.size() != that->memory.size()) {
-            ALOGE("ref and test outputs decoded buffer are of unequal sizes %d, %d",
-                  (int)memory.size(), (int)that->memory.size());
-            return false;
+            ALOGE("ref and test outputs decoded buffer are of unequal sizes %zu, %zu",
+                  memory.size(), that->memory.size());
         } else {
             int count = 0;
             for (auto it1 = memory.cbegin(), it2 = that->memory.cbegin(); it1 < memory.cend();
                  it1++, it2++) {
                 if (*it1 != *it2) {
-                    ALOGE("decoded sample exp/rec %d/%d", (int)*it1, (int)*it2);
+                    ALOGE("decoded sample exp/rec %d/%d", *it1, *it2);
                     count++;
                 }
                 if (count == 20) {
@@ -292,37 +304,16 @@ bool OutputManager::equals(const OutputManager* that) {
                     break;
                 }
             }
-            if (count != 0) return false;
         }
-    }
-    if (checksum != that->checksum) {
-        if (checksum.size() != that->checksum.size()) {
-            ALOGE("ref and test outputs checksum arrays are of unequal sizes %d, %d",
-                  (int)checksum.size(), (int)that->checksum.size());
-            return false;
-        } else {
-            int count = 0;
-            for (auto it1 = checksum.cbegin(), it2 = that->checksum.cbegin(); it1 < checksum.cend();
-                 it1++, it2++) {
-                if (*it1 != *it2) {
-                    ALOGE("adler32 checksum exp/rec %u/%u", (int)*it1, (int)*it2);
-                    count++;
-                }
-                if (count == 20) {
-                    ALOGE("stopping after 20 mismatches ... ");
-                    break;
-                }
-            }
-            if (count != 0) return false;
-        }
+        return false;
     }
     return true;
 }
 
 float OutputManager::getRmsError(uint8_t* refData, int length) {
     long totalErrorSquared = 0;
-    if (length != memory.size()) return -1.0F;
-    if ((length % 2) != 0) return -1.0F;
+    if (length != memory.size()) return MAXFLOAT;
+    if ((length % 2) != 0) return MAXFLOAT;
     auto* testData = new uint8_t[length];
     std::copy(memory.begin(), memory.end(), testData);
     auto* testDataReinterpret = reinterpret_cast<int16_t*>(testData);
@@ -453,7 +444,7 @@ bool CodecTestBase::doWork(int frameLimit) {
             } else if (oBufferID == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else if (oBufferID == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             } else {
-                ALOGE("unexpected return value from *_dequeueOutputBuffer: %d", (int)oBufferID);
+                ALOGE("unexpected return value from *_dequeueOutputBuffer: %zd", oBufferID);
                 return false;
             }
             ssize_t iBufferId = AMediaCodec_dequeueInputBuffer(mCodec, kQDeQTimeOutUs);
@@ -462,7 +453,7 @@ bool CodecTestBase::doWork(int frameLimit) {
                 frameCnt++;
             } else if (iBufferId == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else {
-                ALOGE("unexpected return value from *_dequeueInputBuffer: %d", (int)iBufferId);
+                ALOGE("unexpected return value from *_dequeueInputBuffer: %zd", iBufferId);
                 return false;
             }
         }
@@ -473,19 +464,41 @@ bool CodecTestBase::doWork(int frameLimit) {
 bool CodecTestBase::queueEOS() {
     bool isOk = true;
     if (mIsCodecInAsyncMode) {
-        if (!hasSeenError() && isOk && !mSawInputEOS) {
-            callbackObject element = mAsyncHandle.getInput();
+        while (!hasSeenError() && isOk && !mSawInputEOS) {
+            callbackObject element = mAsyncHandle.getWork();
             if (element.bufferIndex >= 0) {
-                isOk = enqueueEOS(element.bufferIndex);
+                if (element.isInput) {
+                    isOk = enqueueEOS(element.bufferIndex);
+                } else {
+                    isOk = dequeueOutput(element.bufferIndex, &element.bufferInfo);
+                }
             }
         }
     } else {
-        if (!mSawInputEOS) {
-            int bufferIndex = AMediaCodec_dequeueInputBuffer(mCodec, -1);
-            if (bufferIndex >= 0) {
-                isOk = enqueueEOS(bufferIndex);
+        AMediaCodecBufferInfo outInfo;
+        while (isOk && !mSawInputEOS) {
+            ssize_t oBufferID = AMediaCodec_dequeueOutputBuffer(mCodec, &outInfo, kQDeQTimeOutUs);
+            if (oBufferID >= 0) {
+                isOk = dequeueOutput(oBufferID, &outInfo);
+            } else if (oBufferID == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
+                if (mOutFormat) {
+                    AMediaFormat_delete(mOutFormat);
+                    mOutFormat = nullptr;
+                }
+                mOutFormat = AMediaCodec_getOutputFormat(mCodec);
+                mSignalledOutFormatChanged = true;
+            } else if (oBufferID == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
+            } else if (oBufferID == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             } else {
-                ALOGE("unexpected return value from *_dequeueInputBuffer: %d", (int)bufferIndex);
+                ALOGE("unexpected return value from *_dequeueOutputBuffer: %zd", oBufferID);
+                return false;
+            }
+            ssize_t iBufferId = AMediaCodec_dequeueInputBuffer(mCodec, kQDeQTimeOutUs);
+            if (iBufferId >= 0) {
+                isOk = enqueueEOS(iBufferId);
+            } else if (iBufferId == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
+            } else {
+                ALOGE("unexpected return value from *_dequeueInputBuffer: %zd", iBufferId);
                 return false;
             }
         }
@@ -518,7 +531,7 @@ bool CodecTestBase::waitForAllOutputs() {
             } else if (bufferID == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else if (bufferID == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             } else {
-                ALOGE("unexpected return value from *_dequeueOutputBuffer: %d", (int)bufferID);
+                ALOGE("unexpected return value from *_dequeueOutputBuffer: %d", bufferID);
                 return false;
             }
         }
@@ -532,7 +545,7 @@ int CodecTestBase::getWidth(AMediaFormat* format) {
     AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_WIDTH, &width);
     if (AMediaFormat_getRect(format, "crop", &cropLeft, &cropTop, &cropRight, &cropBottom) ||
         (AMediaFormat_getInt32(format, "crop-left", &cropLeft) &&
-        AMediaFormat_getInt32(format, "crop-right", &cropRight))) {
+         AMediaFormat_getInt32(format, "crop-right", &cropRight))) {
         width = cropRight + 1 - cropLeft;
     }
     return width;
@@ -544,7 +557,7 @@ int CodecTestBase::getHeight(AMediaFormat* format) {
     AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_HEIGHT, &height);
     if (AMediaFormat_getRect(format, "crop", &cropLeft, &cropTop, &cropRight, &cropBottom) ||
         (AMediaFormat_getInt32(format, "crop-top", &cropTop) &&
-        AMediaFormat_getInt32(format, "crop-bottom", &cropBottom))) {
+         AMediaFormat_getInt32(format, "crop-bottom", &cropBottom))) {
         height = cropBottom + 1 - cropTop;
     }
     return height;

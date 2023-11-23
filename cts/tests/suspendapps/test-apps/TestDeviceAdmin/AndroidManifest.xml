@@ -15,21 +15,20 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.suspendapps.testdeviceadmin" >
+     package="com.android.suspendapps.testdeviceadmin">
 
-    <application android:label="CTS Device Admin" android:testOnly="true">
-        <receiver
-            android:name=".TestDeviceAdmin"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
-            <meta-data
-                android:name="android.app.device_admin"
-                android:resource="@xml/device_admin"/>
+    <application android:label="CTS Device Admin"
+         android:testOnly="true">
+        <receiver android:name=".TestDeviceAdmin"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
+            <meta-data android:name="android.app.device_admin"
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
-        <receiver
-            android:name=".TestCommsReceiver"
-            android:exported="true" />
+        <receiver android:name=".TestCommsReceiver"
+             android:exported="true"/>
     </application>
 </manifest>

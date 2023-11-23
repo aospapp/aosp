@@ -33,8 +33,10 @@ using ::android::hardware::camera::device::V3_2::ErrorCode;
 using ::android::hardware::camera::device::V3_2::ErrorMsg;
 using ::android::hardware::camera::device::V3_2::MsgType;
 using ::android::hardware::camera::device::V3_2::ShutterMsg;
-using ::android::hardware::camera::device::V3_5::implementation::HidlCameraDevice;
-using ::android::hardware::camera::provider::V2_6::implementation::HidlCameraProvider;
+using ::android::hardware::camera::device::V3_7::implementation::HidlCameraDevice;
+using android::hardware::camera::metadata::V3_6::
+    CameraMetadataEnumAndroidSensorPixelMode;
+using ::android::hardware::camera::provider::V2_7::implementation::HidlCameraProvider;
 
 status_t ConvertToHidlVendorTagType(
     google_camera_hal::CameraMetadataType hal_type,
@@ -128,8 +130,16 @@ Status ConvertToHidlStatus(status_t hal_status) {
       return Status::OK;
     case BAD_VALUE:
       return Status::ILLEGAL_ARGUMENT;
+    case -EBUSY:
+      return Status::CAMERA_IN_USE;
+    case -EUSERS:
+      return Status::MAX_CAMERAS_IN_USE;
+    case UNKNOWN_TRANSACTION:
+      return Status::METHOD_NOT_SUPPORTED;
     case INVALID_OPERATION:
       return Status::OPERATION_NOT_SUPPORTED;
+    case DEAD_OBJECT:
+      return Status::CAMERA_DISCONNECTED;
     default:
       return Status::INTERNAL_ERROR;
   }
@@ -182,29 +192,30 @@ status_t ConvertToHidlHalStreamConfig(
   hidl_hal_stream_config->streams.resize(hal_configured_streams.size());
 
   for (uint32_t i = 0; i < hal_configured_streams.size(); i++) {
+    hidl_hal_stream_config->streams[i].supportOffline = false;
     if (hal_configured_streams[i].is_physical_camera_stream) {
-      hidl_hal_stream_config->streams[i].physicalCameraId =
+      hidl_hal_stream_config->streams[i].v3_4.physicalCameraId =
           std::to_string(hal_configured_streams[i].physical_camera_id);
     }
 
-    hidl_hal_stream_config->streams[i].v3_3.overrideDataSpace =
+    hidl_hal_stream_config->streams[i].v3_4.v3_3.overrideDataSpace =
         hal_configured_streams[i].override_data_space;
 
-    hidl_hal_stream_config->streams[i].v3_3.v3_2.id =
+    hidl_hal_stream_config->streams[i].v3_4.v3_3.v3_2.id =
         hal_configured_streams[i].id;
 
-    hidl_hal_stream_config->streams[i].v3_3.v3_2.overrideFormat =
+    hidl_hal_stream_config->streams[i].v3_4.v3_3.v3_2.overrideFormat =
         (::android::hardware::graphics::common::V1_0::PixelFormat)
             hal_configured_streams[i]
                 .override_format;
 
-    hidl_hal_stream_config->streams[i].v3_3.v3_2.producerUsage =
+    hidl_hal_stream_config->streams[i].v3_4.v3_3.v3_2.producerUsage =
         hal_configured_streams[i].producer_usage;
 
-    hidl_hal_stream_config->streams[i].v3_3.v3_2.consumerUsage =
+    hidl_hal_stream_config->streams[i].v3_4.v3_3.v3_2.consumerUsage =
         hal_configured_streams[i].consumer_usage;
 
-    hidl_hal_stream_config->streams[i].v3_3.v3_2.maxBuffers =
+    hidl_hal_stream_config->streams[i].v3_4.v3_3.v3_2.maxBuffers =
         hal_configured_streams[i].max_buffers;
   }
 
@@ -704,11 +715,11 @@ status_t ConvertToHalCaptureRequest(
     return BAD_VALUE;
   }
 
-  hal_request->frame_number = hidl_request.v3_2.frameNumber;
+  hal_request->frame_number = hidl_request.v3_4.v3_2.frameNumber;
 
   status_t res = ConvertToHalMetadata(
-      hidl_request.v3_2.fmqSettingsSize, request_metadata_queue,
-      hidl_request.v3_2.settings, &hal_request->settings);
+      hidl_request.v3_4.v3_2.fmqSettingsSize, request_metadata_queue,
+      hidl_request.v3_4.v3_2.settings, &hal_request->settings);
   if (res != OK) {
     ALOGE("%s: Converting metadata failed: %s(%d)", __FUNCTION__,
           strerror(-res), res);
@@ -716,8 +727,9 @@ status_t ConvertToHalCaptureRequest(
   }
 
   google_camera_hal::StreamBuffer hal_buffer = {};
-  if (hidl_request.v3_2.inputBuffer.buffer != nullptr) {
-    res = ConvertToHalStreamBuffer(hidl_request.v3_2.inputBuffer, &hal_buffer);
+  if (hidl_request.v3_4.v3_2.inputBuffer.buffer != nullptr) {
+    res = ConvertToHalStreamBuffer(hidl_request.v3_4.v3_2.inputBuffer,
+                                   &hal_buffer);
     if (res != OK) {
       ALOGE("%s: Converting hal stream buffer failed: %s(%d)", __FUNCTION__,
             strerror(-res), res);
@@ -725,9 +737,11 @@ status_t ConvertToHalCaptureRequest(
     }
 
     hal_request->input_buffers.push_back(hal_buffer);
+    hal_request->input_width = hidl_request.inputWidth;
+    hal_request->input_height = hidl_request.inputHeight;
   }
 
-  for (auto& buffer : hidl_request.v3_2.outputBuffers) {
+  for (auto& buffer : hidl_request.v3_4.v3_2.outputBuffers) {
     hal_buffer = {};
     status_t res = ConvertToHalStreamBuffer(buffer, &hal_buffer);
     if (res != OK) {
@@ -739,7 +753,7 @@ status_t ConvertToHalCaptureRequest(
     hal_request->output_buffers.push_back(hal_buffer);
   }
 
-  for (auto hidl_physical_settings : hidl_request.physicalCameraSettings) {
+  for (auto hidl_physical_settings : hidl_request.v3_4.physicalCameraSettings) {
     std::unique_ptr<google_camera_hal::HalCameraMetadata> hal_physical_settings;
     res = ConvertToHalMetadata(
         hidl_physical_settings.fmqSettingsSize, request_metadata_queue,
@@ -801,6 +815,16 @@ status_t ConvertToHalStreamConfigurationMode(
   return OK;
 }
 
+static bool sensorPixelModeContains(const device::V3_7::Stream& hidl_stream,
+                                    uint32_t key) {
+  for (auto& i : hidl_stream.sensorPixelModesUsed) {
+    if (i == static_cast<CameraMetadataEnumAndroidSensorPixelMode>(key)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 status_t ConverToHalStreamConfig(
     const StreamConfiguration& hidl_stream_config,
     google_camera_hal::StreamConfiguration* hal_stream_config) {
@@ -811,27 +835,35 @@ status_t ConverToHalStreamConfig(
 
   status_t res;
 
-  for (auto hidl_stream : hidl_stream_config.v3_4.streams) {
+  for (auto hidl_stream : hidl_stream_config.streams) {
     google_camera_hal::Stream hal_stream;
-    res = ConvertToHalStream(hidl_stream, &hal_stream);
+    res = ConvertToHalStream(hidl_stream.v3_4, &hal_stream);
     if (res != OK) {
       ALOGE("%s: Converting to HAL stream failed: %s(%d)", __FUNCTION__,
             strerror(-res), res);
       return res;
     }
+    hal_stream.group_id = hidl_stream.groupId;
 
+    hal_stream.used_in_max_resolution_mode = sensorPixelModeContains(
+        hidl_stream, ANDROID_SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION);
+    hal_stream.used_in_default_resolution_mode =
+        hidl_stream.sensorPixelModesUsed.size() > 0
+            ? sensorPixelModeContains(hidl_stream,
+                                      ANDROID_SENSOR_PIXEL_MODE_DEFAULT)
+            : true;
     hal_stream_config->streams.push_back(hal_stream);
   }
 
-  res = ConvertToHalStreamConfigurationMode(
-      hidl_stream_config.v3_4.operationMode, &hal_stream_config->operation_mode);
+  res = ConvertToHalStreamConfigurationMode(hidl_stream_config.operationMode,
+                                            &hal_stream_config->operation_mode);
   if (res != OK) {
     ALOGE("%s: Converting to HAL opeation mode failed: %s(%d)", __FUNCTION__,
           strerror(-res), res);
     return res;
   }
 
-  res = ConvertToHalMetadata(0, nullptr, hidl_stream_config.v3_4.sessionParams,
+  res = ConvertToHalMetadata(0, nullptr, hidl_stream_config.sessionParams,
                              &hal_stream_config->session_params);
   if (res != OK) {
     ALOGE("%s: Converting to HAL metadata failed: %s(%d)", __FUNCTION__,
@@ -841,6 +873,8 @@ status_t ConverToHalStreamConfig(
 
   hal_stream_config->stream_config_counter =
       hidl_stream_config.streamConfigCounter;
+  hal_stream_config->multi_resolution_input_image =
+      hidl_stream_config.multiResolutionInputImage;
 
   return OK;
 }
@@ -1076,6 +1110,26 @@ status_t ConvertToHalBufferReturnStatus(
     hal_buffer_return->val.error =
         google_camera_hal::StreamBufferRequestError::kOk;
   }
+
+  return OK;
+}
+
+status_t ConvertStreamConfigurationV34ToV37(
+    const device::V3_4::StreamConfiguration& config_3_4,
+    StreamConfiguration* config_3_7) {
+  if (config_3_7 == nullptr) {
+    ALOGE("%s: config_3_7 is nullptr.", __FUNCTION__);
+    return BAD_VALUE;
+  }
+
+  config_3_7->streams.resize(config_3_4.streams.size());
+  for (size_t i = 0; i < config_3_4.streams.size(); i++) {
+    config_3_7->streams[i].v3_4 = config_3_4.streams[i];
+    config_3_7->streams[i].groupId = -1;
+  }
+  config_3_7->operationMode = config_3_4.operationMode;
+  config_3_7->sessionParams = config_3_4.sessionParams;
+  config_3_7->multiResolutionInputImage = false;
 
   return OK;
 }

@@ -27,9 +27,9 @@ extern "C" {
  * wiping of block devices. 0 otherwise. For now, only Linux does.
  */
 #ifdef __linux__
-#  define WIPE_IS_SUPPORTED 1
+#define WIPE_IS_SUPPORTED 1
 #else
-#  define WIPE_IS_SUPPORTED 0
+#define WIPE_IS_SUPPORTED 0
 #endif
 
 int wipe_block_device(int fd, s64 len);

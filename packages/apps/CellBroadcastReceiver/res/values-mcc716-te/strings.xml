@@ -21,4 +21,5 @@
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"అత్యవసర హెచ్చరిక: పరీక్ష సందేశం"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"అత్యవసర అలర్ట్: అభ్యాసం/డ్రిల్ సందేశం"</string>
     <string name="pws_other_message_identifiers" msgid="4992476982074198144">"అత్యవసర అలర్ట్: పరీక్ష సందేశం"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"దాచు"</string>
 </resources>

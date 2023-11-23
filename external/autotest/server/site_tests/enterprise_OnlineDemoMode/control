@@ -4,7 +4,8 @@
 
 AUTHOR = "wzang"
 NAME = "enterprise_OnlineDemoMode"
-ATTRIBUTES = "suite:bvt-perbuild"
+# stop test from running until it can be fixd: http://go/crb/1104747
+# ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Enterprise"
 TEST_CLASS = "enterprise"

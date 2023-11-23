@@ -16,7 +16,6 @@
 
 package com.android.tools.metalava
 
-import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.IssueConfiguration
 
 enum class ReleaseType(val flagName: String, private val displayName: String = flagName) {

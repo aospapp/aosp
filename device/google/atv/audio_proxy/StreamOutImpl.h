@@ -15,7 +15,7 @@
 #pragma once
 
 // clang-format off
-#include PATH(android/hardware/audio/FILE_VERSION/IStreamOut.h)
+#include PATH(device/google/atv/audio_proxy/AUDIO_PROXY_FILE_VERSION/IAudioProxyStreamOut.h)
 // clang-format on
 
 #include <fmq/EventFlag.h>
@@ -37,11 +37,16 @@ using ::android::hardware::Void;
 using namespace ::android::hardware::audio::common::CPP_VERSION;
 using namespace ::android::hardware::audio::CPP_VERSION;
 
+using ::device::google::atv::audio_proxy::AUDIO_PROXY_CPP_VERSION::
+    IAudioProxyStreamOut;
+using ::device::google::atv::audio_proxy::AUDIO_PROXY_CPP_VERSION::
+    IStreamEventListener;
+
 namespace audio_proxy {
-namespace CPP_VERSION {
+namespace AUDIO_PROXY_CPP_VERSION {
 class AudioProxyStreamOut;
 
-class StreamOutImpl : public IStreamOut {
+class StreamOutImpl : public IAudioProxyStreamOut {
  public:
   using CommandMQ = MessageQueue<WriteCommand, kSynchronizedReadWrite>;
   using DataMQ = MessageQueue<uint8_t, kSynchronizedReadWrite>;
@@ -49,6 +54,9 @@ class StreamOutImpl : public IStreamOut {
 
   explicit StreamOutImpl(std::unique_ptr<AudioProxyStreamOut> stream);
   ~StreamOutImpl() override;
+
+  // IAudioProxyStreamOut implementations:
+  Return<void> setEventListener(const sp<IStreamEventListener>& listener);
 
   // Methods from ::android::hardware::audio::CPP_VERSION::IStream follow.
   Return<uint64_t> getFrameSize() override;
@@ -115,6 +123,7 @@ class StreamOutImpl : public IStreamOut {
   Result closeImpl();
 
   std::unique_ptr<AudioProxyStreamOut> mStream;
+  sp<IStreamEventListener> mEventListener;
 
   std::unique_ptr<CommandMQ> mCommandMQ;
   std::unique_ptr<DataMQ> mDataMQ;
@@ -124,5 +133,5 @@ class StreamOutImpl : public IStreamOut {
   sp<Thread> mWriteThread;
 };
 
-}  // namespace CPP_VERSION
+}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

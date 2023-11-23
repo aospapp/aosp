@@ -16,65 +16,66 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.view.inputmethod.cts"
-    android:targetSandboxVersion="2">
+     package="android.view.inputmethod.cts"
+     android:targetSandboxVersion="2">
 
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <application
-        android:label="CtsInputMethodTestCases"
-        android:multiArch="true"
-        android:supportsRtl="true">
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <application android:label="CtsInputMethodTestCases"
+         android:multiArch="true"
+         android:supportsRtl="true">
 
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <activity
-            android:name="android.view.inputmethod.cts.InputMethodCtsActivity"
-            android:label="InputMethodCtsActivity">
+        <activity android:name="android.view.inputmethod.cts.util.TestActivity"
+             android:theme="@style/no_starting_window"
+             android:label="TestActivity"
+             android:configChanges="fontScale"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+            </intent-filter>
+        </activity>
+        <activity android:name="android.view.inputmethod.cts.util.TestActivity2"
+                  android:theme="@style/no_starting_window"
+                  android:label="TestActivity2"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
 
-        <activity
-            android:name="android.view.inputmethod.cts.util.TestActivity"
-            android:label="TestActivity">
+        <activity android:name="android.view.inputmethod.cts.util.StateInitializeActivity"
+             android:theme="@style/no_starting_window"
+             android:label="StateInitializeActivity"
+             android:configChanges="fontScale"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name="android.view.inputmethod.cts.util.StateInitializeActivity"
-            android:label="StateInitializeActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
 
         <!--
-          In order to test window-focus-stealing from other process, let this service run in a
-          separate process. -->
+                      In order to test window-focus-stealing from other process, let this service run in a
+                      separate process. -->
         <service android:name="android.view.inputmethod.cts.util.WindowFocusStealerService"
-            android:process=":focusstealer"
-            android:exported="false">
+             android:process=":focusstealer"
+             android:exported="false">
         </service>
 
         <service android:name="android.view.inputmethod.cts.util.WindowFocusHandleService"
-                 android:exported="false">
+             android:exported="false">
         </service>
 
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:label="CTS tests of android.view.inputmethod"
-        android:targetPackage="android.view.inputmethod.cts">
-        <meta-data
-            android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:label="CTS tests of android.view.inputmethod"
+         android:targetPackage="android.view.inputmethod.cts">
+        <meta-data android:name="listener"
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>

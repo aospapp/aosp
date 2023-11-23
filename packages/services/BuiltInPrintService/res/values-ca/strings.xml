@@ -49,7 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"La impressora no és compatible"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Cerca impressores Wi-Fi Direct"</string>
-    <string name="wifi_direct_printing" msgid="8423811041563144048">"Impressió Wi‑Fi Direct"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Impressió per Wi‑Fi Direct"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Impressores Wi-Fi Direct"</string>
     <string name="searching" msgid="2114018057619514587">"S\'està cercant…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"És possible que hagis d\'aprovar aquesta connexió al tauler frontal de la impressora"</string>
@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"Accepta"</string>
     <string name="reject" msgid="24751635160440693">"Rebutja"</string>
     <string name="connections" msgid="8895413761760117180">"Connexions"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"El servei d\'impressió predeterminat no troba impressores Wi‑Fi Direct"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Desact. Wi‑Fi Direct"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"El servei d\'impressió predeterminat necessita permisos d\'ubicació per trobar dispositius propers."</string>
     <string name="fix" msgid="7784394272611365393">"Revisa els permisos"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"El servei d\'impressió predeterminat necessita que els serveis d\'ubicació estiguin activats per trobar dispositius propers."</string>
+    <string name="enable_location" msgid="3627841004298863140">"Activa la ubicació"</string>
     <string name="print" msgid="7851318072404916362">"Imprimeix"</string>
 </resources>

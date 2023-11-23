@@ -16,26 +16,30 @@
 
 package android.security.cts;
 
-import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IDeviceTest;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
+
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.PropertyUtil;
+import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Host-side test for metadata encryption.  This is a host-side test because
  * the "ro.crypto.metadata.enabled" property is not exposed to apps.
  */
-public class MetadataEncryptionTest extends DeviceTestCase implements IDeviceTest {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class MetadataEncryptionTest extends BaseHostJUnit4Test {
     private ITestDevice mDevice;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setDevice(ITestDevice device) {
-        super.setDevice(device);
-        mDevice = device;
+    @Before
+    public void setUp() throws Exception {
+        mDevice = getDevice();
     }
 
     /**
@@ -46,11 +50,22 @@ public class MetadataEncryptionTest extends DeviceTestCase implements IDeviceTes
      * @throws Exception
      */
     @CddTest(requirement="9.9.3/C-1-5")
+    @Test
     public void testMetadataEncryptionIsEnabled() throws Exception {
+        assumeSecurityModelCompat();
         if (PropertyUtil.getFirstApiLevel(mDevice) <= 29) {
           return; // Requirement does not apply to devices running Q or earlier
         }
         assertTrue("Metadata encryption must be enabled",
             mDevice.getBooleanProperty("ro.crypto.metadata.enabled", false));
+    }
+
+    private void assumeSecurityModelCompat() throws Exception {
+        // This feature name check only applies to devices that first shipped with
+        // SC or later.
+        if (PropertyUtil.getFirstApiLevel(mDevice) >= 31) {
+            assumeTrue("Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.",
+                    getDevice().hasFeature("feature:android.hardware.security.model.compatible"));
+        }
     }
 }

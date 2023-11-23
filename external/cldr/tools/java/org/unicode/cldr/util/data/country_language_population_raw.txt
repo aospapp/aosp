@@ -1,4 +1,7 @@
-*	CName	CCode	CPopulation	CLiteracy	CGdp	OfficialStatus	Language	LCode	LPopulation	WritingPop	References	Notes
+#	CName	CCode	CPopulation	CLiteracy	CGdp	OfficialStatus	Language	LCode	LPopulation	WritingPop	References	Notes
+#######
+#WARNING: this file is in TSV format (for pasting from a spreadsheet); make sure you maintain tabs!
+#######
 Afghanistan	AF	"34,940,837"	28%	"69,450,000,000"	official_regional	Baluchi	bal	"233,000"			
 Afghanistan	AF	"34,940,837"	28%	"69,450,000,000"		Hazaragi	haz	5.9%			
 Afghanistan	AF	"34,940,837"	28%	"69,450,000,000"		Kazakh (Arabic)	kk_Arab	"2,000"			"http://en.wikipedia.org/wiki/Kazakh_language - the script is an assumption, needs a reference"
@@ -112,7 +115,7 @@ Brazil	BR	"208,846,892"	90%	"3,248,000,000,000"		German	de	"1,750,000"
 Brazil	BR	"208,846,892"	90%	"3,248,000,000,000"		Guajajára	gub	"17,500"			
 Brazil	BR	"208,846,892"	90%	"3,248,000,000,000"		Italian	it	"583,000"			
 Brazil	BR	"208,846,892"	90%	"3,248,000,000,000"		Japanese	ja	"443,000"			
-Brazil	BR	"208,846,892"	90%	"3,248,000,000,000"		Kaingang	kgp	"20,900"			
+Brazil	BR	"208,846,892"	90%	"3,248,000,000,000"		Kaingang	kgp	"50,000"			http://www.portalkaingang.org/index_povo_1default.htm
 Brazil	BR	"208,846,892"	90%	"3,248,000,000,000"		Korean	ko	"43,200"			
 Brazil	BR	"208,846,892"	90%	"3,248,000,000,000"		Nheengatu	yrl	"10,900"			
 Brazil	BR	"208,846,892"	90%	"3,248,000,000,000"	official	Portuguese	pt	91%			
@@ -501,6 +504,7 @@ India	IN	"1,296,834,042"	63%	"9,474,000,000,000"	official_regional	Gujarati	gu	4
 India	IN	"1,296,834,042"	63%	"9,474,000,000,000"		Hadothi	hoj	"1,060,000"			
 India	IN	"1,296,834,042"	63%	"9,474,000,000,000"		Haryanvi	bgc	"15,600,000"	55%		http://en.wikipedia.org/wiki/Haryanvi http://www.indianetzone.com/7/haryanvi.htm little literature mostly folksongs; writers use std Hindi; claim of 55% literacy
 India	IN	"1,296,834,042"	63%	"9,474,000,000,000"	official	Hindi	hi	41%			"http://www.censusindia.net/ Figure for Hindi includes 2nd language users, India Census data."
+India	IN	"1,296,834,042"	63%	"9,474,000,000,000"		Hindi (Latn)	hi_Latn	0.1%			"No hard figures for this yet, so this is a placeholder figure."
 India	IN	"1,296,834,042"	63%	"9,474,000,000,000"		Ho	hoc	"1,290,000"			https://www.cia.gov/library/publications/the-world-factbook/geos/in.html
 India	IN	"1,296,834,042"	63%	"9,474,000,000,000"		Kachhi	kfr	"968,000"			
 India	IN	"1,296,834,042"	63%	"9,474,000,000,000"		Kanauji	bjj	"7,200,000"	60%		
@@ -565,7 +569,8 @@ Indonesia	ID	"262,787,403"	93%	"3,250,000,000,000"		Komering	kge	"844,000"
 Indonesia	ID	"262,787,403"	93%	"3,250,000,000,000"		Lampung Api	ljp	"1,810,000"			
 Indonesia	ID	"262,787,403"	93%	"3,250,000,000,000"		Madurese	mad	6.3%	40%		
 Indonesia	ID	"262,787,403"	93%	"3,250,000,000,000"		Makasar	mak	"1,930,000"			
-Indonesia	ID	"262,787,403"	93%	"3,250,000,000,000"		Malay (Arabic)	ms_Arab	4.6%			
+Indonesia	ID	"262,787,403"	93%	"3,250,000,000,000"		Malay	ms	3.4%			
+Indonesia	ID	"262,787,403"	93%	"3,250,000,000,000"		Malay (Arabic)	ms_Arab	1.2%			
 Indonesia	ID	"262,787,403"	93%	"3,250,000,000,000"		Mandar	mdr	"241,000"			
 Indonesia	ID	"262,787,403"	93%	"3,250,000,000,000"		Mentawai	mwv	"64,100"			
 Indonesia	ID	"262,787,403"	93%	"3,250,000,000,000"		Minangkabau	min	"7,840,000"	10%		
@@ -737,7 +742,7 @@ Malawi	MW	"19,842,560"	75%	"22,420,000,000"		Zulu	zu	"66,400"
 Malaysia	MY	"31,809,660"	93%	"933,300,000,000"		Banjar	bjn	"5,000"			
 Malaysia	MY	"31,809,660"	93%	"933,300,000,000"		Buginese	bug	"25,200"			http://www.joshuaproject.net/peopctry.php?rop3=101703&rog3=MY
 Malaysia	MY	"31,809,660"	93%	"933,300,000,000"		Central Dusun	dtp	"177,000"			
-Malaysia	MY	"31,809,660"	93%	"933,300,000,000"		Chinese (Traditional)	zh_Hant	17%			
+Malaysia	MY	"31,809,660"	93%	"933,300,000,000"		Chinese (Traditional)	zh	17%			
 Malaysia	MY	"31,809,660"	93%	"933,300,000,000"		English	en	21%			
 Malaysia	MY	"31,809,660"	93%	"933,300,000,000"		Iban	iba	"792,000"			
 Malaysia	MY	"31,809,660"	93%	"933,300,000,000"		Javanese	jv	"379,000"			
@@ -955,6 +960,7 @@ Pakistan	PK	"207,862,518"	55%	"1,061,000,000,000"		Saraiki	skr	9.1%	1%		http://w
 Pakistan	PK	"207,862,518"	55%	"1,061,000,000,000"		Sindhi	sd	12%			
 Pakistan	PK	"207,862,518"	55%	"1,061,000,000,000"		Southern Hindko	hnd	"855,000"			
 Pakistan	PK	"207,862,518"	55%	"1,061,000,000,000"		Tajik (Arabic)	tg_Arab	"684,000"			
+Pakistan	PK	"207,862,518"	55%	"1,061,000,000,000"		Torwali	trw	"110,000"			
 Pakistan	PK	"207,862,518"	55%	"1,061,000,000,000"	official	Urdu	ur	95%			http://en.wikipedia.org/wiki/Languages_of_Pakistan - More than 95% of Pakistanis can speak or understand Urdu as their second or third language
 Pakistan	PK	"207,862,518"	55%	"1,061,000,000,000"		Wadiyara Koli	kxp	"239,000"			
 Pakistan	PK	"207,862,518"	55%	"1,061,000,000,000"		Western Balochi	bgn	"1,190,000"	5%		http://www.ethnologue.com/language/bgn low literacy
@@ -1339,6 +1345,7 @@ United Kingdom	GB	"65,105,246"	99%	"2,925,000,000,000"	official_regional	Scottis
 United Kingdom	GB	"65,105,246"	99%	"2,925,000,000,000"		Sylheti	syl	"329,000"			
 United Kingdom	GB	"65,105,246"	99%	"2,925,000,000,000"	official_regional	Welsh	cy	"501,000"			
 United Kingdom	GB	"65,105,246"	99%	"2,925,000,000,000"		Yiddish	yi	"32,100"			http://en.wikipedia.org/wiki/Yiddish_language#Numbers_of_speakers
+United States	US	"329,256,465"	99%	"19,490,000,000,000"		Caddo	cad	"25"
 United States	US	"329,256,465"	99%	"19,490,000,000,000"		Cajun French	frc	"27,800"			
 United States	US	"329,256,465"	99%	"19,490,000,000,000"		Central Yupik	esu	"20,600"			
 United States	US	"329,256,465"	99%	"19,490,000,000,000"		Cherokee	chr	"25,300"	5%		"For languages not customarily written, the writing population is artificially set to 5% in the absence of better information."

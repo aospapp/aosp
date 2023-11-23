@@ -19,6 +19,9 @@
 #include <cfloat>
 #include <cmath>
 
+#include "BidiUtils.h"
+#include "LayoutSplitter.h"
+#include "minikin/BoundsCache.h"
 #include "minikin/GraphemeBreak.h"
 
 namespace minikin {
@@ -116,6 +119,42 @@ size_t getOffsetForAdvance(const float* advances, const uint16_t* buf, size_t st
         }
     }
     return best;
+}
+
+struct BoundsComposer {
+    BoundsComposer() : mAdvance(0) {}
+
+    void operator()(const MinikinRect& rect, float advance) {
+        MinikinRect tmp = rect;
+        tmp.offset(mAdvance, 0);
+        mBounds.join(tmp);
+        mAdvance += advance;
+    }
+
+    float mAdvance;
+    MinikinRect mBounds;
+};
+
+void getBounds(const U16StringPiece& str, const Range& range, Bidi bidiFlag,
+               const MinikinPaint& paint, StartHyphenEdit startHyphen, EndHyphenEdit endHyphen,
+               MinikinRect* out) {
+    BoundsComposer bc;
+    for (const BidiText::RunInfo info : BidiText(str, range, bidiFlag)) {
+        for (const auto [context, piece] : LayoutSplitter(str, info.range, info.isRtl)) {
+            const StartHyphenEdit pieceStartHyphen =
+                    (piece.getStart() == range.getStart()) ? startHyphen : StartHyphenEdit::NO_EDIT;
+            const EndHyphenEdit pieceEndHyphen =
+                    (piece.getEnd() == range.getEnd()) ? endHyphen : EndHyphenEdit::NO_EDIT;
+            BoundsCache::getInstance().getOrCreate(str.substr(context), piece - context.getStart(),
+                                                   paint, info.isRtl, pieceStartHyphen,
+                                                   pieceEndHyphen, bc);
+            // Increment word spacing for spacer
+            if (piece.getLength() == 1 && isWordSpace(str[piece.getStart()])) {
+                bc.mAdvance += paint.wordSpacing;
+            }
+        }
+    }
+    *out = bc.mBounds;
 }
 
 }  // namespace minikin

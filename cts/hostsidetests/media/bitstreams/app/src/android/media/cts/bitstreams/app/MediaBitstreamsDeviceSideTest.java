@@ -27,6 +27,7 @@ import android.media.MediaFormat;
 import android.media.cts.bitstreams.MediaBitstreams;
 import android.os.Bundle;
 import android.os.Debug;
+import android.os.Environment;
 import android.util.Xml;
 
 import androidx.test.InstrumentationRegistry;
@@ -355,7 +356,7 @@ public class MediaBitstreamsDeviceSideTest {
 
         try {
 
-            File tmpf = File.createTempFile(getClass().getSimpleName(), suffix, mAppCache);
+            File tmpf = File.createTempFile(getClass().getSimpleName(), suffix, Environment.getExternalStorageDirectory());
             Instrumentation inst = InstrumentationRegistry.getInstrumentation();
             Bundle bundle = new Bundle();
             bundle.putString(MediaBitstreams.KEY_APP_CACHE_DIR, mAppCache.getCanonicalPath());

@@ -89,13 +89,13 @@ public class CaptureDeprecatedElements {
       }
       inputFileGenerator = Icu4jTransformRules.createInputFileGenerator(args);
 
-      ImmutableList.Builder<TypeLocator> apiClassesWhitelistBuilder = ImmutableList.builder();
+      ImmutableList.Builder<TypeLocator> apiClassesAllowlistBuilder = ImmutableList.builder();
       for (String publicClassName : Icu4jTransform.PUBLIC_API_CLASSES) {
         String originalIcuClassName = publicClassName.replace(ANDROID_ICU_PREFIX,
             ORIGINAL_ICU_PREFIX);
-        apiClassesWhitelistBuilder.add(new TypeLocator(originalIcuClassName));
+        apiClassesAllowlistBuilder.add(new TypeLocator(originalIcuClassName));
       }
-      captureTransformer = new CaptureDeprecatedProcessor(apiClassesWhitelistBuilder.build());
+      captureTransformer = new CaptureDeprecatedProcessor(apiClassesAllowlistBuilder.build());
     }
 
     @Override

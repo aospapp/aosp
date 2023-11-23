@@ -1,3 +1,20 @@
+package {
+    default_applicable_licenses: ["external_xz-embedded_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_xz-embedded_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "COPYING",
+    ],
+}
+
 cc_library_static {
     name: "libxz",
     host_supported: true,

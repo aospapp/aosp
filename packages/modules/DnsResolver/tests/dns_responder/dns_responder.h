@@ -161,6 +161,10 @@ class DNSResponder {
         : DNSResponder(kDefaultListenAddr, kDefaultListenService, kDefaultErrorCode,
                        mapping_type){};
 
+    DNSResponder(unsigned netId, std::string listen_address) : DNSResponder(listen_address) {
+        mNetId = netId;
+    };
+
     ~DNSResponder();
 
     // Functions used for accessing mapping {ADDRESS_OR_HOSTNAME, DNS_HEADER, BINARY_PACKET}.
@@ -175,6 +179,7 @@ class DNSResponder {
     void setResponseProbability(double response_probability);
     void setResponseProbability(double response_probability, int protocol);
     void setResponseDelayMs(unsigned);
+    void setErrorRcode(ns_rcode error_rcode) { error_rcode_ = error_rcode; }
     void setEdns(Edns edns);
     void setTtl(unsigned ttl);
     bool running() const;
@@ -189,6 +194,16 @@ class DNSResponder {
     std::mutex& getCvMutex() { return cv_mutex_; }
     void setDeferredResp(bool deferred_resp);
     static bool fillRdata(const std::string& rdatastr, DNSRecord& record);
+
+    // These functions are helpers for binding the listening sockets to a specific network, which
+    // is necessary only for multinetwork tests. Since binding sockets to a network requires
+    // the dependency of libnetd_client, and DNSResponder is also widely used in other tests like
+    // resolv_unit_test which doesn't need that dependency, so expose the socket fds to let the
+    // callers perform binding operations by themselves. Callers MUST not close the fds.
+    void setNetwork(unsigned netId) { mNetId = netId; }
+    std::optional<unsigned> getNetwork() const { return mNetId; }
+    int getUdpSocket() const { return udp_socket_.get(); }
+    int getTcpSocket() const { return tcp_socket_.get(); }
 
     // TODO: Make DNSResponder record unknown queries in a vector for improving the debugging.
     // Unit test could dump the unexpected query for further debug if any unexpected failure.
@@ -284,8 +299,10 @@ class DNSResponder {
     // Address and service to listen on TCP and UDP.
     const std::string listen_address_;
     const std::string listen_service_;
+
+    // TODO: Consider refactoring atomic members of this class to a single big mutex.
     // Error code to return for requests for an unknown name.
-    const ns_rcode error_rcode_;
+    ns_rcode error_rcode_;
     // Mapping type the DNS server used to build the response.
     const MappingType mapping_type_;
     // Probability that a valid response on TCP is being sent instead of
@@ -340,6 +357,9 @@ class DNSResponder {
     std::condition_variable cv_for_deferred_resp_;
     std::mutex cv_mutex_for_deferred_resp_;
     bool deferred_resp_ GUARDED_BY(cv_mutex_for_deferred_resp_) = false;
+
+    // The network to which the listening sockets will be bound.
+    std::optional<unsigned> mNetId;
 };
 
 }  // namespace test

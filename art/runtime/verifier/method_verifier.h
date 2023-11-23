@@ -62,6 +62,7 @@ class RegisterLine;
 using RegisterLineArenaUniquePtr = std::unique_ptr<RegisterLine, RegisterLineArenaDelete>;
 class RegType;
 struct ScopedNewLine;
+class VerifierDeps;
 
 // We don't need to store the register data for many instructions, because we either only need
 // it at branch points (for verification) or GC points and branches (for verification +
@@ -143,6 +144,10 @@ class MethodVerifier {
     return *dex_file_;
   }
 
+  const dex::ClassDef& GetClassDef() const {
+    return class_def_;
+  }
+
   RegTypeCache* GetRegTypeCache() {
     return &reg_types_;
   }
@@ -191,7 +196,6 @@ class MethodVerifier {
   ALWAYS_INLINE const InstructionFlags& GetInstructionFlags(size_t index) const;
 
   MethodReference GetMethodReference() const;
-  bool HasCheckCasts() const;
   bool HasFailures() const;
   bool HasInstructionThatWillThrow() const {
     return flags_.have_any_pending_runtime_throw_failure_;
@@ -200,11 +204,11 @@ class MethodVerifier {
   virtual const RegType& ResolveCheckedClass(dex::TypeIndex class_idx)
       REQUIRES_SHARED(Locks::mutator_lock_) = 0;
 
-  uint32_t GetEncounteredFailureTypes() {
+  uint32_t GetEncounteredFailureTypes() const {
     return encountered_failure_types_;
   }
 
-  ClassLinker* GetClassLinker() {
+  ClassLinker* GetClassLinker() const {
     return class_linker_;
   }
 
@@ -212,11 +216,17 @@ class MethodVerifier {
     return flags_.aot_mode_;
   }
 
+  VerifierDeps* GetVerifierDeps() const {
+    return verifier_deps_;
+  }
+
  protected:
   MethodVerifier(Thread* self,
                  ClassLinker* class_linker,
                  ArenaPool* arena_pool,
+                 VerifierDeps* verifier_deps,
                  const DexFile* dex_file,
+                 const dex::ClassDef& class_def,
                  const dex::CodeItem* code_item,
                  uint32_t dex_method_idx,
                  bool can_load_classes,
@@ -249,6 +259,7 @@ class MethodVerifier {
   static FailureData VerifyMethod(Thread* self,
                                   ClassLinker* class_linker,
                                   ArenaPool* arena_pool,
+                                  VerifierDeps* verifier_deps,
                                   uint32_t method_idx,
                                   const DexFile* dex_file,
                                   Handle<mirror::DexCache> dex_cache,
@@ -271,6 +282,7 @@ class MethodVerifier {
   static FailureData VerifyMethod(Thread* self,
                                   ClassLinker* class_linker,
                                   ArenaPool* arena_pool,
+                                  VerifierDeps* verifier_deps,
                                   uint32_t method_idx,
                                   const DexFile* dex_file,
                                   Handle<mirror::DexCache> dex_cache,
@@ -295,6 +307,7 @@ class MethodVerifier {
   // has an irrecoverable corruption.
   virtual bool Verify() REQUIRES_SHARED(Locks::mutator_lock_) = 0;
   static MethodVerifier* CreateVerifier(Thread* self,
+                                        VerifierDeps* verifier_deps,
                                         const DexFile* dex_file,
                                         Handle<mirror::DexCache> dex_cache,
                                         Handle<mirror::ClassLoader> class_loader,
@@ -332,8 +345,9 @@ class MethodVerifier {
   // Storage for the register status we're saving for later.
   RegisterLineArenaUniquePtr saved_line_;
 
-  const uint32_t dex_method_idx_;  // The method we're working on.
-  const DexFile* const dex_file_;  // The dex file containing the method.
+  const uint32_t dex_method_idx_;   // The method we're working on.
+  const DexFile* const dex_file_;   // The dex file containing the method.
+  const dex::ClassDef& class_def_;  // The class being verified.
   const CodeItemDataAccessor code_item_accessor_;
 
   // Instruction widths and flags, one entry per code unit.
@@ -378,13 +392,12 @@ class MethodVerifier {
   // running and the verifier is called from the class linker.
   const bool allow_soft_failures_;
 
-  // Indicates the method being verified contains at least one check-cast or aput-object
-  // instruction. Aput-object operations implicitly check for array-store exceptions, similar to
-  // check-cast.
-  bool has_check_casts_;
-
   // Classlinker to use when resolving.
   ClassLinker* class_linker_;
+
+  // The verifier deps object we are going to report type assigability
+  // constraints to. Can be null for runtime verification.
+  VerifierDeps* verifier_deps_;
 
   // Link, for the method verifier root linked list.
   MethodVerifier* link_;

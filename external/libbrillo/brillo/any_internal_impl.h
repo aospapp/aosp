@@ -154,7 +154,7 @@ struct Data {
   // Gets the contained integral value as an integer.
   virtual intmax_t GetAsInteger() const = 0;
   // Writes the contained value to the D-Bus message buffer.
-  virtual void AppendToDBusMessage(dbus::MessageWriter* writer) const = 0;
+  virtual void AppendToDBusMessage(::dbus::MessageWriter* writer) const = 0;
   // Compares if the two data containers have objects of the same value.
   virtual bool CompareEqual(const Data* other_data) const = 0;
 };
@@ -180,19 +180,19 @@ struct TypedData : public Data {
     return int_val;
   }
 
-  template<typename U>
+  template <typename U>
   static typename std::enable_if<dbus_utils::IsTypeSupported<U>::value>::type
-  AppendValueHelper(dbus::MessageWriter* writer, const U& value) {
+  AppendValueHelper(::dbus::MessageWriter* writer, const U& value) {
     brillo::dbus_utils::AppendValueToWriterAsVariant(writer, value);
   }
-  template<typename U>
+  template <typename U>
   static typename std::enable_if<!dbus_utils::IsTypeSupported<U>::value>::type
-  AppendValueHelper(dbus::MessageWriter* /* writer */, const U& /* value */) {
+  AppendValueHelper(::dbus::MessageWriter* /* writer */, const U& /* value */) {
     LOG(FATAL) << "Type '" << GetUndecoratedTypeName<U>()
                << "' is not supported by D-Bus";
   }
 
-  void AppendToDBusMessage(dbus::MessageWriter* writer) const override {
+  void AppendToDBusMessage(::dbus::MessageWriter* writer) const override {
     return AppendValueHelper(writer, value_);
   }
 

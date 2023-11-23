@@ -14,147 +14,51 @@
  * limitations under the License.
  */
 
-#include <limits.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <fcntl.h>
 #include <unistd.h>
-
-#include <algorithm>
-#include <functional>
-#include <iostream>
 #include <fstream>
-#include <iomanip>
+#include <iostream>
 #include <memory>
-#include <sstream>
 #include <string>
-#include <thread>
+#include <utility>
 #include <vector>
 
+#include <android-base/logging.h>
 #include <android-base/strings.h>
 #include <gflags/gflags.h>
-#include <glog/logging.h>
 
 #include "common/libs/fs/shared_buf.h"
 #include "common/libs/fs/shared_fd.h"
-#include "common/libs/fs/shared_select.h"
-#include "common/libs/fs/tee.h"
 #include "common/libs/utils/environment.h"
 #include "common/libs/utils/files.h"
 #include "common/libs/utils/network.h"
-#include "common/libs/utils/subprocess.h"
 #include "common/libs/utils/size_utils.h"
-#include "host/commands/run_cvd/kernel_args.h"
+#include "common/libs/utils/subprocess.h"
+#include "common/libs/utils/tee_logging.h"
+#include "host/commands/run_cvd/boot_state_machine.h"
 #include "host/commands/run_cvd/launch.h"
-#include "host/commands/run_cvd/runner_defs.h"
 #include "host/commands/run_cvd/process_monitor.h"
+#include "host/commands/run_cvd/runner_defs.h"
+#include "host/commands/run_cvd/server_loop.h"
 #include "host/libs/config/cuttlefish_config.h"
-#include "host/commands/kernel_log_monitor/kernel_log_server.h"
-#include <host/libs/vm_manager/crosvm_manager.h>
+#include "host/libs/vm_manager/host_configuration.h"
 #include "host/libs/vm_manager/vm_manager.h"
-#include "host/libs/vm_manager/qemu_manager.h"
 
-using vsoc::ForCurrentInstance;
-using cvd::RunnerExitCodes;
+DEFINE_int32(reboot_notification_fd, -1,
+             "A file descriptor to notify when boot completes.");
+
+namespace cuttlefish {
+
+using vm_manager::GetVmManager;
+using vm_manager::ValidateHostConfiguration;
 
 namespace {
 
-cvd::OnSocketReadyCb GetOnSubprocessExitCallback(
-    const vsoc::CuttlefishConfig& config) {
-  if (config.restart_subprocesses()) {
-    return cvd::ProcessMonitor::RestartOnExitCb;
-  } else {
-    return cvd::ProcessMonitor::DoNotMonitorCb;
-  }
-}
+constexpr char kGreenColor[] = "\033[1;32m";
+constexpr char kResetColor[] = "\033[0m";
 
-// Maintains the state of the boot process, once a final state is reached
-// (success or failure) it sends the appropriate exit code to the foreground
-// launcher process
-class CvdBootStateMachine {
- public:
-  CvdBootStateMachine(cvd::SharedFD fg_launcher_pipe)
-      : fg_launcher_pipe_(fg_launcher_pipe), state_(kBootStarted) {}
-
-  // Returns true if the machine is left in a final state
-  bool OnBootEvtReceived(cvd::SharedFD boot_events_pipe) {
-    monitor::BootEvent evt;
-    auto bytes_read = boot_events_pipe->Read(&evt, sizeof(evt));
-    if (bytes_read != sizeof(evt)) {
-      LOG(ERROR) << "Fail to read a complete event, read " << bytes_read
-                 << " bytes only instead of the expected " << sizeof(evt);
-      state_ |= kGuestBootFailed;
-    } else if (evt == monitor::BootEvent::BootCompleted) {
-      LOG(INFO) << "Virtual device booted successfully";
-      state_ |= kGuestBootCompleted;
-    } else if (evt == monitor::BootEvent::BootFailed) {
-      LOG(ERROR) << "Virtual device failed to boot";
-      state_ |= kGuestBootFailed;
-    }  // Ignore the other signals
-
-    return MaybeWriteToForegroundLauncher();
-  }
-
-  bool BootCompleted() const {
-    return state_ & kGuestBootCompleted;
-  }
-
-  bool BootFailed() const {
-    return state_ & kGuestBootFailed;
-  }
-
- private:
-  void SendExitCode(cvd::RunnerExitCodes exit_code) {
-    fg_launcher_pipe_->Write(&exit_code, sizeof(exit_code));
-    // The foreground process will exit after receiving the exit code, if we try
-    // to write again we'll get a SIGPIPE
-    fg_launcher_pipe_->Close();
-  }
-  bool MaybeWriteToForegroundLauncher() {
-    if (fg_launcher_pipe_->IsOpen()) {
-      if (BootCompleted()) {
-        SendExitCode(cvd::RunnerExitCodes::kSuccess);
-      } else if (state_ & kGuestBootFailed) {
-        SendExitCode(cvd::RunnerExitCodes::kVirtualDeviceBootFailed);
-      } else {
-        // No final state was reached
-        return false;
-      }
-    }
-    // Either we sent the code before or just sent it, in any case the state is
-    // final
-    return true;
-  }
-
-  cvd::SharedFD fg_launcher_pipe_;
-  int state_;
-  static const int kBootStarted = 0;
-  static const int kGuestBootCompleted = 1 << 0;
-  static const int kGuestBootFailed = 1 << 1;
-};
-
-// Abuse the process monitor to make it call us back when boot events are ready
-void SetUpHandlingOfBootEvents(
-    cvd::ProcessMonitor* process_monitor, cvd::SharedFD boot_events_pipe,
-    std::shared_ptr<CvdBootStateMachine> state_machine) {
-  process_monitor->MonitorExistingSubprocess(
-      // A dummy command, so logs are desciptive
-      cvd::Command("boot_events_listener"),
-      // A dummy subprocess, with the boot events pipe as control socket
-      cvd::Subprocess(-1, boot_events_pipe),
-      [boot_events_pipe, state_machine](cvd::MonitorEntry*) {
-        auto sent_code = state_machine->OnBootEvtReceived(boot_events_pipe);
-        return !sent_code;
-      });
-}
-
-bool WriteCuttlefishEnvironment(const vsoc::CuttlefishConfig& config) {
-  auto env = cvd::SharedFD::Open(config.cuttlefish_env_path().c_str(),
-                                 O_CREAT | O_RDWR, 0755);
+bool WriteCuttlefishEnvironment(const CuttlefishConfig& config) {
+  auto env = SharedFD::Open(config.cuttlefish_env_path().c_str(),
+                            O_CREAT | O_RDWR, 0755);
   if (!env->IsOpen()) {
     LOG(ERROR) << "Unable to create cuttlefish.env file";
     return false;
@@ -169,12 +73,12 @@ bool WriteCuttlefishEnvironment(const vsoc::CuttlefishConfig& config) {
 
 // Forks and returns the write end of a pipe to the child process. The parent
 // process waits for boot events to come through the pipe and exits accordingly.
-cvd::SharedFD DaemonizeLauncher(const vsoc::CuttlefishConfig& config) {
+SharedFD DaemonizeLauncher(const CuttlefishConfig& config) {
   auto instance = config.ForDefaultInstance();
-  cvd::SharedFD read_end, write_end;
-  if (!cvd::SharedFD::Pipe(&read_end, &write_end)) {
+  SharedFD read_end, write_end;
+  if (!SharedFD::Pipe(&read_end, &write_end)) {
     LOG(ERROR) << "Unable to create pipe";
-    return cvd::SharedFD(); // a closed FD
+    return {}; // a closed FD
   }
   auto pid = fork();
   if (pid) {
@@ -195,9 +99,9 @@ cvd::SharedFD DaemonizeLauncher(const vsoc::CuttlefishConfig& config) {
       LOG(ERROR) << "Unexpected exit code: " << exit_code;
     }
     if (exit_code == RunnerExitCodes::kSuccess) {
-      LOG(INFO) << vsoc::kBootCompletedMessage;
+      LOG(INFO) << kBootCompletedMessage;
     } else {
-      LOG(INFO) << vsoc::kBootFailedMessage;
+      LOG(INFO) << kBootFailedMessage;
     }
     std::exit(exit_code);
   } else {
@@ -208,14 +112,15 @@ cvd::SharedFD DaemonizeLauncher(const vsoc::CuttlefishConfig& config) {
     }
     // Redirect standard I/O
     auto log_path = instance.launcher_log_path();
-    auto log =
-        cvd::SharedFD::Open(log_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
-                            S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+    auto log = SharedFD::Open(log_path.c_str(), O_CREAT | O_WRONLY | O_APPEND,
+                              S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
     if (!log->IsOpen()) {
       LOG(ERROR) << "Failed to create launcher log file: " << log->StrError();
       std::exit(RunnerExitCodes::kDaemonizationError);
     }
-    auto dev_null = cvd::SharedFD::Open("/dev/null", O_RDONLY);
+    ::android::base::SetLogger(
+        TeeLogger({{LogFileSeverity(), log, MetadataLevel::FULL}}));
+    auto dev_null = SharedFD::Open("/dev/null", O_RDONLY);
     if (!dev_null->IsOpen()) {
       LOG(ERROR) << "Failed to open /dev/null: " << dev_null->StrError();
       std::exit(RunnerExitCodes::kDaemonizationError);
@@ -238,70 +143,50 @@ cvd::SharedFD DaemonizeLauncher(const vsoc::CuttlefishConfig& config) {
   }
 }
 
-void ServerLoop(cvd::SharedFD server,
-                cvd::ProcessMonitor* process_monitor) {
-  while (true) {
-    // TODO: use select to handle simultaneous connections.
-    auto client = cvd::SharedFD::Accept(*server);
-    cvd::LauncherAction action;
-    while (client->IsOpen() && client->Read(&action, sizeof(action)) > 0) {
-      switch (action) {
-        case cvd::LauncherAction::kStop:
-          if (process_monitor->StopMonitoredProcesses()) {
-            auto response = cvd::LauncherResponse::kSuccess;
-            client->Write(&response, sizeof(response));
-            std::exit(0);
-          } else {
-            auto response = cvd::LauncherResponse::kError;
-            client->Write(&response, sizeof(response));
-          }
-          break;
-        case cvd::LauncherAction::kStatus: {
-          // TODO(schuffelen): Return more information on a side channel
-          auto response = cvd::LauncherResponse::kSuccess;
-          client->Write(&response, sizeof(response));
-          break;
-        }
-        default:
-          LOG(ERROR) << "Unrecognized launcher action: "
-                     << static_cast<char>(action);
-          auto response = cvd::LauncherResponse::kError;
-          client->Write(&response, sizeof(response));
-      }
-    }
-  }
-}
-
-std::string GetConfigFilePath(const vsoc::CuttlefishConfig& config) {
+std::string GetConfigFilePath(const CuttlefishConfig& config) {
   auto instance = config.ForDefaultInstance();
   return instance.PerInstancePath("cuttlefish_config.json");
 }
 
+void PrintStreamingInformation(const CuttlefishConfig& config) {
+  if (config.ForDefaultInstance().start_webrtc_sig_server()) {
+    // TODO (jemoreira): Change this when webrtc is moved to the debian package.
+    LOG(INFO) << kGreenColor << "Point your browser to https://"
+              << config.sig_server_address() << ":" << config.sig_server_port()
+              << " to interact with the device." << kResetColor;
+  } else if (config.enable_vnc_server()) {
+    LOG(INFO) << kGreenColor << "VNC server started on port "
+              << config.ForDefaultInstance().vnc_server_port() << kResetColor;
+  }
+  // When WebRTC is enabled but an operator other than the one launched by
+  // run_cvd is used there is no way to know the url to which to point the
+  // browser to.
+}
+
 }  // namespace
 
-int main(int argc, char** argv) {
+int RunCvdMain(int argc, char** argv) {
+  setenv("ANDROID_LOG_TAGS", "*:v", /* overwrite */ 0);
   ::android::base::InitLogging(argv, android::base::StderrLogger);
   google::ParseCommandLineFlags(&argc, &argv, false);
 
   if (isatty(0)) {
     LOG(FATAL) << "stdin was a tty, expected to be passed the output of a previous stage. "
                << "Did you mean to run launch_cvd?";
-    return cvd::RunnerExitCodes::kInvalidHostConfiguration;
+    return RunnerExitCodes::kInvalidHostConfiguration;
   } else {
     int error_num = errno;
     if (error_num == EBADF) {
       LOG(FATAL) << "stdin was not a valid file descriptor, expected to be passed the output "
                  << "of assemble_cvd. Did you mean to run launch_cvd?";
-      return cvd::RunnerExitCodes::kInvalidHostConfiguration;
+      return RunnerExitCodes::kInvalidHostConfiguration;
     }
   }
 
-  cvd::TeeStderrToFile stderr_tee;
-
   std::string input_files_str;
   {
-    auto input_fd = cvd::SharedFD::Dup(0);
-    auto bytes_read = cvd::ReadAll(input_fd, &input_files_str);
+    auto input_fd = SharedFD::Dup(0);
+    auto bytes_read = ReadAll(input_fd, &input_files_str);
     if (bytes_read < 0) {
       LOG(FATAL) << "Failed to read input files. Error was \"" << input_fd->StrError() << "\"";
     }
@@ -311,18 +196,28 @@ int main(int argc, char** argv) {
   for (const auto& file : input_files) {
     if (file.find("cuttlefish_config.json") != std::string::npos) {
       found_config = true;
-      setenv(vsoc::kCuttlefishConfigEnvVarName, file.c_str(), /* overwrite */ false);
+      setenv(kCuttlefishConfigEnvVarName, file.c_str(), /* overwrite */ false);
     }
   }
   if (!found_config) {
     return RunnerExitCodes::kCuttlefishConfigurationInitError;
   }
 
-  auto config = vsoc::CuttlefishConfig::Get();
+  auto config = CuttlefishConfig::Get();
   auto instance = config->ForDefaultInstance();
 
-  auto runner_log_path = instance.PerInstancePath("run_cvd.log");
-  stderr_tee.SetFile(cvd::SharedFD::Creat(runner_log_path.c_str(), 0755));
+  auto log_path = instance.launcher_log_path();
+
+  {
+    std::ofstream launcher_log_ofstream(log_path.c_str());
+    auto assembly_path = config->AssemblyPath("assemble_cvd.log");
+    std::ifstream assembly_log_ifstream(assembly_path);
+    if (assembly_log_ifstream) {
+      auto assemble_log = ReadFile(assembly_path);
+      launcher_log_ofstream << assemble_log;
+    }
+  }
+  ::android::base::SetLogger(LogToStderrAndFiles({log_path}));
 
   // Change working directory to the instance directory as early as possible to
   // ensure all host processes have the same working dir. This helps stop_cvd
@@ -336,20 +231,24 @@ int main(int argc, char** argv) {
     return RunnerExitCodes::kInstanceDirCreationError;
   }
 
-  auto used_tap_devices = cvd::TapInterfacesInUse();
+  auto used_tap_devices = TapInterfacesInUse();
   if (used_tap_devices.count(instance.wifi_tap_name())) {
     LOG(ERROR) << "Wifi TAP device already in use";
     return RunnerExitCodes::kTapDeviceInUse;
   } else if (used_tap_devices.count(instance.mobile_tap_name())) {
     LOG(ERROR) << "Mobile TAP device already in use";
     return RunnerExitCodes::kTapDeviceInUse;
+  } else if (config->ethernet() &&
+             used_tap_devices.count(instance.ethernet_tap_name())) {
+    LOG(ERROR) << "Ethernet TAP device already in use";
   }
 
-  auto vm_manager = vm_manager::VmManager::Get(config->vm_manager(), config);
+  auto vm_manager = GetVmManager(config->vm_manager(), config->target_arch());
 
+#ifndef __ANDROID__
   // Check host configuration
   std::vector<std::string> config_commands;
-  if (!vm_manager->ValidateHostConfiguration(&config_commands)) {
+  if (!ValidateHostConfiguration(&config_commands)) {
     LOG(ERROR) << "Validation of user configuration failed";
     std::cout << "Execute the following to correctly configure:" << std::endl;
     for (auto& command : config_commands) {
@@ -359,31 +258,51 @@ int main(int argc, char** argv) {
               << std::endl;
     return RunnerExitCodes::kInvalidHostConfiguration;
   }
+#endif
 
   if (!WriteCuttlefishEnvironment(*config)) {
     LOG(ERROR) << "Unable to write cuttlefish environment file";
   }
 
-  LOG(INFO) << "The following files contain useful debugging information:";
-  if (config->run_as_daemon()) {
-    LOG(INFO) << "  Launcher log: " << instance.launcher_log_path();
+  PrintStreamingInformation(*config);
+
+  if (config->console()) {
+    LOG(INFO) << kGreenColor << "To access the console run: screen "
+              << instance.console_path() << kResetColor;
+  } else {
+    LOG(INFO) << kGreenColor
+              << "Serial console is disabled; use -console=true to enable it"
+              << kResetColor;
   }
-  LOG(INFO) << "  Android's logcat output: " << instance.logcat_path();
-  LOG(INFO) << "  Kernel log: " << instance.PerInstancePath("kernel.log");
-  LOG(INFO) << "  Instance configuration: " << GetConfigFilePath(*config);
-  LOG(INFO) << "  Instance environment: " << config->cuttlefish_env_path();
-  LOG(INFO) << "To access the console run: socat file:$(tty),raw,echo=0 "
-            << instance.console_path();
+
+  LOG(INFO) << kGreenColor
+            << "The following files contain useful debugging information:"
+            << kResetColor;
+  LOG(INFO) << kGreenColor
+            << "  Launcher log: " << instance.launcher_log_path()
+            << kResetColor;
+  LOG(INFO) << kGreenColor
+            << "  Android's logcat output: " << instance.logcat_path()
+            << kResetColor;
+  LOG(INFO) << kGreenColor
+            << "  Kernel log: " << instance.PerInstancePath("kernel.log")
+            << kResetColor;
+  LOG(INFO) << kGreenColor
+            << "  Instance configuration: " << GetConfigFilePath(*config)
+            << kResetColor;
+  LOG(INFO) << kGreenColor
+            << "  Instance environment: " << config->cuttlefish_env_path()
+            << kResetColor;
 
   auto launcher_monitor_path = instance.launcher_monitor_socket_path();
-  auto launcher_monitor_socket = cvd::SharedFD::SocketLocalServer(
+  auto launcher_monitor_socket = SharedFD::SocketLocalServer(
       launcher_monitor_path.c_str(), false, SOCK_STREAM, 0666);
   if (!launcher_monitor_socket->IsOpen()) {
     LOG(ERROR) << "Error when opening launcher server: "
                << launcher_monitor_socket->StrError();
-    return cvd::RunnerExitCodes::kMonitorCreationFailed;
+    return RunnerExitCodes::kMonitorCreationFailed;
   }
-  cvd::SharedFD foreground_launcher_pipe;
+  SharedFD foreground_launcher_pipe;
   if (config->run_as_daemon()) {
     foreground_launcher_pipe = DaemonizeLauncher(*config);
     if (!foreground_launcher_pipe->IsOpen()) {
@@ -401,69 +320,70 @@ int main(int argc, char** argv) {
     }
   }
 
-  auto boot_state_machine =
-      std::make_shared<CvdBootStateMachine>(foreground_launcher_pipe);
+  SharedFD reboot_notification;
+  if (FLAGS_reboot_notification_fd >= 0) {
+    reboot_notification = SharedFD::Dup(FLAGS_reboot_notification_fd);
+    close(FLAGS_reboot_notification_fd);
+  }
 
   // Monitor and restart host processes supporting the CVD
-  cvd::ProcessMonitor process_monitor;
+  ProcessMonitor process_monitor(config->restart_subprocesses());
 
-  auto event_pipes =
-      LaunchKernelLogMonitor(*config, &process_monitor, 2);
-  cvd::SharedFD boot_events_pipe = event_pipes[0];
-  cvd::SharedFD adbd_events_pipe = event_pipes[1];
-  event_pipes.clear();
+  if (config->enable_metrics() == CuttlefishConfig::kYes) {
+    process_monitor.AddCommands(LaunchMetrics());
+  }
+  process_monitor.AddCommands(LaunchModemSimulatorIfEnabled(*config));
 
-  std::set<std::string> extra_kernel_cmdline;
+  auto kernel_log_monitor = LaunchKernelLogMonitor(*config, 3);
+  SharedFD boot_events_pipe = kernel_log_monitor.pipes[0];
+  SharedFD adbd_events_pipe = kernel_log_monitor.pipes[1];
+  SharedFD webrtc_events_pipe = kernel_log_monitor.pipes[2];
+  kernel_log_monitor.pipes.clear();
+  process_monitor.AddCommands(std::move(kernel_log_monitor.commands));
 
-  SetUpHandlingOfBootEvents(&process_monitor, boot_events_pipe,
-                            boot_state_machine);
+  CvdBootStateMachine boot_state_machine(foreground_launcher_pipe,
+                                         reboot_notification, boot_events_pipe);
 
-  auto logcat_server = LaunchLogcatReceiverIfEnabled(*config, &process_monitor);
-  auto logcat_server_args = KernelCommandLineFromLogcatServer(logcat_server);
-
-  auto config_server = LaunchConfigServer(*config, &process_monitor);
-  auto config_server_args = KernelCommandLineFromConfigServer(config_server);
-
-  auto tombstone_server = LaunchTombstoneReceiverIfEnabled(*config, &process_monitor);
-  auto tombstone_kernel_args = KernelCommandLineFromTombstone(tombstone_server);
-
-  LaunchVerhicleHalServerIfEnabled(*config, &process_monitor);
+  process_monitor.AddCommands(LaunchRootCanal(*config));
+  process_monitor.AddCommands(LaunchLogcatReceiver(*config));
+  process_monitor.AddCommands(LaunchConfigServer(*config));
+  process_monitor.AddCommands(LaunchTombstoneReceiver(*config));
+  process_monitor.AddCommands(LaunchGnssGrpcProxyServerIfEnabled(*config));
+  process_monitor.AddCommands(LaunchSecureEnvironment(*config));
+  if (config->enable_host_bluetooth()) {
+    process_monitor.AddCommands(LaunchBluetoothConnector(*config));
+  }
+  process_monitor.AddCommands(LaunchVehicleHalServerIfEnabled(*config));
+  process_monitor.AddCommands(LaunchConsoleForwarderIfEnabled(*config));
 
   // The streamer needs to launch before the VMM because it serves on several
   // sockets (input devices, vsock frame server) when using crosvm.
-  StreamerLaunchResult streamer_config;
   if (config->enable_vnc_server()) {
-    streamer_config = LaunchVNCServer(
-      *config, &process_monitor, GetOnSubprocessExitCallback(*config));
+    process_monitor.AddCommands(LaunchVNCServer(*config));
   }
   if (config->enable_webrtc()) {
-    streamer_config = LaunchWebRTC(&process_monitor, *config);
+    process_monitor.AddCommands(LaunchWebRTC(*config, webrtc_events_pipe));
   }
-
-  auto streamer_kernel_args = KernelCommandLineFromStreamer(streamer_config);
-
-  auto kernel_args = KernelCommandLineFromConfig(*config);
-  kernel_args.insert(kernel_args.end(), streamer_kernel_args.begin(),
-                     streamer_kernel_args.end());
-  kernel_args.insert(kernel_args.end(), tombstone_kernel_args.begin(),
-                     tombstone_kernel_args.end());
-  kernel_args.insert(kernel_args.end(), config_server_args.begin(), config_server_args.end());
-  kernel_args.insert(kernel_args.end(), logcat_server_args.begin(), logcat_server_args.end());
 
   // Start the guest VM
-  vm_manager->WithFrontend(streamer_config.launched);
-  vm_manager->WithKernelCommandLine(android::base::Join(kernel_args, " "));
-  auto vmm_commands = vm_manager->StartCommands();
-  for (auto& vmm_cmd: vmm_commands) {
-      process_monitor.StartSubprocess(std::move(vmm_cmd),
-                                      GetOnSubprocessExitCallback(*config));
-  }
+  process_monitor.AddCommands(vm_manager->StartCommands(*config));
 
   // Start other host processes
-  LaunchSocketVsockProxyIfEnabled(&process_monitor, *config);
-  LaunchAdbConnectorIfEnabled(&process_monitor, *config, adbd_events_pipe);
+  process_monitor.AddCommands(
+      LaunchSocketVsockProxyIfEnabled(*config, adbd_events_pipe));
+  process_monitor.AddCommands(LaunchAdbConnectorIfEnabled(*config));
+
+  CHECK(process_monitor.StartAndMonitorProcesses())
+      << "Could not start subprocesses";
 
   ServerLoop(launcher_monitor_socket, &process_monitor); // Should not return
   LOG(ERROR) << "The server loop returned, it should never happen!!";
-  return cvd::RunnerExitCodes::kServerError;
+
+  return RunnerExitCodes::kServerError;
+}
+
+} // namespace cuttlefish
+
+int main(int argc, char** argv) {
+  return cuttlefish::RunCvdMain(argc, argv);
 }

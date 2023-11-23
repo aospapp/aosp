@@ -29,6 +29,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.MutableLiveData;
 
 import com.android.car.arch.common.FutureData;
+import com.android.car.arch.common.LiveDataFunctions;
 import com.android.car.dialer.CarDialerRobolectricTestRunner;
 import com.android.car.dialer.FragmentTestActivity;
 import com.android.car.dialer.R;
@@ -39,6 +40,7 @@ import com.android.car.dialer.ui.contact.ContactDetailsViewModel;
 import com.android.car.telephony.common.Contact;
 import com.android.car.telephony.common.InMemoryPhoneBook;
 import com.android.car.telephony.common.PhoneNumber;
+import com.android.car.telephony.common.TelecomUtils;
 import com.android.car.ui.recyclerview.CarUiRecyclerView;
 
 import org.junit.After;
@@ -87,6 +89,8 @@ public class ContactResultsFragmentTest {
         mContactSearchResultsLiveData = new MutableLiveData<>();
         when(mMockContactResultsViewModel.getContactSearchResults())
                 .thenReturn(mContactSearchResultsLiveData);
+        when(mMockContactResultsViewModel.getSortOrderLiveData()).thenReturn(
+                LiveDataFunctions.dataOf(TelecomUtils.SORT_BY_FIRST_NAME));
         ShadowAndroidViewModelFactory.add(
                 ContactResultsViewModel.class, mMockContactResultsViewModel);
 

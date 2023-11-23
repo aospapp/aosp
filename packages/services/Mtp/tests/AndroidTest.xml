@@ -13,13 +13,13 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Runs Tests for MtpDocumentsProvider with the UI for output.">
+<configuration description="Runs Tests for MtpService with the UI for output.">
     <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
-        <option name="test-file-name" value="MtpDocumentsProviderTests.apk" />
+        <option name="test-file-name" value="MtpServiceTests.apk" />
     </target_preparer>
 
     <option name="test-suite-tag" value="apct" />
-    <option name="test-tag" value="MtpDocumentsProviderTests" />
+    <option name="test-tag" value="MtpServiceTests" />
     <test class="com.android.tradefed.testtype.InstrumentationTest" >
         <option name="package" value="com.android.mtp.tests" />
         <option name="runner" value="com.android.mtp.TestResultInstrumentation" />

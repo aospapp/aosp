@@ -16,22 +16,29 @@
 
 package com.android.helpers;
 
-import android.os.TemperatureTypeEnum;
-import android.support.test.uiautomator.UiDevice;
+import static android.os.nano.OsProtoEnums.TEMPERATURE_TYPE_BATTERY;
+import static android.os.nano.OsProtoEnums.TEMPERATURE_TYPE_CPU;
+import static android.os.nano.OsProtoEnums.TEMPERATURE_TYPE_GPU;
+import static android.os.nano.OsProtoEnums.TEMPERATURE_TYPE_POWER_AMPLIFIER;
+import static android.os.nano.OsProtoEnums.TEMPERATURE_TYPE_SKIN;
+import static android.os.nano.OsProtoEnums.TEMPERATURE_TYPE_USB_PORT;
+
 import android.util.Log;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
-import com.android.os.AtomsProto.Atom;
-import com.android.os.StatsLog.EventMetricData;
+import com.android.os.nano.AtomsProto;
+import com.android.os.nano.StatsLog;
 
 import java.io.IOException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * ThermalHelper is a helper class to collect thermal events from statsd. Currently, it identifies
@@ -43,6 +50,8 @@ public class ThermalHelper implements ICollectorHelper<StringBuilder> {
     private static final int UNDEFINED_SEVERITY = -1;
     private static final Pattern SEVERITY_DUMPSYS_PATTERN =
             Pattern.compile("Thermal Status: (\\d+)");
+    private static final Pattern TEMPERATURE_DUMPSYS_PATTERN =
+            Pattern.compile(".*mValue=(.*), mType=(.*), mName=(.*), mStatus=(\\d+).*");
 
     private StatsdHelper mStatsdHelper;
     private UiDevice mDevice;
@@ -63,10 +72,10 @@ public class ThermalHelper implements ICollectorHelper<StringBuilder> {
                 }
             }
         } catch (NumberFormatException nfe) {
-            Log.w(LOG_TAG, String.format("Couldn't identify severity. Error parsing: %s", nfe));
+            Log.e(LOG_TAG, String.format("Couldn't identify severity. Error parsing: %s", nfe));
             return false;
         } catch (IOException ioe) {
-            Log.w(LOG_TAG, String.format("Failed to query thermalservice. Error: %s", ioe));
+            Log.e(LOG_TAG, String.format("Failed to query thermalservice. Error: %s", ioe));
             return false;
         }
 
@@ -78,7 +87,7 @@ public class ThermalHelper implements ICollectorHelper<StringBuilder> {
 
         // Register the thermal event config to statsd.
         List<Integer> atomIdList = new ArrayList<>();
-        atomIdList.add(Atom.THERMAL_THROTTLING_SEVERITY_STATE_CHANGED_FIELD_NUMBER);
+        atomIdList.add(AtomsProto.Atom.THERMAL_THROTTLING_SEVERITY_STATE_CHANGED_FIELD_NUMBER);
         return getStatsdHelper().addEventConfig(atomIdList);
     }
 
@@ -91,23 +100,56 @@ public class ThermalHelper implements ICollectorHelper<StringBuilder> {
         String severityKey = MetricUtility.constructKey("thermal", "throttling", "severity");
         MetricUtility.addMetric(severityKey, mInitialSeverity, results);
 
-        List<EventMetricData> eventMetricData = getStatsdHelper().getEventMetrics();
+        List<StatsLog.EventMetricData> eventMetricData = getStatsdHelper().getEventMetrics();
         Log.i(LOG_TAG, String.format("%d thermal data points found.", eventMetricData.size()));
         // Collect all thermal throttling severity state change events.
-        for (EventMetricData dataItem : eventMetricData) {
-            if (dataItem.getAtom().hasThermalThrottlingSeverityStateChanged()) {
+        for (StatsLog.EventMetricData dataItem : eventMetricData) {
+            if (dataItem.atom.hasThermalThrottlingSeverityStateChanged()) {
                 // TODO(b/137878503): Add elapsed_timestamp_nanos for timpestamp data.
                 // Get thermal throttling severity state change data point.
-                int severity =
-                        dataItem.getAtom()
-                                .getThermalThrottlingSeverityStateChanged()
-                                .getSeverity()
-                                .getNumber();
+                int severity = dataItem.atom.getThermalThrottlingSeverityStateChanged().severity;
                 // Store the severity state change ignoring where the measurement came from.
                 MetricUtility.addMetric(severityKey, severity, results);
                 // Set the initial severity to the last value, in case #getMetrics is called again.
                 mInitialSeverity = severity;
             }
+        }
+
+        try {
+            String[] output = getDevice().executeShellCommand("dumpsys thermalservice").split("\n");
+            boolean inCurrentTempSection = false;
+            for (String line : output) {
+                Matcher temperatureMatcher = TEMPERATURE_DUMPSYS_PATTERN.matcher(line);
+                if (inCurrentTempSection && temperatureMatcher.matches()) {
+                    Log.v(LOG_TAG, "Matched " + line);
+                    String name = temperatureMatcher.group(3);
+                    MetricUtility.addMetric(
+                            MetricUtility.constructKey("temperature", name, "value"),
+                            Double.parseDouble(temperatureMatcher.group(1)), // value group
+                            results);
+                    MetricUtility.addMetric(
+                            MetricUtility.constructKey("temperature", name, "type"),
+                            Integer.parseInt(temperatureMatcher.group(2)), // type group
+                            results);
+                    MetricUtility.addMetric(
+                            MetricUtility.constructKey("temperature", name, "status"),
+                            Integer.parseInt(temperatureMatcher.group(4)), // status group
+                            results);
+                }
+
+                if (line.contains("Current temperatures")) {
+                    inCurrentTempSection = true;
+                } else if (line.trim().startsWith("Current") || line.trim().startsWith("Cached")) {
+                    // We're entering another section of data.
+                    inCurrentTempSection = false;
+                }
+            }
+        } catch (NumberFormatException nfe) {
+            Log.e(
+                    LOG_TAG,
+                    String.format("Couldn't identify temperature info. Error parsing: %s", nfe));
+        } catch (IOException ioe) {
+            Log.e(LOG_TAG, String.format("Failed to query thermalservice. Error: %s", ioe));
         }
 
         return results;
@@ -122,7 +164,7 @@ public class ThermalHelper implements ICollectorHelper<StringBuilder> {
 
     /** A shorthand name for temperature sensor types used in metric keys. */
     @VisibleForTesting
-    static String getShorthandSensorType(TemperatureTypeEnum type) {
+    static String getShorthandSensorType(int type) {
         switch (type) {
             case TEMPERATURE_TYPE_CPU:
                 return "cpu";

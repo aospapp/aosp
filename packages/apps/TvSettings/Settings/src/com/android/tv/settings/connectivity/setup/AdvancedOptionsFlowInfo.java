@@ -167,9 +167,9 @@ public class AdvancedOptionsFlowInfo extends ViewModel {
      */
     public InetAddress getInitialDns(int index) {
         if (mIpConfiguration != null && mIpConfiguration.getStaticIpConfiguration() != null
-                && mIpConfiguration.getStaticIpConfiguration().dnsServers == null) {
+                && mIpConfiguration.getStaticIpConfiguration().getDnsServers() != null) {
             try {
-                return mIpConfiguration.getStaticIpConfiguration().dnsServers.get(index);
+                return mIpConfiguration.getStaticIpConfiguration().getDnsServers().get(index);
             } catch (IndexOutOfBoundsException e) {
                 return null;
             }
@@ -182,7 +182,7 @@ public class AdvancedOptionsFlowInfo extends ViewModel {
      */
     public InetAddress getInitialGateway() {
         if (mIpConfiguration != null && mIpConfiguration.getStaticIpConfiguration() != null) {
-            return mIpConfiguration.getStaticIpConfiguration().gateway;
+            return mIpConfiguration.getStaticIpConfiguration().getGateway();
         } else {
             return null;
         }
@@ -193,7 +193,7 @@ public class AdvancedOptionsFlowInfo extends ViewModel {
      */
     public LinkAddress getInitialLinkAddress() {
         if (mIpConfiguration != null && mIpConfiguration.getStaticIpConfiguration() != null) {
-            return mIpConfiguration.getStaticIpConfiguration().ipAddress;
+            return mIpConfiguration.getStaticIpConfiguration().getIpAddress();
         } else {
             return null;
         }

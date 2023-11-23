@@ -133,6 +133,10 @@ following interactions between the applications and the user.
      [`Content Capture`](
      https://developer.android.com/reference/android/view/contentcapture/package-summary)
      API or a similarly capable, proprietary API.
+*    Any text or other data sent via the [`TextClassifier API`](https://developer.android.com/reference/android/view/textclassifier/TextClassifier)
+     to the System TextClassifier i.e to the system service to understand
+     the meaning of text, as well as generating predicted next actions based on
+     the text.
 
 If device implementations capture the data above, they:
 
@@ -202,9 +206,87 @@ information including recent location requests, app level permissions and usage
 of Wi-Fi/Bluetooth scanning for determining location.
 *   [C-0-3] MUST ensure that the application using Emergency Location Bypass API
 [LocationRequest.setLocationSettingsIgnored()] is a user initiated emergency
-session (e.g. dial 911 or text to 911).
+session (e.g. dial 911 or text to 911). For Automotive however, a vehicle MAY
+initiate an emergency session without active user interaction in the case
+a crash/accident is detected (e.g. to satisfy eCall requirements).
 *   [C-0-4] MUST preserve the Emergency Location Bypass API's ability to
 bypass device location settings without changing the settings.
 *   [C-0-5] MUST schedule a notification that reminds the user after an app in
 the background has accessed their location using the
 [`ACCESS_BACKGROUND_LOCATION`] permission.
+
+### 9.8.9\. Installed apps
+
+Android apps targeting API level 30 or above cannot see details about other
+installed apps by default (see [Package visibility](
+https://developer.android.com/preview/privacy/package-visibility) in the Android
+SDK documentation).
+
+Device implementations:
+
+*   [C-0-1] MUST NOT expose to any app targeting API level 30 or above details
+    about any other installed app, unless the app is already able to see details
+    about the other installed app through the managed APIs. This includes but is
+    not limited to details exposed by any custom APIs added by the device
+    implementer, or accessible via the filesystem.
+
+### 9.8.10\. Connectivity Bug Report
+
+If device implementations generate bug reports using System API
+`BUGREPORT_MODE_TELEPHONY` with BugreportManager, they:
+
+*   [C-1-1] MUST obtain user consent every time the System API
+    `BUGREPORT_MODE_TELEPHONY` is called to generate a report and MUST NOT
+    prompt the user to consent to all future requests from the application.
+*   [C-1-2] MUST display and obtain explicit user consent when the reports are
+    starting to be generated and MUST NOT return the generated report
+    to the requesting app without explicit user consent.
+*   [C-1-3] MUST generate requested reports containing at least the following
+    information:
+    *   TelephonyDebugService dump
+    *   TelephonyRegistry dump
+    *   WifiService dump
+    *   ConnectivityService dump
+    *   A dump of the calling package's CarrierService instance (if bound)
+    *   Radio log buffer
+*   [C-1-4] MUST NOT include the following in the generated reports:
+    *   Any kind of information unrelated to connectivity debugging.
+    *   Any kind of user-installed application traffic logs or detailed profiles
+        of user-installed applications/packages (UIDs are okay, package names
+        are not).
+*   MAY include additional information that is not associated with any user
+    identity. (e.g. vendor logs).
+
+If device implementations include additional information (e.g vendor logs) in
+the bug report and that information has privacy/security/battery/storage/memory
+impact, they:
+
+*   [C-SR] Are STRONGLY RECOMMENDED to have a developer setting defaulted to
+    disabled. The AOSP meets this by providing the
+    `Enable verbose vendor logging` option in developer settings to include
+    additional device-specific vendor logs in the bug reports.
+
+### 9.8.11\. Data blobs sharing
+
+Android, through [BlobStoreManager](
+https://developer.android.com/reference/android/app/blob/BlobStoreManager)
+allows apps to contribute data blobs to the System to be shared with a selected
+set of apps.
+
+If device implementations support shared data blobs as described in the
+[SDK documentation](https://developer.android.com/reference/android/app/blob/BlobStoreManager),
+they:
+
+  * [C-1-1] MUST NOT share data blobs belonging to apps beyond what they
+    intended to allow (i.e. the scope of default access and the other access
+    modes that can be specified using
+    [BlobStoreManager.session#allowPackageAccess()](
+    https://developer.android.com/reference/android/app/blob/BlobStoreManager.Session#allowPackageAccess%28java.lang.String%2C%2520byte%5B%5D%29),
+    [BlobStoreManager.session#allowSameSignatureAccess()](
+    https://developer.android.com/reference/android/app/blob/BlobStoreManager.Session#allowSameSignatureAccess%28%29),
+    or [BlobStoreManager.session#allowPublicAccess()](
+    https://developer.android.com/reference/android/app/blob/BlobStoreManager.Session#allowPublicAccess%28%29)
+    MUST NOT be modified). The AOSP reference implementation meets these
+    requirements.
+  * [C-1-2] MUST NOT send off device or share with other apps the secure hashes
+    of data blobs (which are used to control access).

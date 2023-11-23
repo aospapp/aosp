@@ -32,12 +32,15 @@ import android.os.Message;
 import android.telephony.DisconnectCause;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.ServiceState;
+import android.telephony.emergency.EmergencyNumber;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 
 import androidx.test.filters.FlakyTest;
+
+import com.android.internal.telephony.PhoneInternalInterface.DialArgs;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -53,6 +56,7 @@ import org.mockito.Mock;
 public class GsmCdmaCallTrackerTest extends TelephonyTest {
     private static final int VOICE_CALL_STARTED_EVENT = 0;
     private static final int VOICE_CALL_ENDED_EVENT = 1;
+    private static final String TEST_DIAL_STRING = "54321";
     private String mDialString = PhoneNumberUtils.stripSeparators("+17005554141");
     /* Handler class initiated at the HandlerThread */
     private GsmCdmaCallTracker mCTUT;
@@ -83,6 +87,16 @@ public class GsmCdmaCallTrackerTest extends TelephonyTest {
 
     @Test
     @SmallTest
+    public void testCLIRMode() throws Exception {
+        DialArgs dialArgs = new DialArgs.Builder().setIsEmergency(true).build();
+        mCTUT.dialGsm(TEST_DIAL_STRING, dialArgs);
+        verify(mSimulatedCommandsVerifier).dial(eq(TEST_DIAL_STRING), eq(true),
+                isA(EmergencyNumber.class), eq(false), eq(CommandsInterface.CLIR_SUPPRESSION),
+                        eq((UUSInfo) null), isA(Message.class));
+    }
+
+    @Test
+    @SmallTest
     public void testMOCallDial() {
         doReturn(ServiceState.STATE_IN_SERVICE).when(mServiceState).getState();
         assertEquals(PhoneConstants.State.IDLE, mCTUT.getState());
@@ -90,7 +104,7 @@ public class GsmCdmaCallTrackerTest extends TelephonyTest {
         assertEquals(GsmCdmaCall.State.IDLE, mCTUT.mBackgroundCall.getState());
         assertEquals(0, mCTUT.mForegroundCall.getConnections().size());
         try {
-            mCTUT.dial(mDialString, new Bundle());
+            mCTUT.dial(mDialString, new DialArgs.Builder().build());
             processAllMessages();
         } catch(Exception ex) {
             ex.printStackTrace();
@@ -203,7 +217,7 @@ public class GsmCdmaCallTrackerTest extends TelephonyTest {
 
         String mDialString = PhoneNumberUtils.stripSeparators("+17005554142");
         try {
-            mCTUT.dial(mDialString, new Bundle());
+            mCTUT.dial(mDialString, new DialArgs.Builder().build());
         } catch(Exception ex) {
             ex.printStackTrace();
             Assert.fail("unexpected exception thrown" + ex.getMessage());
@@ -449,7 +463,7 @@ public class GsmCdmaCallTrackerTest extends TelephonyTest {
         processAllMessages();
         // Try to place another call.
         try {
-            mCTUT.dial("650-555-1212", new Bundle());
+            mCTUT.dial("650-555-1212", new DialArgs.Builder().build());
         } catch (CallStateException cse) {
             assertEquals(CallStateException.ERROR_OTASP_PROVISIONING_IN_PROCESS, cse.getError());
             return;

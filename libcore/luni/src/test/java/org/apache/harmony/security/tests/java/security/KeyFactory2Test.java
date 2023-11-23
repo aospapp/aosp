@@ -329,7 +329,14 @@ public class KeyFactory2Test extends junit.framework.TestCase {
         while (e.hasMoreElements()) {
             String algorithm = (String) e.nextElement();
             if (algorithm.startsWith(KEYFACTORY_ID) && !algorithm.contains(" ")) {
-                algs.addElement(algorithm.substring(KEYFACTORY_ID.length()));
+                String keyFactoryName = algorithm.substring(KEYFACTORY_ID.length());
+                if ("XDH".equals(keyFactoryName)) {
+                    // Skip Elliptic curve DH as the KeySpec classes needed for this
+                    // test aren't yet available on Android. XDH is fully tested in Conscrypt
+                    // tests. b/179675498
+                    continue;
+                }
+                algs.addElement(keyFactoryName);
             }
         }
 

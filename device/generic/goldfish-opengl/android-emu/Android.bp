@@ -1,3 +1,13 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "device_generic_goldfish-opengl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-GPL-2.0
+    default_applicable_licenses: ["device_generic_goldfish-opengl_license"],
+}
+
 cc_library_shared {
     name: "libandroidemu",
     vendor: true,
@@ -7,7 +17,6 @@ cc_library_shared {
         "android/base/files/Stream.cpp",
         "android/base/files/StreamSerializing.cpp",
         "android/base/Pool.cpp",
-        "android/base/ring_buffer.c",
         "android/base/StringFormat.cpp",
         "android/base/AndroidSubAllocator.cpp",
         "android/base/synchronization/AndroidMessageChannel.cpp",
@@ -17,6 +26,28 @@ cc_library_shared {
         "android/base/threads/AndroidWorkPool.cpp",
         "android/base/Tracing.cpp",
         "android/utils/debug.c",
+    ],
+    shared_libs: [
+        "libcutils",
+        "libutils",
+        "liblog",
+    ],
+    export_include_dirs: [
+        ".",
+    ],
+    cflags: [
+        "-DLOG_TAG=\"androidemu\"",
+        "-Wno-missing-field-initializers",
+        "-fvisibility=default",
+        "-fstrict-aliasing",
+    ],
+}
+
+cc_library_static {
+    name: "libringbuffer",
+    vendor: true,
+    srcs: [
+        "android/base/ring_buffer.c",
     ],
     shared_libs: [
         "libcutils",

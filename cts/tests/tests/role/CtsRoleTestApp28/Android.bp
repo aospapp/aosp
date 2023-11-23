@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-android_test {
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_test_helper_app {
     name: "CtsRoleTestApp28",
-    sdk_version: "test_current",
+    min_sdk_version: "28",
+    target_sdk_version: "28",
 
     srcs: [
         "src/**/*.java"

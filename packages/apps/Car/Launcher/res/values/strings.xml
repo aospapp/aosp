@@ -24,18 +24,26 @@
         <xliff:g id="app_name" example="Settings">%1$s</xliff:g> can\'t be used while driving.
     </string>
 
-    <!-- Contextual Fragment -->
-    <string name="greeting">Hi,
-        <xliff:g example="Owner" id="user">%s</xliff:g>
-    </string>
-    <string name="temperature" translatable="false">%d\u00B0</string>
-    <string name="temperature_empty" translatable="false">--\u00B0</string>
-    <string name="date" translatable="false">EEEMMMd</string>
+    <string name="tap_for_more_info_text">Tap card for more info</string>
+    <string name="tap_to_launch_text">Tap card to launch</string>
 
+    <!-- InCallModel strings -->
+    <!-- Separates the duration from the ongoing_call_text -->
+    <string name="ongoing_call_duration_text_separator">&#160;&#8226;&#160;</string>
+    <string name="ongoing_call_text">Ongoing call</string>
+
+    <!-- ProjectionModel strings -->
+    <string name="projected_launch_text">Launch Android Auto</string>
+    <string name="projected_onclick_launch_error_toast_text">Unable to launch Android Auto. No activity found.</string>
     <plurals name="projection_devices">
         <item quantity="one"><xliff:g example="1" id="count">%d</xliff:g> device</item>
         <item quantity="other"><xliff:g example="2" id="count">%d</xliff:g> devices</item>
     </plurals>
+
+    <!-- FakeWeatherModel strings -->
+    <string name="weather_app_name">Weather</string>
+    <string name="fake_weather_main_text">--\u00B0 Mostly sunny</string>
+    <string name="fake_weather_footer_text">Mountain View &#8226; H: --\u00B0 L: --\u00B0</string>
 
     <!-- Toolbar MenuItem text for hiding debug apps, only visible on debug builds [CHAR_LIMIT=50] -->
     <string name="hide_debug_apps">Hide debug apps</string>

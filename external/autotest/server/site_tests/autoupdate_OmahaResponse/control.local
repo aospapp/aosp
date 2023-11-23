@@ -30,8 +30,8 @@ args_dict = utils.args_to_dict(args)
 def run(machine):
     host = hosts.create_host(machine)
     job.run_test('autoupdate_OmahaResponse', host=host, full_payload=True,
-                 running_at_desk=True, switch_urls=False, bad_sha256=False,
-                 bad_metadata_size=False, test_backoff=True, backoff=True,
+                 switch_urls=False, bad_sha256=False, bad_metadata_size=False,
+                 test_backoff=True, backoff=True, running_at_desk=True,
                  **args_dict)
 
 job.parallel_simple(run, machines)

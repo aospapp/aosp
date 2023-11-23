@@ -47,25 +47,34 @@ method Target.foo(int, java.lang.String):int
 	.line 21
 	.prologue_end
 	.line 21
-	    0| const v0, #+3 (0x00000003 | 4.20390e-45)
+	    0| const v0, #+4 (0x00000004 | 5.60519e-45)
 	    3| new-array v1, v0, java.lang.Object[]
-	    5| const v0, #+0 (0x00000000 | 0.00000)
-	    8| aput-object v5, v1, v0
-	   10| invoke-static/range {v6..v6}, java.lang.Integer.valueOf(int):java.lang.Integer
-	   13| move-result-object v2
-	   14| const v0, #+1 (0x00000001 | 1.40130e-45)
-	   17| aput-object v2, v1, v0
-	   19| const v0, #+2 (0x00000002 | 2.80260e-45)
-	   22| aput-object v7, v1, v0
-	   24| invoke-static/range {v1..v1}, Tracer.onFooEntry(java.lang.Object[]):void
-	   27| iget-object v3, v5, Target.base
-	   29| invoke-virtual {v3,v6,v7}, Base.foo(int, java.lang.String):int
-	   32| move-result v3
+	    5| const-string v2, "Target->foo(ILjava/lang/String;)I"
+	    7| const v0, #+0 (0x00000000 | 0.00000)
+	   10| aput-object v2, v1, v0
+	   12| const v0, #+1 (0x00000001 | 1.40130e-45)
+	   15| aput-object v3, v1, v0
+	   17| invoke-static/range {v4..v4}, java.lang.Integer.valueOf(int):java.lang.Integer
+	   20| move-result-object v2
+	   21| const v0, #+2 (0x00000002 | 2.80260e-45)
+	   24| aput-object v2, v1, v0
+	   26| const v0, #+3 (0x00000003 | 4.20390e-45)
+	   29| aput-object v5, v1, v0
+	   31| invoke-static/range {v1..v1}, Tracer.onFooEntry(java.lang.Object[]):void
+	   34| const v0, #-16843010 (0xfefefefe | -1.69474e+38)
+	   37| const v1, #-16843010 (0xfefefefe | -1.69474e+38)
+	   40| const v2, #-16843010 (0xfefefefe | -1.69474e+38)
+	   43| move-object/16 v2, v3
+	   46| move/16 v3, v4
+	   49| move-object/16 v4, v5
+	   52| iget-object v0, v2, Target.base
+	   54| invoke-virtual {v0,v3,v4}, Base.foo(int, java.lang.String):int
+	   57| move-result v0
 	.line 22
-	   33| iget-object v4, v5, Target.iBase
-	   35| invoke-interface {v4,v7}, IBase.bar(java.lang.String):void
+	   58| iget-object v1, v2, Target.iBase
+	   60| invoke-interface {v1,v4}, IBase.bar(java.lang.String):void
 	.line 23
-	   38| return v3
+	   63| return v0
 }
 
 method Target.foo(int, java.lang.String[][]):java.lang.Integer
@@ -75,25 +84,34 @@ method Target.foo(int, java.lang.String[][]):java.lang.Integer
 	.line 27
 	.prologue_end
 	.line 27
-	    0| const v0, #+3 (0x00000003 | 4.20390e-45)
+	    0| const v0, #+4 (0x00000004 | 5.60519e-45)
 	    3| new-array v1, v0, java.lang.Object[]
-	    5| const v0, #+0 (0x00000000 | 0.00000)
-	    8| aput-object v5, v1, v0
-	   10| invoke-static/range {v6..v6}, java.lang.Integer.valueOf(int):java.lang.Integer
-	   13| move-result-object v2
-	   14| const v0, #+1 (0x00000001 | 1.40130e-45)
-	   17| aput-object v2, v1, v0
-	   19| const v0, #+2 (0x00000002 | 2.80260e-45)
-	   22| aput-object v7, v1, v0
-	   24| invoke-static/range {v1..v1}, Tracer.onFooEntry(java.lang.Object[]):void
-	   27| iget-object v3, v5, Target.base
-	   29| const-string v4, "foo"
-	   31| invoke-virtual {v3,v6,v4}, Base.foo(int, java.lang.String):int
+	    5| const-string v2, "Target->foo(I[[Ljava/lang/String;)Ljava/lang/Integer;"
+	    7| const v0, #+0 (0x00000000 | 0.00000)
+	   10| aput-object v2, v1, v0
+	   12| const v0, #+1 (0x00000001 | 1.40130e-45)
+	   15| aput-object v3, v1, v0
+	   17| invoke-static/range {v4..v4}, java.lang.Integer.valueOf(int):java.lang.Integer
+	   20| move-result-object v2
+	   21| const v0, #+2 (0x00000002 | 2.80260e-45)
+	   24| aput-object v2, v1, v0
+	   26| const v0, #+3 (0x00000003 | 4.20390e-45)
+	   29| aput-object v5, v1, v0
+	   31| invoke-static/range {v1..v1}, Tracer.onFooEntry(java.lang.Object[]):void
+	   34| const v0, #-16843010 (0xfefefefe | -1.69474e+38)
+	   37| const v1, #-16843010 (0xfefefefe | -1.69474e+38)
+	   40| const v2, #-16843010 (0xfefefefe | -1.69474e+38)
+	   43| move-object/16 v2, v3
+	   46| move/16 v3, v4
+	   49| move-object/16 v4, v5
+	   52| iget-object v0, v2, Target.base
+	   54| const-string v1, "foo"
+	   56| invoke-virtual {v0,v3,v1}, Base.foo(int, java.lang.String):int
 	.line 28
-	   34| iget-object v3, v5, Target.iBase
-	   36| const-string v4, "bar"
-	   38| invoke-interface {v3,v4}, IBase.bar(java.lang.String):void
+	   59| iget-object v0, v2, Target.iBase
+	   61| const-string v1, "bar"
+	   63| invoke-interface {v0,v1}, IBase.bar(java.lang.String):void
 	.line 29
-	   41| const/4 v3, #+0 (0x00000000 | 0.00000)
-	   42| return-object v3
+	   66| const/4 v0, #+0 (0x00000000 | 0.00000)
+	   67| return-object v0
 }

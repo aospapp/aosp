@@ -19,7 +19,6 @@
  */
 
 #include <jni.h>
-#include <nativehelper/JNIHelp.h>
 
 
 /*
@@ -42,7 +41,7 @@ static JNINativeMethod methods[] = {
 };
 
 int register_JniCTest(JNIEnv *env) {
-    return jniRegisterNativeMethods(
+    return registerJniMethods(
             env, "android/jni/cts/JniCTest",
             methods, sizeof(methods) / sizeof(JNINativeMethod));
 }

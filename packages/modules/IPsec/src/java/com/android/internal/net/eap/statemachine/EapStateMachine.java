@@ -16,14 +16,16 @@
 
 package com.android.internal.net.eap.statemachine;
 
+import static android.net.eap.EapSessionConfig.EapMethodConfig.EAP_TYPE_AKA;
+import static android.net.eap.EapSessionConfig.EapMethodConfig.EAP_TYPE_AKA_PRIME;
+import static android.net.eap.EapSessionConfig.EapMethodConfig.EAP_TYPE_MSCHAP_V2;
+import static android.net.eap.EapSessionConfig.EapMethodConfig.EAP_TYPE_SIM;
+import static android.net.eap.EapSessionConfig.EapMethodConfig.EAP_TYPE_TTLS;
+
 import static com.android.internal.net.eap.EapAuthenticator.LOG;
 import static com.android.internal.net.eap.message.EapData.EAP_IDENTITY;
 import static com.android.internal.net.eap.message.EapData.EAP_NAK;
 import static com.android.internal.net.eap.message.EapData.EAP_NOTIFICATION;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_AKA;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_AKA_PRIME;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_MSCHAP_V2;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_SIM;
 import static com.android.internal.net.eap.message.EapData.EAP_TYPE_STRING;
 import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_FAILURE;
 import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_REQUEST;
@@ -38,8 +40,10 @@ import android.net.eap.EapSessionConfig;
 import android.net.eap.EapSessionConfig.EapAkaConfig;
 import android.net.eap.EapSessionConfig.EapAkaPrimeConfig;
 import android.net.eap.EapSessionConfig.EapMethodConfig;
+import android.net.eap.EapSessionConfig.EapMethodConfig.EapMethod;
 import android.net.eap.EapSessionConfig.EapMsChapV2Config;
 import android.net.eap.EapSessionConfig.EapSimConfig;
+import android.net.eap.EapSessionConfig.EapTtlsConfig;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.net.eap.EapResult;
@@ -51,7 +55,6 @@ import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
 import com.android.internal.net.eap.exceptions.EapSilentException;
 import com.android.internal.net.eap.exceptions.UnsupportedEapTypeException;
 import com.android.internal.net.eap.message.EapData;
-import com.android.internal.net.eap.message.EapData.EapMethod;
 import com.android.internal.net.eap.message.EapMessage;
 import com.android.internal.net.utils.SimpleStateMachine;
 
@@ -86,8 +89,8 @@ public class EapStateMachine extends SimpleStateMachine<byte[], EapResult> {
         LOG.d(
                 TAG,
                 "Starting EapStateMachine with EAP-Identity="
-                        + LOG.pii(eapSessionConfig.eapIdentity)
-                        + " and configs=" + eapSessionConfig.eapConfigs.keySet());
+                        + LOG.pii(eapSessionConfig.getEapIdentity())
+                        + " and configs=" + eapSessionConfig.getEapConfigs().keySet());
 
         transitionTo(new CreatedState());
     }
@@ -152,8 +155,7 @@ public class EapStateMachine extends SimpleStateMachine<byte[], EapResult> {
             } catch (UnsupportedEapTypeException ex) {
                 return new DecodeResult(
                         EapMessage.getNakResponse(
-                                ex.eapIdentifier,
-                                mEapSessionConfig.eapConfigs.keySet()));
+                                ex.eapIdentifier, mEapSessionConfig.getEapConfigs().keySet()));
             } catch (EapSilentException ex) {
                 return new DecodeResult(new EapError(ex));
             }
@@ -243,8 +245,11 @@ public class EapStateMachine extends SimpleStateMachine<byte[], EapResult> {
         @VisibleForTesting
         EapResult getIdentityResponse(int eapIdentifier) {
             try {
-                LOG.d(mTAG, "Returning EAP-Identity: " + LOG.pii(mEapSessionConfig.eapIdentity));
-                EapData identityData = new EapData(EAP_IDENTITY, mEapSessionConfig.eapIdentity);
+                LOG.d(
+                        mTAG,
+                        "Returning EAP-Identity: " + LOG.pii(mEapSessionConfig.getEapIdentity()));
+                EapData identityData =
+                        new EapData(EAP_IDENTITY, mEapSessionConfig.getEapIdentity());
                 return EapResponse.getEapResponse(
                         new EapMessage(EAP_CODE_RESPONSE, eapIdentifier, identityData));
             } catch (EapSilentException ex) {
@@ -292,8 +297,7 @@ public class EapStateMachine extends SimpleStateMachine<byte[], EapResult> {
 
                 if (mEapMethodStateMachine == null) {
                     return EapMessage.getNakResponse(
-                            eapMessage.eapIdentifier,
-                            mEapSessionConfig.eapConfigs.keySet());
+                            eapMessage.eapIdentifier, mEapSessionConfig.getEapConfigs().keySet());
                 }
             }
 
@@ -308,7 +312,7 @@ public class EapStateMachine extends SimpleStateMachine<byte[], EapResult> {
 
         @Nullable
         private EapMethodStateMachine buildEapMethodStateMachine(@EapMethod int eapType) {
-            EapMethodConfig eapMethodConfig = mEapSessionConfig.eapConfigs.get(eapType);
+            EapMethodConfig eapMethodConfig = mEapSessionConfig.getEapConfigs().get(eapType);
             if (eapMethodConfig == null) {
                 LOG.e(
                         mTAG,
@@ -322,23 +326,29 @@ public class EapStateMachine extends SimpleStateMachine<byte[], EapResult> {
                 case EAP_TYPE_SIM:
                     EapSimConfig eapSimConfig = (EapSimConfig) eapMethodConfig;
                     return new EapSimMethodStateMachine(
-                            mContext, mEapSessionConfig.eapIdentity, eapSimConfig, mSecureRandom);
+                            mContext,
+                            mEapSessionConfig.getEapIdentity(),
+                            eapSimConfig,
+                            mSecureRandom);
                 case EAP_TYPE_AKA:
                     EapAkaConfig eapAkaConfig = (EapAkaConfig) eapMethodConfig;
                     boolean supportsEapAkaPrime =
-                            mEapSessionConfig.eapConfigs.containsKey(EAP_TYPE_AKA_PRIME);
+                            mEapSessionConfig.getEapConfigs().containsKey(EAP_TYPE_AKA_PRIME);
                     return new EapAkaMethodStateMachine(
                             mContext,
-                            mEapSessionConfig.eapIdentity,
+                            mEapSessionConfig.getEapIdentity(),
                             eapAkaConfig,
                             supportsEapAkaPrime);
                 case EAP_TYPE_AKA_PRIME:
                     EapAkaPrimeConfig eapAkaPrimeConfig = (EapAkaPrimeConfig) eapMethodConfig;
                     return new EapAkaPrimeMethodStateMachine(
-                            mContext, mEapSessionConfig.eapIdentity, eapAkaPrimeConfig);
+                            mContext, mEapSessionConfig.getEapIdentity(), eapAkaPrimeConfig);
                 case EAP_TYPE_MSCHAP_V2:
                     EapMsChapV2Config eapMsChapV2Config = (EapMsChapV2Config) eapMethodConfig;
                     return new EapMsChapV2MethodStateMachine(eapMsChapV2Config, mSecureRandom);
+                case EAP_TYPE_TTLS:
+                    EapTtlsConfig eapTtlsConfig = (EapTtlsConfig) eapMethodConfig;
+                    return new EapTtlsMethodStateMachine(mContext, eapTtlsConfig, mSecureRandom);
                 default:
                     // received unsupported EAP Type. This should never happen.
                     LOG.e(mTAG, "Received unsupported EAP Type=" + eapType);

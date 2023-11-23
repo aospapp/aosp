@@ -16,6 +16,10 @@
 
 package dagger.model;
 
+import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.Network;
 import dagger.model.BindingGraph.Edge;
 import dagger.model.BindingGraph.MissingBinding;
@@ -27,14 +31,35 @@ import dagger.model.BindingGraph.Node;
  * API.</em>
  */
 public final class BindingGraphProxies {
+
+  @AutoValue
+  abstract static class BindingGraphImpl extends BindingGraph {
+    @Override
+    @Memoized
+    public ImmutableSetMultimap<Class<? extends Node>, ? extends Node> nodesByClass() {
+      return super.nodesByClass();
+    }
+  }
+
+  @AutoValue
+  abstract static class MissingBindingImpl extends MissingBinding {
+    @Memoized
+    @Override
+    public abstract int hashCode();
+
+    @Override
+    public abstract boolean equals(Object o);
+  }
+
   /** Creates a new {@link BindingGraph}. */
   public static BindingGraph bindingGraph(Network<Node, Edge> network, boolean isFullBindingGraph) {
-    return BindingGraph.create(network, isFullBindingGraph);
+    return new AutoValue_BindingGraphProxies_BindingGraphImpl(
+        ImmutableNetwork.copyOf(network), isFullBindingGraph);
   }
 
   /** Creates a new {@link MissingBinding}. */
   public static MissingBinding missingBindingNode(ComponentPath component, Key key) {
-    return MissingBinding.create(component, key);
+    return new AutoValue_BindingGraphProxies_MissingBindingImpl(component, key);
   }
 
   private BindingGraphProxies() {}

@@ -110,11 +110,9 @@ const sns_std_suid *SeeCalHelper::getCalSuidFromSensorType(
   return nullptr;
 }
 
-bool SeeCalHelper::registerForCalibrationUpdates(SeeHelper &seeHelper) {
+bool SeeCalHelper::findCalibrationSensors(SeeHelper &seeHelper) {
   bool success = true;
 
-  // Find the cal sensor's SUID, assign it to mCalInfo, and make cal sensor data
-  // request.
   DynamicVector<sns_std_suid> suids;
   for (size_t i = 0; i < ARRAY_SIZE(mCalInfo); i++) {
     const char *calType = getDataTypeForCalSensorIndex(i);
@@ -123,13 +121,6 @@ bool SeeCalHelper::registerForCalibrationUpdates(SeeHelper &seeHelper) {
       LOGE("Failed to find sensor '%s'", calType);
     } else {
       mCalInfo[i].suid = suids[0];
-
-#ifndef CHRE_SLPI_DEFAULT_BUILD
-      if (!seeHelper.configureOnChangeSensor(suids[0], true /* enable */)) {
-        success = false;
-        LOGE("Failed to request '%s' data", calType);
-      }
-#endif
     }
   }
 

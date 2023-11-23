@@ -182,6 +182,25 @@ static constexpr void for_each_member_field_set_value(T&& self, F&& fun) {
     ); \
   }
 
+#define IORAP_INTROSPECT_ADAPT_STRUCT_IMPL_5(TYPE, m1, m2, m3, m4) \
+  static constexpr auto introspect_members(::iorap::introspect::type<TYPE>) { \
+    return std::make_tuple(::iorap::introspect::member_type<&TYPE::m1>{},\
+                           ::iorap::introspect::member_type<&TYPE::m2>{},\
+                           ::iorap::introspect::member_type<&TYPE::m3>{},\
+                           ::iorap::introspect::member_type<&TYPE::m4>{}\
+    ); \
+  }
+
+#define IORAP_INTROSPECT_ADAPT_STRUCT_IMPL_6(TYPE, m1, m2, m3, m4, m5) \
+  static constexpr auto introspect_members(::iorap::introspect::type<TYPE>) { \
+    return std::make_tuple(::iorap::introspect::member_type<&TYPE::m1>{},\
+                           ::iorap::introspect::member_type<&TYPE::m2>{},\
+                           ::iorap::introspect::member_type<&TYPE::m3>{},\
+                           ::iorap::introspect::member_type<&TYPE::m4>{},\
+                           ::iorap::introspect::member_type<&TYPE::m5>{}\
+    ); \
+  }
+
 // TODO: Consider using IORAP_PP_MAP
 
 

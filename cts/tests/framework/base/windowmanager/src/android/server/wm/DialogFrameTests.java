@@ -57,7 +57,7 @@ import java.util.List;
  *
  * TODO: Consolidate this class with {@link ParentChildTestBase}.
  */
-@AppModeFull(reason = "Requires android.permission.MANAGE_ACTIVITY_STACKS")
+@AppModeFull(reason = "Requires android.permission.MANAGE_ACTIVITY_TASKS")
 @Presubmit
 public class DialogFrameTests extends ParentChildTestBase<DialogFrameTestActivity> {
 
@@ -247,6 +247,7 @@ public class DialogFrameTests extends ParentChildTestBase<DialogFrameTestActivit
     }
 
     private Insets getActivitySystemInsets() {
+        getInstrumentation().waitForIdleSync();
         getInstrumentation().runOnMainSync(() -> {
             final Insets insets = mDialogTestActivity
                 .getActivity()

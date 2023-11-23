@@ -537,7 +537,7 @@ TimeZoneTest::TestGetAvailableIDsNew()
     const UnicodeString *id1, *id2;
     UnicodeString canonicalID;
     UBool isSystemID;
-    char region[4];
+    char region[4] = {0};
     int32_t zoneCount;
 
     any = canonical = canonicalLoc = any_US = canonical_US = canonicalLoc_US = any_W5 = any_CA_W5 = any_US_E14 = NULL;
@@ -1171,8 +1171,10 @@ void TimeZoneTest::TestCustomParse()
         TimeZone *zone = TimeZone::createTimeZone(id);
         UnicodeString   itsID, temp;
 
-        if (dynamic_cast<OlsonTimeZone *>(zone) != NULL) {
+        OlsonTimeZone *ozone = dynamic_cast<OlsonTimeZone *>(zone);
+        if (ozone != nullptr) {
             logln(id + " -> Olson time zone");
+            ozone->operator=(*ozone);  // self-assignment should be a no-op
         } else {
             zone->getID(itsID);
             int32_t ioffset = zone->getRawOffset()/1000;
@@ -2074,6 +2076,8 @@ void TimeZoneTest::TestCanonicalID() {
         {"Asia/Vientiane", "Asia/Bangkok"},
         {"Atlantic/Jan_Mayen", "Europe/Oslo"},
         {"Atlantic/St_Helena", "Africa/Abidjan"},
+        {"Australia/Currie", "Australia/Hobart"},
+        {"Australia/Tasmania", "Australia/Hobart"},
         {"Europe/Bratislava", "Europe/Prague"},
         {"Europe/Busingen", "Europe/Zurich"},
         {"Europe/Guernsey", "Europe/London"},

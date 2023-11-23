@@ -106,11 +106,33 @@ class PacketField : public Loggable {
   // Get field of nested elements if this is a container field, nullptr if none
   virtual const PacketField* GetElementField() const;
 
+  // Return string representation of this field, that can be displayed for debugging or logging purposes
+  virtual void GenStringRepresentation(std::ostream& s, std::string accessor) const;
+
   std::string GetDebugName() const override;
 
   ParseLocation GetLocation() const override;
 
   virtual std::string GetName() const;
+
+  // Generate the Rust variable/field name and type
+  virtual bool GenRustNameAndType(std::ostream& s) const;
+
+  // Get the type of the field to be used in the member variables.
+  virtual std::string GetRustDataType() const = 0;
+
+  virtual int GetRustBitOffset(
+      std::ostream& s, Size start_offset, Size end_offset, Size size) const;
+
+  virtual void GenRustGetter(std::ostream& s, Size start_offset, Size end_offset) const = 0;
+
+  virtual void GenRustWriter(std::ostream& s, Size start_offset, Size end_offset) const = 0;
+
+  virtual void GenBoundsCheck(std::ostream& s, Size start_offset, Size, std::string) const;
+
+  virtual bool GetterIsByRef() const {
+    return true;
+  }
 
  private:
   ParseLocation loc_;

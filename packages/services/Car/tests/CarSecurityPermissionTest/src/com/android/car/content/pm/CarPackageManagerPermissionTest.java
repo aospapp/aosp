@@ -15,11 +15,14 @@
  */
 package com.android.car;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.testng.Assert.assertThrows;
 
 import android.car.Car;
 import android.car.content.pm.CarAppBlockingPolicy;
 import android.car.content.pm.CarPackageManager;
+import android.content.ComponentName;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -61,4 +64,19 @@ public class CarPackageManagerPermissionTest {
                 0));
     }
 
+    @Test
+    public void testIsActivityDistractionOptimized() {
+        assertThat(mPm.isActivityDistractionOptimized("blah", "someClass")).isFalse();
+    }
+
+    @Test
+    public void testIsServiceDistractionOptimized() {
+        assertThat(mPm.isServiceDistractionOptimized("blah", "someClass")).isFalse();
+    }
+
+    @Test
+    public void testIsActivityBackedBySafeActivity() {
+        assertThat(mPm.isActivityBackedBySafeActivity(new ComponentName("blah", "someClass")))
+                .isFalse();
+    }
 }

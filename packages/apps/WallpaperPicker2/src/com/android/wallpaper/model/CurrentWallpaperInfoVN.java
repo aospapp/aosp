@@ -83,6 +83,7 @@ public class CurrentWallpaperInfoVN extends WallpaperInfo {
     }
 
     private CurrentWallpaperInfoVN(Parcel in) {
+        super(in);
         mAttributions = new ArrayList<>();
         in.readStringList(mAttributions);
         //noinspection ResourceType
@@ -164,6 +165,7 @@ public class CurrentWallpaperInfoVN extends WallpaperInfo {
 
     @Override
     public void writeToParcel(Parcel parcel, int flags) {
+        super.writeToParcel(parcel, flags);
         parcel.writeStringList(mAttributions);
         parcel.writeInt(mWallpaperManagerFlag);
         parcel.writeString(mActionUrl);

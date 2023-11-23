@@ -144,8 +144,8 @@ struct pipeline {
 	int64_t total_samples;
 };
 
-static struct instance *find_instance_by_plugin(instance_array *instances,
-						struct plugin *plugin)
+static struct instance *find_instance_by_plugin(const instance_array *instances,
+						const struct plugin *plugin)
 {
 	int i;
 	struct instance *instance;
@@ -161,9 +161,9 @@ static struct instance *find_instance_by_plugin(instance_array *instances,
 /* Finds out where the data sent to plugin:index come from. The issue
  * we need to handle here is the previous plugin may be disabled, so
  * we need to go upstream until we find the real origin */
-static int find_origin_port(struct ini *ini, instance_array *instances,
-			    struct plugin *plugin, int index,
-			    struct plugin **origin, int *origin_index)
+static int find_origin_port(struct ini *ini, const instance_array *instances,
+			    const struct plugin *plugin, int index,
+			    const struct plugin **origin, int *origin_index)
 {
 	enum port_type type;
 	struct port *port;
@@ -226,7 +226,7 @@ static int find_origin_port(struct ini *ini, instance_array *instances,
 }
 
 static struct audio_port *find_output_audio_port(instance_array *instances,
-						 struct plugin *plugin,
+						 const struct plugin *plugin,
 						 int index)
 {
 	int i;
@@ -246,7 +246,7 @@ static struct audio_port *find_output_audio_port(instance_array *instances,
 }
 
 static struct control_port *find_output_control_port(instance_array *instances,
-						     struct plugin *plugin,
+						     const struct plugin *plugin,
 						     int index)
 {
 	int i;
@@ -317,7 +317,7 @@ static int topological_sort(struct pipeline *pipeline,
 	ARRAY_ELEMENT_FOREACH (&plugin->ports, i, port) {
 		int need_connect = (port->flow_id != INVALID_FLOW_ID &&
 				    port->direction == PORT_INPUT);
-		struct plugin *origin = NULL;
+		const struct plugin *origin = NULL;
 		int origin_index = 0;
 
 		if (need_connect) {
@@ -435,6 +435,7 @@ struct pipeline *cras_dsp_pipeline_create(struct ini *ini,
 
 	if (rc < 0) {
 		syslog(LOG_ERR, "failed to construct pipeline");
+		cras_dsp_pipeline_free(pipeline);
 		return NULL;
 	}
 
@@ -523,6 +524,17 @@ static int allocate_buffers(struct pipeline *pipeline)
 			need_buf += out - in;
 			peak_buf = MAX(peak_buf, need_buf);
 		}
+	}
+	/*
+	 * cras_dsp_pipeline_create creates pipeline with source and sink and it
+	 * makes sure all ports could be accessed from some sources, which means
+	 * that there is at least one source with out > 0 and in == 0.
+	 * This will give us peak_buf > 0 in the previous calculation.
+	 */
+	if (peak_buf <= 0) {
+		syslog(LOG_ERR, "peak_buf = %d, which must be greater than 0.",
+		       peak_buf);
+		return -1;
 	}
 
 	/* then allocate the buffers */
@@ -970,9 +982,10 @@ void cras_dsp_pipeline_dump(struct dumper *d, struct pipeline *pipeline)
 	      pipeline->min_time);
 	dumpf(d, " max processing time per block: %" PRId64 "ns\n",
 	      pipeline->max_time);
-	dumpf(d, " cpu load: %g%%\n",
-	      pipeline->total_time * 1e-9 / pipeline->total_samples *
-		      pipeline->sample_rate * 100);
+	if (pipeline->total_samples)
+		dumpf(d, " cpu load: %g%%\n",
+		      pipeline->total_time * 1e-9 / pipeline->total_samples *
+			      pipeline->sample_rate * 100);
 	dumpf(d, " instances (%d):\n", ARRAY_COUNT(&pipeline->instances));
 	ARRAY_ELEMENT_FOREACH (&pipeline->instances, i, instance) {
 		struct dsp_module *module = instance->module;

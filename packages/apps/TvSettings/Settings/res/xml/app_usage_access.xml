@@ -20,5 +20,6 @@
     <Preference
         android:key="header"
         android:singleLineTitle="false"
-        android:title="@string/usage_access_description"/>
+        android:title="@string/usage_access_description"
+        android:selectable="false" />
 </PreferenceScreen>

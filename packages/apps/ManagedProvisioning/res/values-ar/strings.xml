@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"سيدير التطبيق التالي جهازك:"</string>
     <string name="next" msgid="1004321437324424398">"التالي"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"جارٍ إعداد الملف الشخصي للعمل..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"لدى مشرف تكنولوجيا المعلومات إمكانية مراقبة وإدارة كل من الإعدادات والوصول إلى الشركة والتطبيقات والأذونات والبيانات المرتبطة بهذا الملف الشخصي، بما في ذلك أنشطة الشبكة والموقع الجغرافي للجهاز وسجلّ المكالمات وسجلّ البحث في جهات الاتصال.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>يمكنك التواصل مع مشرف تكنولوجيا المعلومات لمعرفة المزيد، بما في ذلك سياسات خصوصية مؤسستك."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"لدى مشرف تكنولوجيا المعلومات إمكانية مراقبة وإدارة كل من الإعدادات والوصول إلى الشركة والتطبيقات والأذونات والبيانات المرتبطة بهذا الجهاز، بما في ذلك أنشطة الشبكة والموقع الجغرافي للجهاز وسجلّ المكالمات وسجلّ البحث في جهات الاتصال.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>يمكنك التواصل مع مشرف تكنولوجيا المعلومات لمعرفة المزيد، بما في ذلك سياسات خصوصية مؤسستك."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"لدى مشرف تكنولوجيا المعلومات إمكانية مراقبة وإدارة كل من الإعدادات والوصول إلى الشركة والتطبيقات والأذونات والبيانات المرتبطة بهذا الملف الشخصي، بما في ذلك أنشطة الشبكة والموقع الجغرافي للجهاز وسجلّ المكالمات وسجلّ البحث في جهات الاتصال.<xliff:g id="LINE_BREAK">
+
+</xliff:g>يمكنك التواصل مع مشرف تكنولوجيا المعلومات لمعرفة المزيد، بما في ذلك سياسات خصوصية مؤسستك."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"لدى مشرف تكنولوجيا المعلومات إمكانية مراقبة وإدارة كل من الإعدادات والوصول إلى الشركة والتطبيقات والأذونات والبيانات المرتبطة بهذا الجهاز، بما في ذلك أنشطة الشبكة والموقع الجغرافي للجهاز وسجلّ المكالمات وسجلّ البحث في جهات الاتصال.<xliff:g id="LINE_BREAK">
+
+</xliff:g>يمكنك التواصل مع مشرف تكنولوجيا المعلومات لمعرفة المزيد، بما في ذلك سياسات خصوصية مؤسستك."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"لاستخدام ميزات الحماية من السرقة، يجب أن يتوفر لديك قفل شاشة محمي بكلمة مرور لجهازك."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"يمكنك التواصل مع مشرف تكنولوجيا المعلومات للحصول على مزيد من المعلومات، بما في ذلك سياسات الخصوصية المتّبعة في مؤسستك."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"مزيد من المعلومات"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"حسنًا"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"أوافق"</string>
     <string name="url_error" msgid="5958494012986243186">"لا يمكن عرض هذا الرابط."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"الانتقال إلى أعلى"</string>
     <string name="terms" msgid="8295436105384703903">"البنود"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"معلومات الملف الشخصي للعمل"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"معلومات الجهاز المُدار"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"الملف الشخصي للعمل"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"المستخدم الأساسي"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"هل تريد حذف الملف الشخصي الحالي؟"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"لديك مسبقًا ملف شخصي للعمل تتم إدارته باستخدام التطبيق التالي:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"قبل المتابعة، يجب "<a href="#read_this_link">"قراءة هذا"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"إعداد حساب المستخدم غير مكتمل"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"مستخدم جهاز العمل"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"جارٍ إعداد جهاز العمل…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"جارٍ معالجة بيانات الإعداد…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"‏جارٍ الاتصال بشبكة Wi-Fi…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"جارٍ الاتصال بشبكة جوّال…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"جارٍ تنزيل تطبيق المشرف…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"جارٍ تثبيت تطبيق المشرف…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"جارٍ إزالة تطبيقات النظام غير المطلوبة…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"جارٍ وضع اللمسات النهائية…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"جارٍ تعيين مالك الجهاز..."</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"جارٍ تهيئة الجهاز…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"لا يسمح هذا الجهاز بالتشفير، وهو أمر لازم للإعداد. يمكنك التواصل مع مشرف تكنولوجيا المعلومات للحصول على مساعدة."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"هل تريد إيقاف الإعداد وإعادة ضبط الجهاز؟"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"سيؤدي هذا إلى إعادة ضبط جهازك ورجوعك إلى الشاشة الأولى"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"سيظل هذا الجهاز محميًا وتحت إدارة مؤسستك."</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"جارٍ إعداد جهاز العمل…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"إعداد تطبيق المشرف"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"إعداد بقية التطبيقات"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"إضافة حساب شخصي للاستفادة من جهازك بدرجة أكبر."</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"‏الآن وبعد أن أصبح ملفك الشخصي للعمل جاهزًا، يمكنك أيضًا إضافة ملف شخصي على Google للوصول إلى المحتوى والتطبيقات الخاصة بك."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"هذا الجهاز يخص مؤسستك."</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"سيتمّ استخدام التطبيق التالي لإدارة هذا الهاتف ومراقبته."</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"حسابك مُدار"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"يستخدم مشرف تكنولوجيا المعلومات في مؤسستك إدارة الأجهزة الجوّالة لتنفيذ سياسات الأمان."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"جارٍ إعداد الجهاز للاستخدام في العمل…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"لنبدأ في إعداد الملف الشخصي للعمل."</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"يتم الاحتفاظ بتطبيقات العمل في ملفك الشخصي للعمل."</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"التحكم بسهولة في تطبيقات العمل"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"هذا الجهاز ليس خاصًا."</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"قد يتمكّن مشرف تكنولوجيا المعلومات من الاطّلاع على بياناتك وأنشطتك على هذا الجهاز."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"النشاط والبيانات"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"أذونات التطبيقات"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"يمكن لمشرف تكنولوجيا المعلومات ضبط أذونات التطبيقات على هذا الجهاز، مثلاً أذونات الميكروفون والكاميرا والموقع الجغرافي."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"جارٍ إعداد جهازك…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"يمكنك استخدام هذا الجهاز للوصول سريعًا إلى تطبيقات العمل. هذا الجهاز ليس خاصًا، ولذلك قد يتمكّن مشرف تكنولوجيا المعلومات من الاطّلاع على بياناتك وأنشطتك. لمعرفة مزيد من المعلومات، يمكنك التواصل مع مشرف تكنولوجيا المعلومات."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"يمكنك استخدام هذا الجهاز للوصول إلى تطبيقات العمل بسهولة. هذا الجهاز ليس خاصًا، ولذلك قد يتمكّن مشرف تكنولوجيا المعلومات من الاطّلاع على بياناتك وأنشطتك."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"يمكنك استخدام هذا الجهاز للوصول إلى تطبيقات العمل بسهولة. هذا الجهاز ليس خاصًا، ولذلك قد يتمكّن مشرف تكنولوجيا المعلومات من الاطّلاع على أنشطتك وبياناتك. ويمكن لمشرف تكنولوجيا المعلومات أيضًا ضبط أذونات التطبيقات على هذا الجهاز، مثلاً أذونات الميكروفون والكاميرا والموقع الجغرافي."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"عليك إرجاع هذا الجهاز إلى مشرف تكنولوجيا المعلومات"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"عليك الانتقال إلى الشاشة السابقة أو إعادة ضبط هذا الجهاز وإرجاعه إلى مشرف تكنولوجيا المعلومات."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"إلغاء الإعداد"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"إعادة الضبط وإرجاع الجهاز"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"يُحتفظ بتطبيقات العمل بالملف الشخصي للعمل ويُديرها مشرف تقنية المعلومات"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"التطبيقات الشخصية منفصلة عن تطبيقات العمل ومخفية عنها"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"يستطيع مشرف تقنية المعلومات التحكم بالجهاز وحظر التطبيقات"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"لحظة من فضلك…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"تذكير الخصوصية"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"قد يتمكّن مشرف تكنولوجيا المعلومات من الاطّلاع على بياناتك وأنشطتك على هذا الجهاز."</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"تطبيقك جاهز."</string>
-    <string name="done" msgid="7755227776955952318">"تمّ"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"تم شراء هذا الجهاز بالائتمان من <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"بإمكان <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> تنفيذ ما يلي:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"تثبيت تطبيق <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> لتسديد الدفعات مقابل شراء هذا الجهاز."</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"تقييد الوصول إلى هذا الجهاز إذا لم تسدد الدفعات"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"توفر مؤسسة \"<xliff:g id="CREDITOR_NAME">%s</xliff:g>\" هذا الجهاز"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"إجراء عمليات الدفع لهذا الجهاز"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"يمكن لشركة بيع الأجهزة بالائتمان <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> تثبيت تطبيق <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> لتتمكّن من سداد الدفعات مقابل شراء هذا الجهاز."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"يمكن حظر هذا الجهاز"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"يمكن لشركة بيع الأجهزة بالائتمان <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> حظر الوصول إلى هذا الجهاز إذا لم تسدد الدفعات."</string>
 </resources>

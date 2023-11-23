@@ -73,6 +73,8 @@ private:
     std::vector<sensors_event_t> mQueue;
 
     std::atomic_bool mRequestAdditionalInfo;
+    android::Mutex mValidLock;
+    bool mValid;
 
     DISALLOW_COPY_AND_ASSIGN(ASensorEventQueue);
 };

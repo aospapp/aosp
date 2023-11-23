@@ -25,7 +25,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.ViewModelProviders;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.dialer.R;
 import com.android.car.dialer.ui.TelecomActivityViewModel;
@@ -35,10 +35,14 @@ import com.android.car.ui.core.CarUi;
 import com.android.car.ui.toolbar.Toolbar;
 import com.android.car.ui.toolbar.ToolbarController;
 
+import dagger.hilt.android.AndroidEntryPoint;
+
 /**
  * The base class for top level dialer content {@link Fragment}s.
  */
-public abstract class DialerBaseFragment extends Fragment implements InsetsChangedListener {
+@AndroidEntryPoint(Fragment.class)
+public abstract class DialerBaseFragment extends Hilt_DialerBaseFragment implements
+        InsetsChangedListener {
 
     /**
      * Interface for Dialer top level fragment's parent to implement.
@@ -72,7 +76,7 @@ public abstract class DialerBaseFragment extends Fragment implements InsetsChang
      * Customizes the tool bar. Can be overridden in subclasses.
      */
     protected void setupToolbar(@NonNull ToolbarController toolbar) {
-        TelecomActivityViewModel viewModel = ViewModelProviders.of(requireActivity()).get(
+        TelecomActivityViewModel viewModel = new ViewModelProvider(requireActivity()).get(
                 TelecomActivityViewModel.class);
         LiveData<String> toolbarTitleLiveData = viewModel.getToolbarTitle();
         toolbarTitleLiveData.observe(this, toolbar::setTitle);
@@ -88,7 +92,7 @@ public abstract class DialerBaseFragment extends Fragment implements InsetsChang
     /**
      * Push a fragment to the back stack. Update action bar accordingly.
      */
-    protected void pushContentFragment(@NonNull Fragment fragment, String fragmentTag) {
+    public void pushContentFragment(@NonNull Fragment fragment, String fragmentTag) {
         Activity parentActivity = getActivity();
         if (parentActivity instanceof DialerFragmentParent) {
             ((DialerFragmentParent) parentActivity).pushContentFragment(fragment, fragmentTag);

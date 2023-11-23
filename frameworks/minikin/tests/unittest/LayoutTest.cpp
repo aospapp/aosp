@@ -20,6 +20,7 @@
 
 #include "minikin/FontCollection.h"
 #include "minikin/LayoutPieces.h"
+#include "minikin/Measurement.h"
 
 #include "FontTestUtils.h"
 #include "UnicodeUtils.h"
@@ -33,6 +34,12 @@ static void expectAdvances(const std::vector<float>& expected, const std::vector
                 << i << "th element is different. Expected: " << expected[i]
                 << ", Actual: " << advances[i];
     }
+}
+
+static void getBounds(const U16StringPiece& text, Bidi bidiFlags, const MinikinPaint& paint,
+                      MinikinRect* out) {
+    getBounds(text, Range(0, text.size()), bidiFlags, paint, StartHyphenEdit::NO_EDIT,
+              EndHyphenEdit::NO_EDIT, out);
 }
 
 class LayoutTest : public testing::Test {
@@ -64,7 +71,8 @@ TEST_F(LayoutTest, doLayoutTest) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(70.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(70.0f, rect.mRight);
@@ -82,7 +90,8 @@ TEST_F(LayoutTest, doLayoutTest) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(90.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(90.0f, rect.mRight);
@@ -100,7 +109,8 @@ TEST_F(LayoutTest, doLayoutTest) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(160.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(160.0f, rect.mRight);
@@ -118,7 +128,8 @@ TEST_F(LayoutTest, doLayoutTest) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(110.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(110.0f, rect.mRight);
@@ -148,7 +159,8 @@ TEST_F(LayoutTest, doLayoutTest_wordSpacing) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(70.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(70.0f, rect.mRight);
@@ -166,7 +178,8 @@ TEST_F(LayoutTest, doLayoutTest_wordSpacing) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(95.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(95.0f, rect.mRight);
@@ -185,7 +198,8 @@ TEST_F(LayoutTest, doLayoutTest_wordSpacing) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(170.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(170.0f, rect.mRight);
@@ -205,7 +219,8 @@ TEST_F(LayoutTest, doLayoutTest_wordSpacing) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(120.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(120.0f, rect.mRight);
@@ -238,7 +253,8 @@ TEST_F(LayoutTest, doLayoutTest_negativeWordSpacing) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(70.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(70.0f, rect.mRight);
@@ -256,7 +272,8 @@ TEST_F(LayoutTest, doLayoutTest_negativeWordSpacing) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(85.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(85.0f, rect.mRight);
@@ -275,7 +292,8 @@ TEST_F(LayoutTest, doLayoutTest_negativeWordSpacing) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(140.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(140.0f, rect.mRight);
@@ -295,7 +313,8 @@ TEST_F(LayoutTest, doLayoutTest_negativeWordSpacing) {
         Layout layout(text, range, Bidi::LTR, paint, StartHyphenEdit::NO_EDIT,
                       EndHyphenEdit::NO_EDIT);
         EXPECT_EQ(100.0f, layout.getAdvance());
-        layout.getBounds(&rect);
+
+        getBounds(text, Bidi::LTR, paint, &rect);
         EXPECT_EQ(0.0f, rect.mLeft);
         EXPECT_EQ(10.0f, rect.mTop);
         EXPECT_EQ(100.0f, rect.mRight);

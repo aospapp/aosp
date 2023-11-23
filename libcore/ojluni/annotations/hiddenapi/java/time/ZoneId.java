@@ -92,7 +92,7 @@ public abstract class ZoneId implements java.io.Serializable {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     static java.time.ZoneId of(java.lang.String zoneId, boolean checkAvailable) {
         throw new RuntimeException("Stub!");
     }

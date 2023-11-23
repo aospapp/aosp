@@ -23,10 +23,11 @@ import android.opengl.GLES11Ext;
 import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
 import android.os.IBinder;
-import android.util.Log;
+import android.util.Slog;
 import android.view.Surface;
 import android.view.SurfaceControl;
 
+import com.android.car.CarLog;
 import com.android.car.R;
 
 import java.nio.IntBuffer;
@@ -39,7 +40,7 @@ import javax.microedition.khronos.opengles.GL10;
  */
 public class BlurredSurfaceRenderer implements GLSurfaceView.Renderer {
 
-    private static final String TAG = "BlurredSurfaceRenderer";
+    private static final String TAG = CarLog.tagFor(BlurredSurfaceRenderer.class);
     private static final int NUM_INDICES_TO_RENDER = 4;
 
     private final String mVertexShader;
@@ -143,19 +144,21 @@ public class BlurredSurfaceRenderer implements GLSurfaceView.Renderer {
         try {
             final IBinder token = SurfaceControl.getInternalDisplayToken();
             if (token == null) {
-                Log.e(TAG,
+                Slog.e(TAG,
                         "Could not find display token for screenshot. Will not capture screenshot");
             } else {
-                SurfaceControl.screenshot(
-                        token,
-                        mSurface,
-                        mWindowRect,
-                        mWindowRect.width(),
-                        mWindowRect.height(),
-                        /* useIdentityTransform= */ false,
-                        Surface.ROTATION_0
-                );
+                final SurfaceControl.DisplayCaptureArgs captureArgs =
+                        new SurfaceControl.DisplayCaptureArgs.Builder(token)
+                                .setSize(mWindowRect.width(), mWindowRect.height())
+                                .setSourceCrop(mWindowRect)
+                                .setUseIdentityTransform(true)
+                                .build();
 
+                SurfaceControl.ScreenshotHardwareBuffer screenshotHardwareBuffer =
+                        SurfaceControl.captureDisplay(captureArgs);
+                mSurface.attachAndQueueBufferWithColorSpace(
+                        screenshotHardwareBuffer.getHardwareBuffer(),
+                        screenshotHardwareBuffer.getColorSpace());
                 mSurfaceTexture.updateTexImage();
                 mSurfaceTexture.getTransformMatrix(mTexMatrix);
                 isScreenshotCaptured = true;
@@ -178,10 +181,10 @@ public class BlurredSurfaceRenderer implements GLSurfaceView.Renderer {
 
     private void logWillNotRenderBlurredMsg() {
         if (!mIsScreenShotCaptured) {
-            Log.e(TAG, "Screenshot was not captured. Will not render blurred surface");
+            Slog.e(TAG, "Screenshot was not captured. Will not render blurred surface");
         }
         if (!mShadersLoadedSuccessfully) {
-            Log.e(TAG, "Shaders were not loaded successfully. Will not render blurred surface");
+            Slog.e(TAG, "Shaders were not loaded successfully. Will not render blurred surface");
         }
     }
 

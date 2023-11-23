@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/idiag/idiagnl_vegasinfo_obj.c Inet Diag TCP Vegas Info Object
  *
@@ -83,22 +84,25 @@ void idiagnl_vegasinfo_set_minrtt(struct idiagnl_vegasinfo *vinfo, uint32_t
 }
 /** @} */
 
-static int idiagnl_vegasinfo_clone(struct nl_object *_dst,
-                                   struct nl_object *_src)
+/** @cond SKIP */
+static uint64_t idiagnl_vegasinfo_compare(struct nl_object *_a, struct nl_object *_b,
+                                          uint64_t attrs, int flags)
 {
-	struct idiagnl_vegasinfo *dst = (struct idiagnl_vegasinfo *) _dst;
-	struct idiagnl_vegasinfo *src = (struct idiagnl_vegasinfo *) _src;
+	struct idiagnl_vegasinfo *a = (struct idiagnl_vegasinfo *) _a;
+	struct idiagnl_vegasinfo *b = (struct idiagnl_vegasinfo *) _b;
 
-	memcpy(dst, src, sizeof(struct idiagnl_vegasinfo));
-
-	return 0;
+	/* vegasinfo is a very simple object. It has no attribe flags (ce_mask),
+	 * hence compare just returns 0 or 1, not a bit mask of attributes. */
+	return a->tcpv_enabled != b->tcpv_enabled ||
+	       a->tcpv_rttcnt != b->tcpv_rttcnt ||
+	       a->tcpv_rtt != b->tcpv_rtt ||
+	       a->tcpv_minrtt != b->tcpv_minrtt;
 }
 
-/** @cond SKIP */
 struct nl_object_ops idiagnl_vegasinfo_obj_ops = {
 	.oo_name	= "idiag/idiag_vegasinfo",
 	.oo_size	= sizeof(struct idiagnl_vegasinfo),
-	.oo_clone	= idiagnl_vegasinfo_clone,
+	.oo_compare     = idiagnl_vegasinfo_compare,
 };
 /** @endcond */
 /** @} */

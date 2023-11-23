@@ -18,14 +18,13 @@
 
 #include "command.h"
 
+using namespace simpleperf;
+
 class MockCommand : public Command {
  public:
-  MockCommand() : Command("mock", "mock_short_help", "mock_long_help") {
-  }
+  MockCommand() : Command("mock", "mock_short_help", "mock_long_help") {}
 
-  bool Run(const std::vector<std::string>&) override {
-    return true;
-  }
+  bool Run(const std::vector<std::string>&) override { return true; }
 };
 
 TEST(command, CreateCommandInstance) {
@@ -69,4 +68,113 @@ TEST(command, GetValueForOption) {
   double double_value;
   ASSERT_TRUE(command.GetDoubleOption({"-s", "3.2"}, &i, &double_value, 0, 4));
   ASSERT_DOUBLE_EQ(double_value, 3.2);
+}
+
+TEST(command, PreprocessOptions) {
+  MockCommand cmd;
+  OptionValueMap options;
+  std::vector<std::pair<OptionName, OptionValue>> ordered_options;
+  std::vector<std::string> non_option_args;
+
+  OptionFormatMap option_formats = {
+      {"--bool-option", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--str-option", {OptionValueType::STRING, OptionType::MULTIPLE}},
+      {"--str2-option", {OptionValueType::STRING, OptionType::SINGLE}},
+      {"--opt-str-option", {OptionValueType::OPT_STRING, OptionType::MULTIPLE}},
+      {"--uint-option", {OptionValueType::UINT, OptionType::SINGLE}},
+      {"--double-option", {OptionValueType::DOUBLE, OptionType::SINGLE}},
+
+      // ordered options
+      {"--ord-str-option", {OptionValueType::STRING, OptionType::ORDERED}},
+      {"--ord-uint-option", {OptionValueType::UINT, OptionType::ORDERED}},
+  };
+
+  // Check options.
+  std::vector<std::string> args = {
+      "--bool-option",    "--str-option",  "str1",          "--str-option",
+      "str1_2",           "--str2-option", "str2_value",    "--opt-str-option",
+      "--opt-str-option", "opt_str",       "--uint-option", "34",
+      "--double-option",  "-32.75"};
+  ASSERT_TRUE(cmd.PreprocessOptions(args, option_formats, &options, &ordered_options, nullptr));
+  ASSERT_TRUE(options.PullBoolValue("--bool-option"));
+  auto values = options.PullValues("--str-option");
+  ASSERT_EQ(values.size(), 2);
+  ASSERT_EQ(*values[0].str_value, "str1");
+  ASSERT_EQ(*values[1].str_value, "str1_2");
+  std::string str2_value;
+  options.PullStringValue("--str2-option", &str2_value);
+  ASSERT_EQ(str2_value, "str2_value");
+  values = options.PullValues("--opt-str-option");
+  ASSERT_EQ(values.size(), 2);
+  ASSERT_TRUE(values[0].str_value == nullptr);
+  ASSERT_EQ(*values[1].str_value, "opt_str");
+  size_t uint_value;
+  ASSERT_TRUE(options.PullUintValue("--uint-option", &uint_value));
+  ASSERT_EQ(uint_value, 34);
+  double double_value;
+  ASSERT_TRUE(options.PullDoubleValue("--double-option", &double_value));
+  ASSERT_DOUBLE_EQ(double_value, -32.75);
+  ASSERT_TRUE(options.values.empty());
+
+  // Check ordered options.
+  args = {"--ord-str-option", "str1", "--ord-uint-option", "32", "--ord-str-option", "str2"};
+  ASSERT_TRUE(cmd.PreprocessOptions(args, option_formats, &options, &ordered_options, nullptr));
+  ASSERT_EQ(ordered_options.size(), 3);
+  ASSERT_EQ(ordered_options[0].first, "--ord-str-option");
+  ASSERT_EQ(*(ordered_options[0].second.str_value), "str1");
+  ASSERT_EQ(ordered_options[1].first, "--ord-uint-option");
+  ASSERT_EQ(ordered_options[1].second.uint_value, 32);
+  ASSERT_EQ(ordered_options[2].first, "--ord-str-option");
+  ASSERT_EQ(*(ordered_options[2].second.str_value), "str2");
+
+  // Check non_option_args.
+  ASSERT_TRUE(cmd.PreprocessOptions({"arg1", "--arg2"}, option_formats, &options, &ordered_options,
+                                    &non_option_args));
+  ASSERT_EQ(non_option_args, std::vector<std::string>({"arg1", "--arg2"}));
+  // "--" can force following args to be non_option_args.
+  ASSERT_TRUE(cmd.PreprocessOptions({"--", "--bool-option"}, option_formats, &options,
+                                    &ordered_options, &non_option_args));
+  ASSERT_EQ(non_option_args, std::vector<std::string>({"--bool-option"}));
+  // Pass nullptr to not accept non option args.
+  ASSERT_FALSE(cmd.PreprocessOptions({"non_option_arg"}, option_formats, &options, &ordered_options,
+                                     nullptr));
+
+  // Check different errors.
+  // unknown option
+  ASSERT_FALSE(cmd.PreprocessOptions({"--unknown-option"}, option_formats, &options,
+                                     &ordered_options, nullptr));
+  // no option value
+  ASSERT_FALSE(
+      cmd.PreprocessOptions({"--str-option"}, option_formats, &options, &ordered_options, nullptr));
+  // wrong option value format
+  ASSERT_FALSE(cmd.PreprocessOptions({"--uint-option", "-2"}, option_formats, &options,
+                                     &ordered_options, nullptr));
+  ASSERT_FALSE(cmd.PreprocessOptions({"--double-option", "str"}, option_formats, &options,
+                                     &ordered_options, nullptr));
+  // unexpected non_option_args
+  ASSERT_FALSE(cmd.PreprocessOptions({"non_option_args"}, option_formats, &options,
+                                     &ordered_options, nullptr));
+}
+
+TEST(command, OptionValueMap) {
+  OptionValue value;
+  value.uint_value = 10;
+
+  OptionValueMap options;
+  uint64_t uint_value;
+  options.values.emplace("--uint-option", value);
+  ASSERT_FALSE(options.PullUintValue("--uint-option", &uint_value, 11));
+  options.values.emplace("--uint-option", value);
+  ASSERT_FALSE(options.PullUintValue("--uint-option", &uint_value, 0, 9));
+  options.values.emplace("--uint-option", value);
+  ASSERT_TRUE(options.PullUintValue("--uint-option", &uint_value, 10, 10));
+
+  double double_value;
+  value.double_value = 0.0;
+  options.values.emplace("--double-option", value);
+  ASSERT_FALSE(options.PullDoubleValue("--double-option", &double_value, 1.0));
+  options.values.emplace("--double-option", value);
+  ASSERT_FALSE(options.PullDoubleValue("--double-option", &double_value, -2.0, -1.0));
+  options.values.emplace("--double-option", value);
+  ASSERT_TRUE(options.PullDoubleValue("--double-option", &double_value, 0.0, 0.0));
 }

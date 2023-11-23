@@ -16,7 +16,6 @@
 
 #include "calibration/magnetometer/mag_cal/mag_cal.h"
 
-#include <errno.h>
 #include <inttypes.h>
 #include <string.h>
 

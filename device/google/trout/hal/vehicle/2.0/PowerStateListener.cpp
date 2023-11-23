@@ -16,6 +16,8 @@
 
 #include "PowerStateListener.h"
 
+#include <chrono>
+
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -24,6 +26,8 @@
 #include <cstring>
 
 #include <android-base/logging.h>
+
+#include "Utils.h"
 
 namespace android::hardware::automotive::vehicle::V2_0::impl {
 
@@ -67,10 +71,12 @@ PowerStateListener::PowerStateListener(const std::string& socketPath,
     : mSocketPath(socketPath), mPowerStateMarkerFilePath(powerStateMarkerFilePath) {}
 
 void PowerStateListener::Listen() {
+    using std::literals::chrono_literals::operator""s;
+
     // Newly created files are not accessible by other users
     umask(0077);
 
-    int socketfd = socket(AF_UNIX, SOCK_STREAM, 0);
+    int socketfd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
     if (socketfd < 0) {
         LOG(ERROR) << __func__ << ": failed to create UNIX socket: " << strerror(errno);
@@ -100,14 +106,35 @@ void PowerStateListener::Listen() {
         return;
     }
 
-    int fd;
-    socklen_t socklen = sizeof(addr);
-    while ((fd = accept(socketfd, reinterpret_cast<sockaddr*>(&addr), &socklen)) != -1) {
-        if (!ForwardSocketToFile(fd, mPowerStateMarkerFilePath)) {
-            return;
+    constexpr auto kSocketCheckPeriod = 1s;
+
+    while (!mShuttingDownFlag.load()) {
+        if (!WaitForReadWithTimeout(socketfd, kSocketCheckPeriod)) {
+            continue;
         }
+
+        socklen_t socklen = sizeof(addr);
+        int fd = accept(socketfd, reinterpret_cast<sockaddr*>(&addr), &socklen);
+
+        if (fd == -1) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                PLOG(ERROR) << __func__ << ": failed to accept, path: " << mSocketPath;
+            }
+            continue;
+        }
+
+        if (!ForwardSocketToFile(fd, mPowerStateMarkerFilePath)) {
+            LOG(ERROR) << __func__ << ": failed to forward power state, "
+                       << "path: " << mPowerStateMarkerFilePath;
+            continue;
+        }
+
         close(fd);
     }
+}
+
+void PowerStateListener::Stop() {
+    mShuttingDownFlag.store(true);
 }
 
 }  // namespace android::hardware::automotive::vehicle::V2_0::impl

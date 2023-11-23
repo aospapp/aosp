@@ -598,13 +598,12 @@ public class SocketTest extends TestCaseWithRules {
     public void testSocketTestAllAddresses() throws Exception {
         // Socket Ctor should try all sockets.
         //
-        // This test creates a server socket bound to 127.0.0.1 or ::1 only, and connects using a
+        // This test creates server sockets bound to 127.0.0.1 and ::1, and connects using a
         // hostname that resolves to both addresses. We should be able to connect to the server
         // socket in either setup.
         final String loopbackHost = ALL_LOOPBACK_HOSTNAME;
 
-        assertTrue("Loopback DNS record is unreachable or is invalid.", checkLoopbackHost(
-                loopbackHost));
+        checkLoopbackHost(loopbackHost);
 
         final int port = 9999;
         for (InetAddress addr : new InetAddress[]{ Inet4Address.LOOPBACK, Inet6Address.LOOPBACK }) {
@@ -622,15 +621,16 @@ public class SocketTest extends TestCaseWithRules {
         }
     }
 
-    /** Confirm the supplied hostname maps to only loopback addresses. */
-    private static boolean checkLoopbackHost(String host) {
-        try {
-            List<InetAddress> addrs = Arrays.asList(InetAddress.getAllByName(host));
-            return addrs.stream().allMatch(InetAddress::isLoopbackAddress) &&
-                    addrs.contains(Inet4Address.LOOPBACK) && addrs.contains(Inet6Address.LOOPBACK);
-        } catch (UnknownHostException e) {
-            return false;
-        }
+    /** Confirm the supplied hostname maps to only loopback addresses, both IPv4 and IPv6. */
+    private static void checkLoopbackHost(String host) throws UnknownHostException {
+        InetAddress[] addrArray = InetAddress.getAllByName(host);
+        final String addressesString = Arrays.toString(addrArray);
+        List<InetAddress> addrs = Arrays.asList(addrArray);
+        final String msg = ALL_LOOPBACK_HOSTNAME
+                + " must only return loopback addresses, both IPv4 and IPv6. Got: "
+                + addressesString;
+        assertTrue(msg, addrs.stream().allMatch(InetAddress::isLoopbackAddress)
+                && addrs.contains(Inet4Address.LOOPBACK) && addrs.contains(Inet6Address.LOOPBACK));
     }
 
     private static boolean canConnect(String host, int port) {

@@ -13,6 +13,7 @@ import android.view.Display;
 import android.view.IWindowSession;
 import android.view.ViewRootImpl;
 import android.view.WindowManager;
+import android.window.ClientWindowFrames;
 import java.util.ArrayList;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Implementation;
@@ -41,6 +42,7 @@ public class ShadowViewRootImpl {
     Rect frame = new Rect();
     display.getRectSize(frame);
     Rect zeroSizedRect = new Rect(0, 0, 0, 0);
+    ClientWindowFrames clientWindowFrame = new ClientWindowFrames();
 
     int apiLevel = RuntimeEnvironment.getApiLevel();
     ViewRootImpl component = realObject;
@@ -116,7 +118,7 @@ public class ShadowViewRootImpl {
           ClassParameter.from(boolean.class, false),
           ClassParameter.from(boolean.class, false),
           ClassParameter.from(int.class, 0));
-    } else if (apiLevel <= Build.VERSION_CODES.P) {
+    } else if (apiLevel <= Build.VERSION_CODES.Q) {
       ReflectionHelpers.callInstanceMethod(ViewRootImpl.class, component, "dispatchResized",
           ClassParameter.from(Rect.class, frame),
           ClassParameter.from(Rect.class, zeroSizedRect),
@@ -132,7 +134,7 @@ public class ShadowViewRootImpl {
           ClassParameter.from(int.class, 0),
           ClassParameter.from(android.view.DisplayCutout.ParcelableWrapper.class,
               new android.view.DisplayCutout.ParcelableWrapper()));
-    } else if (apiLevel >= Build.VERSION_CODES.R) {
+    } else if (apiLevel <= Build.VERSION_CODES.R) {
       // BEGIN-INTERNAL
       ReflectionHelpers.callInstanceMethod(ViewRootImpl.class, component, "dispatchResized",
               ClassParameter.from(Rect.class, frame),
@@ -147,6 +149,16 @@ public class ShadowViewRootImpl {
               ClassParameter.from(int.class, 0),
               ClassParameter.from(android.view.DisplayCutout.ParcelableWrapper.class,
                       new android.view.DisplayCutout.ParcelableWrapper()));
+      // END-INTERNAL
+    } else if (apiLevel >= Build.VERSION_CODES.S) {
+      // BEGIN-INTERNAL
+      ReflectionHelpers.callInstanceMethod(ViewRootImpl.class, component, "dispatchResized",
+              ClassParameter.from(ClientWindowFrames.class, clientWindowFrame),
+              ClassParameter.from(boolean.class, true),
+              ClassParameter.from(MergedConfiguration.class, new MergedConfiguration()),
+              ClassParameter.from(boolean.class, false),
+              ClassParameter.from(boolean.class, false),
+              ClassParameter.from(int.class, 0));
       // END-INTERNAL
     } else {
       throw new RuntimeException("Could not find AndroidRuntimeAdapter for API level: " + apiLevel);

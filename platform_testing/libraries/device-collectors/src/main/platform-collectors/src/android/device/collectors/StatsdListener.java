@@ -24,17 +24,21 @@ import android.os.Environment;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.StatsLog;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
 
-import com.android.internal.os.StatsdConfigProto.StatsdConfig;
-import com.android.os.AtomsProto.Atom;
-import com.android.os.StatsLog.ConfigMetricsReportList;
-import com.google.protobuf.InvalidProtocolBufferException;
+import com.android.internal.os.nano.StatsdConfigProto;
+import com.android.os.nano.AtomsProto;
+
+import com.google.protobuf.nano.CodedOutputByteBufferNano;
+import com.google.protobuf.nano.ExtendableMessageNano;
+import com.google.protobuf.nano.InvalidProtocolBufferNanoException;
 
 import org.junit.runner.Description;
 import org.junit.runner.Result;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -83,8 +87,10 @@ public class StatsdListener extends BaseMetricListener {
     static final long METRIC_PULL_DELAY = TimeUnit.SECONDS.toMillis(1);
 
     // Configs used for the test run and each test, respectively.
-    private Map<String, StatsdConfig> mRunLevelConfigs = new HashMap<String, StatsdConfig>();
-    private Map<String, StatsdConfig> mTestLevelConfigs = new HashMap<String, StatsdConfig>();
+    private Map<String, StatsdConfigProto.StatsdConfig> mRunLevelConfigs =
+            new HashMap<String, StatsdConfigProto.StatsdConfig>();
+    private Map<String, StatsdConfigProto.StatsdConfig> mTestLevelConfigs =
+            new HashMap<String, StatsdConfigProto.StatsdConfig>();
 
     // Map to associate config names with their config Ids.
     private Map<String, Long> mRunLevelConfigIds = new HashMap<String, Long>();
@@ -172,17 +178,18 @@ public class StatsdListener extends BaseMetricListener {
      * @return Map of (config name, config id)
      */
     private Map<String, Long> registerConfigsWithStatsManager(
-            final Map<String, StatsdConfig> configs) {
+            final Map<String, StatsdConfigProto.StatsdConfig> configs) {
         Map<String, Long> configIds = new HashMap<String, Long>();
         adoptShellPermissionIdentity();
         for (String configName : configs.keySet()) {
-            long configId = getUniqueIdForConfig(configs.get(configName));
-            StatsdConfig newConfig = configs.get(configName).toBuilder().setId(configId).build();
             try {
+                long configId = getUniqueIdForConfig(configs.get(configName));
+                StatsdConfigProto.StatsdConfig newConfig = clone(configs.get(configName));
+                newConfig.id = configId;
                 Log.i(LOG_TAG, String.format("Adding config %s with ID %d.", configName, configId));
-                addStatsConfig(configId, newConfig.toByteArray());
+                addStatsConfig(configId, serialize(newConfig));
                 configIds.put(configName, configId);
-            } catch (StatsUnavailableException e) {
+            } catch (IOException | StatsUnavailableException e) {
                 Log.e(
                         LOG_TAG,
                         String.format(
@@ -217,7 +224,7 @@ public class StatsdListener extends BaseMetricListener {
         adoptShellPermissionIdentity();
         for (String configName : configIds.keySet()) {
             // Dump the metric report to external storage.
-            ConfigMetricsReportList reportList;
+            com.android.os.nano.StatsLog.ConfigMetricsReportList reportList;
             try {
                 Log.i(
                         LOG_TAG,
@@ -225,20 +232,20 @@ public class StatsdListener extends BaseMetricListener {
                                 "Pulling metrics for config %s with ID %d.",
                                 configName, configIds.get(configName)));
                 reportList =
-                        ConfigMetricsReportList.parseFrom(
+                        com.android.os.nano.StatsLog.ConfigMetricsReportList.parseFrom(
                                 getStatsReports(configIds.get(configName)));
                 Log.i(
                         LOG_TAG,
                         String.format(
                                 "Found %d metric %s from config %s.",
-                                reportList.getReportsCount(),
-                                reportList.getReportsCount() == 1 ? "report" : "reports",
+                                reportList.reports.length,
+                                reportList.reports.length == 1 ? "report" : "reports",
                                 configName));
                 File reportFile =
                         new File(
                                 saveDirectory,
                                 REPORT_FILENAME_PREFIX + configName + suffix + PROTO_EXTENSION);
-                writeToFile(reportFile, reportList.toByteArray());
+                writeToFile(reportFile, serialize(reportList));
                 savedConfigFiles.put(configName, reportFile);
             } catch (StatsUnavailableException e) {
                 Log.e(
@@ -246,7 +253,7 @@ public class StatsdListener extends BaseMetricListener {
                         String.format(
                                 "Failed to retrieve metrics for config %s due to %s.",
                                 configName, e.toString()));
-            } catch (InvalidProtocolBufferException e) {
+            } catch (InvalidProtocolBufferNanoException e) {
                 Log.e(
                         LOG_TAG,
                         String.format(
@@ -392,7 +399,7 @@ public class StatsdListener extends BaseMetricListener {
      * @hide
      */
     @VisibleForTesting
-    protected long getUniqueIdForConfig(StatsdConfig config) {
+    protected long getUniqueIdForConfig(StatsdConfigProto.StatsdConfig config) {
         return (long) UUID.randomUUID().hashCode();
     }
 
@@ -415,11 +422,12 @@ public class StatsdListener extends BaseMetricListener {
      *
      * <p>The option name is passed in for better error messaging.
      */
-    private StatsdConfig parseConfigFromName(
+    private StatsdConfigProto.StatsdConfig parseConfigFromName(
             final AssetManager manager, String optionName, String configName) {
         try (InputStream configStream = openConfigWithAssetManager(manager, configName)) {
             try {
-                return fixPermissions(StatsdConfig.parseFrom(configStream));
+                byte[] serializedConfig = readInputStream(configStream);
+                return fixPermissions(StatsdConfigProto.StatsdConfig.parseFrom(serializedConfig));
             } catch (IOException e) {
                 throw new RuntimeException(
                         String.format(
@@ -439,7 +447,7 @@ public class StatsdListener extends BaseMetricListener {
      * @hide
      */
     @VisibleForTesting
-    protected Map<String, StatsdConfig> getConfigsFromOption(String optionName) {
+    protected Map<String, StatsdConfigProto.StatsdConfig> getConfigsFromOption(String optionName) {
         List<String> configNames =
                 Arrays.asList(getArguments().getString(optionName, "").split(","))
                         .stream()
@@ -483,13 +491,60 @@ public class StatsdListener extends BaseMetricListener {
      *
      * <p>This is related to some new permission restrictions in RVC.
      */
-    private StatsdConfig fixPermissions(StatsdConfig config) {
-        StatsdConfig.Builder builder = config.toBuilder();
-        // Allow system power stats to be pulled.
-        builder.addDefaultPullPackages("AID_SYSTEM");
-        // Gauge metrics rely on AppBreadcrumbReported as metric dump triggers.
-        builder.addWhitelistedAtomIds(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER);
+    private StatsdConfigProto.StatsdConfig fixPermissions(StatsdConfigProto.StatsdConfig config)
+            throws IOException {
+        StatsdConfigProto.StatsdConfig newConfig = clone(config);
+        newConfig.defaultPullPackages =
+                concat(config.defaultPullPackages, new String[] {"AID_SYSTEM"});
+        newConfig.whitelistedAtomIds =
+                concat(
+                        config.whitelistedAtomIds,
+                        new int[] {AtomsProto.Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER});
+        return newConfig;
+    }
 
-        return builder.build();
+    // Some utilities for Nano protos.
+
+    private static <T extends ExtendableMessageNano<T>> byte[] serialize(
+            ExtendableMessageNano<T> message) throws IOException {
+        byte[] serialized = new byte[message.getSerializedSize()];
+        CodedOutputByteBufferNano buffer = CodedOutputByteBufferNano.newInstance(serialized);
+        message.writeTo(buffer);
+        return serialized;
+    }
+
+    private static StatsdConfigProto.StatsdConfig clone(StatsdConfigProto.StatsdConfig config)
+            throws IOException {
+        byte[] output = serialize(config);
+        return StatsdConfigProto.StatsdConfig.parseFrom(output);
+    }
+
+    private static byte[] readInputStream(InputStream in) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try {
+            byte[] buffer = new byte[1024];
+            int size = in.read(buffer);
+            while (size > 0) {
+                outputStream.write(buffer, 0, size);
+                size = in.read(buffer);
+            }
+            return outputStream.toByteArray();
+        } finally {
+            outputStream.close();
+        }
+    }
+
+    // Array Concatenation
+
+    private static int[] concat(int[] source, int[] items) {
+        int[] concatenated = Arrays.copyOf(source, source.length + items.length);
+        System.arraycopy(items, 0, concatenated, source.length, items.length);
+        return concatenated;
+    }
+
+    private static <T> T[] concat(T[] source, T[] items) {
+        T[] concatenated = Arrays.copyOf(source, source.length + items.length);
+        System.arraycopy(items, 0, concatenated, source.length, items.length);
+        return concatenated;
     }
 }

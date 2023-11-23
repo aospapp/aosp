@@ -9,7 +9,7 @@ TIME = 'SHORT'
 NAME = 'cellular_ChromeEndToEnd.enableDisableCellular'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:cellular_endtoend'
-DEPENDENCIES = 'servo'
+DEPENDENCIES = 'servo_state:WORKING'
 
 DOC = """
 Tests that cellular can be enabled or disabled on the DUI.

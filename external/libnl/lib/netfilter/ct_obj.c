@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/netfilter/ct_obj.c	Conntrack Object
  *
@@ -297,12 +298,12 @@ static void ct_dump_stats(struct nl_object *a, struct nl_dump_params *p)
 	}
 }
 
-static int ct_compare(struct nl_object *_a, struct nl_object *_b,
-			uint32_t attrs, int flags)
+static uint64_t ct_compare(struct nl_object *_a, struct nl_object *_b,
+			   uint64_t attrs, int flags)
 {
 	struct nfnl_ct *a = (struct nfnl_ct *) _a;
 	struct nfnl_ct *b = (struct nfnl_ct *) _b;
-	int diff = 0;
+	uint64_t diff = 0;
 
 #define CT_DIFF(ATTR, EXPR) ATTR_DIFF(attrs, CT_ATTR_##ATTR, a, b, EXPR)
 #define CT_DIFF_VAL(ATTR, FIELD) CT_DIFF(ATTR, a->FIELD != b->FIELD)
@@ -351,32 +352,32 @@ static int ct_compare(struct nl_object *_a, struct nl_object *_b,
 }
 
 static const struct trans_tbl ct_attrs[] = {
-	__ADD(CT_ATTR_FAMILY,		family)
-	__ADD(CT_ATTR_PROTO,		proto)
-	__ADD(CT_ATTR_TCP_STATE,	tcpstate)
-	__ADD(CT_ATTR_STATUS,		status)
-	__ADD(CT_ATTR_TIMEOUT,		timeout)
-	__ADD(CT_ATTR_MARK,		mark)
-	__ADD(CT_ATTR_USE,		use)
-	__ADD(CT_ATTR_ID,		id)
-	__ADD(CT_ATTR_ORIG_SRC,		origsrc)
-	__ADD(CT_ATTR_ORIG_DST,		origdst)
-	__ADD(CT_ATTR_ORIG_SRC_PORT,	origsrcport)
-	__ADD(CT_ATTR_ORIG_DST_PORT,	origdstport)
-	__ADD(CT_ATTR_ORIG_ICMP_ID,	origicmpid)
-	__ADD(CT_ATTR_ORIG_ICMP_TYPE,	origicmptype)
-	__ADD(CT_ATTR_ORIG_ICMP_CODE,	origicmpcode)
-	__ADD(CT_ATTR_ORIG_PACKETS,	origpackets)
-	__ADD(CT_ATTR_ORIG_BYTES,	origbytes)
-	__ADD(CT_ATTR_REPL_SRC,		replysrc)
-	__ADD(CT_ATTR_REPL_DST,		replydst)
-	__ADD(CT_ATTR_REPL_SRC_PORT,	replysrcport)
-	__ADD(CT_ATTR_REPL_DST_PORT,	replydstport)
-	__ADD(CT_ATTR_REPL_ICMP_ID,	replyicmpid)
-	__ADD(CT_ATTR_REPL_ICMP_TYPE,	replyicmptype)
-	__ADD(CT_ATTR_REPL_ICMP_CODE,	replyicmpcode)
-	__ADD(CT_ATTR_REPL_PACKETS,	replypackets)
-	__ADD(CT_ATTR_REPL_BYTES,	replybytes)
+	__ADD(CT_ATTR_FAMILY,		family),
+	__ADD(CT_ATTR_PROTO,		proto),
+	__ADD(CT_ATTR_TCP_STATE,	tcpstate),
+	__ADD(CT_ATTR_STATUS,		status),
+	__ADD(CT_ATTR_TIMEOUT,		timeout),
+	__ADD(CT_ATTR_MARK,		mark),
+	__ADD(CT_ATTR_USE,		use),
+	__ADD(CT_ATTR_ID,		id),
+	__ADD(CT_ATTR_ORIG_SRC,		origsrc),
+	__ADD(CT_ATTR_ORIG_DST,		origdst),
+	__ADD(CT_ATTR_ORIG_SRC_PORT,	origsrcport),
+	__ADD(CT_ATTR_ORIG_DST_PORT,	origdstport),
+	__ADD(CT_ATTR_ORIG_ICMP_ID,	origicmpid),
+	__ADD(CT_ATTR_ORIG_ICMP_TYPE,	origicmptype),
+	__ADD(CT_ATTR_ORIG_ICMP_CODE,	origicmpcode),
+	__ADD(CT_ATTR_ORIG_PACKETS,	origpackets),
+	__ADD(CT_ATTR_ORIG_BYTES,	origbytes),
+	__ADD(CT_ATTR_REPL_SRC,		replysrc),
+	__ADD(CT_ATTR_REPL_DST,		replydst),
+	__ADD(CT_ATTR_REPL_SRC_PORT,	replysrcport),
+	__ADD(CT_ATTR_REPL_DST_PORT,	replydstport),
+	__ADD(CT_ATTR_REPL_ICMP_ID,	replyicmpid),
+	__ADD(CT_ATTR_REPL_ICMP_TYPE,	replyicmptype),
+	__ADD(CT_ATTR_REPL_ICMP_CODE,	replyicmpcode),
+	__ADD(CT_ATTR_REPL_PACKETS,	replypackets),
+	__ADD(CT_ATTR_REPL_BYTES,	replybytes),
 };
 
 static char *ct_attrs2str(int attrs, char *buf, size_t len)
@@ -458,16 +459,16 @@ uint8_t nfnl_ct_get_tcp_state(const struct nfnl_ct *ct)
 }
 
 static const struct trans_tbl tcp_states[] = {
-	__ADD(TCP_CONNTRACK_NONE,NONE)
-	__ADD(TCP_CONNTRACK_SYN_SENT,SYN_SENT)
-	__ADD(TCP_CONNTRACK_SYN_RECV,SYN_RECV)
-	__ADD(TCP_CONNTRACK_ESTABLISHED,ESTABLISHED)
-	__ADD(TCP_CONNTRACK_FIN_WAIT,FIN_WAIT)
-	__ADD(TCP_CONNTRACK_CLOSE_WAIT,CLOSE_WAIT)
-	__ADD(TCP_CONNTRACK_LAST_ACK,LAST_ACK)
-	__ADD(TCP_CONNTRACK_TIME_WAIT,TIME_WAIT)
-	__ADD(TCP_CONNTRACK_CLOSE,CLOSE)
-	__ADD(TCP_CONNTRACK_LISTEN,LISTEN)
+	__ADD(TCP_CONNTRACK_NONE,NONE),
+	__ADD(TCP_CONNTRACK_SYN_SENT,SYN_SENT),
+	__ADD(TCP_CONNTRACK_SYN_RECV,SYN_RECV),
+	__ADD(TCP_CONNTRACK_ESTABLISHED,ESTABLISHED),
+	__ADD(TCP_CONNTRACK_FIN_WAIT,FIN_WAIT),
+	__ADD(TCP_CONNTRACK_CLOSE_WAIT,CLOSE_WAIT),
+	__ADD(TCP_CONNTRACK_LAST_ACK,LAST_ACK),
+	__ADD(TCP_CONNTRACK_TIME_WAIT,TIME_WAIT),
+	__ADD(TCP_CONNTRACK_CLOSE,CLOSE),
+	__ADD(TCP_CONNTRACK_LISTEN,LISTEN),
 };
 
 char *nfnl_ct_tcp_state2str(uint8_t state, char *buf, size_t len)
@@ -477,7 +478,7 @@ char *nfnl_ct_tcp_state2str(uint8_t state, char *buf, size_t len)
 
 int nfnl_ct_str2tcp_state(const char *name)
 {
-        return __str2type(name, tcp_states, ARRAY_SIZE(tcp_states));
+	return __str2type(name, tcp_states, ARRAY_SIZE(tcp_states));
 }
 
 void nfnl_ct_set_status(struct nfnl_ct *ct, uint32_t status)
@@ -505,17 +506,17 @@ uint32_t nfnl_ct_get_status(const struct nfnl_ct *ct)
 }
 
 static const struct trans_tbl status_flags[] = {
-	__ADD(IPS_EXPECTED, expected)
-	__ADD(IPS_SEEN_REPLY, seen_reply)
-	__ADD(IPS_ASSURED, assured)
-	__ADD(IPS_CONFIRMED, confirmed)
-	__ADD(IPS_SRC_NAT, snat)
-	__ADD(IPS_DST_NAT, dnat)
-	__ADD(IPS_SEQ_ADJUST, seqadjust)
-	__ADD(IPS_SRC_NAT_DONE, snat_done)
-	__ADD(IPS_DST_NAT_DONE, dnat_done)
-	__ADD(IPS_DYING, dying)
-	__ADD(IPS_FIXED_TIMEOUT, fixed_timeout)
+	__ADD(IPS_EXPECTED, expected),
+	__ADD(IPS_SEEN_REPLY, seen_reply),
+	__ADD(IPS_ASSURED, assured),
+	__ADD(IPS_CONFIRMED, confirmed),
+	__ADD(IPS_SRC_NAT, snat),
+	__ADD(IPS_DST_NAT, dnat),
+	__ADD(IPS_SEQ_ADJUST, seqadjust),
+	__ADD(IPS_SRC_NAT_DONE, snat_done),
+	__ADD(IPS_DST_NAT_DONE, dnat_done),
+	__ADD(IPS_DYING, dying),
+	__ADD(IPS_FIXED_TIMEOUT, fixed_timeout),
 };
 
 char * nfnl_ct_status2str(int flags, char *buf, size_t len)

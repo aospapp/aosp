@@ -45,7 +45,7 @@ class firmware_WilcoDiagnosticsMode(FirmwareTest):
         self.switcher.setup_mode('normal')
 
     def cleanup(self):
-        self.servo.get_power_state_controller().reset()
+        self._client.reset_via_servo()
 
         super(firmware_WilcoDiagnosticsMode, self).cleanup()
 
@@ -61,14 +61,14 @@ class firmware_WilcoDiagnosticsMode(FirmwareTest):
 
         logging.info('Extracting diagnostics')
         self.faft_client.updater.cbfs_extract_diagnostics(self.DIAG_CBFS_NAME,
-                local_filename)
+                diag_cbfs_path)
 
         logging.info('Corrupting diagnostics')
-        self.faft_client.updater.corrupt_diagnostics_image(local_filename)
+        self.faft_client.updater.corrupt_diagnostics_image(diag_cbfs_path)
 
         logging.info('Replacing diagnostics')
         self.faft_client.updater.cbfs_replace_diagnostics(self.DIAG_CBFS_NAME,
-                local_filename)
+                diag_cbfs_path)
 
         logging.info('Writing back BIOS')
         self.faft_client.bios.write_whole(bios_cbfs_path)
@@ -102,7 +102,7 @@ class firmware_WilcoDiagnosticsMode(FirmwareTest):
                 self.faft_config.delay_reboot_to_ping)
         self.switcher.wait_for_client_offline(timeout=5)
         logging.info('DUT offline after entering diagnostics mode')
-        self.servo.get_power_state_controller().reset()
+        self._client.reset_via_servo()
         self.switcher.wait_for_client()
 
         # Corrupt the diagnostics image, try to reboot into diagnostics mode,

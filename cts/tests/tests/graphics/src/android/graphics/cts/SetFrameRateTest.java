@@ -16,17 +16,21 @@
 
 package android.graphics.cts;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
+import static org.junit.Assert.assertTrue;
 
 import android.app.UiAutomation;
-import android.support.test.uiautomator.UiDevice;
+import android.content.Context;
 import android.util.Log;
+import android.view.Surface;
 import android.view.SurfaceControl;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.DisplayUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -46,43 +50,31 @@ public class SetFrameRateTest {
 
     @Before
     public void setUp() throws Exception {
-        long frameRateFlexibilityToken = 0;
-        final UiDevice uiDevice =
-                UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        try {
-            uiDevice.wakeUp();
-            uiDevice.executeShellCommand("wm dismiss-keyguard");
-            // Surface flinger requires the ACCESS_SURFACE_FLINGER permission to acquire a frame
-            // rate flexibility token. Switch to shell permission identity so we'll have the
-            // necessary permission when surface flinger checks.
-            UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
-            uiAutomation.adoptShellPermissionIdentity();
-            try {
-                frameRateFlexibilityToken = SurfaceControl.acquireFrameRateFlexibilityToken();
-            } finally {
-                uiAutomation.dropShellPermissionIdentity();
-            }
+        // Surface flinger requires the ACCESS_SURFACE_FLINGER permission to acquire a frame
+        // rate flexibility token. Switch to shell permission identity so we'll have the
+        // necessary permission when surface flinger checks.
+        UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
+        uiAutomation.adoptShellPermissionIdentity();
 
-            // Setup succeeded. Take ownership of the frame rate flexibility token, if we were able
+        Context context = getInstrumentation().getTargetContext();
+        assertTrue("Physical display is expected.", DisplayUtil.isDisplayConnected(context));
+
+        try {
+            // Take ownership of the frame rate flexibility token, if we were able
             // to get one - we'll release it in tearDown().
-            mFrameRateFlexibilityToken = frameRateFlexibilityToken;
-            frameRateFlexibilityToken = 0;
-            if (mFrameRateFlexibilityToken == 0) {
-                Log.e(TAG,
-                        "Failed to acquire frame rate flexibility token."
-                                + " Frame rate tests may fail.");
-            }
+            mFrameRateFlexibilityToken = SurfaceControl.acquireFrameRateFlexibilityToken();
         } finally {
-            if (frameRateFlexibilityToken != 0) {
-                SurfaceControl.releaseFrameRateFlexibilityToken(frameRateFlexibilityToken);
-                frameRateFlexibilityToken = 0;
-            }
+            uiAutomation.dropShellPermissionIdentity();
+        }
+
+        if (mFrameRateFlexibilityToken == 0) {
+            Log.e(TAG, "Failed to acquire frame rate flexibility token."
+                    + " SetFrameRate tests may fail.");
         }
     }
 
     @After
     public void tearDown() {
-        final UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         if (mFrameRateFlexibilityToken != 0) {
             SurfaceControl.releaseFrameRateFlexibilityToken(mFrameRateFlexibilityToken);
             mFrameRateFlexibilityToken = 0;
@@ -90,15 +82,27 @@ public class SetFrameRateTest {
     }
 
     @Test
-    public void testExactFrameRateMatch() throws InterruptedException {
+    public void testExactFrameRateMatch_Seamless() throws InterruptedException {
         FrameRateCtsActivity activity = mActivityRule.getActivity();
-        activity.testExactFrameRateMatch();
+        activity.testExactFrameRateMatch(Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
     }
 
     @Test
-    public void testFixedSource() throws InterruptedException {
+    public void testExactFrameRateMatch_NonSeamless() throws InterruptedException {
         FrameRateCtsActivity activity = mActivityRule.getActivity();
-        activity.testFixedSource();
+        activity.testExactFrameRateMatch(Surface.CHANGE_FRAME_RATE_ALWAYS);
+    }
+
+    @Test
+    public void testFixedSource_Seamless() throws InterruptedException {
+        FrameRateCtsActivity activity = mActivityRule.getActivity();
+        activity.testFixedSource(Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS);
+    }
+
+    @Test
+    public void testFixedSource_NonSeamless() throws InterruptedException {
+        FrameRateCtsActivity activity = mActivityRule.getActivity();
+        activity.testFixedSource(Surface.CHANGE_FRAME_RATE_ALWAYS);
     }
 
     @Test

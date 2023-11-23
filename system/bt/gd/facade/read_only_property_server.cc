@@ -15,6 +15,7 @@
  */
 
 #include "facade/read_only_property_server.h"
+
 #include "hci/controller.h"
 
 namespace bluetooth {
@@ -23,9 +24,11 @@ namespace facade {
 class ReadOnlyPropertyService : public ReadOnlyProperty::Service {
  public:
   ReadOnlyPropertyService(hci::Controller* controller) : controller_(controller) {}
-  ::grpc::Status ReadLocalAddress(::grpc::ServerContext* context, const ::google::protobuf::Empty* request,
-                                  ::bluetooth::facade::BluetoothAddress* response) override {
-    auto address = controller_->GetControllerMacAddress().ToString();
+  ::grpc::Status ReadLocalAddress(
+      ::grpc::ServerContext* context,
+      const ::google::protobuf::Empty* request,
+      ::bluetooth::facade::BluetoothAddress* response) override {
+    auto address = controller_->GetMacAddress().ToString();
     response->set_address(address);
     return ::grpc::Status::OK;
   }

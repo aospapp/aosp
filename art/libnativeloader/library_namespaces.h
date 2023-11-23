@@ -17,8 +17,8 @@
 #ifndef ART_LIBNATIVELOADER_LIBRARY_NAMESPACES_H_
 #define ART_LIBNATIVELOADER_LIBRARY_NAMESPACES_H_
 
-#if !defined(__ANDROID__)
-#error "Not available for host"
+#if !defined(ART_TARGET_ANDROID)
+#error "Not available for host or linux target"
 #endif
 
 #define LOG_TAG "nativeloader"
@@ -55,7 +55,8 @@ class LibraryNamespaces {
   }
   Result<NativeLoaderNamespace*> Create(JNIEnv* env, uint32_t target_sdk_version,
                                         jobject class_loader, bool is_shared, jstring dex_path,
-                                        jstring java_library_path, jstring java_permitted_path);
+                                        jstring java_library_path, jstring java_permitted_path,
+                                        jstring uses_library_list);
   NativeLoaderNamespace* FindNamespaceByClassLoader(JNIEnv* env, jobject class_loader);
 
  private:
@@ -66,6 +67,8 @@ class LibraryNamespaces {
   NativeLoaderNamespace* app_main_namespace_;
   std::list<std::pair<jweak, NativeLoaderNamespace>> namespaces_;
 };
+
+Result<std::string> FindApexNamespaceName(const std::string& location);
 
 }  // namespace android::nativeloader
 

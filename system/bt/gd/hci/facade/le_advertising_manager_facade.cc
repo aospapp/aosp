@@ -59,8 +59,6 @@ bool AdvertisingConfigFromProto(const AdvertisingConfig& config_proto, hci::Adve
     config->scan_response.push_back(GapDataFromProto(elem));
   }
 
-  hci::Address::FromString(config_proto.random_address().address(), config->random_address);
-
   if (config_proto.interval_min() > UINT16_MAX || config_proto.interval_min() < 0) {
     LOG_WARN("Bad interval_min: %d", config_proto.interval_min());
     return false;
@@ -73,9 +71,9 @@ bool AdvertisingConfigFromProto(const AdvertisingConfig& config_proto, hci::Adve
   }
   config->interval_max = static_cast<uint16_t>(config_proto.interval_max());
 
-  config->event_type = static_cast<hci::AdvertisingEventType>(config_proto.event_type());
+  config->advertising_type = static_cast<hci::AdvertisingType>(config_proto.advertising_type());
 
-  config->address_type = static_cast<::bluetooth::hci::AddressType>(config_proto.address_type());
+  config->own_address_type = static_cast<::bluetooth::hci::OwnAddressType>(config_proto.own_address_type());
 
   config->peer_address_type = static_cast<::bluetooth::hci::PeerAddressType>(config_proto.peer_address_type());
 
@@ -129,16 +127,21 @@ class LeAdvertisingManagerFacadeService : public LeAdvertisingManagerFacade::Ser
 
   ::grpc::Status CreateAdvertiser(::grpc::ServerContext* context, const CreateAdvertiserRequest* request,
                                   CreateAdvertiserResponse* response) override {
-    hci::AdvertisingConfig config = {};
+    hci::ExtendedAdvertisingConfig config = {};
     if (!AdvertisingConfigFromProto(request->config(), &config)) {
       LOG_WARN("Error parsing advertising config %s", request->SerializeAsString().c_str());
       response->set_advertiser_id(LeAdvertisingManager::kInvalidId);
       return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "Error while parsing advertising config");
     }
     LeAdvertiser le_advertiser(config);
-    auto advertiser_id = le_advertising_manager_->CreateAdvertiser(
-        config, common::Bind(&LeAdvertiser::ScanCallback, common::Unretained(&le_advertiser)),
-        common::Bind(&LeAdvertiser::TerminatedCallback, common::Unretained(&le_advertiser)), facade_handler_);
+    auto advertiser_id = le_advertising_manager_->ExtendedCreateAdvertiser(
+        -1,
+        config,
+        common::Bind(&LeAdvertiser::ScanCallback, common::Unretained(&le_advertiser)),
+        common::Bind(&LeAdvertiser::TerminatedCallback, common::Unretained(&le_advertiser)),
+        0,
+        0,
+        facade_handler_);
     if (advertiser_id != LeAdvertisingManager::kInvalidId) {
       le_advertiser.SetAdvertiserId(advertiser_id);
       le_advertisers_.push_back(le_advertiser);

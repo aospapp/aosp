@@ -1,5 +1,6 @@
 pub type dev_t = u32;
 pub type c_char = i8;
+pub type wchar_t = i32;
 pub type clock_t = u64;
 pub type ino_t = u64;
 pub type lwpid_t = i32;
@@ -16,6 +17,7 @@ pub type uuid_t = ::uuid;
 
 pub type fsblkcnt_t = u64;
 pub type fsfilcnt_t = u64;
+pub type idtype_t = ::c_uint;
 
 pub type mqd_t = ::c_int;
 pub type sem_t = *mut sem;
@@ -169,6 +171,14 @@ s! {
         pub sdl_route: [::c_ushort; 16],
     }
 
+    pub struct xucred {
+        pub cr_version: ::c_uint,
+        pub cr_uid: ::uid_t,
+        pub cr_ngroups: ::c_short,
+        pub cr_groups: [::gid_t; 16],
+        __cr_unused1: *mut ::c_void,
+    }
+
     pub struct stack_t {
         pub ss_sp: *mut ::c_char,
         pub ss_size: ::size_t,
@@ -236,7 +246,6 @@ s_no_extra_traits! {
         pub sigev_value: ::sigval,
         __unused3: *mut ::c_void        //actually a function pointer
     }
-
 }
 
 cfg_if! {
@@ -458,21 +467,6 @@ pub const RLIM_NLIMITS: ::rlim_t = 12;
 
 pub const Q_GETQUOTA: ::c_int = 0x300;
 pub const Q_SETQUOTA: ::c_int = 0x400;
-
-pub const CLOCK_REALTIME: ::clockid_t = 0;
-pub const CLOCK_VIRTUAL: ::clockid_t = 1;
-pub const CLOCK_PROF: ::clockid_t = 2;
-pub const CLOCK_MONOTONIC: ::clockid_t = 4;
-pub const CLOCK_UPTIME: ::clockid_t = 5;
-pub const CLOCK_UPTIME_PRECISE: ::clockid_t = 7;
-pub const CLOCK_UPTIME_FAST: ::clockid_t = 8;
-pub const CLOCK_REALTIME_PRECISE: ::clockid_t = 9;
-pub const CLOCK_REALTIME_FAST: ::clockid_t = 10;
-pub const CLOCK_MONOTONIC_PRECISE: ::clockid_t = 11;
-pub const CLOCK_MONOTONIC_FAST: ::clockid_t = 12;
-pub const CLOCK_SECOND: ::clockid_t = 13;
-pub const CLOCK_THREAD_CPUTIME_ID: ::clockid_t = 14;
-pub const CLOCK_PROCESS_CPUTIME_ID: ::clockid_t = 15;
 
 pub const CTL_UNSPEC: ::c_int = 0;
 pub const CTL_KERN: ::c_int = 1;
@@ -956,12 +950,12 @@ pub const UTX_DB_UTMPX: ::c_uint = 0;
 pub const UTX_DB_WTMPX: ::c_uint = 1;
 pub const UTX_DB_LASTLOG: ::c_uint = 2;
 
-pub const LC_COLLATE_MASK: ::c_int = (1 << 0);
-pub const LC_CTYPE_MASK: ::c_int = (1 << 1);
-pub const LC_MONETARY_MASK: ::c_int = (1 << 2);
-pub const LC_NUMERIC_MASK: ::c_int = (1 << 3);
-pub const LC_TIME_MASK: ::c_int = (1 << 4);
-pub const LC_MESSAGES_MASK: ::c_int = (1 << 5);
+pub const LC_COLLATE_MASK: ::c_int = 1 << 0;
+pub const LC_CTYPE_MASK: ::c_int = 1 << 1;
+pub const LC_MONETARY_MASK: ::c_int = 1 << 2;
+pub const LC_NUMERIC_MASK: ::c_int = 1 << 3;
+pub const LC_TIME_MASK: ::c_int = 1 << 4;
+pub const LC_MESSAGES_MASK: ::c_int = 1 << 5;
 pub const LC_ALL_MASK: ::c_int = LC_COLLATE_MASK
     | LC_CTYPE_MASK
     | LC_MESSAGES_MASK
@@ -996,8 +990,17 @@ pub const _SC_V7_LPBIG_OFFBIG: ::c_int = 125;
 pub const _SC_THREAD_ROBUST_PRIO_INHERIT: ::c_int = 126;
 pub const _SC_THREAD_ROBUST_PRIO_PROTECT: ::c_int = 127;
 
-pub const WCONTINUED: ::c_int = 4;
-pub const WSTOPPED: ::c_int = 0o177;
+pub const WCONTINUED: ::c_int = 0x4;
+pub const WSTOPPED: ::c_int = 0x2;
+pub const WNOWAIT: ::c_int = 0x8;
+pub const WEXITED: ::c_int = 0x10;
+pub const WTRAPPED: ::c_int = 0x20;
+
+// Similar to FreeBSD, only the standardized ones are exposed.
+// There are more.
+pub const P_PID: idtype_t = 0;
+pub const P_PGID: idtype_t = 2;
+pub const P_ALL: idtype_t = 7;
 
 // Values for struct rtprio (type_ field)
 pub const RTP_PRIO_REALTIME: ::c_ushort = 0;
@@ -1017,8 +1020,10 @@ pub const SF_XLINK: ::c_ulong = 0x01000000;
 pub const UTIME_OMIT: c_long = -2;
 pub const UTIME_NOW: c_long = -1;
 
-fn _CMSG_ALIGN(n: usize) -> usize {
-    (n + 3) & !3
+const_fn! {
+    {const} fn _CMSG_ALIGN(n: usize) -> usize {
+        (n + 3) & !3
+    }
 }
 
 f! {
@@ -1047,31 +1052,32 @@ f! {
         }
     }
 
-    pub fn CMSG_SPACE(length: ::c_uint) -> ::c_uint {
+    pub {const} fn CMSG_SPACE(length: ::c_uint) -> ::c_uint {
         (_CMSG_ALIGN(::mem::size_of::<::cmsghdr>()) +
             _CMSG_ALIGN(length as usize)) as ::c_uint
     }
 }
 
+safe_f! {
+    pub {const} fn WIFSIGNALED(status: ::c_int) -> bool {
+        (status & 0o177) != 0o177 && (status & 0o177) != 0
+    }
+}
+
 extern "C" {
+    pub fn __errno_location() -> *mut ::c_int;
     pub fn setgrent();
-    pub fn mprotect(
-        addr: *mut ::c_void,
-        len: ::size_t,
-        prot: ::c_int,
-    ) -> ::c_int;
-    pub fn clock_getres(clk_id: ::clockid_t, tp: *mut ::timespec) -> ::c_int;
-    pub fn clock_gettime(clk_id: ::clockid_t, tp: *mut ::timespec) -> ::c_int;
-    pub fn clock_settime(
-        clk_id: ::clockid_t,
-        tp: *const ::timespec,
-    ) -> ::c_int;
+    pub fn mprotect(addr: *mut ::c_void, len: ::size_t, prot: ::c_int) -> ::c_int;
 
     pub fn setutxdb(_type: ::c_uint, file: *mut ::c_char) -> ::c_int;
 
-    pub fn aio_waitcomplete(
-        iocbp: *mut *mut aiocb,
-        timeout: *mut ::timespec,
+    pub fn aio_waitcomplete(iocbp: *mut *mut aiocb, timeout: *mut ::timespec) -> ::c_int;
+
+    pub fn waitid(
+        idtype: idtype_t,
+        id: ::id_t,
+        infop: *mut ::siginfo_t,
+        options: ::c_int,
     ) -> ::c_int;
 
     pub fn freelocale(loc: ::locale_t);
@@ -1086,6 +1092,33 @@ extern "C" {
     pub fn statfs(path: *const ::c_char, buf: *mut statfs) -> ::c_int;
     pub fn fstatfs(fd: ::c_int, buf: *mut statfs) -> ::c_int;
     pub fn uname(buf: *mut ::utsname) -> ::c_int;
+    pub fn memmem(
+        haystack: *const ::c_void,
+        haystacklen: ::size_t,
+        needle: *const ::c_void,
+        needlelen: ::size_t,
+    ) -> *mut ::c_void;
+}
+
+#[link(name = "rt")]
+extern "C" {
+    pub fn aio_cancel(fd: ::c_int, aiocbp: *mut aiocb) -> ::c_int;
+    pub fn aio_error(aiocbp: *const aiocb) -> ::c_int;
+    pub fn aio_fsync(op: ::c_int, aiocbp: *mut aiocb) -> ::c_int;
+    pub fn aio_read(aiocbp: *mut aiocb) -> ::c_int;
+    pub fn aio_return(aiocbp: *mut aiocb) -> ::ssize_t;
+    pub fn aio_suspend(
+        aiocb_list: *const *const aiocb,
+        nitems: ::c_int,
+        timeout: *const ::timespec,
+    ) -> ::c_int;
+    pub fn aio_write(aiocbp: *mut aiocb) -> ::c_int;
+    pub fn lio_listio(
+        mode: ::c_int,
+        aiocb_list: *const *mut aiocb,
+        nitems: ::c_int,
+        sevp: *mut sigevent,
+    ) -> ::c_int;
 }
 
 cfg_if! {

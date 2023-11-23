@@ -19,4 +19,16 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="album_art" msgid="3392647029019061691">"Ảnh bìa album"</string>
     <string name="metadata_default_title" msgid="5902775732281325081">"Không có tiêu đề"</string>
+    <string name="default_error_message" msgid="4044331619453864482">"Đã xảy ra lỗi. Hãy thử lại sau."</string>
+    <string name="error_code_app_error" msgid="3608680401453743688">"Không thể thực hiện yêu cầu đó ngay bây giờ"</string>
+    <string name="error_code_not_supported" msgid="8004310657548193089">"Ứng dụng này không thể thực hiện yêu cầu đó"</string>
+    <string name="error_code_authentication_expired" msgid="1727285213286610186">"Hãy đăng nhập để dùng ứng dụng này"</string>
+    <string name="error_code_premium_account_required" msgid="2328664287270814966">"Yêu cầu quyền truy cập đặc biệt"</string>
+    <string name="error_code_concurrent_stream_limit" msgid="493048763425570552">"Đang nghe trên quá nhiều thiết bị"</string>
+    <string name="error_code_parental_control_restricted" msgid="325145513462419399">"Nội dung đó đã bị chặn"</string>
+    <string name="error_code_not_available_in_region" msgid="5840935836875073145">"Không thể xem nội dung đó tại đây"</string>
+    <string name="error_code_content_already_playing" msgid="1306236349553004461">"Đang phát nội dung đó rồi"</string>
+    <string name="error_code_skip_limit_reached" msgid="4203743406433151146">"Không thể bỏ qua bản nhạc nào nữa"</string>
+    <string name="error_code_action_aborted" msgid="8611777981356536501">"Không thể hoàn tất. Hãy thử lại."</string>
+    <string name="error_code_end_of_queue" msgid="6935022448319288887">"Không có nội dung nào khác trong hàng đợi"</string>
 </resources>

@@ -23,7 +23,6 @@ import static org.robolectric.RuntimeEnvironment.application;
 
 import android.accounts.AccountManager;
 import android.accounts.AuthenticatorDescription;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.SyncAdapterType;
 
 import com.android.car.settings.R;
@@ -34,7 +33,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
@@ -53,9 +51,6 @@ public class AccountTypesHelperTest {
     private static final String ACCOUNT_TYPE_3 = "com.acct3";
 
     private AccountTypesHelper mHelper;
-
-    @Mock
-    private CarUserManagerHelper mMockCarUserManagerHelper;
 
     private AccountManager mAccountManager = AccountManager.get(application);
 

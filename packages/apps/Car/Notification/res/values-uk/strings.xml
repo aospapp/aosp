@@ -41,4 +41,5 @@
       <item quantity="many"><xliff:g id="COUNT">%d</xliff:g> нових повідомлень</item>
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> нового повідомлення</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"Керувати"</string>
 </resources>

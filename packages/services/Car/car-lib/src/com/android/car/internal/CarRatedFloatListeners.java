@@ -111,6 +111,11 @@ public class CarRatedFloatListeners<T> {
     public boolean needUpdateForSelectedListener(T listener, long eventTimeStamp) {
         Long nextUpdateTime = mListenersUpdateTime.get(listener);
         Float updateRate = mListenersToRate.get(listener);
+        // Can not find listener in maps.
+        if (nextUpdateTime == null || updateRate == null) {
+            return false;
+        }
+
         /** Update ON_CHANGE property. */
         if (updateRate == 0) {
             return true;

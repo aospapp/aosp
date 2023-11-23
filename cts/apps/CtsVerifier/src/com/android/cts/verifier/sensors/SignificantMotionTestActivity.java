@@ -198,7 +198,7 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
         SuspendStateMonitor suspendStateMonitor = new SuspendStateMonitor();
 
         Intent intent = new Intent(this, AlarmReceiver.class);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, intent, 0);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
         AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
         am.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,

@@ -18,7 +18,7 @@
 # TODO: Add broadcastradio@.2.0 back once it's stable b/145694104
 PRODUCT_PACKAGES += \
     android.hardware.automotive.vehicle@2.0-service \
-    android.hardware.automotive.audiocontrol@2.0-service \
+    android.hardware.audio.service-caremu
 
 # Emulator configuration
 PRODUCT_COPY_FILES += \
@@ -29,17 +29,21 @@ PRODUCT_COPY_FILES += \
     packages/services/Car/car_product/init/init.bootstat.rc:root/init.bootstat.rc \
     packages/services/Car/car_product/init/init.car.rc:root/init.car.rc
 
-# Copy car_core_hardware and overwrite handheld_core_hardware.xml with a dummy config.
-# Overwrite goldfish related xml with a dummy config.
+# Copy car_core_hardware and overwrite handheld_core_hardware.xml with a disable config.
+# Overwrite goldfish related xml with a disable config.
 PRODUCT_COPY_FILES += \
-    device/generic/car/common/android.hardware.dummy.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml \
     device/generic/car/common/car_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/car_core_hardware.xml \
-    device/generic/car/common/android.hardware.dummy.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.ar.xml \
-    device/generic/car/common/android.hardware.dummy.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.autofocus.xml \
-    device/generic/car/common/android.hardware.dummy.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.full.xml \
-    device/generic/car/common/android.hardware.dummy.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.front.xml \
-    device/generic/car/common/android.hardware.dummy.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.any.xml \
-    device/generic/car/common/android.hardware.dummy.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.fingerprint.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.ar.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.autofocus.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.concurrent.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.full.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.front.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.any.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.flash-autofocus.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.raw.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.fingerprint.xml \
+    device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.direct.xml \
 
 # Enable landscape
 PRODUCT_COPY_FILES += \
@@ -63,14 +67,7 @@ PRODUCT_COPY_FILES += \
 # Sensor features
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.sensor.accelerometer.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.accelerometer.xml \
-    frameworks/native/data/etc/android.hardware.sensor.barometer.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.barometer.xml \
-    frameworks/native/data/etc/android.hardware.sensor.compass.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.compass.xml \
     frameworks/native/data/etc/android.hardware.sensor.gyroscope.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.gyroscope.xml \
-    frameworks/native/data/etc/android.hardware.sensor.light.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.light.xml \
-    frameworks/native/data/etc/android.hardware.sensor.proximity.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.proximity.xml \
-    frameworks/native/data/etc/android.hardware.sensor.ambient_temperature.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.ambient_temperature.xml \
-    frameworks/native/data/etc/android.hardware.sensor.relative_humidity.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.relative_humidity.xml \
-	frameworks/native/data/etc/android.hardware.sensor.hinge_angle.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.hinge_angle.xml \
 
 # Copy APN configs
 PRODUCT_COPY_FILES += \
@@ -81,12 +78,14 @@ PRODUCT_COPY_FILES += \
 PRODUCT_COPY_FILES += \
   device/generic/car/common/preinstalled-packages-product-car-emulator.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/preinstalled-packages-product-car-emulator.xml
 
-# Number of pre-created users
-PRODUCT_SYSTEM_DEFAULT_PROPERTIES := \
-    android.car.number_pre_created_users=1 \
-    android.car.number_pre_created_guests=1
-
 # Additional selinux policy
 BOARD_SEPOLICY_DIRS += device/generic/car/common/sepolicy
+
+#
+# Special settings for GSI releasing
+#
+ifneq (,$(filter aosp_car_x86_64 aosp_car_arm64,$(TARGET_PRODUCT)))
+$(call inherit-product, $(SRC_TARGET_DIR)/product/gsi_release.mk)
+endif
 
 $(call inherit-product, packages/services/Car/car_product/build/car.mk)

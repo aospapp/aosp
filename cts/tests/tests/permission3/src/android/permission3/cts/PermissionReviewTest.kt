@@ -28,6 +28,7 @@ import android.support.test.uiautomator.By
 import androidx.test.runner.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assume
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,6 +37,12 @@ import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 class PermissionReviewTest : BaseUsePermissionTest() {
+
+    @Before
+    fun assumeNotIndividuallyControlled() {
+        Assume.assumeFalse(packageManager.arePermissionsIndividuallyControlled())
+    }
+
     @Before
     fun installApp22CalendarOnly() {
         installPackage(APP_APK_PATH_22_CALENDAR_ONLY)

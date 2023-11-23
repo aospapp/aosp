@@ -20,10 +20,11 @@
  */
 
 #include <jni.h>
-#include <nativehelper/JNIHelp.h>
 
 #include <stdbool.h>
 #include <string.h>
+
+#include "helper.h"
 
 // public static native void nop();
 static void StaticNonce_nop(JNIEnv *env, jclass clazz) {
@@ -106,7 +107,7 @@ static jobjectArray StaticNonce_returnStringArray(JNIEnv *env, jclass clazz) {
     }
 
     if (stringClass == NULL) {
-        jniThrowException(env, "java/lang/AssertionError",
+        throwException(env, "java/lang/AssertionError",
                 "class String not found");
         return NULL;
     }
@@ -149,7 +150,7 @@ static jobject StaticNonce_returnInstance(JNIEnv *env, jclass clazz) {
     }
     
     if (id == NULL) {
-        jniThrowException(env, "java/lang/AssertionError",
+        throwException(env, "java/lang/AssertionError",
                 "constructor not found");
         return NULL;
     }
@@ -251,7 +252,7 @@ static jboolean StaticNonce_takeOneOfEach(JNIEnv *env, jclass clazz,
     length = (*env)->GetStringUTFLength(env, v6);
 
     if (length != 3) {
-        jniThrowException(env, "java/lang/AssertionError",
+        throwException(env, "java/lang/AssertionError",
                 "bad string length");
         return false;
     }
@@ -267,7 +268,7 @@ static jboolean StaticNonce_takeOneOfEach(JNIEnv *env, jclass clazz,
 
     length = (*env)->GetArrayLength(env, v9);
     if (length != 2) {
-        jniThrowException(env, "java/lang/AssertionError",
+        throwException(env, "java/lang/AssertionError",
                 "bad array length");
         return false;
     }
@@ -362,7 +363,7 @@ static JNINativeMethod methods[] = {
 };
 
 int register_StaticNonce(JNIEnv *env) {
-    return jniRegisterNativeMethods(
+    return registerJniMethods(
             env, "android/jni/cts/StaticNonce",
             methods, sizeof(methods) / sizeof(JNINativeMethod));
 }

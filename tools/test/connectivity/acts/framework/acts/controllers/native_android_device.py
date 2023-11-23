@@ -24,7 +24,7 @@ import time
 
 #TODO(tturney): Merge this into android device
 
-ACTS_CONTROLLER_CONFIG_NAME = "NativeAndroidDevice"
+MOBLY_CONTROLLER_CONFIG_NAME = "NativeAndroidDevice"
 ACTS_CONTROLLER_REFERENCE_NAME = "native_android_devices"
 
 

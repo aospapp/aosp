@@ -1,9 +1,11 @@
 /*
  * strcpy
  *
- * Copyright (c) 2008-2019, Arm Limited.
+ * Copyright (c) 2008-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
+
+#if defined (__thumb2__) && !defined (__thumb__)
 
 /* For GLIBC:
 #include <string.h>
@@ -127,3 +129,5 @@ __strcpy_arm (char* dst, const char* src)
        "BX LR");
 }
 /* For GLIBC: libc_hidden_builtin_def (strcpy) */
+
+#endif /* defined (__thumb2__) && !defined (__thumb__)  */

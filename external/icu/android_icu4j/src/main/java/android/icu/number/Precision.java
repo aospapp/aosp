@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2017 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.number;
 
 import java.math.BigDecimal;
@@ -353,6 +353,13 @@ public abstract class Precision {
     // PACKAGE-PRIVATE APIS //
     //////////////////////////
 
+    /**
+     * @deprecated ICU internal only.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public static final BogusRounder BOGUS_PRECISION = new BogusRounder();
+
     static final InfiniteRounderImpl NONE = new InfiniteRounderImpl();
 
     static final FractionRounderImpl FIXED_FRAC_0 = new FractionRounderImpl(0, 0);
@@ -369,8 +376,6 @@ public abstract class Precision {
 
     static final CurrencyRounderImpl MONETARY_STANDARD = new CurrencyRounderImpl(CurrencyUsage.STANDARD);
     static final CurrencyRounderImpl MONETARY_CASH = new CurrencyRounderImpl(CurrencyUsage.CASH);
-
-    static final PassThroughRounderImpl PASS_THROUGH = new PassThroughRounderImpl();
 
     static Precision constructInfinite() {
         return NONE;
@@ -460,10 +465,6 @@ public abstract class Precision {
         return returnValue.withMode(base.mathContext);
     }
 
-    static Precision constructPassThrough() {
-        return PASS_THROUGH;
-    }
-
     /**
      * Returns a valid working Rounder. If the Rounder is a CurrencyRounder, applies the given currency.
      * Otherwise, simply passes through the argument.
@@ -537,6 +538,56 @@ public abstract class Precision {
     ///////////////
     // INTERNALS //
     ///////////////
+
+    /**
+     * An BogusRounder's MathContext into precision.
+     *
+     * @deprecated This API is ICU internal only.
+     * @hide Only a subset of ICU is exposed in Android
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    @Deprecated
+    public static class BogusRounder extends Precision {
+        /**
+         * Default constructor.
+         * @deprecated This API is ICU internal only.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        @Deprecated
+        public BogusRounder() {
+        }
+
+        /**
+         * {@inheritDoc}
+         * @deprecated This API is ICU internal only.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        @Override
+        @Deprecated
+        public void apply(DecimalQuantity value) {
+            throw new AssertionError("BogusRounder must not be applied");
+        }
+
+        @Override
+        BogusRounder createCopy() {
+            BogusRounder copy = new BogusRounder();
+            copy.mathContext = mathContext;
+            return copy;
+        }
+
+        /**
+         * Copies the BogusRounder's MathContext into precision.
+         *
+         * @deprecated This API is ICU internal only.
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        @Deprecated
+        public Precision into(Precision precision) {
+            Precision copy = precision.createCopy();
+            copy.mathContext = mathContext;
+            return copy;
+        }
+    }
 
     static class InfiniteRounderImpl extends Precision {
 
@@ -752,24 +803,6 @@ public abstract class Precision {
             CurrencyRounderImpl copy = new CurrencyRounderImpl(usage);
             copy.mathContext = mathContext;
             return copy;
-        }
-    }
-
-    static class PassThroughRounderImpl extends Precision {
-
-        public PassThroughRounderImpl() {
-        }
-
-        @Override
-        Precision createCopy() {
-            PassThroughRounderImpl copy = new PassThroughRounderImpl();
-            copy.mathContext = mathContext;
-            return copy;
-        }
-
-        @Override
-        public void apply(DecimalQuantity value) {
-            // TODO: Assert that value has already been rounded
         }
     }
 

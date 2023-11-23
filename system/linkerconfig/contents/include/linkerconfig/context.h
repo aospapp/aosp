@@ -15,9 +15,6 @@
  */
 #pragma once
 
-#include <functional>
-#include <map>
-#include <optional>
 #include <string>
 
 #include "linkerconfig/basecontext.h"
@@ -25,10 +22,6 @@
 namespace android {
 namespace linkerconfig {
 namespace contents {
-
-class Context;
-using ApexNamespaceBuilder =
-    std::function<modules::Namespace(const Context&, const modules::ApexInfo&)>;
 
 enum class SectionType {
   System,
@@ -41,7 +34,6 @@ enum class SectionType {
 enum class LinkerConfigType {
   Default,
   Legacy,
-  Vndklite,
   Recovery,
   ApexBinary,
 };
@@ -50,21 +42,23 @@ class Context : public modules::BaseContext {
  public:
   Context()
       : current_section_(SectionType::System),
-        current_linkerconfig_type_(LinkerConfigType::Default) {
+        current_linkerconfig_type_(LinkerConfigType::Default),
+        current_apex_(nullptr) {
   }
   bool IsSystemSection() const;
   bool IsVendorSection() const;
   bool IsProductSection() const;
   bool IsUnrestrictedSection() const;
+  const modules::ApexInfo& GetCurrentApex() const;
 
   bool IsDefaultConfig() const;
   bool IsLegacyConfig() const;
-  bool IsVndkliteConfig() const;
   bool IsRecoveryConfig() const;
   bool IsApexBinaryConfig() const;
 
   void SetCurrentSection(SectionType value);
   void SetCurrentLinkerConfigType(LinkerConfigType value);
+  void SetCurrentApex(const modules::ApexInfo* apex);
 
   // Returns true if vndk apex is available
   bool IsVndkAvailable() const;
@@ -72,18 +66,12 @@ class Context : public modules::BaseContext {
   // Returns the namespace that covers /system/${LIB}.
   std::string GetSystemNamespaceName() const;
 
-  modules::Namespace BuildApexNamespace(const modules::ApexInfo& apex_info,
-                                        bool visible) const override;
-  void RegisterApexNamespaceBuilder(const std::string& name,
-                                    ApexNamespaceBuilder builder);
-
   bool IsSectionVndkEnabled() const;
 
  private:
-  std::map<std::string, ApexNamespaceBuilder> builders_;
-
   SectionType current_section_;
   LinkerConfigType current_linkerconfig_type_;
+  const modules::ApexInfo* current_apex_;
 };
 
 std::string Var(const std::string& name);

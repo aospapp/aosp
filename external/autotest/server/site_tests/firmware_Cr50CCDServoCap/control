@@ -7,10 +7,10 @@ from autotest_lib.server import utils
 AUTHOR = "mruthven"
 NAME = "firmware_Cr50CCDServoCap"
 PURPOSE = "Verify uart control"
-ATTRIBUTES = "suite:faft_cr50_pvt, suite:faft_cr50_prepvt"
+ATTRIBUTES = "suite:faft_cr50_pvt, suite:faft_cr50_prepvt, suite:infra_qual"
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Verify cr50 handles enabling/disabling uart, i2c, and spi if servo is

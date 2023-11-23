@@ -18,7 +18,9 @@
 #define HARDWARE_GOOGLE_CAMERA_HAL_UTILS_UTILS_H_
 
 #include <log/log.h>
+
 #include <utility>
+
 #include "hal_types.h"
 
 namespace android {
@@ -35,11 +37,14 @@ bool IsYUVSnapshotStream(const Stream& stream);
 bool IsDepthStream(const Stream& stream);
 bool IsOutputZslStream(const Stream& stream);
 
+bool HasCapability(const HalCameraMetadata* metadata, uint8_t capability);
+
 status_t GetSensorPhysicalSize(const HalCameraMetadata* characteristics,
                                float* width, float* height);
 
 status_t GetSensorActiveArraySize(const HalCameraMetadata* characteristics,
-                                  Rect* active_array);
+                                  Rect* active_array,
+                                  bool maximum_resolution = false);
 
 status_t GetSensorPixelArraySize(const HalCameraMetadata* characteristics,
                                  Dimension* pixel_array);
@@ -65,6 +70,11 @@ bool IsHighSpeedModeFpsCompatible(StreamConfigurationMode mode,
 //    For ANDROID_CONTROL_AE_TARGET_FPS_RANGE, only compare max fps.
 bool IsSessionParameterCompatible(const HalCameraMetadata* old_session,
                                   const HalCameraMetadata* new_session);
+
+bool SupportRealtimeThread();
+status_t SetRealtimeThread(pthread_t thread);
+status_t UpdateThreadSched(pthread_t thread, int32_t policy,
+                           struct sched_param* param);
 
 // Map the rectangle to the coordination of HAL.
 void ConvertZoomRatio(float zoom_ratio, const Dimension& active_array_dimension,
@@ -125,6 +135,8 @@ void RevertZoomRatio(const float zoom_ratio,
   }
   ClampBoundary(active_array_dimension, x, y, width, height);
 }
+
+std::vector<std::string> FindLibraryPaths(const char* dir_path);
 
 }  // namespace utils
 }  // namespace google_camera_hal

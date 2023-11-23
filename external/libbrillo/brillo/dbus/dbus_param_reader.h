@@ -51,9 +51,9 @@ struct DBusParamReader<allow_out_params, CurrentParam, RestOfParams...> {
   //  method_call - D-Bus method call object we are processing.
   //  reader      - D-Bus message reader to pop the current argument value from.
   //  args...     - the callback parameters processed so far.
-  template<typename CallbackType, typename... Args>
+  template <typename CallbackType, typename... Args>
   static bool Invoke(const CallbackType& handler,
-                     dbus::MessageReader* reader,
+                     ::dbus::MessageReader* reader,
                      ErrorPtr* error,
                      const Args&... args) {
     return InvokeHelper<CurrentParam, CallbackType, Args...>(
@@ -70,10 +70,10 @@ struct DBusParamReader<allow_out_params, CurrentParam, RestOfParams...> {
   // parameters should be sent back in the method call response message.
 
   // Overload 1: ParamType is not a pointer.
-  template<typename ParamType, typename CallbackType, typename... Args>
+  template <typename ParamType, typename CallbackType, typename... Args>
   static typename std::enable_if<!std::is_pointer<ParamType>::value, bool>::type
   InvokeHelper(const CallbackType& handler,
-               dbus::MessageReader* reader,
+               ::dbus::MessageReader* reader,
                ErrorPtr* error,
                const Args&... args) {
     if (!reader->HasMoreData()) {
@@ -112,13 +112,14 @@ struct DBusParamReader<allow_out_params, CurrentParam, RestOfParams...> {
   }
 
   // Overload 2: ParamType is a pointer.
-  template<typename ParamType, typename CallbackType, typename... Args>
+  template <typename ParamType, typename CallbackType, typename... Args>
   static typename std::enable_if<allow_out_params &&
-                                 std::is_pointer<ParamType>::value, bool>::type
-      InvokeHelper(const CallbackType& handler,
-                   dbus::MessageReader* reader,
-                   ErrorPtr* error,
-                   const Args&... args) {
+                                     std::is_pointer<ParamType>::value,
+                                 bool>::type
+  InvokeHelper(const CallbackType& handler,
+               ::dbus::MessageReader* reader,
+               ErrorPtr* error,
+               const Args&... args) {
     // ParamType is a pointer. This is expected to be an output parameter.
     // Create storage for it and the handler will provide a value for it.
     using ParamValueType = typename std::remove_pointer<ParamType>::type;
@@ -143,9 +144,9 @@ struct DBusParamReader<allow_out_params, CurrentParam, RestOfParams...> {
 // handler with all the accumulated arguments.
 template<bool allow_out_params>
 struct DBusParamReader<allow_out_params> {
-  template<typename CallbackType, typename... Args>
+  template <typename CallbackType, typename... Args>
   static bool Invoke(const CallbackType& handler,
-                     dbus::MessageReader* reader,
+                     ::dbus::MessageReader* reader,
                      ErrorPtr* error,
                      const Args&... args) {
     if (reader->HasMoreData()) {

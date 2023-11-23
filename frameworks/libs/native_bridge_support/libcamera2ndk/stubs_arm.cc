@@ -45,6 +45,7 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraManager_unregisterAvailabilityCallback
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraManager_unregisterExtendedAvailabilityCallback);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraMetadata_copy);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraMetadata_free);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraMetadata_fromCameraMetadata);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraMetadata_getAllTags);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraMetadata_getConstEntry);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ACameraMetadata_isLogicalMultiCamera);
@@ -111,6 +112,7 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraManager_unregisterExtendedAvailabilityCallback);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraMetadata_copy);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraMetadata_free);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraMetadata_fromCameraMetadata);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraMetadata_getAllTags);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraMetadata_getConstEntry);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libcamera2ndk.so", ACameraMetadata_isLogicalMultiCamera);

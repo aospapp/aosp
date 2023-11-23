@@ -17,13 +17,9 @@ package com.android.car.settings.common;
 
 import android.app.Activity;
 import android.car.Car;
-import android.car.CarNotConnectedException;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.ServiceConnection;
-import android.os.IBinder;
 
 import androidx.annotation.Nullable;
 
@@ -47,42 +43,34 @@ public class CarUxRestrictionsHelper {
             throw new IllegalArgumentException("Listener cannot be null.");
         }
         mListener = listener;
-        mCar = Car.createCar(context, mServiceConnection);
-    };
-
-    /**
-     * Starts monitoring any changes in {@link CarUxRestrictions}.
-     *
-     * <p>This method can be called from {@code Activity}'s {@link Activity#onStart()}, or at the
-     * time of construction.
-     *
-     * <p>This method must be accompanied with a matching {@link #stop()} to avoid leak.
-     */
-    public void start() {
-        try {
-            if (mCar != null && !mCar.isConnected()) {
-                mCar.connect();
-            }
-        } catch (IllegalStateException e) {
-            // Do nothing.
-            LOG.w("start(); cannot connect to Car");
+        mCar = Car.createCar(context);
+        mCarUxRestrictionsManager = (CarUxRestrictionsManager)
+                mCar.getCarManager(Car.CAR_UX_RESTRICTION_SERVICE);
+        if (mCarUxRestrictionsManager != null) {
+            mCarUxRestrictionsManager.registerListener(mListener);
+            mListener.onUxRestrictionsChanged(
+                    mCarUxRestrictionsManager.getCurrentCarUxRestrictions());
         }
     }
 
     /**
      * Stops monitoring any changes in {@link CarUxRestrictions}.
      *
-     * <p>This method should be called from {@code Activity}'s {@link Activity#onStop()}, or at the
-     * time of this adapter being discarded.
+     * <p>This method should be called from {@code Activity}'s {@link Activity#onDestroy()}, or at
+     * the time of this adapter being discarded.
      */
-    public void stop() {
+    public void destroy() {
         try {
             if (mCar != null && mCar.isConnected()) {
                 mCar.disconnect();
             }
         } catch (IllegalStateException e) {
             // Do nothing.
-            LOG.w("stop(); cannot disconnect from Car");
+            LOG.w("destroy(); cannot disconnect from Car");
+        }
+        if (mCarUxRestrictionsManager != null) {
+            mCarUxRestrictionsManager.unregisterListener();
+            mCarUxRestrictionsManager = null;
         }
     }
 
@@ -94,30 +82,4 @@ public class CarUxRestrictionsHelper {
                 & CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP)
                 == CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP;
     }
-
-    private final ServiceConnection mServiceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            try {
-                mCarUxRestrictionsManager = (CarUxRestrictionsManager)
-                        mCar.getCarManager(Car.CAR_UX_RESTRICTION_SERVICE);
-                mCarUxRestrictionsManager.registerListener(mListener);
-
-                mListener.onUxRestrictionsChanged(
-                        mCarUxRestrictionsManager.getCurrentCarUxRestrictions());
-            } catch (CarNotConnectedException e) {
-                e.printStackTrace();
-            }
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            try {
-                mCarUxRestrictionsManager.unregisterListener();
-                mCarUxRestrictionsManager = null;
-            } catch (CarNotConnectedException e) {
-                e.printStackTrace();
-            }
-        }
-    };
 }

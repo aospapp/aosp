@@ -27,7 +27,6 @@ import com.android.car.settings.common.SettingsFragment;
 import com.android.car.settings.search.CarBaseSearchIndexProvider;
 import com.android.settingslib.search.SearchIndexable;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /** Fragment for all wifi/mobile data connectivity preferences. */
@@ -45,16 +44,15 @@ public class NetworkAndInternetFragment extends SettingsFragment {
                     Settings.Panel.ACTION_INTERNET_CONNECTIVITY) {
                 @Override
                 public List<String> getNonIndexableKeys(Context context) {
+                    List<String> nonIndexableKeys = super.getNonIndexableKeys(context);
                     if (!NetworkUtils.hasMobileNetwork(
                             context.getSystemService(ConnectivityManager.class))) {
-                        List<String> nonIndexableKeys = new ArrayList<>();
                         nonIndexableKeys.add(
                                 context.getString(R.string.pk_mobile_network_settings_entry));
                         nonIndexableKeys.add(
                                 context.getString(R.string.pk_data_usage_settings_entry));
-                        return nonIndexableKeys;
                     }
-                    return null;
+                    return nonIndexableKeys;
                 }
             };
 }

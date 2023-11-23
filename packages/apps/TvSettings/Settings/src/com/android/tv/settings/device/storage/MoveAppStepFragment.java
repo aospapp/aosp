@@ -27,7 +27,7 @@ import android.text.format.Formatter;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
@@ -36,7 +36,7 @@ import com.android.tv.settings.R;
 import java.io.File;
 import java.util.List;
 
-public class MoveAppStepFragment extends GuidedStepFragment {
+public class MoveAppStepFragment extends GuidedStepSupportFragment {
 
     private static final String TAG = "MoveAppStepFragment";
 

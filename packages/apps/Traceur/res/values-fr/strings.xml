@@ -16,10 +16,13 @@
     <string name="applications" msgid="521776761270770549">"Applications"</string>
     <string name="no_debuggable_apps" msgid="4386209254520471208">"Aucune application pouvant être déboguée n\'est disponible"</string>
     <string name="buffer_size" msgid="3944311026715111454">"Taille de la mémoire tampon par processeur"</string>
-    <string name="show_quick_settings_tile" msgid="4971147332635291585">"Afficher la fenêtre de configuration rapide"</string>
+    <string name="show_quick_settings_tile" msgid="4971147332635291585">"Afficher le bloc Réglages rapides"</string>
     <string name="saving_trace" msgid="1468692734770800541">"Enregistrement de la trace…"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Trace enregistrée"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"Appuyez pour partager votre trace"</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"Ajout de la trace au rapport de bug…"</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"Trace jointe au rapport de bug"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"Appuyez pour ouvrir BetterBug"</string>
     <string name="stop_tracing" msgid="8916938308534164152">"Arrêter le traçage"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Certaines catégories de traçage ne sont pas disponibles :"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"L\'enregistrement de la trace est en cours"</string>
@@ -56,4 +59,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16 384 Ko"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32 768 Ko"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65 536 Ko"</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"Arrêter le traçage en cas de rapport de bug"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Met fin aux sessions de traçage actives lorsqu\'un rapport de bug est lancé"</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"Joindre les traces aux rapports de bug"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Envoyer automatiquement les traces en cours à BetterBug quand un rapport de bug est collecté"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"Afficher les fichiers de suivi"</string>
 </resources>

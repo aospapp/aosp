@@ -16,8 +16,9 @@
 #include <memory>
 #include <unordered_map>
 
-#include "hci/acl_manager.h"
+#include "hci/acl_manager/classic_acl_connection.h"
 #include "hci/address.h"
+#include "hci/class_of_device.h"
 #include "l2cap/classic/internal/link.h"
 #include "l2cap/internal/scheduler_fifo.h"
 #include "os/log.h"
@@ -52,11 +53,8 @@ void LinkManager::ConnectFixedChannelServices(hci::Address device,
         // This channel is already allocated for this link, do not allocated twice
         continue;
       }
-      if (fixed_channel_service.first == kClassicPairingTriggerCid) {
-        this->TriggerPairing(link);
-      }
       // Allocate channel for newly registered fixed channels
-      auto fixed_channel_impl = link->AllocateFixedChannel(fixed_channel_service.first, SecurityPolicy());
+      auto fixed_channel_impl = link->AllocateFixedChannel(fixed_channel_service.first);
       fixed_channel_service.second->NotifyChannelCreation(
           std::make_unique<FixedChannel>(fixed_channel_impl, l2cap_handler_));
       num_new_channels++;
@@ -86,6 +84,9 @@ void LinkManager::ConnectFixedChannelServices(hci::Address device,
 
 void LinkManager::ConnectDynamicChannelServices(
     hci::Address device, Link::PendingDynamicChannelConnection pending_dynamic_channel_connection, Psm psm) {
+  if (!IsPsmValid(psm)) {
+    return;
+  }
   auto* link = GetLink(device);
   if (link == nullptr) {
     acl_manager_->CreateConnection(device);
@@ -98,14 +99,40 @@ void LinkManager::ConnectDynamicChannelServices(
     }
     return;
   }
-  if (dynamic_channel_service_manager_->GetService(psm)->GetSecurityPolicy().RequiresAuthentication() &&
-      !link->IsAuthenticated()) {
-    link->AddChannelPendingingAuthentication(
-        {psm, link->ReserveDynamicChannel(), std::move(pending_dynamic_channel_connection)});
-    link->Authenticate();
-    return;
-  }
   link->SendConnectionRequest(psm, link->ReserveDynamicChannel(), std::move(pending_dynamic_channel_connection));
+}
+
+void LinkManager::InitiateConnectionForSecurity(hci::Address remote) {
+  auto* link = GetLink(remote);
+  if (link != nullptr) {
+    LOG_ERROR("Link already exists for %s", remote.ToString().c_str());
+  }
+  acl_manager_->CreateConnection(remote);
+}
+
+void LinkManager::RegisterLinkSecurityInterfaceListener(os::Handler* handler, LinkSecurityInterfaceListener* listener) {
+  link_security_interface_listener_handler_ = handler;
+  link_security_interface_listener_ = listener;
+}
+
+LinkSecurityInterfaceListener* LinkManager::GetLinkSecurityInterfaceListener() {
+  return link_security_interface_listener_;
+}
+
+void LinkManager::RegisterLinkPropertyListener(os::Handler* handler, LinkPropertyListener* listener) {
+  link_property_callback_handler_ = handler;
+  link_property_listener_ = listener;
+}
+
+void LinkManager::OnPendingPacketChange(hci::Address remote, int num_packets) {
+  if (disconnected_links_.count(remote) != 0 && num_packets == 0) {
+    links_.erase(remote);
+    links_with_pending_packets_.erase(remote);
+  } else if (num_packets != 0) {
+    links_with_pending_packets_.emplace(remote);
+  } else {
+    links_with_pending_packets_.erase(remote);
+  }
 }
 
 Link* LinkManager::GetLink(const hci::Address device) {
@@ -115,58 +142,146 @@ Link* LinkManager::GetLink(const hci::Address device) {
   return &links_.find(device)->second;
 }
 
-void LinkManager::TriggerPairing(Link* link) {
-  if (!link->IsAuthenticated()) {
-    link->Authenticate();
+void LinkManager::handle_link_security_hold(hci::Address remote) {
+  auto link = GetLink(remote);
+  if (link == nullptr) {
+    LOG_WARN("Remote is disconnected");
+    return;
   }
-  link->ReadRemoteVersionInformation();
-  link->ReadRemoteSupportedFeatures();
-  link->ReadRemoteExtendedFeatures();
-  link->ReadClockOffset();
+  link->AcquireSecurityHold();
 }
 
-void LinkManager::OnConnectSuccess(std::unique_ptr<hci::AclConnection> acl_connection) {
+void LinkManager::handle_link_security_release(hci::Address remote) {
+  auto link = GetLink(remote);
+  if (link == nullptr) {
+    LOG_WARN("Remote is disconnected");
+    return;
+  }
+  link->ReleaseSecurityHold();
+}
+
+void LinkManager::handle_link_security_disconnect(hci::Address remote) {
+  auto link = GetLink(remote);
+  if (link == nullptr) {
+    LOG_WARN("Remote is disconnected");
+    return;
+  }
+  link->Disconnect();
+}
+
+void LinkManager::handle_link_security_ensure_authenticated(hci::Address remote) {
+  auto link = GetLink(remote);
+  if (link == nullptr) {
+    LOG_WARN("Remote is disconnected");
+    return;
+  }
+  link->Authenticate();
+}
+
+void LinkManager::handle_link_security_ensure_encrypted(hci::Address remote) {
+  auto link = GetLink(remote);
+  if (link == nullptr) {
+    LOG_WARN("Remote is disconnected");
+    return;
+  }
+  link->Encrypt();
+}
+
+/**
+ * The implementation for LinkSecurityInterface, which allows the SecurityModule to access some link functionalities.
+ * Note: All public methods implementing this interface are invoked from external context.
+ */
+class LinkSecurityInterfaceImpl : public LinkSecurityInterface {
+ public:
+  LinkSecurityInterfaceImpl(os::Handler* handler, LinkManager* link_manager, Link* link)
+      : handler_(handler),
+        link_manager_(link_manager),
+        remote_(link->GetDevice().GetAddress()),
+        acl_handle_(link->GetAclHandle()) {}
+
+  hci::Address GetRemoteAddress() override {
+    return remote_;
+  }
+
+  void Hold() override {
+    handler_->CallOn(link_manager_, &LinkManager::handle_link_security_hold, remote_);
+  }
+
+  void Release() override {
+    handler_->CallOn(link_manager_, &LinkManager::handle_link_security_release, remote_);
+  }
+
+  void Disconnect() override {
+    handler_->CallOn(link_manager_, &LinkManager::handle_link_security_disconnect, remote_);
+  }
+
+  void EnsureAuthenticated() override {
+    handler_->CallOn(link_manager_, &LinkManager::handle_link_security_ensure_authenticated, remote_);
+  }
+
+  void EnsureEncrypted() override {
+    handler_->CallOn(link_manager_, &LinkManager::handle_link_security_ensure_encrypted, remote_);
+  }
+
+  uint16_t GetAclHandle() override {
+    return acl_handle_;
+  }
+
+  hci::Role GetRole() override {
+    return link_manager_->GetLink(remote_)->GetRole();
+  }
+
+  os::Handler* handler_;
+  LinkManager* link_manager_;
+  hci::Address remote_;
+  uint16_t acl_handle_;
+};
+
+void LinkManager::OnConnectSuccess(std::unique_ptr<hci::acl_manager::ClassicAclConnection> acl_connection) {
   // Same link should not be connected twice
   hci::Address device = acl_connection->GetAddress();
   ASSERT_LOG(GetLink(device) == nullptr, "%s is connected twice without disconnection",
              acl_connection->GetAddress().ToString().c_str());
-  // Register ACL disconnection callback in LinkManager so that we can clean up link resource properly
-  acl_connection->RegisterDisconnectCallback(
-      common::BindOnce(&LinkManager::OnDisconnect, common::Unretained(this), device), l2cap_handler_);
   links_.try_emplace(device, l2cap_handler_, std::move(acl_connection), parameter_provider_,
-                     dynamic_channel_service_manager_, fixed_channel_service_manager_);
+                     dynamic_channel_service_manager_, fixed_channel_service_manager_, this);
   auto* link = GetLink(device);
   ASSERT(link != nullptr);
   link->SendInformationRequest(InformationRequestInfoType::EXTENDED_FEATURES_SUPPORTED);
   link->SendInformationRequest(InformationRequestInfoType::FIXED_CHANNELS_SUPPORTED);
+  link->ReadRemoteVersionInformation();
+  link->ReadRemoteSupportedFeatures();
+  link->ReadRemoteExtendedFeatures(1);
 
   // Allocate and distribute channels for all registered fixed channel services
   auto fixed_channel_services = fixed_channel_service_manager_->GetRegisteredServices();
   for (auto& fixed_channel_service : fixed_channel_services) {
-    auto fixed_channel_impl = link->AllocateFixedChannel(fixed_channel_service.first, SecurityPolicy());
+    auto fixed_channel_impl = link->AllocateFixedChannel(fixed_channel_service.first);
     fixed_channel_service.second->NotifyChannelCreation(
         std::make_unique<FixedChannel>(fixed_channel_impl, l2cap_handler_));
-    if (fixed_channel_service.first == kClassicPairingTriggerCid) {
-      this->TriggerPairing(link);
-    }
   }
   if (pending_dynamic_channels_.find(device) != pending_dynamic_channels_.end()) {
-    for (Psm psm : pending_dynamic_channels_[device]) {
-      auto& callbacks = pending_dynamic_channels_callbacks_[device].front();
-      link->SendConnectionRequest(psm, link->ReserveDynamicChannel(), std::move(callbacks));
-      pending_dynamic_channels_callbacks_[device].pop_front();
-    }
+    auto psm_list = pending_dynamic_channels_[device];
+    auto& callback_list = pending_dynamic_channels_callbacks_[device];
+    link->SetPendingDynamicChannels(psm_list, std::move(callback_list));
     pending_dynamic_channels_.erase(device);
     pending_dynamic_channels_callbacks_.erase(device);
   }
-  // Remove device from pending links list, if any
-  auto pending_link = pending_links_.find(device);
-  if (pending_link == pending_links_.end()) {
-    // This an incoming connection, exit
-    return;
+  // Notify link property listener
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_, &LinkPropertyListener::OnLinkConnected, device, link->GetAclHandle());
   }
-  // This is an outgoing connection, remove entry in pending link list
-  pending_links_.erase(pending_link);
+
+  // Notify security manager
+  if (link_security_interface_listener_handler_ != nullptr) {
+    link_security_interface_listener_handler_->CallOn(
+        link_security_interface_listener_,
+        &LinkSecurityInterfaceListener::OnLinkConnected,
+        std::make_unique<LinkSecurityInterfaceImpl>(l2cap_handler_, this, link));
+  }
+
+  // Remove device from pending links list, if any
+  pending_links_.erase(device);
 }
 
 void LinkManager::OnConnectFail(hci::Address device, hci::ErrorCode reason) {
@@ -174,14 +289,15 @@ void LinkManager::OnConnectFail(hci::Address device, hci::ErrorCode reason) {
   auto pending_link = pending_links_.find(device);
   if (pending_link == pending_links_.end()) {
     // There is no pending link, exit
-    LOG_DEBUG("Connection to %s failed without a pending link; reason: %s", device.ToString().c_str(),
-              hci::ErrorCodeText(reason).c_str());
+    LOG_INFO(
+        "Connection to %s failed without a pending link; reason: %s",
+        device.ToString().c_str(),
+        hci::ErrorCodeText(reason).c_str());
     if (pending_dynamic_channels_callbacks_.find(device) != pending_dynamic_channels_callbacks_.end()) {
       for (Link::PendingDynamicChannelConnection& callbacks : pending_dynamic_channels_callbacks_[device]) {
-        callbacks.handler_->Post(common::BindOnce(std::move(callbacks.on_fail_callback_),
-                                                  DynamicChannelManager::ConnectionResult{
-                                                      .hci_error = hci::ErrorCode::CONNECTION_TIMEOUT,
-                                                  }));
+        callbacks.on_fail_callback_.Invoke(DynamicChannelManager::ConnectionResult{
+            .hci_error = hci::ErrorCode::CONNECTION_TIMEOUT,
+        });
       }
       pending_dynamic_channels_.erase(device);
       pending_dynamic_channels_callbacks_.erase(device);
@@ -198,12 +314,130 @@ void LinkManager::OnConnectFail(hci::Address device, hci::ErrorCode reason) {
   pending_links_.erase(pending_link);
 }
 
+void LinkManager::HACK_OnEscoConnectRequest(hci::Address device, hci::ClassOfDevice cod) {
+  LOG_ERROR("Remote ESCO connect request unimplemented");
+}
+
+void LinkManager::HACK_OnScoConnectRequest(hci::Address device, hci::ClassOfDevice cod) {
+  LOG_ERROR("Remote SCO connect request unimplemented");
+}
+
 void LinkManager::OnDisconnect(hci::Address device, hci::ErrorCode status) {
   auto* link = GetLink(device);
   ASSERT_LOG(link != nullptr, "Device %s is disconnected with reason 0x%x, but not in local database",
              device.ToString().c_str(), static_cast<uint8_t>(status));
-  link->OnAclDisconnected(status);
-  links_.erase(device);
+  if (link_security_interface_listener_handler_ != nullptr) {
+    link_security_interface_listener_handler_->CallOn(
+        link_security_interface_listener_, &LinkSecurityInterfaceListener::OnLinkDisconnected, device);
+  }
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(link_property_listener_, &LinkPropertyListener::OnLinkDisconnected, device);
+  }
+
+  if (links_with_pending_packets_.count(device) != 0) {
+    disconnected_links_.emplace(device);
+  } else {
+    links_.erase(device);
+  }
+}
+
+void LinkManager::OnAuthenticationComplete(hci::ErrorCode hci_status, hci::Address device) {
+  if (link_security_interface_listener_handler_ != nullptr) {
+    link_security_interface_listener_handler_->CallOn(
+        link_security_interface_listener_,
+        &LinkSecurityInterfaceListener::OnAuthenticationComplete,
+        hci_status,
+        device);
+  }
+}
+
+void LinkManager::OnEncryptionChange(hci::Address device, hci::EncryptionEnabled enabled) {
+  if (link_security_interface_listener_handler_ != nullptr) {
+    link_security_interface_listener_handler_->CallOn(
+        link_security_interface_listener_,
+        &LinkSecurityInterfaceListener::OnEncryptionChange,
+        device,
+        enabled == hci::EncryptionEnabled::ON || enabled == hci::EncryptionEnabled::BR_EDR_AES_CCM);
+  }
+}
+
+void LinkManager::OnReadRemoteVersionInformation(
+    hci::ErrorCode hci_status,
+    hci::Address device,
+    uint8_t lmp_version,
+    uint16_t manufacturer_name,
+    uint16_t sub_version) {
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_,
+        &LinkPropertyListener::OnReadRemoteVersionInformation,
+        hci_status,
+        device,
+        lmp_version,
+        manufacturer_name,
+        sub_version);
+  }
+}
+
+void LinkManager::OnReadRemoteSupportedFeatures(hci::Address device, uint64_t features) {
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_, &LinkPropertyListener::OnReadRemoteSupportedFeatures, device, features);
+  }
+}
+
+void LinkManager::OnReadRemoteExtendedFeatures(
+    hci::Address device, uint8_t page_number, uint8_t max_page_number, uint64_t features) {
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_,
+        &LinkPropertyListener::OnReadRemoteExtendedFeatures,
+        device,
+        page_number,
+        max_page_number,
+        features);
+  }
+}
+
+void LinkManager::OnRoleChange(hci::ErrorCode hci_status, hci::Address remote, hci::Role role) {
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_, &LinkPropertyListener::OnRoleChange, hci_status, remote, role);
+  }
+}
+
+void LinkManager::OnReadClockOffset(hci::Address remote, uint16_t clock_offset) {
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_, &LinkPropertyListener::OnReadClockOffset, remote, clock_offset);
+  }
+}
+
+void LinkManager::OnModeChange(hci::ErrorCode hci_status, hci::Address remote, hci::Mode mode, uint16_t interval) {
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_, &LinkPropertyListener::OnModeChange, hci_status, remote, mode, interval);
+  }
+}
+
+void LinkManager::OnSniffSubrating(
+    hci::ErrorCode hci_status,
+    hci::Address remote,
+    uint16_t max_tx_lat,
+    uint16_t max_rx_lat,
+    uint16_t min_remote_timeout,
+    uint16_t min_local_timeout) {
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_,
+        &LinkPropertyListener::OnSniffSubrating,
+        hci_status,
+        remote,
+        max_tx_lat,
+        max_rx_lat,
+        min_remote_timeout,
+        min_local_timeout);
+  }
 }
 
 }  // namespace internal

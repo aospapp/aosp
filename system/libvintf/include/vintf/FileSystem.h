@@ -45,6 +45,16 @@ class FileSystem {
                                std::string* error) const = 0;
 };
 
+// Interface to a writable filesystem.
+class WritableFileSystem : public FileSystem {
+   public:
+    // Return OK if successful. On error, return -errno, or UNKNOWN_ERROR if unknown.
+    virtual status_t write(const std::string& path, const std::string& content,
+                           std::string* error) const = 0;
+    // Return OK if successful. On error, return -errno, or UNKNOWN_ERROR if unknown.
+    virtual status_t deleteFile(const std::string& path, std::string* error) const = 0;
+};
+
 namespace details {
 
 // Class that actually queries the file system.

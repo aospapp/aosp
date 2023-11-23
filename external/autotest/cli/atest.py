@@ -14,6 +14,8 @@ It then creates a <topic>_<action> object, and calls it parses),
 execute() and output() methods.
 """
 
+from __future__ import print_function
+
 __author__ = 'jmeurin@google.com (Jean-Marc Eurin)'
 
 import os, sys, re, traceback
@@ -90,7 +92,7 @@ def main():
             results = action_obj.execute()
         except topic_common.CliError:
             pass
-        except Exception, err:
+        except Exception as err:
             traceback.print_exc()
             action_obj.generic_error("Unexpected exception: %s" % err)
         else:

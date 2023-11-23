@@ -21,34 +21,13 @@
  *  This is the API implementation file for the BTA device manager.
  *
  ******************************************************************************/
-#include "bta_dm_ci.h"
-#include "bt_common.h"
-#include "bta_api.h"
-#include "bta_dm_int.h"
-#include "bta_sys.h"
-#include "stack/include/btu.h"
-
 #include <base/bind.h>
 #include <memory>
 
-/*******************************************************************************
- *
- * Function         bta_dm_ci_io_req
- *
- * Description      This function must be called in response to function
- *                  bta_dm_co_io_req(), if *p_oob_data to BTA_OOB_UNKNOWN
- *                  by bta_dm_co_io_req().
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_dm_ci_io_req(const RawAddress& bd_addr, tBTA_IO_CAP io_cap,
-                      tBTA_OOB_DATA oob_data, tBTA_AUTH_REQ auth_req)
-
-{
-  do_in_main_thread(FROM_HERE, base::Bind(bta_dm_ci_io_req_act, bd_addr, io_cap,
-                                          oob_data, auth_req));
-}
+#include "bta/dm/bta_dm_int.h"
+#include "stack/include/bt_types.h"
+#include "stack/include/btu.h"  // do_in_main_thread
+#include "types/raw_address.h"
 
 /*******************************************************************************
  *

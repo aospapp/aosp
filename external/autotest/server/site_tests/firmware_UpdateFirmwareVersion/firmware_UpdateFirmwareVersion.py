@@ -21,6 +21,7 @@ class firmware_UpdateFirmwareVersion(FirmwareTest):
     original shellball.
     """
     version = 1
+    NEEDS_SERVO_USB = True
 
     def check_firmware_version(self, expected_ver):
         """Checks the firmware version."""
@@ -49,7 +50,7 @@ class firmware_UpdateFirmwareVersion(FirmwareTest):
 
         # Update firmware if needed
         if shellball_path:
-            self.set_hardware_write_protect(enable=False)
+            self.set_ap_write_protect_and_reboot(enable=False)
             self.faft_client.updater.run_factory_install()
             self.switcher.mode_aware_reboot()
 

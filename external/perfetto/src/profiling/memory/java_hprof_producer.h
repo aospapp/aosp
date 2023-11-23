@@ -23,12 +23,14 @@
 
 #include "perfetto/ext/base/unix_task_runner.h"
 #include "perfetto/ext/base/weak_ptr.h"
+#include "perfetto/ext/tracing/core/basic_types.h"
 #include "perfetto/ext/tracing/core/producer.h"
 #include "perfetto/ext/tracing/core/tracing_service.h"
 #include "perfetto/ext/tracing/ipc/producer_ipc_client.h"
 #include "perfetto/tracing/core/data_source_config.h"
 #include "perfetto/tracing/core/data_source_descriptor.h"
 
+#include "perfetto/tracing/core/forward_decls.h"
 #include "protos/perfetto/config/profiling/java_hprof_config.gen.h"
 
 namespace perfetto {
@@ -38,7 +40,7 @@ using JavaHprofConfig = protos::gen::JavaHprofConfig;
 
 class JavaHprofProducer : public Producer {
  public:
-  JavaHprofProducer(base::TaskRunner* task_runner)
+  explicit JavaHprofProducer(base::TaskRunner* task_runner)
       : task_runner_(task_runner), weak_factory_(this) {}
 
   // Producer Impl:
@@ -71,6 +73,7 @@ class JavaHprofProducer : public Producer {
     DataSourceInstanceID id;
     std::set<pid_t> pids;
     JavaHprofConfig config;
+    DataSourceConfig ds_config;
   };
 
   void ConnectService();

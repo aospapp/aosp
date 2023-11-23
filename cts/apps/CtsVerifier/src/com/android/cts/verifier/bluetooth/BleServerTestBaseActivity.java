@@ -52,7 +52,8 @@ public class BleServerTestBaseActivity extends PassFailButtons.Activity {
     private static final int PASS_FLAG_MTU_CHANGE_23BYTES = 0x4000;
     private static final int PASS_FLAG_MTU_CHANGE_512BYTES = 0x8000;
     private static final int PASS_FLAG_RELIABLE_WRITE_BAD_RESP = 0x10000;
-    private static final int PASS_FLAG_ALL = 0x1FFFF;
+    private static final int PASS_FLAG_SERVICE_CHANGED_INDICATION = 0x20000;
+    private static final int PASS_FLAG_ALL = 0x3FFFF;
 
     private final int BLE_SERVICE_ADDED = 0;
     private final int BLE_SERVER_CONNECTED = 1;
@@ -70,8 +71,9 @@ public class BleServerTestBaseActivity extends PassFailButtons.Activity {
     private final int BLE_DESCRIPTOR_WRITE_REQUEST = 12;    //13;
     private final int BLE_DESCRIPTOR_READ_REQUEST_WITHOUT_PERMISSION = 13;  //14;
     private final int BLE_DESCRIPTOR_WRITE_REQUEST_WITHOUT_PERMISSION = 14; //15;
-    private final int BLE_SERVER_DISCONNECTED = 15; //16;
-    private final int BLE_OPEN_FAIL = 16;   //17;
+    private final int BLE_SERVOCE_CHANGED_INDICATION = 15; // 16;
+    private final int BLE_SERVER_DISCONNECTED = 16; //17;
+    private final int BLE_OPEN_FAIL = 17;   //18;
 
     private TestAdapter mTestAdapter;
     private long mAllPassed;
@@ -122,6 +124,7 @@ public class BleServerTestBaseActivity extends PassFailButtons.Activity {
         filter.addAction(BleServerService.BLE_BLUETOOTH_MISMATCH_INSECURE);
         filter.addAction(BleServerService.BLE_ADVERTISE_UNSUPPORTED);
         filter.addAction(BleServerService.BLE_ADD_SERVICE_FAIL);
+        filter.addAction(BleServerService.BLE_SERVICE_CHANGED_INDICATION);
 
         registerReceiver(mBroadcast, filter);
     }
@@ -155,6 +158,7 @@ public class BleServerTestBaseActivity extends PassFailButtons.Activity {
         testList.add(R.string.ble_server_write_descriptor);
         testList.add(R.string.ble_server_read_descriptor_without_permission);
         testList.add(R.string.ble_server_write_descriptor_without_permission);
+        testList.add(R.string.ble_server_service_changed_indication);
         testList.add(R.string.ble_server_receiving_disconnect);
         return testList;
     }
@@ -256,6 +260,10 @@ public class BleServerTestBaseActivity extends PassFailButtons.Activity {
                 mTestAdapter.setTestPass(BLE_SERVER_MTU_512BYTES);
                 mAllPassed |= PASS_FLAG_MTU_CHANGE_512BYTES;
                 break;
+            case BleServerService.BLE_SERVICE_CHANGED_INDICATION:
+                mTestAdapter.setTestPass(BLE_SERVOCE_CHANGED_INDICATION);
+                mAllPassed |= PASS_FLAG_SERVICE_CHANGED_INDICATION;
+                    break;
             case BleServerService.BLE_BLUETOOTH_MISMATCH_SECURE:
                 showErrorDialog(R.string.ble_bluetooth_mismatch_title, R.string.ble_bluetooth_mismatch_secure_message, true);
                 break;

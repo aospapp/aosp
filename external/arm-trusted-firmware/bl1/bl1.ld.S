@@ -1,11 +1,18 @@
 /*
- * Copyright (c) 2013-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2013-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#include <platform_def.h>
+/*
+ * The .data section gets copied from ROM to RAM at runtime.
+ * Its LMA should be 16-byte aligned to allow efficient copying of 16-bytes
+ * aligned regions in it.
+ * Its VMA must be page-aligned as it marks the first read/write page.
+ */
+#define DATA_ALIGN	16
 
+#include <common/bl_common.ld.h>
 #include <lib/xlat_tables/xlat_tables_defs.h>
 
 OUTPUT_FORMAT(PLATFORM_LINKER_FORMAT)
@@ -46,27 +53,19 @@ SECTIONS
         __RODATA_START__ = .;
         *(SORT_BY_ALIGNMENT(.rodata*))
 
-        /* Ensure 8-byte alignment for descriptors and ensure inclusion */
-        . = ALIGN(8);
-        __PARSER_LIB_DESCS_START__ = .;
-        KEEP(*(.img_parser_lib_descs))
-        __PARSER_LIB_DESCS_END__ = .;
-
-        /*
-         * Ensure 8-byte alignment for cpu_ops so that its fields are also
-         * aligned. Also ensure cpu_ops inclusion.
-         */
-        . = ALIGN(8);
-        __CPU_OPS_START__ = .;
-        KEEP(*(cpu_ops))
-        __CPU_OPS_END__ = .;
+	RODATA_COMMON
 
         /*
          * No need to pad out the .rodata section to a page boundary. Next is
          * the .data section, which can mapped in ROM with the same memory
          * attributes as the .rodata section.
+         *
+         * Pad out to 16 bytes though as .data section needs to be 16 byte
+         * aligned and lld does not align the LMA to the aligment specified
+         * on the .data section.
          */
         __RODATA_END__ = .;
+         . = ALIGN(16);
     } >ROM
 #else
     ro . : {
@@ -75,23 +74,17 @@ SECTIONS
         *(SORT_BY_ALIGNMENT(.text*))
         *(SORT_BY_ALIGNMENT(.rodata*))
 
-        /* Ensure 8-byte alignment for descriptors and ensure inclusion */
-        . = ALIGN(8);
-        __PARSER_LIB_DESCS_START__ = .;
-        KEEP(*(.img_parser_lib_descs))
-        __PARSER_LIB_DESCS_END__ = .;
-
-        /*
-         * Ensure 8-byte alignment for cpu_ops so that its fields are also
-         * aligned. Also ensure cpu_ops inclusion.
-         */
-        . = ALIGN(8);
-        __CPU_OPS_START__ = .;
-        KEEP(*(cpu_ops))
-        __CPU_OPS_END__ = .;
+	RODATA_COMMON
 
         *(.vectors)
         __RO_END__ = .;
+
+        /*
+         * Pad out to 16 bytes as .data section needs to be 16 byte aligned and
+         * lld does not align the LMA to the aligment specified on the .data
+         * section.
+         */
+         . = ALIGN(16);
     } >ROM
 #endif
 
@@ -102,49 +95,13 @@ SECTIONS
     ASSERT(BL1_RW_BASE == ALIGN(PAGE_SIZE),
            "BL1_RW_BASE address is not aligned on a page boundary.")
 
-    /*
-     * The .data section gets copied from ROM to RAM at runtime.
-     * Its LMA should be 16-byte aligned to allow efficient copying of 16-bytes
-     * aligned regions in it.
-     * Its VMA must be page-aligned as it marks the first read/write page.
-     *
-     * It must be placed at a lower address than the stacks if the stack
-     * protector is enabled. Alternatively, the .data.stack_protector_canary
-     * section can be placed independently of the main .data section.
-     */
-    .data . : ALIGN(16) {
-        __DATA_RAM_START__ = .;
-        *(SORT_BY_ALIGNMENT(.data*))
-        __DATA_RAM_END__ = .;
-    } >RAM AT>ROM
+    DATA_SECTION >RAM AT>ROM
+    __DATA_RAM_START__ = __DATA_START__;
+    __DATA_RAM_END__ = __DATA_END__;
 
-    stacks . (NOLOAD) : {
-        __STACKS_START__ = .;
-        *(tzfw_normal_stacks)
-        __STACKS_END__ = .;
-    } >RAM
-
-    /*
-     * The .bss section gets initialised to 0 at runtime.
-     * Its base address should be 16-byte aligned for better performance of the
-     * zero-initialization code.
-     */
-    .bss : ALIGN(16) {
-        __BSS_START__ = .;
-        *(SORT_BY_ALIGNMENT(.bss*))
-        *(COMMON)
-        __BSS_END__ = .;
-    } >RAM
-
-    /*
-     * The xlat_table section is for full, aligned page tables (4K).
-     * Removing them from .bss avoids forcing 4K alignment on
-     * the .bss section. The tables are initialized to zero by the translation
-     * tables library.
-     */
-    xlat_table (NOLOAD) : {
-        *(xlat_table)
-    } >RAM
+    STACK_SECTION >RAM
+    BSS_SECTION >RAM
+    XLAT_TABLE_SECTION >RAM
 
 #if USE_COHERENT_MEM
     /*

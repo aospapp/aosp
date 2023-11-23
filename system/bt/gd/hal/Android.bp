@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_bt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bt_license"],
+}
+
 filegroup {
     name: "BluetoothHalSources",
     srcs: [
@@ -6,9 +15,16 @@ filegroup {
 }
 
 filegroup {
-    name: "BluetoothHalSources_hci_rootcanal",
+    name: "BluetoothHalTestSources",
     srcs: [
-        "hci_hal_host_rootcanal.cc",
+        "snoop_logger_test.cc",
+    ],
+}
+
+filegroup {
+    name: "BluetoothHalSources_hci_host",
+    srcs: [
+        "hci_hal_host.cc",
     ],
 }
 
@@ -20,9 +36,9 @@ filegroup {
 }
 
 filegroup {
-    name: "BluetoothHalTestSources_hci_rootcanal",
+    name: "BluetoothHalTestSources_hci_host",
     srcs: [
-        "hci_hal_host_rootcanal_test.cc",
+        "hci_hal_host_test.cc",
     ],
 }
 
@@ -37,5 +53,12 @@ filegroup {
     name: "BluetoothFacade_hci_hal",
     srcs: [
         "facade.cc",
+    ],
+}
+
+filegroup {
+    name: "BluetoothHalFuzzSources",
+    srcs: [
+        "fuzz/fuzz_hci_hal.cc",
     ],
 }

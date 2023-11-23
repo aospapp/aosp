@@ -34,17 +34,14 @@
 #include "google_breakpad/processor/dump_context.h"
 
 #include <assert.h>
-#include <stdio.h>
 
 #ifdef _WIN32
 #include <io.h>
-#define PRIx64 "llx"
-#define PRIx32 "lx"
-#define snprintf _snprintf
 #else  // _WIN32
 #include <unistd.h>
 #endif  // _WIN32
 
+#include "common/stdio_wrapper.h"
 #include "processor/logging.h"
 
 namespace google_breakpad {
@@ -134,7 +131,8 @@ const MDRawContextARM64* DumpContext::GetContextARM64() const {
 }
 
 const MDRawContextMIPS* DumpContext::GetContextMIPS() const {
-  if (GetContextCPU() != MD_CONTEXT_MIPS) {
+  if ((GetContextCPU() != MD_CONTEXT_MIPS) &&
+      (GetContextCPU() != MD_CONTEXT_MIPS64)) {
     BPLOG(ERROR) << "DumpContext cannot get MIPS context";
     return NULL;
   }
@@ -175,11 +173,56 @@ bool DumpContext::GetInstructionPointer(uint64_t* ip) const {
     *ip = GetContextX86()->eip;
     break;
   case MD_CONTEXT_MIPS:
+  case MD_CONTEXT_MIPS64:
     *ip = GetContextMIPS()->epc;
     break;
   default:
     // This should never happen.
     BPLOG(ERROR) << "Unknown CPU architecture in GetInstructionPointer";
+    return false;
+  }
+  return true;
+}
+
+bool DumpContext::GetStackPointer(uint64_t* sp) const {
+  BPLOG_IF(ERROR, !sp) << "DumpContext::GetStackPointer requires |sp|";
+  assert(sp);
+  *sp = 0;
+
+  if (!valid_) {
+    BPLOG(ERROR) << "Invalid DumpContext for GetStackPointer";
+    return false;
+  }
+
+  switch (GetContextCPU()) {
+  case MD_CONTEXT_AMD64:
+    *sp = GetContextAMD64()->rsp;
+    break;
+  case MD_CONTEXT_ARM:
+    *sp = GetContextARM()->iregs[MD_CONTEXT_ARM_REG_SP];
+    break;
+  case MD_CONTEXT_ARM64:
+    *sp = GetContextARM64()->iregs[MD_CONTEXT_ARM64_REG_SP];
+    break;
+  case MD_CONTEXT_PPC:
+    *sp = GetContextPPC()->gpr[MD_CONTEXT_PPC_REG_SP];
+    break;
+  case MD_CONTEXT_PPC64:
+    *sp = GetContextPPC64()->gpr[MD_CONTEXT_PPC64_REG_SP];
+    break;
+  case MD_CONTEXT_SPARC:
+    *sp = GetContextSPARC()->g_r[MD_CONTEXT_SPARC_REG_SP];
+    break;
+  case MD_CONTEXT_X86:
+    *sp = GetContextX86()->esp;
+    break;
+  case MD_CONTEXT_MIPS:
+  case MD_CONTEXT_MIPS64:
+    *sp = GetContextMIPS()->iregs[MD_CONTEXT_MIPS_REG_SP];
+    break;
+  default:
+    // This should never happen.
+    BPLOG(ERROR) << "Unknown CPU architecture in GetStackPointer";
     return false;
   }
   return true;
@@ -252,6 +295,7 @@ void DumpContext::FreeContext() {
       break;
 
     case MD_CONTEXT_MIPS:
+    case MD_CONTEXT_MIPS64:
       delete context_.ctx_mips;
       break;
 
@@ -505,22 +549,26 @@ void DumpContext::Print() {
 
     case MD_CONTEXT_ARM: {
       const MDRawContextARM* context_arm = GetContextARM();
+      const char * const names[] = {
+        "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
+        "r8",  "r9",  "r10", "r11", "r12", "sp",  "lr",  "pc",
+      };
       printf("MDRawContextARM\n");
-      printf("  context_flags       = 0x%x\n",
+      printf("  context_flags        = 0x%x\n",
              context_arm->context_flags);
       for (unsigned int ireg_index = 0;
            ireg_index < MD_CONTEXT_ARM_GPR_COUNT;
            ++ireg_index) {
-        printf("  iregs[%2d]            = 0x%x\n",
-               ireg_index, context_arm->iregs[ireg_index]);
+        printf("  %-3s                  = 0x%x\n",
+               names[ireg_index], context_arm->iregs[ireg_index]);
       }
-      printf("  cpsr                = 0x%x\n", context_arm->cpsr);
+      printf("  cpsr                 = 0x%x\n", context_arm->cpsr);
       printf("  float_save.fpscr     = 0x%" PRIx64 "\n",
              context_arm->float_save.fpscr);
       for (unsigned int fpr_index = 0;
            fpr_index < MD_FLOATINGSAVEAREA_ARM_FPR_COUNT;
            ++fpr_index) {
-        printf("  float_save.regs[%2d] = 0x%" PRIx64 "\n",
+        printf("  float_save.regs[%2d]  = 0x%" PRIx64 "\n",
                fpr_index, context_arm->float_save.regs[fpr_index]);
       }
       for (unsigned int fpe_index = 0;
@@ -536,7 +584,7 @@ void DumpContext::Print() {
     case MD_CONTEXT_ARM64: {
       const MDRawContextARM64* context_arm64 = GetContextARM64();
       printf("MDRawContextARM64\n");
-      printf("  context_flags       = 0x%" PRIx64 "\n",
+      printf("  context_flags       = 0x%x\n",
              context_arm64->context_flags);
       for (unsigned int ireg_index = 0;
            ireg_index < MD_CONTEXT_ARM64_GPR_COUNT;
@@ -555,10 +603,12 @@ void DumpContext::Print() {
         printf("  float_save.regs[%2d]            = 0x%" PRIx64 "%" PRIx64 "\n",
                freg_index, fp_value.high, fp_value.low);
       }
+
       break;
     }
 
-    case MD_CONTEXT_MIPS: {
+    case MD_CONTEXT_MIPS:
+    case MD_CONTEXT_MIPS64: {
       const MDRawContextMIPS* context_mips = GetContextMIPS();
       printf("MDRawContextMIPS\n");
       printf("  context_flags        = 0x%x\n",

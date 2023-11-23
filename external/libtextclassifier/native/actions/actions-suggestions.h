@@ -25,16 +25,18 @@
 #include <vector>
 
 #include "actions/actions_model_generated.h"
+#include "actions/conversation_intent_detection/conversation-intent-detection.h"
 #include "actions/feature-processor.h"
 #include "actions/grammar-actions.h"
-#include "actions/ngram-model.h"
 #include "actions/ranker.h"
 #include "actions/regex-actions.h"
+#include "actions/sensitive-classifier-base.h"
 #include "actions/types.h"
 #include "annotator/annotator.h"
 #include "annotator/model-executor.h"
 #include "annotator/types.h"
-#include "utils/flatbuffers.h"
+#include "utils/flatbuffers/flatbuffers.h"
+#include "utils/flatbuffers/mutable.h"
 #include "utils/i18n/locale.h"
 #include "utils/memory/mmap.h"
 #include "utils/tflite-model-executor.h"
@@ -43,12 +45,6 @@
 #include "utils/zlib/zlib.h"
 
 namespace libtextclassifier3 {
-
-// Options for suggesting actions.
-struct ActionSuggestionOptions {
-  static ActionSuggestionOptions Default() { return ActionSuggestionOptions(); }
-  std::unordered_map<std::string, Variant> model_parameters;
-};
 
 // Class for predicting actions following a conversation.
 class ActionsSuggestions {
@@ -109,21 +105,13 @@ class ActionsSuggestions {
       const Conversation& conversation, const Annotator* annotator,
       const ActionSuggestionOptions& options = ActionSuggestionOptions()) const;
 
+  bool InitializeConversationIntentDetection(
+      const std::string& serialized_config);
+
   const ActionsModel* model() const;
   const reflection::Schema* entity_data_schema() const;
 
   static constexpr int kLocalUserId = 0;
-
-  // Should be in sync with those defined in Android.
-  // android/frameworks/base/core/java/android/view/textclassifier/ConversationActions.java
-  static const std::string& kViewCalendarType;
-  static const std::string& kViewMapType;
-  static const std::string& kTrackFlightType;
-  static const std::string& kOpenUrlType;
-  static const std::string& kSendSmsType;
-  static const std::string& kCallPhoneType;
-  static const std::string& kSendEmailType;
-  static const std::string& kShareLocation;
 
  protected:
   // Exposed for testing.
@@ -206,6 +194,10 @@ class ActionsSuggestions {
       ActionsSuggestionsResponse* response,
       std::unique_ptr<tflite::Interpreter>* interpreter) const;
 
+  Status SuggestActionsFromConversationIntentDetection(
+      const Conversation& conversation, const ActionSuggestionOptions& options,
+      std::vector<ActionSuggestion>* actions) const;
+
   // Creates options for annotation of a message.
   AnnotationOptions AnnotationOptionsForMessage(
       const ConversationMessage& message) const;
@@ -262,7 +254,7 @@ class ActionsSuggestions {
 
   // Builder for creating extra data.
   const reflection::Schema* entity_data_schema_;
-  std::unique_ptr<ReflectiveFlatbufferBuilder> entity_data_builder_;
+  std::unique_ptr<MutableFlatbufferBuilder> entity_data_builder_;
   std::unique_ptr<ActionsSuggestionsRanker> ranker_;
 
   std::string lua_bytecode_;
@@ -274,7 +266,11 @@ class ActionsSuggestions {
   const TriggeringPreconditions* triggering_preconditions_overlay_;
 
   // Low confidence input ngram classifier.
-  std::unique_ptr<const NGramModel> ngram_model_;
+  std::unique_ptr<const SensitiveTopicModelBase> sensitive_model_;
+
+  // Conversation intent detection model for additional actions.
+  std::unique_ptr<const ConversationIntentDetection>
+      conversation_intent_detection_;
 };
 
 // Interprets the buffer as a Model flatbuffer and returns it for reading.
@@ -296,6 +292,72 @@ ReturnType VisitActionsModel(const std::string& path, Func function) {
       ViewActionsModel(mmap.handle().start(), mmap.handle().num_bytes());
   return function(model);
 }
+
+class ActionsSuggestionsTypes {
+ public:
+  // Should be in sync with those defined in Android.
+  // android/frameworks/base/core/java/android/view/textclassifier/ConversationActions.java
+  static const std::string& ViewCalendar() {
+    static const std::string& value =
+        *[]() { return new std::string("view_calendar"); }();
+    return value;
+  }
+  static const std::string& ViewMap() {
+    static const std::string& value =
+        *[]() { return new std::string("view_map"); }();
+    return value;
+  }
+  static const std::string& TrackFlight() {
+    static const std::string& value =
+        *[]() { return new std::string("track_flight"); }();
+    return value;
+  }
+  static const std::string& OpenUrl() {
+    static const std::string& value =
+        *[]() { return new std::string("open_url"); }();
+    return value;
+  }
+  static const std::string& SendSms() {
+    static const std::string& value =
+        *[]() { return new std::string("send_sms"); }();
+    return value;
+  }
+  static const std::string& CallPhone() {
+    static const std::string& value =
+        *[]() { return new std::string("call_phone"); }();
+    return value;
+  }
+  static const std::string& SendEmail() {
+    static const std::string& value =
+        *[]() { return new std::string("send_email"); }();
+    return value;
+  }
+  static const std::string& ShareLocation() {
+    static const std::string& value =
+        *[]() { return new std::string("share_location"); }();
+    return value;
+  }
+  static const std::string& CreateReminder() {
+    static const std::string& value =
+        *[]() { return new std::string("create_reminder"); }();
+    return value;
+  }
+  static const std::string& TextReply() {
+    static const std::string& value =
+        *[]() { return new std::string("text_reply"); }();
+    return value;
+  }
+  static const std::string& AddContact() {
+    static const std::string& value =
+        *[]() { return new std::string("add_contact"); }();
+    return value;
+  }
+  static const std::string& Copy() {
+    static const std::string& value =
+        *[]() { return new std::string("copy"); }();
+    return value;
+  }
+};
 
 }  // namespace libtextclassifier3
 

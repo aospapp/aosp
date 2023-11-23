@@ -70,7 +70,7 @@ interface JavaLayoutHtmlUriProvider {
     }
 
     fun mainUriOrWarn(node: DocumentationNode): URI? = tryGetMainUri(node) ?: (null).also {
-        AssertionError("Not implemented mainUri for ${node.kind}").printStackTrace()
+        AssertionError("Not implemented mainUri for ${node.kind} (${node})").printStackTrace()
     }
 }
 
@@ -119,7 +119,7 @@ fun DocumentationNode.signatureForAnchor(logger: DokkaLogger): String {
                 append("Companion.")
             }
             appendReceiverIfSo()
-            append(name)
+            append(prettyName)
             details(NodeKind.Parameter).joinTo(this, prefix = "(", postfix = ")") { it.detail(NodeKind.Type).qualifiedNameFromType() }
         }
         NodeKind.Property, NodeKind.CompanionObjectProperty -> buildString {
@@ -139,7 +139,3 @@ fun DocumentationNode.signatureForAnchor(logger: DokkaLogger): String {
     }
 }
 
-fun DocumentationNode.classNodeNameWithOuterClass(): String {
-    assert(kind in NodeKind.classLike)
-    return path.dropWhile { it.kind == NodeKind.Package || it.kind == NodeKind.Module }.joinToString(separator = ".") { it.name }
-}

@@ -171,9 +171,10 @@ public class ProfileSuite extends LongevitySuite {
                         timeout,
                         mProfile.hasNextScheduledScenario());
 
-            case INDEXED:
+            case INDEXED: // and
+            case SEQUENTIAL:
                 // A LongevityClassRunner, which the superclass method already returns, is suitable
-                // for an indexed profile.
+                // for an indexed or sequential profile.
                 return super.getSuiteRunner(runner);
         }
 

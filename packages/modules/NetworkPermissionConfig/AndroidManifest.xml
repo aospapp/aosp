@@ -36,5 +36,8 @@
     <permission android:name="android.permission.MAINLINE_NETWORK_STACK"
                 android:protectionLevel="signature"/>
 
-    <application android:name="com.android.server.NetworkPermissionConfig"/>
+    <!-- The application must declare usesClearTraffic because it uses the same UID as the
+         NetworkStack module, which does cleartext traffic (b/161860610). -->
+    <application android:name="com.android.server.NetworkPermissionConfig"
+                 android:usesCleartextTraffic="true"/>
 </manifest>

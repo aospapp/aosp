@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,11 +12,18 @@
 #include <drivers/arm/gic_common.h>
 #include <lib/utils_def.h>
 #include <lib/xlat_tables/xlat_tables_defs.h>
+#include <plat/arm/common/smccc_def.h>
 #include <plat/common/common_def.h>
 
 /******************************************************************************
  * Definitions common to all ARM standard platforms
  *****************************************************************************/
+
+/*
+ * Root of trust key hash lengths
+ */
+#define ARM_ROTPK_HEADER_LEN		19
+#define ARM_ROTPK_HASH_LEN		32
 
 /* Special value used to verify platform parameters from BL2 to BL31 */
 #define ARM_BL31_PLAT_PARAM_VAL		ULL(0x0f1e2d3c4b5a6978)
@@ -74,7 +81,7 @@
 					 ARM_SCP_TZC_DRAM1_SIZE)
 #define ARM_SCP_TZC_DRAM1_SIZE		PLAT_ARM_SCP_TZC_DRAM1_SIZE
 #define ARM_SCP_TZC_DRAM1_END		(ARM_SCP_TZC_DRAM1_BASE +	\
-					 ARM_SCP_TZC_DRAM1_SIZE - 1)
+					 ARM_SCP_TZC_DRAM1_SIZE - 1U)
 
 /*
  * Define a 2MB region within the TZC secured DRAM for use by EL3 runtime
@@ -85,7 +92,7 @@
 #define ARM_EL3_TZC_DRAM1_BASE		(ARM_SCP_TZC_DRAM1_BASE - ARM_EL3_TZC_DRAM1_SIZE)
 #define ARM_EL3_TZC_DRAM1_SIZE		UL(0x00200000) /* 2 MB */
 #define ARM_EL3_TZC_DRAM1_END		(ARM_EL3_TZC_DRAM1_BASE +	\
-					ARM_EL3_TZC_DRAM1_SIZE - 1)
+					ARM_EL3_TZC_DRAM1_SIZE - 1U)
 
 #define ARM_AP_TZC_DRAM1_BASE		(ARM_DRAM1_BASE +		\
 					 ARM_DRAM1_SIZE -		\
@@ -94,7 +101,7 @@
 					 (ARM_SCP_TZC_DRAM1_SIZE +	\
 					 ARM_EL3_TZC_DRAM1_SIZE))
 #define ARM_AP_TZC_DRAM1_END		(ARM_AP_TZC_DRAM1_BASE +	\
-					 ARM_AP_TZC_DRAM1_SIZE - 1)
+					 ARM_AP_TZC_DRAM1_SIZE - 1U)
 
 /* Define the Access permissions for Secure peripherals to NS_DRAM */
 #if ARM_CRYPTOCELL_INTEG
@@ -141,17 +148,17 @@
 #define ARM_NS_DRAM1_SIZE		(ARM_DRAM1_SIZE -		\
 					 ARM_TZC_DRAM1_SIZE)
 #define ARM_NS_DRAM1_END		(ARM_NS_DRAM1_BASE +		\
-					 ARM_NS_DRAM1_SIZE - 1)
+					 ARM_NS_DRAM1_SIZE - 1U)
 
 #define ARM_DRAM1_BASE			ULL(0x80000000)
 #define ARM_DRAM1_SIZE			ULL(0x80000000)
 #define ARM_DRAM1_END			(ARM_DRAM1_BASE +		\
-					 ARM_DRAM1_SIZE - 1)
+					 ARM_DRAM1_SIZE - 1U)
 
 #define ARM_DRAM2_BASE			PLAT_ARM_DRAM2_BASE
 #define ARM_DRAM2_SIZE			PLAT_ARM_DRAM2_SIZE
 #define ARM_DRAM2_END			(ARM_DRAM2_BASE +		\
-					 ARM_DRAM2_SIZE - 1)
+					 ARM_DRAM2_SIZE - 1U)
 
 #define ARM_IRQ_SEC_PHY_TIMER		29
 
@@ -223,6 +230,14 @@
 						ARM_EL3_TZC_DRAM1_SIZE,	\
 						MT_MEMORY | MT_RW | MT_SECURE)
 
+#if defined(SPD_spmd)
+#define ARM_MAP_TRUSTED_DRAM		MAP_REGION_FLAT(		    \
+						PLAT_ARM_TRUSTED_DRAM_BASE, \
+						PLAT_ARM_TRUSTED_DRAM_SIZE, \
+						MT_MEMORY | MT_RW | MT_SECURE)
+#endif
+
+
 /*
  * Mapping for the BL1 RW region. This mapping is needed by BL2 in order to
  * share the Mbed TLS heap. Since the heap is allocated inside BL1, it resides
@@ -279,12 +294,19 @@
 #define ARM_V2M_MAP_MEM_PROTECT		MAP_REGION_FLAT(PLAT_ARM_MEM_PROT_ADDR,	\
 						V2M_FLASH_BLOCK_SIZE,		\
 						MT_DEVICE | MT_RW | MT_SECURE)
+/*
+ * Map the region for device tree configuration with read and write permissions
+ */
+#define ARM_MAP_BL_CONFIG_REGION	MAP_REGION_FLAT(ARM_BL_RAM_BASE,	\
+						(ARM_FW_CONFIGS_LIMIT		\
+							- ARM_BL_RAM_BASE),	\
+						MT_MEMORY | MT_RW | MT_SECURE)
 
 /*
  * The max number of regions like RO(code), coherent and data required by
  * different BL stages which need to be mapped in the MMU.
  */
-#define ARM_BL_REGIONS			5
+#define ARM_BL_REGIONS			6
 
 #define MAX_MMAP_REGIONS		(PLAT_ARM_MMAP_ENTRIES +	\
 					 ARM_BL_REGIONS)
@@ -331,24 +353,25 @@
 #define CACHE_WRITEBACK_GRANULE		(U(1) << ARM_CACHE_WRITEBACK_SHIFT)
 
 /*
- * To enable TB_FW_CONFIG to be loaded by BL1, define the corresponding base
+ * To enable FW_CONFIG to be loaded by BL1, define the corresponding base
  * and limit. Leave enough space of BL2 meminfo.
  */
-#define ARM_TB_FW_CONFIG_BASE		(ARM_BL_RAM_BASE + sizeof(meminfo_t))
-#define ARM_TB_FW_CONFIG_LIMIT		(ARM_BL_RAM_BASE + (PAGE_SIZE / 2U))
+#define ARM_FW_CONFIG_BASE		(ARM_BL_RAM_BASE + sizeof(meminfo_t))
+#define ARM_FW_CONFIG_LIMIT		((ARM_BL_RAM_BASE + PAGE_SIZE) \
+					+ (PAGE_SIZE / 2U))
 
 /*
  * Boot parameters passed from BL2 to BL31/BL32 are stored here
  */
-#define ARM_BL2_MEM_DESC_BASE		ARM_TB_FW_CONFIG_LIMIT
-#define ARM_BL2_MEM_DESC_LIMIT		(ARM_BL2_MEM_DESC_BASE +	\
-							(PAGE_SIZE / 2U))
+#define ARM_BL2_MEM_DESC_BASE		(ARM_FW_CONFIG_LIMIT)
+#define ARM_BL2_MEM_DESC_LIMIT		(ARM_BL2_MEM_DESC_BASE \
+					+ (PAGE_SIZE / 2U))
 
 /*
  * Define limit of firmware configuration memory:
- * ARM_TB_FW_CONFIG + ARM_BL2_MEM_DESC memory
+ * ARM_FW_CONFIG + ARM_BL2_MEM_DESC memory
  */
-#define ARM_FW_CONFIG_LIMIT		(ARM_BL_RAM_BASE + PAGE_SIZE)
+#define ARM_FW_CONFIGS_LIMIT		(ARM_BL_RAM_BASE + (PAGE_SIZE * 2))
 
 /*******************************************************************************
  * BL1 specific defines.
@@ -395,13 +418,21 @@
 /*******************************************************************************
  * BL31 specific defines.
  ******************************************************************************/
-#if ARM_BL31_IN_DRAM
+#if ARM_BL31_IN_DRAM || SEPARATE_NOBITS_REGION
 /*
  * Put BL31 at the bottom of TZC secured DRAM
  */
 #define BL31_BASE			ARM_AP_TZC_DRAM1_BASE
 #define BL31_LIMIT			(ARM_AP_TZC_DRAM1_BASE +	\
 						PLAT_ARM_MAX_BL31_SIZE)
+/*
+ * For SEPARATE_NOBITS_REGION, BL31 PROGBITS are loaded in TZC secured DRAM.
+ * And BL31 NOBITS are loaded in Trusted SRAM such that BL2 is overwritten.
+ */
+#if SEPARATE_NOBITS_REGION
+#define BL31_NOBITS_BASE		BL2_BASE
+#define BL31_NOBITS_LIMIT		BL2_LIMIT
+#endif /* SEPARATE_NOBITS_REGION */
 #elif (RESET_TO_BL31)
 /* Ensure Position Independent support (PIE) is enabled for this config.*/
 # if !ENABLE_PIE
@@ -438,7 +469,7 @@
  * SP_MIN is the only BL image in SRAM. Allocate the whole of SRAM (excluding
  * the page reserved for fw_configs) to BL32
  */
-#  define BL32_BASE			ARM_FW_CONFIG_LIMIT
+#  define BL32_BASE			ARM_FW_CONFIGS_LIMIT
 #  define BL32_LIMIT			(ARM_BL_RAM_BASE + ARM_BL_RAM_SIZE)
 # else
 /* Put BL32 below BL2 in the Trusted SRAM.*/
@@ -463,6 +494,12 @@
 #  define BL32_BASE			(ARM_AP_TZC_DRAM1_BASE + ULL(0x200000))
 #  define BL32_LIMIT			(ARM_AP_TZC_DRAM1_BASE +	\
 						ARM_AP_TZC_DRAM1_SIZE)
+# elif defined(SPD_spmd)
+#  define TSP_SEC_MEM_BASE		(ARM_AP_TZC_DRAM1_BASE + ULL(0x200000))
+#  define TSP_SEC_MEM_SIZE		(ARM_AP_TZC_DRAM1_SIZE - ULL(0x200000))
+#  define BL32_BASE			PLAT_ARM_SPMC_BASE
+#  define BL32_LIMIT			(PLAT_ARM_SPMC_BASE +		\
+						 PLAT_ARM_SPMC_SIZE)
 # elif ARM_BL31_IN_DRAM
 #  define TSP_SEC_MEM_BASE		(ARM_AP_TZC_DRAM1_BASE +	\
 						PLAT_ARM_MAX_BL31_SIZE)
@@ -476,7 +513,7 @@
 #  define TSP_SEC_MEM_BASE		ARM_BL_RAM_BASE
 #  define TSP_SEC_MEM_SIZE		ARM_BL_RAM_SIZE
 #  define TSP_PROGBITS_LIMIT		BL31_BASE
-#  define BL32_BASE			ARM_FW_CONFIG_LIMIT
+#  define BL32_BASE			ARM_FW_CONFIGS_LIMIT
 #  define BL32_LIMIT			BL31_BASE
 # elif ARM_TSP_RAM_LOCATION_ID == ARM_TRUSTED_DRAM_ID
 #  define TSP_SEC_MEM_BASE		PLAT_ARM_TRUSTED_DRAM_BASE
@@ -497,12 +534,12 @@
 
 /*
  * BL32 is mandatory in AArch32. In AArch64, undefine BL32_BASE if there is no
- * SPD and no SPM, as they are the only ones that can be used as BL32.
+ * SPD and no SPM-MM, as they are the only ones that can be used as BL32.
  */
 #if defined(__aarch64__) && !JUNO_AARCH32_EL3_RUNTIME
 # if defined(SPD_none) && !SPM_MM
 #  undef BL32_BASE
-# endif /* defined(SPD_none) && !SPM_MM*/
+# endif /* defined(SPD_none) && !SPM_MM */
 #endif /* defined(__aarch64__) && !JUNO_AARCH32_EL3_RUNTIME */
 
 /*******************************************************************************
@@ -531,11 +568,18 @@
 #define PLAT_SDEI_NORMAL_PRI		0x70
 
 /* ARM platforms use 3 upper bits of secure interrupt priority */
-#define ARM_PRI_BITS			3
+#define PLAT_PRI_BITS			3
 
 /* SGI used for SDEI signalling */
 #define ARM_SDEI_SGI			ARM_IRQ_SEC_SGI_0
 
+#if SDEI_IN_FCONF
+/* ARM SDEI dynamic private event max count */
+#define ARM_SDEI_DP_EVENT_MAX_CNT	3
+
+/* ARM SDEI dynamic shared event max count */
+#define ARM_SDEI_DS_EVENT_MAX_CNT	3
+#else
 /* ARM SDEI dynamic private event numbers */
 #define ARM_SDEI_DP_EVENT_0		1000
 #define ARM_SDEI_DP_EVENT_1		1001
@@ -556,5 +600,6 @@
 	SDEI_SHARED_EVENT(ARM_SDEI_DS_EVENT_0, SDEI_DYN_IRQ, SDEI_MAPF_DYNAMIC), \
 	SDEI_SHARED_EVENT(ARM_SDEI_DS_EVENT_1, SDEI_DYN_IRQ, SDEI_MAPF_DYNAMIC), \
 	SDEI_SHARED_EVENT(ARM_SDEI_DS_EVENT_2, SDEI_DYN_IRQ, SDEI_MAPF_DYNAMIC)
+#endif /* SDEI_IN_FCONF */
 
 #endif /* ARM_DEF_H */

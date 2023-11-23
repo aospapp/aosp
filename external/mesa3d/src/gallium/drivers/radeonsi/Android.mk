@@ -38,32 +38,22 @@ LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 LOCAL_C_INCLUDES := \
 	$(MESA_TOP)/src/amd/common \
+	$(MESA_TOP)/src/amd/llvm \
 	$(call generated-sources-dir-for,STATIC_LIBRARIES,libmesa_amd_common,,)/common \
 	$(call generated-sources-dir-for,STATIC_LIBRARIES,libmesa_nir,,)/nir
 
-LOCAL_STATIC_LIBRARIES := libmesa_amd_common
+LOCAL_STATIC_LIBRARIES := \
+	libmesa_amd_common \
+	libmesa_galliumvl
 
 LOCAL_SHARED_LIBRARIES := libdrm_radeon
 LOCAL_MODULE := libmesa_pipe_radeonsi
-
-intermediates := $(call local-generated-sources-dir)
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../LICENSE
 
 # We need to get NIR's generated headers.
 LOCAL_GENERATED_SOURCES := $(MESA_GEN_NIR_H)
-LOCAL_GENERATED_SOURCES += $(addprefix $(intermediates)/radeonsi/,$(GENERATED_SOURCES))
-
-GEN_DRIINFO_INPUTS := \
-	$(MESA_TOP)/src/gallium/auxiliary/pipe-loader/driinfo_gallium.h \
-	$(LOCAL_PATH)/driinfo_radeonsi.h
-
-MERGE_DRIINFO := $(MESA_TOP)/src/util/merge_driinfo.py
-
-$(intermediates)/radeonsi/si_driinfo.h: $(MERGE_DRIINFO) $(GEN_DRIINFO_INPUTS)
-	@mkdir -p $(dir $@)
-	@echo "Gen Header: $(PRIVATE_MODULE) <= $(notdir $(@))"
-	$(hide) $(MESA_PYTHON2) $(MERGE_DRIINFO) $(GEN_DRIINFO_INPUTS) > $@ || ($(RM) $@; false)
-
-LOCAL_EXPORT_C_INCLUDE_DIRS := $(intermediates)
 
 $(call mesa-build-with-llvm)
 

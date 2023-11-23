@@ -30,11 +30,10 @@ include $(LOCAL_PATH)/Makefile.sources
 RADV_COMMON_INCLUDES := \
 	$(MESA_TOP)/include \
 	$(MESA_TOP)/src/ \
+	$(MESA_TOP)/src/amd/vulkan \
 	$(MESA_TOP)/src/vulkan/wsi \
 	$(MESA_TOP)/src/vulkan/util \
 	$(MESA_TOP)/src/amd \
-	$(MESA_TOP)/src/amd/common \
-	$(MESA_TOP)/src/compiler \
 	$(MESA_TOP)/src/mapi \
 	$(MESA_TOP)/src/mesa \
 	$(MESA_TOP)/src/mesa/drivers/dri/common \
@@ -54,6 +53,9 @@ endif
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libmesa_radv_common
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../LICENSE
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 intermediates := $(call local-generated-sources-dir)
@@ -66,14 +68,13 @@ LOCAL_CFLAGS += -DVK_USE_PLATFORM_ANDROID_KHR
 
 $(call mesa-build-with-llvm)
 
-LOCAL_C_INCLUDES := \
-	$(RADV_COMMON_INCLUDES) \
-	$(call generated-sources-dir-for,STATIC_LIBRARIES,libmesa_amd_common,,) \
-	$(call generated-sources-dir-for,STATIC_LIBRARIES,libmesa_nir,,)/nir \
-	$(call generated-sources-dir-for,STATIC_LIBRARIES,libmesa_radv_common,,) \
-	$(call generated-sources-dir-for,STATIC_LIBRARIES,libmesa_vulkan_util,,)/util
+LOCAL_C_INCLUDES := $(RADV_COMMON_INCLUDES)
 
-LOCAL_WHOLE_STATIC_LIBRARIES := \
+LOCAL_STATIC_LIBRARIES := \
+	libmesa_aco \
+	libmesa_amd_common \
+	libmesa_nir \
+	libmesa_util \
 	libmesa_vulkan_util \
 	libmesa_git_sha1
 
@@ -132,6 +133,9 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := vulkan.radv
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../LICENSE
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
@@ -146,13 +150,7 @@ LOCAL_CFLAGS += -DVK_USE_PLATFORM_ANDROID_KHR
 
 $(call mesa-build-with-llvm)
 
-LOCAL_C_INCLUDES := \
-	$(RADV_COMMON_INCLUDES) \
-	$(call generated-sources-dir-for,STATIC_LIBRARIES,libmesa_radv_common,,)
-
-LOCAL_EXPORT_C_INCLUDE_DIRS := \
-	$(MESA_TOP)/src/amd/vulkan \
-	$(intermediates)
+LOCAL_C_INCLUDES := $(RADV_COMMON_INCLUDES)
 
 LOCAL_WHOLE_STATIC_LIBRARIES := \
 	libmesa_util \
@@ -161,9 +159,20 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
 	libmesa_compiler \
 	libmesa_amdgpu_addrlib \
 	libmesa_amd_common \
-	libmesa_radv_common
+	libmesa_radv_common \
+	libmesa_vulkan_util \
+	libmesa_aco
 
 LOCAL_SHARED_LIBRARIES += $(RADV_SHARED_LIBRARIES) libz libsync liblog
+
+# If Android version >=8 MESA should static link libexpat else should dynamic link
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 27; echo $$?), 0)
+LOCAL_STATIC_LIBRARIES := \
+	libexpat
+else
+LOCAL_SHARED_LIBRARIES += \
+	libexpat
+endif
 
 include $(MESA_COMMON_MK)
 include $(BUILD_SHARED_LIBRARY)

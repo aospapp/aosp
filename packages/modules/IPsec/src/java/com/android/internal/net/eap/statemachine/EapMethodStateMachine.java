@@ -22,13 +22,13 @@ import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_FAILURE;
 import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_SUCCESS;
 
 import android.annotation.Nullable;
+import android.net.eap.EapSessionConfig.EapMethodConfig.EapMethod;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.net.eap.EapResult;
 import com.android.internal.net.eap.EapResult.EapError;
 import com.android.internal.net.eap.EapResult.EapFailure;
 import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
-import com.android.internal.net.eap.message.EapData.EapMethod;
 import com.android.internal.net.eap.message.EapMessage;
 import com.android.internal.net.utils.SimpleStateMachine;
 
@@ -37,6 +37,10 @@ import com.android.internal.net.utils.SimpleStateMachine;
  * implementations.
  */
 public abstract class EapMethodStateMachine extends SimpleStateMachine<EapMessage, EapResult> {
+    // Minimum key lengths specified in RFC 3748#1.2
+    public static final int MIN_MSK_LEN_BYTES = 64;
+    public static final int MIN_EMSK_LEN_BYTES = 64;
+
     /*
      * Used for transitioning to a state where EAP-Failure messages are expected next. This
      * allows all EAP methods to easily transition to a pre-failure state in the event of errors,

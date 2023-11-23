@@ -16,6 +16,8 @@
 
 package android.graphics.gpuprofiling.cts;
 
+import static org.junit.Assume.assumeFalse;
+
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.CommandResult;
@@ -27,6 +29,7 @@ import perfetto.protos.PerfettoConfig.DataSourceDescriptor;
 import java.util.Base64;
 
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -37,6 +40,26 @@ import org.junit.runner.RunWith;
 public class CtsFrameTracerDataSourceTest extends BaseHostJUnit4Test {
     public static final String TAG = "GpuProfilingDataDeviceActivity";
     private static final String FRAME_TRACER_SOURCE_NAME = "android.surfaceflinger.frame";
+
+    // Copied from PackageManager
+    private static final String FEATURE_AUTOMOTIVE = "android.hardware.type.automotive";
+    private static final String FEATURE_EMBEDDED = "android.hardware.type.embedded";
+    private static final String FEATURE_LEANBACK_ONLY = "android.software.leanback_only";
+    private static final String FEATURE_WATCH = "android.hardware.type.watch";
+    private static final String FEATURE_TELEVISION = "android.hardware.type.television";
+
+    private void bypassTestForFeatures(String... features) throws Exception {
+        for (String feature : features) {
+            assumeFalse(hasDeviceFeature(feature));
+        }
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        // We do not care about non-handheld devices
+        bypassTestForFeatures(FEATURE_AUTOMOTIVE, FEATURE_EMBEDDED, FEATURE_LEANBACK_ONLY,
+                FEATURE_WATCH, FEATURE_TELEVISION);
+    }
 
     @Test
     public void testFrameTracerProducerAvailable() throws Exception {

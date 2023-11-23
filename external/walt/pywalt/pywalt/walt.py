@@ -674,7 +674,7 @@ class TcpServer:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             sock.bind((self.host, self.port))
-            sock.listen(1)
+            sock.listen(10)
             while True:
                 print('Listening on port %d' % self.port)
                 net, addr = sock.accept()

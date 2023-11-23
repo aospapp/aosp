@@ -20,6 +20,17 @@
     <string name="launcher_settings_app_name" msgid="1459269619779675736">"ການ​ຕັ້ງ​ຄ່າ"</string>
     <string name="launcher_network_app_name" msgid="8311763462169735002">"ເຄືອຂ່າຍ"</string>
     <string name="launcher_restricted_profile_app_name" msgid="3324091425480935205">"ໂປຣໄຟລ໌ຈຳກັດ"</string>
+    <string name="general_action_yes" msgid="1303080504548165355">"ແມ່ນ"</string>
+    <string name="general_action_no" msgid="674735073031386948">"ບໍ່"</string>
+    <string name="action_on_title" msgid="1074972820237738324">"ເປີດ"</string>
+    <string name="action_off_title" msgid="3598665702863436597">"ປິດ"</string>
+    <string name="action_on_description" msgid="9146557891514835767">"ເປີດ"</string>
+    <string name="action_off_description" msgid="1368039592272701910">"ປິດ"</string>
+    <string name="agree" msgid="8155497436593889753">"ຍອມຮັບ"</string>
+    <string name="disagree" msgid="7402998517682194430">"ບໍ່ຍອມຮັບ"</string>
+    <string name="enabled" msgid="5127188665060746381">"ເປີດການນຳໃຊ້ແລ້ວ"</string>
+    <string name="disabled" msgid="4589065923272201387">"ປິດການນຳໃຊ້ແລ້ວ"</string>
+    <string name="unavailable" msgid="1610732303812180196">"ບໍ່ສາມາດໃຊ້ໄດ້"</string>
     <string name="header_category_suggestions" msgid="106077820663753645">"ຄຳແນະນຳ"</string>
     <string name="header_category_quick_settings" msgid="3785334008768367890">"ການ​ຕັ້ງ​ຄ່າ​ດ່ວນ"</string>
     <string name="header_category_general_settings" msgid="3897615781153506434">"ການຕັ້ງຄ່າທົ່ວໄປ"</string>
@@ -28,7 +39,7 @@
     <string name="hotwording_summary" msgid="2170375928302175449">"ລົມກັບຜູ້ຊ່ວຍ Google ໄດ້ທຸກເວລາ"</string>
     <string name="header_category_device" msgid="3023893663454705969">"ອຸປະກອນ"</string>
     <string name="header_category_preferences" msgid="3738388885555798797">"ການ​ກຳນົດ​ຄ່າ"</string>
-    <string name="header_category_accessories" msgid="8310540329290988415">"ຣີໂຫມດ &amp; ສ່ວນເສີມ"</string>
+    <string name="header_category_accessories" msgid="6479803330480847199">"ຣີໂໝດ ແລະ ອຸປະກອນເສີມ"</string>
     <string name="header_category_personal" msgid="7880053929985150368">"​ສ່ວນ​ໂຕ"</string>
     <string name="connect_to_network" msgid="4133686359319492392">"ເຊື່ອມ​ຕໍ່ກັບ​ເຄືອ​ຂ່າຍ"</string>
     <string name="add_an_account" msgid="2601275122685226096">"ເພີ່ມບັນຊີ"</string>
@@ -53,6 +64,9 @@
     <string name="help_and_feedback_category_title" msgid="7036505833991003031">"ຊ່ວຍເຫຼືອ ແລະ ຄຳຕິຊົມ"</string>
     <string name="privacy_category_title" msgid="8552430590908463601">"ຄວາມເປັນສ່ວນຕົວ"</string>
     <string name="privacy_device_settings_category" msgid="5018334603278648524">"ການຕັ້ງຄ່າອຸປະກອນ"</string>
+    <string name="privacy_account_settings_category" msgid="5786591549945777400">"ການຕັ້ງຄ່າບັນຊີ"</string>
+    <string name="privacy_assistant_settings_title" msgid="4524957824712623680">"ຜູ້ຊ່ວຍ Google"</string>
+    <string name="privacy_purchases_settings_title" msgid="6490965297061569673">"ການຈ່າຍເງິນ ແລະ ການສັ່ງຊື້"</string>
     <string name="privacy_app_settings_category" msgid="858250971978879266">"ການຕັ້ງຄ່າແອັບ"</string>
     <string name="privacy_category_summary" msgid="3534434883380511043">"ສະຖານທີ່, ກນນຳໃຊ້ ແລະ ການວິນິໄສ, ໂຄສະນາ"</string>
     <string name="add_account" msgid="7386223854837017129">"ເພີ່ມບັນຊີ"</string>
@@ -77,11 +91,15 @@
     <string name="connectivity_summary_wifi_disabled" msgid="7819225159680467324">"ປິດ Wi-Fi ແລ້ວ"</string>
     <string name="wifi_setting_always_scan" msgid="431846292711998602">"ມີ​ການ​ສະ​ແກນ​ຢູ່​ສະ​ເໝີ"</string>
     <string name="wifi_setting_always_scan_context" msgid="1092998659666221222">"ໃຫ້ບໍລິການສະຖານທີ່ຂອງ Google ແລະ ແອັບອື່ນໆສະແກນເຄືອຂ່າຍໄດ້, ເຖິງແມ່ນວ່າ Wi-Fi ຈະປິດກໍຕາມ"</string>
+    <string name="wifi_setting_always_scan_content_description" msgid="484630053450137332">"ສາມາດສະແກນໄດ້ທຸກເມື່ອ, ໃຫ້ບໍລິການສະຖານທີ່ຂອງ Google ແລະ ແອັບອື່ນໆສະແກນຫາເຄືອຂ່າຍ, ເຖິງແມ່ນວ່າຈະປິດ Wi-Fi ຢູ່ກໍຕາມ"</string>
     <string name="wifi_setting_enable_wifi" msgid="5276730445393952969">"Wifi"</string>
     <string name="connectivity_hint_message" msgid="5638304246522516583">"ເຊື່ອມ​ຕໍ່ກັບ​ເຄືອ​ຂ່າຍ"</string>
+    <string name="connectivity_network_diagnostics" msgid="4396132865849151854">"ການວິນິໄສເຄືອຂ່າຍ"</string>
     <string name="apps_recently_used_category_title" msgid="7877660412428813933">"ແອັບທີ່ຫາກໍເປີດຫຼ້າສຸດ"</string>
     <string name="apps_see_all_apps" msgid="2002886135933443688">"ເບິ່ງແອັບທັງໝົດ"</string>
     <string name="apps_permissions_category_title" msgid="8099660060701465267">"ການອະນຸຍາດ"</string>
+    <string name="overlay_security_slice_title" msgid="4895032817538300187"></string>
+    <string name="update_slice_title" msgid="6553763903108611747"></string>
     <string name="all_apps_title" msgid="3717294436135280133">"ແອັບທັງໝົດ"</string>
     <string name="all_apps_show_system_apps" msgid="1260688031005374302">"ສະ​ແດງ​ແອັບ​ລະ​ບົບ"</string>
     <string name="all_apps_installed" msgid="8217778476185598971">"ແອັບທີ່ຕິດຕັ້ງແລ້ວ"</string>
@@ -96,7 +114,7 @@
     <string name="device_apps" msgid="2134756632245008919">"ແອັບພລິເຄຊັນ"</string>
     <string name="device_storage" msgid="8540243547121791073">"ບ່ອນເກັບຂໍ້ມູນ"</string>
     <string name="device_reset" msgid="6115282675800077867">"ຣີເຊັດເປັນຄ່າໂຮງງານ"</string>
-    <string name="device_backup_restore" msgid="4552158624969018687">"ການສຳຮອງ &amp; ການກູ້ຂໍ້ມູນ"</string>
+    <string name="device_backup_restore" msgid="3634531946308269398">"ການສຳຮອງ ແລະ ຂໍ້ມູນ"</string>
     <string name="device_factory_reset" msgid="1110189450013225971">"ຣີເຊັດຄ່າຈາກໂຮງງານ"</string>
     <string name="device_calibration" msgid="2907914144048739705">"ການ​ປັບ​ທຽບ"</string>
     <string name="device_energy_saver" msgid="1105023232841036991">"ຕົວປະຢັດພະລັງງານ"</string>
@@ -106,15 +124,67 @@
     <string name="surround_sound_format_e_ac3" msgid="6923129088903887242">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="8331816247117135587">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="4268947520371740146">"DTS-HD"</string>
-    <string name="surround_sound_format_iec61937" msgid="9035476171988404170">"IEC61937"</string>
-    <string name="surround_sound_auto_info" msgid="852202989256054406">"ໝາຍເຫດ: ຕົວເລືອກອັດຕະໂນມັດອາດຈະບໍ່ສາມາດໃຊ້ໄດ້ຫາກອຸປະກອນຂອງທ່ານບໍ່ລາຍງານຮູບແບບຂອງມັນຢ່າງຖືກຕ້ອງ."</string>
-    <string name="surround_sound_auto_summary" msgid="5559552398163510156">"ອັດຕະໂນມັດ: ໃຊ້ຮູບແບບທີ່ລາຍງານອຸປະກອນຂອງທ່ານຮອງຮັບ (ແນະນຳ)"</string>
-    <string name="surround_sound_none_summary" msgid="2791597033750908940">"ບໍ່ໃຊ້: ຢ່າໃຊ້ສຽງແບບຮອບທິດທາງ"</string>
-    <string name="surround_sound_manual_summary" msgid="8945926149168263067">"ດ້ວຍຕົວເອງ: ເລືອກວ່າຈະໃຊ້ຮູບແບບໃດ"</string>
+    <string name="surround_sound_format_dts_uhd" msgid="2844983210044263719">"DTS-UHD"</string>
+    <string name="surround_sound_format_dolby_mat" msgid="3029804841912462928">"Dolby Atmos ພ້ອມກັບ Dolby TrueHD"</string>
+    <string name="surround_sound_format_dolby_truehd" msgid="5113046743572967088">"Dolby TrueHD"</string>
+    <string name="surround_sound_format_e_ac3_joc" msgid="3360344066462262996">"Dolby Atmos ພ້ອມກັບ Dolby Digital Plus"</string>
+    <string name="surround_sound_format_dra" msgid="6102878163986662443">"DRA"</string>
+    <string name="surround_sound_auto_info" msgid="4829346839183591680">"ໝາຍເຫດ: ຕົວເລືອກອັດຕະໂນມັດອາດບໍ່ສາມາດໃຊ້ໄດ້ຫາກອຸປະກອນຂອງທ່ານບໍ່ລາຍງານຮູບແບບທີ່ຮອງຮັບຢ່າງຖືກຕ້ອງ."</string>
+    <string name="surround_sound_auto_title" msgid="4892922385727913277">"ອັດຕະໂນມັດ: ເປີດການນຳໃຊ້ສະເພາະຮູບແບບທີ່ອຸປະກອນເອົ້າພຸດສຽງຂອງທ່ານຮອງຮັບເທົ່ານັ້ນ "</string>
+    <string name="surround_sound_auto_summary" msgid="7073023654150720285">"ເມື່ອເລືອກແລ້ວ, ລະບົບຈະອະນຸຍາດໃຫ້ແອັບເລືອກຮູບແບບສຽງໃດກໍໄດ້ທີ່ຮອງຮັບໂດຍຕ່ອງໂສ້ອຸປະກອນຂອງທ່ານ. ແອັບອາດເລືອກຮູບແບບໃດໜຶ່ງທີ່ບໍ່ແມ່ນຮູບແບບຄຸນນະພາບສູງທີ່ສຸດ."</string>
+    <string name="surround_sound_none_title" msgid="1600095173519889326">"ບໍ່ໃຊ້: ຢ່າໃຊ້ສຽງແບບຮອບທິດທາງ"</string>
+    <string name="surround_sound_manual_title" msgid="4935447605070985537">"ດ້ວຍຕົວເອງ: ເລືອກເປີດ ຫຼື ປິດການນຳໃຊ້ແຕ່ລະຮູບແບບທີ່ຮອງຮັບໂດຍອຸປະກອນນີ້, ໂດຍບໍ່ສົນໃຈວ່າອຸປະກອນເອົ້າພຸດສຽງຂອງທ່ານຮອງຮັບຫຍັງ."</string>
+    <string name="surround_sound_manual_summary" msgid="5155535847461070572">"ເມື່ອເລືອກແລ້ວ, ທ່ານສາມາດປິດການນຳໃຊ້ຮູບແບບສຽງທີ່ຮອງຮັບໂດຍຕ່ອງໂສ້ອຸປະກອນຂອງທ່ານທີ່ພາໃຫ້ເກີດບັນຫາກັບການຫຼິ້ນດ້ວຍຕົນເອງໄດ້. ຮູບແບບສຽງທີ່ອຸປະກອນຂອງທ່ານບໍ່ຮອງຮັບສາມາດເປີດການນຳໃຊ້ໄດ້. ໃນບາງກໍລະນີ, ແອັບຕ່າງໆອາດເລືອກຮູບແບບໃດໜຶ່ງທີ່ບໍ່ແມ່ນຮູບແບບຄຸນນະພາບສູງທີ່ສຸດ."</string>
+    <string name="surround_sound_enable_unsupported_dialog_title" msgid="9155579373370356463">"ກຳລັງເປີດການນຳໃຊ້ຮູບແບບສຽງທີ່ບໍ່ຮອງຮັບບໍ?"</string>
+    <string name="surround_sound_enable_unsupported_dialog_desc" msgid="1901648758103522741">"ອຸປະກອນສຽງທີ່ທ່ານເຊື່ອມຕໍ່ໄວ້ນັ້ນບໍ່ຮອງຮັບຮູບແບບນີ້. ນີ້ອາດພາໃຫ້ເກີດພຶດຕິກຳທີ່ບໍ່ຄາດຄິດຂຶ້ນ ເຊັ່ນ: ສຽງດັງ ຫຼື ສຽງລົບກວນຈາກອຸປະກອນຂອງທ່ານ."</string>
+    <string name="surround_sound_enable_unsupported_dialog_cancel" msgid="3499147437078761105">"ຍົກເລີກ"</string>
+    <string name="surround_sound_enable_unsupported_dialog_ok" msgid="7466983147896640444">"ຢືນຢັນການປ່ຽນ"</string>
+    <string name="surround_sound_supported_title" msgid="4873195851187547020">"ຮູບແບບທີ່ຮອງຮັບ"</string>
+    <string name="surround_sound_unsupported_title" msgid="2302820271700954900">"ຮູບແບບທີ່ບໍ່ຮອງຮັບ"</string>
+    <string name="surround_sound_format_info" msgid="5671866505653542934">"ຂໍ້ມູນຮູບແບບ"</string>
+    <string name="surround_sound_show_formats" msgid="1929849219042916469">"ສະແດງຮູບແບບ"</string>
+    <string name="surround_sound_hide_formats" msgid="7770931097236868238">"ເຊື່ອງຮູບແບບ"</string>
+    <string name="surround_sound_enabled_formats" msgid="5159269040069877148">"ຮູບແບບທີ່ເປີດການນຳໃຊ້ໄວ້"</string>
+    <string name="surround_sound_disabled_formats" msgid="2250466936859455802">"ຮູບແບບທີ່ປິດການນຳໃຊ້ໄວ້"</string>
+    <string name="surround_sound_disabled_format_info_clicked" msgid="463393349034930031">"ເພື່ອເປີດການນຳໃຊ້, ກະລຸນາປ່ຽນການເລືອກຮູບແບບເປັນເລືອກດ້ວຍຕົວເອງ."</string>
+    <string name="surround_sound_enabled_format_info_clicked" msgid="4003154853054756792">"ເພື່ອປິດການນຳໃຊ້, ກະລຸນາປ່ຽນການເລືອກຮູບແບບເປັນເລືອກດ້ວຍຕົວເອງ."</string>
     <string name="display_category_title" msgid="247804007525046312">"ການສະແດງຜົນ"</string>
     <string name="advanced_display_settings_title" msgid="6293280819870140631">"ການຕັ້ງຄ່າການສະແດງຜົນຂັ້ນສູງ"</string>
+    <string name="hdmi_cec_settings_title" msgid="7120729705063868627">"HDMI-CEC"</string>
     <string name="advanced_sound_settings_title" msgid="319921303039469139">"ການຕັ້ງຄ່າສຽງຂັ້ນສູງ"</string>
     <string name="game_mode_title" msgid="7280816243531315755">"ອະນຸຍາດໂໝດເກມ"</string>
+    <string name="match_content_frame_rate_title" msgid="153291168560947689">"ເຮັດໃຫ້ກົງກັບອັດຕາເຟຣມເນື້ອຫາ"</string>
+    <string name="match_content_frame_rate_seamless" msgid="5900012519258795448">"ຕໍ່ເນື່ອງ"</string>
+    <string name="match_content_frame_rate_seamless_summary" msgid="2737466163964133210">"ຫາກແອັບຮ້ອງຂໍມັນ, ອຸປະກອນຂອງທ່ານຈະຈັບຄູ່ເອົ້າພຸດຂອງມັນກັບອັດຕາເຟຣມຕົ້ນສະບັບຂອງເນື້ອຫາທີ່ທ່ານກຳລັງເບິ່ງ, ສະເພາະໃນກໍລະນີທີ່ໂທລະທັດຂອງທ່ານສາມາດສົ່ງຜ່ານໄດ້ຢ່າງຕໍ່ເນື່ອງເທົ່ານັ້ນ."</string>
+    <string name="match_content_frame_rate_non_seamless" msgid="1534300397118594640">"ບໍ່ຕໍ່ເນື່ອງ"</string>
+    <string name="match_content_frame_rate_non_seamless_summary" msgid="6831699459487130055">"ຫາກແອັບຮ້ອງຂໍມັນ, ອຸປະກອນຂອງທ່ານຈະຈັບຄູ່ເອົ້າພຸດຂອງມັນກັບອັດຕາເຟຣມຕົ້ນສະບັບຂອງເນື້ອຫາທີ່ທ່ານກຳລັງເບິ່ງ. ນີ້ອາດເຮັດໃຫ້ໜ້າຈໍຂອງທ່ານບໍ່ສະແດງຜົນຫຍັງເປັນໄລຍະເວລາຊົ່ວຄາວເມື່ອອອກ ຫຼື ເຂົ້າການຫຼິ້ນວິດີໂອໃດໜຶ່ງ."</string>
+    <string name="match_content_frame_rate_never" msgid="1678354793095148423">"ບໍ່ໃຊ້ເລີຍ"</string>
+    <string name="match_content_frame_rate_never_summary" msgid="742977618080396095">"ອຸປະກອນຈະບໍ່ພະຍາຍາມຈັບຄູ່ເອົ້າພຸດຂອງມັນກັບອັດຕາເຟຣມຕົ້ນສະບັບຂອງເນື້ອຫາທີ່ທ່ານກຳລັງເບິ່ງ, ເຖິງແມ່ນວ່າແອັບຈະສົ່ງຄຳຮ້ອງຂໍກໍຕາມ."</string>
+    <string name="font_scale_settings_title" msgid="4114019544800225980">"ອັດຕາສ່ວນ​ຂໍ້​ຄວາມ"</string>
+    <string name="font_scale_item_detail" msgid="1558315053348778805">"ປັບຂະໜາດເປັນ <xliff:g id="SCALE">%1$d</xliff:g>%%"</string>
+    <string name="font_scale_sample_text_title" msgid="5239266611413037261">"ຂໍ້ຄວາມຕົວຢ່າງ"</string>
+    <string name="font_scale_preview_text_title" msgid="8056182208511371119">"ພໍ່ມົດອັດສະຈັນແຫ່ງອອດຊ໌"</string>
+    <string name="font_scale_preview_text_subtitle" msgid="677394182922188048">"ບົດທີ 11: ເມືອງມໍລະກົດອັນໜ້າອັດສະຈັນຂອງອອດຊ໌"</string>
+    <string name="font_scale_preview_text_body" msgid="2040384234251207410">"ເຖິງແມ່ນວ່າຈະໃສ່ແວ່ນຕາສີຂຽວເພື່ອປົກປ້ອງສາຍຕາໄວ້ແລ້ວ ແຕ່ໂດໂຣທີ ແລະ ໝູ່ຄູ່ກໍອົດບໍ່ໄດ້ທີ່ຈະຕົກຕະລຶງກັບຄວາມງາມເມື່ອພົບເຫັນເມືອງອັດໜ້າອັດສະຈັນນີ້ເປັນເທື່ອທຳອິດ. ຫົນທາງທີ່ມີເຮືອນສວຍງາມສ້າງຂຶ້ນຈາກຫິນອ່ອນສີຂຽວປະດັບດ້ວຍມໍລະກົດເງົາງາມເປັນປະກາຍເຕັມໄປໝົດ. ເຂົາເຈົ້າພາກັນຍ່າງໄປຕາມຫົນທາງທີ່ສ້າງຂຶ້ນຈາກຫິນອ່ອນສີຂຽວຄືກັນ, ຮ່ອງລະຫວ່າງຫິນອ່ອນແຕ່ລະກ້ອນໂຮຍດ້ວຍມໍລະກົດຮຽງກັນເປັນແຖວ, ສ່ອງປະກາຍເປັນແສງຍິບຍັບເມື່ອຕ້ອງກັບແສງແດດ. ປ່ອງຢ້ຽມສ້າງຂຶ້ນຈາກແກ້ວສີຂຽວ; ແມ່ນແຕ່ທ້ອງຟ້າທີ່ປົກຄຸມເມືອງນີ້ກໍຍັງມີສີຂຽວອ່ອນ ແລະ ແສງແດດທີ່ສ່ອງລົງມາກໍເປັນສີຂຽວເຊັ່ນກັນ. \n\nມີຄົນຍ່າງໄປມາຫຼວງຫຼາຍ, ທັງຜູ້ຊາຍ, ຜູ້ຍິງ ແລະ ເດັກນ້ອຍ, ທຸກຄົນລ້ວນແລ້ວແຕ່ນຸ່ງເຄື່ອງທີ່ມີສີຂຽວ ແລະ ມີຜິວອອກເປັນສີຂຽວໆ. ເຂົາເຈົ້າພາກັນເບິ່ງມາຫາໂດໂຣທີ ແລະ ໝູ່ຄູ່ດ້ວຍສາຍຕາທີ່ສົງໄສ ແລະ ເດັກນ້ອຍກໍພາກັນແລ່ນໜີແລ້ວລີ້ຢູ່ຫຼັງແມ່ຂອງເຂົາເຈົ້າເມື່ອເຂົາເຈົ້າເຫັນສິງໂຕ; ແຕ່ບໍ່ມີໃຜລົມນຳເຂົາເຈົ້າເລີຍ. ຮ້ານຄ້າຫຼວງຫຼາຍຕັ້ງຢູ່ຕາມຖະໜົນຫົນທາງ ແລະ ໂດໂຣທີກໍເຫັນວ່າທຸກສິ່ງຢ່າງໃນນັ້ນລ້ວນແຕ່ເປັນສີຂຽວ. ມີເຂົ້າໜົມສີຂຽວ ແລະ ສາລີຂົ້ວເປັນສີຂຽວ, ຮວມທັງເກີບສີຂຽວ, ໝວກສີຂຽວ ແລະ ເຄື່ອງນຸ່ງທຸກແບບເປັນສີຂຽວນຳ. ມີຮ້ານໜຶ່ງທີ່ຂາຍນ້ຳໝາກນາວສີຂຽວ ແລະ ເມື່ອມີເດັກນ້ອຍໄປຊື້ນ້ຳໝາກນາວ ໂດໂຣທີກໍເຫັນວ່າເຂົາເຈົ້າຈ່າຍເງິນທີ່ມີສີຂຽວນຳ. \n\nເບິ່ງຄືວ່າເມືອງນີ້ຈະບໍ່ມີມ້າ ຫຼື ສັດຊະນິດອື່ນໃດເລີຍ; ຜູ້ຄົນຂົນເຄື່ອງດ້ວຍລໍ້ຍູ້ນ້ອຍໆສີຂຽວທີ່ເຂົາເຈົ້າຕ້ອງຍູ້ໄປທາງໜ້າ. ທຸກຄົນເບິ່ງຄືມີຄວາມສຸກ, ຄວາມຍິນດີ ແລະ ຄວາມຮັ່ງມີ."</string>
+    <string name="hdr_format_selection_title" msgid="4042679694363850581">"ການເລືອກຮູບແບບ"</string>
+    <string name="hdr_format_selection_auto_title" msgid="2370148695440344232">"ອັດຕະໂນມັດ"</string>
+    <string name="hdr_format_selection_manual_title" msgid="2077604650196987438">"ດ້ວຍຕົວເອງ"</string>
+    <string name="hdr_format_selection_auto_desc" msgid="1542210944552409996">"ໃຊ້ຮູບແບບທີ່ອຸປະກອນລາຍງານ"</string>
+    <string name="hdr_format_selection_manual_desc" msgid="8865649615882146772">"ເລືອກຮູບແບບດ້ວຍຕົວເອງຈາກຮູບແບບທີ່ສາມາດໃຊ້ໄດ້"</string>
+    <string name="hdr_format_supported_title" msgid="1458594819224612431">"ຮູບແບບທີ່ຮອງຮັບ"</string>
+    <string name="hdr_format_unsupported_title" msgid="715318408107924941">"ຮູບແບບທີ່ບໍ່ຮອງຮັບ"</string>
+    <string name="hdr_format_hdr10" msgid="8063543267227491062">"HDR10"</string>
+    <string name="hdr_format_hlg" msgid="454510079939620321">"HLG"</string>
+    <string name="hdr_format_hdr10plus" msgid="4371652089162162876">"HDR10+"</string>
+    <string name="hdr_format_dolby_vision" msgid="7367264615042999587">"Dolby Vision"</string>
+    <string name="hdr_format_selection_auto_summary" msgid="7384637194191436727">"ເມື່ອເລືອກແລ້ວ, ລະບົບຈະອະນຸຍາດໃຫ້ແອັບເລືອກຮູບແບບ HDR ໃດກໍໄດ້ທີ່ຮອງຮັບໂດຍຕ່ອງໂສ້ອຸປະກອນຂອງທ່ານ. ແອັບອາດເລືອກຮູບແບບໃດໜຶ່ງທີ່ບໍ່ແມ່ນຮູບແບບຄຸນນະພາບສູງທີ່ສຸດ."</string>
+    <string name="hdr_format_selection_manual_summary" msgid="7886959642083639353">"ເມື່ອເລືອກແລ້ວ, ທ່ານສາມາດປິດການນຳໃຊ້ຮູບແບບ HDR ທີ່ຮອງຮັບໂດຍຕ່ອງໂສ້ອຸປະກອນຂອງທ່ານທີ່ພາໃຫ້ເກີດບັນຫາກັບການຫຼິ້ນດ້ວຍຕົວເອງໄດ້. ບໍ່ສາມາດບັງຄັບໃຫ້ມີການເປີດການນຳໃຊ້ຮູບແບບ HDR ທີ່ບໍ່ຮອງຮັບໂດຍຕ່ອງໂສ້ອຸປະກອນຂອງທ່ານໄດ້. ແອັບອາດເລືອກຮູບແບບໃດໜຶ່ງທີ່ບໍ່ແມ່ນຮູບແບບຄຸນນະພາບສູງທີ່ສຸດ."</string>
+    <string name="hdr_format_info" msgid="5652559220799426076">"ຂໍ້ມູນຮູບແບບ"</string>
+    <string name="hdr_show_formats" msgid="171065892975445851">"ສະແດງຮູບແບບ"</string>
+    <string name="hdr_hide_formats" msgid="8561568998525727230">"ເຊື່ອງຮູບແບບ"</string>
+    <string name="hdr_enabled_formats" msgid="8527870623949982774">"ຮູບແບບທີ່ເປີດການນຳໃຊ້ໄວ້"</string>
+    <string name="hdr_disabled_formats" msgid="4758522849421497896">"ຮູບແບບທີ່ປິດການນຳໃຊ້ໄວ້"</string>
+    <string name="hdr_enabled_format_info_clicked" msgid="1466675962665861040">"ເພື່ອປິດການນຳໃຊ້, ກະລຸນາປ່ຽນການເລືອກຮູບແບບເປັນແບບເລືອກດ້ວຍຕົວເອງ."</string>
     <string name="device_storage_clear_cache_title" msgid="14370154552302965">"ລຶບຂໍ້ມູນທີ່ເກັບໄວ້ບໍ?"</string>
     <string name="device_storage_clear_cache_message" msgid="4352802738505831032">"ອັນນີ້ຈະລຶບຂໍ້ມູນທີ່ເກັບໄວ້ສຳ​ລັບທຸກແອັບຯ."</string>
     <string name="accessories_add" msgid="413764175035531452">"​ເພີ່ມ​ອຸ​ປະ​ກອນ​ເສີມ"</string>
@@ -130,8 +200,9 @@
     <string name="accessory_connected" msgid="5229574480869175180">"ເຊື່ອມ​ຕໍ່ແລ້ວ"</string>
     <string name="accessory_change_name" msgid="6493717176878500683">"ປ່ຽນຊື່"</string>
     <string name="accessory_change_name_title" msgid="451188562035392238">"ໃສ່ຊື່ໃໝ່ສຳລັບອຸປະກອນເສີມນີ້"</string>
+    <string name="accessories_add_accessibility_title" msgid="1300294413423909579">"ກຳລັງຈັບຄູ່ Bluetooth."</string>
     <string name="accessories_add_title" msgid="7704824893011194433">"ກຳ​ລັງ​ຊອກ​ຫາ​ອຸ​ປະ​ກອນ​ເສີມ…"</string>
-    <string name="accessories_add_bluetooth_inst" msgid="5109947637581187896">"ກ່ອນທີ່​ຈະຈັບ​ຄູ່ອຸປະ​ກອນ Bluetooth ຂອງ​ທ່ານ, ໃຫ້​ແນ່ໃຈ​ວ່າພວກ​ມັນ​ຢູ່ໃນ​ໂຫມດ​ກຽມ​ເຊື່ອມຕໍ່."</string>
+    <string name="accessories_add_bluetooth_inst" msgid="2508151218328384366">"ກ່ອນທີ່​ຈະຈັບ​ຄູ່ອຸປະ​ກອນ Bluetooth ຂອງ​ທ່ານ, ໃຫ້​ກວດສອບວ່າພວກມັນຢູ່ໃນໂໝດການຈັບຄູ່ແລ້ວ"</string>
     <string name="accessories_autopair_msg" msgid="2501824457418285019">"ພົບເຫັນ​ອຸປະ​ກອນ​ແລ້ວ ແລະ​ຈະຖືກ​ຈັບຄູ່​ໂດຍອັດ​ຕະໂນ​ມັດໃນ​ອີກ <xliff:g id="COUNTDOWN">%1$s</xliff:g> ວິນາທີ"</string>
     <string name="error_action_not_supported" msgid="5377532621386080296">"ຄຳສັ່ງ​ນີ້ບໍ່​ຖືກ​ຮອງ​ຮັບ"</string>
     <string name="bluetooth_pairing_request" msgid="6120176967230348092">"ຄຳຂໍການຈັບຄູ່ Bluetooth"</string>
@@ -143,44 +214,152 @@
     <string name="bluetooth_pin_values_hint" msgid="6237371515577342950">"ປົກກະຕິແລ້ວໃຊ້ 0000 ຫຼື 1234"</string>
     <string name="bluetooth_pair" msgid="2410285813728786067">"ຈັບຄູ່"</string>
     <string name="bluetooth_cancel" msgid="4415185529332987034">"​ຍົກ​ເລີກ"</string>
+    <string name="bluetooth_device_connected_toast" msgid="1896195197089204806">"ເຊື່ອມຕໍ່ %1$s ແລ້ວ"</string>
+    <string name="bluetooth_device_disconnected_toast" msgid="7459239447363156499">"ຕັດການເຊື່ອມຕໍ່ %1$s ແລ້ວ"</string>
+    <string name="connected_devices_slice_pref_title" msgid="6761921505544005991">"ຣີໂໝດ ແລະ ອຸປະກອນເສີມ"</string>
+    <string name="bluetooth_toggle_title" msgid="3808904783456336104">"Bluetooth"</string>
+    <string name="bluetooth_toggle_confirmation_dialog_title" msgid="3906746631391295717">"ປິດ Bluetooth"</string>
+    <string name="bluetooth_toggle_confirmation_dialog_summary" msgid="9017044450625172698">"ທ່ານຈະບໍ່ສາມາດໃຊ້ຜູ້ຊ່ວຍ Google ໄດ້ຈາກຣີໂໝດຂອງທ່ານໃນເວລາປິດ Bluetooth ໄວ້."</string>
+    <string name="bluetooth_pair_accessory" msgid="5508750142754420984">"ຈັບຄູ່ອຸປະກອນເສີມ"</string>
+    <string name="bluetooth_known_devices_category" msgid="6895470515631452961">"ອຸປະກອນເສີມ"</string>
+    <string name="bluetooth_official_remote_category" msgid="5817814488268307170">"ຣີໂໝດ"</string>
+    <string name="bluetooth_official_remote_entry_title" msgid="6699700335229570038">"ການຕັ້ງຄ່າ​ຣີ​ໂໝດ"</string>
+    <string name="bluetooth_connect_action_title" msgid="7715342395313781643">"ເຊື່ອມຕໍ່"</string>
+    <string name="bluetooth_connect_confirm" msgid="4769958536295137386">"ເຊື່ອມຕໍ່ຫາ %1$s"</string>
+    <string name="bluetooth_disconnect_action_title" msgid="1135513009197728480">"ຕັດການເຊື່ອມຕໍ່"</string>
+    <string name="bluetooth_disconnect_confirm" msgid="1445977623973613581">"ຕັດການເຊື່ອມຕໍ່ຈາກ %1$s"</string>
+    <string name="bluetooth_rename_action_title" msgid="4200419902722729907">"ປ່ຽນຊື່"</string>
+    <string name="bluetooth_rename" msgid="7791922876280337194">"ປ່ຽນຊື່ອຸປະກອນທີ່ເຊື່ອມຕໍ່ແລ້ວຂອງທ່ານ"</string>
+    <string name="bluetooth_forget_action_title" msgid="2351140076684719196">"ລືມ"</string>
+    <string name="bluetooth_forget_confirm" msgid="5175414848391021666">"ລືມ %1$s"</string>
+    <string name="bluetooth_serial_number_label" msgid="6639294603220209971">"ທີ່ຢູ່ Bluetooth"</string>
+    <string name="bluetooth_connected_status" msgid="8629393539370085418">"ເຊື່ອມຕໍ່ແລ້ວ"</string>
+    <string name="bluetooth_disconnected_status" msgid="7617866963193224775">"ຕັດການເຊື່ອມຕໍ່ແລ້ວ"</string>
+    <string name="bluetooth_empty_list_user_restricted" msgid="1610743588460010736">"ທ່ານ​ບໍ່​ມີ​ສິດ​ອະນຸຍາດ​ໃນ​ການ​ແກ້ໄຂ​ການ​ຕັ້ງຄ່າ Bluetooth."</string>
     <string name="send_feedback" msgid="936698637869795473">"ສົ່ງຄຳຕິຊົມ"</string>
     <string name="launch_help" msgid="2607478763131952469">"ສູນຊ່ວຍເຫຼືອ"</string>
     <string name="system_cast" msgid="6081391679828510058">"Google Cast"</string>
-    <string name="system_date_time" msgid="6938588387002473344">"ວັນທີ &amp; ເວລາ"</string>
+    <string name="system_date_time" msgid="5922833592234018667">"ວັນທີ ແລະ ເວລາ"</string>
     <string name="system_language" msgid="5516099388471974346">"ພາສາ"</string>
+    <string name="language_empty_list_user_restricted" msgid="5430199913998605436">"ທ່ານບໍ່ມີສິດອະນຸຍາດໃນການປ່ຽນພາສາຂອງອຸປະກອນ."</string>
     <string name="system_keyboard" msgid="1514460705385401872">"ແປ້ນ​ພິມ"</string>
     <string name="system_keyboard_autofill" msgid="8530944165814838255">"ແປ້ນພິມ ແລະ ການຕື່ມຂໍ້ມູນອັດຕະໂນມັດ"</string>
     <string name="system_autofill" msgid="6983989261108020046">"ຕື່ມຂໍ້ມູນອັດຕະໂນມັດ"</string>
     <string name="system_home" msgid="2149349845791104094">"ຫນ້າ​ຈໍຫຼັກ"</string>
     <string name="system_search" msgid="3170169128257586925">"ຊອກຫາ"</string>
     <string name="system_google" msgid="945985164023885276">"Google"</string>
-    <string name="system_security" msgid="5053021134921182612">"ຄວາມປອດໄພ &amp; ການຈຳກັດ"</string>
+    <string name="system_security" msgid="1012999639810957132">"ຄວາມປອດໄພ ແລະ ການຈຳກັດ"</string>
     <string name="system_speech" msgid="8779582280374089518">"ການ​​ເວົ້າ"</string>
     <string name="system_inputs" msgid="5552840337357572096">"ອິນພຸດ"</string>
-    <string name="system_inputs_devices" msgid="8423782334271632810">"ອິນພຸດ ແລະ ອຸປະກອນ"</string>
+    <string name="system_inputs_devices" msgid="2158421111699829399">"ອິນພຸດ ແລະ ອຸປະກອນ"</string>
     <string name="system_home_theater_control" msgid="6228949628173590310">"ການຄວບຄຸມໂຮມເທຍເຕີ"</string>
     <string name="system_accessibility" msgid="3081009195560501010">"ການຊ່ວຍເຂົ້າເຖິງ"</string>
     <string name="system_developer_options" msgid="8480844257066475479">"ໂຕເລືອກ​ນັກພັດທະນາ"</string>
     <string name="accessibility_none" msgid="6355646833528306702">"ບໍ່ມີ"</string>
     <string name="system_diagnostic" msgid="1654842813331919958">"ການ​ໃຊ້ ແລະ ​ວິນິໄສ"</string>
+    <string name="no_device_admins" msgid="4628974717150185625">"ບໍ່ມີແອັບຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນທີ່ສາມາດໃຊ້ໄດ້"</string>
+    <string name="security_enable_widgets_disabled_summary" msgid="7678529948487939871">"ຖືກຜູ້ເບິ່ງແຍງລະບົບປິດໄວ້"</string>
+    <string name="disabled_by_administrator_summary" msgid="3420979957115426764">"ບໍ່ສາມາດໃຊ້ໄດ້"</string>
+    <string name="manage_device_admin" msgid="5714217234035017983">"ແອັບຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນ"</string>
+    <string name="number_of_device_admins_none" msgid="2734299122299837459">"ບໍ່ມີແອັບທີ່ກຳລັງເຮັດວຽກ"</string>
+    <plurals name="number_of_device_admins" formatted="false" msgid="5825543996501454373">
+      <item quantity="other">ແອັບທີ່ນຳໃຊ້ຢູ່ <xliff:g id="COUNT_1">%d</xliff:g> ແອັບ</item>
+      <item quantity="one">ແອັບທີ່ນຳໃຊ້ຢູ່ <xliff:g id="COUNT_0">%d</xliff:g> ແອັບ</item>
+    </plurals>
+    <string name="unlock_set_unlock_disabled_summary" msgid="108190334043671416">"ຖືກປິດການນຳໃຊ້ໂດຍຜູ້ເບິ່ງແຍງລະບົບ, ນະໂຍບາຍການເຂົ້າລະຫັດ ຫຼື ບ່ອນຈັດເກັບຂໍ້ມູນລັບ"</string>
+    <string name="enterprise_privacy_settings" msgid="8226765895133003202">"ຂໍ້ມູນອຸປະກອນທີ່ມີການຈັດການ"</string>
+    <string name="enterprise_privacy_settings_summary_generic" msgid="5719549523275019419">"ການປ່ຽນແປງ ແລະ ການຕັ້ງຄ່າທີ່ຈັດການໂດຍອົງກອນຂອງທ່ານ"</string>
+    <string name="enterprise_privacy_settings_summary_with_name" msgid="2866704039759872293">"ການປ່ຽນແປງ ແລະ ການຕັ້ງຄ່າທີ່ຈັດການໂດຍ <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>"</string>
+    <string name="enterprise_privacy_header" msgid="9221881402582661521">"ເພື່ອມອບສິດການເຂົ້າເຖິງຂໍ້ມູນໂປຣໄຟລ໌ບ່ອນເຮັດວຽກຂອງທ່ານ, ອົງກອນຂອງທ່ານອາດປ່ຽນການຕັ້ງຄ່າ ແລະ ຕິດຕັ້ງຊອບແວໃສ່ອຸປະກອນຂອງທ່ານ. \n\nສຳລັບລາຍລະອຽດເພີ່ມເຕີມ, ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງອົງກອນຂອງທ່ານ."</string>
+    <string name="enterprise_privacy_exposure_category" msgid="1555735251238636669">"ປະເພດຂໍ້ມູນທີ່ອົງກອນຂອງທ່ານເບິ່ງເຫັນໄດ້"</string>
+    <string name="enterprise_privacy_exposure_changes_category" msgid="7750498604032318318">"ການປ່ຽນແປງທີ່ສ້າງຂຶ້ນໂດຍຜູ້ເບິ່ງແຍງລະບົບອົງກອນຂອງທ່ານ"</string>
+    <string name="enterprise_privacy_device_access_category" msgid="7397106369136259850">"ສິດການເຂົ້າເຖິງອຸປະກອນນີ້ຂອງທ່ານ"</string>
+    <string name="enterprise_privacy_enterprise_data" msgid="8135491104894522008">"ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບບັນຊີບ່ອນເຮັດວຽກຂອງທ່ານ ເຊັ່ນ: ອີເມວ ແລະ ປະຕິທິນ"</string>
+    <string name="enterprise_privacy_installed_packages" msgid="5012554762299490994">"ລາຍຊື່ແອັບໃນອຸປະກອນຂອງທ່ານ"</string>
+    <string name="enterprise_privacy_usage_stats" msgid="7062422823174345793">"ຈຳນວນເວລາ ແລະ ຂໍ້ມູນທີ່ໃຊ້ໃນແຕ່ລະແອັບ"</string>
+    <string name="enterprise_privacy_network_logs" msgid="305782312671493780">"ບັນທຶກທຣາບຟິກເຄືອຂ່າຍຫຼ້າສຸດ"</string>
+    <string name="enterprise_privacy_bug_reports" msgid="2393617117911211486">"ລາຍງານຂໍ້ຜິດພາດຫຼ້າສຸດ"</string>
+    <string name="enterprise_privacy_security_logs" msgid="2573545327989145361">"ບັນທຶກຄວາມປອດໄພຫຼ້າສຸດ"</string>
+    <string name="enterprise_privacy_none" msgid="6660670916934417519">"ບໍ່ມີ"</string>
+    <string name="enterprise_privacy_enterprise_installed_packages" msgid="7244796629052581085">"ຕິດຕັ້ງແອັບແລ້ວ"</string>
+    <string name="enterprise_privacy_apps_count_estimation_info" msgid="3875568975752197381">"ຈຳນວນຂອງແອັບແມ່ນເປັນການປະມານການເທົ່ານັ້ນ. ມັນອາດບໍ່ຮວມແອັບທີ່ຕິດຕັ້ງຈາກນອກ Play Store."</string>
+    <plurals name="enterprise_privacy_number_packages_lower_bound" formatted="false" msgid="3891649682522079620">
+      <item quantity="other">ຂັ້ນຕ່ຳ <xliff:g id="COUNT_1">%d</xliff:g> ແອັບ</item>
+      <item quantity="one">ຂັ້ນຕ່ຳ <xliff:g id="COUNT_0">%d</xliff:g> ແອັບ</item>
+    </plurals>
+    <string name="enterprise_privacy_location_access" msgid="8978502415647245748">"ສິດອະນຸຍາດສະຖານທີ່"</string>
+    <string name="enterprise_privacy_microphone_access" msgid="3746238027890585248">"ສິດອະນຸຍາດໄມໂຄຣໂຟນ"</string>
+    <string name="enterprise_privacy_camera_access" msgid="6258493631976121930">"ສິດອະນຸຍາດກ້ອງຖ່າຍຮູບ"</string>
+    <string name="enterprise_privacy_enterprise_set_default_apps" msgid="5538330175901952288">"ແອັບເລີ່ມຕົ້ນ"</string>
+    <plurals name="enterprise_privacy_number_packages" formatted="false" msgid="1652060324792116347">
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> ແອັບ</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%d</xliff:g> ແອັບ</item>
+    </plurals>
+    <string name="enterprise_privacy_input_method" msgid="5814752394251833058">"ແປ້ນພິມເລີ່ມຕົ້ນ"</string>
+    <string name="enterprise_privacy_input_method_name" msgid="1088874503312671318">"ຕັ້ງເປັນ <xliff:g id="APP_LABEL">%s</xliff:g> ແລ້ວ"</string>
+    <string name="enterprise_privacy_always_on_vpn_device" msgid="8845550514448914237">"Always-on VPN turned on"</string>
+    <string name="enterprise_privacy_always_on_vpn_personal" msgid="6996782365866442280">"Always-on VPN turned on in your personal profile"</string>
+    <string name="enterprise_privacy_always_on_vpn_work" msgid="3674119583050531071">"Always-on VPN turned on in your work profile"</string>
+    <string name="enterprise_privacy_global_http_proxy" msgid="2818848848337527780">"Global HTTP proxy set"</string>
+    <string name="enterprise_privacy_ca_certs_device" msgid="975646846291012452">"ຂໍ້ມູນລັບທີ່ເຊື່ອຖື"</string>
+    <string name="enterprise_privacy_ca_certs_personal" msgid="7641368559306519707">"ຂໍ້ມູນລັບທີ່ເຊື່ອຖືໃນໂປຣໄຟລ໌ສ່ວນຕົວຂອງທ່ານ"</string>
+    <string name="enterprise_privacy_ca_certs_work" msgid="2905939250974399645">"ຂໍ້ມູນລັບທີ່ເຊື່ອຖືໃນໂປຣໄຟລ໌ບ່ອນເຮັດວຽກຂອງທ່ານ"</string>
+    <plurals name="enterprise_privacy_number_ca_certs" formatted="false" msgid="4861211387981268796">
+      <item quantity="other">ໃບຢັ້ງຢືນ CA ຂັ້ນຕ່ຳ <xliff:g id="COUNT_1">%d</xliff:g> ໃບ</item>
+      <item quantity="one">ໃບຢັ້ງຢືນ CA ຂັ້ນຕ່ຳ <xliff:g id="COUNT_0">%d</xliff:g> ໃບ</item>
+    </plurals>
+    <string name="enterprise_privacy_lock_device" msgid="3140624232334033641">"ຜູ້ເບິ່ງແຍງລະບົບສາມາດລັອກອຸປະກອນ ແລະ ຕັ້ງລະຫັດຜ່ານໃໝ່ໄດ້"</string>
+    <string name="enterprise_privacy_wipe_device" msgid="1714271125636510031">"ຜູ້ເບິ່ງແຍງສາມາດລຶບຂໍ້ມູນອຸປະກອນທັງໝົດໄດ້"</string>
+    <string name="enterprise_privacy_failed_password_wipe_device" msgid="8272298134556250600">"ຈຳນວນການໃສ່ລະຫັດຜ່ານບໍ່ສຳເລັດກ່ອນຈະລຶບຂໍ້ມູນໃນອຸປະກອນທັງໝົດອອກ"</string>
+    <string name="enterprise_privacy_failed_password_wipe_work" msgid="1184137458404844014">"ຈຳນວນການໃສ່ລະຫັດຜ່ານບໍ່ສຳເລັດກ່ອນຈະລຶບຂໍ້ມູນໂປຣໄຟລ໌ບ່ອນເຮັດວຽກອອກ"</string>
+    <plurals name="enterprise_privacy_number_failed_password_wipe" formatted="false" msgid="8317320334895448341">
+      <item quantity="other">ພະຍາຍາມ <xliff:g id="COUNT_1">%d</xliff:g> ເທື່ອ</item>
+      <item quantity="one">ພະຍາຍາມ <xliff:g id="COUNT_0">%d</xliff:g> ເທື່ອ</item>
+    </plurals>
+    <string name="do_disclosure_generic" msgid="8390478119591845948">"ອຸປະກອນນີ້ແມ່ນຈັດການໂດຍອົງກອນຂອງທ່ານ."</string>
+    <string name="do_disclosure_with_name" msgid="4755509039938948975">"ອຸປະກອນນີ້ຖືກຈັດການໂດຍ <xliff:g id="ORGANIZATION_NAME">%s</xliff:g>"</string>
+    <string name="do_disclosure_learn_more_separator" msgid="4226390963162716446">" "</string>
+    <string name="learn_more" msgid="820336467414665686">"ສຶກສາເພີ່ມເຕີມ"</string>
+    <plurals name="default_camera_app_title" formatted="false" msgid="3870902175441923391">
+      <item quantity="other">ແອັບກ້ອງຖ່າຍຮູບ</item>
+      <item quantity="one">ແອັບກ້ອງຖ່າຍຮູບ</item>
+    </plurals>
+    <string name="default_calendar_app_title" msgid="1533912443930743532">"ແອັບປະຕິທິນ"</string>
+    <string name="default_contacts_app_title" msgid="7792041146751261191">"ແອັບລາຍຊື່ຜູ້ຕິດຕໍ່"</string>
+    <plurals name="default_email_app_title" formatted="false" msgid="5601238555065668402">
+      <item quantity="other">ແອັບໂປຣແກຣມອີເມວ</item>
+      <item quantity="one">ແອັບໂປຣແກຣມອີເມວ</item>
+    </plurals>
+    <string name="default_map_app_title" msgid="9051013257374474801">"ແອັບແຜນທີ່"</string>
+    <plurals name="default_phone_app_title" formatted="false" msgid="1573981201056870719">
+      <item quantity="other">ແອັບໂທລະສັບ</item>
+      <item quantity="one">ແອັບໂທລະສັບ</item>
+    </plurals>
+    <string name="default_browser_title" msgid="3612813200586492159">"ແອັບໂປຣແກຣມທ່ອງເວັບ"</string>
+    <string name="app_names_concatenation_template_2" msgid="5297284354915830297">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>"</string>
+    <string name="app_names_concatenation_template_3" msgid="4932774380339466733">"<xliff:g id="FIRST_APP_NAME">%1$s</xliff:g>, <xliff:g id="SECOND_APP_NAME">%2$s</xliff:g>, <xliff:g id="THIRD_APP_NAME">%3$s</xliff:g>"</string>
     <string name="tutorials" msgid="7880770425872110455">"ສາທິດການນຳໃຊ້"</string>
     <string name="about_system_update" msgid="7421264399111367755">"ການອັບເດດລະບົບ"</string>
+    <string name="system_update_description" msgid="998883510488461766">"ນີ້ຈະອັບເດດຊອບແວລະບົບຂອງທ່ານເປັນເວີຊັນຫຼ້າສຸດ. ອຸປະກອນຂອງທ່ານຈະຣີສະຕາດ."</string>
+    <string name="system_update_content_description" msgid="5702888187682876466">"ອັບເດດລະບົບ, ນີ້ຈະເປັນການອັບເດດຊອບແວລະບົບຂອງທ່ານໄປເປັນເວີຊັນຫຼ້າສຸດ. ອຸປະກອນຂອງທ່ານຈະຣີສະຕາດ."</string>
     <string name="about_preference" msgid="9112690446998150670">"ກ່ຽວກັບ"</string>
     <string name="device_name" msgid="566626587332817733">"ຊື່​ອຸ​ປະ​ກອນ"</string>
-    <string name="restart_button_label" msgid="2124590135040611899">"ປິດເປີດໃໝ່"</string>
+    <string name="restart_button_label" msgid="911750765086382990">"ຣີສະຕາດ"</string>
     <string name="about_legal_info" msgid="2148797328415559733">"​ຂໍ້​ມູນ​ທາງ​ກົດ​ໝາຍ"</string>
-    <string name="about_legal_license" msgid="4801707286720681261">"​ລິ​ຂະ​ສິດ​ໂອ​ເພນ​ຊອດ"</string>
+    <string name="about_legal_license" msgid="4056934178111674054">"ແຫຼ່ງຂໍ້ມູນພາກສ່ວນທີສາມ"</string>
     <string name="about_terms_of_service" msgid="8514826341101557623">"Google ຕາມ​ກົດ​ໝາຍ"</string>
     <string name="about_license_activity_unavailable" msgid="4559187037375581674">"ບໍ່​ມີ​ຂໍ້​ມູນ​ລິ​ຂະ​ສິດ"</string>
     <string name="about_model" msgid="9164284529291439296">"ໂມເດວ"</string>
-    <string name="about_version" msgid="7800676128792880991">"ເວີຊັນ"</string>
+    <string name="about_version" msgid="6223547403835399861">"ເວີຊັນ Android TV OS"</string>
     <string name="about_serial" msgid="3432319328808745459">"ໝາຍເລກຊີຣຽວ"</string>
-    <string name="about_build" msgid="1139171613038225768">"​ການ​ສ້າງ"</string>
+    <string name="about_build" msgid="8467840394761634575">"Android TV OS build"</string>
     <plurals name="show_dev_countdown" formatted="false" msgid="523455736684670250">
       <item quantity="other">ປະ​ຈຸ​ບັນ​ທ່ານ​ຢູ່​ໄກ​ຈາກ​ການ​ເປັນ​ຜູ້​ພັດ​ທະ​ນາ <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> ບາດ​ກ້າວ</item>
       <item quantity="one">ປະ​ຈຸ​ບັນ​ທ່ານ​ຢູ່​ໄກ​ຈາກ​ການ​ເປັນ​ຜູ້​ພັດ​ທະ​ນາ <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> ບາດ​ກ້າວ</item>
     </plurals>
     <string name="about_ads" msgid="7662896442040086522">"ໂຄສະນາ"</string>
+    <string name="ads_description" msgid="8081069475265061074">"ຈັດການການຕັ້ງຄ່າໂຄສະນາ ເຊັ່ນ: ການຣີເຊັດ ID ການໂຄສະນາ."</string>
+    <string name="ads_content_description" msgid="1006489792324920289">"ໂຄສະນາ, ຈັດການການຕັ້ງຄ່າໂຄສະນາ ເຊັ່ນ: ການຣີເຊັດ ID ການໂຄສະນາຂອງທ່ານ."</string>
     <string name="show_dev_on" msgid="612741433124106067">"ຕອນ​ນີ້​ທ່ານ​ເປັນ​ນັກ​ພັດທະນາ​ແລ້ວ!"</string>
     <string name="show_dev_already" msgid="1522591284776449818">"ບໍ່ຈຳເປັນ, ທ່ານເປັນ​ນັກພັດ​ທະນາ​ຢູ່ແລ້ວ"</string>
     <string name="device_info_default" msgid="2374506935205518448">"ບໍ່​ຮູ້ຈັກ"</string>
@@ -189,11 +368,36 @@
     <string name="selinux_status_permissive" msgid="8694617578567517527">"ທີ່​ອະ​ນຸ​ຍາດໃຫ້"</string>
     <string name="selinux_status_enforcing" msgid="4140979635669643342">"ການ​ບັງ​ຄັບ​ໃຊ້"</string>
     <string name="additional_system_update_settings_list_item_title" msgid="1839534735929143986">"ການອັບເດດລະບົບເພີ່ມເຕີມ"</string>
+    <string name="ssl_ca_cert_warning" msgid="7836390021162211069">"ການນຳໃຊ້ເຄືອຂ່າຍອາດມີການກວດສອບຕິດຕາມ"</string>
+    <string name="done_button" msgid="616159688526431451">"ແລ້ວໆ"</string>
+    <plurals name="ssl_ca_cert_dialog_title" formatted="false" msgid="8222753634330561111">
+      <item quantity="other">ເຊື່ອຖື ຫຼື ລຶບໃບຮັບຮອງອອກ</item>
+      <item quantity="one">ເຊື່ອຖື ຫຼື ລຶບໃບຮັບຮອງອອກ</item>
+    </plurals>
+    <plurals name="ssl_ca_cert_info_message_device_owner" formatted="false" msgid="6128536570911468907">
+      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> ໄດ້ຕິດຕັ້ງຜູ້ອອກໃບຮັບຮອງຢູ່ອຸປະກອນຂອງທ່ານແລ້ວ, ເຊິ່ງອາດອະນຸຍາດເຂົາເຈົ້າສັງເກດການການເຄື່ອນໄຫວເຄືອຂ່າຍອຸປະກອນຂອງທ່ານໄດ້, ຮວມທັງອີເມວ, ແອັບ ແລະ ເວັບໄຊທີ່ເຂົ້າລະຫັດ.\n\nສຳລັບຂໍ້ມູນເພີ່ມເຕີມກ່ຽວກັບໃບຮັບຮອງເຫຼົ່ານີ້, ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງຂອງທ່ານ.</item>
+      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> ໄດ້ຕິດຕັ້ງຜູ້ອອກໃບຮັບຮອງຢູ່ອຸປະກອນຂອງທ່ານແລ້ວ, ເຊິ່ງອາດອະນຸຍາດເຂົາເຈົ້າສັງເກດການການເຄື່ອນໄຫວເຄືອຂ່າຍອຸປະກອນຂອງທ່ານໄດ້, ຮວມທັງອີເມວ, ແອັບ ແລະ ເວັບໄຊທີ່ເຂົ້າລະຫັດ.\n\nສຳລັບຂໍ້ມູນເພີ່ມເຕີມກ່ຽວກັບໃບຮັບຮອງນີ້, ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງຂອງທ່ານ.</item>
+    </plurals>
+    <plurals name="ssl_ca_cert_info_message" formatted="false" msgid="5828471957724016946">
+      <item quantity="other"><xliff:g id="MANAGING_DOMAIN_1">%s</xliff:g> ໄດ້ຕິດຕັ້ງຜູ້ອອກໃບຮັບຮອງສຳລັບໂປຣໄຟລ໌ບ່ອນເຮັດວຽກຂອງທ່ານແລ້ວ, ເຊິ່ງອາດອະນຸຍາດເຂົາເຈົ້າສັງເກດການການເຄື່ອນໄຫວເຄືອຂ່າຍບ່ອນເຮັດວຽກໄດ້, ຮວມທັງອີເມວ, ແອັບ ແລະ ເວັບໄຊທີ່ເຂົ້າລະຫັດ.\n\nສຳລັບຂໍ້ມູນເພີ່ມເຕີມກ່ຽວກັບໃບຮັບຮອງເຫຼົ່ານີ້, ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງຂອງທ່ານ.</item>
+      <item quantity="one"><xliff:g id="MANAGING_DOMAIN_0">%s</xliff:g> ໄດ້ຕິດຕັ້ງຜູ້ອອກໃບຮັບຮອງສຳລັບໂປຣໄຟລ໌ບ່ອນເຮັດວຽກຂອງທ່ານແລ້ວ, ເຊິ່ງອາດອະນຸຍາດເຂົາເຈົ້າສັງເກດການການເຄື່ອນໄຫວເຄືອຂ່າຍບ່ອນເຮັດວຽກໄດ້, ຮວມທັງອີເມວ, ແອັບ ແລະ ເວັບໄຊທີ່ເຂົ້າລະຫັດ.\n\nສຳລັບຂໍ້ມູນເພີ່ມເຕີມກ່ຽວກັບໃບຮັບຮອງນີ້, ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງຂອງທ່ານ.</item>
+    </plurals>
+    <string name="ssl_ca_cert_warning_message" msgid="4837017382712096218">"ພາກສ່ວນທີສາມສາມາດເບິ່ງການເຄື່ອນໄຫວເຄືອຂ່າຍຂອງທ່ານໄດ້ ຮວມເຖິງອີເມວ, ແອັບຯ ແລະເວັບໄຊທີ່ເຂົ້າລະຫັດ.\n\nຂໍ້ມູນການຢືນຢັນທີ່ເຊື່ອຖືໄດ້ໃນຄອມພິວເຕີຂອງທ່ານ ອະນຸມັດໃຫ້ຂັ້ນຕອນນີ້ເປັນໄປໄດ້."</string>
+    <plurals name="ssl_ca_cert_settings_button" formatted="false" msgid="196409967946912560">
+      <item quantity="other">ກວດສອບໃບຮັບຮອງ</item>
+      <item quantity="one">ກວດສອບໃບຮັບຮອງ</item>
+    </plurals>
     <string name="device_status" msgid="8266002761193692207">"ສະຖານະ"</string>
     <string name="device_status_summary" msgid="3270932829412434985">"ເຄືອຂ່າຍ, ເລກລໍາດັບ ແລະຂໍ້ມູນອື່ນ"</string>
     <string name="manual" msgid="5683935624321864999">"ຄູ່​ມື"</string>
     <string name="regulatory_information" msgid="9107675969694713391">"ຂໍ້ມູນກົດລະບຽບ"</string>
     <string name="device_feedback" msgid="4871903271442960465">"ສົ່ງ​ຄຳ​ຕິ​ຊົມ​ກ່ຽວ​ກັບ​ອຸ​ປະ​ກອນ​ນີ້"</string>
+    <string name="oem_unlock_enable_disabled_summary_bootloader_unlocked" msgid="4641790432171693921">"Bootloader ຖືກປົດລັອກຢູ່ກ່ອນແລ້ວ"</string>
+    <string name="oem_unlock_enable_disabled_summary_connectivity" msgid="2979556699380115576">"ກະລຸນາເຊື່ອມຕໍ່ອິນເຕີເນັດກ່ອນ"</string>
+    <string name="oem_unlock_enable_disabled_summary_connectivity_or_locked" msgid="1946089732305102622">"ກະລຸນາເຊື່ອມຕໍ່ອິນເຕີເນັດ ຫຼື ຕິດຕໍ່ຜູ້ໃຫ້ບໍລິການຂອງທ່ານ"</string>
+    <string name="oem_unlock_enable_disabled_summary_sim_locked_device" msgid="5634005787486307657">"ບໍ່ສາມາດໃຊ້ໄດ້ໃນອຸປະກອນທີ່ຜູ້ໃຫ້ບໍລິການລັອກໄວ້"</string>
+    <string name="oem_lock_info_message" msgid="2165887409937351689">"ກະລຸນາຣີສະຕາດອຸປະກອນເພື່ອເປີດໃຊ້ການປົກປ້ອງອຸປະກອນ."</string>
+    <string name="automatic_storage_manager_freed_bytes" msgid="1654574152815129396">"ສ້າງພື້ນທີ່ຫວ່າງເພີ່ມຂຶ້ນ <xliff:g id="SIZE">%1$s</xliff:g>\n\nເຮັດວຽກເທື່ອສຸດທ້າຍເມື່ອ <xliff:g id="DATE">%2$s</xliff:g>"</string>
     <string name="fcc_equipment_id" msgid="6731077083927000108">"ລະຫັດອຸປະກອນ"</string>
     <string name="baseband_version" msgid="5618116741093274294">"ເວີຊັນເບສແບນ"</string>
     <string name="kernel_version" msgid="7265509054070001542">"ລຸ້ນ Kernel"</string>
@@ -201,8 +405,6 @@
     <string name="device_status_title" msgid="9051569510258883673">"ສະຖານະ"</string>
     <string name="battery_status_title" msgid="8850166742025222210">"ສະຖານະແບັດເຕີຣີ"</string>
     <string name="battery_level_title" msgid="2672804570916248736">"ລະດັບແບັດເຕີຣີ"</string>
-    <string name="sim_status_title" msgid="1704273079796640946">"ສະ​ຖາ​ນະ SIM"</string>
-    <string name="imei_information_title" msgid="3790368306353698724">"ຂໍ້ມູນ IMEI"</string>
     <string name="status_bt_address" msgid="7190052214963950844">"ທີ່ຢູ່ Bluetooth"</string>
     <string name="status_up_time" msgid="1758102680983108313">"ເວລາເປີດເຄື່ອງ"</string>
     <string name="legal_information" msgid="1087445528481370874">"ຂໍ້ມູນທາງກົດໝາຍ"</string>
@@ -210,6 +412,9 @@
     <string name="license_title" msgid="4032466200355435641">"ລິຂະສິດ"</string>
     <string name="terms_title" msgid="192888187310800678">"ຂໍ້ກຳນົດ ແລະເງື່ອນໄຂ"</string>
     <string name="webview_license_title" msgid="5370270485188947540">"ໃບ​ອະ​ນຸ​ຍາດ WebView ຂອງ​ລະບົບ"</string>
+    <string name="consumer_information_title" msgid="7729729568416672733">"ຂໍ້ມູນຜູ້ບໍລິໂພກ"</string>
+    <string name="consumer_information_message" msgid="205236637689468764">"ເນື້ອຫາທີ່ທ່ານພົບຢູ່ Android TV ມາຈາກຮຸ້ນສ່ວນພາກສ່ວນທີສາມ ເຊັ່ນ: ນັກພັດທະນາແອັບ ແລະ ສະຕູດິໂອໜັງ, ຮວມທັງຈາກ Google ເອງ. ສຳລັບຂໍ້ມູນເພີ່ມເຕີມ, ກະລຸນາອ່ານ "<a href="g.co/tv/androidtvinfo">"g.co/tv/androidtvinfo"</a></string>
+    <string name="consumer_information_button_ok" msgid="6979480064600038080">"ຕົກລົງ"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="4475363344103354364">"ອ່ອນ"</item>
     <item msgid="2098818614362343532">"ພໍໃຊ້"</item>
@@ -236,6 +441,8 @@
     <string name="wifi_setting_see_fewer" msgid="8585364493300703467">"ເບິ່ງໜ້ອຍລົງ"</string>
     <string name="wifi_setting_available_networks" msgid="2096957819727319750">"ເຄືອຂ່າຍທີ່ມີໃຫ້"</string>
     <string name="wifi_setting_other_options_add_network" msgid="6490215784178866978">"ເພີ່ມ​ເຄືອ​ຂ່າຍ​ໃໝ່"</string>
+    <string name="wifi_setting_other_options_add_network_via_easyconnect" msgid="2869989555950644533">"ເຊື່ອມຕໍ່ແບບດ່ວນ"</string>
+    <string name="wifi_setting_other_options_add_network_via_easyconnect_info_summary" msgid="4564538591168691865">"ການເຊື່ອມຕໍ່ແບບດ່ວນຈະຊ່ວຍທ່ານເຊື່ອມຕໍ່ຫາ WiFi ຂອງທ່ານໄດ້ຢ່າງວ່ອງໄວໂດຍການສະແກນລະຫັດ QR ຢູ່ໂທລະສັບຂອງທ່ານ."</string>
     <string name="security_type" msgid="2297615092250075696">"​ປະ​ເພດ​ຄວາມ​ປອດ​ໄພ"</string>
     <string name="other_network" msgid="5299289104661858596">"ເຄືອຂ່າຍອື່ນໆ..."</string>
     <string name="skip_network" msgid="3095529090560000692">"ຂ້າມ"</string>
@@ -263,6 +470,7 @@
     <string name="title_wifi_proxy_settings_invalid" msgid="7698883245005941665">"​ການ​ຕັ້ງ​ຄ່າ​ພຣັອກ​ຊີ່ບໍ່​ຖືກ​ຕ້ອງ"</string>
     <string name="title_wifi_ip_settings_invalid" msgid="7283801973512992014">"ການ​ຕັ້ງ​ຄ່າ IP ບໍ່​ຖືກ​ຕ້ອງ"</string>
     <string name="title_wifi_known_network" msgid="6162483884727898697">"<xliff:g id="SSID">%1$s</xliff:g> ​ແມ່ນ​ເຄືອ​ຂ່າຍ​ທີ່​ຖືກ​ບັນ​ທຶກ​ໄວ້​ຢູ່​ກ່ອນ​ແລ້ວ"</string>
+    <string name="title_wifi_scan_qr_code" msgid="7485605625055717874">"ສະແກນລະຫັດ QR ເພື່ອເຂົ້າຮ່ວມ"</string>
     <string name="wifi_action_try_again" msgid="8920677153891141148">"ລອງອີກຄັ້ງ"</string>
     <string name="wifi_action_view_available_networks" msgid="609561604257828342">"​ເບິ່ງ​ເຄືອ​ຂ່າຍ​ທີ່​ສາ​ມາດ​ໃຊ້​ໄດ້"</string>
     <string name="wifi_connecting" msgid="4234341255109283018">"​ກຳ​ລັງ​ເຊື່ອມ​ຕໍ່​ຫາ <xliff:g id="SSID">%1$s</xliff:g>"</string>
@@ -270,6 +478,8 @@
     <string name="wifi_connect" msgid="2206086690065242121">"ເຊື່ອມຕໍ່"</string>
     <string name="wifi_forget_network" msgid="4634016112624305571">"ລືມເຄືອຂ່າຍ"</string>
     <string name="wifi_forget_network_description" msgid="4146715475962713899">"ນີ້​ຈະ​ເປັນ​ການ​ລຶບ​ລ້າງ​ຂໍ້ມູນທີ່​ໃຊ້ໃນ​ການເຊື່ອມ​ຕໍ່ກັບ​ເຄືອ​ຂ່າຍນີ້, ຮວມ​ທັງລະ​ຫັດຜ່ານ​ທີ່ບັນ​ທຶກໄວ້."</string>
+    <string name="wifi_scan_qr_code_description" msgid="2375814285190385839">"ເຂົ້າຮ່ວມ Wifi ໂດຍການສະແກນລະຫັດ QR ຈາກໂທລະສັບມືຖືຂອງທ່ານແລ້ວເຮັດຕາມຄຳແນະນຳ."</string>
+    <string name="wifi_scan_qr_code_back_description" msgid="8830716278283379280">"ກົດປຸ່ມກັບຄືນເພື່ອຍົກເລີກ"</string>
     <string name="wifi_action_ok" msgid="6257483288047397880">"ຕົກລົງ"</string>
     <string name="wifi_setup_action_dont_change_network" msgid="2999582059217623090">"ສືບຕໍ່"</string>
     <string name="wifi_setup_action_change_network" msgid="1603908238711710943">"ປ່ຽນເຄືອຂ່າຍ"</string>
@@ -310,6 +520,7 @@
     <string name="wifi_summary_title_not_connected" msgid="7991004795297065201">"ບໍ່​ໄດ້​ເຊື່ອມ​ຕໍ່​ເຄືອ​ຂ່າຍ​ເທື່ອ"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="8796747274977762311">"ເຊື່ອມຕໍ່ກັບ <xliff:g id="SSID">%1$s</xliff:g> ແລ້ວ. ຕ້ອງ​ການ​ເຊື່ອມຕໍ່​ກັບເຄືອຂ່າຍ​ອື່ນບໍ?"</string>
     <string name="wifi_summary_unknown_network" msgid="8044143986439139664">"​ເຄື​ອ​ຂ່າຍ​ທີ່ບໍ່​ຮູ້​ຈັກ"</string>
+    <string name="wifi_empty_list_user_restricted" msgid="7326314737931342236">"ທ່ານບໍ່ໄດ້ຮັບອະນຸຍາດໃຫ້ປ່ຽນເຄືອຂ່າຍ Wi-Fi ໄດ້."</string>
     <string name="title_ok" msgid="6500452958848127145">"ຕົກລົງ"</string>
     <string name="title_cancel" msgid="2337143367016419016">"​ຍົກ​ເລີກ"</string>
     <string name="storage_title" msgid="6637715914885228193">"ບ່ອນເກັບຂໍ້ມູນ"</string>
@@ -318,12 +529,12 @@
     <string name="storage_calculating_size" msgid="5716281278843281044">"ກຳລັງຄຳນວນ..."</string>
     <string name="storage_apps_usage" msgid="8659915575274468924">"ແອັບຯ"</string>
     <string name="storage_downloads_usage" msgid="8429196848359517158">"ດາວໂຫລດ"</string>
-    <string name="storage_dcim_usage" msgid="337290403400541958">"ຮູບພາບ &amp; ວິດີໂອ"</string>
+    <string name="storage_dcim_usage" msgid="1890098882753254745">"ຮູບພາບ ແລະ ວິດີໂອ"</string>
     <string name="storage_music_usage" msgid="5362871290115089474">"ສຽງ"</string>
     <string name="storage_media_misc_usage" msgid="3404230292054880339">"ອື່ນໆ."</string>
     <string name="storage_media_cache_usage" msgid="6397941751551207630">"ຂໍ້ມູນທີ່ເກັບໄວ້"</string>
     <string name="storage_eject" msgid="3268870873944951902">"ເອົາອອກ"</string>
-    <string name="storage_format" msgid="1068977713279648756">"ລຶບ ແລະ​ຟໍ​ແມັດ"</string>
+    <string name="storage_format" msgid="5360900929128087085">"ລຶບ ແລະ ​ຟໍ​ແມັດ"</string>
     <string name="storage_format_as_private" msgid="77945551149326052">"ລຶບ ແລະ ຟໍແມັດເປັນພື້ນທີ່ຈັດເກັບຂໍ້ມູນອຸປະກອນ"</string>
     <string name="storage_format_as_public" msgid="6745112917895223463">"ລຶບ ແລະ ຟໍແມັດເປັນພື້ນທີ່ຈັດເກັບຂໍ້ມູນແບບຖອດອອກໄດ້"</string>
     <string name="storage_format_for_private" msgid="5380138334184923252">"ຟໍ​ແມັດ​ເປັນ​ບ່ອນ​ຈັດ​ເກັບ​ຂໍ້​ມູນ​ອຸ​ປະ​ກອນ"</string>
@@ -406,6 +617,22 @@
     <item msgid="5645263357181875427">"ໃຊ້ເວລາທີ່ກະແສການຂົນສົ່ງສະໜອງໃຫ້"</item>
     <item msgid="5501503537181350884">"ປິດ"</item>
   </string-array>
+    <string name="sensor_toggle_description" msgid="7415801459994303159">"ສຳລັບແອັບ ແລະ ບໍລິການທັງໝົດ"</string>
+    <string name="recently_accessed_by_category" msgid="6841705864715653428">"ເຂົ້າເຖິງຫຼ້າສຸດໂດຍ"</string>
+    <string name="no_recent_sensor_accesses" msgid="3498112970658050800">"ບໍ່ມີການເຂົ້າເຖິງຫຼ້າສຸດ"</string>
+    <string name="recently_accessed_show_all" msgid="5234849189704717855">"ເບິ່ງທັງໝົດ"</string>
+    <string name="microphone" msgid="7893752847683941214">"ໄມໂຄຣໂຟນ"</string>
+    <string name="mic_toggle_title" msgid="7193417007060235665">"ການເຂົ້າເຖິງໄມໂຄຣໂຟນ"</string>
+    <string name="open_mic_permissions" msgid="8121871594807641073">"ສິດເຂົ້າເຖິງໄມໂຄຣໂຟນຂອງແອັບ"</string>
+    <string name="camera" msgid="1226671478936288283">"ກ້ອງຖ່າຍຮູບ"</string>
+    <string name="camera_toggle_title" msgid="5566469574224956142">"ການເຂົ້າເຖິງກ້ອງຖ່າຍຮູບ"</string>
+    <string name="open_camera_permissions" msgid="301360297337141591">"ສິດເຂົ້າເຖິງກ້ອງຖ່າຍຮູບຂອງແອັບ"</string>
+    <string name="mic_toggle_info_title" msgid="1086545614315873599">"ການເຂົ້າເຖິງໄມໂຄຣໂຟນ: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
+    <string name="mic_toggle_info_content" msgid="4699624900513326055">"ເມື່ອເປີດໃຊ້ແລ້ວ, ແອັບ ແລະ ບໍລິການທັງໝົດທີ່ມີການອະນຸຍາດຈະສາມາດເຂົ້າເຖິງໄມໂຄຣໂຟນໃດກໍຕາມຢູ່ອຸປະກອນນີ້ໄດ້.\n\nອຸປະກອນຕໍ່ພ່ວງສຽງທີ່ມີໂປຣໂຕຄໍກຳນົດເອງຈະບໍ່ໄດ້ຮັບຜົນກະທົບຈາກການຕັ້ງຄ່ານີ້."</string>
+    <string name="camera_toggle_info_title" msgid="3871317082313736088">"ການເຂົ້າເຖິງກ້ອງຖ່າຍຮູບ: <xliff:g id="SENSOR_STATE">%s</xliff:g>"</string>
+    <string name="camera_toggle_info_content" msgid="2999965953853204003">"ເມື່ອເປີດໃຊ້ແລ້ວ, ແອັບ ແລະ ບໍລິການທັງໝົດທີ່ມີການອະນຸຍາດຈະສາມາດເຂົ້າເຖິງກ້ອງຖ່າຍຮູບໃດກໍຕາມຢູ່ອຸປະກອນນີ້ໄດ້.\n\nອຸປະກອນຕໍ່ພ່ວງກ້ອງຖ່າຍຮູບທີ່ມີໂປຣໂຕຄໍກຳນົດເອງຈະບໍ່ໄດ້ຮັບຜົນກະທົບຈາກການຕັ້ງຄ່ານີ້."</string>
+    <string name="sensor_toggle_info_on" msgid="4568111889147132257">"ເປີດ"</string>
+    <string name="sensor_toggle_info_off" msgid="7546772458177469821">"ປິດ"</string>
     <string name="system_location" msgid="4057295363709016511">"ສະຖານທີ່"</string>
     <string name="system_desc_location" msgid="1680134126100535031">"ໃຫ້​ແອັບຯ​ທີ່​ໄດ້​ຂໍ​ການ​ອະ​ນຸ​ຍາດ​ຈາກ​ທ່ານ​ແລ້ວ​ສາ​ມາດ​ໃຊ້​ຂໍ້​ມູນ​ສະ​ຖານ​ທີ່​ຂອງ​ທ່ານ​ໄດ້"</string>
     <string name="system_network_location_confirm" msgid="7128162421781085332">"ການ​ຍິນຍອມ​ກ່ຽວກັບ​ສະຖານທີ່"</string>
@@ -429,7 +656,7 @@
     <string name="delete_location_history_desc" msgid="4035229731487113147">"​ນີ້​ຈະ​ເປັນ​ການ​ລຶບ​ປະ​ຫວັດ​ສະ​ຖານ​ທີ່​ທີ່​ຖືກ​ບັນ​ທຶກ​ໄວ້​ໃນ​ອຸ​ປະ​ກອນ​ນີ້​ຂອງ​ບັນ​ຊີ​ Google ນີ້​ອອກ. ທ່ານ​ຈະ​ບໍ່​ສາ​ມາດ​ຍົກ​ເລີກ​ການ​ລຶບ​ນີ້​ໄດ້. ບາງ​ແອັບຯ, ຮວມ​ເຖິງ Google Now ຈະ​ບໍ່​ສາ​ມາດ​ເຮັດ​ວຽກ​ໄດ້."</string>
     <string name="system_services" msgid="5754310941186053151">"ບໍລິການ"</string>
     <string name="accessibility_service_settings" msgid="3251334786870932423">"​ການ​ຕັ້ງ​ຄ່າ​ບໍ​ລິ​ການ"</string>
-    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"ຂໍ້ຄວາມທີ່ມີຄວາມຄົມຊັດສູງ"</string>
+    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="9200419191468995574">"ຕົວອັກສອນຄອນທຣາສສູງ"</string>
     <string name="accessibility_shortcut" msgid="5856158637840030531">"ປຸ່ມລັດ​ສຳລັບ​ການ​ເຂົ້າ​ເຖິງ"</string>
     <string name="accessibility_shortcut_enable" msgid="6603542432267329986">"ເປີດໃຊ້ປຸ່ມລັດການຊ່ວຍເຂົ້າເຖິງ"</string>
     <string name="accessibility_shortcut_service" msgid="2053250146891420311">"ບໍລິການປຸ່ມທາງລັດ"</string>
@@ -493,7 +720,7 @@
     <string name="system_stay_awake" msgid="5935117574414511413">"ເປີດໜ້າຈໍຕະຫຼອດ"</string>
     <string name="system_hdcp_checking" msgid="3757586362130048838">"ການກວດສອບ HDCP"</string>
     <string name="system_hdmi_optimization" msgid="4122753440620724144">"ການ​ປັບ​ແຕ່ງ HDMI"</string>
-    <string name="system_reboot_confirm" msgid="8346913287126400728">"ປິດເປີດໃໝ່ດຽວນີ້ບໍ?"</string>
+    <string name="system_reboot_confirm" msgid="7035370306447878560">"ຣີສະຕາດດຽວນີ້ບໍ?"</string>
     <string name="system_desc_reboot_confirm" msgid="1567738857421128179">"ເພື່ອອັບ​ເດດການ​ຕັ້ງຄ່ານີ້, ອຸປະກອນ​ຂອງທ່ານ​ຈະຖືກ​ປິດແລ້ວ​ເປີດໃຫມ່."</string>
     <string name="system_never_check" msgid="2860070727606369055">"ບໍ່ຕ້ອງກວດ"</string>
     <string name="system_check_for_drm_content_only" msgid="6667617772587997533">"ກວດສອບເນື້ອຫາ DRM ເທົ່ານັ້ນ"</string>
@@ -518,7 +745,7 @@
     <string name="system_window_animation_scale" msgid="685477540250939659">"ຂະໜາດໜ້າ​ຈໍ​ຂອງອະນິເມຊັນ"</string>
     <string name="system_transition_animation_scale" msgid="7266380208347453619">"ອັດ​ຕາ​ການ​ສະຫຼັບ​ພາບ​ຂອ​ງ​ອາ​ນິ​ເມ​ຊັນ"</string>
     <string name="system_animator_duration_scale" msgid="3829445237130423625">"ໄລຍະ​ເວລາ​ອະນິເມຊັນ"</string>
-    <string name="system_strict_mode_enabled" msgid="7392183793064579588">"ເປີດໃຊ້ໂໝດເຂັ່ງຂັດ"</string>
+    <string name="system_strict_mode_enabled" msgid="7392183793064579588">"ເປີດໃຊ້ໂໝດເຄັ່ງຄັດ"</string>
     <string name="system_profile_gpu_rendering" msgid="1113416260742329348">"ສະແດງຜົນ GPU ຕາມ​ໂປຣ​ໄຟລ໌"</string>
     <string name="system_enable_traces" msgid="108745519968154528">"ເປີດການ​ໃຊ້​ຮ່ອງຮອຍ"</string>
     <string name="system_dont_keep_activities" msgid="4641165963339846161">"ບໍ່ຕ້ອງ​ຮັກສາ​ການ​ເຮັດວຽກ"</string>
@@ -535,14 +762,8 @@
     <string name="system_desc_show_hardware_layer" msgid="3483713991865249527">"ກະພິບ​ເລເຢີ​ຂອງ​ຮາດແວ​ໃຫ້​ເປັນ​ສີຂຽວ​ເມື່ອ​ມີ​ການ​ອັບເດດ"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="74019834911598588">"ຈາກດີສຸດຫາຂີ້ລ້າຍສຸດ: ຟ້າ, ຂຽວ, ແດງອ່ອນ, ແດງ"</string>
     <string name="system_desc_show_surface_updates" msgid="4018685547515133353">"ກະພິບ​ໜ້າ​ຈໍ​ທັງ​ໜ້າ​ເມື່ອ​ມີ​ການ​ອັບເດດ"</string>
-    <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"ກະພິບ​ໜ້າ​ຈໍ​ເມື່ອ​ມີ​ແອັບຯ ເຮັດ​ວຽກ​ດົນ​ເກີນ​ໄປ​ໃນ​ເທຣດ​ຫຼັກ"</string>
+    <string name="system_desc_strict_mode_enabled" msgid="1974896408481676324">"ກະພິບ​ໜ້າ​ຈໍ​ເມື່ອ​ມີ​ແອັບ ເຮັດ​ວຽກ​ດົນ​ເກີນ​ໄປ​ໃນ​ເທຣດ​ຫຼັກ"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="1594070211030991">"ວັດແທກ​ໄລຍະ​ເວລາ​ສະແດງ​ຜົນ​ໃນ adb shell"</string>
-    <string name="action_on_title" msgid="1074972820237738324">"ເປີດ"</string>
-    <string name="action_off_title" msgid="3598665702863436597">"ປິດ"</string>
-    <string name="action_on_description" msgid="9146557891514835767">"ເປີດ"</string>
-    <string name="action_off_description" msgid="1368039592272701910">"ປິດ"</string>
-    <string name="agree" msgid="8155497436593889753">"ຍອມຮັບ"</string>
-    <string name="disagree" msgid="7402998517682194430">"ບໍ່ຍອມຮັບ"</string>
     <string name="security_unknown_sources_title" msgid="2012801664240314305">"ແຫຼ່ງ​ຂໍ້ມູນ​ທີ່​ບໍ່ຮູ້ຈັກ"</string>
     <string name="security_unknown_sources_desc" msgid="7196715598352173267">"ອະນຸຍາດ​ການຕິດຕັ້ງ​ແອັບຯ ຈາກ​ແຫລ່ງ​ຂໍ້ມູນ​ທີ່​ນອກເໜືອ​ໄປ​ຈາກ Play Store"</string>
     <string name="security_unknown_sources_confirm_title" msgid="4600896691987804985">"ອະນຸຍາດແຫຼ່ງທີ່ບໍ່ຮູ້ຈັກ"</string>
@@ -663,6 +884,8 @@
     <string name="pin_toast_wrong" msgid="4297542365877164402">"ລະຫັດ PIN ຜິດ, ກະລຸນາ​ລອງ​ໃໝ່"</string>
     <string name="pin_toast_not_match" msgid="2439298696342975155">"ລະ​ຫັດ PIN ບໍ່​ກົງ​ກັນ, ກະ​ລຸ​ນາ​ລອງ​ໃໝ່​ອີກ​ຄັ້ງ"</string>
     <string name="wifi_setup_input_password" msgid="8510003548463241234">"ປ້ອນ​ລະ​ຫັດ​ຜ່ານ​ສຳ​ລັບ <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_description" msgid="6843574399437584520">"ເລືອກ <xliff:g id="WIFI_SUBMIT_ICON">%1$s</xliff:g> ເພື່ອສືບຕໍ່."</string>
+    <string name="label_done_key" msgid="8576286462300373440">"ແລ້ວໆ"</string>
     <string name="wifi_setup_connection_success" msgid="3301901673876973474">"ເຊື່ອມຕໍ່ສຳເລັດແລ້ວ"</string>
     <string name="wifi_setup_save_success" msgid="6862510218032734919">"ບັນທຶກໄດ້ສຳເລັດແລ້ວ"</string>
     <string name="device_apps_app_management_version" msgid="2119174719194899740">"ເວີ​ຊັນ <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
@@ -685,10 +908,11 @@
     <string name="device_apps_app_management_clear_default_none" msgid="5935252537185381597">"ບໍ່​ໄດ້​ຕັ້ງ​ຄ່າ​ເລີ່ມ​ຕົ້ນ"</string>
     <string name="device_apps_app_management_clear_cache" msgid="2678301483598915479">"ລຶບລ້າງແຄ​ຊ໌"</string>
     <string name="device_apps_app_management_notifications" msgid="1687529279264810317">"ການແຈ້ງ​ເຕືອນ"</string>
-    <string name="device_apps_app_management_licenses" msgid="5554510375160907076">"ໃບອະນຸຍາດໂອເພນຊອດ"</string>
+    <string name="device_apps_app_management_licenses" msgid="4809737266551899869">"ແຫຼ່ງຂໍ້ມູນພາກສ່ວນທີສາມ"</string>
     <string name="device_apps_app_management_permissions" msgid="4951820230491375037">"ການອະນຸຍາດ"</string>
     <string name="device_apps_app_management_not_available" msgid="4198634078194500518">"ບໍ່ສາມາດໃຊ້ແອັບພລິເຄຊັນໄດ້"</string>
     <string name="settings_ok" msgid="5950888975075541964">"ຕົກລົງ"</string>
+    <string name="settings_confirm" msgid="4489126458677153411">"ຢືນຢັນ"</string>
     <string name="settings_cancel" msgid="576094334743686152">"​ຍົກ​ເລີກ"</string>
     <string name="settings_on" msgid="7734010120323404333">"​ເປີດ"</string>
     <string name="settings_off" msgid="4060451657850476369">"ປິດ"</string>
@@ -703,6 +927,8 @@
     <string name="device_energy_saver_screen_off_dialog_title" msgid="4092476553760123309">"ປິດໜ້າຈໍຫຼັງຈາກ"</string>
     <string name="device_energy_saver_allow_turning_screen_off" msgid="3832490233158066073">"ອະນຸຍາດໃຫ້ປິດໜ້າຈໍ"</string>
     <string name="device_energy_saver_allow_turning_screen_off_description" msgid="6369746832941270786">"ໃນລະຫວ່າງການຫຼິ້ນມີເດຍ"</string>
+    <string name="device_energy_saver_confirmation_title" msgid="3888708298070409591">"ຢືນຢັນການຕັ້ງຄ່າຕົວປະຢັດພະລັງງານ"</string>
+    <string name="device_energy_saver_confirmation_text" msgid="3157546670441493125">"ກະລຸນາຢືນຢັນການຕັ້ງຄ່າໃໝ່ເປັນ <xliff:g id="SLEEP_TIME">%1$s</xliff:g>, ເຊິ່ງມີໂອກາດເພີ່ມການນຳໃຊ້ພະລັງງານ."</string>
     <string name="backup_configure_account_default_summary" msgid="2170733614341544296">"ບໍ່ມີບັນຊີໃດຈັດເກັບຂໍ້ມູນສຳຮອງໄວ້ໃນ​ປະ​ຈຸ​ບັນ"</string>
     <string name="backup_erase_dialog_title" msgid="6008454053276987100"></string>
     <string name="backup_erase_dialog_message" msgid="222169533402624861">"​ຢຸດ​ການ​ສຳ​ຮອງ​ລະ​ຫັດ​ຜ່ານ Wi-Fi, ບຸກ​ມາກ​ສ໌, ການ​ຕັ້ງ​ຄ່າ​ອື່ນ, ແລະ​ຂໍ້​ມູນ​ແອັບຯ​ຂອງ​ທ່ານ, ແລະ​ລຶບ​ທຸກ​ສຳ​ເນົາ​ຢູ່​ໃນ​ເຊີບ​ເວີ Google?"</string>
@@ -710,7 +936,9 @@
     <string name="privacy_backup_account" msgid="4527813051841860610">"ບັນ​ຊີ​ເກັບ​ສຳ​ຮອງ"</string>
     <string name="privacy_automatic_restore" msgid="7117805818589418118">"ກູ້​ຄືນ​ອັດ​ຕະ​ໂນ​ມັດ"</string>
     <string name="factory_reset_device" msgid="6509900821515094361">"ຕັ້ງອຸ​ປະ​ກອນຄືນ​ໃໝ່"</string>
-    <string name="factory_reset_description" msgid="4448783644897046471">"​ອັນ​ນີ້​ອາດ​ຈະ​ລຶບ​ທຸກ​ຂໍ້​ມູນ​ຈາກ​ບ່ອນ​ຈັດ​ເກັບ​ຂອງ​ອຸ​ປະ​ກອນ​ຂອງ​ທ່ານ, ຮວມ​ທັງ: ບັນ​ຊີ Google ຂອງ​ທ່ານ, ລະ​ບົບ ແລະ ​ຂໍ້​ມູນ​ແອັບ ແລະ ​ການ​ຕັ້ງ​ຄ່າ, ແລະ​ ແອັບ​ທີ່​ດາວ​ໂຫຼດ​ແລ້ວ"</string>
+    <string name="factory_reset_description" msgid="6697396335158766785">"ນີ້ຈະເປັນການກູ້ຄືນອຸປະກອນຂອງທ່ານກັບໄປເປັນການຕັ້ງຄ່າເລີ່ມຕົ້ນ ແລະ ລຶບຂໍ້ມູນທັງໝົດ, ຮວມທັງບັນຊີ, ໄຟລ໌ ແລະ ແອັບທີ່ດາວໂຫຼດມາອອກ."</string>
+    <string name="factory_reset_info_description" msgid="5098454670833183487">"ນີ້ຈະກູ້ອຸປະກອນຂອງທ່ານກັບໄປເປັນການຕັ້ງຄ່າເລີ່ມຕົ້ນ ແລະ ລຶບຂໍ້ມູນທັງໝົດ, ບັນຊີ, ໄຟລ໌ ແລະ ແອັບທີ່ດາວໂຫຼດມາແລ້ວອອກ."</string>
+    <string name="factory_reset_content_description" msgid="1677022688420116803">"ຣີເຊັດເປັນຄ່າຈາກໂຮງງານ, ນີ້ຈະເປັນການກູ້ຄືນອຸປະກອນຂອງທ່ານກັບໄປເປັນການຕັ້ງຄ່າເລີ່ມຕົ້ນ ແລະ ລຶບຂໍ້ມູນທັງໝົດ, ຮວມທັງບັນຊີ, ໄຟລ໌ ແລະ ແອັບທີ່ດາວໂຫຼດມາອອກ."</string>
     <string name="confirm_factory_reset_description" msgid="1337483463207721713">"ລຶບຂໍ້ມູນສ່ວນຕົວ ແລະ ແອັບທີ່ດາວໂຫຼດມາແລ້ວທັງໝົດຂອງທ່ານຢູ່ອຸປະກອນນີ້ອອກບໍ? ທ່ານຈະບໍ່ສາມາດຍົກເລີກຄຳສັ່ງນີ້ໄດ້!"</string>
     <string name="confirm_factory_reset_device" msgid="4308646529880718465">"ລຶບທຸກສິ່ງທຸກຢ່າງ"</string>
     <string name="select_device_name_title" msgid="3045019448327493634">"​ເລືອກ​ຊື່​ສຳລັບ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ຂອງ​ທ່ານ"</string>
@@ -732,7 +960,7 @@
     <string name="device_apps_permissions" msgid="8421323706003063878">"ການ​ອະ​ນຸ​ຍາດ​ແອັບ"</string>
     <string name="app_permissions_group_summary" msgid="6818210080117761117">"<xliff:g id="COUNT_0">%1$d</xliff:g> ໃນ <xliff:g id="COUNT_1">%2$d</xliff:g> ແອັບ​ໄດ້​ຮັບ​ອະ​ນຸ​ຍາດ​ແລ້ວ"</string>
     <string name="bluetooth_permission_request" msgid="7788089036741496993">"ຄຳຂໍອະນຸຍາດເພື່ອໃຊ້ Bluetooth"</string>
-    <string name="security_patch" msgid="5468261708915367254">"ລະ​ດັບ​ບ່ອນ​ຄວາມ​ປອດ​ໄພ Android"</string>
+    <string name="security_patch" msgid="8924741264829495392">"ລະດັບລະ​ຫັດ​ເພີ່ມ​ແກ້​ບັນ​ຫາຄວາມປອດ Android TV OS"</string>
     <string name="choose_application" msgid="2375936782103669988">"​ເລືອກ​ແອັບ​ພລິ​ເຄຊັນ"</string>
     <string name="experimental_preference" msgid="3982593252210557436">"(ແບບທົດລອງ)"</string>
     <string name="reboot_safemode_action" msgid="2862127510492131128">"ຣີບູດເຂົ້າ safe mode"</string>
@@ -754,6 +982,7 @@
     <string name="manage_notification_access_title" msgid="8659254371564990084">"ການ​ເຂົ້າ​ເຖິງ​ການ​ແຈ້ງ​ເຕືອນ"</string>
     <string name="no_notification_listeners" msgid="5119406452675724448">"ບໍ່​ມີ​ແອັບ​ທີ່​ຕິດ​ຕັ້ງ​ໃດ​​ຮ້ອງ​ຂໍ​ການ​ເຂົ້າ​ເຖິງ​ການ​ແຈ້ງ​ເຕືອນ."</string>
     <string name="notification_listener_security_warning_summary" msgid="8602907284276088658">"ແອັບເຫຼົ່ານີ້ຈະສາມາດອ່ານການແຈ້ງເຕືອນທັງໝົດ, ຮວມທັງຂໍ້ມູນສ່ວນຕົວ ເຊັ່ນ: ຊື່ລາຍຊື່ຕິດຕໍ່ ແລະ ຂໍ້ຄວາມທີ່ທ່ານໄດ້ຮັບ. ພວກມັນຈະສາມາດປິດການແຈ້ງເຕືອນ ຫຼື ໃຊ້ປຸ່ມຄຳສັ່ງພວກມັນມີໄດ້ນຳ."</string>
+    <string name="default_notification_access_package_summary" msgid="1354775994781420222">"ລະບົບຕ້ອງການ"</string>
     <string name="directory_access" msgid="7338555825237012006">"ການເຂົ້າເຖິງໄດເຣັກທໍຣີ"</string>
     <string name="directory_access_description" msgid="3630855858552422012">"ແອັບເຫຼົ່ານີ້ມີການອະນຸຍາດເຂົ້າເຖິງບາງໄດເຣັກທໍຣີສະເພາະ."</string>
     <string name="directory_on_volume" msgid="5628089584970521703">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
@@ -769,6 +998,7 @@
     <string name="picture_in_picture_app_detail_switch" msgid="3688997906817583854">"ອະນຸຍາດການສະແດງຜົນຊ້ອນ"</string>
     <string name="picture_in_picture_empty_text" msgid="4370198922852736600">"ບໍ່ມີແອັບທີ່ຮອງຮັບການສະແດງຜົນຫຼາຍຢ່າງພ້ອມກັນຕິດຕັ້ງໄວ້"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3296649114939705896">"ອະນຸຍາດໃຫ້ແອັບຕ່າງໆສາມາດສ້າງໜ້າຈໍທີ່ຊ້ອນຂຶ້ນມາໃນເວລາເປີດແອັບອື່ນ ຫຼື ຫຼັງຈາກທ່ານອອກຈາກມັນ (ເຊັ່ນ: ເພື່ອສືບຕໍ່ການເບິ່ງວິດີໂອ). ໜ້າຈໍນີ້ຈະສະແດງບັງແອັບອື່ນທີ່ທ່ານກຳລັງໃຊ້ຢູ່."</string>
+    <string name="alarms_and_reminders_description" msgid="4063972350154624500">"ອະນຸຍາດໃຫ້ແອັບຕັ້ງໂມງປຸກ ແລະ ກຳນົດເວລາຄຳສັ່ງທີ່ເນັ້ນເລື່ອງເວລາເປັນສຳຄັນໄດ້. ນີ້ຈະເຮັດໃຫ້ແອັບເຮັດວຽກໄດ້ໃນພື້ນຫຼັງ, ເຊິ່ງອາດໃຊ້ແບັດເຕີຣີຫຼາຍຂຶ້ນ.\n\nຫາກປິດການອະນຸຍາດນີ້ໄວ້, ໂມງປຸກທີ່ມີຢູ່ກ່ອນແລ້ວ ແລະ ເຫດການທີ່ອ້າງອີງເວລາທີ່ກຳນົດໄວ້ໂດຍແອັບຈະບໍ່ສາມາດເຮັດວຽກໄດ້."</string>
     <string name="special_access" msgid="21806055758289916">"ສິດການເຂົ້າເຖິງແອັບພິເສດ"</string>
     <string name="string_concat" msgid="5213870180216051497">"<xliff:g id="PART1">%1$s</xliff:g>, <xliff:g id="PART2">%2$s</xliff:g>"</string>
     <string name="audio_category" msgid="6143623109624947993">"ສຽງ"</string>
@@ -785,6 +1015,8 @@
     <string name="title_data_saver" msgid="7500278996154002792">"ຕົວປະຢັດຂໍ້ມູນ"</string>
     <string name="summary_data_saver" msgid="6793558728898207405">"ປັບຄຸນນະພາບວິດີໂອເພື່ອໃຊ້ອິນເຕີເນັດມືຖືໃຫ້ໜ້ອຍລົງໂດຍອັດຕະໂນມັດ"</string>
     <string name="title_data_alert" msgid="8262081890052682475">"ການໃຊ້ອິນເຕີເນັດ ແລະ ການເຕືອນ"</string>
+    <string name="data_saver_header_info" msgid="239820871940156510">"ທ່ານສາມາດເຊື່ອມຕໍ່ຫາອິນເຕີເນັດດ້ວຍ Wi-Fi, Ethernet ຫຼື ຮັອດສະປອດຂອງໂທລະສັບທ່ານໄດ້. ສຳລັບການຊ່ວຍເຫຼືອເພີ່ມເຕີມ, ກະລຸນາໄປທີ່ "<b>"g.co/network"</b>"."</string>
+    <string name="help_center_title" msgid="6109822142761302433"></string>
     <string name="disabled_by_policy_title" msgid="2220484346213756472">"ບໍ່ອະນຸຍາດໃຫ້ດຳເນີນການ"</string>
     <string name="disabled_by_policy_title_adjust_volume" msgid="4229779946666263271">"ບໍ່ສາມາດປ່ຽນລະດັບສຽງໄດ້"</string>
     <string name="disabled_by_policy_title_outgoing_calls" msgid="8642280178608881544">"ບໍ່ອະນຸຍາດການໂທ"</string>
@@ -793,6 +1025,28 @@
     <string name="disabled_by_policy_title_screen_capture" msgid="5774035841010091253">"ບໍ່ອະນຸຍາດຖ່າຍຮູບໜ້າຈໍ"</string>
     <string name="disabled_by_policy_title_suspend_packages" msgid="6500185610058872758">"ບໍ່ສາມາດເປີດແອັບນີ້ໄດ້"</string>
     <string name="default_admin_support_msg" msgid="7913455019068370350">"ຫາກທ່ານມີຄຳຖາມ, ກະລຸນາຕິດຕໍ່ຜູ້ເບິ່ງແຍງລະບົບໄອທີຂອງທ່ານ"</string>
+    <string name="admin_support_more_info" msgid="9053232166115098434">"ລາຍລະອຽດເພີ່ມເຕີມ"</string>
+    <string name="admin_profile_owner_message" msgid="5729169873349157622">"ຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານສາມາດຕິດຕາມ ແລະ ຈັດການແອັບ ແລະ ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບໂປຣໄຟລ໌ບ່ອນເຮັດວຽກຂອງທ່ານໄດ້ ເຊິ່ງຮວມເຖິງການຕັ້ງຄ່າ, ການອະນຸຍາດ, ການເຂົ້າເຖິງອົງກອນ, ການເຄື່ອນໄຫວເຄືອຂ່າຍ ແລະ ຂໍ້ມູນສະຖານທີ່ຂອງອຸປະກອນ."</string>
+    <string name="admin_profile_owner_user_message" msgid="6431405126322617268">"ຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານສາມາດຕິດຕາມ ແລະ ຈັດການແອັບ ແລະ ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບຜູ້ໃຊ້ນີ້ໄດ້ ເຊິ່ງຮວມເຖິງການຕັ້ງຄ່າ, ການອະນຸຍາດ, ການເຂົ້າເຖິງອົງກອນ, ການເຄື່ອນໄຫວເຄືອຂ່າຍ ແລະ ຂໍ້ມູນສະຖານທີ່ຂອງອຸປະກອນ."</string>
+    <string name="admin_device_owner_message" msgid="1935507216776040907">"ຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານສາມາດຕິດຕາມ ແລະ ຈັດການແອັບ ແລະ ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບອຸປະກອນນີ້ໄດ້ ເຊິ່ງຮວມເຖິງການຕັ້ງຄ່າ, ການອະນຸຍາດ, ການເຂົ້າເຖິງອົງກອນ, ການເຄື່ອນໄຫວເຄືອຂ່າຍ ແລະ ຂໍ້ມູນສະຖານທີ່ຂອງອຸປະກອນ."</string>
+    <string name="remove_managed_profile_label" msgid="8950011141359605612">"ລຶບ​ໂປຣ​ໄຟລ໌​ບ່ອນ​ເຮັດ​ວຽກ"</string>
+    <string name="active_device_admin_msg" msgid="185537304726228624">"ແອັບຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນ"</string>
+    <string name="remove_device_admin" msgid="2623866073546295104">"ປິດການນຳໃຊ້ແອັບຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນ"</string>
+    <string name="uninstall_device_admin" msgid="6301368408620948266">"ຖອນຕິດຕັ້ງແອັບ"</string>
+    <string name="remove_and_uninstall_device_admin" msgid="1504351551194915633">"ປິດການນຳໃຊ້ ແລະ ຖອນການຕິດຕັ້ງ"</string>
+    <string name="select_device_admin_msg" msgid="8475934459999710332">"ແອັບຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນ"</string>
+    <string name="add_device_admin_msg" msgid="5390773166682603421">"ເປີດນຳໃຊ້ແອັບຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນບໍ?"</string>
+    <string name="add_device_admin" msgid="5078281377915844544">"ເປີດນຳໃຊ້ແອັບຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນນີ້"</string>
+    <string name="device_admin_warning" msgid="7399916080685200660">"ການເປີດໃຫ້ແອັບຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນນີ້ເຮັດວຽກໄດ້ ຈະເປັນການອະນຸຍາດໃຫ້ແອັບ  <xliff:g id="APP_NAME">%1$s</xliff:g> ເຮັດຄຳສັ່ງຕໍ່ໄປນີ້ໄດ້:"</string>
+    <string name="device_admin_warning_simplified" msgid="3310965971422346950">"ອຸປະກອນນີ້ຈະຖືກຈັດການ ແລະ ຕິດຕາມໂດຍ <xliff:g id="APP_NAME">%1$s</xliff:g>."</string>
+    <string name="device_admin_status" msgid="5467001937240455367">"ແອັບຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນນີ້ເຮັດວຽກຢູ່ ແລະ ອະນຸຍາດໃຫ້ແອັບ  <xliff:g id="APP_NAME">%1$s</xliff:g> ເຮັດຄຳສັ່ງຕໍ່ໄປນີ້ໄດ້:"</string>
+    <string name="adding_profile_owner_warning" msgid="3888867082224127564">"ໂດຍການດຳເນີນການຕໍ່, ຜູ້ໃຊ້ຂອງທ່ານຈະຖືກຈັດການໂດຍຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານ ເຊິ່ງອາດສາມາດຈັດເກັບຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັນ, ນອກເໜືອໄປຈາກຂໍ້ມູນສ່ວນຕົວຂອງທ່ານ.\n\nຜູ້ເບິ່ງແຍງລະບົບຂອງທ່ານມີຄວາມສາມາດໃນການຕິດຕາມ ແລະ ຈັດການການຕັ້ງຄ່າ, ການເຂົ້າເຖິງ, ແອັບ ແລະ ຂໍ້ມູນທີ່ເຊື່ອມໂຍງກັບຜູ້ໃຊ້ນີ້, ຮວມເຖິງການເຄື່ອນໄຫວເຄືອຂ່າຍ ແລະ ຂໍ້ມູນສະຖານທີ່ຂອງອຸປະກອນທ່ານ."</string>
+    <string name="share_remote_bugreport_dialog_title" msgid="2080017987692459555">"ແບ່ງປັນລາຍງານບັນຫາບໍ?"</string>
+    <string name="share_remote_bugreport_dialog_message_finished" msgid="8515056665416643253">"ຜູ້ເບິ່ງແຍງລະບົບໄອທີຂອງທ່ານໄດ້ຮ້ອງຂໍເອົາລາຍງານບັນຫາ ເພື່ອຊ່ວຍແກ້ໄຂບັນຫາໃຫ້ອຸປະກອນນີ້. ອາດຈະມີການແບ່ງປັນແອັບ ແລະ ຂໍ້ມູນນຳ."</string>
+    <string name="share_remote_bugreport_dialog_message" msgid="4637489112422692638">"ຜູ້ເບິ່ງແຍງລະບົບໄອທີຂອງທ່ານໄດ້ຮ້ອງຂໍລາຍງານຂໍ້ຜິດພາດເພື່ອຊ່ວຍແກ້ໄຂບັນຫາອຸປະກອນນີ້. ແອັບ ແລະ ຂໍ້ມູນອາດຖືກແບ່ງປັນ ແລະ ອຸປະກອນຂອງທ່ານອາດເຮັດວຽກຊ້າລົງຊົ່ວຄາວ."</string>
+    <string name="sharing_remote_bugreport_dialog_message" msgid="8096239263583331293">"ກຳລັງແບ່ງປັນລາຍງານຂໍ້ຜິດພາດນີ້ໃຫ້ກັບຜູ້ເບິ່ງແຍງລະບົບໄອທີຂອງທ່ານ. ກະລຸນາຕິດຕໍ່ພວກເຂົາສຳລັບລາຍລະອຽດເພີ່ມເຕີມ."</string>
+    <string name="share_remote_bugreport_action" msgid="6760197666368262892">"ແບ່ງປັນ"</string>
+    <string name="decline_remote_bugreport_action" msgid="2130779396296090961">"ປະຕິເສດ"</string>
     <string name="network_connection_request_dialog_title" msgid="4103963119407212989">"ອຸປະກອນທີ່ຈະໃຊ້ກັບ <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="network_connection_timeout_dialog_message" msgid="8408857135950230472">"ບໍ່ພົບອຸປະກອນ. ກະລຸນາກວດສອບວ່າເປີດອຸປະກອນແລ້ວ ແລະ ສາມາດເຊື່ອມຕໍ່ໄດ້."</string>
     <string name="network_connection_timeout_dialog_ok" msgid="5374522862360880609">"ລອງໃໝ່"</string>
@@ -800,4 +1054,15 @@
     <string name="network_connection_connect_successful" msgid="2981223044343511313">"ການເຊື່ອມຕໍ່ສຳເລັດແລ້ວ"</string>
     <string name="network_connection_request_dialog_showall" msgid="2653775399674126208">"ສະແດງທັງໝົດ"</string>
     <string name="progress_scanning" msgid="3323638586482686516">"ກຳລັງຊອກຫາ"</string>
+    <string name="channels_and_inputs_title" msgid="7484506121290830217">"ຊ່ອງ ແລະ ອິນພຸດ"</string>
+    <string name="channels_and_inputs_summary" msgid="3168386051698084007">"ຊ່ອງ, ອິນພຸດພາຍນອກ"</string>
+    <string name="channels_settings_title" msgid="8048956665383762510">"ຊ່ອງ"</string>
+    <string name="external_inputs_settings_title" msgid="8937038060355986380">"ອິນພຸດພາຍນອກ"</string>
+    <string name="display_and_sound_vendor_summary" msgid="7661072343315403110">"ຮູບ, ໜ້າຈໍ, ສຽງ"</string>
+    <string name="picture_settings_title" msgid="7643193630924322697">"ຮູບ"</string>
+    <string name="screen_settings_title" msgid="7806908869190824434">"ໜ້າຈໍ"</string>
+    <string name="sound_settings_title" msgid="9149367966117889465">"ສຽງ"</string>
+    <string name="power_and_energy" msgid="4638182439670702556">"ການເປີດປິດ ແລະ ພະລັງງານ"</string>
+    <string name="power_on_behavior" msgid="927607372303160716">"ພຶດຕິກຳການເປີດ"</string>
+    <string name="reset_options_title" msgid="7632580482285108955">"ຣີເຊັດ"</string>
 </resources>

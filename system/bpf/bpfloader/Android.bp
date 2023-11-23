@@ -17,6 +17,14 @@
 //
 // bpfLoad binary
 //
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "system_bpf_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bpf_license"],
+}
+
 cc_binary {
     name: "bpfloader",
 
@@ -28,6 +36,7 @@ cc_binary {
     ],
     sanitize: {
         integer_overflow: true,
+        memtag_heap: true,
     },
     clang: true,
     shared_libs: [

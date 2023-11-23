@@ -37,7 +37,6 @@ class CommandError(Exception):
     Attributes:
         result: The results of the ssh command that had the error.
     """
-
     def __init__(self, result):
         """
         Args:
@@ -62,7 +61,6 @@ class SshConnection(object):
     a command is run. If the persistent connection fails it will attempt
     to connect normally.
     """
-
     @property
     def socket_path(self):
         """Returns: The os path to the master socket file."""
@@ -120,7 +118,8 @@ class SshConnection(object):
 
             if self._master_ssh_proc is None:
                 # Create a shared socket in a temp location.
-                self._master_ssh_tempdir = tempfile.mkdtemp(prefix='ssh-master')
+                self._master_ssh_tempdir = tempfile.mkdtemp(
+                    prefix='ssh-master')
 
                 # Setup flags and options for running the master ssh
                 # -N: Do not execute a remote command.
@@ -153,7 +152,7 @@ class SshConnection(object):
 
     def run(self,
             command,
-            timeout=3600,
+            timeout=60,
             ignore_status=False,
             env=None,
             io_encoding='utf-8',
@@ -205,16 +204,16 @@ class SshConnection(object):
 
         dns_retry_count = 2
         while True:
-            result = job.run(
-                terminal_command,
-                ignore_status=True,
-                timeout=timeout,
-                io_encoding=io_encoding)
+            result = job.run(terminal_command,
+                             ignore_status=True,
+                             timeout=timeout,
+                             io_encoding=io_encoding)
             output = result.stdout
 
             # Check for a connected message to prevent false negatives.
-            valid_connection = re.search(
-                '^CONNECTED: %s' % identifier, output, flags=re.MULTILINE)
+            valid_connection = re.search('^CONNECTED: %s' % identifier,
+                                         output,
+                                         flags=re.MULTILINE)
             if valid_connection:
                 # Remove the first line that contains the connect message.
                 line_index = output.find('\n') + 1
@@ -222,14 +221,13 @@ class SshConnection(object):
                     line_index = len(output)
                 real_output = output[line_index:].encode(io_encoding)
 
-                result = job.Result(
-                    command=result.command,
-                    stdout=real_output,
-                    stderr=result._raw_stderr,
-                    exit_status=result.exit_status,
-                    duration=result.duration,
-                    did_timeout=result.did_timeout,
-                    encoding=io_encoding)
+                result = job.Result(command=result.command,
+                                    stdout=real_output,
+                                    stderr=result._raw_stderr,
+                                    exit_status=result.exit_status,
+                                    duration=result.duration,
+                                    did_timeout=result.did_timeout,
+                                    encoding=io_encoding)
                 if result.exit_status and not ignore_status:
                     raise job.Error(result)
                 return result
@@ -268,9 +266,10 @@ class SshConnection(object):
         if unknown_host:
             raise Error('Unknown host.', result)
 
-        self.log.error('An unknown error has occurred. Job result: %s' % result)
-        ping_output = job.run(
-            'ping %s -c 3 -w 1' % self._settings.hostname, ignore_status=True)
+        self.log.error('An unknown error has occurred. Job result: %s' %
+                       result)
+        ping_output = job.run('ping %s -c 3 -w 1' % self._settings.hostname,
+                              ignore_status=True)
         self.log.error('Ping result: %s' % ping_output)
         if attempts > 1:
             self._cleanup_master_ssh()
@@ -403,9 +402,8 @@ class SshConnection(object):
         """
         # TODO: This may belong somewhere else: b/32572515
         user_host = self._formatter.format_host_name(self._settings)
-        job.run(
-            'scp %s %s:%s' % (local_path, user_host, remote_path),
-            ignore_status=ignore_status)
+        job.run('scp %s %s:%s' % (local_path, user_host, remote_path),
+                ignore_status=ignore_status)
 
     def pull_file(self, local_path, remote_path, ignore_status=False):
         """Send a file from remote host to local host
@@ -416,9 +414,8 @@ class SshConnection(object):
             ignore_status: Whether or not to ignore the command's exit_status.
         """
         user_host = self._formatter.format_host_name(self._settings)
-        job.run(
-            'scp %s:%s %s' % (user_host, remote_path, local_path),
-            ignore_status=ignore_status)
+        job.run('scp %s:%s %s' % (user_host, remote_path, local_path),
+                ignore_status=ignore_status)
 
     def find_free_port(self, interface_name='localhost'):
         """Find a unused port on the remote host.

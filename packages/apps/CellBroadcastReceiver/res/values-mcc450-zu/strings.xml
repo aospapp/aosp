@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Isexwayiso sokuphuthumayo okubalulekile"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"Ifoni yakho ingakuthumela izexwayiso, njengemiyalelo yokuphuma, phakathi nenhlekelele yemvelo. Le sevisi iyinhlanganyelo ephakathi Kwesikhungo Sokuphathwa Kwezimo Eziphuthumayo Sikazwelonke, abahlinzeki benethiwekhi, kanye nabakhiqizi bedivayisi.\n\nUngahle ungazitholi izexwayiso uma kunenkinga ngedivayisi yakho noma uma izimo zenethiwekhi zingezinhle."</string>
 </resources>

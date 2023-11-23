@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/cache_mngt.c	Cache Management
  *
@@ -38,7 +39,7 @@ static NL_RW_LOCK(cache_ops_lock);
  * @{
  */
 
-struct nl_cache_ops *__nl_cache_ops_lookup(const char *name)
+static struct nl_cache_ops *__nl_cache_ops_lookup(const char *name)
 {
 	struct nl_cache_ops *ops;
 
@@ -253,6 +254,9 @@ int nl_cache_mngt_register(struct nl_cache_ops *ops)
 {
 	if (!ops->co_name || !ops->co_obj_ops)
 		return -NLE_INVAL;
+
+	/* oo_keygen() also needs oo_compare() */
+	BUG_ON (ops->co_obj_ops->oo_keygen && !ops->co_obj_ops->oo_compare);
 
 	nl_write_lock(&cache_ops_lock);
 	if (__nl_cache_ops_lookup(ops->co_name)) {

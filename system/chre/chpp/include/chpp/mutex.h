@@ -29,7 +29,8 @@ extern "C" {
 #endif
 
 /*
- * Platform-specific mutex struct, including the member "lock"
+ * Platform-specific mutex struct, defined in the platform's platform_mutex.h
+ * file.
  */
 struct ChppMutex;
 
@@ -39,6 +40,13 @@ struct ChppMutex;
  * @param mutex points to the ChppMutex mutex struct.
  */
 static void chppMutexInit(struct ChppMutex *mutex);
+
+/*
+ * Deinitializes a specified platform-specific mutex.
+ *
+ * @param mutex points to the ChppMutex mutex struct.
+ */
+static void chppMutexDeinit(struct ChppMutex *mutex);
 
 /*
  * Locks a specified platform-specific mutex.

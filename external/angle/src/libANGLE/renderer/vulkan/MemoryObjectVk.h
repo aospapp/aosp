@@ -41,12 +41,17 @@ class MemoryObjectVk : public MemoryObjectImpl
                               GLenum internalFormat,
                               const gl::Extents &size,
                               GLuint64 offset,
-                              vk::ImageHelper *image);
+                              vk::ImageHelper *image,
+                              GLbitfield createFlags,
+                              GLbitfield usageFlags);
 
   private:
     static constexpr int kInvalidFd = -1;
     angle::Result importOpaqueFd(ContextVk *contextVk, GLuint64 size, GLint fd);
     angle::Result importZirconVmo(ContextVk *contextVk, GLuint64 size, GLuint handle);
+
+    // Imported memory object was a dedicated allocation.
+    bool mDedicatedMemory = false;
 
     GLuint64 mSize             = 0;
     gl::HandleType mHandleType = gl::HandleType::InvalidEnum;

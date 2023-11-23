@@ -14,33 +14,34 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.statemachine;
+package com.android.internal.net.eap.test.statemachine;
 
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_MSCHAP_V2;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_AUTHENTICATOR_CHALLENGE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_AUTHENTICATOR_RESPONSE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_CHALLENGE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_MASTER_KEY;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_MSK;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_NT_RESPONSE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_PASSWORD;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_PASSWORD_HASH;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_PASSWORD_HASH_HASH;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_PASSWORD_UTF_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_PEER_CHALLENGE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_RECEIVE_START_KEY;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_SEND_START_KEY;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_USERNAME;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_USERNAME_ASCII_BYTES;
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_MSCHAP_V2;
+
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_AUTHENTICATOR_CHALLENGE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_AUTHENTICATOR_RESPONSE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_CHALLENGE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_MASTER_KEY;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_MSK;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_NT_RESPONSE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_PASSWORD;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_PASSWORD_HASH;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_PASSWORD_HASH_HASH;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_PASSWORD_UTF_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_PEER_CHALLENGE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_RECEIVE_START_KEY;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_SEND_START_KEY;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_USERNAME;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_USERNAME_ASCII_BYTES;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import android.net.eap.EapSessionConfig.EapMsChapV2Config;
+import android.net.eap.test.EapSessionConfig.EapMsChapV2Config;
 
-import com.android.internal.net.eap.statemachine.EapMsChapV2MethodStateMachine.CreatedState;
-import com.android.internal.net.utils.Log;
+import com.android.internal.net.eap.test.statemachine.EapMsChapV2MethodStateMachine.CreatedState;
+import com.android.internal.net.utils.test.Log;
 
 import org.junit.Before;
 import org.junit.Test;

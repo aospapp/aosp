@@ -29,26 +29,23 @@ public class MixedDeviceOwnerTestApi25 extends DeviceAndProfileOwnerTestApi25 {
     public void setUp() throws Exception {
         super.setUp();
 
-        if (mHasFeature) {
-            mUserId = mPrimaryUserId;
+        mUserId = mPrimaryUserId;
 
-            installAppAsUser(DEVICE_ADMIN_APK, mUserId);
-            if (!setDeviceOwner(
-                    DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId,
-                    /*expectFailure*/ false)) {
-                removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId);
-                getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
-                fail("Failed to set device owner");
-            }
+        installAppAsUser(DEVICE_ADMIN_APK, mUserId);
+        if (!setDeviceOwner(
+                DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId,
+                /*expectFailure*/ false)) {
+            removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId);
+            getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
+            fail("Failed to set device owner");
         }
     }
 
     @Override
     public void tearDown() throws Exception {
-        if (mHasFeature) {
-            assertTrue("Failed to remove device owner",
-                    removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId));
-        }
+        assertTrue("Failed to remove device owner",
+                removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId));
+
         super.tearDown();
     }
 

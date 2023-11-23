@@ -16,6 +16,9 @@
 
 package com.android.bluetooth.hfp;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
+import android.app.Activity;
 import android.bluetooth.BluetoothDevice;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -86,7 +89,6 @@ public class AtPhonebook {
 
     // package and class name to which we send intent to check phone book access permission
     private final String mPairingPackage;
-    private static final String BLUETOOTH_ADMIN_PERM = android.Manifest.permission.BLUETOOTH_ADMIN;
 
     private final HashMap<String, PhonebookResult> mPhonebooks =
             new HashMap<String, PhonebookResult>(4);
@@ -425,21 +427,29 @@ public class AtPhonebook {
         }
 
         if (ancillaryPhonebook) {
-            pbr.cursor = mContentResolver.query(Calls.CONTENT_URI, CALLS_PROJECTION, where, null,
-                    Calls.DEFAULT_SORT_ORDER + " LIMIT " + MAX_PHONEBOOK_SIZE);
+            Bundle queryArgs = new Bundle();
+            queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, where);
+            queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, Calls.DEFAULT_SORT_ORDER);
+            queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, MAX_PHONEBOOK_SIZE);
+            pbr.cursor = mContentResolver.query(Calls.CONTENT_URI, CALLS_PROJECTION,
+                    queryArgs, null);
+
             if (pbr.cursor == null) {
                 return false;
             }
-
             pbr.numberColumn = pbr.cursor.getColumnIndexOrThrow(Calls.NUMBER);
             pbr.numberPresentationColumn =
                     pbr.cursor.getColumnIndexOrThrow(Calls.NUMBER_PRESENTATION);
             pbr.typeColumn = -1;
             pbr.nameColumn = -1;
         } else {
+            Bundle queryArgs = new Bundle();
+            queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, where);
+            queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, MAX_PHONEBOOK_SIZE);
             final Uri phoneContentUri = DevicePolicyUtils.getEnterprisePhoneUri(mContext);
-            pbr.cursor = mContentResolver.query(phoneContentUri, PHONES_PROJECTION, where, null,
-                    Phone.NUMBER + " LIMIT " + MAX_PHONEBOOK_SIZE);
+            pbr.cursor = mContentResolver.query(phoneContentUri, PHONES_PROJECTION,
+                    queryArgs, null);
+
             if (pbr.cursor == null) {
                 return false;
             }
@@ -635,7 +645,9 @@ public class AtPhonebook {
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, remoteDevice);
             // Leave EXTRA_PACKAGE_NAME and EXTRA_CLASS_NAME field empty.
             // BluetoothHandsfree's broadcast receiver is anonymous, cannot be targeted.
-            mContext.sendOrderedBroadcast(intent, BLUETOOTH_ADMIN_PERM);
+            mContext.sendOrderedBroadcast(intent, BLUETOOTH_CONNECT,
+                    Utils.getTempAllowlistBroadcastOptions(), null, null,
+                    Activity.RESULT_OK, null, null);
         }
 
         return permission;

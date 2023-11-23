@@ -14,18 +14,69 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Automotive test cases">
-    <option name="test-suite-tag" value="cts" />
-    <option name="config-descriptor:metadata" key="component" value="auto" />
-    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
-    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
-    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <object class="com.android.tradefed.testtype.suite.module.CarModuleController"
+            type="module_controller"/>
+    <option name="test-suite-tag" value="cts"/>
+    <option name="config-descriptor:metadata" key="component" value="auto"/>
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app"/>
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi"/>
+
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user"/>
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
-        <option name="cleanup-apks" value="true" />
-        <option name="test-file-name" value="CtsCarTestCases.apk" />
+        <option name="cleanup-apks" value="true"/>
+        <option name="test-file-name" value="CtsCarTestCases.apk"/>
+        <option name="test-file-name" value="CtsCarNoPropertyPermissionsTest.apk"/>
+        <option name="test-file-name" value="CtsCarPermissionCarInfoTest.apk"/>
+        <option name="test-file-name" value="CtsCarPermissionCarEnergyTest.apk"/>
+        <option name="test-file-name" value="CtsCarPermissionCarSpeedTest.apk"/>
+        <option name="test-file-name" value="CtsCarPermissionReadCarDisplayUnitsTest.apk"/>
+        <option name="test-file-name" value="CtsCarPermissionCarExteriorEnvironmentTest.apk"/>
+        <option name="test-file-name" value="CtsCarPermissionCarPowertrainTest.apk"/>
+        <option name="test-file-name" value="CtsCarPermissionCarEnergyPortsTest.apk"/>
     </target_preparer>
-    <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
-        <option name="package" value="android.car.cts" />
+
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="package" value="android.car.cts"/>
     </test>
-    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.CarModuleController"/>
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="package" value="android.car.cts.nopropertypermissions"/>
+        <option name="class"
+                value="android.car.cts.nopropertypermissions.NoPropertyPermissionsTest"/>
+    </test>
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="package" value="android.car.cts.permissioncarinfo"/>
+        <option name="class"
+                value="android.car.cts.permissioncarinfo.PermissionCarInfoTest"/>
+    </test>
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="package" value="android.car.cts.permissioncarenergy"/>
+        <option name="class"
+                value="android.car.cts.permissioncarenergy.PermissionCarEnergyTest"/>
+    </test>
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="package" value="android.car.cts.permissioncarspeed"/>
+        <option name="class"
+                value="android.car.cts.permissioncarspeed.PermissionCarSpeedTest"/>
+    </test>
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="package" value="android.car.cts.permissionreadcardisplayunits"/>
+        <option name="class"
+                value="android.car.cts.permissionreadcardisplayunits.PermissionReadCarDisplayUnitsTest"/>
+    </test>
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="package" value="android.car.cts.permissioncarexteriorenvironment"/>
+        <option name="class"
+                value="android.car.cts.permissioncarexteriorenvironment.PermissionCarExteriorEnvironmentTest"/>
+    </test>
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="package" value="android.car.cts.permissioncarpowertrain"/>
+        <option name="class"
+                value="android.car.cts.permissioncarpowertrain.PermissionCarPowertrainTest"/>
+    </test>
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="package" value="android.car.cts.permissioncarenergyports"/>
+        <option name="class"
+                value="android.car.cts.permissioncarenergyports.PermissionCarEnergyPortsTest"/>
+    </test>
 </configuration>

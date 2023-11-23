@@ -11,36 +11,50 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Verify capture burst of full size images is fast enough to not timeout.
+"""
 
-import os.path
+import logging
+import os
 
-import its.caps
-import its.device
-import its.image
-import its.objects
+from mobly import test_runner
+
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import image_processing_utils
+import its_session_utils
+
+NAME = os.path.splitext(os.path.basename(__file__))[0]
+NUM_TEST_FRAMES = 15
 
 
-def main():
-    """Test capture a burst of full size images is fast enough to not timeout.
+class BurstCaptureTest(its_base_test.ItsBaseTest):
+  """Test capture a burst of full size images is fast enough and doesn't timeout.
 
-       This test verify that entire capture pipeline can keep up the speed
-       of fullsize capture + CPU read for at least some time.
-    """
-    NAME = os.path.basename(__file__).split(".")[0]
-    NUM_TEST_FRAMES = 15
+  This test verifies that the entire capture pipeline can keep up the speed of
+  fullsize capture + CPU read for at least some time.
+  """
 
-    with its.device.ItsSession() as cam:
-        props = cam.get_camera_properties()
-        props = cam.override_with_hidden_physical_camera_props(props)
-        its.caps.skip_unless(its.caps.backward_compatible(props))
-        req = its.objects.auto_capture_request()
-        caps = cam.do_capture([req]*NUM_TEST_FRAMES)
+  def test_burst_capture(self):
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.backward_compatible(props))
+      req = capture_request_utils.auto_capture_request()
+      caps = cam.do_capture([req] * NUM_TEST_FRAMES)
+      cap = caps[0]
+      img = image_processing_utils.convert_capture_to_rgb_image(
+          cap, props=props)
+      name = os.path.join(self.log_path, NAME)
+      img_name = '%s.jpg' % (name)
+      logging.debug('Image Name: %s', img_name)
+      image_processing_utils.write_image(img, img_name)
 
-        cap = caps[0]
-        img = its.image.convert_capture_to_rgb_image(cap, props=props)
-        img_name = "%s.jpg" % (NAME)
-        its.image.write_image(img, img_name)
 
 if __name__ == '__main__':
-    main()
-
+  test_runner.main()

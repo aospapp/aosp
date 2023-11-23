@@ -27,15 +27,19 @@ import static android.content.pm.PackageManager.INSTALL_REASON_DEVICE_SETUP;
 import static android.content.pm.PackageManager.INSTALL_REASON_POLICY;
 import static android.content.pm.PackageManager.INSTALL_REASON_UNKNOWN;
 import static android.content.pm.PackageManager.INSTALL_REASON_USER;
+import static android.content.pm.PackageManager.INSTALL_SCENARIO_BULK;
+import static android.content.pm.PackageManager.INSTALL_SCENARIO_BULK_SECONDARY;
+import static android.content.pm.PackageManager.INSTALL_SCENARIO_DEFAULT;
+import static android.content.pm.PackageManager.INSTALL_SCENARIO_FAST;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.fail;
 
-import android.content.Context;
 import android.content.pm.PackageInstaller;
 import android.content.pm.PackageInstaller.SessionInfo;
 import android.content.pm.PackageInstaller.SessionParams;
+import android.content.pm.cts.util.AbandonAllPackageSessionsRule;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.platform.test.annotations.AppModeFull;
@@ -43,6 +47,7 @@ import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -57,6 +62,9 @@ import java.util.function.Consumer;
 public class InstallSessionParamsUnitTest {
     private static final String LOG_TAG = InstallSessionParamsUnitTest.class.getSimpleName();
     private static Optional UNSET = new Optional(false, null);
+
+    @Rule
+    public AbandonAllPackageSessionsRule mAbandonSessionsRule = new AbandonAllPackageSessionsRule();
 
     @Parameterized.Parameter(0)
     public Optional<Integer> mode;
@@ -79,7 +87,14 @@ public class InstallSessionParamsUnitTest {
     @Parameterized.Parameter(9)
     public Optional<Integer> installReason;
     @Parameterized.Parameter(10)
+    public Optional<Integer> installScenario;
+    @Parameterized.Parameter(11)
     public boolean expectFailure;
+
+    private PackageInstaller mInstaller = InstrumentationRegistry.getInstrumentation()
+            .getTargetContext()
+            .getPackageManager()
+            .getPackageInstaller();
 
     /**
      * Generate test-parameters where all params are the same, but one param cycles through all
@@ -146,7 +161,10 @@ public class InstallSessionParamsUnitTest {
          /*installReason*/
                 {{INSTALL_REASON_UNKNOWN, INSTALL_REASON_POLICY, INSTALL_REASON_DEVICE_RESTORE,
                         INSTALL_REASON_DEVICE_SETUP, INSTALL_REASON_USER,
-                        /* parame is not verified */ 0xfff}, {}}};
+                        /* parame is not verified */ 0xfff}, {}},
+         /*installScenario*/
+                {{INSTALL_SCENARIO_DEFAULT, INSTALL_SCENARIO_FAST, INSTALL_SCENARIO_BULK,
+                        INSTALL_SCENARIO_BULK_SECONDARY}, {}}};
 
         ArrayList<Object[]> allTestParams = new ArrayList<>();
 
@@ -181,9 +199,7 @@ public class InstallSessionParamsUnitTest {
      * owned by the this package.
      */
     private SessionInfo getSessionInfo(int sessionId) {
-        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        PackageInstaller installer = context.getPackageManager().getPackageInstaller();
-        List<SessionInfo> mySessionInfos = installer.getMySessions();
+        List<SessionInfo> mySessionInfos = mInstaller.getMySessions();
 
         for (SessionInfo sessionInfo : mySessionInfos) {
             if (sessionInfo.getSessionId() == sessionId) {
@@ -194,25 +210,13 @@ public class InstallSessionParamsUnitTest {
         return null;
     }
 
-    /**
-     * Create a new installer session.
-     *
-     * @return The new session
-     */
-    private int createSession(SessionParams params) throws Exception {
-        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        PackageInstaller installer = context.getPackageManager().getPackageInstaller();
-
-        return installer.createSession(params);
-    }
-
     @Test
     public void checkSessionParams() throws Exception {
         Log.i(LOG_TAG, "mode=" + mode + " installLocation=" + installLocation + " size=" + size
                 + " appPackageName=" + appPackageName + " appIcon=" + appIcon + " appLabel="
                 + appLabel + " originatingUri=" + originatingUri + " originatingUid="
                 + originatingUid + " referredUri=" + referredUri + " installReason=" + installReason
-                + " expectFailure=" + expectFailure);
+                + " installScenario=" + installScenario + " expectFailure=" + expectFailure);
 
         SessionParams params = new SessionParams(mode.get());
         installLocation.ifPresent(params::setInstallLocation);
@@ -224,10 +228,11 @@ public class InstallSessionParamsUnitTest {
         originatingUid.ifPresent(params::setOriginatingUid);
         referredUri.ifPresent(params::setReferrerUri);
         installReason.ifPresent(params::setInstallReason);
+        installScenario.ifPresent(params::setInstallScenario);
 
         int sessionId;
         try {
-            sessionId = createSession(params);
+            sessionId = mInstaller.createSession(params);
 
             if (expectFailure) {
                 fail("Creating session did not fail");

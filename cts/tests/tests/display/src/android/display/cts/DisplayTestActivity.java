@@ -17,9 +17,46 @@
 package android.display.cts;
 
 import android.app.Activity;
+import android.os.Bundle;
+import android.view.Display;
+import android.view.WindowManager;
+
+import androidx.annotation.Nullable;
 
 /**
  * Test activity to exercise getting metrics for displays.
  */
 public class DisplayTestActivity extends Activity {
+
+    private static final String PREFERRED_DISPLAY_MODE_ID = "preferred_display_mode_id";
+    private int mPreferredDisplayModeId = 0;
+
+    @Override
+    public void onSaveInstanceState(Bundle outBundle) {
+        super.onSaveInstanceState(outBundle);
+
+        outBundle.putInt(PREFERRED_DISPLAY_MODE_ID, mPreferredDisplayModeId);
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        if (savedInstanceState != null) {
+            mPreferredDisplayModeId = savedInstanceState.getInt(PREFERRED_DISPLAY_MODE_ID, 0);
+            resetLayoutParams();
+        }
+    }
+
+    /** Set an override for the display mode. This is called directly from test instrumentation. */
+    public void setPreferredDisplayMode(Display.Mode mode) {
+        mPreferredDisplayModeId = mode.getModeId();
+        resetLayoutParams();
+    }
+
+    private void resetLayoutParams() {
+        WindowManager.LayoutParams params = getWindow().getAttributes();
+        params.preferredDisplayModeId = mPreferredDisplayModeId;
+        getWindow().setAttributes(params);
+    }
 }

@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Η παρακάτω εφαρμογή θα διαχειρίζεται τη συσκευή σας:"</string>
     <string name="next" msgid="1004321437324424398">"Επόμενο"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Ρύθμιση προφίλ εργασίας…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Ο διαχειριστής IT σας έχει τη δυνατότητα να παρακολουθεί και να διαχειρίζεται τις ρυθμίσεις, την εταιρική πρόσβαση, τις εφαρμογές, τις άδειες και τα δεδομένα που σχετίζονται με το συγκεκριμένο προφίλ, συμπεριλαμβανομένης της δραστηριότητας δικτύου, καθώς και της τοποθεσίας της συσκευής σας, του ιστορικού κλήσεων και του ιστορικού αναζήτησης επαφών.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Επικοινωνήστε με τον διαχειριστή IT για περισσότερες πληροφορίες, μεταξύ άλλων τις πολιτικές απορρήτου του οργανισμού."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Ο διαχειριστής IT σας έχει τη δυνατότητα να παρακολουθεί και να διαχειρίζεται τις ρυθμίσεις, την εταιρική πρόσβαση, τις εφαρμογές, τις άδειες και τα δεδομένα που σχετίζονται με τη συγκεκριμένη συσκευή, συμπεριλαμβανομένης της δραστηριότητας δικτύου, καθώς και της τοποθεσίας της συσκευής σας, του ιστορικού κλήσεων και του ιστορικού αναζήτησης επαφών.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Επικοινωνήστε με τον διαχειριστή IT για περισσότερες πληροφορίες, μεταξύ άλλων τις πολιτικές απορρήτου του οργανισμού."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Ο διαχειριστής IT σας έχει τη δυνατότητα να παρακολουθεί και να διαχειρίζεται τις ρυθμίσεις, την εταιρική πρόσβαση, τις εφαρμογές, τις άδειες και τα δεδομένα που σχετίζονται με το συγκεκριμένο προφίλ, συμπεριλαμβανομένης της δραστηριότητας δικτύου, καθώς και της τοποθεσίας της συσκευής σας, του ιστορικού κλήσεων και του ιστορικού αναζήτησης επαφών.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Επικοινωνήστε με τον διαχειριστή IT για περισσότερες πληροφορίες, μεταξύ άλλων τις πολιτικές απορρήτου του οργανισμού."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Ο διαχειριστής IT σας έχει τη δυνατότητα να παρακολουθεί και να διαχειρίζεται τις ρυθμίσεις, την εταιρική πρόσβαση, τις εφαρμογές, τις άδειες και τα δεδομένα που σχετίζονται με τη συγκεκριμένη συσκευή, συμπεριλαμβανομένης της δραστηριότητας δικτύου, καθώς και της τοποθεσίας της συσκευής σας, του ιστορικού κλήσεων και του ιστορικού αναζήτησης επαφών.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Επικοινωνήστε με τον διαχειριστή IT για περισσότερες πληροφορίες, μεταξύ άλλων τις πολιτικές απορρήτου του οργανισμού."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Για να χρησιμοποιήσετε τις λειτουργίες προστασίας από κλοπή, πρέπει να έχετε ενεργοποιήσει το κλείδωμα οθόνης με προστασία κωδικού πρόσβασης στη συσκευή σας."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Επικοινωνήστε με τον διαχειριστή IT σας για περισσότερες πληροφορίες, συμπεριλαμβανομένων των πολιτικών απορρήτου του οργανισμού σας."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Μάθετε περισσότερα"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"ΟΚ"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Συμφωνώ"</string>
     <string name="url_error" msgid="5958494012986243186">"Αδυναμία προβολής αυτού του συνδέσμου."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Πλοήγηση προς τα επάνω"</string>
     <string name="terms" msgid="8295436105384703903">"Όροι"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Πληροφορίες προφίλ εργασίας"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Πληροφορίες διαχειριζόμενης συσκευής"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Προφίλ εργασίας"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Κύριος χρήστης"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Να διαγραφεί το υπάρχον προφίλ;"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Έχετε ήδη προφίλ εργασίας. Η διαχείρισή του γίνεται με χρήση της ακόλουθης εφαρμογής:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"Πριν συνεχίσετε, "<a href="#read_this_link">"διάβασε αυτό"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Μη ολοκληρωμένη ρύθμιση χρήστη"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Χρήστης συσκευής εργασίας"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Ρύθμιση συσκευής εργασίας..."</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Επεξεργασία δεδομένων ρύθμισης…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Σύνδεση με Wi-Fi…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Σύνδεση σε δίκτυο κινητής τηλεφωνίας…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Λήψη εφαρμογής διαχείρισης…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"Εγκατάσταση εφαρμογής διαχείρισης…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Κατάργηση μη απαιτούμενων εφαρμ. συστήματος…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Προσθήκη τελευταίων στοιχείων…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Ρύθμιση του κατόχου της συσκευής…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Αρχικοποίηση συσκευής…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Αυτή η συσκευή δεν επιτρέπει κρυπτογράφηση που απαιτείται για τη ρύθμιση. Για βοήθεια, επικοινωνήστε με τον διαχειριστή IT σας."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Διακοπή ρύθμισης και επαναφορά της συσκευής;"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Με αυτή την ενέργεια, θα γίνει επαναφορά της συσκευής και θα επιστρέψετε στην αρχική οθόνη"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"Αυτή η συσκευή θα παραμείνει ασφαλής και διαχειριζόμενη από τον οργανισμό σας"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Προετοιμασία για ρύθμιση συσκευής εργασίας…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Ρύθμιση εφαρμογής διαχειριστή"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Ρυθμίστε όλα τα υπόλοιπα"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Προσθέστε έναν προσωπικό λογαριασμό για να αξιοποιήσετε περισσότερο τη συσκευή σας"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Τώρα που το προφίλ εργασίας σας είναι έτοιμο, μπορείτε επίσης να προσθέσετε έναν προσωπικό Λογαριασμό Google για να αποκτήσετε πρόσβαση στις εφαρμογές και το περιεχόμενό σας."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Αυτή η συσκευή ανήκει στον οργανισμό σας"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Η παρακάτω εφαρμογή θα χρησιμοποιηθεί για τη διαχείριση και την παρακολούθηση αυτού του τηλεφώνου"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Ο λογαριασμός σας είναι διαχειριζόμενος."</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Ο διαχειριστής IT χρησιμοποιεί τη διαχείριση κινητών συσκευών για την επιβολή πολιτικών ασφαλείας."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Προετοιμασία για ρύθμιση προφίλ εργασίας…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Αρχικά, ας ρυθμίσουμε το προφίλ εργασίας σας"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Οι εφαρμογές εργασίας διατηρούνται στο προφίλ εργασίας σας"</string>
@@ -177,20 +171,27 @@
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Ας ρυθμίσουμε τη συσκευή εργασίας σας"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Διατηρήσετε στη διάθεσή σας τις εφαρμογές εργασίας σας"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Αυτή η συσκευή δεν είναι ιδιωτική"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Ο διαχειριστής IT σας μπορεί να έχει τη δυνατότητα να δει τα δεδομένα και τη δραστηριότητά σας σε αυτήν τη συσκευή."</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Ο διαχειριστής IT μπορεί να έχει τη δυνατότητα να δει τα δεδομένα και τη δραστηριότητά σας σε αυτήν τη συσκευή."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Η δραστηριότητα και τα δεδομένα σας"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Άδειες εφαρμογών"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Ο διαχειριστής IT σας μπορεί να ορίσει άδειες για εφαρμογές σε αυτήν τη συσκευή, όπως άδειες τοποθεσίας, μικροφώνου και κάμερας."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Ρύθμιση της συσκευής σας…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Χρησιμοποιήστε αυτήν τη συσκευή για εύκολη πρόσβαση στις εφαρμογές εργασίας σας. Αυτή η συσκευή δεν είναι ιδιωτική, επομένως ο διαχειριστής IT σας μπορεί να έχει τη δυνατότητα να δει τα δεδομένα και τη δραστηριότητά σας. Για να μάθετε περισσότερα, επικοινωνήστε με τον διαχειριστή IT σας."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Χρησιμοποιήστε αυτήν τη συσκευή για εύκολη πρόσβαση στις εφαρμογές εργασίας σας. Αυτή η συσκευή δεν είναι ιδιωτική, επομένως ο διαχειριστής IT σας μπορεί να έχει τη δυνατότητα να δει τα δεδομένα και τη δραστηριότητά σας."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Χρησιμοποιήστε αυτήν τη συσκευή για εύκολη πρόσβαση στις εφαρμογές εργασίας σας. Αυτή η συσκευή δεν είναι ιδιωτική, επομένως ο διαχειριστής IT σας μπορεί να έχει τη δυνατότητα να δει τη δραστηριότητα και τα δεδομένα σας. Ο διαχειριστής IT σας μπορεί επίσης να ορίσει άδειες για εφαρμογές σε αυτήν τη συσκευή, όπως άδειες τοποθεσίας, μικροφώνου και κάμερας."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Επιστρέψτε αυτήν τη συσκευή στον διαχειριστή IT"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Επιστρέψτε στην προηγούμενη οθόνη ή επαναφέρετε αυτήν τη συσκευή και επιστρέψτε την στον διαχειριστή IT."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Ακύρωση ρύθμισης"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Επαναφορά και επιστροφή συσκευής"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Οι εφαρ. είναι στο προφίλ σας και ελέγχ. από τον διαχ/στή."</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Οι προσωπ. εφαρ. είναι ξεχωριστά και μη ορατές σε εφαρ. εργ."</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Ο διαχ/στής ελέγχει τη συσκ. και αποκλείει ορισμένες εφαρ."</string>
     <string name="cope_provisioning_summary" msgid="993014104601034878">"Οι εφαρμογές εργασιών βρίσκονται στο προφίλ εργασίας σας και η διαχείρισή τους γίνεται από τον διαχειριστή IT. Οι προσωπικές εφαρμογές βρίσκονται σε ξεχωριστή τοποθεσία και δεν είναι ορατές από τις εφαρμογές εργασιών. Ο διαχειριστής IT μπορεί να ελέγχει αυτήν τη συσκευή και να αποκλείει ορισμένες εφαρμογές."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Περιμένετε λίγο…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Υπενθύμιση απορρήτου"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Ο διαχειριστής IT σας μπορεί να έχει τη δυνατότητα να δει τα δεδομένα και τη δραστηριότητά σας σε αυτήν τη συσκευή"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Η συσκευή σας είναι έτοιμη!"</string>
-    <string name="done" msgid="7755227776955952318">"Τέλος"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Αυτή η συσκευή αγοράστηκε με πίστωση από τον πιστωτή <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"Ο πιστωτής <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> μπορεί:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"Εγκαταστήστε την εφαρμογή <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>, για να μπορείτε να πραγματοποιείτε πληρωμές για αυτήν τη συσκευή"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"Να περιορίσει την πρόσβαση σε αυτήν τη συσκευή, στην περίπτωση που δεν πραγματοποιήσετε πληρωμές"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Ο διαχειριστής IT μπορεί να έχει τη δυνατότητα να δει τα δεδομένα και τη δραστηριότητά σας σε αυτήν τη συσκευή"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Αυτή η συσκευή παρέχεται από τον οργανισμό <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Πραγματοποίηση πληρωμών για αυτήν τη συσκευή"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"Ο πιστωτής <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> μπορεί να εγκαταστήσει την εφαρμογή <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>, έτσι ώστε να μπορείτε να πραγματοποιείτε πληρωμές για αυτήν τη συσκευή."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Είναι δυνατός ο περιορισμός αυτής της συσκευής"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"Ο πιστωτής <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> μπορεί να περιορίσει την πρόσβαση σε αυτήν τη συσκευή, στην περίπτωση που δεν πραγματοποιήσετε πληρωμές."</string>
 </resources>

@@ -19,16 +19,14 @@ package com.android.webview.chromium.tests.jank;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.SystemClock;
-import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
-import android.support.test.jank.GfxMonitor;
-import android.support.test.jank.WindowContentFrameStatsMonitor;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiScrollable;
-import android.support.test.uiautomator.UiSelector;
+
+import androidx.test.jank.JankTest;
+import androidx.test.jank.JankTestBase;
+import androidx.test.jank.WindowContentFrameStatsMonitor;
 
 import java.io.File;
 import java.io.IOException;

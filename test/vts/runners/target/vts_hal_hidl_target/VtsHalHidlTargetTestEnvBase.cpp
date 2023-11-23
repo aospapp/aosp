@@ -37,7 +37,7 @@ void VtsHalHidlTargetTestEnvBase::SetUp() {
   }
   // Register services used in the test.
   registerTestServices();
-  // For a dummy run which just print the registered hal services.
+  // For a no-op run which just print the registered hal services.
   if (listService_) {
     listRegisteredServices();
     exit(0);

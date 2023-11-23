@@ -34,16 +34,29 @@ func DocsSingleton() Singleton {
 type docsSingleton struct{}
 
 func primaryBuilderPath(ctx SingletonContext) Path {
-	primaryBuilder, err := filepath.Rel(ctx.Config().BuildDir(), os.Args[0])
+	buildDir := absolutePath(ctx.Config().BuildDir())
+	binary := absolutePath(os.Args[0])
+	primaryBuilder, err := filepath.Rel(buildDir, binary)
 	if err != nil {
-		ctx.Errorf("path to primary builder %q is not in build dir %q",
-			os.Args[0], ctx.Config().BuildDir())
+		ctx.Errorf("path to primary builder %q is not in build dir %q (%q)",
+			os.Args[0], ctx.Config().BuildDir(), err)
 	}
 
 	return PathForOutput(ctx, primaryBuilder)
 }
 
 func (c *docsSingleton) GenerateBuildActions(ctx SingletonContext) {
+	var deps Paths
+	deps = append(deps, pathForBuildToolDep(ctx, ctx.Config().moduleListFile))
+	deps = append(deps, pathForBuildToolDep(ctx, ctx.Config().ProductVariablesFileName))
+
+	// The dexpreopt configuration may not exist, but if it does, it's a dependency
+	// of soong_build.
+	dexpreoptConfigPath := ctx.Config().DexpreoptGlobalConfigPath(ctx)
+	if dexpreoptConfigPath.Valid() {
+		deps = append(deps, dexpreoptConfigPath.Path())
+	}
+
 	// Generate build system docs for the primary builder.  Generating docs reads the source
 	// files used to build the primary builder, but that dependency will be picked up through
 	// the dependency on the primary builder itself.  There are no dependencies on the
@@ -54,7 +67,9 @@ func (c *docsSingleton) GenerateBuildActions(ctx SingletonContext) {
 	soongDocs := ctx.Rule(pctx, "soongDocs",
 		blueprint.RuleParams{
 			Command: fmt.Sprintf("rm -f ${outDir}/* && %s --soong_docs %s %s",
-				primaryBuilder.String(), docsFile.String(), strings.Join(os.Args[1:], " ")),
+				primaryBuilder.String(),
+				docsFile.String(),
+				"\""+strings.Join(os.Args[1:], "\" \"")+"\""),
 			CommandDeps: []string{primaryBuilder.String()},
 			Description: fmt.Sprintf("%s docs $out", primaryBuilder.Base()),
 		},
@@ -63,6 +78,7 @@ func (c *docsSingleton) GenerateBuildActions(ctx SingletonContext) {
 	ctx.Build(pctx, BuildParams{
 		Rule:   soongDocs,
 		Output: docsFile,
+		Inputs: deps,
 		Args: map[string]string{
 			"outDir": PathForOutput(ctx, "docs").String(),
 		},

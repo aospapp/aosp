@@ -16,6 +16,8 @@
 
 #include "utils/java/jni-helper.h"
 
+#include "utils/base/status_macros.h"
+
 namespace libtextclassifier3 {
 
 StatusOr<ScopedLocalRef<jclass>> JniHelper::FindClass(JNIEnv* env,
@@ -27,10 +29,46 @@ StatusOr<ScopedLocalRef<jclass>> JniHelper::FindClass(JNIEnv* env,
   return result;
 }
 
+StatusOr<ScopedLocalRef<jclass>> JniHelper::GetObjectClass(JNIEnv* env,
+                                                           jobject object) {
+  TC3_ENSURE_LOCAL_CAPACITY_OR_RETURN;
+  ScopedLocalRef<jclass> result(env->GetObjectClass(object), env);
+  TC3_NO_EXCEPTION_OR_RETURN;
+  TC3_NOT_NULL_OR_RETURN;
+  return result;
+}
+
 StatusOr<jmethodID> JniHelper::GetMethodID(JNIEnv* env, jclass clazz,
                                            const char* method_name,
-                                           const char* return_type) {
-  jmethodID result = env->GetMethodID(clazz, method_name, return_type);
+                                           const char* signature) {
+  jmethodID result = env->GetMethodID(clazz, method_name, signature);
+  TC3_NO_EXCEPTION_OR_RETURN;
+  TC3_NOT_NULL_OR_RETURN;
+  return result;
+}
+
+StatusOr<jmethodID> JniHelper::GetStaticMethodID(JNIEnv* env, jclass clazz,
+                                                 const char* method_name,
+                                                 const char* signature) {
+  jmethodID result = env->GetStaticMethodID(clazz, method_name, signature);
+  TC3_NO_EXCEPTION_OR_RETURN;
+  TC3_NOT_NULL_OR_RETURN;
+  return result;
+}
+
+StatusOr<jfieldID> JniHelper::GetFieldID(JNIEnv* env, jclass clazz,
+                                         const char* field_name,
+                                         const char* signature) {
+  jfieldID result = env->GetFieldID(clazz, field_name, signature);
+  TC3_NO_EXCEPTION_OR_RETURN;
+  TC3_NOT_NULL_OR_RETURN;
+  return result;
+}
+
+StatusOr<jfieldID> JniHelper::GetStaticFieldID(JNIEnv* env, jclass clazz,
+                                               const char* field_name,
+                                               const char* signature) {
+  jfieldID result = env->GetStaticFieldID(clazz, field_name, signature);
   TC3_NO_EXCEPTION_OR_RETURN;
   TC3_NOT_NULL_OR_RETURN;
   return result;
@@ -43,6 +81,14 @@ StatusOr<ScopedLocalRef<jobject>> JniHelper::GetStaticObjectField(
       env->GetStaticObjectField(class_name, field_id), env);
   TC3_NO_EXCEPTION_OR_RETURN;
   TC3_NOT_NULL_OR_RETURN;
+  return result;
+}
+
+StatusOr<jint> JniHelper::GetStaticIntField(JNIEnv* env, jclass class_name,
+                                            jfieldID field_id) {
+  TC3_ENSURE_LOCAL_CAPACITY_OR_RETURN;
+  jint result = env->GetStaticIntField(class_name, field_id);
+  TC3_NO_EXCEPTION_OR_RETURN;
   return result;
 }
 
@@ -147,6 +193,46 @@ Status JniHelper::SetObjectArrayElement(JNIEnv* env, jobjectArray array,
   return Status::OK;
 }
 
+StatusOr<jsize> JniHelper::GetArrayLength(JNIEnv* env, jarray array) {
+  TC3_ENSURE_LOCAL_CAPACITY_OR_RETURN;
+  jsize result = env->GetArrayLength(array);
+  TC3_NO_EXCEPTION_OR_RETURN;
+  return result;
+}
+
+Status JniHelper::GetByteArrayRegion(JNIEnv* env, jbyteArray array, jsize start,
+                                     jsize len, jbyte* buf) {
+  TC3_ENSURE_LOCAL_CAPACITY_OR_RETURN;
+  env->GetByteArrayRegion(array, start, len, buf);
+  TC3_NO_EXCEPTION_OR_RETURN;
+  return Status::OK;
+}
+
+Status JniHelper::SetByteArrayRegion(JNIEnv* env, jbyteArray array, jsize start,
+                                     jsize len, const jbyte* buf) {
+  TC3_ENSURE_LOCAL_CAPACITY_OR_RETURN;
+  env->SetByteArrayRegion(array, start, len, buf);
+  TC3_NO_EXCEPTION_OR_RETURN;
+  return Status::OK;
+}
+
+Status JniHelper::SetIntArrayRegion(JNIEnv* env, jintArray array, jsize start,
+                                    jsize len, const jint* buf) {
+  TC3_ENSURE_LOCAL_CAPACITY_OR_RETURN;
+  env->SetIntArrayRegion(array, start, len, buf);
+  TC3_NO_EXCEPTION_OR_RETURN;
+  return Status::OK;
+}
+
+Status JniHelper::SetFloatArrayRegion(JNIEnv* env, jfloatArray array,
+                                      jsize start, jsize len,
+                                      const jfloat* buf) {
+  TC3_ENSURE_LOCAL_CAPACITY_OR_RETURN;
+  env->SetFloatArrayRegion(array, start, len, buf);
+  TC3_NO_EXCEPTION_OR_RETURN;
+  return Status::OK;
+}
+
 StatusOr<ScopedLocalRef<jobjectArray>> JniHelper::NewObjectArray(
     JNIEnv* env, jsize length, jclass element_class, jobject initial_element) {
   TC3_ENSURE_LOCAL_CAPACITY_OR_RETURN;
@@ -157,14 +243,6 @@ StatusOr<ScopedLocalRef<jobjectArray>> JniHelper::NewObjectArray(
   return result;
 }
 
-StatusOr<jsize> JniHelper::GetArrayLength(JNIEnv* env,
-                                          jarray jinput_fragments) {
-  TC3_ENSURE_LOCAL_CAPACITY_OR_RETURN;
-  jsize result = env->GetArrayLength(jinput_fragments);
-  TC3_NO_EXCEPTION_OR_RETURN;
-  return result;
-}
-
 StatusOr<ScopedLocalRef<jstring>> JniHelper::NewStringUTF(JNIEnv* env,
                                                           const char* bytes) {
   TC3_ENSURE_LOCAL_CAPACITY_OR_RETURN;
@@ -172,6 +250,39 @@ StatusOr<ScopedLocalRef<jstring>> JniHelper::NewStringUTF(JNIEnv* env,
   TC3_NO_EXCEPTION_OR_RETURN;
   TC3_NOT_NULL_OR_RETURN;
   return result;
+}
+
+StatusOr<std::string> JByteArrayToString(JNIEnv* env, jbyteArray array) {
+  std::string result;
+  TC3_ASSIGN_OR_RETURN(const int array_length,
+                       JniHelper::GetArrayLength(env, array));
+  result.resize(array_length);
+  TC3_RETURN_IF_ERROR(JniHelper::GetByteArrayRegion(
+      env, array, 0, array_length,
+      reinterpret_cast<jbyte*>(const_cast<char*>(result.data()))));
+  return result;
+}
+
+StatusOr<std::string> JStringToUtf8String(JNIEnv* env, jstring jstr) {
+  if (jstr == nullptr) {
+    return "";
+  }
+
+  TC3_ASSIGN_OR_RETURN(ScopedLocalRef<jclass> string_class,
+                       JniHelper::FindClass(env, "java/lang/String"));
+  TC3_ASSIGN_OR_RETURN(
+      jmethodID get_bytes_id,
+      JniHelper::GetMethodID(env, string_class.get(), "getBytes",
+                             "(Ljava/lang/String;)[B"));
+
+  TC3_ASSIGN_OR_RETURN(ScopedLocalRef<jstring> encoding,
+                       JniHelper::NewStringUTF(env, "UTF-8"));
+
+  TC3_ASSIGN_OR_RETURN(ScopedLocalRef<jbyteArray> array,
+                       JniHelper::CallObjectMethod<jbyteArray>(
+                           env, jstr, get_bytes_id, encoding.get()));
+
+  return JByteArrayToString(env, array.get());
 }
 
 }  // namespace libtextclassifier3

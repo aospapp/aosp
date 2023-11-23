@@ -178,6 +178,13 @@ public class WindowManager_LayoutParamsTest {
         assertEquals(WindowManager.LayoutParams.LAYOUT_CHANGED,
                 mLayoutParams.copyFrom(params));
         assertEquals(params.verticalWeight, mLayoutParams.verticalWeight, 0.0f);
+
+        params = new WindowManager.LayoutParams();
+        params.setWindowContextToken(new Binder());
+        mLayoutParams = new WindowManager.LayoutParams();
+        // Assert no change returned from copyFrom().
+        assertEquals(0, mLayoutParams.copyFrom(params));
+        assertEquals(params.getWindowContextToken(), mLayoutParams.getWindowContextToken());
     }
 
     @Test
@@ -229,6 +236,7 @@ public class WindowManager_LayoutParamsTest {
         mLayoutParams.token = binder;
         mLayoutParams.packageName = PACKAGE_NAME;
         mLayoutParams.setTitle(PARAMS_TITLE);
+        mLayoutParams.setWindowContextToken(binder);
         Parcel parcel = Parcel.obtain();
 
         mLayoutParams.writeToParcel(parcel, 0);
@@ -236,6 +244,7 @@ public class WindowManager_LayoutParamsTest {
         WindowManager.LayoutParams out =
             WindowManager.LayoutParams.CREATOR.createFromParcel(parcel);
         assertEquals(0, out.copyFrom(mLayoutParams));
+        assertEquals(binder, out.getWindowContextToken());
 
         try {
             mLayoutParams.writeToParcel(null, 0);

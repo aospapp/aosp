@@ -21,7 +21,7 @@
 
 #include "actions/types.h"
 #include "annotator/types.h"
-#include "utils/flatbuffers.h"
+#include "utils/flatbuffers/mutable.h"
 #include "utils/strings/stringpiece.h"
 #include "utils/variant.h"
 #include "flatbuffers/reflection_generated.h"
@@ -65,7 +65,7 @@ T FromUpValue(const int index, lua_State* state) {
 class LuaEnvironment {
  public:
   virtual ~LuaEnvironment();
-  LuaEnvironment();
+  explicit LuaEnvironment();
 
   // Compile a lua snippet into binary bytecode.
   // NOTE: The compiled bytecode might not be compatible across Lua versions
@@ -137,42 +137,42 @@ class LuaEnvironment {
 
   template <>
   int64 Read<int64>(const int index) const {
-    return static_cast<int64>(lua_tonumber(state_, /*idx=*/index));
+    return static_cast<int64>(lua_tointeger(state_, /*idx=*/index));
   }
 
   template <>
   uint64 Read<uint64>(const int index) const {
-    return static_cast<uint64>(lua_tonumber(state_, /*idx=*/index));
+    return static_cast<uint64>(lua_tointeger(state_, /*idx=*/index));
   }
 
   template <>
   int32 Read<int32>(const int index) const {
-    return static_cast<int32>(lua_tonumber(state_, /*idx=*/index));
+    return static_cast<int32>(lua_tointeger(state_, /*idx=*/index));
   }
 
   template <>
   uint32 Read<uint32>(const int index) const {
-    return static_cast<uint32>(lua_tonumber(state_, /*idx=*/index));
+    return static_cast<uint32>(lua_tointeger(state_, /*idx=*/index));
   }
 
   template <>
   int16 Read<int16>(const int index) const {
-    return static_cast<int16>(lua_tonumber(state_, /*idx=*/index));
+    return static_cast<int16>(lua_tointeger(state_, /*idx=*/index));
   }
 
   template <>
   uint16 Read<uint16>(const int index) const {
-    return static_cast<uint16>(lua_tonumber(state_, /*idx=*/index));
+    return static_cast<uint16>(lua_tointeger(state_, /*idx=*/index));
   }
 
   template <>
   int8 Read<int8>(const int index) const {
-    return static_cast<int8>(lua_tonumber(state_, /*idx=*/index));
+    return static_cast<int8>(lua_tointeger(state_, /*idx=*/index));
   }
 
   template <>
   uint8 Read<uint8>(const int index) const {
-    return static_cast<uint8>(lua_tonumber(state_, /*idx=*/index));
+    return static_cast<uint8>(lua_tointeger(state_, /*idx=*/index));
   }
 
   template <>
@@ -213,7 +213,7 @@ class LuaEnvironment {
   }
 
   // Reads a flatbuffer from the stack.
-  int ReadFlatbuffer(int index, ReflectiveFlatbuffer* buffer) const;
+  int ReadFlatbuffer(int index, MutableFlatbuffer* buffer) const;
 
   // Pushes an iterator.
   template <typename ItemCallback, typename KeyCallback>
@@ -507,14 +507,14 @@ class LuaEnvironment {
   // Reads a repeated field from lua.
   template <typename T>
   void ReadRepeatedField(const int index, RepeatedField* result) const {
-    for (const auto& element : ReadVector<T>(index)) {
+    for (const T& element : ReadVector<T>(index)) {
       result->Add(element);
     }
   }
 
   template <>
-  void ReadRepeatedField<ReflectiveFlatbuffer>(const int index,
-                                               RepeatedField* result) const {
+  void ReadRepeatedField<MutableFlatbuffer>(const int index,
+                                            RepeatedField* result) const {
     lua_pushnil(state_);
     while (Next(index - 1)) {
       ReadFlatbuffer(index, result->Add());

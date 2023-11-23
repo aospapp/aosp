@@ -21,12 +21,12 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.os.Build.VERSION_CODES;
-import androidx.annotation.StyleableRes;
 import android.util.AttributeSet;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import androidx.annotation.StyleableRes;
 import com.google.android.setupdesign.R;
 
 /**
@@ -103,6 +103,10 @@ public class NavigationBar extends LinearLayout implements View.OnClickListener 
   // All the constructors delegate to this init method. The 3-argument constructor is not
   // available in LinearLayout before v11, so call super with the exact same arguments.
   private void init() {
+    if (isInEditMode()) {
+      return;
+    }
+
     View.inflate(getContext(), R.layout.sud_navbar_view, this);
     nextButton = (Button) findViewById(R.id.sud_navbar_next);
     backButton = (Button) findViewById(R.id.sud_navbar_back);

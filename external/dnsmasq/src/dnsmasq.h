@@ -684,7 +684,7 @@ void rand_init(void);
 unsigned short rand16(void);
 int legal_hostname(char* c);
 char* canonicalise(char* s, int* nomem);
-unsigned char* do_rfc1035_name(unsigned char* p, char* sval);
+unsigned char* do_rfc1035_name(unsigned char* p, char* sval, char *limit);
 void* safe_malloc(size_t size);
 void safe_pipe(int* fd, int read_noblock);
 void* whine_malloc(size_t size);

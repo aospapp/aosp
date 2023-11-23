@@ -46,7 +46,6 @@ import jdk.testlibrary.RandomFactory;
 
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import android.icu.impl.ZoneMeta;
 
 /*
  * @test
@@ -91,7 +90,7 @@ public class TestZoneTextPrinterParser extends AbstractTestPrinterParser {
                     }
                     // Android-changed (http://b/33197219): TimeZone.getDisplayName() for
                     // non-canonical time zones are not correct.
-                    if (!zid.equals(ZoneMeta.getCanonicalCLDRID(zid))) {
+                    if (!zid.equals(getSystemCanonicalID(zid))) {
                         continue;
                     }
                     zdt = zdt.withZoneSameLocal(ZoneId.of(zid));
@@ -109,6 +108,20 @@ public class TestZoneTextPrinterParser extends AbstractTestPrinterParser {
             }
         }
     }
+
+    // BEGIN Android-added: Get non-custom system canonical time zone Id from ICU.
+    private static String getSystemCanonicalID(String zid) {
+        if (android.icu.util.TimeZone.UNKNOWN_ZONE_ID.equals(zid)) {
+            return zid;
+        }
+        boolean[] isSystemID = { false };
+        String canonicalID = android.icu.util.TimeZone.getCanonicalID(zid, isSystemID);
+        if (canonicalID == null || !isSystemID[0]) {
+            return null;
+        }
+        return canonicalID;
+    }
+    // END Android-added: Get non-custom system canonical time zone Id from ICU.
 
     private void printText(Locale locale, ZonedDateTime zdt, TextStyle style, TimeZone zone, String expected) {
         String result = getFormatter(locale, style).format(zdt);

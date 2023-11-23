@@ -16,8 +16,6 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
-
 import android.media.cts.CodecUtils;
 
 import android.graphics.ImageFormat;
@@ -69,8 +67,9 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
     // use larger delay before we get first frame, some encoders may need more time
     private static final long INIT_TIMEOUT_MS = 2000;
 
+    static final String mInpPrefix = WorkDir.getMediaDirString();
     private static final String SOURCE_URL =
-        "android.resource://android.media.cts/raw/video_480x360_mp4_h264_871kbps_30fps";
+            mInpPrefix + "video_480x360_mp4_h264_871kbps_30fps.mp4";
 
     private final boolean DEBUG = false;
 
@@ -588,7 +587,7 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
                     // can release empty buffers now
                     if (info.size == 0) {
                         mDecoder.releaseOutputBuffer(ix, false /* render */);
-                        ix = -1; // dummy index used by render to not render
+                        ix = -1; // fake index used by render to not render
                     }
                     synchronized(mCondition) {
                         if (ix < 0 && eos && mBuffersToRender.size() > 0) {
@@ -840,7 +839,7 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
                     // can release empty buffers now
                     if (info.size == 0) {
                         mDecoder.releaseOutputBuffer(ix, false /* render */);
-                        ix = -1; // dummy index used by render to not render
+                        ix = -1; // fake index used by render to not render
                     }
                     if (eos || info.size > 0) {
                         synchronized(mCondition) {
@@ -1179,6 +1178,8 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
                 boolean flexYUV, Consumer<VideoProcessorBase> configureVideoProcessor) {
             Log.i(TAG, "testing " + mMime + " on " + mName + " for " + width + "x" + height
                     + (flexYUV ? " flexYUV" : " surface"));
+
+            Preconditions.assertTestFileExists(SOURCE_URL);
 
             VideoProcessorBase processor =
                 flexYUV ? new VideoProcessor() : new SurfaceVideoProcessor();

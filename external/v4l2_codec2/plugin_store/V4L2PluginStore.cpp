@@ -16,6 +16,7 @@
 #include <log/log.h>
 
 #include <v4l2_codec2/plugin_store/C2VdaBqBlockPool.h>
+#include <v4l2_codec2/plugin_store/C2VdaPooledBlockPool.h>
 #include <v4l2_codec2/plugin_store/V4L2AllocatorId.h>
 #include <v4l2_codec2/plugin_store/VendorAllocatorLoader.h>
 
@@ -31,7 +32,7 @@ C2Allocator* createAllocator(C2Allocator::id_t allocatorId) {
         return sAllocatorLoader->createAllocator(allocatorId);
     }
 
-    ALOGI("%s(): Fallback to create C2AllocatorGralloc (id=%u)", __func__, allocatorId);
+    ALOGI("%s(): Fallback to create C2AllocatorGralloc(id=%u)", __func__, allocatorId);
     return new C2AllocatorGralloc(allocatorId, true);
 }
 
@@ -67,7 +68,7 @@ C2BlockPool* createBlockPool(C2Allocator::id_t allocatorId, C2BlockPool::local_i
 
     switch (allocatorId) {
     case V4L2AllocatorId::V4L2_BUFFERPOOL:
-        return new C2PooledBlockPool(allocator, poolId);
+        return new C2VdaPooledBlockPool(allocator, poolId);
 
     case V4L2AllocatorId::V4L2_BUFFERQUEUE:
         return new C2VdaBqBlockPool(allocator, poolId);

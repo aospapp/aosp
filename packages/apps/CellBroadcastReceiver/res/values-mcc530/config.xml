@@ -17,10 +17,11 @@
 <resources>
     <!-- 4370 -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
-        <item>0x1112:rat=gsm, emergency=true, override_dnd=true</item>
+        <item>0x1112:rat=gsm, emergency=true, override_dnd=true, always_on=true</item>
     </string-array>
 
-    <bool name="show_date_time_title">true</bool>
+    <!-- Append date-time to the alert title -->
+    <string name="date_time_format" translatable="false">E, MMM dd, HH:mm a</string>
     <!-- Disable Amber alert-->
     <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false"></string-array>
 
@@ -28,4 +29,5 @@
     <bool name="enable_led_flash">true</bool>
     <!-- Whether to disable a grey-out presidential alert -->
     <bool name="show_presidential_alerts_settings">true</bool>
+    <bool name="show_test_settings">false</bool>
 </resources>

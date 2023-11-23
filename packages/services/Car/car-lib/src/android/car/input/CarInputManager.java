@@ -16,13 +16,20 @@
 
 package android.car.input;
 
+import static android.car.CarOccupantZoneManager.DisplayTypeEnum;
+
+import android.annotation.CallbackExecutor;
 import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.RequiresPermission;
+import android.annotation.SystemApi;
 import android.car.Car;
 import android.car.CarManagerBase;
+import android.car.CarOccupantZoneManager;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.util.Slog;
 import android.util.SparseArray;
 import android.view.KeyEvent;
 
@@ -34,55 +41,68 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.ref.WeakReference;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.Executor;
 
 /**
  * This API allows capturing selected input events.
  *
  * @hide
  */
+@SystemApi
 public final class CarInputManager extends CarManagerBase {
+
+    private static final String TAG = CarInputManager.class.getSimpleName();
+
+    private static final boolean DEBUG = false;
 
     /**
      * Callback for capturing input events.
+     * <p>
+     * Events (key, rotary and custom input events) are associated with display types.
+     * Display types are defined in {@link android.car.CarOccupantZoneManager}. This manager only
+     * accepts the driver display types ({@link CarOccupantZoneManager#DISPLAY_TYPE_MAIN} and
+     * {@link CarOccupantZoneManager#DISPLAY_TYPE_INSTRUMENT_CLUSTER}).
      */
     public interface CarInputCaptureCallback {
         /**
          * Key events were captured.
+         *
+         * @param targetDisplayType the display type associated with the events passed as parameter
+         * @param keyEvents the key events to process
          */
-        void onKeyEvents(int targetDisplayId, @NonNull List<KeyEvent> keyEvents);
+        default void onKeyEvents(@DisplayTypeEnum int targetDisplayType,
+                @NonNull List<KeyEvent> keyEvents) {}
 
         /**
          * Rotary events were captured.
+         *
+         * @param targetDisplayType the display type associated with the events passed as parameter
+         * @param events the rotary events to process
          */
-        void onRotaryEvents(int targetDisplayId, @NonNull List<RotaryEvent> events);
+        default void onRotaryEvents(@DisplayTypeEnum int targetDisplayType,
+                @NonNull List<RotaryEvent> events) {}
 
         /**
          * Capture state for the display has changed due to other client making requests or
          * releasing capture. Client should check {@code activeInputTypes} for which input types
          * are currently captured.
+         *
+         * @param targetDisplayType the display type associated with the events passed as parameter
+         * @param activeInputTypes the input types to watch
          */
-        void onCaptureStateChanged(int targetDisplayId,
-                @NonNull @InputTypeEnum int[] activeInputTypes);
+        default void onCaptureStateChanged(@DisplayTypeEnum int targetDisplayType,
+                @NonNull @InputTypeEnum int[] activeInputTypes) {}
+
+        /**
+         * Custom input events were captured.
+         *
+         * @param targetDisplayType the display type associated with the events passed as parameter
+         * @param events the custom input events to process
+         */
+        default void onCustomInputEvents(@DisplayTypeEnum int targetDisplayType,
+                @NonNull List<CustomInputEvent> events) {}
     }
-
-    /**
-     * Represents main display for the system.
-     */
-    public static final int TARGET_DISPLAY_TYPE_MAIN = 0;
-
-    /**
-     * Represents cluster display.
-     */
-    public static final int TARGET_DISPLAY_TYPE_CLUSTER = 1;
-
-    /** @hide */
-    @Retention(RetentionPolicy.SOURCE)
-    @IntDef(prefix = "TARGET_DISPLAY_TYPE_", value = {
-            TARGET_DISPLAY_TYPE_MAIN,
-            TARGET_DISPLAY_TYPE_CLUSTER,
-    })
-    @Target({ElementType.TYPE_USE})
-    public @interface TargetDisplayTypeEnum {}
 
     /**
      * Client will wait for grant if the request is failing due to higher priority client.
@@ -98,12 +118,12 @@ public final class CarInputManager extends CarManagerBase {
     public static final int CAPTURE_REQ_FLAGS_TAKE_ALL_EVENTS_FOR_DISPLAY = 0x2;
 
     /** @hide */
-    @IntDef(flag = true, prefix = { "CAPTURE_REQ_FLAGS_" }, value = {
+    @IntDef(flag = true, prefix = {"CAPTURE_REQ_FLAGS_"}, value = {
             CAPTURE_REQ_FLAGS_ALLOW_DELAYED_GRANT,
             CAPTURE_REQ_FLAGS_TAKE_ALL_EVENTS_FOR_DISPLAY,
     })
     @Retention(RetentionPolicy.SOURCE)
-    @interface CaptureRequestFlags {}
+    public @interface CaptureRequestFlags {}
 
     /**
      * This is special type to cover all INPUT_TYPE_*. This is used for clients using
@@ -133,18 +153,29 @@ public final class CarInputManager extends CarManagerBase {
      * {@link KeyEvent#KEYCODE_DPAD_RIGHT}, {@link KeyEvent#KEYCODE_DPAD_CENTER},
      * {@link KeyEvent#KEYCODE_DPAD_DOWN_LEFT}, {@link KeyEvent#KEYCODE_DPAD_DOWN_RIGHT},
      * {@link KeyEvent#KEYCODE_DPAD_UP_LEFT}, {@link KeyEvent#KEYCODE_DPAD_UP_RIGHT}
+     *
+     * @hide
      */
     public static final int INPUT_TYPE_DPAD_KEYS = 100;
 
     /**
-     * This is for all KEYCODE_NAVIGATE_* keys.
+     * This is for all {@code KeyEvent#KEYCODE_NAVIGATE_*} keys.
+     *
+     * @hide
      */
     public static final int INPUT_TYPE_NAVIGATE_KEYS = 101;
 
     /**
-     * This is for all KEYCODE_SYSTEM_NAVIGATE_* keys.
+     * This is for all {@code KeyEvent#KEYCODE_SYSTEM_NAVIGATE_*} keys.
+     *
+     * @hide
      */
     public static final int INPUT_TYPE_SYSTEM_NAVIGATE_KEYS = 102;
+
+    /**
+     * This is for {@code HW_CUSTOM_INPUT} events.
+     */
+    public static final int INPUT_TYPE_CUSTOM_INPUT_EVENT = 200;
 
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
@@ -154,7 +185,8 @@ public final class CarInputManager extends CarManagerBase {
             INPUT_TYPE_ROTARY_VOLUME,
             INPUT_TYPE_DPAD_KEYS,
             INPUT_TYPE_NAVIGATE_KEYS,
-            INPUT_TYPE_SYSTEM_NAVIGATE_KEYS
+            INPUT_TYPE_SYSTEM_NAVIGATE_KEYS,
+            INPUT_TYPE_CUSTOM_INPUT_EVENT,
     })
     @Target({ElementType.TYPE_USE})
     public @interface InputTypeEnum {}
@@ -194,8 +226,7 @@ public final class CarInputManager extends CarManagerBase {
     private final Object mLock = new Object();
 
     @GuardedBy("mLock")
-    private final SparseArray<CarInputCaptureCallback> mCarInputCaptureCallbacks =
-            new SparseArray<>(1);
+    private final SparseArray<CallbackHolder> mCarInputCaptureCallbacks = new SparseArray<>(1);
 
     /**
      * @hide
@@ -222,15 +253,66 @@ public final class CarInputManager extends CarManagerBase {
      * <p> After {@link #INPUT_CAPTURE_RESPONSE_DELAYED} is returned, no input types are captured
      * until the client receives a {@link CarInputCaptureCallback#onCaptureStateChanged(int, int[])}
      * call with valid input types.
+     *
+     * <p> The targetDisplayType parameter must only contain driver display types (which are
+     * {@link CarOccupantZoneManager#DISPLAY_TYPE_MAIN} and
+     * {@link CarOccupantZoneManager#DISPLAY_TYPE_INSTRUMENT_CLUSTER}.
+     *
+     * <p>Callbacks are grouped and stacked per display types. Only the most recently
+     * registered callback will receive the incoming events for the associated display and input
+     * types. For instance, if two callbacks are registered against the same display type, on the
+     * same {@link CarInputManager} instance, then only the last registered callback will receive
+     * events, even if they were registered for different input event types.
+     *
+     * @throws SecurityException is caller doesn't have android.car.permission.CAR_MONITOR_INPUT
+     *                           permission granted
+     * @throws IllegalArgumentException if targetDisplayType parameter correspond to a non supported
+     *                                  display type
+     * @throws IllegalArgumentException if inputTypes parameter contains invalid or non supported
+     *                                  values
+     * @param targetDisplayType the display type to register callback for
+     * @param inputTypes the input type to register callback for
+     * @param requestFlags the capture request flag
+     * @param callback the callback to receive the input events
+     * @return the input capture response indicating if registration succeed, failed or delayed
+     */
+    @RequiresPermission(Car.PERMISSION_CAR_MONITOR_INPUT)
+    @InputCaptureResponseEnum
+    public int requestInputEventCapture(@DisplayTypeEnum int targetDisplayType,
+            @NonNull @InputTypeEnum int[] inputTypes,
+            @CaptureRequestFlags int requestFlags,
+            @NonNull CarInputCaptureCallback callback) {
+        Handler handler = getEventHandler();
+        return requestInputEventCapture(targetDisplayType, inputTypes, requestFlags, handler::post,
+                callback);
+    }
+
+    /**
+     * Works just like {@link CarInputManager#requestInputEventCapture(int, int[], int,
+     * CarInputCaptureCallback)} except that callbacks are invoked using
+     * the executor passed as parameter.
+     *
+     * @param targetDisplayType the display type to register callback against
+     * @param inputTypes the input type to register callback against
+     * @param requestFlags the capture request flag
+     * @param executor {@link Executor} to handle the callbacks
+     * @param callback the callback to receive the input events
+     * @return the input capture response indicating if registration succeed, failed or delayed
+     * @see CarInputManager#requestInputEventCapture(int, int[], int, CarInputCaptureCallback)
      */
     @RequiresPermission(android.Manifest.permission.MONITOR_INPUT)
     @InputCaptureResponseEnum
-    public int requestInputEventCapture(@NonNull CarInputCaptureCallback callback,
-            @TargetDisplayTypeEnum int targetDisplayType,
+    public int requestInputEventCapture(@DisplayTypeEnum int targetDisplayType,
             @NonNull @InputTypeEnum int[] inputTypes,
-            @CaptureRequestFlags int requestFlags) {
+            @CaptureRequestFlags int requestFlags,
+            @NonNull @CallbackExecutor Executor executor,
+            @NonNull CarInputCaptureCallback callback) {
+        Objects.requireNonNull(executor);
+        Objects.requireNonNull(callback);
+
         synchronized (mLock) {
-            mCarInputCaptureCallbacks.put(targetDisplayType, callback);
+            mCarInputCaptureCallbacks.put(targetDisplayType,
+                    new CallbackHolder(callback, executor));
         }
         try {
             return mService.requestInputEventCapture(mServiceCallback, targetDisplayType,
@@ -243,12 +325,12 @@ public final class CarInputManager extends CarManagerBase {
     /**
      * Stops capturing of given display.
      */
-    public void releaseInputEventCapture(@TargetDisplayTypeEnum int targetDisplayType) {
-        CarInputCaptureCallback callback;
+    public void releaseInputEventCapture(@DisplayTypeEnum int targetDisplayType) {
+        CallbackHolder callbackHolder;
         synchronized (mLock) {
-            callback = mCarInputCaptureCallbacks.removeReturnOld(targetDisplayType);
+            callbackHolder = mCarInputCaptureCallbacks.removeReturnOld(targetDisplayType);
         }
-        if (callback == null) {
+        if (callbackHolder == null) {
             return;
         }
         try {
@@ -258,6 +340,26 @@ public final class CarInputManager extends CarManagerBase {
         }
     }
 
+    /**
+     * Injects the {@link KeyEvent} passed as parameter against Car Input API.
+     * <p>
+     * The event parameter display id will be overridden accordingly to the display type also passed
+     * as parameter.
+     *
+     * @param event the key event to inject
+     * @param targetDisplayType the display type associated with the key event
+     * @throws RemoteException in case of failure when invoking car input service
+     */
+    @RequiresPermission(android.Manifest.permission.INJECT_EVENTS)
+    public void injectKeyEvent(@NonNull KeyEvent event, @DisplayTypeEnum int targetDisplayType) {
+        try {
+            mService.injectKeyEvent(event, targetDisplayType);
+        } catch (RemoteException e) {
+            e.rethrowFromSystemServer();
+        }
+    }
+
+    /** @hide */
     @Override
     protected void onCarDisconnected() {
         synchronized (mLock) {
@@ -265,37 +367,56 @@ public final class CarInputManager extends CarManagerBase {
         }
     }
 
-    private CarInputCaptureCallback getCallback(int targetDisplayType) {
+    private CallbackHolder getCallback(@DisplayTypeEnum int targetDisplayType) {
         synchronized (mLock) {
             return mCarInputCaptureCallbacks.get(targetDisplayType);
         }
     }
 
-    private void dispatchKeyEvents(int targetDisplayType, List<KeyEvent> keyEvents) {
-        getEventHandler().post(() -> {
-            CarInputCaptureCallback callback = getCallback(targetDisplayType);
-            if (callback != null) {
-                callback.onKeyEvents(targetDisplayType, keyEvents);
-            }
-        });
-
-    }
-
-    private void dispatchRotaryEvents(int targetDisplayType, List<RotaryEvent> events) {
-        getEventHandler().post(() -> {
-            CarInputCaptureCallback callback = getCallback(targetDisplayType);
-            if (callback != null) {
-                callback.onRotaryEvents(targetDisplayType, events);
-            }
+    private void dispatchKeyEvents(@DisplayTypeEnum int targetDisplayType,
+            List<KeyEvent> keyEvents) {
+        CallbackHolder callbackHolder = getCallback(targetDisplayType);
+        if (callbackHolder == null) {
+            return;
+        }
+        callbackHolder.mExecutor.execute(() -> {
+            callbackHolder.mCallback.onKeyEvents(targetDisplayType, keyEvents);
         });
     }
 
-    private void dispatchOnCaptureStateChanged(int targetDisplayType, int[] activeInputTypes) {
-        getEventHandler().post(() -> {
-            CarInputCaptureCallback callback = getCallback(targetDisplayType);
-            if (callback != null) {
-                callback.onCaptureStateChanged(targetDisplayType, activeInputTypes);
+    private void dispatchRotaryEvents(@DisplayTypeEnum int targetDisplayType,
+            List<RotaryEvent> events) {
+        CallbackHolder callbackHolder = getCallback(targetDisplayType);
+        if (callbackHolder == null) {
+            return;
+        }
+        callbackHolder.mExecutor.execute(() -> {
+            callbackHolder.mCallback.onRotaryEvents(targetDisplayType, events);
+        });
+    }
+
+    private void dispatchOnCaptureStateChanged(@DisplayTypeEnum int targetDisplayType,
+            int[] activeInputTypes) {
+        CallbackHolder callbackHolder = getCallback(targetDisplayType);
+        if (callbackHolder == null) {
+            return;
+        }
+        callbackHolder.mExecutor.execute(() -> {
+            callbackHolder.mCallback.onCaptureStateChanged(targetDisplayType, activeInputTypes);
+        });
+    }
+
+    private void dispatchCustomInputEvents(@DisplayTypeEnum int targetDisplayType,
+            List<CustomInputEvent> events) {
+        CallbackHolder callbackHolder = getCallback(targetDisplayType);
+        if (callbackHolder == null) {
+            return;
+        }
+        callbackHolder.mExecutor.execute(() -> {
+            if (DEBUG) {
+                Slog.d(TAG, "Firing events " + events + " on callback " + callbackHolder.mCallback);
             }
+            callbackHolder.mCallback.onCustomInputEvents(targetDisplayType, events);
         });
     }
 
@@ -308,7 +429,8 @@ public final class CarInputManager extends CarManagerBase {
         }
 
         @Override
-        public void onKeyEvents(int targetDisplayType, List<KeyEvent> keyEvents) {
+        public void onKeyEvents(@DisplayTypeEnum int targetDisplayType,
+                @NonNull List<KeyEvent> keyEvents) {
             CarInputManager manager = mManager.get();
             if (manager == null) {
                 return;
@@ -317,7 +439,8 @@ public final class CarInputManager extends CarManagerBase {
         }
 
         @Override
-        public void onRotaryEvents(int targetDisplayType, List<RotaryEvent> events) {
+        public void onRotaryEvents(@DisplayTypeEnum int targetDisplayType,
+                @NonNull List<RotaryEvent> events) {
             CarInputManager manager = mManager.get();
             if (manager == null) {
                 return;
@@ -326,12 +449,38 @@ public final class CarInputManager extends CarManagerBase {
         }
 
         @Override
-        public void onCaptureStateChanged(int targetDisplayType, int[] activeInputTypes) {
+        public void onCaptureStateChanged(@DisplayTypeEnum int targetDisplayType,
+                @NonNull @InputTypeEnum int[] activeInputTypes) {
             CarInputManager manager = mManager.get();
             if (manager == null) {
                 return;
             }
             manager.dispatchOnCaptureStateChanged(targetDisplayType, activeInputTypes);
+        }
+
+        @Override
+        public void onCustomInputEvents(@DisplayTypeEnum int targetDisplayType,
+                @NonNull List<CustomInputEvent> events) {
+            CarInputManager manager = mManager.get();
+            if (manager == null) {
+                return;
+            }
+            manager.dispatchCustomInputEvents(targetDisplayType, events);
+        }
+    }
+
+    /**
+     * Class used to bind {@link CarInputCaptureCallback} and their associated {@link Executor}.
+     */
+    private static final class CallbackHolder {
+
+        final CarInputCaptureCallback mCallback;
+
+        final Executor mExecutor;
+
+        CallbackHolder(CarInputCaptureCallback callback, Executor executor) {
+            mCallback = callback;
+            mExecutor = executor;
         }
     }
 }

@@ -16,6 +16,10 @@
 // Build the common library for use device-side
 //##############################################################################
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "media-bitstreams-common-devicesidelib",
     srcs: ["src/**/*.java"],

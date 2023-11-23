@@ -24,7 +24,7 @@ public class ShortcutManagerPostBackupTest extends ShortcutManagerDeviceTestBase
     protected void setUp() throws Exception {
         super.setUp();
 
-        setAsDefaultLauncher(MainActivity.class);
+        setAsDefaultLauncher();
     }
 
     public void testWithUninstall_afterAppRestore() {

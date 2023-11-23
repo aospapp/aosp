@@ -258,7 +258,6 @@ class PACKED(8) ImageHeader {
     kSectionRuntimeMethods,
     kSectionImTables,
     kSectionIMTConflictTables,
-    kSectionDexCacheArrays,
     kSectionInternedStrings,
     kSectionClassTable,
     kSectionStringReferenceOffsets,
@@ -274,6 +273,8 @@ class PACKED(8) ImageHeader {
   }
 
   ArtMethod* GetImageMethod(ImageMethod index) const;
+
+  static const char* GetImageSectionName(ImageSections index);
 
   ImageSection& GetImageSection(ImageSections index) {
     DCHECK_LT(static_cast<size_t>(index), kSectionCount);
@@ -307,10 +308,6 @@ class PACKED(8) ImageHeader {
 
   const ImageSection& GetIMTConflictTablesSection() const {
     return GetImageSection(kSectionIMTConflictTables);
-  }
-
-  const ImageSection& GetDexCacheArraysSection() const {
-    return GetImageSection(kSectionDexCacheArrays);
   }
 
   const ImageSection& GetInternedStringsSection() const {
@@ -442,10 +439,12 @@ class PACKED(8) ImageHeader {
   // their oat files are mmapped independently.
   uint32_t image_reservation_size_ = 0u;
 
-  // The number of components.
+  // The number of components (jar files contributing to the image).
   // For boot image or boot image extension, the primary image stores the total number
-  // of images, secondary images have this set to 0.
-  // App images have 1 component.
+  // of components, secondary images have this set to 0. App images have 1 component.
+  // The component count usually matches the total number of images (one image per component), but
+  // if multiple components are compiled with --single-image there will only be 1 image associated
+  // with those components.
   uint32_t component_count_ = 0u;
 
   // Required base address for mapping the image.
@@ -457,7 +456,7 @@ class PACKED(8) ImageHeader {
   // Image file checksum (calculated with the checksum field set to 0).
   uint32_t image_checksum_ = 0u;
 
-  // Checksum of the oat file we link to for load time sanity check.
+  // Checksum of the oat file we link to for load time consistency check.
   uint32_t oat_checksum_ = 0u;
 
   // Start address for oat file. Will be before oat_data_begin_ for .so files.
@@ -509,81 +508,17 @@ class PACKED(8) ImageHeader {
  * This type holds the information necessary to fix up AppImage string
  * references.
  *
- * The first element of the pair is an offset into the image space.  If the
- * offset is tagged (testable using HasDexCacheNativeRefTag) it indicates the location
- * of a DexCache object that has one or more native references to managed
- * strings that need to be fixed up.  In this case the second element has no
- * meaningful value.
- *
- * If the first element isn't tagged then it indicates the location of a
- * managed object with a field that needs fixing up.  In this case the second
- * element of the pair is an object-relative offset to the field in question.
+ * The first element indicates the location of a managed object with a field that needs fixing up.
+ * The second element of the pair is an object-relative offset to the field in question.
  */
 typedef std::pair<uint32_t, uint32_t> AppImageReferenceOffsetInfo;
 
-/*
- * Tags the last bit.  Used by AppImage logic to differentiate between pointers
- * to managed objects and pointers to native reference arrays.
- */
-template<typename T>
-T SetDexCacheStringNativeRefTag(T val) {
-  static_assert(std::is_integral<T>::value, "Expected integral type.");
+std::ostream& operator<<(std::ostream& os, ImageHeader::ImageMethod method);
+std::ostream& operator<<(std::ostream& os, ImageHeader::ImageRoot root);
+std::ostream& operator<<(std::ostream& os, ImageHeader::ImageSections section);
+std::ostream& operator<<(std::ostream& os, ImageHeader::StorageMode mode);
 
-  return val | 1u;
-}
-
-/*
- * Tags the second last bit.  Used by AppImage logic to differentiate between pointers
- * to managed objects and pointers to native reference arrays.
- */
-template<typename T>
-T SetDexCachePreResolvedStringNativeRefTag(T val) {
-  static_assert(std::is_integral<T>::value, "Expected integral type.");
-
-  return val | 2u;
-}
-
-/*
- * Retrieves the value of the last bit.  Used by AppImage logic to
- * differentiate between pointers to managed objects and pointers to native
- * reference arrays.
- */
-template<typename T>
-bool HasDexCacheStringNativeRefTag(T val) {
-  static_assert(std::is_integral<T>::value, "Expected integral type.");
-
-  return (val & 1u) != 0u;
-}
-
-/*
- * Retrieves the value of the second last bit.  Used by AppImage logic to
- * differentiate between pointers to managed objects and pointers to native
- * reference arrays.
- */
-template<typename T>
-bool HasDexCachePreResolvedStringNativeRefTag(T val) {
-  static_assert(std::is_integral<T>::value, "Expected integral type.");
-
-  return (val & 2u) != 0u;
-}
-
-/*
- * Sets the last bit of the value to 0.  Used by AppImage logic to
- * differentiate between pointers to managed objects and pointers to native
- * reference arrays.
- */
-template<typename T>
-T ClearDexCacheNativeRefTags(T val) {
-  static_assert(std::is_integral<T>::value, "Expected integral type.");
-
-  return val & ~3u;
-}
-
-std::ostream& operator<<(std::ostream& os, const ImageHeader::ImageMethod& method);
-std::ostream& operator<<(std::ostream& os, const ImageHeader::ImageRoot& root);
-std::ostream& operator<<(std::ostream& os, const ImageHeader::ImageSections& section);
 std::ostream& operator<<(std::ostream& os, const ImageSection& section);
-std::ostream& operator<<(std::ostream& os, const ImageHeader::StorageMode& mode);
 
 }  // namespace art
 

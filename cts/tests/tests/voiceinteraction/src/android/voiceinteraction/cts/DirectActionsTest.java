@@ -16,6 +16,8 @@
 
 package android.voiceinteraction.cts;
 
+import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -28,6 +30,9 @@ import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.voiceinteraction.common.Utils;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.android.compatibility.common.util.ThrowingRunnable;
 
 import org.junit.Test;
@@ -38,15 +43,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 /**
  * Tests for the direction action related functions.
  */
 public class DirectActionsTest extends AbstractVoiceInteractionTestCase {
     private static final String TAG = DirectActionsTest.class.getSimpleName();
     private static final long OPERATION_TIMEOUT_MS = 5000;
+    private static final String TEST_APP_PACKAGE = "android.voiceinteraction.testapp";
 
     private final @NonNull SessionControl mSessionControl = new SessionControl();
     private final @NonNull ActivityControl mActivityControl = new ActivityControl();
@@ -253,13 +256,18 @@ public class DirectActionsTest extends AbstractVoiceInteractionTestCase {
                             + "/DirectActionsActivity"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     .putExtra(Utils.DIRECT_ACTIONS_KEY_CALLBACK, callback);
-
-            if (!mContext.getPackageManager().isInstantApp()) {
-                intent.setPackage("android.voiceinteraction.testapp");
+            if (mContext.getPackageManager().isInstantApp()) {
+                // Override app-links domain verification.
+                runShellCommand(
+                        String.format(
+                                "pm set-app-links-user-selection --user cur --package %1$s true"
+                                        + " %1$s",
+                                TEST_APP_PACKAGE));
+            } else {
+                intent.setPackage(TEST_APP_PACKAGE);
             }
 
             Log.v(TAG, "startActivity: " + intent);
-
             mContext.startActivity(intent);
 
             if (!latch.await(OPERATION_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
@@ -313,9 +321,8 @@ public class DirectActionsTest extends AbstractVoiceInteractionTestCase {
             if (postActionCommand != null) {
                 try {
                     postActionCommand.run();
-                } catch (TimeoutException e) {
-                    Log.e(TAG, "action '" + action + "' timed out" );
                 } catch (Exception e) {
+                    Log.e(TAG, "action '" + action + "' failed");
                     throw e;
                 }
             }

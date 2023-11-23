@@ -17,6 +17,7 @@
 #include "update_engine/update_manager/chromeos_policy.h"
 
 #include <algorithm>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -48,6 +49,7 @@ using std::get;
 using std::min;
 using std::set;
 using std::string;
+using std::unique_ptr;
 using std::vector;
 
 namespace {
@@ -154,6 +156,7 @@ bool HandleErrorCode(ErrorCode err_code, int* url_num_error_p) {
     case ErrorCode::kUnresolvedHostRecovered:
     case ErrorCode::kNotEnoughSpace:
     case ErrorCode::kDeviceCorrupted:
+    case ErrorCode::kPackageExcludedFromUpdate:
       LOG(INFO) << "Not changing URL index or failure count due to error "
                 << chromeos_update_engine::utils::ErrorCodeToString(err_code)
                 << " (" << static_cast<int>(err_code) << ")";
@@ -190,6 +193,10 @@ bool IsUrlUsable(const string& url, bool http_allowed) {
 
 namespace chromeos_update_manager {
 
+unique_ptr<Policy> GetSystemPolicy() {
+  return std::make_unique<ChromeOSPolicy>();
+}
+
 const NextUpdateCheckPolicyConstants
     ChromeOSPolicy::kNextUpdateCheckPolicyConstants = {
         .timeout_initial_interval = 7 * 60,
@@ -210,10 +217,13 @@ EvalStatus ChromeOSPolicy::UpdateCheckAllowed(EvaluationContext* ec,
   // Set the default return values.
   result->updates_enabled = true;
   result->target_channel.clear();
+  result->lts_tag.clear();
   result->target_version_prefix.clear();
   result->rollback_allowed = false;
   result->rollback_allowed_milestones = -1;
+  result->rollback_on_channel_downgrade = false;
   result->interactive = false;
+  result->quick_fix_build_token.clear();
 
   EnoughSlotsAbUpdatesPolicyImpl enough_slots_ab_updates_policy;
   EnterpriseDevicePolicyImpl enterprise_device_policy;
@@ -456,92 +466,6 @@ EvalStatus ChromeOSPolicy::UpdateCanStart(
   return EvalStatus::kSucceeded;
 }
 
-// TODO(garnold) Logic in this method is based on
-// ConnectionManager::IsUpdateAllowedOver(); be sure to deprecate the latter.
-//
-// TODO(garnold) The current logic generally treats the list of allowed
-// connections coming from the device policy as a whitelist, meaning that it
-// can only be used for enabling connections, but not disable them. Further,
-// certain connection types (like Bluetooth) cannot be enabled even by policy.
-// In effect, the only thing that device policy can change is to enable
-// updates over a cellular network (disabled by default). We may want to
-// revisit this semantics, allowing greater flexibility in defining specific
-// permissions over all types of networks.
-EvalStatus ChromeOSPolicy::UpdateDownloadAllowed(EvaluationContext* ec,
-                                                 State* state,
-                                                 string* error,
-                                                 bool* result) const {
-  // Get the current connection type.
-  ShillProvider* const shill_provider = state->shill_provider();
-  const ConnectionType* conn_type_p =
-      ec->GetValue(shill_provider->var_conn_type());
-  POLICY_CHECK_VALUE_AND_FAIL(conn_type_p, error);
-  ConnectionType conn_type = *conn_type_p;
-
-  // If we're tethering, treat it as a cellular connection.
-  if (conn_type != ConnectionType::kCellular) {
-    const ConnectionTethering* conn_tethering_p =
-        ec->GetValue(shill_provider->var_conn_tethering());
-    POLICY_CHECK_VALUE_AND_FAIL(conn_tethering_p, error);
-    if (*conn_tethering_p == ConnectionTethering::kConfirmed)
-      conn_type = ConnectionType::kCellular;
-  }
-
-  // By default, we allow updates for all connection types, with exceptions as
-  // noted below. This also determines whether a device policy can override the
-  // default.
-  *result = true;
-  bool device_policy_can_override = false;
-  switch (conn_type) {
-    case ConnectionType::kBluetooth:
-      *result = false;
-      break;
-
-    case ConnectionType::kCellular:
-      *result = false;
-      device_policy_can_override = true;
-      break;
-
-    case ConnectionType::kUnknown:
-      if (error)
-        *error = "Unknown connection type";
-      return EvalStatus::kFailed;
-
-    default:
-      break;  // Nothing to do.
-  }
-
-  // If update is allowed, we're done.
-  if (*result)
-    return EvalStatus::kSucceeded;
-
-  // Check whether the device policy specifically allows this connection.
-  if (device_policy_can_override) {
-    DevicePolicyProvider* const dp_provider = state->device_policy_provider();
-    const bool* device_policy_is_loaded_p =
-        ec->GetValue(dp_provider->var_device_policy_is_loaded());
-    if (device_policy_is_loaded_p && *device_policy_is_loaded_p) {
-      const set<ConnectionType>* allowed_conn_types_p =
-          ec->GetValue(dp_provider->var_allowed_connection_types_for_update());
-      if (allowed_conn_types_p) {
-        if (allowed_conn_types_p->count(conn_type)) {
-          *result = true;
-          return EvalStatus::kSucceeded;
-        }
-      } else if (conn_type == ConnectionType::kCellular) {
-        // Local user settings can allow updates over cellular iff a policy was
-        // loaded but no allowed connections were specified in it.
-        const bool* update_over_cellular_allowed_p =
-            ec->GetValue(state->updater_provider()->var_cellular_enabled());
-        if (update_over_cellular_allowed_p && *update_over_cellular_allowed_p)
-          *result = true;
-      }
-    }
-  }
-
-  return (*result ? EvalStatus::kSucceeded : EvalStatus::kAskMeAgainLater);
-}
-
 EvalStatus ChromeOSPolicy::P2PEnabled(EvaluationContext* ec,
                                       State* state,
                                       string* error,
@@ -560,8 +484,9 @@ EvalStatus ChromeOSPolicy::P2PEnabled(EvaluationContext* ec,
     if (policy_au_p2p_enabled_p) {
       enabled = *policy_au_p2p_enabled_p;
     } else {
-      const string* policy_owner_p = ec->GetValue(dp_provider->var_owner());
-      if (!policy_owner_p || policy_owner_p->empty())
+      const bool* policy_has_owner_p =
+          ec->GetValue(dp_provider->var_has_owner());
+      if (!policy_has_owner_p || !*policy_has_owner_p)
         enabled = true;
     }
   }
@@ -595,7 +520,6 @@ EvalStatus ChromeOSPolicy::UpdateBackoffAndDownloadUrl(
     string* error,
     UpdateBackoffAndDownloadUrlResult* result,
     const UpdateState& update_state) const {
-  // Sanity checks.
   DCHECK_GE(update_state.download_errors_max, 0);
 
   // Set default result values.
@@ -667,7 +591,7 @@ EvalStatus ChromeOSPolicy::UpdateBackoffAndDownloadUrl(
   Time prev_err_time;
   bool is_first = true;
   for (const auto& err_tuple : update_state.download_errors) {
-    // Do some sanity checks.
+    // Do some validation checks.
     int used_url_idx = get<0>(err_tuple);
     if (is_first && url_idx >= 0 && used_url_idx != url_idx) {
       LOG(WARNING) << "First URL in error log (" << used_url_idx

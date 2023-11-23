@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Seul l\'utilisateur principal peut modifier les paramètres de la messagerie vocale."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Votre carte SIM a été déverrouillée. Votre téléphone est en cours de déverrouillage..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"NIP de déblocage du réseau SIM"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"Carte SIM verrouillée pour le fournisseur de services :"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Déverrouiller"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Ignorer"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Demande de déblocage du réseau…"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Transfert vers <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Désactivé"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Votre opérateur ne permet pas la désactivation du transfert d\'appel lorsque votre téléphone n\'est pas joignable."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Votre fournisseur de services ne prend pas en charge le transfert d\'appels."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Activer la mise en attente d\'appels?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Vous serez notifié des appels entrant pendant les appels."</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Activer"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Annuler"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"Mise en attente d\'appels CDMA sous IMS activée"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Mise en attente d\'appels CDMA sous IMS désactivée"</string>
     <string name="updating_title" msgid="6130548922615719689">"Paramètres d\'appel"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Seul l\'administrateur peut modifier les paramètres d\'appel."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Paramètres (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Fonctionnalité de carte SIM limitée"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Les services d\'appels et de données de <xliff:g id="CARRIER_NAME">%1$s</xliff:g> peuvent être bloqués lors de l\'utilisation du numéro <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Les données et appels de <xliff:g id="CARRIER_NAME">%1$s</xliff:g> peuvent être bloqués si vous utilisez une autre SIM."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Comptes SIP obsolètes trouvés et retirés"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Les appels SIP ne sont plus pris en charge par la plateforme Android.\nVos comptes SIP <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> existants ont été retirés.\nVeuillez confirmer votre paramètre de compte d\'appel par défaut."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Accéder aux paramètres"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Utilisation des données des applications"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> de données mobiles utilisées pendant la période suivante : <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Avancés"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Le mot de passe est erroné. La carte SIM a été verrouillée. Entrez  le code PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"Le code PUK2 est bloqué définitivement."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Il vous reste <xliff:g id="NUMBER">%d</xliff:g> tentatives."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"Verrouillage PUK2. Communiquez avec le fournisseur de services pour procéder au déverrouillage."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"Le NIP2 n\'est plus bloqué."</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Erreur de réseau ou de carte SIM"</string>
     <string name="doneButton" msgid="7371209609238460207">"Terminé"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Activez le réseau cellulaire ou désactivez le mode Avion ou le mode Économiseur de pile pour faire un appel."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Désactivez le mode Avion pour faire un appel."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Désactivez le mode Avion ou connectez-vous à un réseau Wi-Fi pour faire un appel."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Le téléphone est trop chaud"</b>\n\n"Impossible de passer cet appel. Réessayez plus tard quand le téléphone aura refroidi.\n\nVous pouvez toujours effectuer des appels d\'urgence."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Quittez le mode de rappel d\'urgence pour effectuer un appel non urgent."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Non enregistré sur le réseau"</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Réseau pour mobile non disponible"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Sous-identifiant de la carte SIM par défaut :"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Bande passante de téléchargement (kb/s) :"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Bande passante de téléversement (kb/s) :"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Données de la position de la cellule (obsolètes) :"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Configuration du canal physique LTE :"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Taux d\'actualisation des données de la cellule :"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Données des mesures de toutes les cellules :"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Actualiser"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Basculer la vérification DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Informations/paramètres OEM"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC disponible :"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR restreinte :"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR disponible :"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"État NR :"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Fréquence NR :"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Définir le mode de bande radio"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Chargement de la liste de bandes en cours…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Définir"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Informations sur le téléphone"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Données d\'approvisionnement du fournisseur de services"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Déclencher l\'approvisionnement du fournisseur de services"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Votre signal Bluetooth est faible. Essayez de passer au haut-parleur mains libres."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Notification de qualité d\'appel"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Comptes SIP obsolètes"</string>
 </resources>

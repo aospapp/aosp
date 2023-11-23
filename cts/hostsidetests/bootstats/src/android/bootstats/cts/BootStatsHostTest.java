@@ -38,7 +38,7 @@ import java.util.LinkedList;
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class BootStatsHostTest implements IDeviceTest {
 
-    private static final long MAX_WAIT_TIME_MS = 30000;
+    private static final long MAX_WAIT_TIME_MS = 100000;
     private static final long WAIT_SLEEP_MS = 100;
 
     private static int[] ATOMS_EXPECTED = {

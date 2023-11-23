@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 
+#include <cstddef>
 #include <string>
 
 #include "lang_id/common/lite_strings/stringpiece.h"
@@ -97,7 +98,14 @@ using FileDescriptorOrHandle = int;
 #endif
 
 // Like MmapFile(const std::string &filename), but uses a file descriptor.
+// This function maps the entire file content.
 MmapHandle MmapFile(FileDescriptorOrHandle fd);
+
+// Like MmapFile(const std::string &filename), but uses a file descriptor,
+// with an offset relative to the file start and a specified size, such that we
+// consider only a range of the file content.
+MmapHandle MmapFile(FileDescriptorOrHandle fd, size_t offset_in_bytes,
+                    size_t size_in_bytes);
 
 // Unmaps a file mapped using MmapFile.  Returns true on success, false
 // otherwise.
@@ -111,6 +119,10 @@ class ScopedMmap {
       : handle_(MmapFile(filename)) {}
 
   explicit ScopedMmap(FileDescriptorOrHandle fd) : handle_(MmapFile(fd)) {}
+
+  explicit ScopedMmap(FileDescriptorOrHandle fd, size_t offset_in_bytes,
+                      size_t size_in_bytes)
+      : handle_(MmapFile(fd, offset_in_bytes, size_in_bytes)) {}
 
   ~ScopedMmap() {
     if (handle_.ok()) {

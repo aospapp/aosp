@@ -54,27 +54,13 @@ namespace {
 // was provided in the config. The cache is trimmed if it exceeds this size.
 const size_t kThreadTimeInStateCacheSize = 10000;
 
-inline int32_t ParseIntValue(const char* str) {
-  int32_t ret = 0;
-  for (;;) {
-    char c = *(str++);
-    if (!c)
-      break;
-    if (c < '0' || c > '9')
-      return 0;
-    ret *= 10;
-    ret += static_cast<int32_t>(c - '0');
-  }
-  return ret;
-}
-
 int32_t ReadNextNumericDir(DIR* dirp) {
   while (struct dirent* dir_ent = readdir(dirp)) {
     if (dir_ent->d_type != DT_DIR)
       continue;
-    int32_t int_value = ParseIntValue(dir_ent->d_name);
+    auto int_value = base::CStringToInt32(dir_ent->d_name);
     if (int_value)
-      return int_value;
+      return *int_value;
   }
   return 0;
 }
@@ -383,7 +369,9 @@ void ProcessStatsDataSource::Tick(
     return;
   ProcessStatsDataSource& thiz = *weak_this;
   uint32_t period_ms = thiz.poll_period_ms_;
-  uint32_t delay_ms = period_ms - (base::GetWallTimeMs().count() % period_ms);
+  uint32_t delay_ms =
+      period_ms -
+      static_cast<uint32_t>(base::GetWallTimeMs().count() % period_ms);
   thiz.task_runner_->PostDelayedTask(
       std::bind(&ProcessStatsDataSource::Tick, weak_this), delay_ms);
   thiz.WriteAllProcessStats();
@@ -399,9 +387,9 @@ void ProcessStatsDataSource::Tick(
 }
 
 void ProcessStatsDataSource::WriteAllProcessStats() {
-  // TODO(primiano): implement whitelisting of processes by names.
+  // TODO(primiano): implement filtering of processes by names.
   // TODO(primiano): Have a pid cache to avoid wasting cycles reading kthreads
-  // proc files over and over. Same for non-whitelist processes (see above).
+  // proc files over and over. Same for non-filtered processes (see above).
 
   CacheProcFsScanStartTimestamp();
   PERFETTO_METATRACE_SCOPED(TAG_PROC_POLLERS, PS_WRITE_ALL_PROCESS_STATS);

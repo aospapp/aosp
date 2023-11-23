@@ -1,6 +1,0 @@
-{
-    "test_bed": [],
-    "log_path": "/tmp/logs",
-    "test_paths": ["./"],
-    "enable_web": true
-}

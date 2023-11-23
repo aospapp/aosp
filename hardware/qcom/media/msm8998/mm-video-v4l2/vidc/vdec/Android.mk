@@ -108,6 +108,9 @@ libmm-vdec-def += -DALLOCATE_OUTPUT_NATIVEHANDLE
 include $(CLEAR_VARS)
 
 LOCAL_MODULE                    := libOmxVdec
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
+LOCAL_NOTICE_FILE               := $(LOCAL_PATH)/../../../NOTICE
 LOCAL_MODULE_TAGS               := optional
 LOCAL_VENDOR_MODULE             := true
 LOCAL_CFLAGS                    := $(libmm-vdec-def) -Werror
@@ -149,6 +152,9 @@ ifneq "$(wildcard $(QCPATH) )" ""
 ifeq ($(call is-board-platform-in-list, $(TARGETS_THAT_NEED_SW_VDEC)),true)
 
 LOCAL_MODULE                  := libOmxSwVdec
+LOCAL_LICENSE_KINDS           := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS      := notice
+LOCAL_NOTICE_FILE             := $(LOCAL_PATH)/../../../NOTICE
 LOCAL_MODULE_TAGS             := optional
 LOCAL_VENDOR_MODULE           := true
 LOCAL_CFLAGS                  := $(libmm-vdec-def)

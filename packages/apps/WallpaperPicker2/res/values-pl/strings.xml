@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"Ekran główny"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Ekran blokady"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Ekran główny i ekran blokady"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Ustaw tapetę"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Ustaw tapetę"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Ekran główny"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Ekran blokady"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Ekran główny i ekran blokady"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Ekran główny i ekran blokady"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Tapeta z obracanym obrazem"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Aby wyświetlić tutaj bieżącą tapetę, <xliff:g id="APP_NAME">%1$s</xliff:g> musi mieć dostęp do pamięci urządzenia."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Aby wyświetlać tutaj aktualną tapetę, Tapety muszą mieć dostęp do pamięci urządzenia.\n\nTo ustawienie możesz zmienić w sekcji Uprawnienia w informacjach o aplikacji Tapety."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Odśwież codzienną tapetę"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Odświeżam codzienną tapetę…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Nie udało się odświeżyć codziennej tapety. Sprawdź połączenie sieciowe i spróbuj ponownie."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Zwiń panel informacyjny tapety"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Rozwiń panel informacyjny tapety"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Tapety na urządzeniu"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"Na urządzeniu"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Tapety Android"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Przycięta na środku"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"Rozciągnięcie"</string>
     <string name="preview" msgid="1774602101743861071">"Podgląd"</string>
+    <string name="tab_info" msgid="818614080690111416">"Informacje"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Dostosuj"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Ustawienia…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Usuń"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Usunąć tę tapetę z telefonu?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Wstecz"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Edytuj"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"Pobierz"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Tapeta z pokazem slajdów"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Zastosuj"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"Strona <xliff:g id="ID_1">%1$d</xliff:g> z <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Dalej"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Wstecz"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Tapeta"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Podgląd tapety"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Taka kolekcja nie istnieje"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Ukryj podgląd UI"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Pokaż podgląd UI"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Zmień tapetę"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Podgląd tapety na ekranie blokady"</string>
 </resources>

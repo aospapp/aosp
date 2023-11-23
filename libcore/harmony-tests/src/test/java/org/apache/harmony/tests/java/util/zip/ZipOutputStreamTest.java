@@ -338,7 +338,7 @@ public class ZipOutputStreamTest extends TestCaseWithRules {
 
         ZipEntry zipEntry;
 
-        // There's no sane way to access ONLY mtime
+        // There's no practical way to access ONLY mtime
         Field mtimeField = ZipEntry.class.getDeclaredField("mtime");
         mtimeField.setAccessible(true);
 

@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_bt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bt_license"],
+}
+
 filegroup {
     name: "BluetoothL2capSources",
     srcs: [
@@ -13,6 +22,7 @@ filegroup {
         "classic/internal/link.cc",
         "classic/internal/link_manager.cc",
         "classic/internal/signalling_manager.cc",
+        "classic/internal/dumpsys_helper.cc",
         "classic/l2cap_classic_module.cc",
         "dynamic_channel.cc",
         "internal/basic_mode_channel_data_controller.cc",
@@ -24,11 +34,13 @@ filegroup {
         "internal/receiver.cc",
         "internal/scheduler_fifo.cc",
         "internal/sender.cc",
+        "le/dynamic_channel.cc",
         "le/dynamic_channel_manager.cc",
         "le/dynamic_channel_service.cc",
         "le/fixed_channel.cc",
         "le/fixed_channel_manager.cc",
         "le/fixed_channel_service.cc",
+        "le/link_options.cc",
         "le/internal/dynamic_channel_service_manager_impl.cc",
         "le/internal/fixed_channel_impl.cc",
         "le/internal/fixed_channel_service_manager_impl.cc",
@@ -57,11 +69,17 @@ filegroup {
         "internal/receiver_test.cc",
         "internal/scheduler_fifo_test.cc",
         "internal/sender_test.cc",
-        "l2cap_packet_test.cc",
         "le/internal/dynamic_channel_service_manager_test.cc",
         "le/internal/fixed_channel_impl_test.cc",
         "le/internal/fixed_channel_service_manager_test.cc",
         "le/internal/link_manager_test.cc",
+    ],
+}
+
+filegroup {
+    name: "BluetoothL2capUnitTestSources",
+    srcs: [
+        "l2cap_packet_test.cc",
         "signal_id_test.cc",
     ],
 }
@@ -70,6 +88,7 @@ filegroup {
     name: "BluetoothFacade_l2cap_layer",
     srcs: [
         "classic/facade.cc",
+        "le/facade.cc",
     ],
 }
 

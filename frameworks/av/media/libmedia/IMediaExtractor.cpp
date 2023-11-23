@@ -38,7 +38,9 @@ enum {
     FLAGS,
     SETMEDIACAS,
     NAME,
-    GETMETRICS
+    GETMETRICS,
+    SETENTRYPOINT,
+    SETLOGSESSIONID
 };
 
 class BpMediaExtractor : public BpInterface<IMediaExtractor> {
@@ -142,6 +144,20 @@ public:
         }
         return nm;
     }
+
+    virtual status_t setEntryPoint(EntryPoint entryPoint) {
+        Parcel data, reply;
+        data.writeInterfaceToken(BpMediaExtractor::getInterfaceDescriptor());
+        data.writeInt32(static_cast<int32_t>(entryPoint));
+        return remote()->transact(SETENTRYPOINT, data, &reply);
+    }
+
+    virtual status_t setLogSessionId(const String8& logSessionId) {
+        Parcel data, reply;
+        data.writeInterfaceToken(BpMediaExtractor::getInterfaceDescriptor());
+        data.writeString8(logSessionId);
+        return remote()->transact(SETLOGSESSIONID, data, &reply);
+    }
 };
 
 IMPLEMENT_META_INTERFACE(MediaExtractor, "android.media.IMediaExtractor");
@@ -231,6 +247,26 @@ status_t BnMediaExtractor::onTransact(
             String8 nm = name();
             reply->writeString8(nm);
             return NO_ERROR;
+        }
+        case SETENTRYPOINT: {
+            ALOGV("setEntryPoint");
+            CHECK_INTERFACE(IMediaExtractor, data, reply);
+            int32_t entryPoint;
+            status_t err = data.readInt32(&entryPoint);
+            if (err == OK) {
+                setEntryPoint(EntryPoint(entryPoint));
+            }
+            return err;
+        }
+        case SETLOGSESSIONID: {
+            ALOGV("setLogSessionId");
+            CHECK_INTERFACE(IMediaExtractor, data, reply);
+            String8 logSessionId;
+            status_t status = data.readString8(&logSessionId);
+            if (status == OK) {
+              setLogSessionId(logSessionId);
+            }
+            return status;
         }
         default:
             return BBinder::onTransact(code, data, reply, flags);

@@ -17,6 +17,7 @@
 package android.location.cts.common;
 
 import android.content.Context;
+import android.location.GnssMeasurementRequest;
 import android.location.GnssMeasurementsEvent;
 import android.location.GnssNavigationMessage;
 import android.location.GnssRequest;
@@ -109,6 +110,24 @@ public class TestLocationManager {
     }
 
     /**
+     * See {@link android.location.LocationManager#registerGnssMeasurementsCallback
+     * (GnssMeasurementsEvent.Callback callback)}
+     *
+     * @param callback the listener to add
+     */
+    public void registerGnssMeasurementCallback(GnssMeasurementsEvent.Callback callback,
+            GnssMeasurementRequest request) {
+        Log.i(TAG, "Add Gnss Measurement Callback. enableFullTracking=" + request);
+        boolean measurementListenerAdded =
+                mLocationManager.registerGnssMeasurementsCallback(request, Runnable::run, callback);
+        if (!measurementListenerAdded) {
+            // Registration of GnssMeasurements listener has failed, this indicates a platform bug.
+            Log.i(TAG, TestMeasurementUtil.REGISTRATION_ERROR_MESSAGE);
+            Assert.fail(TestMeasurementUtil.REGISTRATION_ERROR_MESSAGE);
+        }
+    }
+
+    /**
      * Request GNSS location updates with {@code LocationRequest#setLowPowerMode()} enabled.
      *
      * See {@code LocationManager#requestLocationUpdates}.
@@ -117,15 +136,13 @@ public class TestLocationManager {
      */
     public void requestLowPowerModeGnssLocationUpdates(int minTimeMillis,
             LocationListener locationListener) {
-        LocationRequest request = LocationRequest.createFromDeprecatedProvider(
-                LocationManager.GPS_PROVIDER, /* minTime= */ minTimeMillis, /* minDistance= */0,
-                false);
-        request.setLowPowerMode(true);
         if (mLocationManager.getProvider(LocationManager.GPS_PROVIDER) != null) {
             Log.i(TAG, "Request Location updates.");
-            mLocationManager.requestLocationUpdates(request,
-                    locationListener,
-                    Looper.getMainLooper());
+            mLocationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    new LocationRequest.Builder(minTimeMillis).setLowPower(true).build(),
+                    mContext.getMainExecutor(),
+                    locationListener);
         }
     }
 

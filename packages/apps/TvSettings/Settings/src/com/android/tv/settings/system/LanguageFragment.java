@@ -30,7 +30,6 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
 import com.android.internal.app.LocalePicker;
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.development.DevelopmentSettingsEnabler;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
@@ -133,11 +132,6 @@ public class LanguageFragment extends SettingsPreferenceFragment {
             }
         }
         return super.onPreferenceTreeClick(preference);
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.SETTINGS_LANGUAGE_CATEGORY;
     }
 
     @Override

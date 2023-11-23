@@ -18,8 +18,6 @@
 
 #include <assert.h>
 
-#include <keymaster/new.h>
-
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
@@ -46,8 +44,7 @@ keymaster_error_t AesKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
                                          AuthorizationSet&& hw_enforced,
                                          AuthorizationSet&& sw_enforced,
                                          UniquePtr<Key>* key) const {
-    if (!key)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+    if (!key) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     uint32_t min_mac_length = 0;
     if (hw_enforced.Contains(TAG_BLOCK_MODE, KM_MODE_GCM) ||
@@ -62,10 +59,9 @@ keymaster_error_t AesKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
     }
 
     keymaster_error_t error = KM_ERROR_OK;
-    key->reset(new (std::nothrow) AesKey(move(key_material), move(hw_enforced), move(sw_enforced),
-                                         this));
-    if (!key->get())
-        error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    key->reset(new (std::nothrow)
+                   AesKey(move(key_material), move(hw_enforced), move(sw_enforced), this));
+    if (!key->get()) error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
     return error;
 }
 
@@ -76,8 +72,7 @@ keymaster_error_t AesKeyFactory::validate_algorithm_specific_new_key_params(
         if (!key_description.GetTagValue(TAG_MIN_MAC_LENGTH, &min_tag_length))
             return KM_ERROR_MISSING_MIN_MAC_LENGTH;
 
-        if (min_tag_length % 8 != 0)
-            return KM_ERROR_UNSUPPORTED_MIN_MAC_LENGTH;
+        if (min_tag_length % 8 != 0) return KM_ERROR_UNSUPPORTED_MIN_MAC_LENGTH;
 
         if (min_tag_length < kMinGcmTagLength || min_tag_length > kMaxGcmTagLength)
             return KM_ERROR_UNSUPPORTED_MIN_MAC_LENGTH;

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/route/classifier.c       Classifier
  *
@@ -324,7 +325,8 @@ int rtnl_cls_delete(struct nl_sock *sk, struct rtnl_cls *cls, int flags)
  *
  * @return 0 on success or a negative error code.
  */
-int rtnl_cls_alloc_cache(struct nl_sock *sk, int ifindex, uint32_t parent,			 struct nl_cache **result)
+int rtnl_cls_alloc_cache(struct nl_sock *sk, int ifindex, uint32_t parent,
+			 struct nl_cache **result)
 {
 	struct nl_cache * cache;
 	int err;
@@ -342,6 +344,24 @@ int rtnl_cls_alloc_cache(struct nl_sock *sk, int ifindex, uint32_t parent,			 st
 
 	*result = cache;
 	return 0;
+}
+
+/**
+ * Set interface index and parent handle for classifier cache.
+ * @arg cache 		Pointer to cache
+ * @arg parent 		Parent qdisc/traffic class class
+ *
+ * Set the interface index and parent handle of a classifier cache.
+ * This is useful for reusing some existed classifier cache to reduce
+ * the overhead introduced by memory allocation.
+ *
+ * @return void.
+ */
+void rtnl_cls_cache_set_tc_params(struct nl_cache *cache,
+				  int ifindex, uint32_t parent)
+{
+	cache->c_iarg1 = ifindex;
+	cache->c_iarg2 = parent;
 }
 
 /** @} */

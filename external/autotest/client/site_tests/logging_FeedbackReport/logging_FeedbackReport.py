@@ -56,6 +56,21 @@ class logging_FeedbackReport(test.test):
 
         return True
 
+    def _check_feedback_extension_loaded(self):
+        """
+        Return whether feedback extension has loaded.
+
+        @returns: True if extension loaded, else False.
+
+        """
+
+        for extension in self.cr_exts.GetByExtensionId(self._FEEDBACK_ID):
+            url = extension.EvaluateJavaScript('location.href;')
+            if url.endswith('default.html'):
+                self.feedback_app = extension
+                return True
+        return False
+
     def _confirm_feedback_state(self):
         """
         Fail test if feedback elements have not been found.
@@ -63,6 +78,11 @@ class logging_FeedbackReport(test.test):
         @raises: error.TestFail if feedback app not found.
 
         """
+        utils.poll_for_condition(
+                lambda: self._check_feedback_extension_loaded(),
+                exception=error.TestError("Incorrect feedback id list."),
+                timeout=self._FEEDBACK_STATE_TIMEOUT)
+
         utils.poll_for_condition(
                 lambda: self._check_feedback_elements(),
                 exception=error.TestFail('Feedback elements not enabled.'),
@@ -111,17 +131,10 @@ class logging_FeedbackReport(test.test):
         """Run the test."""
         with chrome.Chrome(disable_default_apps=False) as self.cr:
             # Open and confirm feedback app is working.
+            time.sleep(self._WAIT)
             self._open_feedback()
-            cr_exts = self.cr.browser.extensions
+            self.cr_exts = self.cr.browser.extensions
             self.feedback_app = None
-            for extension in cr_exts.GetByExtensionId(self._FEEDBACK_ID):
-                url = extension.EvaluateJavaScript('location.href;')
-                if url.endswith('default.html'):
-                    self.feedback_app = extension
-                    break
-
-            if self.feedback_app is None:
-                raise error.TestError("Incorrect feedback id list.")
             self._confirm_feedback_state()
             self._submit_feedback()
 
@@ -131,4 +144,3 @@ class logging_FeedbackReport(test.test):
 
     def cleanup(self):
         """Test cleanup."""
-        self._player.close()

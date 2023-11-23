@@ -740,8 +740,8 @@ static int test_gem_map()
 			   GBM_BO_USE_SW_READ_RARELY | GBM_BO_USE_SW_WRITE_RARELY);
 	CHECK(check_bo(bo));
 
-	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ_WRITE, &stride,
-			  &map_data, 0);
+	addr = gbm_bo_map2(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ_WRITE, &stride,
+			   &map_data, 0);
 
 	CHECK(addr != MAP_FAILED);
 	CHECK(map_data);
@@ -757,8 +757,8 @@ static int test_gem_map()
 	stride = 0;
 	addr = map_data = NULL;
 
-	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ_WRITE, &stride,
-			  &map_data, 0);
+	addr = gbm_bo_map2(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ_WRITE, &stride,
+			   &map_data, 0);
 
 	CHECK(addr != MAP_FAILED);
 	CHECK(map_data);
@@ -850,8 +850,8 @@ static int test_dmabuf_map()
 	ret = close(prime_fd);
 	CHECK(ret == 0);
 
-	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ, &stride,
-			  &map_data, 0);
+	addr = gbm_bo_map2(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ, &stride,
+			   &map_data, 0);
 
 	CHECK(addr != MAP_FAILED);
 	CHECK(map_data);
@@ -886,8 +886,8 @@ static int test_gem_map_tiling(enum gbm_bo_flags buffer_create_flag)
 	bo = gbm_bo_create(gbm, width, height, GBM_FORMAT_ARGB8888, buffer_create_flag);
 	CHECK(check_bo(bo));
 
-	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_WRITE, &stride,
-			  &map_data, 0);
+	addr = gbm_bo_map2(bo, 0, 0, width, height, GBM_BO_TRANSFER_WRITE, &stride,
+			   &map_data, 0);
 
 	CHECK(addr != MAP_FAILED);
 	CHECK(map_data);
@@ -907,8 +907,8 @@ static int test_gem_map_tiling(enum gbm_bo_flags buffer_create_flag)
 	stride = 0;
 	addr = map_data = NULL;
 
-	addr = gbm_bo_map(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ, &stride,
-			  &map_data, 0);
+	addr = gbm_bo_map2(bo, 0, 0, width, height, GBM_BO_TRANSFER_READ, &stride,
+			   &map_data, 0);
 
 	CHECK(addr != MAP_FAILED);
 	CHECK(map_data);
@@ -954,8 +954,8 @@ static int test_gem_map_format(int format_index,
 	for (p = 0; p < planes; ++p) {
 		w = width / format_info_list[format_index].planes[p].subsample_rate;
 		h = height / format_info_list[format_index].planes[p].subsample_rate;
-		addr = gbm_bo_map(bo, 0, 0, w, h, GBM_BO_TRANSFER_WRITE, &stride,
-				  &map_data, p);
+		addr = gbm_bo_map2(bo, 0, 0, w, h, GBM_BO_TRANSFER_WRITE, &stride,
+				   &map_data, p);
 
 		CHECK(addr != MAP_FAILED);
 		CHECK(map_data);
@@ -979,8 +979,8 @@ static int test_gem_map_format(int format_index,
 	for (p = 0; p < planes; ++p) {
 		w = width / format_info_list[format_index].planes[p].subsample_rate;
 		h = height / format_info_list[format_index].planes[p].subsample_rate;
-		addr = gbm_bo_map(bo, 0, 0, w, h, GBM_BO_TRANSFER_READ, &stride,
-				  &map_data, p);
+		addr = gbm_bo_map2(bo, 0, 0, w, h, GBM_BO_TRANSFER_READ, &stride,
+				   &map_data, p);
 
 		CHECK(addr != MAP_FAILED);
 		CHECK(map_data);

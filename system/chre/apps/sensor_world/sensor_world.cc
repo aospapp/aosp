@@ -51,6 +51,7 @@ constexpr bool kEnableDefault = !kBreakIt;
 
 struct SensorState {
   const uint8_t type;
+  const uint8_t sensorIndex;
   uint32_t handle;
   bool isInitialized;
   bool enable;
@@ -62,6 +63,7 @@ struct SensorState {
 SensorState sensors[] = {
     {
         .type = CHRE_SENSOR_TYPE_ACCELEROMETER,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -71,6 +73,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_INSTANT_MOTION_DETECT,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = false,  // InstantMotion is triggered by Prox
@@ -80,6 +83,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_STATIONARY_DETECT,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = false,  // StationaryDetect is triggered by Prox
@@ -89,6 +93,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_GYROSCOPE,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -98,6 +103,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_GEOMAGNETIC_FIELD,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -107,6 +113,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_PRESSURE,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -116,6 +123,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_LIGHT,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -125,6 +133,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_PROXIMITY,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -133,7 +142,28 @@ SensorState sensors[] = {
         .info = {},
     },
     {
+        .type = CHRE_SENSOR_TYPE_STEP_DETECT,
+        .sensorIndex = 0,
+        .handle = 0,
+        .isInitialized = false,
+        .enable = kEnableDefault,
+        .interval = CHRE_SENSOR_INTERVAL_DEFAULT,
+        .latency = CHRE_SENSOR_LATENCY_ASAP,
+        .info = {},
+    },
+    {
+        .type = CHRE_SENSOR_TYPE_STEP_COUNTER,
+        .sensorIndex = 0,
+        .handle = 0,
+        .isInitialized = false,
+        .enable = kEnableDefault,
+        .interval = CHRE_SENSOR_INTERVAL_DEFAULT,
+        .latency = CHRE_SENSOR_LATENCY_ASAP,
+        .info = {},
+    },
+    {
         .type = CHRE_SENSOR_TYPE_ACCELEROMETER_TEMPERATURE,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -143,6 +173,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_GYROSCOPE_TEMPERATURE,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -152,6 +183,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_GEOMAGNETIC_FIELD_TEMPERATURE,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -161,6 +193,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_UNCALIBRATED_ACCELEROMETER,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -170,6 +203,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_UNCALIBRATED_GYROSCOPE,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -179,6 +213,7 @@ SensorState sensors[] = {
     },
     {
         .type = CHRE_SENSOR_TYPE_UNCALIBRATED_GEOMAGNETIC_FIELD,
+        .sensorIndex = 0,
         .handle = 0,
         .isInitialized = false,
         .enable = kEnableDefault,
@@ -274,7 +309,8 @@ bool nanoappStart() {
 
   for (size_t i = 0; i < ARRAY_SIZE(sensors); i++) {
     SensorState &sensor = sensors[i];
-    sensor.isInitialized = chreSensorFindDefault(sensor.type, &sensor.handle);
+    sensor.isInitialized =
+        chreSensorFind(sensor.type, sensor.sensorIndex, &sensor.handle);
     LOGI("Sensor %zu initialized: %s with handle %" PRIu32, i,
          sensor.isInitialized ? "true" : "false", sensor.handle);
 
@@ -334,6 +370,7 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
       const auto *ev = static_cast<const chreSensorThreeAxisData *>(eventData);
       const auto header = ev->header;
       const auto *data = ev->readings;
+      const auto accuracy = header.accuracy;
       sampleTime = header.baseTimestamp;
 
       float x = 0, y = 0, z = 0;
@@ -347,9 +384,9 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
       y /= header.readingCount;
       z /= header.readingCount;
 
-      CLOGI("%s, %d samples: %f %f %f, t=%" PRIu64 " ms",
+      CLOGI("%s, %d samples: %f %f %f, accuracy: %u, t=%" PRIu64 " ms",
             getSensorName(header.sensorHandle), header.readingCount, x, y, z,
-            header.baseTimestamp / kOneMillisecondInNanoseconds);
+            accuracy, header.baseTimestamp / kOneMillisecondInNanoseconds);
 
       if (eventType == CHRE_EVENT_SENSOR_UNCALIBRATED_GYROSCOPE_DATA) {
         CLOGI("UncalGyro time: first %" PRIu64 " last %" PRIu64 " chre %" PRIu64
@@ -377,8 +414,9 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
       }
       v /= header.readingCount;
 
-      CLOGI("%s, %d samples: %f, t=%" PRIu64 " ms",
+      CLOGI("%s, %d samples: %f, accuracy = %u, t=%" PRIu64 " ms",
             getSensorName(header.sensorHandle), header.readingCount, v,
+            header.accuracy,
             header.baseTimestamp / kOneMillisecondInNanoseconds);
       break;
     }
@@ -389,9 +427,9 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
       const auto reading = ev->readings[0];
       sampleTime = header.baseTimestamp;
 
-      CLOGI("%s, %d samples: isNear %d, invalid %d",
+      CLOGI("%s, %d samples: isNear %d, invalid %d, accuracy: %u",
             getSensorName(header.sensorHandle), header.readingCount,
-            reading.isNear, reading.invalid);
+            reading.isNear, reading.invalid, header.accuracy);
 
       CLOGI("Prox time: sample %" PRIu64 " chre %" PRIu64 " delta %" PRId64
             "ms",
@@ -423,12 +461,23 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
     }
 
     case CHRE_EVENT_SENSOR_INSTANT_MOTION_DETECT_DATA:
-    case CHRE_EVENT_SENSOR_STATIONARY_DETECT_DATA: {
+    case CHRE_EVENT_SENSOR_STATIONARY_DETECT_DATA:
+    case CHRE_EVENT_SENSOR_STEP_DETECT_DATA: {
       const auto *ev = static_cast<const chreSensorOccurrenceData *>(eventData);
       const auto header = ev->header;
 
-      CLOGI("%s, %d samples", getSensorName(header.sensorHandle),
-            header.readingCount);
+      CLOGI("%s, %d samples, accuracy: %u", getSensorName(header.sensorHandle),
+            header.readingCount, header.accuracy);
+      break;
+    }
+
+    case CHRE_EVENT_SENSOR_STEP_COUNTER_DATA: {
+      const auto *ev = static_cast<const chreSensorUint64Data *>(eventData);
+      const auto header = ev->header;
+      const uint64_t reading = ev->readings[header.readingCount - 1].value;
+
+      CLOGI("%s, %" PRIu16 " samples: latest %" PRIu64,
+            getSensorName(header.sensorHandle), header.readingCount, reading);
       break;
     }
 
@@ -467,6 +516,8 @@ void nanoappEnd() {
 
 #include "chre/platform/static_nanoapp_init.h"
 #include "chre/util/nanoapp/app_id.h"
+#include "chre/util/system/napp_permissions.h"
 
-CHRE_STATIC_NANOAPP_INIT(SensorWorld, chre::kSensorWorldAppId, 0);
+CHRE_STATIC_NANOAPP_INIT(SensorWorld, chre::kSensorWorldAppId, 0,
+                         chre::NanoappPermissions::CHRE_PERMS_NONE);
 #endif  // CHRE_NANOAPP_INTERNAL

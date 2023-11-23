@@ -20,6 +20,7 @@ import static com.android.wallpaper.model.WallpaperRotationInitializer.NETWORK_P
 
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.text.Html;
 import android.view.LayoutInflater;
@@ -99,11 +100,23 @@ public class StartRotationDialogFragment extends DialogFragment {
         outState.putBoolean(KEY_IS_WIFI_ONLY_CHECKED, mIsWifiOnlyChecked);
     }
 
+    @Override
+    public void onDismiss(@NonNull DialogInterface dialog) {
+        super.onDismiss(dialog);
+        ((Listener) getTargetFragment()).onStartRotationDialogDismiss(dialog);
+    }
+
     private int getBodyTextResourceId() {
         return R.string.start_rotation_dialog_body;
     }
 
     private int getPositiveButtonTextResourceId() {
         return android.R.string.ok;
+    }
+
+    /** An interface for receiving this DialogFragment dismissed event. */
+    public interface Listener {
+        /** Gets called when the DialogFragment is dismissed. */
+        void onStartRotationDialogDismiss(@NonNull DialogInterface dialog);
     }
 }

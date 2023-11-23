@@ -16,6 +16,9 @@
 
 package android.content.cts;
 
+import static android.content.pm.PackageManager.PERMISSION_DENIED;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import android.app.Activity;
@@ -23,9 +26,11 @@ import android.app.AppOpsManager;
 import android.app.Instrumentation;
 import android.app.WallpaperManager;
 import android.content.ActivityNotFoundException;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.ContextParams;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
@@ -188,6 +193,91 @@ public class ContextTest extends AndroidTestCase {
             testCharSequence = mContext.getText(0);
             fail("Wrong resource id should not be accepted.");
         } catch (NotFoundException e) {
+        }
+    }
+
+    public void testCreateAttributionContext() throws Exception {
+        final String tag = "testCreateAttributionContext";
+        final Context attrib = mContext.createAttributionContext(tag);
+        assertEquals(tag, attrib.getAttributionTag());
+        assertEquals(null, mContext.getAttributionTag());
+    }
+
+    public void testCreateAttributionContextFromParams() throws Exception {
+        final ContextParams params = new ContextParams.Builder()
+                .setAttributionTag("foo")
+                .setNextAttributionSource(new AttributionSource.Builder(1)
+                        .setPackageName("bar")
+                        .setAttributionTag("baz")
+                        .build())
+                .build();
+        final Context attributionContext = getContext().createContext(params);
+
+        assertEquals(params, attributionContext.getParams());
+        assertEquals(params.getNextAttributionSource(),
+                attributionContext.getAttributionSource().getNext());
+        assertEquals(params.getAttributionTag(),
+                attributionContext.getAttributionSource().getAttributionTag());
+    }
+
+    public void testContextParams() throws Exception {
+        final ContextParams params = new ContextParams.Builder()
+                .setAttributionTag("foo")
+                .setNextAttributionSource(new AttributionSource.Builder(1)
+                        .setPackageName("bar")
+                        .setAttributionTag("baz")
+                        .build())
+                .build();
+
+        assertEquals("foo", params.getAttributionTag());
+        assertEquals(1, params.getNextAttributionSource().getUid());
+        assertEquals("bar", params.getNextAttributionSource().getPackageName());
+        assertEquals("baz", params.getNextAttributionSource().getAttributionTag());
+    }
+
+    public void testAttributionSourceSetNext() throws Exception {
+        final AttributionSource next = new AttributionSource.Builder(2)
+                .setPackageName("nextBar")
+                .setAttributionTag("nextBaz")
+                .build();
+        final ContextParams params = new ContextParams.Builder()
+                .setAttributionTag("foo")
+                .setNextAttributionSource(new AttributionSource.Builder(1)
+                        .setPackageName("bar")
+                        .setAttributionTag("baz")
+                        .setNext(next)
+                        .build())
+                .build();
+
+        // Setting a 'next' should not affect prev.
+        assertEquals("foo", params.getAttributionTag());
+        assertEquals(1, params.getNextAttributionSource().getUid());
+        assertEquals("bar", params.getNextAttributionSource().getPackageName());
+        assertEquals("baz", params.getNextAttributionSource().getAttributionTag());
+
+        final AttributionSource check =
+                params.getNextAttributionSource().getNext();
+        assertEquals(2, check.getUid());
+        assertEquals("nextBar", check.getPackageName());
+        assertEquals("nextBaz", check.getAttributionTag());
+    }
+
+    public void testContextParams_Inherit() throws Exception {
+        final ContextParams orig = new ContextParams.Builder()
+                .setAttributionTag("foo").build();
+        {
+            final ContextParams params = new ContextParams.Builder(orig).build();
+            assertEquals("foo", params.getAttributionTag());
+        }
+        {
+            final ContextParams params = new ContextParams.Builder(orig)
+                    .setAttributionTag("bar").build();
+            assertEquals("bar", params.getAttributionTag());
+        }
+        {
+            final ContextParams params = new ContextParams.Builder(orig)
+                    .setAttributionTag(null).build();
+            assertEquals(null, params.getAttributionTag());
         }
     }
 
@@ -1131,6 +1221,21 @@ public class ContextTest extends AndroidTestCase {
         mContext.unregisterReceiver(stickyReceiver);
     }
 
+    public void testCheckCallingOrSelfUriPermissions() {
+        List<Uri> uris = new ArrayList<>();
+        Uri uri1 = Uri.parse("content://ctstest1");
+        uris.add(uri1);
+        Uri uri2 = Uri.parse("content://ctstest2");
+        uris.add(uri2);
+
+        int[] retValue = mContext.checkCallingOrSelfUriPermissions(uris,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        assertEquals(retValue.length, 2);
+        // This package does not have access to the given URIs
+        assertEquals(PERMISSION_DENIED, retValue[0]);
+        assertEquals(PERMISSION_DENIED, retValue[1]);
+    }
+
     public void testCheckCallingOrSelfUriPermission() {
         Uri uri = Uri.parse("content://ctstest");
 
@@ -1328,6 +1433,28 @@ public class ContextTest extends AndroidTestCase {
         }.run();
     }
 
+    public void testCheckUriPermissions() {
+        List<Uri> uris = new ArrayList<>();
+        Uri uri1 = Uri.parse("content://ctstest1");
+        uris.add(uri1);
+        Uri uri2 = Uri.parse("content://ctstest2");
+        uris.add(uri2);
+
+        // Root has access to all URIs
+        int[] retValue = mContext.checkUriPermissions(uris, Binder.getCallingPid(), 0,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        assertEquals(retValue.length, 2);
+        assertEquals(PERMISSION_GRANTED, retValue[0]);
+        assertEquals(PERMISSION_GRANTED, retValue[1]);
+
+        retValue = mContext.checkUriPermissions(uris, Binder.getCallingPid(),
+                Binder.getCallingUid(), Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        assertEquals(retValue.length, 2);
+        // This package does not have access to the given URIs
+        assertEquals(PERMISSION_DENIED, retValue[0]);
+        assertEquals(PERMISSION_DENIED, retValue[1]);
+    }
+
     public void testCheckUriPermission1() {
         Uri uri = Uri.parse("content://ctstest");
 
@@ -1352,6 +1479,21 @@ public class ContextTest extends AndroidTestCase {
                 NOT_GRANTED_PERMISSION, Binder.getCallingPid(), Binder.getCallingUid(),
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
         assertEquals(PackageManager.PERMISSION_DENIED, retValue);
+    }
+
+    public void testCheckCallingUriPermissions() {
+        List<Uri> uris = new ArrayList<>();
+        Uri uri1 = Uri.parse("content://ctstest1");
+        uris.add(uri1);
+        Uri uri2 = Uri.parse("content://ctstest2");
+        uris.add(uri2);
+
+        int[] retValue = mContext.checkCallingUriPermissions(uris,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        assertEquals(retValue.length, 2);
+        // This package does not have access to the given URIs
+        assertEquals(PERMISSION_DENIED, retValue[0]);
+        assertEquals(PERMISSION_DENIED, retValue[1]);
     }
 
     public void testCheckCallingUriPermission() {

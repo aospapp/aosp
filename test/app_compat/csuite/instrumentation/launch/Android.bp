@@ -12,11 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-android_test {
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_test_helper_app {
     name: "csuite-launch-instrumentation",
     static_libs: ["androidx.test.rules"],
     // Include all test java files.
     srcs: ["src/**/*.java"],
+    // The value of min sdk version chosen here is the oldest sdk version we
+    // have tested. Lower version numbers should also work.
+    min_sdk_version: "29",
     platform_apis: true,
     manifest: "src/main/AndroidManifest.xml",
     test_suites: [

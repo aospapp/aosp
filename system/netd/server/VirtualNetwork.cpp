@@ -20,7 +20,6 @@
 
 #include "VirtualNetwork.h"
 
-#include "SockDiag.h"
 #include "RouteController.h"
 
 #include "log/log.h"
@@ -28,70 +27,40 @@
 namespace android {
 namespace net {
 
-VirtualNetwork::VirtualNetwork(unsigned netId, bool secure) : Network(netId), mSecure(secure) {}
+VirtualNetwork::VirtualNetwork(unsigned netId, bool secure) : Network(netId, secure) {}
 
 VirtualNetwork::~VirtualNetwork() {}
 
-bool VirtualNetwork::isSecure() const {
-    return mSecure;
-}
-
-bool VirtualNetwork::appliesToUser(uid_t uid) const {
-    return mUidRanges.hasUid(uid);
-}
-
-
-int VirtualNetwork::maybeCloseSockets(bool add, const UidRanges& uidRanges,
-                                      const std::set<uid_t>& protectableUsers) {
-    if (!mSecure) {
-        return 0;
+int VirtualNetwork::addUsers(const UidRanges& uidRanges, uint32_t subPriority) {
+    if (!isValidSubPriority(subPriority) || !canAddUidRanges(uidRanges, subPriority)) {
+        return -EINVAL;
     }
-
-    SockDiag sd;
-    if (!sd.open()) {
-        return -EBADFD;
-    }
-
-    if (int ret = sd.destroySockets(uidRanges, protectableUsers, true /* excludeLoopback */)) {
-        ALOGE("Failed to close sockets while %s %s to network %d: %s",
-              add ? "adding" : "removing", uidRanges.toString().c_str(), mNetId, strerror(-ret));
-        return ret;
-    }
-
-    return 0;
-}
-
-int VirtualNetwork::addUsers(const UidRanges& uidRanges, const std::set<uid_t>& protectableUsers) {
-    maybeCloseSockets(true, uidRanges, protectableUsers);
 
     for (const std::string& interface : mInterfaces) {
-        if (int ret = RouteController::addUsersToVirtualNetwork(mNetId, interface.c_str(), mSecure,
-                                                                uidRanges)) {
+        int ret = RouteController::addUsersToVirtualNetwork(mNetId, interface.c_str(), mSecure,
+                                                            {{subPriority, uidRanges}});
+        if (ret) {
             ALOGE("failed to add users on interface %s of netId %u", interface.c_str(), mNetId);
             return ret;
         }
     }
-    mUidRanges.add(uidRanges);
+    addToUidRangeMap(uidRanges, subPriority);
     return 0;
 }
 
-int VirtualNetwork::removeUsers(const UidRanges& uidRanges,
-                                const std::set<uid_t>& protectableUsers) {
-    maybeCloseSockets(false, uidRanges, protectableUsers);
+int VirtualNetwork::removeUsers(const UidRanges& uidRanges, uint32_t subPriority) {
+    if (!isValidSubPriority(subPriority)) return -EINVAL;
 
     for (const std::string& interface : mInterfaces) {
-        if (int ret = RouteController::removeUsersFromVirtualNetwork(mNetId, interface.c_str(),
-                                                                     mSecure, uidRanges)) {
+        int ret = RouteController::removeUsersFromVirtualNetwork(mNetId, interface.c_str(), mSecure,
+                                                                 {{subPriority, uidRanges}});
+        if (ret) {
             ALOGE("failed to remove users on interface %s of netId %u", interface.c_str(), mNetId);
             return ret;
         }
     }
-    mUidRanges.remove(uidRanges);
+    removeFromUidRangeMap(uidRanges, subPriority);
     return 0;
-}
-
-Network::Type VirtualNetwork::getType() const {
-    return VIRTUAL;
 }
 
 int VirtualNetwork::addInterface(const std::string& interface) {
@@ -99,7 +68,7 @@ int VirtualNetwork::addInterface(const std::string& interface) {
         return 0;
     }
     if (int ret = RouteController::addInterfaceToVirtualNetwork(mNetId, interface.c_str(), mSecure,
-                                                                mUidRanges)) {
+                                                                mUidRangeMap)) {
         ALOGE("failed to add interface %s to VPN netId %u", interface.c_str(), mNetId);
         return ret;
     }
@@ -112,12 +81,17 @@ int VirtualNetwork::removeInterface(const std::string& interface) {
         return 0;
     }
     if (int ret = RouteController::removeInterfaceFromVirtualNetwork(mNetId, interface.c_str(),
-                                                                     mSecure, mUidRanges)) {
+                                                                     mSecure, mUidRangeMap)) {
         ALOGE("failed to remove interface %s from VPN netId %u", interface.c_str(), mNetId);
         return ret;
     }
     mInterfaces.erase(interface);
     return 0;
+}
+
+bool VirtualNetwork::isValidSubPriority(uint32_t priority) {
+    // Only supports default subsidiary permissions.
+    return priority == UidRanges::DEFAULT_SUB_PRIORITY;
 }
 
 }  // namespace net

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file contains function definitions for extensions Vulkan 1.1
+// This file contains function definitions for extensions Vulkan 1.1 and 1.2
 // promoted into the core API. (See spec Appendix D: Core Revisions)
 
 // The current list of promoted extensions is:
@@ -39,8 +39,11 @@
 // VK_KHR_shader_draw_parameters (no functions in this extension)
 // VK_KHR_storage_buffer_storage_class (no functions in this extension)
 // VK_KHR_variable_pointers (no functions in this extension)
+//
+// 1.2 Extensions:
+// VK_KHR_create_renderpass2
 
-#include <Vulkan/VulkanPlatform.h>
+#include "Vulkan/VulkanPlatform.hpp"
 
 extern "C" {
 
@@ -184,5 +187,73 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateSamplerYcbcrConversionKHR(VkDevice device
 VKAPI_ATTR void VKAPI_CALL vkDestroySamplerYcbcrConversionKHR(VkDevice device, VkSamplerYcbcrConversion ycbcrConversion, const VkAllocationCallbacks *pAllocator)
 {
 	vkDestroySamplerYcbcrConversion(device, ycbcrConversion, pAllocator);
+}
+
+// VK_KHR_create_renderpass2
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2 *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass)
+{
+	return vkCreateRenderPass2(device, pCreateInfo, pAllocator, pRenderPass);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdBeginRenderPass2KHR(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo *pRenderPassBegin, const VkSubpassBeginInfo *pSubpassBegin)
+{
+	vkCmdBeginRenderPass2(commandBuffer, pRenderPassBegin, pSubpassBegin);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdEndRenderPass2KHR(VkCommandBuffer commandBuffer, const VkSubpassEndInfo *pSubpassEnd)
+{
+	vkCmdEndRenderPass2(commandBuffer, pSubpassEnd);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdNextSubpass2KHR(VkCommandBuffer commandBuffer, const VkSubpassBeginInfo *pSubpassBegin, const VkSubpassEndInfo *pSubpassEnd)
+{
+	vkCmdNextSubpass2(commandBuffer, pSubpassBegin, pSubpassEnd);
+}
+
+// VK_EXT_host_query_reset
+VKAPI_ATTR void VKAPI_CALL vkResetQueryPoolEXT(VkDevice device, VkQueryPool queryPool, uint32_t firstQuery, uint32_t queryCount)
+{
+	vkResetQueryPool(device, queryPool, firstQuery, queryCount);
+}
+
+// VK_KHR_timeline_semaphore
+VKAPI_ATTR VkResult VKAPI_CALL vkGetSemaphoreCounterValueKHR(VkDevice device, VkSemaphore semaphore, uint64_t *pValue)
+{
+	return vkGetSemaphoreCounterValue(device, semaphore, pValue);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkSignalSemaphoreKHR(VkDevice device, const VkSemaphoreSignalInfo *pSignalInfo)
+{
+	return vkSignalSemaphore(device, pSignalInfo);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL vkWaitSemaphoresKHR(VkDevice device, const VkSemaphoreWaitInfo *pWaitInfo, uint64_t timeout)
+{
+	return vkWaitSemaphores(device, pWaitInfo, timeout);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDrawIndirectCountKHR(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
+{
+	vkCmdDrawIndirectCount(commandBuffer, buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkCmdDrawIndexedIndirectCountKHR(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
+{
+	vkCmdDrawIndexedIndirectCount(commandBuffer, buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
+}
+
+VKAPI_ATTR uint64_t VKAPI_CALL vkGetBufferDeviceAddressKHR(VkDevice device, const VkBufferDeviceAddressInfo *pInfo)
+{
+	return vkGetBufferDeviceAddress(device, pInfo);
+}
+
+VKAPI_ATTR uint64_t VKAPI_CALL vkGetBufferOpaqueCaptureAddressKHR(VkDevice device, const VkBufferDeviceAddressInfo *pInfo)
+{
+	return vkGetBufferOpaqueCaptureAddress(device, pInfo);
+}
+
+VKAPI_ATTR uint64_t VKAPI_CALL vkGetDeviceMemoryOpaqueCaptureAddressKHR(VkDevice device, const VkDeviceMemoryOpaqueCaptureAddressInfo *pInfo)
+{
+	return vkGetDeviceMemoryOpaqueCaptureAddress(device, pInfo);
 }
 }

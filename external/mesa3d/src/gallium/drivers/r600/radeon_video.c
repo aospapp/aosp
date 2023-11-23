@@ -98,12 +98,12 @@ bool rvid_resize_buffer(struct pipe_screen *screen, struct radeon_cmdbuf *cs,
 		goto error;
 
 	src = ws->buffer_map(old_buf.res->buf, cs,
-			     PIPE_TRANSFER_READ | RADEON_TRANSFER_TEMPORARY);
+			     PIPE_MAP_READ | RADEON_MAP_TEMPORARY);
 	if (!src)
 		goto error;
 
 	dst = ws->buffer_map(new_buf->res->buf, cs,
-			     PIPE_TRANSFER_WRITE | RADEON_TRANSFER_TEMPORARY);
+			     PIPE_MAP_WRITE | RADEON_MAP_TEMPORARY);
 	if (!dst)
 		goto error;
 
@@ -278,10 +278,7 @@ int rvid_get_video_param(struct pipe_screen *screen,
 	case PIPE_VIDEO_CAP_MAX_HEIGHT:
 		return 1152;
 	case PIPE_VIDEO_CAP_PREFERED_FORMAT:
-		if (profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10)
-			return PIPE_FORMAT_P016;
-		else
-			return PIPE_FORMAT_NV12;
+		return PIPE_FORMAT_NV12;
 
 	case PIPE_VIDEO_CAP_PREFERS_INTERLACED:
 	case PIPE_VIDEO_CAP_SUPPORTS_INTERLACED:
@@ -293,9 +290,7 @@ int rvid_get_video_param(struct pipe_screen *screen,
 		} else {
 			enum pipe_video_format format = u_reduce_video_profile(profile);
 
-			if (format == PIPE_VIDEO_FORMAT_HEVC)
-				return false; //The firmware doesn't support interlaced HEVC.
-			else if (format == PIPE_VIDEO_FORMAT_JPEG)
+			if (format == PIPE_VIDEO_FORMAT_JPEG)
 				return false;
 			return true;
 		}
@@ -322,9 +317,6 @@ int rvid_get_video_param(struct pipe_screen *screen,
 		case PIPE_VIDEO_PROFILE_MPEG4_AVC_MAIN:
 		case PIPE_VIDEO_PROFILE_MPEG4_AVC_HIGH:
 			return 41;
-		case PIPE_VIDEO_PROFILE_HEVC_MAIN:
-		case PIPE_VIDEO_PROFILE_HEVC_MAIN_10:
-			return 186;
 		default:
 			return 0;
 		}
@@ -333,16 +325,11 @@ int rvid_get_video_param(struct pipe_screen *screen,
 	}
 }
 
-boolean rvid_is_format_supported(struct pipe_screen *screen,
-				 enum pipe_format format,
-				 enum pipe_video_profile profile,
-				 enum pipe_video_entrypoint entrypoint)
+bool rvid_is_format_supported(struct pipe_screen *screen,
+			      enum pipe_format format,
+			      enum pipe_video_profile profile,
+			      enum pipe_video_entrypoint entrypoint)
 {
-	/* HEVC 10 bit decoding should use P016 instead of NV12 if possible */
-	if (profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10)
-		return (format == PIPE_FORMAT_NV12) ||
-			(format == PIPE_FORMAT_P016);
-
 	/* we can only handle this one with UVD */
 	if (profile != PIPE_VIDEO_PROFILE_UNKNOWN)
 		return format == PIPE_FORMAT_NV12;

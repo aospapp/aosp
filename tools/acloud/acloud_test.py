@@ -19,6 +19,7 @@ from importlib import import_module
 import logging
 import os
 import sys
+import sysconfig
 import unittest
 
 
@@ -35,6 +36,9 @@ ACLOUD_LOGGER = "acloud"
 logger = logging.getLogger(ACLOUD_LOGGER)
 logger.setLevel(logging.CRITICAL)
 logger.addHandler(logging.FileHandler("/dev/null"))
+
+if sys.version_info.major == 3:
+    sys.path.insert(0, os.path.dirname(sysconfig.get_paths()['purelib']))
 
 
 def GetTestModules():

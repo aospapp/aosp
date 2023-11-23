@@ -7,6 +7,7 @@
 #include <sys/param.h>
 #include <syslog.h>
 
+#include "audio_thread_log.h"
 #include "byte_buffer.h"
 #include "cras_audio_area.h"
 #include "cras_config.h"
@@ -60,6 +61,9 @@ static int sample_hook_start(bool start, void *cb_data)
 
 /*
  * Called in the put buffer function of the sender that hooked to.
+ *
+ * Returns:
+ *   Number of frames copied to the sample buffer in the hook.
  */
 static int sample_hook(const uint8_t *frames, unsigned int nframes,
 		       const struct cras_audio_format *fmt, void *cb_data)
@@ -67,17 +71,26 @@ static int sample_hook(const uint8_t *frames, unsigned int nframes,
 	struct loopback_iodev *loopdev = (struct loopback_iodev *)cb_data;
 	struct byte_buffer *sbuf = loopdev->sample_buffer;
 	unsigned int frame_bytes = cras_get_format_bytes(fmt);
-	unsigned int frames_to_copy, bytes_to_copy;
+	unsigned int frames_to_copy, bytes_to_copy, frames_copied = 0;
+	int i;
 
-	frames_to_copy = MIN(buf_writable(sbuf) / frame_bytes, nframes);
-	if (!frames_to_copy)
-		return 0;
+	for (i = 0; i < 2; i++) {
+		frames_to_copy = MIN(buf_writable(sbuf) / frame_bytes, nframes);
+		if (!frames_to_copy)
+			break;
 
-	bytes_to_copy = frames_to_copy * frame_bytes;
-	memcpy(buf_write_pointer(sbuf), frames, bytes_to_copy);
-	buf_increment_write(sbuf, bytes_to_copy);
+		bytes_to_copy = frames_to_copy * frame_bytes;
+		memcpy(buf_write_pointer(sbuf), frames, bytes_to_copy);
+		buf_increment_write(sbuf, bytes_to_copy);
+		frames += bytes_to_copy;
+		nframes -= frames_to_copy;
+		frames_copied += frames_to_copy;
+	}
 
-	return frames_to_copy;
+	ATLOG(atlog, AUDIO_THREAD_LOOPBACK_SAMPLE_HOOK, nframes + frames_copied,
+	      frames_copied, 0);
+
+	return frames_copied;
 }
 
 static void update_first_output_to_loopback(struct loopback_iodev *loopdev)
@@ -206,6 +219,8 @@ static int get_record_buffer(struct cras_iodev *iodev,
 	unsigned int frame_bytes = cras_get_format_bytes(iodev->format);
 	unsigned int avail_frames = buf_readable(sbuf) / frame_bytes;
 
+	ATLOG(atlog, AUDIO_THREAD_LOOPBACK_GET, *frames, avail_frames, 0);
+
 	*frames = MIN(avail_frames, *frames);
 	iodev->area->frames = *frames;
 	cras_audio_area_config_buf_pointers(iodev->area, iodev->format,
@@ -221,8 +236,9 @@ static int put_record_buffer(struct cras_iodev *iodev, unsigned nframes)
 	struct byte_buffer *sbuf = loopdev->sample_buffer;
 	unsigned int frame_bytes = cras_get_format_bytes(iodev->format);
 
-	buf_increment_read(sbuf, nframes * frame_bytes);
+	buf_increment_read(sbuf, (size_t)nframes * (size_t)frame_bytes);
 	loopdev->read_frames += nframes;
+	ATLOG(atlog, AUDIO_THREAD_LOOPBACK_PUT, nframes, 0, 0);
 	return 0;
 }
 
@@ -281,6 +297,12 @@ static struct cras_iodev *create_loopback_iodev(enum CRAS_LOOPBACK_TYPE type)
 	iodev->put_buffer = put_record_buffer;
 	iodev->flush_buffer = flush_record_buffer;
 
+	/*
+	 * Record max supported channels into cras_iodev_info.
+	 * The value is the max of loopback_supported_channel_counts.
+	 */
+	iodev->info.max_supported_channels = 2;
+
 	return iodev;
 }
 
@@ -309,15 +331,15 @@ struct cras_iodev *loopback_iodev_create(enum CRAS_LOOPBACK_TYPE type)
 	if (iodev == NULL)
 		return NULL;
 
-	/* Create a dummy ionode */
+	/* Create an empty ionode */
 	node = (struct cras_ionode *)calloc(1, sizeof(*node));
 	node->dev = iodev;
 	node->type = node_type;
 	node->plugged = 1;
 	node->volume = 100;
+	node->ui_gain_scaler = 1.0f;
 	node->stable_id = iodev->info.stable_id;
 	node->software_volume_needed = 0;
-	node->max_software_gain = 0;
 	strcpy(node->name, loopdev_names[type]);
 	cras_iodev_add_node(iodev, node);
 	cras_iodev_set_active_node(iodev, node);

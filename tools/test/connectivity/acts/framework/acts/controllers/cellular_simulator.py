@@ -14,7 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 from acts import logger
-from acts.test_utils.power import tel_simulations as sims
+from acts.controllers import cellular_lib as sims
 
 
 class AbstractCellularSimulator:
@@ -55,6 +55,23 @@ class AbstractCellularSimulator:
 
     def setup_lte_ca_scenario(self):
         """ Configures the equipment for an LTE with CA simulation. """
+        raise NotImplementedError()
+
+    def set_ca_combination(self, combination):
+        """ Prepares the test equipment for the indicated CA combination.
+
+        The reason why this is implemented in a separate method and not calling
+        LteSimulation.BtsConfig for each separate band is that configuring each
+        ssc cannot be done separately, as it is necessary to know which
+        carriers are on the same band in order to decide which RF outputs can
+        be shared in the test equipment.
+
+        Args:
+            combination: carrier aggregation configurations are indicated
+                with a list of strings consisting of the band number followed
+                by the CA class. For example, for 5 CA using 3C 7C and 28A
+                the parameter value should be [3c, 7c, 28a].
+        """
         raise NotImplementedError()
 
     def configure_bts(self, config, bts_index=0):
@@ -130,11 +147,6 @@ class AbstractCellularSimulator:
 
         # This variable stores a boolean value so the following is needed to
         # differentiate False from None
-        if config.dl_cc_enabled is not None:
-            self.set_enabled_for_ca(bts_index, config.dl_cc_enabled)
-
-        # This variable stores a boolean value so the following is needed to
-        # differentiate False from None
         if config.tbs_pattern_on is not None:
             self.set_tbs_pattern_on(bts_index, config.tbs_pattern_on)
 
@@ -146,6 +158,28 @@ class AbstractCellularSimulator:
 
         if config.phich:
             self.set_phich_resource(bts_index, config.phich)
+
+        if config.drx_connected_mode:
+            self.set_drx_connected_mode(bts_index, config.drx_connected_mode)
+
+            if config.drx_on_duration_timer:
+                self.set_drx_on_duration_timer(bts_index,
+                                               config.drx_on_duration_timer)
+
+            if config.drx_inactivity_timer:
+                self.set_drx_inactivity_timer(bts_index,
+                                              config.drx_inactivity_timer)
+
+            if config.drx_retransmission_timer:
+                self.set_drx_retransmission_timer(
+                    bts_index, config.drx_retransmission_timer)
+
+            if config.drx_long_cycle:
+                self.set_drx_long_cycle(bts_index, config.drx_long_cycle)
+
+            if config.drx_long_cycle_offset is not None:
+                self.set_drx_long_cycle_offset(bts_index,
+                                               config.drx_long_cycle_offset)
 
     def set_lte_rrc_state_change_timer(self, enabled, time=10):
         """ Configures the LTE RRC state change timer.
@@ -252,15 +286,6 @@ class AbstractCellularSimulator:
         """
         raise NotImplementedError()
 
-    def set_enabled_for_ca(self, bts_index, enabled):
-        """ Enables or disables the base station during carrier aggregation.
-
-        Args:
-            bts_index: the base station number
-            enabled: whether the base station should be enabled for ca.
-        """
-        raise NotImplementedError()
-
     def set_dl_modulation(self, bts_index, modulation):
         """ Sets the DL modulation for the indicated base station.
 
@@ -315,9 +340,75 @@ class AbstractCellularSimulator:
         """
         raise NotImplementedError()
 
-    def lte_attach_secondary_carriers(self):
+    def set_drx_connected_mode(self, bts_index, active):
+        """ Sets the time interval to wait before entering DRX mode
+
+        Args:
+            bts_index: the base station number
+            active: Boolean indicating whether cDRX mode
+                is active
+        """
+        raise NotImplementedError()
+
+    def set_drx_on_duration_timer(self, bts_index, timer):
+        """ Sets the amount of PDCCH subframes to wait for data after
+            waking up from a DRX cycle
+
+        Args:
+            bts_index: the base station number
+            timer: Number of PDCCH subframes to wait and check for user data
+                after waking from the DRX cycle
+        """
+        raise NotImplementedError()
+
+    def set_drx_inactivity_timer(self, bts_index, timer):
+        """ Sets the number of PDCCH subframes to wait before entering DRX mode
+
+        Args:
+            bts_index: the base station number
+            timer: The amount of time to wait before entering DRX mode
+        """
+        raise NotImplementedError()
+
+    def set_drx_retransmission_timer(self, bts_index, timer):
+        """ Sets the number of consecutive PDCCH subframes to wait
+        for retransmission
+
+        Args:
+            bts_index: the base station number
+            timer: Number of PDCCH subframes to remain active
+
+        """
+        raise NotImplementedError()
+
+    def set_drx_long_cycle(self, bts_index, cycle):
+        """ Sets the amount of subframes representing a DRX long cycle.
+
+        Args:
+            bts_index: the base station number
+            cycle: The amount of subframes representing one long DRX cycle.
+                One cycle consists of DRX sleep + DRX on duration
+        """
+        raise NotImplementedError()
+
+    def set_drx_long_cycle_offset(self, bts_index, offset):
+        """ Sets the offset used to determine the subframe number
+        to begin the long drx cycle
+
+        Args:
+            bts_index: the base station number
+            offset: Number in range 0 to (long cycle - 1)
+        """
+        raise NotImplementedError()
+
+    def lte_attach_secondary_carriers(self, ue_capability_enquiry):
         """ Activates the secondary carriers for CA. Requires the DUT to be
-        attached to the primary carrier first. """
+        attached to the primary carrier first.
+
+        Args:
+            ue_capability_enquiry: UE capability enquiry message to be sent to
+        the UE before starting carrier aggregation.
+        """
         raise NotImplementedError()
 
     def wait_until_attached(self, timeout=120):
@@ -362,6 +453,14 @@ class AbstractCellularSimulator:
 
     def stop_data_traffic(self):
         """ Stops transmitting data from the instrument to the DUT. """
+        raise NotImplementedError()
+
+    def get_measured_pusch_power(self):
+        """ Queries PUSCH power measured at the callbox.
+
+        Returns:
+            The PUSCH power in the primary input port.
+        """
         raise NotImplementedError()
 
 

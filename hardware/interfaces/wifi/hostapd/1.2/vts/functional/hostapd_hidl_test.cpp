@@ -25,6 +25,7 @@
 
 #include <android/hardware/wifi/1.0/IWifi.h>
 #include <android/hardware/wifi/hostapd/1.2/IHostapd.h>
+#include <android/hardware/wifi/hostapd/1.3/IHostapd.h>
 
 #include "hostapd_hidl_call_util.h"
 #include "hostapd_hidl_test_utils.h"
@@ -72,7 +73,10 @@ class HostapdHidlTest
             "wifi_softap_wpa3_sae_supported");
     }
 
-    virtual void TearDown() override { stopHostapd(hostapd_instance_name_); }
+    virtual void TearDown() override {
+        HIDL_INVOKE_VOID_WITHOUT_ARGUMENTS(hostapd_, terminate);
+        stopHostapd(wifi_instance_name_);
+    }
 
    protected:
     bool isWpa3SaeSupport_ = false;
@@ -213,12 +217,20 @@ class HostapdHidlTest
     std::string hostapd_instance_name_;
 };
 
+bool is_1_3(const sp<IHostapd>& hostapd) {
+    sp<::android::hardware::wifi::hostapd::V1_3::IHostapd> hostapd_1_3 =
+        ::android::hardware::wifi::hostapd::V1_3::IHostapd::castFrom(hostapd);
+    return hostapd_1_3.get() != nullptr;
+}
+
 /**
  * Adds an access point with PSK network config & ACS enabled.
  * Access point creation should pass.
  */
 TEST_P(HostapdHidlTest, AddPskAccessPointWithAcs) {
     if (!isAcsSupport_) GTEST_SKIP() << "Missing ACS support";
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status = HIDL_INVOKE(hostapd_, addAccessPoint_1_2,
                               getIfaceParamsWithAcs(), getPskNwParams());
     EXPECT_EQ(HostapdStatusCode::SUCCESS, status.code);
@@ -230,6 +242,8 @@ TEST_P(HostapdHidlTest, AddPskAccessPointWithAcs) {
  */
 TEST_P(HostapdHidlTest, AddPskAccessPointWithAcsAndFreqRange) {
     if (!isAcsSupport_) GTEST_SKIP() << "Missing ACS support";
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status =
         HIDL_INVOKE(hostapd_, addAccessPoint_1_2,
                     getIfaceParamsWithAcsAndFreqRange(), getPskNwParams());
@@ -242,6 +256,8 @@ TEST_P(HostapdHidlTest, AddPskAccessPointWithAcsAndFreqRange) {
  */
 TEST_P(HostapdHidlTest, AddPskAccessPointWithAcsAndInvalidFreqRange) {
     if (!isAcsSupport_) GTEST_SKIP() << "Missing ACS support";
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status = HIDL_INVOKE(hostapd_, addAccessPoint_1_2,
                               getIfaceParamsWithAcsAndInvalidFreqRange(),
                               getPskNwParams());
@@ -254,6 +270,8 @@ TEST_P(HostapdHidlTest, AddPskAccessPointWithAcsAndInvalidFreqRange) {
  */
 TEST_P(HostapdHidlTest, AddOpenAccessPointWithAcs) {
     if (!isAcsSupport_) GTEST_SKIP() << "Missing ACS support";
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status = HIDL_INVOKE(hostapd_, addAccessPoint_1_2,
                               getIfaceParamsWithAcs(), getOpenNwParams());
     EXPECT_EQ(HostapdStatusCode::SUCCESS, status.code);
@@ -264,6 +282,8 @@ TEST_P(HostapdHidlTest, AddOpenAccessPointWithAcs) {
  * Access point creation should pass.
  */
 TEST_P(HostapdHidlTest, AddPskAccessPointWithoutAcs) {
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status = HIDL_INVOKE(hostapd_, addAccessPoint_1_2,
                               getIfaceParamsWithoutAcs(), getPskNwParams());
     EXPECT_EQ(HostapdStatusCode::SUCCESS, status.code);
@@ -274,6 +294,8 @@ TEST_P(HostapdHidlTest, AddPskAccessPointWithoutAcs) {
  * Access point creation should pass.
  */
 TEST_P(HostapdHidlTest, AddOpenAccessPointWithoutAcs) {
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status = HIDL_INVOKE(hostapd_, addAccessPoint_1_2,
                               getIfaceParamsWithoutAcs(), getOpenNwParams());
     EXPECT_EQ(HostapdStatusCode::SUCCESS, status.code);
@@ -285,6 +307,8 @@ TEST_P(HostapdHidlTest, AddOpenAccessPointWithoutAcs) {
  */
 TEST_P(HostapdHidlTest, AddSaeTransitionAccessPointWithoutAcs) {
     if (!isWpa3SaeSupport_) GTEST_SKIP() << "Missing SAE support";
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status =
         HIDL_INVOKE(hostapd_, addAccessPoint_1_2, getIfaceParamsWithoutAcs(),
                     getSaeTransitionNwParams());
@@ -297,6 +321,8 @@ TEST_P(HostapdHidlTest, AddSaeTransitionAccessPointWithoutAcs) {
  */
 TEST_P(HostapdHidlTest, AddSAEAccessPointWithoutAcs) {
     if (!isWpa3SaeSupport_) GTEST_SKIP() << "Missing SAE support";
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status = HIDL_INVOKE(hostapd_, addAccessPoint_1_2,
                               getIfaceParamsWithoutAcs(), getSaeNwParams());
     EXPECT_EQ(HostapdStatusCode::SUCCESS, status.code);
@@ -308,6 +334,8 @@ TEST_P(HostapdHidlTest, AddSAEAccessPointWithoutAcs) {
  */
 TEST_P(HostapdHidlTest, RemoveAccessPointWithAcs) {
     if (!isAcsSupport_) GTEST_SKIP() << "Missing ACS support";
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status_1_2 = HIDL_INVOKE(hostapd_, addAccessPoint_1_2,
                                   getIfaceParamsWithAcs(), getPskNwParams());
     EXPECT_EQ(HostapdStatusCode::SUCCESS, status_1_2.code);
@@ -323,6 +351,8 @@ TEST_P(HostapdHidlTest, RemoveAccessPointWithAcs) {
  * Access point creation & removal should pass.
  */
 TEST_P(HostapdHidlTest, RemoveAccessPointWithoutAcs) {
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status_1_2 = HIDL_INVOKE(hostapd_, addAccessPoint_1_2,
                                   getIfaceParamsWithoutAcs(), getPskNwParams());
     EXPECT_EQ(HostapdStatusCode::SUCCESS, status_1_2.code);
@@ -338,6 +368,8 @@ TEST_P(HostapdHidlTest, RemoveAccessPointWithoutAcs) {
  * Access point creation should fail.
  */
 TEST_P(HostapdHidlTest, AddPskAccessPointWithInvalidChannel) {
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status =
         HIDL_INVOKE(hostapd_, addAccessPoint_1_2,
                     getIfaceParamsWithInvalidChannel(), getPskNwParams());
@@ -349,6 +381,8 @@ TEST_P(HostapdHidlTest, AddPskAccessPointWithInvalidChannel) {
  * Access point creation should fail.
  */
 TEST_P(HostapdHidlTest, AddInvalidPskAccessPointWithoutAcs) {
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status =
         HIDL_INVOKE(hostapd_, addAccessPoint_1_2, getIfaceParamsWithoutAcs(),
                     getInvalidPskNwParams());
@@ -361,6 +395,8 @@ TEST_P(HostapdHidlTest, AddInvalidPskAccessPointWithoutAcs) {
  */
 TEST_P(HostapdHidlTest, AddInvalidSaeTransitionAccessPointWithoutAcs) {
     if (!isWpa3SaeSupport_) GTEST_SKIP() << "Missing SAE support";
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status =
         HIDL_INVOKE(hostapd_, addAccessPoint_1_2, getIfaceParamsWithoutAcs(),
                     getInvalidSaeTransitionNwParams());
@@ -373,6 +409,8 @@ TEST_P(HostapdHidlTest, AddInvalidSaeTransitionAccessPointWithoutAcs) {
  */
 TEST_P(HostapdHidlTest, AddInvalidSaeAccessPointWithoutAcs) {
     if (!isWpa3SaeSupport_) GTEST_SKIP() << "Missing SAE support";
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status =
         HIDL_INVOKE(hostapd_, addAccessPoint_1_2, getIfaceParamsWithoutAcs(),
                     getInvalidSaeNwParams());
@@ -395,6 +433,8 @@ TEST_P(HostapdHidlTest, DisconnectClientWhenIfaceNotAvailable) {
  * when hotspot interface available.
  */
 TEST_P(HostapdHidlTest, DisconnectClientWhenIfacAvailable) {
+    if (is_1_3(hostapd_))
+        GTEST_SKIP() << "Ignore addAccessPoint_1_2 on hostapd 1_3";
     auto status_1_2 =
         HIDL_INVOKE(hostapd_, addAccessPoint_1_2, getIfaceParamsWithoutAcs(),
                     getOpenNwParams());
@@ -414,6 +454,7 @@ TEST_P(HostapdHidlTest, SetDebugParams) {
     EXPECT_EQ(HostapdStatusCode::SUCCESS, status.code);
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HostapdHidlTest);
 INSTANTIATE_TEST_CASE_P(
     PerInstance, HostapdHidlTest,
     testing::Combine(

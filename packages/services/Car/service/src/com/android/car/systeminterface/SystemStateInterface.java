@@ -22,13 +22,13 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Looper;
 import android.os.PowerManager;
-import android.util.Log;
 import android.util.Pair;
+import android.util.Slog;
 
+import com.android.car.internal.ICarServiceHelper;
 import com.android.car.procfsinspector.ProcessInfo;
 import com.android.car.procfsinspector.ProcfsInspector;
 import com.android.internal.annotations.VisibleForTesting;
-import com.android.internal.car.ICarServiceHelper;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -122,7 +122,7 @@ public interface SystemStateInterface {
                 int retVal = mICarServiceHelper.forceSuspend(SUSPEND_TRY_TIMEOUT_MS);
                 deviceEnteredSleep = retVal == 0;
             } catch (Exception e) {
-                Log.e(TAG, "Unable to enter deep sleep", e);
+                Slog.e(TAG, "Unable to enter deep sleep", e);
             }
             return deviceEnteredSleep;
         }
@@ -149,7 +149,7 @@ public interface SystemStateInterface {
             if (mICarServiceHelper != null) {
                 return true;
             }
-            Log.e(TAG, "Unable to enter deep sleep: ICarServiceHelper is still null "
+            Slog.e(TAG, "Unable to enter deep sleep: ICarServiceHelper is still null "
                     + "after waiting " + MAX_WAIT_FOR_HELPER_SEC + " seconds");
             return false;
         }

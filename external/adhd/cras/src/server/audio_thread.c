@@ -37,6 +37,13 @@
  */
 #define MAX_CONTINUOUS_ZERO_SLEEP_COUNT 2
 
+/*
+ * If the number of continuous zero sleep is equal to this limit, the value
+ * will be recorded immediately. It can ensure all busyloop will be recorded
+ * even if the busyloop does not stop.
+ */
+#define MAX_CONTINUOUS_ZERO_SLEEP_METRIC_LIMIT 1000
+
 /* Messages that can be sent from the main context to the audio thread. */
 enum AUDIO_THREAD_COMMAND {
 	AUDIO_THREAD_ADD_OPEN_DEV,
@@ -117,16 +124,16 @@ static struct iodev_callback_list *iodev_callbacks;
 
 struct iodev_callback_list {
 	int fd;
-	int is_write;
-	int enabled;
+	int events;
+	enum AUDIO_THREAD_EVENTS_CB_TRIGGER trigger;
 	thread_callback cb;
 	void *cb_data;
 	struct pollfd *pollfd;
 	struct iodev_callback_list *prev, *next;
 };
 
-static void _audio_thread_add_callback(int fd, thread_callback cb, void *data,
-				       int is_write)
+void audio_thread_add_events_callback(int fd, thread_callback cb, void *data,
+				      int events)
 {
 	struct iodev_callback_list *iodev_cb;
 
@@ -139,20 +146,10 @@ static void _audio_thread_add_callback(int fd, thread_callback cb, void *data,
 	iodev_cb->fd = fd;
 	iodev_cb->cb = cb;
 	iodev_cb->cb_data = data;
-	iodev_cb->enabled = 1;
-	iodev_cb->is_write = is_write;
+	iodev_cb->trigger = TRIGGER_POLL;
+	iodev_cb->events = events;
 
 	DL_APPEND(iodev_callbacks, iodev_cb);
-}
-
-void audio_thread_add_callback(int fd, thread_callback cb, void *data)
-{
-	_audio_thread_add_callback(fd, cb, data, 0);
-}
-
-void audio_thread_add_write_callback(int fd, thread_callback cb, void *data)
-{
-	_audio_thread_add_callback(fd, cb, data, 1);
 }
 
 void audio_thread_rm_callback(int fd)
@@ -168,13 +165,14 @@ void audio_thread_rm_callback(int fd)
 	}
 }
 
-void audio_thread_enable_callback(int fd, int enabled)
+void audio_thread_config_events_callback(
+	int fd, enum AUDIO_THREAD_EVENTS_CB_TRIGGER trigger)
 {
 	struct iodev_callback_list *iodev_cb;
 
 	DL_FOREACH (iodev_callbacks, iodev_cb) {
 		if (iodev_cb->fd == fd) {
-			iodev_cb->enabled = !!enabled;
+			iodev_cb->trigger = trigger;
 			return;
 		}
 	}
@@ -445,7 +443,8 @@ static int thread_add_stream(struct audio_thread *thread,
 {
 	int rc;
 
-	rc = dev_io_append_stream(&thread->open_devs[stream->direction], stream,
+	rc = dev_io_append_stream(&thread->open_devs[CRAS_STREAM_OUTPUT],
+				  &thread->open_devs[CRAS_STREAM_INPUT], stream,
 				  iodevs, num_iodevs);
 	if (rc < 0)
 		return rc;
@@ -557,8 +556,11 @@ static void append_stream_dump_info(struct audio_debug_info *info,
 	si->runtime_nsec = time_since.tv_nsec;
 }
 
-/* Handle a message sent to the playback thread */
-static int handle_playback_thread_message(struct audio_thread *thread)
+/* Handle a message sent from main thread to the audio thread.
+ * Returns:
+ *    Error code when reading or sending message fails.
+ */
+static int handle_audio_thread_message(struct audio_thread *thread)
 {
 	uint8_t buf[256];
 	struct audio_thread_msg *msg = (struct audio_thread_msg *)buf;
@@ -713,7 +715,7 @@ static int handle_playback_thread_message(struct audio_thread *thread)
 	err = audio_thread_send_response(thread, ret);
 	if (err < 0)
 		return err;
-	return ret;
+	return 0;
 }
 
 /* Returns the number of active streams plus the number of active devices. */
@@ -732,7 +734,7 @@ static int fill_next_sleep_interval(struct audio_thread *thread,
 	clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 	add_timespecs(&min_ts, &now);
 	ret = dev_io_next_output_wake(&thread->open_devs[CRAS_STREAM_OUTPUT],
-				      &min_ts, &now);
+				      &min_ts);
 	ret += dev_io_next_input_wake(&thread->open_devs[CRAS_STREAM_INPUT],
 				      &min_ts);
 	if (timespec_after(&min_ts, &now))
@@ -742,13 +744,10 @@ static int fill_next_sleep_interval(struct audio_thread *thread,
 }
 
 static struct pollfd *add_pollfd(struct audio_thread *thread, int fd,
-				 int is_write)
+				 int events)
 {
 	thread->pollfds[thread->num_pollfds].fd = fd;
-	if (is_write)
-		thread->pollfds[thread->num_pollfds].events = POLLOUT;
-	else
-		thread->pollfds[thread->num_pollfds].events = POLLIN;
+	thread->pollfds[thread->num_pollfds].events = events;
 	thread->num_pollfds++;
 	if (thread->num_pollfds >= thread->pollfds_size) {
 		thread->pollfds_size *= 2;
@@ -796,7 +795,18 @@ static void check_busyloop(struct timespec *wait_ts)
 			busyloop_count++;
 			cras_audio_thread_event_busyloop();
 		}
+		if (continuous_zero_sleep_count ==
+		    MAX_CONTINUOUS_ZERO_SLEEP_METRIC_LIMIT)
+			cras_server_metrics_busyloop_length(
+				continuous_zero_sleep_count);
+
 	} else {
+		if (continuous_zero_sleep_count >=
+			    MAX_CONTINUOUS_ZERO_SLEEP_COUNT &&
+		    continuous_zero_sleep_count <
+			    MAX_CONTINUOUS_ZERO_SLEEP_METRIC_LIMIT)
+			cras_server_metrics_busyloop_length(
+				continuous_zero_sleep_count);
 		continuous_zero_sleep_count = 0;
 	}
 }
@@ -829,6 +839,7 @@ static void *audio_io_thread(void *arg)
 	while (1) {
 		struct timespec *wait_ts;
 		struct iodev_callback_list *iodev_cb;
+		int non_empty;
 
 		wait_ts = NULL;
 		thread->num_pollfds = 1;
@@ -838,6 +849,9 @@ static void *audio_io_thread(void *arg)
 			   &thread->open_devs[CRAS_STREAM_INPUT],
 			   thread->remix_converter);
 
+		non_empty = dev_io_check_non_empty_state_transition(
+			thread->open_devs[CRAS_STREAM_OUTPUT]);
+
 		if (fill_next_sleep_interval(thread, &ts))
 			wait_ts = &ts;
 
@@ -845,10 +859,12 @@ static void *audio_io_thread(void *arg)
 		thread->num_pollfds = 1;
 
 		DL_FOREACH (iodev_callbacks, iodev_cb) {
-			if (!iodev_cb->enabled)
+			if (iodev_cb->trigger != TRIGGER_POLL) {
+				iodev_cb->pollfd = NULL;
 				continue;
+			}
 			iodev_cb->pollfd = add_pollfd(thread, iodev_cb->fd,
-						      iodev_cb->is_write);
+						      iodev_cb->events);
 			if (!iodev_cb->pollfd)
 				goto restart_poll_loop;
 		}
@@ -859,7 +875,7 @@ static void *audio_io_thread(void *arg)
 				int fd = dev_stream_poll_stream_fd(curr);
 				if (fd < 0)
 					continue;
-				if (!add_pollfd(thread, fd, 0))
+				if (!add_pollfd(thread, fd, POLLIN))
 					goto restart_poll_loop;
 			}
 		}
@@ -868,7 +884,7 @@ static void *audio_io_thread(void *arg)
 				int fd = dev_stream_poll_stream_fd(curr);
 				if (fd < 0)
 					continue;
-				if (!add_pollfd(thread, fd, 0))
+				if (!add_pollfd(thread, fd, POLLIN))
 					goto restart_poll_loop;
 			}
 		}
@@ -876,7 +892,7 @@ static void *audio_io_thread(void *arg)
 		log_busyloop(wait_ts);
 
 		ATLOG(atlog, AUDIO_THREAD_SLEEP, wait_ts ? wait_ts->tv_sec : 0,
-		      wait_ts ? wait_ts->tv_nsec : 0, 0);
+		      wait_ts ? wait_ts->tv_nsec : 0, non_empty);
 		if (wait_ts)
 			check_busyloop(wait_ts);
 
@@ -886,21 +902,33 @@ static void *audio_io_thread(void *arg)
 
 		rc = ppoll(thread->pollfds, thread->num_pollfds, wait_ts, NULL);
 		ATLOG(atlog, AUDIO_THREAD_WAKE, rc, 0, 0);
+
+		/* Handle callbacks registered by TRIGGER_WAKEUP */
+		DL_FOREACH (iodev_callbacks, iodev_cb) {
+			if (iodev_cb->trigger == TRIGGER_WAKEUP) {
+				ATLOG(atlog, AUDIO_THREAD_IODEV_CB, 0, 0, 0);
+				iodev_cb->cb(iodev_cb->cb_data, 0);
+			}
+		}
+
+		/* If there's no pollfd ready to handle. */
 		if (rc <= 0)
 			continue;
 
 		if (thread->pollfds[0].revents & POLLIN) {
-			rc = handle_playback_thread_message(thread);
+			rc = handle_audio_thread_message(thread);
 			if (rc < 0)
 				syslog(LOG_ERR, "handle message %d", rc);
 		}
 
 		DL_FOREACH (iodev_callbacks, iodev_cb) {
 			if (iodev_cb->pollfd &&
-			    iodev_cb->pollfd->revents & (POLLIN | POLLOUT)) {
+			    iodev_cb->pollfd->revents & iodev_cb->events) {
 				ATLOG(atlog, AUDIO_THREAD_IODEV_CB,
-				      iodev_cb->is_write, 0, 0);
-				iodev_cb->cb(iodev_cb->cb_data);
+				      iodev_cb->pollfd->revents,
+				      iodev_cb->events, 0);
+				iodev_cb->cb(iodev_cb->cb_data,
+					     iodev_cb->pollfd->revents);
 			}
 		}
 	}

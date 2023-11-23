@@ -19,37 +19,45 @@
  * Changes made to adding support of AUDIO_DEVICE_OUT_BUS
  */
 
-#define LOG_TAG "audio_hw_generic"
+#define LOG_TAG "audio_hw_generic_caremu"
+// #define LOG_NDEBUG 0
+
+#include "audio_hw.h"
+#include "include/audio_hw_control.h"
 
 #include <assert.h>
+#include <cutils/hashmap.h>
+#include <cutils/properties.h>
+#include <cutils/str_parms.h>
+#include <dlfcn.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <hardware/hardware.h>
 #include <inttypes.h>
+#include <log/log.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/time.h>
-#include <dlfcn.h>
-#include <fcntl.h>
+#include <system/audio.h>
 #include <unistd.h>
 
-#include <log/log.h>
-#include <cutils/properties.h>
-#include <cutils/str_parms.h>
-
-#include <hardware/hardware.h>
-#include <system/audio.h>
-
-#include "audio_hw.h"
 #include "ext_pcm.h"
 
 #define PCM_CARD 0
 #define PCM_DEVICE 0
 
-#define OUT_PERIOD_MS 15
-#define OUT_PERIOD_COUNT 4
+#define DEFAULT_OUT_PERIOD_MS 15
+#define DEFAULT_OUT_PERIOD_COUNT 4
 
-#define IN_PERIOD_MS 15
-#define IN_PERIOD_COUNT 4
+#define DEFAULT_IN_PERIOD_MS 15
+#define DEFAULT_IN_PERIOD_COUNT 4
+
+static const char* PROP_KEY_OUT_PERIOD_MS = "ro.vendor.caremu.audiohal.out_period_ms";
+static const char* PROP_KEY_OUT_PERIOD_COUNT = "ro.vendor.caremu.audiohal.out_period_count";
+static const char* PROP_KEY_IN_PERIOD_MS = "ro.vendor.caremu.audiohal.in_period_ms";
+static const char* PROP_KEY_IN_PERIOD_COUNT = "ro.vendor.caremu.audiohal.in_period_count";
 
 #define PI 3.14159265
 #define TWO_PI  (2*PI)
@@ -60,6 +68,9 @@
 #define TONE_FREQUENCY_INCREASE 20
 // Max tone frequency to auto assign, don't want to generate too high of a pitch
 #define MAX_TONE_FREQUENCY 500
+
+// -14dB to match the volume curve in PlaybackActivityMonitor
+#define DUCKING_MULTIPLIER 0.2
 
 #define _bool_str(x) ((x)?"true":"false")
 
@@ -73,15 +84,103 @@ static const char * const AAE_PARAMETER_KEY_FOR_SELECTED_ZONE = "com.android.car
 static const char * const TONE_ADDRESS_KEYWORD = "_tone_";
 static const char * const AUDIO_ZONE_KEYWORD = "_audio_zone_";
 
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+static bool is_audio_enabled = 1; // Protected by lock
+
 #define SIZE_OF_PARSE_BUFFER 32
 
 static int adev_get_mic_mute(const struct audio_hw_device *dev, bool *state);
+
+static int get_out_period_ms() {
+    static int out_period_ms = -1;
+    if (out_period_ms == -1) {
+        out_period_ms = property_get_int32(PROP_KEY_OUT_PERIOD_MS, DEFAULT_OUT_PERIOD_MS);
+    }
+    return out_period_ms;
+}
+
+static int get_out_period_count() {
+    static int out_period_count = -1;
+    if (out_period_count == -1) {
+        out_period_count = property_get_int32(PROP_KEY_OUT_PERIOD_COUNT, DEFAULT_OUT_PERIOD_COUNT);
+    }
+    return out_period_count;
+}
+
+static int get_in_period_ms() {
+    static int in_period_ms = -1;
+    if (in_period_ms == -1) {
+        in_period_ms = property_get_int32(PROP_KEY_IN_PERIOD_MS, DEFAULT_IN_PERIOD_MS);
+    }
+    return in_period_ms;
+}
+
+static int get_in_period_count() {
+    static int in_period_count = -1;
+    if (in_period_count == -1) {
+        in_period_count = property_get_int32(PROP_KEY_IN_PERIOD_COUNT, DEFAULT_IN_PERIOD_COUNT);
+    }
+    return in_period_count;
+}
+
+static struct generic_stream_out * get_audio_device(const char *address, const char *caller) {
+    pthread_mutex_lock(&lock);
+    if(device_handle == 0) {
+        ALOGE("%s no device handle available", caller);
+        pthread_mutex_unlock(&lock);
+        return NULL;
+    }
+
+    struct generic_stream_out *out = hashmapGet(device_handle->out_bus_stream_map, address);
+    pthread_mutex_unlock(&lock);
+
+    return out;
+}
+
+void set_device_address_is_ducked(const char *device_address, bool is_ducked) {
+    struct generic_stream_out *out = get_audio_device(device_address, __func__);
+
+    if (!out) {
+        ALOGW("%s no device found with address %s", __func__, device_address);
+        return;
+    }
+
+    pthread_mutex_lock(&out->lock);
+    out->is_ducked = is_ducked;
+    pthread_mutex_unlock(&out->lock);
+}
+
+void set_device_address_is_muted(const char *device_address, bool is_muted){
+    struct generic_stream_out *out = get_audio_device(device_address, __func__);
+
+    if (!out) {
+        ALOGW("%s no device found with address %s", __func__, device_address);
+        return;
+    }
+
+    pthread_mutex_lock(&out->lock);
+    out->is_muted = is_muted;
+    pthread_mutex_unlock(&out->lock);
+}
+
+void set_audio_enabled(bool is_enabled) {
+    pthread_mutex_lock(&lock);
+    is_audio_enabled = is_enabled;
+    pthread_mutex_unlock(&lock);
+}
+
+bool get_is_audio_enabled() {
+    pthread_mutex_lock(&lock);
+    bool is_enabled = is_audio_enabled;
+    pthread_mutex_unlock(&lock);
+    return is_enabled;
+}
 
 static struct pcm_config pcm_config_out = {
     .channels = 2,
     .rate = 0,
     .period_size = 0,
-    .period_count = OUT_PERIOD_COUNT,
     .format = PCM_FORMAT_S16_LE,
     .start_threshold = 0,
 };
@@ -106,13 +205,11 @@ static struct pcm_config pcm_config_in = {
     .channels = 2,
     .rate = 0,
     .period_size = 0,
-    .period_count = IN_PERIOD_COUNT,
     .format = PCM_FORMAT_S16_LE,
     .start_threshold = 0,
     .stop_threshold = INT_MAX,
 };
 
-static pthread_mutex_t adev_init_lock = PTHREAD_MUTEX_INITIALIZER;
 static unsigned int audio_device_ref_count = 0;
 
 static bool is_zone_selected_to_play(struct audio_hw_device *dev, int zone_id) {
@@ -160,6 +257,8 @@ static int out_set_format(struct audio_stream *stream, audio_format_t format) {
 
 static int out_dump(const struct audio_stream *stream, int fd) {
     struct generic_stream_out *out = (struct generic_stream_out *)stream;
+    bool is_enabled = get_is_audio_enabled();
+
     pthread_mutex_lock(&out->lock);
     dprintf(fd, "\tout_dump:\n"
                 "\t\taddress: %s\n"
@@ -170,6 +269,9 @@ static int out_dump(const struct audio_stream *stream, int fd) {
                 "\t\tdevice: %08x\n"
                 "\t\tamplitude ratio: %f\n"
                 "\t\tenabled channels: %d\n"
+                "\t\tis ducked: %s\n"
+                "\t\tis muted: %s\n"
+                "\t\tis audio enabled: %s\n"
                 "\t\taudio dev: %p\n\n",
                 out->bus_address,
                 out_get_sample_rate(stream),
@@ -179,6 +281,9 @@ static int out_dump(const struct audio_stream *stream, int fd) {
                 out->device,
                 out->amplitude_ratio,
                 out->enabled_channels,
+                _bool_str(out->is_ducked),
+                _bool_str(out->is_muted),
+                _bool_str(is_enabled),
                 out->dev);
     pthread_mutex_unlock(&out->lock);
     return 0;
@@ -328,6 +433,7 @@ static void *out_write_worker(void *args) {
             }
         }
         int frames = audio_vbuffer_read(&out->buffer, buffer, buffer_frames);
+        pthread_cond_signal(&out->write_wake);
         pthread_mutex_unlock(&out->lock);
 
         if (is_zone_selected_to_play(out->dev, zone_id)) {
@@ -349,7 +455,7 @@ static void *out_write_worker(void *args) {
     return NULL;
 }
 
-// Call with in->lock held
+// Call with out->lock held
 static void get_current_output_position(struct generic_stream_out *out,
         uint64_t *position, struct timespec * timestamp) {
     struct timespec curtime = { .tv_sec = 0, .tv_nsec = 0 };
@@ -398,6 +504,10 @@ static void out_apply_gain(struct generic_stream_out *out, const void *buffer, s
             int16_buffer[i] = 0;
         } else {
             float multiplied = int16_buffer[i] * out->amplitude_ratio;
+            if (out->is_ducked) {
+                multiplied = multiplied * DUCKING_MULTIPLIER;
+            }
+
             if (multiplied > INT16_MAX) int16_buffer[i] = INT16_MAX;
             else if (multiplied < INT16_MIN) int16_buffer[i] = INT16_MIN;
             else int16_buffer[i] = (int16_t)multiplied;
@@ -408,7 +518,10 @@ static void out_apply_gain(struct generic_stream_out *out, const void *buffer, s
 static ssize_t out_write(struct audio_stream_out *stream, const void *buffer, size_t bytes) {
     struct generic_stream_out *out = (struct generic_stream_out *)stream;
     ALOGV("%s: to device %s", __func__, out->bus_address);
-    const size_t frames =  bytes / audio_stream_out_frame_size(stream);
+    const size_t frame_size = audio_stream_out_frame_size(stream);
+    const size_t frames =  bytes / frame_size;
+
+    bool is_enabled = get_is_audio_enabled();
 
     pthread_mutex_lock(&out->lock);
 
@@ -420,8 +533,6 @@ static ssize_t out_write(struct audio_stream_out *stream, const void *buffer, si
     struct timespec current_time;
 
     get_current_output_position(out, &current_position, &current_time);
-    const uint64_t now_us = (current_time.tv_sec * 1000000000LL +
-                             current_time.tv_nsec) / 1000;
     if (out->standby) {
         out->standby = false;
         out->underrun_time = current_time;
@@ -430,12 +541,38 @@ static ssize_t out_write(struct audio_stream_out *stream, const void *buffer, si
     }
 
     size_t frames_written = frames;
-    if (out->dev->master_mute) {
-        ALOGV("%s: ignored due to master mute", __func__);
+
+    const int available_frames_in_buffer = audio_vbuffer_dead(&out->buffer);
+    const int frames_sleep =
+        available_frames_in_buffer > frames ? 0 : frames - available_frames_in_buffer;
+    const uint64_t sleep_time_us =
+        frames_sleep * 1000000LL / out_get_sample_rate(&stream->common);
+
+    if (sleep_time_us > 0) {
+        pthread_mutex_unlock(&out->lock);
+        usleep(sleep_time_us);
+        pthread_mutex_lock(&out->lock);
+    }
+
+    if (out->dev->master_mute || out->is_muted || !is_enabled) {
+        ALOGV("%s: ignored due to mute", __func__);
     } else {
         out_apply_gain(out, buffer, bytes);
-        frames_written = audio_vbuffer_write(&out->buffer, buffer, frames);
-        pthread_cond_signal(&out->worker_wake);
+        frames_written = 0;
+
+        bool write_incomplete = true;
+        do {
+            frames_written += audio_vbuffer_write(
+                    &out->buffer,
+                    (const char *)buffer + frames_written * frame_size,
+                    frames - frames_written);
+            pthread_cond_signal(&out->worker_wake);
+            write_incomplete = frames_written < frames;
+            if (write_incomplete) {
+                // Wait for write worker to consume the buffer
+                pthread_cond_wait(&out->write_wake, &out->lock);
+            }
+        } while (write_incomplete);
     }
 
     /* Implementation just consumes bytes if we start getting backed up */
@@ -443,31 +580,7 @@ static ssize_t out_write(struct audio_stream_out *stream, const void *buffer, si
     out->frames_rendered += frames;
     out->frames_total_buffered += frames;
 
-    // We simulate the audio device blocking when it's write buffers become
-    // full.
-
-    // At the beginning or after an underrun, try to fill up the vbuffer.
-    // This will be throttled by the PlaybackThread
-    int frames_sleep = out->frames_total_buffered < out->buffer.frame_count ? 0 : frames;
-
-    uint64_t sleep_time_us = frames_sleep * 1000000LL /
-                            out_get_sample_rate(&stream->common);
-
-    // If the write calls are delayed, subtract time off of the sleep to
-    // compensate
-    uint64_t time_since_last_write_us = now_us - out->last_write_time_us;
-    if (time_since_last_write_us < sleep_time_us) {
-        sleep_time_us -= time_since_last_write_us;
-    } else {
-        sleep_time_us = 0;
-    }
-    out->last_write_time_us = now_us + sleep_time_us;
-
     pthread_mutex_unlock(&out->lock);
-
-    if (sleep_time_us > 0) {
-        usleep(sleep_time_us);
-    }
 
     if (frames_written < frames) {
         ALOGW("%s Hardware backing HAL too slow, could only write %zu of %zu frames",
@@ -654,7 +767,7 @@ static size_t get_input_buffer_size(uint32_t sample_rate, audio_format_t format,
     if (refine_input_parameters(&sample_rate, &format, &channel_mask) != 0)
         return 0;
 
-    size = sample_rate*IN_PERIOD_MS/1000;
+    size = sample_rate * get_in_period_ms() / 1000;
     // Audioflinger expects audio buffers to be multiple of 16 frames
     size = ((size + 15) / 16) * 16;
     size *= sizeof(short) * channel_count;
@@ -1068,7 +1181,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     memcpy(&out->req_config, config, sizeof(struct audio_config));
     memcpy(&out->pcm_config, &pcm_config_out, sizeof(struct pcm_config));
     out->pcm_config.rate = config->sample_rate;
-    out->pcm_config.period_size = out->pcm_config.rate*OUT_PERIOD_MS/1000;
+    out->pcm_config.period_size = out->pcm_config.rate * get_out_period_ms() / 1000;
 
     out->standby = true;
     out->underrun_position = 0;
@@ -1091,6 +1204,11 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     }
 
     out->enabled_channels = BOTH_CHANNELS;
+    // For targets where output streams are closed regularly, currently ducked/muted addresses
+    // should be tracked so that the address of new streams can be checked to determine the
+    // default state
+    out->is_ducked = 0;
+    out->is_muted = 0;
     if (address) {
         out->bus_address = calloc(strlen(address) + 1, sizeof(char));
         strncpy(out->bus_address, address, strlen(address));
@@ -1308,7 +1426,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     memcpy(&in->req_config, config, sizeof(struct audio_config));
     memcpy(&in->pcm_config, &pcm_config_in, sizeof(struct pcm_config));
     in->pcm_config.rate = config->sample_rate;
-    in->pcm_config.period_size = in->pcm_config.rate*IN_PERIOD_MS/1000;
+    in->pcm_config.period_size = in->pcm_config.rate * get_in_period_ms() / 1000;
 
     in->stereo_to_mono_buf = NULL;
     in->stereo_to_mono_buf_size = 0;
@@ -1369,6 +1487,8 @@ static int adev_set_audio_port_config(struct audio_hw_device *dev,
         int minDb = out->gain_stage.min_value / 100;
         int maxDb = out->gain_stage.max_value / 100;
         // curve: 10^((minDb + (maxDb - minDb) * gainIndex / totalSteps) / 20)
+        // 2x10, where 10 comes from the log 10 conversion from power ratios,
+        // which are the square (2) of amplitude
         out->amplitude_ratio = pow(10,
                 (minDb + (maxDb - minDb) * (gainIndex / (float)totalSteps)) / 20);
         pthread_mutex_unlock(&out->lock);
@@ -1423,7 +1543,7 @@ static int adev_close(hw_device_t *dev) {
     if (!adev)
         return 0;
 
-    pthread_mutex_lock(&adev_init_lock);
+    pthread_mutex_lock(&lock);
 
     if (audio_device_ref_count == 0) {
         ALOGE("adev_close called when ref_count 0");
@@ -1441,11 +1561,13 @@ static int adev_close(hw_device_t *dev) {
         if (adev->in_bus_tone_frequency_map) {
             hashmapFree(adev->in_bus_tone_frequency_map);
         }
+
+        device_handle = 0;
         free(adev);
     }
 
 error:
-    pthread_mutex_unlock(&adev_init_lock);
+    pthread_mutex_unlock(&lock);
     return ret;
 }
 
@@ -1477,7 +1599,7 @@ static int adev_open(const hw_module_t *module,
     if (strcmp(name, AUDIO_HARDWARE_INTERFACE) != 0)
         return -EINVAL;
 
-    pthread_mutex_lock(&adev_init_lock);
+    pthread_mutex_lock(&lock);
     if (audio_device_ref_count != 0) {
         *device = &adev->device.common;
         audio_device_ref_count++;
@@ -1485,6 +1607,10 @@ static int adev_open(const hw_module_t *module,
         ALOGV("%s: exit", __func__);
         goto unlock;
     }
+
+    pcm_config_in.period_count = get_in_period_count();
+    pcm_config_out.period_count = get_out_period_count();
+
     adev = calloc(1, sizeof(struct generic_audio_device));
 
     pthread_mutex_init(&adev->lock, (const pthread_mutexattr_t *) NULL);
@@ -1557,10 +1683,12 @@ static int adev_open(const hw_module_t *module,
 
     adev->last_zone_selected_to_play = DEFAULT_ZONE_TO_LEFT_SPEAKER;
 
+    device_handle = adev;
+
     audio_device_ref_count++;
 
 unlock:
-    pthread_mutex_unlock(&adev_init_lock);
+    pthread_mutex_unlock(&lock);
     return 0;
 }
 

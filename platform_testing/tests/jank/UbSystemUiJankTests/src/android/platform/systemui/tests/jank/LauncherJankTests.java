@@ -20,9 +20,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.RemoteException;
-import android.support.test.jank.GfxMonitor;
-import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.timeresulthelper.TimeResultLogger;
@@ -31,6 +28,10 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
 import android.system.helpers.OverviewHelper;
+
+import androidx.test.jank.GfxMonitor;
+import androidx.test.jank.JankTest;
+import androidx.test.jank.JankTestBase;
 
 import com.android.launcher3.tapl.AllApps;
 import com.android.launcher3.tapl.LauncherInstrumentation;

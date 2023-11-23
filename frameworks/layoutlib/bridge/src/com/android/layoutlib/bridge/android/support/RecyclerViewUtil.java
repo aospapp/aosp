@@ -16,7 +16,7 @@
 
 package com.android.layoutlib.bridge.android.support;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.android.BridgeContext;
@@ -72,7 +72,7 @@ public class RecyclerViewUtil {
             }
         } catch (ReflectionException e) {
             Throwable cause = getCause(e);
-            Bridge.getLog().error(LayoutLog.TAG_BROKEN,
+            Bridge.getLog().error(ILayoutLog.TAG_BROKEN,
                     "Error occurred while trying to setup RecyclerView.", cause, null, null);
         }
     }

@@ -49,12 +49,15 @@ struct NAME {											\
 };														\
 } // pt
 
-#define VK_MAKE_VERSION(MAJOR, MINOR, PATCH)	(((deUint32)(MAJOR) << 22u) | ((deUint32)(MINOR) << 12u) | (deUint32)(PATCH))
+#define VK_MAKE_API_VERSION(VARIANT, MAJOR, MINOR, PATCH)	\
+												((((deUint32)(VARIANT)) << 29) | (((deUint32)(MAJOR)) << 22) | (((deUint32)(MINOR)) << 12) | ((deUint32)(PATCH)))
+#define VK_MAKE_VERSION(MAJOR, MINOR, PATCH)	VK_MAKE_API_VERSION(0, MAJOR, MINOR, PATCH)
 #define VK_BIT(NUM)								(1u<<(deUint32)(NUM))
 
-#define VK_VERSION_MAJOR(version)				((deUint32)(version) >> 22)
-#define VK_VERSION_MINOR(version)				(((deUint32)(version) >> 12) & 0x3ff)
-#define VK_VERSION_PATCH(version)				((deUint32)(version) & 0xfff)
+#define VK_API_VERSION_VARIANT(version)			((deUint32)(version) >> 29)
+#define VK_API_VERSION_MAJOR(version)			(((deUint32)(version) >> 22) & 0x7FU)
+#define VK_API_VERSION_MINOR(version)			(((deUint32)(version) >> 12) & 0x3FFU)
+#define VK_API_VERSION_PATCH(version)			((deUint32)(version) & 0xFFFU)
 
 #define VK_CHECK(EXPR)							vk::checkResult((EXPR), #EXPR, __FILE__, __LINE__)
 #define VK_CHECK_MSG(EXPR, MSG)					vk::checkResult((EXPR), MSG, __FILE__, __LINE__)
@@ -70,6 +73,7 @@ typedef deUint64	VkDeviceSize;
 typedef deUint32	VkSampleMask;
 typedef deUint32	VkBool32;
 typedef deUint32	VkFlags;
+typedef deUint64	VkFlags64;
 typedef deUint64	VkDeviceAddress;
 
 // enum HandleType { HANDLE_TYPE_INSTANCE, ... };
@@ -99,7 +103,9 @@ private:
 
 #include "vkBasicTypes.inl"
 
-#define VK_CORE_FORMAT_LAST		((vk::VkFormat)(vk::VK_FORMAT_ASTC_12x12_SRGB_BLOCK+1))
+#define VK_CORE_FORMAT_LAST			((vk::VkFormat)(vk::VK_FORMAT_ASTC_12x12_SRGB_BLOCK+1))
+#define VK_CORE_IMAGE_TILING_LAST	((vk::VkImageTiling)(vk::VK_IMAGE_TILING_LINEAR+1))
+#define VK_CORE_IMAGE_TYPE_LAST		((vk::VkImageType)(vk::VK_IMAGE_TYPE_3D+1))
 
 enum SpirvVersion
 {
@@ -132,6 +138,7 @@ enum Type
 	TYPE_ANDROID,
 	TYPE_WIN32,
 	TYPE_MACOS,
+	TYPE_HEADLESS,
 
 	TYPE_LAST
 };
@@ -172,6 +179,8 @@ typedef VKAPI_ATTR VkBool32	(VKAPI_CALL* PFN_vkDebugReportCallbackEXT)			(VkDebu
 typedef VKAPI_ATTR VkBool32 (VKAPI_CALL *PFN_vkDebugUtilsMessengerCallbackEXT)	(VkDebugUtilsMessageSeverityFlagBitsEXT				messageSeverity,
 																				 VkDebugUtilsMessageTypeFlagsEXT					messageTypes,
 																				 const struct VkDebugUtilsMessengerCallbackDataEXT*	pCallbackData,
+																				 void*												pUserData);
+typedef VKAPI_ATTR void		(VKAPI_CALL* PFN_vkDeviceMemoryReportCallbackEXT)	(const struct VkDeviceMemoryReportCallbackDataEXT*	pCallbackData,
 																				 void*												pUserData);
 
 #include "vkStructTypes.inl"

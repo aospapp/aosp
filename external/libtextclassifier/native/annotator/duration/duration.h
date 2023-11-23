@@ -98,7 +98,7 @@ class DurationAnnotator {
     internal::DurationUnit unit = internal::DurationUnit::UNKNOWN;
 
     // Quantity of the duration unit.
-    int value = 0;
+    double value = 0;
 
     // True, if half an unit was specified (either in addition, or exclusively).
     // E.g. "hour and a half".

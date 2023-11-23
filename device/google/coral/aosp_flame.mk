@@ -18,7 +18,7 @@
 # All components inherited here go to system image
 #
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
-$(call inherit-product, $(SRC_TARGET_DIR)/product/mainline_system.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/generic_system.mk)
 
 # Enable mainline checking
 PRODUCT_ENFORCE_ARTIFACT_PATH_REQUIREMENTS := strict
@@ -49,13 +49,23 @@ $(call inherit-product-if-exists, vendor/google_devices/coral/prebuilts/device-v
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/aosp_excluded_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/aosp_excluded_hardware.xml
 
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/audio/audio_effects.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_effects.xml
+
 # Don't build super.img.
 PRODUCT_BUILD_SUPER_PARTITION := false
 
 # b/113232673 STOPSHIP deal with Qualcomm stuff later
 # PRODUCT_RESTRICT_VENDOR_FILES := all
 
-PRODUCT_PACKAGES += com.android.vndk.current.on_vendor
+# b/189477034: Bypass build time check on uses_libs until vendor fixes all their apps
+PRODUCT_BROKEN_VERIFY_USES_LIBRARIES := true
+
+# Keep the VNDK APEX in /system partition for REL branches as these branches are
+# expected to have stable API/ABI surfaces.
+ifneq (REL,$(PLATFORM_VERSION_CODENAME))
+  PRODUCT_PACKAGES += com.android.vndk.current.on_vendor
+endif
 
 PRODUCT_MANUFACTURER := Google
 PRODUCT_BRAND := Android

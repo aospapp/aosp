@@ -73,12 +73,9 @@ import java.util.Set;
                         npis, true /*is9Patch*/, false /*convert*/);
 
                 // get the bitmap and chunk objects.
-                bm = Bitmap_Delegate.createBitmap(ninePatch.getImage(), bitmapCreateFlags,
-                        density);
                 NinePatchChunk chunk = ninePatch.getChunk();
-
-                // put the chunk in the bitmap
-                bm.setNinePatchChunk(NinePatch_Delegate.serialize(chunk));
+                bm = Bitmap_Delegate.createBitmap(ninePatch.getImage(),
+                        NinePatch_Delegate.serialize(chunk), bitmapCreateFlags, density);
 
                 if (padding != null) {
                     // read the padding

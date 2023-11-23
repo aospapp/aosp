@@ -21,6 +21,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.android.org.conscrypt.java.security.TestKeyStore;
+import com.android.org.conscrypt.javax.net.ssl.TestHostnameVerifier;
 import java.io.IOException;
 import java.security.KeyStore;
 import java.security.Principal;
@@ -30,14 +32,12 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import javax.net.ssl.HandshakeCompletedListener;
-import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSessionContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.X509TrustManager;
-import com.android.org.conscrypt.java.security.TestKeyStore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -139,11 +139,7 @@ public class TrustManagerImplTest {
         String goodHostname = TestKeyStore.CERT_HOSTNAME;
         String badHostname = "definitelywrong.nopenopenope";
 
-        // The default hostname verifier on OpenJDK rejects all hostnames, so use our own
-        javax.net.ssl.HostnameVerifier oldDefault = HttpsURLConnection.getDefaultHostnameVerifier();
         try {
-            HttpsURLConnection.setDefaultHostnameVerifier(new TestHostnameVerifier());
-
             SSLParameters params = new SSLParameters();
 
             // Without endpoint identification this should pass despite the mismatched hostname
@@ -169,9 +165,10 @@ public class TrustManagerImplTest {
 
             // Override the global default hostname verifier with a Conscrypt-specific one that
             // always passes.  Both scenarios should pass.
-            Conscrypt.setDefaultHostnameVerifier(new ConscryptHostnameVerifier() {
+            Conscrypt.setHostnameVerifier(tmi, new ConscryptHostnameVerifier() {
                 @Override
-                public boolean verify(String s, SSLSession sslSession) {
+                public boolean verify(
+                        X509Certificate[] certificates, String s, SSLSession sslSession) {
                     return true;
                 }
             });
@@ -186,7 +183,8 @@ public class TrustManagerImplTest {
 
             // Now set an instance-specific verifier on the trust manager.  The bad hostname should
             // fail again.
-            Conscrypt.setHostnameVerifier(tmi, new TestHostnameVerifier());
+            Conscrypt.setHostnameVerifier(
+                    tmi, Conscrypt.wrapHostnameVerifier(new TestHostnameVerifier()));
 
             try {
                 tmi.getTrustedChainForServer(chain, "RSA",
@@ -202,16 +200,18 @@ public class TrustManagerImplTest {
             // Remove the instance-specific verifier, and both should pass again.
             Conscrypt.setHostnameVerifier(tmi, null);
 
-            certs = tmi.getTrustedChainForServer(chain, "RSA",
-                    new FakeSSLSocket(new FakeSSLSession(badHostname, chain), params));
-            assertEquals(Arrays.asList(chain), certs);
+            try {
+                tmi.getTrustedChainForServer(chain, "RSA",
+                        new FakeSSLSocket(new FakeSSLSession(badHostname, chain), params));
+                fail();
+            } catch (CertificateException expected) {
+            }
 
             certs = tmi.getTrustedChainForServer(chain, "RSA",
                     new FakeSSLSocket(new FakeSSLSession(goodHostname, chain), params));
             assertEquals(Arrays.asList(chain), certs);
         } finally {
             Conscrypt.setDefaultHostnameVerifier(null);
-            HttpsURLConnection.setDefaultHostnameVerifier(oldDefault);
         }
     }
 
@@ -481,8 +481,4 @@ public class TrustManagerImplTest {
             throw new UnsupportedOperationException();
         }
     }
-
-    private static class TestHostnameVerifier
-            extends com.android.org.conscrypt.javax.net.ssl.TestHostnameVerifier
-            implements ConscryptHostnameVerifier {}
 }

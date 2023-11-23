@@ -12,8 +12,9 @@ Arm FVPs without shifted affinities, and that do not support threaded CPU cores
 (64-bit host machine only).
 
 .. note::
-   The FVP models used are Version 11.6 Build 45, unless otherwise stated.
+   The FVP models used are Version 11.12 Build 38, unless otherwise stated.
 
+-  ``FVP_Base_AEMvA``
 -  ``FVP_Base_AEMv8A-AEMv8A``
 -  ``FVP_Base_AEMv8A-AEMv8A-AEMv8A-AEMv8A-CCN502``
 -  ``FVP_Base_RevC-2xAEMv8A``
@@ -26,6 +27,8 @@ Arm FVPs without shifted affinities, and that do not support threaded CPU cores
 -  ``FVP_Base_Cortex-A57x2-A53x4``
 -  ``FVP_Base_Cortex-A57x4-A53x4``
 -  ``FVP_Base_Cortex-A57x4``
+-  ``FVP_Base_Cortex-A65x4``
+-  ``FVP_Base_Cortex-A65AEx8``
 -  ``FVP_Base_Cortex-A72x4-A53x4``
 -  ``FVP_Base_Cortex-A72x4``
 -  ``FVP_Base_Cortex-A73x4-A53x4``
@@ -34,19 +37,28 @@ Arm FVPs without shifted affinities, and that do not support threaded CPU cores
 -  ``FVP_Base_Cortex-A76x4``
 -  ``FVP_Base_Cortex-A76AEx4``
 -  ``FVP_Base_Cortex-A76AEx8``
--  ``FVP_Base_Cortex-A77x4`` (Version 11.7 build 36)
+-  ``FVP_Base_Cortex-A77x4``
+-  ``FVP_Base_Cortex-A78x4``
+-  ``FVP_Base_Neoverse-E1x1``
+-  ``FVP_Base_Neoverse-E1x2``
+-  ``FVP_Base_Neoverse-E1x4``
 -  ``FVP_Base_Neoverse-N1x4``
--  ``FVP_Base_Zeusx4``
--  ``FVP_CSS_SGI-575`` (Version 11.3 build 42)
--  ``FVP_CSS_SGM-775`` (Version 11.3 build 42)
--  ``FVP_RD_E1Edge`` (Version 11.3 build 42)
--  ``FVP_RD_N1Edge``
+-  ``FVP_Base_Neoverse-V1x4``
+-  ``FVP_CSS_SGI-575``     (Version 11.10 build 36)
+-  ``FVP_CSS_SGM-775``
+-  ``FVP_RD_E1_edge``      (Version 11.9 build 41)
+-  ``FVP_RD_N1_edge``      (Version 11.10 build 36)
+-  ``FVP_RD_N1_edge_dual`` (Version 11.10 build 36)
+-  ``FVP_RD_Daniel``       (Version 11.13 build 10)
+-  ``FVP_RD_N2``           (Version 11.13 build 10)
+-  ``FVP_TC0``             (Version 0.0 build 6114)
 -  ``Foundation_Platform``
 
 The latest version of the AArch32 build of TF-A has been tested on the
 following Arm FVPs without shifted affinities, and that do not support threaded
 CPU cores (64-bit host machine only).
 
+-  ``FVP_Base_AEMvA``
 -  ``FVP_Base_AEMv8A-AEMv8A``
 -  ``FVP_Base_Cortex-A32x4``
 
@@ -114,13 +126,8 @@ Arm FVP Platform Specific Build Options
 
 -  ``FVP_USE_GIC_DRIVER`` : Selects the GIC driver to be built. Options:
 
-   -  ``FVP_GIC600`` : The GIC600 implementation of GICv3 is selected
    -  ``FVP_GICV2`` : The GICv2 only driver is selected
    -  ``FVP_GICV3`` : The GICv3 only driver is selected (default option)
-
--  ``FVP_USE_SP804_TIMER`` : Use the SP804 timer instead of the Generic Timer
-   for functions that wait for an arbitrary time length (udelay and mdelay).
-   The default value is 0.
 
 -  ``FVP_HW_CONFIG_DTS`` : Specify the path to the DTS file to be compiled
    to DTB and packaged in FIP as the HW_CONFIG. See :ref:`Firmware Design` for
@@ -134,6 +141,11 @@ Arm FVP Platform Specific Build Options
    similar to the ``FVP_HW_CONFIG_DTS`` option, but it directly specifies the
    HW_CONFIG blob instead of the DTS file. This option is useful to override
    the default HW_CONFIG selected by the build system.
+
+-  ``FVP_GICR_REGION_PROTECTION``: Mark the redistributor pages of
+   inactive/fused CPU cores as read-only. The default value of this option
+   is ``0``, which means the redistributor pages of all CPU cores are marked
+   as read and write.
 
 Booting Firmware Update images
 ------------------------------
@@ -277,15 +289,15 @@ And the FVP binary can be run with the following command:
     -C cluster0.NUM_CORES=4                                     \
     -C cluster1.NUM_CORES=4                                     \
     -C cache_state_modelled=1                                   \
-    -C cluster0.cpu0.RVBAR=0x04020000                           \
-    -C cluster0.cpu1.RVBAR=0x04020000                           \
-    -C cluster0.cpu2.RVBAR=0x04020000                           \
-    -C cluster0.cpu3.RVBAR=0x04020000                           \
-    -C cluster1.cpu0.RVBAR=0x04020000                           \
-    -C cluster1.cpu1.RVBAR=0x04020000                           \
-    -C cluster1.cpu2.RVBAR=0x04020000                           \
-    -C cluster1.cpu3.RVBAR=0x04020000                           \
-    --data cluster0.cpu0="<path-to>/bl31.bin"@0x04020000        \
+    -C cluster0.cpu0.RVBAR=0x04001000                           \
+    -C cluster0.cpu1.RVBAR=0x04001000                           \
+    -C cluster0.cpu2.RVBAR=0x04001000                           \
+    -C cluster0.cpu3.RVBAR=0x04001000                           \
+    -C cluster1.cpu0.RVBAR=0x04001000                           \
+    -C cluster1.cpu1.RVBAR=0x04001000                           \
+    -C cluster1.cpu2.RVBAR=0x04001000                           \
+    -C cluster1.cpu3.RVBAR=0x04001000                           \
+    --data cluster0.cpu0="<path-to>/bl31.bin"@0x04001000        \
     --data cluster0.cpu0="<path-to>/<patched-fdt>"@0x82000000   \
     --data cluster0.cpu0="<path-to>/<kernel-binary>"@0x80080000 \
     --data cluster0.cpu0="<path-to>/<ramdisk.img>"@0x84000000
@@ -628,9 +640,9 @@ boot Linux with 4 CPUs using the AArch32 build of TF-A.
 
 --------------
 
-*Copyright (c) 2019, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2020, Arm Limited. All rights reserved.*
 
-.. _TB_FW_CONFIG for FVP: ../plat/arm/board/fvp/fdts/fvp_tb_fw_config.dts
+.. _TB_FW_CONFIG for FVP: https://git.trustedfirmware.org/TF-A/trusted-firmware-a.git/tree/plat/arm/board/fvp/fdts/fvp_tb_fw_config.dts
 .. _Arm's website: `FVP models`_
 .. _FVP models: https://developer.arm.com/products/system-design/fixed-virtual-platforms
 .. _Linaro Release 19.06: http://releases.linaro.org/members/arm/platforms/19.06

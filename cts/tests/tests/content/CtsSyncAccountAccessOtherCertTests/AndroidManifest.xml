@@ -15,27 +15,27 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.content">
+     package="com.android.cts.content">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
         <activity android:name=".StubActivity"/>
 
-        <service android:name=".AlwaysSyncableSyncService">
+        <service android:name=".AlwaysSyncableSyncService"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.content.SyncAdapter"/>
             </intent-filter>
             <meta-data android:name="android.content.SyncAdapter"
-                   android:resource="@xml/syncadapter" />
+                 android:resource="@xml/syncadapter"/>
         </service>
 
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.content" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="com.android.cts.content"/>
 
 </manifest>

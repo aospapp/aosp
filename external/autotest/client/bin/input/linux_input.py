@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,8 +8,11 @@
 # Python version of include/linux/input.h
 #  as of kernel v2.6.39
 
-from linux_ioctl import *
+from __future__ import division
+from __future__ import print_function
+from six.moves import range
 
+from linux_ioctl import *
 # The event structure itself
 #   struct input_event {
 #       struct timeval time;
@@ -133,6 +137,8 @@ def EVIOCSABS(axis):
 
 # send a force effect to a force feedback device
 """  TODO: Support force feedback. """
+
+
 #EVIOCSFF                = IOW('E', 0x80, ff_effect_t)
 # Erase a force effect
 EVIOCRMFF               = IOW('E', 0x81, 'i')
@@ -738,6 +744,9 @@ REL_HWHEEL          = 0x06
 REL_DIAL            = 0x07
 REL_WHEEL           = 0x08
 REL_MISC            = 0x09
+REL_RESERVED        = 0x0a
+REL_WHEEL_HI_RES    = 0x0b
+REL_HWHEEL_HI_RES   = 0x0c
 REL_MAX             = 0x0f
 REL_CNT             = (REL_MAX + 1)
 
@@ -787,7 +796,7 @@ ABS_MT_DISTANCE     = 0x3b  # Contact hover distance
 
 ABS_MT_FIRST        = ABS_MT_TOUCH_MAJOR
 ABS_MT_LAST         = ABS_MT_DISTANCE
-ABS_MT_RANGE        = range(ABS_MT_FIRST, ABS_MT_LAST+1)
+ABS_MT_RANGE        = list(range(ABS_MT_FIRST, ABS_MT_LAST+1))
 
 ABS_MAX             = 0x3f
 ABS_CNT             = (ABS_MAX + 1)
@@ -796,7 +805,7 @@ ABS_CNT             = (ABS_MAX + 1)
 SW_LID                  = 0x00  # set = lid shut
 SW_TABLET_MODE          = 0x01  # set = tablet mode
 SW_HEADPHONE_INSERT     = 0x02  # set = inserted
-SW_RFKILL_ALL           = 0x03  # rfkill master switch, type "any"
+SW_RFKILL_ALL           = 0x03  # rfkill main switch, type "any"
                                 # set = radio enabled
 SW_RADIO = SW_RFKILL_ALL        # deprecated
 SW_MICROPHONE_INSERT    = 0x04  # set = inserted
@@ -1099,7 +1108,7 @@ input subsystem from python scripts.
 BITS_PER_WORD = 8
 
 def NBITS(x):
-    return ((x - 1) / BITS_PER_WORD) + 1
+    return ((x - 1) // BITS_PER_WORD) + 1
 
 def OFFSET(x):
     return (x % BITS_PER_WORD)
@@ -1108,7 +1117,7 @@ def BIT(x):
     return (1 << OFFSET(x))
 
 def INDEX(x):
-    return (x / BITS_PER_WORD)
+    return (x // BITS_PER_WORD)
 
 def test_bit(b, a):
     return ((a[INDEX(b)] >> OFFSET(b)) & 1)

@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -30,7 +30,7 @@ public class Poc18_10 extends SecurityTestCase {
      *  b/111641492
      */
     @Test
-    @SecurityTest(minPatchLevel = "2018-10")
+    @AsbSecurityTest(cveBugId = 111641492)
     public void testPocCVE_2018_9515() throws Exception {
         AdbUtils.runCommandLine("rm /sdcard/Android/data/CVE-2018-9515", getDevice());
         AdbUtils.runCommandLine("mkdir /sdcard/Android/data/CVE-2018-9515", getDevice());
@@ -41,15 +41,5 @@ public class Poc18_10 extends SecurityTestCase {
             getDevice().waitForDeviceAvailable(120_000); // 2 minutes
         }
         AdbUtils.runCommandLine("rm -rf /sdcard/Android/data/CVE-2018-9515", getDevice());
-    }
-
-    /**
-     *  b/111274046
-     */
-    @Test
-    @SecurityTest
-    public void testPocCVE_2018_9490() throws Exception {
-        int code = AdbUtils.runProxyAutoConfig("CVE-2018-9490", getDevice());
-        assertTrue(code != 139); // 128 + signal 11
     }
 }

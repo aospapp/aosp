@@ -17,17 +17,13 @@
 #include "MetadataCrypt.h"
 #include "KeyBuffer.h"
 
-#include <algorithm>
 #include <string>
-#include <thread>
-#include <vector>
 
 #include <fcntl.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <android-base/strings.h>
@@ -35,6 +31,7 @@
 #include <cutils/fs.h>
 #include <fs_mgr.h>
 #include <libdm/dm.h>
+#include <libgsi/libgsi.h>
 
 #include "Checkpoint.h"
 #include "CryptoType.h"
@@ -44,8 +41,8 @@
 #include "Keymaster.h"
 #include "Utils.h"
 #include "VoldUtil.h"
-
-#define TABLE_LOAD_RETRIES 10
+#include "fs/Ext4.h"
+#include "fs/F2fs.h"
 
 namespace android {
 namespace vold {
@@ -64,9 +61,6 @@ struct CryptoOptions {
 };
 
 static const std::string kDmNameUserdata = "userdata";
-
-static const char* kFn_keymaster_key_blob = "keymaster_key_blob";
-static const char* kFn_keymaster_key_blob_upgraded = "keymaster_key_blob_upgraded";
 
 // The first entry in this table is the default crypto type.
 constexpr CryptoType supported_crypto_types[] = {aes_256_xts, adiantum};
@@ -87,10 +81,6 @@ const KeyGeneration makeGen(const CryptoOptions& options) {
 }
 
 static bool mount_via_fs_mgr(const char* mount_point, const char* blk_device) {
-    // We're about to mount data not verified by verified boot.  Tell Keymaster instances that early
-    // boot has ended.
-    ::android::vold::Keymaster::earlyBootEnded();
-
     // fs_mgr_do_mount runs fsck. Use setexeccon to run trusted
     // partitions in the fsck domain.
     if (setexeccon(android::vold::sFsckContext)) {
@@ -112,31 +102,6 @@ static bool mount_via_fs_mgr(const char* mount_point, const char* blk_device) {
     return true;
 }
 
-// Note: It is possible to orphan a key if it is removed before deleting
-// Update this once keymaster APIs change, and we have a proper commit.
-static void commit_key(const std::string& dir) {
-    while (!android::base::WaitForProperty("vold.checkpoint_committed", "1")) {
-        LOG(ERROR) << "Wait for boot timed out";
-    }
-    Keymaster keymaster;
-    auto keyPath = dir + "/" + kFn_keymaster_key_blob;
-    auto newKeyPath = dir + "/" + kFn_keymaster_key_blob_upgraded;
-    std::string key;
-
-    if (!android::base::ReadFileToString(keyPath, &key)) {
-        LOG(ERROR) << "Failed to read old key: " << dir;
-        return;
-    }
-    if (rename(newKeyPath.c_str(), keyPath.c_str()) != 0) {
-        PLOG(ERROR) << "Unable to move upgraded key to location: " << keyPath;
-        return;
-    }
-    if (!keymaster.deleteKey(key)) {
-        LOG(ERROR) << "Key deletion failed during upgrade, continuing anyway: " << dir;
-    }
-    LOG(INFO) << "Old Key deleted: " << dir;
-}
-
 static bool read_key(const std::string& metadata_key_dir, const KeyGeneration& gen,
                      KeyBuffer* key) {
     if (metadata_key_dir.empty()) {
@@ -146,30 +111,20 @@ static bool read_key(const std::string& metadata_key_dir, const KeyGeneration& g
     std::string sKey;
     auto dir = metadata_key_dir + "/key";
     LOG(DEBUG) << "metadata_key_dir/key: " << dir;
-    if (fs_mkdirs(dir.c_str(), 0700)) {
-        PLOG(ERROR) << "Creating directories: " << dir;
-        return false;
+    if (!MkdirsSync(dir, 0700)) return false;
+    if (!pathExists(dir)) {
+        auto delete_all = android::base::GetBoolProperty(
+                "ro.crypto.metadata_init_delete_all_keys.enabled", false);
+        if (delete_all) {
+            LOG(INFO) << "Metadata key does not exist, calling deleteAllKeys";
+            Keymaster::deleteAllKeys();
+        } else {
+            LOG(DEBUG) << "Metadata key does not exist but "
+                          "ro.crypto.metadata_init_delete_all_keys.enabled is false";
+        }
     }
     auto temp = metadata_key_dir + "/tmp";
-    auto newKeyPath = dir + "/" + kFn_keymaster_key_blob_upgraded;
-    /* If we have a leftover upgraded key, delete it.
-     * We either failed an update and must return to the old key,
-     * or we rebooted before commiting the keys in a freak accident.
-     * Either way, we can re-upgrade the key if we need to.
-     */
-    Keymaster keymaster;
-    if (pathExists(newKeyPath)) {
-        if (!android::base::ReadFileToString(newKeyPath, &sKey))
-            LOG(ERROR) << "Failed to read incomplete key: " << dir;
-        else if (!keymaster.deleteKey(sKey))
-            LOG(ERROR) << "Incomplete key deletion failed, continuing anyway: " << dir;
-        else
-            unlink(newKeyPath.c_str());
-    }
-    bool needs_cp = cp_needsCheckpoint();
-    if (!retrieveOrGenerateKey(dir, temp, kEmptyAuthentication, gen, key, needs_cp)) return false;
-    if (needs_cp && pathExists(newKeyPath)) std::thread(commit_key, dir).detach();
-    return true;
+    return retrieveOrGenerateKey(dir, temp, kEmptyAuthentication, gen, key);
 }
 
 static bool get_number_of_sectors(const std::string& real_blkdev, uint64_t* nr_sec) {
@@ -215,20 +170,8 @@ static bool create_crypto_blk_dev(const std::string& dm_name, const std::string&
     table.AddTarget(std::move(target));
 
     auto& dm = DeviceMapper::Instance();
-    for (int i = 0;; i++) {
-        if (dm.CreateDevice(dm_name, table)) {
-            break;
-        }
-        if (i + 1 >= TABLE_LOAD_RETRIES) {
-            PLOG(ERROR) << "Could not create default-key device " << dm_name;
-            return false;
-        }
-        PLOG(INFO) << "Could not create default-key device, retrying";
-        usleep(500000);
-    }
-
-    if (!dm.GetDmDevicePathByName(dm_name, crypto_blkdev)) {
-        LOG(ERROR) << "Cannot retrieve default-key device status " << dm_name;
+    if (!dm.CreateDevice(dm_name, table, crypto_blkdev, std::chrono::seconds(5))) {
+        PLOG(ERROR) << "Could not create default-key device " << dm_name;
         return false;
     }
     return true;
@@ -269,8 +212,11 @@ static bool parse_options(const std::string& options_string, CryptoOptions* opti
 }
 
 bool fscrypt_mount_metadata_encrypted(const std::string& blk_device, const std::string& mount_point,
-                                      bool needs_encrypt) {
-    LOG(DEBUG) << "fscrypt_mount_metadata_encrypted: " << mount_point << " " << needs_encrypt;
+                                      bool needs_encrypt, bool should_format,
+                                      const std::string& fs_type) {
+    LOG(DEBUG) << "fscrypt_mount_metadata_encrypted: " << mount_point
+               << " encrypt: " << needs_encrypt << " format: " << should_format << " with "
+               << fs_type;
     auto encrypted_state = android::base::GetProperty("ro.crypto.state", "");
     if (encrypted_state != "" && encrypted_state != "encrypted") {
         LOG(DEBUG) << "fscrypt_enable_crypto got unexpected starting state: " << encrypted_state;
@@ -283,10 +229,9 @@ bool fscrypt_mount_metadata_encrypted(const std::string& blk_device, const std::
         return false;
     }
 
-    constexpr unsigned int pre_gki_level = 29;
     unsigned int options_format_version = android::base::GetUintProperty<unsigned int>(
             "ro.crypto.dm_default_key.options_format.version",
-            (GetFirstApiLevel() <= pre_gki_level ? 1 : 2));
+            (GetFirstApiLevel() <= __ANDROID_API_Q__ ? 1 : 2));
 
     CryptoOptions options;
     if (options_format_version == 1) {
@@ -318,21 +263,23 @@ bool fscrypt_mount_metadata_encrypted(const std::string& blk_device, const std::
     if (!create_crypto_blk_dev(kDmNameUserdata, blk_device, key, options, &crypto_blkdev, &nr_sec))
         return false;
 
-    // FIXME handle the corrupt case
     if (needs_encrypt) {
-        LOG(INFO) << "Beginning inplace encryption, nr_sec: " << nr_sec;
-        off64_t size_already_done = 0;
-        auto rc = cryptfs_enable_inplace(crypto_blkdev.data(), blk_device.data(), nr_sec,
-                                         &size_already_done, nr_sec, 0, false);
-        if (rc != 0) {
-            LOG(ERROR) << "Inplace crypto failed with code: " << rc;
-            return false;
+        if (should_format) {
+            status_t error;
+
+            if (fs_type == "ext4") {
+                error = ext4::Format(crypto_blkdev, 0, mount_point);
+            } else if (fs_type == "f2fs") {
+                error = f2fs::Format(crypto_blkdev);
+            } else {
+                LOG(ERROR) << "Unknown filesystem type: " << fs_type;
+                return false;
+            }
+            LOG(DEBUG) << "Format (err=" << error << ") " << crypto_blkdev << " on " << mount_point;
+            if (error != 0) return false;
+        } else {
+            if (!encrypt_inplace(crypto_blkdev, blk_device, nr_sec, false)) return false;
         }
-        if (static_cast<uint64_t>(size_already_done) != nr_sec) {
-            LOG(ERROR) << "Inplace crypto only got up to sector: " << size_already_done;
-            return false;
-        }
-        LOG(INFO) << "Inplace encryption complete";
     }
 
     LOG(DEBUG) << "Mounting metadata-encrypted filesystem:" << mount_point;
@@ -365,6 +312,45 @@ bool defaultkey_setup_ext_volume(const std::string& label, const std::string& bl
     if (!get_volume_options(&options)) return false;
     uint64_t nr_sec;
     return create_crypto_blk_dev(label, blk_device, key, options, out_crypto_blkdev, &nr_sec);
+}
+
+bool destroy_dsu_metadata_key(const std::string& dsu_slot) {
+    LOG(DEBUG) << "destroy_dsu_metadata_key: " << dsu_slot;
+
+    const auto dsu_metadata_key_dir = android::gsi::GetDsuMetadataKeyDir(dsu_slot);
+    if (!pathExists(dsu_metadata_key_dir)) {
+        LOG(DEBUG) << "DSU metadata_key_dir doesn't exist, nothing to remove: "
+                   << dsu_metadata_key_dir;
+        return true;
+    }
+
+    // Ensure that the DSU key directory is different from the host OS'.
+    // Under normal circumstances, this should never happen, but handle it just in case.
+    if (auto data_rec = GetEntryForMountPoint(&fstab_default, "/data")) {
+        if (dsu_metadata_key_dir == data_rec->metadata_key_dir) {
+            LOG(ERROR) << "DSU metadata_key_dir is same as host OS: " << dsu_metadata_key_dir;
+            return false;
+        }
+    }
+
+    bool ok = true;
+    for (auto suffix : {"/key", "/tmp"}) {
+        const auto key_path = dsu_metadata_key_dir + suffix;
+        if (pathExists(key_path)) {
+            LOG(DEBUG) << "Destroy key: " << key_path;
+            if (!android::vold::destroyKey(key_path)) {
+                LOG(ERROR) << "Failed to destroyKey(): " << key_path;
+                ok = false;
+            }
+        }
+    }
+    if (!ok) {
+        return false;
+    }
+
+    LOG(DEBUG) << "Remove DSU metadata_key_dir: " << dsu_metadata_key_dir;
+    // DeleteDirContentsAndDir() already logged any error, so don't log repeatedly.
+    return android::vold::DeleteDirContentsAndDir(dsu_metadata_key_dir) == android::OK;
 }
 
 }  // namespace vold

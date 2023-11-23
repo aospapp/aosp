@@ -29,7 +29,7 @@
 #include "util/u_string.h"
 #include "util/u_memory.h"
 #include "util/u_inlines.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "tgsi/tgsi_dump.h"
 #include "tgsi/tgsi_parse.h"
 
@@ -49,30 +49,54 @@ dump_shader_info(struct ir3_shader_variant *v, struct pipe_debug_callback *debug
 	if (!unlikely(fd_mesa_debug & FD_DBG_SHADERDB))
 		return;
 
-	pipe_debug_message(debug, SHADER_INFO, "\n"
-			"SHADER-DB: %s prog %d/%d: %u instructions, %u dwords\n"
-			"SHADER-DB: %s prog %d/%d: %u half, %u full\n"
-			"SHADER-DB: %s prog %d/%d: %u const, %u constlen\n"
-			"SHADER-DB: %s prog %d/%d: %u (ss), %u (sy)\n"
-			"SHADER-DB: %s prog %d/%d: max_sun=%u\n",
-			ir3_shader_stage(v->shader),
-			v->shader->id, v->id,
+	pipe_debug_message(debug, SHADER_INFO,
+			"%s shader: %u inst, %u nops, %u non-nops, %u mov, %u cov, "
+			"%u dwords, %u last-baryf, %u half, %u full, %u constlen, "
+			"%u cat0, %u cat1, %u cat2, %u cat3, %u cat4, %u cat5, %u cat6, %u cat7, "
+			"%u sstall, %u (ss), %u (sy), %d max_sun, %d loops\n",
+			ir3_shader_stage(v),
 			v->info.instrs_count,
+			v->info.nops_count,
+			v->info.instrs_count - v->info.nops_count,
+			v->info.mov_count,
+			v->info.cov_count,
 			v->info.sizedwords,
-			ir3_shader_stage(v->shader),
-			v->shader->id, v->id,
+			v->info.last_baryf,
 			v->info.max_half_reg + 1,
 			v->info.max_reg + 1,
-			ir3_shader_stage(v->shader),
-			v->shader->id, v->id,
-			v->info.max_const + 1,
 			v->constlen,
-			ir3_shader_stage(v->shader),
-			v->shader->id, v->id,
+			v->info.instrs_per_cat[0],
+			v->info.instrs_per_cat[1],
+			v->info.instrs_per_cat[2],
+			v->info.instrs_per_cat[3],
+			v->info.instrs_per_cat[4],
+			v->info.instrs_per_cat[5],
+			v->info.instrs_per_cat[6],
+			v->info.instrs_per_cat[7],
+			v->info.sstall,
 			v->info.ss, v->info.sy,
-			ir3_shader_stage(v->shader),
-			v->shader->id, v->id,
-			v->max_sun);
+			v->max_sun, v->loops);
+}
+
+static void
+upload_shader_variant(struct ir3_shader_variant *v)
+{
+	struct shader_info *info = &v->shader->nir->info;
+	struct ir3_compiler *compiler = v->shader->compiler;
+
+	assert(!v->bo);
+
+	unsigned sz = v->info.sizedwords * 4;
+
+	v->bo = fd_bo_new(compiler->dev, sz,
+			DRM_FREEDRENO_GEM_CACHE_WCOMBINE |
+			DRM_FREEDRENO_GEM_TYPE_KMEM,
+			"%s:%s", ir3_shader_stage(v), info->name);
+
+	/* Always include shaders in kernel crash dumps. */
+	fd_bo_mark_for_dump(v->bo);
+
+	memcpy(fd_bo_map(v->bo), v->bin, sz);
 }
 
 struct ir3_shader_variant *
@@ -82,16 +106,34 @@ ir3_shader_variant(struct ir3_shader *shader, struct ir3_shader_key key,
 	struct ir3_shader_variant *v;
 	bool created = false;
 
-	/* some shader key values only apply to vertex or frag shader,
-	 * so normalize the key to avoid constructing multiple identical
-	 * variants:
+	/* Some shader key values may not be used by a given ir3_shader (for
+	 * example, fragment shader saturates in the vertex shader), so clean out
+	 * those flags to avoid recompiling.
 	 */
-	ir3_normalize_key(&key, shader->type);
+	ir3_key_clear_unused(&key, shader);
 
 	v = ir3_shader_get_variant(shader, &key, binning_pass, &created);
 
 	if (created) {
+		if (shader->initial_variants_done) {
+			pipe_debug_message(debug, SHADER_INFO,
+					"%s shader: recompiling at draw time: global 0x%08x, vsats %x/%x/%x, fsats %x/%x/%x, vfsamples %x/%x, astc %x/%x\n",
+					ir3_shader_stage(v),
+					key.global,
+					key.vsaturate_s, key.vsaturate_t, key.vsaturate_r,
+					key.fsaturate_s, key.fsaturate_t, key.fsaturate_r,
+					key.vsamples, key.fsamples,
+					key.vastc_srgb, key.fastc_srgb);
+
+		}
+
 		dump_shader_info(v, debug);
+		upload_shader_variant(v);
+
+		if (v->binning) {
+			upload_shader_variant(v->binning);
+			dump_shader_info(v->binning, debug);
+		}
 	}
 
 	return v;
@@ -120,7 +162,7 @@ copy_stream_out(struct ir3_stream_output_info *i,
 
 struct ir3_shader *
 ir3_shader_create(struct ir3_compiler *compiler,
-		const struct pipe_shader_state *cso, gl_shader_stage type,
+		const struct pipe_shader_state *cso,
 		struct pipe_debug_callback *debug,
 		struct pipe_screen *screen)
 {
@@ -133,22 +175,72 @@ ir3_shader_create(struct ir3_compiler *compiler,
 		if (ir3_shader_debug & IR3_DBG_DISASM) {
 			tgsi_dump(cso->tokens, 0);
 		}
-		nir = ir3_tgsi_to_nir(compiler, cso->tokens, screen);
+		nir = tgsi_to_nir(cso->tokens, screen, false);
 	}
 
-	struct ir3_shader *shader = ir3_shader_from_nir(compiler, nir);
+	struct ir3_stream_output_info stream_output;
+	copy_stream_out(&stream_output, &cso->stream_output);
 
-	copy_stream_out(&shader->stream_output, &cso->stream_output);
+	struct ir3_shader *shader = ir3_shader_from_nir(compiler, nir, 0, &stream_output);
 
-	if (fd_mesa_debug & FD_DBG_SHADERDB) {
-		/* if shader-db run, create a standard variant immediately
-		 * (as otherwise nothing will trigger the shader to be
-		 * actually compiled)
+	/* Compile standard variants immediately to try to avoid draw-time stalls
+	 * to run the compiler.
+	 */
+	struct ir3_shader_key key = {
+		.tessellation = IR3_TESS_NONE,
+		.ucp_enables = MASK(nir->info.clip_distance_array_size),
+		.msaa = true,
+	};
+
+	switch (nir->info.stage) {
+	case MESA_SHADER_TESS_EVAL:
+		key.tessellation = ir3_tess_mode(nir->info.tess.primitive_mode);
+		break;
+
+	case MESA_SHADER_TESS_CTRL:
+		/* The primitive_mode field, while it exists for TCS, is not
+		 * populated (since separable shaders between TCS/TES are legal,
+		 * so TCS wouldn't have access to TES's declaration).  Make a
+		 * guess so that we shader-db something plausible for TCS.
 		 */
-		static struct ir3_shader_key key;
-		memset(&key, 0, sizeof(key));
+		if (nir->info.outputs_written & VARYING_BIT_TESS_LEVEL_INNER)
+			key.tessellation = IR3_TESS_TRIANGLES;
+		else
+			key.tessellation = IR3_TESS_ISOLINES;
+		break;
+
+	case MESA_SHADER_GEOMETRY:
+		key.has_gs = true;
+		break;
+
+	default:
+		break;
+	}
+
+	key.safe_constlen = false;
+	struct ir3_shader_variant *v = ir3_shader_variant(shader, key, false, debug);
+	if (!v)
+		return NULL;
+
+	if (v->constlen > compiler->max_const_safe) {
+		key.safe_constlen = true;
 		ir3_shader_variant(shader, key, false, debug);
 	}
+
+	if (nir->info.stage == MESA_SHADER_VERTEX) {
+		key.safe_constlen = false;
+		v = ir3_shader_variant(shader, key, true, debug);
+		if (!v)
+			return NULL;
+
+		if (v->constlen > compiler->max_const_safe) {
+			key.safe_constlen = true;
+			ir3_shader_variant(shader, key, true, debug);
+		}
+	}
+
+	shader->initial_variants_done = true;
+
 	return shader;
 }
 
@@ -170,509 +262,81 @@ ir3_shader_create_compute(struct ir3_compiler *compiler,
 		if (ir3_shader_debug & IR3_DBG_DISASM) {
 			tgsi_dump(cso->prog, 0);
 		}
-		nir = ir3_tgsi_to_nir(compiler, cso->prog, screen);
+		nir = tgsi_to_nir(cso->prog, screen, false);
 	}
 
-	struct ir3_shader *shader = ir3_shader_from_nir(compiler, nir);
+	struct ir3_shader *shader = ir3_shader_from_nir(compiler, nir, 0, NULL);
+
+	/* Immediately compile a standard variant.  We have so few variants in our
+	 * shaders, that doing so almost eliminates draw-time recompiles.  (This
+	 * is also how we get data from shader-db's ./run)
+	 */
+	static struct ir3_shader_key key; /* static is implicitly zeroed */
+	ir3_shader_variant(shader, key, false, debug);
+
+	shader->initial_variants_done = true;
 
 	return shader;
 }
 
-struct nir_shader *
-ir3_tgsi_to_nir(struct ir3_compiler *compiler,
-		const struct tgsi_token *tokens,
-		struct pipe_screen *screen)
+void *
+ir3_shader_state_create(struct pipe_context *pctx, const struct pipe_shader_state *cso)
 {
-	if (!screen) {
-		const nir_shader_compiler_options *options =
-			ir3_get_compiler_options(compiler);
-		return tgsi_to_nir_noscreen(tokens, options);
-	}
-
-	return tgsi_to_nir(tokens, screen);
-}
-
-/* This has to reach into the fd_context a bit more than the rest of
- * ir3, but it needs to be aligned with the compiler, so both agree
- * on which const regs hold what.  And the logic is identical between
- * a3xx/a4xx, the only difference is small details in the actual
- * CP_LOAD_STATE packets (which is handled inside the generation
- * specific ctx->emit_const(_bo)() fxns)
- */
-
-#include "freedreno_resource.h"
-
-static inline bool
-is_stateobj(struct fd_ringbuffer *ring)
-{
-	/* XXX this is an ugly way to differentiate.. */
-	return !!(ring->flags & FD_RINGBUFFER_STREAMING);
-}
-
-static inline void
-ring_wfi(struct fd_batch *batch, struct fd_ringbuffer *ring)
-{
-	/* when we emit const state via ring (IB2) we need a WFI, but when
-	 * it is emit'd via stateobj, we don't
-	 */
-	if (is_stateobj(ring))
-		return;
-
-	fd_wfi(batch, ring);
-}
-
-static void
-emit_user_consts(struct fd_context *ctx, const struct ir3_shader_variant *v,
-		struct fd_ringbuffer *ring, struct fd_constbuf_stateobj *constbuf)
-{
-	const unsigned index = 0;     /* user consts are index 0 */
-
-	if (constbuf->enabled_mask & (1 << index)) {
-		struct pipe_constant_buffer *cb = &constbuf->cb[index];
-		/* size in dwords, aligned to vec4.  (This works at least
-		 * with mesa/st, which seems to align constant buffer to
-		 * 16 bytes)
-		 */
-		unsigned size = align(cb->buffer_size, 16) / 4;
-
-		/* in particular, with binning shader we may end up with
-		 * unused consts, ie. we could end up w/ constlen that is
-		 * smaller than first_driver_param.  In that case truncate
-		 * the user consts early to avoid HLSQ lockup caused by
-		 * writing too many consts
-		 */
-		uint32_t max_const = MIN2(v->num_uniforms, v->constlen);
-
-		/* and even if the start of the const buffer is before
-		 * first_immediate, the end may not be:
-		 */
-		size = MIN2(size, 4 * max_const);
-
-		if (size > 0) {
-			ring_wfi(ctx->batch, ring);
-			ctx->emit_const(ring, v->type, 0,
-					cb->buffer_offset, size,
-					cb->user_buffer, cb->buffer);
-		}
-	}
-
-	struct ir3_ubo_analysis_state *state;
-	state = &v->shader->ubo_state;
-
-	for (uint32_t i = 1; i < ARRAY_SIZE(state->range); i++) {
-		struct pipe_constant_buffer *cb = &constbuf->cb[i];
-
-		if (state->range[i].start < state->range[i].end &&
-			constbuf->enabled_mask & (1 << i)) {
-
-			uint32_t size = state->range[i].end - state->range[i].start;
-			uint32_t offset = cb->buffer_offset + state->range[i].start;
-			debug_assert((state->range[i].offset % 16) == 0);
-			debug_assert((size % 16) == 0);
-			debug_assert((offset % 16) == 0);
-			ctx->emit_const(ring, v->type, state->range[i].offset / 4,
-							offset, size / 4, cb->user_buffer, cb->buffer);
-		}
-	}
-}
-
-static void
-emit_ubos(struct fd_context *ctx, const struct ir3_shader_variant *v,
-		struct fd_ringbuffer *ring, struct fd_constbuf_stateobj *constbuf)
-{
-	uint32_t offset = v->constbase.ubo;
-	if (v->constlen > offset) {
-		uint32_t params = v->num_ubos;
-		uint32_t offsets[params];
-		struct pipe_resource *prscs[params];
-
-		for (uint32_t i = 0; i < params; i++) {
-			const uint32_t index = i + 1;   /* UBOs start at index 1 */
-			struct pipe_constant_buffer *cb = &constbuf->cb[index];
-			assert(!cb->user_buffer);
-
-			if ((constbuf->enabled_mask & (1 << index)) && cb->buffer) {
-				offsets[i] = cb->buffer_offset;
-				prscs[i] = cb->buffer;
-			} else {
-				offsets[i] = 0;
-				prscs[i] = NULL;
-			}
-		}
-
-		ring_wfi(ctx->batch, ring);
-		ctx->emit_const_bo(ring, v->type, false, offset * 4, params, prscs, offsets);
-	}
-}
-
-static void
-emit_ssbo_sizes(struct fd_context *ctx, const struct ir3_shader_variant *v,
-		struct fd_ringbuffer *ring, struct fd_shaderbuf_stateobj *sb)
-{
-	uint32_t offset = v->constbase.ssbo_sizes;
-	if (v->constlen > offset) {
-		uint32_t sizes[align(v->const_layout.ssbo_size.count, 4)];
-		unsigned mask = v->const_layout.ssbo_size.mask;
-
-		while (mask) {
-			unsigned index = u_bit_scan(&mask);
-			unsigned off = v->const_layout.ssbo_size.off[index];
-			sizes[off] = sb->sb[index].buffer_size;
-		}
-
-		ring_wfi(ctx->batch, ring);
-		ctx->emit_const(ring, v->type, offset * 4,
-			0, ARRAY_SIZE(sizes), sizes, NULL);
-	}
-}
-
-static void
-emit_image_dims(struct fd_context *ctx, const struct ir3_shader_variant *v,
-		struct fd_ringbuffer *ring, struct fd_shaderimg_stateobj *si)
-{
-	uint32_t offset = v->constbase.image_dims;
-	if (v->constlen > offset) {
-		uint32_t dims[align(v->const_layout.image_dims.count, 4)];
-		unsigned mask = v->const_layout.image_dims.mask;
-
-		while (mask) {
-			struct pipe_image_view *img;
-			struct fd_resource *rsc;
-			unsigned index = u_bit_scan(&mask);
-			unsigned off = v->const_layout.image_dims.off[index];
-
-			img = &si->si[index];
-			rsc = fd_resource(img->resource);
-
-			dims[off + 0] = util_format_get_blocksize(img->format);
-			if (img->resource->target != PIPE_BUFFER) {
-				unsigned lvl = img->u.tex.level;
-				/* note for 2d/cube/etc images, even if re-interpreted
-				 * as a different color format, the pixel size should
-				 * be the same, so use original dimensions for y and z
-				 * stride:
-				 */
-				dims[off + 1] = rsc->slices[lvl].pitch * rsc->cpp;
-				/* see corresponding logic in fd_resource_offset(): */
-				if (rsc->layer_first) {
-					dims[off + 2] = rsc->layer_size;
-				} else {
-					dims[off + 2] = rsc->slices[lvl].size0;
-				}
-			} else {
-				/* For buffer-backed images, the log2 of the format's
-				 * bytes-per-pixel is placed on the 2nd slot. This is useful
-				 * when emitting image_size instructions, for which we need
-				 * to divide by bpp for image buffers. Since the bpp
-				 * can only be power-of-two, the division is implemented
-				 * as a SHR, and for that it is handy to have the log2 of
-				 * bpp as a constant. (log2 = first-set-bit - 1)
-				 */
-				dims[off + 1] = ffs(dims[off + 0]) - 1;
-			}
-		}
-
-		ring_wfi(ctx->batch, ring);
-		ctx->emit_const(ring, v->type, offset * 4,
-			0, ARRAY_SIZE(dims), dims, NULL);
-	}
-}
-
-static void
-emit_immediates(struct fd_context *ctx, const struct ir3_shader_variant *v,
-		struct fd_ringbuffer *ring)
-{
-	int size = v->immediates_count;
-	uint32_t base = v->constbase.immediate;
-
-	/* truncate size to avoid writing constants that shader
-	 * does not use:
-	 */
-	size = MIN2(size + base, v->constlen) - base;
-
-	/* convert out of vec4: */
-	base *= 4;
-	size *= 4;
-
-	if (size > 0) {
-		ring_wfi(ctx->batch, ring);
-		ctx->emit_const(ring, v->type, base,
-			0, size, v->immediates[0].val, NULL);
-	}
-}
-
-/* emit stream-out buffers: */
-static void
-emit_tfbos(struct fd_context *ctx, const struct ir3_shader_variant *v,
-		struct fd_ringbuffer *ring)
-{
-	/* streamout addresses after driver-params: */
-	uint32_t offset = v->constbase.tfbo;
-	if (v->constlen > offset) {
-		struct fd_streamout_stateobj *so = &ctx->streamout;
-		struct ir3_stream_output_info *info = &v->shader->stream_output;
-		uint32_t params = 4;
-		uint32_t offsets[params];
-		struct pipe_resource *prscs[params];
-
-		for (uint32_t i = 0; i < params; i++) {
-			struct pipe_stream_output_target *target = so->targets[i];
-
-			if (target) {
-				offsets[i] = (so->offsets[i] * info->stride[i] * 4) +
-						target->buffer_offset;
-				prscs[i] = target->buffer;
-			} else {
-				offsets[i] = 0;
-				prscs[i] = NULL;
-			}
-		}
-
-		ring_wfi(ctx->batch, ring);
-		ctx->emit_const_bo(ring, v->type, true, offset * 4, params, prscs, offsets);
-	}
-}
-
-static uint32_t
-max_tf_vtx(struct fd_context *ctx, const struct ir3_shader_variant *v)
-{
-	struct fd_streamout_stateobj *so = &ctx->streamout;
-	struct ir3_stream_output_info *info = &v->shader->stream_output;
-	uint32_t maxvtxcnt = 0x7fffffff;
-
-	if (ctx->screen->gpu_id >= 500)
-		return 0;
-	if (v->binning_pass)
-		return 0;
-	if (v->shader->stream_output.num_outputs == 0)
-		return 0;
-	if (so->num_targets == 0)
-		return 0;
-
-	/* offset to write to is:
-	 *
-	 *   total_vtxcnt = vtxcnt + offsets[i]
-	 *   offset = total_vtxcnt * stride[i]
-	 *
-	 *   offset =   vtxcnt * stride[i]       ; calculated in shader
-	 *            + offsets[i] * stride[i]   ; calculated at emit_tfbos()
-	 *
-	 * assuming for each vtx, each target buffer will have data written
-	 * up to 'offset + stride[i]', that leaves maxvtxcnt as:
-	 *
-	 *   buffer_size = (maxvtxcnt * stride[i]) + stride[i]
-	 *   maxvtxcnt   = (buffer_size - stride[i]) / stride[i]
-	 *
-	 * but shader is actually doing a less-than (rather than less-than-
-	 * equal) check, so we can drop the -stride[i].
-	 *
-	 * TODO is assumption about `offset + stride[i]` legit?
-	 */
-	for (unsigned i = 0; i < so->num_targets; i++) {
-		struct pipe_stream_output_target *target = so->targets[i];
-		unsigned stride = info->stride[i] * 4;   /* convert dwords->bytes */
-		if (target) {
-			uint32_t max = target->buffer_size / stride;
-			maxvtxcnt = MIN2(maxvtxcnt, max);
-		}
-	}
-
-	return maxvtxcnt;
-}
-
-static void
-emit_common_consts(const struct ir3_shader_variant *v, struct fd_ringbuffer *ring,
-		struct fd_context *ctx, enum pipe_shader_type t)
-{
-	enum fd_dirty_shader_state dirty = ctx->dirty_shader[t];
-
-	/* When we use CP_SET_DRAW_STATE objects to emit constant state,
-	 * if we emit any of it we need to emit all.  This is because
-	 * we are using the same state-group-id each time for uniform
-	 * state, and if previous update is never evaluated (due to no
-	 * visible primitives in the current tile) then the new stateobj
-	 * completely replaces the old one.
-	 *
-	 * Possibly if we split up different parts of the const state to
-	 * different state-objects we could avoid this.
-	 */
-	if (dirty && is_stateobj(ring))
-		dirty = ~0;
-
-	if (dirty & (FD_DIRTY_SHADER_PROG | FD_DIRTY_SHADER_CONST)) {
-		struct fd_constbuf_stateobj *constbuf;
-		bool shader_dirty;
-
-		constbuf = &ctx->constbuf[t];
-		shader_dirty = !!(dirty & FD_DIRTY_SHADER_PROG);
-
-		emit_user_consts(ctx, v, ring, constbuf);
-		emit_ubos(ctx, v, ring, constbuf);
-		if (shader_dirty)
-			emit_immediates(ctx, v, ring);
-	}
-
-	if (dirty & (FD_DIRTY_SHADER_PROG | FD_DIRTY_SHADER_SSBO)) {
-		struct fd_shaderbuf_stateobj *sb = &ctx->shaderbuf[t];
-		emit_ssbo_sizes(ctx, v, ring, sb);
-	}
-
-	if (dirty & (FD_DIRTY_SHADER_PROG | FD_DIRTY_SHADER_IMAGE)) {
-		struct fd_shaderimg_stateobj *si = &ctx->shaderimg[t];
-		emit_image_dims(ctx, v, ring, si);
-	}
+	struct fd_context *ctx = fd_context(pctx);
+	struct ir3_compiler *compiler = ctx->screen->compiler;
+	return ir3_shader_create(compiler, cso, &ctx->debug, pctx->screen);
 }
 
 void
-ir3_emit_vs_consts(const struct ir3_shader_variant *v, struct fd_ringbuffer *ring,
-		struct fd_context *ctx, const struct pipe_draw_info *info)
+ir3_shader_state_delete(struct pipe_context *pctx, void *hwcso)
 {
-	debug_assert(v->type == MESA_SHADER_VERTEX);
+	struct ir3_shader *so = hwcso;
 
-	emit_common_consts(v, ring, ctx, PIPE_SHADER_VERTEX);
+	/* free the uploaded shaders, since this is handled outside of the
+	 * shared ir3 code (ie. not used by turnip):
+	 */
+	for (struct ir3_shader_variant *v = so->variants; v; v = v->next) {
+		fd_bo_del(v->bo);
+		v->bo = NULL;
 
-	/* emit driver params every time: */
-	/* TODO skip emit if shader doesn't use driver params to avoid WFI.. */
-	if (info) {
-		uint32_t offset = v->constbase.driver_param;
-		if (v->constlen > offset) {
-			uint32_t vertex_params[IR3_DP_VS_COUNT] = {
-				[IR3_DP_VTXID_BASE] = info->index_size ?
-						info->index_bias : info->start,
-				[IR3_DP_VTXCNT_MAX] = max_tf_vtx(ctx, v),
-			};
-			/* if no user-clip-planes, we don't need to emit the
-			 * entire thing:
-			 */
-			uint32_t vertex_params_size = 4;
-
-			if (v->key.ucp_enables) {
-				struct pipe_clip_state *ucp = &ctx->ucp;
-				unsigned pos = IR3_DP_UCP0_X;
-				for (unsigned i = 0; pos <= IR3_DP_UCP7_W; i++) {
-					for (unsigned j = 0; j < 4; j++) {
-						vertex_params[pos] = fui(ucp->ucp[i][j]);
-						pos++;
-					}
-				}
-				vertex_params_size = ARRAY_SIZE(vertex_params);
-			}
-
-			ring_wfi(ctx->batch, ring);
-
-			bool needs_vtxid_base =
-				ir3_find_sysval_regid(v, SYSTEM_VALUE_VERTEX_ID_ZERO_BASE) != regid(63, 0);
-
-			/* for indirect draw, we need to copy VTXID_BASE from
-			 * indirect-draw parameters buffer.. which is annoying
-			 * and means we can't easily emit these consts in cmd
-			 * stream so need to copy them to bo.
-			 */
-			if (info->indirect && needs_vtxid_base) {
-				struct pipe_draw_indirect_info *indirect = info->indirect;
-				struct pipe_resource *vertex_params_rsc =
-					pipe_buffer_create(&ctx->screen->base,
-						PIPE_BIND_CONSTANT_BUFFER, PIPE_USAGE_STREAM,
-						vertex_params_size * 4);
-				unsigned src_off = info->indirect->offset;;
-				void *ptr;
-
-				ptr = fd_bo_map(fd_resource(vertex_params_rsc)->bo);
-				memcpy(ptr, vertex_params, vertex_params_size * 4);
-
-				if (info->index_size) {
-					/* indexed draw, index_bias is 4th field: */
-					src_off += 3 * 4;
-				} else {
-					/* non-indexed draw, start is 3rd field: */
-					src_off += 2 * 4;
-				}
-
-				/* copy index_bias or start from draw params: */
-				ctx->mem_to_mem(ring, vertex_params_rsc, 0,
-						indirect->buffer, src_off, 1);
-
-				ctx->emit_const(ring, MESA_SHADER_VERTEX, offset * 4, 0,
-						vertex_params_size, NULL, vertex_params_rsc);
-
-				pipe_resource_reference(&vertex_params_rsc, NULL);
-			} else {
-				ctx->emit_const(ring, MESA_SHADER_VERTEX, offset * 4, 0,
-						vertex_params_size, vertex_params, NULL);
-			}
-
-			/* if needed, emit stream-out buffer addresses: */
-			if (vertex_params[IR3_DP_VTXCNT_MAX] > 0) {
-				emit_tfbos(ctx, v, ring);
-			}
+		if (v->binning && v->binning->bo) {
+			fd_bo_del(v->binning->bo);
+			v->binning->bo = NULL;
 		}
 	}
+
+	ir3_shader_destroy(so);
+}
+
+static void
+ir3_screen_finalize_nir(struct pipe_screen *pscreen, void *nir, bool optimize)
+{
+	struct fd_screen *screen = fd_screen(pscreen);
+
+	ir3_finalize_nir(screen->compiler, nir);
 }
 
 void
-ir3_emit_fs_consts(const struct ir3_shader_variant *v, struct fd_ringbuffer *ring,
-		struct fd_context *ctx)
+ir3_prog_init(struct pipe_context *pctx)
 {
-	debug_assert(v->type == MESA_SHADER_FRAGMENT);
+	pctx->create_vs_state = ir3_shader_state_create;
+	pctx->delete_vs_state = ir3_shader_state_delete;
 
-	emit_common_consts(v, ring, ctx, PIPE_SHADER_FRAGMENT);
+	pctx->create_tcs_state = ir3_shader_state_create;
+	pctx->delete_tcs_state = ir3_shader_state_delete;
+
+	pctx->create_tes_state = ir3_shader_state_create;
+	pctx->delete_tes_state = ir3_shader_state_delete;
+
+	pctx->create_gs_state = ir3_shader_state_create;
+	pctx->delete_gs_state = ir3_shader_state_delete;
+
+	pctx->create_fs_state = ir3_shader_state_create;
+	pctx->delete_fs_state = ir3_shader_state_delete;
 }
 
-/* emit compute-shader consts: */
 void
-ir3_emit_cs_consts(const struct ir3_shader_variant *v, struct fd_ringbuffer *ring,
-		struct fd_context *ctx, const struct pipe_grid_info *info)
+ir3_screen_init(struct pipe_screen *pscreen)
 {
-	debug_assert(gl_shader_stage_is_compute(v->type));
-
-	emit_common_consts(v, ring, ctx, PIPE_SHADER_COMPUTE);
-
-	/* emit compute-shader driver-params: */
-	uint32_t offset = v->constbase.driver_param;
-	if (v->constlen > offset) {
-		ring_wfi(ctx->batch, ring);
-
-		if (info->indirect) {
-			struct pipe_resource *indirect = NULL;
-			unsigned indirect_offset;
-
-			/* This is a bit awkward, but CP_LOAD_STATE.EXT_SRC_ADDR needs
-			 * to be aligned more strongly than 4 bytes.  So in this case
-			 * we need a temporary buffer to copy NumWorkGroups.xyz to.
-			 *
-			 * TODO if previous compute job is writing to info->indirect,
-			 * we might need a WFI.. but since we currently flush for each
-			 * compute job, we are probably ok for now.
-			 */
-			if (info->indirect_offset & 0xf) {
-				indirect = pipe_buffer_create(&ctx->screen->base,
-					PIPE_BIND_COMMAND_ARGS_BUFFER, PIPE_USAGE_STREAM,
-					0x1000);
-				indirect_offset = 0;
-
-				ctx->mem_to_mem(ring, indirect, 0, info->indirect,
-						info->indirect_offset, 3);
-			} else {
-				pipe_resource_reference(&indirect, info->indirect);
-				indirect_offset = info->indirect_offset;
-			}
-
-			ctx->emit_const(ring, MESA_SHADER_COMPUTE, offset * 4,
-					indirect_offset, 4, NULL, indirect);
-
-			pipe_resource_reference(&indirect, NULL);
-		} else {
-			uint32_t compute_params[IR3_DP_CS_COUNT] = {
-				[IR3_DP_NUM_WORK_GROUPS_X] = info->grid[0],
-				[IR3_DP_NUM_WORK_GROUPS_Y] = info->grid[1],
-				[IR3_DP_NUM_WORK_GROUPS_Z] = info->grid[2],
-				[IR3_DP_LOCAL_GROUP_SIZE_X] = info->block[0],
-				[IR3_DP_LOCAL_GROUP_SIZE_Y] = info->block[1],
-				[IR3_DP_LOCAL_GROUP_SIZE_Z] = info->block[2],
-			};
-
-			ctx->emit_const(ring, MESA_SHADER_COMPUTE, offset * 4, 0,
-					ARRAY_SIZE(compute_params), compute_params, NULL);
-		}
-	}
+	pscreen->finalize_nir = ir3_screen_finalize_nir;
 }

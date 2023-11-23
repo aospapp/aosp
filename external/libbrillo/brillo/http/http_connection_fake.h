@@ -6,7 +6,9 @@
 #define LIBBRILLO_BRILLO_HTTP_HTTP_CONNECTION_FAKE_H_
 
 #include <map>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <base/macros.h>

@@ -17,6 +17,8 @@
 
 #include "TransportArch.h"
 
+#include "parse_string.h"
+
 namespace android {
 namespace vintf {
 
@@ -24,14 +26,30 @@ bool TransportArch::empty() const {
     return transport == Transport::EMPTY && arch == Arch::ARCH_EMPTY;
 }
 
-bool TransportArch::isValid() const {
+bool TransportArch::isValid(std::string* error) const {
+    if (error) {
+        error->clear();
+    }
+
     switch (transport) {
         case Transport::EMPTY: // fallthrough
         case Transport::HWBINDER:
-            return arch == Arch::ARCH_EMPTY;
+            if (arch == Arch::ARCH_EMPTY) {
+                return true;
+            }
+            if (error) {
+                *error += "Transport " + to_string(transport) + " requires empty arch attribute";
+            }
+            return false;
 
         case Transport::PASSTHROUGH:
-            return arch != Arch::ARCH_EMPTY;
+            if (arch != Arch::ARCH_EMPTY) {
+                return true;
+            }
+            if (error) {
+                *error += "Passthrough HALs requires arch attribute";
+            }
+            return false;
     }
 }
 

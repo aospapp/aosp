@@ -31,12 +31,20 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/parseint.h>
 #include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 #include <build/version.h>
 
 #include <7zCrc.h>
 #include <Xz.h>
 #include <XzCrc64.h>
+
+namespace simpleperf {
+
+using android::base::ParseInt;
+using android::base::Split;
+using android::base::StringPrintf;
 
 void OneTimeFreeAllocator::Clear() {
   for (auto& p : v_) {
@@ -56,21 +64,21 @@ const char* OneTimeFreeAllocator::AllocateString(std::string_view s) {
     cur_ = p;
     end_ = p + alloc_size;
   }
-  strcpy(cur_, s.data());
+  memcpy(cur_, s.data(), s.size());
+  cur_[s.size()] = '\0';
   const char* result = cur_;
   cur_ += size;
   return result;
 }
 
-
 android::base::unique_fd FileHelper::OpenReadOnly(const std::string& filename) {
-    int fd = TEMP_FAILURE_RETRY(open(filename.c_str(), O_RDONLY | O_BINARY));
-    return android::base::unique_fd(fd);
+  int fd = TEMP_FAILURE_RETRY(open(filename.c_str(), O_RDONLY | O_BINARY));
+  return android::base::unique_fd(fd);
 }
 
 android::base::unique_fd FileHelper::OpenWriteOnly(const std::string& filename) {
-    int fd = TEMP_FAILURE_RETRY(open(filename.c_str(), O_WRONLY | O_BINARY | O_CREAT, 0644));
-    return android::base::unique_fd(fd);
+  int fd = TEMP_FAILURE_RETRY(open(filename.c_str(), O_WRONLY | O_BINARY | O_CREAT, 0644));
+  return android::base::unique_fd(fd);
 }
 
 std::unique_ptr<ArchiveHelper> ArchiveHelper::CreateInstance(const std::string& filename) {
@@ -82,7 +90,7 @@ std::unique_ptr<ArchiveHelper> ArchiveHelper::CreateInstance(const std::string& 
   // files than zip files in a process map. In order to detect invalid zip files fast, we add a
   // check of magic number here. Note that OpenArchiveFd() detects invalid zip files in a thorough
   // way, but it usually needs reading at least 64K file data.
-  static const char zip_preamble[] = {0x50, 0x4b, 0x03, 0x04 };
+  static const char zip_preamble[] = {0x50, 0x4b, 0x03, 0x04};
   char buf[4];
   if (!android::base::ReadFully(fd, buf, 4) || memcmp(buf, zip_preamble, 4) != 0) {
     return nullptr;
@@ -296,12 +304,9 @@ bool XzDecompress(const std::string& compressed_data, std::string* decompressed_
 }
 
 static std::map<std::string, android::base::LogSeverity> log_severity_map = {
-    {"verbose", android::base::VERBOSE},
-    {"debug", android::base::DEBUG},
-    {"info", android::base::INFO},
-    {"warning", android::base::WARNING},
-    {"error", android::base::ERROR},
-    {"fatal", android::base::FATAL},
+    {"verbose", android::base::VERBOSE}, {"debug", android::base::DEBUG},
+    {"info", android::base::INFO},       {"warning", android::base::WARNING},
+    {"error", android::base::ERROR},     {"fatal", android::base::FATAL},
 };
 bool GetLogSeverity(const std::string& name, android::base::LogSeverity* severity) {
   auto it = log_severity_map.find(name);
@@ -332,47 +337,6 @@ bool IsRoot() {
 #endif
   }
   return is_root == 1;
-}
-
-bool ProcessKernelSymbols(std::string& symbol_data,
-                          const std::function<bool(const KernelSymbol&)>& callback) {
-  char* p = &symbol_data[0];
-  char* data_end = p + symbol_data.size();
-  while (p < data_end) {
-    char* line_end = strchr(p, '\n');
-    if (line_end != nullptr) {
-      *line_end = '\0';
-    }
-    size_t line_size = (line_end != nullptr) ? (line_end - p) : (data_end - p);
-    // Parse line like: ffffffffa005c4e4 d __warned.41698       [libsas]
-    char name[line_size];
-    char module[line_size];
-    strcpy(module, "");
-
-    KernelSymbol symbol;
-    int ret = sscanf(p, "%" PRIx64 " %c %s%s", &symbol.addr, &symbol.type, name, module);
-    if (line_end != nullptr) {
-      *line_end = '\n';
-      p = line_end + 1;
-    } else {
-      p = data_end;
-    }
-    if (ret >= 3) {
-      symbol.name = name;
-      size_t module_len = strlen(module);
-      if (module_len > 2 && module[0] == '[' && module[module_len - 1] == ']') {
-        module[module_len - 1] = '\0';
-        symbol.module = &module[1];
-      } else {
-        symbol.module = nullptr;
-      }
-
-      if (callback(symbol)) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
 size_t GetPageSize() {
@@ -407,34 +371,57 @@ timeval SecondToTimeval(double time_in_sec) {
 constexpr int SIMPLEPERF_VERSION = 1;
 
 std::string GetSimpleperfVersion() {
-  return android::base::StringPrintf("%d.build.%s", SIMPLEPERF_VERSION,
-                                     android::build::GetBuildNumber().c_str());
+  return StringPrintf("%d.build.%s", SIMPLEPERF_VERSION, android::build::GetBuildNumber().c_str());
 }
 
-std::vector<int> GetCpusFromString(const std::string& s) {
-  std::set<int> cpu_set;
-  bool have_dash = false;
-  const char* p = s.c_str();
-  char* endp;
-  int last_cpu;
-  int cpu;
-  // Parse line like: 0,1-3, 5, 7-8
-  while ((cpu = static_cast<int>(strtol(p, &endp, 10))) != 0 || endp != p) {
-    if (have_dash && !cpu_set.empty()) {
-      for (int t = last_cpu + 1; t < cpu; ++t) {
-        cpu_set.insert(t);
-      }
-    }
-    have_dash = false;
-    cpu_set.insert(cpu);
-    last_cpu = cpu;
-    p = endp;
-    while (!isdigit(*p) && *p != '\0') {
-      if (*p == '-') {
-        have_dash = true;
-      }
-      ++p;
+// Parse a line like: 0,1-3, 5, 7-8
+std::optional<std::set<int>> GetCpusFromString(const std::string& s) {
+  std::string str;
+  for (char c : s) {
+    if (!isspace(c)) {
+      str += c;
     }
   }
-  return std::vector<int>(cpu_set.begin(), cpu_set.end());
+  std::set<int> cpus;
+  int cpu1;
+  int cpu2;
+  for (const std::string& p : Split(str, ",")) {
+    size_t split_pos = p.find('-');
+    if (split_pos == std::string::npos) {
+      if (!ParseInt(p, &cpu1, 0)) {
+        LOG(ERROR) << "failed to parse cpu: " << p;
+        return std::nullopt;
+      }
+      cpus.insert(cpu1);
+    } else {
+      if (!ParseInt(p.substr(0, split_pos), &cpu1, 0) ||
+          !ParseInt(p.substr(split_pos + 1), &cpu2, 0) || cpu1 > cpu2) {
+        LOG(ERROR) << "failed to parse cpu: " << p;
+        return std::nullopt;
+      }
+      while (cpu1 <= cpu2) {
+        cpus.insert(cpu1++);
+      }
+    }
+  }
+  return cpus;
 }
+
+std::optional<std::set<pid_t>> GetTidsFromString(const std::string& s, bool check_if_exists) {
+  std::set<pid_t> tids;
+  for (const auto& p : Split(s, ",")) {
+    int tid;
+    if (!ParseInt(p.c_str(), &tid, 0)) {
+      LOG(ERROR) << "Invalid tid '" << p << "'";
+      return std::nullopt;
+    }
+    if (check_if_exists && !IsDir(StringPrintf("/proc/%d", tid))) {
+      LOG(ERROR) << "Non existing thread '" << tid << "'";
+      return std::nullopt;
+    }
+    tids.insert(tid);
+  }
+  return tids;
+}
+
+}  // namespace simpleperf

@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka.attributes;
+package com.android.internal.net.eap.test.message.simaka.attributes;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_RAND_SIM;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_RAND_SIM_DUPLICATE_RANDS;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_RAND_SIM_INVALID_NUM_RANDS;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RAND_2;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_RAND_SIM;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_RAND_SIM_DUPLICATE_RANDS;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_RAND_SIM_INVALID_NUM_RANDS;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_2;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -30,11 +30,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAttributeException;
-import com.android.internal.net.eap.exceptions.simaka.EapSimInvalidAtRandException;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtRandSim;
-import com.android.internal.net.eap.message.simaka.EapSimAttributeFactory;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaInvalidAttributeException;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimInvalidAtRandException;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRandSim;
+import com.android.internal.net.eap.test.message.simaka.EapSimAttributeFactory;
 
 import org.junit.Before;
 import org.junit.Test;

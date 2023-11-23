@@ -21,7 +21,8 @@ Tests for acloud.public.actions.create_cuttlefish_action.
 
 import uuid
 import unittest
-import mock
+
+from unittest import mock
 
 from acloud.internal.lib import android_build_client
 from acloud.internal.lib import android_compute_client
@@ -39,15 +40,18 @@ class CreateCuttlefishActionTest(driver_test_lib.BaseDriverTest):
     IP = ssh.IP(external="127.0.0.1", internal="10.0.0.1")
     INSTANCE = "fake-instance"
     IMAGE = "fake-image"
-    BUILD_TARGET = "fake-build-target"
+    BRANCH = "fake-branch"
     BUILD_ID = "12345"
+    BUILD_TARGET = "fake-build-target"
     KERNEL_BRANCH = "fake-kernel-branch"
     KERNEL_BUILD_ID = "54321"
     KERNEL_BUILD_TARGET = "kernel"
-    BRANCH = "fake-branch"
     SYSTEM_BRANCH = "fake-system-branch"
     SYSTEM_BUILD_ID = "23456"
     SYSTEM_BUILD_TARGET = "fake-system-build-target"
+    BOOTLOADER_BRANCH = "fake-bootloader-branch"
+    BOOTLOADER_BUILD_ID = "34567"
+    BOOTLOADER_BUILD_TARGET = "fake-bootloader-build-target"
     STABLE_HOST_IMAGE_NAME = "fake-stable-host-image-name"
     STABLE_HOST_IMAGE_PROJECT = "fake-stable-host-image-project"
     EXTRA_DATA_DISK_GB = 4
@@ -106,6 +110,7 @@ class CreateCuttlefishActionTest(driver_test_lib.BaseDriverTest):
         self.compute_client.GetInstanceIP.return_value = self.IP
         self.compute_client.GenerateImageName.return_value = self.IMAGE
         self.compute_client.GenerateInstanceName.return_value = self.INSTANCE
+        self.compute_client.GetHostImageName.return_value = self.STABLE_HOST_IMAGE_NAME
 
         # Mock build client method
         self.build_client.GetBuildInfo.side_effect = [
@@ -116,7 +121,10 @@ class CreateCuttlefishActionTest(driver_test_lib.BaseDriverTest):
                 self.KERNEL_BUILD_TARGET, None),
             android_build_client.BuildInfo(
                 self.SYSTEM_BRANCH, self.SYSTEM_BUILD_ID,
-                self.SYSTEM_BUILD_TARGET, None)]
+                self.SYSTEM_BUILD_TARGET, None),
+            android_build_client.BuildInfo(
+                self.BOOTLOADER_BRANCH, self.BOOTLOADER_BUILD_ID,
+                self.BOOTLOADER_BUILD_TARGET, None)]
 
         # Call CreateDevices
         report = create_cuttlefish_action.CreateDevices(
@@ -124,7 +132,10 @@ class CreateCuttlefishActionTest(driver_test_lib.BaseDriverTest):
             kernel_build_id=self.KERNEL_BUILD_ID,
             system_build_target=self.SYSTEM_BUILD_TARGET,
             system_branch=self.SYSTEM_BRANCH,
-            system_build_id=self.SYSTEM_BUILD_ID)
+            system_build_id=self.SYSTEM_BUILD_ID,
+            bootloader_build_target=self.BOOTLOADER_BUILD_TARGET,
+            bootloader_branch=self.BOOTLOADER_BRANCH,
+            bootloader_build_id=self.BOOTLOADER_BUILD_ID)
 
         # Verify
         self.compute_client.CreateInstance.assert_called_with(
@@ -140,6 +151,9 @@ class CreateCuttlefishActionTest(driver_test_lib.BaseDriverTest):
             system_branch=self.SYSTEM_BRANCH,
             system_build_id=self.SYSTEM_BUILD_ID,
             system_build_target=self.SYSTEM_BUILD_TARGET,
+            bootloader_branch=self.BOOTLOADER_BRANCH,
+            bootloader_build_id=self.BOOTLOADER_BUILD_ID,
+            bootloader_build_target=self.BOOTLOADER_BUILD_TARGET,
             blank_data_disk_size_gb=self.EXTRA_DATA_DISK_GB,
             extra_scopes=self.EXTRA_SCOPES)
 
@@ -155,6 +169,9 @@ class CreateCuttlefishActionTest(driver_test_lib.BaseDriverTest):
                     "system_branch": self.SYSTEM_BRANCH,
                     "system_build_id": self.SYSTEM_BUILD_ID,
                     "system_build_target": self.SYSTEM_BUILD_TARGET,
+                    "bootloader_branch": self.BOOTLOADER_BRANCH,
+                    "bootloader_build_id": self.BOOTLOADER_BUILD_ID,
+                    "bootloader_build_target": self.BOOTLOADER_BUILD_TARGET,
                     "instance_name": self.INSTANCE,
                     "ip": self.IP.external,
                 },

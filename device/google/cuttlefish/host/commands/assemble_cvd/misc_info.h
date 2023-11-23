@@ -17,6 +17,9 @@
 
 #include <map>
 #include <string>
+#include <vector>
+
+namespace cuttlefish {
 
 using MiscInfo = std::map<std::string, std::string>;
 
@@ -24,5 +27,7 @@ MiscInfo ParseMiscInfo(const std::string& file_contents);
 std::string WriteMiscInfo(const MiscInfo& info);
 
 std::vector<std::string> SuperPartitionComponents(const MiscInfo&);
-void SetSuperPartitionComponents(const std::vector<std::string>& components,
+bool SetSuperPartitionComponents(const std::vector<std::string>& components,
                                  MiscInfo* misc_info);
+
+} // namespace cuttlefish

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright Martin J. Bligh, Andy Whitcroft, 2006
 #
 # Shell class for a test, inherited by all individual tests
@@ -61,7 +62,7 @@ class test(common_test.base_test):
             self.debugdir_tmp_file = ('/tmp/autotest_results_dir.%s' %
                                       os.getpid())
             utils.open_write_close(self.debugdir_tmp_file, self.debugdir + "\n")
-        except Exception, e:
+        except Exception as e:
             logging.warning('Crash handling disabled: %s', e)
         else:
             self.crash_handling_enabled = True

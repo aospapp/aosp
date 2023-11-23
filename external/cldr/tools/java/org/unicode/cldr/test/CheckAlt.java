@@ -6,16 +6,14 @@ import java.util.Set;
 
 import org.unicode.cldr.test.CheckCLDR.CheckStatus.Subtype;
 import org.unicode.cldr.util.CLDRFile;
-import org.unicode.cldr.util.XPathParts;
 
 public class CheckAlt extends CheckCLDR {
 
-    XPathParts parts = new XPathParts();
-    // CLDRFile.Status status = new CLDRFile.Status();
-    Set<String> seenSoFar = new HashSet<String>();
+    Set<String> seenSoFar = new HashSet<>();
 
     // determine if we have an alt=...proposed
     // if we have one, and there is not a non-proposed version -- in this same file, unaliased, there's a problem.
+    @Override
     public CheckCLDR handleCheck(String path, String fullPath, String value,
         Options options, List<CheckStatus> result) {
         if (fullPath == null) return this; // skip paths that we don't have

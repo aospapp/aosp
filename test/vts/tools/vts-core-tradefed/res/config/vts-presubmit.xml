@@ -37,4 +37,6 @@
   <option name="compatibility:include-filter" value="VtsHalMediaC2V1_0TargetVideoEncTest" />
   <option name="compatibility:include-filter" value="vts_treble_vintf_vendor_test" />
 
+  <!-- Tests used to gate gtest changes  -->
+  <option name="compatibility:include-filter" value="VtsHalPowerStatsV1_0TargetTest" />
 </configuration>

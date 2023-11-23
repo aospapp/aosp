@@ -10,6 +10,7 @@ third_party {
     value: "ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/pcre2-10.33.zip"
   }
   version: "10.33"
+  license_type: NOTICE
   last_upgrade_date {
     year: 2019
     month: 8

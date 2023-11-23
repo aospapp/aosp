@@ -17,12 +17,14 @@
  *
  ----------------------------------------------------------------------*/
 #define LOG_TAG "NfcHal"
+#define TX_DELAY 10
 
 #include <hardware/nfc.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "android_logmsg.h"
 #include "halcore_private.h"
 
@@ -33,6 +35,8 @@ extern uint32_t ScrProtocolTraceFlag;  // = SCR_PROTO_TRACE_ALL;
 
 // HAL WRAPPER
 static void HalStopTimer(HalInstance* inst);
+static bool rf_deactivate_delay;
+struct timespec start_tx_data;
 
 typedef struct {
   struct nfc_nci_device nci_device;  // nci_device must be first struct member
@@ -59,6 +63,8 @@ static bool HalDequeueThreadMessage(HalInstance* inst, ThreadMesssage* msg);
 static HalBuffer* HalAllocBuffer(HalInstance* inst);
 static HalBuffer* HalFreeBuffer(HalInstance* inst, HalBuffer* b);
 static uint32_t HalSemWait(sem_t* pSemaphore, uint32_t timeout);
+struct timespec HalGetTimestamp(void);
+int HalTimeDiffInMs(struct timespec start, struct timespec end);
 
 /**************************************************************************************************
  *
@@ -81,11 +87,26 @@ void HalCoreCallback(void* context, uint32_t event, const void* d,
                      size_t length) {
   const uint8_t* data = (const uint8_t*)d;
   uint8_t cmd = 'W';
+  int delta_time_ms;
 
   st21nfc_dev_t* dev = (st21nfc_dev_t*)context;
 
   switch (event) {
     case HAL_EVENT_DSWRITE:
+      if (rf_deactivate_delay && length == 4 && data[0] == 0x21
+          && data[1] == 0x06 && data[2] == 0x01) {
+        delta_time_ms = HalTimeDiffInMs(start_tx_data, HalGetTimestamp());
+        if (delta_time_ms >= 0 && delta_time_ms < TX_DELAY) {
+            STLOG_HAL_D("Delay %d ms\n", TX_DELAY - delta_time_ms);
+            usleep(1000 * (TX_DELAY - delta_time_ms));
+        }
+        rf_deactivate_delay = false;
+      } else if (data[0] == 0x00 && data[1] == 0x00) {
+        start_tx_data = HalGetTimestamp();
+        rf_deactivate_delay = true;
+      } else {
+        rf_deactivate_delay = false;
+      }
       STLOG_HAL_V("!! got event HAL_EVENT_DSWRITE for %zu bytes\n", length);
       DispHal("TX DATA", (data), length);
 
@@ -103,6 +124,8 @@ void HalCoreCallback(void* context, uint32_t event, const void* d,
         STLOG_HAL_W(
             "length is illogical. Header length is %d, packet length %zu\n",
             data[2], length);
+      } else if (rf_deactivate_delay && data[0] == 0x00 && data[1] == 0x00) {
+        rf_deactivate_delay = false;
       }
 
       dev->p_data_cback(length, (uint8_t*)data);

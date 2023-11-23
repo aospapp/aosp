@@ -139,7 +139,7 @@ public class CarStorageMonitoringTest {
         WearInformation wearInformation = wearInfoProvider.load();
 
         assertThat(wearInformation).isNotNull();
-        assertThat(wearInformation.lifetimeEstimateA).isEqualTo(storageInfo.lifetimeA);
+        assertThat(wearInformation.lifetimeEstimateA).isEqualTo(20);
         assertThat(wearInformation.lifetimeEstimateB).isEqualTo(storageInfo.lifetimeB);
         assertThat(wearInformation.preEolInfo).isEqualTo(storageInfo.eol);
     }
@@ -154,7 +154,7 @@ public class CarStorageMonitoringTest {
         WearEstimate wearEstimate3 = new WearEstimate(20, 30);
         assertThat(wearEstimate1).isEqualTo(wearEstimate1);
         assertThat(wearEstimate2).isEqualTo(wearEstimate1);
-        assertThat(wearEstimate1).isNotSameAs(wearEstimate3);
+        assertThat(wearEstimate1).isNotSameInstanceAs(wearEstimate3);
     }
 
     @Test
@@ -191,7 +191,7 @@ public class CarStorageMonitoringTest {
             3000L,
             Instant.now(),
             true);
-        assertThat(wearEstimateChange1).isNotSameAs(wearEstimateChange3);
+        assertThat(wearEstimateChange1).isNotSameInstanceAs(wearEstimateChange3);
     }
 
     @Test
@@ -249,7 +249,7 @@ public class CarStorageMonitoringTest {
 
         assertThat(wearEstimateRecord1).isEqualTo(wearEstimateRecord1);
         assertThat(wearEstimateRecord2).isEqualTo(wearEstimateRecord1);
-        assertThat(wearEstimateRecord1).isNotSameAs(wearEstimateRecord3);
+        assertThat(wearEstimateRecord1).isNotSameInstanceAs(wearEstimateRecord3);
     }
 
     @Test
@@ -304,7 +304,7 @@ public class CarStorageMonitoringTest {
 
         assertThat(wearHistory1).isEqualTo(wearHistory1);
         assertThat(wearHistory2).isEqualTo(wearHistory1);
-        assertThat(wearHistory1).isNotSameAs(wearHistory3);
+        assertThat(wearHistory1).isNotSameInstanceAs(wearHistory3);
     }
 
     @Test
@@ -448,9 +448,9 @@ public class CarStorageMonitoringTest {
 
         assertThat(statEntry1).isEqualTo(statEntry1);
         assertThat(statEntry2).isEqualTo(statEntry1);
-        assertThat(statEntry1).isNotSameAs(statEntry3);
-        assertThat(statEntry1).isNotSameAs(statEntry4);
-        assertThat(statEntry1).isNotSameAs(statEntry5);
+        assertThat(statEntry1).isNotSameInstanceAs(statEntry3);
+        assertThat(statEntry1).isNotSameInstanceAs(statEntry4);
+        assertThat(statEntry1).isNotSameInstanceAs(statEntry5);
     }
 
     @Test
@@ -593,8 +593,8 @@ public class CarStorageMonitoringTest {
 
         assertThat(delta1).isEqualTo(delta1);
         assertThat(delta2).isEqualTo(delta1);
-        assertThat(delta1).isNotSameAs(delta3);
-        assertThat(delta3).isNotSameAs(delta4);
+        assertThat(delta1).isNotSameInstanceAs(delta3);
+        assertThat(delta3).isNotSameInstanceAs(delta4);
     }
 
     @Test
@@ -748,9 +748,9 @@ public class CarStorageMonitoringTest {
 
         assertThat(writeInfo).isEqualTo(writeInfo);
         assertThat(writeInfoEq).isEqualTo(writeInfo);
-        assertThat(writeInfo).isNotSameAs(writeInfoNeq1);
-        assertThat(writeInfo).isNotSameAs(writeInfoNeq2);
-        assertThat(writeInfo).isNotSameAs(writeInfoNeq3);
+        assertThat(writeInfo).isNotSameInstanceAs(writeInfoNeq1);
+        assertThat(writeInfo).isNotSameInstanceAs(writeInfoNeq2);
+        assertThat(writeInfo).isNotSameInstanceAs(writeInfoNeq3);
     }
 
     @Test

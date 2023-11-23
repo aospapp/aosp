@@ -17,12 +17,14 @@
 package com.android.tools.metalava.model.psi
 
 import com.android.tools.lint.detector.api.getInternalName
+import com.android.tools.metalava.JAVA_LANG_STRING
 import com.android.tools.metalava.compatibility
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MemberItem
 import com.android.tools.metalava.model.MethodItem
+import com.android.tools.metalava.model.ParameterItem
 import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.TypeParameterItem
 import com.intellij.psi.JavaTokenType
@@ -50,7 +52,6 @@ import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.PsiWildcardType
 import com.intellij.psi.util.PsiTypesUtil
 import com.intellij.psi.util.TypeConversionUtil
-import org.jetbrains.kotlin.asJava.elements.KtLightTypeParameter
 import java.util.function.Predicate
 
 /** Represents a type backed by PSI */
@@ -188,7 +189,7 @@ class PsiTypeItem private constructor(
         return psiType.arrayDimensions
     }
 
-    override fun internalName(): String {
+    override fun internalName(context: Item?): String {
         if (primitive) {
             val signature = getPrimitiveSignature(toString())
             if (signature != null) {
@@ -246,7 +247,7 @@ class PsiTypeItem private constructor(
 
         val classes = mutableListOf<ClassItem>()
         psiType.accept(object : PsiTypeVisitor<PsiType>() {
-            override fun visitType(type: PsiType?): PsiType? {
+            override fun visitType(type: PsiType): PsiType {
                 return type
             }
 
@@ -365,9 +366,7 @@ class PsiTypeItem private constructor(
                 return false
             }
 
-            val psiType = TypeConversionUtil.erasure(type)
-
-            when (psiType) {
+            when (val psiType = TypeConversionUtil.erasure(type)) {
                 is PsiArrayType -> {
                     buffer.append('[')
                     appendJvmSignature(buffer, psiType.componentType)
@@ -420,7 +419,15 @@ class PsiTypeItem private constructor(
             val typeString =
                 if (kotlinStyleNulls && (innerAnnotations || outerAnnotations)) {
                     try {
-                        getCanonicalText(codebase, context, type, true, true, kotlinStyleNulls, filter)
+                        getCanonicalText(
+                            codebase = codebase,
+                            owner = context,
+                            type = type,
+                            annotated = true,
+                            mapAnnotations = true,
+                            kotlinStyleNulls = kotlinStyleNulls,
+                            filter = filter
+                        )
                     } catch (ignore: Throwable) {
                         type.canonicalText
                     }
@@ -460,12 +467,23 @@ class PsiTypeItem private constructor(
 
                         if (implicitNullness == false &&
                             owner is MethodItem &&
-                            owner.containingClass().isAnnotationType() &&
+                            (owner.containingClass().isAnnotationType() ||
+                                owner.containingClass().isEnum() && owner.name() == "values") &&
                             type is PsiArrayType
                         ) {
                             // For arrays in annotations not only is the method itself non null but so
                             // is the component type
-                            type.componentType.annotate(provider).createArrayType().annotate(provider)
+                            type.componentType.annotate(provider).createArrayType()
+                                .annotate(provider)
+                        } else if (implicitNullness == false &&
+                            owner is ParameterItem &&
+                            owner.containingMethod().isEnumSyntheticMethod()
+                        ) {
+                            // Workaround the fact that the Kotlin synthetic enum methods
+                            // do not have nullness information; this must be the parameter
+                            // to the valueOf(String) method.
+                            // See https://youtrack.jetbrains.com/issue/KT-39667.
+                            return JAVA_LANG_STRING
                         } else {
                             type.annotate(provider)
                         }
@@ -534,7 +552,7 @@ class PsiTypeItem private constructor(
                             sb.append(">")
                             return
                         } else if (element is PsiTypeParameter) {
-                            if (element is KtLightTypeParameter && element.kotlinOrigin.text.startsWith("reified")) {
+                            if (PsiTypeParameterItem.isReified(element)) {
                                 sb.append("reified ")
                             }
                             sb.append(element.name)

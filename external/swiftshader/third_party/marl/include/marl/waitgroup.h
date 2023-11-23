@@ -51,28 +51,35 @@ namespace marl {
 class WaitGroup {
  public:
   // Constructs the WaitGroup with the specified initial count.
-  inline WaitGroup(unsigned int initialCount = 0);
+  MARL_NO_EXPORT inline WaitGroup(unsigned int initialCount = 0,
+                                  Allocator* allocator = Allocator::Default);
 
   // add() increments the internal counter by count.
-  inline void add(unsigned int count = 1) const;
+  MARL_NO_EXPORT inline void add(unsigned int count = 1) const;
 
   // done() decrements the internal counter by one.
   // Returns true if the internal count has reached zero.
-  inline bool done() const;
+  MARL_NO_EXPORT inline bool done() const;
 
   // wait() blocks until the WaitGroup counter reaches zero.
-  inline void wait() const;
+  MARL_NO_EXPORT inline void wait() const;
 
  private:
   struct Data {
+    MARL_NO_EXPORT inline Data(Allocator* allocator);
+
     std::atomic<unsigned int> count = {0};
-    ConditionVariable condition;
-    std::mutex mutex;
+    ConditionVariable cv;
+    marl::mutex mutex;
   };
-  const std::shared_ptr<Data> data = std::make_shared<Data>();
+  const std::shared_ptr<Data> data;
 };
 
-inline WaitGroup::WaitGroup(unsigned int initialCount /* = 0 */) {
+WaitGroup::Data::Data(Allocator* allocator) : cv(allocator) {}
+
+WaitGroup::WaitGroup(unsigned int initialCount /* = 0 */,
+                     Allocator* allocator /* = Allocator::Default */)
+    : data(std::make_shared<Data>(allocator)) {
   data->count = initialCount;
 }
 
@@ -84,16 +91,16 @@ bool WaitGroup::done() const {
   MARL_ASSERT(data->count > 0, "marl::WaitGroup::done() called too many times");
   auto count = --data->count;
   if (count == 0) {
-    std::unique_lock<std::mutex> lock(data->mutex);
-    data->condition.notify_all();
+    marl::lock lock(data->mutex);
+    data->cv.notify_all();
     return true;
   }
   return false;
 }
 
 void WaitGroup::wait() const {
-  std::unique_lock<std::mutex> lock(data->mutex);
-  data->condition.wait(lock, [this] { return data->count == 0; });
+  marl::lock lock(data->mutex);
+  data->cv.wait(lock, [this] { return data->count == 0; });
 }
 
 }  // namespace marl

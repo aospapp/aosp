@@ -21,13 +21,16 @@
 #include "bt_target.h"
 
 #include "bt_types.h"
-#include "bt_utils.h"
 #include "btm_ble_api.h"
+#include "btm_dev.h"
 #include "btm_int.h"
 #include "btu.h"
 #include "device/include/controller.h"
 #include "hcidefs.h"
 #include "hcimsgs.h"
+#include "stack/btm/btm_ble_int.h"
+#include "stack/btm/btm_int_types.h"
+#include "utils/include/bt_utils.h"
 
 #include <string.h>
 #include <algorithm>
@@ -35,6 +38,8 @@
 
 #include <base/bind.h>
 #include <base/bind_helpers.h>
+
+extern tBTM_CB btm_cb;
 
 using base::Bind;
 using bluetooth::Uuid;
@@ -78,49 +83,16 @@ static uint8_t btm_ble_cs_update_pf_counter(tBTM_BLE_SCAN_COND_OP action,
 #define BTM_BLE_ADV_FILT_CB_EVT_MASK 0xF0
 #define BTM_BLE_ADV_FILT_SUBCODE_MASK 0x0F
 
-bool is_filtering_supported() {
+static bool is_filtering_supported() {
   return cmn_ble_vsc_cb.filter_support != 0 && cmn_ble_vsc_cb.max_filter != 0;
 }
 
-/*******************************************************************************
- *
- * Function         btm_ble_condtype_to_ocf
- *
- * Description      Convert cond_type to OCF
- *
- * Returns          Returns ocf value
- *
- ******************************************************************************/
-uint8_t btm_ble_condtype_to_ocf(uint8_t cond_type) {
-  uint8_t ocf = 0;
-
-  switch (cond_type) {
-    case BTM_BLE_PF_ADDR_FILTER:
-      ocf = BTM_BLE_META_PF_ADDR;
-      break;
-    case BTM_BLE_PF_SRVC_UUID:
-      ocf = BTM_BLE_META_PF_UUID;
-      break;
-    case BTM_BLE_PF_SRVC_SOL_UUID:
-      ocf = BTM_BLE_META_PF_SOL_UUID;
-      break;
-    case BTM_BLE_PF_LOCAL_NAME:
-      ocf = BTM_BLE_META_PF_LOCAL_NAME;
-      break;
-    case BTM_BLE_PF_MANU_DATA:
-      ocf = BTM_BLE_META_PF_MANU_DATA;
-      break;
-    case BTM_BLE_PF_SRVC_DATA_PATTERN:
-      ocf = BTM_BLE_META_PF_SRVC_DATA;
-      break;
-    case BTM_BLE_PF_TYPE_ALL:
-      ocf = BTM_BLE_META_PF_ALL;
-      break;
-    default:
-      ocf = BTM_BLE_PF_TYPE_MAX;
-      break;
+static bool is_empty_128bit(const std::array<uint8_t, 16> data) {
+  int i, len = 16;
+  for (i = 0; i < len; i++) {
+    if (data[i] != (uint8_t)0) return false;
   }
-  return ocf;
+  return true;
 }
 
 /*******************************************************************************
@@ -132,7 +104,7 @@ uint8_t btm_ble_condtype_to_ocf(uint8_t cond_type) {
  * Returns          Returns condtype value
  *
  ******************************************************************************/
-uint8_t btm_ble_ocf_to_condtype(uint8_t ocf) {
+static uint8_t btm_ble_ocf_to_condtype(uint8_t ocf) {
   uint8_t cond_type = 0;
 
   switch (ocf) {
@@ -167,8 +139,8 @@ uint8_t btm_ble_ocf_to_condtype(uint8_t ocf) {
   return cond_type;
 }
 
-void btm_flt_update_cb(uint8_t expected_ocf, tBTM_BLE_PF_CFG_CBACK cb,
-                       uint8_t* p, uint16_t evt_len) {
+static void btm_flt_update_cb(uint8_t expected_ocf, tBTM_BLE_PF_CFG_CBACK cb,
+                              uint8_t* p, uint16_t evt_len) {
   if (evt_len != 4) {
     BTM_TRACE_ERROR("%s: bad length: %d", __func__, evt_len);
     return;
@@ -186,8 +158,10 @@ void btm_flt_update_cb(uint8_t expected_ocf, tBTM_BLE_PF_CFG_CBACK cb,
     return;
   }
 
+  tBTM_STATUS btm_status = (status == 0) ? BTM_SUCCESS : BTM_ERR_PROCESSING;
+
   if (op_subcode == BTM_BLE_META_PF_FEAT_SEL) {
-    cb.Run(num_avail, action, status);
+    cb.Run(num_avail, action, btm_status);
     return;
   }
 
@@ -205,7 +179,7 @@ void btm_flt_update_cb(uint8_t expected_ocf, tBTM_BLE_PF_CFG_CBACK cb,
   /* send ADV PF operation complete */
   btm_ble_adv_filt_cb.op_type = 0;
 
-  cb.Run(num_avail, action, status);
+  cb.Run(num_avail, action, btm_status);
 }
 
 /*******************************************************************************
@@ -218,7 +192,8 @@ void btm_flt_update_cb(uint8_t expected_ocf, tBTM_BLE_PF_CFG_CBACK cb,
  * Returns          pointer to the counter if found; NULL otherwise.
  *
  ******************************************************************************/
-tBTM_BLE_PF_COUNT* btm_ble_find_addr_filter_counter(tBLE_BD_ADDR* p_le_bda) {
+static tBTM_BLE_PF_COUNT* btm_ble_find_addr_filter_counter(
+    tBLE_BD_ADDR* p_le_bda) {
   uint8_t i;
   tBTM_BLE_PF_COUNT* p_addr_filter =
       &btm_ble_adv_filt_cb.p_addr_filter_count[1];
@@ -243,7 +218,7 @@ tBTM_BLE_PF_COUNT* btm_ble_find_addr_filter_counter(tBLE_BD_ADDR* p_le_bda) {
  *                  otherwise.
  *
  ******************************************************************************/
-tBTM_BLE_PF_COUNT* btm_ble_alloc_addr_filter_counter(
+static tBTM_BLE_PF_COUNT* btm_ble_alloc_addr_filter_counter(
     const RawAddress& bd_addr) {
   uint8_t i;
   tBTM_BLE_PF_COUNT* p_addr_filter =
@@ -267,8 +242,8 @@ tBTM_BLE_PF_COUNT* btm_ble_alloc_addr_filter_counter(
  * Returns          true if deallocation succeed; false otherwise.
  *
  ******************************************************************************/
-bool btm_ble_dealloc_addr_filter_counter(tBLE_BD_ADDR* p_bd_addr,
-                                         uint8_t filter_type) {
+static bool btm_ble_dealloc_addr_filter_counter(tBLE_BD_ADDR* p_bd_addr,
+                                                uint8_t filter_type) {
   uint8_t i;
   tBTM_BLE_PF_COUNT* p_addr_filter =
       &btm_ble_adv_filt_cb.p_addr_filter_count[1];
@@ -294,9 +269,10 @@ bool btm_ble_dealloc_addr_filter_counter(tBLE_BD_ADDR* p_bd_addr,
  * This function update(add,delete or clear) the adv local name filtering
  * condition.
  */
-void BTM_LE_PF_local_name(tBTM_BLE_SCAN_COND_OP action,
-                          tBTM_BLE_PF_FILT_INDEX filt_index,
-                          std::vector<uint8_t> name, tBTM_BLE_PF_CFG_CBACK cb) {
+static void BTM_LE_PF_local_name(tBTM_BLE_SCAN_COND_OP action,
+                                 tBTM_BLE_PF_FILT_INDEX filt_index,
+                                 std::vector<uint8_t> name,
+                                 tBTM_BLE_PF_CFG_CBACK cb) {
   uint8_t len = BTM_BLE_ADV_FILT_META_HDR_LENGTH;
 
   uint8_t len_max = len + BTM_BLE_PF_STR_LEN_MAX;
@@ -325,8 +301,8 @@ void BTM_LE_PF_local_name(tBTM_BLE_SCAN_COND_OP action,
 /**
  * this function update(add/remove) service data change filter.
  */
-void BTM_LE_PF_srvc_data(tBTM_BLE_SCAN_COND_OP action,
-                         tBTM_BLE_PF_FILT_INDEX filt_index) {
+static void BTM_LE_PF_srvc_data(tBTM_BLE_SCAN_COND_OP action,
+                                tBTM_BLE_PF_FILT_INDEX filt_index) {
   uint8_t num_avail = (action == BTM_BLE_SCAN_COND_ADD) ? 0 : 1;
 
   btm_ble_cs_update_pf_counter(action, BTM_BLE_PF_SRVC_DATA, nullptr,
@@ -337,11 +313,12 @@ void BTM_LE_PF_srvc_data(tBTM_BLE_SCAN_COND_OP action,
  * This function update(add,delete or clear) the adv manufacturer data filtering
  * condition.
  */
-void BTM_LE_PF_manu_data(tBTM_BLE_SCAN_COND_OP action,
-                         tBTM_BLE_PF_FILT_INDEX filt_index, uint16_t company_id,
-                         uint16_t company_id_mask, std::vector<uint8_t> data,
-                         std::vector<uint8_t> data_mask,
-                         tBTM_BLE_PF_CFG_CBACK cb) {
+static void BTM_LE_PF_manu_data(tBTM_BLE_SCAN_COND_OP action,
+                                tBTM_BLE_PF_FILT_INDEX filt_index,
+                                uint16_t company_id, uint16_t company_id_mask,
+                                std::vector<uint8_t> data,
+                                std::vector<uint8_t> data_mask,
+                                tBTM_BLE_PF_CFG_CBACK cb) {
   uint8_t len = BTM_BLE_ADV_FILT_META_HDR_LENGTH;
   int len_max = len + BTM_BLE_PF_STR_LEN_MAX + BTM_BLE_PF_STR_LEN_MAX;
 
@@ -389,11 +366,11 @@ void BTM_LE_PF_manu_data(tBTM_BLE_SCAN_COND_OP action,
  * This function update(add,delete or clear) the service data filtering
  * condition.
  **/
-void BTM_LE_PF_srvc_data_pattern(tBTM_BLE_SCAN_COND_OP action,
-                                 tBTM_BLE_PF_FILT_INDEX filt_index,
-                                 std::vector<uint8_t> data,
-                                 std::vector<uint8_t> data_mask,
-                                 tBTM_BLE_PF_CFG_CBACK cb) {
+static void BTM_LE_PF_srvc_data_pattern(tBTM_BLE_SCAN_COND_OP action,
+                                        tBTM_BLE_PF_FILT_INDEX filt_index,
+                                        std::vector<uint8_t> data,
+                                        std::vector<uint8_t> data_mask,
+                                        tBTM_BLE_PF_CFG_CBACK cb) {
   uint8_t len = BTM_BLE_ADV_FILT_META_HDR_LENGTH;
   int len_max = len + BTM_BLE_PF_STR_LEN_MAX + BTM_BLE_PF_STR_LEN_MAX;
 
@@ -434,9 +411,10 @@ void BTM_LE_PF_srvc_data_pattern(tBTM_BLE_SCAN_COND_OP action,
  *                  counter update failed.
  *
  ******************************************************************************/
-uint8_t btm_ble_cs_update_pf_counter(tBTM_BLE_SCAN_COND_OP action,
-                                     uint8_t cond_type, tBLE_BD_ADDR* p_bd_addr,
-                                     uint8_t num_available) {
+static uint8_t btm_ble_cs_update_pf_counter(tBTM_BLE_SCAN_COND_OP action,
+                                            uint8_t cond_type,
+                                            tBLE_BD_ADDR* p_bd_addr,
+                                            uint8_t num_available) {
   tBTM_BLE_PF_COUNT* p_addr_filter = NULL;
   uint8_t* p_counter = NULL;
 
@@ -487,9 +465,9 @@ uint8_t btm_ble_cs_update_pf_counter(tBTM_BLE_SCAN_COND_OP action,
 /**
  * This function updates the address filter of adv.
  */
-void BTM_LE_PF_addr_filter(tBTM_BLE_SCAN_COND_OP action,
-                           tBTM_BLE_PF_FILT_INDEX filt_index, tBLE_BD_ADDR addr,
-                           tBTM_BLE_PF_CFG_CBACK cb) {
+static void BTM_LE_PF_addr_filter(tBTM_BLE_SCAN_COND_OP action,
+                                  tBTM_BLE_PF_FILT_INDEX filt_index,
+                                  tBLE_BD_ADDR addr, tBTM_BLE_PF_CFG_CBACK cb) {
   const uint8_t len = BTM_BLE_ADV_FILT_META_HDR_LENGTH + BTM_BLE_META_ADDR_LEN;
 
   uint8_t param[len];
@@ -501,7 +479,6 @@ void BTM_LE_PF_addr_filter(tBTM_BLE_SCAN_COND_OP action,
   UINT8_TO_STREAM(p, filt_index);
 
   if (action != BTM_BLE_SCAN_COND_CLEAR) {
-#if (BLE_PRIVACY_SPT == TRUE)
     if (addr.type == BLE_ADDR_PUBLIC_ID) {
       LOG(INFO) << __func__ << " Filter address " << addr.bda
                 << " has type PUBLIC_ID, try to get identity address";
@@ -509,7 +486,6 @@ void BTM_LE_PF_addr_filter(tBTM_BLE_SCAN_COND_OP action,
        * this call will have no effect. */
       btm_random_pseudo_to_identity_addr(&addr.bda, &addr.type);
     }
-#endif
 
     LOG(INFO) << __func__
               << " Adding scan filter with peer address: " << addr.bda;
@@ -529,13 +505,13 @@ void BTM_LE_PF_addr_filter(tBTM_BLE_SCAN_COND_OP action,
 /**
  * This function updates(adds, deletes or clears) the service UUID filter.
  */
-void BTM_LE_PF_uuid_filter(tBTM_BLE_SCAN_COND_OP action,
-                           tBTM_BLE_PF_FILT_INDEX filt_index,
-                           tBTM_BLE_PF_COND_TYPE filter_type,
-                           const bluetooth::Uuid& uuid,
-                           tBTM_BLE_PF_LOGIC_TYPE cond_logic,
-                           const bluetooth::Uuid& uuid_mask,
-                           tBTM_BLE_PF_CFG_CBACK cb) {
+static void BTM_LE_PF_uuid_filter(tBTM_BLE_SCAN_COND_OP action,
+                                  tBTM_BLE_PF_FILT_INDEX filt_index,
+                                  tBTM_BLE_PF_COND_TYPE filter_type,
+                                  const bluetooth::Uuid& uuid,
+                                  tBTM_BLE_PF_LOGIC_TYPE cond_logic,
+                                  const bluetooth::Uuid& uuid_mask,
+                                  tBTM_BLE_PF_CFG_CBACK cb) {
   uint8_t evt_type;
 
   if (BTM_BLE_PF_SRVC_UUID == filter_type) {
@@ -568,7 +544,7 @@ void BTM_LE_PF_uuid_filter(tBTM_BLE_SCAN_COND_OP action,
       len += Uuid::kNumBytes128;
     } else {
       BTM_TRACE_ERROR("illegal UUID length: %d", uuid_len);
-      cb.Run(0, BTM_BLE_PF_CONFIG, 1 /*BTA_FAILURE*/);
+      cb.Run(0, BTM_BLE_PF_CONFIG, BTM_ILLEGAL_VALUE);
       return;
     }
 
@@ -596,11 +572,24 @@ void BTM_LE_PF_uuid_filter(tBTM_BLE_SCAN_COND_OP action,
   memset(&btm_ble_adv_filt_cb.cur_filter_target, 0, sizeof(tBLE_BD_ADDR));
 }
 
+/*
+ * Used to remove device records for devices setting scan filters with address,
+ * type and IRK. Flow:
+ *   - ScanFilter comes in with IRK.
+ *   - Check IRK for empty, if empty ignore setting to resolving list.
+ *   - Otherwise we set it to the resolving list via BTM_SecAddBleKey.
+ *   - Then on clear we need to check if the device is paired and if it isn't we
+ * remove it referencing this map.
+ *
+ */
+static std::unordered_map<tBTM_BLE_PF_FILT_INDEX, RawAddress>
+    remove_me_later_map;
+
 void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
                    std::vector<ApcfCommand> commands,
                    tBTM_BLE_PF_CFG_CBACK cb) {
   if (!is_filtering_supported()) {
-    cb.Run(0, BTM_BLE_PF_ENABLE, 1 /* BTA_FAILURE */);
+    cb.Run(0, BTM_BLE_PF_ENABLE, BTM_MODE_UNSUPPORTED);
     return;
   }
 
@@ -622,6 +611,48 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
 
         BTM_LE_PF_addr_filter(action, filt_index, target_addr,
                               base::DoNothing());
+        if (!is_empty_128bit(cmd.irk)) {
+          // Save index and addr
+          auto entry = remove_me_later_map.find(filt_index);
+          if (entry != remove_me_later_map.end()) {
+            LOG_WARN("Replacing existing filter index entry with new address");
+            // If device is not bonded, then try removing the device
+            // If the device doesn't get removed then it is currently connected
+            // (may be pairing?) If we do delete the device we want to erase the
+            // filter index so we can replace it If the device is bonded, we
+            // want to erase the filter index so we don't delete it in the later
+            // BTM_LE_PF_clear call.
+            if (!btm_sec_is_a_bonded_dev(entry->second)) {
+              if (!BTM_SecDeleteDevice(entry->second)) {
+                LOG_WARN("Unable to remove device, still connected.");
+                return;
+              }
+            }
+            remove_me_later_map.erase(filt_index);
+          }
+          if (btm_find_dev(cmd.address) != nullptr) {
+            // Unless the user tries to bond with a device in between the
+            // scanner app starting a scan, then crashing, then being restarted
+            // and we get to this same point with the same filt_index (whose
+            // value is managed by the Java layer) then we might have a device
+            // record here, in which case something else is managing the device
+            // and we do not want to interfere with that experience.
+            LOG_WARN("Address record already exists...this is unexpected...");
+            return;
+          }
+          // Allocate a new "temporary" device record
+          btm_sec_alloc_dev(cmd.address);
+          remove_me_later_map.emplace(filt_index, cmd.address);
+          // Set the IRK
+          tBTM_LE_PID_KEYS pid_keys;
+          pid_keys.irk = cmd.irk;
+          pid_keys.identity_addr_type = cmd.addr_type;
+          pid_keys.identity_addr = cmd.address;
+          // Add it to the union to pass to SecAddBleKey
+          tBTM_LE_KEY_VALUE le_key;
+          le_key.pid_key = pid_keys;
+          BTM_SecAddBleKey(cmd.address, &le_key, BTM_LE_KEY_PID);
+        }
         break;
       }
 
@@ -659,7 +690,7 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
         break;
     }
   }
-  cb.Run(0, 0, 0);
+  cb.Run(0, 0, BTM_SUCCESS);
 }
 
 /**
@@ -668,7 +699,7 @@ void BTM_LE_PF_set(tBTM_BLE_PF_FILT_INDEX filt_index,
 void BTM_LE_PF_clear(tBTM_BLE_PF_FILT_INDEX filt_index,
                      tBTM_BLE_PF_CFG_CBACK cb) {
   if (!is_filtering_supported()) {
-    cb.Run(0, BTM_BLE_PF_ENABLE, 1 /* BTA_FAILURE */);
+    cb.Run(0, BTM_BLE_PF_ENABLE, BTM_MODE_UNSUPPORTED);
     return;
   }
 
@@ -698,6 +729,15 @@ void BTM_LE_PF_clear(tBTM_BLE_PF_FILT_INDEX filt_index,
     /* clear service data filter */
     BTM_LE_PF_srvc_data_pattern(BTM_BLE_SCAN_COND_CLEAR, filt_index, {}, {},
                                 fDoNothing);
+
+    // If we have an entry, lets remove the device if it isn't bonded
+    auto entry = remove_me_later_map.find(filt_index);
+    if (entry != remove_me_later_map.end()) {
+      auto entry = remove_me_later_map.find(filt_index);
+      if (!btm_sec_is_a_bonded_dev(entry->second)) {
+        BTM_SecDeleteDevice(entry->second);
+      }
+    }
   }
 
   uint8_t len = BTM_BLE_ADV_FILT_META_HDR_LENGTH + BTM_BLE_PF_FEAT_SEL_LEN;
@@ -745,7 +785,7 @@ void BTM_BleAdvFilterParamSetup(
   uint8_t param[len], *p;
 
   if (!is_filtering_supported()) {
-    cb.Run(0, BTM_BLE_PF_ENABLE, 1 /* BTA_FAILURE */);
+    cb.Run(0, BTM_BLE_PF_ENABLE, btm_status_value(BTM_MODE_UNSUPPORTED));
     return;
   }
 
@@ -757,7 +797,7 @@ void BTM_BleAdvFilterParamSetup(
     p_bda_filter = btm_ble_find_addr_filter_counter(nullptr);
     if (NULL == p_bda_filter) {
       BTM_TRACE_ERROR("BD Address not found!");
-      cb.Run(0, BTM_BLE_PF_ENABLE, 1 /* BTA_FAILURE */);
+      cb.Run(0, BTM_BLE_PF_ENABLE, btm_status_value(BTM_UNKNOWN_ADDR));
       return;
     }
 
@@ -814,6 +854,25 @@ void BTM_BleAdvFilterParamSetup(
         FROM_HERE, HCI_BLE_ADV_FILTER, param,
         (uint8_t)(BTM_BLE_ADV_FILT_META_HDR_LENGTH),
         base::Bind(&btm_flt_update_cb, BTM_BLE_META_PF_FEAT_SEL, cb));
+
+    auto entry = remove_me_later_map.find(filt_index);
+    if (entry != remove_me_later_map.end()) {
+      LOG_WARN("Replacing existing filter index entry with new address");
+      // If device is not bonded, then try removing the device
+      // If the device doesn't get removed then it is currently connected
+      // (may be pairing?) If we do delete the device we want to erase the
+      // filter index so we can replace it If the device is bonded, we
+      // want to erase the filter index so we don't delete it in the later
+      // BTM_LE_PF_clear call.
+      if (!btm_sec_is_a_bonded_dev(entry->second)) {
+        if (!BTM_SecDeleteDevice(entry->second)) {
+          LOG_WARN("Unable to remove device, still connected.");
+          return;
+        }
+      }
+      remove_me_later_map.erase(filt_index);
+    }
+
   } else if (BTM_BLE_SCAN_COND_CLEAR == action) {
     /* Deallocate all filters here */
     btm_ble_dealloc_addr_filter_counter(NULL, BTM_BLE_PF_TYPE_ALL);
@@ -829,8 +888,8 @@ void BTM_BleAdvFilterParamSetup(
   }
 }
 
-void enable_cmpl_cback(tBTM_BLE_PF_STATUS_CBACK p_stat_cback, uint8_t* p,
-                       uint16_t evt_len) {
+static void enable_cmpl_cback(tBTM_BLE_PF_STATUS_CBACK p_stat_cback, uint8_t* p,
+                              uint16_t evt_len) {
   uint8_t status, op_subcode, action;
 
   if (evt_len != 3) {
@@ -847,7 +906,8 @@ void enable_cmpl_cback(tBTM_BLE_PF_STATUS_CBACK p_stat_cback, uint8_t* p,
     return;
   }
 
-  p_stat_cback.Run(action, status);
+  tBTM_STATUS btm_status = (status == 0) ? BTM_SUCCESS : BTM_ERR_PROCESSING;
+  p_stat_cback.Run(action, btm_status);
 }
 
 /*******************************************************************************
@@ -863,7 +923,9 @@ void enable_cmpl_cback(tBTM_BLE_PF_STATUS_CBACK p_stat_cback, uint8_t* p,
 void BTM_BleEnableDisableFilterFeature(uint8_t enable,
                                        tBTM_BLE_PF_STATUS_CBACK p_stat_cback) {
   if (!is_filtering_supported()) {
-    if (p_stat_cback) p_stat_cback.Run(BTM_BLE_PF_ENABLE, 1 /* BTA_FAILURE */);
+    if (p_stat_cback)
+      p_stat_cback.Run(BTM_BLE_PF_ENABLE,
+                       BTM_MODE_UNSUPPORTED /* BTA_FAILURE */);
     return;
   }
 
@@ -901,19 +963,4 @@ void btm_ble_adv_filter_init(void) {
     btm_ble_adv_filt_cb.p_addr_filter_count = (tBTM_BLE_PF_COUNT*)osi_malloc(
         sizeof(tBTM_BLE_PF_COUNT) * cmn_ble_vsc_cb.max_filter);
   }
-}
-
-/*******************************************************************************
- *
- * Function         btm_ble_adv_filter_cleanup
- *
- * Description      This function de-initializes the adv filter control block
- *
- * Parameters
- *
- * Returns          status
- *
- ******************************************************************************/
-void btm_ble_adv_filter_cleanup(void) {
-  osi_free_and_reset((void**)&btm_ble_adv_filt_cb.p_addr_filter_count);
 }

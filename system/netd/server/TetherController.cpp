@@ -60,14 +60,11 @@
 namespace android {
 namespace net {
 
-using android::base::Error;
 using android::base::Join;
 using android::base::Pipe;
 using android::base::Result;
-using android::base::StringAppendF;
 using android::base::StringPrintf;
 using android::base::unique_fd;
-using android::net::TetherOffloadRuleParcel;
 using android::netdutils::DumpWriter;
 using android::netdutils::ScopedIndent;
 using android::netdutils::statusFromErrno;
@@ -83,10 +80,6 @@ constexpr const char kTcpBeLiberal[] = "/proc/sys/net/netfilter/nf_conntrack_tcp
 
 // Chosen to match AID_DNS_TETHER, as made "friendly" by fs_config_generator.py.
 constexpr const char kDnsmasqUsername[] = "dns_tether";
-
-// A value used by interface quota indicates there is no limit.
-// Sync from frameworks/base/core/java/android/net/netstats/provider/NetworkStatsProvider.java
-constexpr int64_t QUOTA_UNLIMITED = -1;
 
 bool writeToFile(const char* filename, const char* value) {
     int fd = open(filename, O_WRONLY | O_CLOEXEC);
@@ -164,12 +157,13 @@ int TetherController::DnsmasqState::sendAllState(int daemonFd) const {
 }
 
 TetherController::TetherController() {
+    gLog.info("enter TetherController ctor");
     if (inBpToolsMode()) {
         enableForwarding(BP_TOOLS_MODE);
     } else {
         setIpFwdEnabled();
     }
-    maybeInitMaps();
+    gLog.info("leave TetherController ctor");
 }
 
 bool TetherController::setIpFwdEnabled() {
@@ -200,27 +194,6 @@ bool TetherController::enableForwarding(const char* requester) {
 bool TetherController::disableForwarding(const char* requester) {
     mForwardingRequests.erase(requester);
     return setIpFwdEnabled();
-}
-
-void TetherController::maybeInitMaps() {
-    if (!bpf::isBpfSupported()) return;
-
-    // Open BPF maps, ignoring errors because the device might not support BPF offload.
-    int fd = getTetherIngressMapFd();
-    if (fd >= 0) {
-        mBpfIngressMap.reset(fd);
-        mBpfIngressMap.clear();
-    }
-    fd = getTetherStatsMapFd();
-    if (fd >= 0) {
-        mBpfStatsMap.reset(fd);
-        mBpfStatsMap.clear();
-    }
-    fd = getTetherLimitMapFd();
-    if (fd >= 0) {
-        mBpfLimitMap.reset(fd);
-        mBpfLimitMap.clear();
-    }
 }
 
 const std::set<std::string>& TetherController::getIpfwdRequesterList() const {
@@ -606,8 +579,7 @@ int TetherController::enableNat(const char* intIface, const char* extIface) {
     }
 
     // add this if we are the first enabled nat for this upstream
-    bool firstDownstreamForThisUpstream = !isAnyForwardingEnabledOnUpstream(extIface);
-    if (firstDownstreamForThisUpstream) {
+    if (!isAnyForwardingEnabledOnUpstream(extIface)) {
         std::vector<std::string> v4Cmds = {
             "*nat",
             StringPrintf("-A %s -o %s -j MASQUERADE", LOCAL_NAT_POSTROUTING, extIface),
@@ -633,7 +605,6 @@ int TetherController::enableNat(const char* intIface, const char* extIface) {
         return -ENODEV;
     }
 
-    if (firstDownstreamForThisUpstream) maybeStartBpf(extIface);
     return 0;
 }
 
@@ -817,80 +788,8 @@ int TetherController::disableNat(const char* intIface, const char* extIface) {
     }
 
     setForwardRules(false, intIface, extIface);
-    if (!isAnyForwardingEnabledOnUpstream(extIface)) maybeStopBpf(extIface);
     if (!isAnyForwardingPairEnabled()) setDefaults();
     return 0;
-}
-
-namespace {
-Result<void> validateOffloadRule(const TetherOffloadRuleParcel& rule) {
-    struct ethhdr hdr;
-
-    if (rule.inputInterfaceIndex <= 0) {
-        return Error(ENODEV) << "Invalid input interface " << rule.inputInterfaceIndex;
-    }
-    if (rule.outputInterfaceIndex <= 0) {
-        return Error(ENODEV) << "Invalid output interface " << rule.inputInterfaceIndex;
-    }
-    if (rule.prefixLength != 128) {
-        return Error(EINVAL) << "Prefix length must be 128, not " << rule.prefixLength;
-    }
-    if (rule.destination.size() != sizeof(in6_addr)) {
-        return Error(EAFNOSUPPORT) << "Invalid IP address length " << rule.destination.size();
-    }
-    if (rule.srcL2Address.size() != sizeof(hdr.h_source)) {
-        return Error(ENXIO) << "Invalid L2 src address length " << rule.srcL2Address.size();
-    }
-    if (rule.dstL2Address.size() != sizeof(hdr.h_dest)) {
-        return Error(ENXIO) << "Invalid L2 dst address length " << rule.dstL2Address.size();
-    }
-    if (rule.pmtu < IPV6_MIN_MTU || rule.pmtu > 0xFFFF) {
-        return Error(EINVAL) << "Invalid IPv6 path mtu " << rule.pmtu;
-    }
-    return Result<void>();
-}
-}  // namespace
-
-Result<void> TetherController::addOffloadRule(const TetherOffloadRuleParcel& rule) {
-    Result<void> res = validateOffloadRule(rule);
-    if (!res.ok()) return res;
-
-    ethhdr hdr = {
-            .h_proto = htons(ETH_P_IPV6),
-    };
-    memcpy(&hdr.h_dest, rule.dstL2Address.data(), sizeof(hdr.h_dest));
-    memcpy(&hdr.h_source, rule.srcL2Address.data(), sizeof(hdr.h_source));
-
-    // Only downstream supported for now.
-    TetherIngressKey key = {
-            .iif = static_cast<uint32_t>(rule.inputInterfaceIndex),
-            .neigh6 = *(const in6_addr*)rule.destination.data(),
-    };
-
-    TetherIngressValue value = {
-            .oif = static_cast<uint32_t>(rule.outputInterfaceIndex),
-            .macHeader = hdr,
-            .pmtu = static_cast<uint16_t>(rule.pmtu),
-    };
-
-    return mBpfIngressMap.writeValue(key, value, BPF_ANY);
-}
-
-Result<void> TetherController::removeOffloadRule(const TetherOffloadRuleParcel& rule) {
-    Result<void> res = validateOffloadRule(rule);
-    if (!res.ok()) return res;
-
-    TetherIngressKey key = {
-            .iif = static_cast<uint32_t>(rule.inputInterfaceIndex),
-            .neigh6 = *(const in6_addr*)rule.destination.data(),
-    };
-
-    Result<void> ret = mBpfIngressMap.deleteValue(key);
-
-    // Silently return success if the rule did not exist.
-    if (!ret.ok() && ret.error().code() == ENOENT) return {};
-
-    return ret;
 }
 
 void TetherController::addStats(TetherStatsList& statsList, const TetherStats& stats) {
@@ -1028,180 +927,6 @@ StatusOr<TetherController::TetherStatsList> TetherController::getTetherStats() {
     return statsList;
 }
 
-StatusOr<TetherController::TetherOffloadStatsList> TetherController::getTetherOffloadStats() {
-    TetherOffloadStatsList statsList;
-
-    const auto processTetherStats = [&statsList](const uint32_t& key, const TetherStatsValue& value,
-                                                 const BpfMap<uint32_t, TetherStatsValue>&) {
-        statsList.push_back({.ifIndex = static_cast<int>(key),
-                             .rxBytes = static_cast<int64_t>(value.rxBytes),
-                             .rxPackets = static_cast<int64_t>(value.rxPackets),
-                             .txBytes = static_cast<int64_t>(value.txBytes),
-                             .txPackets = static_cast<int64_t>(value.txPackets)});
-        return Result<void>();
-    };
-
-    auto ret = mBpfStatsMap.iterateWithValue(processTetherStats);
-    if (!ret.ok()) {
-        // Ignore error to return the remaining tether stats result.
-        ALOGE("Error processing tether stats from BPF maps: %s", ret.error().message().c_str());
-    }
-
-    return statsList;
-}
-
-// Use UINT64_MAX (~0uLL) for unlimited.
-Result<void> TetherController::setBpfLimit(uint32_t ifIndex, uint64_t limit) {
-    // The common case is an update, where the stats already exist,
-    // hence we read first, even though writing with BPF_NOEXIST
-    // first would make the code simpler.
-    uint64_t rxBytes, txBytes;
-    auto statsEntry = mBpfStatsMap.readValue(ifIndex);
-
-    if (statsEntry.ok()) {
-        // Ok, there was a stats entry.
-        rxBytes = statsEntry.value().rxBytes;
-        txBytes = statsEntry.value().txBytes;
-    } else if (statsEntry.error().code() == ENOENT) {
-        // No stats entry - create one with zeroes.
-        TetherStatsValue stats = {};
-        // This function is the *only* thing that can create entries.
-        auto ret = mBpfStatsMap.writeValue(ifIndex, stats, BPF_NOEXIST);
-        if (!ret.ok()) {
-            ALOGE("mBpfStatsMap.writeValue failure: %s", strerror(ret.error().code()));
-            return ret;
-        }
-        rxBytes = 0;
-        txBytes = 0;
-    } else {
-        // Other error while trying to get stats entry.
-        return statsEntry.error();
-    }
-
-    // rxBytes + txBytes won't overflow even at 5gbps for ~936 years.
-    uint64_t newLimit = rxBytes + txBytes + limit;
-
-    // if adding limit (e.g., if limit is UINT64_MAX) caused overflow: clamp to 'infinity'
-    if (newLimit < rxBytes + txBytes) newLimit = ~0uLL;
-
-    auto ret = mBpfLimitMap.writeValue(ifIndex, newLimit, BPF_ANY);
-    if (!ret.ok()) {
-        ALOGE("mBpfLimitMap.writeValue failure: %s", strerror(ret.error().code()));
-        return ret;
-    }
-
-    return {};
-}
-
-void TetherController::maybeStartBpf(const char* extIface) {
-    if (!bpf::isBpfSupported()) return;
-
-    // TODO: perhaps ignore IPv4-only interface because IPv4 traffic downstream is not supported.
-    int ifIndex = if_nametoindex(extIface);
-    if (!ifIndex) {
-        ALOGE("Fail to get index for interface %s", extIface);
-        return;
-    }
-
-    auto isEthernet = android::net::isEthernet(extIface);
-    if (!isEthernet.ok()) {
-        ALOGE("isEthernet(%s[%d]) failure: %s", extIface, ifIndex,
-              isEthernet.error().message().c_str());
-        return;
-    }
-
-    int rv = getTetherIngressProgFd(isEthernet.value());
-    if (rv < 0) {
-        ALOGE("getTetherIngressProgFd(%d) failure: %s", isEthernet.value(), strerror(-rv));
-        return;
-    }
-    unique_fd tetherProgFd(rv);
-
-    rv = tcFilterAddDevIngressTether(ifIndex, tetherProgFd, isEthernet.value());
-    if (rv) {
-        ALOGE("tcFilterAddDevIngressTether(%d[%s], %d) failure: %s", ifIndex, extIface,
-              isEthernet.value(), strerror(-rv));
-        return;
-    }
-}
-
-void TetherController::maybeStopBpf(const char* extIface) {
-    if (!bpf::isBpfSupported()) return;
-
-    // TODO: perhaps ignore IPv4-only interface because IPv4 traffic downstream is not supported.
-    int ifIndex = if_nametoindex(extIface);
-    if (!ifIndex) {
-        ALOGE("Fail to get index for interface %s", extIface);
-        return;
-    }
-
-    int rv = tcFilterDelDevIngressTether(ifIndex);
-    if (rv < 0) {
-        ALOGE("tcFilterDelDevIngressTether(%d[%s]) failure: %s", ifIndex, extIface, strerror(-rv));
-    }
-}
-
-int TetherController::setTetherOffloadInterfaceQuota(int ifIndex, int64_t maxBytes) {
-    if (!mBpfStatsMap.isValid() || !mBpfLimitMap.isValid()) return -ENOTSUP;
-
-    if (ifIndex <= 0) return -ENODEV;
-
-    if (maxBytes < QUOTA_UNLIMITED) {
-        ALOGE("Invalid bytes value. Must be -1 (unlimited) or 0..max_int64.");
-        return -ERANGE;
-    }
-
-    // Note that a value of unlimited quota (-1) indicates simply max_uint64.
-    const auto res = setBpfLimit(static_cast<uint32_t>(ifIndex), static_cast<uint64_t>(maxBytes));
-    if (!res.ok()) {
-        ALOGE("Fail to set quota %" PRId64 " for interface index %d: %s", maxBytes, ifIndex,
-              strerror(res.error().code()));
-        return -res.error().code();
-    }
-
-    return 0;
-}
-
-Result<TetherController::TetherOffloadStats> TetherController::getAndClearTetherOffloadStats(
-        int ifIndex) {
-    if (!mBpfStatsMap.isValid() || !mBpfLimitMap.isValid()) return Error(ENOTSUP);
-
-    if (ifIndex <= 0) {
-        return Error(ENODEV) << "Invalid interface " << ifIndex;
-    }
-
-    // getAndClearTetherOffloadStats is called after all offload rules have already been deleted
-    // for the given upstream interface. Before starting to do cleanup stuff in this function, use
-    // synchronizeKernelRCU to make sure that all the current running eBPF programs are finished
-    // on all CPUs, especially the unfinished packet processing. After synchronizeKernelRCU
-    // returned, we can safely read or delete on the stats map or the limit map.
-    if (int res = bpf::synchronizeKernelRCU()) {
-        // Error log but don't return error. Do as much cleanup as possible.
-        ALOGE("synchronize_rcu() failed: %s", strerror(-res));
-    }
-
-    const auto stats = mBpfStatsMap.readValue(ifIndex);
-    if (!stats.ok()) {
-        return Error(stats.error().code()) << "Fail to get stats for interface index " << ifIndex;
-    }
-
-    auto res = mBpfStatsMap.deleteValue(ifIndex);
-    if (!res.ok()) {
-        return Error(res.error().code()) << "Fail to delete stats for interface index " << ifIndex;
-    }
-
-    res = mBpfLimitMap.deleteValue(ifIndex);
-    if (!res.ok()) {
-        return Error(res.error().code()) << "Fail to delete limit for interface index " << ifIndex;
-    }
-
-    return TetherOffloadStats{.ifIndex = static_cast<int>(ifIndex),
-                              .rxBytes = static_cast<int64_t>(stats.value().rxBytes),
-                              .rxPackets = static_cast<int64_t>(stats.value().rxPackets),
-                              .txBytes = static_cast<int64_t>(stats.value().txBytes),
-                              .txPackets = static_cast<int64_t>(stats.value().txPackets)};
-}
-
 void TetherController::dumpIfaces(DumpWriter& dw) {
     dw.println("Interface pairs:");
 
@@ -1210,90 +935,6 @@ void TetherController::dumpIfaces(DumpWriter& dw) {
         dw.println("%s -> %s %s", it.first.c_str(), it.second.iface.c_str(),
                    (it.second.active ? "ACTIVE" : "DISABLED"));
     }
-}
-
-namespace {
-
-std::string l2ToString(const uint8_t* addr, size_t len) {
-    std::string str;
-
-    if (len == 0) return str;
-
-    StringAppendF(&str, "%02x", addr[0]);
-    for (size_t i = 1; i < len; i++) {
-        StringAppendF(&str, ":%02x", addr[i]);
-    }
-
-    return str;
-}
-
-}  // namespace
-
-void TetherController::dumpBpf(DumpWriter& dw) {
-    if (!mBpfIngressMap.isValid() || !mBpfStatsMap.isValid() || !mBpfLimitMap.isValid()) {
-        dw.println("BPF not supported");
-        return;
-    }
-
-    dw.println("BPF ingress map: iif(iface) v6addr -> oif(iface) srcmac dstmac ethertype [pmtu]");
-    const auto printIngressMap = [&dw](const TetherIngressKey& key, const TetherIngressValue& value,
-                                       const BpfMap<TetherIngressKey, TetherIngressValue>&) {
-        char addr[INET6_ADDRSTRLEN];
-        std::string src = l2ToString(value.macHeader.h_source, sizeof(value.macHeader.h_source));
-        std::string dst = l2ToString(value.macHeader.h_dest, sizeof(value.macHeader.h_dest));
-        inet_ntop(AF_INET6, &key.neigh6, addr, sizeof(addr));
-
-        char iifStr[IFNAMSIZ] = "?";
-        char oifStr[IFNAMSIZ] = "?";
-        if_indextoname(key.iif, iifStr);
-        if_indextoname(value.oif, oifStr);
-        dw.println("%u(%s) %s -> %u(%s) %s %s %04x [%u]", key.iif, iifStr, addr, value.oif, oifStr,
-                   src.c_str(), dst.c_str(), ntohs(value.macHeader.h_proto), value.pmtu);
-
-        return Result<void>();
-    };
-
-    dw.incIndent();
-    auto ret = mBpfIngressMap.iterateWithValue(printIngressMap);
-    if (!ret.ok()) {
-        dw.println("Error printing BPF ingress map: %s", ret.error().message().c_str());
-    }
-    dw.decIndent();
-
-    dw.println("BPF stats (downlink): iif(iface) -> packets bytes errors");
-    const auto printStatsMap = [&dw](const uint32_t& key, const TetherStatsValue& value,
-                                     const BpfMap<uint32_t, TetherStatsValue>&) {
-        char iifStr[IFNAMSIZ] = "?";
-        if_indextoname(key, iifStr);
-        dw.println("%u(%s) -> %" PRIu64 " %" PRIu64 " %" PRIu64, key, iifStr, value.rxPackets,
-                   value.rxBytes, value.rxErrors);
-
-        return Result<void>();
-    };
-
-    dw.incIndent();
-    ret = mBpfStatsMap.iterateWithValue(printStatsMap);
-    if (!ret.ok()) {
-        dw.println("Error printing BPF stats map: %s", ret.error().message().c_str());
-    }
-    dw.decIndent();
-
-    dw.println("BPF limit: iif(iface) -> bytes");
-    const auto printLimitMap = [&dw](const uint32_t& key, const uint64_t& value,
-                                     const BpfMap<uint32_t, uint64_t>&) {
-        char iifStr[IFNAMSIZ] = "?";
-        if_indextoname(key, iifStr);
-        dw.println("%u(%s) -> %" PRIu64, key, iifStr, value);
-
-        return Result<void>();
-    };
-
-    dw.incIndent();
-    ret = mBpfLimitMap.iterateWithValue(printLimitMap);
-    if (!ret.ok()) {
-        dw.println("Error printing BPF limit map: %s", ret.error().message().c_str());
-    }
-    dw.decIndent();
 }
 
 void TetherController::dump(DumpWriter& dw) {
@@ -1313,8 +954,6 @@ void TetherController::dump(DumpWriter& dw) {
     }
 
     dumpIfaces(dw);
-    dw.println("");
-    dumpBpf(dw);
 }
 
 }  // namespace net

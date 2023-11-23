@@ -15,23 +15,31 @@
  */
 package com.android.car.audio;
 
+import static com.android.car.audio.CarAudioContext.isCriticalAudioContext;
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.AudioFocusInfo;
 import android.media.AudioManager;
 import android.media.audiopolicy.AudioPolicy;
+import android.util.ArrayMap;
+import android.util.IndentingPrintWriter;
 import android.util.LocalLog;
-import android.util.Log;
+import android.util.Slog;
 
-import java.io.PrintWriter;
+import com.android.car.CarLog;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.internal.annotations.GuardedBy;
+
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
+class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
 
-public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
-
-    private static final String TAG = "CarAudioFocus";
+    private static final String TAG = CarLog.tagFor(CarAudioFocus.class);
 
     private static final int FOCUS_EVENT_LOGGER_QUEUE_SIZE = 25;
 
@@ -58,11 +66,13 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
     // focus or pending), the new request will be REJECTED so as to avoid any confusion about
     // the meaning of subsequent GAIN/LOSS events (which would continue to apply to the focus
     // request that was already active or pending).
-    private final HashMap<String, FocusEntry> mFocusHolders = new HashMap<>();
-    private final HashMap<String, FocusEntry> mFocusLosers = new HashMap<>();
+    private final Map<String, FocusEntry> mFocusHolders = new ArrayMap<>();
+    private final Map<String, FocusEntry> mFocusLosers = new ArrayMap<>();
 
     private final Object mLock = new Object();
 
+    @GuardedBy("mLock")
+    private boolean mIsFocusRestricted;
 
     CarAudioFocus(AudioManager audioManager, PackageManager packageManager,
             FocusInteraction focusInteraction, boolean enableDelayedFocusRequest) {
@@ -80,6 +90,49 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
         mAudioPolicy = parentPolicy;
     }
 
+    void setRestrictFocus(boolean isFocusRestricted) {
+        synchronized (mLock) {
+            mIsFocusRestricted = isFocusRestricted;
+            if (mIsFocusRestricted) {
+                abandonNonCriticalFocusLocked();
+            }
+        }
+    }
+
+    @GuardedBy("mLock")
+    private void abandonNonCriticalFocusLocked() {
+        if (mEnabledDelayedFocusRequest && mDelayedRequest != null) {
+            int audioContext = CarAudioContext.getContextForAttributes(
+                    mDelayedRequest.getAttributes());
+
+            if (!isCriticalAudioContext(audioContext)) {
+                sendFocusLossLocked(mDelayedRequest, AudioManager.AUDIOFOCUS_LOSS);
+                mDelayedRequest = null;
+            }
+        }
+
+        abandonNonCriticalEntriesLocked(mFocusLosers);
+        abandonNonCriticalEntriesLocked(mFocusHolders);
+    }
+
+    @GuardedBy("mLock")
+    private void abandonNonCriticalEntriesLocked(Map<String, FocusEntry> entries) {
+        List<String> clientsToRemove = new ArrayList<>();
+        for (FocusEntry holderEntry : entries.values()) {
+            if (isCriticalAudioContext(holderEntry.getAudioContext())) {
+                continue;
+            }
+
+            sendFocusLossLocked(holderEntry.getAudioFocusInfo(), AudioManager.AUDIOFOCUS_LOSS);
+            clientsToRemove.add(holderEntry.getAudioFocusInfo().getClientId());
+        }
+
+        for (int i = 0; i < clientsToRemove.size(); i++) {
+            String clientId = clientsToRemove.get(i);
+            FocusEntry removedEntry = entries.remove(clientId);
+            removeBlockerAndRestoreUnblockedWaitersLocked(removedEntry);
+        }
+    }
 
     // This sends a focus loss message to the targeted requester.
     private void sendFocusLossLocked(AudioFocusInfo loser, int lossType) {
@@ -89,14 +142,13 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
             // TODO:  Is this actually an error, or is it okay for an entry in the focus stack
             // to NOT have a listener?  If that's the case, should we even keep it in the focus
             // stack?
-            Log.e(TAG, "Failure to signal loss of audio focus with error: " + result);
+            Slog.e(TAG, "Failure to signal loss of audio focus with error: " + result);
         }
 
         logFocusEvent("sendFocusLoss for client " + loser.getClientId()
                 + " with loss type " + focusEventToString(lossType)
                 + " resulted in " + focusRequestResponseToString(result));
     }
-
 
     /** @see AudioManager#requestAudioFocus(AudioManager.OnAudioFocusChangeListener, int, int, int) */
     // Note that we replicate most, but not all of the behaviors of the default MediaFocusControl
@@ -109,10 +161,18 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
     // If it is for the same USAGE, we replace the old request with the new one.
     // The default audio framework's behavior is to remove the previous entry in the stack (no-op
     // if the requester is already holding focus).
+    @GuardedBy("mLock")
     private int evaluateFocusRequestLocked(AudioFocusInfo afi) {
-        Log.i(TAG, "Evaluating " + focusEventToString(afi.getGainRequest())
+        Slog.i(TAG, "Evaluating " + focusEventToString(afi.getGainRequest())
                 + " request for client " + afi.getClientId()
                 + " with usage " + afi.getAttributes().usageToString());
+
+        if (mIsFocusRestricted) {
+            int audioContext = CarAudioContext.getContextForAttributes(afi.getAttributes());
+            if (!isCriticalAudioContext(audioContext)) {
+                return AudioManager.AUDIOFOCUS_REQUEST_FAILED;
+            }
+        }
 
         // Is this a request for premanant focus?
         // AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE -- Means Notifications should be denied
@@ -127,8 +187,7 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
 
         boolean delayFocusForCurrentRequest = false;
 
-        final int requestedContext = CarAudioContext.getContextForUsage(
-                afi.getAttributes().getSystemUsage());
+        int requestedContext = CarAudioContext.getContextForAttributes(afi.getAttributes());
 
         // If we happen to find entries that this new request should replace, we'll store them here.
         // This happens when a client makes a second AF request on the same listener.
@@ -141,12 +200,12 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
         // We don't allow sharing listeners (client IDs) between two concurrent requests
         // (because the app would have no way to know to which request a later event applied)
         if (mDelayedRequest != null && afi.getClientId().equals(mDelayedRequest.getClientId())) {
-            int delayedRequestedContext = CarAudioContext.getContextForUsage(
-                    mDelayedRequest.getAttributes().getSystemUsage());
+            int delayedRequestedContext = CarAudioContext.getContextForAttributes(
+                    mDelayedRequest.getAttributes());
             // If it is for a different context then reject
             if (delayedRequestedContext != requestedContext) {
                 // Trivially reject a request for a different USAGE
-                Log.e(TAG, String.format(
+                Slog.e(TAG, String.format(
                         "Client %s has already delayed requested focus for %s "
                                 + "- cannot request focus for %s on same listener.",
                         mDelayedRequest.getClientId(),
@@ -159,10 +218,10 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
         // Scan all active and pending focus requests.  If any should cause rejection of
         // this new request, then we're done.  Keep a list of those against whom we're exclusive
         // so we can update the relationships if/when we are sure we won't get rejected.
-        Log.i(TAG, "Scanning focus holders...");
+        Slog.i(TAG, "Scanning focus holders...");
         final ArrayList<FocusEntry> losers = new ArrayList<FocusEntry>();
         for (FocusEntry entry : mFocusHolders.values()) {
-            Log.d(TAG, "Evaluating focus holder: " + entry.getClientId());
+            Slog.d(TAG, "Evaluating focus holder: " + entry.getClientId());
 
             // If this request is for Notifications and a current focus holder has specified
             // AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE, then reject the request.
@@ -182,12 +241,12 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
                     // This is a request from a current focus holder.
                     // Abandon the previous request (without sending a LOSS notification to it),
                     // and don't check the interaction matrix for it.
-                    Log.i(TAG, "Replacing accepted request from same client");
+                    Slog.i(TAG, "Replacing accepted request from same client");
                     replacedCurrentEntry = entry;
                     continue;
                 } else {
                     // Trivially reject a request for a different USAGE
-                    Log.e(TAG, String.format(
+                    Slog.e(TAG, String.format(
                             "Client %s has already requested focus for %s - cannot request focus "
                                     + "for %s on same listener.",
                             entry.getClientId(),
@@ -207,10 +266,10 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
                 delayFocusForCurrentRequest = true;
             }
         }
-        Log.i(TAG, "Scanning those who've already lost focus...");
+        Slog.i(TAG, "Scanning those who've already lost focus...");
         final ArrayList<FocusEntry> blocked = new ArrayList<FocusEntry>();
         for (FocusEntry entry : mFocusLosers.values()) {
-            Log.i(TAG, entry.getAudioFocusInfo().getClientId());
+            Slog.i(TAG, entry.getAudioFocusInfo().getClientId());
 
             // If this request is for Notifications and a pending focus holder has specified
             // AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE, then reject the request
@@ -228,12 +287,12 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
                     // Evaluate it as if it were a new request, but note that we should remove
                     // the old pending request, and move it.
                     // We do not want to evaluate the new request against itself.
-                    Log.i(TAG, "Replacing pending request from same client");
+                    Slog.i(TAG, "Replacing pending request from same client");
                     replacedBlockedEntry = entry;
                     continue;
                 } else {
                     // Trivially reject a request for a different USAGE
-                    Log.e(TAG, String.format(
+                    Slog.e(TAG, String.format(
                             "Client %s has already requested focus for %s - cannot request focus "
                                     + "for %s on same listener.",
                             entry.getClientId(),
@@ -289,7 +348,7 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
             } else {
                 if (!allowDucking && entry.isDucked()) {
                     // This entry was previously allowed to duck, but can no longer do so.
-                    Log.i(TAG, "Converting duckable loss to non-duckable for "
+                    Slog.i(TAG, "Converting duckable loss to non-duckable for "
                             + entry.getClientId());
                     sendFocusLossLocked(entry.getAudioFocusInfo(),
                             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
@@ -335,11 +394,10 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
         // re-grant them. (This can happen when a GAIN_TRANSIENT_MAY_DUCK request replaces a
         // GAIN_TRANSIENT request from the same listener.)
         for (FocusEntry entry : permanentlyLost) {
-            Log.d(TAG, "Cleaning up entry " + entry.getClientId());
+            Slog.d(TAG, "Cleaning up entry " + entry.getClientId());
             removeBlockerAndRestoreUnblockedWaitersLocked(entry);
         }
 
-        // Finally, add the request we're granting to the focus holders' list
         if (delayFocusForCurrentRequest) {
             swapDelayedAudioFocusRequestLocked(afi);
             return AudioManager.AUDIOFOCUS_REQUEST_DELAYED;
@@ -347,7 +405,7 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
 
         mFocusHolders.put(afi.getClientId(), newEntry);
 
-        Log.i(TAG, "AUDIOFOCUS_REQUEST_GRANTED");
+        Slog.i(TAG, "AUDIOFOCUS_REQUEST_GRANTED");
         return AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
     }
 
@@ -416,7 +474,7 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
      * @return Removed Focus Entry
      */
     private FocusEntry removeFocusEntryLocked(AudioFocusInfo afi) {
-        Log.i(TAG, "removeFocusEntry " + afi.getClientId());
+        Slog.i(TAG, "removeFocusEntry " + afi.getClientId());
 
         // Remove this entry from our active or pending list
         FocusEntry deadEntry = mFocusHolders.remove(afi.getClientId());
@@ -424,7 +482,8 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
             deadEntry = mFocusLosers.remove(afi.getClientId());
             if (deadEntry == null) {
                 // Caller is providing an unrecognzied clientId!?
-                Log.w(TAG, "Audio focus abandoned by unrecognized client id: " + afi.getClientId());
+                Slog.w(TAG, "Audio focus abandoned by unrecognized client id: "
+                        + afi.getClientId());
                 // This probably means an app double released focused for some reason.  One
                 // harmless possibility is a race between an app being told it lost focus and the
                 // app voluntarily abandoning focus.  More likely the app is just sloppy.  :)
@@ -454,7 +513,7 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
             mDelayedRequest = null;
             if (dispatchFocusGainedLocked(focusEntry.getAudioFocusInfo())
                     == AudioManager.AUDIOFOCUS_REQUEST_FAILED) {
-                Log.e(TAG,
+                Slog.e(TAG,
                         "Failure to signal gain of audio focus gain for "
                                 + "delayed focus clientId " + focusEntry.getClientId());
                 mFocusHolders.remove(focusEntry.getClientId());
@@ -494,7 +553,7 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
 
             // Any entry whose blocking list becomes empty should regain focus
             if (entry.isUnblocked()) {
-                Log.i(TAG, "Restoring unblocked entry " + entry.getClientId());
+                Slog.i(TAG, "Restoring unblocked entry " + entry.getClientId());
                 // Pull this entry out of the focus losers list
                 it.remove();
 
@@ -521,7 +580,7 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
             // TODO:  Is this actually an error, or is it okay for an entry in the focus
             // stack to NOT have a listener?  If that's the case, should we even keep
             // it in the focus stack?
-            Log.e(TAG, "Failure to signal gain of audio focus with error: " + result);
+            Slog.e(TAG, "Failure to signal gain of audio focus with error: " + result);
         }
 
         logFocusEvent("dispatchFocusGainedLocked for client " + afi.getClientId()
@@ -548,6 +607,16 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
         return getAudioFocusListForUid(uid, mFocusHolders);
     }
 
+    List<AudioFocusInfo> getAudioFocusHolders() {
+        List<AudioFocusInfo> focusHolders = new ArrayList<>();
+        synchronized (mLock) {
+            for (FocusEntry entry : mFocusHolders.values()) {
+                focusHolders.add(entry.getAudioFocusInfo());
+            }
+            return focusHolders;
+        }
+    }
+
     /**
      * Query input list for matching uid
      * @param uid uid to match in map
@@ -555,7 +624,7 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
      * @return list of audio focus info that match uid
      */
     private ArrayList<AudioFocusInfo> getAudioFocusListForUid(int uid,
-            HashMap<String, FocusEntry> mapToQuery) {
+            Map<String, FocusEntry> mapToQuery) {
         ArrayList<AudioFocusInfo> matchingInfoList = new ArrayList<>();
         synchronized (mLock) {
             for (String clientId : mapToQuery.keySet()) {
@@ -601,33 +670,38 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
         return results;
     }
 
-    /**
-     * dumps the current state of the CarAudioFocus object
-     * @param indent indent to add to each line in the current stream
-     * @param writer stream to write to
-     */
-    public void dump(String indent, PrintWriter writer) {
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
+    public void dump(IndentingPrintWriter writer) {
         synchronized (mLock) {
-            writer.printf("%s*CarAudioFocus*\n", indent);
-            String innerIndent = indent + "\t";
-            String focusIndent = innerIndent + "\t";
-            mFocusInteraction.dump(innerIndent, writer);
+            writer.println("*CarAudioFocus*");
+            writer.increaseIndent();
+            writer.printf("Is focus restricted? %b\n", mIsFocusRestricted);
+            writer.println();
+            mFocusInteraction.dump(writer);
 
-            writer.printf("%sCurrent Focus Holders:\n", innerIndent);
+            writer.println("Current Focus Holders:");
+            writer.increaseIndent();
             for (String clientId : mFocusHolders.keySet()) {
-                mFocusHolders.get(clientId).dump(focusIndent, writer);
+                mFocusHolders.get(clientId).dump(writer);
             }
+            writer.decreaseIndent();
 
-            writer.printf("%sTransient Focus Losers:\n", innerIndent);
+            writer.println("Transient Focus Losers:");
+            writer.increaseIndent();
             for (String clientId : mFocusLosers.keySet()) {
-                mFocusLosers.get(clientId).dump(focusIndent, writer);
+                mFocusLosers.get(clientId).dump(writer);
             }
+            writer.decreaseIndent();
 
-            writer.printf("%sQueued Delayed Focus: %s\n", innerIndent,
+            writer.printf("Queued Delayed Focus: %s\n",
                     mDelayedRequest == null ? "None" : mDelayedRequest.getClientId());
 
-            writer.printf("%sFocus Events:\n", innerIndent);
-            mFocusEventLogger.dump(innerIndent + "\t", writer);
+            writer.println("Focus Events:");
+            writer.increaseIndent();
+            mFocusEventLogger.dump(writer);
+            writer.decreaseIndent();
+
+            writer.decreaseIndent();
         }
     }
 
@@ -663,7 +737,7 @@ public class CarAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
 
     private void logFocusEvent(String log) {
         mFocusEventLogger.log(log);
-        Log.i(TAG, log);
+        Slog.i(TAG, log);
     }
 
     /**

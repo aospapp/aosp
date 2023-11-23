@@ -106,6 +106,7 @@ class GraphicBlockBuddy : public C2GraphicBlock {
 class BufferDataBuddy : public C2BufferData {
     using C2BufferData::C2BufferData;
     friend class ::C2Buffer;
+    friend class ::C2InfoBuffer;
 };
 
 }  // namespace
@@ -396,26 +397,18 @@ std::shared_ptr<_C2BlockPoolData> _C2BlockFactory::GetLinearBlockPoolData(
 std::shared_ptr<C2LinearBlock> _C2BlockFactory::CreateLinearBlock(
         const C2Handle *handle) {
     // TODO: get proper allocator? and mutex?
-    static std::unique_ptr<C2Allocator> sAllocator = []{
-        std::unique_ptr<C2Allocator> allocator;
-        if (android::GetPreferredLinearAllocatorId(android::GetCodec2PoolMask()) ==
-                android::C2PlatformAllocatorStore::BLOB) {
-            allocator = std::make_unique<C2AllocatorBlob>(android::C2PlatformAllocatorStore::BLOB);
-        } else {
-            allocator = std::make_unique<C2AllocatorIon>(android::C2PlatformAllocatorStore::ION);
-        }
+    static std::shared_ptr<C2Allocator> sAllocator = []{
+        std::shared_ptr<C2Allocator> allocator;
+        std::shared_ptr<C2AllocatorStore> allocatorStore = android::GetCodec2PlatformAllocatorStore();
+        allocatorStore->fetchAllocator(C2AllocatorStore::DEFAULT_LINEAR, &allocator);
+
         return allocator;
     }();
 
     if (sAllocator == nullptr)
         return nullptr;
 
-    bool isValidHandle = false;
-    if (sAllocator->getId() == android::C2PlatformAllocatorStore::BLOB) {
-        isValidHandle = C2AllocatorBlob::isValid(handle);
-    } else {
-        isValidHandle = C2AllocatorIon::isValid(handle);
-    }
+    bool isValidHandle = sAllocator->checkHandle(handle);
 
     std::shared_ptr<C2LinearAllocation> alloc;
     if (isValidHandle) {
@@ -431,26 +424,18 @@ std::shared_ptr<C2LinearBlock> _C2BlockFactory::CreateLinearBlock(
 std::shared_ptr<C2LinearBlock> _C2BlockFactory::CreateLinearBlock(
         const C2Handle *cHandle, const std::shared_ptr<BufferPoolData> &data) {
     // TODO: get proper allocator? and mutex?
-    static std::unique_ptr<C2Allocator> sAllocator = []{
-        std::unique_ptr<C2Allocator> allocator;
-        if (android::GetPreferredLinearAllocatorId(android::GetCodec2PoolMask()) ==
-                android::C2PlatformAllocatorStore::BLOB) {
-            allocator = std::make_unique<C2AllocatorBlob>(android::C2PlatformAllocatorStore::BLOB);
-        } else {
-            allocator = std::make_unique<C2AllocatorIon>(android::C2PlatformAllocatorStore::ION);
-        }
+    static std::shared_ptr<C2Allocator> sAllocator = []{
+        std::shared_ptr<C2Allocator> allocator;
+        std::shared_ptr<C2AllocatorStore> allocatorStore = android::GetCodec2PlatformAllocatorStore();
+        allocatorStore->fetchAllocator(C2AllocatorStore::DEFAULT_LINEAR, &allocator);
+
         return allocator;
     }();
 
     if (sAllocator == nullptr)
         return nullptr;
 
-    bool isValidHandle = false;
-    if (sAllocator->getId() == android::C2PlatformAllocatorStore::BLOB) {
-        isValidHandle = C2AllocatorBlob::isValid(cHandle);
-    } else {
-        isValidHandle = C2AllocatorIon::isValid(cHandle);
-    }
+    bool isValidHandle = sAllocator->checkHandle(cHandle);
 
     std::shared_ptr<C2LinearAllocation> alloc;
     if (isValidHandle) {
@@ -1148,7 +1133,7 @@ std::shared_ptr<C2GraphicBlock> _C2BlockFactory::CreateGraphicBlock(
     static std::unique_ptr<C2AllocatorGralloc> sAllocator = std::make_unique<C2AllocatorGralloc>(0);
 
     std::shared_ptr<C2GraphicAllocation> alloc;
-    if (C2AllocatorGralloc::isValid(cHandle)) {
+    if (sAllocator->isValid(cHandle)) {
         c2_status_t err = sAllocator->priorGraphicAllocation(cHandle, &alloc);
         const std::shared_ptr<C2PooledBlockPoolData> poolData =
                 std::make_shared<C2PooledBlockPoolData>(data);
@@ -1185,6 +1170,7 @@ private:
     type_t mType;
     std::vector<C2ConstLinearBlock> mLinearBlocks;
     std::vector<C2ConstGraphicBlock> mGraphicBlocks;
+    friend class C2InfoBuffer;
 };
 
 C2BufferData::C2BufferData(const std::vector<C2ConstLinearBlock> &blocks) : mImpl(new Impl(blocks)) {}
@@ -1198,6 +1184,35 @@ const std::vector<C2ConstLinearBlock> C2BufferData::linearBlocks() const {
 
 const std::vector<C2ConstGraphicBlock> C2BufferData::graphicBlocks() const {
     return mImpl->graphicBlocks();
+}
+
+C2InfoBuffer::C2InfoBuffer(
+    C2Param::Index index, const std::vector<C2ConstLinearBlock> &blocks)
+    : mIndex(index), mData(BufferDataBuddy(blocks)) {
+}
+
+C2InfoBuffer::C2InfoBuffer(
+    C2Param::Index index, const std::vector<C2ConstGraphicBlock> &blocks)
+    : mIndex(index), mData(BufferDataBuddy(blocks)) {
+}
+
+C2InfoBuffer::C2InfoBuffer(
+    C2Param::Index index, const C2BufferData &data)
+    : mIndex(index), mData(data) {
+}
+
+// static
+C2InfoBuffer C2InfoBuffer::CreateLinearBuffer(
+        C2Param::CoreIndex index, const C2ConstLinearBlock &block) {
+    return C2InfoBuffer(index.coreIndex() | C2Param::Index::KIND_INFO | C2Param::Index::DIR_GLOBAL,
+                        { block });
+}
+
+// static
+C2InfoBuffer C2InfoBuffer::CreateGraphicBuffer(
+        C2Param::CoreIndex index, const C2ConstGraphicBlock &block) {
+    return C2InfoBuffer(index.coreIndex() | C2Param::Index::KIND_INFO | C2Param::Index::DIR_GLOBAL,
+                        { block });
 }
 
 class C2Buffer::Impl {
@@ -1330,4 +1345,3 @@ std::shared_ptr<C2Buffer> C2Buffer::CreateLinearBuffer(const C2ConstLinearBlock 
 std::shared_ptr<C2Buffer> C2Buffer::CreateGraphicBuffer(const C2ConstGraphicBlock &block) {
     return std::shared_ptr<C2Buffer>(new C2Buffer({ block }));
 }
-

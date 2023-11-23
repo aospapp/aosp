@@ -24,7 +24,7 @@ import android.content.SharedPreferences;
 import android.os.ParcelFileDescriptor;
 
 import com.android.compatibility.common.util.ShellIdentityUtils;
-import com.android.utils.blob.DummyBlobData;
+import com.android.utils.blob.FakeBlobData;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,7 +41,7 @@ public class DataPersistenceTest extends BaseBlobStoreDeviceTest {
 
     @Test
     public void testCreateSession() throws Exception {
-        final DummyBlobData blobData = new DummyBlobData.Builder(mContext)
+        final FakeBlobData blobData = new FakeBlobData.Builder(mContext)
                 .setRandomSeed(22)
                 .setFileName("test_blob_data")
                 .build();
@@ -63,7 +63,7 @@ public class DataPersistenceTest extends BaseBlobStoreDeviceTest {
     @Test
     public void testOpenSessionAndWrite() throws Exception {
         final long sessionId = readSessionIdFromDisk();
-        final DummyBlobData blobData = new DummyBlobData.Builder(mContext)
+        final FakeBlobData blobData = new FakeBlobData.Builder(mContext)
                 .setRandomSeed(22)
                 .setFileName("test_blob_data")
                 .build();

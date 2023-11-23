@@ -21,75 +21,46 @@
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/base/logging.h"
+#include "perfetto/ext/base/file_utils.h"
 #include "perfetto/ext/base/uuid.h"
 #include "perfetto/tracing/core/trace_config.h"
-#include "src/android_internal/dropbox_service.h"
 #include "src/android_internal/incident_service.h"
 #include "src/android_internal/lazy_library_loader.h"
-#include "src/android_internal/statsd_logging.h"
 
 namespace perfetto {
+namespace {
+
+constexpr int64_t kSendfileTimeoutNs = 10UL * 1000 * 1000 * 1000;  // 10s
+
+}  // namespace
 
 void PerfettoCmd::SaveTraceIntoDropboxAndIncidentOrCrash() {
-  PERFETTO_CHECK(!dropbox_tag_.empty());
-
-  bool use_dropbox = !trace_config_->incident_report_config().skip_dropbox();
-  bool use_incident =
-      !trace_config_->incident_report_config().destination_package().empty();
+  PERFETTO_CHECK(save_to_incidentd_);
+  PERFETTO_CHECK(
+      !trace_config_->incident_report_config().destination_package().empty());
 
   if (bytes_written_ == 0) {
     LogUploadEvent(PerfettoStatsdAtom::kNotUploadingEmptyTrace);
-    if (use_dropbox)
-      PERFETTO_LOG("Skipping write to dropbox. Empty trace.");
-    if (use_incident)
-      PERFETTO_LOG("Skipping write to incident. Empty trace.");
+    PERFETTO_LOG("Skipping write to incident. Empty trace.");
     return;
   }
 
-  // Otherwise, write to Dropbox unless there's a special override in the
-  // incident report config.
-  if (use_dropbox) {
-    SaveOutputToDropboxOrCrash();
+  // Save the trace as an incident.
+  SaveOutputToIncidentTraceOrCrash();
+
+  if (!uuid_.empty()) {
+    base::Uuid uuid(uuid_);
+    PERFETTO_LOG("go/trace-uuid/%s  (%" PRIu64 " bytes)",
+                 uuid.ToPrettyString().c_str(), bytes_written_);
   }
 
-  // Optionally save the trace as an incident. This is either in addition to, or
-  // instead of, the Dropbox write.
-  if (use_incident) {
-    SaveOutputToIncidentTraceOrCrash();
-
-    // Ask incidentd to create a report, which will read the file we just
-    // wrote.
-    const auto& cfg = trace_config_->incident_report_config();
-    PERFETTO_LAZY_LOAD(android_internal::StartIncidentReport, incident_fn);
-    PERFETTO_CHECK(incident_fn(cfg.destination_package().c_str(),
-                               cfg.destination_class().c_str(),
-                               cfg.privacy_level()));
-  }
-}
-
-void PerfettoCmd::SaveOutputToDropboxOrCrash() {
-  LogUploadEvent(PerfettoStatsdAtom::kUploadDropboxBegin);
-
-  PERFETTO_CHECK(fseek(*trace_out_stream_, 0, SEEK_SET) == 0);
-
-  // DropBox takes ownership of the file descriptor, so give it a duplicate.
-  // Also we need to give it a read-only copy of the fd or will hit a SELinux
-  // violation (about system_server ending up with a writable FD to our dir).
-  char fdpath[64];
-  sprintf(fdpath, "/proc/self/fd/%d", fileno(*trace_out_stream_));
-  base::ScopedFile read_only_fd(base::OpenFile(fdpath, O_RDONLY));
-  PERFETTO_CHECK(read_only_fd);
-
-  PERFETTO_LAZY_LOAD(android_internal::SaveIntoDropbox, dropbox_fn);
-  if (dropbox_fn(dropbox_tag_.c_str(), read_only_fd.release())) {
-    LogUploadEvent(PerfettoStatsdAtom::kUploadDropboxSuccess);
-    PERFETTO_LOG("Wrote %" PRIu64
-                 " bytes (before compression) into DropBox with tag %s",
-                 bytes_written_, dropbox_tag_.c_str());
-  } else {
-    LogUploadEvent(PerfettoStatsdAtom::kUploadDropboxFailure);
-    PERFETTO_FATAL("DropBox upload failed");
-  }
+  // Ask incidentd to create a report, which will read the file we just
+  // wrote.
+  const auto& cfg = trace_config_->incident_report_config();
+  PERFETTO_LAZY_LOAD(android_internal::StartIncidentReport, incident_fn);
+  PERFETTO_CHECK(incident_fn(cfg.destination_package().c_str(),
+                             cfg.destination_class().c_str(),
+                             cfg.privacy_level()));
 }
 
 // Open a staging file (unlinking the previous instance), copy the trace
@@ -107,14 +78,48 @@ void PerfettoCmd::SaveOutputToIncidentTraceOrCrash() {
 
   PERFETTO_CHECK(unlink(kTempIncidentTracePath) == 0 || errno == ENOENT);
 
+  // TODO(b/155024256) These should not be necessary (we flush when destroying
+  // packet writer and sendfile should ignore file offset) however they should
+  // not harm anything and it will help debug the linked issue.
+  PERFETTO_CHECK(fflush(*trace_out_stream_) == 0);
+  PERFETTO_CHECK(fseek(*trace_out_stream_, 0, SEEK_SET) == 0);
+
   // SELinux constrains the set of readers.
   base::ScopedFile staging_fd =
-      base::OpenFile(kTempIncidentTracePath, O_CREAT | O_RDWR, 0666);
+      base::OpenFile(kTempIncidentTracePath, O_CREAT | O_EXCL | O_RDWR, 0666);
   PERFETTO_CHECK(staging_fd);
+
+  int fd = fileno(*trace_out_stream_);
   off_t offset = 0;
-  auto wsize = sendfile(*staging_fd, fileno(*trace_out_stream_), &offset,
-                        static_cast<size_t>(bytes_written_));
-  PERFETTO_CHECK(wsize == static_cast<ssize_t>(bytes_written_));
+  size_t remaining = static_cast<size_t>(bytes_written_);
+
+  // Count time in terms of CPU to avoid timeouts due to suspend:
+  base::TimeNanos start = base::GetThreadCPUTimeNs();
+  for (;;) {
+    errno = 0;
+    PERFETTO_DCHECK(static_cast<size_t>(offset) + remaining == bytes_written_);
+    auto wsize = PERFETTO_EINTR(sendfile(*staging_fd, fd, &offset, remaining));
+    if (wsize < 0) {
+      PERFETTO_FATAL("sendfile() failed wsize=%zd, off=%" PRId64
+                     ", initial=%" PRIu64 ", remaining=%zu",
+                     wsize, static_cast<int64_t>(offset), bytes_written_,
+                     remaining);
+    }
+    remaining -= static_cast<size_t>(wsize);
+    if (remaining == 0) {
+      break;
+    }
+    base::TimeNanos now = base::GetThreadCPUTimeNs();
+    if (now < start || (now - start).count() > kSendfileTimeoutNs) {
+      PERFETTO_FATAL("sendfile() timed out wsize=%zd, off=%" PRId64
+                     ", initial=%" PRIu64
+                     ", remaining=%zu, start=%lld, now=%lld",
+                     wsize, static_cast<int64_t>(offset), bytes_written_,
+                     remaining, static_cast<long long int>(start.count()),
+                     static_cast<long long int>(now.count()));
+    }
+  }
+
   staging_fd.reset();
   PERFETTO_CHECK(rename(kTempIncidentTracePath, kIncidentTracePath) == 0);
   // Note: not calling fsync(2), as we're not interested in the file being
@@ -123,21 +128,13 @@ void PerfettoCmd::SaveOutputToIncidentTraceOrCrash() {
 }
 
 // static
-base::ScopedFile PerfettoCmd::OpenDropboxTmpFile() {
+base::ScopedFile PerfettoCmd::CreateUnlinkedTmpFile() {
   // If we are tracing to DropBox, there's no need to make a
   // filesystem-visible temporary file.
   auto fd = base::OpenFile(kStateDir, O_TMPFILE | O_RDWR, 0600);
   if (!fd)
     PERFETTO_PLOG("Could not create a temporary trace file in %s", kStateDir);
   return fd;
-}
-
-void PerfettoCmd::LogUploadEventAndroid(PerfettoStatsdAtom atom) {
-  if (dropbox_tag_.empty())
-    return;
-  PERFETTO_LAZY_LOAD(android_internal::StatsdLogEvent, log_event_fn);
-  base::Uuid uuid(uuid_);
-  log_event_fn(atom, uuid.lsb(), uuid.msb());
 }
 
 }  // namespace perfetto

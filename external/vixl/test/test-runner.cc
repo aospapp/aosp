@@ -49,25 +49,8 @@ bool vixl::Test::disassemble_infrastructure_ = false;
 // No colour highlight by default.
 bool vixl::Test::coloured_trace_ = false;
 
-// No instruction statistics by default.
-bool vixl::Test::instruction_stats_ = false;
-
 // Don't generate traces by default.
 bool vixl::Test::generate_test_trace_ = false;
-
-// Instantiate a Test and append it to the linked list.
-vixl::Test::Test(const char* name, TestFunction* callback)
-    : name_(name), callback_(callback), next_(NULL) {
-  // Append this test to the linked list.
-  if (first_ == NULL) {
-    VIXL_ASSERT(last_ == NULL);
-    first_ = this;
-  } else {
-    last_->next_ = this;
-  }
-  last_ = this;
-}
-
 
 // Look for 'search' in the arguments.
 static bool IsInArgs(const char* search, int argc, char* argv[]) {
@@ -118,7 +101,6 @@ static void PrintHelpMessage() {
       "--disassemble-test-code  "
       "As above, but don't disassemble infrastructure code.\n"
       "--coloured_trace         Generate coloured trace.\n"
-      "--instruction_stats      Log instruction statistics to vixl_stats.csv.\n"
       "--generate_test_trace    "
       "Print result traces for SIM_* and TRACE_* tests.\n");
 }
@@ -179,10 +161,6 @@ int main(int argc, char* argv[]) {
     vixl::Test::set_disassemble_infrastructure(false);
   }
 
-  if (IsInArgs("--instruction-stats", argc, argv)) {
-    vixl::Test::set_instruction_stats(true);
-  }
-
   if (IsInArgs("--generate-test-trace", argc, argv)) {
     vixl::Test::set_generate_test_trace(true);
   }
@@ -202,7 +180,7 @@ int main(int argc, char* argv[]) {
     // Run all registered tests.
     for (vixl::Test* c = vixl::Test::first(); c != NULL; c = c->next()) {
       printf("Running %s\n", c->name());
-      c->callback()();
+      c->run();
     }
 
   } else {
@@ -218,7 +196,7 @@ int main(int argc, char* argv[]) {
         vixl::Test* c;
         for (c = vixl::Test::first(); c != NULL; c = c->next()) {
           if (strcmp(c->name(), argv[i]) == 0) {
-            c->callback()();
+            c->run();
             break;
           }
         }
@@ -232,4 +210,24 @@ int main(int argc, char* argv[]) {
   }
 
   return EXIT_SUCCESS;
+}
+
+void vixl::Test::set_callback(TestFunction* callback) {
+  callback_ = callback;
+  callback_with_config_ = NULL;
+}
+
+void vixl::Test::set_callback(TestFunctionWithConfig* callback) {
+  callback_ = NULL;
+  callback_with_config_ = callback;
+}
+
+void vixl::Test::run() {
+  if (callback_ == NULL) {
+    VIXL_ASSERT(callback_with_config_ != NULL);
+    callback_with_config_(this);
+  } else {
+    VIXL_ASSERT(callback_with_config_ == NULL);
+    callback_();
+  }
 }

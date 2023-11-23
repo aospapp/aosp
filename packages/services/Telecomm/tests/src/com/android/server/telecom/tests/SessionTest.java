@@ -173,6 +173,36 @@ public class SessionTest extends TelecomTestCase {
     }
 
     /**
+     * Ensure creating two sessions and setting the child as the parent to itself doesn't cause a
+     * crash due to infinite recursion.
+     */
+    @SmallTest
+    @Test
+    public void testRecursion_toString_childCircDep() {
+        Log.startSession("testParent");
+        // Running in the same thread, so mark as invisible subsession
+        Session childSession = Log.getSessionManager()
+                .createSubsession(true /*isStartedFromActiveSession*/);
+        Log.continueSession(childSession, "child");
+        Session parentSession = childSession.getParentSession();
+        // Create a circular dependency and ensure we do not crash
+        childSession.setParentSession(childSession);
+
+        // Make sure calling these methods does not result in a crash
+        try {
+            parentSession.toString();
+            childSession.toString();
+        } catch (Exception e) {
+            fail("Exception: " + e.getMessage());
+        } finally {
+            // End child
+            Log.endSession();
+            // End parent
+            Log.endSession();
+        }
+    }
+
+    /**
      * Ensure creating two sessions that are parent/child of each other does not lead to a crash
      * or infinite recursion when using Session#getInfo.
      */

@@ -29,12 +29,14 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.ComponentInfo;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.provider.apps.cts.gallerytestapp.ReviewActivity;
 import android.provider.apps.cts.gallerytestapp.ReviewPrewarmService;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.util.ArrayUtils;
@@ -44,6 +46,7 @@ import org.junit.runner.RunWith;
 
 import java.util.List;
 
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 @RunWith(AndroidJUnit4.class)
 public class MediaStore_MetadataKeysTest {
     private static final String TEST_PACKAGE_NAME = "android.provider.apps.cts.gallerytestapp";

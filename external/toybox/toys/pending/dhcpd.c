@@ -125,7 +125,7 @@ config DEBUG_DHCP
 GLOBALS(
     char *iface;
     long port;
-);
+)
 
 struct config_keyword {
   char *keyword;
@@ -631,12 +631,12 @@ static int strtoopt(const char *str, void *var)
     while(grp){
       while(*grp == ' ' || *grp == '\t') grp++;
       tp = strchr(grp, '/');
-      if (!tp) error_exit("wrong formated static route option");
+      if (!tp) error_exit("wrong formatted static route option");
       *tp = '\0';
       mask = strtol(++tp, &tp, 10);
-      if (striptovar(grp, (uint8_t*)&nip)<0) error_exit("wrong formated static route option");
+      if (striptovar(grp, (uint8_t*)&nip)<0) error_exit("wrong formatted static route option");
       while(*tp == ' ' || *tp == '\t' || *tp == '-') tp++;
-      if (striptovar(tp, (uint8_t*)&router)<0) error_exit("wrong formated static route option");
+      if (striptovar(tp, (uint8_t*)&router)<0) error_exit("wrong formatted static route option");
       options_list[count].val = xrealloc(options_list[count].val, options_list[count].len + 1 + mask/8 + 4);
       memcpy(((uint8_t*)options_list[count].val)+options_list[count].len, &mask, 1);
       options_list[count].len += 1;
@@ -1287,7 +1287,7 @@ static uint32_t get_lease(uint32_t req_exp)
         req_exp > gconfig.valid_lifetime) {
       if ((gconfig.pref_lifetime > gconfig.valid_lifetime)) {
         error_msg("The valid lifetime must be greater than the preferred lifetime, \
-            setting to valid lifetime", gconfig.valid_lifetime);
+            setting to valid lifetime %u", gconfig.valid_lifetime);
         return gconfig.valid_lifetime;
       }
       return gconfig.pref_lifetime;
@@ -1748,8 +1748,7 @@ void dhcpd_main(void)
           dbg("no or bad message type option, ignoring packet.\n");
           continue;
         }
-        if (!gstate.rcvd.rcvd_pkt6.transaction_id || 
-            memcmp(gstate.rcvd.rcvd_pkt6.transaction_id, transactionid, 3)) {
+        if (memcmp(gstate.rcvd.rcvd_pkt6.transaction_id, transactionid, 3)) {
           dbg("no or bad transaction id, ignoring packet.\n");
           continue;
         }

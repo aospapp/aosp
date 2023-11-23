@@ -56,7 +56,8 @@ class policy_DownloadDirectory(
         try:
             self.navigate_to_url(self._DOWNLOAD_BASE)
         # This page empty with just a test download, so it will timeout.
-        except exceptions.TimeoutException:
+        #  TODO: crbug:1058141, invesitgate the telemetry crash caused here.
+        except (exceptions.TimeoutException, exceptions.InitializationError):
             pass
 
 
@@ -102,7 +103,7 @@ class policy_DownloadDirectory(
 
         utils.poll_for_condition(
             lambda: (_mount_ready()),
-            exception=error.TestFail('derek mounts not ready ever'),
+            exception=error.TestFail('mounts not ready ever'),
             timeout=15,
             sleep_interval=1,
             desc='Polling for mounts to be ready.')

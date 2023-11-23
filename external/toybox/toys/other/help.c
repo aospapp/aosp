@@ -30,19 +30,19 @@ static void do_help(struct toy_list *t)
     xprintf("<a name=\"%s\"><h1>%s</h1><blockquote><pre>\n", t->name, t->name);
 
   toys.which = t;
-  show_help(stdout, !FLAG(u));
+  show_help(stdout, FLAG(h)+!FLAG(u));
 
   if (FLAG(h)) xprintf("</blockquote></pre>\n");
 }
 
-// The simple help is just toys.which = toy_find("name"); show_help(stdout);
-// But iterating through html output and all commands is a big more 
+// Simple help is just toys.which = toy_find("name"); show_help(stdout, 1);
+// but iterating through html output and all commands is a bit more
 
 void help_main(void)
 {
   int i;
 
-  // If called with no arguments as a builtin form the shell, show all builtins
+  // If called with no arguments as a builtin from the shell, show all builtins
   if (toys.rebound && !*toys.optargs && !toys.optflags) {
     for (i = 0; i < toys.toycount; i++) {
       if (!(toy_list[i].flags&(TOYFLAG_NOFORK|TOYFLAG_MAYFORK))) continue;
@@ -62,10 +62,11 @@ void help_main(void)
   }
 
   if (FLAG(h)) {
-    xprintf("<html>\n<title>Toybox command list</title>\n<body>\n<p>\n");
+    sprintf(toybuf, "Toybox %s command help", toybox_version);
+    xprintf("<html>\n<title>%s</title>\n<body>\n<h1>%s</h1><hr /><p>",
+            toybuf, toybuf);
     for (i=0; i < toys.toycount; i++)
-      xprintf("<a href=\"#%s\">%s\n</a>\n", toy_list[i].name,
-              toy_list[i].name);
+      xprintf("<a href=\"#%s\">%s</a> \n", toy_list[i].name, toy_list[i].name);
     xprintf("</p>\n");
   }
 

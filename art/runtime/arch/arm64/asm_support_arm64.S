@@ -18,6 +18,7 @@
 #define ART_RUNTIME_ARCH_ARM64_ASM_SUPPORT_ARM64_S_
 
 #include "asm_support_arm64.h"
+#include "interpreter/cfi_asm_support.h"
 
 // Define special registers.
 
@@ -39,6 +40,32 @@
 // collector, with the Baker read barrier configuration.
 #define wMR w20
 #endif
+
+.macro CFI_EXPRESSION_BREG n, b, offset
+    .if (-0x40 <= (\offset)) && ((\offset) < 0x40)
+        CFI_EXPRESSION_BREG_1(\n, \b, \offset)
+    .elseif (-0x2000 <= (\offset)) && ((\offset) < 0x2000)
+        CFI_EXPRESSION_BREG_2(\n, \b, \offset)
+    .else
+        .error "Unsupported offset"
+    .endif
+.endm
+
+.macro CFI_DEF_CFA_BREG_PLUS_UCONST reg, offset, size
+    .if ((\size) < 0)
+        .error "Size should be positive"
+    .endif
+    .if (((\offset) < -0x40) || ((\offset) >= 0x40))
+        .error "Unsupported offset"
+    .endif
+    .if ((\size) < 0x80)
+        CFI_DEF_CFA_BREG_PLUS_UCONST_1_1(\reg, \offset, \size)
+    .elseif ((\size) < 0x4000)
+        CFI_DEF_CFA_BREG_PLUS_UCONST_1_2(\reg, \offset, \size)
+    .else
+        .error "Unsupported size"
+    .endif
+.endm
 
 .macro ENTRY_ALIGNED name, alignment
     .type \name, #function
@@ -98,9 +125,13 @@
     .cfi_rel_offset \reg, (\offset)
 .endm
 
-.macro RESTORE_REG reg, offset
-    ldr \reg, [sp, #(\offset)]
+.macro RESTORE_REG_BASE base, reg, offset
+    ldr \reg, [\base, #(\offset)]
     .cfi_restore \reg
+.endm
+
+.macro RESTORE_REG reg, offset
+    RESTORE_REG_BASE sp, \reg, \offset
 .endm
 
 .macro SAVE_TWO_REGS_BASE base, reg1, reg2, offset
@@ -125,11 +156,11 @@
 
 .macro LOAD_RUNTIME_INSTANCE reg
 #if __has_feature(hwaddress_sanitizer) && __clang_major__ >= 10
-    adrp xIP0, :pg_hi21_nc:_ZN3art7Runtime9instance_E
+    adrp \reg, :pg_hi21_nc:_ZN3art7Runtime9instance_E
 #else
-    adrp xIP0, _ZN3art7Runtime9instance_E
+    adrp \reg, _ZN3art7Runtime9instance_E
 #endif
-    ldr xIP0, [xIP0, #:lo12:_ZN3art7Runtime9instance_E]
+    ldr \reg, [\reg, #:lo12:_ZN3art7Runtime9instance_E]
 .endm
 
 // Macro to refresh the Marking Register (W20).
@@ -263,6 +294,22 @@
     DECREASE_FRAME FRAME_SIZE_SAVE_REFS_AND_ARGS
 .endm
 
+.macro SAVE_ALL_CALLEE_SAVES offset
+    // FP callee-saves.
+    stp d8, d9,   [sp, #(0 + \offset)]
+    stp d10, d11, [sp, #(16 + \offset)]
+    stp d12, d13, [sp, #(32 + \offset)]
+    stp d14, d15, [sp, #(48 + \offset)]
+
+    // GP callee-saves
+    SAVE_TWO_REGS x19, x20, (64 + \offset)
+    SAVE_TWO_REGS x21, x22, (80 + \offset)
+    SAVE_TWO_REGS x23, x24, (96 + \offset)
+    SAVE_TWO_REGS x25, x26, (112 + \offset)
+    SAVE_TWO_REGS x27, x28, (128 + \offset)
+    SAVE_TWO_REGS x29, xLR, (144 + \offset)
+.endm
+
     /*
      * Macro that sets up the callee save frame to conform with
      * Runtime::CreateCalleeSaveMethod(kSaveAllCalleeSaves)
@@ -283,19 +330,7 @@
 #endif
 
     // Stack alignment filler [sp, #8].
-    // FP callee-saves.
-    stp d8, d9,   [sp, #16]
-    stp d10, d11, [sp, #32]
-    stp d12, d13, [sp, #48]
-    stp d14, d15, [sp, #64]
-
-    // GP callee-saves
-    SAVE_TWO_REGS x19, x20, 80
-    SAVE_TWO_REGS x21, x22, 96
-    SAVE_TWO_REGS x23, x24, 112
-    SAVE_TWO_REGS x25, x26, 128
-    SAVE_TWO_REGS x27, x28, 144
-    SAVE_TWO_REGS x29, xLR, 160
+    SAVE_ALL_CALLEE_SAVES 16
 
     // Store ArtMethod* Runtime::callee_save_methods_[kSaveAllCalleeSaves].
     str xIP0, [sp]

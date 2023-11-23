@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef BRILLO_VALUE_CONVERSION_H_
-#define BRILLO_VALUE_CONVERSION_H_
+#ifndef LIBBRILLO_BRILLO_VALUE_CONVERSION_H_
+#define LIBBRILLO_BRILLO_VALUE_CONVERSION_H_
 
 // This file provides a set of helper functions to convert between base::Value
 // and native types. Apart from handling standard types such as 'int' and
@@ -24,6 +24,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <base/values.h>
@@ -73,7 +74,7 @@ bool FromValue(const base::Value& in_value, std::vector<T, Alloc>* out_value) {
     return false;
   out_value->clear();
   out_value->reserve(list->GetSize());
-  for (const auto& item : *list) {
+  for (const base::Value& item : *list) {
     T value{};
     if (!FromValue(item, &value))
       return false;
@@ -134,4 +135,4 @@ std::unique_ptr<base::Value> ToValue(
 
 }  // namespace brillo
 
-#endif  // BRILLO_VALUE_CONVERSION_H_
+#endif  // LIBBRILLO_BRILLO_VALUE_CONVERSION_H_

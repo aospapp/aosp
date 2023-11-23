@@ -307,7 +307,7 @@ struct chreWwanSignalStrengthLte {
     //! Valid values are (0-31, 99) as defined in TS 27.007 8.5
     int32_t signalStrength;
 
-    //! The current Reference Signal Receive Power in dBm multipled by -1.
+    //! The current Reference Signal Receive Power in dBm multiplied by -1.
     //! Range: 44 to 140 dBm
     //! INT32_MAX means invalid/unreported.
     //! Reference: 3GPP TS 36.133 9.1.4
@@ -342,7 +342,7 @@ struct chreWwanSignalStrengthLte {
 
 //! Reference: RIL_TD_SCDMA_SignalStrength
 struct chreWwanSignalStrengthTdscdma {
-    //! The Received Signal Code Power in dBm multipled by -1.
+    //! The Received Signal Code Power in dBm multiplied by -1.
     //! Range : 25 to 120
     //! INT32_MAX means invalid/unreported.
     //! Reference: 3GPP TS 25.123, section 9.1.1.1
@@ -525,6 +525,16 @@ struct chreWwanCellInfoResult {
 uint32_t chreWwanGetCapabilities(void);
 
 /**
+ * Nanoapps must define CHRE_NANOAPP_USES_WWAN somewhere in their build
+ * system (e.g. Makefile) if the nanoapp needs to use the following WWAN APIs.
+ * In addition to allowing access to these APIs, defining this macro will also
+ * ensure CHRE enforces that all host clients this nanoapp talks to have the
+ * required Android permissions needed to listen to WWAN data by adding metadata
+ * to the nanoapp.
+ */
+#if defined(CHRE_NANOAPP_USES_WWAN) || !defined(CHRE_IS_NANOAPP_BUILD)
+
+/**
  * Query information about the current serving cell and its neighbors. This does
  * not perform a network scan, but should return state from the current network
  * registration data stored in the cellular modem. This is effectively the same
@@ -545,6 +555,7 @@ uint32_t chreWwanGetCapabilities(void);
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
+ * @note Requires WWAN permission
  */
 bool chreWwanGetCellInfoAsync(const void *cookie);
 
@@ -556,11 +567,22 @@ bool chreWwanGetCellInfoAsync(const void *cookie);
  * @see chreWwanCellIdentityNr
  *
  * @since v1.4
+ * @note Requires WWAN permission
  */
 static inline int64_t chreWwanUnpackNrNci(
     const struct chreWwanCellIdentityNr *nrCellId) {
   return (int64_t) (((uint64_t) nrCellId->nci1 << 32) | nrCellId->nci0);
 }
+
+#else  /* defined(CHRE_NANOAPP_USES_WWAN) || !defined(CHRE_IS_NANOAPP_BUILD) */
+#define CHRE_WWAN_PERM_ERROR_STRING \
+    "CHRE_NANOAPP_USES_WWAN must be defined when building this nanoapp in " \
+    "order to refer to "
+#define chreWwanGetCellInfoAsync(...) \
+    CHRE_BUILD_ERROR(CHRE_WWAN_PERM_ERROR_STRING "chreWwanGetCellInfoAsync")
+#define chreWwanUnpackNrNci(...) \
+    CHRE_BUILD_ERROR(CHRE_WWAN_PERM_ERROR_STRING "chreWwanUnpackNrNci")
+#endif  /* defined(CHRE_NANOAPP_USES_WWAN) || !defined(CHRE_IS_NANOAPP_BUILD) */
 
 #ifdef __cplusplus
 }

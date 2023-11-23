@@ -28,7 +28,9 @@ import java.lang.annotation.RetentionPolicy;
   PartnerConfigKey.KEY_LIGHT_STATUS_BAR,
   PartnerConfigKey.KEY_NAVIGATION_BAR_BG_COLOR,
   PartnerConfigKey.KEY_LIGHT_NAVIGATION_BAR,
+  PartnerConfigKey.KEY_NAVIGATION_BAR_DIVIDER_COLOR,
   PartnerConfigKey.KEY_FOOTER_BAR_BG_COLOR,
+  PartnerConfigKey.KEY_FOOTER_BAR_MIN_HEIGHT,
   PartnerConfigKey.KEY_FOOTER_BUTTON_FONT_FAMILY,
   PartnerConfigKey.KEY_FOOTER_BUTTON_ICON_ADD_ANOTHER,
   PartnerConfigKey.KEY_FOOTER_BUTTON_ICON_CANCEL,
@@ -43,6 +45,8 @@ import java.lang.annotation.RetentionPolicy;
   PartnerConfigKey.KEY_FOOTER_BUTTON_RADIUS,
   PartnerConfigKey.KEY_FOOTER_BUTTON_RIPPLE_ALPHA,
   PartnerConfigKey.KEY_FOOTER_BUTTON_TEXT_SIZE,
+  PartnerConfigKey.KEY_FOOTER_BUTTON_TEXT_STYLE,
+  PartnerConfigKey.KEY_FOOTER_BUTTON_MIN_HEIGHT,
   PartnerConfigKey.KEY_FOOTER_BUTTON_DISABLED_ALPHA,
   PartnerConfigKey.KEY_FOOTER_BUTTON_DISABLED_BG_COLOR,
   PartnerConfigKey.KEY_FOOTER_PRIMARY_BUTTON_BG_COLOR,
@@ -50,25 +54,80 @@ import java.lang.annotation.RetentionPolicy;
   PartnerConfigKey.KEY_FOOTER_SECONDARY_BUTTON_BG_COLOR,
   PartnerConfigKey.KEY_FOOTER_SECONDARY_BUTTON_TEXT_COLOR,
   PartnerConfigKey.KEY_LAYOUT_BACKGROUND_COLOR,
+  PartnerConfigKey.KEY_LAYOUT_MARGIN_START,
+  PartnerConfigKey.KEY_LAYOUT_MARGIN_END,
   PartnerConfigKey.KEY_HEADER_TEXT_SIZE,
   PartnerConfigKey.KEY_HEADER_TEXT_COLOR,
   PartnerConfigKey.KEY_HEADER_FONT_FAMILY,
   PartnerConfigKey.KEY_HEADER_AREA_BACKGROUND_COLOR,
+  PartnerConfigKey.KEY_HEADER_TEXT_MARGIN_TOP,
+  PartnerConfigKey.KEY_HEADER_TEXT_MARGIN_BOTTOM,
+  PartnerConfigKey.KEY_HEADER_CONTAINER_MARGIN_BOTTOM,
+  PartnerConfigKey.KEY_HEADER_AUTO_SIZE_ENABLED,
+  PartnerConfigKey.KEY_HEADER_AUTO_SIZE_MAX_TEXT_SIZE,
+  PartnerConfigKey.KEY_HEADER_AUTO_SIZE_MIN_TEXT_SIZE,
+  PartnerConfigKey.KEY_HEADER_AUTO_SIZE_MAX_LINE_OF_MAX_SIZE,
+  PartnerConfigKey.KEY_HEADER_AUTO_SIZE_LINE_SPACING_EXTRA,
   PartnerConfigKey.KEY_LAYOUT_GRAVITY,
+  PartnerConfigKey.KEY_ICON_MARGIN_TOP,
+  PartnerConfigKey.KEY_ICON_SIZE,
   PartnerConfigKey.KEY_DESCRIPTION_TEXT_SIZE,
   PartnerConfigKey.KEY_DESCRIPTION_TEXT_COLOR,
   PartnerConfigKey.KEY_DESCRIPTION_LINK_TEXT_COLOR,
   PartnerConfigKey.KEY_DESCRIPTION_FONT_FAMILY,
+  PartnerConfigKey.KEY_DESCRIPTION_TEXT_MARGIN_TOP,
+  PartnerConfigKey.KEY_DESCRIPTION_TEXT_MARGIN_BOTTOM,
   PartnerConfigKey.KEY_CONTENT_TEXT_SIZE,
   PartnerConfigKey.KEY_CONTENT_TEXT_COLOR,
   PartnerConfigKey.KEY_CONTENT_LINK_TEXT_COLOR,
   PartnerConfigKey.KEY_CONTENT_FONT_FAMILY,
   PartnerConfigKey.KEY_CONTENT_LAYOUT_GRAVITY,
+  PartnerConfigKey.KEY_CONTENT_PADDING_TOP,
+  PartnerConfigKey.KEY_CONTENT_INFO_TEXT_SIZE,
+  PartnerConfigKey.KEY_CONTENT_INFO_FONT_FAMILY,
+  PartnerConfigKey.KEY_CONTENT_INFO_LINE_SPACING_EXTRA,
+  PartnerConfigKey.KEY_CONTENT_INFO_ICON_SIZE,
+  PartnerConfigKey.KEY_CONTENT_INFO_ICON_MARGIN_END,
+  PartnerConfigKey.KEY_CONTENT_INFO_PADDING_TOP,
+  PartnerConfigKey.KEY_CONTENT_INFO_PADDING_BOTTOM,
+  PartnerConfigKey.KEY_CARD_VIEW_INTRINSIC_WIDTH,
+  PartnerConfigKey.KEY_CARD_VIEW_INTRINSIC_HEIGHT,
+  PartnerConfigKey.KEY_ITEMS_TITLE_TEXT_SIZE,
+  PartnerConfigKey.KEY_ITEMS_SUMMARY_TEXT_SIZE,
+  PartnerConfigKey.KEY_ITEMS_SUMMARY_MARGIN_TOP,
+  PartnerConfigKey.KEY_ITEMS_TITLE_FONT_FAMILY,
+  PartnerConfigKey.KEY_ITEMS_SUMMARY_FONT_FAMILY,
+  PartnerConfigKey.KEY_ITEMS_PADDING_TOP,
+  PartnerConfigKey.KEY_ITEMS_PADDING_BOTTOM,
+  PartnerConfigKey.KEY_ITEMS_MIN_HEIGHT,
+  PartnerConfigKey.KEY_ITEMS_DIVIDER_SHOWN,
   PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_DEFAULT,
   PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_ACCOUNT,
   PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_CONNECTION,
   PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_UPDATE,
+  PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_FINAL_HOLD,
   PartnerConfigKey.KEY_PROGRESS_ILLUSTRATION_DISPLAY_MINIMUM_MS,
+  PartnerConfigKey.KEY_LOADING_LOTTIE_ACCOUNT,
+  PartnerConfigKey.KEY_LOADING_LOTTIE_CONNECTION,
+  PartnerConfigKey.KEY_LOADING_LOTTIE_DEFAULT,
+  PartnerConfigKey.KEY_LOADING_LOTTIE_UPDATE,
+  PartnerConfigKey.KEY_LOADING_LOTTIE_FINAL_HOLD,
+  PartnerConfigKey.KEY_LOADING_LIGHT_THEME_CUSTOMIZATION_DEFAULT,
+  PartnerConfigKey.KEY_LOADING_LIGHT_THEME_CUSTOMIZATION_ACCOUNT,
+  PartnerConfigKey.KEY_LOADING_LIGHT_THEME_CUSTOMIZATION_CONNECTION,
+  PartnerConfigKey.KEY_LOADING_LIGHT_THEME_CUSTOMIZATION_UPDATE,
+  PartnerConfigKey.KEY_LOADING_LIGHT_THEME_CUSTOMIZATION_FINAL_HOLD,
+  PartnerConfigKey.KEY_LOADING_DARK_THEME_CUSTOMIZATION_DEFAULT,
+  PartnerConfigKey.KEY_LOADING_DARK_THEME_CUSTOMIZATION_ACCOUNT,
+  PartnerConfigKey.KEY_LOADING_DARK_THEME_CUSTOMIZATION_CONNECTION,
+  PartnerConfigKey.KEY_LOADING_DARK_THEME_CUSTOMIZATION_UPDATE,
+  PartnerConfigKey.KEY_LOADING_DARK_THEME_CUSTOMIZATION_FINAL_HOLD,
+  PartnerConfigKey.KEY_TRANSITION_TYPE,
+  PartnerConfigKey.KEY_LOADING_LAYOUT_CONTENT_PADDING_TOP,
+  PartnerConfigKey.KEY_LOADING_LAYOUT_CONTENT_PADDING_START,
+  PartnerConfigKey.KEY_LOADING_LAYOUT_CONTENT_PADDING_END,
+  PartnerConfigKey.KEY_LOADING_LAYOUT_CONTENT_PADDING_BOTTOM,
+  PartnerConfigKey.KEY_LOADING_LAYOUT_HEADER_HEIGHT,
 })
 // TODO: can be removed and always reference PartnerConfig.getResourceName()?
 @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
@@ -87,8 +146,14 @@ public @interface PartnerConfigKey {
   // such that it is compatible with a light navigation bar background.
   String KEY_LIGHT_NAVIGATION_BAR = "setup_compat_light_navigation_bar";
 
+  // Navigation bar divider color
+  String KEY_NAVIGATION_BAR_DIVIDER_COLOR = "setup_compat_navigation_bar_divider_color";
+
   // Background color of the footer bar.
   String KEY_FOOTER_BAR_BG_COLOR = "setup_compat_footer_bar_bg_color";
+
+  // The min height of the footer bar
+  String KEY_FOOTER_BAR_MIN_HEIGHT = "setup_compat_footer_bar_min_height";
 
   // The font face used in footer buttons. This must be a string reference to a font that is
   // available in the system. Font references (@font or @xml) are not allowed.
@@ -127,11 +192,17 @@ public @interface PartnerConfigKey {
   // Corner radius of the footer buttons
   String KEY_FOOTER_BUTTON_RADIUS = "setup_compat_footer_button_radius";
 
-  // Ripple color alpha of the footer button
+  // Ripple color alpha of the footer buttons
   String KEY_FOOTER_BUTTON_RIPPLE_ALPHA = "setup_compat_footer_button_ripple_alpha";
 
-  // Text size of the footer button
+  // Text size of the footer buttons
   String KEY_FOOTER_BUTTON_TEXT_SIZE = "setup_compat_footer_button_text_size";
+
+  // The font face used in footer buttons {0 = NORMAL}, {1 = BOLD}, {2 = ITALIC}, {3 = BOLD_ITALIC}
+  String KEY_FOOTER_BUTTON_TEXT_STYLE = "setup_compat_footer_button_text_style";
+
+  // The min height of the footer buttons
+  String KEY_FOOTER_BUTTON_MIN_HEIGHT = "setup_compat_footer_button_min_height";
 
   // Disabled background alpha of the footer buttons
   String KEY_FOOTER_BUTTON_DISABLED_ALPHA = "setup_compat_footer_button_disabled_alpha";
@@ -154,6 +225,12 @@ public @interface PartnerConfigKey {
   // Background color of layout
   String KEY_LAYOUT_BACKGROUND_COLOR = "setup_design_layout_bg_color";
 
+  // Margin start of the layout
+  String KEY_LAYOUT_MARGIN_START = "setup_design_layout_margin_start";
+
+  // Margin end of the layout
+  String KEY_LAYOUT_MARGIN_END = "setup_design_layout_margin_end";
+
   // Text size of the header
   String KEY_HEADER_TEXT_SIZE = "setup_design_header_text_size";
 
@@ -163,11 +240,43 @@ public @interface PartnerConfigKey {
   // Font family of the header
   String KEY_HEADER_FONT_FAMILY = "setup_design_header_font_family";
 
+  // Margin top of the header text
+  String KEY_HEADER_TEXT_MARGIN_TOP = "setup_design_header_text_margin_top";
+
+  // Margin bottom of the header text
+  String KEY_HEADER_TEXT_MARGIN_BOTTOM = "setup_design_header_text_margin_bottom";
+
   // Gravity of the header, icon and description
   String KEY_LAYOUT_GRAVITY = "setup_design_layout_gravity";
 
+  // Margin top of the icon
+  String KEY_ICON_MARGIN_TOP = "setup_design_icon_margin_top";
+
+  // Size of the icon
+  String KEY_ICON_SIZE = "setup_design_icon_size";
+
   // Background color of the header area
   String KEY_HEADER_AREA_BACKGROUND_COLOR = "setup_design_header_area_background_color";
+
+  // Margin bottom of the header container
+  String KEY_HEADER_CONTAINER_MARGIN_BOTTOM = "setup_design_header_container_margin_bottom";
+
+  // Auto text size enabled status
+  String KEY_HEADER_AUTO_SIZE_ENABLED = "setup_design_header_auto_size_enabled";
+
+  // Max text size of header when auto size enabled. Ignored if auto size is false.
+  String KEY_HEADER_AUTO_SIZE_MAX_TEXT_SIZE = "setup_design_header_auto_size_max_text_size";
+
+  // Min text size of header when auto size enabled. Ignored if auto size is false.
+  String KEY_HEADER_AUTO_SIZE_MIN_TEXT_SIZE = "setup_design_header_auto_size_min_text_size";
+
+  // The max lines of the max text size when auto size enabled. Ignored if auto size is false.
+  String KEY_HEADER_AUTO_SIZE_MAX_LINE_OF_MAX_SIZE =
+      "setup_design_header_auto_size_max_line_of_max_size";
+
+  // Extra line spacing of header when auto size enabled. Ignored if auto size is false.
+  String KEY_HEADER_AUTO_SIZE_LINE_SPACING_EXTRA =
+      "setup_design_header_auto_size_line_spacing_extra";
 
   // Text size of the description
   String KEY_DESCRIPTION_TEXT_SIZE = "setup_design_description_text_size";
@@ -180,6 +289,12 @@ public @interface PartnerConfigKey {
 
   // Font family of the description
   String KEY_DESCRIPTION_FONT_FAMILY = "setup_design_description_font_family";
+
+  // Margin top of the header text
+  String KEY_DESCRIPTION_TEXT_MARGIN_TOP = "setup_design_description_text_margin_top";
+
+  // Margin bottom of the header text
+  String KEY_DESCRIPTION_TEXT_MARGIN_BOTTOM = "setup_design_description_text_margin_bottom";
 
   // Text size of the body content text
   String KEY_CONTENT_TEXT_SIZE = "setup_design_content_text_size";
@@ -195,6 +310,63 @@ public @interface PartnerConfigKey {
 
   // Gravity of the body content text
   String KEY_CONTENT_LAYOUT_GRAVITY = "setup_design_content_layout_gravity";
+
+  // The padding top of the content
+  String KEY_CONTENT_PADDING_TOP = "setup_design_content_padding_top";
+
+  // The text size of the content info.
+  String KEY_CONTENT_INFO_TEXT_SIZE = "setup_design_content_info_text_size";
+
+  // The font family of the content info.
+  String KEY_CONTENT_INFO_FONT_FAMILY = "setup_design_content_info_font_family";
+
+  // The text line spacing extra of the content info.
+  String KEY_CONTENT_INFO_LINE_SPACING_EXTRA = "setup_design_content_info_line_spacing_extra";
+
+  // The icon size of the content info.
+  String KEY_CONTENT_INFO_ICON_SIZE = "setup_design_content_info_icon_size";
+
+  // The icon margin end of the content info.
+  String KEY_CONTENT_INFO_ICON_MARGIN_END = "setup_design_content_info_icon_margin_end";
+
+  // The padding top of the content info.
+  String KEY_CONTENT_INFO_PADDING_TOP = "setup_design_content_info_padding_top";
+
+  // The padding bottom of the content info.
+  String KEY_CONTENT_INFO_PADDING_BOTTOM = "setup_design_content_info_padding_bottom";
+
+  // The title text size of list items.
+  String KEY_ITEMS_TITLE_TEXT_SIZE = "setup_design_items_title_text_size";
+
+  // The summary text size of list items.
+  String KEY_ITEMS_SUMMARY_TEXT_SIZE = "setup_design_items_summary_text_size";
+
+  // The summary margin top of list items.
+  String KEY_ITEMS_SUMMARY_MARGIN_TOP = "setup_design_items_summary_margin_top";
+
+  // The title font family of list items.
+  String KEY_ITEMS_TITLE_FONT_FAMILY = "setup_design_items_title_font_family";
+
+  // The summary font family of list items.
+  String KEY_ITEMS_SUMMARY_FONT_FAMILY = "setup_design_items_summary_font_family";
+
+  // The padding top of list items.
+  String KEY_ITEMS_PADDING_TOP = "setup_design_items_padding_top";
+
+  // The padding bottom of list items.
+  String KEY_ITEMS_PADDING_BOTTOM = "setup_design_items_padding_bottom";
+
+  // The minimum height of list items.
+  String KEY_ITEMS_MIN_HEIGHT = "setup_design_items_min_height";
+
+  // The divider of list items are showing.
+  String KEY_ITEMS_DIVIDER_SHOWN = "setup_design_items_divider_shown";
+
+  // The intrinsic width of the card view for foldabe/tablet.
+  String KEY_CARD_VIEW_INTRINSIC_WIDTH = "setup_design_card_view_intrinsic_width";
+
+  // The intrinsic height of the card view for foldabe/tablet.
+  String KEY_CARD_VIEW_INTRINSIC_HEIGHT = "setup_design_card_view_intrinsic_height";
 
   // The animation of loading screen used in those activities which is non of below type.
   String KEY_PROGRESS_ILLUSTRATION_DEFAULT = "progress_illustration_custom_default";
@@ -212,6 +384,94 @@ public @interface PartnerConfigKey {
   // For example:com.google.android.setupwizard.COMPAT_EARLY_UPDATE
   String KEY_PROGRESS_ILLUSTRATION_UPDATE = "progress_illustration_custom_update";
 
+  // The animation of loading screen used in those activities which is updating device.
+  // For example:com.google.android.setupwizard.FINAL_HOLD
+  String KEY_PROGRESS_ILLUSTRATION_FINAL_HOLD = "final_hold_custom_illustration";
+
   // The minimum illustration display time, set to 0 may cause the illustration stuck
   String KEY_PROGRESS_ILLUSTRATION_DISPLAY_MINIMUM_MS = "progress_illustration_display_minimum_ms";
+
+  // The animation for S+ devices used in those screens waiting for non of below type.
+  String KEY_LOADING_LOTTIE_DEFAULT = "loading_animation_custom_default";
+
+  // The animation for S+ devices used in those screens which is processing account info or related
+  // functions.
+  // For example:com.google.android.setupwizard.LOAD_ADD_ACCOUNT_INTENT
+  String KEY_LOADING_LOTTIE_ACCOUNT = "loading_animation_custom_account";
+
+  // The animation for S+ devices used in those screens which is processing data connection.
+  // For example:com.android.setupwizard.CAPTIVE_PORTAL
+  String KEY_LOADING_LOTTIE_CONNECTION = "loading_animation_custom_connection";
+
+  // The animation for S+ devices used in those screens which is updating devices.
+  // For example:com.google.android.setupwizard.COMPAT_EARLY_UPDATE
+  String KEY_LOADING_LOTTIE_UPDATE = "loading_animation_custom_update";
+
+  // The animation for S+ devices used in those screens which is updating devices.
+  // For example:com.google.android.setupwizard.FINAL_HOLD
+  String KEY_LOADING_LOTTIE_FINAL_HOLD = "loading_animation_custom_final_hold";
+
+  // A string-array to list all the key path and color map for default animation for light theme.
+  // For example: background:#FFFFFF
+  String KEY_LOADING_LIGHT_THEME_CUSTOMIZATION_DEFAULT =
+      "loading_light_theme_customization_default";
+
+  // A string-array to list all the key path and color map for account animation for light theme.
+  // For example: background:#FFFFFF
+  String KEY_LOADING_LIGHT_THEME_CUSTOMIZATION_ACCOUNT =
+      "loading_light_theme_customization_account";
+
+  // A string-array to list all the key path and color map for connection animation for light theme.
+  // For example: background:#FFFFFF
+  String KEY_LOADING_LIGHT_THEME_CUSTOMIZATION_CONNECTION =
+      "loading_light_theme_customization_connection";
+
+  // A string-array to list all the key path and color map for update animation for light theme.
+  // For example: background:#FFFFFF
+  String KEY_LOADING_LIGHT_THEME_CUSTOMIZATION_UPDATE = "loading_light_theme_customization_update";
+
+  // A string-array to list all the key path and color map for final hold animation for light theme.
+  // For example: background:#FFFFFF
+  String KEY_LOADING_LIGHT_THEME_CUSTOMIZATION_FINAL_HOLD =
+      "loading_light_theme_customization_final_hold";
+
+  // A string-array to list all the key path and color map for default animation for dark theme.
+  // For example: background:#000000
+  String KEY_LOADING_DARK_THEME_CUSTOMIZATION_DEFAULT = "loading_dark_theme_customization_default";
+
+  // A string-array to list all the key path and color map for account animation for dark theme.
+  // For example: background:#000000
+  String KEY_LOADING_DARK_THEME_CUSTOMIZATION_ACCOUNT = "loading_dark_theme_customization_account";
+
+  // A string-array to list all the key path and color map for connection animation for dark theme.
+  // For example: background:#000000
+  String KEY_LOADING_DARK_THEME_CUSTOMIZATION_CONNECTION =
+      "loading_dark_theme_customization_connection";
+
+  // A string-array to list all the key path and color map for update animation for dark theme.
+  // For example: background:#000000
+  String KEY_LOADING_DARK_THEME_CUSTOMIZATION_UPDATE = "loading_dark_theme_customization_update";
+
+  // A string-array to list all the key path and color map for final hold animation for dark theme.
+  // For example: background:#000000
+  String KEY_LOADING_DARK_THEME_CUSTOMIZATION_FINAL_HOLD =
+      "loading_dark_theme_customization_final_hold";
+
+  // The transition type between activities
+  String KEY_TRANSITION_TYPE = "setup_design_transition_type";
+
+  // A padding top of the content frame of loading layout.
+  String KEY_LOADING_LAYOUT_CONTENT_PADDING_TOP = "loading_layout_content_padding_top";
+
+  // A padding start of the content frame of loading layout.
+  String KEY_LOADING_LAYOUT_CONTENT_PADDING_START = "loading_layout_content_padding_start";
+
+  // A padding end of the content frame of loading layout.
+  String KEY_LOADING_LAYOUT_CONTENT_PADDING_END = "loading_layout_content_padding_end";
+
+  // A padding bottom of the content frame of loading layout.
+  String KEY_LOADING_LAYOUT_CONTENT_PADDING_BOTTOM = "loading_layout_content_padding_bottom";
+
+  // A height of the header of loading layout.
+  String KEY_LOADING_LAYOUT_HEADER_HEIGHT = "loading_layout_header_height";
 }

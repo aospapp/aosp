@@ -53,6 +53,7 @@ JIT="n"
 INVOKE_WITH=""
 IS_JVMTI_TEST="n"
 ADD_LIBDIR_ARGUMENTS="n"
+SUFFIX64=""
 ISA=x86
 LIBRARY_DIRECTORY="lib"
 TEST_DIRECTORY="nativetest"
@@ -61,7 +62,6 @@ OPTIMIZE="y"
 PREBUILD="y"
 QUIET="n"
 RELOCATE="n"
-STRIP_DEX="n"
 SECONDARY_DEX=""
 TIME_OUT="n"  # "n" (disabled), "timeout" (use timeout), "gdb" (use gdb)
 TIMEOUT_DUMPER=signal_dumper
@@ -85,6 +85,9 @@ TEST_VDEX="n"
 TEST_DM="n"
 TEST_IS_NDEBUG="n"
 APP_IMAGE="y"
+SECONDARY_APP_IMAGE="y"
+SECONDARY_CLASS_LOADER_CONTEXT=""
+SECONDARY_COMPILATION="y"
 JVMTI_STRESS="n"
 JVMTI_STEP_STRESS="n"
 JVMTI_FIELD_STRESS="n"
@@ -107,6 +110,10 @@ ANDROID_FLAGS="${ANDROID_FLAGS} -XX:SlowDebug=true"
 # The same for dex2oatd, both prebuild and runtime-driven.
 ANDROID_FLAGS="${ANDROID_FLAGS} -Xcompiler-option --runtime-arg -Xcompiler-option -XX:SlowDebug=true"
 COMPILER_FLAGS="${COMPILER_FLAGS} --runtime-arg -XX:SlowDebug=true"
+
+# Let the compiler and runtime know that we are running tests.
+COMPILE_FLAGS="${COMPILE_FLAGS} --compile-art-test"
+ANDROID_FLAGS="${ANDROID_FLAGS} -Xcompiler-option --compile-art-test"
 
 while true; do
     if [ "x$1" = "x--quiet" ]; then
@@ -131,6 +138,8 @@ while true; do
     elif [ "x$1" = "x--jvmti" ]; then
         USE_JVMTI="y"
         IS_JVMTI_TEST="y"
+        # Secondary images block some tested behavior.
+        SECONDARY_APP_IMAGE="n"
         shift
     elif [ "x$1" = "x--add-libdir-argument" ]; then
         ADD_LIBDIR_ARGUMENTS="y"
@@ -216,6 +225,7 @@ while true; do
         # APP_IMAGE doesn't really work with jvmti redefine stress
         USE_JVMTI="y"
         APP_IMAGE="n"
+        SECONDARY_APP_IMAGE="n"
         JVMTI_STRESS="y"
         JVMTI_REDEFINE_STRESS="y"
         shift
@@ -237,8 +247,15 @@ while true; do
     elif [ "x$1" = "x--no-app-image" ]; then
         APP_IMAGE="n"
         shift
-    elif [ "x$1" = "x--strip-dex" ]; then
-        STRIP_DEX="y"
+    elif [ "x$1" = "x--no-secondary-app-image" ]; then
+        SECONDARY_APP_IMAGE="n"
+        shift
+    elif [ "x$1" = "x--secondary-class-loader-context" ]; then
+        shift
+        SECONDARY_CLASS_LOADER_CONTEXT="$1"
+        shift
+    elif [ "x$1" = "x--no-secondary-compilation" ]; then
+        SECONDARY_COMPILATION="n"
         shift
     elif [ "x$1" = "x--host" ]; then
         HOST="y"
@@ -405,6 +422,7 @@ while true; do
         shift
         break
     elif [ "x$1" = "x--64" ]; then
+        SUFFIX64="64"
         ISA="x86_64"
         GDBSERVER_DEVICE="gdbserver64"
         DALVIKVM="dalvikvm64"
@@ -488,7 +506,7 @@ fi
 CHROOT_DEX_LOCATION="$CHROOT$DEX_LOCATION"
 
 # If running on device, determine the ISA of the device.
-if [ "$HOST" = "n" ]; then
+if [ "$HOST" = "n" -a "$USE_JVM" = "n" ]; then
   ISA=$("$ANDROID_BUILD_TOP/art/test/utils/get-device-isa" "$GET_DEVICE_ISA_BITNESS_FLAG")
 fi
 
@@ -615,14 +633,7 @@ if [ "$IS_JVMTI_TEST" = "y" ]; then
   if [[ "$USE_JVM" = "y" ]]; then
     FLAGS="${FLAGS} -agentpath:${ANDROID_HOST_OUT}/nativetest64/${agent}=${TEST_NAME},jvm"
   else
-    if [[ "$HOST" = "y" ]]; then
-      FLAGS="${FLAGS} -agentpath:${agent}=${TEST_NAME},art"
-    else
-      # The linker configuration used for dalvikvm(64) in the ART APEX
-      # requires us to pass the full path to the agent to the runtime when
-      # running on device.
-      FLAGS="${FLAGS} -agentpath:/data/${TEST_DIRECTORY}/art/${ISA}/${agent}=${TEST_NAME},art"
-    fi
+    FLAGS="${FLAGS} -agentpath:${agent}=${TEST_NAME},art"
   fi
 fi
 
@@ -653,14 +664,7 @@ if [[ "$JVMTI_STRESS" = "y" ]]; then
   if [[ "$USE_JVM" = "y" ]]; then
     FLAGS="${FLAGS} -agentpath:${ANDROID_HOST_OUT}/nativetest64/${agent}=${agent_args}"
   else
-    if [[ "$HOST" = "y" ]]; then
-      FLAGS="${FLAGS} -agentpath:${agent}=${agent_args}"
-    else
-      # The linker configuration used for dalvikvm(64) in the ART APEX
-      # requires us to pass the full path to the agent to the runtime when
-      # running on device.
-      FLAGS="${FLAGS} -agentpath:/data/${TEST_DIRECTORY}/art/${ISA}/${agent}=${agent_args}"
-    fi
+    FLAGS="${FLAGS} -agentpath:${agent}=${agent_args}"
   fi
 fi
 
@@ -679,7 +683,7 @@ if [ "$USE_JVM" = "y" ]; then
   if [ "$CREATE_RUNNER" = "y" ]; then
     echo "#!/bin/bash" > runit.sh
     echo "export LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH\""
-    echo $cmdline "2>&1" >> runit.sh
+    echo $cmdline >> runit.sh
     chmod u+x runit.sh
     echo "Runnable test script written to $PWD/runit.sh"
   else
@@ -689,31 +693,35 @@ if [ "$USE_JVM" = "y" ]; then
 fi
 
 # Note: This must start with the CORE_IMG_JARS in Android.common_path.mk
-# because that's what we use for compiling the core.art image.
+# because that's what we use for compiling the boot.art image.
 # It may contain additional modules from TEST_CORE_JARS.
-bpath_modules="core-oj core-libart core-icu4j okhttp bouncycastle apache-xml conscrypt"
-if [ "${HOST}" = "y" ]; then
-    framework="${ANDROID_HOST_OUT}/framework"
-    if [ "${ANDROID_HOST_OUT:0:${#ANDROID_BUILD_TOP}+1}" = "${ANDROID_BUILD_TOP}/" ]; then
-      framework_location="${ANDROID_HOST_OUT:${#ANDROID_BUILD_TOP}+1}/framework"
-    else
-      echo "error: ANDROID_BUILD_TOP/ is not a prefix of ANDROID_HOST_OUT"
-      echo "ANDROID_BUILD_TOP=${ANDROID_BUILD_TOP}"
-      echo "ANDROID_HOST_OUT=${ANDROID_HOST_OUT}"
-      exit
-    fi
-    bpath_suffix="-hostdex"
-else
-    framework="${ANDROID_ROOT}/framework"
-    framework_location="${ANDROID_ROOT}/framework"
-    bpath_suffix="-testdex"
-fi
+bpath_modules="core-oj core-libart okhttp bouncycastle apache-xml core-icu4j conscrypt"
 bpath=""
 bpath_locations=""
 bpath_separator=""
+bpath_prefix=""
+bpath_location_prefix=""
+if [ "${HOST}" = "y" ]; then
+  bpath_prefix="${ANDROID_HOST_OUT}"
+  if [ "${ANDROID_HOST_OUT:0:${#ANDROID_BUILD_TOP}+1}" = "${ANDROID_BUILD_TOP}/" ]; then
+    bpath_location_prefix="${ANDROID_HOST_OUT:${#ANDROID_BUILD_TOP}+1}"
+  else
+    echo "error: ANDROID_BUILD_TOP/ is not a prefix of ANDROID_HOST_OUT"
+    echo "ANDROID_BUILD_TOP=${ANDROID_BUILD_TOP}"
+    echo "ANDROID_HOST_OUT=${ANDROID_HOST_OUT}"
+    exit
+  fi
+fi
 for bpath_module in ${bpath_modules}; do
-  bpath+="${bpath_separator}${framework}/${bpath_module}${bpath_suffix}.jar"
-  bpath_locations+="${bpath_separator}${framework_location}/${bpath_module}${bpath_suffix}.jar"
+  apex_module="com.android.art"
+  case "$bpath_module" in
+    (conscrypt)  apex_module="com.android.conscrypt";;
+    (core-icu4j) apex_module="com.android.i18n";;
+    (*)          apex_module="com.android.art";;
+  esac
+  bpath_jar="/apex/${apex_module}/javalib/${bpath_module}.jar"
+  bpath+="${bpath_separator}${bpath_prefix}${bpath_jar}"
+  bpath_locations+="${bpath_separator}${bpath_location_prefix}${bpath_jar}"
   bpath_separator=":"
 done
 # Pass down the bootclasspath
@@ -732,7 +740,7 @@ if [ "$HAVE_IMAGE" = "n" ]; then
     if [ "${RELOCATE}" = "y" ] ; then
       DALVIKVM_BOOT_OPT="-Ximage:${BOOT_IMAGE}"
     else
-      DALVIKVM_BOOT_OPT="-Ximage:/system/non-existent/core.art"
+      DALVIKVM_BOOT_OPT="-Ximage:/system/non-existent/boot.art"
     fi
 else
     DALVIKVM_BOOT_OPT="-Ximage:${BOOT_IMAGE}"
@@ -769,32 +777,27 @@ fi
 
 if [ "$INTERPRETER" = "y" ]; then
     INT_OPTS="${INT_OPTS} -Xint"
-    if [ "$VERIFY" = "y" ] ; then
-      INT_OPTS="${INT_OPTS} -Xcompiler-option --compiler-filter=quicken"
-      COMPILE_FLAGS="${COMPILE_FLAGS} --compiler-filter=quicken"
-    elif [ "$VERIFY" = "s" ]; then
-      INT_OPTS="${INT_OPTS} -Xcompiler-option --compiler-filter=extract"
-      COMPILE_FLAGS="${COMPILE_FLAGS} --compiler-filter=extract"
-      DEX_VERIFY="${DEX_VERIFY} -Xverify:softfail"
-    else # VERIFY = "n"
-      INT_OPTS="${INT_OPTS} -Xcompiler-option --compiler-filter=assume-verified"
-      COMPILE_FLAGS="${COMPILE_FLAGS} --compiler-filter=assume-verified"
-      DEX_VERIFY="${DEX_VERIFY} -Xverify:none"
-    fi
 fi
 
 if [ "$JIT" = "y" ]; then
     INT_OPTS="${INT_OPTS} -Xusejit:true"
-    if [ "$VERIFY" = "y" ] ; then
-      INT_OPTS="${INT_OPTS} -Xcompiler-option --compiler-filter=quicken"
-      COMPILE_FLAGS="${COMPILE_FLAGS} --compiler-filter=quicken"
-    else
-      INT_OPTS="${INT_OPTS} -Xcompiler-option --compiler-filter=assume-verified"
-      COMPILE_FLAGS="${COMPILE_FLAGS} --compiler-filter=assume-verified"
-      DEX_VERIFY="${DEX_VERIFY} -Xverify:none"
-    fi
 else
     INT_OPTS="${INT_OPTS} -Xusejit:false"
+fi
+
+if [ "$INTERPRETER" = "y" ] || [ "$JIT" = "y" ]; then
+  if [ "$VERIFY" = "y" ] ; then
+    INT_OPTS="${INT_OPTS} -Xcompiler-option --compiler-filter=verify"
+    COMPILE_FLAGS="${COMPILE_FLAGS} --compiler-filter=verify"
+  elif [ "$VERIFY" = "s" ]; then
+    INT_OPTS="${INT_OPTS} -Xcompiler-option --compiler-filter=extract"
+    COMPILE_FLAGS="${COMPILE_FLAGS} --compiler-filter=extract"
+    DEX_VERIFY="${DEX_VERIFY} -Xverify:softfail"
+  else # VERIFY = "n"
+    INT_OPTS="${INT_OPTS} -Xcompiler-option --compiler-filter=assume-verified"
+    COMPILE_FLAGS="${COMPILE_FLAGS} --compiler-filter=assume-verified"
+    DEX_VERIFY="${DEX_VERIFY} -Xverify:none"
+  fi
 fi
 
 JNI_OPTS="-Xjnigreflimit:512 -Xcheck:jni"
@@ -863,6 +866,7 @@ linkroot_cmdline="true"
 linkroot_overlay_cmdline="true"
 setupapex_cmdline="true"
 installapex_cmdline="true"
+installapex_test_cmdline="true"
 
 linkdirs() {
   find "$1" -maxdepth 1 -mindepth 1 -type d | xargs -i ln -sf '{}' "$2"
@@ -896,6 +900,8 @@ elif [ "$USE_EXTRACTED_ZIPAPEX" = "y" ]; then
   if [ "$DEV_MODE" = "y" ]; then
     ln_options="--verbose"
   fi
+  # If the ${RUN} is executed multiple times we don't need to recreate the link
+  installapex_test_cmdline="test -L ${DEX_LOCATION}/zipapex"
   installapex_cmdline="ln -s -f ${ln_options} ${EXTRACTED_ZIPAPEX_LOC} ${DEX_LOCATION}/zipapex"
 fi
 
@@ -905,7 +911,7 @@ if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
   profman_cmdline="$ANDROID_ART_BIN_DIR/profman  \
     --apk=$DEX_LOCATION/$TEST_NAME.jar \
     --dex-location=$DEX_LOCATION/$TEST_NAME.jar"
-  if [ -f $DEX_LOCATION/$TEST_NAME-ex.jar ]; then
+  if [ -f "$TEST_NAME-ex.jar" ] && [ "$SECONDARY_COMPILATION" = "y" ] ; then
     profman_cmdline="${profman_cmdline} \
       --apk=$DEX_LOCATION/$TEST_NAME-ex.jar \
       --dex-location=$DEX_LOCATION/$TEST_NAME-ex.jar"
@@ -921,16 +927,27 @@ if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
   fi
 fi
 
-# Enable mini-debug-info for JIT (if JIT is used).
-FLAGS="$FLAGS -Xcompiler-option --generate-mini-debug-info"
+function write_dex2oat_cmdlines {
+  local name="$1"
 
-if [ "$PREBUILD" = "y" ]; then
-  mkdir_locations="${mkdir_locations} ${DEX_LOCATION}/oat/$ISA"
+  local class_loader_context=""
+  local enable_app_image=false
   if [ "$APP_IMAGE" = "y" ]; then
-    # Pick a base that will force the app image to get relocated.
-    app_image="--app-image-file=$DEX_LOCATION/oat/$ISA/$TEST_NAME.art --resolve-startup-const-strings=true"
+    enable_app_image=true
   fi
 
+  # If the name ends in -ex then this is a secondary dex file
+  if [ "${name:${#name}-3}" = "-ex" ]; then
+    # Lazily realize the default value in case DEX_LOCATION/TEST_NAME change
+    [ -z "$SECONDARY_CLASS_LOADER_CONTEXT" ] && SECONDARY_CLASS_LOADER_CONTEXT="PCL[];PCL[$DEX_LOCATION/$TEST_NAME.jar]"
+    class_loader_context="'--class-loader-context=$SECONDARY_CLASS_LOADER_CONTEXT'"
+    $enable_app_image && [ "$SECONDARY_APP_IMAGE" = "y" ] || enable_app_image=false
+  fi
+
+  local app_image=""
+  $enable_app_image && app_image="--app-image-file=$DEX_LOCATION/oat/$ISA/$name.art --resolve-startup-const-strings=true"
+
+  local dex2oat_binary
   dex2oat_binary=${DEX2OAT_DEBUG_BINARY}
   if  [[ "$TEST_IS_NDEBUG" = "y" ]]; then
     dex2oat_binary=${DEX2OAT_NDEBUG_BINARY}
@@ -938,11 +955,12 @@ if [ "$PREBUILD" = "y" ]; then
   dex2oat_cmdline="$INVOKE_WITH $ANDROID_ART_BIN_DIR/$dex2oat_binary \
                       $COMPILE_FLAGS \
                       --boot-image=${BOOT_IMAGE} \
-                      --dex-file=$DEX_LOCATION/$TEST_NAME.jar \
-                      --oat-file=$DEX_LOCATION/oat/$ISA/$TEST_NAME.odex \
-                      ${app_image} \
+                      --dex-file=$DEX_LOCATION/$name.jar \
+                      --oat-file=$DEX_LOCATION/oat/$ISA/$name.odex \
+                      "$app_image" \
                       --generate-mini-debug-info \
-                      --instruction-set=$ISA"
+                      --instruction-set=$ISA \
+                      $class_loader_context"
   if [ "x$INSTRUCTION_SET_FEATURES" != "x" ] ; then
     dex2oat_cmdline="${dex2oat_cmdline} --instruction-set-features=${INSTRUCTION_SET_FEATURES}"
   fi
@@ -959,20 +977,54 @@ if [ "$PREBUILD" = "y" ]; then
     dex2oat_cmdline="timeout -k ${DEX2OAT_TIMEOUT}s -s SIGRTMIN+2 ${DEX2OAT_RT_TIMEOUT}s ${dex2oat_cmdline} --watchdog-timeout=${DEX2OAT_TIMEOUT}000"
   fi
   if [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
-    vdex_cmdline="${dex2oat_cmdline} ${VDEX_ARGS} --input-vdex=$DEX_LOCATION/oat/$ISA/$TEST_NAME.vdex --output-vdex=$DEX_LOCATION/oat/$ISA/$TEST_NAME.vdex"
+    vdex_cmdline="${dex2oat_cmdline} ${VDEX_ARGS} --input-vdex=$DEX_LOCATION/oat/$ISA/$name.vdex --output-vdex=$DEX_LOCATION/oat/$ISA/$name.vdex"
   elif [ "$TEST_VDEX" = "y" ]; then
-    vdex_cmdline="${dex2oat_cmdline} ${VDEX_ARGS} --input-vdex=$DEX_LOCATION/oat/$ISA/$TEST_NAME.vdex"
+    if [ "$VDEX_ARGS" = "" ]; then
+      # If no arguments need to be passed, just delete the odex file so that the runtime only picks up the vdex file.
+      vdex_cmdline="rm $DEX_LOCATION/oat/$ISA/$name.odex"
+    else
+      vdex_cmdline="${dex2oat_cmdline} ${VDEX_ARGS} --input-vdex=$DEX_LOCATION/oat/$ISA/$name.vdex"
+    fi
   elif [ "$TEST_DM" = "y" ]; then
-    dex2oat_cmdline="${dex2oat_cmdline} --output-vdex=$DEX_LOCATION/oat/$ISA/primary.vdex"
-    dm_cmdline="zip -qj $DEX_LOCATION/oat/$ISA/$TEST_NAME.dm $DEX_LOCATION/oat/$ISA/primary.vdex"
-    vdex_cmdline="${dex2oat_cmdline} ${VDEX_ARGS} --dump-timings --dm-file=$DEX_LOCATION/oat/$ISA/$TEST_NAME.dm"
-  elif [ "$PROFILE" = "y" ] || [ "$RANDOM_PROFILE" = "y" ]; then
-    vdex_cmdline="${dex2oat_cmdline} --input-vdex=$DEX_LOCATION/oat/$ISA/$TEST_NAME.vdex --output-vdex=$DEX_LOCATION/oat/$ISA/$TEST_NAME.vdex"
+    dex2oat_cmdline="${dex2oat_cmdline} --copy-dex-files=false --output-vdex=$DEX_LOCATION/oat/$ISA/primary.vdex"
+    dm_cmdline="zip -qj $DEX_LOCATION/oat/$ISA/$name.dm $DEX_LOCATION/oat/$ISA/primary.vdex"
+    vdex_cmdline="${dex2oat_cmdline} ${VDEX_ARGS} --dump-timings --dm-file=$DEX_LOCATION/oat/$ISA/$name.dm"
   fi
-fi
+}
 
-if [ "$STRIP_DEX" = "y" ]; then
-  strip_cmdline="zip --quiet --delete $DEX_LOCATION/$TEST_NAME.jar classes.dex"
+# Enable mini-debug-info for JIT (if JIT is used).
+FLAGS="$FLAGS -Xcompiler-option --generate-mini-debug-info"
+
+if [ "$PREBUILD" = "y" ]; then
+  mkdir_locations="${mkdir_locations} ${DEX_LOCATION}/oat/$ISA"
+
+  # "Primary".
+  write_dex2oat_cmdlines "$TEST_NAME"
+  dex2oat_cmdline=$(echo $dex2oat_cmdline)
+  dm_cmdline=$(echo $dm_cmdline)
+  vdex_cmdline=$(echo $vdex_cmdline)
+
+  # Enable mini-debug-info for JIT (if JIT is used).
+  FLAGS="$FLAGS -Xcompiler-option --generate-mini-debug-info"
+
+  if [ -f "$TEST_NAME-ex.jar" ] && [ "$SECONDARY_COMPILATION" = "y" ] ; then
+    # "Secondary" for test coverage.
+
+    # Store primary values.
+    base_dex2oat_cmdline="$dex2oat_cmdline"
+    base_dm_cmdline="$dm_cmdline"
+    base_vdex_cmdline="$vdex_cmdline"
+
+    write_dex2oat_cmdlines "$TEST_NAME-ex"
+    dex2oat_cmdline=$(echo $dex2oat_cmdline)
+    dm_cmdline=$(echo $dm_cmdline)
+    vdex_cmdline=$(echo $vdex_cmdline)
+
+    # Concatenate.
+    dex2oat_cmdline="$base_dex2oat_cmdline && $dex2oat_cmdline"
+    dm_cmdline="$base_dm_cmdline" # Only use primary dm.
+    vdex_cmdline="$base_vdex_cmdline && $vdex_cmdline"
+  fi
 fi
 
 if [ "$SYNC_BEFORE_RUN" = "y" ]; then
@@ -1016,11 +1068,22 @@ dalvikvm_cmdline="$INVOKE_WITH $GDB $ANDROID_ART_BIN_DIR/$DALVIKVM \
                   -XX:DumpNativeStackOnSigQuit:false \
                   -cp $DEX_LOCATION/$TEST_NAME.jar$SECONDARY_DEX $MAIN $ARGS"
 
+sanitize_dex2oat_cmdline() {
+  local args=()
+  for arg in "$@"; do
+    if [ "$arg" = "--class-loader-context=&" ]; then
+      arg="--class-loader-context=\&"
+    fi
+    args+=("$arg")
+  done
+  echo -n "${args[@]}"
+}
+
 # Remove whitespace.
-dex2oat_cmdline=$(echo $dex2oat_cmdline)
+dex2oat_cmdline=$(sanitize_dex2oat_cmdline $(echo $dex2oat_cmdline))
 dalvikvm_cmdline=$(echo $dalvikvm_cmdline)
 dm_cmdline=$(echo $dm_cmdline)
-vdex_cmdline=$(echo $vdex_cmdline)
+vdex_cmdline=$(sanitize_dex2oat_cmdline $(echo $vdex_cmdline))
 profman_cmdline=$(echo $profman_cmdline)
 
 # Use an empty ASAN_OPTIONS to enable defaults.
@@ -1085,23 +1148,29 @@ if [ "$HOST" = "n" ]; then
       # installation.
       LD_LIBRARY_PATH="$ANDROID_ROOT/$LIBRARY_DIRECTORY"
     fi
-    # Needed to access libarttest(d).so and JVMTI agent libraries.
-    LD_LIBRARY_PATH="/data/$TEST_DIRECTORY/art/$ISA:$LD_LIBRARY_PATH"
-    # Needed to access the boot (core) image files.
-    LD_LIBRARY_PATH="/data/art-test/$ISA:$LD_LIBRARY_PATH"
+
+    # This adds libarttest(d).so to the default linker namespace when dalvikvm
+    # is run from /apex/com.android.art/bin. Since that namespace is essentially
+    # an alias for the com_android_art namespace, that gives libarttest(d).so
+    # full access to the internal ART libraries.
+    LD_LIBRARY_PATH="/data/$TEST_DIRECTORY/com.android.art/lib${SUFFIX64}:$LD_LIBRARY_PATH"
+    if [ "$TEST_IS_NDEBUG" = "y" ]; then dlib=""; else dlib="d"; fi
+    art_test_internal_libraries=(
+      libartagent${dlib}.so
+      libarttest${dlib}.so
+      libtiagent${dlib}.so
+      libtistress${dlib}.so
+    )
+    art_test_internal_libraries="${art_test_internal_libraries[*]}"
+    NATIVELOADER_DEFAULT_NAMESPACE_LIBS="${art_test_internal_libraries// /:}"
+    dlib=
+    art_test_internal_libraries=
+
     # Needed to access the test's Odex files.
     LD_LIBRARY_PATH="$DEX_LOCATION/oat/$ISA:$LD_LIBRARY_PATH"
     # Needed to access the test's native libraries (see e.g. 674-hiddenapi,
     # which generates `libhiddenapitest_*.so` libraries in `$DEX_LOCATION`).
     LD_LIBRARY_PATH="$DEX_LOCATION:$LD_LIBRARY_PATH"
-
-    # System libraries needed by libarttestd.so
-    PUBLIC_LIBS=libc++.so:libbacktrace.so:libbase.so:libnativehelper.so
-    if [ "$TEST_IS_NDEBUG" = "y" ]; then
-      PUBLIC_LIBS=$PUBLIC_LIBS:libart.so:libdexfile.so:libprofile.so:libartbase.so
-    else
-      PUBLIC_LIBS=$PUBLIC_LIBS:libartd.so:libdexfiled.so:libprofiled.so:libartbased.so
-    fi
 
     # Prepend directories to the path on device.
     PREPEND_TARGET_PATH=$ANDROID_ART_BIN_DIR
@@ -1157,7 +1226,6 @@ if [ "$HOST" = "n" ]; then
     cmdline="cd $DEX_LOCATION && \
              export ASAN_OPTIONS=$RUN_TEST_ASAN_OPTIONS && \
              export ANDROID_DATA=$DEX_LOCATION && \
-             export ANDROID_ADDITIONAL_PUBLIC_LIBRARIES=$PUBLIC_LIBS && \
              export DEX_LOCATION=$DEX_LOCATION && \
              export ANDROID_ROOT=$ANDROID_ROOT && \
              export ANDROID_I18N_ROOT=$ANDROID_I18N_ROOT && \
@@ -1167,6 +1235,7 @@ if [ "$HOST" = "n" ]; then
              rm -rf ${DEX_LOCATION}/dalvik-cache/ && \
              mkdir -p ${mkdir_locations} && \
              export LD_LIBRARY_PATH=$LD_LIBRARY_PATH && \
+             export NATIVELOADER_DEFAULT_NAMESPACE_LIBS=$NATIVELOADER_DEFAULT_NAMESPACE_LIBS && \
              export PATH=$PREPEND_TARGET_PATH:\$PATH && \
              $profman_cmdline && \
              $dex2oat_cmdline && \
@@ -1176,8 +1245,8 @@ if [ "$HOST" = "n" ]; then
              $sync_cmdline && \
              $timeout_prefix $dalvikvm_cmdline"
 
-    cmdfile=$(tempfile -p "cmd-" -s "-$TEST_NAME")
-    echo "$cmdline" > $cmdfile
+    cmdfile=$(mktemp cmd-XXXX --suffix "-$TEST_NAME")
+    echo "$cmdline" >> $cmdfile
 
     if [ "$DEV_MODE" = "y" ]; then
       echo $cmdline
@@ -1262,7 +1331,7 @@ else
         echo EXPORT $var=${!var}
       done
       echo "$(declare -f linkdirs)"
-      echo "mkdir -p ${mkdir_locations} && $setupapex_cmdline && $installapex_cmdline && $linkroot_cmdline && $linkroot_overlay_cmdline && $profman_cmdline && $dex2oat_cmdline && $dm_cmdline && $vdex_cmdline && $strip_cmdline && $sync_cmdline && $cmdline"
+      echo "mkdir -p ${mkdir_locations} && $setupapex_cmdline && ( $installapex_test_cmdline || $installapex_cmdline ) && $linkroot_cmdline && $linkroot_overlay_cmdline && $profman_cmdline && $dex2oat_cmdline && $dm_cmdline && $vdex_cmdline && $strip_cmdline && $sync_cmdline && $cmdline"
     fi
 
     cd $ANDROID_BUILD_TOP
@@ -1277,13 +1346,13 @@ else
 
     mkdir -p ${mkdir_locations} || exit 1
     $setupapex_cmdline || { echo "zipapex extraction failed." >&2 ; exit 2; }
-    $installapex_cmdline || { echo "zipapex install failed. cmd was: ${installapex_cmdline}." >&2; find ${mkdir_locations} -type f >&2; exit 2; }
+    $installapex_test_cmdline || $installapex_cmdline || { echo "zipapex install failed. cmd was: ${installapex_test_cmdline} || ${installapex_cmdline}." >&2; find ${mkdir_locations} -type f >&2; exit 2; }
     $linkroot_cmdline || { echo "create symlink android-root failed." >&2 ; exit 2; }
     $linkroot_overlay_cmdline || { echo "overlay android-root failed." >&2 ; exit 2; }
     $profman_cmdline || { echo "Profman failed." >&2 ; exit 2; }
-    $dex2oat_cmdline || { echo "Dex2oat failed." >&2 ; exit 2; }
-    $dm_cmdline || { echo "Dex2oat failed." >&2 ; exit 2; }
-    $vdex_cmdline || { echo "Dex2oat failed." >&2 ; exit 2; }
+    eval "$dex2oat_cmdline" || { echo "Dex2oat failed." >&2 ; exit 2; }
+    eval "$dm_cmdline" || { echo "Dex2oat failed." >&2 ; exit 2; }
+    eval "$vdex_cmdline" || { echo "Dex2oat failed." >&2 ; exit 2; }
     $strip_cmdline || { echo "Strip failed." >&2 ; exit 3; }
     $sync_cmdline || { echo "Sync failed." >&2 ; exit 4; }
 
@@ -1293,12 +1362,17 @@ else
         echo export $var="${!var}" >> ${DEX_LOCATION}/runit.sh
       done
       if [ "$DEV_MODE" = "y" ]; then
-        echo $cmdline "2>&1" >> ${DEX_LOCATION}/runit.sh
+        echo $cmdline >> ${DEX_LOCATION}/runit.sh
       else
         echo 'STDERR=$(mktemp)' >> ${DEX_LOCATION}/runit.sh
         echo 'STDOUT=$(mktemp)' >> ${DEX_LOCATION}/runit.sh
-        echo $cmdline '2>${STDERR} >${STDOUT}' >> ${DEX_LOCATION}/runit.sh
-        echo 'if diff ${STDOUT} $ANDROID_DATA/expected.txt; then' >> ${DEX_LOCATION}/runit.sh
+        echo $cmdline '>${STDOUT} 2>${STDERR}' >> ${DEX_LOCATION}/runit.sh
+        echo 'if diff ${STDOUT} $ANDROID_DATA/expected-stdout.txt; then' \
+          >> ${DEX_LOCATION}/runit.sh
+        echo '  rm -f ${STDOUT} ${STDERR}' >> ${DEX_LOCATION}/runit.sh
+        echo '  exit 0' >> ${DEX_LOCATION}/runit.sh
+        echo 'elif diff ${STDERR} $ANDROID_DATA/expected-stderr.txt; then' \
+          >> ${DEX_LOCATION}/runit.sh
         echo '  rm -f ${STDOUT} ${STDERR}' >> ${DEX_LOCATION}/runit.sh
         echo '  exit 0' >> ${DEX_LOCATION}/runit.sh
         echo 'else' >> ${DEX_LOCATION}/runit.sh
@@ -1327,7 +1401,7 @@ else
     else
       if [ "$TIME_OUT" != "gdb" ]; then
         trap 'kill -INT -$pid' INT
-        $cmdline "$@" 2>&1 & pid=$!
+        $cmdline "$@" & pid=$!
         wait $pid
         exit_value=$?
         # Add extra detail if time out is enabled.
@@ -1338,7 +1412,7 @@ else
       else
         # With a thread dump that uses gdb if a timeout.
         trap 'kill -INT -$pid' INT
-        $cmdline "$@" 2>&1 & pid=$!
+        $cmdline "$@" & pid=$!
         # Spawn a watcher process.
         ( sleep $TIME_OUT_VALUE && \
           echo "##### Thread dump using gdb on test timeout" && \

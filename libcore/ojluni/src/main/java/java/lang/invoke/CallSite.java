@@ -25,7 +25,7 @@
 
 package java.lang.invoke;
 
-// Android-changed: Not using Empty
+// Android-changed: Not using Empty.
 //import sun.invoke.empty.Empty;
 import static java.lang.invoke.MethodHandleStatics.*;
 import static java.lang.invoke.MethodHandles.Lookup.IMPL_LOOKUP;
@@ -104,9 +104,10 @@ public class CallSite {
      */
     /*package-private*/
     CallSite(MethodType type) {
-        // Android-changed: No cache for these so create uninitializedCallSite target here using
-        // method handle transformations to create a method handle that has the expected method
-        // type but throws an IllegalStateException.
+        // Android-changed: No cache for these.
+        // Instead create uninitializedCallSite target here using method handle transformations
+        // to create a method handle that has the expected method type but throws an
+        // IllegalStateException.
         // target = makeUninitializedCallSite(type);
         this.target = MethodHandles.throwException(type.returnType(), IllegalStateException.class);
         this.target = MethodHandles.insertArguments(
@@ -115,8 +116,7 @@ public class CallSite {
             this.target = MethodHandles.dropArguments(this.target, 0, type.ptypes());
         }
 
-        // Android-changed: Using initializer method for GET_TARGET
-        // rather than complex static initializer.
+        // Android-changed: Using initializer method for GET_TARGET instead of static initializer.
         initializeGetTarget();
     }
 
@@ -130,8 +130,7 @@ public class CallSite {
         target.type();  // null check
         this.target = target;
 
-        // Android-changed: Using initializer method for GET_TARGET
-        // rather than complex static initializer.
+        // Android-changed: Using initializer method for GET_TARGET instead of static initializer.
         initializeGetTarget();
     }
 
@@ -153,8 +152,7 @@ public class CallSite {
         checkTargetChange(this.target, boundTarget);
         this.target = boundTarget;
 
-        // Android-changed: Using initializer method for GET_TARGET
-        // rather than complex static initializer.
+        // Android-changed: Using initializer method for GET_TARGET instead of static initializer.
         initializeGetTarget();
     }
 
@@ -244,9 +242,9 @@ public class CallSite {
     private static MethodHandle GET_TARGET = null;
 
     private void initializeGetTarget() {
-        // Android-changed: moved from static initializer for
-        // GET_TARGET to avoid issues with running early. Called from
-        // constructors. CallSite creation is not performance critical.
+        // Android-changed: moved from static initializer for GET_TARGET.
+        // This avoids issues with running early. Called from constructors.
+        // CallSite creation is not performance critical.
         synchronized (CallSite.class) {
             if (GET_TARGET == null) {
                 try {

@@ -22,6 +22,9 @@ LOCAL_USE_AAPT2 := true
 
 LOCAL_PROGUARD_ENABLED := disabled
 
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../LICENSE
 include $(BUILD_PACKAGE)
 
 ################################################################
@@ -30,6 +33,9 @@ include $(BUILD_PACKAGE)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := Robolectric_shadows_androidx_fragment_tests
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../LICENSE
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src/test/java)
@@ -58,6 +64,9 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := Run_robolectric_shadows_androidx_fragment_tests
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../LICENSE
 
 LOCAL_JAVA_LIBRARIES := \
     Robolectric_shadows_androidx_fragment_tests \

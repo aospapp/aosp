@@ -28,7 +28,7 @@ package sun.util.calendar;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class Era {
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public Era(java.lang.String name, java.lang.String abbr, long since, boolean localTime) {
         throw new RuntimeException("Stub!");
     }

@@ -22,12 +22,9 @@ import android.car.Car;
 import android.car.CarNotConnectedException;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.media.CarAudioManager;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Looper;
 import android.util.SparseArray;
 
@@ -99,48 +96,42 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
                 }
             };
 
-    private final ServiceConnection mServiceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            try {
-                mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
-                int volumeGroupCount = mCarAudioManager.getVolumeGroupCount();
-                cleanUpVolumePreferences();
-                // Populates volume slider items from volume groups to UI.
-                for (int groupId = 0; groupId < volumeGroupCount; groupId++) {
-                    VolumeItem volumeItem = getVolumeItemForUsages(
-                            mCarAudioManager.getUsagesForVolumeGroupId(groupId));
-                    SeekBarPreference volumePreference = createVolumeSeekBarPreference(
-                            groupId, volumeItem.getUsage(), volumeItem.getIcon(),
-                            volumeItem.getTitle());
-                    mVolumePreferences.add(volumePreference);
-                }
-                mCarAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
-
-                refreshUi();
-            } catch (CarNotConnectedException e) {
-                LOG.e("Car is not connected!", e);
-            }
-        }
-
-        /** Cleanup audio related fields when car is disconnected. */
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            cleanupAudioManager();
-        }
-    };
-
     private Car mCar;
     private CarAudioManager mCarAudioManager;
 
     public VolumeSettingsPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController,
             CarUxRestrictions uxRestrictions) {
+        this(context, preferenceKey, fragmentController, uxRestrictions, Car.createCar(context),
+                new VolumeSettingsRingtoneManager(context));
+    }
+
+    @VisibleForTesting
+    VolumeSettingsPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController,
+            CarUxRestrictions uxRestrictions, Car car,
+            VolumeSettingsRingtoneManager ringtoneManager) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mCar = Car.createCar(getContext(), mServiceConnection);
+        mCar = car;
+        mRingtoneManager = ringtoneManager;
         mVolumeItems = VolumeItemParser.loadAudioUsageItems(context, carVolumeItemsXml());
-        mRingtoneManager = new VolumeSettingsRingtoneManager(getContext());
         mUiHandler = new Handler(Looper.getMainLooper());
+
+        mCarAudioManager = (CarAudioManager) mCar.getCarManager(Car.AUDIO_SERVICE);
+        if (mCarAudioManager != null) {
+            int volumeGroupCount = mCarAudioManager.getVolumeGroupCount();
+            cleanUpVolumePreferences();
+            // Populates volume slider items from volume groups to UI.
+            for (int groupId = 0; groupId < volumeGroupCount; groupId++) {
+                VolumeItem volumeItem = getVolumeItemForUsages(
+                        mCarAudioManager.getUsagesForVolumeGroupId(groupId));
+                SeekBarPreference volumePreference = createVolumeSeekBarPreference(
+                        groupId, volumeItem.getUsage(), volumeItem.getIcon(),
+                        volumeItem.getTitle());
+                mVolumePreferences.add(volumePreference);
+            }
+            mCarAudioManager.registerCarVolumeCallback(mVolumeChangeCallback);
+        }
     }
 
     @Override
@@ -148,16 +139,11 @@ public class VolumeSettingsPreferenceController extends PreferenceController<Pre
         return PreferenceGroup.class;
     }
 
-    /** Connect to car on create. */
-    @Override
-    protected void onCreateInternal() {
-        mCar.connect();
-    }
-
     /** Disconnect from car on destroy. */
     @Override
     protected void onDestroyInternal() {
         mCar.disconnect();
+        cleanupAudioManager();
     }
 
     @Override

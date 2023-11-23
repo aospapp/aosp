@@ -4,6 +4,7 @@
 
 AUTHOR = "puthik"
 NAME = "ThermalQual.full"
+ATTRIBUTES = "suite:thermal_qual_full"
 TIME = "LENGTHY"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"
@@ -12,6 +13,7 @@ DOC = """
 Sequence for qualification for thermal.
 """
 
+import datetime
 from autotest_lib.client.common_lib import utils
 
 HOURS=60*60
@@ -57,7 +59,9 @@ try:
 except NameError:
     args_dict = utils.args_to_dict(args)
 
-pdash_note = args_dict.get('pdash_note', '')
+# Use time as pdash_note if not supplied to track all tests in same suite.
+pdash_note = args_dict.get('pdash_note',
+                           NAME + '_' + datetime.datetime.utcnow().isoformat())
 
 def run_client_test(machine):
     client = hosts.create_host(machine)

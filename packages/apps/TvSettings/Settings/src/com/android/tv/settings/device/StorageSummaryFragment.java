@@ -16,6 +16,11 @@
 
 package com.android.tv.settings.device;
 
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_CLASSIC;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_TWO_PANEL;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_VENDOR;
+import static com.android.tv.settings.overlay.FlavorUtils.FLAVOR_X;
+
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
 import android.os.Bundle;
@@ -31,13 +36,13 @@ import androidx.annotation.Keep;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
 import com.android.tv.settings.device.storage.MissingStorageFragment;
 import com.android.tv.settings.device.storage.NewStorageActivity;
 import com.android.tv.settings.device.storage.StorageFragment;
 import com.android.tv.settings.device.storage.StoragePreference;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -78,9 +83,22 @@ public class StorageSummaryFragment extends SettingsPreferenceFragment {
         super.onCreate(savedInstanceState);
     }
 
+    private int getPreferenceScreenResId() {
+        switch (FlavorUtils.getFlavor(getContext())) {
+            case FLAVOR_CLASSIC:
+            case FLAVOR_TWO_PANEL:
+                return R.xml.storage_summary;
+            case FLAVOR_X:
+            case FLAVOR_VENDOR:
+                return R.xml.storage_summary_x;
+            default:
+                return R.xml.storage_summary;
+        }
+    }
+
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        setPreferencesFromResource(R.xml.storage_summary, null);
+        setPreferencesFromResource(getPreferenceScreenResId(), null);
         findPreference(KEY_REMOVABLE_CATEGORY).setVisible(false);
     }
 
@@ -326,11 +344,6 @@ public class StorageSummaryFragment extends SettingsPreferenceFragment {
             refresh();
         }
 
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.SETTINGS_STORAGE_CATEGORY;
     }
 
     @Override

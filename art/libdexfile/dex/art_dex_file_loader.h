@@ -46,9 +46,14 @@ class ArtDexFileLoader : public DexFileLoader {
   // the descriptor and `filename` will be used as alias for error logging. If
   // zip_fd is -1, the method will try to open the `filename` and read the
   // content from it.
+  //
+  // The dex_locations vector will be populated with the corresponding multidex
+  // locations.
+  //
   // Return true if the checksums could be found, false otherwise.
   bool GetMultiDexChecksums(const char* filename,
                             std::vector<uint32_t>* checksums,
+                            std::vector<std::string>* dex_locations,
                             std::string* error_msg,
                             int zip_fd = -1,
                             bool* only_contains_uncompressed_dex = nullptr) const override;
@@ -81,6 +86,16 @@ class ArtDexFileLoader : public DexFileLoader {
             std::string* error_msg,
             std::vector<std::unique_ptr<const DexFile>>* dex_files) const;
   bool Open(int fd,
+            const std::string& location,
+            bool verify,
+            bool verify_checksum,
+            std::string* error_msg,
+            std::vector<std::unique_ptr<const DexFile>>* dex_files) const;
+  // Opens all .dex files found in the file, guessing the container format based on file magic.
+  // If the fd is -1 then the dex files are opened using the filename; otherwise they are
+  // opened using the fd.
+  bool Open(const char* filename,
+            int fd,
             const std::string& location,
             bool verify,
             bool verify_checksum,

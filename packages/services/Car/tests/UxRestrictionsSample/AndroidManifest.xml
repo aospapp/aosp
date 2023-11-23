@@ -13,26 +13,32 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools"
-          package="com.google.android.car.uxr.sample"
-          android:sharedUserId="android.uid.system">
+     xmlns:tools="http://schemas.android.com/tools"
+     package="com.google.android.car.uxr.sample"
+     android:sharedUserId="android.uid.system">
 
     <uses-permission android:name="android.car.permission.CAR_DRIVING_STATE"/>
 
     <application android:label="UxRestrictions Sample"
-                 android:appComponentFactory="androidx.core.app.CoreComponentFactory"
-                 tools:replace="android:appComponentFactory">
-        <activity android:name=".MainActivity" android:theme="@style/AppTheme" android:launchMode="singleTask">
+         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+         tools:replace="android:appComponentFactory">
+        <activity android:name=".MainActivity"
+             android:theme="@style/AppTheme"
+             android:launchMode="singleTask"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <meta-data android:name="distractionOptimized" android:value="true"/>
+            <meta-data android:name="distractionOptimized"
+                 android:value="true"/>
         </activity>
         <activity android:name=".SampleMessageActivity"
-                  android:theme="@style/AppTheme">
-            <meta-data android:name="distractionOptimized" android:value="true"/>
+             android:theme="@style/AppTheme">
+            <meta-data android:name="distractionOptimized"
+                 android:value="true"/>
         </activity>
     </application>
 </manifest>

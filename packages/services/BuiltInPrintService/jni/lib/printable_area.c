@@ -41,10 +41,10 @@ void printable_area_get(wprint_job_params_t *job_params, float top_margin, float
             job_params->page_height = SupportedMediaSizes[i].HeightInInches / 1000;
         }
     }
-    // don't adjust for margins if job is borderless and PCLm.  dimensions of image will not
+    // don't adjust for margins if job is PCLm.  dimensions of image will not
     // match (will be bigger than) the dimensions of the page size and a corrupt image will render
     // in genPCLm
-    if (job_params->borderless && job_params->pcl_type == PCLm) {
+    if (job_params->pcl_type == PCLm) {
         job_params->printable_area_width = (unsigned int) _MI_TO_PIXELS(
                 job_params->page_width * 1000, job_params->pixel_units);
         job_params->printable_area_height = (unsigned int) _MI_TO_PIXELS(

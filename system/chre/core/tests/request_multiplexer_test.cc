@@ -22,17 +22,17 @@
 
 using chre::RequestMultiplexer;
 
-class DummyRequest {
+class FakeRequest {
  public:
-  DummyRequest() : DummyRequest(0) {}
+  FakeRequest() : FakeRequest(0) {}
 
-  DummyRequest(int priority) : mPriority(priority) {}
+  FakeRequest(int priority) : mPriority(priority) {}
 
-  bool isEquivalentTo(const DummyRequest &request) const {
+  bool isEquivalentTo(const FakeRequest &request) const {
     return (mPriority == request.mPriority);
   }
 
-  bool mergeWith(const DummyRequest &request) {
+  bool mergeWith(const FakeRequest &request) {
     bool newMaximal = false;
     if (request.mPriority > mPriority) {
       mPriority = request.mPriority;
@@ -51,8 +51,8 @@ class DummyRequest {
 };
 
 TEST(RequestMultiplexer, DefaultRequestDoesNotCauseNewMaximal) {
-  RequestMultiplexer<DummyRequest> multiplexer;
-  DummyRequest request;
+  RequestMultiplexer<FakeRequest> multiplexer;
+  FakeRequest request;
   size_t index;
   bool maximalRequestChanged;
   ASSERT_TRUE(multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -61,8 +61,8 @@ TEST(RequestMultiplexer, DefaultRequestDoesNotCauseNewMaximal) {
 }
 
 TEST(RequestMultiplexer, FirstHighPriorityRequestCausesNewMaximal) {
-  RequestMultiplexer<DummyRequest> multiplexer;
-  DummyRequest request(10);
+  RequestMultiplexer<FakeRequest> multiplexer;
+  FakeRequest request(10);
   size_t index;
   bool maximalRequestChanged;
   ASSERT_TRUE(multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -71,11 +71,11 @@ TEST(RequestMultiplexer, FirstHighPriorityRequestCausesNewMaximal) {
 }
 
 TEST(RequestMultiplexer, NewLowerPriorityRequestDoesNotCauseNewMaximal) {
-  RequestMultiplexer<DummyRequest> multiplexer;
+  RequestMultiplexer<FakeRequest> multiplexer;
   size_t index;
 
   {
-    DummyRequest request(10);
+    FakeRequest request(10);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -84,7 +84,7 @@ TEST(RequestMultiplexer, NewLowerPriorityRequestDoesNotCauseNewMaximal) {
   }
 
   {
-    DummyRequest request(5);
+    FakeRequest request(5);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -94,8 +94,8 @@ TEST(RequestMultiplexer, NewLowerPriorityRequestDoesNotCauseNewMaximal) {
 }
 
 TEST(RequestMultiplexer, AddOneRemoveMaximal) {
-  RequestMultiplexer<DummyRequest> multiplexer;
-  DummyRequest request(10);
+  RequestMultiplexer<FakeRequest> multiplexer;
+  FakeRequest request(10);
   size_t index;
   bool maximalRequestChanged;
   ASSERT_TRUE(multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -103,7 +103,7 @@ TEST(RequestMultiplexer, AddOneRemoveMaximal) {
   EXPECT_EQ(multiplexer.getRequests()[index].getPriority(), 10);
   EXPECT_EQ(multiplexer.getCurrentMaximalRequest().getPriority(), 10);
 
-  DummyRequest defaultRequest;
+  FakeRequest defaultRequest;
   multiplexer.removeRequest(0, &maximalRequestChanged);
   EXPECT_TRUE(maximalRequestChanged);
   EXPECT_TRUE(
@@ -112,11 +112,11 @@ TEST(RequestMultiplexer, AddOneRemoveMaximal) {
 }
 
 TEST(RequestMultiplexer, AddManyRemoveMaximal) {
-  RequestMultiplexer<DummyRequest> multiplexer;
+  RequestMultiplexer<FakeRequest> multiplexer;
   size_t index;
 
   {
-    DummyRequest request(10);
+    FakeRequest request(10);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -126,7 +126,7 @@ TEST(RequestMultiplexer, AddManyRemoveMaximal) {
   }
 
   {
-    DummyRequest request(5);
+    FakeRequest request(5);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -136,7 +136,7 @@ TEST(RequestMultiplexer, AddManyRemoveMaximal) {
   }
 
   {
-    DummyRequest request(10);
+    FakeRequest request(10);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -154,11 +154,11 @@ TEST(RequestMultiplexer, AddManyRemoveMaximal) {
 }
 
 TEST(RequestMultiplexer, AddManyRemoveBeforeMaximalThenRemoveMaximal) {
-  RequestMultiplexer<DummyRequest> multiplexer;
+  RequestMultiplexer<FakeRequest> multiplexer;
   size_t index;
 
   {
-    DummyRequest request(1);
+    FakeRequest request(1);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -168,7 +168,7 @@ TEST(RequestMultiplexer, AddManyRemoveBeforeMaximalThenRemoveMaximal) {
   }
 
   {
-    DummyRequest request(5);
+    FakeRequest request(5);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -178,7 +178,7 @@ TEST(RequestMultiplexer, AddManyRemoveBeforeMaximalThenRemoveMaximal) {
   }
 
   {
-    DummyRequest request(10);
+    FakeRequest request(10);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -201,11 +201,11 @@ TEST(RequestMultiplexer, AddManyRemoveBeforeMaximalThenRemoveMaximal) {
 }
 
 TEST(RequestMultiplexer, AddManyRemoveAfterMaximalThenRemoveMaximal) {
-  RequestMultiplexer<DummyRequest> multiplexer;
+  RequestMultiplexer<FakeRequest> multiplexer;
   size_t index;
 
   {
-    DummyRequest request(1);
+    FakeRequest request(1);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -215,7 +215,7 @@ TEST(RequestMultiplexer, AddManyRemoveAfterMaximalThenRemoveMaximal) {
   }
 
   {
-    DummyRequest request(5);
+    FakeRequest request(5);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -225,7 +225,7 @@ TEST(RequestMultiplexer, AddManyRemoveAfterMaximalThenRemoveMaximal) {
   }
 
   {
-    DummyRequest request(10);
+    FakeRequest request(10);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -235,7 +235,7 @@ TEST(RequestMultiplexer, AddManyRemoveAfterMaximalThenRemoveMaximal) {
   }
 
   {
-    DummyRequest request(5);
+    FakeRequest request(5);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -260,11 +260,11 @@ TEST(RequestMultiplexer, AddManyRemoveAfterMaximalThenRemoveMaximal) {
 }
 
 TEST(RequestMultiplexer, AddManyUpdateWithLowerPriority) {
-  RequestMultiplexer<DummyRequest> multiplexer;
+  RequestMultiplexer<FakeRequest> multiplexer;
   size_t index;
 
   {
-    DummyRequest request(1);
+    FakeRequest request(1);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -274,7 +274,7 @@ TEST(RequestMultiplexer, AddManyUpdateWithLowerPriority) {
   }
 
   {
-    DummyRequest request(5);
+    FakeRequest request(5);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -284,7 +284,7 @@ TEST(RequestMultiplexer, AddManyUpdateWithLowerPriority) {
   }
 
   {
-    DummyRequest request(10);
+    FakeRequest request(10);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -294,7 +294,7 @@ TEST(RequestMultiplexer, AddManyUpdateWithLowerPriority) {
   }
 
   {
-    DummyRequest request(8);
+    FakeRequest request(8);
     bool maximalRequestChanged;
     multiplexer.updateRequest(1, request, &maximalRequestChanged);
     EXPECT_FALSE(maximalRequestChanged);
@@ -304,11 +304,11 @@ TEST(RequestMultiplexer, AddManyUpdateWithLowerPriority) {
 }
 
 TEST(RequestMultiplexer, AddManyUpdateWithNewMaximalLowerPriority) {
-  RequestMultiplexer<DummyRequest> multiplexer;
+  RequestMultiplexer<FakeRequest> multiplexer;
   size_t index;
 
   {
-    DummyRequest request(1);
+    FakeRequest request(1);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -318,7 +318,7 @@ TEST(RequestMultiplexer, AddManyUpdateWithNewMaximalLowerPriority) {
   }
 
   {
-    DummyRequest request(5);
+    FakeRequest request(5);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -328,7 +328,7 @@ TEST(RequestMultiplexer, AddManyUpdateWithNewMaximalLowerPriority) {
   }
 
   {
-    DummyRequest request(10);
+    FakeRequest request(10);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -338,7 +338,7 @@ TEST(RequestMultiplexer, AddManyUpdateWithNewMaximalLowerPriority) {
   }
 
   {
-    DummyRequest request(8);
+    FakeRequest request(8);
     bool maximalRequestChanged;
     multiplexer.updateRequest(2, request, &maximalRequestChanged);
     EXPECT_TRUE(maximalRequestChanged);
@@ -348,11 +348,11 @@ TEST(RequestMultiplexer, AddManyUpdateWithNewMaximalLowerPriority) {
 }
 
 TEST(RequestMultiplexer, AddManyUpdateNewMaximal) {
-  RequestMultiplexer<DummyRequest> multiplexer;
+  RequestMultiplexer<FakeRequest> multiplexer;
   size_t index;
 
   {
-    DummyRequest request(1);
+    FakeRequest request(1);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -362,7 +362,7 @@ TEST(RequestMultiplexer, AddManyUpdateNewMaximal) {
   }
 
   {
-    DummyRequest request(5);
+    FakeRequest request(5);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -372,7 +372,7 @@ TEST(RequestMultiplexer, AddManyUpdateNewMaximal) {
   }
 
   {
-    DummyRequest request(10);
+    FakeRequest request(10);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));
@@ -382,7 +382,7 @@ TEST(RequestMultiplexer, AddManyUpdateNewMaximal) {
   }
 
   {
-    DummyRequest request(20);
+    FakeRequest request(20);
     bool maximalRequestChanged;
     multiplexer.updateRequest(1, request, &maximalRequestChanged);
     EXPECT_TRUE(maximalRequestChanged);
@@ -392,7 +392,7 @@ TEST(RequestMultiplexer, AddManyUpdateNewMaximal) {
 }
 
 TEST(RequestMultiplexer, RemoveAllRequestsEmpty) {
-  RequestMultiplexer<DummyRequest> multiplexer;
+  RequestMultiplexer<FakeRequest> multiplexer;
 
   bool maximalRequestChanged;
   multiplexer.removeAllRequests(&maximalRequestChanged);
@@ -402,11 +402,11 @@ TEST(RequestMultiplexer, RemoveAllRequestsEmpty) {
 }
 
 TEST(RequestMultiplexer, RemoveAllRequestsNonEmpty) {
-  RequestMultiplexer<DummyRequest> multiplexer;
+  RequestMultiplexer<FakeRequest> multiplexer;
   size_t index;
 
   {
-    DummyRequest request(1);
+    FakeRequest request(1);
     bool maximalRequestChanged;
     ASSERT_TRUE(
         multiplexer.addRequest(request, &index, &maximalRequestChanged));

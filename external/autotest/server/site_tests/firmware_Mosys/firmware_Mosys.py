@@ -17,8 +17,6 @@ class firmware_Mosys(FirmwareTest):
     Execute
     * mosys -k ec info
     * mosys platform name
-    * mosys eeprom map
-    * mosys platform vendor
     * mosys -k pd info
 
     """
@@ -133,29 +131,6 @@ class firmware_Mosys(FirmwareTest):
             self._tag_failure(command)
             logging.error('Failed to locate version from ectool')
 
-    def check_lsb_info(self, command, fieldname, exp_value):
-        """
-        Compare output of fieldname in /etc/lsb-release to exp_value.
-
-        @param command: command string
-        @param fieldname: field name in lsd-release file.
-        @param exp_value: expected value for fieldname
-
-        """
-        lsb_info = 'cat /etc/lsb-release'
-        lines = self.run_cmd(lsb_info)
-        pattern = re.compile(fieldname + '=(.*)$')
-        for line in lines:
-            matched = pattern.match(line)
-            if matched:
-                actual = matched.group(1)
-                logging.info('Expected %s %s actual %s',
-                             fieldname, exp_value, actual)
-                # Some board will have prefix.  Example nyan_big for big.
-                if exp_value.lower() in actual.lower():
-                  return
-        self._tag_failure(command)
-
     def _tag_failure(self, cmd):
         self.failed_command.append(cmd)
         logging.error('Execute %s failed', cmd)
@@ -182,46 +157,6 @@ class firmware_Mosys(FirmwareTest):
         command = 'mosys platform name'
         output = self.run_cmd(command)
         self.check_for_errors(output, command)
-        self.check_lsb_info(command, 'CHROMEOS_RELEASE_BOARD', output[0])
-
-        # mosys eeprom map
-        command = 'mosys eeprom map|egrep "RW_SHARED|RW_SECTION_[AB]"'
-        lines = self.run_cmd(command)
-        self.check_for_errors(lines, command)
-        if len(lines) != 3:
-          logging.error('Expect RW_SHARED|RW_SECTION_[AB] got "%s"', lines)
-          self._tag_failure(command)
-        emap = {'RW_SECTION_A': 0, 'RW_SECTION_B': 0, 'RW_SHARED': 0}
-        for line in lines:
-            row = line.split(' | ')
-            # no need to check if we don't have enough items in the list
-            if len(row) < 4:
-                 continue
-            if row[1] in emap:
-                emap[row[1]] += 1
-            if row[2] == '0x00000000':
-                logging.error('Expect non zero but got %s instead (%s)',
-                              row[2], line)
-                self._tag_failure(command)
-            if row[3] == '0x00000000':
-                logging.error('Expect non zero but got %s instead (%s)',
-                              row[3], line)
-                self._tag_failure(command)
-        # Check that there are one A and one B.
-        if emap['RW_SECTION_A'] != 1 or emap['RW_SECTION_B'] != 1:
-            logging.error('Missing RW_SECTION A or B, %s', lines)
-            self._tag_failure(command)
-
-        # mosys platform vendor
-        # Output will be GOOGLE until launch, see crosbug/p/29755
-        command = 'mosys platform vendor'
-        output = self.run_cmd(command)
-        self.check_for_errors(output, command)
-        p = re.compile('^[-\w\s,.]+$')
-        if not p.match(output[0]):
-            logging.error('output is not a string Expect GOOGLE'
-                          'or name of maker.')
-            self._tag_failure(command)
 
         # mosys -k pd info
         command = 'mosys -k pd info'

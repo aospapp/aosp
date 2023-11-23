@@ -95,6 +95,7 @@ public final class CommandSession {
     private static final String COMMAND_TAKE_CALLBACK_HISTORY = EXTRA_PREFIX
             + "command_take_callback_history";
     private static final String COMMAND_WAIT_IDLE = EXTRA_PREFIX + "command_wait_idle";
+    private static final String COMMAND_GET_NAME = EXTRA_PREFIX + "command_get_name";
     private static final String COMMAND_DISPLAY_ACCESS_CHECK =
             EXTRA_PREFIX + "display_access_check";
 
@@ -231,15 +232,15 @@ public final class CommandSession {
         }
 
         /** Get a name to represent this session by the original launch intent if possible. */
-        public String getName() {
+        public ComponentName getName() {
             if (mOriginalLaunchIntent != null) {
                 final ComponentName componentName = mOriginalLaunchIntent.getComponent();
                 if (componentName != null) {
-                    return componentName.flattenToShortString();
+                    return componentName;
                 }
-                return mOriginalLaunchIntent.toString();
             }
-            return "Activity";
+            return sendCommandAndWaitReply(COMMAND_GET_NAME, null /* data */)
+                    .getParcelable(COMMAND_GET_NAME);
         }
 
         public boolean isUidAccesibleOnDisplay() {
@@ -480,6 +481,13 @@ public final class CommandSession {
             session.mOriginalLaunchIntent = intent;
         }
 
+        public ActivitySession getLastStartedSession() {
+            if (mSessions.isEmpty()) {
+                throw new IllegalStateException("No started sessions");
+            }
+            return mSessions.valueAt(mSessions.size() - 1);
+        }
+
         private void ensureNotClosed() {
             if (mClosed) {
                 throw new IllegalStateException("This session client is closed.");
@@ -537,10 +545,12 @@ public final class CommandSession {
 
     /** The host receives command from the test client. */
     public static class ActivitySessionHost extends BroadcastReceiver {
-        private final CommandReceiver mCallback;
         private final Context mContext;
         private final String mClientId;
         private final String mHostId;
+        private CommandReceiver mCallback;
+        /** The intents received when the host activity is relaunching. */
+        private ArrayList<Intent> mPendingIntents;
 
         ActivitySessionHost(Context context, String hostId, String clientId,
                 CommandReceiver callback) {
@@ -554,10 +564,24 @@ public final class CommandSession {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (DEBUG) {
-                Log.i(TAG, mHostId + "(" + mContext.getClass().getSimpleName()
+                Log.i(TAG, mHostId + "("
+                        + (mCallback != null
+                                ? mCallback.getClass().getName()
+                                : mContext.getClass().getName())
                         + ") receives " + commandIntentToString(intent));
             }
-            mCallback.receiveCommand(intent.getStringExtra(KEY_COMMAND), intent.getExtras());
+            if (mCallback == null) {
+                if (mPendingIntents == null) {
+                    mPendingIntents = new ArrayList<>();
+                }
+                mPendingIntents.add(intent);
+                return;
+            }
+            dispatchCommand(mCallback, intent);
+        }
+
+        private static void dispatchCommand(CommandReceiver callback, Intent intent) {
+            callback.receiveCommand(intent.getStringExtra(KEY_COMMAND), intent.getExtras());
         }
 
         void reply(String command, Bundle data) {
@@ -572,7 +596,17 @@ public final class CommandSession {
             }
         }
 
-        void destory() {
+        void setCallback(CommandReceiver callback) {
+            if (mPendingIntents != null && mCallback == null && callback != null) {
+                for (Intent intent : mPendingIntents) {
+                    dispatchCommand(callback, intent);
+                }
+                mPendingIntents = null;
+            }
+            mCallback = callback;
+        }
+
+        void destroy() {
             mContext.unregisterReceiver(this);
         }
     }
@@ -664,23 +698,40 @@ public final class CommandSession {
                 if (sCommandStorage == null) {
                     sCommandStorage = new CommandStorage();
                 }
-                mReceiver = new ActivitySessionHost(this /* context */, hostId, clientId,
-                        this /* callback */);
+                final Object receiver = getLastNonConfigurationInstance();
+                if (receiver instanceof ActivitySessionHost) {
+                    mReceiver = (ActivitySessionHost) receiver;
+                    mReceiver.setCallback(this);
+                } else {
+                    mReceiver = new ActivitySessionHost(getApplicationContext(), hostId, clientId,
+                            this /* callback */);
+                }
             }
         }
 
         @Override
         protected void onDestroy() {
             super.onDestroy();
-            if (mReceiver != null) {
-                if (!isChangingConfigurations()) {
-                    sCommandStorage.clear(getHostId());
+            if (isChangingConfigurations()) {
+                // Detach the callback if the activity is relaunching. The callback will be
+                // associated again in onCreate.
+                if (mReceiver != null) {
+                    mReceiver.setCallback(null);
                 }
-                mReceiver.destory();
+            } else if (mReceiver != null) {
+                // Clean up for real removal.
+                sCommandStorage.clear(getHostId());
+                mReceiver.destroy();
+                mReceiver = null;
             }
             if (mTestJournalClient != null) {
                 mTestJournalClient.close();
             }
+        }
+
+        @Override
+        public Object onRetainNonConfigurationInstance() {
+            return mReceiver;
         }
 
         @Override
@@ -732,6 +783,7 @@ public final class CommandSession {
         private static final StaticHostStorage<ActivityCallback> sCallbackStorage =
                 new StaticHostStorage<>();
 
+        private final String mTag = getClass().getSimpleName();
         protected boolean mPrintCallbackLog;
 
         @Override
@@ -797,6 +849,13 @@ public final class CommandSession {
                 case COMMAND_WAIT_IDLE:
                     runWhenIdle(() -> reply(command));
                     break;
+
+                case COMMAND_GET_NAME: {
+                    final Bundle result = new Bundle();
+                    result.putParcelable(COMMAND_GET_NAME, getComponentName());
+                    reply(COMMAND_GET_NAME, result);
+                    break;
+                }
 
                 case COMMAND_DISPLAY_ACCESS_CHECK:
                     final Bundle result = new Bundle();
@@ -941,7 +1000,7 @@ public final class CommandSession {
         }
 
         protected String getTag() {
-            return getClass().getSimpleName();
+            return mTag;
         }
 
         /** Get configuration and display info. It should be called only after resumed. */
@@ -1023,6 +1082,12 @@ public final class CommandSession {
             sizeInfo = new SizeInfo(display, metrics, config);
         }
 
+        public ConfigInfo(Resources res) {
+            final DisplayMetrics metrics = res.getDisplayMetrics();
+            final Configuration config = res.getConfiguration();
+            sizeInfo = new SizeInfo(null /* display */, metrics, config);
+        }
+
         @Override
         public String toString() {
             return "ConfigInfo: {displayId=" + displayId + " rotation=" + rotation
@@ -1072,6 +1137,10 @@ public final class CommandSession {
         public int smallestWidthDp;
         public int densityDpi;
         public int orientation;
+        public int windowWidth;
+        public int windowHeight;
+        public int windowAppWidth;
+        public int windowAppHeight;
 
         SizeInfo() {
         }
@@ -1091,6 +1160,10 @@ public final class CommandSession {
             smallestWidthDp = config.smallestScreenWidthDp;
             densityDpi = config.densityDpi;
             orientation = config.orientation;
+            windowWidth = config.windowConfiguration.getBounds().width();
+            windowHeight = config.windowConfiguration.getBounds().height();
+            windowAppWidth = config.windowConfiguration.getAppBounds().width();
+            windowAppHeight = config.windowConfiguration.getAppBounds().height();
         }
 
         @Override
@@ -1099,6 +1172,8 @@ public final class CommandSession {
                     + " displayWidth=" + displayWidth + " displayHeight=" + displayHeight
                     + " metricsWidth=" + metricsWidth + " metricsHeight=" + metricsHeight
                     + " smallestWidthDp=" + smallestWidthDp + " densityDpi=" + densityDpi
+                    + " windowWidth=" + windowWidth + " windowHeight=" + windowHeight
+                    + " windowAppWidth=" + windowAppWidth + " windowAppHeight=" + windowAppHeight
                     + " orientation=" + orientation + "}";
         }
 
@@ -1119,7 +1194,11 @@ public final class CommandSession {
                     && metricsHeight == that.metricsHeight
                     && smallestWidthDp == that.smallestWidthDp
                     && densityDpi == that.densityDpi
-                    && orientation == that.orientation;
+                    && orientation == that.orientation
+                    && windowWidth == that.windowWidth
+                    && windowHeight == that.windowHeight
+                    && windowAppWidth == that.windowAppWidth
+                    && windowAppHeight == that.windowAppHeight;
         }
 
         @Override
@@ -1134,6 +1213,10 @@ public final class CommandSession {
             result = 31 * result + smallestWidthDp;
             result = 31 * result + densityDpi;
             result = 31 * result + orientation;
+            result = 31 * result + windowWidth;
+            result = 31 * result + windowHeight;
+            result = 31 * result + windowAppWidth;
+            result = 31 * result + windowAppHeight;
             return result;
         }
 
@@ -1153,6 +1236,10 @@ public final class CommandSession {
             dest.writeInt(smallestWidthDp);
             dest.writeInt(densityDpi);
             dest.writeInt(orientation);
+            dest.writeInt(windowWidth);
+            dest.writeInt(windowHeight);
+            dest.writeInt(windowAppWidth);
+            dest.writeInt(windowAppHeight);
         }
 
         public void readFromParcel(Parcel in) {
@@ -1165,6 +1252,10 @@ public final class CommandSession {
             smallestWidthDp = in.readInt();
             densityDpi = in.readInt();
             orientation = in.readInt();
+            windowWidth = in.readInt();
+            windowHeight = in.readInt();
+            windowAppWidth = in.readInt();
+            windowAppHeight = in.readInt();
         }
 
         public static final Creator<SizeInfo> CREATOR = new Creator<SizeInfo>() {

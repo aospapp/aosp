@@ -1,5 +1,5 @@
---- android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2020-04-30 14:29:35.324601232 +0100
-+++ android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2020-04-30 14:30:04.016811269 +0100
+--- android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2021-01-19 16:26:24.362648532 +0000
++++ android_icu4j/src/main/java/android/icu/lang/UCharacter.java	2021-01-19 16:26:50.790836134 +0000
 @@ -53,16 +53,6 @@
   * more convenient in Java to have a separate primitive datatype for them,
   * ints suffice in the meantime.

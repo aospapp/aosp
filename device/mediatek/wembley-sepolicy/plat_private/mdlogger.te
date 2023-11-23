@@ -13,8 +13,6 @@ binder_use(mdlogger)
 binder_service(mdlogger)
 
 # modem logger socket access
-#allow mdlogger init:unix_stream_socket connectto;
-#allow mdlogger property_socket:sock_file write;
 allow mdlogger platform_app:unix_stream_socket connectto;
 allow mdlogger shell_exec:file { rx_file_perms };
 allow mdlogger system_file:file x_file_perms;
@@ -47,10 +45,21 @@ allow mdlogger file_contexts_file:file { read getattr open };
 # Allow read avc: denied { read } for name="mddb" dev="mmcblk0p25" ino=681
 # scontext=u:r:mdlogger:s0 tcontext=u:object_r:system_file:s0 tclass=dir permissive=0
 allow mdlogger system_file:dir read;
+
+# Android P migration
+set_prop(mdlogger, system_mtk_mdl_prop)
+set_prop(mdlogger, system_mtk_persist_mdlog_prop)
+set_prop(mdlogger, system_mtk_persist_mtklog_prop)
+
 ## Android Q migration
 ## purpose:  read modem db and filter folder and file
 allow mdlogger mddb_filter_data_file:dir { r_dir_perms };
 allow mdlogger mddb_filter_data_file:file { r_file_perms };
+
 ## Save modem log into data
 allow mdlogger debuglog_data_file:dir {relabelto create_dir_perms};
 allow mdlogger debuglog_data_file:file create_file_perms;
+
+#allow mdlogger to set property
+set_prop(mdlogger, system_mtk_debug_mdlogger_prop)
+set_prop(mdlogger, debug_prop)

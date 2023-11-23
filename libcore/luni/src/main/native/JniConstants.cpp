@@ -45,6 +45,7 @@ static bool g_constants_valid = false;
 
 // Constants
 jclass booleanClass;
+jclass byteBufferClass;
 jclass doubleClass;
 jclass errnoExceptionClass;
 jclass fileDescriptorClass;
@@ -60,11 +61,15 @@ jclass localeDataClass;
 jclass longClass;
 jclass netlinkSocketAddressClass;
 jclass packetSocketAddressClass;
+jclass vmSocketAddressClass;
+jclass primitiveByteArrayClass;
 jclass stringClass;
 jclass structAddrinfoClass;
+jclass structCmsghdrClass;
 jclass structGroupReqClass;
 jclass structIfaddrsClass;
 jclass structLingerClass;
+jclass structMsghdrClass;
 jclass structPasswdClass;
 jclass structPollfdClass;
 jclass structStatClass;
@@ -90,6 +95,7 @@ void EnsureJniConstantsInitialized(JNIEnv* env) {
     }
 
     booleanClass = findClass(env, "java/lang/Boolean");
+    byteBufferClass = findClass(env, "java/nio/ByteBuffer");
     doubleClass = findClass(env, "java/lang/Double");
     errnoExceptionClass = findClass(env, "android/system/ErrnoException");
     fileDescriptorClass = findClass(env, "java/io/FileDescriptor");
@@ -105,11 +111,15 @@ void EnsureJniConstantsInitialized(JNIEnv* env) {
     longClass = findClass(env, "java/lang/Long");
     netlinkSocketAddressClass = findClass(env, "android/system/NetlinkSocketAddress");
     packetSocketAddressClass = findClass(env, "android/system/PacketSocketAddress");
+    vmSocketAddressClass = findClass(env, "android/system/VmSocketAddress");
+    primitiveByteArrayClass = findClass(env, "[B");
     stringClass = findClass(env, "java/lang/String");
     structAddrinfoClass = findClass(env, "android/system/StructAddrinfo");
+    structCmsghdrClass = findClass(env, "android/system/StructCmsghdr");
     structGroupReqClass = findClass(env, "android/system/StructGroupReq");
     structIfaddrsClass = findClass(env, "android/system/StructIfaddrs");
     structLingerClass = findClass(env, "android/system/StructLinger");
+    structMsghdrClass = findClass(env, "android/system/StructMsghdr");
     structPasswdClass = findClass(env, "android/system/StructPasswd");
     structPollfdClass = findClass(env, "android/system/StructPollfd");
     structStatClass = findClass(env, "android/system/StructStat");
@@ -146,6 +156,11 @@ void JniConstants::Invalidate() {
 jclass JniConstants::GetBooleanClass(JNIEnv* env) {
     EnsureJniConstantsInitialized(env);
     return booleanClass;
+}
+
+jclass JniConstants::GetByteBufferClass(JNIEnv* env) {
+    EnsureJniConstantsInitialized(env);
+    return byteBufferClass;
 }
 
 jclass JniConstants::GetDoubleClass(JNIEnv* env) {
@@ -223,6 +238,16 @@ jclass JniConstants::GetPacketSocketAddressClass(JNIEnv* env) {
     return packetSocketAddressClass;
 }
 
+jclass JniConstants::GetVmSocketAddressClass(JNIEnv* env) {
+    EnsureJniConstantsInitialized(env);
+    return vmSocketAddressClass;
+}
+
+jclass JniConstants::GetPrimitiveByteArrayClass(JNIEnv* env) {
+    EnsureJniConstantsInitialized(env);
+    return primitiveByteArrayClass;
+}
+
 jclass JniConstants::GetStringClass(JNIEnv* env) {
     EnsureJniConstantsInitialized(env);
     return stringClass;
@@ -231,6 +256,11 @@ jclass JniConstants::GetStringClass(JNIEnv* env) {
 jclass JniConstants::GetStructAddrinfoClass(JNIEnv* env) {
     EnsureJniConstantsInitialized(env);
     return structAddrinfoClass;
+}
+
+jclass JniConstants::GetStructCmsghdrClass(JNIEnv* env) {
+    EnsureJniConstantsInitialized(env);
+    return structCmsghdrClass;
 }
 
 jclass JniConstants::GetStructGroupReqClass(JNIEnv* env) {
@@ -246,6 +276,11 @@ jclass JniConstants::GetStructIfaddrsClass(JNIEnv* env) {
 jclass JniConstants::GetStructLingerClass(JNIEnv* env) {
     EnsureJniConstantsInitialized(env);
     return structLingerClass;
+}
+
+jclass JniConstants::GetStructMsghdrClass(JNIEnv* env) {
+    EnsureJniConstantsInitialized(env);
+    return structMsghdrClass;
 }
 
 jclass JniConstants::GetStructPasswdClass(JNIEnv* env) {

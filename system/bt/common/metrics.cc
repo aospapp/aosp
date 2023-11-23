@@ -678,6 +678,29 @@ void LogA2dpAudioOverrunEvent(const RawAddress& address,
   }
 }
 
+void LogA2dpPlaybackEvent(const RawAddress& address, int playback_state,
+                          int audio_coding_mode) {
+  std::string obfuscated_id;
+  int metric_id = 0;
+  if (!address.IsEmpty()) {
+    obfuscated_id = AddressObfuscator::GetInstance()->Obfuscate(address);
+    metric_id = MetricIdAllocator::GetInstance().AllocateId(address);
+  }
+  // nullptr and size 0 represent missing value for obfuscated_id
+  android::util::BytesField bytes_field(
+      address.IsEmpty() ? nullptr : obfuscated_id.c_str(),
+      address.IsEmpty() ? 0 : obfuscated_id.size());
+  int ret = android::util::stats_write(
+      android::util::BLUETOOTH_A2DP_PLAYBACK_STATE_CHANGED, bytes_field,
+      playback_state, audio_coding_mode, metric_id);
+  if (ret < 0) {
+    LOG(WARNING) << __func__ << ": failed to log for " << address
+                 << ", playback_state " << playback_state
+                 << ", audio_coding_mode " << audio_coding_mode << ", error "
+                 << ret;
+  }
+}
+
 void LogReadRssiResult(const RawAddress& address, uint16_t handle,
                        uint32_t cmd_status, int8_t rssi) {
   std::string obfuscated_id;
@@ -875,6 +898,26 @@ void LogManufacturerInfo(const RawAddress& address,
                  << ", hardware_version " << hardware_version
                  << ", software_version " << software_version << ", error "
                  << ret;
+  }
+}
+
+void LogBluetoothHalCrashReason(const RawAddress& address, uint32_t error_code,
+                                uint32_t vendor_error_code) {
+  std::string obfuscated_id;
+  if (!address.IsEmpty()) {
+    obfuscated_id = AddressObfuscator::GetInstance()->Obfuscate(address);
+  }
+  // nullptr and size 0 represent missing value for obfuscated_id
+  android::util::BytesField obfuscated_id_field(
+      address.IsEmpty() ? nullptr : obfuscated_id.c_str(),
+      address.IsEmpty() ? 0 : obfuscated_id.size());
+  int ret = android::util::stats_write(
+      android::util::BLUETOOTH_HAL_CRASH_REASON_REPORTED, 0,
+      obfuscated_id_field, error_code, vendor_error_code);
+  if (ret < 0) {
+    LOG(WARNING) << __func__ << ": failed for " << address << ", error_code "
+                 << loghex(error_code) << ", vendor_error_code "
+                 << loghex(vendor_error_code) << ", error " << ret;
   }
 }
 

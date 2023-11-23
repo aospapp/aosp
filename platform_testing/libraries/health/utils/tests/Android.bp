@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "HealthTestingUtilsTests",
 
@@ -21,6 +25,7 @@ android_test {
     static_libs: [
         "androidx.test.runner",
         "health-testing-utils",
+        "truth-prebuilt",
     ],
     srcs: ["src/**/*.java"],
     test_suites: ["device-tests"],

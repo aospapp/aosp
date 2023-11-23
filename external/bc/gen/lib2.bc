@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,12 @@
  *
  */
 
+define p(x,y){
+	auto a
+	a=y$
+	if(y==a)return (x^a)@scale
+	return e(y*l(x))
+}
 define r(x,p){
 	auto t,n
 	if(x==0)return x
@@ -50,7 +56,7 @@ define ceil(x,p){
 	p=abs(p)$
 	n=(x<0)
 	x=abs(x)
-	t=(x+(9>>p+1))@p
+	t=(x+((x@p<x)>>p))@p
 	if(n)t=-t
 	return t
 }
@@ -95,16 +101,16 @@ define log(x,b){
 	scale*=2
 	p=l(x)/l(b)
 	scale=s
-	return p
+	return p@s
 }
 define l2(x){return log(x,2)}
 define l10(x){return log(x,A)}
 define root(x,n){
 	auto s,m,r,q,p
 	if(n<0)sqrt(n)
-	n=abs(n)$
+	n=n$
 	if(n==0)x/n
-	if(n==1)return x
+	if(x==0||n==1)return x
 	if(n==2)return sqrt(x)
 	s=scale
 	scale=0
@@ -184,6 +190,16 @@ define d2r(x){
 	scale=s
 	return r@s
 }
+define frand(p){
+	p=abs(p)$
+	return irand(10^p)>>p
+}
+define ifrand(i,p){return irand(abs(i)$)+frand(p)}
+define srand(x){
+	if(irand(2))return -x
+	return x
+}
+define brand(){return irand(2)}
 define void output(x,b){
 	auto c
 	c=obase
@@ -225,8 +241,8 @@ define void output_byte(x,i){
 	x=abs(x)$
 	b=x/(2^(i*8))
 	b%=2^8
-	y=log(256,obase)$
-	if(b>1)p=log(b,obase)$+1
+	y=log(256,obase)
+	if(b>1)p=log(b,obase)+1
 	else p=b
 	for(i=y-p;i>0;--i)print 0
 	if(b)print b

@@ -17,11 +17,13 @@
 package android.server.wm;
 
 import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
+import static android.server.wm.CliIntentExtra.extraString;
 import static android.server.wm.UiDeviceUtils.dragPointer;
 import static android.server.wm.dndsourceapp.Components.DRAG_SOURCE;
 import static android.server.wm.dndtargetapp.Components.DROP_TARGET;
 import static android.server.wm.dndtargetappsdk23.Components.DROP_TARGET_SDK23;
 import static android.view.Display.DEFAULT_DISPLAY;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -37,17 +39,21 @@ import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowManagerState.ActivityTask;
 import android.util.Log;
 import android.view.Display;
-import java.util.Map;
+
+import com.google.common.collect.ImmutableSet;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.Map;
 
 /**
  * Build/Install/Run:
  *     atest CtsWindowManagerDeviceTestCases:CrossAppDragAndDropTests
  */
 @Presubmit
-@AppModeFull(reason = "Requires android.permission.MANAGE_ACTIVITY_STACKS")
+@AppModeFull(reason = "Requires android.permission.MANAGE_ACTIVITY_TASKS")
 public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
     private static final String TAG = "CrossAppDragAndDrop";
 
@@ -69,6 +75,18 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
     private static final String REQUEST_READ_NESTED = "request_read_nested";
     private static final String REQUEST_TAKE_PERSISTABLE = "request_take_persistable";
     private static final String REQUEST_WRITE = "request_write";
+
+    private static final String TARGET_ON_RECEIVE_CONTENT_LISTENER_TEXT_VIEW =
+            "textview_on_receive_content_listener";
+    private static final String TARGET_ON_RECEIVE_CONTENT_LISTENER_EDIT_TEXT =
+            "edittext_on_receive_content_listener";
+    private static final String TARGET_ON_RECEIVE_CONTENT_LISTENER_LINEAR_LAYOUT =
+            "linearlayout_on_receive_content_listener";
+    private static final ImmutableSet<String> ON_RECEIVE_CONTENT_LISTENER_MODES = ImmutableSet.of(
+            TARGET_ON_RECEIVE_CONTENT_LISTENER_TEXT_VIEW,
+            TARGET_ON_RECEIVE_CONTENT_LISTENER_EDIT_TEXT,
+            TARGET_ON_RECEIVE_CONTENT_LISTENER_LINEAR_LAYOUT
+    );
 
     private static final String SOURCE_LOG_TAG = "DragSource";
     private static final String TARGET_LOG_TAG = "DropTarget";
@@ -111,7 +129,6 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
         mTargetLogTag = TARGET_LOG_TAG + mSessionId;
 
         cleanupState();
-        mUseTaskOrganizer = false;
     }
 
     @After
@@ -136,7 +153,8 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
      */
     private void launchFreeformActivity(ComponentName componentName, String mode,
             String logtag, Point displaySize, boolean leftSide) throws Exception {
-        launchActivity(componentName, WINDOWING_MODE_FREEFORM, "mode", mode, "logtag", logtag);
+        launchActivity(componentName, WINDOWING_MODE_FREEFORM, extraString("mode", mode),
+                extraString("logtag", logtag));
         Point topLeft = new Point(leftSide ? 0 : displaySize.x / 2, 0);
         Point bottomRight = new Point(leftSide ? displaySize.x / 2 : displaySize.x, displaySize.y);
         resizeActivityTask(componentName, topLeft.x, topLeft.y, bottomRight.x, bottomRight.y);
@@ -192,17 +210,25 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
             launchFreeformActivity(targetComponentName, targetMode, mTargetLogTag,
                 displaySize, false /* leftSide */);
         } else {
-            launchActivitiesInSplitScreen(getLaunchActivityBuilder()
+            // Launch primary activity.
+            getLaunchActivityBuilder()
                     .setTargetActivity(sourceComponentName)
+                    .setUseInstrumentation()
+                    .setWaitForLaunched(true)
                     .setIntentExtra(bundle -> {
                         bundle.putString(EXTRA_MODE, sourceMode);
                         bundle.putString(EXTRA_LOGTAG, mSourceLogTag);
-                    }),
-                    getLaunchActivityBuilder().setTargetActivity(targetComponentName)
+                    }).execute();
+
+            // Launch secondary activity.
+            getLaunchActivityBuilder().setTargetActivity(targetComponentName)
+                    .setUseInstrumentation()
+                    .setWaitForLaunched(true)
                     .setIntentExtra(bundle -> {
                         bundle.putString(EXTRA_MODE, targetMode);
                         bundle.putString(EXTRA_LOGTAG, mTargetLogTag);
-                    }));
+                    }).execute();
+            moveActivitiesToSplitScreen(sourceComponentName, targetComponentName);
         }
 
         Point p1 = getWindowCenter(sourceComponentName);
@@ -220,11 +246,16 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
 
         mTargetResults = TestLogService.getResultsForClient(mTargetLogTag, 1000);
         assertTargetResult(RESULT_KEY_DROP_RESULT, expectedDropResult);
-        if (!RESULT_MISSING.equals(expectedDropResult)) {
-            assertTargetResult(RESULT_KEY_ACCESS_BEFORE, RESULT_EXCEPTION);
-            assertTargetResult(RESULT_KEY_ACCESS_AFTER, RESULT_EXCEPTION);
+
+        // Skip the following assertions when testing OnReceiveContentListener, since it only
+        // handles drop events.
+        if (!ON_RECEIVE_CONTENT_LISTENER_MODES.contains(targetMode)) {
+            if (!RESULT_MISSING.equals(expectedDropResult)) {
+                assertTargetResult(RESULT_KEY_ACCESS_BEFORE, RESULT_EXCEPTION);
+                assertTargetResult(RESULT_KEY_ACCESS_AFTER, RESULT_EXCEPTION);
+            }
+            assertListenerResults(expectedListenerResults);
         }
-        assertListenerResults(expectedListenerResults);
     }
 
     private void assertListenerResults(String expectedResult) throws Exception {
@@ -346,5 +377,38 @@ public class CrossAppDragAndDropTests extends ActivityManagerTestBase {
     @Test
     public void testGrantWriteRequestWrite() throws Exception {
         assertDropResult(GRANT_WRITE, REQUEST_WRITE, RESULT_OK);
+    }
+
+    @Test
+    public void testOnReceiveContentListener_TextView_GrantRead() throws Exception {
+        assertDropResult(GRANT_READ, TARGET_ON_RECEIVE_CONTENT_LISTENER_TEXT_VIEW, RESULT_OK);
+    }
+
+    @Test
+    public void testOnReceiveContentListener_TextView_GrantNone() throws Exception {
+        assertDropResult(GRANT_NONE, TARGET_ON_RECEIVE_CONTENT_LISTENER_TEXT_VIEW,
+                RESULT_EXCEPTION);
+    }
+
+    @Test
+    public void testOnReceiveContentListener_EditText_GrantRead() throws Exception {
+        assertDropResult(GRANT_READ, TARGET_ON_RECEIVE_CONTENT_LISTENER_EDIT_TEXT, RESULT_OK);
+    }
+
+    @Test
+    public void testOnReceiveContentListener_EditText_GrantNone() throws Exception {
+        assertDropResult(GRANT_NONE, TARGET_ON_RECEIVE_CONTENT_LISTENER_EDIT_TEXT,
+                RESULT_EXCEPTION);
+    }
+
+    @Test
+    public void testOnReceiveContentListener_LinearLayout_GrantRead() throws Exception {
+        assertDropResult(GRANT_READ, TARGET_ON_RECEIVE_CONTENT_LISTENER_LINEAR_LAYOUT, RESULT_OK);
+    }
+
+    @Test
+    public void testOnReceiveContentListener_LinearLayout_GrantNone() throws Exception {
+        assertDropResult(GRANT_NONE, TARGET_ON_RECEIVE_CONTENT_LISTENER_LINEAR_LAYOUT,
+                RESULT_EXCEPTION);
     }
 }

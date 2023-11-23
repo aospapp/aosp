@@ -15,7 +15,7 @@
 -->
 <configuration description="Config for running APF tools tests through atest">
     <option name="test-suite-tag" value="apf_run_test" />
-    <!-- This test requires a device, so it's not annotated with a null-device -->
+    <option name="null-device" value="true" />
     <test class="com.android.tradefed.testtype.binary.ExecutableHostTest" >
         <option name="binary" value="apf_run_test.sh" />
         <!-- Script assumes a relative path with the tests/ folders -->

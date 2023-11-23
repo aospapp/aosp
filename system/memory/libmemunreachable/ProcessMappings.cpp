@@ -31,9 +31,10 @@ namespace android {
 struct ReadMapCallback {
   ReadMapCallback(allocator::vector<Mapping>& mappings) : mappings_(mappings) {}
 
-  void operator()(uint64_t start, uint64_t end, uint16_t flags, uint64_t, ino_t,
-                  const char* name) const {
-    mappings_.emplace_back(start, end, flags & PROT_READ, flags & PROT_WRITE, flags & PROT_EXEC,
+  void operator()(uint64_t start, uint64_t end, uint16_t flags, uint64_t, ino_t, const char* name,
+                      bool) const {
+    mappings_.emplace_back(start, end, flags & PROT_READ,
+                           flags & PROT_WRITE, flags & PROT_EXEC,
                            name);
   }
 

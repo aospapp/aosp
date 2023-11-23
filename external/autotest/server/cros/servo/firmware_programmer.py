@@ -24,7 +24,7 @@ from autotest_lib.server.cros.faft.utils.config import Config as FAFTConfig
 
 
 # Number of seconds for program EC/BIOS to time out.
-FIRMWARE_PROGRAM_TIMEOUT_SEC = 900
+FIRMWARE_PROGRAM_TIMEOUT_SEC = 1800
 
 class ProgrammerError(Exception):
     """Local exception class wrapper."""
@@ -161,7 +161,7 @@ class FlashromProgrammer(_BaseProgrammer):
             else:
                 preserved_sections = ro_vpd_section + rw_vpd_section
 
-            servo_v2_programmer = 'ft2232_spi:type=servo-v2'
+            servo_v2_programmer = 'ft2232_spi:type=google-servo-v2'
             servo_v3_programmer = 'linux_spi'
             servo_v4_with_micro_programmer = 'raiden_debug_spi'
             servo_v4_with_ccd_programmer = 'raiden_debug_spi:target=AP'
@@ -211,11 +211,11 @@ class FlashromProgrammer(_BaseProgrammer):
                 # Read original HWID. The output format is:
                 #    hardware_id: RAMBI TEST A_A 0128
                 gbb_hwid_output = self._servo_host.run_output(
-                        'gbb_utility -g --hwid %s' % self._gbb)
+                        'futility gbb -g --hwid %s' % self._gbb)
                 original_hwid = gbb_hwid_output.split(':', 1)[1].strip()
 
                 # Write HWID to new firmware
-                self._servo_host.run("gbb_utility -s --hwid='%s' %s" %
+                self._servo_host.run("futility gbb -s --hwid='%s' %s" %
                         (original_hwid, self._fw_main))
 
             # Flash the new firmware

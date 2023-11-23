@@ -7,6 +7,9 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES:= rand_emmc_perf.c
 LOCAL_CFLAGS := -Wall -Werror
 LOCAL_MODULE:= rand_emmc_perf
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/../NOTICE
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32:= rand_emmc_perf
 LOCAL_MODULE_STEM_64:= rand_emmc_perf64
@@ -16,4 +19,3 @@ LOCAL_FORCE_STATIC_EXECUTABLE := true
 LOCAL_STATIC_LIBRARIES := libm libc
 
 include $(BUILD_EXECUTABLE)
-

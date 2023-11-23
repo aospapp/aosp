@@ -68,7 +68,7 @@ typedef struct XAPcmMixer
     /* ...number of bytes in input/output buffer */
     u32                 buffer_size;
     
-    /* ...master volume and individual track volumes*/
+    /* ...main volume and individual track volumes*/
     u32                 volume[XA_MIXER_MAX_TRACK_NUMBER + 1];
     
     /* ...input buffers */
@@ -116,7 +116,7 @@ static inline void xa_mixer_preinit(XAPcmMixer *d)
     /* ...set default parameters */
     d->pcm_width = 16, d->channels = 2, d->frame_size = 512;
 
-    /* ...set default volumes (last index is a master volume)*/
+    /* ...set default volumes (last index is a main volume)*/
     for (i = 0; i <= XA_MIXER_MAX_TRACK_NUMBER; i++)
     {
         d->volume[i] = ((1 << 12) << 16) | (1 << 12);
@@ -134,7 +134,7 @@ static XA_ERRORCODE xa_mixer_do_execute_stereo_16bit(XAPcmMixer *d)
     u32     t32;
     u32     i, j;
     
-    /* ...retrieve master volume - assume up to 24dB amplifying (4 bits) */
+    /* ...retrieve main volume - assume up to 24dB amplifying (4 bits) */
     t32 = d->volume[XA_MIXER_MAX_TRACK_NUMBER];
     w_l = (u16)(t32 & 0xFFFF), w_r = (u16)(t32 >> 16);
     
@@ -183,7 +183,7 @@ static XA_ERRORCODE xa_mixer_do_execute_stereo_16bit(XAPcmMixer *d)
             r32 += *b[j]++ * v_r[j];
         }
 
-        /* ...normalize (truncate towards -inf) and multiply by master volume */
+        /* ...normalize (truncate towards -inf) and multiply by main volume */
         l32 = ((l32 >> 12) * w_l) >> 12;
         r32 = ((r32 >> 12) * w_r) >> 12;
 
@@ -221,7 +221,7 @@ static XA_ERRORCODE xa_mixer_do_runtime_init(XAPcmMixer *d)
 /* ...codec API size query */
 static XA_ERRORCODE xa_mixer_get_api_size(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...check parameters are sane */
+    /* ...check parameters are valid */
     XF_CHK_ERR(pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
     
     /* ...retrieve API structure size */
@@ -233,7 +233,7 @@ static XA_ERRORCODE xa_mixer_get_api_size(XAPcmMixer *d, WORD32 i_idx, pVOID pv_
 /* ...standard codec initialization routine */
 static XA_ERRORCODE xa_mixer_init(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...sanity check - mixer must be valid */
+    /* ...validity check - mixer must be valid */
     XF_CHK_ERR(d, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...process particular initialization type */
@@ -277,7 +277,7 @@ static XA_ERRORCODE xa_mixer_init(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
     
     case XA_CMD_TYPE_INIT_DONE_QUERY:
     {
-        /* ...check if initialization is done; make sure pointer is sane */
+        /* ...check if initialization is done; make sure pointer is valid */
         XF_CHK_ERR(pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
         
         /* ...put current status */
@@ -298,7 +298,7 @@ static XA_ERRORCODE xa_mixer_set_config_param(XAPcmMixer *d, WORD32 i_idx, pVOID
 {
     u32     i_value;
     
-    /* ...sanity check - mixer pointer must be sane */
+    /* ...validity check - mixer pointer must be valid */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...pre-initialization must be completed, mixer must be idle */
@@ -336,7 +336,7 @@ static XA_ERRORCODE xa_mixer_set_config_param(XAPcmMixer *d, WORD32 i_idx, pVOID
 /* ...retrieve configuration parameter */
 static XA_ERRORCODE xa_mixer_get_config_param(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...sanity check - mixer must be initialized */
+    /* ...validity check - mixer must be initialized */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...make sure pre-initialization is completed */
@@ -384,7 +384,7 @@ static XA_ERRORCODE xa_mixer_get_config_param(XAPcmMixer *d, WORD32 i_idx, pVOID
 /* ...execution command */
 static XA_ERRORCODE xa_mixer_execute(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...sanity check - mixer must be valid */
+    /* ...validity check - mixer must be valid */
     XF_CHK_ERR(d, XA_API_FATAL_INVALID_CMD_TYPE);
     
     /* ...mixer must be in running state */
@@ -419,7 +419,7 @@ static XA_ERRORCODE xa_mixer_set_input_bytes(XAPcmMixer *d, WORD32 i_idx, pVOID 
 {
     u32     size;
     
-    /* ...sanity check - check parameters */
+    /* ...validity check - check parameters */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...track index must be valid */
@@ -443,7 +443,7 @@ static XA_ERRORCODE xa_mixer_set_input_bytes(XAPcmMixer *d, WORD32 i_idx, pVOID 
 /* ...get number of output bytes */
 static XA_ERRORCODE xa_mixer_get_output_bytes(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...sanity check - check parameters */
+    /* ...validity check - check parameters */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...track index must be zero */
@@ -464,7 +464,7 @@ static XA_ERRORCODE xa_mixer_get_output_bytes(XAPcmMixer *d, WORD32 i_idx, pVOID
 /* ...get number of consumed bytes */
 static XA_ERRORCODE xa_mixer_get_curidx_input_buf(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...sanity check - check parameters */
+    /* ...validity check - check parameters */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...track index must be valid */
@@ -489,7 +489,7 @@ static XA_ERRORCODE xa_mixer_get_curidx_input_buf(XAPcmMixer *d, WORD32 i_idx, p
 /* ..get total amount of data for memory tables */
 static XA_ERRORCODE xa_mixer_get_memtabs_size(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity checks */
+    /* ...basic validity checks */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...check mixer is pre-initialized */
@@ -504,7 +504,7 @@ static XA_ERRORCODE xa_mixer_get_memtabs_size(XAPcmMixer *d, WORD32 i_idx, pVOID
 /* ..set memory tables pointer */
 static XA_ERRORCODE xa_mixer_set_memtabs_ptr(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity checks */
+    /* ...basic validity checks */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...check mixer is pre-initialized */
@@ -517,7 +517,7 @@ static XA_ERRORCODE xa_mixer_set_memtabs_ptr(XAPcmMixer *d, WORD32 i_idx, pVOID 
 /* ...return total amount of memory buffers */
 static XA_ERRORCODE xa_mixer_get_n_memtabs(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity checks */
+    /* ...basic validity checks */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
     
     /* ...we have N input buffers, 1 output buffer and 1 scratch buffer */
@@ -529,7 +529,7 @@ static XA_ERRORCODE xa_mixer_get_n_memtabs(XAPcmMixer *d, WORD32 i_idx, pVOID pv
 /* ...return memory buffer data */
 static XA_ERRORCODE xa_mixer_get_mem_info_size(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity check */
+    /* ...basic validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...return frame buffer minimal size only after post-initialization is done */
@@ -544,7 +544,7 @@ static XA_ERRORCODE xa_mixer_get_mem_info_size(XAPcmMixer *d, WORD32 i_idx, pVOI
 /* ...return memory alignment data */
 static XA_ERRORCODE xa_mixer_get_mem_info_alignment(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity check */
+    /* ...basic validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...return frame buffer minimal size only after post-initialization is done */
@@ -559,7 +559,7 @@ static XA_ERRORCODE xa_mixer_get_mem_info_alignment(XAPcmMixer *d, WORD32 i_idx,
 /* ...return memory type data */
 static XA_ERRORCODE xa_mixer_get_mem_info_type(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity check */
+    /* ...basic validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...return frame buffer minimal size only after post-initialization is done */
@@ -591,7 +591,7 @@ static XA_ERRORCODE xa_mixer_get_mem_info_type(XAPcmMixer *d, WORD32 i_idx, pVOI
 /* ...set memory pointer */
 static XA_ERRORCODE xa_mixer_set_mem_ptr(XAPcmMixer *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity check */
+    /* ...basic validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...codec must be initialized */
@@ -658,7 +658,7 @@ XA_ERRORCODE xa_mixer(xa_codec_handle_t p_xa_module_obj, WORD32 i_cmd, WORD32 i_
 {
     XAPcmMixer    *d = (XAPcmMixer *) p_xa_module_obj;
 
-    /* ...check if command index is sane */
+    /* ...check if command index is valid */
     XF_CHK_ERR(i_cmd < XA_MIXER_API_COMMANDS_NUM, XA_API_FATAL_INVALID_CMD);
     
     /* ...see if command is defined */

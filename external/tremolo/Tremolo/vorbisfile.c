@@ -243,8 +243,8 @@ static int _bisect_forward_serialno(OggVorbis_File *vf,
   if(searched>=end || ret<0){
     ogg_page_release(&og);
     vf->links=m+1;
-    vf->offsets=_ogg_malloc((vf->links+1)*sizeof(*vf->offsets));
-    vf->serialnos=_ogg_malloc(vf->links*sizeof(*vf->serialnos));
+    vf->offsets=_ogg_calloc((vf->links+1), sizeof(*vf->offsets));
+    vf->serialnos=_ogg_calloc(vf->links, sizeof(*vf->serialnos));
     vf->offsets[m+1]=searched;
   }else{
     ret=_bisect_forward_serialno(vf,next,vf->offset,

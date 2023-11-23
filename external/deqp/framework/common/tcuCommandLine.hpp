@@ -25,6 +25,7 @@
 
 #include "tcuDefs.hpp"
 #include "deCommandLine.hpp"
+#include "tcuTestCase.hpp"
 #include "deUniquePtr.hpp"
 
 #include <string>
@@ -91,6 +92,13 @@ class CaseTreeNode;
 class CasePaths;
 class Archive;
 
+// Match a single path component against a pattern component that may contain *-wildcards.
+bool matchWildcards(std::string::const_iterator		patternStart,
+					std::string::const_iterator		patternEnd,
+					std::string::const_iterator		pathStart,
+					std::string::const_iterator		pathEnd,
+					bool							allowPrefix);
+
 class CaseListFilter
 {
 public:
@@ -107,6 +115,9 @@ public:
 	//! Check if test group passes the case fraction filter.
 	bool							checkCaseFraction			(int i, const std::string& testCaseName) const;
 
+	//! Check if test case runner is of supplied type
+	bool							checkRunnerType				(tcu::TestRunnerType type) const { return ((m_runnerType & type) == m_runnerType); }
+
 private:
 	CaseListFilter												(const CaseListFilter&);	// not allowed!
 	CaseListFilter&					operator=					(const CaseListFilter&);	// not allowed!
@@ -115,6 +126,7 @@ private:
 	de::MovePtr<const CasePaths>	m_casePaths;
 	std::vector<int>				m_caseFraction;
 	de::MovePtr<const CasePaths>	m_caseFractionMandatoryTests;
+	const tcu::TestRunnerType		m_runnerType;
 };
 
 /*--------------------------------------------------------------------*//*!
@@ -133,6 +145,8 @@ public:
 
 	bool							parse							(int argc, const char* const* argv);
 	bool							parse							(const std::string& cmdLine);
+
+	const std::string&				getInitialCmdLine				(void) const;
 
 	//! Get log file name (--deqp-log-filename)
 	const char*						getLogFileName					(void) const;
@@ -213,6 +227,9 @@ public:
 	//! Enable development-time test case validation checks
 	bool							isValidationEnabled				(void) const;
 
+	//! Print validation errors to standard error or keep them in the log only.
+	bool							printValidationErrors			(void) const;
+
 	//! Should we run tests that exhaust memory (--deqp-test-oom)
 	bool							isOutOfMemoryTestEnabled		(void) const;
 
@@ -234,6 +251,9 @@ public:
 	//! Enable RenderDoc frame markers (--deqp-renderdoc)
 	bool							isRenderDocEnabled			(void) const;
 
+	//! Get waiver file name (--deqp-waiver-file)
+	const char*						getWaiverFileName			(void) const;
+
 	//! Get case list fraction
 	const std::vector<int>&			getCaseFraction				(void) const;
 
@@ -242,6 +262,9 @@ public:
 
 	//! Get archive directory path
 	const char*						getArchiveDir				(void) const;
+
+	//! Get runner type (--deqp-runner-type)
+	tcu::TestRunnerType				getRunnerType				(void) const;
 
 	/*--------------------------------------------------------------------*//*!
 	 * \brief Creates case list filter
@@ -272,6 +295,8 @@ private:
 
 	de::cmdline::CommandLine		m_cmdLine;
 	deUint32						m_logFlags;
+
+	std::string						m_initialCmdLine;
 };
 
 } // tcu

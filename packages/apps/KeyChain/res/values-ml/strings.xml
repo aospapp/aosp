@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"ബാഹ്യസംഭരണത്തിലുള്ള %1$s അല്ലെങ്കിൽ %2$s എക്‌സ്റ്റൻഷൻ ഉപയോഗിച്ച് നിങ്ങൾക്ക് ഒരു PKCS#12 ഫയലിൽ സർട്ടിഫിക്കറ്റുകൾ ഇൻസ്റ്റാളുചെയ്യാനാകും."</string>
     <string name="allow_button" msgid="3030990695030371561">"തിരഞ്ഞെടുക്കുക"</string>
     <string name="deny_button" msgid="3766539809121892584">"നിരസിക്കുക"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"സർട്ടിഫിക്കറ്റുകൾ ലോഡ് ചെയ്യുന്നു..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s സർട്ടിഫിക്കറ്റ് പരിശോധിക്കുകയാണ്…"</string>
 </resources>

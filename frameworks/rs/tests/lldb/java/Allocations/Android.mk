@@ -8,9 +8,10 @@ LOCAL_SRC_FILES := \
 	$(call all-renderscript-files-under, src)
 
 LOCAL_PACKAGE_NAME := Allocations
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_RENDERSCRIPT_FLAGS := -g -O0 -Wno-unused -target-api 0
 
 include $(BUILD_PACKAGE)
-

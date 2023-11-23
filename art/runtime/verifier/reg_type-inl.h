@@ -115,12 +115,24 @@ inline bool RegType::AssignableFrom(const RegType& lhs,
           bool result = lhs.GetClass()->IsAssignableFrom(rhs.GetClass());
           // Record assignability dependency. The `verifier` is null during unit tests and
           // VerifiedMethod::GenerateSafeCastSet.
-          if (verifier != nullptr) {
-            VerifierDeps::MaybeRecordAssignability(
-                verifier->GetDexFile(), lhs.GetClass(), rhs.GetClass(), strict, result);
+          if (verifier != nullptr && result) {
+            VerifierDeps::MaybeRecordAssignability(verifier->GetVerifierDeps(),
+                                                   verifier->GetDexFile(),
+                                                   verifier->GetClassDef(),
+                                                   lhs.GetClass(),
+                                                   rhs.GetClass());
           }
           return result;
         } else {
+          // For unresolved types, we don't know if they are assignable, and the
+          // verifier will continue assuming they are. We need to record that.
+          if (verifier != nullptr) {
+            VerifierDeps::MaybeRecordAssignability(verifier->GetVerifierDeps(),
+                                                   verifier->GetDexFile(),
+                                                   verifier->GetClassDef(),
+                                                   lhs,
+                                                   rhs);
+          }
           // Unresolved types are only assignable for null and equality.
           // Null cannot be the left-hand side.
           return false;

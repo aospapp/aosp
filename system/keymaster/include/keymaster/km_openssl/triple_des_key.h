@@ -25,8 +25,8 @@ namespace keymaster {
 
 class TripleDesKeyFactory : public SymmetricKeyFactory {
   public:
-    explicit TripleDesKeyFactory(const SoftwareKeyBlobMaker* blob_maker,
-                                 const RandomSource* random_source)
+    explicit TripleDesKeyFactory(const SoftwareKeyBlobMaker& blob_maker,
+                                 const RandomSource& random_source)
         : SymmetricKeyFactory(blob_maker, random_source) {}
 
     keymaster_algorithm_t registry_key() const { return KM_ALGORITHM_TRIPLE_DES; }

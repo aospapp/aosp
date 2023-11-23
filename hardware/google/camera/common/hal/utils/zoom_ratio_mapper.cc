@@ -16,9 +16,11 @@
 
 #define LOG_TAG "GCH_ZoomRatioMapper"
 
-#include "zoom_ratio_mapper.h"
 #include <log/log.h>
+#include <cmath>
+
 #include "utils.h"
+#include "zoom_ratio_mapper.h"
 
 namespace android {
 namespace google_camera_hal {
@@ -45,6 +47,7 @@ void ZoomRatioMapper::Initialize(InitParams* params) {
          sizeof(zoom_ratio_range_));
   zoom_ratio_mapper_hwl_ = std::move(params->zoom_ratio_mapper_hwl);
   is_zoom_ratio_supported_ = true;
+  camera_id_ = params->camera_id;
 }
 
 void ZoomRatioMapper::UpdateCaptureRequest(CaptureRequest* request) {
@@ -59,7 +62,14 @@ void ZoomRatioMapper::UpdateCaptureRequest(CaptureRequest* request) {
   }
 
   if (request->settings != nullptr) {
-    ApplyZoomRatio(active_array_dimension_, true, request->settings.get());
+    Dimension override_dimension;
+    Dimension active_array_dimension_chosen = active_array_dimension_;
+    if (zoom_ratio_mapper_hwl_ &&
+        zoom_ratio_mapper_hwl_->GetActiveArrayDimensionToBeUsed(
+            camera_id_, request->settings.get(), &override_dimension)) {
+      active_array_dimension_chosen = override_dimension;
+    }
+    ApplyZoomRatio(active_array_dimension_chosen, true, request->settings.get());
   }
 
   for (auto& [camera_id, metadata] : request->physical_camera_settings) {
@@ -71,7 +81,13 @@ void ZoomRatioMapper::UpdateCaptureRequest(CaptureRequest* request) {
               camera_id);
         continue;
       }
+      Dimension override_dimension;
       Dimension physical_active_array_dimension = physical_cam_iter->second;
+      if (zoom_ratio_mapper_hwl_ &&
+          zoom_ratio_mapper_hwl_->GetActiveArrayDimensionToBeUsed(
+              camera_id, metadata.get(), &override_dimension)) {
+        physical_active_array_dimension = override_dimension;
+      }
       ApplyZoomRatio(physical_active_array_dimension, true, metadata.get());
     }
   }
@@ -92,7 +108,14 @@ void ZoomRatioMapper::UpdateCaptureResult(CaptureResult* result) {
   }
 
   if (result->result_metadata != nullptr) {
-    ApplyZoomRatio(active_array_dimension_, false,
+    Dimension override_dimension;
+    Dimension active_array_dimension_chosen = active_array_dimension_;
+    if (zoom_ratio_mapper_hwl_ &&
+        zoom_ratio_mapper_hwl_->GetActiveArrayDimensionToBeUsed(
+            camera_id_, result->result_metadata.get(), &override_dimension)) {
+      active_array_dimension_chosen = override_dimension;
+    }
+    ApplyZoomRatio(active_array_dimension_chosen, false,
                    result->result_metadata.get());
   }
 
@@ -105,7 +128,13 @@ void ZoomRatioMapper::UpdateCaptureResult(CaptureResult* result) {
               camera_id);
         continue;
       }
+      Dimension override_dimension;
       Dimension physical_active_array_dimension = physical_cam_iter->second;
+      if (zoom_ratio_mapper_hwl_ &&
+          zoom_ratio_mapper_hwl_->GetActiveArrayDimensionToBeUsed(
+              camera_id, metadata.get(), &override_dimension)) {
+        physical_active_array_dimension = override_dimension;
+      }
       ApplyZoomRatio(physical_active_array_dimension, false, metadata.get());
     }
   }
@@ -125,7 +154,7 @@ void ZoomRatioMapper::ApplyZoomRatio(const Dimension& active_array_dimension,
   camera_metadata_ro_entry entry = {};
   status_t res = metadata->Get(ANDROID_CONTROL_ZOOM_RATIO, &entry);
   if (res != OK) {
-    ALOGE("%s: Failed to get the zoom ratio", __FUNCTION__);
+    ALOGV("%s: zoom ratio doesn't exist, cancel the conversion", __FUNCTION__);
     return;
   }
   float zoom_ratio = entry.data.f[0];
@@ -138,6 +167,14 @@ void ZoomRatioMapper::ApplyZoomRatio(const Dimension& active_array_dimension,
     ALOGE("%s, zoom_ratio(%f) is larger than upper bound(%f)", __FUNCTION__,
           zoom_ratio, zoom_ratio_range_.max);
     zoom_ratio = zoom_ratio_range_.max;
+  }
+
+  if (zoom_ratio_mapper_hwl_ != nullptr && is_request) {
+    zoom_ratio_mapper_hwl_->LimitZoomRatioIfConcurrent(&zoom_ratio);
+  }
+
+  if (fabs(zoom_ratio - entry.data.f[0]) > 1e-9) {
+    metadata->Set(ANDROID_CONTROL_ZOOM_RATIO, &zoom_ratio, entry.count);
   }
 
   for (auto tag_id : kRectToConvert) {
@@ -272,12 +309,12 @@ void ZoomRatioMapper::UpdatePoints(const float zoom_ratio, const uint32_t tag_id
   // x, y
   const uint32_t kDataSizePerPoint = 2;
   const uint32_t point_num = entry.count / kDataSizePerPoint;
-  std::vector<Point> points(point_num);
+  std::vector<PointI> points(point_num);
   uint32_t data_index = 0;
 
   for (uint32_t i = 0; i < point_num; i++) {
     data_index = i * kDataSizePerPoint;
-    Point* transformed = &points.at(i);
+    PointI* transformed = &points.at(i);
     transformed->x = entry.data.i32[data_index];
     transformed->y = entry.data.i32[data_index + 1];
     utils::RevertZoomRatio(zoom_ratio, active_array_dimension, true,

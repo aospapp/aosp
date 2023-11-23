@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"බාගැනීම් කළමනාකරු ප්‍රවේශ වන්න."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"යෙදුමට බ්ලූටූත් බෙදා ගැනීම් කළමනාකරු වෙත ප්‍රවේශ වීමට ඉඩ දී එය ගොනු මාරු කිරීමට භාවිතා කරන්න."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"බ්ලූටූත් උපාංග ප්‍රවේශය සුදු ලැයිස්තු ගත කරන්න."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"පරිශීලක සහතිකය රහිතව එම උපාංගයට මෙම උපාංගය වෙත ගොනු යැවීමට ඉඩ දෙමින්, බ්ලූටූත් උපාංගයක් තාවකාලිකව සුදු ලැයිස්තු ගත කිරීමට යෙදුමට ඉඩ දෙන්න."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"පිළිගත් ලැයිස්තු බ්ලූටූත් උපාංග ප්‍රවේශය."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"පරිශීලක තහවුරු කිරීම නොමැතිව එම උපාංගයට මෙම උපාංගය වෙත ගොනු එවීමට ඉඩ දෙමින්, බ්ලූටූත් උපාංගයක් තාවකාලිකව පිළිගත් ලැයිස්තුගත කිරීමට යෙදුමට ඉඩ දෙයි."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"බ්ලූටූත්"</string>
     <string name="unknown_device" msgid="9221903979877041009">"නොදන්නා උපාංගයකි"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"නොදනී"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"හරි"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" වෙතින් පැමිණෙන ගොනුවක් පිළිගන්නා අතරතුර කාල නිමාවක් විය"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ලැබෙන ගොනුව"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> <xliff:g id="FILE">%2$s</xliff:g> යැවීමට සූදානම්ය"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> ගොනුවක් යැවීමට සූදානම්ය: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"බ්ලූටූත් බෙදා ගැනීම: <xliff:g id="FILE">%1$s</xliff:g> ලැබේ"</string>
     <string name="notification_received" msgid="3324588019186687985">"බ්ලූටූත් බෙදා ගැනීම: <xliff:g id="FILE">%1$s</xliff:g> ලැබිණි"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"බ්ලූටූත් බෙදා ගැනීම: <xliff:g id="FILE">%1$s</xliff:g> ගොනුව නොලැබිණි"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" වෙත ගොනුව යැවේ"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" වෙත <xliff:g id="NUMBER">%1$s</xliff:g> ගොනු යැවේ"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" වෙත ගොනුව යැවීම නතර විය"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" වෙතින් ගොනුව සුරැකීමට USB ආචයනය තුළ ප්‍රමාණවත් ඉඩක් නැත"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" වෙතින් ගොනුව සුරැකීමට SD කාඩ්පතේ ප්‍රමාණවත් ඉඩක් නැත"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"ගොනුව සුරැකීමට USB ගබඩාවේ ප්‍රමාණවත් ඉඩක් නැත"</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"ගොනුව සුරැකීමට SD කාඩ්පතේ ප්‍රමාණවත් ඉඩක් නැත"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"අවශ්‍ය ඉඩ: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"ඉල්ලීම් බොහෝ ගණනක් ක්‍රියාත්මක වෙමින් පවතී. පසුව නැවත උත්සාහ කරන්න."</string>
     <string name="status_pending" msgid="2503691772030877944">"ගොනු මාරුව තවම ආරම්භ වී නැත."</string>

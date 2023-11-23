@@ -181,3 +181,28 @@ WORD32 ithread_set_affinity(WORD32 core_id)
 
     return core_id;
 }
+
+WORD32 ithread_get_cond_struct_size(void)
+{
+    return (sizeof(pthread_cond_t));
+}
+
+WORD32 ithread_cond_init(void *cond)
+{
+    return pthread_cond_init((pthread_cond_t *)cond, NULL);
+}
+
+WORD32 ithread_cond_destroy(void *cond)
+{
+    return pthread_cond_destroy((pthread_cond_t *)cond);
+}
+
+WORD32 ithread_cond_wait(void *cond, void *mutex)
+{
+    return pthread_cond_wait((pthread_cond_t *)cond, (pthread_mutex_t *)mutex);
+}
+
+WORD32 ithread_cond_signal(void *cond)
+{
+    return pthread_cond_signal((pthread_cond_t *)cond);
+}

@@ -31,4 +31,14 @@
         <option name="package" value="android.packageinstaller.uninstall.cts" />
         <option name="runtime-hint" value="1m" />
     </test>
+    <!-- Create place to store apks -->
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="mkdir -p /data/local/tmp/cts/uninstall" />
+        <option name="teardown-command" value="rm -rf /data/local/tmp/cts"/>
+    </target_preparer>
+
+    <!-- Load additional APKs onto device -->
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="push" value="CtsSelfUninstallingTestApp.apk->/data/local/tmp/cts/uninstall/CtsSelfUninstallingTestApp.apk" />
+    </target_preparer>
 </configuration>

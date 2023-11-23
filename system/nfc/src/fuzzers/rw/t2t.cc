@@ -172,13 +172,13 @@ static void Fuzz_Run(Fuzz_Context& ctx) {
   for (auto it = ctx.Data.cbegin() + 1; it != ctx.Data.cend(); ++it) {
     NFC_HDR* p_msg;
     p_msg = (NFC_HDR*)GKI_getbuf(sizeof(NFC_HDR) + it->size());
-    if (p_msg == nullptr) {
+    if (p_msg == nullptr || it->size() < 1) {
       FUZZLOG(MODULE_NAME ": GKI_getbuf returns null, size=%zu", it->size());
       return;
     }
 
     /* Initialize NFC_HDR */
-    p_msg->len = it->size();
+    p_msg->len = it->size() - 1;
     p_msg->offset = 0;
 
     uint8_t* p = (uint8_t*)(p_msg + 1) + p_msg->offset;

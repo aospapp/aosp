@@ -54,6 +54,7 @@ struct StatsData {
     // The last update timestamp.
     std::chrono::time_point<std::chrono::steady_clock> lastUpdate;
 
+    int averageLatencyMs() const;
     std::string toString() const;
 
     // For testing.
@@ -67,7 +68,8 @@ struct StatsData {
 class StatsRecords {
   public:
     struct Record {
-        int rcode;
+        int rcode = 0;        // NS_R_NO_ERROR
+        int linux_errno = 0;  // SYS_NO_ERROR
         std::chrono::microseconds latencyUs;
     };
 
@@ -77,12 +79,31 @@ class StatsRecords {
 
     const StatsData& getStatsData() const { return mStatsData; }
 
+    // Quantifies the quality based on the current quality factors and the latency, and normalize
+    // the value to a score between 0 to 100.
+    double score() const;
+
+    void incrementSkippedCount();
+
   private:
     void updateStatsData(const Record& record, const bool add);
+    void updatePenalty(const Record& record);
 
     std::deque<Record> mRecords;
     size_t mCapacity;
     StatsData mStatsData;
+
+    // A quality factor used to distinguish if the server can't be evaluated by latency alone, such
+    // as instant failure on connect.
+    int mPenalty = 0;
+
+    // A quality factor used to prevent starvation.
+    int mSkippedCount = 0;
+
+    // The maximum of the quantified result. As the sorting is on the basis of server latency, limit
+    // the maximal value of the quantity to 10000 in correspondence with the maximal cleartext
+    // query timeout 10000 milliseconds. This helps normalize the value of the quality to a score.
+    static constexpr int kMaxQuality = 10000;
 };
 
 // DnsStats class manages the statistics of DNS servers per netId.
@@ -98,13 +119,16 @@ class DnsStats {
     // Return true if |record| is successfully added into |server|'s stats; otherwise, return false.
     bool addStats(const netdutils::IPSockAddr& server, const DnsQueryEvent& record);
 
+    std::vector<netdutils::IPSockAddr> getSortedServers(Protocol protocol) const;
+
+    // Returns the average query latency in microseconds.
+    std::optional<std::chrono::microseconds> getAverageLatencyUs(Protocol protocol) const;
+
     void dump(netdutils::DumpWriter& dw);
 
-    // For testing.
     std::vector<StatsData> getStats(Protocol protocol) const;
 
     // TODO: Compatible support for getResolverInfo().
-    // TODO: Support getSortedServers().
 
     static constexpr size_t kLogSize = 128;
 

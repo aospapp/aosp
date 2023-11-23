@@ -27,6 +27,8 @@ import android.net.RouteInfo;
 
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.net.module.util.NetUtils;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

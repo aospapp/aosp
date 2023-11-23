@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_defaults {
     name: "binary_bpf_defaults",
     srcs: ["BpfTest.cpp"],
@@ -67,8 +71,4 @@ cc_test {
 cc_test {
     name: "vts_test_binary_bpf_module",
     defaults: ["binary_bpf_defaults"],
-}
-
-vts_config {
-    name: "VtsKernelNetBpfTest",
 }

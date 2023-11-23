@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_av_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_av_license"],
+}
+
 cc_defaults {
     name: "libaaudio_tests_defaults",
     cflags: [
@@ -11,10 +20,12 @@ cc_test {
     defaults: ["libaaudio_tests_defaults"],
     srcs: ["test_marshalling.cpp"],
     shared_libs: [
+        "aaudio-aidl-cpp",
         "libaaudio_internal",
         "libbinder",
         "libcutils",
         "libutils",
+        "shared-file-region-aidl-cpp",
     ],
 }
 
@@ -198,9 +209,9 @@ cc_test {
 }
 
 cc_test {
-    name: "test_stop_hang",
+    name: "test_callback_race",
     defaults: ["libaaudio_tests_defaults"],
-    srcs: ["test_stop_hang.cpp"],
+    srcs: ["test_callback_race.cpp"],
     shared_libs: [
         "libaaudio",
         "libbinder",
@@ -234,6 +245,19 @@ cc_test {
     shared_libs: [
         "libaaudio",
         "liblog",
+        "libbinder",
+        "libcutils",
+        "libutils",
+    ],
+}
+
+
+cc_test {
+    name: "test_disconnect_race",
+    defaults: ["libaaudio_tests_defaults"],
+    srcs: ["test_disconnect_race.cpp"],
+    shared_libs: [
+        "libaaudio",
         "libbinder",
         "libcutils",
         "libutils",

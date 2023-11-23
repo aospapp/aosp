@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "packages_modules_DnsResolver_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["packages_modules_DnsResolver_license"],
+}
+
 cc_test_library {
     name: "libnetd_test_resolv_utils",
     defaults: ["netd_defaults", "resolv_test_defaults"],
@@ -11,7 +20,7 @@ cc_test_library {
         "libutils",
     ],
     static_libs: [
-        "netd_aidl_interface-ndk_platform",
+        "netd_aidl_interface-lateststable-ndk_platform",
         "libnetd_test_dnsresponder_ndk",
         "libnetdutils",
         "libgmock",
@@ -73,7 +82,7 @@ cc_library_static {
 
 cc_test {
     name: "resolv_gold_test",
-    test_suites: ["general-tests", "mts"],
+    test_suites: ["general-tests", "mts-dnsresolver"],
     require_root: true,
     // b/151392634, this is a workaround because MTS
     // can not handle the test with testdata correctly.
@@ -88,32 +97,32 @@ cc_test {
         "libnetd_client_headers",
     ],
     shared_libs: [
-        "libcrypto",
         "libbinder_ndk",
-        "libssl",
     ],
     static_libs: [
-        "dnsresolver_aidl_interface-unstable-ndk_platform",
+        "dnsresolver_aidl_interface-lateststable-ndk_platform",
         "golddata_proto",
+        "libcrypto_static",
         "libgmock",
         "libnetd_resolv",
         "libnetd_test_dnsresponder_ndk",
         "libnetd_test_resolv_utils",
         "libnetdutils",
         "libprotobuf-cpp-lite",
-        "netd_aidl_interface-ndk_platform",
-        "netd_event_listener_interface-ndk_platform",
+        "libssl",
+        "netd_aidl_interface-lateststable-ndk_platform",
+        "netd_event_listener_interface-lateststable-ndk_platform",
         "server_configurable_flags",
         "stats_proto",
     ],
     // MTS test binary can't be built under compile_multilib = "both" and having test data.
     // However, MTS coverage requires 32 bit test binary to run.
-    compile_multilib: "32",
+    compile_multilib: "prefer32",
 }
 
 cc_test {
     name: "resolv_stress_test",
-    test_suites: ["general-tests", "mts"],
+    test_suites: ["general-tests", "mts-dnsresolver"],
     // This won't work with test_config
     // require_root: true,
     // TODO: Remove resolv_test_mts_coverage_defaults after mts coverage switched to 64-bit device.
@@ -129,20 +138,20 @@ cc_test {
         "libnetd_client",
     ],
     static_libs: [
-        "dnsresolver_aidl_interface-ndk_platform",
+        "dnsresolver_aidl_interface-lateststable-ndk_platform",
         "libgmock",
         "libnetd_test_dnsresponder_ndk",
         "libnetd_test_resolv_utils",
         "libnetdutils",
         "libutils",
-        "netd_event_listener_interface-ndk_platform",
-        "netd_aidl_interface-ndk_platform",
+        "netd_event_listener_interface-lateststable-ndk_platform",
+        "netd_aidl_interface-lateststable-ndk_platform",
     ],
 }
 
 cc_test {
     name: "resolv_integration_test",
-    test_suites: ["general-tests", "mts"],
+    test_suites: ["general-tests", "mts-dnsresolver"],
     require_root: true,
     test_config_template: ":resolv_test_config_template",
     defaults: ["netd_defaults", "resolv_test_defaults"],
@@ -151,6 +160,7 @@ cc_test {
         "dns_responder/dns_responder.cpp",
         "dnsresolver_binder_test.cpp",
         "resolv_integration_test.cpp",
+        "tun_forwarder.cpp",
     ],
     header_libs: [
         "dnsproxyd_protocol_headers",
@@ -163,20 +173,20 @@ cc_test {
         "libnetd_client",
     ],
     static_libs: [
-        "dnsresolver_aidl_interface-unstable-ndk_platform",
+        "dnsresolver_aidl_interface-lateststable-ndk_platform",
         "libbpf_android",
         "libcrypto_static",
         "libgmock",
         "libnetd_test_dnsresponder_ndk",
         "libnetd_test_metrics_listener",
         "libnetd_test_resolv_utils",
-        "libnetd_test_tun_interface",
-        "libnetd_test_utils",
         "libnetdutils",
         "libssl",
         "libutils",
-        "netd_aidl_interface-ndk_platform",
-        "netd_event_listener_interface-ndk_platform",
+        "netd_aidl_interface-lateststable-ndk_platform",
+        "netd_event_listener_interface-lateststable-ndk_platform",
+        "libipchecksum",
+        "resolv_unsolicited_listener",
     ],
     // This test talks to the DnsResolver module over a binary protocol on a socket, so keep it as
     // multilib setting is worth because we might be able to get some coverage for the case where
@@ -190,6 +200,53 @@ cc_test {
             suffix: "64",
         },
     },
+}
+
+cc_test {
+    name: "resolv_unit_test",
+    test_suites: [
+        "general-tests",
+        "mts-dnsresolver",
+    ],
+    require_root: true,
+    // TODO: Drop root privileges and make it be an real unit test.
+    // TODO: Remove resolv_test_mts_coverage_defaults after mts coverage switched to 64-bit device.
+    defaults: [
+        "netd_defaults",
+        "resolv_test_defaults",
+        "resolv_test_mts_coverage_defaults",
+    ],
+    srcs: [
+        "resolv_cache_unit_test.cpp",
+        "resolv_callback_unit_test.cpp",
+        "resolv_tls_unit_test.cpp",
+        "resolv_unit_test.cpp",
+        ":resolv_unit_test_files",
+    ],
+    shared_libs: [
+        "libbinder_ndk",
+    ],
+    static_libs: [
+        "dnsresolver_aidl_interface-lateststable-ndk_platform",
+        "netd_aidl_interface-lateststable-ndk_platform",
+        "netd_event_listener_interface-lateststable-ndk_platform",
+        "libcrypto_static",
+        "libcutils",
+        "libgmock",
+        "libnetd_resolv",
+        "libnetd_test_dnsresponder_ndk",
+        "libnetd_test_resolv_utils",
+        "libnetdutils",
+        "libprotobuf-cpp-lite",
+        "libssl",
+        "libstatslog_resolv",
+        "libstatspush_compat",
+        "libsysutils",
+        "libutils",
+        "resolv_stats_test_utils",
+        "server_configurable_flags",
+        "stats_proto",
+    ],
 }
 
 cc_test_library {
@@ -214,11 +271,35 @@ cc_test {
     ],
     defaults: ["netd_defaults", "resolv_test_defaults"],
     test_suites: ["general-tests"],
-    test_mainline_modules: ["CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex"],
+    test_mainline_modules: [
+        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex",
+        "CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex"
+    ],
     static_libs: [
         "libgmock",
         "libprotobuf-cpp-lite",
         "resolv_stats_test_utils",
         "stats_proto",
     ],
+}
+
+cc_test {
+    name: "doh_ffi_test",
+    test_suites: [
+        "general-tests",
+    ],
+    defaults: ["netd_defaults"],
+    header_libs: [
+        "libnetd_resolv_internal_headers",
+    ],
+    srcs: ["doh_ffi_test.cpp"],
+    static_libs: [
+        "libcrypto_static",
+        "libdoh_ffi",
+        "libgmock",
+        "liblog",
+        "libring-core",
+        "libssl",
+    ],
+    min_sdk_version: "29",
 }

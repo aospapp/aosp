@@ -20,7 +20,8 @@ namespace android::audio_utils {
 
 void Balance::setChannelMask(audio_channel_mask_t channelMask)
 {
-    channelMask &= ~ AUDIO_CHANNEL_HAPTIC_ALL;
+    using namespace ::android::audio_utils::channels;
+    channelMask = static_cast<audio_channel_mask_t>(channelMask & ~AUDIO_CHANNEL_HAPTIC_ALL);
     if (!audio_is_output_channel(channelMask) // invalid mask
             || mChannelMask == channelMask) { // no need to do anything
         return;
@@ -48,46 +49,26 @@ void Balance::setChannelMask(audio_channel_mask_t channelMask)
         return;
     }
 
-    // Implementation detail (may change):
-    // For implementation speed, we precompute the side (left, right, center),
-    // which is a fixed geometrical constant for a given channel mask.
-    // This assumes that the channel mask does not change frequently.
-    //
-    // For the channel mask spec, see system/media/audio/include/system/audio-base.h.
-    //
-    // The side is: 0 = left, 1 = right, 2 = center.
-    static constexpr int sideFromChannel[] = {
-        0, // AUDIO_CHANNEL_OUT_FRONT_LEFT            = 0x1u,
-        1, // AUDIO_CHANNEL_OUT_FRONT_RIGHT           = 0x2u,
-        2, // AUDIO_CHANNEL_OUT_FRONT_CENTER          = 0x4u,
-        2, // AUDIO_CHANNEL_OUT_LOW_FREQUENCY         = 0x8u,
-        0, // AUDIO_CHANNEL_OUT_BACK_LEFT             = 0x10u,
-        1, // AUDIO_CHANNEL_OUT_BACK_RIGHT            = 0x20u,
-        0, // AUDIO_CHANNEL_OUT_FRONT_LEFT_OF_CENTER  = 0x40u,
-        1, // AUDIO_CHANNEL_OUT_FRONT_RIGHT_OF_CENTER = 0x80u,
-        2, // AUDIO_CHANNEL_OUT_BACK_CENTER           = 0x100u,
-        0, // AUDIO_CHANNEL_OUT_SIDE_LEFT             = 0x200u,
-        1, // AUDIO_CHANNEL_OUT_SIDE_RIGHT            = 0x400u,
-        2, // AUDIO_CHANNEL_OUT_TOP_CENTER            = 0x800u,
-        0, // AUDIO_CHANNEL_OUT_TOP_FRONT_LEFT        = 0x1000u,
-        2, // AUDIO_CHANNEL_OUT_TOP_FRONT_CENTER      = 0x2000u,
-        1, // AUDIO_CHANNEL_OUT_TOP_FRONT_RIGHT       = 0x4000u,
-        0, // AUDIO_CHANNEL_OUT_TOP_BACK_LEFT         = 0x8000u,
-        2, // AUDIO_CHANNEL_OUT_TOP_BACK_CENTER       = 0x10000u,
-        1, // AUDIO_CHANNEL_OUT_TOP_BACK_RIGHT        = 0x20000u,
-        0, // AUDIO_CHANNEL_OUT_TOP_SIDE_LEFT         = 0x40000u,
-        1, // AUDIO_CHANNEL_OUT_TOP_SIDE_RIGHT        = 0x80000u,
-     };
-
     mSides.resize(mChannelCount);
+    // If LFE and LFE2 both exist, it should be L and R in 22.2
+    int lfe = -1;
+    int lfe2 = -1;
+    constexpr unsigned LFE_CHANNEL_INDEX = 3;
+    constexpr unsigned LFE2_CHANNEL_INDEX = 23;
     for (unsigned i = 0, channel = channelMask; channel != 0; ++i) {
         const int index = __builtin_ctz(channel);
-        if (index < std::size(sideFromChannel)) {
-            mSides[i] = sideFromChannel[index];
-        } else {
-            mSides[i] = 2; // consider center
+        mSides[i] = sideFromChannelIdx(index);
+        // Keep track of LFE indices
+        if (index == LFE_CHANNEL_INDEX) {
+            lfe = i;
+        } else if (index == LFE2_CHANNEL_INDEX) {
+            lfe2 = i;
         }
         channel &= ~(1 << index);
+    }
+    if (lfe >= 0 && lfe2 >= 0) { // if both LFEs exist assign to L and R.
+        mSides[lfe] = AUDIO_GEOMETRY_SIDE_LEFT;
+        mSides[lfe2] = AUDIO_GEOMETRY_SIDE_RIGHT;
     }
     setBalance(balance); // recompute balance
 }
@@ -167,6 +148,7 @@ std::string Balance::toString() const
 
 void Balance::setBalance(float balance)
 {
+    using namespace ::android::audio_utils::channels;
     if (mBalance == balance                         // no change
         || isnan(balance) || fabs(balance) > 1.f) { // balance out of range
         return;
@@ -189,9 +171,16 @@ void Balance::setBalance(float balance)
 
     // For position masks with more than 2 channels, we consider which side the
     // speaker position is on to figure the volume used.
-    float balanceVolumes[3]; // left, right, center
-    computeStereoBalance(balance, &balanceVolumes[0], &balanceVolumes[1]);
-    balanceVolumes[2] = 1.f; // center  TODO: consider center scaling.
+    float balanceVolumes[3]; // left, right, center (we don't care the order)
+    static_assert(AUDIO_GEOMETRY_SIDE_LEFT >= 0
+            && AUDIO_GEOMETRY_SIDE_LEFT <= std::size(balanceVolumes));
+    static_assert(AUDIO_GEOMETRY_SIDE_RIGHT >= 0
+            && AUDIO_GEOMETRY_SIDE_RIGHT <= std::size(balanceVolumes));
+    static_assert(AUDIO_GEOMETRY_SIDE_CENTER >= 0
+            && AUDIO_GEOMETRY_SIDE_CENTER <= std::size(balanceVolumes));
+    computeStereoBalance(balance, &balanceVolumes[AUDIO_GEOMETRY_SIDE_LEFT],
+            &balanceVolumes[AUDIO_GEOMETRY_SIDE_RIGHT]);
+    balanceVolumes[AUDIO_GEOMETRY_SIDE_CENTER] = 1.f; // center  TODO: consider center scaling.
 
     for (size_t i = 0; i < mVolumes.size(); ++i) {
         mVolumes[i] = balanceVolumes[mSides[i]];

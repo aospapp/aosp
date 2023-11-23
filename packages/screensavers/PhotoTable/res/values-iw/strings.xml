@@ -24,7 +24,7 @@
     <string name="stock_photo_album_name" msgid="3150527596227525460">"תמונות במלאי"</string>
     <string name="local_source_name" msgid="6487253091085518505">"תמונות במכשיר"</string>
     <string name="need_to_configure" msgid="1269102638159389032">"לא נבחרו תמונות."</string>
-    <string name="photodream_select_all" msgid="6364858563337927827">"בחר הכל"</string>
-    <string name="photodream_select_none" msgid="8816452124894525861">"בטל את כל הבחירות"</string>
+    <string name="photodream_select_all" msgid="6364858563337927827">"בחירת הכול"</string>
+    <string name="photodream_select_none" msgid="8816452124894525861">"ביטול כל הבחירות"</string>
     <string name="no_photos" msgid="4262083523147564199">"אין תמונות במכשיר."</string>
 </resources>

@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Доступ да Менеджара спамповак."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Дазваляе прыкладанням атрымліваць доступ да менеджэра BluetoothShare і выкарыстоўваць яго для перадачы файлаў."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Даданне прылад Bluetooth у белы спiс."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Дазваляе прыкладанням часова ўносiць у белы спіс прылады Bluetooth, дазваляючы iм адпраўляць файлы на гэту прыладу без пацверджання карыстальнiка."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Уносьце ў белы спіс прылады з Bluetooth."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Дазваляе праграме часова ўносіць у белы спіс прылады з Bluetooth, дазваляючы ім адпраўляць файлы на гэтую прыладу без пацвярджэння карыстальніка."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Невядомая прылада"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Невядомы"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ОК"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Тайм-аўт прыняцця ўваходнага файла ад адпраўніка \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Уваходны файл"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> гатовы(-ая) адправіць <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> збіраецца адправіць файл <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Перадача праз Bluetooth: атрыманне файла <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"Перадача праз Bluetooth: атрыманы файл <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Перадача прз Bluetooth: файл <xliff:g id="FILE">%1$s</xliff:g> не атрыманы"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Адпраўка файла атрымальніку \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Адпраўка файлаў (<xliff:g id="NUMBER">%1$s</xliff:g>) атрымальніку \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Адпраўка файла атрымальніку \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" спыненая"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"У USB-сховішчы не хапае месца, каб захаваць файл ад адпраўшчыка \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"На SD-карце не хапае месца, каб захаваць файл ад адпраўшчыка \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"У USB-сховішчы недастаткова месца, каб захаваць файл."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"На SD-карце недастаткова месца, каб захаваць файл."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Спатрэбіцца месца: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Апрацоўваецца занадта шмат запытаў. Паспрабуйце пазней."</string>
     <string name="status_pending" msgid="2503691772030877944">"Перадача файла яшчэ не пачалася"</string>

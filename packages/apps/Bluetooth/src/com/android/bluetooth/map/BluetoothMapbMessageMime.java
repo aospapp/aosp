@@ -46,7 +46,7 @@ public class BluetoothMapbMessageMime extends BluetoothMapbMessage {
                                             * jpeg data or the text.getBytes("utf-8") */
 
 
-        String getDataAsString() {
+        public String getDataAsString() {
             String result = null;
             String charset = mCharsetName;
             // Figure out if we support the charset, else fall back to UTF-8, as this is what

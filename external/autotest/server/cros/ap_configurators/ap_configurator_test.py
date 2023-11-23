@@ -4,6 +4,8 @@
 
 """Unit test for ap_configurator."""
 
+from __future__ import print_function
+
 import os
 import sys
 import unittest
@@ -195,7 +197,7 @@ class ConfiguratorTest(unittest.TestCase):
         self.ap.set_security_wep('77777', ap_spec.WEP_AUTHENTICATION_OPEN)
         try:
             self.ap.apply_settings()
-        except RuntimeError, e:
+        except RuntimeError as e:
             self.ap.driver.close()
             message = str(e)
             if message.find('no handler was specified') != -1:

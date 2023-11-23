@@ -32,7 +32,8 @@ namespace google_camera_hal {
 class PendingRequestsTracker {
  public:
   static std::unique_ptr<PendingRequestsTracker> Create(
-      const std::vector<HalStream>& hal_configured_streams);
+      const std::vector<HalStream>& hal_configured_streams,
+      const std::unordered_map<int32_t, int32_t>& grouped_stream_id_map);
 
   // Wait until the requested streams have enough buffers and track
   // the requested buffers.
@@ -59,6 +60,9 @@ class PendingRequestsTracker {
   status_t TrackReturnedAcquiredBuffers(
       const std::vector<StreamBuffer>& returned_buffers);
 
+  // Notify the request tracker that the buffer cache manager has been flushed.
+  void OnBufferCacheFlushed();
+
   virtual ~PendingRequestsTracker() = default;
 
  protected:
@@ -72,7 +76,9 @@ class PendingRequestsTracker {
   static constexpr uint32_t kAcquireBufferTimeoutMs = 50;
 
   // Initialize the tracker.
-  status_t Initialize(const std::vector<HalStream>& hal_configured_streams);
+  status_t Initialize(
+      const std::vector<HalStream>& hal_configured_streams,
+      const std::unordered_map<int32_t, int32_t>& grouped_stream_id_map);
 
   // Return if all the buffers' streams have enough buffers to be requested.
   // Must be protected with pending_requests_mutex_.
@@ -98,6 +104,10 @@ class PendingRequestsTracker {
 
   // Return if a stream ID is configured when Create() was called.
   bool IsStreamConfigured(int32_t stream_id) const;
+
+  // If the stream is part of a stream group, return the single stream id
+  // representing the group. Otherwise, return the id that's passed in.
+  int32_t OverrideStreamIdForGroup(int32_t stream_id) const;
 
   // Map from stream ID to the stream's max number of buffers.
   std::unordered_map<int32_t, uint32_t> stream_max_buffers_;
@@ -126,6 +136,11 @@ class PendingRequestsTracker {
   // Contains the stream IDs that have been requested previously.
   // Must be protected with pending_requests_mutex_.
   std::unordered_set<int32_t> requested_stream_ids_;
+
+  // Map from stream IDs within a stream group to one stream ID for tracking
+  // purposes. For multi-resolution output, the HWL gets to decide which stream
+  // within a stream group outputs images.
+  std::unordered_map<int32_t, int32_t> grouped_stream_id_map_;
 };
 
 }  // namespace google_camera_hal

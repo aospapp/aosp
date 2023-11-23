@@ -43,13 +43,13 @@ limitations under the License.
             android:layout_width="match_parent"
             android:layout_height="0dp"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@+id/ongoing_call_control_bar"/>
+            app:layout_constraintBottom_toTopOf="@+id/control_bar_focus_area"/>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@+id/ongoing_call_control_bar"
+            app:layout_constraintBottom_toTopOf="@+id/control_bar_focus_area"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent">
 
@@ -71,17 +71,26 @@ limitations under the License.
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
-        <fragment
-            android:id="@+id/ongoing_call_control_bar"
-            android:name="com.android.car.dialer.ui.activecall.OnGoingCallControllerBarFragment"
+        <com.android.car.ui.FocusArea
+            android:id="@+id/control_bar_focus_area"
             android:layout_width="match_parent"
-            android:layout_height="@dimen/in_call_controller_bar_height"
-            android:layout_marginStart="@dimen/in_call_controller_bar_margin"
-            android:layout_marginEnd="@dimen/in_call_controller_bar_margin"
+            android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/in_call_controller_bar_margin_bottom"
+            app:defaultFocus="@+id/end_call_button"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"/>
+            app:layout_constraintStart_toStartOf="parent">
+
+            <fragment
+                android:id="@+id/ongoing_call_control_bar"
+                android:name="com.android.car.dialer.ui.activecall.OnGoingCallControllerBarFragment"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/in_call_controller_bar_height"
+                android:layout_marginStart="@dimen/in_call_controller_bar_margin"
+                android:layout_marginEnd="@dimen/in_call_controller_bar_margin"/>
+
+        </com.android.car.ui.FocusArea>
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

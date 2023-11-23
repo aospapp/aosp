@@ -15,12 +15,15 @@
  */
 package com.android.bluetooth.btservice;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
 import static org.mockito.Mockito.*;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.HandlerThread;
+import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.UserHandle;
 
@@ -44,6 +47,7 @@ import org.mockito.MockitoAnnotations;
 public class BondStateMachineTest {
     private static final int TEST_BOND_REASON = 0;
     private static final byte[] TEST_BT_ADDR_BYTES = {00, 11, 22, 33, 44, 55};
+    private static final byte[] TEST_BT_ADDR_BYTES_2 = {00, 11, 22, 33, 44, 66};
     private static final ParcelUuid[] TEST_UUIDS =
             {ParcelUuid.fromString("0000111E-0000-1000-8000-00805F9B34FB")};
 
@@ -84,6 +88,55 @@ public class BondStateMachineTest {
     public void tearDown() throws Exception {
         mHandlerThread.quit();
         TestUtils.clearAdapterService(mAdapterService);
+    }
+
+    @Test
+    public void testCreateBondAfterRemoveBond() {
+        // Set up two devices already bonded.
+        mRemoteDevices.reset();
+        RemoteDevices.DeviceProperties deviceProperties1, deviceProperties2;
+        deviceProperties1 = mRemoteDevices.addDeviceProperties(TEST_BT_ADDR_BYTES);
+        deviceProperties2 = mRemoteDevices.addDeviceProperties(TEST_BT_ADDR_BYTES_2);
+        BluetoothDevice device1, device2;
+        device1 = mRemoteDevices.getDevice(TEST_BT_ADDR_BYTES);
+        device2 = mRemoteDevices.getDevice(TEST_BT_ADDR_BYTES_2);
+        deviceProperties1.mBondState = BOND_BONDED;
+        deviceProperties2.mBondState = BOND_BONDED;
+
+        doReturn(true).when(mAdapterService).removeBondNative(any(byte[].class));
+        doReturn(true).when(mAdapterService).createBondNative(any(byte[].class), anyInt());
+
+        // The removeBond() request for a bonded device should invoke the removeBondNative() call.
+        Message removeBondMsg1 = mBondStateMachine.obtainMessage(BondStateMachine.REMOVE_BOND);
+        removeBondMsg1.obj = device1;
+        mBondStateMachine.sendMessage(removeBondMsg1);
+        TestUtils.waitForLooperToFinishScheduledTask(mBondStateMachine.getHandler().getLooper());
+        Message removeBondMsg2 = mBondStateMachine.obtainMessage(BondStateMachine.REMOVE_BOND);
+        removeBondMsg2.obj = device2;
+        mBondStateMachine.sendMessage(removeBondMsg2);
+        TestUtils.waitForLooperToFinishScheduledTask(mBondStateMachine.getHandler().getLooper());
+
+        verify(mAdapterService, times(1)).removeBondNative(eq(TEST_BT_ADDR_BYTES));
+        verify(mAdapterService, times(1)).removeBondNative(eq(TEST_BT_ADDR_BYTES_2));
+
+        mBondStateMachine.bondStateChangeCallback(AbstractionLayer.BT_STATUS_SUCCESS,
+                TEST_BT_ADDR_BYTES, BOND_NONE);
+        TestUtils.waitForLooperToFinishScheduledTask(mBondStateMachine.getHandler().getLooper());
+        mBondStateMachine.bondStateChangeCallback(AbstractionLayer.BT_STATUS_SUCCESS,
+                TEST_BT_ADDR_BYTES_2, BOND_NONE);
+        TestUtils.waitForLooperToFinishScheduledTask(mBondStateMachine.getHandler().getLooper());
+
+        // Try to pair these two devices again, createBondNative() should be invoked.
+        Message createBondMsg1 = mBondStateMachine.obtainMessage(BondStateMachine.CREATE_BOND);
+        createBondMsg1.obj = device1;
+        mBondStateMachine.sendMessage(createBondMsg1);
+        Message createBondMsg2 = mBondStateMachine.obtainMessage(BondStateMachine.CREATE_BOND);
+        createBondMsg2.obj = device2;
+        mBondStateMachine.sendMessage(createBondMsg2);
+        TestUtils.waitForLooperToFinishScheduledTask(mBondStateMachine.getHandler().getLooper());
+
+        verify(mAdapterService, times(1)).createBondNative(eq(TEST_BT_ADDR_BYTES), anyInt());
+        verify(mAdapterService, times(1)).createBondNative(eq(TEST_BT_ADDR_BYTES_2), anyInt());
     }
 
     @Test
@@ -232,12 +285,12 @@ public class BondStateMachineTest {
         if (shouldBroadcast) {
             verify(mAdapterService, times(++mVerifyCount)).sendBroadcastAsUser(
                     intentArgument.capture(), eq(UserHandle.ALL),
-                    eq(AdapterService.BLUETOOTH_PERM));
+                    eq(BLUETOOTH_CONNECT), any(Bundle.class));
             verifyBondStateChangeIntent(broadcastOldState, broadcastNewState,
                     intentArgument.getValue());
         } else {
             verify(mAdapterService, times(mVerifyCount)).sendBroadcastAsUser(any(Intent.class),
-                    any(UserHandle.class), anyString());
+                    any(UserHandle.class), anyString(), any(Bundle.class));
         }
     }
 

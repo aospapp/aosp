@@ -122,7 +122,7 @@ pp_jimenezmlaa_run(struct pp_queue_t *ppq, struct pipe_resource *in,
    pp_filter_set_fb(p);
    pp_filter_misc_state(p);
    cso_set_depth_stencil_alpha(p->cso, &mstencil);
-   p->pipe->clear(p->pipe, PIPE_CLEAR_STENCIL | PIPE_CLEAR_COLOR0,
+   p->pipe->clear(p->pipe, PIPE_CLEAR_STENCIL | PIPE_CLEAR_COLOR0, NULL,
                   &p->clear_color, 0, 0);
 
    {
@@ -229,7 +229,7 @@ pp_jimenezmlaa_init_run(struct pp_queue_t *ppq, unsigned int n,
 
    pp_debug("mlaa: using %u max search steps\n", val);
 
-   util_sprintf(tmp_text, "%s"
+   sprintf(tmp_text, "%s"
                 "IMM FLT32 {    %.8f,     0.0000,     0.0000,     0.0000}\n"
                 "%s\n", blend2fs_1, (float) val, blend2fs_2);
 
@@ -256,7 +256,7 @@ pp_jimenezmlaa_init_run(struct pp_queue_t *ppq, unsigned int n,
    u_box_2d(0, 0, 165, 165, &box);
 
    ppq->p->pipe->texture_subdata(ppq->p->pipe, ppq->areamaptex, 0,
-                                 PIPE_TRANSFER_WRITE, &box,
+                                 PIPE_MAP_WRITE, &box,
                                  areamap, 165 * 2, sizeof(areamap));
 
    ppq->shaders[n][1] = pp_tgsi_to_state(ppq->p->pipe, offsetvs, true,

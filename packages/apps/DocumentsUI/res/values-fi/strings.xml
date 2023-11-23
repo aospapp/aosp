@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Nimeä tämä uudelleen"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Lisää kansion nimi"</string>
     <string name="files_label" msgid="771781190045103748">"Tiedostot"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Lataukset"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -92,13 +94,13 @@
     <string name="query_error" msgid="6625421453613879336">"Sisällön lataaminen epäonnistui."</string>
     <string name="quiet_mode_error_title" msgid="9126656325282792843">"Työprofiilin käyttö on keskeytetty"</string>
     <string name="quiet_mode_button" msgid="6977115032320235420">"Laita päälle"</string>
-    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Työtiedostot eivät ole valittavissa"</string>
+    <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Työtiedostot eivät käytettävissä"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"IT-järjestelmänvalvoja ei salli sinulle pääsyä työtiedostoihin henkilökohtaisesta sovelluksesta"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Ei voi valita henkilökohtaisia tiedostoja"</string>
     <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"IT-järjestelmänvalvoja ei salli sinulle pääsyä henkilökohtaisiin tiedostoihin työsovelluksesta"</string>
-    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Ei voi tallentaa työprofiiliin"</string>
+    <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Ei tallennettavissa työprofiiliin"</string>
     <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"IT-järjestelmänvalvoja ei anna sinun tallentaa henkilökohtaisia tiedostoja työprofiiliisi"</string>
-    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Ei voi tallentaa henkilökohtaiseen profiiliin"</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Ei tallennettavissa henkilökohtaiseen profiiliin"</string>
     <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"IT-järjestelmänvalvoja ei anna sinun tallentaa työtiedostoja henkilökohtaiseen profiiliisi"</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Tämä toiminto ei ole sallittu"</string>
     <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"Pyydä lisätietoja IT-järjestelmänvalvojalta"</string>
@@ -269,7 +271,7 @@
     <string name="open_tree_button" msgid="6402871398424497776">"Käytä tätä kansiota"</string>
     <string name="open_tree_dialog_title" msgid="6339509533852318569">"Saako <xliff:g id="APPNAME">%1$s</xliff:g> pääsyn tiedostoihin (<xliff:g id="DIRECTORY">%2$s</xliff:g>)?"</string>
     <string name="open_tree_dialog_message" msgid="4120695398430659628">"<xliff:g id="APPNAME">%1$s</xliff:g> saa pääsyn nykyiseen ja tulevaan sisältöön (<xliff:g id="DIRECTORY">%2$s</xliff:g>)."</string>
-    <string name="directory_blocked_header_title" msgid="1164584889578740066">"Tätä kansiota ei voi käyttää"</string>
+    <string name="directory_blocked_header_title" msgid="1164584889578740066">"Tämä kansio ei ole käytettävissä"</string>
     <string name="directory_blocked_header_subtitle" msgid="2829150911849033408">"Valitse toinen kansio tietosuojasi turvaamiseksi"</string>
     <string name="create_new_folder_button" msgid="8859613309559794890">"Luo uusi kansio"</string>
     <string name="search_bar_hint" msgid="4517366509897977321">"Hae tästä puhelimesta"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Työ"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Työ"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Et voi siirtää tiedostoja toisesta sovelluksesta."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Näytetään ruudukkotilassa."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Näytetään luettelotilassa."</string>
 </resources>

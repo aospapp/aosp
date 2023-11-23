@@ -27,7 +27,6 @@ import androidx.annotation.StringRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
-import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockPatternView;
 import com.android.internal.widget.LockscreenCredential;
 
@@ -45,12 +44,13 @@ public class ConfirmLockPatternFragment extends BaseFragment {
     private LockPatternView mLockPatternView;
     private TextView mMsgView;
 
-    private LockPatternUtils mLockPatternUtils;
     private CheckLockWorker mCheckLockWorker;
     private CheckLockListener mCheckLockListener;
 
     private int mUserId;
     private List<LockPatternView.Cell> mPattern;
+
+    private ConfirmLockLockoutHelper mConfirmLockLockoutHelper;
 
     @Override
     @LayoutRes
@@ -72,13 +72,9 @@ public class ConfirmLockPatternFragment extends BaseFragment {
         } else {
             throw new RuntimeException("The activity must implement CheckLockListener");
         }
-    }
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        mLockPatternUtils = new LockPatternUtils(getContext());
         mUserId = UserHandle.myUserId();
+        mConfirmLockLockoutHelper = ConfirmLockLockoutHelper.getInstance(requireContext(), mUserId);
     }
 
     @Override
@@ -88,8 +84,22 @@ public class ConfirmLockPatternFragment extends BaseFragment {
         mMsgView = (TextView) view.findViewById(R.id.message);
         mLockPatternView = (LockPatternView) view.findViewById(R.id.lockPattern);
         mLockPatternView.setFadePattern(false);
-        mLockPatternView.setInStealthMode(!mLockPatternUtils.isVisiblePatternEnabled(mUserId));
+        mLockPatternView.setInStealthMode(
+                !mConfirmLockLockoutHelper.getLockPatternUtils().isVisiblePatternEnabled(mUserId));
         mLockPatternView.setOnPatternListener(mLockPatternListener);
+        mConfirmLockLockoutHelper.setConfirmLockUIController(
+                new ConfirmLockLockoutHelper.ConfirmLockUIController() {
+                    @Override
+                    public void setErrorText(String text) {
+                        mMsgView.setText(text);
+                    }
+
+                    @Override
+                    public void refreshUI(boolean isLockedOut) {
+                        mLockPatternView.setEnabled(!isLockedOut);
+                        mLockPatternView.clearPattern();
+                    }
+                });
 
         if (savedInstanceState != null) {
             mCheckLockWorker = (CheckLockWorker) getFragmentManager().findFragmentByTag(
@@ -106,6 +116,20 @@ public class ConfirmLockPatternFragment extends BaseFragment {
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+
+        mConfirmLockLockoutHelper.onResumeUI();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+
+        mConfirmLockLockoutHelper.onPauseUI();
+    }
+
+    @Override
     public void onStop() {
         super.onStop();
         if (mCheckLockWorker != null) {
@@ -114,6 +138,7 @@ public class ConfirmLockPatternFragment extends BaseFragment {
     }
 
     private Runnable mClearErrorRunnable = () -> {
+        mLockPatternView.setEnabled(true);
         mLockPatternView.clearPattern();
         mMsgView.setText("");
     };
@@ -152,16 +177,20 @@ public class ConfirmLockPatternFragment extends BaseFragment {
                 }
             };
 
-    private void onCheckCompleted(boolean lockMatched) {
+    private void onCheckCompleted(boolean lockMatched, int timeoutMs) {
         if (lockMatched) {
             mCheckLockListener.onLockVerified(LockscreenCredential.createPattern(mPattern));
         } else {
-            mLockPatternView.setEnabled(true);
-            mMsgView.setText(R.string.lockpattern_pattern_wrong);
+            if (timeoutMs > 0) {
+                mConfirmLockLockoutHelper.onCheckCompletedWithTimeout(timeoutMs);
+            } else {
+                mLockPatternView.setEnabled(true);
+                mMsgView.setText(R.string.lockpattern_pattern_wrong);
 
-            // Set timer to clear wrong pattern
-            mLockPatternView.removeCallbacks(mClearErrorRunnable);
-            mLockPatternView.postDelayed(mClearErrorRunnable, CLEAR_WRONG_ATTEMPT_TIMEOUT_MS);
+                // Set timer to clear wrong pattern
+                mLockPatternView.removeCallbacks(mClearErrorRunnable);
+                mLockPatternView.postDelayed(mClearErrorRunnable, CLEAR_WRONG_ATTEMPT_TIMEOUT_MS);
+            }
         }
     }
 }

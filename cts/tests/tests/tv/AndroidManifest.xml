@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <!--
  * Copyright (C) 2014 The Android Open Source Project
  *
@@ -17,114 +16,123 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.tv.cts">
+     package="android.tv.cts">
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.INJECT_EVENTS" />
-
-    <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.INJECT_EVENTS"/>
 
     <queries>
-        <package android:name="com.android.providers.tv" />
+        <package android:name="com.android.providers.tv"/>
     </queries>
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <activity android:name="android.media.tv.cts.TvInputSetupActivityStub">
+        <activity android:name="android.media.tv.cts.TvInputSetupActivityStub"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MAIN"/>
             </intent-filter>
         </activity>
 
-        <activity android:name="android.media.tv.cts.TvInputSettingsActivityStub">
+        <activity android:name="android.media.tv.cts.TvInputSettingsActivityStub"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MAIN"/>
             </intent-filter>
         </activity>
 
         <service android:name="android.media.tv.cts.StubTunerTvInputService"
-                 android:permission="android.permission.BIND_TV_INPUT"
-                 android:label="TV input stub"
-                 android:icon="@drawable/robot"
-                 android:process=":tunerTvInputStub">
+             android:permission="android.permission.BIND_TV_INPUT"
+             android:label="TV input stub"
+             android:icon="@drawable/robot"
+             android:process=":tunerTvInputStub"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.media.tv.TvInputService" />
+                <action android:name="android.media.tv.TvInputService"/>
             </intent-filter>
             <meta-data android:name="android.media.tv.input"
-                       android:resource="@xml/stub_tv_input_service" />
+                 android:resource="@xml/stub_tv_input_service"/>
         </service>
 
         <service android:name="android.media.tv.cts.NoMetadataTvInputService"
-                 android:permission="android.permission.BIND_TV_INPUT">
+             android:permission="android.permission.BIND_TV_INPUT"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.media.tv.TvInputService" />
+                <action android:name="android.media.tv.TvInputService"/>
             </intent-filter>
         </service>
 
-        <service android:name="android.media.tv.cts.NoPermissionTvInputService">
+        <service android:name="android.media.tv.cts.NoPermissionTvInputService"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.media.tv.TvInputService" />
+                <action android:name="android.media.tv.TvInputService"/>
             </intent-filter>
             <meta-data android:name="android.media.tv.input"
-                       android:resource="@xml/stub_tv_input_service" />
+                 android:resource="@xml/stub_tv_input_service"/>
         </service>
 
         <service android:name="android.media.tv.cts.TvInputManagerTest$StubTvInputService2"
-                 android:permission="android.permission.BIND_TV_INPUT">
+             android:permission="android.permission.BIND_TV_INPUT"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.media.tv.TvInputService" />
+                <action android:name="android.media.tv.TvInputService"/>
             </intent-filter>
             <meta-data android:name="android.media.tv.input"
-                       android:resource="@xml/stub_tv_input_service" />
+                 android:resource="@xml/stub_tv_input_service"/>
         </service>
 
         <service android:name="android.media.tv.cts.TvInputServiceTest$CountingTvInputService"
-                 android:permission="android.permission.BIND_TV_INPUT">
+             android:permission="android.permission.BIND_TV_INPUT"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.media.tv.TvInputService" />
+                <action android:name="android.media.tv.TvInputService"/>
             </intent-filter>
             <meta-data android:name="android.media.tv.input"
-                       android:resource="@xml/stub_tv_input_service" />
+                 android:resource="@xml/stub_tv_input_service"/>
         </service>
 
         <service android:name="android.media.tv.cts.HardwareSessionTest$HardwareProxyTvInputService"
-                 android:permission="android.permission.BIND_TV_INPUT">
+             android:permission="android.permission.BIND_TV_INPUT"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.media.tv.TvInputService" />
+                <action android:name="android.media.tv.TvInputService"/>
             </intent-filter>
             <meta-data android:name="android.media.tv.input"
-                       android:resource="@xml/stub_tv_input_service" />
+                 android:resource="@xml/stub_tv_input_service"/>
         </service>
 
         <service android:name="android.media.tv.cts.FaultyTvInputService"
-                 android:permission="android.permission.BIND_TV_INPUT"
-                 android:process=":faultyTvInputService">
+             android:permission="android.permission.BIND_TV_INPUT"
+             android:process=":faultyTvInputService"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.media.tv.TvInputService" />
+                <action android:name="android.media.tv.TvInputService"/>
             </intent-filter>
             <meta-data android:name="android.media.tv.input"
-                       android:resource="@xml/stub_tv_input_service" />
+                 android:resource="@xml/stub_tv_input_service"/>
         </service>
 
-        <activity android:name="android.media.tv.cts.TvViewStubActivity">
+        <activity android:name="android.media.tv.cts.TvViewStubActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
-        <activity android:name="android.tv.settings.cts.SettingsLeanbackStubActivity">
+        <activity android:name="android.tv.settings.cts.SettingsLeanbackStubActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-            android:targetPackage="android.tv.cts"
-            android:label="Tests for the TV APIs.">
+         android:targetPackage="android.tv.cts"
+         android:label="Tests for the TV APIs.">
         <meta-data android:name="listener"
-                android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 </manifest>

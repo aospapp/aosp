@@ -9,6 +9,8 @@ from collections import defaultdict
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
+from autotest_lib.server.cros.servo import pd_console
+
 
 class firmware_PDProtocol(FirmwareTest):
     """
@@ -22,22 +24,23 @@ class firmware_PDProtocol(FirmwareTest):
 
     Example:
     PD Successfully negotiated
-    - ectool usbpdpower should output Charger PD
+    - ServoV4 in SRC_READY or SNK_READY state
 
     PD not negotiated
-    - ectool usbpdpower should not output Charger PD
+    - ServoV4 in SRC_DISCOVERY or SNK_DISCOVERY state
 
     """
     version = 1
+    NEEDS_SERVO_USB = True
 
-    NEGOTIATED_PATTERN = 'Charger PD'
     PD_NOT_SUPPORTED_PATTERN = 'INVALID_COMMAND'
 
     ECTOOL_CMD_DICT = defaultdict(lambda: 'ectool usbpdpower')
 
-    def initialize(self, host, cmdline_args):
+    def initialize(self, host, cmdline_args, ec_wp=None):
         """Initialize the test"""
-        super(firmware_PDProtocol, self).initialize(host, cmdline_args)
+        super(firmware_PDProtocol, self).initialize(host, cmdline_args,
+                                                    ec_wp=ec_wp)
 
         self.ECTOOL_CMD_DICT['samus'] = 'ectool --dev=1 usbpdpower'
 
@@ -53,6 +56,10 @@ class firmware_PDProtocol(FirmwareTest):
         self.original_dev_boot_usb = self.faft_client.system.get_dev_boot_usb()
         logging.info('Original dev_boot_usb value: %s',
                      str(self.original_dev_boot_usb))
+
+        self.hw_wp = self.servo.get('fw_wp_state')
+        self.sw_wp = self.faft_client.ec.get_write_protect_status()['enabled']
+        logging.info('hw_wp=%s, sw_wp=%s', self.hw_wp, self.sw_wp)
 
     def cleanup(self):
         """Cleanup the test"""
@@ -108,24 +115,34 @@ class firmware_PDProtocol(FirmwareTest):
 
         return False
 
-
     def run_once(self):
         """Main test logic"""
+        # TODO(b/35573842): Refactor to use PDPortPartner to probe the port
+        self.pdtester_port = 1 if 'servo_v4' in self.pdtester.servo_type else 0
+        self.pdtester_pd_utils = pd_console.create_pd_console_utils(
+                                 self.pdtester)
+
         self.ensure_dev_internal_boot(self.original_dev_boot_usb)
-        output = self.run_command(self.ECTOOL_CMD_DICT[self.current_board])
 
-        if not self.check_ec_output(output, self.NEGOTIATED_PATTERN):
-            raise error.TestFail(
-                'ectool usbpdpower output %s did not match %s',
-                (output, self.NEGOTIATED_PATTERN))
+        # Check servo_v4 is negotiated
+        if self.pdtester_pd_utils.is_disconnected(self.pdtester_port):
+            raise error.TestFail('PD not connected')
 
-
-        self.set_servo_v4_role_to_snk()
+        # TODO(b:152148025): Directly set role as pdsnkdts might fail the
+        # PD communication. In short term, we could use PR SWAP instead, and
+        # should also fix the TCPM for handling SRCDTS -> SNKDTS case.
+        self.set_servo_v4_role_to_snk(pd_comm=True)
         self.boot_to_recovery()
-        output = self.run_command(self.ECTOOL_CMD_DICT[self.current_board])
 
-        if self.check_ec_output(output, self.NEGOTIATED_PATTERN):
+        # Check PD is not negotiated
+        if (not
+            self.pdtester_pd_utils.is_snk_discovery_state(self.pdtester_port)):
             raise error.TestFail(
-                'ectool usbpdpower output %s matched %s',
-                (output, self.NEGOTIATED_PATTERN))
+                'Expect PD to be disabled, WP (HW/SW) %s/%s',
+                   self.hw_wp, self.sw_wp)
 
+        # Check WP status. Only both SW/HW WP on should pass the test.
+        if (not self.sw_wp) or ('off' in self.hw_wp):
+            raise error.TestFail(
+                'Expect HW and SW WP on, got hw_wp=%s, sw_wp=%s' %
+                (self.hw_wp, self.sw_wp))

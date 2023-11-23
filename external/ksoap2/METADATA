@@ -10,6 +10,7 @@ third_party {
     value: "https://github.com/simpligility/ksoap2-android/archive/3.0.0-RC.2.zip"
   }
   version: "bf4e67df641c386cbd91ddae5db7f3c49956a55b"
+  license_type: NOTICE
   last_upgrade_date {
     year: 2014
     month: 5

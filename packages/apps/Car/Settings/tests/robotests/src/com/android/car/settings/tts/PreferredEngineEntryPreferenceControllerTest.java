@@ -27,9 +27,9 @@ import android.speech.tts.TtsEngines;
 
 import androidx.lifecycle.Lifecycle;
 
-import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
 import com.android.car.settings.testutils.ShadowTtsEngines;
+import com.android.car.ui.preference.CarUiTwoActionIconPreference;
 
 import org.junit.After;
 import org.junit.Before;
@@ -54,7 +54,7 @@ public class PreferredEngineEntryPreferenceControllerTest {
         ENGINE_INFO.name = "com.android.car.settings.tts.test.Engine";
     }
 
-    private ButtonPreference mPreference;
+    private CarUiTwoActionIconPreference mPreference;
     @Mock
     private TtsEngines mEnginesHelper;
 
@@ -64,7 +64,7 @@ public class PreferredEngineEntryPreferenceControllerTest {
         ShadowTtsEngines.setInstance(mEnginesHelper);
         Context context = RuntimeEnvironment.application;
 
-        mPreference = new ButtonPreference(context);
+        mPreference = new CarUiTwoActionIconPreference(context);
         PreferenceControllerTestHelper<PreferredEngineEntryPreferenceController> controllerHelper =
                 new PreferenceControllerTestHelper<>(context,
                         PreferredEngineEntryPreferenceController.class, mPreference);
@@ -85,7 +85,7 @@ public class PreferredEngineEntryPreferenceControllerTest {
 
     @Test
     public void performButtonClick_navigateToNextActivity() {
-        mPreference.performButtonClick();
+        mPreference.performSecondaryActionClick();
 
         Intent actual = ShadowApplication.getInstance().getNextStartedActivity();
         assertThat(actual.getAction()).isEqualTo(INTENT_ACTION);

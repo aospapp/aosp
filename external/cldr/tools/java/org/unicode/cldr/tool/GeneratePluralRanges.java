@@ -1,7 +1,9 @@
 package org.unicode.cldr.tool;
 
+import static com.google.common.collect.Comparators.lexicographical;
+
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
@@ -14,6 +16,8 @@ import java.util.TreeSet;
 
 import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRFile;
+import org.unicode.cldr.util.CLDRPaths;
+import org.unicode.cldr.util.DtdType;
 import org.unicode.cldr.util.Factory;
 import org.unicode.cldr.util.ICUServiceBuilder;
 import org.unicode.cldr.util.LanguageTagParser;
@@ -24,8 +28,9 @@ import org.unicode.cldr.util.StandardCodes;
 import org.unicode.cldr.util.SupplementalDataInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.PluralInfo.Count;
+import org.unicode.cldr.util.TempPrintWriter;
 
-import com.ibm.icu.dev.util.CollectionUtilities;
+import com.google.common.base.Joiner;
 import com.ibm.icu.impl.Relation;
 import com.ibm.icu.text.DecimalFormat;
 import com.ibm.icu.text.MessageFormat;
@@ -52,7 +57,7 @@ public class GeneratePluralRanges {
     private void generateSamples(CLDRFile english, Factory factory) {
         //Map<ULocale, PluralRulesFactory.SamplePatterns> samples = PluralRulesFactory.getLocaleToSamplePatterns();
         // add all the items with plural ranges
-        Set<String> sorted = new TreeSet<String>(SUPPLEMENTAL.getPluralRangesLocales());
+        Set<String> sorted = new TreeSet<>(SUPPLEMENTAL.getPluralRangesLocales());
         // add the core locales
 //        sorted.addAll(StandardCodes.make().getLocaleCoverageLocales("google", EnumSet.of(Level.MODERN)));
         sorted.addAll(StandardCodes.make().getLocaleCoverageLocales(Organization.cldr, EnumSet.of(Level.MODERN)));
@@ -88,14 +93,14 @@ public class GeneratePluralRanges {
             }
             for (RangeSample rangeSample : list) {
                 System.out.println(locale + "\t" + english.getName(locale)
-                    + "\t" + rangeSample.start
-                    + "\t" + rangeSample.end
-                    + "\t" + (rangeSample.result == null ? "missing" : rangeSample.result)
-                    + "\t" + rangeSample.min
-                    + "\t" + rangeSample.max
-                    + "\t" + rangeSample.startExample
-                    + "\t" + rangeSample.endExample
-                    + "\t" + rangeSample.resultExample);
+                + "\t" + rangeSample.start
+                + "\t" + rangeSample.end
+                + "\t" + (rangeSample.result == null ? "missing" : rangeSample.result)
+                + "\t" + rangeSample.min
+                + "\t" + rangeSample.max
+                + "\t" + rangeSample.startExample
+                + "\t" + rangeSample.endExample
+                + "\t" + rangeSample.resultExample);
             }
         }
     }
@@ -106,7 +111,7 @@ public class GeneratePluralRanges {
             locale = "he";
         }
         //Map<ULocale, PluralRulesFactory.SamplePatterns> samples = PluralRulesFactory.getLocaleToSamplePatterns();
-        List<RangeSample> list = new ArrayList<RangeSample>();
+        List<RangeSample> list = new ArrayList<>();
         PluralInfo pluralInfo = SUPPLEMENTAL.getPlurals(locale);
         Set<Count> counts = pluralInfo.getCounts();
         PluralRanges pluralRanges = SUPPLEMENTAL.getPluralRanges(locale);
@@ -127,8 +132,8 @@ public class GeneratePluralRanges {
 //            }
 //        }
 
-        Output<FixedDecimal> maxSample = new Output<FixedDecimal>();
-        Output<FixedDecimal> minSample = new Output<FixedDecimal>();
+        Output<FixedDecimal> maxSample = new Output<>();
+        Output<FixedDecimal> minSample = new Output<>();
 
         ICUServiceBuilder icusb = new ICUServiceBuilder();
         icusb.setCldrFile(cldrFile);
@@ -216,48 +221,56 @@ public class GeneratePluralRanges {
     private final SupplementalDataInfo SUPPLEMENTAL;
     private final PluralRulesFactory prf;
 
-    public static final Comparator<Set<String>> STRING_SET_COMPARATOR = new SetComparator<String, Set<String>>();
-    public static final Comparator<Set<Count>> COUNT_SET_COMPARATOR = new SetComparator<Count, Set<Count>>();
-
-    static final class SetComparator<T extends Comparable<T>, U extends Set<T>> implements Comparator<U> {
-        public int compare(U o1, U o2) {
-            return CollectionUtilities.compare((Collection<T>) o1, (Collection<T>) o2);
-        }
-    };
+    // Ordering by size-of-set first, and then lexicographically, with a final tie-break on the
+    // string representation.
+    private static final Comparator<Set<String>> STRING_SET_COMPARATOR =
+        Comparator.<Set<String>, Integer>comparing(Set::size)
+            .thenComparing(lexicographical(Comparator.<String>naturalOrder()));
+    private static final Comparator<Set<Count>> COUNT_SET_COMPARATOR =
+        Comparator.<Set<Count>, Integer>comparing(Set::size)
+            .thenComparing(lexicographical(Comparator.<Count>naturalOrder()));
 
     public void reformatPluralRanges() {
-        Map<Set<Count>, Relation<Set<String>, String>> seen = new TreeMap<Set<Count>, Relation<Set<String>, String>>(COUNT_SET_COMPARATOR);
+        Map<Set<Count>, Relation<Set<String>, String>> seen = new TreeMap<>(COUNT_SET_COMPARATOR);
+        try (TempPrintWriter out = TempPrintWriter.openUTF8Writer(CLDRPaths.SUPPLEMENTAL_DIRECTORY,"pluralRanges.xml")) {
+            out.println(DtdType.supplementalData.header(MethodHandles.lookup().lookupClass()) +
+                "\t<version number=\"$Revision$\" />\n" +
+                "\t<plurals>"
+                );
+            for (String locale : SUPPLEMENTAL.getPluralRangesLocales()) {
 
-        for (String locale : SUPPLEMENTAL.getPluralRangesLocales()) {
 
-            PluralRanges pluralRanges = SUPPLEMENTAL.getPluralRanges(locale);
-            PluralInfo pluralInfo = SUPPLEMENTAL.getPlurals(locale);
-            Set<Count> counts = pluralInfo.getCounts();
+                PluralRanges pluralRanges = SUPPLEMENTAL.getPluralRanges(locale);
+                PluralInfo pluralInfo = SUPPLEMENTAL.getPlurals(locale);
+                Set<Count> counts = pluralInfo.getCounts();
 
-            Set<String> s;
-            if (false) {
-                System.out.println("Minimized, but not ready for prime-time");
-                s = minimize(pluralRanges, pluralInfo);
-            } else {
-                s = reformat(pluralRanges, counts);
-            }
-            Relation<Set<String>, String> item = seen.get(counts);
-            if (item == null) {
-                seen.put(counts,
-                    item = Relation.of(new TreeMap<Set<String>, Set<String>>(STRING_SET_COMPARATOR), TreeSet.class));
-            }
-            item.put(s, locale);
-        }
-
-        for (Entry<Set<Count>, Relation<Set<String>, String>> entry0 : seen.entrySet()) {
-            System.out.println("\n<!-- " + CollectionUtilities.join(entry0.getKey(), ", ") + " -->");
-            for (Entry<Set<String>, Set<String>> entry : entry0.getValue().keyValuesSet()) {
-                System.out.println("\t\t<pluralRanges locales=\"" + CollectionUtilities.join(entry.getValue(), " ") + "\">");
-                for (String line : entry.getKey()) {
-                    System.out.println("\t\t\t" + line);
+                Set<String> s;
+                if (false) {
+                    out.println("Minimized, but not ready for prime-time");
+                    s = minimize(pluralRanges, pluralInfo);
+                } else {
+                    s = reformat(pluralRanges, counts);
                 }
-                System.out.println("\t\t</pluralRanges>");
+                Relation<Set<String>, String> item = seen.get(counts);
+                if (item == null) {
+                    seen.put(counts,
+                        item = Relation.of(new TreeMap<Set<String>, Set<String>>(STRING_SET_COMPARATOR), TreeSet.class));
+                }
+                item.put(s, locale);
             }
+            for (Entry<Set<Count>, Relation<Set<String>, String>> entry0 : seen.entrySet()) {
+                out.println("\n<!-- " + Joiner.on(", ").join(entry0.getKey()) + " -->");
+                for (Entry<Set<String>, Set<String>> entry : entry0.getValue().keyValuesSet()) {
+                    out.println("\t\t<pluralRanges locales=\"" + Joiner.on(" ")
+                        .join(entry.getValue()) + "\">");
+                    for (String line : entry.getKey()) {
+                        out.println("\t\t\t" + line);
+                    }
+                    out.println("\t\t</pluralRanges>");
+                }
+            }
+            out.println("\t</plurals>\n" +
+                "</supplementalData>");
         }
     }
 
@@ -267,7 +280,7 @@ public class GeneratePluralRanges {
 
     public Set<String> reformat(PluralRanges pluralRanges, Set<Count> counts) {
         Set<String> s;
-        s = new LinkedHashSet<String>();
+        s = new LinkedHashSet<>();
         // first determine the general principle
 
         //        EnumSet<RangeStrategy> strategy = EnumSet.allOf(RangeStrategy.class);
@@ -306,11 +319,11 @@ public class GeneratePluralRanges {
     }
 
     Set<String> minimize(PluralRanges pluralRanges, PluralInfo pluralInfo) {
-        Set<String> result = new LinkedHashSet<String>();
+        Set<String> result = new LinkedHashSet<>();
         // make it easier to manage
         PluralRanges.Matrix matrix = new PluralRanges.Matrix();
-        Output<FixedDecimal> maxSample = new Output<FixedDecimal>();
-        Output<FixedDecimal> minSample = new Output<FixedDecimal>();
+        Output<FixedDecimal> maxSample = new Output<>();
+        Output<FixedDecimal> minSample = new Output<>();
         for (Count s : Count.VALUES) {
             for (Count e : Count.VALUES) {
                 if (!pluralInfo.rangeExists(s, e, minSample, maxSample)) {
@@ -330,20 +343,20 @@ public class GeneratePluralRanges {
             for (Count end : pluralInfo.getCounts()) {
                 Count r = matrix.endSame(end);
                 if (r != null
-                //&& r != Count.other
-                ) {
+                    //&& r != Count.other
+                    ) {
                     result.add("<pluralRange" +
                         "              \t\tend=\"" + end
                         + "\"\tresult=\"" + r + "\"/>");
                     endDone.add(end);
                 }
             }
-            Output<Boolean> emit = new Output<Boolean>();
+            Output<Boolean> emit = new Output<>();
             for (Count start : pluralInfo.getCounts()) {
                 Count r = matrix.startSame(start, endDone, emit);
                 if (r != null
-                // && r != Count.other
-                ) {
+                    // && r != Count.other
+                    ) {
                     if (emit.value) {
                         result.add("<pluralRange" +
                             "\tstart=\"" + start
@@ -364,8 +377,8 @@ public class GeneratePluralRanges {
                 }
                 Count r = matrix.get(start, end);
                 if (r != null
-                //&& !(MINIMAL && r == Count.other)
-                ) {
+                    //&& !(MINIMAL && r == Count.other)
+                    ) {
                     result.add(PluralRanges.showRange(start, end, r));
                 } else {
                     result.add("<!-- <pluralRange" +

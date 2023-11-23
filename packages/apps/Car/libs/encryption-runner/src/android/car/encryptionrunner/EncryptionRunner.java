@@ -16,7 +16,7 @@
 
 package android.car.encryptionrunner;
 
-import android.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 /**
  * A generalized interface that allows for generating shared secrets as well as encrypting

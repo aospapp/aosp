@@ -202,7 +202,7 @@ class BisectingUtilsTest(unittest.TestCase):
       f.write('test123')
 
     bss = binary_search_state.MockBinarySearchState()
-    with self.assertRaises(binary_search_state.Error):
+    with self.assertRaises(OSError):
       bss.SaveState()
 
     with open(state_file, 'r', encoding='utf-8') as f:

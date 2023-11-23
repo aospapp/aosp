@@ -20,6 +20,10 @@ import static android.content.Intent.ACTION_CLOSE_SYSTEM_DIALOGS;
 import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
 import static android.view.inputmethod.cts.util.TestUtils.waitOnMainUntil;
 
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -47,7 +51,11 @@ import androidx.annotation.NonNull;
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.Until;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,16 +68,30 @@ import java.util.stream.Collectors;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class InputMethodManagerTest {
+    private static final String MOCK_IME_ID = "com.android.cts.mockime/.MockIme";
+    private static final String MOCK_IME_LABEL = "Mock IME";
+    private static final String HIDDEN_FROM_PICKER_IME_ID =
+            "com.android.cts.hiddenfrompickerime/.HiddenFromPickerIme";
+    private static final String HIDDEN_FROM_PICKER_IME_LABEL = "Hidden From Picker IME";
     private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
     private Instrumentation mInstrumentation;
     private Context mContext;
     private InputMethodManager mImManager;
+    private boolean mNeedsImeReset = false;
 
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mContext = mInstrumentation.getTargetContext();
         mImManager = mContext.getSystemService(InputMethodManager.class);
+    }
+
+    @After
+    public void resetImes() {
+        if (mNeedsImeReset) {
+            runShellCommand("ime reset");
+            mNeedsImeReset = false;
+        }
     }
 
     @Test
@@ -139,6 +161,16 @@ public class InputMethodManagerTest {
         }
     }
 
+    @Test
+    public void testGetEnabledInputMethodList() throws Exception {
+        enableImes(HIDDEN_FROM_PICKER_IME_ID);
+        final List<InputMethodInfo> enabledImes = mImManager.getEnabledInputMethodList();
+        assertThat(enabledImes).isNotNull();
+        final List<String> enabledImeIds =
+                enabledImes.stream().map(InputMethodInfo::getId).collect(Collectors.toList());
+        assertThat(enabledImeIds).contains(HIDDEN_FROM_PICKER_IME_ID);
+    }
+
     private static String dumpInputMethodInfoList(@NonNull List<InputMethodInfo> imiList) {
         return "[" + imiList.stream().map(imi -> {
             final StringBuilder sb = new StringBuilder();
@@ -173,6 +205,8 @@ public class InputMethodManagerTest {
     public void testShowInputMethodPicker() throws Exception {
         assumeTrue(mContext.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_INPUT_METHODS));
+        enableImes(MOCK_IME_ID, HIDDEN_FROM_PICKER_IME_ID);
+
         TestActivity.startSync(activity -> {
             final View view = new View(activity);
             view.setLayoutParams(new LayoutParams(
@@ -190,11 +224,22 @@ public class InputMethodManagerTest {
         mImManager.showInputMethodPicker();
         waitOnMainUntil(() -> mImManager.isInputMethodPickerShown(), TIMEOUT,
                 "InputMethod picker should be shown");
+        final UiDevice uiDevice =
+                UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        assertThat(uiDevice.wait(Until.hasObject(By.text(MOCK_IME_LABEL)), TIMEOUT)).isTrue();
+        assertThat(uiDevice.findObject(By.text(HIDDEN_FROM_PICKER_IME_LABEL))).isNull();
 
         // Make sure that InputMethodPicker can be closed with ACTION_CLOSE_SYSTEM_DIALOGS
         mContext.sendBroadcast(
                 new Intent(ACTION_CLOSE_SYSTEM_DIALOGS).setFlags(FLAG_RECEIVER_FOREGROUND));
         waitOnMainUntil(() -> !mImManager.isInputMethodPickerShown(), TIMEOUT,
                 "InputMethod picker should be closed");
+    }
+
+    private void enableImes(String... ids) {
+        for (String id : ids) {
+            runShellCommand("ime enable " + id);
+        }
+        mNeedsImeReset = true;
     }
 }

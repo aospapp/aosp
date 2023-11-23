@@ -16,14 +16,15 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.domainsocketapp">
+     package="com.android.cts.domainsocketapp">
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
     <application android:debuggable="true">
-        <activity android:name=".DomainSocketActivity" >
+        <activity android:name=".DomainSocketActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>

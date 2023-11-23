@@ -16,6 +16,7 @@
 #define ATRACE_TAG ATRACE_TAG_ALWAYS
 #include "event_fd.h"
 
+#include <cutils/trace.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,10 +24,9 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <utils/Trace.h>
 #include <atomic>
 #include <memory>
-#include <cutils/trace.h>
-#include <utils/Trace.h>
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
@@ -38,8 +38,10 @@
 #include "perf_event.h"
 #include "utils.h"
 
-static int perf_event_open(const perf_event_attr& attr, pid_t pid, int cpu,
-                           int group_fd, unsigned long flags) {  // NOLINT
+namespace simpleperf {
+
+static int perf_event_open(const perf_event_attr& attr, pid_t pid, int cpu, int group_fd,
+                           unsigned long flags) {  // NOLINT
   return syscall(__NR_perf_event_open, &attr, pid, cpu, group_fd, flags);
 }
 
@@ -65,30 +67,25 @@ std::unique_ptr<EventFd> EventFd::OpenEventFile(const perf_event_attr& attr, pid
   int perf_event_fd = perf_event_open(real_attr, tid, cpu, group_fd, 0);
   if (perf_event_fd == -1) {
     if (report_error) {
-      PLOG(ERROR) << "open perf_event_file (event " << event_name << ", tid "
-                  << tid << ", cpu " << cpu << ", group_fd " << group_fd
-                  << ") failed";
+      PLOG(ERROR) << "open perf_event_file (event " << event_name << ", tid " << tid << ", cpu "
+                  << cpu << ", group_fd " << group_fd << ") failed";
     } else {
-      PLOG(DEBUG) << "open perf_event_file (event " << event_name << ", tid "
-                  << tid << ", cpu " << cpu << ", group_fd " << group_fd
-                  << ") failed";
+      PLOG(DEBUG) << "open perf_event_file (event " << event_name << ", tid " << tid << ", cpu "
+                  << cpu << ", group_fd " << group_fd << ") failed";
     }
     return nullptr;
   }
   if (fcntl(perf_event_fd, F_SETFD, FD_CLOEXEC) == -1) {
     if (report_error) {
-      PLOG(ERROR) << "fcntl(FD_CLOEXEC) for perf_event_file (event "
-                  << event_name << ", tid " << tid << ", cpu " << cpu
-                  << ", group_fd " << group_fd << ") failed";
+      PLOG(ERROR) << "fcntl(FD_CLOEXEC) for perf_event_file (event " << event_name << ", tid "
+                  << tid << ", cpu " << cpu << ", group_fd " << group_fd << ") failed";
     } else {
-      PLOG(DEBUG) << "fcntl(FD_CLOEXEC) for perf_event_file (event "
-                  << event_name << ", tid " << tid << ", cpu " << cpu
-                  << ", group_fd " << group_fd << ") failed";
+      PLOG(DEBUG) << "fcntl(FD_CLOEXEC) for perf_event_file (event " << event_name << ", tid "
+                  << tid << ", cpu " << cpu << ", group_fd " << group_fd << ") failed";
     }
     return nullptr;
   }
-  return std::unique_ptr<EventFd>(
-      new EventFd(real_attr, perf_event_fd, event_name, tid, cpu));
+  return std::unique_ptr<EventFd>(new EventFd(real_attr, perf_event_fd, event_name, tid, cpu));
 }
 
 EventFd::~EventFd() {
@@ -98,9 +95,8 @@ EventFd::~EventFd() {
 }
 
 std::string EventFd::Name() const {
-  return android::base::StringPrintf(
-      "perf_event_file(event %s, tid %d, cpu %d)", event_name_.c_str(), tid_,
-      cpu_);
+  return android::base::StringPrintf("perf_event_file(event %s, tid %d, cpu %d)",
+                                     event_name_.c_str(), tid_, cpu_);
 }
 
 uint64_t EventFd::Id() const {
@@ -145,13 +141,12 @@ bool EventFd::ReadCounter(PerfCounter* counter) {
   }
   // Trace is always available to systrace if enabled
   if (tid_ > 0) {
-    ATRACE_INT64(android::base::StringPrintf(
-                   "%s_tid%d_cpu%d", event_name_.c_str(), tid_,
-                   cpu_).c_str(), counter->value - last_counter_value_);
+    ATRACE_INT64(
+        android::base::StringPrintf("%s_tid%d_cpu%d", event_name_.c_str(), tid_, cpu_).c_str(),
+        counter->value - last_counter_value_);
   } else {
-    ATRACE_INT64(android::base::StringPrintf(
-                   "%s_cpu%d", event_name_.c_str(),
-                   cpu_).c_str(), counter->value - last_counter_value_);
+    ATRACE_INT64(android::base::StringPrintf("%s_cpu%d", event_name_.c_str(), cpu_).c_str(),
+                 counter->value - last_counter_value_);
   }
   last_counter_value_ = counter->value;
   return true;
@@ -161,8 +156,7 @@ bool EventFd::CreateMappedBuffer(size_t mmap_pages, bool report_error) {
   CHECK(IsPowerOfTwo(mmap_pages));
   size_t page_size = sysconf(_SC_PAGE_SIZE);
   size_t mmap_len = (mmap_pages + 1) * page_size;
-  void* mmap_addr = mmap(nullptr, mmap_len, PROT_READ | PROT_WRITE, MAP_SHARED,
-                         perf_event_fd_, 0);
+  void* mmap_addr = mmap(nullptr, mmap_len, PROT_READ | PROT_WRITE, MAP_SHARED, perf_event_fd_, 0);
   if (mmap_addr == MAP_FAILED) {
     bool is_perm_error = (errno == EPERM);
     if (report_error) {
@@ -171,9 +165,8 @@ bool EventFd::CreateMappedBuffer(size_t mmap_pages, bool report_error) {
       PLOG(DEBUG) << "mmap(" << mmap_pages << ") failed for " << Name();
     }
     if (report_error && is_perm_error) {
-      LOG(ERROR)
-          << "It seems the kernel doesn't allow allocating enough "
-          << "buffer for dumping samples, consider decreasing mmap pages(-m).";
+      LOG(ERROR) << "It seems the kernel doesn't allow allocating enough "
+                 << "buffer for dumping samples, consider decreasing mmap pages(-m).";
     }
     return false;
   }
@@ -188,12 +181,11 @@ bool EventFd::CreateMappedBuffer(size_t mmap_pages, bool report_error) {
 bool EventFd::ShareMappedBuffer(const EventFd& event_fd, bool report_error) {
   CHECK(!HasMappedBuffer());
   CHECK(event_fd.HasMappedBuffer());
-  int result =
-      ioctl(perf_event_fd_, PERF_EVENT_IOC_SET_OUTPUT, event_fd.perf_event_fd_);
+  int result = ioctl(perf_event_fd_, PERF_EVENT_IOC_SET_OUTPUT, event_fd.perf_event_fd_);
   if (result != 0) {
     if (report_error) {
-      PLOG(ERROR) << "failed to share mapped buffer of "
-                  << event_fd.perf_event_fd_ << " with " << perf_event_fd_;
+      PLOG(ERROR) << "failed to share mapped buffer of " << event_fd.perf_event_fd_ << " with "
+                  << perf_event_fd_;
     }
     return false;
   }
@@ -320,14 +312,17 @@ void EventFd::DiscardAuxData(size_t discard_size) {
   mmap_metadata_page_->aux_tail += discard_size;
 }
 
-bool EventFd::StartPolling(IOEventLoop& loop,
-                           const std::function<bool()>& callback) {
+bool EventFd::StartPolling(IOEventLoop& loop, const std::function<bool()>& callback) {
   ioevent_ref_ = loop.AddReadEvent(perf_event_fd_, callback);
   return ioevent_ref_ != nullptr;
 }
 
-bool EventFd::StopPolling() { return IOEventLoop::DelEvent(ioevent_ref_); }
+bool EventFd::StopPolling() {
+  return IOEventLoop::DelEvent(ioevent_ref_);
+}
 
 bool IsEventAttrSupported(const perf_event_attr& attr, const std::string& event_name) {
   return EventFd::OpenEventFile(attr, getpid(), -1, nullptr, event_name, false) != nullptr;
 }
+
+}  // namespace simpleperf

@@ -257,7 +257,7 @@ public class MpegTsPlayer
         mBuilderCallback = null;
         for (int i = 0; i < RENDERER_COUNT; i++) {
             if (renderers[i] == null) {
-                // Convert a null renderer to a dummy renderer.
+                // Convert a null renderer to an empty renderer.
                 renderers[i] = new DummyTrackRenderer();
             }
         }

@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsUiRenderingTestCases",
     sdk_version: "test_current",
+    compile_multilib: "both",
 
     srcs: [
         "src/**/*.java",
@@ -28,13 +33,15 @@ android_test {
         "mockito-target-minus-junit4",
         "androidx.test.rules",
         "kotlin-test",
+        "testng",
+        "junit-params",
     ],
+    jni_libs: ["libctsuirendering_jni"],
 
-    libs: ["android.test.runner.stubs"],
+    libs: ["android.test.runner"],
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

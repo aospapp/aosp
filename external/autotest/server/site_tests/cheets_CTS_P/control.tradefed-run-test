@@ -31,7 +31,7 @@ logging.info(
 cts_abi = 'arm'
 cts_module = ''
 cts_retry = 5
-cts_revision = '9.0_r11'  # TODO(ihf): Set this default value from generator.
+cts_revision = '9.0_r14'  # TODO(ihf): Set this default value from generator.
 cts_test = ''
 cts_timeout = 600
 
@@ -53,7 +53,7 @@ cts_test = args_dict.get('test', cts_test)
 cts_timeout = float(args_dict.get('timeout', cts_timeout))
 cts_retry = int(args_dict.get('max_retry', cts_retry))
 
-# Sanity checks.
+# Basic checks for option validity.
 logging.error('Running module %s with test %s on abi %s and revision %s',
               cts_module, cts_test, cts_abi, cts_revision)
 if not cts_abi or not cts_module or not cts_revision or not cts_test:
@@ -80,7 +80,7 @@ tag = 'tradefed-run-test.%s.%s' % (cts_module, simplified_test)
 # The usual testing stanza. We are suppressing some DEPENDENCIES on purpose.
 AUTHOR = 'ARC++ Team'
 NAME = 'cheets_CTS_P.tradefed-run-test'
-ATTRIBUTES = 'suite:arc-cts-test'
+ATTRIBUTES = ''
 DEPENDENCIES = 'arc'
 JOB_RETRIES = 0
 TEST_TYPE = 'server'

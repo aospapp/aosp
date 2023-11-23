@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2016-2017, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -7,6 +8,8 @@
 #include <arch_helpers.h>
 #include <assert.h>
 #include <lib/mmio.h>
+#include <lib/smccc.h>
+#include <services/arm_arch_svc.h>
 #include <tegra_def.h>
 #include <tegra_platform.h>
 #include <tegra_private.h>
@@ -103,6 +106,13 @@ bool tegra_chipid_is_t210(void)
 bool tegra_chipid_is_t210_b01(void)
 {
 	return (tegra_chipid_is_t210() && (tegra_get_chipid_major() == 0x2U));
+}
+
+bool tegra_chipid_is_t194(void)
+{
+	uint32_t chip_id = (tegra_get_chipid() >> CHIP_ID_SHIFT) & CHIP_ID_MASK;
+
+	return (chip_id == TEGRA_CHIPID_TEGRA19);
 }
 
 /*
@@ -258,4 +268,48 @@ bool tegra_platform_is_unit_fpga(void)
 bool tegra_platform_is_virt_dev_kit(void)
 {
 	return ((tegra_get_platform() == TEGRA_PLATFORM_VIRT_DEV_KIT) ? true : false);
+}
+
+/*
+ * This function returns soc version which mainly consist of below fields
+ *
+ *  soc_version[30:24] = JEP-106 continuation code for the SiP
+ *  soc_version[23:16] = JEP-106 identification code with parity bit for the SiP
+ *  soc_version[0:15]  = chip identification
+ */
+int32_t plat_get_soc_version(void)
+{
+	uint32_t chip_id = ((tegra_get_chipid() >> CHIP_ID_SHIFT) & CHIP_ID_MASK);
+	uint32_t manfid = (JEDEC_NVIDIA_BKID << 24) | (JEDEC_NVIDIA_MFID << 16);
+
+	return (int32_t)(manfid | (chip_id & 0xFFFF));
+}
+
+/*
+ * This function returns soc revision in below format
+ *
+ *   soc_revision[8:15] = major version number
+ *   soc_revision[0:7]  = minor version number
+ */
+int32_t plat_get_soc_revision(void)
+{
+	return (int32_t)((tegra_get_chipid_major() << 8) | tegra_get_chipid_minor());
+}
+
+/*****************************************************************************
+ * plat_is_smccc_feature_available() - This function checks whether SMCCC feature
+ *                                  is availabile for the platform or not.
+ * @fid: SMCCC function id
+ *
+ * Return SMC_ARCH_CALL_SUCCESS if SMCCC feature is available and
+ * SMC_ARCH_CALL_NOT_SUPPORTED otherwise.
+ *****************************************************************************/
+int32_t plat_is_smccc_feature_available(u_register_t fid)
+{
+	switch (fid) {
+	case SMCCC_ARCH_SOC_ID:
+		return SMC_ARCH_CALL_SUCCESS;
+	default:
+		return SMC_ARCH_CALL_NOT_SUPPORTED;
+	}
 }

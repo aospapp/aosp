@@ -17,7 +17,7 @@
 %                                 April 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -157,7 +157,7 @@ static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
       char
         primitive[MagickPathExtent];
 
-      register char
+      char
         *p;
 
       SegmentInfo
@@ -217,7 +217,7 @@ static Image *ReadMVGImage(const ImageInfo *image_info,ExceptionInfo *exception)
       length=GetBlobSize(image);
       if (length == (MagickSizeType) ((size_t) length))
         {
-          draw_info->primitive=(char *) AcquireMagickMemory((size_t) length+1);
+          draw_info->primitive=(char *) AcquireQuantumMemory(1,(size_t) length+1);
           if (draw_info->primitive != (char *) NULL)
             {
               memcpy(draw_info->primitive,GetBlobStreamData(image),(size_t)

@@ -15,6 +15,13 @@
 -->
 
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Error when rename does not have any string-->
+    <string name="missing_rename_error">You need to rename this</string>
+
+    <!-- Error to create new folder when name is not added -->
+    <string name="add_folder_name_error">You need to add a folder name</string>
+
     <!-- Title of the Files application [CHAR LIMIT=32] -->
     <string name="files_label">Files</string>
 
@@ -540,4 +547,11 @@
     <!-- Snackbar shown when users drag and drop files from another app
     to DocumentsUI. [CHAR_LIMIT=100] -->
     <string name="drag_from_another_app">You can\u2019t move files from another app.</string>
+
+    <!-- Accessibility announcement when switching to grid mode of files and directories shown. [CHAR_LIMIT=100] -->
+    <string name="grid_mode_showing">Showing in grid mode.</string>
+
+    <!-- Accessibility announcement when switching to list mode of files and directories shown. [CHAR_LIMIT=100] -->
+    <string name="list_mode_showing">Showing in list mode.</string>
+
 </resources>

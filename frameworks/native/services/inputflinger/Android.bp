@@ -13,6 +13,15 @@
 // limitations under the License.
 
 // Default flags to be used throughout all libraries in inputflinger.
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_native_license"],
+}
+
 cc_defaults {
     name: "inputflinger_defaults",
     cflags: [
@@ -21,7 +30,13 @@ cc_defaults {
         "-Werror",
         "-Wno-unused-parameter",
         "-Wthread-safety",
+        "-Wshadow",
+        "-Wshadow-field-in-constructor-modified",
+        "-Wshadow-uncaptured-local",
     ],
+    sanitize: {
+        misc_undefined: ["bounds"],
+    },
 }
 
 /////////////////////////////////////////////////
@@ -48,10 +63,19 @@ cc_defaults {
         "libcutils",
         "libhidlbase",
         "libinput",
+        "libkll",
         "liblog",
+        "libprotobuf-cpp-lite",
         "libstatslog",
+        "libstatspull",
+        "libstatssocket",
         "libutils",
         "libui",
+        "lib-platform-compat-native-api",
+        "server_configurable_flags",
+    ],
+    static_libs: [
+        "libattestation",
     ],
 }
 
@@ -99,6 +123,7 @@ filegroup {
         "InputListener.cpp",
         "InputReaderBase.cpp",
         "InputThread.cpp",
+        "VibrationElement.cpp"
     ],
 }
 
@@ -110,6 +135,7 @@ cc_defaults {
         "libcutils",
         "libinput",
         "liblog",
+        "libui",
         "libutils",
     ],
     header_libs: [

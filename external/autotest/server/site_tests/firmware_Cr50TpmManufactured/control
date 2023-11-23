@@ -10,7 +10,7 @@ PURPOSE = "Check if the TPM is manufactured."
 ATTRIBUTES = "suite:faft_cr50_prepvt, suite:faft_cr50_pvt"
 TIME = "SHORT"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """Check if the TPM is manufactured.
 

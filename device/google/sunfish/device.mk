@@ -33,8 +33,12 @@ PRODUCT_SOONG_NAMESPACES += \
     vendor/qcom/sm8150 \
     vendor/qcom/sm8150/proprietary/commonsys/telephony-apps/DataStatusNotification \
     vendor/qcom/sm8150/proprietary/gps \
+    vendor/qcom/sm8150/proprietary/qmi \
     vendor/qcom/sm8150/codeaurora/location \
-    vendor/google/interfaces
+    vendor/google/interfaces \
+    vendor/google_devices/common/proprietary/confirmatioui_hal \
+    vendor/google_nos/host/android \
+    vendor/google_nos/test/system-test-harness
 
 # Include sensors soong namespace
 PRODUCT_SOONG_NAMESPACES += \
@@ -54,8 +58,8 @@ ifeq ($(DEVICE_USES_SM7250_QCRIL_TELEPHONY), true)
       vendor/qcom/sm7250/proprietary/commonsys/telephony-apps/xdivert \
       vendor/qcom/sm7250/proprietary/qcril-data-hal \
       vendor/qcom/sm7250/proprietary/qcril-hal \
-      vendor/qcom/sm8150/proprietary/data/permissions
-else
+      vendor/qcom/sm7250/proprietary/data
+  else
   $(warning DEVICE_USES_SM7250_QCRIL_TELEPHONY is disabled)
 
   PRODUCT_SOONG_NAMESPACES += \
@@ -80,7 +84,7 @@ PRODUCT_COPY_FILES += \
     device/google/sunfish/default-permissions.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/default-permissions/default-permissions.xml \
     device/google/sunfish/component-overrides.xml:$(TARGET_COPY_OUT_VENDOR)/etc/sysconfig/component-overrides.xml \
     frameworks/native/data/etc/handheld_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml \
-    frameworks/native/data/etc/android.software.verified_boot.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/android.software.verified_boot.xml
+    frameworks/native/data/etc/android.software.verified_boot.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.verified_boot.xml
 
 # Enforce privapp-permissions whitelist
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -111,18 +115,26 @@ PRODUCT_VENDOR_KERNEL_HEADERS := device/google/sunfish-kernel/sm7150/kernel-head
 PRODUCT_CHARACTERISTICS := nosdcard
 PRODUCT_SHIPPING_API_LEVEL := 29
 
+# Enforce native interfaces of product partition as VNDK
+PRODUCT_PRODUCT_VNDK_VERSION := current
+
+# Enforce java interfaces of product partition
+PRODUCT_ENFORCE_PRODUCT_PARTITION_INTERFACE := true
+
 DEVICE_PACKAGE_OVERLAYS += $(LOCAL_PATH)/overlay
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_KERNEL):kernel \
     $(LOCAL_PATH)/fstab.hardware:$(TARGET_COPY_OUT_RECOVERY)/root/first_stage_ramdisk/fstab.$(PRODUCT_PLATFORM) \
     $(LOCAL_PATH)/fstab.hardware:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.$(PRODUCT_PLATFORM) \
+    $(LOCAL_PATH)/fstab.persist:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.persist \
     $(LOCAL_PATH)/init.hardware.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.$(PRODUCT_PLATFORM).rc \
     $(LOCAL_PATH)/init.power.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.$(PRODUCT_PLATFORM).power.rc \
     $(LOCAL_PATH)/init.radio.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.radio.sh \
     $(LOCAL_PATH)/uinput-fpc.kl:$(TARGET_COPY_OUT_VENDOR)/usr/keylayout/uinput-fpc.kl \
     $(LOCAL_PATH)/uinput-fpc.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/uinput-fpc.idc \
     $(LOCAL_PATH)/init.hardware.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.$(PRODUCT_PLATFORM).usb.rc \
+    $(LOCAL_PATH)/init.insmod.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.insmod.sh \
     $(LOCAL_PATH)/init.sensors.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.sensors.sh \
     $(LOCAL_PATH)/thermal-engine-$(PRODUCT_HARDWARE).conf:$(TARGET_COPY_OUT_VENDOR)/etc/thermal-engine-$(PRODUCT_HARDWARE).conf \
     $(LOCAL_PATH)/ueventd.rc:$(TARGET_COPY_OUT_VENDOR)/ueventd.rc \
@@ -137,8 +149,6 @@ ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
   PRODUCT_COPY_FILES += \
       $(LOCAL_PATH)/init.hardware.mpssrfs.rc.userdebug:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.$(PRODUCT_PLATFORM).mpssrfs.rc
   PRODUCT_COPY_FILES += \
-      $(LOCAL_PATH)/init.hardware.chamber.rc.userdebug:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.$(PRODUCT_PLATFORM).chamber.rc
-  PRODUCT_COPY_FILES += \
       $(LOCAL_PATH)/init.hardware.ipa.rc.userdebug:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.$(PRODUCT_PLATFORM).ipa.rc
   PRODUCT_COPY_FILES += \
       $(LOCAL_PATH)/init.hardware.power_debug.rc.userdebug:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.$(PRODUCT_PLATFORM).power_debug.rc
@@ -149,6 +159,12 @@ else
       $(LOCAL_PATH)/init.hardware.diag.rc.user:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.$(PRODUCT_PLATFORM).diag.rc
   PRODUCT_COPY_FILES += \
       $(LOCAL_PATH)/init.hardware.mpssrfs.rc.user:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.$(PRODUCT_PLATFORM).mpssrfs.rc
+endif
+
+# Enable DIAG issue debug
+ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
+  PRODUCT_COPY_FILES += \
+      $(LOCAL_PATH)/init.diagdebug.rc.userdebug:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.diagdebug.rc
 endif
 
 # A/B support
@@ -181,7 +197,9 @@ AB_OTA_POSTINSTALL_CONFIG += \
     POSTINSTALL_OPTIONAL_system=true
 
 PRODUCT_PACKAGES += \
-    update_engine_sideload \
+    update_engine_sideload
+
+PRODUCT_PACKAGES_DEBUG += \
     sg_write_buffer \
     f2fs_io \
     check_f2fs
@@ -245,6 +263,7 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.vulkan.compute-0.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.vulkan.compute.xml \
     frameworks/native/data/etc/android.hardware.vulkan.version-1_1.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.vulkan.version.xml \
     frameworks/native/data/etc/android.software.vulkan.deqp.level-2020-03-01.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.vulkan.deqp.level.xml \
+    frameworks/native/data/etc/android.software.opengles.deqp.level-2020-03-01.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.opengles.deqp.level.xml \
     frameworks/native/data/etc/android.hardware.telephony.carrierlock.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.carrierlock.xml \
     frameworks/native/data/etc/android.hardware.strongbox_keystore.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.strongbox_keystore.xml \
     frameworks/native/data/etc/android.software.ipsec_tunnels.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.ipsec_tunnels.xml \
@@ -336,12 +355,14 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.vendor.radio.custom_ecc=1 \
     persist.vendor.radio.data_ltd_sys_ind=1 \
     persist.vendor.radio.videopause.mode=1 \
+    persist.vendor.radio.mt_sms_ack=30 \
     persist.vendor.radio.multisim_switch_support=true \
     persist.vendor.radio.sib16_support=1 \
     persist.vendor.radio.data_con_rprt=true \
     persist.vendor.radio.relay_oprt_change=1 \
     persist.vendor.radio.no_wait_for_card=1 \
     persist.vendor.radio.sap_silent_pin=1 \
+    persist.vendor.radio.manual_nw_rej_ct=1 \
     persist.rcs.supported=1 \
     vendor.rild.libpath=/vendor/lib64/libril-qc-hal-qmi.so \
     ro.hardware.keystore_desede=true \
@@ -365,6 +386,7 @@ PRODUCT_PACKAGES += \
     android.hardware.graphics.composer@2.4-service-sm8150 \
     gralloc.sm6150 \
     android.hardware.graphics.mapper@3.0-impl-qti-display \
+    android.hardware.graphics.mapper@4.0-impl-qti-display \
     vendor.qti.hardware.display.allocator-service
 
 # RenderScript HAL
@@ -389,14 +411,13 @@ PRODUCT_PACKAGES += \
 
 #Bluetooth SAR HAL
 PRODUCT_PACKAGES += \
-    vendor.qti.hardware.bluetooth_sar@1.0-impl \
-    vendor.qti.hardware.bluetooth_sar@1.1-impl
+    hardware.google.bluetooth.sar@1.0-impl
 PRODUCT_PACKAGES_DEBUG += \
     bluetooth_sar_test
 
 # Bluetooth AFH
 PRODUCT_PACKAGES += \
-    vendor.qti.hardware.bt_channel_avoidance@1.0-impl
+    hardware.google.bluetooth.bt_channel_avoidance@1.0-impl
 
 # Bluetooth SoC
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -415,8 +436,8 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl \
     android.hardware.drm@1.0-service \
-    android.hardware.drm@1.3-service.clearkey \
-    android.hardware.drm@1.3-service.widevine
+    android.hardware.drm@1.4-service.clearkey \
+    android.hardware.drm@1.4-service.widevine
 
 # NFC and Secure Element packages
 PRODUCT_PACKAGES += \
@@ -432,7 +453,7 @@ PRODUCT_COPY_FILES += \
     device/google/sunfish/nfc/libnfc-nci.conf:$(TARGET_COPY_OUT_PRODUCT)/etc/libnfc-nci.conf
 
 PRODUCT_PACKAGES += \
-    android.hardware.usb@1.2-service.sunfish
+    android.hardware.usb@1.3-service.sunfish
 
 PRODUCT_PACKAGES += \
     android.hardware.health@2.1-impl-sunfish \
@@ -466,6 +487,11 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     debug.stagefright.c2inputsurface=-1 \
 
+# Transcoding related property.
+PRODUCT_PROPERTY_OVERRIDES += \
+    debug.media.transcoding.codec_max_operating_rate_720P=240 \
+    debug.media.transcoding.codec_max_operating_rate_1080P=120 \
+
 # Disable OMX
 PRODUCT_PROPERTY_OVERRIDES += \
     vendor.media.omx=0 \
@@ -481,8 +507,8 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.vendor.ims.mm_minqp=1
 
 PRODUCT_PACKAGES += \
-    android.hardware.camera.provider@2.6-impl-google \
-    android.hardware.camera.provider@2.6-service-google \
+    android.hardware.camera.provider@2.7-impl-google \
+    android.hardware.camera.provider@2.7-service-google \
     camera.sm6150 \
     libgooglecamerahwl_impl \
     libqomx_core \
@@ -493,7 +519,7 @@ PRODUCT_PACKAGES += \
 # Google Camera HAL test libraries in debug builds
 PRODUCT_PACKAGES_DEBUG += \
     libgoogle_camera_hal_proprietary_tests \
-    libgoogle_camera_hal_tests.vendor
+    libgoogle_camera_hal_tests
 
 PRODUCT_PACKAGES += \
     sensors.$(PRODUCT_HARDWARE) \
@@ -506,21 +532,24 @@ PRODUCT_PACKAGES += \
 
 # Context hub HAL
 PRODUCT_PACKAGES += \
-    android.hardware.contexthub@1.1-service.generic
+    android.hardware.contexthub@1.2-service.generic
+
+# CHRE tools
+ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
+PRODUCT_PACKAGES += \
+    chre_power_test_client \
+    chre_test_client
+endif
 
 # Boot control HAL
 PRODUCT_PACKAGES += \
-    android.hardware.boot@1.1-impl-pixel-legacy \
-    android.hardware.boot@1.1-impl-pixel-legacy.recovery \
-    android.hardware.boot@1.1-service \
+    android.hardware.boot@1.2-impl-pixel-legacy \
+    android.hardware.boot@1.2-impl-pixel-legacy.recovery \
+    android.hardware.boot@1.2-service \
 
 # Vibrator HAL
 PRODUCT_PACKAGES += \
-    android.hardware.vibrator@1.3-service.sunfish \
-
-# DRV2624 Haptics Waveform
-PRODUCT_COPY_FILES += \
-    device/google/sunfish/vibrator/drv2624/drv2624.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/drv2624.bin
+    com.android.vibrator.sunfish \
 
 # Vibrator HAL
 PRODUCT_PRODUCT_PROPERTIES +=\
@@ -546,17 +575,17 @@ PRODUCT_PACKAGES += \
     liblocation_api \
     libbatching \
     libgeofencing \
-    android.hardware.gnss@2.0-impl-qti \
-    android.hardware.gnss@2.0-service-qti
-
-# Wireless Charger HAL
-PRODUCT_PACKAGES += \
-    vendor.google.wireless_charger@1.0
+    android.hardware.gnss@2.1-impl-qti \
+    android.hardware.gnss@2.1-service-qti
 
 ENABLE_VENDOR_RIL_SERVICE := true
 
+USE_QCRIL_OEMHOOK := true
+
 HOSTAPD := hostapd
+ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
 HOSTAPD += hostapd_cli
+endif
 PRODUCT_PACKAGES += $(HOSTAPD)
 
 WPA := wpa_supplicant.conf
@@ -574,6 +603,10 @@ PRODUCT_PACKAGES += \
     wificond \
     libwpa_client \
     WifiOverlay
+
+# Connectivity
+PRODUCT_PACKAGES += \
+    ConnectivityOverlay
 
 # WLAN driver configuration files
 PRODUCT_COPY_FILES += \
@@ -603,11 +636,11 @@ PRODUCT_PACKAGES += \
     audio.bluetooth.default
 
 PRODUCT_PACKAGES += \
-    android.hardware.audio@6.0-impl:32 \
-    android.hardware.audio.effect@6.0-impl:32 \
+    android.hardware.audio@7.0-impl:32 \
+    android.hardware.audio.effect@7.0-impl:32 \
     android.hardware.soundtrigger@2.3-impl \
     android.hardware.bluetooth.audio@2.0-impl \
-    android.hardware.audio@2.0-service
+    android.hardware.audio.service
 
 # Modules for Audio HAL
 PRODUCT_PACKAGES += \
@@ -695,20 +728,6 @@ endif
 PRODUCT_PACKAGES += \
     android.hardware.dumpstate@1.1-service.sunfish
 
-# Citadel
-PRODUCT_PACKAGES += \
-    citadeld \
-    citadel_updater \
-    android.hardware.authsecret@1.0-service.citadel \
-    android.hardware.oemlock@1.0-service.citadel \
-    android.hardware.weaver@1.0-service.citadel \
-    android.hardware.keymaster@4.1-service.citadel \
-    android.hardware.identity@1.0-service.citadel \
-    wait_for_strongbox
-
-# Citadel debug stuff
-PRODUCT_PACKAGES_DEBUG += \
-    test_citadel
 
 # Storage: for factory reset protection feature
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -724,12 +743,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # Use 64-bit dex2oat for better dexopt time.
 PRODUCT_PROPERTY_OVERRIDES += \
     dalvik.vm.dex2oat64.enabled=true
-
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/hidl/android.hidl.base@1.0.so-32:system_ext/lib/android.hidl.base@1.0.so \
-    $(LOCAL_PATH)/hidl/android.hidl.base@1.0.so-64:system_ext/lib64/android.hidl.base@1.0.so \
-    $(LOCAL_PATH)/hidl/android.hidl.base@1.0.so-32:vendor/lib/android.hidl.base@1.0.so \
-    $(LOCAL_PATH)/hidl/android.hidl.base@1.0.so-64:vendor/lib64/android.hidl.base@1.0.so \
 
 PRODUCT_PACKAGES += \
     ipacm \
@@ -775,8 +788,6 @@ PRODUCT_DEXPREOPT_SPEED_APPS += \
 
 # Enable stats logging in LMKD
 TARGET_LMKD_STATS_LOG := true
-PRODUCT_PRODUCT_PROPERTIES += \
-    ro.lmk.log_stats=true
 
 # default usb oem functions
 ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
@@ -821,15 +832,9 @@ PRODUCT_COPY_FILES += \
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/gps.conf:$(TARGET_COPY_OUT_VENDOR)/etc/gps.conf
 
-# default atrace HAL
-PRODUCT_PACKAGES += \
-    android.hardware.atrace@1.0-service
-
 # Fingerprint
 PRODUCT_PACKAGES += \
     android.hardware.biometrics.fingerprint@2.1-service.fpc
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/init.fingerprint.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.fingerprint.sh
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.fingerprint.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.fingerprint.xml
 
@@ -839,11 +844,6 @@ PRODUCT_PACKAGES += \
 
 PRODUCT_USE_DYNAMIC_PARTITIONS := true
 
-# fastbootd
-PRODUCT_PACKAGES += \
-    android.hardware.fastboot@1.0-impl.pixel \
-    fastbootd
-
 # insmod files
 PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/init.insmod.sunfish.cfg:$(TARGET_COPY_OUT_VENDOR)/etc/init.insmod.sunfish.cfg
@@ -852,16 +852,16 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PRODUCT_PROPERTIES += \
     ro.postinstall.fstab.prefix=/product
 
+# Set support one-handed mode
+PRODUCT_PRODUCT_PROPERTIES += \
+    ro.support_one_handed_mode=true
+
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/fstab.postinstall:$(TARGET_COPY_OUT_PRODUCT)/etc/fstab.postinstall
 
 # powerstats HAL
 PRODUCT_PACKAGES += \
     android.hardware.power.stats@1.0-service.pixel
-
-# Resume on Reboot support
-PRODUCT_PACKAGES += \
-    android.hardware.rebootescrow-service.citadel
 
 # Recovery
 PRODUCT_COPY_FILES += \
@@ -874,17 +874,13 @@ PRODUCT_PACKAGES += $(QTI_TELEPHONY_UTILS)
 
 HIDL_WRAPPER := qti-telephony-hidl-wrapper
 HIDL_WRAPPER += qti_telephony_hidl_wrapper.xml
+HIDL_WRAPPER += qti-telephony-hidl-wrapper-prd
+HIDL_WRAPPER += qti_telephony_hidl_wrapper_prd.xml
 PRODUCT_PACKAGES += $(HIDL_WRAPPER)
 
 # Increment the SVN for any official public releases
 PRODUCT_PROPERTY_OVERRIDES += \
-	ro.vendor.build.svn=11
-
-# ZRAM writeback
-PRODUCT_PROPERTY_OVERRIDES += \
-    ro.zram.mark_idle_delay_mins=60 \
-    ro.zram.first_wb_delay_mins=180 \
-    ro.zram.periodic_wb_delay_hours=24
+	ro.vendor.build.svn=31
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/powerhint.json:$(TARGET_COPY_OUT_VENDOR)/etc/powerhint.json
@@ -898,6 +894,10 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.vendor.verbose_logging_enabled=false
 endif
 
+# (b/183612348): Enable skia reduceOpsTaskSplitting
+PRODUCT_PROPERTY_OVERRIDES += \
+    renderthread.skia.reduceopstasksplitting=true
+
 -include vendor/qcom/sm8150/proprietary/commonsys-intf/data/data_commonsys-intf_system_product.mk
 -include vendor/qcom/sm8150/proprietary/commonsys-intf/data/data_commonsys-intf_vendor_product.mk
 # Security
@@ -906,6 +906,9 @@ endif
 
 # Project
 include hardware/google/pixel/common/pixel-common-device.mk
+
+# Citadel
+include hardware/google/pixel/citadel/citadel.mk
 
 # Factory OTA
 -include vendor/google/factoryota/client/factoryota.mk
@@ -927,5 +930,12 @@ include hardware/google/pixel/common/pixel-common-device.mk
 # thermal
 -include hardware/google/pixel/thermal/device.mk
 
+# Pixel Logger
+include hardware/google/pixel/PixelLogger/PixelLogger.mk
+
 # enable retrofit virtual A/B
 $(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota_retrofit.mk)
+
+# Set system properties identifying the chipset
+PRODUCT_VENDOR_PROPERTIES += ro.soc.manufacturer=Qualcomm
+PRODUCT_VENDOR_PROPERTIES += ro.soc.model=SM7150

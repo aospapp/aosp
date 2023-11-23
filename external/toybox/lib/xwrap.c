@@ -96,7 +96,6 @@ void *xrealloc(void *ptr, size_t size)
 char *xstrndup(char *s, size_t n)
 {
   char *ret = strndup(s, n);
-
   if (!ret) error_exit("xstrndup");
 
   return ret;
@@ -127,8 +126,7 @@ char *xmprintf(char *format, ...)
   va_copy(va2, va);
 
   // How long is it?
-  len = vsnprintf(0, 0, format, va);
-  len++;
+  len = vsnprintf(0, 0, format, va)+1;
   va_end(va);
 
   // Allocate and do the sprintf()
@@ -159,14 +157,8 @@ void xprintf(char *format, ...)
 // Put string with length (does not append newline)
 void xputsl(char *s, int len)
 {
-  int out;
-
-  while (len != (out = fwrite(s, 1, len, stdout))) {
-    if (out<1) perror_exit("write");
-    len -= out;
-    s += out;
-  }
-  xflush(0);
+  xflush(1);
+  xwrite(1, s, len);
 }
 
 // xputs with no newline
@@ -188,6 +180,30 @@ void xputc(char c)
   xflush(0);
 }
 
+// daemonize via vfork(). Does not chdir("/"), caller should do that first
+// note: restarts process from command_main()
+void xvdaemon(void)
+{
+  int fd;
+
+  // vfork and exec /proc/self/exe
+  if (toys.stacktop) {
+    xpopen_both(0, 0);
+    _exit(0);
+  }
+
+  // new session id, point fd 0-2 at /dev/null, detach from tty
+  setsid();
+  close(0);
+  xopen_stdio("/dev/null", O_RDWR);
+  dup2(0, 1);
+  if (-1 != (fd = open("/dev/tty", O_RDONLY))) {
+    ioctl(fd, TIOCNOTTY);
+    close(fd);
+  }
+  dup2(0, 2);
+}
+
 // This is called through the XVFORK macro because parent/child of vfork
 // share a stack, so child returning from a function would stomp the return
 // address parent would need. Solution: make vfork() an argument so processes
@@ -207,8 +223,8 @@ pid_t __attribute__((returns_twice)) xvforkwrap(pid_t pid)
 void xexec(char **argv)
 {
   // Only recurse to builtin when we have multiplexer and !vfork context.
-  if (CFG_TOYBOX && !CFG_TOYBOX_NORECURSE && toys.stacktop && **argv != '/')
-    toy_exec(argv);
+  if (CFG_TOYBOX && !CFG_TOYBOX_NORECURSE)
+    if (toys.stacktop && !strchr(*argv, '/')) toy_exec(argv);
   execvp(argv[0], argv);
 
   toys.exitval = 126+(errno == ENOENT);
@@ -224,7 +240,7 @@ void xexec(char **argv)
 //           If -1, replace with pipe handle connected to stdin/stdout.
 //           NULL treated as {0, 1}, I.E. leave stdin/stdout as is
 // return: pid of child process
-pid_t xpopen_setup(char **argv, int *pipes, void (*callback)(void))
+pid_t xpopen_setup(char **argv, int *pipes, void (*callback)(char **argv))
 {
   int cestnepasun[4], pid;
 
@@ -269,7 +285,7 @@ pid_t xpopen_setup(char **argv, int *pipes, void (*callback)(void))
         close(pipes[1]);
       }
     }
-    if (callback) callback();
+    if (callback) callback(argv);
     if (argv) xexec(argv);
 
     // In fork() case, force recursion because we know it's us.
@@ -287,6 +303,7 @@ pid_t xpopen_setup(char **argv, int *pipes, void (*callback)(void))
       // setting high bit of argv[0][0] to let new process know
       **toys.argv |= 0x80;
       execv(s, toys.argv);
+      if ((s = getenv("_"))) execv(s, toys.argv);
       perror_msg_raw(s);
 
       _exit(127);
@@ -380,7 +397,7 @@ int xcreate_stdio(char *path, int flags, int mode)
 {
   int fd = open(path, (flags^O_CLOEXEC)&~WARN_ONLY, mode);
 
-  if (fd == -1) ((mode&WARN_ONLY) ? perror_msg_raw : perror_exit_raw)(path);
+  if (fd == -1) ((flags&WARN_ONLY) ? perror_msg_raw : perror_exit_raw)(path);
   return fd;
 }
 
@@ -397,7 +414,7 @@ void xpipe(int *pp)
 
 void xclose(int fd)
 {
-  if (close(fd)) perror_exit("xclose");
+  if (fd != -1 && close(fd)) perror_exit("xclose");
 }
 
 int xdup(int fd)
@@ -813,29 +830,6 @@ void xpidfile(char *name)
   close(fd);
 }
 
-// Return bytes copied from in to out. If bytes <0 copy all of in to out.
-// If consuemd isn't null, amount read saved there (return is written or error)
-long long sendfile_len(int in, int out, long long bytes, long long *consumed)
-{
-  long long total = 0, len;
-
-  if (consumed) *consumed = 0;
-  if (in<0) return 0;
-  while (bytes != total) {
-    len = bytes-total;
-    if (bytes<0 || len>sizeof(libbuf)) len = sizeof(libbuf);
-
-    len = read(in, libbuf, len);
-    if (!len && errno==EAGAIN) continue;
-    if (len<1) break;
-    if (consumed) *consumed += len;
-    if (writeall(out, libbuf, len) != len) return -1;
-    total += len;
-  }
-
-  return total;
-}
-
 // error_exit if we couldn't copy all bytes
 long long xsendfile_len(int in, int out, long long bytes)
 {
@@ -942,7 +936,7 @@ void xregcomp(regex_t *preg, char *regex, int cflags)
 
   if ((rc = regcomp(preg, regex, cflags))) {
     regerror(rc, preg, libbuf, sizeof(libbuf));
-    error_exit("bad regex: %s", libbuf);
+    error_exit("bad regex '%s': %s", regex, libbuf);
   }
 }
 
@@ -995,6 +989,7 @@ void xparsedate(char *str, time_t *t, unsigned *nano, int endian)
   // Formats with seconds come first. Posix can't agree on whether 12 digits
   // has year before (touch -t) or year after (date), so support both.
   char *s = str, *p, *oldtz = 0, *formats[] = {"%Y-%m-%d %T", "%Y-%m-%dT%T",
+    "%a %b %e %H:%M:%S %Z %Y", // date(1) output format in POSIX/C locale.
     "%H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%H:%M", "%m%d%H%M",
     endian ? "%m%d%H%M%y" : "%y%m%d%H%M",
     endian ? "%m%d%H%M%C%y" : "%C%y%m%d%H%M"};
@@ -1020,15 +1015,6 @@ void xparsedate(char *str, time_t *t, unsigned *nano, int endian)
     xvali_date(0, str);
   }
 
-  // Trailing Z means UTC timezone, don't expect libc to know this.
-  // (Trimming it off here means it won't show up in error messages.)
-  if ((i = strlen(str)) && toupper(str[i-1])=='Z') {
-    str[--i] = 0;
-    oldtz = getenv("TZ");
-    if (oldtz) oldtz = xstrdup(oldtz);
-    setenv("TZ", "UTC0", 1);
-  }
-
   // Try each format
   for (i = 0; i<ARRAY_LEN(formats); i++) {
     localtime_r(&now, &tm);
@@ -1036,6 +1022,7 @@ void xparsedate(char *str, time_t *t, unsigned *nano, int endian)
     tm.tm_isdst = -endian;
 
     if ((p = strptime(s, formats[i], &tm))) {
+      // Handle optional fractional seconds.
       if (*p == '.') {
         p++;
         // If format didn't already specify seconds, grab seconds
@@ -1051,6 +1038,27 @@ void xparsedate(char *str, time_t *t, unsigned *nano, int endian)
         }
       }
 
+      // Handle optional Z or +HH[[:]MM] timezone
+      if (*p && strchr("Z+-", *p)) {
+        unsigned hh, mm = 0, len;
+        char *tz, sign = *p++;
+
+        if (sign == 'Z') tz = "UTC0";
+        else if (sscanf(p, "%2u%2u%n",  &hh, &mm, &len) == 2
+              || sscanf(p, "%2u%n:%2u%n", &hh, &len, &mm, &len) > 0)
+        {
+          // flip sign because POSIX UTC offsets are backwards
+          sprintf(tz = libbuf, "UTC%c%02d:%02d", "+-"[sign=='+'], hh, mm);
+          p += len;
+        } else continue;
+
+        if (!oldtz) {
+          oldtz = getenv("TZ");
+          if (oldtz) oldtz = xstrdup(oldtz);
+        }
+        setenv("TZ", tz, 1);
+      }
+
       if (!*p) break;
     }
   }
@@ -1062,18 +1070,31 @@ void xparsedate(char *str, time_t *t, unsigned *nano, int endian)
   free(oldtz);
 }
 
-char *xgetline(FILE *fp, int *len)
+// Return line of text from file. Strips trailing newline (if any).
+char *xgetline(FILE *fp)
 {
   char *new = 0;
-  size_t linelen = 0;
+  size_t len = 0;
   long ll;
 
   errno = 0;
-  if (1>(ll = getline(&new, &linelen, fp))) {
-    if (errno) perror_msg("getline");
+  if (1>(ll = getline(&new, &len, fp))) {
+    if (errno && errno != EINTR) perror_msg("getline");
     new = 0;
-  } else if (new[linelen-1] == '\n') new[--linelen] = 0;
-  if (len) *len = ll;
+  } else if (new[ll-1] == '\n') new[--ll] = 0;
 
   return new;
+}
+
+time_t xmktime(struct tm *tm, int utc)
+{
+  char *old_tz = utc ? xtzset("UTC0") : 0;
+  time_t result;
+
+  if ((result = mktime(tm)) < 0) error_exit("mktime");
+  if (utc) {
+    free(xtzset(old_tz));
+    free(old_tz);
+  }
+  return result;
 }

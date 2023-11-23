@@ -15,38 +15,42 @@
  */
 package android.net.ipsec.ike.exceptions;
 
-import android.annotation.SystemApi;
+import android.annotation.NonNull;
+import android.net.ipsec.ike.ChildSessionCallback;
+import android.net.ipsec.ike.IkeSessionCallback;
 
 /**
  * IkeInternalException encapsulates all local implementation or resource related exceptions.
  *
- * <p>Causes may include exceptions such as {@link IpSecManager.SpiUnavailableException} when the
- * requested SPI resources failed to be allocated.
- *
- * @hide
+ * <p>Causes may include exceptions such as {@link android.net.IpSecManager.SpiUnavailableException}
+ * when the requested SPI resources failed to be allocated.
  */
-@SystemApi
-public final class IkeInternalException extends IkeException {
+public final class IkeInternalException extends IkeNonProtocolException {
     /**
      * Constructs a new exception with the specified cause.
      *
+     * <p>Except for testing, IKE library users normally do not instantiate this object themselves
+     * but instead get a reference via {@link IkeSessionCallback} or {@link ChildSessionCallback}.
+     *
      * @param cause the cause (which is saved for later retrieval by the {@link #getCause()}
      *     method).
-     * @hide
      */
-    public IkeInternalException(Throwable cause) {
+    public IkeInternalException(@NonNull Throwable cause) {
         super(cause);
     }
 
     /**
      * Constructs a new exception with the specified cause.
      *
-     * @param message the descriptive message.
+     * <p>Except for testing, IKE library users normally do not instantiate this object themselves
+     * but instead get a reference via {@link IkeSessionCallback} or {@link ChildSessionCallback}.
+     *
+     * @param message the descriptive message (which is saved for later retrieval by the {@link
+     *     #getMessage()} method).
      * @param cause the cause (which is saved for later retrieval by the {@link #getCause()}
      *     method).
-     * @hide
      */
-    public IkeInternalException(String message, Throwable cause) {
+    public IkeInternalException(@NonNull String message, @NonNull Throwable cause) {
         super(message, cause);
     }
 }

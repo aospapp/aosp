@@ -17,7 +17,7 @@
 include "actions/actions-entity-data.fbs";
 include "annotator/model.fbs";
 include "utils/codepoint-range.fbs";
-include "utils/flatbuffers.fbs";
+include "utils/flatbuffers/flatbuffers.fbs";
 include "utils/grammar/rules.fbs";
 include "utils/intents/intent-config.fbs";
 include "utils/normalization.fbs";
@@ -75,13 +75,10 @@ table TensorflowLiteModelSpec {
   // int, the number of smart replies to produce.
   input_num_suggestions:int = 4;
 
-  // float, the output diversification distance parameter.
   reserved_7:int (deprecated);
 
-  // float, the empirical probability factor parameter.
   reserved_8:int (deprecated);
 
-  // float, the confidence threshold.
   reserved_9:int (deprecated);
 
   // Input port for hashed and embedded tokens, a (num messages, max tokens,
@@ -119,6 +116,10 @@ table TensorflowLiteModelSpec {
 
   // Map of additional input tensor name to its index.
   input_name_index:[TensorflowLiteModelSpec_.InputNameIndexEntry];
+
+  // If greater than 0, pad or truncate the input_user_id and input_context
+  // tensor to length of input_length_to_pad.
+  input_length_to_pad:int = 0;
 }
 
 // Configuration for the tokenizer.
@@ -245,6 +246,17 @@ table NGramLinearRegressionModel {
   tokenizer_options:ActionsTokenizerOptions;
 }
 
+// TFLite based sensitive topic classifier model.
+namespace libtextclassifier3;
+table TFLiteSensitiveClassifierConfig {
+  // Specification of the model.
+  model_spec:TensorflowLiteModelSpec;
+
+  // Triggering threshold, if a sensitive topic has a score higher than this
+  // value, it triggers the classifier.
+  threshold:float;
+}
+
 namespace libtextclassifier3;
 table TriggeringPreconditions {
   // Lower bound thresholds for the smart reply model prediction output.
@@ -280,7 +292,9 @@ table TriggeringPreconditions {
   low_confidence_rules:RulesModel;
 
   reserved_11:float (deprecated);
+
   reserved_12:float (deprecated);
+
   reserved_13:float (deprecated);
 
   // Smart reply thresholds.
@@ -551,6 +565,8 @@ table ActionsModel {
 
   // Feature processor options.
   feature_processor_options:ActionsTokenFeatureProcessorOptions;
+
+  low_confidence_tflite_model:TFLiteSensitiveClassifierConfig;
 }
 
 root_type libtextclassifier3.ActionsModel;

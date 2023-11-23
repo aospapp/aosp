@@ -45,6 +45,20 @@ public class MediaSizes {
     private static final String JIS_B5 = "jis_b5_182x257mm";
     public static final String OE_PHOTO_L = "oe_photo-l_3.5x5in";
     private static final String NA_GOVT_LETTER = "na_govt-letter_8x10in";
+    private static final String ISO_A0 = "iso_a0_841x1189mm";
+    private static final String ISO_A1 = "iso_a1_594x841mm";
+    private static final String ISO_A2 = "iso_a2_420x594mm";
+    private static final String ARCH_A = "na_arch-a_9x12in";
+    private static final String ARCH_B = "na_arch-b_12x18in";
+    private static final String ARCH_C = "na_arch-c_18x24in";
+    private static final String ARCH_D = "na_arch-d_24x36in";
+    private static final String ARCH_E = "na_arch-e_36x48in";
+    private static final String ARCH_E1 = "na_wide-format_30x42in";
+    private static final String ANSI_C = "na_c_17x22in";
+    private static final String ANSI_D = "na_d_22x34in";
+    private static final String ANSI_E = "na_e_34x44in";
+    private static final String ANSI_F = "asme_f_28x40in";
+    private static final String SUPER_B = "na_super-b_13x19in";
 
     /** The backend string name for the default media size */
     static final String DEFAULT_MEDIA_NAME = ISO_A4;
@@ -68,14 +82,28 @@ public class MediaSizes {
         sCodeToStringMap.put(3, LEGAL);
         sCodeToStringMap.put(7, NA_GOVT_LETTER);
         sCodeToStringMap.put(11, NA_LEDGER_11X17);
+        sCodeToStringMap.put(12, ANSI_C);
+        sCodeToStringMap.put(13, ANSI_D);
+        sCodeToStringMap.put(14, ANSI_E);
+        sCodeToStringMap.put(16, SUPER_B);
         sCodeToStringMap.put(25, ISO_A5);
         sCodeToStringMap.put(26, ISO_A4);
         sCodeToStringMap.put(27, ISO_A3);
+        sCodeToStringMap.put(28, ISO_A2);
+        sCodeToStringMap.put(29, ISO_A1);
+        sCodeToStringMap.put(30, ISO_A0);
         sCodeToStringMap.put(45, JIS_B5);
         sCodeToStringMap.put(46, JIS_B4);
         sCodeToStringMap.put(71, JPN_HAGAKI);
         sCodeToStringMap.put(74, PHOTO_4x6in);
         sCodeToStringMap.put(122, PHOTO_5x7);
+        sCodeToStringMap.put(176, ARCH_A);
+        sCodeToStringMap.put(177, ARCH_B);
+        sCodeToStringMap.put(178, ARCH_C);
+        sCodeToStringMap.put(179, ARCH_D);
+        sCodeToStringMap.put(180, ARCH_E);
+        sCodeToStringMap.put(181, ARCH_E1);
+        sCodeToStringMap.put(182, ANSI_F);
         sCodeToStringMap.put(302, OM_DSC_PHOTO);
         sCodeToStringMap.put(303, OM_CARD);
         sCodeToStringMap.put(304, OE_PHOTO_L);
@@ -93,6 +121,20 @@ public class MediaSizes {
         mNameToSizeMap.put(JIS_B4, PrintAttributes.MediaSize.JIS_B4);
         mNameToSizeMap.put(JIS_B5, PrintAttributes.MediaSize.JIS_B5);
         mNameToSizeMap.put(NA_LEDGER_11X17, PrintAttributes.MediaSize.NA_TABLOID);
+        mNameToSizeMap.put(ISO_A0, PrintAttributes.MediaSize.ISO_A0);
+        mNameToSizeMap.put(ISO_A1, PrintAttributes.MediaSize.ISO_A1);
+        mNameToSizeMap.put(ISO_A2, PrintAttributes.MediaSize.ISO_A2);
+        mNameToSizeMap.put(ANSI_C, PrintAttributes.MediaSize.ANSI_C);
+        mNameToSizeMap.put(ANSI_D, PrintAttributes.MediaSize.ANSI_D);
+        mNameToSizeMap.put(ANSI_E, PrintAttributes.MediaSize.ANSI_E);
+        mNameToSizeMap.put(ANSI_F, PrintAttributes.MediaSize.ANSI_F);
+        mNameToSizeMap.put(ARCH_A, PrintAttributes.MediaSize.NA_ARCH_A);
+        mNameToSizeMap.put(ARCH_B, PrintAttributes.MediaSize.NA_ARCH_B);
+        mNameToSizeMap.put(ARCH_C, PrintAttributes.MediaSize.NA_ARCH_C);
+        mNameToSizeMap.put(ARCH_D, PrintAttributes.MediaSize.NA_ARCH_D);
+        mNameToSizeMap.put(ARCH_E, PrintAttributes.MediaSize.NA_ARCH_E);
+        mNameToSizeMap.put(ARCH_E1, PrintAttributes.MediaSize.NA_ARCH_E1);
+        mNameToSizeMap.put(SUPER_B, PrintAttributes.MediaSize.NA_SUPER_B);
 
         // Custom media sizes
         mNameToSizeMap.put(PHOTO_4x6in, new PrintAttributes.MediaSize(

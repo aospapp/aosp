@@ -55,10 +55,7 @@ public class AutoRestoreHostSideTest extends BaseBackupHostSideTest {
     }
 
     @After
-    @Override
     public void tearDown() throws Exception {
-        super.tearDown();
-
         if (mWasAutoRestoreEnabled.isPresent()) {
             mBackupUtils.executeShellCommandSync(
                     "bmgr autorestore " + (mWasAutoRestoreEnabled.get() ? "true" : "false"));

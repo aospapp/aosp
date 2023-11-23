@@ -13,6 +13,10 @@
 // limitations under the License.
 
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "cts-keystore-user-auth-helper-library",
 
@@ -35,26 +39,25 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     libs: [
         "bouncycastle-unbundled",
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
     static_libs: [
         "androidx.test.rules",
-        "core-tests-support",
         "compatibility-device-util-axt",
-        "ctstestrunner-axt",
-        "hamcrest-library",
-        "guava",
-        "junit",
-        "cts-security-test-support-library",
+        "core-tests-support",
         "cts-keystore-user-auth-helper-library",
-        "platformprotosnano",
+        "cts-security-test-support-library",
         "cts-wm-util",
+        "ctstestrunner-axt",
+        "guava",
+        "hamcrest-library",
+        "junit",
+        "platformprotosnano",
         "testng",
     ],
     srcs: ["src/android/keystore/**/*.java"],

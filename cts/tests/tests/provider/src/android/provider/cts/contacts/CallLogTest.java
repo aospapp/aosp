@@ -16,11 +16,35 @@
 
 package android.provider.cts.contacts;
 
+import static org.junit.Assert.assertArrayEquals;
+
+import android.Manifest;
+import android.app.ActivityManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.OutcomeReceiver;
+import android.os.ParcelFileDescriptor;
+import android.os.UserHandle;
 import android.provider.CallLog;
+import android.provider.cts.R;
 import android.test.InstrumentationTestCase;
+import android.util.Pair;
+
+import androidx.annotation.NonNull;
+
+import com.android.compatibility.common.util.ShellIdentityUtils;
+import com.android.compatibility.common.util.ShellUtils;
+
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class CallLogTest extends InstrumentationTestCase {
 
@@ -73,6 +97,128 @@ public class CallLogTest extends InstrumentationTestCase {
                 CONTENT_RESOLVER_TIMEOUT_MS,
                 "getLastOutgoingCall did not return " + TEST_NUMBER + " as expected"
         );
+    }
+
+    public void testLocationStorageAndRetrieval() {
+        Context context = getInstrumentation().getContext();
+
+        if (!context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            // This is tied to default-dialer, so don't test if the device doesn't have telephony.
+            return;
+        }
+
+        UserHandle currentUser = UserHandle.of(
+                ShellIdentityUtils.invokeStaticMethodWithShellPermissions(
+                        () -> ActivityManager.getCurrentUser()));
+        CallLog.AddCallParams.AddCallParametersBuilder builder =
+                new CallLog.AddCallParams.AddCallParametersBuilder();
+        builder.setAddForAllUsers(false);
+        builder.setUserToBeInsertedTo(currentUser);
+        // Some random spot in the North Atlantic
+        double lat = 24.877323;
+        double lon = -68.952545;
+        builder.setLatitude(lat);
+        builder.setLongitude(lon);
+        ShellUtils.runShellCommand("telecom set-default-dialer %s",
+                getInstrumentation().getContext().getPackageName());
+
+        try {
+            Uri uri;
+            getInstrumentation().getUiAutomation()
+                    .adoptShellPermissionIdentity(Manifest.permission.INTERACT_ACROSS_USERS,
+                            Manifest.permission.READ_VOICEMAIL);
+            try {
+                uri = CallLog.Calls.addCall(context, builder.build());
+            } finally {
+                getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+            }
+            assertNotNull(uri);
+
+            Cursor cursor = context.getContentResolver().query(
+                    uri, new String[]{CallLog.Calls.LOCATION}, null, null);
+            assertEquals(1, cursor.getCount());
+            cursor.moveToFirst();
+            String locationUriString = cursor.getString(
+                    cursor.getColumnIndex(CallLog.Calls.LOCATION));
+            assertNotNull(locationUriString);
+
+            Uri locationUri = Uri.parse(locationUriString);
+            Cursor locationCursor = context.getContentResolver().query(locationUri,
+                    new String[]{CallLog.Locations.LATITUDE, CallLog.Locations.LONGITUDE}, null,
+                    null);
+            assertEquals(1, locationCursor.getCount());
+            locationCursor.moveToFirst();
+            double storedLat = locationCursor.getDouble(
+                    locationCursor.getColumnIndex(CallLog.Locations.LATITUDE));
+            double storedLon = locationCursor.getDouble(
+                    locationCursor.getColumnIndex(CallLog.Locations.LONGITUDE));
+            assertEquals(lat, storedLat);
+            assertEquals(lon, storedLon);
+        } finally {
+            ShellUtils.runShellCommand("telecom set-default-dialer default");
+        }
+    }
+
+    public void testCallComposerImageStorage() throws Exception {
+        Context context = getInstrumentation().getContext();
+        byte[] expected = readResourceDrawable(context, R.drawable.testimage);
+
+        CompletableFuture<Pair<Uri, CallLog.CallComposerLoggingException>> resultFuture =
+                new CompletableFuture<>();
+        Pair<Uri, CallLog.CallComposerLoggingException> result;
+        try (InputStream inputStream =
+                     context.getResources().openRawResource(R.drawable.testimage)) {
+            CallLog.storeCallComposerPicture(
+                    context.createContextAsUser(android.os.Process.myUserHandle(), 0),
+                    inputStream,
+                    Executors.newSingleThreadExecutor(),
+                    new OutcomeReceiver<Uri, CallLog.CallComposerLoggingException>() {
+                        @Override
+                        public void onResult(@NonNull Uri result) {
+                            resultFuture.complete(Pair.create(result, null));
+                        }
+
+                        @Override
+                        public void onError(CallLog.CallComposerLoggingException error) {
+                            resultFuture.complete(Pair.create(null, error));
+                        }
+                    });
+           result = resultFuture.get(CONTENT_RESOLVER_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        }
+        if (result.second != null) {
+            fail("Got error " + result.second.getErrorCode() + " when storing image");
+        }
+        Uri imageLocation = result.first;
+
+        try (ParcelFileDescriptor pfd =
+                context.getContentResolver().openFileDescriptor(imageLocation, "r")) {
+            byte[] remoteBytes = readBytes(new FileInputStream(pfd.getFileDescriptor()));
+            assertArrayEquals(expected, remoteBytes);
+        }
+    }
+
+    public void testCallComposerLoggingException() {
+        CallLog.CallComposerLoggingException e =
+                new CallLog.CallComposerLoggingException(
+                        CallLog.CallComposerLoggingException.ERROR_STORAGE_FULL);
+        assertEquals(CallLog.CallComposerLoggingException.ERROR_STORAGE_FULL,
+                e.getErrorCode());
+    }
+
+    private byte[] readResourceDrawable(Context context, int id) throws Exception {
+        InputStream inputStream = context.getResources().openRawResource(id);
+        return readBytes(inputStream);
+    }
+
+    private byte[] readBytes(InputStream inputStream) throws Exception {
+        byte[] buffer = new byte[1024];
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        int numRead;
+        do {
+            numRead = inputStream.read(buffer);
+            if (numRead > 0) output.write(buffer, 0, numRead);
+        } while (numRead > 0);
+        return output.toByteArray();
     }
 
     private void waitUntilConditionIsTrueOrTimeout(Condition condition, long timeout,

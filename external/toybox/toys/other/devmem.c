@@ -10,9 +10,8 @@ config DEVMEM
   help
     usage: devmem ADDR [WIDTH [DATA]]
 
-    Read/write physical address via /dev/mem.
-
-    WIDTH is 1, 2, 4, or 8 bytes (default 4).
+    Read/write physical address. WIDTH is 1, 2, 4, or 8 bytes (default 4).
+    Prefix ADDR with 0x for hexadecimal, output is in same base as address.
 */
 
 #define FOR_devmem
@@ -20,15 +19,16 @@ config DEVMEM
 
 void devmem_main(void)
 {
-  int writing = toys.optc == 3, page_size = getpagesize(), bytes = 4, fd;
-  unsigned long long addr = atolx(toys.optargs[0]), data = 0, map_off, map_len;
+  int writing = toys.optc == 3, page_size = sysconf(_SC_PAGESIZE), bytes = 4,fd;
+  unsigned long long data = 0, map_off, map_len;
+  unsigned long addr = atolx(*toys.optargs);
   void *map, *p;
 
   // WIDTH?
   if (toys.optc>1) {
     int i;
 
-    if (strlen(toys.optargs[1])!=1 || (i=stridx("1248", *toys.optargs[1]))==-1)
+    if ((i=stridx("1248", *toys.optargs[1]))==-1 || toys.optargs[1][1])
       error_exit("bad width: %s", toys.optargs[1]);
     bytes = 1<<i;
   }
@@ -37,27 +37,31 @@ void devmem_main(void)
   if (writing) data = atolx_range(toys.optargs[2], 0, (1ULL<<(8*bytes))-1);
 
   // Map in just enough.
-  fd = xopen("/dev/mem", (writing ? O_RDWR : O_RDONLY) | O_SYNC);
-  map_off = addr & ~(page_size - 1);
-  map_len = (addr+bytes-map_off);
-  map = xmmap(NULL, map_len, writing ? PROT_WRITE : PROT_READ, MAP_SHARED, fd,
-      map_off);
-  p = map + (addr & (page_size - 1));
-  close(fd);
+  if (CFG_TOYBOX_FORK) {
+    fd = xopen("/dev/mem", (writing ? O_RDWR : O_RDONLY) | O_SYNC);
+
+    map_off = addr & ~(page_size - 1);
+    map_len = (addr+bytes-map_off);
+    map = xmmap(0, map_len, writing ? PROT_WRITE : PROT_READ, MAP_SHARED, fd,
+        map_off);
+    p = map + (addr & (page_size - 1));
+    close(fd);
+  } else p = (void *)addr;
 
   // Not using peek()/poke() because registers care about size of read/write
   if (writing) {
-    if (bytes == 1) *(char *)p = data;
-    else if (bytes == 2) *(short *)p = data;
-    else if (bytes == 4) *(int *)p = data;
-    else if (bytes == 8) *(long long *)p = data;
+    if (bytes == 1) *(unsigned char *)p = data;
+    else if (bytes == 2) *(unsigned short *)p = data;
+    else if (bytes == 4) *(unsigned int *)p = data;
+    else if (bytes == 8) *(unsigned long long *)p = data;
   } else {
-    if (bytes == 1) data = *(char *)p;
-    else if (bytes == 2) data = *(short *)p;
-    else if (bytes == 4) data = *(int *)p;
-    else if (bytes == 8) data = *(long long *)p;
-    printf("%#0*llx\n", bytes*2, data);
+    if (bytes == 1) data = *(unsigned char *)p;
+    else if (bytes == 2) data = *(unsigned short *)p;
+    else if (bytes == 4) data = *(unsigned int *)p;
+    else if (bytes == 8) data = *(unsigned long long *)p;
+    printf((!strchr(*toys.optargs, 'x')) ? "%0*lld\n" : "0x%0*llx\n",
+      bytes*2, data);
   }
 
-  munmap(map, map_len);
+  if (CFG_TOYBOX_FORK) munmap(map, map_len);
 }

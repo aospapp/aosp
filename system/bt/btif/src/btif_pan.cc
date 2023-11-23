@@ -27,59 +27,34 @@
 
 #define LOG_TAG "bt_btif_pan"
 
+#include <arpa/inet.h>
 #include <base/bind.h>
-#include <base/logging.h>
-#include <ctype.h>
-#include <errno.h>
+#include <base/location.h>
 #include <fcntl.h>
 #include <linux/if_ether.h>
 #include <linux/if_tun.h>
-#include <linux/sockios.h>
 #include <net/if.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <signal.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/poll.h>
-#include <sys/prctl.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
-#include <hardware/bluetooth.h>
-#include <hardware/bt_pan.h>
+#include "bt_target.h"  // Must be first to define build configuration
 
-#include "bt_common.h"
-#include "bta_api.h"
-#include "bta_pan_api.h"
-#include "btif_common.h"
-#include "btif_pan_internal.h"
-#include "btif_sock_thread.h"
-#include "btif_sock_util.h"
-#include "btif_util.h"
-#include "btm_api.h"
+#include "bta/include/bta_pan_api.h"
+#include "btif/include/btif_common.h"
+#include "btif/include/btif_pan_internal.h"
+#include "btif/include/btif_sock_thread.h"
 #include "device/include/controller.h"
+#include "include/hardware/bt_pan.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
-#include "stack/include/btu.h"
+#include "stack/include/btu.h"  // do_in_main_thread
+#include "stack/include/pan_api.h"
 
 #define FORWARD_IGNORE 1
 #define FORWARD_SUCCESS 0
 #define FORWARD_FAILURE (-1)
 #define FORWARD_CONGEST (-2)
-
-#if (PAN_NAP_DISABLED == TRUE && PANU_DISABLED == TRUE)
-#define BTPAN_LOCAL_ROLE BTPAN_ROLE_NONE
-#elif PAN_NAP_DISABLED == TRUE
-#define BTPAN_LOCAL_ROLE BTPAN_ROLE_PANU
-#elif PANU_DISABLED == TRUE
-#define BTPAN_LOCAL_ROLE BTPAN_ROLE_PANNAP
-#else
-#define BTPAN_LOCAL_ROLE (BTPAN_ROLE_PANU | BTPAN_ROLE_PANNAP)
-#endif
 
 #define asrt(s)                                                          \
   do {                                                                   \
@@ -110,7 +85,7 @@ static void bta_pan_callback(tBTA_PAN_EVT event, tBTA_PAN* p_data);
 static void btu_exec_tap_fd_read(const int fd);
 
 static btpan_interface_t pan_if = {
-    sizeof(pan_if), btpan_jni_init,   btpan_enable,     btpan_get_local_role,
+    sizeof(pan_if), btpan_jni_init,   nullptr,          btpan_get_local_role,
     btpan_connect,  btpan_disconnect, btpan_jni_cleanup};
 
 const btpan_interface_t* btif_pan_get_interface() { return &pan_if; }
@@ -138,7 +113,15 @@ void btif_pan_init() {
       btpan_cleanup_conn(&btpan_cb.conns[i]);
     BTA_PanEnable(bta_pan_callback);
     btpan_cb.enabled = 1;
-    btpan_enable(BTPAN_LOCAL_ROLE);
+
+    int role = BTPAN_ROLE_NONE;
+#if PAN_NAP_DISABLED == FALSE
+    role |= BTPAN_ROLE_PANNAP;
+#endif
+#if PANU_DISABLED == FALSE
+    role |= BTPAN_ROLE_PANU;
+#endif
+    btpan_enable(role);
   }
 }
 
@@ -197,16 +180,15 @@ static inline int btpan_role_to_bta(int btpan_role) {
 
 static volatile int btpan_dev_local_role;
 #if (BTA_PAN_INCLUDED == TRUE)
-static tBTA_PAN_ROLE_INFO bta_panu_info = {PANU_SERVICE_NAME, 0, PAN_SECURITY};
-static tBTA_PAN_ROLE_INFO bta_pan_nap_info = {PAN_NAP_SERVICE_NAME, 1,
-                                              PAN_SECURITY};
+static tBTA_PAN_ROLE_INFO bta_panu_info = {PANU_SERVICE_NAME, 0};
+static tBTA_PAN_ROLE_INFO bta_pan_nap_info = {PAN_NAP_SERVICE_NAME, 1};
 #endif
 
 static bt_status_t btpan_enable(int local_role) {
 #if (BTA_PAN_INCLUDED == TRUE)
   BTIF_TRACE_DEBUG("%s - local_role: %d", __func__, local_role);
   int bta_pan_role = btpan_role_to_bta(local_role);
-  BTA_PanSetRole(bta_pan_role, &bta_panu_info, NULL, &bta_pan_nap_info);
+  BTA_PanSetRole(bta_pan_role, &bta_panu_info, &bta_pan_nap_info);
   btpan_dev_local_role = local_role;
   return BT_STATUS_SUCCESS;
 #else
@@ -420,8 +402,7 @@ int btpan_tap_send(int tap_fd, const RawAddress& src, const RawAddress& dst,
     char packet[TAP_MAX_PKT_WRITE_LEN + sizeof(tETH_HDR)];
     memcpy(packet, &eth_hdr, sizeof(tETH_HDR));
     if (len > TAP_MAX_PKT_WRITE_LEN) {
-      LOG_ERROR(LOG_TAG, "btpan_tap_send eth packet size:%d is exceeded limit!",
-                len);
+      LOG_ERROR("btpan_tap_send eth packet size:%d is exceeded limit!", len);
       return -1;
     }
     memcpy(packet + sizeof(tETH_HDR), buf, len);
@@ -616,7 +597,7 @@ static void bta_pan_callback_transfer(uint16_t event, char* p_param) {
       bt_status_t status;
       btpan_conn_t* conn = btpan_find_conn_handle(p_data->open.handle);
 
-      LOG_VERBOSE(LOG_TAG, "%s pan connection open status: %d", __func__,
+      LOG_VERBOSE("%s pan connection open status: %d", __func__,
                   p_data->open.status);
       if (p_data->open.status == BTA_PAN_SUCCESS) {
         state = BTPAN_STATE_CONNECTED;
@@ -638,7 +619,7 @@ static void bta_pan_callback_transfer(uint16_t event, char* p_param) {
       break;
     }
     case BTA_PAN_CLOSE_EVT: {
-      LOG_INFO(LOG_TAG, "%s: event = BTA_PAN_CLOSE_EVT handle %d", __func__,
+      LOG_INFO("%s: event = BTA_PAN_CLOSE_EVT handle %d", __func__,
                p_data->close.handle);
       btpan_conn_t* conn = btpan_find_conn_handle(p_data->close.handle);
       btpan_close_conn(conn);

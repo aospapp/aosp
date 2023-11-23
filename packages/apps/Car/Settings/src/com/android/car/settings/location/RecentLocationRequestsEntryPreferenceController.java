@@ -16,7 +16,6 @@
 
 package com.android.car.settings.location;
 
-import android.app.Service;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -24,6 +23,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.location.LocationManager;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
@@ -35,7 +35,8 @@ import com.android.car.settings.common.PreferenceController;
 public class RecentLocationRequestsEntryPreferenceController extends
         PreferenceController<Preference> {
 
-    private static final IntentFilter INTENT_FILTER_LOCATION_MODE_CHANGED =
+    @VisibleForTesting
+    static final IntentFilter INTENT_FILTER_LOCATION_MODE_CHANGED =
             new IntentFilter(LocationManager.MODE_CHANGED_ACTION);
 
     private final LocationManager mLocationManager;
@@ -49,8 +50,7 @@ public class RecentLocationRequestsEntryPreferenceController extends
     public RecentLocationRequestsEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mLocationManager = (LocationManager) getContext().getSystemService(
-                Service.LOCATION_SERVICE);
+        mLocationManager = getContext().getSystemService(LocationManager.class);
     }
 
 

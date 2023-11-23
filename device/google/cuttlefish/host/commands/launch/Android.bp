@@ -13,28 +13,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_binary_host {
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_binary {
     name: "launch_cvd",
     srcs: [
         "filesystem_explorer.cc",
         "flag_forwarder.cc",
         "launch_cvd.cc",
     ],
-    header_libs: [
-        "cuttlefish_glog",
-    ],
     shared_libs: [
         "libcuttlefish_fs",
         "libcuttlefish_utils",
         "libbase",
+        "libjsoncpp",
         "libnl",
+        "libxml2",
+        "libz",
     ],
     static_libs: [
         "libcuttlefish_host_config",
         "libcuttlefish_vm_manager",
         "libgflags",
-        "libxml2",
-        "libjsoncpp",
     ],
-    defaults: ["cuttlefish_host_only", "cuttlefish_libicuuc"],
+    required: [
+        "mkenvimage",
+    ],
+    defaults: ["cuttlefish_host", "cuttlefish_libicuuc"],
 }

@@ -24,12 +24,13 @@ import com.google.common.truth.Truth;
 
 import javax.annotation.Nullable;
 
-final class PackageInstallerSessionInfoSubject extends
-        Subject<PackageInstallerSessionInfoSubject, PackageInstaller.SessionInfo> {
+final class PackageInstallerSessionInfoSubject extends Subject {
+    private final PackageInstaller.SessionInfo mActual;
 
     private PackageInstallerSessionInfoSubject(FailureMetadata failureMetadata,
             @Nullable PackageInstaller.SessionInfo subject) {
         super(failureMetadata, subject);
+        mActual = subject;
     }
 
     private static Subject.Factory<PackageInstallerSessionInfoSubject,
@@ -50,18 +51,15 @@ final class PackageInstallerSessionInfoSubject extends
     }
 
     public void isStagedSessionReady() {
-        check().withMessage(failureMessage("in state READY")).that(
-                getSubject().isStagedSessionReady()).isTrue();
+        check(failureMessage("in state READY")).that(mActual.isStagedSessionReady()).isTrue();
     }
 
     public void isStagedSessionApplied() {
-        check().withMessage(failureMessage("in state APPLIED")).that(
-                getSubject().isStagedSessionApplied()).isTrue();
+        check(failureMessage("in state APPLIED")).that(mActual.isStagedSessionApplied()).isTrue();
     }
 
     public void isStagedSessionFailed() {
-        check().withMessage(failureMessage("in state FAILED")).that(
-                getSubject().isStagedSessionFailed()).isTrue();
+        check(failureMessage("in state FAILED")).that(mActual.isStagedSessionFailed()).isTrue();
     }
 
     private String failureMessage(String suffix) {
@@ -69,12 +67,11 @@ final class PackageInstallerSessionInfoSubject extends
     }
 
     private String subjectAsString() {
-        PackageInstaller.SessionInfo session = getSubject();
-        return "{" + "appPackageName = " + session.getAppPackageName() + "; "
-                + "sessionId = " + session.getSessionId() + "; "
-                + "isStagedSessionReady = " + session.isStagedSessionReady() + "; "
-                + "isStagedSessionApplied = " + session.isStagedSessionApplied() + "; "
-                + "isStagedSessionFailed = " + session.isStagedSessionFailed() + "; "
-                + "stagedSessionErrorMessage = " + session.getStagedSessionErrorMessage() + "}";
+        return "{" + "appPackageName = " + mActual.getAppPackageName() + "; "
+                + "sessionId = " + mActual.getSessionId() + "; "
+                + "isStagedSessionReady = " + mActual.isStagedSessionReady() + "; "
+                + "isStagedSessionApplied = " + mActual.isStagedSessionApplied() + "; "
+                + "isStagedSessionFailed = " + mActual.isStagedSessionFailed() + "; "
+                + "stagedSessionErrorMessage = " + mActual.getStagedSessionErrorMessage() + "}";
     }
 }

@@ -8,7 +8,7 @@
 ** limitations under the License.
 */
 -->
-<manifest version="1.0" type="device" target-level="5">
+<manifest version="1.0" type="device">
     <hal format="hidl">
         <name>android.hardware.automotive.vehicle</name>
         <transport>hwbinder</transport>

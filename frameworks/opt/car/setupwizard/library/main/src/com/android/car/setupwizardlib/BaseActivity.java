@@ -16,12 +16,12 @@
 
 package com.android.car.setupwizardlib;
 
-import android.annotation.CallSuper;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 
+import androidx.annotation.CallSuper;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.StyleRes;
 import androidx.annotation.VisibleForTesting;

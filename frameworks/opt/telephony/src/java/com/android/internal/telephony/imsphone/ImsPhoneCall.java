@@ -17,6 +17,7 @@
 package com.android.internal.telephony.imsphone;
 
 import android.compat.annotation.UnsupportedAppUsage;
+import android.os.Build;
 import android.telephony.DisconnectCause;
 import android.telephony.ims.ImsStreamMediaProfile;
 import android.util.Log;
@@ -89,7 +90,7 @@ public class ImsPhoneCall extends Call {
 
     /************************** Overridden from Call *************************/
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public ArrayList<Connection> getConnections() {
         return super.getConnections();
@@ -115,7 +116,7 @@ public class ImsPhoneCall extends Call {
     /** Please note: if this is the foreground call and a
      *  background call exists, the background call will be resumed.
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @Override
     public void
     hangup() throws CallStateException {
@@ -173,7 +174,7 @@ public class ImsPhoneCall extends Call {
         mOwner.logState();
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public void attach(Connection conn, State state) {
         if (VDBG) {
             Rlog.v(LOG_TAG, "attach : " + mCallContext + " state = " +
@@ -183,7 +184,7 @@ public class ImsPhoneCall extends Call {
         mState = state;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public void attachFake(Connection conn, State state) {
         attach(conn, state);
     }
@@ -243,7 +244,7 @@ public class ImsPhoneCall extends Call {
     /**
      * Called when this Call is being hung up locally (eg, user pressed "end")
      */
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     @VisibleForTesting
     public void onHangupLocal() {
         ArrayList<Connection> connections = getConnections();
@@ -286,7 +287,7 @@ public class ImsPhoneCall extends Call {
         }
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     /* package */ void
     merge(ImsPhoneCall that, State state) {
         // This call is the conference host and the "that" call is the one being merged in.
@@ -320,7 +321,7 @@ public class ImsPhoneCall extends Call {
      * @return The {@link ImsCall}.
      */
     @VisibleForTesting
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     public ImsCall getImsCall() {
         ImsPhoneConnection connection = getFirstConnection();
         return (connection == null) ? null : connection.getImsCall();
@@ -333,31 +334,20 @@ public class ImsPhoneCall extends Call {
         }
 
         ImsStreamMediaProfile mediaProfile = imsCall.getCallProfile().mMediaProfile;
-
-        return (mediaProfile.mAudioDirection == ImsStreamMediaProfile.DIRECTION_INACTIVE)
-                ? true : false;
+        boolean shouldPlayRingback =
+                (mediaProfile.mAudioDirection == ImsStreamMediaProfile.DIRECTION_INACTIVE)
+                        ? true : false;
+        Rlog.i(LOG_TAG, "isLocalTone: audioDirection=" + mediaProfile.mAudioDirection
+                + ", playRingback=" + shouldPlayRingback);
+        return shouldPlayRingback;
     }
 
-    public boolean update (ImsPhoneConnection conn, ImsCall imsCall, State state) {
+    public boolean update(ImsPhoneConnection conn, ImsCall imsCall, State state) {
         boolean changed = false;
         State oldState = mState;
 
-        //ImsCall.Listener.onCallProgressing can be invoked several times
-        //and ringback tone mode can be changed during the call setup procedure
-        if (state == State.ALERTING) {
-            if (mIsRingbackTonePlaying && !isLocalTone(imsCall)) {
-                getPhone().stopRingbackTone();
-                mIsRingbackTonePlaying = false;
-            } else if (!mIsRingbackTonePlaying && isLocalTone(imsCall)) {
-                getPhone().startRingbackTone();
-                mIsRingbackTonePlaying = true;
-            }
-        } else {
-            if (mIsRingbackTonePlaying) {
-                getPhone().stopRingbackTone();
-                mIsRingbackTonePlaying = false;
-            }
-        }
+        // We will try to start or stop ringback whenever the call has major call state changes.
+        maybeChangeRingbackState(imsCall, state);
 
         if ((state != mState) && (state != State.DISCONNECTED)) {
             mState = state;
@@ -371,6 +361,43 @@ public class ImsPhoneCall extends Call {
         }
 
         return changed;
+    }
+
+    /**
+     * Determines whether to change the ringback state for a call.
+     * @param imsCall The call.
+     */
+    public void maybeChangeRingbackState(ImsCall imsCall) {
+        maybeChangeRingbackState(imsCall, mState);
+    }
+
+    /**
+     * Determines whether local ringback should be playing for the call.  We will play local
+     * ringback when a call is in an ALERTING state and the audio direction is DIRECTION_INACTIVE.
+     * @param imsCall The call the change pertains to.
+     * @param state The current state of the call.
+     */
+    private void maybeChangeRingbackState(ImsCall imsCall, State state) {
+        //ImsCall.Listener.onCallProgressing can be invoked several times
+        //and ringback tone mode can be changed during the call setup procedure
+        Rlog.i(LOG_TAG, "maybeChangeRingbackState: state=" + state);
+        if (state == State.ALERTING) {
+            if (mIsRingbackTonePlaying && !isLocalTone(imsCall)) {
+                Rlog.i(LOG_TAG, "maybeChangeRingbackState: stop ringback");
+                getPhone().stopRingbackTone();
+                mIsRingbackTonePlaying = false;
+            } else if (!mIsRingbackTonePlaying && isLocalTone(imsCall)) {
+                Rlog.i(LOG_TAG, "maybeChangeRingbackState: start ringback");
+                getPhone().startRingbackTone();
+                mIsRingbackTonePlaying = true;
+            }
+        } else {
+            if (mIsRingbackTonePlaying) {
+                Rlog.i(LOG_TAG, "maybeChangeRingbackState: stop ringback");
+                getPhone().stopRingbackTone();
+                mIsRingbackTonePlaying = false;
+            }
+        }
     }
 
     /* package */ ImsPhoneConnection
@@ -399,6 +426,10 @@ public class ImsPhoneCall extends Call {
             getPhone().stopRingbackTone();
             mIsRingbackTonePlaying = false;
         }
+    }
+
+    public boolean isRingbackTonePlaying() {
+        return mIsRingbackTonePlaying;
     }
 
     private void takeOver(ImsPhoneCall that) {

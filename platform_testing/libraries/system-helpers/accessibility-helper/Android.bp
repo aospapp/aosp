@@ -14,10 +14,14 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "accessibility-helper",
     libs: [
-        "android-support-test",
+        "androidx.test.rules",
         "ub-uiautomator",
         "settings-helper",
         "package-helper",

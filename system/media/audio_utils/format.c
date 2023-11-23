@@ -14,18 +14,14 @@
  * limitations under the License.
  */
 
-/* #define LOG_NDEBUG 0 */
-#define LOG_TAG "audio_utils_format"
-
-#include <log/log.h>
-
+#include <assert.h>
 #include <audio_utils/format.h>
 #include <audio_utils/primitives.h>
 
 void memcpy_by_audio_format(void *dst, audio_format_t dst_format,
         const void *src, audio_format_t src_format, size_t count)
 {
-    /* default cases for error falls through to fatal log below. */
+    /* default cases for error falls through to assert(false) below. */
     if (dst_format == src_format) {
         switch (dst_format) {
         case AUDIO_FORMAT_PCM_16_BIT:
@@ -160,8 +156,8 @@ void memcpy_by_audio_format(void *dst, audio_format_t dst_format,
     default:
         break;
     }
-    LOG_ALWAYS_FATAL("invalid src format %#x for dst format %#x",
-            src_format, dst_format);
+    // invalid src format for dst format
+    assert(false);
 }
 
 size_t memcpy_by_index_array_initialization_from_channel_mask(int8_t *idxary, size_t arysize,

@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import android.net.MacAddress;
 import android.net.wifi.ScanResult;
 import android.net.wifi.aware.PeerHandle;
+import android.net.wifi.cts.WifiBuildCompat;
 import android.net.wifi.rtt.RangingRequest;
 import android.net.wifi.rtt.RangingResult;
 import android.net.wifi.rtt.ResponderLocation;
@@ -51,6 +52,9 @@ public class WifiRttTest extends TestBase {
     // Maximum variation from the average measurement (measures consistency)
     private static final int MAX_VARIATION_FROM_AVERAGE_DISTANCE_MM = 2000;
 
+    // Maximum failure rate of one-sided RTT measurements (percentage)
+    private static final int MAX_NON11MC_FAILURE_RATE_PERCENT = 40;
+
     // Minimum valid RSSI value
     private static final int MIN_VALID_RSSI = -100;
 
@@ -68,19 +72,32 @@ public class WifiRttTest extends TestBase {
      *   - Failure ratio < threshold (constant)
      *   - Result margin < threshold (constant)
      */
-    public void testRangingToTestAp() throws InterruptedException {
+    public void testRangingToTest11mcAp() throws InterruptedException {
         if (!shouldTestWifiRtt(getContext())) {
             return;
         }
 
         // Scan for IEEE 802.11mc supporting APs
-        ScanResult testAp = scanForTestAp(NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP);
+        ScanResult testAp = scanForTest11mcCapableAp(NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP);
         assertNotNull(
                 "Cannot find any test APs which support RTT / IEEE 802.11mc - please verify that "
                         + "your test setup includes them!", testAp);
 
         // Perform RTT operations
-        RangingRequest request = new RangingRequest.Builder().addAccessPoint(testAp).build();
+        RangingRequest.Builder builder = new RangingRequest.Builder();
+        builder.addAccessPoint(testAp);
+        if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(getContext())) {
+            builder.setRttBurstSize(RangingRequest.getMaxRttBurstSize());
+            assertTrue(RangingRequest.getDefaultRttBurstSize()
+                    >= RangingRequest.getMinRttBurstSize());
+            assertTrue(RangingRequest.getDefaultRttBurstSize()
+                    <= RangingRequest.getMaxRttBurstSize());
+        }
+        RangingRequest request = builder.build();
+        if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(getContext())) {
+            assertEquals(1, request.getRttResponders().size());
+        }
+
         List<RangingResult> allResults = new ArrayList<>();
         int numFailures = 0;
         int distanceSum = 0;
@@ -116,6 +133,16 @@ public class WifiRttTest extends TestBase {
             int status = result.getStatus();
             statuses[i] = status;
             if (status == RangingResult.STATUS_SUCCESS) {
+                if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(getContext())) {
+                    assertEquals(
+                            "Wi-Fi RTT results: invalid result (wrong rttBurstSize) entry on "
+                                    + "iteration "
+                                    + i,
+                            result.getNumAttemptedMeasurements(),
+                            RangingRequest.getMaxRttBurstSize());
+                    assertTrue("Wi-Fi RTT results: should be a 802.11MC measurement",
+                            result.is80211mcMeasurement());
+                }
                 distanceSum += result.getDistanceMm();
                 if (i == 0) {
                     distanceMin = result.getDistanceMm();
@@ -198,22 +225,28 @@ public class WifiRttTest extends TestBase {
         if (!shouldTestWifiRtt(getContext())) {
             return;
         }
-        ScanResult testAp = scanForTestAp(NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP);
+        ScanResult testAp = scanForTest11mcCapableAp(NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP);
         assertNotNull(
                 "Cannot find any test APs which support RTT / IEEE 802.11mc - please verify that "
                         + "your test setup includes them!", testAp);
 
         RangingRequest.Builder builder = new RangingRequest.Builder();
-        for (int i = 0; i < RangingRequest.getMaxPeers() - 2; ++i) {
-            builder.addAccessPoint(testAp);
-        }
-
         List<ScanResult> scanResults = new ArrayList<>();
-        scanResults.add(testAp);
-        scanResults.add(testAp);
-        scanResults.add(testAp);
-
+        for (int i = 0; i < RangingRequest.getMaxPeers() - 2; ++i) {
+            scanResults.add(testAp);
+        }
         builder.addAccessPoints(scanResults);
+
+        ScanResult testApNon80211mc = null;
+        if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(getContext())) {
+            testApNon80211mc = scanForTestNon11mcCapableAp(NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP);
+        }
+        if (testApNon80211mc == null) {
+            builder.addAccessPoints(List.of(testAp, testAp, testAp));
+        } else {
+            builder.addNon80211mcCapableAccessPoints(List.of(testApNon80211mc, testApNon80211mc,
+                    testApNon80211mc));
+        }
 
         try {
             mWifiRttManager.startRanging(builder.build(), mExecutor, new ResultCallback());
@@ -233,7 +266,7 @@ public class WifiRttTest extends TestBase {
             return;
         }
         // Scan for IEEE 802.11mc supporting APs
-        ScanResult testAp = scanForTestAp(NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP);
+        ScanResult testAp = scanForTest11mcCapableAp(NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP);
         assertNotNull(
                 "Cannot find any test APs which support RTT / IEEE 802.11mc - please verify that "
                         + "your test setup includes them!", testAp);
@@ -383,7 +416,7 @@ public class WifiRttTest extends TestBase {
      * Verify ranging request with aware peer Mac address and peer handle.
      */
     public void testAwareRttWithMacAddress() throws InterruptedException {
-        if (!shouldTestWifiRtt(getContext())) {
+        if (!(shouldTestWifiRtt(getContext()) && shouldTestWifiAware(getContext()))) {
             return;
         }
         RangingRequest request = new RangingRequest.Builder()
@@ -402,7 +435,7 @@ public class WifiRttTest extends TestBase {
      * Verify ranging request with aware peer handle.
      */
     public void testAwareRttWithPeerHandle() throws InterruptedException {
-        if (!shouldTestWifiRtt(getContext())) {
+        if (!(shouldTestWifiRtt(getContext()) && shouldTestWifiAware(getContext()))) {
             return;
         }
         PeerHandle peerHandle = mock(PeerHandle.class);
@@ -415,5 +448,178 @@ public class WifiRttTest extends TestBase {
         List<RangingResult> rangingResults = callback.getResults();
         assertNotNull("Wi-Fi RTT results: null results", rangingResults);
         assertEquals("Invalid peerHandle should return 0 result", 0, rangingResults.size());
+    }
+
+    /**
+     * Test Wi-Fi One-sided RTT ranging operation:
+     * - Scan for visible APs for the test AP (which do not support IEEE 802.11mc) and are operating
+     * - in the 5GHz band.
+     * - Perform N (constant) RTT operations
+     * - Remove outliers while insuring greater than 50% of the results still remain
+     * - Validate:
+     *   - Failure ratio < threshold (constant)
+     *   - Result margin < threshold (constant)
+     */
+    public void testRangingToTestNon11mcAp() throws InterruptedException {
+        if (!shouldTestWifiRtt(getContext())
+                || !WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(getContext())) {
+            return;
+        }
+
+        // Scan for Non-IEEE 802.11mc supporting APs
+        ScanResult testAp = scanForTestNon11mcCapableAp(NUM_SCANS_SEARCHING_FOR_IEEE80211MC_AP);
+        assertNotNull(
+                "Cannot find any test APs which are Non-IEEE 802.11mc - please verify that"
+                        + " your test setup includes them!", testAp);
+
+        // Perform RTT operations
+        RangingRequest.Builder builder = new RangingRequest.Builder();
+        builder.addNon80211mcCapableAccessPoint(testAp);
+        builder.setRttBurstSize(RangingRequest.getMaxRttBurstSize());
+        RangingRequest request = builder.build();
+
+        List<RangingResult> allResults = new ArrayList<>();
+        int numFailures = 0;
+        int distanceSum = 0;
+        int distanceMin = 0;
+        int distanceMax = 0;
+        int[] statuses = new int[NUM_OF_RTT_ITERATIONS];
+        int[] distanceMms = new int[NUM_OF_RTT_ITERATIONS];
+        boolean[] distanceInclusionMap = new boolean[NUM_OF_RTT_ITERATIONS];
+        int[] distanceStdDevMms = new int[NUM_OF_RTT_ITERATIONS];
+        int[] rssis = new int[NUM_OF_RTT_ITERATIONS];
+        int[] numAttempted = new int[NUM_OF_RTT_ITERATIONS];
+        int[] numSuccessful = new int[NUM_OF_RTT_ITERATIONS];
+        long[] timestampsMs = new long[NUM_OF_RTT_ITERATIONS];
+        byte[] lastLci = null;
+        byte[] lastLcr = null;
+        for (int i = 0; i < NUM_OF_RTT_ITERATIONS; ++i) {
+            ResultCallback callback = new ResultCallback();
+            mWifiRttManager.startRanging(request, mExecutor, callback);
+            assertTrue("Wi-Fi RTT results: no callback on iteration " + i,
+                    callback.waitForCallback());
+
+            List<RangingResult> currentResults = callback.getResults();
+            assertNotNull(
+                    "Wi-Fi RTT results: null results (onRangingFailure) on iteration " + i,
+                    currentResults);
+            assertEquals(
+                    "Wi-Fi RTT results: unexpected # of results (expect 1) on iteration " + i,
+                    1, currentResults.size());
+            RangingResult result = currentResults.get(0);
+            assertEquals(
+                    "Wi-Fi RTT results: invalid result (wrong BSSID) entry on iteration " + i,
+                    result.getMacAddress().toString(), testAp.BSSID);
+
+            assertNull(
+                    "Wi-Fi RTT results: invalid result (non-null PeerHandle) entry on iteration "
+                            + i, result.getPeerHandle());
+
+            allResults.add(result);
+            int status = result.getStatus();
+            statuses[i] = status;
+            if (status == RangingResult.STATUS_SUCCESS) {
+                assertFalse("Wi-Fi RTT results: should not be a 802.11MC measurement",
+                        result.is80211mcMeasurement());
+                distanceSum += result.getDistanceMm();
+
+                assertTrue("Wi-Fi RTT results: invalid RSSI on iteration " + i,
+                        result.getRssi() >= MIN_VALID_RSSI);
+
+                distanceMms[i - numFailures] = result.getDistanceMm();
+                distanceStdDevMms[i - numFailures] = result.getDistanceStdDevMm();
+                rssis[i - numFailures] = result.getRssi();
+                // For one-sided RTT the number of packets attempted in a burst is not available,
+                // So we set the result to be the same as used in the request.
+                numAttempted[i - numFailures] = request.getRttBurstSize();
+                numSuccessful[i - numFailures] = result.getNumSuccessfulMeasurements();
+                timestampsMs[i - numFailures] = result.getRangingTimestampMillis();
+
+                byte[] currentLci = result.getLci();
+                byte[] currentLcr = result.getLcr();
+                if (i - numFailures > 0) {
+                    assertTrue("Wi-Fi RTT results: invalid result (LCI mismatch) on iteration " + i,
+                            Arrays.equals(currentLci, lastLci));
+                    assertTrue("Wi-Fi RTT results: invalid result (LCR mismatch) on iteration " + i,
+                            Arrays.equals(currentLcr, lastLcr));
+                }
+                lastLci = currentLci;
+                lastLcr = currentLcr;
+            } else {
+                numFailures++;
+            }
+            // Sleep a while to avoid stress AP.
+            Thread.sleep(intervalMs);
+        }
+        // Save results to log
+        int numGoodResults = NUM_OF_RTT_ITERATIONS - numFailures;
+        DeviceReportLog reportLog = new DeviceReportLog(TAG, "testRangingToTestAp");
+        reportLog.addValues("status_codes", statuses, ResultType.NEUTRAL, ResultUnit.NONE);
+        reportLog.addValues("distance_mm", Arrays.copyOf(distanceMms, numGoodResults),
+                ResultType.NEUTRAL, ResultUnit.NONE);
+        reportLog.addValues("distance_stddev_mm",
+                Arrays.copyOf(distanceStdDevMms, numGoodResults),
+                ResultType.NEUTRAL, ResultUnit.NONE);
+        reportLog.addValues("rssi_dbm", Arrays.copyOf(rssis, numGoodResults),
+                ResultType.NEUTRAL,
+                ResultUnit.NONE);
+        reportLog.addValues("num_attempted", Arrays.copyOf(numAttempted, numGoodResults),
+                ResultType.NEUTRAL, ResultUnit.NONE);
+        reportLog.addValues("num_successful", Arrays.copyOf(numSuccessful, numGoodResults),
+                ResultType.NEUTRAL, ResultUnit.NONE);
+        reportLog.addValues("timestamps", Arrays.copyOf(timestampsMs, numGoodResults),
+                ResultType.NEUTRAL, ResultUnit.NONE);
+        reportLog.submit();
+
+        /** TODO(b/192909380): enable the performance verification after device fix.
+            // Analyze results
+            assertTrue("Wi-Fi RTT failure rate exceeds threshold: FAIL=" + numFailures
+                            + ", ITERATIONS="
+                            + NUM_OF_RTT_ITERATIONS + ", AP RSSI=" + testAp.level
+                            + ", AP SSID=" + testAp.SSID,
+                    numFailures <= NUM_OF_RTT_ITERATIONS * MAX_NON11MC_FAILURE_RATE_PERCENT / 100);
+
+            if (numFailures != NUM_OF_RTT_ITERATIONS) {
+                // Calculate an initial average using all measurements to determine distance outliers
+                double distanceAvg = (double) distanceSum / (NUM_OF_RTT_ITERATIONS - numFailures);
+                // Now figure out the distance outliers and mark them in the distance inclusion map
+                int validDistances = 0;
+                for (int i = 0; i < (NUM_OF_RTT_ITERATIONS - numFailures); i++) {
+                    if (distanceMms[i] - MAX_VARIATION_FROM_AVERAGE_DISTANCE_MM < distanceAvg) {
+                        // Distances that are in range for the distribution are included in the map
+                        distanceInclusionMap[i] = true;
+                        validDistances++;
+                    } else {
+                        // Distances that are out of range for the distribution are excluded in the map
+                        distanceInclusionMap[i] = false;
+                    }
+                }
+
+                assertTrue("After fails+outlier removal greater that 50% distances must remain: " +
+                        NUM_OF_RTT_ITERATIONS / 2, validDistances > NUM_OF_RTT_ITERATIONS / 2);
+
+                // Remove the distance outliers and find the new average, min and max.
+                distanceSum = 0;
+                distanceMax = Integer.MIN_VALUE;
+                distanceMin = Integer.MAX_VALUE;
+                for (int i = 0; i < (NUM_OF_RTT_ITERATIONS - numFailures); i++) {
+                    if (distanceInclusionMap[i]) {
+                        distanceSum += distanceMms[i];
+                        distanceMin = Math.min(distanceMin, distanceMms[i]);
+                        distanceMax = Math.max(distanceMax, distanceMms[i]);
+                    }
+                }
+                distanceAvg = (double) distanceSum / validDistances;
+                assertTrue("Wi-Fi RTT: Variation (max direction) exceeds threshold, Variation ="
+                                + (distanceMax - distanceAvg),
+                        (distanceMax - distanceAvg) <= MAX_VARIATION_FROM_AVERAGE_DISTANCE_MM);
+                assertTrue("Wi-Fi RTT: Variation (min direction) exceeds threshold, Variation ="
+                                + (distanceAvg - distanceMin),
+                        (distanceAvg - distanceMin) <= MAX_VARIATION_FROM_AVERAGE_DISTANCE_MM);
+                for (int i = 0; i < numGoodResults; ++i) {
+                    assertNotSame("Number of attempted measurements is 0", 0, numAttempted[i]);
+                    assertNotSame("Number of successful measurements is 0", 0, numSuccessful[i]);
+                }
+         */
     }
 }

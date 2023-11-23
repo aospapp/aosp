@@ -45,6 +45,19 @@ public class DownloadableSubscriptionTest {
     }
 
     @Test
+    public void testDownloadableSubscriptionBuilder() {
+        final String confirmationCode = "fake confirmation code";
+        DownloadableSubscription downloadableSubscription =
+                new DownloadableSubscription.Builder(ACTIVATION_CODE)
+                        .setConfirmationCode(confirmationCode)
+                        .build();
+
+        assertNotNull(downloadableSubscription);
+        assertEquals(ACTIVATION_CODE, downloadableSubscription.getEncodedActivationCode());
+        assertEquals(confirmationCode, downloadableSubscription.getConfirmationCode());
+    }
+
+    @Test
     public void testGetEncodedActivationCode() {
         assertNotNull(mDownloadableSubscription);
         assertEquals(ACTIVATION_CODE, mDownloadableSubscription.getEncodedActivationCode());
@@ -72,15 +85,15 @@ public class DownloadableSubscriptionTest {
 
         // write object to parcel
         Parcel parcel = Parcel.obtain();
-        mDownloadableSubscription.writeToParcel(parcel,
-                mDownloadableSubscription.describeContents());
+        mDownloadableSubscription.writeToParcel(
+                parcel, mDownloadableSubscription.describeContents());
 
         // extract object from parcel
         parcel.setDataPosition(0 /* pos */);
         DownloadableSubscription downloadableSubscriptionFromParcel =
                 DownloadableSubscription.CREATOR.createFromParcel(parcel);
-        assertEquals(ACTIVATION_CODE,
-                downloadableSubscriptionFromParcel.getEncodedActivationCode());
+        assertEquals(
+                ACTIVATION_CODE, downloadableSubscriptionFromParcel.getEncodedActivationCode());
 
         // There is no way to set DownloadableSubscription#confirmationCode from here because
         // Android P doesn't allow accessing a platform class's @hide methods or private fields

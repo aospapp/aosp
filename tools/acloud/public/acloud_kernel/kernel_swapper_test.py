@@ -18,7 +18,8 @@
 import subprocess
 
 import unittest
-import mock
+
+from unittest import mock
 
 from acloud.internal.lib import android_compute_client
 from acloud.internal.lib import auth

@@ -20,6 +20,19 @@
 // A collection of compiler attribute checks and defines to control for
 // compatibility across toolchains.
 
+//------------------------------------------------------------------------------
+// Language version, attribute and feature helpers.
+
+// Detect c++17 support. Visual Studio sets __cplusplus to 199711L by default
+// unless compiled with /Zc:__cplusplus, use the value controlled by /std
+// instead.
+// https://docs.microsoft.com/en-us/cpp/build/reference/zc-cplusplus
+#if __cplusplus >= 201703L || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+#define LIBGAV1_CXX17 1
+#else
+#define LIBGAV1_CXX17 0
+#endif
+
 #if defined(__has_attribute)
 #define LIBGAV1_HAS_ATTRIBUTE __has_attribute
 #else
@@ -35,6 +48,12 @@
 //------------------------------------------------------------------------------
 // Sanitizer attributes.
 
+#if LIBGAV1_HAS_FEATURE(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
+#define LIBGAV1_ASAN 1
+#else
+#define LIBGAV1_ASAN 0
+#endif
+
 #if LIBGAV1_HAS_FEATURE(memory_sanitizer)
 #define LIBGAV1_MSAN 1
 #else
@@ -45,6 +64,20 @@
 #define LIBGAV1_TSAN 1
 #else
 #define LIBGAV1_TSAN 0
+#endif
+
+//------------------------------------------------------------------------------
+// AddressSanitizer support.
+
+// Define the macros for AddressSanitizer manual memory poisoning. See
+// https://github.com/google/sanitizers/wiki/AddressSanitizerManualPoisoning.
+#if LIBGAV1_ASAN
+#include <sanitizer/asan_interface.h>
+#else
+#define ASAN_POISON_MEMORY_REGION(addr, size) \
+  (static_cast<void>(addr), static_cast<void>(size))
+#define ASAN_UNPOISON_MEMORY_REGION(addr, size) \
+  (static_cast<void>(addr), static_cast<void>(size))
 #endif
 
 //------------------------------------------------------------------------------

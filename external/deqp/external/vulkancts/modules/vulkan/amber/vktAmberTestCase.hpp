@@ -38,6 +38,12 @@ namespace vkt
 namespace cts_amber
 {
 
+struct BufferRequirement
+{
+	vk::VkFormat				m_format;
+	vk::VkFormatFeatureFlags	m_featureFlags;
+};
+
 class AmberTestInstance : public TestInstance
 {
 public:
@@ -50,7 +56,7 @@ public:
 	virtual tcu::TestStatus iterate (void);
 
 private:
-  amber::Recipe* m_recipe;
+	amber::Recipe* m_recipe;
 };
 
 class AmberTestCase : public TestCase
@@ -63,7 +69,7 @@ public:
 
 	virtual ~AmberTestCase (void);
 
-	virtual TestInstance* createInstance (Context& ctx) const;
+	TestInstance* createInstance (Context& ctx) const override;
 
 	// Check that the Vulkan implementation supports this test.
 	// We have the principle that client code in dEQP should independently
@@ -73,13 +79,13 @@ public:
 	//  - Otherwise, we do a secondary sanity check depending on code inside
 	//    Amber itself: if the Amber test says it is not supported, then
 	//    throw an internal error exception.
-	virtual void checkSupport (Context& ctx) const; // override
+	void checkSupport (Context& ctx) const override;
 
 	// If the test case uses SPIR-V Assembly, use these build options.
 	// Otherwise, defaults to target Vulkan 1.0, SPIR-V 1.0.
 	void setSpirVAsmBuildOptions(const vk::SpirVAsmBuildOptions& asm_options);
-	virtual void delayedInit (void);
-	virtual void initPrograms (vk::SourceCollections& programCollection) const;
+	void delayedInit (void) override;
+	void initPrograms (vk::SourceCollections& programCollection) const override;
 
 	// Add a required instance extension, device extension, or feature bit.
 	// A feature bit is represented by a string of form "<structure>.<feature>", where
@@ -87,6 +93,11 @@ public:
 	// An example entry is: "VariablePointerFeatures.variablePointers".
 	// An instance or device extension will not have a period in its name.
 	void addRequirement(const std::string& requirement);
+
+	void addImageRequirement(vk::VkImageCreateInfo info);
+	void addBufferRequirement(BufferRequirement req);
+
+	tcu::TestRunnerType getRunnerType (void) const override { return tcu::RUNNERTYPE_AMBER; }
 
 private:
 	bool parse (const std::string& readFilename);
@@ -108,14 +119,19 @@ private:
 	// An example entry is: "VariablePointerFeatures.variablePointers".
 	// Use a set for consistent ordering.
 	std::set<std::string> m_required_features;
+
+	std::vector<vk::VkImageCreateInfo> m_imageRequirements;
+	std::vector<BufferRequirement> m_bufferRequirements;
 };
 
-AmberTestCase* createAmberTestCase (tcu::TestContext&				testCtx,
-									const char*						name,
-									const char*						description,
-									const char*						category,
-									const std::string&				filename,
-									const std::vector<std::string>	requirements = std::vector<std::string>());
+AmberTestCase* createAmberTestCase (tcu::TestContext&							testCtx,
+									const char*									name,
+									const char*									description,
+									const char*									category,
+									const std::string&							filename,
+									const std::vector<std::string>				requirements = std::vector<std::string>(),
+									const std::vector<vk::VkImageCreateInfo>	imageRequirements = std::vector<vk::VkImageCreateInfo>(),
+									const std::vector<BufferRequirement>		bufferRequirements = std::vector<BufferRequirement>());
 
 void createAmberTestsFromIndexFile (tcu::TestContext&	testCtx,
 									tcu::TestCaseGroup*	group,

@@ -37,10 +37,14 @@ import org.json.JSONObject;
 public class CaptivePortalDataShimImpl
         extends com.android.networkstack.apishim.api29.CaptivePortalDataShimImpl {
     @NonNull
-    private final CaptivePortalData mData;
+    protected final CaptivePortalData mData;
 
-    protected CaptivePortalDataShimImpl(@NonNull CaptivePortalData data) {
+    public CaptivePortalDataShimImpl(@NonNull CaptivePortalData data) {
         mData = data;
+    }
+
+    public CaptivePortalData getData() {
+        return mData;
     }
 
     /**
@@ -115,5 +119,37 @@ public class CaptivePortalDataShimImpl
     @Override
     public void notifyChanged(INetworkMonitorCallbacks cb) throws RemoteException {
         cb.notifyCaptivePortalDataChanged(mData);
+    }
+
+    /**
+     * Generate a {@link CaptivePortalDataShim} object with a friendly name set
+     *
+     * @param friendlyName The friendly name to set
+     * @return a {@link CaptivePortalDataShim} object with a friendly name set
+     */
+    @Override
+    public CaptivePortalDataShim withVenueFriendlyName(String friendlyName)
+            throws UnsupportedApiLevelException {
+        // Not supported in API level 29
+        throw new UnsupportedApiLevelException("FriendlyName not supported on API 30");
+    }
+
+    /**
+     * Generate a {@link CaptivePortalDataShim} object with a friendly name and Passpoint external
+     * URLs set
+     *
+     * @param friendlyName The friendly name to set
+     * @param venueInfoUrl Venue information URL
+     * @param termsAndConditionsUrl Terms and conditions URL
+     *
+     * @return a {@link CaptivePortalDataShim} object with friendly name, venue info URL and terms
+     * and conditions URL set
+     */
+    @Override
+    public CaptivePortalDataShim withPasspointInfo(@NonNull String friendlyName,
+            @NonNull Uri venueInfoUrl, @NonNull Uri termsAndConditionsUrl)
+            throws UnsupportedApiLevelException {
+        // Not supported in API level 29
+        throw new UnsupportedApiLevelException("PasspointInfo not supported on API 30");
     }
 }

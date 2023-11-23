@@ -18,7 +18,7 @@ package android.security.cts;
 
 import android.Manifest;
 import android.platform.test.annotations.AppModeFull;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -36,7 +36,6 @@ import org.junit.runners.JUnit4;
 import java.util.concurrent.TimeUnit;
 
 @RunWith(JUnit4.class)
-@SecurityTest
 @AppModeFull
 public class PackageInstallerTest {
 
@@ -65,6 +64,7 @@ public class PackageInstallerTest {
     }
 
     @Test
+    @AsbSecurityTest(cveBugId = 138650665)
     public void verificationCanNotBeDisabledByInstaller() throws Exception {
         Install.single(TEST_APP).addInstallFlags(
                 0x00080000 /* PackageManager.INSTALL_DISABLE_VERIFICATION */).commit();

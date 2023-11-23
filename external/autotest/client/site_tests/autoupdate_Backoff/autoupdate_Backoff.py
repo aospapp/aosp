@@ -6,7 +6,6 @@ import logging
 import os
 
 from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.update_engine import nebraska_wrapper
 from autotest_lib.client.cros.update_engine import update_engine_test
@@ -37,33 +36,26 @@ class autoupdate_Backoff(update_engine_test.UpdateEngineTest):
 
     def cleanup(self):
         """Cleans up the state and extra files this test created."""
-        utils.run('rm %s' % self._no_ignore_backoff, ignore_status=True)
-        utils.run('rm %s' % self._backoff_expiry_time, ignore_status=True)
+        self._remove_update_engine_pref(self._NO_IGNORE_BACKOFF_PREF)
+        self._remove_update_engine_pref(self._BACKOFF_EXPIRY_TIME_PREF)
         super(autoupdate_Backoff, self).cleanup()
 
-    def run_once(self, image_url, backoff):
+
+    def run_once(self, payload_url, backoff):
         """
         Tests update_engine can do backoff.
 
-        @param image_url: The payload url.
+        @param payload_url: The payload url.
         @param backoff: True if backoff is enabled.
 
         """
-        self._no_ignore_backoff = os.path.join(
-            self._UPDATE_ENGINE_PREFS_DIR, self._NO_IGNORE_BACKOFF_PREF)
-        self._backoff_expiry_time = os.path.join(
-            self._UPDATE_ENGINE_PREFS_DIR, self._BACKOFF_EXPIRY_TIME_PREF)
-        utils.run('touch %s' % self._no_ignore_backoff, ignore_status=True)
+        utils.run(['touch',
+                   os.path.join(self._UPDATE_ENGINE_PREFS_DIR,
+                                self._NO_IGNORE_BACKOFF_PREF)],
+                  ignore_status=True)
 
-        metadata_dir = autotemp.tempdir()
-        self._get_payload_properties_file(image_url,
-                                          metadata_dir.name)
-        base_url = ''.join(image_url.rpartition('/')[0:2])
         with nebraska_wrapper.NebraskaWrapper(
-                log_dir=self.resultsdir,
-                update_metadata_dir=metadata_dir.name,
-                update_payloads_address=base_url) as nebraska:
-
+            log_dir=self.resultsdir, payload_url=payload_url) as nebraska:
             # Only set one URL in the Nebraska response so we can test the
             # backoff functionality quicker.
             response_props = {'disable_payload_backoff': not backoff,
@@ -71,9 +63,8 @@ class autoupdate_Backoff(update_engine_test.UpdateEngineTest):
                               'critical_update': True}
 
             # Start the update.
-            self._check_for_update(port=nebraska.get_port(),
-                                   interactive=False,
-                                   **response_props)
+            self._check_for_update(nebraska.get_update_url(**response_props),
+                                   interactive=False)
             self._wait_for_progress(0.2)
 
             # Disable internet so the update fails.
@@ -84,12 +75,13 @@ class autoupdate_Backoff(update_engine_test.UpdateEngineTest):
             if backoff:
                 self._check_update_engine_log_for_entry(self._BACKOFF_ENABLED,
                                                         raise_error=True)
-                utils.run('cat %s' % self._backoff_expiry_time)
+                utils.run(['cat',
+                           os.path.join(self._UPDATE_ENGINE_PREFS_DIR,
+                                        self._BACKOFF_EXPIRY_TIME_PREF)])
                 try:
-                    self._check_for_update(port=nebraska.get_port(),
-                                           interactive=False,
-                                           wait_for_completion=True,
-                                           **response_props)
+                    self._check_for_update(
+                        nebraska.get_update_url(**response_props),
+                        interactive=False, wait_for_completion=True)
                 except error.CmdError as e:
                     logging.info('Update failed as expected.')
                     logging.error(e)
@@ -102,7 +94,7 @@ class autoupdate_Backoff(update_engine_test.UpdateEngineTest):
             else:
                 self._check_update_engine_log_for_entry(self._BACKOFF_DISABLED,
                                                         raise_error=True)
-                self._check_for_update(port=nebraska.get_port(),
-                                       interactive=False,
-                                       **response_props)
+                self._check_for_update(
+                    nebraska.get_update_url(**response_props),
+                    interactive=False)
                 self._wait_for_update_to_complete()

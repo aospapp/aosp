@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_netd_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_netd_license"],
+}
+
 cc_binary {
     name: "netutils-wrapper-1.0",
     defaults: ["netd_defaults"],
@@ -23,6 +32,7 @@ cc_binary {
     ],
     sanitize: {
         cfi: true,
+        memtag_heap: true,
     },
 }
 

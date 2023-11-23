@@ -707,13 +707,17 @@ static void TestUDataOpenChoiceDemo1() {
     type="typ";
     result=udata_openChoice(fullTestDataPath, type, name[3], isAcceptable1, NULL, &status);
     if(status != U_INVALID_FORMAT_ERROR){
-        log_err("FAIL: udata_openChoice() did not fail as expected. name=%s, type=%s, \n errorcode=%s\n", name[3], type, myErrorName(status));
+        // Android-changed: Android does not try to load ICU data from other files. See  gDataFileAccess = UDATA_NO_FILES in udata.cpp.
+        // log_err("FAIL: udata_openChoice() did not fail as expected. name=%s, type=%s, \n errorcode=%s\n", name[3], type, myErrorName(status));
+        log_data_err("FAIL: udata_openChoice() did not fail as expected. name=%s, type=%s, \n errorcode=%s\n", name[3], type, myErrorName(status));
     }
 
     status=U_USELESS_COLLATOR_ERROR;
     result=udata_openChoice(fullTestDataPath, type, name[3], isAcceptable1, NULL, &status);
     if(status != U_USELESS_COLLATOR_ERROR){
-        log_err("FAIL: udata_openChoice() did not fail as expected. name=%s, type=%s, \n errorcode=%s\n", name[3], type, myErrorName(status));
+        // Android-changed: Android does not try to load ICU data from other files. See  gDataFileAccess = UDATA_NO_FILES in udata.cpp.
+        // log_err("FAIL: udata_openChoice() did not fail as expected. name=%s, type=%s, \n errorcode=%s\n", name[3], type, myErrorName(status));
+        log_data_err("FAIL: udata_openChoice() did not fail as expected. name=%s, type=%s, \n errorcode=%s\n", name[3], type, myErrorName(status));
     }
 }
 

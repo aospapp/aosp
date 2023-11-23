@@ -24,7 +24,9 @@
 #include "r600_formats.h"
 #include "r600_opcodes.h"
 #include "r600_shader.h"
+#include "r600_dump.h"
 #include "r600d.h"
+#include "sfn/sfn_nir.h"
 
 #include "sb/sb_public.h"
 
@@ -33,6 +35,10 @@
 #include "tgsi/tgsi_parse.h"
 #include "tgsi/tgsi_scan.h"
 #include "tgsi/tgsi_dump.h"
+#include "tgsi/tgsi_from_mesa.h"
+#include "nir/tgsi_to_nir.h"
+#include "nir/nir_to_tgsi_info.h"
+#include "compiler/nir/nir.h"
 #include "util/u_bitcast.h"
 #include "util/u_memory.h"
 #include "util/u_math.h"
@@ -143,7 +149,7 @@ static int store_shader(struct pipe_context *ctx,
 		}
 		ptr = r600_buffer_map_sync_with_rings(
 			&rctx->b, shader->bo,
-			PIPE_TRANSFER_WRITE | RADEON_TRANSFER_TEMPORARY);
+			PIPE_MAP_WRITE | RADEON_MAP_TEMPORARY);
 		if (R600_BIG_ENDIAN) {
 			for (i = 0; i < shader->shader.bc.ndw; ++i) {
 				ptr[i] = util_cpu_to_le32(shader->shader.bc.bytecode[i]);
@@ -157,6 +163,8 @@ static int store_shader(struct pipe_context *ctx,
 	return 0;
 }
 
+extern const struct nir_shader_compiler_options r600_nir_options;
+static int nshader = 0;
 int r600_pipe_shader_create(struct pipe_context *ctx,
 			    struct r600_pipe_shader *shader,
 			    union r600_shader_key key)
@@ -164,27 +172,71 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 	struct r600_context *rctx = (struct r600_context *)ctx;
 	struct r600_pipe_shader_selector *sel = shader->selector;
 	int r;
-	bool dump = r600_can_dump_shader(&rctx->screen->b,
-					 tgsi_get_processor_type(sel->tokens));
-	unsigned use_sb = !(rctx->screen->b.debug_flags & DBG_NO_SB);
+	struct r600_screen *rscreen = (struct r600_screen *)ctx->screen;
+	
+	int processor = sel->ir_type == PIPE_SHADER_IR_TGSI ?
+		tgsi_get_processor_type(sel->tokens):
+		pipe_shader_type_from_mesa(sel->nir->info.stage);
+	
+	bool dump = r600_can_dump_shader(&rctx->screen->b, processor);
+	unsigned use_sb = !(rctx->screen->b.debug_flags & DBG_NO_SB) &&
+		!(rscreen->b.debug_flags & DBG_NIR);
 	unsigned sb_disasm;
 	unsigned export_shader;
-
+	
 	shader->shader.bc.isa = rctx->isa;
+	
+	if (!(rscreen->b.debug_flags & DBG_NIR)) {
+		assert(sel->ir_type == PIPE_SHADER_IR_TGSI);
+		r = r600_shader_from_tgsi(rctx, shader, key);
+		if (r) {
+			R600_ERR("translation from TGSI failed !\n");
+			goto error;
+		}
+	} else {
+		if (sel->ir_type == PIPE_SHADER_IR_TGSI) {
+			sel->nir = tgsi_to_nir(sel->tokens, ctx->screen, true);
+			/* Lower int64 ops because we have some r600 build-in shaders that use it */
+			if (!ctx->screen->get_param(ctx->screen, PIPE_CAP_DOUBLES)) {
+				NIR_PASS_V(sel->nir, nir_lower_regs_to_ssa);
+				NIR_PASS_V(sel->nir, nir_lower_alu_to_scalar, NULL, NULL);
+				NIR_PASS_V(sel->nir, nir_lower_int64);
+				NIR_PASS_V(sel->nir, nir_opt_vectorize, NULL, NULL);
+			}
+			NIR_PASS_V(sel->nir, nir_lower_flrp, ~0, false);
+		}
+		nir_tgsi_scan_shader(sel->nir, &sel->info, true);
 
+		r = r600_shader_from_nir(rctx, shader, &key);
+		if (r) {
+			fprintf(stderr, "--Failed shader--------------------------------------------------\n");
+			
+			if (sel->ir_type == PIPE_SHADER_IR_TGSI) {
+				fprintf(stderr, "--TGSI--------------------------------------------------------\n");
+				tgsi_dump(sel->tokens, 0);
+			}
+			
+			if (rscreen->b.debug_flags & DBG_NIR) {
+				fprintf(stderr, "--NIR --------------------------------------------------------\n");
+				nir_print_shader(sel->nir, stderr);
+			}
+			
+			R600_ERR("translation from NIR failed !\n");
+			goto error;
+		}
+	}
+	
 	if (dump) {
-		fprintf(stderr, "--------------------------------------------------------------\n");
-		tgsi_dump(sel->tokens, 0);
-
+		if (sel->ir_type == PIPE_SHADER_IR_TGSI) {
+			fprintf(stderr, "--TGSI--------------------------------------------------------\n");
+			tgsi_dump(sel->tokens, 0);
+		}
+		
 		if (sel->so.num_outputs) {
 			r600_dump_streamout(&sel->so);
 		}
 	}
-	r = r600_shader_from_tgsi(rctx, shader, key);
-	if (r) {
-		R600_ERR("translation from TGSI failed !\n");
-		goto error;
-	}
+	
 	if (shader->shader.processor_type == PIPE_SHADER_VERTEX) {
 		/* only disable for vertex shaders in tess paths */
 		if (key.vs.as_ls)
@@ -216,13 +268,37 @@ int r600_pipe_shader_create(struct pipe_context *ctx,
 		r600_bytecode_disasm(&shader->shader.bc);
 		fprintf(stderr, "______________________________________________________________\n");
 	} else if ((dump && sb_disasm) || use_sb) {
-		r = r600_sb_bytecode_process(rctx, &shader->shader.bc, &shader->shader,
+                r = r600_sb_bytecode_process(rctx, &shader->shader.bc, &shader->shader,
 		                             dump, use_sb);
 		if (r) {
 			R600_ERR("r600_sb_bytecode_process failed !\n");
 			goto error;
 		}
 	}
+
+        if (dump) {
+           FILE *f;
+           char fname[1024];
+           snprintf(fname, 1024, "shader_from_%s_%d.cpp",
+                    (sel->ir_type == PIPE_SHADER_IR_TGSI ?
+                        (rscreen->b.debug_flags & DBG_NIR ? "tgsi-nir" : "tgsi")
+                      : "nir"), nshader);
+           f = fopen(fname, "w");
+           print_shader_info(f, nshader++, &shader->shader);
+           print_shader_info(stderr, nshader++, &shader->shader);
+           print_pipe_info(stderr, &sel->info);
+           if (sel->ir_type == PIPE_SHADER_IR_TGSI) {
+              fprintf(f, "/****TGSI**********************************\n");
+              tgsi_dump_to_file(sel->tokens, 0, f);
+           }
+
+           if (rscreen->b.debug_flags & DBG_NIR){
+              fprintf(f, "/****NIR **********************************\n");
+              nir_print_shader(sel->nir, f);
+           }
+           fprintf(f, "******************************************/\n");
+           fclose(f);
+        }
 
 	if (shader->gs_copy_shader) {
 		if (dump) {
@@ -301,7 +377,8 @@ error:
 void r600_pipe_shader_destroy(struct pipe_context *ctx UNUSED, struct r600_pipe_shader *shader)
 {
 	r600_resource_reference(&shader->bo, NULL);
-	r600_bytecode_clear(&shader->shader.bc);
+        if (shader->shader.bc.cf.next)
+		r600_bytecode_clear(&shader->shader.bc);
 	r600_release_command_buffer(&shader->command_buffer);
 }
 
@@ -433,24 +510,26 @@ static int tgsi_is_supported(struct r600_shader_ctx *ctx)
 #endif
 	for (j = 0; j < i->Instruction.NumSrcRegs; j++) {
 		if (i->Src[j].Register.Dimension) {
-		   switch (i->Src[j].Register.File) {
-		   case TGSI_FILE_CONSTANT:
-		   case TGSI_FILE_HW_ATOMIC:
-			   break;
-		   case TGSI_FILE_INPUT:
-			   if (ctx->type == PIPE_SHADER_GEOMETRY ||
-			       ctx->type == PIPE_SHADER_TESS_CTRL ||
-			       ctx->type == PIPE_SHADER_TESS_EVAL)
-				   break;
-		   case TGSI_FILE_OUTPUT:
-			   if (ctx->type == PIPE_SHADER_TESS_CTRL)
-				   break;
-		   default:
-			   R600_ERR("unsupported src %d (file %d, dimension %d)\n", j,
-				    i->Src[j].Register.File,
-				    i->Src[j].Register.Dimension);
-			   return -EINVAL;
-		   }
+			switch (i->Src[j].Register.File) {
+			case TGSI_FILE_CONSTANT:
+			case TGSI_FILE_HW_ATOMIC:
+				break;
+			case TGSI_FILE_INPUT:
+				if (ctx->type == PIPE_SHADER_GEOMETRY ||
+				    ctx->type == PIPE_SHADER_TESS_CTRL ||
+				    ctx->type == PIPE_SHADER_TESS_EVAL)
+					break;
+				/* fallthrough */
+			case TGSI_FILE_OUTPUT:
+				if (ctx->type == PIPE_SHADER_TESS_CTRL)
+					break;
+				/* fallthrough */
+			default:
+				R600_ERR("unsupported src %d (file %d, dimension %d)\n", j,
+					 i->Src[j].Register.File,
+					 i->Src[j].Register.Dimension);
+				return -EINVAL;
+			}
 		}
 	}
 	for (j = 0; j < i->Instruction.NumDstRegs; j++) {
@@ -620,6 +699,8 @@ static int r600_spi_sid(struct r600_shader_io * io)
 	else {
 		if (name == TGSI_SEMANTIC_GENERIC) {
 			/* For generic params simply use sid from tgsi */
+			index = 9 + io->sid;
+		} else if (name == TGSI_SEMANTIC_TEXCOORD) {
 			index = io->sid;
 		} else {
 			/* For non-generic params - pack name and sid into 8 bits */
@@ -646,9 +727,11 @@ int r600_get_lds_unique_index(unsigned semantic_name, unsigned index)
 	case TGSI_SEMANTIC_CLIPDIST:
 		assert(index <= 1);
 		return 2 + index;
+	case TGSI_SEMANTIC_TEXCOORD:
+		return 4 + index;
 	case TGSI_SEMANTIC_GENERIC:
 		if (index <= 63-4)
-			return 4 + index - 9;
+			return 4 + index;
 		else
 			/* same explanation as in the default statement,
 			 * the only user hitting this is st/nine.
@@ -2469,9 +2552,9 @@ static void convert_edgeflag_to_int(struct r600_shader_ctx *ctx)
 	r600_bytecode_add_alu(ctx->bc, &alu);
 }
 
-static int generate_gs_copy_shader(struct r600_context *rctx,
-				   struct r600_pipe_shader *gs,
-				   struct pipe_stream_output_info *so)
+int generate_gs_copy_shader(struct r600_context *rctx,
+                            struct r600_pipe_shader *gs,
+                            struct pipe_stream_output_info *so)
 {
 	struct r600_shader_ctx ctx = {};
 	struct r600_shader *gs_shader = &gs->shader;
@@ -2969,7 +3052,8 @@ static int emit_lds_vs_writes(struct r600_shader_ctx *ctx)
 
 	for (i = 0; i < ctx->shader->noutput; i++) {
 		struct r600_bytecode_alu alu;
-		int param = r600_get_lds_unique_index(ctx->shader->output[i].name, ctx->shader->output[i].sid);
+		int param = r600_get_lds_unique_index(ctx->shader->output[i].name,
+						      ctx->shader->output[i].sid);
 
 		if (param) {
 			r = single_alu_op2(ctx, ALU_OP2_ADD_INT,
@@ -6973,6 +7057,7 @@ static int tgsi_interp_egcm(struct r600_shader_ctx *ctx)
 	}
 	else {
 		location = TGSI_INTERPOLATE_LOC_CENTROID;
+		ctx->shader->input[input].uses_interpolate_at_centroid = 1;
 	}
 
 	k = eg_get_interpolator_index(ctx->shader->input[input].interpolate, location);

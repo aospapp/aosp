@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <keymaster/km_openssl/kdf.h>
 #include <gtest/gtest.h>
+#include <keymaster/km_openssl/kdf.h>
 
 namespace keymaster {
 

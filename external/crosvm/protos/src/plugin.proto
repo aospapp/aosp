@@ -84,6 +84,7 @@ message MainRequest {
         AddressSpace space = 1;
         uint64 start = 2;
         uint64 length = 3;
+        bool async_write = 4;
     }
 
     message SetIrq {
@@ -151,6 +152,27 @@ message MainRequest {
     message GetVcpus {}
     message Start {}
 
+    message SetCallHint {
+        message RegHint {
+	    bool match_rax = 1;
+	    bool match_rbx = 2;
+	    bool match_rcx = 3;
+	    bool match_rdx = 4;
+	    uint64 rax = 5;
+	    uint64 rbx = 6;
+	    uint64 rcx = 7;
+	    uint64 rdx = 8;
+	    bool send_sregs = 9;
+	    bool send_debugregs = 10;
+	}
+
+        AddressSpace space = 1;
+        uint64 address = 2;
+        bool on_write = 3;
+
+        repeated RegHint hints = 4;
+    }
+
     message MemoryDirtyLog {
         uint32 id = 1;
     }
@@ -178,6 +200,7 @@ message MainRequest {
         PauseVcpus pause_vcpus = 16;
         GetVcpus get_vcpus = 17;
         Start start = 18;
+        SetCallHint set_call_hint = 19;
         // Method for a Memory type object for retrieving the dirty bitmap. Only valid if the memory
         // object was created with dirty_log set.
         MemoryDirtyLog dirty_log = 101;
@@ -225,6 +248,7 @@ message MainResponse {
     // socket. The VcpuRequest/VcpuResponse protocol is run over each of the returned fds.
     message GetVcpus {}
     message Start {}
+    message SetCallHint {}
     message MemoryDirtyLog {
         bytes bitmap = 1;
     }
@@ -252,6 +276,7 @@ message MainResponse {
         PauseVcpus pause_vcpus = 17;
         GetVcpus get_vcpus = 18;
         Start start = 19;
+        SetCallHint set_call_hint = 20;
         MemoryDirtyLog dirty_log = 101;
     }
 }
@@ -268,6 +293,11 @@ message VcpuRequest {
         // The data is only necessary for non-write (read) I/O accesses. In all other cases, data is
         // ignored.
         bytes data = 1;
+
+        // The following tracks what deferred set calls to apply.
+        bytes regs = 2;
+        bytes sregs = 3;
+        bytes debugregs = 4;
     }
 
     // Each type refers to certain piece of VCPU state (a set registers, or something else).
@@ -304,6 +334,9 @@ message VcpuRequest {
         bytes state = 2;
     }
 
+    message CpuidRequest {
+    }
+
     message GetMsrs {
         // The entry data will be returned in the same order as this in the
         // VcpuResponse::GetMsrs::entry_data array.
@@ -326,6 +359,10 @@ message VcpuRequest {
     message Shutdown {
     }
 
+    message EnableCapability {
+        uint32 capability = 1;
+    }
+
     // The type of the message is determined by which of these oneof fields is present in the
     // protobuf.
     oneof message {
@@ -337,6 +374,8 @@ message VcpuRequest {
         SetMsrs set_msrs = 6;
         SetCpuid set_cpuid = 7;
         Shutdown shutdown = 8;
+        CpuidRequest get_hyperv_cpuid = 9;
+        EnableCapability enable_capability = 10;
     }
 }
 
@@ -355,22 +394,41 @@ message VcpuResponse  {
             AddressSpace space = 1;
             uint64 address = 2;
             bool is_write = 3;
-            bytes data = 4;
+            bool no_resume = 4;
+            bytes data = 5;
+
+            // The following can be eagerly provided.
+            bytes regs = 6;
+            bytes sregs = 7;
+            bytes debugregs = 8;
         }
 
-        // This type of wait reason is only generated after a PuaseVcpus request on this VCPU.
+        // This type of wait reason is only generated after a PauseVcpus request on this VCPU.
         message User {
             uint64 user = 1;
+        }
+
+        message HypervCall {
+            uint64 input = 1;
+            uint64 params0 = 2;
+            uint64 params1 = 3;
+        }
+
+        message HypervSynic {
+            uint32 msr = 1;
+            uint64 control = 2;
+            uint64 evt_page = 3;
+            uint64 msg_page = 4;
         }
 
         oneof exit {
             Init init = 1;
             Io io = 2;
             User user = 3;
+            HypervCall hyperv_call = 4;
+            HypervSynic hyperv_synic = 5;
         }
     }
-
-    message Resume {}
 
     message GetState {
         // The in memory representation of a struct kvm_regs, struct kvm_sregs,
@@ -383,6 +441,10 @@ message VcpuResponse  {
     message SetState {
     }
 
+    message CpuidResponse {
+        repeated CpuidEntry entries = 1;
+    }
+
     message GetMsrs {
         // The order of the entry_data values is the same order as the array of indices given in the
         // corresponding request.
@@ -393,17 +455,21 @@ message VcpuResponse  {
 
     message SetCpuid {}
 
+    message EnableCapability {}
+
     // This is zero on success, and a negative integer on failure.
     sint32 errno = 1;
     // The field present here is always the same as the one present in the corresponding
     // VcpuRequest.
     oneof message {
         Wait wait = 2;
-        Resume resume = 3;
+        // resume was 3 but no longer gets a reply.
         GetState get_state = 4;
         SetState set_state = 5;
         GetMsrs get_msrs = 6;
         SetMsrs set_msrs = 7;
         SetCpuid set_cpuid = 8;
+        CpuidResponse get_hyperv_cpuid = 9;
+        EnableCapability enable_capability = 10;
     }
 }

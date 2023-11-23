@@ -16,8 +16,11 @@
 
 package android.graphics.fonts;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -26,7 +29,12 @@ import android.content.Context;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.graphics.cts.R;
+import android.graphics.text.PositionedGlyphs;
+import android.graphics.text.TextRunShaper;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.util.Pair;
@@ -122,6 +130,24 @@ public class FontTest {
         }
     }
 
+    private void assertAxesEquals(String msg, FontVariationAxis[] left, FontVariationAxis[] right) {
+        if (left == right) {
+            return;
+        }
+
+        if (left == null) {
+            assertWithMessage(msg).that(right).isEmpty();
+        } else if (right == null) {
+            assertWithMessage(msg).that(left).isEmpty();
+        } else {
+            assertWithMessage(msg).that(left).isEqualTo(right);
+        }
+    }
+
+    private void assertNullOrEmpty(String msg, FontVariationAxis[] actual) {
+        assertWithMessage(msg).that(actual == null || actual.length == 0).isTrue();
+    }
+
     @Test
     public void testBuilder_buffer() throws IOException {
         AssetManager am = InstrumentationRegistry.getTargetContext().getAssets();
@@ -137,7 +163,7 @@ public class FontTest {
             assertEquals(path, weight, font.getStyle().getWeight());
             assertEquals(path, slant, font.getStyle().getSlant());
             assertEquals(path, 0, font.getTtcIndex());
-            assertNull(path, font.getAxes());
+            assertNullOrEmpty(path, font.getAxes());
             assertNotNull(font.getBuffer());
             assertNull(font.getFile());
         }
@@ -159,7 +185,7 @@ public class FontTest {
             assertEquals(path, weight, font.getStyle().getWeight());
             assertEquals(path, slant, font.getStyle().getSlant());
             assertEquals(path, ttcIndex, font.getTtcIndex());
-            assertNull(path, font.getAxes());
+            assertNullOrEmpty(path, font.getAxes());
             assertNotNull(font.getBuffer());
             assertNull(font.getFile());
         }
@@ -182,7 +208,7 @@ public class FontTest {
             assertEquals(path, weight, font.getStyle().getWeight());
             assertEquals(path, slant, font.getStyle().getSlant());
             assertEquals(path, 0, font.getTtcIndex());
-            assertEquals(path, axes, font.getAxes());
+            assertAxesEquals(path, axes, font.getAxes());
             assertNotNull(font.getBuffer());
             assertNull(font.getFile());
         }
@@ -204,7 +230,7 @@ public class FontTest {
             assertEquals(path, customWeight, font.getStyle().getWeight());
             assertEquals(path, slant, font.getStyle().getSlant());
             assertEquals(path, 0, font.getTtcIndex());
-            assertNull(path, font.getAxes());
+            assertNullOrEmpty(path, font.getAxes());
             assertNotNull(font.getBuffer());
             assertNull(font.getFile());
         }
@@ -220,7 +246,7 @@ public class FontTest {
             assertEquals(path, weight, font.getStyle().getWeight());
             assertEquals(path, FontStyle.FONT_SLANT_ITALIC, font.getStyle().getSlant());
             assertEquals(path, 0, font.getTtcIndex());
-            assertNull(path, font.getAxes());
+            assertNullOrEmpty(path, font.getAxes());
             assertNotNull(font.getBuffer());
             assertNull(font.getFile());
         }
@@ -255,7 +281,7 @@ public class FontTest {
                 assertEquals(path, weight, font.getStyle().getWeight());
                 assertEquals(path, slant, font.getStyle().getSlant());
                 assertEquals(path, 0, font.getTtcIndex());
-                assertNull(path, font.getAxes());
+                assertNullOrEmpty(path, font.getAxes());
                 assertNotNull(font.getBuffer());
                 assertNotNull(font.getFile());
             } finally {
@@ -282,7 +308,7 @@ public class FontTest {
                 assertEquals(path, weight, font.getStyle().getWeight());
                 assertEquals(path, slant, font.getStyle().getSlant());
                 assertEquals(path, ttcIndex, font.getTtcIndex());
-                assertNull(path, font.getAxes());
+                assertNullOrEmpty(path, font.getAxes());
                 assertNotNull(font.getBuffer());
                 assertNotNull(font.getFile());
             } finally {
@@ -310,7 +336,7 @@ public class FontTest {
                 assertEquals(path, weight, font.getStyle().getWeight());
                 assertEquals(path, slant, font.getStyle().getSlant());
                 assertEquals(path, 0, font.getTtcIndex());
-                assertEquals(path, axes, font.getAxes());
+                assertAxesEquals(path, axes, font.getAxes());
                 assertNotNull(font.getBuffer());
                 assertNotNull(font.getFile());
             } finally {
@@ -337,7 +363,7 @@ public class FontTest {
                 assertEquals(path, customWeight, font.getStyle().getWeight());
                 assertEquals(path, slant, font.getStyle().getSlant());
                 assertEquals(path, 0, font.getTtcIndex());
-                assertNull(path, font.getAxes());
+                assertNullOrEmpty(path, font.getAxes());
                 assertNotNull(font.getBuffer());
                 assertNotNull(font.getFile());
             } finally {
@@ -357,7 +383,7 @@ public class FontTest {
                 assertEquals(path, weight, font.getStyle().getWeight());
                 assertEquals(path, FontStyle.FONT_SLANT_ITALIC, font.getStyle().getSlant());
                 assertEquals(path, 0, font.getTtcIndex());
-                assertNull(path, font.getAxes());
+                assertNullOrEmpty(path, font.getAxes());
                 assertNotNull(font.getBuffer());
                 assertNotNull(font.getFile());
             } finally {
@@ -397,7 +423,7 @@ public class FontTest {
                     assertEquals(path, weight, font.getStyle().getWeight());
                     assertEquals(path, slant, font.getStyle().getSlant());
                     assertEquals(path, 0, font.getTtcIndex());
-                    assertNull(path, font.getAxes());
+                    assertNullOrEmpty(path, font.getAxes());
                     assertNotNull(font.getBuffer());
                     assertNull(font.getFile());
                 }
@@ -427,7 +453,7 @@ public class FontTest {
                     assertEquals(path, weight, font.getStyle().getWeight());
                     assertEquals(path, slant, font.getStyle().getSlant());
                     assertEquals(path, ttcIndex, font.getTtcIndex());
-                    assertNull(path, font.getAxes());
+                    assertNullOrEmpty(path, font.getAxes());
                     assertNotNull(font.getBuffer());
                     assertNull(font.getFile());
                 }
@@ -459,7 +485,7 @@ public class FontTest {
                     assertEquals(path, weight, font.getStyle().getWeight());
                     assertEquals(path, slant, font.getStyle().getSlant());
                     assertEquals(path, 0, font.getTtcIndex());
-                    assertEquals(path, axes, font.getAxes());
+                    assertAxesEquals(path, axes, font.getAxes());
                     assertNotNull(font.getBuffer());
                     assertNull(font.getFile());
                 }
@@ -489,7 +515,7 @@ public class FontTest {
                     assertEquals(path, customWeight, font.getStyle().getWeight());
                     assertEquals(path, slant, font.getStyle().getSlant());
                     assertEquals(path, 0, font.getTtcIndex());
-                    assertNull(path, font.getAxes());
+                    assertNullOrEmpty(path, font.getAxes());
                     assertNotNull(font.getBuffer());
                     assertNull(font.getFile());
                 }
@@ -514,7 +540,7 @@ public class FontTest {
                     assertEquals(path, weight, font.getStyle().getWeight());
                     assertEquals(path, FontStyle.FONT_SLANT_ITALIC, font.getStyle().getSlant());
                     assertEquals(path, 0, font.getTtcIndex());
-                    assertNull(path, font.getAxes());
+                    assertNullOrEmpty(path, font.getAxes());
                     assertNotNull(font.getBuffer());
                     assertNull(font.getFile());
                 }
@@ -526,7 +552,7 @@ public class FontTest {
 
     @Test
     public void testBuilder_fd_subdata() throws IOException {
-        byte[] dummy = { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef };
+        byte[] placeHolderData = { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef };
         AssetManager am = InstrumentationRegistry.getTargetContext().getAssets();
         for (Pair<Integer, Boolean> style : FontTestUtil.getAllStyles()) {
             int weight = style.first.intValue();
@@ -536,16 +562,16 @@ public class FontTest {
 
             File file = getTempFile();
             try (InputStream is = am.open(path)) {
-                assertTrue(copyToFile(file, is, dummy, dummy));
+                assertTrue(copyToFile(file, is, placeHolderData, placeHolderData));
 
                 try (ParcelFileDescriptor fd = ParcelFileDescriptor.open(file,
                         ParcelFileDescriptor.MODE_READ_ONLY)) {
-                    Font font = new Font.Builder(
-                            fd, dummy.length, file.length() - dummy.length * 2).build();
+                    Font font = new Font.Builder(fd, placeHolderData.length,
+                            file.length() - placeHolderData.length * 2).build();
                     assertEquals(path, weight, font.getStyle().getWeight());
                     assertEquals(path, slant, font.getStyle().getSlant());
                     assertEquals(path, 0, font.getTtcIndex());
-                    assertNull(path, font.getAxes());
+                    assertNullOrEmpty(path, font.getAxes());
                     assertNotNull(font.getBuffer());
                     assertNull(font.getFile());
                 }
@@ -557,7 +583,7 @@ public class FontTest {
 
     @Test
     public void testBuilder_fd_subdata_ttc() throws IOException {
-        byte[] dummy = { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef };
+        byte[] placeHolderData = { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef };
         AssetManager am = InstrumentationRegistry.getTargetContext().getAssets();
         for (Pair<Integer, Boolean> style : FontTestUtil.getAllStyles()) {
             int weight = style.first.intValue();
@@ -568,17 +594,17 @@ public class FontTest {
 
             File file = getTempFile();
             try (InputStream is = am.open(path)) {
-                assertTrue(copyToFile(file, is, dummy, dummy));
+                assertTrue(copyToFile(file, is, placeHolderData, placeHolderData));
 
                 try (ParcelFileDescriptor fd = ParcelFileDescriptor.open(file,
                         ParcelFileDescriptor.MODE_READ_ONLY)) {
                     Font font = new Font.Builder(
-                            fd, dummy.length, file.length() - dummy.length * 2)
+                            fd, placeHolderData.length, file.length() - placeHolderData.length * 2)
                             .setTtcIndex(ttcIndex).build();
                     assertEquals(path, weight, font.getStyle().getWeight());
                     assertEquals(path, slant, font.getStyle().getSlant());
                     assertEquals(path, ttcIndex, font.getTtcIndex());
-                    assertNull(path, font.getAxes());
+                    assertNullOrEmpty(path, font.getAxes());
                     assertNotNull(font.getBuffer());
                     assertNull(font.getFile());
                 }
@@ -590,7 +616,7 @@ public class FontTest {
 
     @Test
     public void testBuilder_fd_subdata_vf() throws IOException {
-        byte[] dummy = { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef };
+        byte[] placeHolderData = { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef };
         AssetManager am = InstrumentationRegistry.getTargetContext().getAssets();
         for (Pair<Integer, Boolean> style : FontTestUtil.getAllStyles()) {
             int weight = style.first.intValue();
@@ -602,17 +628,17 @@ public class FontTest {
 
             File file = getTempFile();
             try (InputStream is = am.open(path)) {
-                assertTrue(copyToFile(file, is, dummy, dummy));
+                assertTrue(copyToFile(file, is, placeHolderData, placeHolderData));
 
                 try (ParcelFileDescriptor fd = ParcelFileDescriptor.open(file,
                         ParcelFileDescriptor.MODE_READ_ONLY)) {
                     Font font = new Font.Builder(
-                            fd, dummy.length, file.length() - dummy.length * 2)
+                            fd, placeHolderData.length, file.length() - placeHolderData.length * 2)
                             .setFontVariationSettings(axes).build();
                     assertEquals(path, weight, font.getStyle().getWeight());
                     assertEquals(path, slant, font.getStyle().getSlant());
                     assertEquals(path, 0, font.getTtcIndex());
-                    assertEquals(path, axes, font.getAxes());
+                    assertAxesEquals(path, axes, font.getAxes());
                     assertNotNull(font.getBuffer());
                     assertNull(font.getFile());
                 }
@@ -625,7 +651,7 @@ public class FontTest {
     @Test
     public void testBuilder_fd_subdata_override() throws IOException {
         int customWeight = 350;
-        byte[] dummy = { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef };
+        byte[] placeHolderData = { (byte) 0xde, (byte) 0xad, (byte) 0xbe, (byte) 0xef };
         AssetManager am = InstrumentationRegistry.getTargetContext().getAssets();
         for (Pair<Integer, Boolean> style : FontTestUtil.getAllStyles()) {
             int weight = style.first.intValue();
@@ -635,17 +661,17 @@ public class FontTest {
 
             File file = getTempFile();
             try (InputStream is = am.open(path)) {
-                assertTrue(copyToFile(file, is, dummy, dummy));
+                assertTrue(copyToFile(file, is, placeHolderData, placeHolderData));
 
                 try (ParcelFileDescriptor fd = ParcelFileDescriptor.open(file,
                         ParcelFileDescriptor.MODE_READ_ONLY)) {
                     Font font = new Font.Builder(
-                            fd, dummy.length, file.length() - dummy.length * 2)
+                            fd, placeHolderData.length, file.length() - placeHolderData.length * 2)
                             .setWeight(customWeight).build();
                     assertEquals(path, customWeight, font.getStyle().getWeight());
                     assertEquals(path, slant, font.getStyle().getSlant());
                     assertEquals(path, 0, font.getTtcIndex());
-                    assertNull(path, font.getAxes());
+                    assertNullOrEmpty(path, font.getAxes());
                     assertNotNull(font.getBuffer());
                     assertNull(font.getFile());
                 }
@@ -661,17 +687,17 @@ public class FontTest {
 
             File file = getTempFile();
             try (InputStream is = am.open(path)) {
-                assertTrue(copyToFile(file, is, dummy, dummy));
+                assertTrue(copyToFile(file, is, placeHolderData, placeHolderData));
 
                 try (ParcelFileDescriptor fd = ParcelFileDescriptor.open(file,
                         ParcelFileDescriptor.MODE_READ_ONLY)) {
                     Font font = new Font.Builder(
-                            fd, dummy.length, file.length() - dummy.length * 2)
+                            fd, placeHolderData.length, file.length() - placeHolderData.length * 2)
                             .setSlant(FontStyle.FONT_SLANT_ITALIC).build();
                     assertEquals(path, weight, font.getStyle().getWeight());
                     assertEquals(path, FontStyle.FONT_SLANT_ITALIC, font.getStyle().getSlant());
                     assertEquals(path, 0, font.getTtcIndex());
-                    assertNull(path, font.getAxes());
+                    assertNullOrEmpty(path, font.getAxes());
                     assertNotNull(font.getBuffer());
                     assertNull(font.getFile());
                 }
@@ -736,7 +762,7 @@ public class FontTest {
             assertEquals(path, weight, font.getStyle().getWeight());
             assertEquals(path, slant, font.getStyle().getSlant());
             assertEquals(path, 0, font.getTtcIndex());
-            assertNull(path, font.getAxes());
+            assertNullOrEmpty(path, font.getAxes());
             assertNotNull(font.getBuffer());
             assertNull(font.getFile());
         }
@@ -756,7 +782,7 @@ public class FontTest {
             assertEquals(path, weight, font.getStyle().getWeight());
             assertEquals(path, slant, font.getStyle().getSlant());
             assertEquals(path, ttcIndex, font.getTtcIndex());
-            assertNull(path, font.getAxes());
+            assertNullOrEmpty(path, font.getAxes());
             assertNotNull(font.getBuffer());
             assertNull(font.getFile());
         }
@@ -777,7 +803,7 @@ public class FontTest {
             assertEquals(path, weight, font.getStyle().getWeight());
             assertEquals(path, slant, font.getStyle().getSlant());
             assertEquals(path, 0, font.getTtcIndex());
-            assertEquals(path, axes, font.getAxes());
+            assertAxesEquals(path, axes, font.getAxes());
             assertNotNull(font.getBuffer());
             assertNull(font.getFile());
         }
@@ -797,7 +823,7 @@ public class FontTest {
             assertEquals(path, customWeight, font.getStyle().getWeight());
             assertEquals(path, slant, font.getStyle().getSlant());
             assertEquals(path, 0, font.getTtcIndex());
-            assertNull(path, font.getAxes());
+            assertNullOrEmpty(path, font.getAxes());
             assertNotNull(font.getBuffer());
             assertNull(font.getFile());
         }
@@ -810,7 +836,7 @@ public class FontTest {
             assertEquals(path, weight, font.getStyle().getWeight());
             assertEquals(path, FontStyle.FONT_SLANT_ITALIC, font.getStyle().getSlant());
             assertEquals(path, 0, font.getTtcIndex());
-            assertNull(path, font.getAxes());
+            assertNullOrEmpty(path, font.getAxes());
             assertNotNull(font.getBuffer());
             assertNull(font.getFile());
         }
@@ -841,7 +867,7 @@ public class FontTest {
             assertEquals("ResId=#" + resId, weight, font.getStyle().getWeight());
             assertEquals("ResId=#" + resId, slant, font.getStyle().getSlant());
             assertEquals("ResId=#" + resId, 0, font.getTtcIndex());
-            assertNull("ResId=#" + resId, font.getAxes());
+            assertNullOrEmpty("ResId=#" + resId, font.getAxes());
             assertNotNull("ResId=#" + resId, font.getBuffer());
             assertNull("ResId=#" + resId, font.getFile());
         }
@@ -861,7 +887,7 @@ public class FontTest {
             assertEquals("ResId=#" + resId, weight, font.getStyle().getWeight());
             assertEquals("ResId=#" + resId, slant, font.getStyle().getSlant());
             assertEquals("ResId=#" + resId, ttcIndex, font.getTtcIndex());
-            assertNull("ResId=#" + resId, font.getAxes());
+            assertNullOrEmpty("ResId=#" + resId, font.getAxes());
             assertNotNull("ResId=#" + resId, font.getBuffer());
             assertNull("ResId=#" + resId, font.getFile());
         }
@@ -882,7 +908,7 @@ public class FontTest {
             assertEquals("ResId=#" + resId, weight, font.getStyle().getWeight());
             assertEquals("ResId=#" + resId, slant, font.getStyle().getSlant());
             assertEquals("ResId=#" + resId, 0, font.getTtcIndex());
-            assertEquals("ResId=#" + resId, axes, font.getAxes());
+            assertAxesEquals("ResId=#" + resId, axes, font.getAxes());
             assertNotNull("ResId=#" + font.getBuffer());
             assertNull("ResId=#" + resId, font.getFile());
         }
@@ -902,7 +928,7 @@ public class FontTest {
             assertEquals("ResId=#" + resId, customWeight, font.getStyle().getWeight());
             assertEquals("ResId=#" + resId, slant, font.getStyle().getSlant());
             assertEquals("ResId=#" + resId, 0, font.getTtcIndex());
-            assertNull("ResId=#" + resId, font.getAxes());
+            assertNullOrEmpty("ResId=#" + resId, font.getAxes());
             assertNotNull("ResId=#" + resId, font.getBuffer());
             assertNull("ResId=#" + resId, font.getFile());
         }
@@ -917,7 +943,7 @@ public class FontTest {
             assertEquals("ResId=#" + resId, FontStyle.FONT_SLANT_ITALIC,
                     font.getStyle().getSlant());
             assertEquals("ResId=#" + resId, 0, font.getTtcIndex());
-            assertNull("ResId=#" + resId, font.getAxes());
+            assertNullOrEmpty("ResId=#" + resId, font.getAxes());
             assertNotNull("ResId=#" + resId, font.getBuffer());
             assertNull("ResId=#" + resId, font.getFile());
         }
@@ -999,5 +1025,188 @@ public class FontTest {
     public void testMinFontWeight() throws IOException {
         final Resources res = InstrumentationRegistry.getTargetContext().getResources();
         new Font.Builder(res, R.font.ascii).setWeight(FontStyle.FONT_WEIGHT_MIN - 1).build();
+    }
+
+    @Test
+    public void builder_with_font_with_axis() throws IOException {
+        AssetManager assets = InstrumentationRegistry.getTargetContext().getAssets();
+
+        // WeightEqualsEmVariableFont adjust glyph advance as follows
+        //  glyph advance = 'wght' value / 1000
+        // Thus, by setting text size to 1000px, the glyph advance will equals to passed wght value.
+        Font baseFont = new Font.Builder(assets, "fonts/var_fonts/WeightEqualsEmVariableFont.ttf")
+                .build();
+
+        FontStyle style = new FontStyle(123, FontStyle.FONT_SLANT_ITALIC);
+
+        for (int weight = 50; weight < 1000; weight += 50) {
+            Font clonedFont = new Font.Builder(baseFont)
+                    .setWeight(style.getWeight())
+                    .setSlant(style.getSlant())
+                    .setFontVariationSettings("'wght' " + weight)
+                    .build();
+
+            // New font should have the same style passed.
+            assertEquals(style.getWeight(), clonedFont.getStyle().getWeight());
+            assertEquals(style.getSlant(), clonedFont.getStyle().getSlant());
+
+            Paint p = new Paint();
+            p.setTextSize(1000);  // make 1em = 1000px = weight
+            p.setTypeface(new Typeface.CustomFallbackBuilder(
+                    new FontFamily.Builder(clonedFont).build()
+            ).build());
+            assertEquals(weight, p.measureText("a"), 0);
+
+        }
+    }
+
+    @Test
+    public void builder_with_explicit_style() throws IOException {
+        AssetManager assets = InstrumentationRegistry.getTargetContext().getAssets();
+
+        Font baseFont = new Font.Builder(assets, "fonts/others/samplefont.ttf").build();
+        FontStyle style = new FontStyle(123, FontStyle.FONT_SLANT_ITALIC);
+        Font clonedFont = new Font.Builder(baseFont)
+                .setWeight(style.getWeight())
+                .setSlant(style.getSlant())
+                .build();
+
+        assertEquals(style.getWeight(), clonedFont.getStyle().getWeight());
+        assertEquals(style.getSlant(), clonedFont.getStyle().getSlant());
+    }
+
+    @Test
+    public void builder_style_resolve_default() throws IOException {
+        AssetManager assets = InstrumentationRegistry.getTargetContext().getAssets();
+
+        Font baseFont = new Font.Builder(assets,
+                "fonts/family_selection/ttf/ascii_l3em_weight600_italic.ttf").build();
+        Font clonedFont = new Font.Builder(baseFont).build();
+
+        assertEquals(600, clonedFont.getStyle().getWeight());
+        assertEquals(FontStyle.FONT_SLANT_ITALIC, clonedFont.getStyle().getSlant());
+    }
+
+    @Test
+    public void getBoundingBox() throws IOException {
+        AssetManager assets = InstrumentationRegistry.getTargetContext().getAssets();
+
+        Font font = new Font.Builder(assets, "fonts/measurement/a3em.ttf").build();
+        Paint paint = new Paint();
+        paint.setTextSize(100);  // make 1em = 100px
+
+        int glyphID = 1;  // See a3em.ttx file for the Glyph ID.
+
+        RectF rect = new RectF();
+        float advance = font.getGlyphBounds(glyphID, paint, rect);
+
+        assertEquals(100f, advance, 0f);
+        // Glyph bbox is 0.1em shifted to right. See lsb value in hmtx in ttx file.
+        assertEquals(rect.left, 10f, 0f);
+        assertEquals(rect.top, -100f, 0f);
+        assertEquals(rect.right, 110f, 0f);
+        assertEquals(rect.bottom, 0f, 0f);
+    }
+
+    @Test
+    public void getFontMetrics() throws IOException {
+        AssetManager assets = InstrumentationRegistry.getTargetContext().getAssets();
+
+        Font font = new Font.Builder(assets, "fonts/measurement/a3em.ttf").build();
+        Paint paint = new Paint();
+        paint.setTextSize(100);  // make 1em = 100px
+
+        Paint.FontMetrics metrics = new Paint.FontMetrics();
+        font.getMetrics(paint, metrics);
+
+        assertEquals(-100f, metrics.ascent, 0f);
+        assertEquals(20f, metrics.descent, 0f);
+        // This refers head.yMax which is not explicitly visible in ttx file.
+        assertEquals(-300f, metrics.top, 0f);
+        // This refers head.yMin which is not explicitly visible in ttx file.
+        assertEquals(0f, metrics.bottom, 0f);
+    }
+
+    @Test
+    public void byteBufferEquality() throws IOException {
+        AssetManager assets = InstrumentationRegistry.getTargetContext().getAssets();
+
+        Font aFont = new Font.Builder(assets, "fonts/others/samplefont.ttf").build();
+        // Copied font must be equals to original one.
+        Font bFont = new Font.Builder(aFont).build();
+        assertEquals(aFont, bFont);
+        assertEquals(bFont, aFont);
+
+        // Same source font must be equal.
+        Font cFont = new Font.Builder(assets, "fonts/others/samplefont.ttf").build();
+        assertEquals(aFont, cFont);
+        assertEquals(cFont, aFont);
+
+        // Created font from duplicated buffers must be equal.
+        Font dFont = new Font.Builder(aFont.getBuffer().duplicate()).build();
+        Font eFont = new Font.Builder(aFont.getBuffer().duplicate()).build();
+        assertEquals(dFont, eFont);
+        assertEquals(eFont, dFont);
+
+        // Different parameter should be unequal but sameSource returns true.
+        Font fFont = new Font.Builder(aFont.getBuffer().duplicate())
+                .setFontVariationSettings("'wght' 400").build();
+        assertNotEquals(aFont, fFont);
+        assertNotEquals(fFont, aFont);
+
+        // Different source must be not equals.
+        Font gFont = new Font.Builder(assets, "fonts/others/samplefont2.ttf").build();
+        assertNotEquals(aFont, gFont);
+    }
+
+    @Test
+    public void fontIdentifier() throws IOException {
+        AssetManager assets = InstrumentationRegistry.getTargetContext().getAssets();
+
+        Font aFont = new Font.Builder(assets, "fonts/others/samplefont.ttf").build();
+        // Copied font must be equals to original one.
+        Font bFont = new Font.Builder(aFont).build();
+        assertEquals(aFont.getSourceIdentifier(), bFont.getSourceIdentifier());
+
+        // Different parameter should be unequal but sameSource returns true.
+        Font dFont = new Font.Builder(aFont)
+                .setFontVariationSettings("'wght' 400")
+                .setWeight(123)
+                .build();
+        assertEquals(aFont.getSourceIdentifier(), dFont.getSourceIdentifier());
+
+        // Different source must be not equals.
+        Font gFont = new Font.Builder(assets, "fonts/others/samplefont2.ttf").build();
+        assertNotEquals(aFont.getSourceIdentifier(), gFont.getSourceIdentifier());
+
+        Typeface typeface = new Typeface.CustomFallbackBuilder(
+                new FontFamily.Builder(
+                        aFont
+                ).build()
+        ).build();
+
+        Paint paint = new Paint();
+        paint.setTypeface(typeface);
+        PositionedGlyphs glyphs = TextRunShaper.shapeTextRun("a", 0, 1, 0, 1, 0f, 0f, false, paint);
+        assertEquals(aFont, glyphs.getFont(0));
+        assertEquals(aFont.getSourceIdentifier(), glyphs.getFont(0).getSourceIdentifier());
+    }
+
+    @Test
+    public void byteBufferSameHash() throws IOException {
+        AssetManager assets = InstrumentationRegistry.getTargetContext().getAssets();
+
+        Font aFont = new Font.Builder(assets, "fonts/others/samplefont.ttf").build();
+        // Copied font must be equals to original one.
+        assertEquals(new Font.Builder(aFont).build().hashCode(), aFont.hashCode());
+
+        // Same source font must be equal.
+        assertEquals(new Font.Builder(assets, "fonts/others/samplefont.ttf").build().hashCode(),
+                aFont.hashCode());
+
+        // Created font from duplicated buffers must be equal.
+        int cFontHash = new Font.Builder(aFont.getBuffer().duplicate()).build().hashCode();
+        int dFontHash = new Font.Builder(aFont.getBuffer().duplicate()).build().hashCode();
+        assertEquals(cFontHash, dFontHash);
     }
 }

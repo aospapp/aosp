@@ -5,7 +5,7 @@
 from autotest_lib.server import utils
 
 AUTHOR = "Chrome OS Team"
-NAME = "firmware_ConsecutiveBootPowerButton"
+NAME = "firmware_ConsecutiveBootPowerButton.100"
 PURPOSE = "Servo based consecutive boot test (100 iterations)"
 CRITERIA = "This test will fail if DUT fails to boot from power-off"
 ATTRIBUTES = "suite:faft_stress"
@@ -13,7 +13,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 This test is intended to be run with many iterations to ensure that the DUT

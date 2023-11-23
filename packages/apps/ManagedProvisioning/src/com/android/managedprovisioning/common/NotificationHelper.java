@@ -15,6 +15,9 @@
  */
 package com.android.managedprovisioning.common;
 
+import static android.app.PendingIntent.FLAG_IMMUTABLE;
+import static android.app.PendingIntent.FLAG_UPDATE_CURRENT;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -26,6 +29,8 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.R;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
+
+import com.google.android.setupdesign.util.Partner;
 
 /**
  * Helper methods for showing notifications, such as the provisioning reminder and
@@ -58,7 +63,7 @@ public class NotificationHelper {
         notificationManager.createNotificationChannel(channel);
 
         final PendingIntent resumePendingIntent = PendingIntent.getActivity(
-                mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                mContext, 0, intent, FLAG_UPDATE_CURRENT | FLAG_IMMUTABLE);
         final Notification.Builder notify = new Notification.Builder(mContext)
                 .setChannelId(CHANNEL_ID)
                 .setContentIntent(resumePendingIntent)
@@ -82,7 +87,7 @@ public class NotificationHelper {
         notificationManager.createNotificationChannel(channel);
 
         final Notification.Builder notify = new Notification.Builder(mContext, CHANNEL_ID)
-                .setColor(context.getColor(R.color.notification_background))
+                .setColor(Partner.getColor(context, R.color.setup_notification_bg_color))
                 .setColorized(true)
                 .setContentTitle(mContext.getString(
                         R.string.fully_managed_device_provisioning_privacy_title))

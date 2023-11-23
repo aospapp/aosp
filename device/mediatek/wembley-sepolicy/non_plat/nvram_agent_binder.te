@@ -55,8 +55,8 @@ hal_server_domain(nvram_agent_binder, hal_nvramagent)
 
 # Date : WK18.16
 # Operation: P migration
-# Purpose: Allow nvram_daemon to get tel_switch_prop
-get_prop(nvram_daemon, tel_switch_prop)
+# Purpose: Allow nvram_daemon to get vendor_mtk_tel_switch_prop
+get_prop(nvram_daemon, vendor_mtk_tel_switch_prop)
 
 # Date : WK18.21
 # Operation: P migration

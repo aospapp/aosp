@@ -17,6 +17,7 @@
 package dagger.internal.codegen;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static dagger.internal.codegen.Compilers.compilerWithOptions;
 import static dagger.internal.codegen.Compilers.daggerCompiler;
 import static dagger.internal.codegen.TestUtils.endsWithMessage;
 
@@ -48,9 +49,35 @@ public final class FullBindingGraphValidationTest {
   // Make sure the error doesn't show other bindings or a dependency trace afterwards.
   private static final Pattern MODULE_WITH_ERRORS_MESSAGE =
       endsWithMessage(
-          "[Dagger/DuplicateBindings] java.lang.Object is bound multiple times:",
-          "    @Binds Object test.ModuleWithErrors.object1(String)",
-          "    @Binds Object test.ModuleWithErrors.object2(Long)");
+          "\033[1;31m[Dagger/DuplicateBindings]\033[0m Object is bound multiple times:",
+          "    @Binds Object ModuleWithErrors.object1(String)",
+          "    @Binds Object ModuleWithErrors.object2(Long)",
+          "    in component: [ModuleWithErrors]",
+          "",
+          "======================",
+          "Full classname legend:",
+          "======================",
+          "ModuleWithErrors: test.ModuleWithErrors",
+          "========================",
+          "End of classname legend:",
+          "========================");
+
+  private static final Pattern INCLUDES_MODULE_WITH_ERRORS_MESSAGE =
+      endsWithMessage(
+          "\033[1;31m[Dagger/DuplicateBindings]\033[0m Object is bound multiple times:",
+          "    @Binds Object ModuleWithErrors.object1(String)",
+          "    @Binds Object ModuleWithErrors.object2(Long)",
+          "    in component: [IncludesModuleWithErrors]",
+          "",
+          "======================",
+          "Full classname legend:",
+          "======================",
+          "IncludesModuleWithErrors: test.IncludesModuleWithErrors",
+          "ModuleWithErrors:         test.ModuleWithErrors",
+          "========================",
+          "End of classname legend:",
+          "========================");
+
 
   @Test
   public void moduleWithErrors_validationTypeNone() {
@@ -61,8 +88,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void moduleWithErrors_validationTypeError() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=ERROR")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=ERROR")
             .compile(MODULE_WITH_ERRORS);
 
     assertThat(compilation).failed();
@@ -78,8 +104,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void moduleWithErrors_validationTypeWarning() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=WARNING")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=WARNING")
             .compile(MODULE_WITH_ERRORS);
 
     assertThat(compilation).succeeded();
@@ -113,8 +138,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void includesModuleWithErrors_validationTypeError() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=ERROR")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=ERROR")
             .compile(MODULE_WITH_ERRORS, INCLUDES_MODULE_WITH_ERRORS);
 
     assertThat(compilation).failed();
@@ -125,7 +149,7 @@ public final class FullBindingGraphValidationTest {
         .onLineContaining("interface ModuleWithErrors");
 
     assertThat(compilation)
-        .hadErrorContainingMatch("test.ModuleWithErrors has errors")
+        .hadErrorContainingMatch("ModuleWithErrors has errors")
         .inFile(INCLUDES_MODULE_WITH_ERRORS)
         .onLineContaining("ModuleWithErrors.class");
 
@@ -135,8 +159,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void includesModuleWithErrors_validationTypeWarning() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=WARNING")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=WARNING")
             .compile(MODULE_WITH_ERRORS, INCLUDES_MODULE_WITH_ERRORS);
 
     assertThat(compilation).succeeded();
@@ -148,7 +171,7 @@ public final class FullBindingGraphValidationTest {
 
     // TODO(b/130284666)
     assertThat(compilation)
-        .hadWarningContainingMatch(MODULE_WITH_ERRORS_MESSAGE)
+        .hadWarningContainingMatch(INCLUDES_MODULE_WITH_ERRORS_MESSAGE)
         .inFile(INCLUDES_MODULE_WITH_ERRORS)
         .onLineContaining("interface IncludesModuleWithErrors");
 
@@ -184,9 +207,19 @@ public final class FullBindingGraphValidationTest {
   // Make sure the error doesn't show other bindings or a dependency trace afterwards.
   private static final Pattern COMBINED_WITH_A_MODULE_HAS_ERRORS_MESSAGE =
       endsWithMessage(
-          "[Dagger/DuplicateBindings] java.lang.Object is bound multiple times:",
-          "    @Binds Object test.AModule.object(String)",
-          "    @Binds Object test.CombinedWithAModuleHasErrors.object(Long)");
+          "\033[1;31m[Dagger/DuplicateBindings]\033[0m Object is bound multiple times:",
+          "    @Binds Object AModule.object(String)",
+          "    @Binds Object CombinedWithAModuleHasErrors.object(Long)",
+          "    in component: [CombinedWithAModuleHasErrors]",
+          "",
+          "======================",
+          "Full classname legend:",
+          "======================",
+          "AModule:                      test.AModule",
+          "CombinedWithAModuleHasErrors: test.CombinedWithAModuleHasErrors",
+          "========================",
+          "End of classname legend:",
+          "========================");
 
   @Test
   public void moduleIncludingModuleWithCombinedErrors_validationTypeNone() {
@@ -198,8 +231,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void moduleIncludingModuleWithCombinedErrors_validationTypeError() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=ERROR")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=ERROR")
             .compile(A_MODULE, COMBINED_WITH_A_MODULE_HAS_ERRORS);
 
     assertThat(compilation).failed();
@@ -215,8 +247,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void moduleIncludingModuleWithCombinedErrors_validationTypeWarning() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=WARNING")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=WARNING")
             .compile(A_MODULE, COMBINED_WITH_A_MODULE_HAS_ERRORS);
 
     assertThat(compilation).succeeded();
@@ -249,10 +280,38 @@ public final class FullBindingGraphValidationTest {
   // Make sure the error doesn't show other bindings or a dependency trace afterwards.
   private static final Pattern SUBCOMPONENT_WITH_ERRORS_MESSAGE =
       endsWithMessage(
-          "[Dagger/DuplicateBindings] java.lang.Object is bound multiple times:",
-          "    @Binds Object test.AModule.object(String)",
-          "    @BindsInstance test.SubcomponentWithErrors.Builder"
-              + " test.SubcomponentWithErrors.Builder.object(Object)");
+          "\033[1;31m[Dagger/DuplicateBindings]\033[0m Object is bound multiple times:",
+          "    @Binds Object AModule.object(String)",
+          "    @BindsInstance SubcomponentWithErrors.Builder"
+              + " SubcomponentWithErrors.Builder.object(Object)",
+          "    in component: [SubcomponentWithErrors]",
+          "",
+          "======================",
+          "Full classname legend:",
+          "======================",
+          "AModule:                test.AModule",
+          "SubcomponentWithErrors: test.SubcomponentWithErrors",
+          "========================",
+          "End of classname legend:",
+          "========================");
+
+  private static final Pattern MODULE_WITH_SUBCOMPONENT_WITH_ERRORS_MESSAGE =
+      endsWithMessage(
+          "\033[1;31m[Dagger/DuplicateBindings]\033[0m Object is bound multiple times:",
+          "    @Binds Object AModule.object(String)",
+          "    @BindsInstance SubcomponentWithErrors.Builder"
+              + " SubcomponentWithErrors.Builder.object(Object)",
+          "    in component: [ModuleWithSubcomponentWithErrors → SubcomponentWithErrors]",
+          "",
+          "======================",
+          "Full classname legend:",
+          "======================",
+          "AModule:                          test.AModule",
+          "ModuleWithSubcomponentWithErrors: test.ModuleWithSubcomponentWithErrors",
+          "SubcomponentWithErrors:           test.SubcomponentWithErrors",
+          "========================",
+          "End of classname legend:",
+          "========================");
 
   @Test
   public void subcomponentWithErrors_validationTypeNone() {
@@ -264,8 +323,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void subcomponentWithErrors_validationTypeError() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=ERROR")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=ERROR")
             .compile(SUBCOMPONENT_WITH_ERRORS, A_MODULE);
 
     assertThat(compilation).failed();
@@ -281,8 +339,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void subcomponentWithErrors_validationTypeWarning() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=WARNING")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=WARNING")
             .compile(SUBCOMPONENT_WITH_ERRORS, A_MODULE);
 
     assertThat(compilation).succeeded();
@@ -318,14 +375,13 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void moduleWithSubcomponentWithErrors_validationTypeError() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=ERROR")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=ERROR")
             .compile(MODULE_WITH_SUBCOMPONENT_WITH_ERRORS, SUBCOMPONENT_WITH_ERRORS, A_MODULE);
 
     assertThat(compilation).failed();
 
     assertThat(compilation)
-        .hadErrorContainingMatch(SUBCOMPONENT_WITH_ERRORS_MESSAGE)
+        .hadErrorContainingMatch(MODULE_WITH_SUBCOMPONENT_WITH_ERRORS_MESSAGE)
         .inFile(MODULE_WITH_SUBCOMPONENT_WITH_ERRORS)
         .onLineContaining("interface ModuleWithSubcomponentWithErrors");
 
@@ -341,14 +397,13 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void moduleWithSubcomponentWithErrors_validationTypeWarning() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=WARNING")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=WARNING")
             .compile(MODULE_WITH_SUBCOMPONENT_WITH_ERRORS, SUBCOMPONENT_WITH_ERRORS, A_MODULE);
 
     assertThat(compilation).succeeded();
 
     assertThat(compilation)
-        .hadWarningContainingMatch(SUBCOMPONENT_WITH_ERRORS_MESSAGE)
+        .hadWarningContainingMatch(MODULE_WITH_SUBCOMPONENT_WITH_ERRORS_MESSAGE)
         .inFile(MODULE_WITH_SUBCOMPONENT_WITH_ERRORS)
         .onLineContaining("interface ModuleWithSubcomponentWithErrors");
 
@@ -393,9 +448,20 @@ public final class FullBindingGraphValidationTest {
   // Make sure the error doesn't show other bindings or a dependency trace afterwards.
   private static final Pattern COMBINED_WITH_A_SUBCOMPONENT_HAS_ERRORS_MESSAGE =
       endsWithMessage(
-          "[Dagger/DuplicateBindings] java.lang.Object is bound multiple times:",
-          "    @Binds Object test.AModule.object(String)",
-          "    @Binds Object test.CombinedWithASubcomponentHasErrors.object(Number)");
+          "\033[1;31m[Dagger/DuplicateBindings]\033[0m Object is bound multiple times:",
+          "    @Binds Object AModule.object(String)",
+          "    @Binds Object CombinedWithASubcomponentHasErrors.object(Number)",
+          "    in component: [CombinedWithASubcomponentHasErrors → ASubcomponent]",
+          "",
+          "======================",
+          "Full classname legend:",
+          "======================",
+          "AModule:                            test.AModule",
+          "ASubcomponent:                      test.ASubcomponent",
+          "CombinedWithASubcomponentHasErrors: test.CombinedWithASubcomponentHasErrors",
+          "========================",
+          "End of classname legend:",
+          "========================");
 
   @Test
   public void moduleWithSubcomponentWithCombinedErrors_validationTypeNone() {
@@ -408,8 +474,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void moduleWithSubcomponentWithCombinedErrors_validationTypeError() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=ERROR")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=ERROR")
             .compile(COMBINED_WITH_A_SUBCOMPONENT_HAS_ERRORS, A_SUBCOMPONENT, A_MODULE);
 
     assertThat(compilation).failed();
@@ -425,8 +490,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void moduleWithSubcomponentWithCombinedErrors_validationTypeWarning() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions("-Adagger.fullBindingGraphValidation=WARNING")
+        compilerWithOptions("-Adagger.fullBindingGraphValidation=WARNING")
             .compile(COMBINED_WITH_A_SUBCOMPONENT_HAS_ERRORS, A_SUBCOMPONENT, A_MODULE);
 
     assertThat(compilation).succeeded();
@@ -442,8 +506,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void bothAliasesDifferentValues() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(
+        compilerWithOptions(
                 "-Adagger.moduleBindingValidation=NONE",
                 "-Adagger.fullBindingGraphValidation=ERROR")
             .compile(MODULE_WITH_ERRORS);
@@ -462,8 +525,7 @@ public final class FullBindingGraphValidationTest {
   @Test
   public void bothAliasesSameValue() {
     Compilation compilation =
-        daggerCompiler()
-            .withOptions(
+        compilerWithOptions(
                 "-Adagger.moduleBindingValidation=NONE", "-Adagger.fullBindingGraphValidation=NONE")
             .compile(MODULE_WITH_ERRORS);
 

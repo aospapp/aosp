@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_library_shared {
     name: "android.hardware.camera.provider@2.4-legacy",
     defaults: ["hidl_defaults"],
@@ -76,7 +85,7 @@ cc_library_shared {
     header_libs: [
         "camera.device@3.4-external-impl_headers",
         "camera.device@3.5-external-impl_headers",
-        "camera.device@3.6-external-impl_headers"
+        "camera.device@3.6-external-impl_headers",
     ],
     export_include_dirs: ["."],
 }
@@ -150,6 +159,7 @@ cc_defaults {
         "android.hidl.memory@1.0",
         "libbinder",
         "libcamera_metadata",
+        "libcutils",
         "libhardware",
         "libhidlbase",
         "liblog",

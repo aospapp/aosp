@@ -241,7 +241,7 @@ final class SSLParametersImpl implements Cloneable {
     /**
      * @return X.509 trust manager or {@code null} for none.
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     X509TrustManager getX509TrustManager() {
         return x509TrustManager;
     }
@@ -280,7 +280,7 @@ final class SSLParametersImpl implements Cloneable {
      * Sets the list of available protocols for use in SSL connection.
      * @throws IllegalArgumentException if {@code protocols == null}
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     void setEnabledProtocols(String[] protocols) {
         if (protocols == null) {
             throw new IllegalArgumentException("protocols == null");
@@ -581,7 +581,9 @@ final class SSLParametersImpl implements Cloneable {
             } else if (km != null) {
                 try {
                     return DuckTypedPSKKeyManager.getInstance(km);
-                } catch (NoSuchMethodException ignored) {}
+                } catch (NoSuchMethodException ignored) {
+                    // This PSKKeyManager doesn't support the required methods, go to the next
+                }
             }
         }
         return null;

@@ -15,4 +15,4 @@ hal_client_domain(mtk_hal_secure_element, hal_telephony)
 allow mtk_hal_secure_element hal_telephony_hwservice:hwservice_manager find;
 
 # Allow to use persist.radio.multisim.config
-get_prop(mtk_hal_secure_element, exported3_radio_prop)
+get_prop(mtk_hal_secure_element, radio_control_prop)

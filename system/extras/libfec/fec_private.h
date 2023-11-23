@@ -47,7 +47,7 @@
 /* verity definitions */
 #define VERITY_METADATA_SIZE (8 * FEC_BLOCKSIZE)
 #define VERITY_TABLE_ARGS 10 /* mandatory arguments */
-#define VERITY_MIN_TABLE_SIZE (VERITY_TABLE_ARGS * 2) /* for a sanity check */
+#define VERITY_MIN_TABLE_SIZE (VERITY_TABLE_ARGS * 2) /* for quick validation */
 #define VERITY_MAX_TABLE_SIZE (VERITY_METADATA_SIZE - sizeof(verity_header))
 
 /* verity header and metadata */

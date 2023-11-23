@@ -10,6 +10,7 @@ third_party {
     value: "https://github.com/junit-team/junit4/archive/r4.12.tar.gz"
   }
   version: "r4.12"
+  license_type: RECIPROCAL
   last_upgrade_date {
     year: 2016
     month: 12

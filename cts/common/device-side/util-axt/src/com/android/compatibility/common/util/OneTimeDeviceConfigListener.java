@@ -62,7 +62,6 @@ public final class OneTimeDeviceConfigListener implements OnPropertiesChangedLis
             return;
         }
         mLatch.countDown();
-        DeviceConfig.removeOnPropertiesChangedListener(this);
     }
 
     /**
@@ -82,6 +81,9 @@ public final class OneTimeDeviceConfigListener implements OnPropertiesChangedLis
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted", e);
+        } finally {
+            Log.i(TAG, "Remove OnPropertiesChangedListener for " + mKey);
+            DeviceConfig.removeOnPropertiesChangedListener(this);
         }
     }
 }

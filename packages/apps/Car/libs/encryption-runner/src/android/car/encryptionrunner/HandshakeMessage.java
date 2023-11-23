@@ -16,10 +16,11 @@
 
 package android.car.encryptionrunner;
 
-import android.annotation.IntDef;
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.text.TextUtils;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

@@ -44,6 +44,16 @@ std::unique_ptr<LangId> GetLangIdFromFlatbufferFileDescriptor(
       new LangId(std::move(model_provider)));
 }
 
+std::unique_ptr<LangId> GetLangIdFromFlatbufferFileDescriptor(
+    FileDescriptorOrHandle fd, size_t offset, size_t num_bytes) {
+  std::unique_ptr<ModelProvider> model_provider(
+      new ModelProviderFromFlatbuffer(fd, offset, num_bytes));
+
+  // NOTE: we avoid absl (including absl::make_unique), due to b/113350902
+  return std::unique_ptr<LangId>(  // NOLINT
+      new LangId(std::move(model_provider)));
+}
+
 std::unique_ptr<LangId> GetLangIdFromFlatbufferBytes(const char *data,
                                                      size_t num_bytes) {
   std::unique_ptr<ModelProvider> model_provider(

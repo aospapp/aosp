@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsContentTestCases",
     defaults: ["cts_defaults"],
@@ -26,11 +30,12 @@ android_test {
         "libnativehelper_compat_libc++",
     ],
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
         "android.test.mock",
     ],
     static_libs: [
+        "apache-commons-compress",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "services.core",
@@ -42,6 +47,12 @@ android_test {
         "testng",
         "androidx.legacy_legacy-support-v4",
         "androidx.test.core",
+        "cts-install-lib",
+        "ShortcutManagerTestUtils",
+        "libincfs-prebuilt",
+        "HelloWorldResHardeningLib",
+        "Nene",
+        "Harrier",
     ],
     // Use multi-dex as the compatibility-common-util-devicesidelib dependency
     // on compatibility-device-util-axt pushes us beyond 64k methods.
@@ -63,14 +74,40 @@ android_test {
     ],
     srcs: [
         "src/**/*.java",
+        "src/**/*.kt",
         "BinderPermissionTestService/**/I*.aidl",
+    ],
+    data: [
+        // v1/v2/v3/v4 signed version of android.appsecurity.cts.tinyapp to keep checksums stable
+        "data/CtsPkgInstallTinyAppV1.apk",
+        "data/CtsPkgInstallTinyAppV2V3V4.apk",
+        "data/CtsPkgInstallTinyAppV2V3V4.apk.idsig",
+        "data/CtsPkgInstallTinyAppV2V3V4.digests",
+        "data/CtsPkgInstallTinyAppV2V3V4.digests.signature",
+        "data/CtsPkgInstallTinyAppV2V3V4-Sha512withEC.apk",
+        "data/CtsPkgInstallTinyAppV2V3V4-Sha512withEC.apk.idsig",
+        "data/CtsPkgInstallTinyAppV2V3V4-Verity.apk",
+        "data/CtsPkgInstallTinyAppV2V3V4-Verity.apk.idsig",
+        "data/HelloWorld5.digests",
+        "data/HelloWorld5.digests.signature",
+        "data/HelloWorld5_hdpi-v4.digests",
+        "data/HelloWorld5_hdpi-v4.digests.signature",
+        "data/HelloWorld5_mdpi-v4.digests",
+        "data/HelloWorld5_mdpi-v4.digests.signature",
+        "data/malformed.apk.idsig",
+        "data/test-cert.x509.pem",
+    ],
+    java_resources: [
+        ":PackagePropertyTestApp1",
+        ":PackagePropertyTestApp2",
+        ":PackagePropertyTestApp3",
     ],
     platform_apis: true,
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
     min_sdk_version: "29",
 }

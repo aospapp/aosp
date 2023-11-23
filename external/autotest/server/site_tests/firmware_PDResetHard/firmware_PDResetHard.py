@@ -9,7 +9,6 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 from autotest_lib.server.cros.servo import pd_device
 
-
 class firmware_PDResetHard(FirmwareTest):
     """
     USB PD hard reset test.
@@ -20,9 +19,11 @@ class firmware_PDResetHard(FirmwareTest):
     criteria is that all attempted hard resets are successful.
 
     """
+
     version = 1
     RESET_ITERATIONS = 5
     DELAY_BETWEEN_ITERATIONS = 1
+    PD_CONNECT_DELAY = 10
 
     def _test_hard_reset(self, port_pair):
         """Tests hard reset initated by both ends of PD connection
@@ -32,6 +33,7 @@ class firmware_PDResetHard(FirmwareTest):
         for dev in port_pair:
             for _ in xrange(self.RESET_ITERATIONS):
                 try:
+                    time.sleep(self.PD_CONNECT_DELAY)
                     if dev.hard_reset() == False:
                         raise error.TestFail('Hard Reset Failed')
                     time.sleep(self.DELAY_BETWEEN_ITERATIONS)
@@ -39,16 +41,21 @@ class firmware_PDResetHard(FirmwareTest):
                     logging.warn('Device cant hard reset ... skipping')
                     break
 
-    def initialize(self, host, cmdline_args, flip_cc=False):
+    def initialize(self, host, cmdline_args, flip_cc=False, dts_mode=False,
+                   init_power_mode=None):
         super(firmware_PDResetHard, self).initialize(host, cmdline_args)
-        self.setup_pdtester(flip_cc)
+        self.setup_pdtester(flip_cc, dts_mode, min_batt_level=10)
         # Only run in normal mode
         self.switcher.setup_mode('normal')
+        if init_power_mode:
+            # Set the DUT to suspend or shutdown mode
+            self.set_ap_off_power_mode(init_power_mode)
         # Turn off console prints, except for USBPD.
         self.usbpd.enable_console_channel('usbpd')
 
     def cleanup(self):
         self.usbpd.send_command('chan 0xffffffff')
+        self.restore_ap_on_power_mode()
         super(firmware_PDResetHard, self).cleanup()
 
     def run_once(self):

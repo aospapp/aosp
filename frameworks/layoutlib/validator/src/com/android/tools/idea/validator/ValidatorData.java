@@ -79,6 +79,8 @@ public class ValidatorData {
      */
     public static class Issue {
         @NotNull
+        public final String mCategory;
+        @NotNull
         public final Type mType;
         @NotNull
         public final String mMsg;
@@ -94,6 +96,7 @@ public class ValidatorData {
         public final String mHelpfulUrl;
 
         private Issue(
+                @NotNull String category,
                 @NotNull Type type,
                 @NotNull String msg,
                 @NotNull Level level,
@@ -101,6 +104,7 @@ public class ValidatorData {
                 @Nullable Fix fix,
                 @NotNull String sourceClass,
                 @Nullable String helpfulUrl) {
+            mCategory = category;
             mType = type;
             mMsg = msg;
             mLevel = level;
@@ -111,6 +115,7 @@ public class ValidatorData {
         }
 
         public static class IssueBuilder {
+            private String mCategory;
             private Type mType = Type.ACCESSIBILITY;
             private String mMsg;
             private Level mLevel;
@@ -118,6 +123,11 @@ public class ValidatorData {
             private Fix mFix;
             private String mSourceClass;
             private String mHelpfulUrl;
+
+            public IssueBuilder setCategory(String category) {
+                mCategory = category;
+                return this;
+            }
 
             public IssueBuilder setType(Type type) {
                 mType = type;
@@ -155,11 +165,19 @@ public class ValidatorData {
             }
 
             public Issue build() {
+                assert(mCategory != null);
                 assert(mType != null);
                 assert(mMsg != null);
                 assert(mLevel != null);
                 assert(mSourceClass != null);
-                return new Issue(mType, mMsg, mLevel, mSrcId, mFix, mSourceClass, mHelpfulUrl);
+                return new Issue(mCategory,
+                        mType,
+                        mMsg,
+                        mLevel,
+                        mSrcId,
+                        mFix,
+                        mSourceClass,
+                        mHelpfulUrl);
             }
         }
     }

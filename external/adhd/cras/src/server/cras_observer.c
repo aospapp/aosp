@@ -7,6 +7,7 @@
 
 #include "cras_alert.h"
 #include "cras_iodev_list.h"
+#include "cras_types.h"
 #include "utlist.h"
 
 struct cras_observer_client {
@@ -34,6 +35,8 @@ struct cras_observer_alerts {
          * per-direciton. */
 	struct cras_alert *num_active_streams[CRAS_NUM_DIRECTIONS];
 	struct cras_alert *non_empty_audio_state_changed;
+	struct cras_alert *bt_battery_changed;
+	struct cras_alert *num_input_streams_with_permission;
 };
 
 struct cras_observer_server {
@@ -75,6 +78,10 @@ struct cras_observer_alert_data_streams {
 	uint32_t num_active_streams;
 };
 
+struct cras_observer_alert_data_input_streams {
+	uint32_t num_input_streams[CRAS_NUM_CLIENT_TYPE];
+};
+
 struct cras_observer_alert_data_hotword_triggered {
 	int64_t tv_sec;
 	int64_t tv_nsec;
@@ -82,6 +89,11 @@ struct cras_observer_alert_data_hotword_triggered {
 
 struct cras_observer_non_empty_audio_state {
 	int non_empty;
+};
+
+struct cras_observer_alert_data_bt_battery_changed {
+	const char *address;
+	uint32_t level;
 };
 
 /* Global observer instance. */
@@ -247,6 +259,20 @@ static void num_active_streams_alert(void *arg, void *data)
 	}
 }
 
+static void num_input_streams_with_permission_alert(void *arg, void *data)
+{
+	struct cras_observer_client *client;
+	struct cras_observer_alert_data_input_streams *input_streams_data =
+		(struct cras_observer_alert_data_input_streams *)data;
+
+	DL_FOREACH (g_observer->clients, client) {
+		if (client->ops.num_input_streams_with_permission_changed)
+			client->ops.num_input_streams_with_permission_changed(
+				client->context,
+				input_streams_data->num_input_streams);
+	}
+}
+
 static void hotword_triggered_alert(void *arg, void *data)
 {
 	struct cras_observer_client *client;
@@ -273,6 +299,20 @@ static void non_empty_audio_state_changed_alert(void *arg, void *data)
 				client->context,
 				non_empty_audio_data->non_empty);
 		}
+	}
+}
+
+static void bt_battery_changed_alert(void *arg, void *data)
+{
+	struct cras_observer_client *client;
+	struct cras_observer_alert_data_bt_battery_changed *triggered_data =
+		(struct cras_observer_alert_data_bt_battery_changed *)data;
+
+	DL_FOREACH (g_observer->clients, client) {
+		if (client->ops.bt_battery_changed)
+			client->ops.bt_battery_changed(client->context,
+						       triggered_data->address,
+						       triggered_data->level);
 	}
 }
 
@@ -332,6 +372,8 @@ int cras_observer_server_init()
 	CRAS_OBSERVER_SET_ALERT(suspend_changed, NULL, 0);
 	CRAS_OBSERVER_SET_ALERT(hotword_triggered, NULL, 0);
 	CRAS_OBSERVER_SET_ALERT(non_empty_audio_state_changed, NULL, 0);
+	CRAS_OBSERVER_SET_ALERT(bt_battery_changed, NULL, 0);
+	CRAS_OBSERVER_SET_ALERT(num_input_streams_with_permission, NULL, 0);
 
 	CRAS_OBSERVER_SET_ALERT_WITH_DIRECTION(num_active_streams,
 					       CRAS_STREAM_OUTPUT);
@@ -363,6 +405,9 @@ void cras_observer_server_free()
 	cras_alert_destroy(g_observer->alerts.suspend_changed);
 	cras_alert_destroy(g_observer->alerts.hotword_triggered);
 	cras_alert_destroy(g_observer->alerts.non_empty_audio_state_changed);
+	cras_alert_destroy(g_observer->alerts.bt_battery_changed);
+	cras_alert_destroy(
+		g_observer->alerts.num_input_streams_with_permission);
 	cras_alert_destroy(
 		g_observer->alerts.num_active_streams[CRAS_STREAM_OUTPUT]);
 	cras_alert_destroy(
@@ -540,6 +585,21 @@ void cras_observer_notify_num_active_streams(enum CRAS_STREAM_DIRECTION dir,
 	cras_alert_pending_data(alert, &data, sizeof(data));
 }
 
+void cras_observer_notify_input_streams_with_permission(
+	uint32_t num_input_streams[CRAS_NUM_CLIENT_TYPE])
+{
+	struct cras_observer_alert_data_input_streams data;
+	struct cras_alert *alert;
+
+	memcpy(&data.num_input_streams, num_input_streams,
+	       sizeof(*num_input_streams) * CRAS_NUM_CLIENT_TYPE);
+	alert = g_observer->alerts.num_input_streams_with_permission;
+	if (!alert)
+		return;
+
+	cras_alert_pending_data(alert, &data, sizeof(data));
+}
+
 void cras_observer_notify_hotword_triggered(int64_t tv_sec, int64_t tv_nsec)
 {
 	struct cras_observer_alert_data_hotword_triggered data;
@@ -559,4 +619,16 @@ void cras_observer_notify_non_empty_audio_state_changed(int non_empty)
 	cras_alert_pending_data(
 		g_observer->alerts.non_empty_audio_state_changed, &data,
 		sizeof(data));
+}
+
+void cras_observer_notify_bt_battery_changed(const char *address,
+					     uint32_t level)
+{
+	struct cras_observer_alert_data_bt_battery_changed data;
+
+	data.address = address;
+	data.level = level;
+
+	cras_alert_pending_data(g_observer->alerts.bt_battery_changed, &data,
+				sizeof(data));
 }

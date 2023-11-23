@@ -90,7 +90,6 @@
     <LinearLayout android:orientation="horizontal"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content">
-
         <Button
             android:id="@+id/placeOutgoingCallButton"
             android:layout_width="wrap_content"
@@ -113,6 +112,35 @@
             android:text="Req CallScreen Role"/>
     </LinearLayout>
 
+    <LinearLayout android:orientation="horizontal"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content">
+        <Button
+            android:id="@+id/placeSelfManagedOutgoingCallButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SelfManagedOutgoing"/>
+        <Button
+            android:id="@+id/placeSelfManagedIncomingCallButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SelfManagedIncoming"/>
+    </LinearLayout>
+
+    <LinearLayout android:orientation="horizontal"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content">
+        <Button
+            android:id="@+id/enableCarMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Enable car mode"/>
+        <Button
+            android:id="@+id/disableCarMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Disable car mode"/>
+    </LinearLayout>
     <ListView
         android:id="@+id/callList"
         android:layout_width="match_parent"

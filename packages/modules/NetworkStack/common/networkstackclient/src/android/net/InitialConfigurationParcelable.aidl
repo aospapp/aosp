@@ -19,6 +19,7 @@ package android.net;
 import android.net.IpPrefix;
 import android.net.LinkAddress;
 
+@JavaDerive(toString=true)
 parcelable InitialConfigurationParcelable {
     LinkAddress[] ipAddresses;
     IpPrefix[] directlyConnectedRoutes;

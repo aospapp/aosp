@@ -56,4 +56,6 @@
     <attr name="layout_goneMarginStart" format="dimension"/>
     <attr name="layout_goneMarginEnd" format="dimension"/>
 
+    <attr name="state_ux_restricted"/>
+
 </resources>

@@ -41,6 +41,7 @@ public class NfcPreferredPaymentTest {
 
     private final static String mRouteDestination = "Host";
     private final static String mDescription = "CTS Nfc Test Service";
+    private final static String NFC_PAYMENT_DEFAULT_COMPONENT = "nfc_payment_default_component";
     private final static List<String> mAids = Arrays.asList("A000000004101011",
                                                             "A000000004101012",
                                                             "A000000004101013");
@@ -64,7 +65,7 @@ public class NfcPreferredPaymentTest {
         assertNotNull(mAdapter);
         mCardEmulation = CardEmulation.getInstance(mAdapter);
         Settings.Secure.putString(mContext.getContentResolver(),
-                Settings.Secure.NFC_PAYMENT_DEFAULT_COMPONENT,
+                NFC_PAYMENT_DEFAULT_COMPONENT,
                 CtsNfcTestService.flattenToString());
     }
 
@@ -116,4 +117,33 @@ public class NfcPreferredPaymentTest {
         }
     }
 
+    /** Tests getSelectionModeForCategory API
+     *  CardEmulation.CATEGORY_PAYMENT */
+    @Test
+    public void testGetSelectionModeForCategoryPayment() {
+        try {
+            int mode = mCardEmulation.getSelectionModeForCategory(CardEmulation.CATEGORY_PAYMENT);
+            Log.i(mTag, "getSelectionModeForCategory for Payment: " + mode);
+
+            assertTrue("Retrieve incorrect SelectionMode for Payment",
+                    CardEmulation.SELECTION_MODE_PREFER_DEFAULT == mode);
+        } catch (Exception e) {
+            fail("Unexpected Exception " + e);
+        }
+    }
+
+    /** Tests getSelectionModeForCategory API
+     *  CardEmulation.CATEGORY_OTHER */
+    @Test
+    public void testGetSelectionModeForCategoryOther() {
+        try {
+            int mode = mCardEmulation.getSelectionModeForCategory(CardEmulation.CATEGORY_OTHER);
+            Log.i(mTag, "getSelectionModeForCategory for Other: " + mode);
+
+            assertTrue("Retrieve incorrect SelectionMode for Other",
+                    CardEmulation.SELECTION_MODE_ASK_IF_CONFLICT == mode);
+        } catch (Exception e) {
+            fail("Unexpected Exception " + e);
+        }
+    }
 }

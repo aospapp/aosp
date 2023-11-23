@@ -18,6 +18,8 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_MODULE := libnativemidi_jni
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MULTILIB := both
 
 LOCAL_SRC_FILES := native-lib.cpp

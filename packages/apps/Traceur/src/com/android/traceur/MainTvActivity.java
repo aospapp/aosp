@@ -17,11 +17,24 @@ package com.android.traceur;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.provider.Settings;
 
 public class MainTvActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        boolean developerOptionsIsEnabled =
+            Settings.Global.getInt(getApplicationContext().getContentResolver(),
+                Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0;
+
+        if (!developerOptionsIsEnabled) {
+            finish();
+        }
     }
 }

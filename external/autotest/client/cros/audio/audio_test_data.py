@@ -2,7 +2,6 @@
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """This module provides audio test data."""
 
 import logging
@@ -20,7 +19,11 @@ class AudioTestDataException(Exception):
 
 class AudioTestData(object):
     """Class to represent audio test data."""
-    def __init__(self, data_format=None, path=None, frequencies=None,
+
+    def __init__(self,
+                 data_format=None,
+                 path=None,
+                 frequencies=None,
                  duration_secs=None):
         """
         Initializes an audio test file.
@@ -47,7 +50,6 @@ class AudioTestData(object):
         self.frequencies = frequencies
         self.duration_secs = duration_secs
 
-
     def get_binary(self):
         """The binary of test data.
 
@@ -56,7 +58,6 @@ class AudioTestData(object):
         """
         with open(self.path, 'rb') as f:
             return f.read()
-
 
     def convert(self, data_format, volume_scale, path=None):
         """Converts the data format and returns a new AudioTestData object.
@@ -89,9 +90,8 @@ class AudioTestData(object):
             new_ext = '.' + data_format['file_type']
             # New path will be the composition of original name, new data
             # format, and new file type as extension.
-            new_path = (original_path_without_ext + '_' +
-                        '_'.join(str(x) for x in data_format.values()) +
-                        new_ext)
+            new_path = (original_path_without_ext + '_' + '_'.join(
+                    str(x) for x in data_format.values()) + new_ext)
 
         logging.debug('src data_format: %s', self.data_format)
         logging.debug('dst data_format: %s', data_format)
@@ -127,11 +127,13 @@ class AudioTestData(object):
                 use_src_header=use_src_header,
                 use_dst_header=use_dst_header)
 
-        new_test_data = AudioTestData(path=new_path,
-                                      data_format=data_format)
+        new_test_data = AudioTestData(
+                path=new_path,
+                data_format=data_format,
+                frequencies=self.frequencies,
+                duration_secs=self.duration_secs)
 
         return new_test_data
-
 
     def delete(self):
         """Deletes the file at self.path."""
@@ -139,11 +141,14 @@ class AudioTestData(object):
 
 
 class FakeTestData(object):
-    def __init__(self, frequencies, url=None, duration_secs=None):
-        """A fake test data which contains properties but no real data.
+    """A fake test data which contains properties but no real data.
 
-        This is useful when we need to pass an AudioTestData object into a test
-        or audio_test_utils.check_recorded_frequency.
+    This is useful when we need to pass an AudioTestData object into a test
+    or audio_test_utils.check_recorded_frequency.
+    """
+
+    def __init__(self, frequencies, url=None, duration_secs=None):
+        """Init the fake test data
 
         @param frequencies: A list containing the frequency of each channel in
                             this file. Only applicable to data of sine tone.
@@ -156,10 +161,14 @@ class FakeTestData(object):
         self.duration_secs = duration_secs
 
 
-def GenerateAudioTestData(data_format, path, frequencies=None,
-            duration_secs=None, volume_scale=None):
+def GenerateAudioTestData(path,
+                          data_format=None,
+                          frequencies=None,
+                          duration_secs=None,
+                          volume_scale=None):
     """Generates audio test data with specified format and frequencies.
 
+    @param path: The path to the file.
     @param data_format: A dict containing data format including
                         file_type, sample_format, channel, and rate.
                         file_type: file type e.g. 'raw' or 'wav'.
@@ -167,7 +176,6 @@ def GenerateAudioTestData(data_format, path, frequencies=None,
                                        audio_data.SAMPLE_FORMAT.
                         channel: number of channels.
                         rate: sampling rate.
-    @param path: The path to the file.
     @param frequencies: A list containing the frequency of each channel in
                         this file. Only applicable to data of sine tone.
     @param duration_secs: Duration of test file in seconds.
@@ -176,14 +184,14 @@ def GenerateAudioTestData(data_format, path, frequencies=None,
 
     @returns an AudioTestData object.
     """
+    sox_file_path = path
+
+    if data_format is None:
+        data_format = dict(
+                file_type='raw', sample_format='S16_LE', channel=2, rate=48000)
+
     sample_format = audio_data.SAMPLE_FORMATS[data_format['sample_format']]
     bits = sample_format['size_bytes'] * 8
-
-    if volume_scale:
-        path_without_ext, ext = os.path.splitext(path)
-        sox_file_path = os.path.join(path_without_ext + "_temp" + ext)
-    else:
-        sox_file_path = path
 
     command = sox_utils.generate_sine_tone_cmd(
             filename=sox_file_path,
@@ -192,24 +200,22 @@ def GenerateAudioTestData(data_format, path, frequencies=None,
             rate=data_format['rate'],
             duration=duration_secs,
             frequencies=frequencies,
+            vol=volume_scale,
             raw=(data_format['file_type'] == 'raw'))
 
     logging.info(' '.join(command))
     subprocess.check_call(command)
 
-    test_data = AudioTestData(data_format=data_format, path=sox_file_path,
-            frequencies=frequencies, duration_secs=duration_secs)
+    test_data = AudioTestData(
+            data_format=data_format,
+            path=sox_file_path,
+            frequencies=frequencies,
+            duration_secs=duration_secs)
 
-    if volume_scale:
-        converted_test_data = test_data.convert(data_format, volume_scale, path)
-        test_data.delete()
-        return converted_test_data
-    else:
-        return test_data
+    return test_data
 
 
 AUDIO_PATH = os.path.join(os.path.dirname(__file__))
-
 """
 This test data contains frequency sweep from 20Hz to 20000Hz in two channels.
 Left channel sweeps from 20Hz to 20000Hz, while right channel sweeps from
@@ -220,11 +226,9 @@ each sample being a signed 16-bit integer in little-endian with sampling rate
 """
 SWEEP_TEST_FILE = AudioTestData(
         path=os.path.join(AUDIO_PATH, 'pad_sweep_pad_16.raw'),
-        data_format=dict(file_type='raw',
-                         sample_format='S16_LE',
-                         channel=2,
-                         rate=48000))
-
+        data_format=dict(
+                file_type='raw', sample_format='S16_LE', channel=2,
+                rate=48000))
 """
 This test data contains fixed frequency sine wave in two channels.
 Left channel is 2KHz, while right channel is 1KHz. The duration is 6 seconds.
@@ -233,12 +237,10 @@ The file format is two-channel raw data with each sample being a signed
 """
 FREQUENCY_TEST_FILE = AudioTestData(
         path=os.path.join(AUDIO_PATH, 'fix_2k_1k_16.raw'),
-        data_format=dict(file_type='raw',
-                         sample_format='S16_LE',
-                         channel=2,
-                         rate=48000),
+        data_format=dict(
+                file_type='raw', sample_format='S16_LE', channel=2,
+                rate=48000),
         frequencies=[2000, 1000])
-
 """
 This test data contains fixed frequency sine wave in two channels.
 Left and right channel are both 440Hz. The duration is 10 seconds.
@@ -249,12 +251,10 @@ on Chameleon.
 """
 SIMPLE_FREQUENCY_TEST_FILE = AudioTestData(
         path=os.path.join(AUDIO_PATH, 'fix_440_16.raw'),
-        data_format=dict(file_type='raw',
-                         sample_format='S16_LE',
-                         channel=2,
-                         rate=48000),
+        data_format=dict(
+                file_type='raw', sample_format='S16_LE', channel=2,
+                rate=48000),
         frequencies=[440, 440])
-
 """
 This test data contains fixed frequency sine wave in two channels.
 Left and right channel are both 1330 Hz. The duration is 10 seconds.
@@ -265,12 +265,10 @@ on Chameleon.
 """
 SIMPLE_FREQUENCY_TEST_1330_FILE = AudioTestData(
         path=os.path.join(AUDIO_PATH, 'fix_1330_16.raw'),
-        data_format=dict(file_type='raw',
-                         sample_format='S16_LE',
-                         channel=2,
-                         rate=48000),
+        data_format=dict(
+                file_type='raw', sample_format='S16_LE', channel=2,
+                rate=48000),
         frequencies=[1330, 1330])
-
 """
 This test data contains fixed frequency sine wave in two channels.
 Left and right channel are both 440Hz. The duration is 10 seconds.
@@ -282,12 +280,10 @@ enough.
 """
 SIMPLE_FREQUENCY_SPEAKER_TEST_FILE = AudioTestData(
         path=os.path.join(AUDIO_PATH, 'fix_440_16_half.raw'),
-        data_format=dict(file_type='raw',
-                         sample_format='S16_LE',
-                         channel=2,
-                         rate=48000),
+        data_format=dict(
+                file_type='raw', sample_format='S16_LE', channel=2,
+                rate=48000),
         frequencies=[440, 440])
-
 """
 This test data contains hotword - "Ok google" generated by google translate.
 The file format is two-channel raw data with each sample being a signed
@@ -295,12 +291,10 @@ The file format is two-channel raw data with each sample being a signed
 """
 HOTWORD_TEST_FILE = AudioTestData(
         path=os.path.join(AUDIO_PATH, 'hotword_16.raw'),
-        data_format=dict(file_type='raw',
-                         sample_format='S16_LE',
-                         channel=2,
-                         rate=48000),
+        data_format=dict(
+                file_type='raw', sample_format='S16_LE', channel=2,
+                rate=48000),
         duration_secs=1.0)
-
 """
 This test data contains hotword with command - "Ok google, open google.com"
 generated by gtts.
@@ -309,22 +303,18 @@ The file format is two-channel raw data with each sample being a signed
 """
 HOTWORD_OPEN_TAB_TEST_FILE = AudioTestData(
         path=os.path.join(AUDIO_PATH, 'hotword_open_tab_16.raw'),
-        data_format=dict(file_type='raw',
-                         sample_format='S16_LE',
-                         channel=2,
-                         rate=48000),
+        data_format=dict(
+                file_type='raw', sample_format='S16_LE', channel=2,
+                rate=48000),
         duration_secs=2.83)
-
 """
 Media test verification for 256Hz frequency (headphone audio).
 """
 MEDIA_HEADPHONE_TEST_FILE = FakeTestData(frequencies=[256, 256])
-
 """
 Media test verification for 512Hz frequency (onboard speakers).
 """
 MEDIA_SPEAKER_TEST_FILE = FakeTestData(frequencies=[512, 512])
-
 """
 Test file for 10 min playback for headphone. Left frequency is 1350Hz, right
 frequency is 870 Hz, and amplitude is 0.85.
@@ -332,5 +322,6 @@ frequency is 870 Hz, and amplitude is 0.85.
 HEADPHONE_10MIN_TEST_FILE = FakeTestData(
         frequencies=[1350, 870],
         url=('http://commondatastorage.googleapis.com/chromiumos-test-assets-'
-             'public/audio_test/chameleon/Headphone/L1350_R870_A085_10min.wav'),
+             'public/audio_test/chameleon/Headphone/L1350_R870_A085_10min.wav'
+             ),
         duration_secs=600)

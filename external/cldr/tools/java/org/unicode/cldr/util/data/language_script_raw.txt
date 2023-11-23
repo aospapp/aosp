@@ -1,4 +1,7 @@
 #Lcode	LanguageName	Status	Scode	ScriptName	References
+#######
+#WARNING: this file is in TSV format (for pasting from a spreadsheet); make sure you maintain tabs!
+#######
 aa	Afar	primary	Latn	Latin
 ab	Abkhazian	primary	Cyrl	Cyrillic
 abq	Abaza	primary	Cyrl	Cyrillic
@@ -183,7 +186,8 @@ din	Dinka	primary	Latn	Latin
 dje	Zarma	primary	Latn	Latin
 dng	Dungan	primary	Cyrl	Cyrillic
 dnj	Dan	primary	Latn	Latin
-doi	Dogri	primary	Arab	Arabic
+doi	Dogri	primary	Deva	Devanagari
+doi	Dogri	secondary	Arab	Arabic
 doi	Dogri	secondary	Takr	Takri
 dsb	Lower Sorbian	primary	Latn	Latin
 dtm	Tomo Kan Dogon	primary	Latn	Latin
@@ -294,6 +298,7 @@ haw	Hawaiian	primary	Latn	Latin
 haz	Hazaragi	primary	Arab	Arabic
 he	Hebrew	primary	Hebr	Hebrew
 hi	Hindi	primary	Deva	Devanagari
+hi	Hindi	secondary	Latn	Latin
 hi	Hindi	secondary	Mahj	Mahajani
 hif	Fiji Hindi	primary	Deva	Devanagari
 hif	Fiji Hindi	primary	Latn	Latin
@@ -673,10 +678,10 @@ sam	Samaritan Aramaic	secondary	Hebr	Hebrew
 sam	Samaritan Aramaic	secondary	Samr	Samaritan
 saq	Samburu	primary	Latn	Latin
 sas	Sasak	primary	Latn	Latin
-sat	Santali	primary	Latn	Latin
+sat	Santali	primary	Olck	Ol Chiki
 sat	Santali	secondary	Beng	Bangla
 sat	Santali	secondary	Deva	Devanagari
-sat	Santali	secondary	Olck	Ol Chiki
+sat	Santali	secondary	Latn	Latin
 sat	Santali	secondary	Orya	Odia
 saz	Saurashtra	primary	Saur	Saurashtra
 sbp	Sangu	primary	Latn	Latin
@@ -803,6 +808,7 @@ tr	Turkish	secondary	Arab	Arabic
 tru	Turoyo	primary	Latn	Latin
 tru	Turoyo	secondary	Syrc	Syriac
 trv	Taroko	primary	Latn	Latin
+trw	Torwali	primary	Arab	Arabic
 ts	Tsonga	primary	Latn	Latin
 tsd	Tsakonian	primary	Grek	Greek
 tsg	Tausug	primary	Latn	Latin

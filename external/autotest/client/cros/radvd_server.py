@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -113,7 +114,8 @@ class RadvdServer(object):
         associated process.
         """
         if os.path.exists(RADVD_PID_FILE):
-            pid = int(file(RADVD_PID_FILE).read())
+            with open(RADVD_PID_FILE, 'r') as rf:
+                pid = int(rf.read())
             os.remove(RADVD_PID_FILE)
             try:
                 os.kill(pid, signal.SIGTERM)

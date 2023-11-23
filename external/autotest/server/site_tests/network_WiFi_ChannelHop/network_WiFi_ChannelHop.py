@@ -45,6 +45,10 @@ class network_WiFi_ChannelHop(wifi_cell_test_base.WiFiCellTestBase):
             success, state, elapsed_seconds = \
                     self.context.client.wait_for_service_states(ssid,
                             ['idle'], 30)
+            if not success:
+                raise error.TestFail(
+                        'Failed to disconnect from "%s" in %f seconds (state=%s)' %
+                        (ssid, elapsed_seconds, state))
 
             # Change channels on the AP.  This happens in full view of the DUT
             # and the AP deauths everyone as it exits.

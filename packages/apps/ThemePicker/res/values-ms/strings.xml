@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Gaya &amp; kertas dinding"</string>
+    <string name="app_name" msgid="1647136562008520313">"Kertas dinding &amp; gaya"</string>
     <string name="theme_title" msgid="2144932106319405101">"Gaya"</string>
     <string name="clock_title" msgid="2126046720254613991">"Jam"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Grid"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Kertas dinding"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Grid apl"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Gunakan"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Ketik untuk edit"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Kekalkan kertas dinding semasa"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Gunakan"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Halaman <xliff:g id="ID_1">%1$d</xliff:g> daripada <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Seterusnya"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Sebelumnya"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Pratonton Gaya"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Pratonton grid"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Pratonton fon"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Pratonton ikon"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Pratonton warna"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Pratonton bentuk"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, digunakan pada masa ini"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, digunakan dan dipratonton pada masa ini"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, dipratonton pada masa ini"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Kertas dinding"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Tambahkan fon kegemaran anda pada setiap skrin"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Pilih saiz grid"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Gaya digunakan"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Jam digunakan"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Gaya berjaya ditetapkan"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Jam berjaya ditetapkan"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"Grid berjaya ditetapkan"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Terdapat masalah menggunakan gaya"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Seterusnya"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Sebelumnya"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Tersuai"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Tersuai <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Gaya Tersuai"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Padam"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"Tidak perlu"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> pratonton jam"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Op! Berlaku kesilapan."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Warna / Ikon"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Pratonton fon, ikon, bentuk apl dan warna"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Fon tersuai"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Ikon tersuai"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Warna tersuai"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Bentuk tersuai"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Nama gaya tersuai"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Tema gelap"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Dilumpuhkan sementara disebabkan Penjimat Bateri"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Ikon bertema"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Tukar grid apl"</string>
 </resources>

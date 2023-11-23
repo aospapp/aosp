@@ -46,9 +46,6 @@
 // The name servers are retrieved from the cache which is associated
 // with the network to which ResState is associated.
 struct ResState;
-
-typedef std::multimap<std::string /* hostname */, std::string /* IPv4/IPv6 address */> HostMapping;
-
 void resolv_populate_res_for_net(ResState* statp);
 
 std::vector<unsigned> resolv_list_caches();
@@ -82,11 +79,11 @@ std::vector<std::string> getCustomizedTableByName(const size_t netid, const char
 // TODO: Pass all of ResolverParamsParcel and remove the res_params argument.
 int resolv_set_nameservers(unsigned netid, const std::vector<std::string>& servers,
                            const std::vector<std::string>& domains, const res_params& params,
-                           const aidl::android::net::ResolverOptionsParcel& resolverOptions =
-                                   {{} /* hosts */,
-                                    aidl::android::net::IDnsResolver::TC_MODE_DEFAULT,
-                                    false /* enforceDnsUid */},
+                           std::optional<aidl::android::net::ResolverOptionsParcel> resolverOptions,
                            const std::vector<int32_t>& transportTypes = {});
+
+// Sets options for a given network.
+int resolv_set_options(unsigned netid, const aidl::android::net::ResolverOptionsParcel& options);
 
 // Creates the cache associated with the given network.
 int resolv_create_cache_for_net(unsigned netid);
@@ -100,7 +97,6 @@ int resolv_flush_cache_for_net(unsigned netid);
 // Get transport types to a given network.
 android::net::NetworkType resolv_get_network_types_for_net(unsigned netid);
 
-// For test only.
 // Return true if the cache is existent in the given network, false otherwise.
 bool has_named_cache(unsigned netid);
 

@@ -23,28 +23,30 @@
 
 #include "anv_private.h"
 
+#include "vk_format_info.h"
 #include "vk_util.h"
 
 static void
-anv_render_pass_add_subpass_dep(struct anv_render_pass *pass,
+anv_render_pass_add_subpass_dep(struct anv_device *device,
+                                struct anv_render_pass *pass,
                                 const VkSubpassDependency2KHR *dep)
 {
    if (dep->dstSubpass == VK_SUBPASS_EXTERNAL) {
       pass->subpass_flushes[pass->subpass_count] |=
-         anv_pipe_invalidate_bits_for_access_flags(dep->dstAccessMask);
+         anv_pipe_invalidate_bits_for_access_flags(device, dep->dstAccessMask);
    } else {
       assert(dep->dstSubpass < pass->subpass_count);
       pass->subpass_flushes[dep->dstSubpass] |=
-         anv_pipe_invalidate_bits_for_access_flags(dep->dstAccessMask);
+         anv_pipe_invalidate_bits_for_access_flags(device, dep->dstAccessMask);
    }
 
    if (dep->srcSubpass == VK_SUBPASS_EXTERNAL) {
       pass->subpass_flushes[0] |=
-         anv_pipe_flush_bits_for_access_flags(dep->srcAccessMask);
+         anv_pipe_flush_bits_for_access_flags(device, dep->srcAccessMask);
    } else {
       assert(dep->srcSubpass < pass->subpass_count);
       pass->subpass_flushes[dep->srcSubpass + 1] |=
-         anv_pipe_flush_bits_for_access_flags(dep->srcAccessMask);
+         anv_pipe_flush_bits_for_access_flags(device, dep->srcAccessMask);
    }
 }
 
@@ -86,7 +88,6 @@ anv_render_pass_compile(struct anv_render_pass *pass)
          struct anv_render_pass_attachment *pass_att =
             &pass->attachments[subpass_att->attachment];
 
-         assert(__builtin_popcount(subpass_att->usage) == 1);
          pass_att->usage |= subpass_att->usage;
          pass_att->last_subpass_idx = i;
 
@@ -116,8 +117,13 @@ anv_render_pass_compile(struct anv_render_pass *pass)
 
             subpass->has_color_resolve = true;
 
+            assert(color_att->attachment < pass->attachment_count);
+            struct anv_render_pass_attachment *color_pass_att =
+               &pass->attachments[color_att->attachment];
+
             assert(resolve_att->usage == VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-            color_att->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+            assert(color_att->usage == VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+            color_pass_att->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
          }
       }
 
@@ -127,9 +133,17 @@ anv_render_pass_compile(struct anv_render_pass *pass)
          UNUSED struct anv_subpass_attachment *resolve_att =
             subpass->ds_resolve_attachment;
 
+         assert(ds_att->attachment < pass->attachment_count);
+         struct anv_render_pass_attachment *ds_pass_att =
+            &pass->attachments[ds_att->attachment];
+
          assert(resolve_att->usage == VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-         ds_att->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+         assert(ds_att->usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+         ds_pass_att->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
       }
+
+      for (uint32_t j = 0; j < subpass->attachment_count; j++)
+         assert(__builtin_popcount(subpass->attachments[j].usage) == 1);
    }
 
    /* From the Vulkan 1.0.39 spec:
@@ -247,7 +261,7 @@ VkResult anv_CreateRenderPass(
    }
    anv_multialloc_add(&ma, &subpass_attachments, subpass_attachment_count);
 
-   if (!anv_multialloc_alloc2(&ma, &device->alloc, pAllocator,
+   if (!anv_multialloc_alloc2(&ma, &device->vk.alloc, pAllocator,
                               VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -255,6 +269,7 @@ VkResult anv_CreateRenderPass(
     * each array member of anv_subpass must be a valid pointer if not NULL.
     */
    memset(pass, 0, ma.size);
+   vk_object_base_init(&device->vk, &pass->base, VK_OBJECT_TYPE_RENDER_PASS);
    pass->attachment_count = pCreateInfo->attachmentCount;
    pass->subpass_count = pCreateInfo->subpassCount;
    pass->attachments = attachments;
@@ -269,6 +284,9 @@ VkResult anv_CreateRenderPass(
          .stencil_load_op        = pCreateInfo->pAttachments[i].stencilLoadOp,
          .initial_layout         = pCreateInfo->pAttachments[i].initialLayout,
          .final_layout           = pCreateInfo->pAttachments[i].finalLayout,
+
+         .stencil_initial_layout = pCreateInfo->pAttachments[i].initialLayout,
+         .stencil_final_layout   = pCreateInfo->pAttachments[i].finalLayout,
       };
    }
 
@@ -288,9 +306,10 @@ VkResult anv_CreateRenderPass(
 
          for (uint32_t j = 0; j < desc->inputAttachmentCount; j++) {
             subpass->input_attachments[j] = (struct anv_subpass_attachment) {
-               .usage =       VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-               .attachment =  desc->pInputAttachments[j].attachment,
-               .layout =      desc->pInputAttachments[j].layout,
+               .usage =          VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+               .attachment =     desc->pInputAttachments[j].attachment,
+               .layout =         desc->pInputAttachments[j].layout,
+               .stencil_layout = desc->pInputAttachments[j].layout,
             };
          }
       }
@@ -325,16 +344,17 @@ VkResult anv_CreateRenderPass(
          subpass->depth_stencil_attachment = subpass_attachments++;
 
          *subpass->depth_stencil_attachment = (struct anv_subpass_attachment) {
-            .usage =       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-            .attachment =  desc->pDepthStencilAttachment->attachment,
-            .layout =      desc->pDepthStencilAttachment->layout,
+            .usage =          VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            .attachment =     desc->pDepthStencilAttachment->attachment,
+            .layout =         desc->pDepthStencilAttachment->layout,
+            .stencil_layout = desc->pDepthStencilAttachment->layout,
          };
       }
    }
 
    for (uint32_t i = 0; i < pCreateInfo->dependencyCount; i++) {
       /* Convert to a Dependency2KHR */
-      struct VkSubpassDependency2KHR dep2 = {
+      VkSubpassDependency2 dep2 = {
          .srcSubpass       = pCreateInfo->pDependencies[i].srcSubpass,
          .dstSubpass       = pCreateInfo->pDependencies[i].dstSubpass,
          .srcStageMask     = pCreateInfo->pDependencies[i].srcStageMask,
@@ -343,7 +363,7 @@ VkResult anv_CreateRenderPass(
          .dstAccessMask    = pCreateInfo->pDependencies[i].dstAccessMask,
          .dependencyFlags  = pCreateInfo->pDependencies[i].dependencyFlags,
       };
-      anv_render_pass_add_subpass_dep(pass, &dep2);
+      anv_render_pass_add_subpass_dep(device, pass, &dep2);
    }
 
    vk_foreach_struct(ext, pCreateInfo->pNext) {
@@ -387,7 +407,71 @@ num_subpass_attachments2(const VkSubpassDescription2KHR *desc)
           (ds_resolve && ds_resolve->pDepthStencilResolveAttachment);
 }
 
-VkResult anv_CreateRenderPass2KHR(
+static bool
+vk_image_layout_depth_only(VkImageLayout layout)
+{
+   switch (layout) {
+   case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL:
+   case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
+      return true;
+
+   default:
+      return false;
+   }
+}
+
+/* From the Vulkan Specification 1.2.166 - VkAttachmentReference2:
+ *
+ *   "If layout only specifies the layout of the depth aspect of the
+ *    attachment, the layout of the stencil aspect is specified by the
+ *    stencilLayout member of a VkAttachmentReferenceStencilLayout structure
+ *    included in the pNext chain. Otherwise, layout describes the layout for
+ *    all relevant image aspects."
+ */
+static VkImageLayout
+stencil_ref_layout(const VkAttachmentReference2KHR *att_ref)
+{
+   if (!vk_image_layout_depth_only(att_ref->layout))
+      return att_ref->layout;
+
+   const VkAttachmentReferenceStencilLayoutKHR *stencil_ref =
+      vk_find_struct_const(att_ref->pNext,
+                           ATTACHMENT_REFERENCE_STENCIL_LAYOUT_KHR);
+   if (!stencil_ref)
+      return VK_IMAGE_LAYOUT_UNDEFINED;
+   return stencil_ref->stencilLayout;
+}
+
+/* From the Vulkan Specification 1.2.166 - VkAttachmentDescription2:
+ *
+ *   "If format is a depth/stencil format, and initialLayout only specifies
+ *    the initial layout of the depth aspect of the attachment, the initial
+ *    layout of the stencil aspect is specified by the stencilInitialLayout
+ *    member of a VkAttachmentDescriptionStencilLayout structure included in
+ *    the pNext chain. Otherwise, initialLayout describes the initial layout
+ *    for all relevant image aspects."
+ */
+static VkImageLayout
+stencil_desc_layout(const VkAttachmentDescription2KHR *att_desc, bool final)
+{
+   if (!vk_format_has_stencil(att_desc->format))
+      return VK_IMAGE_LAYOUT_UNDEFINED;
+
+   const VkImageLayout main_layout =
+      final ? att_desc->finalLayout : att_desc->initialLayout;
+   if (!vk_image_layout_depth_only(main_layout))
+      return main_layout;
+
+   const VkAttachmentDescriptionStencilLayoutKHR *stencil_desc =
+      vk_find_struct_const(att_desc->pNext,
+                           ATTACHMENT_DESCRIPTION_STENCIL_LAYOUT_KHR);
+   assert(stencil_desc);
+   return final ?
+      stencil_desc->stencilFinalLayout :
+      stencil_desc->stencilInitialLayout;
+}
+
+VkResult anv_CreateRenderPass2(
     VkDevice                                    _device,
     const VkRenderPassCreateInfo2KHR*           pCreateInfo,
     const VkAllocationCallbacks*                pAllocator,
@@ -416,7 +500,7 @@ VkResult anv_CreateRenderPass2KHR(
    }
    anv_multialloc_add(&ma, &subpass_attachments, subpass_attachment_count);
 
-   if (!anv_multialloc_alloc2(&ma, &device->alloc, pAllocator,
+   if (!anv_multialloc_alloc2(&ma, &device->vk.alloc, pAllocator,
                               VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -424,6 +508,7 @@ VkResult anv_CreateRenderPass2KHR(
     * each array member of anv_subpass must be a valid pointer if not NULL.
     */
    memset(pass, 0, ma.size);
+   vk_object_base_init(&device->vk, &pass->base, VK_OBJECT_TYPE_RENDER_PASS);
    pass->attachment_count = pCreateInfo->attachmentCount;
    pass->subpass_count = pCreateInfo->subpassCount;
    pass->attachments = attachments;
@@ -438,6 +523,11 @@ VkResult anv_CreateRenderPass2KHR(
          .stencil_load_op        = pCreateInfo->pAttachments[i].stencilLoadOp,
          .initial_layout         = pCreateInfo->pAttachments[i].initialLayout,
          .final_layout           = pCreateInfo->pAttachments[i].finalLayout,
+
+         .stencil_initial_layout = stencil_desc_layout(&pCreateInfo->pAttachments[i],
+                                                       false),
+         .stencil_final_layout   = stencil_desc_layout(&pCreateInfo->pAttachments[i],
+                                                       true),
       };
    }
 
@@ -457,9 +547,10 @@ VkResult anv_CreateRenderPass2KHR(
 
          for (uint32_t j = 0; j < desc->inputAttachmentCount; j++) {
             subpass->input_attachments[j] = (struct anv_subpass_attachment) {
-               .usage =       VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-               .attachment =  desc->pInputAttachments[j].attachment,
-               .layout =      desc->pInputAttachments[j].layout,
+               .usage =          VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+               .attachment =     desc->pInputAttachments[j].attachment,
+               .layout =         desc->pInputAttachments[j].layout,
+               .stencil_layout = stencil_ref_layout(&desc->pInputAttachments[j]),
             };
          }
       }
@@ -494,9 +585,10 @@ VkResult anv_CreateRenderPass2KHR(
          subpass->depth_stencil_attachment = subpass_attachments++;
 
          *subpass->depth_stencil_attachment = (struct anv_subpass_attachment) {
-            .usage =       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-            .attachment =  desc->pDepthStencilAttachment->attachment,
-            .layout =      desc->pDepthStencilAttachment->layout,
+            .usage =          VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            .attachment =     desc->pDepthStencilAttachment->attachment,
+            .layout =         desc->pDepthStencilAttachment->layout,
+            .stencil_layout = stencil_ref_layout(desc->pDepthStencilAttachment),
          };
       }
 
@@ -508,17 +600,20 @@ VkResult anv_CreateRenderPass2KHR(
          subpass->ds_resolve_attachment = subpass_attachments++;
 
          *subpass->ds_resolve_attachment = (struct anv_subpass_attachment) {
-            .usage =       VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-            .attachment =  ds_resolve->pDepthStencilResolveAttachment->attachment,
-            .layout =      ds_resolve->pDepthStencilResolveAttachment->layout,
+            .usage =          VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            .attachment =     ds_resolve->pDepthStencilResolveAttachment->attachment,
+            .layout =         ds_resolve->pDepthStencilResolveAttachment->layout,
+            .stencil_layout = stencil_ref_layout(ds_resolve->pDepthStencilResolveAttachment),
          };
          subpass->depth_resolve_mode = ds_resolve->depthResolveMode;
          subpass->stencil_resolve_mode = ds_resolve->stencilResolveMode;
       }
    }
 
-   for (uint32_t i = 0; i < pCreateInfo->dependencyCount; i++)
-      anv_render_pass_add_subpass_dep(pass, &pCreateInfo->pDependencies[i]);
+   for (uint32_t i = 0; i < pCreateInfo->dependencyCount; i++) {
+      anv_render_pass_add_subpass_dep(device, pass,
+                                      &pCreateInfo->pDependencies[i]);
+   }
 
    vk_foreach_struct(ext, pCreateInfo->pNext) {
       switch (ext->sType) {
@@ -542,7 +637,11 @@ void anv_DestroyRenderPass(
    ANV_FROM_HANDLE(anv_device, device, _device);
    ANV_FROM_HANDLE(anv_render_pass, pass, _pass);
 
-   vk_free2(&device->alloc, pAllocator, pass);
+   if (!pass)
+      return;
+
+   vk_object_base_finish(&pass->base);
+   vk_free2(&device->vk.alloc, pAllocator, pass);
 }
 
 void anv_GetRenderAreaGranularity(

@@ -225,7 +225,7 @@ static void *rt_low_fn_a(void *arg LTP_ATTRIBUTE_UNUSED)
 
 	fixup_expected_events();
 
-	SAFE_FILE_PRINTF(TRACING_DIR "trace_marker", "TEST START");
+	tracefs_write("trace_marker", "TEST START");
 
 	/* Wake up rt_low_fn_b. We should continue to run though. */
 	sem_post(&sem_low_b);
@@ -353,11 +353,11 @@ static void run(void)
 	sem_init(&sem_low_a, 0, 0);
 
 	/* configure and enable tracing */
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
-	SAFE_FILE_PRINTF(TRACING_DIR "buffer_size_kb", "16384");
-	SAFE_FILE_PRINTF(TRACING_DIR "set_event", TRACE_EVENTS);
-	SAFE_FILE_PRINTF(TRACING_DIR "trace", "\n");
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "1");
+	tracefs_write("tracing_on", "0");
+	tracefs_write("buffer_size_kb", "16384");
+	tracefs_write("set_event", TRACE_EVENTS);
+	tracefs_write("trace", "\n");
+	tracefs_write("tracing_on", "1");
 
 	create_rt_thread(70, rt_low_fn_a, &rt_low_a);
 	create_rt_thread(70, rt_low_fn_b, &rt_low_b);
@@ -374,7 +374,7 @@ static void run(void)
 	SAFE_PTHREAD_JOIN(rt_high_b, NULL);
 
 	/* disable tracing */
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
+	tracefs_write("tracing_on", "0");
 	LOAD_TRACE();
 
 	if (parse_results())
@@ -387,5 +387,6 @@ static void run(void)
 
 static struct tst_test test = {
 	.test_all = run,
+	.setup = trace_setup,
 	.cleanup = trace_cleanup,
 };

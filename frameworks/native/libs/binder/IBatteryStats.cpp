@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <binder/IBatteryStats.h>
+#include <batterystats/IBatteryStats.h>
 
 #include <utils/Log.h>
 #include <binder/Parcel.h>
@@ -130,7 +130,7 @@ public:
 
 };
 
-IMPLEMENT_META_INTERFACE(BatteryStats, "com.android.internal.app.IBatteryStats");
+IMPLEMENT_META_INTERFACE(BatteryStats, "com.android.internal.app.IBatteryStats")
 
 // ----------------------------------------------------------------------
 

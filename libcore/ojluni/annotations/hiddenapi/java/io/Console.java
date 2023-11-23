@@ -75,7 +75,7 @@ public final class Console implements java.io.Flushable {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private static native java.lang.String encoding();
 
     private static native boolean echo(boolean on) throws java.io.IOException;

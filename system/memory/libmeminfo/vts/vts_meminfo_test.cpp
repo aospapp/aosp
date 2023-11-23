@@ -20,6 +20,11 @@
 #include <android-base/properties.h>
 #include <meminfo/procmeminfo.h>
 #include <meminfo/sysmeminfo.h>
+#include <vintf/VintfObject.h>
+
+using android::vintf::KernelVersion;
+using android::vintf::RuntimeInfo;
+using android::vintf::VintfObject;
 
 namespace android {
 namespace meminfo {
@@ -27,7 +32,7 @@ namespace meminfo {
 // /proc/<pid>/smaps_rollup support is required.
 TEST(SmapsRollup, IsSupported) {
     // Use init's pid for this test since it's the only known pid.
-    ASSERT_TRUE(IsSmapsRollupSupported(1));
+    ASSERT_TRUE(IsSmapsRollupSupported());
 }
 
 // KReclaimable in /proc/meminfo is required.
@@ -49,7 +54,18 @@ TEST(SysMemInfo, TestIonTotalHeapsKb) {
     if (android::base::GetIntProperty("ro.product.first_api_level", 0) < __ANDROID_API_R__) {
         GTEST_SKIP();
     }
-    ASSERT_TRUE(ReadIonHeapsSizeKb(&size));
+
+    KernelVersion max_kernel_version = KernelVersion(5, 10, 0);
+    KernelVersion kernel_version =
+            android::vintf::VintfObject::GetInstance()
+                    ->getRuntimeInfo(android::vintf::RuntimeInfo::FetchFlag::CPU_VERSION)
+                    ->kernelVersion();
+
+    if (kernel_version < max_kernel_version) {
+        ASSERT_TRUE(ReadIonHeapsSizeKb(&size));
+    } else {
+        GTEST_SKIP();
+    }
 }
 
 // /sys/kernel/ion/total_pools_kb support is required.
@@ -59,7 +75,39 @@ TEST(SysMemInfo, TestIonTotalPoolsKb) {
     if (android::base::GetIntProperty("ro.product.first_api_level", 0) < __ANDROID_API_R__) {
         GTEST_SKIP();
     }
-    ASSERT_TRUE(ReadIonPoolsSizeKb(&size));
+
+    KernelVersion max_kernel_version = KernelVersion(5, 10, 0);
+    KernelVersion kernel_version =
+            android::vintf::VintfObject::GetInstance()
+                    ->getRuntimeInfo(android::vintf::RuntimeInfo::FetchFlag::CPU_VERSION)
+                    ->kernelVersion();
+
+    if (kernel_version < max_kernel_version) {
+        ASSERT_TRUE(ReadIonPoolsSizeKb(&size));
+    } else {
+        GTEST_SKIP();
+    }
+}
+
+// /sys/fs/bpf/map_gpu_mem_gpu_mem_total_map support is required for devices launching with
+// Android S and having 5.4 or higher kernel version.
+TEST(SysMemInfo, TestGpuTotalUsageKb) {
+    uint64_t size;
+
+    if (android::base::GetIntProperty("ro.product.first_api_level", 0) < __ANDROID_API_S__) {
+        GTEST_SKIP();
+    }
+
+    KernelVersion min_kernel_version = KernelVersion(5, 4, 0);
+    KernelVersion kernel_version = VintfObject::GetInstance()
+                                           ->getRuntimeInfo(RuntimeInfo::FetchFlag::CPU_VERSION)
+                                           ->kernelVersion();
+    if (kernel_version < min_kernel_version) {
+        GTEST_SKIP();
+    }
+
+    ASSERT_TRUE(ReadGpuTotalUsageKb(&size));
+    ASSERT_TRUE(size >= 0);
 }
 
 }  // namespace meminfo

@@ -27,7 +27,7 @@ byte-code cache files in the directory containing the source code.
    Exception raised when an error occurs while attempting to compile the file.
 
 
-.. function:: compile(file, cfile=None, dfile=None, doraise=False, optimize=-1, invalidation_mode=PycInvalidationMode.TIMESTAMP)
+.. function:: compile(file, cfile=None, dfile=None, doraise=False, optimize=-1, invalidation_mode=PycInvalidationMode.TIMESTAMP, quiet=0)
 
    Compile a source file to byte-code and write out the byte-code cache file.
    The source code is loaded from the file named *file*.  The byte-code is
@@ -35,7 +35,7 @@ byte-code cache files in the directory containing the source code.
    in ``.pyc``.
    For example, if *file* is ``/foo/bar/baz.py`` *cfile* will default to
    ``/foo/bar/__pycache__/baz.cpython-32.pyc`` for Python 3.2.  If *dfile* is
-   specified, it is used as the name of the source file in error messages when
+   specified, it is used as the name of the source file in error messages
    instead of *file*.  If *doraise* is true, a :exc:`PyCompileError` is raised
    when an error is encountered while compiling *file*. If *doraise* is false
    (the default), an error string is written to ``sys.stderr``, but no exception

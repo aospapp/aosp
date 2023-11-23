@@ -25,7 +25,8 @@ import android.app.blob.BlobStoreManager;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 
-import com.android.utils.blob.DummyBlobData;
+import com.android.utils.blob.FakeBlobData;
+import com.android.utils.blob.Utils;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,7 +43,7 @@ public class DataCleanupTest extends BaseBlobStoreDeviceTest {
 
     @Test
     public void testCreateSession() throws Exception {
-        final DummyBlobData blobData = new DummyBlobData.Builder(mContext)
+        final FakeBlobData blobData = new FakeBlobData.Builder(mContext)
                 .setRandomSeed(24)
                 .setFileName("test_blob_data")
                 .build();
@@ -79,7 +80,7 @@ public class DataCleanupTest extends BaseBlobStoreDeviceTest {
 
     @Test
     public void testCommitBlob() throws Exception {
-        final DummyBlobData blobData = new DummyBlobData.Builder(mContext)
+        final FakeBlobData blobData = new FakeBlobData.Builder(mContext)
                 .setRandomSeed(24)
                 .setFileName("test_blob_data")
                 .setLabel("test_data_blob_label")
@@ -93,6 +94,10 @@ public class DataCleanupTest extends BaseBlobStoreDeviceTest {
             if (getShouldAllowPublicFromArgs()) {
                 session.allowPublicAccess();
             }
+            if (getShouldAllowSameSignatureFromArgs()) {
+                session.allowSameSignatureAccess();
+            }
+
             final CompletableFuture<Integer> callback = new CompletableFuture<>();
             session.commit(mContext.getMainExecutor(), callback::complete);
             assertThat(callback.get(TIMEOUT_COMMIT_CALLBACK_MS, TimeUnit.MILLISECONDS))
@@ -114,6 +119,31 @@ public class DataCleanupTest extends BaseBlobStoreDeviceTest {
         final BlobHandle blobHandle = getBlobHandleFromArgs();
         assertThrows(SecurityException.class,
                 () -> mBlobStoreManager.openBlob(blobHandle));
+    }
+
+    @Test
+    public void testRecommitBlob() throws Exception {
+        final BlobHandle blobHandle = getBlobHandleFromArgs();
+        try (ParcelFileDescriptor pfd = mBlobStoreManager.openBlob(blobHandle)) {
+            assertThat(pfd).isNotNull();
+
+            final long sessionId = createSession(blobHandle);
+            assertThat(sessionId).isGreaterThan(0L);
+            try (BlobStoreManager.Session session = mBlobStoreManager.openSession(sessionId)) {
+                Utils.writeToSession(session, pfd);
+                if (getShouldAllowPublicFromArgs()) {
+                    session.allowPublicAccess();
+                }
+                if (getShouldAllowSameSignatureFromArgs()) {
+                    session.allowSameSignatureAccess();
+                }
+
+                final CompletableFuture<Integer> callback = new CompletableFuture<>();
+                session.commit(mContext.getMainExecutor(), callback::complete);
+                assertThat(callback.get(TIMEOUT_COMMIT_CALLBACK_MS, TimeUnit.MILLISECONDS))
+                        .isEqualTo(0);
+            }
+        }
     }
 
     private void addSessionIdToResults(long sessionId) {
@@ -149,5 +179,10 @@ public class DataCleanupTest extends BaseBlobStoreDeviceTest {
     private boolean getShouldAllowPublicFromArgs() {
         final Bundle args = InstrumentationRegistry.getArguments();
         return "1".equals(args.getString(KEY_ALLOW_PUBLIC));
+    }
+
+    private boolean getShouldAllowSameSignatureFromArgs() {
+        final Bundle args = InstrumentationRegistry.getArguments();
+        return "1".equals(args.getString(KEY_ALLOW_SAME_SIGNATURE));
     }
 }

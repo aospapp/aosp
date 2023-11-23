@@ -94,9 +94,6 @@ class power_BatteryCharge(test.test):
             time.sleep(time_to_sleep)
 
             self.status.refresh()
-            if not self.status.on_ac():
-                raise error.TestError(
-                      'This test needs to be run with the AC power online')
 
             new_charge = self.status.battery.charge_now
             logging.info('time_to_sleep: %d', time_to_sleep)
@@ -108,6 +105,9 @@ class power_BatteryCharge(test.test):
             if self.status.battery.status == 'Full':
                 logging.info('Battery full, aborting!')
                 break
+            elif self.status.battery.status == 'Discharging':
+                raise error.TestError('This test needs to be run with the '
+                    'battery charging on AC.')
 
 
     def postprocess_iteration(self):

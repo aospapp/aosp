@@ -38,6 +38,7 @@ public final class ImeEvent {
         Integer,
         String,
         CharSequence,
+        Exception,
         Parcelable,
     }
 
@@ -73,6 +74,9 @@ public final class ImeEvent {
         }
         if (object instanceof CharSequence) {
             return ReturnType.CharSequence;
+        }
+        if (object instanceof Exception) {
+            return ReturnType.Exception;
         }
         if (object instanceof Parcelable) {
             return ReturnType.Parcelable;
@@ -143,6 +147,9 @@ public final class ImeEvent {
             case CharSequence:
                 bundle.putCharSequence("mReturnValue", getReturnCharSequenceValue());
                 break;
+            case Exception:
+                bundle.putSerializable("mReturnValue", getReturnExceptionValue());
+                break;
             case Parcelable:
                 bundle.putParcelable("mReturnValue", getReturnParcelableValue());
                 break;
@@ -185,6 +192,9 @@ public final class ImeEvent {
                 break;
             case CharSequence:
                 result = bundle.getCharSequence("mReturnValue");
+                break;
+            case Exception:
+                result = bundle.getSerializable("mReturnValue");
                 break;
             case Parcelable:
                 result = bundle.getParcelable("mReturnValue");
@@ -364,6 +374,25 @@ public final class ImeEvent {
         return (String) mReturnValue;
     }
 
+     /**
+      * Retrieves a result that is known to be {@link Exception} or its subclasses.
+      *
+      * @param <T> {@link Exception} or its subclass.
+      * @return {@link Exception} object returned as a result of the command.
+      * @throws NullPointerException if the return value is {@code null}
+      * @throws ClassCastException if the return value is non-{@code null} object that is different
+      *                            from {@link Exception}
+     */
+    public <T extends Exception> T getReturnExceptionValue() {
+        if (mReturnType == ReturnType.Null) {
+            throw new NullPointerException();
+        }
+        if (mReturnType != ReturnType.Exception) {
+            throw new ClassCastException();
+        }
+        return (T) mReturnValue;
+    }
+
     /**
      * @return result value of this event.
      * @throws NullPointerException if the return value is {@code null}
@@ -380,6 +409,12 @@ public final class ImeEvent {
         return (T) mReturnValue;
     }
 
+    /**
+     * @return {@code true} when the result value is an {@link Exception}.
+     */
+    public boolean isExceptionReturnValue() {
+        return mReturnType == ReturnType.Exception;
+    }
 
     /**
      * @return {@code true} when the result value is {@code null}.

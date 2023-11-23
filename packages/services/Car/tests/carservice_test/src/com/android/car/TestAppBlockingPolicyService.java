@@ -59,8 +59,8 @@ public class TestAppBlockingPolicyService extends CarAppBlockingPolicyService {
 
         AppBlockingPackageInfo selfInfo = new AppBlockingPackageInfo(packageName, 0, 0, 0,
                 signatures, null);
-        AppBlockingPackageInfo[] whitelists = new AppBlockingPackageInfo[] { selfInfo };
-        CarAppBlockingPolicy policy = new CarAppBlockingPolicy(whitelists, null);
+        AppBlockingPackageInfo[] allowlists = new AppBlockingPackageInfo[] { selfInfo };
+        CarAppBlockingPolicy policy = new CarAppBlockingPolicy(allowlists, null);
         Log.i(TAG, "getAppBlockingPolicy, passing policy:" + policy);
         return policy;
     }

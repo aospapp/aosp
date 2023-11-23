@@ -23,6 +23,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanohub_os_x86
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../NOTICE
 LOCAL_AUX_CPU := x86
 
 LOCAL_SRC_FILES := \

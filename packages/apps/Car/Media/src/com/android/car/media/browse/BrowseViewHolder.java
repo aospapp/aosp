@@ -34,7 +34,7 @@ import com.android.car.media.common.MediaItemMetadata;
 /**
  * Generic {@link RecyclerView.ViewHolder} to use for all views in the {@link BrowseAdapter}
  */
-class BrowseViewHolder extends RecyclerView.ViewHolder {
+public class BrowseViewHolder extends RecyclerView.ViewHolder {
     private final TextView mTitle;
     private final TextView mSubtitle;
     private final ImageView mAlbumArt;
@@ -55,7 +55,7 @@ class BrowseViewHolder extends RecyclerView.ViewHolder {
         mTitle = itemView.findViewById(com.android.car.media.R.id.title);
         mSubtitle = itemView.findViewById(com.android.car.media.R.id.subtitle);
         mAlbumArt = itemView.findViewById(com.android.car.media.R.id.thumbnail);
-        mContainer = itemView.findViewById(com.android.car.media.R.id.container);
+        mContainer = itemView.findViewById(com.android.car.media.R.id.item_container);
         mRightArrow = itemView.findViewById(com.android.car.media.R.id.right_arrow);
         mTitleDownloadIcon = itemView.findViewById(
                 com.android.car.media.R.id.download_icon_with_title);

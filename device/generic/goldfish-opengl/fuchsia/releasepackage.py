@@ -41,10 +41,14 @@ if args.arch:
 else:
   arch = "x64"
 
-target_name = "%s-shared/lib.unstripped/libvulkan_goldfish.so" % arch
+target_name = "%s-shared/libvulkan_goldfish.so" % arch
 git_repo_location = "%s/third_party/goldfish-opengl" % fuchsia_root
 package_dir = "libvulkan_goldfish/%s" % arch
 package_name = "fuchsia/lib/libvulkan/%s" % package_dir
+
+debug_target_name = "%s-shared/lib.unstripped/libvulkan_goldfish.so" % arch
+debug_dir = "libvulkan_goldfish/debug-symbols-%s" % arch
+debug_package_name = "fuchsia/lib/libvulkan/%s" % debug_dir
 
 repo_name = "goldfish-opengl"
 git_branch = subprocess.check_output([
@@ -83,6 +87,7 @@ if gn_output != "is_debug = false":
     print("Use --ignore-buildtype flag to upload anyway")
     sys.exit(1)
 
+# Prepare libvulkan_goldfish binaries
 file_name = "libvulkan_goldfish.so"
 full_name = os.path.join(package_dir, file_name)
 
@@ -97,6 +102,25 @@ except:
   pass
 shutil.copyfile(source_file_name, full_name)
 
+# Prepare libvulkan_goldfish debug binaries
+debug_source_file_name = os.path.join(release_dir, debug_target_name)
+elf_info = re.search(r'Build ID: ([a-f0-9]*)',
+  subprocess.check_output(['readelf', '-n', debug_source_file_name]).strip())
+if not elf_info:
+  print("Fatal: Cannot find build ID in elf binary")
+  sys.exit(1)
+
+build_id = elf_info.group(1)
+debug_output_dir = os.path.join(debug_dir, build_id[:2])
+
+try:
+  shutil.rmtree(debug_dir)
+except:
+  pass
+os.makedirs(debug_output_dir)
+shutil.copyfile(debug_source_file_name, os.path.join(debug_output_dir, build_id[2:] + '.debug'))
+
+# Create libvulkan_goldfish CIPD package
 git_rev = subprocess.check_output(
     ["git", "-C", git_repo_location, "rev-parse", "HEAD"]).strip()
 
@@ -107,8 +131,23 @@ print cipd_command
 if not args.dry_run:
   subprocess.check_call(cipd_command.split(" "))
 
+# Create libvulkan_goldfish/debug-symbols package
+cipd_command = ("%s cipd create -in %s -name %s -ref latest"
+                " -install-mode copy -tag git_revision:%s") % (
+                    fx_path, debug_dir, debug_package_name, git_rev)
+print cipd_command
+if not args.dry_run:
+  subprocess.check_call(cipd_command.split(" "))
+
+
 print ("""
   <package name="%s"
            version="git_revision:%s"
-           path="prebuild/third_party/%s"/>
+           path="prebuilt/third_party/%s"/>
 """ % (package_name, git_rev, package_dir))[1:-1]
+print ("""
+  <package name="%s"
+           version="git_revision:%s"
+           path="prebuilt/.build-id"
+           attributes="debug-symbols,debug-symbols-%s"/>
+""" % (debug_package_name, git_rev, arch))[1:-1]

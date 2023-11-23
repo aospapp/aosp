@@ -19,6 +19,7 @@
 
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <base/macros.h>
@@ -40,7 +41,7 @@ class FakePrefs : public PrefsInterface {
 
   // PrefsInterface methods.
   bool GetString(const std::string& key, std::string* value) const override;
-  bool SetString(const std::string& key, const std::string& value) override;
+  bool SetString(const std::string& key, std::string_view value) override;
   bool GetInt64(const std::string& key, int64_t* value) const override;
   bool SetInt64(const std::string& key, const int64_t value) override;
   bool GetBoolean(const std::string& key, bool* value) const override;
@@ -48,6 +49,11 @@ class FakePrefs : public PrefsInterface {
 
   bool Exists(const std::string& key) const override;
   bool Delete(const std::string& key) override;
+  bool Delete(const std::string& key,
+              const std::vector<std::string>& nss) override;
+
+  bool GetSubKeys(const std::string& ns,
+                  std::vector<std::string>* keys) const override;
 
   void AddObserver(const std::string& key,
                    ObserverInterface* observer) override;
@@ -91,7 +97,7 @@ class FakePrefs : public PrefsInterface {
   // Helper function to set a value of the passed |key|. It sets the type based
   // on the template parameter T.
   template <typename T>
-  void SetValue(const std::string& key, const T& value);
+  void SetValue(const std::string& key, T value);
 
   // Helper function to get a value from the map checking for invalid calls.
   // The function fails the test if you attempt to read a value  defined as a

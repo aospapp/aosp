@@ -14,14 +14,20 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsAppThatRequestsOneTimePermission",
-    defaults: ["cts_defaults"],
-    sdk_version: "test_current",
+    defaults: [
+        "cts_defaults",
+        "mts-target-sdk-version-current",
+    ],
+    min_sdk_version: "30",
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "mts",
         "general-tests",
     ],

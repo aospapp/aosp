@@ -23,12 +23,12 @@ import com.android.tools.metalava.model.ConstructorItem
 import com.android.tools.metalava.model.FieldItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MethodItem
+import com.android.tools.metalava.model.MergedCodebase
 import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.ParameterItem
 import com.android.tools.metalava.model.PropertyItem
 import com.android.tools.metalava.model.VisitCandidate
 import com.android.tools.metalava.model.visitors.ApiVisitor
-import com.android.tools.metalava.model.visitors.VisibleItemVisitor
 import com.intellij.util.containers.Stack
 import java.util.Comparator
 import java.util.function.Predicate
@@ -98,7 +98,21 @@ class CodebaseComparator {
         println("New:\n${ItemTree.prettyPrint(newTree)}")
         */
 
-        compare(visitor, oldTree, newTree, null, null)
+        compare(visitor, oldTree, newTree, null, null, filter)
+    }
+
+    fun compare(visitor: ComparisonVisitor, old: MergedCodebase, new: MergedCodebase, filter: Predicate<Item>? = null) {
+        // Algorithm: build up two trees (by nesting level); then visit the
+        // two trees
+        val oldTree = createTree(old, filter)
+        val newTree = createTree(new, filter)
+
+        /* Debugging:
+        println("Old:\n${ItemTree.prettyPrint(oldTree)}")
+        println("New:\n${ItemTree.prettyPrint(newTree)}")
+        */
+
+        compare(visitor, oldTree, newTree, null, null, filter)
     }
 
     private fun compare(
@@ -106,7 +120,8 @@ class CodebaseComparator {
         oldList: List<ItemTree>,
         newList: List<ItemTree>,
         newParent: Item?,
-        oldParent: Item?
+        oldParent: Item?,
+        filter: Predicate<Item>?
     ) {
         // Debugging tip: You can print out a tree like this: ItemTree.prettyPrint(list)
         var index1 = 0
@@ -128,13 +143,13 @@ class CodebaseComparator {
                         compare > 0 -> {
                             index2++
                             if (new.emit) {
-                                visitAdded(new, oldParent, visitor, newTree)
+                                visitAdded(new, oldParent, visitor, newTree, filter)
                             }
                         }
                         compare < 0 -> {
                             index1++
                             if (old.emit) {
-                                visitRemoved(visitor, old, newParent)
+                                visitRemoved(old, oldTree, visitor, newParent, filter)
                             }
                         }
                         else -> {
@@ -142,16 +157,16 @@ class CodebaseComparator {
                                 if (old.emit) {
                                     visitCompare(visitor, old, new)
                                 } else {
-                                    visitAdded(new, oldParent, visitor, newTree)
+                                    visitAdded(new, oldParent, visitor, newTree, filter)
                                 }
                             } else {
                                 if (old.emit) {
-                                    visitRemoved(visitor, old, newParent)
+                                    visitRemoved(old, oldTree, visitor, newParent, filter)
                                 }
                             }
 
                             // Compare the children (recurse)
-                            compare(visitor, oldTree.children, newTree.children, newTree.item(), oldTree.item())
+                            compare(visitor, oldTree.children, newTree.children, newTree.item(), oldTree.item(), filter)
 
                             index1++
                             index2++
@@ -160,7 +175,9 @@ class CodebaseComparator {
                 } else {
                     // All the remaining items in oldList have been deleted
                     while (index1 < length1) {
-                        visitRemoved(visitor, oldList[index1++].item(), newParent)
+                        val oldTree = oldList[index1++]
+                        val old = oldTree.item()
+                        visitRemoved(old, oldTree, visitor, newParent, filter)
                     }
                 }
             } else if (index2 < length2) {
@@ -169,7 +186,7 @@ class CodebaseComparator {
                     val newTree = newList[index2++]
                     val new = newTree.item()
 
-                    visitAdded(new, oldParent, visitor, newTree)
+                    visitAdded(new, oldParent, visitor, newTree, filter)
                 }
             } else {
                 break
@@ -181,7 +198,8 @@ class CodebaseComparator {
         new: Item,
         oldParent: Item?,
         visitor: ComparisonVisitor,
-        newTree: ItemTree
+        newTree: ItemTree,
+        filter: Predicate<Item>?
     ) {
         // If it's a method, we may not have added a new method,
         // we may simply have inherited it previously and overriding
@@ -203,7 +221,7 @@ class CodebaseComparator {
             // Compare the children (recurse)
             if (inherited.parameters().isNotEmpty()) {
                 val parameters = inherited.parameters().map { ItemTree(it) }.toList()
-                compare(visitor, parameters, newTree.children, newTree.item(), inherited)
+                compare(visitor, parameters, newTree.children, newTree.item(), inherited, filter)
             }
         } else {
             visitAdded(visitor, new)
@@ -212,7 +230,7 @@ class CodebaseComparator {
 
     private fun visitAdded(visitor: ComparisonVisitor, new: Item) {
         if (visitor.visitAddedItemsRecursively) {
-            new.accept(object : VisibleItemVisitor() {
+            new.accept(object : ApiVisitor() {
                 override fun visitItem(item: Item) {
                     doVisitAdded(visitor, item)
                 }
@@ -244,6 +262,66 @@ class CodebaseComparator {
             is ParameterItem -> visitor.added(item)
             is PropertyItem -> visitor.added(item)
         }
+    }
+
+    private fun visitRemoved(
+        old: Item,
+        oldTree: ItemTree,
+        visitor: ComparisonVisitor,
+        newParent: Item?,
+        filter: Predicate<Item>?
+    ) {
+
+        // If it's a method, we may not have removed the method, we may have simply
+        // removed an override and are now inheriting the method from a superclass.
+        // Alternatively, it may have always truly been an inherited method, but if the base
+        // class was hidden then the signature file may have listed the method as being
+        // declared on the subclass
+        val inheritedMethod =
+            if (old is MethodItem && !old.isConstructor() && newParent is ClassItem) {
+                val superMethod = newParent.findPredicateMethodWithSuper(old, filter)
+
+                if (superMethod != null && (filter == null || filter.test(superMethod))) {
+                    superMethod.duplicate(newParent)
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+
+        if (inheritedMethod != null) {
+            visitCompare(visitor, old, inheritedMethod)
+            // Compare the children (recurse)
+            if (inheritedMethod.parameters().isNotEmpty()) {
+                val parameters = inheritedMethod.parameters().map { ItemTree(it) }.toList()
+                compare(visitor, oldTree.children, parameters, oldTree.item(), inheritedMethod, filter)
+            }
+            return
+        }
+
+        // fields may also be moved to superclasses like methods may
+        val inheritedField =
+            if (old is FieldItem && newParent is ClassItem) {
+                val superField = newParent.findField(
+                    fieldName = old.name(),
+                    includeSuperClasses = true,
+                    includeInterfaces = true)
+
+                if (superField != null && (filter == null || filter.test(superField))) {
+                    superField.duplicate(newParent)
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+
+        if (inheritedField != null) {
+            visitCompare(visitor, old, inheritedField)
+            return
+        }
+        visitRemoved(visitor, old, newParent)
     }
 
     @Suppress("USELESS_CAST") // Overloaded visitor methods: be explicit about which one is being invoked
@@ -390,13 +468,6 @@ class CodebaseComparator {
         }
     }
 
-    private fun ensureSorted(items: MutableList<ItemTree>) {
-        items.sortWith(treeComparator)
-        for (item in items) {
-            ensureSorted(item)
-        }
-    }
-
     private fun ensureSorted(item: ItemTree) {
         item.children.sortWith(treeComparator)
         for (child in item.children) {
@@ -404,38 +475,92 @@ class CodebaseComparator {
         }
     }
 
+    /**
+     * Sorts and removes duplicate items.
+     * The kept item will be an unhidden item if possible.
+     * Ties are broken in favor of keeping children having lower indices
+     */
+    private fun removeDuplicates(item: ItemTree) {
+        item.children.sortWith(treeComparator)
+        val children = item.children
+        var i = children.count() - 2
+        while (i >= 0) {
+            val child = children[i]
+            val prev = children[i + 1]
+            if (comparator.compare(child.item, prev.item) == 0) {
+                if (prev.item!!.emit && !child.item!!.emit) {
+                    // merge child into prev because prev is emitted
+                    prev.children += child.children
+                    children.removeAt(i)
+                } else {
+                    // merge prev into child because child was specified first
+                    child.children += prev.children
+                    children.removeAt(i + 1)
+                }
+            }
+            i--
+        }
+        for (child in children) {
+            removeDuplicates(child)
+        }
+    }
+
+    private fun createTree(codebase: MergedCodebase, filter: Predicate<Item>? = null): List<ItemTree> {
+        return createTree(codebase.children, filter)
+    }
+
     private fun createTree(codebase: Codebase, filter: Predicate<Item>? = null): List<ItemTree> {
+        return createTree(listOf(codebase), filter)
+    }
+
+    private fun createTree(codebases: List<Codebase>, filter: Predicate<Item>? = null): List<ItemTree> {
         val stack = Stack<ItemTree>()
         val root = ItemTree(null)
         stack.push(root)
 
-        val acceptAll = codebase.preFiltered || filter == null
-        val predicate = if (acceptAll) Predicate { true } else filter!!
-        codebase.accept(object : ApiVisitor(
-            nestInnerClasses = true,
-            inlineInheritedFields = true,
-            filterEmit = predicate,
-            filterReference = predicate
-        ) {
-            override fun visitItem(item: Item) {
-                val node = ItemTree(item)
-                val parent = stack.peek()
-                parent.children += node
+        for (codebase in codebases) {
+            val acceptAll = codebase.preFiltered || filter == null
+            val predicate = if (acceptAll) Predicate { true } else filter!!
+            codebase.accept(object : ApiVisitor(
+                nestInnerClasses = true,
+                inlineInheritedFields = true,
+                filterEmit = predicate,
+                filterReference = predicate,
+                // Whenever a caller passes arguments of "--show-annotation 'SomeAnnotation' --check-compatibility:api:released $oldApi",
+                // really what they mean is:
+                // 1. Definitions:
+                //  1.1 Define the SomeAnnotation API as the set of APIs that are either public or are annotated with @SomeAnnotation
+                //  1.2 $oldApi was previously the difference between the SomeAnnotation api and the public api
+                // 2. The caller would like Metalava to verify that all APIs that are known to have previously been part of the SomeAnnotation api remain part of the SomeAnnotation api
+                // So, when doing compatibility checking we want to consider public APIs even if the caller didn't explicitly pass --show-unannotated
+                showUnannotated = true
+            ) {
+                override fun visitItem(item: Item) {
+                    val node = ItemTree(item)
+                    val parent = stack.peek()
+                    parent.children += node
 
-                stack.push(node)
-            }
+                    stack.push(node)
+                }
 
-            override fun include(cls: ClassItem): Boolean = if (acceptAll) true else super.include(cls)
+                override fun include(cls: ClassItem): Boolean = if (acceptAll) true else super.include(cls)
 
-            /** Include all classes in the tree, even implicitly defined classes (such as containing classes) */
-            override fun shouldEmitClass(vc: VisitCandidate): Boolean = true
+                /** Include all classes in the tree, even implicitly defined classes (such as containing classes) */
+                override fun shouldEmitClass(vc: VisitCandidate): Boolean = true
 
-            override fun afterVisitItem(item: Item) {
-                stack.pop()
-            }
-        })
+                override fun afterVisitItem(item: Item) {
+                    stack.pop()
+                }
+            })
+        }
 
-        ensureSorted(root.children)
+        if (codebases.count() >= 2) {
+            removeDuplicates(root)
+            // removeDuplicates will also sort the items
+        } else {
+            ensureSorted(root)
+        }
+
         return root.children
     }
 

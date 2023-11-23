@@ -8,7 +8,7 @@ PyDoc_STRVAR(select_select__doc__,
 "\n"
 "Wait until one or more file descriptors are ready for some kind of I/O.\n"
 "\n"
-"The first three arguments are sequences of file descriptors to be waited for:\n"
+"The first three arguments are iterables of file descriptors to be waited for:\n"
 "rlist -- wait until ready for reading\n"
 "wlist -- wait until ready for writing\n"
 "xlist -- wait for an \"exceptional condition\"\n"
@@ -65,7 +65,8 @@ exit:
 #if (defined(HAVE_POLL) && !defined(HAVE_BROKEN_POLL))
 
 PyDoc_STRVAR(select_poll_register__doc__,
-"register($self, fd, eventmask=POLLIN | POLLPRI | POLLOUT, /)\n"
+"register($self, fd,\n"
+"         eventmask=select.POLLIN | select.POLLPRI | select.POLLOUT, /)\n"
 "--\n"
 "\n"
 "Register a file descriptor with the polling object.\n"
@@ -226,7 +227,8 @@ exit:
 #if (defined(HAVE_POLL) && !defined(HAVE_BROKEN_POLL)) && defined(HAVE_SYS_DEVPOLL_H)
 
 PyDoc_STRVAR(select_devpoll_register__doc__,
-"register($self, fd, eventmask=POLLIN | POLLPRI | POLLOUT, /)\n"
+"register($self, fd,\n"
+"         eventmask=select.POLLIN | select.POLLPRI | select.POLLOUT, /)\n"
 "--\n"
 "\n"
 "Register a file descriptor with the polling object.\n"
@@ -275,7 +277,8 @@ exit:
 #if (defined(HAVE_POLL) && !defined(HAVE_BROKEN_POLL)) && defined(HAVE_SYS_DEVPOLL_H)
 
 PyDoc_STRVAR(select_devpoll_modify__doc__,
-"modify($self, fd, eventmask=POLLIN | POLLPRI | POLLOUT, /)\n"
+"modify($self, fd,\n"
+"       eventmask=select.POLLIN | select.POLLPRI | select.POLLOUT, /)\n"
 "--\n"
 "\n"
 "Modify a possible already registered file descriptor.\n"
@@ -645,7 +648,8 @@ exit:
 #if defined(HAVE_EPOLL)
 
 PyDoc_STRVAR(select_epoll_register__doc__,
-"register($self, /, fd, eventmask=EPOLLIN | EPOLLPRI | EPOLLOUT)\n"
+"register($self, /, fd,\n"
+"         eventmask=select.EPOLLIN | select.EPOLLPRI | select.EPOLLOUT)\n"
 "--\n"
 "\n"
 "Registers a new fd or raises an OSError if the fd is already registered.\n"
@@ -959,11 +963,11 @@ select_kqueue(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
     PyObject *return_value = NULL;
 
-    if ((type == &kqueue_queue_Type) &&
+    if ((type == _selectstate_global->kqueue_queue_Type) &&
         !_PyArg_NoPositional("kqueue", args)) {
         goto exit;
     }
-    if ((type == &kqueue_queue_Type) &&
+    if ((type == _selectstate_global->kqueue_queue_Type) &&
         !_PyArg_NoKeywords("kqueue", kwargs)) {
         goto exit;
     }
@@ -1215,4 +1219,4 @@ exit:
 #ifndef SELECT_KQUEUE_CONTROL_METHODDEF
     #define SELECT_KQUEUE_CONTROL_METHODDEF
 #endif /* !defined(SELECT_KQUEUE_CONTROL_METHODDEF) */
-/*[clinic end generated code: output=03041f3d09b04a3d input=a9049054013a1b77]*/
+/*[clinic end generated code: output=ef42c3485a8fe3a0 input=a9049054013a1b77]*/

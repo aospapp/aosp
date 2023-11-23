@@ -517,7 +517,7 @@ public class AbsListView_ScrollTest {
         // Note that due to asynchronous nature of the moving pieces, we might still get one
         // more scroll frame as the injected motion events that constitute an emulated tap
         // are being processed by our list view.
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mListView);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mListView, false);
 
         // Sleep for a second
         SystemClock.sleep(1000);
@@ -549,7 +549,7 @@ public class AbsListView_ScrollTest {
         final CountDownLatch flingLatch = new CountDownLatch(1);
         mListView.setOnScrollListener(new ScrollIdleListListener(flingLatch));
         CtsTouchUtils.emulateFlingGesture(mInstrumentation, mActivityRule, mListView,
-                isDownwardsFlingGesture);
+                isDownwardsFlingGesture, false, null);
 
         assertTrue("Timed out while waiting for the fling to complete",
                 flingLatch.await(5, TimeUnit.SECONDS));

@@ -30,7 +30,12 @@ typedef HostMessage MessageToHost;
 
 /**
  * Abstracts the platform-specific communications link between CHRE and the host
- * processor
+ * processor.
+ *
+ * The common-code HostCommsManager inherits from this class, so based on
+ * later-established convention, a more fitting name for it would be
+ * PlatformHostCommsManager. But the HostLink name is kept for compatibility
+ * with legacy code.
  */
 class HostLink : public HostLinkBase, public NonCopyable {
  public:
@@ -49,22 +54,14 @@ class HostLink : public HostLinkBase, public NonCopyable {
    * Enqueues a message for sending to the host. Once sending the message is
    * complete (success or failure), the platform implementation must invoke
    * HostCommsManager::onMessageToHostComplete (can be called from any thread).
+   * To meet the requirements of chreSendMessageToHostEndpoint(), this function
+   * must wake up the host if it is suspended.
    *
    * @param message A non-null pointer to the message
    *
    * @return true if the message was successfully queued
    */
   bool sendMessage(const MessageToHost *message);
-
-  /**
-   * Enqueues a log message to be sent to the host.
-   *
-   * @param logMessage Pointer to a buffer that has the log message. Note that
-   * the message might be encoded
-   *
-   * @param logMessageSize length of the log message buffer
-   */
-  void sendLogMessage(const char *logMessage, size_t logMessageSize);
 };
 
 }  // namespace chre

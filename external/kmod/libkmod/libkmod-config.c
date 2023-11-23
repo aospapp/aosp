@@ -335,6 +335,7 @@ static int kmod_config_add_softdep(struct kmod_config *config,
 	n_pre = 0;
 	n_post = 0;
 	mode = S_NONE;
+	was_space = false;
 	for (p = s = line; ; s++) {
 		size_t plen;
 
@@ -487,8 +488,9 @@ static void kcmdline_parse_result(struct kmod_config *config, char *modname,
 		if (underscores(modname) < 0) {
 			ERR(config->ctx, "Ignoring bad option on kernel command line while parsing module name: '%s'\n",
 			    modname);
+		} else {
+			kmod_config_add_options(config, modname, param);
 		}
-		kmod_config_add_options(config, modname, param);
 	}
 }
 

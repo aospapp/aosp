@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <openssl/err.h>
@@ -66,6 +67,11 @@ const char kCACertificatePath[] =
 }  // anonymous namespace
 
 namespace brillo {
+
+// TODO(crbug.com/984789): Remove once support for OpenSSL <1.1 is dropped.
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#define TLS_client_method() TLSv1_2_client_method()
+#endif
 
 // Helper implementation of TLS stream used to hide most of OpenSSL inner
 // workings from the users of brillo::TlsStream.
@@ -341,7 +347,7 @@ bool TlsStream::TlsStreamImpl::Init(StreamPtr socket,
                                     const base::Closure& success_callback,
                                     const Stream::ErrorCallback& error_callback,
                                     ErrorPtr* error) {
-  ctx_.reset(SSL_CTX_new(TLSv1_2_client_method()));
+  ctx_.reset(SSL_CTX_new(TLS_client_method()));
   if (!ctx_)
     return ReportError(error, FROM_HERE, "Cannot create SSL_CTX");
 
@@ -387,10 +393,10 @@ bool TlsStream::TlsStreamImpl::Init(StreamPtr socket,
   if (MessageLoop::ThreadHasCurrent()) {
     MessageLoop::current()->PostTask(
         FROM_HERE,
-        base::Bind(&TlsStreamImpl::DoHandshake,
-                   weak_ptr_factory_.GetWeakPtr(),
-                   success_callback,
-                   error_callback));
+        base::BindOnce(&TlsStreamImpl::DoHandshake,
+                       weak_ptr_factory_.GetWeakPtr(),
+                       success_callback,
+                       error_callback));
   } else {
     DoHandshake(success_callback, error_callback);
   }

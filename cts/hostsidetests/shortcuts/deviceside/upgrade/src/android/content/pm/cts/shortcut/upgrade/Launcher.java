@@ -23,7 +23,6 @@ import android.content.Context;
 
 public class Launcher extends Activity {
     public static void setAsDefaultLauncher(Instrumentation instrumentation, Context context) {
-        setDefaultLauncher(instrumentation,
-                context.getPackageName() + "/" + Launcher.class.getName());
+        setDefaultLauncher(instrumentation, context);
     }
 }

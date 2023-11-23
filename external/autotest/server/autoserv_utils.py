@@ -4,8 +4,10 @@
 # found in the LICENSE file.
 
 import os
+import sys
 
 import common
+
 from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import global_config
 
@@ -71,7 +73,16 @@ def autoserv_run_job_command(autoserv_directory, machines,
 
     """
     script_name = 'virtualenv_autoserv' if use_virtualenv else 'autoserv'
-    command = [os.path.join(autoserv_directory, script_name)]
+
+    full_script_path = os.path.join(autoserv_directory, script_name)
+
+    # virtualenv_autoserv is a `POSIX shell script, ASCII text executable`.
+    # Calling with `sys.executable` would fail because python doesn't 
+    # interpret shebangs itself.
+    if use_virtualenv:
+        command = [full_script_path]
+    else:
+        command = [sys.executable, full_script_path]
 
     if write_pidfile:
         command.append('-p')

@@ -20,8 +20,10 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
+
 #include <algorithm>
 #include <cerrno>
+#include <cinttypes>
 #include <cstring>
 
 #include "os/log.h"
@@ -30,17 +32,23 @@ namespace {
 
 // Use at most sizeof(epoll_event) * kEpollMaxEvents kernel memory
 constexpr int kEpollMaxEvents = 64;
+constexpr uint64_t kStopReactor = 1 << 0;
+constexpr uint64_t kWaitForIdle = 1 << 1;
 
 }  // namespace
 
 namespace bluetooth {
 namespace os {
+using common::Closure;
 
 class Reactor::Reactable {
  public:
   Reactable(int fd, Closure on_read_ready, Closure on_write_ready)
-      : fd_(fd), on_read_ready_(std::move(on_read_ready)), on_write_ready_(std::move(on_write_ready)),
-        is_executing_(false), removed_(false) {}
+      : fd_(fd),
+        on_read_ready_(std::move(on_read_ready)),
+        on_write_ready_(std::move(on_write_ready)),
+        is_executing_(false),
+        removed_(false) {}
   const int fd_;
   Closure on_read_ready_;
   Closure on_write_ready_;
@@ -50,10 +58,7 @@ class Reactor::Reactable {
   std::unique_ptr<std::promise<void>> finished_promise_;
 };
 
-Reactor::Reactor()
-  : epoll_fd_(0),
-    control_fd_(0),
-    is_running_(false) {
+Reactor::Reactor() : epoll_fd_(0), control_fd_(0), is_running_(false) {
   RUN_NO_INTR(epoll_fd_ = epoll_create1(EPOLL_CLOEXEC));
   ASSERT_LOG(epoll_fd_ != -1, "could not create epoll fd: %s", strerror(errno));
 
@@ -82,6 +87,8 @@ void Reactor::Run() {
   bool already_running = is_running_.exchange(true);
   ASSERT(!already_running);
 
+  int timeout_ms = -1;
+  bool waiting_for_idle = false;
   for (;;) {
     {
       std::unique_lock<std::mutex> lock(mutex_);
@@ -89,8 +96,14 @@ void Reactor::Run() {
     }
     epoll_event events[kEpollMaxEvents];
     int count;
-    RUN_NO_INTR(count = epoll_wait(epoll_fd_, events, kEpollMaxEvents, -1));
+    RUN_NO_INTR(count = epoll_wait(epoll_fd_, events, kEpollMaxEvents, timeout_ms));
     ASSERT(count != -1);
+    if (waiting_for_idle && count == 0) {
+      timeout_ms = -1;
+      waiting_for_idle = false;
+      idle_promise_->set_value();
+      idle_promise_ = nullptr;
+    }
 
     for (int i = 0; i < count; ++i) {
       auto event = events[i];
@@ -100,11 +113,21 @@ void Reactor::Run() {
       if (event.data.ptr == nullptr) {
         uint64_t value;
         eventfd_read(control_fd_, &value);
-        is_running_ = false;
-        return;
+        if ((value & kStopReactor) != 0) {
+          is_running_ = false;
+          return;
+        } else if ((value & kWaitForIdle) != 0) {
+          timeout_ms = 30;
+          waiting_for_idle = true;
+          continue;
+        } else {
+          LOG_ERROR("Unknown control_fd value %" PRIu64 "x", value);
+          continue;
+        }
       }
       auto* reactable = static_cast<Reactor::Reactable*>(event.data.ptr);
       std::unique_lock<std::mutex> lock(mutex_);
+      executing_reactable_finished_ = nullptr;
       // See if this reactable has been removed in the meantime.
       if (std::find(invalidation_list_.begin(), invalidation_list_.end(), reactable) != invalidation_list_.end()) {
         continue;
@@ -122,10 +145,11 @@ void Reactor::Run() {
         reactable->on_write_ready_.Run();
       }
       {
-        std::lock_guard<std::mutex> reactable_lock(reactable->mutex_);
+        std::unique_lock<std::mutex> reactable_lock(reactable->mutex_);
         reactable->is_executing_ = false;
         if (reactable->removed_) {
           reactable->finished_promise_->set_value();
+          reactable_lock.unlock();
           delete reactable;
         }
       }
@@ -137,7 +161,7 @@ void Reactor::Stop() {
   if (!is_running_) {
     LOG_WARN("not running, will stop once it's started");
   }
-  auto control = eventfd_write(control_fd_, 1);
+  auto control = eventfd_write(control_fd_, kStopReactor);
   ASSERT(control != -1);
 }
 
@@ -182,7 +206,7 @@ void Reactor::Unregister(Reactor::Reactable* reactable) {
     if (reactable->is_executing_) {
       reactable->removed_ = true;
       reactable->finished_promise_ = std::make_unique<std::promise<void>>();
-      executing_reactable_finished_ = std::make_unique<std::future<void>>(reactable->finished_promise_->get_future());
+      executing_reactable_finished_ = std::make_shared<std::future<void>>(reactable->finished_promise_->get_future());
       delaying_delete_until_callback_finished = true;
     }
   }
@@ -193,11 +217,30 @@ void Reactor::Unregister(Reactor::Reactable* reactable) {
 }
 
 bool Reactor::WaitForUnregisteredReactable(std::chrono::milliseconds timeout) {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (executing_reactable_finished_ == nullptr) {
     return true;
   }
   auto stop_status = executing_reactable_finished_->wait_for(timeout);
+  if (stop_status != std::future_status::ready) {
+    LOG_ERROR("Unregister reactable timed out");
+  }
   return stop_status == std::future_status::ready;
+}
+
+bool Reactor::WaitForIdle(std::chrono::milliseconds timeout) {
+  auto promise = std::make_shared<std::promise<void>>();
+  auto future = std::make_unique<std::future<void>>(promise->get_future());
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    idle_promise_ = promise;
+  }
+
+  auto control = eventfd_write(control_fd_, kWaitForIdle);
+  ASSERT(control != -1);
+
+  auto idle_status = future->wait_for(timeout);
+  return idle_status == std::future_status::ready;
 }
 
 void Reactor::ModifyRegistration(Reactor::Reactable* reactable, Closure on_read_ready, Closure on_write_ready) {

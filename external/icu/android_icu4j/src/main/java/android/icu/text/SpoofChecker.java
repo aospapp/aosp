@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  ***************************************************************************
  * Copyright (C) 2008-2016 International Business Machines Corporation
@@ -577,8 +577,10 @@ public class SpoofChecker {
          * Specify the bitmask of checks that will be performed by {@link SpoofChecker#failsChecks}. Calling this method
          * overwrites any checks that may have already been enabled. By default, all checks are enabled.
          *
-         * To enable specific checks and disable all others, the "whitelisted" checks should be ORed together. For
-         * example, to fail strings containing characters outside of the set specified by {@link #setAllowedChars} and
+         * To enable specific checks and disable all others,
+         * OR together only the bit constants for the desired checks.
+         * For example, to fail strings containing characters outside of
+         * the set specified by {@link #setAllowedChars} and
          * also strings that contain digits from mixed numbering systems:
          *
          * <pre>
@@ -587,8 +589,9 @@ public class SpoofChecker {
          * }
          * </pre>
          *
-         * To disable specific checks and enable all others, the "blacklisted" checks should be ANDed away from
-         * ALL_CHECKS. For example, if you are not planning to use the {@link SpoofChecker#areConfusable} functionality,
+         * To disable specific checks and enable all others,
+         * start with ALL_CHECKS and "AND away" the not-desired checks.
+         * For example, if you are not planning to use the {@link SpoofChecker#areConfusable} functionality,
          * it is good practice to disable the CONFUSABLE check:
          *
          * <pre>
@@ -1995,22 +1998,22 @@ public class SpoofChecker {
         // }
         // }
 
-        @android.compat.annotation.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         ScriptSet() {
         }
 
-        @android.compat.annotation.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         public void and(int script) {
             this.clear(0, script);
             this.clear(script + 1, UScript.CODE_LIMIT);
         }
 
-        @android.compat.annotation.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         public void setAll() {
             this.set(0, UScript.CODE_LIMIT);
         }
 
-        @android.compat.annotation.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         public boolean isFull() {
             return cardinality() == UScript.CODE_LIMIT;
         }

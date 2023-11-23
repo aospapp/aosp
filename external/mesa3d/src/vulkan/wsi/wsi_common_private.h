@@ -24,6 +24,7 @@
 #define WSI_COMMON_PRIVATE_H
 
 #include "wsi_common.h"
+#include "vulkan/util/vk_object.h"
 
 struct wsi_image {
    VkImage image;
@@ -44,11 +45,13 @@ struct wsi_image {
 };
 
 struct wsi_swapchain {
+   struct vk_object_base base;
+
    const struct wsi_device *wsi;
 
    VkDevice device;
    VkAllocationCallbacks alloc;
-   VkFence fences[3];
+   VkFence* fences;
    VkPresentModeKHR present_mode;
    uint32_t image_count;
 
@@ -138,7 +141,8 @@ struct wsi_interface {
 };
 
 VkResult wsi_x11_init_wsi(struct wsi_device *wsi_device,
-                          const VkAllocationCallbacks *alloc);
+                          const VkAllocationCallbacks *alloc,
+                          const struct driOptionCache *dri_options);
 void wsi_x11_finish_wsi(struct wsi_device *wsi_device,
                         const VkAllocationCallbacks *alloc);
 VkResult wsi_wl_init_wsi(struct wsi_device *wsi_device,
@@ -157,23 +161,7 @@ void
 wsi_display_finish_wsi(struct wsi_device *wsi_device,
                        const VkAllocationCallbacks *alloc);
 
-#define WSI_DEFINE_NONDISP_HANDLE_CASTS(__wsi_type, __VkType)              \
-                                                                           \
-   static inline struct __wsi_type *                                       \
-   __wsi_type ## _from_handle(__VkType _handle)                            \
-   {                                                                       \
-      return (struct __wsi_type *)(uintptr_t) _handle;                     \
-   }                                                                       \
-                                                                           \
-   static inline __VkType                                                  \
-   __wsi_type ## _to_handle(struct __wsi_type *_obj)                       \
-   {                                                                       \
-      return (__VkType)(uintptr_t) _obj;                                   \
-   }
-
-#define WSI_FROM_HANDLE(__wsi_type, __name, __handle) \
-   struct __wsi_type *__name = __wsi_type ## _from_handle(__handle)
-
-WSI_DEFINE_NONDISP_HANDLE_CASTS(wsi_swapchain, VkSwapchainKHR)
+VK_DEFINE_NONDISP_HANDLE_CASTS(wsi_swapchain, base, VkSwapchainKHR,
+                               VK_OBJECT_TYPE_SWAPCHAIN_KHR)
 
 #endif /* WSI_COMMON_PRIVATE_H */

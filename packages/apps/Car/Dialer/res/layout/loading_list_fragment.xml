@@ -19,5 +19,12 @@
     android:id="@+id/loading_frame_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-    <include layout="@layout/list_fragment"/>
+
+    <com.android.car.ui.FocusArea
+        android:id="@+id/loading_focus_area"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <include layout="@layout/list_fragment"/>
+    </com.android.car.ui.FocusArea>
+
 </com.android.car.dialer.widget.LoadingFrameLayout>

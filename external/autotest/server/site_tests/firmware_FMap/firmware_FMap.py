@@ -3,12 +3,13 @@
 # found in the LICENSE file.
 
 import logging
+import os
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
-TARGET_BIOS = 'host_firmware'
-TARGET_EC = 'ec_firmware'
+TARGET_BIOS = 'host'
+TARGET_EC = 'ec'
 
 FMAP_AREA_NAMES = [
     'name',
@@ -36,6 +37,14 @@ EXPECTED_FMAP_TREE_BIOS = {
     'RW_FWID_B': {},
   },
   'RW_VPD': {},
+}
+
+INTEL_CSE_RW_A = {
+   'ME_RW_A': {},
+}
+
+INTEL_CSE_RW_B = {
+   'ME_RW_B': {},
 }
 
 EXPECTED_FMAP_TREE_EC = {
@@ -88,27 +97,47 @@ class firmware_FMap(FirmwareTest):
         logging.info('Output %s', output)
         return output
 
+    def _has_target(self, name):
+        """Return True if flashrom supports the programmer specified."""
+        return self.faft_client.system.run_shell_command_get_status(
+            'flashrom -p %s' % name) == 0
+
     def get_areas(self):
         """Get a list of dicts containing area names, offsets, and sizes
         per device.
 
-        It fetches the FMap data from the active firmware via mosys.
+        It fetches the FMap data from the active firmware via flashrom.
         Stores the result in the appropriate _TARGET_AREA.
         """
-        lines = self.run_cmd("mosys eeprom map")
+        for target in self._TARGET_AREA:
+            if not self._has_target(target):
+                continue
+            tmpdir = self.faft_client.system.create_temp_dir('flashrom_')
+            fmap = os.path.join(tmpdir, 'fmap.bin')
+            self.run_cmd(
+                'flashrom -p %s -r -i FMAP:%s' % (target, fmap))
+            lines = self.run_cmd('dump_fmap -p %s' % fmap)
+            # Change the expected FMAP Tree if separate CBFS is used for CSE RW
+            command = "dump_fmap -F %s | grep ME_RW_A" % fmap
+            if (target in TARGET_BIOS) and  self.run_cmd(command):
+                self._EXPECTED_FMAP_TREE[target]['RW_SECTION_A'].update(
+                                                          INTEL_CSE_RW_A)
+                self._EXPECTED_FMAP_TREE[target]['RW_SECTION_B'].update(
+                                                          INTEL_CSE_RW_B)
+                logging.info("DUT uses INTEL CSE LITE FMAP Scheme")
 
-        # The above output is formatted as:
-        # name1 offset1 size1
-        # name2 offset2 size2
-        # ...
-        # Convert it to a list of dicts like:
-        # [{'name': name1, 'offset': offset1, 'size': size1},
-        #  {'name': name2, 'offset': offset2, 'size': size2}, ...]
-        for line in lines:
-            row = map(lambda s:s.strip(), line.split('|'))
-            self._TARGET_AREA[row[0]].append(
-                dict(zip(FMAP_AREA_NAMES, [row[1], row[2], row[3]])))
+            self.faft_client.system.remove_dir(tmpdir)
 
+            # The above output is formatted as:
+            # name1 offset1 size1
+            # name2 offset2 size2
+            # ...
+            # Convert it to a list of dicts like:
+            # [{'name': name1, 'offset': offset1, 'size': size1},
+            #  {'name': name2, 'offset': offset2, 'size': size2}, ...]
+            for line in lines:
+                self._TARGET_AREA[target].append(
+                    dict(zip(FMAP_AREA_NAMES, line.split())))
 
     def _is_bounded(self, region, bounds):
         """Is the given region bounded by the given bounds?"""
@@ -144,8 +173,8 @@ class firmware_FMap(FirmwareTest):
             if bios['RW_SECTION_A']['size'] != bios['RW_SECTION_B']['size']:
                 succeed = False
                 logging.error('RW_SECTION_A size != RW_SECTION_B size')
-            if (int(bios['RW_SECTION_A']['size'], 16) == 0
-                or int(bios['RW_SECTION_B']['size'], 16) == 0):
+            if (int(bios['RW_SECTION_A']['size']) == 0
+                    or int(bios['RW_SECTION_B']['size']) == 0):
                 succeed = False
                 logging.error('RW_SECTION_A size or RW_SECTION_B size == 0')
         # Check RW_LEGACY section.
@@ -153,7 +182,7 @@ class firmware_FMap(FirmwareTest):
             succeed = False
             logging.error('Missing RW_LEGACY section in FMAP')
         else:
-            if int(bios['RW_LEGACY']['size'], 16) < 1024*1024:
+            if int(bios['RW_LEGACY']['size']) < 1024*1024:
                 succeed = False
                 logging.error('RW_LEGACY size is < 1M')
         # Check SMMSTORE section.
@@ -162,7 +191,7 @@ class firmware_FMap(FirmwareTest):
                 succeed = False
                 logging.error('Missing SMMSTORE section in FMAP')
             else:
-                if int(bios['SMMSTORE']['size'], 16) < 256*1024:
+                if int(bios['SMMSTORE']['size']) < 256*1024:
                     succeed = False
                     logging.error('SMMSTORE size is < 256KB')
 
@@ -218,9 +247,9 @@ class firmware_FMap(FirmwareTest):
                 logging.error("The area %s is not existed.", branch)
                 succeed = False
                 continue
-            region = [int(area['offset'], 16),
-                      int(area['offset'], 16) + int(area['size'], 16)]
-            if int(area['size'], 16) == 0:
+            region = [int(area['offset']),
+                      int(area['offset']) + int(area['size'])]
+            if int(area['size']) == 0:
                 logging.error("The area %s is zero-sized.", branch)
                 succeed = False
             elif bounds and not self._is_bounded(region, bounds):

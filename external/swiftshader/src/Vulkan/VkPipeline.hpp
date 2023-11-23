@@ -15,9 +15,7 @@
 #ifndef VK_PIPELINE_HPP_
 #define VK_PIPELINE_HPP_
 
-#include "VkObject.hpp"
-#include "Device/Renderer.hpp"
-#include "Vulkan/VkDescriptorSet.hpp"
+#include "Device/Context.hpp"
 #include "Vulkan/VkPipelineCache.hpp"
 #include <memory>
 
@@ -34,15 +32,12 @@ namespace dbg {
 class Context;
 }  // namespace dbg
 
-class PipelineCache;
-class PipelineLayout;
 class ShaderModule;
-class Device;
 
 class Pipeline
 {
 public:
-	Pipeline(PipelineLayout const *layout, const Device *device);
+	Pipeline(PipelineLayout *layout, Device *device);
 	virtual ~Pipeline() = default;
 
 	operator VkPipeline()
@@ -55,24 +50,26 @@ public:
 		return vk::VkTtoT<Pipeline, VkPipeline>(object);
 	}
 
-	void destroy(const VkAllocationCallbacks *pAllocator)
-	{
-		destroyPipeline(pAllocator);
-	}
+	void destroy(const VkAllocationCallbacks *pAllocator);
 
 	virtual void destroyPipeline(const VkAllocationCallbacks *pAllocator) = 0;
 #ifndef NDEBUG
 	virtual VkPipelineBindPoint bindPoint() const = 0;
 #endif
 
-	PipelineLayout const *getLayout() const
+	PipelineLayout *getLayout() const
 	{
 		return layout;
 	}
 
+	struct PushConstantStorage
+	{
+		unsigned char data[vk::MAX_PUSH_CONSTANT_SIZE];
+	};
+
 protected:
-	PipelineLayout const *layout = nullptr;
-	Device const *const device;
+	PipelineLayout *layout = nullptr;
+	Device *const device;
 
 	const bool robustBufferAccess = true;
 };
@@ -82,7 +79,7 @@ class GraphicsPipeline : public Pipeline, public ObjectBase<GraphicsPipeline, Vk
 public:
 	GraphicsPipeline(const VkGraphicsPipelineCreateInfo *pCreateInfo,
 	                 void *mem,
-	                 const Device *device);
+	                 Device *device);
 	virtual ~GraphicsPipeline() = default;
 
 	void destroyPipeline(const VkAllocationCallbacks *pAllocator) override;
@@ -98,32 +95,37 @@ public:
 
 	void compileShaders(const VkAllocationCallbacks *pAllocator, const VkGraphicsPipelineCreateInfo *pCreateInfo, PipelineCache *pipelineCache);
 
-	uint32_t computePrimitiveCount(uint32_t vertexCount) const;
-	const sw::Context &getContext() const;
-	const VkRect2D &getScissor() const;
-	const VkViewport &getViewport() const;
-	const sw::Color<float> &getBlendConstants() const;
-	bool hasDynamicState(VkDynamicState dynamicState) const;
-	bool hasPrimitiveRestartEnable() const { return primitiveRestartEnable; }
+	const GraphicsState getState(const DynamicState &ds) const { return state.combineStates(ds); }
+
+	void getIndexBuffers(uint32_t count, uint32_t first, bool indexed, std::vector<std::pair<uint32_t, void *>> *indexBuffers) const;
+
+	IndexBuffer &getIndexBuffer() { return indexBuffer; }
+	const IndexBuffer &getIndexBuffer() const { return indexBuffer; }
+	Attachments &getAttachments() { return attachments; }
+	const Attachments &getAttachments() const { return attachments; }
+	Inputs &getInputs() { return inputs; }
+	const Inputs &getInputs() const { return inputs; }
+
+	bool containsImageWrite() const;
+
+	const std::shared_ptr<sw::SpirvShader> getShader(const VkShaderStageFlagBits &stage) const;
 
 private:
 	void setShader(const VkShaderStageFlagBits &stage, const std::shared_ptr<sw::SpirvShader> spirvShader);
-	const std::shared_ptr<sw::SpirvShader> getShader(const VkShaderStageFlagBits &stage) const;
 	std::shared_ptr<sw::SpirvShader> vertexShader;
 	std::shared_ptr<sw::SpirvShader> fragmentShader;
 
-	uint32_t dynamicStateFlags = 0;
-	bool primitiveRestartEnable = false;
-	sw::Context context;
-	VkRect2D scissor;
-	VkViewport viewport;
-	sw::Color<float> blendConstants;
+	const GraphicsState state;
+
+	IndexBuffer indexBuffer;
+	Attachments attachments;
+	Inputs inputs;
 };
 
 class ComputePipeline : public Pipeline, public ObjectBase<ComputePipeline, VkPipeline>
 {
 public:
-	ComputePipeline(const VkComputePipelineCreateInfo *pCreateInfo, void *mem, const Device *device);
+	ComputePipeline(const VkComputePipelineCreateInfo *pCreateInfo, void *mem, Device *device);
 	virtual ~ComputePipeline() = default;
 
 	void destroyPipeline(const VkAllocationCallbacks *pAllocator) override;
@@ -141,9 +143,10 @@ public:
 
 	void run(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ,
 	         uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ,
+	         vk::DescriptorSet::Array const &descriptorSetObjects,
 	         vk::DescriptorSet::Bindings const &descriptorSets,
 	         vk::DescriptorSet::DynamicOffsets const &descriptorDynamicOffsets,
-	         sw::PushConstantStorage const &pushConstants);
+	         vk::Pipeline::PushConstantStorage const &pushConstants);
 
 protected:
 	std::shared_ptr<sw::SpirvShader> shader;

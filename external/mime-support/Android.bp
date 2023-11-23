@@ -1,3 +1,20 @@
+package {
+    default_applicable_licenses: ["external_mime-support_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_mime-support_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 java_genrule {
     name: "debian.mime.types.minimized",
     visibility: [

@@ -176,6 +176,7 @@ BENCHMARK(BM_test)->Unit(benchmark::kMillisecond);
 #include <map>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #if defined(BENCHMARK_HAS_CXX11)
@@ -406,7 +407,7 @@ typedef std::map<std::string, Counter> UserCounters;
 
 // TimeUnit is passed to a benchmark in order to specify the order of magnitude
 // for the measured time.
-enum TimeUnit { kNanosecond, kMicrosecond, kMillisecond };
+enum TimeUnit { kNanosecond, kMicrosecond, kMillisecond, kSecond };
 
 // BigO is passed to a benchmark in order to specify the asymptotic
 // computational
@@ -540,6 +541,9 @@ class State {
   // the 'KeepRunning()' loop the current iteration will finish. It is the users
   // responsibility to exit the scope as needed.
   void SkipWithError(const char* msg);
+
+  // Returns true if an error has been reported with 'SkipWithError(...)'.
+  bool error_occurred() const { return error_occurred_; }
 
   // REQUIRES: called exactly once per iteration of the benchmarking loop.
   // Set the manually measured time for this benchmark iteration, which
@@ -824,6 +828,11 @@ class Benchmark {
   // REQUIRES: The function passed to the constructor must accept arg1, arg2 ...
   Benchmark* Ranges(const std::vector<std::pair<int64_t, int64_t> >& ranges);
 
+  // Run this benchmark once for each combination of values in the (cartesian)
+  // product of the supplied argument lists.
+  // REQUIRES: The function passed to the constructor must accept arg1, arg2 ...
+  Benchmark* ArgsProduct(const std::vector<std::vector<int64_t> >& arglists);
+
   // Equivalent to ArgNames({name})
   Benchmark* ArgName(const std::string& name);
 
@@ -1097,6 +1106,9 @@ class Fixture : public internal::Benchmark {
   BENCHMARK_PRIVATE_CONCAT(_benchmark_, BENCHMARK_PRIVATE_UNIQUE_ID, n)
 #define BENCHMARK_PRIVATE_CONCAT(a, b, c) BENCHMARK_PRIVATE_CONCAT2(a, b, c)
 #define BENCHMARK_PRIVATE_CONCAT2(a, b, c) a##b##c
+// Helper for concatenation with macro name expansion
+#define BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method) \
+    BaseClass##_##Method##_Benchmark
 
 #define BENCHMARK_PRIVATE_DECLARE(n)                                 \
   static ::benchmark::internal::Benchmark* BENCHMARK_PRIVATE_NAME(n) \
@@ -1217,27 +1229,27 @@ class Fixture : public internal::Benchmark {
 
 #define BENCHMARK_DEFINE_F(BaseClass, Method)    \
   BENCHMARK_PRIVATE_DECLARE_F(BaseClass, Method) \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #define BENCHMARK_TEMPLATE1_DEFINE_F(BaseClass, Method, a)    \
   BENCHMARK_TEMPLATE1_PRIVATE_DECLARE_F(BaseClass, Method, a) \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #define BENCHMARK_TEMPLATE2_DEFINE_F(BaseClass, Method, a, b)    \
   BENCHMARK_TEMPLATE2_PRIVATE_DECLARE_F(BaseClass, Method, a, b) \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #ifdef BENCHMARK_HAS_CXX11
 #define BENCHMARK_TEMPLATE_DEFINE_F(BaseClass, Method, ...)            \
   BENCHMARK_TEMPLATE_PRIVATE_DECLARE_F(BaseClass, Method, __VA_ARGS__) \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 #else
 #define BENCHMARK_TEMPLATE_DEFINE_F(BaseClass, Method, a) \
   BENCHMARK_TEMPLATE1_DEFINE_F(BaseClass, Method, a)
 #endif
 
 #define BENCHMARK_REGISTER_F(BaseClass, Method) \
-  BENCHMARK_PRIVATE_REGISTER_F(BaseClass##_##Method##_Benchmark)
+  BENCHMARK_PRIVATE_REGISTER_F(BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method))
 
 #define BENCHMARK_PRIVATE_REGISTER_F(TestName) \
   BENCHMARK_PRIVATE_DECLARE(TestName) =        \
@@ -1247,23 +1259,23 @@ class Fixture : public internal::Benchmark {
 #define BENCHMARK_F(BaseClass, Method)           \
   BENCHMARK_PRIVATE_DECLARE_F(BaseClass, Method) \
   BENCHMARK_REGISTER_F(BaseClass, Method);       \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #define BENCHMARK_TEMPLATE1_F(BaseClass, Method, a)           \
   BENCHMARK_TEMPLATE1_PRIVATE_DECLARE_F(BaseClass, Method, a) \
   BENCHMARK_REGISTER_F(BaseClass, Method);                    \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #define BENCHMARK_TEMPLATE2_F(BaseClass, Method, a, b)           \
   BENCHMARK_TEMPLATE2_PRIVATE_DECLARE_F(BaseClass, Method, a, b) \
   BENCHMARK_REGISTER_F(BaseClass, Method);                       \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 
 #ifdef BENCHMARK_HAS_CXX11
 #define BENCHMARK_TEMPLATE_F(BaseClass, Method, ...)                   \
   BENCHMARK_TEMPLATE_PRIVATE_DECLARE_F(BaseClass, Method, __VA_ARGS__) \
   BENCHMARK_REGISTER_F(BaseClass, Method);                             \
-  void BaseClass##_##Method##_Benchmark::BenchmarkCase
+  void BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::BenchmarkCase
 #else
 #define BENCHMARK_TEMPLATE_F(BaseClass, Method, a) \
   BENCHMARK_TEMPLATE1_F(BaseClass, Method, a)
@@ -1291,10 +1303,16 @@ struct CPUInfo {
     int num_sharing;
   };
 
+  enum Scaling {
+    UNKNOWN,
+    ENABLED,
+    DISABLED
+  };
+
   int num_cpus;
   double cycles_per_second;
   std::vector<CacheInfo> caches;
-  bool scaling_enabled;
+  Scaling scaling;
   std::vector<double> load_avg;
 
   static const CPUInfo& Get();
@@ -1559,6 +1577,8 @@ class MemoryManager {
 
 inline const char* GetTimeUnitString(TimeUnit unit) {
   switch (unit) {
+    case kSecond:
+      return "s";
     case kMillisecond:
       return "ms";
     case kMicrosecond:
@@ -1571,6 +1591,8 @@ inline const char* GetTimeUnitString(TimeUnit unit) {
 
 inline double GetTimeUnitMultiplier(TimeUnit unit) {
   switch (unit) {
+    case kSecond:
+      return 1;
     case kMillisecond:
       return 1e3;
     case kMicrosecond:

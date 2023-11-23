@@ -49,8 +49,11 @@
 @/* @param[in] pred_strd
 @/*  Prediction Stride
 @/*
-@/* @param[in] dst_strd_chr_flag
-@/*  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+@/* @param[in] dst_strd
+@/*  Output Stride
+@/*
+@/* @param[in] chr_plane
+@/*  Chroma plane
 @/*
 @/* @returns  Void
 @/*
@@ -67,7 +70,8 @@
 @    r3 => *pi2_dst
 @    r4 => src_strd
 @    r5 => pred_strd
-@    r6 => dst_strd_chr_flag
+@    r6 => dst_strd
+@    r7 => chroma_plane
 
     .global ihevc_resi_trans_4x4_a9q
 
@@ -76,11 +80,11 @@ ihevc_resi_trans_4x4_a9q:
     STMFD          sp!, {r4-r7, r14}   @ store all the register components from caller function to memory
     LDR            r4, [sp,#20]        @ r4 contains src_strd
     LDR            r5, [sp,#24]        @ r5 contains pred_strd
-    LDR            r6, [sp,#28]        @ r6 contains dst_strd_chr_flag
+    LDR            r6, [sp,#28]        @ r6 contains dst_strd
+    LDR            r7, [sp,#32]        @ r7 chroma plane
 
-    ANDS           r7, r6, #1          @check for chroma flag, if present interleaved data
-    CMP            r7, #0
-    BEQ            NON_INTERLEAVE_LOAD @if flag == 0, use non-interleaving loads
+    CMP            r7, #-1
+    BEQ            NON_INTERLEAVE_LOAD @if flag == NULL_PLANE, use non-interleaving loads
 
     VLD1.64        d0, [r0], r4        @ load row 0 src
     VLD1.64        d4, [r0], r4        @ load row 1 src
@@ -95,6 +99,13 @@ ihevc_resi_trans_4x4_a9q:
     VLD1.64        d7, [r1], r5        @ load row 3 pred
     VUZP.8         d2, d6              @ de-interleaving unzip instruction to get luma data of pu1_pred in d2
     VUZP.8         d3, d7              @ de-interleaving unzip instruction to get luma data of pu1_pred in d3
+
+    CMP            r7, #0
+    BEQ            LOAD_END
+    VSWP.8         d0, d4
+    VSWP.8         d1, d5
+    VSWP.8         d2, d6
+    VSWP.8         d3, d7
 
     B LOAD_END
 
@@ -171,7 +182,7 @@ LOAD_END:
     VRSHRN.S32  d2, q13, #9            @ (row3 + 256)/512
     VRSHRN.S32  d3, q9, #9             @ (row4 + 256)/512
 
-    LSR         r7, r6, #15            @ r7 = 2*dst_strd, as pi2_dst contains 2-bit integers
+    LSL         r7, r6, #1             @ r7 = 2*dst_strd, as pi2_dst contains 2-byte integers
     VST1.U16    d0, [r3], r7           @ store 1st row of result
     VST1.U16    d1, [r3], r7           @ store 2nd row of result
     VST1.U16    d2, [r3], r7           @ store 3rd row of result
@@ -210,8 +221,11 @@ LOAD_END:
 @* @param[in] pred_strd
 @*  Prediction Stride
 @*
-@* @param[in] dst_strd_chr_flag
-@*  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+@* @param[in] dst_strd
+@*  Output Stride
+@*
+@* @param[in] chr_plane (unused)
+@*  Chroma plane
 @*
 @* @returns void
 @*
@@ -222,11 +236,12 @@ LOAD_END:
 @*/
 @ UWORD32 ihevc_resi_trans_4x4_ttype1(UWORD8 *pu1_src,
 @                                     UWORD8 *pu1_pred,
-@                                        WORD32 *pi4_temp,
+@                                     WORD32 *pi4_temp,
 @                                     WORD16 *pi2_dst,
 @                                     WORD32 src_strd,
 @                                     WORD32 pred_strd,
-@                                       WORD32 dst_strd_chr_flag);
+@                                     WORD32 dst_strd
+@                                     WORD32 chroma_plane);
 @
 @**************Variables Vs Registers*******************************************
 @
@@ -237,7 +252,8 @@ LOAD_END:
 @
 @ [sp]   - src_strd
 @ [sp+4] - pred_strd
-@ [sp+8] - dst_strd_chr_flag
+@ [sp+8] - dst_strd
+@ [sp+12] - chroma_plane
 @
 @*******************************************************************************
 
@@ -318,7 +334,6 @@ ihevc_resi_trans_4x4_ttype1_a9q:
     VMUL.S32 q9,q9,d4[0]            @ q9 = 74*S3
 
     LDR r4,[sp,#76]                 @ r4 = dst_strd_chr_flag
-    ASR r4,r4,#16                   @ r4 = dst_strd
     LSL r4,r4,#1                    @ r4 = 2*dst_strd
 
     VRSHRN.S32 d26,q13,#8
@@ -370,8 +385,11 @@ ihevc_resi_trans_4x4_ttype1_a9q:
 @* @param[in] pred_strd
 @*  Prediction Stride
 @*
-@* @param[in] dst_strd_chr_flag
-@*  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+@* @param[in] dst_strd
+@*  Output Stride
+@*
+@* @param[in] chr_plane
+@*  Chroma plane
 @*
 @* @returns void
 @*
@@ -386,7 +404,8 @@ ihevc_resi_trans_4x4_ttype1_a9q:
 @                              WORB16 *pi2_dst,
 @                              WORB32 src_strd,
 @                              WORB32 pred_strd,
-@                              WORB32 dst_strd_chr_flag);
+@                              WORB32 dst_strd
+@                              WORB32 chroma_plane);
 @
 @**************Variables Vs Registers*******************************************
 @
@@ -397,7 +416,8 @@ ihevc_resi_trans_4x4_ttype1_a9q:
 @
 @ [sp]   - src_strd
 @ [sp+4] - pred_strd
-@ [sp+8] - dst_strd_chr_flag
+@ [sp+8] - dst_strd
+@ [sp+12] - chroma_plane
 @
 @*******************************************************************************
 
@@ -408,15 +428,16 @@ ihevc_resi_trans_8x8_a9q:
     PUSH {r4,r5}
     vpush {d8 - d15}
 
-    @ Loading Prediction and Source blocks of sixe 8x8
+    @ Loading Prediction and Source blocks of size 8x8
 
-    LDR r4,[sp,#80]                 @ r4 = dst_strd_chr_flag
-    AND r4,r4,#1                    @ r4 = chr_flag
-    CMP r4,#1
-    BNE CHROMA_LOAD
+    LDR r4,[sp,#84]                 @ r4 = chroma flag
 
-LUMA_LOAD:
+    CMP r4,#-1                      @ NULL PLANE
+    BEQ LUMA_LOAD
 
+    CMP r4,#1                       @ V PLANE
+    BEQ CHROMA_V_LOAD
+                                    @ handling U PLANE
     LDR r5,[sp,#72]                 @ r5 = src_strd
     LDR r4,[sp,#76]                 @ r4 = pred_strd
 
@@ -458,9 +479,56 @@ LUMA_LOAD:
     VSUBL.U8 q6,d13,d12             @ Row 7 of residue in q6
     VLD2.8 {d15,d17},[r0]           @ Row 8 of source in d15
 
-    B CHROMA_LOAD_END
+    B LUMA_LOAD_END
 
-CHROMA_LOAD:
+CHROMA_V_LOAD:
+    LDR r5,[sp,#72]                 @ r5 = src_strd
+    LDR r4,[sp,#76]                 @ r4 = pred_strd
+
+    VLD2.8 {d0,d2},[r1],r4          @ Row 1 of prediction in d2
+    VLD2.8 {d1,d3},[r0],r5          @ Row 1 of source in d3
+
+    VABDL.U8 q15,d3,d2              @ Row 1 of absolute difference in q15
+    VLD2.8 {d4,d6},[r1],r4          @ Row 2 of prediction in d6
+    VSUBL.U8 q0,d3,d2               @ Row 1 of residue in q0
+    VLD2.8 {d5,d7},[r0],r5          @ Row 2 of source in d7
+
+    VABDL.U8 q9,d7,d6               @ Row 2 of absolute difference in q9
+    VLD2.8 {d8,d10},[r1],r4         @ Row 3 of prediction in d10
+    VSUBL.U8 q1,d7,d6               @ Row 2 of residue in q1
+    VLD2.8 {d9,d11},[r0],r5         @ Row 3 of source in d11
+
+    VABAL.U8 q15,d11,d10            @ Row 3 of absolute difference accumulated in q15
+    VLD2.8 {d6,d8},[r1],r4          @ Row 4 of prediction in d8
+    VSUBL.U8 q2,d11,d10             @ Row 3 of residue in q2
+    VLD2.8 {d7,d9},[r0],r5          @ Row 4 of source in d9
+
+    VABAL.U8 q9,d9,d8               @ Row 4 of absolute difference accumulated in q9
+    VLD2.8 {d10,d12},[r1],r4        @ Row 5 of prediction in d12
+    VSUBL.U8 q3,d9,d8               @ Row 4 of residue in q3
+    VLD2.8 {d11,d13},[r0],r5        @ Row 5 of source in d13
+
+    VABDL.U8 q10,d13,d12            @ Row 5 of absolute difference in q10
+    VLD2.8 {d14,d16},[r1],r4        @ Row 6 of prediction in d16
+    VSUBL.U8 q4,d13,d12             @ Row 5 of residue in q4
+    VLD2.8 {d15,d17},[r0],r5        @ Row 6 of source in d17
+
+    VABAL.U8 q15,d17,d16            @ Row 6 of absolute difference accumulated in q15
+    VLD2.8 {d12,d14},[r1],r4        @ Row 7 of prediction in d12
+    VSUBL.U8 q5,d17,d16             @ Row 6 of residue in q5
+    VLD2.8 {d13,d15},[r0],r5        @ Row 7 of source in d13
+
+    VABAL.U8 q9,d15,d14             @ Row 7 of absolute difference accumulated in q9
+    VSUBL.U8 q6,d15,d14             @ Row 7 of residue in q6
+
+    VLD2.8 {d14,d16},[r1]           @ Row 8 of prediction in d14
+    VLD2.8 {d15,d17},[r0]           @ Row 8 of source in d15
+    VSWP.8 d14,d16
+    VSWP.8 d15,d17
+
+    B LUMA_LOAD_END
+
+LUMA_LOAD:
 
     LDR r5,[sp,#72]                 @ r5 = src_strd
     LDR r4,[sp,#76]                 @ r4 = pred_strd
@@ -503,7 +571,7 @@ CHROMA_LOAD:
     VSUBL.U8 q6,d13,d12             @ Row 7 of residue in q6
     VLD1.64 d15,[r0]                @ Row 8 of source in d15
 
-CHROMA_LOAD_END:
+LUMA_LOAD_END:
 
     @ Transform stage 1
     @ Transposing residue matrix
@@ -701,8 +769,7 @@ CHROMA_LOAD_END:
     VMLS.S32 q2,q11,d0[1]           @ q2  = G6 = 36*(B0 - B3 - B4 + B7) - 83*(B1 - B2 - B5 + B6)
     VRSHRN.I32 d30,q15,#5           @ Truncating last 11 bits in G4
 
-    LDR r4,[sp,#80]                 @ r4 = dst_strd_chr_flag
-    ASR r4,r4,#16                   @ r4 = dst_strd
+    LDR r4,[sp,#80]                 @ r4 = dst_strd
     LSL r4,r4,#2                    @ r4 = 2*dst_strd*2
 
     VMUL.S32 q3,q9,d2[1]            @ q3 = 50*(B0 - B7)
@@ -829,8 +896,7 @@ CHROMA_LOAD_END:
     VMLS.S32 q13,q8,d2[0]           @ q13 = 75*(B0 - B7) - 18*(B1 - B6)
     VRSHRN.I32 d8,q4,#11            @ Truncating last 11 bits in H6
 
-    LDR r4,[sp,#80]                 @ r4 = dst_strd_chr_flag
-    ASR r4,r4,#16                   @ r4 = dst_strd
+    LDR r4,[sp,#80]                 @ r4 = dst_strd
     LSL r4,r4,#2                    @ r4 = 2*dst_strd*2
 
     SUB r3,r3,r4,LSL #2
@@ -901,8 +967,11 @@ CHROMA_LOAD_END:
 @*/ @param[in] pred_strd
 @*/  Prediction Stride
 @*/
-@*/ @param[in] dst_strd_chr_flag
-@*/  Output Stride and Chroma Flag packed in the MS and LS 16-bit
+@*/ @param[in] dst_strd
+@*/  Output Stride
+@*/
+@*/ @param[in] chr_plane
+@*/  Chroma plane
 @*/
 @*/ @returns  Void
 @*/
@@ -940,9 +1009,10 @@ ihevc_resi_trans_16x16_a9q:
     vpush          {d8 - d15}
     SUB            SP,SP,#32
 
-    LDR             R4,[SP,#136]            @get src_strd
+    LDR             R4,[SP,#136]         @get src_strd
     LDR             R5,[SP,#140]         @get pred_strd
-    LDR             R6,[SP,#144]         @get dst_strd_chr_flag
+    LDR             R6,[SP,#144]         @get dst_strd
+    LDR             R14,[SP,#148]        @get chroma_plane
 
     MOV R8,#0                           @Set loop counter
     LDR R9,g_ai2_ihevc_trans_16_addr_1    @get 16 bit transform matrix
@@ -967,7 +1037,6 @@ ulbl2:
     ADD R9, R9, PC
 
     MOV R7,#TMP_STRIDE
-    AND R14,R6,#0x1
 
     VMOV.S32 Q14,#0
 
@@ -977,21 +1046,21 @@ ulbl2:
 @R3         pi2_dst
 @R4         src_strd
 @R5         pred_strd
-@R6         dst_strd_chr_flag
+@R6         dst_strd
 @R7         tmp_dst Nx4 block stride
 @R8         loop cntr
 @R9         g_ai2_ihevc_trans_16
 @R10        tmp_dst Nx4 block offset
 @R11        tmp register
 @R12        ------
-@R14        ------.
+@R14        chroma_plane
 @q14        shift 32 bit
 @q15        add 32 bit
 
 CORE_LOOP_16X16_HORIZ:
 
-    CMP R14,#1
-    BEQ INTERLEAVED_LOAD_S1
+    CMP R14,#-1
+    BGT INTERLEAVED_LOAD_S1
 
     VLD1.U8 {d0,d1},[R0],R4             @LOAD 1-16 src row 1
     VLD1.U8 {d2,d3},[R1],R5             @LOAD 1-16 pred row 1
@@ -1000,11 +1069,24 @@ CORE_LOOP_16X16_HORIZ:
     B    LOAD_DONE
 
 INTERLEAVED_LOAD_S1:
-
+    CMP R14,#1
+    BEQ INTERLEAVED_LOAD_S2
     VLD2.U8 {Q0,Q1},[R0],R4             @LOAD 1-16 src row 1
     VLD2.U8 {Q1,Q2},[R1],R5             @LOAD 1-16 pred row 1
     VLD2.U8 {Q2,Q3},[R0],R4             @LOAD 1-16 src row 2
     VLD2.U8 {Q3,Q4},[R1],R5             @LOAD 1-16 pred row 2
+    B LOAD_DONE
+
+INTERLEAVED_LOAD_S2:
+    VLD2.U8 {Q0,Q1},[R0],R4             @LOAD 1-16 src row 1
+    VSWP.U8 Q0,Q1
+    VLD2.U8 {Q1,Q2},[R1],R5             @LOAD 1-16 pred row 1
+    VSWP.U8 Q1,Q2
+    VLD2.U8 {Q2,Q3},[R0],R4             @LOAD 1-16 src row 2
+    VSWP.U8 Q2,Q3
+    VLD2.U8 {Q3,Q4},[R1],R5             @LOAD 1-16 pred row 2
+    VSWP.U8 Q3,Q4
+
 LOAD_DONE:
 
     VSUBL.U8 Q4,D0,D2                   @Get residue 1-8 row 1
@@ -1325,7 +1407,7 @@ ulbl3:
     SUB R0,R2,#64                       @set tmp as src [-32 to move back to orgin]
     MOV R2,R3                           @set dst as tmp
     MOV R4,#TMP_STRIDE                  @set tmp stride as src stride
-    LSR R7,R6,#15                       @Set dst stride as tmp stride
+    LSL R7,R6,#1                        @Set dst stride as tmp stride
     SUB R4,#48                          @Adjust stride 3 previous loads
 
     @Block SAD

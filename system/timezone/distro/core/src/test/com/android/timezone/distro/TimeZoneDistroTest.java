@@ -15,10 +15,8 @@
  */
 package com.android.timezone.distro;
 
-import junit.framework.TestCase;
-
+import com.android.i18n.timezone.TzDataSetVersion;
 import libcore.testing.io.TestIoUtils;
-import libcore.timezone.TzDataSetVersion;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -32,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import junit.framework.TestCase;
 
 /**
  * Tests for {@link TimeZoneDistro}.

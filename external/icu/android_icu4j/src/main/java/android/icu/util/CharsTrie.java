@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 *******************************************************************************
 *   Copyright (C) 2011-2014, International Business Machines
@@ -56,8 +56,6 @@ public final class CharsTrie implements Cloneable, Iterable<CharsTrie.Entry> {
      * Makes a shallow copy of the other trie reader object and its state.
      * Does not copy the char array which will be shared.
      * Same as clone() but without the throws clause.
-     *
-     * @hide draft / provisional / internal are hidden on Android
      */
     public CharsTrie(CharsTrie other) {
         chars_ = other.chars_;
@@ -92,7 +90,6 @@ public final class CharsTrie implements Cloneable, Iterable<CharsTrie.Entry> {
      *
      * @return opaque state value
      * @see #resetToState64
-     * @hide draft / provisional / internal are hidden on Android
      */
     public long getState64() {
         return ((long)remainingMatchLength_ << 32) | pos_;
@@ -110,7 +107,6 @@ public final class CharsTrie implements Cloneable, Iterable<CharsTrie.Entry> {
      * @see #getState64
      * @see #resetToState
      * @see #reset
-     * @hide draft / provisional / internal are hidden on Android
      */
     public CharsTrie resetToState64(long state) {
         remainingMatchLength_ = (int)(state >> 32);

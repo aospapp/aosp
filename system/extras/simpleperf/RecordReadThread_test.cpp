@@ -74,8 +74,8 @@ TEST_F(RecordBufferTest, fifo) {
 }
 
 TEST(RecordParser, smoke) {
-  std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(
-      GetTestData(PERF_DATA_NO_UNWIND));
+  std::unique_ptr<RecordFileReader> reader =
+      RecordFileReader::CreateInstance(GetTestData(PERF_DATA_NO_UNWIND));
   ASSERT_TRUE(reader);
   RecordParser parser(*reader->AttrSection()[0].attr);
   auto process_record = [&](std::unique_ptr<Record> record) {
@@ -143,8 +143,10 @@ static perf_event_attr CreateFakeEventAttr() {
   return CreateDefaultPerfEventAttr(*type);
 }
 
-static std::vector<std::unique_ptr<Record>> CreateFakeRecords(
-    const perf_event_attr& attr, size_t record_count, size_t stack_size, size_t dyn_stack_size) {
+static std::vector<std::unique_ptr<Record>> CreateFakeRecords(const perf_event_attr& attr,
+                                                              size_t record_count,
+                                                              size_t stack_size,
+                                                              size_t dyn_stack_size) {
   std::vector<std::unique_ptr<Record>> records;
   for (size_t i = 0; i < record_count; ++i) {
     SampleRecord* r = new SampleRecord(attr, i, i + 1, i + 2, i + 3, i + 4, i + 5, i + 6, {},
@@ -164,8 +166,8 @@ static size_t AlignToPowerOfTwo(size_t value) {
 
 static inline std::function<bool(size_t&)> SetArg(size_t value) {
   return [value](size_t& arg) {
-      arg = value;
-      return true;
+    arg = value;
+    return true;
   };
 }
 
@@ -190,7 +192,8 @@ TEST(KernelRecordReader, smoke) {
   MockEventFd event_fd(attr, 0, buffer.data(), buffer.size(), false);
 
   EXPECT_CALL(event_fd, GetAvailableMmapDataSize(Truly(SetArg(data_pos))))
-      .Times(1).WillOnce(Return(data_size));
+      .Times(1)
+      .WillOnce(Return(data_size));
   EXPECT_CALL(event_fd, DiscardMmapData(Eq(data_size))).Times(1);
   KernelRecordReader reader(&event_fd);
   RecordParser parser(attr);
@@ -228,7 +231,8 @@ class RecordReadThreadTest : public ::testing::Test {
       event_fds_[i].reset(new MockEventFd(attr, i, buffers_[i].data(), buffer_size, false));
       EXPECT_CALL(*event_fds_[i], CreateMappedBuffer(_, _)).Times(1).WillOnce(Return(true));
       EXPECT_CALL(*event_fds_[i], StartPolling(_, _)).Times(1).WillOnce(Return(true));
-      EXPECT_CALL(*event_fds_[i], GetAvailableMmapDataSize(Truly(SetArg(0)))).Times(1)
+      EXPECT_CALL(*event_fds_[i], GetAvailableMmapDataSize(Truly(SetArg(0))))
+          .Times(1)
           .WillOnce(Return(data_size));
       EXPECT_CALL(*event_fds_[i], DiscardMmapData(Eq(data_size))).Times(1);
       EXPECT_CALL(*event_fds_[i], StopPolling()).Times(1).WillOnce(Return(true));

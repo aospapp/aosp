@@ -1,4 +1,4 @@
-.TH PCRE2PATTERN 3 "12 February 2019" "PCRE2 10.33"
+.TH PCRE2PATTERN 3 "06 October 2020" "PCRE2 10.35"
 .SH NAME
 PCRE2 - Perl-compatible regular expressions (revised API)
 .SH "PCRE2 REGULAR EXPRESSION DETAILS"
@@ -52,10 +52,11 @@ single code units, or as multiple UTF-8 or UTF-16 code units. UTF-32 can be
 specified for the 32-bit library, in which case it constrains the character
 values to valid Unicode code points. To process UTF strings, PCRE2 must be
 built to include Unicode support (which is the default). When using UTF strings
-you must either call the compiling function with the PCRE2_UTF option, or the
-pattern must start with the special sequence (*UTF), which is equivalent to
-setting the relevant option. How setting a UTF mode affects pattern matching is
-mentioned in several places below. There is also a summary of features in the
+you must either call the compiling function with one or both of the PCRE2_UTF
+or PCRE2_MATCH_INVALID_UTF options, or the pattern must start with the special
+sequence (*UTF), which is equivalent to setting the relevant PCRE2_UTF. How
+setting a UTF mode affects pattern matching is mentioned in several places
+below. There is also a summary of features in the
 .\" HREF
 \fBpcre2unicode\fP
 .\"
@@ -74,7 +75,8 @@ Another special sequence that may appear at the start of a pattern is (*UCP).
 This has the same effect as setting the PCRE2_UCP option: it causes sequences
 such as \ed and \ew to use Unicode properties to determine character types,
 instead of recognizing only characters with codes less than 256 via a lookup
-table.
+table. If also causes upper/lower casing operations to use Unicode properties
+for characters with code points greater than 127, even when UTF is not set.
 .P
 Some applications that allow their users to supply patterns may wish to
 restrict them for security reasons. If the PCRE2_NEVER_UCP option is passed to
@@ -261,8 +263,11 @@ corresponding characters in the subject. As a trivial example, the pattern
   The quick brown fox
 .sp
 matches a portion of a subject string that is identical to itself. When
-caseless matching is specified (the PCRE2_CASELESS option), letters are matched
-independently of case.
+caseless matching is specified (the PCRE2_CASELESS option or (?i) within the
+pattern), letters are matched independently of case. Note that there are two
+ASCII characters, K and S, that, in addition to their lower case ASCII
+equivalents, are case-equivalent with Unicode U+212A (Kelvin sign) and U+017F
+(long S) respectively when either PCRE2_UTF or PCRE2_UCP is set.
 .P
 The power of regular expressions comes from the ability to include wild cards,
 character classes, alternatives, and repetitions in the pattern. These are
@@ -296,6 +301,22 @@ a character class the only metacharacters are:
   [      POSIX character class (if followed by POSIX syntax)
   ]      terminates the character class
 .sp
+If a pattern is compiled with the PCRE2_EXTENDED option, most white space in
+the pattern, other than in a character class, and characters between a #
+outside a character class and the next newline, inclusive, are ignored. An
+escaping backslash can be used to include a white space or a # character as
+part of the pattern. If the PCRE2_EXTENDED_MORE option is set, the same
+applies, but in addition unescaped space and horizontal tab characters are
+ignored inside a character class. Note: only these two characters are ignored,
+not the full set of pattern white space characters that are ignored outside a
+character class. Option settings can be changed within a pattern; see the
+section entitled
+.\" HTML <a href="#internaloptions">
+.\" </a>
+"Internal Option Setting"
+.\"
+below.
+.P
 The following sections describe the use of each of the metacharacters.
 .
 .
@@ -313,15 +334,9 @@ would otherwise be interpreted as a metacharacter, so it is always safe to
 precede a non-alphanumeric with backslash to specify that it stands for itself.
 In particular, if you want to match a backslash, you write \e\e.
 .P
-In a UTF mode, only ASCII digits and letters have any special meaning after a
-backslash. All other characters (in particular, those whose code points are
-greater than 127) are treated as literals.
-.P
-If a pattern is compiled with the PCRE2_EXTENDED option, most white space in
-the pattern (other than in a character class), and characters between a #
-outside a character class and the next newline, inclusive, are ignored. An
-escaping backslash can be used to include a white space or # character as part
-of the pattern.
+Only ASCII digits and letters have any special meaning after a backslash. All
+other characters (in particular, those whose code points are greater than 127)
+are treated as literals.
 .P
 If you want to treat all characters in a sequence as literals, you can do so by
 putting them between \eQ and \eE. This is different from Perl in that $ and @
@@ -398,11 +413,11 @@ PCRE2_EXTRA_ALT_BSUX has the same effect as PCRE2_ALT_BSUX and, in addition,
 There may be any number of hexadecimal digits. This syntax is from ECMAScript
 6.
 .P
-The \eN{U+hhh..} escape sequence is recognized only when the PCRE2_UTF option
-is set, that is, when PCRE2 is operating in a Unicode mode. Perl also uses
-\eN{name} to specify characters by Unicode name; PCRE2 does not support this.
-Note that when \eN is not followed by an opening brace (curly bracket) it has
-an entirely different meaning, matching any character that is not a newline.
+The \eN{U+hhh..} escape sequence is recognized only when PCRE2 is operating in
+UTF mode. Perl also uses \eN{name} to specify characters by Unicode name; PCRE2
+does not support this. Note that when \eN is not followed by an opening brace
+(curly bracket) it has an entirely different meaning, matching any character
+that is not a newline.
 .P
 There are some legacy applications where the escape sequence \er is expected to
 match a newline. If the PCRE2_EXTRA_ESCAPED_CR_IS_LF option is set, \er in a
@@ -812,6 +827,7 @@ Caucasian_Albanian,
 Chakma,
 Cham,
 Cherokee,
+Chorasmian,
 Common,
 Coptic,
 Cuneiform,
@@ -819,10 +835,12 @@ Cypriot,
 Cyrillic,
 Deseret,
 Devanagari,
+Dives_Akuru,
 Dogra,
 Duployan,
 Egyptian_Hieroglyphs,
 Elbasan,
+Elymaic,
 Ethiopic,
 Georgian,
 Glagolitic,
@@ -849,6 +867,7 @@ Kannada,
 Katakana,
 Kayah_Li,
 Kharoshthi,
+Khitan_Small_Script,
 Khmer,
 Khojki,
 Khudawadi,
@@ -880,10 +899,12 @@ Mro,
 Multani,
 Myanmar,
 Nabataean,
+Nandinagari,
 New_Tai_Lue,
 Newa,
 Nko,
 Nushu,
+Nyakeng_Puachue_Hmong,
 Ogham,
 Ol_Chiki,
 Old_Hungarian,
@@ -935,7 +956,9 @@ Tirhuta,
 Ugaritic,
 Unknown,
 Vai,
+Wancho,
 Warang_Citi,
+Yezidi,
 Yi,
 Zanabazar_Square.
 .P
@@ -1145,8 +1168,9 @@ For example, when the pattern
 .sp
 matches "foobar", the first substring is still set to "foo".
 .P
-Perl documents that the use of \eK within assertions is "not well defined". In
-PCRE2, \eK is acted upon when it occurs inside positive assertions, but is
+Perl used to document that the use of \eK within lookaround assertions is "not
+well defined", but from version 5.32.0 Perl does not support this usage at all.
+In PCRE2, \eK is acted upon when it occurs inside positive assertions, but is
 ignored in negative assertions. Note that when a pattern such as (?=ab\eK)
 matches, the reported start of the match can be greater than the end of the
 match. Using \eK in a lookbehind assertion at the start of a pattern can also
@@ -1352,7 +1376,7 @@ with \eC in UTF-8 or UTF-16 mode means that the rest of the string may start
 with a malformed UTF character. This has undefined results, because PCRE2
 assumes that it is matching character by character in a valid UTF string (by
 default it checks the subject string's validity at the start of processing
-unless the PCRE2_NO_UTF_CHECK option is used).
+unless the PCRE2_NO_UTF_CHECK or PCRE2_MATCH_INVALID_UTF option is used).
 .P
 An application can lock out the use of \eC by setting the
 PCRE2_NEVER_BACKSLASH_C option when compiling a pattern. It is also possible to
@@ -1426,7 +1450,10 @@ Characters in a class may be specified by their code points using \eo, \ex, or
 \eN{U+hh..} in the usual way. When caseless matching is set, any letters in a
 class represent both their upper case and lower case versions, so for example,
 a caseless [aeiou] matches "A" as well as "a", and a caseless [^aeiou] does not
-match "A", whereas a caseful version would.
+match "A", whereas a caseful version would. Note that there are two ASCII
+characters, K and S, that, in addition to their lower case ASCII equivalents,
+are case-equivalent with Unicode U+212A (Kelvin sign) and U+017F (long S)
+respectively when either PCRE2_UTF or PCRE2_UCP is set.
 .P
 Characters that might indicate line breaks are never treated in any special way
 when matching character classes, whatever line-ending sequence is in use, and
@@ -1638,6 +1665,7 @@ that succeeds is used. If the alternatives are within a group
 alternative in the group.
 .
 .
+.\" HTML <a name="internaloptions"></a>
 .SH "INTERNAL OPTION SETTING"
 .rs
 .sp
@@ -1896,12 +1924,21 @@ are permitted for groups with the same number, for example:
   (?|(?<AA>aa)|(?<AA>bb))
 .sp
 The duplicate name constraint can be disabled by setting the PCRE2_DUPNAMES
-option at compile time, or by the use of (?J) within the pattern. Duplicate
-names can be useful for patterns where only one instance of the named capture
-group can match. Suppose you want to match the name of a weekday, either as a
-3-letter abbreviation or as the full name, and in both cases you want to
-extract the abbreviation. This pattern (ignoring the line breaks) does the job:
+option at compile time, or by the use of (?J) within the pattern, as described
+in the section entitled
+.\" HTML <a href="#internaloptions">
+.\" </a>
+"Internal Option Setting"
+.\"
+above.
+.P
+Duplicate names can be useful for patterns where only one instance of the named
+capture group can match. Suppose you want to match the name of a weekday,
+either as a 3-letter abbreviation or as the full name, and in both cases you
+want to extract the abbreviation. This pattern (ignoring the line breaks) does
+the job:
 .sp
+  (?J)
   (?<DN>Mon|Fri|Sun)(?:day)?|
   (?<DN>Tue)(?:sday)?|
   (?<DN>Wed)(?:nesday)?|
@@ -1921,7 +1958,7 @@ they appear in the overall pattern. The first one that is set is used for the
 reference. For example, this pattern matches both "foofoo" and "barbar" but not
 "foobar" or "barfoo":
 .sp
-  (?:(?<n>foo)|(?<n>bar))\ek<n>
+  (?J)(?:(?<n>foo)|(?<n>bar))\ek<n>
 .sp
 .P
 If you make a subroutine call to a non-unique named group, the one that
@@ -1960,7 +1997,7 @@ items:
   an escape such as \ed or \epL that matches a single character
   a character class
   a backreference
-  a parenthesized group (including most assertions)
+  a parenthesized group (including lookaround assertions)
   a subroutine call (recursive or otherwise)
 .sp
 The general repetition quantifier specifies a minimum and maximum number of
@@ -2021,8 +2058,10 @@ no characters with a quantifier that has no upper limit, for example:
 .sp
 Earlier versions of Perl and PCRE1 used to give an error at compile time for
 such patterns. However, because there are cases where this can be useful, such
-patterns are now accepted, but if any repetition of the group does in fact
-match no characters, the loop is forcibly broken.
+patterns are now accepted, but whenever an iteration of such a group matches no
+characters, matching moves on to the next item in the pattern instead of
+repeatedly matching an empty string. This does not prevent backtracking into
+any of the iterations if a subsequent item fails to match.
 .P
 By default, quantifiers are "greedy", that is, they match as much as possible
 (up to the maximum number of permitted times), without causing the rest of the
@@ -2339,14 +2378,14 @@ the first iteration does not need to match the backreference. This can be done
 using alternation, as in the example above, or by a quantifier with a minimum
 of zero.
 .P
-Backreferences of this type cause the group that they reference to be treated
-as an
+For versions of PCRE2 less than 10.25, backreferences of this type used to
+cause the group that they reference to be treated as an
 .\" HTML <a href="#atomicgroup">
 .\" </a>
 atomic group.
 .\"
-Once the whole group has been matched, a subsequent matching failure cannot
-cause backtracking into the middle of the group.
+This restriction no longer applies, and backtracking into such groups can occur
+as normal.
 .
 .
 .\" HTML <a name="bigassertions"></a>
@@ -2367,9 +2406,19 @@ those that look behind it, and in each case an assertion may be positive (must
 match for the assertion to be true) or negative (must not match for the
 assertion to be true). An assertion group is matched in the normal way,
 and if it is true, matching continues after it, but with the matching position
-in the subject string is was it was before the assertion was processed.
+in the subject string reset to what it was before the assertion was processed.
 .P
-A lookaround assertion may also appear as the condition in a
+The Perl-compatible lookaround assertions are atomic. If an assertion is true,
+but there is a subsequent matching failure, there is no backtracking into the
+assertion. However, there are some cases where non-atomic assertions can be
+useful. PCRE2 has some support for these, described in the section entitled
+.\" HTML <a href="#nonatomicassertions">
+.\" </a>
+"Non-atomic assertions"
+.\"
+below, but they are not Perl-compatible.
+.P
+A lookaround assertion may appear as the condition in a
 .\" HTML <a href="#conditions">
 .\" </a>
 conditional group
@@ -2404,36 +2453,23 @@ the "no" branch of the condition. For other failing negative assertions,
 control passes to the previous backtracking point, thus discarding any captured
 strings within the assertion.
 .P
-For compatibility with Perl, most assertion groups may be repeated; though it
-makes no sense to assert the same thing several times, the side effect of
-capturing may occasionally be useful. However, an assertion that forms the
-condition for a conditional group may not be quantified. In practice, for
-other assertions, there only three cases:
-.sp
-(1) If the quantifier is {0}, the assertion is never obeyed during matching.
-However, it may contain internal capture groups that are called from elsewhere
-via the
-.\" HTML <a href="#groupsassubroutines">
-.\" </a>
-subroutine mechanism.
-.\"
-.sp
-(2) If quantifier is {0,n} where n is greater than zero, it is treated as if it
-were {0,1}. At run time, the rest of the pattern match is tried with and
-without the assertion, the order depending on the greediness of the quantifier.
-.sp
-(3) If the minimum repetition is greater than zero, the quantifier is ignored.
-The assertion is obeyed just once when encountered during matching.
+Most assertion groups may be repeated; though it makes no sense to assert the
+same thing several times, the side effect of capturing in positive assertions
+may occasionally be useful. However, an assertion that forms the condition for
+a conditional group may not be quantified. PCRE2 used to restrict the
+repetition of assertions, but from release 10.35 the only restriction is that
+an unlimited maximum repetition is changed to be one more than the minimum. For
+example, {3,} is treated as {3,4}.
 .
 .
 .SS "Alphabetic assertion names"
 .rs
 .sp
-Traditionally, symbolic sequences such as (?= and (?<= have been used to specify
-lookaround assertions. Perl 5.28 introduced some experimental alphabetic
-alternatives which might be easier to remember. They all start with (* instead
-of (? and must be written using lower case letters. PCRE2 supports the
-following synonyms:
+Traditionally, symbolic sequences such as (?= and (?<= have been used to
+specify lookaround assertions. Perl 5.28 introduced some experimental
+alphabetic alternatives which might be easier to remember. They all start with
+(* instead of (? and must be written using lower case letters. PCRE2 supports
+the following synonyms:
 .sp
   (*positive_lookahead:  or (*pla: is the same as (?=
   (*negative_lookahead:  or (*nla: is the same as (?!
@@ -2608,6 +2644,68 @@ preceded by "foo", while
 .sp
 is another pattern that matches "foo" preceded by three digits and any three
 characters that are not "999".
+.
+.
+.\" HTML <a name="nonatomicassertions"></a>
+.SH "NON-ATOMIC ASSERTIONS"
+.rs
+.sp
+The traditional Perl-compatible lookaround assertions are atomic. That is, if
+an assertion is true, but there is a subsequent matching failure, there is no
+backtracking into the assertion. However, there are some cases where non-atomic
+positive assertions can be useful. PCRE2 provides these using the following
+syntax:
+.sp
+  (*non_atomic_positive_lookahead:  or (*napla: or (?*
+  (*non_atomic_positive_lookbehind: or (*naplb: or (?<*
+.sp
+Consider the problem of finding the right-most word in a string that also
+appears earlier in the string, that is, it must appear at least twice in total.
+This pattern returns the required result as captured substring 1:
+.sp
+  ^(?x)(*napla: .* \eb(\ew++)) (?> .*? \eb\e1\eb ){2}
+.sp
+For a subject such as "word1 word2 word3 word2 word3 word4" the result is
+"word3". How does it work? At the start, ^(?x) anchors the pattern and sets the
+"x" option, which causes white space (introduced for readability) to be
+ignored. Inside the assertion, the greedy .* at first consumes the entire
+string, but then has to backtrack until the rest of the assertion can match a
+word, which is captured by group 1. In other words, when the assertion first
+succeeds, it captures the right-most word in the string.
+.P
+The current matching point is then reset to the start of the subject, and the
+rest of the pattern match checks for two occurrences of the captured word,
+using an ungreedy .*? to scan from the left. If this succeeds, we are done, but
+if the last word in the string does not occur twice, this part of the pattern
+fails. If a traditional atomic lookhead (?= or (*pla: had been used, the
+assertion could not be re-entered, and the whole match would fail. The pattern
+would succeed only if the very last word in the subject was found twice.
+.P
+Using a non-atomic lookahead, however, means that when the last word does not
+occur twice in the string, the lookahead can backtrack and find the second-last
+word, and so on, until either the match succeeds, or all words have been
+tested.
+.P
+Two conditions must be met for a non-atomic assertion to be useful: the
+contents of one or more capturing groups must change after a backtrack into the
+assertion, and there must be a backreference to a changed group later in the
+pattern. If this is not the case, the rest of the pattern match fails exactly
+as before because nothing has changed, so using a non-atomic assertion just
+wastes resources.
+.P
+There is one exception to backtracking into a non-atomic assertion. If an
+(*ACCEPT) control verb is triggered, the assertion succeeds atomically. That
+is, a subsequent match failure cannot backtrack into the assertion.
+.P
+Non-atomic assertions are not supported by the alternative matching function
+\fBpcre2_dfa_match()\fP. They are supported by JIT, but only if they do not
+contain any control verbs such as (*ACCEPT). (This may change in future). Note
+that assertions that appear as conditions for
+.\" HTML <a href="#conditions">
+.\" </a>
+conditional groups
+.\"
+(see below) must be atomic.
 .
 .
 .SH "SCRIPT RUNS"
@@ -2861,8 +2959,15 @@ than two digits.
 .sp
 If the condition is not in any of the above formats, it must be a parenthesized
 assertion. This may be a positive or negative lookahead or lookbehind
-assertion. Consider this pattern, again containing non-significant white space,
-and with the two alternatives on the second line:
+assertion. However, it must be a traditional atomic assertion, not one of the
+PCRE2-specific
+.\" HTML <a href="#nonatomicassertions">
+.\" </a>
+non-atomic assertions.
+.\"
+.P
+Consider this pattern, again containing non-significant white space, and with
+the two alternatives on the second line:
 .sp
   (?(?=[^a-z]*[a-z])
   \ed{2}-[a-z]{3}-\ed{2}  |  \ed{2}-\ed{2}-\ed{2} )
@@ -3261,8 +3366,8 @@ The doubling is removed before the string is passed to the callout function.
 There are a number of special "Backtracking Control Verbs" (to use Perl's
 terminology) that modify the behaviour of backtracking during matching. They
 are generally of the form (*VERB) or (*VERB:NAME). Some verbs take either form,
-possibly behaving differently depending on whether or not a name is present.
-The names are not required to be unique within the pattern.
+and may behave differently depending on whether or not a name argument is
+present. The names are not required to be unique within the pattern.
 .P
 By default, for compatibility with Perl, a name is any sequence of characters
 that does not include a closing parenthesis. The name is not processed in
@@ -3286,7 +3391,8 @@ PCRE2_ALT_VERBNAMES is also set.
 The maximum length of a name is 255 in the 8-bit library and 65535 in the
 16-bit and 32-bit libraries. If the name is empty, that is, if the closing
 parenthesis immediately follows the colon, the effect is as if the colon were
-not there. Any number of these verbs may occur in a pattern.
+not there. Any number of these verbs may occur in a pattern. Except for
+(*ACCEPT), they may not be quantified.
 .P
 Since these verbs are specifically related to backtracking, most of them can be
 used only when the pattern is to be matched using the traditional matching
@@ -3360,6 +3466,18 @@ example:
 This matches "AB", "AAD", or "ACD"; when it matches "AB", "B" is captured by
 the outer parentheses.
 .P
+(*ACCEPT) is the only backtracking verb that is allowed to be quantified
+because an ungreedy quantification with a minimum of zero acts only when a
+backtrack happens. Consider, for example,
+.sp
+  (A(*ACCEPT)??B)C
+.sp
+where A, B, and C may be complex expressions. After matching "A", the matcher
+processes "BC"; if that fails, causing a backtrack, (*ACCEPT) is triggered and
+the match succeeds. In both cases, all but C is captured. Whereas (*COMMIT)
+(see below) means "fail on backtrack", a repeated (*ACCEPT) of this type means
+"succeed on backtrack".
+.P
 \fBWarning:\fP (*ACCEPT) should not be used within a script run group, because
 it causes an immediate exit from the group, bypassing the script run checking.
 .sp
@@ -3376,8 +3494,9 @@ nearest equivalent is the callout feature, as for example in this pattern:
 A match with the string "aaaa" always fails, but the callout is taken before
 each backtrack happens (in this example, 10 times).
 .P
-(*ACCEPT:NAME) and (*FAIL:NAME) are treated as (*MARK:NAME)(*ACCEPT) and
-(*MARK:NAME)(*FAIL), respectively.
+(*ACCEPT:NAME) and (*FAIL:NAME) behave the same as (*MARK:NAME)(*ACCEPT) and
+(*MARK:NAME)(*FAIL), respectively, that is, a (*MARK) is recorded just before
+the verb acts.
 .
 .
 .SS "Recording which path was taken"
@@ -3543,6 +3662,11 @@ next attempt at "c". Note that a possessive quantifer does not have the same
 effect as this example; although it would suppress backtracking during the
 first match attempt, the second attempt would start at the second character
 instead of skipping on to "c".
+.P
+If (*SKIP) is used to specify a new starting position that is the same as the
+starting position of the current match, or (by being inside a lookbehind)
+earlier, the position specified by (*SKIP) is ignored, and instead the normal
+"bumpalong" occurs.
 .sp
   (*SKIP:NAME)
 .sp
@@ -3700,11 +3824,22 @@ a positive assertion and false for a negative one; captured substrings are
 retained in both cases.
 .P
 The remaining verbs act only when a later failure causes a backtrack to
-reach them. This means that their effect is confined to the assertion,
-because lookaround assertions are atomic. A backtrack that occurs after an
-assertion is complete does not jump back into the assertion. Note in particular
-that a (*MARK) name that is set in an assertion is not "seen" by an instance of
-(*SKIP:NAME) latter in the pattern.
+reach them. This means that, for the Perl-compatible assertions, their effect
+is confined to the assertion, because Perl lookaround assertions are atomic. A
+backtrack that occurs after such an assertion is complete does not jump back
+into the assertion. Note in particular that a (*MARK) name that is set in an
+assertion is not "seen" by an instance of (*SKIP:NAME) later in the pattern.
+.P
+PCRE2 now supports non-atomic positive assertions, as described in the section
+entitled
+.\" HTML <a href="#nonatomicassertions">
+.\" </a>
+"Non-atomic assertions"
+.\"
+above. These assertions must be standalone (not used as conditions). They are
+not Perl-compatible. For these assertions, a later backtrack does jump back
+into the assertion, and therefore verbs such as (*COMMIT) can be triggered by
+backtracks from later in the pattern.
 .P
 The effect of (*THEN) is not allowed to escape beyond an assertion. If there
 are no more branches to try, (*THEN) causes a positive assertion to be false,
@@ -3763,6 +3898,6 @@ Cambridge, England.
 .rs
 .sp
 .nf
-Last updated: 12 February 2019
-Copyright (c) 1997-2019 University of Cambridge.
+Last updated: 06 October 2020
+Copyright (c) 1997-2020 University of Cambridge.
 .fi

@@ -28,6 +28,8 @@
  * ########################## */
 #define NAME_STESE_HAL_LOGLEVEL "STESE_HAL_LOGLEVEL"
 #define NAME_ST_ESE_DEV_NODE "ST_ESE_DEV_NODE"
+#define NAME_ST_ESE_DEV_BGT "ST_ESE_DEV_BGT"
+#define NAME_ST_ESE_DEV_POLLING_INTERVAL "ST_ESE_DEV_POLLING_INTERVAL"
 
 class EseConfig {
  public:

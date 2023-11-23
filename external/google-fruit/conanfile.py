@@ -5,7 +5,7 @@ import os
 
 class FruitConan(ConanFile):
     name = "fruit"
-    version = "3.4.0"
+    version = "3.6.0"
     license = "Apache"
     url = "https://github.com/google/fruit"
     homepage = "https://github.com/google/fruit"
@@ -16,6 +16,7 @@ class FruitConan(ConanFile):
     generators = "cmake"
     exports = "COPYING"
     _source_subfolder = "source_subfolder"
+    _cmake = None
 
     def configure(self):
         min_version = {
@@ -32,37 +33,30 @@ class FruitConan(ConanFile):
                                                                                   self.settings.compiler.version,
                                                                                   min_version))
 
-    def requirements(self):
+    def build_requirements(self):
         if self.options.use_boost:
-            self.requires("boost/1.68.0@conan/stable")
+            self.build_requires("boost/1.68.0@conan/stable")
 
     def source(self):
         tools.get("{0}/archive/v{1}.tar.gz".format(self.homepage, self.version))
         extracted_dir = self.name + "-" + self.version
         os.rename(extracted_dir, self._source_subfolder)
-        # This small hack might be useful to guarantee proper /MT /MD linkage
-        # in MSVC if the packaged project doesn't have variables to set it
-        # properly
-        tools.replace_in_file(os.path.join(self._source_subfolder, "CMakeLists.txt"),
-                              "project(Fruit)",
-                              '''PROJECT(Myfruit)
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_basic_setup()''')
 
     def _configure_cmake(self):
-        cmake = CMake(self)
-        cmake.definitions["FRUIT_IS_BEING_BUILT_BY_CONAN"] = "YES"
-        cmake.definitions["BUILD_SHARED_LIBS"] = "YES" if self.options.shared else "NO"
-        if self.options.use_boost:
+        if not self._cmake:
+            self._cmake = CMake(self)
+            self._cmake.definitions["FRUIT_IS_BEING_BUILT_BY_CONAN"] = "YES"
+            self._cmake.definitions["BUILD_SHARED_LIBS"] = "YES" if self.options.shared else "NO"
+            self._cmake.definitions["FRUIT_USES_BOOST"] = self.options.use_boost
+            if self.options.use_boost:
+                self._cmake.definitions["Boost_INCLUDE_DIR"] = os.path.join(
+                    self.deps_cpp_info["boost"].rootpath, "include")
             if self.settings.os == "Windows":
-                cmake.definitions["BOOST_DIR"] = "."
-        else:
-            cmake.definitions["FRUIT_USES_BOOST"] = "NO"
-        if self.settings.os == "Windows":
-            cmake.definitions["FRUIT_TESTS_USE_PRECOMPILED_HEADERS"] = "NO"
-        cmake.definitions["CMAKE_BUILD_TYPE"] = self.settings.build_type
-        cmake.configure(source_folder=self._source_subfolder)
-        return cmake
+                self._cmake.definitions["FRUIT_TESTS_USE_PRECOMPILED_HEADERS"] = "NO"
+            self._cmake.definitions["CMAKE_BUILD_TYPE"] = self.settings.build_type
+            self._cmake.configure(source_folder=self._source_subfolder)
+
+        return self._cmake
 
     def build(self):
         cmake = self._configure_cmake()
@@ -76,5 +70,4 @@ conan_basic_setup()''')
                   src=self._source_subfolder)
 
     def package_info(self):
-        self.cpp_info.includedirs = ["include"]
-        self.cpp_info.libs = ["fruit"]
+        self.cpp_info.libs = tools.collect_libs(self)

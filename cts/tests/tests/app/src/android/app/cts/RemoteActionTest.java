@@ -40,7 +40,8 @@ public class RemoteActionTest {
         String title = "title";
         String description = "description";
         PendingIntent action = PendingIntent.getBroadcast(
-                InstrumentationRegistry.getTargetContext(), 0, new Intent("TESTACTION"), 0);
+                InstrumentationRegistry.getTargetContext(), 0, new Intent("TESTACTION"),
+                PendingIntent.FLAG_IMMUTABLE);
         RemoteAction reference = new RemoteAction(icon, title, description, action);
         reference.setEnabled(false);
         reference.setShouldShowIcon(false);
@@ -64,7 +65,8 @@ public class RemoteActionTest {
         String title = "title";
         String description = "description";
         PendingIntent action = PendingIntent.getBroadcast(
-                InstrumentationRegistry.getTargetContext(), 0, new Intent("TESTACTION"), 0);
+                InstrumentationRegistry.getTargetContext(), 0, new Intent("TESTACTION"),
+                PendingIntent.FLAG_IMMUTABLE);
         RemoteAction reference = new RemoteAction(icon, title, description, action);
         reference.setEnabled(false);
         reference.setShouldShowIcon(false);

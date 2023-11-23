@@ -30,7 +30,7 @@ import android.compat.annotation.UnsupportedAppUsage;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class Parameter implements java.lang.reflect.AnnotatedElement {
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     Parameter(
             java.lang.String name,
             int modifiers,

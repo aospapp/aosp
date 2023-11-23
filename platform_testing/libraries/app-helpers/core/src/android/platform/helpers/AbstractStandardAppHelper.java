@@ -198,7 +198,7 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
             }
         }
         if (!mDevice.wait(
-                Until.hasObject(mLauncherStrategy.getWorkspaceSelector()), EXIT_WAIT_TIMEOUT)) {
+                Until.hasObject(getLauncherStrategy().getWorkspaceSelector()), EXIT_WAIT_TIMEOUT)) {
             throw new IllegalStateException("Failed to exit the app to launcher.");
         }
     }

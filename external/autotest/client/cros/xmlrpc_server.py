@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,10 +8,94 @@ import dbus
 import errno
 import functools
 import logging
+import os
 import select
 import signal
+import six.moves.xmlrpc_server
 import threading
-import SimpleXMLRPCServer
+
+
+def terminate_old(script_name, sigterm_timeout=5, sigkill_timeout=3):
+    """
+    Avoid "address already in use" errors by killing any leftover RPC server
+    processes, possibly from previous runs.
+
+    A process is a match if it's Python and has the given script in the command
+    line.  This should avoid including processes such as editors and 'tail' of
+    logs, which might match a simple pkill.
+
+    exe=/usr/local/bin/python2.7
+    cmdline=['/usr/bin/python2', '-u', '/usr/local/autotest/.../rpc_server.py']
+
+    @param script_name: The filename of the main script, used to match processes
+    @param sigterm_timeout: Wait N seconds after SIGTERM before trying SIGKILL.
+    @param sigkill_timeout: Wait N seconds after SIGKILL before complaining.
+    """
+    # import late, to avoid affecting servers that don't call the method
+    import psutil
+
+    script_name_abs = os.path.abspath(script_name)
+    script_name_base = os.path.basename(script_name)
+    me = psutil.Process()
+
+    logging.debug('This process:  %s: %s, %s', me, me.exe(), me.cmdline())
+    logging.debug('Checking for leftover processes...')
+
+    running = []
+    for proc in psutil.process_iter(attrs=['name', 'exe', 'cmdline']):
+        if proc == me:
+            continue
+        try:
+            name = proc.name()
+            if not name or 'py' not in name:
+                continue
+            exe = proc.exe()
+            args = proc.cmdline()
+            # Note: If we ever need multiple instances on different ports,
+            # add a check for listener ports, likely via proc.connections()
+            if '/python' in exe and (script_name in args
+                                     or script_name_abs in args
+                                     or script_name_base in args):
+                logging.debug('Found process: %s: %s', proc, args)
+                running.append(proc)
+        except psutil.Error as e:
+            logging.debug('%s: %s', e, proc)
+            continue
+
+    if not running:
+        return
+
+    logging.info('Trying SIGTERM: pids=%s', [p.pid for p in running])
+    for proc in running:
+        try:
+            proc.send_signal(0)
+            proc.terminate()
+        except psutil.NoSuchProcess as e:
+            logging.debug('%s: %s', e, proc)
+        except psutil.Error as e:
+            logging.warn('%s: %s', e, proc)
+
+    (terminated, running) = psutil.wait_procs(running, sigterm_timeout)
+    if not running:
+        return
+
+    running.sort()
+    logging.info('Trying SIGKILL: pids=%s', [p.pid for p in running])
+    for proc in running:
+        try:
+            proc.kill()
+        except psutil.NoSuchProcess as e:
+            logging.debug('%s: %s', e, proc)
+        except psutil.Error as e:
+            logging.warn('%s: %s', e, proc)
+
+    (sigkilled, running) = psutil.wait_procs(running, sigkill_timeout)
+    if running:
+        running.sort()
+        logging.warn('Found leftover processes %s; address may be in use!',
+                     [p.pid for p in running])
+    else:
+        logging.debug('Leftover processes have exited.')
 
 
 class XmlRpcServer(threading.Thread):
@@ -37,8 +122,8 @@ class XmlRpcServer(threading.Thread):
         """
         super(XmlRpcServer, self).__init__()
         logging.info('Binding server to %s:%d', host, port)
-        self._server = SimpleXMLRPCServer.SimpleXMLRPCServer((host, port),
-                                                             allow_none=True)
+        self._server = six.moves.xmlrpc_server.SimpleXMLRPCServer(
+                (host, port), allow_none=True)
         self._server.register_introspection_functions()
         # After python 2.7.10, BaseServer.handle_request automatically retries
         # on EINTR, so handle_request will be blocked at select.select forever
@@ -84,6 +169,11 @@ class XmlRpcServer(threading.Thread):
                     # handle this kind of error.
                     if v[0] != errno.EINTR:
                         raise
+
+        for delegate in self._delegates:
+            if hasattr(delegate, 'cleanup'):
+                delegate.cleanup()
+
         logging.info('XmlRpcServer exited.')
 
 

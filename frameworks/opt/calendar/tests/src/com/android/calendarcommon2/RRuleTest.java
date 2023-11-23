@@ -24,7 +24,6 @@ import com.android.calendarcommon2.RecurrenceSet;
 import android.os.Debug;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.Suppress;
-import android.text.format.Time;
 import junit.framework.TestCase;
 
 /**
@@ -115,8 +114,7 @@ public class RRuleTest extends TestCase {
         RecurrenceProcessor rp = new RecurrenceProcessor();
         RecurrenceSet recur = new RecurrenceSet(rrule, rdate, exrule, exdate);
 
-        long[] out = rp.expand(dtstart, recur, rangeStart.toMillis(false /* use isDst */),
-                rangeEnd.toMillis(false /* use isDst */));
+        long[] out = rp.expand(dtstart, recur, rangeStart.toMillis(), rangeEnd.toMillis());
 
         if (METHOD_TRACE) {
             Debug.stopMethodTracing();

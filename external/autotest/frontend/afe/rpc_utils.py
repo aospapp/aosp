@@ -538,7 +538,7 @@ def _ensure_label_exists(name):
                              not because the label already existed.
     @returns True is a label was created, False otherwise.
     """
-    # Make sure this function is not called on shards but only on master.
+    # Make sure this function is not called on shards but only on main.
     assert not server_utils.is_shard()
     try:
         models.Label.objects.get(name=name)
@@ -834,7 +834,7 @@ def create_job_common(
 def _validate_host_job_sharding(host_objects):
     """Check that the hosts obey job sharding rules."""
     if not (server_utils.is_shard()
-            or _allowed_hosts_for_master_job(host_objects)):
+            or _allowed_hosts_for_main_job(host_objects)):
         shard_host_map = bucket_hosts_by_shard(host_objects)
         raise ValueError(
                 'The following hosts are on shard(s), please create '
@@ -842,13 +842,13 @@ def _validate_host_job_sharding(host_objects):
                 shard_host_map)
 
 
-def _allowed_hosts_for_master_job(host_objects):
-    """Check that the hosts are allowed for a job on master."""
-    # We disallow the following jobs on master:
+def _allowed_hosts_for_main_job(host_objects):
+    """Check that the hosts are allowed for a job on main."""
+    # We disallow the following jobs on main:
     #   num_shards > 1: this is a job spanning across multiple shards.
     #   num_shards == 1 but number of hosts on shard is less
     #   than total number of hosts: this is a job that spans across
-    #   one shard and the master.
+    #   one shard and the main.
     shard_host_map = bucket_hosts_by_shard(host_objects)
     num_shards = len(shard_host_map)
     if num_shards > 1:
@@ -968,7 +968,7 @@ def find_records_for_shard(shard, known_job_ids, known_host_ids):
 def _persist_records_with_type_sent_from_shard(
     shard, records, record_type, *args, **kwargs):
     """
-    Handle records of a specified type that were sent to the shard master.
+    Handle records of a specified type that were sent to the shard main.
 
     @param shard: The shard the records were sent from.
     @param records: The records sent in their serialized format.
@@ -978,7 +978,7 @@ def _persist_records_with_type_sent_from_shard(
     @param kwargs: Additional arguments that will be passed on to the sanity
                   checks.
 
-    @raises error.UnallowedRecordsSentToMaster if any of the sanity checks fail.
+    @raises error.UnallowedRecordsSentToMain if any of the sanity checks fail.
 
     @returns: List of primary keys of the processed records.
     """
@@ -988,14 +988,14 @@ def _persist_records_with_type_sent_from_shard(
         try:
             current_record = record_type.objects.get(pk=pk)
         except record_type.DoesNotExist:
-            raise error.UnallowedRecordsSentToMaster(
-                'Object with pk %s of type %s does not exist on master.' % (
+            raise error.UnallowedRecordsSentToMain(
+                'Object with pk %s of type %s does not exist on main.' % (
                     pk, record_type))
 
         try:
             current_record.sanity_check_update_from_shard(
                 shard, serialized_record, *args, **kwargs)
-        except error.IgnorableUnallowedRecordsSentToMaster:
+        except error.IgnorableUnallowedRecordsSentToMain:
             # An illegal record change was attempted, but it was of a non-fatal
             # variety. Silently skip this record.
             pass
@@ -1008,14 +1008,14 @@ def _persist_records_with_type_sent_from_shard(
 
 def persist_records_sent_from_shard(shard, jobs, hqes):
     """
-    Sanity checking then saving serialized records sent to master from shard.
+    Sanity checking then saving serialized records sent to main from shard.
 
     During heartbeats shards upload jobs and hostqueuentries. This performs
     some sanity checks on these and then updates the existing records for those
     entries with the updated ones from the heartbeat.
 
     The sanity checks include:
-    - Checking if the objects sent already exist on the master.
+    - Checking if the objects sent already exist on the main.
     - Checking if the objects sent were assigned to this shard.
     - hostqueueentries must be sent together with their jobs.
 
@@ -1023,7 +1023,7 @@ def persist_records_sent_from_shard(shard, jobs, hqes):
     @param jobs: The jobs the shard sent.
     @param hqes: The hostqueuentries the shart sent.
 
-    @raises error.UnallowedRecordsSentToMaster if any of the sanity checks fail.
+    @raises error.UnallowedRecordsSentToMain if any of the sanity checks fail.
     """
     job_ids_persisted = _persist_records_with_type_sent_from_shard(
             shard, jobs, models.Job)
@@ -1103,7 +1103,7 @@ def run_rpc_on_multiple_hostnames(rpc_call, shard_hostnames, **kwargs):
     @param shard_hostnames: List of hostnames to run the rpcs on.
     @param **kwargs: Keyword arguments to pass in the rpcs.
     """
-    # Make sure this function is not called on shards but only on master.
+    # Make sure this function is not called on shards but only on main.
     assert not server_utils.is_shard()
     for shard_hostname in shard_hostnames:
         afe = frontend_wrappers.RetryingAFE(server=shard_hostname,
@@ -1137,12 +1137,12 @@ def moblab_only(func):
     return verify
 
 
-def route_rpc_to_master(func):
-    """Route RPC to master AFE.
+def route_rpc_to_main(func):
+    """Route RPC to main AFE.
 
     When a shard receives an RPC decorated by this, the RPC is just
-    forwarded to the master.
-    When the master gets the RPC, the RPC function is executed.
+    forwarded to the main.
+    When the main gets the RPC, the RPC function is executed.
 
     @param func: An RPC function to decorate
 

@@ -26,21 +26,20 @@ enum AdvertisingEventType {
 
 enum AdvertisingFilterPolicy {
   ALL_DEVICES = 0x0;
-  WHITELISTED_SCAN = 0x1;
-  WHITELISTED_CONNECT = 0x2;
-  WHITELISTED_SCAN_AND_CONNECT = 0x3;
+  LISTED_SCAN = 0x1;
+  LISTED_CONNECT = 0x2;
+  LISTED_SCAN_AND_CONNECT = 0x3;
 };
 
 message AdvertisingConfig {
   repeated GapDataMsg advertisement = 1;
   repeated GapDataMsg scan_response = 2;
-  bluetooth.facade.BluetoothAddress random_address = 3;
   // Unit: number of Bluetooth slots in 0.125 ms increment
   int32 interval_min = 4;
   // Unit: number of Bluetooth slots in 0.125 ms increment
   int32 interval_max = 5;
-  AdvertisingEventType event_type = 6;
-  bluetooth.facade.BluetoothAddressTypeEnum address_type = 7;
+  AdvertisingEventType advertising_type = 6;
+  bluetooth.facade.BluetoothOwnAddressTypeEnum own_address_type = 7;
   bluetooth.facade.BluetoothPeerAddressTypeEnum peer_address_type = 8;
   bluetooth.facade.BluetoothAddress peer_address = 9;
   int32 channel_map = 10;

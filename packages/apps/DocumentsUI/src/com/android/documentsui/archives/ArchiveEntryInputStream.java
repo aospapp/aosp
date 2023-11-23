@@ -20,15 +20,15 @@ import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStream;
-
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * To simulate the input stream by using ZipFile, SevenZFile, or ArchiveInputStream.
@@ -124,7 +124,7 @@ abstract class ArchiveEntryInputStream extends InputStream {
             throw new IllegalArgumentException("ArchiveEntry is empty");
         }
 
-        if (archiveEntry.isDirectory() || archiveEntry.getSize() <= 0
+        if (archiveEntry.isDirectory() || archiveEntry.getSize() < 0
                 || TextUtils.isEmpty(archiveEntry.getName())) {
             throw new IllegalArgumentException("ArchiveEntry is an invalid file entry");
         }

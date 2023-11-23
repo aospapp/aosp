@@ -1,4 +1,4 @@
-# Copyright Â© 2017 Intel Corporation
+# Copyright © 2017-2019 Intel Corporation
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,6 @@ incs_for_egl = [inc_include, inc_src, inc_egl]
 
 files_egl = files(
   'main/eglapi.c',
-  'main/eglapi.h',
   'main/eglarray.c',
   'main/eglarray.h',
   'main/eglconfig.c',
@@ -42,9 +41,7 @@ files_egl = files(
   'main/egldevice.h',
   'main/egldisplay.c',
   'main/egldisplay.h',
-  'main/egldriver.c',
   'main/egldriver.h',
-  'main/eglfallbacks.c',
   'main/eglglobals.c',
   'main/eglglobals.h',
   'main/eglimage.c',
@@ -91,11 +88,15 @@ if with_dri2
   files_egl += files(
     'drivers/dri2/egl_dri2.c',
     'drivers/dri2/egl_dri2.h',
-    'drivers/dri2/egl_dri2_fallbacks.h',
   )
-  link_for_egl += [libloader, libxmlconfig]
+  deps_for_egl += idep_xmlconfig
+  link_for_egl += libloader
   incs_for_egl += inc_loader
 
+  files_egl += files(
+    'drivers/dri2/platform_device.c',
+    'drivers/dri2/platform_surfaceless.c',
+  )
   if with_platform_x11
     files_egl += files('drivers/dri2/platform_x11.c')
     if with_dri3
@@ -104,14 +105,11 @@ if with_dri2
     endif
     deps_for_egl += [dep_x11_xcb, dep_xcb_dri2, dep_xcb_xfixes]
   endif
-  if with_platform_drm
+  if with_gbm
     files_egl += files('drivers/dri2/platform_drm.c')
     link_for_egl += libgbm
     incs_for_egl += [inc_gbm, include_directories('../gbm/main')]
     deps_for_egl += dep_libdrm
-  endif
-  if with_platform_surfaceless
-    files_egl += files('drivers/dri2/platform_surfaceless.c')
   endif
   if with_platform_wayland
     deps_for_egl += [dep_wayland_client, dep_wayland_server, dep_wayland_egl_headers]
@@ -148,6 +146,7 @@ if not with_glvnd
 else
   egl_lib_name = 'EGL_mesa'
   egl_lib_version = '0.0.0'
+  deps_for_egl += dep_glvnd
   files_egl += [g_egldispatchstubs_h, g_egldispatchstubs_c]
   files_egl += files('main/eglglvnd.c', 'main/egldispatchstubs.c')
   install_data(
@@ -160,52 +159,48 @@ libegl = shared_library(
   egl_lib_name,
   files_egl,
   c_args : [
-    c_vis_args,
     c_args_for_egl,
     '-D_EGL_NATIVE_PLATFORM=_EGL_PLATFORM_@0@'.format(egl_native_platform.to_upper()),
   ],
+  gnu_symbol_visibility : 'hidden',
   include_directories : incs_for_egl,
-  link_with : [link_for_egl, libglapi, libmesa_util],
+  link_with : [link_for_egl, libglapi],
   link_args : [ld_args_bsymbolic, ld_args_gc_sections],
-  dependencies : [deps_for_egl, dep_dl, dep_libdrm, dep_clock, dep_thread],
+  dependencies : [deps_for_egl, dep_dl, dep_libdrm, dep_clock, dep_thread, idep_mesautil],
   install : true,
   version : egl_lib_version,
 )
 
-# If using glvnd the pkg-config header should not point to EGL_mesa, it should
-# point to EGL. glvnd is only available on unix like platforms so adding -l
-# should be safe here
-# TODO: in the glvnd case glvnd itself should really be providing this.
-if with_glvnd
-  _egl = '-L${libdir} -lEGL'
-else
-  _egl = libegl
+if not with_glvnd
+  pkg.generate(
+    name : 'egl',
+    description : 'Mesa EGL Library',
+    version : meson.project_version(),
+    libraries : libegl,
+    libraries_private: gl_priv_libs,
+    requires_private : gl_priv_reqs,
+    extra_cflags : gl_pkgconfig_c_flags,
+  )
 endif
 
-pkg.generate(
-  name : 'egl',
-  description : 'Mesa EGL Library',
-  version : meson.project_version(),
-  libraries : _egl,
-  libraries_private: gl_priv_libs,
-  requires_private : gl_priv_reqs,
-  extra_cflags : gl_pkgconfig_c_flags,
-)
-
-if with_tests and prog_nm.found()
+if with_symbols_check
   if with_glvnd
-    # TODO: add glvnd symbol check
+    egl_symbols = files('egl-glvnd-symbols.txt')
   else
-    test('egl-symbols-check',
-      find_program('egl-symbols-check'),
-      env : env_test,
-      args : libegl,
-      suite : ['egl'],
-    )
+    egl_symbols = files('egl-symbols.txt')
   endif
+  test('egl-symbols-check',
+    symbols_check,
+    args : [
+      '--lib', libegl,
+      '--symbols-file', egl_symbols,
+      symbols_check_args,
+    ],
+    suite : ['egl'],
+  )
   test('egl-entrypoint-check',
-    find_program('egl-entrypoint-check'),
-    env : ['srcdir=' + meson.current_source_dir()],
+    prog_python,
+    args : files('egl-entrypoint-check.py', 'main/eglentrypoint.h'),
     suite : ['egl'],
   )
 endif

@@ -16,5 +16,11 @@ public class MainActivity extends Activity {
             ActivityCompat.requestPermissions(
                     this, new String[] {Manifest.permission.ACCESS_COARSE_LOCATION}, 2);
         }
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                    this, new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, 2);
+        }
     }
 }

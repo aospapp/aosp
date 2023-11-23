@@ -21,6 +21,7 @@ import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.result.TestDescription;
@@ -47,6 +48,9 @@ public class PrivacyDeviceOwnerTest extends DeviceTestCase implements IBuildRece
     private static final String ADMIN_RECEIVER_TEST_CLASS = ".DeviceOwnerTest$BasicAdminReceiver";
     private static final String CLEAR_DEVICE_OWNER_TEST_CLASS = ".ClearDeviceOwnerTest";
 
+    // TODO (b/174775905) move to ITestDevice.
+    private static final int USER_SYSTEM = 0;
+
     /**
      * The defined timeout (in milliseconds) is used as a maximum waiting time when expecting the
      * command output from the device. At any time, if the shell command does not output anything
@@ -66,6 +70,9 @@ public class PrivacyDeviceOwnerTest extends DeviceTestCase implements IBuildRece
     protected boolean mHasFeature;
     protected IBuildInfo mCtsBuild;
 
+    private int mDeviceOwnerUserId;
+    private int mTestUserId;
+
     @Override
     public void setBuild(IBuildInfo buildInfo) {
         mCtsBuild = buildInfo;
@@ -76,8 +83,19 @@ public class PrivacyDeviceOwnerTest extends DeviceTestCase implements IBuildRece
         super.setUp();
 
         mHasFeature = hasDeviceFeature("android.software.device_admin");
-        if (mHasFeature) {
-            installPackage(DEVICE_OWNER_APK);
+        if (!mHasFeature) return;
+
+        mTestUserId = getDevice().getCurrentUser();
+        if (isHeadlessSystemUserMode()) {
+            mDeviceOwnerUserId = USER_SYSTEM;
+        } else {
+            mDeviceOwnerUserId = mTestUserId;
+        }
+
+        installPackage(mDeviceOwnerUserId, DEVICE_OWNER_APK);
+
+        if (isHeadlessSystemUserMode()) {
+            grantDpmWrapperPermissions(mTestUserId);
         }
     }
 
@@ -137,20 +155,22 @@ public class PrivacyDeviceOwnerTest extends DeviceTestCase implements IBuildRece
                 runDeviceTests(DEVICE_OWNER_PKG, testClass, testMethodName));
     }
 
-    protected void installPackage(String appFileName)
+    protected void installPackage(int userId, String appFileName)
             throws FileNotFoundException, DeviceNotAvailableException {
-        CLog.d("Installing app " + appFileName);
+        CLog.d("Installing app %s on user %d", appFileName, userId);
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         List<String> extraArgs = new LinkedList<>();
         extraArgs.add("-t");
         String result =
                 getDevice()
-                        .installPackage(
+                        .installPackageForUser(
                                 buildHelper.getTestFile(appFileName),
                                 true,
                                 true,
+                                userId,
                                 extraArgs.toArray(new String[extraArgs.size()]));
-        assertNull("Failed to install " + appFileName + ": " + result, result);
+        assertNull("Failed to install " + appFileName + " on user " + userId + ": " + result,
+                result);
     }
 
     protected boolean runDeviceTests(
@@ -172,7 +192,9 @@ public class PrivacyDeviceOwnerTest extends DeviceTestCase implements IBuildRece
         }
 
         CollectingTestListener listener = new CollectingTestListener();
-        boolean runResult = getDevice().runInstrumentationTests(testRunner, listener);
+        CLog.i("Running %s.%s on user %d", testClassName, testMethodName, mTestUserId);
+        boolean runResult = getDevice().runInstrumentationTestsAsUser(testRunner, mTestUserId,
+                listener);
 
         final TestRunResult result = listener.getCurrentRunResults();
         if (result.isRunFailure()) {
@@ -233,5 +255,31 @@ public class PrivacyDeviceOwnerTest extends DeviceTestCase implements IBuildRece
             CLog.d("Device doesn't have required feature " + requiredFeature + ". Test won't run.");
         }
         return result;
+    }
+
+    protected void grantDpmWrapperPermissions(int userId) throws Exception {
+        // TODO(b/176993670): INTERACT_ACROSS_USERS is needed by DevicePolicyManagerWrapper to
+        // get the current user; the permission is available on mDeviceOwnerUserId because it
+        // was installed with -g, but not on mPrimaryUserId as the app is intalled by code
+        // (DPMS.manageUserUnchecked(), which don't grant it (as this is a privileged permission
+        // that's not available to 3rd party apps). If we get rid of DevicePolicyManagerWrapper,
+        // we won't need to grant it anymore.
+        CLog.i("Granting INTERACT_ACROSS_USERS to DO %s on user %d as it will need to send ordered "
+                + "broadcasts to user 0", DEVICE_OWNER_PKG, userId);
+        getDevice().executeShellCommand("pm grant --user " + userId + " " + DEVICE_OWNER_PKG
+                + " android.permission.INTERACT_ACROSS_USERS");
+    }
+
+    // TODO (b/174775905) remove after exposing the check from ITestDevice.
+    boolean isHeadlessSystemUserMode() throws DeviceNotAvailableException {
+        return isHeadlessSystemUserMode(getDevice());
+    }
+
+    // TODO (b/174775905) remove after exposing the check from ITestDevice.
+    public static boolean isHeadlessSystemUserMode(ITestDevice device)
+            throws DeviceNotAvailableException {
+        final String result = device
+                .executeShellCommand("getprop ro.fw.mu.headless_system_user").trim();
+        return "true".equalsIgnoreCase(result);
     }
 }

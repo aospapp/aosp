@@ -120,4 +120,4 @@ class GenericNetlinkControl(GenericNetlink):
 
 if __name__ == "__main__":
   g = GenericNetlinkControl()
-  print g.GetFamily("tcp_metrics")
+  print(g.GetFamily("tcp_metrics"))

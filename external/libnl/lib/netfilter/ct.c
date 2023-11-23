@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/netfilter/ct.c	Conntrack
  *
@@ -27,28 +28,10 @@
 #include <netlink/attr.h>
 #include <netlink/netfilter/nfnl.h>
 #include <netlink/netfilter/ct.h>
+#include <netlink-private/utils.h>
 
 static struct nl_cache_ops nfnl_ct_ops;
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-static uint64_t ntohll(uint64_t x)
-{
-	return x;
-}
-static uint64_t htonll(uint64_t x)
-{
-	return x;
-}
-#elif __BYTE_ORDER == __LITTLE_ENDIAN
-static uint64_t ntohll(uint64_t x)
-{
-	return bswap_64(x);
-}
-static uint64_t htonll(uint64_t x)
-{
-	return bswap_64(x);
-}
-#endif
 
 static struct nla_policy ct_policy[CTA_MAX+1] = {
 	[CTA_TUPLE_ORIG]	= { .type = NLA_NESTED },
@@ -122,7 +105,7 @@ static int ct_parse_ip(struct nfnl_ct *ct, int repl, struct nlattr *attr)
 	struct nl_addr *addr;
 	int err;
 
-        err = nla_parse_nested(tb, CTA_IP_MAX, attr, ct_ip_policy);
+	err = nla_parse_nested(tb, CTA_IP_MAX, attr, ct_ip_policy);
 	if (err < 0)
 		goto errout;
 
@@ -421,6 +404,13 @@ static int ct_msg_parser(struct nl_cache_ops *ops, struct sockaddr_nl *who,
 	return err;
 }
 
+/**
+ * Send nfnl ct dump request
+ * @arg sk    Netlink socket.
+ *
+ * @return 0 on success or a negative error code. Due to a bug, this function
+ * returns the number of bytes sent. Treat any non-negative number as success.
+ */
 int nfnl_ct_dump_request(struct nl_sock *sk)
 {
 	return nfnl_send_simple(sk, NFNL_SUBSYS_CTNETLINK, IPCTNL_MSG_CT_GET,

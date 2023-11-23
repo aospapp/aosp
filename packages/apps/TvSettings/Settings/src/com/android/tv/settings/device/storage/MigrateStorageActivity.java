@@ -16,7 +16,6 @@
 
 package com.android.tv.settings.device.storage;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -32,7 +31,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
@@ -43,7 +43,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Objects;
 
-public class MigrateStorageActivity extends Activity {
+public class MigrateStorageActivity extends FragmentActivity {
     private static final String TAG = "MigrateStorageActivity";
 
     private static final String EXTRA_MIGRATE_HERE =
@@ -96,7 +96,7 @@ public class MigrateStorageActivity extends Activity {
                 return;
             }
             mTargetVolumeDesc = storageManager.getBestVolumeDescription(mTargetVolumeInfo);
-            getFragmentManager().beginTransaction()
+            getSupportFragmentManager().beginTransaction()
                     .add(android.R.id.content,
                             MigrateConfirmationStepFragment.newInstance(mTargetVolumeDesc))
                     .commit();
@@ -107,7 +107,7 @@ public class MigrateStorageActivity extends Activity {
                 return;
             }
             mVolumeDesc = storageManager.getBestVolumeDescription(mVolumeInfo);
-            getFragmentManager().beginTransaction()
+            getSupportFragmentManager().beginTransaction()
                     .add(android.R.id.content,
                             ChooseStorageStepFragment.newInstance(mVolumeInfo))
                     .commit();
@@ -147,7 +147,7 @@ public class MigrateStorageActivity extends Activity {
     private void startMigrationInternal() {
         try {
             mMoveId = mPackageManager.movePrimaryStorage(mTargetVolumeInfo);
-            getFragmentManager().beginTransaction()
+            getSupportFragmentManager().beginTransaction()
                     .replace(android.R.id.content,
                             MigrateProgressFragment.newInstance(mTargetVolumeDesc))
                     .commitNow();
@@ -183,7 +183,7 @@ public class MigrateStorageActivity extends Activity {
                 Toast.LENGTH_SHORT).show();
     }
 
-    public static class MigrateConfirmationStepFragment extends GuidedStepFragment {
+    public static class MigrateConfirmationStepFragment extends GuidedStepSupportFragment {
         private static final String ARG_VOLUME_DESC = "volumeDesc";
 
         private static final int ACTION_CONFIRM = 1;
@@ -235,7 +235,7 @@ public class MigrateStorageActivity extends Activity {
         }
     }
 
-    public static class ChooseStorageStepFragment extends GuidedStepFragment {
+    public static class ChooseStorageStepFragment extends GuidedStepSupportFragment {
 
         private List<VolumeInfo> mCandidateVolumes;
 

@@ -14,6 +14,7 @@ subsystem usbmisc
 /dev/hi_vdec     0660 system camera
 /dev/hi_venc     0660 system camera
 /dev/ion	 0666 system graphics
+/dev/dma_heap/linux,cma	0666 system graphics
 /dev/graphics/fb0	0666 system graphics
 
 /sys/devices/platform/ddr_devfreq/devfreq/ddr_devfreq		min_freq	0644	system	system

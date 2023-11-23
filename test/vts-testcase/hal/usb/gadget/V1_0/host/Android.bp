@@ -13,15 +13,14 @@
 // limitations under the License.
 //
 
-vts_config {
-    name: "VtsHalUsbGadgetV1_0Host",
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 java_test_host {
     name: "HalUsbGadgetV1_0HostTest",
     libs: [
         "tradefed",
-        "tradefed-common-util",
     ],
     static_libs: [
         "jna-prebuilt",
@@ -30,5 +29,5 @@ java_test_host {
     test_suites: [
         "vts",
     ],
-    auto_gen_config: true,
+    test_config: "HalUsbGadgetV1_0HostTest.xml",
 }

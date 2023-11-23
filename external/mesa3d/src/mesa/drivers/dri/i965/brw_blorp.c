@@ -53,7 +53,7 @@ brw_blorp_lookup_shader(struct blorp_batch *batch,
 }
 
 static bool
-brw_blorp_upload_shader(struct blorp_batch *batch,
+brw_blorp_upload_shader(struct blorp_batch *batch, uint32_t stage,
                         const void *key, uint32_t key_size,
                         const void *kernel, uint32_t kernel_size,
                         const struct brw_stage_prog_data *prog_data,
@@ -102,9 +102,6 @@ brw_blorp_init(struct brw_context *brw)
       break;
    case 9:
       brw->blorp.exec = gen9_blorp_exec;
-      break;
-   case 10:
-      brw->blorp.exec = gen10_blorp_exec;
       break;
    case 11:
       brw->blorp.exec = gen11_blorp_exec;
@@ -164,8 +161,7 @@ blorp_surf_for_miptree(struct brw_context *brw,
        * surface.  Without one, it does nothing.
        */
       surf->clear_color =
-         intel_miptree_get_clear_color(devinfo, mt, mt->surf.format,
-                                       !is_render_target, (struct brw_bo **)
+         intel_miptree_get_clear_color(mt, (struct brw_bo **)
                                        &surf->clear_color_addr.buffer,
                                        &surf->clear_color_addr.offset);
 
@@ -299,10 +295,16 @@ brw_blorp_blit_miptrees(struct brw_context *brw,
        dst_level, dst_layer, dst_x0, dst_y0, dst_x1, dst_y1,
        mirror_x, mirror_y);
 
-   if (!decode_srgb && _mesa_get_format_color_encoding(src_format) == GL_SRGB)
+   if (src_format == MESA_FORMAT_NONE)
+      src_format = src_mt->format;
+
+   if (dst_format == MESA_FORMAT_NONE)
+      dst_format = dst_mt->format;
+
+   if (!decode_srgb)
       src_format = _mesa_get_srgb_format_linear(src_format);
 
-   if (!encode_srgb && _mesa_get_format_color_encoding(dst_format) == GL_SRGB)
+   if (!encode_srgb)
       dst_format = _mesa_get_srgb_format_linear(dst_format);
 
    /* When doing a multisample resolve of a GL_LUMINANCE32F or GL_INTENSITY32F
@@ -389,7 +391,7 @@ brw_blorp_blit_miptrees(struct brw_context *brw,
    /* We do format workarounds for some depth formats so we can't reliably
     * sample with HiZ.  One of these days, we should fix that.
     */
-   if (src_aux_usage == ISL_AUX_USAGE_HIZ)
+   if (src_aux_usage == ISL_AUX_USAGE_HIZ && src_mt->format != src_format)
       src_aux_usage = ISL_AUX_USAGE_NONE;
    const bool src_clear_supported =
       src_aux_usage != ISL_AUX_USAGE_NONE && src_mt->format == src_format;
@@ -457,6 +459,15 @@ brw_blorp_copy_miptrees(struct brw_context *brw,
    bool src_clear_supported, dst_clear_supported;
 
    switch (src_mt->aux_usage) {
+   case ISL_AUX_USAGE_HIZ:
+      if (intel_miptree_sample_with_hiz(brw, src_mt)) {
+         src_aux_usage = src_mt->aux_usage;
+         src_clear_supported = true;
+      } else {
+         src_aux_usage = ISL_AUX_USAGE_NONE;
+         src_clear_supported = false;
+      }
+      break;
    case ISL_AUX_USAGE_MCS:
    case ISL_AUX_USAGE_CCS_E:
       src_aux_usage = src_mt->aux_usage;
@@ -816,6 +827,8 @@ brw_blorp_framebuffer(struct brw_context *brw,
       }
    }
 
+   /* try_blorp_blit should always be successful for color blits. */
+   assert(!(mask & GL_COLOR_BUFFER_BIT));
    return mask;
 }
 
@@ -836,17 +849,22 @@ blorp_get_client_bo(struct brw_context *brw,
                                                    format, type,
                                                    d - 1, h - 1, w);
    const uint32_t stride = _mesa_image_row_stride(packing, w, format, type);
-   const uint32_t cpp = _mesa_bytes_per_pixel(format, type);
    const uint32_t size = last_pixel - first_pixel;
 
    *row_stride_out = stride;
    *image_stride_out = _mesa_image_image_stride(packing, w, h, format, type);
 
-   if (_mesa_is_bufferobj(packing->BufferObj)) {
+   if (packing->BufferObj) {
       const uint32_t offset = first_pixel + (intptr_t)pixels;
-      if (!read_only && ((offset % cpp) || (stride % cpp))) {
-         perf_debug("Bad PBO alignment; fallback to CPU mapping\n");
-         return NULL;
+
+      if (!read_only) {
+         const int32_t cpp = _mesa_bytes_per_pixel(format, type);
+         assert(cpp > 0);
+
+         if ((offset % cpp) || (stride % cpp)) {
+            perf_debug("Bad PBO alignment; fallback to CPU mapping\n");
+            return NULL;
+         }
       }
 
       /* This is a user-provided PBO. We just need to get the BO out */
@@ -928,16 +946,6 @@ blorp_get_client_format(struct brw_context *brw,
    return _mesa_tex_format_from_format_and_type(&brw->ctx, format, type);
 }
 
-static bool
-need_signed_unsigned_int_conversion(mesa_format src_format,
-                                    mesa_format dst_format)
-{
-   const GLenum src_type = _mesa_get_format_datatype(src_format);
-   const GLenum dst_type = _mesa_get_format_datatype(dst_format);
-   return (src_type == GL_INT && dst_type == GL_UNSIGNED_INT) ||
-          (src_type == GL_UNSIGNED_INT && dst_type == GL_INT);
-}
-
 bool
 brw_blorp_upload_miptree(struct brw_context *brw,
                          struct intel_mipmap_tree *dst_mt,
@@ -958,13 +966,6 @@ brw_blorp_upload_miptree(struct brw_context *brw,
                  _mesa_get_format_name(dst_format));
       return false;
    }
-
-   /* This function relies on blorp_blit to upload the pixel data to the
-    * miptree.  But, blorp_blit doesn't support signed to unsigned or
-    * unsigned to signed integer conversions.
-    */
-   if (need_signed_unsigned_int_conversion(src_format, dst_format))
-      return false;
 
    uint32_t src_offset, src_row_stride, src_image_stride;
    struct brw_bo *src_bo =
@@ -1059,13 +1060,6 @@ brw_blorp_download_miptree(struct brw_context *brw,
       return false;
    }
 
-   /* This function relies on blorp_blit to download the pixel data from the
-    * miptree. But, blorp_blit doesn't support signed to unsigned or unsigned
-    * to signed integer conversions.
-    */
-   if (need_signed_unsigned_int_conversion(src_format, dst_format))
-      return false;
-
    /* We can't fetch from LUMINANCE or intensity as that would require a
     * non-trivial swizzle.
     */
@@ -1079,7 +1073,7 @@ brw_blorp_download_miptree(struct brw_context *brw,
    }
 
    /* This pass only works for PBOs */
-   assert(_mesa_is_bufferobj(packing->BufferObj));
+   assert(packing->BufferObj);
 
    uint32_t dst_offset, dst_row_stride, dst_image_stride;
    struct brw_bo *dst_bo =
@@ -1215,7 +1209,7 @@ do_single_blorp_clear(struct brw_context *brw, struct gl_framebuffer *fb,
    uint32_t x0, x1, y0, y1;
 
    mesa_format format = irb->Base.Base.Format;
-   if (!encode_srgb && _mesa_get_format_color_encoding(format) == GL_SRGB)
+   if (!encode_srgb)
       format = _mesa_get_srgb_format_linear(format);
    enum isl_format isl_format = brw->mesa_to_isl_render_format[format];
 
@@ -1234,6 +1228,9 @@ do_single_blorp_clear(struct brw_context *brw, struct gl_framebuffer *fb,
       return;
 
    bool can_fast_clear = !partial_clear;
+
+   if (INTEL_DEBUG & DEBUG_NO_FAST_CLEAR)
+      can_fast_clear = false;
 
    bool color_write_disable[4] = { false, false, false, false };
    if (set_write_disables(irb, GET_COLORMASK(ctx->Color.ColorMask, buf),
@@ -1313,6 +1310,7 @@ do_single_blorp_clear(struct brw_context *brw, struct gl_framebuffer *fb,
       struct blorp_batch batch;
       blorp_batch_init(&brw->blorp, &batch, brw, 0);
       blorp_fast_clear(&batch, &surf, isl_format_srgb_to_linear(isl_format),
+                       ISL_SWIZZLE_IDENTITY,
                        level, irb->mt_layer, num_layers, x0, y0, x1, y1);
       blorp_batch_finish(&batch);
 
@@ -1429,7 +1427,7 @@ brw_blorp_clear_depth_stencil(struct brw_context *brw,
    if (x0 == x1 || y0 == y1)
       return;
 
-   uint32_t level, start_layer, num_layers;
+   uint32_t level = 0, start_layer = 0, num_layers;
    struct blorp_surf depth_surf, stencil_surf;
 
    struct intel_mipmap_tree *depth_mt = NULL;

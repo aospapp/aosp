@@ -24,6 +24,7 @@ import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_P
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
@@ -36,6 +37,7 @@ import android.net.LinkProperties;
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.data.ApnSetting;
 import android.telephony.data.DataCallResponse;
@@ -53,6 +55,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import java.lang.reflect.Method;
@@ -65,7 +68,10 @@ import java.util.List;
 public class DcControllerTest extends TelephonyTest {
 
     private static final int DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT = 1;
+    private static final int DATA_CONNECTION_ACTIVE_PH_LINK_ACTIVE = 2;
+
     private static final int EVENT_DATA_STATE_CHANGED = 0x00040007;
+    private static final int EVENT_PHYSICAL_LINK_STATE_CHANGED = 1;
 
     @Mock
     private DataConnection mDc;
@@ -73,6 +79,8 @@ public class DcControllerTest extends TelephonyTest {
     private List<ApnContext> mApnContexts;
     @Mock
     private DataServiceManager mDataServiceManager;
+    @Mock
+    private Handler mTestHandler;
 
     UpdateLinkPropertyResult mResult;
 
@@ -103,9 +111,8 @@ public class DcControllerTest extends TelephonyTest {
         doReturn(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
                 .when(mDataServiceManager).getTransportType();
 
-        mDcc = DcController.makeDcc(mPhone, mDcTracker, mDataServiceManager,
-                new Handler(Looper.myLooper()), "");
-        mDcc.start();
+        mDcc = DcController.makeDcc(mPhone, mDcTracker, mDataServiceManager, Looper.myLooper(),
+                "");
         processAllMessages();
     }
 
@@ -117,11 +124,10 @@ public class DcControllerTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testDataDormant() throws Exception {
-        assertEquals("DccDefaultState", getCurrentState().getName());
         ArrayList<DataCallResponse> l = new ArrayList<>();
         DataCallResponse dcResponse = new DataCallResponse.Builder()
                 .setCause(0)
-                .setSuggestedRetryTime(-1)
+                .setRetryDurationMillis(-1)
                 .setId(1)
                 .setLinkStatus(DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT)
                 .setProtocolType(ApnSetting.PROTOCOL_IP)
@@ -140,9 +146,137 @@ public class DcControllerTest extends TelephonyTest {
         mDc.mCid = 1;
         mDcc.addActiveDcByCid(mDc);
 
-        mDcc.sendMessage(EVENT_DATA_STATE_CHANGED, new AsyncResult(null, l, null));
+        mDcc.sendMessage(mDcc.obtainMessage(EVENT_DATA_STATE_CHANGED,
+                new AsyncResult(null, l, null)));
         processAllMessages();
 
         verify(mDcTracker, times(1)).sendStopNetStatPoll(eq(DctConstants.Activity.DORMANT));
+    }
+
+    @Test
+    @SmallTest
+    public void testPhysicalLinkStateChanged_defaultApnTypeAndDormant_registrantNotifyResult()
+            throws Exception {
+        ArrayList<DataCallResponse> l = new ArrayList<>();
+        DataCallResponse dcResponse = new DataCallResponse.Builder()
+                .setCause(0)
+                .setRetryDurationMillis(-1)
+                .setId(1)
+                .setLinkStatus(DATA_CONNECTION_ACTIVE_PH_LINK_DORMANT)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
+        l.add(dcResponse);
+        mDc.mCid = 1;
+        mDcc.addActiveDcByCid(mDc);
+        ApnContext apnContext = new ApnContext(mPhone, ApnSetting.TYPE_DEFAULT, TAG, mDcTracker, 1);
+        List<ApnContext> apnContextList = new ArrayList<>();
+        apnContextList.add(apnContext);
+        doReturn(apnContextList).when(mDc).getApnContexts();
+        doReturn(true).when(mDcTracker).getLteEndcUsingUserDataForIdleDetection();
+        mDcc.registerForPhysicalLinkStateChanged(mTestHandler, EVENT_PHYSICAL_LINK_STATE_CHANGED);
+
+        mDcc.sendMessage(mDcc.obtainMessage(EVENT_DATA_STATE_CHANGED,
+                new AsyncResult(null, l, null)));
+        processAllMessages();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mTestHandler, times(1)).sendMessageDelayed(messageCaptor.capture(), anyLong());
+        Message message = messageCaptor.getValue();
+        assertEquals(EVENT_PHYSICAL_LINK_STATE_CHANGED, message.what);
+        AsyncResult ar = (AsyncResult) message.obj;
+        assertEquals(DcController.PHYSICAL_LINK_NOT_ACTIVE, (int) ar.result);
+    }
+
+    @Test
+    @SmallTest
+    public void testPhysicalLinkStateChanged_imsApnTypeAndDormant_NoNotifyResult()
+            throws Exception {
+        testPhysicalLinkStateChanged_defaultApnTypeAndDormant_registrantNotifyResult();
+
+        ArrayList<DataCallResponse> l = new ArrayList<>();
+        DataCallResponse dcResponse = new DataCallResponse.Builder()
+                .setCause(0)
+                .setRetryDurationMillis(-1)
+                .setId(1)
+                .setLinkStatus(DATA_CONNECTION_ACTIVE_PH_LINK_ACTIVE)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
+        l.add(dcResponse);
+        mDc.mCid = 1;
+        mDcc.addActiveDcByCid(mDc);
+        ApnContext apnContext = new ApnContext(mPhone, ApnSetting.TYPE_IMS, TAG, mDcTracker, 1);
+        List<ApnContext> apnContextList = new ArrayList<>();
+        apnContextList.add(apnContext);
+        doReturn(apnContextList).when(mDc).getApnContexts();
+        doReturn(true).when(mDcTracker).getLteEndcUsingUserDataForIdleDetection();
+
+        mDcc.sendMessage(mDcc.obtainMessage(EVENT_DATA_STATE_CHANGED,
+                new AsyncResult(null, l, null)));
+        processAllMessages();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mTestHandler, times(1)).sendMessageDelayed(messageCaptor.capture(), anyLong());
+    }
+
+    @Test
+    @SmallTest
+    public void testPhysicalLinkStateChanged_defaultApnTypeAndStateChanged_registrantNotifyResult()
+            throws Exception {
+        testPhysicalLinkStateChanged_imsApnTypeAndDormant_NoNotifyResult();
+
+        ArrayList<DataCallResponse> l = new ArrayList<>();
+        DataCallResponse dcResponse = new DataCallResponse.Builder()
+                .setCause(0)
+                .setRetryDurationMillis(-1)
+                .setId(1)
+                .setLinkStatus(DATA_CONNECTION_ACTIVE_PH_LINK_ACTIVE)
+                .setProtocolType(ApnSetting.PROTOCOL_IP)
+                .setInterfaceName(FAKE_IFNAME)
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress(FAKE_ADDRESS), 0)))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_DNS)))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress(FAKE_GATEWAY)))
+                .setPcscfAddresses(
+                        Arrays.asList(InetAddresses.parseNumericAddress(FAKE_PCSCF_ADDRESS)))
+                .setMtuV4(1440)
+                .setMtuV6(1440)
+                .build();
+        l.add(dcResponse);
+        mDc.mCid = 1;
+        mDcc.addActiveDcByCid(mDc);
+        ApnContext apnContext = new ApnContext(mPhone, ApnSetting.TYPE_DEFAULT, TAG, mDcTracker, 1);
+        List<ApnContext> apnContextList = new ArrayList<>();
+        apnContextList.add(apnContext);
+        doReturn(apnContextList).when(mDc).getApnContexts();
+        doReturn(true).when(mDcTracker).getLteEndcUsingUserDataForIdleDetection();
+
+        mDcc.sendMessage(mDcc.obtainMessage(EVENT_DATA_STATE_CHANGED,
+                new AsyncResult(null, l, null)));
+        processAllMessages();
+
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(mTestHandler, times(2)).sendMessageDelayed(messageCaptor.capture(), anyLong());
+        Message message = messageCaptor.getValue();
+        assertEquals(EVENT_PHYSICAL_LINK_STATE_CHANGED, message.what);
+        AsyncResult ar = (AsyncResult) message.obj;
+        assertEquals(DcController.PHYSICAL_LINK_ACTIVE, (int) ar.result);
     }
 }

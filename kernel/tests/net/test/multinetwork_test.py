@@ -134,7 +134,7 @@ class OutgoingTest(multinetwork_base.MultiNetworkBaseTest):
     self.ExpectPacketOn(netid, msg, expected)
 
   def CheckOutgoingPackets(self, routing_mode):
-    for _ in xrange(self.ITERATIONS):
+    for _ in range(self.ITERATIONS):
       for netid in self.tuns:
 
         self.CheckPingPacket(4, netid, routing_mode, self.IPV4_PING)
@@ -194,7 +194,7 @@ class OutgoingTest(multinetwork_base.MultiNetworkBaseTest):
       # If we're testing connected sockets, connect the socket on the first
       # netid now.
       if use_connect:
-        netid = self.tuns.keys()[0]
+        netid = list(self.tuns.keys())[0]
         self.SelectInterface(s, netid, mode)
         s.connect((dstaddr, 53))
         expected.src = self.MyAddress(version, netid)
@@ -270,7 +270,7 @@ class OutgoingTest(multinetwork_base.MultiNetworkBaseTest):
     self.CheckRemarking(6, True)
 
   def testIPv6StickyPktinfo(self):
-    for _ in xrange(self.ITERATIONS):
+    for _ in range(self.ITERATIONS):
       for netid in self.tuns:
         s = net_test.UDPSocket(AF_INET6)
 
@@ -312,7 +312,7 @@ class OutgoingTest(multinetwork_base.MultiNetworkBaseTest):
         self.ExpectPacketOn(netid, msg, expected)
 
   def CheckPktinfoRouting(self, version):
-    for _ in xrange(self.ITERATIONS):
+    for _ in range(self.ITERATIONS):
       for netid in self.tuns:
         family = self.GetProtocolFamily(version)
         s = net_test.UDPSocket(family)
@@ -478,11 +478,11 @@ class TCPAcceptTest(multinetwork_base.InboundMarkingTest):
       self.InvalidateDstCache(version, netid)
 
     if mode == self.MODE_INCOMING_MARK:
-      self.assertEquals(netid, mark & self.NETID_FWMASK,
+      self.assertEqual(netid, mark & self.NETID_FWMASK,
                         msg + ": Accepted socket: Expected mark %d, got %d" % (
                             netid, mark))
     elif mode != self.MODE_EXPLICIT_MARK:
-      self.assertEquals(0, self.GetSocketMark(listensocket))
+      self.assertEqual(0, self.GetSocketMark(listensocket))
 
     # Check the FIN was sent on the right interface, and ack it. We don't expect
     # this to fail because by the time the connection is established things are
@@ -670,14 +670,14 @@ class RIOTest(multinetwork_base.MultiNetworkBaseTest):
                         table, prefix, plen, router, ifindex, None, None)
 
   def testSetAcceptRaRtInfoMinPlen(self):
-    for plen in xrange(-1, 130):
+    for plen in range(-1, 130):
       self.SetAcceptRaRtInfoMinPlen(plen)
-      self.assertEquals(plen, self.GetAcceptRaRtInfoMinPlen())
+      self.assertEqual(plen, self.GetAcceptRaRtInfoMinPlen())
 
   def testSetAcceptRaRtInfoMaxPlen(self):
-    for plen in xrange(-1, 130):
+    for plen in range(-1, 130):
       self.SetAcceptRaRtInfoMaxPlen(plen)
-      self.assertEquals(plen, self.GetAcceptRaRtInfoMaxPlen())
+      self.assertEqual(plen, self.GetAcceptRaRtInfoMaxPlen())
 
   def testZeroRtLifetime(self):
     PREFIX = "2001:db8:8901:2300::"
@@ -700,7 +700,7 @@ class RIOTest(multinetwork_base.MultiNetworkBaseTest):
     RTLIFETIME = 70372
     PRF = 0
     # sweep from high to low to avoid spurious failures from late arrivals.
-    for plen in xrange(130, 1, -1):
+    for plen in range(130, 1, -1):
       self.SetAcceptRaRtInfoMinPlen(plen)
       # RIO with plen < min_plen should be ignored
       self.SendRIO(RTLIFETIME, plen - 1, PREFIX, PRF)
@@ -715,7 +715,7 @@ class RIOTest(multinetwork_base.MultiNetworkBaseTest):
     RTLIFETIME = 73078
     PRF = 0
     # sweep from low to high to avoid spurious failures from late arrivals.
-    for plen in xrange(-1, 128, 1):
+    for plen in range(-1, 128, 1):
       self.SetAcceptRaRtInfoMaxPlen(plen)
       # RIO with plen > max_plen should be ignored
       self.SendRIO(RTLIFETIME, plen + 1, PREFIX, PRF)
@@ -782,16 +782,16 @@ class RIOTest(multinetwork_base.MultiNetworkBaseTest):
     baseline = self.CountRoutes()
     self.SetAcceptRaRtInfoMaxPlen(56)
     # Send many RIOs compared to the expected number on a healthy system.
-    for i in xrange(0, COUNT):
+    for i in range(0, COUNT):
       prefix = "2001:db8:%x:1100::" % i
       self.SendRIO(RTLIFETIME, PLEN, prefix, PRF)
     time.sleep(0.1)
-    self.assertEquals(COUNT + baseline, self.CountRoutes())
-    for i in xrange(0, COUNT):
+    self.assertEqual(COUNT + baseline, self.CountRoutes())
+    for i in range(0, COUNT):
       prefix = "2001:db8:%x:1100::" % i
       self.DelRA6(prefix, PLEN)
     # Expect that we can return to baseline config without lingering routes.
-    self.assertEquals(baseline, self.CountRoutes())
+    self.assertEqual(baseline, self.CountRoutes())
 
 class RATest(multinetwork_base.MultiNetworkBaseTest):
 
@@ -874,7 +874,7 @@ class RATest(multinetwork_base.MultiNetworkBaseTest):
       return len(open("/proc/net/ipv6_route").readlines())
 
     num_routes = GetNumRoutes()
-    for i in xrange(10, 20):
+    for i in range(10, 20):
       try:
         self.tuns[i] = self.CreateTunInterface(i)
         self.SendRA(i)
@@ -908,23 +908,23 @@ class RATest(multinetwork_base.MultiNetworkBaseTest):
     csocket.SetSocketTimeout(s.sock, 100)
     try:
       data = s._Recv()
-    except IOError, e:
+    except IOError as e:
       self.fail("Should have received an RTM_NEWNDUSEROPT message. "
                 "Please ensure the kernel supports receiving the "
                 "PREF64 RA option. Error: %s" % e)
 
     # Check that the message is received correctly.
     nlmsghdr, data = cstruct.Read(data, netlink.NLMsgHdr)
-    self.assertEquals(iproute.RTM_NEWNDUSEROPT, nlmsghdr.type)
+    self.assertEqual(iproute.RTM_NEWNDUSEROPT, nlmsghdr.type)
 
     # Check the option contents.
     ndopthdr, data = cstruct.Read(data, iproute.NdUseroptMsg)
-    self.assertEquals(AF_INET6, ndopthdr.family)
-    self.assertEquals(self.ND_ROUTER_ADVERT, ndopthdr.icmp_type)
-    self.assertEquals(len(opt), ndopthdr.opts_len)
+    self.assertEqual(AF_INET6, ndopthdr.family)
+    self.assertEqual(self.ND_ROUTER_ADVERT, ndopthdr.icmp_type)
+    self.assertEqual(len(opt), ndopthdr.opts_len)
 
     actual_opt = self.Pref64Option(data)
-    self.assertEquals(opt, actual_opt)
+    self.assertEqual(opt, actual_opt)
 
 
 
@@ -986,7 +986,7 @@ class PMTUTest(multinetwork_base.InboundMarkingTest):
         # Send a packet and receive a packet too big.
         SendBigPacket(version, s, dstaddr, netid, payload)
         received = self.ReadAllPacketsOn(netid)
-        self.assertEquals(1, len(received),
+        self.assertEqual(1, len(received),
                           "unexpected packets: %s" % received[1:])
         _, toobig = packets.ICMPPacketTooBig(version, intermediate, srcaddr,
                                              received[0])
@@ -1000,7 +1000,7 @@ class PMTUTest(multinetwork_base.InboundMarkingTest):
         # If this is a connected socket, make sure the socket MTU was set.
         # Note that in IPv4 this only started working in Linux 3.6!
         if use_connect and (version == 6 or net_test.LINUX_VERSION >= (3, 6)):
-          self.assertEquals(packets.PTB_MTU, self.GetSocketMTU(version, s))
+          self.assertEqual(packets.PTB_MTU, self.GetSocketMTU(version, s))
 
         s.close()
 
@@ -1010,16 +1010,16 @@ class PMTUTest(multinetwork_base.InboundMarkingTest):
         # here we use a mark for simplicity.
         s2 = self.BuildSocket(version, net_test.UDPSocket, netid, "mark")
         s2.connect((dstaddr, 1234))
-        self.assertEquals(packets.PTB_MTU, self.GetSocketMTU(version, s2))
+        self.assertEqual(packets.PTB_MTU, self.GetSocketMTU(version, s2))
 
         # Also check the MTU reported by ip route get, this time using the oif.
         routes = self.iproute.GetRoutes(dstaddr, self.ifindices[netid], 0, None)
         self.assertTrue(routes)
         route = routes[0]
         rtmsg, attributes = route
-        self.assertEquals(iproute.RTN_UNICAST, rtmsg.type)
+        self.assertEqual(iproute.RTN_UNICAST, rtmsg.type)
         metrics = attributes["RTA_METRICS"]
-        self.assertEquals(packets.PTB_MTU, metrics["RTAX_MTU"])
+        self.assertEqual(packets.PTB_MTU, metrics["RTAX_MTU"])
 
   def testIPv4BasicPMTU(self):
     """Tests IPv4 path MTU discovery.
@@ -1152,11 +1152,11 @@ class UidRoutingTest(multinetwork_base.MultiNetworkBaseTest):
       rules = self.GetRulesAtPriority(version, priority)
       self.assertTrue(rules)
       _, attributes = rules[-1]
-      self.assertEquals(priority, attributes["FRA_PRIORITY"])
+      self.assertEqual(priority, attributes["FRA_PRIORITY"])
       uidrange = attributes["FRA_UID_RANGE"]
-      self.assertEquals(start, uidrange.start)
-      self.assertEquals(end, uidrange.end)
-      self.assertEquals(table, attributes["FRA_TABLE"])
+      self.assertEqual(start, uidrange.start)
+      self.assertEqual(end, uidrange.end)
+      self.assertEqual(table, attributes["FRA_TABLE"])
     finally:
       self.iproute.UidRangeRule(version, False, start, end, table, priority)
       self.assertRaisesErrno(
@@ -1223,15 +1223,15 @@ class UidRoutingTest(multinetwork_base.MultiNetworkBaseTest):
     try:
       routes = self.iproute.GetRoutes(addr, oif, mark, uid)
       rtmsg, _ = routes[0]
-      self.assertEquals(iproute.RTN_UNREACHABLE, rtmsg.type)
-    except IOError, e:
+      self.assertEqual(iproute.RTN_UNREACHABLE, rtmsg.type)
+    except IOError as e:
       if int(e.errno) != int(errno.ENETUNREACH):
         raise e
 
   def ExpectRoute(self, addr, oif, mark, uid):
     routes = self.iproute.GetRoutes(addr, oif, mark, uid)
     rtmsg, _ = routes[0]
-    self.assertEquals(iproute.RTN_UNICAST, rtmsg.type)
+    self.assertEqual(iproute.RTN_UNICAST, rtmsg.type)
 
   def CheckGetRoute(self, version, addr):
     self.ExpectNoRoute(addr, 0, 0, 0)
@@ -1257,7 +1257,7 @@ class UidRoutingTest(multinetwork_base.MultiNetworkBaseTest):
       self.assertRaisesErrno(errno.ENETUNREACH,
                              s.sendto, "foo", (remoteaddr, 53))
     def CheckSendSucceeds():
-      self.assertEquals(len("foo"), s.sendto("foo", (remoteaddr, 53)))
+      self.assertEqual(len("foo"), s.sendto("foo", (remoteaddr, 53)))
 
     CheckSendFails()
     self.iproute.UidRangeRule(6, True, uid, uid, table, self.PRIORITY_UID)
@@ -1269,7 +1269,7 @@ class UidRoutingTest(multinetwork_base.MultiNetworkBaseTest):
       CheckSendSucceeds()
       os.fchown(s.fileno(), -1, 12345)
       CheckSendSucceeds()
-      os.fchmod(s.fileno(), 0777)
+      os.fchmod(s.fileno(), 0o777)
       CheckSendSucceeds()
       os.fchown(s.fileno(), 0, -1)
       CheckSendFails()
@@ -1306,8 +1306,8 @@ class RulesTest(net_test.NetworkTest):
       # Check that the rule pointing at table 301 is still around.
       attributes = [a for _, a in self.iproute.DumpRules(version)
                     if a.get("FRA_PRIORITY", 0) == self.RULE_PRIORITY]
-      self.assertEquals(1, len(attributes))
-      self.assertEquals(301, attributes[0]["FRA_TABLE"])
+      self.assertEqual(1, len(attributes))
+      self.assertEqual(301, attributes[0]["FRA_TABLE"])
 
 
 if __name__ == "__main__":

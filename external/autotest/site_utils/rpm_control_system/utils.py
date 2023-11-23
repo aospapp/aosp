@@ -16,7 +16,7 @@ import common
 
 import rpm_infrastructure_exception
 from config import rpm_config
-from autotest_lib.client.common_lib import enum
+from autotest_lib.client.common_lib import autotest_enum
 
 
 MAPPING_FILE = os.path.join(
@@ -32,7 +32,8 @@ DEFAULT_EXPIRATION_SECS = 60 * 30
 class PowerUnitInfo(object):
     """A class that wraps rpm/poe information of a device."""
 
-    POWERUNIT_TYPES = enum.Enum('POE', 'RPM', string_value=True)
+    POWERUNIT_TYPES = autotest_enum.AutotestEnum('POE', 'RPM',
+                                                 string_value=True)
 
     def __init__(self, device_hostname, powerunit_type,
                  powerunit_hostname, outlet, hydra_hostname=None):
@@ -41,34 +42,6 @@ class PowerUnitInfo(object):
         self.powerunit_hostname = powerunit_hostname
         self.outlet = outlet
         self.hydra_hostname = hydra_hostname
-
-
-    @staticmethod
-    def get_powerunit_info(afe_host):
-        """Constructe a PowerUnitInfo instance from an afe host.
-
-        @param afe_host: A host object.
-
-        @returns: A PowerUnitInfo object populated with the power management
-                  unit information of the host.
-        """
-        if (not POWERUNIT_HOSTNAME_KEY in afe_host.attributes or
-            not POWERUNIT_OUTLET_KEY in afe_host.attributes):
-            raise rpm_infrastructure_exception.RPMInfrastructureException(
-                    'Can not retrieve complete rpm information'
-                    'from AFE for %s, please make sure %s and %s are'
-                    ' in the host\'s attributes.' % (afe_host.hostname,
-                    POWERUNIT_HOSTNAME_KEY, POWERUNIT_OUTLET_KEY))
-
-        hydra_hostname=(afe_host.attributes[HYDRA_HOSTNAME_KEY]
-                        if HYDRA_HOSTNAME_KEY in afe_host.attributes
-                        else None)
-        return PowerUnitInfo(
-                device_hostname=afe_host.hostname,
-                powerunit_type=PowerUnitInfo.POWERUNIT_TYPES.RPM,
-                powerunit_hostname=afe_host.attributes[POWERUNIT_HOSTNAME_KEY],
-                outlet=afe_host.attributes[POWERUNIT_OUTLET_KEY],
-                hydra_hostname=hydra_hostname)
 
 
 class LRUCache(object):

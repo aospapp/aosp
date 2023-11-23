@@ -16,9 +16,7 @@
 
 package android.server.wm.app;
 
-import android.app.Activity;
-
-public class LaunchIntoPinnedStackPipActivity extends Activity {
+public class LaunchIntoPinnedStackPipActivity extends PipActivity {
     @Override
     protected void onResume() {
         super.onResume();

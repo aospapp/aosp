@@ -18,19 +18,31 @@ package com.android.internal.telephony;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.hardware.radio.V1_4.NrSignalStrength;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.doReturn;
+
+import android.hardware.radio.V1_6.NrSignalStrength;
 import android.os.Parcel;
 import android.telephony.CellInfo;
 import android.telephony.CellSignalStrength;
 import android.telephony.CellSignalStrengthNr;
-import android.test.AndroidTestCase;
+import android.telephony.ServiceState;
 
 import com.google.common.collect.BoundType;
 import com.google.common.collect.Range;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
 
-public class CellSignalStrengthNrTest extends AndroidTestCase {
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class CellSignalStrengthNrTest extends TelephonyTest {
     private static final int CSIRSRP = -123;
     private static final int CSIRSRQ = -11;
     private static final int ANOTHER_CSIRSRP = -111;
@@ -38,20 +50,44 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
     private static final int INVALID_CSIRSRP = Integer.MAX_VALUE;
     private static final int INVALID_SSRSRP = Integer.MAX_VALUE;
     private static final int CSISINR = 18;
+    private static final int CSICQI_TABLE_INDEX = 1;
+    private static final ArrayList<Byte> CSICQI_REPORT =
+            new ArrayList<>(Arrays.asList((byte) 3, (byte) 2, (byte) 1));
     private static final int SSRSRP = -112;
     private static final int SSRSRQ = -13;
     private static final int SSSINR = 32;
 
+    @Mock
+    ServiceState mSS;
+
+    @Before
+    public void setUp() throws Exception {
+        super.setUp(this.getClass().getSimpleName());
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        super.tearDown();
+    }
+
+    private List<Integer> getCsiCqiList() {
+        return CSICQI_REPORT.stream()
+                .map(cqi -> new Integer(Byte.toUnsignedInt(cqi)))
+                .collect(Collectors.toList());
+    }
+
     @Test
     public void testGetMethod() {
         // GIVEN an instance of CellSignalStrengthNr
-        CellSignalStrengthNr css = new CellSignalStrengthNr(
-                CSIRSRP, CSIRSRQ, CSISINR, SSRSRP, SSRSRQ, SSSINR);
+        CellSignalStrengthNr css = new CellSignalStrengthNr(CSIRSRP, CSIRSRQ, CSISINR,
+                CSICQI_TABLE_INDEX, CSICQI_REPORT, SSRSRP, SSRSRQ, SSSINR);
 
         // THEN the get method should return correct value
         assertThat(css.getCsiRsrp()).isEqualTo(CSIRSRP);
         assertThat(css.getCsiRsrq()).isEqualTo(CSIRSRQ);
         assertThat(css.getCsiSinr()).isEqualTo(CSISINR);
+        assertThat(css.getCsiCqiTableIndex()).isEqualTo(CSICQI_TABLE_INDEX);
+        assertThat(css.getCsiCqiReport()).isEqualTo(getCsiCqiList());
         assertThat(css.getSsRsrp()).isEqualTo(SSRSRP);
         assertThat(css.getSsRsrq()).isEqualTo(SSRSRQ);
         assertThat(css.getSsSinr()).isEqualTo(SSSINR);
@@ -62,18 +98,22 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
     public void testGetMethodWithHal() {
         // GIVEN an instance of NrSignalStrength with some positive values
         NrSignalStrength nrSignalStrength = new NrSignalStrength();
-        nrSignalStrength.csiRsrp = -CSIRSRP;
-        nrSignalStrength.csiRsrq = -CSIRSRQ;
-        nrSignalStrength.csiSinr = CSISINR;
-        nrSignalStrength.ssRsrp = -SSRSRP;
-        nrSignalStrength.ssRsrq = -SSRSRQ;
-        nrSignalStrength.ssSinr = SSSINR;
+        nrSignalStrength.base.csiRsrp = -CSIRSRP;
+        nrSignalStrength.base.csiRsrq = -CSIRSRQ;
+        nrSignalStrength.base.csiSinr = CSISINR;
+        nrSignalStrength.csiCqiTableIndex = CSICQI_TABLE_INDEX;
+        nrSignalStrength.csiCqiReport = CSICQI_REPORT;
+        nrSignalStrength.base.ssRsrp = -SSRSRP;
+        nrSignalStrength.base.ssRsrq = -SSRSRQ;
+        nrSignalStrength.base.ssSinr = SSSINR;
 
         // THEN the get method should return the correct value
         CellSignalStrengthNr css = new CellSignalStrengthNr(nrSignalStrength);
         assertThat(css.getCsiRsrp()).isEqualTo(CSIRSRP);
         assertThat(css.getCsiRsrq()).isEqualTo(CSIRSRQ);
         assertThat(css.getCsiSinr()).isEqualTo(CSISINR);
+        assertThat(css.getCsiCqiTableIndex()).isEqualTo(CSICQI_TABLE_INDEX);
+        assertThat(css.getCsiCqiReport()).isEqualTo(getCsiCqiList());
         assertThat(css.getSsRsrp()).isEqualTo(SSRSRP);
         assertThat(css.getSsRsrq()).isEqualTo(SSRSRQ);
         assertThat(css.getSsSinr()).isEqualTo(SSSINR);
@@ -84,18 +124,22 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
     public void testUnavailableValueWithHal() {
         // GIVEN an instance of NrSignalStrength
         NrSignalStrength nrSignalStrength = new NrSignalStrength();
-        nrSignalStrength.csiRsrp = CellInfo.UNAVAILABLE;
-        nrSignalStrength.csiRsrq = CellInfo.UNAVAILABLE;
-        nrSignalStrength.csiSinr = CellInfo.UNAVAILABLE;
-        nrSignalStrength.ssRsrp = CellInfo.UNAVAILABLE;
-        nrSignalStrength.ssRsrq = CellInfo.UNAVAILABLE;
-        nrSignalStrength.ssSinr = CellInfo.UNAVAILABLE;
+        nrSignalStrength.base.csiRsrp = CellInfo.UNAVAILABLE;
+        nrSignalStrength.base.csiRsrq = CellInfo.UNAVAILABLE;
+        nrSignalStrength.base.csiSinr = CellInfo.UNAVAILABLE;
+        nrSignalStrength.csiCqiTableIndex = CellInfo.UNAVAILABLE;
+        nrSignalStrength.csiCqiReport = new ArrayList<Byte>();
+        nrSignalStrength.base.ssRsrp = CellInfo.UNAVAILABLE;
+        nrSignalStrength.base.ssRsrq = CellInfo.UNAVAILABLE;
+        nrSignalStrength.base.ssSinr = CellInfo.UNAVAILABLE;
 
         // THEN the get method should return unavailable value
         CellSignalStrengthNr css = new CellSignalStrengthNr(nrSignalStrength);
         assertThat(css.getCsiRsrp()).isEqualTo(CellInfo.UNAVAILABLE);
         assertThat(css.getCsiRsrq()).isEqualTo(CellInfo.UNAVAILABLE);
         assertThat(css.getCsiSinr()).isEqualTo(CellInfo.UNAVAILABLE);
+        assertThat(css.getCsiCqiTableIndex()).isEqualTo(CellInfo.UNAVAILABLE);
+        assertThat(css.getCsiCqiReport()).isEqualTo(Collections.emptyList());
         assertThat(css.getSsRsrp()).isEqualTo(CellInfo.UNAVAILABLE);
         assertThat(css.getSsRsrq()).isEqualTo(CellInfo.UNAVAILABLE);
         assertThat(css.getSsSinr()).isEqualTo(CellInfo.UNAVAILABLE);
@@ -105,10 +149,10 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
     @Test
     public void testEquals_sameParameters() {
         // GIVEN an instance of CellSignalStrengthNr and another object with the same parameters
-        CellSignalStrengthNr css = new CellSignalStrengthNr(
-                CSIRSRP, CSIRSRQ, CSISINR, SSRSRP, SSRSRQ, SSSINR);
-        CellSignalStrengthNr anotherCss = new CellSignalStrengthNr(
-                CSIRSRP, CSIRSRQ, CSISINR, SSRSRP, SSRSRQ, SSSINR);
+        CellSignalStrengthNr css = new CellSignalStrengthNr(CSIRSRP, CSIRSRQ, CSISINR,
+                CSICQI_TABLE_INDEX, CSICQI_REPORT, SSRSRP, SSRSRQ, SSSINR);
+        CellSignalStrengthNr anotherCss = new CellSignalStrengthNr(CSIRSRP, CSIRSRQ, CSISINR,
+                CSICQI_TABLE_INDEX, CSICQI_REPORT, SSRSRP, SSRSRQ, SSSINR);
 
         // THEN this two objects are equivalent
         assertThat(css).isEqualTo(anotherCss);
@@ -118,10 +162,11 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
     public void testEquals_differentParameters() {
         // GIVEN an instance of CellSignalStrengthNr and another object with some different
         // parameters
-        CellSignalStrengthNr css = new CellSignalStrengthNr(
-                CSIRSRP, CSIRSRQ, CSISINR, SSRSRP, SSRSRQ, SSSINR);
-        CellSignalStrengthNr anotherCss = new CellSignalStrengthNr(
-                ANOTHER_CSIRSRP, ANOTHER_CSIRSRQ, CSISINR, SSRSRP, SSRSRQ, SSSINR);
+        CellSignalStrengthNr css = new CellSignalStrengthNr(CSIRSRP, CSIRSRQ, CSISINR,
+                CSICQI_TABLE_INDEX, CSICQI_REPORT, SSRSRP, SSRSRQ, SSSINR);
+        CellSignalStrengthNr anotherCss = new CellSignalStrengthNr(ANOTHER_CSIRSRP,
+                ANOTHER_CSIRSRQ, CSISINR, CSICQI_TABLE_INDEX, CSICQI_REPORT,
+                SSRSRP, SSRSRQ, SSSINR);
 
         // THEN this two objects are different
         assertThat(css).isNotEqualTo(anotherCss);
@@ -130,8 +175,8 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
     @Test
     public void testAusLevel_validValue() {
         // GIVEN an instance of CellSignalStrengthNr with valid csirsrp
-        CellSignalStrengthNr css = new CellSignalStrengthNr(
-                CSIRSRP, CSIRSRQ, CSISINR, SSRSRP, SSRSRQ, SSSINR);
+        CellSignalStrengthNr css = new CellSignalStrengthNr(CSIRSRP, CSIRSRQ, CSISINR,
+                CSICQI_TABLE_INDEX, CSICQI_REPORT, SSRSRP, SSRSRQ, SSSINR);
 
         // THEN the asu level is in range [0, 97]
         assertThat(css.getAsuLevel()).isIn(Range.range(0, BoundType.CLOSED, 97, BoundType.CLOSED));
@@ -140,8 +185,8 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
     @Test
     public void testAsuLevel_invalidValue() {
         // GIVEN an instance of CellSignalStrengthNr with invalid csirsrp
-        CellSignalStrengthNr css = new CellSignalStrengthNr(
-                CSIRSRP, CSIRSRQ, CSISINR, INVALID_SSRSRP, SSRSRQ, SSSINR);
+        CellSignalStrengthNr css = new CellSignalStrengthNr(CSIRSRP, CSIRSRQ, CSISINR,
+                CSICQI_TABLE_INDEX, CSICQI_REPORT, INVALID_SSRSRP, SSRSRQ, SSSINR);
 
         // THEN the asu level is unknown
         assertThat(css.getAsuLevel()).isEqualTo(CellSignalStrengthNr.UNKNOWN_ASU_LEVEL);
@@ -151,8 +196,8 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
     public void testSignalLevel_validValue() {
         for (int ssRsrp = -140; ssRsrp <= -44; ssRsrp++) {
             // GIVEN an instance of CellSignalStrengthNr with valid csirsrp
-            CellSignalStrengthNr css = new CellSignalStrengthNr(
-                    CSIRSRP, CSIRSRQ, CSISINR, ssRsrp, SSRSRQ, SSSINR);
+            CellSignalStrengthNr css = new CellSignalStrengthNr(CSIRSRP, CSIRSRQ, CSISINR,
+                    CSICQI_TABLE_INDEX, CSICQI_REPORT, INVALID_SSRSRP, SSRSRQ, SSSINR);
 
             // THEN the signal level is valid
             assertThat(css.getLevel()).isIn(Range.range(
@@ -164,8 +209,8 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
     @Test
     public void testSignalLevel_invalidValue() {
         // GIVEN an instance of CellSignalStrengthNr with invalid csirsrp
-        CellSignalStrengthNr css = new CellSignalStrengthNr(
-                CSIRSRP, CSIRSRQ, CSISINR, INVALID_SSRSRP, SSRSRQ, SSSINR);
+        CellSignalStrengthNr css = new CellSignalStrengthNr(CSIRSRP, CSIRSRQ, CSISINR,
+                CSICQI_TABLE_INDEX, CSICQI_REPORT, SSRSRP, SSRSRQ, SSSINR);
 
         // THEN the signal level is unknown
         assertThat(css.getLevel()).isEqualTo(CellSignalStrength.SIGNAL_STRENGTH_NONE_OR_UNKNOWN);
@@ -174,8 +219,8 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
     @Test
     public void testParcel() {
         // GIVEN an instance of CellSignalStrengthNr
-        CellSignalStrengthNr css = new CellSignalStrengthNr(
-                CSIRSRP, CSIRSRQ, CSISINR, SSRSRP, SSRSRQ, SSSINR);
+        CellSignalStrengthNr css = new CellSignalStrengthNr(CSIRSRP, CSIRSRQ, CSISINR,
+                CSICQI_TABLE_INDEX, CSICQI_REPORT, SSRSRP, SSRSRQ, SSSINR);
 
         // WHEN write the object to parcel and create another object with that parcel
         Parcel parcel = Parcel.obtain();
@@ -188,8 +233,25 @@ public class CellSignalStrengthNrTest extends AndroidTestCase {
         assertThat(anotherCss.getCsiRsrp()).isEqualTo(CSIRSRP);
         assertThat(anotherCss.getCsiRsrq()).isEqualTo(CSIRSRQ);
         assertThat(anotherCss.getCsiSinr()).isEqualTo(CSISINR);
+        assertThat(css.getCsiCqiTableIndex()).isEqualTo(CSICQI_TABLE_INDEX);
+        assertThat(css.getCsiCqiReport()).isEqualTo(getCsiCqiList());
         assertThat(anotherCss.getSsRsrp()).isEqualTo(SSRSRP);
         assertThat(anotherCss.getSsRsrq()).isEqualTo(SSRSRQ);
         assertThat(anotherCss.getSsSinr()).isEqualTo(SSSINR);
+    }
+
+    @Test
+    public void testLevel() {
+        CellSignalStrengthNr css = new CellSignalStrengthNr(CSIRSRP, CSIRSRQ, CSISINR, SSRSRP,
+                SSRSRQ, SSSINR);
+
+        // No keys in the bundle - should use RSRP and default levels.
+        css.updateLevel(null, null);
+        assertEquals(0 /* NONE or UNKNOWN */, css.getLevel());
+
+        doReturn(10).when(mSS).getArfcnRsrpBoost();
+        // Add rsrp boost and level should change to 1 - POOR
+        css.updateLevel(null, mSS);
+        assertEquals(1 /* MODERATE */, css.getLevel());
     }
 }

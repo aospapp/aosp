@@ -76,6 +76,8 @@ LOCAL_SRC_FILES := IPACM_Main.cpp \
 		IPACM_OffloadManager.cpp
 
 LOCAL_MODULE := ipacm
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SHARED_LIBRARIES := liboffloadhal
@@ -105,6 +107,8 @@ define ADD_TEST
 
 include $(CLEAR_VARS)
 LOCAL_MODULE       := $1
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SRC_FILES    := $1
 LOCAL_MODULE_CLASS := ipacm
 LOCAL_MODULE_TAGS  := debug
@@ -115,6 +119,8 @@ endef
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := IPACM_cfg.xml
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_ETC)
 LOCAL_MODULE_TAGS := optional

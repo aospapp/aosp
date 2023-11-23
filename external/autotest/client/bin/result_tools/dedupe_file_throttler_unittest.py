@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import os
 import shutil
@@ -12,6 +17,7 @@ import common
 from autotest_lib.client.bin.result_tools import dedupe_file_throttler
 from autotest_lib.client.bin.result_tools import result_info
 from autotest_lib.client.bin.result_tools import unittest_lib
+from six.moves import range
 
 
 # Set to 0 to force maximum throttling.

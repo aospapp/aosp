@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,22 @@
 
 package com.android.tv.tuner.exoplayer2;
 
+import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Handler;
 import android.support.annotation.Nullable;
 
-import com.android.tv.tuner.exoplayer.buffer.BufferManager;
-import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
-import com.android.tv.tuner.exoplayer.buffer.SamplePool;
+import com.android.tv.tuner.exoplayer2.buffer.BufferManager;
+import com.android.tv.tuner.exoplayer2.buffer.InputBufferPool;
+import com.android.tv.tuner.exoplayer2.buffer.PlaybackBufferListener;
 
-import com.google.android.exoplayer.MediaFormat;
-import com.google.android.exoplayer.MediaFormatHolder;
-import com.google.android.exoplayer.SampleHolder;
-import com.google.android.exoplayer.SampleSource;
-import com.google.android.exoplayer.util.MimeTypes;
+import com.google.android.exoplayer2.C;
+import com.google.android.exoplayer2.Format;
+import com.google.android.exoplayer2.FormatHolder;
+import com.google.android.exoplayer2.decoder.DecoderInputBuffer;
+import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.upstream.DataSource;
+import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.auto.factory.AutoFactory;
 import com.google.auto.factory.Provided;
 
@@ -39,23 +41,27 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-/** Extracts samples from {@link DataSource} for MPEG-TS streams. */
-public final class MpegTsSampleExtractor implements SampleExtractor {
-    public static final String MIMETYPE_TEXT_CEA_708 = "text/cea-708";
+/**
+ * Extracts samples from {@link DataSource} for MPEG-TS streams.
+ * Managed captions for live and recorded playback since exoplayer earlier version needed it.
+ * //TODO: Can be discarded from exoplayer2
+ */
+public final class MpegTsSampleExtractor implements SampleExtractor, SampleExtractor.Callback {
 
     private static final int CC_BUFFER_SIZE_IN_BYTES = 9600 / 8;
 
     private final SampleExtractor mSampleExtractor;
-    private final List<MediaFormat> mTrackFormats = new ArrayList<>();
+    private final List<Format> mTrackFormats = new ArrayList<>();
     private final List<Boolean> mReachedEos = new ArrayList<>();
     private int mVideoTrackIndex;
-    private final SamplePool mCcSamplePool = new SamplePool();
-    private final List<SampleHolder> mPendingCcSamples = new LinkedList<>();
+    private final InputBufferPool mCcInputBufferPool = new InputBufferPool();
+    private final List<DecoderInputBuffer> mPendingCcSamples = new LinkedList<>();
 
     private int mCea708TextTrackIndex;
     private boolean mCea708TextTrackSelected;
 
     private CcParser mCcParser;
+    private Callback mCallback;
 
     private void init() {
         mVideoTrackIndex = -1;
@@ -70,10 +76,12 @@ public final class MpegTsSampleExtractor implements SampleExtractor {
      * generated class.
      */
     public interface Factory {
-        public MpegTsSampleExtractor create(
-                BufferManager bufferManager, PlaybackBufferListener bufferListener);
+        MpegTsSampleExtractor create(
+                BufferManager bufferManager,
+                PlaybackBufferListener bufferListener,
+                long durationMs);
 
-        public MpegTsSampleExtractor create(
+        MpegTsSampleExtractor create(
                 DataSource source,
                 @Nullable BufferManager bufferManager,
                 PlaybackBufferListener bufferListener);
@@ -104,13 +112,16 @@ public final class MpegTsSampleExtractor implements SampleExtractor {
      * @param bufferManager the samples provider which is stored in physical storage
      * @param bufferListener the {@link PlaybackBufferListener} to notify buffer storage status
      *     change
+     * @param durationMs the duration of recording in Milliseconds
      */
     @AutoFactory(implementing = Factory.class)
     public MpegTsSampleExtractor(
             BufferManager bufferManager,
             PlaybackBufferListener bufferListener,
+            long durationMs,
             @Provided FileSampleExtractor.Factory fileSampleExtractorFactory) {
-        mSampleExtractor = fileSampleExtractorFactory.create(bufferManager, bufferListener);
+        mSampleExtractor =
+                fileSampleExtractorFactory.create(bufferManager, bufferListener, durationMs);
         init();
     }
 
@@ -122,43 +133,14 @@ public final class MpegTsSampleExtractor implements SampleExtractor {
     }
 
     @Override
-    public boolean prepare() throws IOException {
-        if (!mSampleExtractor.prepare()) {
-            return false;
-        }
-        List<MediaFormat> formats = mSampleExtractor.getTrackFormats();
-        int trackCount = formats.size();
-        mTrackFormats.clear();
-        mReachedEos.clear();
-
-        for (int i = 0; i < trackCount; ++i) {
-            mTrackFormats.add(formats.get(i));
-            mReachedEos.add(false);
-            String mime = formats.get(i).mimeType;
-            if (MimeTypes.isVideo(mime) && mVideoTrackIndex == -1) {
-                mVideoTrackIndex = i;
-                if (android.media.MediaFormat.MIMETYPE_VIDEO_MPEG2.equals(mime)) {
-                    mCcParser = new Mpeg2CcParser();
-                } else if (android.media.MediaFormat.MIMETYPE_VIDEO_AVC.equals(mime)) {
-                    mCcParser = new H264CcParser();
-                }
-            }
-        }
-
-        if (mVideoTrackIndex != -1) {
-            mCea708TextTrackIndex = trackCount;
-        }
-        if (mCea708TextTrackIndex >= 0) {
-            mTrackFormats.add(
-                    MediaFormat.createTextFormat(
-                            null, MIMETYPE_TEXT_CEA_708, 0, mTrackFormats.get(0).durationUs, ""));
-        }
-        return true;
+    public void prepare(Callback callback) throws IOException {
+        mCallback = callback;
+        mSampleExtractor.prepare(this);
     }
 
     @Override
-    public List<MediaFormat> getTrackFormats() {
-        return mTrackFormats;
+    public TrackGroupArray getTrackGroups() {
+        return mSampleExtractor.getTrackGroups();
     }
 
     @Override
@@ -185,46 +167,51 @@ public final class MpegTsSampleExtractor implements SampleExtractor {
     }
 
     @Override
+    public long getNextLoadPositionUs() {
+        return mSampleExtractor.getNextLoadPositionUs();
+    }
+
+    @Override
     public void seekTo(long positionUs) {
         mSampleExtractor.seekTo(positionUs);
-        for (SampleHolder holder : mPendingCcSamples) {
-            mCcSamplePool.releaseSample(holder);
+        for (DecoderInputBuffer holder : mPendingCcSamples) {
+            mCcInputBufferPool.releaseSample(holder);
         }
         mPendingCcSamples.clear();
     }
 
     @Override
-    public void getTrackMediaFormat(int track, MediaFormatHolder outMediaFormatHolder) {
-        if (track != mCea708TextTrackIndex) {
-            mSampleExtractor.getTrackMediaFormat(track, outMediaFormatHolder);
-        }
+    public void getTrackMediaFormat(int track, FormatHolder outMediaFormatHolder) {
+        mSampleExtractor.getTrackMediaFormat(track, outMediaFormatHolder);
     }
 
     @Override
-    public int readSample(int track, SampleHolder sampleHolder) {
+    public int readSample(int track, DecoderInputBuffer sampleHolder) {
         if (track == mCea708TextTrackIndex) {
             if (mCea708TextTrackSelected && !mPendingCcSamples.isEmpty()) {
-                SampleHolder holder = mPendingCcSamples.remove(0);
+                DecoderInputBuffer holder = mPendingCcSamples.remove(0);
+                sampleHolder.ensureSpaceForWrite(CC_BUFFER_SIZE_IN_BYTES);
                 holder.data.flip();
                 sampleHolder.timeUs = holder.timeUs;
+                sampleHolder.data.clear();
                 sampleHolder.data.put(holder.data);
-                mCcSamplePool.releaseSample(holder);
-                return SampleSource.SAMPLE_READ;
+                mCcInputBufferPool.releaseSample(holder);
+                return C.RESULT_BUFFER_READ;
             } else {
                 return mVideoTrackIndex < 0 || mReachedEos.get(mVideoTrackIndex)
-                        ? SampleSource.END_OF_STREAM
-                        : SampleSource.NOTHING_READ;
+                        ? C.RESULT_END_OF_INPUT
+                        : C.RESULT_NOTHING_READ;
             }
         }
 
         int result = mSampleExtractor.readSample(track, sampleHolder);
         switch (result) {
-            case SampleSource.END_OF_STREAM:
+            case C.RESULT_END_OF_INPUT:
                 {
                     mReachedEos.set(track, true);
                     break;
                 }
-            case SampleSource.SAMPLE_READ:
+            case C.RESULT_BUFFER_READ:
                 {
                     if (mCea708TextTrackSelected
                             && track == mVideoTrackIndex
@@ -246,21 +233,46 @@ public final class MpegTsSampleExtractor implements SampleExtractor {
     }
 
     @Override
-    public boolean continueBuffering(long positionUs) {
-        return mSampleExtractor.continueBuffering(positionUs);
+    public boolean continueLoading(long positionUs) {
+        return mSampleExtractor.continueLoading(positionUs);
     }
 
     @Override
     public void setOnCompletionListener(OnCompletionListener listener, Handler handler) {}
 
+    @Override
+    public void onPrepared() {
+        int trackCount = mSampleExtractor.getTrackGroups().length;
+        mTrackFormats.clear();
+        mReachedEos.clear();
+
+        for (int i = 0; i < trackCount; ++i) {
+            Format format = mSampleExtractor.getTrackGroups().get(i).getFormat(0);
+            mTrackFormats.add(format);
+            mReachedEos.add(false);
+            String mime = format.sampleMimeType;
+            if (MimeTypes.isVideo(mime) && mVideoTrackIndex == -1) {
+                mVideoTrackIndex = i;
+                if (MediaFormat.MIMETYPE_VIDEO_MPEG2.equals(mime)) {
+                    mCcParser = new Mpeg2CcParser();
+                } else if (MediaFormat.MIMETYPE_VIDEO_AVC.equals(mime)) {
+                    mCcParser = new H264CcParser();
+                }
+            } else if (MimeTypes.APPLICATION_CEA708.equals(mime)) {
+                mCea708TextTrackIndex = i;
+            }
+        }
+        mCallback.onPrepared();
+    }
+
     private abstract class CcParser {
         // Interim buffer for reduce direct access to ByteBuffer which is expensive. Using
         // relatively small buffer size in order to minimize memory footprint increase.
-        protected final byte[] mBuffer = new byte[1024];
+        final byte[] mBuffer = new byte[1024];
 
         abstract void mayParseClosedCaption(ByteBuffer buffer, long presentationTimeUs);
 
-        protected int parseClosedCaption(ByteBuffer buffer, int offset, long presentationTimeUs) {
+        int parseClosedCaption(ByteBuffer buffer, int offset, long presentationTimeUs) {
             // For the details of user_data_type_structure, see ATSC A/53 Part 4 - Table 6.9.
             int pos = offset;
             if (pos + 2 >= buffer.position()) {
@@ -272,7 +284,7 @@ public final class MpegTsSampleExtractor implements SampleExtractor {
             if (!processCcDataFlag || pos + 3 * ccCount >= buffer.position() || ccCount == 0) {
                 return offset;
             }
-            SampleHolder holder = mCcSamplePool.acquireSample(CC_BUFFER_SIZE_IN_BYTES);
+            DecoderInputBuffer holder = mCcInputBufferPool.acquireSample(CC_BUFFER_SIZE_IN_BYTES);
             for (int i = 0; i < 3 * ccCount; i++) {
                 holder.data.put(buffer.get(pos++));
             }

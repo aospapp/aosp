@@ -1196,7 +1196,7 @@ public class SocketTest extends TestCaseWithRules {
          * that do not support urgent data
          */
         String platform = System.getProperty("os.name");
-        if (platform.equals("Dummy")) {
+        if (platform.equals("Fake")) {
             return;
         }
 

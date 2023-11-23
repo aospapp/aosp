@@ -25,12 +25,12 @@
 #include "libANGLE/renderer/d3d/d3d11/Context11.h"
 #include "libANGLE/renderer/d3d/d3d11/RenderTarget11.h"
 #include "libANGLE/renderer/d3d/d3d11/Renderer11.h"
-#include "libANGLE/renderer/d3d/d3d11/dxgi_support_table.h"
 #include "libANGLE/renderer/d3d/d3d11/formatutils11.h"
 #include "libANGLE/renderer/d3d/d3d11/texture_format_table.h"
 #include "libANGLE/renderer/driver_utils.h"
+#include "libANGLE/renderer/dxgi_support_table.h"
 #include "platform/FeaturesD3D.h"
-#include "platform/Platform.h"
+#include "platform/PlatformMethods.h"
 
 namespace rx
 {
@@ -849,7 +849,6 @@ std::array<GLint, 3> GetMaxComputeWorkGroupCount(D3D_FEATURE_LEVEL featureLevel)
             return {{D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION,
                      D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION,
                      D3D11_CS_DISPATCH_MAX_THREAD_GROUPS_PER_DIMENSION}};
-            break;
         default:
             return {{0, 0, 0}};
     }
@@ -863,7 +862,6 @@ std::array<GLint, 3> GetMaxComputeWorkGroupSize(D3D_FEATURE_LEVEL featureLevel)
         case D3D_FEATURE_LEVEL_11_0:
             return {{D3D11_CS_THREAD_GROUP_MAX_X, D3D11_CS_THREAD_GROUP_MAX_Y,
                      D3D11_CS_THREAD_GROUP_MAX_Z}};
-            break;
         default:
             return {{0, 0, 0}};
     }
@@ -1241,11 +1239,8 @@ IntelDriverVersion GetIntelDriverVersion(const Optional<LARGE_INTEGER> driverVer
     if (!driverVersion.valid())
         return IntelDriverVersion(0);
 
-    // According to http://www.intel.com/content/www/us/en/support/graphics-drivers/000005654.html,
-    // only the fourth part is necessary since it stands for the driver specific unique version
-    // number.
-    WORD part = LOWORD(driverVersion.value().LowPart);
-    return IntelDriverVersion(part);
+    DWORD lowPart = driverVersion.value().LowPart;
+    return IntelDriverVersion(HIWORD(lowPart) * 10000 + LOWORD(lowPart));
 }
 
 }  // anonymous namespace
@@ -1292,9 +1287,9 @@ unsigned int GetReservedFragmentUniformVectors(D3D_FEATURE_LEVEL featureLevel)
     }
 }
 
-gl::Version GetMaximumClientVersion(D3D_FEATURE_LEVEL featureLevel)
+gl::Version GetMaximumClientVersion(const Renderer11DeviceCaps &caps)
 {
-    switch (featureLevel)
+    switch (caps.featureLevel)
     {
         case D3D_FEATURE_LEVEL_11_1:
         case D3D_FEATURE_LEVEL_11_0:
@@ -1303,6 +1298,14 @@ gl::Version GetMaximumClientVersion(D3D_FEATURE_LEVEL featureLevel)
             return gl::Version(3, 0);
 
         case D3D_FEATURE_LEVEL_10_0:
+            if (caps.allowES3OnFL10_0)
+            {
+                return gl::Version(3, 0);
+            }
+            else
+            {
+                return gl::Version(2, 0);
+            }
         case D3D_FEATURE_LEVEL_9_3:
         case D3D_FEATURE_LEVEL_9_2:
         case D3D_FEATURE_LEVEL_9_1:
@@ -1385,8 +1388,9 @@ void GenerateCaps(ID3D11Device *device,
     const gl::FormatSet &allFormats = gl::GetAllSizedInternalFormats();
     for (GLenum internalFormat : allFormats)
     {
-        gl::TextureCaps textureCaps = GenerateTextureFormatCaps(
-            GetMaximumClientVersion(featureLevel), internalFormat, device, renderer11DeviceCaps);
+        gl::TextureCaps textureCaps =
+            GenerateTextureFormatCaps(GetMaximumClientVersion(renderer11DeviceCaps), internalFormat,
+                                      device, renderer11DeviceCaps);
         textureCapsMap->insert(internalFormat, textureCaps);
 
         if (gl::GetSizedInternalFormatInfo(internalFormat).compressed)
@@ -1600,7 +1604,7 @@ void GenerateCaps(ID3D11Device *device,
     extensions->blendMinMax                = true;
     // https://docs.microsoft.com/en-us/windows/desktop/direct3ddxgi/format-support-for-direct3d-11-0-feature-level-hardware
     extensions->floatBlend             = true;
-    extensions->framebufferBlit        = GetFramebufferBlitSupport(featureLevel);
+    extensions->framebufferBlitANGLE   = GetFramebufferBlitSupport(featureLevel);
     extensions->framebufferMultisample = GetFramebufferMultisampleSupport(featureLevel);
     extensions->instancedArraysANGLE   = GetInstancingSupport(featureLevel);
     extensions->instancedArraysEXT     = GetInstancingSupport(featureLevel);
@@ -1613,9 +1617,8 @@ void GenerateCaps(ID3D11Device *device,
     if (extensions->multiview || extensions->multiview2)
     {
         extensions->maxViews =
-            std::min(static_cast<GLuint>(gl::IMPLEMENTATION_ANGLE_MULTIVIEW_MAX_VIEWS),
-                     std::min(static_cast<GLuint>(GetMaximum2DTextureArraySize(featureLevel)),
-                              GetMaxViewportAndScissorRectanglesPerPipeline(featureLevel)));
+            std::min(static_cast<GLuint>(GetMaximum2DTextureArraySize(featureLevel)),
+                     GetMaxViewportAndScissorRectanglesPerPipeline(featureLevel));
     }
     extensions->textureUsage       = true;  // This could be false since it has no effect in D3D11
     extensions->discardFramebuffer = true;
@@ -1634,15 +1637,16 @@ void GenerateCaps(ID3D11Device *device,
     extensions->copyTexture                         = true;
     extensions->copyCompressedTexture               = true;
     extensions->textureStorageMultisample2DArrayOES = true;
-    extensions->multiviewMultisample      = ((extensions->multiview || extensions->multiview2) &&
+    extensions->multiviewMultisample     = ((extensions->multiview || extensions->multiview2) &&
                                         extensions->textureStorageMultisample2DArrayOES);
-    extensions->copyTexture3d             = true;
-    extensions->textureBorderClampOES     = true;
-    extensions->textureMultisample        = true;
-    extensions->provokingVertex           = true;
-    extensions->blendFuncExtended         = true;
-    extensions->maxDualSourceDrawBuffers  = 1;
-    extensions->texture3DOES              = true;
+    extensions->copyTexture3d            = true;
+    extensions->textureBorderClampOES    = true;
+    extensions->textureMultisample       = true;
+    extensions->provokingVertex          = true;
+    extensions->blendFuncExtended        = true;
+    extensions->maxDualSourceDrawBuffers = 1;
+    // http://anglebug.com/4926
+    extensions->texture3DOES              = false;
     extensions->baseVertexBaseInstance    = true;
     extensions->drawElementsBaseVertexOES = true;
     extensions->drawElementsBaseVertexEXT = true;
@@ -2128,10 +2132,12 @@ void MakeValidSize(bool isImage,
                    int *levelOffset)
 {
     const DXGIFormatSize &dxgiFormatInfo = d3d11::GetDXGIFormatSizeInfo(format);
+    bool validFormat                     = format != DXGI_FORMAT_UNKNOWN;
+    bool validImage                      = isImage && validFormat;
 
     int upsampleCount = 0;
     // Don't expand the size of full textures that are at least (blockWidth x blockHeight) already.
-    if (isImage || *requestWidth < static_cast<GLsizei>(dxgiFormatInfo.blockWidth) ||
+    if (validImage || *requestWidth < static_cast<GLsizei>(dxgiFormatInfo.blockWidth) ||
         *requestHeight < static_cast<GLsizei>(dxgiFormatInfo.blockHeight))
     {
         while (*requestWidth % dxgiFormatInfo.blockWidth != 0 ||
@@ -2142,6 +2148,20 @@ void MakeValidSize(bool isImage,
             upsampleCount++;
         }
     }
+    else if (validFormat)
+    {
+        if (*requestWidth % dxgiFormatInfo.blockWidth != 0)
+        {
+            *requestWidth = roundUp(*requestWidth, static_cast<GLsizei>(dxgiFormatInfo.blockWidth));
+        }
+
+        if (*requestHeight % dxgiFormatInfo.blockHeight != 0)
+        {
+            *requestHeight =
+                roundUp(*requestHeight, static_cast<GLsizei>(dxgiFormatInfo.blockHeight));
+        }
+    }
+
     if (levelOffset)
     {
         *levelOffset = upsampleCount;
@@ -2223,6 +2243,7 @@ void SetPositionLayerTexCoord3DVertex(PositionLayerTexCoord3DVertex *vertex,
 BlendStateKey::BlendStateKey()
 {
     memset(this, 0, sizeof(BlendStateKey));
+    blendStateExt = gl::BlendStateExt();
 }
 
 BlendStateKey::BlendStateKey(const BlendStateKey &other)
@@ -2257,7 +2278,6 @@ bool operator!=(const RasterizerStateKey &a, const RasterizerStateKey &b)
 
 HRESULT SetDebugName(ID3D11DeviceChild *resource, const char *name)
 {
-#if defined(_DEBUG)
     UINT existingDataSize = 0;
     resource->GetPrivateData(WKPDID_D3DDebugObjectName, &existingDataSize, nullptr);
     // Don't check the HRESULT- if it failed then that probably just means that no private data
@@ -2269,28 +2289,22 @@ HRESULT SetDebugName(ID3D11DeviceChild *resource, const char *name)
         // a D3D SDK Layers warning. This can occur if, for example, you 'create' two objects
         // (e.g.Rasterizer States) with identical DESCs on the same device. D3D11 will optimize
         // these calls and return the same object both times.
-        static const char *multipleNamesUsed = "Multiple names set by ANGLE";
+        static const char *multipleNamesUsed = "MultipleNamesSetByANGLE";
 
         // Remove the existing name
-        HRESULT hr = resource->SetPrivateData(WKPDID_D3DDebugObjectName, 0, nullptr);
+        const HRESULT hr = resource->SetPrivateData(WKPDID_D3DDebugObjectName, 0, nullptr);
         if (FAILED(hr))
         {
             return hr;
         }
 
-        // Apply the new name
-        return resource->SetPrivateData(WKPDID_D3DDebugObjectName,
-                                        static_cast<unsigned int>(strlen(multipleNamesUsed)),
-                                        multipleNamesUsed);
+        name = multipleNamesUsed;
     }
-    else
-    {
-        return resource->SetPrivateData(WKPDID_D3DDebugObjectName,
-                                        static_cast<unsigned int>(strlen(name)), name);
-    }
-#else
-    return S_OK;
-#endif
+
+    // Prepend ANGLE_ to separate names from other components in the same process.
+    const std::string d3dName = std::string("ANGLE_") + name;
+    return resource->SetPrivateData(WKPDID_D3DDebugObjectName, static_cast<UINT>(d3dName.size()),
+                                    d3dName.c_str());
 }
 
 // Keep this in cpp file where it has visibility of Renderer11.h, otherwise calling
@@ -2382,11 +2396,7 @@ void InitializeFeatures(const Renderer11DeviceCaps &deviceCaps,
     bool isIvyBridge       = false;
     bool isAMD             = IsAMD(adapterDesc.VendorId);
     bool isFeatureLevel9_3 = (deviceCaps.featureLevel <= D3D_FEATURE_LEVEL_9_3);
-#if defined(ANGLE_ENABLE_WINDOWS_UWP)
-    bool isWin10 = true;
-#else
-    bool isWin10 = IsWindows10OrGreater();
-#endif
+
     IntelDriverVersion capsVersion = IntelDriverVersion(0);
     if (isIntel)
     {
@@ -2422,6 +2432,7 @@ void InitializeFeatures(const Renderer11DeviceCaps &deviceCaps,
     ANGLE_FEATURE_CONDITION(features, mrtPerfWorkaround, true);
     ANGLE_FEATURE_CONDITION(features, zeroMaxLodWorkaround, isFeatureLevel9_3);
     ANGLE_FEATURE_CONDITION(features, useInstancedPointSpriteEmulation, isFeatureLevel9_3);
+    ANGLE_FEATURE_CONDITION(features, allowES3OnFL10_0, false);
 
     // TODO(jmadill): Disable workaround when we have a fixed compiler DLL.
     ANGLE_FEATURE_CONDITION(features, expandIntegerPowExpressions, true);
@@ -2435,22 +2446,28 @@ void InitializeFeatures(const Renderer11DeviceCaps &deviceCaps,
     ANGLE_FEATURE_CONDITION(features, useSystemMemoryForConstantBuffers, isIntel);
 
     ANGLE_FEATURE_CONDITION(features, callClearTwice,
-                            isIntel && isSkylake && capsVersion < IntelDriverVersion(4771));
+                            isIntel && isSkylake && capsVersion >= IntelDriverVersion(160000) &&
+                                capsVersion < IntelDriverVersion(164771));
     ANGLE_FEATURE_CONDITION(features, emulateIsnanFloat,
-                            isIntel && isSkylake && capsVersion < IntelDriverVersion(4542));
-    ANGLE_FEATURE_CONDITION(
-        features, rewriteUnaryMinusOperator,
-        isIntel && (isBroadwell || isHaswell) && capsVersion < IntelDriverVersion(4624));
+                            isIntel && isSkylake && capsVersion >= IntelDriverVersion(160000) &&
+                                capsVersion < IntelDriverVersion(164542));
+    ANGLE_FEATURE_CONDITION(features, rewriteUnaryMinusOperator,
+                            isIntel && (isBroadwell || isHaswell) &&
+                                capsVersion >= IntelDriverVersion(150000) &&
+                                capsVersion < IntelDriverVersion(154624));
 
-    ANGLE_FEATURE_CONDITION(features, addDummyTextureNoRenderTarget,
-                            isIntel && capsVersion < IntelDriverVersion(4815));
+    ANGLE_FEATURE_CONDITION(features, addMockTextureNoRenderTarget,
+                            isIntel && capsVersion >= IntelDriverVersion(160000) &&
+                                capsVersion < IntelDriverVersion(164815));
 
     // Haswell/Ivybridge drivers occasionally corrupt (small?) (vertex?) texture data uploads.
     ANGLE_FEATURE_CONDITION(features, setDataFasterThanImageUpload,
                             !(isIvyBridge || isBroadwell || isHaswell));
 
     ANGLE_FEATURE_CONDITION(features, disableB5G6R5Support,
-                            (isIntel && capsVersion < IntelDriverVersion(4539)) || isAMD);
+                            (isIntel && capsVersion >= IntelDriverVersion(150000) &&
+                             capsVersion < IntelDriverVersion(154539)) ||
+                                isAMD);
 
     // TODO(jmadill): Disable when we have a fixed driver version.
     // The tiny stencil texture workaround involves using CopySubresource or UpdateSubresource on a
@@ -2465,13 +2482,15 @@ void InitializeFeatures(const Renderer11DeviceCaps &deviceCaps,
     ANGLE_FEATURE_CONDITION(features, selectViewInGeometryShader,
                             !deviceCaps.supportsVpRtIndexWriteFromVertexShader);
 
-    // NVidia drivers have no trouble clearing textures without showing corruption. AMD ones do.
-    // Intel drivers that have trouble have been blocklisted to the DX9 runtime by Chromium.
-    ANGLE_FEATURE_CONDITION(features, allowClearForRobustResourceInit, isNvidia || isIntel);
+    // NVidia drivers have no trouble clearing textures without showing corruption.
+    // Intel and AMD drivers that have trouble have been blocklisted by Chromium. In the case of
+    // Intel, they've been blocklisted to the DX9 runtime.
+    ANGLE_FEATURE_CONDITION(features, allowClearForRobustResourceInit, true);
 
-    // Don't translate uniform block to StructuredBuffer on Windows 7 and earlier. This is targeted
-    // to work around a bug that fails to allocate ShaderResourceView for StructuredBuffer.
-    ANGLE_FEATURE_CONDITION(features, dontTranslateUniformBlockToStructuredBuffer, !isWin10);
+    // Allow translating uniform block to StructuredBuffer on Windows 10. This is targeted
+    // to work around a slow fxc compile performance issue with dynamic uniform indexing.
+    ANGLE_FEATURE_CONDITION(features, allowTranslateUniformBlockToStructuredBuffer,
+                            IsWin10OrGreater());
 
     // Call platform hooks for testing overrides.
     auto *platform = ANGLEPlatformCurrent();

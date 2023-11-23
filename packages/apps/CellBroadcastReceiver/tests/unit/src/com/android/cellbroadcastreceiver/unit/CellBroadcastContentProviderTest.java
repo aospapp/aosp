@@ -15,18 +15,27 @@
  */
 package com.android.cellbroadcastreceiver.unit;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
+import android.content.ContentProvider;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.UserManager;
 import android.provider.Telephony.CellBroadcasts;
 import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbEtwsInfo;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
+import android.telephony.SubscriptionManager;
 import android.test.mock.MockContentResolver;
 import android.test.mock.MockContext;
 import android.util.Log;
@@ -62,6 +71,16 @@ public class CellBroadcastContentProviderTest extends TestCase {
     private CellBroadcastContentProviderTestable mCellBroadcastProviderTestable;
     private MockContextWithProvider mContext;
     private MockContentResolver mContentResolver;
+    @Mock
+    UserManager mUserManager;
+    @Mock
+    SubscriptionManager mSubManager;
+    @Mock
+    ContentProvider mMockSmsProvider;
+    @Mock
+    Resources mMockResource;
+    @Mock
+    Context mMockContext;
 
     @Override
     protected void setUp() throws Exception {
@@ -80,6 +99,9 @@ public class CellBroadcastContentProviderTest extends TestCase {
     }
 
     @Test
+    @InstrumentationTest
+    // This test requires the content provider from the cell broadcast module, so it is disabled for
+    // OEM testing because it is not a true unit test
     public void testInsert() {
         try {
             ContentValues msg = new ContentValues();
@@ -92,6 +114,9 @@ public class CellBroadcastContentProviderTest extends TestCase {
     }
 
     @Test
+    @InstrumentationTest
+    // This test requires the content provider from the cell broadcast module, so it is disabled for
+    // OEM testing because it is not a true unit test
     public void testDelete() {
         try {
             mContentResolver.delete(CONTENT_URI, null, null);
@@ -102,6 +127,9 @@ public class CellBroadcastContentProviderTest extends TestCase {
     }
 
     @Test
+    @InstrumentationTest
+    // This test requires the content provider from the cell broadcast module, so it is disabled for
+    // OEM testing because it is not a true unit test
     public void testUpdate() {
         try {
             mContentResolver.update(CONTENT_URI, null, null);
@@ -112,6 +140,9 @@ public class CellBroadcastContentProviderTest extends TestCase {
     }
 
     @Test
+    @InstrumentationTest
+    // This test requires the content provider from the cell broadcast module, so it is disabled for
+    // OEM testing because it is not a true unit test
     public void testDeleteAll() {
         // Insert a cell broadcast message
         mCellBroadcastProviderTestable.insertNewBroadcast(fakeSmsCbMessage());
@@ -127,6 +158,9 @@ public class CellBroadcastContentProviderTest extends TestCase {
     }
 
     @Test
+    @InstrumentationTest
+    // This test requires the content provider from the cell broadcast module, so it is disabled for
+    // OEM testing because it is not a true unit test
     public void testDeleteBroadcast() {
         // Insert two cell broadcast message
         mCellBroadcastProviderTestable.insertNewBroadcast(fakeSmsCbMessage());
@@ -143,6 +177,56 @@ public class CellBroadcastContentProviderTest extends TestCase {
     }
 
     @Test
+    @InstrumentationTest
+    public void testMarkSmsSyncPending() {
+        SmsCbMessage msg = fakeSmsCbMessage();
+        long deliveryTime = msg.getReceivedTime();
+        mCellBroadcastProviderTestable.insertNewBroadcast(msg);
+        // Verify that there is no record with smsSyncPending set
+        Cursor cursor = mContentResolver.query(CONTENT_URI,
+                CellBroadcastDatabaseHelper.QUERY_COLUMNS,
+                CellBroadcastDatabaseHelper.SMS_SYNC_PENDING + "=1" , null, null);
+        assertThat(cursor.getCount()).isEqualTo(0);
+        mCellBroadcastProviderTestable.markBroadcastSmsSyncPending(
+                CellBroadcasts.DELIVERY_TIME,
+                deliveryTime, true);
+        cursor = mContentResolver.query(CONTENT_URI,
+                CellBroadcastDatabaseHelper.QUERY_COLUMNS,
+                CellBroadcastDatabaseHelper.SMS_SYNC_PENDING + "=1" , null, null);
+        assertThat(cursor.getCount()).isEqualTo(1);
+    }
+
+    @Test
+    @InstrumentationTest
+    public void testWriteSmsInboxBeforeUserUnlock() {
+        doReturn(false).when(mUserManager).isUserUnlocked();
+        doReturn(true).when(mUserManager).isSystemUser();
+        SmsCbMessage msg = fakeSmsCbMessage();
+        mCellBroadcastProviderTestable.insertNewBroadcast(msg);
+        // verify does not write message to SMS db
+        mCellBroadcastProviderTestable.writeMessageToSmsInbox(msg, mContext);
+        // Verify that there is a record with smsSyncPending set
+        Cursor cursor = mContentResolver.query(CONTENT_URI,
+                CellBroadcastDatabaseHelper.QUERY_COLUMNS,
+                CellBroadcastDatabaseHelper.SMS_SYNC_PENDING + "=1" , null, null);
+        assertThat(cursor.getCount()).isEqualTo(1);
+        verify(mMockSmsProvider, times(0)).insert(any(), any());
+    }
+
+    @Test
+    @InstrumentationTest
+    public void testWriteSmsInboxNonSystemUser() {
+        doReturn(false).when(mUserManager).isSystemUser();
+        SmsCbMessage msg = fakeSmsCbMessage();
+        // verify does not write message to SMS db
+        mCellBroadcastProviderTestable.writeMessageToSmsInbox(msg, mContext);
+        verify(mMockSmsProvider, times(0)).insert(any(), any());
+    }
+
+    @Test
+    @InstrumentationTest
+    // This test requires the content provider from the cell broadcast module, so it is disabled for
+    // OEM testing because it is not a true unit test
     public void testInsertQuery() {
         // Insert a cell broadcast message
         mCellBroadcastProviderTestable.insertNewBroadcast(fakeSmsCbMessage());
@@ -202,6 +286,16 @@ public class CellBroadcastContentProviderTest extends TestCase {
         }
 
         @Override
+        public Resources getResources() {
+            return mMockResource;
+        }
+
+        @Override
+        public Context createConfigurationContext(Configuration overrideConfiguration) {
+            return mMockContext;
+        }
+
+        @Override
         public MockContentResolver getContentResolver() {
             return mResolver;
         }
@@ -209,8 +303,15 @@ public class CellBroadcastContentProviderTest extends TestCase {
 
         @Override
         public Object getSystemService(String name) {
-            Log.d(TAG, "getSystemService: returning null");
-            return null;
+            switch(name) {
+                case Context.USER_SERVICE:
+                    return mUserManager;
+                case Context.TELEPHONY_SUBSCRIPTION_SERVICE:
+                    return mSubManager;
+                default:
+                    Log.d(TAG, "getSystemService: returning null");
+                    return null;
+            }
         }
 
         @Override
@@ -226,6 +327,6 @@ public class CellBroadcastContentProviderTest extends TestCase {
                 false, false, null),
                 new SmsCbCmasInfo(CMAS_MESSAGE_CLASS, CMAS_CATEGORY, CMAS_RESPONSE_TYPE,
                         CMAS_SEVERITY, CMAS_URGENCY, CMAS_CERTAINTY), 0, null,
-                System.currentTimeMillis(), 1, 0);
+                System.currentTimeMillis(), 1, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
     }
  }

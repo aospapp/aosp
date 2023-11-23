@@ -3,7 +3,7 @@
 Two databases are configured for the use with django here. One for tko tables,
 which will always be the same database for all instances (the global database),
 and one for everything else, which will be the same as the global database for
-the master, but a local database for shards.
+the main, but a local database for shards.
 Additionally there is a third database connection for read only access to the
 global database.
 

@@ -17,9 +17,6 @@
 package com.android.tools.metalava
 
 import com.android.SdkConstants.DOT_TXT
-import com.android.tools.metalava.doclava1.ApiPredicate
-import com.android.tools.metalava.doclava1.ElidingPredicate
-import com.android.tools.metalava.doclava1.FilterPredicate
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.Item
 import java.io.File
@@ -34,7 +31,8 @@ enum class ApiType(val flagName: String, val displayName: String = flagName) {
         }
 
         override fun getEmitFilter(): Predicate<Item> {
-            val apiFilter = FilterPredicate(ApiPredicate())
+            // This filter is for API signature files, where we don't need the "for stub purposes" APIs.
+            val apiFilter = FilterPredicate(ApiPredicate(includeApisForStubPurposes = false))
             val apiReference = ApiPredicate(ignoreShown = true)
             return apiFilter.and(ElidingPredicate(apiReference))
         }
@@ -51,30 +49,14 @@ enum class ApiType(val flagName: String, val displayName: String = flagName) {
         }
 
         override fun getEmitFilter(): Predicate<Item> {
-            val removedFilter = FilterPredicate(ApiPredicate(matchRemoved = true))
+            // This filter is for API signature files, where we don't need the "for stub purposes" APIs.
+            val removedFilter = FilterPredicate(ApiPredicate(includeApisForStubPurposes = false, matchRemoved = true))
             val removedReference = ApiPredicate(ignoreShown = true, ignoreRemoved = true)
             return removedFilter.and(ElidingPredicate(removedReference))
         }
 
         override fun getReferenceFilter(): Predicate<Item> {
             return ApiPredicate(ignoreShown = true, ignoreRemoved = true)
-        }
-    },
-
-    /** The private API */
-    PRIVATE("private", "private") {
-        override fun getOptionFile(): File? {
-            return options.privateApiFile
-        }
-
-        override fun getEmitFilter(): Predicate<Item> {
-            val apiFilter = FilterPredicate(ApiPredicate())
-            val memberIsNotCloned: Predicate<Item> = Predicate { !it.isCloned() }
-            return memberIsNotCloned.and(apiFilter.negate())
-        }
-
-        override fun getReferenceFilter(): Predicate<Item> {
-            return Predicate { true }
         }
     },
 

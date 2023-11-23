@@ -1,3 +1,0 @@
-#!/bin/bash
-
-exec "$(dirname "$0")/$(uname -m)-linux-gnu/$(basename "$0")" "${@}"

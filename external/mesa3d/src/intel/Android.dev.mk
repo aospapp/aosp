@@ -26,10 +26,18 @@
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_intel_dev
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT legacy_by_exception_only legacy_notice
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
-LOCAL_C_INCLUDES := $(MESA_TOP)/include
+LOCAL_STATIC_LIBRARIES := \
+	libmesa_git_sha1
+
+LOCAL_C_INCLUDES := \
+	$(MESA_TOP)/include \
+	$(MESA_TOP)/src
 
 LOCAL_SRC_FILES := $(DEV_FILES)
 

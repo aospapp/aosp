@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -12,18 +12,21 @@
 #include <lib/smccc.h>
 #include <services/arm_arch_svc.h>
 #include <smccc_helpers.h>
+#include <plat/common/platform.h>
 
 static int32_t smccc_version(void)
 {
 	return MAKE_SMCCC_VERSION(SMCCC_MAJOR_VERSION, SMCCC_MINOR_VERSION);
 }
 
-static int32_t smccc_arch_features(u_register_t arg)
+static int32_t smccc_arch_features(u_register_t arg1)
 {
-	switch (arg) {
+	switch (arg1) {
 	case SMCCC_VERSION:
 	case SMCCC_ARCH_FEATURES:
-		return SMC_OK;
+		return SMC_ARCH_CALL_SUCCESS;
+	case SMCCC_ARCH_SOC_ID:
+		return plat_is_smccc_feature_available(arg1);
 #if WORKAROUND_CVE_2017_5715
 	case SMCCC_ARCH_WORKAROUND_1:
 		if (check_wa_cve_2017_5715() == ERRATA_NOT_APPLIES)
@@ -66,7 +69,7 @@ static int32_t smccc_arch_features(u_register_t arg)
 		return 0;
 #else
 		/* Either the CPUs are unaffected or permanently mitigated */
-		return SMCCC_ARCH_NOT_REQUIRED;
+		return SMC_ARCH_CALL_NOT_REQUIRED;
 #endif
 	}
 #endif
@@ -76,6 +79,19 @@ static int32_t smccc_arch_features(u_register_t arg)
 	default:
 		return SMC_UNK;
 	}
+}
+
+/* return soc revision or soc version on success otherwise
+ * return invalid parameter */
+static int32_t smccc_arch_id(u_register_t arg1)
+{
+	if (arg1 == SMCCC_GET_SOC_REVISION) {
+		return plat_get_soc_revision();
+	}
+	if (arg1 == SMCCC_GET_SOC_VERSION) {
+		return plat_get_soc_version();
+	}
+	return SMC_ARCH_CALL_INVAL_PARAM;
 }
 
 /*
@@ -95,6 +111,8 @@ static uintptr_t arm_arch_svc_smc_handler(uint32_t smc_fid,
 		SMC_RET1(handle, smccc_version());
 	case SMCCC_ARCH_FEATURES:
 		SMC_RET1(handle, smccc_arch_features(x1));
+	case SMCCC_ARCH_SOC_ID:
+		SMC_RET1(handle, smccc_arch_id(x1));
 #if WORKAROUND_CVE_2017_5715
 	case SMCCC_ARCH_WORKAROUND_1:
 		/*

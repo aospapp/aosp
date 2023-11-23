@@ -16,6 +16,8 @@
 
 package com.android.cts.install.lib;
 
+import static com.android.cts.shim.lib.ShimPackage.SHIM_APEX_PACKAGE_NAME;
+
 import android.content.pm.VersionedPackage;
 
 import java.io.File;
@@ -28,11 +30,10 @@ import java.util.function.Function;
  * Collection of dummy apps used in tests.
  */
 public class TestApp {
+
     public static final String A = "com.android.cts.install.lib.testapp.A";
     public static final String B = "com.android.cts.install.lib.testapp.B";
     public static final String C = "com.android.cts.install.lib.testapp.C";
-    public static final String Apex = "com.android.apex.cts.shim";
-    public static final String NotPreInstalledApex = "com.android.apex.cts.shim_not_pre_installed";
 
     // Apk collection
     public static final TestApp A1 = new TestApp("Av1", A, 1, /*isApex*/false,
@@ -47,22 +48,32 @@ public class TestApp {
             "TestAppASplitV1.apk", "TestAppASplitV1_anydpi.apk");
     public static final TestApp ASplit2 = new TestApp("ASplitV2", A, 2, /*isApex*/false,
             "TestAppASplitV2.apk", "TestAppASplitV2_anydpi.apk");
+    public static final TestApp AIncompleteSplit = new TestApp("AIncompleteSplit", A, 1,
+            /*isApex*/false, "TestAppASplitV1_anydpi.apk");
+    public static final TestApp AOriginal1 = new TestApp("AOriginalV1", A, 1, /*isApex*/false,
+            "TestAppAOriginalV1.apk");
+    public static final TestApp ARotated2 = new TestApp("ARotatedV2", A, 2, /*isApex*/false,
+            "TestAppARotatedV2.apk");
 
     public static final TestApp B1 = new TestApp("Bv1", B, 1, /*isApex*/false,
             "TestAppBv1.apk");
     public static final TestApp B2 = new TestApp("Bv2", B, 2, /*isApex*/false,
             "TestAppBv2.apk");
+    public static final TestApp B3 = new TestApp("Bv3", B, 3, /*isApex*/false,
+            "TestAppBv3.apk");
 
     public static final TestApp C1 = new TestApp("Cv1", C, 1, /*isApex*/false,
             "TestAppCv1.apk");
+    public static final TestApp C2 = new TestApp("Cv2", C, 2, /*isApex*/false,
+            "TestAppCv2.apk");
 
     // Apex collection
-    public static final TestApp Apex1 = new TestApp("Apex1", Apex, 1, /*isApex*/true,
-            "com.android.apex.cts.shim.v1.apex");
-    public static final TestApp Apex2 = new TestApp("Apex2", Apex, 2, /*isApex*/true,
-            "com.android.apex.cts.shim.v2.apex");
-    public static final TestApp Apex3 = new TestApp("Apex3", Apex, 3, /*isApex*/true,
-            "com.android.apex.cts.shim.v3.apex");
+    public static final TestApp Apex1 = new TestApp("Apex1", SHIM_APEX_PACKAGE_NAME, 1,
+            /*isApex*/true, "com.android.apex.cts.shim.v1.apex");
+    public static final TestApp Apex2 = new TestApp("Apex2", SHIM_APEX_PACKAGE_NAME, 2,
+            /*isApex*/true, "com.android.apex.cts.shim.v2.apex");
+    public static final TestApp Apex3 = new TestApp("Apex3", SHIM_APEX_PACKAGE_NAME, 3,
+            /*isApex*/true, "com.android.apex.cts.shim.v3.apex");
 
     private final String mName;
     private final String mPackageName;

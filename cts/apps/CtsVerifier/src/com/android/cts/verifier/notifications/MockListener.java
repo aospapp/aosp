@@ -51,7 +51,7 @@ public class MockListener extends NotificationListenerService {
     public static final String JSON_STATS = "stats";
     public static final String JSON_LAST_AUDIBLY_ALERTED = "last_audibly_alerted";
 
-    ArrayList<String> mPosted = new ArrayList<String>();
+    ArrayList<StatusBarNotification> mPosted = new ArrayList<>();
     ArrayMap<String, JSONObject> mNotifications = new ArrayMap<>();
     ArrayMap<String, String> mNotificationKeys = new ArrayMap<>();
     ArrayList<String> mRemoved = new ArrayList<String>();
@@ -75,6 +75,15 @@ public class MockListener extends NotificationListenerService {
 
     protected Collection<JSONObject> getPosted() {
         return mNotifications.values();
+    }
+
+    protected StatusBarNotification getPosted(String tag) {
+        for (StatusBarNotification sbn : mPosted) {
+            if (sbn.getTag().equals(tag)) {
+                return sbn;
+            }
+        }
+        return null;
     }
 
     protected String getKeyForTag(String tag) {
@@ -149,7 +158,7 @@ public class MockListener extends NotificationListenerService {
     public void onNotificationPosted(StatusBarNotification sbn, RankingMap rankingMap) {
         if (!mTestPackages.contains(sbn.getPackageName())) { return; }
         Log.d(TAG, "posted: " + sbn.getTag());
-        mPosted.add(sbn.getTag());
+        mPosted.add(sbn);
         mPostedNotifications.add(sbn.getNotification());
         JSONObject notification = new JSONObject();
         try {

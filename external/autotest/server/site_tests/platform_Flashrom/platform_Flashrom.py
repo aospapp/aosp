@@ -50,20 +50,19 @@ class platform_Flashrom(FirmwareTest):
         if self.faft_config.chrome_ec:
             self.run_cmd('flashrom -p ec --wp-status', checkfor='is disabled')
         if self.faft_config.chrome_usbpd:
-            self.run_cmd('flashrom -p ec:dev=1 --wp-status',
+            self.run_cmd('flashrom -p ec:type=pd --wp-status',
                          checkfor='is disabled')
 
-    def _get_eeprom(self, fmap):
-        """Get fmap start and size.
+    def _get_region(self, fmap_filename, region):
+        """Get region start and size from fmap.
 
-        @return tuple for start and size for fmap.
+        @param fmap_filename: Path to dump of FMAP.
+        @param region: The region name.
+        @return tuple of start and size for the region.
         """
-        # $ mosys eeprom map | grep RW_SECTION_B
-        # host_firmware | RW_SECTION_B | 0x005f0000 | 0x003f0000 | static
-        output = self.run_cmd('mosys eeprom map | grep %s' % fmap)
-        fmap_data = map(lambda s:s.strip(), output[0].split('|'))
-        logging.info('fmap %s', fmap_data)
-        return (int(fmap_data[2], 16), int(fmap_data[3], 16))
+        output = self.run_cmd('dump_fmap -p %s %s' % (fmap_filename, region))
+        _, start, size = output[0].split()
+        return int(start), int(size)
 
     def run_once(self, dev_mode=True):
         """Main test logic"""
@@ -99,9 +98,13 @@ class platform_Flashrom(FirmwareTest):
         logging.info('Using fw image %s, temp file %s',
                      shball_bios, shball_rw_b)
 
+        # Extract FMAP
+        fmap = os.path.join(tmpdir, 'fmap.bin')
+        self.run_cmd('flashrom -r -i FMAP:%s' % fmap, 'SUCCESS')
+
         # Extract RW B, offset detail
         # Figure out section B start byte and size.
-        (Bstart, Blen) = self._get_eeprom('RW_SECTION_B')
+        (Bstart, Blen) = self._get_region(fmap, 'RW_SECTION_B')
         self.run_cmd('dd bs=1 skip=%d count=%d if=%s of=%s 2>&1'
                      % (Bstart, Blen, shball_bios, shball_rw_b), '%d bytes' % Blen)
 

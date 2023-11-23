@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (C) 2018 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,25 +13,26 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<manifest
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.cts.signedconfig.app"
-    android:versionCode="2"
-    android:versionName="2">
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     package="android.cts.signedconfig.app"
+     android:versionCode="2"
+     android:versionName="2">
   <application>
     <meta-data android:name="android.settings.global"
-               android:value="@string/signed_config_v2"/>
+         android:value="@string/signed_config_v2"/>
     <meta-data android:name="android.settings.global.signature"
-               android:value="@string/signed_config_signature_v2"/>
+         android:value="@string/signed_config_signature_v2"/>
 
-    <activity android:name=".Empty">
+    <activity android:name=".Empty"
+         android:exported="true">
       <intent-filter>
-        <action android:name="android.intent.action.VIEW" />
-        <category android:name="android.intent.category.DEFAULT" />
-        <category android:name="android.intent.category.BROWSABLE" />
-        <data android:scheme="https" />
-        <data android:host="cts.android.com" />
-        <data android:path="/signedconfig" />
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="https"/>
+        <data android:host="cts.android.com"/>
+        <data android:path="/signedconfig"/>
       </intent-filter>
     </activity>
 

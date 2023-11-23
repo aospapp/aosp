@@ -24,7 +24,7 @@ GENERAL_TEST_SRC_FILES = \
     heap_exhaustion_stability_test.cc \
     hello_world_test.cc \
     host_awake_suspend_test.cc \
-    logging_sanity_test.cc \
+    logging_consistency_test.cc \
     nanoapp_info.cc \
     nanoapp_info_by_app_id_test.cc \
     nanoapp_info_by_instance_id_test.cc \
@@ -40,7 +40,7 @@ GENERAL_TEST_SRC_FILES = \
     timer_cancel_test.cc \
     timer_set_test.cc \
     timer_stress_test.cc \
-    version_sanity_test.cc \
+    version_consistency_test.cc \
     wifi_capabilities_test.cc \
     wwan_capabilities_test.cc \
     wwan_cell_info_test.cc

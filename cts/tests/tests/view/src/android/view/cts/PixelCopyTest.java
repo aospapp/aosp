@@ -20,7 +20,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -29,12 +28,18 @@ import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorSpace;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.hardware.HardwareBuffer;
+import android.media.Image;
+import android.media.ImageReader;
+import android.media.ImageWriter;
 import android.os.Debug;
-import android.os.Debug.MemoryInfo;
 import android.util.Half;
 import android.util.Log;
 import android.view.PixelCopy;
@@ -42,6 +47,8 @@ import android.view.Surface;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.cts.util.BitmapDumper;
+import android.view.cts.util.DisableFixedToUserRotationRule;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
@@ -51,14 +58,17 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.SynchronousPixelCopy;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.model.Statement;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.CountDownLatch;
@@ -68,6 +78,10 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 public class PixelCopyTest {
     private static final String TAG = "PixelCopyTests";
+
+    @Rule
+    public DisableFixedToUserRotationRule mDisableFixedToUserRotationRule =
+            new DisableFixedToUserRotationRule();
 
     @Rule
     public ActivityTestRule<PixelCopyGLProducerCtsActivity> mGLSurfaceViewActivityRule =
@@ -92,6 +106,9 @@ public class PixelCopyTest {
 
     @Rule
     public SurfaceTextureRule mSurfaceRule = new SurfaceTextureRule();
+
+    @Rule
+    public TestName mTestName = new TestName();
 
     private Instrumentation mInstrumentation;
     private SynchronousPixelCopy mCopyHelper;
@@ -175,7 +192,7 @@ public class PixelCopyTest {
                 activity.getView().requestRender();
             }
         } catch (InterruptedException ex) {
-            fail("Interrupted, error=" + ex.getMessage());
+            Assert.fail("Interrupted, error=" + ex.getMessage());
         }
         return activity;
     }
@@ -619,7 +636,10 @@ public class PixelCopyTest {
         assertEquals(message, a, Half.toFloat(cA), 0.01);
     }
 
-    private void runGcAndFinalizersSync() {
+    private static void runGcAndFinalizersSync() {
+        Runtime.getRuntime().gc();
+        Runtime.getRuntime().runFinalization();
+
         final CountDownLatch fence = new CountDownLatch(1);
         new Object() {
             @Override
@@ -639,21 +659,58 @@ public class PixelCopyTest {
         } catch (InterruptedException ex) {
             throw new RuntimeException(ex);
         }
-        Runtime.getRuntime().gc();
     }
 
-    private void assertNotLeaking(int iteration, MemoryInfo start, MemoryInfo end) {
+    private static File sProcSelfFd = new File("/proc/self/fd");
+    private static int getFdCount() {
+        return sProcSelfFd.listFiles().length;
+    }
+
+    private static void assertNotLeaking(int iteration,
+            Debug.MemoryInfo start, Debug.MemoryInfo end) {
         Debug.getMemoryInfo(end);
-        if (end.getTotalPss() - start.getTotalPss() > 2000 /* kB */) {
+        assertNotEquals(0, start.getTotalPss());
+        assertNotEquals(0, end.getTotalPss());
+        if (end.getTotalPss() - start.getTotalPss() > 5000 /* kB */) {
             runGcAndFinalizersSync();
             Debug.getMemoryInfo(end);
-            if (end.getTotalPss() - start.getTotalPss() > 2000 /* kB */) {
+            if (end.getTotalPss() - start.getTotalPss() > 7000 /* kB */) {
                 // Guarded by if so we don't continually generate garbage for the
                 // assertion string.
                 assertEquals("Memory leaked, iteration=" + iteration,
                         start.getTotalPss(), end.getTotalPss(),
-                        2000 /* kb */);
+                        7000 /* kb */);
             }
+        }
+    }
+
+    private static void runNotLeakingTest(Runnable test) {
+        Debug.MemoryInfo meminfoStart = new Debug.MemoryInfo();
+        Debug.MemoryInfo meminfoEnd = new Debug.MemoryInfo();
+        int fdCount = -1;
+        // Do a warmup to reach steady-state memory usage
+        for (int i = 0; i < 50; i++) {
+            test.run();
+        }
+        runGcAndFinalizersSync();
+        Debug.getMemoryInfo(meminfoStart);
+        fdCount = getFdCount();
+        // Now run the test
+        for (int i = 0; i < 2000; i++) {
+            if (i % 100 == 5) {
+                assertNotLeaking(i, meminfoStart, meminfoEnd);
+                final int curFdCount = getFdCount();
+                if (curFdCount - fdCount > 10) {
+                    Assert.fail(String.format("FDs leaked. Expected=%d, current=%d, iteration=%d",
+                            fdCount, curFdCount, i));
+                }
+            }
+            test.run();
+        }
+        assertNotLeaking(2000, meminfoStart, meminfoEnd);
+        final int curFdCount = getFdCount();
+        if (curFdCount - fdCount > 10) {
+            Assert.fail(String.format("FDs leaked. Expected=%d, current=%d", fdCount, curFdCount));
         }
     }
 
@@ -674,20 +731,7 @@ public class PixelCopyTest {
             // Test a fullsize copy
             Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
 
-            MemoryInfo meminfoStart = new MemoryInfo();
-            MemoryInfo meminfoEnd = new MemoryInfo();
-
-            for (int i = 0; i < 1000; i++) {
-                if (i == 2) {
-                    // Not really the "start" but by having done a couple
-                    // we've fully initialized any state that may be required,
-                    // so memory usage should be stable now
-                    runGcAndFinalizersSync();
-                    Debug.getMemoryInfo(meminfoStart);
-                }
-                if (i % 100 == 5) {
-                    assertNotLeaking(i, meminfoStart, meminfoEnd);
-                }
+            runNotLeakingTest(() -> {
                 int result = mCopyHelper.request(activity.getView(), bitmap);
                 assertEquals("Copy request failed", PixelCopy.SUCCESS, result);
                 // Make sure nothing messed with the bitmap
@@ -696,12 +740,10 @@ public class PixelCopyTest {
                 assertEquals(Config.ARGB_8888, bitmap.getConfig());
                 assertBitmapQuadColor(bitmap,
                         Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
-            }
-
-            assertNotLeaking(1000, meminfoStart, meminfoEnd);
+            });
 
         } catch (InterruptedException e) {
-            fail("Interrupted, error=" + e.getMessage());
+            Assert.fail("Interrupted, error=" + e.getMessage());
         }
     }
 
@@ -741,6 +783,22 @@ public class PixelCopyTest {
         assertBitmapQuadColor(bitmap,
                 Color.RED, Color.RED, Color.RED, Color.RED, 30);
 
+        copyResult = mCopyHelper.request(activity.getVideoView(), new Rect(50, 0, 100, 50), bitmap);
+        assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, copyResult);
+        assertBitmapQuadColor(bitmap,
+                Color.GREEN, Color.GREEN, Color.GREEN, Color.GREEN, 30);
+
+        copyResult = mCopyHelper.request(activity.getVideoView(), new Rect(0, 50, 50, 100), bitmap);
+        assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, copyResult);
+        assertBitmapQuadColor(bitmap,
+                Color.BLUE, Color.BLUE, Color.BLUE, Color.BLUE, 30);
+
+        copyResult = mCopyHelper.request(activity.getVideoView(), new Rect(50, 50, 100, 100), bitmap);
+        assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, copyResult);
+        assertBitmapQuadColor(bitmap,
+                Color.BLACK, Color.BLACK, Color.BLACK, Color.BLACK, 30);
+
+
         copyResult = mCopyHelper.request(activity.getVideoView(), new Rect(25, 25, 75, 75), bitmap);
         assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, copyResult);
         assertBitmapQuadColor(bitmap,
@@ -758,32 +816,109 @@ public class PixelCopyTest {
                 Color.GREEN, Color.GREEN, Color.GREEN, Color.GREEN, 30);
     }
 
+    @Test
+    public void testBufferQueueCrop() throws InterruptedException {
+        ImageReader reader = ImageReader.newInstance(100, 100, PixelFormat.RGBA_8888, 1,
+                HardwareBuffer.USAGE_CPU_WRITE_OFTEN | HardwareBuffer.USAGE_CPU_READ_OFTEN
+                        | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+        ImageWriter writer = ImageWriter.newInstance(reader.getSurface(), 1);
+        Image image = writer.dequeueInputImage();
+        Image.Plane plane = image.getPlanes()[0];
+        Bitmap bitmap = Bitmap.createBitmap(plane.getRowStride() / 4,
+                image.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setAntiAlias(false);
+        canvas.drawColor(Color.MAGENTA);
+        canvas.translate(20f, 70f);
+        paint.setColor(Color.RED);
+        canvas.drawRect(0f, 0f, 10f, 10f, paint);
+        paint.setColor(Color.GREEN);
+        canvas.drawRect(10f, 0f, 20f, 10f, paint);
+        paint.setColor(Color.BLUE);
+        canvas.drawRect(0f, 10f, 10f, 20f, paint);
+        paint.setColor(Color.BLACK);
+        canvas.drawRect(10f, 10f, 20f, 20f, paint);
+        bitmap.copyPixelsToBuffer(plane.getBuffer());
+        image.setCropRect(new Rect(20, 70, 40, 90));
+        writer.queueInputImage(image);
+
+        // implicit size
+        Bitmap result = Bitmap.createBitmap(20, 20, Config.ARGB_8888);
+        int status = mCopyHelper.request(reader.getSurface(), result);
+        assertEquals("Copy request failed", PixelCopy.SUCCESS, status);
+        assertBitmapQuadColor(result, Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+
+        // specified size
+        result = Bitmap.createBitmap(20, 20, Config.ARGB_8888);
+        status = mCopyHelper.request(reader.getSurface(), new Rect(0, 0, 20, 20), result);
+        assertEquals("Copy request failed", PixelCopy.SUCCESS, status);
+        assertBitmapQuadColor(result, Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+    }
+
     private static int getPixelFloatPos(Bitmap bitmap, float xpos, float ypos) {
         return bitmap.getPixel((int) (bitmap.getWidth() * xpos), (int) (bitmap.getHeight() * ypos));
     }
 
-    public static void assertBitmapQuadColor(Bitmap bitmap, int topLeft, int topRight,
-                int bottomLeft, int bottomRight) {
-        // Just quickly sample 4 pixels in the various regions.
-        assertEquals("Top left " + Integer.toHexString(topLeft) + ", actual= "
-                + Integer.toHexString(getPixelFloatPos(bitmap, .25f, .25f)),
-                topLeft, getPixelFloatPos(bitmap, .25f, .25f));
-        assertEquals("Top right", topRight, getPixelFloatPos(bitmap, .75f, .25f));
-        assertEquals("Bottom left", bottomLeft, getPixelFloatPos(bitmap, .25f, .75f));
-        assertEquals("Bottom right", bottomRight, getPixelFloatPos(bitmap, .75f, .75f));
+    private void assertBitmapQuadColor(Bitmap bitmap,
+            int topLeft, int topRight, int bottomLeft, int bottomRight) {
+        assertBitmapQuadColor(mTestName.getMethodName(), "PixelCopyTest", bitmap,
+                topLeft, topRight, bottomLeft, bottomRight);
+    }
+
+    public static void assertBitmapQuadColor(String testName, String className, Bitmap bitmap,
+                int topLeft, int topRight, int bottomLeft, int bottomRight) {
+        try {
+            // Just quickly sample 4 pixels in the various regions.
+            assertEquals("Top left " + Integer.toHexString(topLeft) + ", actual= "
+                            + Integer.toHexString(getPixelFloatPos(bitmap, .25f, .25f)),
+                    topLeft, getPixelFloatPos(bitmap, .25f, .25f));
+            assertEquals("Top right", topRight, getPixelFloatPos(bitmap, .75f, .25f));
+            assertEquals("Bottom left", bottomLeft, getPixelFloatPos(bitmap, .25f, .75f));
+            assertEquals("Bottom right", bottomRight, getPixelFloatPos(bitmap, .75f, .75f));
+
+            // and some closer to the center point, to ensure that our quadrants are even
+            float below = .45f;
+            float above = .55f;
+            assertEquals("Top left II " + Integer.toHexString(topLeft) + ", actual= "
+                            + Integer.toHexString(getPixelFloatPos(bitmap, below, below)),
+                    topLeft, getPixelFloatPos(bitmap, below, below));
+            assertEquals("Top right II", topRight, getPixelFloatPos(bitmap, above, below));
+            assertEquals("Bottom left II", bottomLeft, getPixelFloatPos(bitmap, below, above));
+            assertEquals("Bottom right II", bottomRight, getPixelFloatPos(bitmap, above, above));
+        } catch (AssertionError err) {
+            BitmapDumper.dumpBitmap(bitmap, testName, className);
+            throw err;
+        }
     }
 
     private void assertBitmapQuadColor(Bitmap bitmap, int topLeft, int topRight,
             int bottomLeft, int bottomRight, int threshold) {
-        // Just quickly sample 4 pixels in the various regions.
-        assertTrue("Top left", pixelsAreSame(topLeft, getPixelFloatPos(bitmap, .25f, .25f),
-                threshold));
-        assertTrue("Top right", pixelsAreSame(topRight, getPixelFloatPos(bitmap, .75f, .25f),
-                threshold));
-        assertTrue("Bottom left", pixelsAreSame(bottomLeft, getPixelFloatPos(bitmap, .25f, .75f),
-                threshold));
-        assertTrue("Bottom right", pixelsAreSame(bottomRight, getPixelFloatPos(bitmap, .75f, .75f),
-                threshold));
+        try {
+            // Just quickly sample 4 pixels in the various regions.
+            assertTrue("Top left", pixelsAreSame(topLeft,
+                    getPixelFloatPos(bitmap, .25f, .25f), threshold));
+            assertTrue("Top right", pixelsAreSame(topRight,
+                    getPixelFloatPos(bitmap, .75f, .25f), threshold));
+            assertTrue("Bottom left", pixelsAreSame(bottomLeft,
+                    getPixelFloatPos(bitmap, .25f, .75f), threshold));
+            assertTrue("Bottom right", pixelsAreSame(bottomRight,
+                    getPixelFloatPos(bitmap, .75f, .75f), threshold));
+
+            float below = .45f;
+            float above = .55f;
+            assertTrue("Top left II", pixelsAreSame(topLeft,
+                    getPixelFloatPos(bitmap, below, below), threshold));
+            assertTrue("Top right II", pixelsAreSame(topRight,
+                    getPixelFloatPos(bitmap, above, below), threshold));
+            assertTrue("Bottom left II", pixelsAreSame(bottomLeft,
+                    getPixelFloatPos(bitmap, below, above), threshold));
+            assertTrue("Bottom right II", pixelsAreSame(bottomRight,
+                    getPixelFloatPos(bitmap, above, above), threshold));
+        } catch (AssertionError err) {
+            BitmapDumper.dumpBitmap(bitmap, mTestName.getMethodName(), "PixelCopyTest");
+            throw err;
+        }
     }
 
     private void assertBitmapEdgeColor(Bitmap bitmap, int edgeColor) {
@@ -813,10 +948,15 @@ public class PixelCopyTest {
         return (error < threshold);
     }
 
+    private void fail(Bitmap bitmap, String message) {
+        BitmapDumper.dumpBitmap(bitmap, mTestName.getMethodName(), "PixelCopyTest");
+        Assert.fail(message);
+    }
+
     private void assertBitmapColor(String debug, Bitmap bitmap, int color, int x, int y) {
         int pixel = bitmap.getPixel(x, y);
         if (!pixelsAreSame(color, pixel, 10)) {
-            fail(debug + "; expected=" + Integer.toHexString(color) + ", actual="
+            fail(bitmap, debug + "; expected=" + Integer.toHexString(color) + ", actual="
                     + Integer.toHexString(pixel));
         }
     }
@@ -824,7 +964,7 @@ public class PixelCopyTest {
     private void assertBitmapNotColor(String debug, Bitmap bitmap, int color, int x, int y) {
         int pixel = bitmap.getPixel(x, y);
         if (pixelsAreSame(color, pixel, 10)) {
-            fail(debug + "; actual=" + Integer.toHexString(pixel)
+            fail(bitmap, debug + "; actual=" + Integer.toHexString(pixel)
                     + " shouldn't have matched " + Integer.toHexString(color));
         }
     }

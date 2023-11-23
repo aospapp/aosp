@@ -15,35 +15,37 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.intent.receiver">
+     package="com.android.cts.intent.receiver">
 
     <uses-sdk android:minSdkVersion="19"/>
 
     <uses-permission android:name="com.android.cts.managedprofile.permission.SAMPLE"/>
 
-    <application
-        android:testOnly="true">
+    <application android:testOnly="true">
 
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <activity android:name="com.android.cts.intent.receiver.IntentReceiverActivity">
+        <activity android:name="com.android.cts.intent.receiver.IntentReceiverActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.action.COPY_TO_CLIPBOARD" />
-                <action android:name="com.android.cts.action.READ_FROM_URI" />
-                <action android:name="com.android.cts.action.TAKE_PERSISTABLE_URI_PERMISSION" />
-                <action android:name="com.android.cts.action.WRITE_TO_URI" />
+                <action android:name="com.android.cts.action.COPY_TO_CLIPBOARD"/>
+                <action android:name="com.android.cts.action.READ_FROM_URI"/>
+                <action android:name="com.android.cts.action.TAKE_PERSISTABLE_URI_PERMISSION"/>
+                <action android:name="com.android.cts.action.WRITE_TO_URI"/>
                 <action android:name="com.android.cts.action.NOTIFY_URI_CHANGE"/>
                 <action android:name="com.android.cts.action.OBSERVE_URI_CHANGE"/>
-                <action android:name="com.android.cts.action.JUST_CREATE" />
-                <action android:name="com.android.cts.action.CREATE_AND_WAIT" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.action.JUST_CREATE"/>
+                <action android:name="com.android.cts.action.CREATE_AND_WAIT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
 
-        <activity android:name=".SimpleIntentReceiverActivity" android:exported="true"/>
+        <activity android:name=".SimpleIntentReceiverActivity"
+             android:exported="true"/>
 
         <activity-alias android:name=".BrowserActivity"
-            android:targetActivity=".SimpleIntentReceiverActivity">
+             android:targetActivity=".SimpleIntentReceiverActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -53,16 +55,19 @@
         </activity-alias>
 
         <activity-alias android:name=".AppLinkActivity"
-            android:targetActivity=".SimpleIntentReceiverActivity">
+             android:targetActivity=".SimpleIntentReceiverActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="http" android:host="com.android.cts.intent.receiver"/>
+                <data android:scheme="http"
+                     android:host="com.android.cts.intent.receiver"/>
             </intent-filter>
         </activity-alias>
 
-        <receiver android:name=".BroadcastIntentReceiver">
+        <receiver android:name=".BroadcastIntentReceiver"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_OWNER_CHANGED"/>
             </intent-filter>
@@ -70,9 +75,8 @@
 
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.intent.receiver"
-        android:label="Intent Receiver CTS Tests" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="com.android.cts.intent.receiver"
+         android:label="Intent Receiver CTS Tests"/>
 
 </manifest>

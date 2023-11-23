@@ -123,6 +123,7 @@ public class ExactCanvasTests extends ActivityTestBase {
                     Paint p = new Paint();
                     canvas.drawColor(Color.WHITE);
                     p.setColor(Color.BLACK);
+                    p.setAntiAlias(false);
                     float[] pts = {
                             0, 0, 80, 80, 80, 0, 0, 80, 40, 50, 60, 50
                     };

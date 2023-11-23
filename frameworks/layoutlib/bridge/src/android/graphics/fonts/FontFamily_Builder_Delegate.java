@@ -16,7 +16,7 @@
 
 package android.graphics.fonts;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
@@ -189,7 +189,7 @@ public class FontFamily_Builder_Delegate {
             buffer.get(byteArray);
             return Font.createFont(Font.TRUETYPE_FONT, new ByteArrayInputStream(byteArray));
         } catch (Exception e) {
-            Bridge.getLog().fidelityWarning(LayoutLog.TAG_BROKEN, "Unable to load font",
+            Bridge.getLog().fidelityWarning(ILayoutLog.TAG_BROKEN, "Unable to load font",
                     e, null, null);
         }
 
@@ -201,7 +201,7 @@ public class FontFamily_Builder_Delegate {
             File file = new File(path);
             return Font.createFont(Font.TRUETYPE_FONT, file);
         } catch (Exception e) {
-            Bridge.getLog().fidelityWarning(LayoutLog.TAG_BROKEN, "Unable to load font",
+            Bridge.getLog().fidelityWarning(ILayoutLog.TAG_BROKEN, "Unable to load font",
                     e, null, null);
         }
 

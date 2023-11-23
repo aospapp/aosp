@@ -21,17 +21,19 @@
 #include "command.h"
 #include "environment.h"
 
+using namespace simpleperf;
+
 #if defined(__ANDROID__)
 
 bool AndroidSecurityCheck() {
   // Simpleperf can be executed by the shell, or by apps themselves. To avoid malicious apps
   // exploiting perf_event_open interface via simpleperf, simpleperf needs proof that the user
   // is expecting simpleperf to be ran:
-  //   1) On Android < R, perf_event_open is secured by perf_event_paranoid, which is controlled
+  //   1) On Android < R, perf_event_open is secured by perf_event_allow_path, which is controlled
   // by security.perf_harden property. perf_event_open syscall can be used only after user setting
   // security.perf_harden to 0 in shell. So we don't need to check security.perf_harden explicitly.
   //   2) On Android R, perf_event_open may be controlled by selinux instead of
-  // perf_event_paranoid. So we need to check security.perf_harden explicitly. If simpleperf is
+  // perf_event_allow_path. So we need to check security.perf_harden explicitly. If simpleperf is
   // running via shell, we already know the origin of the request is the user, so set the property
   // ourselves for convenience. When started by the app, we won't have the permission to set the
   // property, so the user will need to prove this intent by setting it manually via shell.

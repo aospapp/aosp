@@ -52,10 +52,10 @@ class DnsTlsTransport : public IDnsTlsSocketObserver {
     // Given a |query|, this method sends it to the server and returns the result asynchronously.
     std::future<Result> query(const netdutils::Slice query) EXCLUDES(mLock);
 
-    // Check that a given TLS server is fully working on the specified netid.
+    // Check that a given TLS server is fully working with a specified mark.
     // This function is used in ResolverController to ensure that we don't enable DNS over TLS
     // on networks where it doesn't actually work.
-    static bool validate(const DnsTlsServer& server, unsigned netid, uint32_t mark);
+    static bool validate(const DnsTlsServer& server, uint32_t mark);
 
     int getConnectCounter() const EXCLUDES(mLock);
 

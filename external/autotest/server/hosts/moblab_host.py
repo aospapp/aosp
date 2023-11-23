@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import os
@@ -15,6 +20,7 @@ from autotest_lib.server.hosts import cros_host
 from autotest_lib.server.hosts import cros_repair
 
 from chromite.lib import timeout_util
+import six
 
 AUTOTEST_INSTALL_DIR = global_config.global_config.get_config_value(
         'SCHEDULER', 'drone_installation_directory')

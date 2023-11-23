@@ -279,6 +279,8 @@ void C2SoftVorbisDec::process(
         // skip 7 <type + "vorbis"> bytes
         makeBitReader((const uint8_t *)data + 7, inSize - 7, &buf, &ref, &bits);
         if (data[0] == 1) {
+            // release any memory that vorbis_info_init will blindly overwrite
+            vorbis_info_clear(mVi);
             vorbis_info_init(mVi);
             if (0 != _vorbis_unpack_info(mVi, &bits)) {
                 ALOGE("Encountered error while unpacking info");
@@ -323,6 +325,8 @@ void C2SoftVorbisDec::process(
                 work->result = C2_CORRUPTED;
                 return;
             }
+            // release any memory that vorbis_dsp_init will blindly overwrite
+            vorbis_dsp_clear(mState);
             if (0 != vorbis_dsp_init(mState, mVi)) {
                 ALOGE("Encountered error while dsp init");
                 mSignalledError = true;
@@ -473,11 +477,13 @@ private:
 
 }  // namespace android
 
+__attribute__((cfi_canonical_jump_table))
 extern "C" ::C2ComponentFactory* CreateCodec2Factory() {
     ALOGV("in %s", __func__);
     return new ::android::C2SoftVorbisDecFactory();
 }
 
+__attribute__((cfi_canonical_jump_table))
 extern "C" void DestroyCodec2Factory(::C2ComponentFactory* factory) {
     ALOGV("in %s", __func__);
     delete factory;

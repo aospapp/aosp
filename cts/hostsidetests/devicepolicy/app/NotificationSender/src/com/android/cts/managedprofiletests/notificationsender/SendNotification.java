@@ -29,7 +29,7 @@ import java.lang.Override;
 
 /**
  * A simple activity to post notifications to test notification
- * listener whitelists.
+ * listener allowlists.
  */
 public class SendNotification extends Activity {
 

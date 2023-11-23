@@ -21,6 +21,7 @@ public interface CustomizationPreferences extends WallpaperPreferences {
 
     String KEY_CUSTOM_THEME= "themepicker_custom_theme";
     String KEY_VISITED_PREFIX = "themepicker_visited_";
+    String KEY_THEMED_ICON_ENABLED = "themepicker_themed_icon_enabled";
 
     String getSerializedCustomThemes();
 
@@ -29,4 +30,8 @@ public interface CustomizationPreferences extends WallpaperPreferences {
     boolean getTabVisited(String id);
 
     void setTabVisited(String id);
+
+    boolean getThemedIconEnabled();
+
+    void setThemedIconEnabled(boolean enabled);
 }

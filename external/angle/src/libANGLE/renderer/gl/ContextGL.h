@@ -31,12 +31,19 @@ class FunctionsGL;
 class RendererGL;
 class StateManagerGL;
 
+enum class RobustnessVideoMemoryPurgeStatus
+{
+    NOT_REQUESTED = 0,
+    REQUESTED     = 1,
+};
+
 class ContextGL : public ContextImpl
 {
   public:
     ContextGL(const gl::State &state,
               gl::ErrorSet *errorSet,
-              const std::shared_ptr<RendererGL> &renderer);
+              const std::shared_ptr<RendererGL> &renderer,
+              RobustnessVideoMemoryPurgeStatus robustnessVideoMemoryPurgeStatus);
     ~ContextGL() override;
 
     angle::Result initialize() override;
@@ -161,12 +168,49 @@ class ContextGL : public ContextImpl
                                        gl::DrawElementsType type,
                                        const void *indirect) override;
 
+    angle::Result multiDrawArrays(const gl::Context *context,
+                                  gl::PrimitiveMode mode,
+                                  const GLint *firsts,
+                                  const GLsizei *counts,
+                                  GLsizei drawcount) override;
+    angle::Result multiDrawArraysInstanced(const gl::Context *context,
+                                           gl::PrimitiveMode mode,
+                                           const GLint *firsts,
+                                           const GLsizei *counts,
+                                           const GLsizei *instanceCounts,
+                                           GLsizei drawcount) override;
+    angle::Result multiDrawElements(const gl::Context *context,
+                                    gl::PrimitiveMode mode,
+                                    const GLsizei *counts,
+                                    gl::DrawElementsType type,
+                                    const GLvoid *const *indices,
+                                    GLsizei drawcount) override;
+    angle::Result multiDrawElementsInstanced(const gl::Context *context,
+                                             gl::PrimitiveMode mode,
+                                             const GLsizei *counts,
+                                             gl::DrawElementsType type,
+                                             const GLvoid *const *indices,
+                                             const GLsizei *instanceCounts,
+                                             GLsizei drawcount) override;
+    angle::Result multiDrawArraysInstancedBaseInstance(const gl::Context *context,
+                                                       gl::PrimitiveMode mode,
+                                                       const GLint *firsts,
+                                                       const GLsizei *counts,
+                                                       const GLsizei *instanceCounts,
+                                                       const GLuint *baseInstances,
+                                                       GLsizei drawcount) override;
+    angle::Result multiDrawElementsInstancedBaseVertexBaseInstance(const gl::Context *context,
+                                                                   gl::PrimitiveMode mode,
+                                                                   const GLsizei *counts,
+                                                                   gl::DrawElementsType type,
+                                                                   const GLvoid *const *indices,
+                                                                   const GLsizei *instanceCounts,
+                                                                   const GLint *baseVertices,
+                                                                   const GLuint *baseInstances,
+                                                                   GLsizei drawcount) override;
+
     // Device loss
     gl::GraphicsResetStatus getResetStatus() override;
-
-    // Vendor and description strings.
-    std::string getVendorString() const override;
-    std::string getRendererDescription() const override;
 
     // EXT_debug_marker
     angle::Result insertEventMarker(GLsizei length, const char *marker) override;
@@ -191,6 +235,7 @@ class ContextGL : public ContextImpl
 
     // Context switching
     angle::Result onMakeCurrent(const gl::Context *context) override;
+    angle::Result onUnMakeCurrent(const gl::Context *context) override;
 
     // Caps queries
     gl::Caps getNativeCaps() const override;
@@ -224,6 +269,10 @@ class ContextGL : public ContextImpl
     void setNeedsFlushBeforeDeleteTextures();
     void flushIfNecessaryBeforeDeleteTextures();
 
+    void markWorkSubmitted();
+
+    const gl::Debug &getDebug() const { return mState.getDebug(); }
+
   private:
     angle::Result setDrawArraysState(const gl::Context *context,
                                      GLint first,
@@ -243,6 +292,8 @@ class ContextGL : public ContextImpl
 
   protected:
     std::shared_ptr<RendererGL> mRenderer;
+
+    RobustnessVideoMemoryPurgeStatus mRobustnessVideoMemoryPurgeStatus;
 };
 
 }  // namespace rx

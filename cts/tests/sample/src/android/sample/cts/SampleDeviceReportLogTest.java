@@ -25,7 +25,7 @@ import com.android.compatibility.common.util.ResultUnit;
 /**
  * A simple compatibility test which includes results in the report.
  *
- * This class has 3 dummy tests that create report logs and log dummy metrics.
+ * This class has 3 no-op tests that create report logs and log fake metrics.
  */
 public class SampleDeviceReportLogTest
         extends ActivityInstrumentationTestCase2<SampleDeviceActivity> {

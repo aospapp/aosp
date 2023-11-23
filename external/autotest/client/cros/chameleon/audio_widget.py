@@ -1,8 +1,13 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """This module provides the audio widgets used in audio tests."""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import abc
 import copy
@@ -16,6 +21,7 @@ from autotest_lib.client.cros.audio import sox_utils
 from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids as ids
 from autotest_lib.client.cros.chameleon import chameleon_port_finder
+import six
 
 _CHAMELEON_FILE_PATH = os.path.join(os.path.dirname(__file__))
 
@@ -330,9 +336,8 @@ class AudioOutputWidget(AudioWidget):
         self.handler.stop_playback()
 
 
-class WidgetHandler(object):
+class WidgetHandler(six.with_metaclass(abc.ABCMeta, object)):
     """This class abstracts handler for basic actions on widget."""
-    __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
     def plug(self):

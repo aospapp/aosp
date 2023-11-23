@@ -46,7 +46,7 @@
     </LinearLayout>
 
     <!-- Secondary action icon. -->
-    <com.android.car.calendar.DrawableStateImageButton
+    <android.widget.ImageButton
         android:id="@+id/primary_action_button"
         android:layout_width="@dimen/car_ui_list_item_height"
         android:layout_height="@dimen/car_ui_list_item_height"
@@ -57,7 +57,7 @@
         android:layout_gravity="center"/>
 
     <!-- Secondary action icon. -->
-    <com.android.car.calendar.DrawableStateImageButton
+    <android.widget.ImageButton
         android:id="@+id/secondary_action_button"
         android:layout_width="@dimen/car_ui_list_item_height"
         android:layout_height="@dimen/car_ui_list_item_height"

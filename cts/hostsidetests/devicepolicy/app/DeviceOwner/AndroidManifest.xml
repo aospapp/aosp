@@ -15,69 +15,67 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.deviceowner" >
+     package="com.android.cts.deviceowner">
 
     <uses-sdk android:minSdkVersion="20"/>
 
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
     <uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
 
-    <application
-        android:testOnly="true"
-        android:usesCleartextTraffic="true">>
+    <application android:testOnly="true"
+         android:usesCleartextTraffic="true">&gt;
 
-        <uses-library android:name="android.test.runner" />
-        <receiver
-            android:name="com.android.cts.deviceowner.BasicAdminReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+        <uses-library android:name="android.test.runner"/>
+        <receiver android:name="com.android.cts.deviceowner.BasicAdminReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                       android:resource="@xml/device_admin" />
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
-        <receiver
-            android:name="com.android.cts.deviceowner.CreateAndManageUserTest$TestProfileOwner"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+        <receiver android:name="com.android.cts.deviceowner.CreateAndManageUserTest$SecondaryUserAdminReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                       android:resource="@xml/device_admin" />
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
-        <receiver
-                android:name="com.android.cts.deviceowner.CreateAndManageUserTest$SecondaryUserAdminReceiver"
-                android:permission="android.permission.BIND_DEVICE_ADMIN">
-            <meta-data android:name="android.app.device_admin"
-                       android:resource="@xml/device_admin" />
-            <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-            </intent-filter>
+
+        <!--  TODO(b/176993670): remove if DpmWrapper goes away -->
+        <receiver android:name="com.android.bedstead.dpmwrapper.TestAppCallbacksReceiver"
+             android:exported="true">
         </receiver>
 
         <service android:name="com.android.cts.deviceowner.CreateAndManageUserTest$PrimaryUserService"
-                 android:exported="true"
-                 android:permission="android.permission.BIND_DEVICE_ADMIN">
+             android:exported="true"
+             android:permission="android.permission.BIND_DEVICE_ADMIN">
         </service>
 
-        <activity
-            android:name=".SetPolicyActivity"
-            android:launchMode="singleTop">
+        <activity android:name=".SetPolicyActivity"
+             android:launchMode="singleTop"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
@@ -85,19 +83,19 @@
         <activity android:name="com.android.compatibility.common.util.devicepolicy.provisioning.StartProvisioningActivity"/>
 
         <service android:name="com.android.cts.deviceowner.NotificationListener"
-                 android:label="Notification Listener"
-                 android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+             android:label="Notification Listener"
+             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
+                <action android:name="android.service.notification.NotificationListenerService"/>
             </intent-filter>
         </service>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.deviceowner"
-                     android:label="Device Owner CTS tests">
-        <meta-data
-            android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener"/>
+         android:targetPackage="com.android.cts.deviceowner"
+         android:label="Device Owner CTS tests">
+        <meta-data android:name="listener"
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 </manifest>

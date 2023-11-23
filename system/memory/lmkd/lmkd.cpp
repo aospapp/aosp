@@ -22,7 +22,6 @@
 #include <pwd.h>
 #include <sched.h>
 #include <signal.h>
-#include <statslog_lmkd.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,6 +29,7 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/pidfd.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
@@ -52,6 +52,9 @@
 #include <system/thread_defs.h>
 
 #include "statslog.h"
+
+#define BPF_FD_JUST_USE_INT
+#include "BpfSyscallWrappers.h"
 
 /*
  * Define LMKD_TRACE_KILLS to record lmkd kills in kernel traces
@@ -83,6 +86,8 @@
 #define MEMINFO_PATH "/proc/meminfo"
 #define VMSTAT_PATH "/proc/vmstat"
 #define PROC_STATUS_TGID_FIELD "Tgid:"
+#define PROC_STATUS_RSS_FIELD "VmRSS:"
+#define PROC_STATUS_SWAP_FIELD "VmSwap:"
 #define LINE_MAX 128
 
 #define PERCEPTIBLE_APP_ADJ 200
@@ -98,6 +103,7 @@
 #define EIGHT_MEGA (1 << 23)
 
 #define TARGET_UPDATE_MIN_INTERVAL_MS 1000
+#define THRASHING_RESET_INTERVAL_MS 1000
 
 #define NS_PER_MS (NS_PER_SEC / MS_PER_SEC)
 #define US_PER_MS (US_PER_SEC / MS_PER_SEC)
@@ -143,15 +149,6 @@
 #define DEF_COMPLETE_STALL 700
 
 #define LMKD_REINIT_PROP "lmkd.reinit"
-
-static inline int sys_pidfd_open(pid_t pid, unsigned int flags) {
-    return syscall(__NR_pidfd_open, pid, flags);
-}
-
-static inline int sys_pidfd_send_signal(int pidfd, int sig, siginfo_t *info,
-                                        unsigned int flags) {
-    return syscall(__NR_pidfd_send_signal, pidfd, sig, info, flags);
-}
 
 /* default to old in-kernel interface if no memory pressure events */
 static bool use_inkernel_interface = true;
@@ -202,6 +199,9 @@ static int psi_partial_stall_ms;
 static int psi_complete_stall_ms;
 static int thrashing_limit_pct;
 static int thrashing_limit_decay_pct;
+static int thrashing_critical_pct;
+static int swap_util_max;
+static int64_t filecache_min_kb;
 static bool use_psi_monitors = false;
 static int kpoll_fd;
 static struct psi_threshold psi_thresholds[VMPRESS_LEVEL_COUNT] = {
@@ -332,21 +332,18 @@ struct zoneinfo_zone {
 enum zoneinfo_node_field {
     ZI_NODE_NR_INACTIVE_FILE = 0,
     ZI_NODE_NR_ACTIVE_FILE,
-    ZI_NODE_WORKINGSET_REFAULT,
     ZI_NODE_FIELD_COUNT
 };
 
 static const char* const zoneinfo_node_field_names[ZI_NODE_FIELD_COUNT] = {
     "nr_inactive_file",
     "nr_active_file",
-    "workingset_refault",
 };
 
 union zoneinfo_node_fields {
     struct {
         int64_t nr_inactive_file;
         int64_t nr_active_file;
-        int64_t workingset_refault;
     } field;
     int64_t arr[ZI_NODE_FIELD_COUNT];
 };
@@ -367,7 +364,6 @@ struct zoneinfo {
     int64_t totalreserve_pages;
     int64_t total_inactive_file;
     int64_t total_active_file;
-    int64_t total_workingset_refault;
 };
 
 /* Fields to parse in /proc/meminfo */
@@ -439,6 +435,7 @@ union meminfo {
         int64_t cma_free;
         /* fields below are calculated rather than read from the file */
         int64_t nr_file_pages;
+        int64_t total_gpu_kb;
     } field;
     int64_t arr[MI_FIELD_COUNT];
 };
@@ -449,6 +446,7 @@ enum vmstat_field {
     VS_INACTIVE_FILE,
     VS_ACTIVE_FILE,
     VS_WORKINGSET_REFAULT,
+    VS_WORKINGSET_REFAULT_FILE,
     VS_PGSCAN_KSWAPD,
     VS_PGSCAN_DIRECT,
     VS_PGSCAN_DIRECT_THROTTLE,
@@ -460,6 +458,7 @@ static const char* const vmstat_field_names[MI_FIELD_COUNT] = {
     "nr_inactive_file",
     "nr_active_file",
     "workingset_refault",
+    "workingset_refault_file",
     "pgscan_kswapd",
     "pgscan_direct",
     "pgscan_direct_throttle",
@@ -471,6 +470,7 @@ union vmstat {
         int64_t nr_inactive_file;
         int64_t nr_active_file;
         int64_t workingset_refault;
+        int64_t workingset_refault_file;
         int64_t pgscan_kswapd;
         int64_t pgscan_direct;
         int64_t pgscan_direct_throttle;
@@ -762,6 +762,49 @@ static void ctrl_data_write_lmk_kill_occurred(pid_t pid, uid_t uid) {
     }
 }
 
+/*
+ * Write the kill_stat/memory_stat over the data socket to be propagated via AMS to statsd
+ */
+static void stats_write_lmk_kill_occurred(struct kill_stat *kill_st,
+                                          struct memory_stat *mem_st) {
+    LMK_KILL_OCCURRED_PACKET packet;
+    const size_t len = lmkd_pack_set_kill_occurred(packet, kill_st, mem_st);
+    if (len == 0) {
+        return;
+    }
+
+    for (int i = 0; i < MAX_DATA_CONN; i++) {
+        if (data_sock[i].sock >= 0 && data_sock[i].async_event_mask & 1 << LMK_ASYNC_EVENT_STAT) {
+            ctrl_data_write(i, packet, len);
+        }
+    }
+
+}
+
+static void stats_write_lmk_kill_occurred_pid(int pid, struct kill_stat *kill_st,
+                                              struct memory_stat *mem_st) {
+    kill_st->taskname = stats_get_task_name(pid);
+    if (kill_st->taskname != NULL) {
+        stats_write_lmk_kill_occurred(kill_st, mem_st);
+    }
+}
+
+/*
+ * Write the state_changed over the data socket to be propagated via AMS to statsd
+ */
+static void stats_write_lmk_state_changed(enum lmk_state state) {
+    LMKD_CTRL_PACKET packet_state_changed;
+    const size_t len = lmkd_pack_set_state_changed(packet_state_changed, state);
+    if (len == 0) {
+        return;
+    }
+    for (int i = 0; i < MAX_DATA_CONN; i++) {
+        if (data_sock[i].sock >= 0 && data_sock[i].async_event_mask & 1 << LMK_ASYNC_EVENT_STAT) {
+            ctrl_data_write(i, (char*)packet_state_changed, len);
+        }
+    }
+}
+
 static void poll_kernel(int poll_fd) {
     if (poll_fd == -1) {
         // not waiting
@@ -796,8 +839,16 @@ static void poll_kernel(int poll_fd) {
             ctrl_data_write_lmk_kill_occurred((pid_t)pid, (uid_t)uid);
             mem_st.process_start_time_ns = starttime * (NS_PER_SEC / sysconf(_SC_CLK_TCK));
             mem_st.rss_in_bytes = rss_in_pages * PAGE_SIZE;
-            stats_write_lmk_kill_occurred_pid(uid, pid, oom_score_adj,
-                                              min_score_adj, 0, &mem_st);
+
+            struct kill_stat kill_st = {
+                .uid = static_cast<int32_t>(uid),
+                .kill_reason = NONE,
+                .oom_score = oom_score_adj,
+                .min_oom_score = min_score_adj,
+                .free_mem_kb = 0,
+                .free_swap_kb = 0,
+            };
+            stats_write_lmk_kill_occurred_pid(pid, &kill_st, &mem_st);
         }
 
         free(taskname);
@@ -929,30 +980,33 @@ static inline long get_time_diff_ms(struct timespec *from,
            (to->tv_nsec - from->tv_nsec) / (long)NS_PER_MS;
 }
 
-static int proc_get_tgid(int pid) {
+/* Reads /proc/pid/status into buf. */
+static bool read_proc_status(int pid, char *buf, size_t buf_sz) {
     char path[PATH_MAX];
-    char buf[PAGE_SIZE];
     int fd;
     ssize_t size;
-    char *pos;
-    int64_t tgid = -1;
 
     snprintf(path, PATH_MAX, "/proc/%d/status", pid);
     fd = open(path, O_RDONLY | O_CLOEXEC);
     if (fd < 0) {
-        return -1;
+        return false;
     }
 
-    size = read_all(fd, buf, sizeof(buf) - 1);
+    size = read_all(fd, buf, buf_sz - 1);
+    close(fd);
     if (size < 0) {
-        goto out;
+        return false;
     }
     buf[size] = 0;
+    return true;
+}
 
-    pos = buf;
+/* Looks for tag in buf and parses the first integer */
+static bool parse_status_tag(char *buf, const char *tag, int64_t *out) {
+    char *pos = buf;
     while (true) {
-        pos = strstr(pos, PROC_STATUS_TGID_FIELD);
-        /* Stop if TGID tag not found or found at the line beginning */
+        pos = strstr(pos, tag);
+        /* Stop if tag not found or found at the line beginning */
         if (pos == NULL || pos == buf || pos[-1] == '\n') {
             break;
         }
@@ -960,16 +1014,12 @@ static int proc_get_tgid(int pid) {
     }
 
     if (pos == NULL) {
-        goto out;
+        return false;
     }
 
-    pos += strlen(PROC_STATUS_TGID_FIELD);
-    while (*pos == ' ') pos++;
-    parse_int64(pos, &tgid);
-
-out:
-    close(fd);
-    return (int)tgid;
+    pos += strlen(tag);
+    while (*pos == ' ') ++pos;
+    return parse_int64(pos, out);
 }
 
 static int proc_get_size(int pid) {
@@ -1033,7 +1083,8 @@ static void cmd_procprio(LMKD_CTRL_PACKET packet, int field_count, struct ucred 
     struct lmk_procprio params;
     bool is_system_server;
     struct passwd *pwdrec;
-    int tgid;
+    int64_t tgid;
+    char buf[PAGE_SIZE];
 
     lmkd_pack_get_procprio(packet, field_count, &params);
 
@@ -1049,11 +1100,12 @@ static void cmd_procprio(LMKD_CTRL_PACKET packet, int field_count, struct ucred 
     }
 
     /* Check if registered process is a thread group leader */
-    tgid = proc_get_tgid(params.pid);
-    if (tgid >= 0 && tgid != params.pid) {
-        ALOGE("Attempt to register a task that is not a thread group leader (tid %d, tgid %d)",
-            params.pid, tgid);
-        return;
+    if (read_proc_status(params.pid, buf, sizeof(buf))) {
+        if (parse_status_tag(buf, PROC_STATUS_TGID_FIELD, &tgid) && tgid != params.pid) {
+            ALOGE("Attempt to register a task that is not a thread group leader "
+                  "(tid %d, tgid %" PRId64 ")", params.pid, tgid);
+            return;
+        }
     }
 
     /* gid containing AID_READPROC required */
@@ -1123,7 +1175,7 @@ static void cmd_procprio(LMKD_CTRL_PACKET packet, int field_count, struct ucred 
         int pidfd = -1;
 
         if (pidfd_supported) {
-            pidfd = TEMP_FAILURE_RETRY(sys_pidfd_open(params.pid, 0));
+            pidfd = TEMP_FAILURE_RETRY(pidfd_open(params.pid, 0));
             if (pidfd < 0) {
                 ALOGE("pidfd_open for pid %d failed; errno=%d", params.pid, errno);
                 return;
@@ -1145,9 +1197,10 @@ static void cmd_procprio(LMKD_CTRL_PACKET packet, int field_count, struct ucred 
     } else {
         if (!claim_record(procp, cred->pid)) {
             char buf[LINE_MAX];
+            char *taskname = proc_get_name(cred->pid, buf, sizeof(buf));
             /* Only registrant of the record can remove it */
             ALOGE("%s (%d, %d) attempts to modify a process registered by another client",
-                proc_get_name(cred->pid, buf, sizeof(buf)), cred->uid, cred->pid);
+                taskname ? taskname : "A process ", cred->uid, cred->pid);
             return;
         }
         proc_unslot(procp);
@@ -1182,9 +1235,10 @@ static void cmd_procremove(LMKD_CTRL_PACKET packet, struct ucred *cred) {
 
     if (!claim_record(procp, cred->pid)) {
         char buf[LINE_MAX];
+        char *taskname = proc_get_name(cred->pid, buf, sizeof(buf));
         /* Only registrant of the record can remove it */
         ALOGE("%s (%d, %d) attempts to unregister a process registered by another client",
-            proc_get_name(cred->pid, buf, sizeof(buf)), cred->uid, cred->pid);
+            taskname ? taskname : "A process ", cred->uid, cred->pid);
         return;
     }
 
@@ -1705,7 +1759,6 @@ static int zoneinfo_parse(struct zoneinfo *zi) {
         }
         zi->total_inactive_file += node->fields.field.nr_inactive_file;
         zi->total_active_file += node->fields.field.nr_active_file;
-        zi->total_workingset_refault += node->fields.field.workingset_refault;
     }
     return 0;
 }
@@ -1737,6 +1790,21 @@ static bool meminfo_parse_line(char *line, union meminfo *mi) {
     return (match_res != PARSE_FAIL);
 }
 
+static int64_t read_gpu_total_kb() {
+    static int fd = android::bpf::bpfFdGet(
+            "/sys/fs/bpf/map_gpu_mem_gpu_mem_total_map", BPF_F_RDONLY);
+    static constexpr uint64_t kBpfKeyGpuTotalUsage = 0;
+    uint64_t value;
+
+    if (fd < 0) {
+        return 0;
+    }
+
+    return android::bpf::findMapEntry(fd, &kBpfKeyGpuTotalUsage, &value)
+            ? 0
+            : (int32_t)(value / 1024);
+}
+
 static int meminfo_parse(union meminfo *mi) {
     static struct reread_data file_data = {
         .filename = MEMINFO_PATH,
@@ -1761,6 +1829,7 @@ static int meminfo_parse(union meminfo *mi) {
     }
     mi->field.nr_file_pages = mi->field.cached + mi->field.swap_cached +
         mi->field.buffers;
+    mi->field.total_gpu_kb = read_gpu_total_kb();
 
     return 0;
 }
@@ -1818,20 +1887,64 @@ static int vmstat_parse(union vmstat *vs) {
     return 0;
 }
 
-static void killinfo_log(struct proc* procp, int min_oom_score, int tasksize,
-                         int kill_reason, union meminfo *mi) {
+enum wakeup_reason {
+    Event,
+    Polling
+};
+
+struct wakeup_info {
+    struct timespec wakeup_tm;
+    struct timespec prev_wakeup_tm;
+    struct timespec last_event_tm;
+    int wakeups_since_event;
+    int skipped_wakeups;
+};
+
+/*
+ * After the initial memory pressure event is received lmkd schedules periodic wakeups to check
+ * the memory conditions and kill if needed (polling). This is done because pressure events are
+ * rate-limited and memory conditions can change in between events. Therefore after the initial
+ * event there might be multiple wakeups. This function records the wakeup information such as the
+ * timestamps of the last event and the last wakeup, the number of wakeups since the last event
+ * and how many of those wakeups were skipped (some wakeups are skipped if previously killed
+ * process is still freeing its memory).
+ */
+static void record_wakeup_time(struct timespec *tm, enum wakeup_reason reason,
+                               struct wakeup_info *wi) {
+    wi->prev_wakeup_tm = wi->wakeup_tm;
+    wi->wakeup_tm = *tm;
+    if (reason == Event) {
+        wi->last_event_tm = *tm;
+        wi->wakeups_since_event = 0;
+        wi->skipped_wakeups = 0;
+    } else {
+        wi->wakeups_since_event++;
+    }
+}
+
+static void killinfo_log(struct proc* procp, int min_oom_score, int rss_kb,
+                         int swap_kb, int kill_reason, union meminfo *mi,
+                         struct wakeup_info *wi, struct timespec *tm) {
     /* log process information */
     android_log_write_int32(ctx, procp->pid);
     android_log_write_int32(ctx, procp->uid);
     android_log_write_int32(ctx, procp->oomadj);
     android_log_write_int32(ctx, min_oom_score);
-    android_log_write_int32(ctx, (int32_t)min(tasksize * page_k, INT32_MAX));
+    android_log_write_int32(ctx, (int32_t)min(rss_kb, INT32_MAX));
     android_log_write_int32(ctx, kill_reason);
 
     /* log meminfo fields */
     for (int field_idx = 0; field_idx < MI_FIELD_COUNT; field_idx++) {
         android_log_write_int32(ctx, (int32_t)min(mi->arr[field_idx] * page_k, INT32_MAX));
     }
+
+    /* log lmkd wakeup information */
+    android_log_write_int32(ctx, (int32_t)get_time_diff_ms(&wi->last_event_tm, tm));
+    android_log_write_int32(ctx, (int32_t)get_time_diff_ms(&wi->prev_wakeup_tm, tm));
+    android_log_write_int32(ctx, wi->wakeups_since_event);
+    android_log_write_int32(ctx, wi->skipped_wakeups);
+    android_log_write_int32(ctx, (int32_t)min(swap_kb, INT32_MAX));
+    android_log_write_int32(ctx, (int32_t)mi->field.total_gpu_kb);
 
     android_log_write_list(ctx, LOG_ID_EVENTS);
     android_log_reset(ctx);
@@ -1849,7 +1962,7 @@ static struct proc *proc_get_heaviest(int oomadj) {
     while (curr != head) {
         int pid = ((struct proc *)curr)->pid;
         int tasksize = proc_get_size(pid);
-        if (tasksize <= 0) {
+        if (tasksize < 0) {
             struct adjslot_list *next = curr->next;
             pid_remove(pid);
             curr = next;
@@ -1997,37 +2110,55 @@ static void start_wait_for_proc_kill(int pid_or_fd) {
     maxevents++;
 }
 
-/* Kill one process specified by procp.  Returns the size of the process killed */
-static int kill_one_process(struct proc* procp, int min_oom_score, int kill_reason,
-                            const char *kill_desc, union meminfo *mi, struct timespec *tm) {
+struct kill_info {
+    enum kill_reasons kill_reason;
+    const char *kill_desc;
+    int thrashing;
+    int max_thrashing;
+};
+
+/* Kill one process specified by procp.  Returns the size (in pages) of the process killed */
+static int kill_one_process(struct proc* procp, int min_oom_score, struct kill_info *ki,
+                            union meminfo *mi, struct wakeup_info *wi, struct timespec *tm) {
     int pid = procp->pid;
     int pidfd = procp->pidfd;
     uid_t uid = procp->uid;
-    int tgid;
     char *taskname;
-    int tasksize;
     int r;
     int result = -1;
     struct memory_stat *mem_st;
-    char buf[LINE_MAX];
+    struct kill_stat kill_st;
+    int64_t tgid;
+    int64_t rss_kb;
+    int64_t swap_kb;
+    char buf[PAGE_SIZE];
 
-    tgid = proc_get_tgid(pid);
-    if (tgid >= 0 && tgid != pid) {
-        ALOGE("Possible pid reuse detected (pid %d, tgid %d)!", pid, tgid);
+    if (!read_proc_status(pid, buf, sizeof(buf))) {
+        goto out;
+    }
+    if (!parse_status_tag(buf, PROC_STATUS_TGID_FIELD, &tgid)) {
+        ALOGE("Unable to parse tgid from /proc/%d/status", pid);
+        goto out;
+    }
+    if (tgid != pid) {
+        ALOGE("Possible pid reuse detected (pid %d, tgid %" PRId64 ")!", pid, tgid);
+        goto out;
+    }
+    // Zombie processes will not have RSS / Swap fields.
+    if (!parse_status_tag(buf, PROC_STATUS_RSS_FIELD, &rss_kb)) {
+        goto out;
+    }
+    if (!parse_status_tag(buf, PROC_STATUS_SWAP_FIELD, &swap_kb)) {
         goto out;
     }
 
     taskname = proc_get_name(pid, buf, sizeof(buf));
+    // taskname will point inside buf, do not reuse buf onwards.
     if (!taskname) {
         goto out;
     }
 
-    tasksize = proc_get_size(pid);
-    if (tasksize <= 0) {
-        goto out;
-    }
-
-    mem_st = stats_read_memory_stat(per_app_memcg, pid, uid);
+    mem_st = stats_read_memory_stat(per_app_memcg, pid, uid, rss_kb * 1024, swap_kb * 1024);
 
     TRACE_KILL_START(pid);
 
@@ -2037,7 +2168,7 @@ static int kill_one_process(struct proc* procp, int min_oom_score, int kill_reas
         r = kill(pid, SIGKILL);
     } else {
         start_wait_for_proc_kill(pidfd);
-        r = sys_pidfd_send_signal(pidfd, SIGKILL, NULL, 0);
+        r = pidfd_send_signal(pidfd, SIGKILL, NULL, 0);
     }
 
     TRACE_KILL_END();
@@ -2055,21 +2186,34 @@ static int kill_one_process(struct proc* procp, int min_oom_score, int kill_reas
 
     inc_killcnt(procp->oomadj);
 
-    killinfo_log(procp, min_oom_score, tasksize, kill_reason, mi);
-
-    if (kill_desc) {
-        ALOGI("Kill '%s' (%d), uid %d, oom_adj %d to free %ldkB; reason: %s", taskname, pid,
-              uid, procp->oomadj, tasksize * page_k, kill_desc);
+    if (ki) {
+        kill_st.kill_reason = ki->kill_reason;
+        kill_st.thrashing = ki->thrashing;
+        kill_st.max_thrashing = ki->max_thrashing;
+        killinfo_log(procp, min_oom_score, rss_kb, swap_kb, ki->kill_reason, mi, wi, tm);
+        ALOGI("Kill '%s' (%d), uid %d, oom_score_adj %d to free %" PRId64 "kB rss, %" PRId64
+              "kB swap; reason: %s", taskname, pid, uid, procp->oomadj, rss_kb, swap_kb,
+              ki->kill_desc);
     } else {
-        ALOGI("Kill '%s' (%d), uid %d, oom_adj %d to free %ldkB", taskname, pid,
-              uid, procp->oomadj, tasksize * page_k);
+        kill_st.kill_reason = NONE;
+        kill_st.thrashing = 0;
+        kill_st.max_thrashing = 0;
+        killinfo_log(procp, min_oom_score, rss_kb, swap_kb, NONE, mi, wi, tm);
+        ALOGI("Kill '%s' (%d), uid %d, oom_score_adj %d to free %" PRId64 "kB rss, %" PRId64
+              "kb swap", taskname, pid, uid, procp->oomadj, rss_kb, swap_kb);
     }
 
-    stats_write_lmk_kill_occurred(uid, taskname, procp->oomadj, min_oom_score, tasksize, mem_st);
+    kill_st.uid = static_cast<int32_t>(uid);
+    kill_st.taskname = taskname;
+    kill_st.oom_score = procp->oomadj;
+    kill_st.min_oom_score = min_oom_score;
+    kill_st.free_mem_kb = mi->field.nr_free_pages * page_k;
+    kill_st.free_swap_kb = mi->field.free_swap * page_k;
+    stats_write_lmk_kill_occurred(&kill_st, mem_st);
 
     ctrl_data_write_lmk_kill_occurred((pid_t)pid, uid);
 
-    result = tasksize;
+    result = rss_kb / page_k;
 
 out:
     /*
@@ -2081,31 +2225,39 @@ out:
 }
 
 /*
- * Find one process to kill at or above the given oom_adj level.
+ * Find one process to kill at or above the given oom_score_adj level.
  * Returns size of the killed process.
  */
-static int find_and_kill_process(int min_score_adj, int kill_reason, const char *kill_desc,
-                                 union meminfo *mi, struct timespec *tm) {
+static int find_and_kill_process(int min_score_adj, struct kill_info *ki, union meminfo *mi,
+                                 struct wakeup_info *wi, struct timespec *tm) {
     int i;
     int killed_size = 0;
     bool lmk_state_change_start = false;
+    bool choose_heaviest_task = kill_heaviest_task;
 
     for (i = OOM_SCORE_ADJ_MAX; i >= min_score_adj; i--) {
         struct proc *procp;
 
+        if (!choose_heaviest_task && i <= PERCEPTIBLE_APP_ADJ) {
+            /*
+             * If we have to choose a perceptible process, choose the heaviest one to
+             * hopefully minimize the number of victims.
+             */
+            choose_heaviest_task = true;
+        }
+
         while (true) {
-            procp = kill_heaviest_task ?
+            procp = choose_heaviest_task ?
                 proc_get_heaviest(i) : proc_adj_lru(i);
 
             if (!procp)
                 break;
 
-            killed_size = kill_one_process(procp, min_score_adj, kill_reason, kill_desc, mi, tm);
+            killed_size = kill_one_process(procp, min_score_adj, ki, mi, wi, tm);
             if (killed_size >= 0) {
                 if (!lmk_state_change_start) {
                     lmk_state_change_start = true;
-                    stats_write_lmk_state_changed(
-                            android::lmkd::stats::LMK_STATE_CHANGED__STATE__START);
+                    stats_write_lmk_state_changed(STATE_START);
                 }
                 break;
             }
@@ -2116,7 +2268,7 @@ static int find_and_kill_process(int min_score_adj, int kill_reason, const char 
     }
 
     if (lmk_state_change_start) {
-        stats_write_lmk_state_changed(android::lmkd::stats::LMK_STATE_CHANGED__STATE__STOP);
+        stats_write_lmk_state_changed(STATE_STOP);
     }
 
     return killed_size;
@@ -2230,32 +2382,34 @@ void calc_zone_watermarks(struct zoneinfo *zi, struct zone_watermarks *watermark
     }
 }
 
+static int calc_swap_utilization(union meminfo *mi) {
+    int64_t swap_used = mi->field.total_swap - mi->field.free_swap;
+    int64_t total_swappable = mi->field.active_anon + mi->field.inactive_anon +
+                              mi->field.shmem + swap_used;
+    return total_swappable > 0 ? (swap_used * 100) / total_swappable : 0;
+}
+
 static void mp_event_psi(int data, uint32_t events, struct polling_params *poll_params) {
-    enum kill_reasons {
-        NONE = -1, /* To denote no kill condition */
-        PRESSURE_AFTER_KILL = 0,
-        NOT_RESPONDING,
-        LOW_SWAP_AND_THRASHING,
-        LOW_MEM_AND_SWAP,
-        LOW_MEM_AND_THRASHING,
-        DIRECT_RECL_AND_THRASHING,
-        KILL_REASON_COUNT
-    };
     enum reclaim_state {
         NO_RECLAIM = 0,
         KSWAPD_RECLAIM,
         DIRECT_RECLAIM,
     };
     static int64_t init_ws_refault;
+    static int64_t prev_workingset_refault;
     static int64_t base_file_lru;
     static int64_t init_pgscan_kswapd;
     static int64_t init_pgscan_direct;
     static int64_t swap_low_threshold;
     static bool killing;
-    static int thrashing_limit;
-    static bool in_reclaim;
+    static int thrashing_limit = thrashing_limit_pct;
     static struct zone_watermarks watermarks;
     static struct timespec wmark_update_tm;
+    static struct wakeup_info wi;
+    static struct timespec thrashing_reset_tm;
+    static int64_t prev_thrash_growth = 0;
+    static bool check_filecache = false;
+    static int max_thrashing = 0;
 
     union meminfo mi;
     union vmstat vs;
@@ -2270,16 +2424,22 @@ static void mp_event_psi(int data, uint32_t events, struct polling_params *poll_
     char kill_desc[LINE_MAX];
     bool cut_thrashing_limit = false;
     int min_score_adj = 0;
+    int swap_util = 0;
+    long since_thrashing_reset_ms;
+    int64_t workingset_refault_file;
 
     if (clock_gettime(CLOCK_MONOTONIC_COARSE, &curr_tm) != 0) {
         ALOGE("Failed to get current time");
         return;
     }
 
+    record_wakeup_time(&curr_tm, events ? Event : Polling, &wi);
+
     bool kill_pending = is_kill_pending();
     if (kill_pending && (kill_timeout_ms == 0 ||
         get_time_diff_ms(&last_kill_tm, &curr_tm) < static_cast<long>(kill_timeout_ms))) {
         /* Skip while still killing a process */
+        wi.skipped_wakeups++;
         goto no_kill;
     }
     /*
@@ -2292,6 +2452,8 @@ static void mp_event_psi(int data, uint32_t events, struct polling_params *poll_
         ALOGE("Failed to parse vmstat!");
         return;
     }
+    /* Starting 5.9 kernel workingset_refault vmstat field was renamed workingset_refault_file */
+    workingset_refault_file = vs.field.workingset_refault ? : vs.field.workingset_refault_file;
 
     if (meminfo_parse(&mi) < 0) {
         ALOGE("Failed to parse meminfo!");
@@ -2304,7 +2466,9 @@ static void mp_event_psi(int data, uint32_t events, struct polling_params *poll_
         cycle_after_kill = true;
         /* Reset file-backed pagecache size and refault amounts after a kill */
         base_file_lru = vs.field.nr_inactive_file + vs.field.nr_active_file;
-        init_ws_refault = vs.field.workingset_refault;
+        init_ws_refault = workingset_refault_file;
+        thrashing_reset_tm = curr_tm;
+        prev_thrash_growth = 0;
     }
 
     /* Check free swap levels */
@@ -2323,22 +2487,57 @@ static void mp_event_psi(int data, uint32_t events, struct polling_params *poll_
     } else if (vs.field.pgscan_kswapd > init_pgscan_kswapd) {
         init_pgscan_kswapd = vs.field.pgscan_kswapd;
         reclaim = KSWAPD_RECLAIM;
-    } else {
-        in_reclaim = false;
-        /* Skip if system is not reclaiming */
+    } else if (workingset_refault_file == prev_workingset_refault) {
+        /*
+         * Device is not thrashing and not reclaiming, bail out early until we see these stats
+         * changing
+         */
         goto no_kill;
     }
 
-    if (!in_reclaim) {
-        /* Record file-backed pagecache size when entering reclaim cycle */
+    prev_workingset_refault = workingset_refault_file;
+
+     /*
+     * It's possible we fail to find an eligible process to kill (ex. no process is
+     * above oom_adj_min). When this happens, we should retry to find a new process
+     * for a kill whenever a new eligible process is available. This is especially
+     * important for a slow growing refault case. While retrying, we should keep
+     * monitoring new thrashing counter as someone could release the memory to mitigate
+     * the thrashing. Thus, when thrashing reset window comes, we decay the prev thrashing
+     * counter by window counts. If the counter is still greater than thrashing limit,
+     * we preserve the current prev_thrash counter so we will retry kill again. Otherwise,
+     * we reset the prev_thrash counter so we will stop retrying.
+     */
+    since_thrashing_reset_ms = get_time_diff_ms(&thrashing_reset_tm, &curr_tm);
+    if (since_thrashing_reset_ms > THRASHING_RESET_INTERVAL_MS) {
+        long windows_passed;
+        /* Calculate prev_thrash_growth if we crossed THRASHING_RESET_INTERVAL_MS */
+        prev_thrash_growth = (workingset_refault_file - init_ws_refault) * 100
+                            / (base_file_lru + 1);
+        windows_passed = (since_thrashing_reset_ms / THRASHING_RESET_INTERVAL_MS);
+        /*
+         * Decay prev_thrashing unless over-the-limit thrashing was registered in the window we
+         * just crossed, which means there were no eligible processes to kill. We preserve the
+         * counter in that case to ensure a kill if a new eligible process appears.
+         */
+        if (windows_passed > 1 || prev_thrash_growth < thrashing_limit) {
+            prev_thrash_growth >>= windows_passed;
+        }
+
+        /* Record file-backed pagecache size when crossing THRASHING_RESET_INTERVAL_MS */
         base_file_lru = vs.field.nr_inactive_file + vs.field.nr_active_file;
-        init_ws_refault = vs.field.workingset_refault;
+        init_ws_refault = workingset_refault_file;
+        thrashing_reset_tm = curr_tm;
         thrashing_limit = thrashing_limit_pct;
     } else {
         /* Calculate what % of the file-backed pagecache refaulted so far */
-        thrashing = (vs.field.workingset_refault - init_ws_refault) * 100 / base_file_lru;
+        thrashing = (workingset_refault_file - init_ws_refault) * 100 / (base_file_lru + 1);
     }
-    in_reclaim = true;
+    /* Add previous cycle's decayed thrashing amount */
+    thrashing += prev_thrash_growth;
+    if (max_thrashing < thrashing) {
+        max_thrashing = thrashing;
+    }
 
     /*
      * Refresh watermarks once per min in case user updated one of the margins.
@@ -2355,7 +2554,7 @@ static void mp_event_psi(int data, uint32_t events, struct polling_params *poll_
 
         calc_zone_watermarks(&zi, &watermarks);
         wmark_update_tm = curr_tm;
-     }
+    }
 
     /* Find out which watermark is breached if any */
     wmark = get_lowest_watermark(&mi, &watermarks);
@@ -2386,44 +2585,81 @@ static void mp_event_psi(int data, uint32_t events, struct polling_params *poll_
         snprintf(kill_desc, sizeof(kill_desc), "device is low on swap (%" PRId64
             "kB < %" PRId64 "kB) and thrashing (%" PRId64 "%%)",
             mi.field.free_swap * page_k, swap_low_threshold * page_k, thrashing);
-        /* Do not kill perceptible apps unless below min watermark */
-        if (wmark > WMARK_MIN) {
+        /* Do not kill perceptible apps unless below min watermark or heavily thrashing */
+        if (wmark > WMARK_MIN && thrashing < thrashing_critical_pct) {
             min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
         }
+        check_filecache = true;
     } else if (swap_is_low && wmark < WMARK_HIGH) {
         /* Both free memory and swap are low */
         kill_reason = LOW_MEM_AND_SWAP;
         snprintf(kill_desc, sizeof(kill_desc), "%s watermark is breached and swap is low (%"
-            PRId64 "kB < %" PRId64 "kB)", wmark > WMARK_LOW ? "min" : "low",
+            PRId64 "kB < %" PRId64 "kB)", wmark < WMARK_LOW ? "min" : "low",
             mi.field.free_swap * page_k, swap_low_threshold * page_k);
-        /* Do not kill perceptible apps unless below min watermark */
-        if (wmark > WMARK_MIN) {
+        /* Do not kill perceptible apps unless below min watermark or heavily thrashing */
+        if (wmark > WMARK_MIN && thrashing < thrashing_critical_pct) {
             min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
         }
+    } else if (wmark < WMARK_HIGH && swap_util_max < 100 &&
+               (swap_util = calc_swap_utilization(&mi)) > swap_util_max) {
+        /*
+         * Too much anon memory is swapped out but swap is not low.
+         * Non-swappable allocations created memory pressure.
+         */
+        kill_reason = LOW_MEM_AND_SWAP_UTIL;
+        snprintf(kill_desc, sizeof(kill_desc), "%s watermark is breached and swap utilization"
+            " is high (%d%% > %d%%)", wmark < WMARK_LOW ? "min" : "low",
+            swap_util, swap_util_max);
     } else if (wmark < WMARK_HIGH && thrashing > thrashing_limit) {
         /* Page cache is thrashing while memory is low */
         kill_reason = LOW_MEM_AND_THRASHING;
         snprintf(kill_desc, sizeof(kill_desc), "%s watermark is breached and thrashing (%"
-            PRId64 "%%)", wmark > WMARK_LOW ? "min" : "low", thrashing);
+            PRId64 "%%)", wmark < WMARK_LOW ? "min" : "low", thrashing);
         cut_thrashing_limit = true;
-        /* Do not kill perceptible apps because of thrashing */
-        min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
+        /* Do not kill perceptible apps unless thrashing at critical levels */
+        if (thrashing < thrashing_critical_pct) {
+            min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
+        }
+        check_filecache = true;
     } else if (reclaim == DIRECT_RECLAIM && thrashing > thrashing_limit) {
         /* Page cache is thrashing while in direct reclaim (mostly happens on lowram devices) */
         kill_reason = DIRECT_RECL_AND_THRASHING;
         snprintf(kill_desc, sizeof(kill_desc), "device is in direct reclaim and thrashing (%"
             PRId64 "%%)", thrashing);
         cut_thrashing_limit = true;
-        /* Do not kill perceptible apps because of thrashing */
-        min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
+        /* Do not kill perceptible apps unless thrashing at critical levels */
+        if (thrashing < thrashing_critical_pct) {
+            min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
+        }
+        check_filecache = true;
+    } else if (check_filecache) {
+        int64_t file_lru_kb = (vs.field.nr_inactive_file + vs.field.nr_active_file) * page_k;
+
+        if (file_lru_kb < filecache_min_kb) {
+            /* File cache is too low after thrashing, keep killing background processes */
+            kill_reason = LOW_FILECACHE_AFTER_THRASHING;
+            snprintf(kill_desc, sizeof(kill_desc),
+                "filecache is low (%" PRId64 "kB < %" PRId64 "kB) after thrashing",
+                file_lru_kb, filecache_min_kb);
+            min_score_adj = PERCEPTIBLE_APP_ADJ + 1;
+        } else {
+            /* File cache is big enough, stop checking */
+            check_filecache = false;
+        }
     }
 
     /* Kill a process if necessary */
     if (kill_reason != NONE) {
-        int pages_freed = find_and_kill_process(min_score_adj, kill_reason, kill_desc, &mi,
-                                                &curr_tm);
+        struct kill_info ki = {
+            .kill_reason = kill_reason,
+            .kill_desc = kill_desc,
+            .thrashing = (int)thrashing,
+            .max_thrashing = max_thrashing,
+        };
+        int pages_freed = find_and_kill_process(min_score_adj, &ki, &mi, &wi, &curr_tm);
         if (pages_freed > 0) {
             killing = true;
+            max_thrashing = 0;
             if (cut_thrashing_limit) {
                 /*
                  * Cut thrasing limit by thrashing_limit_decay_pct percentage of the current
@@ -2482,6 +2718,7 @@ static void mp_event_common(int data, uint32_t events, struct polling_params *po
         .filename = MEMCG_MEMORYSW_USAGE,
         .fd = -1,
     };
+    static struct wakeup_info wi;
 
     if (debug_process_killing) {
         ALOGI("%s memory pressure event is triggered", level_name[level]);
@@ -2517,6 +2754,8 @@ static void mp_event_common(int data, uint32_t events, struct polling_params *po
         return;
     }
 
+    record_wakeup_time(&curr_tm, events ? Event : Polling, &wi);
+
     if (kill_timeout_ms &&
         get_time_diff_ms(&last_kill_tm, &curr_tm) < static_cast<long>(kill_timeout_ms)) {
         /*
@@ -2525,6 +2764,7 @@ static void mp_event_common(int data, uint32_t events, struct polling_params *po
          */
         if (is_kill_pending()) {
             kill_skip_count++;
+            wi.skipped_wakeups++;
             return;
         }
         /*
@@ -2636,7 +2876,7 @@ static void mp_event_common(int data, uint32_t events, struct polling_params *po
 do_kill:
     if (low_ram_device) {
         /* For Go devices kill only one task */
-        if (find_and_kill_process(level_oomadj[level], -1, NULL, &mi, &curr_tm) == 0) {
+        if (find_and_kill_process(level_oomadj[level], NULL, &mi, &wi, &curr_tm) == 0) {
             if (debug_process_killing) {
                 ALOGI("Nothing to kill");
             }
@@ -2659,7 +2899,7 @@ do_kill:
             min_score_adj = level_oomadj[level];
         }
 
-        pages_freed = find_and_kill_process(min_score_adj, -1, NULL, &mi, &curr_tm);
+        pages_freed = find_and_kill_process(min_score_adj, NULL, &mi, &wi, &curr_tm);
 
         if (pages_freed == 0) {
             /* Rate limit kill reports when nothing was reclaimed */
@@ -2671,15 +2911,14 @@ do_kill:
 
         /* Log whenever we kill or when report rate limit allows */
         if (use_minfree_levels) {
-            ALOGI("Reclaimed %ldkB, cache(%ldkB) and "
-                "free(%" PRId64 "kB)-reserved(%" PRId64 "kB) below min(%ldkB) for oom_adj %d",
+            ALOGI("Reclaimed %ldkB, cache(%ldkB) and free(%" PRId64 "kB)-reserved(%" PRId64 "kB) "
+                "below min(%ldkB) for oom_score_adj %d",
                 pages_freed * page_k,
                 other_file * page_k, mi.field.nr_free_pages * page_k,
                 zi.totalreserve_pages * page_k,
                 minfree * page_k, min_score_adj);
         } else {
-            ALOGI("Reclaimed %ldkB at oom_adj %d",
-                pages_freed * page_k, min_score_adj);
+            ALOGI("Reclaimed %ldkB at oom_score_adj %d", pages_freed * page_k, min_score_adj);
         }
 
         if (report_skip_count > 0) {
@@ -2981,7 +3220,7 @@ static int init(void) {
     }
 
     /* check if kernel supports pidfd_open syscall */
-    pidfd = TEMP_FAILURE_RETRY(sys_pidfd_open(getpid(), 0));
+    pidfd = TEMP_FAILURE_RETRY(pidfd_open(getpid(), 0));
     if (pidfd < 0) {
         pidfd_supported = (errno != ENOSYS);
     } else {
@@ -3000,6 +3239,8 @@ static bool polling_paused(struct polling_params *poll_params) {
 static void resume_polling(struct polling_params *poll_params, struct timespec curr_tm) {
     poll_params->poll_start_tm = curr_tm;
     poll_params->poll_handler = poll_params->paused_handler;
+    poll_params->polling_interval_ms = PSI_POLL_PERIOD_SHORT_MS;
+    poll_params->paused_handler = NULL;
 }
 
 static void call_handler(struct event_handler_info* handler_info,
@@ -3034,7 +3275,6 @@ static void call_handler(struct event_handler_info* handler_info,
         if (get_time_diff_ms(&poll_params->poll_start_tm, &curr_tm) > PSI_WINDOW_SIZE_MS) {
             /* Polled for the duration of PSI window, time to stop */
             poll_params->poll_handler = NULL;
-            poll_params->paused_handler = NULL;
         }
         break;
     }
@@ -3059,12 +3299,8 @@ static void mainloop(void) {
             bool poll_now;
 
             clock_gettime(CLOCK_MONOTONIC_COARSE, &curr_tm);
-            if (poll_params.poll_handler == poll_params.paused_handler) {
-                /*
-                 * Just transitioned into POLLING_RESUME. Reset paused_handler
-                 * and poll immediately
-                 */
-                poll_params.paused_handler = NULL;
+            if (poll_params.update == POLLING_RESUME) {
+                /* Just transitioned into POLLING_RESUME, poll immediately. */
                 poll_now = true;
                 nevents = 0;
             } else {
@@ -3095,6 +3331,7 @@ static void mainloop(void) {
                     stop_wait_for_proc_kill(false);
                     if (polling_paused(&poll_params)) {
                         clock_gettime(CLOCK_MONOTONIC_COARSE, &curr_tm);
+                        poll_params.update = POLLING_RESUME;
                         resume_polling(&poll_params, curr_tm);
                     }
                 }
@@ -3196,7 +3433,7 @@ static void update_props() {
         property_get_bool("ro.lmk.kill_heaviest_task", false);
     low_ram_device = property_get_bool("ro.config.low_ram", false);
     kill_timeout_ms =
-        (unsigned long)property_get_int32("ro.lmk.kill_timeout_ms", 0);
+        (unsigned long)property_get_int32("ro.lmk.kill_timeout_ms", 100);
     use_minfree_levels =
         property_get_bool("ro.lmk.use_minfree_levels", false);
     per_app_memcg =
@@ -3211,6 +3448,10 @@ static void update_props() {
         low_ram_device ? DEF_THRASHING_LOWRAM : DEF_THRASHING));
     thrashing_limit_decay_pct = clamp(0, 100, property_get_int32("ro.lmk.thrashing_limit_decay",
         low_ram_device ? DEF_THRASHING_DECAY_LOWRAM : DEF_THRASHING_DECAY));
+    thrashing_critical_pct = max(0, property_get_int32("ro.lmk.thrashing_limit_critical",
+        thrashing_limit_pct * 2));
+    swap_util_max = clamp(0, 100, property_get_int32("ro.lmk.swap_util_max", 100));
+    filecache_min_kb = property_get_int64("ro.lmk.filecache_min_kb", 0);
 }
 
 int main(int argc, char **argv) {

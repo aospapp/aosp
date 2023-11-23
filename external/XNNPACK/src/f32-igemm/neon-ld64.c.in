@@ -4,7 +4,7 @@
 // LICENSE file in the root directory of this source tree.
 
 $assert NR % 4 == 0
-$ABC = "0123456789ABCDEFGHIJKLMN"
+$ABC = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 $VMULADDQ_F32 = "vfmaq_f32" if FMA else "vmlaq_f32"
 $VMULADDQ_LANE_F32 = "vfmaq_lane_f32" if FMA else "vmlaq_lane_f32"
 
@@ -15,7 +15,7 @@ $VMULADDQ_LANE_F32 = "vfmaq_lane_f32" if FMA else "vmlaq_lane_f32"
 #include <xnnpack/igemm.h>
 
 
-void xnn_f32_igemm_ukernel_${MR}x${NR}__${"neonfma" if FMA else "neon"}_${"dup" if DUP else "lane"}_ld64(
+void xnn_f32_igemm_minmax_ukernel_${MR}x${NR}__${"neonfma" if FMA else "neon"}_${"dup" if DUP else "lane"}_ld64(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -27,7 +27,7 @@ void xnn_f32_igemm_ukernel_${MR}x${NR}__${"neonfma" if FMA else "neon"}_${"dup" 
     size_t cn_stride,
     size_t a_offset,
     const float* zero,
-    const union xnn_f32_output_params params[restrict static 1])
+    const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(mr != 0);
   assert(mr <= ${MR});

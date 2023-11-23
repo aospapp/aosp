@@ -16,9 +16,6 @@ If device implementations support third-party accessibility services, they:
     `AccessibilityEvent` to all registered [`AccessibilityService`](
     http://developer.android.com/reference/android/accessibilityservice/AccessibilityService.html)
     implementations as documented in the SDK.
-*   [C-1-3] MUST honor the `android.settings.ACCESSIBILITY_SETTINGS` intent to
-    provide a user-accessible mechanism to enable and disable the third-party
-    accessibility services alongside the preinstalled accessibility services.
 *   [C-1-4] MUST add a button in the system's navigation bar allowing the user
     to control the accessibility service when the enabled accessibility services
     declare the [`AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON`](

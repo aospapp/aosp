@@ -14,37 +14,42 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_EC_KEY_FACTORY_H_
-#define SYSTEM_KEYMASTER_EC_KEY_FACTORY_H_
+#pragma once
 
 #include <openssl/ec.h>
 #include <openssl/evp.h>
 
 #include <keymaster/asymmetric_key_factory.h>
 #include <keymaster/soft_key_factory.h>
-#include <keymaster/attestation_record.h>
 
 namespace keymaster {
 
 class EcKeyFactory : public AsymmetricKeyFactory, public SoftKeyFactoryMixin {
   public:
-    explicit EcKeyFactory(const SoftwareKeyBlobMaker* blob_maker) :
-                          SoftKeyFactoryMixin(blob_maker) {}
+    explicit EcKeyFactory(const SoftwareKeyBlobMaker& blob_maker, const KeymasterContext& context)
+        : AsymmetricKeyFactory(context), SoftKeyFactoryMixin(blob_maker) {}
 
     keymaster_algorithm_t keymaster_key_type() const override { return KM_ALGORITHM_EC; }
     int evp_key_type() const override { return EVP_PKEY_EC; }
 
     keymaster_error_t GenerateKey(const AuthorizationSet& key_description,
-                                  KeymasterKeyBlob* key_blob, AuthorizationSet* hw_enforced,
-                                  AuthorizationSet* sw_enforced) const override;
+                                  UniquePtr<Key> attest_key,            //
+                                  const KeymasterBlob& issuer_subject,  //
+                                  KeymasterKeyBlob* key_blob,
+                                  AuthorizationSet* hw_enforced,  //
+                                  AuthorizationSet* sw_enforced,
+                                  CertificateChain* cert_chain) const override;
     keymaster_error_t ImportKey(const AuthorizationSet& key_description,
                                 keymaster_key_format_t input_key_material_format,
                                 const KeymasterKeyBlob& input_key_material,
-                                KeymasterKeyBlob* output_key_blob, AuthorizationSet* hw_enforced,
-                                AuthorizationSet* sw_enforced) const override;
+                                UniquePtr<Key> attest_key,  //
+                                const KeymasterBlob& issuer_subject,
+                                KeymasterKeyBlob* output_key_blob,  //
+                                AuthorizationSet* hw_enforced,      //
+                                AuthorizationSet* sw_enforced,
+                                CertificateChain* cert_chain) const override;
 
-    keymaster_error_t CreateEmptyKey(AuthorizationSet&& hw_enforced,
-                                     AuthorizationSet&& sw_enforced,
+    keymaster_error_t CreateEmptyKey(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                                      UniquePtr<AsymmetricKey>* key) const override;
 
     keymaster_error_t UpdateImportKeyDescription(const AuthorizationSet& key_description,
@@ -64,5 +69,3 @@ class EcKeyFactory : public AsymmetricKeyFactory, public SoftKeyFactoryMixin {
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_EC_KEY_FACTORY_H_

@@ -17,10 +17,16 @@
 package libcore.libcore.io;
 
 import static android.system.OsConstants.AF_INET6;
+import static android.system.OsConstants.AF_UNIX;
 import static android.system.OsConstants.IPPROTO_TCP;
 import static android.system.OsConstants.IPPROTO_UDP;
+import static android.system.OsConstants.F_SETFL;
 import static android.system.OsConstants.SOCK_DGRAM;
+import static android.system.OsConstants.O_NONBLOCK;
 import static android.system.OsConstants.SOCK_STREAM;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.After;
 import org.junit.Before;
@@ -33,12 +39,14 @@ import org.mockito.MockitoAnnotations;
 import android.system.ErrnoException;
 import android.system.OsConstants;
 import android.system.StructAddrinfo;
+import android.system.UnixSocketAddress;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetAddress;
+import java.net.SocketAddress;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -143,6 +151,47 @@ public class BlockGuardOsTest {
     }
 
     @Test
+    public void test_nonblock() throws ErrnoException, IOException {
+        FileDescriptor unixSocket = Libcore.os.socket(AF_UNIX, SOCK_DGRAM, 0);
+        FileDescriptor udpSocket = Libcore.os.socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+        Libcore.os.fcntlInt(unixSocket, F_SETFL, O_NONBLOCK);
+        Libcore.os.fcntlInt(udpSocket, F_SETFL, O_NONBLOCK);
+        try {
+            assertTrue(BlockGuardOs.isNonBlockingFile(unixSocket));
+            assertTrue(BlockGuardOs.isNonBlockingFile(udpSocket));
+        } finally {
+            IoUtils.closeQuietly(unixSocket);
+        }
+    }
+
+    @Test
+    public void test_unixSocket() throws ErrnoException, IOException {
+        FileDescriptor unixSocket = Libcore.os.socket(AF_UNIX, SOCK_DGRAM, 0);
+        FileDescriptor udpSocket = Libcore.os.socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+        try {
+            assertTrue(BlockGuardOs.isUnixSocket(unixSocket));
+            assertFalse(BlockGuardOs.isUnixSocket(udpSocket));
+        } finally {
+            IoUtils.closeQuietly(unixSocket);
+        }
+    }
+
+    @Test
+    public void test_accept_networkPolicy() throws ErrnoException, IOException {
+        BlockGuardOs blockGuardOs = new BlockGuardOs(mockOsDelegate);
+
+        FileDescriptor unixSocket = Libcore.os.socket(AF_UNIX, SOCK_DGRAM, 0);
+        Libcore.os.fcntlInt(unixSocket, F_SETFL, O_NONBLOCK);
+        SocketAddress address = UnixSocketAddress.createAbstract("test_accept_networkPolicy");
+        Libcore.os.bind(unixSocket, address);
+        try {
+            assertNull(blockGuardOs.accept(unixSocket, address));
+        } finally {
+            IoUtils.closeQuietly(unixSocket);
+        }
+    }
+
+    @Test
     public void test_connect_networkPolicy() throws ErrnoException, IOException {
         BlockGuardOs blockGuardOs = new BlockGuardOs(mockOsDelegate);
 
@@ -220,7 +269,7 @@ public class BlockGuardOsTest {
                 "inet_pton(int,java.lang.String)",
                 "ioctlFlags(java.io.FileDescriptor,java.lang.String)",
                 "ioctlInetAddress(java.io.FileDescriptor,int,java.lang.String)",
-                "ioctlInt(java.io.FileDescriptor,int,android.system.Int32Ref)",
+                "ioctlInt(java.io.FileDescriptor,int)",
                 "ioctlMTU(java.io.FileDescriptor,java.lang.String)",
                 "isatty(java.io.FileDescriptor)",
                 "kill(int,int)",

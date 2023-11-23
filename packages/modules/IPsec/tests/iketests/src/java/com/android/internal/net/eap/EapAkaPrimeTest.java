@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap;
+package com.android.internal.net.eap.test;
 
 import static android.telephony.TelephonyManager.APPTYPE_USIM;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_REQUEST_SIM_START_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_REQUEST_SIM_START_PACKET;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -29,10 +29,10 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
-import android.net.eap.EapSessionConfig;
+import android.net.eap.test.EapSessionConfig;
 import android.telephony.TelephonyManager;
 
-import com.android.internal.net.eap.statemachine.EapStateMachine;
+import com.android.internal.net.eap.test.statemachine.EapStateMachine;
 
 import org.junit.Before;
 import org.junit.Test;

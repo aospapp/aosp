@@ -22,23 +22,25 @@ import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.WindowManager;
+
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 
 import com.android.wallpaper.R;
 import com.android.wallpaper.model.ImageWallpaperInfo;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.module.UserEventLogger;
-
-import androidx.annotation.NonNull;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
+import com.android.wallpaper.picker.AppbarFragment.AppbarFragmentHost;
 
 /**
  * Activity that displays a preview of a specific wallpaper and provides the ability to set the
  * wallpaper as the user's current wallpaper. It's "standalone" meaning it doesn't reside in the
  * app navigation hierarchy and can be launched directly via an explicit intent.
  */
-public class StandalonePreviewActivity extends BasePreviewActivity {
+public class StandalonePreviewActivity extends BasePreviewActivity implements AppbarFragmentHost {
     private static final String TAG = "StandalonePreview";
     private static final int READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE = 1;
 
@@ -48,6 +50,8 @@ public class StandalonePreviewActivity extends BasePreviewActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_preview);
+
+        enableFullScreen();
 
         mUserEventLogger = InjectorProvider.getInjector().getUserEventLogger(getApplicationContext());
         mUserEventLogger.logStandalonePreviewLaunched();
@@ -110,6 +114,25 @@ public class StandalonePreviewActivity extends BasePreviewActivity {
         }
     }
 
+    @Override
+    public void onUpArrowPressed() {
+        // TODO(b/182972395): It should go back to WallpaperPicker.
+    }
+
+    @Override
+    public boolean isUpArrowSupported() {
+        // TODO(b/182972395): It should go back to WallpaperPicker.
+        return false;
+    }
+
+    @Override
+    protected void enableFullScreen() {
+        super.enableFullScreen();
+        getWindow().setFlags(
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+    }
+
     /**
      * Creates a new instance of {@link PreviewFragment} and loads the fragment into this activity's
      * fragment container so that it's shown to the user.
@@ -123,6 +146,7 @@ public class StandalonePreviewActivity extends BasePreviewActivity {
                 /* context */ this,
                 wallpaper,
                 PreviewFragment.MODE_CROP_AND_SET_WALLPAPER,
+                /* viewAsHome= */ true,
                 testingModeEnabled);
         getSupportFragmentManager().beginTransaction()
                 .add(R.id.fragment_container, fragment)

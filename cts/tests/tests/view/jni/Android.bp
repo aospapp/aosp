@@ -12,18 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
 
     name: "libctsview_jni",
 
-    cflags: ["-Werror"],
+    cflags: [
+        "-Werror",
+        "-Wno-error=deprecated-declarations",
+    ],
 
     gtest: false,
 
     srcs: [
         "CtsViewJniOnLoad.cpp",
+        "android_view_cts_AInputNativeTest.cpp",
         "android_view_cts_ASurfaceControlTest.cpp",
         "android_view_cts_ChoreographerNativeTest.cpp",
+        "android_view_cts_InputDeviceKeyLayoutMapTest.cpp",
     ],
 
     shared_libs: [

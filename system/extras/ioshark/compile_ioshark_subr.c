@@ -32,7 +32,7 @@ static struct files_db_s *files_db_buckets[FILE_DB_HASHSIZE];
 static int current_fileno = 1;
 static int num_objects = 0;
 
-static int filename_cache_lookup(char *filename);;
+static int filename_cache_lookup(char *filename);
 
 void
 files_db_write_objects(FILE *fp)

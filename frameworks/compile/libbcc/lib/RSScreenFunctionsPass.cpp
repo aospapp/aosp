@@ -16,7 +16,7 @@
 
 #include "Log.h"
 #include "RSTransforms.h"
-#include "RSStubsWhiteList.h"
+#include "RSFunctionsList.h"
 
 #include <cstdlib>
 
@@ -48,7 +48,7 @@ private:
     // A global function symbol is legal if
     // a. it has a body, i.e. is not empty or
     // b. its name starts with "llvm." or
-    // c. it is present in the whitelist
+    // c. it is present in the RS Functions list.
 
     if (!F.empty())
       return true;

@@ -112,8 +112,12 @@ public class FakeTelephonyProvider extends MockContentProvider {
                     + Telephony.SimInfo.COLUMN_IMSI + " TEXT,"
                     + Telephony.SimInfo.COLUMN_ACCESS_RULES_FROM_CARRIER_CONFIGS + " BLOB,"
                     + Telephony.SimInfo.COLUMN_UICC_APPLICATIONS_ENABLED + " INTEGER DEFAULT 1,"
-                    + Telephony.SimInfo.COLUMN_ALLOWED_NETWORK_TYPES + " BIGINT DEFAULT -1, "
-                    + Telephony.SimInfo.COLUMN_IMS_RCS_UCE_ENABLED + " INTEGER DEFAULT 0"
+                    + Telephony.SimInfo.COLUMN_ALLOWED_NETWORK_TYPES + " BIGINT DEFAULT -1,"
+                    + Telephony.SimInfo.COLUMN_IMS_RCS_UCE_ENABLED + " INTEGER DEFAULT 0, "
+                    + Telephony.SimInfo.COLUMN_RCS_CONFIG + " BLOB,"
+                    + Telephony.SimInfo.COLUMN_ALLOWED_NETWORK_TYPES_FOR_REASONS + " TEXT,"
+                    + Telephony.SimInfo.COLUMN_D2D_STATUS_SHARING + " INTEGER DEFAULT 0,"
+                    + Telephony.SimInfo.COLUMN_D2D_STATUS_SHARING_SELECTED_CONTACTS + "TEXT"
                     + ");";
         }
 

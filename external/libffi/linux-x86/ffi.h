@@ -15,7 +15,7 @@
  */
 #ifndef LIBFFI_H
 
-#define X86 1
+#define X86_64 1
 #define CONF_HAVE_LONG_DOUBLE 1
 
 #define LIBFFI_H

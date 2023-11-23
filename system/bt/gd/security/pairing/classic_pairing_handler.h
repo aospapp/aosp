@@ -33,34 +33,42 @@ class ISecurityManagerListener;
 
 namespace pairing {
 
-static constexpr hci::IoCapability kDefaultIoCapability = hci::IoCapability::DISPLAY_YES_NO;
-static constexpr hci::OobDataPresent kDefaultOobDataPresent = hci::OobDataPresent::NOT_PRESENT;
-static constexpr hci::AuthenticationRequirements kDefaultAuthenticationRequirements =
-    hci::AuthenticationRequirements::DEDICATED_BONDING_MITM_PROTECTION;
-
 class ClassicPairingHandler : public PairingHandler {
  public:
-  ClassicPairingHandler(std::shared_ptr<l2cap::classic::FixedChannelManager> fixed_channel_manager,
-                        channel::SecurityManagerChannel* security_manager_channel,
-                        std::shared_ptr<record::SecurityRecord> record, os::Handler* security_handler,
-                        common::OnceCallback<void(hci::Address, PairingResultOrFailure)> complete_callback,
-                        UI* user_interface, os::Handler* user_interface_handler, std::string device_name)
-      : PairingHandler(security_manager_channel, std::move(record)),
-        fixed_channel_manager_(std::move(fixed_channel_manager)), security_policy_(),
-        security_handler_(security_handler), remote_io_capability_(kDefaultIoCapability),
-        local_io_capability_(kDefaultIoCapability), local_oob_present_(kDefaultOobDataPresent),
-        local_authentication_requirements_(kDefaultAuthenticationRequirements),
-        complete_callback_(std::move(complete_callback)), user_interface_(user_interface),
-        user_interface_handler_(user_interface_handler), device_name_(device_name) {}
+  ClassicPairingHandler(
+      channel::SecurityManagerChannel* security_manager_channel,
+      std::shared_ptr<record::SecurityRecord> record,
+      os::Handler* security_handler,
+      common::OnceCallback<void(hci::Address, PairingResultOrFailure)> complete_callback,
+      UI* user_interface,
+      os::Handler* user_interface_handler,
+      std::string device_name,
+      neighbor::NameDbModule* name_db_module)
+      : PairingHandler(security_manager_channel, std::move(record), name_db_module),
+        security_handler_(security_handler),
+        remote_io_capability_(hci::IoCapability::DISPLAY_YES_NO),
+        remote_oob_present_(hci::OobDataPresent::NOT_PRESENT),
+        remote_authentication_requirements_(hci::AuthenticationRequirements::DEDICATED_BONDING_MITM_PROTECTION),
+        local_io_capability_(hci::IoCapability::DISPLAY_YES_NO),
+        local_oob_present_(hci::OobDataPresent::NOT_PRESENT),
+        local_authentication_requirements_(hci::AuthenticationRequirements::DEDICATED_BONDING_MITM_PROTECTION),
+        complete_callback_(std::move(complete_callback)),
+        user_interface_(user_interface),
+        user_interface_handler_(user_interface_handler),
+        device_name_(std::move(device_name)) {}
 
-  ~ClassicPairingHandler() override = default;
+  ~ClassicPairingHandler() = default;
 
-  void Initiate(bool locally_initiated, hci::IoCapability io_capability, hci::OobDataPresent oob_present,
-                hci::AuthenticationRequirements auth_requirements) override;
+  void Initiate(
+      bool locally_initiated,
+      hci::IoCapability io_capability,
+      hci::AuthenticationRequirements auth_requirements,
+      OobData remote_p192_oob_data,
+      OobData remote_p256_oob_data) override;
   void Cancel() override;
 
   void OnReceive(hci::ChangeConnectionLinkKeyCompleteView packet) override;
-  void OnReceive(hci::MasterLinkKeyCompleteView packet) override;
+  void OnReceive(hci::CentralLinkKeyCompleteView packet) override;
   void OnReceive(hci::PinCodeRequestView packet) override;
   void OnReceive(hci::LinkKeyRequestView packet) override;
   void OnReceive(hci::LinkKeyNotificationView packet) override;
@@ -79,41 +87,48 @@ class ClassicPairingHandler : public PairingHandler {
   void OnPairingPromptAccepted(const bluetooth::hci::AddressWithType& address, bool confirmed) override;
   void OnConfirmYesNo(const bluetooth::hci::AddressWithType& address, bool confirmed) override;
   void OnPasskeyEntry(const bluetooth::hci::AddressWithType& address, uint32_t passkey) override;
+  void OnPinEntry(const bluetooth::hci::AddressWithType& address, std::vector<uint8_t> pin) override;
+
+  void OnNameRequestComplete(hci::Address address, bool success);
 
  private:
-  void OnRegistrationComplete(l2cap::classic::FixedChannelManager::RegistrationResult result,
-                              std::unique_ptr<l2cap::classic::FixedChannelService> fixed_channel_service);
-  void OnUnregistered();
-  void OnConnectionOpen(std::unique_ptr<l2cap::classic::FixedChannel> fixed_channel);
-  void OnConnectionFail(l2cap::classic::FixedChannelManager::ConnectionResult result);
-  void OnConnectionClose(hci::ErrorCode error_code);
   void OnUserInput(bool user_input);
   void OnPasskeyInput(uint32_t passkey);
   void NotifyUiDisplayYesNo(uint32_t numeric_value);
   void NotifyUiDisplayYesNo();
   void NotifyUiDisplayPasskey(uint32_t passkey);
   void NotifyUiDisplayPasskeyInput();
+  void NotifyUiDisplayPinCodeInput();
   void NotifyUiDisplayCancel();
   void UserClickedYes();
   void UserClickedNo();
 
-  std::shared_ptr<l2cap::classic::FixedChannelManager> fixed_channel_manager_;
-  std::unique_ptr<l2cap::classic::FixedChannelService> fixed_channel_service_{nullptr};
-  l2cap::SecurityPolicy security_policy_ __attribute__((unused));
   os::Handler* security_handler_ __attribute__((unused));
-  hci::IoCapability remote_io_capability_ __attribute__((unused));
-  hci::IoCapability local_io_capability_ __attribute__((unused));
+  hci::IoCapability remote_io_capability_;
+  hci::OobDataPresent remote_oob_present_ __attribute__((unused));
+  hci::AuthenticationRequirements remote_authentication_requirements_ __attribute__((unused));
+  hci::IoCapability local_io_capability_;
   hci::OobDataPresent local_oob_present_ __attribute__((unused));
   hci::AuthenticationRequirements local_authentication_requirements_ __attribute__((unused));
-  std::unique_ptr<l2cap::classic::FixedChannel> fixed_channel_{nullptr};
+  OobData remote_p192_oob_data_;
+  OobData remote_p256_oob_data_;
   common::OnceCallback<void(hci::Address, PairingResultOrFailure)> complete_callback_;
   UI* user_interface_;
   os::Handler* user_interface_handler_;
   std::string device_name_;
+  bool is_cancelled_ = false;
 
-  hci::ErrorCode last_status_;
+  bool has_gotten_io_cap_response_ = false;
+  bool has_gotten_name_response_ = false;
+  std::optional<hci::UserConfirmationRequestView> user_confirmation_request_ = std::nullopt;
+  std::optional<hci::LinkKeyNotificationView> link_key_notification_ = std::nullopt;
+
+  hci::ErrorCode last_status_ = hci::ErrorCode::UNKNOWN_HCI_COMMAND;
   bool locally_initiated_ = false;
   uint32_t passkey_ = 0;
+  bool already_link_key_replied_ = false;
+  bool secure_connections_enabled_ = true;
+  bool is_legacy_pin_code_ = false;
 };
 
 }  // namespace pairing

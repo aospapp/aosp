@@ -14,12 +14,28 @@
 // limitations under the License.
 //
 
-cc_prebuilt_binary {
+package {
+    default_applicable_licenses: ["external_shflags_license"],
+}
+
+// Added automatically by a large-scale-change
+//
+// large-scale-change filtered out the below license kinds as false-positives:
+//   SPDX-license-identifier-LGPL
+// See: http://go/android-license-faq
+license {
+    name: "external_shflags_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
+sh_binary_host {
     name: "shflags",
-    device_supported: false,
-    host_supported: true,
-
-    srcs: ["src/shflags"],
-
-    relative_install_path: "lib/shflags",
+    src: "shflags",
+    sub_dir: "lib/shflags",
 }

@@ -29,6 +29,7 @@
 #include "vkPlatform.hpp"
 #include "vkMemUtil.hpp"
 #include "vkApiVersion.hpp"
+#include "vkImageUtil.hpp"
 
 #include "tcuTestLog.hpp"
 #include "tcuCommandLine.hpp"
@@ -139,7 +140,7 @@ void writeHostMemory (const vk::DeviceInterface&	vkd,
 
 	deMemcpy(ptr, data, size);
 
-	flushMappedMemoryRange(vkd, device, memory, 0, size);
+	flushMappedMemoryRange(vkd, device, memory, 0, VK_WHOLE_SIZE);
 
 	vkd.unmapMemory(device, memory);
 }
@@ -152,7 +153,7 @@ void checkHostMemory (const vk::DeviceInterface&	vkd,
 {
 	void* const ptr = vk::mapMemory(vkd, device, memory, 0, size, 0);
 
-	invalidateMappedMemoryRange(vkd, device, memory, 0, size);
+	invalidateMappedMemoryRange(vkd, device, memory, 0, VK_WHOLE_SIZE);
 
 	if (deMemCmp(ptr, data, size) != 0)
 		TCU_FAIL("Memory contents don't match");
@@ -240,7 +241,8 @@ vk::Move<vk::VkDevice> createTestDevice (const Context&									context,
 										 const vk::VkExternalMemoryHandleTypeFlags		externalMemoryTypes,
 										 const vk::VkExternalFenceHandleTypeFlags		externalFenceTypes,
 										 deUint32										queueFamilyIndex,
-										 bool											useDedicatedAllocs = false)
+										 bool											useDedicatedAllocs = false,
+										 void * protectedFeatures = DE_NULL)
 {
 	const deUint32				apiVersion				= context.getUsedApiVersion();
 	bool						useExternalSemaphore	= false;
@@ -360,7 +362,7 @@ vk::Move<vk::VkDevice> createTestDevice (const Context&									context,
 	const vk::VkDeviceCreateInfo			deviceCreateInfo		=
 	{
 		vk::VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		DE_NULL,
+		protectedFeatures,
 		0u,
 
 		DE_LENGTH_OF_ARRAY(queues),
@@ -1162,6 +1164,31 @@ tcu::TestStatus testSemaphoreSignalWaitImport (Context&						context,
 	}
 }
 
+tcu::TestStatus testSemaphoreImportSyncFdSignaled (Context&						context,
+												   const SemaphoreTestConfig	config)
+{
+	const vk::PlatformInterface&		vkp					(context.getPlatformInterface());
+	const CustomInstance				instance			(createTestInstance(context, config.externalType, 0u, 0u));
+	const vk::InstanceDriver&			vki					(instance.getDriver());
+	const vk::VkPhysicalDevice			physicalDevice		(vk::chooseDevice(vki, instance, context.getTestContext().getCommandLine()));
+	const deUint32						queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
+	const vk::VkSemaphoreImportFlags	flags				= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_SEMAPHORE_IMPORT_TEMPORARY_BIT : (vk::VkSemaphoreImportFlagBits)0u;
+
+	checkSemaphoreSupport(vki, physicalDevice, config.externalType);
+
+	{
+		const vk::Unique<vk::VkDevice>		device		(createTestDevice(context, vkp, instance, vki, physicalDevice, config.externalType, 0u, 0u, queueFamilyIndex));
+		const vk::DeviceDriver				vkd			(vkp, instance, *device);
+		const vk::VkQueue					queue		(getQueue(vkd, *device, queueFamilyIndex));
+		NativeHandle						handle		= -1;
+		const vk::Unique<vk::VkSemaphore>	semaphore	(createAndImportSemaphore(vkd, *device, config.externalType, handle, flags));
+
+		submitDummyWait(vkd, queue, *semaphore);
+
+		return tcu::TestStatus::pass("Pass");
+	}
+}
+
 tcu::TestStatus testSemaphoreMultipleExports (Context&					context,
 											  const SemaphoreTestConfig	config)
 {
@@ -1928,6 +1955,31 @@ tcu::TestStatus testFenceSignalExportImportWait (Context&				context,
 				VK_CHECK(vkd.queueWaitIdle(queue));
 			}
 		}
+
+		return tcu::TestStatus::pass("Pass");
+	}
+}
+
+tcu::TestStatus testFenceImportSyncFdSignaled (Context&					context,
+											   const FenceTestConfig	config)
+{
+	const vk::PlatformInterface&		vkp					(context.getPlatformInterface());
+	const CustomInstance				instance			(createTestInstance(context, 0u, 0u, config.externalType));
+	const vk::InstanceDriver&			vki					(instance.getDriver());
+	const vk::VkPhysicalDevice			physicalDevice		(vk::chooseDevice(vki, instance, context.getTestContext().getCommandLine()));
+	const deUint32						queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
+	const vk::VkFenceImportFlags		flags				= config.permanence == PERMANENCE_TEMPORARY ? vk::VK_FENCE_IMPORT_TEMPORARY_BIT : (vk::VkFenceImportFlagBits)0u;
+
+	checkFenceSupport(vki, physicalDevice, config.externalType);
+
+	{
+		const vk::Unique<vk::VkDevice>	device	(createTestDevice(context, vkp, instance, vki, physicalDevice, 0u, 0u, config.externalType, queueFamilyIndex));
+		const vk::DeviceDriver			vkd		(vkp, instance, *device);
+		NativeHandle					handle	= -1;
+		const vk::Unique<vk::VkFence>	fence	(createAndImportFence(vkd, *device, config.externalType, handle, flags));
+
+		if (vkd.waitForFences(*device, 1u, &*fence, VK_TRUE, 0) != vk::VK_SUCCESS)
+			return tcu::TestStatus::pass("Imported -1 sync fd isn't signaled");
 
 		return tcu::TestStatus::pass("Pass");
 	}
@@ -2839,7 +2891,7 @@ struct MemoryTestConfig
 };
 
 #if (DE_OS == DE_OS_WIN32)
-deUint32 chooseMemoryType (deUint32 bits)
+deUint32 chooseWin32MemoryType(deUint32 bits)
 {
 	if (bits == 0)
 		TCU_THROW(NotSupportedError, "No compatible memory type found");
@@ -2869,7 +2921,6 @@ tcu::TestStatus testMemoryWin32Create (Context& context, MemoryTestConfig config
 	checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
 	// \note Buffer is only allocated to get memory requirements
-	deUint32									exportedMemoryTypeIndex	= ~0U;
 	const vk::Unique<vk::VkBuffer>				buffer					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 	const vk::VkMemoryRequirements				requirements			(getBufferMemoryRequirements(vkd, *device, *buffer));
 	const vk::VkExportMemoryWin32HandleInfoKHR	win32Info				=
@@ -2888,15 +2939,15 @@ tcu::TestStatus testMemoryWin32Create (Context& context, MemoryTestConfig config
 		(vk::VkExternalMemoryHandleTypeFlags)config.externalType
 	};
 
-	exportedMemoryTypeIndex = chooseMemoryType(requirements.memoryTypeBits & compatibleMemTypes);
-	const vk::VkMemoryAllocateInfo				info				=
+	const deUint32								exportedMemoryTypeIndex	= chooseWin32MemoryType(requirements.memoryTypeBits & compatibleMemTypes);
+	const vk::VkMemoryAllocateInfo				info					=
 	{
 		vk::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		&exportInfo,
 		requirements.size,
 		exportedMemoryTypeIndex
 	};
-	const vk::Unique<vk::VkDeviceMemory>		memory				(vk::allocateMemory(vkd, *device, &info));
+	const vk::Unique<vk::VkDeviceMemory>		memory					(vk::allocateMemory(vkd, *device, &info));
 	NativeHandle								handleA;
 
 	if (config.hostVisible)
@@ -2931,6 +2982,17 @@ tcu::TestStatus testMemoryWin32Create (Context& context, MemoryTestConfig config
 #endif
 }
 
+deUint32 getExportedMemoryTypeIndex(const vk::InstanceDriver& vki, const vk::VkPhysicalDevice physicalDevice, bool hostVisible, deUint32 memoryBits)
+{
+	if (hostVisible)
+	{
+		const vk::VkPhysicalDeviceMemoryProperties properties(vk::getPhysicalDeviceMemoryProperties(vki, physicalDevice));
+		return chooseHostVisibleMemoryType(memoryBits, properties);
+	}
+
+	return chooseMemoryType(memoryBits);
+}
+
 tcu::TestStatus testMemoryImportTwice (Context& context, MemoryTestConfig config)
 {
 	const vk::PlatformInterface&			vkp					(context.getPlatformInterface());
@@ -2947,12 +3009,12 @@ tcu::TestStatus testMemoryImportTwice (Context& context, MemoryTestConfig config
 
 	checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-	deUint32								exportedMemoryTypeIndex	= ~0U;
 	// \note Buffer is only allocated to get memory requirements
-	const vk::Unique<vk::VkBuffer>			buffer					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
-	const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *buffer));
-	const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vki, physicalDevice, vkd, *device, requirements, config.externalType, config.hostVisible, config.dedicated ? *buffer : (vk::VkBuffer)0, exportedMemoryTypeIndex));
-	NativeHandle							handleA;
+	const vk::Unique<vk::VkBuffer>				buffer					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
+	const vk::VkMemoryRequirements				requirements			(getBufferMemoryRequirements(vkd, *device, *buffer));
+	const deUint32								exportedMemoryTypeIndex	(getExportedMemoryTypeIndex(vki, physicalDevice, config.hostVisible, requirements.memoryTypeBits));
+	const vk::Unique<vk::VkDeviceMemory>		memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *buffer : (vk::VkBuffer)0));
+	NativeHandle								handleA;
 
 	if (config.hostVisible)
 		writeHostMemory(vkd, *device, *memory, testData.size(), &testData[0]);
@@ -3004,11 +3066,11 @@ tcu::TestStatus testMemoryMultipleImports (Context& context, MemoryTestConfig co
 
 	checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-	deUint32								exportedMemoryTypeIndex	= ~0U;
 	// \note Buffer is only allocated to get memory requirements
 	const vk::Unique<vk::VkBuffer>			buffer					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 	const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *buffer));
-	const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vki, physicalDevice, vkd, *device, requirements, config.externalType, config.hostVisible, config.dedicated ? *buffer : (vk::VkBuffer)0, exportedMemoryTypeIndex));
+	const deUint32							exportedMemoryTypeIndex	(getExportedMemoryTypeIndex(vki, physicalDevice, config.hostVisible, requirements.memoryTypeBits));
+	const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *buffer : (vk::VkBuffer)0));
 	NativeHandle							handleA;
 
 	getMemoryNative(vkd, *device, *memory, config.externalType, handleA);
@@ -3040,11 +3102,11 @@ tcu::TestStatus testMemoryMultipleExports (Context& context, MemoryTestConfig co
 
 	checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-	deUint32								exportedMemoryTypeIndex	= ~0U;
 	// \note Buffer is only allocated to get memory requirements
 	const vk::Unique<vk::VkBuffer>			buffer					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 	const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *buffer));
-	const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vki, physicalDevice, vkd, *device, requirements, config.externalType, config.hostVisible, config.dedicated ? *buffer : (vk::VkBuffer)0, exportedMemoryTypeIndex));
+	const deUint32							exportedMemoryTypeIndex	(getExportedMemoryTypeIndex(vki, physicalDevice, config.hostVisible, requirements.memoryTypeBits));
+	const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *buffer : (vk::VkBuffer)0));
 
 	for (size_t ndx = 0; ndx < count; ndx++)
 	{
@@ -3069,11 +3131,11 @@ tcu::TestStatus testMemoryFdProperties (Context& context, MemoryTestConfig confi
 
 	checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-	deUint32								exportedMemoryTypeIndex	= ~0U;
 	// \note Buffer is only allocated to get memory requirements
 	const vk::Unique<vk::VkBuffer>			buffer					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 	const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *buffer));
-	const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vki, physicalDevice, vkd, *device, requirements, config.externalType, config.hostVisible, config.dedicated ? *buffer : (vk::VkBuffer)0, exportedMemoryTypeIndex));
+	const deUint32							exportedMemoryTypeIndex	(getExportedMemoryTypeIndex(vki, physicalDevice, config.hostVisible, requirements.memoryTypeBits));
+	const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *buffer : (vk::VkBuffer)0));
 
 	vk::VkMemoryFdPropertiesKHR	properties;
 	NativeHandle				handle;
@@ -3117,11 +3179,11 @@ tcu::TestStatus testMemoryFdDup (Context& context, MemoryTestConfig config)
 
 		checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-		deUint32								exportedMemoryTypeIndex	= ~0U;
 		// \note Buffer is only allocated to get memory requirements
 		const vk::Unique<vk::VkBuffer>			buffer					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 		const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *buffer));
-		const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vki, physicalDevice, vkd, *device, requirements, config.externalType, config.hostVisible, config.dedicated ? *buffer : (vk::VkBuffer)0, exportedMemoryTypeIndex));
+		const deUint32							exportedMemoryTypeIndex	(getExportedMemoryTypeIndex(vki, physicalDevice, config.hostVisible, requirements.memoryTypeBits));
+		const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *buffer : (vk::VkBuffer)0));
 
 		if (config.hostVisible)
 			writeHostMemory(vkd, *device, *memory, testData.size(), &testData[0]);
@@ -3181,11 +3243,11 @@ tcu::TestStatus testMemoryFdDup2 (Context& context, MemoryTestConfig config)
 
 		checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-		deUint32								exportedMemoryTypeIndex	= ~0U;
 		// \note Buffer is only allocated to get memory requirements
 		const vk::Unique<vk::VkBuffer>			buffer					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 		const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *buffer));
-		const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vki, physicalDevice, vkd, *device, requirements, config.externalType, config.hostVisible, config.dedicated ? *buffer : (vk::VkBuffer)0, exportedMemoryTypeIndex));
+		const deUint32							exportedMemoryTypeIndex	(getExportedMemoryTypeIndex(vki, physicalDevice, config.hostVisible, requirements.memoryTypeBits));
+		const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *buffer : (vk::VkBuffer)0));
 
 		if (config.hostVisible)
 			writeHostMemory(vkd, *device, *memory, testData.size(), &testData[0]);
@@ -3246,11 +3308,11 @@ tcu::TestStatus testMemoryFdDup3 (Context& context, MemoryTestConfig config)
 
 		checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-		deUint32								exportedMemoryTypeIndex	= ~0U;
 		// \note Buffer is only allocated to get memory requirements
 		const vk::Unique<vk::VkBuffer>			buffer					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 		const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *buffer));
-		const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vki, physicalDevice, vkd, *device, requirements, config.externalType, config.hostVisible, config.dedicated ? *buffer : (vk::VkBuffer)0, exportedMemoryTypeIndex));
+		const deUint32							exportedMemoryTypeIndex	(getExportedMemoryTypeIndex(vki, physicalDevice, config.hostVisible, requirements.memoryTypeBits));
+		const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *buffer : (vk::VkBuffer)0));
 
 		if (config.hostVisible)
 			writeHostMemory(vkd, *device, *memory, testData.size(), &testData[0]);
@@ -3311,11 +3373,11 @@ tcu::TestStatus testMemoryFdSendOverSocket (Context& context, MemoryTestConfig c
 
 		checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-		deUint32								exportedMemoryTypeIndex	= ~0U;
 		// \note Buffer is only allocated to get memory requirements
 		const vk::Unique<vk::VkBuffer>			buffer					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 		const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *buffer));
-		const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vki, physicalDevice, vkd, *device, requirements, config.externalType, config.hostVisible, config.dedicated ? *buffer : (vk::VkBuffer)0, exportedMemoryTypeIndex));
+		const deUint32							exportedMemoryTypeIndex	(getExportedMemoryTypeIndex(vki, physicalDevice, config.hostVisible, requirements.memoryTypeBits));
+		const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *buffer : (vk::VkBuffer)0));
 
 		if (config.hostVisible)
 			writeHostMemory(vkd, *device, *memory, testData.size(), &testData[0]);
@@ -3463,11 +3525,11 @@ tcu::TestStatus testBufferBindExportImportBind (Context&				context,
 
 	checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-	deUint32								exportedMemoryTypeIndex	= ~0U;
 	// \note Buffer is only allocated to get memory requirements
 	const vk::Unique<vk::VkBuffer>			bufferA					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 	const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *bufferA));
-	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements, config.externalType, config.dedicated ? *bufferA : (vk::VkBuffer)0, exportedMemoryTypeIndex));
+	const deUint32							exportedMemoryTypeIndex	(chooseMemoryType(requirements.memoryTypeBits));
+	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *bufferA : (vk::VkBuffer)0));
 	NativeHandle							handle;
 
 	VK_CHECK(vkd.bindBufferMemory(*device, *bufferA, *memoryA, 0u));
@@ -3501,11 +3563,11 @@ tcu::TestStatus testBufferExportBindImportBind (Context&				context,
 
 	checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-	deUint32								exportedMemoryTypeIndex	= ~0U;
 	// \note Buffer is only allocated to get memory requirements
 	const vk::Unique<vk::VkBuffer>			bufferA					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 	const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *bufferA));
-	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements, config.externalType, config.dedicated ? *bufferA : (vk::VkBuffer)0, exportedMemoryTypeIndex));
+	const deUint32							exportedMemoryTypeIndex	(chooseMemoryType(requirements.memoryTypeBits));
+	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *bufferA : (vk::VkBuffer)0));
 	NativeHandle							handle;
 
 	getMemoryNative(vkd, *device, *memoryA, config.externalType, handle);
@@ -3538,11 +3600,11 @@ tcu::TestStatus testBufferExportImportBindBind (Context&				context,
 
 	checkBufferSupport(vki, physicalDevice, config.externalType, 0u, usage, config.dedicated);
 
-	deUint32								exportedMemoryTypeIndex	= ~0U;
 	// \note Buffer is only allocated to get memory requirements
 	const vk::Unique<vk::VkBuffer>			bufferA					(createExternalBuffer(vkd, *device, queueFamilyIndex, config.externalType, bufferSize, 0u, usage));
 	const vk::VkMemoryRequirements			requirements			(getBufferMemoryRequirements(vkd, *device, *bufferA));
-	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements, config.externalType, config.dedicated ? *bufferA : (vk::VkBuffer)0, exportedMemoryTypeIndex));
+	const deUint32							exportedMemoryTypeIndex	(chooseMemoryType(requirements.memoryTypeBits));
+	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *bufferA : (vk::VkBuffer)0));
 	NativeHandle							handle;
 
 	getMemoryNative(vkd, *device, *memoryA, config.externalType, handle);
@@ -3689,6 +3751,10 @@ tcu::TestStatus testImageQueries (Context& context, vk::VkExternalMemoryHandleTy
 
 			if (deviceHasDedicated)
 			{
+				// Memory requirements cannot be queried without binding the image.
+				if (externalType == vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)
+					continue;
+
 				const vk::Unique<vk::VkImage>				image						(createExternalImage(*vkd, *device, queueFamilyIndex, externalType, format, 16u, 16u, tiling, createFlag, usageFlag));
 				const vk::VkMemoryDedicatedRequirements		reqs						(getMemoryDedicatedRequirements(*vkd, *device, *image));
 				const bool									propertiesRequiresDedicated	= (externalProperties.externalMemoryProperties.externalMemoryFeatures & vk::VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT) != 0;
@@ -3734,7 +3800,7 @@ tcu::TestStatus testImageBindExportImportBind (Context&					context,
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
 	const vk::Unique<vk::VkDevice>			device				(createTestDevice(context, vkp, instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
 	const vk::DeviceDriver					vkd					(vkp, instance, *device);
-	const vk::VkImageUsageFlags				usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	const vk::VkImageUsageFlags				usage				= vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT | vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT | (config.externalType == vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID ? vk::VK_IMAGE_USAGE_SAMPLED_BIT : 0);
 	const vk::VkFormat						format				= vk::VK_FORMAT_R8G8B8A8_UNORM;
 	const deUint32							width				= 64u;
 	const deUint32							height				= 64u;
@@ -3742,10 +3808,10 @@ tcu::TestStatus testImageBindExportImportBind (Context&					context,
 
 	checkImageSupport(vki, physicalDevice, config.externalType, 0u, usage, format, tiling, config.dedicated);
 
-	deUint32								exportedMemoryTypeIndex	= ~0U;
 	const vk::Unique<vk::VkImage>			imageA					(createExternalImage(vkd, *device, queueFamilyIndex, config.externalType, format, width, height, tiling, 0u, usage));
-	const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *imageA));
-	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements, config.externalType, config.dedicated ? *imageA : (vk::VkImage)0, exportedMemoryTypeIndex));
+	const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *imageA, config.externalType));
+	const deUint32							exportedMemoryTypeIndex	(chooseMemoryType(requirements.memoryTypeBits));
+	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *imageA : (vk::VkImage)0));
 	NativeHandle							handle;
 
 	VK_CHECK(vkd.bindImageMemory(*device, *imageA, *memoryA, 0u));
@@ -3754,9 +3820,10 @@ tcu::TestStatus testImageBindExportImportBind (Context&					context,
 
 	{
 		const vk::Unique<vk::VkImage>			imageB	(createExternalImage(vkd, *device, queueFamilyIndex, config.externalType, format, width, height, tiling, 0u, usage));
+		const deUint32							idx		= config.externalType == vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID ? ~0u : exportedMemoryTypeIndex;
 		const vk::Unique<vk::VkDeviceMemory>	memoryB	(config.dedicated
-														 ? importDedicatedMemory(vkd, *device, *imageB, requirements, config.externalType, exportedMemoryTypeIndex, handle)
-														 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handle));
+														 ? importDedicatedMemory(vkd, *device, *imageB, requirements, config.externalType, idx, handle)
+														 : importMemory(vkd, *device, requirements, config.externalType, idx, handle));
 
 		VK_CHECK(vkd.bindImageMemory(*device, *imageB, *memoryB, 0u));
 	}
@@ -3774,7 +3841,7 @@ tcu::TestStatus testImageExportBindImportBind (Context&					context,
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
 	const vk::Unique<vk::VkDevice>			device				(createTestDevice(context, vkp, instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
 	const vk::DeviceDriver					vkd					(vkp, instance, *device);
-	const vk::VkImageUsageFlags				usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	const vk::VkImageUsageFlags				usage				= vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT | vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT | (config.externalType == vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID ? vk::VK_IMAGE_USAGE_SAMPLED_BIT : 0);
 	const vk::VkFormat						format				= vk::VK_FORMAT_R8G8B8A8_UNORM;
 	const deUint32							width				= 64u;
 	const deUint32							height				= 64u;
@@ -3782,20 +3849,30 @@ tcu::TestStatus testImageExportBindImportBind (Context&					context,
 
 	checkImageSupport(vki, physicalDevice, config.externalType, 0u, usage, format, tiling, config.dedicated);
 
-	deUint32								exportedMemoryTypeIndex	= ~0U;
 	const vk::Unique<vk::VkImage>			imageA					(createExternalImage(vkd, *device, queueFamilyIndex, config.externalType, format, width, height, tiling, 0u, usage));
-	const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *imageA));
-	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements, config.externalType, config.dedicated ? *imageA : (vk::VkImage)0, exportedMemoryTypeIndex));
+	const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *imageA, config.externalType));
+	const deUint32							exportedMemoryTypeIndex	(chooseMemoryType(requirements.memoryTypeBits));
+	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *imageA : (vk::VkImage)0));
 	NativeHandle							handle;
 
-	getMemoryNative(vkd, *device, *memoryA, config.externalType, handle);
-	VK_CHECK(vkd.bindImageMemory(*device, *imageA, *memoryA, 0u));
+	if (config.externalType == vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID && config.dedicated)
+	{
+		// AHB required the image memory to be bound first.
+		VK_CHECK(vkd.bindImageMemory(*device, *imageA, *memoryA, 0u));
+		getMemoryNative(vkd, *device, *memoryA, config.externalType, handle);
+	}
+	else
+	{
+		getMemoryNative(vkd, *device, *memoryA, config.externalType, handle);
+		VK_CHECK(vkd.bindImageMemory(*device, *imageA, *memoryA, 0u));
+	}
 
 	{
 		const vk::Unique<vk::VkImage>			imageB	(createExternalImage(vkd, *device, queueFamilyIndex, config.externalType, format, width, height, tiling, 0u, usage));
+		const deUint32							idx		= config.externalType == vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID ? ~0u : exportedMemoryTypeIndex;
 		const vk::Unique<vk::VkDeviceMemory>	memoryB	(config.dedicated
-														 ? importDedicatedMemory(vkd, *device, *imageB, requirements, config.externalType, exportedMemoryTypeIndex, handle)
-														 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handle));
+														 ? importDedicatedMemory(vkd, *device, *imageB, requirements, config.externalType, idx, handle)
+														 : importMemory(vkd, *device, requirements, config.externalType, idx, handle));
 
 		VK_CHECK(vkd.bindImageMemory(*device, *imageB, *memoryB, 0u));
 	}
@@ -3813,7 +3890,7 @@ tcu::TestStatus testImageExportImportBindBind (Context&					context,
 	const deUint32							queueFamilyIndex	(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
 	const vk::Unique<vk::VkDevice>			device				(createTestDevice(context, vkp, instance, vki, physicalDevice, 0u, config.externalType, 0u, queueFamilyIndex, config.dedicated));
 	const vk::DeviceDriver					vkd					(vkp, instance, *device);
-	const vk::VkImageUsageFlags				usage				= vk::VK_BUFFER_USAGE_TRANSFER_SRC_BIT|vk::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	const vk::VkImageUsageFlags				usage				= vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT | vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT | (config.externalType == vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID ? vk::VK_IMAGE_USAGE_SAMPLED_BIT : 0);
 	const vk::VkFormat						format				= vk::VK_FORMAT_R8G8B8A8_UNORM;
 	const deUint32							width				= 64u;
 	const deUint32							height				= 64u;
@@ -3821,20 +3898,27 @@ tcu::TestStatus testImageExportImportBindBind (Context&					context,
 
 	checkImageSupport(vki, physicalDevice, config.externalType, 0u, usage, format, tiling, config.dedicated);
 
-	deUint32								exportedMemoryTypeIndex	= ~0U;
+	if (config.externalType == vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID && config.dedicated)
+	{
+		// AHB required the image memory to be bound first, which is not possible in this test.
+		TCU_THROW(NotSupportedError, "Unsupported for Android Hardware Buffer");
+	}
+
 	// \note Image is only allocated to get memory requirements
 	const vk::Unique<vk::VkImage>			imageA					(createExternalImage(vkd, *device, queueFamilyIndex, config.externalType, format, width, height, tiling, 0u, usage));
-	const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *imageA));
-	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements, config.externalType, config.dedicated ? *imageA : (vk::VkImage)0, exportedMemoryTypeIndex));
+	const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *imageA, config.externalType));
+	const deUint32							exportedMemoryTypeIndex	(chooseMemoryType(requirements.memoryTypeBits));
+	const vk::Unique<vk::VkDeviceMemory>	memoryA					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, config.externalType, config.dedicated ? *imageA : (vk::VkImage)0));
 	NativeHandle							handle;
 
 	getMemoryNative(vkd, *device, *memoryA, config.externalType, handle);
 
 	{
 		const vk::Unique<vk::VkImage>			imageB	(createExternalImage(vkd, *device, queueFamilyIndex, config.externalType, format, width, height, tiling, 0u, usage));
+		const deUint32							idx		= config.externalType == vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID ? ~0u : exportedMemoryTypeIndex;
 		const vk::Unique<vk::VkDeviceMemory>	memoryB	(config.dedicated
-														 ? importDedicatedMemory(vkd, *device, *imageB, requirements, config.externalType, exportedMemoryTypeIndex, handle)
-														 : importMemory(vkd, *device, requirements, config.externalType, exportedMemoryTypeIndex, handle));
+														 ? importDedicatedMemory(vkd, *device, *imageB, requirements, config.externalType, idx, handle)
+														 : importMemory(vkd, *device, requirements, config.externalType, idx, handle));
 
 		VK_CHECK(vkd.bindImageMemory(*device, *imageA, *memoryA, 0u));
 		VK_CHECK(vkd.bindImageMemory(*device, *imageB, *memoryB, 0u));
@@ -3842,6 +3926,20 @@ tcu::TestStatus testImageExportImportBindBind (Context&					context,
 
 	return tcu::TestStatus::pass("Pass");
 }
+
+template<class TestConfig> void checkEvent (Context& context, const TestConfig)
+{
+	if (context.isDeviceFunctionalitySupported("VK_KHR_portability_subset") && !context.getPortabilitySubsetFeatures().events)
+		TCU_THROW(NotSupportedError, "VK_KHR_portability_subset: Events are not supported by this implementation");
+}
+
+template<class TestConfig> void checkSupport (Context& context, const TestConfig config)
+{
+	const Transference transference (getHandelTypeTransferences(config.externalType));
+	if (transference == TRANSFERENCE_COPY)
+		checkEvent(context, config);
+}
+
 de::MovePtr<tcu::TestCaseGroup> createFenceTests (tcu::TestContext& testCtx, vk::VkExternalFenceHandleTypeFlagBits externalType)
 {
 	const struct
@@ -3873,24 +3971,29 @@ de::MovePtr<tcu::TestCaseGroup> createFenceTests (tcu::TestContext& testCtx, vk:
 			addFunctionCase(fenceGroup.get(), std::string("create_win32_") + permanenceName,	"Test creating fence with win32 properties.",	testFenceWin32Create,	config);
 		}
 
-		addFunctionCase(fenceGroup.get(), std::string("import_twice_") + permanenceName,				"Test importing fence twice.",											testFenceImportTwice,				config);
-		addFunctionCase(fenceGroup.get(), std::string("reimport_") + permanenceName,					"Test importing again over previously imported fence.",					testFenceImportReimport,			config);
-		addFunctionCase(fenceGroup.get(), std::string("import_multiple_times_") + permanenceName,		"Test importing fence multiple times.",									testFenceMultipleImports,			config);
-		addFunctionCase(fenceGroup.get(), std::string("signal_export_import_wait_") + permanenceName,	"Test signaling, exporting, importing and waiting for the sempahore.",	testFenceSignalExportImportWait,	config);
-		addFunctionCase(fenceGroup.get(), std::string("signal_import_") + permanenceName,				"Test signaling and importing the fence.",								testFenceSignalImport,				config);
-		addFunctionCase(fenceGroup.get(), std::string("reset_") + permanenceName,						"Test resetting the fence.",											testFenceReset,						config);
-		addFunctionCase(fenceGroup.get(), std::string("transference_") + permanenceName,				"Test fences transference.",											testFenceTransference,				config);
+		addFunctionCase(fenceGroup.get(), std::string("import_twice_") + permanenceName,				"Test importing fence twice.",											checkSupport,	testFenceImportTwice,				config);
+		addFunctionCase(fenceGroup.get(), std::string("reimport_") + permanenceName,					"Test importing again over previously imported fence.",					checkSupport,	testFenceImportReimport,			config);
+		addFunctionCase(fenceGroup.get(), std::string("import_multiple_times_") + permanenceName,		"Test importing fence multiple times.",									checkSupport,	testFenceMultipleImports,			config);
+		addFunctionCase(fenceGroup.get(), std::string("signal_export_import_wait_") + permanenceName,	"Test signaling, exporting, importing and waiting for the sempahore.",	checkEvent,		testFenceSignalExportImportWait,	config);
+		addFunctionCase(fenceGroup.get(), std::string("signal_import_") + permanenceName,				"Test signaling and importing the fence.",								checkSupport,	testFenceSignalImport,				config);
+		addFunctionCase(fenceGroup.get(), std::string("reset_") + permanenceName,						"Test resetting the fence.",											checkEvent,		testFenceReset,						config);
+		addFunctionCase(fenceGroup.get(), std::string("transference_") + permanenceName,				"Test fences transference.",											checkEvent,		testFenceTransference,				config);
+
+		if (externalType == vk::VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT)
+		{
+			addFunctionCase(fenceGroup.get(), std::string("import_signaled_") + permanenceName,			"Test import signaled fence fd.",										testFenceImportSyncFdSignaled,		config);
+		}
 
 		if (externalType == vk::VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT
 			|| externalType == vk::VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT)
 		{
 			// \note Not supported on WIN32 handles
-			addFunctionCase(fenceGroup.get(), std::string("export_multiple_times_") + permanenceName,	"Test exporting fence multiple times.",		testFenceMultipleExports,	config);
+			addFunctionCase(fenceGroup.get(), std::string("export_multiple_times_") + permanenceName,	"Test exporting fence multiple times.",		checkSupport,	testFenceMultipleExports,	config);
 
-			addFunctionCase(fenceGroup.get(), std::string("dup_") + permanenceName,						"Test calling dup() on exported fence.",	testFenceFdDup,				config);
-			addFunctionCase(fenceGroup.get(), std::string("dup2_") + permanenceName,					"Test calling dup2() on exported fence.",	testFenceFdDup2,			config);
-			addFunctionCase(fenceGroup.get(), std::string("dup3_") + permanenceName,					"Test calling dup3() on exported fence.",	testFenceFdDup3,			config);
-			addFunctionCase(fenceGroup.get(), std::string("send_over_socket_") + permanenceName,		"Test sending fence fd over socket.",		testFenceFdSendOverSocket,	config);
+			addFunctionCase(fenceGroup.get(), std::string("dup_") + permanenceName,						"Test calling dup() on exported fence.",	checkSupport,	testFenceFdDup,				config);
+			addFunctionCase(fenceGroup.get(), std::string("dup2_") + permanenceName,					"Test calling dup2() on exported fence.",	checkSupport,	testFenceFdDup2,			config);
+			addFunctionCase(fenceGroup.get(), std::string("dup3_") + permanenceName,					"Test calling dup3() on exported fence.",	checkSupport,	testFenceFdDup3,			config);
+			addFunctionCase(fenceGroup.get(), std::string("send_over_socket_") + permanenceName,		"Test sending fence fd over socket.",		checkSupport,	testFenceFdSendOverSocket,	config);
 		}
 
 		if (getHandelTypeTransferences(externalType) == TRANSFERENCE_REFERENCE)
@@ -3932,33 +4035,45 @@ bool ValidateAHardwareBuffer(vk::VkFormat format, deUint64 requiredAhbUsage, con
 		}
 	}
 	NativeHandle nativeHandle(ahb);
-	vk::VkAndroidHardwareBufferFormatPropertiesANDROID formatProperties =
-	{
-		vk::VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID,
-		DE_NULL,
-		vk::VK_FORMAT_UNDEFINED,
-		0u,
-		0u,
-		{ vk::VK_COMPONENT_SWIZZLE_IDENTITY, vk::VK_COMPONENT_SWIZZLE_IDENTITY, vk::VK_COMPONENT_SWIZZLE_IDENTITY, vk::VK_COMPONENT_SWIZZLE_IDENTITY },
-		vk::VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY,
-		vk::VK_SAMPLER_YCBCR_RANGE_ITU_FULL,
-		vk::VK_CHROMA_LOCATION_COSITED_EVEN,
-		vk::VK_CHROMA_LOCATION_COSITED_EVEN
-	};
-	vk::VkAndroidHardwareBufferPropertiesANDROID bufferProperties =
-	{
-		vk::VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_PROPERTIES_ANDROID,
-		&formatProperties,
-		0u,
-		0u
-	};
 
-	VK_CHECK(vkd.getAndroidHardwareBufferPropertiesANDROID(device, ahb, &bufferProperties));
-	TCU_CHECK(formatProperties.format != vk::VK_FORMAT_UNDEFINED);
-	TCU_CHECK(formatProperties.format == format);
-	TCU_CHECK(formatProperties.externalFormat != 0u);
-	TCU_CHECK((formatProperties.formatFeatures & vk::VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0u);
-	TCU_CHECK((formatProperties.formatFeatures & (vk::VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT | vk::VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT)) != 0u);
+	const vk::VkComponentMapping mappingA = { vk::VK_COMPONENT_SWIZZLE_IDENTITY, vk::VK_COMPONENT_SWIZZLE_IDENTITY, vk::VK_COMPONENT_SWIZZLE_IDENTITY, vk::VK_COMPONENT_SWIZZLE_IDENTITY };
+	const vk::VkComponentMapping mappingB = { vk::VK_COMPONENT_SWIZZLE_R, vk::VK_COMPONENT_SWIZZLE_G, vk::VK_COMPONENT_SWIZZLE_B, vk::VK_COMPONENT_SWIZZLE_A };
+
+	for (int variantIdx = 0; variantIdx < 2; ++variantIdx)
+	{
+		// Both mappings should be equivalent and work.
+		const vk::VkComponentMapping& mapping = ((variantIdx == 0) ? mappingA : mappingB);
+
+		vk::VkAndroidHardwareBufferFormatPropertiesANDROID formatProperties =
+		{
+			vk::VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID,
+			DE_NULL,
+			vk::VK_FORMAT_UNDEFINED,
+			0u,
+			0u,
+			mapping,
+			vk::VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY,
+			vk::VK_SAMPLER_YCBCR_RANGE_ITU_FULL,
+			vk::VK_CHROMA_LOCATION_COSITED_EVEN,
+			vk::VK_CHROMA_LOCATION_COSITED_EVEN
+		};
+
+		vk::VkAndroidHardwareBufferPropertiesANDROID bufferProperties =
+		{
+			vk::VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_PROPERTIES_ANDROID,
+			&formatProperties,
+			0u,
+			0u
+		};
+
+		VK_CHECK(vkd.getAndroidHardwareBufferPropertiesANDROID(device, ahb, &bufferProperties));
+		TCU_CHECK(formatProperties.format != vk::VK_FORMAT_UNDEFINED);
+		TCU_CHECK(formatProperties.format == format);
+		TCU_CHECK(formatProperties.externalFormat != 0u);
+		TCU_CHECK((formatProperties.formatFeatures & vk::VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) != 0u);
+		TCU_CHECK((formatProperties.formatFeatures & (vk::VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT | vk::VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT)) != 0u);
+	}
+
 	return true;
 }
 
@@ -3972,14 +4087,10 @@ tcu::TestStatus testAndroidHardwareBufferImageFormat  (Context& context, vk::VkF
 
 	const vk::VkExternalMemoryHandleTypeFlagBits  externalMemoryType  =	vk::VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
 	const vk::PlatformInterface&				  vkp					(context.getPlatformInterface());
-	const CustomInstance						  instance				(createTestInstance(context, externalMemoryType, 0u, 0u));
+	const CustomInstance						  instance				(createTestInstance(context, 0u, externalMemoryType, 0u));
 	const vk::InstanceDriver&					  vki					(instance.getDriver());
 	const vk::VkPhysicalDevice					  physicalDevice		(vk::chooseDevice(vki, instance, context.getTestContext().getCommandLine()));
 	const deUint32								  queueFamilyIndex		(chooseQueueFamilyIndex(vki, physicalDevice, 0u));
-	const vk::Unique<vk::VkDevice>				  device				(createTestDevice(context, vkp, instance, vki, physicalDevice, 0u, externalMemoryType, 0u, queueFamilyIndex));
-	const vk::DeviceDriver						  vkd					(vkp, instance, *device);
-	TestLog&									  log				  = context.getTestContext().getLog();
-	const vk::VkPhysicalDeviceLimits			  limits			  = getPhysicalDeviceProperties(vki, physicalDevice).limits;
 
 	vk::VkPhysicalDeviceProtectedMemoryFeatures		protectedFeatures;
 	protectedFeatures.sType				= vk::VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES;
@@ -3992,19 +4103,26 @@ tcu::TestStatus testAndroidHardwareBufferImageFormat  (Context& context, vk::VkF
 
 	vki.getPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures);
 
+	const vk::Unique<vk::VkDevice>				  device				(createTestDevice(context, vkp, instance, vki, physicalDevice, 0u, externalMemoryType, 0u, queueFamilyIndex, false, &protectedFeatures));
+	const vk::DeviceDriver						  vkd					(vkp, instance, *device);
+	TestLog&									  log				  = context.getTestContext().getLog();
+	const vk::VkPhysicalDeviceLimits			  limits			  = getPhysicalDeviceProperties(vki, physicalDevice).limits;
+
+	const vk::VkImageUsageFlagBits framebufferUsageFlag = vk::isDepthStencilFormat(format) ? vk::VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
+																						   : vk::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
 	const vk::VkImageUsageFlagBits				  usageFlags[]		  =
 	{
 		vk::VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 		vk::VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 		vk::VK_IMAGE_USAGE_SAMPLED_BIT,
 		vk::VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-		vk::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+		framebufferUsageFlag,
 	};
 	const vk::VkImageCreateFlagBits				  createFlags[]		  =
 	{
 		vk::VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT,
 		vk::VK_IMAGE_CREATE_EXTENDED_USAGE_BIT,
-		vk::VK_IMAGE_CREATE_PROTECTED_BIT,
 		vk::VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
 	};
 	const vk::VkImageTiling						  tilings[]			  =
@@ -4013,9 +4131,10 @@ tcu::TestStatus testAndroidHardwareBufferImageFormat  (Context& context, vk::VkF
 		vk::VK_IMAGE_TILING_LINEAR,
 	};
 	deUint64 mustSupportAhbUsageFlags = ahbApi->mustSupportAhbUsageFlags();
+	const size_t	one							= 1u;
 	const size_t	numOfUsageFlags				= DE_LENGTH_OF_ARRAY(usageFlags);
 	const size_t	numOfCreateFlags			= DE_LENGTH_OF_ARRAY(createFlags);
-	const size_t	numOfFlagCombos				= 1u << (numOfUsageFlags + numOfCreateFlags);
+	const size_t	numOfFlagCombos				= one << (numOfUsageFlags + numOfCreateFlags);
 	const size_t	numOfTilings				= DE_LENGTH_OF_ARRAY(tilings);
 
 	for (size_t combo = 0; combo < numOfFlagCombos; combo++)
@@ -4026,7 +4145,7 @@ tcu::TestStatus testAndroidHardwareBufferImageFormat  (Context& context, vk::VkF
 		bool					enableMaxLayerTest	= true;
 		for (size_t usageNdx = 0; usageNdx < numOfUsageFlags; usageNdx++)
 		{
-			if ((combo & (1u << usageNdx)) == 0)
+			if ((combo & (one << usageNdx)) == 0)
 				continue;
 			usage |= usageFlags[usageNdx];
 			requiredAhbUsage |= ahbApi->vkUsageToAhbUsage(usageFlags[usageNdx]);
@@ -4034,10 +4153,7 @@ tcu::TestStatus testAndroidHardwareBufferImageFormat  (Context& context, vk::VkF
 		for (size_t createFlagNdx = 0; createFlagNdx < numOfCreateFlags; createFlagNdx++)
 		{
 			const size_t	bit	= numOfUsageFlags + createFlagNdx;
-			if ((combo & (1u << bit)) == 0)
-				continue;
-			if (((createFlags[createFlagNdx] & vk::VK_IMAGE_CREATE_PROTECTED_BIT) == vk::VK_IMAGE_CREATE_PROTECTED_BIT ) &&
-				(protectedFeatures.protectedMemory == VK_FALSE))
+			if ((combo & (one << bit)) == 0)
 				continue;
 			createFlag |= createFlags[createFlagNdx];
 			requiredAhbUsage |= ahbApi->vkCreateToAhbUsage(createFlags[createFlagNdx]);
@@ -4133,10 +4249,10 @@ tcu::TestStatus testAndroidHardwareBufferImageFormat  (Context& context, vk::VkF
 			};
 			for (size_t i = 0; i < DE_LENGTH_OF_ARRAY(sizes); i++)
 			{
-				deUint32								exportedMemoryTypeIndex	= ~0U;
 				const vk::Unique<vk::VkImage>			image					(createExternalImage(vkd, *device, queueFamilyIndex, externalMemoryType, format, sizes[i].width, sizes[i].height, tiling, createFlag, usage));
-				const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *image));
-				const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements, externalMemoryType, *image, exportedMemoryTypeIndex));
+				const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *image, externalMemoryType));
+				const deUint32							exportedMemoryTypeIndex	(chooseMemoryType(requirements.memoryTypeBits));
+				const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, externalMemoryType, *image));
 				NativeHandle							handle;
 
 				VK_CHECK(vkd.bindImageMemory(*device, *image, *memory, 0u));
@@ -4154,10 +4270,10 @@ tcu::TestStatus testAndroidHardwareBufferImageFormat  (Context& context, vk::VkF
 
 			if (properties.imageFormatProperties.maxMipLevels > 1u)
 			{
-				deUint32								exportedMemoryTypeIndex	= ~0U;
 				const vk::Unique<vk::VkImage>			image					(createExternalImage(vkd, *device, queueFamilyIndex, externalMemoryType, format, 64u, 64u, tiling, createFlag, usage, properties.imageFormatProperties.maxMipLevels));
-				const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *image));
-				const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements, externalMemoryType, *image, exportedMemoryTypeIndex));
+				const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *image, externalMemoryType));
+				const deUint32							exportedMemoryTypeIndex	(chooseMemoryType(requirements.memoryTypeBits));
+				const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, externalMemoryType, *image));
 				NativeHandle							handle;
 
 				VK_CHECK(vkd.bindImageMemory(*device, *image, *memory, 0u));
@@ -4172,10 +4288,10 @@ tcu::TestStatus testAndroidHardwareBufferImageFormat  (Context& context, vk::VkF
 
 			if ((properties.imageFormatProperties.maxArrayLayers > 1u) && enableMaxLayerTest)
 			{
-				deUint32								exportedMemoryTypeIndex	= ~0U;
 				const vk::Unique<vk::VkImage>			image					(createExternalImage(vkd, *device, queueFamilyIndex, externalMemoryType, format, 64u, 64u, tiling, createFlag, usage, 1u, properties.imageFormatProperties.maxArrayLayers));
-				const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *image));
-				const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements, externalMemoryType, *image, exportedMemoryTypeIndex));
+				const vk::VkMemoryRequirements			requirements			(getImageMemoryRequirements(vkd, *device, *image, externalMemoryType));
+				const deUint32							exportedMemoryTypeIndex	(chooseMemoryType(requirements.memoryTypeBits));
+				const vk::Unique<vk::VkDeviceMemory>	memory					(allocateExportableMemory(vkd, *device, requirements.size, exportedMemoryTypeIndex, externalMemoryType, *image));
 				NativeHandle							handle;
 
 				VK_CHECK(vkd.bindImageMemory(*device, *image, *memory, 0u));
@@ -4237,30 +4353,36 @@ de::MovePtr<tcu::TestCaseGroup> createSemaphoreTests (tcu::TestContext& testCtx,
 			addFunctionCase(semaphoreGroup.get(), std::string("create_win32_") + permanenceName,	"Test creating semaphore with win32 properties.",	testSemaphoreWin32Create,	config);
 		}
 
-		addFunctionCase(semaphoreGroup.get(), std::string("import_twice_") + permanenceName,				"Test importing semaphore twice.",										testSemaphoreImportTwice,				config);
-		addFunctionCase(semaphoreGroup.get(), std::string("reimport_") + permanenceName,					"Test importing again over previously imported semaphore.",				testSemaphoreImportReimport,			config);
-		addFunctionCase(semaphoreGroup.get(), std::string("import_multiple_times_") + permanenceName,		"Test importing semaphore multiple times.",								testSemaphoreMultipleImports,			config);
-		addFunctionCase(semaphoreGroup.get(), std::string("signal_export_import_wait_") + permanenceName,	"Test signaling, exporting, importing and waiting for the sempahore.",	testSemaphoreSignalExportImportWait,	config);
-		addFunctionCase(semaphoreGroup.get(), std::string("signal_import_") + permanenceName,				"Test signaling and importing the semaphore.",							testSemaphoreSignalImport,				config);
-		addFunctionCase(semaphoreGroup.get(), std::string("transference_") + permanenceName,				"Test semaphores transference.",										testSemaphoreTransference,				config);
+		addFunctionCase(semaphoreGroup.get(), std::string("import_twice_") + permanenceName,				"Test importing semaphore twice.",										checkSupport,	testSemaphoreImportTwice,				config);
+		addFunctionCase(semaphoreGroup.get(), std::string("reimport_") + permanenceName,					"Test importing again over previously imported semaphore.",				checkSupport,	testSemaphoreImportReimport,			config);
+		addFunctionCase(semaphoreGroup.get(), std::string("import_multiple_times_") + permanenceName,		"Test importing semaphore multiple times.",								checkSupport,	testSemaphoreMultipleImports,			config);
+		addFunctionCase(semaphoreGroup.get(), std::string("signal_export_import_wait_") + permanenceName,	"Test signaling, exporting, importing and waiting for the sempahore.",	checkEvent,		testSemaphoreSignalExportImportWait,	config);
+		addFunctionCase(semaphoreGroup.get(), std::string("signal_import_") + permanenceName,				"Test signaling and importing the semaphore.",							checkSupport,	testSemaphoreSignalImport,				config);
+		addFunctionCase(semaphoreGroup.get(), std::string("transference_") + permanenceName,				"Test semaphores transference.",										checkEvent,		testSemaphoreTransference,				config);
+
+		if (externalType == vk::VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT)
+		{
+			addFunctionCase(semaphoreGroup.get(), std::string("import_signaled_") + permanenceName,			"Test import signaled semaphore fd.",										testSemaphoreImportSyncFdSignaled,	config);
+		}
+
 
 		if (externalType == vk::VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT
 			|| externalType == vk::VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT)
 		{
 			// \note Not supported on WIN32 handles
-			addFunctionCase(semaphoreGroup.get(), std::string("export_multiple_times_") + permanenceName,	"Test exporting semaphore multiple times.",		testSemaphoreMultipleExports,	config);
+			addFunctionCase(semaphoreGroup.get(), std::string("export_multiple_times_") + permanenceName,	"Test exporting semaphore multiple times.",		checkSupport,	testSemaphoreMultipleExports,	config);
 
-			addFunctionCase(semaphoreGroup.get(), std::string("dup_") + permanenceName,						"Test calling dup() on exported semaphore.",	testSemaphoreFdDup,				config);
-			addFunctionCase(semaphoreGroup.get(), std::string("dup2_") + permanenceName,					"Test calling dup2() on exported semaphore.",	testSemaphoreFdDup2,			config);
-			addFunctionCase(semaphoreGroup.get(), std::string("dup3_") + permanenceName,					"Test calling dup3() on exported semaphore.",	testSemaphoreFdDup3,			config);
-			addFunctionCase(semaphoreGroup.get(), std::string("send_over_socket_") + permanenceName,		"Test sending semaphore fd over socket.",		testSemaphoreFdSendOverSocket,	config);
+			addFunctionCase(semaphoreGroup.get(), std::string("dup_") + permanenceName,						"Test calling dup() on exported semaphore.",	checkSupport,	testSemaphoreFdDup,				config);
+			addFunctionCase(semaphoreGroup.get(), std::string("dup2_") + permanenceName,					"Test calling dup2() on exported semaphore.",	checkSupport,	testSemaphoreFdDup2,			config);
+			addFunctionCase(semaphoreGroup.get(), std::string("dup3_") + permanenceName,					"Test calling dup3() on exported semaphore.",	checkSupport,	testSemaphoreFdDup3,			config);
+			addFunctionCase(semaphoreGroup.get(), std::string("send_over_socket_") + permanenceName,		"Test sending semaphore fd over socket.",		checkSupport,	testSemaphoreFdSendOverSocket,	config);
 		}
 
 		if (getHandelTypeTransferences(externalType) == TRANSFERENCE_REFERENCE)
 		{
 			addFunctionCase(semaphoreGroup.get(), std::string("signal_wait_import_") + permanenceName,			"Test signaling and then waiting for the the sepmahore.",				testSemaphoreSignalWaitImport,			config);
 			addFunctionCase(semaphoreGroup.get(), std::string("export_signal_import_wait_") + permanenceName,	"Test exporting, signaling, importing and waiting for the semaphore.",	testSemaphoreExportSignalImportWait,	config);
-			addFunctionCase(semaphoreGroup.get(), std::string("export_import_signal_wait_") + permanenceName,	"Test exporting, importing, signaling and waiting for the semaphore.",	testSemaphoreExportImportSignalWait,	config);
+			addFunctionCase(semaphoreGroup.get(), std::string("export_import_signal_wait_") + permanenceName,	"Test exporting, importing, signaling and waiting for the semaphore.",	checkEvent,		testSemaphoreExportImportSignalWait,	config);
 		}
 	}
 
@@ -4360,6 +4482,12 @@ de::MovePtr<tcu::TestCaseGroup> createMemoryTests (tcu::TestContext& testCtx, vk
 			vk::VK_FORMAT_R5G6B5_UNORM_PACK16,
 			vk::VK_FORMAT_R16G16B16A16_SFLOAT,
 			vk::VK_FORMAT_A2B10G10R10_UNORM_PACK32,
+			vk::VK_FORMAT_D16_UNORM,
+			vk::VK_FORMAT_X8_D24_UNORM_PACK32,
+			vk::VK_FORMAT_D24_UNORM_S8_UINT,
+			vk::VK_FORMAT_D32_SFLOAT,
+			vk::VK_FORMAT_D32_SFLOAT_S8_UINT,
+			vk::VK_FORMAT_S8_UINT,
 		};
 		const size_t		numOfAhbFormats	= DE_LENGTH_OF_ARRAY(ahbFormats);
 

@@ -33,6 +33,8 @@ using ::android::hardware::sensors::V1_0::OperationMode;
 using ::android::hardware::sensors::V1_0::Result;
 using ::android::hardware::sensors::V2_0::implementation::IHalProxyCallback;
 using ::android::hardware::sensors::V2_0::subhal::implementation::ISensorsEventCallback;
+using ::sensor::hal::configuration::V1_0::Configuration;
+
 /**
  * Implementation of a ISensorsSubHal that can be used as a reference HAL implementation of sensors
  * multihal 2.0. See the README file for more details.
@@ -80,15 +82,8 @@ class SensorsSubHal : public ISensorsSubHal, public ISensorsEventCallback {
     void postEvents(const std::vector<Event>& events, bool wakeup) override;
 
   protected:
-    template <class T>
-    void AddSensor(const struct iio_device_data& iio_data) {
-        static_assert(std::is_base_of<SensorBase, T>::value == true,
-                      "AddSensor called for Non-Sensor Type!!");
-
-        std::unique_ptr<T> sensor = std::make_unique<T>(mNextHandle++ /* sensorHandle */,
-                                                        this /* callback */, iio_data);
-        mSensors[sensor->getSensorInfo().sensorHandle] = std::move(sensor);
-    }
+    void AddSensor(const struct iio_device_data& iio_data,
+                   const std::optional<std::vector<Configuration>>& config);
 
     /**
      * A map of the available sensors

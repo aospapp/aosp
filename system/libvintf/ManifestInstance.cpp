@@ -23,6 +23,8 @@
 
 #include <utility>
 
+#include <android-base/logging.h>
+
 #include "parse_string.h"
 
 namespace android {
@@ -38,11 +40,20 @@ ManifestInstance& ManifestInstance::operator=(const ManifestInstance&) = default
 
 ManifestInstance& ManifestInstance::operator=(ManifestInstance&&) noexcept = default;
 
-ManifestInstance::ManifestInstance(FqInstance&& fqInstance, TransportArch&& ta, HalFormat fmt)
-    : mFqInstance(std::move(fqInstance)), mTransportArch(std::move(ta)), mHalFormat(fmt) {}
+ManifestInstance::ManifestInstance(FqInstance&& fqInstance, TransportArch&& ta, HalFormat fmt,
+                                   std::optional<std::string>&& updatableViaApex)
+    : mFqInstance(std::move(fqInstance)),
+      mTransportArch(std::move(ta)),
+      mHalFormat(fmt),
+      mUpdatableViaApex(std::move(updatableViaApex)) {}
+
 ManifestInstance::ManifestInstance(const FqInstance& fqInstance, const TransportArch& ta,
-                                   HalFormat fmt)
-    : mFqInstance(fqInstance), mTransportArch(ta), mHalFormat(fmt) {}
+                                   HalFormat fmt,
+                                   const std::optional<std::string>& updatableViaApex)
+    : mFqInstance(fqInstance),
+      mTransportArch(ta),
+      mHalFormat(fmt),
+      mUpdatableViaApex(updatableViaApex) {}
 
 const std::string& ManifestInstance::package() const {
     return mFqInstance.getPackage();
@@ -72,20 +83,26 @@ HalFormat ManifestInstance::format() const {
     return mHalFormat;
 }
 
+const std::optional<std::string>& ManifestInstance::updatableViaApex() const {
+    return mUpdatableViaApex;
+}
+
 const FqInstance& ManifestInstance::getFqInstance() const {
     return mFqInstance;
 }
 
 bool ManifestInstance::operator==(const ManifestInstance& other) const {
     return mFqInstance == other.mFqInstance && mTransportArch == other.mTransportArch &&
-           mHalFormat == other.mHalFormat;
+           mHalFormat == other.mHalFormat && mUpdatableViaApex == other.mUpdatableViaApex;
 }
 bool ManifestInstance::operator<(const ManifestInstance& other) const {
     if (mFqInstance < other.mFqInstance) return true;
     if (other.mFqInstance < mFqInstance) return false;
     if (mTransportArch < other.mTransportArch) return true;
     if (other.mTransportArch < mTransportArch) return false;
-    return mHalFormat < other.mHalFormat;
+    if (mHalFormat < other.mHalFormat) return true;
+    if (other.mHalFormat < mHalFormat) return false;
+    return mUpdatableViaApex < other.mUpdatableViaApex;
 }
 
 std::string ManifestInstance::getSimpleFqInstance() const {
@@ -93,7 +110,7 @@ std::string ManifestInstance::getSimpleFqInstance() const {
     bool success = false;
     switch (format()) {
         case HalFormat::AIDL: {
-            // Hide fake version when printing human-readable message or to manifest XML.
+            // Hide fake version when printing to manifest XML <fqname> tag.
             success = e.setTo(interface(), instance());
         } break;
         case HalFormat::HIDL:
@@ -111,7 +128,8 @@ std::string ManifestInstance::getSimpleFqInstance() const {
 std::string ManifestInstance::description() const {
     switch (format()) {
         case HalFormat::AIDL: {
-            return toAidlFqnameString(package(), interface(), instance());
+            return toAidlFqnameString(package(), interface(), instance()) + " (@" +
+                   aidlVersionToString(version()) + ")";
         } break;
         case HalFormat::HIDL:
             [[fallthrough]];
@@ -119,6 +137,27 @@ std::string ManifestInstance::description() const {
             return getFqInstance().string();
         } break;
     }
+}
+
+std::string ManifestInstance::descriptionWithoutPackage() const {
+    switch (format()) {
+        case HalFormat::AIDL: {
+            return toFQNameString(interface(), instance()) + " (@" +
+                   aidlVersionToString(version()) + ")";
+        } break;
+        case HalFormat::HIDL:
+            [[fallthrough]];
+        case HalFormat::NATIVE: {
+            return getSimpleFqInstance();
+        } break;
+    }
+}
+
+ManifestInstance ManifestInstance::withVersion(const Version& v) const {
+    FqInstance fqInstance;
+    CHECK(fqInstance.setTo(getFqInstance().getPackage(), v.majorVer, v.minorVer,
+                           getFqInstance().getInterface(), getFqInstance().getInstance()));
+    return ManifestInstance(std::move(fqInstance), mTransportArch, format(), mUpdatableViaApex);
 }
 
 }  // namespace vintf

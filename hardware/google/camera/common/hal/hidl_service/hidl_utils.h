@@ -18,7 +18,7 @@
 #define HARDWARE_GOOGLE_CAMERA_HAL_HIDL_SERVICE_HIDL_UTILS_H_
 
 #include <android/hardware/camera/common/1.0/types.h>
-#include <android/hardware/camera/device/3.5/ICameraDeviceSession.h>
+#include <android/hardware/camera/device/3.7/ICameraDeviceSession.h>
 #include <fmq/MessageQueue.h>
 #include <hal_types.h>
 #include <hidl/HidlSupport.h>
@@ -47,16 +47,16 @@ using ::android::hardware::camera::device::V3_2::StreamBuffer;
 using ::android::hardware::camera::device::V3_2::StreamConfigurationMode;
 using ::android::hardware::camera::device::V3_2::StreamRotation;
 using ::android::hardware::camera::device::V3_2::StreamType;
-using ::android::hardware::camera::device::V3_4::CaptureRequest;
 using ::android::hardware::camera::device::V3_4::CaptureResult;
-using ::android::hardware::camera::device::V3_4::HalStreamConfiguration;
 using ::android::hardware::camera::device::V3_4::Stream;
 using ::android::hardware::camera::device::V3_5::BufferRequest;
 using ::android::hardware::camera::device::V3_5::BufferRequestStatus;
 using ::android::hardware::camera::device::V3_5::StreamBufferRequestError;
 using ::android::hardware::camera::device::V3_5::StreamBufferRet;
 using ::android::hardware::camera::device::V3_5::StreamBuffersVal;
-using ::android::hardware::camera::device::V3_5::StreamConfiguration;
+using ::android::hardware::camera::device::V3_6::HalStreamConfiguration;
+using ::android::hardware::camera::device::V3_7::CaptureRequest;
+using ::android::hardware::camera::device::V3_7::StreamConfiguration;
 
 // Util functions to convert the types between HIDL and Google Camera HAL.
 
@@ -92,6 +92,11 @@ status_t ConverToHidlNotifyMessage(
 // Convert from HAL status_t to HIDL Status
 // OK is converted to Status::OK.
 // BAD_VALUE is converted to Status::ILLEGAL_ARGUMENT.
+// -EBUSY is converted to Status::CAMERA_IN_USE.
+// -EUSERS is converted to Status::MAX_CAMERAS_IN_USE.
+// UNKNOWN_TRANSACTION is converted to Status::METHOD_NOT_SUPPORTED.
+// INVALID_OPERATION is converted to Status::OPERATION_NOT_SUPPORTED.
+// DEAD_OBJECT is converted to Status::CAMERA_DISCONNECTED.
 // All other errors are converted to Status::INTERNAL_ERROR.
 Status ConvertToHidlStatus(status_t hal_status);
 
@@ -179,6 +184,11 @@ status_t ConvertToHalBufferRequestStatus(
 status_t ConvertToHalBufferReturnStatus(
     const StreamBufferRet& hidl_stream_buffer_return,
     google_camera_hal::BufferReturn* hal_buffer_return);
+
+status_t ConvertStreamConfigurationV34ToV37(
+    const device::V3_4::StreamConfiguration& config_3_4,
+    StreamConfiguration* config_3_7);
+
 }  // namespace hidl_utils
 }  // namespace implementation
 }  // namespace camera

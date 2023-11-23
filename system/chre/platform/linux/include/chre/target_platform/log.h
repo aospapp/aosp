@@ -17,6 +17,8 @@
 #ifndef CHRE_PLATFORM_LINUX_LOG_H_
 #define CHRE_PLATFORM_LINUX_LOG_H_
 
+#include "chre_api/chre/re.h"
+
 #ifndef __FILENAME__
 #define __FILENAME__ __FILE__
 #endif
@@ -27,21 +29,27 @@
 // used.
 #include <stdio.h>
 
-#define CHRE_LINUX_LOG(level, color, fmt, ...)                         \
-  printf("\e[" color "m%s %s:%d\t" fmt "\e[0m\n", level, __FILENAME__, \
+#define CHRE_LINUX_LOG(logLevel, levelStr, color, fmt, ...)               \
+  printf("\e[" color "m%s %s:%d\t" fmt "\e[0m\n", levelStr, __FILENAME__, \
          __LINE__, ##__VA_ARGS__)
 #else
-#include "chre/platform/shared/platform_log.h"
+#include "chre/platform/linux/platform_log.h"
 
-#define CHRE_LINUX_LOG(level, color, fmt, ...)                              \
-  ::chre::PlatformLogSingleton::get()->log(                                 \
-      "\e[" color "m%s %s:%d\t" fmt "\e[0m", level, __FILENAME__, __LINE__, \
-      ##__VA_ARGS__)
+#define CHRE_LINUX_LOG(logLevel, levelStr, color, fmt, ...)        \
+  if (::chre::PlatformLogSingleton::isInitialized()) {             \
+    ::chre::PlatformLogSingleton::get()->log(                      \
+        logLevel, "\e[" color "m%s %s:%d\t" fmt "\e[0m", levelStr, \
+        __FILENAME__, __LINE__, ##__VA_ARGS__);                    \
+  }
 #endif
 
-#define LOGE(fmt, ...) CHRE_LINUX_LOG("E", "91", fmt, ##__VA_ARGS__)
-#define LOGW(fmt, ...) CHRE_LINUX_LOG("W", "93", fmt, ##__VA_ARGS__)
-#define LOGI(fmt, ...) CHRE_LINUX_LOG("I", "96", fmt, ##__VA_ARGS__)
-#define LOGD(fmt, ...) CHRE_LINUX_LOG("D", "97", fmt, ##__VA_ARGS__)
+#define LOGE(fmt, ...) \
+  CHRE_LINUX_LOG(CHRE_LOG_ERROR, "E", "91", fmt, ##__VA_ARGS__)
+#define LOGW(fmt, ...) \
+  CHRE_LINUX_LOG(CHRE_LOG_WARN, "W", "93", fmt, ##__VA_ARGS__)
+#define LOGI(fmt, ...) \
+  CHRE_LINUX_LOG(CHRE_LOG_INFO, "I", "96", fmt, ##__VA_ARGS__)
+#define LOGD(fmt, ...) \
+  CHRE_LINUX_LOG(CHRE_LOG_DEBUG, "D", "97", fmt, ##__VA_ARGS__)
 
 #endif  // CHRE_PLATFORM_LINUX_LOG_H_

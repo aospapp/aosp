@@ -20,13 +20,17 @@
 
 #include "arch/instruction_set.h"
 #include "arch/x86/jni_frame_x86.h"
-#include "handle_scope-inl.h"
 #include "utils/x86/managed_register_x86.h"
 
 namespace art {
 namespace x86 {
 
-static_assert(kX86PointerSize == PointerSize::k32, "Unexpected x86 pointer size");
+static constexpr Register kManagedCoreArgumentRegisters[] = {
+    EAX, ECX, EDX, EBX
+};
+static constexpr size_t kManagedCoreArgumentRegistersCount =
+    arraysize(kManagedCoreArgumentRegisters);
+static constexpr size_t kManagedFpArgumentRegistersCount = 4u;
 
 static constexpr ManagedRegister kCalleeSaveRegisters[] = {
     // Core registers.
@@ -67,12 +71,11 @@ static constexpr uint32_t kNativeFpCalleeSpillMask = 0u;
 
 // Calling convention
 
-ManagedRegister X86ManagedRuntimeCallingConvention::InterproceduralScratchRegister() const {
-  return X86ManagedRegister::FromCpuRegister(ECX);
-}
-
-ManagedRegister X86JniCallingConvention::InterproceduralScratchRegister() const {
-  return X86ManagedRegister::FromCpuRegister(ECX);
+ManagedRegister X86JniCallingConvention::SavedLocalReferenceCookieRegister() const {
+  // The EBP is callee-save register in both managed and native ABIs.
+  // It is saved in the stack frame and it has no special purpose like `tr` on arm/arm64.
+  static_assert((kCoreCalleeSpillMask & (1u << EBP)) != 0u);  // Managed callee save register.
+  return X86ManagedRegister::FromCpuRegister(EBP);
 }
 
 ManagedRegister X86JniCallingConvention::ReturnScratchRegister() const {
@@ -113,97 +116,64 @@ ManagedRegister X86ManagedRuntimeCallingConvention::MethodRegister() {
   return X86ManagedRegister::FromCpuRegister(EAX);
 }
 
+void X86ManagedRuntimeCallingConvention::ResetIterator(FrameOffset displacement) {
+  ManagedRuntimeCallingConvention::ResetIterator(displacement);
+  gpr_arg_count_ = 1u;  // Skip EAX for ArtMethod*
+}
+
+void X86ManagedRuntimeCallingConvention::Next() {
+  if (!IsCurrentParamAFloatOrDouble()) {
+    gpr_arg_count_ += IsCurrentParamALong() ? 2u : 1u;
+  }
+  ManagedRuntimeCallingConvention::Next();
+}
+
 bool X86ManagedRuntimeCallingConvention::IsCurrentParamInRegister() {
-  return false;  // Everything is passed by stack
+  if (IsCurrentParamAFloatOrDouble()) {
+    return itr_float_and_doubles_ < kManagedFpArgumentRegistersCount;
+  } else {
+    // Don't split a long between the last register and the stack.
+    size_t extra_regs = IsCurrentParamALong() ? 1u : 0u;
+    return gpr_arg_count_ + extra_regs < kManagedCoreArgumentRegistersCount;
+  }
 }
 
 bool X86ManagedRuntimeCallingConvention::IsCurrentParamOnStack() {
-  // We assume all parameters are on stack, args coming via registers are spilled as entry_spills.
-  return true;
+  return !IsCurrentParamInRegister();
 }
 
 ManagedRegister X86ManagedRuntimeCallingConvention::CurrentParamRegister() {
-  ManagedRegister res = ManagedRegister::NoRegister();
-  if (!IsCurrentParamAFloatOrDouble()) {
-    switch (gpr_arg_count_) {
-      case 0:
-        res = X86ManagedRegister::FromCpuRegister(ECX);
-        break;
-      case 1:
-        res = X86ManagedRegister::FromCpuRegister(EDX);
-        break;
-      case 2:
-        // Don't split a long between the last register and the stack.
-        if (IsCurrentParamALong()) {
-          return ManagedRegister::NoRegister();
-        }
-        res = X86ManagedRegister::FromCpuRegister(EBX);
-        break;
-    }
-  } else if (itr_float_and_doubles_ < 4) {
+  DCHECK(IsCurrentParamInRegister());
+  if (IsCurrentParamAFloatOrDouble()) {
     // First four float parameters are passed via XMM0..XMM3
-    res = X86ManagedRegister::FromXmmRegister(
-                                 static_cast<XmmRegister>(XMM0 + itr_float_and_doubles_));
+    XmmRegister reg = static_cast<XmmRegister>(XMM0 + itr_float_and_doubles_);
+    return X86ManagedRegister::FromXmmRegister(reg);
+  } else {
+    if (IsCurrentParamALong()) {
+      switch (gpr_arg_count_) {
+        case 1:
+          static_assert(kManagedCoreArgumentRegisters[1] == ECX);
+          static_assert(kManagedCoreArgumentRegisters[2] == EDX);
+          return X86ManagedRegister::FromRegisterPair(ECX_EDX);
+        case 2:
+          static_assert(kManagedCoreArgumentRegisters[2] == EDX);
+          static_assert(kManagedCoreArgumentRegisters[3] == EBX);
+          return X86ManagedRegister::FromRegisterPair(EDX_EBX);
+        default:
+          LOG(FATAL) << "UNREACHABLE";
+          UNREACHABLE();
+      }
+    } else {
+      Register core_reg = kManagedCoreArgumentRegisters[gpr_arg_count_];
+      return X86ManagedRegister::FromCpuRegister(core_reg);
+    }
   }
-  return res;
-}
-
-ManagedRegister X86ManagedRuntimeCallingConvention::CurrentParamHighLongRegister() {
-  ManagedRegister res = ManagedRegister::NoRegister();
-  DCHECK(IsCurrentParamALong());
-  switch (gpr_arg_count_) {
-    case 0: res = X86ManagedRegister::FromCpuRegister(EDX); break;
-    case 1: res = X86ManagedRegister::FromCpuRegister(EBX); break;
-  }
-  return res;
 }
 
 FrameOffset X86ManagedRuntimeCallingConvention::CurrentParamStackOffset() {
   return FrameOffset(displacement_.Int32Value() +   // displacement
                      kFramePointerSize +                 // Method*
                      (itr_slots_ * kFramePointerSize));  // offset into in args
-}
-
-const ManagedRegisterEntrySpills& X86ManagedRuntimeCallingConvention::EntrySpills() {
-  // We spill the argument registers on X86 to free them up for scratch use, we then assume
-  // all arguments are on the stack.
-  if (entry_spills_.size() == 0) {
-    ResetIterator(FrameOffset(0));
-    while (HasNext()) {
-      ManagedRegister in_reg = CurrentParamRegister();
-      bool is_long = IsCurrentParamALong();
-      if (!in_reg.IsNoRegister()) {
-        int32_t size = IsParamADouble(itr_args_) ? 8 : 4;
-        int32_t spill_offset = CurrentParamStackOffset().Uint32Value();
-        ManagedRegisterSpill spill(in_reg, size, spill_offset);
-        entry_spills_.push_back(spill);
-        if (is_long) {
-          // special case, as we need a second register here.
-          in_reg = CurrentParamHighLongRegister();
-          DCHECK(!in_reg.IsNoRegister());
-          // We have to spill the second half of the long.
-          ManagedRegisterSpill spill2(in_reg, size, spill_offset + 4);
-          entry_spills_.push_back(spill2);
-        }
-
-        // Keep track of the number of GPRs allocated.
-        if (!IsCurrentParamAFloatOrDouble()) {
-          if (is_long) {
-            // Long was allocated in 2 registers.
-            gpr_arg_count_ += 2;
-          } else {
-            gpr_arg_count_++;
-          }
-        }
-      } else if (is_long) {
-        // We need to skip the unused last register, which is empty.
-        // If we are already out of registers, this is harmless.
-        gpr_arg_count_ += 2;
-      }
-      Next();
-    }
-  }
-  return entry_spills_;
 }
 
 // JNI calling convention
@@ -231,36 +201,40 @@ size_t X86JniCallingConvention::FrameSize() const {
   if (is_critical_native_) {
     CHECK(!SpillsMethod());
     CHECK(!HasLocalReferenceSegmentState());
-    CHECK(!HasHandleScope());
     CHECK(!SpillsReturnValue());
     return 0u;  // There is no managed frame for @CriticalNative.
   }
 
   // Method*, PC return address and callee save area size, local reference segment state
-  CHECK(SpillsMethod());
+  DCHECK(SpillsMethod());
   const size_t method_ptr_size = static_cast<size_t>(kX86PointerSize);
   const size_t pc_return_addr_size = kFramePointerSize;
   const size_t callee_save_area_size = CalleeSaveRegisters().size() * kFramePointerSize;
   size_t total_size = method_ptr_size + pc_return_addr_size + callee_save_area_size;
 
-  CHECK(HasLocalReferenceSegmentState());
-  total_size += kFramePointerSize;
-
-  CHECK(HasHandleScope());
-  total_size += HandleScope::SizeOf(kX86_64PointerSize, ReferenceCount());
+  DCHECK(HasLocalReferenceSegmentState());
+  // Cookie is saved in one of the spilled registers.
 
   // Plus return value spill area size
-  CHECK(SpillsReturnValue());
-  total_size += SizeOfReturnValue();
+  if (SpillsReturnValue()) {
+    // For 64-bit return values there shall be a 4B alignment gap between
+    // the method pointer and the saved return value.
+    size_t padding = ReturnValueSaveLocation().SizeValue() - method_ptr_size;
+    DCHECK_EQ(padding,
+              (GetReturnType() == Primitive::kPrimLong || GetReturnType() == Primitive::kPrimDouble)
+                  ? 4u
+                  : 0u);
+    total_size += padding;
+    total_size += SizeOfReturnValue();
+  }
 
   return RoundUp(total_size, kStackAlignment);
 }
 
-size_t X86JniCallingConvention::OutArgSize() const {
-  // Count param args, including JNIEnv* and jclass*; count 8-byte args twice.
-  size_t all_args = NumberOfExtraArgumentsForJni() + NumArgs() + NumLongOrDoubleArgs();
-  // The size of outgoiong arguments.
-  size_t size = all_args * kFramePointerSize;
+size_t X86JniCallingConvention::OutFrameSize() const {
+  // The size of outgoing arguments.
+  size_t size = GetNativeOutArgsSize(/*num_args=*/ NumberOfExtraArgumentsForJni() + NumArgs(),
+                                     NumLongOrDoubleArgs());
 
   // @CriticalNative can use tail call as all managed callee saves are preserved by AAPCS.
   static_assert((kCoreCalleeSpillMask & ~kNativeCoreCalleeSpillMask) == 0u);
@@ -280,14 +254,16 @@ size_t X86JniCallingConvention::OutArgSize() const {
     if (return_type_ok && size == kFramePointerSize) {
       // Note: This is not aligned to kNativeStackAlignment but that's OK for tail call.
       static_assert(kFramePointerSize < kNativeStackAlignment);
-      DCHECK_EQ(kFramePointerSize, GetCriticalNativeOutArgsSize(GetShorty(), NumArgs() + 1u));
+      // The stub frame size is considered 0 in the callee where the return PC is a part of
+      // the callee frame but it is kPointerSize in the compiled stub before the tail call.
+      DCHECK_EQ(0u, GetCriticalNativeStubFrameSize(GetShorty(), NumArgs() + 1u));
       return kFramePointerSize;
     }
   }
 
   size_t out_args_size = RoundUp(size, kNativeStackAlignment);
   if (UNLIKELY(IsCriticalNative())) {
-    DCHECK_EQ(out_args_size, GetCriticalNativeOutArgsSize(GetShorty(), NumArgs() + 1u));
+    DCHECK_EQ(out_args_size, GetCriticalNativeStubFrameSize(GetShorty(), NumArgs() + 1u));
   }
   return out_args_size;
 }
@@ -315,7 +291,8 @@ ManagedRegister X86JniCallingConvention::CurrentParamRegister() {
 }
 
 FrameOffset X86JniCallingConvention::CurrentParamStackOffset() {
-  return FrameOffset(displacement_.Int32Value() - OutArgSize() + (itr_slots_ * kFramePointerSize));
+  return
+      FrameOffset(displacement_.Int32Value() - OutFrameSize() + (itr_slots_ * kFramePointerSize));
 }
 
 ManagedRegister X86JniCallingConvention::HiddenArgumentRegister() const {
@@ -326,13 +303,12 @@ ManagedRegister X86JniCallingConvention::HiddenArgumentRegister() const {
                       [](ManagedRegister callee_save) constexpr {
                         return callee_save.Equals(X86ManagedRegister::FromCpuRegister(EAX));
                       }));
-  DCHECK(!InterproceduralScratchRegister().Equals(X86ManagedRegister::FromCpuRegister(EAX)));
   return X86ManagedRegister::FromCpuRegister(EAX);
 }
 
 bool X86JniCallingConvention::UseTailCall() const {
   CHECK(IsCriticalNative());
-  return OutArgSize() == kFramePointerSize;
+  return OutFrameSize() == kFramePointerSize;
 }
 
 }  // namespace x86

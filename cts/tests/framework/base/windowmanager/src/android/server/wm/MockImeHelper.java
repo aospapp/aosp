@@ -16,6 +16,11 @@
 
 package android.server.wm;
 
+import static android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+
+import android.graphics.Color;
+
+import com.android.cts.mockime.ImeSettings;
 import com.android.cts.mockime.MockImeSession;
 
 /**
@@ -32,6 +37,26 @@ public class MockImeHelper {
     public static MockImeSession createManagedMockImeSession(ActivityManagerTestBase base) {
         try {
             return base.mObjectTracker.manage(MockImeSession.create(base.mContext));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create MockImeSession", e);
+        }
+    }
+
+    public static MockImeSession createManagedMockImeSession(ActivityManagerTestBase base,
+            int keyboardHeight, boolean useFloating) {
+        final ImeSettings.Builder builder = new ImeSettings.Builder();
+        if (useFloating) {
+            builder.setWindowFlags(0, FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            // As documented, Window#setNavigationBarColor() is actually ignored when the IME
+            // window does not have FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS.  We are calling
+            // setNavigationBarColor() to ensure it.
+            builder.setNavigationBarColor(Color.BLACK);
+        } else {
+            builder.setInputViewHeight(keyboardHeight).setDrawsBehindNavBar(true);
+        }
+        try {
+            return base.mObjectTracker.manage(MockImeSession.create(
+                    base.mContext, base.mInstrumentation.getUiAutomation(), builder));
         } catch (Exception e) {
             throw new RuntimeException("Failed to create MockImeSession", e);
         }

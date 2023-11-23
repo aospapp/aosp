@@ -16,143 +16,166 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.content.pm.cts.shortcutmanager.packages"
-    android:sharedUserId="android.content.pm.cts.shortcutmanager.packages">
+     package="android.content.pm.cts.shortcutmanager.packages"
+     android:sharedUserId="android.content.pm.cts.shortcutmanager.packages">
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
         <activity android:name="Launcher"
-            android:enabled="true">
+             android:enabled="true"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.HOME" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+                <category android:name="android.intent.category.HOME"/>
             </intent-filter>
         </activity>
 
         <activity-alias android:name="Launcher2"
-            android:targetActivity="Launcher">
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity-alias>
 
         <activity-alias android:name="Launcher3"
-            android:targetActivity="Launcher">
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity-alias>
 
         <activity-alias android:name="Launcher4"
-            android:targetActivity="Launcher">
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity-alias>
 
         <activity-alias android:name="Launcher5"
-            android:targetActivity="Launcher">
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity-alias>
 
         <activity-alias android:name="Launcher_no_main_1"
-            android:targetActivity="Launcher">
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MAIN"/>
             </intent-filter>
         </activity-alias>
 
         <activity-alias android:name="Launcher_no_main_2"
-            android:targetActivity="Launcher">
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity-alias>
 
         <activity-alias android:name="Launcher_manifest_1"
-            android:enabled="false"
-            android:targetActivity="Launcher">
+             android:enabled="false"
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts1"/>
+            <meta-data android:name="android.app.shortcuts"
+                 android:resource="@xml/shortcuts1"/>
         </activity-alias>
 
         <activity-alias android:name="Launcher_manifest_2"
-            android:enabled="false"
-            android:targetActivity="Launcher">
+             android:enabled="false"
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts2"/>
+            <meta-data android:name="android.app.shortcuts"
+                 android:resource="@xml/shortcuts2"/>
         </activity-alias>
 
         <activity-alias android:name="Launcher_manifest_3"
-            android:enabled="false"
-            android:targetActivity="Launcher">
+             android:enabled="false"
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts3"/>
+            <meta-data android:name="android.app.shortcuts"
+                 android:resource="@xml/shortcuts3"/>
         </activity-alias>
 
         <activity-alias android:name="Launcher_manifest_4a"
-            android:enabled="false"
-            android:targetActivity="Launcher">
+             android:enabled="false"
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts4a"/>
+            <meta-data android:name="android.app.shortcuts"
+                 android:resource="@xml/shortcuts4a"/>
         </activity-alias>
 
         <activity-alias android:name="Launcher_manifest_4b"
-            android:enabled="false"
-            android:targetActivity="Launcher">
+             android:enabled="false"
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts4b"/>
+            <meta-data android:name="android.app.shortcuts"
+                 android:resource="@xml/shortcuts4b"/>
         </activity-alias>
 
         <activity-alias android:name="Launcher_manifest_error_1"
-            android:enabled="false"
-            android:targetActivity="Launcher">
+             android:enabled="false"
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcut_error_1"/>
+            <meta-data android:name="android.app.shortcuts"
+                 android:resource="@xml/shortcut_error_1"/>
         </activity-alias>
         <activity-alias android:name="Launcher_manifest_error_2"
-            android:enabled="false"
-            android:targetActivity="Launcher">
+             android:enabled="false"
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcut_error_2"/>
+            <meta-data android:name="android.app.shortcuts"
+                 android:resource="@xml/shortcut_error_2"/>
         </activity-alias>
         <activity-alias android:name="Launcher_manifest_error_3"
-            android:enabled="false"
-            android:targetActivity="Launcher">
+             android:enabled="false"
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcut_error_3"/>
+            <meta-data android:name="android.app.shortcuts"
+                 android:resource="@xml/shortcut_error_3"/>
         </activity-alias>
     </application>
 </manifest>

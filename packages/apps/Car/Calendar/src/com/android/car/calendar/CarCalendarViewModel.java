@@ -17,7 +17,9 @@
 package com.android.car.calendar;
 
 import android.content.ContentResolver;
+import android.os.Handler;
 import android.os.HandlerThread;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -38,14 +40,17 @@ class CarCalendarViewModel extends ViewModel {
     private final Clock mClock;
     private final ContentResolver mResolver;
     private final Locale mLocale;
+    private final TelephonyManager mTelephonyManager;
 
     @Nullable private EventsLiveData mEventsLiveData;
 
-    CarCalendarViewModel(ContentResolver resolver, Locale locale, Clock clock) {
+    CarCalendarViewModel(ContentResolver resolver, Locale locale,
+            TelephonyManager telephonyManager, Clock clock) {
+        mLocale = locale;
         if (DEBUG) Log.d(TAG, "Creating view model");
         mResolver = resolver;
+        mTelephonyManager = telephonyManager;
         mHandlerThread.start();
-        mLocale = locale;
         mClock = clock;
     }
 
@@ -55,9 +60,9 @@ class CarCalendarViewModel extends ViewModel {
             mEventsLiveData =
                     new EventsLiveData(
                             mClock,
-                            mHandlerThread.getThreadHandler(),
+                            new Handler(mHandlerThread.getLooper()),
                             mResolver,
-                            new EventDescriptions(mLocale),
+                            new EventDescriptions(mLocale, mTelephonyManager),
                             new EventLocations());
         }
         return mEventsLiveData;

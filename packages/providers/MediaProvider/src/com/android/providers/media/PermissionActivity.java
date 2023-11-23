@@ -22,10 +22,14 @@ import static com.android.providers.media.MediaProvider.VIDEO_MEDIA_ID;
 import static com.android.providers.media.MediaProvider.collectUris;
 import static com.android.providers.media.util.DatabaseUtils.getAsBoolean;
 import static com.android.providers.media.util.Logging.TAG;
+import static com.android.providers.media.util.PermissionUtils.checkPermissionAccessMediaLocation;
+import static com.android.providers.media.util.PermissionUtils.checkPermissionManageMedia;
+import static com.android.providers.media.util.PermissionUtils.checkPermissionManager;
+import static com.android.providers.media.util.PermissionUtils.checkPermissionReadStorage;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.ProgressDialog;
+import android.app.Dialog;
 import android.content.ContentProviderOperation;
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -41,6 +45,8 @@ import android.graphics.Bitmap;
 import android.graphics.ImageDecoder;
 import android.graphics.ImageDecoder.ImageInfo;
 import android.graphics.ImageDecoder.Source;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -48,7 +54,6 @@ import android.os.Handler;
 import android.provider.MediaStore;
 import android.provider.MediaStore.MediaColumns;
 import android.text.TextUtils;
-import android.text.format.DateUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
@@ -58,19 +63,23 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.providers.media.MediaProvider.LocalUriMatcher;
 import com.android.providers.media.util.Metrics;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
 /**
@@ -97,22 +106,44 @@ public class PermissionActivity extends Activity {
     private String volumeName;
     private ApplicationInfo appInfo;
 
-    private ProgressDialog progressDialog;
+    private AlertDialog actionDialog;
+    private AsyncTask<Void, Void, Void> positiveActionTask;
+    private Dialog progressDialog;
     private TextView titleView;
+    private Handler mHandler;
+    private Runnable mShowProgressDialogRunnable = () -> {
+        // We will show the progress dialog, add the dim effect back.
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        progressDialog.show();
+    };
 
     private static final Long LEAST_SHOW_PROGRESS_TIME_MS = 300L;
+    private static final Long BEFORE_SHOW_PROGRESS_TIME_MS = 300L;
 
-    private static final String VERB_WRITE = "write";
-    private static final String VERB_TRASH = "trash";
+    @VisibleForTesting
+    static final String VERB_WRITE = "write";
+    @VisibleForTesting
+    static final String VERB_TRASH = "trash";
+    @VisibleForTesting
+    static final String VERB_FAVORITE = "favorite";
+    @VisibleForTesting
+    static final String VERB_UNFAVORITE = "unfavorite";
+
     private static final String VERB_UNTRASH = "untrash";
-    private static final String VERB_FAVORITE = "favorite";
-    private static final String VERB_UNFAVORITE = "unfavorite";
     private static final String VERB_DELETE = "delete";
 
     private static final String DATA_AUDIO = "audio";
     private static final String DATA_VIDEO = "video";
     private static final String DATA_IMAGE = "image";
     private static final String DATA_GENERIC = "generic";
+
+    // Use to sort the thumbnails.
+    private static final int ORDER_IMAGE = 1;
+    private static final int ORDER_VIDEO = 2;
+    private static final int ORDER_AUDIO = 3;
+    private static final int ORDER_GENERIC = 4;
+
+    private static final int MAX_THUMBS = 3;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -122,6 +153,12 @@ public class PermissionActivity extends Activity {
         getWindow().addSystemFlags(
                 WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS);
         setFinishOnTouchOutside(false);
+        // remove the dim effect
+        // We may not show the progress dialog, if we don't remove the dim effect,
+        // it may have flicker.
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        getWindow().setDimAmount(0.0f);
+
 
         // All untrusted input values here were validated when generating the
         // original PendingIntent
@@ -140,47 +177,86 @@ public class PermissionActivity extends Activity {
             return;
         }
 
-        progressDialog = new ProgressDialog(this);
+        mHandler = new Handler(getMainLooper());
+        // Create Progress dialog
+        createProgressDialog();
 
-        // Favorite-related requests are automatically granted for now; we still
-        // make developers go through this no-op dialog flow to preserve our
-        // ability to start prompting in the future
-        switch (verb) {
-            case VERB_FAVORITE:
-            case VERB_UNFAVORITE: {
-                onPositiveAction(null, 0);
-                return;
-            }
+        if (!shouldShowActionDialog(this, -1 /* pid */, appInfo.uid, getCallingPackage(),
+                null /* attributionTag */, verb)) {
+            onPositiveAction(null, 0);
+            return;
         }
 
         // Kick off async loading of description to show in dialog
         final View bodyView = getLayoutInflater().inflate(R.layout.permission_body, null, false);
+        handleImageViewVisibility(bodyView, uris);
         new DescriptionTask(bodyView).execute(uris);
 
-        final CharSequence message = resolveMessageText();
-        if (!TextUtils.isEmpty(message)) {
-            final TextView messageView = bodyView.requireViewById(R.id.message);
-            messageView.setVisibility(View.VISIBLE);
-            messageView.setText(message);
-        }
-
         final AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(resolveTitleText());
+        // We set the title in message so that the text doesn't get truncated
+        builder.setMessage(resolveTitleText());
         builder.setPositiveButton(R.string.allow, this::onPositiveAction);
         builder.setNegativeButton(R.string.deny, this::onNegativeAction);
         builder.setCancelable(false);
         builder.setView(bodyView);
 
-        final AlertDialog dialog = builder.show();
-        final WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
+        actionDialog = builder.show();
+
+        // The title is being set as a message above.
+        // We need to style it like the default AlertDialog title
+        TextView dialogMessage = (TextView) actionDialog.findViewById(
+                android.R.id.message);
+        if (dialogMessage != null) {
+            dialogMessage.setTextAppearance(R.style.PermissionAlertDialogTitle);
+        } else {
+            Log.w(TAG, "Couldn't find message element");
+        }
+
+        final WindowManager.LayoutParams params = actionDialog.getWindow().getAttributes();
         params.width = getResources().getDimensionPixelSize(R.dimen.permission_dialog_width);
-        dialog.getWindow().setAttributes(params);
+        actionDialog.getWindow().setAttributes(params);
 
         // Hunt around to find the title of our newly created dialog so we can
         // adjust accessibility focus once descriptions have been loaded
-        titleView = (TextView) findViewByPredicate(dialog.getWindow().getDecorView(), (view) -> {
-            return (view instanceof TextView) && view.isImportantForAccessibility();
-        });
+        titleView = (TextView) findViewByPredicate(actionDialog.getWindow().getDecorView(),
+                (view) -> {
+                    return (view instanceof TextView) && view.isImportantForAccessibility();
+                });
+    }
+
+    private void createProgressDialog() {
+        final ProgressBar progressBar = new ProgressBar(this);
+        final int padding = getResources().getDimensionPixelOffset(R.dimen.dialog_space);
+
+        progressBar.setIndeterminate(true);
+        progressBar.setPadding(0, padding / 2, 0, padding);
+        progressDialog = new AlertDialog.Builder(this)
+                .setTitle(resolveProgressMessageText())
+                .setView(progressBar)
+                .setCancelable(false)
+                .create();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mHandler.removeCallbacks(mShowProgressDialogRunnable);
+        // Cancel and interrupt the AsyncTask of the positive action. This avoids
+        // calling the old activity during "onPostExecute", but the AsyncTask could
+        // still finish its background task. For now we are ok with:
+        // 1. the task potentially runs again after the configuration is changed
+        // 2. the task completed successfully, but the activity doesn't return
+        // the response.
+        if (positiveActionTask != null) {
+            positiveActionTask.cancel(true /* mayInterruptIfRunning */);
+        }
+        // Dismiss the dialogs to avoid the window is leaked
+        if (actionDialog != null) {
+            actionDialog.dismiss();
+        }
+        if (progressDialog != null) {
+            progressDialog.dismiss();
+        }
     }
 
     private void onPositiveAction(@Nullable DialogInterface dialog, int which) {
@@ -190,9 +266,11 @@ public class PermissionActivity extends Activity {
             ((AlertDialog) dialog).getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);
         }
 
-        progressDialog.show();
         final long startTime = System.currentTimeMillis();
-        new AsyncTask<Void, Void, Void>() {
+
+        mHandler.postDelayed(mShowProgressDialogRunnable, BEFORE_SHOW_PROGRESS_TIME_MS);
+
+        positiveActionTask = new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
                 Log.d(TAG, "User allowed grant for " + uris);
@@ -235,23 +313,30 @@ public class PermissionActivity extends Activity {
                 } catch (Exception e) {
                     Log.w(TAG, e);
                 }
+
                 return null;
             }
 
             @Override
             protected void onPostExecute(Void result) {
                 setResult(Activity.RESULT_OK);
-                // Don't dismiss the progress dialog too quick, it will cause bad UX.
-                final long duration = System.currentTimeMillis() - startTime;
-                if (duration > LEAST_SHOW_PROGRESS_TIME_MS) {
-                    progressDialog.dismiss();
+                mHandler.removeCallbacks(mShowProgressDialogRunnable);
+
+                if (!progressDialog.isShowing()) {
                     finish();
                 } else {
-                    Handler handler = new Handler(getMainLooper());
-                    handler.postDelayed(() -> {
+                    // Don't dismiss the progress dialog too quick, it will cause bad UX.
+                    final long duration =
+                            System.currentTimeMillis() - startTime - BEFORE_SHOW_PROGRESS_TIME_MS;
+                    if (duration > LEAST_SHOW_PROGRESS_TIME_MS) {
                         progressDialog.dismiss();
                         finish();
-                    }, LEAST_SHOW_PROGRESS_TIME_MS - duration);
+                    } else {
+                        mHandler.postDelayed(() -> {
+                            progressDialog.dismiss();
+                            finish();
+                        }, LEAST_SHOW_PROGRESS_TIME_MS - duration);
+                    }
                 }
             }
         }.execute();
@@ -285,6 +370,67 @@ public class PermissionActivity extends Activity {
     public boolean onKeyUp(int keyCode, KeyEvent event) {
         // Strategy borrowed from PermissionController
         return keyCode == KeyEvent.KEYCODE_BACK;
+    }
+
+    @VisibleForTesting
+    static boolean shouldShowActionDialog(@NonNull Context context, int pid, int uid,
+            @NonNull String packageName, @Nullable String attributionTag, @NonNull String verb) {
+        // Favorite-related requests are automatically granted for now; we still
+        // make developers go through this no-op dialog flow to preserve our
+        // ability to start prompting in the future
+        if (TextUtils.equals(VERB_FAVORITE, verb) || TextUtils.equals(VERB_UNFAVORITE, verb)) {
+            return false;
+        }
+
+        // check READ_EXTERNAL_STORAGE and MANAGE_EXTERNAL_STORAGE permissions
+        if (!checkPermissionReadStorage(context, pid, uid, packageName, attributionTag)
+                && !checkPermissionManager(context, pid, uid, packageName, attributionTag)) {
+            Log.d(TAG, "No permission READ_EXTERNAL_STORAGE or MANAGE_EXTERNAL_STORAGE");
+            return true;
+        }
+        // check MANAGE_MEDIA permission
+        if (!checkPermissionManageMedia(context, pid, uid, packageName, attributionTag)) {
+            Log.d(TAG, "No permission MANAGE_MEDIA");
+            return true;
+        }
+
+        // if verb is write, check ACCESS_MEDIA_LOCATION permission
+        if (TextUtils.equals(verb, VERB_WRITE) && !checkPermissionAccessMediaLocation(context, pid,
+                uid, packageName, attributionTag)) {
+            Log.d(TAG, "No permission ACCESS_MEDIA_LOCATION");
+            return true;
+        }
+        return false;
+    }
+
+    private void handleImageViewVisibility(View bodyView, List<Uri> uris) {
+        if (uris.isEmpty()) {
+            return;
+        }
+        if (uris.size() == 1) {
+            // Set visible to the thumb_full to avoid the size
+            // changed of the dialog in full decoding.
+            final ImageView thumbFull = bodyView.requireViewById(R.id.thumb_full);
+            thumbFull.setVisibility(View.VISIBLE);
+        } else {
+            // If the size equals 2, we will remove thumb1 later.
+            // Set visible to the thumb2 and thumb3 first to avoid
+            // the size changed of the dialog.
+            ImageView thumb = bodyView.requireViewById(R.id.thumb2);
+            thumb.setVisibility(View.VISIBLE);
+            thumb = bodyView.requireViewById(R.id.thumb3);
+            thumb.setVisibility(View.VISIBLE);
+            // If the count of thumbs equals to MAX_THUMBS, set visible to thumb1.
+            if (uris.size() == MAX_THUMBS) {
+                thumb = bodyView.requireViewById(R.id.thumb1);
+                thumb.setVisibility(View.VISIBLE);
+            } else if (uris.size() > MAX_THUMBS) {
+                // If the count is larger than MAX_THUMBS, set visible to
+                // thumb_more_container.
+                final View container = bodyView.requireViewById(R.id.thumb_more_container);
+                container.setVisibility(View.VISIBLE);
+            }
+        }
     }
 
     /**
@@ -371,41 +517,22 @@ public class PermissionActivity extends Activity {
     }
 
     /**
-     * Resolve the dialog message string to be displayed to the user, if any.
-     * All arguments have been bound and this string is ready to be displayed.
+     * Resolve the progress message string to be displayed to the user. All
+     * arguments have been bound and this string is ready to be displayed.
      */
-    private @Nullable CharSequence resolveMessageText() {
-        final String resName = "permission_" + verb + "_" + data + "_info";
+    private @Nullable CharSequence resolveProgressMessageText() {
+        final String resName = "permission_progress_" + verb + "_" + data;
         final int resId = getResources().getIdentifier(resName, "plurals",
                 getResources().getResourcePackageName(R.string.app_label));
         if (resId != 0) {
             final int count = uris.size();
-            final long durationMillis = (values.getAsLong(MediaColumns.DATE_EXPIRES) * 1000)
-                    - System.currentTimeMillis();
-            final long durationDays = (durationMillis + DateUtils.DAY_IN_MILLIS)
-                    / DateUtils.DAY_IN_MILLIS;
             final CharSequence text = getResources().getQuantityText(resId, count);
-            return TextUtils.expandTemplate(text, label, String.valueOf(count),
-                    String.valueOf(durationDays));
+            return TextUtils.expandTemplate(text, String.valueOf(count));
         } else {
-            // Only some actions have a secondary message string; it's okay if
+            // Only some actions have a progress message string; it's okay if
             // there isn't one defined
             return null;
         }
-    }
-
-    private @NonNull CharSequence resolvePositiveText() {
-        final String resName = "permission_" + verb + "_grant";
-        final int resId = getResources().getIdentifier(resName, "string",
-                getResources().getResourcePackageName(R.string.app_label));
-        return getResources().getText(resId);
-    }
-
-    private @NonNull CharSequence resolveNegativeText() {
-        final String resName = "permission_" + verb + "_deny";
-        final int resId = getResources().getIdentifier(resName, "string",
-                getResources().getResourcePackageName(R.string.app_label));
-        return getResources().getText(resId);
     }
 
     /**
@@ -434,8 +561,6 @@ public class PermissionActivity extends Activity {
      * displayed in the body of the dialog.
      */
     private class DescriptionTask extends AsyncTask<List<Uri>, Void, List<Description>> {
-        private static final int MAX_THUMBS = 3;
-
         private View bodyView;
         private Resources res;
 
@@ -460,29 +585,26 @@ public class PermissionActivity extends Activity {
 
             // If we're only asking for single item, load the full image
             if (uris.size() == 1) {
-                // Set visible to the thumb_full to avoid the size
-                // changed of the dialog in full decoding.
-                final ImageView thumbFull = bodyView.requireViewById(R.id.thumb_full);
-                thumbFull.setVisibility(View.VISIBLE);
                 loadFlags |= Description.LOAD_FULL;
-            } else {
-                // If the size equals 2, we will remove thumb1 later.
-                // Set visible to the thumb2 and thumb3 first to avoid
-                // the size changed of the dialog.
-                ImageView thumb = bodyView.requireViewById(R.id.thumb2);
-                thumb.setVisibility(View.VISIBLE);
-                thumb = bodyView.requireViewById(R.id.thumb3);
-                thumb.setVisibility(View.VISIBLE);
-                // If the count of thumbs equals to MAX_THUMBS, set visible to thumb1.
-                if (uris.size() == MAX_THUMBS) {
-                    thumb = bodyView.requireViewById(R.id.thumb1);
-                    thumb.setVisibility(View.VISIBLE);
-                } else if (uris.size() > MAX_THUMBS) {
-                    // If the count is larger than MAX_THUMBS, set visible to
-                    // thumb_more_container.
-                    final View container = bodyView.requireViewById(R.id.thumb_more_container);
-                    container.setVisibility(View.VISIBLE);
-                }
+            }
+
+            // Sort the uris in DATA_GENERIC case (Image, Video, Audio, Others)
+            if (TextUtils.equals(data, DATA_GENERIC) && uris.size() > 1) {
+                final ToIntFunction<Uri> score = (uri) -> {
+                    final LocalUriMatcher matcher = new LocalUriMatcher(MediaStore.AUTHORITY);
+                    final int match = matcher.matchUri(uri, false);
+
+                    switch (match) {
+                        case AUDIO_MEDIA_ID: return ORDER_AUDIO;
+                        case VIDEO_MEDIA_ID: return ORDER_VIDEO;
+                        case IMAGES_MEDIA_ID: return ORDER_IMAGE;
+                        default: return ORDER_GENERIC;
+                    }
+                };
+                final Comparator<Uri> bestScore = (a, b) ->
+                        score.applyAsInt(a) - score.applyAsInt(b);
+
+                uris.sort(bestScore);
             }
 
             for (Uri uri : uris) {
@@ -527,15 +649,23 @@ public class PermissionActivity extends Activity {
         }
 
         /**
-         * Bind dialog as a single full-bleed image.
+         * Bind dialog as a single full-bleed image. If there is no image, use
+         * the icon of Mime type instead.
          */
         private void bindAsFull(@NonNull Description result) {
             final ImageView thumbFull = bodyView.requireViewById(R.id.thumb_full);
-            result.bindFull(thumbFull);
+            if (result.full != null) {
+                result.bindFull(thumbFull);
+            } else {
+                thumbFull.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                thumbFull.setBackground(new ColorDrawable(getColor(R.color.thumb_gray_color)));
+                result.bindMimeIcon(thumbFull);
+            }
         }
 
         /**
-         * Bind dialog as a list of multiple thumbnails.
+         * Bind dialog as a list of multiple thumbnails. If there is no thumbnail for some
+         * items, use the icons of the MIME type instead.
          */
         private void bindAsThumbs(@NonNull List<Description> results,
                 @NonNull List<Description> visualResults) {
@@ -552,6 +682,7 @@ public class PermissionActivity extends Activity {
                 final View thumbMoreContainer = bodyView.requireViewById(R.id.thumb_more_container);
                 final ImageView thumbMore = bodyView.requireViewById(R.id.thumb_more);
                 final TextView thumbMoreText = bodyView.requireViewById(R.id.thumb_more_text);
+                final View gradientView = bodyView.requireViewById(R.id.thumb_more_gradient);
 
                 // Since we only want three tiles displayed maximum, swap out
                 // the first tile for our "more" tile
@@ -565,6 +696,7 @@ public class PermissionActivity extends Activity {
 
                 thumbMoreText.setText(moreText);
                 thumbMoreContainer.setVisibility(View.VISIBLE);
+                gradientView.setVisibility(View.VISIBLE);
             }
 
             // Trim off extra thumbnails from the front of our list, so that we
@@ -577,7 +709,11 @@ public class PermissionActivity extends Activity {
             for (int i = 0; i < thumbs.size(); i++) {
                 final Description desc = visualResults.get(i);
                 final ImageView imageView = thumbs.get(i);
-                desc.bindThumbnail(imageView);
+                if (desc.thumbnail != null) {
+                    desc.bindThumbnail(imageView);
+                } else {
+                    desc.bindMimeIcon(imageView);
+                }
             }
         }
 
@@ -588,6 +724,9 @@ public class PermissionActivity extends Activity {
         private void bindAsText(@NonNull List<Description> results) {
             final List<CharSequence> list = new ArrayList<>();
             for (int i = 0; i < results.size(); i++) {
+                if (TextUtils.isEmpty(results.get(i).contentDescription)) {
+                    continue;
+                }
                 list.add(results.get(i).contentDescription);
 
                 if (list.size() >= MAX_THUMBS && results.size() > list.size()) {
@@ -598,10 +737,11 @@ public class PermissionActivity extends Activity {
                     break;
                 }
             }
-
-            final TextView text = bodyView.requireViewById(R.id.list);
-            text.setText(TextUtils.join("\n", list));
-            text.setVisibility(View.VISIBLE);
+            if (!list.isEmpty()) {
+                final TextView text = bodyView.requireViewById(R.id.list);
+                text.setText(TextUtils.join("\n", list));
+                text.setVisibility(View.VISIBLE);
+            }
         }
     }
 
@@ -612,6 +752,7 @@ public class PermissionActivity extends Activity {
         public @Nullable CharSequence contentDescription;
         public @Nullable Bitmap thumbnail;
         public @Nullable Bitmap full;
+        public @Nullable Icon mimeIcon;
 
         public static final int LOAD_CONTENT_DESCRIPTION = 1 << 0;
         public static final int LOAD_THUMBNAIL = 1 << 1;
@@ -650,11 +791,17 @@ public class PermissionActivity extends Activity {
                 }
             } catch (IOException e) {
                 Log.w(TAG, e);
+                if (thumbnail == null && full == null) {
+                    final String mimeType = resolver.getType(uri);
+                    if (mimeType != null) {
+                        mimeIcon = resolver.getTypeInfo(mimeType).getIcon();
+                    }
+                }
             }
         }
 
         public boolean isVisual() {
-            return thumbnail != null || full != null;
+            return thumbnail != null || full != null || mimeIcon != null;
         }
 
         public void bindThumbnail(ImageView imageView) {
@@ -670,6 +817,14 @@ public class PermissionActivity extends Activity {
             imageView.setImageBitmap(full);
             imageView.setContentDescription(contentDescription);
             imageView.setVisibility(View.VISIBLE);
+        }
+
+        public void bindMimeIcon(ImageView imageView) {
+            Objects.requireNonNull(mimeIcon);
+            imageView.setImageIcon(mimeIcon);
+            imageView.setContentDescription(contentDescription);
+            imageView.setVisibility(View.VISIBLE);
+            imageView.setClipToOutline(true);
         }
     }
 

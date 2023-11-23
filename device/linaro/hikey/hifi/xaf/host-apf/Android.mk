@@ -31,6 +31,8 @@ LOCAL_C_INCLUDES := $(common_C_INCLUDES)
 LOCAL_C_INCLUDES += external/expat/lib
 LOCAL_CFLAGS := $(C_FLAGS)
 LOCAL_MODULE := libxtensa_proxy
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_STATIC_LIBRARY)
@@ -41,6 +43,8 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE := xaf-dec-test
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_SRC_FILES := \
     utest/xaf-dec-test.c
@@ -58,6 +62,8 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE := xaf-dec-mix-test
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_SRC_FILES := \
     utest/xaf-dec-mix-test.c
@@ -68,4 +74,3 @@ LOCAL_STATIC_LIBRARIES := libxtensa_proxy
 LOCAL_SHARED_LIBRARIES := liblog libcutils
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_EXECUTABLE)
-

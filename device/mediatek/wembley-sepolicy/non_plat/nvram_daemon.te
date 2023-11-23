@@ -37,7 +37,6 @@ allow nvram_daemon als_ps_device:chr_file r_file_perms;
 allow nvram_daemon mtk-adc-cali_device:chr_file rw_file_perms;
 allow nvram_daemon gsensor_device:chr_file r_file_perms;
 allow nvram_daemon gyroscope_device:chr_file r_file_perms;
-allow nvram_daemon init:unix_stream_socket connectto;
 
 # Purpose: for property set
 allow nvram_daemon self:capability { fowner chown fsetid };
@@ -57,7 +56,7 @@ allow nvram_daemon kmsg_device:chr_file w_file_perms;
 allow nvram_daemon proc_lk_env:file rw_file_perms;
 
 # Purpose: property set
-allow nvram_daemon service_nvram_init_prop:property_service set;
+set_prop(nvram_daemon, vendor_mtk_service_nvram_init_prop)
 
 # Purpose: copy /fstab*
 allow nvram_daemon rootfs:dir { read open };
@@ -67,18 +66,15 @@ allow nvram_daemon rootfs:file r_file_perms;
 allow nvram_daemon nvram_data_file:lnk_file unlink;
 
 # Purpose: for setting property
-# ro.wlan.mtk.wifi.5g relabel to wifi_5g_prop
-# denied  { set } for property=ro.wlan.mtk.wifi.5g pid=242 uid=0 gid=1000 scontext=u:r:nvram_daemon:s0 tcontext=u:object_r:default_prop:s0 tclass=property_service permissive=1
-set_prop(nvram_daemon, service_nvram_init_prop)
-set_prop(nvram_daemon, wifi_5g_prop)
+set_prop(nvram_daemon, vendor_mtk_service_nvram_init_prop)
 
 #WK17.26 camera 8163
 allow nvram_daemon sysfs:dir read;
 
 # Date : WK18.16
 # Operation: P migration
-# Purpose: Allow nvram_daemon to get tel_switch_prop
-get_prop(nvram_daemon, tel_switch_prop)
+# Purpose: Allow nvram_daemon to get vendor_mtk_tel_switch_prop
+get_prop(nvram_daemon, vendor_mtk_tel_switch_prop)
 
 # Date : WK18.21
 # Operation: P migration
@@ -88,3 +84,5 @@ allow nvram_daemon self:capability { fowner chown fsetid };
 
 allow nvram_daemon sysfs_boot_mode:file r_file_perms;
 
+# Allow ReadDefaultFstab().
+read_fstab(nvram_daemon)

@@ -10,6 +10,8 @@ This script runs a number of sanity tests to ensure that Chrome browser on
 Chrome OS is functional.
 '''
 
+from __future__ import absolute_import
+from __future__ import division
 from __future__ import print_function
 
 import argparse
@@ -21,9 +23,9 @@ import sys
 import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib.cros import arc, arc_common, chrome
-from autotest_lib.client.common_lib.cros import session_manager
 from autotest_lib.client.common_lib.error import TestFail
 from autotest_lib.client.cros import cryptohome
+from six.moves import range
 
 
 class TelemetrySanity(object):
@@ -39,6 +41,7 @@ class TelemetrySanity(object):
 
 
   def Run(self):
+    """Run tests."""
     start = datetime.datetime.now()
 
     for i in range(self.count):
@@ -58,8 +61,10 @@ class TelemetrySanity(object):
   def RunCryptohomeTest(self):
     """Test Cryptohome."""
     logging.info('RunCryptohomeTest: Starting chrome and logging in.')
-    is_arc_available = utils.is_arc_available()
-    arc_mode = arc_common.ARC_MODE_ENABLED if is_arc_available else None
+    # Only run ARC tests for P.
+    run_arc_tests = (utils.is_arc_available() and
+                     arc.get_android_sdk_version() <= 28)
+    arc_mode = arc_common.ARC_MODE_ENABLED if run_arc_tests else None
     with chrome.Chrome(arc_mode=arc_mode, num_tries=1) as cr:
       # Check that the cryptohome is mounted.
       # is_vault_mounted throws an exception if it fails.
@@ -75,7 +80,7 @@ class TelemetrySanity(object):
         raise TestFail('EvaluateJavaScript failed')
 
       # ARC test.
-      if is_arc_available:
+      if run_arc_tests:
         arc.wait_for_adb_ready()
         logging.info('Android booted successfully.')
         arc.wait_for_android_process('org.chromium.arc.intent_helper')
@@ -83,7 +88,7 @@ class TelemetrySanity(object):
           raise TestFail('"android" system package was not listed by '
                          'Package Manager.')
 
-    if is_arc_available:
+    if run_arc_tests:
       utils.poll_for_condition(lambda: not arc.is_android_container_alive(),
                                timeout=15,
                                desc='Android container still running '

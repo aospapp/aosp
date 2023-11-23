@@ -16,13 +16,11 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
 
 import junit.framework.TestCase;
 
 import java.io.IOException;
 
-@SecurityTest
 public class LinuxRngTest extends TestCase {
     static {
         System.loadLibrary("ctssecurity_jni");

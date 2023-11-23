@@ -36,8 +36,4 @@ limitations under the License.
 
     <style name="Theme.Dialer.Setting"/>
 
-    <style name="Theme.Dialer.ErrorActivity">
-        <item name="carUiToolbar">false</item>
-    </style>
-
 </resources>

@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Pots instal·lar certificats des d\'un fitxer PKCS#12 amb una extensió %1$s o %2$s ubicada en un emmagatzematge extern."</string>
     <string name="allow_button" msgid="3030990695030371561">"Selecciona"</string>
     <string name="deny_button" msgid="3766539809121892584">"Denega"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"S\'estan carregant els certificats..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s està cercant un certificat…"</string>
 </resources>

@@ -46,7 +46,7 @@ public class MainActivity extends Activity {
                                 "android.telephony.cts.smsretriever",
                                 "android.telephony.cts.smsretriever.SmsRetrieverBroadcastReceiver"));
         PendingIntent pIntent = PendingIntent.getBroadcast(
-                getApplicationContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+                getApplicationContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         String token = null;
         try {
             token = SmsManager.getDefault().createAppSpecificSmsTokenWithPackageInfo(

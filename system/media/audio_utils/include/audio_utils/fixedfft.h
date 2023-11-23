@@ -25,7 +25,8 @@ __BEGIN_DECLS
 /** \endcond */
 
 /** See description in fixedfft.cpp */
-extern void fixed_fft_real(int n, int32_t *v);
+void fixed_fft(int n, int32_t *v);
+void fixed_fft_real(int n, int32_t *v);
 
 /** \cond */
 __END_DECLS

@@ -8,6 +8,23 @@ The STM32MP1 chip also embeds a Cortex-M4.
 More information can be found on `STM32MP1 Series`_ page.
 
 
+STM32MP1 Versions
+-----------------
+The STM32MP1 series is available in 3 different lines which are pin-to-pin compatible:
+
+- STM32MP157: Dual Cortex-A7 cores, Cortex-M4 core @ 209 MHz, 3D GPU, DSI display interface and CAN FD
+- STM32MP153: Dual Cortex-A7 cores, Cortex-M4 core @ 209 MHz and CAN FD
+- STM32MP151: Single Cortex-A7 core, Cortex-M4 core @ 209 MHz
+
+Each line comes with a security option (cryptography & secure boot) and a Cortex-A frequency option:
+
+- A      Basic + Cortex-A7 @ 650 MHz
+- C      Secure Boot + HW Crypto + Cortex-A7 @ 650 MHz
+- D      Basic + Cortex-A7 @ 800 MHz
+- F      Secure Boot + HW Crypto + Cortex-A7 @ 800 MHz
+
+The `STM32MP1 part number codification`_ page gives more information about part numbers.
+
 Design
 ------
 The STM32MP1 resets in the ROM code of the Cortex-A7.
@@ -101,7 +118,7 @@ To build TF-A with OP-TEE support for all bootable devices:
     cd <optee_directory>
     make CROSS_COMPILE=arm-linux-gnueabihf- ARCH=arm PLATFORM=stm32mp1 CFG_EMBED_DTB_SOURCE_FILE=stm32mp157c-ev1.dts
     cd <u-boot_directory>
-    make stm32mp15_optee_defconfig
+    make stm32mp15_trusted_defconfig
     make DEVICE_TREE=stm32mp157c-ev1 all
 
 
@@ -121,5 +138,12 @@ It should contain at least those partitions:
 
 Usually, two copies of fsbl are used (fsbl1 and fsbl2) instead of one partition fsbl.
 
+OP-TEE artifacts go into separate partitions as follows:
+
+- teeh: tee-header_v2.stm32
+- teed: tee-pageable_v2.stm32
+- teex: tee-pager_v2.stm32
+
 
 .. _STM32MP1 Series: https://www.st.com/en/microcontrollers-microprocessors/stm32mp1-series.html
+.. _STM32MP1 part number codification: https://wiki.st.com/stm32mpu/wiki/STM32MP15_microprocessor#Part_number_codification

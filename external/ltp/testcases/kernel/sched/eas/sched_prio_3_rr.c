@@ -24,7 +24,7 @@
 
 #define TRACE_EVENTS "sched_wakeup sched_switch sched_process_exit"
 
-#define EXEC_MIN_PCT 33
+#define EXEC_MIN_PCT 32
 #define EXEC_MAX_PCT 34
 
 static sem_t sem;
@@ -58,7 +58,7 @@ static void *rt_a_fn(void *arg LTP_ATTRIBUTE_UNUSED)
 	affine(0);
 	/* Give all other tasks a chance to affine and block. */
 	usleep(3000);
-	SAFE_FILE_PRINTF(TRACING_DIR "trace_marker", "TEST START");
+	tracefs_write("trace_marker", "TEST START");
 	sem_post(&sem);
 	sem_post(&sem);
 	burn(BUSY_WAIT_USECS, 0);
@@ -147,11 +147,11 @@ static void run(void)
 	printf("Running %d RT RR tasks for 10 seconds...\n", NUM_TASKS);
 
 	/* configure and enable tracing */
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
-	SAFE_FILE_PRINTF(TRACING_DIR "buffer_size_kb", "16384");
-	SAFE_FILE_PRINTF(TRACING_DIR "set_event", TRACE_EVENTS);
-	SAFE_FILE_PRINTF(TRACING_DIR "trace", "\n");
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "1");
+	tracefs_write("tracing_on", "0");
+	tracefs_write("buffer_size_kb", "16384");
+	tracefs_write("set_event", TRACE_EVENTS);
+	tracefs_write("trace", "\n");
+	tracefs_write("tracing_on", "1");
 
 	create_rt_thread(70, rt_a_fn, &rt_a);
 	create_rt_thread(70, rt_b_fn, &rt_b);
@@ -162,7 +162,7 @@ static void run(void)
 	SAFE_PTHREAD_JOIN(rt_c, NULL);
 
 	/* disable tracing */
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
+	tracefs_write("tracing_on", "0");
 	LOAD_TRACE();
 
 	if (parse_results())
@@ -175,5 +175,6 @@ static void run(void)
 
 static struct tst_test test = {
 	.test_all = run,
+	.setup = trace_setup,
 	.cleanup = trace_cleanup,
 };

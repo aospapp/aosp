@@ -44,6 +44,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #include "qc_omx_core.h"
 #include "omx_core_cmp.h"
@@ -55,6 +56,9 @@ extern omx_core_cb_type core[];
 extern const unsigned int SIZE_OF_CORE;
 static pthread_mutex_t lock_core = PTHREAD_MUTEX_INITIALIZER;
 static int number_of_adec_nt_session;
+
+extern omx_core_cb_type component[];
+unsigned int num_components = 0;
 
 #define MAX_AUDIO_NT_SESSION 2
 
@@ -120,8 +124,42 @@ RETURN VALUE
 OMX_API OMX_ERRORTYPE OMX_APIENTRY
 OMX_Init()
 {
+    char platform_name[PROP_VALUE_MAX] = {0};
+    char version[PROP_VALUE_MAX] = {0};
+    property_get("ro.board.platform", platform_name, "0");
+
   DEBUG_PRINT("OMXCORE API - OMX_Init \n");
-  /* Nothing to do here ; shared objects shall be loaded at the get handle method */
+
+  // Use below method to generate list of components actually supported
+  // on any given platform. Core list is considered as superset and does
+  // not determine the actual supported codecs on a particular target.
+  num_components = 0;
+  for (int i = 0; i < SIZE_OF_CORE; i++) {
+      if (!strcmp(platform_name, "sm6150")) {
+          if (!strcmp("OMX.qti.video.decoder.vc1sw", core[i].name) || !strcmp("OMX.qcom.video.encoder.heic", core[i].name)) {
+                //Talos (6150) both does not support vc1 and heic hence don't add them in list
+              if (property_get("vendor.media.target.version", version, "0") && (atoi(version) == 0))
+                  continue;
+          } else if (!strcmp("OMX.qcom.video.encoder.tme", core[i].name) || !strcmp("OMX.qcom.video.encoder.tme.secure", core[i].name))
+                    continue;
+      } else if (!strcmp(platform_name, "atoll")) {
+                //Atoll does not support vc1 and vpp hence don't add them in list
+              if (!strcmp("OMX.qti.video.decoder.vc1sw", core[i].name) || !strcmp("OMX.qti.vdec.vpp", core[i].name))
+                     continue;
+      } else if (!strcmp(platform_name, "trinket")) {
+                //Trinket does not support vc1,tme,tme-secure hence don't add them in list
+              if (!strcmp("OMX.qti.video.decoder.vc1sw", core[i].name) || !strcmp("OMX.qcom.video.encoder.tme", core[i].name) ||
+                  !strcmp("OMX.qcom.video.encoder.tme.secure", core[i].name) || !strcmp("OMX.qti.vdec.vpp", core[i].name))
+                     continue;
+      } else if (!strcmp(platform_name, "msmnile")) {
+                //Hana does not support tme,tme secure hence donot add to list
+                if (!strcmp("OMX.qcom.video.encoder.tme", core[i].name) || !strcmp("OMX.qcom.video.encoder.tme.secure", core[i].name))
+                    continue;
+      }
+
+    memcpy(&component[num_components++],
+           &core[i], sizeof(omx_core_cb_type));
+  }
   return OMX_ErrorNone;
 }
 
@@ -143,11 +181,12 @@ static int get_cmp_index(char *cmp_name)
   int rc = -1,i=0;
   DEBUG_PRINT("before get_cmp_index **********%d\n", rc);
 
-  for(i=0; i< (int)SIZE_OF_CORE; i++)
+  for (i = 0; i < num_components; i++)
   {
-   DEBUG_PRINT("get_cmp_index: cmp_name = %s , core[i].name = %s ,count = %d \n",cmp_name,core[i].name,i);
+    DEBUG_PRINT("get_cmp_index: cmp_name = %s , core[i].name = %s ,count = %d \n",
+                cmp_name, component[i].name, i);
 
-    if(!strcmp(cmp_name, core[i].name))
+    if (!strcmp(cmp_name, component[i].name))
     {
         rc = i;
         break;
@@ -177,13 +216,13 @@ static void clear_cmp_handle(OMX_HANDLETYPE inst)
   if(NULL == inst)
      return;
 
-  for(i=0; i< SIZE_OF_CORE; i++)
+  for (i = 0; i < num_components; i++)
   {
     for(j=0; j< OMX_COMP_MAX_INST; j++)
     {
-      if(inst == core[i].inst[j])
+      if (inst == component[i].inst[j])
       {
-        core[i].inst[j] = NULL;
+        component[i].inst[j] = NULL;
         return;
       }
     }
@@ -213,11 +252,11 @@ static int is_cmp_handle_exists(OMX_HANDLETYPE inst)
      return rc;
 
   pthread_mutex_lock(&lock_core);
-  for(i=0; i< SIZE_OF_CORE; i++)
+  for (i = 0; i < num_components; i++)
   {
     for(j=0; j< OMX_COMP_MAX_INST; j++)
     {
-      if(inst == core[i].inst[j])
+      if (inst == component[i].inst[j])
       {
         rc = i;
         goto finish;
@@ -246,13 +285,13 @@ static int get_comp_handle_index(char *cmp_name)
 {
   unsigned i=0,j=0;
   int rc = -1;
-  for(i=0; i< SIZE_OF_CORE; i++)
+  for (i = 0; i < num_components; i++)
   {
-    if(!strcmp(cmp_name, core[i].name))
+    if (!strcmp(cmp_name, component[i].name))
     {
       for(j=0; j< OMX_COMP_MAX_INST; j++)
       {
-        if(NULL == core[i].inst[j])
+        if (NULL == component[i].inst[j])
         {
           rc = j;
           DEBUG_PRINT("free handle slot exists %d\n", rc);
@@ -286,7 +325,7 @@ static int check_lib_unload(int index)
 
   for(i=0; i< OMX_COMP_MAX_INST; i++)
   {
-    if(core[index].inst[i])
+    if (component[index].inst[i])
     {
       rc = 0;
       DEBUG_PRINT("Library Used \n");
@@ -314,16 +353,16 @@ void* get_cmp_handle(char *cmp_name)
   unsigned i    =0,j=0;
 
   DEBUG_PRINT("get_cmp_handle \n");
-  for(i=0; i< SIZE_OF_CORE; i++)
+  for (i = 0; i < num_components; i++)
   {
-    if(!strcmp(cmp_name, core[i].name))
+    if (!strcmp(cmp_name, component[i].name))
     {
       for(j=0; j< OMX_COMP_MAX_INST; j++)
       {
-        if(core[i].inst[j])
+        if (component[i].inst[j])
         {
           DEBUG_PRINT("get_cmp_handle match\n");
-          return core[i].inst[j];
+          return component[i].inst[j];
         }
       }
     }
@@ -432,8 +471,8 @@ OMX_GetHandle(OMX_OUT OMX_HANDLETYPE*     handle,
       // Load VPP omx component for decoder if vpp property is enabled
       const char *hwDecLib = "libOmxVdec.so";
       const char *swDecLib = "libOmxSwVdec.so";
-      if (!strncmp(core[cmp_index].so_lib_name, hwDecLib, strlen(hwDecLib)) ||
-          !strncmp(core[cmp_index].so_lib_name, swDecLib, strlen(swDecLib))) {
+      if (!strncmp(component[cmp_index].so_lib_name, hwDecLib, strlen(hwDecLib)) ||
+          !strncmp(component[cmp_index].so_lib_name, swDecLib, strlen(swDecLib))) {
         bool isVppEnabled = false;
         if (isConfigStoreEnabled()) {
           getConfigStoreBool("vpp", "enable", &isVppEnabled, false);
@@ -457,19 +496,19 @@ OMX_GetHandle(OMX_OUT OMX_HANDLETYPE*     handle,
       }
 
        // dynamically load the so
-      core[cmp_index].fn_ptr =
-        omx_core_load_cmp_library(core[cmp_index].so_lib_name,
-                                  &core[cmp_index].so_lib_handle);
+      component[cmp_index].fn_ptr =
+        omx_core_load_cmp_library(component[cmp_index].so_lib_name,
+                                  &component[cmp_index].so_lib_handle);
 
 
-      if(core[cmp_index].fn_ptr)
+      if(component[cmp_index].fn_ptr)
       {
         //Do not allow more than MAX limit for DSP audio decoders
-        if((!strcmp(core[cmp_index].so_lib_name,"libOmxWmaDec.so")  ||
-            !strcmp(core[cmp_index].so_lib_name,"libOmxAacDec.so")  ||
-            !strcmp(core[cmp_index].so_lib_name,"libOmxG711Dec.so")  ||
-            !strcmp(core[cmp_index].so_lib_name,"libOmxAlacDec.so") ||
-            !strcmp(core[cmp_index].so_lib_name,"libOmxApeDec.so")) &&
+        if((!strcmp(component[cmp_index].so_lib_name,"libOmxWmaDec.so")  ||
+            !strcmp(component[cmp_index].so_lib_name,"libOmxAacDec.so")  ||
+            !strcmp(component[cmp_index].so_lib_name,"libOmxG711Dec.so")  ||
+            !strcmp(component[cmp_index].so_lib_name,"libOmxAlacDec.so") ||
+            !strcmp(component[cmp_index].so_lib_name,"libOmxApeDec.so")) &&
             (number_of_adec_nt_session+1 > MAX_AUDIO_NT_SESSION)) {
             DEBUG_PRINT_ERROR("Rejecting new session..Reached max limit for DSP audio decoder session");
             pthread_mutex_unlock(&lock_core);
@@ -477,7 +516,7 @@ OMX_GetHandle(OMX_OUT OMX_HANDLETYPE*     handle,
         }
         // Construct the component requested
         // Function returns the opaque handle
-        void* pThis = (*(core[cmp_index].fn_ptr))();
+        void* pThis = (*(component[cmp_index].fn_ptr))();
         if(pThis)
         {
           void *hComp = NULL;
@@ -503,7 +542,7 @@ OMX_GetHandle(OMX_OUT OMX_HANDLETYPE*     handle,
 
           if(hnd_index >= 0)
           {
-            core[cmp_index].inst[hnd_index]= *handle = (OMX_HANDLETYPE) hComp;
+            component[cmp_index].inst[hnd_index]= *handle = (OMX_HANDLETYPE) hComp;
           }
           else
           {
@@ -512,11 +551,11 @@ OMX_GetHandle(OMX_OUT OMX_HANDLETYPE*     handle,
             return OMX_ErrorInsufficientResources;
           }
           DEBUG_PRINT("Component %p Successfully created\n",*handle);
-          if(!strcmp(core[cmp_index].so_lib_name,"libOmxWmaDec.so")  ||
-             !strcmp(core[cmp_index].so_lib_name,"libOmxAacDec.so")  ||
-             !strcmp(core[cmp_index].so_lib_name,"libOmxG711Dec.so")  ||
-             !strcmp(core[cmp_index].so_lib_name,"libOmxAlacDec.so") ||
-             !strcmp(core[cmp_index].so_lib_name,"libOmxApeDec.so")) {
+          if(!strcmp(component[cmp_index].so_lib_name,"libOmxWmaDec.so")  ||
+             !strcmp(component[cmp_index].so_lib_name,"libOmxAacDec.so")  ||
+             !strcmp(component[cmp_index].so_lib_name,"libOmxG711Dec.so")  ||
+             !strcmp(component[cmp_index].so_lib_name,"libOmxAlacDec.so") ||
+             !strcmp(component[cmp_index].so_lib_name,"libOmxApeDec.so")) {
 
              number_of_adec_nt_session++;
              DEBUG_PRINT("OMX_GetHandle: number_of_adec_nt_session : %d\n",
@@ -579,24 +618,24 @@ OMX_FreeHandle(OMX_IN OMX_HANDLETYPE hComp)
         pthread_mutex_lock(&lock_core);
         clear_cmp_handle(hComp);
         /* Unload component library */
-    if( (i < (int)SIZE_OF_CORE) && core[i].so_lib_handle)
+    if( (i < (int)num_components) && component[i].so_lib_handle)
     {
            if(check_lib_unload(i))
            {
               DEBUG_PRINT_ERROR(" Unloading the dynamic library for %s\n",
-                                  core[i].name);
-              err = dlclose(core[i].so_lib_handle);
+                                  component[i].name);
+              err = dlclose(component[i].so_lib_handle);
               if(err)
               {
                   DEBUG_PRINT_ERROR("Error %d in dlclose of lib %s\n",
-                                     err,core[i].name);
+                                     err,component[i].name);
               }
-              core[i].so_lib_handle = NULL;
+              component[i].so_lib_handle = NULL;
            }
-           if(!strcmp(core[i].so_lib_name,"libOmxWmaDec.so")  ||
-              !strcmp(core[i].so_lib_name,"libOmxAacDec.so")  ||
-              !strcmp(core[i].so_lib_name,"libOmxAlacDec.so") ||
-              !strcmp(core[i].so_lib_name,"libOmxApeDec.so")) {
+           if(!strcmp(component[i].so_lib_name,"libOmxWmaDec.so")  ||
+              !strcmp(component[i].so_lib_name,"libOmxAacDec.so")  ||
+              !strcmp(component[i].so_lib_name,"libOmxAlacDec.so") ||
+              !strcmp(component[i].so_lib_name,"libOmxApeDec.so")) {
                if(number_of_adec_nt_session>0)
                    number_of_adec_nt_session--;
                DEBUG_PRINT_ERROR("OMX_FreeHandle: reduced number_of_adec_nt_session %d\n",
@@ -683,16 +722,17 @@ OMX_ComponentNameEnum(OMX_OUT OMX_STRING componentName,
                       OMX_IN  OMX_U32            index)
 {
   OMX_ERRORTYPE eRet = OMX_ErrorNone;
-  DEBUG_PRINT("OMXCORE API - OMX_ComponentNameEnum %p %d %d\n", componentName
-                                                              ,(unsigned)nameLen
-                                                              ,(unsigned)index);
-  if((index < SIZE_OF_CORE) && strncmp(core[index].name, "OMX.QCOM.CUST.COMP.START",strlen("OMX.QCOM.CUST.COMP.START")))
+  if (index < num_components &&
+      strncmp(component[index].name, "OMX.QCOM.CUST.COMP.START",
+              strlen("OMX.QCOM.CUST.COMP.START")))
   {
     #ifdef _ANDROID_
-    strlcpy(componentName, core[index].name,nameLen);
+    strlcpy(componentName, component[index].name, nameLen);
     #else
-    strncpy(componentName, core[index].name,nameLen);
+    strlcpy(componentName, component[index].name, nameLen);
     #endif
+    DEBUG_PRINT("OMXCORE API - OMX_ComponentNameEnum [%d] %s\n",
+                (unsigned)index, componentName);
   }
   else
   {
@@ -728,25 +768,25 @@ OMX_GetComponentsOfRole(OMX_IN OMX_STRING      role,
   /*If CompNames is NULL then return*/
   if (compNames == NULL)
   {
-      if (numComps == NULL)
-      {
-          eRet = OMX_ErrorBadParameter;
-      }
-      else
-  {
-    *numComps          = 0;
-    for (i=0; i<SIZE_OF_CORE;i++)
+    if (numComps == NULL)
     {
-      for(j=0; j<OMX_CORE_MAX_CMP_ROLES && core[i].roles[j] ; j++)
+      eRet = OMX_ErrorBadParameter;
+    }
+    else
+    {
+      *numComps = 0;
+      for (i = 0; i < num_components; i++)
       {
-        if(!strcmp(role,core[i].roles[j]))
+        for (j = 0; j < OMX_CORE_MAX_CMP_ROLES && component[i].roles[j]; j++)
         {
-                  (*numComps)++;
-              }
-            }
+          if (!strcmp(role,component[i].roles[j]))
+          {
+            (*numComps)++;
           }
+        }
       }
-      return eRet;
+    }
+    return eRet;
   }
 
   if(numComps)
@@ -760,17 +800,17 @@ OMX_GetComponentsOfRole(OMX_IN OMX_STRING      role,
 
     *numComps          = 0;
 
-    for (i=0; i<SIZE_OF_CORE;i++)
+    for (i = 0; i < num_components;i++)
     {
-      for(j=0; j<OMX_CORE_MAX_CMP_ROLES && core[i].roles[j] ; j++)
+      for (j = 0; j < OMX_CORE_MAX_CMP_ROLES && component[i].roles[j]; j++)
       {
-        if(!strcmp(role,core[i].roles[j]))
-          {
-            #ifdef _ANDROID_
-            strlcpy((char *)compNames[*numComps],core[i].name, OMX_MAX_STRINGNAME_SIZE);
-            #else
-            strncpy((char *)compNames[*numComps],core[i].name, OMX_MAX_STRINGNAME_SIZE);
-            #endif
+        if (!strcmp(role,component[i].roles[j]))
+        {
+          #ifdef _ANDROID_
+          strlcpy((char *)compNames[*numComps],component[i].name, OMX_MAX_STRINGNAME_SIZE);
+          #else
+          strlcpy((char *)compNames[*numComps],component[i].name, OMX_MAX_STRINGNAME_SIZE);
+          #endif
           (*numComps)++;
           break;
         }
@@ -814,27 +854,26 @@ OMX_GetRolesOfComponent(OMX_IN OMX_STRING compName,
 
   if (roles == NULL)
   {
-      if (numRoles == NULL)
+    if (numRoles == NULL)
+    {
+      eRet = OMX_ErrorBadParameter;
+    }
+    else
+    {
+      *numRoles = 0;
+      for (i = 0; i < num_components; i++)
       {
-         eRet = OMX_ErrorBadParameter;
+        if (!strcmp(compName,component[i].name))
+        {
+          for (j = 0; j < OMX_CORE_MAX_CMP_ROLES && component[i].roles[j]; j++)
+          {
+            (*numRoles)++;
+          }
+          break;
+        }
       }
-      else
-      {
-         *numRoles = 0;
-         for(i=0; i< SIZE_OF_CORE; i++)
-         {
-           if(!strcmp(compName,core[i].name))
-           {
-             for(j=0; (j<OMX_CORE_MAX_CMP_ROLES) && core[i].roles[j];j++)
-             {
-                (*numRoles)++;
-             }
-             break;
-           }
-         }
-
-      }
-      return eRet;
+    }
+    return eRet;
   }
 
   if(numRoles)
@@ -846,18 +885,20 @@ OMX_GetRolesOfComponent(OMX_IN OMX_STRING compName,
 
     numofroles = *numRoles;
     *numRoles = 0;
-    for(i=0; i< SIZE_OF_CORE; i++)
+    for (i = 0; i < num_components; i++)
     {
-      if(!strcmp(compName,core[i].name))
+      if (!strcmp(compName, component[i].name))
       {
-        for(j=0; (j<OMX_CORE_MAX_CMP_ROLES) && core[i].roles[j];j++)
+        for (j = 0; j < OMX_CORE_MAX_CMP_ROLES && component[i].roles[j]; j++)
         {
           if(roles && roles[*numRoles])
           {
             #ifdef _ANDROID_
-            strlcpy((char *)roles[*numRoles],core[i].roles[j],OMX_MAX_STRINGNAME_SIZE);
+            strlcpy((char *)roles[*numRoles],
+                    component[i].roles[j], OMX_MAX_STRINGNAME_SIZE);
             #else
-            strncpy((char *)roles[*numRoles],core[i].roles[j],OMX_MAX_STRINGNAME_SIZE);
+            strlcpy((char *)roles[*numRoles],
+                    component[i].roles[j], OMX_MAX_STRINGNAME_SIZE);
             #endif
           }
           (*numRoles)++;

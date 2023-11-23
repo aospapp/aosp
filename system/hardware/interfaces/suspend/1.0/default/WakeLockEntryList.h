@@ -18,7 +18,7 @@
 #define ANDROID_SYSTEM_SUSPEND_WAKE_LOCK_ENTRY_LIST_H
 
 #include <android-base/unique_fd.h>
-#include <android/system/suspend/WakeLockInfo.h>
+#include <android/system/suspend/internal/WakeLockInfo.h>
 #include <utils/Mutex.h>
 
 #include <list>
@@ -26,6 +26,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+using ::android::system::suspend::internal::WakeLockInfo;
 
 namespace android {
 namespace system {

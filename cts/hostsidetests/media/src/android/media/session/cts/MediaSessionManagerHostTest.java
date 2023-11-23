@@ -251,14 +251,46 @@ public class MediaSessionManagerHostTest extends BaseMultiUserTest {
         runTest("testGetActiveSessions_hasMediaSessionFromMediaSessionTestHelper");
     }
 
+    @AppModeFull
+    @RequiresDevice
+    // Ignored due to b/171012388.
+    public void ignored_testIsTrusted_withEnabledNotificationListener_returnsTrue()
+            throws Exception {
+        if (!canCreateAdditionalUsers(1)) {
+            CLog.logAndDisplay(LogLevel.INFO,
+                    "Cannot create a new user. Skipping multi-user test cases.");
+            return;
+        }
+
+        int newUserId = createAndStartUser();
+        setAllowGetActiveSessionForTest(true, newUserId);
+        installAppAsUser(DEVICE_SIDE_TEST_APK, newUserId, false);
+        runTestAsUser("testIsTrusted_returnsTrue", newUserId);
+    }
+
+    @AppModeFull
+    @RequiresDevice
+    public void testIsTrusted_withoutEnabledNotificationListener_returnsFalse()
+            throws Exception {
+        if (!canCreateAdditionalUsers(1)) {
+            CLog.logAndDisplay(LogLevel.INFO,
+                    "Cannot create a new user. Skipping multi-user test cases.");
+            return;
+        }
+
+        int newUserId = createAndStartUser();
+        setAllowGetActiveSessionForTest(false, newUserId);
+        installAppAsUser(DEVICE_SIDE_TEST_APK, newUserId, false);
+        runTestAsUser("testIsTrusted_returnsFalse", newUserId);
+    }
+
     private void runTest(String testMethodName) throws DeviceNotAvailableException {
         runTestAsUser(testMethodName, getDevice().getPrimaryUserId());
     }
 
     private void runTestAsUser(String testMethodName, int userId)
             throws DeviceNotAvailableException {
-        runDeviceTestsAsUser(DEVICE_SIDE_TEST_PKG, DEVICE_SIDE_TEST_CLASS,
-                testMethodName, userId);
+        runDeviceTests(DEVICE_SIDE_TEST_PKG, DEVICE_SIDE_TEST_CLASS, testMethodName, userId);
     }
 
     /**

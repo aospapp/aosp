@@ -212,14 +212,6 @@ func TestFilterUnsupportedClangFlags(t *testing.T) {
 			expectedCount int
 		}{
 			{clangX86_64, "-pass-exit-codes", 0},
-			{clangX86_64, "-Wclobbered", 0},
-			{clangX86_64, "-Wunsafe-loop-optimizations", 0},
-			{clangX86_64, "-Wlogical-op", 0},
-			{clangX86_64, "-Wmissing-parameter-type", 0},
-			{clangX86_64, "-Woverride-init", 0},
-			{clangX86_64, "-Wold-style-declaration", 0},
-			{clangX86_64, "-Wno-psabi", 0},
-			{clangX86_64, "-mno-movbe", 0},
 			{clangX86_64, "-Wstrict-aliasing=xyz", 0},
 			{clangX86_64, "-finline-limit=xyz", 0},
 			{"./armv7a-cros-linux-gnu-clang", "-ftrapv", 0},

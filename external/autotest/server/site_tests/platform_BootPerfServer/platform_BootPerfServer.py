@@ -57,17 +57,25 @@ class platform_BootPerfServer(test.test):
         host.run(('/usr/share/vboot/bin/make_dev_ssd.sh --set_config /tmp/%s '
                 '--partitions %d') % (tmp_name, partition))
 
-    def initialize(self, host):
+    def initialize(self, host, cmdline_args):
         """Initialization steps before running the test"""
         # Some tests might disable rootfs verification and mount rootfs as rw.
         # If we run after those tests, re-enable rootfs verification to get
         # consistent boot perf metrics.
-        if not self._is_rootfs_verification_enabled(host):
+
+        args_dict = utils.args_to_dict(cmdline_args)
+        skip_rootfs_check = (args_dict.get('skip_rootfs_check', '').lower() ==
+                             'true')
+
+        if not (skip_rootfs_check or
+                self._is_rootfs_verification_enabled(host)):
             logging.info('Reimage to enable rootfs verification.')
             version = host.get_release_builder_path()
             # Force reimage to the current version to enable rootfs
             # verification.
-            self.job.run_test('provision_AutoUpdate', host=host, value=version,
+            self.job.run_test('provision_QuickProvision',
+                              host=host,
+                              value=version,
                               force_update_engine=True)
 
         # Bootchart is shipped but disabled by default in the image. Before
@@ -81,6 +89,12 @@ class platform_BootPerfServer(test.test):
         self._edit_kernel_args(
             host,
             lambda tmp_file: 'sed -i "s/$/ cros_bootchart/g" %s' % tmp_file)
+
+        # Run a login test to complete the OOBE flow, if we haven't already.
+        # This is so that we measure boot times for the stable state.
+        client_at = autotest.Autotest(host)
+        client_at.run_test('login_LoginSuccess', disable_sysinfo=True,
+                check_client_result=True)
 
     def cleanup(self, host):
         """After running the test, disable cros_bootchart by removing
@@ -123,15 +137,6 @@ class platform_BootPerfServer(test.test):
         """Runs the test once: reboot and collect boot metrics from DUT."""
         self.client = host
         self.client_test = 'platform_BootPerf'
-
-        # Run a login test to complete the OOBE flow, if we haven't already.
-        # This is so that we measure boot times for the stable state.
-        try:
-            self.client.run('ls /home/chronos/.oobe_completed')
-        except error.AutoservRunError:
-            logging.info('Taking client through OOBE.')
-            client_at = autotest.Autotest(self.client)
-            client_at.run_test('login_LoginSuccess', disable_sysinfo=True)
 
         # Reboot the client
         logging.info('BootPerfServer: reboot %s', self.client.hostname)

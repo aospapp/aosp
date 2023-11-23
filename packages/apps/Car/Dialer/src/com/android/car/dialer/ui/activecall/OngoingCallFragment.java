@@ -21,20 +21,24 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.ViewModelProviders;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.apps.common.BackgroundImageView;
 import com.android.car.dialer.R;
 
+import dagger.hilt.android.AndroidEntryPoint;
+
 /**
  * A fragment that displays information about an on-going call with options to hang up.
  */
-public class OngoingCallFragment extends InCallFragment {
+@AndroidEntryPoint(InCallFragment.class)
+public class OngoingCallFragment extends Hilt_OngoingCallFragment {
     private Fragment mDialpadFragment;
     private Fragment mOnholdCallFragment;
     private View mUserProfileContainerView;
@@ -51,14 +55,25 @@ public class OngoingCallFragment extends InCallFragment {
         mOnholdCallFragment = getChildFragmentManager().findFragmentById(R.id.onhold_user_profile);
         mDialpadFragment = getChildFragmentManager().findFragmentById(R.id.incall_dialpad_fragment);
 
-        InCallViewModel inCallViewModel = ViewModelProviders.of(getActivity()).get(
+        InCallViewModel inCallViewModel = new ViewModelProvider(getActivity()).get(
                 InCallViewModel.class);
 
         inCallViewModel.getPrimaryCallDetail().observe(this, this::bindUserProfileView);
         inCallViewModel.getCallStateAndConnectTime().observe(this, this::updateCallDescription);
 
         mDialpadState = inCallViewModel.getDialpadOpenState();
+
+        OnBackPressedCallback callback = new OnBackPressedCallback(true /* enabled by default */) {
+            @Override
+            public void handleOnBackPressed() {
+                if (mDialpadState.getValue()) {
+                    mDialpadState.setValue(Boolean.FALSE);
+                }
+            }
+        };
+        requireActivity().getOnBackPressedDispatcher().addCallback(this, callback);
         mDialpadState.observe(this, isDialpadOpen -> {
+            callback.setEnabled(isDialpadOpen);
             if (isDialpadOpen) {
                 onOpenDialpad();
             } else {

@@ -84,10 +84,9 @@ import javax.net.ssl.X509ExtendedTrustManager;
  * @see javax.net.ssl.X509ExtendedTrustManager
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.CorePlatformApi
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @Internal
 public final class TrustManagerImpl extends X509ExtendedTrustManager {
-
     private static final Logger logger = Logger.getLogger(TrustManagerImpl.class.getName());
 
     /**
@@ -138,7 +137,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
 
     private final Exception err;
     private final CertificateFactory factory;
-    private final CertBlacklist blacklist;
+    private final CertBlocklist blocklist;
     private CTVerifier ctVerifier;
     private CTPolicy ctPolicy;
 
@@ -149,12 +148,10 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
 
     /**
      * Creates X509TrustManager based on a keystore
-     *
-     * @param keyStore
      */
     @android.compat.annotation
             .UnsupportedAppUsage
-            @libcore.api.CorePlatformApi
+            @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
             public TrustManagerImpl(KeyStore keyStore) {
         this(keyStore, null);
     }
@@ -163,24 +160,23 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
         this(keyStore, manager, null);
     }
 
-    @libcore.api.CorePlatformApi
-    public TrustManagerImpl(KeyStore keyStore, CertPinManager manager,
-            ConscryptCertStore certStore) {
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public TrustManagerImpl(
+            KeyStore keyStore, CertPinManager manager, ConscryptCertStore certStore) {
         this(keyStore, manager, certStore, null);
     }
 
-    public TrustManagerImpl(KeyStore keyStore, CertPinManager manager,
-            ConscryptCertStore certStore,
-                            CertBlacklist blacklist) {
-        this(keyStore, manager, certStore, blacklist, null, null, null);
+    public TrustManagerImpl(KeyStore keyStore, CertPinManager manager, ConscryptCertStore certStore,
+            CertBlocklist blocklist) {
+        this(keyStore, manager, certStore, blocklist, null, null, null);
     }
 
     /**
      * For testing only.
      */
-    public TrustManagerImpl(KeyStore keyStore, CertPinManager manager,
-            ConscryptCertStore certStore, CertBlacklist blacklist, CTLogStore ctLogStore,
-            CTVerifier ctVerifier, CTPolicy ctPolicy) {
+    public TrustManagerImpl(KeyStore keyStore, CertPinManager manager, ConscryptCertStore certStore,
+            CertBlocklist blocklist, CTLogStore ctLogStore, CTVerifier ctVerifier,
+            CTPolicy ctPolicy) {
         CertPathValidator validatorLocal = null;
         CertificateFactory factoryLocal = null;
         KeyStore rootKeyStoreLocal = null;
@@ -212,8 +208,8 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
             errLocal = e;
         }
 
-        if (blacklist == null) {
-            blacklist = Platform.newDefaultBlacklist();
+        if (blocklist == null) {
+            blocklist = Platform.newDefaultBlocklist();
         }
         if (ctLogStore == null) {
             ctLogStore = Platform.newDefaultLogStore();
@@ -232,11 +228,12 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
         this.intermediateIndex = new TrustedCertificateIndex();
         this.acceptedIssuers = acceptedIssuersLocal;
         this.err = errLocal;
-        this.blacklist = blacklist;
+        this.blocklist = blocklist;
         this.ctVerifier = new CTVerifier(ctLogStore);
         this.ctPolicy = ctPolicy;
     }
 
+    @SuppressWarnings("JdkObsolete") // KeyStore#aliases is the only API available
     private static X509Certificate[] acceptedIssuers(KeyStore ks) {
         try {
             // Note that unlike the PKIXParameters code to create a Set of
@@ -270,7 +267,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
         return trustAnchors;
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @Override
     public void checkClientTrusted(X509Certificate[] chain, String authType)
             throws CertificateException {
@@ -295,7 +292,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
         return session;
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @Override
     public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket)
             throws CertificateException {
@@ -309,7 +306,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
         checkTrusted(chain, authType, session, parameters, true /* client auth */);
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @Override
     public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine)
             throws CertificateException {
@@ -331,7 +328,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
      */
     @android.compat.annotation
             .UnsupportedAppUsage
-            @libcore.api.CorePlatformApi
+            @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
             public List<X509Certificate> checkServerTrusted(X509Certificate[] chain,
                     String authType, String hostname) throws CertificateException {
         return checkTrusted(chain, null /* ocspData */, null /* tlsSctData */, authType, hostname,
@@ -343,9 +340,9 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
      *
      * Throws {@link CertificateException} when no trusted chain can be found from {@code certs}.
      */
-    @libcore.api.CorePlatformApi
-    public List<X509Certificate> getTrustedChainForServer(X509Certificate[] certs,
-            String authType, Socket socket) throws CertificateException {
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public List<X509Certificate> getTrustedChainForServer(
+            X509Certificate[] certs, String authType, Socket socket) throws CertificateException {
         SSLSession session = null;
         SSLParameters parameters = null;
         if (socket instanceof SSLSocket) {
@@ -361,9 +358,9 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
      *
      * Throws {@link CertificateException} when no trusted chain can be found from {@code certs}.
      */
-    @libcore.api.CorePlatformApi
-    public List<X509Certificate> getTrustedChainForServer(X509Certificate[] certs,
-            String authType, SSLEngine engine) throws CertificateException {
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public List<X509Certificate> getTrustedChainForServer(X509Certificate[] certs, String authType,
+            SSLEngine engine) throws CertificateException {
         SSLSession session = engine.getHandshakeSession();
         if (session == null) {
             throw new CertificateException("Not in handshake; no session available");
@@ -395,7 +392,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
         return checkTrusted(chain, authType, session, null, false /* client auth */);
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public void handleTrustStorageUpdate() {
         if (acceptedIssuers == null) {
             trustedCertificateIndex.reset();
@@ -420,7 +417,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
             String identificationAlgorithm = parameters.getEndpointIdentificationAlgorithm();
             if ("HTTPS".equalsIgnoreCase(identificationAlgorithm)) {
                 ConscryptHostnameVerifier verifier = getHttpsVerifier();
-                if (!verifier.verify(hostname, session)) {
+                if (!verifier.verify(certs, hostname, session)) {
                     throw new CertificateException("No subjectAltNames on the certificate match");
                 }
             }
@@ -429,7 +426,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
     }
 
     @SuppressWarnings("unchecked")
-    private byte[] getOcspDataFromSession(SSLSession session) {
+    private static byte[] getOcspDataFromSession(SSLSession session) {
         List<byte[]> ocspResponses = null;
         if (session instanceof ConscryptSession) {
             ConscryptSession opensslSession = (ConscryptSession) session;
@@ -443,10 +440,9 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
                 if (rawResponses instanceof List) {
                     ocspResponses = (List<byte[]>) rawResponses;
                 }
-            } catch (NoSuchMethodException ignored) {
-            } catch (SecurityException ignored) {
-            } catch (IllegalAccessException ignored) {
-            } catch (IllegalArgumentException ignored) {
+            } catch (NoSuchMethodException | SecurityException | IllegalAccessException
+                    | IllegalArgumentException ignored) {
+                // Method not available, fall through and return null
             } catch (InvocationTargetException e) {
                 throw new RuntimeException(e.getCause());
             }
@@ -473,10 +469,9 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
             if (rawData instanceof byte[]) {
                 data = (byte[]) rawData;
             }
-        } catch (NoSuchMethodException ignored) {
-        } catch (SecurityException ignored) {
-        } catch (IllegalAccessException ignored) {
-        } catch (IllegalArgumentException ignored) {
+        } catch (NoSuchMethodException | SecurityException | IllegalAccessException
+                | IllegalArgumentException ignored) {
+            // Method not available, fall through and return null
         } catch (InvocationTargetException e) {
             throw new RuntimeException(e.getCause());
         }
@@ -546,8 +541,8 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
             current = trustAnchorChain.get(trustAnchorChain.size() - 1).getTrustedCert();
         }
 
-        // Check that the certificate isn't blacklisted.
-        checkBlacklist(current);
+        // Check that the certificate isn't blocklisted.
+        checkBlocklist(current);
 
         // 1. If the current certificate in the chain is self-signed verify the chain as is.
         if (current.getIssuerDN().equals(current.getSubjectDN())) {
@@ -687,9 +682,9 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
             if (pinManager != null) {
                 pinManager.checkChainPinning(host, wholeChain);
             }
-            // Check whole chain against the blacklist
+            // Check whole chain against the blocklist
             for (X509Certificate cert : wholeChain) {
-                checkBlacklist(cert);
+                checkBlocklist(cert);
             }
 
             // Check CT (if required).
@@ -736,9 +731,9 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
         }
     }
 
-    private void checkBlacklist(X509Certificate cert) throws CertificateException {
-        if (blacklist != null && blacklist.isPublicKeyBlackListed(cert.getPublicKey())) {
-            throw new CertificateException("Certificate blacklisted by public key: " + cert);
+    private void checkBlocklist(X509Certificate cert) throws CertificateException {
+        if (blocklist != null && blocklist.isPublicKeyBlockListed(cert.getPublicKey())) {
+            throw new CertificateException("Certificate blocklisted by public key: " + cert);
         }
     }
 
@@ -958,7 +953,7 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
             return trustAnchor;
         }
         if (trustedCertificateStore == null) {
-            // not trusted and no TrustedCertificateStore to check
+            // not trusted and no TrustedCertificateStore to check.
             return null;
         }
         // probe KeyStore for a cert. AndroidCAStore stores its
@@ -1018,24 +1013,11 @@ public final class TrustManagerImpl extends X509ExtendedTrustManager {
         return hostnameVerifier;
     }
 
-    private enum GlobalHostnameVerifierAdapter implements ConscryptHostnameVerifier {
-        INSTANCE;
-
-        @Override
-        public boolean verify(String hostname, SSLSession session) {
-            return HttpsURLConnection.getDefaultHostnameVerifier().verify(hostname, session);
-        }
-    }
-
     private ConscryptHostnameVerifier getHttpsVerifier() {
         if (hostnameVerifier != null) {
             return hostnameVerifier;
         }
-        ConscryptHostnameVerifier defaultVerifier = getDefaultHostnameVerifier();
-        if (defaultVerifier != null) {
-            return defaultVerifier;
-        }
-        return GlobalHostnameVerifierAdapter.INSTANCE;
+        return Platform.getDefaultHostnameVerifier();
     }
 
     public void setCTEnabledOverride(boolean enabled) {

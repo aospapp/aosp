@@ -31,9 +31,7 @@ import java.util.List;
  */
 @RunWith(JUnit4.class)
 public class TracePointRuleTest {
-    /**
-     * Tests that this section will use the test name if none is supplied.
-     */
+    /** Tests that this section will use the test name if none is supplied. */
     @Test
     public void testNoNameGiven() throws Throwable {
         TestableTracePointRule rule = new TestableTracePointRule();
@@ -42,9 +40,7 @@ public class TracePointRuleTest {
         assertThat(rule.getOperations()).contains("begin: mthd(clzz)");
     }
 
-    /**
-     * Tests that this section will use the test name if an empty string is supplied.
-     */
+    /** Tests that this section will use the test name if an empty string is supplied. */
     @Test
     public void testEmptyStringGiven() throws Throwable {
         TestableTracePointRule rule = new TestableTracePointRule("");
@@ -53,9 +49,7 @@ public class TracePointRuleTest {
         assertThat(rule.getOperations()).contains("begin: mthd(clzz)");
     }
 
-    /**
-     * Tests that this section will use the supplied name if given.
-     */
+    /** Tests that this section will use the supplied name if given. */
     @Test
     public void testTagGiven() throws Throwable {
         TestableTracePointRule rule = new TestableTracePointRule("FakeName");
@@ -64,9 +58,7 @@ public class TracePointRuleTest {
         assertThat(rule.getOperations()).contains("begin: FakeName");
     }
 
-    /**
-     * Tests that the necessary calls are made in the proper order.
-     */
+    /** Tests that the necessary calls are made in the proper order. */
     @Test
     public void testTraceCallOrder() throws Throwable {
         TestableTracePointRule rule = new TestableTracePointRule();
@@ -76,15 +68,44 @@ public class TracePointRuleTest {
             .inOrder();
     }
 
+    /** Tests that the section name will be truncated to a certain length when using tags. */
+    @Test
+    public void testSectionNameMaxLength_withTag() throws Throwable {
+        TestableTracePointRule rule = new TestableTracePointRule("FakeName", 4);
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd"))
+                .evaluate();
+        assertThat(rule.getOperations()).contains("begin: Name");
+    }
+
+    /** Tests that the section name will be truncated to a certain length when using test names. */
+    @Test
+    public void testSectionNameMaxLength_withTestName() throws Throwable {
+        TestableTracePointRule rule = new TestableTracePointRule(7);
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd"))
+                .evaluate();
+        assertThat(rule.getOperations()).contains("begin: d(clzz)");
+    }
+
     private static class TestableTracePointRule extends TracePointRule {
         private List<String> mOperations = new ArrayList<>();
+        private int mMaxLength = -1;
 
         public TestableTracePointRule() {
             super();
         }
 
+        public TestableTracePointRule(int maxLength) {
+            super();
+            mMaxLength = maxLength;
+        }
+
         public TestableTracePointRule(String sectionTag) {
             super(sectionTag);
+        }
+
+        public TestableTracePointRule(String sectionTag, int maxLength) {
+            super(sectionTag);
+            mMaxLength = maxLength;
         }
 
         @Override
@@ -108,6 +129,15 @@ public class TracePointRuleTest {
                     mOperations.add("test");
                 }
             };
+        }
+
+        @Override
+        int getMaxSectionLength() {
+            if (mMaxLength == -1) {
+                return super.getMaxSectionLength();
+            } else {
+                return mMaxLength;
+            }
         }
     }
 }

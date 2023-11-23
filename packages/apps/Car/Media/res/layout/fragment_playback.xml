@@ -21,12 +21,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/app_bar_guideline"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        app:layout_constraintGuide_begin="@dimen/car_ui_toolbar_first_row_height"/>
+    <include layout="@layout/ui_guides"/>
 
     <Space
         android:id="@+id/control_bar_first_row_guideline"
@@ -50,30 +45,22 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <com.android.car.ui.toolbar.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:title="@string/fragment_playback_title"
-        app:layout_constraintTop_toTopOf="parent"
-        app:car_ui_state="subpage"/>
-
     <include
         style="@style/MetadataContainerStyle"
         android:id="@+id/metadata_container"
         layout="@layout/metadata_normal"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/app_bar_guideline"
+        app:layout_constraintTop_toBottomOf="@id/ui_content_top_guideline"
         app:layout_constraintBottom_toTopOf="@+id/control_bar_first_row_guideline"/>
 
-    <!-- @id/seek_bar should be hidden when @id/control_bar_scrim is expanded, and shown when the
-    scrim is collapsed. Since its visibility is also controlled by MetadataController, it could
-    become visible again even if the scrim is still expanded. To solve that we add a wrapper around
-    it and hide/show the wrapper when the scrim is expanded/collapsed.-->
-    <FrameLayout
+    <!-- @id/playback_seek_bar should be hidden when @id/control_bar_scrim is expanded, and shown
+    when the scrim is collapsed. Since its visibility is also controlled by MetadataController, it
+    could become visible again even if the scrim is still expanded. To solve that we add a wrapper
+    around it and hide/show the wrapper when the scrim is expanded/collapsed.-->
+    <com.android.car.ui.FocusArea
         style="@style/SeekBarStyle"
-        android:id="@+id/seek_bar_container"
+        android:id="@+id/playback_seek_bar_container"
         android:layout_gravity="center"
         android:layout_marginStart="@dimen/playback_seekbar_margin_x"
         android:layout_marginEnd="@dimen/playback_seekbar_margin_x"
@@ -82,27 +69,26 @@
         app:layout_constraintTop_toBottomOf="@+id/metadata_container"
         app:layout_constraintBottom_toTopOf="@+id/control_bar_first_row_guideline">
         <SeekBar
-            android:id="@+id/seek_bar"
+            android:id="@+id/playback_seek_bar"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clickable="false"
-            android:focusable="false"
             android:paddingEnd="@dimen/playback_seekbar_padding_x"
             android:paddingStart="@dimen/playback_seekbar_padding_x"
-            android:progressDrawable="@drawable/seekbar_background"
+            android:progressDrawable="@drawable/seekbar_progress"
             android:thumb="@drawable/seekbar_thumb"
             android:thumbOffset="@dimen/playback_seekbar_thumb_offset"
             android:splitTrack="false"
             android:progressTint="@color/progress_bar_highlight"
             android:progressBackgroundTint="@color/progress_bar_background"
-            android:background="@null"/>
-    </FrameLayout>
+            android:foreground="@drawable/seekbar_foreground"/>
+    </com.android.car.ui.FocusArea>
 
     <Space
         android:id="@+id/queue_list_top_constraint"
         android:layout_width="match_parent"
         android:layout_height="@dimen/fragment_playback_queue_overlap_top"
-        app:layout_constraintBottom_toBottomOf="@+id/app_bar_guideline"/>
+        app:layout_constraintBottom_toBottomOf="@+id/ui_content_top_guideline"/>
 
     <Space
         android:id="@+id/queue_list_bottom_constraint"
@@ -110,8 +96,7 @@
         android:layout_height="@dimen/fragment_playback_queue_overlap_bottom"
         app:layout_constraintTop_toTopOf="@+id/control_bar_first_row_guideline"/>
 
-    <!-- The queue_container is a workaround for a bug in PagedRecyclerView (b/136669451). -->
-    <RelativeLayout
+    <com.android.car.ui.FocusArea
         android:id="@+id/queue_container"
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -125,7 +110,7 @@
             android:fadeScrollbars="true"
             android:requiresFadingEdge="vertical"
             android:fadingEdgeLength="@dimen/queue_fading_edge_length"/>
-    </RelativeLayout>
+    </com.android.car.ui.FocusArea>
 
     <include
         layout="@layout/scrim_overlay"
@@ -137,14 +122,18 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <com.android.car.media.common.PlaybackControlsActionBar
-        android:id="@+id/playback_controls"
-        style="@style/ControlBar"
+    <com.android.car.ui.FocusArea
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_marginHorizontal="@dimen/control_bar_margin_x"
         android:layout_marginBottom="@dimen/control_bar_margin_bottom"
-        app:columns="5"
-        app:enableOverflow="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintEnd_toEndOf="parent">
+        <com.android.car.media.common.PlaybackControlsActionBar
+            android:id="@+id/playback_controls"
+            style="@style/ControlBar"
+            app:columns="5"
+            app:enableOverflow="true"/>
+    </com.android.car.ui.FocusArea>
 </androidx.constraintlayout.widget.ConstraintLayout>

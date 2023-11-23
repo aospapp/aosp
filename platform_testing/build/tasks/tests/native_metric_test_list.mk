@@ -21,13 +21,16 @@ native_metric_tests := \
     hwuimicro \
     inputflinger_benchmarks \
     libandroidfw_benchmarks \
+    libhwbinder_benchmark \
     libjavacore-benchmarks \
+    libpowermanager_benchmarks \
+    libvibratorservice_benchmarks \
     minikin_perftests \
     mmapPerf \
     netd_benchmark \
     skia_nanobench \
-    libhwbinder_benchmark
+    VibratorHalIntegrationBenchmark
 
 ifneq ($(strip $(BOARD_PERFSETUP_SCRIPT)),)
-native_metric_tests += perf-setup.sh
+native_metric_tests += perf-setup
 endif

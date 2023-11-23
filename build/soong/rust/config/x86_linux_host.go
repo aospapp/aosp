@@ -21,8 +21,12 @@ import (
 )
 
 var (
-	LinuxRustFlags      = []string{}
-	LinuxRustLinkFlags  = []string{}
+	LinuxRustFlags     = []string{}
+	LinuxRustLinkFlags = []string{
+		"-B${cc_config.ClangBin}",
+		"-fuse-ld=lld",
+		"-Wl,--undefined-version",
+	}
 	linuxX86Rustflags   = []string{}
 	linuxX86Linkflags   = []string{}
 	linuxX8664Rustflags = []string{}
@@ -74,7 +78,9 @@ func (t *toolchainLinuxX8664) RustTriple() string {
 }
 
 func (t *toolchainLinuxX8664) ToolchainLinkFlags() string {
-	return "${config.LinuxToolchainLinkFlags} ${config.LinuxToolchainX8664LinkFlags}"
+	// Prepend the lld flags from cc_config so we stay in sync with cc
+	return "${cc_config.LinuxClangLldflags} ${cc_config.LinuxX8664ClangLldflags} " +
+		"${config.LinuxToolchainLinkFlags} ${config.LinuxToolchainX8664LinkFlags}"
 }
 
 func (t *toolchainLinuxX8664) ToolchainRustFlags() string {
@@ -97,12 +103,22 @@ func (t *toolchainLinuxX86) Name() string {
 	return "x86"
 }
 
+func (toolchainLinuxX86) LibclangRuntimeLibraryArch() string {
+	return "i386"
+}
+
+func (toolchainLinuxX8664) LibclangRuntimeLibraryArch() string {
+	return "x86_64"
+}
+
 func (t *toolchainLinuxX86) RustTriple() string {
 	return "i686-unknown-linux-gnu"
 }
 
 func (t *toolchainLinuxX86) ToolchainLinkFlags() string {
-	return "${config.LinuxToolchainLinkFlags} ${config.LinuxToolchainX86LinkFlags}"
+	// Prepend the lld flags from cc_config so we stay in sync with cc
+	return "${cc_config.LinuxClangLldflags} ${cc_config.LinuxX86ClangLldflags} " +
+		"${config.LinuxToolchainLinkFlags} ${config.LinuxToolchainX86LinkFlags}"
 }
 
 func (t *toolchainLinuxX86) ToolchainRustFlags() string {

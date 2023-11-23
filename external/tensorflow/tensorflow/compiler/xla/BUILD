@@ -1,8 +1,9 @@
+load("//tensorflow:tensorflow.bzl", "filegroup")
+load("//tensorflow/core/platform:rules_cc.bzl", "cc_library")
 load("//tensorflow:tensorflow.bzl", "cc_header_only_library", "tf_cc_test")
 load(
     "//tensorflow/core/platform:build_config.bzl",
-    "tf_proto_library_cc",
-    "tf_proto_library_py",
+    "tf_proto_library",
 )
 
 package(
@@ -36,20 +37,33 @@ filegroup(
     ]),
 )
 
-tf_proto_library_cc(
+filegroup(
+    name = "cpu_runtime_srcs",
+    srcs = [
+        "cpu_function_runtime.cc",
+        "executable_run_options.cc",
+    ],
+    visibility = [":friends"],
+)
+
+filegroup(
+    name = "cpu_runtime_hdrs",
+    srcs = [
+        "cpu_function_runtime.h",
+        "executable_run_options.h",
+        "types.h",
+    ],
+    visibility = [":friends"],
+)
+
+tf_proto_library(
     name = "xla_data_proto",
     srcs = ["xla_data.proto"],
     cc_api_version = 2,
     visibility = ["//visibility:public"],
 )
 
-tf_proto_library_py(
-    name = "xla_data_proto",  # bzl adds a _py suffix
-    srcs = ["xla_data.proto"],
-    visibility = ["//visibility:public"],
-)
-
-tf_proto_library_cc(
+tf_proto_library(
     name = "xla_proto",
     srcs = ["xla.proto"],
     cc_api_version = 2,
@@ -58,16 +72,6 @@ tf_proto_library_cc(
         "//tensorflow/compiler/xla/service:hlo_proto",
     ],
     visibility = ["//visibility:public"],
-)
-
-tf_proto_library_py(
-    name = "xla_proto",  # bzl adds a _py suffix
-    srcs = ["xla.proto"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":xla_data_proto_py",
-        "//tensorflow/compiler/xla/service:hlo_proto_py",
-    ],
 )
 
 cc_library(
@@ -100,14 +104,19 @@ cc_library(
     ],
     hdrs = [
         "comparison_util.h",
+        "primitive_util.h",
     ],
     visibility = [":friends"],
     deps = [
+        ":status_macros",
         ":statusor",
         ":types",
         ":util",
+        ":xla_data_proto_cc",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
     ],
 )
 
@@ -142,7 +151,8 @@ cc_library(
     hdrs = ["types.h"],
     visibility = [":friends"],
     deps = [
-        "//tensorflow/core:framework_lite",
+        "//tensorflow/core/framework:numeric_types",
+        "//tensorflow/core/platform:types",
         "//third_party/eigen3",
     ],
 )
@@ -230,7 +240,6 @@ cc_library(
         ":xla_data_proto_cc",
         "//tensorflow/core:lib",
         "//tensorflow/core/platform:numbers",
-        "//third_party/eigen3",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
@@ -239,6 +248,41 @@ cc_library(
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
+    ],
+)
+
+tf_cc_test(
+    name = "util_test",
+    srcs = ["util_test.cc"],
+    deps = [
+        ":test",
+        ":types",
+        ":util",
+        "//tensorflow/core:test_main",
+        "//tensorflow/core/platform:bfloat16",
+    ],
+)
+
+cc_library(
+    name = "permutation_util",
+    srcs = ["permutation_util.cc"],
+    hdrs = ["permutation_util.h"],
+    deps = [
+        ":types",
+        "//tensorflow/core:lib",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+tf_cc_test(
+    name = "permutation_util_test",
+    srcs = ["permutation_util_test.cc"],
+    deps = [
+        ":permutation_util",
+        ":test",
+        "//tensorflow/core:test_main",
     ],
 )
 
@@ -255,18 +299,8 @@ cc_library(
         ":types",
         ":util",
         "//tensorflow/core:lib",
+        "@com_google_absl//absl/hash",
         "@com_google_absl//absl/time",
-    ],
-)
-
-tf_cc_test(
-    name = "util_test",
-    srcs = ["util_test.cc"],
-    deps = [
-        ":test",
-        ":types",
-        ":util",
-        "//tensorflow/core:test_main",
     ],
 )
 
@@ -301,6 +335,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":permutation_util",
         ":protobuf_util",
         ":status",
         ":status_macros",
@@ -310,7 +345,8 @@ cc_library(
         ":xla_data_proto_cc",
         "//tensorflow/core:lib",
         "//tensorflow/core:lib_internal",
-        "//tensorflow/core:regexp_internal",
+        "//tensorflow/core/platform:regexp",
+        "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/strings",
@@ -332,6 +368,7 @@ tf_cc_test(
         ":xla_data_proto_cc",
         "//tensorflow/core:lib",
         "//tensorflow/core:test_main",
+        "//tensorflow/core/platform:test_benchmark",
         "@com_google_absl//absl/hash:hash_testing",
         "@com_google_absl//absl/strings",
     ],
@@ -341,6 +378,7 @@ tf_cc_test(
     name = "shape_util_test",
     srcs = ["shape_util_test.cc"],
     deps = [
+        ":permutation_util",
         ":shape_util",
         ":status_macros",
         ":test",
@@ -349,6 +387,7 @@ tf_cc_test(
         ":util",
         ":xla_data_proto_cc",
         "//tensorflow/core:lib",
+        "//tensorflow/core:test",
         "//tensorflow/core:test_main",
         "@com_google_absl//absl/strings",
     ],
@@ -417,6 +456,7 @@ cc_library(
         ":array2d",
         ":array3d",
         ":array4d",
+        ":permutation_util",
         ":shape_util",
         ":status_macros",
         ":types",
@@ -428,6 +468,7 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
     ],
 )
@@ -477,12 +518,14 @@ cc_library(
 cc_library(
     name = "error_spec",
     hdrs = ["error_spec.h"],
+    visibility = [":friends"],
 )
 
 cc_library(
     name = "literal_comparison",
     srcs = ["literal_comparison.cc"],
     hdrs = ["literal_comparison.h"],
+    visibility = [":friends"],
     deps = [
         ":error_spec",
         ":literal",
@@ -514,7 +557,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":types",
-        "//tensorflow/core:stream_executor_no_cuda",
+        "//tensorflow/core/platform:stream_executor_no_cuda",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -620,7 +663,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":types",
-        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -652,8 +694,8 @@ cc_library(
         ":statusor",
         ":types",
         "//tensorflow/core:lib",
-        "//tensorflow/core:regexp_internal",
         "//tensorflow/core:test",
+        "//tensorflow/core/platform:regexp",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -722,6 +764,7 @@ tf_cc_test(
         ":text_literal_writer",
         ":types",
         "//tensorflow/core:lib",
+        "//tensorflow/core:test",
         "//tensorflow/core:test_main",
     ],
 )
@@ -895,7 +938,10 @@ cc_library(
     srcs = ["cpu_function_runtime.cc"],
     hdrs = ["cpu_function_runtime.h"],
     visibility = [":friends"],
-    deps = ["//tensorflow/core:framework_lite"],
+    deps = [
+        "//tensorflow/core/platform:dynamic_annotations",
+        "//tensorflow/core/platform:types",
+    ],
 )
 
 tf_cc_test(
@@ -921,6 +967,7 @@ cc_library(
     name = "refcounting_hash_map",
     hdrs = ["refcounting_hash_map.h"],
     deps = [
+        ":statusor",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/memory",
@@ -936,10 +983,31 @@ tf_cc_test(
         ":test",
         ":types",
         "//tensorflow/core:test_main",
+        "//tensorflow/core/platform:errors",
     ],
 )
 
+cc_library(
+    name = "union_find",
+    hdrs = ["union_find.h"],
+)
+
+cc_library(
+    name = "side_effect_util",
+    srcs = ["side_effect_util.cc"],
+    hdrs = ["side_effect_util.h"],
+)
+
 # -----------------------------------------------------------------------------
+
+# copybara:uncomment_begin(google-only)
+# py_proto_library(
+#     name = "xla_data_proto_py_pb2",
+#     api_version = 2,
+#     visibility = [":friends"],
+#     deps = [":xla_data_proto"],
+# )
+# copybara:uncomment_end
 
 # This is a headers target that extra XLA devices can use to prevent circular dependencies.  Devices that are compiled as separate shared objects can also use it to prevent linking of library code.
 cc_header_only_library(

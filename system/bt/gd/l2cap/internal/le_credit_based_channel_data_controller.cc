@@ -93,7 +93,7 @@ void LeCreditBasedDataController::OnPdu(packet::PacketView<true> pdu) {
     enqueue_buffer_.Enqueue(std::make_unique<PacketView<kLittleEndian>>(reassembly_stage_), handler_);
   } else if (remaining_sdu_continuation_packet_size_ < 0 || reassembly_stage_.size() > mtu_) {
     LOG_WARN("Received larger SDU size than expected");
-    reassembly_stage_ = PacketViewForReassembly(std::make_shared<std::vector<uint8_t>>());
+    reassembly_stage_ = PacketViewForReassembly(PacketView<kLittleEndian>(std::make_shared<std::vector<uint8_t>>()));
     remaining_sdu_continuation_packet_size_ = 0;
     link_->SendDisconnectionRequest(cid_, remote_cid_);
   }
@@ -102,6 +102,7 @@ void LeCreditBasedDataController::OnPdu(packet::PacketView<true> pdu) {
 }
 
 std::unique_ptr<packet::BasePacketBuilder> LeCreditBasedDataController::GetNextPacket() {
+  ASSERT(!pdu_queue_.empty());
   auto next = std::move(pdu_queue_.front());
   pdu_queue_.pop();
   return next;
@@ -123,6 +124,7 @@ void LeCreditBasedDataController::OnCredit(uint16_t credits) {
   credits_ = total_credits;
   if (pending_frames_count_ > 0 && credits_ >= pending_frames_count_) {
     scheduler_->OnPacketsReady(cid_, pending_frames_count_);
+    pending_frames_count_ = 0;
     credits_ -= pending_frames_count_;
   } else if (pending_frames_count_ > 0) {
     scheduler_->OnPacketsReady(cid_, credits_);

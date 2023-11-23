@@ -49,6 +49,13 @@
     <!-- This is the subtitle for a notification that appears after a trace was saved. Tapping it will open the 'share sheet' that will appear at the bottom of the screen and will allow the user to share the trace, for example to email. -->
     <string name="tap_to_share">Tap to share your trace</string>
 
+    <!-- This is the title for a notification that appears when Traceur is handling saving a trace to a bug report. -->
+    <string name="attaching_to_report">Attaching trace to bug report</string>
+    <!-- This is the title for a notification that appears after a trace was saved to a bug report. -->
+    <string name="attached_to_report">Attached trace to bug report</string>
+    <!-- This is the subtitle for a notification that appears after a trace was saved to a bug report. -->
+    <string name="attached_to_report_summary">Tap to open BetterBug</string>
+
     <!-- This is a message prompting the user to stop tracing. -->
     <string name="stop_tracing">Stop tracing</string>
 
@@ -129,5 +136,14 @@
     <!-- Choice for the user to select a maximum trace buffer size. -->
     <string name="sixtyfive_thousand_kb">65536 KB</string>
 
+    <!-- When enabled, causes Traceur to end any active tracing sessions when a bug report is started. -->
+    <string name="stop_on_bugreport">Stop tracing for bug reports</string>
+    <string name="stop_on_bugreport_summary">Ends active trace recordings when a bugreport is started</string>
 
+    <!-- When enabled, the tracing service can take the in-progress tracing session and attach it to a bug report. -->
+    <string name="attach_to_bug_report">Attach traces to bug reports</string>
+    <string name="attach_to_bug_report_summary">Automatically send in-progress traces to BetterBug when a bug report is collected</string>
+
+    <!-- On click, takes the user to the directory containing on-device trace files. -->
+    <string name="link_to_traces">View trace files</string>
 </resources>

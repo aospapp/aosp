@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Настройки голосовой почты может изменить только основной пользователь"</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"SIM-карта разблокирована. Осуществляется разблокировка телефона..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"PIN для разблокировки сети SIM-карты"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"SIM-карта заблокирована для оператора"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Разблокировать"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Закрыть"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Запрос разблокировки сети..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Переадресация на номер <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Отключено"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Ваш оператор не позволяет отключать переадресацию вызовов, если телефон находится вне зоны доступа."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Ваш оператор не поддерживает переадресацию вызовов."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Включить ожидание вызова?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Во время телефонного разговора вы будете получать уведомления о входящих вызовах"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Включить"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Отмена"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"Ожидание вызова CDMA, если сервис IMS включен"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Ожидание вызова CDMA, если сервис IMS выключен"</string>
     <string name="updating_title" msgid="6130548922615719689">"Настройки вызовов"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Настройки вызовов может изменить только основной пользователь"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Настройки (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,13 +294,16 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Ограниченная функциональность SIM-карты"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Звонки и мобильный Интернет через <xliff:g id="CARRIER_NAME">%1$s</xliff:g> могут блокироваться при использовании номера <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Звонки и Интернет через <xliff:g id="CARRIER_NAME">%1$s</xliff:g> могут блокироваться при использовании другой SIM-карты."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Найдены и удалены неподдерживаемые SIP-аккаунты"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"На платформе Android больше не поддерживаются звонки через протокол SIP.\nВаши SIP-аккаунты (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>) удалены.\nПодтвердите аккаунт, который будет по умолчанию использоваться для звонков."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Перейти в настройки"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Трафик приложения"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"Объем мобильного трафика за период <xliff:g id="ID_2">%2$s</xliff:g>: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Дополнительные настройки"</string>
     <string name="carrier_settings_euicc" msgid="1190237227261337749">"Оператор"</string>
     <string name="keywords_carrier_settings_euicc" msgid="8540160967922063745">"оператор, esim, sim, euicc, сменить оператора, добавить оператора"</string>
     <string name="carrier_settings_euicc_summary" msgid="2027941166597330117">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> – <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
-    <string name="mobile_data_settings_title" msgid="7228249980933944101">"Мобильный Интернет"</string>
+    <string name="mobile_data_settings_title" msgid="7228249980933944101">"Мобильный интернет"</string>
     <string name="mobile_data_settings_summary" msgid="5012570152029118471">"Доступ к Интернету по мобильной сети"</string>
     <string name="data_usage_disable_mobile" msgid="5669109209055988308">"Отключить мобильный Интернет?"</string>
     <string name="sim_selection_required_pref" msgid="6985901872978341314">"Выберите SIM-карту"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Неверный пароль. SIM-карта заблокирована. Введите код PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"Код PUK2 заблокирован навсегда"</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Осталось попыток: <xliff:g id="NUMBER">%d</xliff:g>."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"Код PUK2 заблокирован. Чтобы разблокировать его, обратитесь к оператору."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"Код PIN2 разблокирован."</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Ошибка сети или SIM-карты"</string>
     <string name="doneButton" msgid="7371209609238460207">"Готово"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Чтобы позвонить, подключитесь к мобильной сети или отключите режим полета либо режим энергосбережения."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Чтобы позвонить, отключите режим полета."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Чтобы позвонить, отключите режим полета и подключитесь к Wi-Fi."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Телефон перегрелся."</b>\n\n"Не удалось совершить звонок. Повторите попытку, когда телефон остынет.\n\nЭто не касается экстренных вызовов."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Чтобы сделать обычный звонок, выйдите из режима экстренных обратных вызовов."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Нет регистрации в сети."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Мобильная сеть недоступна."</string>
@@ -873,7 +886,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Доп. идентификатор SIM-карты для мобильного Интернета по умолчанию:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Пропускная способность DL-канала (кбит/c):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Пропускная способность UL-канала (кбит/с):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Информация о местоположении сети (устаревшее):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Конфигурация физического канала LTE:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Частота обновления данных о сетях:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Статистика сети:"</string>
@@ -904,6 +916,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Обновить"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Включить/отключить проверку DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Информация/настройки OEM"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC доступно:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR ограничено:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR доступно:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"Состояние NR:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Частота NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Настроить режим сети"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Загрузка списка частот…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Сохранить"</string>
@@ -913,4 +930,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Информация о телефоне"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Сведения о синхронизации оператора"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Запустить синхронизацию оператора"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Слабый сигнал Bluetooth. Попробуйте переключиться на громкую связь."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Уведомление о качестве связи"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Неподдерживаемые SIP-аккаунты"</string>
 </resources>

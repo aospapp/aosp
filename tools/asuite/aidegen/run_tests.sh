@@ -19,14 +19,13 @@ NC='\033[0m' # No Color
 [ "$(uname -s)" == "Darwin" ] && { realpath(){ echo "$(cd $(dirname $1);pwd -P)/$(basename $1)"; }; }
 AIDEGEN_DIR=$(dirname $(realpath $0))
 ASUITE_DIR="$(dirname $AIDEGEN_DIR)"
-CORE_DIR="$(dirname $ASUITE_DIR)/tradefederation/core"
-ATEST_DIR="$CORE_DIR/atest"
+ATEST_DIR="$ASUITE_DIR/atest"
 RC_FILE=${AIDEGEN_DIR}/.coveragerc
 MOD_COVERAGE='coverage:import coverage'
 MOD_PROTOBUF='protobuf:from google import protobuf'
 
 function get_python_path() {
-    echo "$PYTHONPATH:$CORE_DIR:$ATEST_DIR:$ASUITE_DIR"
+    echo "$PYTHONPATH:$ASUITE_DIR:$ATEST_DIR"
 }
 
 function print_summary() {
@@ -48,7 +47,7 @@ function run_unittests() {
     local specified_tests=$@
     local rc=0
 
-    # Get all unit tests under tools/acloud.
+    # Get all unit tests under asuite/aidegen.
     local all_tests=$(find $AIDEGEN_DIR -type f -name "*_unittest.py");
     local tests_to_run=$all_tests
 
@@ -56,8 +55,8 @@ function run_unittests() {
     for t in $tests_to_run; do
         echo "Testing" $t
         if ! PYTHONPATH=$(get_python_path) python3 -m coverage run --append --rcfile=$RC_FILE $t; then
-            rc=1
-            echo -e "${RED}$t failed${NC}"
+           rc=1
+           echo -e "${RED}$t failed${NC}"
         fi
     done
 

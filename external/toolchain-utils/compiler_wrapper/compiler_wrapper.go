@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -37,6 +38,29 @@ func callCompiler(env env, cfg *config, inputCmd *command) int {
 	return exitCode
 }
 
+// Given the main builder path and the absolute path to our wrapper, returns the path to the
+// 'real' compiler we should invoke.
+func calculateAndroidWrapperPath(mainBuilderPath string, absWrapperPath string) string {
+	// FIXME: This combination of using the directory of the symlink but the basename of the
+	// link target is strange but is the logic that old android wrapper uses. Change this to use
+	// directory and basename either from the absWrapperPath or from the builder.path, but don't
+	// mix anymore.
+
+	// We need to be careful here: path.Join Clean()s its result, so `./foo` will get
+	// transformed to `foo`, which isn't good since we're passing this path to exec.
+	basePart := filepath.Base(absWrapperPath) + ".real"
+	if !strings.ContainsRune(mainBuilderPath, filepath.Separator) {
+		return basePart
+	}
+
+	dirPart := filepath.Dir(mainBuilderPath)
+	if cleanResult := filepath.Join(dirPart, basePart); strings.ContainsRune(cleanResult, filepath.Separator) {
+		return cleanResult
+	}
+
+	return "." + string(filepath.Separator) + basePart
+}
+
 func callCompilerInternal(env env, cfg *config, inputCmd *command) (exitCode int, err error) {
 	if err := checkUnsupportedFlags(inputCmd); err != nil {
 		return 0, err
@@ -51,16 +75,12 @@ func callCompilerInternal(env env, cfg *config, inputCmd *command) (exitCode int
 	var compilerCmd *command
 	clangSyntax := processClangSyntaxFlag(mainBuilder)
 	if cfg.isAndroidWrapper {
-		// FIXME: This combination of using the directory of the symlink but the
-		// basename of the link target is strange but is the logic that old android
-		// wrapper uses. Change this to use directory and basename either from the
-		// absWrapperPath or from the builder.path, but don't mix anymore.
-		mainBuilder.path = filepath.Join(filepath.Dir(mainBuilder.path), filepath.Base(mainBuilder.absWrapperPath)+".real")
-
+		mainBuilder.path = calculateAndroidWrapperPath(mainBuilder.path, mainBuilder.absWrapperPath)
 		switch mainBuilder.target.compilerType {
 		case clangType:
 			mainBuilder.addPreUserArgs(mainBuilder.cfg.clangFlags...)
 			mainBuilder.addPreUserArgs(mainBuilder.cfg.commonFlags...)
+			mainBuilder.addPostUserArgs(mainBuilder.cfg.clangPostFlags...)
 			if _, err := processGomaCccFlags(mainBuilder); err != nil {
 				return 0, err
 			}
@@ -70,45 +90,60 @@ func callCompilerInternal(env env, cfg *config, inputCmd *command) (exitCode int
 		default:
 			return 0, newErrorwithSourceLocf("unsupported compiler: %s", mainBuilder.target.compiler)
 		}
-	} else if mainBuilder.target.compilerType == clangType {
-		cSrcFile, useClangTidy := processClangTidyFlags(mainBuilder)
-		sysroot, err := prepareClangCommand(mainBuilder)
-		if err != nil {
-			return 0, err
-		}
-		allowCCache := true
-		if useClangTidy {
-			allowCCache = false
-			clangCmdWithoutGomaAndCCache := mainBuilder.build()
-			if err := runClangTidy(env, clangCmdWithoutGomaAndCCache, cSrcFile); err != nil {
-				return 0, err
-			}
-		}
-		if err := processGomaCCacheFlags(sysroot, allowCCache, mainBuilder); err != nil {
-			return 0, err
-		}
-		compilerCmd = mainBuilder.build()
 	} else {
-		if clangSyntax {
-			allowCCache := false
-			clangCmd, err := calcClangCommand(allowCCache, mainBuilder.clone())
+		cSrcFile, tidyFlags, tidyMode := processClangTidyFlags(mainBuilder)
+		if mainBuilder.target.compilerType == clangType {
+			err := prepareClangCommand(mainBuilder)
 			if err != nil {
 				return 0, err
 			}
-			gccCmd, err := calcGccCommand(mainBuilder)
+			allowCCache := true
+			if tidyMode != tidyModeNone {
+				allowCCache = false
+				clangCmdWithoutGomaAndCCache := mainBuilder.build()
+				var err error
+				switch tidyMode {
+				case tidyModeTricium:
+					if cfg.triciumNitsDir == "" {
+						return 0, newErrorwithSourceLocf("tricium linting was requested, but no nits directory is configured")
+					}
+					err = runClangTidyForTricium(env, clangCmdWithoutGomaAndCCache, cSrcFile, cfg.triciumNitsDir, tidyFlags, cfg.crashArtifactsDir)
+				case tidyModeAll:
+					err = runClangTidy(env, clangCmdWithoutGomaAndCCache, cSrcFile, tidyFlags)
+				default:
+					panic(fmt.Sprintf("Unknown tidy mode: %v", tidyMode))
+				}
+
+				if err != nil {
+					return 0, err
+				}
+			}
+			if err := processGomaCCacheFlags(allowCCache, mainBuilder); err != nil {
+				return 0, err
+			}
+			compilerCmd = mainBuilder.build()
+		} else {
+			if clangSyntax {
+				allowCCache := false
+				clangCmd, err := calcClangCommand(allowCCache, mainBuilder.clone())
+				if err != nil {
+					return 0, err
+				}
+				gccCmd, err := calcGccCommand(mainBuilder)
+				if err != nil {
+					return 0, err
+				}
+				return checkClangSyntax(env, clangCmd, gccCmd)
+			}
+			compilerCmd, err = calcGccCommand(mainBuilder)
 			if err != nil {
 				return 0, err
 			}
-			return checkClangSyntax(env, clangCmd, gccCmd)
-		}
-		compilerCmd, err = calcGccCommand(mainBuilder)
-		if err != nil {
-			return 0, err
 		}
 	}
 	rusageLogfileName := getRusageLogFilename(env)
 	bisectStage := getBisectStage(env)
-	if shouldForceDisableWError(env) {
+	if shouldForceDisableWerror(env, cfg) {
 		if rusageLogfileName != "" {
 			return 0, newUserErrorf("GETRUSAGE is meaningless with FORCE_DISABLE_WERROR")
 		}
@@ -143,35 +178,33 @@ func callCompilerInternal(env env, cfg *config, inputCmd *command) (exitCode int
 	return wrapSubprocessErrorWithSourceLoc(compilerCmd, env.exec(compilerCmd))
 }
 
-func prepareClangCommand(builder *commandBuilder) (sysroot string, err error) {
-	sysroot = ""
+func prepareClangCommand(builder *commandBuilder) (err error) {
 	if !builder.cfg.isHostWrapper {
-		sysroot = processSysrootFlag(builder)
+		processSysrootFlag(builder)
 	}
 	builder.addPreUserArgs(builder.cfg.clangFlags...)
+	if builder.cfg.crashArtifactsDir != "" {
+		builder.addPreUserArgs("-fcrash-diagnostics-dir=" + builder.cfg.crashArtifactsDir)
+	}
 	builder.addPostUserArgs(builder.cfg.clangPostFlags...)
 	calcCommonPreUserArgs(builder)
-	if err := processClangFlags(builder); err != nil {
-		return "", err
-	}
-	return sysroot, nil
+	return processClangFlags(builder)
 }
 
 func calcClangCommand(allowCCache bool, builder *commandBuilder) (*command, error) {
-	sysroot, err := prepareClangCommand(builder)
+	err := prepareClangCommand(builder)
 	if err != nil {
 		return nil, err
 	}
-	if err := processGomaCCacheFlags(sysroot, allowCCache, builder); err != nil {
+	if err := processGomaCCacheFlags(allowCCache, builder); err != nil {
 		return nil, err
 	}
 	return builder.build(), nil
 }
 
 func calcGccCommand(builder *commandBuilder) (*command, error) {
-	sysroot := ""
 	if !builder.cfg.isHostWrapper {
-		sysroot = processSysrootFlag(builder)
+		processSysrootFlag(builder)
 	}
 	builder.addPreUserArgs(builder.cfg.gccFlags...)
 	if !builder.cfg.isHostWrapper {
@@ -180,7 +213,7 @@ func calcGccCommand(builder *commandBuilder) (*command, error) {
 	processGccFlags(builder)
 	if !builder.cfg.isHostWrapper {
 		allowCCache := true
-		if err := processGomaCCacheFlags(sysroot, allowCCache, builder); err != nil {
+		if err := processGomaCCacheFlags(allowCCache, builder); err != nil {
 			return nil, err
 		}
 	}
@@ -198,7 +231,7 @@ func calcCommonPreUserArgs(builder *commandBuilder) {
 	processSanitizerFlags(builder)
 }
 
-func processGomaCCacheFlags(sysroot string, allowCCache bool, builder *commandBuilder) (err error) {
+func processGomaCCacheFlags(allowCCache bool, builder *commandBuilder) (err error) {
 	gomaccUsed := false
 	if !builder.cfg.isHostWrapper {
 		gomaccUsed, err = processGomaCccFlags(builder)
@@ -207,7 +240,7 @@ func processGomaCCacheFlags(sysroot string, allowCCache bool, builder *commandBu
 		}
 	}
 	if !gomaccUsed && allowCCache {
-		processCCacheFlag(sysroot, builder)
+		processCCacheFlag(builder)
 	}
 	return nil
 }
@@ -225,22 +258,40 @@ func printCompilerError(writer io.Writer, compilerErr error) {
 	if _, ok := compilerErr.(userError); ok {
 		fmt.Fprintf(writer, "%s\n", compilerErr)
 	} else {
+		emailAccount := "chromeos-toolchain"
+		if isAndroidConfig() {
+			emailAccount = "android-llvm"
+		}
 		fmt.Fprintf(writer,
-			"Internal error. Please report to chromeos-toolchain@google.com.\n%s\n",
-			compilerErr)
+			"Internal error. Please report to %s@google.com.\n%s\n",
+			emailAccount, compilerErr)
 	}
 }
 
-func teeStdinIfNeeded(env env, inputCmd *command, dest io.Writer) io.Reader {
-	// We can't use io.TeeReader unconditionally, as that would block
-	// calls to exec.Cmd.Run(), even if the underlying process has already
-	// terminated. See https://github.com/golang/go/issues/7990 for more details.
+func needStdinTee(inputCmd *command) bool {
 	lastArg := ""
 	for _, arg := range inputCmd.Args {
 		if arg == "-" && lastArg != "-o" {
-			return io.TeeReader(env.stdin(), dest)
+			return true
 		}
 		lastArg = arg
 	}
-	return env.stdin()
+	return false
+}
+
+func prebufferStdinIfNeeded(env env, inputCmd *command) (getStdin func() io.Reader, err error) {
+	// We pre-buffer the entirety of stdin, since the compiler may exit mid-invocation with an
+	// error, which may leave stdin partially read.
+	if !needStdinTee(inputCmd) {
+		// This won't produce deterministic input to the compiler, but stdin shouldn't
+		// matter in this case, so...
+		return env.stdin, nil
+	}
+
+	stdinBuffer := &bytes.Buffer{}
+	if _, err := stdinBuffer.ReadFrom(env.stdin()); err != nil {
+		return nil, wrapErrorwithSourceLocf(err, "prebuffering stdin")
+	}
+
+	return func() io.Reader { return bytes.NewReader(stdinBuffer.Bytes()) }, nil
 }

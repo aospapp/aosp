@@ -10,7 +10,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
-ATTRIBUTES = ""
+ATTRIBUTES = "suite:power_daily"
 
 DOC = """
 Run Speedometer2 test and collect power data. Test should be ~3 minutes.

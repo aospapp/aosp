@@ -26,6 +26,8 @@ import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Parcel;
 import android.service.wallpaper.WallpaperService;
+import android.text.TextUtils;
+import android.util.AttributeSet;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -48,6 +50,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Represents a live wallpaper from the system.
@@ -65,10 +68,70 @@ public class LiveWallpaperInfo extends WallpaperInfo {
                     return new LiveWallpaperInfo[size];
                 }
             };
+
+    public static final String TAG_NAME = "live-wallpaper";
+
     private static final String TAG = "LiveWallpaperInfo";
+    public static final String ATTR_ID = "id";
+    public static final String ATTR_PACKAGE = "package";
+    public static final String ATTR_SERVICE = "service";
+
+    /**
+     * Create a new {@link LiveWallpaperInfo} from an XML {@link AttributeSet}
+     * @param context used to construct the {@link android.app.WallpaperInfo} associated with the
+     *                new {@link LiveWallpaperInfo}
+     * @param categoryId Id of the category the new wallpaper will belong to
+     * @param attrs {@link AttributeSet} to parse
+     * @return a newly created {@link LiveWallpaperInfo} or {@code null} if one couldn't be created.
+     */
+    @Nullable
+    public static LiveWallpaperInfo fromAttributeSet(Context context, String categoryId,
+            AttributeSet attrs) {
+        String wallpaperId = attrs.getAttributeValue(null, ATTR_ID);
+        if (TextUtils.isEmpty(wallpaperId)) {
+            Log.w(TAG, "Live wallpaper declaration without id in category " + categoryId);
+            return null;
+        }
+        String packageName = attrs.getAttributeValue(null, ATTR_PACKAGE);
+        String serviceName = attrs.getAttributeValue(null, ATTR_SERVICE);
+        if (TextUtils.isEmpty(serviceName)) {
+            Log.w(TAG, "Live wallpaper declaration without service: " + wallpaperId);
+            return null;
+        }
+
+        Intent intent = new Intent(WallpaperService.SERVICE_INTERFACE);
+        if (TextUtils.isEmpty(packageName)) {
+            String [] parts = serviceName.split("/");
+            if (parts != null && parts.length == 2) {
+                packageName = parts[0];
+                serviceName = parts[1];
+            } else {
+                Log.w(TAG, "Live wallpaper declaration with invalid service: " + wallpaperId);
+                return null;
+            }
+        }
+        intent.setClassName(packageName, serviceName);
+        List<ResolveInfo> resolveInfos = context.getPackageManager().queryIntentServices(intent,
+                PackageManager.GET_META_DATA);
+        if (resolveInfos.isEmpty()) {
+            Log.w(TAG, "Couldn't find live wallpaper for " + serviceName);
+            return null;
+        }
+        android.app.WallpaperInfo wallpaperInfo;
+        try {
+            wallpaperInfo = new android.app.WallpaperInfo(context, resolveInfos.get(0));
+        } catch (XmlPullParserException | IOException e) {
+            Log.w(TAG, "Skipping wallpaper " + resolveInfos.get(0).serviceInfo, e);
+            return null;
+        }
+
+        return new LiveWallpaperInfo(wallpaperInfo, false, categoryId);
+    }
+
     protected android.app.WallpaperInfo mInfo;
     protected LiveWallpaperThumbAsset mThumbAsset;
     private boolean mVisibleTitle;
+    @Nullable private final String mCollectionId;
 
     /**
      * Constructs a LiveWallpaperInfo wrapping the given system WallpaperInfo object, representing
@@ -77,21 +140,25 @@ public class LiveWallpaperInfo extends WallpaperInfo {
      * @param info
      */
     public LiveWallpaperInfo(android.app.WallpaperInfo info) {
-        this(info, true);
+        this(info, true, null);
     }
 
     /**
      * Constructs a LiveWallpaperInfo wrapping the given system WallpaperInfo object, representing
      * a particular live wallpaper.
      */
-    public LiveWallpaperInfo(android.app.WallpaperInfo info, boolean visibleTitle) {
+    public LiveWallpaperInfo(android.app.WallpaperInfo info, boolean visibleTitle,
+            @Nullable String collectionId) {
         mInfo = info;
         mVisibleTitle = visibleTitle;
+        mCollectionId = collectionId;
     }
 
-    LiveWallpaperInfo(Parcel in) {
+    protected LiveWallpaperInfo(Parcel in) {
+        super(in);
         mInfo = in.readParcelable(android.app.WallpaperInfo.class.getClassLoader());
         mVisibleTitle = in.readInt() == 1;
+        mCollectionId = in.readString();
     }
 
     /**
@@ -99,7 +166,7 @@ public class LiveWallpaperInfo extends WallpaperInfo {
      * the package names in excludedPackageNames.
      */
     public static List<WallpaperInfo> getAll(Context context,
-                                             @Nullable List<String> excludedPackageNames) {
+                                             @Nullable Set<String> excludedPackageNames) {
         List<ResolveInfo> resolveInfos = getAllOnDevice(context);
         List<WallpaperInfo> wallpaperInfos = new ArrayList<>();
         LiveWallpaperInfoFactory factory =
@@ -109,10 +176,7 @@ public class LiveWallpaperInfo extends WallpaperInfo {
             android.app.WallpaperInfo wallpaperInfo;
             try {
                 wallpaperInfo = new android.app.WallpaperInfo(context, resolveInfo);
-            } catch (XmlPullParserException e) {
-                Log.w(TAG, "Skipping wallpaper " + resolveInfo.serviceInfo, e);
-                continue;
-            } catch (IOException e) {
+            } catch (XmlPullParserException | IOException e) {
                 Log.w(TAG, "Skipping wallpaper " + resolveInfo.serviceInfo, e);
                 continue;
             }
@@ -167,7 +231,7 @@ public class LiveWallpaperInfo extends WallpaperInfo {
                 continue;
             }
 
-            wallpaperInfos.add(factory.getLiveWallpaperInfo(wallpaperInfo, shouldShowTitle));
+            wallpaperInfos.add(factory.getLiveWallpaperInfo(wallpaperInfo, shouldShowTitle, null));
         }
 
         return wallpaperInfos;
@@ -345,8 +409,10 @@ public class LiveWallpaperInfo extends WallpaperInfo {
 
     @Override
     public void writeToParcel(Parcel parcel, int i) {
+        super.writeToParcel(parcel, i);
         parcel.writeParcelable(mInfo, 0 /* flags */);
         parcel.writeInt(mVisibleTitle ? 1 : 0);
+        parcel.writeString(mCollectionId);
     }
 
     @Override
@@ -356,7 +422,9 @@ public class LiveWallpaperInfo extends WallpaperInfo {
 
     @Override
     public String getCollectionId(Context context) {
-        return context.getString(R.string.live_wallpaper_collection_id);
+        return TextUtils.isEmpty(mCollectionId)
+                ? context.getString(R.string.live_wallpaper_collection_id)
+                : mCollectionId;
     }
 
     @Override

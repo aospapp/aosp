@@ -30,7 +30,7 @@
     <string name="callFailed_number_unreachable" msgid="2855741498610643943">"Volané číslo je nedostupné"</string>
     <string name="callFailed_invalid_credentials" msgid="1915881596632385418">"Nesprávne používateľské meno alebo heslo"</string>
     <string name="callFailed_out_of_network" msgid="3725361800376129141">"Volanie mimo siete"</string>
-    <string name="callFailed_server_error" msgid="8449565039784274698">"Chyba servera: Skúste to znova neskôr."</string>
+    <string name="callFailed_server_error" msgid="8449565039784274698">"Chyba servera: Skúste to neskôr."</string>
     <string name="callFailed_noSignal" msgid="7700332004458210245">"Žiadny signál"</string>
     <string name="callFailed_limitExceeded" msgid="2877263157928717415">"Bol prekročený limit ACM"</string>
     <string name="callFailed_powerOff" msgid="2212239757387143765">"Rádio je vypnuté"</string>

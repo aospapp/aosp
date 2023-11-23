@@ -18,14 +18,11 @@ package android.telephony.ims;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 
-import android.content.pm.IPackageManager;
-import android.content.pm.PackageManager;
 import android.telephony.AccessNetworkConstants;
+import android.telephony.BinderCacheManager;
 import android.telephony.ims.aidl.IImsRegistrationCallback;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -41,10 +38,8 @@ import org.mockito.Mock;
 
 public class ImsMmTelManagerTests extends TelephonyTest {
 
-    @Mock
-    ITelephony.Stub mMockTelephonyInterface;
-    @Mock
-    IPackageManager.Stub mMockPackageManager;
+    @Mock ITelephony mMockTelephonyInterface;
+    @Mock BinderCacheManager<ITelephony> mBinderCache;
 
     public class LocalCallback extends ImsMmTelManager.RegistrationCallback {
         int mRegResult = -1;
@@ -58,13 +53,7 @@ public class ImsMmTelManagerTests extends TelephonyTest {
     @Before
     public void setUp() throws Exception {
         super.setUp("ImsMmTelManagerTests");
-        doReturn(mMockTelephonyInterface).when(mMockTelephonyInterface).queryLocalInterface(
-                anyString());
-        doReturn(mMockPackageManager).when(mMockPackageManager).queryLocalInterface(anyString());
-        doReturn(true).when(mMockPackageManager).hasSystemFeature(
-                eq(PackageManager.FEATURE_TELEPHONY_IMS), anyInt());
-        mServiceManagerMockedServices.put("phone", mMockTelephonyInterface);
-        mServiceManagerMockedServices.put("package", mMockPackageManager);
+        doReturn(mMockTelephonyInterface).when(mBinderCache).getBinder();
     }
 
     @After
@@ -78,9 +67,9 @@ public class ImsMmTelManagerTests extends TelephonyTest {
      */
     @SmallTest
     @Test
-    public void testCallbackValues() throws Exception {
+    public void testDeprecatedCallbackValues() throws Exception {
         LocalCallback cb = new LocalCallback();
-        ImsMmTelManager managerUT = new ImsMmTelManager(0);
+        ImsMmTelManager managerUT = new ImsMmTelManager(0, mBinderCache);
         managerUT.registerImsRegistrationCallback(Runnable::run, cb);
 
         // Capture the RegistrationCallback that was registered.
@@ -91,14 +80,17 @@ public class ImsMmTelManagerTests extends TelephonyTest {
 
         IImsRegistrationCallback cbBinder = callbackCaptor.getValue();
         // Ensure the transport types are correct
-        cbBinder.onRegistered(ImsRegistrationImplBase.REGISTRATION_TECH_LTE);
+        cbBinder.onRegistered(new ImsRegistrationAttributes.Builder(
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE).build());
         assertEquals(AccessNetworkConstants.TRANSPORT_TYPE_WWAN, cb.mRegResult);
-        cbBinder.onRegistered(ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN);
+        cbBinder.onRegistered(new ImsRegistrationAttributes.Builder(
+                ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN).build());
         assertEquals(AccessNetworkConstants.TRANSPORT_TYPE_WLAN, cb.mRegResult);
-        cbBinder.onRegistered(ImsRegistrationImplBase.REGISTRATION_TECH_NONE);
+        cbBinder.onRegistered(new ImsRegistrationAttributes.Builder(
+                ImsRegistrationImplBase.REGISTRATION_TECH_NONE).build());
         assertEquals(-1, cb.mRegResult);
         // Wacky value
-        cbBinder.onRegistered(0xDEADBEEF);
+        cbBinder.onRegistered(new ImsRegistrationAttributes.Builder(0xDEADBEEF).build());
         assertEquals(-1, cb.mRegResult);
     }
 }

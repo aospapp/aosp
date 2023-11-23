@@ -8,7 +8,8 @@ Assignment Agreement, please follow the instructions in
 contributor-agreement.pdf. This is needed so upstreaming code
 to projects that require copyright assignment is possible.
 
-Regular quarterly releases are tagged as vYY.MM (e.g. v19.11).
+Regular quarterly releases are tagged as vYY.MM, the latest
+release is v20.11.
 
 Source code layout:
 
@@ -17,6 +18,9 @@ math/           - math subproject sources.
 math/include/   - math library public headers.
 math/test/      - math test and benchmark related sources.
 math/tools/     - tools used for designing the algorithms.
+networking/     - networking subproject sources.
+networking/include/ - networking library public headers.
+networking/test/ - networking test and benchmark related sources.
 string/         - string routines subproject sources.
 string/include/ - string library public headers.
 string/test/    - string test and benchmark related sources.

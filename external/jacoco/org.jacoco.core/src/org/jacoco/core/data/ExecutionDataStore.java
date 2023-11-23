@@ -28,7 +28,9 @@ import java.util.Set;
  */
 public final class ExecutionDataStore implements IExecutionDataVisitor {
 
-	private final Map<Long, ExecutionData> entries = new HashMap<Long, ExecutionData>();
+	// BEGIN android-change
+	private final Map<Long, IExecutionData> entries = new HashMap<Long, IExecutionData>();
+	// END android-change
 
 	private final Set<String> names = new HashSet<String>();
 
@@ -44,9 +46,11 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	 *             to a corresponding one, that is already contained
 	 * @see ExecutionData#assertCompatibility(long, String, int)
 	 */
-	public void put(final ExecutionData data) throws IllegalStateException {
+	// BEGIN android-change
+	public void put(final IExecutionData data) throws IllegalStateException {
 		final Long id = Long.valueOf(data.getId());
-		final ExecutionData entry = entries.get(id);
+		final IExecutionData entry = entries.get(id);
+		// END android-change
 		if (entry == null) {
 			entries.put(id, data);
 			names.add(data.getName());
@@ -68,9 +72,11 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	 *             to a corresponding one, that is already contained
 	 * @see ExecutionData#assertCompatibility(long, String, int)
 	 */
-	public void subtract(final ExecutionData data) throws IllegalStateException {
+	// BEGIN android-change
+	public void subtract(final IExecutionData data) throws IllegalStateException {
 		final Long id = Long.valueOf(data.getId());
-		final ExecutionData entry = entries.get(id);
+		final IExecutionData entry = entries.get(id);
+		// END android-change
 		if (entry != null) {
 			entry.merge(data, false);
 		}
@@ -84,7 +90,9 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	 * @see #subtract(ExecutionData)
 	 */
 	public void subtract(final ExecutionDataStore store) {
-		for (final ExecutionData data : store.getContents()) {
+		// BEGIN android-change
+		for (final IExecutionData data : store.getContents()) {
+		// END android-change
 			subtract(data);
 		}
 	}
@@ -97,7 +105,9 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	 *            class id
 	 * @return execution data or <code>null</code>
 	 */
-	public ExecutionData get(final long id) {
+	// BEGIN android-change
+	public IExecutionData get(final long id) {
+	// END android-change
 		return entries.get(Long.valueOf(id));
 	}
 
@@ -126,9 +136,11 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	 *            probe data length
 	 * @return execution data
 	 */
-	public ExecutionData get(final Long id, final String name,
+	// BEGIN android-change
+	public IExecutionData get(final Long id, final String name,
 			final int probecount) {
-		ExecutionData entry = entries.get(id);
+		IExecutionData entry = entries.get(id);
+		// END android-change
 		if (entry == null) {
 			entry = new ExecutionData(id.longValue(), name, probecount);
 			entries.put(id, entry);
@@ -144,7 +156,9 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	 * execution data objects itself are not removed.
 	 */
 	public void reset() {
-		for (final ExecutionData executionData : this.entries.values()) {
+		// BEGIN android-change
+		for (final IExecutionData executionData : this.entries.values()) {
+		// END android-change
 			executionData.reset();
 		}
 	}
@@ -154,9 +168,11 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	 * 
 	 * @return current contents
 	 */
-	public Collection<ExecutionData> getContents() {
-		return new ArrayList<ExecutionData>(entries.values());
+	// BEGIN android-change
+	public Collection<IExecutionData> getContents() {
+		return new ArrayList<IExecutionData>(entries.values());
 	}
+	// END android-change
 
 	/**
 	 * Writes the content of the store to the given visitor interface.
@@ -165,14 +181,18 @@ public final class ExecutionDataStore implements IExecutionDataVisitor {
 	 *            interface to write content to
 	 */
 	public void accept(final IExecutionDataVisitor visitor) {
-		for (final ExecutionData data : getContents()) {
+		// BEGIN android-change
+		for (final IExecutionData data : getContents()) {
+		// END android-change
 			visitor.visitClassExecution(data);
 		}
 	}
 
 	// === IExecutionDataVisitor ===
 
-	public void visitClassExecution(final ExecutionData data) {
+	// BEGIN android-change
+	public void visitClassExecution(final IExecutionData data) {
+	// END android-change
 		put(data);
 	}
 }

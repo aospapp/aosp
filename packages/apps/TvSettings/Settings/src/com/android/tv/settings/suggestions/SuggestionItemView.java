@@ -90,7 +90,7 @@ public class SuggestionItemView extends LinearLayout {
         if (focused.getId() == R.id.dismiss_button
                 && ((isRTL && direction == ViewGroup.FOCUS_RIGHT)
                 || (!isRTL && direction == ViewGroup.FOCUS_LEFT)))  {
-            return mContainer;
+            return mItemContainer;
         } else if (focused.getId() == R.id.main_container
                 && ((isRTL && direction == ViewGroup.FOCUS_LEFT)
                 || (!isRTL && direction == ViewGroup.FOCUS_RIGHT))) {

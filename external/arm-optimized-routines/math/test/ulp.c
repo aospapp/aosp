@@ -1,7 +1,7 @@
 /*
  * ULP error checking tool for math functions.
  *
- * Copyright (c) 2019, Arm Limited.
+ * Copyright (c) 2019-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -331,11 +331,13 @@ static const struct fun fun[] = {
  F1 (log)
  F1 (log2)
  F2 (pow)
+ F1 (erf)
  D1 (exp)
  D1 (exp2)
  D1 (log)
  D1 (log2)
  D2 (pow)
+ D1 (erf)
 #if WANT_VMATH
  F (__s_sinf, __s_sinf, sin, mpfr_sin, 1, 1, f1, 0)
  F (__s_cosf, __s_cosf, cos, mpfr_cos, 1, 1, f1, 0)

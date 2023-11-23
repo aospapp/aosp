@@ -36,17 +36,36 @@ struct wl_cursor_theme;
 struct wl_buffer;
 struct wl_shm;
 
+/** A still image part of a cursor
+ *
+ * Use `wl_cursor_image_get_buffer()` to get the corresponding `struct
+ * wl_buffer` to attach to your `struct wl_surface`. */
 struct wl_cursor_image {
-	uint32_t width;		/* actual width */
-	uint32_t height;	/* actual height */
-	uint32_t hotspot_x;	/* hot spot x (must be inside image) */
-	uint32_t hotspot_y;	/* hot spot y (must be inside image) */
-	uint32_t delay;		/* animation delay to next frame (ms) */
+	/** Actual width */
+	uint32_t width;
+
+	/** Actual height */
+	uint32_t height;
+
+	/** Hot spot x (must be inside image) */
+	uint32_t hotspot_x;
+
+	/** Hot spot y (must be inside image) */
+	uint32_t hotspot_y;
+
+	/** Animation delay to next frame (ms) */
+	uint32_t delay;
 };
 
+/** A cursor, as returned by `wl_cursor_theme_get_cursor()` */
 struct wl_cursor {
+	/** How many images there are in this cursor’s animation */
 	unsigned int image_count;
+
+	/** The array of still images composing this animation */
 	struct wl_cursor_image **images;
+
+	/** The name of this cursor */
 	char *name;
 };
 

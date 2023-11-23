@@ -16,11 +16,29 @@
 
 // apksig library, for signing APKs and verifying signatures of APKs
 // ============================================================
+package {
+    default_applicable_licenses: ["tools_apksig_license"],
+}
+
+// Added automatically by a large-scale-change
+// http://go/android-license-faq
+license {
+    name: "tools_apksig_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 java_library_host {
     name: "apksig",
     srcs: [
         "src/main/java/**/*.java",
     ],
+    java_version: "1.8",
 }
 
 // apksigner command-line tool for signing APKs and verifying their signatures
@@ -35,5 +53,6 @@ java_binary_host {
         "apksig",
         "conscrypt-unbundled",
     ],
-    required: ["libconscrypt_openjdk_jni"],
+    jni_libs: ["libconscrypt_openjdk_jni"],
+    java_version: "1.8",
 }

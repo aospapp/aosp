@@ -313,6 +313,9 @@ TEST_P(TvInputHidlTest, OpenAnOpenedStreamsTest) {
     tv_input_->openStream(device_id, stream_id,
                           [&result](Result res, const native_handle_t*) { result = res; });
     EXPECT_EQ(Result::INVALID_STATE, result);
+
+    // close stream as subsequent tests assume no open streams
+    EXPECT_EQ(Result::OK, tv_input_->closeStream(device_id, stream_id));
 }
 
 /*
@@ -337,3 +340,6 @@ INSTANTIATE_TEST_SUITE_P(
         PerInstance, TvInputHidlTest,
         testing::ValuesIn(android::hardware::getAllHalInstanceNames(ITvInput::descriptor)),
         android::hardware::PrintInstanceNameToString);
+
+// TODO remove from the allow list once the cf tv target is enabled for testing
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TvInputHidlTest);

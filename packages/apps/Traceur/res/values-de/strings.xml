@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="system_tracing" msgid="4719188511746319848">"System-Tracing"</string>
+    <string name="system_tracing" msgid="4719188511746319848">"Ablaufverfolgung"</string>
     <string name="record_system_activity" msgid="4339462312915377825">"Systemaktivitäten werden erfasst und später analysiert, um die Leistung zu verbessern"</string>
     <string name="record_trace" msgid="6416875085186661845">"Trace aufzeichnen"</string>
     <string name="trace_debuggable_applications" msgid="7957069895298887899">"Debug-fähige Anwendungen in Trace aufnehmen"</string>
@@ -20,6 +20,9 @@
     <string name="saving_trace" msgid="1468692734770800541">"Trace wird gespeichert"</string>
     <string name="trace_saved" msgid="5869970594780992309">"Trace wurde gespeichert"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"Tippen, um den Trace zu teilen"</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"Trace wird an Fehlerbericht angehängt"</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"Trace wurde an den Fehlerbericht angehängt"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"Tippen, um BetterBug zu öffnen"</string>
     <string name="stop_tracing" msgid="8916938308534164152">"Tracing beenden"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"Einige Tracing-Kategorien sind nicht verfügbar:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"Trace wird aufgezeichnet"</string>
@@ -56,4 +59,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16384 KB"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32768 KB"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65536 KB"</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"Tracing von Fehlerberichten beenden"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"Aktive Tracing-Aufnahmen werden beendet, wenn ein Fehlerbericht gestartet wird"</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"Traces an Fehlerberichte anhängen"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"Sendet automatisch laufende Traces an BetterBug, wenn ein Fehlerbericht abgerufen wird"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"Trace-Dateien ansehen"</string>
 </resources>

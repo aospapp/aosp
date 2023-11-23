@@ -31,6 +31,8 @@ import android.os.Process;
 import android.security.KeyChainException;
 import android.test.MoreAsserts;
 
+import com.android.cts.devicepolicy.TestCertificates;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -60,6 +62,8 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
     private static final String ACTION_INSTALL_KEYPAIR =
             "com.android.cts.certinstaller.install_keypair";
     private static final String ACTION_CERT_OPERATION_DONE = "com.android.cts.certinstaller.done";
+    private static final String ACTION_READ_ENROLLMENT_SPECIFIC_ID =
+            "com.android.cts.certinstaller.read_esid";
 
     private static final String EXTRA_CERT_DATA = "extra_cert_data";
     private static final String EXTRA_KEY_DATA = "extra_key_data";
@@ -72,77 +76,6 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
             CERT_INSTALLER_PACKAGE, "com.android.cts.certinstaller.CertInstallerReceiver");
 
     private static final List<String> CERT_INSTALL_SCOPES = Arrays.asList(DELEGATION_CERT_INSTALL);
-
-    /*
-     * The CA and keypair below are generated with:
-     *
-     * openssl req -new -x509 -days 3650 -extensions v3_ca -keyout cakey.pem -out cacert.pem
-     * openssl req -newkey rsa:1024 -keyout userkey.pem -nodes -days 3650 -out userkey.req
-     * mkdir -p demoCA/newcerts
-     * touch demoCA/index.txt
-     * echo "01" > demoCA/serial
-     * openssl ca -out usercert.pem -in userkey.req -cert cacert.pem -keyfile cakey.pem -days 3650
-     */
-
-     // Content from cacert.pem
-    private static final String TEST_CA =
-            "-----BEGIN CERTIFICATE-----\n" +
-            "MIIDXTCCAkWgAwIBAgIJAK9Tl/F9V8kSMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV\n" +
-            "BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX\n" +
-            "aWRnaXRzIFB0eSBMdGQwHhcNMTUwMzA2MTczMjExWhcNMjUwMzAzMTczMjExWjBF\n" +
-            "MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50\n" +
-            "ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB\n" +
-            "CgKCAQEAvItOutsE75WBTgTyNAHt4JXQ3JoseaGqcC3WQij6vhrleWi5KJ0jh1/M\n" +
-            "Rpry7Fajtwwb4t8VZa0NuM2h2YALv52w1xivql88zce/HU1y7XzbXhxis9o6SCI+\n" +
-            "oVQSbPeXRgBPppFzBEh3ZqYTVhAqw451XhwdA4Aqs3wts7ddjwlUzyMdU44osCUg\n" +
-            "kVg7lfPf9sTm5IoHVcfLSCWH5n6Nr9sH3o2ksyTwxuOAvsN11F/a0mmUoPciYPp+\n" +
-            "q7DzQzdi7akRG601DZ4YVOwo6UITGvDyuAAdxl5isovUXqe6Jmz2/myTSpAKxGFs\n" +
-            "jk9oRoG6WXWB1kni490GIPjJ1OceyQIDAQABo1AwTjAdBgNVHQ4EFgQUH1QIlPKL\n" +
-            "p2OQ/AoLOjKvBW4zK3AwHwYDVR0jBBgwFoAUH1QIlPKLp2OQ/AoLOjKvBW4zK3Aw\n" +
-            "DAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAcMi4voMMJHeQLjtq8Oky\n" +
-            "Azpyk8moDwgCd4llcGj7izOkIIFqq/lyqKdtykVKUWz2bSHO5cLrtaOCiBWVlaCV\n" +
-            "DYAnnVLM8aqaA6hJDIfaGs4zmwz0dY8hVMFCuCBiLWuPfiYtbEmjHGSmpQTG6Qxn\n" +
-            "ZJlaK5CZyt5pgh5EdNdvQmDEbKGmu0wpCq9qjZImwdyAul1t/B0DrsWApZMgZpeI\n" +
-            "d2od0VBrCICB1K4p+C51D93xyQiva7xQcCne+TAnGNy9+gjQ/MyR8MRpwRLv5ikD\n" +
-            "u0anJCN8pXo6IMglfMAsoton1J6o5/ae5uhC6caQU8bNUsCK570gpNfjkzo6rbP0\n" +
-            "wQ==\n" +
-            "-----END CERTIFICATE-----";
-    // Content from userkey.pem without the private key header and footer.
-    private static final String TEST_KEY =
-            "MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBALCYprGsTU+5L3KM\n" +
-            "fhkm0gXM2xjGUH+543YLiMPGVr3eVS7biue1/tQlL+fJsw3rqsPKJe71RbVWlpqU\n" +
-            "mhegxG4s3IvGYVB0KZoRIjDKmnnvlx6nngL2ZJ8O27U42pHsw4z4MKlcQlWkjL3T\n" +
-            "9sV6zW2Wzri+f5mvzKjhnArbLktHAgMBAAECgYBlfVVPhtZnmuXJzzQpAEZzTugb\n" +
-            "tN1OimZO0RIocTQoqj4KT+HkiJOLGFQPwbtFpMre+q4SRqNpM/oZnI1yRtKcCmIc\n" +
-            "mZgkwJ2k6pdSxqO0ofxFFTdT9czJ3rCnqBHy1g6BqUQFXT4olcygkxUpKYUwzlz1\n" +
-            "oAl487CoPxyr4sVEAQJBANwiUOHcdGd2RoRILDzw5WOXWBoWPOKzX/K9wt0yL+mO\n" +
-            "wlFNFSymqo9eLheHcEq/VD9qK9rT700dCewJfWj6+bECQQDNXmWNYIxGii5NJilT\n" +
-            "OBOHiMD/F0NE178j+/kmacbhDJwpkbLYXaP8rW4+Iswrm4ORJ59lvjNuXaZ28+sx\n" +
-            "fFp3AkA6Z7Bl/IO135+eATgbgx6ZadIqObQ1wbm3Qbmtzl7/7KyJvZXcnuup1icM\n" +
-            "fxa//jtwB89S4+Ad6ZJ0WaA4dj5BAkEAuG7V9KmIULE388EZy8rIfyepa22Q0/qN\n" +
-            "hdt8XasRGHsio5Jdc0JlSz7ViqflhCQde/aBh/XQaoVgQeO8jKyI8QJBAJHekZDj\n" +
-            "WA0w1RsBVVReN1dVXgjm1CykeAT8Qx8TUmBUfiDX6w6+eGQjKtS7f4KC2IdRTV6+\n" +
-            "bDzDoHBChHNC9ms=\n";
-
-    // Content from usercert.pem without the header and footer.
-    private static final String TEST_CERT =
-            "MIIDEjCCAfqgAwIBAgIBATANBgkqhkiG9w0BAQsFADBFMQswCQYDVQQGEwJBVTET\n" +
-            "MBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50ZXJuZXQgV2lkZ2l0cyBQ\n" +
-            "dHkgTHRkMB4XDTE1MDUwMTE2NTQwNVoXDTI1MDQyODE2NTQwNVowWzELMAkGA1UE\n" +
-            "BhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGEludGVybmV0IFdp\n" +
-            "ZGdpdHMgUHR5IEx0ZDEUMBIGA1UEAwwLY2xpZW50IGNlcnQwgZ8wDQYJKoZIhvcN\n" +
-            "AQEBBQADgY0AMIGJAoGBALCYprGsTU+5L3KMfhkm0gXM2xjGUH+543YLiMPGVr3e\n" +
-            "VS7biue1/tQlL+fJsw3rqsPKJe71RbVWlpqUmhegxG4s3IvGYVB0KZoRIjDKmnnv\n" +
-            "lx6nngL2ZJ8O27U42pHsw4z4MKlcQlWkjL3T9sV6zW2Wzri+f5mvzKjhnArbLktH\n" +
-            "AgMBAAGjezB5MAkGA1UdEwQCMAAwLAYJYIZIAYb4QgENBB8WHU9wZW5TU0wgR2Vu\n" +
-            "ZXJhdGVkIENlcnRpZmljYXRlMB0GA1UdDgQWBBQ8GL+jKSarvTn9fVNA2AzjY7qq\n" +
-            "gjAfBgNVHSMEGDAWgBRzBBA5sNWyT/fK8GrhN3tOqO5tgjANBgkqhkiG9w0BAQsF\n" +
-            "AAOCAQEAgwQEd2bktIDZZi/UOwU1jJUgGq7NiuBDPHcqgzjxhGFLQ8SQAAP3v3PR\n" +
-            "mLzcfxsxnzGynqN5iHQT4rYXxxaqrp1iIdj9xl9Wl5FxjZgXITxhlRscOd/UOBvG\n" +
-            "oMrazVczjjdoRIFFnjtU3Jf0Mich68HD1Z0S3o7X6sDYh6FTVR5KbLcxbk6RcoG4\n" +
-            "VCI5boR5LUXgb5Ed5UxczxvN12S71fyxHYVpuuI0z0HTIbAxKeRw43I6HWOmR1/0\n" +
-            "G6byGCNL/1Fz7Y+264fGqABSNTKdZwIU2K4ANEH7F+9scnhoO6OBp+gjBe5O+7jb\n" +
-            "wZmUCAoTka4hmoaOCj7cqt/IkmxozQ==\n";
 
     private DevicePolicyManager mDpm;
     private volatile boolean mReceivedResult;
@@ -178,7 +111,7 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
     @Override
     public void tearDown() throws Exception {
         mContext.unregisterReceiver(receiver);
-        mDpm.uninstallCaCert(ADMIN_RECEIVER_COMPONENT, TEST_CA.getBytes());
+        mDpm.uninstallCaCert(ADMIN_RECEIVER_COMPONENT, TestCertificates.TEST_CA.getBytes());
         // Installed private key pair will be removed once the lockscreen password is cleared,
         // which is done in the hostside test.
         mDpm.setCertInstallerPackage(ADMIN_RECEIVER_COMPONENT, null);
@@ -187,7 +120,7 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
 
     public void testCaCertsOperations() throws InterruptedException, GeneralSecurityException,
            KeyStoreException, IOException {
-        final byte[] cert = TEST_CA.getBytes();
+        final byte[] cert = TestCertificates.TEST_CA.getBytes();
         final Certificate caCert = CertificateFactory.getInstance("X.509")
                 .generateCertificate(new ByteArrayInputStream(cert));
 
@@ -239,7 +172,7 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
         mDpm.setCertInstallerPackage(ADMIN_RECEIVER_COMPONENT, null);
         // The app is not the cert installer , it shouldn't have have privilege to call
         // installKeyPair().
-        installKeyPair(TEST_KEY, TEST_CERT, alias);
+        installKeyPair(TestCertificates.TEST_KEY, TestCertificates.TEST_CERT, alias);
         assertResult("installKeyPair", false);
 
         // Set the app to be cert installer.
@@ -248,7 +181,7 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
                 mDpm.getCertInstallerPackage(ADMIN_RECEIVER_COMPONENT));
 
         // Exercise installKeyPair()
-        installKeyPair(TEST_KEY, TEST_CERT, alias);
+        installKeyPair(TestCertificates.TEST_KEY, TestCertificates.TEST_CERT, alias);
         assertResult("installKeyPair", true);
     }
 
@@ -313,6 +246,19 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
         assertThat(mDpm.getCertInstallerPackage(ADMIN_RECEIVER_COMPONENT)).isNull();
     }
 
+    public void testCanReadEnrollmentSpecificId() throws InterruptedException {
+        // Set the organization ID only if not already set, to avoid potential conflict
+        // with other tests.
+        if (mDpm.getEnrollmentSpecificId().isEmpty()) {
+            mDpm.setOrganizationId("SOME_ID");
+        }
+        mDpm.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, CERT_INSTALLER_PACKAGE,
+                CERT_INSTALL_SCOPES);
+
+        readEnrollmentId();
+        assertResult("testCanReadEnrollmentSpecificId", true);
+    }
+
     private void installCaCert(byte[] cert) {
         Intent intent = new Intent();
         intent.setAction(ACTION_INSTALL_CERT);
@@ -349,7 +295,7 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
 
     private void assertResult(String testName, Boolean expectSuccess) throws InterruptedException {
         assertTrue("Cert installer did not respond in time.",
-                mAvailableResultSemaphore.tryAcquire(60, TimeUnit.SECONDS));
+                mAvailableResultSemaphore.tryAcquire(180, TimeUnit.SECONDS));
         synchronized (this) {
             if (expectSuccess) {
                 assertTrue(testName + " failed unexpectedly.", mReceivedResult);
@@ -370,6 +316,14 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
         intent.putExtra(EXTRA_CERT_DATA, cert);
         intent.putExtra(EXTRA_KEY_DATA, key);
         intent.putExtra(EXTRA_KEY_ALIAS, alias);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        mContext.sendBroadcast(intent);
+    }
+
+    private void readEnrollmentId() {
+        Intent intent = new Intent();
+        intent.setAction(ACTION_READ_ENROLLMENT_SPECIFIC_ID);
+        intent.setComponent(CERT_INSTALLER_COMPONENT);
         intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mContext.sendBroadcast(intent);
     }

@@ -282,7 +282,7 @@ static void help() {
 //  atrace --async_start -c sched idle workq binder_driver freq && \
 //    libhwbinder_latency -i 10000 -pair 4 -trace
 int main(int argc, char** argv) {
-    setenv("TREBLE_TESTING_OVERRIDE", "true", true);
+    android::hardware::details::setTrebleTestingOverride(true);
 
     vector<Pipe> client_pipes;
     vector<Pipe> service_pipes;

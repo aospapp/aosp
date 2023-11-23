@@ -24,9 +24,11 @@ import android.graphics.drawable.Icon;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
-import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.car.notification.NotificationUtils;
 import com.android.car.notification.R;
@@ -39,14 +41,16 @@ import com.android.car.notification.R;
  * the content is the message, and the image icon is the sender's avatar.
  */
 public class CarNotificationBodyView extends RelativeLayout {
+    private static final int DEFAULT_MAX_LINES = 1;
     @ColorInt
     private final int mDefaultPrimaryTextColor;
     @ColorInt
     private final int mDefaultSecondaryTextColor;
     private boolean mShowBigIcon;
+    private int mMaxLines;
     private TextView mTitleView;
     private TextView mContentView;
-    private ImageButton mIconView;
+    private ImageView mIconView;
 
     public CarNotificationBodyView(Context context) {
         super(context);
@@ -82,6 +86,8 @@ public class CarNotificationBodyView extends RelativeLayout {
         mShowBigIcon =
                 attributes.getBoolean(R.styleable.CarNotificationBodyView_showBigIcon,
                         /* defValue= */ false);
+        mMaxLines = attributes.getInteger(R.styleable.CarNotificationBodyView_maxLines,
+                /* defValue= */ DEFAULT_MAX_LINES);
         attributes.recycle();
     }
 
@@ -108,6 +114,7 @@ public class CarNotificationBodyView extends RelativeLayout {
 
         if (!TextUtils.isEmpty(content)) {
             mContentView.setVisibility(View.VISIBLE);
+            mContentView.setMaxLines(mMaxLines);
             mContentView.setText(content);
         }
 
@@ -124,6 +131,7 @@ public class CarNotificationBodyView extends RelativeLayout {
         mTitleView.setText(title);
         if (!TextUtils.isEmpty(content)) {
             mContentView.setVisibility(View.VISIBLE);
+            mContentView.setMaxLines(mMaxLines);
             mContentView.setText(content);
             mIconView.setVisibility(View.GONE);
         }
@@ -153,5 +161,15 @@ public class CarNotificationBodyView extends RelativeLayout {
         mIconView.setVisibility(View.GONE);
         setPrimaryTextColor(mDefaultPrimaryTextColor);
         setSecondaryTextColor(mDefaultSecondaryTextColor);
+    }
+
+    @VisibleForTesting
+    TextView getTitleView() {
+        return mTitleView;
+    }
+
+    @VisibleForTesting
+    TextView getContentView() {
+        return mContentView;
     }
 }

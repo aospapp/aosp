@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Приступ менаџеру преузимања."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Омогућава апликацији да приступа менаџеру за дељење преко Bluetooth-а и да га користи за пренос датотека."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Приступ Bluetooth уређаја са беле листе."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Дозвољава апликацији да привремено стави Bluetooth уређај на белу листу, што омогућава том уређају да шаље датотеке овом уређају без потврде корисника."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Стави приступ Bluetooth уређаја на листу прихваћених уређаја."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Дозвољава апликацији да привремено стави Bluetooth уређај на листу прихваћених уређаја, што омогућава том уређају да шаље датотеке овом уређају без одобрења корисника."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Непознати уређај"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Непознато"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"Потврди"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Дошло је до временског ограничења током пријема долазне датотеке од „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Долазна датотека"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> је спреман/на да пошаље <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> је спреман/на за слање фајла: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetooth дељење: пријем <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetooth дељење: примљено <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetooth дељење: датотека <xliff:g id="FILE">%1$s</xliff:g> није примљена"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Слање датотеке примаоцу „<xliff:g id="RECIPIENT">%1$s</xliff:g>“"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Слање<xliff:g id="NUMBER">%1$s</xliff:g> датотека примаоцу „<xliff:g id="RECIPIENT">%2$s</xliff:g>“"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Заустављено слање примаоцу „<xliff:g id="RECIPIENT">%1$s</xliff:g>“"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Нема довољно простора у USB меморији да би се сачувала датотека пошиљаоца „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Нема довољно простора на SD картици да би се сачувала датотека пошиљаоца „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"Нема довољно простора у USB меморији за чување датотеке."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"Нема довољно простора на SD картици за чување датотеке."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Потребан простор: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Превише захтева се обрађује. Пробајте поново касније."</string>
     <string name="status_pending" msgid="2503691772030877944">"Пренос датотеке још није почео."</string>

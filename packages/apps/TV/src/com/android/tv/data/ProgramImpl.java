@@ -419,7 +419,7 @@ public final class ProgramImpl extends BaseProgramImpl implements Parcelable, Pr
 
     @Override
     public int hashCode() {
-        // Hash with all the properties because program ID can be invalid for the dummy programs.
+        // Hash with all the properties because program ID can be invalid for the stub programs.
         return Objects.hash(
                 mChannelId,
                 mStartTimeUtcMillis,
@@ -446,7 +446,7 @@ public final class ProgramImpl extends BaseProgramImpl implements Parcelable, Pr
         if (!(other instanceof ProgramImpl)) {
             return false;
         }
-        // Compare all the properties because program ID can be invalid for the dummy programs.
+        // Compare all the properties because program ID can be invalid for the stub programs.
         ProgramImpl program = (ProgramImpl) other;
         return Objects.equals(mPackageName, program.mPackageName)
                 && mChannelId == program.mChannelId

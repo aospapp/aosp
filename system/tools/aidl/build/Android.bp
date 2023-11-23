@@ -12,21 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_tools_aidl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_tools_aidl_license"],
+}
+
 bootstrap_go_package {
     name: "aidl-soong-rules",
     pkgPath: "android/soong/aidl",
     deps: [
         "blueprint",
         "soong",
+        "soong-apex",
         "soong-android",
         "soong-cc",
         "soong-genrule",
         "soong-phony",
         "soong-java",
+        "soong-rust",
     ],
     srcs: [
         "aidl_interface.go",
         "properties.go",
+        "aidl_api.go",
+        "aidl_gen_rule.go",
+        "aidl_interface_backends.go",
+        "aidl_interface_metadata_singleton.go",
+        "aidl_mapping.go",
+        "aidl_rust_source_provider.go",
+        "aidl_utils.go",
     ],
     testSrcs: [
         "aidl_test.go",
@@ -40,20 +58,21 @@ aidl_interfaces_metadata {
 }
 
 // These configurations are inherited by all aidl-gen modules
-
+// TODO(b/146436251): default isn't applied because the module is created
+// in PreArchMutators, when import behavior becomes explicit, the logic can
+// be moved back to LoadHook, and then default can be applied as well.
 cc_defaults {
     name: "aidl-cpp-module-defaults",
     // TODO(b/31559095): remove when host bionic is available
     defaults: ["libbinder_ndk_host_user"],
-    cflags: [
-        "-Wall",
-        "-Werror",
-        "-Wextra-semi",
-    ],
 }
 
 java_defaults {
     name: "aidl-java-module-defaults",
+}
+
+rust_defaults {
+    name: "aidl-rust-module-defaults",
 }
 
 // Tests
@@ -67,22 +86,13 @@ filegroup {
     ],
 }
 
-// Copy of test-piece-1 as test only. Creating a separate library because 'vendor_available' is
-// contagious.
-aidl_interface {
-    name: "test-variants",
-    unstable: true,
-    local_include_dir: "tests_1",
-    vendor_available: true,
-    host_supported: true,
-    srcs: [
-        ":aidl-test-filegroup",
-    ],
-}
-
 aidl_interface {
     name: "test-piece-1",
     local_include_dir: "tests_1",
+    vendor_available: true,
+    double_loadable: true,
+    host_supported: true,
+    flags: ["-Werror"],
     srcs: [
         "tests_1/some_package/IFoo.aidl",
         "tests_1/some_package/Thing.aidl",
@@ -98,6 +108,7 @@ aidl_interface {
 aidl_interface {
     name: "test-piece-2",
     local_include_dir: "tests_1",
+    flags: ["-Werror"],
     srcs: [
         "tests_1/INoPackage.aidl",
         "tests_1/some_package/IBar.aidl",
@@ -105,43 +116,128 @@ aidl_interface {
     imports: [
         "test-piece-1",
     ],
+    backend: {
+        java: {
+            platform_apis: true,
+        },
+    },
+    gen_trace: true,
     versions: ["1"],
 }
 
 aidl_interface {
     name: "test-piece-3",
     local_include_dir: "tests_1",
+    flags: ["-Werror"],
     srcs: [
         "tests_1/other_package/IBaz.aidl",
     ],
     imports: [
         "test-piece-2",
     ],
+    backend: {
+        java: {
+            platform_apis: true,
+        },
+    },
+    gen_trace: true,
     versions: ["1"],
 }
 
 aidl_interface {
     name: "test-piece-4",
     local_include_dir: "tests_2",
+    flags: ["-Werror"],
     srcs: [
         "tests_2/another_package/IFaz.aidl",
     ],
     imports: [
         "test-piece-1",
     ],
+    backend: {
+        java: {
+            platform_apis: true,
+        },
+    },
+    gen_trace: true,
     versions: ["1"],
+    dumpapi: {
+        no_license: true,
+    },
 }
 
 aidl_interface {
     name: "test-root-package",
+    flags: ["-Werror"],
     srcs: [
         "test_package/IBaz.aidl",
     ],
     imports: [
         "test-piece-2",
     ],
+    backend: {
+        java: {
+            platform_apis: true,
+        },
+    },
+    gen_trace: true,
     versions: [
         "1",
         "2",
     ],
+}
+
+aidl_interface {
+    name: "test-piece-5",
+    unstable: true,
+    local_include_dir: "tests_3",
+    flags: ["-Werror"],
+    srcs: [
+        "tests_3/EmptyParcelable.aidl",
+        "tests_3/IEmptyInterface.aidl",
+    ],
+}
+
+// These test that a parcel imported from A->B->C will have the required dependencies to link in
+// all backends (C++ backends need to link direclty against the constructor of the parcelable
+// in order to work)
+aidl_interface {
+    name: "tests_transitive_parcel.a",
+    flags: ["-Werror"],
+    srcs: [ "tests_transitive_parcel/a/*.aidl" ],
+    imports: [
+        "tests_transitive_parcel.b",
+        "tests_transitive_parcel.c",
+    ],
+    unstable: true,
+    backend: {
+        rust: {
+            enabled: true,
+        },
+    },
+}
+
+aidl_interface {
+    name: "tests_transitive_parcel.b",
+    flags: ["-Werror"],
+    srcs: [ "tests_transitive_parcel/b/*.aidl" ],
+    imports: [ "tests_transitive_parcel.c" ],
+    unstable: true,
+    backend: {
+        rust: {
+            enabled: true,
+        },
+    },
+}
+
+aidl_interface {
+    name: "tests_transitive_parcel.c",
+    flags: ["-Werror"],
+    srcs: [ "tests_transitive_parcel/c/*.aidl" ],
+    unstable: true,
+    backend: {
+        rust: {
+            enabled: true,
+        },
+    },
 }

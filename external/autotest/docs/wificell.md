@@ -54,8 +54,37 @@ test_that --args="router_addr=my-other-router pcap_addr=my-other-pcap" \
         my-host suite:wifi_matfunc
 ```
 
+If the test is using
+[Tast](https://chromium.googlesource.com/chromiumos/platform/tast/) instead of
+autotest, you can pass the `router` and `pcap` arguments to `tast run` instead:
+
+```bash
+# DUT at 'my-host', AP at 'my-other-router', and PCAP at 'my-other-pcap'
+tast run -var="router=my-other-router" -var="pcap=my-other-pcap" my-host \
+        wifi.ChannelHop
+```
+
 Also, note that if a pcap device isn't found at `${HOST}-pcap`, then we often
-can utilize the test AP to capture packets as well.
+can utilize the test AP to capture packets as well. The test framework does
+this by creating one or more monitor-mode interfaces in addition to the AP-mode
+interface(s) normally used for tests. Note that 802.11 radios cannot both
+transmit and receive at the same time, so this mode operates with slightly
+degraded functionality. In particular, while a typical mac80211-based AP driver
+can capture many aspects of its own transmitted frames (e.g., 802.11 headers
+are constructed in software), it cannot monitor how those frames really look
+over the air, so it will likely be missing most physical-layer information
+(e.g., bitrates, modulation, frequency) or firmware-controlled behaviors (e.g.,
+802.11 ACKs).
+
+For example, consider the following AP + monitor capture, filtered for
+[AP-transmitted frames](https://screenshot.googleplex.com/DWSaResO583) and
+[AP-received frames](https://screenshot.googleplex.com/5EsZvbBpKEc) (links are
+Google-internal). While the AP-transmitted frames contain 802.11 header
+information like MAC-layer addresses and sequence numbers, only the received
+frames contain information like frequency and bitrate. As such, if you need
+this sort of information for debugging your tests, ensure you are using a
+dedicated pcap device. Note that all supported tests should support running in
+either configuration.
 
 [dnsname\_mangler]: ../server/cros/dnsname_mangler.py
 [hostapd]: https://w1.fi/hostapd/

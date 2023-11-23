@@ -19,4 +19,11 @@
 
     <!-- Dialog title for presidential level alert. [CHAR LIMIT=50] -->
     <string name="cmas_presidential_level_alert">Critical emergency alert</string>
+
+    <!-- Preference summary the "about cell broadcast messages" info required for some carriers.
+      Required Korean (ko) translation for this message:
+      "자연재해 및 긴급 재난 발생 시 휴대폰을 소지한 국민들에게 신속하게 국민행동요령 등 긴급 재난정보를 제공하는 서비스입니다\n\n※ 정부기관과 이동통신사 및 단말기 제조사의 협력으로 제공하는 공익적인 서비스로 단말기 및 통신망의 상태에 따라 수신이 안될 수 있음"
+ -->
+    <string name="alerts_header_summary">Your phone can send you alerts, like evacuation instructions, during natural disasters. This service is a collaboration between the National Emergency Management Agency, network providers, and device manufacturers.\n\nYou may not get alerts if there’s a problem with your device or if network conditions are poor.</string>
+
 </resources>

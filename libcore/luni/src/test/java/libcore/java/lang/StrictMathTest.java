@@ -228,4 +228,37 @@ public class StrictMathTest extends TestCase {
             }
         }
     }
+
+    private static long multiplyFullBigInt(int x, int y) {
+        return BigInteger.valueOf(x).multiply(BigInteger.valueOf(y)).longValue();
+    }
+
+    public void testMultiplyFull() {
+        int[][] v = new int[][]{
+            {0, 0},
+            {-1, 0},
+            {0, -1},
+            {1, 0},
+            {0, 1},
+            {-1, -1},
+            {-1, 1},
+            {1, -1},
+            {1, 1},
+            {Integer.MAX_VALUE, Integer.MAX_VALUE},
+            {Integer.MAX_VALUE, -Integer.MAX_VALUE},
+            {-Integer.MAX_VALUE, Integer.MAX_VALUE},
+            {-Integer.MAX_VALUE, -Integer.MAX_VALUE},
+            {Integer.MAX_VALUE, Integer.MIN_VALUE},
+            {Integer.MIN_VALUE, Integer.MAX_VALUE},
+            {Integer.MIN_VALUE, Integer.MIN_VALUE}
+        };
+
+        for (int[] xy : v) {
+            int x = xy[0];
+            int y = xy[1];
+            long p1 = multiplyFullBigInt(x, y);
+            long p2 = StrictMath.multiplyFull(x, y);
+            assertEquals(p1, p2);
+        }
+    }
 }

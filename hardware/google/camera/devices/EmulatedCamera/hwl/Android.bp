@@ -1,3 +1,14 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "//hardware/google/camera:hardware_google_camera_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: [
+        "//hardware/google/camera:hardware_google_camera_license",
+    ],
+}
+
 cc_library_shared {
     name: "libgooglecamerahwl_impl",
     owner: "google",
@@ -30,8 +41,10 @@ cc_library_shared {
         "android.hardware.camera.provider@2.4",
         "android.hardware.camera.provider@2.5",
         "android.hardware.camera.provider@2.6",
+        "android.hardware.camera.provider@2.7",
         "android.hardware.sensors@1.0",
         "android.hidl.allocator@1.0",
+        "lib_profiler",
         "libbase",
         "libcamera_metadata",
         "libcutils",

@@ -35,6 +35,7 @@ import android.hardware.camera2.params.MandatoryStreamCombination.MandatoryStrea
 import android.hardware.camera2.params.SessionConfiguration;
 import android.media.ImageReader;
 import android.util.Log;
+import android.util.Pair;
 import android.view.Surface;
 
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
@@ -73,13 +74,8 @@ public class ConcurrentCameraTest extends Camera2ConcurrentAndroidTestCase {
         public boolean haveSession = false;
         public boolean substituteY8;
         public List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration>();
-        public List<SurfaceTexture> privTargets = new ArrayList<SurfaceTexture>();
-        public List<ImageReader> jpegTargets = new ArrayList<ImageReader>();
-        public List<ImageReader> yuvTargets = new ArrayList<ImageReader>();
-        public List<ImageReader> y8Targets = new ArrayList<ImageReader>();
-        public List<ImageReader> rawTargets = new ArrayList<ImageReader>();
-        public List<ImageReader> heicTargets = new ArrayList<ImageReader>();
-        public List<ImageReader> depth16Targets = new ArrayList<ImageReader>();
+        public List<Surface> outputSurfaces = new ArrayList<Surface>();
+        public StreamCombinationTargets targets = new StreamCombinationTargets();
         public TestSample(String cameraId, StaticMetadata staticInfo,
                 MandatoryStreamCombination combination, boolean subY8) {
             this.cameraId = cameraId;
@@ -245,12 +241,15 @@ public class ConcurrentCameraTest extends Camera2ConcurrentAndroidTestCase {
             CameraTestInfo info = mCameraTestInfos.get(testSample.cameraId);
             assertTrue("CameraTestInfo not found for camera id " + testSample.cameraId,
                     info != null);
+            List<OutputConfiguration> outputConfigs = new ArrayList<>();
             CameraTestUtils.setupConfigurationTargets(
-                testSample.combination.getStreamsInformation(), testSample.privTargets,
-                testSample.jpegTargets, testSample.yuvTargets, testSample.y8Targets,
-                testSample.rawTargets, testSample.heicTargets, testSample.depth16Targets,
-                testSample.outputConfigs, MIN_RESULT_COUNT, testSample.substituteY8,
-                /*substituteHEIC*/false, /*physicalCameraId*/null, mHandler);
+                testSample.combination.getStreamsInformation(), testSample.targets,
+                outputConfigs, testSample.outputSurfaces, MIN_RESULT_COUNT,
+                testSample.substituteY8, /*substituteHEIC*/false, /*physicalCameraId*/null,
+                /*multiResStreamConfig*/null, mHandler);
+            for (OutputConfiguration c : outputConfigs) {
+                testSample.outputConfigs.add(c);
+            }
 
             try {
                 checkSessionConfigurationSupported(info.mCamera, mHandler, testSample.outputConfigs,
@@ -327,27 +326,7 @@ public class ConcurrentCameraTest extends Camera2ConcurrentAndroidTestCase {
                             e.getMessage()));
                 }
             }
-            for (SurfaceTexture target : testSample.privTargets) {
-                target.release();
-            }
-            for (ImageReader target : testSample.jpegTargets) {
-                target.close();
-            }
-            for (ImageReader target : testSample.yuvTargets) {
-                target.close();
-            }
-            for (ImageReader target : testSample.y8Targets) {
-                target.close();
-            }
-            for (ImageReader target : testSample.rawTargets) {
-                target.close();
-            }
-            for (ImageReader target : testSample.heicTargets) {
-                target.close();
-            }
-            for (ImageReader target : testSample.depth16Targets) {
-                target.close();
-            }
+            testSample.targets.close();
         }
     }
 }

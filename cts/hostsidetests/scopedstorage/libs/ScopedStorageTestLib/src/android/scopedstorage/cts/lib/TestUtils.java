@@ -21,7 +21,12 @@ import static android.scopedstorage.cts.lib.RedactionTestHelper.EXIF_METADATA_QU
 import static androidx.test.InstrumentationRegistry.getContext;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.TestCase.assertNotNull;
+
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.fail;
 
 import android.Manifest;
@@ -41,15 +46,17 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
-import android.os.SystemClock;
+import android.os.storage.StorageManager;
 import android.provider.MediaStore;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.os.BuildCompat;
 import androidx.test.InstrumentationRegistry;
 
 import com.android.cts.install.lib.Install;
@@ -62,14 +69,15 @@ import com.google.common.io.ByteStreams;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -83,11 +91,24 @@ public class TestUtils {
 
     public static final String QUERY_TYPE = "android.scopedstorage.cts.queryType";
     public static final String INTENT_EXTRA_PATH = "android.scopedstorage.cts.path";
+    public static final String INTENT_EXTRA_URI = "android.scopedstorage.cts.uri";
+    public static final String INTENT_EXTRA_CALLING_PKG = "android.scopedstorage.cts.calling_pkg";
     public static final String INTENT_EXCEPTION = "android.scopedstorage.cts.exception";
     public static final String CREATE_FILE_QUERY = "android.scopedstorage.cts.createfile";
     public static final String CREATE_IMAGE_ENTRY_QUERY =
             "android.scopedstorage.cts.createimageentry";
     public static final String DELETE_FILE_QUERY = "android.scopedstorage.cts.deletefile";
+    public static final String CAN_OPEN_FILE_FOR_READ_QUERY =
+            "android.scopedstorage.cts.can_openfile_read";
+    public static final String CAN_OPEN_FILE_FOR_WRITE_QUERY =
+            "android.scopedstorage.cts.can_openfile_write";
+    public static final String IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_READ =
+            "android.scopedstorage.cts.is_uri_redacted_via_file_descriptor_for_read";
+    public static final String IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_WRITE =
+            "android.scopedstorage.cts.is_uri_redacted_via_file_descriptor_for_write";
+    public static final String IS_URI_REDACTED_VIA_FILEPATH =
+            "android.scopedstorage.cts.is_uri_redacted_via_filepath";
+    public static final String QUERY_URI = "android.scopedstorage.cts.query_uri";
     public static final String OPEN_FILE_FOR_READ_QUERY =
             "android.scopedstorage.cts.openfile_read";
     public static final String OPEN_FILE_FOR_WRITE_QUERY =
@@ -96,6 +117,9 @@ public class TestUtils {
             "android.scopedstorage.cts.can_read_and_write";
     public static final String READDIR_QUERY = "android.scopedstorage.cts.readdir";
     public static final String SETATTR_QUERY = "android.scopedstorage.cts.setattr";
+    public static final String CHECK_DATABASE_ROW_EXISTS_QUERY =
+            "android.scopedstorage.cts.check_database_row_exists";
+    public static final String RENAME_FILE_QUERY = "android.scopedstorage.cts.renamefile";
 
     public static final String STR_DATA1 = "Just some random text";
     public static final String STR_DATA2 = "More arbitrary stuff";
@@ -103,9 +127,17 @@ public class TestUtils {
     public static final byte[] BYTES_DATA1 = STR_DATA1.getBytes();
     public static final byte[] BYTES_DATA2 = STR_DATA2.getBytes();
 
+    public static final String RENAME_FILE_PARAMS_SEPARATOR = ";";
+
     // Root of external storage
     private static File sExternalStorageDirectory = Environment.getExternalStorageDirectory();
     private static String sStorageVolumeName = MediaStore.VOLUME_EXTERNAL;
+
+    /**
+     * Set this to {@code false} if the test is verifying uri grants on testApp. Force stopping the
+     * app will kill the app and it will lose uri grants.
+     */
+    private static boolean sShouldForceStopTestApp = true;
 
     private static final long POLLING_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(20);
     private static final long POLLING_SLEEP_MILLIS = 100;
@@ -119,7 +151,10 @@ public class TestUtils {
      */
     public static void setupDefaultDirectories() {
         for (File dir : getDefaultTopLevelDirs()) {
-            dir.mkdir();
+            dir.mkdirs();
+            assertWithMessage("Could not setup default dir [%s]", dir.toString())
+                    .that(dir.exists())
+                    .isTrue();
         }
     }
 
@@ -131,10 +166,14 @@ public class TestUtils {
         uiAutomation.adoptShellPermissionIdentity("android.permission.GRANT_RUNTIME_PERMISSIONS");
         try {
             uiAutomation.grantRuntimePermission(packageName, permission);
-            // Wait for OP_READ_EXTERNAL_STORAGE to get updated.
-            SystemClock.sleep(1000);
         } finally {
             uiAutomation.dropShellPermissionIdentity();
+        }
+        try {
+            pollForPermission(packageName, permission, true);
+        } catch (Exception e) {
+            fail("Exception on polling for permission grant for " + packageName + " for "
+                    + permission + ": " + e.getMessage());
         }
     }
 
@@ -148,6 +187,12 @@ public class TestUtils {
             uiAutomation.revokeRuntimePermission(packageName, permission);
         } finally {
             uiAutomation.dropShellPermissionIdentity();
+        }
+        try {
+            pollForPermission(packageName, permission, false);
+        } catch (Exception e) {
+            fail("Exception on polling for permission revoke for " + packageName + " for "
+                    + permission + ": " + e.getMessage());
         }
     }
 
@@ -170,7 +215,8 @@ public class TestUtils {
     /**
      * Executes a shell command.
      */
-    public static String executeShellCommand(String command) throws IOException {
+    public static String executeShellCommand(String pattern, Object...args) throws IOException {
+        String command = String.format(pattern, args);
         int attempt = 0;
         while (attempt++ < 5) {
             try {
@@ -267,9 +313,222 @@ public class TestUtils {
      *
      * <p>This method drops shell permission identity.
      */
-    public static boolean openFileAs(TestApp testApp, File file, boolean forWrite)
+    public static boolean canOpenFileAs(TestApp testApp, File file, boolean forWrite)
             throws Exception {
-        return openFileAs(testApp, file.getAbsolutePath(), forWrite);
+        String actionName = forWrite ? CAN_OPEN_FILE_FOR_WRITE_QUERY : CAN_OPEN_FILE_FOR_READ_QUERY;
+        return getResultFromTestApp(testApp, file.getPath(), actionName);
+    }
+
+    /**
+     * Makes the given {@code testApp} rename give {@code src} to {@code dst}.
+     *
+     * The method concatenates source and destination paths while sending the request to
+     * {@code testApp}. Hence, {@link TestUtils#RENAME_FILE_PARAMS_SEPARATOR} shouldn't be used
+     * in path names.
+     *
+     * <p>This method drops shell permission identity.
+     */
+    public static boolean renameFileAs(TestApp testApp, File src, File dst) throws Exception {
+        final String paths = String.format("%s%s%s",
+                src.getAbsolutePath(), RENAME_FILE_PARAMS_SEPARATOR, dst.getAbsolutePath());
+        return getResultFromTestApp(testApp, paths, RENAME_FILE_QUERY);
+    }
+
+    /**
+     * Makes the given {@code testApp} check if a database row exists for given {@code file}
+     *
+     * <p>This method drops shell permission identity.
+     */
+    public static boolean checkDatabaseRowExistsAs(TestApp testApp, File file) throws Exception {
+        return getResultFromTestApp(testApp, file.getPath(), CHECK_DATABASE_ROW_EXISTS_QUERY);
+    }
+
+    /**
+     * Makes the given {@code testApp} open file descriptor on {@code uri} and verifies that the fd
+     * redacts EXIF metadata.
+     *
+     * <p> This method drops shell permission identity.
+     */
+    public static boolean isFileDescriptorRedacted(TestApp testApp, Uri uri)
+            throws Exception {
+        String actionName = IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_READ;
+        return getFromTestApp(testApp, uri, actionName).getBoolean(actionName, false);
+    }
+
+    /**
+     * Makes the given {@code testApp} open file descriptor on {@code uri} and verifies that the fd
+     * redacts EXIF metadata.
+     *
+     * <p> This method drops shell permission identity.
+     */
+    public static boolean canOpenRedactedUriForWrite(TestApp testApp, Uri uri)
+            throws Exception {
+        String actionName = IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_WRITE;
+        return getFromTestApp(testApp, uri, actionName).getBoolean(actionName, false);
+    }
+
+
+    /**
+     * Makes the given {@code testApp} open file path associated with {@code uri} and verifies that
+     * the path redacts EXIF metadata.
+     *
+     * <p>This method drops shell permission identity.
+     */
+    public static boolean isFileOpenRedacted(TestApp testApp, Uri uri)
+            throws Exception {
+        final String actionName = IS_URI_REDACTED_VIA_FILEPATH;
+        return getFromTestApp(testApp, uri, actionName).getBoolean(actionName, false);
+    }
+
+    /**
+     * Makes the given {@code testApp} query on {@code uri}.
+     *
+     * <p>This method drops shell permission identity.
+     */
+    public static boolean canQueryOnUri(TestApp testApp, Uri uri) throws Exception {
+        final String actionName = QUERY_URI;
+        return getFromTestApp(testApp, uri, actionName).getBoolean(actionName, false);
+    }
+
+    public static Uri insertFileFromExternalMedia(boolean useRelative) throws IOException {
+        ContentValues values = new ContentValues();
+        String filePath =
+                getAndroidMediaDir().toString() + "/" + getContext().getPackageName() + "/"
+                        + System.currentTimeMillis();
+        if (useRelative) {
+            values.put(MediaStore.MediaColumns.RELATIVE_PATH,
+                    "Android/media/" + getContext().getPackageName());
+            values.put(MediaStore.MediaColumns.DISPLAY_NAME, System.currentTimeMillis());
+        } else {
+            values.put(MediaStore.MediaColumns.DATA, filePath);
+        }
+
+        return getContentResolver().insert(
+                MediaStore.Files.getContentUri(sStorageVolumeName), values);
+    }
+
+    public static void insertFile(ContentValues values) {
+        assertNotNull(getContentResolver().insert(
+                MediaStore.Files.getContentUri(sStorageVolumeName), values));
+    }
+
+    public static int updateFile(Uri uri, ContentValues values) {
+        return getContentResolver().update(uri, values, new Bundle());
+    }
+
+    public static void verifyInsertFromExternalPrivateDirViaRelativePath_denied() throws Exception {
+        resetDefaultExternalStorageVolume();
+
+        // Test that inserting files from Android/obb/.. is not allowed.
+        final String androidObbDir = getContext().getObbDir().toString();
+        ContentValues values = new ContentValues();
+        values.put(
+                MediaStore.MediaColumns.RELATIVE_PATH,
+                androidObbDir.substring(androidObbDir.indexOf("Android")));
+        assertThrows(IllegalArgumentException.class, () -> insertFile(values));
+
+        // Test that inserting files from Android/data/.. is not allowed.
+        final String androidDataDir = getExternalFilesDir().toString();
+        values.put(
+                MediaStore.MediaColumns.RELATIVE_PATH,
+                androidDataDir.substring(androidDataDir.indexOf("Android")));
+        assertThrows(IllegalArgumentException.class, () -> insertFile(values));
+    }
+
+    public static void verifyInsertFromExternalMediaDirViaRelativePath_allowed() throws Exception {
+        resetDefaultExternalStorageVolume();
+
+        // Test that inserting files from Android/media/.. is allowed.
+        final String androidMediaDir = getExternalMediaDir().toString();
+        final ContentValues values = new ContentValues();
+        values.put(
+                MediaStore.MediaColumns.RELATIVE_PATH,
+                androidMediaDir.substring(androidMediaDir.indexOf("Android")));
+        insertFile(values);
+    }
+
+    public static void verifyInsertFromExternalPrivateDirViaData_denied() throws Exception {
+        resetDefaultExternalStorageVolume();
+
+        ContentValues values = new ContentValues();
+
+        // Test that inserting files from Android/obb/.. is not allowed.
+        final String androidObbDir =
+                getContext().getObbDir().toString() + "/" + System.currentTimeMillis();
+        values.put(MediaStore.MediaColumns.DATA, androidObbDir);
+        assertThrows(IllegalArgumentException.class, () -> insertFile(values));
+
+        // Test that inserting files from Android/data/.. is not allowed.
+        final String androidDataDir = getExternalFilesDir().toString();
+        values.put(MediaStore.MediaColumns.DATA, androidDataDir);
+        assertThrows(IllegalArgumentException.class, () -> insertFile(values));
+    }
+
+    public static void verifyInsertFromExternalMediaDirViaData_allowed() throws Exception {
+        resetDefaultExternalStorageVolume();
+
+        // Test that inserting files from Android/media/.. is allowed.
+        ContentValues values = new ContentValues();
+        final String androidMediaDirFile =
+                getExternalMediaDir().toString() + "/" + System.currentTimeMillis();
+        values.put(MediaStore.MediaColumns.DATA, androidMediaDirFile);
+        insertFile(values);
+    }
+
+    // NOTE: While updating, DATA field should be ignored for all the apps including file manager.
+    public static void verifyUpdateToExternalDirsViaData_denied() throws Exception {
+        resetDefaultExternalStorageVolume();
+        Uri uri = insertFileFromExternalMedia(false);
+
+        final String androidMediaDirFile =
+                getExternalMediaDir().toString() + "/" + System.currentTimeMillis();
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.MediaColumns.DATA, androidMediaDirFile);
+        assertEquals(0, updateFile(uri, values));
+
+        final String androidObbDir =
+                getContext().getObbDir().toString() + "/" + System.currentTimeMillis();
+        values.put(MediaStore.MediaColumns.DATA, androidObbDir);
+        assertEquals(0, updateFile(uri, values));
+
+        final String androidDataDir = getExternalFilesDir().toString();
+        values.put(MediaStore.MediaColumns.DATA, androidDataDir);
+        assertEquals(0, updateFile(uri, values));
+    }
+
+    public static void verifyUpdateToExternalMediaDirViaRelativePath_allowed()
+            throws IOException {
+        resetDefaultExternalStorageVolume();
+        Uri uri = insertFileFromExternalMedia(true);
+
+        // Test that update to files from Android/media/.. is allowed.
+        final String androidMediaDir = getExternalMediaDir().toString();
+        ContentValues values = new ContentValues();
+        values.put(
+                MediaStore.MediaColumns.RELATIVE_PATH,
+                androidMediaDir.substring(androidMediaDir.indexOf("Android")));
+        assertNotEquals(0, updateFile(uri, values));
+    }
+
+    public static void verifyUpdateToExternalPrivateDirsViaRelativePath_denied()
+            throws Exception {
+        resetDefaultExternalStorageVolume();
+        Uri uri = insertFileFromExternalMedia(true);
+
+        // Test that update to files from Android/obb/.. is not allowed.
+        final String androidObbDir = getContext().getObbDir().toString();
+        ContentValues values = new ContentValues();
+        values.put(
+                MediaStore.MediaColumns.RELATIVE_PATH,
+                androidObbDir.substring(androidObbDir.indexOf("Android")));
+        assertThrows(IllegalArgumentException.class, () -> updateFile(uri, values));
+
+        // Test that update to files from Android/data/.. is not allowed.
+        final String androidDataDir = getExternalFilesDir().toString();
+        values.put(
+                MediaStore.MediaColumns.RELATIVE_PATH,
+                androidDataDir.substring(androidDataDir.indexOf("Android")));
+        assertThrows(IllegalArgumentException.class, () -> updateFile(uri, values));
     }
 
     /**
@@ -277,10 +536,11 @@ public class TestUtils {
      *
      * <p>This method drops shell permission identity.
      */
-    public static boolean openFileAs(TestApp testApp, String path, boolean forWrite)
+    public static ParcelFileDescriptor openFileAs(TestApp testApp, File file, boolean forWrite)
             throws Exception {
-        return getResultFromTestApp(
-                testApp, path, forWrite ? OPEN_FILE_FOR_WRITE_QUERY : OPEN_FILE_FOR_READ_QUERY);
+        String actionName = forWrite ? OPEN_FILE_FOR_WRITE_QUERY : OPEN_FILE_FOR_READ_QUERY;
+        String mode = forWrite ? "rw" : "r";
+        return getPfdFromTestApp(testApp, file, actionName, mode);
     }
 
     /**
@@ -317,7 +577,7 @@ public class TestUtils {
             final String packageName = testApp.getPackageName();
             uiAutomation.adoptShellPermissionIdentity(
                     Manifest.permission.INSTALL_PACKAGES, Manifest.permission.DELETE_PACKAGES);
-            if (InstallUtils.getInstalledVersion(packageName) != -1) {
+            if (isAppInstalled(testApp)) {
                 Uninstall.packages(packageName);
             }
             Install.single(testApp).commit();
@@ -328,6 +588,10 @@ public class TestUtils {
         } finally {
             uiAutomation.dropShellPermissionIdentity();
         }
+    }
+
+    public static boolean isAppInstalled(TestApp testApp) {
+        return InstallUtils.getInstalledVersion(testApp.getPackageName()) != -1;
     }
 
     /**
@@ -407,8 +671,16 @@ public class TestUtils {
      * entry in the database. Returns {@code -1} if file is not found.
      */
     public static int getFileRowIdFromDatabase(@NonNull File file) {
+        return getFileRowIdFromDatabase(getContentResolver(), file);
+    }
+
+    /**
+     * Queries given {@link ContentResolver} for a file and returns the corresponding row ID for
+     * its entry in the database. Returns {@code -1} if file is not found.
+     */
+    public static int getFileRowIdFromDatabase(ContentResolver cr, @NonNull File file) {
         int id = -1;
-        try (Cursor c = queryFile(file, MediaStore.MediaColumns._ID)) {
+        try (Cursor c = queryFile(cr, file, MediaStore.MediaColumns._ID)) {
             if (c.moveToFirst()) {
                 id = c.getInt(0);
             }
@@ -452,7 +724,8 @@ public class TestUtils {
      */
     @NonNull
     public static Cursor queryVideoFile(File file, String... projection) {
-        return queryFile(MediaStore.Video.Media.getContentUri(sStorageVolumeName), file,
+        return queryFile(getContentResolver(),
+                MediaStore.Video.Media.getContentUri(sStorageVolumeName), file,
                 /*includePending*/ true, projection);
     }
 
@@ -462,7 +735,8 @@ public class TestUtils {
      */
     @NonNull
     public static Cursor queryImageFile(File file, String... projection) {
-        return queryFile(MediaStore.Images.Media.getContentUri(sStorageVolumeName), file,
+        return queryFile(getContentResolver(),
+                MediaStore.Images.Media.getContentUri(sStorageVolumeName), file,
                 /*includePending*/ true, projection);
     }
 
@@ -566,6 +840,29 @@ public class TestUtils {
     }
 
     /**
+     * Opens the given file via file path
+     */
+    @NonNull
+    public static ParcelFileDescriptor openWithFilePath(File file, boolean forWrite)
+            throws IOException {
+        return ParcelFileDescriptor.open(file,
+                forWrite
+                ? ParcelFileDescriptor.MODE_READ_WRITE : ParcelFileDescriptor.MODE_READ_ONLY);
+    }
+
+    /**
+     * Returns whether we can open the file.
+     */
+    public static boolean canOpen(File file, boolean forWrite) {
+        try {
+            openWithFilePath(file, forWrite);
+            return true;
+        } catch (IOException expected) {
+            return false;
+        }
+    }
+
+    /**
      * Asserts the given operation throws an exception of type {@code T}.
      */
     public static <T extends Exception> void assertThrows(Class<T> clazz, Operation<Exception> r)
@@ -587,6 +884,10 @@ public class TestUtils {
                 throw e;
             }
         }
+    }
+
+    public static void setShouldForceStopTestApp(boolean value) {
+        sShouldForceStopTestApp = value;
     }
 
     /**
@@ -622,11 +923,20 @@ public class TestUtils {
      * Asserts can rename file.
      */
     public static void assertCanRenameFile(File oldFile, File newFile) {
+        assertCanRenameFile(oldFile, newFile, /* checkDB */ true);
+    }
+
+    /**
+     * Asserts can rename file and optionally checks if the database is updated after rename.
+     */
+    public static void assertCanRenameFile(File oldFile, File newFile, boolean checkDatabase) {
         assertThat(oldFile.renameTo(newFile)).isTrue();
         assertThat(oldFile.exists()).isFalse();
         assertThat(newFile.exists()).isTrue();
-        assertThat(getFileRowIdFromDatabase(oldFile)).isEqualTo(-1);
-        assertThat(getFileRowIdFromDatabase(newFile)).isNotEqualTo(-1);
+        if (checkDatabase) {
+            assertThat(getFileRowIdFromDatabase(oldFile)).isEqualTo(-1);
+            assertThat(getFileRowIdFromDatabase(newFile)).isNotEqualTo(-1);
+        }
     }
 
     /**
@@ -670,21 +980,70 @@ public class TestUtils {
         }
     }
 
-    /**
-     * Returns whether we can open the file.
-     */
-    public static boolean canOpen(File file, boolean forWrite) {
-        if (forWrite) {
-            try (FileOutputStream fis = new FileOutputStream(file)) {
-                return true;
-            } catch (IOException expected) {
-                return false;
-            }
-        } else {
-            try (FileInputStream fis = new FileInputStream(file)) {
-                return true;
-            } catch (IOException expected) {
-                return false;
+    public static void assertMountMode(String packageName, int uid, int expectedMountMode) {
+        adoptShellPermissionIdentity("android.permission.WRITE_MEDIA_STORAGE");
+        try {
+            final StorageManager storageManager = getContext().getSystemService(
+                    StorageManager.class);
+            final int actualMountMode = storageManager.getExternalStorageMountMode(uid,
+                    packageName);
+            assertWithMessage("mount mode (%s=%s, %s=%s) for package %s and uid %s",
+                    expectedMountMode, mountModeToString(expectedMountMode),
+                    actualMountMode, mountModeToString(actualMountMode),
+                    packageName, uid).that(actualMountMode).isEqualTo(expectedMountMode);
+        } finally {
+            dropShellPermissionIdentity();
+        }
+    }
+
+    public static String mountModeToString(int mountMode) {
+        switch (mountMode) {
+            case 0:
+                return "EXTERNAL_NONE";
+            case 1:
+                return "DEFAULT";
+            case 2:
+                return "INSTALLER";
+            case 3:
+                return "PASS_THROUGH";
+            case 4:
+                return "ANDROID_WRITABLE";
+            default:
+                return "INVALID(" + mountMode + ")";
+        }
+    }
+
+    public static void assertCanAccessPrivateAppAndroidDataDir(boolean canAccess,
+            TestApp testApp, String callingPackage, String fileName) throws Exception {
+        File[] dataDirs = getContext().getExternalFilesDirs(null);
+        canReadWriteFilesInDirs(dataDirs, canAccess, testApp, callingPackage, fileName);
+    }
+
+    public static void assertCanAccessPrivateAppAndroidObbDir(boolean canAccess,
+            TestApp testApp, String callingPackage, String fileName) throws Exception {
+        File[] obbDirs = getContext().getObbDirs();
+        canReadWriteFilesInDirs(obbDirs, canAccess, testApp, callingPackage, fileName);
+    }
+
+    private static void canReadWriteFilesInDirs(File[] dirs, boolean canAccess, TestApp testApp,
+            String callingPackage, String fileName) throws Exception {
+        for (File dir : dirs) {
+            final File otherAppExternalDataDir = new File(dir.getPath().replace(
+                    callingPackage, testApp.getPackageName()));
+            final File file = new File(otherAppExternalDataDir, fileName);
+            try {
+                assertThat(file.exists()).isFalse();
+
+                assertThat(createFileAs(testApp, file.getPath())).isTrue();
+                if (canAccess) {
+                    assertThat(file.canRead()).isTrue();
+                    assertThat(file.canWrite()).isTrue();
+                } else {
+                    assertThat(file.canRead()).isFalse();
+                    assertThat(file.canWrite()).isFalse();
+                }
+            } finally {
+                deleteFileAsNoThrow(testApp, file.getAbsolutePath());
             }
         }
     }
@@ -706,6 +1065,48 @@ public class TestUtils {
         pollForCondition(() -> granted == checkPermissionAndAppOp(perm),
                 "Timed out while waiting for permission " + perm + " to be "
                         + (granted ? "granted" : "revoked"));
+    }
+
+    /**
+     * Polls until {@code app} is granted or denied the given permission.
+     */
+    public static void pollForPermission(TestApp app, String perm, boolean granted)
+            throws Exception {
+        pollForPermission(app.getPackageName(), perm, granted);
+    }
+
+    /**
+     * Polls until {@code packageName} is granted or denied the given permission.
+     */
+    public static void pollForPermission(String packageName, String perm, boolean granted)
+            throws Exception {
+        pollForCondition(
+                () -> granted == checkPermission(packageName, perm),
+                "Timed out while waiting for permission " + perm + " to be "
+                        + (granted ? "granted" : "revoked"));
+    }
+
+    /**
+     * Returns true iff {@code packageName} is granted a given permission.
+     */
+    public static boolean checkPermission(String packageName, String perm) {
+        try {
+            int uid = getContext().getPackageManager().getPackageUid(packageName, 0);
+
+            Optional<ActivityManager.RunningAppProcessInfo> process = getAppProcessInfo(
+                    packageName);
+            int pid = process.isPresent() ? process.get().pid : -1;
+            return checkPermissionAndAppOp(perm, packageName, pid, uid);
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Returns true iff {@code app} is granted a given permission.
+     */
+    public static boolean checkPermission(TestApp app, String perm) {
+        return checkPermission(app.getPackageName(), perm);
     }
 
     /**
@@ -743,7 +1144,7 @@ public class TestUtils {
      */
     public static void assertDirectoryContains(@NonNull File dir, File... expectedContent) {
         assertThat(dir.isDirectory()).isTrue();
-        assertThat(Arrays.asList(dir.listFiles())).containsAllIn(expectedContent);
+        assertThat(Arrays.asList(dir.listFiles())).containsAtLeastElementsIn(expectedContent);
     }
 
     public static File getExternalStorageDir() {
@@ -763,6 +1164,20 @@ public class TestUtils {
     public static void resetDefaultExternalStorageVolume() {
         sStorageVolumeName = MediaStore.VOLUME_EXTERNAL;
         sExternalStorageDirectory = Environment.getExternalStorageDirectory();
+    }
+
+    /**
+     * Asserts the default volume used in helper methods is the primary volume.
+     */
+    public static void assertDefaultVolumeIsPrimary() {
+        assertVolumeType(true /* isPrimary */);
+    }
+
+    /**
+     * Asserts the default volume used in helper methods is a public volume.
+     */
+    public static void assertDefaultVolumeIsPublic() {
+        assertVolumeType(false /* isPrimary */);
     }
 
     /**
@@ -843,6 +1258,11 @@ public class TestUtils {
                 Environment.DIRECTORY_PODCASTS);
     }
 
+    public static File getRecordingsDir() {
+        return new File(getExternalStorageDir(),
+                Environment.DIRECTORY_RECORDINGS);
+    }
+
     public static File getRingtonesDir() {
         return new File(getExternalStorageDir(),
                 Environment.DIRECTORY_RINGTONES);
@@ -857,9 +1277,16 @@ public class TestUtils {
     }
 
     public static File[] getDefaultTopLevelDirs() {
-        return new File [] { getAlarmsDir(), getAndroidDir(), getAudiobooksDir(), getDcimDir(),
-                getDocumentsDir(), getDownloadDir(), getMusicDir(), getMoviesDir(),
-                getNotificationsDir(), getPicturesDir(), getPodcastsDir(), getRingtonesDir() };
+        if (BuildCompat.isAtLeastS()) {
+            return new File[]{getAlarmsDir(), getAndroidDir(), getAudiobooksDir(), getDcimDir(),
+                    getDocumentsDir(), getDownloadDir(), getMusicDir(), getMoviesDir(),
+                    getNotificationsDir(), getPicturesDir(), getPodcastsDir(), getRecordingsDir(),
+                    getRingtonesDir()};
+        }
+        return new File[]{getAlarmsDir(), getAndroidDir(), getAudiobooksDir(), getDcimDir(),
+            getDocumentsDir(), getDownloadDir(), getMusicDir(), getMoviesDir(),
+            getNotificationsDir(), getPicturesDir(), getPodcastsDir(),
+            getRingtonesDir()};
     }
 
     private static void assertInputStreamContent(InputStream in, byte[] expectedContent)
@@ -873,8 +1300,16 @@ public class TestUtils {
     private static boolean checkPermissionAndAppOp(String permission) {
         final int pid = Os.getpid();
         final int uid = Os.getuid();
+        final String packageName = getContext().getPackageName();
+        return checkPermissionAndAppOp(permission, packageName, pid, uid);
+    }
+
+    /**
+     * Checks if the given {@code permission} is granted and corresponding AppOp is MODE_ALLOWED.
+     */
+    private static boolean checkPermissionAndAppOp(String permission, String packageName, int pid,
+            int uid) {
         final Context context = getContext();
-        final String packageName = context.getPackageName();
         if (context.checkPermission(permission, pid, uid) != PackageManager.PERMISSION_GRANTED) {
             return false;
         }
@@ -898,25 +1333,24 @@ public class TestUtils {
     /**
      * <p>This method drops shell permission identity.
      */
-    private static void forceStopApp(String packageName) throws Exception {
+    public static void forceStopApp(String packageName) throws Exception {
         UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         try {
             uiAutomation.adoptShellPermissionIdentity(Manifest.permission.FORCE_STOP_PACKAGES);
 
             getContext().getSystemService(ActivityManager.class).forceStopPackage(packageName);
-            Thread.sleep(1000);
+            pollForCondition(() -> {
+                return !isProcessRunning(packageName);
+            }, "Timed out while waiting for " + packageName + " to be stopped");
         } finally {
             uiAutomation.dropShellPermissionIdentity();
         }
     }
 
-    /**
-     * <p>This method drops shell permission identity.
-     */
-    private static void sendIntentToTestApp(TestApp testApp, String dirPath, String actionName,
-            BroadcastReceiver broadcastReceiver, CountDownLatch latch) throws Exception {
-        final String packageName = testApp.getPackageName();
-        forceStopApp(packageName);
+    private static void launchTestApp(TestApp testApp, String actionName,
+            BroadcastReceiver broadcastReceiver, CountDownLatch latch, Intent intent)
+            throws InterruptedException, TimeoutException {
+
         // Register broadcast receiver
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(actionName);
@@ -924,19 +1358,53 @@ public class TestUtils {
         getContext().registerReceiver(broadcastReceiver, intentFilter);
 
         // Launch the test app.
-        final Intent intent = new Intent(Intent.ACTION_MAIN);
-        intent.setPackage(packageName);
+        intent.setPackage(testApp.getPackageName());
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.putExtra(QUERY_TYPE, actionName);
-        intent.putExtra(INTENT_EXTRA_PATH, dirPath);
+        intent.putExtra(INTENT_EXTRA_CALLING_PKG, getContext().getPackageName());
         intent.addCategory(Intent.CATEGORY_LAUNCHER);
         getContext().startActivity(intent);
         if (!latch.await(POLLING_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
             final String errorMessage = "Timed out while waiting to receive " + actionName
-                    + " intent from " + packageName;
+                    + " intent from " + testApp.getPackageName();
             throw new TimeoutException(errorMessage);
         }
         getContext().unregisterReceiver(broadcastReceiver);
+    }
+
+    /**
+     * Sends intent to {@code testApp} for actions on {@code dirPath}
+     *
+     * <p>This method drops shell permission identity.
+     */
+    private static void sendIntentToTestApp(TestApp testApp, String dirPath, String actionName,
+            BroadcastReceiver broadcastReceiver, CountDownLatch latch) throws Exception {
+        if (sShouldForceStopTestApp) {
+            final String packageName = testApp.getPackageName();
+            forceStopApp(packageName);
+        }
+
+        // Launch the test app.
+        final Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.putExtra(INTENT_EXTRA_PATH, dirPath);
+        launchTestApp(testApp, actionName, broadcastReceiver, latch, intent);
+    }
+
+    /**
+     * Sends intent to {@code testApp} for actions on {@code uri}
+     *
+     * <p>This method drops shell permission identity.
+     */
+    private static void sendIntentToTestApp(TestApp testApp, Uri uri, String actionName,
+            BroadcastReceiver broadcastReceiver, CountDownLatch latch) throws Exception {
+        if (sShouldForceStopTestApp) {
+            final String packageName = testApp.getPackageName();
+            forceStopApp(packageName);
+        }
+
+        final Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.putExtra(INTENT_EXTRA_URI, uri);
+        launchTestApp(testApp, actionName, broadcastReceiver, latch, intent);
     }
 
     /**
@@ -946,28 +1414,8 @@ public class TestUtils {
      */
     private static HashMap<String, String> getMetadataFromTestApp(
             TestApp testApp, String dirPath, String actionName) throws Exception {
-        final CountDownLatch latch = new CountDownLatch(1);
-        final HashMap<String, String> appOutputList = new HashMap<>();
-        final Exception[] exception = new Exception[1];
-        exception[0] = null;
-        final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (intent.hasExtra(INTENT_EXCEPTION)) {
-                    exception[0] = (Exception) (intent.getExtras().get(INTENT_EXCEPTION));
-                } else if (intent.hasExtra(actionName)) {
-                    HashMap<String, String> res =
-                            (HashMap<String, String>) intent.getExtras().get(actionName);
-                    appOutputList.putAll(res);
-                }
-                latch.countDown();
-            }
-        };
-        sendIntentToTestApp(testApp, dirPath, actionName, broadcastReceiver, latch);
-        if (exception[0] != null) {
-            throw exception[0];
-        }
-        return appOutputList;
+        Bundle bundle = getFromTestApp(testApp, dirPath, actionName);
+        return (HashMap<String, String>) bundle.get(actionName);
     }
 
     /**
@@ -975,27 +1423,8 @@ public class TestUtils {
      */
     private static ArrayList<String> getContentsFromTestApp(
             TestApp testApp, String dirPath, String actionName) throws Exception {
-        final CountDownLatch latch = new CountDownLatch(1);
-        final ArrayList<String> appOutputList = new ArrayList<String>();
-        final Exception[] exception = new Exception[1];
-        exception[0] = null;
-        final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (intent.hasExtra(INTENT_EXCEPTION)) {
-                    exception[0] = (Exception) (intent.getSerializableExtra(INTENT_EXCEPTION));
-                } else if (intent.hasExtra(actionName)) {
-                    appOutputList.addAll(intent.getStringArrayListExtra(actionName));
-                }
-                latch.countDown();
-            }
-        };
-
-        sendIntentToTestApp(testApp, dirPath, actionName, broadcastReceiver, latch);
-        if (exception[0] != null) {
-            throw exception[0];
-        }
-        return appOutputList;
+        Bundle bundle = getFromTestApp(testApp, dirPath, actionName);
+        return bundle.getStringArrayList(actionName);
     }
 
     /**
@@ -1003,8 +1432,23 @@ public class TestUtils {
      */
     private static boolean getResultFromTestApp(TestApp testApp, String dirPath, String actionName)
             throws Exception {
+        Bundle bundle = getFromTestApp(testApp, dirPath, actionName);
+        return bundle.getBoolean(actionName, false);
+    }
+
+    private static ParcelFileDescriptor getPfdFromTestApp(TestApp testApp, File dirPath,
+            String actionName, String mode) throws Exception {
+        Bundle bundle = getFromTestApp(testApp, dirPath.getPath(), actionName);
+        return getContentResolver().openFileDescriptor(bundle.getParcelable(actionName), mode);
+    }
+
+    /**
+     * <p>This method drops shell permission identity.
+     */
+    private static Bundle getFromTestApp(TestApp testApp, String dirPath, String actionName)
+            throws Exception {
         final CountDownLatch latch = new CountDownLatch(1);
-        final boolean[] appOutput = new boolean[1];
+        final Bundle[] bundle = new Bundle[1];
         final Exception[] exception = new Exception[1];
         exception[0] = null;
         BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
@@ -1012,8 +1456,8 @@ public class TestUtils {
             public void onReceive(Context context, Intent intent) {
                 if (intent.hasExtra(INTENT_EXCEPTION)) {
                     exception[0] = (Exception) (intent.getSerializableExtra(INTENT_EXCEPTION));
-                } else if (intent.hasExtra(actionName)) {
-                    appOutput[0] = intent.getBooleanExtra(actionName, false);
+                } else {
+                    bundle[0] = intent.getExtras();
                 }
                 latch.countDown();
             }
@@ -1023,7 +1467,35 @@ public class TestUtils {
         if (exception[0] != null) {
             throw exception[0];
         }
-        return appOutput[0];
+        return bundle[0];
+    }
+
+    /**
+     * <p>This method drops shell permission identity.
+     */
+    private static Bundle getFromTestApp(TestApp testApp, Uri uri, String actionName)
+            throws Exception {
+        final CountDownLatch latch = new CountDownLatch(1);
+        final Bundle[] bundle = new Bundle[1];
+        final Exception[] exception = new Exception[1];
+        exception[0] = null;
+        BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent.hasExtra(INTENT_EXCEPTION)) {
+                    exception[0] = (Exception) (intent.getSerializableExtra(INTENT_EXCEPTION));
+                } else {
+                    bundle[0] = intent.getExtras();
+                }
+                latch.countDown();
+            }
+        };
+
+        sendIntentToTestApp(testApp, uri, actionName, broadcastReceiver, latch);
+        if (exception[0] != null) {
+            throw exception[0];
+        }
+        return bundle[0];
     }
 
     /**
@@ -1031,7 +1503,7 @@ public class TestUtils {
      *
      * <p>This method drops shell permission identity.
      */
-    private static void setAppOpsModeForUid(int uid, int mode, @NonNull String... ops) {
+    public static void setAppOpsModeForUid(int uid, int mode, @NonNull String... ops) {
         adoptShellPermissionIdentity(null);
         try {
             for (String op : ops) {
@@ -1048,19 +1520,25 @@ public class TestUtils {
      */
     @NonNull
     public static Cursor queryFileExcludingPending(@NonNull File file, String... projection) {
-        return queryFile(MediaStore.Files.getContentUri(sStorageVolumeName), file,
-                /*includePending*/ false, projection);
+        return queryFile(getContentResolver(), MediaStore.Files.getContentUri(sStorageVolumeName),
+                file, /*includePending*/ false, projection);
+    }
+
+    @NonNull
+    public static Cursor queryFile(ContentResolver cr, @NonNull File file, String... projection) {
+        return queryFile(cr, MediaStore.Files.getContentUri(sStorageVolumeName),
+                file, /*includePending*/ true, projection);
     }
 
     @NonNull
     public static Cursor queryFile(@NonNull File file, String... projection) {
-        return queryFile(MediaStore.Files.getContentUri(sStorageVolumeName), file,
-                /*includePending*/ true, projection);
+        return queryFile(getContentResolver(), MediaStore.Files.getContentUri(sStorageVolumeName),
+                file, /*includePending*/ true, projection);
     }
 
     @NonNull
-    private static Cursor queryFile(@NonNull Uri uri, @NonNull File file, boolean includePending,
-            String... projection) {
+    private static Cursor queryFile(ContentResolver cr, @NonNull Uri uri, @NonNull File file,
+            boolean includePending, String... projection) {
         Bundle queryArgs = new Bundle();
         queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION,
                 MediaStore.MediaColumns.DATA + " = ?");
@@ -1074,15 +1552,39 @@ public class TestUtils {
             queryArgs.putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_EXCLUDE);
         }
 
-        final Cursor c = getContentResolver().query(uri, projection, queryArgs, null);
+        final Cursor c = cr.query(uri, projection, queryArgs, null);
         assertThat(c).isNotNull();
         return c;
+    }
+
+    private static boolean isObbDirUnmounted() {
+        List<String> mounts = new ArrayList<>();
+        try {
+            for (String line : executeShellCommand("cat /proc/mounts").split("\n")) {
+                String[] split = line.split(" ");
+                // Only check obb dirs with tmpfs, as if it's mounted for app data
+                // isolation, it will be tmpfs only.
+                if (split[0].equals("tmpfs") && split[1].startsWith("/storage/")
+                        && split[1].endsWith("/obb")) {
+                    return false;
+                }
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to execute shell command", e);
+        }
+        return true;
     }
 
     /**
      * Creates a new virtual public volume and returns the volume's name.
      */
     public static void createNewPublicVolume() throws Exception {
+        // Unmount data and obb dirs for test app first so test app won't be killed during
+        // volume unmount.
+        executeShellCommand("sm unmount-app-data-dirs " + getContext().getPackageName() + " "
+                    + android.os.Process.myPid() + " " + android.os.UserHandle.myUserId());
+        pollForCondition(TestUtils::isObbDirUnmounted,
+                "Timed out while waiting for unmounting obb dir");
         executeShellCommand("sm set-force-adoptable on");
         executeShellCommand("sm set-virtual-disk true");
         Thread.sleep(2000);
@@ -1092,6 +1594,9 @@ public class TestUtils {
     private static boolean partitionDisk() {
         try {
             final String listDisks = executeShellCommand("sm list-disks").trim();
+            if (TextUtils.isEmpty(listDisks)) {
+                return false;
+            }
             executeShellCommand("sm partition " + listDisks + " public");
             return true;
         } catch (Exception e) {
@@ -1100,19 +1605,22 @@ public class TestUtils {
     }
 
     /**
-     * Gets the name of the public volume.
+     * Gets the name of the public volume, waiting for a bit for it to be available.
      */
     public static String getPublicVolumeName() throws Exception {
         final String[] volName = new String[1];
         pollForCondition(() -> {
-            volName[0] = getPublicVolumeNameInternal();
+            volName[0] = getCurrentPublicVolumeName();
             return volName[0] != null;
         }, "Timed out while waiting for public volume to be ready");
 
         return volName[0];
     }
 
-    private static String getPublicVolumeNameInternal() {
+    /**
+     * @return the currently mounted public volume, if any.
+     */
+    public static String getCurrentPublicVolumeName() {
         final String[] allVolumeDetails;
         try {
             allVolumeDetails = executeShellCommand("sm list-volumes")
@@ -1159,5 +1667,27 @@ public class TestUtils {
         pollForCondition(
                 () -> Environment.isExternalStorageManager(),
                 "Timed out while waiting for MANAGE_EXTERNAL_STORAGE");
+    }
+
+    private static void assertVolumeType(boolean isPrimary) {
+        String[] parts = getExternalFilesDir().getAbsolutePath().split("/");
+        assertThat(parts.length).isAtLeast(3);
+        assertThat(parts[1]).isEqualTo("storage");
+        if (isPrimary) {
+            assertThat(parts[2]).isEqualTo("emulated");
+        } else {
+            assertThat(parts[2]).isNotEqualTo("emulated");
+        }
+    }
+
+    private static boolean isProcessRunning(String packageName) {
+        return getAppProcessInfo(packageName).isPresent();
+    }
+
+    private static Optional<ActivityManager.RunningAppProcessInfo> getAppProcessInfo(
+            String packageName) {
+        return getContext().getSystemService(
+                ActivityManager.class).getRunningAppProcesses().stream().filter(
+                        p -> packageName.equals(p.processName)).findFirst();
     }
 }

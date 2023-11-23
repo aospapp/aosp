@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Estils i fons de pantalla"</string>
+    <string name="app_name" msgid="1647136562008520313">"Estil i fons de pantalla"</string>
     <string name="theme_title" msgid="2144932106319405101">"Estil"</string>
     <string name="clock_title" msgid="2126046720254613991">"Rellotge"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Graella"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Fons de pantalla"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Quadrícula d\'apps"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Aplica"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Toca per editar"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Mantén el fons de pantalla actual"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Aplica"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Pàgina <xliff:g id="ID_1">%1$d</xliff:g> de <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Següent"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Anterior"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Previsualització de l\'estil"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Previsualització de quadrícula"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Previsualització de la lletra"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Previsualització de la icona"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Previsualització del color"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Previsualització de la forma"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, aplicat actualment"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, aplicada i previsualitzada actualment"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, previsualitzada actualment"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Fons de pantalla"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Afegeix els teus tipus de lletra preferits a cada pantalla"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Tria una mida de quadrícula"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g> x <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"L\'estil s\'ha aplicat"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"S\'ha aplicat el rellotge"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"L\'estil s\'ha definit correctament"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"El rellotge s\'ha definit correctament"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"La quadrícula s\'ha definit correctament"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"S\'ha produït un error en aplicar l\'estil"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Següent"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Anterior"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Personalitzat"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Personalitzat <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Estil personalitzat"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Suprimeix"</string>
@@ -60,10 +65,22 @@
     <string name="delete_custom_theme_button" msgid="5102462988130208824">"Suprimeix"</string>
     <string name="cancel" msgid="4651030493668562067">"Cancel·la"</string>
     <string name="set_theme_wallpaper_dialog_message" msgid="2179661027350908003">"Estableix el fons de pantalla temàtic"</string>
-    <string name="use_style_instead_title" msgid="1578754995763917502">"Vols utilitzar l\'estil <xliff:g id="ID_1">%1$s</xliff:g>?"</string>
-    <string name="use_style_instead_body" msgid="3051937045807471496">"Els components que has triat corresponen a l\'estil <xliff:g id="ID_1">%1$s</xliff:g>. Vols utilitzar l\'estil <xliff:g id="ID_2">%1$s</xliff:g>?"</string>
-    <string name="use_style_button" msgid="1754493078383627019">"Utilitza l\'estil <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="use_style_instead_title" msgid="1578754995763917502">"Prefereixes utilitzar <xliff:g id="ID_1">%1$s</xliff:g>?"</string>
+    <string name="use_style_instead_body" msgid="3051937045807471496">"Els components que has triat corresponen a l\'estil <xliff:g id="ID_1">%1$s</xliff:g>. Prefereixes utilitzar <xliff:g id="ID_2">%1$s</xliff:g>?"</string>
+    <string name="use_style_button" msgid="1754493078383627019">"Utilitza <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="no_thanks" msgid="7286616980115687627">"No, gràcies"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"Previsualització de rellotge <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Vaja! S\'ha produït un error."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Color/Icones"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Previsualització de tipus de lletra, icones, forma d\'aplicacions i color"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Tipus de lletra personalitzat"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Icona personalitzada"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Color personalitzat"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Forma personalitzada"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Nom d\'estil personalitzat"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Tema fosc"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Desactivat temporalment per Estalvi de bateria"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Icones temàtiques"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Canvia la quadrícula d\'aplicacions"</string>
 </resources>

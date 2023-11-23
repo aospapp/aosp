@@ -309,7 +309,7 @@ TextureCubeArrayShader::TextureCubeArrayShader (glu::DataType samplerType, glu::
 	, m_layer		(0)
 	, m_outputType	(outputType)
 {
-	TCU_CHECK_INTERNAL(glslVersion == glu::GLSL_VERSION_310_ES || glslVersion == glu::GLSL_VERSION_320_ES);
+	TCU_CHECK_INTERNAL(glslVersion == glu::GLSL_VERSION_310_ES || glslVersion == glu::GLSL_VERSION_320_ES || glslVersion == glu::GLSL_VERSION_450);
 }
 
 void TextureCubeArrayShader::setLayer (int layer)
@@ -541,6 +541,9 @@ const char* getFormatName (deUint32 format)
 		case GL_DEPTH_COMPONENT24:	return "depth_component24";
 		case GL_DEPTH32F_STENCIL8:	return "depth32f_stencil8";
 		case GL_DEPTH24_STENCIL8:	return "depth24_stencil8";
+		case GL_R16:				return "r16";
+		case GL_RG16:				return "rg16";
+		case GL_RGBA16:				return "rgba16";
 
 		default:
 			TCU_FAIL("Unknown format");
@@ -575,9 +578,14 @@ tcu::TextureFormat getFramebufferReadFormat (const tcu::TextureFormat& format)
 		case tcu::TEXTURECHANNELCLASS_FLOATING_POINT:
 			return tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::FLOAT);
 
-		case tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT:
+        case tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT:
 		case tcu::TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT:
-			return tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8);
+	{
+			if (format.type == tcu::TextureFormat::UNORM_INT16 || format.type == tcu::TextureFormat::SNORM_INT16)
+				return tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT16);
+			else
+				return tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8);
+		}
 
 		case tcu::TEXTURECHANNELCLASS_UNSIGNED_INTEGER:
 			return tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNSIGNED_INT32);

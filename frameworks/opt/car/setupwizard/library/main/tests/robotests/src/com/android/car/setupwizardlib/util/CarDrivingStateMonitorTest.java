@@ -127,12 +127,32 @@ public class CarDrivingStateMonitorTest extends BaseRobolectricTest {
     }
 
     @Test
+    public void testOnUxRestrictionsChangedForNonSetup_triggersExit() {
+        mCarDrivingStateMonitor.startMonitor();
+        doReturn(CarUxRestrictions.UX_RESTRICTIONS_NO_VIDEO).when(mMockRestrictions)
+                .getActiveRestrictions();
+        mCarDrivingStateMonitor.onUxRestrictionsChanged(mMockRestrictions);
+        assertThat(mShadowApplication.getBroadcastIntents().get(0).getAction())
+                .isEqualTo(CarDrivingStateMonitor.EXIT_BROADCAST_ACTION);
+    }
+
+    @Test
+    public void testStartMonitorWhileDrivingForNonSetup_triggersExit() {
+        doReturn(CarUxRestrictions.UX_RESTRICTIONS_NO_VIDEO).when(mMockRestrictions)
+                .getActiveRestrictions();
+        mCarDrivingStateMonitor.startMonitor();
+        assertThat(mShadowApplication.getBroadcastIntents().get(0).getAction())
+                .isEqualTo(CarDrivingStateMonitor.EXIT_BROADCAST_ACTION);
+    }
+
+    @Test
     public void testStartMonitor_clearsStopMonitorRunnable() {
         mCarDrivingStateMonitor.startMonitor();
         ShadowCar.setIsConnected(true);
         mCarDrivingStateMonitor.stopMonitor();
         mCarDrivingStateMonitor.startMonitor();
-        assertThat(mCarDrivingStateMonitor.mHandler.hasMessagesOrCallbacks()).isFalse();
+        assertThat(mCarDrivingStateMonitor.mHandler
+            .hasCallbacks(mCarDrivingStateMonitor.mDisconnectRunnable)).isFalse();
     }
 
     @Test

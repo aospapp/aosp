@@ -2,6 +2,15 @@
 // Compile Robolectric robolectric
 //#############################################
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_robolectric-shadows_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_robolectric-shadows_license"],
+}
+
 java_library_host {
     name: "Robolectric_robolectric",
     libs: [
@@ -75,4 +84,8 @@ java_test_host {
         "jsr305",
     ],
     libs: ["robolectric-host-android_all"],
+    // Robolectric tests do not work well with unit tests setup yet
+    test_options: {
+        unit_test: false,
+    },
 }

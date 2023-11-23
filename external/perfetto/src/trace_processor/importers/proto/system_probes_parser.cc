@@ -19,6 +19,7 @@
 #include <set>
 
 #include "perfetto/base/logging.h"
+#include "perfetto/ext/base/string_utils.h"
 #include "perfetto/ext/traced/sys_stats_counters.h"
 #include "perfetto/protozero/proto_decoder.h"
 #include "src/trace_processor/importers/common/event_tracker.h"
@@ -67,7 +68,11 @@ SystemProbesParser::SystemProbesParser(TraceProcessorContext* context)
       cpu_times_irq_ns_id_(context->storage->InternString("cpu.times.irq_ns")),
       cpu_times_softirq_ns_id_(
           context->storage->InternString("cpu.times.softirq_ns")),
-      oom_score_adj_id_(context->storage->InternString("oom_score_adj")) {
+      oom_score_adj_id_(context->storage->InternString("oom_score_adj")),
+      thread_time_in_state_id_(context->storage->InternString("time_in_state")),
+      thread_time_in_state_cpu_id_(
+          context_->storage->InternString("time_in_state_cpu_id")),
+      cpu_freq_id_(context_->storage->InternString("freq")) {
   for (const auto& name : BuildMeminfoCounterNames()) {
     meminfo_strs_id_.emplace_back(context->storage->InternString(name));
   }
@@ -110,7 +115,22 @@ void SystemProbesParser::ParseSysStats(int64_t ts, ConstBytes blob) {
     // /proc/meminfo counters are in kB, convert to bytes
     TrackId track = context_->track_tracker->InternGlobalCounterTrack(
         meminfo_strs_id_[key]);
-    context_->event_tracker->PushCounter(ts, mi.value() * 1024L, track);
+    context_->event_tracker->PushCounter(
+        ts, static_cast<double>(mi.value()) * 1024., track);
+  }
+
+  for (auto it = sys_stats.devfreq(); it; ++it) {
+    protos::pbzero::SysStats::DevfreqValue::Decoder vm(*it);
+    auto key = static_cast<base::StringView>(vm.key());
+    // Append " Frequency" to align names with FtraceParser::ParseClockSetRate
+    base::StringView devfreq_subtitle("Frequency");
+    char counter_name[255];
+    snprintf(counter_name, sizeof(counter_name), "%.*s %.*s", int(key.size()),
+             key.data(), int(devfreq_subtitle.size()), devfreq_subtitle.data());
+    StringId name = context_->storage->InternString(counter_name);
+    TrackId track = context_->track_tracker->InternGlobalCounterTrack(name);
+    context_->event_tracker->PushCounter(ts, static_cast<double>(vm.value()),
+                                         track);
   }
 
   for (auto it = sys_stats.vmstat(); it; ++it) {
@@ -123,7 +143,8 @@ void SystemProbesParser::ParseSysStats(int64_t ts, ConstBytes blob) {
     }
     TrackId track =
         context_->track_tracker->InternGlobalCounterTrack(vmstat_strs_id_[key]);
-    context_->event_tracker->PushCounter(ts, vm.value(), track);
+    context_->event_tracker->PushCounter(ts, static_cast<double>(vm.value()),
+                                         track);
   }
 
   for (auto it = sys_stats.cpu_stat(); it; ++it) {
@@ -136,31 +157,38 @@ void SystemProbesParser::ParseSysStats(int64_t ts, ConstBytes blob) {
 
     TrackId track = context_->track_tracker->InternCpuCounterTrack(
         cpu_times_user_ns_id_, ct.cpu_id());
-    context_->event_tracker->PushCounter(ts, ct.user_ns(), track);
+    context_->event_tracker->PushCounter(ts, static_cast<double>(ct.user_ns()),
+                                         track);
 
     track = context_->track_tracker->InternCpuCounterTrack(
         cpu_times_user_nice_ns_id_, ct.cpu_id());
-    context_->event_tracker->PushCounter(ts, ct.user_ice_ns(), track);
+    context_->event_tracker->PushCounter(
+        ts, static_cast<double>(ct.user_ice_ns()), track);
 
     track = context_->track_tracker->InternCpuCounterTrack(
         cpu_times_system_mode_ns_id_, ct.cpu_id());
-    context_->event_tracker->PushCounter(ts, ct.system_mode_ns(), track);
+    context_->event_tracker->PushCounter(
+        ts, static_cast<double>(ct.system_mode_ns()), track);
 
     track = context_->track_tracker->InternCpuCounterTrack(
         cpu_times_idle_ns_id_, ct.cpu_id());
-    context_->event_tracker->PushCounter(ts, ct.idle_ns(), track);
+    context_->event_tracker->PushCounter(ts, static_cast<double>(ct.idle_ns()),
+                                         track);
 
     track = context_->track_tracker->InternCpuCounterTrack(
         cpu_times_io_wait_ns_id_, ct.cpu_id());
-    context_->event_tracker->PushCounter(ts, ct.io_wait_ns(), track);
+    context_->event_tracker->PushCounter(
+        ts, static_cast<double>(ct.io_wait_ns()), track);
 
     track = context_->track_tracker->InternCpuCounterTrack(cpu_times_irq_ns_id_,
                                                            ct.cpu_id());
-    context_->event_tracker->PushCounter(ts, ct.irq_ns(), track);
+    context_->event_tracker->PushCounter(ts, static_cast<double>(ct.irq_ns()),
+                                         track);
 
     track = context_->track_tracker->InternCpuCounterTrack(
         cpu_times_softirq_ns_id_, ct.cpu_id());
-    context_->event_tracker->PushCounter(ts, ct.softirq_ns(), track);
+    context_->event_tracker->PushCounter(
+        ts, static_cast<double>(ct.softirq_ns()), track);
   }
 
   for (auto it = sys_stats.num_irq(); it; ++it) {
@@ -168,7 +196,8 @@ void SystemProbesParser::ParseSysStats(int64_t ts, ConstBytes blob) {
 
     TrackId track = context_->track_tracker->InternIrqCounterTrack(
         num_irq_name_id_, ic.irq());
-    context_->event_tracker->PushCounter(ts, ic.count(), track);
+    context_->event_tracker->PushCounter(ts, static_cast<double>(ic.count()),
+                                         track);
   }
 
   for (auto it = sys_stats.num_softirq(); it; ++it) {
@@ -176,26 +205,29 @@ void SystemProbesParser::ParseSysStats(int64_t ts, ConstBytes blob) {
 
     TrackId track = context_->track_tracker->InternSoftirqCounterTrack(
         num_softirq_name_id_, ic.irq());
-    context_->event_tracker->PushCounter(ts, ic.count(), track);
+    context_->event_tracker->PushCounter(ts, static_cast<double>(ic.count()),
+                                         track);
   }
 
   if (sys_stats.has_num_forks()) {
     TrackId track =
         context_->track_tracker->InternGlobalCounterTrack(num_forks_name_id_);
-    context_->event_tracker->PushCounter(ts, sys_stats.num_forks(), track);
+    context_->event_tracker->PushCounter(
+        ts, static_cast<double>(sys_stats.num_forks()), track);
   }
 
   if (sys_stats.has_num_irq_total()) {
     TrackId track = context_->track_tracker->InternGlobalCounterTrack(
         num_irq_total_name_id_);
-    context_->event_tracker->PushCounter(ts, sys_stats.num_irq_total(), track);
+    context_->event_tracker->PushCounter(
+        ts, static_cast<double>(sys_stats.num_irq_total()), track);
   }
 
   if (sys_stats.has_num_softirq_total()) {
     TrackId track = context_->track_tracker->InternGlobalCounterTrack(
         num_softirq_total_name_id_);
-    context_->event_tracker->PushCounter(ts, sys_stats.num_softirq_total(),
-                                         track);
+    context_->event_tracker->PushCounter(
+        ts, static_cast<double>(sys_stats.num_softirq_total()), track);
   }
 }
 
@@ -212,14 +244,24 @@ void SystemProbesParser::ParseProcessTree(ConstBytes blob) {
     // If the parent pid is kthreadd's pid, even though this pid is of a
     // "process", we want to treat it as being a child thread of kthreadd.
     if (ppid == kKthreaddPid) {
-      context_->process_tracker->SetProcessMetadata(kKthreaddPid, base::nullopt,
-                                                    kKthreaddName);
+      context_->process_tracker->SetProcessMetadata(
+          kKthreaddPid, base::nullopt, kKthreaddName, base::StringView());
       context_->process_tracker->UpdateThread(pid, kKthreaddPid);
     } else {
-      auto args = proc.cmdline();
-      base::StringView argv0 = args ? *args : base::StringView();
-      UniquePid upid =
-          context_->process_tracker->SetProcessMetadata(pid, ppid, argv0);
+      auto raw_cmdline = proc.cmdline();
+      base::StringView argv0 = raw_cmdline ? *raw_cmdline : base::StringView();
+
+      std::string cmdline_str;
+      for (auto cmdline_it = raw_cmdline; cmdline_it;) {
+        auto cmdline_part = *cmdline_it;
+        cmdline_str.append(cmdline_part.data, cmdline_part.size);
+
+        if (++cmdline_it)
+          cmdline_str.append(" ");
+      }
+      base::StringView cmdline = base::StringView(cmdline_str);
+      UniquePid upid = context_->process_tracker->SetProcessMetadata(
+          pid, ppid, argv0, cmdline);
       if (proc.has_uid()) {
         context_->process_tracker->SetProcessUid(
             upid, static_cast<uint32_t>(proc.uid()));
@@ -235,12 +277,14 @@ void SystemProbesParser::ParseProcessTree(ConstBytes blob) {
 
     if (thd.has_name()) {
       StringId thread_name_id = context_->storage->InternString(thd.name());
-      context_->process_tracker->UpdateThreadName(tid, thread_name_id);
+      context_->process_tracker->UpdateThreadName(
+          tid, thread_name_id, ThreadNamePriority::kProcessTree);
     }
   }
 }
 
 void SystemProbesParser::ParseProcessStats(int64_t ts, ConstBytes blob) {
+  using Process = protos::pbzero::ProcessStats::Process;
   protos::pbzero::ProcessStats::Decoder stats(blob.data, blob.size);
   const auto kOomScoreAdjFieldNumber =
       protos::pbzero::ProcessStats::Process::kOomScoreAdjFieldNumber;
@@ -260,7 +304,7 @@ void SystemProbesParser::ParseProcessStats(int64_t ts, ConstBytes blob) {
       if (fld.id() ==
           protos::pbzero::ProcessStats::Process::kThreadsFieldNumber) {
         if (PERFETTO_UNLIKELY(ms_per_tick_ == 0 ||
-                              thread_time_in_state_cpu_str_ids_.empty())) {
+                              thread_time_in_state_cpus_.empty())) {
           context_->storage->IncrementStats(
               stats::thread_time_in_state_out_of_order);
           continue;
@@ -278,23 +322,33 @@ void SystemProbesParser::ParseProcessStats(int64_t ts, ConstBytes blob) {
                                        : fld.as_int64() * 1024;
         has_counter[fld.id()] = true;
       } else {
+        // Chrome fields are processed by ChromeSystemProbesParser.
+        if (fld.id() == Process::kIsPeakRssResettableFieldNumber ||
+            fld.id() == Process::kChromePrivateFootprintKbFieldNumber ||
+            fld.id() == Process::kChromePrivateFootprintKbFieldNumber) {
+          continue;
+        }
         context_->storage->IncrementStats(stats::proc_stat_unknown_counters);
       }
     }
 
     // Skip field_id 0 (invalid) and 1 (pid).
     for (size_t field_id = 2; field_id < counter_values.size(); field_id++) {
-      if (!has_counter[field_id])
+      if (!has_counter[field_id] || field_id ==
+                                        protos::pbzero::ProcessStats::Process::
+                                            kIsPeakRssResettableFieldNumber) {
         continue;
+      }
 
       // Lookup the interned string id from the field name using the
       // pre-cached |proc_stats_process_names_| map.
-      StringId name = proc_stats_process_names_[field_id];
-      int64_t value = counter_values[field_id];
+      const StringId& name = proc_stats_process_names_[field_id];
       UniquePid upid = context_->process_tracker->GetOrCreateProcess(pid);
       TrackId track =
           context_->track_tracker->InternProcessCounterTrack(name, upid);
-      context_->event_tracker->PushCounter(ts, value, track);
+      int64_t value = counter_values[field_id];
+      context_->event_tracker->PushCounter(ts, static_cast<double>(value),
+                                           track);
     }
   }
 }
@@ -305,9 +359,10 @@ void SystemProbesParser::ParseThreadStats(int64_t ts,
   protos::pbzero::ProcessStats::Thread::Decoder stats(blob.data, blob.size);
   UniqueTid utid = context_->process_tracker->UpdateThread(
       static_cast<uint32_t>(stats.tid()), pid);
-  TrackId track_id = context_->track_tracker->InternThreadTrack(utid);
+  TrackId track_id = context_->track_tracker->InternThreadCounterTrack(
+      thread_time_in_state_id_, utid);
 
-  std::vector<uint64_t> ticks(thread_time_in_state_cpu_freq_ids_.size());
+  std::vector<uint64_t> ticks(thread_time_in_state_cpu_freqs_.size());
   auto index_it = stats.cpu_freq_indices();
   auto tick_it = stats.cpu_freq_ticks();
   for (; index_it && tick_it; index_it++, tick_it++) {
@@ -321,21 +376,22 @@ void SystemProbesParser::ParseThreadStats(int64_t ts,
   }
 
   for (uint32_t cpu : thread_time_in_state_cpus_) {
-    StringId cpu_str_id = thread_time_in_state_cpu_str_ids_[cpu];
-    context_->slice_tracker->Scoped(
-        ts, track_id, kNullStringId, cpu_str_id,
-        /* duration */ 0,
-        [&stats, &ticks, &cpu, this](ArgsTracker::BoundInserter* args_table) {
-          size_t start = thread_time_in_state_freq_index_[cpu];
-          size_t end = thread_time_in_state_freq_index_[cpu + 1];
-          for (size_t freq_index = start; freq_index < end; freq_index++) {
-            if (stats.cpu_freq_full() || ticks[freq_index] > 0) {
+    size_t start = thread_time_in_state_freq_index_[cpu];
+    size_t end = thread_time_in_state_freq_index_[cpu + 1];
+    for (size_t freq_index = start; freq_index < end; freq_index++) {
+      if (stats.cpu_freq_full() || ticks[freq_index] > 0) {
+        context_->event_tracker->PushCounter(
+            ts, static_cast<double>(ticks[freq_index] * ms_per_tick_), track_id,
+            [cpu, freq_index, this](ArgsTracker::BoundInserter* args_table) {
+              args_table->AddArg(thread_time_in_state_cpu_id_,
+                                 Variadic::UnsignedInteger(cpu));
               args_table->AddArg(
-                  thread_time_in_state_cpu_freq_ids_[freq_index],
-                  Variadic::UnsignedInteger(ticks[freq_index] * ms_per_tick_));
-            }
-          }
-        });
+                  cpu_freq_id_,
+                  Variadic::UnsignedInteger(
+                      thread_time_in_state_cpu_freqs_[freq_index]));
+            });
+      }
+    }
   }
 }
 
@@ -347,14 +403,19 @@ void SystemProbesParser::ParseSystemInfo(ConstBytes blob) {
                                              utsname_blob.size);
     base::StringView machine = utsname.machine();
     SyscallTracker* syscall_tracker = SyscallTracker::GetOrCreate(context_);
-    if (machine == "aarch64" || machine == "armv8l") {
+    if (machine == "aarch64") {
       syscall_tracker->SetArchitecture(kAarch64);
+    } else if (machine == "armv8l") {
+      syscall_tracker->SetArchitecture(kArmEabi);
+    } else if (machine == "armv7l") {
+      syscall_tracker->SetArchitecture(kAarch32);
     } else if (machine == "x86_64") {
       syscall_tracker->SetArchitecture(kX86_64);
     } else if (machine == "i686") {
       syscall_tracker->SetArchitecture(kX86);
     } else {
-      PERFETTO_ELOG("Unknown architecture %s", machine.ToStdString().c_str());
+      PERFETTO_ELOG("Unknown architecture %s. Syscall traces will not work.",
+                    machine.ToStdString().c_str());
     }
 
     SystemInfoTracker* system_info_tracker =
@@ -393,9 +454,10 @@ void SystemProbesParser::ParseSystemInfo(ConstBytes blob) {
 }
 
 void SystemProbesParser::ParseCpuInfo(ConstBytes blob) {
-  // Frequency index 0 is invalid.
-  StringId invalid_str_id = context_->storage->InternString("invalid");
-  thread_time_in_state_cpu_freq_ids_.push_back(invalid_str_id);
+  // invalid_freq is used as the guard in thread_time_in_state_cpu_freq_ids_,
+  // see IsValidCpuFreqIndex.
+  uint32_t invalid_freq = 0;
+  thread_time_in_state_cpu_freqs_.push_back(invalid_freq);
 
   protos::pbzero::CpuInfo::Decoder packet(blob.data, blob.size);
   uint32_t cpu_index = 0;
@@ -404,10 +466,6 @@ void SystemProbesParser::ParseCpuInfo(ConstBytes blob) {
   std::vector<uint32_t> last_cpu_freqs;
   for (auto it = packet.cpus(); it; it++) {
     thread_time_in_state_freq_index_.push_back(freq_index);
-    std::string cpu_string = "time_in_state.cpu" + std::to_string(cpu_index);
-    base::StringView cpu_string_view(cpu_string);
-    thread_time_in_state_cpu_str_ids_.push_back(
-        context_->storage->InternString(cpu_string_view));
 
     protos::pbzero::CpuInfo::Cpu::Decoder cpu(*it);
     tables::CpuTable::Row cpu_row;
@@ -431,25 +489,19 @@ void SystemProbesParser::ParseCpuInfo(ConstBytes blob) {
       cpu_freq_row.cpu_id = cpu_row_id;
       cpu_freq_row.freq = freq;
       context_->storage->mutable_cpu_freq_table()->Insert(cpu_freq_row);
-      std::string freq_string = std::to_string(freq);
-      base::StringView freq_string_view(freq_string);
-      thread_time_in_state_cpu_freq_ids_.push_back(
-          context_->storage->InternString(freq_string_view));
+      thread_time_in_state_cpu_freqs_.push_back(freq);
       freq_index++;
     }
 
     cpu_index++;
   }
   thread_time_in_state_freq_index_.push_back(freq_index);
-
-  thread_time_in_state_cpu_str_ids_.push_back(invalid_str_id);
-  thread_time_in_state_cpu_freq_ids_.push_back(invalid_str_id);
+  thread_time_in_state_cpu_freqs_.push_back(invalid_freq);
 }
 
 bool SystemProbesParser::IsValidCpuFreqIndex(uint32_t freq_index) const {
   // Frequency index 0 is invalid.
-  return freq_index > 0 &&
-         freq_index < thread_time_in_state_cpu_freq_ids_.size();
+  return freq_index > 0 && freq_index < thread_time_in_state_cpu_freqs_.size();
 }
 
 }  // namespace trace_processor

@@ -16,7 +16,7 @@
 
 package android.graphics;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
@@ -157,7 +157,7 @@ public final class Path_Delegate {
 
     @LayoutlibDelegate
     /*package*/ static boolean nIsConvex(long nPath) {
-        Bridge.getLog().fidelityWarning(LayoutLog.TAG_UNSUPPORTED,
+        Bridge.getLog().fidelityWarning(ILayoutLog.TAG_UNSUPPORTED,
                 "Path.isConvex is not supported.", null, null, null);
         return true;
     }
@@ -475,7 +475,7 @@ public final class Path_Delegate {
 
     @LayoutlibDelegate
     /*package*/ static boolean nOp(long nPath1, long nPath2, int op, long result) {
-        Bridge.getLog().error(LayoutLog.TAG_UNSUPPORTED, "Path.op() not supported", null, null);
+        Bridge.getLog().error(ILayoutLog.TAG_UNSUPPORTED, "Path.op() not supported", null, null);
         return false;
     }
 
@@ -889,7 +889,7 @@ public final class Path_Delegate {
     public void transform(Matrix_Delegate matrix, Path_Delegate dst) {
         if (matrix.hasPerspective()) {
             assert false;
-            Bridge.getLog().fidelityWarning(LayoutLog.TAG_MATRIX_AFFINE,
+            Bridge.getLog().fidelityWarning(ILayoutLog.TAG_MATRIX_AFFINE,
                     "android.graphics.Path#transform() only " +
                     "supports affine transformations.", null, null, null /*data*/);
         }

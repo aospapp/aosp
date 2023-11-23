@@ -17,7 +17,7 @@
 #define LOG_TAG "APM::IOProfile"
 //#define LOG_NDEBUG 0
 
-#include <system/audio-base.h>
+#include <system/audio.h>
 #include "IOProfile.h"
 #include "HwModule.h"
 #include "TypeConverter.h"
@@ -105,6 +105,17 @@ bool IOProfile::isCompatibleProfile(const DeviceVector &devices,
     return true;
 }
 
+bool IOProfile::containsSingleDeviceSupportingEncodedFormats(
+        const sp<DeviceDescriptor>& device) const {
+    if (device == nullptr) {
+        return false;
+    }
+    DeviceVector deviceList = mSupportedDevices.getDevicesFromType(device->type());
+    return std::count_if(deviceList.begin(), deviceList.end(),
+            [&device](sp<DeviceDescriptor> deviceDesc) {
+                return device == deviceDesc && deviceDesc->hasCurrentEncodedFormat(); }) == 1;
+}
+
 void IOProfile::dump(String8 *dst) const
 {
     std::string portStr;
@@ -112,12 +123,11 @@ void IOProfile::dump(String8 *dst) const
     dst->append(portStr.c_str());
 
     dst->appendFormat("    - flags: 0x%04x", getFlags());
-    std::string flagsLiteral;
-    if (getRole() == AUDIO_PORT_ROLE_SINK) {
-        InputFlagConverter::maskToString(getFlags(), flagsLiteral);
-    } else if (getRole() == AUDIO_PORT_ROLE_SOURCE) {
-        OutputFlagConverter::maskToString(getFlags(), flagsLiteral);
-    }
+    std::string flagsLiteral =
+            getRole() == AUDIO_PORT_ROLE_SINK ?
+            toString(static_cast<audio_input_flags_t>(getFlags())) :
+            getRole() == AUDIO_PORT_ROLE_SOURCE ?
+            toString(static_cast<audio_output_flags_t>(getFlags())) : "";
     if (!flagsLiteral.empty()) {
         dst->appendFormat(" (%s)", flagsLiteral.c_str());
     }

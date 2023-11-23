@@ -16,8 +16,18 @@
 
 package android.telecom.cts;
 
+import static com.android.compatibility.common.util.ShellIdentityUtils
+        .invokeMethodWithShellPermissionsNoReturn;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
+import android.app.AppOpsManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.TelecomManager;
@@ -29,6 +39,7 @@ public class TelecomManagerTest extends BaseTelecomTestWithMockServices {
 
     private static final String TEST_EMERGENCY_NUMBER = "5553637";
     private static final Uri TEST_EMERGENCY_URI = Uri.fromParts("tel", TEST_EMERGENCY_NUMBER, null);
+    private static final String CTS_TELECOM_PKG = TelecomManagerTest.class.getPackage().getName();
 
     public void testGetCurrentTtyMode() {
         if (!mShouldTestTelecom) {
@@ -48,6 +59,68 @@ public class TelecomManagerTest extends BaseTelecomTestWithMockServices {
         } catch (InterruptedException e) {
             fail("Couldn't get TTY mode.");
             e.printStackTrace();
+        }
+    }
+
+    public void testHasManageOngoingCallsPermission() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        AppOpsManager appOpsManager = mContext.getSystemService(AppOpsManager.class);
+        PackageManager packageManager = mContext.getPackageManager();
+        try {
+            final int uid = packageManager.getApplicationInfo(CTS_TELECOM_PKG, 0).uid;
+            invokeMethodWithShellPermissionsNoReturn(appOpsManager,
+                    (appOpsMan) -> appOpsMan.setUidMode(AppOpsManager.OPSTR_MANAGE_ONGOING_CALLS,
+                            uid, AppOpsManager.MODE_ALLOWED));
+            assertTrue(mTelecomManager.hasManageOngoingCallsPermission());
+            invokeMethodWithShellPermissionsNoReturn(appOpsManager,
+                    (appOpsMan) -> appOpsMan.setUidMode(AppOpsManager.OPSTR_MANAGE_ONGOING_CALLS,
+                            uid, AppOpsManager.opToDefaultMode(
+                                    AppOpsManager.OPSTR_MANAGE_ONGOING_CALLS)));
+            assertFalse(mTelecomManager.hasManageOngoingCallsPermission());
+        } catch (PackageManager.NameNotFoundException ex) {
+            fail("Couldn't get uid for android.telecom.cts");
+        }
+    }
+
+    public void testTtyModeBroadcasts() {
+        // We only expect the actual tty mode to change if there's a wired headset plugged in, so
+        // don't do the test if there isn't one plugged in.
+        if (!mShouldTestTelecom || !isWiredHeadsetPluggedIn()) {
+            return;
+        }
+        LinkedBlockingQueue<Intent> ttyModeQueue = new LinkedBlockingQueue<>(1);
+        BroadcastReceiver ttyModeReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (TelecomManager.ACTION_CURRENT_TTY_MODE_CHANGED.equals(intent.getAction())) {
+                    ttyModeQueue.offer(intent);
+                }
+            }
+        };
+        mContext.registerReceiver(ttyModeReceiver,
+                new IntentFilter(TelecomManager.ACTION_CURRENT_TTY_MODE_CHANGED));
+        Intent changePreferredTtyMode =
+                new Intent(TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED);
+        changePreferredTtyMode.putExtra(TelecomManager.EXTRA_TTY_PREFERRED_MODE,
+                TelecomManager.TTY_MODE_FULL);
+
+        try {
+            runWithShellPermissionIdentity(() -> mContext.sendBroadcast(changePreferredTtyMode));
+            Intent intent = ttyModeQueue.poll(
+                    TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            assertTrue(intent.hasExtra(TelecomManager.EXTRA_CURRENT_TTY_MODE));
+            assertEquals(TelecomManager.TTY_MODE_FULL,
+                    intent.getIntExtra(TelecomManager.EXTRA_CURRENT_TTY_MODE, -1));
+        } catch (InterruptedException e) {
+            fail("interrupted");
+        } finally {
+            Intent revertPreferredTtyMode =
+                    new Intent(TelecomManager.ACTION_TTY_PREFERRED_MODE_CHANGED);
+            revertPreferredTtyMode.putExtra(TelecomManager.EXTRA_TTY_PREFERRED_MODE,
+                    TelecomManager.TTY_MODE_OFF);
+            runWithShellPermissionIdentity(() -> mContext.sendBroadcast(revertPreferredTtyMode));
         }
     }
 
@@ -101,4 +174,24 @@ public class TelecomManagerTest extends BaseTelecomTestWithMockServices {
             e.printStackTrace();
         }
     }
+
+    private boolean isWiredHeadsetPluggedIn() {
+        AudioManager audioManager = mContext.getSystemService(AudioManager.class);
+        AudioDeviceInfo[] devices = audioManager.getDevices(AudioManager.GET_DEVICES_ALL);
+        boolean isPluggedIn = false;
+        for (AudioDeviceInfo device : devices) {
+            switch (device.getType()) {
+                case AudioDeviceInfo.TYPE_WIRED_HEADPHONES:
+                case AudioDeviceInfo.TYPE_WIRED_HEADSET:
+                case AudioDeviceInfo.TYPE_USB_HEADSET:
+                case AudioDeviceInfo.TYPE_USB_DEVICE:
+                    isPluggedIn = true;
+            }
+            if (isPluggedIn) {
+                break;
+            }
+        }
+        return isPluggedIn;
+    }
+
 }

@@ -102,7 +102,7 @@ void nanoappHandleEvent(uint32_t srcTid, uint16_t evtType, const void* evtData)
                                ") cnt: %d\n", t->timerId, chreGetTime(), mCnt);
         extMsg->msg = 0x01;
         extMsg->val = mCnt;
-        chreSendMessageToHost(extMsg, sizeof(*extMsg), 0, nanoappFreeMessage);
+        chreSendMessageToHostEndpoint(extMsg, sizeof(*extMsg), 0, CHRE_HOST_ENDPOINT_BROADCAST, nanoappFreeMessage);
         if (mCnt-- <= 0)
             chreTimerCancel(t->timerId);
         break;

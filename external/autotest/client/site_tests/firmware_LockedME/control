@@ -5,6 +5,7 @@
 AUTHOR = "ChromeOS Team"
 NAME = "firmware_LockedME"
 PURPOSE = "Ensure the ME region is locked."
+ATTRIBUTES = "suite:faft_bios_ro_qual, suite:faft_bios_rw_qual"
 CRITERIA = "Fail if any part of the BIOS ME region is mutable from userspace"
 TIME = "SHORT"
 TEST_CATEGORY = "Security"

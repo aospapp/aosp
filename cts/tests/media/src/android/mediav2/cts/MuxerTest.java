@@ -21,6 +21,7 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaMuxer;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.test.filters.LargeTest;
@@ -262,9 +263,16 @@ class MuxerTestHelper {
         return mTrackCount;
     }
 
-    // offset pts of samples from index sampleOffset till the end by tsOffset
-    void offsetTimeStamp(int trackID, long tsOffset, int sampleOffset) {
-        if (trackID < mTrackCount) {
+    // offset pts of samples from index sampleOffset till the end by tsOffset for each audio and
+    // video track
+    void offsetTimeStamp(long tsAudioOffset, long tsVideoOffset, int sampleOffset) {
+        for (int trackID = 0; trackID < mTrackCount; trackID++) {
+            long tsOffset = 0;
+            if (mFormat.get(trackID).getString(MediaFormat.KEY_MIME).startsWith("video/")) {
+                tsOffset = tsVideoOffset;
+            } else if (mFormat.get(trackID).getString(MediaFormat.KEY_MIME).startsWith("audio/")) {
+                tsOffset = tsAudioOffset;
+            }
             for (int i = sampleOffset; i < mBufferInfo.get(trackID).size(); i++) {
                 MediaCodec.BufferInfo bufferInfo = mBufferInfo.get(trackID).get(i);
                 bufferInfo.presentationTimeUs += tsOffset;
@@ -289,11 +297,9 @@ class MuxerTestHelper {
                 MediaFormat thatFormat = that.mFormat.get(j);
                 String thatMime = thatFormat.getString(MediaFormat.KEY_MIME);
                 if (thisMime != null && thisMime.equals(thatMime)) {
-                    if (!ExtractorTest.isCSDIdentical(thisFormat, thatFormat)) continue;
+                    if (!ExtractorTest.isFormatSimilar(thisFormat, thatFormat)) continue;
                     if (mBufferInfo.get(i).size() == that.mBufferInfo.get(j).size()) {
                         long tolerance = thisMime.startsWith("video/") ? STTS_TOLERANCE_US : 0;
-                        // TODO(b/157008437) - muxed file pts is +1us of target pts
-                        tolerance += 1; // rounding error
                         int k = 0;
                         for (; k < mBufferInfo.get(i).size(); k++) {
                             MediaCodec.BufferInfo thisInfo = mBufferInfo.get(i).get(k);
@@ -357,6 +363,20 @@ public class MuxerTest {
     private static boolean[] muxSelector = new boolean[MUXER_OUTPUT_LAST + 1];
     private static HashMap<Integer, String> formatStringPair = new HashMap<>();
 
+    static final List<String> codecListforTypeMp4 =
+            Arrays.asList(MediaFormat.MIMETYPE_VIDEO_MPEG4, MediaFormat.MIMETYPE_VIDEO_H263,
+                    MediaFormat.MIMETYPE_VIDEO_AVC, MediaFormat.MIMETYPE_VIDEO_HEVC,
+                    MediaFormat.MIMETYPE_AUDIO_AAC);
+    static final List<String> codecListforTypeWebm =
+            Arrays.asList(MediaFormat.MIMETYPE_VIDEO_VP8, MediaFormat.MIMETYPE_VIDEO_VP9,
+                    MediaFormat.MIMETYPE_AUDIO_VORBIS, MediaFormat.MIMETYPE_AUDIO_OPUS);
+    static final List<String> codecListforType3gp =
+            Arrays.asList(MediaFormat.MIMETYPE_VIDEO_MPEG4, MediaFormat.MIMETYPE_VIDEO_H263,
+                    MediaFormat.MIMETYPE_VIDEO_AVC, MediaFormat.MIMETYPE_AUDIO_AAC,
+                    MediaFormat.MIMETYPE_AUDIO_AMR_NB, MediaFormat.MIMETYPE_AUDIO_AMR_WB);
+    static final List<String> codecListforTypeOgg =
+            Arrays.asList(MediaFormat.MIMETYPE_AUDIO_OPUS);
+
     static {
         android.os.Bundle args = InstrumentationRegistry.getArguments();
         final String defSel = "mp4;webm;3gp;ogg";
@@ -380,11 +400,26 @@ public class MuxerTest {
         return muxSelector[format];
     }
 
+    static boolean isCodecContainerPairValid(String mime, int format) {
+        boolean result = false;
+        if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            result = codecListforTypeMp4.contains(mime) || mime.startsWith("application/");
+        else if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM) {
+            return codecListforTypeWebm.contains(mime);
+        } else if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP) {
+            result = codecListforType3gp.contains(mime);
+        } else if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG) {
+            result = codecListforTypeOgg.contains(mime);
+        }
+        return result;
+    }
+
     /**
      * Tests MediaMuxer API that are dependent on MediaMuxer.OutputFormat. setLocation,
      * setOrientationHint are dependent on the mime type and OutputFormat. Legality of these APIs
      * are tested in this class.
      */
+    @NonMediaMainlineTest
     @SmallTest
     @RunWith(Parameterized.class)
     public static class TestApi {
@@ -392,6 +427,7 @@ public class MuxerTest {
         private String mSrcFile;
         private String mInpPath;
         private String mOutPath;
+        private int mTrackCount;
         private static final float annapurnaLat = 28.59f;
         private static final float annapurnaLong = 83.82f;
         private static final float TOLERANCE = 0.0002f;
@@ -412,29 +448,38 @@ public class MuxerTest {
             new File(mOutPath).delete();
         }
 
-        @Parameterized.Parameters(name = "{index}({2})")
+        @Parameterized.Parameters(name = "{index}({3})")
         public static Collection<Object[]> input() {
             return Arrays.asList(new Object[][]{
                     {MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, "bbb_cif_768kbps_30fps_avc.mp4",
-                            "mp4"},
+                            1, "mp4"},
                     {MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM, "bbb_cif_768kbps_30fps_vp9.mkv",
-                            "webm"},
+                            1, "webm"},
                     {MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP, "bbb_cif_768kbps_30fps_h263.mp4",
-                            "3gpp"},
+                            1, "3gpp"},
                     {MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG, "bbb_stereo_48kHz_192kbps_opus.ogg",
-                            "ogg"},
+                            1, "ogg"},
+                    {MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
+                            "bbb_cif_768kbps_30fps_h263_mono_8kHz_12kbps_amrnb.3gp", 2, "mp4"},
             });
         }
 
-        public TestApi(int outFormat, String srcFile, String testName) {
+        public TestApi(int outFormat, String srcFile, int trackCount, String testName) {
             mOutFormat = outFormat;
             mSrcFile = srcFile;
+            mTrackCount = trackCount;
         }
 
         private native boolean nativeTestSetLocation(int format, String srcPath, String outPath);
 
         private native boolean nativeTestSetOrientationHint(int format, String srcPath,
                 String outPath);
+
+        private native boolean nativeTestGetTrackCount(String srcPath, String outPath,
+                int outFormat, int trackCount);
+
+        private native boolean nativeTestGetTrackFormat(String srcPath, String outPath,
+                int outFormat);
 
         private void verifyLocationInFile(String fileName) {
             if (mOutFormat != MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4 &&
@@ -662,11 +707,24 @@ public class MuxerTest {
             assertTrue(nativeTestSetOrientationHint(mOutFormat, mInpPath, mOutPath));
             verifyOrientation(mOutPath);
         }
+
+        @Test
+        public void testGetTrackCountNative() {
+            Assume.assumeTrue(Build.VERSION.SDK_INT > Build.VERSION_CODES.R);
+            assertTrue(nativeTestGetTrackCount(mInpPath, mOutPath, mOutFormat, mTrackCount));
+        }
+
+        @Test
+        public void testGetTrackFormatNative() {
+            Assume.assumeTrue(Build.VERSION.SDK_INT > Build.VERSION_CODES.R);
+            assertTrue(nativeTestGetTrackFormat(mInpPath, mOutPath, mOutFormat));
+        }
     }
 
     /**
      * Tests muxing multiple Video/Audio Tracks
      */
+    @NonMediaMainlineTest
     @LargeTest
     @RunWith(Parameterized.class)
     public static class TestMultiTrack {
@@ -700,8 +758,8 @@ public class MuxerTest {
         public static Collection<Object[]> input() {
             return Arrays.asList(new Object[][]{
                     // audio, video are 3 sec
-                    {MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, "bbb_cif_768kbps_30fps_mpeg4" +
-                            ".mkv", "bbb_stereo_48kHz_192kbps_aac.mp4", "mp4"},
+                    {MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, "bbb_cif_768kbps_30fps_h263" +
+                            ".mp4", "bbb_stereo_48kHz_192kbps_aac.mp4", "mp4"},
                     {MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM, "bbb_cif_768kbps_30fps_vp9.mkv"
                             , "bbb_stereo_48kHz_192kbps_vorbis.ogg", "webm"},
                     {MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP, "bbb_cif_768kbps_30fps_h263.mp4"
@@ -716,8 +774,8 @@ public class MuxerTest {
                             , "bbb_mono_16kHz_20kbps_amrwb.amr", "3gpp"},
 
                     // audio 10 sec, video 3 sec
-                    {MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, "bbb_cif_768kbps_30fps_mpeg4" +
-                            ".mkv", "bbb_stereo_48kHz_128kbps_aac.mp4", "mp4"},
+                    {MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, "bbb_cif_768kbps_30fps_h263" +
+                            ".mp4", "bbb_stereo_48kHz_128kbps_aac.mp4", "mp4"},
                     {MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM, "bbb_cif_768kbps_30fps_vp9.mkv"
                             , "bbb_stereo_48kHz_128kbps_vorbis.ogg", "webm"},
                     {MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP, "bbb_cif_768kbps_30fps_h263.mp4"
@@ -740,7 +798,8 @@ public class MuxerTest {
             Assume.assumeTrue("TODO(b/146423022)",
                     mOutFormat != MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM);
             // number of times to repeat {mSrcFileA, mSrcFileB} in Output
-            final int[][] numTracks = {{2, 0}, {0, 2}, {1, 2}, {2, 1}};
+            // values should be in sync with nativeTestMultiTrack
+            final int[][] numTracks = {{2, 0}, {0, 2}, {1, 2}, {2, 1}, {2, 2}};
 
             MuxerTestHelper mediaInfoA = new MuxerTestHelper(mInpPathA);
             MuxerTestHelper mediaInfoB = new MuxerTestHelper(mInpPathB);
@@ -804,6 +863,7 @@ public class MuxerTest {
      * Add an offset to the presentation time of samples of a track. Mux with the added offset,
      * validate by re-extracting the muxer output file and compare with original.
      */
+    @NonMediaMainlineTest
     @LargeTest
     @RunWith(Parameterized.class)
     public static class TestOffsetPts {
@@ -860,7 +920,9 @@ public class MuxerTest {
 
         @Test
         public void testOffsetPresentationTime() throws IOException {
-            final int OFFSET_TS = 111000;
+            // values sohuld be in sync with nativeTestOffsetPts
+            final long[] OFFSET_TS_AUDIO_US = {-23220L, 0L, 200000L, 400000L};
+            final long[] OFFSET_TS_VIDEO_US = {0L, 200000L, 400000L};
             Assume.assumeTrue(shouldRunTest(mOutFormat));
             Assume.assumeTrue("TODO(b/148978457)",
                     mOutFormat != MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
@@ -870,24 +932,27 @@ public class MuxerTest {
                     mOutFormat != MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM);
             Assume.assumeTrue("TODO(b/146421018)",
                     mOutFormat != MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG);
-            assertTrue(OFFSET_TS > MuxerTestHelper.STTS_TOLERANCE_US);
             MuxerTestHelper mediaInfo = new MuxerTestHelper(mInpPath);
-            for (int trackID = 0; trackID < mediaInfo.getTrackCount(); trackID++) {
-                for (int i = 0; i < mOffsetIndices.length; i++) {
-                    mediaInfo.offsetTimeStamp(trackID, OFFSET_TS, mOffsetIndices[i]);
-                }
-                MediaMuxer muxer = new MediaMuxer(mOutPath, mOutFormat);
-                mediaInfo.muxMedia(muxer);
-                muxer.release();
-                MuxerTestHelper outInfo = new MuxerTestHelper(mOutPath);
-                if (!outInfo.isSubsetOf(mediaInfo)) {
-                    String msg = String.format(
-                            "testOffsetPresentationTime: inp: %s, fmt: %d, trackID %d", mSrcFile,
-                            mOutFormat, trackID);
-                    fail(msg + "error! output != input");
-                }
-                for (int i = mOffsetIndices.length - 1; i >= 0; i--) {
-                    mediaInfo.offsetTimeStamp(trackID, -OFFSET_TS, mOffsetIndices[i]);
+            for (long audioOffsetUs : OFFSET_TS_AUDIO_US) {
+                for (long videoOffsetUs : OFFSET_TS_VIDEO_US) {
+                    for (int i = 0; i < mOffsetIndices.length; i++) {
+                        mediaInfo.offsetTimeStamp(audioOffsetUs, videoOffsetUs, mOffsetIndices[i]);
+                    }
+                    MediaMuxer muxer = new MediaMuxer(mOutPath, mOutFormat);
+                    mediaInfo.muxMedia(muxer);
+                    muxer.release();
+                    MuxerTestHelper outInfo = new MuxerTestHelper(mOutPath);
+                    if (!outInfo.isSubsetOf(mediaInfo)) {
+                        String msg = String.format(
+                                "testOffsetPresentationTime: inp: %s, fmt: %d, audioOffsetUs %d, " +
+                                        "videoOffsetUs %d ",
+                                mSrcFile, mOutFormat, audioOffsetUs, videoOffsetUs);
+                        fail(msg + "error! output != input");
+                    }
+                    for (int i = mOffsetIndices.length - 1; i >= 0; i--) {
+                        mediaInfo.offsetTimeStamp(-audioOffsetUs, -videoOffsetUs,
+                                mOffsetIndices[i]);
+                    }
                 }
             }
         }
@@ -908,27 +973,108 @@ public class MuxerTest {
     }
 
     /**
+     * Tests whether appending audio and/or video data to an existing media file works in all
+     * supported append modes.
+     */
+    @LargeTest
+    @RunWith(Parameterized.class)
+    public static class TestSimpleAppend {
+        private static final String LOG_TAG = MuxerTestHelper.class.getSimpleName();
+        private String mSrcFile;
+        private String mInpPath;
+        private String mOutPath;
+        private int mOutFormat;
+        private int mTrackCount;
+
+        static {
+            System.loadLibrary("ctsmediav2muxer_jni");
+        }
+
+        @Before
+        public void prologue() throws IOException {
+            mInpPath = WorkDir.getMediaDirString() + mSrcFile;
+            mOutPath = File.createTempFile("tmp", ".out").getAbsolutePath();
+        }
+
+        @After
+        public void epilogue() {
+            new File(mOutPath).delete();
+        }
+
+        @Parameterized.Parameters(name = "{index}({3})")
+        public static Collection<Object[]> input() {
+            return Arrays.asList(new Object[][]{
+                    {MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
+                            "bbb_stereo_48kHz_128kbps_aac.mp4", 1, "mp4"},
+                    {MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
+                            "bbb_1920x1080_avc_high_l42.mp4", 1, "mp4"},
+                    {MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
+                            "bbb_cif_768kbps_30fps_h263_mono_8kHz_12kbps_amrnb.3gp", 2, "mp4"},
+                    {MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4,
+                            "bbb_cif_768kbps_30fps_mpeg4_mono_16kHz_20kbps_amrwb.3gp", 2, "mp4"},
+            });
+        }
+
+        public TestSimpleAppend(int outFormat, String srcFile, int trackCount, String testName) {
+            mOutFormat = outFormat;
+            mSrcFile = srcFile;
+            mTrackCount = trackCount;
+        }
+
+        private native boolean nativeTestSimpleAppend(int outFormat, String srcPath,
+                String outPath);
+
+        private native boolean nativeTestAppendGetTrackCount(String srcPath, int trackCount);
+
+        private native boolean nativeTestNoSamples(int outFormat, String srcPath, String outPath);
+
+        private native boolean nativeTestIgnoreLastGOPAppend(int outFormat, String srcPath,
+                String outPath);
+
+        private native boolean nativeTestAppendGetTrackFormat(String srcPath);
+
+        @Test
+        public void testSimpleAppendNative() {
+            Assume.assumeTrue(Build.VERSION.SDK_INT > Build.VERSION_CODES.R);
+            assertTrue(nativeTestSimpleAppend(mOutFormat, mInpPath, mOutPath));
+        }
+
+        @Test
+        public void testAppendGetTrackCountNative() {
+            Assume.assumeTrue(Build.VERSION.SDK_INT > Build.VERSION_CODES.R);
+            assertTrue(nativeTestAppendGetTrackCount(mInpPath, mTrackCount));
+        }
+
+        @Test
+        public void testAppendNoSamplesNative() {
+            Assume.assumeTrue(Build.VERSION.SDK_INT > Build.VERSION_CODES.R);
+            assertTrue(nativeTestNoSamples(mOutFormat, mInpPath, mOutPath));
+        }
+
+        @Test
+        public void testIgnoreLastGOPAppend() {
+            Assume.assumeTrue(Build.VERSION.SDK_INT > Build.VERSION_CODES.R);
+            assertTrue(nativeTestIgnoreLastGOPAppend(mOutFormat, mInpPath, mOutPath));
+        }
+
+        @Test
+        public void testAppendGetTrackFormatNative() {
+            Assume.assumeTrue(Build.VERSION.SDK_INT > Build.VERSION_CODES.R);
+            assertTrue(nativeTestAppendGetTrackFormat(mInpPath));
+        }
+    }
+
+
+    /**
      * Audio, Video Codecs support a variety of file-types/container formats. For example,
      * AAC-LC supports MPEG4, 3GPP. Vorbis supports OGG and WEBM. H.263 supports 3GPP and WEBM.
      * This test takes the output of a codec and muxes it in to all possible container formats.
      * The results are checked for inconsistencies with the requirements of CDD.
      */
+    @NonMediaMainlineTest
     @LargeTest
     @RunWith(Parameterized.class)
     public static class TestSimpleMux {
-        private final List<String> codecListforTypeMp4 =
-                Arrays.asList(MediaFormat.MIMETYPE_VIDEO_MPEG4, MediaFormat.MIMETYPE_VIDEO_H263,
-                        MediaFormat.MIMETYPE_VIDEO_AVC, MediaFormat.MIMETYPE_VIDEO_HEVC,
-                        MediaFormat.MIMETYPE_AUDIO_AAC);
-        private final List<String> codecListforTypeWebm =
-                Arrays.asList(MediaFormat.MIMETYPE_VIDEO_VP8, MediaFormat.MIMETYPE_VIDEO_VP9,
-                        MediaFormat.MIMETYPE_AUDIO_VORBIS, MediaFormat.MIMETYPE_AUDIO_OPUS);
-        private final List<String> codecListforType3gp =
-                Arrays.asList(MediaFormat.MIMETYPE_VIDEO_MPEG4, MediaFormat.MIMETYPE_VIDEO_H263,
-                        MediaFormat.MIMETYPE_VIDEO_AVC, MediaFormat.MIMETYPE_AUDIO_AAC,
-                        MediaFormat.MIMETYPE_AUDIO_AMR_NB, MediaFormat.MIMETYPE_AUDIO_AMR_WB);
-        private final List<String> codecListforTypeOgg =
-                Arrays.asList(MediaFormat.MIMETYPE_AUDIO_OPUS);
         private String mMime;
         private String mSrcFile;
         private String mInpPath;
@@ -938,7 +1084,7 @@ public class MuxerTest {
             System.loadLibrary("ctsmediav2muxer_jni");
         }
 
-        public TestSimpleMux(String mime, String srcFile) {
+        public TestSimpleMux(String mime, String srcFile, String testName) {
             mMime = mime;
             mSrcFile = srcFile;
         }
@@ -954,20 +1100,6 @@ public class MuxerTest {
             new File(mOutPath).delete();
         }
 
-        private boolean isCodecContainerPairValid(int format) {
-            boolean result = false;
-            if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-                result = codecListforTypeMp4.contains(mMime) || mMime.startsWith("application/");
-            else if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM) {
-                return codecListforTypeWebm.contains(mMime);
-            } else if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP) {
-                result = codecListforType3gp.contains(mMime);
-            } else if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG) {
-                result = codecListforTypeOgg.contains(mMime);
-            }
-            return result;
-        }
-
         private boolean doesCodecRequireCSD(String aMime) {
             return (aMime == MediaFormat.MIMETYPE_VIDEO_AVC ||
                     aMime == MediaFormat.MIMETYPE_VIDEO_HEVC ||
@@ -979,38 +1111,43 @@ public class MuxerTest {
         private native boolean nativeTestSimpleMux(String srcPath, String outPath, String mime,
                 String selector);
 
-        @Parameterized.Parameters(name = "{index}({0})")
+        private native boolean nativeTestSimpleAppend(String srcPath, String outPath, String mime,
+                                                      String selector);
+
+        @Parameterized.Parameters(name = "{index}({2})")
         public static Collection<Object[]> input() {
             return Arrays.asList(new Object[][]{
                     // Video Codecs
                     {MediaFormat.MIMETYPE_VIDEO_H263,
-                            "bbb_cif_768kbps_30fps_h263_mono_8kHz_12kbps_amrnb.3gp"},
+                            "bbb_cif_768kbps_30fps_h263_mono_8kHz_12kbps_amrnb.3gp", "h263"},
                     {MediaFormat.MIMETYPE_VIDEO_AVC,
-                            "bbb_cif_768kbps_30fps_avc_stereo_48kHz_192kbps_vorbis.mp4"},
+                            "bbb_cif_768kbps_30fps_avc_stereo_48kHz_192kbps_vorbis.mp4", "avc"},
                     {MediaFormat.MIMETYPE_VIDEO_HEVC,
-                            "bbb_cif_768kbps_30fps_hevc_stereo_48kHz_192kbps_opus.mp4"},
+                            "bbb_cif_768kbps_30fps_hevc_stereo_48kHz_192kbps_opus.mp4", "hevc"},
                     {MediaFormat.MIMETYPE_VIDEO_MPEG4,
-                            "bbb_cif_768kbps_30fps_mpeg4_mono_16kHz_20kbps_amrwb.3gp"},
+                            "bbb_cif_768kbps_30fps_mpeg4_mono_16kHz_20kbps_amrwb.3gp", "mpeg4"},
                     {MediaFormat.MIMETYPE_VIDEO_VP8,
-                            "bbb_cif_768kbps_30fps_vp8_stereo_48kHz_192kbps_vorbis.webm"},
+                            "bbb_cif_768kbps_30fps_vp8_stereo_48kHz_192kbps_vorbis.webm", "vp8"},
                     {MediaFormat.MIMETYPE_VIDEO_VP9,
-                            "bbb_cif_768kbps_30fps_vp9_stereo_48kHz_192kbps_opus.webm"},
+                            "bbb_cif_768kbps_30fps_vp9_stereo_48kHz_192kbps_opus.webm", "vp9"},
                     // Audio Codecs
                     {MediaFormat.MIMETYPE_AUDIO_AAC,
-                            "bbb_stereo_48kHz_128kbps_aac.mp4"},
+                            "bbb_stereo_48kHz_128kbps_aac.mp4", "aac"},
                     {MediaFormat.MIMETYPE_AUDIO_AMR_NB,
-                            "bbb_cif_768kbps_30fps_h263_mono_8kHz_12kbps_amrnb.3gp"},
+                            "bbb_cif_768kbps_30fps_h263_mono_8kHz_12kbps_amrnb.3gp", "amrnb"},
                     {MediaFormat.MIMETYPE_AUDIO_AMR_WB,
-                            "bbb_cif_768kbps_30fps_mpeg4_mono_16kHz_20kbps_amrwb.3gp"},
+                            "bbb_cif_768kbps_30fps_mpeg4_mono_16kHz_20kbps_amrwb.3gp", "amrwb"},
                     {MediaFormat.MIMETYPE_AUDIO_OPUS,
-                            "bbb_cif_768kbps_30fps_vp9_stereo_48kHz_192kbps_opus.webm"},
+                            "bbb_cif_768kbps_30fps_vp9_stereo_48kHz_192kbps_opus.webm", "opus"},
                     {MediaFormat.MIMETYPE_AUDIO_VORBIS,
-                            "bbb_cif_768kbps_30fps_vp8_stereo_48kHz_192kbps_vorbis.webm"},
+                            "bbb_cif_768kbps_30fps_vp8_stereo_48kHz_192kbps_vorbis.webm", "vorbis"},
                     // Metadata
                     {"application/gyro",
-                            "video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz_metadata_gyro_non_compliant.3gp"},
+                            "video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz_metadata_gyro_non_compliant.3gp",
+                            "gyro-non-compliant"},
                     {"application/gyro",
-                            "video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz_metadata_gyro_compliant.3gp"},
+                            "video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz_metadata_gyro_compliant.3gp",
+                            "gyro-compliant"},
             });
         }
 
@@ -1036,13 +1173,22 @@ public class MuxerTest {
                         fail(msg + "error! output != clone(input)");
                     }
                 } catch (Exception e) {
-                    if (isCodecContainerPairValid(format)) {
+                    if (isCodecContainerPairValid(mMime, format)) {
                         fail(msg + "error! incompatible mime and output format");
                     }
                 } finally {
                     muxer.release();
                 }
             }
+        }
+
+        @Test
+        public void testSimpleMuxNative() {
+            Assume.assumeTrue("TODO(b/146421018)",
+                    !mMime.equals(MediaFormat.MIMETYPE_AUDIO_OPUS));
+            Assume.assumeTrue("TODO(b/146923287)",
+                    !mMime.equals(MediaFormat.MIMETYPE_AUDIO_VORBIS));
+            assertTrue(nativeTestSimpleMux(mInpPath, mOutPath, mMime, selector));
         }
 
         /* Does MediaMuxer throw IllegalStateException on missing codec specific data when required.
@@ -1077,14 +1223,166 @@ public class MuxerTest {
                 }
             }
         }
+    }
+
+    @NonMediaMainlineTest
+    @LargeTest
+    @RunWith(Parameterized.class)
+    public static class TestAddEmptyTracks {
+        private final List<String> mimeListforTypeMp4 =
+                Arrays.asList(MediaFormat.MIMETYPE_VIDEO_MPEG4, MediaFormat.MIMETYPE_VIDEO_H263,
+                        MediaFormat.MIMETYPE_VIDEO_AVC, MediaFormat.MIMETYPE_VIDEO_HEVC,
+                        MediaFormat.MIMETYPE_AUDIO_AAC, MediaFormat.MIMETYPE_IMAGE_ANDROID_HEIC,
+                        MediaFormat.MIMETYPE_TEXT_SUBRIP);
+        private final List<String> mimeListforTypeWebm =
+                Arrays.asList(MediaFormat.MIMETYPE_VIDEO_VP8, MediaFormat.MIMETYPE_VIDEO_VP9,
+                        MediaFormat.MIMETYPE_AUDIO_VORBIS, MediaFormat.MIMETYPE_AUDIO_OPUS);
+        private final List<String> mimeListforType3gp =
+                Arrays.asList(MediaFormat.MIMETYPE_VIDEO_MPEG4, MediaFormat.MIMETYPE_VIDEO_H263,
+                        MediaFormat.MIMETYPE_VIDEO_AVC, MediaFormat.MIMETYPE_AUDIO_AAC,
+                        MediaFormat.MIMETYPE_AUDIO_AMR_NB, MediaFormat.MIMETYPE_AUDIO_AMR_WB);
+        private final List<String> mimeListforTypeOgg =
+                Arrays.asList(MediaFormat.MIMETYPE_AUDIO_OPUS);
+        private String mMime;
+        private String mOutPath;
+
+        public TestAddEmptyTracks(String mime) {
+            mMime = mime;
+        }
+
+        @Before
+        public void prologue() throws IOException {
+            mOutPath = File.createTempFile("tmp", ".out").getAbsolutePath();
+        }
+
+        @After
+        public void epilogue() {
+            new File(mOutPath).delete();
+        }
+
+        private boolean isMimeContainerPairValid(int format) {
+            boolean result = false;
+            if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+                result = mimeListforTypeMp4.contains(mMime);
+            else if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM) {
+                return mimeListforTypeWebm.contains(mMime);
+            } else if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP) {
+                result = mimeListforType3gp.contains(mMime);
+            } else if (format == MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG) {
+                result = mimeListforTypeOgg.contains(mMime);
+            }
+            return result;
+        }
+
+        @Parameterized.Parameters(name = "{index}({0})")
+        public static Collection<Object[]> input() {
+            return Arrays.asList(new Object[][]{
+                    // Video
+                    {MediaFormat.MIMETYPE_VIDEO_H263},
+                    {MediaFormat.MIMETYPE_VIDEO_AVC},
+                    {MediaFormat.MIMETYPE_VIDEO_HEVC},
+                    {MediaFormat.MIMETYPE_VIDEO_MPEG4},
+                    {MediaFormat.MIMETYPE_VIDEO_VP8},
+                    {MediaFormat.MIMETYPE_VIDEO_VP9},
+                    // Audio
+                    {MediaFormat.MIMETYPE_AUDIO_AAC},
+                    {MediaFormat.MIMETYPE_AUDIO_AMR_NB},
+                    {MediaFormat.MIMETYPE_AUDIO_AMR_WB},
+                    {MediaFormat.MIMETYPE_AUDIO_OPUS},
+                    {MediaFormat.MIMETYPE_AUDIO_VORBIS},
+                    // Metadata
+                    {MediaFormat.MIMETYPE_TEXT_SUBRIP},
+                    // Image
+                    {MediaFormat.MIMETYPE_IMAGE_ANDROID_HEIC}
+            });
+        }
 
         @Test
-        public void testSimpleMuxNative() {
-            Assume.assumeTrue("TODO(b/146421018)",
-                    !mMime.equals(MediaFormat.MIMETYPE_AUDIO_OPUS));
-            Assume.assumeTrue("TODO(b/146923287)",
-                    !mMime.equals(MediaFormat.MIMETYPE_AUDIO_VORBIS));
-            assertTrue(nativeTestSimpleMux(mInpPath, mOutPath, mMime, selector));
+        public void testEmptyVideoTrack() {
+            if (!mMime.startsWith("video/")) return;
+            for (int format = MUXER_OUTPUT_FIRST; format <= MUXER_OUTPUT_LAST; ++format) {
+                if (!isMimeContainerPairValid(format)) continue;
+                if (format != MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4) continue;
+                try {
+                    MediaMuxer mediaMuxer = new MediaMuxer(mOutPath, format);
+                    MediaFormat mediaFormat = new MediaFormat();
+                    mediaFormat.setString(MediaFormat.KEY_MIME, mMime);
+                    mediaFormat.setInteger(MediaFormat.KEY_HEIGHT, 96);
+                    mediaFormat.setInteger(MediaFormat.KEY_WIDTH, 128);
+                    mediaMuxer.addTrack(mediaFormat);
+                    mediaMuxer.start();
+                    mediaMuxer.stop();
+                    mediaMuxer.release();
+                } catch (Exception e) {
+                    fail("testEmptyVideoTrack : unexpected exception : " + e.getMessage());
+                }
+            }
+        }
+
+        @Test
+        public void testEmptyAudioTrack() {
+            if (!mMime.startsWith("audio/")) return;
+            for (int format = MUXER_OUTPUT_FIRST; format <= MUXER_OUTPUT_LAST; ++format) {
+                if (format != MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4) continue;
+                if (!isMimeContainerPairValid(format)) continue;
+                try {
+                    MediaMuxer mediaMuxer = new MediaMuxer(mOutPath, format);
+                    MediaFormat mediaFormat = new MediaFormat();
+                    mediaFormat.setString(MediaFormat.KEY_MIME, mMime);
+                    if (mMime.equals(MediaFormat.MIMETYPE_AUDIO_AMR_WB)) {
+                        mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 16000);
+                    } else {
+                        mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 8000);
+                    }
+                    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
+                    mediaMuxer.addTrack(mediaFormat);
+                    mediaMuxer.start();
+                    mediaMuxer.stop();
+                    mediaMuxer.release();
+                } catch (Exception e) {
+                    fail("testEmptyAudioTrack : unexpected exception : " + e.getMessage());
+                }
+            }
+        }
+
+        @Test
+        public void testEmptyMetaDataTrack() {
+            if (!mMime.startsWith("application/")) return;
+            for (int format = MUXER_OUTPUT_FIRST; format <= MUXER_OUTPUT_LAST; ++format) {
+                if (!isMimeContainerPairValid(format)) continue;
+                try {
+                    MediaMuxer mediaMuxer = new MediaMuxer(mOutPath, format);
+                    MediaFormat mediaFormat = new MediaFormat();
+                    mediaFormat.setString(MediaFormat.KEY_MIME, mMime);
+                    mediaMuxer.addTrack(mediaFormat);
+                    mediaMuxer.start();
+                    mediaMuxer.stop();
+                    mediaMuxer.release();
+                } catch (Exception e) {
+                    fail("testEmptyMetaDataTrack : unexpected exception : " + e.getMessage());
+                }
+            }
+        }
+
+        @Test
+        public void testEmptyImageTrack() {
+            if (!mMime.startsWith("image/")) return;
+            for (int format = MUXER_OUTPUT_FIRST; format <= MUXER_OUTPUT_LAST; ++format) {
+                if (!isMimeContainerPairValid(format)) continue;
+                try {
+                    MediaMuxer mediaMuxer = new MediaMuxer(mOutPath, format);
+                    MediaFormat mediaFormat = new MediaFormat();
+                    mediaFormat.setString(MediaFormat.KEY_MIME, mMime);
+                    mediaFormat.setInteger(MediaFormat.KEY_HEIGHT, 96);
+                    mediaFormat.setInteger(MediaFormat.KEY_WIDTH, 128);
+                    mediaMuxer.addTrack(mediaFormat);
+                    mediaMuxer.start();
+                    mediaMuxer.stop();
+                    mediaMuxer.release();
+                } catch (Exception e) {
+                    fail("testEmptyImageTrack : unexpected exception : " + e.getMessage());
+                }
+            }
         }
     }
 }

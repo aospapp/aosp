@@ -15,6 +15,15 @@
 //
 
 // SoftAP-specific tests, similar to VtsHalWifiApV1_0TargetTest.
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_test {
     name: "VtsHalWifiApV1_4TargetTest",
     defaults: ["VtsHalTargetTestDefaults"],
@@ -52,6 +61,7 @@ cc_test {
         "android.hardware.wifi@1.2",
         "android.hardware.wifi@1.3",
         "android.hardware.wifi@1.4",
+        "android.hardware.wifi@1.5",
         "libwifi-system-iface",
     ],
     test_suites: [

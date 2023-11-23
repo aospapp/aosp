@@ -23,12 +23,12 @@ import android.os.UserManager;
 
 import androidx.core.graphics.drawable.RoundedBitmapDrawable;
 
-import com.android.car.settings.users.UserIconProvider;
+import com.android.car.settings.profiles.ProfileIconProvider;
 
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
-@Implements(UserIconProvider.class)
+@Implements(ProfileIconProvider.class)
 public class ShadowUserIconProvider {
     @Implementation
     protected RoundedBitmapDrawable getRoundedUserIcon(UserInfo userInfo, Context context) {

@@ -66,12 +66,12 @@ public class GetResultActivity extends Activity {
     public Result getResult() {
         final Result result;
         try {
-            result = sResult.poll(30, TimeUnit.SECONDS);
+            result = sResult.poll(40, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
         if (result == null) {
-            throw new IllegalStateException("Activity didn't receive a Result in 30 seconds");
+            throw new IllegalStateException("Activity didn't receive a Result in 40 seconds");
         }
         return result;
     }

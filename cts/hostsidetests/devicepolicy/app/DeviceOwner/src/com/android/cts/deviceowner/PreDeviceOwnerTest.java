@@ -15,9 +15,12 @@
  */
 package com.android.cts.deviceowner;
 
+import static org.testng.Assert.assertThrows;
+
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.test.AndroidTestCase;
+import android.util.Log;
 
 /**
  * The following test can run in DeviceOwner mode or non-DeviceOwner mode.
@@ -25,18 +28,23 @@ import android.test.AndroidTestCase;
  */
 public class PreDeviceOwnerTest extends AndroidTestCase {
 
+    private static final String TAG = PreDeviceOwnerTest.class.getSimpleName();
+
     protected DevicePolicyManager mDevicePolicyManager;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
 
+        Log.d(TAG, "setUp(): running on user " + mContext.getUserId());
+
         mDevicePolicyManager = (DevicePolicyManager)
                 mContext.getSystemService(Context.DEVICE_POLICY_SERVICE);
     }
 
     public void testIsProvisioningAllowedFalse() {
-        assertFalse(mDevicePolicyManager.isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE));
+        assertFalse(mDevicePolicyManager
+                .isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE));
     }
 
     public void testIsProvisioningNotAllowedForManagedProfileAction() {
@@ -44,4 +52,8 @@ public class PreDeviceOwnerTest extends AndroidTestCase {
                 .isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE));
     }
 
+    public void testListForegroundAffiliatedUsers_notDeviceOwner() throws Exception {
+        assertThrows(SecurityException.class,
+                () -> mDevicePolicyManager.listForegroundAffiliatedUsers());
+    }
 }

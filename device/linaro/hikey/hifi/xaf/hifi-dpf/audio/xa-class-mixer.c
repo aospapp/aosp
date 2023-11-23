@@ -505,7 +505,7 @@ static XA_ERRORCODE xa_mixer_memtab(XACodecBase *base, WORD32 idx, WORD32 type, 
     {
         XATrack    *track = &mixer->track[idx];
 
-        /* ...input buffer allocation; check track number is sane */
+        /* ...input buffer allocation; check track number is valid */
         XF_CHK_ERR(idx < XA_MIXER_MAX_TRACK_NUMBER, XA_API_FATAL_INVALID_CMD_TYPE);
 
         /* ...create input port for a track */

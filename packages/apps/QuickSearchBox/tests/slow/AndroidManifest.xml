@@ -22,6 +22,7 @@
                 android:label="@string/app_label"
                 android:stateNotNeeded="true"
                 android:theme="@android:style/Theme.NoDisplay"
+                android:exported="true"
                 android:excludeFromRecents="true">
 
             <intent-filter>

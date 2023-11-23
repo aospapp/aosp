@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -49,6 +49,9 @@
 
 #define NSRAM_BASE			UL(0x2e000000)
 #define NSRAM_SIZE			UL(0x00008000)	/* 32KB */
+
+#define PLAT_ARM_DRAM2_BASE		ULL(0x880000000)
+#define PLAT_ARM_DRAM2_SIZE		ULL(0x180000000)
 
 /* virtual address used by dynamic mem_protect for chunk_base */
 #define PLAT_ARM_MEM_PROTEC_VA_FRAME	UL(0xc0000000)
@@ -136,7 +139,7 @@
 # define PLAT_ARM_MAX_BL2_SIZE	(UL(0x1D000) - JUNO_BL2_ROMLIB_OPTIMIZATION)
 #endif
 #else
-# define PLAT_ARM_MAX_BL2_SIZE	(UL(0xF000) - JUNO_BL2_ROMLIB_OPTIMIZATION)
+# define PLAT_ARM_MAX_BL2_SIZE	(UL(0x13000) - JUNO_BL2_ROMLIB_OPTIMIZATION)
 #endif
 
 /*
@@ -145,7 +148,7 @@
  * BL2 and BL1-RW.  SCP_BL2 image is loaded into the space BL31 -> BL2_BASE.
  * Hence the BL31 PROGBITS size should be >= PLAT_CSS_MAX_SCP_BL2_SIZE.
  */
-#define PLAT_ARM_MAX_BL31_SIZE		UL(0x3E000)
+#define PLAT_ARM_MAX_BL31_SIZE		UL(0x3D000)
 
 #if JUNO_AARCH32_EL3_RUNTIME
 /*
@@ -154,7 +157,7 @@
  * BL2 and BL1-RW.  SCP_BL2 image is loaded into the space BL32 -> BL2_BASE.
  * Hence the BL32 PROGBITS size should be >= PLAT_CSS_MAX_SCP_BL2_SIZE.
  */
-#define PLAT_ARM_MAX_BL32_SIZE		UL(0x3E000)
+#define PLAT_ARM_MAX_BL32_SIZE		UL(0x3D000)
 #endif
 
 /*
@@ -212,6 +215,9 @@
 		TZC_REGION_ACCESS_RDWR(TZC400_NSAID_GPU)	|	\
 		TZC_REGION_ACCESS_RDWR(TZC400_NSAID_CORESIGHT))
 
+/* TZC related constants */
+#define PLAT_ARM_TZC_FILTERS		TZC_400_REGION_ATTR_FILTER_BIT_ALL
+
 /*
  * Required ARM CSS based platform porting definitions
  */
@@ -224,7 +230,6 @@
 
 /* MHU related constants */
 #define PLAT_CSS_MHU_BASE		UL(0x2b1f0000)
-#define PLAT_MHUV2_BASE			PLAT_CSS_MHU_BASE
 
 /*
  * Base address of the first memory region used for communication between AP
@@ -244,16 +249,14 @@
 #endif
 
 /*
- * PLAT_CSS_MAX_SCP_BL2_SIZE is calculated using the current
- * SCP_BL2 size plus a little space for growth.
+ * SCP_BL2 uses up whatever remaining space is available as it is loaded before
+ * anything else in this memory region and is handed over to the SCP before
+ * BL31 is loaded over the top.
  */
-#define PLAT_CSS_MAX_SCP_BL2_SIZE	UL(0x14000)
+#define PLAT_CSS_MAX_SCP_BL2_SIZE \
+	((SCP_BL2_LIMIT - ARM_FW_CONFIG_LIMIT) & ~PAGE_SIZE_MASK)
 
-/*
- * PLAT_CSS_MAX_SCP_BL2U_SIZE is calculated using the current
- * SCP_BL2U size plus a little space for growth.
- */
-#define PLAT_CSS_MAX_SCP_BL2U_SIZE	UL(0x14000)
+#define PLAT_CSS_MAX_SCP_BL2U_SIZE	PLAT_CSS_MAX_SCP_BL2_SIZE
 
 #define PLAT_ARM_G1S_IRQ_PROPS(grp) \
 	CSS_G1S_IRQ_PROPS(grp), \
@@ -300,5 +303,8 @@
 #define PLAT_PHY_ADDR_SPACE_SIZE	(1ULL << 32)
 #define PLAT_VIRT_ADDR_SPACE_SIZE	(1ULL << 32)
 #endif
+
+/* Number of SCMI channels on the platform */
+#define PLAT_ARM_SCMI_CHANNEL_COUNT	U(1)
 
 #endif /* PLATFORM_DEF_H */

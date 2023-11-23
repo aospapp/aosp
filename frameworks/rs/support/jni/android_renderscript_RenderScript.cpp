@@ -2129,7 +2129,7 @@ static jboolean nIncLoadSO(JNIEnv *_env, jobject _this, jint deviceApi, jstring 
 }
 
 // -----------------------------------
-// To create/destroy a dummy context
+// To create/destroy a placeholder context
 static void
 nIncObjDestroy(JNIEnv *_env, jobject _this, jlong con, jlong obj)
 {
@@ -2177,7 +2177,7 @@ nIncContextDestroy(JNIEnv *_env, jobject _this, jlong con)
 }
 
 // -----------------------------------
-// Create dummy Element
+// Create placeholder Element
 static jlong
 nIncElementCreate(JNIEnv *_env, jobject _this, jlong con, jlong type, jint kind, jboolean norm, jint size)
 {
@@ -2187,7 +2187,7 @@ nIncElementCreate(JNIEnv *_env, jobject _this, jlong con, jlong type, jint kind,
                                                           (RsDataKind)kind, norm, size);
 }
 // -----------------------------------
-// Create dummy Type
+// Create placeholder Type
 static jlong
 nIncTypeCreate(JNIEnv *_env, jobject _this, jlong con, jlong eid,
             jint dimx, jint dimy, jint dimz, jboolean mips, jboolean faces, jint yuv)

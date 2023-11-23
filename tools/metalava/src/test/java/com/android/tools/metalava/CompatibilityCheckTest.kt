@@ -608,7 +608,6 @@ CompatibilityCheckTest : DriverTest() {
                             private AbstractMap() { }
                             public V put(K k, V v) { return null; }
                             public java.util.Set<K> keySet() { return null; }
-                            public V put(K k, V v) { return null; }
                             public void putAll(java.util.Map<? extends K, ? extends V> x) { }
                         }
                         """
@@ -688,7 +687,7 @@ CompatibilityCheckTest : DriverTest() {
     fun `Add seal`() {
         check(
             expectedIssues = """
-                src/test/pkg/Foo.kt: error: Cannot add 'sealed' modifier to class test.pkg.Foo: Incompatible change [AddSealed]
+                src/test/pkg/Foo.kt:2: error: Cannot add 'sealed' modifier to class test.pkg.Foo: Incompatible change [AddSealed]
                 """,
             compatibilityMode = false,
             checkCompatibilityApi = """
@@ -712,14 +711,16 @@ CompatibilityCheckTest : DriverTest() {
     fun `Remove default parameter`() {
         check(
             expectedIssues = """
-                src/test/pkg/Foo.kt:7: error: Attempted to remove default value from parameter s1 in test.pkg.Foo.method4 in method test.pkg.Foo.method4 [DefaultValueChange]
+                src/test/pkg/Foo.kt:3: error: Attempted to remove default value from parameter s1 in test.pkg.Foo in constructor test.pkg.Foo [DefaultValueChange] [See https://s.android.com/api-guidelines#default-value-removal]
+                src/test/pkg/Foo.kt:7: error: Attempted to remove default value from parameter s1 in test.pkg.Foo.method4 in method test.pkg.Foo.method4 [DefaultValueChange] [See https://s.android.com/api-guidelines#default-value-removal]
+
                 """,
             compatibilityMode = false,
             inputKotlinStyleNulls = true,
             checkCompatibilityApi = """
                 package test.pkg {
                   public final class Foo {
-                    ctor public Foo();
+                    ctor public Foo(String? s1 = null);
                     method public final void method1(boolean b, String? s1);
                     method public final void method2(boolean b, String? s1);
                     method public final void method3(boolean b, String? s1 = "null");
@@ -732,7 +733,45 @@ CompatibilityCheckTest : DriverTest() {
                     """
                     package test.pkg
 
-                    class Foo {
+                    class Foo(s1: String?) {
+                        fun method1(b: Boolean, s1: String?) { }         // No change
+                        fun method2(b: Boolean, s1: String? = null) { }  // Adding: OK
+                        fun method3(b: Boolean, s1: String? = null) { }  // No change
+                        fun method4(b: Boolean, s1: String?) { }         // Removed
+                    }
+                    """
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `Remove optional parameter`() {
+        check(
+            expectedIssues = """
+                src/test/pkg/Foo.kt:3: error: Attempted to remove default value from parameter s1 in test.pkg.Foo in constructor test.pkg.Foo [DefaultValueChange] [See https://s.android.com/api-guidelines#default-value-removal]
+                src/test/pkg/Foo.kt:7: error: Attempted to remove default value from parameter s1 in test.pkg.Foo.method4 in method test.pkg.Foo.method4 [DefaultValueChange] [See https://s.android.com/api-guidelines#default-value-removal]
+                """,
+            compatibilityMode = false,
+            inputKotlinStyleNulls = true,
+            format = FileFormat.V4,
+            checkCompatibilityApi = """
+                package test.pkg {
+                  public final class Foo {
+                    ctor public Foo(optional String? s1);
+                    method public final void method1(boolean b, String? s1);
+                    method public final void method2(boolean b, String? s1);
+                    method public final void method3(boolean b, optional String? s1);
+                    method public final void method4(boolean b, optional String? s1);
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                kotlin(
+                    """
+                    package test.pkg
+
+                    class Foo(s1: String?) {                             // Removed
                         fun method1(b: Boolean, s1: String?) { }         // No change
                         fun method2(b: Boolean, s1: String? = null) { }  // Adding: OK
                         fun method3(b: Boolean, s1: String? = null) { }  // No change
@@ -866,7 +905,6 @@ CompatibilityCheckTest : DriverTest() {
             expectedIssues = """
                 src/test/pkg/ExportedProperty.java:15: error: Method test.pkg.ExportedProperty.category has changed value from "" to nothing [ChangedValue]
                 src/test/pkg/ExportedProperty.java:14: error: Method test.pkg.ExportedProperty.floating has changed value from 1.0f to 1.1f [ChangedValue]
-                src/test/pkg/ExportedProperty.java:16: error: Method test.pkg.ExportedProperty.formatToHexString has changed value from nothing to false [ChangedValue]
                 src/test/pkg/ExportedProperty.java:13: error: Method test.pkg.ExportedProperty.prefix has changed value from "" to "hello" [ChangedValue]
                 """,
             checkCompatibilityApi = """
@@ -1734,12 +1772,11 @@ CompatibilityCheckTest : DriverTest() {
     @Test
     fun `Partial text file which references inner classes not listed elsewhere`() {
         // This happens in system and test files where we only include APIs that differ
-        // from the base IDE. When parsing these code bases we need to gracefully handle
+        // from the base API. When parsing these code bases we need to gracefully handle
         // references to inner classes.
         check(
             includeSystemApiAnnotations = true,
             expectedIssues = """
-                src/test/pkg/Bar.java:17: error: Added method test.pkg.Bar.Inner1.Inner2.addedMethod() to the system API [AddedMethod]
                 TESTROOT/current-api.txt:4: error: Removed method test.pkg.Bar.Inner1.Inner2.removedMethod() [RemovedMethod]
                 """,
             sourceFiles = arrayOf(
@@ -1786,7 +1823,7 @@ CompatibilityCheckTest : DriverTest() {
             ),
 
             extraArguments = arrayOf(
-                ARG_SHOW_ANNOTATION, "android.annotation.TestApi",
+                ARG_SHOW_ANNOTATION, "android.annotation.SystemApi",
                 ARG_HIDE_PACKAGE, "android.annotation",
                 ARG_HIDE_PACKAGE, "android.support.annotation"
             ),
@@ -1812,7 +1849,6 @@ CompatibilityCheckTest : DriverTest() {
             includeSystemApiAnnotations = true,
             expectedIssues = """
                 TESTROOT/current-api.txt:4: error: Removed method android.rolecontrollerservice.RoleControllerService.onClearRoleHolders() [RemovedMethod]
-                src/android/rolecontrollerservice/RoleControllerService.java:7: error: Added method android.rolecontrollerservice.RoleControllerService.onGrantDefaultRoles() to the system API [AddedAbstractMethod]
                 """,
             sourceFiles = arrayOf(
                 java(
@@ -1932,13 +1968,14 @@ CompatibilityCheckTest : DriverTest() {
     fun `Test verifying simple removed API`() {
         check(
             expectedIssues = """
-                src/test/pkg/Bar.java:8: error: Added method test.pkg.Bar.newlyRemoved() to the removed API [AddedMethod]
+                TESTROOT/removed-current-api.txt:5: error: Removed method test.pkg.Bar.removedMethod2() [RemovedMethod]
                 """,
             checkCompatibilityRemovedApiCurrent = """
                 package test.pkg {
                   public class Bar {
                     ctor public Bar();
                     method public void removedMethod();
+                    method public void removedMethod2();
                   }
                   public class Bar.Inner {
                     ctor public Bar.Inner();
@@ -1951,16 +1988,16 @@ CompatibilityCheckTest : DriverTest() {
                     package test.pkg;
                     @SuppressWarnings("JavaDoc")
                     public class Bar {
-                        /** @removed */
+                        /** @removed */ // still part of the removed api
                         public Bar() { }
-                        // No longer removed: /** @removed */
+                        // no longer part of the removed api
                         public void removedMethod() { }
                         /** @removed */
                         public void newlyRemoved() { }
 
                         public void newlyAdded() { }
 
-                        /** @removed */
+                        /** @removed */ // still part of the removed api
                         public class Inner { }
                     }
                     """
@@ -2215,6 +2252,77 @@ CompatibilityCheckTest : DriverTest() {
                     """
                 )
             )
+        )
+    }
+
+    @Test
+    fun `Test check release with base api`() {
+        check(
+            expectedIssues = "",
+            checkCompatibilityApiReleased = """
+                package test.pkg {
+                  public class SomeClass {
+                      method public static void publicMethodA();
+                      method public static void publicMethodB();
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+
+                    public class SomeClass {
+                      public static void publicMethodA();
+                    }
+                    """
+                )
+            ),
+            checkCompatibilityBaseApi = """
+                package test.pkg {
+                  public class SomeClass {
+                      method public static void publicMethodB();
+                  }
+                }
+            """
+        )
+    }
+
+    @Test
+    fun `Test check a class moving from the released api to the base api`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package test.pkg {
+                  public class SomeClass1 {
+                    method public void method1();
+                  }
+                  public class SomeClass2 {
+                    method public void oldMethod();
+                  }
+                }
+                """,
+            checkCompatibilityBaseApi = """
+                package test.pkg {
+                  public class SomeClass2 {
+                    method public void newMethod();
+                  }
+                }
+            """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+
+                    public class SomeClass1 {
+                        public void method1();
+                    }
+                    """
+                )
+            ),
+            expectedIssues = """
+            TESTROOT/released-api.txt:6: error: Removed method test.pkg.SomeClass2.oldMethod() [RemovedMethod]
+            """.trimIndent()
         )
     }
 
@@ -2480,9 +2588,9 @@ CompatibilityCheckTest : DriverTest() {
             compatibilityMode = false,
             inputKotlinStyleNulls = true,
             expectedIssues = """
-            src/test/pkg/test.kt:5: error: Method test.pkg.TestKt.add made type variable T reified: incompatible change [ChangedThrows]
-            src/test/pkg/test.kt:8: error: Method test.pkg.TestKt.two made type variable S reified: incompatible change [ChangedThrows]
-            """,
+                src/test/pkg/test.kt:5: error: Method test.pkg.TestKt.add made type variable T reified: incompatible change [ChangedThrows]
+                src/test/pkg/test.kt:8: error: Method test.pkg.TestKt.two made type variable S reified: incompatible change [ChangedThrows]
+                """,
             checkCompatibilityApi = """
                 package test.pkg {
                   public final class TestKt {
@@ -2508,6 +2616,593 @@ CompatibilityCheckTest : DriverTest() {
                     """
                 ).indented()
             )
+        )
+    }
+
+    @Test
+    fun `Empty prev api with @hide and --show-annotation`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package android.media;
+
+                    /**
+                     * @hide
+                     */
+                    public class SubtitleController {
+                        public interface Listener {
+                            void onSubtitleTrackSelected() { }
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.media;
+                    import android.annotation.SystemApi;
+
+                    /**
+                     * @hide
+                     */
+                    @android.annotation.SystemApi
+                    public class MediaPlayer implements SubtitleController.Listener {
+                    }
+                    """
+                ),
+                systemApiSource
+            ),
+            extraArguments = arrayOf(
+                ARG_SHOW_ANNOTATION, "android.annotation.SystemApi",
+                ARG_HIDE_PACKAGE, "android.annotation",
+                ARG_HIDE_PACKAGE, "android.support.annotation"
+            ),
+            expectedIssues = ""
+
+        )
+    }
+
+    @Test
+    fun `Inherited systemApi method in an inner class`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package android.telephony {
+                  public class MmTelFeature.Capabilities {
+                    method public boolean isCapable(int);
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package android.telephony;
+
+                    /**
+                     * @hide
+                     */
+                    @android.annotation.SystemApi
+                    public class MmTelFeature {
+                        public static class Capabilities extends ParentCapabilities {
+                            @Override
+                            boolean isCapable(int argument) { return true; }
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.telephony;
+
+                    /**
+                     * @hide
+                     */
+                    @android.annotation.SystemApi
+                    public class Parent {
+                        public static class ParentCapabilities {
+                            public boolean isCapable(int argument) { return false; }
+                        }
+                    }
+                    """
+                ),
+                systemApiSource
+            ),
+            extraArguments = arrayOf(
+                ARG_SHOW_ANNOTATION, "android.annotation.SystemApi",
+                ARG_HIDE_PACKAGE, "android.annotation",
+                ARG_HIDE_PACKAGE, "android.support.annotation"
+            ),
+            expectedIssues = ""
+        )
+    }
+
+    @Test
+    fun `Moving removed api back to public api`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityRemovedApiReleased = """
+                package android.content {
+                  public class ContextWrapper {
+                    method public void createContextForSplit();
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package android.content;
+
+                    public class ContextWrapper extends Parent {
+                        /** @removed */
+                        @Override
+                        public void getSharedPreferences() { }
+
+                        /** @hide */
+                        @Override
+                        public void createContextForSplit() { }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.content;
+
+                    public abstract class Parent {
+                        /** @hide */
+                        @Override
+                        public void getSharedPreferences() { }
+
+                        public abstract void createContextForSplit() { }
+                    }
+                    """
+                )
+            ),
+            expectedIssues = ""
+        )
+    }
+
+    @Test
+    fun `Inherited nullability annotations`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package test.pkg {
+                  public final class SAXException extends test.pkg.Parent {
+                  }
+                  public final class Parent extends test.pkg.Grandparent {
+                  }
+                  public final class Grandparent {
+                    method @Nullable public String getMessage();
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+
+                    public final class SAXException extends Parent {
+                        @Override public String getMessage() {
+                            return "sample";
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+
+                    public final class Parent extends Grandparent {
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+
+                    public final class Grandparent {
+                        public String getMessage() {
+                            return "sample";
+                        }
+                    }
+                    """
+                )
+            ),
+            mergeJavaStubAnnotations = """
+                package test.pkg;
+
+                public class Grandparent implements java.io.Serializable {
+                    @libcore.util.Nullable public test.pkg.String getMessage() { throw new RuntimeException("Stub!"); }
+                }
+            """,
+            expectedIssues = """
+                """
+        )
+    }
+
+    @Test
+    fun `Inherited @removed fields`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityRemovedApiReleased = """
+                package android.provider {
+
+                  public static final class StreamItems implements android.provider.BaseColumns {
+                    field public static final String _COUNT = "_count";
+                    field public static final String _ID = "_id";
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package android.provider;
+
+                    /**
+                     * @removed
+                     */
+                    public static final class StreamItems implements BaseColumns {
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.provider;
+
+                    public interface BaseColumns {
+                        public static final String _ID = "_id";
+                        public static final String _COUNT = "_count";
+                    }
+                    """
+                )
+            ),
+            expectedIssues = """
+                """
+        )
+    }
+
+    @Test
+    fun `Inherited deprecated protected @removed method`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package android.icu.util {
+                  public class SpecificCalendar {
+                    method @Deprecated protected void validateField();
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package android.icu.util;
+                    import java.text.Format;
+
+                    public class SpecificCalendar extends Calendar {
+                        /**
+                         * @deprecated for this test
+                         * @hide
+                         */
+                        @Override
+                        @Deprecated
+                        protected void validateField() {
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.icu.util;
+
+                    public class Calendar {
+                        protected void validateField() {
+                        }
+                    }
+                    """
+                )
+            ),
+            expectedIssues = """
+                """
+        )
+    }
+
+    @Test
+    fun `Move class from SystemApi to public and then remove a method`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package android.hardware.lights {
+                  public static final class LightsRequest.Builder {
+                    ctor public LightsRequest.Builder();
+                    method public void clearLight();
+                    method public void setLight();
+                  }
+
+                  public final class LightsManager {
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package android.hardware.lights;
+
+                    import android.annotation.SystemApi;
+
+                    public class LightsRequest {
+                        public static class Builder {
+                            void clearLight() { }
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.hardware.lights;
+
+                    import android.annotation.SystemApi;
+
+                    /**
+                     * @hide
+                     */
+                    @SystemApi
+                    public class LightsManager {
+                    }
+                    """
+                ),
+                systemApiSource
+            ),
+            extraArguments = arrayOf(
+                ARG_SHOW_ANNOTATION, "android.annotation.SystemApi",
+                ARG_HIDE_PACKAGE, "android.annotation",
+                ARG_HIDE_PACKAGE, "android.support.annotation"
+            ),
+
+            expectedIssues = """
+                TESTROOT/released-api.txt:5: error: Removed method android.hardware.lights.LightsRequest.Builder.setLight() [RemovedMethod]
+                """
+        )
+    }
+
+    @Test
+    fun `Moving a field from SystemApi to public`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package android.content {
+                  public class Context {
+                    field public static final String BUGREPORT_SERVICE = "bugreport";
+                    method public File getPreloadsFileCache();
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package android.content;
+
+                    import android.annotation.SystemApi;
+
+                    public class Context {
+                        public static final String BUGREPORT_SERVICE = "bugreport";
+
+                        /**
+                         * @hide
+                         */
+                        @SystemApi
+                        public File getPreloadsFileCache() { return null; }
+                    }
+                    """
+                ),
+                systemApiSource
+            ),
+            extraArguments = arrayOf(
+                ARG_SHOW_ANNOTATION, "android.annotation.SystemApi",
+                ARG_HIDE_PACKAGE, "android.annotation",
+                ARG_HIDE_PACKAGE, "android.support.annotation"
+            ),
+
+            expectedIssues = """
+                """
+        )
+    }
+
+    @Test
+    fun `Compare interfaces when Object is redefined`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package java.lang {
+                  public class Object {
+                    method public final void wait();
+                  }
+                }
+                package test.pkg {
+                  public interface SomeInterface {
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+
+                    public interface SomeInterface {
+                    }
+                    """
+                )
+            ),
+            // it's not quite right to say that java.lang was removed, but it's better than also
+            // saying that SomeInterface no longer implements wait()
+            expectedIssues = """
+                TESTROOT/released-api.txt:1: error: Removed package java.lang [RemovedPackage]
+                """
+        )
+    }
+
+    @Test
+    fun `Overriding method without redeclaring nullability`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package test.pkg {
+                  public class Child extends test.pkg.Parent {
+                  }
+                  public class Parent {
+                    method public void sample(@Nullable String);
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+
+                    public class Child extends Parent {
+                        public void sample(String arg) {
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+
+                    public class Parent {
+                        public void sample(@Nullable String arg) {
+                        }
+                    }
+                    """
+                )
+            ),
+            // The correct behavior would be for this test to fail, because of the removal of
+            // nullability annotations on the child class. However, when we generate signature files,
+            // we omit methods having the same signature as super methods, so if we were to generate
+            // a signature file for this source, we would generate the given signature file. So,
+            // we temporarily allow (and expect) this to pass without errors
+            // expectedIssues = "src/test/pkg/Child.java:4: error: Attempted to remove @Nullable annotation from parameter arg in test.pkg.Child.sample(String arg) [InvalidNullConversion]"
+            expectedIssues = ""
+        )
+    }
+
+    @Test
+    fun `Final class inherits a method`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package java.security {
+                  public abstract class BasicPermission extends java.security.Permission {
+                    method public boolean implies(java.security.Permission);
+                  }
+                  public abstract class Permission {
+                    method public abstract boolean implies(java.security.Permission);
+                  }
+                }
+                package javax.security.auth {
+                  public final class AuthPermission extends java.security.BasicPermission {
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package javax.security.auth;
+
+                    public final class AuthPermission extends java.security.BasicPermission {
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package java.security;
+
+                    public abstract class BasicPermission extends Permission {
+                        public boolean implies(Permission p) {
+                            return true;
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package java.security;
+                    public abstract class Permission {
+                        public abstract boolean implies(Permission permission);
+                        }
+                    }
+                    """
+                )
+            ),
+            expectedIssues = ""
+        )
+    }
+
+    @Test
+    fun `Implementing undefined interface`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package org.apache.http.conn.scheme {
+                  @Deprecated public final class PlainSocketFactory implements org.apache.http.conn.scheme.SocketFactory {
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package org.apache.http.conn.scheme;
+
+                    /** @deprecated */
+                    @Deprecated
+                    public final class PlainSocketFactory implements SocketFactory {
+                    }
+                    """
+                )
+            ),
+            expectedIssues = ""
+        )
+    }
+
+    @Test
+    fun `Inherited abstract method`() {
+        check(
+            compatibilityMode = false,
+            checkCompatibilityApiReleased = """
+                package test.pkg {
+                  public class MeasureFormat {
+                      method public test.pkg.MeasureFormat parse();
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+
+                    public class MeasureFormat extends UFormat {
+                        private MeasureFormat() { }
+                        /** @hide */
+                        public MeasureFormat parse();
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    import android.annotation.SystemApi;
+
+                    public abstract class UFormat {
+                        public abstract UFormat parse() {
+                        }
+                    }
+                    """
+                ),
+                systemApiSource
+            ),
+            expectedIssues = ""
         )
     }
 
@@ -3066,6 +3761,85 @@ CompatibilityCheckTest : DriverTest() {
                   }
                 }
                 """
+        )
+    }
+
+    @Test
+    fun `Remove fun modifier from interface`() {
+        check(
+            expectedIssues = """
+                src/test/pkg/FunctionalInterface.kt:3: error: Cannot remove 'fun' modifier from class test.pkg.FunctionalInterface: source incompatible change [FunRemoval]
+                """,
+            format = FileFormat.V4,
+            checkCompatibilityApi = """
+                // Signature format: 4.0
+                package test.pkg {
+                  public fun interface FunctionalInterface {
+                    method public boolean methodOne(int number);
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                kotlin(
+                    """
+                    package test.pkg
+
+                    interface FunctionalInterface {
+                        fun methodOne(number: Int): Boolean
+                    }
+                    """
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `Remove fun modifier from interface signature files`() {
+        check(
+            expectedIssues = """
+                TESTROOT/load-api.txt:3: error: Cannot remove 'fun' modifier from class test.pkg.FunctionalInterface: source incompatible change [FunRemoval]
+                """,
+            format = FileFormat.V4,
+            checkCompatibilityApi = """
+                // Signature format: 4.0
+                package test.pkg {
+                  public fun interface FunctionalInterface {
+                    method public boolean methodOne(int number);
+                  }
+                }
+                """,
+            signatureSource = """
+                // Signature format: 4.0
+                package test.pkg {
+                  public interface FunctionalInterface {
+                    method public boolean methodOne(int number);
+                  }
+                }
+            """.trimIndent()
+        )
+    }
+
+    @Test
+    fun `Adding default value to annotation parameter`() {
+        check(
+            expectedIssues = "",
+            format = FileFormat.V4,
+            checkCompatibilityApi = """
+                // Signature format: 4.0
+                package androidx.annotation.experimental {
+                  public @interface UseExperimental {
+                    method public abstract Class<?> markerClass();
+                  }
+                }
+                """,
+            sourceFiles = arrayOf(
+                java("""
+                    package androidx.annotation.experimental;
+                    public @interface UseExperimental {
+                        Class<?> markerClass() default void.class;
+                    }
+                """)
+            )
         )
     }
 

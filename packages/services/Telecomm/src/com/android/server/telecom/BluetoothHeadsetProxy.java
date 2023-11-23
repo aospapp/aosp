@@ -36,19 +36,6 @@ public class BluetoothHeadsetProxy {
         mBluetoothHeadset = headset;
     }
 
-    public void clccResponse(int index, int direction, int status, int mode, boolean mpty,
-            String number, int type) {
-
-        mBluetoothHeadset.clccResponse(index, direction, status, mode, mpty, number, type);
-    }
-
-    public void phoneStateChanged(int numActive, int numHeld, int callState, String number,
-            int type, String name) {
-
-        mBluetoothHeadset.phoneStateChanged(numActive, numHeld, callState, number, type,
-            name);
-    }
-
     public List<BluetoothDevice> getConnectedDevices() {
         return mBluetoothHeadset.getConnectedDevices();
     }

@@ -37,7 +37,11 @@ files_addrlib = files(
   'src/core/coord.h',
   'src/gfx9/gfx9addrlib.cpp',
   'src/gfx9/gfx9addrlib.h',
+  'src/gfx10/gfx10addrlib.cpp',
+  'src/gfx10/gfx10addrlib.h',
+  'src/gfx10/gfx10SwizzlePattern.h',
   'src/amdgpu_asic_addr.h',
+  'src/chip/gfx10/gfx10_gb_reg.h',
   'src/chip/gfx9/gfx9_gb_reg.h',
   'src/chip/r800/si_gb_reg.h',
   'src/r800/ciaddrlib.cpp',
@@ -48,14 +52,24 @@ files_addrlib = files(
   'src/r800/siaddrlib.h',
 )
 
+cpp_args_addrlib = []
+if cpp.get_id() != 'msvc'
+  cpp_args_addrlib += '-Wno-unused-variable'
+  cpp_args_addrlib += '-Wno-unused-local-typedefs'
+  cpp_args_addrlib += '-Wno-unused-but-set-variable'
+  cpp_args_addrlib += '-Wno-maybe-uninitialized'
+endif
+
 libamdgpu_addrlib = static_library(
   'addrlib',
   files_addrlib,
   include_directories : [
     include_directories(
       'inc', 'src', 'src/core', 'src/chip/gfx9', 'src/chip/r800',
+      'src/chip/gfx10',
     ),
-    inc_amd_common, inc_common, inc_src,
+    inc_amd_common, inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux,
   ],
-  cpp_args : cpp_vis_args,
+  cpp_args : cpp_args_addrlib,
+  gnu_symbol_visibility : 'hidden',
 )

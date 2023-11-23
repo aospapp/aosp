@@ -35,6 +35,9 @@
 #include <utility>
 
 using android::base::ConsumeSuffix;
+using android::base::EndsWith;
+using android::base::ErrnoError;
+using android::base::Error;
 using android::base::ParseInt;
 using android::base::ReadFileToString;
 using android::base::Result;
@@ -76,12 +79,12 @@ class BlockDevice {
   fs::path DevPath() const { return kDevBlock / name; }
 
   Result<std::string> GetProperty(const std::string& property) const {
-    auto propertyFile = SysPath() / property;
-    std::string propertyValue;
-    if (!ReadFileToString(propertyFile, &propertyValue)) {
+    auto property_file = SysPath() / property;
+    std::string property_value;
+    if (!ReadFileToString(property_file, &property_value)) {
       return ErrnoError() << "Fail to read";
     }
-    return Trim(propertyValue);
+    return Trim(property_value);
   }
 
   std::vector<BlockDevice> GetSlaves() const {
@@ -100,17 +103,17 @@ class BlockDevice {
   }
 };
 
-std::pair<fs::path, fs::path> parseMountInfo(const std::string& mountInfo) {
-  const auto& tokens = Split(mountInfo, " ");
+std::pair<fs::path, fs::path> ParseMountInfo(const std::string& mount_info) {
+  const auto& tokens = Split(mount_info, " ");
   if (tokens.size() < 2) {
     return std::make_pair("", "");
   }
   return std::make_pair(tokens[0], tokens[1]);
 }
 
-std::pair<std::string, int> parseMountPoint(const std::string& mountPoint) {
-  auto packageId = fs::path(mountPoint).filename();
-  auto split = Split(packageId, "@");
+std::pair<std::string, int> ParseMountPoint(const std::string& mount_point) {
+  auto package_id = fs::path(mount_point).filename();
+  auto split = Split(package_id, "@");
   if (split.size() == 2) {
     int version;
     if (!ParseInt(split[1], &version)) {
@@ -118,14 +121,17 @@ std::pair<std::string, int> parseMountPoint(const std::string& mountPoint) {
     }
     return std::make_pair(split[0], version);
   }
-  return std::make_pair(packageId, -1);
+  return std::make_pair(package_id, -1);
 }
 
-bool isActiveMountPoint(const std::string& mountPoint) {
-  return (mountPoint.find('@') == std::string::npos);
+bool IsActiveMountPoint(const std::string& mount_point) {
+  return (mount_point.find('@') == std::string::npos);
 }
 
 Result<void> PopulateLoopInfo(const BlockDevice& top_device,
+                              const std::string& active_apex_dir,
+                              const std::string& decompression_dir,
+                              const std::string& apex_hash_tree_dir,
                               MountedApexData* apex_data) {
   std::vector<BlockDevice> slaves = top_device.GetSlaves();
   if (slaves.size() != 1 && slaves.size() != 2) {
@@ -147,18 +153,22 @@ Result<void> PopulateLoopInfo(const BlockDevice& top_device,
   // Enforce following invariant:
   //  * slaves[0] always represents a data loop device
   //  * if size = 2 then slaves[1] represents an external hashtree loop device
+  auto is_data_loop_device = [&](const std::string& backing_file) {
+    return StartsWith(backing_file, active_apex_dir) ||
+           StartsWith(backing_file, decompression_dir);
+  };
   if (slaves.size() == 2) {
-    if (!StartsWith(backing_files[0], kActiveApexPackagesDataDir)) {
+    if (!is_data_loop_device(backing_files[0])) {
       std::swap(slaves[0], slaves[1]);
       std::swap(backing_files[0], backing_files[1]);
     }
   }
-  if (!StartsWith(backing_files[0], kActiveApexPackagesDataDir)) {
+  if (!is_data_loop_device(backing_files[0])) {
     return Error() << "Data loop device " << slaves[0].DevPath()
                    << " has unexpected backing file " << backing_files[0];
   }
   if (slaves.size() == 2) {
-    if (!StartsWith(backing_files[1], kApexHashTreeDir)) {
+    if (!StartsWith(backing_files[1], apex_hash_tree_dir)) {
       return Error() << "Hashtree loop device " << slaves[1].DevPath()
                      << " has unexpected backing file " << backing_files[1];
     }
@@ -171,7 +181,7 @@ Result<void> PopulateLoopInfo(const BlockDevice& top_device,
 
 // This is not the right place to do this normalization, but proper solution
 // will require some refactoring first. :(
-// TODO(ioffe): introduce MountedApexDataBuilder and delegate all
+// TODO(b/158469911): introduce MountedApexDataBuilder and delegate all
 //  building/normalization logic to it.
 void NormalizeIfDeleted(MountedApexData* apex_data) {
   std::string_view full_path = apex_data->full_path;
@@ -188,18 +198,22 @@ void NormalizeIfDeleted(MountedApexData* apex_data) {
   apex_data->full_path = full_path;
 }
 
-Result<MountedApexData> resolveMountInfo(const BlockDevice& block,
-                                         const std::string& mountPoint) {
+Result<MountedApexData> ResolveMountInfo(
+    const BlockDevice& block, const std::string& mount_point,
+    const std::string& active_apex_dir, const std::string& decompression_dir,
+    const std::string& apex_hash_tree_dir) {
+  bool temp_mount = EndsWith(mount_point, ".tmp");
   // Now, see if it is dm-verity or loop mounted
   switch (block.GetType()) {
     case LoopDevice: {
-      auto backingFile = block.GetProperty("loop/backing_file");
-      if (!backingFile.ok()) {
-        return backingFile.error();
+      auto backing_file = block.GetProperty("loop/backing_file");
+      if (!backing_file.ok()) {
+        return backing_file.error();
       }
-      auto result = MountedApexData(block.DevPath(), *backingFile, mountPoint,
+      auto result = MountedApexData(block.DevPath(), *backing_file, mount_point,
                                     /* device_name= */ "",
-                                    /* hashtree_loop_name= */ "");
+                                    /* hashtree_loop_name= */ "",
+                                    /* is_temp_mount */ temp_mount);
       NormalizeIfDeleted(&result);
       return result;
     }
@@ -209,9 +223,12 @@ Result<MountedApexData> resolveMountInfo(const BlockDevice& block,
         return name.error();
       }
       MountedApexData result;
-      result.mount_point = mountPoint;
+      result.mount_point = mount_point;
       result.device_name = *name;
-      if (auto status = PopulateLoopInfo(block, &result); !status.ok()) {
+      result.is_temp_mount = temp_mount;
+      auto status = PopulateLoopInfo(block, active_apex_dir, decompression_dir,
+                                     apex_hash_tree_dir, &result);
+      if (!status.ok()) {
         return status.error();
       }
       NormalizeIfDeleted(&result);
@@ -246,40 +263,45 @@ Result<MountedApexData> resolveMountInfo(const BlockDevice& block,
 // By synchronizing the mounts info with Database on startup,
 // Apexd serves the correct package list even on the devices
 // which are not ro.apex.updatable.
-void MountedApexDatabase::PopulateFromMounts() {
+void MountedApexDatabase::PopulateFromMounts(
+    const std::string& active_apex_dir, const std::string& decompression_dir,
+    const std::string& apex_hash_tree_dir) REQUIRES(!mounted_apexes_mutex_) {
   LOG(INFO) << "Populating APEX database from mounts...";
 
-  std::unordered_map<std::string, int> activeVersions;
+  std::unordered_map<std::string, int> active_versions;
 
   std::ifstream mounts("/proc/mounts");
   std::string line;
+  std::lock_guard lock(mounted_apexes_mutex_);
   while (std::getline(mounts, line)) {
-    auto [block, mountPoint] = parseMountInfo(line);
-    // TODO(jooyung): ignore tmp mount?
-    if (fs::path(mountPoint).parent_path() != kApexRoot) {
+    auto [block, mount_point] = ParseMountInfo(line);
+    // TODO(b/158469914): distinguish between temp and non-temp mounts
+    if (fs::path(mount_point).parent_path() != kApexRoot) {
       continue;
     }
-    if (isActiveMountPoint(mountPoint)) {
-      continue;
-    }
-
-    auto mountData = resolveMountInfo(BlockDevice(block), mountPoint);
-    if (!mountData.ok()) {
-      LOG(WARNING) << "Can't resolve mount info " << mountData.error();
+    if (IsActiveMountPoint(mount_point)) {
       continue;
     }
 
-    auto [package, version] = parseMountPoint(mountPoint);
-    AddMountedApex(package, false, *mountData);
+    auto mount_data =
+        ResolveMountInfo(BlockDevice(block), mount_point, active_apex_dir,
+                         decompression_dir, apex_hash_tree_dir);
+    if (!mount_data.ok()) {
+      LOG(WARNING) << "Can't resolve mount info " << mount_data.error();
+      continue;
+    }
 
-    auto active = activeVersions[package] < version;
+    auto [package, version] = ParseMountPoint(mount_point);
+    AddMountedApexLocked(package, false, *mount_data);
+
+    auto active = active_versions[package] < version;
     if (active) {
-      activeVersions[package] = version;
-      SetLatest(package, mountData->full_path);
+      active_versions[package] = version;
+      SetLatestLocked(package, mount_data->full_path);
     }
-    LOG(INFO) << "Found " << mountPoint << " backed by"
-              << (mountData->deleted ? " deleted " : " ") << "file "
-              << mountData->full_path;
+    LOG(INFO) << "Found " << mount_point << " backed by"
+              << (mount_data->deleted ? " deleted " : " ") << "file "
+              << mount_data->full_path;
   }
 
   LOG(INFO) << mounted_apexes_.size() << " packages restored.";

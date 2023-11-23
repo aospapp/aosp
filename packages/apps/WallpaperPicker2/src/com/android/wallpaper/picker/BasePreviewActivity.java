@@ -15,12 +15,49 @@
  */
 package com.android.wallpaper.picker;
 
+import android.content.pm.ActivityInfo;
+import android.graphics.PixelFormat;
+import android.os.Bundle;
+
+import androidx.annotation.Nullable;
+import androidx.core.view.WindowCompat;
+
+import com.android.wallpaper.R;
+import com.android.wallpaper.module.Injector;
+import com.android.wallpaper.module.InjectorProvider;
+import com.android.wallpaper.module.UserEventLogger;
+
 /**
  * Abstract base class for a wallpaper full-screen preview activity.
  */
 public abstract class BasePreviewActivity extends BaseActivity {
     public static final String EXTRA_WALLPAPER_INFO =
             "com.android.wallpaper.picker.wallpaper_info";
+    public static final String EXTRA_VIEW_AS_HOME =
+            "com.android.wallpaper.picker.view_as_home";
     public static final String EXTRA_TESTING_MODE_ENABLED =
             "com.android.wallpaper.picker.testing_mode_enabled";
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Injector injector = InjectorProvider.getInjector();
+        UserEventLogger mUserEventLogger = injector.getUserEventLogger(this);
+        getWindow().setColorMode(ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT);
+        setTheme(R.style.WallpaperTheme);
+        getWindow().setFormat(PixelFormat.TRANSLUCENT);
+
+        // Check the launching intent's action to figure out the caller is from other application
+        // and log its launch source.
+        if (getIntent() != null && getIntent().getAction() != null) {
+            mUserEventLogger.logAppLaunched(getIntent());
+        }
+    }
+
+    /** Allows the current activity to be full screen. */
+    protected void enableFullScreen() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), /* decorFitsSystemWindows= */ false);
+
+        // Window insets are set in the PreviewFragment#onCreateView method.
+    }
 }

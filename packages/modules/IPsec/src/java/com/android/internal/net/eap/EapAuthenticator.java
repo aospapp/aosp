@@ -192,7 +192,7 @@ public class EapAuthenticator extends Handler {
                                                 TAG,
                                                 "EapSuccess with"
                                                         + " MSK=" + LOG.pii(eapSuccess.msk)
-                                                        + " EMSK=" + LOG.pii(eapSuccess.msk));
+                                                        + " EMSK=" + LOG.pii(eapSuccess.emsk));
                                         mCb.onSuccess(eapSuccess.msk, eapSuccess.emsk);
                                     } else { // finalProcessResponse instanceof EapFailure
                                         mCb.onFail();

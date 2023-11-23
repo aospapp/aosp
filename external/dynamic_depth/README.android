@@ -8,3 +8,4 @@ Local patches
 - Android depth photo validation sequence "ValidateAndroidDynamicDepthBuffer()".
 - Add NDK library variant.
 - Check for depth map payload
+- Add missing <cassert> include to xmpmeta/xmp_parser.cc.

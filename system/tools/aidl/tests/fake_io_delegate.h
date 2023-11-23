@@ -13,11 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef AIDL_TESTS_FAKE_IO_DELEGATE_H_
-#define AIDL_TESTS_FAKE_IO_DELEGATE_H_
-
-#include <android-base/macros.h>
+#pragma once
 
 #include <map>
 #include <memory>
@@ -36,6 +32,12 @@ class FakeIoDelegate : public IoDelegate {
   FakeIoDelegate() = default;
   virtual ~FakeIoDelegate() = default;
 
+  // non-copyable, non-movable
+  FakeIoDelegate(const FakeIoDelegate&) = delete;
+  FakeIoDelegate(FakeIoDelegate&&) = delete;
+  FakeIoDelegate& operator=(const FakeIoDelegate&) = delete;
+  FakeIoDelegate& operator=(FakeIoDelegate&&) = delete;
+
   // Overrides from the real IoDelegate
   std::unique_ptr<std::string> GetFileContents(
       const std::string& filename,
@@ -46,7 +48,7 @@ class FakeIoDelegate : public IoDelegate {
   std::unique_ptr<CodeWriter> GetCodeWriter(
       const std::string& file_path) const override;
   void RemovePath(const std::string& file_path) const override;
-  std::vector<std::string> ListFiles(const std::string& dir) const override;
+  android::base::Result<std::vector<std::string>> ListFiles(const std::string& dir) const override;
 
   // Methods added to facilitate testing.
   void SetFileContents(const std::string& filename,
@@ -59,8 +61,9 @@ class FakeIoDelegate : public IoDelegate {
   void AddBrokenFilePath(const std::string& path);
   // Returns true iff we've previously written to |path|.
   // When we return true, we'll set *contents to the written string.
-  bool GetWrittenContents(const std::string& path, std::string* content);
-  std::vector<std::string> ListOutputFiles();
+  bool GetWrittenContents(const std::string& path, std::string* content) const;
+  const std::map<std::string, std::string>& InputFiles() const;
+  const std::map<std::string, std::string>& OutputFiles() const;
 
   bool PathWasRemoved(const std::string& path);
 
@@ -78,12 +81,8 @@ class FakeIoDelegate : public IoDelegate {
   // files in this list, we simulate I/O errors.
   std::set<std::string> broken_files_;
   mutable std::set<std::string> removed_files_;
-
-  DISALLOW_COPY_AND_ASSIGN(FakeIoDelegate);
 };  // class FakeIoDelegate
 
 }  // namespace test
 }  // namespace aidl
 }  // namespace android
-
-#endif // AIDL_TESTS_FAKE_IO_DELEGATE_H_

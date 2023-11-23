@@ -15,41 +15,42 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.mediastress.cts">
+     package="android.mediastress.cts">
 
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
 
-    <application
-        android:requestLegacyExternalStorage="true">
-        <uses-library android:name="android.test.runner" />
+    <application android:requestLegacyExternalStorage="true">
+        <uses-library android:name="android.test.runner"/>
         <activity android:label="@string/app_name"
-                android:name="android.mediastress.cts.MediaFrameworkTest"
-                android:screenOrientation="landscape"
-                android:configChanges="keyboard|keyboardHidden|orientation|screenSize">
+             android:name="android.mediastress.cts.MediaFrameworkTest"
+             android:screenOrientation="landscape"
+             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
         <activity android:name="android.mediastress.cts.NativeMediaActivity"
-                  android:label="NativeMedia" />
+             android:label="NativeMedia"/>
     </application>
 
-    <uses-sdk android:minSdkVersion="29"   android:targetSdkVersion="29" />
+    <uses-sdk android:minSdkVersion="29"
+         android:targetSdkVersion="29"/>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-            android:targetPackage="android.mediastress.cts"
-            android:label="Media stress tests InstrumentationRunner" >
+         android:targetPackage="android.mediastress.cts"
+         android:label="Media stress tests InstrumentationRunner">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>

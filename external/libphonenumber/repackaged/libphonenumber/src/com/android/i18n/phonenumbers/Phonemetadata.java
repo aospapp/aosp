@@ -87,7 +87,7 @@ public final class Phonemetadata {
     private boolean hasPattern;
     private String pattern_ = "";
     public boolean hasPattern() { return hasPattern; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getPattern() { return pattern_; }
     public NumberFormat setPattern(String value) {
       hasPattern = true;
@@ -99,7 +99,7 @@ public final class Phonemetadata {
     private boolean hasFormat;
     private String format_ = "";
     public boolean hasFormat() { return hasFormat; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getFormat() { return format_; }
     public NumberFormat setFormat(String value) {
       hasFormat = true;
@@ -112,9 +112,9 @@ public final class Phonemetadata {
     public java.util.List<String> leadingDigitPatterns() {
       return leadingDigitsPattern_;
     }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public int leadingDigitsPatternSize() { return leadingDigitsPattern_.size(); }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getLeadingDigitsPattern(int index) {
       return leadingDigitsPattern_.get(index);
     }
@@ -130,7 +130,7 @@ public final class Phonemetadata {
     private boolean hasNationalPrefixFormattingRule;
     private String nationalPrefixFormattingRule_ = "";
     public boolean hasNationalPrefixFormattingRule() { return hasNationalPrefixFormattingRule; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getNationalPrefixFormattingRule() { return nationalPrefixFormattingRule_; }
     public NumberFormat setNationalPrefixFormattingRule(String value) {
       hasNationalPrefixFormattingRule = true;
@@ -161,7 +161,7 @@ public final class Phonemetadata {
     private String domesticCarrierCodeFormattingRule_ = "";
     public boolean hasDomesticCarrierCodeFormattingRule() {
       return hasDomesticCarrierCodeFormattingRule; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getDomesticCarrierCodeFormattingRule() {
       return domesticCarrierCodeFormattingRule_; }
     public NumberFormat setDomesticCarrierCodeFormattingRule(String value) {
@@ -250,7 +250,7 @@ public final class Phonemetadata {
     private boolean hasNationalNumberPattern;
     private String nationalNumberPattern_ = "";
     public boolean hasNationalNumberPattern() { return hasNationalNumberPattern; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getNationalNumberPattern() { return nationalNumberPattern_; }
     public PhoneNumberDesc setNationalNumberPattern(String value) {
       hasNationalNumberPattern = true;
@@ -393,7 +393,7 @@ public final class Phonemetadata {
     private boolean hasGeneralDesc;
     private PhoneNumberDesc generalDesc_ = null;
     public boolean hasGeneralDesc() { return hasGeneralDesc; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public PhoneNumberDesc getGeneralDesc() { return generalDesc_; }
     public PhoneMetadata setGeneralDesc(PhoneNumberDesc value) {
       if (value == null) {
@@ -643,7 +643,7 @@ public final class Phonemetadata {
     private boolean hasCountryCode;
     private int countryCode_ = 0;
     public boolean hasCountryCode() { return hasCountryCode; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public int getCountryCode() { return countryCode_; }
     public PhoneMetadata setCountryCode(int value) {
       hasCountryCode = true;
@@ -681,7 +681,7 @@ public final class Phonemetadata {
     // optional string national_prefix = 12;
     private boolean hasNationalPrefix;
     private String nationalPrefix_ = "";
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public boolean hasNationalPrefix() { return hasNationalPrefix; }
     public String getNationalPrefix() { return nationalPrefix_; }
     public PhoneMetadata setNationalPrefix(String value) {
@@ -698,9 +698,9 @@ public final class Phonemetadata {
     // optional string preferred_extn_prefix = 13;
     private boolean hasPreferredExtnPrefix;
     private String preferredExtnPrefix_ = "";
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public boolean hasPreferredExtnPrefix() { return hasPreferredExtnPrefix; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getPreferredExtnPrefix() { return preferredExtnPrefix_; }
     public PhoneMetadata setPreferredExtnPrefix(String value) {
       hasPreferredExtnPrefix = true;
@@ -717,7 +717,7 @@ public final class Phonemetadata {
     private boolean hasNationalPrefixForParsing;
     private String nationalPrefixForParsing_ = "";
     public boolean hasNationalPrefixForParsing() { return hasNationalPrefixForParsing; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getNationalPrefixForParsing() { return nationalPrefixForParsing_; }
     public PhoneMetadata setNationalPrefixForParsing(String value) {
       hasNationalPrefixForParsing = true;
@@ -729,7 +729,7 @@ public final class Phonemetadata {
     private boolean hasNationalPrefixTransformRule;
     private String nationalPrefixTransformRule_ = "";
     public boolean hasNationalPrefixTransformRule() { return hasNationalPrefixTransformRule; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getNationalPrefixTransformRule() { return nationalPrefixTransformRule_; }
     public PhoneMetadata setNationalPrefixTransformRule(String value) {
       hasNationalPrefixTransformRule = true;
@@ -760,7 +760,7 @@ public final class Phonemetadata {
 
     // repeated NumberFormat number_format = 19;
     private java.util.List<NumberFormat> numberFormat_ = new java.util.ArrayList<NumberFormat>();
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public java.util.List<NumberFormat> numberFormats() {
       return numberFormat_;
     }
@@ -779,7 +779,7 @@ public final class Phonemetadata {
     // repeated NumberFormat intl_number_format = 20;
     private java.util.List<NumberFormat> intlNumberFormat_ =
         new java.util.ArrayList<NumberFormat>();
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public java.util.List<NumberFormat> intlNumberFormats() {
       return intlNumberFormat_;
     }
@@ -1154,7 +1154,7 @@ public final class Phonemetadata {
    */
   public static class PhoneMetadataCollection implements Externalizable {
     private static final long serialVersionUID = 1;
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public PhoneMetadataCollection() {}
 
     /**
@@ -1175,7 +1175,7 @@ public final class Phonemetadata {
     // repeated PhoneMetadata metadata = 1;
     private java.util.List<PhoneMetadata> metadata_ = new java.util.ArrayList<PhoneMetadata>();
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public java.util.List<PhoneMetadata> getMetadataList() {
       return metadata_;
     }

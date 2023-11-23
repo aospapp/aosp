@@ -64,7 +64,7 @@ public final class DisplayCompatUtil {
         }
         return new DeviceProductInfo(info.getName(), info.getManufacturerPnpId(),
                 info.getProductId(), info.getModelYear(), manufactureDate,
-                info.getRelativeAddress());
+                info.getConnectionToSinkType());
     }
 
     private DisplayCompatUtil() {}

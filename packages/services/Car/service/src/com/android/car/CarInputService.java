@@ -15,8 +15,11 @@
  */
 package com.android.car;
 
+import static android.car.CarOccupantZoneManager.DisplayTypeEnum;
 import static android.hardware.input.InputManager.INJECT_INPUT_EVENT_MODE_ASYNC;
 import static android.service.voice.VoiceInteractionSession.SHOW_SOURCE_PUSH_TO_TALK;
+
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
@@ -25,53 +28,51 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothProfile;
+import android.car.CarOccupantZoneManager;
 import android.car.CarProjectionManager;
-import android.car.input.CarInputHandlingService;
-import android.car.input.CarInputHandlingService.InputFilter;
 import android.car.input.CarInputManager;
+import android.car.input.CustomInputEvent;
 import android.car.input.ICarInput;
 import android.car.input.ICarInputCallback;
-import android.car.input.ICarInputListener;
 import android.car.input.RotaryEvent;
 import android.car.user.CarUserManager;
-import android.car.userlib.UserHelper;
-import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.hardware.input.InputManager;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Looper;
-import android.os.Parcel;
-import android.os.RemoteException;
 import android.os.UserHandle;
 import android.provider.CallLog.Calls;
 import android.provider.Settings;
 import android.telecom.TelecomManager;
 import android.text.TextUtils;
-import android.util.Log;
+import android.util.IndentingPrintWriter;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 
 import com.android.car.hal.InputHalService;
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
+import com.android.car.internal.common.UserHelperLite;
 import com.android.car.user.CarUserService;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.AssistUtils;
 import com.android.internal.app.IVoiceInteractionSessionShowCallback;
+import com.android.internal.os.BackgroundThread;
+import com.android.server.utils.Slogf;
 
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
@@ -80,6 +81,8 @@ import java.util.function.Supplier;
  */
 public class CarInputService extends ICarInput.Stub
         implements CarServiceBase, InputHalService.InputListener {
+
+    private static final String TAG = CarLog.TAG_INPUT;
 
     /** An interface to receive {@link KeyEvent}s as they occur. */
     public interface KeyEventListener {
@@ -145,18 +148,15 @@ public class CarInputService extends ICarInput.Stub
             new IVoiceInteractionSessionShowCallback.Stub() {
                 @Override
                 public void onFailed() {
-                    Log.w(CarLog.TAG_INPUT, "Failed to show VoiceInteractionSession");
+                    Slogf.w(TAG, "Failed to show VoiceInteractionSession");
                 }
 
                 @Override
                 public void onShown() {
-                    if (DBG) {
-                        Log.d(CarLog.TAG_INPUT, "IVoiceInteractionSessionShowCallback onShown()");
-                    }
+                    Slogf.d(TAG, "IVoiceInteractionSessionShowCallback onShown()");
                 }
             };
 
-    private static final boolean DBG = false;
     @VisibleForTesting
     static final String EXTRA_CAR_PUSH_TO_TALK =
             "com.android.car.input.EXTRA_CAR_PUSH_TO_TALK";
@@ -164,12 +164,10 @@ public class CarInputService extends ICarInput.Stub
     private final Context mContext;
     private final InputHalService mInputHalService;
     private final CarUserService mUserService;
+    private final CarOccupantZoneService mCarOccupantZoneService;
     private final TelecomManager mTelecomManager;
     private final AssistUtils mAssistUtils;
-    // The ComponentName of the CarInputListener service. Can be changed via resource overlay,
-    // or overridden directly for testing.
-    @Nullable
-    private final ComponentName mCustomInputServiceComponent;
+
     // The default handler for main-display input events. By default, injects the events into
     // the input queue via InputManager, but can be overridden for testing.
     private final KeyEventListener mMainDisplayHandler;
@@ -182,6 +180,8 @@ public class CarInputService extends ICarInput.Stub
     private final IntSupplier mLongPressDelaySupplier;
     // ComponentName of the RotaryService.
     private final String mRotaryServiceComponentName;
+
+    private final BooleanSupplier mShouldCallButtonEndOngoingCallSupplier;
 
     private final Object mLock = new Object();
 
@@ -197,57 +197,9 @@ public class CarInputService extends ICarInput.Stub
     @GuardedBy("mLock")
     private KeyEventListener mInstrumentClusterKeyListener;
 
-    @GuardedBy("mLock")
-    @VisibleForTesting
-    ICarInputListener mCarInputListener;
-
-    @GuardedBy("mLock")
-    private boolean mCarInputListenerBound = false;
-
-    // Maps display -> keycodes handled.
-    @GuardedBy("mLock")
-    private final SetMultimap<Integer, Integer> mHandledKeys = new SetMultimap<>();
-
     private final InputCaptureClientController mCaptureController;
 
-    private final Binder mCallback = new Binder() {
-        @Override
-        protected boolean onTransact(int code, Parcel data, Parcel reply, int flags) {
-            if (code == CarInputHandlingService.INPUT_CALLBACK_BINDER_CODE) {
-                data.setDataPosition(0);
-                InputFilter[] handledKeys = (InputFilter[]) data.createTypedArray(
-                        InputFilter.CREATOR);
-                if (handledKeys != null) {
-                    setHandledKeys(handledKeys);
-                }
-                return true;
-            }
-            return false;
-        }
-    };
-
-    private final ServiceConnection mInputServiceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder binder) {
-            if (DBG) {
-                Log.d(CarLog.TAG_INPUT, "onServiceConnected, name: "
-                        + name + ", binder: " + binder);
-            }
-            synchronized (mLock) {
-                mCarInputListener = ICarInputListener.Stub.asInterface(binder);
-            }
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            Log.d(CarLog.TAG_INPUT, "onServiceDisconnected, name: " + name);
-            synchronized (mLock) {
-                mCarInputListener = null;
-            }
-        }
-    };
-
-    private final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+    private final BluetoothAdapter mBluetoothAdapter;
 
     // BluetoothHeadsetClient set through mBluetoothProfileServiceListener, and used by
     // launchBluetoothVoiceRecognition().
@@ -259,7 +211,7 @@ public class CarInputService extends ICarInput.Stub
         @Override
         public void onServiceConnected(int profile, BluetoothProfile proxy) {
             if (profile == BluetoothProfile.HEADSET_CLIENT) {
-                Log.d(CarLog.TAG_INPUT, "Bluetooth proxy connected for HEADSET_CLIENT profile");
+                Slogf.d(TAG, "Bluetooth proxy connected for HEADSET_CLIENT profile");
                 synchronized (mLock) {
                     mBluetoothHeadsetClient = (BluetoothHeadsetClient) proxy;
                 }
@@ -269,7 +221,7 @@ public class CarInputService extends ICarInput.Stub
         @Override
         public void onServiceDisconnected(int profile) {
             if (profile == BluetoothProfile.HEADSET_CLIENT) {
-                Log.d(CarLog.TAG_INPUT, "Bluetooth proxy disconnected for HEADSET_CLIENT profile");
+                Slogf.d(TAG, "Bluetooth proxy disconnected for HEADSET_CLIENT profile");
                 synchronized (mLock) {
                     mBluetoothHeadsetClient = null;
                 }
@@ -278,18 +230,11 @@ public class CarInputService extends ICarInput.Stub
     };
 
     private final CarUserManager.UserLifecycleListener mUserLifecycleListener = event -> {
-        Log.d(CarLog.TAG_INPUT, "CarInputService.onEvent(" + event + ")");
+        Slogf.d(TAG, "CarInputService.onEvent(%s)", event);
         if (CarUserManager.USER_LIFECYCLE_EVENT_TYPE_SWITCHING == event.getEventType()) {
             updateRotaryServiceSettings(event.getUserId());
         }
     };
-
-    @Nullable
-    private static ComponentName getDefaultInputComponent(Context context) {
-        String carInputService = context.getString(R.string.inputService);
-        return TextUtils.isEmpty(carInputService)
-                ? null : ComponentName.unflattenFromString(carInputService);
-    }
 
     private static int getViewLongPressDelay(ContentResolver cr) {
         return Settings.Secure.getIntForUser(
@@ -300,32 +245,37 @@ public class CarInputService extends ICarInput.Stub
     }
 
     public CarInputService(Context context, InputHalService inputHalService,
-            CarUserService userService) {
-        this(context, inputHalService, userService, new Handler(Looper.getMainLooper()),
+            CarUserService userService, CarOccupantZoneService occupantZoneService) {
+        this(context, inputHalService, userService, occupantZoneService,
+                new Handler(Looper.getMainLooper()),
                 context.getSystemService(TelecomManager.class), new AssistUtils(context),
                 event ->
                         context.getSystemService(InputManager.class)
                                 .injectInputEvent(event, INJECT_INPUT_EVENT_MODE_ASYNC),
                 () -> Calls.getLastOutgoingCall(context),
-                getDefaultInputComponent(context),
-                () -> getViewLongPressDelay(context.getContentResolver()));
+                () -> getViewLongPressDelay(context.getContentResolver()),
+                () -> context.getResources().getBoolean(R.bool.config_callButtonEndsOngoingCall),
+                new InputCaptureClientController(context),
+                BluetoothAdapter.getDefaultAdapter());
     }
 
     @VisibleForTesting
     CarInputService(Context context, InputHalService inputHalService, CarUserService userService,
-            Handler handler, TelecomManager telecomManager, AssistUtils assistUtils,
-            KeyEventListener mainDisplayHandler, Supplier<String> lastCalledNumberSupplier,
-            @Nullable ComponentName customInputServiceComponent,
-            IntSupplier longPressDelaySupplier) {
+            CarOccupantZoneService occupantZoneService, Handler handler,
+            TelecomManager telecomManager, AssistUtils assistUtils,
+            KeyEventListener mainDisplayHandler,
+            Supplier<String> lastCalledNumberSupplier, IntSupplier longPressDelaySupplier,
+            BooleanSupplier shouldCallButtonEndOngoingCallSupplier,
+            InputCaptureClientController captureController, BluetoothAdapter bluetoothAdapter) {
         mContext = context;
-        mCaptureController = new InputCaptureClientController(context);
+        mCaptureController = captureController;
         mInputHalService = inputHalService;
         mUserService = userService;
+        mCarOccupantZoneService = occupantZoneService;
         mTelecomManager = telecomManager;
         mAssistUtils = assistUtils;
         mMainDisplayHandler = mainDisplayHandler;
         mLastCalledNumberSupplier = lastCalledNumberSupplier;
-        mCustomInputServiceComponent = customInputServiceComponent;
         mLongPressDelaySupplier = longPressDelaySupplier;
 
         mVoiceKeyTimer =
@@ -335,16 +285,8 @@ public class CarInputService extends ICarInput.Stub
                 new KeyPressTimer(handler, longPressDelaySupplier, this::handleCallLongPress);
 
         mRotaryServiceComponentName = mContext.getString(R.string.rotaryService);
-    }
-
-    @VisibleForTesting
-    void setHandledKeys(InputFilter[] handledKeys) {
-        synchronized (mLock) {
-            mHandledKeys.clear();
-            for (InputFilter handledKey : handledKeys) {
-                mHandledKeys.put(handledKey.mTargetDisplay, handledKey.mKeyCode);
-            }
-        }
+        mShouldCallButtonEndOngoingCallSupplier = shouldCallButtonEndOngoingCallSupplier;
+        mBluetoothAdapter = bluetoothAdapter;
     }
 
     /**
@@ -362,6 +304,9 @@ public class CarInputService extends ICarInput.Stub
         }
     }
 
+    /**
+     * Sets the instrument cluster key event listener.
+     */
     public void setInstrumentClusterKeyListener(KeyEventListener listener) {
         synchronized (mLock) {
             mInstrumentClusterKeyListener = listener;
@@ -371,19 +316,16 @@ public class CarInputService extends ICarInput.Stub
     @Override
     public void init() {
         if (!mInputHalService.isKeyInputSupported()) {
-            Log.w(CarLog.TAG_INPUT, "Hal does not support key input.");
+            Slogf.w(TAG, "Hal does not support key input.");
             return;
-        } else if (DBG) {
-            Log.d(CarLog.TAG_INPUT, "Hal supports key input.");
         }
-
+        Slogf.d(TAG, "Hal supports key input.");
         mInputHalService.setInputListener(this);
-        synchronized (mLock) {
-            mCarInputListenerBound = bindCarInputService();
-        }
         if (mBluetoothAdapter != null) {
-            mBluetoothAdapter.getProfileProxy(
-                    mContext, mBluetoothProfileServiceListener, BluetoothProfile.HEADSET_CLIENT);
+            BackgroundThread.getHandler().post(() -> {
+                mBluetoothAdapter.getProfileProxy(mContext,
+                        mBluetoothProfileServiceListener, BluetoothProfile.HEADSET_CLIENT);
+            });
         }
         if (!TextUtils.isEmpty(mRotaryServiceComponentName)) {
             mUserService.addUserLifecycleListener(mUserLifecycleListener);
@@ -396,10 +338,6 @@ public class CarInputService extends ICarInput.Stub
             mProjectionKeyEventHandler = null;
             mProjectionKeyEventsSubscribed.clear();
             mInstrumentClusterKeyListener = null;
-            if (mCarInputListenerBound) {
-                mContext.unbindService(mInputServiceConnection);
-                mCarInputListenerBound = false;
-            }
             if (mBluetoothHeadsetClient != null) {
                 mBluetoothAdapter.closeProfileProxy(
                         BluetoothProfile.HEADSET_CLIENT, mBluetoothHeadsetClient);
@@ -412,22 +350,7 @@ public class CarInputService extends ICarInput.Stub
     }
 
     @Override
-    public void onKeyEvent(KeyEvent event, int targetDisplay) {
-        // Give a car specific input listener the opportunity to intercept any input from the car
-        ICarInputListener carInputListener;
-        synchronized (mLock) {
-            carInputListener = mCarInputListener;
-        }
-        if (carInputListener != null && isCustomEventHandler(event, targetDisplay)) {
-            try {
-                carInputListener.onKeyEvent(event, targetDisplay);
-            } catch (RemoteException e) {
-                Log.e(CarLog.TAG_INPUT, "Error while calling car input service", e);
-            }
-            // Custom input service handled the event, nothing more to do here.
-            return;
-        }
-
+    public void onKeyEvent(KeyEvent event, @DisplayTypeEnum int targetDisplayType) {
         // Special case key code that have special "long press" handling for automotive
         switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_VOICE_ASSIST:
@@ -440,25 +363,45 @@ public class CarInputService extends ICarInput.Stub
                 break;
         }
 
+        assignDisplayId(event, targetDisplayType);
+
         // Allow specifically targeted keys to be routed to the cluster
-        if (targetDisplay == InputHalService.DISPLAY_INSTRUMENT_CLUSTER) {
-            handleInstrumentClusterKey(event);
-        } else {
-            if (mCaptureController.onKeyEvent(CarInputManager.TARGET_DISPLAY_TYPE_MAIN, event)) {
-                return;
-            }
-            mMainDisplayHandler.onKeyEvent(event);
+        if (targetDisplayType == CarOccupantZoneManager.DISPLAY_TYPE_INSTRUMENT_CLUSTER
+                && handleInstrumentClusterKey(event)) {
+            return;
         }
+        if (mCaptureController.onKeyEvent(targetDisplayType, event)) {
+            return;
+        }
+        mMainDisplayHandler.onKeyEvent(event);
+    }
+
+    private void assignDisplayId(KeyEvent event, @DisplayTypeEnum int targetDisplayType) {
+        // Setting display id for driver user id (currently MAIN and CLUSTER display types are
+        // linked to driver user only)
+        int newDisplayId = mCarOccupantZoneService.getDisplayIdForDriver(targetDisplayType);
+
+        // Display id is overridden even if already set.
+        event.setDisplayId(newDisplayId);
     }
 
     @Override
-    public void onRotaryEvent(RotaryEvent event, int targetDisplay) {
+    public void onRotaryEvent(RotaryEvent event, @DisplayTypeEnum int targetDisplay) {
         if (!mCaptureController.onRotaryEvent(targetDisplay, event)) {
             List<KeyEvent> keyEvents = rotaryEventToKeyEvents(event);
             for (KeyEvent keyEvent : keyEvents) {
                 onKeyEvent(keyEvent, targetDisplay);
             }
         }
+    }
+
+    @Override
+    public void onCustomInputEvent(CustomInputEvent event) {
+        if (!mCaptureController.onCustomInputEvent(event)) {
+            Slogf.w(TAG, "Failed to propagate (%s)", event);
+            return;
+        }
+        Slogf.d(TAG, "Succeed injecting (%s)", event);
     }
 
     private static List<KeyEvent> rotaryEventToKeyEvents(RotaryEvent event) {
@@ -478,7 +421,7 @@ public class CarInputService extends ICarInput.Stub
                         : KeyEvent.KEYCODE_VOLUME_DOWN;
                 break;
             default:
-                Log.e(CarLog.TAG_INPUT, "Unknown rotary input type: " + event.getInputType());
+                Slogf.e(TAG, "Unknown rotary input type: %d", event.getInputType());
                 return Collections.EMPTY_LIST;
         }
         ArrayList<KeyEvent> keyEvents = new ArrayList<>(numEvents);
@@ -508,20 +451,43 @@ public class CarInputService extends ICarInput.Stub
     }
 
     @Override
-    public int requestInputEventCapture(ICarInputCallback callback, int targetDisplayType,
+    public int requestInputEventCapture(ICarInputCallback callback,
+            @DisplayTypeEnum int targetDisplayType,
             int[] inputTypes, int requestFlags) {
         return mCaptureController.requestInputEventCapture(callback, targetDisplayType, inputTypes,
                 requestFlags);
     }
 
     @Override
-    public void releaseInputEventCapture(ICarInputCallback callback, int targetDisplayType) {
+    public void releaseInputEventCapture(ICarInputCallback callback,
+            @DisplayTypeEnum int targetDisplayType) {
         mCaptureController.releaseInputEventCapture(callback, targetDisplayType);
     }
 
-    private boolean isCustomEventHandler(KeyEvent event, int targetDisplay) {
-        synchronized (mLock) {
-            return mHandledKeys.containsEntry(targetDisplay, event.getKeyCode());
+    /**
+     * Injects the {@link KeyEvent} passed as parameter against Car Input API.
+     * <p>
+     * The event's display id will be overridden accordingly to the display type (it will be
+     * retrieved from {@link CarOccupantZoneService}).
+     *
+     * @param event             the event to inject
+     * @param targetDisplayType the display type associated with the event
+     * @throws SecurityException when caller doesn't have INJECT_EVENTS permission granted
+     */
+    @Override
+    public void injectKeyEvent(KeyEvent event, @DisplayTypeEnum int targetDisplayType) {
+        // Permission check
+        if (PackageManager.PERMISSION_GRANTED != mContext.checkCallingOrSelfPermission(
+                android.Manifest.permission.INJECT_EVENTS)) {
+            throw new SecurityException("Injecting KeyEvent requires INJECT_EVENTS permission");
+        }
+
+        long token = Binder.clearCallingIdentity();
+        try {
+            // Redirect event to onKeyEvent
+            onKeyEvent(event, targetDisplayType);
+        } finally {
+            Binder.restoreCallingIdentity(token);
         }
     }
 
@@ -580,6 +546,11 @@ public class CarInputService extends ICarInput.Stub
                 return;
             }
 
+            if (mShouldCallButtonEndOngoingCallSupplier.getAsBoolean() && endCall()) {
+                // On-going call ended, nothing more to do.
+                return;
+            }
+
             if (dispatchProjectionKeyEvent(
                     CarProjectionManager.KEY_EVENT_CALL_SHORT_PRESS_KEY_UP)) {
                 return;
@@ -592,6 +563,10 @@ public class CarInputService extends ICarInput.Stub
     private void handleCallLongPress() {
         // Long-press answers call if ringing, same as short-press.
         if (acceptCallIfRinging()) {
+            return;
+        }
+
+        if (mShouldCallButtonEndOngoingCallSupplier.getAsBoolean() && endCall()) {
             return;
         }
 
@@ -617,13 +592,13 @@ public class CarInputService extends ICarInput.Stub
     }
 
     private void launchDialerHandler() {
-        Log.i(CarLog.TAG_INPUT, "call key, launch dialer intent");
+        Slogf.i(TAG, "call key, launch dialer intent");
         Intent dialerIntent = new Intent(Intent.ACTION_DIAL);
         mContext.startActivityAsUser(dialerIntent, null, UserHandle.CURRENT_OR_SELF);
     }
 
     private void dialLastCallHandler() {
-        Log.i(CarLog.TAG_INPUT, "call key, dialing last call");
+        Slogf.i(TAG, "call key, dialing last call");
 
         String lastNumber = mLastCalledNumberSupplier.get();
         if (!TextUtils.isEmpty(lastNumber)) {
@@ -636,8 +611,17 @@ public class CarInputService extends ICarInput.Stub
 
     private boolean acceptCallIfRinging() {
         if (mTelecomManager != null && mTelecomManager.isRinging()) {
-            Log.i(CarLog.TAG_INPUT, "call key while ringing. Answer the call!");
+            Slogf.i(TAG, "call key while ringing. Answer the call!");
             mTelecomManager.acceptRingingCall();
+            return true;
+        }
+        return false;
+    }
+
+    private boolean endCall() {
+        if (mTelecomManager != null && mTelecomManager.isInCall()) {
+            Slogf.i(TAG, "End the call!");
+            mTelecomManager.endCall();
             return true;
         }
         return false;
@@ -666,8 +650,8 @@ public class CarInputService extends ICarInput.Stub
                         continue;
                     }
                     if (mBluetoothHeadsetClient.startVoiceRecognition(device)) {
-                        Log.d(CarLog.TAG_INPUT, "started voice recognition on BT device at "
-                                + device.getAddress());
+                        Slogf.d(TAG, "started voice recognition on BT device at (%s)",
+                                device.getAddress());
                         return true;
                     }
                 }
@@ -677,10 +661,10 @@ public class CarInputService extends ICarInput.Stub
     }
 
     private void launchDefaultVoiceAssistantHandler() {
-        Log.i(CarLog.TAG_INPUT, "voice key, invoke AssistUtils");
+        Slogf.i(TAG, "voice key, invoke AssistUtils");
 
         if (mAssistUtils.getAssistComponentForUser(ActivityManager.getCurrentUser()) == null) {
-            Log.w(CarLog.TAG_INPUT, "Unable to retrieve assist component for current user");
+            Slogf.w(TAG, "Unable to retrieve assist component for current user");
             return;
         }
 
@@ -691,47 +675,34 @@ public class CarInputService extends ICarInput.Stub
                 SHOW_SOURCE_PUSH_TO_TALK, mShowCallback, null /*activityToken*/);
     }
 
-    private void handleInstrumentClusterKey(KeyEvent event) {
+    /**
+     * @return false if the KeyEvent isn't consumed because there is no
+     * InstrumentClusterKeyListener.
+     */
+    private boolean handleInstrumentClusterKey(KeyEvent event) {
         KeyEventListener listener = null;
         synchronized (mLock) {
             listener = mInstrumentClusterKeyListener;
         }
         if (listener == null) {
-            return;
+            return false;
         }
         listener.onKeyEvent(event);
+        return true;
     }
 
     @Override
-    public void dump(PrintWriter writer) {
+    @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
+    public void dump(IndentingPrintWriter writer) {
         writer.println("*Input Service*");
-        writer.println("mCustomInputServiceComponent: " + mCustomInputServiceComponent);
-        synchronized (mLock) {
-            writer.println("mCarInputListenerBound: " + mCarInputListenerBound);
-            writer.println("mCarInputListener: " + mCarInputListener);
-        }
         writer.println("Long-press delay: " + mLongPressDelaySupplier.getAsInt() + "ms");
+        writer.println("Call button ends ongoing call: "
+                + mShouldCallButtonEndOngoingCallSupplier.getAsBoolean());
         mCaptureController.dump(writer);
     }
 
-    private boolean bindCarInputService() {
-        if (mCustomInputServiceComponent == null) {
-            Log.i(CarLog.TAG_INPUT, "Custom input service was not configured");
-            return false;
-        }
-
-        Log.d(CarLog.TAG_INPUT, "bindCarInputService, component: " + mCustomInputServiceComponent);
-
-        Intent intent = new Intent();
-        Bundle extras = new Bundle();
-        extras.putBinder(CarInputHandlingService.INPUT_CALLBACK_BINDER_KEY, mCallback);
-        intent.putExtras(extras);
-        intent.setComponent(mCustomInputServiceComponent);
-        return mContext.bindService(intent, mInputServiceConnection, Context.BIND_AUTO_CREATE);
-    }
-
     private void updateRotaryServiceSettings(@UserIdInt int userId) {
-        if (UserHelper.isHeadlessSystemUser(userId)) {
+        if (UserHelperLite.isHeadlessSystemUser(userId)) {
             return;
         }
         ContentResolver contentResolver = mContext.getContentResolver();

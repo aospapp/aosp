@@ -16,9 +16,14 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
+import static com.android.compatibility.common.util.WifiConfigCreator.SECURITY_TYPE_NONE;
+import static com.android.compatibility.common.util.WifiConfigCreator.SECURITY_TYPE_WEP;
+import static com.android.compatibility.common.util.WifiConfigCreator.SECURITY_TYPE_WPA;
+
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.database.DataSetObserver;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
@@ -26,15 +31,12 @@ import android.view.View.OnClickListener;
 import android.widget.EditText;
 import android.widget.RadioGroup;
 
+import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
+import com.android.compatibility.common.util.WifiConfigCreator;
 import com.android.cts.verifier.ArrayTestListAdapter;
+import com.android.cts.verifier.IntentDrivenTestActivity.ButtonInfo;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
-import com.android.cts.verifier.IntentDrivenTestActivity.ButtonInfo;
-
-import com.android.compatibility.common.util.WifiConfigCreator;
-import static com.android.compatibility.common.util.WifiConfigCreator.SECURITY_TYPE_NONE;
-import static com.android.compatibility.common.util.WifiConfigCreator.SECURITY_TYPE_WPA;
-import static com.android.compatibility.common.util.WifiConfigCreator.SECURITY_TYPE_WEP;
 
 /**
  * Activity to test WiFi configuration lockdown functionality. A locked down WiFi config
@@ -59,7 +61,9 @@ public class WifiLockdownTestActivity extends PassFailButtons.TestListActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mConfigCreator = new WifiConfigCreator(this);
+        WifiManager wifiManager = TestAppSystemServiceFactory.getWifiManager(this,
+                DeviceAdminTestReceiver.class);
+        mConfigCreator = new WifiConfigCreator(this, wifiManager);
         setContentView(R.layout.wifi_lockdown);
         setInfoResources(R.string.device_owner_wifi_lockdown_test,
                 R.string.device_owner_wifi_lockdown_info, 0);

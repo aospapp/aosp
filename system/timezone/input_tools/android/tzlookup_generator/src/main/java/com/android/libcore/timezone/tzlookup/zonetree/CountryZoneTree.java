@@ -15,8 +15,8 @@
  */
 package com.android.libcore.timezone.tzlookup.zonetree;
 
-import com.android.libcore.timezone.tzlookup.proto.CountryZonesFile;
-import com.android.libcore.timezone.tzlookup.proto.CountryZonesFile.Country;
+import com.android.libcore.timezone.countryzones.proto.CountryZonesFile;
+import com.android.libcore.timezone.countryzones.proto.CountryZonesFile.Country;
 import com.android.libcore.timezone.tzlookup.zonetree.ZoneOffsetPeriod.ZonePeriodsKey;
 import com.ibm.icu.text.TimeZoneNames;
 import com.ibm.icu.util.BasicTimeZone;
@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.util.stream.Collectors.toList;
 
@@ -510,27 +511,56 @@ public final class CountryZoneTree {
                 }
 
                 Instant endInstant = node.getEndInstant();
+                String replacementTimeZoneId = getReplacementTimeZoneIdOrNull(node);
                 if (!node.isLeaf()) {
                     ZoneInfo primaryZone = node.getPrimaryZoneInfo();
-                    addZoneEntryIfMissing(endInstant, primaryZone);
+                    addZoneEntryIfMissing(endInstant, replacementTimeZoneId, primaryZone);
                 } else {
                     // In some rare cases (e.g. Canada: Swift_Current and Creston) zones have agreed
                     // completely since 1970 so some leaves may have multiple zones. So, attempt to
                     // add all zones for leaves, not just the primary.
                     for (ZoneInfo zoneInfo : node.getZoneInfos()) {
-                        addZoneEntryIfMissing(endInstant, zoneInfo);
+                        addZoneEntryIfMissing(endInstant, replacementTimeZoneId, zoneInfo);
                     }
                 }
             }
 
-            private void addZoneEntryIfMissing(Instant endInstant, ZoneInfo zoneInfo) {
+            /**
+             * Takes a {@link ZoneNode} and if the parent node has a different primary zone ID, then
+             * this method returns that zone ID. {@code null} is returned otherwise.
+             */
+            private String getReplacementTimeZoneIdOrNull(ZoneNode node) {
+                if (node.isRoot()) {
+                    // There is no parent node, so there can be no replacement ID.
+                    return null;
+                }
+
+                String zoneId = node.primaryZoneInfo.getZoneId();
+                String replacementId = node.getParent().primaryZoneInfo.getZoneId();
+                if (Objects.equals(zoneId, replacementId)) {
+                    // Often, the parent node will have the same primary zone ID. A zone ID cannot
+                    // replace itself. Since we're traversing the tree "preorder" this is fine - if
+                    // there is a replacement later in time it will already have been found.
+                    return null;
+                }
+                return replacementId;
+            }
+
+            private void addZoneEntryIfMissing(
+                    Instant endInstant, String replacementTimeZoneId, ZoneInfo zoneInfo) {
                 String zoneId = zoneInfo.getZoneId();
+
+                if (Objects.equals(zoneId, replacementTimeZoneId)) {
+                    throw new IllegalStateException(zoneId + " cannot replace itself. Cycle!");
+                }
+
                 if (!notAfterCutOff.isAfter(endInstant)) {
                     // notAfterCutOff <= endInstant
                     endInstant = null;
+                    replacementTimeZoneId = null;
                 }
                 if (!zoneUsage.hasEntry(zoneId)) {
-                    zoneUsage.addEntry(zoneId, endInstant);
+                    zoneUsage.addEntry(zoneId, endInstant, replacementTimeZoneId);
                 }
             }
 

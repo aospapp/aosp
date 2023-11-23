@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Stiliai ir ekrano fonai"</string>
+    <string name="app_name" msgid="1647136562008520313">"Ekrano fonas ir stilius"</string>
     <string name="theme_title" msgid="2144932106319405101">"Stilius"</string>
     <string name="clock_title" msgid="2126046720254613991">"Laikrodis"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Tinklelis"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Ekrano fonas"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Pr. tinklelis"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Taikyti"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Palieskite ir redaguokite"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Palikti dabartinį ekrano foną"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Taikyti"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"<xliff:g id="ID_1">%1$d</xliff:g> psl. iš <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Kitas"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Ankstesnis"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Stiliaus peržiūra"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Tinklelio peržiūra"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Šrifto peržiūra"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Piktogramos peržiūra"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Spalvos peržiūra"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Formos peržiūra"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, šiuo metu taikoma"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, šiuo metu taikoma ir peržiūrima"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, šiuo metu peržiūrima"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Ekrano fonas"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Pridėkite mėgstamiausių šriftų prie kiekvieno ekrano"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Pasirinkti tinklelio dydį"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g> x <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Stilius pritaikytas"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Laikrodis pritaikytas"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Stilius nustatytas sėkmingai"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Laikrodis nustatytas sėkmingai"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"Tinklelis nustatytas sėkmingai"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Taikant stilių kilo problema"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Kitas"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Ankstesnis"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Tinkinta"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Tinkintas <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Tinkintas stilius"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Ištrinti"</string>
@@ -61,9 +66,21 @@
     <string name="cancel" msgid="4651030493668562067">"Atšaukti"</string>
     <string name="set_theme_wallpaper_dialog_message" msgid="2179661027350908003">"Nustatyti stiliaus ekrano foną"</string>
     <string name="use_style_instead_title" msgid="1578754995763917502">"Verčiau naudoti „<xliff:g id="ID_1">%1$s</xliff:g>“?"</string>
-    <string name="use_style_instead_body" msgid="3051937045807471496">"Pasirinkti komponentai atitinka „<xliff:g id="ID_1">%1$s</xliff:g>“ stilių. Ar verčiau norite naudoti „<xliff:g id="ID_2">%1$s</xliff:g>“?"</string>
+    <string name="use_style_instead_body" msgid="3051937045807471496">"Pasirinkti komponentai atitinka „<xliff:g id="ID_1">%1$s</xliff:g>“ stilių. Ar verčiau naudosite „<xliff:g id="ID_2">%1$s</xliff:g>“?"</string>
     <string name="use_style_button" msgid="1754493078383627019">"Naudoti „<xliff:g id="ID_1">%1$s</xliff:g>“"</string>
     <string name="no_thanks" msgid="7286616980115687627">"Ne, ačiū"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"Ciferblato „<xliff:g id="ID_1">%1$s</xliff:g>“ peržiūra"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Oi, kažkas nepavyko."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Spalva / piktogramos"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Šriftų, piktogramų, programų formos ir spalvos peržiūra"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Tinkintas šriftas"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Pasirinkta piktograma"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Tinkinta spalva"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Tinkinta forma"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Tinkinto stiliaus pavadinimas"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Tamsioji tema"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Laikinai išjungta dėl Akumuliatoriaus tausojimo priemonės"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Teminės piktogramos"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Programų tinklelio keitimas"</string>
 </resources>

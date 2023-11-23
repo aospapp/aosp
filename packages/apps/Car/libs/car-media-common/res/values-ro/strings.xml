@@ -19,4 +19,16 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="album_art" msgid="3392647029019061691">"Grafica albumului"</string>
     <string name="metadata_default_title" msgid="5902775732281325081">"Fără titlu"</string>
+    <string name="default_error_message" msgid="4044331619453864482">"A apărut o problemă. Încercați mai târziu."</string>
+    <string name="error_code_app_error" msgid="3608680401453743688">"Acțiunea nu poate fi realizată momentan"</string>
+    <string name="error_code_not_supported" msgid="8004310657548193089">"Aplicația nu poate realiza această acțiune"</string>
+    <string name="error_code_authentication_expired" msgid="1727285213286610186">"Conectați-vă pentru a folosi aplicația"</string>
+    <string name="error_code_premium_account_required" msgid="2328664287270814966">"Este necesar accesul premium"</string>
+    <string name="error_code_concurrent_stream_limit" msgid="493048763425570552">"Se ascultă pe prea multe dispozitive"</string>
+    <string name="error_code_parental_control_restricted" msgid="325145513462419399">"Conținutul este blocat"</string>
+    <string name="error_code_not_available_in_region" msgid="5840935836875073145">"Conținutul nu poate fi descărcat aici"</string>
+    <string name="error_code_content_already_playing" msgid="1306236349553004461">"Conținutul se redă deja"</string>
+    <string name="error_code_skip_limit_reached" msgid="4203743406433151146">"Nu mai pot fi omise melodii"</string>
+    <string name="error_code_action_aborted" msgid="8611777981356536501">"Nu s-a putut finaliza. Încercați din nou."</string>
+    <string name="error_code_end_of_queue" msgid="6935022448319288887">"Nu mai există elemente în coadă"</string>
 </resources>

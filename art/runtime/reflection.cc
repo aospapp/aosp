@@ -494,18 +494,26 @@ bool InvokeMethodImpl(const ScopedObjectAccessAlreadyRunnable& soa,
 
   // Wrap any exception with "Ljava/lang/reflect/InvocationTargetException;" and return early.
   if (soa.Self()->IsExceptionPending()) {
-    // If we get another exception when we are trying to wrap, then just use that instead.
-    ScopedLocalRef<jthrowable> th(soa.Env(), soa.Env()->ExceptionOccurred());
-    soa.Self()->ClearException();
-    jobject exception_instance =
-        soa.Env()->NewObject(WellKnownClasses::java_lang_reflect_InvocationTargetException,
-                             WellKnownClasses::java_lang_reflect_InvocationTargetException_init,
-                             th.get());
-    if (exception_instance == nullptr) {
-      soa.Self()->AssertPendingException();
-      return false;
+    // To abort a transaction we use a fake exception that should never be caught by the bytecode
+    // and therefore it makes no sense to wrap it.
+    if (Runtime::Current()->IsTransactionAborted()) {
+      DCHECK(soa.Self()->GetException()->GetClass()->DescriptorEquals(
+                  "Ldalvik/system/TransactionAbortError;"))
+          << soa.Self()->GetException()->GetClass()->PrettyDescriptor();
+    } else {
+      // If we get another exception when we are trying to wrap, then just use that instead.
+      ScopedLocalRef<jthrowable> th(soa.Env(), soa.Env()->ExceptionOccurred());
+      soa.Self()->ClearException();
+      jobject exception_instance =
+          soa.Env()->NewObject(WellKnownClasses::java_lang_reflect_InvocationTargetException,
+                               WellKnownClasses::java_lang_reflect_InvocationTargetException_init,
+                               th.get());
+      if (exception_instance == nullptr) {
+        soa.Self()->AssertPendingException();
+        return false;
+      }
+      soa.Env()->Throw(reinterpret_cast<jthrowable>(exception_instance));
     }
-    soa.Env()->Throw(reinterpret_cast<jthrowable>(exception_instance));
     return false;
   }
 
@@ -683,6 +691,7 @@ JValue InvokeVirtualOrInterfaceWithVarArgs(const ScopedObjectAccessAlreadyRunnab
   return InvokeVirtualOrInterfaceWithVarArgs(soa, obj, jni::DecodeArtMethod(mid), args);
 }
 
+template <PointerSize kPointerSize>
 jobject InvokeMethod(const ScopedObjectAccessAlreadyRunnable& soa, jobject javaMethod,
                      jobject javaReceiver, jobject javaArgs, size_t num_frames) {
   // We want to make sure that the stack is not within a small distance from the
@@ -725,14 +734,14 @@ jobject InvokeMethod(const ScopedObjectAccessAlreadyRunnable& soa, jobject javaM
       }
 
       // Find the actual implementation of the virtual method.
-      m = receiver->GetClass()->FindVirtualMethodForVirtualOrInterface(m, kRuntimePointerSize);
+      m = receiver->GetClass()->FindVirtualMethodForVirtualOrInterface(m, kPointerSize);
     }
   }
 
   // Get our arrays of arguments and their types, and check they're the same size.
   ObjPtr<mirror::ObjectArray<mirror::Object>> objects =
       soa.Decode<mirror::ObjectArray<mirror::Object>>(javaArgs);
-  auto* np_method = m->GetInterfaceMethodIfProxy(kRuntimePointerSize);
+  auto* np_method = m->GetInterfaceMethodIfProxy(kPointerSize);
   if (!CheckArgsForInvokeMethod(np_method, objects)) {
     return nullptr;
   }
@@ -763,6 +772,19 @@ jobject InvokeMethod(const ScopedObjectAccessAlreadyRunnable& soa, jobject javaM
   }
   return soa.AddLocalReference<jobject>(BoxPrimitive(Primitive::GetType(shorty[0]), result));
 }
+
+template
+jobject InvokeMethod<PointerSize::k32>(const ScopedObjectAccessAlreadyRunnable& soa,
+                                       jobject javaMethod,
+                                       jobject javaReceiver,
+                                       jobject javaArgs,
+                                       size_t num_frames);
+template
+jobject InvokeMethod<PointerSize::k64>(const ScopedObjectAccessAlreadyRunnable& soa,
+                                       jobject javaMethod,
+                                       jobject javaReceiver,
+                                       jobject javaArgs,
+                                       size_t num_frames);
 
 void InvokeConstructor(const ScopedObjectAccessAlreadyRunnable& soa,
                        ArtMethod* constructor,
@@ -1045,8 +1067,8 @@ void UpdateReference(Thread* self, jobject obj, ObjPtr<mirror::Object> result) {
   IndirectRefKind kind = IndirectReferenceTable::GetIndirectRefKind(ref);
   if (kind == kLocal) {
     self->GetJniEnv()->UpdateLocal(obj, result);
-  } else if (kind == kHandleScopeOrInvalid) {
-    LOG(FATAL) << "Unsupported UpdateReference for kind kHandleScopeOrInvalid";
+  } else if (kind == kJniTransitionOrInvalid) {
+    LOG(FATAL) << "Unsupported UpdateReference for kind kJniTransitionOrInvalid";
   } else if (kind == kGlobal) {
     self->GetJniEnv()->GetVm()->UpdateGlobal(self, ref, result);
   } else {

@@ -13,26 +13,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_library_host_static {
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_library_static {
     name: "libcuttlefish_vm_manager",
     srcs: [
         "crosvm_manager.cpp",
+        "host_configuration.cpp",
         "qemu_manager.cpp",
         "vm_manager.cpp",
     ],
     header_libs: [
-        "cuttlefish_glog",
+        "vulkan_headers",
     ],
     shared_libs: [
         "libcuttlefish_fs",
         "libcuttlefish_utils",
         "libbase",
-        "libicuuc",
-    ],
-    static_libs: [
-        "libxml2",
-        "libcuttlefish_host_config",
         "libjsoncpp",
     ],
-    defaults: ["cuttlefish_host_only"],
+    static_libs: [
+        "libcuttlefish_host_config",
+    ],
+    defaults: ["cuttlefish_host", "cuttlefish_libicuuc"],
 }

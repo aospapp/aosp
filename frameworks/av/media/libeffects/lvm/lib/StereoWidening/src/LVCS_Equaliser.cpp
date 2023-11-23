@@ -21,6 +21,7 @@
 /*                                                                                  */
 /************************************************************************************/
 
+#include <system/audio.h>
 #include "LVCS.h"
 #include "LVCS_Private.h"
 #include "LVCS_Equaliser.h"
@@ -53,68 +54,31 @@
 /* NOTES:                                                                           */
 /*                                                                                  */
 /************************************************************************************/
-LVCS_ReturnStatus_en LVCS_EqualiserInit(LVCS_Handle_t       hInstance,
-                                        LVCS_Params_t       *pParams)
-{
+LVCS_ReturnStatus_en LVCS_EqualiserInit(LVCS_Handle_t hInstance, LVCS_Params_t* pParams) {
+    LVM_UINT16 Offset;
+    LVCS_Instance_t* pInstance = (LVCS_Instance_t*)hInstance;
+    const BiquadA012B12CoefsSP_t* pEqualiserCoefTable;
 
-    LVM_UINT16          Offset;
-    LVCS_Instance_t     *pInstance = (LVCS_Instance_t  *)hInstance;
-    LVCS_Equaliser_t    *pConfig   = (LVCS_Equaliser_t *)&pInstance->Equaliser;
-    LVCS_Data_t         *pData;
-    LVCS_Coefficient_t  *pCoefficients;
-    BQ_FLOAT_Coefs_t      Coeffs;
-    const BiquadA012B12CoefsSP_t *pEqualiserCoefTable;
-
-    pData = (LVCS_Data_t *) \
-                pInstance->MemoryTable.Region[LVCS_MEMREGION_PERSISTENT_FAST_DATA].pBaseAddress;
-
-    pCoefficients = (LVCS_Coefficient_t *) \
-                pInstance->MemoryTable.Region[LVCS_MEMREGION_PERSISTENT_FAST_COEF].pBaseAddress;
     /*
      * If the sample rate changes re-initialise the filters
      */
     if ((pInstance->Params.SampleRate != pParams->SampleRate) ||
-        (pInstance->Params.SpeakerType != pParams->SpeakerType))
-    {
+        (pInstance->Params.SpeakerType != pParams->SpeakerType)) {
         /*
          * Setup the filter coefficients and clear the history
          */
         Offset = (LVM_UINT16)(pParams->SampleRate + (pParams->SpeakerType * (1 + LVM_FS_48000)));
         pEqualiserCoefTable = (BiquadA012B12CoefsSP_t*)&LVCS_EqualiserCoefTable[0];
 
-        /* Left and right filters */
-        /* Convert incoming coefficients to the required format/ordering */
-        Coeffs.A0 = (LVM_FLOAT) pEqualiserCoefTable[Offset].A0;
-        Coeffs.A1 = (LVM_FLOAT) pEqualiserCoefTable[Offset].A1;
-        Coeffs.A2 = (LVM_FLOAT) pEqualiserCoefTable[Offset].A2;
-        Coeffs.B1 = (LVM_FLOAT)-pEqualiserCoefTable[Offset].B1;
-        Coeffs.B2 = (LVM_FLOAT)-pEqualiserCoefTable[Offset].B2;
-
-        LoadConst_Float((LVM_INT16)0,                                         /* Value */
-                        (LVM_FLOAT *)&pData->EqualiserBiquadTaps, /* Destination */
-                        /* Number of words */
-                        (LVM_UINT16)(sizeof(pData->EqualiserBiquadTaps) / sizeof(LVM_FLOAT)));
-
-        BQ_2I_D16F32Css_TRC_WRA_01_Init(&pCoefficients->EqualiserBiquadInstance,
-                                        &pData->EqualiserBiquadTaps,
-                                        &Coeffs);
-
-        /* Callbacks */
-        switch(pEqualiserCoefTable[Offset].Scale)
-        {
-            case 13:
-                pConfig->pBiquadCallBack  = BQ_2I_D16F32C13_TRC_WRA_01;
-                break;
-            case 14:
-                pConfig->pBiquadCallBack  = BQ_2I_D16F32C14_TRC_WRA_01;
-                break;
-            case 15:
-                pConfig->pBiquadCallBack  = BQ_2I_D16F32C15_TRC_WRA_01;
-                break;
-        }
+        std::array<LVM_FLOAT, android::audio_utils::kBiquadNumCoefs> coefs = {
+                pEqualiserCoefTable[Offset].A0, pEqualiserCoefTable[Offset].A1,
+                pEqualiserCoefTable[Offset].A2, pEqualiserCoefTable[Offset].B1,
+                pEqualiserCoefTable[Offset].B2};
+        pInstance->pEqBiquad.reset(new android::audio_utils::BiquadFilter<LVM_FLOAT>(
+                (pParams->NrChannels == FCC_1) ? FCC_1 : FCC_2, coefs));
     }
 
-    return(LVCS_SUCCESS);
+    return (LVCS_SUCCESS);
 }
 /************************************************************************************/
 /*                                                                                  */
@@ -135,30 +99,17 @@ LVCS_ReturnStatus_en LVCS_EqualiserInit(LVCS_Handle_t       hInstance,
 /*  1.  Always processes in place.                                                  */
 /*                                                                                  */
 /************************************************************************************/
-LVCS_ReturnStatus_en LVCS_Equaliser(LVCS_Handle_t       hInstance,
-                                    LVM_FLOAT           *pInputOutput,
-                                    LVM_UINT16          NumSamples)
-{
-
-    LVCS_Instance_t     *pInstance = (LVCS_Instance_t  *)hInstance;
-    LVCS_Equaliser_t    *pConfig   = (LVCS_Equaliser_t  *)&pInstance->Equaliser;
-    LVCS_Coefficient_t  *pCoefficients;
-
-    pCoefficients = (LVCS_Coefficient_t *) \
-                  pInstance->MemoryTable.Region[LVCS_MEMREGION_PERSISTENT_FAST_COEF].pBaseAddress;
+LVCS_ReturnStatus_en LVCS_Equaliser(LVCS_Handle_t hInstance, LVM_FLOAT* pInputOutput,
+                                    LVM_UINT16 NumSamples) {
+    LVCS_Instance_t* pInstance = (LVCS_Instance_t*)hInstance;
 
     /*
      * Check if the equaliser is required
      */
-    if ((pInstance->Params.OperatingMode & LVCS_EQUALISERSWITCH) != 0)
-    {
+    if ((pInstance->Params.OperatingMode & LVCS_EQUALISERSWITCH) != 0) {
         /* Apply filter to the left and right channels */
-        (pConfig->pBiquadCallBack)((Biquad_FLOAT_Instance_t*) \
-                                        &pCoefficients->EqualiserBiquadInstance,
-                                        (LVM_FLOAT *)pInputOutput,
-                                        (LVM_FLOAT *)pInputOutput,
-                                        (LVM_INT16)NumSamples);
+        pInstance->pEqBiquad->process(pInputOutput, pInputOutput, NumSamples);
     }
 
-    return(LVCS_SUCCESS);
+    return (LVCS_SUCCESS);
 }

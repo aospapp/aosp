@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -55,8 +55,9 @@ typedef enum
   CorrelateNormalizeValue = 0x10000, /* '^' see ScaleKernelValue() */
   AreaValue = 0x20000,      /* '@'  resize to area - special use flag */
   DecimalValue = 0x40000,   /* '.'  floating point numbers found */
-  SeparatorValue = 0x80000, /* 'x'  separator found  */
-  AspectRatioValue = 0x100000,    /* '~'  special handling needed  */
+  SeparatorValue = 0x80000, /* 'x'  separator found */
+  AspectRatioValue = 0x100000,    /* '~'  special handling needed */
+  AlphaValue = 0x200000,    /* '/'  alpha */
 #undef AllValues
   AllValues = 0x7fffffff
 } GeometryFlags;

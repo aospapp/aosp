@@ -235,7 +235,7 @@ TEST_F(AssembleVintfTest, FrameworkMatrix) {
     getInstance()->setFakeEnv("PRODUCT_ENFORCE_VINTF_MANIFEST", "true");
 
     resetOutput();
-    getInstance()->setCheckInputStream(makeStream(manifest(1)));
+    getInstance()->setCheckInputStream("check.xml", makeStream(manifest(1)));
     EXPECT_TRUE(getInstance()->assemble());
     EXPECT_IN(
         "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\" level=\"1\">\n"
@@ -253,7 +253,7 @@ TEST_F(AssembleVintfTest, FrameworkMatrix) {
         getOutput());
 
     resetOutput();
-    getInstance()->setCheckInputStream(makeStream(manifest(2)));
+    getInstance()->setCheckInputStream("check.xml", makeStream(manifest(2)));
     EXPECT_TRUE(getInstance()->assemble());
     EXPECT_IN(
         "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\" level=\"2\">\n"
@@ -271,7 +271,7 @@ TEST_F(AssembleVintfTest, FrameworkMatrix) {
         getOutput());
 
     resetOutput();
-    getInstance()->setCheckInputStream(makeStream(manifest(3)));
+    getInstance()->setCheckInputStream("check.xml", makeStream(manifest(3)));
     EXPECT_TRUE(getInstance()->assemble());
     EXPECT_IN(
         "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\" level=\"3\">\n"
@@ -326,7 +326,7 @@ TEST_F(AssembleVintfTest, VendorNdkCheckEmpty) {
     getInstance()->setFakeEnv("PROVIDED_VNDK_VERSIONS", "P 26 27 ");
 
     std::string matrix = "<compatibility-matrix " + kMetaVersionStr + " type=\"device\"/>\n";
-    getInstance()->setCheckInputStream(makeStream(matrix));
+    getInstance()->setCheckInputStream("check.xml", makeStream(matrix));
     EXPECT_TRUE(getInstance()->assemble());
 }
 
@@ -339,7 +339,7 @@ TEST_F(AssembleVintfTest, VendorNdkCheckIncompat) {
         "        <version>O</version>\n"
         "    </vendor-ndk>\n"
         "</compatibility-matrix>\n";
-    getInstance()->setCheckInputStream(makeStream(matrix));
+    getInstance()->setCheckInputStream("check.xml", makeStream(matrix));
     EXPECT_FALSE(getInstance()->assemble());
 }
 
@@ -352,7 +352,7 @@ TEST_F(AssembleVintfTest, VendorNdkCheckCompat) {
         "        <version>27</version>\n"
         "    </vendor-ndk>\n"
         "</compatibility-matrix>\n";
-    getInstance()->setCheckInputStream(makeStream(matrix));
+    getInstance()->setCheckInputStream("check.xml", makeStream(matrix));
     EXPECT_TRUE(getInstance()->assemble());
 }
 
@@ -408,7 +408,7 @@ TEST_F(AssembleVintfTest, DeviceFrameworkMatrixOptional) {
                  {"PLATFORM_SEPOLICY_COMPAT_VERSIONS", "26.0 27.0"},
                  {"FRAMEWORK_VBMETA_VERSION", "1.0"},
                  {"PRODUCT_ENFORCE_VINTF_MANIFEST", "true"}});
-    getInstance()->setCheckInputStream(makeStream(gEmptyOutManifest));
+    getInstance()->setCheckInputStream("check.xml", makeStream(gEmptyOutManifest));
 
     addInput("compatibility_matrix.empty.xml",
              "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\">\n"
@@ -452,7 +452,7 @@ TEST_F(AssembleVintfTest, DeviceFrameworkMatrixRequired) {
                  {"PLATFORM_SEPOLICY_COMPAT_VERSIONS", "26.0 27.0"},
                  {"FRAMEWORK_VBMETA_VERSION", "1.0"},
                  {"PRODUCT_ENFORCE_VINTF_MANIFEST", "true"}});
-    getInstance()->setCheckInputStream(makeStream(gEmptyOutManifest));
+    getInstance()->setCheckInputStream("check.xml", makeStream(gEmptyOutManifest));
 
     addInput("compatibility_matrix.empty.xml",
              "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\">\n"
@@ -475,7 +475,7 @@ TEST_F(AssembleVintfTest, DeviceFrameworkMatrixMultiple) {
                  {"PLATFORM_SEPOLICY_COMPAT_VERSIONS", "26.0 27.0"},
                  {"FRAMEWORK_VBMETA_VERSION", "1.0"},
                  {"PRODUCT_ENFORCE_VINTF_MANIFEST", "true"}});
-    getInstance()->setCheckInputStream(makeStream(gEmptyOutManifest));
+    getInstance()->setCheckInputStream("check.xml", makeStream(gEmptyOutManifest));
 
     addInput("compatibility_matrix.foobar.xml",
              "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\">\n"
@@ -604,15 +604,6 @@ TEST_F(AssembleVintfTest, NoAutoSetKernelFcm) {
     EXPECT_IN("<kernel version=\"3.18.10\"/>", getOutput());
 }
 
-TEST_F(AssembleVintfTest, AutoSetKernelFcm) {
-    addInput("manifest.xml",
-        "<manifest " + kMetaVersionStr + " type=\"device\" target-level=\"5\">\n"
-        "    <kernel version=\"5.4.10\"/>\n"
-        "</manifest>\n");
-    EXPECT_TRUE(getInstance()->assemble());
-    EXPECT_IN("<kernel version=\"5.4.10\" target-level=\"5\"/>", getOutput());
-}
-
 TEST_F(AssembleVintfTest, NoAutoSetKernelFcmWithConfig) {
     addInput("manifest.xml",
         "<manifest " + kMetaVersionStr + " type=\"device\" target-level=\"1\" />\n");
@@ -620,15 +611,6 @@ TEST_F(AssembleVintfTest, NoAutoSetKernelFcmWithConfig) {
                                               makeStream("CONFIG_FOO=y"));
     EXPECT_TRUE(getInstance()->assemble());
     EXPECT_IN("<kernel version=\"3.18.10\">", getOutput());
-}
-
-TEST_F(AssembleVintfTest, AutoSetKernelFcmWithConfig) {
-    addInput("manifest.xml",
-        "<manifest " + kMetaVersionStr + " type=\"device\" target-level=\"5\" />\n");
-    getInstance()->addKernelConfigInputStream({5, 4, 10}, "android-base.config",
-                                              makeStream("CONFIG_FOO=y"));
-    EXPECT_TRUE(getInstance()->assemble());
-    EXPECT_IN("<kernel version=\"5.4.10\" target-level=\"5\">", getOutput());
 }
 
 // Automatically add kernel FCM when parsing framework matrix for a single FCM version.
@@ -656,7 +638,7 @@ TEST_F(AssembleVintfTest, WithKernelRequirements) {
         "        </config>\n"
         "    </kernel>\n"
         "</compatibility-matrix>\n");
-    getInstance()->setCheckInputStream(makeStream(
+    getInstance()->setCheckInputStream("check.xml", makeStream(
         "<manifest " + kMetaVersionStr + " type=\"device\" target-level=\"1\">\n"
         "    <kernel target-level=\"1\" version=\"3.18.0\"/>\n"
         "    <sepolicy>\n"
@@ -675,7 +657,7 @@ TEST_F(AssembleVintfTest, NoKernelRequirements) {
         "<compatibility-matrix " + kMetaVersionStr + " type=\"framework\" level=\"1\">\n"
         "    <kernel version=\"3.18.0\" level=\"1\"/>\n"
         "</compatibility-matrix>\n");
-    getInstance()->setCheckInputStream(makeStream(
+    getInstance()->setCheckInputStream("check.xml", makeStream(
         "<manifest " + kMetaVersionStr + " type=\"device\" target-level=\"1\">\n"
         "    <kernel target-level=\"1\"/>\n"
         "    <sepolicy>\n"

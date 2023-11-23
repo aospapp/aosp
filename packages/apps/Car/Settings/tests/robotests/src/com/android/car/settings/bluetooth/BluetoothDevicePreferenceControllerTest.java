@@ -19,7 +19,7 @@ package com.android.car.settings.bluetooth;
 import static android.content.pm.PackageManager.FEATURE_BLUETOOTH;
 import static android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH;
 
-import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_USER;
+import static com.android.car.settings.common.PreferenceController.DISABLED_FOR_PROFILE;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -103,7 +103,7 @@ public class BluetoothDevicePreferenceControllerTest {
                 UserHandle.of(UserHandle.myUserId()), DISALLOW_CONFIG_BLUETOOTH, true);
 
         assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
-                DISABLED_FOR_USER);
+                DISABLED_FOR_PROFILE);
     }
 
     @Test

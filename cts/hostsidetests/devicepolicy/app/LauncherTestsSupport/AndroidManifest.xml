@@ -15,19 +15,22 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.launchertests.support">
+     package="com.android.cts.launchertests.support">
 
     <!-- Target 25.  Don't change to >= 26 since that'll break background services. -->
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="25"/>
+    <uses-sdk android:minSdkVersion="21"
+         android:targetSdkVersion="25"/>
 
     <application>
-        <service android:name=".LauncherCallbackTestsService" >
+        <service android:name=".LauncherCallbackTestsService"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.launchertests.support.REGISTER_CALLBACK" />
+                <action android:name="com.android.cts.launchertests.support.REGISTER_CALLBACK"/>
             </intent-filter>
         </service>
 
-        <activity android:name=".LauncherActivity">
+        <activity android:name=".LauncherActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.HOME"/>
@@ -35,7 +38,8 @@
             </intent-filter>
         </activity>
 
-        <receiver android:name=".QuietModeCommandReceiver" android:exported="true">
+        <receiver android:name=".QuietModeCommandReceiver"
+             android:exported="true">
             <intent-filter>
                 <action android:name="toggle_quiet_mode"/>
             </intent-filter>

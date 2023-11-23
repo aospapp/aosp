@@ -92,19 +92,27 @@ def set_cpu_governor(dut, governor, ignore_status=False):
 
 def disable_turbo(dut):
     """
-    Disable Turbo on DUT.
+    Disable Turbo and Boost on DUT.
 
     @param dut: The autotest host object representing DUT.
 
     """
-    dis_turbo_cmd = (
+    dis_turbo_boost_cmd = (
+        # Disable Turbo in the Intel pstate driver.
         'if [[ -e /sys/devices/system/cpu/intel_pstate/no_turbo ]]; then '
         '  if grep -q 0 /sys/devices/system/cpu/intel_pstate/no_turbo;  then '
         '    echo -n 1 > /sys/devices/system/cpu/intel_pstate/no_turbo; '
         '  fi; '
-        'fi; ')
-    logging.info('Disable Turbo.')
-    run_command_on_dut(dut, dis_turbo_cmd)
+        'fi; '
+        # Disable Boost on AMD.
+        'if [[ -e /sys/devices/system/cpu/cpufreq/boost ]]; then '
+        '  if grep -q 1 /sys/devices/system/cpu/cpufreq/boost;  then '
+        '    echo -n 0 > /sys/devices/system/cpu/cpufreq/boost; '
+        '  fi; '
+        'fi; '
+    )
+    logging.info('Disable Turbo/Boost.')
+    run_command_on_dut(dut, dis_turbo_boost_cmd)
 
 
 def setup_cpu_usage(dut, cpu_usage):
@@ -256,6 +264,17 @@ def get_cpu_online(dut):
             cpu = int(match.group(1))
             status = int(match.group(2))
             cpu_online[cpu] = status
+    # There are platforms where CPU0 can't be disables and
+    # corresponding online file is not exposed.
+    # We need to add core 0 if it is present in the list of all online
+    # CPU cores.
+    get_all_online_cmd = 'cat /sys/devices/system/cpu/online'
+    _, all_online_str, _ = run_command_on_dut(dut, get_all_online_cmd)
+    # If cpu0 not in the online list and it exists in all online CPUs
+    # add it to the online list.
+    if 0 not in cpu_online and '0' in all_online_str:
+      # Add core0 to online cores.
+      cpu_online[0] = 1
     # At least one CPU has to be online.
     assert cpu_online
 
@@ -274,17 +293,22 @@ def setup_cpu_freq(dut, freq_percent, online_cores):
 
     @param dut: The autotest host object representing DUT.
     @param freq_percent: Frequency of online CPU cores to set.
-    @param online_cores: List of online cores.
+    @param online_cores: List of online cores (non-empty).
 
     """
-    list_all_avail_freq_cmd = ('ls /sys/devices/system/cpu/cpu{%s}/cpufreq/'
-                               'scaling_available_frequencies')
+    if len(online_cores) == 1:
+        cpu_list_shell_str = str(online_cores[0])
+    else:
+        cpu_list_shell_str = '{' + ','.join(str(core)
+                                            for core in online_cores) + '}'
+    list_all_avail_freq_cmd = ('ls /sys/devices/system/cpu/cpu' +
+                               cpu_list_shell_str +
+                               '/cpufreq/scaling_available_frequencies')
     # Ignore error to support general usage of frequency setup.
     # Not all platforms support scaling_available_frequencies.
-    ret, all_avail_freq_str, _ = run_command_on_dut(
-        dut,
-        list_all_avail_freq_cmd % ','.join(str(core) for core in online_cores),
-        ignore_status=True)
+    ret, all_avail_freq_str, _ = run_command_on_dut(dut,
+                                                    list_all_avail_freq_cmd,
+                                                    ignore_status=True)
     if ret or not all_avail_freq_str:
         # No scalable frequencies available for the core.
         return ret

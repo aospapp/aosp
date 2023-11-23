@@ -36,6 +36,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import java.lang.AssertionError
 
 /**
  * This test verifies protection for an exploit where any app could set the installer package
@@ -198,8 +199,7 @@ class PackageSetInstallerTest : BaseAppSecurityTest() {
     }
 
     private fun assertPermission(granted: Boolean, permission: String) {
-        assertThat(device.executeShellCommand("dumpsys package $TARGET_PKG | grep $permission"))
-                .contains("$permission: granted=$granted")
+        assertThat(getPermissionString(permission)).contains("granted=$granted")
     }
 
     private fun grantPermission(permission: String) {
@@ -211,11 +211,7 @@ class PackageSetInstallerTest : BaseAppSecurityTest() {
     }
 
     private fun assertGrantState(state: GrantState, permission: String) {
-        val output = device.executeShellCommand(
-                "dumpsys package $TARGET_PKG | grep \"$permission: granted\"").trim()
-
-        // Make sure only the expected output line is returned
-        assertWithMessage(output).that(output.lines().size).isEqualTo(1)
+        val output = getPermissionString(permission)
 
         when (state) {
             GrantState.TRUE -> {
@@ -236,6 +232,32 @@ class PackageSetInstallerTest : BaseAppSecurityTest() {
                 assertThat(output).contains("granted=false")
             }
         }
+    }
+
+    private fun getPermissionString(permission: String) = retry {
+            device.executeShellCommand("dumpsys package $TARGET_PKG")
+                    .lineSequence()
+                    .dropWhile { !it.startsWith("Packages:") } // Wait for package header
+                    .drop(1) // Drop the package header itself
+                    .takeWhile { it.isEmpty() || it.first().isWhitespace() } // Until next header
+                    .dropWhile { !it.trim().startsWith("User $mPrimaryUserId:") } // Find user
+                    .drop(1) // Drop the user header itself
+                    .takeWhile { !it.trim().startsWith("User") } // Until next user
+                    .filter { it.contains("$permission: granted=") }
+                    .single()
+     }
+
+    private fun <T> retry(block: () -> T?): T {
+        repeat(10) {
+            try {
+                block()?.let { return it }
+            } catch (e : Exception) {
+                // do nothing
+            }
+            Thread.sleep(1000)
+        }
+
+        throw AssertionError("Never succeeded")
     }
 
     enum class GrantState {

@@ -36,13 +36,16 @@
 #define LOG_TAG "DNSResponder"
 #include <android-base/logging.h>
 #include <android-base/strings.h>
+#include <netdutils/BackoffSequence.h>
 #include <netdutils/InternetAddresses.h>
 #include <netdutils/Slice.h>
 #include <netdutils/SocketOption.h>
 
+using android::netdutils::BackoffSequence;
 using android::netdutils::enableSockopt;
 using android::netdutils::ScopedAddrinfo;
 using android::netdutils::Slice;
+using std::chrono::milliseconds;
 
 namespace test {
 
@@ -69,6 +72,33 @@ std::string addr2str(const sockaddr* sa, socklen_t sa_len) {
     int rv = getnameinfo(sa, sa_len, host_str, sizeof(host_str), nullptr, 0, NI_NUMERICHOST);
     if (rv == 0) return std::string(host_str);
     return std::string();
+}
+
+// Because The address might still being set up (b/186181084), This is a wrapper function
+// that retries bind() if errno is EADDRNOTAVAIL
+int bindSocket(int socket, const sockaddr* address, socklen_t address_len) {
+    // Set the wrapper to try bind() at most 6 times with backoff time
+    // (100 ms, 200 ms, ..., 1600 ms).
+    auto backoff = BackoffSequence<milliseconds>::Builder()
+                           .withInitialRetransmissionTime(milliseconds(100))
+                           .withMaximumRetransmissionCount(5)
+                           .build();
+
+    while (true) {
+        int ret = bind(socket, address, address_len);
+        if (ret == 0 || errno != EADDRNOTAVAIL) {
+            return ret;
+        }
+
+        if (!backoff.hasNextTimeout()) break;
+
+        LOG(WARNING) << "Retry to bind " << addr2str(address, address_len);
+        std::this_thread::sleep_for(backoff.getNextTimeout());
+    }
+
+    // Set errno before return since it might have been changed somewhere.
+    errno = EADDRNOTAVAIL;
+    return -1;
 }
 
 /* DNS struct helpers */
@@ -171,7 +201,7 @@ char* DNSName::write(char* buffer, const char* buffer_end) const {
     for (size_t pos = 0; pos < name.size();) {
         size_t dot_pos = name.find('.', pos);
         if (dot_pos == std::string::npos) {
-            // Sanity check, should never happen unless parseField is broken.
+            // Soundness check, should never happen unless parseField is broken.
             LOG(ERROR) << "logic error: all names are expected to end with a '.'";
             return nullptr;
         }
@@ -252,7 +282,7 @@ char* DNSQuestion::write(char* buffer, const char* buffer_end) const {
 }
 
 std::string DNSQuestion::toString() const {
-    char buffer[4096];
+    char buffer[16384];
     int len = snprintf(buffer, sizeof(buffer), "Q<%s,%s,%s>", qname.name.c_str(),
                        dnstype2str(qtype), dnsclass2str(qclass));
     return std::string(buffer, len);
@@ -291,7 +321,7 @@ char* DNSRecord::write(char* buffer, const char* buffer_end) const {
 }
 
 std::string DNSRecord::toString() const {
-    char buffer[4096];
+    char buffer[16384];
     int len = snprintf(buffer, sizeof(buffer), "R<%s,%s,%s>", name.name.c_str(), dnstype2str(rtype),
                        dnsclass2str(rclass));
     return std::string(buffer, len);
@@ -418,7 +448,7 @@ char* DNSHeader::write(char* buffer, const char* buffer_end) const {
 
 // TODO: convert all callers to this interface, then delete the old one.
 bool DNSHeader::write(std::vector<uint8_t>* out) const {
-    char buffer[4096];
+    char buffer[16384];
     char* end = this->write(buffer, buffer + sizeof buffer);
     if (end == nullptr) return false;
     out->insert(out->end(), buffer, end);
@@ -896,7 +926,7 @@ bool DNSResponder::makeTruncatedResponse(DNSHeader* header, char* response,
 
 bool DNSResponder::makeResponse(DNSHeader* header, int protocol, char* response,
                                 size_t* response_len) const {
-    char buffer[4096];
+    char buffer[16384];
     size_t buffer_len = sizeof(buffer);
     bool ret;
 
@@ -1059,7 +1089,7 @@ bool DNSResponder::addFd(int fd, uint32_t events) {
 }
 
 void DNSResponder::handleQuery(int protocol) {
-    char buffer[4096];
+    char buffer[16384];
     sockaddr_storage sa;
     socklen_t sa_len = sizeof(sa);
     ssize_t len = 0;
@@ -1103,7 +1133,7 @@ void DNSResponder::handleQuery(int protocol) {
     }
     LOG(DEBUG) << "read " << len << " bytes on " << dnsproto2str(protocol);
     std::lock_guard lock(cv_mutex_);
-    char response[4096];
+    char response[16384];
     size_t response_len = sizeof(response);
     // TODO: check whether sending malformed packets to DnsResponder
     if (handleDNSRequest(buffer, len, protocol, response, &response_len) && response_len > 0) {
@@ -1206,7 +1236,7 @@ android::base::unique_fd DNSResponder::createListeningSocket(int socket_type) {
         const std::string host_str = addr2str(ai->ai_addr, ai->ai_addrlen);
         const char* socket_str = (socket_type == SOCK_STREAM) ? "TCP" : "UDP";
 
-        if (bind(fd.get(), ai->ai_addr, ai->ai_addrlen)) {
+        if (bindSocket(fd.get(), ai->ai_addr, ai->ai_addrlen)) {
             PLOG(ERROR) << "failed to bind " << socket_str << " " << host_str << ":"
                         << listen_service_;
             continue;

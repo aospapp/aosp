@@ -12,10 +12,11 @@ import json
 import unittest
 import unittest.mock as mock
 
-from test_helpers import ArgsOutputTest
-from test_helpers import CreateTemporaryJsonFile
-from test_helpers import WritePrettyJsonFile
+import get_llvm_hash
 import modify_a_tryjob
+import test_helpers
+import update_packages_and_run_tests
+import update_tryjob_status
 
 
 class ModifyATryjobTest(unittest.TestCase):
@@ -26,13 +27,13 @@ class ModifyATryjobTest(unittest.TestCase):
 
     # Create a temporary .JSON file to simulate a .JSON file that has bisection
     # contents.
-    with CreateTemporaryJsonFile() as temp_json_file:
+    with test_helpers.CreateTemporaryJsonFile() as temp_json_file:
       with open(temp_json_file, 'w') as f:
-        WritePrettyJsonFile(bisect_test_contents, f)
+        test_helpers.WritePrettyJsonFile(bisect_test_contents, f)
 
       revision_to_modify = 369411
 
-      args_output = ArgsOutputTest()
+      args_output = test_helpers.ArgsOutputTest()
       args_output.builders = None
       args_output.options = None
 
@@ -48,7 +49,7 @@ class ModifyATryjobTest(unittest.TestCase):
 
   # Simulate the behavior of `FindTryjobIndex()` when the index of the tryjob
   # was not found.
-  @mock.patch.object(modify_a_tryjob, 'FindTryjobIndex', return_value=None)
+  @mock.patch.object(update_tryjob_status, 'FindTryjobIndex', return_value=None)
   def testNoTryjobIndexFound(self, mock_find_tryjob_index):
     bisect_test_contents = {
         'start': 369410,
@@ -62,13 +63,13 @@ class ModifyATryjobTest(unittest.TestCase):
 
     # Create a temporary .JSON file to simulate a .JSON file that has bisection
     # contents.
-    with CreateTemporaryJsonFile() as temp_json_file:
+    with test_helpers.CreateTemporaryJsonFile() as temp_json_file:
       with open(temp_json_file, 'w') as f:
-        WritePrettyJsonFile(bisect_test_contents, f)
+        test_helpers.WritePrettyJsonFile(bisect_test_contents, f)
 
       revision_to_modify = 369412
 
-      args_output = ArgsOutputTest()
+      args_output = test_helpers.ArgsOutputTest()
       args_output.builders = None
       args_output.options = None
 
@@ -88,7 +89,7 @@ class ModifyATryjobTest(unittest.TestCase):
 
   # Simulate the behavior of `FindTryjobIndex()` when the index of the tryjob
   # was found.
-  @mock.patch.object(modify_a_tryjob, 'FindTryjobIndex', return_value=0)
+  @mock.patch.object(update_tryjob_status, 'FindTryjobIndex', return_value=0)
   def testSuccessfullyRemovedTryjobInStatusFile(self, mock_find_tryjob_index):
     bisect_test_contents = {
         'start': 369410,
@@ -102,13 +103,13 @@ class ModifyATryjobTest(unittest.TestCase):
 
     # Create a temporary .JSON file to simulate a .JSON file that has bisection
     # contents.
-    with CreateTemporaryJsonFile() as temp_json_file:
+    with test_helpers.CreateTemporaryJsonFile() as temp_json_file:
       with open(temp_json_file, 'w') as f:
-        WritePrettyJsonFile(bisect_test_contents, f)
+        test_helpers.WritePrettyJsonFile(bisect_test_contents, f)
 
       revision_to_modify = 369414
 
-      args_output = ArgsOutputTest()
+      args_output = test_helpers.ArgsOutputTest()
       args_output.builders = None
       args_output.options = None
 
@@ -129,10 +130,10 @@ class ModifyATryjobTest(unittest.TestCase):
 
   # Simulate the behavior of `RunTryJobs()` when successfully submitted a
   # tryjob.
-  @mock.patch.object(modify_a_tryjob, 'RunTryJobs')
+  @mock.patch.object(update_packages_and_run_tests, 'RunTryJobs')
   # Simulate the behavior of `FindTryjobIndex()` when the index of the tryjob
   # was found.
-  @mock.patch.object(modify_a_tryjob, 'FindTryjobIndex', return_value=0)
+  @mock.patch.object(update_tryjob_status, 'FindTryjobIndex', return_value=0)
   def testSuccessfullyRelaunchedTryjob(self, mock_find_tryjob_index,
                                        mock_run_tryjob):
 
@@ -162,13 +163,13 @@ class ModifyATryjobTest(unittest.TestCase):
 
     # Create a temporary .JSON file to simulate a .JSON file that has bisection
     # contents.
-    with CreateTemporaryJsonFile() as temp_json_file:
+    with test_helpers.CreateTemporaryJsonFile() as temp_json_file:
       with open(temp_json_file, 'w') as f:
-        WritePrettyJsonFile(bisect_test_contents, f)
+        test_helpers.WritePrettyJsonFile(bisect_test_contents, f)
 
       revision_to_modify = 369411
 
-      args_output = ArgsOutputTest()
+      args_output = test_helpers.ArgsOutputTest()
       args_output.builders = None
       args_output.options = None
 
@@ -207,7 +208,7 @@ class ModifyATryjobTest(unittest.TestCase):
 
   # Simulate the behavior of `FindTryjobIndex()` when the index of the tryjob
   # was found.
-  @mock.patch.object(modify_a_tryjob, 'FindTryjobIndex', return_value=0)
+  @mock.patch.object(update_tryjob_status, 'FindTryjobIndex', return_value=0)
   def testAddingTryjobThatAlreadyExists(self, mock_find_tryjob_index):
     bisect_test_contents = {
         'start': 369410,
@@ -221,16 +222,16 @@ class ModifyATryjobTest(unittest.TestCase):
 
     # Create a temporary .JSON file to simulate a .JSON file that has bisection
     # contents.
-    with CreateTemporaryJsonFile() as temp_json_file:
+    with test_helpers.CreateTemporaryJsonFile() as temp_json_file:
       with open(temp_json_file, 'w') as f:
-        WritePrettyJsonFile(bisect_test_contents, f)
+        test_helpers.WritePrettyJsonFile(bisect_test_contents, f)
 
       revision_to_add = 369411
 
       # Index of the tryjob in 'jobs' list.
       tryjob_index = 0
 
-      args_output = ArgsOutputTest()
+      args_output = test_helpers.ArgsOutputTest()
       args_output.options = None
 
       # Verify the exception is raised when the tryjob that is going to added
@@ -248,7 +249,7 @@ class ModifyATryjobTest(unittest.TestCase):
     mock_find_tryjob_index.assert_called_once()
 
   # Simulate the behavior of `FindTryjobIndex()` when the tryjob was not found.
-  @mock.patch.object(modify_a_tryjob, 'FindTryjobIndex', return_value=None)
+  @mock.patch.object(update_tryjob_status, 'FindTryjobIndex', return_value=None)
   def testSuccessfullyDidNotAddTryjobOutsideOfBisectionBounds(
       self, mock_find_tryjob_index):
 
@@ -263,14 +264,14 @@ class ModifyATryjobTest(unittest.TestCase):
 
     # Create a temporary .JSON file to simulate a .JSON file that has bisection
     # contents.
-    with CreateTemporaryJsonFile() as temp_json_file:
+    with test_helpers.CreateTemporaryJsonFile() as temp_json_file:
       with open(temp_json_file, 'w') as f:
-        WritePrettyJsonFile(bisect_test_contents, f)
+        test_helpers.WritePrettyJsonFile(bisect_test_contents, f)
 
       # Add a revision that is outside of 'start' and 'end'.
       revision_to_add = 369450
 
-      args_output = ArgsOutputTest()
+      args_output = test_helpers.ArgsOutputTest()
       args_output.options = None
 
       # Verify the exception is raised when adding a tryjob that does not exist
@@ -292,11 +293,11 @@ class ModifyATryjobTest(unittest.TestCase):
   # Simulate the behavior of `GetLLVMHashAndVersionFromSVNOption()` when
   # successfully retrieved the git hash of the revision to launch a tryjob for.
   @mock.patch.object(
-      modify_a_tryjob,
+      get_llvm_hash,
       'GetLLVMHashAndVersionFromSVNOption',
       return_value=('a123testhash1', 369418))
   # Simulate the behavior of `FindTryjobIndex()` when the tryjob was not found.
-  @mock.patch.object(modify_a_tryjob, 'FindTryjobIndex', return_value=None)
+  @mock.patch.object(update_tryjob_status, 'FindTryjobIndex', return_value=None)
   def testSuccessfullyAddedTryjob(self, mock_find_tryjob_index,
                                   mock_get_llvm_hash, mock_add_tryjob):
 
@@ -311,14 +312,14 @@ class ModifyATryjobTest(unittest.TestCase):
 
     # Create a temporary .JSON file to simulate a .JSON file that has bisection
     # contents.
-    with CreateTemporaryJsonFile() as temp_json_file:
+    with test_helpers.CreateTemporaryJsonFile() as temp_json_file:
       with open(temp_json_file, 'w') as f:
-        WritePrettyJsonFile(bisect_test_contents, f)
+        test_helpers.WritePrettyJsonFile(bisect_test_contents, f)
 
       # Add a revision that is outside of 'start' and 'end'.
       revision_to_add = 369418
 
-      args_output = ArgsOutputTest()
+      args_output = test_helpers.ArgsOutputTest()
       args_output.options = None
 
       new_tryjob_info = {
@@ -358,7 +359,7 @@ class ModifyATryjobTest(unittest.TestCase):
     mock_add_tryjob.assert_called_once()
 
   # Simulate the behavior of `FindTryjobIndex()` when the tryjob was found.
-  @mock.patch.object(modify_a_tryjob, 'FindTryjobIndex', return_value=0)
+  @mock.patch.object(update_tryjob_status, 'FindTryjobIndex', return_value=0)
   def testModifyATryjobOptionDoesNotExist(self, mock_find_tryjob_index):
     bisect_test_contents = {
         'start': 369410,
@@ -371,14 +372,14 @@ class ModifyATryjobTest(unittest.TestCase):
 
     # Create a temporary .JSON file to simulate a .JSON file that has bisection
     # contents.
-    with CreateTemporaryJsonFile() as temp_json_file:
+    with test_helpers.CreateTemporaryJsonFile() as temp_json_file:
       with open(temp_json_file, 'w') as f:
-        WritePrettyJsonFile(bisect_test_contents, f)
+        test_helpers.WritePrettyJsonFile(bisect_test_contents, f)
 
       # Add a revision that is outside of 'start' and 'end'.
       revision_to_modify = 369414
 
-      args_output = ArgsOutputTest()
+      args_output = test_helpers.ArgsOutputTest()
       args_output.builders = None
       args_output.options = None
 

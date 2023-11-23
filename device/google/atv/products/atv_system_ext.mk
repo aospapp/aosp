@@ -16,3 +16,11 @@
 # This makefile contains the system_ext partition contents for
 # a generic TV device.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/media_system_ext.mk)
+
+PRODUCT_PACKAGES += \
+    SystemUI \
+    TvFrameworkPackageStubs \
+    TvSettings
+
+SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS += device/google/atv/sepolicy/system_ext/public
+SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += device/google/atv/sepolicy/system_ext/private

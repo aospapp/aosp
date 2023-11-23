@@ -19,6 +19,8 @@ package com.android.car.setupwizardlib;
 import android.app.Activity;
 import android.os.Bundle;
 
+import com.android.car.setupwizardlib.test.R;
+
 /**
  * Activity for CarSetupWizardLayoutTest where primary button isn't shown but secondary button is.
  */

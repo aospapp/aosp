@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsBackgroundActivityAppA",
     defaults: ["cts_support_defaults"],
@@ -27,7 +31,6 @@ android_test {
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 

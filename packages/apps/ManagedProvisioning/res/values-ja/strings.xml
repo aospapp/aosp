@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"お使いのデバイスは次のアプリによって管理されます。"</string>
     <string name="next" msgid="1004321437324424398">"次へ"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"仕事用プロファイルを設定中…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT 管理者は、このプロフィールに関連付けられた設定、コーポレート アクセス、アプリ、権限、データの監視、管理を行えます。これには、デバイスの位置情報、通話履歴、連絡先の検索履歴など、ネットワーク アクティビティも含まれます。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>組織のプライバシー ポリシーなど、詳しくは IT 管理者にお問い合わせください。"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT 管理者は、このデバイスに関連付けられた設定、コーポレート アクセス、アプリ、権限、データの監視、管理を行えます。これには、デバイスの位置情報、通話履歴、連絡先の検索履歴など、ネットワーク アクティビティも含まれます。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>組織のプライバシー ポリシーなど、詳しくは IT 管理者にお問い合わせください。"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT 管理者は、このプロフィールに関連付けられた設定、コーポレート アクセス、アプリ、権限、データの監視、管理を行えます。これには、デバイスの位置情報、通話履歴、連絡先の検索履歴など、ネットワーク アクティビティも含まれます。<xliff:g id="LINE_BREAK">
+
+</xliff:g>組織のプライバシー ポリシーなど、詳しくは IT 管理者にお問い合わせください。"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT 管理者は、このデバイスに関連付けられた設定、コーポレート アクセス、アプリ、権限、データの監視、管理を行えます。これには、デバイスの位置情報、通話履歴、連絡先の検索履歴など、ネットワーク アクティビティも含まれます。<xliff:g id="LINE_BREAK">
+
+</xliff:g>組織のプライバシー ポリシーなど、詳しくは IT 管理者にお問い合わせください。"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"盗難防止機能を使用するには、デバイスでパスワードで保護された画面ロックを設定する必要があります。"</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"組織のプライバシー ポリシーなど、詳しくは IT 管理者にお問い合わせください。"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"詳細"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"同意します"</string>
     <string name="url_error" msgid="5958494012986243186">"このリンクを表示できません。"</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"上へ移動"</string>
     <string name="terms" msgid="8295436105384703903">"利用規約"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"仕事用プロファイルの情報"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"管理対象デバイスの情報"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"仕事用プロファイル"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"メインユーザー"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"既存のプロファイルを削除しますか？"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"仕事用プロファイルはすでに存在します。次のアプリで管理されています。"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"次に進む前に"<a href="#read_this_link">"こちらをご覧ください"</a>"。"</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"ユーザー設定が完了していません"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"業務用デバイスのユーザー"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"仕事用デバイスを設定中…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"セットアップデータを処理しています…"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fiに接続しています…"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"モバイル ネットワークに接続しています…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"管理アプリをダウンロードしています…"</string>
-    <string name="progress_install" msgid="2258045670385866183">"管理アプリをインストールしています…"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"不要なシステムアプリを削除しています…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"最終調整を行っています…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"デバイスの所有者を設定しています…"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"デバイスを初期化しています…"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"このデバイスではセットアップに必要な暗号化が許可されていません。詳しくは、IT 管理者にお問い合わせください。"</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"デバイスのセットアップとリセットの停止"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"これで、デバイスが初期状態にリセットされて最初の画面に戻ります"</string>
@@ -162,11 +157,10 @@
     <string name="device_owner_description" msgid="168013145812679664">"このデバイスは組織によって管理され、安全に保護されます"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"仕事用デバイスのセットアップを準備しています…"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"管理アプリをセットアップしています"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"他の項目をすべて設定する"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"個人用アカウントを追加して、デバイスを最大限に活用しましょう"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"仕事用プロファイルの設定が完了しました。自分のアプリやコンテンツにアクセスできるよう、個人の Google アカウントを追加することもできます。"</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"これは組織が所有するデバイスです"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"このスマートフォンの管理には以下のアプリを使用します"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"ご利用のアカウントは管理されています"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"IT 管理者はモバイル デバイス管理を使用して、セキュリティ ポリシーを適用しています"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"仕事用のセットアップを準備しています…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"仕事用プロファイルを設定しましょう"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"仕事用アプリは仕事用プロファイルに保存されます"</string>
@@ -178,19 +172,26 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"簡単に仕事用アプリにアクセス"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"このデバイスは非公開ではありません"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"IT 管理者がこのデバイスのデータやアクティビティを確認できる可能性があります。"</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"あなたのアクティビティとデータ"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"アプリの権限"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"IT 管理者はこのデバイスのアプリに権限を設定できます（マイク、カメラ、位置情報の利用許可など）。"</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"デバイスをセットアップしています…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"このデバイスを使用して仕事用アプリに簡単にアクセスできます。このデバイスは非公開ではないため、IT 管理者がこのデバイスのデータやアクティビティを確認できる可能性があります。詳しくは、IT 管理者にお問い合わせください。"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"このデバイスを使用して仕事用アプリに簡単にアクセスできます。このデバイスは非公開ではないため、IT 管理者がこのデバイスのデータやアクティビティを確認できる可能性があります。"</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"このデバイスを使用して仕事用アプリに簡単にアクセスできます。このデバイスは非公開ではないため、IT 管理者がこのデバイスのアクティビティやデータを確認できる可能性があります。IT 管理者はこのデバイスのアプリに権限を設定することもできます（マイク、カメラ、位置情報の利用許可など）。"</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"このデバイスをリセットして IT 管理者に返却してください"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"前の画面に戻ってセットアップを完了するか、このデバイスをリセットして IT 管理者に返却してください。"</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"セットアップをキャンセル"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"デバイスをリセットして返却"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"仕事用アプリは仕事用プロファイルに保存され、IT 管理者が管理します"</string>
-    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"個人用アプリは仕事用アプリとは別に保存され、一緒には表示されません"</string>
+    <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"個人用と仕事用のアプリは別々に保存、表示されます"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT 管理者は、このデバイスを管理して特定のアプリをブロックできます"</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"仕事用アプリは仕事用プロファイルに保存され、IT 管理者によって管理されています。個人用アプリは仕事用アプリとは別個に保存され、一緒に表示されません。IT 管理者はこのデバイスを管理し、特定のアプリをブロックすることができます。"</string>
+    <string name="cope_provisioning_summary" msgid="993014104601034878">"仕事用アプリは仕事用プロファイルに保存され、IT 管理者によって管理されています。個人用と仕事用のアプリは別々に保存、表示されます。IT 管理者はこのデバイスを管理し、特定のアプリをブロックすることができます。"</string>
     <string name="just_a_sec" msgid="6244676028626237220">"お待ちください…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"プライバシーに関するお知らせ"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"IT 管理者がこのデバイスのデータやアクティビティを確認できる可能性があります"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"デバイス準備完了"</string>
-    <string name="done" msgid="7755227776955952318">"完了"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"これは、<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> からクレジットで購入したデバイスです"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> は以下を行えます。"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"このデバイスの支払いを行えるよう、<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> アプリをインストールします"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"支払いが行われない場合、このデバイスの利用を制限します"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"このデバイスは <xliff:g id="CREDITOR_NAME">%s</xliff:g> から提供されています"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"このデバイスで支払いを行えます"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> によってインストールされる <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> アプリで、このデバイスのお支払いを行えます。"</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"このデバイスを制限できます"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> は、お支払いが行われなかった場合、このデバイスへのアクセスを制限することがあります。"</string>
 </resources>

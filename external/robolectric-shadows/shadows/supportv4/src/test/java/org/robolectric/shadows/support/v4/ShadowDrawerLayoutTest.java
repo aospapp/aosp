@@ -19,7 +19,7 @@ public class ShadowDrawerLayoutTest {
     DrawerLayout drawerLayout = new DrawerLayout(Robolectric.buildActivity(Activity.class).create().get());
     DrawerLayout.DrawerListener mockDrawerListener = mock(DrawerLayout.DrawerListener.class);
     drawerLayout.setDrawerListener(mockDrawerListener);
-    assertThat(shadowOf(drawerLayout).getDrawerListener()).isSameAs(mockDrawerListener);
+    assertThat(shadowOf(drawerLayout).getDrawerListener()).isSameInstanceAs(mockDrawerListener);
   }
 
   private ShadowDrawerLayout shadowOf(DrawerLayout drawerLayout) {

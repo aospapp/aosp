@@ -73,11 +73,15 @@ static int can_alloc(struct rtnl_link *link)
 {
 	struct can_info *ci;
 
-	ci = calloc(1, sizeof(*ci));
-	if (!ci)
-		return -NLE_NOMEM;
+	if (link->l_info)
+		memset(link->l_info, 0, sizeof(*ci));
+	else {
+		ci = calloc(1, sizeof(*ci));
+		if (!ci)
+			return -NLE_NOMEM;
 
-	link->l_info = ci;
+		link->l_info = ci;
+	}
 
 	return 0;
 }
@@ -89,7 +93,7 @@ static int can_parse(struct rtnl_link *link, struct nlattr *data,
 	struct can_info *ci;
 	int err;
 
-	NL_DBG(3, "Parsing CAN link info");
+	NL_DBG(3, "Parsing CAN link info\n");
 
 	if ((err = nla_parse_nested(tb, IFLA_CAN_MAX, data, can_policy)) < 0)
 		goto errout;
@@ -751,11 +755,11 @@ int rtnl_link_can_unset_ctrlmode(struct rtnl_link *link, uint32_t ctrlmode)
  */
 
 static const struct trans_tbl can_ctrlmode[] = {
-	__ADD(CAN_CTRLMODE_LOOPBACK, loopback)
-	__ADD(CAN_CTRLMODE_LISTENONLY, listen-only)
-	__ADD(CAN_CTRLMODE_3_SAMPLES, triple-sampling)
-	__ADD(CAN_CTRLMODE_ONE_SHOT, one-shot)
-	__ADD(CAN_CTRLMODE_BERR_REPORTING, berr-reporting)
+	__ADD(CAN_CTRLMODE_LOOPBACK, loopback),
+	__ADD(CAN_CTRLMODE_LISTENONLY, listen-only),
+	__ADD(CAN_CTRLMODE_3_SAMPLES, triple-sampling),
+	__ADD(CAN_CTRLMODE_ONE_SHOT, one-shot),
+	__ADD(CAN_CTRLMODE_BERR_REPORTING, berr-reporting),
 };
 
 char *rtnl_link_can_ctrlmode2str(int ctrlmode, char *buf, size_t len)

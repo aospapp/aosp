@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<mixer>
+	<!-- Enable HDMI out -->
+	<ctl name="QUAT_MI2S_RX Audio Mixer MultiMedia1" value="1" />
+</mixer>

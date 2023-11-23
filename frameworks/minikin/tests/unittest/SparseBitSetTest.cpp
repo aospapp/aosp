@@ -20,6 +20,8 @@
 
 #include <gtest/gtest.h>
 
+#include "BufferUtils.h"
+
 namespace minikin {
 
 TEST(SparseBitSetTest, randomTest) {
@@ -50,6 +52,31 @@ TEST(SparseBitSetTest, randomTest) {
     for (; ch < 0x1FFFFFF; ++ch) {
         ASSERT_FALSE(bitset.get(ch)) << std::hex << ch;
     }
+}
+
+TEST(SparseBitSetTest, bufferTest) {
+    std::vector<uint32_t> range({10, 20});
+    SparseBitSet originalBitset(range.data(), range.size() / 2);
+    std::vector<uint8_t> buffer = writeToBuffer(originalBitset);
+    BufferReader reader(buffer.data());
+    SparseBitSet bitset(&reader);
+
+    for (size_t i = 0; i < 10; ++i) ASSERT_FALSE(bitset.get(i)) << i;
+    for (size_t i = 10; i < 20; ++i) ASSERT_TRUE(bitset.get(i)) << i;
+    for (size_t i = 20; i < 30; ++i) ASSERT_FALSE(bitset.get(i)) << i;
+    std::vector<uint8_t> newBuffer = writeToBuffer(bitset);
+    ASSERT_EQ(buffer, newBuffer);
+}
+
+TEST(SparseBitSetTest, emptyBitSetBufferTest) {
+    SparseBitSet empty;
+    std::vector<uint8_t> buffer = writeToBuffer(empty);
+    BufferReader reader(buffer.data());
+    SparseBitSet bitset(&reader);
+
+    ASSERT_FALSE(bitset.get(0));
+    std::vector<uint8_t> newBuffer = writeToBuffer(bitset);
+    ASSERT_EQ(buffer, newBuffer);
 }
 
 }  // namespace minikin

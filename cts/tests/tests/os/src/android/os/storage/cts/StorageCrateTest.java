@@ -314,7 +314,7 @@ public class StorageCrateTest {
         }
 
         String[] newChildDir = mCratesRoot.toFile().list();
-        assertThat(newChildDir).asList().containsAllIn(expectedCrates);
+        assertThat(newChildDir).asList().containsAtLeastElementsIn(expectedCrates);
     }
 
     @Test

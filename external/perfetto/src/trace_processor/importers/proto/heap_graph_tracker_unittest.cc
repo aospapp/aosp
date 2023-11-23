@@ -16,6 +16,8 @@
 
 #include "src/trace_processor/importers/proto/heap_graph_tracker.h"
 
+#include "src/trace_processor/importers/proto/profiler_util.h"
+
 #include "perfetto/base/logging.h"
 #include "test/gtest_and_gmock.h"
 
@@ -26,17 +28,22 @@ namespace {
 using ::testing::UnorderedElementsAre;
 
 TEST(HeapGraphTrackerTest, PackageFromLocationApp) {
-  TraceProcessorContext context;
-  context.storage.reset(new TraceStorage);
-  HeapGraphTracker tracker(&context);
-  EXPECT_EQ(tracker.PackageFromLocation(
-                "/data/app/~~ASDFGH1234QWerT==/"
-                "com.twitter.android-MNBVCX7890SDTst6==/test.apk"),
-            "com.twitter.android");
-  EXPECT_EQ(tracker.PackageFromLocation(
+  TraceStorage storage;
+  EXPECT_EQ(
+      PackageFromLocation(&storage,
+                          "/data/app/~~ASDFGH1234QWerT==/"
+                          "com.twitter.android-MNBVCX7890SDTst6==/test.apk"),
+      "com.twitter.android");
+  EXPECT_EQ(PackageFromLocation(
+                &storage,
                 "/data/app/com.google.android.webview-6XfQhnaSkFwGK0sYL9is0G==/"
                 "base.apk"),
             "com.google.android.webview");
+  EXPECT_EQ(PackageFromLocation(&storage,
+                                "/data/app/"
+                                "com.google.android.apps.wellbeing-"
+                                "qfQCaB4uJ7P0OPpZQqOu0Q==/oat/arm64/base.odex"),
+            "com.google.android.apps.wellbeing");
 }
 
 TEST(HeapGraphTrackerTest, BuildFlamegraph) {
@@ -56,38 +63,67 @@ TEST(HeapGraphTrackerTest, BuildFlamegraph) {
   HeapGraphTracker tracker(&context);
 
   constexpr uint64_t kField = 1;
+  constexpr uint64_t kLocation = 0;
 
   constexpr uint64_t kX = 1;
   constexpr uint64_t kY = 2;
   constexpr uint64_t kA = 3;
   constexpr uint64_t kB = 4;
+  constexpr uint64_t kWeakRef = 5;
 
   base::StringView field = base::StringView("foo");
   StringPool::Id x = context.storage->InternString("X");
   StringPool::Id y = context.storage->InternString("Y");
   StringPool::Id a = context.storage->InternString("A");
   StringPool::Id b = context.storage->InternString("B");
+  StringPool::Id weak_ref = context.storage->InternString("WeakReference");
 
+  StringPool::Id normal_kind = context.storage->InternString("KIND_NORMAL");
+  StringPool::Id weak_ref_kind =
+      context.storage->InternString("KIND_WEAK_REFERENCE");
   tracker.AddInternedFieldName(kSeqId, kField, field);
 
-  tracker.AddInternedTypeName(kSeqId, kX, x);
-  tracker.AddInternedTypeName(kSeqId, kY, y);
-  tracker.AddInternedTypeName(kSeqId, kA, a);
-  tracker.AddInternedTypeName(kSeqId, kB, b);
+  tracker.AddInternedLocationName(kSeqId, kLocation,
+                                  context.storage->InternString("location"));
+  tracker.AddInternedType(kSeqId, kX, x, kLocation, /*object_size=*/0,
+                          /*field_name_ids=*/{}, /*superclass_id=*/0,
+                          /*classloader_id=*/0, /*no_fields=*/false,
+                          /*kind=*/normal_kind);
+  tracker.AddInternedType(kSeqId, kY, y, kLocation, /*object_size=*/0,
+                          /*field_name_ids=*/{}, /*superclass_id=*/0,
+                          /*classloader_id=*/0, /*no_fields=*/false,
+                          /*kind=*/normal_kind);
+  tracker.AddInternedType(kSeqId, kA, a, kLocation, /*object_size=*/0,
+                          /*field_name_ids=*/{}, /*superclass_id=*/0,
+                          /*classloader_id=*/0, /*no_fields=*/false,
+                          /*kind=*/normal_kind);
+  tracker.AddInternedType(kSeqId, kB, b, kLocation, /*object_size=*/0,
+                          /*field_name_ids=*/{}, /*superclass_id=*/0,
+                          /*classloader_id=*/0, /*no_fields=*/false,
+                          /*kind=*/normal_kind);
+  tracker.AddInternedType(kSeqId, kWeakRef, weak_ref, kLocation,
+                          /*object_size=*/0,
+                          /*field_name_ids=*/{}, /*superclass_id=*/0,
+                          /*classloader_id=*/0, /*no_fields=*/false,
+                          /*kind=*/weak_ref_kind);
+  {
+    HeapGraphTracker::SourceObject obj;
+    obj.object_id = 999;
+    obj.self_size = 999;
+    obj.type_id = kWeakRef;
+    obj.field_name_ids = {kField};
+    obj.referred_objects = {5};
+
+    tracker.AddObject(kSeqId, kPid, kTimestamp, std::move(obj));
+  }
 
   {
     HeapGraphTracker::SourceObject obj;
     obj.object_id = 1;
     obj.self_size = 1;
     obj.type_id = kX;
-    HeapGraphTracker::SourceObject::Reference ref;
-    ref.field_name_id = kField;
-    ref.owned_object_id = 2;
-    obj.references.emplace_back(std::move(ref));
-
-    ref.field_name_id = kField;
-    ref.owned_object_id = 3;
-    obj.references.emplace_back(std::move(ref));
+    obj.field_name_ids = {kField, kField};
+    obj.referred_objects = {2, 3};
 
     tracker.AddObject(kSeqId, kPid, kTimestamp, std::move(obj));
   }
@@ -105,14 +141,8 @@ TEST(HeapGraphTrackerTest, BuildFlamegraph) {
     obj.object_id = 3;
     obj.self_size = 3;
     obj.type_id = kY;
-    HeapGraphTracker::SourceObject::Reference ref;
-    ref.field_name_id = kField;
-    ref.owned_object_id = 4;
-    obj.references.emplace_back(std::move(ref));
-
-    ref.field_name_id = kField;
-    ref.owned_object_id = 5;
-    obj.references.emplace_back(std::move(ref));
+    obj.field_name_ids = {kField, kField};
+    obj.referred_objects = {4, 5};
 
     tracker.AddObject(kSeqId, kPid, kTimestamp, std::move(obj));
   }
@@ -136,6 +166,7 @@ TEST(HeapGraphTrackerTest, BuildFlamegraph) {
   HeapGraphTracker::SourceRoot root;
   root.root_type = context.storage->InternString("ROOT");
   root.object_ids.emplace_back(1);
+  root.object_ids.emplace_back(999);
   tracker.AddRoot(kSeqId, kPid, kTimestamp, root);
 
   tracker.FinalizeProfile(kSeqId);
@@ -144,16 +175,16 @@ TEST(HeapGraphTrackerTest, BuildFlamegraph) {
   ASSERT_NE(flame, nullptr);
 
   auto cumulative_sizes = flame->cumulative_size().ToVectorForTesting();
-  EXPECT_THAT(cumulative_sizes, UnorderedElementsAre(15, 4, 14, 5));
+  EXPECT_THAT(cumulative_sizes, UnorderedElementsAre(15, 4, 14, 5, 999));
 
   auto cumulative_counts = flame->cumulative_count().ToVectorForTesting();
-  EXPECT_THAT(cumulative_counts, UnorderedElementsAre(5, 4, 1, 1));
+  EXPECT_THAT(cumulative_counts, UnorderedElementsAre(5, 4, 1, 1, 1));
 
   auto sizes = flame->size().ToVectorForTesting();
-  EXPECT_THAT(sizes, UnorderedElementsAre(1, 5, 4, 5));
+  EXPECT_THAT(sizes, UnorderedElementsAre(1, 5, 4, 5, 999));
 
   auto counts = flame->count().ToVectorForTesting();
-  EXPECT_THAT(counts, UnorderedElementsAre(1, 2, 1, 1));
+  EXPECT_THAT(counts, UnorderedElementsAre(1, 2, 1, 1, 1));
 }
 
 static const char kArray[] = "X[]";

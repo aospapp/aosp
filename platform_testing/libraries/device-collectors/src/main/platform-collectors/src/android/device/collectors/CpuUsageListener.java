@@ -30,9 +30,7 @@ import com.android.helpers.CpuUsageHelper;
 public class CpuUsageListener extends BaseCollectionListener<Long> {
 
     private static final String DISABLE_PER_PACKAGE = "disable_per_pkg";
-    private static final String DISABLE_PER_FREQ = "disable_per_freq";
     private static final String DISABLE_TOTAL_PKG = "disable_total_pkg";
-    private static final String DISABLE_TOTAL_FREQ = "disable_total_freq";
     private static final String ENABLE_CPU_UTILIZATION = "enable_cpu_utilization";
 
     public CpuUsageListener() {
@@ -50,16 +48,8 @@ public class CpuUsageListener extends BaseCollectionListener<Long> {
             cpuUsageHelper.setDisablePerPackage();
         }
 
-        if ("true".equals(args.getString(DISABLE_PER_FREQ))) {
-            cpuUsageHelper.setDisablePerFrequency();
-        }
-
         if ("true".equals(args.getString(DISABLE_TOTAL_PKG))) {
             cpuUsageHelper.setDisableTotalPackage();
-        }
-
-        if ("true".equals(args.getString(DISABLE_TOTAL_FREQ))) {
-            cpuUsageHelper.setDisableTotalFrequency();
         }
 
         if ("true".equals(args.getString(ENABLE_CPU_UTILIZATION))) {

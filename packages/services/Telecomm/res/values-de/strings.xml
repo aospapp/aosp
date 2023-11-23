@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Anrufverwaltung"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Telefonanrufe"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Telefon"</string>
     <string name="unknown" msgid="6993977514360123431">"Unbekannt"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Entgangener Anruf"</string>
@@ -47,7 +47,7 @@
     <string name="respond_via_sms_failure_format" msgid="5198680980054596391">"Fehler beim Senden der Nachricht an <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="enable_account_preference_title" msgid="6949224486748457976">"Anrufkonten"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="3424338207838851646">"Es sind nur Notrufe erlaubt."</string>
-    <string name="outgoing_call_not_allowed_no_permission" msgid="8590468836581488679">"Diese App darf ohne die Berechtigung \"Standard-App für Telefonie\" keine ausgehenden Anrufe tätigen."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="8590468836581488679">"Diese App darf ohne die Berechtigung \"Telefon-App\" keine ausgehenden Anrufe tätigen."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="7665135102566099778">"Gib eine gültige Nummer ein."</string>
     <string name="duplicate_video_call_not_allowed" msgid="5754746140185781159">"Der Anruf kann momentan nicht hinzugefügt werden."</string>
     <string name="no_vm_number" msgid="2179959110602180844">"Fehlende Mailbox-Nummer"</string>
@@ -57,9 +57,9 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8604665314757739550">"Als Standard festlegen"</string>
     <string name="change_default_dialer_dialog_negative" msgid="8648669840052697821">"Abbrechen"</string>
     <string name="change_default_dialer_warning_message" msgid="8461963987376916114">"<xliff:g id="NEW_APP">%s</xliff:g> wird alle Anruffunktionen steuern. Nur vertrauenswürdige Apps sollten als Standard-Telefon-App festgelegt werden."</string>
-    <string name="change_default_call_screening_dialog_title" msgid="5365787219927262408">"<xliff:g id="NEW_APP">%s</xliff:g> als Standard-App für Call Screening festlegen?"</string>
-    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="2039830033533243164">"Das Call Screening mit <xliff:g id="OLD_APP">%s</xliff:g> ist nicht mehr möglich."</string>
-    <string name="change_default_call_screening_warning_message" msgid="9020537562292754269">"<xliff:g id="NEW_APP">%s</xliff:g> kann Informationen zu Anrufern, die nicht in deinen Kontakten gespeichert sind, erkennen und die Anrufe blockieren. Du solltest nur Apps, denen du vertraust, als Standard-App für das Call Screening festlegen."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="5365787219927262408">"<xliff:g id="NEW_APP">%s</xliff:g> als Standard-App für Anruf-Filter festlegen?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="2039830033533243164">"Der Anruf-Filter mit <xliff:g id="OLD_APP">%s</xliff:g> ist nicht mehr möglich."</string>
+    <string name="change_default_call_screening_warning_message" msgid="9020537562292754269">"<xliff:g id="NEW_APP">%s</xliff:g> kann Informationen zu Anrufern, die nicht in deinen Kontakten gespeichert sind, erkennen und die Anrufe blockieren. Du solltest nur Apps, denen du vertraust, als Standard-App für den Anruf-Filter festlegen."</string>
     <string name="change_default_call_screening_dialog_affirmative" msgid="7162433828280058647">"Als Standard festlegen"</string>
     <string name="change_default_call_screening_dialog_negative" msgid="1839266125623106342">"Abbrechen"</string>
     <string name="blocked_numbers" msgid="8322134197039865180">"Blockierte Nummern"</string>

@@ -1,5 +1,34 @@
+package {
+    default_applicable_licenses: [
+        "frameworks_av_media_extractors_mpeg2_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_media_extractors_mpeg2_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library {
     name: "libmpeg2extractor",
+
+    host_supported: true,
+    target: {
+        darwin: {
+            enabled: false,
+        },
+        android: {
+            shared_libs: ["libvndksupport#29"],
+        },
+    },
 
     defaults: ["extractor-defaults"],
 
@@ -12,14 +41,13 @@ cc_library {
     shared_libs: [
         "libbase",
         "libcgrouprc#29",
-        "libvndksupport#29",
     ],
 
     header_libs: [
         "libaudioclient_headers",
         "libbase_headers",
         "libstagefright_headers",
-        "libmedia_headers",
+        "libmedia_datasource_headers",
     ],
 
     static_libs: [
@@ -37,7 +65,7 @@ cc_library {
         "libstagefright_esds",
         "libstagefright_foundation_without_imemory",
         "libstagefright_mpeg2extractor",
-        "libstagefright_mpeg2support",
+        "libstagefright_mpeg2support_nocrypto",
         "libutils",
     ],
 

@@ -18,8 +18,8 @@ namespace brillo {
 namespace dbus_utils {
 
 // A helper function to create a D-Bus error response object as unique_ptr<>.
-BRILLO_EXPORT std::unique_ptr<dbus::Response> CreateDBusErrorResponse(
-    dbus::MethodCall* method_call,
+BRILLO_EXPORT std::unique_ptr<::dbus::Response> CreateDBusErrorResponse(
+    ::dbus::MethodCall* method_call,
     const std::string& error_name,
     const std::string& error_message);
 
@@ -28,9 +28,8 @@ BRILLO_EXPORT std::unique_ptr<dbus::Response> CreateDBusErrorResponse(
 // and message are directly translated to D-Bus error code and message.
 // Any inner errors are formatted as "domain/code:message" string and appended
 // to the D-Bus error message, delimited by semi-colons.
-BRILLO_EXPORT std::unique_ptr<dbus::Response> GetDBusError(
-    dbus::MethodCall* method_call,
-    const brillo::Error* error);
+BRILLO_EXPORT std::unique_ptr<::dbus::Response> GetDBusError(
+    ::dbus::MethodCall* method_call, const brillo::Error* error);
 
 // AddDBusError() is the opposite of GetDBusError(). It de-serializes the Error
 // object received over D-Bus.

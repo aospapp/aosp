@@ -17,11 +17,16 @@
 #ifndef SYSTEM_KEYMASTER_KEYMASTER_CONTEXT_H_
 #define SYSTEM_KEYMASTER_KEYMASTER_CONTEXT_H_
 
+#include <optional>
+
 #include <assert.h>
 
 #include <hardware/keymaster_defs.h>
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/keymaster_enforcement.h>
+#include <keymaster/km_version.h>
+#include <keymaster/remote_provisioning_context.h>
+#include <keymaster/secure_key_storage.h>
 
 namespace keymaster {
 
@@ -65,6 +70,15 @@ class KeymasterContext {
   public:
     KeymasterContext() {}
     virtual ~KeymasterContext(){};
+
+    /**
+     * Returns the Keymaster/KeyMint version we're currently implementing.
+     *
+     * Because AndroidKeymaster supports multiple versions of Keymaster/KeyMint, with slightly
+     * different behavior, we sometimes need to branch based on the version currently being
+     * implemented.  This method provides the currently-implemented version.
+     */
+    virtual KmVersion GetKmVersion() const = 0;
 
     /**
      * Sets the system version as reported by the system *itself*.  This is used to verify that the
@@ -134,15 +148,102 @@ class KeymasterContext {
      */
     virtual KeymasterEnforcement* enforcement_policy() = 0;
 
-    virtual keymaster_error_t GenerateAttestation(const Key& key,
-                                                  const AuthorizationSet& attest_params,
-                                                  CertChainPtr* cert_chain) const = 0;
+    /**
+     * Generate an attestation certificate, with chain.
+     *
+     * If attest_key is null, the certificate will be signed with the factory attestation key (from
+     * AttestationContext) and have the issuer subject set to the subject name from the signing key
+     * certificate.  If attest_key is non-null, it will be used to sign the certificate and the
+     * provided issuer subject will be used (must contain a DER-encoded X.509 NAME).
+     */
+    virtual CertificateChain GenerateAttestation(const Key& key,
+                                                 const AuthorizationSet& attest_params,
+                                                 UniquePtr<Key> attest_key,
+                                                 const KeymasterBlob& issuer_subject,
+                                                 keymaster_error_t* error) const = 0;
+
+    /**
+     * Generate a self-signed certificate.  If fake_signature is true, a fake signature is installed
+     * in the certificate, rather than an actual self-signature.  The fake signature will not
+     * verify, of course.  In this case the certificate is primarily a way to convey the public key.
+     *
+     * Note that although the return type is CertificateChain, this is for convenience and
+     * consistency with GenerateAttestation, the chain never contains more than a single
+     * certificate.
+     */
+    virtual CertificateChain GenerateSelfSignedCertificate(const Key& key,
+                                                           const AuthorizationSet& cert_params,
+                                                           bool fake_signature,
+                                                           keymaster_error_t* error) const = 0;
 
     virtual keymaster_error_t
     UnwrapKey(const KeymasterKeyBlob& wrapped_key_blob, const KeymasterKeyBlob& wrapping_key_blob,
               const AuthorizationSet& wrapping_key_params, const KeymasterKeyBlob& masking_key,
               AuthorizationSet* wrapped_key_params, keymaster_key_format_t* wrapped_key_format,
               KeymasterKeyBlob* wrapped_key_material) const = 0;
+
+    /**
+     * Return the secure key storage for this context, or null if there is no available secure key
+     * storage.
+     */
+    virtual SecureKeyStorage* secure_key_storage() { return nullptr; }
+
+    /**
+     * Checks that the data in |input_data| of size |input_data_size| matches the
+     * confirmation token given by |confirmation_token|.
+     *
+     * Note that |input_data| will already contain the prefixed message tag
+     * "confirmation token" (not including NUL byte) so all the implementation
+     * of this method needs to do is to calculate HMAC-SHA256 over |input_data|
+     * and compare it with |confirmation_token|. To do this the implementation
+     * needs access to the secret key shared with the ConfirmationUI TA.
+     *
+     * Returns KM_ERROR_OK if |input_data| matches |confirmation_token|,
+     * KM_ERROR_NO_USER_CONFIRMATION if it doesn't, and if memory allocation
+     * fails KM_ERROR_MEMORY_ALLOCATION_FAILED. If not implemented then
+     * KM_ERROR_UNIMPLEMENTED is returned.
+     */
+    virtual keymaster_error_t
+    CheckConfirmationToken(const uint8_t* /*input_data*/, size_t /*input_data_size*/,
+                           const uint8_t /*confirmation_token*/[kConfirmationTokenSize]) const {
+        return KM_ERROR_UNIMPLEMENTED;
+    }
+
+    /**
+     * Return the remote provisioning context object, or null if remote provisioning is not
+     * supported.
+     */
+    virtual RemoteProvisioningContext* GetRemoteProvisioningContext() const { return nullptr; }
+
+    /**
+     * Sets the vendor patchlevel (format YYYYMMDD) for the implementation. This value should
+     * be set by the HAL service at start of day.  A subsequent attempt to set a different
+     * value will return KM_ERROR_INVALID_ARGUMENT.
+     */
+    virtual keymaster_error_t SetVendorPatchlevel(uint32_t /* vendor_patchlevel */) {
+        return KM_ERROR_UNIMPLEMENTED;
+    }
+
+    /**
+     * Sets the boot patchlevel (format YYYYMMDD) for the implementation. This value should be set
+     * by the bootloader.  A subsequent to set a different value will return
+     * KM_ERROR_INVALID_ARGUMENT;
+     */
+    virtual keymaster_error_t SetBootPatchlevel(uint32_t /* boot_patchlevel */) {
+        return KM_ERROR_UNIMPLEMENTED;
+    }
+
+    /**
+     * Returns the vendor patchlevel, as set by the HAL service using SetVendorPatchlevel.
+     */
+    virtual std::optional<uint32_t> GetVendorPatchlevel() const { return std::nullopt; }
+
+    /**
+     * Returns the boot patchlevel. For hardware-based implementations this will be the value set by
+     * the bootloader. For software implementations this will be the information set by
+     * SetBootPatchLevel.
+     */
+    virtual std::optional<uint32_t> GetBootPatchlevel() const { return std::nullopt; }
 
   private:
     // Uncopyable.

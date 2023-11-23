@@ -19,216 +19,6 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
-        <option name="cleanup" value="true" />
-        <!--__________________-->
-        <!--    Utilities     -->
-        <option name="push" value="pacrunner->/data/local/tmp/pacrunner" />
-
-        <option name="push" value="CVE-2016-8460->/data/local/tmp/CVE-2016-8460" />
-        <option name="push" value="CVE-2016-8482->/data/local/tmp/CVE-2016-8482" />
-        <option name="push" value="CVE-2016-6730->/data/local/tmp/CVE-2016-6730" />
-        <option name="push" value="CVE-2016-6731->/data/local/tmp/CVE-2016-6731" />
-        <option name="push" value="CVE-2016-6732->/data/local/tmp/CVE-2016-6732" />
-        <option name="push" value="CVE-2016-6733->/data/local/tmp/CVE-2016-6733" />
-        <option name="push" value="CVE-2016-6734->/data/local/tmp/CVE-2016-6734" />
-        <option name="push" value="CVE-2016-6735->/data/local/tmp/CVE-2016-6735" />
-        <option name="push" value="CVE-2016-6736->/data/local/tmp/CVE-2016-6736" />
-        <option name="push" value="CVE-2016-8425->/data/local/tmp/CVE-2016-8425" />
-        <option name="push" value="CVE-2016-8426->/data/local/tmp/CVE-2016-8426" />
-        <option name="push" value="CVE-2016-8427->/data/local/tmp/CVE-2016-8427" />
-        <option name="push" value="CVE-2016-8428->/data/local/tmp/CVE-2016-8428" />
-        <option name="push" value="CVE-2016-8429->/data/local/tmp/CVE-2016-8429" />
-        <option name="push" value="CVE-2016-8430->/data/local/tmp/CVE-2016-8430" />
-        <option name="push" value="CVE-2016-8431->/data/local/tmp/CVE-2016-8431" />
-        <option name="push" value="CVE-2016-8432->/data/local/tmp/CVE-2016-8432" />
-        <option name="push" value="CVE-2016-8434->/data/local/tmp/CVE-2016-8434" />
-        <option name="push" value="Bug-137878930->/data/local/tmp/Bug-137878930" />
-
-        <!--__________________-->
-        <!-- Bulletin 2016-04 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2016-2412->/data/local/tmp/CVE-2016-2412" />
-        <option name="push" value="CVE-2016-0844->/data/local/tmp/CVE-2016-0844" />
-        <option name="push" value="CVE-2016-2419->/data/local/tmp/CVE-2016-2419" />
-
-        <!--__________________-->
-        <!-- Bulletin 2016-05 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2016-2460->/data/local/tmp/CVE-2016-2460" />
-        <option name="push" value="CVE-2015-1805->/data/local/tmp/CVE-2015-1805" />
-
-        <!--__________________-->
-        <!-- Bulletin 2016-06 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2016-2482->/data/local/tmp/CVE-2016-2482" />
-
-        <!--__________________-->
-        <!-- Bulletin 2016-07 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2016-3747->/data/local/tmp/CVE-2016-3747" />
-        <option name="push" value="CVE-2014-9803->/data/local/tmp/CVE-2014-9803" />
-        <option name="push" value="CVE-2016-3746->/data/local/tmp/CVE-2016-3746" />
-        <option name="push" value="CVE-2016-3818->/data/local/tmp/CVE-2016-3818" />
-
-        <!-- Bulletin 2016-09 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2016-2471->/data/local/tmp/CVE-2016-2471" />
-
-        <!--__________________-->
-        <!-- Bulletin 2016-10 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2016-3913->/data/local/tmp/CVE-2016-3913" />
-
-        <!--__________________-->
-        <!-- Bulletin 2016-11 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2012-6702->/data/local/tmp/CVE-2012-6702" />
-
-        <!--__________________-->
-        <!-- Bulletin 2016-12 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-
-        <!--__________________-->
-        <!-- Bulletin 2017-01 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2017-0386->/data/local/tmp/CVE-2017-0386" />
-
-        <!--__________________-->
-        <!-- Bulletin 2017-02 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2017-0415->/data/local/tmp/CVE-2017-0415" />
-        <option name="push" value="CVE-2017-0426->/data/local/tmp/CVE-2017-0426" />
-
-        <!--__________________-->
-        <!-- Bulletin 2017-03 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2017-0477->/data/local/tmp/CVE-2017-0477" />
-        <option name="push" value="CVE-2017-0479->/data/local/tmp/CVE-2017-0479" />
-        <option name="push" value="CVE-2017-0334->/data/local/tmp/CVE-2017-0334" />
-        <option name="push" value="CVE-2016-8479->/data/local/tmp/CVE-2016-8479" />
-        <option name="push" value="CVE-2017-0508->/data/local/tmp/CVE-2017-0508" />
-        <option name="push" value="CVE-2017-0333->/data/local/tmp/CVE-2017-0333" />
-
-        <!--__________________-->
-        <!-- Bulletin 2017-04 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2016-10229->/data/local/tmp/CVE-2016-10229" />
-        <option name="push" value="CVE-2014-3145->/data/local/tmp/CVE-2014-3145"/>
-        <option name="push" value="CVE-2017-0553->/data/local/tmp/CVE-2017-0553"/>
-
-        <!--__________________-->
-        <!-- Bulletin 2017-05 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2016-5862->/data/local/tmp/CVE-2016-5862"/>
-        <option name="push" value="CVE-2016-5867->/data/local/tmp/CVE-2016-5867"/>
-
-        <!--__________________-->
-        <!-- Bulletin 2017-06 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2016-4658->/data/local/tmp/CVE-2016-4658" />
-        <option name="push" value="CVE-2016-5131->/data/local/tmp/CVE-2016-5131" />
-
-        <!--__________________-->
-        <!-- Bulletin 2017-07 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2016-2109->/data/local/tmp/CVE-2016-2109"/>
-
-        <!--__________________-->
-        <!-- Bulletin 2017-08 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-
-        <!--__________________-->
-        <!-- Bulletin 2017-09 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="Bug-38195738->/data/local/tmp/Bug-38195738" />
-
-        <!--__________________-->
-        <!-- Bulletin 2017-10 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2017-0814->/data/local/tmp/CVE-2017-0814" />
-
-        <!--__________________-->
-        <!-- Bulletin 2017-11 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-
-        <!--__________________-->
-        <!-- Bulletin 2017-12 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2017-6262->/data/local/tmp/CVE-2017-6262" />
-
-        <!--__________________-->
-        <!-- Bulletin 2018-01 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2018-9527->/data/local/tmp/CVE-2018-9527" />
-
-        <!--__________________-->
-        <!-- Bulletin 2018-02 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2017-13273->/data/local/tmp/CVE-2017-13273" />
-        <option name="push" value="CVE-2017-13232->/data/local/tmp/CVE-2017-13232" />
-
-        <!--__________________-->
-        <!-- Bulletin 2018-03 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2017-13253->/data/local/tmp/CVE-2017-13253" />
-
-        <!--__________________-->
-        <!-- Bulletin 2018-06 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2018-9344->/data/local/tmp/CVE-2018-9344" />
-
-        <!--__________________-->
-        <!-- Bulletin 2018-07 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2018-9424->/data/local/tmp/CVE-2018-9424" />
-
-        <!--__________________-->
-        <!-- Bulletin 2018-09 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2018-9472->/data/local/tmp/CVE-2018-9472" />
-
-        <!--__________________-->
-        <!-- Bulletin 2018-10 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2018-9491->/data/local/tmp/CVE-2018-9491" />
-        <option name="push" value="CVE-2018-9515->/data/local/tmp/CVE-2018-9515" />
-
-        <!--__________________-->
-        <!-- Bulletin 2018-11 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2018-9539->/data/local/tmp/CVE-2018-9539" />
-
-        <!--__________________-->
-        <!-- Bulletin 2019-03 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="Bug-115739809->/data/local/tmp/Bug-115739809" />
-        <option name="push" value="CVE-2019-2025->/data/local/tmp/CVE-2019-2025" />
-      
-        <!--__________________-->
-        <!-- Bulletin 2019-09 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2019-9313->/data/local/tmp/CVE-2019-9313" />
-
-        <!--__________________-->
-        <!-- Bulletin 2020-03 -->
-        <!-- Please add tests solely from this bulletin below to avoid merge conflict -->
-        <option name="push" value="CVE-2020-0069->/data/local/tmp/CVE-2020-0069" />
-        <option name="append-bitness" value="true" />
-    </target_preparer>
-
-    <!-- The following tests hit either 32-bit or 64-bit, but not both. All tests in this -->
-    <!-- section should take care to build either 32 bit or 64 bit binary, but not both.  -->
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
-        <option name="cleanup" value="true" />
-
-        <!-- Please add 32-bit binary tests below to avoid merge conflict -->
-
-        <!-- Please add 64-bit binary tests below to avoid merge conflict -->
-
-
-        <option name="append-bitness" value="false" />
-    </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -237,7 +27,6 @@
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
-        <option name="test-file-name" value="OomCatcher.apk" />
         <option name="test-file-name" value="MainlineModuleDetector.apk" />
         <option name="test-file-name" value="hotspot.apk" />
     </target_preparer>
@@ -246,4 +35,11 @@
         <option name="jar" value="CtsSecurityBulletinHostTestCases.jar" />
         <option name="runtime-hint" value="18m26s" />
     </test>
+
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ReportLogCollector">
+        <option name="src-dir" value="/sdcard/report-log-files/"/>
+        <option name="dest-dir" value="report-log-files/"/>
+        <option name="temp-dir" value="temp-report-logs/"/>
+        <option name="device-dir" value="true"/>
+    </target_preparer>
 </configuration>

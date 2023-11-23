@@ -16,5 +16,11 @@
 <configuration description="List MTS conscrypt tests.">
     <option name="compatibility:include-filter" value="CtsLibcoreOkHttpTestCases" />
     <option name="compatibility:include-filter" value="MtsConscryptTestCases" />
+    <option name="compatibility:include-filter" value="MtsConscryptFdSocketTestCases" />
+
+    <!-- Enable Conscrypt MTS tests to use MainlineTestModuleController -->
+    <option name="compatibility:module-arg" value="CtsLibcoreOkHttpTestCases:enable:true" />
+    <option name="compatibility:module-arg" value="MtsConscryptTestCases:enable:true" />
+    <option name="compatibility:module-arg" value="MtsConscryptFdSocketTestCases:enable:true" />
 </configuration>
 

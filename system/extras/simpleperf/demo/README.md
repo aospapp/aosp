@@ -8,7 +8,7 @@
   - [Profile a Java application](#profile-a-java-application)
   - [Profile a Java/C++ application](#profile-a-javac-application)
   - [Profile a Kotlin application](#profile-a-kotlin-application)
-- [Profile via app_api](#profile-via-appapi)
+- [Profile via app_api](#profile-via-app_api)
 
 ## Introduction
 

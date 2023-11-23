@@ -14,34 +14,34 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.mschapv2;
+package com.android.internal.net.eap.test.message.mschapv2;
 
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.CHALLENGE_BYTES;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.EAP_MSCHAP_V2_FAILURE_REQUEST;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.EAP_MSCHAP_V2_FAILURE_REQUEST_MISSING_MESSAGE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.EAP_MSCHAP_V2_FAILURE_REQUEST_MISSING_MESSAGE_WITH_SPACE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.ERROR_CODE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.FAILURE_REQUEST_EXTRA_ATTRIBUTE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.FAILURE_REQUEST_INVALID_CHALLENGE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.FAILURE_REQUEST_INVALID_ERROR_CODE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.FAILURE_REQUEST_INVALID_PASSWORD_CHANGE_PROTOCOL;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.FAILURE_REQUEST_SHORT_CHALLENGE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.ID_INT;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.MESSAGE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.MESSAGE_MISSING_TEXT;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.PASSWORD_CHANGE_PROTOCOL;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.RETRY_BIT;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EAP_MSCHAP_V2_FAILURE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.CHALLENGE_BYTES;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.EAP_MSCHAP_V2_FAILURE_REQUEST;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.EAP_MSCHAP_V2_FAILURE_REQUEST_MISSING_MESSAGE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.EAP_MSCHAP_V2_FAILURE_REQUEST_MISSING_MESSAGE_WITH_SPACE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.ERROR_CODE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.FAILURE_REQUEST_EXTRA_ATTRIBUTE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.FAILURE_REQUEST_INVALID_CHALLENGE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.FAILURE_REQUEST_INVALID_ERROR_CODE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.FAILURE_REQUEST_INVALID_PASSWORD_CHANGE_PROTOCOL;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.FAILURE_REQUEST_SHORT_CHALLENGE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.ID_INT;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.MESSAGE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.MESSAGE_MISSING_TEXT;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.PASSWORD_CHANGE_PROTOCOL;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.RETRY_BIT;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EAP_MSCHAP_V2_FAILURE;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.exceptions.mschapv2.EapMsChapV2ParsingException;
-import com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2FailureRequest;
-import com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2TypeDataDecoder;
-import com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2TypeDataDecoder.DecodeResult;
+import com.android.internal.net.eap.test.exceptions.mschapv2.EapMsChapV2ParsingException;
+import com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2FailureRequest;
+import com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2TypeDataDecoder;
+import com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2TypeDataDecoder.DecodeResult;
 
 import org.junit.Before;
 import org.junit.Test;

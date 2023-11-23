@@ -35,6 +35,7 @@ import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.app.UiAutomation;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -118,6 +119,7 @@ public abstract class BasePrintTest {
     private static final String COMMAND_PREFIX_DISABLE_IME = "ime disable ";
     private static final int CURRENT_USER_ID = -2; // Mirrors UserHandle.USER_CURRENT
     private static final String PRINTSPOOLER_PACKAGE = "com.android.printspooler";
+    private static final long GET_UIAUTOMATION_TIMEOUT_MS = 60000;
 
     private static final AtomicInteger sLastTestID = new AtomicInteger();
     private int mTestId;
@@ -150,7 +152,7 @@ public abstract class BasePrintTest {
     private static String[] getEnabledImes() throws IOException {
         List<String> imeList = new ArrayList<>();
 
-        ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation()
+        ParcelFileDescriptor pfd = getUiAutomation()
                 .executeShellCommand(COMMAND_LIST_ENABLED_IME_COMPONENTS);
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(new FileInputStream(pfd.getFileDescriptor())))) {
@@ -185,6 +187,18 @@ public abstract class BasePrintTest {
 
     public static Instrumentation getInstrumentation() {
         return InstrumentationRegistry.getInstrumentation();
+    }
+
+    public static UiAutomation getUiAutomation() {
+        long start = SystemClock.uptimeMillis();
+        while (SystemClock.uptimeMillis() - start < GET_UIAUTOMATION_TIMEOUT_MS) {
+            UiAutomation ui = getInstrumentation().getUiAutomation();
+            if (ui != null) {
+                return ui;
+            }
+        }
+
+        throw new AssertionError("Failed to get UiAutomation");
     }
 
     @BeforeClass

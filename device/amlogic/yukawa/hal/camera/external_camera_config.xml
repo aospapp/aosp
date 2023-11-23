@@ -1,0 +1,17 @@
+<ExternalCamera>
+    <Provider>
+        <ignore> <!-- Internal video devices to be ignored by external camera HAL -->
+            <id>0</id>
+        </ignore>
+    </Provider>
+    <Device>
+        <MaxJpegBufferSize bytes="3145728"/>
+        <NumVideoBuffers count="4"/>
+        <NumStillBuffers count="2"/>
+        <FpsList>
+            <Limit width="640" height="480" fpsBound="30.0"/>
+            <Limit width="1280" height="720" fpsBound="30.0"/>
+            <Limit width="1920" height="1080" fpsBound="30.0"/>
+        </FpsList>
+    </Device>
+</ExternalCamera>

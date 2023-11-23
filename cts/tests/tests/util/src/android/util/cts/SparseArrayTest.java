@@ -16,11 +16,15 @@
 
 package android.util.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import android.annotation.NonNull;
 import android.util.SparseArray;
 
 import androidx.test.filters.SmallTest;
@@ -28,6 +32,9 @@ import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Objects;
+import java.util.function.BiFunction;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -135,7 +142,7 @@ public class SparseArrayTest {
         assertEquals(LENGTH, sparseArray.size());
 
         assertEquals(VALUE_FOR_NON_EXISTED_KEY,
-                     sparseArray.get(NON_EXISTED_KEY, VALUE_FOR_NON_EXISTED_KEY));
+                sparseArray.get(NON_EXISTED_KEY, VALUE_FOR_NON_EXISTED_KEY));
         assertNull(sparseArray.get(NON_EXISTED_KEY)); // the default value is null
 
         int size = sparseArray.size();
@@ -188,5 +195,228 @@ public class SparseArrayTest {
         assertEquals(40L, sparseArray.valueAt(1).longValue());
         assertEquals(20L, sparseArray.valueAt(2).longValue());
         assertEquals(Long.MIN_VALUE, sparseArray.valueAt(3).longValue());
+    }
+
+    @Test
+    public void testSet() {
+        SparseArray<String> first = new SparseArray<>();
+        first.put(0, "0");
+        first.put(1, "1");
+        first.put(2, "2");
+
+        SparseArray<String> second = new SparseArray<>();
+        second.set(2, "2");
+        second.set(0, "0");
+        second.set(1, "1");
+
+        assertThat(first.size()).isEqualTo(second.size());
+        assertThat(first.get(0)).isEqualTo(second.get(0));
+        assertThat(first.get(1)).isEqualTo(second.get(1));
+        assertThat(first.get(2)).isEqualTo(second.get(2));
+        assertThat(first.get(3, "-1")).isEqualTo(second.get(3, "-1"));
+
+        testContentEquals(first, second, SparseArray::contentEquals);
+    }
+
+    @Test
+    public void testContentEquals() {
+        SparseArray<TestData> first = new SparseArray<>();
+        first.put(0, new TestData("0"));
+        first.put(1, new TestData("1"));
+        first.put(2, new TestData("2"));
+
+        SparseArray<SubTestData> second = new SparseArray<>();
+        second.put(2, new SubTestData("2"));
+        second.put(0, new SubTestData("0"));
+        second.put(1, new SubTestData("1"));
+
+        // Subclass succeeds
+        testContentEquals(first, second, SparseArray::contentEquals);
+
+        SparseArray<TestData2> noMatchParent = new SparseArray<>();
+        noMatchParent.put(2, new TestData2("2"));
+        noMatchParent.put(0, new TestData2("0"));
+        noMatchParent.put(1, new TestData2("1"));
+
+        // Non-matching parent class fails (as implemented in equals instanceof check)
+        testContentNotEquals(first, noMatchParent, SparseArray::contentEquals);
+
+        SparseArray<TestDataCustomEquals> customEqualsOne = new SparseArray<>();
+        customEqualsOne.put(0, new TestDataCustomEquals("0"));
+        customEqualsOne.put(1, new TestDataCustomEquals("1"));
+        customEqualsOne.put(2, new TestDataCustomEquals("2"));
+
+        SparseArray<TestDataCustomEquals2> customEqualsTwo = new SparseArray<>();
+        customEqualsTwo.put(2, new TestDataCustomEquals2("2"));
+        customEqualsTwo.put(0, new TestDataCustomEquals2("0"));
+        customEqualsTwo.put(1, new TestDataCustomEquals2("1"));
+
+        // Non-matching parent class succeeds (as implemented in custom equals check)
+        testContentEquals(customEqualsOne, customEqualsTwo, SparseArray::contentEquals);
+
+        // Null fails
+        assertFalse(first.contentEquals(null));
+    }
+
+    private <T> void testContentEquals(@NonNull SparseArray<?> first,
+            @NonNull SparseArray<T> second,
+            BiFunction<SparseArray<?>, SparseArray<?>, Boolean> block) {
+        // Assert mirrored equality
+        assertTrue(block.apply(first, second));
+        assertTrue(block.apply(second, first));
+
+        //noinspection unchecked
+        second.put(1, (T) first.valueAt(2));
+
+        // Non-matching data at index 1 fails
+        assertFalse(first.contentEquals(second));
+        assertFalse(second.contentEquals(first));
+
+        // Assert failure of normal Objects.equals maintained
+        assertNotEquals(first, second);
+        assertNotEquals(second, first);
+    }
+
+    private <T> void testContentNotEquals(@NonNull SparseArray<?> first,
+            @NonNull SparseArray<T> second,
+            BiFunction<SparseArray<?>, SparseArray<?>, Boolean> block) {
+        // Assert mirrored equality
+        assertFalse(block.apply(first, second));
+        assertFalse(block.apply(second, first));
+        assertFalse(second.contentEquals(first));
+
+        // Assert failure of normal Objects.equals maintained
+        assertNotEquals(first, second);
+        assertNotEquals(second, first);
+    }
+
+    @Test
+    public void testContentHashCode() {
+        SparseArray<TestData> first = new SparseArray<>();
+        first.put(0, new TestData("0"));
+        first.put(1, new TestData("1"));
+        first.put(2, new TestData("2"));
+
+        SparseArray<TestData2> second = new SparseArray<>();
+        second.put(2, new TestData2("2"));
+        second.put(0, new TestData2("0"));
+        second.put(1, new TestData2("1"));
+
+        // Non-equal classes that evaluate to the same hash code passes
+        assertEquals(first.contentHashCode(), second.contentHashCode());
+
+        // Assert failure of normal Objects.hashCode maintained
+        assertNotEquals(first.hashCode(), second.hashCode());
+
+        second.put(1, new TestData2("2"));
+
+        // Non-matching data at index 1 fails
+        assertNotEquals(first.contentHashCode(), second.contentHashCode());
+
+        // Assert failure of normal Objects.hashCode maintained
+        assertNotEquals(first.hashCode(), second.hashCode());
+    }
+
+    private static class TestData {
+
+        private final String data;
+
+        private TestData(@NonNull String data) {
+            this.data = data;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof TestData)) return false;
+            TestData testData = (TestData) o;
+            return Objects.equals(data, testData.data);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(data);
+        }
+    }
+
+    private static class TestData2 {
+
+        private final String data;
+
+        private TestData2(@NonNull String data) {
+            this.data = data;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof TestData2)) return false;
+            TestData2 testData2 = (TestData2) o;
+            return Objects.equals(data, testData2.data);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(data);
+        }
+    }
+
+    private static class TestDataCustomEquals {
+
+        private final String data;
+
+        private TestDataCustomEquals(@NonNull String data) {
+            this.data = data;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o instanceof TestDataCustomEquals) {
+                return Objects.equals(data, ((TestDataCustomEquals) o).data);
+            } else if (o instanceof TestDataCustomEquals2) {
+                return Objects.equals(data, ((TestDataCustomEquals2) o).data);
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(data);
+        }
+    }
+
+    private static class TestDataCustomEquals2 {
+
+        private final String data;
+
+        private TestDataCustomEquals2(@NonNull String data) {
+            this.data = data;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o instanceof TestDataCustomEquals) {
+                return Objects.equals(data, ((TestDataCustomEquals) o).data);
+            } else if (o instanceof TestDataCustomEquals2) {
+                return Objects.equals(data, ((TestDataCustomEquals2) o).data);
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(data);
+        }
+    }
+
+    private static class SubTestData extends TestData {
+
+        private SubTestData(@NonNull String data) {
+            super(data);
+        }
     }
 }

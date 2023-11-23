@@ -40,12 +40,12 @@ public class IPAddressUtil {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public static boolean isIPv4LiteralAddress(java.lang.String src) {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public static boolean isIPv6LiteralAddress(java.lang.String src) {
         throw new RuntimeException("Stub!");
     }

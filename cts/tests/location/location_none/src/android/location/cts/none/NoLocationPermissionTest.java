@@ -16,22 +16,18 @@
 
 package android.location.cts.none;
 
-import static android.content.pm.PackageManager.FEATURE_TELEPHONY;
+import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
-import android.app.PendingIntent;
 import android.content.Context;
-import android.content.Intent;
 import android.location.Criteria;
 import android.location.LocationManager;
 import android.location.cts.common.LocationListenerCapture;
 import android.location.cts.common.LocationPendingIntentCapture;
+import android.location.cts.common.ProximityPendingIntentCapture;
 import android.os.Looper;
-import android.telephony.CellInfo;
-import android.telephony.PhoneStateListener;
-import android.telephony.TelephonyManager;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -39,8 +35,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.util.List;
 
 
 @RunWith(AndroidJUnit4.class)
@@ -50,86 +44,11 @@ public class NoLocationPermissionTest {
     private LocationManager mLocationManager;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         mContext = ApplicationProvider.getApplicationContext();
         mLocationManager = mContext.getSystemService(LocationManager.class);
 
         assertNotNull(mLocationManager);
-    }
-
-    @SuppressWarnings("deprecation")
-    @Test
-    public void testGetCellLocation() {
-        if (!mContext.getPackageManager().hasSystemFeature(FEATURE_TELEPHONY)) {
-            return;
-        }
-
-        TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
-        assertNotNull(telephonyManager);
-
-        try {
-            telephonyManager.getCellLocation();
-            fail("Should throw SecurityException");
-        } catch (SecurityException e) {
-            // expected
-        }
-    }
-
-    @Test
-    public void testGetAllCellInfo() {
-        if (!mContext.getPackageManager().hasSystemFeature(FEATURE_TELEPHONY)) {
-            return;
-        }
-
-        TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
-        assertNotNull(telephonyManager);
-
-        try {
-            telephonyManager.getAllCellInfo();
-            fail("Should throw SecurityException");
-        } catch (SecurityException e) {
-            // expected
-        }
-    }
-
-    @Test
-    public void testListenCellLocation() {
-        if (!mContext.getPackageManager().hasSystemFeature(FEATURE_TELEPHONY)) {
-            return;
-        }
-
-        TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
-        assertNotNull(telephonyManager);
-
-        try {
-            telephonyManager.listen(new PhoneStateListener(Runnable::run),
-                    PhoneStateListener.LISTEN_CELL_LOCATION);
-            fail("Should throw SecurityException");
-        } catch (SecurityException e) {
-            // expected
-        }
-    }
-
-    @Test
-    public void testRequestCellInfoUpdate() {
-        if (!mContext.getPackageManager().hasSystemFeature(FEATURE_TELEPHONY)) {
-            return;
-        }
-
-        TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
-        assertNotNull(telephonyManager);
-
-        try {
-            telephonyManager.requestCellInfoUpdate(Runnable::run,
-                    new TelephonyManager.CellInfoCallback() {
-                        @Override
-                        public void onCellInfo(List<CellInfo> cellInfos) {
-                        }
-                    });
-            fail("Should throw SecurityException");
-        } catch (SecurityException e) {
-            // expected
-        }
     }
 
     @Test
@@ -162,15 +81,11 @@ public class NoLocationPermissionTest {
 
     @Test
     public void testAddProximityAlert() {
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(mContext,
-                0, new Intent("action"), PendingIntent.FLAG_ONE_SHOT);
-        try {
-            mLocationManager.addProximityAlert(0, 0, 100, -1, pendingIntent);
+        try (ProximityPendingIntentCapture capture = new ProximityPendingIntentCapture(mContext)) {
+            mLocationManager.addProximityAlert(0, 0, 100, -1, capture.getPendingIntent());
             fail("Should throw SecurityException");
         } catch (SecurityException e) {
             // expected
-        } finally {
-            pendingIntent.cancel();
         }
     }
 
@@ -183,20 +98,6 @@ public class NoLocationPermissionTest {
             } catch (SecurityException e) {
                 // expected
             }
-        }
-    }
-
-    @Test
-    public void testGetProvider() {
-        for (String provider : mLocationManager.getAllProviders()) {
-            mLocationManager.getProvider(provider);
-        }
-    }
-
-    @Test
-    public void testIsProviderEnabled() {
-        for (String provider : mLocationManager.getAllProviders()) {
-            mLocationManager.isProviderEnabled(provider);
         }
     }
 

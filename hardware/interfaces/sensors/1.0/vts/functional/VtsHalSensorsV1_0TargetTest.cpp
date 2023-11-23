@@ -24,7 +24,9 @@
 #include <log/log.h>
 #include <utils/SystemClock.h>
 
+#include <algorithm>
 #include <cinttypes>
+#include <unordered_map>
 #include <vector>
 
 using ::android::hardware::Return;
@@ -149,6 +151,7 @@ std::vector<SensorInfo> SensorsHidlTest::getSensorsList() {
 TEST_P(SensorsHidlTest, SensorListValid) {
     S()->getSensorsList([&](const auto& list) {
         const size_t count = list.size();
+        std::unordered_map<int32_t, std::vector<std::string>> sensorTypeNameMap;
         for (size_t i = 0; i < count; ++i) {
             const auto& s = list[i];
             SCOPED_TRACE(::testing::Message()
@@ -166,6 +169,14 @@ TEST_P(SensorsHidlTest, SensorListValid) {
             // Test if all sensor has name and vendor
             EXPECT_FALSE(s.name.empty());
             EXPECT_FALSE(s.vendor.empty());
+
+            // Make sure that sensors of the same type have a unique name.
+            std::vector<std::string>& v = sensorTypeNameMap[static_cast<int32_t>(s.type)];
+            bool isUniqueName = std::find(v.begin(), v.end(), s.name) == v.end();
+            EXPECT_TRUE(isUniqueName) << "Duplicate sensor Name: " << s.name;
+            if (isUniqueName) {
+                v.push_back(s.name);
+            }
 
             // Test power > 0, maxRange > 0
             EXPECT_LE(0, s.power);
@@ -190,7 +201,7 @@ TEST_P(SensorsHidlTest, SensorListValid) {
     });
 }
 
-// Test if sensor list returned is valid
+// Test if sensor hal can switch to different operation modes
 TEST_P(SensorsHidlTest, SetOperationMode) {
     std::vector<SensorInfo> sensorList = getSensorsList();
 
@@ -208,7 +219,7 @@ TEST_P(SensorsHidlTest, SetOperationMode) {
     ASSERT_EQ(Result::OK, S()->setOperationMode(OperationMode::NORMAL));
 }
 
-// Test if sensor list returned is valid
+// Test if sensor hal can receive injected events in loopback mode
 TEST_P(SensorsHidlTest, InjectSensorEventData) {
     std::vector<SensorInfo> sensorList = getSensorsList();
     std::vector<SensorInfo> sensorSupportInjection;
@@ -448,6 +459,7 @@ TEST_P(SensorsHidlTest, MagnetometerGrallocDirectReportOperationVeryFast) {
                               RateLevel::VERY_FAST, NullChecker<Event>());
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(SensorsHidlTest);
 INSTANTIATE_TEST_SUITE_P(
         PerInstance, SensorsHidlTest,
         testing::ValuesIn(android::hardware::getAllHalInstanceNames(ISensors::descriptor)),

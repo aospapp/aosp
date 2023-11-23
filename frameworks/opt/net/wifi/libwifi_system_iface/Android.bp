@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 wifi_system_iface_cflags = [
     "-Wall",
     "-Werror",
@@ -29,6 +33,7 @@ wifi_system_iface_cflags = [
 cc_library {
     name: "libwifi-system-iface",
     vendor_available: true,
+    product_available: true,
     vndk: {
         enabled: true,
     },

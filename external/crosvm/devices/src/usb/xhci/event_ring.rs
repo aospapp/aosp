@@ -3,11 +3,10 @@
 // found in the LICENSE file.
 
 use data_model::DataInit;
-use std;
 use std::fmt::{self, Display};
 use std::mem::size_of;
 use std::sync::atomic::{fence, Ordering};
-use sys_util::{GuestAddress, GuestMemory, GuestMemoryError};
+use vm_memory::{GuestAddress, GuestMemory, GuestMemoryError};
 
 use super::xhci_abi::*;
 
@@ -143,11 +142,6 @@ impl EventRing {
     pub fn set_dequeue_pointer(&mut self, addr: GuestAddress) {
         usb_debug!("event ring dequeue pointer set to {:#x}", addr.0);
         self.dequeue_pointer = addr;
-    }
-
-    /// Get the enqueue pointer.
-    pub fn get_enqueue_pointer(&self) -> GuestAddress {
-        self.enqueue_pointer
     }
 
     /// Check if event ring is empty.

@@ -20,9 +20,11 @@ import android.content.Intent;
 import android.content.IntentSender;
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Lifecycle;
 
 /**
  * Encapsulates a subset of the operations possible from a {@link Fragment}.
@@ -47,12 +49,23 @@ public interface FragmentController {
     void showDialog(DialogFragment dialogFragment, @Nullable String tag);
 
     /**
+     * Shows/hides the Fragment's progress bar.
+     */
+    void showProgressBar(boolean visible);
+
+    /**
      * Finds dialog by tag. This is primarily used to reattach listeners to dialogs after
      * configuration change. This method will return null if the tag references a fragment that
      * isn't a dialog fragment or no dialog with the given tag exists.
      */
     @Nullable
     DialogFragment findDialogByTag(String tag);
+
+    /**
+     * Returns the current Lifecycle instance for the fragment.
+     */
+    @NonNull
+    Lifecycle getSettingsLifecycle();
 
     /**
      * Starts an activity for a result. When the result is received, the {@link

@@ -49,12 +49,13 @@
     <string name="add_vm_number_str" msgid="7368168964435881637">"எண்ணைச் சேர்"</string>
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"முதன்மை பயனர் மட்டுமே குரலஞ்சல் அமைப்புகளை மாற்ற முடியும்."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"சிம் கார்டின் தடுப்பு நீக்கப்பட்டது. மொபைல் திறக்கப்படுகிறது…"</string>
-    <string name="label_ndp" msgid="7617392683877410341">"சிம் நெட்வொர்க்கின் தடைநீக்க பின்"</string>
-    <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"தடைநீக்கு"</string>
+    <string name="label_ndp" msgid="7617392683877410341">"சிம் நெட்வொர்க்கை அன்லாக் செய்யும் பின்"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"ஆப்பரேட்டருக்கு சிம் பூட்டப்பட்டுள்ளது"</string>
+    <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"அன்லாக் செய்"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"விலக்கு"</string>
-    <string name="requesting_unlock" msgid="930512210309437741">"நெட்வொர்க் தடைநீக்கத்தைக் கோருகிறது…"</string>
-    <string name="unlock_failed" msgid="7103543844840661366">"நெட்வொர்க் தடைநீக்கத்திற்கான கோரிக்கை தோல்வி."</string>
-    <string name="unlock_success" msgid="32681089371067565">"நெட்வொர்க்கின் தடைநீக்கப்பட்டது."</string>
+    <string name="requesting_unlock" msgid="930512210309437741">"நெட்வொர்க்கை அன்லாக் செய்யக் கோருகிறது…"</string>
+    <string name="unlock_failed" msgid="7103543844840661366">"நெட்வொர்க்கை அன்லாக் செய்வதற்கான கோரிக்கை தோல்வியடைந்தது."</string>
+    <string name="unlock_success" msgid="32681089371067565">"நெட்வொர்க் அன்லாக் செய்யப்பட்டது."</string>
     <string name="mobile_network_settings_not_available" msgid="8678168497517090039">"இவரால் மொபைல் நெட்வொர்க் அமைப்புகளை மாற்ற முடியாது"</string>
     <string name="labelGSMMore" msgid="7354182269461281543">"GSM அழைப்பு அமைப்பு"</string>
     <string name="labelGsmMore_with_label" msgid="3206015314393246224">"GSM அழைப்பு அமைப்புகள் (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> க்குப் பகிர்"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"ஆஃப்"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"மொபைல் தொடர்புகொள்ள முடியாத இடத்தில் இருக்கும்போது, அழைப்பு பகிர்தலை முடக்குவதை ஆபரேட்டர் ஆதரிக்கவில்லை."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"உங்கள் மொபைல் நிறுவனம் அழைப்புப் பகிர்வை ஆதரிக்கவில்லை."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"அழைப்பு காத்திருப்பை இயக்கவா?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"ஒரு அழைப்பில் இருக்கும்போது, உள்வரும் அழைப்புகள் குறித்து உங்களுக்குத் தெரிவிக்கப்படும்"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"இயக்கு"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"ரத்துசெய்"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"CDMA அழைப்பு காத்திருப்பு IMS இயக்கத்தில்"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA அழைப்பு காத்திருப்பு IMS முடக்கத்தில்"</string>
     <string name="updating_title" msgid="6130548922615719689">"அழைப்பு அமைப்பு"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"நிர்வாகிப் பயனர் மட்டுமே அழைப்பிற்கான அமைப்புகளை மாற்ற முடியும்."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"அமைப்புகள் (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"SIMமின் செயல்பாடு வரம்பிடப்பட்டது"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> எண்ணைப் பயன்படுத்தும் போது <xliff:g id="CARRIER_NAME">%1$s</xliff:g> அழைப்புகளும் டேட்டா சேவைகளும் தடுக்கப்படக்கூடும்."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"வேறொரு SIMமில் <xliff:g id="CARRIER_NAME">%1$s</xliff:g> அழைப்புகளும் டேட்டா சேவைகளும் தடுக்கப்படக்கூடும்."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"நிறுத்தப்பட்ட SIP கணக்குகள் கண்டறியப்பட்டு அகற்றப்பட்டன"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Android பிளாட்ஃபார்மில் இனி SIP அழைப்பைச் செய்ய முடியாது.\nஏற்கெனவே உள்ள <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> SIP கணக்குகள் அகற்றப்பட்டன.\nஅழைப்பைச் செய்வதற்கான இயல்புக் கணக்கு அமைப்பை உறுதிசெய்யவும்."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"அமைப்புகளுக்குச் செல்"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"ஆப்ஸ் டேட்டா உபயோகம்"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g>: <xliff:g id="ID_1">%1$s</xliff:g> மொபைல் டேட்டா பயன்படுத்தப்பட்டது"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"மேம்பட்டவை"</string>
@@ -328,7 +339,7 @@
     <string name="maintenance_enable" msgid="2646784483222342290">"பராமரிப்பு இயக்கப்பட்டது"</string>
     <string name="maintenance_disable" msgid="2121032601497725602">"பராமரிப்பு முடக்கப்பட்டது"</string>
     <string name="general_news_settings" msgid="2670499575962080411">"பொது செய்திகள்"</string>
-    <string name="bf_news_settings" msgid="8571709425370794221">"வணிகம் மற்றும் நிதிசார்ந்த செய்திகள்"</string>
+    <string name="bf_news_settings" msgid="8571709425370794221">"பிசினஸ் மற்றும் நிதிசார்ந்த செய்திகள்"</string>
     <string name="sports_news_settings" msgid="2684364556989168438">"விளையாட்டுச் செய்திகள்"</string>
     <string name="entertainment_news_settings" msgid="4228527702346305543">"பொழுதுபோக்குச் செய்திகள்"</string>
     <string name="enable_disable_local" msgid="7654175079979415572">"உள்ளூர்"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"கடவுச்சொல் தவறானது. சிம் இப்போது பூட்டப்பட்டது. PUK2ஐ உள்ளிடவும்."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 தற்காலிகமாகத் தடுக்கப்பட்டது."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"நீங்கள் <xliff:g id="NUMBER">%d</xliff:g> முறை முயற்சிக்கலாம்."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 லாக் செய்யப்பட்டுள்ளது. அன்லாக் செய்ய சேவை வழங்குநரைத் தொடர்புகொள்ளவும்."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 இனி தடுக்கப்படாது"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"நெட்வொர்க் அல்லது சிம் கார்டு பிழை"</string>
     <string name="doneButton" msgid="7371209609238460207">"முடிந்தது"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"அழைக்க, மொபைல் நெட்வொர்க்கை இயக்கவும், விமானப் பயன்முறை அல்லது பேட்டரி சேமிப்பான் பயன்முறையை முடக்கவும்."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"அழைக்க, விமானப் பயன்முறையை முடக்கவும்."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"அழைக்க, விமானப் பயன்முறையை முடக்கவும் அல்லது வயர்லெஸ் நெட்வொர்க்குடன் இணைக்கவும்."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"மொபைல் மிகச் சூடாக உள்ளது"</b>\n\n"இந்த அழைப்பைத் தொடர முடியவில்லை. மொபைலின் சூடு முழுமையாகத் தணிந்ததும் மீண்டும் அழைக்கவும்.\n\nஇருப்பினும் அவசர அழைப்புகளைச் செய்யலாம்."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"வழக்கமான அழைப்பிற்கு, அவசரகாலத் திரும்ப அழைக்கும் பயன்முறையிலிருந்து வெளியேறவும்."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"நெட்வொர்க்கில் பதிவுசெய்யப்படவில்லை."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"மொபைல் நெட்வொர்க் கிடைக்கவில்லை."</string>
@@ -561,7 +574,7 @@
     <string name="ambulance_type_description" msgid="6798237503553180461">"ஆம்புலன்ஸ்"</string>
     <string name="fire_type_description" msgid="6565200468934914930">"தீயணைப்பு"</string>
     <string name="description_concat_format" msgid="2014471565101724088">"%1$s, %2$s"</string>
-    <string name="dialerKeyboardHintText" msgid="1115266533703764049">"டயல் செய்வதற்கு விசைப்பலகையைப் பயன்படுத்துக"</string>
+    <string name="dialerKeyboardHintText" msgid="1115266533703764049">"டயல் செய்வதற்கு கீபோர்டைப் பயன்படுத்துக"</string>
     <string name="onscreenHoldText" msgid="4025348842151665191">"காத்திரு"</string>
     <string name="onscreenEndCallText" msgid="6138725377654842757">"முடி"</string>
     <string name="onscreenShowDialpadText" msgid="658465753816164079">"டயல்பேடு"</string>
@@ -842,7 +855,7 @@
     <string name="radio_info_ims_reg_status_not_registered" msgid="8045821447288876085">"பதிவுசெய்யப்படவில்லை"</string>
     <string name="radio_info_ims_feature_status_available" msgid="6493200914756969292">"இருக்கிறது"</string>
     <string name="radio_info_ims_feature_status_unavailable" msgid="8930391136839759778">"கிடைக்கவில்லை"</string>
-    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS பதிவு: <xliff:g id="STATUS">%1$s</xliff:g>\nவாய்ஸ் ஓவர் LTE: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nவாய்ஸ் ஓவர் WiFi: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nவீடியோ அழைப்பு: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT இடைமுகம்: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
+    <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS பதிவு: <xliff:g id="STATUS">%1$s</xliff:g>\nவாய்ஸ் ஓவர் LTE: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nவாய்ஸ் ஓவர் வைஃபை: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nவீடியோ அழைப்பு: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT இடைமுகம்: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
     <string name="radioInfo_service_in" msgid="45753418231446400">"சேவையில் உள்ளது"</string>
     <string name="radioInfo_service_out" msgid="287972405416142312">"சேவையில் இல்லை"</string>
     <string name="radioInfo_service_emergency" msgid="4763879891415016848">"அவசர அழைப்புகள் மட்டும்"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"இயல்பான டேட்டா சிம்மின் துணை ஐடி:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL இணைய வேகம் (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL இணைய வேகம் (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"மொபைலின் இருப்பிடத் தகவல் (நிறுத்தப்பட்டது):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE ஃபிசிக்கல் சேனல் உள்ளமைவு:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"மொபைல் தகவலின் புதுப்பிப்பு விகிதம்:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"அனைத்து மொபைல் அளவீட்டுத் தகவல்:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"புதுப்பி"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS சரிபார்ப்பை நிலைமாற்று"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM சார்ந்த தகவல்/அமைப்புகள்"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC உள்ளது:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR கட்டுப்படுத்தப்பட்டது:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR உள்ளது:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR நிலை:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR அலைவரிசை:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ரேடியோ பேண்டு பயன்முறையை அமை"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"பேண்டு பட்டியலை ஏற்றுகிறது…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"அமை"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"மொபைலின் தகவல்"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Carrier Provisioning Info"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Trigger Carrier Provisioning"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"புளூடூத் சிக்னல் வலுவற்றதாக உள்ளது. ஸ்பீக்கர் ஃபோனிற்கு மாற்றவும்."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"அழைப்பின் தரம் தொடர்பான அறிவிப்பு"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"நிறுத்தப்பட்ட SIP கணக்குகள்"</string>
 </resources>

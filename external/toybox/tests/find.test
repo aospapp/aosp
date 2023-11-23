@@ -38,6 +38,8 @@ testing "( -type p -o -type d ) -type p" \
 testing "-type l -o -type d -type p -o -type f" \
 	"find dir -type l -o -type d -type p -o -type f | sort" \
 	"dir/file\ndir/link\n" "" ""
+testing "-type l,f" \
+	"find dir -type l,f | sort" "dir/file\ndir/link\n" "" ""
 
 # Testing short-circuit evaluations
 
@@ -137,5 +139,9 @@ testing "-name match root" "find dir/f* -name file" "dir/file\n" "" ""
 ln -s nowhere broken
 testing "-H broken" "find -H broken" "broken\n" "" ""
 testing "-L broken" "find -L broken" "broken\n" "" ""
+
+testing "one slash" 'find /etc/ -maxdepth 1 | grep /passwd\$' '/etc/passwd\n' \
+  '' ''
+testing 'empty arg' 'find "" dir -name file 2>/dev/null' 'dir/file\n' '' ''
 
 rm -rf dir

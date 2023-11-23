@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -31,7 +31,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/31797770
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 31797770)
     public void testPocCVE_2016_8425() throws Exception {
         if(containsDriver(getDevice(), "/dev/nvhost-vic")) {
             AdbUtils.runPoc("CVE-2016-8425", getDevice(), 60);
@@ -42,7 +42,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/31799206
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 31799206)
     public void testPocCVE_2016_8426() throws Exception {
         if(containsDriver(getDevice(), "/dev/nvhost-gpu")) {
             AdbUtils.runPoc("CVE-2016-8426", getDevice(), 60);
@@ -53,7 +53,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/31799885
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 31799885)
     public void testPocCVE_2016_8427() throws Exception {
         if(containsDriver(getDevice(), "/dev/nvhost-gpu") ||
               containsDriver(getDevice(), "/dev/nvhost-dbg-gpu")) {
@@ -65,7 +65,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/31993456
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 31993456)
     public void testPocCVE_2016_8428() throws Exception {
         if(containsDriver(getDevice(), "/dev/nvmap")) {
             AdbUtils.runPoc("CVE-2016-8428", getDevice(), 60);
@@ -76,7 +76,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/32160775
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 32160775)
     public void testPocCVE_2016_8429() throws Exception {
         if(containsDriver(getDevice(), "/dev/nvmap")) {
             AdbUtils.runPoc("CVE-2016-8429", getDevice(), 60);
@@ -87,7 +87,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/32225180
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 31801045)
     public void testPocCVE_2016_8430() throws Exception {
         if(containsDriver(getDevice(), "/dev/nvhost-vic")) {
             AdbUtils.runPoc("CVE-2016-8430", getDevice(), 60);
@@ -98,7 +98,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/32402179
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 32402179)
     public void testPocCVE_2016_8431() throws Exception {
         if(containsDriver(getDevice(), "/dev/dri/renderD129")) {
             AdbUtils.runPoc("CVE-2016-8431", getDevice(), 60);
@@ -109,7 +109,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/32447738
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 32447738)
     public void testPocCVE_2016_8432() throws Exception {
         if(containsDriver(getDevice(), "/dev/dri/renderD129")) {
             AdbUtils.runPoc("CVE-2016-8432", getDevice(), 60);
@@ -120,7 +120,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/32125137
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 32125137)
     public void testPocCVE_2016_8434() throws Exception {
         if(containsDriver(getDevice(), "/dev/kgsl-3d0")) {
             // This poc is very verbose so we ignore the output to avoid using a lot of memory.
@@ -132,7 +132,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/31668540
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 31668540)
     public void testPocCVE_2016_8460() throws Exception {
         if(containsDriver(getDevice(), "/dev/nvmap")) {
             String result = AdbUtils.runPoc("CVE-2016-8460", getDevice(), 60);
@@ -144,7 +144,7 @@ public class Poc17_01 extends SecurityTestCase {
      *  b/32255299
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 32255299)
     public void testPocCVE_2017_0386() throws Exception {
         AdbUtils.runPocAssertExitStatusNotVulnerable("CVE-2017-0386", getDevice(), 60);
     }

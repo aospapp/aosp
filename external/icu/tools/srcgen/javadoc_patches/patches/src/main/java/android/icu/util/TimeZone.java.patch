@@ -1,5 +1,5 @@
---- android_icu4j/src/main/java/android/icu/util/TimeZone.java	2019-09-13 12:40:44.041495833 +0100
-+++ android_icu4j/src/main/java/android/icu/util/TimeZone.java	2019-09-13 12:41:03.733568473 +0100
+--- android_icu4j/src/main/java/android/icu/util/TimeZone.java	2021-01-19 16:26:23.434641944 +0000
++++ android_icu4j/src/main/java/android/icu/util/TimeZone.java	2021-01-19 16:26:51.434840706 +0000
 @@ -83,35 +83,8 @@
   * Time" and "China Standard Time"), and the Java platform can then only
   * recognize one of them.

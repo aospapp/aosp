@@ -36,7 +36,7 @@ public class IOErrorTest extends TestCase {
         String errorMsg = "java.io.IOError"; //$NON-NLS-1$
         assertTrue(e.toString().contains(errorMsg));
 
-        errorMsg = "A dummy error"; //$NON-NLS-1$
+        errorMsg = "A fake error"; //$NON-NLS-1$
         e = new IOError(new Throwable(errorMsg));
         assertTrue(e.toString().contains(errorMsg));
 

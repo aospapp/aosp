@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -52,11 +52,15 @@ extern "C" {
 #define R_OK 4
 #define W_OK 2
 #define RW_OK 6
-#define _SC_PAGESIZE 1
+#define _SC_PAGE_SIZE 1
 #define _SC_PHYS_PAGES 2
 #define _SC_OPEN_MAX 3
 #if !defined(SSIZE_MAX)
-#define SSIZE_MAX  0x7fffffffL
+# ifdef _WIN64
+#   define SSIZE_MAX LLONG_MAX
+# else
+#   define SSIZE_MAX LONG_MAX
+# endif
 #endif
 
 /*
@@ -109,14 +113,14 @@ extern "C" {
 #  define freelocale  _free_locale
 #endif
 #if !defined(fseek) && !defined(__MINGW32__)
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(Windows95) && \
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
   !(defined(_MSC_VER) && (_MSC_VER < 1400)) && \
   !(defined(__MSVCRT_VERSION__) && (__MSVCRT_VERSION__ < 0x800))
 #  define fseek  _fseeki64
 #endif
 #endif
 #if !defined(fstat) && !defined(__BORLANDC__)
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(Windows95) && \
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
   !(defined(_MSC_VER) && (_MSC_VER < 1400)) && \
   !(defined(__MSVCRT_VERSION__) && (__MSVCRT_VERSION__ < 0x800))
 #  define fstat  _fstati64
@@ -128,7 +132,7 @@ extern "C" {
 #  define fsync  _commit
 #endif
 #if !defined(ftell) && !defined(__MINGW32__)
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(Windows95) && \
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
   !(defined(_MSC_VER) && (_MSC_VER < 1400)) && \
   !(defined(__MSVCRT_VERSION__) && (__MSVCRT_VERSION__ < 0x800))
 #  define ftell  _ftelli64
@@ -152,7 +156,7 @@ extern "C" {
 #if !defined(locale_t)
 #define locale_t _locale_t
 #endif
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(Windows95) && \
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
   !(defined(_MSC_VER) && (_MSC_VER < 1400)) && \
   !(defined(__MSVCRT_VERSION__) && (__MSVCRT_VERSION__ < 0x800))
 #if !defined(lseek)
@@ -193,9 +197,6 @@ extern "C" {
 #  define mmap(address,length,protection,access,file,offset) \
   NTMapMemory(address,length,protection,access,file,offset)
 #endif
-#if !defined(msync)
-#  define msync(address,length,flags)  NTSyncMemory(address,length,flags)
-#endif
 #if !defined(munmap)
 #  define munmap(address,length)  NTUnmapMemory(address,length)
 #endif
@@ -220,9 +221,6 @@ extern "C" {
 #if !defined(readdir)
 #  define readdir(directory)  NTReadDirectory(directory)
 #endif
-#if !defined(seekdir)
-#  define seekdir(directory,offset)  NTSeekDirectory(directory,offset)
-#endif
 #if !defined(setmode)
 #  define setmode  _setmode
 #endif
@@ -233,7 +231,7 @@ extern "C" {
 #define strtod_l  _strtod_l
 #endif
 #if !defined(stat) && !defined(__BORLANDC__)
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(Windows95) && \
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
   !(defined(_MSC_VER) && (_MSC_VER < 1400)) && \
   !(defined(__MSVCRT_VERSION__) && (__MSVCRT_VERSION__ < 0x800))
 #  define stat  _stati64
@@ -250,15 +248,12 @@ extern "C" {
 #if !defined(sysconf)
 #  define sysconf(name)  NTSystemConfiguration(name)
 #endif
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(Windows95) && \
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
   !(defined(_MSC_VER) && (_MSC_VER < 1400)) && \
   !(defined(__MSVCRT_VERSION__) && (__MSVCRT_VERSION__ < 0x800))
 #  define tell  _telli64
 #else
 #  define tell  _tell
-#endif
-#if !defined(telldir)
-#  define telldir(directory)  NTTellDirectory(directory)
 #endif
 #if !defined(tempnam)
 #  define tempnam  _tempnam_s
@@ -293,7 +288,7 @@ extern "C" {
 #  define write(fd,buffer,count)  _write(fd,buffer,(unsigned int) count)
 #endif
 #if !defined(wstat) && !defined(__BORLANDC__)
-#if defined(MAGICKCORE_WINDOWS_SUPPORT) && !defined(Windows95) && \
+#if defined(MAGICKCORE_WINDOWS_SUPPORT) && \
   !(defined(_MSC_VER) && (_MSC_VER < 1400)) && \
   !(defined(__MSVCRT_VERSION__) && (__MSVCRT_VERSION__ < 0x800))
 #  define wstat  _wstati64

@@ -16,13 +16,14 @@
 
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.car.dialer.tests.instrutests">
+    package="com.android.car.dialer.tests.instrutests"
+    android:debuggable="true">
 
     <application>
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="com.android.car.dialer.integration.DialerHiltTestRunner"
                      android:targetPackage="com.android.car.dialer"
                      android:label="Car Dialer Instrumented Tests">
     </instrumentation>

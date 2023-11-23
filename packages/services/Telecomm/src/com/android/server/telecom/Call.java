@@ -16,6 +16,8 @@
 
 package com.android.server.telecom;
 
+import static android.provider.CallLog.Calls.MISSED_REASON_NOT_MISSED;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.Context;
@@ -33,8 +35,12 @@ import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.Trace;
 import android.os.UserHandle;
+import android.provider.CallLog;
 import android.provider.ContactsContract.Contacts;
+import android.telecom.BluetoothCallQualityReport;
 import android.telecom.CallAudioState;
+import android.telecom.CallDiagnosticService;
+import android.telecom.CallDiagnostics;
 import android.telecom.CallerInfo;
 import android.telecom.Conference;
 import android.telecom.Connection;
@@ -51,9 +57,11 @@ import android.telecom.Response;
 import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
+import android.telephony.CallQuality;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
 import android.telephony.emergency.EmergencyNumber;
+import android.telephony.ims.ImsReasonInfo;
 import android.text.TextUtils;
 import android.widget.Toast;
 
@@ -74,7 +82,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  *  Encapsulates all aspects of a given phone call throughout its lifecycle, starting
@@ -151,6 +161,10 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
                                  Bundle extras, boolean isLegacy);
         void onHandoverFailed(Call call, int error);
         void onHandoverComplete(Call call);
+        void onBluetoothCallQualityReport(Call call, BluetoothCallQualityReport report);
+        void onReceivedDeviceToDeviceMessage(Call call, int messageType, int messageValue);
+        void onReceivedCallQualityReport(Call call, CallQuality callQuality);
+        void onCallerNumberVerificationStatusChanged(Call call, int callerNumberVerificationStatus);
     }
 
     public abstract static class ListenerBase implements Listener {
@@ -239,6 +253,15 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
         public void onHandoverFailed(Call call, int error) {}
         @Override
         public void onHandoverComplete(Call call) {}
+        @Override
+        public void onBluetoothCallQualityReport(Call call, BluetoothCallQualityReport report) {}
+        @Override
+        public void onReceivedDeviceToDeviceMessage(Call call, int messageType, int messageValue) {}
+        @Override
+        public void onReceivedCallQualityReport(Call call, CallQuality callQuality) {}
+        @Override
+        public void onCallerNumberVerificationStatusChanged(Call call,
+                int callerNumberVerificationStatus) {}
     }
 
     private final CallerInfoLookupHelper.OnQueryCompleteListener mCallerInfoQueryListener =
@@ -507,6 +530,15 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
     private boolean mIsSelfManaged = false;
 
     /**
+     * Indicates whether the {@link PhoneAccount} associated with an self-managed call want to
+     * expose the call to an {@link android.telecom.InCallService} which declares the metadata
+     * {@link TelecomManager#METADATA_INCLUDE_SELF_MANAGED_CALLS},
+     * For calls that {@link #mIsSelfManaged} is {@code false}, this value should be {@code false}
+     * as well.
+     */
+    private boolean mVisibleToInCallService = false;
+
+    /**
      * Indicates whether the {@link PhoneAccount} associated with this call supports video calling.
      * {@code True} if the phone account supports video calling, {@code false} otherwise.
      */
@@ -545,7 +577,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
     private ParcelFileDescriptor[] mConnectionServiceToInCallStreams;
 
     /**
-     * True if we're supposed to start this call with RTT, either due to the master switch or due
+     * True if we're supposed to start this call with RTT, either due to the settings switch or due
      * to an extra.
      */
     private boolean mDidRequestToStartWithRtt = false;
@@ -588,7 +620,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
 
     /**
      * Indicates whether this call is using one of the
-     * {@link com.android.server.telecom.callfiltering.IncomingCallFilter.CallFilter} modules.
+     * {@link com.android.server.telecom.callfiltering.CallFilter} modules.
      */
     private boolean mIsUsingCallFiltering = false;
 
@@ -609,6 +641,51 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
      * of a call.
      */
     private String mPostCallPackageName;
+
+    /**
+     * Call missed information code.
+     */
+    @CallLog.Calls.MissedReason private long mMissedReason;
+
+    /**
+     * Time that this call start ringing or simulated ringing.
+     */
+    private long mStartRingTime;
+
+    /**
+     * The package name of the call screening service that silence this call. If the call is not
+     * silenced, this field will be null.
+     */
+    private CharSequence mCallScreeningAppName;
+
+    /**
+     * The component name of the call screening service that silence this call. If the call is not
+     * silenced, this field will be null.
+     */
+    private String mCallScreeningComponentName;
+
+    /**
+     * When {@code true} indicates this call originated from a SIM-based {@link PhoneAccount}.
+     * A sim-based {@link PhoneAccount} is one with {@link PhoneAccount#CAPABILITY_SIM_SUBSCRIPTION}
+     * set.
+     */
+    private boolean mIsSimCall;
+
+    /**
+     * Set to {@code true} if we received a valid response ({@code null} or otherwise) from
+     * the {@link CallDiagnostics#onCallDisconnected(ImsReasonInfo)} or
+     * {@link CallDiagnostics#onCallDisconnected(int, int)} calls.  This is used to detect a timeout
+     * when awaiting a response from the call diagnostic service.
+     */
+    private boolean mReceivedCallDiagnosticPostCallResponse = false;
+
+    /**
+     * {@link CompletableFuture} used to delay posting disconnection and removal to a call until
+     * after a {@link CallDiagnosticService} is able to handle the disconnection and provide a
+     * disconnect message via {@link CallDiagnostics#onCallDisconnected(ImsReasonInfo)} or
+     * {@link CallDiagnostics#onCallDisconnected(int, int)}.
+     */
+    private CompletableFuture<Boolean> mDisconnectFuture;
 
     /**
      * Persists the specified parameters and initializes the new instance.
@@ -692,6 +769,8 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
         mClockProxy = clockProxy;
         mToastFactory = toastFactory;
         mCreationTimeMillis = mClockProxy.currentTimeMillis();
+        mMissedReason = MISSED_REASON_NOT_MISSED;
+        mStartRingTime = 0;
     }
 
     /**
@@ -855,7 +934,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
         PhoneAccountHandle delegatePhoneAccountHandle = getDelegatePhoneAccountHandle();
         boolean isTargetSameAsRemote = targetPhoneAccountHandle != null
                 && targetPhoneAccountHandle.equals(remotePhoneAccountHandle);
-        if (delegatePhoneAccountHandle.equals(targetPhoneAccountHandle)) {
+        if (Objects.equals(delegatePhoneAccountHandle, targetPhoneAccountHandle)) {
             s.append(">>>");
         }
         s.append("Target");
@@ -1040,6 +1119,31 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
     }
 
     /**
+     * Handles an incoming overridden disconnect message for this call.
+     *
+     * We only care if the disconnect is handled via a future.
+     * @param message the overridden disconnect message.
+     */
+    public void handleOverrideDisconnectMessage(@Nullable CharSequence message) {
+        Log.i(this, "handleOverrideDisconnectMessage; callid=%s, msg=%s", getId(), message);
+
+        if (isDisconnectHandledViaFuture()) {
+            mReceivedCallDiagnosticPostCallResponse = true;
+            if (message != null) {
+                Log.addEvent(this, LogUtils.Events.OVERRIDE_DISCONNECT_MESSAGE, message);
+                // Replace the existing disconnect cause in this call
+                setOverrideDisconnectCauseCode(new DisconnectCause(DisconnectCause.ERROR, message,
+                        message, null));
+            }
+
+            mDisconnectFuture.complete(true);
+        } else {
+            Log.w(this, "handleOverrideDisconnectMessage; callid=%s - got override when unbound",
+                    getId());
+        }
+    }
+
+    /**
      * Sets the call state. Although there exists the notion of appropriate state transitions
      * (see {@link CallState}), in practice those expectations break down when cellular systems
      * misbehave and they do this very often. The result is that we do not enforce state transitions
@@ -1123,6 +1227,12 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
                     break;
                 case CallState.ANSWERED:
                     event = LogUtils.Events.SET_ANSWERED;
+                    break;
+                case CallState.AUDIO_PROCESSING:
+                    event = LogUtils.Events.SET_AUDIO_PROCESSING;
+                    break;
+                case CallState.SIMULATED_RINGING:
+                    event = LogUtils.Events.SET_SIMULATED_RINGING;
                     break;
             }
             if (event != null) {
@@ -1217,6 +1327,8 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
     public void setCallerNumberVerificationStatus(
             @Connection.VerificationStatus int callerNumberVerificationStatus) {
         mCallerNumberVerificationStatus = callerNumberVerificationStatus;
+        mListeners.forEach(l -> l.onCallerNumberVerificationStatusChanged(this,
+                callerNumberVerificationStatus));
     }
 
     public @Connection.VerificationStatus int getCallerNumberVerificationStatus() {
@@ -1253,6 +1365,9 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
                 } catch (IllegalStateException ise) {
                     Log.e(this, ise, "setHandle: can't determine if number is emergency");
                     mIsEmergencyCall = false;
+                } catch (RuntimeException r) {
+                    Log.e(this, r, "setHandle: can't determine if number is emergency");
+                    mIsEmergencyCall = false;
                 }
                 mAnalytics.setCallIsEmergency(mIsEmergencyCall);
             }
@@ -1276,6 +1391,8 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
                             eNumber.isFromSources(EmergencyNumber.EMERGENCY_NUMBER_SOURCE_TEST) &&
                                     number.equals(eNumber.getNumber()));
         } catch (IllegalStateException ise) {
+            return false;
+        } catch (RuntimeException r) {
             return false;
         }
     }
@@ -1595,6 +1712,14 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
         setConnectionProperties(getConnectionProperties());
     }
 
+    public boolean visibleToInCallService() {
+        return mVisibleToInCallService;
+    }
+
+    public void setVisibleToInCallService(boolean visibleToInCallService) {
+        mVisibleToInCallService = visibleToInCallService;
+    }
+
     public void markFinishedHandoverStateAndCleanup(int handoverState) {
         if (mHandoverSourceCall != null) {
             mHandoverSourceCall.setHandoverState(handoverState);
@@ -1651,6 +1776,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
         PhoneAccountRegistrar phoneAccountRegistrar = mCallsManager.getPhoneAccountRegistrar();
         boolean isWorkCall = false;
         boolean isCallRecordingToneSupported = false;
+        boolean isSimCall = false;
         PhoneAccount phoneAccount =
                 phoneAccountRegistrar.getPhoneAccountUnchecked(mTargetPhoneAccountHandle);
         if (phoneAccount != null) {
@@ -1668,9 +1794,11 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
                     PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION) && phoneAccount.getExtras() != null
                     && phoneAccount.getExtras().getBoolean(
                     PhoneAccount.EXTRA_PLAY_CALL_RECORDING_TONE, false));
+            isSimCall = phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION);
         }
         mIsWorkCall = isWorkCall;
         mUseCallRecordingTone = isCallRecordingToneSupported;
+        mIsSimCall = isSimCall;
     }
 
     /**
@@ -1851,6 +1979,13 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
             if (didRttChange) {
                 if ((mConnectionProperties & Connection.PROPERTY_IS_RTT) ==
                         Connection.PROPERTY_IS_RTT) {
+                    // If we already had RTT streams up, that means that either the call started
+                    // with RTT or the user previously requested to start RTT. Either way, don't
+                    // play the alert tone.
+                    if (!areRttStreamsInitialized()) {
+                        mCallsManager.playRttUpgradeToneForCall(this);
+                    }
+
                     createRttStreams();
                     // Call startRtt to pass the RTT pipes down to the connection service.
                     // They already turned on the RTT property so no request should be sent.
@@ -1890,6 +2025,16 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
                 for (Listener l : mListeners) {
                     l.onExternalCallChanged(this, isExternal);
                 }
+            }
+
+            boolean wasDowngradedConference =
+                    (previousProperties & Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE) != 0;
+            boolean isDowngradedConference =
+                    (connectionProperties & Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE) != 0;
+            if (wasDowngradedConference && !isDowngradedConference) {
+                Log.i(this, "DOWNGRADED_CONFERENCE property removed; setting"
+                        + " conference state to false");
+                setConferenceState(false);
             }
 
             mAnalytics.addCallProperties(mConnectionProperties);
@@ -2429,7 +2574,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
                         "reject call failed due to null CS callId=%s", getId());
             }
             Log.addEvent(this, LogUtils.Events.REQUEST_REJECT, reason);
-        } else if (isRinging("reject")) {
+        } else if (isRinging("reject") || isAnswered("reject")) {
             // Ensure video state history tracks video state at time of rejection.
             mVideoStateHistory |= mVideoState;
 
@@ -2461,7 +2606,7 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
                         "reject call failed due to null CS callId=%s", getId());
             }
             Log.addEvent(this, LogUtils.Events.REQUEST_REJECT);
-        } else if (isRinging("reject")) {
+        } else if (isRinging("reject") || isAnswered("reject")) {
             // Ensure video state history tracks video state at time of rejection.
             mVideoStateHistory |= mVideoState;
 
@@ -2574,7 +2719,8 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
         return mState == CallState.ACTIVE;
     }
 
-    Bundle getExtras() {
+    @VisibleForTesting
+    public Bundle getExtras() {
         return mExtras;
     }
 
@@ -2612,6 +2758,16 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
 
         if (extras.containsKey(Connection.EXTRA_ORIGINAL_CONNECTION_ID)) {
             setOriginalConnectionId(extras.getString(Connection.EXTRA_ORIGINAL_CONNECTION_ID));
+        }
+
+        if (extras.containsKey(Connection.EXTRA_CALLER_NUMBER_VERIFICATION_STATUS)
+                && source == SOURCE_CONNECTION_SERVICE) {
+            int callerNumberVerificationStatus =
+                    extras.getInt(Connection.EXTRA_CALLER_NUMBER_VERIFICATION_STATUS);
+            if (mCallerNumberVerificationStatus != callerNumberVerificationStatus) {
+                Log.addEvent(this, LogUtils.Events.VERSTAT_CHANGED, callerNumberVerificationStatus);
+                setCallerNumberVerificationStatus(callerNumberVerificationStatus);
+            }
         }
 
         // The remote connection service API can track the phone account which was originally
@@ -2900,12 +3056,31 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
                 }
                 requestHandover(phoneAccountHandle, videoState, handoverExtrasBundle, true);
             } else {
+                // Relay bluetooth call quality reports to the call diagnostic service.
+                if (BluetoothCallQualityReport.EVENT_BLUETOOTH_CALL_QUALITY_REPORT.equals(event)
+                        && extras.containsKey(
+                        BluetoothCallQualityReport.EXTRA_BLUETOOTH_CALL_QUALITY_REPORT)) {
+                    notifyBluetoothCallQualityReport(extras.getParcelable(
+                            BluetoothCallQualityReport.EXTRA_BLUETOOTH_CALL_QUALITY_REPORT
+                    ));
+                }
                 Log.addEvent(this, LogUtils.Events.CALL_EVENT, event);
                 mConnectionService.sendCallEvent(this, event, extras);
             }
         } else {
             Log.e(this, new NullPointerException(),
                     "sendCallEvent failed due to null CS callId=%s", getId());
+        }
+    }
+
+    /**
+     * Notifies listeners when a bluetooth quality report is received.
+     * @param report The bluetooth quality report.
+     */
+    void notifyBluetoothCallQualityReport(@NonNull BluetoothCallQualityReport report) {
+        Log.addEvent(this, LogUtils.Events.BT_QUALITY_REPORT, "choppy=" + report.isChoppyVoice());
+        for (Listener l : mListeners) {
+            l.onBluetoothCallQualityReport(this, report);
         }
     }
 
@@ -3139,6 +3314,18 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
         }
 
         Log.i(this, "Request to %s a non-ringing call %s", actionName, this);
+        return false;
+    }
+
+    /**
+     * @return True if the call is answered, else logs the action name.
+     */
+    private boolean isAnswered(String actionName) {
+        if (mState == CallState.ANSWERED) {
+            return true;
+        }
+
+        Log.i(this, "Request to %s a non-answered call %s", actionName, this);
         return false;
     }
 
@@ -3604,7 +3791,10 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
      * @param extras The extras.
      */
     public void onConnectionEvent(String event, Bundle extras) {
-        Log.addEvent(this, LogUtils.Events.CONNECTION_EVENT, event);
+        // Don't log call quality reports; they're quite frequent and will clog the log.
+        if (!Connection.EVENT_CALL_QUALITY_REPORT.equals(event)) {
+            Log.addEvent(this, LogUtils.Events.CONNECTION_EVENT, event);
+        }
         if (Connection.EVENT_ON_HOLD_TONE_START.equals(event)) {
             mIsRemotelyHeld = true;
             Log.addEvent(this, LogUtils.Events.REMOTELY_HELD);
@@ -3626,6 +3816,23 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
         } else if (Connection.EVENT_CALL_SWITCH_FAILED.equals(event)) {
             for (Listener l : mListeners) {
                 l.onCallSwitchFailed(this);
+            }
+        } else if (Connection.EVENT_DEVICE_TO_DEVICE_MESSAGE.equals(event)
+                && extras != null && extras.containsKey(
+                Connection.EXTRA_DEVICE_TO_DEVICE_MESSAGE_TYPE)
+                && extras.containsKey(Connection.EXTRA_DEVICE_TO_DEVICE_MESSAGE_VALUE)) {
+            // Relay an incoming D2D message to interested listeners; most notably the
+            // CallDiagnosticService.
+            int messageType = extras.getInt(Connection.EXTRA_DEVICE_TO_DEVICE_MESSAGE_TYPE);
+            int messageValue = extras.getInt(Connection.EXTRA_DEVICE_TO_DEVICE_MESSAGE_VALUE);
+            for (Listener l : mListeners) {
+                l.onReceivedDeviceToDeviceMessage(this, messageType, messageValue);
+            }
+        } else if (Connection.EVENT_CALL_QUALITY_REPORT.equals(event)
+                && extras != null && extras.containsKey(Connection.EXTRA_CALL_QUALITY_REPORT)) {
+            CallQuality callQuality = extras.getParcelable(Connection.EXTRA_CALL_QUALITY_REPORT);
+            for (Listener l : mListeners) {
+                l.onReceivedCallQualityReport(this, callQuality);
             }
         } else {
             for (Listener l : mListeners) {
@@ -3792,6 +3999,10 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
         mIsUsingCallFiltering = isUsingCallFiltering;
     }
 
+    public boolean isUsingCallFiltering() {
+        return mIsUsingCallFiltering;
+    }
+
     /**
      * Returns whether or not Volte call was used.
      *
@@ -3825,6 +4036,44 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
                             + " upgraded to video.");
             mCallsManager.setAudioRoute(CallAudioState.ROUTE_SPEAKER, null);
         }
+    }
+
+    /**
+     * Sends a device to device message to the other part of the call.
+     * @param message the message type to send.
+     * @param value the value for the message.
+     */
+    public void sendDeviceToDeviceMessage(@CallDiagnostics.MessageType int message, int value) {
+        Log.i(this, "sendDeviceToDeviceMessage; callId=%s, msg=%d/%d", getId(), message, value);
+        Bundle extras = new Bundle();
+        extras.putInt(Connection.EXTRA_DEVICE_TO_DEVICE_MESSAGE_TYPE, message);
+        extras.putInt(Connection.EXTRA_DEVICE_TO_DEVICE_MESSAGE_VALUE, value);
+        // Send to the connection service.
+        sendCallEvent(Connection.EVENT_DEVICE_TO_DEVICE_MESSAGE, extras);
+    }
+
+    /**
+     * Signals to the Dialer app to start displaying a diagnostic message.
+     * @param messageId a unique ID for the message to display.
+     * @param message the message to display.
+     */
+    public void displayDiagnosticMessage(int messageId, @NonNull CharSequence message) {
+        Bundle extras = new Bundle();
+        extras.putInt(android.telecom.Call.EXTRA_DIAGNOSTIC_MESSAGE_ID, messageId);
+        extras.putCharSequence(android.telecom.Call.EXTRA_DIAGNOSTIC_MESSAGE, message);
+        // Send to the dialer.
+        onConnectionEvent(android.telecom.Call.EVENT_DISPLAY_DIAGNOSTIC_MESSAGE, extras);
+    }
+
+    /**
+     * Signals to the Dialer app to stop displaying a diagnostic message.
+     * @param messageId a unique ID for the message to clear.
+     */
+    public void clearDiagnosticMessage(int messageId) {
+        Bundle extras = new Bundle();
+        extras.putInt(android.telecom.Call.EXTRA_DIAGNOSTIC_MESSAGE_ID, messageId);
+        // Send to the dialer.
+        onConnectionEvent(android.telecom.Call.EVENT_CLEAR_DIAGNOSTIC_MESSAGE, extras);
     }
 
     /**
@@ -3863,5 +4112,128 @@ public class Call implements CreateConnectionResponse, EventManager.Loggable,
      */
     public String getPostCallPackageName() {
         return mPostCallPackageName;
+    }
+
+    public long getMissedReason() {
+        return mMissedReason;
+    }
+
+    public void setMissedReason(long missedReason) {
+        mMissedReason = missedReason;
+    }
+
+    public void setUserMissed(long code) {
+        mMissedReason |= code;
+    }
+
+    public long getStartRingTime() {
+        return mStartRingTime;
+    }
+
+    public void setStartRingTime(long startRingTime) {
+        mStartRingTime = startRingTime;
+    }
+
+    public CharSequence getCallScreeningAppName() {
+        return mCallScreeningAppName;
+    }
+
+    public void setCallScreeningAppName(CharSequence callScreeningAppName) {
+        mCallScreeningAppName = callScreeningAppName;
+    }
+
+    public String getCallScreeningComponentName() {
+        return mCallScreeningComponentName;
+    }
+
+    public void setCallScreeningComponentName(String callScreeningComponentName) {
+        mCallScreeningComponentName = callScreeningComponentName;
+    }
+
+    public void maybeOnInCallServiceTrackingChanged(boolean isTracking, boolean hasUi) {
+        if (mConnectionService == null) {
+            Log.w(this, "maybeOnInCallServiceTrackingChanged() request on a call"
+                    + " without a connection service.");
+        } else {
+            if (hasUi) {
+                mConnectionService.onUsingAlternativeUi(this, isTracking);
+            } else if (isTracking) {
+                mConnectionService.onTrackedByNonUiService(this, isTracking);
+            }
+        }
+    }
+
+    /**
+     * @return {@code true} when this call originated from a SIM-based {@link PhoneAccount}.
+     * A sim-based {@link PhoneAccount} is one with {@link PhoneAccount#CAPABILITY_SIM_SUBSCRIPTION}
+     * set.
+     */
+    public boolean isSimCall() {
+        return mIsSimCall;
+    }
+
+    /**
+     * Sets whether this is a sim call or not.
+     * @param isSimCall {@code true} if this is a SIM call, {@code false} otherwise.
+     */
+    public void setIsSimCall(boolean isSimCall) {
+        mIsSimCall = isSimCall;
+    }
+
+    /**
+     * Initializes a disconnect future which is used to chain up pending operations which take
+     * place when the {@link CallDiagnosticService} returns the result of the
+     * {@link CallDiagnostics#onCallDisconnected(int, int)} or
+     * {@link CallDiagnostics#onCallDisconnected(ImsReasonInfo)} invocation via
+     * {@link CallDiagnosticServiceAdapter}.  If no {@link CallDiagnosticService} is in use, we
+     * would not try to make a disconnect future.
+     * @param timeoutMillis Timeout we use for waiting for the response.
+     * @return the {@link CompletableFuture}.
+     */
+    public CompletableFuture<Boolean> initializeDisconnectFuture(long timeoutMillis) {
+        if (mDisconnectFuture == null) {
+            mDisconnectFuture = new CompletableFuture<Boolean>()
+                    .completeOnTimeout(false, timeoutMillis, TimeUnit.MILLISECONDS);
+            // After all the chained stuff we will report where the CDS timed out.
+            mDisconnectFuture.thenRunAsync(() -> {
+                if (!mReceivedCallDiagnosticPostCallResponse) {
+                    Log.addEvent(this, LogUtils.Events.CALL_DIAGNOSTIC_SERVICE_TIMEOUT);
+                }
+                // Clear the future as a final step.
+                mDisconnectFuture = null;
+                },
+                new LoggedHandlerExecutor(mHandler, "C.iDF", mLock))
+                    .exceptionally((throwable) -> {
+                        Log.e(this, throwable, "Error while executing disconnect future");
+                        return null;
+                    });
+        }
+        return mDisconnectFuture;
+    }
+
+    /**
+     * @return the disconnect future, if initialized.  Used for chaining operations after creation.
+     */
+    public CompletableFuture<Boolean> getDisconnectFuture() {
+        return mDisconnectFuture;
+    }
+
+    /**
+     * @return {@code true} if disconnection and removal is handled via a future, or {@code false}
+     * if this is handled immediately.
+     */
+    public boolean isDisconnectHandledViaFuture() {
+        return mDisconnectFuture != null;
+    }
+
+    /**
+     * Perform any cleanup on this call as a result of a {@link TelecomServiceImpl}
+     * {@code cleanupStuckCalls} request.
+     */
+    public void cleanup() {
+        if (mDisconnectFuture != null) {
+            mDisconnectFuture.complete(false);
+            mDisconnectFuture = null;
+        }
     }
 }

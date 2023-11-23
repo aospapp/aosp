@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Zənglərin İdarə Olunması"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Telefon Zəngləri"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Telefon"</string>
     <string name="unknown" msgid="6993977514360123431">"Naməlum"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Buraxılmış zəng"</string>
@@ -96,16 +96,16 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="8243532328969433172">"Başqa bir tətbiqdəki zəng səbəbilə çağrı edilə bilməz."</string>
     <string name="notification_channel_incoming_call" msgid="5245550964701715662">"Gələn zənglər"</string>
     <string name="notification_channel_missed_call" msgid="7168893015283909012">"Buraxılmış zənglər"</string>
-    <string name="notification_channel_call_blocking" msgid="2028807677868598710">"Zəngi Bloklama"</string>
+    <string name="notification_channel_call_blocking" msgid="2028807677868598710">"Zəng bloklanması"</string>
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Arxa fon zəngləri"</string>
-    <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Əlaqəsi kəsilmiş zənglər"</string>
-    <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Xəta baş verən telefon tətbiqləri"</string>
+    <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Kəsilmiş zənglər"</string>
+    <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Tətbiq xətaları"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Bu zəngin yerləşdirilməsi <xliff:g id="OTHER_APP">%1$s</xliff:g> zəngini sonlandıracaq."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Bu zəngi necə etməyi seçin"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g> istifadə edərək zəngi yönləndirin"</string>
     <string name="alert_place_unredirect_outgoing_call" msgid="2467608535225764006">"Telefon nömrəmdən istifadə edərək zəng edin"</string>
     <string name="alert_redirect_outgoing_call_timeout" msgid="5568101425637373060">"<xliff:g id="OTHER_APP">%1$s</xliff:g> ilə zəng etmək mümkün deyil. Başqa zəng yönləndirmə tətbiqindən istifadə edin və ya yardım üçün developerlə əlaqə saxlayın."</string>
-    <string name="phone_settings_call_blocking_txt" msgid="7311523114822507178">"Zəngi Bloklama"</string>
+    <string name="phone_settings_call_blocking_txt" msgid="7311523114822507178">"Zəng bloklanması"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="2602249106007265757">"Kontaktda olmayan nömrələr"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="963327038085718969">"Kontaktda göstərilməyən nömrələri blok edin"</string>
     <string name="phone_settings_private_num_txt" msgid="6339272760338475619">"Şəxsi"</string>
@@ -114,10 +114,10 @@
     <string name="phone_settings_payphone_summary_txt" msgid="3936631076065563665">"Ödənişli telefon zənglərini blok edin"</string>
     <string name="phone_settings_unknown_txt" msgid="3577926178354772728">"Naməlum"</string>
     <string name="phone_settings_unknown_summary_txt" msgid="5446657192535779645">"Naməlum şəxslərdən gələn zəngləri blok edin"</string>
-    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Zəngi Bloklama"</string>
-    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Zəngi Bloklama deaktivdir"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="2895809176537908791">"Zəng bloklanması"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"Zəng bloklanmır"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"Təcili zəng edildi"</string>
-    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Təcili zənglərə cavab verənlərin Sizinlə əlaqə saxlamalarına icazə vermək üçün Zəngi Bloklama deaktiv edilib."</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"Təcili xidmətlərin sizinlə əlaqə saxlamaları üçün zənglər bloklanmır."</string>
     <string name="developer_title" msgid="9146088855661672353">"Telecom Tərtibatçı Menyusu"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"Təcili zəng zamanı zəng edilə bilməz."</string>
 </resources>

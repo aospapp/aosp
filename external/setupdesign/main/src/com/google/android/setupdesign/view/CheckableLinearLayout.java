@@ -19,10 +19,10 @@ package com.google.android.setupdesign.view;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.os.Build.VERSION_CODES;
-import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 import android.widget.Checkable;
 import android.widget.LinearLayout;
+import androidx.annotation.Nullable;
 
 /**
  * A LinearLayout which is checkable. This will set the checked state when {@link

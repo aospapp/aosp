@@ -26,6 +26,7 @@ import android.media.tv.TvInputService;
 import android.media.tv.TvView;
 import android.media.tv.cts.HardwareSessionTest.HardwareProxyTvInputService.CountingSession;
 import android.net.Uri;
+import android.platform.test.annotations.Presubmit;
 import android.test.ActivityInstrumentationTestCase2;
 
 import android.tv.cts.R;
@@ -38,6 +39,7 @@ import java.util.List;
 /**
  * Test {@link android.media.tv.TvInputService.HardwareSession}.
  */
+@Presubmit
 public class HardwareSessionTest extends ActivityInstrumentationTestCase2<TvViewStubActivity> {
     /** The maximum time to wait for an operation. */
     private static final long TIME_OUT = 15000L;

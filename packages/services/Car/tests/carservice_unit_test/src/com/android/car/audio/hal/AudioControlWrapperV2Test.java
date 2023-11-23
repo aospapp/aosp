@@ -16,11 +16,19 @@
 
 package com.android.car.audio.hal;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.android.car.audio.hal.AudioControlWrapper.AUDIOCONTROL_FEATURE_AUDIO_DUCKING;
+import static com.android.car.audio.hal.AudioControlWrapper.AUDIOCONTROL_FEATURE_AUDIO_FOCUS;
+import static com.android.car.audio.hal.AudioControlWrapper.AUDIOCONTROL_FEATURE_AUDIO_GROUP_MUTING;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.expectThrows;
 
 import android.hardware.automotive.audiocontrol.V2_0.IAudioControl;
 import android.hardware.automotive.audiocontrol.V2_0.ICloseHandle;
@@ -37,11 +45,12 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import java.util.ArrayList;
+
 @RunWith(AndroidJUnit4.class)
 public class AudioControlWrapperV2Test {
     private static final float FADE_VALUE = 5;
     private static final float BALANCE_VALUE = 6;
-    private static final int CONTEXT_NUMBER = 3;
     private static final int USAGE = AudioAttributes.USAGE_MEDIA;
     private static final int ZONE_ID = 2;
     private static final int FOCUS_GAIN = AudioManager.AUDIOFOCUS_GAIN;
@@ -69,26 +78,52 @@ public class AudioControlWrapperV2Test {
     }
 
     @Test
-    public void supportsHalAudioFocus_returnsTrue() {
+    public void supportsFeature_audioFocus_returnsTrue() {
         AudioControlWrapperV2 audioControlWrapperV2 = new AudioControlWrapperV2(mAudioControlV2);
 
-        assertThat(audioControlWrapperV2.supportsHalAudioFocus()).isTrue();
+        assertThat(audioControlWrapperV2.supportsFeature(AUDIOCONTROL_FEATURE_AUDIO_FOCUS))
+                .isTrue();
+    }
+
+    @Test
+    public void supportsFeature_withUnknownFeature_returnsFalse() {
+        AudioControlWrapperV2 audioControlWrapperV2 = new AudioControlWrapperV2(mAudioControlV2);
+
+        assertThat(audioControlWrapperV2.supportsFeature(-1)).isFalse();
+    }
+
+    @Test
+    public void supportsFeature_withAudioDucking_returnsFalse() {
+        AudioControlWrapperV2 audioControlWrapperV2 = new AudioControlWrapperV2(mAudioControlV2);
+
+        assertThat(audioControlWrapperV2.supportsFeature(AUDIOCONTROL_FEATURE_AUDIO_DUCKING))
+                .isFalse();
+    }
+
+    @Test
+    public void supportsFeature_withAudioMuting_returnsFalse() {
+        AudioControlWrapperV2 audioControlWrapperV2 = new AudioControlWrapperV2(mAudioControlV2);
+
+        assertThat(audioControlWrapperV2.supportsFeature(AUDIOCONTROL_FEATURE_AUDIO_GROUP_MUTING))
+                .isFalse();
     }
 
     @Test
     public void registerFocusListener_succeeds() throws Exception {
         AudioControlWrapperV2 audioControlWrapperV2 = new AudioControlWrapperV2(mAudioControlV2);
-        IFocusListener mockListener = mock(IFocusListener.class);
+        HalFocusListener mockListener = mock(HalFocusListener.class);
+
         audioControlWrapperV2.registerFocusListener(mockListener);
 
-        verify(mAudioControlV2).registerFocusListener(mockListener);
+        verify(mAudioControlV2).registerFocusListener(any(IFocusListener.class));
     }
 
     @Test
     public void unregisterFocusListener_closesHandle() throws Exception {
-        IFocusListener mockListener = mock(IFocusListener.class);
+        HalFocusListener mockListener = mock(HalFocusListener.class);
         ICloseHandle mockCloseHandle = mock(ICloseHandle.class);
-        when(mAudioControlV2.registerFocusListener(mockListener)).thenReturn(mockCloseHandle);
+        when(mAudioControlV2.registerFocusListener(any(IFocusListener.class)))
+                .thenReturn(mockCloseHandle);
 
         AudioControlWrapperV2 audioControlWrapperV2 = new AudioControlWrapperV2(mAudioControlV2);
         audioControlWrapperV2.registerFocusListener(mockListener);
@@ -104,5 +139,25 @@ public class AudioControlWrapperV2Test {
         audioControlWrapperV2.onAudioFocusChange(USAGE, ZONE_ID, FOCUS_GAIN);
 
         verify(mAudioControlV2).onAudioFocusChange(USAGE, ZONE_ID, FOCUS_GAIN);
+    }
+
+    @Test
+    public void onDevicesToDuckChange_throws() {
+        AudioControlWrapperV2 audioControlWrapperV2 = new AudioControlWrapperV2(mAudioControlV2);
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> audioControlWrapperV2.onDevicesToDuckChange(null));
+    }
+
+    @Test
+    public void onDevicesToMuteChange_throws() {
+        AudioControlWrapperV2 audioControlWrapperV2 = new AudioControlWrapperV2(mAudioControlV2);
+
+        UnsupportedOperationException thrown = expectThrows(UnsupportedOperationException.class,
+                () -> audioControlWrapperV2.onDevicesToMuteChange(new ArrayList<>()));
+
+        assertWithMessage("UnsupportedOperationException thrown by onDevicesToMute")
+                .that(thrown).hasMessageThat()
+                .contains("unsupported for IAudioControl@2.0");
     }
 }

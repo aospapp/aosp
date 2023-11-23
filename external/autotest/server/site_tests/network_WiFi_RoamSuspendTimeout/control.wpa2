@@ -6,7 +6,7 @@ AUTHOR = 'wiley, pstew, quiche'
 NAME = 'network_WiFi_RoamSuspendTimeout.wpa2'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = "suite:wifi_flaky"
+ATTRIBUTES = "suite:wifi_matfunc"
 DEPENDENCIES = 'wificell'
 
 DOC = """

@@ -378,18 +378,14 @@ public final class CipherTest {
         setExpectedBlockSize("AES/OFB/PKCS7PADDING", 16);
         setExpectedBlockSize("AES/OFB/NOPADDING", 16);
         setExpectedBlockSize("AES_128/CBC/PKCS5PADDING", 16);
-        setExpectedBlockSize("AES_128/CBC/PKCS7PADDING", 16);
         setExpectedBlockSize("AES_128/CBC/NOPADDING", 16);
         setExpectedBlockSize("AES_128/ECB/PKCS5PADDING", 16);
-        setExpectedBlockSize("AES_128/ECB/PKCS7PADDING", 16);
         setExpectedBlockSize("AES_128/ECB/NOPADDING", 16);
         setExpectedBlockSize("AES_128/GCM/NOPADDING", 16);
         setExpectedBlockSize("AES_128/GCM-SIV/NOPADDING", 16);
         setExpectedBlockSize("AES_256/CBC/PKCS5PADDING", 16);
-        setExpectedBlockSize("AES_256/CBC/PKCS7PADDING", 16);
         setExpectedBlockSize("AES_256/CBC/NOPADDING", 16);
         setExpectedBlockSize("AES_256/ECB/PKCS5PADDING", 16);
-        setExpectedBlockSize("AES_256/ECB/PKCS7PADDING", 16);
         setExpectedBlockSize("AES_256/ECB/NOPADDING", 16);
         setExpectedBlockSize("AES_256/GCM/NOPADDING", 16);
         setExpectedBlockSize("AES_256/GCM-SIV/NOPADDING", 16);
@@ -410,7 +406,6 @@ public final class CipherTest {
         }
 
         setExpectedBlockSize("ARC4", 0);
-        setExpectedBlockSize("ARCFOUR", 0);
         setExpectedBlockSize("CHACHA20", 0);
         setExpectedBlockSize("CHACHA20/POLY1305/NOPADDING", 0);
         setExpectedBlockSize("PBEWITHSHAAND40BITRC4", 0);
@@ -424,27 +419,9 @@ public final class CipherTest {
 
         setExpectedBlockSize("DESEDE", 8);
         setExpectedBlockSize("DESEDE/CBC/PKCS5PADDING", 8);
-        setExpectedBlockSize("DESEDE/CBC/PKCS7PADDING", 8);
         setExpectedBlockSize("DESEDE/CBC/NOPADDING", 8);
-        setExpectedBlockSize("DESEDE/CFB/PKCS5PADDING", 8);
-        setExpectedBlockSize("DESEDE/CFB/PKCS7PADDING", 8);
-        setExpectedBlockSize("DESEDE/CFB/NOPADDING", 8);
-        setExpectedBlockSize("DESEDE/CTR/PKCS5PADDING", 8);
-        setExpectedBlockSize("DESEDE/CTR/PKCS7PADDING", 8);
-        setExpectedBlockSize("DESEDE/CTR/NOPADDING", 8);
-        setExpectedBlockSize("DESEDE/CTS/PKCS5PADDING", 8);
-        setExpectedBlockSize("DESEDE/CTS/PKCS7PADDING", 8);
-        setExpectedBlockSize("DESEDE/CTS/NOPADDING", 8);
-        setExpectedBlockSize("DESEDE/ECB/PKCS5PADDING", 8);
-        setExpectedBlockSize("DESEDE/ECB/PKCS7PADDING", 8);
-        setExpectedBlockSize("DESEDE/ECB/NOPADDING", 8);
-        setExpectedBlockSize("DESEDE/OFB/PKCS5PADDING", 8);
-        setExpectedBlockSize("DESEDE/OFB/PKCS7PADDING", 8);
-        setExpectedBlockSize("DESEDE/OFB/NOPADDING", 8);
         setExpectedBlockSize("PBEWITHSHAAND2-KEYTRIPLEDES-CBC", 8);
         setExpectedBlockSize("PBEWITHSHAAND3-KEYTRIPLEDES-CBC", 8);
-        setExpectedBlockSize("PBEWITHMD5ANDTRIPLEDES", 8);
-        setExpectedBlockSize("PBEWITHSHA1ANDDESEDE", 8);
 
 
         if (StandardNames.IS_RI) {
@@ -2152,7 +2129,7 @@ public final class CipherTest {
     /*
      * echo -n 'This is a test of OAEP' | xxd -p -i | sed 's/0x/(byte) 0x/g'
      */
-    public static final byte[] RSA_Vector2_Plaintext = new byte[] {
+    private static final byte[] RSA_Vector2_Plaintext = new byte[] {
             (byte) 0x54, (byte) 0x68, (byte) 0x69, (byte) 0x73, (byte) 0x20, (byte) 0x69,
             (byte) 0x73, (byte) 0x20, (byte) 0x61, (byte) 0x20, (byte) 0x74, (byte) 0x65,
             (byte) 0x73, (byte) 0x74, (byte) 0x20, (byte) 0x6f, (byte) 0x66, (byte) 0x20,
@@ -2164,7 +2141,7 @@ public final class CipherTest {
      * -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha1 -pkeyopt rsa_mgf1_md:sha1 \
      * | xxd -p -i | sed 's/0x/(byte) 0x/g'
      */
-    public static final byte[] RSA_Vector2_OAEP_SHA1_MGF1_SHA1 = new byte[] {
+    private static final byte[] RSA_Vector2_OAEP_SHA1_MGF1_SHA1 = new byte[] {
             (byte) 0x53, (byte) 0x71, (byte) 0x84, (byte) 0x2e, (byte) 0x01, (byte) 0x74,
             (byte) 0x82, (byte) 0xb3, (byte) 0x01, (byte) 0xac, (byte) 0x2b, (byte) 0xbd,
             (byte) 0x40, (byte) 0xa7, (byte) 0x5b, (byte) 0x60, (byte) 0xf1, (byte) 0xde,
@@ -2213,7 +2190,7 @@ public final class CipherTest {
     /*
      * echo -n 'This is a test of OAEP' | openssl pkeyutl -encrypt -inkey rsakey.pem -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -pkeyopt rsa_mgf1_md:sha1 | xxd -p -i | sed 's/0x/(byte) 0x/g'
      */
-    public static final byte[] RSA_Vector2_OAEP_SHA256_MGF1_SHA1 = new byte[] {
+    private static final byte[] RSA_Vector2_OAEP_SHA256_MGF1_SHA1 = new byte[] {
             (byte) 0x25, (byte) 0x9f, (byte) 0xc3, (byte) 0x69, (byte) 0xbc, (byte) 0x3f,
             (byte) 0xe7, (byte) 0x9e, (byte) 0x76, (byte) 0xef, (byte) 0x6c, (byte) 0xd2,
             (byte) 0x2b, (byte) 0x7b, (byte) 0xf0, (byte) 0xeb, (byte) 0xc2, (byte) 0x28,
@@ -2262,7 +2239,7 @@ public final class CipherTest {
     /*
      * echo -n 'This is a test of OAEP' | openssl pkeyutl -encrypt -inkey /tmp/rsakey.txt -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -pkeyopt rsa_mgf1_md:sha1 -pkeyopt rsa_oaep_label:010203FFA00A | xxd -p -i | sed 's/0x/(byte) 0x/g'
      */
-    public static final byte[] RSA_Vector2_OAEP_SHA256_MGF1_SHA1_LABEL = new byte[] {
+    private static final byte[] RSA_Vector2_OAEP_SHA256_MGF1_SHA1_LABEL = new byte[] {
             (byte) 0x80, (byte) 0xb1, (byte) 0xf2, (byte) 0xc2, (byte) 0x03, (byte) 0xc5,
             (byte) 0xdf, (byte) 0xbd, (byte) 0xed, (byte) 0xfe, (byte) 0xe6, (byte) 0xff,
             (byte) 0xd3, (byte) 0x38, (byte) 0x1e, (byte) 0x6d, (byte) 0xae, (byte) 0x47,
@@ -2313,7 +2290,7 @@ public final class CipherTest {
      * -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha224 -pkeyopt rsa_mgf1_md:sha224 \
      * | xxd -p -i | sed 's/0x/(byte) 0x/g'
      */
-    public static final byte[] RSA_Vector2_OAEP_SHA224_MGF1_SHA224 = new byte[] {
+    private static final byte[] RSA_Vector2_OAEP_SHA224_MGF1_SHA224 = new byte[] {
             (byte) 0xae, (byte) 0xdd, (byte) 0xe6, (byte) 0xab, (byte) 0x00, (byte) 0xd6,
             (byte) 0x1e, (byte) 0x7e, (byte) 0x85, (byte) 0x63, (byte) 0xab, (byte) 0x51,
             (byte) 0x79, (byte) 0x92, (byte) 0xf1, (byte) 0xb9, (byte) 0x4f, (byte) 0x23,
@@ -2364,7 +2341,7 @@ public final class CipherTest {
      * -pkeyopt rsa_padding_mode:oaep -pkey rsa_oaep_md:sha256 -pkeyopt rsa_mgf1_md:sha256 \
      * | xxd -p -i | sed 's/0x/(byte) 0x/g'
      */
-    public static final byte[] RSA_Vector2_OAEP_SHA256_MGF1_SHA256 = new byte[] {
+    private static final byte[] RSA_Vector2_OAEP_SHA256_MGF1_SHA256 = new byte[] {
             (byte) 0x6a, (byte) 0x2b, (byte) 0xb2, (byte) 0xa3, (byte) 0x26, (byte) 0xa6,
             (byte) 0x7a, (byte) 0x4a, (byte) 0x1f, (byte) 0xe5, (byte) 0xc8, (byte) 0x94,
             (byte) 0x11, (byte) 0x1a, (byte) 0x92, (byte) 0x07, (byte) 0x0a, (byte) 0xf4,
@@ -2415,7 +2392,7 @@ public final class CipherTest {
      * -pkeyopt rsa_padding_mode:oaep -pkey rsa_oaep_md:sha384 -pkeyopt rsa_mgf1_md:sha384 \
      * | xxd -p -i | sed 's/0x/(byte) 0x/g'
      */
-    public static final byte[] RSA_Vector2_OAEP_SHA384_MGF1_SHA384 = new byte[] {
+    private static final byte[] RSA_Vector2_OAEP_SHA384_MGF1_SHA384 = new byte[] {
             (byte) 0xa1, (byte) 0xb3, (byte) 0x3b, (byte) 0x34, (byte) 0x69, (byte) 0x9e,
             (byte) 0xd8, (byte) 0xa0, (byte) 0x37, (byte) 0x2c, (byte) 0xeb, (byte) 0xef,
             (byte) 0xf2, (byte) 0xaf, (byte) 0xfa, (byte) 0x63, (byte) 0x5d, (byte) 0x88,
@@ -2466,7 +2443,7 @@ public final class CipherTest {
      * -pkeyopt rsa_padding_mode:oaep -pkey rsa_oaep_md:sha512 -pkeyopt rsa_mgf1_md:sha512 \
      * | xxd -p -i | sed 's/0x/(byte) 0x/g'
      */
-    public static final byte[] RSA_Vector2_OAEP_SHA512_MGF1_SHA512 = new byte[] {
+    private static final byte[] RSA_Vector2_OAEP_SHA512_MGF1_SHA512 = new byte[] {
             (byte) 0x75, (byte) 0x0f, (byte) 0xf9, (byte) 0x21, (byte) 0xca, (byte) 0xcc,
             (byte) 0x0e, (byte) 0x13, (byte) 0x9e, (byte) 0x38, (byte) 0xa4, (byte) 0xa7,
             (byte) 0xee, (byte) 0x61, (byte) 0x6d, (byte) 0x56, (byte) 0xea, (byte) 0x36,
@@ -2515,7 +2492,7 @@ public final class CipherTest {
     /*
      * echo -n 'This is a test of OAEP' | openssl pkeyutl -encrypt -inkey /tmp/rsakey.txt -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha512 -pkeyopt rsa_mgf1_md:sha512 -pkeyopt rsa_oaep_label:010203FFA00A | xxd -p -i | sed 's/0x/(byte) 0x/g'
      */
-    public static final byte[] RSA_Vector2_OAEP_SHA512_MGF1_SHA512_LABEL = new byte[] {
+    private static final byte[] RSA_Vector2_OAEP_SHA512_MGF1_SHA512_LABEL = new byte[] {
             (byte) 0x31, (byte) 0x3b, (byte) 0x23, (byte) 0xcf, (byte) 0x40, (byte) 0xfe,
             (byte) 0x15, (byte) 0x94, (byte) 0xd6, (byte) 0x81, (byte) 0x21, (byte) 0x69,
             (byte) 0x8e, (byte) 0x58, (byte) 0xd5, (byte) 0x0f, (byte) 0xa8, (byte) 0x72,

@@ -548,7 +548,7 @@ public class HandshakeCompletedEventTest extends TestCase {
 
 
     /**
-     * Implements basically a dummy TrustManager. It stores the certificate
+     * Implements basically a fake TrustManager. It stores the certificate
      * chain it sees, so it can later be queried.
      */
     public static class TestTrustManager implements X509TrustManager {

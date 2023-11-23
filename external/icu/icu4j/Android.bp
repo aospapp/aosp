@@ -16,6 +16,17 @@
 
 package {
     default_visibility: ["//visibility:private"],
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_icu_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-BSD
+    //   SPDX-license-identifier-ICU
+    //   SPDX-license-identifier-MIT
+    //   SPDX-license-identifier-Unicode-DFS
+    //   legacy_unencumbered
+    default_applicable_licenses: ["external_icu_license"],
 }
 
 java_defaults {
@@ -33,6 +44,7 @@ java_library {
     visibility: [
         "//bootable/recovery/tools/image_generator",
         "//external/icu/tools/srcgen",
+        "//external/jimfs/jimfs",
         "//external/robolectric-shadows/robolectric",
         "//external/robolectric-shadows/shadows/framework",
         "//system/timezone/input_tools/android/telephonylookup_generator",
@@ -54,6 +66,17 @@ java_library {
         "icu4j-icudata",
         "icu4j-icutzdata",
     ],
+}
+
+// Small static library used by TwilightService in the system server. To avoid @CorePlaformApi,
+// the system server doesn't use CalendarAstronomer in android.icu.
+// Don't link this in boot classpath or Zygote to avoid class collision with the
+// com.ibm.icu.impl.CalendarAstronomer in the app classloader.
+java_library_static {
+    name: "icu4j_calendar_astronomer",
+    host_supported: false,
+    srcs: ["main/classes/core/src/com/ibm/icu/impl/CalendarAstronomer.java"],
+    visibility: ["//frameworks/base/services/core"],
 }
 
 java_test {

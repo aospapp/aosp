@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -155,9 +156,6 @@ public class ProviderTest extends TestCaseWithRules {
                     }
                     remainingAlgorithms.removeAll(toRemove);
                 }
-                if (remainingAlgorithms != null && remainingAlgorithms.isEmpty()) {
-                    remainingExpected.remove(type);
-                }
 
                 // make sure class exists and can be initialized
                 try {
@@ -171,6 +169,14 @@ public class ProviderTest extends TestCaseWithRules {
                     }
                 }
             }
+
+            // last chance: some algorithms might only be provided by their alias
+            remainingExpected.entrySet()
+                .forEach(entry ->
+                    entry.getValue()
+                        .removeIf(algorithm ->
+                            provider.getService(entry.getKey(), algorithm) != null)
+            );
         }
 
         // assert that we don't have any extra in the implementation
@@ -190,10 +196,12 @@ public class ProviderTest extends TestCaseWithRules {
                 } catch (NoSuchAlgorithmException|NoSuchPaddingException e) {
                 }
             }
-            if (remainingExpected.get("Cipher").isEmpty()) {
-                remainingExpected.remove("Cipher");
-            }
         }
+
+        remainingExpected.entrySet()
+            .removeIf(entry ->
+                entry.getValue().isEmpty());
+
         // assert that we don't have any missing in the implementation
         assertEquals("Algorithms are present in StandardNames but not provided",
                 Collections.EMPTY_MAP, remainingExpected);
@@ -215,13 +223,13 @@ public class ProviderTest extends TestCaseWithRules {
         assertProviderProperties(providers[2], "CertPathProvider",
             "sun.security.provider.CertPathProvider");
         assertProviderProperties(providers[3], "AndroidKeyStoreBCWorkaround",
-            "android.security.keystore.AndroidKeyStoreBCWorkaroundProvider");
+            "android.security.keystore2.AndroidKeyStoreBCWorkaroundProvider");
         assertProviderProperties(providers[4], "BC",
             "com.android.org.bouncycastle.jce.provider.BouncyCastleProvider");
         assertProviderProperties(providers[5], "HarmonyJSSE",
             "com.android.org.conscrypt.JSSEProvider");
         assertProviderProperties(providers[6], "AndroidKeyStore",
-            "android.security.keystore.AndroidKeyStoreProvider");
+            "android.security.keystore2.AndroidKeyStoreProvider");
     }
 
     private void assertProviderProperties(Provider p, String name, String className) {
@@ -382,7 +390,7 @@ public class ProviderTest extends TestCaseWithRules {
                 bcClasses.add(service.getClassName());
             }
         }
-        assertTrue(bcClasses.size() > 0);  // Sanity check
+        assertTrue(bcClasses.size() > 0);
 
         // 3. Determine which IDs in BC point to that set of classes
         Set<String> shouldBeOverriddenBcIds = new HashSet<>();
@@ -402,7 +410,7 @@ public class ProviderTest extends TestCaseWithRules {
                 shouldBeOverriddenBcIds.add(key);
             }
         }
-        assertTrue(shouldBeOverriddenBcIds.size() > 0);  // Sanity check
+        assertTrue(shouldBeOverriddenBcIds.size() > 0);
 
         // 4. Check each of those IDs to ensure that it's present in Conscrypt
         Set<String> nonOverriddenIds = new TreeSet<>();
@@ -1061,6 +1069,21 @@ public class ProviderTest extends TestCaseWithRules {
         p.put("class1.algorithm1", "impl1");
         assertEquals("impl1", p.getOrDefault("class1.algorithm1", "default"));
         assertEquals("default", p.getOrDefault("thisIsNotInTheProvider", "default"));
+    }
+
+    public void test_elements() {
+        Provider p = new MockProvider("MockProvider");
+        p.put("class1.algorithm1", "impl1");
+        Enumeration<Object> elements = p.elements();
+        boolean isImpl1Found = false;
+        while (elements.hasMoreElements()) {
+            if ("impl1".equals(elements.nextElement())) {
+                isImpl1Found = true;
+                break;
+            }
+        }
+
+        assertTrue("impl1 is not found.", isImpl1Found);
     }
 
     private static class Pair<A, B> {

@@ -27,14 +27,16 @@ __BEGIN_DECLS
  * Supported LMKD commands
  */
 enum lmk_cmd {
-    LMK_TARGET = 0, /* Associate minfree with oom_adj_score */
-    LMK_PROCPRIO,   /* Register a process and set its oom_adj_score */
-    LMK_PROCREMOVE, /* Unregister a process */
-    LMK_PROCPURGE,  /* Purge all registered processes */
-    LMK_GETKILLCNT, /* Get number of kills */
-    LMK_SUBSCRIBE,  /* Subscribe for asynchronous events */
-    LMK_PROCKILL,   /* Unsolicited msg to subscribed clients on proc kills */
-    LMK_UPDATE_PROPS, /* Reinit properties */
+    LMK_TARGET = 0,         /* Associate minfree with oom_adj_score */
+    LMK_PROCPRIO,           /* Register a process and set its oom_adj_score */
+    LMK_PROCREMOVE,         /* Unregister a process */
+    LMK_PROCPURGE,          /* Purge all registered processes */
+    LMK_GETKILLCNT,         /* Get number of kills */
+    LMK_SUBSCRIBE,          /* Subscribe for asynchronous events */
+    LMK_PROCKILL,           /* Unsolicited msg to subscribed clients on proc kills */
+    LMK_UPDATE_PROPS,       /* Reinit properties */
+    LMK_STAT_KILL_OCCURRED, /* Unsolicited msg to subscribed clients on proc kills for statsd log */
+    LMK_STAT_STATE_CHANGED, /* Unsolicited msg to subscribed clients on state changed */
 };
 
 /*
@@ -204,10 +206,11 @@ static inline size_t lmkd_pack_set_getkillcnt_repl(LMKD_CTRL_PACKET packet, int 
     return 2 * sizeof(int);
 }
 
-/* Types of asyncronous events sent from lmkd to its clients */
+/* Types of asynchronous events sent from lmkd to its clients */
 enum async_event_type {
     LMK_ASYNC_EVENT_FIRST,
     LMK_ASYNC_EVENT_KILL = LMK_ASYNC_EVENT_FIRST,
+    LMK_ASYNC_EVENT_STAT,
     LMK_ASYNC_EVENT_COUNT,
 };
 

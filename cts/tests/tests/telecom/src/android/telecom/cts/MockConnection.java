@@ -21,6 +21,7 @@ import static android.telecom.CallAudioState.*;
 import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.CallAudioState;
+import android.telecom.CallScreeningService;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
@@ -28,6 +29,8 @@ import android.telecom.RemoteConnection;
 import android.telecom.VideoProfile;
 import android.telecom.cts.TestUtils.InvokeCounter;
 import android.util.SparseArray;
+
+import java.util.List;
 
 /**
  * {@link Connection} subclass that immediately performs any state changes that are a result of
@@ -43,6 +46,10 @@ public class MockConnection extends Connection {
     public static final int ON_STOP_RTT = 7;
     public static final int ON_DEFLECT = 8;
     public static final int ON_SILENCE = 9;
+    public static final int ON_ADD_CONFERENCE_PARTICIPANTS = 10;
+    public static final int ON_CALL_FILTERING_COMPLETED = 11;
+    public static final int ON_ANSWER_CALLED = 12;
+    public static final int ON_ANSWER_VIDEO_CALLED = 13;
 
     private CallAudioState mCallAudioState =
             new CallAudioState(false, CallAudioState.ROUTE_EARPIECE, ROUTE_EARPIECE | ROUTE_SPEAKER);
@@ -54,11 +61,14 @@ public class MockConnection extends Connection {
     private RemoteConnection mRemoteConnection = null;
     private RttTextStream mRttTextStream;
 
-    private SparseArray<InvokeCounter> mInvokeCounterMap = new SparseArray<>(10);
+    private SparseArray<InvokeCounter> mInvokeCounterMap = new SparseArray<>(13);
 
     @Override
     public void onAnswer() {
         super.onAnswer();
+        if (mInvokeCounterMap.get(ON_ANSWER_CALLED) != null) {
+            mInvokeCounterMap.get(ON_ANSWER_CALLED).invoke();
+        }
     }
 
     @Override
@@ -68,6 +78,9 @@ public class MockConnection extends Connection {
         setActive();
         if (mRemoteConnection != null) {
             mRemoteConnection.answer();
+        }
+        if (mInvokeCounterMap.get(ON_ANSWER_VIDEO_CALLED) != null) {
+            mInvokeCounterMap.get(ON_ANSWER_VIDEO_CALLED).invoke(videoState);
         }
     }
 
@@ -195,6 +208,14 @@ public class MockConnection extends Connection {
     }
 
     @Override
+    public void onAddConferenceParticipants(List<Uri> participants) {
+        super.onAddConferenceParticipants(participants);
+        if (mInvokeCounterMap.get(ON_ADD_CONFERENCE_PARTICIPANTS) != null) {
+            mInvokeCounterMap.get(ON_ADD_CONFERENCE_PARTICIPANTS).invoke(participants);
+        }
+    }
+
+    @Override
     public void onExtrasChanged(Bundle extras) {
         super.onExtrasChanged(extras);
         if (mInvokeCounterMap.get(ON_EXTRAS_CHANGED) != null) {
@@ -245,6 +266,16 @@ public class MockConnection extends Connection {
 
         if (mInvokeCounterMap.get(ON_SILENCE) != null) {
             mInvokeCounterMap.get(ON_SILENCE).invoke();
+        }
+    }
+
+    @Override
+    public void onCallFilteringCompleted(
+            Connection.CallFilteringCompletionInfo callFilteringCompletionInfo) {
+        getInvokeCounter(ON_CALL_FILTERING_COMPLETED).invoke(callFilteringCompletionInfo);
+
+        if (mRemoteConnection != null) {
+            mRemoteConnection.onCallFilteringCompleted(callFilteringCompletionInfo);
         }
     }
 
@@ -353,6 +384,8 @@ public class MockConnection extends Connection {
                 return "onDeflect";
             case ON_SILENCE:
                 return "onSilence";
+            case ON_ADD_CONFERENCE_PARTICIPANTS:
+                return "onAddConferenceParticipants";
             default:
                 return "Callback";
         }

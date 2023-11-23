@@ -17,16 +17,32 @@
 #ifndef CHPP_TRANSPORT_TEST_H_
 #define CHPP_TRANSPORT_TEST_H_
 
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include "chpp/app.h"
+#include "chpp/macros.h"
+#include "chpp/transport.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+CHPP_PACKED_START
+struct ChppTestResponse {
+  char preamble0;
+  char preamble1;
+  struct ChppTransportHeader transportHeader;
+  struct ChppAppHeader appHeader;
+} CHPP_PACKED_ATTR;
+CHPP_PACKED_END
 
 /************************************************
  *  Functions necessary for unit testing
  ***********************************************/
 
-bool chppDequeueTxDatagram(struct ChppTransportState *context);
-void chppTransportDoWork(struct ChppTransportState *context);
+size_t chppDequeueTxDatagram(struct ChppTransportState *context);
 
 #ifdef __cplusplus
 }

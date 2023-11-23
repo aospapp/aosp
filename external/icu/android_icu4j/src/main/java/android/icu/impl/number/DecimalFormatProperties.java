@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2017 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.impl.number;
 
 import java.io.IOException;
@@ -26,7 +26,6 @@ import android.icu.util.Currency.CurrencyUsage;
 /**
  * @hide Only a subset of ICU is exposed in Android
  */
-@libcore.api.IntraCoreApi
 public class DecimalFormatProperties implements Cloneable, Serializable {
 
     private static final DecimalFormatProperties DEFAULT = new DecimalFormatProperties();
@@ -36,7 +35,6 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
 
     /** Controls the set of rules for parsing a string from the old DecimalFormat API. 
      * @hide Only a subset of ICU is exposed in Android*/
-    @libcore.api.IntraCoreApi
     public static enum ParseMode {
         /**
          * Lenient mode should be used if you want to accept malformed user input. It will use heuristics
@@ -72,9 +70,8 @@ public class DecimalFormatProperties implements Cloneable, Serializable {
         /**
          * Internal parse mode for increased compatibility with java.text.DecimalFormat.
          * Used by Android libcore. To enable this feature, java.text.DecimalFormat holds an instance of
-         * ICU4J's DecimalFormat and enable it by calling setParseStrictMode(ParseMode.COMPATIBILITY).
+         * ICU4J's DecimalFormat and enable it by calling setParseStrictMode(ParseMode.JAVA_COMPATIBILITY).
          */
-        @libcore.api.IntraCoreApi
         JAVA_COMPATIBILITY,
     }
 

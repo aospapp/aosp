@@ -16,18 +16,11 @@
 
 #define LOG_TAG "IcuUtilities"
 
-#include <android/log.h>
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/ScopedLocalRef.h>
-#include <nativehelper/ScopedUtfChars.h>
 
 #include "IcuUtilities.h"
 
 #include "JniConstants.h"
-#include "JniException.h"
-#include "unicode/strenum.h"
-#include "unicode/ustring.h"
-#include "unicode/uloc.h"
 
 bool maybeThrowIcuException(JNIEnv* env, const char* function, UErrorCode error) {
   if (U_SUCCESS(error)) {

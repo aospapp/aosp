@@ -4,7 +4,6 @@
 
 html {
     font-size: 13px;
-    font-weight: 300;
     padding: 0;
     margin: 0;
     height: 100%;
@@ -195,12 +194,12 @@ input[type=text].term-search:focus {
 
 .main-table tbody td:first-child {
     padding-left: 20px;
+    max-width: 55vw;
 }
 
 .main-table thead {
     color: #111;
     font-size: 14px;
-    font-weight: 300;
 }
 
 .main-table thead tr:nth-child(n+3) td {
@@ -296,7 +295,7 @@ a:hover {
     height: 25px;
     line-height: 25px;
     font-size: 13px;
-    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
 }
 
 .main-table tbody tr.nested td:first-child, .main-table tbody tr.nested a {

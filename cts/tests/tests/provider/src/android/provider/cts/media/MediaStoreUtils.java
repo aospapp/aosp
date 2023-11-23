@@ -19,6 +19,7 @@ package android.provider.cts.media;
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.provider.MediaStore.DownloadColumns;
@@ -34,7 +35,9 @@ import java.util.Objects;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.test.filters.SdkSuppress;
 
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 public class MediaStoreUtils {
     @Test
     public void testStub() {

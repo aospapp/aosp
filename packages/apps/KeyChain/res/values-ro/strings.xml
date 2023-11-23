@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Puteți instala certificate dintr-un fișier PKCS#12 cu o extensie %1$s sau %2$s care se află pe stocarea externă."</string>
     <string name="allow_button" msgid="3030990695030371561">"Selectați"</string>
     <string name="deny_button" msgid="3766539809121892584">"Refuzați"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Se încarcă certificatele..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s caută certificatul…"</string>
 </resources>

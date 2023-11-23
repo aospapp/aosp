@@ -57,12 +57,15 @@ else:
     VERSION = '{PKG_MAJOR}.{PKG_MINOR}.{PKG_EXTRA}'.format(**VERSION_DATA)
 
 if SYSTEM == 'darwin':
+    VERSIONED_LIBRARY_FILE = "libcapstone.{PKG_MAJOR}.dylib".format(**VERSION_DATA)
     LIBRARY_FILE = "libcapstone.dylib"
     STATIC_LIBRARY_FILE = 'libcapstone.a'
 elif SYSTEM in ('win32', 'cygwin'):
+    VERSIONED_LIBRARY_FILE = "capstone.dll"
     LIBRARY_FILE = "capstone.dll"
     STATIC_LIBRARY_FILE = None
 else:
+    VERSIONED_LIBRARY_FILE = "libcapstone.so.{PKG_MAJOR}".format(**VERSION_DATA)
     LIBRARY_FILE = "libcapstone.so"
     STATIC_LIBRARY_FILE = 'libcapstone.a'
 
@@ -115,7 +118,7 @@ def build_libraries():
     os.mkdir(LIBS_DIR)
 
     # copy public headers
-    shutil.copytree(os.path.join(BUILD_DIR, 'include'), os.path.join(HEADERS_DIR, 'capstone'))
+    shutil.copytree(os.path.join(BUILD_DIR, 'include', 'capstone'), os.path.join(HEADERS_DIR, 'capstone'))
 
     # if prebuilt libraries are available, use those and cancel build
     if os.path.exists(os.path.join(ROOT_DIR, 'prebuilt', LIBRARY_FILE)) and \
@@ -140,8 +143,11 @@ def build_libraries():
     else:   # Unix incl. cygwin
         os.system("CAPSTONE_BUILD_CORE_ONLY=yes bash ./make.sh")
 
-    shutil.copy(LIBRARY_FILE, LIBS_DIR)
-    if STATIC_LIBRARY_FILE: shutil.copy(STATIC_LIBRARY_FILE, LIBS_DIR)
+    shutil.copy(VERSIONED_LIBRARY_FILE, os.path.join(LIBS_DIR, LIBRARY_FILE))
+
+    # only copy static library if it exists (it's a build option)
+    if STATIC_LIBRARY_FILE and os.path.exists(STATIC_LIBRARY_FILE):
+        shutil.copy(STATIC_LIBRARY_FILE, LIBS_DIR)
     os.chdir(cwd)
 
 
@@ -154,8 +160,11 @@ class custom_sdist(sdist):
 
 class custom_build(build):
     def run(self):
-        log.info('Building C extensions')
-        build_libraries()
+        if 'LIBCAPSTONE_PATH' in os.environ:
+            log.info('Skipping building C extensions since LIBCAPSTONE_PATH is set')
+        else:
+            log.info('Building C extensions')
+            build_libraries()
         return build.run(self)
 
 
@@ -198,6 +207,48 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
         # https://www.python.org/dev/peps/pep-0425/
         sys.argv.insert(idx + 1, name.replace('.', '_').replace('-', '_'))
 
+long_desc = '''
+Capstone is a disassembly framework with the target of becoming the ultimate
+disasm engine for binary analysis and reversing in the security community.
+
+Created by Nguyen Anh Quynh, then developed and maintained by a small community,
+Capstone offers some unparalleled features:
+
+- Support multiple hardware architectures: ARM, ARM64 (ARMv8), Mips, PPC, Sparc,
+  SystemZ, XCore and X86 (including X86_64).
+
+- Having clean/simple/lightweight/intuitive architecture-neutral API.
+
+- Provide details on disassembled instruction (called "decomposer" by others).
+
+- Provide semantics of the disassembled instruction, such as list of implicit
+  registers read & written.
+
+- Implemented in pure C language, with lightweight wrappers for C++, C#, Go,
+  Java, NodeJS, Ocaml, Python, Ruby & Vala ready (available in main code,
+  or provided externally by the community).
+
+- Native support for all popular platforms: Windows, Mac OSX, iOS, Android,
+  Linux, *BSD, Solaris, etc.
+
+- Thread-safe by design.
+
+- Special support for embedding into firmware or OS kernel.
+
+- High performance & suitable for malware analysis (capable of handling various
+  X86 malware tricks).
+
+- Distributed under the open source BSD license.
+
+Further information is available at http://www.capstone-engine.org
+
+
+[License]
+
+This project is released under the BSD license. If you redistribute the binary
+or source code of Capstone, please attach file LICENSE.TXT with your products.
+'''
+
 setup(
     provides=['capstone'],
     packages=['capstone'],
@@ -206,16 +257,24 @@ setup(
     author='Nguyen Anh Quynh',
     author_email='aquynh@gmail.com',
     description='Capstone disassembly engine',
-    url='http://www.capstone-engine.org',
+    long_description=long_desc,
+    long_description_content_type="text/markdown",
+    url='https://www.capstone-engine.org',
+    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*',
     classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'Intended Audience :: Developers',
+        'Topic :: Software Development :: Build Tools',
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
     ],
     requires=['ctypes'],
     cmdclass=cmdclass,
     zip_safe=True,
     include_package_data=True,
+    is_pure=False,
     package_data={
         "capstone": ["lib/*", "include/capstone/*"],
     }

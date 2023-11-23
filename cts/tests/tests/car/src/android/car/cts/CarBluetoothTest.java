@@ -28,31 +28,36 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
 import android.util.SparseArray;
+
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.FeatureUtil;
 import com.android.compatibility.common.util.RequiredFeatureRule;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * Contains the tests to prove compliance with android automotive specific bluetooth requirements.
  */
-// TODO(b/146663105): Fix hidden API
-//@SmallTest
-//@RequiresDevice
-//@RunWith(AndroidJUnit4.class)
+@SmallTest
+@RequiresDevice
+@RunWith(AndroidJUnit4.class)
+@AppModeFull(reason = "Instant Apps cannot get Bluetooth related permissions")
 public class CarBluetoothTest {
     @ClassRule
     public static final RequiredFeatureRule sRequiredFeatureRule = new RequiredFeatureRule(
@@ -165,20 +170,19 @@ public class CarBluetoothTest {
             mConnected = false;
         }
     }
-// TODO(b/146663105): Fix hidden API
-/*
+
     // Automotive required profiles and meta data. Profile defaults to 'not connected' and name
     // is used in debug and error messages
     private static SparseArray<ProfileInfo> sRequiredBluetoothProfiles = new SparseArray();
     static {
-        sRequiredBluetoothProfiles.put(BluetoothProfile.A2DP_SINK,
-                new ProfileInfo("A2DP Sink")); // 11
-        sRequiredBluetoothProfiles.put(BluetoothProfile.AVRCP_CONTROLLER,
-                new ProfileInfo("AVRCP Controller")); // 12
-        sRequiredBluetoothProfiles.put(BluetoothProfile.HEADSET_CLIENT,
-                new ProfileInfo("HSP Client")); // 16
-        sRequiredBluetoothProfiles.put(BluetoothProfile.PBAP_CLIENT,
-                new ProfileInfo("PBAP Client")); // 17
+        sRequiredBluetoothProfiles.put(11,
+                new ProfileInfo("A2DP Sink")); // BluetoothProfile.A2DP_SINK
+        sRequiredBluetoothProfiles.put(12,
+                new ProfileInfo("AVRCP Controller")); // BluetoothProfile.AVRCP_CONTROLLER
+        sRequiredBluetoothProfiles.put(16,
+                new ProfileInfo("HSP Client")); // BluetoothProfile.HEADSET_CLIENT
+        sRequiredBluetoothProfiles.put(17,
+                new ProfileInfo("PBAP Client")); // BluetoothProfile.PBAP_CLIENT
     }
     private static final int MAX_PROFILES_SUPPORTED = sRequiredBluetoothProfiles.size();
 
@@ -363,5 +367,4 @@ public class CarBluetoothTest {
         waitForProfileConnections();
         checkProfileConnections();
     }
-*/
 }

@@ -89,7 +89,7 @@ public class TvProvider extends ContentProvider {
     private static final boolean DEBUG = false;
     private static final String TAG = "TvProvider";
 
-    static final int DATABASE_VERSION = 36;
+    static final int DATABASE_VERSION = 37;
     static final String SHARED_PREF_BLOCKED_PACKAGES_KEY = "blocked_packages";
     static final String CHANNELS_TABLE = "channels";
     static final String PROGRAMS_TABLE = "programs";
@@ -237,6 +237,16 @@ public class TvProvider extends ContentProvider {
                 CHANNELS_TABLE + "." + Channels.COLUMN_INTERNAL_PROVIDER_ID);
         sChannelProjectionMap.put(Channels.COLUMN_GLOBAL_CONTENT_ID,
                 CHANNELS_TABLE + "." + Channels.COLUMN_GLOBAL_CONTENT_ID);
+        sChannelProjectionMap.put(Channels.COLUMN_REMOTE_CONTROL_KEY_PRESET_NUMBER,
+                CHANNELS_TABLE + "." + Channels.COLUMN_REMOTE_CONTROL_KEY_PRESET_NUMBER);
+        sChannelProjectionMap.put(Channels.COLUMN_SCRAMBLED,
+                CHANNELS_TABLE + "." + Channels.COLUMN_SCRAMBLED);
+        sChannelProjectionMap.put(Channels.COLUMN_VIDEO_RESOLUTION,
+                CHANNELS_TABLE + "." + Channels.COLUMN_VIDEO_RESOLUTION);
+        sChannelProjectionMap.put(Channels.COLUMN_CHANNEL_LIST_ID,
+                CHANNELS_TABLE + "." + Channels.COLUMN_CHANNEL_LIST_ID);
+        sChannelProjectionMap.put(Channels.COLUMN_BROADCAST_GENRE,
+                CHANNELS_TABLE + "." + Channels.COLUMN_BROADCAST_GENRE);
 
         sProgramProjectionMap.clear();
         sProgramProjectionMap.put(Programs._ID, Programs._ID);
@@ -832,6 +842,11 @@ public class TvProvider extends ContentProvider {
                     + Channels.COLUMN_TRANSIENT + " INTEGER NOT NULL DEFAULT 0,"
                     + Channels.COLUMN_INTERNAL_PROVIDER_ID + " TEXT,"
                     + Channels.COLUMN_GLOBAL_CONTENT_ID + " TEXT,"
+                    + Channels.COLUMN_REMOTE_CONTROL_KEY_PRESET_NUMBER + " INTEGER,"
+                    + Channels.COLUMN_SCRAMBLED + " INTEGER NOT NULL DEFAULT 0,"
+                    + Channels.COLUMN_VIDEO_RESOLUTION + " TEXT,"
+                    + Channels.COLUMN_CHANNEL_LIST_ID + " TEXT,"
+                    + Channels.COLUMN_BROADCAST_GENRE + " TEXT,"
                     // Needed for foreign keys in other tables.
                     + "UNIQUE(" + Channels._ID + "," + Channels.COLUMN_PACKAGE_NAME + ")"
                     + ");");
@@ -1018,20 +1033,53 @@ public class TvProvider extends ContentProvider {
                 }
             }
             if (oldVersion <= 35) {
+                if (!getColumnNames(db, CHANNELS_TABLE)
+                        .contains(Channels.COLUMN_GLOBAL_CONTENT_ID)) {
+                    db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                            + Channels.COLUMN_GLOBAL_CONTENT_ID+ " TEXT;");
+                }
+                if (!getColumnNames(db, PROGRAMS_TABLE)
+                        .contains(Programs.COLUMN_EVENT_ID)) {
+                    db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
+                            + Programs.COLUMN_EVENT_ID + " INTEGER NOT NULL DEFAULT 0;");
+                }
+                if (!getColumnNames(db, PROGRAMS_TABLE)
+                        .contains(Programs.COLUMN_GLOBAL_CONTENT_ID)) {
+                    db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
+                            + Programs.COLUMN_GLOBAL_CONTENT_ID + " TEXT;");
+                }
+                if (!getColumnNames(db, PROGRAMS_TABLE)
+                        .contains(Programs.COLUMN_SPLIT_ID)) {
+                    db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
+                            + Programs.COLUMN_SPLIT_ID + " TEXT;");
+                }
+                if (!getColumnNames(db, RECORDED_PROGRAMS_TABLE)
+                        .contains(RecordedPrograms.COLUMN_SPLIT_ID)) {
+                    db.execSQL("ALTER TABLE " + RECORDED_PROGRAMS_TABLE + " ADD "
+                            + RecordedPrograms.COLUMN_SPLIT_ID + " TEXT;");
+                }
+                if (!getColumnNames(db, PREVIEW_PROGRAMS_TABLE)
+                        .contains(PreviewPrograms.COLUMN_SPLIT_ID)) {
+                    db.execSQL("ALTER TABLE " + PREVIEW_PROGRAMS_TABLE + " ADD "
+                            + PreviewPrograms.COLUMN_SPLIT_ID + " TEXT;");
+                }
+                if (!getColumnNames(db, WATCH_NEXT_PROGRAMS_TABLE)
+                        .contains(WatchNextPrograms.COLUMN_SPLIT_ID)) {
+                    db.execSQL("ALTER TABLE " + WATCH_NEXT_PROGRAMS_TABLE + " ADD "
+                            + WatchNextPrograms.COLUMN_SPLIT_ID + " TEXT;");
+                }
+            }
+            if (oldVersion <= 36) {
                 db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
-                        + Channels.COLUMN_GLOBAL_CONTENT_ID + " TEXT;");
-                db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
-                        + Programs.COLUMN_EVENT_ID + " INTEGER NOT NULL DEFAULT 0;");
-                db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
-                        + Programs.COLUMN_GLOBAL_CONTENT_ID + " TEXT;");
-                db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
-                        + Programs.COLUMN_SPLIT_ID + " TEXT;");
-                db.execSQL("ALTER TABLE " + RECORDED_PROGRAMS_TABLE + " ADD "
-                        + RecordedPrograms.COLUMN_SPLIT_ID + " TEXT;");
-                db.execSQL("ALTER TABLE " + PREVIEW_PROGRAMS_TABLE + " ADD "
-                        + PreviewPrograms.COLUMN_SPLIT_ID + " TEXT;");
-                db.execSQL("ALTER TABLE " + WATCHED_PROGRAMS_TABLE + " ADD "
-                        + WatchNextPrograms.COLUMN_SPLIT_ID + " TEXT;");
+                           + Channels.COLUMN_REMOTE_CONTROL_KEY_PRESET_NUMBER + " INTEGER;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                           + Channels.COLUMN_SCRAMBLED + " INTEGER NOT NULL DEFAULT 0;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                           + Channels.COLUMN_VIDEO_RESOLUTION + " TEXT;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                           + Channels.COLUMN_CHANNEL_LIST_ID + " TEXT;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                           + Channels.COLUMN_BROADCAST_GENRE + " TEXT;");
             }
             Log.i(TAG, "Upgrading from version " + oldVersion + " to " + newVersion + " is done.");
         }
@@ -1099,8 +1147,8 @@ public class TvProvider extends ContentProvider {
     void scheduleEpgDataCleanup() {
         Intent intent = new Intent(EpgDataCleanupService.ACTION_CLEAN_UP_EPG_DATA);
         intent.setClass(getContext(), EpgDataCleanupService.class);
-        PendingIntent pendingIntent = PendingIntent.getService(
-                getContext(), 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pendingIntent = PendingIntent.getService(getContext(), 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         AlarmManager alarmManager =
                 (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
         alarmManager.setInexactRepeating(AlarmManager.RTC, System.currentTimeMillis(),

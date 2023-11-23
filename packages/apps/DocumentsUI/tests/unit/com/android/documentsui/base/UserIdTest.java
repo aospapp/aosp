@@ -91,7 +91,7 @@ public class UserIdTest extends AndroidTestCase {
         when(mockContext.createPackageContextAsUser("android", 0, differentUserHandle)).thenReturn(
                 expectedContext);
 
-        assertThat(UserId.of(differentUserHandle).asContext(mockContext)).isSameAs(
+        assertThat(UserId.of(differentUserHandle).asContext(mockContext)).isSameInstanceAs(
                 expectedContext);
     }
 

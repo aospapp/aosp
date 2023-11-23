@@ -44,13 +44,16 @@ class policy_NativePrintersBulkAccessMode(
                 'NativePrintersBulkBlacklist': self.BLACKLIST}
 
         self.device_policies = {
-                'DeviceNativePrinters': {'url': PRINTERS2_URL,
-                                         'hash': PRINTERS2_HASH},
-                'DeviceNativePrintersWhitelist': self.WHITELIST,
-                'DeviceNativePrintersBlacklist': self.BLACKLIST}
+                'DevicePrinters': {
+                        'url': PRINTERS2_URL,
+                        'hash': PRINTERS2_HASH
+                },
+                'DevicePrintersAllowlist': self.WHITELIST,
+                'DevicePrintersBlocklist': self.BLACKLIST
+        }
 
         self.USER_ACCESS_MODE_NAME = 'NativePrintersBulkAccessMode'
-        self.DEVICE_ACCESS_MODE_NAME = 'DeviceNativePrintersAccessMode'
+        self.DEVICE_ACCESS_MODE_NAME = 'DevicePrintersAccessMode'
         self.ACCESS_MODE_VALUES = {'allowall': 2,
                                    'whitelist': 1,
                                    'blacklist': 0}

@@ -8,7 +8,7 @@ config ONEIT
   bool "oneit"
   default y
   help
-    usage: oneit [-p] [-c /dev/tty0] command [...]
+    usage: oneit [-prn3] [-c CONSOLE] [COMMAND...]
 
     Simple init program that runs a single supplied command line with a
     controlling tty (so CTRL-C can kill it).
@@ -16,6 +16,7 @@ config ONEIT
     -c	Which console device to use (/dev/console doesn't do CTRL-C, etc)
     -p	Power off instead of rebooting when command exits
     -r	Restart child when it exits
+    -n	No reboot, just relaunch command line
     -3	Write 32 bit PID of each exiting reparented process to fd 3 of child
     	(Blocking writes, child must read to avoid eventual deadlock.)
 
@@ -39,7 +40,7 @@ GLOBALS(
 //
 // - Fork a child (PID 1 is special: can't exit, has various signals blocked).
 // - Do a setsid() (so we have our own session).
-// - In the child, attach stdio to /dev/tty0 (/dev/console is special)
+// - In the child, attach stdio to TT.c (/dev/console is special)
 // - Exec the rest of the command line.
 //
 // PID 1 then reaps zombies until the child process it spawned exits, at which
@@ -68,7 +69,7 @@ void oneit_main(void)
   // Setup signal handlers for signals of interest
   for (i = 0; i<ARRAY_LEN(pipes); i++) xsignal(pipes[i], oneit_signaled);
 
-  if (toys.optflags & FLAG_3) {
+  if (FLAG(3)) {
     // Ensure next available filehandles are #3 and #4
     while (xopen_stdio("/", 0) < 3);
     close(3);
@@ -87,17 +88,17 @@ void oneit_main(void)
       // We ignore the return value of write (what would we do with it?)
       // but save it in a variable we never read to make fortify shut up.
       // (Real problem is if pid2 never reads, write() fills pipe and blocks.)
-      while (pid != wait(&i)) if (toys.optflags & FLAG_3) i = write(4, &pid, 4);
-      if (toys.optflags & FLAG_n) continue;
+      while (pid != wait(&i)) if (FLAG(3)) i = write(4, &pid, 4);
+      if (FLAG(n)) continue;
 
-      oneit_signaled((toys.optflags & FLAG_p) ? SIGUSR2 : SIGTERM);
+      oneit_signaled(FLAG(p) ? SIGUSR2 : SIGTERM);
     } else {
-      // Redirect stdio to /dev/tty0, with new session ID, so ctrl-c works.
+      // Redirect stdio to TT.c, with new session ID, so ctrl-c works.
       setsid();
       for (i=0; i<3; i++) {
         close(i);
         // Remember, O_CLOEXEC is backwards for xopen()
-        xopen_stdio(TT.c ? TT.c : "/dev/tty0", O_RDWR|O_CLOEXEC);
+        xopen_stdio(TT.c ? : "/dev/tty0", O_RDWR|O_CLOEXEC);
       }
 
       // Can't xexec() here, we vforked so we don't want to error_exit().

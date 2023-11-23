@@ -1,10 +1,19 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from functools import reduce
+import codecs
 import logging
 import operator
 import os
+import six
+from six.moves import map
+from six.moves import range
 
 
 # TODO: This is a quick workaround; some of our arm devices so far only
@@ -67,13 +76,13 @@ class Edid(object):
             logging.debug('EDID has an invalid length: %d', data_len)
             return False
 
-        for start in xrange(0, data_len, Edid.BLOCK_SIZE):
+        for start in range(0, data_len, Edid.BLOCK_SIZE):
             # Each block (128-byte) has a checksum at the last byte.
             checksum = reduce(operator.add,
-                              map(ord, data[start:start+Edid.BLOCK_SIZE]))
+                              list(map(ord, data[start:start+Edid.BLOCK_SIZE])))
             if checksum % 256 != 0:
                 logging.debug('Wrong checksum in the block %d of EDID',
-                              start / Edid.BLOCK_SIZE)
+                              start // Edid.BLOCK_SIZE)
                 return False
 
         return True
@@ -92,8 +101,7 @@ class Edid(object):
         if filename.upper().endswith('.TXT'):
             # Convert the EDID text format, returning from xrandr.
             data = reduce(operator.add,
-                          map(lambda s: s.strip().decode('hex'),
-                              open(filename).readlines()))
+                          [codecs.decode(s.strip(), 'hex') for s in open(filename).readlines()])
         else:
             data = open(filename).read()
         return cls(data, skip_verify)

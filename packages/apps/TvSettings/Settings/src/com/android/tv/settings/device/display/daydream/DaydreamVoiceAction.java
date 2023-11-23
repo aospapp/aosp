@@ -16,10 +16,11 @@
 
 package com.android.tv.settings.device.display.daydream;
 
-import android.app.Activity;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
+
+import androidx.fragment.app.FragmentActivity;
 
 import com.android.settingslib.dream.DreamBackend;
 
@@ -27,7 +28,7 @@ import com.android.settingslib.dream.DreamBackend;
  * Activity that handles a SLEEP voice action (putting the device to sleep).
  * Intent is launched by search activity.
  */
-public class DaydreamVoiceAction extends Activity {
+public class DaydreamVoiceAction extends FragmentActivity {
 
     private static final String SLEEP_ACTION = "com.google.android.pano.action.SLEEP";
 

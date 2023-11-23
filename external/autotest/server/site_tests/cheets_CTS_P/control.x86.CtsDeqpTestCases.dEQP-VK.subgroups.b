@@ -6,7 +6,7 @@
 
 AUTHOR = 'ARC++ Team'
 NAME = 'cheets_CTS_P.x86.CtsDeqpTestCases.dEQP-VK.subgroups.b'
-ATTRIBUTES = 'suite:cts_P'
+ATTRIBUTES = 'suite:cts_P, suite:cts'
 DEPENDENCIES = 'arc, cts_abi_x86'
 JOB_RETRIES = 1
 TEST_TYPE = 'server'

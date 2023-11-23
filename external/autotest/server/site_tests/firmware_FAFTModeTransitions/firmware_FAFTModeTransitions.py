@@ -11,6 +11,7 @@ from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 class firmware_FAFTModeTransitions(FirmwareTest):
     """This test checks FAFT mode transitions work."""
     version = 1
+    NEEDS_SERVO_USB = True
 
     def _checked_reboot(self, to_mode):
         """Reboots DUT to mode and sanity checks that it has done so.
@@ -36,6 +37,11 @@ class firmware_FAFTModeTransitions(FirmwareTest):
             raise ValueError("Not enough transitions to test: %s" % mode_seq)
 
         logging.info("Testing transition sequence: %s",  " -> ".join(mode_seq))
+
+        if 'rec' in mode_seq:
+            logging.info("Mode sequence contains 'rec', setup USB stick with"
+                         " image.")
+            self.setup_usbkey(usbkey=True)
 
         m1 = mode_seq[0]
 

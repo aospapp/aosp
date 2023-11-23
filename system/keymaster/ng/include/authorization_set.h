@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_SECURITY_KEYSTORE_AUTHORIZATION_SET_H_
-#define SYSTEM_SECURITY_KEYSTORE_AUTHORIZATION_SET_H_
+#pragma once
 
 #include "keymaster_tags.h"
 #include <vector>
 
-namespace keymaster {
-namespace ng {
+namespace keymaster::ng {
 
 class AuthorizationSetBuilder;
 
@@ -35,7 +33,7 @@ class AuthorizationSet {
     /**
      * Construct an empty, dynamically-allocated, growable AuthorizationSet.
      */
-    AuthorizationSet() {};
+    AuthorizationSet(){};
 
     // Copy constructor.
     AuthorizationSet(const AuthorizationSet& other) : data_(other.data_) {}
@@ -48,6 +46,7 @@ class AuthorizationSet {
 
     // Copy assignment.
     AuthorizationSet& operator=(const AuthorizationSet& other) {
+        if (this == &other) return *this;
         data_ = other.data_;
         return *this;
     }
@@ -153,13 +152,11 @@ class AuthorizationSet {
     /**
      * Returns true if the set contains at least one instance of \p tag
      */
-    bool Contains(Tag tag) const {
-        return find(tag) != -1;
-    }
+    bool Contains(Tag tag) const { return find(tag) != -1; }
 
     template <TagType tag_type, Tag tag, typename ValueT>
     bool Contains(TypedTag<tag_type, tag> ttag, const ValueT& value) const {
-        for (const auto& param: data_) {
+        for (const auto& param : data_) {
             auto entry = authorizationValue(ttag, param);
             if (entry.isOk() && entry.value() == value) return true;
         }
@@ -177,25 +174,19 @@ class AuthorizationSet {
         return {};
     }
 
-    void push_back(const KeyParameter& param) {
-        data_.push_back(param);
-    }
-    void push_back(KeyParameter&& param) {
-        data_.push_back(std::move(param));
-    }
+    void push_back(const KeyParameter& param) { data_.push_back(param); }
+    void push_back(KeyParameter&& param) { data_.push_back(std::move(param)); }
 
     /**
      * Append the tag and enumerated value to the set.
      * "val" may be exactly one parameter unless a boolean parameter is added.
      * In this case "val" is omitted. This condition is checked at compile time by Authorization()
      */
-    template <typename TypedTagT, typename... Value>
-    void push_back(TypedTagT tag, Value&&... val) {
+    template <typename TypedTagT, typename... Value> void push_back(TypedTagT tag, Value&&... val) {
         push_back(Authorization(tag, std::forward<Value>(val)...));
     }
 
-    template <typename Iterator>
-    void append(Iterator begin, Iterator end) {
+    template <typename Iterator> void append(Iterator begin, Iterator end) {
         while (begin != end) {
             push_back(*begin);
             ++begin;
@@ -217,7 +208,7 @@ class AuthorizationSet {
     std::vector<KeyParameter> data_;
 };
 
-class AuthorizationSetBuilder: public AuthorizationSet {
+class AuthorizationSetBuilder : public AuthorizationSet {
   public:
     template <typename TagType, typename... ValueType>
     AuthorizationSetBuilder& Authorization(TagType ttag, ValueType&&... value) {
@@ -255,9 +246,7 @@ class AuthorizationSetBuilder: public AuthorizationSet {
     AuthorizationSetBuilder& NoDigestOrPadding();
     AuthorizationSetBuilder& EcbMode();
 
-    AuthorizationSetBuilder& Digest(Digest digest) {
-        return Authorization(TAG_DIGEST, digest);
-    }
+    AuthorizationSetBuilder& Digest(Digest digest) { return Authorization(TAG_DIGEST, digest); }
 
     AuthorizationSetBuilder& Padding(PaddingMode padding) {
         return Authorization(TAG_PADDING, padding);
@@ -330,7 +319,4 @@ inline AuthorizationSetBuilder& AuthorizationSetBuilder::EcbMode() {
     return Authorization(TAG_BLOCK_MODE, BlockMode::ECB);
 }
 
-}  // namespace ng
-}  // namespace keymaster
-
-#endif  // SYSTEM_SECURITY_KEYSTORE_AUTHORIZATION_SET_H_
+}  // namespace keymaster::ng

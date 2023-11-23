@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_SOFT_KEYMASTER_DEVICE_H_
-#define SYSTEM_KEYMASTER_SOFT_KEYMASTER_DEVICE_H_
+#pragma once
 
 #include <cstdlib>
 #include <map>
 #include <vector>
 
-#include <hardware/keymaster0.h>
 #include <hardware/keymaster1.h>
 #include <hardware/keymaster2.h>
 
+#include <keymaster/UniquePtr.h>
 #include <keymaster/android_keymaster.h>
 #include <keymaster/contexts/soft_keymaster_context.h>
-#include <keymaster/UniquePtr.h>
 
 namespace keymaster {
 
@@ -46,15 +44,9 @@ class AuthorizationSet;
  */
 class SoftKeymasterDevice {
   public:
-    SoftKeymasterDevice();
+    explicit SoftKeymasterDevice(KmVersion version);
 
     explicit SoftKeymasterDevice(SoftKeymasterContext* context);
-
-    /**
-     * Set SoftKeymasterDevice to wrap the speicified HW keymaster0 device.  Takes ownership of the
-     * specified device (will call keymaster0_device->common.close());
-     */
-    keymaster_error_t SetHardwareDevice(keymaster0_device_t* keymaster0_device);
 
     /**
      * Set SoftKeymasterDevice to wrap specified HW keymaster1 device.  Takes ownership of the
@@ -250,5 +242,3 @@ class SoftKeymasterDevice {
 };
 
 }  // namespace keymaster
-
-#endif  // EXTERNAL_KEYMASTER_TRUSTY_KEYMASTER_DEVICE_H_

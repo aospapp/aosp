@@ -47,7 +47,7 @@ class ShapeVerifier : public DfsHloVisitor {
   Status HandleSelect(HloInstruction* select) override;
   Status HandleTupleSelect(HloInstruction* tuple_select) override;
   Status HandleConcatenate(HloInstruction* concatenate) override;
-  Status HandleIota(HloInstruction* iota) override;
+  Status HandleIota(HloInstruction* hlo) override;
   Status HandleConvert(HloInstruction* convert) override;
   Status HandleBitcastConvert(HloInstruction* convert) override;
   Status HandleCopy(HloInstruction* copy) override;
@@ -56,15 +56,19 @@ class ShapeVerifier : public DfsHloVisitor {
   Status HandleFft(HloInstruction* fft) override;
   Status HandleCholesky(HloInstruction* hlo) override;
   Status HandleTriangularSolve(HloInstruction* hlo) override;
-  Status HandleAllReduce(HloInstruction* crs) override;
+  Status HandleAllGather(HloInstruction* hlo) override;
+  Status HandleAllReduce(HloInstruction* hlo) override;
   Status HandleAllToAll(HloInstruction* hlo) override;
   Status HandleCollectivePermute(HloInstruction* hlo) override;
+  Status HandleCollectivePermuteStart(HloInstruction* hlo) override;
+  Status HandleCollectivePermuteDone(HloInstruction* hlo) override;
   Status HandlePartitionId(HloInstruction* hlo) override;
   Status HandleReplicaId(HloInstruction* hlo) override;
   Status HandleReducePrecision(HloInstruction* reduce_precision) override;
   Status HandleInfeed(HloInstruction*) override;
   Status HandleOutfeed(HloInstruction*) override;
   Status HandleRng(HloInstruction*) override;
+  Status HandleRngBitGenerator(HloInstruction*) override;
   Status HandleRngGetAndUpdateState(HloInstruction*) override;
   Status HandleReverse(HloInstruction* reverse) override;
   Status HandleSort(HloInstruction* sort) override;
@@ -74,6 +78,7 @@ class ShapeVerifier : public DfsHloVisitor {
   Status HandleBitcast(HloInstruction* bitcast) override;
   Status HandleBroadcast(HloInstruction* broadcast) override;
   Status HandleReshape(HloInstruction* reshape) override;
+  Status HandleDynamicReshape(HloInstruction* dynamic_reshape) override;
   Status HandleTranspose(HloInstruction* transpose) override;
   Status HandleParameter(HloInstruction*) override;
   Status HandleFusion(HloInstruction*) override;
@@ -213,6 +218,8 @@ class TargetVerifierMetadata {
 
   virtual std::unique_ptr<ShapeVerifier> GetVerifier() const = 0;
 
+  virtual bool IsLayoutSensitive() const = 0;
+
   TargetVerifierMetadata() {}
   virtual ~TargetVerifierMetadata() {}
 
@@ -243,6 +250,8 @@ class DefaultVerifierMetadata : public TargetVerifierMetadata {
     return absl::make_unique<ShapeVerifier>(
         layout_sensitive_, allow_mixed_precision_, shape_size_function_);
   }
+
+  bool IsLayoutSensitive() const override { return layout_sensitive_; }
 
  private:
   bool layout_sensitive_;

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2019 Unicode, Inc.
+<!-- Copyright © 1991-2020 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 Unicode and the Unicode Logo are registered trademarks of Unicode, Inc. in the U.S. and other countries.
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -528,7 +528,6 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="🔖" type="tts" draft="unconfirmed">tacreṭ n usebter</annotation>
 		<annotation cp="🏷">tabzimt</annotation>
 		<annotation cp="🏷" type="tts" draft="unconfirmed">tabzimt</annotation>
-		<annotation cp="💲">adulaṛ | idrimen | tadrimt</annotation>
 		<annotation cp="✉">tajellabt</annotation>
 		<annotation cp="✉" type="tts" draft="unconfirmed">tajellabt</annotation>
 		<annotation cp="📧">imayl</annotation>
@@ -663,6 +662,7 @@ CLDR data files are interpreted according to the LDML specification (http://unic
 		<annotation cp="⏏" type="tts" draft="unconfirmed">taqeffalt n senzelli</annotation>
 		<annotation cp="🎦">sinima</annotation>
 		<annotation cp="🎦" type="tts" draft="unconfirmed">sinima</annotation>
+		<annotation cp="💲">adulaṛ | idrimen | tadrimt</annotation>
 		<annotation cp="🏁">anay s texxamin</annotation>
 		<annotation cp="🏁" type="tts" draft="unconfirmed">anay s texxamin</annotation>
 		<annotation cp="🚩">anay azeggaɣ</annotation>

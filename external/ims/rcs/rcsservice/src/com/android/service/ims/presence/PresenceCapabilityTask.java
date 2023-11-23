@@ -109,7 +109,7 @@ public class PresenceCapabilityTask extends PresenceTask{
         intent.setPackage(mContext.getPackageName());
         intent.putExtra("taskId", mTaskId);
         PendingIntent mAlarmIntent = PendingIntent.getBroadcast(mContext, 0, intent,
-                PendingIntent.FLAG_ONE_SHOT);
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT);
 
         if(sAlarmManager == null){
             sAlarmManager = (AlarmManager)mContext.getSystemService(Context.ALARM_SERVICE);
@@ -162,4 +162,3 @@ public class PresenceCapabilityTask extends PresenceTask{
         TaskManager.getDefault().removeTask(mTaskId);
     }
 };
-

@@ -27,10 +27,17 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.os.AsyncTask;
+import android.view.Display;
 import android.view.View;
 import android.widget.ImageView;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.WorkerThread;
+
+import com.android.wallpaper.module.BitmapCropper;
+import com.android.wallpaper.module.InjectorProvider;
+import com.android.wallpaper.util.ScreenSizeCalculator;
+import com.android.wallpaper.util.WallpaperCropUtils;
 
 import com.bumptech.glide.load.resource.bitmap.BitmapTransformation;
 
@@ -76,16 +83,16 @@ public abstract class Asset {
 
     /**
      * Decodes and downscales a bitmap region off the main UI thread.
-     *
      * @param rect         Rect representing the crop region in terms of the original image's
      *                     resolution.
      * @param targetWidth  Width of target view in physical pixels.
      * @param targetHeight Height of target view in physical pixels.
+     * @param shouldAdjustForRtl whether the region selected should be adjusted for RTL (that is,
+     *                           the crop region will be considered starting from the right)
      * @param receiver     Called with the decoded bitmap region or null if there was an error
-     *                     decoding the bitmap region.
      */
     public abstract void decodeBitmapRegion(Rect rect, int targetWidth, int targetHeight,
-            BitmapReceiver receiver);
+            boolean shouldAdjustForRtl, BitmapReceiver receiver);
 
     /**
      * Calculates the raw dimensions of the asset at its original resolution off the main UI thread.
@@ -118,6 +125,17 @@ public abstract class Asset {
     public void loadLowResDrawable(Activity activity, ImageView imageView, int placeholderColor,
             BitmapTransformation transformation) {
         // No op
+    }
+
+    /**
+     * Returns a Bitmap from the separate low resolution data source (if there is one) or
+     * {@code null} otherwise.
+     * This could be an I/O operation so DO NOT CALL ON UI THREAD
+     */
+    @WorkerThread
+    @Nullable
+    public Bitmap getLowResBitmap(Context context) {
+        return null;
     }
 
     /**
@@ -247,6 +265,72 @@ public abstract class Asset {
     }
 
     /**
+     * Loads the image for this asset into the provided ImageView which is used for the preview.
+     * While waiting for the image to load, first loads a ColorDrawable based on the provided
+     * placeholder color.
+     *
+     * @param activity         Activity hosting the ImageView.
+     * @param imageView        ImageView which is the target view of this asset.
+     * @param placeholderColor Color of placeholder set to ImageView while waiting for image to
+     *                         load.
+     */
+    public void loadPreviewImage(Activity activity, ImageView imageView, int placeholderColor) {
+        boolean needsTransition = imageView.getDrawable() == null;
+        Drawable placeholderDrawable = new ColorDrawable(placeholderColor);
+        if (needsTransition) {
+            imageView.setImageDrawable(placeholderDrawable);
+        }
+
+        decodeRawDimensions(activity, dimensions -> {
+            if (dimensions == null) {
+                loadDrawable(activity, imageView, placeholderColor);
+                return;
+            }
+
+            Display defaultDisplay = activity.getWindowManager().getDefaultDisplay();
+            Point screenSize = ScreenSizeCalculator.getInstance().getScreenSize(defaultDisplay);
+            Rect visibleRawWallpaperRect =
+                    WallpaperCropUtils.calculateVisibleRect(dimensions, screenSize);
+            adjustCropRect(activity, dimensions, visibleRawWallpaperRect);
+
+            BitmapCropper bitmapCropper = InjectorProvider.getInjector().getBitmapCropper();
+            bitmapCropper.cropAndScaleBitmap(this, /* scale= */ 1f, visibleRawWallpaperRect,
+                    WallpaperCropUtils.isRtl(activity),
+                    new BitmapCropper.Callback() {
+                        @Override
+                        public void onBitmapCropped(Bitmap croppedBitmap) {
+                            // Since the size of the cropped bitmap may not exactly the same with
+                            // image view(maybe has 1px or 2px difference),
+                            // so set CENTER_CROP to let the bitmap to fit the image view.
+                            imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                            if (!needsTransition) {
+                                imageView.setImageBitmap(croppedBitmap);
+                                return;
+                            }
+
+                            Resources resources = activity.getResources();
+
+                            Drawable[] layers = new Drawable[2];
+                            layers[0] = placeholderDrawable;
+                            layers[1] = new BitmapDrawable(resources, croppedBitmap);
+
+                            TransitionDrawable transitionDrawable = new TransitionDrawable(layers);
+                            transitionDrawable.setCrossFadeEnabled(true);
+
+                            imageView.setImageDrawable(transitionDrawable);
+                            transitionDrawable.startTransition(resources.getInteger(
+                                    android.R.integer.config_shortAnimTime));
+                        }
+
+                        @Override
+                        public void onError(@Nullable Throwable e) {
+
+                        }
+                    });
+        });
+    }
+
+    /**
      * Interface for receiving decoded Bitmaps.
      */
     public interface BitmapReceiver {
@@ -277,6 +361,10 @@ public abstract class Asset {
      */
     public interface DrawableLoadedListener {
         void onDrawableLoaded();
+    }
+
+    protected void adjustCropRect(Context context, Point assetDimensions, Rect cropRect) {
+        WallpaperCropUtils.adjustCropRect(context, cropRect, true /* zoomIn */);
     }
 
     /**

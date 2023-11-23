@@ -62,7 +62,7 @@ using hardware::atrace::V1_0::toString;
 
 using std::string;
 
-#define MAX_SYS_FILES 11
+#define MAX_SYS_FILES 12
 
 const char* k_traceTagsProperty = "debug.atrace.tags.enableflags";
 const char* k_userInitiatedTraceProperty = "debug.atrace.user_initiated";
@@ -99,7 +99,9 @@ struct TracingCategory {
 
 /* Tracing categories */
 static const TracingCategory k_categories[] = {
-    { "gfx",        "Graphics",                 ATRACE_TAG_GRAPHICS, { } },
+    { "gfx",        "Graphics",                 ATRACE_TAG_GRAPHICS, {
+        { OPT,      "events/gpu_mem/gpu_mem_total/enable" },
+    } },
     { "input",      "Input",                    ATRACE_TAG_INPUT, { } },
     { "view",       "View System",              ATRACE_TAG_VIEW, { } },
     { "webview",    "WebView",                  ATRACE_TAG_WEBVIEW, { } },
@@ -172,6 +174,9 @@ static const TracingCategory k_categories[] = {
         { OPT,      "events/clk/clk_enable/enable" },
         { OPT,      "events/power/cpu_frequency_limits/enable" },
         { OPT,      "events/power/suspend_resume/enable" },
+        { OPT,      "events/cpuhp/cpuhp_enter/enable" },
+        { OPT,      "events/cpuhp/cpuhp_exit/enable" },
+        { OPT,      "events/cpuhp/cpuhp_pause/enable" },
     } },
     { "membus",     "Memory Bus Utilization", 0, {
         { REQ,      "events/memory_bus/enable" },
@@ -238,6 +243,11 @@ static const TracingCategory k_categories[] = {
         { OPT,      "events/kmem/ion_heap_grow/enable" },
         { OPT,      "events/kmem/ion_heap_shrink/enable" },
         { OPT,      "events/ion/ion_stat/enable" },
+        { OPT,      "events/gpu_mem/gpu_mem_total/enable" },
+    } },
+    { "thermal",  "Thermal event", 0, {
+        { REQ,      "events/thermal/thermal_temperature/enable" },
+        { OPT,      "events/thermal/cdev_update/enable" },
     } },
 };
 
@@ -311,9 +321,6 @@ static const char* k_funcgraphCpuPath =
 
 static const char* k_funcgraphProcPath =
     "options/funcgraph-proc";
-
-static const char* k_funcgraphFlatPath =
-    "options/funcgraph-flat";
 
 static const char* k_ftraceFilterPath =
     "set_ftrace_filter";
@@ -692,7 +699,6 @@ static bool setKernelTraceFuncs(const char* funcs)
         ok &= setKernelOptionEnable(k_funcgraphAbsTimePath, true);
         ok &= setKernelOptionEnable(k_funcgraphCpuPath, true);
         ok &= setKernelOptionEnable(k_funcgraphProcPath, true);
-        ok &= setKernelOptionEnable(k_funcgraphFlatPath, true);
 
         // Set the requested filter functions.
         ok &= truncateFile(k_ftraceFilterPath);

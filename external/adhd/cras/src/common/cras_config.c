@@ -38,6 +38,18 @@ int cras_fill_socket_path(enum CRAS_CONNECTION_TYPE conn_type, char *sock_path)
 	case CRAS_CAPTURE:
 		sock_file = CRAS_CAPTURE_SOCKET_FILE;
 		break;
+	case CRAS_VMS_LEGACY:
+		sock_file = CRAS_VMS_LEGACY_SOCKET_FILE;
+		break;
+	case CRAS_VMS_UNIFIED:
+		sock_file = CRAS_VMS_UNIFIED_SOCKET_FILE;
+		break;
+	case CRAS_PLUGIN_PLAYBACK:
+		sock_file = CRAS_PLUGIN_PLAYBACK_SOCKET_FILE;
+		break;
+	case CRAS_PLUGIN_UNIFIED:
+		sock_file = CRAS_PLUGIN_UNIFIED_SOCKET_FILE;
+		break;
 	default:
 		return -EINVAL;
 	}

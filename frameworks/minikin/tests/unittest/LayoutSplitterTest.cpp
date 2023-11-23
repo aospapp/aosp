@@ -323,5 +323,40 @@ TEST(LayoutSplitterTest, RTL_CJK) {
     }
 }
 
+TEST(LayoutSplitterTest, BidiCtrl) {
+    struct TestCase {
+        std::string testStr;
+        std::vector<std::string> expects;
+    } testCases[] = {
+            {// Repeated Bidi sequence
+             "(a\u2066\u2069\u202A\u202E\u200E\u200Fb)",
+             {
+                     "[(a)]\u2066\u2069\u202A\u202E\u200E\u200Fb",
+                     "a[(\u2066)]\u2069\u202A\u202E\u200E\u200Fb",
+                     "a\u2066[(\u2069)]\u202A\u202E\u200E\u200Fb",
+                     "a\u2066\u2069[(\u202A)]\u202E\u200E\u200Fb",
+                     "a\u2066\u2069\u202A[(\u202E)]\u200E\u200Fb",
+                     "a\u2066\u2069\u202A\u202E[(\u200E)]\u200Fb",
+                     "a\u2066\u2069\u202A\u202E\u200E[(\u200F)]b",
+                     "a\u2066\u2069\u202A\u202E\u200E\u200F[(b)]",
+             }},
+    };
+
+    for (const auto& testCase : testCases) {
+        auto [text, range] = parseTestString(testCase.testStr);
+        uint32_t expectationIndex = 0;
+        for (auto [acContext, acPiece] : LayoutSplitter(text, range, false /* isRtl */)) {
+            ASSERT_NE(expectationIndex, testCase.expects.size());
+            const std::string expectString = testCase.expects[expectationIndex++];
+            auto [exContext, exPiece] = parseExpectString(expectString);
+            EXPECT_EQ(acContext, exContext)
+                    << expectString << " vs " << buildDebugString(text, acContext, acPiece);
+            EXPECT_EQ(acPiece, exPiece)
+                    << expectString << " vs " << buildDebugString(text, acContext, acPiece);
+        }
+        EXPECT_EQ(expectationIndex, testCase.expects.size()) << "Expectations Remains";
+    }
+}
+
 }  // namespace
 }  // namespace minikin

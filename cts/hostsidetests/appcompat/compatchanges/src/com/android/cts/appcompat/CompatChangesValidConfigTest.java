@@ -17,162 +17,92 @@
 package com.android.cts.appcompat;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
+import android.compat.cts.Change;
 import android.compat.cts.CompatChangeGatingTestCase;
 
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+
 public final class CompatChangesValidConfigTest extends CompatChangeGatingTestCase {
 
-    private static class Change {
-        private static final Pattern CHANGE_REGEX = Pattern.compile("^ChangeId\\((?<changeId>[0-9]+)"
-                                                + "(; name=(?<changeName>[^;]+))?"
-                                                + "(; enableAfterTargetSdk=(?<targetSdk>[0-9]+))?"
-                                                + "(; (?<disabled>disabled))?"
-                                                + "(; (?<loggingOnly>loggingOnly))?"
-                                                + "(; packageOverrides=(?<overrides>[^\\)]+))?"
-                                                + "\\)");
-        long changeId;
-        String changeName;
-        int targetSdk;
-        boolean disabled;
-        boolean loggingOnly;
-        boolean hasOverrides;
+    private static final Set<String> OVERRIDES_ALLOWLIST = ImmutableSet.of(
+        // This change id will sometimes remain enabled if an instrumentation test fails.
+        "ALLOW_TEST_API_ACCESS"
+    );
 
-        private Change(long changeId, String changeName, int targetSdk, boolean disabled,
-                boolean loggingOnly, boolean hasOverrides) {
-            this.changeId = changeId;
-            this.changeName = changeName;
-            this.targetSdk = targetSdk;
-            this.disabled = disabled;
-            this.loggingOnly = loggingOnly;
-            this.hasOverrides = hasOverrides;
-        }
+    private static final Set<String> OVERRIDABLE_CHANGES = ImmutableSet.of(
+            "ALWAYS_SANDBOX_DISPLAY_APIS",
+            "CTS_SYSTEM_API_OVERRIDABLE_CHANGEID",
+            "DOWNSCALED",
+            "DOWNSCALE_30",
+            "DOWNSCALE_35",
+            "DOWNSCALE_40",
+            "DOWNSCALE_45",
+            "DOWNSCALE_50",
+            "DOWNSCALE_55",
+            "DOWNSCALE_60",
+            "DOWNSCALE_65",
+            "DOWNSCALE_70",
+            "DOWNSCALE_75",
+            "DOWNSCALE_80",
+            "DOWNSCALE_85",
+            "DOWNSCALE_90",
+            "DO_NOT_DOWNSCALE_TO_1080P_ON_TV",
+            "FGS_BG_START_RESTRICTION_CHANGE_ID",
+            "FORCE_NON_RESIZE_APP",
+            "FORCE_RESIZE_APP",
+            "IGNORE_ALLOW_BACKUP_IN_D2D",
+            "IGNORE_FULL_BACKUP_CONTENT_IN_D2D",
+            "NEVER_SANDBOX_DISPLAY_APIS",
+            "OVERRIDE_MIN_ASPECT_RATIO",
+            "OVERRIDE_MIN_ASPECT_RATIO_LARGE",
+            "OVERRIDE_MIN_ASPECT_RATIO_MEDIUM"
+    );
 
-        static Change fromString(String line) {
-            long changeId = 0;
-            String changeName;
-            int targetSdk = 0;
-            boolean disabled = false;
-            boolean loggingOnly = false;
-            boolean hasOverrides = false;
-
-            Matcher matcher = CHANGE_REGEX.matcher(line);
-            if (!matcher.matches()) {
-                throw new RuntimeException("Could not match line " + line);
+    /**
+     * Check that there are no overrides.
+     */
+    public void testNoOverrides() throws Exception {
+        for (Change c : getOnDeviceCompatConfig()) {
+            if (!OVERRIDES_ALLOWLIST.contains(c.changeName) && !c.overridable) {
+                assertWithMessage("Change should not have overrides: " + c)
+                        .that(c.hasOverrides).isFalse();
             }
-
-            try {
-                changeId = Long.parseLong(matcher.group("changeId"));
-            } catch (NumberFormatException e) {
-                throw new RuntimeException("No or invalid changeId!", e);
-            }
-            changeName = matcher.group("changeName");
-            String targetSdkAsString = matcher.group("targetSdk");
-            if (targetSdkAsString != null) {
-                try {
-                    targetSdk = Integer.parseInt(targetSdkAsString);
-                } catch (NumberFormatException e) {
-                    throw new RuntimeException("Invalid targetSdk for change!", e);
-                }
-            }
-            if (matcher.group("disabled") != null) {
-                disabled = true;
-            }
-            if (matcher.group("loggingOnly") != null) {
-                loggingOnly = true;
-            }
-            if (matcher.group("overrides") != null) {
-                hasOverrides = true;
-            }
-            return new Change(changeId, changeName, targetSdk, disabled, loggingOnly, hasOverrides);
-        }
-
-        static Change fromNode(Node node) {
-            Element element = (Element) node;
-            long changeId = Long.parseLong(element.getAttribute("id"));
-            String changeName = element.getAttribute("name");
-            int targetSdk = 0;
-            if (element.hasAttribute("enableAfterTargetSdk")) {
-                targetSdk = Integer.parseInt(element.getAttribute("enableAfterTargetSdk"));
-            }
-            boolean disabled = false;
-            if (element.hasAttribute("disabled")) {
-                disabled = true;
-            }
-            boolean loggingOnly = false;
-            if (element.hasAttribute("loggingOnly")) {
-                loggingOnly = true;
-            }
-            boolean hasOverrides = false;
-            return new Change(changeId, changeName, targetSdk, disabled, loggingOnly, hasOverrides);
-        }
-        @Override
-        public int hashCode() {
-            return Objects.hash(changeId, changeName, targetSdk, disabled, hasOverrides);
-        }
-        @Override
-        public boolean equals(Object other) {
-            if (this == other) {
-                return true;
-            }
-            if (other == null || !(other instanceof Change)) {
-                return false;
-            }
-            Change that = (Change) other;
-            return this.changeId == that.changeId
-                && Objects.equals(this.changeName, that.changeName)
-                && this.targetSdk == that.targetSdk
-                && this.disabled == that.disabled
-                && this.loggingOnly == that.loggingOnly
-                && this.hasOverrides == that.hasOverrides;
-        }
-        @Override
-        public String toString() {
-            final StringBuilder sb = new StringBuilder();
-            sb.append("ChangeId(" + changeId);
-            if (changeName != null && !changeName.isEmpty()) {
-                sb.append("; name=" + changeName);
-            }
-            if (targetSdk != 0) {
-                sb.append("; enableAfterTargetSdk=" + targetSdk);
-            }
-            if (disabled) {
-                sb.append("; disabled");
-            }
-            if (hasOverrides) {
-                sb.append("; packageOverrides={something}");
-            }
-            sb.append(")");
-            return sb.toString();
         }
     }
 
     /**
-     * Get the on device compat config.
+     * Check that only approved changes are overridable.
      */
-    private List<Change> getOnDeviceCompatConfig() throws Exception {
-        String config = runCommand("dumpsys platform_compat");
-        return Arrays.stream(config.split("\n"))
-                .map(Change::fromString)
-                .collect(Collectors.toList());
+    public void testOnlyAllowedlistedChangesAreOverridable() throws Exception {
+        for (Change c : getOnDeviceCompatConfig()) {
+            if (c.overridable) {
+                assertWithMessage("Please contact platform-compat-eng@google.com for approval")
+                        .that(OVERRIDABLE_CHANGES).contains(c.changeName);
+            }
+        }
     }
+
+    /**
+     * Check that the on device config contains all the expected change ids defined in the platform.
+     * The device may contain extra changes, but none may be removed.
+     */
+    public void testDeviceContainsExpectedConfig() throws Exception {
+        assertThat(getOnDeviceCompatConfig()).containsAtLeastElementsIn(getExpectedCompatConfig());
+    }
+
 
     /**
      * Parse the expected (i.e. defined in platform) config xml.
@@ -192,23 +122,6 @@ public final class CompatChangesValidConfigTest extends CompatChangeGatingTestCa
             }
         }
         return changes;
-    }
-
-    /**
-     * Check that there are no overrides.
-     */
-    public void testNoOverrides() throws Exception {
-        for (Change c : getOnDeviceCompatConfig()) {
-            assertThat(c.hasOverrides).isFalse();
-        }
-    }
-
-    /**
-     * Check that the on device config contains all the expected change ids defined in the platform.
-     * The device may contain extra changes, but none may be removed.
-     */
-    public void testDeviceContainsExpectedConfig() throws Exception {
-        assertThat(getOnDeviceCompatConfig()).containsAllIn(getExpectedCompatConfig());
     }
 
 }

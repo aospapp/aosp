@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Module Info class used to hold cached merged_module_info.json.json."""
+"""Module Info class used to hold cached merged_module_info.json."""
 
 import logging
 import os
@@ -52,7 +52,7 @@ class AidegenModuleInfo(module_info.ModuleInfo, metaclass=Singleton):
             os.remove(module_file_path)
         merged_file_path = os.path.join(common_util.get_soong_out_path(),
                                         constant.MERGED_MODULE_INFO)
-        if not os.path.isfile(module_file_path):
+        if not os.path.isfile(merged_file_path):
             logging.debug(
                 'Generating %s - this is required for the initial runs.',
                 merged_file_path)

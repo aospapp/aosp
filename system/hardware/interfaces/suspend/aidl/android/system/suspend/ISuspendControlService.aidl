@@ -16,23 +16,15 @@
 
 package android.system.suspend;
 
+import android.system.suspend.IWakelockCallback;
 import android.system.suspend.ISuspendCallback;
-import android.system.suspend.WakeLockInfo;
 
 /**
  * Interface exposed by the suspend hal that allows framework to toggle the suspend loop and
  * monitor native wakelocks.
  * @hide
  */
-interface ISuspendControlService
-{
-    /**
-     * Starts automatic system suspendion.
-     *
-     * @return true on success, false otherwise.
-     */
-    boolean enableAutosuspend();
-
+interface ISuspendControlService {
     /**
      * Registers a callback for suspend events.  ISuspendControlService must keep track of all
      * registered callbacks unless the client process that registered the callback dies.
@@ -43,12 +35,11 @@ interface ISuspendControlService
     boolean registerCallback(ISuspendCallback callback);
 
     /**
-     * Suspends the system even if there are wakelocks being held.
+     * Registers a callback for a wakelock specified by its name.
+     *
+     * @param callback the callback to register.
+     * @param name the name of the wakelock.
+     * @return true on success, false otherwise.
      */
-    boolean forceSuspend();
-
-    /**
-     * Returns a list of wake lock stats.
-     */
-    WakeLockInfo[] getWakeLockStats();
+    boolean registerWakelockCallback(IWakelockCallback callback, @utf8InCpp String name);
 }

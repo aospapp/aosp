@@ -41,12 +41,21 @@
                 value="com.android.cts.core.runner.ExpectationBasedFilter" />
         <option name="core-expectation" value="/knownfailures.txt" />
         <option name="runtime-hint" value="35m"/>
-        <!-- 20x default timeout of 600sec -->
-        <option name="shell-timeout" value="12000000"/>
+        <!-- shell-timeout is the amount of time we wait for an output before stopping the instrumentation -->
+        <option name="shell-timeout" value="45m"/>
         <option name="hidden-api-checks" value="false"/>
     </test>
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.TestFailureModuleController">
         <option name="screenshot-on-failure" value="false" />
+    </object>
+
+    <!-- When this test is run in a Mainline context (e.g. with `mts-tradefed`), only enable it if
+         one of the Mainline modules below is present on the device used for testing. -->
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <!-- ART Mainline Module (internal version). -->
+        <option name="mainline-module-package-name" value="com.google.android.art" />
+        <!-- ART Mainline Module (external (AOSP) version). -->
+        <option name="mainline-module-package-name" value="com.android.art" />
     </object>
 </configuration>

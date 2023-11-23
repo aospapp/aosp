@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import errno
+from socket import *  # pylint: disable=wildcard-import
 import unittest
 
 import gzip
@@ -65,6 +67,27 @@ class RemovedFeatureTest(net_test.NetworkTest):
     self.assertFeatureEnabled("CONFIG_IP6_NF_FILTER")
     self.assertFeatureEnabled("CONFIG_IP6_NF_TARGET_REJECT")
     self.assertFeatureAbsent("CONFIG_IP6_NF_TARGET_REJECT_SKERR")
+
+  @unittest.skipUnless(net_test.LINUX_VERSION >= (4, 19, 0), "removed in 4.14-r")
+  def testRemovedAndroidParanoidNetwork(self):
+    """Verify that ANDROID_PARANOID_NETWORK is gone."""
+
+    AID_NET_RAW = 3004
+    with net_test.RunAsUidGid(12345, AID_NET_RAW):
+      self.assertRaisesErrno(errno.EPERM, socket, AF_PACKET, SOCK_RAW, 0)
+
+  @unittest.skipUnless(net_test.LINUX_VERSION >= (4, 19, 0), "exists in 4.14-P")
+  def testRemovedQtaguid(self):
+    self.assertRaisesErrno(errno.ENOENT, open, "/proc/net/xt_qtaguid")
+
+  @unittest.skipUnless(net_test.LINUX_VERSION >= (4, 19, 0), "exists in 4.14-P")
+  def testRemovedTcpMemSysctls(self):
+    self.assertRaisesErrno(errno.ENOENT, open, "/sys/kernel/ipv4/tcp_rmem_def")
+    self.assertRaisesErrno(errno.ENOENT, open, "/sys/kernel/ipv4/tcp_rmem_max")
+    self.assertRaisesErrno(errno.ENOENT, open, "/sys/kernel/ipv4/tcp_rmem_min")
+    self.assertRaisesErrno(errno.ENOENT, open, "/sys/kernel/ipv4/tcp_wmem_def")
+    self.assertRaisesErrno(errno.ENOENT, open, "/sys/kernel/ipv4/tcp_wmem_max")
+    self.assertRaisesErrno(errno.ENOENT, open, "/sys/kernel/ipv4/tcp_wmem_min")
 
 
 if __name__ == "__main__":

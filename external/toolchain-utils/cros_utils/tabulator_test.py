@@ -33,6 +33,20 @@ class TabulatorTest(unittest.TestCase):
     result.Compute(cell, table[2], table[1])
     self.assertTrue(cell.value == float(table[2][0]))
 
+  def testStdResult(self):
+    table = ['k1', [], ['1', '2']]
+    result = tabulator.StdResult()
+    cell = tabulator.Cell()
+    result.Compute(cell, table[2], table[1])
+    self.assertTrue(cell.value == 0.5)
+
+  def testStdResultOfSampleSize1(self):
+    table = ['k1', [], ['1']]
+    result = tabulator.StdResult()
+    cell = tabulator.Cell()
+    result.Compute(cell, table[2], table[1])
+    self.assertTrue(cell.value == 0.0)
+
   def testStringMean(self):
     smr = tabulator.StringMeanResult()
     cell = tabulator.Cell()

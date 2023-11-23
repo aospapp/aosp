@@ -35,12 +35,16 @@ class ContainerBucket(object):
     """
 
     def __init__(self, container_path=constants.DEFAULT_CONTAINER_PATH,
-                 container_factory=None):
+                 base_name=constants.BASE, container_factory=None):
         """Initialize a ContainerBucket.
 
         @param container_path: Path to the directory used to store containers.
                                Default is set to AUTOSERV/container_path in
                                global config.
+        @param base_name: Name of the base container image. Used to initialize a
+                          ContainerFactory unless one is provided via the
+                          arguments. Defaults to value set via
+                          AUTOSERV/container_base_name in global config.
         @param container_factory: A factory for creating Containers.
         """
         self.container_path = os.path.realpath(container_path)
@@ -52,10 +56,10 @@ class ContainerBucket(object):
             # fall back to using the default container path).
             try:
                 base_image_ok = True
-                container = BaseImage(self.container_path).get()
-            except error.ContainerError as e:
+                container = BaseImage(self.container_path, base_name).get()
+            except error.ContainerError:
                 base_image_ok = False
-                raise e
+                raise
             finally:
                 metrics.Counter(METRICS_PREFIX + '/base_image',
                                 field_spec=[ts_mon.BooleanField('corrupted')]

@@ -35,7 +35,7 @@
         android:selectAllOnFocus="false"
         android:focusable="true"/>
 
-        <TextView android:id="@+id/selectAllOnFocus_dummy"
+        <TextView android:id="@+id/selectAllOnFocus_placeholder"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:focusable="true"/>

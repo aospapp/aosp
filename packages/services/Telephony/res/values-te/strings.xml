@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"వాయిస్ మెయిల్ సెట్టింగ్‌లను ప్రాథమిక వినియోగదారు మాత్రమే సవరించగలరు."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"మీ SIM కార్డు అన్‌బ్లాక్ చేయబడింది. మీ ఫోన్ అన్‌లాక్ చేయబడుతోంది…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"SIM నెట్‌వర్క్ అన్‌లాక్ పిన్‌"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"ఈ ఆపరేటర్‌కు సంబంధించి SIM లాక్ చేయబడింది"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"అన్‌లాక్ చేయి"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"తీసివేయి"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"నెట్‌వర్క్ అన్‌లాక్‌ను అభ్యర్థిస్తోంది…"</string>
@@ -63,8 +64,8 @@
     <string name="apn_settings" msgid="1978652203074756623">"యాక్సెస్ పాయింట్ పేర్లు"</string>
     <string name="settings_label" msgid="9101778088412567956">"నెట్‌వర్క్ సెట్టింగ్‌లు"</string>
     <string name="phone_accounts" msgid="1216879437523774604">"కాల్ చేయగల ఖాతాలు"</string>
-    <string name="phone_accounts_make_calls_with" msgid="16747814788918145">"దీనితో కాల్‌లు చేయి"</string>
-    <string name="phone_accounts_make_sip_calls_with" msgid="4691221006731847255">"దీనితో SIP కాల్‌లను చేయి"</string>
+    <string name="phone_accounts_make_calls_with" msgid="16747814788918145">"దీనితో కాల్స్‌ చేయి"</string>
+    <string name="phone_accounts_make_sip_calls_with" msgid="4691221006731847255">"దీనితో SIP కాల్స్‌ను చేయి"</string>
     <string name="phone_accounts_ask_every_time" msgid="6192347582666047168">"ముందుగానే అడుగు"</string>
     <string name="phone_accounts_default_account_label" msgid="5107598881335931101">"నెట్‌వర్క్ ఏదీ అందుబాటులో లేదు"</string>
     <string name="phone_accounts_settings_header" msgid="6296501692964706536">"సెట్టింగ్‌లు"</string>
@@ -73,15 +74,15 @@
     <string name="phone_accounts_add_sip_account" msgid="1437634802033309305">"SIP ఖాతాను జోడించు"</string>
     <string name="phone_accounts_configure_account_settings" msgid="6622119715253196586">"ఖాతా సెట్టింగ్‌లను కాన్ఫిగర్ చేయి"</string>
     <string name="phone_accounts_all_calling_accounts" msgid="1609600743500618823">"అన్ని కాలింగ్ ఖాతాలు"</string>
-    <string name="phone_accounts_all_calling_accounts_summary" msgid="2214134955430107240">"ఏ ఖాతాల నుండి కాల్‌లు చేయవచ్చనే దాన్ని ఎంచుకోండి"</string>
+    <string name="phone_accounts_all_calling_accounts_summary" msgid="2214134955430107240">"ఏ ఖాతాల నుండి కాల్స్‌ చేయవచ్చనే దాన్ని ఎంచుకోండి"</string>
     <string name="wifi_calling" msgid="3650509202851355742">"Wi-Fi కాలింగ్"</string>
     <string name="connection_service_default_label" msgid="7332739049855715584">"అంతర్నిర్మిత కనెక్షన్ సేవ"</string>
     <string name="voicemail" msgid="7697769412804195032">"వాయిస్ మెయిల్"</string>
     <string name="voicemail_settings_with_label" msgid="4228431668214894138">"వాయిస్ మెయిల్ (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="7746778673131551185">"VM:"</string>
-    <string name="make_and_receive_calls" msgid="4868913166494621109">"కాల్‌లను చేయండి &amp; స్వీకరించండి"</string>
+    <string name="make_and_receive_calls" msgid="4868913166494621109">"కాల్స్‌ను చేయండి &amp; స్వీకరించండి"</string>
     <string name="smart_forwarding_settings_menu" msgid="8850429887958938540">"స్మార్ట్ ఫార్వర్డ్‌ను ప్రారంభించు"</string>
-    <string name="smart_forwarding_settings_menu_summary" msgid="5096947726032885325">"ఒక నంబర్‌ను చేరుకోలేకపోయినప్పుడు, మీ ఇతర నంబర్‌లకు కాల్‌లను ఎల్లప్పుడూ ఫార్వర్డ్ చేయబడతాయి."</string>
+    <string name="smart_forwarding_settings_menu_summary" msgid="5096947726032885325">"ఒక నంబర్‌ను చేరుకోలేకపోయినప్పుడు, మీ ఇతర నంబర్‌లకు కాల్స్‌ను ఎల్లప్పుడూ ఫార్వర్డ్ చేయబడతాయి."</string>
     <string name="voicemail_notifications_preference_title" msgid="7829238858063382977">"నోటిఫికేషన్‌లు"</string>
     <string name="cell_broadcast_settings" msgid="8135324242541809924">"అత్యవసర ప్రసారాలు"</string>
     <string name="call_settings" msgid="3677282690157603818">"కాల్ సెట్టింగ్‌లు"</string>
@@ -97,15 +98,15 @@
     <string name="sum_show_caller_id" msgid="3571854755324664591">"అవుట్‌గోయింగ్ కాల్స్‌లో నంబర్ ప్రదర్శించబడుతుంది"</string>
     <string name="sum_default_caller_id" msgid="1767070797135682959">"అవుట్‌గోయింగ్ కాల్స్‌లో నా నంబర్‌ను ప్రదర్శించడానికి డిఫాల్ట్ ఆపరేటర్ సెట్టింగ్‌లను ఉపయోగించు"</string>
     <string name="labelCW" msgid="8449327023861428622">"కాల్ నిరీక్షణ"</string>
-    <string name="sum_cw_enabled" msgid="3977308526187139996">"కాల్ సమయంలో, ఇన్‌కమింగ్ కాల్‌ల గురించి నాకు తెలియజేయి"</string>
-    <string name="sum_cw_disabled" msgid="3658094589461768637">"కాల్ సమయంలో, ఇన్‌కమింగ్ కాల్‌ల గురించి నాకు తెలియజేయి"</string>
+    <string name="sum_cw_enabled" msgid="3977308526187139996">"కాల్ సమయంలో, ఇన్‌కమింగ్ కాల్స్‌ల గురించి నాకు తెలియజేయి"</string>
+    <string name="sum_cw_disabled" msgid="3658094589461768637">"కాల్ సమయంలో, ఇన్‌కమింగ్ కాల్స్‌ల గురించి నాకు తెలియజేయి"</string>
     <string name="call_forwarding_settings" msgid="8937130467468257671">"కాల్ ఫార్వర్డింగ్ సెట్టింగ్‌లు"</string>
     <string name="call_forwarding_settings_with_label" msgid="2345432813399564272">"కాల్ ఫార్వార్డింగ్ సెట్టింగ్‌లు (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCF" msgid="3578719437928476078">"కాల్ ఫార్వార్డింగ్"</string>
     <string name="labelCFU" msgid="8870170873036279706">"ఎల్లప్పుడూ ఫార్వర్డ్ చేయి"</string>
     <string name="messageCFU" msgid="1361806450979589744">"ఎల్లప్పుడూ ఈ నంబర్‌ను ఉపయోగించు"</string>
-    <string name="sum_cfu_enabled_indicator" msgid="9030139213402432776">"అన్ని కాల్‌లను ఫార్వార్డ్ చేస్తోంది"</string>
-    <string name="sum_cfu_enabled" msgid="5806923046528144526">"అన్ని కాల్‌లను <xliff:g id="PHONENUMBER">{0}</xliff:g>కి ఫార్వార్డ్ చేస్తోంది"</string>
+    <string name="sum_cfu_enabled_indicator" msgid="9030139213402432776">"అన్ని కాల్స్‌ను ఫార్వార్డ్ చేస్తోంది"</string>
+    <string name="sum_cfu_enabled" msgid="5806923046528144526">"అన్ని కాల్స్‌ను <xliff:g id="PHONENUMBER">{0}</xliff:g>కి ఫార్వార్డ్ చేస్తోంది"</string>
     <string name="sum_cfu_enabled_no_number" msgid="7287752761743377930">"నంబర్ అందుబాటులో లేదు"</string>
     <string name="sum_cfu_disabled" msgid="5010617134210809853">"ఆఫ్‌లో ఉంది"</string>
     <string name="labelCFB" msgid="615265213360512768">"బిజీగా ఉన్నప్పుడు"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g>కి ఫార్వార్డ్ చేస్తోంది"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"ఆఫ్‌లో ఉంది"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"మీ ఫోన్‌ను చేరుకోవడం సాధ్యపడనప్పుడు కాల్ ఫార్వర్డింగ్‌ను నిలిపివేయడానికి మీ క్యారియర్ మద్దతు ఇవ్వదు."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"కాల్ ఫార్వర్డింగ్‌ను మీ క్యారియర్ సపోర్ట్ చేయదు."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"కాల్ వెయిటింగ్‌ను ఆన్ చేయాలా?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"మీరు కాల్స్‌లో ఉండగా, ఇన్‌కమింగ్ కాల్స్‌ల గురించి మీకు తెలియజేయబడుతుంది"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"ఆన్ చేయి"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"రద్దు చేయి"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMSలో CDMA కాల్ వెయిటింగ్ ఆన్‌లో ఉంది"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMSలో CDMA కాల్ వెయిటింగ్ ఆఫ్‌లో ఉంది"</string>
     <string name="updating_title" msgid="6130548922615719689">"కాల్ సెట్టింగ్‌లు"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"కాల్ సెట్టింగ్‌లను నిర్వాహక వినియోగదారు మాత్రమే మార్చగలరు."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"సెట్టింగ్‌లు (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -136,7 +144,7 @@
     <string name="stk_cc_ss_to_ussd_error" msgid="8330749347425752192">"SS అభ్యర్థన USSD అభ్యర్థనకు మార్చబడింది"</string>
     <string name="stk_cc_ss_to_ss_error" msgid="8297155544652134278">"కొత్త SS అభ్యర్థనకు మార్చబడింది"</string>
     <string name="stk_cc_ss_to_dial_video_error" msgid="4255261231466032505">"SS అభ్యర్థన వీడియో కాల్‌కి మార్చబడింది"</string>
-    <string name="fdn_check_failure" msgid="1833769746374185247">"మీ ఫోన్ అనువర్తనం యొక్క ఫిక్స్‌డ్ డయలింగ్ నంబర్‌ల సెట్టింగ్ ప్రారంభించబడింది. తత్ఫలితంగా, కాల్ సంబంధిత లక్షణాల్లో కొన్ని పని చేయడం లేదు."</string>
+    <string name="fdn_check_failure" msgid="1833769746374185247">"మీ ఫోన్ యాప్‌ యొక్క ఫిక్స్‌డ్ డయలింగ్ నంబర్‌ల సెట్టింగ్ ప్రారంభించబడింది. తత్ఫలితంగా, కాల్ సంబంధిత లక్షణాల్లో కొన్ని పని చేయడం లేదు."</string>
     <string name="radio_off_error" msgid="8321564164914232181">"ఈ సెట్టింగ్‌లను వీక్షించడానికి ముందు రేడియోను ప్రారంభించండి."</string>
     <string name="close_dialog" msgid="1074977476136119408">"సరే"</string>
     <string name="enable" msgid="2636552299455477603">"ఆన్ చేయి"</string>
@@ -274,8 +282,8 @@
     <string name="data_enable_summary" msgid="696860063456536557">"డేటా వినియోగాన్ని అనుమతించు"</string>
     <string name="dialog_alert_title" msgid="5260471806940268478">"హెచ్చరిక"</string>
     <string name="roaming" msgid="1576180772877858949">"రోమింగ్"</string>
-    <string name="roaming_enable" msgid="6853685214521494819">"రోమింగ్‌లో ఉన్నప్పుడు డేటా సేవలకు కనెక్ట్ చేయి"</string>
-    <string name="roaming_disable" msgid="8856224638624592681">"రోమింగ్‌లో ఉన్నప్పుడు డేటా సేవలకు కనెక్ట్ చేయి"</string>
+    <string name="roaming_enable" msgid="6853685214521494819">"రోమింగ్‌లో ఉన్నప్పుడు డేటా సర్వీసులకు కనెక్ట్ చేయండి"</string>
+    <string name="roaming_disable" msgid="8856224638624592681">"రోమింగ్‌లో ఉన్నప్పుడు డేటా సర్వీసులకు కనెక్ట్ చేయండి"</string>
     <string name="roaming_reenable_message" msgid="1951802463885727915">"డేటా రోమింగ్ ఆఫ్ చేయబడింది. ఆన్ చేయడానికి నొక్కండి."</string>
     <string name="roaming_enabled_message" msgid="9022249120750897">"రోమింగ్ ఛార్జీలు వర్తించవచ్చు. మార్చడానికి నొక్కండి."</string>
     <string name="roaming_notification_title" msgid="3590348480688047320">"మొబైల్ డేటా కనెక్షన్‌ని కోల్పోయారు"</string>
@@ -284,11 +292,14 @@
     <string name="roaming_check_price_warning" msgid="8212484083990570215">"ధరల కోసం మీ నెట్‌వర్క్ ప్రదాతను అడగండి."</string>
     <string name="roaming_alert_title" msgid="5689615818220960940">"డేటా రోమింగ్‌ను అనుమతించాలా?"</string>
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"SIM పనితీరు పరిమితంగా ఉంది"</string>
-    <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> ఉపయోగిస్తున్నప్పుడు <xliff:g id="CARRIER_NAME">%1$s</xliff:g> కాల్‌లు మరియు డేటా సేవలు బ్లాక్ చేయబడవచ్చు."</string>
-    <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"వేరొక SIMను ఉపయోగిస్తున్నప్పుడు <xliff:g id="CARRIER_NAME">%1$s</xliff:g> కాల్‌లు మరియు డేటా సేవలు బ్లాక్ చేయబడవచ్చు."</string>
+    <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> ఉపయోగిస్తున్నప్పుడు <xliff:g id="CARRIER_NAME">%1$s</xliff:g> కాల్స్‌ మరియు డేటా సేవలు బ్లాక్ చేయబడవచ్చు."</string>
+    <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"వేరొక SIMను ఉపయోగిస్తున్నప్పుడు <xliff:g id="CARRIER_NAME">%1$s</xliff:g> కాల్స్‌ మరియు డేటా సేవలు బ్లాక్ చేయబడవచ్చు."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"తీసివేయబడిన SIP ఖాతాలు కనుగొనబడ్డాయి, తీసివేయబడ్డాయి"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP కాలింగ్‌కు ఇకపై Android ప్లాట్‌ఫామ్‌లో సపోర్ట్ ఉండదు.\nఇప్పటికే ఉన్న మీ SIP ఖాతాలు<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> తీసివేయబడ్డాయి.\nదయచేసి మీ ఆటోమేటిక్ కాలింగ్ ఖాతా సెట్టింగ్‌ను ధృవీకరించండి."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"సెట్టింగ్‌లకు వెళ్లు"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"యాప్ డేటా వినియోగం"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g> మధ్య కాలంలో <xliff:g id="ID_1">%1$s</xliff:g> మొబైల్ డేటా ఉపయోగించబడింది"</string>
-    <string name="advanced_options_title" msgid="9208195294513520934">"అధునాతనం"</string>
+    <string name="advanced_options_title" msgid="9208195294513520934">"అధునాతన సెట్టింగ్‌లు"</string>
     <string name="carrier_settings_euicc" msgid="1190237227261337749">"క్యారియర్"</string>
     <string name="keywords_carrier_settings_euicc" msgid="8540160967922063745">"క్యారియర్, ఇసిమ్, సిమ్, ఇయుక్, క్యారియర్‌లను మార్చు, క్యారియర్‌ను జోడించు"</string>
     <string name="carrier_settings_euicc_summary" msgid="2027941166597330117">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
@@ -328,7 +339,7 @@
     <string name="maintenance_enable" msgid="2646784483222342290">"నిర్వహణ ప్రారంభించబడింది"</string>
     <string name="maintenance_disable" msgid="2121032601497725602">"నిర్వహణ నిలిపివేయబడింది"</string>
     <string name="general_news_settings" msgid="2670499575962080411">"సాధారణ వార్తలు"</string>
-    <string name="bf_news_settings" msgid="8571709425370794221">"వ్యాపార మరియు ఆర్థిక వార్తలు"</string>
+    <string name="bf_news_settings" msgid="8571709425370794221">"బిజినెస్ మరియు ఆర్థిక వార్తలు"</string>
     <string name="sports_news_settings" msgid="2684364556989168438">"క్రీడల వార్తలు"</string>
     <string name="entertainment_news_settings" msgid="4228527702346305543">"వినోద సంబంధ వార్తలు"</string>
     <string name="enable_disable_local" msgid="7654175079979415572">"స్థానికం"</string>
@@ -367,9 +378,9 @@
     <string name="enable_disable_local_weather" msgid="7734933941872511543">"స్థానిక వాతావరణం"</string>
     <string name="local_weather_enable" msgid="2143929735295254729">"స్థానిక వాతావరణం ప్రారంభించబడింది"</string>
     <string name="local_weather_disable" msgid="4209936355998349647">"స్థానిక వాతావరణం నిలిపివేయబడింది"</string>
-    <string name="enable_disable_atr" msgid="821714821057385390">"ప్రాంతపు ట్రాఫిక్ నివేదికలు"</string>
-    <string name="atr_enable" msgid="1799097759998768186">"ప్రాంతపు ట్రాఫిక్ నివేదికలు ప్రారంభించబడ్డాయి"</string>
-    <string name="atr_disable" msgid="6456758173289065766">"ప్రాంతపు ట్రాఫిక్ నివేదికలు నిలిపివేయబడ్డాయి"</string>
+    <string name="enable_disable_atr" msgid="821714821057385390">"ప్రాంతపు ట్రాఫిక్ రిపోర్ట్‌లు"</string>
+    <string name="atr_enable" msgid="1799097759998768186">"ప్రాంతపు ట్రాఫిక్ రిపోర్ట్‌లు ప్రారంభించబడ్డాయి"</string>
+    <string name="atr_disable" msgid="6456758173289065766">"ప్రాంతపు ట్రాఫిక్ రిపోర్ట్‌లు నిలిపివేయబడ్డాయి"</string>
     <string name="enable_disable_lafs" msgid="7448060358300805661">"స్థానిక విమానాశ్రయ విమాన షెడ్యూల్‌లు"</string>
     <string name="lafs_enable" msgid="3125783406052655690">"స్థానిక విమానాశ్రయ విమాన షెడ్యూల్‌లు ప్రారంభించబడ్డాయి"</string>
     <string name="lafs_disable" msgid="7326815066813851447">"స్థానిక విమానాశ్రయ విమాన షెడ్యూల్‌లు నిలిపివేయబడ్డాయి"</string>
@@ -382,9 +393,9 @@
     <string name="enable_disable_retail_directory" msgid="9095153426757081972">"రీటైల్ డైరెక్టరీ"</string>
     <string name="retail_directory_enable" msgid="2532176568755452171">"రీటైల్ డైరెక్టరీ ప్రారంభించబడింది"</string>
     <string name="retail_directory_disable" msgid="7242451210736299193">"రీటైల్ డైరెక్టరీ నిలిపివేయబడింది"</string>
-    <string name="enable_disable_advertisements" msgid="8704125663718797151">"వ్యాపార ప్రకటనలు"</string>
-    <string name="advertisements_enable" msgid="8651409664217899145">"వ్యాపార ప్రకటనలు ప్రారంభించబడ్డాయి"</string>
-    <string name="advertisements_disable" msgid="2999957360508271492">"వ్యాపార ప్రకటనలు నిలిపివేయబడ్డాయి"</string>
+    <string name="enable_disable_advertisements" msgid="8704125663718797151">"బిజినెస్ ప్రకటనలు"</string>
+    <string name="advertisements_enable" msgid="8651409664217899145">"బిజినెస్ ప్రకటనలు ప్రారంభించబడ్డాయి"</string>
+    <string name="advertisements_disable" msgid="2999957360508271492">"బిజినెస్ ప్రకటనలు నిలిపివేయబడ్డాయి"</string>
     <string name="enable_disable_stock_quotes" msgid="631498357725951825">"స్టాక్ కోట్‌లు"</string>
     <string name="stock_quotes_enable" msgid="5104318195579771947">"స్టాక్ కోట్‌లు ప్రారంభించబడ్డాయి"</string>
     <string name="stock_quotes_disable" msgid="3126423481704498278">"స్టాక్ కోట్‌లు నిలిపివేయబడ్డాయి"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"పాస్‌వర్డ్ చెల్లదు. SIM ఇప్పుడు లాక్ చేయబడింది. PUK2ని నమోదు చేయండి."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 శాశ్వతంగా బ్లాక్ చేయబడింది."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"మీకు <xliff:g id="NUMBER">%d</xliff:g> ప్రయత్నాలు మిగిలి ఉన్నాయి."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 లాక్ చేయబడింది. అన్‌లాక్ చేయడానికి సర్వీస్ ప్రొవైడర్‌ను కాంటాక్ట్ చేయండి."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 ఇప్పుడు బ్లాక్ అయ్యి లేదు"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"నెట్‌వర్క్ లేదా SIM కార్డ్ లోపం"</string>
     <string name="doneButton" msgid="7371209609238460207">"పూర్తయింది"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"కాల్ చేయడానికి మొబైల్ నెట్‌వర్క్‌ను ఆన్ చేయండి, అలాగే ఎయిర్‌ప్లైన్ మోడ్ లేదా బ్యాటరీ సేవర్ మోడ్ ఆన్‌లో ఉంటే ఆఫ్ చేయండి."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"కాల్ చేయడానికి ఎయిర్‌ప్లైన్ మోడ్‌ను ఆఫ్ చేయండి."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"కాల్ చేయడానికి ఎయిర్‌ప్లైన్ మోడ్‌ను ఆఫ్ చేయండి లేదా వైర్‌లెస్ నెట్‌వర్క్‌కు కనెక్ట్ చేయండి."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"ఫోన్ చాలా వేడిగా ఉంది"</b>\n\n"ఈ కాల్‌ను పూర్తి చేయడం సాధ్యపడదు. మీ ఫోన్ చల్లబడినప్పుడు మళ్లీ ట్రై చేయండి.\n\nమీరు ఇప్పటికీ ఎమర్జెన్సీ కాల్స్ చేయవచ్చు."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"సాధారణ కాల్ చేయడానికి అత్యవసర కాల్‌బ్యాక్ మోడ్ నుండి నిష్క్రమించండి."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"నెట్‌వర్క్‌లో నమోదు కాలేదు."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"మొబైల్ నెట్‌వర్క్ అందుబాటులో లేదు."</string>
@@ -533,14 +546,14 @@
     <string name="incall_error_call_failed" msgid="393508653582682539">"కాల్ విఫలమైంది."</string>
     <string name="incall_error_cannot_add_call" msgid="5425764862628655443">"ఈ సమయంలో కాల్ జోడించబడదు. మీరు సందేశాన్ని పంపడం ద్వారా సంప్రదించవచ్చు."</string>
     <string name="incall_error_supp_service_unknown" msgid="8751177117194592623">"సేవకు మద్దతు లేదు"</string>
-    <string name="incall_error_supp_service_switch" msgid="5272822448189448479">"కాల్‌లను మార్చలేరు."</string>
+    <string name="incall_error_supp_service_switch" msgid="5272822448189448479">"కాల్స్‌ను మార్చలేరు."</string>
     <string name="incall_error_supp_service_resume" msgid="1276861499306817035">"కాల్‌ను పునఃప్రారంభించలేరు."</string>
     <string name="incall_error_supp_service_separate" msgid="8932660028965274353">"కాల్‌ను వేరు చేయలేరు."</string>
     <string name="incall_error_supp_service_transfer" msgid="8211925891867334323">"బదిలీ చేయలేరు."</string>
-    <string name="incall_error_supp_service_conference" msgid="27578082433544702">"కాల్‌లను విలీనం చేయడం సాధ్యపడలేదు."</string>
+    <string name="incall_error_supp_service_conference" msgid="27578082433544702">"కాల్స్‌ను విలీనం చేయడం సాధ్యపడలేదు."</string>
     <string name="incall_error_supp_service_reject" msgid="3044363092441655912">"కాల్‌ను తిరస్కరించలేరు."</string>
     <string name="incall_error_supp_service_hangup" msgid="836524952243836735">"కాల్(ల)ను విడిచిపెట్టలేరు."</string>
-    <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"కాల్‌లను హోల్డ్ చేయలేరు."</string>
+    <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"కాల్స్‌ను హోల్డ్ చేయలేరు."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"కాల్ చేయడానికి వైర్‌లెస్ నెట్‌వర్క్‌కు కనెక్ట్ చేయండి."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"కాల్‌ను చేయడానికి Wi-Fi కాలింగ్‌ను ప్రారంభించండి."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"అత్యవసర సమాచారం"</string>
@@ -567,9 +580,9 @@
     <string name="onscreenShowDialpadText" msgid="658465753816164079">"డయల్‌ప్యాడ్"</string>
     <string name="onscreenMuteText" msgid="5470306116733843621">"మ్యూట్ చేయి"</string>
     <string name="onscreenAddCallText" msgid="9075675082903611677">"కాల్‌ను జోడించు"</string>
-    <string name="onscreenMergeCallsText" msgid="3692389519611225407">"కాల్‌లను విలీనం చేయి"</string>
+    <string name="onscreenMergeCallsText" msgid="3692389519611225407">"కాల్స్‌ను విలీనం చేయి"</string>
     <string name="onscreenSwapCallsText" msgid="2682542150803377991">"స్వాప్ చేయి"</string>
-    <string name="onscreenManageCallsText" msgid="1162047856081836469">"కాల్‌లను నిర్వహించు"</string>
+    <string name="onscreenManageCallsText" msgid="1162047856081836469">"కాల్స్‌ను నిర్వహించు"</string>
     <string name="onscreenManageConferenceText" msgid="4700574060601755137">"కాన్ఫరెన్స్‌ను నిర్వహించు"</string>
     <string name="onscreenAudioText" msgid="7224226735052019986">"ఆడియో"</string>
     <string name="onscreenVideoCallText" msgid="1743992456126258698">"వీడియో కాల్"</string>
@@ -583,7 +596,7 @@
     <string name="hac_mode_summary" msgid="7774989500136009881">"వినికిడి సహాయక సాధనం అనుకూలతను ప్రారంభించండి"</string>
     <string name="rtt_mode_title" msgid="3075948111362818043">"రియ‌ల్‌-టైమ్‌ టెక్స్ట్ (RTT) కాల్"</string>
     <string name="rtt_mode_summary" msgid="8631541375609989562">"వాయిస్ కాల్‌లో సందేశాలు పంపడానికి అనుమతించండి"</string>
-    <string name="rtt_mode_more_information" msgid="587500128658756318">"బధిరులు, వినికిడి సమస్యలు ఉన్న వారు, మాట్లాడటంలో సమస్యలు ఉన్న వారు లేదా కేవలం వాయిస్‌తో అర్థం చేసుకోలేని కాలర్‌లకు RTT సహాయపడుతుంది.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;మరింత తెలుసుకోండి&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT కాల్‌లు సందేశ లిపి మార్పు వలె సేవ్ చేయబడతాయి\n       &lt;br&gt; - వీడియో కాల్‌ల కోసం RTT అందుబాటులో లేదు"</string>
+    <string name="rtt_mode_more_information" msgid="587500128658756318">"బధిరులు, వినికిడి సమస్యలు ఉన్న వారు, మాట్లాడటంలో సమస్యలు ఉన్న వారు లేదా కేవలం వాయిస్‌తో అర్థం చేసుకోలేని కాలర్‌లకు RTT సహాయపడుతుంది.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;మరింత తెలుసుకోండి&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT కాల్స్‌ సందేశ లిపి మార్పు వలె సేవ్ చేయబడతాయి\n       &lt;br&gt; - వీడియో కాల్స్‌ల కోసం RTT అందుబాటులో లేదు"</string>
     <string name="no_rtt_when_roaming" msgid="5268008247378355389">"గమనిక: రోమింగ్‌లో ఉండగా RTTఅందుబాటులో ఉండదు"</string>
   <string-array name="tty_mode_entries">
     <item msgid="3238070884803849303">"TTY ఆఫ్‌లో ఉంది"</item>
@@ -604,7 +617,7 @@
     <string name="ota_hfa_activation_title" msgid="3300556778212729671">"సక్రియం చేస్తోంది..."</string>
     <string name="ota_hfa_activation_dialog_message" msgid="7921718445773342996">"ఫోన్ మీ మొబైల్ డేటా సేవను సక్రియం చేస్తోంది.\n\nదీనికి గరిష్టంగా 5 నిమిషాలు పట్టవచ్చు."</string>
     <string name="ota_skip_activation_dialog_title" msgid="7666611236789203797">"సక్రియం చేయడాన్ని దాటవేయాలా?"</string>
-    <string name="ota_skip_activation_dialog_message" msgid="6691722887019708713">"మీరు సక్రియం చేయడాన్ని దాటవేస్తే, కాల్‌లు చేయలేరు లేదా మొబైల్ డేటా నెట్‌వర్క్‌లకు కనెక్ట్ చేయలేరు (మీరు Wi-Fi నెట్‌వర్క్‌లకు కనెక్ట్ చేయగలిగినప్పటికీ). మీరు మీ ఫోన్‌ను సక్రియం చేసేవరకు, దాన్ని ప్రారంభించే ప్రతిసారీ సక్రియం చేయమని మిమ్మల్ని అడుగుతుంది."</string>
+    <string name="ota_skip_activation_dialog_message" msgid="6691722887019708713">"మీరు సక్రియం చేయడాన్ని దాటవేస్తే, కాల్స్‌ చేయలేరు లేదా మొబైల్ డేటా నెట్‌వర్క్‌లకు కనెక్ట్ చేయలేరు (మీరు Wi-Fi నెట్‌వర్క్‌లకు కనెక్ట్ చేయగలిగినప్పటికీ). మీరు మీ ఫోన్‌ను సక్రియం చేసేవరకు, దాన్ని ప్రారంభించే ప్రతిసారీ సక్రియం చేయమని మిమ్మల్ని అడుగుతుంది."</string>
     <string name="ota_skip_activation_dialog_skip_label" msgid="5908029466817825633">"దాటవేయి"</string>
     <string name="ota_activate" msgid="7939695753665438357">"సక్రియం చేయి"</string>
     <string name="ota_title_activate_success" msgid="1272135024761004889">"ఫోన్ సక్రియం చేయబడింది."</string>
@@ -625,8 +638,8 @@
     <string name="phone_in_ecm_call_notification_text" msgid="653972232922670335">"డేటా కనెక్షన్ నిలిపివేయబడింది"</string>
     <string name="phone_in_ecm_notification_complete_time" msgid="7341624337163082759">"<xliff:g id="COMPLETETIME">%s</xliff:g> వరకు డేటా కనెక్షన్ ఉండదు"</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="5425906903766466743">
-      <item quantity="other">ఫోన్ <xliff:g id="COUNT_1">%s</xliff:g> నిమిషాల పాటు అత్యవసర కాల్‌బ్యాక్ మోడ్‌లో ఉంటుంది. ఈ మోడ్‌లో ఉన్నప్పుడు, డేటా కనెక్షన్‌ను ఉపయోగించే అనువర్తనాలు ఏవీ ఉపయోగించబడవు. మీరు ఇప్పుడు నిష్క్రమించాలనుకుంటున్నారా?</item>
-      <item quantity="one">ఫోన్ <xliff:g id="COUNT_0">%s</xliff:g> నిమిషం పాటు అత్యవసర కాల్‌బ్యాక్ మోడ్‌లో ఉంటుంది. ఈ మోడ్‌లో ఉన్నప్పుడు, డేటా కనెక్షన్‌ను ఉపయోగించే అనువర్తనాలు ఏవీ ఉపయోగించబడవు. మీరు ఇప్పుడు నిష్క్రమించాలనుకుంటున్నారా?</item>
+      <item quantity="other">ఫోన్ <xliff:g id="COUNT_1">%s</xliff:g> నిమిషాల పాటు అత్యవసర కాల్‌బ్యాక్ మోడ్‌లో ఉంటుంది. ఈ మోడ్‌లో ఉన్నప్పుడు, డేటా కనెక్షన్‌ను ఉపయోగించే యాప్‌లు ఏవీ ఉపయోగించబడవు. మీరు ఇప్పుడు నిష్క్రమించాలనుకుంటున్నారా?</item>
+      <item quantity="one">ఫోన్ <xliff:g id="COUNT_0">%s</xliff:g> నిమిషం పాటు అత్యవసర కాల్‌బ్యాక్ మోడ్‌లో ఉంటుంది. ఈ మోడ్‌లో ఉన్నప్పుడు, డేటా కనెక్షన్‌ను ఉపయోగించే యాప్‌లు ఏవీ ఉపయోగించబడవు. మీరు ఇప్పుడు నిష్క్రమించాలనుకుంటున్నారా?</item>
     </plurals>
     <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="1152682528741457004">
       <item quantity="other">అత్యవసర కాల్‌బ్యాక్ మోడ్‌లో ఉన్నప్పుడు, ఎంచుకున్న చర్య అందుబాటులో లేదు. ఫోన్ <xliff:g id="COUNT_1">%s</xliff:g> నిమిషాల పాటు ఈ మోడ్‌లో ఉంటుంది. మీరు ఇప్పుడు నిష్క్రమించాలనుకుంటున్నారా?</item>
@@ -664,7 +677,7 @@
     <string name="enable_video_calling_dialog_msg" msgid="7141478720386203540">"వీడియో కాలింగ్‌ను ఆన్ చేయడానికి, మీరు నెట్‌వర్క్ సెట్టింగ్‌ల్లో మెరుగుపరిచిన 4G LTE మోడ్‌ను ప్రారంభించాలి."</string>
     <string name="enable_video_calling_dialog_settings" msgid="8697890611305307110">"నెట్‌వర్క్ సెట్టింగ్‌లు"</string>
     <string name="enable_video_calling_dialog_close" msgid="4298929725917045270">"మూసివేయి"</string>
-    <string name="sim_label_emergency_calls" msgid="9078241989421522310">"అత్యవసర కాల్‌లు"</string>
+    <string name="sim_label_emergency_calls" msgid="9078241989421522310">"అత్యవసర కాల్స్‌"</string>
     <string name="sim_description_emergency_calls" msgid="5146872803938897296">"అత్యవసర కాలింగ్ మాత్రమే"</string>
     <string name="sim_description_default" msgid="7474671114363724971">"SIM కార్డ్, స్లాట్: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"యాక్సెస్‌ సామర్థ్యం"</string>
@@ -673,12 +686,12 @@
     <string name="emergency_action_launch_hint" msgid="2762016865340891314">"తెరవడానికి మళ్లీ నొక్కండి"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"సందేశాన్ని డీకోడ్ చేస్తున్నప్పుడు లోపం సంభవించింది."</string>
     <string name="callFailed_cdma_activation" msgid="5392057031552253550">"SIM కార్డ్ మీ సేవను సక్రియం చేసింది మరియు మీ ఫోన్ రోమింగ్ సామర్థ్యాలను నవీకరించింది."</string>
-    <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"చాలా ఎక్కువ కాల్‌లు సక్రియంగా ఉన్నాయి. దయచేసి మరొక కొత్త కాల్ చేసే ముందు ఇప్పటికే ఉన్న కాల్‌లను ముగించండి లేదా విలీనం చేయండి."</string>
+    <string name="callFailed_cdma_call_limit" msgid="1074219746093031412">"చాలా ఎక్కువ కాల్స్‌ సక్రియంగా ఉన్నాయి. దయచేసి మరొక కొత్త కాల్ చేసే ముందు ఇప్పటికే ఉన్న కాల్స్‌ను ముగించండి లేదా విలీనం చేయండి."</string>
     <string name="callFailed_imei_not_accepted" msgid="7257903653685147251">"కనెక్ట్ చేయడం సాధ్యపడలేదు, దయచేసి చెల్లుబాటు అయ్యే SIM కార్డ్‌ను చొప్పించండి."</string>
     <string name="callFailed_wifi_lost" msgid="1788036730589163141">"Wi-Fi కనెక్షన్ పోయింది. కాల్ ముగిసింది."</string>
     <string name="dialFailed_low_battery" msgid="6857904237423407056">"తక్కువ బ్యాటరీ కారణంగా మీ వీడియో కాల్ చేయడం సాధ్యపడదు."</string>
     <string name="callFailed_low_battery" msgid="4056828320214416182">"తక్కువ బ్యాటరీ కారణంగా వీడియో కాల్ ముగిసింది."</string>
-    <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"Wi-Fi కాలింగ్ ద్వారా అత్యవసర కాల్‌లు ఈ స్థానంలో అందుబాటులో లేవు."</string>
+    <string name="callFailed_emergency_call_over_wfc_not_available" msgid="5944309590693432042">"Wi-Fi కాలింగ్ ద్వారా అత్యవసర కాల్స్‌ ఈ స్థానంలో అందుబాటులో లేవు."</string>
     <string name="callFailed_wfc_service_not_available_in_this_location" msgid="3624536608369524988">"ఈ స్థానంలో Wi-Fi కాలింగ్ అందుబాటులో లేదు."</string>
     <string name="change_pin_title" msgid="3564254326626797321">"వాయిస్ మెయిల్ PINని మార్చండి"</string>
     <string name="change_pin_continue_label" msgid="5177011752453506371">"కొనసాగించు"</string>
@@ -763,17 +776,17 @@
     <string name="sum_call_barring_enabled" msgid="5184331188926370824">"ఆన్"</string>
     <string name="sum_call_barring_disabled" msgid="5699448000600153096">"ఆఫ్"</string>
     <string name="call_barring_baoc" msgid="7400892586336429326">"అన్ని అవుట్‌గోయింగ్"</string>
-    <string name="call_barring_baoc_enabled" msgid="3131509193386668182">"అన్ని అవుట్‌గోయింగ్ కాల్‌లను బ్లాక్ చేయడాన్ని నిలిపివేయాలా?"</string>
-    <string name="call_barring_baoc_disabled" msgid="8534224684091141509">"అన్ని అవుట్‌గోయింగ్ కాల్‌లను బ్లాక్ చేయాలా?"</string>
+    <string name="call_barring_baoc_enabled" msgid="3131509193386668182">"అన్ని అవుట్‌గోయింగ్ కాల్స్‌ను బ్లాక్ చేయడాన్ని నిలిపివేయాలా?"</string>
+    <string name="call_barring_baoc_disabled" msgid="8534224684091141509">"అన్ని అవుట్‌గోయింగ్ కాల్స్‌ను బ్లాక్ చేయాలా?"</string>
     <string name="call_barring_baoic" msgid="8668125428666851665">"అవుట్‌గోయింగ్ అంతర్జాతీయ"</string>
-    <string name="call_barring_baoic_enabled" msgid="1203758092657630123">"అవుట్‌గోయింగ్ అంతర్జాతీయ కాల్‌లను బ్లాక్ చేయడాన్ని నిలిపివేయాలా?"</string>
-    <string name="call_barring_baoic_disabled" msgid="5656889339002997449">"అవుట్‌గోయింగ్ అంతర్జాతీయ కాల్‌లను బ్లాక్ చేయాలా?"</string>
+    <string name="call_barring_baoic_enabled" msgid="1203758092657630123">"అవుట్‌గోయింగ్ అంతర్జాతీయ కాల్స్‌ను బ్లాక్ చేయడాన్ని నిలిపివేయాలా?"</string>
+    <string name="call_barring_baoic_disabled" msgid="5656889339002997449">"అవుట్‌గోయింగ్ అంతర్జాతీయ కాల్స్‌ను బ్లాక్ చేయాలా?"</string>
     <string name="call_barring_baoicr" msgid="8566167764432343487">"అవుట్‌గోయింగ్ అంతర్జాతీయ రోమింగ్"</string>
     <string name="call_barring_baoicr_enabled" msgid="1615324165512798478">"అవుట్‌గోయింగ్ అంతర్జాతీయ రోమింగ్‌ని బ్లాక్ చేయడాన్ని నిలిపివేయాలా?"</string>
     <string name="call_barring_baoicr_disabled" msgid="172010175248142831">"అవుట్‌గోయింగ్ అంతర్జాతీయ రోమింగ్‌ని బ్లాక్ చేయాలా?"</string>
     <string name="call_barring_baic" msgid="7941393541678658566">"అన్ని ఇన్‌కమింగ్"</string>
-    <string name="call_barring_baic_enabled" msgid="4357332358020337470">"అన్ని ఇన్‌కమింగ్ కాల్‌లను బ్లాక్ చేయడాన్ని నిలిపివేయాలా?"</string>
-    <string name="call_barring_baic_disabled" msgid="2355945245938240958">"అన్ని ఇన్‌కమింగ్ కాల్‌లను బ్లాక్ చేయాలా?"</string>
+    <string name="call_barring_baic_enabled" msgid="4357332358020337470">"అన్ని ఇన్‌కమింగ్ కాల్స్‌ను బ్లాక్ చేయడాన్ని నిలిపివేయాలా?"</string>
+    <string name="call_barring_baic_disabled" msgid="2355945245938240958">"అన్ని ఇన్‌కమింగ్ కాల్స్‌ను బ్లాక్ చేయాలా?"</string>
     <string name="call_barring_baicr" msgid="8712249337313034226">"ఇన్‌కమింగ్ అంతర్జాతీయ రోమింగ్"</string>
     <string name="call_barring_baicr_enabled" msgid="64774270234828175">"ఇన్‌కమింగ్ అంతర్జాతీయ రోమింగ్‌ని మొత్తం బ్లాక్ చేయడాన్ని నిలిపివేయాలా?"</string>
     <string name="call_barring_baicr_disabled" msgid="3488129262744027262">"ఇన్‌కమింగ్ అంతర్జాతీయ రోమింగ్‌ని బ్లాక్ చేయాలా?"</string>
@@ -798,8 +811,8 @@
     <string name="supp_service_notification_call_waiting" msgid="4577403881609445324">"కాల్ నిరీక్షణలో ఉంది."</string>
     <string name="supp_service_clir_suppression_rejected" msgid="6105737020194776121">"నంబర్ బ్లాకింగ్ తిరస్కరించబడింది."</string>
     <string name="supp_service_closed_user_group_call" msgid="2811636666505250689">"దగ్గరి వినియోగదారు సమూహ కాల్."</string>
-    <string name="supp_service_incoming_calls_barred" msgid="2034627421274447674">"ఇన్‌కమింగ్ కాల్‌లు నిరోధించబడ్డాయి"</string>
-    <string name="supp_service_outgoing_calls_barred" msgid="5205725332394087112">"అవుట్‌గోయింగ్ కాల్‌లు నిరోధించబడ్డాయి."</string>
+    <string name="supp_service_incoming_calls_barred" msgid="2034627421274447674">"ఇన్‌కమింగ్ కాల్స్‌ నిరోధించబడ్డాయి"</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="5205725332394087112">"అవుట్‌గోయింగ్ కాల్స్‌ నిరోధించబడ్డాయి."</string>
     <string name="supp_service_call_forwarding_active" msgid="7910162960395132464">"కాల్ ఫార్వర్డింగ్ సక్రియంగా ఉంది."</string>
     <string name="supp_service_additional_call_forwarded" msgid="8772753260008398632">"అదనపు కాల్ ఫార్వార్డ్ చేయబడింది."</string>
     <string name="supp_service_additional_ect_connected" msgid="8525934162945220237">"అభ్యంతరకరమైన కాల్ బదిలీ పూర్తయింది."</string>
@@ -814,7 +827,7 @@
     <string name="callFailed_already_dialing" msgid="7250591188960691086">"ఇంకొక అవుట్‌గోయింగ్ కాల్ ఇప్పటికే చేస్తున్నందున మరో కాల్ చేయడం సాధ్యపడదు."</string>
     <string name="callFailed_already_ringing" msgid="2376603543544289303">"మాట్లాడాల్సిన ఇన్‌కమింగ్ కాల్ వస్తున్నందున బయటికి కాల్ చేయడం సాధ్యపడదు. కొత్త కాల్ చేయడం కంటే ముందుగా ఇన్‌కమింగ్ కాల్‌కి జవాబివ్వండి లేదా కాల్ నిరాకరించండి."</string>
     <string name="callFailed_calling_disabled" msgid="5010992739401206283">"ro.telephony.disable-call సిస్టమ్ లక్షణాన్ని ఉపయోగించి కాలింగ్‌ని నిలిపివేసినందున, ఇప్పుడు కాల్ చేయలేరు."</string>
-    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"ఇప్పటికే రెండు కాల్‌లు జరుగుతున్నందున కాల్ చేయడం సాధ్యపడదు. ఆ కాల్‌లలో ఒకదానిని డిస్‌కనెక్ట్ చేయండి లేదా అవి రెండింటినీ కలిపి ఒక కాన్ఫరెన్స్ కాల్‌గా మార్చి, తర్వాత కొత్త కాల్ చేయండి."</string>
+    <string name="callFailed_too_many_calls" msgid="5379426826618582180">"ఇప్పటికే రెండు కాల్స్‌ జరుగుతున్నందున కాల్ చేయడం సాధ్యపడదు. ఆ కాల్స్‌లో ఒకదానిని డిస్‌కనెక్ట్ చేయండి లేదా అవి రెండింటినీ కలిపి ఒక కాన్ఫరెన్స్ కాల్‌గా మార్చి, తర్వాత కొత్త కాల్ చేయండి."</string>
     <string name="supp_service_over_ut_precautions" msgid="2145018231396701311">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>ని ఉపయోగించడానికి, మొబైల్ డేటాను తప్పకుండా ఆన్ చేసారని నిర్ధారించుకోండి. మీరు దీనిని మొబైల్ నెట్‌వర్క్ సెట్టింగ్‌లలో మార్చవచ్చు."</string>
     <string name="supp_service_over_ut_precautions_roaming" msgid="670342104569972327">"<xliff:g id="SUPP_SERVICE">%s</xliff:g>ని ఉపయోగించడానికి, మొబైల్ డేటా మరియు డేటా రోమింగ్‌ని తప్పకుండా ఆన్ చేసారని నిర్ధారించుకోండి. మీరు వీటిని మొబైల్ నెట్‌వర్క్ సెట్టింగ్‌లలో మార్చవచ్చు."</string>
     <string name="supp_service_over_ut_precautions_dual_sim" msgid="5166866975550910474">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>ని ఉపయోగించడానికి, SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g> కోసం మొబైల్ డేటాను తప్పకుండా ఆన్ చేసారని నిర్ధారించుకోండి. మీరు దీనిని మొబైల్ నెట్‌వర్క్ సెట్టింగ్‌లలో మార్చవచ్చు."</string>
@@ -845,7 +858,7 @@
     <string name="radio_info_ims_reg_status" msgid="25582845222446390">"IMS నమోదు: <xliff:g id="STATUS">%1$s</xliff:g>\nవాయిస్ ఓవర్ LTE: <xliff:g id="AVAILABILITY_0">%2$s</xliff:g>\nవాయిస్ ఓవర్ WiFi: <xliff:g id="AVAILABILITY_1">%3$s</xliff:g>\nవీడియో కాలింగ్: <xliff:g id="AVAILABILITY_2">%4$s</xliff:g>\nUT ఇంటర్‌ఫేస్: <xliff:g id="AVAILABILITY_3">%5$s</xliff:g>"</string>
     <string name="radioInfo_service_in" msgid="45753418231446400">"సేవ అందుబాటులో ఉంది"</string>
     <string name="radioInfo_service_out" msgid="287972405416142312">"సేవ అందుబాటులో లేదు"</string>
-    <string name="radioInfo_service_emergency" msgid="4763879891415016848">"అత్యవసర కాల్‌లు మాత్రమే"</string>
+    <string name="radioInfo_service_emergency" msgid="4763879891415016848">"అత్యవసర కాల్స్‌ మాత్రమే"</string>
     <string name="radioInfo_service_off" msgid="3456583511226783064">"రేడియో ఆఫ్‌లో ఉంది"</string>
     <string name="radioInfo_roaming_in" msgid="3156335577793145965">"రోమింగ్"</string>
     <string name="radioInfo_roaming_not" msgid="1904547918725478110">"రోమింగ్‌లో లేదు"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"డిఫాల్ట్ డేటా SIM యొక్క SubId:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL బ్యాండ్‌విడ్త్ (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL బ్యాండ్‌విడ్త్ (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"సెల్ స్థాన సమాచారం (నిలిపివేయబడింది):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE భౌతిక ఛానెల్ కాన్ఫిగరేషన్:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"సెల్ సమాచార రిఫ్రెష్ సగటు:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"మొత్తం సెల్ పరిమాణ సమాచారం:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"రిఫ్రెష్ చేయి"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS తనిఖీని టోగుల్ చేయండి"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM-నిర్దిష్ట సమాచారం/సెట్టింగ్‌లు"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC అందుబాటులో ఉంది:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR నియంత్రించబడింది:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR అందుబాటులో ఉంది:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR స్టేటస్:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR ఫ్రీక్వెన్సీ:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"రేడియో బ్యాండ్ మోడ్‌ను సెట్ చేయండి"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"బ్యాండ్ జాబితాను లోడ్ చేస్తోంది…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"సెట్ చేయి"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"ఫోన్ సమాచారం"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"క్యారియర్ కేటాయింపు సమాచారం"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"క్యారియర్ కేటాయింపు సక్రియం చేయండి"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"మీ బ్లూటూత్ సిగ్నల్ బలహీనంగా ఉంది. స్పీకర్‌ఫోన్‌కు స్విచ్ అవ్వడానికి ట్రై చేయండి."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"కాల్ క్వాలిటీ నోటిఫికేషన్"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"తీసివేయబడిన SIP ఖాతాలు"</string>
 </resources>

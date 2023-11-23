@@ -12,20 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-java_import {
-    name: "car-br-auto-value-jar",
-    host_supported: true,
-    sdk_version: "current",
-    jars: ["auto-value-1.5.2.jar"],
-}
-
-java_plugin {
-    name: "car-br-auto-value",
-    static_libs: [
-        "car-br-auto-value-jar",
-        "guava",
-    ],
-    processor_class: "com.google.auto.value.processor.AutoValueProcessor",
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 java_import {

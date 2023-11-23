@@ -13,12 +13,12 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Runs MtpDocumentsProviderPerfTests metric instrumentation.">
+<configuration description="Runs MtpServicePerfTests metric instrumentation.">
     <option name="test-suite-tag" value="apct" />
     <option name="test-suite-tag" value="apct-metric-instrumentation" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
-        <option name="test-file-name" value="MtpDocumentsProviderPerfTests.apk" />
+        <option name="test-file-name" value="MtpServicePerfTests.apk" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

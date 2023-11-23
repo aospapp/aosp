@@ -28,12 +28,14 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTimestamp;
 import android.media.AudioTrack;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -47,11 +49,16 @@ import java.util.Random;
 // sample rate based on the AudioTimestamps.
 
 @NonMediaMainlineTest
+@AppModeFull(reason = "Instant apps cannot access the SD card")
 public class AudioTrackSurroundTest extends CtsAndroidTestCase {
     private static final String TAG = "AudioTrackSurroundTest";
 
     private static final double MAX_RATE_TOLERANCE_FRACTION = 0.01;
     private static final boolean LOG_TIMESTAMPS = false; // set true for debugging
+    // just long enough to measure the rate
+    private static final long SAMPLE_RATE_SHORT_TEST_DURATION_MILLIS = 5000;
+    // AC3 and IEC61937 tracks require more time
+    private static final long SAMPLE_RATE_LONG_TEST_DURATION_MILLIS = 12000;
 
     // Set this true to prefer the device that supports the particular encoding.
     // But note that as of 3/25/2016, a bug causes Direct tracks to fail.
@@ -66,10 +73,10 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
     private final static int MILLIS_PER_SECOND = 1000;
     private final static long NANOS_PER_SECOND = NANOS_PER_MILLISECOND * MILLIS_PER_SECOND;
 
-    private final static int RES_AC3_SPDIF_VOICE_32000 = R.raw.voice12_32k_128kbps_15s_ac3_spdif;
-    private final static int RES_AC3_SPDIF_VOICE_44100 = R.raw.voice12_44k_128kbps_15s_ac3_spdif;
-    private final static int RES_AC3_SPDIF_VOICE_48000 = R.raw.voice12_48k_128kbps_15s_ac3_spdif;
-    private final static int RES_AC3_VOICE_48000 = R.raw.voice12_48k_128kbps_15s_ac3;
+    private final static String RES_AC3_SPDIF_VOICE_32000 = "voice12_32k_128kbps_15s_ac3_spdif.raw";
+    private final static String RES_AC3_SPDIF_VOICE_44100 = "voice12_44k_128kbps_15s_ac3_spdif.raw";
+    private final static String RES_AC3_SPDIF_VOICE_48000 = "voice12_48k_128kbps_15s_ac3_spdif.raw";
+    private final static String RES_AC3_VOICE_48000 = "voice12_48k_128kbps_15s_ac3.raw";
 
     private static int mLastPlayedEncoding = AudioFormat.ENCODING_INVALID;
 
@@ -164,8 +171,10 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
     }
 
     // Load a resource into a byte[]
-    private byte[] loadRawResourceBytes(@RawRes int id) throws Exception {
-        InputStream is = getContext().getResources().openRawResource(id);
+    private byte[] loadRawResourceBytes(@RawRes final String res) throws Exception {
+        final String mInpPrefix = WorkDir.getMediaDirString();
+        Preconditions.assertTestFileExists(mInpPrefix + res);
+        InputStream is = new FileInputStream(mInpPrefix + res);
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         try (BufferedInputStream bis = new BufferedInputStream(is)) {
             for (int b = bis.read(); b != -1; b = bis.read()) {
@@ -176,23 +185,23 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
     }
 
     // Load a resource into a short[]
-    private short[] loadRawResourceShorts(@RawRes int id) throws Exception {
-        byte[] byteBuffer = loadRawResourceBytes(id);
+    private short[] loadRawResourceShorts(@RawRes final String res) throws Exception {
+        byte[] byteBuffer = loadRawResourceBytes(res);
         ShortBuffer shortBuffer =
                 ByteBuffer.wrap(byteBuffer).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer();
         // Unfortunately, ShortBuffer.array() works with allocated buffers only.
-        short[] masterBuffer = new short[byteBuffer.length / 2];
-        for (int i = 0; i < masterBuffer.length; i++) {
-            masterBuffer[i] = shortBuffer.get();
+        short[] mainBuffer = new short[byteBuffer.length / 2];
+        for (int i = 0; i < mainBuffer.length; i++) {
+            mainBuffer[i] = shortBuffer.get();
         }
-        return masterBuffer;
+        return mainBuffer;
     }
 
     public void testLoadSineSweep() throws Exception {
         final String TEST_NAME = "testLoadSineSweep";
-        short[] shortData = loadRawResourceShorts(R.raw.sinesweepraw);
+        short[] shortData = loadRawResourceShorts("sinesweepraw.raw");
         assertTrue(TEST_NAME + ": load sinesweepraw as shorts", shortData.length > 100);
-        byte[] byteData = loadRawResourceBytes(R.raw.sinesweepraw);
+        byte[] byteData = loadRawResourceBytes("sinesweepraw.raw");
         assertTrue(TEST_NAME + ": load sinesweepraw as bytes", byteData.length > shortData.length);
     }
 
@@ -226,12 +235,14 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
             boolean gotTimestamp = track.getTimestamp(timestamp);
             if (gotTimestamp) {
                 // Only save timestamps after the data is flowing.
-                if (mPreviousTimestamp != null
-                    && timestamp.framePosition > 0
-                    && timestamp.nanoTime != mPreviousTimestamp.nanoTime
-                    && timestamp.framePosition != mPreviousTimestamp.framePosition) {
+                boolean accepted = mPreviousTimestamp != null
+                        && timestamp.framePosition > 0
+                        && timestamp.nanoTime != mPreviousTimestamp.nanoTime
+                        && timestamp.framePosition != mPreviousTimestamp.framePosition;
+                if (accepted) {
                     mTimestamps.add(timestamp);
                 }
+                Log.d(TAG, (accepted ? "" : "NOT ") + "added ts " + timestampToString(timestamp));
                 mPreviousTimestamp = timestamp;
             }
         }
@@ -290,6 +301,7 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
 
         // Use collected timestamps to estimate a sample rate.
         double estimateSampleRate() {
+            Log.w(TAG, "timestamps collected: " + mTimestamps.size());
             assertTrue("expect many timestamps, got " + mTimestamps.size(),
                     mTimestamps.size() > 10);
             // Use first and last timestamp to get the most accurate rate.
@@ -381,9 +393,8 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
             }
         }
 
-        public void playAndMeasureRate() throws Exception {
+        public void playAndMeasureRate(long testDurationMillis) throws Exception {
             final String TEST_NAME = "playAndMeasureRate";
-            final long TEST_DURATION_MILLIS = 5000; // just long enough to measure the rate
 
             if (mLastPlayedEncoding == AudioFormat.ENCODING_INVALID ||
                     !AudioFormat.isEncodingLinearPcm(mEncoding) ||
@@ -424,7 +435,7 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
                         + mTrack.getNativeOutputSampleRate(mTrack.getStreamType()));
                 long elapsedMillis = 0;
                 long startTime = System.currentTimeMillis();
-                while (elapsedMillis < TEST_DURATION_MILLIS) {
+                while (elapsedMillis < testDurationMillis) {
                     writeBlock(mBlockSize);
                     elapsedMillis = System.currentTimeMillis() - startTime;
                     mTimestampAnalyzer.addTimestamp(mTrack);
@@ -466,10 +477,10 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
             }
         }
 
-        SamplePlayerShorts(int sampleRate, int encoding, int channelConfig, @RawRes int resourceId)
-                throws Exception {
+        SamplePlayerShorts(int sampleRate, int encoding, int channelConfig,
+                @RawRes final String res) throws Exception {
             super(sampleRate, encoding, channelConfig);
-            mData = loadRawResourceShorts(resourceId);
+            mData = loadRawResourceShorts(res);
             assertTrue("SamplePlayerShorts: load resource file as shorts", mData.length > 0);
         }
 
@@ -500,10 +511,10 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
             mData = new byte[128 * 1024];
         }
 
-        SamplePlayerBytes(int sampleRate, int encoding, int channelConfig, @RawRes int resourceId)
+        SamplePlayerBytes(int sampleRate, int encoding, int channelConfig, @RawRes final String res)
                 throws Exception {
             super(sampleRate, encoding, channelConfig);
-            mData = loadRawResourceBytes(resourceId);
+            mData = loadRawResourceBytes(res);
             assertTrue("SamplePlayerBytes: load resource file as bytes", mData.length > 0);
         }
 
@@ -530,7 +541,7 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
             SamplePlayerBytes player = new SamplePlayerBytes(
                     48000, AudioFormat.ENCODING_AC3, AudioFormat.CHANNEL_OUT_STEREO,
                     RES_AC3_VOICE_48000);
-            player.playAndMeasureRate();
+            player.playAndMeasureRate(SAMPLE_RATE_LONG_TEST_DURATION_MILLIS);
         }
     }
 
@@ -539,7 +550,7 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
             SamplePlayerShorts player = new SamplePlayerShorts(
                     48000, AudioFormat.ENCODING_AC3, AudioFormat.CHANNEL_OUT_STEREO,
                     RES_AC3_VOICE_48000);
-            player.playAndMeasureRate();
+            player.playAndMeasureRate(SAMPLE_RATE_LONG_TEST_DURATION_MILLIS);
         }
     }
 
@@ -548,7 +559,7 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
             SamplePlayerShorts player = new SamplePlayerShorts(
                     32000, AudioFormat.ENCODING_IEC61937, AudioFormat.CHANNEL_OUT_STEREO,
                     RES_AC3_SPDIF_VOICE_32000);
-            player.playAndMeasureRate();
+            player.playAndMeasureRate(SAMPLE_RATE_LONG_TEST_DURATION_MILLIS);
         }
     }
 
@@ -557,7 +568,7 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
             SamplePlayerShorts player = new SamplePlayerShorts(
                     44100, AudioFormat.ENCODING_IEC61937, AudioFormat.CHANNEL_OUT_STEREO,
                     RES_AC3_SPDIF_VOICE_44100);
-            player.playAndMeasureRate();
+            player.playAndMeasureRate(SAMPLE_RATE_LONG_TEST_DURATION_MILLIS);
         }
     }
 
@@ -566,7 +577,7 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
             SamplePlayerShorts player = new SamplePlayerShorts(
                     48000, AudioFormat.ENCODING_IEC61937, AudioFormat.CHANNEL_OUT_STEREO,
                     RES_AC3_SPDIF_VOICE_48000);
-            player.playAndMeasureRate();
+            player.playAndMeasureRate(SAMPLE_RATE_LONG_TEST_DURATION_MILLIS);
         }
     }
 
@@ -593,7 +604,7 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
 
     public void testPcmSupport() throws Exception {
         if (REQUIRE_PCM_DEVICE) {
-            // There should always be a dummy PCM device available.
+            // There should always be a fake PCM device available.
             assertTrue("testPcmSupport: PCM should be supported."
                     + " On ATV device please check HDMI connection.",
                     mInfoPCM16 != null);
@@ -608,8 +619,8 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
         if (isPcmTestingEnabled()) {
             SamplePlayerShorts player = new SamplePlayerShorts(
                     44100, AudioFormat.ENCODING_PCM_16BIT, AudioFormat.CHANNEL_OUT_STEREO,
-                    R.raw.sinesweepraw);
-            player.playAndMeasureRate();
+                    "sinesweepraw.raw");
+            player.playAndMeasureRate(SAMPLE_RATE_SHORT_TEST_DURATION_MILLIS);
         }
     }
 
@@ -617,8 +628,8 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
         if (isPcmTestingEnabled()) {
             SamplePlayerBytes player = new SamplePlayerBytes(
                     44100, AudioFormat.ENCODING_PCM_16BIT, AudioFormat.CHANNEL_OUT_STEREO,
-                    R.raw.sinesweepraw);
-            player.playAndMeasureRate();
+                    "sinesweepraw.raw");
+            player.playAndMeasureRate(SAMPLE_RATE_SHORT_TEST_DURATION_MILLIS);
         }
     }
 
@@ -626,8 +637,8 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
         if (isPcmTestingEnabled()) {
             SamplePlayerBytes player = new SamplePlayerBytes(
                     48000, AudioFormat.ENCODING_PCM_16BIT, AudioFormat.CHANNEL_OUT_STEREO,
-                    R.raw.sinesweepraw);
-            player.playAndMeasureRate();
+                    "sinesweepraw.raw");
+            player.playAndMeasureRate(SAMPLE_RATE_SHORT_TEST_DURATION_MILLIS);
         }
     }
 
@@ -635,17 +646,17 @@ public class AudioTrackSurroundTest extends CtsAndroidTestCase {
         if (isPcmTestingEnabled()) {
             SamplePlayerShorts player = new SamplePlayerShorts(44100, AudioFormat.ENCODING_PCM_16BIT,
                     AudioFormat.CHANNEL_OUT_MONO,
-                    R.raw.sinesweepraw);
-            player.playAndMeasureRate();
+                    "sinesweepraw.raw");
+            player.playAndMeasureRate(SAMPLE_RATE_SHORT_TEST_DURATION_MILLIS);
         }
     }
 
     public void testPlaySineSweepBytesMono()
             throws Exception {
         if (isPcmTestingEnabled()) {
-            SamplePlayerBytes player = new SamplePlayerBytes(44100,
-                    AudioFormat.ENCODING_PCM_16BIT, AudioFormat.CHANNEL_OUT_MONO, R.raw.sinesweepraw);
-            player.playAndMeasureRate();
+            SamplePlayerBytes player = new SamplePlayerBytes(44100, AudioFormat.ENCODING_PCM_16BIT,
+                    AudioFormat.CHANNEL_OUT_MONO, "sinesweepraw.raw");
+            player.playAndMeasureRate(SAMPLE_RATE_SHORT_TEST_DURATION_MILLIS);
         }
     }
 

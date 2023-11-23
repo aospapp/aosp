@@ -32,6 +32,7 @@ uint8_t SEQ_NUM_MASTER;
 uint8_t SEQ_NUM_SLAVE;
 uint8_t recoveryStatus;
 T1TProtocol_TransceiveState gNextCmd = Idle;
+T1TProtocol_TransceiveState gOriginalCmd = Idle;
 
 /*******************************************************************************
 **
@@ -476,8 +477,12 @@ void T1protocol_processRBlock(Tpdu* originalCmdTpdu,
     // retransmission of the original IBlock, otherwise do resend request.
     if (T1protocol_isSequenceNumberOk(originalCmdTpdu, lastRespTpduReceived) ==
         true) {
-      STLOG_HAL_D("%s : Need retransmissiom :", __func__);
-      gNextCmd = I_block;
+      STLOG_HAL_E("%s : Need retransmissiom :", __func__);
+      if (gOriginalCmd == S_IFS_REQ) {
+        gNextCmd = S_IFS_REQ;
+      } else {
+        gNextCmd = I_block;
+      }
     } else {
       gNextCmd = S_Resync_REQ;
     }
@@ -576,15 +581,16 @@ int T1protocol_formSblockResponse(Tpdu* responseTpdu, Tpdu* requestTpdu) {
 ** Returns          0 If all went is ok, -1 otherwise.
 **
 *******************************************************************************/
-int T1protocol_processSBlock(Tpdu* originalCmdTpdu, Tpdu* lastCmdTpduSent,
+int T1protocol_processSBlock(__attribute((unused)) Tpdu* originalCmdTpdu,
+                             __attribute((unused)) Tpdu* lastCmdTpduSent,
                              Tpdu* lastRespTpduReceived) {
-  int rc;
   if (lastRespTpduReceived->pcb == (uint8_t)SBLOCK_WTX_REQUEST_MASK) {
     gNextCmd = S_WTX_RES;
   } else if (lastRespTpduReceived->pcb == (uint8_t)SBLOCK_IFS_REQUEST_MASK) {
     gNextCmd = S_IFS_RES;
   } else if (lastRespTpduReceived->pcb == (uint8_t)SBLOCK_IFS_RESPONSE_MASK) {
     ATP.ifsc = (uint8_t)lastRespTpduReceived->data[0];
+    gNextCmd = Idle;
     return 0;
   } else if (lastRespTpduReceived->pcb ==
              (uint8_t)SBLOCK_RESYNCH_REQUEST_MASK) {
@@ -593,20 +599,9 @@ int T1protocol_processSBlock(Tpdu* originalCmdTpdu, Tpdu* lastCmdTpduSent,
   } else if (lastRespTpduReceived->pcb ==
              (uint8_t)SBLOCK_RESYNCH_RESPONSE_MASK) {
     T1protocol_resetSequenceNumbers();
-    // Reset the sequence number of the original Tpdu if needed
-    if ((originalCmdTpdu->pcb & IBLOCK_NS_BIT_MASK) > 0) {
-      originalCmdTpdu->pcb &= ~IBLOCK_NS_BIT_MASK;
 
-      rc = Tpdu_formTpdu(originalCmdTpdu->nad, originalCmdTpdu->pcb,
-                         originalCmdTpdu->len, originalCmdTpdu->data,
-                         originalCmdTpdu);
-      if (rc < 0) {
-        return rc;
-      }
-    }
-
-    Tpdu_copy(lastCmdTpduSent, originalCmdTpdu);
-    gNextCmd = I_block;
+    STLOG_HAL_E("RESYNCH response - resend the whole frame");
+    return -2;
 
   } else if (lastRespTpduReceived->pcb == (uint8_t)SBLOCK_ABORT_REQUEST_MASK) {
     // TODO
@@ -700,22 +695,22 @@ bool T1protocol_isSequenceNumberOk(Tpdu* originalTpdu, Tpdu* respTpdu) {
 void T1protocol_updateRecoveryStatus() {
   switch (recoveryStatus) {
     case RECOVERY_STATUS_OK:
-      STLOG_HAL_D("recoveryStatus: OK -> RESEND 1");
+      STLOG_HAL_E("recoveryStatus: OK -> RESEND 1");
       recoveryStatus = RECOVERY_STATUS_RESEND_1;
       break;
 
     case RECOVERY_STATUS_RESEND_1:
-        STLOG_HAL_D("recoveryStatus: RESEND 1 -> RESYNC 1");
-        recoveryStatus = RECOVERY_STATUS_RESYNC_1;
+      STLOG_HAL_E("recoveryStatus: RESEND 1 -> RESYNC 1");
+      recoveryStatus = RECOVERY_STATUS_RESYNC_1;
       break;
 
     case RECOVERY_STATUS_RESYNC_1:
-      STLOG_HAL_D("recoveryStatus: RESYNC 1 -> WARM RESET");
+      STLOG_HAL_E("recoveryStatus: RESYNC 1 -> WARM RESET");
       recoveryStatus = RECOVERY_STATUS_WARM_RESET;
       break;
 
     case RECOVERY_STATUS_WARM_RESET:
-      STLOG_HAL_D("recoveryStatus: WARM_RESET (recovery completed)");
+      STLOG_HAL_E("recoveryStatus: WARM_RESET (recovery completed)");
       recoveryStatus = RECOVERY_STATUS_KO;
       break;
   }
@@ -974,7 +969,7 @@ int T1protocol_handleTpduResponse(Tpdu* originalCmdTpdu, Tpdu* lastCmdTpduSent,
   // If the last transmission ends without response from the slave, do
   // recovery mechanism.
   if (*bytesRead == 0) {
-    STLOG_HAL_D("bytesRead = 0 -> Going into recovery.");
+    STLOG_HAL_E("bytesRead = 0 -> Going into recovery.");
     rc = T1protocol_doRecovery();
     return rc;
   }
@@ -982,7 +977,7 @@ int T1protocol_handleTpduResponse(Tpdu* originalCmdTpdu, Tpdu* lastCmdTpduSent,
   // Check the consistency of the last received tpdu
   rc = T1protocol_checkTpduConsistency(lastCmdTpduSent, lastRespTpduReceived);
   if (rc < 0) {
-    STLOG_HAL_D("%s : TPDU consistency check failed -> Going into recovery.",
+    STLOG_HAL_E("%s : TPDU consistency check failed -> Going into recovery.",
                 __func__);
     rc = T1protocol_doRecovery();
     return rc;
@@ -1066,38 +1061,33 @@ int T1protocol_formCommandTpduToSend(uint8_t* cmdApduPart, uint8_t cmdLength,
 ** Returns         0 if everything went fine, -1 if something failed.
 **
 *******************************************************************************/
-int T1protocol_doRequestIFS() {
-  Tpdu originalCmdTpdu, lastCmdTpduSent, lastRespTpduReceived;
-  originalCmdTpdu.data = (uint8_t*)malloc(ATP.ifsc * sizeof(uint8_t));
-  lastCmdTpduSent.data = (uint8_t*)malloc(ATP.ifsc * sizeof(uint8_t));
-  lastRespTpduReceived.data = (uint8_t*)malloc(ATP.ifsc * sizeof(uint8_t));
+int T1protocol_doRequestIFS(Tpdu* lastRespTpduReceived) {
+  Tpdu* TempTpdu = (Tpdu*)malloc(sizeof(Tpdu));
+  TempTpdu->data = (uint8_t*)malloc(ATP.ifsc * sizeof(uint8_t));
 
   STLOG_HAL_D("%s : Enter ", __func__);
-  // Form a SBlock Resynch request Tpdu to sent.
+
+  // Form a SBlock IFS request Tpdu to sent.
   int result = Tpdu_formTpdu(NAD_HOST_TO_SLAVE, SBLOCK_IFS_REQUEST_MASK, 1,
-                             &ATP.ifsc, &originalCmdTpdu);
-  if (result) {
-    return result;
-  }
-
-  Tpdu_copy(&lastCmdTpduSent, &originalCmdTpdu);
-
-  // Send the SBlock and read the response from the slave.
-  result = SpiLayerInterface_transcieveTpdu(
-      &lastCmdTpduSent, &lastRespTpduReceived, DEFAULT_NBWT);
-  if (result <= 0) {
+                             &ATP.ifsc, TempTpdu);
+  if (result == -1) {
+    free(TempTpdu->data);
+    free(TempTpdu);
     return -1;
   }
 
-  result = T1protocol_handleTpduResponse(&originalCmdTpdu, &lastCmdTpduSent,
-                                         &lastRespTpduReceived, &result);
+  // Send the SBlock and read the response from the secondary (eSE).
+  result = SpiLayerInterface_transcieveTpdu(TempTpdu, lastRespTpduReceived,
+                                            DEFAULT_NBWT);
 
-  free(originalCmdTpdu.data);
-  originalCmdTpdu.data = NULL;
-  free(lastCmdTpduSent.data);
-  lastCmdTpduSent.data = NULL;
-  free(lastRespTpduReceived.data);
-  lastRespTpduReceived.data = NULL;
+  if (result < 0) {
+    free(TempTpdu->data);
+    free(TempTpdu);
+    return -1;
+  }
+
+  free(TempTpdu->data);
+  free(TempTpdu);
   return result;
 }
 
@@ -1136,7 +1126,8 @@ int T1protocol_init(SpiDriver_config_t* tSpiDriver) {
 **
 *******************************************************************************/
 int T1protocol_transcieveApduPart(uint8_t* cmdApduPart, uint8_t cmdLength,
-                                  bool isLast, StEse_data* pRsp) {
+                                  bool isLast, StEse_data* pRsp,
+                                  T1TProtocol_TransceiveState Block_type) {
   Tpdu originalCmdTpdu, lastCmdTpduSent, lastRespTpduReceived;
   originalCmdTpdu.data = (uint8_t*)malloc(ATP.ifsc * sizeof(uint8_t));
   lastCmdTpduSent.data = (uint8_t*)malloc(ATP.ifsc * sizeof(uint8_t));
@@ -1144,7 +1135,7 @@ int T1protocol_transcieveApduPart(uint8_t* cmdApduPart, uint8_t cmdLength,
   StEse_data pRes;
 
   memset(&pRes, 0x00, sizeof(StEse_data));
-  STLOG_HAL_D("%s : Enter", __func__);
+  STLOG_HAL_E("%s : Enter cmdLength = 0x%02X", __func__, cmdLength);
 
   // Form the cmdTpdu according to the cmdApduPart, cmdLength and isLast
   // fields.
@@ -1158,7 +1149,8 @@ int T1protocol_transcieveApduPart(uint8_t* cmdApduPart, uint8_t cmdLength,
   recoveryStatus = RECOVERY_STATUS_OK;
   Tpdu_copy(&lastCmdTpduSent, &originalCmdTpdu);
 
-  gNextCmd = I_block;
+  gOriginalCmd = Block_type;
+  gNextCmd = Block_type;
   while (gNextCmd != 0) {
     switch (gNextCmd) {
       case I_block:
@@ -1198,6 +1190,13 @@ int T1protocol_transcieveApduPart(uint8_t* cmdApduPart, uint8_t cmdLength,
 
       case S_WTX_RES:
         rc = T1protocol_doWTXResponse(&lastRespTpduReceived);
+        if (rc < 0) {
+          return rc;
+        }
+        break;
+
+      case S_IFS_REQ:
+        rc = T1protocol_doRequestIFS(&lastRespTpduReceived);
         if (rc < 0) {
           return rc;
         }

@@ -73,6 +73,7 @@ public class SSLSessionContextTest {
     }
 
     @Test
+    @SuppressWarnings("JdkObsolete") // Public API SSLSessionContext.getIds() uses Enumeration
     public void test_SSLSessionContext_getIds() {
         TestSSLContext c = newTestContext();
         assertSSLSessionContextSize(0, c);
@@ -99,6 +100,7 @@ public class SSLSessionContextTest {
     }
 
     @Test
+    @SuppressWarnings("JdkObsolete") // Public API SSLSessionContext.getIds() uses Enumeration
     public void test_SSLSessionContext_getSession() {
         TestSSLContext c = newTestContext();
         try {

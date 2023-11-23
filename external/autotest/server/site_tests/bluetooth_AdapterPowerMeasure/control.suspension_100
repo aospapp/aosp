@@ -10,12 +10,12 @@ AUTHOR = 'Chrome OS Team'
 NAME = 'bluetooth_AdapterPowerMeasure.suspension_100'
 PURPOSE = 'Test power consumption of Bluetooth chip during system suspension.'
 CRITERIA = 'Bluetooth chip should consume power less than specified.'
-ATTRIBUTES = 'suite:bluetooth'
+ATTRIBUTES = ''
 TIME = 'LONG'   # Takes about 60 mins
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
-DEPENDENCIES = 'bluetooth, chameleon:bt_base'
+DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1, servo'
 
 DOC = """
 This test case verifies that the Bluetooth chip of the DUT does
@@ -26,11 +26,10 @@ This autotest include the following test cases:
 """
 
 args_dict = utils.args_to_dict(args)
-chameleon_args = hosts.CrosHost.get_chameleon_arguments(args_dict)
 
 def run(machine):
-    host = hosts.create_host(machine, chameleon_args=chameleon_args)
-    job.run_test('bluetooth_AdapterPowerMeasure', host=host, max_power_mw=3,
-                 num_iterations=100)
+    host = hosts.create_host(machine)
+    job.run_test('bluetooth_AdapterPowerMeasure', host=host, max_power_mw=4,
+                 num_iterations=100, args_dict=args_dict)
 
 parallel_simple(run, machines)

@@ -4,3 +4,4 @@
 Above AIDL file(s) has changed. Run `m %s-update-api` to reflect the changes
 to the current version so that it is reviewed by
 android-aidl-api-council@google.com
+And then you need to change dependency on %s-* to %s-unstable-* to use new APIs.

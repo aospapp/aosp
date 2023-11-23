@@ -16,13 +16,13 @@
 
 package com.android.tv.settings.accessibility;
 
-import android.app.Fragment;
 import android.content.ComponentName;
 import android.content.Context;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.fragment.app.Fragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
@@ -33,7 +33,7 @@ import java.util.List;
 /**
  * Fragment for confirming [de]activation of accessibility service
  */
-public class AccessibilityServiceConfirmationFragment extends GuidedStepFragment {
+public class AccessibilityServiceConfirmationFragment extends GuidedStepSupportFragment {
     private static final String ARG_LABEL = "label";
     private static final String ARG_COMPONENT = "component";
     private static final String ARG_ENABLING = "enabling";

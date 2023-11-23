@@ -28,19 +28,10 @@
                 <group>
                     <device address="bus0_media_out">
                         <context context="music"/>
-                    </device>
-                    <device address="bus3_call_ring_out">
-                        <context context="call_ring"/>
+                        <context context="announcement"/>
                     </device>
                     <device address="bus6_notification_out">
                         <context context="notification"/>
-                    </device>
-                    <device address="bus7_system_sound_out">
-                        <context context="system_sound"/>
-                        <context context="emergency"/>
-                        <context context="safety"/>
-                        <context context="vehicle_status"/>
-                        <context context="announcement"/>
                     </device>
                 </group>
                 <group>
@@ -55,10 +46,19 @@
                     <device address="bus4_call_out">
                         <context context="call"/>
                     </device>
+                    <device address="bus3_call_ring_out">
+                        <context context="call_ring"/>
+                    </device>
                 </group>
                 <group>
                     <device address="bus5_alarm_out">
                         <context context="alarm"/>
+                    </device>
+                    <device address="bus7_system_sound_out">
+                        <context context="system_sound"/>
+                        <context context="emergency"/>
+                        <context context="safety"/>
+                        <context context="vehicle_status"/>
                     </device>
                 </group>
             </volumeGroups>

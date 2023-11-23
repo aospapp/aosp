@@ -60,9 +60,8 @@ import javax.security.auth.x500.X500Principal;
  * <p>In addition to supporting the {@code
  * TrustedCertificateKeyStoreSpi} implementation, {@code
  * TrustedCertificateStore} also provides the additional public
- * methods {@link #isTrustAnchor} and {@link #findIssuer} to allow
- * efficient lookup operations for CAs again based on the file naming
- * convention.
+ * method  {@link #findIssuer} to allow  efficient lookup operations
+ * for CAs again based on the file naming convention.
  *
  * <p>The KeyChainService users the {@link installCertificate} and
  * {@link #deleteCertificateEntry} to install user CAs as well as
@@ -82,17 +81,16 @@ import javax.security.auth.x500.X500Principal;
  * user.
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.CorePlatformApi
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @Internal
 public class TrustedCertificateStore implements ConscryptCertStore {
-
     private static final String PREFIX_SYSTEM = "system:";
     private static final String PREFIX_USER = "user:";
 
     public static final boolean isSystem(String alias) {
         return alias.startsWith(PREFIX_SYSTEM);
     }
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final boolean isUser(String alias) {
         return alias.startsWith(PREFIX_USER);
     }
@@ -119,7 +117,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         }
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static void setDefaultUserDirectory(File root) {
         PreloadHolder.defaultCaCertsAddedDir = new File(root, "cacerts-added");
         PreloadHolder.defaultCaCertsDeletedDir = new File(root, "cacerts-removed");
@@ -131,7 +129,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
 
     @android.compat.annotation
             .UnsupportedAppUsage
-            @libcore.api.CorePlatformApi
+            @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
             public TrustedCertificateStore() {
         this(PreloadHolder.defaultCaCertsSystemDir, PreloadHolder.defaultCaCertsAddedDir,
                 PreloadHolder.defaultCaCertsDeletedDir);
@@ -143,14 +141,13 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         this.deletedDir = deletedDir;
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public Certificate getCertificate(String alias) {
         return getCertificate(alias, false);
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public Certificate getCertificate(String alias, boolean includeDeletedSystem) {
-
         File file = fileForAlias(alias);
         if (file == null || (isUser(alias) && isTombstone(file))) {
             return null;
@@ -227,7 +224,8 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         return getCertificateFile(deletedDir, x).exists();
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    @SuppressWarnings("JdkObsolete") // Used in public API TrustedCertificateKeyStoreSpi
     public Date getCreationDate(String alias) {
         // containsAlias check ensures the later fileForAlias result
         // was not a deleted system cert.
@@ -245,7 +243,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         return new Date(time);
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public Set<String> aliases() {
         Set<String> result = new HashSet<String>();
         addAliases(result, PREFIX_USER, addedDir);
@@ -253,7 +251,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         return result;
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public Set<String> userAliases() {
         Set<String> result = new HashSet<String>();
         addAliases(result, PREFIX_USER, addedDir);
@@ -273,7 +271,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         }
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public Set<String> allSystemAliases() {
         Set<String> result = new HashSet<String>();
         String[] files = systemDir.list();
@@ -289,7 +287,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         return result;
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public boolean containsAlias(String alias) {
         return containsAlias(alias, false);
     }
@@ -298,12 +296,12 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         return getCertificate(alias, includeDeletedSystem) != null;
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public String getCertificateAlias(Certificate c) {
         return getCertificateAlias(c, false);
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public String getCertificateAlias(Certificate c, boolean includeDeletedSystem) {
         if (c == null || !(c instanceof X509Certificate)) {
             return null;
@@ -327,7 +325,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
      * Returns true to indicate that the certificate was added by the
      * user, false otherwise.
      */
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public boolean isUserAddedCertificate(X509Certificate cert) {
         return getCertificateFile(addedDir, cert).exists();
     }
@@ -340,7 +338,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
      *
      * @VisibleForTesting
      */
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public File getCertificateFile(File dir, final X509Certificate x) {
         // compare X509Certificate.getEncoded values
         CertSelector selector = new CertSelector() {
@@ -361,7 +359,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
      * with other differences (for example when switching signature
      * from md2WithRSAEncryption to SHA1withRSA)
      */
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @Override
     public X509Certificate getTrustAnchor(final X509Certificate c) {
         // compare X509Certificate.getPublicKey values
@@ -393,7 +391,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
      * TrustManagerImpl} to locate the CA certificate that signed the
      * provided {@code X509Certificate}.
      */
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public X509Certificate findIssuer(final X509Certificate c) {
         // match on verified issuer of Certificate
         CertSelector selector = new CertSelector() {
@@ -419,7 +417,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         return null;
     }
 
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @Override
     public Set<X509Certificate> findAllIssuers(final X509Certificate c) {
         Set<X509Certificate> issuers = null;
@@ -502,7 +500,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
      */
     @android.compat.annotation
             .UnsupportedAppUsage
-            @libcore.api.CorePlatformApi
+            @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
             public List<X509Certificate> getCertificateChain(X509Certificate leaf)
             throws CertificateException {
         final LinkedHashSet<OpenSSLX509Certificate> chain
@@ -600,7 +598,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
      * silently ignores the certificate if it already exists in the
      * store.
      */
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public void installCertificate(X509Certificate cert) throws IOException, CertificateException {
         if (cert == null) {
             throw new NullPointerException("cert == null");
@@ -636,7 +634,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
      * only. Instead, this is used by the {@code KeyChainService} to
      * delete CA certificates.
      */
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public void deleteCertificateEntry(String alias) throws IOException, CertificateException {
         if (alias == null) {
             return;

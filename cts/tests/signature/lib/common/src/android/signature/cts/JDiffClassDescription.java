@@ -40,6 +40,7 @@ public class JDiffClassDescription {
     private final String mAbsoluteClassName;
 
     private int mModifier;
+    private boolean mIsPrevious;
 
     private String mExtendedClass;
     private final List<String> implInterfaces = new ArrayList<>();
@@ -59,8 +60,17 @@ public class JDiffClassDescription {
         mPackageName = pkg;
         mShortClassName = className;
         mAbsoluteClassName = mPackageName + "." + mShortClassName;
+        mIsPrevious = false;
     }
 
+    public JDiffClassDescription setPreviousApiFlag(boolean isPreviousApi) {
+        mIsPrevious = isPreviousApi;
+        return this;
+    }
+
+    boolean isPreviousApi() {
+        return mIsPrevious;
+    }
 
     String getPackageName() {
         return mPackageName;

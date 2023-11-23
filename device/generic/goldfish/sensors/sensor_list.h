@@ -36,6 +36,7 @@ constexpr int kSensorHandleGyroscopeFieldUncalibrated = 10;
 constexpr int kSensorHandleHingeAngle0 = 11;
 constexpr int kSensorHandleHingeAngle1 = 12;
 constexpr int kSensorHandleHingeAngle2 = 13;
+constexpr int kSensorHandleHeartRate = 14;
 
 int getSensorNumber();
 bool isSensorHandleValid(int h);

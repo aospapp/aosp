@@ -16,7 +16,10 @@
 <com.android.cts.verifier.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:paddingTop="20dp"
+    android:paddingLeft="15dp"
+    android:paddingRight="15dp">
     <ScrollView android:id="@+id/log_scroll_view"
             app:ctsv_layout_box="all"
             android:fillViewport="true"

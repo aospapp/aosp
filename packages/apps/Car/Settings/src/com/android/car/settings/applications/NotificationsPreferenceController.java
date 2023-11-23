@@ -16,37 +16,26 @@
 
 package com.android.car.settings.applications;
 
-import static android.app.NotificationManager.IMPORTANCE_NONE;
-import static android.app.NotificationManager.IMPORTANCE_UNSPECIFIED;
-
-import android.app.INotificationManager;
-import android.app.NotificationChannel;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.pm.PackageInfo;
-import android.os.ServiceManager;
 
 import androidx.preference.TwoStatePreference;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.Logger;
-import com.android.car.settings.common.PreferenceController;
-import com.android.internal.annotations.VisibleForTesting;
+import com.android.car.settings.notifications.BaseNotificationsPreferenceController;
 
 /**
  * Controller for preference which enables / disables showing notifications for an application.
  */
-public class NotificationsPreferenceController extends PreferenceController<TwoStatePreference> {
+public class NotificationsPreferenceController extends
+        BaseNotificationsPreferenceController<TwoStatePreference> {
 
     private static final Logger LOG = new Logger(NotificationsPreferenceController.class);
 
     private String mPackageName;
     private int mUid;
-
-    @VisibleForTesting
-    INotificationManager mNotificationManager =
-            INotificationManager.Stub.asInterface(
-                    ServiceManager.getService(Context.NOTIFICATION_SERVICE));
 
     public NotificationsPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -68,40 +57,12 @@ public class NotificationsPreferenceController extends PreferenceController<TwoS
 
     @Override
     protected void updateState(TwoStatePreference preference) {
-        preference.setChecked(isNotificationsEnabled());
+        preference.setChecked(areNotificationsEnabled(mPackageName, mUid));
     }
 
     @Override
     protected boolean handlePreferenceChanged(TwoStatePreference preference, Object newValue) {
         boolean enabled = (boolean) newValue;
-
-        try {
-            if (mNotificationManager.onlyHasDefaultChannel(mPackageName, mUid)) {
-                NotificationChannel defaultChannel =
-                        mNotificationManager.getNotificationChannelForPackage(
-                                mPackageName,
-                                mUid,
-                                NotificationChannel.DEFAULT_CHANNEL_ID,
-                                /* conversationId= */ null,
-                                /* includeDeleted= */ true);
-                defaultChannel.setImportance(enabled ? IMPORTANCE_UNSPECIFIED : IMPORTANCE_NONE);
-                mNotificationManager
-                        .updateNotificationChannelForPackage(mPackageName, mUid, defaultChannel);
-            }
-            mNotificationManager.setNotificationsEnabledForPackage(mPackageName, mUid, enabled);
-        } catch (Exception e) {
-            LOG.w("Error querying notification setting for package");
-            return false;
-        }
-        return true;
-    }
-
-    private boolean isNotificationsEnabled() {
-        try {
-            return mNotificationManager.areNotificationsEnabledForPackage(mPackageName, mUid);
-        } catch (Exception e) {
-            LOG.w("Error querying notification setting for package");
-            return false;
-        }
+        return toggleNotificationsSetting(mPackageName, mUid, enabled);
     }
 }

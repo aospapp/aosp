@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library_host {
     name: "vts-core-tradefed-harness",
     srcs: ["src/**/*.java"],
@@ -30,7 +34,7 @@ tradefed_binary_host {
     wrapper: "etc/vts-tradefed",
     short_name: "VTS",
     full_name: "Vendor Test Suite",
-    version: "11_r1",
+    version: "12_r1",
     static_libs: [
         "cts-tradefed-harness",
         "vts-core-tradefed-harness",

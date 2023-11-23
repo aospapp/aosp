@@ -10,6 +10,7 @@
  * Refer to the implementations of these functions in the CHRE code that runs on
  * the SLPI for documentation covering the parameters, return values, etc.
  */
+#include <AEEStdDef.h>
 #ifndef __QAIC_HEADER
 #define __QAIC_HEADER(ff) ff
 #endif //__QAIC_HEADER

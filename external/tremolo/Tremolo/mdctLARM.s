@@ -43,6 +43,13 @@
 	.global mdct_unroll_part3
 	.global mdct_unroll_postlap
 
+	.type mdct_backwardARM, %function
+	.type mdct_shift_right, %function
+	.type mdct_unroll_prelap, %function
+	.type mdct_unroll_part2, %function
+	.type mdct_unroll_part3, %function
+	.type mdct_unroll_postlap, %function
+
 	.extern	sincos_lookup0
 	.extern	sincos_lookup1
 

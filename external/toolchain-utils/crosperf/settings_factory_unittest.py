@@ -50,7 +50,7 @@ class GlobalSettingsTest(unittest.TestCase):
   def test_init(self):
     res = settings_factory.GlobalSettings('g_settings')
     self.assertIsNotNone(res)
-    self.assertEqual(len(res.fields), 38)
+    self.assertEqual(len(res.fields), 39)
     self.assertEqual(res.GetField('name'), '')
     self.assertEqual(res.GetField('board'), '')
     self.assertEqual(res.GetField('skylab'), False)
@@ -73,18 +73,19 @@ class GlobalSettingsTest(unittest.TestCase):
     self.assertEqual(res.GetField('show_all_results'), False)
     self.assertEqual(res.GetField('share_cache'), '')
     self.assertEqual(res.GetField('results_dir'), '')
+    self.assertEqual(res.GetField('compress_results'), True)
     self.assertEqual(res.GetField('chrome_src'), '')
     self.assertEqual(res.GetField('cwp_dso'), '')
     self.assertEqual(res.GetField('enable_aslr'), False)
     self.assertEqual(res.GetField('ignore_min_max'), False)
-    self.assertEqual(res.GetField('intel_pstate'), '')
+    self.assertEqual(res.GetField('intel_pstate'), 'no_hwp')
     self.assertEqual(res.GetField('turbostat'), True)
-    self.assertEqual(res.GetField('top_interval'), 0)
-    self.assertEqual(res.GetField('cooldown_time'), 0)
+    self.assertEqual(res.GetField('top_interval'), 1)
+    self.assertEqual(res.GetField('cooldown_time'), 10)
     self.assertEqual(res.GetField('cooldown_temp'), 40)
     self.assertEqual(res.GetField('governor'), 'performance')
     self.assertEqual(res.GetField('cpu_usage'), 'all')
-    self.assertEqual(res.GetField('cpu_freq_pct'), 100)
+    self.assertEqual(res.GetField('cpu_freq_pct'), 95)
 
 
 class SettingsFactoryTest(unittest.TestCase):
@@ -107,7 +108,7 @@ class SettingsFactoryTest(unittest.TestCase):
     g_settings = settings_factory.SettingsFactory().GetSettings(
         'global', 'global')
     self.assertIsInstance(g_settings, settings_factory.GlobalSettings)
-    self.assertEqual(len(g_settings.fields), 38)
+    self.assertEqual(len(g_settings.fields), 39)
 
 
 if __name__ == '__main__':

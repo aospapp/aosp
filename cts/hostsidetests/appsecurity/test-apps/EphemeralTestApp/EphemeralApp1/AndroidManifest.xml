@@ -15,118 +15,114 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="com.android.cts.ephemeralapp1" >
-    <uses-sdk
-        android:minSdkVersion="24" android:targetSdkVersion="26" />
+     package="com.android.cts.ephemeralapp1">
+    <uses-sdk android:minSdkVersion="24"
+         android:targetSdkVersion="26"/>
 
-    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.INSTANT_APP_FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.INSTANT_APP_FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
-    <application
-        android:label="@string/app_name">
-        <uses-library android:name="android.test.runner" />
-        <activity
-            android:name=".EphemeralActivity"
-            android:theme="@android:style/Theme.NoDisplay" >
+    <application android:label="@string/app_name">
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name=".EphemeralActivity"
+             android:theme="@android:style/Theme.NoDisplay"
+             android:exported="true">
             <!-- TEST: normal app can start w/o knowing about this activity -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" />
-                <data android:host="cts.google.com" />
-                <data android:path="/ephemeral" />
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"/>
+                <data android:host="cts.google.com"/>
+                <data android:path="/ephemeral"/>
             </intent-filter>
             <!-- TEST: ephemeral apps can see this activity using query methods -->
             <!-- TEST: normal apps can't see this activity using query methods -->
             <intent-filter android:priority="0">
-                <action android:name="com.android.cts.ephemeraltest.QUERY" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.ephemeraltest.QUERY"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
             <!-- TEST: ephemeral apps can start this activity using directed intent -->
             <!-- TEST: normal apps can't start this activity using directed intent -->
             <intent-filter android:priority="0">
-                <action android:name="com.android.cts.ephemeraltest.START_EPHEMERAL" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.ephemeraltest.START_EPHEMERAL"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.SEARCH" />
+                <action android:name="android.intent.action.SEARCH"/>
             </intent-filter>
             <meta-data android:name="default-url"
-                       android:value="https://ephemeralapp1.cts.android.com/search" />
-            <meta-data
-                       android:name="android.app.searchable"
-                       android:resource="@xml/searchable" />
+                 android:value="https://ephemeralapp1.cts.android.com/search"/>
+            <meta-data android:name="android.app.searchable"
+                 android:resource="@xml/searchable"/>
         </activity>
-        <activity
-            android:name=".EphemeralResult"
-            android:theme="@android:style/Theme.NoDisplay" >
+        <activity android:name=".EphemeralResult"
+             android:theme="@android:style/Theme.NoDisplay"
+             android:exported="true">
             <!-- TEST: allow sending results from other instant apps -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" />
-                <data android:host="cts.google.com" />
-                <data android:path="/result" />
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"/>
+                <data android:host="cts.google.com"/>
+                <data android:path="/result"/>
             </intent-filter>
         </activity>
         <provider android:name=".SearchSuggestionProvider"
-            android:authorities="com.android.cts.ephemeralapp1.Search" />
+             android:authorities="com.android.cts.ephemeralapp1.Search"/>
 
-        <activity
-            android:name=".EphemeralActivity2"
-            android:theme="@android:style/Theme.NoDisplay">
+        <activity android:name=".EphemeralActivity2"
+             android:theme="@android:style/Theme.NoDisplay"
+             android:exported="true">
             <!-- TEST: ephemeral apps can start this activity using directed intent -->
             <!-- TEST: normal apps can't start this activity using directed intent -->
             <intent-filter android:priority="0">
-                <action android:name="com.android.cts.ephemeraltest.START_EPHEMERAL_PRIVATE" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.ephemeraltest.START_EPHEMERAL_PRIVATE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
-        <activity
-            android:name=".EphemeralActivity3"
-            android:theme="@android:style/Theme.NoDisplay">
+        <activity android:name=".EphemeralActivity3"
+             android:theme="@android:style/Theme.NoDisplay">
             <!-- TEST: ephemeral apps can start this activity using directed intent -->
         </activity>
-        <activity android:name=".WebViewTestActivity" />
-        <service
-            android:name=".EphemeralService">
+        <activity android:name=".WebViewTestActivity"/>
+        <service android:name=".EphemeralService"
+             android:exported="true">
             <!-- TEST: ephemeral apps can see this service using query methods -->
             <intent-filter android:priority="0">
-                <action android:name="com.android.cts.ephemeraltest.QUERY" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.ephemeraltest.QUERY"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
             <!-- TEST: ephemeral apps can start this service using directed intent -->
             <intent-filter android:priority="-10">
-                <action android:name="com.android.cts.ephemeraltest.START_EPHEMERAL" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.ephemeraltest.START_EPHEMERAL"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </service>
 
-        <provider
-            android:name=".EphemeralProvider"
-            android:authorities="com.android.cts.ephemeralapp1.provider"
-            android:exported="true">
+        <provider android:name=".EphemeralProvider"
+             android:authorities="com.android.cts.ephemeralapp1.provider"
+             android:exported="true">
             <intent-filter android:priority="0">
-                <action android:name="com.android.cts.ephemeraltest.QUERY" />
+                <action android:name="com.android.cts.ephemeraltest.QUERY"/>
             </intent-filter>
         </provider>
         <service android:name=".SomeService"/>
 
-        <activity android:name=".StartForResultActivity" android:exported="false" />
+        <activity android:name=".StartForResultActivity"
+             android:exported="false"/>
 
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.ephemeralapp1" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="com.android.cts.ephemeralapp1"/>
 </manifest>

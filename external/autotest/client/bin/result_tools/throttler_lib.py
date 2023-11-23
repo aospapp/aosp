@@ -7,7 +7,10 @@
 import os
 import re
 
-import utils_lib
+try:
+    from autotest_lib.client.bin.result_tools import utils_lib
+except ImportError:
+    import utils_lib
 
 
 # A list of file names that should not be throttled, that is, not modified by

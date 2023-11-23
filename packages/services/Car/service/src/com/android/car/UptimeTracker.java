@@ -18,10 +18,9 @@ package com.android.car;
 
 import android.util.JsonReader;
 import android.util.JsonWriter;
-import android.util.Log;
+import android.util.Slog;
 
 import com.android.car.systeminterface.SystemInterface;
-
 import com.android.car.systeminterface.TimeInterface;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -158,7 +157,7 @@ public class UptimeTracker {
                 reader.endObject();
                 reader.close();
             } catch (IllegalArgumentException | IOException e) {
-                Log.w(CarLog.TAG_SERVICE, "unable to read historical uptime data", e);
+                Slog.w(CarLog.TAG_SERVICE, "unable to read historical uptime data", e);
                 mHistoricalUptime = Optional.empty();
             }
         }
@@ -183,7 +182,7 @@ public class UptimeTracker {
                 writer.endObject();
                 writer.close();
             } catch (IOException e) {
-                Log.w(CarLog.TAG_SERVICE, "unable to write historical uptime data", e);
+                Slog.w(CarLog.TAG_SERVICE, "unable to write historical uptime data", e);
             }
         }
     }

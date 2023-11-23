@@ -6,10 +6,10 @@
 
 #include <utility>
 
+#include <base/bind.h>
 #include <base/json/json_reader.h>
 #include <base/json/json_writer.h>
 #include <base/logging.h>
-#include <brillo/bind_lambda.h>
 #include <brillo/http/http_connection_fake.h>
 #include <brillo/http/http_request.h>
 #include <brillo/mime_utils.h>

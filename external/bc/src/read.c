@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,7 +36,6 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -44,12 +43,29 @@
 
 #include <fcntl.h>
 #include <sys/stat.h>
+
+#ifndef _WIN32
 #include <unistd.h>
+#endif // _WIN32
 
 #include <read.h>
 #include <history.h>
 #include <program.h>
 #include <vm.h>
+
+static int bc_read_open(const char* path, int mode) {
+
+	int fd;
+
+#ifndef _WIN32
+	fd = open(path, mode);
+#else // _WIN32
+	fd = -1;
+	open(&fd, path, mode);
+#endif
+
+	return fd;
+}
 
 static bool bc_read_binary(const char *buf, size_t size) {
 
@@ -62,126 +78,169 @@ static bool bc_read_binary(const char *buf, size_t size) {
 	return false;
 }
 
+bool bc_read_buf(BcVec *vec, char *buf, size_t *buf_len) {
+
+	char *nl;
+
+	if (!*buf_len) return false;
+
+	nl = strchr(buf, '\n');
+
+	if (nl != NULL) {
+
+		size_t nllen = (size_t) ((nl + 1) - buf);
+
+		nllen = *buf_len >= nllen ? nllen : *buf_len;
+
+		bc_vec_npush(vec, nllen, buf);
+		*buf_len -= nllen;
+		memmove(buf, nl + 1, *buf_len + 1);
+
+		return true;
+	}
+
+	bc_vec_npush(vec, *buf_len, buf);
+	*buf_len = 0;
+
+	return false;
+}
+
 BcStatus bc_read_chars(BcVec *vec, const char *prompt) {
 
-	int i;
-	signed char c = 0;
+	bool done = false;
 
 	assert(vec != NULL && vec->size == sizeof(char));
 
-	bc_vec_npop(vec, vec->len);
+	BC_SIG_ASSERT_NOT_LOCKED;
+
+	bc_vec_popAll(vec);
 
 #if BC_ENABLE_PROMPT
 	if (BC_USE_PROMPT) {
-		bc_vm_puts(prompt, stderr);
-		bc_vm_fflush(stderr);
+		bc_file_puts(&vm.fout, bc_flush_none, prompt);
+		bc_file_flush(&vm.fout, bc_flush_none);
 	}
 #endif // BC_ENABLE_PROMPT
 
-	while (BC_NO_SIG && c != '\n') {
+	if (bc_read_buf(vec, vm.buf, &vm.buf_len)) {
+		bc_vec_pushByte(vec, '\0');
+		return BC_STATUS_SUCCESS;
+	}
 
-		i = fgetc(stdin);
+	while (!done) {
 
-		if (BC_UNLIKELY(i == EOF)) {
+		ssize_t r;
 
-#if BC_ENABLE_SIGNALS
+		BC_SIG_LOCK;
+
+		r = read(STDIN_FILENO, vm.buf + vm.buf_len,
+		         BC_VM_STDIN_BUF_SIZE - vm.buf_len);
+
+		if (BC_UNLIKELY(r < 0)) {
+
 			if (errno == EINTR) {
 
-				if (BC_SIGTERM) return BC_STATUS_QUIT;
-
-				vm->sig_chk = vm->sig;
-
-				if (BC_TTYIN || BC_I) {
-					bc_vm_puts(bc_program_ready_msg, stderr);
-#if BC_ENABLE_PROMPT
-					if (BC_USE_PROMPT) bc_vm_puts(prompt, stderr);
-#endif // BC_ENABLE_PROMPT
-					bc_vm_fflush(stderr);
+				if (vm.status == (sig_atomic_t) BC_STATUS_QUIT) {
+					BC_SIG_UNLOCK;
+					return BC_STATUS_QUIT;
 				}
-				else return BC_STATUS_SIGNAL;
+
+				assert(vm.sig);
+
+				vm.status = (sig_atomic_t) BC_STATUS_SUCCESS;
+#if BC_ENABLE_PROMPT
+				if (BC_USE_PROMPT)
+					bc_file_puts(&vm.fout, bc_flush_none, prompt);
+#endif // BC_ENABLE_PROMPT
+				bc_file_flush(&vm.fout, bc_flush_none);
+
+				BC_SIG_UNLOCK;
 
 				continue;
 			}
-#endif // BC_ENABLE_SIGNALS
 
+			BC_SIG_UNLOCK;
+
+			bc_vm_fatalError(BC_ERR_FATAL_IO_ERR);
+		}
+
+		BC_SIG_UNLOCK;
+
+		if (r == 0) {
 			bc_vec_pushByte(vec, '\0');
 			return BC_STATUS_EOF;
 		}
 
-		c = (signed char) i;
-		bc_vec_push(vec, &c);
+		vm.buf_len += (size_t) r;
+		vm.buf[vm.buf_len] = '\0';
+
+		done = bc_read_buf(vec, vm.buf, &vm.buf_len);
 	}
 
 	bc_vec_pushByte(vec, '\0');
 
-	return BC_SIG ? BC_STATUS_SIGNAL : BC_STATUS_SUCCESS;
+	return BC_STATUS_SUCCESS;
 }
 
 BcStatus bc_read_line(BcVec *vec, const char *prompt) {
 
 	BcStatus s;
 
-	// We are about to output to stderr, so flush stdout to
-	// make sure that we don't get the outputs mixed up.
-	bc_vm_fflush(stdout);
-
 #if BC_ENABLE_HISTORY
-	s = bc_history_line(&vm->history, vec, prompt);
+	if (BC_TTY && !vm.history.badTerm)
+		s = bc_history_line(&vm.history, vec, prompt);
+	else s = bc_read_chars(vec, prompt);
 #else // BC_ENABLE_HISTORY
 	s = bc_read_chars(vec, prompt);
 #endif // BC_ENABLE_HISTORY
 
-	if (BC_ERR(s && s != BC_STATUS_EOF)) return s;
 	if (BC_ERR(bc_read_binary(vec->v, vec->len - 1)))
-		return bc_vm_verr(BC_ERROR_FATAL_BIN_FILE, bc_program_stdin_name);
+		bc_vm_verr(BC_ERR_FATAL_BIN_FILE, bc_program_stdin_name);
 
 	return s;
 }
 
-BcStatus bc_read_file(const char *path, char **buf) {
+void bc_read_file(const char *path, char **buf) {
 
-	BcError e = BC_ERROR_FATAL_IO_ERR;
-	FILE *f;
-	size_t size, read;
-	long res;
+	BcErr e = BC_ERR_FATAL_IO_ERR;
+	size_t size, r;
 	struct stat pstat;
+	int fd;
+
+	BC_SIG_ASSERT_LOCKED;
 
 	assert(path != NULL);
 
-	f = fopen(path, "r");
-	if (BC_ERR(f == NULL)) return bc_vm_verr(BC_ERROR_FATAL_FILE_ERR, path);
-	if (BC_ERR(fstat(fileno(f), &pstat) == -1)) goto malloc_err;
+	fd = bc_read_open(path, O_RDONLY);
+
+	if (BC_ERR(fd < 0)) bc_vm_verr(BC_ERR_FATAL_FILE_ERR, path);
+	if (BC_ERR(fstat(fd, &pstat) == -1)) goto malloc_err;
 
 	if (BC_ERR(S_ISDIR(pstat.st_mode))) {
-		e = BC_ERROR_FATAL_PATH_DIR;
+		e = BC_ERR_FATAL_PATH_DIR;
 		goto malloc_err;
 	}
 
-	if (BC_ERR(fseek(f, 0, SEEK_END) == -1)) goto malloc_err;
-	res = ftell(f);
-	if (BC_ERR(res < 0)) goto malloc_err;
-	if (BC_ERR(fseek(f, 0, SEEK_SET) == -1)) goto malloc_err;
-
-	size = (size_t) res;
+	size = (size_t) pstat.st_size;
 	*buf = bc_vm_malloc(size + 1);
 
-	read = fread(*buf, 1, size, f);
-	if (BC_ERR(read != size)) goto read_err;
+	r = (size_t) read(fd, *buf, size);
+	if (BC_ERR(r != size)) goto read_err;
 
 	(*buf)[size] = '\0';
 
 	if (BC_ERR(bc_read_binary(*buf, size))) {
-		e = BC_ERROR_FATAL_BIN_FILE;
+		e = BC_ERR_FATAL_BIN_FILE;
 		goto read_err;
 	}
 
-	fclose(f);
+	close(fd);
 
-	return BC_STATUS_SUCCESS;
+	return;
 
 read_err:
 	free(*buf);
 malloc_err:
-	fclose(f);
-	return bc_vm_verr(e, path);
+	close(fd);
+	bc_vm_verr(e, path);
 }

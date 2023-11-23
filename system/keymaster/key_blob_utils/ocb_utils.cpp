@@ -26,7 +26,6 @@
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/authorization_set.h>
 #include <keymaster/km_openssl/openssl_err.h>
-#include <keymaster/new.h>
 
 namespace keymaster {
 
@@ -52,8 +51,7 @@ static keymaster_error_t BuildDerivationData(const AuthorizationSet& hw_enforced
     *derivation_data_length =
         hidden.SerializedSize() + hw_enforced.SerializedSize() + sw_enforced.SerializedSize();
     derivation_data->reset(new (std::nothrow) uint8_t[*derivation_data_length]);
-    if (!derivation_data->get())
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    if (!derivation_data->get()) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     uint8_t* buf = derivation_data->get();
     uint8_t* end = derivation_data->get() + *derivation_data_length;
@@ -73,17 +71,14 @@ static keymaster_error_t InitializeKeyWrappingContext(const AuthorizationSet& hw
     UniquePtr<uint8_t[]> derivation_data;
     keymaster_error_t error = BuildDerivationData(hw_enforced, sw_enforced, hidden,
                                                   &derivation_data, &derivation_data_length);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
     SHA256_CTX sha256_ctx;
     UniquePtr<uint8_t[]> hash_buf(new (std::nothrow) uint8_t[SHA256_DIGEST_LENGTH]);
-    if (!hash_buf.get())
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    if (!hash_buf.get()) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     Eraser hash_eraser(hash_buf.get(), SHA256_DIGEST_LENGTH);
     UniquePtr<uint8_t[]> derived_key(new (std::nothrow) uint8_t[AES_BLOCK_SIZE]);
-    if (!derived_key.get())
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    if (!derived_key.get()) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     Eraser derived_key_eraser(derived_key.get(), AES_BLOCK_SIZE);
 
     if (!ctx->get() || !hash_buf.get() || !derived_key.get())
@@ -121,20 +116,17 @@ keymaster_error_t OcbEncryptKey(const AuthorizationSet& hw_enforced,
                                 KeymasterKeyBlob* ciphertext, Buffer* tag) {
     assert(ciphertext && tag);
 
-    if (nonce.available_read() != OCB_NONCE_LENGTH)
-        return KM_ERROR_INVALID_ARGUMENT;
+    if (nonce.available_read() != OCB_NONCE_LENGTH) return KM_ERROR_INVALID_ARGUMENT;
+    if (tag->available_write() != OCB_TAG_LENGTH) return KM_ERROR_INVALID_ARGUMENT;
 
     AeCtx ctx;
-    if (!ctx.get())
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    if (!ctx.get()) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     keymaster_error_t error =
         InitializeKeyWrappingContext(hw_enforced, sw_enforced, hidden, master_key, &ctx);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
-    if (!ciphertext->Reset(plaintext.key_material_size))
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    if (!ciphertext->Reset(plaintext.key_material_size)) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     int ae_err = ae_encrypt(ctx.get(), nonce.peek_read(), plaintext.key_material,
                             plaintext.key_material_size, nullptr /* additional data */,
@@ -144,8 +136,7 @@ keymaster_error_t OcbEncryptKey(const AuthorizationSet& hw_enforced,
         LOG_E("Error %d while encrypting key", ae_err);
         return KM_ERROR_UNKNOWN_ERROR;
     }
-    if (!tag->advance_write(OCB_TAG_LENGTH))
-        return KM_ERROR_UNKNOWN_ERROR;
+    if (!tag->advance_write(OCB_TAG_LENGTH)) return KM_ERROR_UNKNOWN_ERROR;
     assert(ae_err == static_cast<int>(plaintext.key_material_size));
     return KM_ERROR_OK;
 }
@@ -161,16 +152,13 @@ keymaster_error_t OcbDecryptKey(const AuthorizationSet& hw_enforced,
         return KM_ERROR_INVALID_ARGUMENT;
 
     AeCtx ctx;
-    if (!ctx.get())
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    if (!ctx.get()) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     keymaster_error_t error =
         InitializeKeyWrappingContext(hw_enforced, sw_enforced, hidden, master_key, &ctx);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
-    if (!plaintext->Reset(ciphertext.key_material_size))
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    if (!plaintext->Reset(ciphertext.key_material_size)) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     int ae_err = ae_decrypt(ctx.get(), nonce.peek_read(), ciphertext.key_material,
                             ciphertext.key_material_size, nullptr /* additional data */,

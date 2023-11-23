@@ -130,6 +130,160 @@
                 android:layout_height="wrap_content"
                 android:text="textAppearanceListItemSecondary"
                 android:textAppearance="?android:attr/textAppearanceListItemSecondary" />
+
+            <TextView
+                android:id="@+id/textAppearanceSearchResultTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="textAppearanceSearchResultTitle"
+                android:textAppearance="?android:attr/textAppearanceSearchResultTitle" />
+
+            <TextView
+                android:id="@+id/textAppearanceSearchResultSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="textAppearanceSearchResultSubtitle"
+                android:textAppearance="?android:attr/textAppearanceSearchResultSubtitle" />
+
+            <TextView
+                android:id="@+id/textAppearanceButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="textAppearanceButton"
+                android:textAppearance="?android:attr/textAppearanceButton" />
+
+            <TextView
+                android:id="@+id/textAppearanceLargePopupMenu"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="textAppearanceLargePopupMenu"
+                android:textAppearance="?android:attr/textAppearanceLargePopupMenu" />
+
+            <TextView
+                android:id="@+id/textAppearanceSmallPopupMenu"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="textAppearanceSmallPopupMenu"
+                android:textAppearance="?android:attr/textAppearanceSmallPopupMenu" />
+
+            <TextView
+                android:id="@+id/textAppearancePopupMenuHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="textAppearancePopupMenuHeader"
+                android:textAppearance="?android:attr/textAppearancePopupMenuHeader" />
+
+            <TextView
+                android:id="@+id/panelTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="panelTextAppearance"
+                android:textAppearance="?android:attr/panelTextAppearance" />
+
+            <TextView
+                android:id="@+id/actionMenuTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="actionMenuTextAppearance"
+                android:textAppearance="?android:attr/actionMenuTextAppearance" />
+
+            <TextView
+                android:id="@+id/itemTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="itemTextAppearance"
+                android:textAppearance="?android:attr/itemTextAppearance" />
+
+            <TextView
+                android:id="@+id/yearListItemTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="yearListItemTextAppearance"
+                android:textAppearance="?android:attr/yearListItemTextAppearance" />
+
+            <TextView
+                android:id="@+id/headerMonthTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="headerMonthTextAppearance"
+                android:textAppearance="?android:attr/headerMonthTextAppearance" />
+
+            <TextView
+                android:id="@+id/headerDayOfMonthTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="headerDayOfMonthTextAppearance"
+                android:textAppearance="?android:attr/headerDayOfMonthTextAppearance" />
+
+            <TextView
+                android:id="@+id/headerYearTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="headerYearTextAppearance"
+                android:textAppearance="?android:attr/headerYearTextAppearance" />
+
+            <TextView
+                android:id="@+id/dayOfWeekTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="dayOfWeekTextAppearance"
+                android:textAppearance="?android:attr/dayOfWeekTextAppearance" />
+
+            <TextView
+                android:id="@+id/weekDayTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="weekDayTextAppearance"
+                android:textAppearance="?android:attr/weekDayTextAppearance" />
+
+            <TextView
+                android:id="@+id/dateTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="dateTextAppearance"
+                android:textAppearance="?android:attr/dateTextAppearance" />
+
+            <TextView
+                android:id="@+id/headerAmPmTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="headerAmPmTextAppearance"
+                android:textAppearance="?android:attr/headerAmPmTextAppearance" />
+
+            <TextView
+                android:id="@+id/headerTimeTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="headerTimeTextAppearance"
+                android:textAppearance="?android:attr/headerTimeTextAppearance" />
+
+            <TextView
+                android:id="@+id/switchTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="switchTextAppearance"
+                android:textAppearance="?android:attr/switchTextAppearance" />
+
+            <TextView
+                android:id="@+id/titleTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="titleTextAppearance"
+                android:textAppearance="?android:attr/titleTextAppearance" />
+
+            <TextView
+                android:id="@+id/subtitleTextAppearance"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="subtitleTextAppearance"
+                android:textAppearance="?android:attr/subtitleTextAppearance" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="windowTitleStyle"
+                style="?android:attr/windowTitleStyle" />
+
         </LinearLayout>
     </ScrollView>
     <include layout="@layout/menu_button"/>

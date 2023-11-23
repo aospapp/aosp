@@ -11,7 +11,7 @@ CRITERIA = """
 This test will fail if any of the frame tests in cros_camera_test
 fails.
 """
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = ""
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "video"
@@ -36,4 +36,5 @@ facing_options = [
 
 job.run_test(
     'camera_HAL3',
+    cmd_timeout=900,
     options=['--gtest_filter=Camera3FrameTest/*'] + facing_options)

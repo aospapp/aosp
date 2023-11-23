@@ -29,8 +29,8 @@ public interface SetupFlags {
 
     /** Packages allowed to send intents to SetupPassthroughActivity. */
     com.android.tv.common.flags.proto.TypedFeatures.StringListParam
-            setupPassThroughPackageWhitelist();
+            setupPassThroughPackageAllowlist();
 
-    /** Use a whitelist for packages allowed to start SetupPassthroughActivity */
-    boolean useWhitelistForSetupPassThrough();
+    /** Use a allowlist for packages allowed to start SetupPassthroughActivity */
+    boolean useAllowlistForSetupPassThrough();
 }

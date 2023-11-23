@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "UiBenchJankTests",
     srcs: ["src/**/*.java"],
@@ -19,7 +23,7 @@ android_test {
     static_libs: [
         "collector-device-lib",
         "ub-uiautomator",
-        "ub-janktesthelper",
+        "androidx.test.janktesthelper",
         "junit",
     ],
 
@@ -28,4 +32,22 @@ android_test {
     sdk_version: "current",
 
     test_suites: ["device-tests"],
+}
+
+java_library {
+    name: "uibench-test-src",
+    defaults: ["tradefed_errorprone_defaults"],
+
+    srcs: [
+        "src/**/*.java",
+    ],
+
+    static_libs: [
+        "collector-device-lib",
+        "ub-uiautomator",
+        "androidx.test.janktesthelper",
+        "junit",
+    ],
+
+    libs: ["android.test.base.stubs"],
 }

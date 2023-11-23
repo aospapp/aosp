@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -64,7 +65,7 @@ class PowerPlay(object):
                     self.ser = serial.Serial(device_link, 115200)
                     logging.info('Successfully connected to %s', device_link)
                     break
-            except serial.SerialException, e:
+            except serial.SerialException as e:
                 raise error.TestError('Failed to connect to %s becuase of %s' %
                                      (device_link, str(e)))
 

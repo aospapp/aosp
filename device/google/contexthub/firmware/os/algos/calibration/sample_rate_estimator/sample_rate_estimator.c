@@ -19,7 +19,7 @@
 #include <string.h>
 
 #include "common/math/macros.h"
-#include "util/nano_assert.h"
+#include "chre/util/nanoapp/assert.h"
 
 // Helper function used to reset the sampling rate estimator accumulator.
 static void sampleRateEstimatorResetAccumulator(
@@ -32,7 +32,7 @@ static void sampleRateEstimatorResetAccumulator(
 void sampleRateEstimatorInit(struct SampleRateEstimator* sample_rate_estimator,
                              size_t num_intervals_to_collect,
                              float max_interval_sec) {
-  ASSERT_NOT_NULL(sample_rate_estimator);
+  CHRE_ASSERT_NOT_NULL(sample_rate_estimator);
   memset(sample_rate_estimator, 0, sizeof(struct SampleRateEstimator));
   sample_rate_estimator->mean_sampling_rate_estimate_hz =
       SAMPLE_RATE_ESTIMATOR_INVALID_SAMPLE_RATE_HZ;

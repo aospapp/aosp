@@ -11,125 +11,157 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Verifies different combinations of output formats."""
 
-import its.image
-import its.caps
-import its.device
-import its.objects
-import its.error
-import its.target
-import sys
+
+import logging
 import os
 
-NAME = os.path.basename(__file__).split(".")[0]
+from mobly import test_runner
+
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import image_processing_utils
+import its_session_utils
+import target_exposure_utils
+
+
+AUTO_REQUEST_MODE = 1
+NAME = os.path.splitext(os.path.basename(__file__))[0]
 STOP_AT_FIRST_FAILURE = False  # change to True to have test break @ 1st FAIL
 
 
-def main():
-    """Test different combinations of output formats.
-    
-    Note the test does not require a specific target but does perform
-    both automatic and manual captures so it requires a fixed scene
-    where 3A can converge.
-    """
+class FormatCombosTest(its_base_test.ItsBaseTest):
+  """Test different combinations of output formats.
 
-    with its.device.ItsSession() as cam:
+  Note the test does not require a specific target but does perform
+  both automatic and manual captures so it requires a fixed scene
+  where 3A can converge.
+  """
 
-        props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.compute_target_exposure(props) and
-                             its.caps.raw16(props))
+  def test_format_combos(self):
+    logging.debug('Starting %s', NAME)
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
 
-        successes = []
-        failures = []
-        debug = its.caps.debug_mode()
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
 
-        # Two different requests: auto, and manual.
-        e, s = its.target.get_target_exposure_combos(cam)["midExposureTime"]
-        req_aut = its.objects.auto_capture_request()
-        req_man = its.objects.manual_capture_request(s, e)
-        reqs = [req_aut,  # R0
-                req_man]  # R1
+      # Load chart for scene
+      its_session_utils.load_scene(
+          cam, props, self.scene, self.tablet, self.chart_distance)
 
-        # 10 different combos of output formats; some are single surfaces, and
-        # some are multiple surfaces.
-        wyuv, hyuv = its.objects.get_available_output_sizes("yuv", props)[-1]
-        wjpg, hjpg = its.objects.get_available_output_sizes("jpg", props)[-1]
-        fmt_yuv_prev = {"format": "yuv", "width": wyuv, "height": hyuv}
-        fmt_yuv_full = {"format": "yuv"}
-        fmt_jpg_prev = {"format": "jpeg", "width": wjpg, "height": hjpg}
-        fmt_jpg_full = {"format": "jpeg"}
-        fmt_raw_full = {"format": "raw"}
-        fmt_combos = [
-            [fmt_yuv_prev],                              # F0
-            [fmt_yuv_full],                              # F1
-            [fmt_jpg_prev],                              # F2
-            [fmt_jpg_full],                              # F3
-            [fmt_raw_full],                              # F4
-            [fmt_yuv_prev, fmt_jpg_prev],                # F5
-            [fmt_yuv_prev, fmt_jpg_full],                # F6
-            [fmt_yuv_prev, fmt_raw_full],                # F7
-            [fmt_yuv_prev, fmt_jpg_prev, fmt_raw_full],  # F8
-            [fmt_yuv_prev, fmt_jpg_full, fmt_raw_full]]  # F9
+      successes = []
+      failures = []
+      debug = self.debug_mode
 
-        if its.caps.y8(props):
-            wy8, hy8 = its.objects.get_available_output_sizes("y8", props)[-1]
-            fmt_y8_prev = {"format": "y8", "width": wy8, "height": hy8}
-            fmt_y8_full = {"format": "y8"}
-            fmt_combos.append([fmt_y8_prev])
-            fmt_combos.append([fmt_y8_full])
+      # Up to 2 possible request types: auto and manual
+      req_aut = capture_request_utils.auto_capture_request()
+      reqs = [req_aut]
+      if camera_properties_utils.compute_target_exposure(props):
+        e, s = target_exposure_utils.get_target_exposure_combos(
+            self.log_path, cam)['midExposureTime']
+        req_man = capture_request_utils.manual_capture_request(s, e)
+        reqs.append(req_man)
 
-        # Two different burst lengths: single frame, and 3 frames.
-        burst_lens = [1,  # B0
-                      3]  # B1
+      # Up to 10 different combos of output formats.
+      # Some are single surfaces and some are multiple surfaces.
+      wyuv, hyuv = capture_request_utils.get_available_output_sizes(
+          'yuv', props)[-1]
+      wjpg, hjpg = capture_request_utils.get_available_output_sizes(
+          'jpg', props)[-1]
+      fmt_yuv_prev = {'format': 'yuv', 'width': wyuv, 'height': hyuv}
+      fmt_yuv_full = {'format': 'yuv'}
+      fmt_jpg_prev = {'format': 'jpeg', 'width': wjpg, 'height': hjpg}
+      fmt_jpg_full = {'format': 'jpeg'}
+      fmt_combos = [
+          [fmt_yuv_prev],
+          [fmt_yuv_full],
+          [fmt_jpg_prev],
+          [fmt_jpg_full],
+          [fmt_yuv_prev, fmt_jpg_prev],
+          [fmt_yuv_prev, fmt_jpg_full],
+      ]
+      if camera_properties_utils.raw16(props):
+        fmt_raw_full = {'format': 'raw'}
+        fmt_combos.extend([
+            [fmt_raw_full],
+            [fmt_yuv_prev, fmt_raw_full],
+            [fmt_yuv_prev, fmt_jpg_prev, fmt_raw_full],
+            [fmt_yuv_prev, fmt_jpg_full, fmt_raw_full]])
 
-        # There are 2xlen(fmt_combos)x2 different combinations. Run through them all.
-        n = 0
-        for r,req in enumerate(reqs):
-            for f,fmt_combo in enumerate(fmt_combos):
-                for b,burst_len in enumerate(burst_lens):
-                    try:
-                        caps = cam.do_capture([req]*burst_len, fmt_combo)
-                        successes.append((n,r,f,b))
-                        print "==> Success[%02d]: R%d F%d B%d" % (n,r,f,b)
+      if camera_properties_utils.y8(props):
+        wy8, hy8 = capture_request_utils.get_available_output_sizes(
+            'y8', props)[-1]
+        fmt_y8_prev = {'format': 'y8', 'width': wy8, 'height': hy8}
+        fmt_y8_full = {'format': 'y8'}
+        fmt_combos.extend([
+            [fmt_y8_prev],
+            [fmt_y8_full]])
 
-                        # Dump the captures out to jpegs in debug mode.
-                        if debug:
-                            if not isinstance(caps, list):
-                                caps = [caps]
-                            elif isinstance(caps[0], list):
-                                caps = sum(caps, [])
-                            for c, cap in enumerate(caps):
-                                img = its.image.convert_capture_to_rgb_image(cap, props=props)
-                                its.image.write_image(img,
-                                    "%s_n%02d_r%d_f%d_b%d_c%d.jpg"%(NAME,n,r,f,b,c))
+      # Two different burst lengths: single frame and 3 frames.
+      burst_lens = [1, 3]
 
-                    except Exception as e:
-                        print e
-                        print "==> Failure[%02d]: R%d F%d B%d" % (n,r,f,b)
-                        failures.append((n,r,f,b))
-                        if STOP_AT_FIRST_FAILURE:
-                            sys.exit(1)
-                    n += 1
+      # There are 2xlen(fmt_combos)x2 different combinations.
+      # Run through them all.
+      n = 0
+      for r, req in enumerate(reqs):
+        if req['android.control.mode'] == AUTO_REQUEST_MODE:
+          req_str = 'auto'
+        else:
+          req_str = 'manual'
+        for f, fmt_combo in enumerate(fmt_combos):
+          for b, burst_len in enumerate(burst_lens):
+            try:
+              caps = cam.do_capture([req] * burst_len, fmt_combo)
+              successes.append((n, r, f, b))
+              logging.debug('Success[%02d]', n)
+              logging.debug(' req: %s', req_str)
+              logging.debug(' fmt: %s', str(fmt_combo))
+              logging.debug(' burst_len: %d\n', burst_len)
 
-        num_fail = len(failures)
-        num_success = len(successes)
-        num_total = len(reqs)*len(fmt_combos)*len(burst_lens)
-        num_not_run = num_total - num_success - num_fail
+              # Dump the captures out to jpegs in debug mode.
+              if debug:
+                name_with_path = os.path.join(self.log_path, NAME)
+                if not isinstance(caps, list):
+                  caps = [caps]
+                elif isinstance(caps[0], list):
+                  caps = sum(caps, [])
+                for c, cap in enumerate(caps):
+                  img = image_processing_utils.convert_capture_to_rgb_image(
+                      cap, props=props)
+                  img_name = (f'{name_with_path}_{n:02d}_{req_str}_fmt{f}_'
+                              f'burst{burst_len}_cap{c}.jpg')
+                  image_processing_utils.write_image(img, img_name)
+            # pylint: disable=broad-except
+            except Exception as e:
+              logging.error(e)
+              logging.error('Failure[%02d]', n)
+              logging.debug(' req: %s', req_str)
+              logging.error(' fmt: %s', str(fmt_combo))
+              logging.error(' burst_len: %d\n', burst_len)
+              failures.append((n, r, f, b))
+              if STOP_AT_FIRST_FAILURE:
+                raise AssertionError(
+                    f'Capture fail at combo req: {req_str}, fmt: {fmt_combo}, '
+                    f'burst: {burst_len}')
+            n += 1
 
-        print "\nFailures (%d / %d):" % (num_fail, num_total)
-        for (n,r,f,b) in failures:
-            print "  %02d: R%d F%d B%d" % (n,r,f,b)
-        print "\nSuccesses (%d / %d):" % (num_success, num_total)
-        for (n,r,f,b) in successes:
-            print "  %02d: R%d F%d B%d" % (n,r,f,b)
-        if num_not_run > 0:
-            print "\nNumber of tests not run: %d / %d" % (num_not_run, num_total)
-        print ""
+      num_fail = len(failures)
+      num_success = len(successes)
+      num_total = len(reqs)*len(fmt_combos)*len(burst_lens)
+      num_not_run = num_total - num_success - num_fail
 
-        # The test passes if all the combinations successfully capture.
-        assert num_fail == 0
-        assert num_success == num_total
+      logging.debug('Success: %d / %d', num_success, num_total)
+
+      # assert all combinations successfully capture
+      if num_fail != 0:
+        raise AssertionError(f'Number of fails: {num_fail} / {num_total}')
+      if num_not_run > 0:
+        raise AssertionError(f'Number of combos not run: {num_not_run}')
 
 if __name__ == '__main__':
-    main()
-
+  test_runner.main()

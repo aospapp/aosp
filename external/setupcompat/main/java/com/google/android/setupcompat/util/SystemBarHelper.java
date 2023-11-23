@@ -24,13 +24,12 @@ import android.content.res.TypedArray;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.Handler;
-import androidx.annotation.RequiresPermission;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import androidx.annotation.RequiresPermission;
 
 /**
  * A helper class to manage the system navigation bar and status bar. This will add various
@@ -44,7 +43,7 @@ import android.view.WindowManager;
  */
 public final class SystemBarHelper {
 
-  private static final String TAG = "SystemBarHelper";
+  private static final Logger LOG = new Logger("SystemBarHelper");
 
   /** Needs to be equal to View.STATUS_BAR_DISABLE_BACK */
   private static final int STATUS_BAR_DISABLE_BACK = 0x00400000;
@@ -329,7 +328,7 @@ public final class SystemBarHelper {
                 // If the decor view is not installed yet, try again in the next loop.
                 handler.post(checkDecorViewRunnable);
               } else {
-                Log.w(TAG, "Cannot get decor view of window: " + window);
+                LOG.e("Cannot get decor view of window: " + window);
               }
             }
           }

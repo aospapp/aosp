@@ -50,7 +50,8 @@ public class DomainUrlsPreferenceController extends
 
     @Override
     protected void updateState(Preference preference) {
-        preference.setEnabled(!isBrowserApp());
+        boolean hasDomains = mDomains != null && mDomains.size() > 0;
+        preference.setEnabled(!isBrowserApp() && hasDomains);
         preference.setSummary(
                 DomainUrlsUtils.getDomainsSummary(getContext(), getPackageName(),
                         getCurrentUserId(), mDomains));

@@ -57,8 +57,11 @@ pkg.generate(
 )
 
 test(
-  'radeon-symbol-check',
-  prog_bash,
-  env : env_test,
-  args : [files('radeon-symbol-check'), libdrm_radeon]
+  'radeon-symbols-check',
+  symbols_check,
+  args : [
+    '--lib', libdrm_radeon,
+    '--symbols-file', files('radeon-symbols.txt'),
+    '--nm', prog_nm.path(),
+  ],
 )

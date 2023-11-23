@@ -23,6 +23,10 @@
 #include "Decoder.h"
 #include "Encoder.h"
 
+constexpr int32_t kEncodeDefaultVideoBitRate = 8000000 /* 8 Mbps */;
+constexpr int32_t kEncodeMinVideoBitRate = 600000 /* 600 Kbps */;
+constexpr int32_t kEncodeDefaultAudioBitRate = 128000 /* 128 Kbps */;
+
 static BenchmarkTestEnvironment *gEnv = nullptr;
 
 class EncoderTest : public ::testing::TestWithParam<tuple<string, string, bool>> {};
@@ -78,7 +82,7 @@ TEST_P(EncoderTest, Encode) {
         }
 
         string decName = "";
-        string outputFileName = "decode.out";
+        string outputFileName = "/data/local/tmp/decode.out";
         FILE *outFp = fopen(outputFileName.c_str(), "wb");
         ASSERT_NE(outFp, nullptr) << "Unable to open output file" << outputFileName
                                   << " for dumping decoder's output";
@@ -86,6 +90,7 @@ TEST_P(EncoderTest, Encode) {
         decoder->setupDecoder();
         status = decoder->decode(inputBuffer, frameInfo, decName, false /*asyncMode */, outFp);
         ASSERT_EQ(status, AMEDIA_OK) << "Decode returned error : " << status;
+        AMediaFormat *decoderFormat = decoder->getFormat();
 
         ifstream eleStream;
         eleStream.open(outputFileName.c_str(), ifstream::binary | ifstream::ate);
@@ -108,11 +113,13 @@ TEST_P(EncoderTest, Encode) {
             if (encParams.bitrate <= 0 || encParams.frameRate <= 0) {
                 encParams.frameRate = 25;
                 if (!strcmp(mime, "video/3gpp") || !strcmp(mime, "video/mp4v-es")) {
-                    encParams.bitrate = 600000 /* 600 Kbps */;
+                    encParams.bitrate = kEncodeMinVideoBitRate;
                 } else {
-                    encParams.bitrate = 8000000 /* 8 Mbps */;
+                    encParams.bitrate = kEncodeDefaultVideoBitRate;
                 }
             }
+            AMediaFormat_getInt32(decoderFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT,
+                                  &encParams.colorFormat);
             AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_PROFILE, &encParams.profile);
             AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_LEVEL, &encParams.level);
         } else {
@@ -120,8 +127,7 @@ TEST_P(EncoderTest, Encode) {
                                               &encParams.sampleRate));
             ASSERT_TRUE(AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_CHANNEL_COUNT,
                                               &encParams.numChannels));
-            encParams.bitrate =
-                    encParams.sampleRate * encParams.numChannels * 16 /* bitsPerSample */;
+            encParams.bitrate = kEncodeDefaultAudioBitRate;
         }
 
         encoder->setupEncoder();
@@ -133,13 +139,18 @@ TEST_P(EncoderTest, Encode) {
         encoder->deInitCodec();
         ALOGV("codec : %s", codecName.c_str());
         string inputReference = get<0>(params);
-        encoder->dumpStatistics(inputReference, extractor->getClipDuration());
+        encoder->dumpStatistics(inputReference, extractor->getClipDuration(), codecName,
+                                (asyncMode ? "async" : "sync"), gEnv->getStatsFile());
         eleStream.close();
         if (outFp) fclose(outFp);
 
         if (format) {
             AMediaFormat_delete(format);
             format = nullptr;
+        }
+        if (decoderFormat) {
+            AMediaFormat_delete(decoderFormat);
+            decoderFormat = nullptr;
         }
         encoder->resetEncoder();
         decoder->deInitCodec();
@@ -214,8 +225,11 @@ int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int status = gEnv->initFromOptions(argc, argv);
     if (status == 0) {
+        gEnv->setStatsFile("Encoder.csv");
+        status = gEnv->writeStatsHeader();
+        ALOGV("Stats file = %d\n", status);
         status = RUN_ALL_TESTS();
-        ALOGD("Encoder Test result = %d\n", status);
+        ALOGV("Encoder Test result = %d\n", status);
     }
     return status;
 }

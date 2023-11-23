@@ -63,7 +63,8 @@ _REFERENCE_TYPE = atest_enum.AtestEnum(['MODULE', 'CLASS', 'QUALIFIED_CLASS',
                                         'MODULE_PACKAGE', 'MODULE_FILE_PATH',
                                         'INTEGRATION_FILE_PATH', 'INTEGRATION',
                                         'SUITE', 'CC_CLASS', 'SUITE_PLAN',
-                                        'SUITE_PLAN_FILE_PATH', 'CACHE'])
+                                        'SUITE_PLAN_FILE_PATH', 'CACHE',
+                                        'CONFIG'])
 
 _REF_TYPE_TO_FUNC_MAP = {
     _REFERENCE_TYPE.MODULE: module_finder.ModuleFinder.find_test_by_module_name,
@@ -83,6 +84,7 @@ _REF_TYPE_TO_FUNC_MAP = {
     _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH:
         suite_plan_finder.SuitePlanFinder.find_test_by_suite_path,
     _REFERENCE_TYPE.CACHE: cache_finder.CacheFinder.find_test_by_cache,
+    _REFERENCE_TYPE.CONFIG: module_finder.ModuleFinder.find_test_by_config_name,
 }
 
 
@@ -119,6 +121,7 @@ def _get_test_finders():
         pass
     return test_finders_list
 
+# pylint: disable=too-many-branches
 # pylint: disable=too-many-return-statements
 def _get_test_reference_types(ref):
     """Determine type of test reference based on the content of string.
@@ -147,14 +150,22 @@ def _get_test_reference_types(ref):
                     _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                     _REFERENCE_TYPE.MODULE_FILE_PATH,
                     _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH]
+        if ':' in ref:
+            return [_REFERENCE_TYPE.CACHE,
+                    _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
+                    _REFERENCE_TYPE.MODULE_FILE_PATH,
+                    _REFERENCE_TYPE.INTEGRATION,
+                    _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH,
+                    _REFERENCE_TYPE.MODULE_CLASS]
         return [_REFERENCE_TYPE.CACHE,
                 _REFERENCE_TYPE.INTEGRATION_FILE_PATH,
                 _REFERENCE_TYPE.MODULE_FILE_PATH,
                 _REFERENCE_TYPE.INTEGRATION,
                 _REFERENCE_TYPE.SUITE_PLAN_FILE_PATH,
+                _REFERENCE_TYPE.CC_CLASS,
                 # TODO: Uncomment in SUITE when it's supported
                 # _REFERENCE_TYPE.SUITE
-               ]
+                ]
     if '.' in ref:
         ref_end = ref.rsplit('.', 1)[-1]
         ref_end_is_upper = ref_end[0].isupper()
@@ -196,6 +207,7 @@ def _get_test_reference_types(ref):
             # TODO: Uncomment in SUITE when it's supported
             # _REFERENCE_TYPE.SUITE,
             _REFERENCE_TYPE.MODULE,
+            _REFERENCE_TYPE.CONFIG,
             _REFERENCE_TYPE.SUITE_PLAN,
             _REFERENCE_TYPE.CLASS,
             _REFERENCE_TYPE.CC_CLASS]

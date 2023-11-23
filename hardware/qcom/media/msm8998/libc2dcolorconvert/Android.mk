@@ -22,6 +22,9 @@ LOCAL_SHARED_LIBRARIES := liblog libdl libutils
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE := libc2dcolorconvert
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../NOTICE
 
 LOCAL_VENDOR_MODULE := true
 

@@ -31,36 +31,36 @@ struct node {
 
 TEST(MemoryManager, DefaultTotalMemoryAllocatedIsZero) {
   MemoryManager manager;
-  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0);
+  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0u);
 }
 
 TEST(MemoryManager, BasicAllocationFree) {
   MemoryManager manager;
   Nanoapp app;
-  void *ptr = manager.nanoappAlloc(&app, 1);
+  void *ptr = manager.nanoappAlloc(&app, 1u);
   EXPECT_NE(ptr, nullptr);
-  EXPECT_EQ(manager.getTotalAllocatedBytes(), 1);
-  EXPECT_EQ(manager.getAllocationCount(), 1);
+  EXPECT_EQ(manager.getTotalAllocatedBytes(), 1u);
+  EXPECT_EQ(manager.getAllocationCount(), 1u);
   manager.nanoappFree(&app, ptr);
-  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0);
-  EXPECT_EQ(manager.getAllocationCount(), 0);
+  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0u);
+  EXPECT_EQ(manager.getAllocationCount(), 0u);
 }
 
 TEST(MemoryManager, NullPointerFree) {
   MemoryManager manager;
   Nanoapp app;
   manager.nanoappFree(&app, nullptr);
-  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0);
-  EXPECT_EQ(manager.getAllocationCount(), 0);
+  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0u);
+  EXPECT_EQ(manager.getAllocationCount(), 0u);
 }
 
 TEST(MemoryManager, ZeroAllocationFails) {
   MemoryManager manager;
   Nanoapp app;
-  void *ptr = manager.nanoappAlloc(&app, 0);
+  void *ptr = manager.nanoappAlloc(&app, 0u);
   EXPECT_EQ(ptr, nullptr);
-  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0);
-  EXPECT_EQ(manager.getAllocationCount(), 0);
+  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0u);
+  EXPECT_EQ(manager.getAllocationCount(), 0u);
 }
 
 TEST(MemoryManager, HugeAllocationFails) {
@@ -68,7 +68,7 @@ TEST(MemoryManager, HugeAllocationFails) {
   Nanoapp app;
   void *ptr = manager.nanoappAlloc(&app, manager.getMaxAllocationBytes() + 1);
   EXPECT_EQ(ptr, nullptr);
-  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0);
+  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0u);
 }
 
 TEST(MemoryManager, ManyAllocationsTest) {
@@ -85,7 +85,7 @@ TEST(MemoryManager, ManyAllocationsTest) {
   }
   EXPECT_EQ(manager.getTotalAllocatedBytes(), maxCount * sizeof(node));
   EXPECT_EQ(manager.getAllocationCount(), maxCount);
-  EXPECT_EQ(manager.nanoappAlloc(&app, 1), nullptr);
+  EXPECT_EQ(manager.nanoappAlloc(&app, 1u), nullptr);
 
   curr = head;
   for (size_t i = 0; i < maxCount; i++) {
@@ -93,15 +93,15 @@ TEST(MemoryManager, ManyAllocationsTest) {
     manager.nanoappFree(&app, curr);
     curr = temp;
   }
-  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0);
-  EXPECT_EQ(manager.getAllocationCount(), 0);
+  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0u);
+  EXPECT_EQ(manager.getAllocationCount(), 0u);
 }
 
 TEST(MemoryManager, NegativeAllocationFails) {
   MemoryManager manager;
   Nanoapp app;
-  void *ptr = manager.nanoappAlloc(&app, -1);
+  void *ptr = manager.nanoappAlloc(&app, -1u);
   EXPECT_EQ(ptr, nullptr);
-  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0);
-  EXPECT_EQ(manager.getAllocationCount(), 0);
+  EXPECT_EQ(manager.getTotalAllocatedBytes(), 0u);
+  EXPECT_EQ(manager.getAllocationCount(), 0u);
 }

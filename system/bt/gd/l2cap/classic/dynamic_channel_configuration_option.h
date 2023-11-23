@@ -30,6 +30,7 @@ struct DynamicChannelConfigurationOption {
   enum class RetransmissionAndFlowControlMode {
     L2CAP_BASIC,
     ENHANCED_RETRANSMISSION,
+    ENHANCED_RETRANSMISSION_OPTIONAL,
   };
   /**
    * Retransmission and flow control mode. Currently L2CAP_BASIC and ENHANCED_RETRANSMISSION.
@@ -41,6 +42,11 @@ struct DynamicChannelConfigurationOption {
    * Maximum SDU size that the L2CAP Channel user is able to process.
    */
   Mtu incoming_mtu = kDefaultClassicMtu;
+
+  /**
+   * Minimum MTU that we enforce the remote channel to have
+   */
+  Mtu minimal_remote_mtu = kMinimumClassicMtu;
 };
 
 }  // namespace classic

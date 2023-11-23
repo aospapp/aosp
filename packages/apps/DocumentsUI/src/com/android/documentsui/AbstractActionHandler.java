@@ -76,6 +76,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Semaphore;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
@@ -94,6 +95,7 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
 
     private static final String TAG = "AbstractActionHandler";
     private static final int REFRESH_SPINNER_TIMEOUT = 500;
+    private final Semaphore mLoaderSemaphore = new Semaphore(1);
 
     protected final T mActivity;
     protected final State mState;
@@ -745,7 +747,7 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         public void onRootLoaded(@Nullable RootInfo root) {
             if (root == null) {
                 // There is no such root in the other profile. Maybe the provider is missing on
-                // the other profile. Create a dummy root and open it to show error message.
+                // the other profile. Create a placeholder root and open it to show error message.
                 root = RootInfo.copyRootInfo(mOriginalRoot);
                 root.userId = mSelectedUserId;
             }
@@ -767,7 +769,13 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
         // For RecentsLoader and GlobalSearchLoader, they do not require rootDoc so it is no-op.
         // For DirectoryLoader, the loader needs to handle the case when stack.peek() returns null.
 
-        mActivity.getSupportLoaderManager().restartLoader(LOADER_ID, null, mBindings);
+        // Only allow restartLoader when the previous loader is finished or reset. Allowing
+        // multiple consecutive calls to restartLoader() / onCreateLoader() will probably create
+        // multiple active loaders, because restartLoader() does not interrupt previous loaders'
+        // loading, therefore may block the UI thread and cause ANR.
+        if (mLoaderSemaphore.tryAcquire()) {
+            mActivity.getSupportLoaderManager().restartLoader(LOADER_ID, null, mBindings);
+        }
     }
 
     protected final boolean launchToDocument(Uri uri) {
@@ -942,10 +950,13 @@ public abstract class AbstractActionHandler<T extends FragmentActivity & CommonA
             assert(result != null);
 
             mInjector.getModel().update(result);
+            mLoaderSemaphore.release();
         }
 
         @Override
-        public void onLoaderReset(Loader<DirectoryResult> loader) {}
+        public void onLoaderReset(Loader<DirectoryResult> loader) {
+            mLoaderSemaphore.release();
+        }
     }
     /**
      * A class primarily for the support of isolating our tests

@@ -80,6 +80,16 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     @Test
+    public void testTile_hasCorrectStateDescription() throws Exception {
+        initializeAndListen();
+
+        Tile tile = mTileService.getQsTile();
+        tile.setStateDescription("test_stateDescription");
+        tile.updateTile();
+        assertEquals("test_stateDescription", tile.getStateDescription());
+    }
+
+    @Test
     public void testShowDialog() throws Exception {
         Looper.prepare();
         Dialog dialog = new AlertDialog.Builder(mContext).create();

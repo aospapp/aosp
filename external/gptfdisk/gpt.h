@@ -112,6 +112,7 @@ public:
 
    // Load or save data from/to disk
    int SetDisk(const string & deviceFilename);
+   int SetDisk(const DiskIO & disk);
    DiskIO* GetDisk(void) {return &myDisk;}
    int LoadMBR(const string & f) {return protectiveMBR.ReadMBRData(f);}
    int WriteProtectiveMBR(void) {return protectiveMBR.WriteMBRData(&myDisk);}

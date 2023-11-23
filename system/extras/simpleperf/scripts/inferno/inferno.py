@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -36,14 +36,16 @@ import os
 import subprocess
 import sys
 
+# fmt: off
 # pylint: disable=wrong-import-position
 SCRIPTS_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(SCRIPTS_PATH)
 from simpleperf_report_lib import ReportLib
-from utils import log_exit, log_fatal, log_info, AdbHelper, open_report_in_browser
+from simpleperf_utils import log_exit, log_fatal, log_info, AdbHelper, open_report_in_browser
 
 from data_types import Process
 from svg_renderer import get_proper_scaled_time_string, render_svg
+# fmt: on
 
 
 def collect_data(args):
@@ -109,6 +111,8 @@ def parse_samples(process, args, sample_filter_fn):
         lib.SetKallsymsFile(kallsyms_file)
     if args.show_art_frames:
         lib.ShowArtFrames(True)
+    for file_path in args.proguard_mapping_file or []:
+        lib.AddProguardMappingFile(file_path)
     process.cmd = lib.GetRecordCmd()
     product_props = lib.MetaInfo().get("product_props")
     if product_props:
@@ -184,7 +188,7 @@ def output_report(process, args):
         event_entry = 'Event count: %s<br/>' % ("{:,}".format(process.num_events))
     # TODO: collect capture duration info from perf.data.
     duration_entry = ("Duration: %s seconds<br/>" % args.capture_duration
-                     ) if args.capture_duration else ""
+                      ) if args.capture_duration else ""
     f.write("""<div style='display:inline-block;'>
                   <font size='8'>
                   Inferno Flamegraph Report%s</font><br/><br/>
@@ -305,6 +309,8 @@ def main():
     report_group.add_argument('--title', help='Show a title in the report.')
     report_group.add_argument('--show_art_frames', action='store_true',
                               help='Show frames of internal methods in the ART Java interpreter.')
+    report_group.add_argument('--proguard-mapping-file', nargs='+',
+                              help='Add proguard mapping file to de-obfuscate symbols')
 
     debug_group = parser.add_argument_group('Debug options')
     debug_group.add_argument('--disable_adb_root', action='store_true', help="""Force adb to run
@@ -360,6 +366,7 @@ def main():
         raise r
 
     log_info("Flamegraph generated at '%s'." % report_path)
+
 
 if __name__ == "__main__":
     main()

@@ -23,8 +23,8 @@
 #include "l2cap/le/dynamic_channel.h"
 #include "l2cap/le/dynamic_channel_configuration_option.h"
 #include "l2cap/le/dynamic_channel_service.h"
+#include "l2cap/le/security_policy.h"
 #include "l2cap/psm.h"
-#include "l2cap/security_policy.h"
 #include "os/handler.h"
 
 namespace bluetooth {
@@ -50,7 +50,8 @@ class DynamicChannelManager {
   struct ConnectionResult {
     ConnectionResultCode connection_result_code = ConnectionResultCode::SUCCESS;
     hci::ErrorCode hci_error = hci::ErrorCode::SUCCESS;
-    ConnectionResponseResult l2cap_connection_response_result = ConnectionResponseResult::SUCCESS;
+    LeCreditBasedConnectionResponseResult l2cap_connection_response_result =
+        LeCreditBasedConnectionResponseResult::SUCCESS;
   };
   /**
    * OnConnectionFailureCallback(std::string failure_reason);

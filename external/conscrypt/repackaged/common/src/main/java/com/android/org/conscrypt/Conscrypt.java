@@ -23,7 +23,9 @@ import java.nio.ByteBuffer;
 import java.security.KeyManagementException;
 import java.security.PrivateKey;
 import java.security.Provider;
+import java.security.cert.X509Certificate;
 import java.util.Properties;
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLContextSpi;
@@ -31,6 +33,7 @@ import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSessionContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
@@ -41,7 +44,7 @@ import javax.net.ssl.X509TrustManager;
  * Core API for creating and configuring all Conscrypt types.
  * @hide This class is not part of the Android public SDK API
  */
-@libcore.api.CorePlatformApi
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @SuppressWarnings("unused")
 public final class Conscrypt {
     private Conscrypt() {}
@@ -53,6 +56,17 @@ public final class Conscrypt {
         try {
             checkAvailability();
             return true;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    /**
+     * Return {@code true} if BoringSSL has been built in FIPS mode.
+     */
+    public static boolean isBoringSSLFIPSBuild() {
+        try {
+            return NativeCrypto.usesBoringSSL_FIPS_mode();
         } catch (Throwable e) {
             return false;
         }
@@ -94,6 +108,7 @@ public final class Conscrypt {
                 patch = Integer.parseInt(props.getProperty("com.android.org.conscrypt.version.patch", "-1"));
             }
         } catch (IOException e) {
+            // TODO(prb): This should probably be fatal or have some fallback behaviour
         } finally {
             IoUtils.closeQuietly(stream);
         }
@@ -212,7 +227,7 @@ public final class Conscrypt {
     /**
      * Gets the default X.509 trust manager.
      */
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     @ExperimentalApi
     public static X509TrustManager getDefaultX509TrustManager() throws KeyManagementException {
         checkAvailability();
@@ -792,5 +807,18 @@ public final class Conscrypt {
      */
     public static ConscryptHostnameVerifier getHostnameVerifier(TrustManager trustManager) {
         return toConscrypt(trustManager).getHostnameVerifier();
+    }
+
+    /**
+     * Wraps the HttpsURLConnection.HostnameVerifier into a ConscryptHostnameVerifier
+     */
+    public static ConscryptHostnameVerifier wrapHostnameVerifier(final HostnameVerifier verifier) {
+        return new ConscryptHostnameVerifier() {
+            @Override
+            public boolean verify(
+                    X509Certificate[] certificates, String hostname, SSLSession session) {
+                return verifier.verify(hostname, session);
+            }
+        };
     }
 }

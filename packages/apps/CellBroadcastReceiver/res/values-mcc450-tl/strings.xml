@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Mahalagang alertong pang-emergency"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"Puwede kang padalhan ng iyong telepono ng mga alerto, tulad ng mga tagubilin sa paglikas, kapag may mga natural na sakuna. Ang serbisyong ito ay sama-samang pagsisikap ng National Emergency Management Agency, mga network provider, at mga manufacturer ng device.\n\nBaka hindi ka makatanggap ng mga alerto kung may problema sa iyong device o kung hindi maganda ang mga kundisyon ng network."</string>
 </resources>

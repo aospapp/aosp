@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <keymaster/authorization_set.h>
 #include <keymaster/android_keymaster_utils.h>
+#include <keymaster/authorization_set.h>
 
 #include "android_keymaster_test_utils.h"
 
@@ -27,10 +27,13 @@ namespace test {
 
 TEST(Construction, ListProvided) {
     keymaster_key_param_t params[] = {
-        Authorization(TAG_PURPOSE, KM_PURPOSE_SIGN), Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY),
-        Authorization(TAG_ALGORITHM, KM_ALGORITHM_RSA), Authorization(TAG_USER_ID, 7),
+        Authorization(TAG_PURPOSE, KM_PURPOSE_SIGN),
+        Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY),
+        Authorization(TAG_ALGORITHM, KM_ALGORITHM_RSA),
+        Authorization(TAG_USER_ID, 7),
         Authorization(TAG_USER_AUTH_TYPE, HW_AUTH_PASSWORD),
-        Authorization(TAG_APPLICATION_ID, "my_app", 6), Authorization(TAG_KEY_SIZE, 256),
+        Authorization(TAG_APPLICATION_ID, "my_app", 6),
+        Authorization(TAG_KEY_SIZE, 256),
         Authorization(TAG_AUTH_TIMEOUT, 300),
     };
     AuthorizationSet set(params, array_length(params));
@@ -39,10 +42,13 @@ TEST(Construction, ListProvided) {
 
 TEST(Construction, Copy) {
     keymaster_key_param_t params[] = {
-        Authorization(TAG_PURPOSE, KM_PURPOSE_SIGN), Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY),
-        Authorization(TAG_ALGORITHM, KM_ALGORITHM_RSA), Authorization(TAG_USER_ID, 7),
+        Authorization(TAG_PURPOSE, KM_PURPOSE_SIGN),
+        Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY),
+        Authorization(TAG_ALGORITHM, KM_ALGORITHM_RSA),
+        Authorization(TAG_USER_ID, 7),
         Authorization(TAG_USER_AUTH_TYPE, HW_AUTH_PASSWORD),
-        Authorization(TAG_APPLICATION_ID, "my_app", 6), Authorization(TAG_KEY_SIZE, 256),
+        Authorization(TAG_APPLICATION_ID, "my_app", 6),
+        Authorization(TAG_KEY_SIZE, 256),
         Authorization(TAG_AUTH_TIMEOUT, 300),
     };
     AuthorizationSet set(params, array_length(params));
@@ -52,7 +58,8 @@ TEST(Construction, Copy) {
 
 TEST(Construction, NullProvided) {
     keymaster_key_param_t params[] = {
-        Authorization(TAG_PURPOSE, KM_PURPOSE_SIGN), Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY),
+        Authorization(TAG_PURPOSE, KM_PURPOSE_SIGN),
+        Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY),
     };
 
     AuthorizationSet set1(params, 0);
@@ -637,22 +644,22 @@ TEST(Deduplication, DuplicateBlob) {
 
 TEST(Union, Disjoint) {
     AuthorizationSet set1(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                              .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                              .Authorization(TAG_ACTIVE_DATETIME, 10)
+                              .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     AuthorizationSet set2(AuthorizationSetBuilder()
-                             .Authorization(TAG_USER_ID, 7)
-                             .Authorization(TAG_APPLICATION_DATA, "foo", 3)
-                             .Authorization(TAG_USER_AUTH_TYPE, HW_AUTH_PASSWORD));
+                              .Authorization(TAG_USER_ID, 7)
+                              .Authorization(TAG_APPLICATION_DATA, "foo", 3)
+                              .Authorization(TAG_USER_AUTH_TYPE, HW_AUTH_PASSWORD));
 
     AuthorizationSet expected(AuthorizationSetBuilder()
-                             .Authorization(TAG_USER_AUTH_TYPE, HW_AUTH_PASSWORD)
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_USER_ID, 7)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4)
-                             .Authorization(TAG_APPLICATION_DATA, "foo", 3));
+                                  .Authorization(TAG_USER_AUTH_TYPE, HW_AUTH_PASSWORD)
+                                  .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                                  .Authorization(TAG_USER_ID, 7)
+                                  .Authorization(TAG_ACTIVE_DATETIME, 10)
+                                  .Authorization(TAG_APPLICATION_DATA, "data", 4)
+                                  .Authorization(TAG_APPLICATION_DATA, "foo", 3));
 
     set1.Union(set2);
     EXPECT_EQ(expected, set1);
@@ -660,19 +667,19 @@ TEST(Union, Disjoint) {
 
 TEST(Union, Overlap) {
     AuthorizationSet set1(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                              .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                              .Authorization(TAG_ACTIVE_DATETIME, 10)
+                              .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     AuthorizationSet set2(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                              .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                              .Authorization(TAG_ACTIVE_DATETIME, 10)
+                              .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     AuthorizationSet expected(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                                  .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                                  .Authorization(TAG_ACTIVE_DATETIME, 10)
+                                  .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     set1.Union(set2);
     EXPECT_EQ(expected, set1);
@@ -680,16 +687,16 @@ TEST(Union, Overlap) {
 
 TEST(Union, Empty) {
     AuthorizationSet set1(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                              .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                              .Authorization(TAG_ACTIVE_DATETIME, 10)
+                              .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     AuthorizationSet set2;
 
     AuthorizationSet expected(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                                  .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                                  .Authorization(TAG_ACTIVE_DATETIME, 10)
+                                  .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     set1.Union(set2);
     EXPECT_EQ(expected, set1);
@@ -697,20 +704,20 @@ TEST(Union, Empty) {
 
 TEST(Difference, Disjoint) {
     AuthorizationSet set1(AuthorizationSetBuilder()
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4)
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10));
+                              .Authorization(TAG_APPLICATION_DATA, "data", 4)
+                              .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                              .Authorization(TAG_ACTIVE_DATETIME, 10));
 
     AuthorizationSet set2(AuthorizationSetBuilder()
-                             .Authorization(TAG_USER_ID, 7)
-                             .Authorization(TAG_APPLICATION_DATA, "foo", 3)
-                             .Authorization(TAG_USER_AUTH_TYPE, HW_AUTH_PASSWORD));
+                              .Authorization(TAG_USER_ID, 7)
+                              .Authorization(TAG_APPLICATION_DATA, "foo", 3)
+                              .Authorization(TAG_USER_AUTH_TYPE, HW_AUTH_PASSWORD));
 
     // Elements are the same as set1, but happen to be in a different order
     AuthorizationSet expected(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                                  .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                                  .Authorization(TAG_ACTIVE_DATETIME, 10)
+                                  .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     set1.Difference(set2);
     EXPECT_EQ(expected, set1);
@@ -718,14 +725,14 @@ TEST(Difference, Disjoint) {
 
 TEST(Difference, Overlap) {
     AuthorizationSet set1(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                              .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                              .Authorization(TAG_ACTIVE_DATETIME, 10)
+                              .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     AuthorizationSet set2(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                              .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                              .Authorization(TAG_ACTIVE_DATETIME, 10)
+                              .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     AuthorizationSet empty;
     set1.Difference(set2);
@@ -735,16 +742,16 @@ TEST(Difference, Overlap) {
 
 TEST(Difference, NullSet) {
     AuthorizationSet set1(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                              .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                              .Authorization(TAG_ACTIVE_DATETIME, 10)
+                              .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     AuthorizationSet set2;
 
     AuthorizationSet expected(AuthorizationSetBuilder()
-                             .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
-                             .Authorization(TAG_ACTIVE_DATETIME, 10)
-                             .Authorization(TAG_APPLICATION_DATA, "data", 4));
+                                  .Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY)
+                                  .Authorization(TAG_ACTIVE_DATETIME, 10)
+                                  .Authorization(TAG_APPLICATION_DATA, "data", 4));
 
     set1.Difference(set2);
     EXPECT_EQ(expected, set1);

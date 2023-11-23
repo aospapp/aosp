@@ -16,7 +16,7 @@
   -->
 
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_selected="true" android:color="?android:colorPrimary"/>
+    <item android:state_selected="true" android:color="?android:colorControlActivated"/>
     <item android:state_enabled="true" android:color="?android:textColorSecondary"/>
     <item android:state_enabled="false" android:color="?android:textColorSecondary" android:alpha="0.3"/>
 </selector>

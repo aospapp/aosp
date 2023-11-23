@@ -175,11 +175,24 @@ table Money {
   // Whole part of the amount (e.g. 123 from "CHF 123.45").
   amount_whole_part:int;
 
-  // Decimal part of the amount (e.g. 45 from "CHF 123.45").
+  // Decimal part of the amount (e.g. 45 from "CHF 123.45"). Will be
+  // deprecated, use nanos instead.
   amount_decimal_part:int;
 
   // Money amount (e.g. 123.45 from "CHF 123.45").
   unnormalized_amount:string (shared);
+
+  // Number of nano (10^-9) units of the amount fractional part.
+  // The value must be between -999,999,999 and +999,999,999 inclusive.
+  // If `units` is positive, `nanos` must be positive or zero.
+  // If `units` is zero, `nanos` can be positive, zero, or negative.
+  // If `units` is negative, `nanos` must be negative or zero.
+  // For example $-1.75 is represented as `amount_whole_part`=-1 and
+  // `nanos`=-750,000,000.
+  nanos:int;
+
+  // Money quantity (e.g. k from "CHF 123.45k").
+  quantity:string (shared);
 }
 
 namespace libtextclassifier3.EntityData_.Translate_;

@@ -20,6 +20,7 @@ This module has a collection of functions that provide helper functions to
 other modules.
 """
 
+import fnmatch
 import inspect
 import json
 import logging
@@ -28,6 +29,7 @@ import re
 import sys
 import time
 import xml.dom.minidom
+import zipfile
 
 from functools import partial
 from functools import wraps
@@ -57,6 +59,10 @@ _LOG_FORMAT = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
 _DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 _ARG_IS_NULL_ERROR = "{0}.{1}: argument '{2}' is null."
 _ARG_TYPE_INCORRECT_ERROR = "{0}.{1}: argument '{2}': type is {3}, must be {4}."
+_IDE_UNDEFINED = constant.IDE_DICT[constant.IDE_UNDEFINED]
+_IDE_INTELLIJ = constant.IDE_DICT[constant.IDE_INTELLIJ]
+_IDE_CLION = constant.IDE_DICT[constant.IDE_CLION]
+_IDE_VSCODE = constant.IDE_DICT[constant.IDE_VSCODE]
 
 
 def time_logged(func=None, *, message='', maximum=1):
@@ -675,6 +681,8 @@ def get_blueprint_json_files_relative_dict():
     data[constant.GEN_COMPDB] = os.path.join(get_soong_out_path(),
                                              constant.RELATIVE_COMPDB_PATH,
                                              constant.COMPDB_JSONFILE_NAME)
+    data[constant.GEN_RUST] = os.path.join(
+        root_dir, get_blueprint_json_path(constant.RUST_PROJECT_JSON))
     return data
 
 
@@ -726,3 +734,72 @@ def find_git_root(relpath):
             return os.path.dirname(real_path)
     logging.warning('%s can\'t find its .git folder.', relpath)
     return None
+
+
+def determine_language_ide(lang, ide, jlist=None, clist=None, rlist=None):
+    """Determines the language and IDE by the input language and IDE arguments.
+
+    If IDE and language are undefined, the priority of the language is:
+      1. Java
+      2. C/C++
+      3. Rust
+
+    Args:
+        lang: A character represents the input language.
+        ide: A character represents the input IDE.
+        jlist: A list of Android Java projects, the default value is None.
+        clist: A list of Android C/C++ projects, the default value is None.
+        clist: A list of Android Rust projects, the default value is None.
+
+    Returns:
+        A tuple of the determined language and IDE name strings.
+    """
+    if ide == _IDE_UNDEFINED and lang == constant.LANG_UNDEFINED:
+        if jlist:
+            lang = constant.LANG_JAVA
+        elif clist:
+            lang = constant.LANG_CC
+        elif rlist:
+            lang = constant.LANG_RUST
+    if lang in (constant.LANG_UNDEFINED, constant.LANG_JAVA):
+        if ide == _IDE_UNDEFINED:
+            ide = _IDE_INTELLIJ
+        lang = constant.LANG_JAVA
+        if constant.IDE_NAME_DICT[ide] == constant.IDE_CLION:
+            lang = constant.LANG_CC
+    elif lang == constant.LANG_CC:
+        if ide == _IDE_UNDEFINED:
+            ide = _IDE_CLION
+        if constant.IDE_NAME_DICT[ide] == constant.IDE_INTELLIJ:
+            lang = constant.LANG_JAVA
+    elif lang == constant.LANG_RUST:
+        ide = _IDE_VSCODE
+    return constant.LANGUAGE_NAME_DICT[lang], constant.IDE_NAME_DICT[ide]
+
+
+def check_java_or_kotlin_file_exists(abs_path):
+    """Checks if any Java or Kotlin files exist in an abs_path directory.
+
+    Args:
+        abs_path: A string of absolute path of a directory to be check.
+
+    Returns:
+        True if any Java or Kotlin files exist otherwise False.
+    """
+    for _, _, filenames in os.walk(abs_path):
+        for extension in (constant.JAVA_FILES, constant.KOTLIN_FILES):
+            if fnmatch.filter(filenames, extension):
+                return True
+    return False
+
+
+@io_error_handle
+def unzip_file(src, dest):
+    """Unzips the source zip file and extract it to the destination directory.
+
+    Args:
+        src: A string of the file to be unzipped.
+        dest: A string of the destination directory to be extracted to.
+    """
+    with zipfile.ZipFile(src, 'r') as zip_ref:
+        zip_ref.extractall(dest)

@@ -12,11 +12,11 @@
 #include <log/log.h>
 #include <minijail.h>
 
-#include <v4l2_codec2/store/V4L2ComponentStore.h>
+#include <v4l2_codec2/components/V4L2ComponentStore.h>
 
 // Default policy for codec2.0 service.
 static constexpr char kBaseSeccompPolicyPath[] =
-        "/vendor/etc/seccomp_policy/android.hardware.media.c2@1.1-default-seccomp_policy";
+        "/vendor/etc/seccomp_policy/android.hardware.media.c2@1.2-default-seccomp_policy";
 
 // Additional device-specific seccomp permissions can be added in this file.
 static constexpr char kExtSeccompPolicyPath[] =

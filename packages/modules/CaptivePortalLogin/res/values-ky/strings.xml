@@ -20,7 +20,7 @@
     <string name="ssl_security_warning_title" msgid="7912335118289529802">"Коопсуздук эскертүүсү"</string>
     <string name="ssl_error_view_certificate" msgid="3447891108083278449">"Тастыктаманы көрүү"</string>
     <string name="custom_scheme_warning" msgid="1809266150423969087">"Кошулууга аракет кылып жаткан тармагыңыз башка колдонмону ачууну өтүнүүдө"</string>
-    <string name="custom_scheme_example" msgid="7126568152528588592">"Мисалы, аккаунтка кирүү баракчасы аныктыгын текшерүү үчүн, белгилүү бир колдонмону талап кылышы мүмкүн"</string>
+    <string name="custom_scheme_example" msgid="7126568152528588592">"Мисалы, аккаунтка кирүү баракчасы аныктыгын текшерүү үчүн белгилүү бир колдонмону талап кылышы мүмкүн"</string>
     <string name="ok" msgid="6584612582120777209">"ЖАРАЙТ"</string>
     <string name="page_info_address" msgid="1290683284404217554">"Дарек:"</string>
     <string name="page_info" msgid="46593086046896385">"Барак жөнүндө маалымат"</string>

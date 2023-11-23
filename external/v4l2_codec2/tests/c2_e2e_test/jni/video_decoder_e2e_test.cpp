@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "common.h"
 #include "e2e_test_jni.h"
@@ -33,11 +33,12 @@ C2VideoDecoderTestEnvironment* g_env;
 
 class C2VideoDecoderTestEnvironment : public testing::Environment {
 public:
-    C2VideoDecoderTestEnvironment(bool loop, bool use_sw_decoder, const std::string& data,
-                                  const std::string& output_frames_path, ANativeWindow* surface,
-                                  ConfigureCallback* cb)
+    C2VideoDecoderTestEnvironment(bool loop, bool use_sw_decoder, bool use_fake_renderer,
+                                  const std::string& data, const std::string& output_frames_path,
+                                  ANativeWindow* surface, ConfigureCallback* cb)
           : loop_(loop),
             use_sw_decoder_(use_sw_decoder),
+            use_fake_renderer_(use_fake_renderer),
             test_video_data_(data),
             output_frames_path_(output_frames_path),
             surface_(surface),
@@ -103,12 +104,14 @@ public:
     ConfigureCallback* configure_cb() const { return configure_cb_; }
     bool loop() const { return loop_; }
     bool use_sw_decoder() const { return use_sw_decoder_; }
+    bool use_fake_renderer() const { return use_fake_renderer_; }
 
     ANativeWindow* surface() const { return surface_; }
 
 protected:
     bool loop_;
     bool use_sw_decoder_;
+    bool use_fake_renderer_;
     std::string test_video_data_;
     std::string output_frames_path_;
 
@@ -253,10 +256,10 @@ protected:
         decoder_ = MediaCodecDecoder::Create(g_env->input_file_path(), g_env->video_codec_profile(),
                                              g_env->use_sw_decoder(), g_env->visible_size(),
                                              g_env->frame_rate(), surface, renderOnRelease(),
-                                             g_env->loop());
+                                             g_env->loop(), g_env->use_fake_renderer());
 
         ASSERT_TRUE(decoder_);
-        g_env->configure_cb()->OnDecoderReady(decoder_.get());
+        g_env->configure_cb()->OnCodecReady(decoder_.get());
 
         decoder_->Rewind();
 
@@ -286,7 +289,7 @@ protected:
             EXPECT_EQ(g_env->num_frames(), decoded_frames_);
         }
 
-        g_env->configure_cb()->OnDecoderReady(nullptr);
+        g_env->configure_cb()->OnCodecReady(nullptr);
         decoder_.reset();
     }
 
@@ -370,13 +373,14 @@ TEST_F(C2VideoDecoderSurfaceNoRenderE2ETest, TestFPS) {
 }  // namespace android
 
 bool GetOption(int argc, char** argv, std::string* test_video_data, std::string* output_frames_path,
-               bool* loop, bool* use_sw_decoder) {
+               bool* loop, bool* use_sw_decoder, bool* use_fake_renderer) {
     const char* const optstring = "t:o:";
     static const struct option opts[] = {
             {"test_video_data", required_argument, nullptr, 't'},
             {"output_frames_path", required_argument, nullptr, 'o'},
             {"loop", no_argument, nullptr, 'l'},
             {"use_sw_decoder", no_argument, nullptr, 's'},
+            {"fake_renderer", no_argument, nullptr, 'f'},
             {nullptr, 0, nullptr, 0},
     };
 
@@ -395,6 +399,9 @@ bool GetOption(int argc, char** argv, std::string* test_video_data, std::string*
             break;
         case 's':
             *use_sw_decoder = true;
+            break;
+        case 'f':
+            *use_fake_renderer = true;
             break;
         default:
             printf("[WARN] Unknown option: getopt_long() returned code 0x%x.\n", opt);
@@ -415,8 +422,9 @@ int RunDecoderTests(char** test_args, int test_args_count, ANativeWindow* surfac
     std::string output_frames_path;
     bool loop = false;
     bool use_sw_decoder = false;
+    bool use_fake_renderer = false;
     if (!GetOption(test_args_count, test_args, &test_video_data, &output_frames_path, &loop,
-                   &use_sw_decoder)) {
+                   &use_sw_decoder, &use_fake_renderer)) {
         ALOGE("GetOption failed");
         return EXIT_FAILURE;
     }
@@ -424,7 +432,8 @@ int RunDecoderTests(char** test_args, int test_args_count, ANativeWindow* surfac
     if (android::g_env == nullptr) {
         android::g_env = reinterpret_cast<android::C2VideoDecoderTestEnvironment*>(
                 testing::AddGlobalTestEnvironment(new android::C2VideoDecoderTestEnvironment(
-                        loop, use_sw_decoder, test_video_data, output_frames_path, surface, cb)));
+                        loop, use_sw_decoder, use_fake_renderer, test_video_data,
+                        output_frames_path, surface, cb)));
     } else {
         ALOGE("Trying to reuse test process");
         return EXIT_FAILURE;

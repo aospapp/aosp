@@ -19,6 +19,12 @@ An enumeration is a set of symbolic names (members) bound to unique,
 constant values.  Within an enumeration, the members can be compared
 by identity, and the enumeration itself can be iterated over.
 
+.. note:: Case of Enum Members
+
+    Because Enums are used to represent constants we recommend using
+    UPPER_CASE names for enum members, and will be using that style
+    in our examples.
+
 
 Module Contents
 ---------------
@@ -50,12 +56,13 @@ helper, :class:`auto`.
     the bitwise operations without losing their :class:`Flag` membership.
 
 .. function:: unique
+   :noindex:
 
     Enum class decorator that ensures only one name is bound to any one value.
 
 .. class:: auto
 
-    Instances are replaced with an appropriate value for Enum members.
+    Instances are replaced with an appropriate value for Enum members.  By default, the initial value starts at 1.
 
 .. versionadded:: 3.6  ``Flag``, ``IntFlag``, ``auto``
 
@@ -273,6 +280,10 @@ overridden::
     the next :class:`int` in sequence with the last :class:`int` provided, but
     the way it does this is an implementation detail and may change.
 
+.. note::
+
+    The :meth:`_generate_next_value_` method must be defined before any members.
+
 Iteration
 ---------
 
@@ -383,8 +394,8 @@ enumeration, with the exception of special methods (:meth:`__str__`,
 variable names listed in :attr:`_ignore_`.
 
 Note:  if your enumeration defines :meth:`__new__` and/or :meth:`__init__` then
-whatever value(s) were given to the enum member will be passed into those
-methods.  See `Planet`_ for an example.
+any value(s) given to the enum member will be passed into those methods.
+See `Planet`_ for an example.
 
 
 Restricted Enum subclassing
@@ -730,8 +741,7 @@ Some rules:
 2. While :class:`Enum` can have members of any type, once you mix in an
    additional type, all the members must have values of that type, e.g.
    :class:`int` above.  This restriction does not apply to mix-ins which only
-   add methods and don't specify another data type such as :class:`int` or
-   :class:`str`.
+   add methods and don't specify another type.
 3. When another data type is mixed in, the :attr:`value` attribute is *not the
    same* as the enum member itself, although it is equivalent and will compare
    equal.
@@ -739,9 +749,11 @@ Some rules:
    :meth:`__str__` and :meth:`__repr__` respectively; other codes (such as
    `%i` or `%h` for IntEnum) treat the enum member as its mixed-in type.
 5. :ref:`Formatted string literals <f-strings>`, :meth:`str.format`,
-   and :func:`format` will use the mixed-in
-   type's :meth:`__format__`.  If the :class:`Enum` class's :func:`str` or
-   :func:`repr` is desired, use the `!s` or `!r` format codes.
+   and :func:`format` will use the mixed-in type's :meth:`__format__`
+   unless :meth:`__str__` or :meth:`__format__` is overridden in the subclass,
+   in which case the overridden methods or :class:`Enum` methods will be used.
+   Use the !s and !r format codes to force usage of the :class:`Enum` class's
+   :meth:`__str__` and :meth:`__repr__` methods.
 
 When to use :meth:`__new__` vs. :meth:`__init__`
 ------------------------------------------------
@@ -875,6 +887,32 @@ Using an auto-numbering :meth:`__new__` would look like::
     >>> Color.GREEN.value
     2
 
+To make a more general purpose ``AutoNumber``, add ``*args`` to the signature::
+
+    >>> class AutoNumber(NoValue):
+    ...     def __new__(cls, *args):      # this is the only change from above
+    ...         value = len(cls.__members__) + 1
+    ...         obj = object.__new__(cls)
+    ...         obj._value_ = value
+    ...         return obj
+    ...
+
+Then when you inherit from ``AutoNumber`` you can write your own ``__init__``
+to handle any extra arguments::
+
+    >>> class Swatch(AutoNumber):
+    ...     def __init__(self, pantone='unknown'):
+    ...         self.pantone = pantone
+    ...     AUBURN = '3497'
+    ...     SEA_GREEN = '1246'
+    ...     BLEACHED_CORAL = () # New color, no Pantone code yet!
+    ...
+    >>> Swatch.SEA_GREEN
+    <Swatch.SEA_GREEN: 2>
+    >>> Swatch.SEA_GREEN.pantone
+    '1246'
+    >>> Swatch.BLEACHED_CORAL.pantone
+    'unknown'
 
 .. note::
 
@@ -1052,7 +1090,7 @@ Supported ``_sunder_`` names
 
 - ``_missing_`` -- a lookup function used when a value is not found; may be
   overridden
-- ``_ignore_`` -- a list of names, either as a :func:`list` or a :func:`str`,
+- ``_ignore_`` -- a list of names, either as a :class:`list` or a :class:`str`,
   that will not be transformed into members, and will be removed from the final
   class
 - ``_order_`` -- used in Python 2/3 code to ensure member order is consistent

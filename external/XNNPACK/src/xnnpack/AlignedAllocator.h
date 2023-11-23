@@ -6,10 +6,16 @@
 
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
 #include <stdlib.h>
+
+#if defined(__ANDROID__) || defined(_WIN32) || defined(__CYGWIN__)
+  #include <malloc.h>
+#endif
+
 
 template <typename T, size_t Alignment>
 class AlignedAllocator;
@@ -70,7 +76,15 @@ class AlignedAllocator {
   inline pointer allocate(
       size_type n,
       typename AlignedAllocator<void, Alignment>::const_pointer hint = 0) {
-#if defined(__ANDROID__)
+#if defined(_WIN32)
+    void* memory = nullptr;
+    memory = _aligned_malloc(n * sizeof(T), Alignment);
+    if (memory == 0) {
+#if !defined(__GNUC__) && !defined(_MSC_VER) || defined(__EXCEPTIONS) || defined(_CPPUNWIND)
+      throw std::bad_alloc();
+#endif
+    }
+#elif defined(__ANDROID__) || defined(__CYGWIN__)
     void* memory = memalign(Alignment, n * sizeof(T));
     if (memory == 0) {
 #if !defined(__GNUC__) || defined(__EXCEPTIONS)
@@ -89,7 +103,11 @@ class AlignedAllocator {
   }
 
   inline void deallocate(pointer p, size_type n) noexcept {
+#if defined(_WIN32)
+    _aligned_free(static_cast<void*>(p));
+#else
     free(static_cast<void*>(p));
+#endif
   }
 
   template <class U, class... Args>

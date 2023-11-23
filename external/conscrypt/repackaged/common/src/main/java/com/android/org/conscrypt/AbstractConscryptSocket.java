@@ -517,7 +517,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
      * Returns the hostname that was supplied during socket creation. No DNS resolution is
      * attempted before returning the hostname.
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     String getHostname() {
         return peerHostname;
     }
@@ -529,7 +529,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
      */
     @android.compat.annotation.
     UnsupportedAppUsage(maxTargetSdk = dalvik.annotation.compat.VersionCodes.Q,
-            publicAlternatives = "Use {@link javax.net.ssl.SSLParameters#setServerNames}.")
+            publicAlternatives = "Use {@code javax.net.ssl.SSLParameters#setServerNames}.")
     void
     setHostname(String hostname) {
         peerHostname = hostname;
@@ -540,7 +540,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
      * or the IP address in a textual representation. We do not want to perform reverse DNS
      * lookups on this address.
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     String getHostnameOrIP() {
         if (peerHostname != null) {
             return peerHostname;
@@ -557,7 +557,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
     /**
      * Note write timeouts are not part of the javax.net.ssl.SSLSocket API
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     void setSoWriteTimeout(int writeTimeoutMilliseconds) throws SocketException {
         throw new SocketException("Method setSoWriteTimeout() is not supported.");
     }
@@ -565,7 +565,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
     /**
      * Note write timeouts are not part of the javax.net.ssl.SSLSocket API
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     int getSoWriteTimeout() throws SocketException {
         return 0;
     }
@@ -574,7 +574,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
      * Set the handshake timeout on this socket.  This timeout is specified in
      * milliseconds and will be used only during the handshake process.
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     void setHandshakeTimeout(int handshakeTimeoutMilliseconds) throws SocketException {
         throw new SocketException("Method setHandshakeTimeout() is not supported.");
     }
@@ -646,7 +646,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
      * @throws IllegalStateException if this is a client socket or if the handshake has already
      *         started.
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     abstract void setChannelIdEnabled(boolean enabled);
 
     /**
@@ -659,7 +659,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
      *         completed.
      * @throws SSLException if channel ID is available but could not be obtained.
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     abstract byte[] getChannelId() throws SSLException;
 
     /**
@@ -674,14 +674,14 @@ abstract class AbstractConscryptSocket extends SSLSocket {
      * @throws IllegalStateException if this is a server socket or if the handshake has already
      *         started.
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     abstract void setChannelIdPrivateKey(PrivateKey privateKey);
 
     /**
      * Returns null always for backward compatibility.
      * @deprecated NPN is not supported
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     @Deprecated
     byte[] getNpnSelectedProtocol() {
         return null;
@@ -691,7 +691,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
      * This method does nothing and is kept for backward compatibility.
      * @deprecated NPN is not supported
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     @Deprecated
     void setNpnProtocols(byte[] npnProtocols) {}
 
@@ -703,7 +703,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
      */
     @android.compat.annotation.
     UnsupportedAppUsage(maxTargetSdk = dalvik.annotation.compat.VersionCodes.Q,
-            publicAlternatives = "Use {@link javax.net.ssl.SSLSocket#getApplicationProtocol()}.")
+            publicAlternatives = "Use {@code javax.net.ssl.SSLSocket#getApplicationProtocol()}.")
     @Deprecated
     abstract byte[] getAlpnSelectedProtocol();
 
@@ -717,7 +717,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
     @android.compat.annotation.
     UnsupportedAppUsage(maxTargetSdk = dalvik.annotation.compat.VersionCodes.Q,
             publicAlternatives =
-                    "Use {@link javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}.")
+                    "Use {@code javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}.")
     @Deprecated
     abstract void setAlpnProtocols(String[] alpnProtocols);
 
@@ -732,7 +732,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
     @android.compat.annotation.
     UnsupportedAppUsage(maxTargetSdk = dalvik.annotation.compat.VersionCodes.Q,
             publicAlternatives =
-                    "Use {@link javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}.")
+                    "Use {@code javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}.")
     @Deprecated
     abstract void setAlpnProtocols(byte[] alpnProtocols);
 
@@ -744,7 +744,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
     @android.compat.annotation.
     UnsupportedAppUsage(maxTargetSdk = dalvik.annotation.compat.VersionCodes.Q,
             publicAlternatives =
-                    "Use {@link javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}.")
+                    "Use {@code javax.net.ssl.SSLParameters#setApplicationProtocols(java.lang.String[])}.")
     @SuppressWarnings("MissingOverride") // For compiling pre Java 9.
     abstract void setApplicationProtocols(String[] protocols);
 
@@ -754,7 +754,7 @@ abstract class AbstractConscryptSocket extends SSLSocket {
     @android.compat.annotation.
     UnsupportedAppUsage(maxTargetSdk = dalvik.annotation.compat.VersionCodes.Q,
             publicAlternatives =
-                    "Use {@link javax.net.ssl.SSLParameters#getApplicationProtocols()}.")
+                    "Use {@code javax.net.ssl.SSLParameters#getApplicationProtocols()}.")
     @SuppressWarnings("MissingOverride") // For compiling pre Java 9.
     abstract String[] getApplicationProtocols();
 

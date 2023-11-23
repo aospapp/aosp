@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "UiBenchMicrobenchmark",
     srcs: ["src/**/*.java"],
@@ -26,9 +30,32 @@ android_test {
 
     libs: ["android.test.base.stubs"],
 
-    data: [":perfetto_artifacts"],
+    data: [":perfetto_artifacts",
+           ":UiBench",],
 
     sdk_version: "test_current",
 
+    test_config: "configs/uibench-all.xml",
+
+    test_options: {
+        extra_test_configs: ["configs/uibench-dialoglist.xml",
+                             "configs/uibench-invalidate.xml",],
+    },
+
     test_suites: ["device-tests"],
+}
+
+java_library {
+    name: "UiBenchMicrobenchmark-test-src",
+    srcs: ["src/**/*.java"],
+
+    static_libs: [
+        "collector-device-lib",
+        "ub-uiautomator",
+        "junit",
+        "microbenchmark-device-lib",
+        "launcher-helper-lib",
+    ],
+
+    libs: ["android.test.base.stubs"],
 }

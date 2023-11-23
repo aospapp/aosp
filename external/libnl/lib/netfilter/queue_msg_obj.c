@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
  * lib/netfilter/queue_msg_obj.c	Netfilter Queue Message Object
  *
@@ -405,12 +406,15 @@ const uint8_t *nfnl_queue_msg_get_hwaddr(const struct nfnl_queue_msg *msg,
 int nfnl_queue_msg_set_payload(struct nfnl_queue_msg *msg, uint8_t *payload,
 			       int len)
 {
-	free(msg->queue_msg_payload);
-	msg->queue_msg_payload = malloc(len);
-	if (!msg->queue_msg_payload)
-		return -NLE_NOMEM;
+	void *new_payload = malloc(len);
 
-	memcpy(msg->queue_msg_payload, payload, len);
+	if (new_payload == NULL)
+		return -NLE_NOMEM;
+	memcpy(new_payload, payload, len);
+
+	free(msg->queue_msg_payload);
+
+	msg->queue_msg_payload = new_payload;
 	msg->queue_msg_payload_len = len;
 	msg->ce_mask |= QUEUE_MSG_ATTR_PAYLOAD;
 	return 0;
@@ -455,20 +459,20 @@ unsigned int nfnl_queue_msg_get_verdict(const struct nfnl_queue_msg *msg)
 }
 
 static const struct trans_tbl nfnl_queue_msg_attrs[] = {
-	__ADD(QUEUE_MSG_ATTR_GROUP,		group)
-	__ADD(QUEUE_MSG_ATTR_FAMILY,		family)
-	__ADD(QUEUE_MSG_ATTR_PACKETID,		packetid)
-	__ADD(QUEUE_MSG_ATTR_HWPROTO,		hwproto)
-	__ADD(QUEUE_MSG_ATTR_HOOK,		hook)
-	__ADD(QUEUE_MSG_ATTR_MARK,		mark)
-	__ADD(QUEUE_MSG_ATTR_TIMESTAMP,		timestamp)
-	__ADD(QUEUE_MSG_ATTR_INDEV,		indev)
-	__ADD(QUEUE_MSG_ATTR_OUTDEV,		outdev)
-	__ADD(QUEUE_MSG_ATTR_PHYSINDEV,		physindev)
-	__ADD(QUEUE_MSG_ATTR_PHYSOUTDEV,	physoutdev)
-	__ADD(QUEUE_MSG_ATTR_HWADDR,		hwaddr)
-	__ADD(QUEUE_MSG_ATTR_PAYLOAD,		payload)
-	__ADD(QUEUE_MSG_ATTR_VERDICT,		verdict)
+	__ADD(QUEUE_MSG_ATTR_GROUP,		group),
+	__ADD(QUEUE_MSG_ATTR_FAMILY,		family),
+	__ADD(QUEUE_MSG_ATTR_PACKETID,		packetid),
+	__ADD(QUEUE_MSG_ATTR_HWPROTO,		hwproto),
+	__ADD(QUEUE_MSG_ATTR_HOOK,		hook),
+	__ADD(QUEUE_MSG_ATTR_MARK,		mark),
+	__ADD(QUEUE_MSG_ATTR_TIMESTAMP,		timestamp),
+	__ADD(QUEUE_MSG_ATTR_INDEV,		indev),
+	__ADD(QUEUE_MSG_ATTR_OUTDEV,		outdev),
+	__ADD(QUEUE_MSG_ATTR_PHYSINDEV,		physindev),
+	__ADD(QUEUE_MSG_ATTR_PHYSOUTDEV,	physoutdev),
+	__ADD(QUEUE_MSG_ATTR_HWADDR,		hwaddr),
+	__ADD(QUEUE_MSG_ATTR_PAYLOAD,		payload),
+	__ADD(QUEUE_MSG_ATTR_VERDICT,		verdict),
 };
 
 static char *nfnl_queue_msg_attrs2str(int attrs, char *buf, size_t len)

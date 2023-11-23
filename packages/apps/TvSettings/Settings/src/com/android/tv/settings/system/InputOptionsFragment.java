@@ -27,7 +27,6 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.TwoStatePreference;
 
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
 import com.android.tv.settings.SettingsPreferenceFragment;
@@ -192,10 +191,5 @@ public class InputOptionsFragment extends SettingsPreferenceFragment implements
     @Override
     public void onSetCustomName(CharSequence name) {
         setInputName(name);
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsEvent.SETTINGS_TV_INPUT_OPTIONS_CATEGORY;
     }
 }

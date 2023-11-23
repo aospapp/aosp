@@ -24,9 +24,7 @@
 #include <cstdio>
 #include <limits>
 #include <tuple>
-#include <unordered_set>
-
-#undef Bool  // b/127920555
+#include <unordered_map>
 
 #ifdef ENABLE_RR_DEBUG_INFO
 // Functions used for generating JIT debug info.
@@ -48,7 +46,35 @@ void FlushDebug();
 #	define RR_DEBUG_INFO_FLUSH()
 #endif  // ENABLE_RR_DEBUG_INFO
 
+#ifdef ENABLE_RR_PRINT
 namespace rr {
+int DebugPrintf(const char *format, ...);
+}
+#endif
+
+// A Clang extension to determine compiler features.
+// We use it to detect Sanitizer builds (e.g. -fsanitize=memory).
+#ifndef __has_feature
+#	define __has_feature(x) 0
+#endif
+
+// Whether Reactor routine instrumentation is enabled for MSan builds.
+// TODO(b/155148722): Remove when unconditionally instrumenting for all build systems.
+#if !defined REACTOR_ENABLE_MEMORY_SANITIZER_INSTRUMENTATION
+#	define REACTOR_ENABLE_MEMORY_SANITIZER_INSTRUMENTATION 0
+#endif
+
+namespace rr {
+
+// These generally map to the precision types as specified by the Vulkan specification.
+// See https://www.khronos.org/registry/vulkan/specs/1.2/html/chap37.html#spirvenv-precision-operation
+enum class Precision
+{
+	/*Exact,*/  // 0 ULP with correct rounding (i.e. Math.h)
+	Full,       // Single precision, but not relaxed
+	Relaxed,    // Single precision, relaxed
+	/*Half,*/   // Half precision
+};
 
 std::string BackendName();
 
@@ -90,12 +116,7 @@ class Float4;
 class Void
 {
 public:
-	static Type *getType();
-
-	static bool isVoid()
-	{
-		return true;
-	}
+	static Type *type();
 };
 
 template<class T>
@@ -107,7 +128,6 @@ class Pointer;
 class Variable
 {
 	friend class Nucleus;
-	friend class PrintValue;
 
 	Variable() = delete;
 	Variable &operator=(const Variable &) = delete;
@@ -121,21 +141,42 @@ public:
 	Value *getBaseAddress() const;
 	Value *getElementPointer(Value *index, bool unsignedIndex) const;
 
+	Type *getType() const { return type; }
+	int getArraySize() const { return arraySize; }
+
+	// This function is only public for testing purposes, as it affects performance.
+	// It is not considered part of Reactor's public API.
+	static void materializeAll();
+
 protected:
 	Variable(Type *type, int arraySize);
 	Variable(const Variable &) = default;
 
-	~Variable();
-
-	const int arraySize;
+	virtual ~Variable();
 
 private:
-	static void materializeAll();
 	static void killUnmaterialized();
 
-	static std::unordered_set<Variable *> unmaterializedVariables;
+	// Set of variables that do not have a stack location yet.
+	class UnmaterializedVariables
+	{
+	public:
+		void add(const Variable *v);
+		void remove(const Variable *v);
+		void clear();
+		void materializeAll();
+
+	private:
+		int counter = 0;
+		std::unordered_map<const Variable *, int> variables;
+	};
+
+	// This has to be a raw pointer because glibc 2.17 doesn't support __cxa_thread_atexit_impl
+	// for destructing objects at exit. See crbug.com/1074222
+	static thread_local UnmaterializedVariables *unmaterializedVariables;
 
 	Type *const type;
+	const int arraySize;
 	mutable Value *rvalue = nullptr;
 	mutable Value *address = nullptr;
 };
@@ -148,9 +189,16 @@ public:
 
 	RValue<Pointer<T>> operator&();
 
-	static bool isVoid()
+	RValue<T> load() const
 	{
-		return false;
+		return RValue<T>(this->loadValue());
+	}
+
+	RValue<T> store(RValue<T> rvalue) const
+	{
+		this->storeValue(rvalue.value());
+
+		return rvalue;
 	}
 
 	// self() returns the this pointer to this LValue<T> object.
@@ -174,6 +222,7 @@ public:
 	RValue<Pointer<T>> operator&() const { return RValue<Pointer<T>>(address); }
 
 	Value *loadValue() const;
+	RValue<T> load() const;
 	int getAlignment() const;
 
 private:
@@ -238,29 +287,34 @@ public:
 
 	explicit RValue(Value *rvalue);
 
-#ifdef ENABLE_RR_DEBUG_INFO
 	RValue(const RValue<T> &rvalue);
-#endif  // ENABLE_RR_DEBUG_INFO
-
 	RValue(const T &lvalue);
 	RValue(typename BoolLiteral<T>::type i);
 	RValue(typename IntLiteral<T>::type i);
 	RValue(typename FloatLiteral<T>::type f);
 	RValue(const Reference<T> &rhs);
 
+	// Rvalues cannot be assigned to: "(a + b) = c;"
 	RValue<T> &operator=(const RValue<T> &) = delete;
 
-	Value *value;  // FIXME: Make private
+	Value *value() const { return val; }
+
+private:
+	Value *const val;
 };
 
 template<typename T>
-struct Argument
+class Argument
 {
-	explicit Argument(Value *value)
-	    : value(value)
+public:
+	explicit Argument(Value *val)
+	    : val(val)
 	{}
 
-	Value *value;
+	RValue<T> rvalue() const { return RValue<T>(val); }
+
+private:
+	Value *const val;
 };
 
 class Bool : public LValue<Bool>
@@ -279,7 +333,7 @@ public:
 	RValue<Bool> operator=(const Bool &rhs);
 	RValue<Bool> operator=(const Reference<Bool> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<Bool> operator!(RValue<Bool> val);
@@ -309,7 +363,7 @@ public:
 	RValue<Byte> operator=(const Byte &rhs);
 	RValue<Byte> operator=(const Reference<Byte> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<Byte> operator+(RValue<Byte> lhs, RValue<Byte> rhs);
@@ -365,7 +419,7 @@ public:
 	RValue<SByte> operator=(const SByte &rhs);
 	RValue<SByte> operator=(const Reference<SByte> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<SByte> operator+(RValue<SByte> lhs, RValue<SByte> rhs);
@@ -420,7 +474,7 @@ public:
 	RValue<Short> operator=(const Short &rhs);
 	RValue<Short> operator=(const Reference<Short> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<Short> operator+(RValue<Short> lhs, RValue<Short> rhs);
@@ -476,7 +530,7 @@ public:
 	RValue<UShort> operator=(const UShort &rhs);
 	RValue<UShort> operator=(const Reference<UShort> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<UShort> operator+(RValue<UShort> lhs, RValue<UShort> rhs);
@@ -532,7 +586,7 @@ public:
 	RValue<Byte4> operator=(const Byte4 &rhs);
 	//	RValue<Byte4> operator=(const Reference<Byte4> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 //	RValue<Byte4> operator+(RValue<Byte4> lhs, RValue<Byte4> rhs);
@@ -576,7 +630,7 @@ public:
 	//	RValue<SByte4> operator=(const SByte4 &rhs);
 	//	RValue<SByte4> operator=(const Reference<SByte4> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 //	RValue<SByte4> operator+(RValue<SByte4> lhs, RValue<SByte4> rhs);
@@ -620,7 +674,7 @@ public:
 	RValue<Byte8> operator=(const Byte8 &rhs);
 	RValue<Byte8> operator=(const Reference<Byte8> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<Byte8> operator+(RValue<Byte8> lhs, RValue<Byte8> rhs);
@@ -675,7 +729,7 @@ public:
 	RValue<SByte8> operator=(const SByte8 &rhs);
 	RValue<SByte8> operator=(const Reference<SByte8> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<SByte8> operator+(RValue<SByte8> lhs, RValue<SByte8> rhs);
@@ -726,7 +780,7 @@ public:
 	RValue<Byte16> operator=(const Byte16 &rhs);
 	RValue<Byte16> operator=(const Reference<Byte16> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 //	RValue<Byte16> operator+(RValue<Byte16> lhs, RValue<Byte16> rhs);
@@ -771,7 +825,7 @@ public:
 	//	RValue<SByte16> operator=(const SByte16 &rhs);
 	//	RValue<SByte16> operator=(const Reference<SByte16> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 //	RValue<SByte16> operator+(RValue<SByte16> lhs, RValue<SByte16> rhs);
@@ -807,7 +861,7 @@ class Short2 : public LValue<Short2>
 public:
 	explicit Short2(RValue<Short4> cast);
 
-	static Type *getType();
+	static Type *type();
 };
 
 class UShort2 : public LValue<UShort2>
@@ -815,7 +869,7 @@ class UShort2 : public LValue<UShort2>
 public:
 	explicit UShort2(RValue<UShort4> cast);
 
-	static Type *getType();
+	static Type *type();
 };
 
 class Short4 : public LValue<Short4>
@@ -843,7 +897,7 @@ public:
 	RValue<Short4> operator=(const UShort4 &rhs);
 	RValue<Short4> operator=(const Reference<UShort4> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<Short4> operator+(RValue<Short4> lhs, RValue<Short4> rhs);
@@ -920,7 +974,7 @@ public:
 	RValue<UShort4> operator=(const Short4 &rhs);
 	RValue<UShort4> operator=(const Reference<Short4> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<UShort4> operator+(RValue<UShort4> lhs, RValue<UShort4> rhs);
@@ -973,7 +1027,7 @@ public:
 	RValue<Short8> operator=(const Short8 &rhs);
 	RValue<Short8> operator=(const Reference<Short8> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<Short8> operator+(RValue<Short8> lhs, RValue<Short8> rhs);
@@ -1031,7 +1085,7 @@ public:
 	RValue<UShort8> operator=(const UShort8 &rhs);
 	RValue<UShort8> operator=(const Reference<UShort8> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<UShort8> operator+(RValue<UShort8> lhs, RValue<UShort8> rhs);
@@ -1103,7 +1157,7 @@ public:
 	RValue<Int> operator=(const Reference<Int> &rhs);
 	RValue<Int> operator=(const Reference<UInt> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<Int> operator+(RValue<Int> lhs, RValue<Int> rhs);
@@ -1173,7 +1227,7 @@ public:
 	//	RValue<Long> operator=(const ULong &rhs);
 	//	RValue<Long> operator=(const Reference<ULong> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<Long> operator+(RValue<Long> lhs, RValue<Long> rhs);
@@ -1240,7 +1294,7 @@ public:
 	RValue<UInt> operator=(const Reference<UInt> &rhs);
 	RValue<UInt> operator=(const Reference<Int> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<UInt> operator+(RValue<UInt> lhs, RValue<UInt> rhs);
@@ -1312,7 +1366,7 @@ public:
 	RValue<Int2> operator=(const Int2 &rhs);
 	RValue<Int2> operator=(const Reference<Int2> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<Int2> operator+(RValue<Int2> lhs, RValue<Int2> rhs);
@@ -1368,7 +1422,7 @@ public:
 	RValue<UInt2> operator=(const UInt2 &rhs);
 	RValue<UInt2> operator=(const Reference<UInt2> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<UInt2> operator+(RValue<UInt2> lhs, RValue<UInt2> rhs);
@@ -1885,7 +1939,7 @@ public:
 	RValue<Int4> operator=(const Int4 &rhs);
 	RValue<Int4> operator=(const Reference<Int4> &rhs);
 
-	static Type *getType();
+	static Type *type();
 
 private:
 	void constant(int x, int y, int z, int w);
@@ -1953,7 +2007,14 @@ inline RValue<Int4> CmpGE(RValue<Int4> x, RValue<Int4> y)
 }
 RValue<Int4> Max(RValue<Int4> x, RValue<Int4> y);
 RValue<Int4> Min(RValue<Int4> x, RValue<Int4> y);
+// Convert to nearest integer. If a converted value is outside of the integer
+// range, the returned result is undefined.
 RValue<Int4> RoundInt(RValue<Float4> cast);
+// Rounds to the nearest integer, but clamps very large values to an
+// implementation-dependent range.
+// Specifically, on x86, values larger than 2147483583.0 are converted to
+// 2147483583 (0x7FFFFFBF) instead of producing 0x80000000.
+RValue<Int4> RoundIntClamped(RValue<Float4> cast);
 RValue<Short8> PackSigned(RValue<Int4> x, RValue<Int4> y);
 RValue<UShort8> PackUnsigned(RValue<Int4> x, RValue<Int4> y);
 RValue<Int> Extract(RValue<Int4> val, int i);
@@ -1988,7 +2049,7 @@ public:
 	RValue<UInt4> operator=(const UInt4 &rhs);
 	RValue<UInt4> operator=(const Reference<UInt4> &rhs);
 
-	static Type *getType();
+	static Type *type();
 
 private:
 	void constant(int x, int y, int z, int w);
@@ -2058,7 +2119,7 @@ class Half : public LValue<Half>
 public:
 	explicit Half(RValue<Float> cast);
 
-	static Type *getType();
+	static Type *type();
 };
 
 class Float : public LValue<Float>
@@ -2078,7 +2139,7 @@ public:
 	template<int T>
 	Float(const SwizzleMask1<Float4, T> &rhs);
 
-	//	RValue<Float> operator=(float rhs);   // FIXME: Implement
+	RValue<Float> operator=(float rhs);
 	RValue<Float> operator=(RValue<Float> rhs);
 	RValue<Float> operator=(const Float &rhs);
 	RValue<Float> operator=(const Reference<Float> &rhs);
@@ -2088,7 +2149,7 @@ public:
 
 	static Float infinity();
 
-	static Type *getType();
+	static Type *type();
 };
 
 RValue<Float> operator+(RValue<Float> lhs, RValue<Float> rhs);
@@ -2111,8 +2172,14 @@ RValue<Bool> operator==(RValue<Float> lhs, RValue<Float> rhs);
 RValue<Float> Abs(RValue<Float> x);
 RValue<Float> Max(RValue<Float> x, RValue<Float> y);
 RValue<Float> Min(RValue<Float> x, RValue<Float> y);
+// Deprecated: use Rcp
+// TODO(b/147516027): Remove when GLES frontend is removed
 RValue<Float> Rcp_pp(RValue<Float> val, bool exactAtPow2 = false);
+// Deprecated: use RcpSqrt
+// TODO(b/147516027): Remove when GLES frontend is removed
 RValue<Float> RcpSqrt_pp(RValue<Float> val);
+RValue<Float> Rcp(RValue<Float> x, Precision p = Precision::Full, bool finite = false, bool exactAtPow2 = false);
+RValue<Float> RcpSqrt(RValue<Float> x, Precision p = Precision::Full);
 RValue<Float> Sqrt(RValue<Float> x);
 
 //	RValue<Int4> IsInf(RValue<Float> x);
@@ -2180,7 +2247,7 @@ public:
 	//	template<int T>
 	//	RValue<Float2> operator=(const SwizzleMask1<T> &rhs);
 
-	static Type *getType();
+	static Type *type();
 };
 
 //	RValue<Float2> operator+(RValue<Float2> lhs, RValue<Float2> rhs);
@@ -2236,6 +2303,7 @@ public:
 	Float4(const Swizzle2<Float4, X> &x, const SwizzleMask2<Float4, Y> &y);
 	template<int X, int Y>
 	Float4(const SwizzleMask2<Float4, X> &x, const SwizzleMask2<Float4, Y> &y);
+	Float4(RValue<Float2> lo, RValue<Float2> hi);
 
 	RValue<Float4> operator=(float replicate);
 	RValue<Float4> operator=(RValue<Float4> rhs);
@@ -2252,7 +2320,7 @@ public:
 
 	static Float4 infinity();
 
-	static Type *getType();
+	static Type *type();
 
 private:
 	void constant(float x, float y, float z, float w);
@@ -2274,8 +2342,15 @@ RValue<Float4> operator-(RValue<Float4> val);
 RValue<Float4> Abs(RValue<Float4> x);
 RValue<Float4> Max(RValue<Float4> x, RValue<Float4> y);
 RValue<Float4> Min(RValue<Float4> x, RValue<Float4> y);
+
+// Deprecated: use Rcp
+// TODO(b/147516027): Remove when GLES frontend is removed
 RValue<Float4> Rcp_pp(RValue<Float4> val, bool exactAtPow2 = false);
+// Deprecated: use RcpSqrt
+// TODO(b/147516027): Remove when GLES frontend is removed
 RValue<Float4> RcpSqrt_pp(RValue<Float4> val);
+RValue<Float4> Rcp(RValue<Float4> x, Precision p = Precision::Full, bool finite = false, bool exactAtPow2 = false);
+RValue<Float4> RcpSqrt(RValue<Float4> x, Precision p = Precision::Full);
 RValue<Float4> Sqrt(RValue<Float4> x);
 RValue<Float4> Insert(RValue<Float4> val, RValue<Float> element, int i);
 RValue<Float> Extract(RValue<Float4> x, int i);
@@ -2332,8 +2407,8 @@ RValue<Float4> Ceil(RValue<Float4> x);
 RValue<Float4> Sin(RValue<Float4> x);
 RValue<Float4> Cos(RValue<Float4> x);
 RValue<Float4> Tan(RValue<Float4> x);
-RValue<Float4> Asin(RValue<Float4> x);
-RValue<Float4> Acos(RValue<Float4> x);
+RValue<Float4> Asin(RValue<Float4> x, Precision p);
+RValue<Float4> Acos(RValue<Float4> x, Precision p);
 RValue<Float4> Atan(RValue<Float4> x);
 RValue<Float4> Sinh(RValue<Float4> x);
 RValue<Float4> Cosh(RValue<Float4> x);
@@ -2374,8 +2449,8 @@ public:
 	Pointer(RValue<Pointer<S>> pointerS, int alignment = 1)
 	    : alignment(alignment)
 	{
-		Value *pointerT = Nucleus::createBitCast(pointerS.value, Nucleus::getPointerType(T::getType()));
-		LValue<Pointer<T>>::storeValue(pointerT);
+		Value *pointerT = Nucleus::createBitCast(pointerS.value(), Nucleus::getPointerType(T::type()));
+		this->storeValue(pointerT);
 	}
 
 	template<class S>
@@ -2383,8 +2458,8 @@ public:
 	    : alignment(alignment)
 	{
 		Value *pointerS = pointer.loadValue();
-		Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(T::getType()));
-		LValue<Pointer<T>>::storeValue(pointerT);
+		Value *pointerT = Nucleus::createBitCast(pointerS, Nucleus::getPointerType(T::type()));
+		this->storeValue(pointerT);
 	}
 
 	Pointer(Argument<Pointer<T>> argument);
@@ -2406,7 +2481,7 @@ public:
 	Reference<T> operator[](RValue<Int> index);
 	Reference<T> operator[](RValue<UInt> index);
 
-	static Type *getType();
+	static Type *type();
 
 private:
 	const int alignment;
@@ -2429,13 +2504,19 @@ RValue<Pointer<Byte>> operator-=(Pointer<Byte> &lhs, RValue<UInt> offset);
 template<typename T>
 RValue<Bool> operator==(const Pointer<T> &lhs, const Pointer<T> &rhs)
 {
-	return RValue<Bool>(Nucleus::createPtrEQ(lhs.loadValue(), rhs.loadValue()));
+	return RValue<Bool>(Nucleus::createICmpEQ(lhs.loadValue(), rhs.loadValue()));
+}
+
+template<typename T>
+RValue<Bool> operator!=(const Pointer<T> &lhs, const Pointer<T> &rhs)
+{
+	return RValue<Bool>(Nucleus::createICmpNE(lhs.loadValue(), rhs.loadValue()));
 }
 
 template<typename T>
 RValue<T> Load(RValue<Pointer<T>> pointer, unsigned int alignment, bool atomic, std::memory_order memoryOrder)
 {
-	return RValue<T>(Nucleus::createLoad(pointer.value, T::getType(), false, alignment, atomic, memoryOrder));
+	return RValue<T>(Nucleus::createLoad(pointer.value(), T::type(), false, alignment, atomic, memoryOrder));
 }
 
 template<typename T>
@@ -2458,7 +2539,7 @@ void Scatter(RValue<Pointer<Int>> base, RValue<Int4> val, RValue<Int4> offsets, 
 template<typename T>
 void Store(RValue<T> value, RValue<Pointer<T>> pointer, unsigned int alignment, bool atomic, std::memory_order memoryOrder)
 {
-	Nucleus::createStore(value.value, pointer.value, T::getType(), false, alignment, atomic, memoryOrder);
+	Nucleus::createStore(value.value(), pointer.value(), T::type(), false, alignment, atomic, memoryOrder);
 }
 
 template<typename T>
@@ -2535,8 +2616,6 @@ class Function<Return(Arguments...)>
 public:
 	Function();
 
-	virtual ~Function();
-
 	template<int index>
 	Argument<typename std::tuple_element<index, std::tuple<Arguments...>>::type> Arg() const
 	{
@@ -2548,7 +2627,7 @@ public:
 	std::shared_ptr<Routine> operator()(const Config::Edit &cfg, const char *name, ...);
 
 protected:
-	Nucleus *core;
+	std::unique_ptr<Nucleus> core;
 	std::vector<Type *> arguments;
 };
 
@@ -2579,14 +2658,16 @@ public:
 
 	// Hide base implementations of operator()
 
-	RoutineType operator()(const char *name, ...)
+	template<typename... VarArgs>
+	RoutineType operator()(const char *name, VarArgs... varArgs)
 	{
-		return RoutineType(BaseType::operator()(name));
+		return RoutineType(BaseType::operator()(name, std::forward<VarArgs>(varArgs)...));
 	}
 
-	RoutineType operator()(const Config::Edit &cfg, const char *name, ...)
+	template<typename... VarArgs>
+	RoutineType operator()(const Config::Edit &cfg, const char *name, VarArgs... varArgs)
 	{
-		return RoutineType(BaseType::operator()(cfg, name));
+		return RoutineType(BaseType::operator()(cfg, name, std::forward<VarArgs>(varArgs)...));
 	}
 };
 
@@ -2600,72 +2681,17 @@ namespace rr {
 
 template<class T>
 LValue<T>::LValue(int arraySize)
-    : Variable(T::getType(), arraySize)
+    : Variable(T::type(), arraySize)
 {
 #ifdef ENABLE_RR_DEBUG_INFO
 	materialize();
 #endif  // ENABLE_RR_DEBUG_INFO
 }
 
-inline void Variable::materialize() const
-{
-	if(!address)
-	{
-		address = Nucleus::allocateStackVariable(type, arraySize);
-		RR_DEBUG_INFO_EMIT_VAR(address);
-
-		if(rvalue)
-		{
-			storeValue(rvalue);
-			rvalue = nullptr;
-		}
-	}
-}
-
-inline Value *Variable::loadValue() const
-{
-	if(rvalue)
-	{
-		return rvalue;
-	}
-
-	if(!address)
-	{
-		// TODO: Return undef instead.
-		materialize();
-	}
-
-	return Nucleus::createLoad(address, type, false, 0);
-}
-
-inline Value *Variable::storeValue(Value *value) const
-{
-	if(address)
-	{
-		return Nucleus::createStore(value, address, type, false, 0);
-	}
-
-	rvalue = value;
-
-	return value;
-}
-
-inline Value *Variable::getBaseAddress() const
-{
-	materialize();
-
-	return address;
-}
-
-inline Value *Variable::getElementPointer(Value *index, bool unsignedIndex) const
-{
-	return Nucleus::createGEP(getBaseAddress(), type, index, unsignedIndex);
-}
-
 template<class T>
 RValue<Pointer<T>> LValue<T>::operator&()
 {
-	return RValue<Pointer<T>>(getBaseAddress());
+	return RValue<Pointer<T>>(this->getBaseAddress());
 }
 
 template<class T>
@@ -2678,7 +2704,7 @@ Reference<T>::Reference(Value *pointer, int alignment)
 template<class T>
 RValue<T> Reference<T>::operator=(RValue<T> rhs) const
 {
-	Nucleus::createStore(rhs.value, address, T::getType(), false, alignment);
+	Nucleus::createStore(rhs.value(), address, T::type(), false, alignment);
 
 	return rhs;
 }
@@ -2686,8 +2712,8 @@ RValue<T> Reference<T>::operator=(RValue<T> rhs) const
 template<class T>
 RValue<T> Reference<T>::operator=(const Reference<T> &ref) const
 {
-	Value *tmp = Nucleus::createLoad(ref.address, T::getType(), false, ref.alignment);
-	Nucleus::createStore(tmp, address, T::getType(), false, alignment);
+	Value *tmp = Nucleus::createLoad(ref.address, T::type(), false, ref.alignment);
+	Nucleus::createStore(tmp, address, T::type(), false, alignment);
 
 	return RValue<T>(tmp);
 }
@@ -2701,7 +2727,13 @@ RValue<T> Reference<T>::operator+=(RValue<T> rhs) const
 template<class T>
 Value *Reference<T>::loadValue() const
 {
-	return Nucleus::createLoad(address, T::getType(), false, alignment);
+	return Nucleus::createLoad(address, T::type(), false, alignment);
+}
+
+template<class T>
+RValue<T> Reference<T>::load() const
+{
+	return RValue<T>(loadValue());
 }
 
 template<class T>
@@ -2710,57 +2742,54 @@ int Reference<T>::getAlignment() const
 	return alignment;
 }
 
-#ifdef ENABLE_RR_DEBUG_INFO
 template<class T>
 RValue<T>::RValue(const RValue<T> &rvalue)
-    : value(rvalue.value)
+    : val(rvalue.val)
 {
-	RR_DEBUG_INFO_EMIT_VAR(value);
+	RR_DEBUG_INFO_EMIT_VAR(val);
 }
-#endif  // ENABLE_RR_DEBUG_INFO
 
 template<class T>
-RValue<T>::RValue(Value *rvalue)
+RValue<T>::RValue(Value *value)
+    : val(value)
 {
-	assert(Nucleus::createBitCast(rvalue, T::getType()) == rvalue);  // Run-time type should match T, so bitcast is no-op.
-
-	value = rvalue;
-	RR_DEBUG_INFO_EMIT_VAR(value);
+	assert(Nucleus::createBitCast(value, T::type()) == value);  // Run-time type should match T, so bitcast is no-op.
+	RR_DEBUG_INFO_EMIT_VAR(val);
 }
 
 template<class T>
 RValue<T>::RValue(const T &lvalue)
+    : val(lvalue.loadValue())
 {
-	value = lvalue.loadValue();
-	RR_DEBUG_INFO_EMIT_VAR(value);
+	RR_DEBUG_INFO_EMIT_VAR(val);
 }
 
 template<class T>
 RValue<T>::RValue(typename BoolLiteral<T>::type i)
+    : val(Nucleus::createConstantBool(i))
 {
-	value = Nucleus::createConstantBool(i);
-	RR_DEBUG_INFO_EMIT_VAR(value);
+	RR_DEBUG_INFO_EMIT_VAR(val);
 }
 
 template<class T>
 RValue<T>::RValue(typename IntLiteral<T>::type i)
+    : val(Nucleus::createConstantInt(i))
 {
-	value = Nucleus::createConstantInt(i);
-	RR_DEBUG_INFO_EMIT_VAR(value);
+	RR_DEBUG_INFO_EMIT_VAR(val);
 }
 
 template<class T>
 RValue<T>::RValue(typename FloatLiteral<T>::type f)
+    : val(Nucleus::createConstantFloat(f))
 {
-	value = Nucleus::createConstantFloat(f);
-	RR_DEBUG_INFO_EMIT_VAR(value);
+	RR_DEBUG_INFO_EMIT_VAR(val);
 }
 
 template<class T>
 RValue<T>::RValue(const Reference<T> &ref)
+    : val(ref.loadValue())
 {
-	value = ref.loadValue();
-	RR_DEBUG_INFO_EMIT_VAR(value);
+	RR_DEBUG_INFO_EMIT_VAR(val);
 }
 
 template<class Vector4, int T>
@@ -2937,7 +2966,7 @@ template<class T>
 Pointer<T>::Pointer(Argument<Pointer<T>> argument)
     : alignment(1)
 {
-	LValue<Pointer<T>>::storeValue(argument.value);
+	this->store(argument.rvalue());
 }
 
 template<class T>
@@ -2949,64 +2978,54 @@ template<class T>
 Pointer<T>::Pointer(RValue<Pointer<T>> rhs)
     : alignment(1)
 {
-	LValue<Pointer<T>>::storeValue(rhs.value);
+	this->store(rhs);
 }
 
 template<class T>
 Pointer<T>::Pointer(const Pointer<T> &rhs)
     : alignment(rhs.alignment)
 {
-	Value *value = rhs.loadValue();
-	LValue<Pointer<T>>::storeValue(value);
+	this->store(rhs.load());
 }
 
 template<class T>
 Pointer<T>::Pointer(const Reference<Pointer<T>> &rhs)
     : alignment(rhs.getAlignment())
 {
-	Value *value = rhs.loadValue();
-	LValue<Pointer<T>>::storeValue(value);
+	this->store(rhs.load());
 }
 
 template<class T>
 Pointer<T>::Pointer(std::nullptr_t)
     : alignment(1)
 {
-	Value *value = Nucleus::createNullPointer(T::getType());
-	LValue<Pointer<T>>::storeValue(value);
+	Value *value = Nucleus::createNullPointer(T::type());
+	this->storeValue(value);
 }
 
 template<class T>
 RValue<Pointer<T>> Pointer<T>::operator=(RValue<Pointer<T>> rhs)
 {
-	LValue<Pointer<T>>::storeValue(rhs.value);
-
-	return rhs;
+	return this->store(rhs);
 }
 
 template<class T>
 RValue<Pointer<T>> Pointer<T>::operator=(const Pointer<T> &rhs)
 {
-	Value *value = rhs.loadValue();
-	LValue<Pointer<T>>::storeValue(value);
-
-	return RValue<Pointer<T>>(value);
+	return this->store(rhs.load());
 }
 
 template<class T>
 RValue<Pointer<T>> Pointer<T>::operator=(const Reference<Pointer<T>> &rhs)
 {
-	Value *value = rhs.loadValue();
-	LValue<Pointer<T>>::storeValue(value);
-
-	return RValue<Pointer<T>>(value);
+	return this->store(rhs.load());
 }
 
 template<class T>
 RValue<Pointer<T>> Pointer<T>::operator=(std::nullptr_t)
 {
-	Value *value = Nucleus::createNullPointer(T::getType());
-	LValue<Pointer<T>>::storeValue(value);
+	Value *value = Nucleus::createNullPointer(T::type());
+	this->storeValue(value);
 
 	return RValue<Pointer<T>>(this);
 }
@@ -3014,14 +3033,14 @@ RValue<Pointer<T>> Pointer<T>::operator=(std::nullptr_t)
 template<class T>
 Reference<T> Pointer<T>::operator*()
 {
-	return Reference<T>(LValue<Pointer<T>>::loadValue(), alignment);
+	return Reference<T>(this->loadValue(), alignment);
 }
 
 template<class T>
 Reference<T> Pointer<T>::operator[](int index)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-	Value *element = Nucleus::createGEP(LValue<Pointer<T>>::loadValue(), T::getType(), Nucleus::createConstantInt(index), false);
+	Value *element = Nucleus::createGEP(this->loadValue(), T::type(), Nucleus::createConstantInt(index), false);
 
 	return Reference<T>(element, alignment);
 }
@@ -3030,7 +3049,7 @@ template<class T>
 Reference<T> Pointer<T>::operator[](unsigned int index)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-	Value *element = Nucleus::createGEP(LValue<Pointer<T>>::loadValue(), T::getType(), Nucleus::createConstantInt(index), true);
+	Value *element = Nucleus::createGEP(this->loadValue(), T::type(), Nucleus::createConstantInt(index), true);
 
 	return Reference<T>(element, alignment);
 }
@@ -3039,7 +3058,7 @@ template<class T>
 Reference<T> Pointer<T>::operator[](RValue<Int> index)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-	Value *element = Nucleus::createGEP(LValue<Pointer<T>>::loadValue(), T::getType(), index.value, false);
+	Value *element = Nucleus::createGEP(this->loadValue(), T::type(), index.value(), false);
 
 	return Reference<T>(element, alignment);
 }
@@ -3048,15 +3067,15 @@ template<class T>
 Reference<T> Pointer<T>::operator[](RValue<UInt> index)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-	Value *element = Nucleus::createGEP(LValue<Pointer<T>>::loadValue(), T::getType(), index.value, true);
+	Value *element = Nucleus::createGEP(this->loadValue(), T::type(), index.value(), true);
 
 	return Reference<T>(element, alignment);
 }
 
 template<class T>
-Type *Pointer<T>::getType()
+Type *Pointer<T>::type()
 {
-	return Nucleus::getPointerType(T::getType());
+	return Nucleus::getPointerType(T::type());
 }
 
 template<class T, int S>
@@ -3068,8 +3087,8 @@ Array<T, S>::Array(int size)
 template<class T, int S>
 Reference<T> Array<T, S>::operator[](int index)
 {
-	assert(index < this->arraySize);
-	Value *element = LValue<T>::getElementPointer(Nucleus::createConstantInt(index), false);
+	assert(index < Variable::getArraySize());
+	Value *element = this->getElementPointer(Nucleus::createConstantInt(index), false);
 
 	return Reference<T>(element);
 }
@@ -3077,8 +3096,8 @@ Reference<T> Array<T, S>::operator[](int index)
 template<class T, int S>
 Reference<T> Array<T, S>::operator[](unsigned int index)
 {
-	assert(index < static_cast<unsigned int>(this->arraySize));
-	Value *element = LValue<T>::getElementPointer(Nucleus::createConstantInt(index), true);
+	assert(index < static_cast<unsigned int>(Variable::getArraySize()));
+	Value *element = this->getElementPointer(Nucleus::createConstantInt(index), true);
 
 	return Reference<T>(element);
 }
@@ -3086,7 +3105,7 @@ Reference<T> Array<T, S>::operator[](unsigned int index)
 template<class T, int S>
 Reference<T> Array<T, S>::operator[](RValue<Int> index)
 {
-	Value *element = LValue<T>::getElementPointer(index.value, false);
+	Value *element = this->getElementPointer(index.value(), false);
 
 	return Reference<T>(element);
 }
@@ -3094,7 +3113,7 @@ Reference<T> Array<T, S>::operator[](RValue<Int> index)
 template<class T, int S>
 Reference<T> Array<T, S>::operator[](RValue<UInt> index)
 {
-	Value *element = LValue<T>::getElementPointer(index.value, true);
+	Value *element = this->getElementPointer(index.value(), true);
 
 	return Reference<T>(element);
 }
@@ -3127,7 +3146,7 @@ template<class T>
 RValue<T> IfThenElse(RValue<Bool> condition, RValue<T> ifTrue, RValue<T> ifFalse)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-	return RValue<T>(Nucleus::createSelect(condition.value, ifTrue.value, ifFalse.value));
+	return RValue<T>(Nucleus::createSelect(condition.value(), ifTrue.value(), ifFalse.value()));
 }
 
 template<class T>
@@ -3136,7 +3155,7 @@ RValue<T> IfThenElse(RValue<Bool> condition, const T &ifTrue, RValue<T> ifFalse)
 	RR_DEBUG_INFO_UPDATE_LOC();
 	Value *trueValue = ifTrue.loadValue();
 
-	return RValue<T>(Nucleus::createSelect(condition.value, trueValue, ifFalse.value));
+	return RValue<T>(Nucleus::createSelect(condition.value(), trueValue, ifFalse.value()));
 }
 
 template<class T>
@@ -3145,7 +3164,7 @@ RValue<T> IfThenElse(RValue<Bool> condition, RValue<T> ifTrue, const T &ifFalse)
 	RR_DEBUG_INFO_UPDATE_LOC();
 	Value *falseValue = ifFalse.loadValue();
 
-	return RValue<T>(Nucleus::createSelect(condition.value, ifTrue.value, falseValue));
+	return RValue<T>(Nucleus::createSelect(condition.value(), ifTrue.value(), falseValue));
 }
 
 template<class T>
@@ -3155,30 +3174,23 @@ RValue<T> IfThenElse(RValue<Bool> condition, const T &ifTrue, const T &ifFalse)
 	Value *trueValue = ifTrue.loadValue();
 	Value *falseValue = ifFalse.loadValue();
 
-	return RValue<T>(Nucleus::createSelect(condition.value, trueValue, falseValue));
+	return RValue<T>(Nucleus::createSelect(condition.value(), trueValue, falseValue));
 }
 
 template<typename Return, typename... Arguments>
 Function<Return(Arguments...)>::Function()
+    : core(new Nucleus())
 {
-	core = new Nucleus();
-
-	Type *types[] = { Arguments::getType()... };
+	Type *types[] = { Arguments::type()... };
 	for(Type *type : types)
 	{
-		if(type != Void::getType())
+		if(type != Void::type())
 		{
 			arguments.push_back(type);
 		}
 	}
 
-	Nucleus::createFunction(Return::getType(), arguments);
-}
-
-template<typename Return, typename... Arguments>
-Function<Return(Arguments...)>::~Function()
-{
-	delete core;
+	Nucleus::createFunction(Return::type(), arguments);
 }
 
 template<typename Return, typename... Arguments>
@@ -3191,7 +3203,10 @@ std::shared_ptr<Routine> Function<Return(Arguments...)>::operator()(const char *
 	vsnprintf(fullName, 1024, name, vararg);
 	va_end(vararg);
 
-	return core->acquireRoutine(fullName, Config::Edit::None);
+	auto routine = core->acquireRoutine(fullName, Config::Edit::None);
+	core.reset(nullptr);
+
+	return routine;
 }
 
 template<typename Return, typename... Arguments>
@@ -3204,14 +3219,17 @@ std::shared_ptr<Routine> Function<Return(Arguments...)>::operator()(const Config
 	vsnprintf(fullName, 1024, name, vararg);
 	va_end(vararg);
 
-	return core->acquireRoutine(fullName, cfg);
+	auto routine = core->acquireRoutine(fullName, cfg);
+	core.reset(nullptr);
+
+	return routine;
 }
 
 template<class T, class S>
 RValue<T> ReinterpretCast(RValue<S> val)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-	return RValue<T>(Nucleus::createBitCast(val.value, T::getType()));
+	return RValue<T>(Nucleus::createBitCast(val.value(), T::type()));
 }
 
 template<class T, class S>
@@ -3220,7 +3238,7 @@ RValue<T> ReinterpretCast(const LValue<S> &var)
 	RR_DEBUG_INFO_UPDATE_LOC();
 	Value *val = var.loadValue();
 
-	return RValue<T>(Nucleus::createBitCast(val, T::getType()));
+	return RValue<T>(Nucleus::createBitCast(val, T::type()));
 }
 
 template<class T, class S>
@@ -3233,7 +3251,7 @@ template<class T>
 RValue<T> As(Value *val)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
-	return RValue<T>(Nucleus::createBitCast(val, T::getType()));
+	return RValue<T>(Nucleus::createBitCast(val, T::type()));
 }
 
 template<class T, class S>
@@ -3273,18 +3291,18 @@ public:
 	{
 		return RValue<RReturn>(rr::Call(
 		    ConstantPointer(reinterpret_cast<void *>(fptr)),
-		    RReturn::getType(),
+		    RReturn::type(),
 		    { ValueOf(args)... },
-		    { CToReactorT<Arguments>::getType()... }));
+		    { CToReactorT<Arguments>::type()... }));
 	}
 
 	static inline RReturn Call(Pointer<Byte> fptr, CToReactorT<Arguments>... args)
 	{
 		return RValue<RReturn>(rr::Call(
 		    fptr,
-		    RReturn::getType(),
+		    RReturn::type(),
 		    { ValueOf(args)... },
-		    { CToReactorT<Arguments>::getType()... }));
+		    { CToReactorT<Arguments>::type()... }));
 	}
 };
 
@@ -3295,17 +3313,17 @@ public:
 	static inline void Call(void(fptr)(Arguments...), CToReactorT<Arguments>... args)
 	{
 		rr::Call(ConstantPointer(reinterpret_cast<void *>(fptr)),
-		         Void::getType(),
+		         Void::type(),
 		         { ValueOf(args)... },
-		         { CToReactorT<Arguments>::getType()... });
+		         { CToReactorT<Arguments>::type()... });
 	}
 
 	static inline void Call(Pointer<Byte> fptr, CToReactorT<Arguments>... args)
 	{
 		rr::Call(fptr,
-		         Void::getType(),
+		         Void::type(),
 		         { ValueOf(args)... },
-		         { CToReactorT<Arguments>::getType()... });
+		         { CToReactorT<Arguments>::type()... });
 	}
 };
 
@@ -3377,10 +3395,52 @@ inline void Call(void (Class::*fptr)(CArgs...), C &&object, RArgs &&... args)
 	             CastToReactor(std::forward<RArgs>(args))...);
 }
 
-// Calls the Reactor function pointer fptr with the signature
-// FUNCTION_SIGNATURE and arguments.
+// NonVoidFunction<F> and VoidFunction<F> are helper classes which define ReturnType
+// when F matches a non-void fuction signature or void function signature, respectively,
+// as the function's return type.
+template<typename F>
+struct NonVoidFunction
+{};
+
+template<typename Return, typename... Arguments>
+struct NonVoidFunction<Return(Arguments...)>
+{
+	using ReturnType = Return;
+};
+
+template<typename... Arguments>
+struct NonVoidFunction<void(Arguments...)>
+{
+};
+
+template<typename F>
+using NonVoidFunctionReturnType = typename NonVoidFunction<F>::ReturnType;
+
+template<typename F>
+struct VoidFunction
+{};
+
+template<typename... Arguments>
+struct VoidFunction<void(Arguments...)>
+{
+	using ReturnType = void;
+};
+
+template<typename F>
+using VoidFunctionReturnType = typename VoidFunction<F>::ReturnType;
+
+// Calls the Reactor function pointer fptr with the signature FUNCTION_SIGNATURE and arguments.
+// Overload for calling functions with non-void return type.
 template<typename FUNCTION_SIGNATURE, typename... RArgs>
-inline void Call(Pointer<Byte> fptr, RArgs &&... args)
+inline CToReactorT<NonVoidFunctionReturnType<FUNCTION_SIGNATURE>> Call(Pointer<Byte> fptr, RArgs &&... args)
+{
+	return CallHelper<FUNCTION_SIGNATURE>::Call(fptr, CastToReactor(std::forward<RArgs>(args))...);
+}
+
+// Calls the Reactor function pointer fptr with the signature FUNCTION_SIGNATURE and arguments.
+// Overload for calling functions with void return type.
+template<typename FUNCTION_SIGNATURE, typename... RArgs>
+inline VoidFunctionReturnType<FUNCTION_SIGNATURE> Call(Pointer<Byte> fptr, RArgs &&... args)
 {
 	CallHelper<FUNCTION_SIGNATURE>::Call(fptr, CastToReactor(std::forward<RArgs>(args))...);
 }
@@ -3428,7 +3488,7 @@ public:
 		BasicBlock *bodyBB = Nucleus::createBasicBlock();
 		endBB = Nucleus::createBasicBlock();
 
-		Nucleus::createCondBr(cmp.value, bodyBB, endBB);
+		Nucleus::createCondBr(cmp.value(), bodyBB, endBB);
 		Nucleus::setInsertBlock(bodyBB);
 
 		return true;
@@ -3450,25 +3510,18 @@ class IfElseData
 {
 public:
 	IfElseData(RValue<Bool> cmp)
-	    : iteration(0)
 	{
-		condition = cmp.value;
-
-		beginBB = Nucleus::getInsertBlock();
 		trueBB = Nucleus::createBasicBlock();
-		falseBB = nullptr;
-		endBB = Nucleus::createBasicBlock();
+		falseBB = Nucleus::createBasicBlock();
+		endBB = falseBB;  // Until we encounter an Else statement, these are the same.
 
+		Nucleus::createCondBr(cmp.value(), trueBB, falseBB);
 		Nucleus::setInsertBlock(trueBB);
 	}
 
 	~IfElseData()
 	{
 		Nucleus::createBr(endBB);
-
-		Nucleus::setInsertBlock(beginBB);
-		Nucleus::createCondBr(condition, trueBB, falseBB ? falseBB : endBB);
-
 		Nucleus::setInsertBlock(endBB);
 	}
 
@@ -3486,19 +3539,17 @@ public:
 
 	void elseClause()
 	{
+		endBB = Nucleus::createBasicBlock();
 		Nucleus::createBr(endBB);
 
-		falseBB = Nucleus::createBasicBlock();
 		Nucleus::setInsertBlock(falseBB);
 	}
 
 private:
-	Value *condition;
-	BasicBlock *beginBB;
-	BasicBlock *trueBB;
-	BasicBlock *falseBB;
-	BasicBlock *endBB;
-	int iteration;
+	BasicBlock *trueBB = nullptr;
+	BasicBlock *falseBB = nullptr;
+	BasicBlock *endBB = nullptr;
+	int iteration = 0;
 };
 
 #define For(init, cond, inc)                        \
@@ -3513,13 +3564,13 @@ private:
 		Nucleus::createBr(body__);                        \
 		Nucleus::setInsertBlock(body__);
 
-#define Until(cond)                                     \
-	BasicBlock *end__ = Nucleus::createBasicBlock();    \
-	Nucleus::createCondBr((cond).value, end__, body__); \
-	Nucleus::setInsertBlock(end__);                     \
-	}                                                   \
-	do                                                  \
-	{                                                   \
+#define Until(cond)                                       \
+	BasicBlock *end__ = Nucleus::createBasicBlock();      \
+	Nucleus::createCondBr((cond).value(), end__, body__); \
+	Nucleus::setInsertBlock(end__);                       \
+	}                                                     \
+	do                                                    \
+	{                                                     \
 	} while(false)  // Require a semi-colon at the end of the Until()
 
 enum
@@ -3530,8 +3581,8 @@ enum
 	IFELSE_NUM__
 };
 
-#define If(cond)                                                        \
-	for(IfElseData ifElse__(cond); ifElse__ < IFELSE_NUM__; ++ifElse__) \
+#define If(cond)                                                          \
+	for(IfElseData ifElse__{ cond }; ifElse__ < IFELSE_NUM__; ++ifElse__) \
 		if(ifElse__ == IF_BLOCK__)
 
 #define Else                           \
@@ -3540,6 +3591,11 @@ enum
 		ifElse__.elseClause();         \
 	}                                  \
 	else  // ELSE_BLOCK__
+
+// The OFFSET macro is a generalization of the offsetof() macro defined in <cstddef>.
+// It allows e.g. getting the offset of array elements, even when indexed dynamically.
+// We cast the address '32' and subtract it again, because null-dereference is undefined behavior.
+#define OFFSET(s, m) ((int)(size_t) & reinterpret_cast<const volatile char &>((((s *)32)->m)) - 32)
 
 }  // namespace rr
 

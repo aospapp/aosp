@@ -27,6 +27,8 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.util.Log;
 
+import com.android.bluetooth.audio_util.BTAudioEventLogger;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -37,14 +39,14 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
 
     // All volumes are stored at system volume values, not AVRCP values
     private static final String VOLUME_MAP = "bluetooth_volume_map";
-    private static final String VOLUME_BLACKLIST = "absolute_volume_blacklist";
+    private static final String VOLUME_REJECTLIST = "absolute_volume_rejectlist";
     private static final String VOLUME_CHANGE_LOG_TITLE = "Volume Events";
     private static final int AVRCP_MAX_VOL = 127;
     private static final int STREAM_MUSIC = AudioManager.STREAM_MUSIC;
     private static final int VOLUME_CHANGE_LOGGER_SIZE = 30;
     private static int sDeviceMaxVolume = 0;
     private static int sNewDeviceVolume = 0;
-    private final AvrcpEventLogger mVolumeEventLogger = new AvrcpEventLogger(
+    private final BTAudioEventLogger mVolumeEventLogger = new BTAudioEventLogger(
             VOLUME_CHANGE_LOGGER_SIZE, VOLUME_CHANGE_LOG_TITLE);
 
     Context mContext;
@@ -135,7 +137,7 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
     }
 
     synchronized void storeVolumeForDevice(@NonNull BluetoothDevice device) {
-        int storeVolume =  mAudioManager.getStreamVolume(STREAM_MUSIC);
+        int storeVolume =  mAudioManager.getLastAudibleStreamVolume(STREAM_MUSIC);
         storeVolumeForDevice(device, storeVolume);
     }
 
@@ -182,6 +184,10 @@ class AvrcpVolumeManager extends AudioDeviceCallback {
     }
 
     void sendVolumeChanged(@NonNull BluetoothDevice device, int deviceVolume) {
+        if (deviceVolume == getVolume(device, -1)) {
+            d("sendVolumeChanged: Skipping update volume to same as current.");
+            return;
+        }
         int avrcpVolume =
                 (int) Math.floor((double) deviceVolume * AVRCP_MAX_VOL / sDeviceMaxVolume);
         if (avrcpVolume > 127) avrcpVolume = 127;

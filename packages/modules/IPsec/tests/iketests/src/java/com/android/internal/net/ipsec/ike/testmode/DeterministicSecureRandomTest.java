@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.internal.net.ipsec.ike.testmode;
+package com.android.internal.net.ipsec.test.ike.testmode;
 
-import static android.net.ipsec.ike.SaProposal.DH_GROUP_2048_BIT_MODP;
+import static android.net.ipsec.test.ike.SaProposal.DH_GROUP_2048_BIT_MODP;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -24,14 +24,14 @@ import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
-import com.android.internal.net.ipsec.ike.message.IkeKePayload;
-import com.android.internal.net.ipsec.ike.utils.RandomnessFactory;
+import com.android.internal.net.ipsec.test.ike.message.IkeKePayload;
+import com.android.internal.net.ipsec.test.ike.utils.RandomnessFactory;
 
 import org.junit.Test;
 
 import java.util.Arrays;
 
-import javax.crypto.spec.DHPrivateKeySpec;
+import javax.crypto.interfaces.DHPrivateKey;
 
 public final class DeterministicSecureRandomTest {
     private static final int BYTE_ARRAY_LEN = 20;
@@ -78,14 +78,14 @@ public final class DeterministicSecureRandomTest {
             .when(rFactory)
             .getRandom();
 
-        IkeKePayload kePayloadOne = new IkeKePayload(DH_GROUP_2048_BIT_MODP, rFactory);
-        IkeKePayload kePayloadTwo = new IkeKePayload(DH_GROUP_2048_BIT_MODP, rFactory);
+        IkeKePayload kePayloadOne =
+                IkeKePayload.createOutboundKePayload(DH_GROUP_2048_BIT_MODP, rFactory);
+        IkeKePayload kePayloadTwo =
+                IkeKePayload.createOutboundKePayload(DH_GROUP_2048_BIT_MODP, rFactory);
         assertArrayEquals(kePayloadOne.keyExchangeData, kePayloadTwo.keyExchangeData);
 
-        DHPrivateKeySpec localPrivateKeyOne = kePayloadOne.localPrivateKey;
-        DHPrivateKeySpec localPrivateKeyTwo = kePayloadTwo.localPrivateKey;
-        assertEquals(localPrivateKeyOne.getG(), localPrivateKeyTwo.getG());
-        assertEquals(localPrivateKeyOne.getP(), localPrivateKeyTwo.getP());
+        DHPrivateKey localPrivateKeyOne = (DHPrivateKey) kePayloadOne.localPrivateKey;
+        DHPrivateKey localPrivateKeyTwo = (DHPrivateKey) kePayloadTwo.localPrivateKey;
         assertEquals(localPrivateKeyOne.getX(), localPrivateKeyTwo.getX());
     }
 }

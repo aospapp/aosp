@@ -27,6 +27,7 @@
 
 #include "common/math/mat.h"
 #include "common/math/vec.h"
+#include "chre/util/nanoapp/assert.h"
 
 // FORWARD DECLARATIONS
 ///////////////////////////////////////////////////////////////////////////////
@@ -45,8 +46,8 @@ static bool runCalibration(struct SphereFitCal *sphere_cal,
 void sphereFitInit(struct SphereFitCal *sphere_cal,
                    const struct LmParams *lm_params,
                    const size_t min_num_points_for_cal) {
-  ASSERT_NOT_NULL(sphere_cal);
-  ASSERT_NOT_NULL(lm_params);
+  CHRE_ASSERT_NOT_NULL(sphere_cal);
+  CHRE_ASSERT_NOT_NULL(lm_params);
 
   // Initialize LM solver.
   lmSolverInit(&sphere_cal->lm_solver, lm_params,
@@ -64,7 +65,7 @@ void sphereFitInit(struct SphereFitCal *sphere_cal,
 }
 
 void sphereFitReset(struct SphereFitCal *sphere_cal) {
-  ASSERT_NOT_NULL(sphere_cal);
+  CHRE_ASSERT_NOT_NULL(sphere_cal);
 
   // Set state to default (diagonal scale matrix and zero offset).
   memset(&sphere_cal->x0[0], 0, sizeof(float) * SF_STATE_DIM);
@@ -79,8 +80,8 @@ void sphereFitReset(struct SphereFitCal *sphere_cal) {
 
 void sphereFitSetSolverData(struct SphereFitCal *sphere_cal,
                             struct LmData *lm_data) {
-  ASSERT_NOT_NULL(sphere_cal);
-  ASSERT_NOT_NULL(lm_data);
+  CHRE_ASSERT_NOT_NULL(sphere_cal);
+  CHRE_ASSERT_NOT_NULL(lm_data);
 
   // Set solver data.
   lmSolverSetData(&sphere_cal->lm_solver, lm_data);
@@ -89,8 +90,8 @@ void sphereFitSetSolverData(struct SphereFitCal *sphere_cal,
 bool sphereFitRunCal(struct SphereFitCal *sphere_cal,
                      const struct SphereFitData *data,
                      uint64_t timestamp_nanos) {
-  ASSERT_NOT_NULL(sphere_cal);
-  ASSERT_NOT_NULL(data);
+  CHRE_ASSERT_NOT_NULL(sphere_cal);
+  CHRE_ASSERT_NOT_NULL(data);
 
   // Run calibration if have enough points.
   if (data->num_fit_points >= sphere_cal->min_points_for_cal) {
@@ -102,7 +103,7 @@ bool sphereFitRunCal(struct SphereFitCal *sphere_cal,
 
 void sphereFitSetInitialBias(struct SphereFitCal *sphere_cal,
                              const float initial_bias[THREE_AXIS_DIM]) {
-  ASSERT_NOT_NULL(sphere_cal);
+  CHRE_ASSERT_NOT_NULL(sphere_cal);
   sphere_cal->x0[eParamOffset1] = initial_bias[0];
   sphere_cal->x0[eParamOffset2] = initial_bias[1];
   sphere_cal->x0[eParamOffset3] = initial_bias[2];
@@ -110,23 +111,23 @@ void sphereFitSetInitialBias(struct SphereFitCal *sphere_cal,
 
 void sphereFitGetLatestCal(const struct SphereFitCal *sphere_cal,
                            struct ThreeAxisCalData *cal_data) {
-  ASSERT_NOT_NULL(sphere_cal);
-  ASSERT_NOT_NULL(cal_data);
+  CHRE_ASSERT_NOT_NULL(sphere_cal);
+  CHRE_ASSERT_NOT_NULL(cal_data);
   convertStateToCalStruct(sphere_cal->x, cal_data);
   cal_data->calibration_time_nanos = sphere_cal->estimate_time_nanos;
 }
 
 void sphereFitResidAndJacobianFunc(const float *state, const void *f_data,
                                    float *residual, float *jacobian) {
-  ASSERT_NOT_NULL(state);
-  ASSERT_NOT_NULL(f_data);
-  ASSERT_NOT_NULL(residual);
+  CHRE_ASSERT_NOT_NULL(state);
+  CHRE_ASSERT_NOT_NULL(f_data);
+  CHRE_ASSERT_NOT_NULL(residual);
 
   const struct SphereFitData *data = (const struct SphereFitData *)f_data;
 
   // Verify that expected norm is non-zero, else use default of 1.0.
   float expected_norm = 1.0;
-  ASSERT(data->expected_norm > MIN_VALID_DATA_NORM);
+  CHRE_ASSERT(data->expected_norm > MIN_VALID_DATA_NORM);
   if (data->expected_norm > MIN_VALID_DATA_NORM) {
     expected_norm = data->expected_norm;
   }

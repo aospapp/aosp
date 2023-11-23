@@ -21,6 +21,7 @@ import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_FEATURES_NO
 import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_FINGERPRINT;
 import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_SECURE_CAMERA;
 import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_TRUST_AGENTS;
+import static android.app.admin.DevicePolicyManager.PASSWORD_COMPLEXITY_HIGH;
 import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED;
 import static android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_DEFAULT;
 import static android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED;
@@ -61,6 +62,7 @@ public class DevicePolicyLoggingTest extends BaseDeviceAdminTest {
         mDevicePolicyManager.setPasswordMinimumSymbols(ADMIN_RECEIVER_COMPONENT, 19);
         mDevicePolicyManager.setPasswordQuality(ADMIN_RECEIVER_COMPONENT,
                 PASSWORD_QUALITY_UNSPECIFIED);
+        mDevicePolicyManager.setRequiredPasswordComplexity(PASSWORD_COMPLEXITY_HIGH);
     }
 
     public void testLockNowLogged() {
@@ -182,6 +184,11 @@ public class DevicePolicyLoggingTest extends BaseDeviceAdminTest {
     public void testSetUninstallBlockedLogged() {
         mDevicePolicyManager.setUninstallBlocked(ADMIN_RECEIVER_COMPONENT, PACKAGE_NAME, true);
         mDevicePolicyManager.setUninstallBlocked(ADMIN_RECEIVER_COMPONENT, PACKAGE_NAME, false);
+    }
+
+    public void testSetPreferentialNetworkServiceEnabledLogged() {
+        mDevicePolicyManager.setPreferentialNetworkServiceEnabled(true);
+        mDevicePolicyManager.setPreferentialNetworkServiceEnabled(false);
     }
 
     public void testDisallowAdjustVolumeMutedLogged() {

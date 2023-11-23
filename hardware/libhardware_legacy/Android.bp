@@ -1,5 +1,22 @@
 // Copyright 2006 The Android Open Source Project
 
+package {
+    default_applicable_licenses: ["hardware_libhardware_legacy_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "hardware_libhardware_legacy_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_headers {
     name: "libhardware_legacy_headers",
     vendor_available: true,
@@ -36,8 +53,8 @@ cc_test {
     srcs: ["power_test.cpp"],
     static_libs: ["libpower"],
     shared_libs: [
+        "android.system.suspend.control.internal-cpp",
         "android.system.suspend@1.0",
-        "suspend_control_aidl_interface-cpp",
     ],
     test_suites: ["device-tests"],
     require_root: true,

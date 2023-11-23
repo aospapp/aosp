@@ -80,6 +80,10 @@
 # include <zircon/syscalls.h>
 #endif  // GTEST_OS_FUCHSIA
 
+#if GTEST_OS_IOS
+#import <Foundation/Foundation.h>
+#endif  // GTEST_OS_IOS
+
 #include "gtest/gtest-spi.h"
 #include "gtest/gtest-message.h"
 #include "gtest/internal/gtest-internal.h"
@@ -198,7 +202,8 @@ size_t GetThreadCount() {
   if (sysctl(mib, miblen, NULL, &size, NULL, 0)) {
     return 0;
   }
-  mib[5] = size / mib[4];
+
+  mib[5] = static_cast<int>(size / static_cast<size_t>(mib[4]));
 
   // populate array of structs
   struct kinfo_proc info[mib[5]];
@@ -207,8 +212,8 @@ size_t GetThreadCount() {
   }
 
   // exclude empty members
-  int nthreads = 0;
-  for (int i = 0; i < size / mib[4]; i++) {
+  size_t nthreads = 0;
+  for (size_t i = 0; i < size / static_cast<size_t>(mib[4]); i++) {
     if (info[i].p_tid != -1)
       nthreads++;
   }
@@ -1110,9 +1115,15 @@ class CapturedStream {
     // guaranteed to be mounted, or may have a delay in mounting.
     ::std::string name_template_buf = TempDir() + "gtest_captured_stream.XXXXXX";
     char* name_template = &name_template_buf[0];
+#  elif GTEST_OS_IOS
+    NSString* temp_path = [NSTemporaryDirectory()
+        stringByAppendingPathComponent:@"gtest_captured_stream.XXXXXX"];
+
+    char name_template[PATH_MAX + 1];
+    strncpy(name_template, [temp_path UTF8String], PATH_MAX);
 #  else
     char name_template[] = "/tmp/captured_stream.XXXXXX";
-#  endif  // GTEST_OS_LINUX_ANDROID
+#  endif
     const int captured_fd = mkstemp(name_template);
     if (captured_fd == -1) {
       GTEST_LOG_(WARNING)

@@ -52,13 +52,13 @@ struct dirtree *dirtree_add_node(struct dirtree *parent, char *name, int flags)
   }
 
   // Allocate/populate return structure
-  dt = xmalloc((len = sizeof(struct dirtree)+len+1)+linklen);
-  memset(dt, 0, statless ? offsetof(struct dirtree, again)
-    : offsetof(struct dirtree, st));
+  memset(dt = xmalloc((len = sizeof(struct dirtree)+len+1)+linklen), 0,
+    statless ? sizeof(struct dirtree) : offsetof(struct dirtree, st));
   dt->parent = parent;
   dt->again = statless ? 2 : 0;
   if (!statless) memcpy(&dt->st, &st, sizeof(struct stat));
-  strcpy(dt->name, name ? name : "");
+  if (name) strcpy(dt->name, name);
+  else *dt->name = 0, dt->st.st_mode = S_IFDIR;
   if (linklen) dt->symlink = memcpy(len+(char *)dt, libbuf, linklen);
 
   return dt;
@@ -75,7 +75,7 @@ error:
   return 0;
 }
 
-// Return path to this node, assembled recursively.
+// Return path to this node.
 
 // Initial call can pass in NULL to plen, or point to an int initialized to 0
 // to return the length of the path, or a value greater than 0 to allocate
@@ -83,20 +83,22 @@ error:
 
 char *dirtree_path(struct dirtree *node, int *plen)
 {
+  struct dirtree *nn;
   char *path;
-  int len;
+  int ii, ll, len;
 
-  if (!node) {
-    path = xmalloc(*plen);
-    *plen = 0;
-    return path;
-  }
-
-  len = (plen ? *plen : 0)+strlen(node->name)+1;
-  path = dirtree_path(node->parent, &len);
-  if (len && path[len-1] != '/') path[len++]='/';
-  len = stpcpy(path+len, node->name) - path;
+  ll = len = plen ? *plen : 0;
+  if (!node->parent)
+    return strcpy(xmalloc(strlen(node->name)+ll+1), node->name);
+  for (nn = node; nn; nn = nn->parent)
+    if ((ii = strlen(nn->name))) len += ii+1-(nn->name[ii-1]=='/');
   if (plen) *plen = len;
+  path = xmalloc(len)+len-ll;
+  for (nn = node; nn; nn = nn->parent) if ((len = strlen(nn->name))) {
+    *--path = '/'*(nn != node);
+    if (nn->name[len-1]=='/') len--;
+    memcpy(path -= len, nn->name, len);
+  }
 
   return path;
 }
@@ -111,8 +113,8 @@ int dirtree_parentfd(struct dirtree *node)
 // returns NULL. If !callback return top node unchanged.
 // If !new return DIRTREE_ABORTVAL
 
-struct dirtree *dirtree_handle_callback(struct dirtree *new,
-          int (*callback)(struct dirtree *node))
+static struct dirtree *dirtree_handle_callback(struct dirtree *new,
+  int (*callback)(struct dirtree *node))
 {
   int flags;
 
@@ -121,11 +123,11 @@ struct dirtree *dirtree_handle_callback(struct dirtree *new,
   flags = callback(new);
 
   if (S_ISDIR(new->st.st_mode) && (flags & (DIRTREE_RECURSE|DIRTREE_COMEAGAIN)))
-    flags = dirtree_recurse(new, callback,
+    flags = dirtree_recurse(new, callback, !*new->name ? AT_FDCWD :
       openat(dirtree_parentfd(new), new->name, O_CLOEXEC), flags);
 
-  // If this had children, it was callback's job to free them already.
-  if (!(flags & DIRTREE_SAVE)) {
+  // Free node that didn't request saving and has no saved children.
+  if (!new->child && !(flags & DIRTREE_SAVE)) {
     free(new);
     new = 0;
   }
@@ -141,10 +143,12 @@ int dirtree_recurse(struct dirtree *node,
 {
   struct dirtree *new, **ddt = &(node->child);
   struct dirent *entry;
-  DIR *dir;
+  DIR *dir = 0;
 
-  node->dirfd = dirfd;
-  if (node->dirfd == -1 || !(dir = fdopendir(node->dirfd))) {
+  // Why doesn't fdopendir() support AT_FDCWD?
+  if (AT_FDCWD == (node->dirfd = dirfd)) dir = opendir(".");
+  else if (node->dirfd != -1) dir = fdopendir(node->dirfd);
+  if (!dir) {
     if (!(flags & DIRTREE_SHUTUP)) {
       char *path = dirtree_path(node, 0);
       perror_msg_raw(path);

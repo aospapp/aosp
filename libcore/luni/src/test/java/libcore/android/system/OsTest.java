@@ -22,11 +22,14 @@ import android.system.NetlinkSocketAddress;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.PacketSocketAddress;
+import android.system.StructCmsghdr;
+import android.system.StructMsghdr;
 import android.system.StructRlimit;
 import android.system.StructStat;
 import android.system.StructTimeval;
 import android.system.StructUcred;
 import android.system.UnixSocketAddress;
+import android.system.VmSocketAddress;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -45,23 +48,40 @@ import java.net.ServerSocket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
-
-import junit.framework.TestCase;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import libcore.io.IoUtils;
 import libcore.testing.io.TestIoUtils;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import static android.system.OsConstants.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeNoException;
+import static org.junit.Assume.assumeTrue;
 
-public class OsTest extends TestCase {
+@RunWith(JUnit4.class)
+public class OsTest {
 
+    @Test
     public void testIsSocket() throws Exception {
         File f = new File("/dev/null");
         FileInputStream fis = new FileInputStream(f);
@@ -73,6 +93,7 @@ public class OsTest extends TestCase {
         s.close();
     }
 
+    @Test
     public void testFcntlInt() throws Exception {
         File f = File.createTempFile("OsTest", "tst");
         FileInputStream fis = null;
@@ -87,6 +108,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void testFcntlInt_udpSocket() throws Exception {
         final FileDescriptor fd = Os.socket(AF_INET, SOCK_DGRAM, 0);
         try {
@@ -104,6 +126,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void testFcntlInt_invalidCmd() throws Exception {
         final FileDescriptor fd = Os.socket(AF_INET, SOCK_DGRAM, 0);
         try {
@@ -117,7 +140,8 @@ public class OsTest extends TestCase {
         }
     }
 
-    public void testFcntlInt_nullFd() throws Exception {
+    @Test
+    public void testFcntlInt_nullFd() {
         try {
             Os.fcntlInt(null, F_SETFL, O_NONBLOCK);
             fail("Expected failure due to null file descriptor");
@@ -126,17 +150,20 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void testUnixDomainSockets_in_file_system() throws Exception {
         String path = System.getProperty("java.io.tmpdir") + "/test_unix_socket";
         new File(path).delete();
         checkUnixDomainSocket(UnixSocketAddress.createFileSystem(path), false);
     }
 
+    @Test
     public void testUnixDomainSocket_abstract_name() throws Exception {
         // Linux treats a sun_path starting with a NUL byte as an abstract name. See unix(7).
         checkUnixDomainSocket(UnixSocketAddress.createAbstract("/abstract_name_unix_socket"), true);
     }
 
+    @Test
     public void testUnixDomainSocket_unnamed() throws Exception {
         final FileDescriptor fd = Os.socket(AF_UNIX, SOCK_STREAM, 0);
         // unix(7) says an unbound socket is unnamed.
@@ -170,8 +197,8 @@ public class OsTest extends TestCase {
                     byte[] request = new byte[256];
                     Os.read(clientFd, request, 0, request.length);
 
-                    String s = new String(request, "UTF-8");
-                    byte[] response = s.toUpperCase(Locale.ROOT).getBytes("UTF-8");
+                    String s = new String(request, StandardCharsets.UTF_8);
+                    byte[] response = s.toUpperCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8);
                     Os.write(clientFd, response, 0, response.length);
 
                     Os.close(clientFd);
@@ -189,13 +216,13 @@ public class OsTest extends TestCase {
 
         String string = "hello, world!";
 
-        byte[] request = string.getBytes("UTF-8");
+        byte[] request = string.getBytes(StandardCharsets.UTF_8);
         assertEquals(request.length, Os.write(clientFd, request, 0, request.length));
 
         byte[] response = new byte[request.length];
         assertEquals(response.length, Os.read(clientFd, response, 0, response.length));
 
-        assertEquals(string.toUpperCase(Locale.ROOT), new String(response, "UTF-8"));
+        assertEquals(string.toUpperCase(Locale.ROOT), new String(response, StandardCharsets.UTF_8));
 
         Os.close(clientFd);
     }
@@ -221,16 +248,17 @@ public class OsTest extends TestCase {
         checkNoName((UnixSocketAddress) Os.getsockname(fd));
     }
 
-    public void test_strsignal() throws Exception {
+    @Test
+    public void test_strsignal() {
         assertEquals("Killed", Os.strsignal(9));
         assertEquals("Unknown signal -1", Os.strsignal(-1));
     }
 
+    @Test
     public void test_byteBufferPositions_write_pwrite() throws Exception {
         FileOutputStream fos = new FileOutputStream(new File("/dev/null"));
         FileDescriptor fd = fos.getFD();
-        final byte[] contents = new String("goodbye, cruel world")
-                .getBytes(StandardCharsets.US_ASCII);
+        final byte[] contents = "goodbye, cruel world".getBytes(StandardCharsets.US_ASCII);
         ByteBuffer byteBuffer = ByteBuffer.wrap(contents);
 
         byteBuffer.position(0);
@@ -256,6 +284,7 @@ public class OsTest extends TestCase {
         fos.close();
     }
 
+    @Test
     public void test_byteBufferPositions_read_pread() throws Exception {
         FileInputStream fis = new FileInputStream(new File("/dev/zero"));
         FileDescriptor fd = fis.getFD();
@@ -284,7 +313,7 @@ public class OsTest extends TestCase {
         fis.close();
     }
 
-    static void checkByteBufferPositions_sendto_recvfrom(
+    private static void checkByteBufferPositions_sendto_recvfrom(
             int family, InetAddress loopback) throws Exception {
         final FileDescriptor serverFd = Os.socket(family, SOCK_STREAM, 0);
         Os.bind(serverFd, loopback, 0);
@@ -292,29 +321,27 @@ public class OsTest extends TestCase {
 
         InetSocketAddress address = (InetSocketAddress) Os.getsockname(serverFd);
 
-        final Thread server = new Thread(new Runnable() {
-            public void run() {
-                try {
-                    InetSocketAddress peerAddress = new InetSocketAddress();
-                    FileDescriptor clientFd = Os.accept(serverFd, peerAddress);
+        final Thread server = new Thread(() -> {
+            try {
+                InetSocketAddress peerAddress = new InetSocketAddress();
+                FileDescriptor clientFd = Os.accept(serverFd, peerAddress);
 
-                    // Attempt to receive a maximum of 24 bytes from the client, and then
-                    // close the connection.
-                    ByteBuffer buffer = ByteBuffer.allocate(16);
-                    int received = Os.recvfrom(clientFd, buffer, 0, null);
-                    assertTrue(received > 0);
-                    assertEquals(received, buffer.position());
+                // Attempt to receive a maximum of 24 bytes from the client, and then
+                // close the connection.
+                ByteBuffer buffer = ByteBuffer.allocate(16);
+                int received = Os.recvfrom(clientFd, buffer, 0, null);
+                assertTrue(received > 0);
+                assertEquals(received, buffer.position());
 
-                    ByteBuffer buffer2 = ByteBuffer.allocate(16);
-                    buffer2.position(8);
-                    received = Os.recvfrom(clientFd, buffer2, 0, null);
-                    assertTrue(received > 0);
-                    assertEquals(received + 8, buffer.position());
+                ByteBuffer buffer2 = ByteBuffer.allocate(16);
+                buffer2.position(8);
+                received = Os.recvfrom(clientFd, buffer2, 0, null);
+                assertTrue(received > 0);
+                assertEquals(received + 8, buffer.position());
 
-                    Os.close(clientFd);
-                } catch (Exception ex) {
-                    throw new RuntimeException(ex);
-                }
+                Os.close(clientFd);
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
             }
         });
 
@@ -344,9 +371,8 @@ public class OsTest extends TestCase {
         Os.close(clientFd);
     }
 
-    interface ExceptionalRunnable {
-
-        public void run() throws Exception;
+    private interface ExceptionalRunnable {
+        void run() throws Exception;
     }
 
     /**
@@ -375,7 +401,7 @@ public class OsTest extends TestCase {
     }
 
     private static void expectBindException(FileDescriptor socket, SocketAddress addr,
-            Class exClass, Integer expectedErrno) {
+            Class<? extends Exception> exClass, Integer expectedErrno) {
         String msg = String.format("bind(%s, %s)", socket, addr);
         expectException(() -> {
             Os.bind(socket, addr);
@@ -383,7 +409,7 @@ public class OsTest extends TestCase {
     }
 
     private static void expectConnectException(FileDescriptor socket, SocketAddress addr,
-            Class exClass, Integer expectedErrno) {
+            Class<? extends Exception> exClass, Integer expectedErrno) {
         String msg = String.format("connect(%s, %s)", socket, addr);
         expectException(() -> {
             Os.connect(socket, addr);
@@ -391,13 +417,13 @@ public class OsTest extends TestCase {
     }
 
     private static void expectSendtoException(FileDescriptor socket, SocketAddress addr,
-            Class exClass, Integer expectedErrno) {
+        Integer expectedErrno) {
         String msg = String.format("sendto(%s, %s)", socket, addr);
         byte[] packet = new byte[42];
         expectException(() -> {
                     Os.sendto(socket, packet, 0, packet.length, 0, addr);
                 },
-                exClass, expectedErrno, msg);
+            ErrnoException.class, expectedErrno, msg);
     }
 
     private static void expectBindConnectSendtoSuccess(FileDescriptor socket, String socketDesc,
@@ -422,7 +448,7 @@ public class OsTest extends TestCase {
 
                     assertEquals(addrISA.getAddress(), socknameISA.getAddress());
                     assertEquals(0, addrISA.getPort());
-                    assertFalse(0 == socknameISA.getPort());
+                    assertNotEquals(0, socknameISA.getPort());
                     addr = socknameISA;
                 }
 
@@ -432,8 +458,9 @@ public class OsTest extends TestCase {
                 Os.sendto(socket, packet, 0, packet.length, 0, addr);
                 // UNIX and IP sockets return different errors for this operation, so we can't check
                 // errno.
-                expectSendtoException(socket, null, ErrnoException.class, null);
-                expectSendtoException(null, null, ErrnoException.class, EBADF);
+                expectSendtoException(socket, null, null);
+                expectSendtoException(null, null, EBADF);
+                expectSendtoException(null, addr, EBADF);
 
                 // Expect that connect throws when any of its arguments are null.
                 expectConnectException(null, addr, ErrnoException.class, EBADF);
@@ -512,6 +539,7 @@ public class OsTest extends TestCase {
         return Os.socket(AF_UNIX, SOCK_DGRAM, 0);
     }
 
+    @Test
     public void testCrossFamilyBindConnectSendto() throws Exception {
         SocketAddress addrIpv4 = new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0);
         SocketAddress addrIpv6 = new InetSocketAddress(InetAddress.getByName("::1"), 0);
@@ -537,6 +565,7 @@ public class OsTest extends TestCase {
         expectBindConnectSendtoSuccess(makeUnixSocket(), "unix", addrUnix);
     }
 
+    @Test
     public void testUnknownSocketAddressSubclass() throws Exception {
         class MySocketAddress extends SocketAddress {
 
@@ -575,6 +604,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_NetlinkSocket() throws Exception {
         FileDescriptor nlSocket = Os.socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
         try {
@@ -597,8 +627,10 @@ public class OsTest extends TestCase {
     // This test is excluded from CTS via the knownfailures.txt because it requires extra
     // permissions not available in CTS. To run it you have to use an -eng build and use a tool like
     // vogar that runs the Android runtime as a privileged user.
+    @Test
     public void test_PacketSocketAddress() throws Exception {
         NetworkInterface lo = NetworkInterface.getByName("lo");
+        assertNotNull(lo);
         FileDescriptor fd = Os.socket(AF_PACKET, SOCK_DGRAM, ETH_P_IPV6);
         PacketSocketAddress addr =
                 new PacketSocketAddress(ETH_P_IPV6, lo.getIndex(), null /* sll_addr */);
@@ -612,6 +644,7 @@ public class OsTest extends TestCase {
 
         // The loopback address is ETH_ALEN bytes long and is all zeros.
         // http://lxr.free-electrons.com/source/drivers/net/loopback.c?v=3.10#L167
+        assertNotNull(bound.sll_addr);
         assertEquals(6, bound.sll_addr.length);
         for (int i = 0; i < 6; i++) {
             assertEquals(0, bound.sll_addr[i]);
@@ -661,18 +694,101 @@ public class OsTest extends TestCase {
         Os.close(fd);
     }
 
+    @Test
+    public void test_VmSocketAddress() {
+        try {
+            final VmSocketAddress addr = new VmSocketAddress(111, 222);
+            assertEquals(111, addr.getSvmPort());
+            assertEquals(222, addr.getSvmCid());
+        } catch (UnsupportedOperationException ignore) {
+            assumeNoException(ignore);  // the platform does not support virtio-vsock
+        }
+    }
+
+    private static Thread createVmSocketEchoServer(final FileDescriptor serverFd) {
+        return new Thread(new Runnable() {
+            public void run() {
+                final VmSocketAddress peer =
+                    new VmSocketAddress(VMADDR_PORT_ANY, VMADDR_CID_ANY);
+
+                try {
+                    final FileDescriptor clientFd = Os.accept(serverFd, peer);
+                    try {
+                        final byte[] requestBuf = new byte[256];
+                        final int len = Os.read(clientFd, requestBuf, 0, requestBuf.length);
+                        final String request =
+                            new String(requestBuf, 0, len, StandardCharsets.UTF_8);
+                        final byte[] responseBuf =
+                            request.toUpperCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8);
+                        Os.write(clientFd, responseBuf, 0, responseBuf.length);
+                    } finally {
+                        Os.close(clientFd);
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+    }
+
+    @Test
+    public void test_VmSocket() throws Exception {
+        try {
+            final VmSocketAddress serverAddr = new VmSocketAddress(12345, VMADDR_CID_LOCAL);
+
+            final FileDescriptor serverFd = Os.socket(AF_VSOCK, SOCK_STREAM, 0);
+
+            try {
+                Os.bind(serverFd, serverAddr);
+                Os.listen(serverFd, 3);
+
+                final Thread server = createVmSocketEchoServer(serverFd);
+                server.start();
+
+                final FileDescriptor clientFd = Os.socket(AF_VSOCK, SOCK_STREAM, 0);
+                try {
+                    Os.connect(clientFd, serverAddr);
+
+                    final String request = "hello, world!";
+                    final byte[] requestBuf = request.getBytes(StandardCharsets.UTF_8);
+
+                    assertEquals(requestBuf.length,
+                                 Os.write(clientFd, requestBuf, 0, requestBuf.length));
+
+                    final byte[] responseBuf = new byte[requestBuf.length];
+                    assertEquals(responseBuf.length,
+                                 Os.read(clientFd, responseBuf, 0, responseBuf.length));
+
+                    final String response = new String(responseBuf, StandardCharsets.UTF_8);
+
+                    assertEquals(request.toUpperCase(Locale.ROOT), response);
+                } finally {
+                    Os.close(clientFd);
+                }
+            } finally {
+                Os.close(serverFd);
+            }
+        } catch (UnsupportedOperationException ignore) {
+            assumeNoException(ignore);  // the platform does not support virtio-vsock
+        } catch (ErrnoException e) {
+            // the platform does not support vsock
+            assumeTrue(e.errno != EAFNOSUPPORT && e.errno != EACCES);
+            throw e;
+        }
+    }
+
     private static byte[] getIPv6AddressBytesAtOffset(byte[] packet, int offsetIndex) {
         byte[] address = new byte[16];
-        for (int i = 0; i < 16; i++) {
-            address[i] = packet[i + offsetIndex];
-        }
+        System.arraycopy(packet, offsetIndex, address, 0, 16);
         return address;
     }
 
+    @Test
     public void test_byteBufferPositions_sendto_recvfrom_af_inet() throws Exception {
         checkByteBufferPositions_sendto_recvfrom(AF_INET, InetAddress.getByName("127.0.0.1"));
     }
 
+    @Test
     public void test_byteBufferPositions_sendto_recvfrom_af_inet6() throws Exception {
         checkByteBufferPositions_sendto_recvfrom(AF_INET6, InetAddress.getByName("::1"));
     }
@@ -685,7 +801,8 @@ public class OsTest extends TestCase {
 
         InetSocketAddress to = ((InetSocketAddress) Os.getsockname(recvFd));
         FileDescriptor sendFd = Os.socket(family, SOCK_DGRAM, 0);
-        byte[] msg = ("Hello, I'm going to a socket address: " + to.toString()).getBytes("UTF-8");
+        byte[] msg = ("Hello, I'm going to a socket address: " + to.toString()).getBytes(
+            StandardCharsets.UTF_8);
         int len = msg.length;
 
         assertEquals(len, Os.sendto(sendFd, msg, 0, len, 0, to));
@@ -695,14 +812,273 @@ public class OsTest extends TestCase {
         assertEquals(loopback, from.getAddress());
     }
 
+    @Test
     public void test_sendtoSocketAddress_af_inet() throws Exception {
         checkSendToSocketAddress(AF_INET, InetAddress.getByName("127.0.0.1"));
     }
 
+    @Test
     public void test_sendtoSocketAddress_af_inet6() throws Exception {
         checkSendToSocketAddress(AF_INET6, InetAddress.getByName("::1"));
     }
 
+    /*
+     * Test case for sendmsg with/without GSO in loopback iface,
+     * recvmsg/gro would not happen since in loopback
+     */
+    private void checkSendmsgSocketAddress(int family, InetSocketAddress loopbackAddr,
+            StructMsghdr sendmsgHdr, StructMsghdr recvmsgHdr, int sendSize) throws Exception {
+
+        FileDescriptor sendFd = Os.socket(family, SOCK_DGRAM, 0);
+        FileDescriptor recvFd = Os.socket(family, SOCK_DGRAM, 0);
+        int rc = 0;
+
+        //recvmsg cleanup data
+        if (loopbackAddr.getAddress() instanceof Inet6Address) {
+            Os.bind(recvFd, Inet6Address.ANY, loopbackAddr.getPort());
+        } else {
+            Os.bind(recvFd, Inet4Address.ANY, loopbackAddr.getPort());
+        }
+
+        StructTimeval tv = StructTimeval.fromMillis(20);
+        Os.setsockoptTimeval(recvFd, SOL_SOCKET, SO_RCVTIMEO, tv);
+        Os.setsockoptInt(recvFd, IPPROTO_UDP, UDP_GRO, 1); //enable GRO
+        Os.setsockoptInt(recvFd, SOL_SOCKET, SO_RCVBUF, 1024 * 1024);
+
+        try {
+            assertEquals(sendSize, Os.sendmsg(sendFd, sendmsgHdr, 0));
+            rc = 0;
+            do {
+                int temp_rc = Os.recvmsg(recvFd, recvmsgHdr, OsConstants.MSG_TRUNC);
+                rc += temp_rc;
+                if (recvmsgHdr.msg_control != null && recvmsgHdr.msg_control.length > 0) {
+                    byte[] sendCmsgByte = sendmsgHdr.msg_control[0].cmsg_data;
+                    byte[] recvCmsgByte = recvmsgHdr.msg_control[0].cmsg_data;
+                    /* Note:
+                     * GSO: is set with Short(2Byte) values;
+                     * GRO: IP stack return with Int(4Bytes) value;
+                     */
+                    assertEquals(
+                            ByteBuffer.wrap(sendCmsgByte).order(
+                                    ByteOrder.nativeOrder()).getShort(0),
+                            ByteBuffer.wrap(recvCmsgByte).order(
+                                    ByteOrder.nativeOrder()).getInt(0));
+                }
+
+                recvmsgHdr = new StructMsghdr(recvmsgHdr.msg_name, recvmsgHdr.msg_iov,
+                                              null,
+                                              recvmsgHdr.msg_flags);
+            }while(rc < sendSize);
+        } finally {
+            Os.close(sendFd);
+            Os.close(recvFd);
+        }
+    }
+
+    @Test
+    public void test_sendmsg_af_inet_4K() throws Exception {
+        // UDP GRO not required to be enabled on kernels prior to 5.4
+        assumeTrue(kernelIsAtLeast(5, 4));
+
+        InetSocketAddress loopbackAddr = new InetSocketAddress(InetAddress.getByName("127.0.0.1"),
+                10234);
+        StructCmsghdr[] cmsg = new StructCmsghdr[1];
+        cmsg[0] = new StructCmsghdr(SOL_UDP, UDP_SEGMENT, (short) 1400);
+
+        //sendmsg/recvmsg with 1*4K ByteBuffer
+        ByteBuffer[] bufferArray = new ByteBuffer[1];
+        ByteBuffer[] bufferArrayRecv = new ByteBuffer[1];
+        bufferArray[0] = ByteBuffer.allocate(4096);
+        bufferArrayRecv[0] = ByteBuffer.allocate(4096);
+
+        StructMsghdr sendmsgHdr = new StructMsghdr(loopbackAddr,
+                                                   bufferArray,
+                                                   cmsg, 0);
+        StructMsghdr recvmsgHdr = new StructMsghdr(new InetSocketAddress(),
+                                                   bufferArrayRecv,
+                                                   null, 0);
+
+        checkSendmsgSocketAddress(AF_INET, loopbackAddr, sendmsgHdr, recvmsgHdr, 4096);
+    }
+
+    @Test
+    public void test_sendmsg_af_inet6_4K() throws Exception {
+        // UDP GRO not required to be enabled on kernels prior to 5.4
+        assumeTrue(kernelIsAtLeast(5, 4));
+
+        InetSocketAddress loopbackAddr = new InetSocketAddress(InetAddress.getByName("::1"), 10234);
+        StructCmsghdr[] cmsg = new StructCmsghdr[1];
+        cmsg[0] = new StructCmsghdr(SOL_UDP, UDP_SEGMENT, (short) 1400);
+
+        //sendmsg/recvmsg with 1*4K ByteBuffer
+        ByteBuffer[] bufferArray = new ByteBuffer[1];
+        ByteBuffer[] bufferArrayRecv = new ByteBuffer[1];
+        bufferArray[0] = ByteBuffer.allocate(4096);
+        bufferArrayRecv[0] = ByteBuffer.allocate(4096);
+
+        StructMsghdr sendmsgHdr = new StructMsghdr(loopbackAddr,
+                                                   bufferArray,
+                                                   cmsg, 0);
+        StructMsghdr recvmsgHdr = new StructMsghdr(new InetSocketAddress(),
+                                                   bufferArrayRecv,
+                                                   null, 0);
+
+        checkSendmsgSocketAddress(AF_INET6, loopbackAddr, sendmsgHdr, recvmsgHdr, 4096);
+    }
+
+    @Test
+    public void test_sendmsg_af_inet6_4K_directBuffer() throws Exception {
+        // UDP GRO not required to be enabled on kernels prior to 5.4
+        assumeTrue(kernelIsAtLeast(5, 4));
+
+        InetSocketAddress loopbackAddr = new InetSocketAddress(InetAddress.getByName("127.0.0.1"),
+                                                               10234);
+        StructCmsghdr[] cmsg = new StructCmsghdr[1];
+        cmsg[0] = new StructCmsghdr(SOL_UDP, UDP_SEGMENT, (short) 1400);
+
+        //sendmsg/recvmsg with 1*4K ByteBuffer
+        ByteBuffer[] bufferArray = new ByteBuffer[1];
+        ByteBuffer[] bufferArrayRecv = new ByteBuffer[1];
+        bufferArray[0] = ByteBuffer.allocateDirect(4096); // DirectBuffer
+        bufferArrayRecv[0] = ByteBuffer.allocateDirect(4096); // DirectBuffer
+
+        StructMsghdr sendmsgHdr = new StructMsghdr(loopbackAddr,
+                                                   bufferArray,
+                                                   cmsg, 0);
+        StructMsghdr recvmsgHdr = new StructMsghdr(new InetSocketAddress(),
+                                                   bufferArrayRecv,
+                                                   null, 0);
+
+        checkSendmsgSocketAddress(AF_INET6, loopbackAddr, sendmsgHdr, recvmsgHdr, 4096);
+    }
+
+    @Test
+    public void test_sendmsg_af_inet_16K_recvparts() throws Exception {
+        // UDP GRO not required to be enabled on kernels prior to 5.4
+        assumeTrue(kernelIsAtLeast(5, 4));
+
+        InetSocketAddress loopbackAddr = new InetSocketAddress(InetAddress.getByName("127.0.0.1"),
+                                                               10234);
+        StructCmsghdr[] cmsg = new StructCmsghdr[1];
+        cmsg[0] = new StructCmsghdr(SOL_UDP, UDP_SEGMENT, (short) 1400);
+
+        //sendmsg with 4*4K ByteBuffer, recv with 1*4K ByteBuffer(already with MSG_TRUNC option)
+        ByteBuffer[] bufferArray = new ByteBuffer[4];
+        ByteBuffer[] bufferArrayRecv = new ByteBuffer[1];
+        bufferArray[0] = ByteBuffer.allocate(4096);
+        bufferArray[1] = ByteBuffer.allocate(4096);
+        bufferArray[2] = ByteBuffer.allocate(4096);
+        bufferArray[3] = ByteBuffer.allocate(4096);
+        bufferArrayRecv[0] = ByteBuffer.allocate(4096); //receive only part of data
+
+        StructMsghdr sendmsgHdr = new StructMsghdr(loopbackAddr,
+                                                   bufferArray,
+                                                   cmsg, 0);
+        StructMsghdr recvmsgHdr = new StructMsghdr(new InetSocketAddress(),
+                                                   bufferArrayRecv,
+                                                   null, 0);
+
+        checkSendmsgSocketAddress(AF_INET, loopbackAddr, sendmsgHdr, recvmsgHdr, 4096 * 4);
+    }
+
+    @Test
+    public void test_sendmsg_af_inet_16K_reciveall() throws Exception {
+        // UDP GRO not required to be enabled on kernels prior to 5.4
+        assumeTrue(kernelIsAtLeast(5, 4));
+
+        InetSocketAddress loopbackAddr = new InetSocketAddress(InetAddress.getByName("127.0.0.1"),
+                                                               10234);
+        StructCmsghdr[] cmsg = new StructCmsghdr[1];
+        cmsg[0] = new StructCmsghdr(SOL_UDP, UDP_SEGMENT, (short) 1400);
+
+        // Create sendmsg/recvmsg with 4*4K ByteBuffer
+        ByteBuffer[] bufferArray = new ByteBuffer[4];
+        bufferArray[0] = ByteBuffer.allocate(4096);
+        bufferArray[1] = ByteBuffer.allocate(4096);
+        bufferArray[2] = ByteBuffer.allocate(4096);
+        bufferArray[3] = ByteBuffer.allocate(4096);
+
+        StructMsghdr sendmsgHdr = new StructMsghdr(loopbackAddr, bufferArray, cmsg, 0);
+        StructMsghdr recvmsgHdr = new StructMsghdr(new InetSocketAddress(), bufferArray, null, 0);
+
+        checkSendmsgSocketAddress(AF_INET, loopbackAddr, sendmsgHdr, recvmsgHdr, 4096 * 4);
+    }
+
+    @Test
+    public void test_sendmsg_af_inet_16K_receiveall_without_recv_msgname() throws Exception {
+        // UDP GRO not required to be enabled on kernels prior to 5.4
+        assumeTrue(kernelIsAtLeast(5, 4));
+
+        InetSocketAddress loopbackAddr = new InetSocketAddress(InetAddress.getByName("127.0.0.1"),
+                                                               10234);
+        StructCmsghdr[] cmsg = new StructCmsghdr[1];
+        cmsg[0] = new StructCmsghdr(SOL_UDP, UDP_SEGMENT, (short) 1400);
+
+        // Create sendmsg/recvmsg with 4*4K ByteBuffer
+        ByteBuffer[] bufferArray = new ByteBuffer[4];
+        bufferArray[0] = ByteBuffer.allocate(4096);
+        bufferArray[1] = ByteBuffer.allocate(4096);
+        bufferArray[2] = ByteBuffer.allocate(4096);
+        bufferArray[3] = ByteBuffer.allocate(4096);
+
+        StructMsghdr sendmsgHdr = new StructMsghdr(loopbackAddr, bufferArray, cmsg, 0);
+        // msg_name is unnecessary.
+        StructMsghdr recvmsgHdr = new StructMsghdr(null, bufferArray, null, 0);
+
+        checkSendmsgSocketAddress(AF_INET, loopbackAddr, sendmsgHdr, recvmsgHdr, 4096 * 4);
+    }
+
+    @Test
+    public void test_sendmsg_af_inet_16K_without_send_msgcontrl() throws Exception {
+        // UDP GRO not required to be enabled on kernels prior to 5.4
+        assumeTrue(kernelIsAtLeast(5, 4));
+
+        InetSocketAddress loopbackAddr = new InetSocketAddress(InetAddress.getByName("127.0.0.1"),
+                                                               10234);
+
+        // Create sendmsg/recvmsg with 4*4K ByteBuffer
+        ByteBuffer[] bufferArray = new ByteBuffer[4];
+        bufferArray[0] = ByteBuffer.allocate(4096);
+        bufferArray[1] = ByteBuffer.allocate(4096);
+        bufferArray[2] = ByteBuffer.allocate(4096);
+        bufferArray[3] = ByteBuffer.allocate(4096);
+
+        // GSO will not happen without msgcontrol.
+        StructMsghdr sendmsgHdr = new StructMsghdr(loopbackAddr, bufferArray, null, 0);
+        StructMsghdr recvmsgHdr = new StructMsghdr(null, bufferArray, null, 0);
+
+        checkSendmsgSocketAddress(AF_INET, loopbackAddr, sendmsgHdr, recvmsgHdr, 4096 * 4);
+    }
+
+    @Test
+    public void test_sendmsg_af_inet_abnormal() throws Exception {
+        //sendmsg socket set
+        InetSocketAddress address = new InetSocketAddress(InetAddress.getByName("127.0.0.1"),
+                                                          10234);
+        FileDescriptor sendFd = Os.socket(AF_INET, SOCK_DGRAM, 0);
+
+        ByteBuffer[] bufferArray = new ByteBuffer[1];
+        bufferArray[0] = ByteBuffer.allocate(8192);
+
+        try {
+            StructMsghdr msgHdr = new StructMsghdr(address, null, null, 0);
+            Os.sendmsg(sendFd, msgHdr, 0);
+            fail("Expected NullPointerException due to invalid StructMsghdr.msg_iov(NULL)");
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            StructMsghdr msgHdr = new StructMsghdr(null, bufferArray, null, 0);
+            Os.sendmsg(sendFd, msgHdr, 0);
+            fail("Expected ErrnoException due to invalid StructMsghdr.msg_name(NULL)");
+        } catch (ErrnoException expected) {
+            assertEquals("Expected EDESTADDRREQ binding IPv4 socket to ::", EDESTADDRREQ,
+                    expected.errno);
+        }
+
+    }
+
+    @Test
     public void test_socketFamilies() throws Exception {
         FileDescriptor fd = Os.socket(AF_INET6, SOCK_STREAM, 0);
         Os.bind(fd, InetAddress.getByName("::"), 0);
@@ -727,11 +1103,6 @@ public class OsTest extends TestCase {
         }
     }
 
-    private static void assertArrayEquals(byte[] expected, byte[] actual) {
-        assertTrue("Expected=" + Arrays.toString(expected) + ", actual=" + Arrays.toString(actual),
-                Arrays.equals(expected, actual));
-    }
-
     private static void checkSocketPing(FileDescriptor fd, InetAddress to, byte[] packet,
             byte type, byte responseType, boolean useSendto) throws Exception {
         int len = packet.length;
@@ -753,12 +1124,13 @@ public class OsTest extends TestCase {
         assertEquals(received[5], (byte) (icmpId & 0xff));
 
         received = Arrays.copyOf(received, len);
-        received[0] = (byte) type;
+        received[0] = type;
         received[2] = received[3] = 0;  // Checksum.
         received[4] = received[5] = 0;  // ICMP ID.
         assertArrayEquals(packet, received);
     }
 
+    @Test
     public void test_socketPing() throws Exception {
         final byte ICMP_ECHO = 8, ICMP_ECHOREPLY = 0;
         final byte ICMPV6_ECHO_REQUEST = (byte) 128, ICMPV6_ECHO_REPLY = (byte) 129;
@@ -777,6 +1149,7 @@ public class OsTest extends TestCase {
         checkSocketPing(fd, ipv4Loopback, packet, ICMP_ECHO, ICMP_ECHOREPLY, false);
     }
 
+    @Test
     public void test_Ipv4Fallback() throws Exception {
         // This number of iterations gives a ~60% chance of creating the conditions that caused
         // http://b/23088314 without making test times too long. On a hammerhead running MRZ37C
@@ -794,6 +1167,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_unlink() throws Exception {
         File f = File.createTempFile("OsTest", "tst");
         assertTrue(f.exists());
@@ -809,6 +1183,7 @@ public class OsTest extends TestCase {
     }
 
     // b/27294715
+    @Test
     public void test_recvfrom_concurrentShutdown() throws Exception {
         final FileDescriptor serverFd = Os.socket(AF_INET, SOCK_DGRAM, 0);
         Os.bind(serverFd, InetAddress.getByName("127.0.0.1"), 0);
@@ -816,22 +1191,20 @@ public class OsTest extends TestCase {
         StructTimeval tv = StructTimeval.fromMillis(4000);
         Os.setsockoptTimeval(serverFd, SOL_SOCKET, SO_RCVTIMEO, tv);
 
-        final AtomicReference<Exception> killerThreadException = new AtomicReference<Exception>(
-                null);
-        final Thread killer = new Thread(new Runnable() {
-            public void run() {
+        final AtomicReference<Exception> killerThreadException = new AtomicReference<>(
+            null);
+        final Thread killer = new Thread(() -> {
+            try {
+                Thread.sleep(2000);
                 try {
-                    Thread.sleep(2000);
-                    try {
-                        Os.shutdown(serverFd, SHUT_RDWR);
-                    } catch (ErrnoException expected) {
-                        if (OsConstants.ENOTCONN != expected.errno) {
-                            killerThreadException.set(expected);
-                        }
+                    Os.shutdown(serverFd, SHUT_RDWR);
+                } catch (ErrnoException expected) {
+                    if (OsConstants.ENOTCONN != expected.errno) {
+                        killerThreadException.set(expected);
                     }
-                } catch (Exception ex) {
-                    killerThreadException.set(ex);
                 }
+            } catch (Exception ex) {
+                killerThreadException.set(ex);
             }
         });
         killer.start();
@@ -839,13 +1212,14 @@ public class OsTest extends TestCase {
         ByteBuffer buffer = ByteBuffer.allocate(16);
         InetSocketAddress srcAddress = new InetSocketAddress();
         int received = Os.recvfrom(serverFd, buffer, 0, srcAddress);
-        assertTrue(received == 0);
+        assertEquals(0, received);
         Os.close(serverFd);
 
         killer.join();
         assertNull(killerThreadException.get());
     }
 
+    @Test
     public void test_xattr() throws Exception {
         final String NAME_TEST = "user.meow";
 
@@ -897,6 +1271,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_xattr_NPE() throws Exception {
         File file = File.createTempFile("xattr", "test");
         final String path = file.getAbsolutePath();
@@ -952,7 +1327,8 @@ public class OsTest extends TestCase {
         }
     }
 
-    public void test_xattr_Errno() throws Exception {
+    @Test
+    public void test_xattr_Errno() {
         final String NAME_TEST = "user.meow";
         final byte[] VALUE_CAKE = "cake cake cake".getBytes(StandardCharsets.UTF_8);
 
@@ -1014,6 +1390,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_realpath() throws Exception {
         File tmpDir = new File(System.getProperty("java.io.tmpdir"));
         // This is a chicken and egg problem. We have no way of knowing whether
@@ -1044,10 +1421,57 @@ public class OsTest extends TestCase {
         }
     }
 
+    private int[] getKernelVersion() {
+        // Example:
+        // 4.9.29-g958411d --> 4.9
+        String release = Os.uname().release;
+        Matcher m = Pattern.compile("^(\\d+)\\.(\\d+)").matcher(release);
+        assertTrue("No pattern in release string: " + release, m.find());
+        return new int[]{ Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)) };
+    }
+
+    private boolean kernelIsAtLeast(int major, int minor) {
+        int[] version = getKernelVersion();
+        return version[0] > major || (version[0] == major && version[1] >= minor);
+    }
+
+    @Test
+    public void test_socket_udpGro_setAndGet() throws Exception {
+        // UDP GRO not required to be enabled on kernels prior to 5.4
+        assumeTrue(kernelIsAtLeast(5, 4));
+
+        final FileDescriptor fd = Os.socket(AF_INET6, SOCK_DGRAM, 0);
+        try {
+            final int setValue = 1;
+            Os.setsockoptInt(fd, IPPROTO_UDP, UDP_GRO, setValue);
+            // getsockopt(IPPROTO_UDP, UDP_GRO) is not implemented.
+        } finally {
+            Os.close(fd);
+        }
+    }
+
+    @Test
+    public void test_socket_udpGso_set() throws Exception {
+        // UDP GSO not required to be enabled on kernels prior to 4.19.
+        assumeTrue(kernelIsAtLeast(4, 19));
+
+        final FileDescriptor fd = Os.socket(AF_INET, SOCK_DGRAM, 0);
+        try {
+            assertEquals(0, Os.getsockoptInt(fd, IPPROTO_UDP, UDP_SEGMENT));
+
+            final int setValue = 1452;
+            Os.setsockoptInt(fd, IPPROTO_UDP, UDP_SEGMENT, setValue);
+            assertEquals(setValue, Os.getsockoptInt(fd, IPPROTO_UDP, UDP_SEGMENT));
+        } finally {
+            Os.close(fd);
+        }
+    }
+
     /**
      * Tests that TCP_USER_TIMEOUT can be set on a TCP socket, but doesn't test
      * that it behaves as expected.
      */
+    @Test
     public void test_socket_tcpUserTimeout_setAndGet() throws Exception {
         final FileDescriptor fd = Os.socket(AF_INET, SOCK_STREAM, 0);
         try {
@@ -1068,6 +1492,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_socket_tcpUserTimeout_doesNotWorkOnDatagramSocket() throws Exception {
         final FileDescriptor fd = Os.socket(AF_INET, SOCK_DGRAM, 0);
         try {
@@ -1081,6 +1506,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_socket_sockoptTimeval_readWrite() throws Exception {
         FileDescriptor fd = Os.socket(AF_INET6, SOCK_STREAM, 0);
         try {
@@ -1102,9 +1528,13 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_socket_setSockoptTimeval_effective() throws Exception {
-        int timeoutValueMillis = 50;
-        int allowedTimeoutMillis = 500;
+        // b/176104885 Older devices can return a few ms early, add a tolerance for them
+        long timeoutTolerance = kernelIsAtLeast(3, 18) ? 0 : 10;
+
+        int timeoutValueMillis = 250;
+        int allowedTimeoutMillis = 3000;
 
         FileDescriptor fd = Os.socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
         try {
@@ -1116,20 +1546,27 @@ public class OsTest extends TestCase {
             long startTime = System.nanoTime();
             expectException(() -> Os.read(fd, request, 0, request.length),
                     ErrnoException.class, EAGAIN, "Expected timeout");
-            long endTime = System.nanoTime();
-            assertTrue(Duration.ofNanos(endTime - startTime).toMillis() < allowedTimeoutMillis);
+            long durationMillis = Duration.ofNanos(System.nanoTime() - startTime).toMillis();
+            assertTrue("Timeout of " + timeoutValueMillis + "ms returned after "
+                    + durationMillis +"ms",
+                durationMillis >= timeoutValueMillis - timeoutTolerance);
+            assertTrue("Timeout of " + timeoutValueMillis + "ms failed to return within "
+                    + allowedTimeoutMillis  + "ms",
+                durationMillis < allowedTimeoutMillis);
         } finally {
             Os.close(fd);
         }
     }
 
-    public void test_socket_setSockoptTimeval_nullFd() throws Exception {
+    @Test
+    public void test_socket_setSockoptTimeval_nullFd() {
         StructTimeval tv = StructTimeval.fromMillis(500);
         expectException(
                 () -> Os.setsockoptTimeval(null, SOL_SOCKET, SO_RCVTIMEO, tv),
                 ErrnoException.class, EBADF, "setsockoptTimeval(null, ...)");
     }
 
+    @Test
     public void test_socket_setSockoptTimeval_fileFd() throws Exception {
         File testFile = createTempFile("test_socket_setSockoptTimeval_invalidFd", "");
         try (FileInputStream fis = new FileInputStream(testFile)) {
@@ -1142,6 +1579,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_socket_setSockoptTimeval_badFd() throws Exception {
         StructTimeval tv = StructTimeval.fromMillis(500);
         FileDescriptor invalidFd = Os.socket(AF_INET6, SOCK_STREAM, 0);
@@ -1152,6 +1590,7 @@ public class OsTest extends TestCase {
                 ErrnoException.class, EBADF, "setsockoptTimeval(<closed fd>, ...)");
     }
 
+    @Test
     public void test_socket_setSockoptTimeval_invalidLevel() throws Exception {
         StructTimeval tv = StructTimeval.fromMillis(500);
         FileDescriptor fd = Os.socket(AF_INET6, SOCK_STREAM, 0);
@@ -1165,6 +1604,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_socket_setSockoptTimeval_invalidOpt() throws Exception {
         StructTimeval tv = StructTimeval.fromMillis(500);
         FileDescriptor fd = Os.socket(AF_INET6, SOCK_STREAM, 0);
@@ -1178,6 +1618,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_socket_setSockoptTimeval_nullTimeVal() throws Exception {
         FileDescriptor fd = Os.socket(AF_INET6, SOCK_STREAM, 0);
         try {
@@ -1189,6 +1630,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_socket_getSockoptTimeval_invalidOption() throws Exception {
         FileDescriptor fd = Os.socket(AF_INET6, SOCK_STREAM, 0);
         try {
@@ -1201,19 +1643,22 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_if_nametoindex_if_indextoname() throws Exception {
-        List<NetworkInterface> nis = Collections.list(NetworkInterface.getNetworkInterfaces());
+        Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+        assertNotNull(networkInterfaces);
+        List<NetworkInterface> nis = Collections.list(networkInterfaces);
 
         assertTrue(nis.size() > 0);
         for (NetworkInterface ni : nis) {
             int index = ni.getIndex();
             String name = ni.getName();
             assertEquals(index, Os.if_nametoindex(name));
-            assertTrue(Os.if_indextoname(index).equals(name));
+            assertEquals(Os.if_indextoname(index), name);
         }
 
         assertEquals(0, Os.if_nametoindex("this-interface-does-not-exist"));
-        assertEquals(null, Os.if_indextoname(-1000));
+        assertNull(Os.if_indextoname(-1000));
 
         try {
             Os.if_nametoindex(null);
@@ -1231,6 +1676,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_readlink() throws Exception {
         File path = new File(TestIoUtils.createTemporaryDirectory("test_readlink"), "symlink");
 
@@ -1241,17 +1687,18 @@ public class OsTest extends TestCase {
         // failure are still on 3.18, far from current). Given that we don't
         // really care here, just use 2048 instead. http://b/33306057.
         int size = 2048;
-        String xs = "";
+        StringBuilder xs = new StringBuilder();
         for (int i = 0; i < size - 1; ++i) {
-            xs += "x";
+            xs.append("x");
         }
 
-        Os.symlink(xs, path.getPath());
+        Os.symlink(xs.toString(), path.getPath());
 
-        assertEquals(xs, Os.readlink(path.getPath()));
+        assertEquals(xs.toString(), Os.readlink(path.getPath()));
     }
 
     // Address should be correctly set for empty packets. http://b/33481605
+    @Test
     public void test_recvfrom_EmptyPacket() throws Exception {
         try (DatagramSocket ds = new DatagramSocket();
              DatagramSocket srcSock = new DatagramSocket()) {
@@ -1267,6 +1714,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_fstat_times() throws Exception {
         File file = File.createTempFile("OsTest", "fstattest");
         FileOutputStream fos = new FileOutputStream(file);
@@ -1285,6 +1733,7 @@ public class OsTest extends TestCase {
         assertEquals(0, structStat1.st_atim.compareTo(structStat2.st_atim));
     }
 
+    @Test
     public void test_getrlimit() throws Exception {
         StructRlimit rlimit = Os.getrlimit(OsConstants.RLIMIT_NOFILE);
         // We can't really make any assertions about these values since they might vary from
@@ -1295,7 +1744,8 @@ public class OsTest extends TestCase {
     }
 
     // http://b/65051835
-    public void test_pipe2_errno() throws Exception {
+    @Test
+    public void test_pipe2_errno() {
         try {
             // flag=-1 is not a valid value for pip2, will EINVAL
             Os.pipe2(-1);
@@ -1305,7 +1755,8 @@ public class OsTest extends TestCase {
     }
 
     // http://b/65051835
-    public void test_sendfile_errno() throws Exception {
+    @Test
+    public void test_sendfile_errno() {
         try {
             // FileDescriptor.out is not open for input, will cause EBADF
             Int64Ref offset = new Int64Ref(10);
@@ -1315,6 +1766,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_sendfile_null() throws Exception {
         File in = createTempFile("test_sendfile_null", "Hello, world!");
         try {
@@ -1325,6 +1777,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_sendfile_offset() throws Exception {
         File in = createTempFile("test_sendfile_offset", "Hello, world!");
         try {
@@ -1364,6 +1817,7 @@ public class OsTest extends TestCase {
         return f;
     }
 
+    @Test
     public void test_odirect() throws Exception {
         File testFile = createTempFile("test_odirect", "");
         try {
@@ -1380,6 +1834,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void test_splice() throws Exception {
         FileDescriptor[] pipe = Os.pipe2(0);
         File in = createTempFile("splice1", "foobar");
@@ -1412,6 +1867,7 @@ public class OsTest extends TestCase {
         Os.close(pipe[1]);
     }
 
+    @Test
     public void test_splice_errors() throws Exception {
         File in = createTempFile("splice3", "");
         File out = createTempFile("splice4", "");
@@ -1452,6 +1908,7 @@ public class OsTest extends TestCase {
         Os.close(pipe[1]);
     }
 
+    @Test
     public void testCloseNullFileDescriptor() throws Exception {
         try {
             Os.close(null);
@@ -1460,6 +1917,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void testSocketpairNullFileDescriptor1() throws Exception {
         try {
             Os.socketpair(AF_UNIX, SOCK_STREAM, 0, null, new FileDescriptor());
@@ -1468,6 +1926,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void testSocketpairNullFileDescriptor2() throws Exception {
         try {
             Os.socketpair(AF_UNIX, SOCK_STREAM, 0, new FileDescriptor(), null);
@@ -1476,6 +1935,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void testSocketpairNullFileDescriptorBoth() throws Exception {
         try {
             Os.socketpair(AF_UNIX, SOCK_STREAM, 0, null, null);
@@ -1484,30 +1944,35 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void testInetPtonIpv4() {
         String srcAddress = "127.0.0.1";
         InetAddress inetAddress = Os.inet_pton(AF_INET, srcAddress);
         assertEquals(srcAddress, inetAddress.getHostAddress());
     }
 
+    @Test
     public void testInetPtonIpv6() {
         String srcAddress = "1123:4567:89ab:cdef:fedc:ba98:7654:3210";
         InetAddress inetAddress = Os.inet_pton(AF_INET6, srcAddress);
         assertEquals(srcAddress, inetAddress.getHostAddress());
     }
 
+    @Test
     public void testInetPtonInvalidFamily() {
         String srcAddress = "127.0.0.1";
         InetAddress inetAddress = Os.inet_pton(AF_UNIX, srcAddress);
         assertNull(inetAddress);
     }
 
+    @Test
     public void testInetPtonWrongFamily() {
         String srcAddress = "127.0.0.1";
         InetAddress inetAddress = Os.inet_pton(AF_INET6, srcAddress);
         assertNull(inetAddress);
     }
 
+    @Test
     public void testInetPtonInvalidData() {
         String srcAddress = "10.1";
         InetAddress inetAddress = Os.inet_pton(AF_INET, srcAddress);
@@ -1517,6 +1982,7 @@ public class OsTest extends TestCase {
     /**
      * Verifies the {@link OsConstants#MAP_ANONYMOUS}.
      */
+    @Test
     public void testMapAnonymous() throws Exception {
         final long size = 4096;
         final long address = Os.mmap(0, size, PROT_READ,
@@ -1525,6 +1991,7 @@ public class OsTest extends TestCase {
         Os.munmap(address, size);
     }
 
+    @Test
     public void testMemfdCreate() throws Exception {
         FileDescriptor fd = null;
         try {
@@ -1553,6 +2020,7 @@ public class OsTest extends TestCase {
         }
     }
 
+    @Test
     public void testMemfdCreateFlags() throws Exception {
         FileDescriptor fd = null;
 
@@ -1562,8 +2030,8 @@ public class OsTest extends TestCase {
             assertNotNull(fd);
             assertTrue(fd.valid());
             int flags = Os.fcntlVoid(fd, F_GETFD);
-            assertTrue("Expected flags to not include " + FD_CLOEXEC + ", actual value: " + flags,
-                    0 == (flags & FD_CLOEXEC));
+            assertEquals("Expected flags to not include " + FD_CLOEXEC + ", actual value: " + flags,
+                0, (flags & FD_CLOEXEC));
         } finally {
             if (fd != null) {
                 Os.close(fd);
@@ -1585,7 +2053,8 @@ public class OsTest extends TestCase {
         }
     }
 
-    public void testMemfdCreateErrno() throws Exception {
+    @Test
+    public void testMemfdCreateErrno() {
         expectException(() -> Os.memfd_create(null, 0), NullPointerException.class, null,
                 "memfd_create(null, 0)");
 

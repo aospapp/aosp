@@ -54,7 +54,7 @@ const StringMap FuncSubstitutions = {{"malloc", "__asan_malloc"},
                                      {"calloc", "__asan_calloc"},
                                      {"__asan_dummy_calloc", "__asan_calloc"},
                                      {"realloc", "__asan_realloc"}};
-const StringSet FuncBlackList = {"_Balloc"};
+const StringSet FuncIgnoreList = {"_Balloc"};
 
 llvm::NaClBitcodeRecord::RecordVector sizeToByteVec(SizeT Size) {
   llvm::NaClBitcodeRecord::RecordVector SizeContents;
@@ -75,8 +75,8 @@ ICE_TLS_DEFINE_FIELD(VarSizeMap *, ASanInstrumentation, CheckedVars);
 
 bool ASanInstrumentation::isInstrumentable(Cfg *Func) {
   std::string FuncName = Func->getFunctionName().toStringOrEmpty();
-  return FuncName == "" ||
-         (FuncBlackList.count(FuncName) == 0 && FuncName.find(ASanPrefix) != 0);
+  return FuncName == "" || (FuncIgnoreList.count(FuncName) == 0 &&
+                            FuncName.find(ASanPrefix) != 0);
 }
 
 // Create redzones around all global variables, ensuring that the initializer
@@ -363,7 +363,7 @@ void ASanInstrumentation::instrumentCall(LoweringContext &Context,
 
 void ASanInstrumentation::instrumentLoad(LoweringContext &Context,
                                          InstLoad *Instr) {
-  Operand *Src = Instr->getSourceAddress();
+  Operand *Src = Instr->getLoadAddress();
   if (auto *Reloc = llvm::dyn_cast<ConstantRelocatable>(Src)) {
     auto *NewLoad = InstLoad::create(Context.getNode()->getCfg(),
                                      Instr->getDest(), instrumentReloc(Reloc));
@@ -373,7 +373,7 @@ void ASanInstrumentation::instrumentLoad(LoweringContext &Context,
   }
   Constant *Func =
       Ctx->getConstantExternSym(Ctx->getGlobalString("__asan_check_load"));
-  instrumentAccess(Context, Instr->getSourceAddress(),
+  instrumentAccess(Context, Instr->getLoadAddress(),
                    typeWidthInBytes(Instr->getDest()->getType()), Func);
 }
 
@@ -381,15 +381,16 @@ void ASanInstrumentation::instrumentStore(LoweringContext &Context,
                                           InstStore *Instr) {
   Operand *Data = Instr->getData();
   if (auto *Reloc = llvm::dyn_cast<ConstantRelocatable>(Data)) {
-    auto *NewStore = InstStore::create(
-        Context.getNode()->getCfg(), instrumentReloc(Reloc), Instr->getAddr());
+    auto *NewStore =
+        InstStore::create(Context.getNode()->getCfg(), instrumentReloc(Reloc),
+                          Instr->getStoreAddress());
     Instr->setDeleted();
     Context.insert(NewStore);
     Instr = NewStore;
   }
   Constant *Func =
       Ctx->getConstantExternSym(Ctx->getGlobalString("__asan_check_store"));
-  instrumentAccess(Context, Instr->getAddr(),
+  instrumentAccess(Context, Instr->getStoreAddress(),
                    typeWidthInBytes(Instr->getData()->getType()), Func);
 }
 
@@ -461,8 +462,8 @@ void ASanInstrumentation::instrumentRet(LoweringContext &Context, InstRet *) {
   Cfg *Func = Context.getNode()->getCfg();
   Context.setInsertPoint(Context.getCur());
   for (InstStore *RzUnpoison : *ICE_TLS_GET_FIELD(LocalDtors)) {
-    Context.insert(
-        InstStore::create(Func, RzUnpoison->getData(), RzUnpoison->getAddr()));
+    Context.insert(InstStore::create(Func, RzUnpoison->getData(),
+                                     RzUnpoison->getStoreAddress()));
   }
   Context.advanceCur();
   Context.advanceNext();

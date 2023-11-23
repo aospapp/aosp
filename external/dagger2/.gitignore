@@ -30,6 +30,8 @@ dependency-reduced-pom.xml
 
 gen-external-apklibs
 
-/bazel-*
+bazel-*
 
 *.pyc
+
+.gradle

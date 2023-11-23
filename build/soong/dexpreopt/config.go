@@ -17,6 +17,7 @@ package dexpreopt
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/google/blueprint"
@@ -27,10 +28,13 @@ import (
 // GlobalConfig stores the configuration for dex preopting. The fields are set
 // from product variables via dex_preopt_config.mk.
 type GlobalConfig struct {
-	DisablePreopt        bool     // disable preopt for all modules
-	DisablePreoptModules []string // modules with preopt disabled by product-specific config
+	DisablePreopt           bool     // disable preopt for all modules (excluding boot images)
+	DisablePreoptBootImages bool     // disable prepot for boot images
+	DisablePreoptModules    []string // modules with preopt disabled by product-specific config
 
 	OnlyPreoptBootImageAndSystemServer bool // only preopt jars in the boot image or system server
+
+	PreoptWithUpdatableBcp bool // If updatable boot jars are included in dexpreopt or not.
 
 	UseArtImage bool // use the art image (use other boot class path dex files without image)
 
@@ -40,15 +44,17 @@ type GlobalConfig struct {
 	DisableGenerateProfile bool   // don't generate profiles
 	ProfileDir             string // directory to find profiles in
 
-	BootJars          []string // modules for jars that form the boot class path
-	UpdatableBootJars []string // jars within apex that form the boot class path
+	BootJars          android.ConfiguredJarList // modules for jars that form the boot class path
+	UpdatableBootJars android.ConfiguredJarList // jars within apex that form the boot class path
 
-	ArtApexJars []string // modules for jars that are in the ART APEX
+	ArtApexJars android.ConfiguredJarList // modules for jars that are in the ART APEX
 
-	SystemServerJars          []string // jars that form the system server
-	SystemServerApps          []string // apps that are loaded into system server
-	UpdatableSystemServerJars []string // jars within apex that are loaded into system server
-	SpeedApps                 []string // apps that should be speed optimized
+	SystemServerJars          android.ConfiguredJarList // jars that form the system server
+	SystemServerApps          []string                  // apps that are loaded into system server
+	UpdatableSystemServerJars android.ConfiguredJarList // jars within apex that are loaded into system server
+	SpeedApps                 []string                  // apps that should be speed optimized
+
+	BrokenSuboptimalOrderOfSystemServerJars bool // if true, sub-optimal order does not cause a build error
 
 	PreoptFlags []string // global dex2oat flags that should be used if no module-specific dex2oat flags are specified
 
@@ -77,12 +83,19 @@ type GlobalConfig struct {
 	CpuVariant             map[android.ArchType]string // cpu variant for each architecture
 	InstructionSetFeatures map[android.ArchType]string // instruction set for each architecture
 
-	// Only used for boot image
-	DirtyImageObjects android.OptionalPath // path to a dirty-image-objects file
-	BootImageProfiles android.Paths        // path to a boot-image-profile.txt file
-	BootFlags         string               // extra flags to pass to dex2oat for the boot image
-	Dex2oatImageXmx   string               // max heap size for dex2oat for the boot image
-	Dex2oatImageXms   string               // initial heap size for dex2oat for the boot image
+	BootImageProfiles android.Paths // path to a boot-image-profile.txt file
+	BootFlags         string        // extra flags to pass to dex2oat for the boot image
+	Dex2oatImageXmx   string        // max heap size for dex2oat for the boot image
+	Dex2oatImageXms   string        // initial heap size for dex2oat for the boot image
+
+	// If true, downgrade the compiler filter of dexpreopt to "verify" when verify_uses_libraries
+	// check fails, instead of failing the build. This will disable any AOT-compilation.
+	//
+	// The intended use case for this flag is to have a smoother migration path for the Java
+	// modules that need to add <uses-library> information in their build files. The flag allows to
+	// quickly silence build errors. This flag should be used with caution and only as a temporary
+	// measure, as it masks real errors and affects performance.
+	RelaxUsesLibraryCheck bool
 }
 
 // GlobalSoongConfig contains the global config that is generated from Soong,
@@ -103,7 +116,7 @@ type ModuleConfig struct {
 	DexLocation     string // dex location on device
 	BuildPath       android.OutputPath
 	DexPath         android.Path
-	ManifestPath    android.Path
+	ManifestPath    android.OptionalPath
 	UncompressedDex bool
 	HasApkLibraries bool
 	PreoptFlags     []string
@@ -112,15 +125,16 @@ type ModuleConfig struct {
 	ProfileIsTextListing bool
 	ProfileBootListing   android.OptionalPath
 
-	EnforceUsesLibraries         bool
-	PresentOptionalUsesLibraries []string
-	UsesLibraries                []string
-	LibraryPaths                 map[string]android.Path
+	EnforceUsesLibraries           bool         // turn on build-time verify_uses_libraries check
+	EnforceUsesLibrariesStatusFile android.Path // a file with verify_uses_libraries errors (if any)
+	ProvidesUsesLibrary            string       // library name (usually the same as module name)
+	ClassLoaderContexts            ClassLoaderContextMap
 
-	Archs                   []android.ArchType
-	DexPreoptImages         []android.Path
-	DexPreoptImagesDeps     []android.OutputPaths
-	DexPreoptImageLocations []string
+	Archs               []android.ArchType
+	DexPreoptImagesDeps []android.OutputPaths
+
+	DexPreoptImageLocationsOnHost   []string // boot image location on host (file path without the arch subdirectory)
+	DexPreoptImageLocationsOnDevice []string // boot image location on device (file path without the arch subdirectory)
 
 	PreoptBootClassPathDexFiles     android.Paths // file paths of boot class path files
 	PreoptBootClassPathDexLocations []string      // virtual locations of boot class path files
@@ -163,14 +177,6 @@ func constructPaths(ctx android.PathContext, paths []string) android.Paths {
 	return ret
 }
 
-func constructPathMap(ctx android.PathContext, paths map[string]string) map[string]android.Path {
-	ret := map[string]android.Path{}
-	for key, path := range paths {
-		ret[key] = constructPath(ctx, path)
-	}
-	return ret
-}
-
 func constructWritablePath(ctx android.PathContext, path string) android.WritablePath {
 	if path == "" {
 		return nil
@@ -186,7 +192,6 @@ func ParseGlobalConfig(ctx android.PathContext, data []byte) (*GlobalConfig, err
 
 		// Copies of entries in GlobalConfig that are not constructable without extra parameters.  They will be
 		// used to construct the real value manually below.
-		DirtyImageObjects string
 		BootImageProfiles []string
 	}
 
@@ -197,7 +202,6 @@ func ParseGlobalConfig(ctx android.PathContext, data []byte) (*GlobalConfig, err
 	}
 
 	// Construct paths that require a PathContext.
-	config.GlobalConfig.DirtyImageObjects = android.OptionalPathForPath(constructPath(ctx, config.DirtyImageObjects))
 	config.GlobalConfig.BootImageProfiles = constructPaths(ctx, config.BootImageProfiles)
 
 	return config.GlobalConfig, nil
@@ -242,8 +246,9 @@ func getGlobalConfigRaw(ctx android.PathContext) globalConfigAndRaw {
 		return ctx.Config().Once(testGlobalConfigOnceKey, func() interface{} {
 			// Nope, return a config with preopting disabled
 			return globalConfigAndRaw{&GlobalConfig{
-				DisablePreopt:          true,
-				DisableGenerateProfile: true,
+				DisablePreopt:           true,
+				DisablePreoptBootImages: true,
+				DisableGenerateProfile:  true,
 			}, nil}
 		})
 	}).(globalConfigAndRaw)
@@ -256,28 +261,34 @@ func SetTestGlobalConfig(config android.Config, globalConfig *GlobalConfig) {
 	config.Once(testGlobalConfigOnceKey, func() interface{} { return globalConfigAndRaw{globalConfig, nil} })
 }
 
+// This struct is required to convert ModuleConfig from/to JSON.
+// The types of fields in ModuleConfig are not convertible,
+// so moduleJSONConfig has those fields as a convertible type.
+type moduleJSONConfig struct {
+	*ModuleConfig
+
+	BuildPath    string
+	DexPath      string
+	ManifestPath string
+
+	ProfileClassListing string
+	ProfileBootListing  string
+
+	EnforceUsesLibrariesStatusFile string
+	ClassLoaderContexts            jsonClassLoaderContextMap
+
+	DexPreoptImagesDeps [][]string
+
+	PreoptBootClassPathDexFiles []string
+}
+
 // ParseModuleConfig parses a per-module dexpreopt.config file into a
 // ModuleConfig struct. It is not used in Soong, which receives a ModuleConfig
 // struct directly from java/dexpreopt.go. It is used in dexpreopt_gen called
 // from Make to read the module dexpreopt.config written in the Make config
 // stage.
 func ParseModuleConfig(ctx android.PathContext, data []byte) (*ModuleConfig, error) {
-	type ModuleJSONConfig struct {
-		*ModuleConfig
-
-		// Copies of entries in ModuleConfig that are not constructable without extra parameters.  They will be
-		// used to construct the real value manually below.
-		BuildPath                   string
-		DexPath                     string
-		ManifestPath                string
-		ProfileClassListing         string
-		LibraryPaths                map[string]string
-		DexPreoptImages             []string
-		DexPreoptImageLocations     []string
-		PreoptBootClassPathDexFiles []string
-	}
-
-	config := ModuleJSONConfig{}
+	config := moduleJSONConfig{}
 
 	err := json.Unmarshal(data, &config)
 	if err != nil {
@@ -287,17 +298,55 @@ func ParseModuleConfig(ctx android.PathContext, data []byte) (*ModuleConfig, err
 	// Construct paths that require a PathContext.
 	config.ModuleConfig.BuildPath = constructPath(ctx, config.BuildPath).(android.OutputPath)
 	config.ModuleConfig.DexPath = constructPath(ctx, config.DexPath)
-	config.ModuleConfig.ManifestPath = constructPath(ctx, config.ManifestPath)
+	config.ModuleConfig.ManifestPath = android.OptionalPathForPath(constructPath(ctx, config.ManifestPath))
 	config.ModuleConfig.ProfileClassListing = android.OptionalPathForPath(constructPath(ctx, config.ProfileClassListing))
-	config.ModuleConfig.LibraryPaths = constructPathMap(ctx, config.LibraryPaths)
-	config.ModuleConfig.DexPreoptImages = constructPaths(ctx, config.DexPreoptImages)
-	config.ModuleConfig.DexPreoptImageLocations = config.DexPreoptImageLocations
+	config.ModuleConfig.EnforceUsesLibrariesStatusFile = constructPath(ctx, config.EnforceUsesLibrariesStatusFile)
+	config.ModuleConfig.ClassLoaderContexts = fromJsonClassLoaderContext(ctx, config.ClassLoaderContexts)
 	config.ModuleConfig.PreoptBootClassPathDexFiles = constructPaths(ctx, config.PreoptBootClassPathDexFiles)
 
 	// This needs to exist, but dependencies are already handled in Make, so we don't need to pass them through JSON.
-	config.ModuleConfig.DexPreoptImagesDeps = make([]android.OutputPaths, len(config.ModuleConfig.DexPreoptImages))
+	config.ModuleConfig.DexPreoptImagesDeps = make([]android.OutputPaths, len(config.ModuleConfig.Archs))
 
 	return config.ModuleConfig, nil
+}
+
+func pathsListToStringLists(pathsList []android.OutputPaths) [][]string {
+	ret := make([][]string, 0, len(pathsList))
+	for _, paths := range pathsList {
+		ret = append(ret, paths.Strings())
+	}
+	return ret
+}
+
+func moduleConfigToJSON(config *ModuleConfig) ([]byte, error) {
+	return json.MarshalIndent(&moduleJSONConfig{
+		BuildPath:                      config.BuildPath.String(),
+		DexPath:                        config.DexPath.String(),
+		ManifestPath:                   config.ManifestPath.String(),
+		ProfileClassListing:            config.ProfileClassListing.String(),
+		ProfileBootListing:             config.ProfileBootListing.String(),
+		EnforceUsesLibrariesStatusFile: config.EnforceUsesLibrariesStatusFile.String(),
+		ClassLoaderContexts:            toJsonClassLoaderContext(config.ClassLoaderContexts),
+		DexPreoptImagesDeps:            pathsListToStringLists(config.DexPreoptImagesDeps),
+		PreoptBootClassPathDexFiles:    config.PreoptBootClassPathDexFiles.Strings(),
+		ModuleConfig:                   config,
+	}, "", "    ")
+}
+
+// WriteModuleConfig serializes a ModuleConfig into a per-module dexpreopt.config JSON file.
+// These config files are used for post-processing.
+func WriteModuleConfig(ctx android.ModuleContext, config *ModuleConfig, path android.WritablePath) {
+	if path == nil {
+		return
+	}
+
+	data, err := moduleConfigToJSON(config)
+	if err != nil {
+		ctx.ModuleErrorf("failed to JSON marshal module dexpreopt.config: %v", err)
+		return
+	}
+
+	android.WriteFileRule(ctx, path, string(data))
 }
 
 // dex2oatModuleName returns the name of the module to use for the dex2oat host
@@ -313,9 +362,33 @@ func dex2oatModuleName(config android.Config) string {
 	}
 }
 
-var dex2oatDepTag = struct {
+type dex2oatDependencyTag struct {
 	blueprint.BaseDependencyTag
-}{}
+}
+
+func (d dex2oatDependencyTag) ExcludeFromVisibilityEnforcement() {
+}
+
+func (d dex2oatDependencyTag) ExcludeFromApexContents() {
+}
+
+func (d dex2oatDependencyTag) AllowDisabledModuleDependency(target android.Module) bool {
+	// RegisterToolDeps may run after the prebuilt mutators and hence register a
+	// dependency on the source module even when the prebuilt is to be used.
+	// dex2oatPathFromDep takes that into account when it retrieves the path to
+	// the binary, but we also need to disable the check for dependencies on
+	// disabled modules.
+	return target.IsReplacedByPrebuilt()
+}
+
+// Dex2oatDepTag represents the dependency onto the dex2oatd module. It is added to any module that
+// needs dexpreopting and so it makes no sense for it to be checked for visibility or included in
+// the apex.
+var Dex2oatDepTag = dex2oatDependencyTag{}
+
+var _ android.ExcludeFromVisibilityEnforcementTag = Dex2oatDepTag
+var _ android.ExcludeFromApexContentsTag = Dex2oatDepTag
+var _ android.AllowDisabledModuleDependency = Dex2oatDepTag
 
 // RegisterToolDeps adds the necessary dependencies to binary modules for tools
 // that are required later when Get(Cached)GlobalSoongConfig is called. It
@@ -324,13 +397,39 @@ var dex2oatDepTag = struct {
 func RegisterToolDeps(ctx android.BottomUpMutatorContext) {
 	dex2oatBin := dex2oatModuleName(ctx.Config())
 	v := ctx.Config().BuildOSTarget.Variations()
-	ctx.AddFarVariationDependencies(v, dex2oatDepTag, dex2oatBin)
+	ctx.AddFarVariationDependencies(v, Dex2oatDepTag, dex2oatBin)
 }
 
 func dex2oatPathFromDep(ctx android.ModuleContext) android.Path {
 	dex2oatBin := dex2oatModuleName(ctx.Config())
 
-	dex2oatModule := ctx.GetDirectDepWithTag(dex2oatBin, dex2oatDepTag)
+	// Find the right dex2oat module, trying to follow PrebuiltDepTag from source
+	// to prebuilt if there is one. We wouldn't have to do this if the
+	// prebuilt_postdeps mutator that replaces source deps with prebuilt deps was
+	// run after RegisterToolDeps above, but changing that leads to ordering
+	// problems between mutators (RegisterToolDeps needs to run late to act on
+	// final variants, while prebuilt_postdeps needs to run before many of the
+	// PostDeps mutators, like the APEX mutators). Hence we need to dig out the
+	// prebuilt explicitly here instead.
+	var dex2oatModule android.Module
+	ctx.WalkDeps(func(child, parent android.Module) bool {
+		if parent == ctx.Module() && ctx.OtherModuleDependencyTag(child) == Dex2oatDepTag {
+			// Found the source module, or prebuilt module that has replaced the source.
+			dex2oatModule = child
+			if android.IsModulePrebuilt(child) {
+				return false // If it's the prebuilt we're done.
+			} else {
+				return true // Recurse to check if the source has a prebuilt dependency.
+			}
+		}
+		if parent == dex2oatModule && ctx.OtherModuleDependencyTag(child) == android.PrebuiltDepTag {
+			if p := android.GetEmbeddedPrebuilt(child); p != nil && p.UsePrebuilt() {
+				dex2oatModule = child // Found a prebuilt that should be used.
+			}
+		}
+		return false
+	})
+
 	if dex2oatModule == nil {
 		// If this happens there's probably a missing call to AddToolDeps in DepsMutator.
 		panic(fmt.Sprintf("Failed to lookup %s dependency", dex2oatBin))
@@ -347,13 +446,6 @@ func dex2oatPathFromDep(ctx android.ModuleContext) android.Path {
 // createGlobalSoongConfig creates a GlobalSoongConfig from the current context.
 // Should not be used in dexpreopt_gen.
 func createGlobalSoongConfig(ctx android.ModuleContext) *GlobalSoongConfig {
-	if ctx.Config().TestProductVariables != nil {
-		// If we're called in a test there'll be a confusing error from the path
-		// functions below that gets reported without a stack trace, so let's panic
-		// properly with a more helpful message.
-		panic("This should not be called from tests. Please call GlobalSoongConfigForTests somewhere in the test setup.")
-	}
-
 	return &GlobalSoongConfig{
 		Profman:          ctx.Config().HostToolPath(ctx, "profman"),
 		Dex2oat:          dex2oatPathFromDep(ctx),
@@ -361,20 +453,19 @@ func createGlobalSoongConfig(ctx android.ModuleContext) *GlobalSoongConfig {
 		SoongZip:         ctx.Config().HostToolPath(ctx, "soong_zip"),
 		Zip2zip:          ctx.Config().HostToolPath(ctx, "zip2zip"),
 		ManifestCheck:    ctx.Config().HostToolPath(ctx, "manifest_check"),
-		ConstructContext: android.PathForSource(ctx, "build/make/core/construct_context.sh"),
+		ConstructContext: ctx.Config().HostToolPath(ctx, "construct_context"),
 	}
 }
 
 // The main reason for this Once cache for GlobalSoongConfig is to make the
 // dex2oat path available to singletons. In ordinary modules we get it through a
-// dex2oatDepTag dependency, but in singletons there's no simple way to do the
+// Dex2oatDepTag dependency, but in singletons there's no simple way to do the
 // same thing and ensure the right variant is selected, hence this cache to make
 // the resolved path available to singletons. This means we depend on there
-// being at least one ordinary module with a dex2oatDepTag dependency.
+// being at least one ordinary module with a Dex2oatDepTag dependency.
 //
 // TODO(b/147613152): Implement a way to deal with dependencies from singletons,
-// and then possibly remove this cache altogether (but the use in
-// GlobalSoongConfigForTests also needs to be rethought).
+// and then possibly remove this cache altogether.
 var globalSoongConfigOnceKey = android.NewOnceKey("DexpreoptGlobalSoongConfig")
 
 // GetGlobalSoongConfig creates a GlobalSoongConfig the first time it's called,
@@ -440,7 +531,27 @@ func ParseGlobalSoongConfig(ctx android.PathContext, data []byte) (*GlobalSoongC
 	return config, nil
 }
 
+// checkBootJarsConfigConsistency checks the consistency of BootJars and UpdatableBootJars fields in
+// DexpreoptGlobalConfig and Config.productVariables.
+func checkBootJarsConfigConsistency(ctx android.SingletonContext, dexpreoptConfig *GlobalConfig, config android.Config) {
+	compareBootJars := func(property string, dexpreoptJars, variableJars android.ConfiguredJarList) {
+		dexpreoptPairs := dexpreoptJars.CopyOfApexJarPairs()
+		variablePairs := variableJars.CopyOfApexJarPairs()
+		if !reflect.DeepEqual(dexpreoptPairs, variablePairs) {
+			ctx.Errorf("Inconsistent configuration of %[1]s\n"+
+				"    dexpreopt.GlobalConfig.%[1]s = %[2]s\n"+
+				"    productVariables.%[1]s       = %[3]s",
+				property, dexpreoptPairs, variablePairs)
+		}
+	}
+
+	compareBootJars("BootJars", dexpreoptConfig.BootJars, config.NonUpdatableBootJars())
+	compareBootJars("UpdatableBootJars", dexpreoptConfig.UpdatableBootJars, config.UpdatableBootJars())
+}
+
 func (s *globalSoongConfigSingleton) GenerateBuildActions(ctx android.SingletonContext) {
+	checkBootJarsConfigConsistency(ctx, GetGlobalConfig(ctx), ctx.Config())
+
 	if GetGlobalConfig(ctx).DisablePreopt {
 		return
 	}
@@ -468,13 +579,7 @@ func (s *globalSoongConfigSingleton) GenerateBuildActions(ctx android.SingletonC
 		return
 	}
 
-	ctx.Build(pctx, android.BuildParams{
-		Rule:   android.WriteFile,
-		Output: android.PathForOutput(ctx, "dexpreopt_soong.config"),
-		Args: map[string]string{
-			"content": string(data),
-		},
-	})
+	android.WriteFileRule(ctx, android.PathForOutput(ctx, "dexpreopt_soong.config"), string(data))
 }
 
 func (s *globalSoongConfigSingleton) MakeVars(ctx android.MakeVarsContext) {
@@ -508,12 +613,12 @@ func GlobalConfigForTests(ctx android.PathContext) *GlobalConfig {
 		PatternsOnSystemOther:              nil,
 		DisableGenerateProfile:             false,
 		ProfileDir:                         "",
-		BootJars:                           nil,
-		UpdatableBootJars:                  nil,
-		ArtApexJars:                        nil,
-		SystemServerJars:                   nil,
+		BootJars:                           android.EmptyConfiguredJarList(),
+		UpdatableBootJars:                  android.EmptyConfiguredJarList(),
+		ArtApexJars:                        android.EmptyConfiguredJarList(),
+		SystemServerJars:                   android.EmptyConfiguredJarList(),
 		SystemServerApps:                   nil,
-		UpdatableSystemServerJars:          nil,
+		UpdatableSystemServerJars:          android.EmptyConfiguredJarList(),
 		SpeedApps:                          nil,
 		PreoptFlags:                        nil,
 		DefaultCompilerFilter:              "",
@@ -533,7 +638,6 @@ func GlobalConfigForTests(ctx android.PathContext) *GlobalConfig {
 		EmptyDirectory:                     "empty_dir",
 		CpuVariant:                         nil,
 		InstructionSetFeatures:             nil,
-		DirtyImageObjects:                  android.OptionalPath{},
 		BootImageProfiles:                  nil,
 		BootFlags:                          "",
 		Dex2oatImageXmx:                    "",
@@ -541,18 +645,14 @@ func GlobalConfigForTests(ctx android.PathContext) *GlobalConfig {
 	}
 }
 
-func GlobalSoongConfigForTests(config android.Config) *GlobalSoongConfig {
-	// Install the test GlobalSoongConfig in the Once cache so that later calls to
-	// Get(Cached)GlobalSoongConfig returns it without trying to create a real one.
-	return config.Once(globalSoongConfigOnceKey, func() interface{} {
-		return &GlobalSoongConfig{
-			Profman:          android.PathForTesting("profman"),
-			Dex2oat:          android.PathForTesting("dex2oat"),
-			Aapt:             android.PathForTesting("aapt"),
-			SoongZip:         android.PathForTesting("soong_zip"),
-			Zip2zip:          android.PathForTesting("zip2zip"),
-			ManifestCheck:    android.PathForTesting("manifest_check"),
-			ConstructContext: android.PathForTesting("construct_context.sh"),
-		}
-	}).(*GlobalSoongConfig)
+func globalSoongConfigForTests() *GlobalSoongConfig {
+	return &GlobalSoongConfig{
+		Profman:          android.PathForTesting("profman"),
+		Dex2oat:          android.PathForTesting("dex2oat"),
+		Aapt:             android.PathForTesting("aapt"),
+		SoongZip:         android.PathForTesting("soong_zip"),
+		Zip2zip:          android.PathForTesting("zip2zip"),
+		ManifestCheck:    android.PathForTesting("manifest_check"),
+		ConstructContext: android.PathForTesting("construct_context"),
+	}
 }

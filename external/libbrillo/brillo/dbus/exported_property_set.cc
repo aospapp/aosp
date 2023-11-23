@@ -4,15 +4,14 @@
 
 #include <brillo/dbus/exported_property_set.h>
 
+#include <utility>
+
 #include <base/bind.h>
 #include <dbus/bus.h>
 #include <dbus/property.h>  // For kPropertyInterface
 
-#include <brillo/dbus/async_event_sequencer.h>
 #include <brillo/dbus/dbus_object.h>
 #include <brillo/errors/error_codes.h>
-
-using brillo::dbus_utils::AsyncEventSequencer;
 
 namespace brillo {
 

@@ -20,7 +20,7 @@ import android.annotation.Nullable;
 import android.content.Context;
 import android.content.pm.UserInfo;
 
-import com.android.car.settings.users.UserHelper;
+import com.android.car.settings.profiles.ProfileHelper;
 
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
@@ -30,14 +30,14 @@ import java.util.List;
 import java.util.function.Predicate;
 
 /**
- * Shadow for {@link UserHelper}.
+ * Shadow for {@link ProfileHelper}.
  */
-@Implements(UserHelper.class)
+@Implements(ProfileHelper.class)
 public class ShadowUserHelper {
-    private static UserHelper sInstance;
+    private static ProfileHelper sInstance;
 
-    public static void setInstance(UserHelper userHelper) {
-        sInstance = userHelper;
+    public static void setInstance(ProfileHelper profileHelper) {
+        sInstance = profileHelper;
     }
 
     @Resetter
@@ -52,18 +52,18 @@ public class ShadowUserHelper {
 
     @Implementation
     protected List<UserInfo> getAllUsers() {
-        return sInstance.getAllUsers();
+        return sInstance.getAllProfiles();
     }
 
     @Implementation
     protected List<UserInfo> getAllSwitchableUsers() {
-        return sInstance.getAllSwitchableUsers();
+        return sInstance.getAllSwitchableProfiles();
     }
 
 
     @Implementation
     protected List<UserInfo> getAllPersistentUsers() {
-        return sInstance.getAllPersistentUsers();
+        return sInstance.getAllPersistentProfiles();
     }
 
     @Implementation
@@ -77,8 +77,9 @@ public class ShadowUserHelper {
     }
 
     @Implementation
-    public boolean removeUser(Context context, UserInfo userInfo) {
-        return sInstance.removeUser(context, userInfo);
+    @ProfileHelper.RemoveProfileResult
+    public int removeUser(Context context, UserInfo userInfo) {
+        return sInstance.removeProfile(context, userInfo);
     }
 
     @Implementation
@@ -88,6 +89,6 @@ public class ShadowUserHelper {
 
     @Implementation
     public List<UserInfo> getAllLivingUsers(@Nullable Predicate<? super UserInfo> filter) {
-        return sInstance.getAllLivingUsers(filter);
+        return sInstance.getAllLivingProfiles(filter);
     }
 }

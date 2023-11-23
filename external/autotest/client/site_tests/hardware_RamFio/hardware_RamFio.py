@@ -3,8 +3,6 @@
 # found in the LICENSE file.
 
 import logging
-import os
-import shutil
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
@@ -81,7 +79,3 @@ class hardware_RamFio(test.test):
                           requirements=requirements)
 
         utils.run('umount %s' % self._RAMDISK)
-
-        dst = os.path.join(self.resultsdir, 'results-chart.json')
-        src = dst.replace('hardware_RamFio', 'hardware_StorageFio')
-        shutil.copyfile(src, dst)

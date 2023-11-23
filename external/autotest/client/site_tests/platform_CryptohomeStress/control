@@ -16,7 +16,8 @@ test, we will cycle through power states, and interrupt disk activity.
 RUNTIME = 120
 
 def run_sleeper():
-    job.run_test('power_SuspendStress', duration=RUNTIME, min_suspend=20)
+    job.run_test('power_SuspendStress', duration=RUNTIME, min_suspend=20,
+                 init_delay=20)
 
 def run_fio():
     job.run_test('platform_CryptohomeFio', runtime=RUNTIME,

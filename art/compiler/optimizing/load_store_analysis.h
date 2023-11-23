@@ -17,27 +17,72 @@
 #ifndef ART_COMPILER_OPTIMIZING_LOAD_STORE_ANALYSIS_H_
 #define ART_COMPILER_OPTIMIZING_LOAD_STORE_ANALYSIS_H_
 
+#include "base/arena_allocator.h"
+#include "base/arena_bit_vector.h"
+#include "base/bit_vector-inl.h"
+#include "base/scoped_arena_allocator.h"
+#include "base/scoped_arena_containers.h"
+#include "base/stl_util.h"
 #include "escape.h"
+#include "execution_subgraph.h"
 #include "nodes.h"
-#include "optimization.h"
+#include "optimizing/optimizing_compiler_stats.h"
 
 namespace art {
 
+enum class LoadStoreAnalysisType {
+  kBasic,
+  kNoPredicatedInstructions,
+  kFull,
+};
+
 // A ReferenceInfo contains additional info about a reference such as
 // whether it's a singleton, returned, etc.
-class ReferenceInfo : public ArenaObject<kArenaAllocLSA> {
+class ReferenceInfo : public DeletableArenaObject<kArenaAllocLSA> {
  public:
-  ReferenceInfo(HInstruction* reference, size_t pos)
+  ReferenceInfo(HInstruction* reference,
+                ScopedArenaAllocator* allocator,
+                size_t pos,
+                LoadStoreAnalysisType elimination_type)
       : reference_(reference),
         position_(pos),
         is_singleton_(true),
         is_singleton_and_not_returned_(true),
-        is_singleton_and_not_deopt_visible_(true) {
+        is_singleton_and_not_deopt_visible_(true),
+        allocator_(allocator),
+        subgraph_(nullptr) {
+    // TODO We can do this in one pass.
+    // TODO NewArray is possible but will need to get a handle on how to deal with the dynamic loads
+    // for now just ignore it.
+    bool can_be_partial = elimination_type != LoadStoreAnalysisType::kBasic &&
+                          (/* reference_->IsNewArray() || */ reference_->IsNewInstance());
+    if (can_be_partial) {
+      subgraph_.reset(
+          new (allocator) ExecutionSubgraph(reference->GetBlock()->GetGraph(), allocator));
+      CollectPartialEscapes(reference_->GetBlock()->GetGraph());
+    }
     CalculateEscape(reference_,
                     nullptr,
                     &is_singleton_,
                     &is_singleton_and_not_returned_,
                     &is_singleton_and_not_deopt_visible_);
+    if (can_be_partial) {
+      if (elimination_type == LoadStoreAnalysisType::kNoPredicatedInstructions) {
+        // This is to mark writes to partially escaped values as also part of the escaped subset.
+        // TODO We can avoid this if we have a 'ConditionalWrite' instruction. Will require testing
+        //      to see if the additional branches are worth it.
+        PrunePartialEscapeWrites();
+      }
+      DCHECK(subgraph_ != nullptr);
+      subgraph_->Finalize();
+    } else {
+      DCHECK(subgraph_ == nullptr);
+    }
+  }
+
+  const ExecutionSubgraph* GetNoEscapeSubgraph() const {
+    DCHECK(IsPartialSingleton());
+    return subgraph_.get();
   }
 
   HInstruction* GetReference() const {
@@ -55,6 +100,16 @@ class ReferenceInfo : public ArenaObject<kArenaAllocLSA> {
     return is_singleton_;
   }
 
+  // This is a singleton and there are paths that don't escape the method
+  bool IsPartialSingleton() const {
+    auto ref = GetReference();
+    // TODO NewArray is possible but will need to get a handle on how to deal with the dynamic loads
+    // for now just ignore it.
+    return (/* ref->IsNewArray() || */ ref->IsNewInstance()) &&
+           subgraph_ != nullptr &&
+           subgraph_->IsValid();
+  }
+
   // Returns true if reference_ is a singleton and not returned to the caller or
   // used as an environment local of an HDeoptimize instruction.
   // The allocation and stores into reference_ may be eliminated for such cases.
@@ -70,6 +125,19 @@ class ReferenceInfo : public ArenaObject<kArenaAllocLSA> {
   }
 
  private:
+  void CollectPartialEscapes(HGraph* graph);
+  void HandleEscape(HBasicBlock* escape) {
+    DCHECK(subgraph_ != nullptr);
+    subgraph_->RemoveBlock(escape);
+  }
+  void HandleEscape(HInstruction* escape) {
+    HandleEscape(escape->GetBlock());
+  }
+
+  // Make sure we mark any writes/potential writes to heap-locations within partially
+  // escaped values as escaping.
+  void PrunePartialEscapeWrites();
+
   HInstruction* const reference_;
   const size_t position_;  // position in HeapLocationCollector's ref_info_array_.
 
@@ -79,6 +147,10 @@ class ReferenceInfo : public ArenaObject<kArenaAllocLSA> {
   bool is_singleton_and_not_returned_;
   // Is singleton and not used as an environment local of HDeoptimize.
   bool is_singleton_and_not_deopt_visible_;
+
+  ScopedArenaAllocator* allocator_;
+
+  std::unique_ptr<ExecutionSubgraph> subgraph_;
 
   DISALLOW_COPY_AND_ASSIGN(ReferenceInfo);
 };
@@ -105,16 +177,10 @@ class HeapLocation : public ArenaObject<kArenaAllocLSA> {
         index_(index),
         vector_length_(vector_length),
         declaring_class_def_index_(declaring_class_def_index),
-        value_killed_by_loop_side_effects_(true),
         has_aliased_locations_(false) {
     DCHECK(ref_info != nullptr);
     DCHECK((offset == kInvalidFieldOffset && index != nullptr) ||
            (offset != kInvalidFieldOffset && index == nullptr));
-    if (ref_info->IsSingleton() && !IsArray()) {
-      // Assume this location's value cannot be killed by loop side effects
-      // until proven otherwise.
-      value_killed_by_loop_side_effects_ = false;
-    }
   }
 
   ReferenceInfo* GetReferenceInfo() const { return ref_info_; }
@@ -131,14 +197,6 @@ class HeapLocation : public ArenaObject<kArenaAllocLSA> {
 
   bool IsArray() const {
     return index_ != nullptr;
-  }
-
-  bool IsValueKilledByLoopSideEffects() const {
-    return value_killed_by_loop_side_effects_;
-  }
-
-  void SetValueKilledByLoopSideEffects(bool val) {
-    value_killed_by_loop_side_effects_ = val;
   }
 
   bool HasAliasedLocations() const {
@@ -169,12 +227,6 @@ class HeapLocation : public ArenaObject<kArenaAllocLSA> {
   // Invalid when this HeapLocation is not field access.
   const int16_t declaring_class_def_index_;
 
-  // Value of this location may be killed by loop side effects
-  // because this location is stored into inside a loop.
-  // This gives better info on whether a singleton's location
-  // value may be killed by loop side effects.
-  bool value_killed_by_loop_side_effects_;
-
   // Has aliased heap locations in the method, due to either the
   // reference is aliased or the array element is aliased via different
   // index names.
@@ -192,21 +244,35 @@ class HeapLocationCollector : public HGraphVisitor {
   // aliasing matrix of 8 heap locations.
   static constexpr uint32_t kInitialAliasingMatrixBitVectorSize = 32;
 
-  explicit HeapLocationCollector(HGraph* graph)
+  HeapLocationCollector(HGraph* graph,
+                        ScopedArenaAllocator* allocator,
+                        LoadStoreAnalysisType lse_type)
       : HGraphVisitor(graph),
-        ref_info_array_(graph->GetAllocator()->Adapter(kArenaAllocLSA)),
-        heap_locations_(graph->GetAllocator()->Adapter(kArenaAllocLSA)),
-        aliasing_matrix_(graph->GetAllocator(),
-                         kInitialAliasingMatrixBitVectorSize,
-                         true,
-                         kArenaAllocLSA),
+        allocator_(allocator),
+        ref_info_array_(allocator->Adapter(kArenaAllocLSA)),
+        heap_locations_(allocator->Adapter(kArenaAllocLSA)),
+        aliasing_matrix_(allocator, kInitialAliasingMatrixBitVectorSize, true, kArenaAllocLSA),
         has_heap_stores_(false),
         has_volatile_(false),
-        has_monitor_operations_(false) {}
+        has_monitor_operations_(false),
+        lse_type_(lse_type) {
+    aliasing_matrix_.ClearAllBits();
+  }
+
+  ~HeapLocationCollector() {
+    CleanUp();
+  }
 
   void CleanUp() {
     heap_locations_.clear();
+    STLDeleteContainerPointers(ref_info_array_.begin(), ref_info_array_.end());
     ref_info_array_.clear();
+  }
+
+  size_t CountPartialSingletons() const {
+    return std::count_if(ref_info_array_.begin(),
+                         ref_info_array_.end(),
+                         [](ReferenceInfo* ri) { return ri->IsPartialSingleton(); });
   }
 
   size_t GetNumberOfHeapLocations() const {
@@ -215,6 +281,11 @@ class HeapLocationCollector : public HGraphVisitor {
 
   HeapLocation* GetHeapLocation(size_t index) const {
     return heap_locations_[index];
+  }
+
+  size_t GetHeapLocationIndex(const HeapLocation* hl) const {
+    auto res = std::find(heap_locations_.cbegin(), heap_locations_.cend(), hl);
+    return std::distance(heap_locations_.cbegin(), res);
   }
 
   HInstruction* HuntForOriginalReference(HInstruction* ref) const {
@@ -318,6 +389,11 @@ class HeapLocationCollector : public HGraphVisitor {
     return kHeapLocationNotFound;
   }
 
+  bool InstructionEligibleForLSERemoval(HInstruction* inst) const;
+
+  // Get some estimated statistics based on our analysis.
+  void DumpReferenceStats(OptimizingCompilerStats* stats);
+
   // Returns true if heap_locations_[index1] and heap_locations_[index2] may alias.
   bool MayAlias(size_t index1, size_t index2) const {
     if (index1 < index2) {
@@ -348,20 +424,7 @@ class HeapLocationCollector : public HGraphVisitor {
     }
   }
 
- private:
-  // An allocation cannot alias with a name which already exists at the point
-  // of the allocation, such as a parameter or a load happening before the allocation.
-  bool MayAliasWithPreexistenceChecking(ReferenceInfo* ref_info1, ReferenceInfo* ref_info2) const {
-    if (ref_info1->GetReference()->IsNewInstance() || ref_info1->GetReference()->IsNewArray()) {
-      // Any reference that can alias with the allocation must appear after it in the block/in
-      // the block's successors. In reverse post order, those instructions will be visited after
-      // the allocation.
-      return ref_info2->GetPosition() >= ref_info1->GetPosition();
-    }
-    return true;
-  }
-
-  bool CanReferencesAlias(ReferenceInfo* ref_info1, ReferenceInfo* ref_info2) const {
+  static bool CanReferencesAlias(ReferenceInfo* ref_info1, ReferenceInfo* ref_info2) {
     if (ref_info1 == ref_info2) {
       return true;
     } else if (ref_info1->IsSingleton()) {
@@ -371,6 +434,19 @@ class HeapLocationCollector : public HGraphVisitor {
     } else if (!MayAliasWithPreexistenceChecking(ref_info1, ref_info2) ||
         !MayAliasWithPreexistenceChecking(ref_info2, ref_info1)) {
       return false;
+    }
+    return true;
+  }
+
+ private:
+  // An allocation cannot alias with a name which already exists at the point
+  // of the allocation, such as a parameter or a load happening before the allocation.
+  static bool MayAliasWithPreexistenceChecking(ReferenceInfo* ref_info1, ReferenceInfo* ref_info2) {
+    if (ref_info1->GetReference()->IsNewInstance() || ref_info1->GetReference()->IsNewArray()) {
+      // Any reference that can alias with the allocation must appear after it in the block/in
+      // the block's successors. In reverse post order, those instructions will be visited after
+      // the allocation.
+      return ref_info2->GetPosition() >= ref_info1->GetPosition();
     }
     return true;
   }
@@ -432,7 +508,7 @@ class HeapLocationCollector : public HGraphVisitor {
     ReferenceInfo* ref_info = FindReferenceInfoOf(instruction);
     if (ref_info == nullptr) {
       size_t pos = ref_info_array_.size();
-      ref_info = new (GetGraph()->GetAllocator()) ReferenceInfo(instruction, pos);
+      ref_info = new (allocator_) ReferenceInfo(instruction, allocator_, pos, lse_type_);
       ref_info_array_.push_back(ref_info);
     }
     return ref_info;
@@ -446,45 +522,43 @@ class HeapLocationCollector : public HGraphVisitor {
     GetOrCreateReferenceInfo(instruction);
   }
 
-  HeapLocation* GetOrCreateHeapLocation(HInstruction* ref,
-                                        DataType::Type type,
-                                        size_t offset,
-                                        HInstruction* index,
-                                        size_t vector_length,
-                                        int16_t declaring_class_def_index) {
+  void MaybeCreateHeapLocation(HInstruction* ref,
+                               DataType::Type type,
+                               size_t offset,
+                               HInstruction* index,
+                               size_t vector_length,
+                               int16_t declaring_class_def_index) {
     HInstruction* original_ref = HuntForOriginalReference(ref);
     ReferenceInfo* ref_info = GetOrCreateReferenceInfo(original_ref);
     size_t heap_location_idx = FindHeapLocationIndex(
         ref_info, type, offset, index, vector_length, declaring_class_def_index);
     if (heap_location_idx == kHeapLocationNotFound) {
-      HeapLocation* heap_loc = new (GetGraph()->GetAllocator())
+      HeapLocation* heap_loc = new (allocator_)
           HeapLocation(ref_info, type, offset, index, vector_length, declaring_class_def_index);
       heap_locations_.push_back(heap_loc);
-      return heap_loc;
     }
-    return heap_locations_[heap_location_idx];
   }
 
-  HeapLocation* VisitFieldAccess(HInstruction* ref, const FieldInfo& field_info) {
+  void VisitFieldAccess(HInstruction* ref, const FieldInfo& field_info) {
     if (field_info.IsVolatile()) {
       has_volatile_ = true;
     }
     DataType::Type type = field_info.GetFieldType();
     const uint16_t declaring_class_def_index = field_info.GetDeclaringClassDefIndex();
     const size_t offset = field_info.GetFieldOffset().SizeValue();
-    return GetOrCreateHeapLocation(ref,
-                                   type,
-                                   offset,
-                                   nullptr,
-                                   HeapLocation::kScalar,
-                                   declaring_class_def_index);
+    MaybeCreateHeapLocation(ref,
+                            type,
+                            offset,
+                            nullptr,
+                            HeapLocation::kScalar,
+                            declaring_class_def_index);
   }
 
   void VisitArrayAccess(HInstruction* array,
                         HInstruction* index,
                         DataType::Type type,
                         size_t vector_length) {
-    GetOrCreateHeapLocation(array,
+    MaybeCreateHeapLocation(array,
                             type,
                             HeapLocation::kInvalidFieldOffset,
                             index,
@@ -492,35 +566,18 @@ class HeapLocationCollector : public HGraphVisitor {
                             HeapLocation::kDeclaringClassDefIndexForArrays);
   }
 
+  void VisitPredicatedInstanceFieldGet(HPredicatedInstanceFieldGet* instruction) override {
+    VisitFieldAccess(instruction->GetTarget(), instruction->GetFieldInfo());
+    CreateReferenceInfoForReferenceType(instruction);
+  }
   void VisitInstanceFieldGet(HInstanceFieldGet* instruction) override {
     VisitFieldAccess(instruction->InputAt(0), instruction->GetFieldInfo());
     CreateReferenceInfoForReferenceType(instruction);
   }
 
   void VisitInstanceFieldSet(HInstanceFieldSet* instruction) override {
-    HeapLocation* location = VisitFieldAccess(instruction->InputAt(0), instruction->GetFieldInfo());
+    VisitFieldAccess(instruction->InputAt(0), instruction->GetFieldInfo());
     has_heap_stores_ = true;
-    if (location->GetReferenceInfo()->IsSingleton()) {
-      // A singleton's location value may be killed by loop side effects if it's
-      // defined before that loop, and it's stored into inside that loop.
-      HLoopInformation* loop_info = instruction->GetBlock()->GetLoopInformation();
-      if (loop_info != nullptr) {
-        HInstruction* ref = location->GetReferenceInfo()->GetReference();
-        DCHECK(ref->IsNewInstance());
-        if (loop_info->IsDefinedOutOfTheLoop(ref)) {
-          // ref's location value may be killed by this loop's side effects.
-          location->SetValueKilledByLoopSideEffects(true);
-        } else {
-          // ref is defined inside this loop so this loop's side effects cannot
-          // kill its location value at the loop header since ref/its location doesn't
-          // exist yet at the loop header.
-        }
-      }
-    } else {
-      // For non-singletons, value_killed_by_loop_side_effects_ is inited to
-      // true.
-      DCHECK_EQ(location->IsValueKilledByLoopSideEffects(), true);
-    }
   }
 
   void VisitStaticFieldGet(HStaticFieldGet* instruction) override {
@@ -584,32 +641,43 @@ class HeapLocationCollector : public HGraphVisitor {
     has_monitor_operations_ = true;
   }
 
-  ArenaVector<ReferenceInfo*> ref_info_array_;   // All references used for heap accesses.
-  ArenaVector<HeapLocation*> heap_locations_;    // All heap locations.
+  ScopedArenaAllocator* allocator_;
+  ScopedArenaVector<ReferenceInfo*> ref_info_array_;   // All references used for heap accesses.
+  ScopedArenaVector<HeapLocation*> heap_locations_;    // All heap locations.
   ArenaBitVector aliasing_matrix_;    // aliasing info between each pair of locations.
   bool has_heap_stores_;    // If there is no heap stores, LSE acts as GVN with better
                             // alias analysis and won't be as effective.
   bool has_volatile_;       // If there are volatile field accesses.
   bool has_monitor_operations_;    // If there are monitor operations.
+  LoadStoreAnalysisType lse_type_;
 
   DISALLOW_COPY_AND_ASSIGN(HeapLocationCollector);
 };
 
-class LoadStoreAnalysis : public HOptimization {
+class LoadStoreAnalysis {
  public:
-  explicit LoadStoreAnalysis(HGraph* graph, const char* name = kLoadStoreAnalysisPassName)
-    : HOptimization(graph, name),
-      heap_location_collector_(graph) {}
+  // for_elimination controls whether we should keep track of escapes at a per-block level for
+  // partial LSE.
+  explicit LoadStoreAnalysis(HGraph* graph,
+                             OptimizingCompilerStats* stats,
+                             ScopedArenaAllocator* local_allocator,
+                             LoadStoreAnalysisType lse_type)
+      : graph_(graph),
+        stats_(stats),
+        heap_location_collector_(
+            graph,
+            local_allocator,
+            ExecutionSubgraph::CanAnalyse(graph_) ? lse_type : LoadStoreAnalysisType::kBasic) {}
 
   const HeapLocationCollector& GetHeapLocationCollector() const {
     return heap_location_collector_;
   }
 
-  bool Run() override;
-
-  static constexpr const char* kLoadStoreAnalysisPassName = "load_store_analysis";
+  bool Run();
 
  private:
+  HGraph* graph_;
+  OptimizingCompilerStats* stats_;
   HeapLocationCollector heap_location_collector_;
 
   DISALLOW_COPY_AND_ASSIGN(LoadStoreAnalysis);

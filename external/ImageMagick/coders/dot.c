@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -144,6 +144,7 @@ static Image *ReadDOTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   if (graph == (graph_t *) NULL)
     {
       (void) RelinquishUniqueFileResource(read_info->filename);
+      read_info=DestroyImageInfo(read_info);
       return(DestroyImageList(image));
     }
   option=GetImageOption(image_info,"dot:layout-engine");
@@ -158,7 +159,7 @@ static Image *ReadDOTImage(const ImageInfo *image_info,ExceptionInfo *exception)
   /*
     Read SVG graph.
   */
-  (void) CopyMagickString(read_info->magick,"SVG",MaxTextExtent);
+  (void) CopyMagickString(read_info->magick,"SVG",MagickPathExtent);
   image=ReadImage(read_info,exception);
   (void) RelinquishUniqueFileResource(read_info->filename);
   read_info=DestroyImageInfo(read_info);

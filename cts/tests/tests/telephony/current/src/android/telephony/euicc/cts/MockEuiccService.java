@@ -31,7 +31,7 @@ import android.telephony.euicc.EuiccManager.OtaStatus;
 
 import java.io.PrintWriter;
 
-/** Dummy implementation of {@link EuiccService} for testing. */
+/** Mock implementation of {@link EuiccService} for testing. */
 public class MockEuiccService extends EuiccService {
     static String MOCK_EID = "89000000000000000000000000000000";
     static String MOCK_OS_VERSION = "1.0";

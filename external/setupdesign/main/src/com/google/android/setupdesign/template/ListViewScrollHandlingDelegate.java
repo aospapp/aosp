@@ -16,12 +16,12 @@
 
 package com.google.android.setupdesign.template;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.util.Log;
 import android.widget.AbsListView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import com.google.android.setupdesign.template.RequireScrollMixin.ScrollHandlingDelegate;
 
 /**

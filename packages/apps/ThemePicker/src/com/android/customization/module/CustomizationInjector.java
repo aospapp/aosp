@@ -23,13 +23,11 @@ import com.android.customization.model.theme.OverlayManagerCompat;
 import com.android.customization.model.theme.ThemeBundleProvider;
 import com.android.customization.model.theme.ThemeManager;
 import com.android.wallpaper.module.Injector;
-import com.android.wallpaper.module.WallpaperSetter;
 
 public interface CustomizationInjector extends Injector {
 
     CustomizationPreferences getCustomizationPreferences(Context context);
 
     ThemeManager getThemeManager(ThemeBundleProvider provider, FragmentActivity activity,
-            WallpaperSetter wallpaperSetter, OverlayManagerCompat overlayManagerCompat,
-            ThemesUserEventLogger logger);
+            OverlayManagerCompat overlayManagerCompat, ThemesUserEventLogger logger);
 }

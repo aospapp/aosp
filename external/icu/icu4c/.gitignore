@@ -73,7 +73,6 @@ tools/icuinfo/icuinfo
 /source/test/cintltst/cintltst
 /source/test/intltest/intltest
 /source/test/iotest/iotest
-/source/test/testdata/out/
 /source/test/testdata/pkgdataMakefile
 /source/tools/escapesrc/output-*.cpp
 /source/tools/gentest/gentest

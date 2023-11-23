@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.simaka.attributes;
+package com.android.internal.net.eap.test.message.simaka.attributes;
 
-import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_RAND_AKA;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AT_RAND_AKA_INVALID_LENGTH;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1_BYTES;
+import static com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.EAP_AT_RAND;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_RAND_AKA;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AT_RAND_AKA_INVALID_LENGTH;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1_BYTES;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.exceptions.simaka.EapSimAkaInvalidAttributeException;
-import com.android.internal.net.eap.message.simaka.EapAkaAttributeFactory;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtRandAka;
+import com.android.internal.net.eap.test.exceptions.simaka.EapSimAkaInvalidAttributeException;
+import com.android.internal.net.eap.test.message.simaka.EapAkaAttributeFactory;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRandAka;
 
 import org.junit.Before;
 import org.junit.Test;

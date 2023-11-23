@@ -20,11 +20,15 @@
 #include <set>
 #include <vector>
 
+#if !defined(TC3_DISABLE_LUA)
 #include "actions/lua-ranker.h"
+#endif
 #include "actions/zlib-utils.h"
 #include "annotator/types.h"
 #include "utils/base/logging.h"
+#if !defined(TC3_DISABLE_LUA)
 #include "utils/lua-utils.h"
+#endif
 
 namespace libtextclassifier3 {
 namespace {
@@ -215,6 +219,7 @@ bool ActionsSuggestionsRanker::InitializeAndValidate(
     return false;
   }
 
+#if !defined(TC3_DISABLE_LUA)
   std::string lua_ranking_script;
   if (GetUncompressedString(options_->lua_ranking_script(),
                             options_->compressed_lua_ranking_script(),
@@ -225,6 +230,7 @@ bool ActionsSuggestionsRanker::InitializeAndValidate(
       return false;
     }
   }
+#endif
 
   return true;
 }
@@ -336,6 +342,7 @@ bool ActionsSuggestionsRanker::RankActions(
     SortByScoreAndType(&response->actions);
   }
 
+#if !defined(TC3_DISABLE_LUA)
   // Run lua ranking snippet, if provided.
   if (!lua_bytecode_.empty()) {
     auto lua_ranker = ActionsSuggestionsLuaRanker::Create(
@@ -346,6 +353,7 @@ bool ActionsSuggestionsRanker::RankActions(
       return false;
     }
   }
+#endif
 
   return true;
 }

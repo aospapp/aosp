@@ -20,28 +20,21 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/setup_wizard_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-  <LinearLayout
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"
-      android:orientation="vertical">
-    <Button
-        android:id="@+id/show_terms_button"
-        android:text="@string/view_terms"
-        android:paddingStart="@dimen/spacer_16"
-        android:paddingEnd="@dimen/spacer_16"
-        android:paddingTop="@dimen/spacer_20"
-        android:paddingBottom="@dimen/spacer_20"
-        android:contentDescription="@string/read_terms"
-        style="@style/Provisioning2Theme.Button.Transparent"/>
-    <RelativeLayout
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <com.google.android.setupdesign.view.FillContentLayout
+        style="@style/SudContentFrame"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
-      <ImageView
-          android:id="@+id/animation"
-          android:layout_centerInParent="true"
-          android:layout_width="wrap_content"
-          android:layout_height="@dimen/animation_height"/>
-    </RelativeLayout>
-  </LinearLayout>
+        android:layout_height="match_parent"
+        android:maxWidth="@dimen/animation_max_size"
+        android:maxHeight="@dimen/animation_max_size">
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/animation"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:lottie_loop="true"
+            app:lottie_autoPlay="true"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter" />
+    </com.google.android.setupdesign.view.FillContentLayout>
 </com.google.android.setupdesign.GlifLayout>

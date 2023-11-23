@@ -22,12 +22,15 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include <brillo/streams/stream.h>
+#include <brillo/message_loops/message_loop.h>
 
 #include "update_engine/common/action.h"
 #include "update_engine/common/hash_calculator.h"
+#include "update_engine/common/scoped_task_id.h"
+#include "update_engine/payload_consumer/file_descriptor.h"
 #include "update_engine/payload_consumer/install_plan.h"
 #include "update_engine/payload_consumer/verity_writer_interface.h"
 
@@ -49,14 +52,33 @@ enum class VerifierStep {
   kVerifySourceHash,
 };
 
+class FilesystemVerifyDelegate {
+ public:
+  virtual ~FilesystemVerifyDelegate() = default;
+  virtual void OnVerifyProgressUpdate(double progress) = 0;
+};
+
 class FilesystemVerifierAction : public InstallPlanAction {
  public:
-  FilesystemVerifierAction()
-      : verity_writer_(verity_writer::CreateVerityWriter()) {}
+  explicit FilesystemVerifierAction(
+      DynamicPartitionControlInterface* dynamic_control)
+      : verity_writer_(verity_writer::CreateVerityWriter()),
+        dynamic_control_(dynamic_control) {
+    CHECK(dynamic_control_);
+  }
+
   ~FilesystemVerifierAction() override = default;
 
   void PerformAction() override;
   void TerminateProcessing() override;
+
+  // Used for listening to progress updates
+  void set_delegate(FilesystemVerifyDelegate* delegate) {
+    this->delegate_ = delegate;
+  }
+  [[nodiscard]] FilesystemVerifyDelegate* get_delegate() const {
+    return this->delegate_;
+  }
 
   // Debugging/logging
   static std::string StaticType() { return "FilesystemVerifierAction"; }
@@ -64,17 +86,28 @@ class FilesystemVerifierAction : public InstallPlanAction {
 
  private:
   friend class FilesystemVerifierActionTestDelegate;
+  void WriteVerityAndHashPartition(FileDescriptorPtr fd,
+                                   const off64_t start_offset,
+                                   const off64_t end_offset,
+                                   void* buffer,
+                                   const size_t buffer_size);
+  void HashPartition(FileDescriptorPtr fd,
+                     const off64_t start_offset,
+                     const off64_t end_offset,
+                     void* buffer,
+                     const size_t buffer_size);
+
+  // Return true if we need to write verity bytes.
+  bool ShouldWriteVerity();
   // Starts the hashing of the current partition. If there aren't any partitions
   // remaining to be hashed, it finishes the action.
   void StartPartitionHashing();
 
-  // Schedules the asynchronous read of the filesystem.
-  void ScheduleRead();
+  const std::string& GetPartitionPath() const;
 
-  // Called from the main loop when a single read from |src_stream_| succeeds or
-  // fails, calling OnReadDoneCallback() and OnReadErrorCallback() respectively.
-  void OnReadDoneCallback(size_t bytes_read);
-  void OnReadErrorCallback(const brillo::Error* error);
+  bool IsVABC(const InstallPlan::Partition& partition) const;
+
+  size_t GetPartitionSize() const;
 
   // When the read is done, finalize the hash checking of the current partition
   // and continue checking the next one.
@@ -85,6 +118,17 @@ class FilesystemVerifierAction : public InstallPlanAction {
   // true if TerminateProcessing() was called.
   void Cleanup(ErrorCode code);
 
+  // Invoke delegate callback to report progress, if delegate is not null
+  void UpdateProgress(double progress);
+
+  // Updates progress of current partition. |progress| should be in range [0,
+  // 1], and it will be scaled appropriately with # of partitions.
+  void UpdatePartitionProgress(double progress);
+
+  // Initialize read_fd_ and write_fd_
+  bool InitializeFd(const std::string& part_path);
+  bool InitializeFdVABC(bool should_write_verity);
+
   // The type of the partition that we are verifying.
   VerifierStep verifier_step_ = VerifierStep::kVerifyTargetHash;
 
@@ -92,22 +136,23 @@ class FilesystemVerifierAction : public InstallPlanAction {
   // being hashed.
   size_t partition_index_{0};
 
-  // If not null, the FileStream used to read from the device.
-  brillo::StreamPtr src_stream_;
+  // If not null, the FileDescriptor used to read from the device.
+  // verity writer might attempt to write to this fd, if verity is enabled.
+  FileDescriptorPtr partition_fd_;
 
   // Buffer for storing data we read.
   brillo::Blob buffer_;
 
   bool cancelled_{false};  // true if the action has been cancelled.
 
-  // The install plan we're passed in via the input pipe.
-  InstallPlan install_plan_;
-
   // Calculates the hash of the data.
   std::unique_ptr<HashCalculator> hasher_;
 
   // Write verity data of the current partition.
   std::unique_ptr<VerityWriterInterface> verity_writer_;
+
+  // Verifies the untouched dynamic partitions for partial updates.
+  DynamicPartitionControlInterface* dynamic_control_{nullptr};
 
   // Reads and hashes this many bytes from the head of the input stream. When
   // the partition starts to be hashed, this field is initialized from the
@@ -118,6 +163,16 @@ class FilesystemVerifierAction : public InstallPlanAction {
 
   // The byte offset that we are reading in the current partition.
   uint64_t offset_{0};
+
+  // The end offset of filesystem data, first byte position of hashtree.
+  uint64_t filesystem_data_end_{0};
+
+  // An observer that observes progress updates of this action.
+  FilesystemVerifyDelegate* delegate_{};
+
+  // Callback that should be cancelled on |TerminateProcessing|. Usually this
+  // points to pending read callbacks from async stream.
+  ScopedTaskId pending_task_id_;
 
   DISALLOW_COPY_AND_ASSIGN(FilesystemVerifierAction);
 };

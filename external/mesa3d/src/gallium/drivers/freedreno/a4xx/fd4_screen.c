@@ -25,15 +25,17 @@
  */
 
 #include "pipe/p_screen.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 
 #include "fd4_screen.h"
 #include "fd4_context.h"
+#include "fd4_emit.h"
 #include "fd4_format.h"
+#include "fd4_resource.h"
 
 #include "ir3/ir3_compiler.h"
 
-static boolean
+static bool
 fd4_screen_is_format_supported(struct pipe_screen *pscreen,
 		enum pipe_format format,
 		enum pipe_texture_target target,
@@ -47,21 +49,21 @@ fd4_screen_is_format_supported(struct pipe_screen *pscreen,
 			(sample_count > 1)) { /* TODO add MSAA */
 		DBG("not supported: format=%s, target=%d, sample_count=%d, usage=%x",
 				util_format_name(format), target, sample_count, usage);
-		return FALSE;
+		return false;
 	}
 
 	if (MAX2(1, sample_count) != MAX2(1, storage_sample_count))
 		return false;
 
 	if ((usage & PIPE_BIND_VERTEX_BUFFER) &&
-			(fd4_pipe2vtx(format) != (enum a4xx_vtx_fmt)~0)) {
+			(fd4_pipe2vtx(format) != VFMT4_NONE)) {
 		retval |= PIPE_BIND_VERTEX_BUFFER;
 	}
 
 	if ((usage & PIPE_BIND_SAMPLER_VIEW) &&
+			(fd4_pipe2tex(format) != TFMT4_NONE) &&
 			(target == PIPE_BUFFER ||
-			 util_format_get_blocksize(format) != 12) &&
-			(fd4_pipe2tex(format) != (enum a4xx_tex_fmt)~0)) {
+			 util_format_get_blocksize(format) != 12)) {
 		retval |= PIPE_BIND_SAMPLER_VIEW;
 	}
 
@@ -69,8 +71,8 @@ fd4_screen_is_format_supported(struct pipe_screen *pscreen,
 				PIPE_BIND_DISPLAY_TARGET |
 				PIPE_BIND_SCANOUT |
 				PIPE_BIND_SHARED)) &&
-			(fd4_pipe2color(format) != (enum a4xx_color_fmt)~0) &&
-			(fd4_pipe2tex(format) != (enum a4xx_tex_fmt)~0)) {
+			(fd4_pipe2color(format) != RB4_NONE) &&
+			(fd4_pipe2tex(format) != TFMT4_NONE)) {
 		retval |= usage & (PIPE_BIND_RENDER_TARGET |
 				PIPE_BIND_DISPLAY_TARGET |
 				PIPE_BIND_SCANOUT |
@@ -84,7 +86,7 @@ fd4_screen_is_format_supported(struct pipe_screen *pscreen,
 
 	if ((usage & PIPE_BIND_DEPTH_STENCIL) &&
 			(fd4_pipe2depth(format) != (enum a4xx_depth_format)~0) &&
-			(fd4_pipe2tex(format) != (enum a4xx_tex_fmt)~0)) {
+			(fd4_pipe2tex(format) != TFMT4_NONE)) {
 		retval |= PIPE_BIND_DEPTH_STENCIL;
 	}
 
@@ -108,6 +110,9 @@ fd4_screen_init(struct pipe_screen *pscreen)
 	struct fd_screen *screen = fd_screen(pscreen);
 	screen->max_rts = A4XX_MAX_RENDER_TARGETS;
 	screen->compiler = ir3_compiler_create(screen->dev, screen->gpu_id);
+	screen->setup_slices = fd4_setup_slices;
 	pscreen->context_create = fd4_context_create;
 	pscreen->is_format_supported = fd4_screen_is_format_supported;
+	fd4_emit_init_screen(pscreen);
+	ir3_screen_init(pscreen);
 }

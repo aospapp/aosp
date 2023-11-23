@@ -21,13 +21,12 @@
 #include "uniphier.h"
 
 #define UNIPHIER_ROM_REGION_BASE	0x00000000ULL
-#define UNIPHIER_ROM_REGION_SIZE	0x10000000ULL
+#define UNIPHIER_ROM_REGION_SIZE	0x04000000ULL
 
-#define UNIPHIER_OCM_REGION_BASE	0x30000000ULL
 #define UNIPHIER_OCM_REGION_SIZE	0x00040000ULL
 
-#define UNIPHIER_BLOCK_BUF_OFFSET	0x04200000UL
-#define UNIPHIER_BLOCK_BUF_SIZE		0x00100000UL
+#define UNIPHIER_BLOCK_BUF_OFFSET	0x03000000UL
+#define UNIPHIER_BLOCK_BUF_SIZE		0x00800000UL
 
 static const io_dev_connector_t *uniphier_fip_dev_con;
 static uintptr_t uniphier_fip_dev_handle;
@@ -249,24 +248,24 @@ static int uniphier_io_fip_setup(void)
 	return io_dev_open(uniphier_fip_dev_con, 0, &uniphier_fip_dev_handle);
 }
 
-static int uniphier_io_emmc_setup(unsigned int soc_id, size_t buffer_offset)
+static int uniphier_io_emmc_setup(unsigned int soc, size_t buffer_offset)
 {
 	struct io_block_dev_spec *block_dev_spec;
 	int ret;
 
-	ret = uniphier_emmc_init(&block_dev_spec);
+	ret = uniphier_emmc_init(soc, &block_dev_spec);
 	if (ret)
 		return ret;
 
 	return uniphier_io_block_setup(0x20000, block_dev_spec, buffer_offset);
 }
 
-static int uniphier_io_nand_setup(unsigned int soc_id, size_t buffer_offset)
+static int uniphier_io_nand_setup(unsigned int soc, size_t buffer_offset)
 {
 	struct io_block_dev_spec *block_dev_spec;
 	int ret;
 
-	ret = uniphier_nand_init(&block_dev_spec);
+	ret = uniphier_nand_init(soc, &block_dev_spec);
 	if (ret)
 		return ret;
 
@@ -278,12 +277,20 @@ static int uniphier_io_nor_setup(unsigned int soc_id, size_t buffer_offset)
 	return uniphier_io_memmap_setup(0x70000);
 }
 
-static int uniphier_io_usb_setup(unsigned int soc_id, size_t buffer_offset)
+static const uintptr_t uniphier_ocm_base[] = {
+	[UNIPHIER_SOC_LD11] = 0x30000000,
+	[UNIPHIER_SOC_LD20] = 0x30000000,
+	[UNIPHIER_SOC_PXS3] = 0x30000000,
+};
+
+static int uniphier_io_rom_api_setup(unsigned int soc)
 {
-	struct io_block_dev_spec *block_dev_spec;
+	uintptr_t ocm_base;
 	int ret;
 
-	/* use ROM API for loading images from USB storage */
+	assert(soc < ARRAY_SIZE(uniphier_ocm_base));
+	ocm_base = uniphier_ocm_base[soc];
+
 	ret = mmap_add_dynamic_region(UNIPHIER_ROM_REGION_BASE,
 				      UNIPHIER_ROM_REGION_BASE,
 				      UNIPHIER_ROM_REGION_SIZE,
@@ -296,14 +303,26 @@ static int uniphier_io_usb_setup(unsigned int soc_id, size_t buffer_offset)
 	 * load functions provided by the ROM use this memory region as a work
 	 * area, but do not cater to cache coherency.
 	 */
-	ret = mmap_add_dynamic_region(UNIPHIER_OCM_REGION_BASE,
-				      UNIPHIER_OCM_REGION_BASE,
+	ret = mmap_add_dynamic_region(ocm_base, ocm_base,
 				      UNIPHIER_OCM_REGION_SIZE,
 				      MT_DEVICE | MT_RW | MT_SECURE);
 	if (ret)
 		return ret;
 
-	ret = uniphier_usb_init(soc_id, &block_dev_spec);
+	return 0;
+}
+
+static int uniphier_io_usb_setup(unsigned int soc, size_t buffer_offset)
+{
+	struct io_block_dev_spec *block_dev_spec;
+	int ret;
+
+	/* use ROM API for loading images from USB storage */
+	ret = uniphier_io_rom_api_setup(soc);
+	if (ret)
+		return ret;
+
+	ret = uniphier_usb_init(soc, &block_dev_spec);
 	if (ret)
 		return ret;
 

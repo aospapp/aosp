@@ -22,42 +22,52 @@
     <!-- Whether to show amber alert settings -->
     <bool name="show_amber_alert_settings">false</bool>
 
-    <!-- 4370, 4383, 50 -->
+    <!-- 4370, 4383 -->
     <!-- Emergecny alert tone duration set to 3 minute for Peru users -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
-        <item>0x1112:rat=gsm, emergency=true, alert_duration=180000</item>
-        <item>0x111F:rat=gsm, emergency=true, alert_duration=180000</item>
-        <item>0x032:rat=gsm, emergency=true, alert_duration=180000</item>
+        <item>0x1112:rat=gsm, emergency=true, alert_duration=180000, always_on=true, screen_on_duration=180000</item>
+        <item>0x111F:rat=gsm, emergency=true, alert_duration=180000, always_on=true, screen_on_duration=180000</item>
     </string-array>
     <!-- 4382 -->
     <string-array name="public_safety_messages_channels_range_strings" translatable="false">
-        <item>0x111E:rat=gsm, emergency=true, alert_duration=180000</item>
+        <item>0x111E:rat=gsm, emergency=true, alert_duration=180000, screen_on_duration=180000</item>
     </string-array>
 
     <!-- 4380 -->
     <string-array name="required_monthly_test_range_strings" translatable="false">
-        <item>0x111C:rat=gsm, emergency=true, alert_duration=180000</item>
+        <item>0x111C:rat=gsm, emergency=true, alert_duration=180000, always_on=true, screen_on_duration=180000</item>
     </string-array>
 
     <!--4381 -->
     <string-array name="exercise_alert_range_strings" translatable="false">
-        <item>0x111D:rat=gsm, emergency=true, alert_duration=180000</item>
+        <item>0x111D:rat=gsm, emergency=true, alert_duration=180000, always_on=true, screen_on_duration=180000</item>
     </string-array>
 
     <!-- 4396~4399-->
     <string-array name="additional_cbs_channels_strings" translatable="false">
-        <item>0x112C-0x112F:rat=gsm, emergency=true, alert_duration=180000</item>
+        <item>0x112C-0x112F:rat=gsm, emergency=true, alert_duration=180000, screen_on_duration=180000</item>
     </string-array>
+
+    <!-- hide test alerts toggle. Note that test alerts are set to always_on -->
+    <bool name="show_test_settings">false</bool>
+
+    <!-- Whether to show main switch settings at the top -->
+    <bool name="show_main_switch_settings">false</bool>
 
     <string-array name="cmas_alert_extreme_channels_range_strings" translatable="false"></string-array>
     <string-array name="cmas_alerts_severe_range_strings" translatable="false"></string-array>
     <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false"></string-array>
     <string-array name="operator_defined_alert_range_strings" translatable="false"></string-array>
     <string-array name="etws_test_alerts_range_strings" translatable="false"></string-array>
-    <bool name="show_date_time_title">true</bool>
+    <!-- Append date-time to the alert title -->
+    <string name="date_time_format" translatable="false">dd-MM-yyyy, HH:mm a</string>
+
+    <!-- Whether to disable the opt-out dialog for all channels. Peru has no user toggles enabled,
+         so we disable the opt-out dialog -->
+    <bool name="disable_opt_out_dialog">true</bool>
 
     <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
-    <bool name="override_dnd_default">true</bool>
+    <bool name="override_dnd">true</bool>
 
     <!-- Link method -->
     <string name="link_method" translatable="false">none</string>

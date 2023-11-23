@@ -45,18 +45,6 @@
   #define XNN_ARCH_PPC64 0
 #endif
 
-#if defined(__pnacl__)
-  #define XNN_ARCH_PNACL 1
-#else
-  #define XNN_ARCH_PNACL 0
-#endif
-
-#if defined(__asmjs__)
-  #define XNN_ARCH_ASMJS 1
-#else
-  #define XNN_ARCH_ASMJS 0
-#endif
-
 #if defined(__wasm__)
   #if defined(__wasm_simd128__)
     #define XNN_ARCH_WASMSIMD 1
@@ -70,7 +58,7 @@
   #define XNN_ARCH_WASMSIMD 0
 #endif
 
-// Define architecture identification macros
+// Define platform identification macros
 
 #if defined(__ANDROID__)
   #define XNN_PLATFORM_ANDROID 1
@@ -85,6 +73,12 @@
   #define XNN_PLATFORM_IOS 0
 #endif
 
+#if defined(__APPLE__) && TARGET_OS_MAC
+  #define XNN_PLATFORM_MAC 1
+#else
+  #define XNN_PLATFORM_MAC 0
+#endif
+
 #if XNN_PLATFORM_ANDROID || XNN_PLATFORM_IOS
   #define XNN_PLATFORM_MOBILE 1
 #else
@@ -95,6 +89,61 @@
   #define XNN_PLATFORM_WEB 1
 #else
   #define XNN_PLATFORM_WEB 0
+#endif
+
+// Define compile identification macros
+
+#if defined(__clang__)
+  #define XNN_COMPILER_CLANG 1
+#elif defined(__INTEL_COMPILER)
+  #define XNN_COMPILER_ICC 1
+#elif defined(_MSC_VER)
+  #define XNN_COMPILER_MSVC 1
+#elif defined(__GNUC__)
+  #define XNN_COMPILER_GCC 1
+#endif
+
+#ifndef XNN_COMPILER_CLANG
+  #define XNN_COMPILER_CLANG 0
+#endif
+
+#ifndef XNN_COMPILER_GCC
+  #define XNN_COMPILER_GCC 0
+#endif
+
+#ifndef XNN_COMPILER_MSVC
+  #define XNN_COMPILER_MSVC 0
+#endif
+
+#ifndef XNN_COMPILER_ICC
+  #define XNN_COMPILER_ICC 0
+#endif
+
+
+#ifndef XNN_TEST_MODE
+  #define XNN_TEST_MODE 0
+#endif
+
+#ifndef XNN_MAX_UARCH_TYPES
+  #if (XNN_ARCH_ARM || XNN_ARCH_ARM64) && !XNN_PLATFORM_IOS
+    #define XNN_MAX_UARCH_TYPES 3
+  #else
+    #define XNN_MAX_UARCH_TYPES 1
+  #endif
+#endif
+
+#define XNN_UARCH_DEFAULT 0
+
+#if defined(__has_builtin)
+  #define XNN_COMPILER_HAS_BUILTIN(builtin) __has_builtin(builtin)
+#else
+  #define XNN_COMPILER_HAS_BUILTIN(builtin) 0
+#endif
+
+#if defined(__has_feature)
+  #define XNN_COMPILER_HAS_FEATURE(builtin) __has_feature(builtin)
+#else
+  #define XNN_COMPILER_HAS_FEATURE(builtin) 0
 #endif
 
 #if defined(__GNUC__)
@@ -109,9 +158,21 @@
   #define XNN_UNREACHABLE do { } while (0)
 #endif
 
-#define XNN_ALIGN(alignment) __attribute__((__aligned__(alignment)))
+#if defined(__GNUC__)
+  #define XNN_ALIGN(alignment) __attribute__((__aligned__(alignment)))
+#elif defined(_MSC_VER)
+  #define XNN_ALIGN(alignment) __declspec(align(alignment))
+#else
+  #error "Platform-specific implementation of XNN_ALIGN required"
+#endif
 
 #define XNN_COUNT_OF(array) (sizeof(array) / sizeof(0[array]))
+
+#if defined(__cplusplus) || XNN_COMPILER_MSVC
+  #define XNN_MIN_ELEMENTS(count) count
+#else
+  #define XNN_MIN_ELEMENTS(count) static count
+#endif
 
 #if defined(__GNUC__)
   #define XNN_LIKELY(condition) (__builtin_expect(!!(condition), 1))
@@ -121,19 +182,32 @@
   #define XNN_UNLIKELY(condition) (!!(condition))
 #endif
 
-// TODO - __builtin_expect_with_probability for GCC 9+
-#if defined(__clang__)
-  #if __has_builtin(__builtin_unpredictable)
-    #define XNN_UNPREDICTABLE(condition) (__builtin_unpredictable(!!(condition)))
-  #else
-    #define XNN_UNPREDICTABLE(condition) (!!(condition))
-  #endif
+#if XNN_COMPILER_HAS_BUILTIN(__builtin_unpredictable)
+  #define XNN_UNPREDICTABLE(condition) (__builtin_unpredictable(!!(condition)))
+#elif defined(__GNUC__) && (__GNUC__ >= 9) && !defined(__INTEL_COMPILER)
+  #define XNN_UNPREDICTABLE(condition) (__builtin_expect_with_probability(!!(condition), 0, 0.5))
 #else
   #define XNN_UNPREDICTABLE(condition) (!!(condition))
 #endif
 
+#if XNN_COMPILER_HAS_FEATURE(thread_sanitizer)
+  #define XNN_DISABLE_TSAN __attribute__((__no_sanitize__("thread")))
+#else
+  #define XNN_DISABLE_TSAN
+#endif
+
+#if defined(__GNUC__)
+  #define XNN_INTRINSIC inline __attribute__((__always_inline__, __artificial__))
+#elif defined(_MSC_VER)
+  #define XNN_INTRINSIC __forceinline
+#else
+  #define XNN_INTRINSIC inline
+#endif
+
 #if defined(__GNUC__)
   #define XNN_INLINE inline __attribute__((__always_inline__))
+#elif defined(_MSC_VER)
+  #define XNN_INLINE __forceinline
 #else
   #define XNN_INLINE inline
 #endif

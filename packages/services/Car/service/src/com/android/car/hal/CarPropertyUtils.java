@@ -41,9 +41,27 @@ import java.util.List;
     private CarPropertyUtils() {}
 
     private static final int[] DEFAULT_AREAIDS = {VehicleAreaType.VEHICLE_AREA_TYPE_GLOBAL};
+
+    // configArray[0], 1 indicates the property has a String value
+    private static final int CONFIG_ARRAY_INDEX_STRING = 0;
+    // configArray[1], 1 indicates the property has a Boolean value .
+    private static final int CONFIG_ARRAY_INDEX_BOOLEAN = 1;
+    // configArray[2], 1 indicates the property has a Integer value.
+    private static final int CONFIG_ARRAY_INDEX_INT = 2;
+    // configArray[3], 1 indicates the property has a Integer[] value.
+    private static final int CONFIG_ARRAY_INDEX_INT_ARRAY = 3;
+    // configArray[4], 1 indicates the property has a Long value.
+    private static final int CONFIG_ARRAY_INDEX_LONG = 4;
+    // configArray[5], the number indicates the size of Long[]  in the property.
+    private static final int CONFIG_ARRAY_INDEX_LONG_ARRAY = 5;
+    // configArray[6], 1 indicates the property has a Float value.
+    private static final int CONFIG_ARRAY_INDEX_FLOAT = 6;
+    // configArray[7], the number indicates the size of Float[] in the property.
+    private static final int CONFIG_ARRAY_INDEX_FLOAT_ARRAY = 7;
+    // configArray[8], the number indicates the size of byte[] in the property.
+    private static final int CONFIG_ARRAY_INDEX_BYTES = 8;
     // Length of mixed type properties' configArray should always be 9
     private static final int CONFIG_ARRAY_LENGTH = 9;
-
     /** Converts {@link VehiclePropValue} to {@link CarPropertyValue} */
     static CarPropertyValue<?> toCarPropertyValue(
             VehiclePropValue halValue, int propertyId) {
@@ -96,14 +114,17 @@ import java.util.List;
 
     /** Converts {@link VehiclePropValue} to {@link CarPropertyValue} for MIXED type properties*/
     static CarPropertyValue<?> toMixedCarPropertyValue(
-            VehiclePropValue halValue, int propertyId, boolean containBoolean) {
+            VehiclePropValue halValue, int propertyId, boolean containBoolean,
+            boolean containString) {
         int areaId = halValue.areaId;
         int status = halValue.status;
         long timestamp = halValue.timestamp;
         VehiclePropValue.RawValue value = halValue.value;
 
         List<Object> valuesList = new ArrayList<>();
-        valuesList.add(value.stringValue);
+        if (containString) {
+            valuesList.add(value.stringValue);
+        }
         if (containBoolean) {
             boolean boolValue = value.int32Values.get(0) == 1;
             valuesList.add(boolValue);
@@ -181,13 +202,13 @@ import java.util.List;
 
         Object[] values = (Object[]) carProp.getValue();
         int indexOfValues = 0;
-        if (configArray[0] != 0) {
+        if (configArray[CONFIG_ARRAY_INDEX_STRING] != 0) {
             // Add a string value
             v.stringValue = (String) values[indexOfValues];
             indexOfValues++;
         }
 
-        if (configArray[1] != 0) {
+        if (configArray[CONFIG_ARRAY_INDEX_BOOLEAN] != 0) {
             // Add a boolean value
             v.int32Values.add((Boolean) values[indexOfValues] ? 1 : 0); // in HAL, 1 indicates true
             indexOfValues++;
@@ -197,7 +218,8 @@ import java.util.List;
          * configArray[2], 1 indicates the property has a Integer value.
          * configArray[3], the number indicates the size of Integer[]  in the property.
          */
-        int integerSize = configArray[2] + configArray[3];
+        int integerSize = configArray[CONFIG_ARRAY_INDEX_INT]
+                + configArray[CONFIG_ARRAY_INDEX_INT_ARRAY];
         while (integerSize != 0) {
             v.int32Values.add((Integer) values[indexOfValues]);
             indexOfValues++;
@@ -206,7 +228,8 @@ import java.util.List;
         /* configArray[4], 1 indicates the property has a Long value .
          * configArray[5], the number indicates the size of Long[]  in the property.
          */
-        int longSize = configArray[4] + configArray[5];
+        int longSize = configArray[CONFIG_ARRAY_INDEX_LONG]
+                + configArray[CONFIG_ARRAY_INDEX_LONG_ARRAY];
         while (longSize != 0) {
             v.int64Values.add((Long) values[indexOfValues]);
             indexOfValues++;
@@ -215,7 +238,8 @@ import java.util.List;
         /* configArray[6], 1 indicates the property has a Float value .
          * configArray[7], the number indicates the size of Float[] in the property.
          */
-        int floatSize = configArray[6] + configArray[7];
+        int floatSize = configArray[CONFIG_ARRAY_INDEX_FLOAT]
+                + configArray[CONFIG_ARRAY_INDEX_FLOAT_ARRAY];
         while (floatSize != 0) {
             v.floatValues.add((Float) values[indexOfValues]);
             indexOfValues++;
@@ -223,7 +247,7 @@ import java.util.List;
         }
 
         /* configArray[8], the number indicates the size of byte[] in the property. */
-        if (configArray[8] != 0) {
+        if (configArray[CONFIG_ARRAY_INDEX_BYTES] != 0) {
             Collections.addAll(v.bytes, (Byte[]) values[indexOfValues]);
         }
         return vehicleProp;
@@ -264,13 +288,13 @@ import java.util.List;
                     builder.addAreaConfig(area.areaId, area.minFloatValue, area.maxFloatValue);
                 } else if (classMatched(Long.class, clazz)) {
                     builder.addAreaConfig(area.areaId, area.minInt64Value, area.maxInt64Value);
-                } else if (classMatched(Boolean.class, clazz) ||
-                           classMatched(Float[].class, clazz) ||
-                           classMatched(Integer[].class, clazz) ||
-                           classMatched(Long[].class, clazz) ||
-                           classMatched(String.class, clazz) ||
-                           classMatched(byte[].class, clazz) ||
-                           classMatched(Object[].class, clazz)) {
+                } else if (classMatched(Boolean.class, clazz)
+                        || classMatched(Float[].class, clazz)
+                        || classMatched(Integer[].class, clazz)
+                        || classMatched(Long[].class, clazz)
+                        || classMatched(String.class, clazz)
+                        || classMatched(byte[].class, clazz)
+                        || classMatched(Object[].class, clazz)) {
                     // These property types do not have min/max values
                     builder.addArea(area.areaId);
                 } else {

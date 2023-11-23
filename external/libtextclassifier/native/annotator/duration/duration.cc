@@ -22,6 +22,7 @@
 #include "annotator/collections.h"
 #include "annotator/types.h"
 #include "utils/base/logging.h"
+#include "utils/base/macros.h"
 #include "utils/strings/numbers.h"
 #include "utils/utf8/unicodetext.h"
 
@@ -100,6 +101,24 @@ std::unordered_set<int32> BuildInt32Set(
   return result;
 }
 
+// Get the dangling quantity unit e.g. for 2 hours 10, 10 would have the unit
+// "minute".
+DurationUnit GetDanglingQuantityUnit(const DurationUnit main_unit) {
+  switch (main_unit) {
+    case DurationUnit::HOUR:
+      return DurationUnit::MINUTE;
+    case DurationUnit::MINUTE:
+      return DurationUnit::SECOND;
+    case DurationUnit::UNKNOWN:
+      TC3_LOG(ERROR) << "Requesting parse of UNKNOWN duration duration_unit.";
+      TC3_FALLTHROUGH_INTENDED;
+    case DurationUnit::WEEK:
+    case DurationUnit::DAY:
+    case DurationUnit::SECOND:
+      // We only support dangling units for hours and minutes.
+      return DurationUnit::UNKNOWN;
+  }
+}
 }  // namespace internal
 
 bool DurationAnnotator::ClassifyText(
@@ -201,25 +220,31 @@ int DurationAnnotator::FindDurationStartingAt(const UnicodeText& context,
   const bool parse_ended_without_unit_for_last_mentioned_quantity =
       has_quantity;
 
+  if (parse_ended_without_unit_for_last_mentioned_quantity) {
+    const DurationUnit main_unit = parsed_duration_atoms.rbegin()->unit;
+    if (parsed_duration.plus_half) {
+      // Process "and half" suffix.
+      end_index = quantity_end_index;
+      ParsedDurationAtom atom = ParsedDurationAtom::Half();
+      atom.unit = main_unit;
+      parsed_duration_atoms.push_back(atom);
+    } else if (options_->enable_dangling_quantity_interpretation()) {
+      // Process dangling quantity.
+      ParsedDurationAtom atom;
+      atom.value = parsed_duration.value;
+      atom.unit = GetDanglingQuantityUnit(main_unit);
+      if (atom.unit != DurationUnit::UNKNOWN) {
+        end_index = quantity_end_index;
+        parsed_duration_atoms.push_back(atom);
+      }
+    }
+  }
+
   ClassificationResult classification{Collections::Duration(),
                                       options_->score()};
   classification.priority_score = options_->priority_score();
   classification.duration_ms =
       ParsedDurationAtomsToMillis(parsed_duration_atoms);
-
-  // Process suffix expressions like "and half" that don't have the
-  // duration_unit explicitly mentioned.
-  if (parse_ended_without_unit_for_last_mentioned_quantity) {
-    if (parsed_duration.plus_half) {
-      end_index = quantity_end_index;
-      ParsedDurationAtom atom = ParsedDurationAtom::Half();
-      atom.unit = parsed_duration_atoms.rbegin()->unit;
-      classification.duration_ms += ParsedDurationAtomsToMillis({atom});
-    } else if (options_->enable_dangling_quantity_interpretation()) {
-      end_index = quantity_end_index;
-      // TODO(b/144752747) Add dangling quantity to duration_ms.
-    }
-  }
 
   result->span = feature_processor_->StripBoundaryCodepoints(
       context, {start_index, end_index});
@@ -256,7 +281,7 @@ int64 DurationAnnotator::ParsedDurationAtomsToMillis(
         break;
     }
 
-    int64 value = atom.value;
+    double value = atom.value;
     // This condition handles expressions like "an hour", where the quantity is
     // not specified. In this case we assume quantity 1. Except for cases like
     // "half hour".
@@ -287,8 +312,8 @@ bool DurationAnnotator::ParseQuantityToken(const Token& token,
     return true;
   }
 
-  int32 parsed_value;
-  if (ParseInt32(lowercase_token_value.c_str(), &parsed_value)) {
+  double parsed_value;
+  if (ParseDouble(lowercase_token_value.c_str(), &parsed_value)) {
     value->value = parsed_value;
     return true;
   }

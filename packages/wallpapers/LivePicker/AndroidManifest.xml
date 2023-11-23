@@ -41,6 +41,7 @@
             android:theme="@style/LivePickerTheme"
             android:colorMode="wideColorGamut"
             android:screenOrientation="portrait"
+            android:exported="true"
             android:hardwareAccelerated="true">
             <intent-filter>
                 <action android:name="android.service.wallpaper.LIVE_WALLPAPER_CHOOSER" />
@@ -55,6 +56,7 @@
             android:label="@string/live_wallpaper_preview_title"
             android:colorMode="wideColorGamut"
             android:screenOrientation="portrait"
+            android:exported="true"
             android:theme="@style/Preview">
             <intent-filter>
                 <action android:name="android.service.wallpaper.CHANGE_LIVE_WALLPAPER" />

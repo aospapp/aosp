@@ -1,24 +1,78 @@
-import apiclient.discovery
-import apiclient.http
-from oauth2client import client as oauth2_client
+#!/usr/bin/env python3
+#
+# Copyright (C) 2019 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+try:
+    import apiclient.discovery
+    import apiclient.http
+    from oauth2client import client as oauth2_client
+except ImportError:
+    missingImportString = """
+  Missing necessary libraries. Try doing the following:
+  $ sudo apt-get install python3-pip
+  $ pip install --user --upgrade google-api-python-client
+  $ pip install --user --upgrade oauth2client
+"""
+    raise ImportError(missingImportString)
+
 import io
+import getpass
 import os
+
+import utils
 
 ANDROID_BUILD_API_SCOPE = (
     'https://www.googleapis.com/auth/androidbuild.internal')
 ANDROID_BUILD_API_NAME = 'androidbuildinternal'
 ANDROID_BUILD_API_VERSION = 'v2beta1'
-TRADEFED_KEY_FILE = '/google/data/ro/teams/tradefed/configs/tradefed.json'
 CHUNK_SIZE = 10 * 1024 * 1024  # 10M
 
-ANDROID_PGO_BUILD = 'pgo-taimen-config1'
+ANDROID_PGO_BUILD = 'pgo-coral-config1'
+
+STUBBY_COMMAND_PATH = '/google/data/ro/teams/android-llvm/tests/sso_stubby_cmd.sh'
+STUBBY_REQUEST = """
+target: {{
+  scope: GAIA_USER
+  name: "{user}@google.com"
+}}
+target_credential: {{
+  type: OAUTH2_TOKEN
+  oauth2_attributes: {{
+    scope: '{scope}'
+  }}
+}}
+"""
+
+
+def _get_oauth2_token():
+    request = STUBBY_REQUEST.format(
+        user=getpass.getuser(), scope=ANDROID_BUILD_API_SCOPE)
+    with open(STUBBY_COMMAND_PATH) as stubby_command_file:
+        stubby_command = stubby_command_file.read().strip().split()
+    output = utils.check_output(stubby_command, input=request)
+    # output is of the format:
+    # oauth2_token: "<TOKEN>"
+    return output.split('"')[1]
 
 
 class AndroidBuildClient(object):
 
     def __init__(self):
-        creds = oauth2_client.GoogleCredentials.from_stream(TRADEFED_KEY_FILE)
-        self.creds = creds.create_scoped([ANDROID_BUILD_API_SCOPE])
+        creds = oauth2_client.AccessTokenCredentials(
+            access_token=_get_oauth2_token(), user_agent='unused/1.0')
 
         self.client = apiclient.discovery.build(
             ANDROID_BUILD_API_NAME,

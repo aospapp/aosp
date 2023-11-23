@@ -17,7 +17,7 @@
 
 <selector
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:settings="http://schemas.android.com/apk/res/com.android.car.settings">
+    xmlns:settings="http://schemas.android.com/apk/res-auto">
     <item settings:state_encrypted="true">
         <layer-list>
             <item>

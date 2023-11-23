@@ -22,6 +22,7 @@ struct hfp_alsa_io {
 static struct cras_iodev fake_sco_out, fake_sco_in;
 static struct cras_bt_device* fake_device;
 static struct hfp_slc_handle* fake_slc;
+static struct cras_audio_format fake_format;
 
 static size_t cras_bt_device_append_iodev_called;
 static size_t cras_bt_device_rm_iodev_called;
@@ -57,6 +58,7 @@ _FAKE_CALL1(open_dev);
 _FAKE_CALL1(update_supported_formats);
 _FAKE_CALL1(configure_dev);
 _FAKE_CALL1(close_dev);
+_FAKE_CALL1(output_underrun);
 _FAKE_CALL2(frames_queued);
 _FAKE_CALL1(delay_frames);
 _FAKE_CALL3(get_buffer);
@@ -66,6 +68,7 @@ _FAKE_CALL3(update_active_node);
 _FAKE_CALL1(start);
 _FAKE_CALL2(no_stream);
 _FAKE_CALL1(is_free_running);
+_FAKE_CALL2(get_valid_frames);
 
 static void ResetStubData() {
   cras_bt_device_append_iodev_called = 0;
@@ -130,6 +133,14 @@ static void ResetStubData() {
   fake_sco_out.is_free_running = fake_sco_in.is_free_running =
       (int (*)(const struct cras_iodev*))fake_is_free_running;
   fake_is_free_running_called = 0;
+
+  fake_sco_out.output_underrun =
+      (int (*)(struct cras_iodev*))fake_output_underrun;
+  fake_output_underrun_called = 0;
+
+  fake_sco_out.get_valid_frames =
+      (int (*)(struct cras_iodev*, struct timespec*))fake_get_valid_frames;
+  fake_get_valid_frames_called = 0;
 }
 
 namespace {
@@ -216,7 +227,8 @@ TEST_F(HfpAlsaIodev, UpdateSupportedFormat) {
                                 CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY);
   iodev->update_supported_formats(iodev);
 
-  EXPECT_EQ(1, fake_update_supported_formats_called);
+  // update_supported_format on alsa_io is not called.
+  EXPECT_EQ(0, fake_update_supported_formats_called);
   for (size_t i = 0; i < 2; ++i) {
     EXPECT_EQ(supported_rates[i], iodev->supported_rates[i]);
     EXPECT_EQ(supported_channel_counts[i], iodev->supported_channel_counts[i]);
@@ -229,12 +241,22 @@ TEST_F(HfpAlsaIodev, UpdateSupportedFormat) {
 TEST_F(HfpAlsaIodev, ConfigureDev) {
   struct cras_iodev* iodev;
   size_t buf_size = 8192;
+  struct hfp_alsa_io* hfp_alsa_io;
 
   fake_sco_out.direction = CRAS_STREAM_OUTPUT;
   fake_sco_out.buffer_size = buf_size;
   iodev = hfp_alsa_iodev_create(&fake_sco_out, fake_device, fake_slc,
                                 CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY);
+  hfp_alsa_io = (struct hfp_alsa_io*)iodev;
+  iodev->format = &fake_format;
   iodev->configure_dev(iodev);
+
+  EXPECT_EQ(fake_format.num_channels, hfp_alsa_io->aio->format->num_channels);
+  EXPECT_EQ(fake_format.frame_rate, hfp_alsa_io->aio->format->frame_rate);
+  EXPECT_EQ(fake_format.format, hfp_alsa_io->aio->format->format);
+  for (int i = 0; i < CRAS_CH_MAX; i++)
+    EXPECT_EQ(fake_format.channel_layout[i],
+              hfp_alsa_io->aio->format->channel_layout[i]);
 
   EXPECT_EQ(1, fake_configure_dev_called);
   EXPECT_EQ(1, hfp_set_call_status_called);
@@ -251,6 +273,7 @@ TEST_F(HfpAlsaIodev, CloseDev) {
                                 CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY);
   iodev->close_dev(iodev);
 
+  EXPECT_EQ(1, hfp_set_call_status_called);
   EXPECT_EQ(1, cras_iodev_free_format_called);
   EXPECT_EQ(1, fake_close_dev_called);
 
@@ -392,6 +415,38 @@ TEST_F(HfpAlsaIodev, IsFreeRunning) {
   hfp_alsa_iodev_destroy(iodev);
 }
 
+TEST_F(HfpAlsaIodev, OutputUnderrun) {
+  struct cras_iodev* iodev;
+
+  fake_sco_out.direction = CRAS_STREAM_OUTPUT;
+  iodev = hfp_alsa_iodev_create(&fake_sco_out, fake_device, fake_slc,
+                                CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY);
+  iodev->min_cb_level = 0xab;
+  iodev->max_cb_level = 0xcd;
+
+  iodev->output_underrun(iodev);
+
+  EXPECT_EQ(0xab, fake_sco_out.min_cb_level);
+  EXPECT_EQ(0xcd, fake_sco_out.max_cb_level);
+  EXPECT_EQ(1, fake_output_underrun_called);
+
+  hfp_alsa_iodev_destroy(iodev);
+}
+
+TEST_F(HfpAlsaIodev, GetValidFrames) {
+  struct cras_iodev* iodev;
+  struct timespec ts;
+
+  fake_sco_out.direction = CRAS_STREAM_OUTPUT;
+  iodev = hfp_alsa_iodev_create(&fake_sco_out, fake_device, fake_slc,
+                                CRAS_BT_DEVICE_PROFILE_HFP_AUDIOGATEWAY);
+
+  iodev->get_valid_frames(iodev, &ts);
+
+  EXPECT_EQ(1, fake_get_valid_frames_called);
+
+  hfp_alsa_iodev_destroy(iodev);
+}
 }  // namespace
 
 extern "C" {
@@ -422,6 +477,9 @@ void cras_iodev_set_active_node(struct cras_iodev* iodev,
   iodev->active_node = node;
 }
 
+// From ewma_power
+void ewma_power_disable(struct ewma_power* ewma) {}
+
 size_t cras_system_get_volume() {
   return 0;
 }
@@ -447,6 +505,10 @@ void cras_bt_device_rm_iodev(struct cras_bt_device* device,
 
 const char* cras_bt_device_object_path(const struct cras_bt_device* device) {
   return "/fake/object/path";
+}
+
+int cras_bt_device_get_stable_id(const struct cras_bt_device* device) {
+  return 123;
 }
 
 void cras_iodev_free_resources(struct cras_iodev* iodev) {

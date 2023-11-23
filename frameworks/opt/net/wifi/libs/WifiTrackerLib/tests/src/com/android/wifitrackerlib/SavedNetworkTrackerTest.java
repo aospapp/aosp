@@ -31,7 +31,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkScoreManager;
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.hotspot2.pps.Credential;
@@ -51,6 +53,7 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class SavedNetworkTrackerTest {
@@ -102,6 +105,9 @@ public class SavedNetworkTrackerTest {
         mTestLooper = new TestLooper();
 
         when(mMockWifiManager.getScanResults()).thenReturn(new ArrayList<>());
+        when(mMockWifiManager.isWpa3SaeSupported()).thenReturn(true);
+        when(mMockWifiManager.isWpa3SuiteBSupported()).thenReturn(true);
+        when(mMockWifiManager.isEnhancedOpenSupported()).thenReturn(true);
         when(mMockClock.millis()).thenReturn(START_MILLIS);
         when(mMockContext.getSystemService(Context.NETWORK_SCORE_SERVICE))
                 .thenReturn(mMockNetworkScoreManager);
@@ -214,7 +220,7 @@ public class SavedNetworkTrackerTest {
     }
 
     /**
-     * Tests that a CONFIGURED_NETWORKS_CHANGED broadcast with CHANGE_REASON_ADDED
+     * Tests that a CONFIGURED_NETWORKS_CHANGED broadcast after adding a config
      * adds the corresponding WifiEntry from getSavedWifiEntries().
      */
     @Test
@@ -227,12 +233,11 @@ public class SavedNetworkTrackerTest {
 
         assertThat(savedNetworkTracker.getSavedWifiEntries()).isEmpty();
 
+        final WifiConfiguration config = buildWifiConfiguration("ssid");
+        when(mMockWifiManager.getConfiguredNetworks())
+                .thenReturn(Collections.singletonList(config));
         mBroadcastReceiverCaptor.getValue().onReceive(mMockContext,
-                new Intent(WifiManager.CONFIGURED_NETWORKS_CHANGED_ACTION)
-                        .putExtra(WifiManager.EXTRA_WIFI_CONFIGURATION,
-                                buildWifiConfiguration("ssid"))
-                        .putExtra(WifiManager.EXTRA_CHANGE_REASON,
-                                WifiManager.CHANGE_REASON_ADDED));
+                new Intent(WifiManager.CONFIGURED_NETWORKS_CHANGED_ACTION));
 
         assertThat(savedNetworkTracker.getSavedWifiEntries().stream()
                 .filter(entry -> entry.mForSavedNetworksPage)
@@ -241,7 +246,7 @@ public class SavedNetworkTrackerTest {
     }
 
     /**
-     * Tests that a CONFIGURED_NETWORKS_CHANGED broadcast with CHANGE_REASON_REMOVED
+     * Tests that a CONFIGURED_NETWORKS_CHANGED broadcast after removing a config
      * removes the corresponding WifiEntry from getSavedWifiEntries().
      */
     @Test
@@ -257,11 +262,10 @@ public class SavedNetworkTrackerTest {
 
         assertThat(savedNetworkTracker.getSavedWifiEntries()).hasSize(1);
 
+        when(mMockWifiManager.getConfiguredNetworks())
+                .thenReturn(Collections.emptyList());
         mBroadcastReceiverCaptor.getValue().onReceive(mMockContext,
-                new Intent(WifiManager.CONFIGURED_NETWORKS_CHANGED_ACTION)
-                        .putExtra(WifiManager.EXTRA_WIFI_CONFIGURATION, config)
-                        .putExtra(WifiManager.EXTRA_CHANGE_REASON,
-                                WifiManager.CHANGE_REASON_REMOVED));
+                new Intent(WifiManager.CONFIGURED_NETWORKS_CHANGED_ACTION));
 
         assertThat(savedNetworkTracker.getSavedWifiEntries()).isEmpty();
     }
@@ -335,5 +339,107 @@ public class SavedNetworkTrackerTest {
         assertThat(savedNetworkTracker.getSubscriptionWifiEntries()).isNotEmpty();
         assertThat(savedNetworkTracker.getSubscriptionWifiEntries().get(0).getTitle())
                 .isEqualTo("friendlyName");
+    }
+
+    @Test
+    public void testGetSavedNetworks_splitConfigs_entriesMergedBySecurityFamily() {
+        final String ssid = "ssid";
+        WifiConfiguration openConfig = buildWifiConfiguration(ssid);
+        openConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OPEN);
+        openConfig.networkId = 1;
+        WifiConfiguration oweConfig = buildWifiConfiguration(ssid);
+        oweConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OWE);
+        oweConfig.networkId = 1;
+        WifiConfiguration wepConfig = buildWifiConfiguration(ssid);
+        wepConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_WEP);
+        wepConfig.wepKeys = new String[]{"key"};
+        wepConfig.networkId = 2;
+        WifiConfiguration pskConfig = buildWifiConfiguration(ssid);
+        pskConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_PSK);
+        pskConfig.networkId = 3;
+        WifiConfiguration saeConfig = buildWifiConfiguration(ssid);
+        saeConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_SAE);
+        saeConfig.networkId = 3;
+        WifiConfiguration eapConfig = buildWifiConfiguration(ssid);
+        eapConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP);
+        eapConfig.networkId = 4;
+        WifiConfiguration eapWpa3Config = buildWifiConfiguration(ssid);
+        eapWpa3Config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE);
+        eapWpa3Config.networkId = 4;
+        WifiConfiguration eapWpa3SuiteBConfig = buildWifiConfiguration(ssid);
+        eapWpa3SuiteBConfig.setSecurityParams(
+                WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT);
+        eapWpa3SuiteBConfig.networkId = 5;
+        when(mMockWifiManager.getConfiguredNetworks()).thenReturn(Arrays.asList(
+                openConfig, oweConfig, wepConfig, pskConfig, saeConfig, eapConfig, eapWpa3Config,
+                eapWpa3SuiteBConfig
+        ));
+        final SavedNetworkTracker savedNetworkTracker = createTestSavedNetworkTracker();
+        savedNetworkTracker.onStart();
+        mTestLooper.dispatchAll();
+
+        final List<WifiEntry> savedWifiEntries = savedNetworkTracker.getSavedWifiEntries();
+        assertThat(savedWifiEntries.size()).isEqualTo(5);
+        assertThat(savedWifiEntries.stream()
+                .map(entry -> entry.getSecurityTypes())
+                .collect(Collectors.toList()))
+                .containsExactly(
+                        Arrays.asList(WifiInfo.SECURITY_TYPE_OPEN, WifiInfo.SECURITY_TYPE_OWE),
+                        Arrays.asList(WifiInfo.SECURITY_TYPE_WEP),
+                        Arrays.asList(WifiInfo.SECURITY_TYPE_PSK, WifiInfo.SECURITY_TYPE_SAE),
+                        Arrays.asList(WifiInfo.SECURITY_TYPE_EAP,
+                                WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE),
+                        Arrays.asList(WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE_192_BIT));
+    }
+
+    /**
+     * Tests that entries with configs that have scans matching the security family but NOT the
+     * actual configs on hand will ignore the scans and be returned as saved with the configs.
+     */
+    @Test
+    public void testGetSavedNetworks_mismatchedScans_returnsCorrectEntries() {
+        // Set up scans for Open, PSK, WPA2-Enterprise
+        final ArrayList scanList = new ArrayList();
+        final String ssid = "ssid";
+        final String bssid = "bssid";
+        int bssidNum = 0;
+        for (String capabilities : Arrays.asList(
+                "",
+                "[PSK]",
+                "[EAP/SHA1]"
+        )) {
+            final ScanResult scan = buildScanResult(ssid, bssid + bssidNum++, START_MILLIS);
+            scan.capabilities = capabilities;
+            scanList.add(scan);
+        }
+        when(mMockWifiManager.getScanResults()).thenReturn(scanList);
+        // Set up configs for OWE, SAE, WPA3-Enterprise
+        WifiConfiguration oweConfig = buildWifiConfiguration(ssid);
+        oweConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OWE);
+        oweConfig.networkId = 1;
+        WifiConfiguration saeConfig = buildWifiConfiguration(ssid);
+        saeConfig.setSecurityParams(WifiConfiguration.SECURITY_TYPE_SAE);
+        saeConfig.networkId = 2;
+        WifiConfiguration eapWpa3Config = buildWifiConfiguration(ssid);
+        eapWpa3Config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_EAP_WPA3_ENTERPRISE);
+        eapWpa3Config.networkId = 3;
+        when(mMockWifiManager.getConfiguredNetworks())
+                .thenReturn(Arrays.asList(oweConfig, saeConfig, eapWpa3Config));
+
+        final SavedNetworkTracker savedNetworkTracker = createTestSavedNetworkTracker();
+        savedNetworkTracker.onStart();
+        mTestLooper.dispatchAll();
+
+        // Entries should appear correctly in the saved entry list with the security type of their
+        // configs, ignoring the scans present.
+        final List<WifiEntry> savedWifiEntries = savedNetworkTracker.getSavedWifiEntries();
+        assertThat(savedWifiEntries.size()).isEqualTo(3);
+        assertThat(savedWifiEntries.stream()
+                .map(entry -> entry.getSecurityTypes())
+                .collect(Collectors.toList()))
+                .containsExactly(
+                        Arrays.asList(WifiInfo.SECURITY_TYPE_OWE),
+                        Arrays.asList(WifiInfo.SECURITY_TYPE_SAE),
+                        Arrays.asList(WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE));
     }
 }

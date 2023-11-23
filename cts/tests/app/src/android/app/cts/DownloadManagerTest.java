@@ -15,6 +15,10 @@
  */
 package android.app.cts;
 
+import static android.Manifest.permission.WRITE_MEDIA_STORAGE;
+import static android.content.pm.PackageManager.PERMISSION_DENIED;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -24,18 +28,26 @@ import static org.junit.Assert.fail;
 import android.app.DownloadManager;
 import android.app.DownloadManager.Query;
 import android.app.DownloadManager.Request;
+import android.app.stubs.GetResultActivity;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
+import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
+import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.support.test.uiautomator.UiObject;
+import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.UiSelector;
 import android.util.Log;
+import android.util.LongSparseArray;
 import android.util.Pair;
 
 import androidx.test.filters.FlakyTest;
@@ -47,10 +59,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 @RunWith(AndroidJUnit4.class)
 public class DownloadManagerTest extends DownloadManagerTestBase {
-
+    private static final String DOWNLOAD_STORAGE_PROVIDER_AUTHORITY =
+            "com.android.providers.downloads.documents";
     @FlakyTest
     @Test
     public void testDownloadManager() throws Exception {
@@ -439,6 +457,16 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
         return process;
     }
 
+    private int getExternalVolumeMediaStoreFilesCount() {
+        Uri rootUri = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL);
+        String[] projection = {MediaStore.MediaColumns._ID};
+        int count = 0;
+        try (Cursor cursor = mContext.getContentResolver().query(rootUri, projection, null, null)) {
+            count = cursor.getCount();
+        }
+        return count;
+    }
+
     @FlakyTest
     @Test
     public void testProviderAcceptsCleartext() throws Exception {
@@ -641,10 +669,14 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
                 int allDownloads = getTotalNumberDownloads();
                 assertEquals(1, allDownloads);
 
+                int countBeforeDownload = getExternalVolumeMediaStoreFilesCount();
                 receiver.waitForDownloadComplete(SHORT_TIMEOUT, id);
                 assertSuccessfulDownload(id, new File(
                         Environment.getExternalStoragePublicDirectory(destination), subPath));
 
+                int countAfterDownload = getExternalVolumeMediaStoreFilesCount();
+                // Asserts that only one row entry is added for 1 download
+                assertEquals((countBeforeDownload + 1), countAfterDownload);
                 final Uri downloadUri = mDownloadManager.getUriForDownloadedFile(id);
                 mContext.grantUriPermission("com.android.shell", downloadUri,
                         Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -661,5 +693,147 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
                 mContext.unregisterReceiver(receiver);
             }
         }
+    }
+
+    @Test
+    public void testDownload_onMediaStoreDownloadsDeleted() throws Exception {
+        // prepare file
+        File file = new File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS), "cts" + System.nanoTime() + ".mp3");
+        try {
+            stageFile("testmp3.mp3", file);
+            Uri mediaStoreUri = MediaStore.scanFile(mContext.getContentResolver(), file);
+
+            // setup for activity
+            GetResultActivity activity = setUpForActivity();
+
+            // call activity as we want uri permission grant on DownloadStorageProvider Uri
+            final Intent intent = new Intent();
+            intent.setAction(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            Uri rootUri = DocumentsContract.buildRootUri(DOWNLOAD_STORAGE_PROVIDER_AUTHORITY,
+                    "downloads");
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, rootUri);
+            activity.startActivityForResult(intent, REQUEST_CODE);
+            mDevice.waitForIdle();
+
+            findDocument(file.getName()).click();
+            final GetResultActivity.Result result = activity.getResult();
+            final Uri uri = result.data.getData();
+
+            assertTrue(PERMISSION_GRANTED == checkUriPermission(uri));
+
+            // onMediaStoreDownloadsDeleted API is called on MediaProvider#delete()
+            // for download files. This API revokes grants on DownloadStorageProvider granted Uris
+            LongSparseArray<String> lpa = new LongSparseArray<String>();
+            final long mediaStoreId = Long.parseLong(getMediaStoreColumnValue(mediaStoreUri,
+                    MediaStore.Files.FileColumns._ID));
+            final String mimeType = getMediaStoreColumnValue(mediaStoreUri,
+                    MediaStore.Files.FileColumns.MIME_TYPE);
+            lpa.put(mediaStoreId, mimeType);
+            // This API is permission protected
+            mInstrumentation.getUiAutomation().adoptShellPermissionIdentity(WRITE_MEDIA_STORAGE);
+            try {
+                mDownloadManager.onMediaStoreDownloadsDeleted(lpa);
+            } finally {
+                mInstrumentation.getUiAutomation().dropShellPermissionIdentity();
+            }
+
+            assertTrue(PERMISSION_DENIED == checkUriPermission(uri));
+        } finally {
+            file.delete();
+        }
+    }
+
+    private GetResultActivity setUpForActivity() {
+        final PackageManager pm = mContext.getPackageManager();
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        final ResolveInfo ri = pm.resolveActivity(intent, 0);
+        mDocumentsUiPackageId = ri.activityInfo.packageName;
+
+        final Intent intent2 = new Intent(mContext, GetResultActivity.class);
+        intent2.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        GetResultActivity activity = (GetResultActivity) mInstrumentation.startActivitySync(
+                intent2);
+        mInstrumentation.waitForIdleSync();
+        activity.clearResult();
+        return activity;
+    }
+
+    private int checkUriPermission(Uri uri) {
+        return mContext.checkUriPermission(uri, android.os.Process.myPid(),
+                android.os.Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    }
+
+    private UiObject findDocument(String label) throws UiObjectNotFoundException {
+        final UiSelector docList = new UiSelector().resourceId(getDocumentsUiPackageId()
+                + ":id/dir_list");
+
+        // Wait for the first list item to appear
+        assertTrue("First list item",
+                new UiObject(docList.childSelector(new UiSelector()))
+                        .waitForExists(LONG_TIMEOUT));
+
+        try {
+            //Enforce to set the list mode
+            //Because UiScrollable can't reach the real bottom (when WEB_LINKABLE_FILE item)
+            // in grid mode when screen landscape mode
+            new UiObject(new UiSelector().resourceId(getDocumentsUiPackageId()
+                    + ":id/sub_menu_list")).click();
+            mDevice.waitForIdle();
+        } catch (UiObjectNotFoundException e) {
+            //do nothing, already be in list mode.
+        }
+
+        // Repeat swipe gesture to find our item
+        // (UiScrollable#scrollIntoView does not seem to work well with SwipeRefreshLayout)
+        UiObject targetObject = new UiObject(docList.childSelector(new UiSelector().text(label)));
+        UiObject saveButton = findSaveButton();
+        int stepLimit = 10;
+        while (stepLimit-- > 0) {
+            if (targetObject.exists()) {
+                boolean targetObjectFullyVisible = !saveButton.exists()
+                        || targetObject.getVisibleBounds().bottom
+                        <= saveButton.getVisibleBounds().top;
+                if (targetObjectFullyVisible) {
+                    break;
+                }
+            }
+
+            mDevice.swipe(/* startX= */ mDevice.getDisplayWidth() / 2,
+                    /* startY= */ mDevice.getDisplayHeight() / 2,
+                    /* endX= */ mDevice.getDisplayWidth() / 2,
+                    /* endY= */ 0,
+                    /* steps= */ 40);
+        }
+        return targetObject;
+    }
+
+    private UiObject findSaveButton() throws UiObjectNotFoundException {
+        return new UiObject(new UiSelector().resourceId(
+                getDocumentsUiPackageId() + ":id/container_save")
+                .childSelector(new UiSelector().resourceId("android:id/button1")));
+    }
+
+    private String getDocumentsUiPackageId() {
+        return mDocumentsUiPackageId;
+    }
+
+    private File stageFile(String resId, File file) throws IOException {
+        // The caller may be trying to stage into a location only available to
+        // the shell user, so we need to perform the entire copy as the shell
+        final File dir = file.getParentFile();
+        dir.mkdirs();
+        if (!dir.exists()) {
+            throw new FileNotFoundException("Failed to create parent for " + file);
+        }
+        try (InputStream source = mContext.getAssets().open(resId);
+             OutputStream target = new FileOutputStream(file)) {
+            FileUtils.copy(source, target);
+        }
+        return file;
     }
 }

@@ -25,27 +25,19 @@
 
 #define LOG_TAG "bt_bta_gattc"
 
-#include "bt_target.h"
-
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
+#include <base/strings/stringprintf.h>
+#include <cstdint>
+#include <cstdio>
 #include <sstream>
 
-#include "bt_common.h"
-#include "bta_gattc_int.h"
-#include "bta_sys.h"
-#include "btm_api.h"
-#include "btm_ble_api.h"
-#include "btm_int.h"
-#include "database.h"
-#include "database_builder.h"
+#include "bt_target.h"  // Must be first to define build configuration
+
+#include "bta/gatt/bta_gattc_int.h"
+#include "bta/gatt/database.h"
 #include "osi/include/log.h"
-#include "osi/include/osi.h"
-#include "sdp_api.h"
-#include "sdpdefs.h"
-#include "utl.h"
+#include "stack/btm/btm_sec.h"
+#include "stack/include/gatt_api.h"
+#include "types/bluetooth/uuid.h"
 
 using base::StringPrintf;
 using bluetooth::Uuid;
@@ -68,10 +60,19 @@ const Characteristic* bta_gattc_get_characteristic_srcb(tBTA_GATTC_SERV* p_srcb,
 static void bta_gattc_explore_srvc_finished(uint16_t conn_id,
                                             tBTA_GATTC_SERV* p_srvc_cb);
 
+static void bta_gattc_read_db_hash_cmpl(tBTA_GATTC_CLCB* p_clcb,
+                                        const tBTA_GATTC_OP_CMPL* p_data);
+
+static void bta_gattc_read_ext_prop_desc_cmpl(tBTA_GATTC_CLCB* p_clcb,
+                                              const tBTA_GATTC_OP_CMPL* p_data);
+
+// define the max retry count for DATABASE_OUT_OF_SYNC
+#define BTA_GATTC_DISCOVER_RETRY_COUNT 2
+
 #define BTA_GATT_SDP_DB_SIZE 4096
 
 #define GATT_CACHE_PREFIX "/data/misc/bluetooth/gatt_cache_"
-#define GATT_CACHE_VERSION 5
+#define GATT_CACHE_VERSION 6
 
 static void bta_gattc_generate_cache_file_name(char* buffer, size_t buffer_len,
                                                const RawAddress& bda) {
@@ -132,11 +133,11 @@ const Service* bta_gattc_find_matching_service(
 /** Start primary service discovery */
 tGATT_STATUS bta_gattc_discover_pri_service(uint16_t conn_id,
                                             tBTA_GATTC_SERV* p_server_cb,
-                                            uint8_t disc_type) {
+                                            tGATT_DISC_TYPE disc_type) {
   tBTA_GATTC_CLCB* p_clcb = bta_gattc_find_clcb_by_conn_id(conn_id);
   if (!p_clcb) return GATT_ERROR;
 
-  if (p_clcb->transport == BTA_TRANSPORT_LE) {
+  if (p_clcb->transport == BT_TRANSPORT_LE) {
     return GATTC_Discover(conn_id, disc_type, 0x0001, 0xFFFF);
   }
 
@@ -154,16 +155,56 @@ static void bta_gattc_explore_next_service(uint16_t conn_id,
     return;
   }
 
-  if (!p_srvc_cb->pending_discovery.StartNextServiceExploration()) {
-    bta_gattc_explore_srvc_finished(conn_id, p_srvc_cb);
+  if (p_srvc_cb->pending_discovery.StartNextServiceExploration()) {
+    const auto& service =
+        p_srvc_cb->pending_discovery.CurrentlyExploredService();
+    VLOG(1) << "Start service discovery";
+
+    /* start discovering included services */
+    GATTC_Discover(conn_id, GATT_DISC_INC_SRVC, service.first, service.second);
+    return;
+  }
+  // No more services to discover
+
+  // As part of service discovery, read the values of "Characteristic Extended
+  // Properties" descriptor
+  const auto& descriptors =
+      p_srvc_cb->pending_discovery.DescriptorHandlesToRead();
+  if (!descriptors.empty()) {
+    // set request field to READ_EXT_PROP_DESC
+    p_clcb->request_during_discovery =
+        BTA_GATTC_DISCOVER_REQ_READ_EXT_PROP_DESC;
+
+    if (p_srvc_cb->read_multiple_not_supported || descriptors.size() == 1) {
+      tGATT_READ_PARAM read_param{
+          .by_handle = {.handle = descriptors.front(),
+                        .auth_req = GATT_AUTH_REQ_NONE}};
+      GATTC_Read(conn_id, GATT_READ_BY_HANDLE, &read_param);
+      // asynchronous continuation in bta_gattc_op_cmpl_during_discovery
+      return;
+    }
+
+    // TODO(jpawlowski): as a limit we should use MTU/2 rather than
+    // GATT_MAX_READ_MULTI_HANDLES
+    /* each descriptor contains just 2 bytes, so response size is same as
+     * request size */
+    size_t num_handles =
+        std::min(descriptors.size(), (size_t)GATT_MAX_READ_MULTI_HANDLES);
+
+    tGATT_READ_PARAM read_param;
+    memset(&read_param, 0, sizeof(tGATT_READ_PARAM));
+
+    read_param.read_multiple.num_handles = num_handles;
+    read_param.read_multiple.auth_req = GATT_AUTH_REQ_NONE;
+    memcpy(&read_param.read_multiple.handles, descriptors.data(),
+           sizeof(uint16_t) * num_handles);
+    GATTC_Read(conn_id, GATT_READ_MULTIPLE, &read_param);
+
+    // asynchronous continuation in bta_gattc_op_cmpl_during_discovery
     return;
   }
 
-  const auto& service = p_srvc_cb->pending_discovery.CurrentlyExploredService();
-  VLOG(1) << "Start service discovery";
-
-  /* start discovering included services */
-  GATTC_Discover(conn_id, GATT_DISC_INC_SRVC, service.first, service.second);
+  bta_gattc_explore_srvc_finished(conn_id, p_srvc_cb);
 }
 
 static void bta_gattc_explore_srvc_finished(uint16_t conn_id,
@@ -188,6 +229,14 @@ static void bta_gattc_explore_srvc_finished(uint16_t conn_id,
   if (btm_sec_is_a_bonded_dev(p_srvc_cb->server_bda)) {
     bta_gattc_cache_write(p_clcb->p_srcb->server_bda,
                           p_clcb->p_srcb->gatt_database.Serialize());
+  }
+
+  // After success, reset the count.
+  if (bta_gattc_is_robust_caching_enabled()) {
+    LOG(INFO) << __func__
+              << ": service discovery succeed, reset count to zero, conn_id="
+              << loghex(conn_id);
+    p_srvc_cb->srvc_disc_count = 0;
   }
 
   bta_gattc_reset_discover_st(p_clcb->p_srcb, GATT_SUCCESS);
@@ -219,7 +268,7 @@ descriptor_discovery_done:
 }
 
 /* Process the discovery result from sdp */
-void bta_gattc_sdp_callback(uint16_t sdp_status, void* user_data) {
+void bta_gattc_sdp_callback(tSDP_STATUS sdp_status, void* user_data) {
   tBTA_GATTC_CB_DATA* cb_data = (tBTA_GATTC_CB_DATA*)user_data;
   tBTA_GATTC_SERV* p_srvc_cb = bta_gattc_find_scb_by_cid(cb_data->sdp_conn_id);
 
@@ -316,6 +365,30 @@ static tGATT_STATUS bta_gattc_sdp_service_disc(uint16_t conn_id,
   return GATT_SUCCESS;
 }
 
+/** operation completed */
+void bta_gattc_op_cmpl_during_discovery(tBTA_GATTC_CLCB* p_clcb,
+                                        const tBTA_GATTC_DATA* p_data) {
+  // Currently, there are two cases needed to be handled.
+  // 1. Read ext prop descriptor value after service discovery
+  // 2. Read db hash before starting service discovery
+  switch (p_clcb->request_during_discovery) {
+    case BTA_GATTC_DISCOVER_REQ_READ_EXT_PROP_DESC:
+      bta_gattc_read_ext_prop_desc_cmpl(p_clcb, &p_data->op_cmpl);
+      break;
+    case BTA_GATTC_DISCOVER_REQ_READ_DB_HASH:
+      if (bta_gattc_is_robust_caching_enabled()) {
+        bta_gattc_read_db_hash_cmpl(p_clcb, &p_data->op_cmpl);
+      } else {
+        // it is not possible here if flag is off, but just in case
+        p_clcb->request_during_discovery = BTA_GATTC_DISCOVER_REQ_NONE;
+      }
+      break;
+    case BTA_GATTC_DISCOVER_REQ_NONE:
+    default:
+      break;
+  }
+}
+
 /** callback function to GATT client stack */
 void bta_gattc_disc_res_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
                               tGATT_DISC_RES* p_data) {
@@ -349,20 +422,40 @@ void bta_gattc_disc_res_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
     case GATT_DISC_CHAR_DSCPT:
       p_srvc_cb->pending_discovery.AddDescriptor(p_data->handle, p_data->type);
       break;
+
+    case GATT_DISC_MAX:
+    default:
+      LOG_ERROR("Received illegal discovery item");
+      break;
   }
 }
 
 void bta_gattc_disc_cmpl_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
                                tGATT_STATUS status) {
   tBTA_GATTC_CLCB* p_clcb = bta_gattc_find_clcb_by_conn_id(conn_id);
+  tBTA_GATTC_SERV* p_srvc_cb = bta_gattc_find_scb_by_cid(conn_id);
 
   if (p_clcb && (status != GATT_SUCCESS || p_clcb->status != GATT_SUCCESS)) {
     if (status == GATT_SUCCESS) p_clcb->status = status;
+
+    // if db out of sync is received, try to start service discovery if possible
+    if (bta_gattc_is_robust_caching_enabled() &&
+        status == GATT_DATABASE_OUT_OF_SYNC) {
+      if (p_srvc_cb &&
+          p_srvc_cb->srvc_disc_count < BTA_GATTC_DISCOVER_RETRY_COUNT) {
+        p_srvc_cb->srvc_disc_count++;
+        p_clcb->auto_update = BTA_GATTC_DISC_WAITING;
+      } else {
+        LOG(ERROR) << __func__
+                   << ": retry limit exceeds for db out of sync, conn_id="
+                   << conn_id;
+      }
+    }
+
     bta_gattc_sm_execute(p_clcb, BTA_GATTC_DISCOVER_CMPL_EVT, NULL);
     return;
   }
 
-  tBTA_GATTC_SERV* p_srvc_cb = bta_gattc_find_scb_by_cid(conn_id);
   if (!p_srvc_cb) return;
 
   switch (disc_type) {
@@ -394,6 +487,11 @@ void bta_gattc_disc_cmpl_cback(uint16_t conn_id, tGATT_DISC_TYPE disc_type,
     case GATT_DISC_CHAR_DSCPT:
       /* start discovering next characteristic for char descriptor */
       bta_gattc_start_disc_char_dscp(conn_id, p_srvc_cb);
+      break;
+
+    case GATT_DISC_MAX:
+    default:
+      LOG_ERROR("Received illegal discovery item");
       break;
   }
 }
@@ -525,6 +623,125 @@ const Characteristic* bta_gattc_get_owning_characteristic(uint16_t conn_id,
   return bta_gattc_get_owning_characteristic_srcb(p_clcb->p_srcb, handle);
 }
 
+/* request reading database hash */
+bool bta_gattc_read_db_hash(tBTA_GATTC_CLCB* p_clcb) {
+  tGATT_READ_PARAM read_param;
+  memset(&read_param, 0, sizeof(tGATT_READ_BY_TYPE));
+
+  read_param.char_type.s_handle = 0x0001;
+  read_param.char_type.e_handle = 0xFFFF;
+  read_param.char_type.uuid = Uuid::From16Bit(GATT_UUID_DATABASE_HASH);
+  read_param.char_type.auth_req = GATT_AUTH_REQ_NONE;
+  tGATT_STATUS status =
+      GATTC_Read(p_clcb->bta_conn_id, GATT_READ_BY_TYPE, &read_param);
+
+  if (status != GATT_SUCCESS) return false;
+  p_clcb->request_during_discovery = BTA_GATTC_DISCOVER_REQ_READ_DB_HASH;
+
+  return true;
+}
+
+/* handle response of reading database hash */
+static void bta_gattc_read_db_hash_cmpl(tBTA_GATTC_CLCB* p_clcb,
+                                        const tBTA_GATTC_OP_CMPL* p_data) {
+  uint8_t op = (uint8_t)p_data->op_code;
+  if (op != GATTC_OPTYPE_READ) {
+    VLOG(1) << __func__ << ": op = " << +p_data->hdr.layer_specific;
+    return;
+  }
+  p_clcb->request_during_discovery = BTA_GATTC_DISCOVER_REQ_NONE;
+
+  // run match flow only if the status is success
+  bool matched = false;
+  if (p_data->status == GATT_SUCCESS) {
+    // start to compare local hash and remote hash
+    uint16_t len = p_data->p_cmpl->att_value.len;
+    uint8_t* data = p_data->p_cmpl->att_value.value;
+
+    Octet16 remote_hash;
+    if (len == remote_hash.size()) {
+      uint8_t idx = 0;
+      auto it = remote_hash.begin();
+      for (; idx < len; idx++, data++, it++) *it = *data;
+
+      Octet16 local_hash = p_clcb->p_srcb->gatt_database.Hash();
+      matched = (local_hash == remote_hash);
+    }
+  }
+
+  if (matched) {
+    LOG(INFO) << __func__ << ": hash is the same, skip service discovery";
+    p_clcb->p_srcb->state = BTA_GATTC_SERV_IDLE;
+    bta_gattc_reset_discover_st(p_clcb->p_srcb, GATT_SUCCESS);
+  } else {
+    LOG(INFO) << __func__ << ": hash is not the same, start service discovery";
+    bta_gattc_start_discover_internal(p_clcb);
+  }
+}
+
+/* handle response of reading extended properties descriptor */
+static void bta_gattc_read_ext_prop_desc_cmpl(
+    tBTA_GATTC_CLCB* p_clcb, const tBTA_GATTC_OP_CMPL* p_data) {
+  uint8_t op = (uint8_t)p_data->op_code;
+  if (op != GATTC_OPTYPE_READ) {
+    VLOG(1) << __func__ << ": op = " << +p_data->hdr.layer_specific;
+    return;
+  }
+
+  if (!p_clcb->disc_active) {
+    VLOG(1) << __func__ << ": not active in discover state";
+    return;
+  }
+  p_clcb->request_during_discovery = BTA_GATTC_DISCOVER_REQ_NONE;
+
+  tBTA_GATTC_SERV* p_srvc_cb = p_clcb->p_srcb;
+  const uint8_t status = p_data->status;
+
+  if (status == GATT_REQ_NOT_SUPPORTED &&
+      !p_srvc_cb->read_multiple_not_supported) {
+    // can't do "read multiple request", fall back to "read request"
+    p_srvc_cb->read_multiple_not_supported = true;
+    bta_gattc_explore_next_service(p_clcb->bta_conn_id, p_srvc_cb);
+    return;
+  }
+
+  if (status != GATT_SUCCESS) {
+    LOG(WARNING) << "Discovery on server failed: " << loghex(status);
+    bta_gattc_reset_discover_st(p_clcb->p_srcb, GATT_ERROR);
+    return;
+  }
+
+  const tGATT_VALUE& att_value = p_data->p_cmpl->att_value;
+  if (p_srvc_cb->read_multiple_not_supported && att_value.len != 2) {
+    // Just one Characteristic Extended Properties value at a time in Read
+    // Response
+    LOG(WARNING) << __func__ << " Read Response should be just 2 bytes!";
+    bta_gattc_reset_discover_st(p_clcb->p_srcb, GATT_ERROR);
+    return;
+  }
+
+  // Parsing is same for "Read Multiple Response", and for "Read Response"
+  const uint8_t* p = att_value.value;
+  std::vector<uint16_t> value_of_descriptors;
+  while (p < att_value.value + att_value.len) {
+    uint16_t extended_properties;
+    STREAM_TO_UINT16(extended_properties, p);
+    value_of_descriptors.push_back(extended_properties);
+  }
+
+  bool ret =
+      p_srvc_cb->pending_discovery.SetValueOfDescriptors(value_of_descriptors);
+  if (!ret) {
+    LOG(WARNING) << __func__
+                 << " Problem setting Extended Properties descriptors values";
+    bta_gattc_reset_discover_st(p_clcb->p_srcb, GATT_ERROR);
+    return;
+  }
+
+  // Continue service discovery
+  bta_gattc_explore_next_service(p_clcb->bta_conn_id, p_srvc_cb);
+}
+
 /*******************************************************************************
  *
  * Function         bta_gattc_fill_gatt_db_el
@@ -634,12 +851,18 @@ static void bta_gattc_get_gatt_db_impl(tBTA_GATTC_SERV* p_srvc_cb,
                                 charac.value_handle, 0 /* s_handle */,
                                 0 /* e_handle */, charac.value_handle,
                                 charac.uuid, charac.properties);
+      btgatt_db_element_t* characteristic = curr_db_attr;
       curr_db_attr++;
 
       for (const Descriptor& desc : charac.descriptors) {
         bta_gattc_fill_gatt_db_el(
             curr_db_attr, BTGATT_DB_DESCRIPTOR, desc.handle, 0 /* s_handle */,
             0 /* e_handle */, desc.handle, desc.uuid, 0 /* property */);
+
+        if (desc.uuid == Uuid::From16Bit(GATT_UUID_CHAR_EXT_PROP)) {
+          characteristic->extended_properties =
+              desc.characteristic_extended_properties;
+        }
         curr_db_attr++;
       }
     }
@@ -676,7 +899,7 @@ void bta_gattc_get_gatt_db(uint16_t conn_id, uint16_t start_handle,
                            int* count) {
   tBTA_GATTC_CLCB* p_clcb = bta_gattc_find_clcb_by_conn_id(conn_id);
 
-  LOG_DEBUG(LOG_TAG, "%s", __func__);
+  LOG_INFO("%s", __func__);
   if (p_clcb == NULL) {
     LOG(ERROR) << "Unknown conn_id=" << loghex(conn_id);
     return;

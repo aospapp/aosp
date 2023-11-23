@@ -16,11 +16,12 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.os.powermanagertests"
-    android:targetSandboxVersion="2">
-  <uses-permission android:name="android.permission.WAKE_LOCK" />
+     package="android.os.powermanagertests"
+     android:targetSandboxVersion="2">
+  <uses-permission android:name="android.permission.WAKE_LOCK"/>
   <application>
-    <activity android:name=".WakeLockTest">
+    <activity android:name=".WakeLockTest"
+         android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.DEFAULT"/>
@@ -29,4 +30,3 @@
     </activity>
   </application>
 </manifest>
-

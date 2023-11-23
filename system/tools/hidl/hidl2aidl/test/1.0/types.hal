@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package hidl2aidl@1.0;
+package hidl2aidl.test@1.0;
 
 struct Outer {
     struct Inner {
@@ -24,6 +24,13 @@ struct Outer {
 
 struct OverrideMe {
     uint8_t a;
+    uint8_t b;
+};
+
+struct NameCollision {
+    uint8_t a;
+    uint8_t b;
+    uint8_t c;
 };
 
 struct OnlyIn10 {

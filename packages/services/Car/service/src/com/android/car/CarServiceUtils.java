@@ -25,7 +25,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.ArrayMap;
-import android.util.Log;
+import android.util.Slog;
 
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -35,7 +35,7 @@ import java.util.List;
 /** Utility class */
 public final class CarServiceUtils {
 
-    private static final String TAG = "CAR.UTIL";
+    private static final String TAG = CarLog.tagFor(CarServiceUtils.class);
     /** Empty int array */
     public  static final int[] EMPTY_INT_ARRAY = new int[0];
 
@@ -63,7 +63,7 @@ public final class CarServiceUtils {
                     0);
         } catch (NameNotFoundException e) {
             String msg = PACKAGE_NOT_FOUND + packageName;
-            Log.w(CarLog.TAG_SERVICE, msg, e);
+            Slog.w(CarLog.TAG_SERVICE, msg, e);
             throw new SecurityException(msg, e);
         }
         if (appInfo == null) {
@@ -209,7 +209,7 @@ public final class CarServiceUtils {
         synchronized (sHandlerThreads) {
             HandlerThread thread = sHandlerThreads.get(name);
             if (thread == null || !thread.isAlive()) {
-                Log.i(TAG, "Starting HandlerThread:" + name);
+                Slog.i(TAG, "Starting HandlerThread:" + name);
                 thread = new HandlerThread(name);
                 thread.start();
                 sHandlerThreads.put(name, thread);

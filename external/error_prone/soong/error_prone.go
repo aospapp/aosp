@@ -23,8 +23,8 @@ func init() {
 	// references to external/error_prone, which may not always exist.
 	config.ErrorProneClasspath = []string{
 		"external/error_prone/error_prone/error_prone_core-2.3.2-with-dependencies.jar",
-		"external/error_prone/error_prone/error_prone_annotations-2.3.2.jar",
-		"external/error_prone/error_prone/error_prone_type_annotations-2.3.2.jar",
+		"external/error_prone/error_prone/error_prone_annotations-2.4.0.jar",
+		"external/error_prone/error_prone/error_prone_type_annotations-2.4.0.jar",
 		"external/error_prone/checkerframework/dataflow-2.5.3.jar",
 		"external/error_prone/checkerframework/javacutil-2.5.3.jar",
 		"external/error_prone/jFormatString/jFormatString-3.0.0.jar",
@@ -392,6 +392,9 @@ func init() {
 		"-Xep:StringSplitter:OFF",
 		// b/117877739.
 		"-Xep:TruthAssertExpected:OFF",
+		// b/170172949
+		"-Xep:MissingOverride:OFF",
+		"-Xep:UnnecessaryParentheses:OFF",
 	}
 
 	config.ErrorProneFlags = []string{

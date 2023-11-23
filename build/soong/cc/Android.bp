@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 bootstrap_go_package {
     name: "soong-cc",
     pkgPath: "android/soong/cc",
@@ -6,6 +10,7 @@ bootstrap_go_package {
         "blueprint-pathtools",
         "soong",
         "soong-android",
+        "soong-bazel",
         "soong-cc-config",
         "soong-etc",
         "soong-genrule",
@@ -13,12 +18,15 @@ bootstrap_go_package {
     ],
     srcs: [
         "androidmk.go",
+        "api_level.go",
         "builder.go",
+        "bp2build.go",
         "cc.go",
         "ccdeps.go",
         "check.go",
         "coverage.go",
         "gen.go",
+        "image.go",
         "linkable.go",
         "lto.go",
         "makevars.go",
@@ -29,6 +37,7 @@ bootstrap_go_package {
         "sanitize.go",
         "sabi.go",
         "sdk.go",
+        "snapshot_prebuilt.go",
         "snapshot_utils.go",
         "stl.go",
         "strip.go",
@@ -70,6 +79,8 @@ bootstrap_go_package {
         "vendor_public_library.go",
 
         "testing.go",
+
+        "stub_library.go",
     ],
     testSrcs: [
         "cc_test.go",
@@ -81,7 +92,10 @@ bootstrap_go_package {
         "object_test.go",
         "prebuilt_test.go",
         "proto_test.go",
+        "sanitize_test.go",
         "test_data_test.go",
+        "vendor_public_library_test.go",
+        "vendor_snapshot_test.go",
     ],
     pluginFor: ["soong_build"],
 }

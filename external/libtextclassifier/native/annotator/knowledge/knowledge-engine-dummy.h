@@ -19,6 +19,7 @@
 
 #include <string>
 
+#include "annotator/knowledge/knowledge-engine-types.h"
 #include "annotator/model_generated.h"
 #include "annotator/types.h"
 #include "utils/base/status.h"
@@ -36,33 +37,38 @@ class KnowledgeEngine {
 
   void SetPriorityScore(float priority_score) {}
 
-  bool ClassifyText(const std::string& text, CodepointSpan selection_indices,
-                    AnnotationUsecase annotation_usecase,
-                    const Optional<LocationContext>& location_context,
-                    const Permissions& permissions,
-                    ClassificationResult* classification_result) const {
-    return false;
+  Status ClassifyText(const std::string& text, CodepointSpan selection_indices,
+                      AnnotationUsecase annotation_usecase,
+                      const Optional<LocationContext>& location_context,
+                      const Permissions& permissions,
+                      ClassificationResult* classification_result) const {
+    return Status(StatusCode::UNIMPLEMENTED, "Not implemented.");
   }
 
-  bool Chunk(const std::string& text, AnnotationUsecase annotation_usecase,
-             const Optional<LocationContext>& location_context,
-             const Permissions& permissions,
-             std::vector<AnnotatedSpan>* result) const {
-    return true;
+  Status Chunk(const std::string& text, AnnotationUsecase annotation_usecase,
+               const Optional<LocationContext>& location_context,
+               const Permissions& permissions, const AnnotateMode annotate_mode,
+               Annotations* result) const {
+    return Status::OK;
   }
 
   Status ChunkMultipleSpans(
       const std::vector<std::string>& text_fragments,
+      const std::vector<FragmentMetadata>& fragment_metadata,
       AnnotationUsecase annotation_usecase,
       const Optional<LocationContext>& location_context,
-      const Permissions& permissions,
-      std::vector<std::vector<AnnotatedSpan>>* results) const {
+      const Permissions& permissions, const AnnotateMode annotate_mode,
+      Annotations* results) const {
     return Status::OK;
   }
 
-  bool LookUpEntity(const std::string& id,
-                    std::string* serialized_knowledge_result) const {
-    return false;
+  StatusOr<std::string> LookUpEntity(const std::string& id) const {
+    return Status(StatusCode::UNIMPLEMENTED, "Not implemented.");
+  }
+
+  StatusOr<std::string> LookUpEntityProperty(
+      const std::string& mid_str, const std::string& property) const {
+    return Status(StatusCode::UNIMPLEMENTED, "Not implemented");
   }
 };
 

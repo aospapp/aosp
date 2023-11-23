@@ -38,8 +38,6 @@ import java.util.List;
  * Represents general information about car property such as data type and min/max ranges for car
  * areas (if applicable). This class supposed to be immutable, parcelable and could be passed over.
  *
- * <p>Use {@link CarPropertyConfig#newBuilder} to create an instance of this class.
- *
  * @param <T> refer to Parcel#writeValue(Object) to get a list of all supported types. The class
  * should be visible to framework as default class loader is being used here.
  *

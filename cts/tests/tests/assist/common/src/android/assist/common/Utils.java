@@ -16,7 +16,9 @@
 package android.assist.common;
 
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.LocaleList;
 import android.os.Process;
@@ -48,6 +50,7 @@ public class Utils {
     public static final String ASSIST_STRUCTURE_KEY = "assist_structure";
     public static final String ASSIST_CONTENT_KEY = "assist_content";
     public static final String ASSIST_BUNDLE_KEY = "assist_bundle";
+    public static final String ASSIST_IS_ACTIVITY_ID_NULL = "assist_is_activity_id_null";
     public static final String ASSIST_SCREENSHOT_KEY = "assist_screenshot";
     public static final String SCREENSHOT_COLOR_KEY = "set_screenshot_color";
     public static final String COMPARE_SCREENSHOT_KEY = "compare_screenshot";
@@ -55,6 +58,7 @@ public class Utils {
     public static final String DISPLAY_HEIGHT_KEY = "dislay_height";
     public static final String SCROLL_X_POSITION = "scroll_x_position";
     public static final String SCROLL_Y_POSITION = "scroll_y_position";
+    public static final String SHOW_SESSION_FLAGS_TO_SET = "show_session_flags_to_set";
 
     /** Lifecycle Test intent constants */
     public static final String LIFECYCLE_PREFIX = ACTION_PREFIX + "lifecycle_";
@@ -268,5 +272,9 @@ public class Utils {
         Bundle bundle = new Bundle();
         bundle.putString(Utils.EXTRA_REMOTE_CALLBACK_ACTION, action);
         return bundle;
+    }
+
+    public static boolean isAutomotive(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 }

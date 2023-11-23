@@ -49,22 +49,23 @@ TokenFeatureExtractorOptions BuildTokenFeatureExtractorOptions(
 
 // Splits tokens that contain the selection boundary inside them.
 // E.g. "foo{bar}@google.com" -> "foo", "bar", "@google.com"
-void SplitTokensOnSelectionBoundaries(CodepointSpan selection,
+void SplitTokensOnSelectionBoundaries(const CodepointSpan& selection,
                                       std::vector<Token>* tokens);
 
 // Returns the index of token that corresponds to the codepoint span.
-int CenterTokenFromClick(CodepointSpan span, const std::vector<Token>& tokens);
+int CenterTokenFromClick(const CodepointSpan& span,
+                         const std::vector<Token>& tokens);
 
 // Returns the index of token that corresponds to the middle of the  codepoint
 // span.
 int CenterTokenFromMiddleOfSelection(
-    CodepointSpan span, const std::vector<Token>& selectable_tokens);
+    const CodepointSpan& span, const std::vector<Token>& selectable_tokens);
 
 // Strips the tokens from the tokens vector that are not used for feature
 // extraction because they are out of scope, or pads them so that there is
 // enough tokens in the required context_size for all inferences with a click
 // in relative_click_span.
-void StripOrPadTokens(TokenSpan relative_click_span, int context_size,
+void StripOrPadTokens(const TokenSpan& relative_click_span, int context_size,
                       std::vector<Token>* tokens, int* click_pos);
 
 }  // namespace internal
@@ -74,12 +75,25 @@ void StripOrPadTokens(TokenSpan relative_click_span, int context_size,
 // token to overlap with the codepoint range to be considered part of it.
 // Otherwise it must be fully included in the range.
 TokenSpan CodepointSpanToTokenSpan(
-    const std::vector<Token>& selectable_tokens, CodepointSpan codepoint_span,
+    const std::vector<Token>& selectable_tokens,
+    const CodepointSpan& codepoint_span,
     bool snap_boundaries_to_containing_tokens = false);
 
 // Converts a token span to a codepoint span in the given list of tokens.
 CodepointSpan TokenSpanToCodepointSpan(
-    const std::vector<Token>& selectable_tokens, TokenSpan token_span);
+    const std::vector<Token>& selectable_tokens, const TokenSpan& token_span);
+
+// Converts a codepoint span to a unicode text range, within the given unicode
+// text.
+// For an invalid span (with a negative index), returns (begin, begin). This
+// means that it is safe to call this function before checking the validity of
+// the span.
+// The indices must fit within the unicode text.
+// Note that the execution time is linear with respect to the codepoint indices.
+// Calling this function repeatedly for spans on the same text might lead to
+// inefficient code.
+UnicodeTextRange CodepointSpanToUnicodeTextRange(
+    const UnicodeText& unicode_text, const CodepointSpan& span);
 
 // Takes care of preparing features for the span prediction model.
 class FeatureProcessor {
@@ -132,25 +146,29 @@ class FeatureProcessor {
   // Retokenizes the context and input span, and finds the click position.
   // Depending on the options, might modify tokens (split them or remove them).
   void RetokenizeAndFindClick(const std::string& context,
-                              CodepointSpan input_span,
+                              const CodepointSpan& input_span,
                               bool only_use_line_with_click,
                               std::vector<Token>* tokens, int* click_pos) const;
 
-  // Same as above but takes UnicodeText.
+  // Same as above, but takes UnicodeText and iterators within it corresponding
+  // to input_span.
   void RetokenizeAndFindClick(const UnicodeText& context_unicode,
-                              CodepointSpan input_span,
+                              const UnicodeText::const_iterator& span_begin,
+                              const UnicodeText::const_iterator& span_end,
+                              const CodepointSpan& input_span,
                               bool only_use_line_with_click,
                               std::vector<Token>* tokens, int* click_pos) const;
 
   // Returns true if the token span has enough supported codepoints (as defined
   // in the model config) or not and model should not run.
   bool HasEnoughSupportedCodepoints(const std::vector<Token>& tokens,
-                                    TokenSpan token_span) const;
+                                    const TokenSpan& token_span) const;
 
   // Extracts features as a CachedFeatures object that can be used for repeated
   // inference over token spans in the given context.
-  bool ExtractFeatures(const std::vector<Token>& tokens, TokenSpan token_span,
-                       CodepointSpan selection_span_for_feature,
+  bool ExtractFeatures(const std::vector<Token>& tokens,
+                       const TokenSpan& token_span,
+                       const CodepointSpan& selection_span_for_feature,
                        const EmbeddingExecutor* embedding_executor,
                        EmbeddingCache* embedding_cache, int feature_vector_size,
                        std::unique_ptr<CachedFeatures>* cached_features) const;
@@ -161,6 +179,11 @@ class FeatureProcessor {
   bool SelectionLabelSpans(
       VectorSpan<Token> tokens,
       std::vector<CodepointSpan>* selection_label_spans) const;
+
+  // Fills selection_label_relative_token_spans with number of tokens left and
+  // right from the click.
+  bool SelectionLabelRelativeTokenSpans(
+      std::vector<TokenSpan>* selection_label_relative_token_spans) const;
 
   int DenseFeaturesCount() const {
     return feature_extractor_.DenseFeaturesCount();
@@ -177,51 +200,23 @@ class FeatureProcessor {
   // start and end indices. If the span comprises entirely of boundary
   // codepoints, the first index of span is returned for both indices.
   CodepointSpan StripBoundaryCodepoints(const std::string& context,
-                                        CodepointSpan span) const;
-
-  // Same as previous, but also takes the ignored span boundary codepoints.
-  CodepointSpan StripBoundaryCodepoints(
-      const std::string& context, CodepointSpan span,
-      const std::unordered_set<int>& ignored_prefix_span_boundary_codepoints,
-      const std::unordered_set<int>& ignored_suffix_span_boundary_codepoints)
-      const;
+                                        const CodepointSpan& span) const;
 
   // Same as above but takes UnicodeText.
   CodepointSpan StripBoundaryCodepoints(const UnicodeText& context_unicode,
-                                        CodepointSpan span) const;
-
-  // Same as the previous, but also takes the ignored span boundary codepoints.
-  CodepointSpan StripBoundaryCodepoints(
-      const UnicodeText& context_unicode, CodepointSpan span,
-      const std::unordered_set<int>& ignored_prefix_span_boundary_codepoints,
-      const std::unordered_set<int>& ignored_suffix_span_boundary_codepoints)
-      const;
+                                        const CodepointSpan& span) const;
 
   // Same as above but takes a pair of iterators for the span, for efficiency.
   CodepointSpan StripBoundaryCodepoints(
       const UnicodeText::const_iterator& span_begin,
-      const UnicodeText::const_iterator& span_end, CodepointSpan span) const;
-
-  // Same as previous, but also takes the ignored span boundary codepoints.
-  CodepointSpan StripBoundaryCodepoints(
-      const UnicodeText::const_iterator& span_begin,
-      const UnicodeText::const_iterator& span_end, CodepointSpan span,
-      const std::unordered_set<int>& ignored_prefix_span_boundary_codepoints,
-      const std::unordered_set<int>& ignored_suffix_span_boundary_codepoints)
-      const;
+      const UnicodeText::const_iterator& span_end,
+      const CodepointSpan& span) const;
 
   // Same as above, but takes an optional buffer for saving the modified value.
   // As an optimization, returns pointer to 'value' if nothing was stripped, or
   // pointer to 'buffer' if something was stripped.
   const std::string& StripBoundaryCodepoints(const std::string& value,
                                              std::string* buffer) const;
-
-  // Same as previous, but also takes the ignored span boundary codepoints.
-  const std::string& StripBoundaryCodepoints(
-      const std::string& value, std::string* buffer,
-      const std::unordered_set<int>& ignored_prefix_span_boundary_codepoints,
-      const std::unordered_set<int>& ignored_suffix_span_boundary_codepoints)
-      const;
 
  protected:
   // Returns the class id corresponding to the given string collection
@@ -245,11 +240,11 @@ class FeatureProcessor {
                    CodepointSpan* span) const;
 
   // Converts a span to the corresponding label given output_tokens.
-  bool SpanToLabel(const std::pair<CodepointIndex, CodepointIndex>& span,
+  bool SpanToLabel(const CodepointSpan& span,
                    const std::vector<Token>& output_tokens, int* label) const;
 
   // Converts a token span to the corresponding label.
-  int TokenSpanToLabel(const std::pair<TokenIndex, TokenIndex>& span) const;
+  int TokenSpanToLabel(const TokenSpan& token_span) const;
 
   // Returns the ratio of supported codepoints to total number of codepoints in
   // the given token span.
@@ -268,35 +263,32 @@ class FeatureProcessor {
       const UnicodeText::const_iterator& span_end,
       bool count_from_beginning) const;
 
-  // Same as previous, but also takes the ignored span boundary codepoints.
-  int CountIgnoredSpanBoundaryCodepoints(
-      const UnicodeText::const_iterator& span_start,
-      const UnicodeText::const_iterator& span_end, bool count_from_beginning,
-      const std::unordered_set<int>& ignored_span_boundary_codepoints) const;
-
   // Finds the center token index in tokens vector, using the method defined
   // in options_.
-  int FindCenterToken(CodepointSpan span,
+  int FindCenterToken(const CodepointSpan& span,
                       const std::vector<Token>& tokens) const;
 
   // Removes all tokens from tokens that are not on a line (defined by calling
   // SplitContext on the context) to which span points.
-  void StripTokensFromOtherLines(const std::string& context, CodepointSpan span,
+  void StripTokensFromOtherLines(const std::string& context,
+                                 const CodepointSpan& span,
                                  std::vector<Token>* tokens) const;
 
   // Same as above but takes UnicodeText.
   void StripTokensFromOtherLines(const UnicodeText& context_unicode,
-                                 CodepointSpan span,
+                                 const UnicodeText::const_iterator& span_begin,
+                                 const UnicodeText::const_iterator& span_end,
+                                 const CodepointSpan& span,
                                  std::vector<Token>* tokens) const;
 
   // Extracts the features of a token and appends them to the output vector.
   // Uses the embedding cache to to avoid re-extracting the re-embedding the
   // sparse features for the same token.
-  bool AppendTokenFeaturesWithCache(const Token& token,
-                                    CodepointSpan selection_span_for_feature,
-                                    const EmbeddingExecutor* embedding_executor,
-                                    EmbeddingCache* embedding_cache,
-                                    std::vector<float>* output_features) const;
+  bool AppendTokenFeaturesWithCache(
+      const Token& token, const CodepointSpan& selection_span_for_feature,
+      const EmbeddingExecutor* embedding_executor,
+      EmbeddingCache* embedding_cache,
+      std::vector<float>* output_features) const;
 
  protected:
   const TokenFeatureExtractor feature_extractor_;

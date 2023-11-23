@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,11 +40,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 
 #include <sys/types.h>
 
 #include <status.h>
+#include <vector.h>
+#include <bcl.h>
 
 #ifndef BC_ENABLE_EXTRA_MATH
 #define BC_ENABLE_EXTRA_MATH (1)
@@ -54,45 +55,29 @@
 
 typedef unsigned long ulong;
 
-// For some reason, LONG_BIT is not defined in some versions of gcc.
-// I define it here to the minimum accepted value in the POSIX standard.
-#ifndef LONG_BIT
-#define LONG_BIT (32)
-#endif // LONG_BIT
-
-#ifndef BC_LONG_BIT
-#define BC_LONG_BIT LONG_BIT
-#endif // BC_LONG_BIT
-
-#if BC_LONG_BIT > LONG_BIT
-#error BC_LONG_BIT cannot be greater than LONG_BIT
-#endif // BC_LONG_BIT > LONG_BIT
+typedef BclBigDig BcBigDig;
 
 #if BC_LONG_BIT >= 64
 
-typedef int_least32_t BcDig;
-typedef uint_fast64_t BcBigDig;
-
-#define BC_NUM_BIGDIG_MAX (UINT_FAST64_MAX)
+#define BC_NUM_BIGDIG_MAX ((BcBigDig) UINT64_MAX)
 
 #define BC_BASE_DIGS (9)
 #define BC_BASE_POW (1000000000)
-#define BC_NUM_DEF_SIZE (2)
 
 #define BC_NUM_BIGDIG_C UINT64_C
 
+typedef int_least32_t BcDig;
+
 #elif BC_LONG_BIT >= 32
 
-typedef int_least16_t BcDig;
-typedef uint_fast32_t BcBigDig;
-
-#define BC_NUM_BIGDIG_MAX (UINT_FAST32_MAX)
+#define BC_NUM_BIGDIG_MAX ((BcBigDig) UINT32_MAX)
 
 #define BC_BASE_DIGS (4)
 #define BC_BASE_POW (10000)
-#define BC_NUM_DEF_SIZE (4)
 
 #define BC_NUM_BIGDIG_C UINT32_C
+
+typedef int_least16_t BcDig;
 
 #else
 
@@ -100,14 +85,28 @@ typedef uint_fast32_t BcBigDig;
 
 #endif // BC_LONG_BIT >= 64
 
+#define BC_NUM_DEF_SIZE (8)
+
 typedef struct BcNum {
 	BcDig *restrict num;
 	size_t rdx;
 	size_t scale;
 	size_t len;
 	size_t cap;
-	bool neg;
 } BcNum;
+
+#if BC_ENABLE_EXTRA_MATH
+
+#ifndef BC_ENABLE_RAND
+#define BC_ENABLE_RAND (1)
+#endif // BC_ENABLE_RAND
+
+#if BC_ENABLE_RAND
+// Forward declaration
+struct BcRNG;
+#endif // BC_ENABLE_RAND
+
+#endif // BC_ENABLE_EXTRA_MATH
 
 #define BC_NUM_MIN_BASE (BC_NUM_BIGDIG_C(2))
 #define BC_NUM_MAX_POSIX_IBASE (BC_NUM_BIGDIG_C(16))
@@ -117,14 +116,14 @@ typedef struct BcNum {
 #define BC_NUM_PRINT_WIDTH (BC_NUM_BIGDIG_C(69))
 
 #ifndef BC_NUM_KARATSUBA_LEN
-#define BC_NUM_KARATSUBA_LEN (BC_NUM_BIGDIG_C(64))
+#define BC_NUM_KARATSUBA_LEN (BC_NUM_BIGDIG_C(32))
 #elif BC_NUM_KARATSUBA_LEN < 16
 #error BC_NUM_KARATSUBA_LEN must be at least 16.
 #endif // BC_NUM_KARATSUBA_LEN
 
 // A crude, but always big enough, calculation of
 // the size required for ibase and obase BcNum's.
-#define BC_NUM_BIGDIG_LOG10 ((CHAR_BIT * sizeof(BcBigDig) + 1) / 2 + 1)
+#define BC_NUM_BIGDIG_LOG10 (BC_NUM_DEF_SIZE)
 
 #define BC_NUM_NONZERO(n) ((n)->len)
 #define BC_NUM_ZERO(n) (!BC_NUM_NONZERO(n))
@@ -134,11 +133,32 @@ typedef struct BcNum {
 
 #define BC_NUM_KARATSUBA_ALLOCS (6)
 
-#define BC_NUM_CMP_SIGNAL_VAL (~((ssize_t) ((size_t) SSIZE_MAX)))
-#define BC_NUM_CMP_SIGNAL(cmp) (cmp == BC_NUM_CMP_SIGNAL_VAL)
-
 #define BC_NUM_ROUND_POW(s) (bc_vm_growSize((s), BC_BASE_DIGS - 1))
 #define BC_NUM_RDX(s) (BC_NUM_ROUND_POW(s) / BC_BASE_DIGS)
+
+#define BC_NUM_RDX_VAL(n) ((n)->rdx >> 1)
+#define BC_NUM_RDX_VAL_NP(n) ((n).rdx >> 1)
+#define BC_NUM_RDX_SET(n, v) \
+	((n)->rdx = (((v) << 1) | ((n)->rdx & (BcBigDig) 1)))
+#define BC_NUM_RDX_SET_NP(n, v) \
+	((n).rdx = (((v) << 1) | ((n).rdx & (BcBigDig) 1)))
+#define BC_NUM_RDX_SET_NEG(n, v, neg) \
+	((n)->rdx = (((v) << 1) | (neg)))
+
+#define BC_NUM_RDX_VALID(n) \
+	(BC_NUM_ZERO(n) || BC_NUM_RDX_VAL(n) * BC_BASE_DIGS >= (n)->scale)
+#define BC_NUM_RDX_VALID_NP(n) \
+	((!(n).len) || BC_NUM_RDX_VAL_NP(n) * BC_BASE_DIGS >= (n).scale)
+
+#define BC_NUM_NEG(n) ((n)->rdx & ((BcBigDig) 1))
+#define BC_NUM_NEG_NP(n) ((n).rdx & ((BcBigDig) 1))
+#define BC_NUM_NEG_CLR(n) ((n)->rdx &= ~((BcBigDig) 1))
+#define BC_NUM_NEG_CLR_NP(n) ((n).rdx &= ~((BcBigDig) 1))
+#define BC_NUM_NEG_SET(n) ((n)->rdx |= ((BcBigDig) 1))
+#define BC_NUM_NEG_TGL(n) ((n)->rdx ^= ((BcBigDig) 1))
+#define BC_NUM_NEG_TGL_NP(n) ((n).rdx ^= ((BcBigDig) 1))
+#define BC_NUM_NEG_VAL(n, v) (((n)->rdx & ~((BcBigDig) 1)) | (v))
+#define BC_NUM_NEG_VAL_NP(n, v) (((n).rdx & ~((BcBigDig) 1)) | (v))
 
 #define BC_NUM_SIZE(n) ((n) * sizeof(BcDig))
 
@@ -151,61 +171,79 @@ typedef struct BcNum {
 #define BC_NUM_PRINT(x)
 #endif // BC_DEBUG_CODE
 
-typedef BcStatus (*BcNumBinaryOp)(BcNum*, BcNum*, BcNum*, size_t);
+typedef void (*BcNumBinaryOp)(BcNum*, BcNum*, BcNum*, size_t);
+typedef void (*BcNumBinOp)(BcNum*, BcNum*, BcNum* restrict, size_t);
 typedef size_t (*BcNumBinaryOpReq)(const BcNum*, const BcNum*, size_t);
 typedef void (*BcNumDigitOp)(size_t, size_t, bool);
-typedef BcStatus (*BcNumShiftAddOp)(BcDig*, const BcDig*, size_t);
+typedef void (*BcNumShiftAddOp)(BcDig* restrict, const BcDig* restrict, size_t);
 
 void bc_num_init(BcNum *restrict n, size_t req);
 void bc_num_setup(BcNum *restrict n, BcDig *restrict num, size_t cap);
 void bc_num_copy(BcNum *d, const BcNum *s);
 void bc_num_createCopy(BcNum *d, const BcNum *s);
 void bc_num_createFromBigdig(BcNum *n, BcBigDig val);
+void bc_num_clear(BcNum *restrict n);
 void bc_num_free(void *num);
 
 size_t bc_num_scale(const BcNum *restrict n);
 size_t bc_num_len(const BcNum *restrict n);
 
-BcStatus bc_num_bigdig(const BcNum *restrict n, BcBigDig *result);
+void bc_num_bigdig(const BcNum *restrict n, BcBigDig *result);
+void bc_num_bigdig2(const BcNum *restrict n, BcBigDig *result);
 void bc_num_bigdig2num(BcNum *restrict n, BcBigDig val);
 
-BcStatus bc_num_add(BcNum *a, BcNum *b, BcNum *c, size_t scale);
-BcStatus bc_num_sub(BcNum *a, BcNum *b, BcNum *c, size_t scale);
-BcStatus bc_num_mul(BcNum *a, BcNum *b, BcNum *c, size_t scale);
-BcStatus bc_num_div(BcNum *a, BcNum *b, BcNum *c, size_t scale);
-BcStatus bc_num_mod(BcNum *a, BcNum *b, BcNum *c, size_t scale);
-BcStatus bc_num_pow(BcNum *a, BcNum *b, BcNum *c, size_t scale);
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+void bc_num_irand(const BcNum *restrict a, BcNum *restrict b,
+                  struct BcRNG *restrict rng);
+void bc_num_rng(const BcNum *restrict n, struct BcRNG *rng);
+void bc_num_createFromRNG(BcNum *restrict n, struct BcRNG *rng);
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+
+void bc_num_add(BcNum *a, BcNum *b, BcNum *c, size_t scale);
+void bc_num_sub(BcNum *a, BcNum *b, BcNum *c, size_t scale);
+void bc_num_mul(BcNum *a, BcNum *b, BcNum *c, size_t scale);
+void bc_num_div(BcNum *a, BcNum *b, BcNum *c, size_t scale);
+void bc_num_mod(BcNum *a, BcNum *b, BcNum *c, size_t scale);
+void bc_num_pow(BcNum *a, BcNum *b, BcNum *c, size_t scale);
 #if BC_ENABLE_EXTRA_MATH
-BcStatus bc_num_places(BcNum *a, BcNum *b, BcNum *c, size_t scale);
-BcStatus bc_num_lshift(BcNum *a, BcNum *b, BcNum *c, size_t scale);
-BcStatus bc_num_rshift(BcNum *a, BcNum *b, BcNum *c, size_t scale);
+void bc_num_places(BcNum *a, BcNum *b, BcNum *c, size_t scale);
+void bc_num_lshift(BcNum *a, BcNum *b, BcNum *c, size_t scale);
+void bc_num_rshift(BcNum *a, BcNum *b, BcNum *c, size_t scale);
 #endif // BC_ENABLE_EXTRA_MATH
-BcStatus bc_num_sqrt(BcNum *restrict a, BcNum *restrict b, size_t scale);
-BcStatus bc_num_divmod(BcNum *a, BcNum *b, BcNum *c, BcNum *d, size_t scale);
+void bc_num_sqrt(BcNum *restrict a, BcNum *restrict b, size_t scale);
+void bc_num_sr(BcNum *restrict a, BcNum *restrict b, size_t scale);
+void bc_num_divmod(BcNum *a, BcNum *b, BcNum *c, BcNum *d, size_t scale);
 
 size_t bc_num_addReq(const BcNum* a, const BcNum* b, size_t scale);
 
 size_t bc_num_mulReq(const BcNum *a, const BcNum *b, size_t scale);
+size_t bc_num_divReq(const BcNum *a, const BcNum *b, size_t scale);
 size_t bc_num_powReq(const BcNum *a, const BcNum *b, size_t scale);
 #if BC_ENABLE_EXTRA_MATH
 size_t bc_num_placesReq(const BcNum *a, const BcNum *b, size_t scale);
 #endif // BC_ENABLE_EXTRA_MATH
 
 void bc_num_truncate(BcNum *restrict n, size_t places);
+void bc_num_extend(BcNum *restrict n, size_t places);
+void bc_num_shiftRight(BcNum *restrict n, size_t places);
+
 ssize_t bc_num_cmp(const BcNum *a, const BcNum *b);
 
 #if DC_ENABLED
-BcStatus bc_num_modexp(BcNum *a, BcNum *b, BcNum *c, BcNum *restrict d);
+void bc_num_modexp(BcNum *a, BcNum *b, BcNum *c, BcNum *restrict d);
 #endif // DC_ENABLED
 
+void bc_num_zero(BcNum *restrict n);
 void bc_num_one(BcNum *restrict n);
 ssize_t bc_num_cmpZero(const BcNum *n);
 
-BcStatus bc_num_parse(BcNum *restrict n, const char *restrict val,
-                      BcBigDig base, bool letter);
-BcStatus bc_num_print(BcNum *restrict n, BcBigDig base, bool newline);
+#if !defined(NDEBUG) || BC_ENABLE_LIBRARY
+bool bc_num_strValid(const char *restrict val);
+#endif // !defined(NDEBUG) || BC_ENABLE_LIBRARY
+void bc_num_parse(BcNum *restrict n, const char *restrict val, BcBigDig base);
+void bc_num_print(BcNum *restrict n, BcBigDig base, bool newline);
 #if DC_ENABLED
-BcStatus bc_num_stream(BcNum *restrict n, BcBigDig base);
+void bc_num_stream(BcNum *restrict n, BcBigDig base);
 #endif // DC_ENABLED
 
 #if BC_DEBUG_CODE
@@ -217,5 +255,10 @@ void bc_num_dump(const char *varname, const BcNum *n);
 
 extern const char bc_num_hex_digits[];
 extern const BcBigDig bc_num_pow10[BC_BASE_DIGS + 1];
+
+extern const BcDig bc_num_bigdigMax[];
+extern const BcDig bc_num_bigdigMax2[];
+extern const size_t bc_num_bigdigMax_size;
+extern const size_t bc_num_bigdigMax2_size;
 
 #endif // BC_NUM_H

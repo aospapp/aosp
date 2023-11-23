@@ -187,7 +187,7 @@ def get_ota_value_from_config(config, key, android_device):
 
     ota_package_key = '%s%s' % (key, suffix)
     if ota_package_key not in config:
-        if suffix is not '':
+        if suffix != '':
             raise ActsConfigError(
                 'Asked for an OTA Update without specifying a required value. '
                 '"ota_map" has entry {"%s": "%s"}, but there is no '

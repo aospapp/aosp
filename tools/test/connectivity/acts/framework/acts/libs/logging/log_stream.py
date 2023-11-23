@@ -235,7 +235,8 @@ class _LogStream(object):
         # Add a NullHandler to suppress unwanted console output
         self.logger.addHandler(_null_handler)
         self.logger.propagate = False
-        self.base_path = base_path or logging.log_path
+        self.base_path = base_path or getattr(logging, 'log_path',
+                                              '/tmp/acts_logs')
         self.subcontext = subcontext
         context.TestContext.add_base_output_path(self.logger.name, self.base_path)
         context.TestContext.add_subcontext(self.logger.name, self.subcontext)

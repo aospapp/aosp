@@ -31,8 +31,6 @@ struct FQName {
     FQName(const std::string& package, const std::string& version, const std::string& name = "",
            const std::string& valueName = "");
 
-    FQName(const FQName& other);
-
     bool isIdentifier() const;
 
     // Returns false if string isn't a valid FQName object.

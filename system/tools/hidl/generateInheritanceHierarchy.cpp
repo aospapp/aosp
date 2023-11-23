@@ -19,6 +19,7 @@
 #include <android-base/logging.h>
 #include <hidl-util/Formatter.h>
 #include <json/json.h>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -40,8 +41,12 @@ void AST::generateInheritanceHierarchy(Formatter& out) const {
         }
         root["inheritedInterfaces"] = inheritedInterfaces;
     }
-    Json::StyledWriter writer;
-    out << writer.write(root);
+    Json::StreamWriterBuilder factory;
+    std::unique_ptr<Json::StreamWriter> const writer(factory.newStreamWriter());
+    std::ostringstream ss;
+    writer->write(root, &ss);
+    ss << std::endl;
+    out << ss.str();
 }
 
 }  // namespace android

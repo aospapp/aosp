@@ -26,7 +26,7 @@
     <string name="unknown_name" msgid="2834802479170495056">"Ezezaguna"</string>
     <string name="address" msgid="6449303483151189969">"Helbidea"</string>
     <string name="unknown_address" msgid="4212576729941786121">"Ezezaguna"</string>
-    <string name="date_of_birth" msgid="777979232444227891">"Jaioteguna"</string>
+    <string name="date_of_birth" msgid="777979232444227891">"Jaiotze-data"</string>
     <string name="unknown_date_of_birth" msgid="7416355536916066758">"Ezezaguna"</string>
     <string name="dob" msgid="2813161080307245706">"(<xliff:g id="DATE_OF_BIRTH">%1$s</xliff:g>)"</string>
     <string name="age" msgid="8327537794752630199">"Adina: <xliff:g id="NUMERICAL_AGE">%1$d</xliff:g>"</string>

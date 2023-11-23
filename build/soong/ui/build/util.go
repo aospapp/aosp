@@ -15,6 +15,9 @@
 package build
 
 import (
+	"compress/gzip"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -123,4 +126,47 @@ func decodeKeyValue(str string) (string, string, bool) {
 		return "", "", false
 	}
 	return str[:idx], str[idx+1:], true
+}
+
+// copyFile copies a file from src to dst. filepath.Dir(dst) must exist.
+func copyFile(src, dst string) (int64, error) {
+	source, err := os.Open(src)
+	if err != nil {
+		return 0, err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return 0, err
+	}
+	defer destination.Close()
+
+	return io.Copy(destination, source)
+}
+
+// gzipFileToDir writes a compressed copy of src to destDir with the suffix ".gz".
+func gzipFileToDir(src, destDir string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open %s: %s", src, err.Error())
+	}
+	defer in.Close()
+
+	dest := filepath.Join(destDir, filepath.Base(src)+".gz")
+
+	out, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		return fmt.Errorf("failed to open %s: %s", dest, err.Error())
+	}
+	defer out.Close()
+	gz := gzip.NewWriter(out)
+	defer gz.Close()
+
+	_, err = io.Copy(gz, in)
+	if err != nil {
+		return fmt.Errorf("failed to gzip %s: %s", dest, err.Error())
+	}
+
+	return nil
 }

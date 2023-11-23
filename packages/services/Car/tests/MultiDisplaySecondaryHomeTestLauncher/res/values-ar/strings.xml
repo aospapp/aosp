@@ -22,7 +22,7 @@
     <string name="couldnt_launch" msgid="7815676424138012351">"تعذَّر تشغيل النشاط."</string>
     <string name="select_display" msgid="1682700853391296117">"اختَر شاشة."</string>
     <string name="add_app_shortcut" msgid="8873512136913188432">"إضافة اختصار التطبيق"</string>
-    <string name="set_wallpaper" msgid="3650915172749345197">"تحديد الخلفية"</string>
+    <string name="set_wallpaper" msgid="3650915172749345197">"ضبط الخلفية"</string>
     <string name="new_instance" msgid="1924479866055190730">"طلب التشغيل في مثيل جديد"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"نموذج خلفية الشاشة المتعددة"</string>
 </resources>

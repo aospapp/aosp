@@ -229,6 +229,20 @@ public interface IGmailHelper extends IAppHelper {
     public void openEmailLink(String target);
 
     /**
+     * Setup expectations: Gmail is open on any page that has a search bar on top.
+     *
+     * @param searchString string to search for in all emails
+     */
+    public void search(String searchString);
+
+    /**
+     * Setup expectations: Gmail is open and an email is open.
+     *
+     * <p>This method clicks the delete icon in an open email.
+     */
+    public void deleteCurrentEmail();
+
+    /**
      * Setup expectations: Gmail is open and an email is open.
      *
      * This method swipes the current email.

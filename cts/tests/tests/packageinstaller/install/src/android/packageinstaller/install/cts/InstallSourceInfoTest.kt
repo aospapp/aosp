@@ -40,6 +40,8 @@ class InstallSourceInfoTest : PackageInstallerTestBase() {
 
     @Test
     fun installViaIntent() {
+        assumeNotWatch()
+
         val packageInstallerPackageName = getPackageInstallerPackageName()
 
         val installation = startInstallationViaIntent()
@@ -56,6 +58,8 @@ class InstallSourceInfoTest : PackageInstallerTestBase() {
 
     @Test
     fun InstallViaSession() {
+        assumeNotWatch()
+
         startInstallationViaSession()
         clickInstallerUIButton(INSTALL_BUTTON_ID)
 

@@ -67,6 +67,13 @@ public class EapSimTypeData extends EapSimAkaTypeData {
         super(eapSubType, attributeMap);
     }
 
+    private EapSimTypeData(
+            int eapSubType,
+            LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap,
+            byte[] reservedBytes) {
+        super(eapSubType, attributeMap, reservedBytes);
+    }
+
     public EapSimTypeData(int eapSubtype, List<EapSimAkaAttribute> attributes) {
         super(eapSubtype, new LinkedHashMap<>());
 
@@ -118,8 +125,9 @@ public class EapSimTypeData extends EapSimAkaTypeData {
         @Override
         protected EapSimTypeData getInstance(
                 int eapSubtype,
-                LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap) {
-            return new EapSimTypeData(eapSubtype, attributeMap);
+                LinkedHashMap<Integer, EapSimAkaAttribute> attributeMap,
+                byte[] reservedBytes) {
+            return new EapSimTypeData(eapSubtype, attributeMap, reservedBytes);
         }
     }
 }

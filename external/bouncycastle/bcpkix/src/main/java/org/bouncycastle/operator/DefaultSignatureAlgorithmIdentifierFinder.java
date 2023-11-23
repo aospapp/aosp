@@ -15,6 +15,8 @@ import org.bouncycastle.asn1.DERNull;
 // import org.bouncycastle.asn1.cryptopro.CryptoProObjectIdentifiers;
 // import org.bouncycastle.asn1.eac.EACObjectIdentifiers;
 // import org.bouncycastle.asn1.gm.GMObjectIdentifiers;
+// import org.bouncycastle.asn1.edec.EdECObjectIdentifiers;
+// import org.bouncycastle.asn1.isara.IsaraObjectIdentifiers;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -143,6 +145,16 @@ public class DefaultSignatureAlgorithmIdentifierFinder
         algorithms.put("SHA512WITHCVC-ECDSA", EACObjectIdentifiers.id_TA_ECDSA_SHA_512);
         algorithms.put("SHA3-512WITHSPHINCS256", BCObjectIdentifiers.sphincs256_with_SHA3_512);
         algorithms.put("SHA512WITHSPHINCS256", BCObjectIdentifiers.sphincs256_with_SHA512);
+
+        algorithms.put("ED25519", EdECObjectIdentifiers.id_Ed25519);
+        algorithms.put("ED448", EdECObjectIdentifiers.id_Ed448);
+
+        algorithms.put("RIPEMD160WITHSM2", GMObjectIdentifiers.sm2sign_with_rmd160);
+        algorithms.put("SHA1WITHSM2", GMObjectIdentifiers.sm2sign_with_sha1);
+        algorithms.put("SHA224WITHSM2", GMObjectIdentifiers.sm2sign_with_sha224);
+        algorithms.put("SHA256WITHSM2", GMObjectIdentifiers.sm2sign_with_sha256);
+        algorithms.put("SHA384WITHSM2", GMObjectIdentifiers.sm2sign_with_sha384);
+        algorithms.put("SHA512WITHSM2", GMObjectIdentifiers.sm2sign_with_sha512);
         algorithms.put("SM3WITHSM2", GMObjectIdentifiers.sm2sign_with_sm3);
 
         algorithms.put("SHA256WITHXMSS", BCObjectIdentifiers.xmss_SHA256ph);
@@ -165,19 +177,20 @@ public class DefaultSignatureAlgorithmIdentifierFinder
         algorithms.put("SHAKE128WITHXMSSMT-SHAKE128", BCObjectIdentifiers.xmss_mt_SHAKE128ph);
         algorithms.put("SHAKE256WITHXMSSMT-SHAKE256", BCObjectIdentifiers.xmss_mt_SHAKE256ph);
 
+        algorithms.put("LMS", PKCSObjectIdentifiers.id_alg_hss_lms_hashsig);
+
+        algorithms.put("XMSS", IsaraObjectIdentifiers.id_alg_xmss);
         algorithms.put("XMSS-SHA256", BCObjectIdentifiers.xmss_SHA256);
         algorithms.put("XMSS-SHA512", BCObjectIdentifiers.xmss_SHA512);
         algorithms.put("XMSS-SHAKE128", BCObjectIdentifiers.xmss_SHAKE128);
         algorithms.put("XMSS-SHAKE256", BCObjectIdentifiers.xmss_SHAKE256);
 
+        algorithms.put("XMSSMT", IsaraObjectIdentifiers.id_alg_xmssmt);
         algorithms.put("XMSSMT-SHA256", BCObjectIdentifiers.xmss_mt_SHA256);
         algorithms.put("XMSSMT-SHA512", BCObjectIdentifiers.xmss_mt_SHA512);
         algorithms.put("XMSSMT-SHAKE128", BCObjectIdentifiers.xmss_mt_SHAKE128);
         algorithms.put("XMSSMT-SHAKE256", BCObjectIdentifiers.xmss_mt_SHAKE256);
 
-        algorithms.put("QTESLA-I", BCObjectIdentifiers.qTESLA_I);
-        algorithms.put("QTESLA-III-SIZE", BCObjectIdentifiers.qTESLA_III_size);
-        algorithms.put("QTESLA-III-SPEED", BCObjectIdentifiers.qTESLA_III_speed);
         algorithms.put("QTESLA-P-I", BCObjectIdentifiers.qTESLA_p_I);
         algorithms.put("QTESLA-P-III", BCObjectIdentifiers.qTESLA_p_III);
         */
@@ -193,6 +206,9 @@ public class DefaultSignatureAlgorithmIdentifierFinder
         noParams.add(X9ObjectIdentifiers.ecdsa_with_SHA384);
         noParams.add(X9ObjectIdentifiers.ecdsa_with_SHA512);
         noParams.add(X9ObjectIdentifiers.id_dsa_with_sha1);
+        // BEGIN Android-removed: unsupported algorithms
+        // noParams.add(OIWObjectIdentifiers.dsaWithSHA1);
+        // END Android-removed: unsupported algorithms
         noParams.add(NISTObjectIdentifiers.dsa_with_sha224);
         noParams.add(NISTObjectIdentifiers.dsa_with_sha256);
         noParams.add(NISTObjectIdentifiers.dsa_with_sha384);
@@ -243,19 +259,28 @@ public class DefaultSignatureAlgorithmIdentifierFinder
         noParams.add(BCObjectIdentifiers.xmss_mt_SHAKE128);
         noParams.add(BCObjectIdentifiers.xmss_mt_SHAKE256);
 
+        noParams.add(IsaraObjectIdentifiers.id_alg_xmss);
+        noParams.add(IsaraObjectIdentifiers.id_alg_xmssmt);
+
         //
         // qTESLA
         //
-        noParams.add(BCObjectIdentifiers.qTESLA_I);
-        noParams.add(BCObjectIdentifiers.qTESLA_III_size);
-        noParams.add(BCObjectIdentifiers.qTESLA_III_speed);
         noParams.add(BCObjectIdentifiers.qTESLA_p_I);
         noParams.add(BCObjectIdentifiers.qTESLA_p_III);
 
         //
         // SM2
         //
+//        noParams.add(GMObjectIdentifiers.sm2sign_with_rmd160);
+//        noParams.add(GMObjectIdentifiers.sm2sign_with_sha1);
+//        noParams.add(GMObjectIdentifiers.sm2sign_with_sha224);
+        noParams.add(GMObjectIdentifiers.sm2sign_with_sha256);
+//        noParams.add(GMObjectIdentifiers.sm2sign_with_sha384);
+//        noParams.add(GMObjectIdentifiers.sm2sign_with_sha512);
         noParams.add(GMObjectIdentifiers.sm2sign_with_sm3);
+        // EdDSA
+        noParams.add(EdECObjectIdentifiers.id_Ed25519);
+        noParams.add(EdECObjectIdentifiers.id_Ed448);
         */
         // END Android-removed: Unsupported algorithms
 
@@ -367,6 +392,13 @@ public class DefaultSignatureAlgorithmIdentifierFinder
         digestOids.put(CryptoProObjectIdentifiers.gostR3411_94_with_gostR3410_2001, CryptoProObjectIdentifiers.gostR3411);
         digestOids.put(RosstandartObjectIdentifiers.id_tc26_signwithdigest_gost_3410_12_256, RosstandartObjectIdentifiers.id_tc26_gost_3411_12_256);
         digestOids.put(RosstandartObjectIdentifiers.id_tc26_signwithdigest_gost_3410_12_512, RosstandartObjectIdentifiers.id_tc26_gost_3411_12_512);
+
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_rmd160, TeleTrusTObjectIdentifiers.ripemd160);
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_sha1, OIWObjectIdentifiers.idSHA1);
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_sha224, NISTObjectIdentifiers.id_sha224);
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_sha256, NISTObjectIdentifiers.id_sha256);
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_sha384, NISTObjectIdentifiers.id_sha384);
+        digestOids.put(GMObjectIdentifiers.sm2sign_with_sha512, NISTObjectIdentifiers.id_sha512);
         digestOids.put(GMObjectIdentifiers.sm2sign_with_sm3, GMObjectIdentifiers.sm3);
         */
         // END Android-removed: Unsupported algorithms

@@ -23,6 +23,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.wifi.aware.PublishDiscoverySession;
 import android.net.wifi.aware.WifiAwareNetworkInfo;
 import android.net.wifi.aware.WifiAwareNetworkSpecifier;
 import android.util.Log;
@@ -86,6 +87,7 @@ public class DataPathInBandTestCase extends DiscoveryBaseTestCase {
     private boolean mIsSecurityOpen;
     private boolean mUsePmk;
     private boolean mIsPublish;
+    private boolean mIsAcceptAny;
     private Thread mClientServerThread;
     private ConnectivityManager mCm;
     private CallbackUtils.NetworkCb mNetworkCb;
@@ -93,12 +95,13 @@ public class DataPathInBandTestCase extends DiscoveryBaseTestCase {
     private static int sSDKLevel = android.os.Build.VERSION.SDK_INT;
 
     public DataPathInBandTestCase(Context context, boolean isSecurityOpen, boolean isPublish,
-            boolean isUnsolicited, boolean usePmk) {
+            boolean isUnsolicited, boolean usePmk, boolean acceptAny) {
         super(context, isUnsolicited, false);
 
         mIsSecurityOpen = isSecurityOpen;
         mUsePmk = usePmk;
         mIsPublish = isPublish;
+        mIsAcceptAny = acceptAny;
     }
 
     @Override
@@ -366,8 +369,14 @@ public class DataPathInBandTestCase extends DiscoveryBaseTestCase {
         }
 
         // 5. Request network
-        WifiAwareNetworkSpecifier.Builder nsBuilder =
-                new WifiAwareNetworkSpecifier.Builder(mWifiAwareDiscoverySession, mPeerHandle);
+        WifiAwareNetworkSpecifier.Builder nsBuilder;
+        if (mIsAcceptAny) {
+            nsBuilder = new WifiAwareNetworkSpecifier
+                    .Builder((PublishDiscoverySession) mWifiAwareDiscoverySession);
+        } else {
+            nsBuilder = new WifiAwareNetworkSpecifier
+                    .Builder(mWifiAwareDiscoverySession, mPeerHandle);
+        }
         if (!mIsSecurityOpen) {
             if (mUsePmk) {
                 nsBuilder.setPmk(PMK);

@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Balso pašto nustatymus gali keisti tik pagrindinis naudotojas."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Jūsų SIM kortelė buvo atblokuota. Atrakinamas telefonas..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"SIM tinklo atrakinimo PIN"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"SIM kortelę užrakino operatorius"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Atblokuoti"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Atsisakyti"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Pateikiama užklausa atrakinti tinklą..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Peradresuojama į <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Išjungta"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Operatorius nepalaiko skambučių peradresavimo išjungimo, kai telefonas nepasiekiamas."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Operatorius nepalaiko skambučių peradresavimo."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Įjungti laukiamų skambučių paslaugą?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Per skambutį jums bus pranešta apie laukiamus skambučius"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Įjungti"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Atšaukti"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"CDMA laukiamų skambučių paslauga įjungus IMS įjungta"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA laukiamų skambučių paslauga įjungus IMS išjungta"</string>
     <string name="updating_title" msgid="6130548922615719689">"Skambinimo nustatymai"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Skambučių nustatymus gali keisti tik administruojantis naudotojas."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Nustatymai (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Ribotos SIM kortelės funkcijos"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"„<xliff:g id="CARRIER_NAME">%1$s</xliff:g>“ skambučiai ir duomenų paslaugos gali būti užblokuotos naudojant numerį <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"„<xliff:g id="CARRIER_NAME">%1$s</xliff:g>“ duom. paslaug. ir skambučiai gali būti užblokuoti naudojant kitą SIM kortelę."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Nebenaudojamos SIP paskyros surastos ir pašalintos"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP skambinimas nebepalaikomas „Android“ platformoje.\nEsamos SIP paskyros <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> buvo pašalintos.\nPatvirtinkite savo numatytąjį skambinimo paskyros nustatymą."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Eiti į nustatymus"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Programos duomenų naudojimas"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g> išnaudota mobiliojo ryšio duomenų: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Išplėstiniai"</string>
@@ -307,9 +318,7 @@
     <string name="throttle_time_frame" msgid="1813452485948918791">"Duomenų naudojimo laikotarpis"</string>
     <string name="throttle_rate" msgid="7641913901133634905">"Duomenų perdavimo spartos politika"</string>
     <string name="throttle_help" msgid="2624535757028809735">"Sužinokite daugiau"</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for throttle_status_subtext (1110276415078236687) -->
-    <skip />
+    <string name="throttle_status_subtext" msgid="1110276415078236687">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) iš <xliff:g id="USED_2">%3$s</xliff:g> laikotarpio maksimumo\nKitas laikotarpis prasidės po <xliff:g id="USED_3">%4$d</xliff:g> dienų (<xliff:g id="USED_4">%5$s</xliff:g>)"</string>
     <string name="throttle_data_usage_subtext" msgid="3185429653996709840">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) iš <xliff:g id="USED_2">%3$s</xliff:g> laikotarpio maksimumo"</string>
     <string name="throttle_data_rate_reduced_subtext" msgid="8369839346277847725">"Viršytas <xliff:g id="USED_0">%1$s</xliff:g> maksimumas\nDuomenų perdavimo sparta sumažinta iki <xliff:g id="USED_1">%2$d</xliff:g> Kb / sek."</string>
     <string name="throttle_time_frame_subtext" msgid="6462089615392402127">"Praėjo <xliff:g id="USED_0">%1$d</xliff:g>٪ ciklo\nKitas laikotarpis prasidės po<xliff:g id="USED_1">%2$d</xliff:g> dienų (<xliff:g id="USED_2">%3$s</xliff:g>)"</string>
@@ -506,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Netinkamas slaptažodis. SIM kortelė užrakinta. Įveskite PUK2 kodą."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 kodas visam laikui užblokuotas."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Liko <xliff:g id="NUMBER">%d</xliff:g> bandym."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 užrakintas. Kreipkitės į paslaugos teikėją, kad atrakintų."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 kodas atblokuotas"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Tinklo ar SIM kortelės klaida"</string>
     <string name="doneButton" msgid="7371209609238460207">"Atlikta"</string>
@@ -527,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Įjunkite mobiliojo ryšio tinklą, išjunkite lėktuvo arba akumuliatoriaus tausojimo priemonės režimą, kad galėtumėte skambinti."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Išjunkite lėktuvo režimą, kad galėtumėte skambinti."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Išjunkite lėktuvo režimą arba prisijunkite prie belaidžio ryšio tinklo, kad galėtumėte skambinti."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Telefonas per karštas"</b>\n\n"Negalima užbaigti šio skambučio. Bandykite dar kartą, kai telefonas atvės.\n\nJūs vis dar galite skambinti pagalbos numeriais."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Jei norite skambinti ne pagalbos numeriu, išjunkite atgalinio skambinimo pagalbos numeriu režimą."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Neregistruota tinkle."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Mobilusis tinklas negalimas."</string>
@@ -875,7 +886,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Numatytųjų duomenų SIM kortelės papildomas ID:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"DL pralaidumas (Kb/s):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"UL pralaidumas (Kb/s):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Mobiliojo ryšio vietovės informacija (nebenaudojama):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE fizinio kanalo konfigūracija:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Mobiliojo ryšio informacijos atnaujinimo dažnis:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Visų mobiliųjų ryšių įvertinimo informacija:"</string>
@@ -906,6 +916,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Atnaujinti"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Kaitalioti DNS tikrinimą"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM būdinga informacija / nustatymai"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC (pasiekiama):"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR (apribota):"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR (pasiekiama):"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR būsena:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR dažnis:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Nustatyti radijo dažnių režimą"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Įkeliamas dažnių sąrašas…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Nustatyti"</string>
@@ -915,4 +930,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Telefono informacija"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Operatoriaus aprūpinimo informacija"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Aktyviklio operatoriaus aprūpinimas"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Silpnas „Bluetooth“ signalas. Pabandykite perjungti garsiakalbį."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Pranešimas apie skambučio kokybę"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Nebenaudojamos SIP paskyros"</string>
 </resources>

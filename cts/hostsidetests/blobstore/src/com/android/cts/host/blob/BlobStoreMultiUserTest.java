@@ -19,10 +19,12 @@ import static org.junit.Assume.assumeTrue;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.AfterClassWithInfo;
+import com.android.tradefed.testtype.junit4.BeforeClassWithInfo;
 import com.android.tradefed.util.Pair;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,26 +35,35 @@ import java.util.Map;
 public class BlobStoreMultiUserTest extends BaseBlobStoreHostTest {
     private static final String TEST_CLASS = TARGET_PKG + ".DataCleanupTest";
 
-    private int mPrimaryUserId;
-    private int mSecondaryUserId;
+    private static int mPrimaryUserId;
+    private static int mSecondaryUserId;
+
+    @BeforeClassWithInfo
+    public static void setUpClass(TestInformation testInfo) throws Exception {
+        assumeTrue("Multi-user is not supported on this device",
+                isMultiUserSupported(testInfo.getDevice()));
+
+        mPrimaryUserId = testInfo.getDevice().getPrimaryUserId();
+        mSecondaryUserId = testInfo.getDevice().createUser("Test_User");
+        assertThat(testInfo.getDevice().startUser(mSecondaryUserId)).isTrue();
+    }
 
     @Before
     public void setUp() throws Exception {
-        assumeTrue("Multi-user is not supported on this device",
-                isMultiUserSupported());
-
-        mPrimaryUserId = getDevice().getPrimaryUserId();
-        mSecondaryUserId = getDevice().createUser("Test_User");
-        assertThat(getDevice().startUser(mSecondaryUserId)).isTrue();
-
-        installPackageAsUser(TARGET_APK, true /* grantPermissions */, mPrimaryUserId);
-        installPackageAsUser(TARGET_APK, true /* grantPermissions */, mSecondaryUserId);
+        for (String apk : new String[] {TARGET_APK, TARGET_APK_DEV}) {
+            installPackageAsUser(apk, true /* grantPermissions */, mPrimaryUserId, "-t");
+            installPackageAsUser(apk, true /* grantPermissions */, mSecondaryUserId, "-t");
+        }
+        // We would verify access with and without the app holding the assist role, so we don't
+        // want the ACCESS_BLOBS_ACROSS_USERS permission to be granted by default.
+        installPackageAsUser(TARGET_APK_ASSIST, false /* grantPermissions */, mPrimaryUserId);
+        installPackageAsUser(TARGET_APK_ASSIST, false /* grantPermissions */, mSecondaryUserId);
     }
 
-    @After
-    public void tearDown() throws Exception {
+    @AfterClassWithInfo
+    public static void tearDownClass(TestInformation testInfo) throws Exception {
         if (mSecondaryUserId > 0) {
-            getDevice().removeUser(mSecondaryUserId);
+            testInfo.getDevice().removeUser(mSecondaryUserId);
         }
     }
 
@@ -83,5 +94,99 @@ public class BlobStoreMultiUserTest extends BaseBlobStoreHostTest {
         // Verify that previously committed blob cannot be access from another user.
         runDeviceTestAsUser(TARGET_PKG, TEST_CLASS, "testOpenBlob_shouldThrow", args,
                 mSecondaryUserId);
+    }
+
+    @Test
+    public void testBlobAccessAcrossUsers_withTestOnlyApp() throws Exception {
+        Map<String, String> args = createArgs(Pair.create(KEY_ALLOW_PUBLIC, String.valueOf(1)));
+        // Commit a blob.
+        runDeviceTestAsUser(TARGET_PKG_DEV, TEST_CLASS, "testCommitBlob", args,
+                mPrimaryUserId);
+        Map<String, String> argsFromLastTestRun = createArgsFromLastTestRun();
+        // Verify that previously committed blob can be accessed.
+        runDeviceTestAsUser(TARGET_PKG, TEST_CLASS, "testOpenBlob", argsFromLastTestRun,
+                mPrimaryUserId);
+        // Verify that previously committed blob cannot be access from another user.
+        runDeviceTestAsUser(TARGET_PKG, TEST_CLASS, "testOpenBlob_shouldThrow", argsFromLastTestRun,
+                mSecondaryUserId);
+
+        // Verify that previously committed blob can be accessed from another user holding
+        // a priv permission.
+        runDeviceTestAsUser(TARGET_PKG_DEV, TEST_CLASS, "testOpenBlob", argsFromLastTestRun,
+                mSecondaryUserId);
+    }
+
+    @Test
+    public void testBlobAccessAcrossUsers_withAssistRole() throws Exception {
+        // TODO: make it same signature
+        Map<String, String> args = createArgs(Pair.create(KEY_ALLOW_SAME_SIGNATURE,
+                String.valueOf(1)));
+        try {
+            addAssistRoleHolder(TARGET_PKG_ASSIST, mPrimaryUserId);
+            // Commit a blob.
+            runDeviceTestAsUser(TARGET_PKG_ASSIST, TEST_CLASS, "testCommitBlob", args,
+                    mPrimaryUserId);
+            Map<String, String> argsFromLastTestRun = createArgsFromLastTestRun();
+            // Verify that previously committed blob cannot be access from another user.
+            runDeviceTestAsUser(TARGET_PKG_ASSIST, TEST_CLASS, "testOpenBlob_shouldThrow",
+                    argsFromLastTestRun, mSecondaryUserId);
+
+            // Verify that previously committed blob can be accessed from another user holding
+            // a priv permission.
+            try {
+                addAssistRoleHolder(TARGET_PKG_ASSIST, mSecondaryUserId);
+                runDeviceTestAsUser(TARGET_PKG_ASSIST, TEST_CLASS, "testOpenBlob",
+                        argsFromLastTestRun, mSecondaryUserId);
+                runDeviceTestAsUser(TARGET_PKG, TEST_CLASS, "testOpenBlob_shouldThrow",
+                        argsFromLastTestRun, mSecondaryUserId);
+            } finally {
+                removeAssistRoleHolder(TARGET_PKG_ASSIST, mSecondaryUserId);
+            }
+        } finally {
+            removeAssistRoleHolder(TARGET_PKG_ASSIST, mPrimaryUserId);
+        }
+    }
+
+    @Test
+    public void testBlobAccessAcrossUsers_recommit() throws Exception {
+        Map<String, String> args = createArgs(Pair.create(KEY_ALLOW_PUBLIC, String.valueOf(1)));
+        // Commit a blob.
+        runDeviceTestAsUser(TARGET_PKG_DEV, TEST_CLASS, "testCommitBlob", args,
+                mPrimaryUserId);
+        Map<String, String> argsFromLastTestRun = createArgsFromLastTestRun();
+        // Verify that previously committed blob cannot be access from another user.
+        runDeviceTestAsUser(TARGET_PKG, TEST_CLASS, "testOpenBlob_shouldThrow", argsFromLastTestRun,
+                mSecondaryUserId);
+
+        // Recommit the blob on another user
+        argsFromLastTestRun.putAll(args);
+        runDeviceTestAsUser(TARGET_PKG_DEV, TEST_CLASS, "testRecommitBlob", argsFromLastTestRun,
+                mSecondaryUserId);
+        // Any package on another user should be able to access the blob
+        runDeviceTestAsUser(TARGET_PKG, TEST_CLASS, "testOpenBlob", argsFromLastTestRun,
+                mSecondaryUserId);
+    }
+
+    @Test
+    public void testBlobAccessAcrossUsers_withDifferentApps() throws Exception {
+        Map<String, String> args = createArgs(Pair.create(KEY_ALLOW_PUBLIC,
+                String.valueOf(1)));
+        try {
+            addAssistRoleHolder(TARGET_PKG_ASSIST, mPrimaryUserId);
+            // Commit a blob.
+            runDeviceTestAsUser(TARGET_PKG_ASSIST, TEST_CLASS, "testCommitBlob", args,
+                    mPrimaryUserId);
+            Map<String, String> argsFromLastTestRun = createArgsFromLastTestRun();
+            // Verify that previously committed blob cannot be access from another user.
+            runDeviceTestAsUser(TARGET_PKG_ASSIST, TEST_CLASS, "testOpenBlob_shouldThrow",
+                    argsFromLastTestRun, mSecondaryUserId);
+
+            // Verify that previously committed blob can be accessed from another user holding
+            // a priv permission.
+            runDeviceTestAsUser(TARGET_PKG_DEV, TEST_CLASS, "testOpenBlob", argsFromLastTestRun,
+                    mSecondaryUserId);
+        } finally {
+            removeAssistRoleHolder(TARGET_PKG_ASSIST, mPrimaryUserId);
+        }
     }
 }

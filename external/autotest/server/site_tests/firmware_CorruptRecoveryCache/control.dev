@@ -5,10 +5,11 @@
 from autotest_lib.server import utils
 
 AUTHOR = "Chrome OS Team"
-NAME = "firmware_CorruptRecoveryCache"
+NAME = "firmware_CorruptRecoveryCache.dev"
 PURPOSE = "Servo based RECOVERY_MRC_CACHE corruption test"
 CRITERIA = "This test will fail if the cache doesn't retrain and boot into recovery"
-ATTRIBUTES = "suite:faft_bios, suite:faft_lv3"
+ATTRIBUTES = "suite:faft_bios, suite:faft_bios_ro_qual, suite:faft_lv3"
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"

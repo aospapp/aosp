@@ -16,6 +16,9 @@
 
 #include "load_store_analysis.h"
 
+#include "base/scoped_arena_allocator.h"
+#include "optimizing/escape.h"
+
 namespace art {
 
 // A cap for the number of heap locations to prevent pathological time/space consumption.
@@ -28,10 +31,6 @@ constexpr size_t kMaxNumberOfHeapLocations = 32;
 //  l2|------|h2
 static bool CanIntegerRangesOverlap(int64_t l1, int64_t h1, int64_t l2, int64_t h2) {
   return std::max(l1, l2) <= std::min(h1, h2);
-}
-
-static bool IsAddOrSub(const HInstruction* instruction) {
-  return instruction->IsAdd() || instruction->IsSub();
 }
 
 static bool CanBinaryOpAndIndexAlias(const HBinaryOperation* idx1,
@@ -90,6 +89,123 @@ static bool CanBinaryOpsAlias(const HBinaryOperation* idx1,
   int64_t h1 = l1 + (vector_length1 - 1);
   int64_t h2 = l2 + (vector_length2 - 1);
   return CanIntegerRangesOverlap(l1, h1, l2, h2);
+}
+
+// Make sure we mark any writes/potential writes to heap-locations within partially
+// escaped values as escaping.
+void ReferenceInfo::PrunePartialEscapeWrites() {
+  DCHECK(subgraph_ != nullptr);
+  if (!subgraph_->IsValid()) {
+    // All paths escape.
+    return;
+  }
+  HGraph* graph = reference_->GetBlock()->GetGraph();
+  ArenaBitVector additional_exclusions(
+      allocator_, graph->GetBlocks().size(), false, kArenaAllocLSA);
+  for (const HUseListNode<HInstruction*>& use : reference_->GetUses()) {
+    const HInstruction* user = use.GetUser();
+    if (!additional_exclusions.IsBitSet(user->GetBlock()->GetBlockId()) &&
+        subgraph_->ContainsBlock(user->GetBlock()) &&
+        (user->IsUnresolvedInstanceFieldSet() || user->IsUnresolvedStaticFieldSet() ||
+         user->IsInstanceFieldSet() || user->IsStaticFieldSet() || user->IsArraySet()) &&
+        (reference_ == user->InputAt(0)) &&
+        std::any_of(subgraph_->UnreachableBlocks().begin(),
+                    subgraph_->UnreachableBlocks().end(),
+                    [&](const HBasicBlock* excluded) -> bool {
+                      return reference_->GetBlock()->GetGraph()->PathBetween(excluded,
+                                                                             user->GetBlock());
+                    })) {
+      // This object had memory written to it somewhere, if it escaped along
+      // some paths prior to the current block this write also counts as an
+      // escape.
+      additional_exclusions.SetBit(user->GetBlock()->GetBlockId());
+    }
+  }
+  if (UNLIKELY(additional_exclusions.IsAnyBitSet())) {
+    for (uint32_t exc : additional_exclusions.Indexes()) {
+      subgraph_->RemoveBlock(graph->GetBlocks()[exc]);
+    }
+  }
+}
+
+bool HeapLocationCollector::InstructionEligibleForLSERemoval(HInstruction* inst) const {
+  if (inst->IsNewInstance()) {
+    return !inst->AsNewInstance()->NeedsChecks();
+  } else if (inst->IsNewArray()) {
+    HInstruction* array_length = inst->AsNewArray()->GetLength();
+    bool known_array_length =
+        array_length->IsIntConstant() && array_length->AsIntConstant()->GetValue() >= 0;
+    return known_array_length &&
+           std::all_of(inst->GetUses().cbegin(),
+                       inst->GetUses().cend(),
+                       [&](const HUseListNode<HInstruction*>& user) {
+                         if (user.GetUser()->IsArrayGet() || user.GetUser()->IsArraySet()) {
+                           return user.GetUser()->InputAt(1)->IsIntConstant();
+                         }
+                         return true;
+                       });
+  } else {
+    return false;
+  }
+}
+
+void ReferenceInfo::CollectPartialEscapes(HGraph* graph) {
+  ScopedArenaAllocator saa(graph->GetArenaStack());
+  ArenaBitVector seen_instructions(&saa, graph->GetCurrentInstructionId(), false, kArenaAllocLSA);
+  // Get regular escapes.
+  ScopedArenaVector<HInstruction*> additional_escape_vectors(saa.Adapter(kArenaAllocLSA));
+  LambdaEscapeVisitor scan_instructions([&](HInstruction* escape) -> bool {
+    HandleEscape(escape);
+    // LSE can't track heap-locations through Phi and Select instructions so we
+    // need to assume all escapes from these are escapes for the base reference.
+    if ((escape->IsPhi() || escape->IsSelect()) && !seen_instructions.IsBitSet(escape->GetId())) {
+      seen_instructions.SetBit(escape->GetId());
+      additional_escape_vectors.push_back(escape);
+    }
+    return true;
+  });
+  additional_escape_vectors.push_back(reference_);
+  while (!additional_escape_vectors.empty()) {
+    HInstruction* ref = additional_escape_vectors.back();
+    additional_escape_vectors.pop_back();
+    DCHECK(ref == reference_ || ref->IsPhi() || ref->IsSelect()) << *ref;
+    VisitEscapes(ref, scan_instructions);
+  }
+
+  // Mark irreducible loop headers as escaping since they cannot be tracked through.
+  for (HBasicBlock* blk : graph->GetActiveBlocks()) {
+    if (blk->IsLoopHeader() && blk->GetLoopInformation()->IsIrreducible()) {
+      HandleEscape(blk);
+    }
+  }
+}
+
+void HeapLocationCollector::DumpReferenceStats(OptimizingCompilerStats* stats) {
+  if (stats == nullptr) {
+    return;
+  }
+  std::vector<bool> seen_instructions(GetGraph()->GetCurrentInstructionId(), false);
+  for (auto hl : heap_locations_) {
+    auto ri = hl->GetReferenceInfo();
+    if (ri == nullptr || seen_instructions[ri->GetReference()->GetId()]) {
+      continue;
+    }
+    auto instruction = ri->GetReference();
+    seen_instructions[instruction->GetId()] = true;
+    if (ri->IsSingletonAndRemovable()) {
+      if (InstructionEligibleForLSERemoval(instruction)) {
+        MaybeRecordStat(stats, MethodCompilationStat::kFullLSEPossible);
+      }
+    }
+    // TODO This is an estimate of the number of allocations we will be able
+    // to (partially) remove. As additional work is done this can be refined.
+    if (ri->IsPartialSingleton() && instruction->IsNewInstance() &&
+        ri->GetNoEscapeSubgraph()->ContainsBlock(instruction->GetBlock()) &&
+        !ri->GetNoEscapeSubgraph()->GetExcludedCohorts().empty() &&
+        InstructionEligibleForLSERemoval(instruction)) {
+      MaybeRecordStat(stats, MethodCompilationStat::kPartialLSEPossible);
+    }
+  }
 }
 
 bool HeapLocationCollector::CanArrayElementsAlias(const HInstruction* idx1,
@@ -176,6 +292,7 @@ bool LoadStoreAnalysis::Run() {
   }
 
   heap_location_collector_.BuildAliasingMatrix();
+  heap_location_collector_.DumpReferenceStats(stats_);
   return true;
 }
 

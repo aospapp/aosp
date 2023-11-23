@@ -18,7 +18,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.server.wm.second">
 
-    <application>
+    <application android:debuggable="true">
         <activity
             android:name=".EmbeddingActivity"
             android:resizeableActivity="true"
@@ -37,6 +37,16 @@
             android:name=".TestActivityWithSameAffinityDifferentUid"
             android:taskAffinity="nobody.but.TestActivityWithSameAffinity"
             android:exported="true" />
+        <activity
+            android:name="android.server.wm.second.ImplicitTargetActivity"
+            android:resizeableActivity="true"
+            android:allowEmbedded="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.server.wm.second.TEST_ACTION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <receiver
             android:name=".LaunchBroadcastReceiver"
             android:enabled="true"

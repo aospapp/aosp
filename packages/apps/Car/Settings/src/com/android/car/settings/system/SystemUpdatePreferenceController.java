@@ -16,8 +16,6 @@
 
 package com.android.car.settings.system;
 
-import static android.content.Context.CARRIER_CONFIG_SERVICE;
-
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.content.Intent;
@@ -68,7 +66,7 @@ public class SystemUpdatePreferenceController extends PreferenceController<Prefe
         if (!getContext().getResources().getBoolean(R.bool.config_show_system_update_settings)) {
             return UNSUPPORTED_ON_DEVICE;
         }
-        return mUserManager.isAdminUser() ? AVAILABLE : DISABLED_FOR_USER;
+        return mUserManager.isAdminUser() ? AVAILABLE : DISABLED_FOR_PROFILE;
     }
 
     @Override
@@ -103,8 +101,8 @@ public class SystemUpdatePreferenceController extends PreferenceController<Prefe
 
     @Override
     protected boolean handlePreferenceClicked(Preference preference) {
-        CarrierConfigManager configManager = (CarrierConfigManager) getContext().getSystemService(
-                CARRIER_CONFIG_SERVICE);
+        CarrierConfigManager configManager = getContext().getSystemService(
+                CarrierConfigManager.class);
         PersistableBundle b = configManager.getConfig();
         if (b != null && b.getBoolean(CarrierConfigManager.KEY_CI_ACTION_ON_SYS_UPDATE_BOOL)) {
             ciActionOnSysUpdate(b);

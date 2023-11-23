@@ -32,9 +32,9 @@
     <string name="permdesc_bluetoothShareManager">Allows the app to access the
         BluetoothShare manager and use it to transfer files. </string>
 
-    <string name="permlab_bluetoothWhitelist">Whitelist bluetooth device access.</string>
+    <string name="permlab_bluetoothAcceptlist">Acceptlist bluetooth device access.</string>
 
-    <string name="permdesc_bluetoothWhitelist">Allows the app to temporarily whitelist
+    <string name="permdesc_bluetoothAcceptlist">Allows the app to temporarily acceptlist
         a Bluetooth device, allowing that device to send files to this device without user
         confirmation.</string>
 
@@ -80,7 +80,7 @@
 
     <!-- Bluetooth File Transfer Acceptance Notification item -->
     <string name="incoming_file_confirm_Notification_title">Incoming file</string>
-    <string name="incoming_file_confirm_Notification_content"><xliff:g id="sender">%1$s</xliff:g> is ready to send <xliff:g id="file">%2$s</xliff:g></string>
+    <string name="incoming_file_confirm_Notification_content"><xliff:g id="sender">%1$s</xliff:g> is ready to send a file: <xliff:g id="file">%2$s</xliff:g></string>
 
     <!-- Inbound File Transfer Progress Notification item -->
     <!-- label for the notification item of receiving file -->
@@ -176,9 +176,9 @@
     <string name="bt_toast_6">Stopped sending file to \u0022<xliff:g id="recipient">%1$s</xliff:g>\u0022</string>
 
     <!-- Bluetooth System Messages [CHAR LIMIT=NONE] -->
-    <string name="bt_sm_2_1_nosdcard">There isn\'t enough space in USB storage to save the file from \u0022<xliff:g id="sender">%1$s</xliff:g>\u0022</string>
+    <string name="bt_sm_2_1_nosdcard">There isn\'t enough space in USB storage to save the file.</string>
     <!-- Bluetooth System Messages -->
-    <string name="bt_sm_2_1_default">There isn\'t enough space on the SD card to save the file from \u0022<xliff:g id="sender">%1$s</xliff:g>\u0022</string>
+    <string name="bt_sm_2_1_default">There isn\'t enough space on the SD card to save the file.</string>
     <string name="bt_sm_2_2">Space needed: <xliff:g id="size">%1$s</xliff:g></string>
 
     <string name="ErrorTooManyRequests">Too many requests are being processed. Try again later.</string>

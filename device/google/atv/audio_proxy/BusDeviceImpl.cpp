@@ -25,7 +25,7 @@
 using ::android::hardware::Void;
 
 namespace audio_proxy {
-namespace CPP_VERSION {
+namespace AUDIO_PROXY_CPP_VERSION {
 
 BusDeviceImpl::BusDeviceImpl(AudioProxyDevice* device) : mDevice(device) {}
 BusDeviceImpl::~BusDeviceImpl() = default;
@@ -48,5 +48,5 @@ Return<void> BusDeviceImpl::openOutputStream(
   return Void();
 }
 
-}  // namespace CPP_VERSION
+}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

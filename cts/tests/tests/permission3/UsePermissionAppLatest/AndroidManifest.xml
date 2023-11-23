@@ -30,5 +30,14 @@
         <activity android:name=".CheckCalendarAccessActivity" android:exported="true" />
         <activity android:name=".FinishOnCreateActivity" android:exported="true" />
         <activity android:name=".RequestPermissionsActivity" android:exported="true" />
+        <activity-alias
+            android:name=".ViewPermissionUsageActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity=".FinishOnCreateActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+            </intent-filter>
+        </activity-alias>
     </application>
 </manifest>

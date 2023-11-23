@@ -57,8 +57,7 @@ Arm Platform Build Options
    ``ARM_ROTPK_LOCATION`` are:
 
    -  ``regs`` : return the ROTPK hash stored in the Trusted root-key storage
-      registers. The private key corresponding to this ROTPK hash is not
-      currently available.
+      registers.
    -  ``devel_rsa`` : return a development public key hash embedded in the BL1
       and BL2 binaries. This hash has been obtained from the RSA public key
       ``arm_rotpk_rsa.der``, located in ``plat/arm/board/common/rotpk``. To use
@@ -69,6 +68,12 @@ Arm Platform Build Options
       ``arm_rotpk_ecdsa.der``, located in ``plat/arm/board/common/rotpk``. To
       use this option, ``arm_rotprivk_ecdsa.pem`` must be specified as
       ``ROT_KEY`` when creating the certificates.
+
+-  ``ARM_ROTPK_HASH``: used when ``ARM_ROTPK_LOCATION=devel_*``. Specifies the
+   location of the ROTPK hash. Not expected to be a build option. This defaults to
+   ``plat/arm/board/common/rotpk/*_sha256.bin`` depending on the specified algorithm.
+   Providing ``ROT_KEY`` enforces generation of the hash from the ``ROT_KEY`` and
+   overwrites the default hash file.
 
 -  ``ARM_TSP_RAM_LOCATION``: location of the TSP binary. Options:
 
@@ -85,6 +90,13 @@ Arm Platform Build Options
    TrustZone® CryptoCell functionality for Trusted Board Boot on capable Arm
    platforms. If this option is specified, then the path to the CryptoCell
    SBROM library must be specified via ``CCSBROM_LIB_PATH`` flag.
+
+-  ``ARM_SPMC_MANIFEST_DTS`` : path to an alternate manifest file used as the
+   SPMC Core manifest. Valid when ``SPD=spmd`` is selected.
+
+-  ``OPTEE_SP_FW_CONFIG``: DTC build flag to include OP-TEE as SP in tb_fw_config
+   device tree. This flag is defined only when ``ARM_SPMC_MANIFEST_DTS`` manifest
+   file name contains pattern optee_sp.
 
 For a better understanding of these options, the Arm development platform memory
 map is explained in the :ref:`Firmware Design`.
@@ -109,6 +121,11 @@ Arm CSS Platform-Specific Build Options
    management operations and for SCP RAM Firmware transfer. If this option
    is set to 1, then SCMI/SDS drivers will be used. Default is 0.
 
+ - ``CSS_SGI_CHIP_COUNT``: Configures the number of chips on a SGI/RD platform
+   which supports multi-chip operation. If ``CSS_SGI_CHIP_COUNT`` is set to any
+   valid value greater than 1, the platform code performs required configuration
+   to support multi-chip operation.
+
 --------------
 
-*Copyright (c) 2019, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2020, Arm Limited. All rights reserved.*

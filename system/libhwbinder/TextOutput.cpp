@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <hwbinder/TextOutput.h>
+#include "TextOutput.h"
 
 #include <hwbinder/Debug.h>
 

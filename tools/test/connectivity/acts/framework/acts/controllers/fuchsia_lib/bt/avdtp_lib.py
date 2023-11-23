@@ -23,17 +23,19 @@ class FuchsiaAvdtpLib(BaseLib):
         self.test_counter = tc
         self.client_id = client_id
 
-    def init(self, role):
-        """Initializes the ProfileServerFacade's proxy object.
+    def init(self, initiator_delay=None):
+        """Initializes the AVDTP service with optional initiator_delay.
 
-        No operations for SDP can be performed until this is initialized.
+        Args:
+            initiator_delay: Optional. The delay in milliseconds to start a
+            stream.
 
         Returns:
             Dictionary, None if success, error if error.
         """
         test_cmd = "avdtp_facade.AvdtpInit"
 
-        test_args = {"role": role}
+        test_args = {"initiator_delay": initiator_delay}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 

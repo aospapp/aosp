@@ -26,23 +26,35 @@ import android.text.TextUtils;
 import com.android.car.dialer.Constants;
 import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.dialer.ui.activecall.InCallActivity;
+import com.android.car.telephony.common.CallDetail;
 import com.android.car.telephony.common.TelecomUtils;
 
 import java.util.List;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * A {@link Service} that is used to handle actions from notifications to:
  * <ul><li>answer or inject an incoming call.
  * <li>call back or message to a missed call.
  */
-public class NotificationService extends Service {
+@AndroidEntryPoint(Service.class)
+public class NotificationService extends Hilt_NotificationService {
     static final String ACTION_ANSWER_CALL = "CD.ACTION_ANSWER_CALL";
     static final String ACTION_DECLINE_CALL = "CD.ACTION_DECLINE_CALL";
     static final String ACTION_SHOW_FULLSCREEN_UI = "CD.ACTION_SHOW_FULLSCREEN_UI";
     static final String ACTION_CALL_BACK_MISSED = "CD.ACTION_CALL_BACK_MISSED";
     static final String ACTION_MESSAGE_MISSED = "CD.ACTION_MESSAGE_MISSED";
-    static final String ACTION_READ_ALL_MISSED = "CD.ACTION_READ_ALL_MISSED";
-    static final String EXTRA_CALL_ID = "CD.EXTRA_CALL_ID";
+    static final String ACTION_READ_MISSED = "CD.ACTION_READ_MISSED";
+    static final String EXTRA_PHONE_NUMBER = "CD.EXTRA_PHONE_NUMBER";
+    static final String EXTRA_CALL_LOG_ID = "CD.EXTRA_CALL_LOG_ID";
+    static final String EXTRA_NOTIFICATION_TAG = "CD.EXTRA_NOTIFICATION_TAG";
+
+    @Inject InCallNotificationController mInCallNotificationController;
+    @Inject MissedCallNotificationController mMissedCallNotificationController;
+    @Inject UiCallManager mUiCallManager;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -52,41 +64,50 @@ public class NotificationService extends Service {
     /** Create an intent to handle reading all missed call action and schedule for executing. */
     public static void readAllMissedCall(Context context) {
         Intent readAllMissedCallIntent = new Intent(context, NotificationService.class);
-        readAllMissedCallIntent.setAction(ACTION_READ_ALL_MISSED);
+        readAllMissedCallIntent.setAction(ACTION_READ_MISSED);
         context.startService(readAllMissedCallIntent);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent.getAction();
-        String callId = intent.getStringExtra(EXTRA_CALL_ID);
+        String phoneNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER);
+        String notificationTag = intent.getStringExtra(EXTRA_NOTIFICATION_TAG);
+        Context context = getApplicationContext();
         switch (action) {
             case ACTION_ANSWER_CALL:
-                answerCall(callId);
-                InCallNotificationController.get().cancelInCallNotification(callId);
+                answerCall(phoneNumber);
+                mInCallNotificationController.cancelInCallNotification(phoneNumber);
                 break;
             case ACTION_DECLINE_CALL:
-                declineCall(callId);
-                InCallNotificationController.get().cancelInCallNotification(callId);
+                declineCall(phoneNumber);
+                mInCallNotificationController.cancelInCallNotification(phoneNumber);
                 break;
             case ACTION_SHOW_FULLSCREEN_UI:
-                Intent inCallActivityIntent = new Intent(getApplicationContext(),
-                        InCallActivity.class);
+                Intent inCallActivityIntent = new Intent(context, InCallActivity.class);
                 inCallActivityIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 inCallActivityIntent.putExtra(Constants.Intents.EXTRA_SHOW_INCOMING_CALL, true);
                 startActivity(inCallActivityIntent);
-                InCallNotificationController.get().cancelInCallNotification(callId);
+                mInCallNotificationController.cancelInCallNotification(phoneNumber);
                 break;
             case ACTION_CALL_BACK_MISSED:
-                UiCallManager.get().placeCall(callId);
-                TelecomUtils.markCallLogAsRead(getApplicationContext(), callId);
+                mUiCallManager.placeCall(phoneNumber);
+                TelecomUtils.markCallLogAsRead(context, phoneNumber);
+                mMissedCallNotificationController.cancelMissedCallNotification(notificationTag);
                 break;
             case ACTION_MESSAGE_MISSED:
                 // TODO: call assistant to send message
-                TelecomUtils.markCallLogAsRead(getApplicationContext(), callId);
+                TelecomUtils.markCallLogAsRead(context, phoneNumber);
+                mMissedCallNotificationController.cancelMissedCallNotification(notificationTag);
                 break;
-            case ACTION_READ_ALL_MISSED:
-                TelecomUtils.markCallLogAsRead(getApplicationContext(), callId);
+            case ACTION_READ_MISSED:
+                if (!TextUtils.isEmpty(phoneNumber)) {
+                    TelecomUtils.markCallLogAsRead(context, phoneNumber);
+                } else {
+                    long callLogId = intent.getLongExtra(EXTRA_CALL_LOG_ID, -1);
+                    TelecomUtils.markCallLogAsRead(context, callLogId);
+                }
+                mMissedCallNotificationController.cancelMissedCallNotification(notificationTag);
                 break;
             default:
                 break;
@@ -96,10 +117,10 @@ public class NotificationService extends Service {
     }
 
     private void answerCall(String callId) {
-        List<Call> callList = UiCallManager.get().getCallList();
+        List<Call> callList = mUiCallManager.getCallList();
         for (Call call : callList) {
-            if (call.getDetails() != null
-                    && TextUtils.equals(call.getDetails().getTelecomCallId(), callId)) {
+            if (call.getDetails() != null && TextUtils.equals(
+                    CallDetail.fromTelecomCallDetail(call.getDetails()).getNumber(), callId)) {
                 call.answer(/* videoState= */0);
                 return;
             }
@@ -107,10 +128,10 @@ public class NotificationService extends Service {
     }
 
     private void declineCall(String callId) {
-        List<Call> callList = UiCallManager.get().getCallList();
+        List<Call> callList = mUiCallManager.getCallList();
         for (Call call : callList) {
-            if (call.getDetails() != null
-                    && TextUtils.equals(call.getDetails().getTelecomCallId(), callId)) {
+            if (call.getDetails() != null && TextUtils.equals(
+                    CallDetail.fromTelecomCallDetail(call.getDetails()).getNumber(), callId)) {
                 call.reject(false, /* textMessage= */"");
                 return;
             }

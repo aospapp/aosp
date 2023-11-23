@@ -1,34 +1,23 @@
-# Dagger 2
+# Dagger
 
 [![Maven Central][mavenbadge-svg]][mavencentral]
 
-A fast dependency injector for Android and Java.
+A fast dependency injector for Java and Android.
 
-## About Google's Fork
+Dagger is a compile-time framework for dependency injection. It uses no
+reflection or runtime bytecode generation, does all its analysis at
+compile-time, and generates plain Java source code.
 
-Dagger 2 is a compile-time evolution approach to dependency injection.
-Taking the approach started in Dagger 1.x to its ultimate conclusion,
-Dagger 2.x eliminates all reflection, and improves code clarity by
-removing the traditional ObjectGraph/Injector in favor of user-specified
-`@Component` interfaces.
-
-This github project represents the Dagger 2 development stream.  The earlier
-[project page][square] (Square, Inc's repository) represents the earlier 1.0
-development stream. Both versions have benefited from strong involvement from
-Square, Google, and other contributors.
-
-Dagger is currently in active development, primarily internally at Google,
-with regular pushes to the open-source community. Snapshot releases are
-auto-deployed to sonatype's central maven repository on every clean build with
-the version `HEAD-SNAPSHOT`.
-
-> [Dagger 2's main documentation website can be found here.][website]
+Dagger is actively maintained by the same team that works on [Guava]. Snapshot
+releases are auto-deployed to Sonatype's central Maven repository on every clean
+build with the version `HEAD-SNAPSHOT`. The current version builds upon previous
+work done at [Square][square].
 
 ## Documentation
 
 You can [find the dagger documentation here][website] which has extended usage
-instructions and other useful information.  Substantial usage information can be
-found in the [API documentation][20api].
+instructions and other useful information. More detailed information can be
+found in the [API documentation][latestapi].
 
 You can also learn more from [the original proposal][proposal],
 [this talk by Greg Kick][gaktalk], and on the dagger-discuss@googlegroups.com
@@ -38,17 +27,152 @@ mailing list.
 
 ### Bazel
 
-If you build with `bazel`, follow the [`bazel` documentation for referencing
-external projects][bazel-external-deps] to include Dagger in your build.
+First, import the Dagger repository into your `WORKSPACE` file using
+[`http_archive`][bazel-external-deps].
 
-Given the following `WORKSPACE` definition, you can reference dagger via
-`@com_google_dagger//:dagger_with_compiler` in your deps.
+Note: The `http_archive` must point to a tagged release of Dagger, not just any
+commit. The version of the Dagger artifacts will match the version of the tagged
+release.
 
 ```python
+# Top-level WORKSPACE file
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+DAGGER_TAG = "2.28.1"
+DAGGER_SHA = "9e69ab2f9a47e0f74e71fe49098bea908c528aa02fa0c5995334447b310d0cdd"
 http_archive(
-    name = "com_google_dagger",
-    urls = ["https://github.com/google/dagger/archive/dagger-<version>.zip"],
+    name = "dagger",
+    strip_prefix = "dagger-dagger-%s" % DAGGER_TAG,
+    sha256 = DAGGER_SHA,
+    urls = ["https://github.com/google/dagger/archive/dagger-%s.zip" % DAGGER_TAG],
 )
+```
+
+Next you will need to setup targets that export the proper dependencies
+and plugins. Follow the sections below to setup the dependencies you need.
+
+#### Dagger Setup
+
+First, load the Dagger artifacts and repositories, and add them to your list of
+[`maven_install`] artifacts.
+
+```python
+# Top-level WORKSPACE file
+
+load("@dagger//:workspace_defs.bzl", "DAGGER_ARTIFACTS", "DAGGER_REPOSITORIES")
+
+maven_install(
+    artifacts = DAGGER_ARTIFACTS + [...],
+    repositories = DAGGER_REPOSITORIES + [...],
+)
+```
+
+Next, load and call [`dagger_rules`](https://github.com/google/dagger/blob/master/workspace_defs.bzl)
+in your top-level `BUILD` file:
+
+```python
+# Top-level BUILD file
+
+load("@dagger//:workspace_defs.bzl", "dagger_rules")
+
+dagger_rules()
+```
+
+This will add the following Dagger build targets:
+(Note that these targets already export all of the dependencies and processors
+they need).
+
+```python
+deps = [
+    ":dagger",                  # For Dagger
+    ":dagger-spi",              # For Dagger SPI
+    ":dagger-producers",        # For Dagger Producers
+]
+```
+
+#### Dagger Android Setup
+
+First, load the Dagger Android artifacts and repositories, and add them to your
+list of [`maven_install`] artifacts.
+
+```python
+# Top-level WORKSPACE file
+
+load(
+    "@dagger//:workspace_defs.bzl",
+    "DAGGER_ANDROID_ARTIFACTS",
+    "DAGGER_ANDROID_REPOSITORIES"
+)
+
+maven_install(
+    artifacts = DAGGER_ANDROID_ARTIFACTS + [...],
+    repositories = DAGGER_ANDROID_REPOSITORIES + [...],
+)
+```
+
+Next, load and call [`dagger_android_rules`](https://github.com/google/dagger/blob/master/workspace_defs.bzl)
+in your top-level `BUILD` file:
+
+```python
+# Top-level BUILD file
+
+load("@dagger//:workspace_defs.bzl", "dagger_android_rules")
+
+dagger_android_rules()
+```
+
+This will add the following Dagger Android build targets:
+(Note that these targets already export all of the dependencies and processors
+they need).
+
+```python
+deps = [
+    ":dagger-android",          # For Dagger Android
+    ":dagger-android-support",  # For Dagger Android (Support)
+]
+```
+
+#### Hilt Android Setup
+
+First, load the Hilt Android artifacts and repositories, and add them to your
+list of [`maven_install`] artifacts.
+
+```python
+# Top-level WORKSPACE file
+
+load(
+    "@dagger//:workspace_defs.bzl",
+    "HILT_ANDROID_ARTIFACTS",
+    "HILT_ANDROID_REPOSITORIES"
+)
+
+maven_install(
+    artifacts = HILT_ANDROID_ARTIFACTS + [...],
+    repositories = HILT_ANDROID_REPOSITORIES + [...],
+)
+```
+
+Next, load and call [`hilt_android_rules`](https://github.com/google/dagger/blob/master/workspace_defs.bzl)
+in your top-level `BUILD` file:
+
+```python
+# Top-level BUILD file
+
+load("@dagger//:workspace_defs.bzl", "hilt_android_rules")
+
+hilt_android_rules()
+```
+
+This will add the following Hilt Android build targets:
+(Note that these targets already export all of the dependencies and processors
+they need).
+
+```python
+deps = [
+    ":hilt-android",            # For Hilt Android
+    ":hilt-android-testing",    # For Hilt Android Testing
+]
 ```
 
 ### Other build systems
@@ -124,25 +248,11 @@ parallelizable execution graphs), then add this to your maven configuration:
 </dependencies>
 ```
 
-#### Java Gradle
-```groovy
-// Add plugin https://plugins.gradle.org/plugin/net.ltgt.apt
-plugins {
-  id "net.ltgt.apt" version "0.10"
-}
-
-// Add Dagger dependencies
-dependencies {
-  compile 'com.google.dagger:dagger:2.x'
-  apt 'com.google.dagger:dagger-compiler:2.x'
-}
-```
-
-#### Android Gradle
+#### Gradle
 ```groovy
 // Add Dagger dependencies
 dependencies {
-  compile 'com.google.dagger:dagger:2.x'
+  implementation 'com.google.dagger:dagger:2.x'
   annotationProcessor 'com.google.dagger:dagger-compiler:2.x'
 }
 ```
@@ -150,13 +260,19 @@ dependencies {
 If you're using classes in `dagger.android` you'll also want to include:
 
 ```groovy
-compile 'com.google.dagger:dagger-android:2.x'
-compile 'com.google.dagger:dagger-android-support:2.x' // if you use the support libraries
+implementation 'com.google.dagger:dagger-android:2.x'
+implementation 'com.google.dagger:dagger-android-support:2.x' // if you use the support libraries
 annotationProcessor 'com.google.dagger:dagger-android-processor:2.x'
 ```
 
-If you're using a version of the Android gradle plugin below `2.2`, see
-https://bitbucket.org/hvisser/android-apt.
+Notes:
+
+-   We use `implementation` instead of `api` for better compilation performance.
+    -   See the [Gradle documentation][gradle-api-implementation] for more
+        information on how to select appropriately, and the [Android Gradle
+        plugin documentation][gradle-api-implementation-android] for Android
+        projects.
+-   For Kotlin projects, use [`kapt`] in place of `annotationProcessor`.
 
 If you're using the [Android Databinding library][databinding], you may want to
 increase the number of errors that `javac` will print. When Dagger prints an
@@ -172,16 +288,11 @@ gradle.projectsEvaluated {
 }
 ```
 
-### Download
+### Resources
 
-  * 2.x (google/dagger)
-    * [Dagger 2.0 Documentation][website]
-    * [Dagger 2.0 Javadocs][20api]
-    * [Dagger development Javadocs][latestapi] (from the `master` branch
-      on GitHub)
-    * [Google's Dagger project site on GitHub][project]
-  * 1.x (square/dagger)
-    * [Square's original Dagger project site on GitHub][square]
+*   [Documentation][website]
+*   [Javadocs][latestapi]
+*   [GitHub Issues]
 
 
 If you do not use maven, gradle, ivy, or other build systems that consume
@@ -212,13 +323,18 @@ See [the CONTRIBUTING.md docs][Building Dagger].
     See the License for the specific language governing permissions and
     limitations under the License.
 
-[20api]: https://dagger.dev/api/2.0/
 [`bazel`]: https://bazel.build
 [bazel-external-deps]: https://docs.bazel.build/versions/master/external.html#depending-on-other-bazel-projects
+[`maven_install`]: https://github.com/bazelbuild/rules_jvm_external#exporting-and-consuming-artifacts-from-external-repositories
 [Building Dagger]: CONTRIBUTING.md#building-dagger
 [dagger-snap]: https://oss.sonatype.org/content/repositories/snapshots/com/google/dagger/
 [databinding]: https://developer.android.com/topic/libraries/data-binding/
 [gaktalk]: https://www.youtube.com/watch?v=oK_XtfXPkqw
+[GitHub Issues]: https://github.com/google/dagger/issues
+[gradle-api-implementation]: https://docs.gradle.org/current/userguide/java_library_plugin.html#sec:java_library_separation
+[gradle-api-implementation-android]: https://developer.android.com/studio/build/dependencies#dependency_configurations
+[Guava]: https://github.com/google/guava
+[`kapt`]: https://kotlinlang.org/docs/reference/kapt.html
 [latestapi]: https://dagger.dev/api/latest/
 [mavenbadge-svg]: https://maven-badges.herokuapp.com/maven-central/com.google.dagger/dagger/badge.svg
 [mavencentral]: https://search.maven.org/artifact/com.google.dagger/dagger

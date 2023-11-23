@@ -16,6 +16,7 @@
 
 package android.assist.service;
 
+import static android.assist.common.Utils.SHOW_SESSION_FLAGS_TO_SET;
 import static android.service.voice.VoiceInteractionSession.SHOW_WITH_ASSIST;
 import static android.service.voice.VoiceInteractionSession.SHOW_WITH_SCREENSHOT;
 
@@ -118,11 +119,12 @@ public class MainInteractionService extends VoiceInteractionService {
                 if (extras == null) {
                     extras = new Bundle();
                 }
-
+                int showSessionFlags = extras.getInt(SHOW_SESSION_FLAGS_TO_SET,
+                        SHOW_WITH_ASSIST | SHOW_WITH_SCREENSHOT);
                 extras.putString(Utils.TESTCASE_TYPE, mIntent.getStringExtra(Utils.TESTCASE_TYPE));
                 extras.putParcelable(Utils.EXTRA_REMOTE_CALLBACK, mRemoteCallback);
                 MainInteractionService.this.showSession(
-                        extras, SHOW_WITH_ASSIST | SHOW_WITH_SCREENSHOT);
+                        extras, showSessionFlags);
             } else {
                 Log.e(TAG, "MainInteractionServiceBroadcastReceiver: invalid action " + action);
             }

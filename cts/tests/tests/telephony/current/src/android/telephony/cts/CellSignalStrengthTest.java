@@ -17,10 +17,16 @@
 package android.telephony.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeTrue;
+
+import android.content.pm.PackageManager;
 
 import android.telephony.CellSignalStrength;
 import android.telephony.SignalStrength;
 
+import androidx.test.InstrumentationRegistry;
+
+import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -29,6 +35,12 @@ import org.junit.Test;
  */
 public class CellSignalStrengthTest {
     private static final String TAG = "CellSignalStrengthTest";
+
+    @Before
+    public void setUp() throws Exception {
+        assumeTrue(InstrumentationRegistry.getContext().getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
+    }
 
     /** Check whether NUM_SIGNAL_STRENGTH_BINS holds value 5 as required by
      * {@link SignalStrength#getLevel)} which returns value between 0 and 4. */

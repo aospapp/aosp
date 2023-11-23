@@ -15,10 +15,10 @@
 # Description:
 #   Tests for Dagger's Android integrations
 
-package(default_visibility = ["//:src"])
-
 load("//:build_defs.bzl", "DOCLINT_HTML_AND_SYNTAX")
 load("//:test_defs.bzl", "GenJavaTests")
+
+package(default_visibility = ["//:src"])
 
 GenJavaTests(
     name = "android_processor_tests",
@@ -26,17 +26,16 @@ GenJavaTests(
     functional = False,
     javacopts = DOCLINT_HTML_AND_SYNTAX,
     deps = [
-        "@google_bazel_common//third_party/java/guava",
-        "@androidsdk//com.android.support:support-fragment-25.0.0",
-        # TODO(ronshapiro): create a common location to define the current Android version
-        "@androidsdk//:platforms/android-26/android.jar",
-        "@google_bazel_common//third_party/java/compile_testing",
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
-        "@google_bazel_common//third_party/java/truth:truth8",
         "//java/dagger/android",
         "//java/dagger/android/processor",
         "//java/dagger/internal/codegen:processor",
+        "//java/dagger/internal/guava:base",
+        "//java/dagger/internal/guava:collect",
+        "@androidsdk//:platforms/android-30/android.jar",
+        "@google_bazel_common//third_party/java/compile_testing",
+        "@google_bazel_common//third_party/java/junit",
+        "@google_bazel_common//third_party/java/truth",
+        "@maven//:androidx_fragment_fragment",
     ],
 )

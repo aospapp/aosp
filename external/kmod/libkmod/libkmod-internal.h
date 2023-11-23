@@ -11,7 +11,7 @@
 #include "libkmod.h"
 
 static _always_inline_ _printf_format_(2, 3) void
-	kmod_log_null(struct kmod_ctx *ctx, const char *format, ...) {}
+	kmod_log_null(const struct kmod_ctx *ctx, const char *format, ...) {}
 
 #define kmod_log_cond(ctx, prio, arg...) \
 	do { \
@@ -89,6 +89,7 @@ int kmod_lookup_alias_from_config(struct kmod_ctx *ctx, const char *name, struct
 int kmod_lookup_alias_from_symbols_file(struct kmod_ctx *ctx, const char *name, struct kmod_list **list) __attribute__((nonnull(1, 2, 3)));
 int kmod_lookup_alias_from_aliases_file(struct kmod_ctx *ctx, const char *name, struct kmod_list **list) __attribute__((nonnull(1, 2, 3)));
 int kmod_lookup_alias_from_moddep_file(struct kmod_ctx *ctx, const char *name, struct kmod_list **list) __attribute__((nonnull(1, 2, 3)));
+int kmod_lookup_alias_from_kernel_builtin_file(struct kmod_ctx *ctx, const char *name, struct kmod_list **list) __attribute__((nonnull(1, 2, 3)));
 int kmod_lookup_alias_from_builtin_file(struct kmod_ctx *ctx, const char *name, struct kmod_list **list) __attribute__((nonnull(1, 2, 3)));
 bool kmod_lookup_alias_is_builtin(struct kmod_ctx *ctx, const char *name) __attribute__((nonnull(1, 2)));
 int kmod_lookup_alias_from_commands(struct kmod_ctx *ctx, const char *name, struct kmod_list **list) __attribute__((nonnull(1, 2, 3)));
@@ -145,6 +146,7 @@ void kmod_module_set_visited(struct kmod_module *mod, bool visited) __attribute_
 void kmod_module_set_builtin(struct kmod_module *mod, bool builtin) __attribute__((nonnull((1))));
 void kmod_module_set_required(struct kmod_module *mod, bool required) __attribute__((nonnull(1)));
 bool kmod_module_is_builtin(struct kmod_module *mod) __attribute__((nonnull(1)));
+int kmod_module_get_builtin(struct kmod_ctx *ctx, struct kmod_list **list) __attribute__((nonnull(1, 2)));
 
 /* libkmod-file.c */
 struct kmod_file *kmod_file_open(const struct kmod_ctx *ctx, const char *filename) _must_check_ __attribute__((nonnull(1,2)));
@@ -193,3 +195,11 @@ struct kmod_signature_info {
 };
 bool kmod_module_signature_info(const struct kmod_file *file, struct kmod_signature_info *sig_info) _must_check_ __attribute__((nonnull(1, 2)));
 void kmod_module_signature_info_free(struct kmod_signature_info *sig_info) __attribute__((nonnull));
+
+/* libkmod-builtin.c */
+struct kmod_builtin_iter;
+struct kmod_builtin_iter *kmod_builtin_iter_new(struct kmod_ctx *ctx) __attribute__((nonnull(1)));
+void kmod_builtin_iter_free(struct kmod_builtin_iter *iter) __attribute__((nonnull(1)));
+bool kmod_builtin_iter_next(struct kmod_builtin_iter *iter) __attribute__((nonnull(1)));
+bool kmod_builtin_iter_get_modname(struct kmod_builtin_iter *iter, char modname[static PATH_MAX]) __attribute__((nonnull(1, 2)));
+ssize_t kmod_builtin_get_modinfo(struct kmod_ctx *ctx, const char *modname, char ***modinfo) __attribute__((nonnull(1, 2, 3)));

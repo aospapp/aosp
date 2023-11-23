@@ -20,10 +20,10 @@ def is_worse_than_or_equal_to(lhs, rhs):
     return is_worse_than(lhs, rhs)
 
 
-DEFAULT_BLACKLIST = ('\r\x00',)
-def clean_raw_line(raw_line, blacklist=DEFAULT_BLACKLIST):
-    """Strip blacklisted characters from raw_line."""
-    return re.sub('|'.join(blacklist), '', raw_line)
+DEFAULT_BLOCKLIST = ('\r\x00',)
+def clean_raw_line(raw_line, blocklist=DEFAULT_BLOCKLIST):
+    """Strip blocklisted characters from raw_line."""
+    return re.sub('|'.join(blocklist), '', raw_line)
 
 
 class status_stack(object):

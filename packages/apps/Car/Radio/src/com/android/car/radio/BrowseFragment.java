@@ -30,6 +30,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.broadcastradio.support.Program;
 import com.android.car.radio.storage.RadioStorage;
+import com.android.car.radio.util.Log;
 import com.android.car.ui.baselayout.Insets;
 import com.android.car.ui.baselayout.InsetsChangedListener;
 
@@ -37,6 +38,7 @@ import com.android.car.ui.baselayout.InsetsChangedListener;
  * Fragment that shows all browseable radio stations from background scan
  */
 public class BrowseFragment extends Fragment implements InsetsChangedListener {
+    private static final String TAG = "BcRadioApp.BrwFrg";
 
     private RadioController mRadioController;
     private BrowseAdapter mBrowseAdapter;
@@ -75,8 +77,13 @@ public class BrowseFragment extends Fragment implements InsetsChangedListener {
     @Override
     public void setUserVisibleHint(boolean isVisibleToUser) {
         super.setUserVisibleHint(isVisibleToUser);
-        if (isVisibleToUser) {
+
+        if (!isVisibleToUser) return;
+
+        try {
             mRadioController.setSkipMode(SkipMode.BROWSE);
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Can't set skip mode", e);
         }
     }
 

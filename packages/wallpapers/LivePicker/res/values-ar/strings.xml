@@ -26,9 +26,9 @@
     <string name="configure_wallpaper" msgid="4308477548538487192">"الإعدادات…"</string>
     <string name="delete_live_wallpaper" msgid="2401799265848069389">"حذف"</string>
     <string name="preview" msgid="1067744492020029129">"معاينة"</string>
-    <string name="wallpaper_instructions" msgid="6112878742140691445">"تعيين خلفية"</string>
+    <string name="wallpaper_instructions" msgid="6112878742140691445">"ضبط الخلفية"</string>
     <string name="live_wallpaper_empty" msgid="8057319062274870589">"لا خلفيات متحركة."</string>
-    <string name="set_live_wallpaper" msgid="764007409845174475">"تعيين خلفية"</string>
+    <string name="set_live_wallpaper" msgid="764007409845174475">"ضبط الخلفية"</string>
     <string name="wallpaper_title_and_author" msgid="7606029050779779421">"<xliff:g id="TITLE">%1$s</xliff:g> بواسطة <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="7218845906181560315">"جارٍ تحميل الخلفية المتحركة..."</string>
     <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"الشاشة الرئيسية"</string>

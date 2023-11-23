@@ -95,11 +95,19 @@ public class MatcherUtils {
     }
 
     /**
-     * {@link AccessibilityNodeInfo} matcher based on whether its {@link Throwable::getText text} is
-     * matching {@code condition}.
+     * {@link AccessibilityNodeInfo} matcher based on whether its
+     * {@link AccessibilityNodeInfo::getText text} is matching {@code condition}.
      */
     public static Matcher<AccessibilityNodeInfo> hasTextThat(Matcher<? super String> condition) {
         return propertyMatches("text", AccessibilityNodeInfo::getText, condition);
+    }
+
+    /**
+     * {@link AccessibilityNodeInfo} matcher based on whether its
+     * {@link AccessibilityNodeInfo::getViewIdResourceName view id} is matching {@code condition}.
+     */
+    public static Matcher<AccessibilityNodeInfo> hasIdThat(Matcher<? super String> condition) {
+        return propertyMatches("id", AccessibilityNodeInfo::getViewIdResourceName, condition);
     }
 
     /**

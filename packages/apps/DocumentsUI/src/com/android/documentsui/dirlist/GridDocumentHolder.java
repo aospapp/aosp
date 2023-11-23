@@ -89,7 +89,6 @@ final class GridDocumentHolder extends DocumentHolder {
         // But it should be an error to be set to selected && be disabled.
         if (!itemView.isEnabled()) {
             assert(!selected);
-            return;
         }
 
         super.setSelected(selected, animate);

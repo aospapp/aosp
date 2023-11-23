@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Je moet deze naam wijzigen"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Je moet een mapnaam toevoegen"</string>
     <string name="files_label" msgid="771781190045103748">"Bestanden"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Downloads"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -45,15 +47,15 @@
     <string name="menu_extract" msgid="8171946945982532262">"Uitpakken naar…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"Naam wijzigen"</string>
     <string name="menu_inspect" msgid="7279855349299446224">"Informatie bekijken"</string>
-    <string name="menu_show_hidden_files" msgid="5140676344684492769">"Verborgen bestanden weergeven"</string>
-    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"Verborgen bestanden niet weergeven"</string>
+    <string name="menu_show_hidden_files" msgid="5140676344684492769">"Verborgen bestanden tonen"</string>
+    <string name="menu_hide_hidden_files" msgid="5654495713350153702">"Verborgen bestanden niet tonen"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"Bekijken in <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"Nieuw venster"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"Knippen"</string>
     <string name="menu_copy_to_clipboard" msgid="5064081159073330776">"Kopiëren"</string>
     <string name="menu_paste_from_clipboard" msgid="360947260414135827">"Plakken"</string>
     <string name="menu_paste_into_folder" msgid="8000644546983240101">"Plakken in map"</string>
-    <string name="menu_advanced_show" msgid="7558626506462906726">"Interne opslag weergeven"</string>
+    <string name="menu_advanced_show" msgid="7558626506462906726">"Interne opslag tonen"</string>
     <string name="menu_advanced_hide" msgid="6488381508009246334">"Interne opslag verbergen"</string>
     <string name="button_select" msgid="240863497069321364">"Selecteren"</string>
     <string name="button_copy" msgid="8219059853840996027">"Kopiëren"</string>
@@ -63,7 +65,7 @@
     <string name="button_dismiss" msgid="7235249361023803349">"Sluiten"</string>
     <string name="button_retry" msgid="4011461781916631389">"Opnieuw proberen"</string>
     <string name="button_clear" msgid="5412304437764369441">"Wissen"</string>
-    <string name="button_show_provider" msgid="6905880493806292753">"Weergeven in provider"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"Tonen in provider"</string>
     <string name="button_back" msgid="1888621708934742182">"Terug"</string>
     <string name="not_sorted" msgid="7813496644889115530">"Niet gesorteerd"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"Naam"</string>
@@ -85,13 +87,13 @@
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Oplopend"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Aflopend"</string>
     <string name="open_external_app" msgid="7107920381038980086">"<xliff:g id="APPNAME">%1$s</xliff:g> openen"</string>
-    <string name="drawer_open" msgid="8071673398187261741">"Roots weergeven"</string>
+    <string name="drawer_open" msgid="8071673398187261741">"Roots tonen"</string>
     <string name="drawer_close" msgid="4263880768630848848">"Roots verbergen"</string>
     <string name="save_error" msgid="8631128801982095782">"Kan document niet opslaan"</string>
     <string name="create_error" msgid="3092144450044861994">"Kan map niet maken"</string>
     <string name="query_error" msgid="6625421453613879336">"Kan content momenteel niet laden"</string>
     <string name="quiet_mode_error_title" msgid="9126656325282792843">"Werkprofiel is onderbroken"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"Inschakelen"</string>
+    <string name="quiet_mode_button" msgid="6977115032320235420">"Aanzetten"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"Kan geen werkbestanden selecteren"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"Je IT-beheerder staat niet toe dat je werkbestanden opent met een app die je voor persoonlijke doeleinden gebruikt"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"Kan geen persoonlijke bestanden selecteren"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Werk"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Werk"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Je kunt geen bestanden verplaatsen vanuit een andere app."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Tonen in rastermodus."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Tonen in lijstmodus."</string>
 </resources>

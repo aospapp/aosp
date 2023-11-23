@@ -325,7 +325,7 @@ class ForegroundModeTest {
         val gotCallback = CompletableFuture<Unit>()
         appopsManager.startWatchingMode(OPSTR_FINE_LOCATION, TEST_SERVICE_PKG,
                 WATCH_FOREGROUND_CHANGES) { op, packageName ->
-            if (op == OPSTR_FINE_LOCATION && packageName == TEST_SERVICE_PKG) {
+            if (op == OPSTR_FINE_LOCATION && packageName.equals(TEST_SERVICE_PKG)) {
                 gotCallback.complete(Unit)
             }
         }

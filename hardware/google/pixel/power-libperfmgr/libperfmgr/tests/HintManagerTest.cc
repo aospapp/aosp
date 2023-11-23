@@ -30,101 +30,98 @@
 namespace android {
 namespace perfmgr {
 
-using namespace std::chrono_literals;
+using std::literals::chrono_literals::operator""ms;
 
 constexpr auto kSLEEP_TOLERANCE_MS = 50ms;
 
-// JSON_CONFIG
-// {
-//     "Nodes": [
-//         {
-//             "Name": "CPUCluster0MinFreq",
-//             "Path": "/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq",
-//             "Values": [
-//                 "1512000",
-//                 "1134000",
-//                 "384000"
-//             ],
-//             "DefaultIndex": 2,
-//             "ResetOnInit": true
-//         },
-//         {
-//             "Name": "CPUCluster1MinFreq",
-//             "Path": "/sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq",
-//             "Values": [
-//                 "1512000",
-//                 "1134000",
-//                 "384000"
-//             ],
-//             "HoldFd": true
-//         },
-//         {
-//             "Name": "ModeProperty",
-//             "Path": "vendor.pwhal.mode",
-//             "Values": [
-//                 "HIGH",
-//                 "LOW",
-//                 "NONE"
-//             ],
-//             "Type": "Property"
-//         }
-//     ],
-//     "Actions": [
-//         {
-//             "PowerHint": "INTERACTION",
-//             "Node": "CPUCluster1MinFreq",
-//             "Value": "1134000",
-//             "Duration": 800
-//         },
-//         {
-//             "PowerHint": "INTERACTION",
-//             "Node": "ModeProperty",
-//             "Value": "LOW",
-//             "Duration": 800
-//         },
-//         {
-//             "PowerHint": "LAUNCH",
-//             "Node": "CPUCluster0MinFreq",
-//             "Value": "1134000",
-//             "Duration": 500
-//         },
-//         {
-//             "PowerHint": "LAUNCH",
-//             "Node": "ModeProperty",
-//             "Value": "HIGH",
-//             "Duration": 500
-//         },
-//         {
-//             "PowerHint": "LAUNCH",
-//             "Node": "CPUCluster1MinFreq",
-//             "Value": "1512000",
-//             "Duration": 2000
-//         }
-//     ]
-// }
-constexpr char kJSON_RAW[] =
-    "{\"Nodes\":[{\"Name\":\"CPUCluster0MinFreq\",\"Path\":\"/sys/devices/"
-    "system/cpu/cpu0/cpufreq/"
-    "scaling_min_freq\",\"Values\":[\"1512000\",\"1134000\",\"384000\"],"
-    "\"DefaultIndex\":2,\"ResetOnInit\":true},{\"Name\":\"CPUCluster1MinFreq\","
-    "\"Path\":\"/sys/devices/system/cpu/cpu4/cpufreq/"
-    "scaling_min_freq\",\"Values\":[\"1512000\",\"1134000\",\"384000\"],"
-    "\"HoldFd\":true},{\"Name\":\"ModeProperty\",\"Path\":\"vendor.pwhal."
-    "mode\",\"Values\":[\"HIGH\",\"LOW\",\"NONE\"],\"Type\":\"Property\"}],"
-    "\"Actions\":[{\"PowerHint\":\"INTERACTION\",\"Node\":"
-    "\"CPUCluster1MinFreq\",\"Value\":\"1134000\",\"Duration\":800},{"
-    "\"PowerHint\":\"INTERACTION\",\"Node\":\"ModeProperty\",\"Value\":\"LOW\","
-    "\"Duration\":800},{\"PowerHint\":\"LAUNCH\",\"Node\":"
-    "\"CPUCluster0MinFreq\",\"Value\":\"1134000\",\"Duration\":500},{"
-    "\"PowerHint\":\"LAUNCH\",\"Node\":\"ModeProperty\",\"Value\":\"HIGH\","
-    "\"Duration\":500},{\"PowerHint\":\"LAUNCH\",\"Node\":"
-    "\"CPUCluster1MinFreq\",\"Value\":\"1512000\",\"Duration\":2000}]}";
+constexpr char kJSON_RAW[] = R"(
+{
+    "Nodes": [
+        {
+            "Name": "CPUCluster0MinFreq",
+            "Path": "/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq",
+            "Values": [
+                "1512000",
+                "1134000",
+                "384000"
+            ],
+            "DefaultIndex": 2,
+            "ResetOnInit": true
+        },
+        {
+            "Name": "CPUCluster1MinFreq",
+            "Path": "/sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq",
+            "Values": [
+                "1512000",
+                "1134000",
+                "384000"
+            ],
+            "HoldFd": true
+        },
+        {
+            "Name": "ModeProperty",
+            "Path": "vendor.pwhal.mode",
+            "Values": [
+                "HIGH",
+                "LOW",
+                "NONE"
+            ],
+            "Type": "Property"
+        }
+    ],
+    "Actions": [
+        {
+            "PowerHint": "INTERACTION",
+            "Node": "CPUCluster1MinFreq",
+            "Value": "1134000",
+            "Duration": 800
+        },
+        {
+            "PowerHint": "INTERACTION",
+            "Node": "ModeProperty",
+            "Value": "LOW",
+            "Duration": 800
+        },
+        {
+            "PowerHint": "LAUNCH",
+            "Node": "CPUCluster0MinFreq",
+            "Value": "1134000",
+            "Duration": 500
+        },
+        {
+            "PowerHint": "LAUNCH",
+            "Node": "ModeProperty",
+            "Value": "HIGH",
+            "Duration": 500
+        },
+        {
+            "PowerHint": "LAUNCH",
+            "Node": "CPUCluster1MinFreq",
+            "Value": "1512000",
+            "Duration": 2000
+        },
+        {
+            "PowerHint": "MASK_LAUNCH_MODE",
+            "Type": "MaskHint",
+            "Value": "LAUNCH"
+        },
+        {
+            "PowerHint": "END_LAUNCH_MODE",
+            "Type": "EndHint",
+            "Value": "LAUNCH"
+        },
+        {
+            "PowerHint": "DO_LAUNCH_MODE",
+            "Type": "DoHint",
+            "Value": "LAUNCH"
+        }
+    ]
+}
+)";
 
 class HintManagerTest : public ::testing::Test, public HintManager {
   protected:
-    HintManagerTest()
-        : HintManager(nullptr,
-                      std::map<std::string, std::vector<NodeAction>>{}) {
+    HintManagerTest() : HintManager(nullptr, std::unordered_map<std::string, Hint>{}) {
         android::base::SetMinimumLogSeverity(android::base::VERBOSE);
         prop_ = "vendor.pwhal.mode";
     }
@@ -154,9 +151,10 @@ class HintManagerTest : public ::testing::Test, public HintManager {
         // Node0, value0, forever
         // Node1, value0, 400ms
         // Node2, value0, 400ms
-        actions_ = std::map<std::string, std::vector<NodeAction>>{
-            {"INTERACTION", {{0, 1, 800ms}, {1, 1, 0ms}, {2, 1, 800ms}}},
-            {"LAUNCH", {{0, 0, 0ms}, {1, 0, 400ms}, {2, 0, 400ms}}}};
+        actions_["INTERACTION"].node_actions =
+                std::vector<NodeAction>{{0, 1, 800ms}, {1, 1, 0ms}, {2, 1, 800ms}};
+        actions_["LAUNCH"].node_actions =
+                std::vector<NodeAction>{{0, 0, 0ms}, {1, 0, 400ms}, {2, 0, 400ms}};
 
         // Prepare dummy files to replace the nodes' path in example json_doc
         files_.emplace_back(std::make_unique<TemporaryFile>());
@@ -181,7 +179,7 @@ class HintManagerTest : public ::testing::Test, public HintManager {
         nm_ = nullptr;
     }
     sp<NodeLooperThread> nm_;
-    std::map<std::string, std::vector<NodeAction>> actions_;
+    std::unordered_map<std::string, Hint> actions_;
     std::vector<std::unique_ptr<Node>> nodes_;
     std::vector<std::unique_ptr<TemporaryFile>> files_;
     std::string json_doc_;
@@ -201,6 +199,13 @@ static inline void _VerifyPathValue(const std::string& path,
     EXPECT_EQ(value, s);
 }
 
+static inline void _VerifyStats(const HintStats &stats, uint32_t count, uint64_t duration_min,
+                                uint64_t duration_max) {
+    EXPECT_EQ(stats.count, count);
+    EXPECT_GE(stats.duration_ms, duration_min);
+    EXPECT_LT(stats.duration_ms, duration_max);
+}
+
 // Test GetHints
 TEST_F(HintManagerTest, GetHintsTest) {
     HintManager hm(nm_, actions_);
@@ -210,6 +215,19 @@ TEST_F(HintManagerTest, GetHintsTest) {
     EXPECT_EQ(2u, hints.size());
     EXPECT_NE(std::find(hints.begin(), hints.end(), "INTERACTION"), hints.end());
     EXPECT_NE(std::find(hints.begin(), hints.end(), "LAUNCH"), hints.end());
+}
+
+// Test GetHintStats
+TEST_F(HintManagerTest, GetHintStatsTest) {
+    auto hm = std::make_unique<HintManager>(nm_, actions_);
+    EXPECT_TRUE(InitHintStatus(hm));
+    EXPECT_TRUE(hm->Start());
+    HintStats launch_stats(hm->GetHintStats("LAUNCH"));
+    EXPECT_EQ(0, launch_stats.count);
+    EXPECT_EQ(0, launch_stats.duration_ms);
+    HintStats interaction_stats(hm->GetHintStats("INTERACTION"));
+    EXPECT_EQ(0, interaction_stats.count);
+    EXPECT_EQ(0, interaction_stats.duration_ms);
 }
 
 // Test initialization of default values
@@ -233,22 +251,25 @@ TEST_F(HintManagerTest, HintSupportedTest) {
 
 // Test DumpToFd
 TEST_F(HintManagerTest, DumpToFdTest) {
-    HintManager hm(nm_, actions_);
+    auto hm = std::make_unique<HintManager>(nm_, actions_);
+    EXPECT_TRUE(InitHintStatus(hm));
     TemporaryFile dumptf;
-    hm.DumpToFd(dumptf.fd);
+    hm->DumpToFd(dumptf.fd);
     fsync(dumptf.fd);
     std::ostringstream dump_buf;
     dump_buf << "========== Begin perfmgr nodes ==========\nNode Name\tNode "
                 "Path\tCurrent Index\tCurrent Value\nn0\t"
              << files_[0]->path << "\t2\t\nn1\t" << files_[1]->path
              << "\t2\t\nn2\tvendor.pwhal.mode\t2\t\n==========  End perfmgr "
-                "nodes  ==========\n";
+                "nodes  ==========\n========== Begin perfmgr stats ==========\n"
+                "Hint Name\tCounts\tDuration\nINTERACTION\t0\t0\nLAUNCH\t0\t0\n"
+                "==========  End perfmgr stats  ==========\n";
     _VerifyPathValue(dumptf.path, dump_buf.str());
     TemporaryFile dumptf_started;
-    EXPECT_TRUE(hm.Start());
+    EXPECT_TRUE(hm->Start());
     std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
-    EXPECT_TRUE(hm.IsRunning());
-    hm.DumpToFd(dumptf_started.fd);
+    EXPECT_TRUE(hm->IsRunning());
+    hm->DumpToFd(dumptf_started.fd);
     fsync(dumptf_started.fd);
     dump_buf.str("");
     dump_buf.clear();
@@ -256,29 +277,32 @@ TEST_F(HintManagerTest, DumpToFdTest) {
                 "Path\tCurrent Index\tCurrent Value\nn0\t"
              << files_[0]->path << "\t2\t\nn1\t" << files_[1]->path
              << "\t2\tn1_value2\nn2\tvendor.pwhal.mode\t2\tn2_value2\n========="
-                "=  End perfmgr nodes  ==========\n";
+                "=  End perfmgr nodes  ==========\n========== Begin perfmgr "
+                "stats ==========\nHint Name\tCounts\tDuration\nINTERACTION\t0\t"
+                "0\nLAUNCH\t0\t0\n==========  End perfmgr stats  ==========\n";
     _VerifyPathValue(dumptf_started.path, dump_buf.str());
 }
 
 // Test hint/cancel/expire with dummy actions
 TEST_F(HintManagerTest, HintTest) {
-    HintManager hm(nm_, actions_);
-    EXPECT_TRUE(hm.Start());
-    EXPECT_TRUE(hm.IsRunning());
-    EXPECT_TRUE(hm.DoHint("INTERACTION"));
+    auto hm = std::make_unique<HintManager>(nm_, actions_);
+    EXPECT_TRUE(InitHintStatus(hm));
+    EXPECT_TRUE(hm->Start());
+    EXPECT_TRUE(hm->IsRunning());
+    EXPECT_TRUE(hm->DoHint("INTERACTION"));
     std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
     _VerifyPathValue(files_[0]->path, "n0_value1");
     _VerifyPathValue(files_[1]->path, "n1_value1");
     _VerifyPropertyValue(prop_, "n2_value1");
     // this won't change the expire time of INTERACTION hint
-    EXPECT_TRUE(hm.DoHint("INTERACTION", 200ms));
+    EXPECT_TRUE(hm->DoHint("INTERACTION", 200ms));
     // now place new hint
-    EXPECT_TRUE(hm.DoHint("LAUNCH"));
+    EXPECT_TRUE(hm->DoHint("LAUNCH"));
     std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
     _VerifyPathValue(files_[0]->path, "n0_value0");
     _VerifyPathValue(files_[1]->path, "n1_value0");
     _VerifyPropertyValue(prop_, "n2_value0");
-    EXPECT_TRUE(hm.DoHint("LAUNCH", 500ms));
+    EXPECT_TRUE(hm->DoHint("LAUNCH", 500ms));
     // "LAUNCH" node1 not expired
     std::this_thread::sleep_for(400ms);
     _VerifyPathValue(files_[0]->path, "n0_value0");
@@ -289,7 +313,7 @@ TEST_F(HintManagerTest, HintTest) {
     _VerifyPathValue(files_[0]->path, "n0_value0");
     _VerifyPathValue(files_[1]->path, "n1_value1");
     _VerifyPropertyValue(prop_, "n2_value1");
-    EXPECT_TRUE(hm.EndHint("LAUNCH"));
+    EXPECT_TRUE(hm->EndHint("LAUNCH"));
     std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
     // "LAUNCH" canceled
     _VerifyPathValue(files_[0]->path, "n0_value1");
@@ -300,12 +324,54 @@ TEST_F(HintManagerTest, HintTest) {
     _VerifyPathValue(files_[0]->path, "n0_value2");
     _VerifyPathValue(files_[1]->path, "n1_value1");
     _VerifyPropertyValue(prop_, "n2_value2");
-    EXPECT_TRUE(hm.EndHint("INTERACTION"));
+    EXPECT_TRUE(hm->EndHint("INTERACTION"));
     std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
     // "INTERACTION" canceled
     _VerifyPathValue(files_[0]->path, "n0_value2");
     _VerifyPathValue(files_[1]->path, "n1_value2");
     _VerifyPropertyValue(prop_, "n2_value2");
+}
+
+// Test collecting stats with simple actions
+TEST_F(HintManagerTest, HintStatsTest) {
+    auto hm = std::make_unique<HintManager>(nm_, actions_);
+    EXPECT_TRUE(InitHintStatus(hm));
+    EXPECT_TRUE(hm->Start());
+    EXPECT_TRUE(hm->IsRunning());
+    EXPECT_TRUE(hm->DoHint("INTERACTION"));
+    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
+    _VerifyPathValue(files_[0]->path, "n0_value1");
+    _VerifyPathValue(files_[1]->path, "n1_value1");
+    _VerifyPropertyValue(prop_, "n2_value1");
+    // now place "LAUNCH" hint with timeout of 500ms
+    EXPECT_TRUE(hm->DoHint("LAUNCH", 500ms));
+    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
+    _VerifyPathValue(files_[0]->path, "n0_value0");
+    _VerifyPathValue(files_[1]->path, "n1_value0");
+    _VerifyPropertyValue(prop_, "n2_value0");
+    // "LAUNCH" expired
+    std::this_thread::sleep_for(500ms + kSLEEP_TOLERANCE_MS);
+    _VerifyPathValue(files_[0]->path, "n0_value1");
+    _VerifyPathValue(files_[1]->path, "n1_value1");
+    _VerifyPropertyValue(prop_, "n2_value1");
+    HintStats launch_stats(hm->GetHintStats("LAUNCH"));
+    // Since duration is recorded at the next DoHint,
+    // duration should be 0.
+    _VerifyStats(launch_stats, 1, 0, 100);
+    std::this_thread::sleep_for(100ms + kSLEEP_TOLERANCE_MS);
+    EXPECT_TRUE(hm->EndHint("INTERACTION"));
+    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
+    // "INTERACTION" canceled
+    _VerifyPathValue(files_[0]->path, "n0_value2");
+    _VerifyPathValue(files_[1]->path, "n1_value2");
+    _VerifyPropertyValue(prop_, "n2_value2");
+    HintStats interaction_stats(hm->GetHintStats("INTERACTION"));
+    _VerifyStats(interaction_stats, 1, 800, 900);
+    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
+    // Second LAUNCH hint sent to get the first duration recorded.
+    EXPECT_TRUE(hm->DoHint("LAUNCH"));
+    launch_stats = hm->GetHintStats("LAUNCH");
+    _VerifyStats(launch_stats, 2, 500, 600);
 }
 
 // Test parsing nodes
@@ -447,63 +513,70 @@ TEST_F(HintManagerTest, ParseBadFileNodesTest) {
 TEST_F(HintManagerTest, ParseActionsTest) {
     std::vector<std::unique_ptr<Node>> nodes =
         HintManager::ParseNodes(json_doc_);
-    std::map<std::string, std::vector<NodeAction>> actions =
-        HintManager::ParseActions(json_doc_, nodes);
-    EXPECT_EQ(2u, actions.size());
+    std::unordered_map<std::string, Hint> actions = HintManager::ParseActions(json_doc_, nodes);
+    EXPECT_EQ(5u, actions.size());
 
-    EXPECT_EQ(2u, actions["INTERACTION"].size());
-    EXPECT_EQ(1u, actions["INTERACTION"][0].node_index);
-    EXPECT_EQ(1u, actions["INTERACTION"][0].value_index);
+    EXPECT_EQ(2u, actions["INTERACTION"].node_actions.size());
+    EXPECT_EQ(1u, actions["INTERACTION"].node_actions[0].node_index);
+    EXPECT_EQ(1u, actions["INTERACTION"].node_actions[0].value_index);
     EXPECT_EQ(std::chrono::milliseconds(800).count(),
-              actions["INTERACTION"][0].timeout_ms.count());
+              actions["INTERACTION"].node_actions[0].timeout_ms.count());
 
-    EXPECT_EQ(2u, actions["INTERACTION"][1].node_index);
-    EXPECT_EQ(1u, actions["INTERACTION"][1].value_index);
+    EXPECT_EQ(2u, actions["INTERACTION"].node_actions[1].node_index);
+    EXPECT_EQ(1u, actions["INTERACTION"].node_actions[1].value_index);
     EXPECT_EQ(std::chrono::milliseconds(800).count(),
-              actions["INTERACTION"][1].timeout_ms.count());
+              actions["INTERACTION"].node_actions[1].timeout_ms.count());
 
-    EXPECT_EQ(3u, actions["LAUNCH"].size());
+    EXPECT_EQ(3u, actions["LAUNCH"].node_actions.size());
 
-    EXPECT_EQ(0u, actions["LAUNCH"][0].node_index);
-    EXPECT_EQ(1u, actions["LAUNCH"][0].value_index);
+    EXPECT_EQ(0u, actions["LAUNCH"].node_actions[0].node_index);
+    EXPECT_EQ(1u, actions["LAUNCH"].node_actions[0].value_index);
     EXPECT_EQ(std::chrono::milliseconds(500).count(),
-              actions["LAUNCH"][0].timeout_ms.count());
+              actions["LAUNCH"].node_actions[0].timeout_ms.count());
 
-    EXPECT_EQ(2u, actions["LAUNCH"][1].node_index);
-    EXPECT_EQ(0u, actions["LAUNCH"][1].value_index);
+    EXPECT_EQ(2u, actions["LAUNCH"].node_actions[1].node_index);
+    EXPECT_EQ(0u, actions["LAUNCH"].node_actions[1].value_index);
     EXPECT_EQ(std::chrono::milliseconds(500).count(),
-              actions["LAUNCH"][1].timeout_ms.count());
+              actions["LAUNCH"].node_actions[1].timeout_ms.count());
 
-    EXPECT_EQ(1u, actions["LAUNCH"][2].node_index);
-    EXPECT_EQ(0u, actions["LAUNCH"][2].value_index);
+    EXPECT_EQ(1u, actions["LAUNCH"].node_actions[2].node_index);
+    EXPECT_EQ(0u, actions["LAUNCH"].node_actions[2].value_index);
     EXPECT_EQ(std::chrono::milliseconds(2000).count(),
-              actions["LAUNCH"][2].timeout_ms.count());
+              actions["LAUNCH"].node_actions[2].timeout_ms.count());
+
+    EXPECT_EQ(1u, actions["MASK_LAUNCH_MODE"].hint_actions.size());
+    EXPECT_EQ(HintActionType::MaskHint, actions["MASK_LAUNCH_MODE"].hint_actions[0].type);
+    EXPECT_TRUE("LAUNCH" == actions["MASK_LAUNCH_MODE"].hint_actions[0].value);
+
+    EXPECT_EQ(1u, actions["DO_LAUNCH_MODE"].hint_actions.size());
+    EXPECT_EQ(HintActionType::DoHint, actions["DO_LAUNCH_MODE"].hint_actions[0].type);
+    EXPECT_TRUE("LAUNCH" == actions["DO_LAUNCH_MODE"].hint_actions[0].value);
+
+    EXPECT_EQ(1u, actions["END_LAUNCH_MODE"].hint_actions.size());
+    EXPECT_EQ(HintActionType::EndHint, actions["END_LAUNCH_MODE"].hint_actions[0].type);
+    EXPECT_TRUE("LAUNCH" == actions["END_LAUNCH_MODE"].hint_actions[0].value);
 }
 
 // Test parsing actions with duplicate File node
 TEST_F(HintManagerTest, ParseActionDuplicateFileNodeTest) {
-    std::string from = "\"Node\":\"CPUCluster0MinFreq\"";
+    std::string from = R"("Node": "CPUCluster0MinFreq")";
     size_t start_pos = json_doc_.find(from);
-    json_doc_.replace(start_pos, from.length(),
-                      "\"Node\":\"CPUCluster1MinFreq\"");
+    json_doc_.replace(start_pos, from.length(), R"("Node": "CPUCluster1MinFreq")");
     std::vector<std::unique_ptr<Node>> nodes =
         HintManager::ParseNodes(json_doc_);
     EXPECT_EQ(3u, nodes.size());
-    std::map<std::string, std::vector<NodeAction>> actions =
-        HintManager::ParseActions(json_doc_, nodes);
+    auto actions = HintManager::ParseActions(json_doc_, nodes);
     EXPECT_EQ(0u, actions.size());
 }
 
 // Test parsing actions with duplicate Property node
 TEST_F(HintManagerTest, ParseActionDuplicatePropertyNodeTest) {
-    std::string from = "\"Node\":\"CPUCluster0MinFreq\"";
+    std::string from = R"("Node": "CPUCluster0MinFreq")";
     size_t start_pos = json_doc_.find(from);
-    json_doc_.replace(start_pos, from.length(), "\"Node\":\"ModeProperty\"");
-    std::vector<std::unique_ptr<Node>> nodes =
-        HintManager::ParseNodes(json_doc_);
+    json_doc_.replace(start_pos, from.length(), R"("Node": "ModeProperty")");
+    auto nodes = HintManager::ParseNodes(json_doc_);
     EXPECT_EQ(3u, nodes.size());
-    std::map<std::string, std::vector<NodeAction>> actions =
-        HintManager::ParseActions(json_doc_, nodes);
+    auto actions = HintManager::ParseActions(json_doc_, nodes);
     EXPECT_EQ(0u, actions.size());
 }
 
@@ -511,8 +584,7 @@ TEST_F(HintManagerTest, ParseActionDuplicatePropertyNodeTest) {
 TEST_F(HintManagerTest, ParseBadActionsTest) {
     std::vector<std::unique_ptr<Node>> nodes =
         HintManager::ParseNodes(json_doc_);
-    std::map<std::string, std::vector<NodeAction>> actions =
-        HintManager::ParseActions("invalid json", nodes);
+    auto actions = HintManager::ParseActions("invalid json", nodes);
     EXPECT_EQ(0u, actions.size());
     actions = HintManager::ParseActions(
         "{\"devices\":{\"15\":[\"armeabi-v7a\"],\"16\":[\"armeabi-v7a\"],"
@@ -569,6 +641,36 @@ TEST_F(HintManagerTest, GetFromJSONTest) {
     _VerifyPathValue(files_[0 + 2]->path, "384000");
     _VerifyPathValue(files_[1 + 2]->path, "384000");
     _VerifyPropertyValue(prop_, "NONE");
+
+    // Mask LAUNCH and do LAUNCH
+    EXPECT_TRUE(hm->DoHint("MASK_LAUNCH_MODE"));
+    EXPECT_FALSE(hm->DoHint("LAUNCH"));  // should fail
+    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
+    _VerifyPathValue(files_[0 + 2]->path, "384000");
+    _VerifyPathValue(files_[1 + 2]->path, "384000");
+    _VerifyPropertyValue(prop_, "NONE");
+
+    // UnMask LAUNCH and do LAUNCH
+    EXPECT_TRUE(hm->EndHint("MASK_LAUNCH_MODE"));
+    EXPECT_TRUE(hm->DoHint("LAUNCH"));
+    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
+    _VerifyPathValue(files_[0 + 2]->path, "1134000");
+    _VerifyPathValue(files_[1 + 2]->path, "1512000");
+    _VerifyPropertyValue(prop_, "HIGH");
+    // END_LAUNCH_MODE should deactivate LAUNCH
+    EXPECT_TRUE(hm->DoHint("END_LAUNCH_MODE"));
+    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
+    _VerifyPathValue(files_[0 + 2]->path, "384000");
+    _VerifyPathValue(files_[1 + 2]->path, "384000");
+    _VerifyPropertyValue(prop_, "NONE");
+    EXPECT_TRUE(hm->EndHint("END_LAUNCH_MODE"));
+
+    // DO_LAUNCH_MODE should activate LAUNCH
+    EXPECT_TRUE(hm->DoHint("DO_LAUNCH_MODE"));
+    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
+    _VerifyPathValue(files_[0 + 2]->path, "1134000");
+    _VerifyPathValue(files_[1 + 2]->path, "1512000");
+    _VerifyPropertyValue(prop_, "HIGH");
 }
 
 }  // namespace perfmgr

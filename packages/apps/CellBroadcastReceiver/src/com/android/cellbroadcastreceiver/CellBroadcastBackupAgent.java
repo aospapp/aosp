@@ -22,6 +22,8 @@ import android.content.Intent;
 import android.os.UserHandle;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * The CellBroadcast backup agent backs up the shared
  * preferences settings of the CellBroadcastReceiver App. Right
@@ -32,7 +34,8 @@ public class CellBroadcastBackupAgent extends BackupAgentHelper
 {
     private static final String TAG = "CBBackupAgent";
 
-    private static final String SHARED_KEY = "shared_pref";
+    @VisibleForTesting
+    public static final String SHARED_KEY = "shared_pref";
 
     private static final String SHARED_PREFS_NAME = "com.android.cellbroadcastreceiver_preferences";
 

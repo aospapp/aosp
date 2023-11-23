@@ -68,7 +68,7 @@ public class ReferenceQueue<T> {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     static void add(java.lang.ref.Reference<?> list) {
         throw new RuntimeException("Stub!");
     }

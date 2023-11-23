@@ -47,13 +47,12 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
  * Factory and utility methods for {@link java.util.concurrent.Executor}, {@link ExecutorService},
- * and {@link ThreadFactory}.
+ * and {@link java.util.concurrent.ThreadFactory}.
  *
  * @author Eric Fellheimer
  * @author Kyle Littlefield
@@ -340,10 +339,11 @@ public final class MoreExecutors {
 
   /**
    * Creates an executor service that runs each task in the thread that invokes {@code
-   * execute/submit}, as in {@link CallerRunsPolicy} This applies both to individually submitted
-   * tasks and to collections of tasks submitted via {@code invokeAll} or {@code invokeAny}. In the
-   * latter case, tasks will run serially on the calling thread. Tasks are run to completion before
-   * a {@code Future} is returned to the caller (unless the executor has been shutdown).
+   * execute/submit}, as in {@code ThreadPoolExecutor.CallerRunsPolicy}. This applies both to
+   * individually submitted tasks and to collections of tasks submitted via {@code invokeAll} or
+   * {@code invokeAny}. In the latter case, tasks will run serially on the calling thread. Tasks are
+   * run to completion before a {@code Future} is returned to the caller (unless the executor has
+   * been shutdown).
    *
    * <p>Although all tasks are immediately executed in the thread that submitted the task, this
    * {@code ExecutorService} imposes a small locking overhead on each task submission in order to
@@ -370,7 +370,33 @@ public final class MoreExecutors {
 
   /**
    * Returns an {@link Executor} that runs each task in the thread that invokes {@link
-   * Executor#execute execute}, as in {@link CallerRunsPolicy}.
+   * Executor#execute execute}, as in {@code ThreadPoolExecutor.CallerRunsPolicy}.
+   *
+   * <p>This executor is appropriate for tasks that are lightweight and not deeply chained.
+   * Inappropriate {@code directExecutor} usage can cause problems, and these problems can be
+   * difficult to reproduce because they depend on timing. For example:
+   *
+   * <ul>
+   *   <li>A call like {@code future.transform(function, directExecutor())} may execute the function
+   *       immediately in the thread that is calling {@code transform}. (This specific case happens
+   *       if the future is already completed.) If {@code transform} call was made from a UI thread
+   *       or other latency-sensitive thread, a heavyweight function can harm responsiveness.
+   *   <li>If the task will be executed later, consider which thread will trigger the execution --
+   *       since that thread will execute the task inline. If the thread is a shared system thread
+   *       like an RPC network thread, a heavyweight task can stall progress of the whole system or
+   *       even deadlock it.
+   *   <li>If many tasks will be triggered by the same event, one heavyweight task may delay other
+   *       tasks -- even tasks that are not themselves {@code directExecutor} tasks.
+   *   <li>If many such tasks are chained together (such as with {@code
+   *       future.transform(...).transform(...).transform(...)....}), they may overflow the stack.
+   *       (In simple cases, callers can avoid this by registering all tasks with the same {@link
+   *       MoreExecutors#newSequentialExecutor} wrapper around {@code directExecutor()}. More
+   *       complex cases may require using thread pools or making deeper changes.)
+   * </ul>
+   *
+   * Additionally, beware of executing tasks with {@code directExecutor} while holding a lock. Since
+   * the task you submit to the executor (or any other arbitrary work the executor does) may do slow
+   * work or acquire other locks, you risk deadlocks.
    *
    * <p>This instance is equivalent to:
    *
@@ -739,15 +765,17 @@ public final class MoreExecutors {
   /**
    * Returns a default thread factory used to create new threads.
    *
-   * <p>On AppEngine, returns {@code ThreadManager.currentRequestThreadFactory()}. Otherwise,
-   * returns {@link Executors#defaultThreadFactory()}.
+   * <p>When running on AppEngine with access to <a
+   * href="https://cloud.google.com/appengine/docs/standard/java/javadoc/">AppEngine legacy
+   * APIs</a>, this method returns {@code ThreadManager.currentRequestThreadFactory()}. Otherwise,
+   * it returns {@link Executors#defaultThreadFactory()}.
    *
    * @since 14.0
    */
   @Beta
   @GwtIncompatible // concurrency
   public static ThreadFactory platformThreadFactory() {
-    if (!isAppEngine()) {
+    if (!isAppEngineWithApiClasses()) {
       return Executors.defaultThreadFactory();
     }
     try {
@@ -755,7 +783,16 @@ public final class MoreExecutors {
           Class.forName("com.google.appengine.api.ThreadManager")
               .getMethod("currentRequestThreadFactory")
               .invoke(null);
-    } catch (IllegalAccessException | ClassNotFoundException | NoSuchMethodException e) {
+      /*
+       * Do not merge the 3 catch blocks below. javac would infer a type of
+       * ReflectiveOperationException, which Animal Sniffer would reject. (Old versions of Android
+       * don't *seem* to mind, but there might be edge cases of which we're unaware.)
+       */
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException("Couldn't invoke ThreadManager.currentRequestThreadFactory", e);
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException("Couldn't invoke ThreadManager.currentRequestThreadFactory", e);
+    } catch (NoSuchMethodException e) {
       throw new RuntimeException("Couldn't invoke ThreadManager.currentRequestThreadFactory", e);
     } catch (InvocationTargetException e) {
       throw Throwables.propagate(e.getCause());
@@ -763,8 +800,13 @@ public final class MoreExecutors {
   }
 
   @GwtIncompatible // TODO
-  private static boolean isAppEngine() {
+  private static boolean isAppEngineWithApiClasses() {
     if (System.getProperty("com.google.appengine.runtime.environment") == null) {
+      return false;
+    }
+    try {
+      Class.forName("com.google.appengine.api.utils.SystemProperty");
+    } catch (ClassNotFoundException e) {
       return false;
     }
     try {
@@ -824,10 +866,6 @@ public final class MoreExecutors {
   static Executor renamingDecorator(final Executor executor, final Supplier<String> nameSupplier) {
     checkNotNull(executor);
     checkNotNull(nameSupplier);
-    if (isAppEngine()) {
-      // AppEngine doesn't support thread renaming, so don't even try
-      return executor;
-    }
     return new Executor() {
       @Override
       public void execute(Runnable command) {
@@ -853,10 +891,6 @@ public final class MoreExecutors {
       final ExecutorService service, final Supplier<String> nameSupplier) {
     checkNotNull(service);
     checkNotNull(nameSupplier);
-    if (isAppEngine()) {
-      // AppEngine doesn't support thread renaming, so don't even try.
-      return service;
-    }
     return new WrappingExecutorService(service) {
       @Override
       protected <T> Callable<T> wrapTask(Callable<T> callable) {
@@ -887,10 +921,6 @@ public final class MoreExecutors {
       final ScheduledExecutorService service, final Supplier<String> nameSupplier) {
     checkNotNull(service);
     checkNotNull(nameSupplier);
-    if (isAppEngine()) {
-      // AppEngine doesn't support thread renaming, so don't even try.
-      return service;
-    }
     return new WrappingScheduledExecutorService(service) {
       @Override
       protected <T> Callable<T> wrapTask(Callable<T> callable) {
@@ -969,26 +999,12 @@ public final class MoreExecutors {
       return delegate;
     }
     return new Executor() {
-      boolean thrownFromDelegate = true;
-
       @Override
-      public void execute(final Runnable command) {
+      public void execute(Runnable command) {
         try {
-          delegate.execute(
-              new Runnable() {
-                @Override
-                public void run() {
-                  thrownFromDelegate = false;
-                  command.run();
-                }
-              });
+          delegate.execute(command);
         } catch (RejectedExecutionException e) {
-          if (thrownFromDelegate) {
-            // wrap exception?
-            future.setException(e);
-          }
-          // otherwise it must have been thrown from a transitive call and the delegate runnable
-          // should have handled it.
+          future.setException(e);
         }
       }
     };

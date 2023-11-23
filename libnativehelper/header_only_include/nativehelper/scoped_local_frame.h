@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_LOCAL_FRAME_H_
-#define LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_LOCAL_FRAME_H_
+#pragma once
 
-#include "jni.h"
+#include <jni.h>
+
 #include "nativehelper_utils.h"
 
 class ScopedLocalFrame {
@@ -27,7 +27,7 @@ public:
     }
 
     ~ScopedLocalFrame() {
-        mEnv->PopLocalFrame(NULL);
+        mEnv->PopLocalFrame(nullptr);
     }
 
 private:
@@ -36,4 +36,3 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ScopedLocalFrame);
 };
 
-#endif  // LIBNATIVEHELPER_HEADER_ONLY_INCLUDE_NATIVEHELPER_SCOPED_LOCAL_FRAME_H_

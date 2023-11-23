@@ -55,26 +55,14 @@ public abstract class WifiTetherBasePreferenceController<V extends Preference> e
     @Override
     @CallSuper
     protected void onCreateInternal() {
-        mCarWifiManager = new CarWifiManager(getContext());
+        mCarWifiManager = new CarWifiManager(getContext(),
+                getFragmentController().getSettingsLifecycle());
     }
 
     @Override
     @CallSuper
     protected void onStartInternal() {
-        mCarWifiManager.start();
         getPreference().setPersistent(true);
-    }
-
-    @Override
-    @CallSuper
-    protected void onStopInternal() {
-        mCarWifiManager.stop();
-    }
-
-    @Override
-    @CallSuper
-    protected void onDestroyInternal() {
-        mCarWifiManager.destroy();
     }
 
     @Override

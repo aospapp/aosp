@@ -24,12 +24,21 @@ The relevant lists for the TF-A project are:
 
 You can see a `summary of all the lists`_ on the TrustedFirmware.org website.
 
+Open Tech Forum Call
+^^^^^^^^^^^^^^^^^^^^
+
+Every other week, we organize a call with all interested TF-A contributors.
+Anyone is welcome to join. This is an opportunity to discuss any technical
+topic within the community. More details can be found `here`_.
+
+.. _here: https://www.trustedfirmware.org/meetings/tf-a-technical-forum/
+
 Issue Tracker
 ^^^^^^^^^^^^^
 
-Specific issues may be raised using the `issue tracker`_ on the
-TrustedFirmware.org website. Using this tracker makes it easy for the
-maintainers to prioritise and respond to your ticket.
+Bug reports may be filed on the `issue tracker`_ on the TrustedFirmware.org
+website. Using this tracker gives everyone visibility of the known issues in
+TF-A.
 
 Arm Licensees
 ^^^^^^^^^^^^^
@@ -44,4 +53,4 @@ via their partner managers.
 
 --------------
 
-*Copyright (c) 2019, Arm Limited. All rights reserved.*
+*Copyright (c) 2019-2020, Arm Limited. All rights reserved.*

@@ -61,6 +61,24 @@ message Status {
     optional sint32 status = 3;
     // Edge output, may contain ANSI codes.
     optional string output = 4;
+    // Number of milliseconds spent executing in user mode
+    optional uint32 user_time = 5;
+    // Number of milliseconds spent executing in kernel mode
+    optional uint32 system_time = 6;
+    // Max resident set size in kB
+    optional uint64 max_rss_kb = 7;
+    // Minor page faults
+    optional uint64 minor_page_faults = 8;
+    // Major page faults
+    optional uint64 major_page_faults = 9;
+    // IO input in kB
+    optional uint64 io_input_kb = 10;
+    // IO output in kB
+    optional uint64 io_output_kb = 11;
+    // Voluntary context switches
+    optional uint64 voluntary_context_switches = 12;
+    // Involuntary context switches
+    optional uint64 involuntary_context_switches = 13;
   }
 
   message Message {
@@ -68,8 +86,9 @@ message Status {
       INFO = 0;
       WARNING = 1;
       ERROR = 2;
+      DEBUG = 3;
     }
-    // Message priority level (INFO, WARNING, or ERROR).
+    // Message priority level (DEBUG, INFO, WARNING, ERROR).
     optional Level level = 1 [default = INFO];
     // Info/warning/error message from Ninja.
     optional string message = 2;

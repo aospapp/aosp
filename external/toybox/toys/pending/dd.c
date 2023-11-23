@@ -59,7 +59,7 @@ GLOBALS(
     unsigned long long offset;
   } in, out;
   unsigned conv, iflag, oflag;
-);
+)
 
 struct dd_flag {
   char *name;
@@ -98,8 +98,8 @@ static void status()
   }
 }
 
-static void dd_sigint(int sig) {
-  status();
+static void dd_sigint(int sig)
+{
   toys.exitval = sig|128;
   xexit();
 }
@@ -174,8 +174,9 @@ void dd_main()
   }
   if (bs) TT.in.sz = TT.out.sz = bs;
 
-  signal(SIGINT, dd_sigint);
-  signal(SIGUSR1, generic_signal);
+  sigatexit(status);
+  xsignal(SIGINT, dd_sigint);
+  xsignal(SIGUSR1, status);
   gettimeofday(&TT.start, NULL);
 
   // For bs=, in/out is done as it is. so only in.sz is enough.
@@ -223,8 +224,11 @@ void dd_main()
   bs = TT.out.offset;
   if (!(TT.oflag & _DD_oflag_seek_bytes)) bs *= TT.out.sz;
   if (bs) {
+    struct stat st;
+
     xlseek(TT.out.fd, bs, SEEK_CUR);
-    if (trunc && ftruncate(TT.out.fd, bs)) perror_exit("ftruncate");
+    if (trunc && !fstat(TT.out.fd, &st) && S_ISREG(st.st_mode)
+      && ftruncate(TT.out.fd, bs)) perror_exit("unexpected ftruncate failure");
   }
 
   unsigned long long bytes_left = TT.c_count;
@@ -234,13 +238,6 @@ void dd_main()
   while (bytes_left) {
     int chunk = bytes_left < TT.in.sz ? bytes_left : TT.in.sz;
     ssize_t n;
-
-    // Show progress and exit on SIGINT or just continue on SIGUSR1.
-    if (toys.signal) {
-      status();
-      if (toys.signal==SIGINT) exit_signal(toys.signal);
-      toys.signal = 0;
-    }
 
     TT.in.bp = TT.in.buff + TT.in.count;
     if (TT.conv & _DD_conv_sync) memset(TT.in.bp, 0, TT.in.sz);
@@ -285,6 +282,4 @@ void dd_main()
   close(TT.in.fd);
   close(TT.out.fd);
   if (TT.in.buff) free(TT.in.buff);
-
-  status();
 }

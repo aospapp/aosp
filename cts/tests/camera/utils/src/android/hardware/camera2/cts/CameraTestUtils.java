@@ -32,6 +32,7 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.MultiResolutionImageReader;
 import android.hardware.camera2.cts.helpers.CameraErrorCollector;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.params.InputConfiguration;
@@ -40,6 +41,8 @@ import android.hardware.cts.helpers.CameraUtils;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.MandatoryStreamCombination;
 import android.hardware.camera2.params.MandatoryStreamCombination.MandatoryStreamInformation;
+import android.hardware.camera2.params.MultiResolutionStreamConfigurationMap;
+import android.hardware.camera2.params.MultiResolutionStreamInfo;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.SessionConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
@@ -51,6 +54,7 @@ import android.media.ImageReader;
 import android.media.ImageWriter;
 import android.media.Image.Plane;
 import android.os.Build;
+import android.os.ConditionVariable;
 import android.os.Handler;
 import android.util.Log;
 import android.util.Pair;
@@ -76,6 +80,7 @@ import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -99,6 +104,8 @@ public class CameraTestUtils extends Assert {
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
     public static final Size SIZE_BOUND_1080P = new Size(1920, 1088);
+    public static final Size SIZE_BOUND_2K = new Size(2048, 1088);
+    public static final Size SIZE_BOUND_QHD = new Size(2560, 1440);
     public static final Size SIZE_BOUND_2160P = new Size(3840, 2160);
     // Only test the preview size that is no larger than 1080p.
     public static final Size PREVIEW_SIZE_BOUND = SIZE_BOUND_1080P;
@@ -121,6 +128,7 @@ public class CameraTestUtils extends Assert {
     public static final int MAX_READER_IMAGES = 5;
 
     public static final String OFFLINE_CAMERA_ID = "offline_camera_id";
+    public static final String REPORT_LOG_NAME = "CtsCameraTestCases";
 
     private static final int EXIF_DATETIME_LENGTH = 19;
     private static final int EXIF_DATETIME_ERROR_MARGIN_SEC = 60;
@@ -128,6 +136,8 @@ public class CameraTestUtils extends Assert {
     private static final float EXIF_EXPOSURE_TIME_ERROR_MARGIN_RATIO = 0.05f;
     private static final float EXIF_EXPOSURE_TIME_MIN_ERROR_MARGIN_SEC = 0.002f;
     private static final float EXIF_APERTURE_ERROR_MARGIN = 0.001f;
+
+    private static final float ZOOM_RATIO_THRESHOLD = 0.01f;
 
     private static final Location sTestLocation0 = new Location(LocationManager.GPS_PROVIDER);
     private static final Location sTestLocation1 = new Location(LocationManager.GPS_PROVIDER);
@@ -205,19 +215,168 @@ public class CameraTestUtils extends Assert {
         return writer;
     }
 
+    /**
+     * Utility class to store the targets for mandatory stream combination test.
+     */
+    public static class StreamCombinationTargets {
+        public List<SurfaceTexture> mPrivTargets = new ArrayList<>();
+        public List<ImageReader> mJpegTargets = new ArrayList<>();
+        public List<ImageReader> mYuvTargets = new ArrayList<>();
+        public List<ImageReader> mY8Targets = new ArrayList<>();
+        public List<ImageReader> mRawTargets = new ArrayList<>();
+        public List<ImageReader> mHeicTargets = new ArrayList<>();
+        public List<ImageReader> mDepth16Targets = new ArrayList<>();
+
+        public List<MultiResolutionImageReader> mPrivMultiResTargets = new ArrayList<>();
+        public List<MultiResolutionImageReader> mJpegMultiResTargets = new ArrayList<>();
+        public List<MultiResolutionImageReader> mYuvMultiResTargets = new ArrayList<>();
+        public List<MultiResolutionImageReader> mRawMultiResTargets = new ArrayList<>();
+
+        public void close() {
+            for (SurfaceTexture target : mPrivTargets) {
+                target.release();
+            }
+            for (ImageReader target : mJpegTargets) {
+                target.close();
+            }
+            for (ImageReader target : mYuvTargets) {
+                target.close();
+            }
+            for (ImageReader target : mY8Targets) {
+                target.close();
+            }
+            for (ImageReader target : mRawTargets) {
+                target.close();
+            }
+            for (ImageReader target : mHeicTargets) {
+                target.close();
+            }
+            for (ImageReader target : mDepth16Targets) {
+                target.close();
+            }
+
+            for (MultiResolutionImageReader target : mPrivMultiResTargets) {
+                target.close();
+            }
+            for (MultiResolutionImageReader target : mJpegMultiResTargets) {
+                target.close();
+            }
+            for (MultiResolutionImageReader target : mYuvMultiResTargets) {
+                target.close();
+            }
+            for (MultiResolutionImageReader target : mRawMultiResTargets) {
+                target.close();
+            }
+        }
+    }
+
+    private static void configureTarget(StreamCombinationTargets targets,
+            List<OutputConfiguration> outputConfigs, List<Surface> outputSurfaces,
+            int format, Size targetSize, int numBuffers, String overridePhysicalCameraId,
+            MultiResolutionStreamConfigurationMap multiResStreamConfig,
+            boolean createMultiResiStreamConfig, ImageDropperListener listener, Handler handler) {
+        if (createMultiResiStreamConfig) {
+            Collection<MultiResolutionStreamInfo> multiResolutionStreams =
+                    multiResStreamConfig.getOutputInfo(format);
+            MultiResolutionImageReader multiResReader = new MultiResolutionImageReader(
+                    multiResolutionStreams, format, numBuffers);
+            multiResReader.setOnImageAvailableListener(listener, new HandlerExecutor(handler));
+            Collection<OutputConfiguration> configs =
+                    OutputConfiguration.createInstancesForMultiResolutionOutput(multiResReader);
+            outputConfigs.addAll(configs);
+            outputSurfaces.add(multiResReader.getSurface());
+            switch (format) {
+                case ImageFormat.PRIVATE:
+                    targets.mPrivMultiResTargets.add(multiResReader);
+                    break;
+                case ImageFormat.JPEG:
+                    targets.mJpegMultiResTargets.add(multiResReader);
+                    break;
+                case ImageFormat.YUV_420_888:
+                    targets.mYuvMultiResTargets.add(multiResReader);
+                    break;
+                case ImageFormat.RAW_SENSOR:
+                    targets.mRawMultiResTargets.add(multiResReader);
+                    break;
+                default:
+                    fail("Unknown/Unsupported output format " + format);
+            }
+        } else {
+            if (format == ImageFormat.PRIVATE) {
+                SurfaceTexture target = new SurfaceTexture(/*random int*/1);
+                target.setDefaultBufferSize(targetSize.getWidth(), targetSize.getHeight());
+                OutputConfiguration config = new OutputConfiguration(new Surface(target));
+                if (overridePhysicalCameraId != null) {
+                    config.setPhysicalCameraId(overridePhysicalCameraId);
+                }
+                outputConfigs.add(config);
+                outputSurfaces.add(config.getSurface());
+                targets.mPrivTargets.add(target);
+            } else {
+                ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
+                        targetSize.getHeight(), format, numBuffers);
+                target.setOnImageAvailableListener(listener, handler);
+                OutputConfiguration config = new OutputConfiguration(target.getSurface());
+                if (overridePhysicalCameraId != null) {
+                    config.setPhysicalCameraId(overridePhysicalCameraId);
+                }
+                outputConfigs.add(config);
+                outputSurfaces.add(config.getSurface());
+
+                switch (format) {
+                    case ImageFormat.JPEG:
+                      targets.mJpegTargets.add(target);
+                      break;
+                    case ImageFormat.YUV_420_888:
+                      targets.mYuvTargets.add(target);
+                      break;
+                    case ImageFormat.Y8:
+                      targets.mY8Targets.add(target);
+                      break;
+                    case ImageFormat.RAW_SENSOR:
+                      targets.mRawTargets.add(target);
+                      break;
+                    case ImageFormat.HEIC:
+                      targets.mHeicTargets.add(target);
+                      break;
+                    case ImageFormat.DEPTH16:
+                      targets.mDepth16Targets.add(target);
+                      break;
+                    default:
+                      fail("Unknown/Unsupported output format " + format);
+                }
+            }
+        }
+    }
+
     public static void setupConfigurationTargets(List<MandatoryStreamInformation> streamsInfo,
-            List<SurfaceTexture> privTargets, List<ImageReader> jpegTargets,
-            List<ImageReader> yuvTargets, List<ImageReader> y8Targets,
-            List<ImageReader> rawTargets, List<ImageReader> heicTargets,
-            List<ImageReader> depth16Targets, List<OutputConfiguration> outputConfigs,
-            int numBuffers, boolean substituteY8, boolean substituteHeic,
-            String overridePhysicalCameraId, Handler handler) {
+            StreamCombinationTargets targets,
+            List<OutputConfiguration> outputConfigs,
+            List<Surface> outputSurfaces, int numBuffers,
+            boolean substituteY8, boolean substituteHeic, String overridenPhysicalCameraId,
+            MultiResolutionStreamConfigurationMap multiResStreamConfig, Handler handler) {
+            List<Surface> uhSurfaces = new ArrayList<Surface>();
+        setupConfigurationTargets(streamsInfo, targets, outputConfigs, outputSurfaces, uhSurfaces,
+            numBuffers, substituteY8, substituteHeic, overridenPhysicalCameraId,
+            multiResStreamConfig, handler);
+    }
+
+    public static void setupConfigurationTargets(List<MandatoryStreamInformation> streamsInfo,
+            StreamCombinationTargets targets,
+            List<OutputConfiguration> outputConfigs,
+            List<Surface> outputSurfaces, List<Surface> uhSurfaces, int numBuffers,
+            boolean substituteY8, boolean substituteHeic, String overridePhysicalCameraId,
+            MultiResolutionStreamConfigurationMap multiResStreamConfig, Handler handler) {
 
         ImageDropperListener imageDropperListener = new ImageDropperListener();
-
+        List<Surface> chosenSurfaces;
         for (MandatoryStreamInformation streamInfo : streamsInfo) {
             if (streamInfo.isInput()) {
                 continue;
+            }
+            chosenSurfaces = outputSurfaces;
+            if (streamInfo.isUltraHighResolution()) {
+                chosenSurfaces = uhSurfaces;
             }
             int format = streamInfo.getFormat();
             if (substituteY8 && (format == ImageFormat.YUV_420_888)) {
@@ -225,98 +384,35 @@ public class CameraTestUtils extends Assert {
             } else if (substituteHeic && (format == ImageFormat.JPEG)) {
                 format = ImageFormat.HEIC;
             }
-            Surface newSurface;
             Size[] availableSizes = new Size[streamInfo.getAvailableSizes().size()];
             availableSizes = streamInfo.getAvailableSizes().toArray(availableSizes);
             Size targetSize = CameraTestUtils.getMaxSize(availableSizes);
-
+            boolean createMultiResReader =
+                    (multiResStreamConfig != null &&
+                     !multiResStreamConfig.getOutputInfo(format).isEmpty() &&
+                     streamInfo.isMaximumSize());
             switch (format) {
-                case ImageFormat.PRIVATE: {
-                    SurfaceTexture target = new SurfaceTexture(/*random int*/1);
-                    target.setDefaultBufferSize(targetSize.getWidth(), targetSize.getHeight());
-                    OutputConfiguration config = new OutputConfiguration(new Surface(target));
-                    if (overridePhysicalCameraId != null) {
-                        config.setPhysicalCameraId(overridePhysicalCameraId);
-                    }
-                    outputConfigs.add(config);
-                    privTargets.add(target);
-                    break;
-                }
-                case ImageFormat.JPEG: {
-                    ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
-                            targetSize.getHeight(), format, numBuffers);
-                    target.setOnImageAvailableListener(imageDropperListener, handler);
-                    OutputConfiguration config = new OutputConfiguration(target.getSurface());
-                    if (overridePhysicalCameraId != null) {
-                        config.setPhysicalCameraId(overridePhysicalCameraId);
-                    }
-                    outputConfigs.add(config);
-                    jpegTargets.add(target);
-                    break;
-                }
-                case ImageFormat.YUV_420_888: {
-                    ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
-                            targetSize.getHeight(), format, numBuffers);
-                    target.setOnImageAvailableListener(imageDropperListener, handler);
-                    OutputConfiguration config = new OutputConfiguration(target.getSurface());
-                    if (overridePhysicalCameraId != null) {
-                        config.setPhysicalCameraId(overridePhysicalCameraId);
-                    }
-                    outputConfigs.add(config);
-                    yuvTargets.add(target);
-                    break;
-                }
-                case ImageFormat.Y8: {
-                    ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
-                            targetSize.getHeight(), format, numBuffers);
-                    target.setOnImageAvailableListener(imageDropperListener, handler);
-                    OutputConfiguration config = new OutputConfiguration(target.getSurface());
-                    if (overridePhysicalCameraId != null) {
-                        config.setPhysicalCameraId(overridePhysicalCameraId);
-                    }
-                    outputConfigs.add(config);
-                    y8Targets.add(target);
+                case ImageFormat.PRIVATE:
+                case ImageFormat.JPEG:
+                case ImageFormat.YUV_420_888:
+                case ImageFormat.Y8:
+                case ImageFormat.HEIC:
+                case ImageFormat.DEPTH16:
+                {
+                    configureTarget(targets, outputConfigs, chosenSurfaces, format,
+                            targetSize, numBuffers, overridePhysicalCameraId, multiResStreamConfig,
+                            createMultiResReader, imageDropperListener, handler);
                     break;
                 }
                 case ImageFormat.RAW_SENSOR: {
                     // targetSize could be null in the logical camera case where only
                     // physical camera supports RAW stream.
                     if (targetSize != null) {
-                        ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
-                                targetSize.getHeight(), format, numBuffers);
-                        target.setOnImageAvailableListener(imageDropperListener, handler);
-                        OutputConfiguration config =
-                                new OutputConfiguration(target.getSurface());
-                        if (overridePhysicalCameraId != null) {
-                            config.setPhysicalCameraId(overridePhysicalCameraId);
-                        }
-                        outputConfigs.add(config);
-                        rawTargets.add(target);
+                        configureTarget(targets, outputConfigs, chosenSurfaces, format,
+                                targetSize, numBuffers, overridePhysicalCameraId,
+                                multiResStreamConfig, createMultiResReader, imageDropperListener,
+                                handler);
                     }
-                    break;
-                }
-                case ImageFormat.HEIC: {
-                    ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
-                            targetSize.getHeight(), format, numBuffers);
-                    target.setOnImageAvailableListener(imageDropperListener, handler);
-                    OutputConfiguration config = new OutputConfiguration(target.getSurface());
-                    if (overridePhysicalCameraId != null) {
-                        config.setPhysicalCameraId(overridePhysicalCameraId);
-                    }
-                    outputConfigs.add(config);
-                    heicTargets.add(target);
-                    break;
-                }
-                case ImageFormat.DEPTH16: {
-                    ImageReader target = ImageReader.newInstance(targetSize.getWidth(),
-                            targetSize.getHeight(), format, numBuffers);
-                    target.setOnImageAvailableListener(imageDropperListener, handler);
-                    OutputConfiguration config = new OutputConfiguration(target.getSurface());
-                    if (overridePhysicalCameraId != null) {
-                        config.setPhysicalCameraId(overridePhysicalCameraId);
-                    }
-                    outputConfigs.add(config);
-                    depth16Targets.add(target);
                     break;
                 }
                 default:
@@ -532,10 +628,95 @@ public class CameraTestUtils extends Assert {
         }
     }
 
+    public static class ImageAndMultiResStreamInfo {
+        public final Image image;
+        public final MultiResolutionStreamInfo streamInfo;
+
+        public ImageAndMultiResStreamInfo(Image image, MultiResolutionStreamInfo streamInfo) {
+            this.image = image;
+            this.streamInfo = streamInfo;
+        }
+    }
+
+    public static class SimpleMultiResolutionImageReaderListener
+            implements ImageReader.OnImageAvailableListener {
+        public SimpleMultiResolutionImageReaderListener(MultiResolutionImageReader owner,
+                int maxBuffers, boolean acquireLatest) {
+            mOwner = owner;
+            mMaxBuffers = maxBuffers;
+            mAcquireLatest = acquireLatest;
+        }
+
+        @Override
+        public void onImageAvailable(ImageReader reader) {
+            if (VERBOSE) Log.v(TAG, "new image available");
+
+            if (mAcquireLatest) {
+                mLastReader = reader;
+                mImageAvailable.open();
+            } else {
+                if (mQueue.size() < mMaxBuffers) {
+                    Image image = reader.acquireNextImage();
+                    MultiResolutionStreamInfo multiResStreamInfo =
+                            mOwner.getStreamInfoForImageReader(reader);
+                    mQueue.offer(new ImageAndMultiResStreamInfo(image, multiResStreamInfo));
+                }
+            }
+        }
+
+        public ImageAndMultiResStreamInfo getAnyImageAndInfoAvailable(long timeoutMs)
+                throws Exception {
+            if (mAcquireLatest) {
+                Image image = null;
+                if (mImageAvailable.block(timeoutMs)) {
+                    if (mLastReader != null) {
+                        image = mLastReader.acquireLatestImage();
+                        if (VERBOSE) Log.v(TAG, "acquireLatestImage");
+                    } else {
+                        fail("invalid image reader");
+                    }
+                    mImageAvailable.close();
+                } else {
+                    fail("wait for image available time out after " + timeoutMs + "ms");
+                }
+                return new ImageAndMultiResStreamInfo(image,
+                        mOwner.getStreamInfoForImageReader(mLastReader));
+            } else {
+                ImageAndMultiResStreamInfo imageAndInfo = mQueue.poll(timeoutMs,
+                        java.util.concurrent.TimeUnit.MILLISECONDS);
+                if (imageAndInfo == null) {
+                    fail("wait for image available timed out after " + timeoutMs + "ms");
+                }
+                return imageAndInfo;
+            }
+        }
+
+        public void reset() {
+            while (!mQueue.isEmpty()) {
+                ImageAndMultiResStreamInfo imageAndInfo = mQueue.poll();
+                assertNotNull("Acquired image is not valid", imageAndInfo.image);
+                imageAndInfo.image.close();
+            }
+            mImageAvailable.close();
+            mLastReader = null;
+        }
+
+        private LinkedBlockingQueue<ImageAndMultiResStreamInfo> mQueue =
+                new LinkedBlockingQueue<ImageAndMultiResStreamInfo>();
+        private final MultiResolutionImageReader mOwner;
+        private final int mMaxBuffers;
+        private final boolean mAcquireLatest;
+        private ConditionVariable mImageAvailable = new ConditionVariable();
+        private ImageReader mLastReader = null;
+    }
+
     public static class SimpleCaptureCallback extends CameraCaptureSession.CaptureCallback {
         private final LinkedBlockingQueue<TotalCaptureResult> mQueue =
                 new LinkedBlockingQueue<TotalCaptureResult>();
         private final LinkedBlockingQueue<CaptureFailure> mFailureQueue =
+                new LinkedBlockingQueue<>();
+        // (Surface, framenumber) pair for lost buffers
+        private final LinkedBlockingQueue<Pair<Surface, Long>> mBufferLostQueue =
                 new LinkedBlockingQueue<>();
         private final LinkedBlockingQueue<Integer> mAbortQueue =
                 new LinkedBlockingQueue<>();
@@ -600,6 +781,17 @@ public class CameraTestUtils extends Assert {
             } catch (InterruptedException e) {
                 throw new UnsupportedOperationException(
                         "Can't handle InterruptedException in onCaptureSequenceCompleted");
+            }
+        }
+
+        @Override
+        public void onCaptureBufferLost(CameraCaptureSession session,
+                CaptureRequest request, Surface target, long frameNumber) {
+            try {
+                mBufferLostQueue.put(new Pair<>(target, frameNumber));
+            } catch (InterruptedException e) {
+                throw new UnsupportedOperationException(
+                        "Can't handle InterruptedException in onCaptureBufferLost");
             }
         }
 
@@ -771,6 +963,35 @@ public class CameraTestUtils extends Assert {
         }
 
         /**
+         * Get an array list of lost buffers with maxNumLost entries at most.
+         * If it times out before maxNumLost buffer lost callbacks are received, return the
+         * lost callbacks received so far.
+         *
+         * @param maxNumLost The maximal number of buffer lost failures to return. If it times out
+         *                   before the maximal number of failures are received, return the received
+         *                   buffer lost failures so far.
+         * @throws UnsupportedOperationException If an error happens while waiting on the failure.
+         */
+        public ArrayList<Pair<Surface, Long>> getLostBuffers(long maxNumLost) {
+            ArrayList<Pair<Surface, Long>> failures = new ArrayList<>();
+            try {
+                for (int i = 0; i < maxNumLost; i++) {
+                    Pair<Surface, Long> failure = mBufferLostQueue.poll(CAPTURE_RESULT_TIMEOUT_MS,
+                            TimeUnit.MILLISECONDS);
+                    if (failure == null) {
+                        // If waiting on a failure times out, return the failures so far.
+                        break;
+                    }
+                    failures.add(failure);
+                }
+            }  catch (InterruptedException e) {
+                throw new UnsupportedOperationException("Unhandled interrupted exception", e);
+            }
+
+            return failures;
+        }
+
+        /**
          * Get an array list of aborted capture sequence ids with maxNumAborts entries
          * at most. If it times out before maxNumAborts are received, return the aborted sequences
          * received so far.
@@ -864,6 +1085,11 @@ public class CameraTestUtils extends Assert {
             return !mFailureQueue.isEmpty();
         }
 
+        public int getNumLostBuffers()
+        {
+            return mBufferLostQueue.size();
+        }
+
         public boolean hasMoreAbortedSequences()
         {
             return !mAbortQueue.isEmpty();
@@ -873,6 +1099,7 @@ public class CameraTestUtils extends Assert {
             mQueue.clear();
             mNumFramesArrived.getAndSet(0);
             mFailureQueue.clear();
+            mBufferLostQueue.clear();
             mCaptureStartQueue.clear();
             mAbortQueue.clear();
         }
@@ -1076,14 +1303,19 @@ public class CameraTestUtils extends Assert {
      *
      * @param camera The CameraDevice to be configured.
      * @param outputs The OutputConfiguration list that is used for camera output.
+     * @param initialRequest The session parameters passed in during stream configuration
      * @param listener The callback CameraDevice will notify when capture results are available.
      */
     public static CameraCaptureSession tryConfigureCameraSessionWithConfig(CameraDevice camera,
-            List<OutputConfiguration> outputs,
+            List<OutputConfiguration> outputs, CaptureRequest initialRequest,
             CameraCaptureSession.StateCallback listener, Handler handler)
             throws CameraAccessException {
         BlockingSessionCallback sessionListener = new BlockingSessionCallback(listener);
-        camera.createCaptureSessionByOutputConfigurations(outputs, sessionListener, handler);
+        SessionConfiguration sessionConfig = new SessionConfiguration(
+                SessionConfiguration.SESSION_REGULAR, outputs, new HandlerExecutor(handler),
+                sessionListener);
+        sessionConfig.setSessionParameters(initialRequest);
+        camera.createCaptureSession(sessionConfig);
 
         Integer[] sessionStates = {BlockingSessionCallback.SESSION_READY,
                                    BlockingSessionCallback.SESSION_CONFIGURE_FAILED};
@@ -1151,9 +1383,26 @@ public class CameraTestUtils extends Assert {
             InputConfiguration inputConfiguration, List<Surface> outputSurfaces,
             CameraCaptureSession.StateCallback listener, Handler handler)
             throws CameraAccessException {
+        List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration>();
+        for (Surface surface : outputSurfaces) {
+            outputConfigs.add(new OutputConfiguration(surface));
+        }
+        CameraCaptureSession session = configureReprocessableCameraSessionWithConfigurations(
+                camera, inputConfiguration, outputConfigs, listener, handler);
+
+        return session;
+    }
+
+    public static CameraCaptureSession configureReprocessableCameraSessionWithConfigurations(
+            CameraDevice camera, InputConfiguration inputConfiguration,
+            List<OutputConfiguration> outputConfigs, CameraCaptureSession.StateCallback listener,
+            Handler handler) throws CameraAccessException {
         BlockingSessionCallback sessionListener = new BlockingSessionCallback(listener);
-        camera.createReprocessableCaptureSession(inputConfiguration, outputSurfaces,
-                sessionListener, handler);
+        SessionConfiguration sessionConfig = new SessionConfiguration(
+                SessionConfiguration.SESSION_REGULAR, outputConfigs, new HandlerExecutor(handler),
+                sessionListener);
+        sessionConfig.setInputConfiguration(inputConfiguration);
+        camera.createCaptureSession(sessionConfig);
 
         Integer[] sessionStates = {BlockingSessionCallback.SESSION_READY,
                                    BlockingSessionCallback.SESSION_CONFIGURE_FAILED};
@@ -1162,7 +1411,6 @@ public class CameraTestUtils extends Assert {
 
         assertTrue("Creating a reprocessable session failed.",
                 state == BlockingSessionCallback.SESSION_READY);
-
         CameraCaptureSession session =
                 sessionListener.waitAndGetSession(SESSION_CONFIGURE_TIMEOUT_MS);
         assertTrue("Camera session should be a reprocessable session", session.isReprocessable());
@@ -1244,6 +1492,9 @@ public class CameraTestUtils extends Assert {
      * (xstride = width, ystride = height for chroma and luma components).</p>
      *
      * <p>For JPEG, it returns a 1-D byte array contains a complete JPEG image.</p>
+     *
+     * <p>For YUV P010, it returns a byte array that contains Y plane first, followed
+     * by the interleaved U(Cb)/V(Cr) plane.</p>
      */
     public static byte[] getDataFromImage(Image image) {
         assertNotNull("Invalid image:", image);
@@ -1272,6 +1523,33 @@ public class CameraTestUtils extends Assert {
             buffer.get(data);
             buffer.rewind();
             return data;
+        } else if (format == ImageFormat.YCBCR_P010) {
+            // P010 samples are stored within 16 bit values
+            int offset = 0;
+            int bytesPerPixelRounded = (ImageFormat.getBitsPerPixel(format) + 7) / 8;
+            data = new byte[width * height * bytesPerPixelRounded];
+            assertTrue("Unexpected number of planes, expected " + 3 + " actual " + planes.length,
+                    planes.length == 3);
+            for (int i = 0; i < 2; i++) {
+                buffer = planes[i].getBuffer();
+                assertNotNull("Fail to get bytebuffer from plane", buffer);
+                buffer.rewind();
+                rowStride = planes[i].getRowStride();
+                if (VERBOSE) {
+                    Log.v(TAG, "rowStride " + rowStride);
+                    Log.v(TAG, "width " + width);
+                    Log.v(TAG, "height " + height);
+                }
+                int h = (i == 0) ? height : height / 2;
+                for (int row = 0; row < h; row++) {
+                    int length = rowStride;
+                    buffer.get(data, offset, length);
+                    offset += length;
+                }
+                if (VERBOSE) Log.v(TAG, "Finished reading data from plane " + i);
+                buffer.rewind();
+            }
+            return data;
         }
 
         int offset = 0;
@@ -1287,6 +1565,7 @@ public class CameraTestUtils extends Assert {
         for (int i = 0; i < planes.length; i++) {
             buffer = planes[i].getBuffer();
             assertNotNull("Fail to get bytebuffer from plane", buffer);
+            buffer.rewind();
             rowStride = planes[i].getRowStride();
             pixelStride = planes[i].getPixelStride();
             assertTrue("pixel stride " + pixelStride + " is invalid", pixelStride > 0);
@@ -1341,6 +1620,7 @@ public class CameraTestUtils extends Assert {
             case ImageFormat.YUV_420_888:
             case ImageFormat.NV21:
             case ImageFormat.YV12:
+            case ImageFormat.YCBCR_P010:
                 assertEquals("YUV420 format Images should have 3 planes", 3, planes.length);
                 break;
             case ImageFormat.JPEG:
@@ -1798,6 +2078,9 @@ public class CameraTestUtils extends Assert {
             case ImageFormat.JPEG:
                 validateJpegData(data, width, height, filePath);
                 break;
+            case ImageFormat.YCBCR_P010:
+                validateP010Data(data, width, height, format, image.getTimestamp(), filePath);
+                break;
             case ImageFormat.YUV_420_888:
             case ImageFormat.YV12:
                 validateYuvData(data, width, height, format, image.getTimestamp(), filePath);
@@ -1877,7 +2160,7 @@ public class CameraTestUtils extends Assert {
         }
     }
 
-    private static void validateJpegData(byte[] jpegData, int width, int height, String filePath) {
+    public static void validateJpegData(byte[] jpegData, int width, int height, String filePath) {
         BitmapFactory.Options bmpOptions = new BitmapFactory.Options();
         // DecodeBound mode: only parse the frame header to get width/height.
         // it doesn't decode the pixel.
@@ -1913,6 +2196,21 @@ public class CameraTestUtils extends Assert {
         }
     }
 
+    private static void validateP010Data(byte[] p010Data, int width, int height, int format,
+            long ts, String filePath) {
+        if (VERBOSE) Log.v(TAG, "Validating P010 data");
+        // The P010 10 bit samples are stored in two bytes so the size needs to be adjusted
+        // accordingly.
+        int bytesPerPixelRounded = (ImageFormat.getBitsPerPixel(format) + 7) / 8;
+        int expectedSize = width * height * bytesPerPixelRounded;
+        assertEquals("P010 data doesn't match", expectedSize, p010Data.length);
+
+        if (DEBUG && filePath != null) {
+            String fileName =
+                    filePath + "/" + width + "x" + height + "_" + ts / 1e6 + ".p010";
+            dumpFile(fileName, p010Data);
+        }
+    }
     private static void validateRaw16Data(byte[] rawData, int width, int height, int format,
             long ts, String filePath) {
         if (VERBOSE) Log.v(TAG, "Validating raw data");
@@ -2234,30 +2532,28 @@ public class CameraTestUtils extends Assert {
                         " is not supported");
             }
 
-            if (srcRowStride == dstRowStride && srcPixStride == dstPixStride) {
+            if (srcRowStride == dstRowStride && srcPixStride == dstPixStride &&
+                    srcPixStride == 1) {
                 // Fast path, just copy the content in the byteBuffer all together.
                 dstBuffer.put(srcBuffer);
             } else {
                 Size effectivePlaneSize = getEffectivePlaneSizeForImage(src, i);
                 int srcRowByteCount = srcRowStride;
                 int dstRowByteCount = dstRowStride;
-                byte[] srcDataRow = new byte[srcRowByteCount];
+                byte[] srcDataRow = new byte[Math.max(srcRowStride, dstRowStride)];
 
-                if (srcPixStride == dstPixStride) {
+                if (srcPixStride == dstPixStride && srcPixStride == 1) {
                     // Row by row copy case
                     for (int row = 0; row < effectivePlaneSize.getHeight(); row++) {
                         if (row == effectivePlaneSize.getHeight() - 1) {
                             // Special case for interleaved planes: need handle the last row
                             // carefully to avoid memory corruption. Check if we have enough bytes
                             // to copy.
-                            int remainingBytes = srcBuffer.remaining();
-                            if (srcRowByteCount > remainingBytes) {
-                                srcRowByteCount = remainingBytes;
-                            }
+                            srcRowByteCount = Math.min(srcRowByteCount, srcBuffer.remaining());
+                            dstRowByteCount = Math.min(dstRowByteCount, dstBuffer.remaining());
                         }
                         srcBuffer.get(srcDataRow, /*offset*/0, srcRowByteCount);
-                        dstBuffer.put(srcDataRow, /*offset*/0,
-                                Math.min(srcRowByteCount, dstRowByteCount));
+                        dstBuffer.put(srcDataRow, /*offset*/0, dstRowByteCount);
                     }
                 } else {
                     // Row by row per pixel copy case
@@ -2379,10 +2675,12 @@ public class CameraTestUtils extends Assert {
             rhsBuffer = rhsPlanes[i].getBuffer();
             lhsBuffer.rewind();
             rhsBuffer.rewind();
-            // Special case for YUV420_888 buffer with different layout
+            // Special case for YUV420_888 buffer with different layout or
+            // potentially differently interleaved U/V planes.
             if (lhsImg.getFormat() == ImageFormat.YUV_420_888 &&
                     (lhsPlanes[i].getPixelStride() != rhsPlanes[i].getPixelStride() ||
-                     lhsPlanes[i].getRowStride() != rhsPlanes[i].getRowStride())) {
+                     lhsPlanes[i].getRowStride() != rhsPlanes[i].getRowStride() ||
+                     (lhsPlanes[i].getPixelStride() != 1))) {
                 int width = getEffectivePlaneSizeForImage(lhsImg, i).getWidth();
                 int height = getEffectivePlaneSizeForImage(lhsImg, i).getHeight();
                 int rowSizeL = lhsPlanes[i].getRowStride();
@@ -3196,5 +3494,79 @@ public class CameraTestUtils extends Assert {
                     cameraId, minBurstFps), foundYUVStreamingRange);
         }
         return targetRange;
+    }
+    /**
+     * Get the candidate supported zoom ratios for testing
+     *
+     * <p>
+     * This function returns the bounary values of supported zoom ratio range in addition to 1.0x
+     * zoom ratio.
+     * </p>
+     */
+    public static List<Float> getCandidateZoomRatios(StaticMetadata staticInfo) {
+        List<Float> zoomRatios = new ArrayList<Float>();
+        Range<Float> zoomRatioRange = staticInfo.getZoomRatioRangeChecked();
+        zoomRatios.add(zoomRatioRange.getLower());
+        if (zoomRatioRange.contains(1.0f) &&
+                1.0f - zoomRatioRange.getLower() > ZOOM_RATIO_THRESHOLD &&
+                zoomRatioRange.getUpper() - 1.0f > ZOOM_RATIO_THRESHOLD) {
+            zoomRatios.add(1.0f);
+        }
+        zoomRatios.add(zoomRatioRange.getUpper());
+
+        return zoomRatios;
+    }
+
+    private static final int PERFORMANCE_CLASS_R = Build.VERSION_CODES.R;
+    private static final int PERFORMANCE_CLASS_S = Build.VERSION_CODES.R + 1;
+
+    /**
+     * Check whether this mobile device is R performance class as defined in CDD
+     */
+    public static boolean isRPerfClass() {
+        return Build.VERSION.MEDIA_PERFORMANCE_CLASS == PERFORMANCE_CLASS_R;
+    }
+
+    /**
+     * Check whether this mobile device is S performance class as defined in CDD
+     */
+    public static boolean isSPerfClass() {
+        return Build.VERSION.MEDIA_PERFORMANCE_CLASS == PERFORMANCE_CLASS_S;
+    }
+
+    /**
+     * Check whether a camera Id is a primary rear facing camera
+     */
+    public static boolean isPrimaryRearFacingCamera(CameraManager manager, String cameraId)
+            throws Exception {
+        return isPrimaryCamera(manager, cameraId, CameraCharacteristics.LENS_FACING_BACK);
+    }
+
+    /**
+     * Check whether a camera Id is a primary front facing camera
+     */
+    public static boolean isPrimaryFrontFacingCamera(CameraManager manager, String cameraId)
+            throws Exception {
+        return isPrimaryCamera(manager, cameraId, CameraCharacteristics.LENS_FACING_FRONT);
+    }
+
+    private static boolean isPrimaryCamera(CameraManager manager, String cameraId,
+            Integer lensFacing) throws Exception {
+        CameraCharacteristics characteristics;
+        Integer facing;
+
+        String [] ids = manager.getCameraIdList();
+        for (String id : ids) {
+            characteristics = manager.getCameraCharacteristics(id);
+            facing = characteristics.get(CameraCharacteristics.LENS_FACING);
+            if (lensFacing.equals(facing)) {
+                if (cameraId.equals(id)) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        }
+        return false;
     }
 }

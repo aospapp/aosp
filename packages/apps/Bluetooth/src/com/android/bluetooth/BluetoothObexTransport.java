@@ -32,8 +32,22 @@ import javax.obex.ObexTransport;
 public class BluetoothObexTransport implements ObexTransport {
     private BluetoothSocket mSocket = null;
 
+    /**
+     * Will default at the maximum packet length.
+     */
+    public static final int PACKET_SIZE_UNSPECIFIED = -1;
+
+    private int mMaxTransmitPacketSize = PACKET_SIZE_UNSPECIFIED;
+    private int mMaxReceivePacketSize = PACKET_SIZE_UNSPECIFIED;
+
     public BluetoothObexTransport(BluetoothSocket socket) {
         this.mSocket = socket;
+    }
+
+    public BluetoothObexTransport(BluetoothSocket socket, int transmitSize, int receiveSize) {
+        this.mSocket = socket;
+        this.mMaxTransmitPacketSize = transmitSize;
+        this.mMaxReceivePacketSize = receiveSize;
     }
 
     @Override
@@ -84,7 +98,7 @@ public class BluetoothObexTransport implements ObexTransport {
     @Override
     public int getMaxTransmitPacketSize() {
         if (mSocket.getConnectionType() != BluetoothSocket.TYPE_L2CAP) {
-            return -1;
+            return mMaxTransmitPacketSize;
         }
         return mSocket.getMaxTransmitPacketSize();
     }
@@ -92,7 +106,7 @@ public class BluetoothObexTransport implements ObexTransport {
     @Override
     public int getMaxReceivePacketSize() {
         if (mSocket.getConnectionType() != BluetoothSocket.TYPE_L2CAP) {
-            return -1;
+            return mMaxReceivePacketSize;
         }
         return mSocket.getMaxReceivePacketSize();
     }

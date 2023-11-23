@@ -31,7 +31,7 @@ import android.app.Instrumentation;
 import android.device.collectors.util.SendToInstrumentation;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiDevice;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;

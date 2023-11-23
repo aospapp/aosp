@@ -84,7 +84,7 @@ public abstract class CalendarDate implements java.lang.Cloneable {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public sun.util.calendar.CalendarDate setDayOfMonth(int date) {
         throw new RuntimeException("Stub!");
     }
@@ -101,7 +101,7 @@ public abstract class CalendarDate implements java.lang.Cloneable {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public sun.util.calendar.CalendarDate setHours(int hours) {
         throw new RuntimeException("Stub!");
     }
@@ -114,7 +114,7 @@ public abstract class CalendarDate implements java.lang.Cloneable {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public sun.util.calendar.CalendarDate setMinutes(int minutes) {
         throw new RuntimeException("Stub!");
     }
@@ -127,7 +127,7 @@ public abstract class CalendarDate implements java.lang.Cloneable {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public sun.util.calendar.CalendarDate setSeconds(int seconds) {
         throw new RuntimeException("Stub!");
     }
@@ -140,7 +140,7 @@ public abstract class CalendarDate implements java.lang.Cloneable {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public sun.util.calendar.CalendarDate setMillis(int millis) {
         throw new RuntimeException("Stub!");
     }
@@ -149,12 +149,12 @@ public abstract class CalendarDate implements java.lang.Cloneable {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public long getTimeOfDay() {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public sun.util.calendar.CalendarDate setDate(int year, int month, int dayOfMonth) {
         throw new RuntimeException("Stub!");
     }

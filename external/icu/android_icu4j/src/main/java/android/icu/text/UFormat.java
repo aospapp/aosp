@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (C) 2003-2015, International Business Machines Corporation and
@@ -31,15 +31,12 @@ public abstract class UFormat extends Format {
      * SpanField classes usually have an associated value.
      *
      * @hide Only a subset of ICU is exposed in Android
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static abstract class SpanField extends Format.Field {
         private static final long serialVersionUID = -4732719509273350606L;
 
         /**
          * Construct a new instance.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         protected SpanField(String name) {
             super(name);
@@ -76,7 +73,7 @@ public abstract class UFormat extends Format {
      * @see android.icu.util.ULocale#ACTUAL_LOCALE
      * @hide draft / provisional / internal are hidden on Android
      */
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public final ULocale getLocale(ULocale.Type type) {
         return type == ULocale.ACTUAL_LOCALE ?
             this.actualLocale : this.validLocale;

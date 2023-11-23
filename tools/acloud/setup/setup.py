@@ -24,6 +24,7 @@ import sys
 
 from acloud.internal import constants
 from acloud.internal.lib import utils
+from acloud.public import config
 from acloud.setup import host_setup_runner
 from acloud.setup import gcp_setup_runner
 
@@ -39,6 +40,10 @@ def Run(args):
     Args:
         args: Namespace object from argparse.parse_args.
     """
+    if args.update_config:
+        _UpdateConfig(args.config_file, args.update_config[0], args.update_config[1])
+        return
+
     _RunPreSetup()
 
     # Setup process will be in the following manner:
@@ -113,3 +118,18 @@ def _RunPreSetup():
 
     if os.path.exists(pre_setup_sh):
         subprocess.call([pre_setup_sh])
+
+def _UpdateConfig(config_file, field, value):
+    """Update the user config.
+
+    Args:
+        config_file: String of config file path.
+        field: String, field name in user config.
+        value: String, the value of field.
+    """
+    config_mgr = config.AcloudConfigManager(config_file)
+    config_mgr.Load()
+    user_config = config_mgr.user_config_path
+    print("Your config (%s) is updated." % user_config)
+    gcp_setup_runner.UpdateConfigFile(user_config, field, value)
+    _PrintUsage()

@@ -25,10 +25,10 @@ from __future__ import (
 
 import argparse
 import os
-import re
 import xml.parsers.expat
 
 from mako.template import Template
+from util import *
 
 TEMPLATE = Template("""\
 <%!
@@ -80,24 +80,32 @@ static inline uint32_t ATTRIBUTE_PURE
 ${item.token_name}_${prop}(const struct gen_device_info *devinfo)
 {
    switch (devinfo->gen) {
+   case 12: return ${item.get_prop(prop, 12)};
    case 11: return ${item.get_prop(prop, 11)};
-   case 10: return ${item.get_prop(prop, 10)};
    case 9: return ${item.get_prop(prop, 9)};
    case 8: return ${item.get_prop(prop, 8)};
    case 7:
+%if item.get_prop(prop, 7.5) == item.get_prop(prop, 7):
+      return ${item.get_prop(prop, 7)};
+%else:
       if (devinfo->is_haswell) {
          return ${item.get_prop(prop, 7.5)};
       } else {
          return ${item.get_prop(prop, 7)};
       }
+%endif
    case 6: return ${item.get_prop(prop, 6)};
    case 5: return ${item.get_prop(prop, 5)};
    case 4:
+%if item.get_prop(prop, 4.5) == item.get_prop(prop, 4):
+      return ${item.get_prop(prop, 4)};
+%else:
       if (devinfo->is_g4x) {
          return ${item.get_prop(prop, 4.5)};
       } else {
          return ${item.get_prop(prop, 4)};
       }
+%endif
    default:
       unreachable("Invalid hardware generation");
    }
@@ -130,17 +138,6 @@ ${emit_per_gen_prop_func(field, 'start')}
 #endif
 
 #endif /* ${guard} */""", output_encoding='utf-8')
-
-alphanum_nono = re.compile(r'[ /\[\]()\-:.,=>#&*"+\\]+')
-def to_alphanum(name):
-    global alphanum_nono
-    return alphanum_nono.sub('', name).replace('α', 'alpha')
-
-def safe_name(name):
-    name = to_alphanum(name)
-    if not name[0].isalpha():
-        name = '_' + name
-    return name
 
 class Gen(object):
 
@@ -182,12 +179,13 @@ class Container(object):
             self.length_by_gen[gen] = xml_attrs['length']
 
     def get_field(self, field_name, create=False):
-        if field_name not in self.fields:
+        key = to_alphanum(field_name)
+        if key not in self.fields:
             if create:
-                self.fields[field_name] = Field(self, field_name)
+                self.fields[key] = Field(self, field_name)
             else:
                 return None
-        return self.fields[field_name]
+        return self.fields[key]
 
     def has_prop(self, prop):
         if prop == 'length':
@@ -256,7 +254,8 @@ class XmlParser(object):
 
         self.gen = None
         self.containers = containers
-        self.container = None
+        self.container_stack = []
+        self.container_stack.append(None)
 
     def parse(self, filename):
         with open(filename, 'rb') as f:
@@ -269,8 +268,11 @@ class XmlParser(object):
             if name == 'instruction' and 'engine' in attrs:
                 engines = set(attrs['engine'].split('|'))
                 if not engines & self.engines:
+                    self.container_stack.append(None)
                     return
             self.start_container(attrs)
+        elif name == 'group':
+            self.container_stack.append(None)
         elif name == 'field':
             self.start_field(attrs)
         else:
@@ -279,28 +281,28 @@ class XmlParser(object):
     def end_element(self, name):
         if name == 'genxml':
             self.gen = None
-        elif name in ('instruction', 'struct', 'register'):
-            self.container = None
+        elif name in ('instruction', 'struct', 'register', 'group'):
+            self.container_stack.pop()
         else:
             pass
 
     def start_container(self, attrs):
-        assert self.container is None
+        assert self.container_stack[-1] is None
         name = attrs['name']
         if name not in self.containers:
             self.containers[name] = Container(name)
-        self.container = self.containers[name]
-        self.container.add_gen(self.gen, attrs)
+        self.container_stack.append(self.containers[name])
+        self.container_stack[-1].add_gen(self.gen, attrs)
 
     def start_field(self, attrs):
-        if self.container is None:
+        if self.container_stack[-1] is None:
             return
 
         field_name = attrs.get('name', None)
         if not field_name:
             return
 
-        self.container.get_field(field_name, True).add_gen(self.gen, attrs)
+        self.container_stack[-1].get_field(field_name, True).add_gen(self.gen, attrs)
 
 def parse_args():
     p = argparse.ArgumentParser()

@@ -37,7 +37,6 @@ import java.util.Map;
 
 /**
  * Service which acts as a fake ConnectionManager if so configured.
- * TODO(santoscordon): Rename all classes in the directory to Dummy* (e.g., DummyConnectionService).
  */
 public class TestConnectionManager extends ConnectionService {
     public final class TestManagedConnection extends Connection {

@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "app-compat-annotations",
     host_supported: true,
@@ -21,7 +25,9 @@ java_library {
         "ChangeId.java",
         "Disabled.java",
         "EnabledAfter.java",
+        "EnabledSince.java",
         "LoggingOnly.java",
+        "Overridable.java",
     ],
     sdk_version: "core_current",
     exported_plugins: ["compat-changeid-annotation-processor"],
@@ -34,10 +40,15 @@ filegroup {
         "ChangeId.java",
         "Disabled.java",
         "EnabledAfter.java",
+        "EnabledSince.java",
         "LoggingOnly.java",
+        "Overridable.java",
         "UnsupportedAppUsage.java",
     ],
-    visibility: ["//libcore:__pkg__"],
+    visibility: [
+        "//libcore:__pkg__",
+        "//external/icu/android_icu4j:__pkg__",
+    ],
 }
 
 java_library {

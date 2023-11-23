@@ -16,7 +16,7 @@
 
 package com.android.camera.one.v2.initialization;
 
-import android.content.Context;
+import android.app.Activity;
 import android.view.Surface;
 
 import com.android.camera.async.FilteredCallback;
@@ -184,7 +184,7 @@ class GenericOneCameraImpl implements OneCamera {
     }
 
     @Override
-    public Size pickPreviewSize(Size pictureSize, Context context) {
+    public Size pickPreviewSize(Size pictureSize, Activity context) {
         return mPreviewSizeSelector.pickPreviewSize(pictureSize);
     }
 }

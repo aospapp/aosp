@@ -20,14 +20,13 @@ import android.app.KeyguardManager;
 import android.content.Context;
 import android.graphics.Point;
 import android.provider.Settings;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
-import android.system.helpers.ActivityHelper;
-import android.system.helpers.DeviceHelper;
+
+import androidx.test.InstrumentationRegistry;
 
 import junit.framework.Assert;
 

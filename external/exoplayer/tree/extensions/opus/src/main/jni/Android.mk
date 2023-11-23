@@ -25,6 +25,9 @@ include libopus.mk
 include $(CLEAR_VARS)
 LOCAL_PATH := $(WORKING_DIR)
 LOCAL_MODULE := libopusV2JNI
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../LICENSE
 LOCAL_ARM_MODE := arm
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := opus_jni.cc

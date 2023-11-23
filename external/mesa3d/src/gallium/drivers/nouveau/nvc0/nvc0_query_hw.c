@@ -138,7 +138,7 @@ nvc0_hw_query_write_compute_invocations(struct nvc0_context *nvc0,
    PUSH_DATA (push, hq->bo->offset + hq->offset + offset);
 }
 
-static boolean
+static bool
 nvc0_hw_begin_query(struct nvc0_context *nvc0, struct nvc0_query *q)
 {
    struct nouveau_pushbuf *push = nvc0->base.pushbuf;
@@ -304,9 +304,9 @@ nvc0_hw_end_query(struct nvc0_context *nvc0, struct nvc0_query *q)
       nouveau_fence_ref(nvc0->screen->base.fence.current, &hq->fence);
 }
 
-static boolean
+static bool
 nvc0_hw_get_query_result(struct nvc0_context *nvc0, struct nvc0_query *q,
-                         boolean wait, union pipe_query_result *result)
+                         bool wait, union pipe_query_result *result)
 {
    struct nvc0_hw_query *hq = nvc0_hw_query(q);
    uint64_t *res64 = (uint64_t*)result;
@@ -387,7 +387,7 @@ nvc0_hw_get_query_result(struct nvc0_context *nvc0, struct nvc0_query *q,
 static void
 nvc0_hw_get_query_result_resource(struct nvc0_context *nvc0,
                                   struct nvc0_query *q,
-                                  boolean wait,
+                                  bool wait,
                                   enum pipe_query_value_type result_type,
                                   int index,
                                   struct pipe_resource *resource,
@@ -409,7 +409,7 @@ nvc0_hw_get_query_result_resource(struct nvc0_context *nvc0,
                          result_type >= PIPE_QUERY_TYPE_I64 ? 2 : 1,
                          ready);
 
-      util_range_add(&buf->valid_buffer_range, offset,
+      util_range_add(&buf->base, &buf->valid_buffer_range, offset,
                      offset + (result_type >= PIPE_QUERY_TYPE_I64 ? 8 : 4));
 
       nvc0_resource_validate(buf, NOUVEAU_BO_WR);
@@ -508,7 +508,7 @@ nvc0_hw_get_query_result_resource(struct nvc0_context *nvc0,
    PUSH_DATAh(push, buf->address + offset);
    PUSH_DATA (push, buf->address + offset);
 
-   util_range_add(&buf->valid_buffer_range, offset,
+   util_range_add(&buf->base, &buf->valid_buffer_range, offset,
                   offset + (result_type >= PIPE_QUERY_TYPE_I64 ? 8 : 4));
 
    nvc0_resource_validate(buf, NOUVEAU_BO_WR);

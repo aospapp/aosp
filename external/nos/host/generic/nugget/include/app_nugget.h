@@ -264,6 +264,24 @@ enum nugget_ap_uart_passthru_cfg {
 
 #define NUGGET_PARAM_RDD_CFG 0x000e
 /*
+ * Enable/Disable the RDD SuzyQable Detection
+ *
+ * This always returns the current state of the RDD SuzyQable detection
+ * feature.
+ *
+ * The AP can request that the RDD SuzyQable detection to be disabled (0) or
+ * enabled (1).
+ *
+ * @param args         0     OR   1
+ * @param arg_len      0     OR   1 byte
+ * @param reply        current state (0 or 1)
+ * @param reply_len    1 byte
+ *
+ * @errors             APP_ERROR_BOGUS_ARGS
+ */
+
+#define NUGGET_PARAM_BOARD_ID 0x000f
+/*
  * Set / Get Board ID
  *
  * This sets or gets the Board ID of the device.
@@ -280,24 +298,6 @@ struct nugget_app_board_id {
   uint32_t flag;
   uint32_t inv;                         /* must equal ~type when setting */
 } __packed;
-#define NUGGET_PARAM_BOARD_ID 0x000f
-
-/*
- * Enable/Disable the RDD SuzyQable Deteaction
- *
- * This always returns the current state of the RDD SuezyQable detection
- * feature.
- *
- * The AP can request that the RDD SuezyQable detection to be disabled (0) or
- * enabled (1).
- *
- * @param args         0     OR   1
- * @param arg_len      0     OR   1 byte
- * @param reply        0     OR   1 current state
- * @param reply_len    1 byte
- *
- * @errors             APP_ERROR_BOGUS_ARGS
- */
 
 #define NUGGET_PARAM_GET_EVENT_RECORD 0x0010
 /*
@@ -308,6 +308,110 @@ struct nugget_app_board_id {
  * @param arg_len      0
  * @param reply        struct event_record
  * @param reply_len    sizeof struct event_record  OR  0
+ */
+
+#define NUGGET_PARAM_AP_IS_REBOOTING 0x0011
+/*
+ * This can be used to replace the GPIO signal for some boards, if the
+ * communication path is trusted. If not, it has no effect.
+ *
+ * @param args         <none>
+ * @param arg_len      0
+ * @param reply        <none>
+ * @param reply_len    0
+ */
+
+#define FILE_ID_NUGGET_PERSIST 0
+#define NUGGET_PERSIST_VERSION_1 1
+struct nugget_persist_t {
+	uint8_t version;
+	uint8_t user_consent;
+	uint8_t reserved[2];
+};
+
+enum nugget_sjtag_user_consent_cfg {
+  NUGGET_SJTAG_USER_CONSENT_DISALLOW,             /* DISALLOW */
+  NUGGET_SJTAG_USER_CONSENT_ALLOW,                /* ALLOW */
+
+  NUGGET_SJTAG_USER_CONSENT_NUM_CFGS,
+};
+
+#define NUGGET_PARAM_SJTAG_USER_CONSENT 0x0012
+/*
+ * Set/Get the SJTAG USER CONSENT function
+ *
+ * This always returns the current state of the SJTAG USER CONSENT feature.
+ *
+ * @param args         <none>  OR  enum nugget_sjtag_user_consent_cfg
+ * @param arg_len        0     OR   1 byte
+ * @param reply        enum nugget_sjtag_user_consent_cfg
+ * @param reply_len    1 byte
+ *
+ * @errors             APP_ERROR_BOGUS_ARGS
+ */
+
+enum nugget_sjtag_avb_boot_lock_result {
+   AVB_BOOT_LOCK_DISABLED,
+   AVB_BOOT_LOCK_ENABLED,
+   AVB_BOOT_LOCK_ERROR,
+};
+
+#define NUGGET_PARAM_SJTAG_ALLOW 0x0013
+/*
+ * Get the SJTAG ALLOW
+ *
+ * This always returns the current state of the SJTAG ALLOW feature.
+ *
+ * @param args         <none>
+ * @param arg_len        0
+ * @param reply        0(DISALLOW) OR 1(ALLOW)
+ * @param reply_len    1 byte
+ *
+ * @errors             APP_ERROR_BOGUS_ARGS
+ */
+
+/*
+ * Persistent storage of arbitrary data, up to
+ * (FS_MAX_FILE_SIZE - sizeof(struct nugget_app_data)) bytes.
+ */
+struct nugget_app_storage {
+  uint32_t flags; /* TBD, use zero for now */
+#ifndef __cplusplus
+  uint8_t data[]; /* Zero or more bytes */
+#endif
+} __packed;
+
+#define NUGGET_PARAM_STORAGE_WRITE 0x0014
+/*
+ * Write arbitrary data.
+ *
+ * The current storage is erased, then new data (if any) is saved.
+ *
+ * .flags meaning is not yet defined; for now it must be 0x00000000
+ *        Possible usage could restrict reading to the bootloader,
+ *        erase data after N reads or reboots, etc.
+ *
+ * @param args         struct nugget_app_storage + zero or more bytes
+ * @param arg_len      To write: >  sizeof(struct nugget_app_storage)
+ *                     To erase: <= sizeof(struct nugget_app_storage)
+ * @param reply        <none>
+ * @param reply_len    0
+ *
+ * @errors             APP_ERROR_BOGUS_ARGS
+ */
+#define NUGGET_PARAM_STORAGE_READ 0x0015
+/*
+ * Read arbitrary data.
+ *
+ * On success, struct nugget_app_storage is returned, followed by zero
+ * or more bytes of .data
+ *
+ * @param args         <none>
+ * @param arg_len      0
+ * @param reply        struct nugget_app_storage + zero or more bytes
+ * @param reply_len    <varies>
+ *
+ * @errors             APP_ERROR_BOGUS_ARGS
  */
 
 /****************************************************************************/
@@ -352,10 +456,11 @@ enum nugget_app_selftest_cmd {
 
 /*
  * This struct is specific to Citadel and Nugget OS, but it's enough for the
- * AP-side implementation to translate into the info required for the HAL
- * structs.
+ * AP-side implementation to translate into the info required for the power
+ * stats service.
  */
-struct nugget_app_low_power_stats {
+#define NUGGET_APP_LOW_POWER_STATS_MAGIC 0xC0DEACE1
+struct nugget_app_low_power_stats { /* version 1 */
   /* All times in usecs */
   uint64_t hard_reset_count;                    /* Cleared by power loss */
   uint64_t time_since_hard_reset;
@@ -368,6 +473,18 @@ struct nugget_app_low_power_stats {
   uint64_t time_spent_in_deep_sleep;
   uint64_t time_at_ap_reset;
   uint64_t time_at_ap_bootloader_done;
+  /*
+   * New fields for v1, used by factory tests. The caller can tell whether the
+   * firmare supports these fields by checking the v1_magic value.
+   */
+  uint32_t v1_magic; /* NUGGET_APP_LOW_POWER_STATS_MAGIC */
+  uint32_t temp;
+  struct {
+    unsigned int phone_on_l : 1;
+    unsigned int vol_up_l : 1;
+    unsigned int vol_dn_l : 1;
+    unsigned int _padding : 29; /* pad to 32 bits */
+  } signals;
 } __packed;
 
 #define NUGGET_PARAM_GET_LOW_POWER_STATS 0x200
@@ -498,6 +615,21 @@ enum nugget_app_sleep_mode {
  * @param arg_len      4
  * @param reply        <none>
  * @param reply_len    0
+ */
+
+#define NUGGET_PARAM_TRIGGER_PIN 0xF005
+/**
+ * Get/Set trigger pin level
+ *
+ * This command asks GSC to set the level (0|1) of an otherwise unused GPIO,
+ * to signal external test equipment.
+ *
+ * @param args         0     OR   1
+ * @param arg_len      0     OR   1 byte
+ * @param reply        current state (0 or 1)
+ * @param reply_len    1 byte
+ *
+ * @errors             APP_ERROR_BOGUS_ARGS
  */
 
 #ifdef __cplusplus

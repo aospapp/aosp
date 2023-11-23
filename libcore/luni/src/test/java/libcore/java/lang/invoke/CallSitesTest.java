@@ -69,7 +69,7 @@ public class CallSitesTest extends TestCase {
         MutableCallSite site = new MutableCallSite(type);
         assertEquals(type, site.type());
         try {
-            int dummy = (int) site.getTarget().invokeExact(1, 1);
+            int fake = (int) site.getTarget().invokeExact(1, 1);
             fail();
         } catch (IllegalStateException e) {
             assertEquals("uninitialized call site", e.getMessage());
@@ -85,7 +85,7 @@ public class CallSitesTest extends TestCase {
         VolatileCallSite site = new VolatileCallSite(type);
         assertEquals(type, site.type());
         try {
-            int dummy = (int) site.getTarget().invokeExact(1, 1);
+            int fake = (int) site.getTarget().invokeExact(1, 1);
             fail();
         } catch (IllegalStateException e) {
             assertEquals("uninitialized call site", e.getMessage());

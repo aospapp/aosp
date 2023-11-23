@@ -14,7 +14,7 @@ ATTRIBUTES = "suite:bvt-perbuild, suite:jailed_build, suite:partners"
 DEPENDENCIES='cleanup-reboot'
 
 DOC = """
-Crash all valid Chrome OS processes from a whitelist, and confirm
+Crash all valid Chrome OS processes from an allowlist, and confirm
 that *.dmp, *.meta, and *.core files are created.
 """
 

@@ -31,7 +31,8 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiScrollable;
@@ -47,6 +48,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 public class PermissionGroupChange {
     private static final String APP_PKG_NAME = "android.permission.cts.appthatrequestpermission";
@@ -107,7 +109,8 @@ public class PermissionGroupChange {
             if (mAllowButtonText == null) {
                 mAllowButtonText = getPermissionControllerString("grant_dialog_button_allow");
             }
-            mUiDevice.findObject(By.text(mAllowButtonText)).click();
+            mUiDevice.findObject(By.text(Pattern.compile(Pattern.quote(mAllowButtonText),
+                    Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE))).click();
         } else {
             mUiDevice.findObject(By.res(
                     "com.android.permissioncontroller:id/permission_allow_button")).click();
@@ -160,8 +163,9 @@ public class PermissionGroupChange {
         runShellCommand("pm uninstall android.permission.cts.appthatrequestpermission");
     }
 
-    @SecurityTest
     @Test
+    @AppModeFull
+    @AsbSecurityTest(cveBugId = 72710897)
     public void permissionGroupShouldNotBeAutoGrantedIfNewMember() throws Throwable {
         installApp("CtsAppThatRequestsPermissionAandB");
 

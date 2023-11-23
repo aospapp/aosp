@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_libtextclassifier_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_libtextclassifier_license"],
+}
+
 android_test {
     name: "TextClassifierNotificationTests",
 
@@ -33,8 +42,10 @@ android_test {
     ],
 
     test_suites: [
-        "device-tests", "mts"
+        "general-tests", "mts-extservices"
     ],
+
+    min_sdk_version: "30",
 
     instrumentation_for: "TextClassifierNotificationLib",
 }

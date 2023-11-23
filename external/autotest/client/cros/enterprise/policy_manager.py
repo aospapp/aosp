@@ -92,7 +92,7 @@ class Policy_Manager(object):
         verifying the extension policy tricky.
 
         To help with, this function will allow you to set the 'real' policy.
-        Important things to note: This is only useful for verfying the policy,
+        Important things to note: This is only useful for verifying the policy,
         and getting the policy as a dictionary (which has a flag for which
         style of extension policies you want to see. The DM server will not be
         set via this.

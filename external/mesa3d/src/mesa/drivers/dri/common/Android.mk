@@ -32,6 +32,9 @@ include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Makefile.sources
 
 LOCAL_MODULE := libmesa_dri_common
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../LICENSE
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 intermediates := $(call local-generated-sources-dir)
@@ -59,6 +62,9 @@ include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Makefile.sources
 
 LOCAL_MODULE := libmesa_megadriver_stub
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../LICENSE
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_C_INCLUDES := \
     $(MESA_DRI_C_INCLUDES)

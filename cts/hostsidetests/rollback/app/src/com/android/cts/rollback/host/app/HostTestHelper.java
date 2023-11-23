@@ -16,12 +16,16 @@
 
 package com.android.cts.rollback.host.app;
 
+import static com.android.cts.shim.lib.ShimPackage.PRIVILEGED_SHIM_PACKAGE_NAME;
+import static com.android.cts.shim.lib.ShimPackage.SHIM_APEX_PACKAGE_NAME;
+import static com.android.cts.shim.lib.ShimPackage.SHIM_PACKAGE_NAME;
 import static com.android.cts.rollback.lib.RollbackInfoSubject.assertThat;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.pm.PackageInstaller;
 import android.content.rollback.RollbackInfo;
 import android.content.rollback.RollbackManager;
 import android.os.storage.StorageManager;
@@ -56,10 +60,8 @@ public class HostTestHelper {
     private static final String TAG = "RollbackTest";
 
     private static final TestApp Apex2SignedBobRotRollback = new TestApp(
-            "Apex2SignedBobRotRollback", TestApp.Apex, 2, /*isApex*/true,
+            "Apex2SignedBobRotRollback", SHIM_APEX_PACKAGE_NAME, 2, /*isApex*/true,
             "com.android.apex.cts.shim.v2_signed_bob_rot_rollback.apex");
-    private static final String ApkInShimApexPackageName = "com.android.cts.ctsshim";
-    private static final String PrivApkInShimApexPackageName = "com.android.cts.priv.ctsshim";
     private static final String APK_VERSION_FILENAME = "ctsrollback_apkversion";
     private static final String APK_VERSION_SEPARATOR = ",";
 
@@ -97,7 +99,7 @@ public class HostTestHelper {
      * Commits TestApp.A2 as a staged install with rollback enabled.
      */
     @Test
-    public void testApkOnlyStagedRollback_Phase1() throws Exception {
+    public void testApkOnlyStagedRollback_Phase1_Install() throws Exception {
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(-1);
 
         Install.single(TestApp.A1).commit();
@@ -110,7 +112,7 @@ public class HostTestHelper {
      * rollback.
      */
     @Test
-    public void testApkOnlyStagedRollback_Phase2() throws Exception {
+    public void testApkOnlyStagedRollback_Phase2_RollBack() throws Exception {
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
         InstallUtils.processUserData(TestApp.A);
 
@@ -131,7 +133,6 @@ public class HostTestHelper {
 
         // Note: The app is not rolled back until after the rollback is staged
         // and the device has been rebooted.
-        InstallUtils.waitForSessionReady(committed.getCommittedSessionId());
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
     }
 
@@ -140,7 +141,7 @@ public class HostTestHelper {
      * Confirms TestApp.A2 was rolled back.
      */
     @Test
-    public void testApkOnlyStagedRollback_Phase3() throws Exception {
+    public void testApkOnlyStagedRollback_Phase3_Confirm() throws Exception {
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(1);
         InstallUtils.processUserData(TestApp.A);
 
@@ -157,7 +158,7 @@ public class HostTestHelper {
      * Commits TestApp.A2 and TestApp.B2 as a staged install with rollback enabled.
      */
     @Test
-    public void testApkOnlyMultipleStagedRollback_Phase1() throws Exception {
+    public void testApkOnlyMultipleStagedRollback_Phase1_Install() throws Exception {
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(-1);
         assertThat(InstallUtils.getInstalledVersion(TestApp.B)).isEqualTo(-1);
 
@@ -174,7 +175,7 @@ public class HostTestHelper {
      * rollback.
      */
     @Test
-    public void testApkOnlyMultipleStagedRollback_Phase2() throws Exception {
+    public void testApkOnlyMultipleStagedRollback_Phase2_RollBack() throws Exception {
         // Process TestApp.A
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
         InstallUtils.processUserData(TestApp.A);
@@ -192,7 +193,6 @@ public class HostTestHelper {
                 Rollback.from(TestApp.A2).to(TestApp.A1));
         assertThat(committed).causePackagesContainsExactly(TestApp.A2);
         assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
-        InstallUtils.waitForSessionReady(committed.getCommittedSessionId());
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
 
         // Process TestApp.B
@@ -212,7 +212,6 @@ public class HostTestHelper {
                 Rollback.from(TestApp.B2).to(TestApp.B1));
         assertThat(committed).causePackagesContainsExactly(TestApp.B2);
         assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
-        InstallUtils.waitForSessionReady(committed.getCommittedSessionId());
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
     }
 
@@ -221,7 +220,7 @@ public class HostTestHelper {
      * Confirms TestApp.A2 and TestApp.B2 was rolled back.
      */
     @Test
-    public void testApkOnlyMultipleStagedRollback_Phase3() throws Exception {
+    public void testApkOnlyMultipleStagedRollback_Phase3_Confirm() throws Exception {
         // Process TestApp.A
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(1);
         InstallUtils.processUserData(TestApp.A);
@@ -248,7 +247,7 @@ public class HostTestHelper {
      * Commits TestApp.A2 and TestApp.B2 as a staged install with rollback enabled.
      */
     @Test
-    public void testApkOnlyMultipleStagedPartialRollback_Phase1() throws Exception {
+    public void testApkOnlyMultipleStagedPartialRollback_Phase1_Install() throws Exception {
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(-1);
         assertThat(InstallUtils.getInstalledVersion(TestApp.B)).isEqualTo(-1);
 
@@ -265,7 +264,7 @@ public class HostTestHelper {
      * rollback.
      */
     @Test
-    public void testApkOnlyMultipleStagedPartialRollback_Phase2() throws Exception {
+    public void testApkOnlyMultipleStagedPartialRollback_Phase2_RollBack() throws Exception {
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
         InstallUtils.processUserData(TestApp.A);
         RollbackInfo available = RollbackUtils.getAvailableRollback(TestApp.A);
@@ -282,7 +281,6 @@ public class HostTestHelper {
                 Rollback.from(TestApp.A2).to(TestApp.A1));
         assertThat(committed).causePackagesContainsExactly(TestApp.A2);
         assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
-        InstallUtils.waitForSessionReady(committed.getCommittedSessionId());
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
     }
 
@@ -291,7 +289,7 @@ public class HostTestHelper {
      * Confirms TestApp.A2 was rolled back.
      */
     @Test
-    public void testApkOnlyMultipleStagedPartialRollback_Phase3() throws Exception {
+    public void testApkOnlyMultipleStagedPartialRollback_Phase3_Confirm() throws Exception {
         // Process TestApp.A
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(1);
         InstallUtils.processUserData(TestApp.A);
@@ -313,8 +311,8 @@ public class HostTestHelper {
      * <p> We start by installing version 2. The test ultimately rolls back from 3 to 2.
      */
     @Test
-    public void testApexOnlyStagedRollback_Phase1() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(1);
+    public void testApexOnlyStagedRollback_Phase1_InstallFirst() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
         Install.single(TestApp.Apex2).setStaged().commit();
     }
 
@@ -323,8 +321,8 @@ public class HostTestHelper {
      * Enable rollback phase.
      */
     @Test
-    public void testApexOnlyStagedRollback_Phase2() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(2);
+    public void testApexOnlyStagedRollback_Phase2_InstallSecond() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(2);
 
         // keep the versions of the apks in shim apex for verifying in phase3
         recordApkInApexVersion();
@@ -337,21 +335,21 @@ public class HostTestHelper {
      * Commit rollback phase.
      */
     @Test
-    public void testApexOnlyStagedRollback_Phase3() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(3);
+    public void testApexOnlyStagedRollback_Phase3_RollBack() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(3);
 
         long[] versions = retrieveApkInApexVersion();
         final long apkInShimApexVersion = versions[0];
         final long privApkInShimApexVersion = versions[1];
 
-        RollbackInfo available = RollbackUtils.getAvailableRollback(TestApp.Apex);
+        RollbackInfo available = RollbackUtils.getAvailableRollback(SHIM_APEX_PACKAGE_NAME);
         assertThat(available).isStaged();
         assertThat(available).packagesContainsExactly(
                 Rollback.from(TestApp.Apex3).to(TestApp.Apex2),
-                Rollback.from(ApkInShimApexPackageName, 0)
-                        .to(ApkInShimApexPackageName, apkInShimApexVersion),
-                Rollback.from(PrivApkInShimApexPackageName, 0)
-                        .to(PrivApkInShimApexPackageName, privApkInShimApexVersion));
+                Rollback.from(SHIM_PACKAGE_NAME, 0)
+                        .to(SHIM_PACKAGE_NAME, apkInShimApexVersion),
+                Rollback.from(PRIVILEGED_SHIM_PACKAGE_NAME, 0)
+                        .to(PRIVILEGED_SHIM_PACKAGE_NAME, privApkInShimApexVersion));
 
         RollbackUtils.rollback(available.getRollbackId(), TestApp.Apex3);
         RollbackInfo committed = RollbackUtils.getCommittedRollbackById(available.getRollbackId());
@@ -359,17 +357,16 @@ public class HostTestHelper {
         assertThat(committed).isStaged();
         assertThat(committed).packagesContainsExactly(
                 Rollback.from(TestApp.Apex3).to(TestApp.Apex2),
-                Rollback.from(ApkInShimApexPackageName, 0)
-                        .to(ApkInShimApexPackageName, apkInShimApexVersion),
-                Rollback.from(PrivApkInShimApexPackageName, 0)
-                        .to(PrivApkInShimApexPackageName, privApkInShimApexVersion));
+                Rollback.from(SHIM_PACKAGE_NAME, 0)
+                        .to(SHIM_PACKAGE_NAME, apkInShimApexVersion),
+                Rollback.from(PRIVILEGED_SHIM_PACKAGE_NAME, 0)
+                        .to(PRIVILEGED_SHIM_PACKAGE_NAME, privApkInShimApexVersion));
         assertThat(committed).causePackagesContainsExactly(TestApp.Apex3);
         assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
 
         // Note: The app is not rolled back until after the rollback is staged
         // and the device has been rebooted.
-        InstallUtils.waitForSessionReady(committed.getCommittedSessionId());
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(3);
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(3);
     }
 
     /**
@@ -377,8 +374,8 @@ public class HostTestHelper {
      * Confirm rollback phase.
      */
     @Test
-    public void testApexOnlyStagedRollback_Phase4() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(2);
+    public void testApexOnlyStagedRollback_Phase4_Confirm() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(2);
 
         // Rollback data for shim apex will remain in storage since the apex cannot be completely
         // removed and thus the rollback data won't be expired. Unfortunately, we can't also delete
@@ -389,8 +386,8 @@ public class HostTestHelper {
      * Test rollback to system version involving apex only
      */
     @Test
-    public void testApexOnlySystemVersionStagedRollback_Phase1() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(1);
+    public void testApexOnlySystemVersionStagedRollback_Phase1_Install() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
 
         // keep the versions of the apks in shim apex for verifying in phase2
         recordApkInApexVersion();
@@ -399,21 +396,21 @@ public class HostTestHelper {
     }
 
     @Test
-    public void testApexOnlySystemVersionStagedRollback_Phase2() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(2);
+    public void testApexOnlySystemVersionStagedRollback_Phase2_RollBack() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(2);
 
         long[] versions = retrieveApkInApexVersion();
         final long apkInShimApexVersion = versions[0];
         final long privApkInShimApexVersion = versions[1];
 
-        RollbackInfo available = RollbackUtils.getAvailableRollback(TestApp.Apex);
+        RollbackInfo available = RollbackUtils.getAvailableRollback(SHIM_APEX_PACKAGE_NAME);
         assertThat(available).isStaged();
         assertThat(available).packagesContainsExactly(
                 Rollback.from(TestApp.Apex2).to(TestApp.Apex1),
-                Rollback.from(ApkInShimApexPackageName, 0)
-                        .to(ApkInShimApexPackageName, apkInShimApexVersion),
-                Rollback.from(PrivApkInShimApexPackageName, 0)
-                        .to(PrivApkInShimApexPackageName, privApkInShimApexVersion));
+                Rollback.from(SHIM_PACKAGE_NAME, 0)
+                        .to(SHIM_PACKAGE_NAME, apkInShimApexVersion),
+                Rollback.from(PRIVILEGED_SHIM_PACKAGE_NAME, 0)
+                        .to(PRIVILEGED_SHIM_PACKAGE_NAME, privApkInShimApexVersion));
 
         RollbackUtils.rollback(available.getRollbackId(), TestApp.Apex2);
         RollbackInfo committed = RollbackUtils.getCommittedRollbackById(available.getRollbackId());
@@ -421,22 +418,21 @@ public class HostTestHelper {
         assertThat(committed).isStaged();
         assertThat(committed).packagesContainsExactly(
                 Rollback.from(TestApp.Apex2).to(TestApp.Apex1),
-                Rollback.from(ApkInShimApexPackageName, 0)
-                        .to(ApkInShimApexPackageName, apkInShimApexVersion),
-                Rollback.from(PrivApkInShimApexPackageName, 0)
-                        .to(PrivApkInShimApexPackageName, privApkInShimApexVersion));
+                Rollback.from(SHIM_PACKAGE_NAME, 0)
+                        .to(SHIM_PACKAGE_NAME, apkInShimApexVersion),
+                Rollback.from(PRIVILEGED_SHIM_PACKAGE_NAME, 0)
+                        .to(PRIVILEGED_SHIM_PACKAGE_NAME, privApkInShimApexVersion));
         assertThat(committed).causePackagesContainsExactly(TestApp.Apex2);
         assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
 
         // Note: The app is not rolled back until after the rollback is staged
         // and the device has been rebooted.
-        InstallUtils.waitForSessionReady(committed.getCommittedSessionId());
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(2);
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(2);
     }
 
     @Test
-    public void testApexOnlySystemVersionStagedRollback_Phase3() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(1);
+    public void testApexOnlySystemVersionStagedRollback_Phase3_Confirm() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
     }
 
     /**
@@ -444,8 +440,8 @@ public class HostTestHelper {
      * Install first version phase.
      */
     @Test
-    public void testApexAndApkStagedRollback_Phase1() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(1);
+    public void testApexAndApkStagedRollback_Phase1_InstallFirst() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(-1);
 
         Install.multi(TestApp.Apex2, TestApp.A1).setStaged().commit();
@@ -456,8 +452,8 @@ public class HostTestHelper {
      * Enable rollback phase.
      */
     @Test
-    public void testApexAndApkStagedRollback_Phase2() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(2);
+    public void testApexAndApkStagedRollback_Phase2_InstallSecond() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(2);
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(1);
 
         // keep the versions of the apks in shim apex for verifying in phase3 and phase4
@@ -471,8 +467,8 @@ public class HostTestHelper {
      * Commit rollback phase.
      */
     @Test
-    public void testApexAndApkStagedRollback_Phase3() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(3);
+    public void testApexAndApkStagedRollback_Phase3_RollBack() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(3);
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
         InstallUtils.processUserData(TestApp.A);
 
@@ -480,15 +476,15 @@ public class HostTestHelper {
         final long apkInShimApexVersion = versions[0];
         final long privApkInShimApexVersion = versions[1];
 
-        RollbackInfo available = RollbackUtils.getAvailableRollback(TestApp.Apex);
+        RollbackInfo available = RollbackUtils.getAvailableRollback(SHIM_APEX_PACKAGE_NAME);
         assertThat(available).isStaged();
         assertThat(available).packagesContainsExactly(
                 Rollback.from(TestApp.Apex3).to(TestApp.Apex2),
                 Rollback.from(TestApp.A2).to(TestApp.A1),
-                Rollback.from(ApkInShimApexPackageName, 0)
-                        .to(ApkInShimApexPackageName, apkInShimApexVersion),
-                Rollback.from(PrivApkInShimApexPackageName, 0)
-                        .to(PrivApkInShimApexPackageName, privApkInShimApexVersion));
+                Rollback.from(SHIM_PACKAGE_NAME, 0)
+                        .to(SHIM_PACKAGE_NAME, apkInShimApexVersion),
+                Rollback.from(PRIVILEGED_SHIM_PACKAGE_NAME, 0)
+                        .to(PRIVILEGED_SHIM_PACKAGE_NAME, privApkInShimApexVersion));
 
         RollbackUtils.rollback(available.getRollbackId(), TestApp.Apex3, TestApp.A2);
         RollbackInfo committed = RollbackUtils.getCommittedRollback(TestApp.A);
@@ -497,17 +493,16 @@ public class HostTestHelper {
         assertThat(committed).packagesContainsExactly(
                 Rollback.from(TestApp.Apex3).to(TestApp.Apex2),
                 Rollback.from(TestApp.A2).to(TestApp.A1),
-                Rollback.from(ApkInShimApexPackageName, 0)
-                        .to(ApkInShimApexPackageName, apkInShimApexVersion),
-                Rollback.from(PrivApkInShimApexPackageName, 0)
-                        .to(PrivApkInShimApexPackageName, privApkInShimApexVersion));
+                Rollback.from(SHIM_PACKAGE_NAME, 0)
+                        .to(SHIM_PACKAGE_NAME, apkInShimApexVersion),
+                Rollback.from(PRIVILEGED_SHIM_PACKAGE_NAME, 0)
+                        .to(PRIVILEGED_SHIM_PACKAGE_NAME, privApkInShimApexVersion));
         assertThat(committed).causePackagesContainsExactly(TestApp.Apex3, TestApp.A2);
         assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
 
         // Note: The app is not rolled back until after the rollback is staged
         // and the device has been rebooted.
-        InstallUtils.waitForSessionReady(committed.getCommittedSessionId());
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(3);
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(3);
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
     }
 
@@ -516,8 +511,8 @@ public class HostTestHelper {
      * Confirm rollback phase.
      */
     @Test
-    public void testApexAndApkStagedRollback_Phase4() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(2);
+    public void testApexAndApkStagedRollback_Phase4_Confirm() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(2);
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(1);
         InstallUtils.processUserData(TestApp.A);
 
@@ -530,10 +525,10 @@ public class HostTestHelper {
         assertThat(committed).packagesContainsExactly(
                 Rollback.from(TestApp.Apex3).to(TestApp.Apex2),
                 Rollback.from(TestApp.A2).to(TestApp.A1),
-                Rollback.from(ApkInShimApexPackageName, 0)
-                        .to(ApkInShimApexPackageName, apkInShimApexVersion),
-                Rollback.from(PrivApkInShimApexPackageName, 0)
-                        .to(PrivApkInShimApexPackageName, privApkInShimApexVersion));
+                Rollback.from(SHIM_PACKAGE_NAME, 0)
+                        .to(SHIM_PACKAGE_NAME, apkInShimApexVersion),
+                Rollback.from(PRIVILEGED_SHIM_PACKAGE_NAME, 0)
+                        .to(PRIVILEGED_SHIM_PACKAGE_NAME, privApkInShimApexVersion));
         assertThat(committed).causePackagesContainsExactly(TestApp.Apex3, TestApp.A2);
         assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
 
@@ -547,8 +542,8 @@ public class HostTestHelper {
      * Enable rollback phase.
      */
     @Test
-    public void testApexRollbackExpiration_Phase1() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(1);
+    public void testApexRollbackExpiration_Phase1_InstallFirst() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
 
         Install.single(TestApp.Apex2).setStaged().setEnableRollback().commit();
     }
@@ -558,9 +553,9 @@ public class HostTestHelper {
      * Update apex phase.
      */
     @Test
-    public void testApexRollbackExpiration_Phase2() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(2);
-        assertThat(RollbackUtils.getAvailableRollback(TestApp.Apex)).isNotNull();
+    public void testApexRollbackExpiration_Phase2_InstallSecond() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(2);
+        assertThat(RollbackUtils.getAvailableRollback(SHIM_APEX_PACKAGE_NAME)).isNotNull();
         Install.single(TestApp.Apex3).setStaged().commit();
     }
 
@@ -569,17 +564,17 @@ public class HostTestHelper {
      * Confirm expiration phase.
      */
     @Test
-    public void testApexRollbackExpiration_Phase3() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(3);
-        assertThat(RollbackUtils.getAvailableRollback(TestApp.Apex)).isNull();
+    public void testApexRollbackExpiration_Phase3_Confirm() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(3);
+        assertThat(RollbackUtils.getAvailableRollback(SHIM_APEX_PACKAGE_NAME)).isNull();
     }
 
     /**
      * Test rollback with key downgrade for apex only
      */
     @Test
-    public void testApexKeyRotationStagedRollback_Phase1() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(1);
+    public void testApexKeyRotationStagedRollback_Phase1_Install() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
 
         // keep the versions of the apks in shim apex for verifying in phase2
         recordApkInApexVersion();
@@ -588,9 +583,9 @@ public class HostTestHelper {
     }
 
     @Test
-    public void testApexKeyRotationStagedRollback_Phase2() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(2);
-        RollbackInfo available = RollbackUtils.getAvailableRollback(TestApp.Apex);
+    public void testApexKeyRotationStagedRollback_Phase2_RollBack() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(2);
+        RollbackInfo available = RollbackUtils.getAvailableRollback(SHIM_APEX_PACKAGE_NAME);
         long[] versions = retrieveApkInApexVersion();
         final long apkInShimApexVersion = versions[0];
         final long privApkInShimApexVersion = versions[1];
@@ -598,10 +593,10 @@ public class HostTestHelper {
         assertThat(available).isStaged();
         assertThat(available).packagesContainsExactly(
                 Rollback.from(Apex2SignedBobRotRollback).to(TestApp.Apex1),
-                Rollback.from(ApkInShimApexPackageName, 0)
-                        .to(ApkInShimApexPackageName, apkInShimApexVersion),
-                Rollback.from(PrivApkInShimApexPackageName, 0)
-                        .to(PrivApkInShimApexPackageName, privApkInShimApexVersion));
+                Rollback.from(SHIM_PACKAGE_NAME, 0)
+                        .to(SHIM_PACKAGE_NAME, apkInShimApexVersion),
+                Rollback.from(PRIVILEGED_SHIM_PACKAGE_NAME, 0)
+                        .to(PRIVILEGED_SHIM_PACKAGE_NAME, privApkInShimApexVersion));
 
         RollbackUtils.rollback(available.getRollbackId(), Apex2SignedBobRotRollback);
         RollbackInfo committed = RollbackUtils.getCommittedRollbackById(available.getRollbackId());
@@ -609,32 +604,31 @@ public class HostTestHelper {
         assertThat(committed).isStaged();
         assertThat(committed).packagesContainsExactly(
                 Rollback.from(Apex2SignedBobRotRollback).to(TestApp.Apex1),
-                Rollback.from(ApkInShimApexPackageName, 0)
-                        .to(ApkInShimApexPackageName, apkInShimApexVersion),
-                Rollback.from(PrivApkInShimApexPackageName, 0)
-                        .to(PrivApkInShimApexPackageName, privApkInShimApexVersion));
+                Rollback.from(SHIM_PACKAGE_NAME, 0)
+                        .to(SHIM_PACKAGE_NAME, apkInShimApexVersion),
+                Rollback.from(PRIVILEGED_SHIM_PACKAGE_NAME, 0)
+                        .to(PRIVILEGED_SHIM_PACKAGE_NAME, privApkInShimApexVersion));
         assertThat(committed).causePackagesContainsExactly(Apex2SignedBobRotRollback);
         assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
 
         // Note: The app is not rolled back until after the rollback is staged
         // and the device has been rebooted.
-        InstallUtils.waitForSessionReady(committed.getCommittedSessionId());
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(2);
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(2);
     }
 
     @Test
-    public void testApexKeyRotationStagedRollback_Phase3() throws Exception {
-        assertThat(InstallUtils.getInstalledVersion(TestApp.Apex)).isEqualTo(1);
+    public void testApexKeyRotationStagedRollback_Phase3_Confirm() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(SHIM_APEX_PACKAGE_NAME)).isEqualTo(1);
     }
 
     @Test
-    public void testApkRollbackByAnotherInstaller_Phase1() throws Exception {
+    public void testApkRollbackByAnotherInstaller_Phase1_FirstInstaller() throws Exception {
         Install.single(TestApp.A1).commit();
         Install.single(TestApp.A2).setEnableRollback().commit();
     }
 
     @Test
-    public void testFingerprintChange_Phase1() throws Exception {
+    public void testFingerprintChange_Phase1_Install() throws Exception {
         assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(-1);
         assertThat(InstallUtils.getInstalledVersion(TestApp.B)).isEqualTo(-1);
 
@@ -645,23 +639,136 @@ public class HostTestHelper {
     }
 
     @Test
-    public void testFingerprintChange_Phase2() throws Exception {
+    public void testFingerprintChange_Phase2_Confirm() throws Exception {
         assertThat(RollbackUtils.getRollbackManager().getAvailableRollbacks()).isEmpty();
     }
 
     @Test
-    public void isCheckpointSupported() {
-        Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        StorageManager sm = (StorageManager) context.getSystemService(Context.STORAGE_SERVICE);
-        assertThat(sm.isCheckpointSupported()).isTrue();
+    public void testRollbackFailsOtherSessions_Phase1_Install() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(-1);
+        Install.single(TestApp.A1).commit();
+        Install.single(TestApp.A2).setStaged().setEnableRollback().commit();
+    }
+
+    @Test
+    public void testRollbackFailsOtherSessions_Phase2_RollBack() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
+        InstallUtils.processUserData(TestApp.A);
+        // Stage session for package A to check if it can block rollback of A
+        final int sessionIdA = Install.single(TestApp.A3).setStaged().setEnableRollback().commit();
+
+        // Stage another package not related to the rollback
+        Install.single(TestApp.B1).commit();
+        final int sessionIdB = Install.single(TestApp.B2).setStaged().setEnableRollback().commit();
+
+        final RollbackInfo available = RollbackUtils.getAvailableRollback(TestApp.A);
+        RollbackUtils.rollback(available.getRollbackId(), TestApp.A2);
+        final RollbackInfo committed = RollbackUtils.getCommittedRollback(TestApp.A);
+        assertThat(committed).hasRollbackId(available.getRollbackId());
+        assertThat(committed).isStaged();
+        assertThat(committed).packagesContainsExactly(
+                Rollback.from(TestApp.A2).to(TestApp.A1));
+        assertThat(committed).causePackagesContainsExactly(TestApp.A2);
+        assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
+
+        // Assert that blocking staged session is failed
+        final PackageInstaller.SessionInfo sessionA = InstallUtils.getStagedSessionInfo(sessionIdA);
+        assertThat(sessionA).isNotNull();
+        assertThat(sessionA.isStagedSessionFailed()).isTrue();
+
+        // Assert that the unrelated staged session is also failed
+        final PackageInstaller.SessionInfo sessionB = InstallUtils.getStagedSessionInfo(sessionIdB);
+        assertThat(sessionB).isNotNull();
+        assertThat(sessionB.isStagedSessionFailed()).isTrue();
+
+        // Note: The app is not rolled back until after the rollback is staged
+        // and the device has been rebooted.
+        assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
+    }
+
+    @Test
+    public void testRollbackFailsOtherSessions_Phase3_Confirm() throws Exception {
+        // Process TestApp.A
+        assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(1);
+        InstallUtils.processUserData(TestApp.A);
+        final RollbackInfo committed = RollbackUtils.getCommittedRollback(TestApp.A);
+        assertThat(committed).isStaged();
+        assertThat(committed).packagesContainsExactly(
+                Rollback.from(TestApp.A2).to(TestApp.A1));
+        assertThat(committed).causePackagesContainsExactly(TestApp.A2);
+        assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
+
+        // Assert that unrelated package was also failed
+        assertThat(InstallUtils.getInstalledVersion(TestApp.B)).isEqualTo(1);
+    }
+
+    @Test
+    public void testSimultaneousRollbacksBothSucceed_Phase1_Install() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(-1);
+        assertThat(InstallUtils.getInstalledVersion(TestApp.B)).isEqualTo(-1);
+        Install.single(TestApp.A1).commit();
+        Install.single(TestApp.A2).setStaged().setEnableRollback().commit();
+        Install.single(TestApp.B1).commit();
+        Install.single(TestApp.B2).setStaged().setEnableRollback().commit();
+    }
+
+    @Test
+    public void testSimultaneousRollbacksBothSucceed_Phase2_RollBack() throws Exception {
+        assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(2);
+        assertThat(InstallUtils.getInstalledVersion(TestApp.B)).isEqualTo(2);
+        InstallUtils.processUserData(TestApp.A);
+        InstallUtils.processUserData(TestApp.B);
+
+        final RollbackInfo available = RollbackUtils.getAvailableRollback(TestApp.A);
+        RollbackUtils.rollback(available.getRollbackId(), TestApp.A2);
+        final RollbackInfo committed = RollbackUtils.getCommittedRollback(TestApp.A);
+        assertThat(committed).hasRollbackId(available.getRollbackId());
+        assertThat(committed).isStaged();
+        assertThat(committed).packagesContainsExactly(
+                Rollback.from(TestApp.A2).to(TestApp.A1));
+        assertThat(committed).causePackagesContainsExactly(TestApp.A2);
+        assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
+
+        final RollbackInfo availableB = RollbackUtils.getAvailableRollback(TestApp.B);
+        RollbackUtils.rollback(availableB.getRollbackId(), TestApp.B2);
+        final RollbackInfo committedB = RollbackUtils.getCommittedRollback(TestApp.B);
+        assertThat(committedB).hasRollbackId(availableB.getRollbackId());
+        assertThat(committedB).isStaged();
+        assertThat(committedB).packagesContainsExactly(
+                Rollback.from(TestApp.B2).to(TestApp.B1));
+        assertThat(committedB).causePackagesContainsExactly(TestApp.B2);
+        assertThat(committedB.getCommittedSessionId()).isNotEqualTo(-1);
+    }
+
+    @Test
+    public void testSimultaneousRollbacksBothSucceed_Phase3_Confirm() throws Exception {
+        // Process TestApp.A
+        assertThat(InstallUtils.getInstalledVersion(TestApp.A)).isEqualTo(1);
+        InstallUtils.processUserData(TestApp.A);
+        final RollbackInfo committed = RollbackUtils.getCommittedRollback(TestApp.A);
+        assertThat(committed).isStaged();
+        assertThat(committed).packagesContainsExactly(
+                Rollback.from(TestApp.A2).to(TestApp.A1));
+        assertThat(committed).causePackagesContainsExactly(TestApp.A2);
+        assertThat(committed.getCommittedSessionId()).isNotEqualTo(-1);
+
+        // Process TestApp.B
+        assertThat(InstallUtils.getInstalledVersion(TestApp.B)).isEqualTo(1);
+        InstallUtils.processUserData(TestApp.B);
+        final RollbackInfo committedB = RollbackUtils.getCommittedRollback(TestApp.B);
+        assertThat(committedB).isStaged();
+        assertThat(committedB).packagesContainsExactly(
+                Rollback.from(TestApp.B2).to(TestApp.B1));
+        assertThat(committedB).causePackagesContainsExactly(TestApp.B2);
+        assertThat(committedB.getCommittedSessionId()).isNotEqualTo(-1);
     }
 
     /**
      * Record the versions of Apk in shim apex and PrivApk in shim apex
      * in the order into {@link #APK_VERSION_FILENAME}.
      *
-     * @see #ApkInShimApexPackageName
-     * @see #PrivApkInShimApexPackageName
+     * @see ShimPackage#SHIM_PACKAGE_NAME
+     * @see ShimPackage#PRIVILEGED_SHIM_PACKAGE_NAME
      */
     private void recordApkInApexVersion() throws Exception {
         final File versionFile = getApkInApexVersionFile();
@@ -670,9 +777,9 @@ public class HostTestHelper {
             versionFile.createNewFile();
         }
 
-        final long apkInApexVersion = InstallUtils.getInstalledVersion(ApkInShimApexPackageName);
+        final long apkInApexVersion = InstallUtils.getInstalledVersion(SHIM_PACKAGE_NAME);
         final long privApkInApexVersion = InstallUtils.getInstalledVersion(
-                PrivApkInShimApexPackageName);
+                PRIVILEGED_SHIM_PACKAGE_NAME);
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(versionFile))) {
             writer.write(apkInApexVersion + APK_VERSION_SEPARATOR + privApkInApexVersion);
@@ -683,8 +790,8 @@ public class HostTestHelper {
      * Returns the array of the versions of Apk in shim apex and PrivApk in shim apex
      * in the order from {@link #APK_VERSION_FILENAME}.
      *
-     * @see #ApkInShimApexPackageName
-     * @see #PrivApkInShimApexPackageName
+     * @see ShimPackage#SHIM_PACKAGE_NAME
+     * @see ShimPackage#PRIVILEGED_SHIM_PACKAGE_NAME
      */
     private long[] retrieveApkInApexVersion() throws Exception {
         final File versionFile = getApkInApexVersionFile();

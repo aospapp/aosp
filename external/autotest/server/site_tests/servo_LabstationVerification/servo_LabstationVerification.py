@@ -7,13 +7,18 @@
 import json
 import logging
 import os
+import re
 import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import test
 from autotest_lib.server import utils as server_utils
-from autotest_lib.server.hosts import servo_host
+from autotest_lib.server import site_utils
+from autotest_lib.server.hosts import servo_host as _servo_host
+from autotest_lib.server.hosts import servo_constants
 from autotest_lib.server.hosts import factory
+from autotest_lib.server.hosts import host_info
+
 
 class servo_LabstationVerification(test.test):
     """Wrapper test to run verifications on a labstation image.
@@ -26,6 +31,18 @@ class servo_LabstationVerification(test.test):
     version = 1
 
     UL_BIT_MASK = 0x2
+
+    # Regex to match ipv4 byte.
+    IPV4_RE_BLOCK = r'(25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])'
+
+    # Full regex to match an ipv4 with optional subnet mask.
+    RE_IPV4 = re.compile(r'^(%(block)s\.){3}(%(block)s)(/\d+)?$' %
+                         {'block':IPV4_RE_BLOCK})
+
+    # Timeout in seconds to wait after cold_reset before attempting to ping
+    # again. This includes a potential fw screen (30s), and some buffer
+    # for the network.
+    RESET_TIMEOUT_S = 60
 
     def get_servo_mac(self, servo_proxy):
         """Given a servo's serial retrieve ethernet port mac address.
@@ -46,7 +63,7 @@ class servo_LabstationVerification(test.test):
             if 'No control named' in e:
                 serial = servo_proxy.get('serialname')
             else:
-              raise e
+                raise e
         ctrl_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                  'serial_to_mac_map.json')
         with open(ctrl_path, 'r') as f:
@@ -140,35 +157,65 @@ class servo_LabstationVerification(test.test):
         mac_bytes = mac_bytes[:3] + mac_bytes[-3:]
         return ':'.join([c.lower() for c in mac_bytes])
 
-    def _get_dev_from_hostname(self, host):
-        """Determine what network device on |host| is associated with its ip.
+    def _build_ssh_cmd(self, hostname, cmd):
+        """Build the ssh command to run |cmd| via bash on |hostname|.
 
-        @param host: host to inspect
+        @param hostname: hostname/ip where to run the cmd on
+        @param cmd: cmd on hostname to run
 
-        @returns: dev net for network device handling ip associated with |host|
+        @returns: ssh command to run
         """
-        devs = [dev.strip() for dev in
-                host.run('ls /sys/class/net').stdout.strip().split()]
-        host_ip = server_utils.get_ip_address(host.hostname)
-        if host_ip is None:
-            # TODO(coconutruben): this happens when hostname is IPv6. For now,
-            # just use hostname as it is. However, come back to this to either
-            # fix get_ip_address to report the right ip address, or
-            # use the socket API yourself.
-            host_ip = host.hostname
-        for dev in devs:
-            try:
-                host.run('ifconfig %s | grep %s' % (dev, host_ip))
-                # If there's a match, then we found the dev name.
-                return dev
-            except error.AutoservRunError:
-              # It's expected that for all but one network device grep will
-              # find no match. Ignore it.
-              logging.debug('ip %s not on dev %s', host_ip, dev)
-              continue
-        # If we get to this state, then we failed to find a network device.
-        raise error.TestFail('Failed to find network dev corresponding to '
-                             'ip %s.' % host.hostname)
+        ssh_cmd = [r'ssh', '-q', '-o', 'StrictHostKeyChecking=no',
+                   r'-o', 'UserKnownHostsFile=/dev/null',
+                   r'root@%s' % hostname,
+                   r'"%s"' % cmd]
+        return ' '.join(ssh_cmd)
+
+    def _ip_info_from_host(self, host, ip, info, host_name):
+        """Retrieve some |info| related to |ip| from host on |ip|.
+
+        @param host: object that implements 'run', where the command
+                     will be executed form
+        @param ip: ip address to run on and to filter for
+        @param info: one of 'ipv4' or 'dev'
+        @param host_name: executing host's name, for error message
+
+        @returns: ipv4 associated on the same nic as |ip| if |info|== 'ipv4'
+                  nic dev name associated with |ip| if |info|== 'dev'
+
+        @raises error.TestError: if output of 'ip --brief addr' is unexpected
+        @raises error.TestError: info not in ['ipv4', 'dev']
+        """
+        if info not in ['ipv4', 'dev']:
+            raise error.TestFail('Cannot retrieve info %r', info)
+        ip_stub = r"ip --brief addr | grep %s" % ip
+        cmd = self._build_ssh_cmd(ip, ip_stub)
+        logging.info('command to find %s on %s: %s', info, host_name, cmd)
+        # The expected output here is of the form:
+        # [net device] [UP/DOWN] [ipv4]/[subnet mask] [ipv6]/[subnet mask]+
+        try:
+            output = host.run(cmd).stdout.strip()
+        except (error.AutoservRunError, error.CmdError) as e:
+            logging.error(str(e))
+            raise error.TestFail('Failed to retrieve %s on %s' % (info, ip))
+        logging.debug('ip raw output: %s', output)
+        components = output.split()
+        if info == 'ipv4':
+            # To be safe, get all IPs, and subsequently report the first ipv4
+            # found.
+            raw_ips = components[2:]
+            for raw_ip in raw_ips:
+                if re.match(self.RE_IPV4, raw_ip):
+                    ret = raw_ip.split('/')[0]
+                    logging.info('ipv4 found: %s', ret)
+                    break
+            else:
+                raise error.TestFail('No ipv4 address found in ip command: %s' %
+                                     ', '.join(raw_ips))
+        if info == 'dev':
+            ret = components[0]
+            logging.info('dev found: %s', ret)
+        return ret
 
     def get_dut_on_servo_ip(self, servo_host_proxy):
         """Retrieve the IPv4 IP of the DUT attached to a servo.
@@ -185,7 +232,9 @@ class servo_LabstationVerification(test.test):
         # Note: throughout this method, sh refers to servo host, dh to DUT host.
         # Figure out servo hosts IPv6 address that's based on its mac address.
         servo_proxy = servo_host_proxy._servo
-        sh_nic_dev = self._get_dev_from_hostname(servo_host_proxy)
+        sh_ip = server_utils.get_ip_address(servo_host_proxy.hostname)
+        sh_nic_dev = self._ip_info_from_host(servo_host_proxy, sh_ip, 'dev',
+                                             'servo host')
         addr_cmd ='cat /sys/class/net/%s/address' % sh_nic_dev
         sh_dev_addr = servo_host_proxy.run(addr_cmd).stdout.strip()
         logging.debug('Inferred Labstation MAC to be: %s', sh_dev_addr)
@@ -202,119 +251,234 @@ class servo_LabstationVerification(test.test):
         dut_ipv6 = self._mac_to_ipv6_addr(self.get_servo_mac(servo_proxy),
                                           network_component)
         logging.info('Inferred DUT IPv6 to be: %s', dut_ipv6)
-        # Make a temporary cros host using the IPv6
-        temp_dut_host = factory.create_host(dut_ipv6)
-        # Try to ping the DUT
-        if not temp_dut_host.is_up(timeout=20):
-            # on failure reboot, wait 7s
-            servo_proxy.set('cold_reset', 'on')
-            servo_proxy.set('cold_reset', 'off')
-            time.sleep(20)
-            if not temp_dut_host.is_up(timeout=20):
-                temp_dut_host.close()
-                raise error.TestFail('Failed to find DUT on IPv6: %s' %
-                                     dut_ipv6)
-        # Figure out what dev the IPv6 belongs to.
-        dh_nic_dev = self._get_dev_from_hostname(temp_dut_host)
-        # Use ifconfig to determine the IPv4 address associated with
-        # |dh_nic_dev| on the DUT under the inet attribute.
-        ipv4_cmd = (r"ifconfig %s | sed -nr 's|\s+inet\s+([0-9.]+)\s.*$|\1|p'" %
-                    dh_nic_dev)
-        dut_ipv4 = temp_dut_host.run(ipv4_cmd).stdout.strip()
-        logging.info('Inferred DUT IPv4 to be: %s', dut_ipv4)
-        # Close out this host as a new host to the same DUT with the IPv4 will
-        # be created.
-        temp_dut_host.close()
+        # Dynamically generate the correct shell-script to retrieve the ipv4.
+        try:
+            server_utils.run('ping -6 -c 1 -w 35 %s' % dut_ipv6)
+        except error.CmdError:
+            # If the DUT cannot be pinged, then try to reset it and try to
+            # ping again.
+            logging.info('Failed to ping DUT on ipv6: %s. Cold resetting',
+                         dut_ipv6)
+            servo_proxy._power_state.reset()
+            time.sleep(self.RESET_TIMEOUT_S)
+        dut_ipv4 = None
+        try:
+            # Pass |server_utils| here as it implements the same interface
+            # as a host to run things locally i.e. on the autoserv runner.
+            dut_ipv4 = self._ip_info_from_host(server_utils, dut_ipv6, 'ipv4',
+                                               'autoserv')
+            return dut_ipv4
+        except error.TestFail:
+            logging.info('Failed to retrieve the DUT ipv4 directly. '
+                         'Going to attempt to tunnel request through '
+                         'labstation and forgive the error for now.')
+        # Lastly, attempt to run the command from the labstation instead
+        # to guard against networking issues.
+        dut_ipv4 = self._ip_info_from_host(servo_host_proxy, dut_ipv6, 'ipv4',
+                                           'autoserv')
         return dut_ipv4
 
-    def initialize(self, host, config=None):
+    def _set_dut_stable_version(self, dut_host, stable_version=None):
+        """Helper method to set stable_version in DUT host.
+
+        @param dut_host: CrosHost object representing the DUT.
+        """
+        if not stable_version:
+            stable_version = self.cros_version
+        logging.info('Setting stable_version to %s for DUT %s.',
+                     stable_version, dut_host.hostname)
+        info = dut_host.host_info_store.get()
+        info.stable_versions['cros'] = stable_version
+        dut_host.host_info_store.commit(info)
+
+    def _get_dut_info_from_config(self):
+        """Get DUT info from json config file.
+
+        @returns a list of dicts that each dict represents a dut.
+        """
+        ctrl_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                 'labstation_to_dut_map.json')
+        with open(ctrl_path, 'r') as f:
+            data = json.load(f, object_hook=self._byteify)
+            # create a default dut dict in case the servohost is not in config
+            # map, this is normally happened in local testing.
+            default_dut = {
+                'hostname': None,
+                'servo_port': '9999',
+                'servo_serial': None
+            }
+            return data.get(self.labstation_host.hostname, [default_dut])
+
+    def _byteify(self, data, ignore_dicts=False):
+        """Helper method to convert unicode to string.
+        """
+        if isinstance(data, unicode):
+            return data.encode('utf-8')
+        if isinstance(data, list):
+            return [self._byteify(item, ignore_dicts=True) for item in data]
+        if isinstance(data, dict) and not ignore_dicts:
+            return {
+                self._byteify(key, ignore_dicts=True):
+                    self._byteify(value, ignore_dicts=True)
+                for key, value in data.iteritems()
+            }
+        return data
+
+    def _setup_servod(self):
+        """Setup all servod instances under servohost for later testing.
+        """
+        for dut in self.dut_list:
+            # Use board: nami as default for local testing.
+            board = dut.get('board', 'nami')
+            port = dut.get('servo_port')
+            serial = dut.get('servo_serial')
+            servo_args = {
+                    servo_constants.SERVO_HOST_ATTR:
+                    self.labstation_host.hostname,
+                    servo_constants.SERVO_PORT_ATTR: port,
+                    servo_constants.SERVO_SERIAL_ATTR: serial,
+                    servo_constants.SERVO_BOARD_ATTR: board,
+                    servo_constants.ADDITIONAL_SERVOD_ARGS: 'DUAL_V4=1',
+                    'is_in_lab': False,
+            }
+
+            logging.info('Setting up servod for port %s', port)
+            # We need try_lab_servo option here, so servo firmware will get
+            # updated before run tests.
+            servo_host, _ = _servo_host.create_servo_host(None,
+                                                          servo_args,
+                                                          try_lab_servo=True)
+            try:
+                validate_cmd = 'servodutil show -p %s' % port
+                servo_host.run_grep(validate_cmd,
+                    stdout_err_regexp='No servod scratch entry found.')
+            except error.AutoservRunError:
+                raise error.TestFail('Servod of port %s did not come up on'
+                                     ' labstation.' % port)
+
+            self.servo_hosts.append(servo_host)
+
+    def setup_hosts(self):
+        """Prepare all cros and servo hosts that need to run."""
+        # Servod came up successfully at this point - build a ServoHost and
+        # CrosHost for later testing to verfiy servo functionality.
+
+        for dut_info, servo_host in zip(self.dut_list, self.servo_hosts):
+            dut_hostname = dut_info.get('hostname')
+            if not dut_hostname:
+                # TODO(coconutruben@): remove this statement once the inferring
+                # is the default.
+                logging.info('hostname not specified for DUT, through '
+                             'static config or command-line. Will attempt '
+                             'to infer through hardware address.')
+                dut_hostname = self.get_dut_on_servo_ip(servo_host)
+            labels = []
+            if dut_info.get('board'):
+                labels.append('board:%s' % dut_info.get('board'))
+            if dut_info.get('model'):
+                labels.append('model:%s' % dut_info.get('model'))
+            info = host_info.HostInfo(labels=labels)
+            host_info_store = host_info.InMemoryHostInfoStore(info=info)
+            machine = {
+                    'hostname': dut_hostname,
+                    'host_info_store': host_info_store,
+                    'afe_host': site_utils.EmptyAFEHost()
+            }
+            dut_host = factory.create_host(machine)
+            dut_host.set_servo_host(servo_host)
+
+            # Copy labstation's stable_version to dut_host for later test
+            # consume.
+            # TODO(xianuowang@): remove this logic once we figured out how to
+            # propagate DUT's stable_version to the test.
+            stable_version_from_config = dut_info.get('stable_version')
+            self._set_dut_stable_version(dut_host, stable_version_from_config)
+            # Store |dut_host| in |machine_dict| so that parallel running can
+            # find the host.
+            self.machine_dict[dut_host.hostname] = dut_host
+
+    def initialize(self, host, config=None, local=False):
         """Setup servod on |host| to run subsequent tests.
 
-        @param host: CrosHost object representing the DUT.
+        @param host: LabstationHost object representing the servohost.
         @param config: the args argument from test_that in a dict.
+        @param local: whether a test image is already on the usb stick.
         """
+        # Cache whether this is a local run or not.
+        self.local = local
+        # This list hosts the servo_hosts, in the same order as the |dut_list|
+        # below.
+        self.servo_hosts = []
+        # This dict houses a mapping of |dut| hostnames to initialized cros_host
+        # objects for the tests to run.
+        self.machine_dict = {}
         # Save the host.
         self.labstation_host = host
         # Make sure recovery is quick in case of failure.
         self.job.fast = True
-        # First, stop all servod instances running on the labstation to test.
-        host.run('sudo stop servod PORT=9999', ignore_status=True)
-        # Wait for existing servod turned down.
-        time.sleep(3)
-        # Then, restart servod ourselves.
-        host.run_background('start servod BOARD=nami PORT=9999')
-        # Give servod plenty of time to come up.
-        time.sleep(40)
-        try:
-            host.run_grep('servodutil show -p 9999',
-                          stdout_err_regexp='No servod scratch entry found.')
-        except error.AutoservRunError:
-            raise error.TestFail('Servod did not come up on labstation.')
-        self.dut_ip = None
-        if config and 'dut_ip' in config:
-            # Retrieve DUT ip from args if caller specified it.
-            self.dut_ip = config['dut_ip']
+        # Get list of duts under the servohost.
+        self.dut_list = self._get_dut_info_from_config()
+        # Setup servod for all duts.
+        self._setup_servod()
+        # We need a cros build number for testing download image to usb and
+        # use servo to reimage DUT purpose. So copying labstation's
+        # stable_version here since we don't really care about which build
+        # to install on the DUT.
+        self.cros_version = (
+            self.labstation_host.host_info_store.get().cros_stable_version)
 
-    def run_once(self, local=False):
-        """Run through the test sequence.
+        if config:
+            if 'dut_ip' in config:
+                # Retrieve DUT ip from args if caller specified it.
+                # |dut_ip| is special in that it can be used for (quick) setup
+                # testing if the setup is not in the configuration file.
+                # This has two implications:
+                # - the user can only test one dut/servo pair
+                # - the config has to be empty.
+                # TODO(coconutruben): remove this logic for a more holistic
+                # command-line overwrite solution.
+                if len(self.dut_list) == 1 and not self.dut_list[0]['hostname']:
+                    self.dut_list[0]['hostname'] = config['dut_ip']
+                    logging.info('Setting the hostname of the only dut to %s.',
+                                 self.dut_list[0]['hostname'])
+                else:
+                    logging.info('dut_ip %s will be ignored. The target '
+                                 'labstation is to be part of static config.')
+            if 'cros_version' in config:
+                # We allow user to override a cros image build.
+                self.cros_version = config['cros_version']
+        # Lastly, setup the hosts so that testing can occur in parallel.
+        self.setup_hosts()
 
-        This test currently runs through:
-        -// ServoLabControlVerification where |host| is treated as a DUT.
-        Subsequently, all tests use |host| as a servo host to a generated
-        DUT host that's hanging on the servo device.
-        - platform_ServoPowerStateController without usb
-        - servo_USBMuxVerification
-        - platform_InstallTestImage
-        - platform_ServoPowerStateController with usb as a test image should
-          be on the stick now
+    def _run_on_machine(self, machine):
+        """Thin wrapper to run 'servo_Verification' on all machines.
 
-        @param local: whether a test image is already on the usb stick.
+        @param machine: hostname of the dut to run 'servo_Verification' against.
+
+        @raises error.TestFail: 'servo_Verification' fails
+        @raises error.TestFail: |machine| unknown (not in |self.machine_dict|)
         """
-        success = True
-        success &= self.runsubtest('servo_LabControlVerification',
-                                   host=self.labstation_host,
-                                   disable_sysinfo=True)
-        # Servod came up successfully - build a servo host and use it to verify
-        # basic functionality.
-        servo_args = {servo_host.SERVO_HOST_ATTR: self.labstation_host.hostname,
-                      servo_host.SERVO_PORT_ATTR: 9999,
-                      'is_in_lab': False}
-        # Close out this host as the test will restart it as a servo host.
-        self.labstation_host.close()
-        self.labstation_host = servo_host.create_servo_host(None, servo_args)
-        self.labstation_host.connect_servo()
-        servo_proxy = self.labstation_host.get_servo()
-        if not self.dut_ip:
-            self.dut_ip = self.get_dut_on_servo_ip(self.labstation_host)
-        logging.info('Running the DUT side on DUT %r', self.dut_ip)
-        dut_host = factory.create_host(self.dut_ip)
-        dut_host.set_servo_host(self.labstation_host)
-        success &= self.runsubtest('platform_ServoPowerStateController',
-                                   host=dut_host, usb_available=False,
-                                   subdir_tag='no_usb', disable_sysinfo=True)
-        success &= self.runsubtest('servo_USBMuxVerification', host=dut_host,
-                                   disable_sysinfo=True)
-        # This test needs to run before the power state controller test that
-        # uses the USB stick as this test downloads the image onto the stick.
-        try:
-            # Passing |local| here indicates whether the test should stage and
-            # download the test image itself (through a dev server) or whether
-            # a test image is already on the usb stick.
-            success &= self.runsubtest('platform_InstallTestImage',
-                                       host=dut_host, local=local,
-                                       disable_sysinfo=True)
-        except error.TestBaseException as e:
-            # Something went wrong with platform_InstallTestImage.
-            # Remove this catch once crbug.com/953113 is fixed.
-            raise error.TestNAError('Issue running platform_InstallTestImage: '
-                                    '%s', str(e))
-        success &= self.runsubtest('platform_ServoPowerStateController',
-                                   host=dut_host, usb_available=True,
-                                   subdir_tag='usb', disable_sysinfo=True)
-        if not success:
-            raise error.TestFail('At least one verification test failed. '
-                                 'Check the logs.')
+        dut_host = self.machine_dict.get(machine, None)
+        if dut_host is None:
+            raise error.TestFail('dut machine %r not known to suite. Known '
+                                 'machines: %r', machine,
+                                 ', '.join(self.machine_dict.keys()))
+        logging.info('About to run on machine %s', machine)
+        if not self.job.run_test('servo_Verification', host=dut_host,
+                                 local=self.local):
+            raise error.TestFail('At least one test failed.')
+
+    def run_once(self):
+        """Run through all hosts in |self.machine_dict|."""
+        self.job.parallel_simple(self._run_on_machine,
+                                 list(self.machine_dict.keys()))
+        # TODO(coconutruben): at this point, you can print a report what kind of
+        # servod setups failed and which succeeded. Build that out so that
+        # debugging failures is cleaner given multiple setups.
 
     def cleanup(self):
-        """Clean up by stopping the servod instance again."""
-        self.labstation_host.run_background('stop servod PORT=9999')
+        """Clean up by calling close for dut host, which will also take care
+        of servo cleanup.
+        """
+        for _, dut in self.machine_dict.items():
+            dut.close()

@@ -19,4 +19,16 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="album_art" msgid="3392647029019061691">"Obrázok albumu"</string>
     <string name="metadata_default_title" msgid="5902775732281325081">"Bez názvu"</string>
+    <string name="default_error_message" msgid="4044331619453864482">"Vyskytol sa problém. Skúste to znova."</string>
+    <string name="error_code_app_error" msgid="3608680401453743688">"Teraz to nie je možné"</string>
+    <string name="error_code_not_supported" msgid="8004310657548193089">"Táto aplikácia to nedokáže"</string>
+    <string name="error_code_authentication_expired" msgid="1727285213286610186">"Ak chcete použiť túto aplikáciu, prihláste sa"</string>
+    <string name="error_code_premium_account_required" msgid="2328664287270814966">"Vyžaduje sa prémiový prístup"</string>
+    <string name="error_code_concurrent_stream_limit" msgid="493048763425570552">"Počúva sa na príliš veľa zariadeniach"</string>
+    <string name="error_code_parental_control_restricted" msgid="325145513462419399">"Daný obsah je blokovaný"</string>
+    <string name="error_code_not_available_in_region" msgid="5840935836875073145">"Daný obsah tu nie je k dispozícii"</string>
+    <string name="error_code_content_already_playing" msgid="1306236349553004461">"Tento obsah sa už prehráva"</string>
+    <string name="error_code_skip_limit_reached" msgid="4203743406433151146">"Nie je možné preskočiť žiadne ďalšie skladby"</string>
+    <string name="error_code_action_aborted" msgid="8611777981356536501">"Akciu sa nepodarilo dokončiť. Skúste to znova."</string>
+    <string name="error_code_end_of_queue" msgid="6935022448319288887">"Poradie je prázdne"</string>
 </resources>

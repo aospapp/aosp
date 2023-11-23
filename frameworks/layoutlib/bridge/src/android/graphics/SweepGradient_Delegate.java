@@ -16,7 +16,7 @@
 
 package android.graphics;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
@@ -111,7 +111,7 @@ public class SweepGradient_Delegate extends Gradient_Delegate {
             try {
                 canvasMatrix = xform.createInverse();
             } catch (java.awt.geom.NoninvertibleTransformException e) {
-                Bridge.getLog().fidelityWarning(LayoutLog.TAG_MATRIX_INVERSE,
+                Bridge.getLog().fidelityWarning(ILayoutLog.TAG_MATRIX_INVERSE,
                         "Unable to inverse matrix in SweepGradient", e, null, null /*data*/);
                 canvasMatrix = new java.awt.geom.AffineTransform();
             }
@@ -120,7 +120,7 @@ public class SweepGradient_Delegate extends Gradient_Delegate {
             try {
                 localMatrix = localMatrix.createInverse();
             } catch (java.awt.geom.NoninvertibleTransformException e) {
-                Bridge.getLog().fidelityWarning(LayoutLog.TAG_MATRIX_INVERSE,
+                Bridge.getLog().fidelityWarning(ILayoutLog.TAG_MATRIX_INVERSE,
                         "Unable to inverse matrix in SweepGradient", e, null, null /*data*/);
                 localMatrix = new java.awt.geom.AffineTransform();
             }

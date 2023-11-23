@@ -37,7 +37,7 @@
 
 #define LOG_TAG  "WifiHAL"
 
-#include <log/log.h>
+#include <utils/Log.h>
 
 #include "wifi_hal.h"
 #include "common.h"
@@ -93,13 +93,14 @@ protected:
             return NL_SKIP;
         }
 
-        int id = reply.get_vendor_id();
-        int subcmd = reply.get_vendor_subcmd();
-
-        // ALOGI("Id = %0x, subcmd = %d", id, subcmd);
+	int id = reply.get_vendor_id();
 
         void *data = reply.get_vendor_data();
         int len = reply.get_vendor_data_len();
+	if (!data || !len) {
+		ALOGE("Invalid vendor data received");
+		return NL_SKIP;
+	}
         wifi_radio_stat *radio_stat =
             convertToExternalRadioStatStructure((wifi_radio_stat_internal *)data);
         if (!radio_stat) {
@@ -117,7 +118,9 @@ protected:
 private:
     wifi_radio_stat *convertToExternalRadioStatStructure(wifi_radio_stat_internal *internal_stat_ptr) {
         wifi_radio_stat *external_stat_ptr = NULL;
-        if (internal_stat_ptr) {
+	if (!internal_stat_ptr) {
+		ALOGE("Sta_ptr is null\n");
+	} else {
             uint32_t channel_size = internal_stat_ptr->num_channels * sizeof(wifi_channel_stat);
             uint32_t total_size = sizeof(wifi_radio_stat) + channel_size;
             external_stat_ptr = (wifi_radio_stat *)malloc(total_size);

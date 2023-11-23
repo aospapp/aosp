@@ -158,7 +158,7 @@ import java.io.IOException;
  * {@code LinkedHashMap}.
  *
  * <p>This class is a member of the
- * <a href="{@docRoot}/../technotes/guides/collections/index.html">
+ * <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
  *
  * @implNote
@@ -491,6 +491,9 @@ public class LinkedHashMap<K,V>
     // Android-added: eldest(), for internal use in LRU caches
     /**
      * Returns the eldest entry in the map, or {@code null} if the map is empty.
+     *
+     * @return eldest entry in the map, or {@code null} if the map is empty
+     *
      * @hide
      */
     public Map.Entry<K, V> eldest() {

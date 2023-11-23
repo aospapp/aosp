@@ -23,11 +23,13 @@ import static android.media.MediaRecorder.AudioSource.MIC;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 
 import android.Manifest;
@@ -43,6 +45,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.ActivityInfo;
+import android.content.pm.ChangedPackages;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
@@ -69,6 +72,7 @@ import android.telephony.TelephonyManager;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+import android.platform.test.annotations.AsbSecurityTest;
 
 import com.android.cts.util.TestResult;
 
@@ -78,6 +82,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -1169,6 +1174,30 @@ public class ClientTest {
     }
 
     @Test
+    @AsbSecurityTest(cveBugId = 140256621)
+    public void testInstallPermissionNotGrantedInPackageInfo() throws Exception {
+        assertThat(isPermissionGrantedInPackageInfo(Manifest.permission.SET_ALARM), is(false));
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 140256621)
+    public void testInstallPermissionGrantedInPackageInfo() throws Exception {
+        assertThat(isPermissionGrantedInPackageInfo(Manifest.permission.INTERNET), is(true));
+    }
+
+    private static boolean isPermissionGrantedInPackageInfo(String permissionName)
+            throws Exception {
+        final Context context = InstrumentationRegistry.getContext();
+        final PackageInfo packageInfo = context.getPackageManager().getPackageInfo(
+                context.getPackageName(), PackageManager.GET_PERMISSIONS);
+        final int permissionIndex = Arrays.asList(packageInfo.requestedPermissions).indexOf(
+                permissionName);
+        assertThat(permissionIndex, is(not(-1)));
+        return (packageInfo.requestedPermissionsFlags[permissionIndex]
+                & PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0;
+    }
+
+    @Test
     public void testExposedActivity() throws Exception {
         final Bundle testArgs = InstrumentationRegistry.getArguments();
         assertThat(testArgs, is(notNullValue()));
@@ -1398,6 +1427,16 @@ public class ClientTest {
                             "com.android.cts.normalapp.NormalActivity"));
             assertThat(info, is(nullValue()));
         }
+    }
+
+    /** Tests getting changed packages for instant app. */
+    @Test
+    public void testGetChangedPackages() {
+        final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+
+        // Instant apps can't get changed packages.
+        final ChangedPackages changedPackages = pm.getChangedPackages(0);
+        assertNull(changedPackages);
     }
 
     /** Returns {@code true} if the given filter handles all web URLs, regardless of host. */

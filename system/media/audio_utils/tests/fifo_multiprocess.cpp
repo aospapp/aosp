@@ -31,7 +31,7 @@
 #define FRAME_SIZE sizeof(int16_t)
 #define BUFFER_SIZE (FRAME_COUNT * FRAME_SIZE)
 
-int main(int argc __unused, char **argv __unused)
+int main(int argc __attribute__((unused)), char **argv __attribute__((unused)))
 {
     // TODO Add error checking for ashmem_create_region and mmap
 

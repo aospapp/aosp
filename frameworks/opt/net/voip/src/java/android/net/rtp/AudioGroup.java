@@ -17,9 +17,10 @@
 package android.net.rtp;
 
 import android.annotation.NonNull;
-import android.app.ActivityThread;
+import android.content.AttributionSource;
 import android.content.Context;
 import android.media.AudioManager;
+import android.os.Parcel;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -63,6 +64,9 @@ import java.util.Map;
  * the AudioGroups is in use.</p>
  *
  * @see AudioStream
+ *
+ * @deprecated {@link android.net.sip.SipManager} and associated classes are no longer supported and
+ * should not be used as the basis of future VOIP apps.
  */
 public class AudioGroup {
     /**
@@ -114,7 +118,7 @@ public class AudioGroup {
 
     /**
      * Creates an empty AudioGroup.
-     * @param context Context used to get package name
+     * @param context Context the group belongs to
      */
     public AudioGroup(@NonNull Context context) {
         mContext = context;
@@ -164,11 +168,15 @@ public class AudioGroup {
                 AudioCodec codec = stream.getCodec();
                 String codecSpec = String.format(Locale.US, "%d %s %s", codec.type,
                         codec.rtpmap, codec.fmtp);
-                long id = nativeAdd(stream.getMode(), stream.getSocket(),
-                        stream.getRemoteAddress().getHostAddress(),
-                        stream.getRemotePort(), codecSpec, stream.getDtmfType(),
-                        mContext != null ? mContext.getOpPackageName()
-                                : ActivityThread.currentOpPackageName());
+
+                final long id;
+                try (AttributionSource.ScopedParcelState attributionSourceState = mContext
+                        .getAttributionSource().asScopedParcelState()) {
+                    id = nativeAdd(stream.getMode(), stream.getSocket(),
+                            stream.getRemoteAddress().getHostAddress(),
+                            stream.getRemotePort(), codecSpec, stream.getDtmfType(),
+                            attributionSourceState.getParcel());
+                }
                 mStreams.put(stream, id);
             } catch (NullPointerException e) {
                 throw new IllegalStateException(e);
@@ -176,8 +184,8 @@ public class AudioGroup {
         }
     }
 
-    private native long nativeAdd(int mode, int socket, String remoteAddress,
-            int remotePort, String codecSpec, int dtmfType, String opPackageName);
+    private native long nativeAdd(int mode, int socket, String remoteAddress, int remotePort,
+            String codecSpec, int dtmfType, Parcel attributionSource);
 
     // Package-private method used by AudioStream.join().
     synchronized void remove(AudioStream stream) {

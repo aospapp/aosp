@@ -54,6 +54,7 @@ const char kFateInterfaceNameInvalid[] = "testif-invalid";
 const uint32_t kFakeInterfaceIndex = 34;
 const uint32_t kFakeInterfaceIndex1 = 36;
 const uint32_t kFakeInterfaceIndexP2p = 36;
+const uint32_t kFakeWiphyIndex = 0;
 const std::array<uint8_t, ETH_ALEN> kFakeInterfaceMacAddress = {0x45, 0x54, 0xad, 0x67, 0x98, 0xf6};
 const std::array<uint8_t, ETH_ALEN> kFakeInterfaceMacAddress1 = {0x05, 0x04, 0xef, 0x27, 0x12, 0xff};
 const std::array<uint8_t, ETH_ALEN> kFakeInterfaceMacAddressP2p = {0x15, 0x24, 0xef, 0x27, 0x12, 0xff};
@@ -84,6 +85,24 @@ class ServerTest : public ::testing::Test {
     ON_CALL(*netlink_utils_, GetInterfaces(_, _))
       .WillByDefault(Invoke(bind(
           MockGetInterfacesResponse, mock_interfaces, true, _1, _2)));
+    ON_CALL(*netlink_utils_, GetWiphyInfo(0, _, _, _))
+          .WillByDefault([](
+              uint32_t wiphy_index,
+              BandInfo* band_info,
+              ScanCapabilities* scan_capabilities,
+              WiphyFeatures* wiphy_features) {
+            band_info->band_2g = {1, 2, 3, 4, 5};
+            return true;
+          });
+    ON_CALL(*netlink_utils_, GetWiphyInfo(1, _, _, _))
+          .WillByDefault([](
+              uint32_t wiphy_index,
+              BandInfo* band_info,
+              ScanCapabilities* scan_capabilities,
+              WiphyFeatures* wiphy_features) {
+            band_info->band_60g = {6, 7, 8, 9, 10};
+            return true;
+          });
   }
 
   NiceMock<MockInterfaceTool>* if_tool_ = new NiceMock<MockInterfaceTool>;
@@ -99,16 +118,19 @@ class ServerTest : public ::testing::Test {
       // Client interface
       InterfaceInfo(
           kFakeInterfaceIndex,
+          kFakeWiphyIndex,
           std::string(kFakeInterfaceName),
           std::array<uint8_t, ETH_ALEN>(kFakeInterfaceMacAddress)),
       // AP Interface
       InterfaceInfo(
           kFakeInterfaceIndex1,
+          kFakeWiphyIndex,
           std::string(kFakeInterfaceName1),
           std::array<uint8_t, ETH_ALEN>(kFakeInterfaceMacAddress1)),
       // p2p interface
       InterfaceInfo(
           kFakeInterfaceIndexP2p,
+          kFakeWiphyIndex,
           std::string(kFakeInterfaceNameP2p),
           std::array<uint8_t, ETH_ALEN>(kFakeInterfaceMacAddressP2p))
   };
@@ -187,6 +209,185 @@ TEST_F(ServerTest, CanTeardownClientInterface) {
   EXPECT_TRUE(success);
 }
 
+TEST_F(ServerTest, CanTeardownMultipleClientInterfacesOnSameWiphy) {
+  sp<IClientInterface> client_if;
+
+  // add iface 0 on wiphy 0
+  ON_CALL(*netlink_utils_, GetWiphyIndex(_, _)).WillByDefault(
+      [](uint32_t* out_wiphy_index, const std::string& iface_name) {
+        *out_wiphy_index = 0;
+        return true;
+      });
+
+  EXPECT_TRUE(server_.createClientInterface(
+      kFakeInterfaceName, &client_if).isOk());
+  EXPECT_NE(nullptr, client_if.get());
+
+  // bands non-empty
+  {
+     std::optional<std::vector<int32_t>> out_frequencies;
+     EXPECT_TRUE(server_.getAvailable2gChannels(&out_frequencies).isOk());
+     EXPECT_TRUE(out_frequencies.has_value());
+     EXPECT_FALSE(out_frequencies->empty());
+  }
+
+  sp<IClientInterface> client_if1;
+
+  // add iface 1 on wiphy 0
+  ON_CALL(*netlink_utils_, GetWiphyIndex(_, _)).WillByDefault(
+      [](uint32_t* out_wiphy_index, const std::string& iface_name) {
+        *out_wiphy_index = 0;
+        return true;
+      });
+
+  EXPECT_TRUE(server_.createClientInterface(
+      kFakeInterfaceName1, &client_if1).isOk());
+  EXPECT_NE(nullptr, client_if1.get());
+
+  // bands still non-empty
+  {
+     std::optional<std::vector<int32_t>> out_frequencies;
+     EXPECT_TRUE(server_.getAvailable2gChannels(&out_frequencies).isOk());
+     EXPECT_TRUE(out_frequencies.has_value());
+     EXPECT_FALSE(out_frequencies->empty());
+  }
+
+  // tear down iface 0
+  {
+    bool success = true;
+    EXPECT_TRUE(server_.tearDownClientInterface(
+        kFakeInterfaceName, &success).isOk());
+    EXPECT_TRUE(success);
+  }
+
+  // bands still non-empty
+  {
+    std::optional<std::vector<int32_t>> out_frequencies;
+    EXPECT_TRUE(server_.getAvailable2gChannels(&out_frequencies).isOk());
+    EXPECT_TRUE(out_frequencies.has_value());
+    EXPECT_FALSE(out_frequencies->empty());
+  }
+
+  // tear down iface 1
+  {
+    bool success = true;
+    EXPECT_TRUE(server_.tearDownClientInterface(
+        kFakeInterfaceName1, &success).isOk());
+    EXPECT_TRUE(success);
+  }
+
+  // bands now empty
+  {
+    std::optional<std::vector<int32_t>> out_frequencies;
+    EXPECT_TRUE(server_.getAvailable2gChannels(&out_frequencies).isOk());
+    EXPECT_FALSE(out_frequencies.has_value());
+  }
+}
+
+TEST_F(ServerTest, CanTeardownMultipleClientInterfacesOnDifferentWiphy) {
+  sp<IClientInterface> client_if;
+
+  // add iface 0 on wiphy 0, supports 2GHz
+  ON_CALL(*netlink_utils_, GetWiphyIndex(_, _)).WillByDefault(
+      [](uint32_t* out_wiphy_index, const std::string& iface_name) {
+        *out_wiphy_index = 0;
+        return true;
+      });
+
+  EXPECT_TRUE(server_.createClientInterface(
+      kFakeInterfaceName, &client_if).isOk());
+  EXPECT_NE(nullptr, client_if.get());
+
+  // 2G bands non-empty
+  {
+     std::optional<std::vector<int32_t>> out_frequencies;
+     EXPECT_TRUE(server_.getAvailable2gChannels(&out_frequencies).isOk());
+     EXPECT_TRUE(out_frequencies.has_value());
+     EXPECT_FALSE(out_frequencies->empty());
+  }
+
+  // 60G bands empty
+  {
+     std::optional<std::vector<int32_t>> out_frequencies;
+     EXPECT_TRUE(server_.getAvailable60gChannels(&out_frequencies).isOk());
+     EXPECT_FALSE(out_frequencies.has_value());
+  }
+
+  sp<IClientInterface> client_if1;
+
+  // add iface 1 on wiphy 1, supports 60GHz
+  ON_CALL(*netlink_utils_, GetWiphyIndex(_, _)).WillByDefault(
+      [](uint32_t* out_wiphy_index, const std::string& iface_name) {
+        *out_wiphy_index = 1;
+        return true;
+      });
+
+  EXPECT_TRUE(server_.createClientInterface(
+      kFakeInterfaceName1, &client_if1).isOk());
+  EXPECT_NE(nullptr, client_if1.get());
+
+  // 2G bands still non-empty
+  {
+     std::optional<std::vector<int32_t>> out_frequencies;
+     EXPECT_TRUE(server_.getAvailable2gChannels(&out_frequencies).isOk());
+     EXPECT_TRUE(out_frequencies.has_value());
+     EXPECT_FALSE(out_frequencies->empty());
+  }
+
+  // 60G bands non-empty
+  {
+     std::optional<std::vector<int32_t>> out_frequencies;
+     EXPECT_TRUE(server_.getAvailable60gChannels(&out_frequencies).isOk());
+     EXPECT_TRUE(out_frequencies.has_value());
+     EXPECT_FALSE(out_frequencies->empty());
+  }
+
+  // tear down iface 0
+  {
+    bool success = true;
+    EXPECT_TRUE(server_.tearDownClientInterface(
+        kFakeInterfaceName, &success).isOk());
+    EXPECT_TRUE(success);
+  }
+
+  // 2G bands now empty
+  {
+    std::optional<std::vector<int32_t>> out_frequencies;
+    EXPECT_TRUE(server_.getAvailable2gChannels(&out_frequencies).isOk());
+    EXPECT_FALSE(out_frequencies.has_value());
+  }
+
+  // 60G bands still non-empty
+  {
+     std::optional<std::vector<int32_t>> out_frequencies;
+     EXPECT_TRUE(server_.getAvailable60gChannels(&out_frequencies).isOk());
+     EXPECT_TRUE(out_frequencies.has_value());
+     EXPECT_FALSE(out_frequencies->empty());
+  }
+
+  // tear down iface 1
+  {
+    bool success = true;
+    EXPECT_TRUE(server_.tearDownClientInterface(
+        kFakeInterfaceName1, &success).isOk());
+    EXPECT_TRUE(success);
+  }
+
+  // 2G bands still empty
+  {
+    std::optional<std::vector<int32_t>> out_frequencies;
+    EXPECT_TRUE(server_.getAvailable2gChannels(&out_frequencies).isOk());
+    EXPECT_FALSE(out_frequencies.has_value());
+  }
+
+  // 60G bands now empty
+  {
+     std::optional<std::vector<int32_t>> out_frequencies;
+     EXPECT_TRUE(server_.getAvailable60gChannels(&out_frequencies).isOk());
+     EXPECT_FALSE(out_frequencies.has_value());
+  }
+}
+
 TEST_F(ServerTest, CanCreateTeardownApAndClientInterface) {
   sp<IClientInterface> client_if;
   sp<IApInterface> ap_if;
@@ -229,7 +430,6 @@ TEST_F(ServerTest, CanDestroyApAndClientInterfaces) {
   // When we tear down the interfaces, we expect the iface to be unloaded.
   EXPECT_CALL(*if_tool_, SetUpState(StrEq(kFakeInterfaceName), Eq(false))).Times(2);
   EXPECT_CALL(*if_tool_, SetUpState(StrEq(kFakeInterfaceName1), Eq(false))).Times(2);
-  EXPECT_CALL(*if_tool_, SetUpState(StrEq(kFakeInterfaceNameP2p), Eq(false)));
 
   EXPECT_TRUE(server_.tearDownInterfaces().isOk());
 }

@@ -115,7 +115,7 @@ class VtsTrebleSysPropTest(unittest.TestCase):
             "vendor_" or "odm_", but these are exceptions.
     """
 
-    _PUBLIC_PROPERTY_CONTEXTS_FILE_PATH  = ("public/property_contexts")
+    _PUBLIC_PROPERTY_CONTEXTS_FILE_PATH  = ("private/property_contexts")
     _SYSTEM_PROPERTY_CONTEXTS_FILE_PATH  = ("/system/etc/selinux/"
                                             "plat_property_contexts")
     _PRODUCT_PROPERTY_CONTEXTS_FILE_PATH = ("/product/etc/selinux/"
@@ -143,8 +143,9 @@ class VtsTrebleSysPropTest(unittest.TestCase):
             "vendor."
     ]
 
+    # This exception is allowed only for the devices launched before S
     _VENDOR_OR_ODM_NAMESPACES_WHITELIST = [
-            "persist.camera." # b/138545066 remove this
+            "persist.camera."
     ]
 
     _VENDOR_TYPE_PREFIX = "vendor_"
@@ -228,11 +229,14 @@ class VtsTrebleSysPropTest(unittest.TestCase):
                 property_contexts_file)
         logging.info("Found %d property names in %s property contexts",
                      len(property_dict), partition)
+
+        allowed_namespaces = self._VENDOR_OR_ODM_NAMESPACES.copy()
+        if self.dut.GetLaunchApiLevel() <= api.PLATFORM_API_LEVEL_R:
+          allowed_namespaces += self._VENDOR_OR_ODM_NAMESPACES_WHITELIST
+
         violation_list = list(filter(
             lambda x: not any(
-                x.startswith(prefix) for prefix in
-                self._VENDOR_OR_ODM_NAMESPACES +
-                self._VENDOR_OR_ODM_NAMESPACES_WHITELIST),
+                x.startswith(prefix) for prefix in allowed_namespaces),
             property_dict.keys()))
         self.assertEqual(
             # Transfer filter to list for python3.
@@ -376,7 +380,7 @@ class VtsTrebleSysPropTest(unittest.TestCase):
         self._TestPropertyTypes(
             self._ODM_PROPERTY_CONTEXTS_FILE_PATH,
             lambda typename: typename.startswith(self._VENDOR_TYPE_PREFIX) or
-            typename.startswith(self._ODM_TYPEPREFIX) or
+            typename.startswith(self._ODM_TYPE_PREFIX) or
             typename in self._VENDOR_OR_ODM_WHITELISTED_TYPES)
 
     def testExportedPlatformPropertyIntegrity(self):

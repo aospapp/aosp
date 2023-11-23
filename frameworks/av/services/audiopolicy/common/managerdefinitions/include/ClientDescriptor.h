@@ -109,10 +109,16 @@ public:
     const std::vector<wp<SwAudioOutputDescriptor>>& getSecondaryOutputs() const {
         return mSecondaryOutputs;
     };
+    void setSecondaryOutputs(std::vector<wp<SwAudioOutputDescriptor>>&& secondaryOutputs) {
+        mSecondaryOutputs = std::move(secondaryOutputs);
+    }
     VolumeSource volumeSource() const { return mVolumeSource; }
     const sp<AudioPolicyMix> getPrimaryMix() const {
         return mPrimaryMix.promote();
     };
+    bool hasLostPrimaryMix() const {
+        return mPrimaryMix.unsafe_get() && !mPrimaryMix.promote();
+    }
 
     void setActive(bool active) override
     {
@@ -140,7 +146,7 @@ private:
     const product_strategy_t mStrategy;
     const VolumeSource mVolumeSource;
     const audio_output_flags_t mFlags;
-    const std::vector<wp<SwAudioOutputDescriptor>> mSecondaryOutputs;
+    std::vector<wp<SwAudioOutputDescriptor>> mSecondaryOutputs;
     const wp<AudioPolicyMix> mPrimaryMix;
     /**
      * required for duplicating thread, prevent from removing active client from an output
@@ -195,10 +201,18 @@ public:
 
     ~SourceClientDescriptor() override = default;
 
+    void connect(audio_patch_handle_t patchHandle, const sp<DeviceDescriptor>& sinkDevice) {
+        mPatchHandle = patchHandle;
+        mSinkDevice = sinkDevice;
+    }
+    void disconnect() {
+        mPatchHandle = AUDIO_PATCH_HANDLE_NONE;
+        mSinkDevice = nullptr;
+    }
+    bool isConnected() const { return mPatchHandle != AUDIO_PATCH_HANDLE_NONE; }
     audio_patch_handle_t getPatchHandle() const { return mPatchHandle; }
-    void setPatchHandle(audio_patch_handle_t patchHandle) { mPatchHandle = patchHandle; }
-
     sp<DeviceDescriptor> srcDevice() const { return mSrcDevice; }
+    sp<DeviceDescriptor> sinkDevice() const { return mSinkDevice; }
     wp<SwAudioOutputDescriptor> swOutput() const { return mSwOutput; }
     void setSwOutput(const sp<SwAudioOutputDescriptor>& swOutput);
     wp<HwAudioOutputDescriptor> hwOutput() const { return mHwOutput; }
@@ -210,6 +224,7 @@ public:
  private:
     audio_patch_handle_t mPatchHandle = AUDIO_PATCH_HANDLE_NONE;
     const sp<DeviceDescriptor> mSrcDevice;
+    sp<DeviceDescriptor> mSinkDevice;
     wp<SwAudioOutputDescriptor> mSwOutput;
     wp<HwAudioOutputDescriptor> mHwOutput;
 };

@@ -41,7 +41,7 @@ public class SimpleTimeZoneTest extends TestCase {
     private static final TimeZone UTC = TimeZone.getTimeZone("UTC");
 
     /**
-     * Sanity check to ensure that the standard TimeZone for Europe/Paris has the correct DST
+     * Check to ensure that the standard TimeZone for Europe/Paris has the correct DST
      * transition times.
      */
     public void testStandardParis2014() {
@@ -100,7 +100,7 @@ public class SimpleTimeZoneTest extends TestCase {
     }
 
     /**
-     * Sanity check to ensure that the standard TimeZone for America/New_York has the correct DST
+     * Check to ensure that the standard TimeZone for America/New_York has the correct DST
      * transition times.
      */
     public void testStandardNewYork2014() {

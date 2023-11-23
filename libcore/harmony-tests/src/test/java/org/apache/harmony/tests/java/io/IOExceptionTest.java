@@ -60,12 +60,12 @@ public class IOExceptionTest extends TestCase {
         // Test for constructor java.io.IOException(java.lang.String, java.lang.Throwable)
 
         IOException ioException = new IOException(
-                "A dummy IOException", new Throwable("A dummy Throwable")); //$NON-NLS-1$//$NON-NLS-2$
-        assertEquals("A dummy IOException", ioException.getMessage()); //$NON-NLS-1$
+                "A fake IOException", new Throwable("A fake Throwable")); //$NON-NLS-1$//$NON-NLS-2$
+        assertEquals("A fake IOException", ioException.getMessage()); //$NON-NLS-1$
 
         try {
             throw new IOException(
-                    "A dummy error", new Throwable("Some error message")); //$NON-NLS-1$ //$NON-NLS-2$
+                    "A fake error", new Throwable("Some error message")); //$NON-NLS-1$ //$NON-NLS-2$
         } catch (IOException e) {
             return;
         } catch (Exception e) {
@@ -80,7 +80,7 @@ public class IOExceptionTest extends TestCase {
      */
     public void test_Constructor_LThrowable() {
         // Test for constructor java.io.IOException(java.lang.Throwable)
-        Throwable cause = new Throwable("A dummy Throwable"); //$NON-NLS-1$
+        Throwable cause = new Throwable("A fake Throwable"); //$NON-NLS-1$
         IOException ioException = new IOException(cause);
         assertEquals(cause.toString(), ioException.getMessage());
 

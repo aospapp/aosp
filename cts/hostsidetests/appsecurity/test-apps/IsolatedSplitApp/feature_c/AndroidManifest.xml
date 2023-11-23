@@ -15,20 +15,22 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.isolatedsplitapp.feature_c"
-        featureSplit="feature_c"
-        android:targetSandboxVersion="2">
+     package="com.android.cts.isolatedsplitapp.feature_c"
+     featureSplit="feature_c"
+     android:targetSandboxVersion="2">
 
     <application>
-        <activity android:name=".FeatureCActivity">
+        <activity android:name=".FeatureCActivity" android:theme="@style/Theme_Feature_C"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <receiver android:name=".FeatureCReceiver">
+        <receiver android:name=".FeatureCReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.isolatedsplitapp.ACTION" />
+                <action android:name="com.android.cts.isolatedsplitapp.ACTION"/>
             </intent-filter>
         </receiver>
     </application>

@@ -37,10 +37,10 @@ public final class DocsSelectionHelper extends SelectionTracker<String> {
 
     private final DelegateFactory mFactory;
 
-    // initialize to a dummy object incase we get some input
+    // initialize to a stub object incase we get some input
     // event drive calls before we're properly initialized.
     // See: b/69306667.
-    private SelectionTracker<String> mDelegate = new DummySelectionTracker<>();
+    private SelectionTracker<String> mDelegate = new StubSelectionTracker<>();
 
     @VisibleForTesting
     DocsSelectionHelper(DelegateFactory factory) {

@@ -676,7 +676,10 @@ int main(int argc, char *argv[])
 #endif /* CONFIG_ETH_P_OUI */
 #ifdef CONFIG_DPP
 	os_memset(&dpp_conf, 0, sizeof(dpp_conf));
-	/* TODO: dpp_conf.msg_ctx? */
+	dpp_conf.cb_ctx = &interfaces;
+#ifdef CONFIG_DPP2
+	dpp_conf.remove_bi = hostapd_dpp_remove_bi;
+#endif /* CONFIG_DPP2 */
 	interfaces.dpp = dpp_global_init(&dpp_conf);
 	if (!interfaces.dpp)
 		return -1;
@@ -916,8 +919,11 @@ int main(int argc, char *argv[])
 			!!(interfaces.iface[i]->drv_flags &
 			   WPA_DRIVER_FLAGS_AP_TEARDOWN_SUPPORT);
 		hostapd_interface_deinit_free(interfaces.iface[i]);
+		interfaces.iface[i] = NULL;
 	}
 	os_free(interfaces.iface);
+	interfaces.iface = NULL;
+	interfaces.count = 0;
 
 #ifdef CONFIG_DPP
 	dpp_global_deinit(interfaces.dpp);

@@ -59,7 +59,7 @@ class ActsTestRunnerTest(unittest.TestCase):
         """
         mock_test_config = self.base_mock_test_config.copy()
         tb_key = keys.Config.key_testbed.value
-        mock_ctrlr_config_name = mock_controller.ACTS_CONTROLLER_CONFIG_NAME
+        mock_ctrlr_config_name = mock_controller.MOBLY_CONTROLLER_CONFIG_NAME
         my_config = [{
             'serial': 'xxxx',
             'magic': 'Magic1'
@@ -93,6 +93,7 @@ class ActsTestRunnerTest(unittest.TestCase):
     @mock.patch(
         'acts.controllers.android_device.AndroidDevice.exit_setup_wizard',
         return_value=True)
+    @mock.patch('acts.controllers.android_device.AndroidDevice.start_services')
     def test_run_two_test_classes(self, *_):
         """Verifies that running more than one test class in one test run works
         properly.
@@ -102,7 +103,7 @@ class ActsTestRunnerTest(unittest.TestCase):
         """
         mock_test_config = self.base_mock_test_config.copy()
         tb_key = keys.Config.key_testbed.value
-        mock_ctrlr_config_name = mock_controller.ACTS_CONTROLLER_CONFIG_NAME
+        mock_ctrlr_config_name = mock_controller.MOBLY_CONTROLLER_CONFIG_NAME
         my_config = [{
             'serial': 'xxxx',
             'magic': 'Magic1'

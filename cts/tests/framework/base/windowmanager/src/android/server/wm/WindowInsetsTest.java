@@ -38,6 +38,7 @@ import android.graphics.Insets;
 import android.graphics.Rect;
 import android.platform.test.annotations.Presubmit;
 import android.view.DisplayCutout;
+import android.view.RoundedCorner;
 import android.view.WindowInsets;
 import android.view.WindowInsets.Type;
 
@@ -61,6 +62,14 @@ public class WindowInsetsTest {
             Collections.singletonList(new Rect(5, 0, 15, 10)));
     private static final DisplayCutout CUTOUT2 = new DisplayCutout(new Rect(0, 15, 0, 0),
             Collections.singletonList(new Rect(5, 0, 15, 15)));
+    private static final RoundedCorner ROUNDED_CORNER_TOP_LEFT =
+            new RoundedCorner(RoundedCorner.POSITION_TOP_LEFT, 10, 10, 10);
+    private static final RoundedCorner ROUNDED_CORNER_TOP_RIGHT =
+            new RoundedCorner(RoundedCorner.POSITION_TOP_RIGHT, 10, 90, 10);
+    private static final RoundedCorner ROUNDED_CORNER_BOTTOM_RIGHT =
+            new RoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT, 10, 90, 190);
+    private static final RoundedCorner ROUNDED_CORNER_BOTTOM_LEFT =
+            new RoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT, 10, 10, 190);
     private static final int INSET_LEFT = 1;
     private static final int INSET_TOP = 2;
     private static final int INSET_RIGHT = 3;
@@ -75,6 +84,10 @@ public class WindowInsetsTest {
                 .setMandatorySystemGestureInsets(Insets.of(13, 14, 15, 16))
                 .setTappableElementInsets(Insets.of(17, 18, 19, 20))
                 .setDisplayCutout(CUTOUT)
+                .setRoundedCorner(RoundedCorner.POSITION_TOP_LEFT, ROUNDED_CORNER_TOP_LEFT)
+                .setRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT, ROUNDED_CORNER_TOP_RIGHT)
+                .setRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT, ROUNDED_CORNER_BOTTOM_RIGHT)
+                .setRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT, ROUNDED_CORNER_BOTTOM_LEFT)
                 .build();
 
         assertEquals(Insets.of(1, 2, 3, 4), insets.getSystemWindowInsets());
@@ -84,6 +97,14 @@ public class WindowInsetsTest {
         assertEquals(Insets.of(17, 18, 19, 20), insets.getTappableElementInsets());
         assertSame(CUTOUT, insets.getDisplayCutout());
         assertEquals(getCutoutSafeInsets(insets), insets.getInsets(Type.displayCutout()));
+        assertEquals(ROUNDED_CORNER_TOP_LEFT,
+                insets.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT));
+        assertEquals(ROUNDED_CORNER_TOP_RIGHT,
+                insets.getRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT));
+        assertEquals(ROUNDED_CORNER_BOTTOM_RIGHT,
+                insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT));
+        assertEquals(ROUNDED_CORNER_BOTTOM_LEFT,
+                insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT));
     }
 
     @Test
@@ -95,6 +116,10 @@ public class WindowInsetsTest {
                 .setMandatorySystemGestureInsets(Insets.of(13, 14, 15, 16))
                 .setTappableElementInsets(Insets.of(17, 18, 19, 20))
                 .setDisplayCutout(CUTOUT)
+                .setRoundedCorner(RoundedCorner.POSITION_TOP_LEFT, ROUNDED_CORNER_TOP_LEFT)
+                .setRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT, ROUNDED_CORNER_TOP_RIGHT)
+                .setRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT, ROUNDED_CORNER_BOTTOM_RIGHT)
+                .setRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT, ROUNDED_CORNER_BOTTOM_LEFT)
                 .build();
         final WindowInsets copy = new WindowInsets.Builder(insets).build();
 
@@ -110,6 +135,10 @@ public class WindowInsetsTest {
         assertFalse(insets.hasStableInsets());
         assertEquals(Insets.NONE, insets.getSystemGestureInsets());
         assertNull(insets.getDisplayCutout());
+        assertNull(insets.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT));
+        assertNull(insets.getRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT));
+        assertNull(insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT));
+        assertNull(insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT));
         assertTrue(insets.isConsumed());
     }
 

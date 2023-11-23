@@ -17,8 +17,6 @@
 package com.android.tools.metalava.model.text
 
 import com.android.tools.metalava.compatibility
-import com.android.tools.metalava.doclava1.SourcePositionInfo
-import com.android.tools.metalava.doclava1.TextCodebase
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MethodItem
@@ -64,7 +62,7 @@ open class TextMethodItem(
             return false
         }
 
-        for (i in 0 until parameters1.size) {
+        for (i in parameters1.indices) {
             val parameter1 = parameters1[i]
             val parameter2 = parameters2[i]
             if (parameter1.type() != parameter2.type()) {
@@ -167,6 +165,8 @@ open class TextMethodItem(
 
         return duplicated
     }
+
+    override val synthetic: Boolean get() = isEnumSyntheticMethod()
 
     private val throwsTypes = mutableListOf<String>()
     private val parameters = mutableListOf<TextParameterItem>()

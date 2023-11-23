@@ -49,6 +49,16 @@ class StructField : public PacketField {
 
   virtual void GenValidator(std::ostream&) const override;
 
+  virtual void GenStringRepresentation(std::ostream& s, std::string accessor) const override;
+
+  virtual std::string GetRustDataType() const override;
+
+  void GenRustGetter(std::ostream& s, Size start_offset, Size end_offset) const override;
+
+  void GenRustWriter(std::ostream& s, Size start_offset, Size end_offset) const override;
+
+  void GenBoundsCheck(std::ostream& s, Size start_offset, Size end_offset, std::string) const override;
+
  private:
   std::string type_name_;
 

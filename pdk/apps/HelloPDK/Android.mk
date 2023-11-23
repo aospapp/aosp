@@ -25,6 +25,8 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := HelloPDK
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SDK_VERSION := current
 
 LOCAL_JNI_SHARED_LIBRARIES := libhellojni_jni

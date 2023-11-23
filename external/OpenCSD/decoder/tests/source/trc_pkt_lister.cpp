@@ -73,6 +73,7 @@ static int test_waits = 0;
 static bool dstream_format = false;
 static bool tpiu_format = false;
 static bool has_hsync = false;
+static bool src_addr_n = false;
 
 int main(int argc, char* argv[])
 {
@@ -185,14 +186,15 @@ void print_help()
     oss << "\nDecode:\n\n";
     oss << "-id <n>             Set an ID to list (may be used multiple times) - default if no id set is for all IDs to be printed\n";
     oss << "-src_name <name>    List packets from a given snapshot source name (defaults to first source found)\n";
-    oss << "-dstream_format     Input is DSTREAM framed.";
-    oss << "-tpiu               Input from TPIU - sync by FSYNC.";
-    oss << "-tpiu_hsync         Input from TPIU - sync by FSYNC and HSYNC.";
+    oss << "-dstream_format     Input is DSTREAM framed.\n";
+    oss << "-tpiu               Input from TPIU - sync by FSYNC.\n";
+    oss << "-tpiu_hsync         Input from TPIU - sync by FSYNC and HSYNC.\n";
     oss << "-decode             Full decode of the packets from the trace snapshot (default is to list undecoded packets only\n";
     oss << "-decode_only        Does not list the undecoded packets, just the trace decode.\n";
     oss << "-o_raw_packed       Output raw packed trace frames\n";
     oss << "-o_raw_unpacked     Output raw unpacked trace data per ID\n";
     oss << "-test_waits <N>     Force wait from packet printer for N packets - test the wait/flush mechanisms for the decoder\n";
+    oss << "-src_addr_n         ETE protocol: Split source address ranges on N atoms\n";
     oss << "\nOutput:\n";
     oss << "   Setting any of these options cancels the default output to file & stdout,\n   using _only_ the options supplied.\n\n";
     oss << "-logstdout          Output to stdout -> console.\n";
@@ -390,6 +392,10 @@ bool process_cmd_line_opts(int argc, char* argv[])
                 no_undecoded_packets = true;
                 decode = true; 
             }
+            else if (strcmp(argv[optIdx], "-src_addr_n") == 0)
+            {
+                src_addr_n = true;
+            }
             else if((strcmp(argv[optIdx], "-help") == 0) || (strcmp(argv[optIdx], "--help") == 0) || (strcmp(argv[optIdx], "-h") == 0))
             {
                 print_help();
@@ -518,8 +524,9 @@ void ConfigureFrameDeMux(DecodeTree *dcd_tree, RawFramePrinter **framePrinter)
         if (!configFlags)
         {
             configFlags = OCSD_DFRMTR_FRAME_MEM_ALIGN;
-            pDeformatter->Configure(configFlags);
         }
+        pDeformatter->Configure(configFlags);
+
         if (outRawPacked || outRawUnpacked)
         {
             if (outRawPacked) configFlags |= OCSD_DFRMTR_PACKED_RAW_OUT;
@@ -535,7 +542,7 @@ void ListTracePackets(ocsdDefaultErrorLogger &err_logger, SnapShotReader &reader
 
     tree_creator.initialise(&reader, &err_logger);
 
-    if(tree_creator.createDecodeTree(trace_buffer_name, (decode == false)))
+    if(tree_creator.createDecodeTree(trace_buffer_name, (decode == false), src_addr_n ? ETE_OPFLG_PKTDEC_SRCADDR_N_ATOMS : 0))
     {
         DecodeTree *dcd_tree = tree_creator.getDecodeTree();
         dcd_tree->setAlternateErrorLogger(&err_logger);

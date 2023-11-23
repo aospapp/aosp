@@ -33,14 +33,20 @@
     <PreferenceCategory
         android:key="wifi_other"
         android:title="@string/wifi_setting_header_other_options">
-        <Preference
+        <com.android.settingslib.RestrictedPreference
+            android:key="wifi_add_easyconnect"
+            android:title="@string/wifi_setting_other_options_add_network_via_easyconnect"
+            android:icon="@drawable/ic_qr_code"
+            custom:userRestriction="no_config_wifi">
+        </com.android.settingslib.RestrictedPreference>
+        <com.android.settingslib.RestrictedPreference
             android:key="wifi_add"
-            android:title="@string/wifi_setting_other_options_add_network" >
+            android:title="@string/wifi_setting_other_options_add_network"
+            custom:userRestriction="no_config_wifi">
             <intent
                 android:targetClass="com.android.tv.settings.connectivity.AddWifiNetworkActivity"
                 android:targetPackage="com.android.tv.settings" />
-
-        </Preference>
+        </com.android.settingslib.RestrictedPreference>
         <com.android.tv.twopanelsettings.slices.SlicePreference
             android:key="data_saver_slice"
             android:title="@string/title_data_saver"
@@ -73,4 +79,10 @@
             android:key="ethernet_dhcp"
             android:title="@string/title_wifi_ip_settings" />
     </PreferenceCategory>
+
+    <Preference
+        android:key="network_diagnostics"
+        android:icon="@drawable/ic_network_check"
+        android:title="@string/connectivity_network_diagnostics" />
+
 </PreferenceScreen>

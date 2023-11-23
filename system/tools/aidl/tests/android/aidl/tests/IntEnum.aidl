@@ -18,8 +18,7 @@ package android.aidl.tests;
 
 @Backing(type="int")
 enum IntEnum {
-  FOO = 1000,
-  BAR = 2000,
-  BAZ,
+    FOO = 1000,
+    BAR = 2000,
+    BAZ,
 }
-

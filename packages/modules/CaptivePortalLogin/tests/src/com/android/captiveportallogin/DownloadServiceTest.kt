@@ -17,13 +17,13 @@
 package com.android.captiveportallogin
 
 import android.app.Activity
-import android.app.KeyguardManager
 import android.content.Intent
 import android.net.Network
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
+import android.webkit.MimeTypeMap
 import android.widget.TextView
 import androidx.core.content.FileProvider
 import androidx.test.core.app.ActivityScenario
@@ -32,8 +32,13 @@ import androidx.test.filters.SmallTest
 import androidx.test.platform.app.InstrumentationRegistry.getInstrumentation
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject
+import androidx.test.uiautomator.UiScrollable
+import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
+import com.android.dx.mockito.inline.extended.ExtendedMockito.spyOn
 import org.junit.Before
+import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.doReturn
@@ -43,7 +48,6 @@ import org.mockito.Mockito.verify
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
-import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -57,7 +61,6 @@ import kotlin.math.min
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -66,11 +69,44 @@ private val TEST_USERAGENT = "Test UserAgent"
 private val TEST_URL = "https://test.download.example.com/myfile"
 private val NOTIFICATION_SHADE_TYPE = "com.android.systemui:id/notification_stack_scroller"
 
+// Test text file registered in the test manifest to be opened by a test activity
+private val TEST_TEXT_FILE_EXTENSION = "testtxtfile"
+private val TEST_TEXT_FILE_TYPE = "text/vnd.captiveportallogin.testtxtfile"
+
 private val TEST_TIMEOUT_MS = 10_000L
+// Timeout for notifications before trying to find it via scrolling
+private val NOTIFICATION_NO_SCROLL_TIMEOUT_MS = 1000L
+
+// Maximum number of scrolls from the top to attempt to find notifications in the notification shade
+private val NOTIFICATION_SCROLL_COUNT = 30
+// Swipe in a vertically centered area of 20% of the screen height (40% margin
+// top/down): small swipes on notifications avoid dismissing the notification shade
+private val NOTIFICATION_SCROLL_DEAD_ZONE_PERCENT = .4
+// Steps for each scroll in the notification shade (controls the scrolling speed).
+// Each scroll is a series of cursor moves between multiple points on a line. The delay between each
+// point is hard-coded, so the number of points (steps) controls how long the scroll takes.
+private val NOTIFICATION_SCROLL_STEPS = 5
+private val NOTIFICATION_SCROLL_POLL_MS = 100L
 
 @RunWith(AndroidJUnit4::class)
 @SmallTest
 class DownloadServiceTest {
+    companion object {
+        @BeforeClass @JvmStatic
+        fun setUpClass() {
+            // Turn the MimeTypeMap for the process into a spy so test mimetypes can be added
+            val mimetypeMap = MimeTypeMap.getSingleton()
+            spyOn(mimetypeMap)
+            // Use a custom mimetype for the test to avoid cases where the device already has
+            // an app installed that can handle the detected mimetype (would be
+            // application/octet-stream by default for unusual extensions), which would cause the
+            // device to show a dialog to choose the app to use, and make it difficult to test.
+            doReturn(true).`when`(mimetypeMap).hasExtension(TEST_TEXT_FILE_EXTENSION)
+            doReturn(TEST_TEXT_FILE_TYPE).`when`(mimetypeMap).getMimeTypeFromExtension(
+                    TEST_TEXT_FILE_EXTENSION)
+        }
+    }
+
     private val connection = mock(HttpURLConnection::class.java)
 
     private val context by lazy { getInstrumentation().context }
@@ -78,7 +114,8 @@ class DownloadServiceTest {
     private val device by lazy { UiDevice.getInstance(getInstrumentation()) }
 
     // Test network that can be parceled in intents while mocking the connection
-    class TestNetwork : Network(43) {
+    class TestNetwork(private val privateDnsBypass: Boolean = false)
+        : Network(43, privateDnsBypass) {
         companion object {
             // Subclasses of parcelable classes need to define a CREATOR field of their own (which
             // hides the one of the parent class), otherwise the CREATOR field of the parent class
@@ -100,8 +137,22 @@ class DownloadServiceTest {
             internal var sTestConnection: HttpURLConnection? = null
         }
 
+        override fun getPrivateDnsBypassingCopy(): Network {
+            // Note that the privateDnsBypass flag is not kept when parceling/unparceling: this
+            // mirrors the real behavior of that flag in Network.
+            // The test relies on this to verify that after setting privateDnsBypass to true,
+            // the TestNetwork is not parceled / unparceled, which would clear the flag both
+            // for TestNetwork or for a real Network and be a bug.
+            return TestNetwork(privateDnsBypass = true)
+        }
+
         override fun openConnection(url: URL?): URLConnection {
-            return sTestConnection ?: throw IOException("Mock URLConnection not initialized")
+            // Verify that this network was created with privateDnsBypass = true, and was not
+            // parceled / unparceled afterwards (which would have cleared the flag).
+            assertTrue(privateDnsBypass,
+                    "Captive portal downloads should be done on a network bypassing private DNS")
+            return sTestConnection ?: throw IllegalStateException(
+                    "Mock URLConnection not initialized")
         }
     }
 
@@ -178,7 +229,19 @@ class DownloadServiceTest {
         // (in the download success notification)
         val testFilePath = File(context.getCacheDir(), "temp")
         testFilePath.mkdir()
-        return File.createTempFile("test", extension, testFilePath)
+        // Do not use File.createTempFile, as it generates very long filenames that may not
+        // fit in notifications, making it difficult to find the right notification.
+        // currentTimeMillis would generally be 13 digits. Use the bottom 8 to fit the filename and
+        // a bit more text, even on very small screens (320 dp, minimum CDD size).
+        var index = System.currentTimeMillis().rem(100_000_000)
+        while (true) {
+            val file = File(testFilePath, "tmp$index$extension")
+            if (!file.exists()) {
+                file.createNewFile()
+                return file
+            }
+            index++
+        }
     }
 
     private fun makeDownloadIntent(testFile: File) = DownloadService.makeDownloadIntent(
@@ -218,8 +281,7 @@ class DownloadServiceTest {
         verify(connection, timeout(TEST_TIMEOUT_MS)).inputStream
         val dlText1 = resources.getString(R.string.downloading_paramfile, testFile1.name)
 
-        assertTrue(device.wait(Until.hasObject(
-                By.res(NOTIFICATION_SHADE_TYPE).hasDescendant(By.text(dlText1))), TEST_TIMEOUT_MS))
+        findNotification(UiSelector().textContains(dlText1))
 
         // Allow download to progress to 1%
         assertEquals(0, TEST_FILESIZE % 100)
@@ -227,8 +289,8 @@ class DownloadServiceTest {
         inputStream1.setAvailable(TEST_FILESIZE / 100)
 
         // 1% progress should be shown in the notification
-        assertTrue(device.wait(Until.hasObject(By.res(NOTIFICATION_SHADE_TYPE).hasDescendant(
-                By.text(NumberFormat.getPercentInstance().format(.01f)))), TEST_TIMEOUT_MS))
+        val progressText = NumberFormat.getPercentInstance().format(.01f)
+        findNotification(UiSelector().textContains(progressText))
 
         // Setup the connection for the next download with indeterminate progress
         val inputStream2 = TestInputStream()
@@ -250,8 +312,7 @@ class DownloadServiceTest {
 
         // A notification should be shown for the second download with indeterminate progress
         val dlText2 = resources.getString(R.string.downloading_paramfile, testFile2.name)
-        assertTrue(device.wait(Until.hasObject(
-                By.res(NOTIFICATION_SHADE_TYPE).hasDescendant(By.text(dlText2))), TEST_TIMEOUT_MS))
+        findNotification(UiSelector().textContains(dlText2))
 
         // Allow the second download to finish
         inputStream2.setAvailable(TEST_FILESIZE)
@@ -270,17 +331,16 @@ class DownloadServiceTest {
         val bis = ByteArrayInputStream(fileContents.toByteArray(StandardCharsets.UTF_8))
         doReturn(bis).`when`(connection).inputStream
 
-        // .testtxtfile extension is handled by OpenTextFileActivity in the test package
-        val testFile = createTestFile(extension = ".testtxtfile")
+        // The test extension is handled by OpenTextFileActivity in the test package
+        val testFile = createTestFile(extension = ".$TEST_TEXT_FILE_EXTENSION")
         val downloadIntent = makeDownloadIntent(testFile)
         openNotificationShade()
 
         context.startForegroundService(downloadIntent)
 
-        val doneText = resources.getString(R.string.download_completed)
-        val note = device.wait(Until.findObject(By.text(doneText)), TEST_TIMEOUT_MS)
-        assertNotNull(note, "Notification with text \"$doneText\" not found")
-
+        // The download completed notification has the filename as contents, and
+        // R.string.download_completed as title. Find the contents using the filename as exact match
+        val note = findNotification(UiSelector().text(testFile.name))
         note.click()
 
         // OpenTextFileActivity opens the file and shows contents
@@ -291,6 +351,37 @@ class DownloadServiceTest {
         device.wakeUp()
         device.openNotification()
         assertTrue(device.wait(Until.hasObject(By.res(NOTIFICATION_SHADE_TYPE)), TEST_TIMEOUT_MS))
+    }
+
+    private fun findNotification(selector: UiSelector): UiObject {
+        val shadeScroller = UiScrollable(UiSelector().resourceId(NOTIFICATION_SHADE_TYPE))
+                .setSwipeDeadZonePercentage(NOTIFICATION_SCROLL_DEAD_ZONE_PERCENT)
+
+        // Optimistically wait for the notification without scrolling (scrolling is slow)
+        val note = shadeScroller.getChild(selector)
+        if (note.waitForExists(NOTIFICATION_NO_SCROLL_TIMEOUT_MS)) return note
+
+        val limit = System.currentTimeMillis() + TEST_TIMEOUT_MS
+        while (System.currentTimeMillis() < limit) {
+            // Similar to UiScrollable.scrollIntoView, but do not scroll up before going down (it
+            // could open the quick settings), and control the scroll steps (with a large swipe
+            // dead zone, scrollIntoView uses too many steps by default and is very slow).
+            for (i in 0 until NOTIFICATION_SCROLL_COUNT) {
+                val canScrollFurther = shadeScroller.scrollForward(NOTIFICATION_SCROLL_STEPS)
+                if (note.exists()) return note
+                // Scrolled to the end, or scrolled too much and closed the shade
+                if (!canScrollFurther || !shadeScroller.exists()) break
+            }
+
+            // Go back to the top: close then reopen the notification shade.
+            // Do not scroll up, as it could open quick settings (and would be slower).
+            device.pressHome()
+            assertTrue(shadeScroller.waitUntilGone(TEST_TIMEOUT_MS))
+            openNotificationShade()
+
+            Thread.sleep(NOTIFICATION_SCROLL_POLL_MS)
+        }
+        fail("Notification with selector $selector not found")
     }
 
     /**
@@ -315,17 +406,6 @@ class DownloadServiceTest {
             assertEquals(buffer1.take(read1), buffer2.take(read1))
         }
         assertEquals(-1, s2.read(buffer2, 0, 1), "Stream 2 is longer than stream 1")
-    }
-
-    /**
-     * [KeyguardManager.requestDismissKeyguard] requires an activity: this activity allows the test
-     * to dismiss the keyguard by just being started.
-     */
-    class RequestDismissKeyguardActivity : Activity() {
-        override fun onCreate(savedInstanceState: Bundle?) {
-            super.onCreate(savedInstanceState)
-            getSystemService(KeyguardManager::class.java).requestDismissKeyguard(this, null)
-        }
     }
 
     /**

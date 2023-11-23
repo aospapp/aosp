@@ -12,10 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-python_library {
-    name: "py3-stdlib",
-    is_internal: true,
-    pkg_path: "stdlib",
+// *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+//     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+//     DEPENDING ON IT IN YOUR PROJECT. ***
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_python_cpython3_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-BSD
+    //   SPDX-license-identifier-GPL
+    //   SPDX-license-identifier-MIT
+    //   SPDX-license-identifier-PSF-2.0
+    //   SPDX-license-identifier-Unicode-DFS
+    //   SPDX-license-identifier-Zlib
+    //   legacy_by_exception_only (by exception only)
+    //   legacy_notice
+    //   legacy_unencumbered
+    default_applicable_licenses: ["external_python_cpython3_license"],
+}
+
+filegroup {
+    name: "py3-stdlib-srcs",
+    visibility: ["//visibility:private"],
     srcs: [
         "*.py",
         "asyncio/**/*.py",
@@ -42,5 +62,65 @@ python_library {
     exclude_srcs: [
         "__phello__.foo.py",
     ],
+}
+
+soong_config_module_type {
+    name: "cpython3_python_stdlib",
+    module_type: "python_library",
+    config_namespace: "cpython3",
+    bool_variables: ["force_build_host"],
+    properties: ["defaults"],
+}
+
+python_defaults {
+    name: "py3-stdlib-force-build",
+    defaults_visibility: ["//visibility:private"],
+    target: {
+        linux_glibc: {
+            exclude_srcs: [":py3-stdlib-prebuilt-srcs"],
+            srcs: [":py3-stdlib-srcs"],
+        },
+        darwin: {
+            exclude_srcs: [":py3-stdlib-prebuilt-srcs"],
+            srcs: [":py3-stdlib-srcs"],
+        },
+    },
+}
+
+cpython3_python_stdlib {
+    name: "py3-stdlib",
+    is_internal: true,
+    pkg_path: "stdlib",
     host_supported: true,
+    target: {
+        android: {
+            srcs: [":py3-stdlib-srcs"],
+        },
+        linux_bionic: {
+            srcs: [":py3-stdlib-srcs"],
+        },
+        linux_glibc: {
+            srcs: [":py3-stdlib-prebuilt-srcs"],
+        },
+        darwin: {
+            srcs: [":py3-stdlib-prebuilt-srcs"],
+        },
+    },
+    soong_config_variables: {
+        force_build_host: {
+            defaults: ["py3-stdlib-force-build"],
+        },
+    },
+}
+
+// Used by prebuilts/build-tools/build-prebuilts.sh to update
+// prebuilts/build-tools/common/py3-stdlib
+genrule {
+    name: "py3-stdlib-zip",
+    visibility: ["//visibility:private"],
+    tools: ["soong_zip"],
+    cmd: "echo $(in) >$(genDir)/list && " +
+        "$(location soong_zip) -o $(out) -C external/python/cpython3/Lib -l $(genDir)/list",
+    srcs: [":py3-stdlib-srcs"],
+    out: ["py3-stdlib.zip"],
 }

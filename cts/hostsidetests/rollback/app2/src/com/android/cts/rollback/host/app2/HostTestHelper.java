@@ -61,7 +61,7 @@ public class HostTestHelper {
     }
 
     @Test
-    public void testApkRollbackByAnotherInstaller_Phase2() throws Exception {
+    public void testApkRollbackByAnotherInstaller_Phase2_SecondInstaller() throws Exception {
         RollbackInfo rollbackA = RollbackUtils.waitForAvailableRollback(TestApp.A);
         assertThat(rollbackA).packagesContainsExactly(Rollback.from(TestApp.A2).to(TestApp.A1));
         RollbackUtils.rollback(rollbackA.getRollbackId());

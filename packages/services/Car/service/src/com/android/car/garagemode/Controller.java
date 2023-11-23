@@ -27,17 +27,21 @@ import android.os.Looper;
 import android.os.UserHandle;
 
 import com.android.car.CarLocalServices;
+import com.android.car.CarLog;
 import com.android.car.systeminterface.SystemInterface;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.utils.Slogf;
 
-import java.util.List;
+import java.io.PrintWriter;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Main controller for GarageMode. It controls all the flows of GarageMode and defines the logic.
  */
 public class Controller implements CarPowerStateListenerWithCompletion {
-    private static final Logger LOG = new Logger("Controller");
+
+    private static final String TAG = CarLog.tagFor(GarageMode.class) + "_"
+            + Controller.class.getSimpleName();
 
     @VisibleForTesting final WakeupPolicy mWakeupPolicy;
     private final GarageMode mGarageMode;
@@ -66,34 +70,36 @@ public class Controller implements CarPowerStateListenerWithCompletion {
     public void init() {
         mCarPowerManager = CarLocalServices.createCarPowerManager(mContext);
         mCarPowerManager.setListenerWithCompletion(Controller.this);
+        mGarageMode.init();
     }
 
     /** release */
     public void release() {
         mCarPowerManager.clearListener();
+        mGarageMode.release();
     }
 
     @Override
     public void onStateChanged(int state, CompletableFuture<Void> future) {
         switch (state) {
             case CarPowerStateListener.SHUTDOWN_CANCELLED:
-                LOG.d("CPM state changed to SHUTDOWN_CANCELLED");
+                Slogf.d(TAG, "CPM state changed to SHUTDOWN_CANCELLED");
                 handleShutdownCancelled();
                 break;
             case CarPowerStateListener.SHUTDOWN_ENTER:
-                LOG.d("CPM state changed to SHUTDOWN_ENTER");
+                Slogf.d(TAG, "CPM state changed to SHUTDOWN_ENTER");
                 handleShutdownEnter();
                 break;
             case CarPowerStateListener.SHUTDOWN_PREPARE:
-                LOG.d("CPM state changed to SHUTDOWN_PREPARE");
+                Slogf.d(TAG, "CPM state changed to SHUTDOWN_PREPARE");
                 handleShutdownPrepare(future);
                 break;
             case CarPowerStateListener.SUSPEND_ENTER:
-                LOG.d("CPM state changed to SUSPEND_ENTER");
+                Slogf.d(TAG, "CPM state changed to SUSPEND_ENTER");
                 handleSuspendEnter();
                 break;
             case CarPowerStateListener.SUSPEND_EXIT:
-                LOG.d("CPM state changed to SUSPEND_EXIT");
+                Slogf.d(TAG, "CPM state changed to SUSPEND_EXIT");
                 handleSuspendExit();
                 break;
             default:
@@ -108,10 +114,10 @@ public class Controller implements CarPowerStateListenerWithCompletion {
     }
 
     /**
-     * @return Garage Mode's status, including what jobs it is waiting for
+     * Prints Garage Mode's status, including what jobs it is waiting for
      */
-    List<String> dump() {
-        return mGarageMode.dump();
+    void dump(PrintWriter writer) {
+        mGarageMode.dump(writer);
     }
 
     /**
@@ -121,7 +127,7 @@ public class Controller implements CarPowerStateListenerWithCompletion {
      */
     void sendBroadcast(Intent i) {
         SystemInterface systemInterface = CarLocalServices.getService(SystemInterface.class);
-        LOG.d("Sending broadcast with action: " + i.getAction());
+        Slogf.d(TAG, "Sending broadcast with action: %s", i.getAction());
         systemInterface.sendBroadcastAsUser(i, UserHandle.ALL);
     }
 

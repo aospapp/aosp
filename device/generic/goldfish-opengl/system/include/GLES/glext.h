@@ -373,6 +373,10 @@ typedef struct __GLsync *GLsync;
 #define GL_SRGB_ALPHA_EXT                                       0x8C42
 #define GL_SRGB8_ALPHA8_EXT                                     0x8C43
 #define GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING_EXT            0x8210
+#define GL_COMPRESSED_SRGB_S3TC_DXT1_EXT                        0x8C4C
+#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT                  0x8C4D
+#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT                  0x8C4E
+#define GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT                  0x8C4F
 #endif
 
 /* GL_EXT_texture_compression_dxt1 */
@@ -1275,4 +1279,3 @@ typedef void (GL_APIENTRYP PFNGLENDTILINGQCOMPROC) (GLbitfield preserveMask);
 #endif
 
 #endif /* __glext_h_ */
-

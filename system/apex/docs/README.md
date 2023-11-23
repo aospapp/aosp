@@ -1,14 +1,18 @@
 # APEX File Format
 
-Android Pony EXpress (APEX) is a container format introduced in Android Q
-that is used in the install flow for lower-level system
-modules. This format facilitates the updates of system components that don't fit
-into the standard Android application model. Some example components are native
-services and libraries, hardware abstraction layers
+Android Pony EXpress (APEX) is a container format introduced in Android Q that
+is used in the install flow for lower-level system modules. This format
+facilitates the updates of system components that don't fit into the standard
+Android application model. Some example components are native services and
+libraries, hardware abstraction layers
 ([HALs](/https://source.android.com/devices/architecture/hal-types)), runtime
 ([ART](/https://source.android.com/devices/tech/dalvik)), and class libraries.
 
 The term "APEX" can also refer to an APEX file.
+
+This document describes technical details of the APEX file format. If you are
+looking at how to build an APEX package, kindly refer to [this how-to](howto.md)
+document.
 
 ## Background
 
@@ -29,7 +33,7 @@ has the following drawbacks:
 This section describes the high-level design of the APEX file format and the
 APEX manager, which is a service that manages APEX files.
 
-### APEX format
+### APEX format {#apex-format}
 
 This is the format of an APEX file.
 
@@ -55,8 +59,8 @@ infrastructure such as ADB, PackageManager, and package installer apps (such as
 Play Store). For example, the APEX file can use an existing tool such as `aapt`
 to inspect basic metadata from the file. The file contains package name and
 version information. This information is generally also available in
-`apex_manifest.json`. `AndroidManifest.xml` might contain additional
-targeting information that can be used by the existing app publishing tools.
+`apex_manifest.json`. `AndroidManifest.xml` might contain additional targeting
+information that can be used by the existing app publishing tools.
 
 `apex_manifest.json` is recommended over `AndroidManifest.xml` for new code and
 systems that deal with APEX.
@@ -68,16 +72,16 @@ metadata block are created using libavb. The file system payload isn't parsed
 inside the `apex_payload.img` file.
 
 `apex_pubkey` is the public key used to sign the file system image. At runtime,
-this key ensures that the downloaded APEX is signed with the same entity
-that signs the same APEX in the built-in partitions.
+this key ensures that the downloaded APEX is signed with the same entity that
+signs the same APEX in the built-in partitions.
 
 ### APEX manager
 
-The APEX manager (or `apexd`) is a native daemon responsible for
-verifying, installing, and uninstalling APEX files. This process is launched and
-is ready early in the boot sequence. APEX files are normally pre-installed on
-the device under `/system/apex`. The APEX manager defaults to using these
-packages if no updates are available.
+The APEX manager (or `apexd`) is a native daemon responsible for verifying,
+installing, and uninstalling APEX files. This process is launched and is ready
+early in the boot sequence. APEX files are normally pre-installed on the device
+under `/system/apex`. The APEX manager defaults to using these packages if no
+updates are available.
 
 The update sequence of an APEX uses the
 [PackageManager class](https://developer.android.com/reference/android/content/pm/PackageManager)
@@ -132,17 +136,17 @@ The APEX format supports these file types:
 -   Data files
 -   Config files
 
-The APEX format can only update some of these file types. Whether a file
-type can be updated depends on the platform and how stable the interfaces for
-the files types are defined.
+The APEX format can only update some of these file types. Whether a file type
+can be updated depends on the platform and how stable the interfaces for the
+files types are defined.
 
 ### Signing
 
 APEX files are signed in two ways. First, the `apex_payload.img` (specifically,
 the vbmeta descriptor appended to `apex_payload.img`) file is signed with a key.
 Then, the entire APEX is signed using the
-[APK signature scheme v3](/https://source.android.com/security/apksigning/v3). Two different keys are used
-in this process.
+[APK signature scheme v3](/https://source.android.com/security/apksigning/v3).
+Two different keys are used in this process.
 
 On the device side, a public key corresponding to the private key used to sign
 the vbmeta descriptor is installed. The APEX manager uses the public key to
@@ -152,9 +156,8 @@ different keys and is enforced both at build time and runtime.
 ### APEX in built-in partitions
 
 APEX files can be located in built-in partitions such as `/system`. The
-partition is
-already over dm-verity, so the APEX files are mounted directly over the loop
-device.
+partition is already over dm-verity, so the APEX files are mounted directly over
+the loop device.
 
 If an APEX is present in a built-in partition, the APEX can be updated by
 providing an APEX package with the same package name and a higher version code.
@@ -165,18 +168,18 @@ the newer version of the APEX is only activated after reboot.
 ## Kernel requirements
 
 To support APEX mainline modules on an Android device, the following Linux
-kernel features are required: the loop driver and dm-verity. The loop
-driver mounts the file system image in an APEX module and dm-verity verifies the
-APEX module.
+kernel features are required: the loop driver and dm-verity. The loop driver
+mounts the file system image in an APEX module and dm-verity verifies the APEX
+module.
 
-The performance of the loop driver and dm-verity is important in achieving
-good system performance when using APEX modules.
+The performance of the loop driver and dm-verity is important in achieving good
+system performance when using APEX modules.
 
 ### Supported kernel versions
 
 APEX mainline modules are supported on devices using kernel versions 4.4 or
-higher. New devices launching with Android Q or higher
-must use kernel version 4.9 or higher to support APEX modules.
+higher. New devices launching with Android Q or higher must use kernel version
+4.9 or higher to support APEX modules.
 
 ### Required kernel patches
 
@@ -187,10 +190,9 @@ of the Android common tree.
 #### Kernel version 4.4
 
 This version is only supported for devices that are upgraded from Android 9 to
-Android Q and want to support APEX modules. To get the
-required patches, a down-merge from the `android-4.4` branch is strongly
-recommended. The following is a list of the required individual patches
-for kernel version 4.4.
+Android Q and want to support APEX modules. To get the required patches, a
+down-merge from the `android-4.4` branch is strongly recommended. The following
+is a list of the required individual patches for kernel version 4.4.
 
 -   UPSTREAM: loop: add ioctl for changing logical block size
     ([4.4](https://android-review.googlesource.com/c/kernel/common/+/777013){: .external})
@@ -216,9 +218,9 @@ the `android-common` branch.
 
 ### Required kernel configuration options
 
-The following list shows the base configuration requirements for supporting
-APEX modules that were introduced in Android Q. The
-items with an asterisk (\*) are existing requirements from Android 9 and lower.
+The following list shows the base configuration requirements for supporting APEX
+modules that were introduced in Android Q. The items with an asterisk (\*) are
+existing requirements from Android 9 and lower.
 
 ```
 (*) CONFIG_AIO=Y # AIO support (for direct I/O on loop devices)
@@ -242,8 +244,8 @@ requirements.
 Note: Because the implementation details for APEX are still under development,
 the content in this section is subject to change.
 
-This section describes how to build an APEX using the Android build system.
-The following is an example of `Android.bp` for an APEX named `apex.test`.
+This section describes how to build an APEX using the Android build system. The
+following is an example of `Android.bp` for an APEX named `apex.test`.
 
 ```
 apex {
@@ -280,12 +282,12 @@ apex {
 
 #### File types and locations in APEX
 
-|File type          |Location in APEX                                              |
-|-------------------|--------------------------------------------------------------|
-|Shared libraries   |`/lib` and `/lib64` (`/lib/arm` for translated arm in x86)    |
-|Executables        |`/bin`                                                        |
-|Java libraries     |`/javalib`                                                    |
-|Prebuilts          |`/etc`                                                        |
+File type        | Location in APEX
+---------------- | ----------------------------------------------------------
+Shared libraries | `/lib` and `/lib64` (`/lib/arm` for translated arm in x86)
+Executables      | `/bin`
+Java libraries   | `/javalib`
+Prebuilts        | `/etc`
 
 ### Transitive dependencies
 
@@ -376,6 +378,7 @@ $ avbtool extract_public_key --key foo.pem --output foo.avbpubkey
 ```
 
 In Android.bp:
+
 ```
 apex_key {
     name: "apex.test.key",
@@ -507,21 +510,21 @@ kernel to fully support APEX. For example, the kernel might have been built
 without `CONFIG_BLK_DEV_LOOP=Y`, which is crucial for mounting the file system
 image inside an APEX.
 
-Flattened APEX is a specially built APEX that can be activated on devices with
-a legacy kernel. Files in a flattened APEX are directly installed to a directory
+Flattened APEX is a specially built APEX that can be activated on devices with a
+legacy kernel. Files in a flattened APEX are directly installed to a directory
 under the built-in partition. For example, `lib/libFoo.so` in a flattend APEX
 `my.apex` is installed to `/system/apex/my.apex/lib/libFoo.so`.
 
 Activating a flattened APEX doesn't involve the loop device. The entire
 directory `/system/apex/my.apex` is directly bind-mounted to `/apex/name@ver`.
 
-Flattened APEXs can't be updated by downloading updated versions
-of the APEXs from network because the downloaded APEXs can't be flattened.
-Flattened APEXs can be updated only via a regular OTA.
+Flattened APEXs can't be updated by downloading updated versions of the APEXs
+from network because the downloaded APEXs can't be flattened. Flattened APEXs
+can be updated only via a regular OTA.
 
 Note that flattened APEX is the default configuration for now. This means all
-APEXes are by default flattened unless you explicitly configure your device
-to support updatable APEX (explained above).
+APEXes are by default flattened unless you explicitly configure your device to
+support updatable APEX (explained above).
 
 Also note that, mixing flattened and non-flattened APEXes in a device is NOT
 supported. It should be either all non-flattened or all flattened. This is
@@ -530,22 +533,168 @@ like Mainline. APEXes that are not pre-signed (i.e. built from the source)
 should also be non-flattened and signed with proper keys in that case. The
 device should inherit from `updatable_apex.mk` as explained above.
 
+## Compressed apexes {#compressed-apex}
+
+APEX compression is a new feature introduced in Android S. Its main purpose is
+to reduce the storage impact of updatable APEX packages: after an update to an
+APEX is installed, its pre-installed version is not used anymore, and space that
+is taken by it effectively becomes a dead weight.
+
+APEX compression minimizes the storage impact by using a highly-compressed
+set of APEX files on read-only partitions (e.g. `/system`). In Android S a
+DEFLATE zip compression is used.
+
+Note: compression doesn't provide any optimization in the following scenarios:
+
+* Bootstrap apexes that are required to be mounted very early in the boot
+  sequence. List of bootstrap apexes is configured in `kBootstrapApexes`
+  constant in `system/apex/apexd/apexd.cpp`.
+* Non-updatable apexes. Compression is only beneficial in case an updated
+  version of an apex is installed on `/data partition`.
+  Full list of updatable apexes is available at
+  https://source.android.com/devices/architecture/modular-system.
+* Dynamic shared libs apexes. Since `apexd` will always activate both versions
+  of such apexes (pre-installed and upgraded), compressing them doesn't provide
+  any value.
+
+### Compressed APEX file format
+
+This is the format of a compressed APEX file.
+
+![Compressed APEX file format](compressed-apex-format.png)
+
+**Figure 2.** Compressed APEX file format
+
+At the top level, a compressed APEX file is a zip file containing the original apex in deflated
+form with compression level of 9 and other files stored uncompressed.
+
+The four files in an APEX file are:
+
+*   `original_apex`: deflated with compression level of 9
+*   `apex_manifest.pb`: stored only
+*   `AndroidManifest.xml`: stored only
+*   `apex_pubkey`: stored only
+
+
+`original_apex` is the original uncompressed [APEX file](#apex-format).
+
+`apex_manifest.pb` `AndroidManifest.xml` `apex_pubkey` are copies of the
+corresponding files from `original_apex`.
+
+
+### Building compressed apex
+
+Compressed apex can be built using `apex_compression_tool.py` located at
+`system/apex/tools`.
+
+Note: the outer apk container of the produced compressed apex file won't be
+automatically signed. You will need to manually sign it with using the correct
+certificate. See [Signing Builds for Release](
+https://source.android.com/devices/tech/ota/sign_builds#apex-signing-key-replacement).
+
+There are a few different parameters related to APEX compression available in
+the build system.
+
+In `Android.bp` whether an apex is compressible is controlled by `compressible`
+property:
+
+```
+apex {
+    name: "apex.test",
+    manifest: "apex_manifest.json",
+    file_contexts: "file_contexts",
+    compressible: true,
+}
+```
+
+Note: this only serves as a hint to build system that this apex can be
+compressed. Such property is required due to the fact that not all apexes are
+compressible as mentioned in the [section above](#compressed-apex).
+
+TODO(b/183208430): add docs on how this works for prebuilts.
+
+A `PRODUCT_COMPRESSED_APEX` product flag is used to control whether a system
+image built from source should contain compressed apexes or not.
+
+For local experimentation you can force a build to compress apexes by setting
+`OVERRIDE_PRODUCT_COMPRESSED_APEX=true`.
+
+Compressed APEX files generated by the build system will have `.capex`
+extension. It makes it easier to distinguish between compressed and uncompressed
+versions of an APEX.
+
+### Supported compression algorithms
+
+Android S only supports deflate zip compression.
+
+### Activating compressed apex  during boot
+
+Before activating a compressed APEX, `original_apex` inside it will be
+decompressed into `/data/apex/decompressed` directory. The resulting
+decompressed APEX will be hard linked to the `/data/apex/active` directory.
+
+Note: because of the hard link step above, it's important that files under
+`/data/apex/decompressed` have the same SELinux label as files under
+`/data/apex/active`.
+
+Consider following example as an illustration of the process described above.
+
+Let's assume that `/system/apex/com.android.foo.capex` is a compressed APEX
+being activated, and it's `versionCode` is `37`.
+
+1. First `original_apex` inside `/system/apex/com.android.foo.capex` is
+   decompressed into `/data/apex/decompressed/com.android.foo@37.apex`.
+2. After that `restorecon /data/apex/decompressed/com.android.foo@37.apex` is
+   performed to make sure that it has a correct SELinux label.
+3. Verification checks are performed on
+   `/data/apex/decompressed/com.android.foo@37.apex` to ensure it's validity:
+   * `apexd` checks that public key bundled in
+     `/data/apex/decompressed/com.android.foo@37.apex` is equal to the one
+     bundled in `/system/apex/com.android.foo.capex`
+4. Next `/data/apex/decompressed/com.android.foo@37.apex` is hard linked to
+   `/data/apex/active/com.android.foo@37.apex`.
+5. Finally, regular activation logic for uncompressed APEX files is performed
+   for `/data/apex/active/com.android.foo@37.apex`.
+
+For more information see implementation of `OnStart` function in
+`system/apex/apexd/apexd.cpp`.
+
+### Interaction with OTA
+
+Compressed APEX files have some implications on the OTA delivery and
+application. Since an OTA might contain a compressed APEX file with higher
+version compared to what is currently active on the device, some free space must
+be reserved before rebooting a device to apply an OTA.
+
+To help OTA system, two new binder APIs are exposed by apexd:
+
+* `calculateSizeForCompressedApex` - calculates size required for decompressing
+  APEX files in OTA package. It can be used to check if device has enough space
+  before downloading an OTA.
+* `reserveSpaceForCompressedApex` - reserves space on the disk that in the
+  future will be used by apexd for decompression of compressed APEX files inside
+  the OTA package.
+
+
+In case of A/B OTA, `apexd` will attempt decompression in the background as part
+of the postinstall OTA routine. If decompression fails, `apexd` will fallback to
+decompressing during the boot that applies the OTA.
+
 ## Alternatives considered when developing APEX
 
-Here are some options that we considered when designing the APEX file
-format, and why we included or excluded them.
+Here are some options that we considered when designing the APEX file format,
+and why we included or excluded them.
 
 ### Regular package management systems
 
-Linux distributions have package management systems like `dpkg` and `rpm`,
-which are powerful, mature and robust. However, they weren't
-adopted for APEX because they can't protect the packages after
-installation. Verification is done only when packages are being installed.
-Attackers can break the integrity of the installed packages unnoticed. This is
-a regression for Android where all system components were stored in read-only
-file systems whose integrity is protected by dm-verity for every I/O. Any
-tampering to system components must be prohibited, or be detectable so that
-the device can refuse to boot if compromised.
+Linux distributions have package management systems like `dpkg` and `rpm`, which
+are powerful, mature and robust. However, they weren't adopted for APEX because
+they can't protect the packages after installation. Verification is done only
+when packages are being installed. Attackers can break the integrity of the
+installed packages unnoticed. This is a regression for Android where all system
+components were stored in read-only file systems whose integrity is protected by
+dm-verity for every I/O. Any tampering to system components must be prohibited,
+or be detectable so that the device can refuse to boot if compromised.
 
 ### dm-crypt for integrity
 
@@ -573,15 +722,15 @@ partition, they were accessible via paths such as `/system/lib/libfoo.so`. A
 client of an APEX file (other APEX files or the platform) should use the new
 paths. This change in paths might require updates to the existing code.
 
-One way to avoid the path change is to overlay the file contents in an APEX
-file over the `/system` partition. However, we decided not to overlay files over
-the `/system` partition because we believed this would negatively affect
-performance as the number of files being overlayed (possibly even stacked one
-after another) increases.
+One way to avoid the path change is to overlay the file contents in an APEX file
+over the `/system` partition. However, we decided not to overlay files over the
+`/system` partition because we believed this would negatively affect performance
+as the number of files being overlayed (possibly even stacked one after another)
+increases.
 
 Another option was to hijack file access functions such as `open`, `stat`, and
 `readlink`, so that paths that start with `/system` are redirected to their
 corresponding paths under `/apex`. We discarded this option because it's
-practically infeasible to change all functions that accept paths. For
-example, some apps statically link Bionic, which implements the functions. In
-that case, the redirection won't happen for the app.
+practically infeasible to change all functions that accept paths. For example,
+some apps statically link Bionic, which implements the functions. In that case,
+the redirection won't happen for the app.

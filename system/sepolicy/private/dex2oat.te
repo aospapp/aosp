@@ -2,6 +2,8 @@
 type dex2oat, domain, coredomain;
 type dex2oat_exec, system_file_type, exec_type, file_type;
 
+userfaultfd_use(dex2oat)
+
 r_dir_file(dex2oat, apk_data_file)
 # Access to /vendor/app
 r_dir_file(dex2oat, vendor_app_file)
@@ -13,13 +15,11 @@ allow dex2oat tmpfs:file { read getattr map };
 
 r_dir_file(dex2oat, dalvikcache_data_file)
 allow dex2oat dalvikcache_data_file:file write;
-# Read symlinks in /data/dalvik-cache. This is required for PIC mode boot images, where
-# the oat file is symlinked to the original file in /system.
-allow dex2oat dalvikcache_data_file:lnk_file read;
 allow dex2oat installd:fd use;
 
 # Acquire advisory lock on /system/framework/arm/*
 allow dex2oat system_file:file lock;
+allow dex2oat postinstall_file:file lock;
 
 # Read already open asec_apk_file file descriptors passed by installd.
 # Also allow reading unlabeled files, to allow for upgrading forward
@@ -34,6 +34,32 @@ allow dex2oat user_profile_data_file:file { getattr read lock map };
 # Allow dex2oat to compile app's secondary dex files which were reported back to
 # the framework.
 allow dex2oat { privapp_data_file app_data_file }:file { getattr read write lock map };
+
+# Allow dex2oat to find files and directories under /data/misc/apexdata/com.android.runtime.
+allow dex2oat apex_module_data_file:dir search;
+
+# Allow dex2oat to use file descriptors passed from odrefresh.
+allow dex2oat odrefresh:fd use;
+
+# Allow dex2oat to use devpts and file descriptors passed from odsign
+allow dex2oat odsign_devpts:chr_file { read write };
+allow dex2oat odsign:fd use;
+
+# Allow dex2oat to write to file descriptors from odrefresh for files
+# in the staging area.
+allow dex2oat apex_art_staging_data_file:dir r_dir_perms;
+allow dex2oat apex_art_staging_data_file:file { getattr map read write unlink };
+
+# Allow dex2oat to read artifacts from odrefresh.
+allow dex2oat apex_art_data_file:dir r_dir_perms;
+allow dex2oat apex_art_data_file:file r_file_perms;
+
+# Allow dex2oat to read runtime native flag properties.
+get_prop(dex2oat, device_config_runtime_native_prop)
+get_prop(dex2oat, device_config_runtime_native_boot_prop)
+
+# Allow dex2oat to read /apex/apex-info-list.xml
+allow dex2oat apex_info_file:file r_file_perms;
 
 ##################
 # A/B OTA Dexopt #
@@ -53,6 +79,7 @@ allow dex2oat postinstall_file:file { execute getattr open };
 
 # Allow dex2oat access to /postinstall/apex.
 allow dex2oat postinstall_apex_mnt_dir:dir { getattr search };
+allow dex2oat postinstall_apex_mnt_dir:file r_file_perms;
 
 # Allow dex2oat access to files in /data/ota.
 allow dex2oat ota_data_file:dir ra_dir_perms;
@@ -75,7 +102,6 @@ allow dex2oat ota_data_file:file { create w_file_perms setattr };
 allow dex2oat apexd:fd use;
 
 # Allow dex2oat to use file descriptors from preinstall.
-allow dex2oat art_apex_preinstall:fd use;
 
 ##############
 # Neverallow #

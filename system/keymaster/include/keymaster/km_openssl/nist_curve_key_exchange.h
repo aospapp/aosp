@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_NIST_CURVE_KEY_EXCHANGE_H_
-#define SYSTEM_KEYMASTER_NIST_CURVE_KEY_EXCHANGE_H_
+#pragma once
 
 #include "key_exchange.h"
 
-#include <keymaster/authorization_set.h>
 #include <hardware/keymaster_defs.h>
+#include <keymaster/authorization_set.h>
 
 #include <keymaster/UniquePtr.h>
 
@@ -68,5 +67,3 @@ class NistCurveKeyExchange : public KeyExchange {
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_NIST_CURVE_KEY_EXCHANGE_H_

@@ -21,12 +21,30 @@ struct cb_data {
 std::unordered_map<cras_iodev*, cb_data> frames_queued_map;
 std::unordered_map<cras_iodev*, cb_data> valid_frames_map;
 std::unordered_map<cras_iodev*, timespec> drop_time_map;
+std::unordered_map<const cras_iodev*, double> est_rate_ratio_map;
+std::unordered_map<const cras_iodev*, int> update_rate_map;
+std::unordered_map<const cras_ionode*, int> on_internal_card_map;
 }  // namespace
 
 void iodev_stub_reset() {
   frames_queued_map.clear();
   valid_frames_map.clear();
   drop_time_map.clear();
+  est_rate_ratio_map.clear();
+  update_rate_map.clear();
+  on_internal_card_map.clear();
+}
+
+void iodev_stub_est_rate_ratio(cras_iodev* iodev, double ratio) {
+  est_rate_ratio_map.insert({iodev, ratio});
+}
+
+void iodev_stub_update_rate(cras_iodev* iodev, int data) {
+  update_rate_map.insert({iodev, data});
+}
+
+void iodev_stub_on_internal_card(cras_ionode* node, int data) {
+  on_internal_card_map.insert({node, data});
 }
 
 void iodev_stub_frames_queued(cras_iodev* iodev, int ret, timespec ts) {
@@ -67,7 +85,11 @@ int cras_iodev_get_valid_frames(struct cras_iodev* iodev,
 }
 
 double cras_iodev_get_est_rate_ratio(const struct cras_iodev* iodev) {
-  return 1.0;
+  auto elem = est_rate_ratio_map.find(iodev);
+  if (elem != est_rate_ratio_map.end()) {
+    return elem->second;
+  }
+  return 1.0f;
 }
 
 int cras_iodev_get_dsp_delay(const struct cras_iodev* iodev) {
@@ -93,6 +115,10 @@ struct dev_stream* cras_iodev_rm_stream(struct cras_iodev* iodev,
 int cras_iodev_update_rate(struct cras_iodev* iodev,
                            unsigned int level,
                            struct timespec* level_tstamp) {
+  auto elem = update_rate_map.find(iodev);
+  if (elem != update_rate_map.end()) {
+    return elem->second;
+  }
   return 0;
 }
 
@@ -150,7 +176,9 @@ int cras_iodev_odev_should_wake(const struct cras_iodev* odev) {
   return 1;
 }
 
-int cras_iodev_output_underrun(struct cras_iodev* odev) {
+int cras_iodev_output_underrun(struct cras_iodev* odev,
+                               unsigned int hw_level,
+                               unsigned int frames_written) {
   return 0;
 }
 
@@ -185,5 +213,13 @@ int cras_iodev_drop_frames_by_time(struct cras_iodev* iodev,
                                    struct timespec ts) {
   drop_time_map.insert({iodev, ts});
   return 0;
+}
+
+bool cras_iodev_is_on_internal_card(const struct cras_ionode* node) {
+  auto elem = on_internal_card_map.find(node);
+  if (elem != on_internal_card_map.end()) {
+    return elem->second;
+  }
+  return 1;
 }
 }  // extern "C"

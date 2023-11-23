@@ -67,7 +67,7 @@ public final class Phonenumber {
       countryCode_ = value;
       return this;
     }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public PhoneNumber clearCountryCode() {
       hasCountryCode = false;
       countryCode_ = 0;
@@ -94,9 +94,9 @@ public final class Phonenumber {
     // optional string extension = 3;
     private boolean hasExtension;
     private java.lang.String extension_ = "";
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public boolean hasExtension() { return hasExtension; }
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public String getExtension() { return extension_; }
     public PhoneNumber setExtension(String value) {
       if (value == null) {

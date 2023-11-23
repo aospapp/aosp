@@ -53,7 +53,6 @@ import static com.android.server.telecom.testapps.CallServiceNotifier.SIM_SUBSCR
 
 /**
  * Service which provides fake calls to test the ConnectionService interface.
- * TODO: Rename all classes in the directory to Dummy* (e.g., DummyConnectionService).
  */
 public class TestConnectionService extends ConnectionService {
     /**
@@ -430,9 +429,9 @@ public class TestConnectionService extends ConnectionService {
             int videoState = extras.getInt(EXTRA_START_VIDEO_STATE, VideoProfile.STATE_AUDIO_ONLY);
             Uri providedHandle = extras.getParcelable(EXTRA_HANDLE);
 
-            // Use dummy number for testing incoming calls.
+            // Use test number for testing incoming calls.
             Uri address = providedHandle == null ?
-                    Uri.fromParts(PhoneAccount.SCHEME_TEL, getDummyNumber(
+                    Uri.fromParts(PhoneAccount.SCHEME_TEL, getRandomNumber(
                             VideoProfile.isVideo(videoState)), null)
                     : providedHandle;
             connection.setVideoState(videoState);
@@ -480,7 +479,7 @@ public class TestConnectionService extends ConnectionService {
             final Uri providedHandle = extras.getParcelable(EXTRA_HANDLE);
 
             Uri handle = providedHandle == null ?
-                    Uri.fromParts(PhoneAccount.SCHEME_TEL, getDummyNumber(false), null)
+                    Uri.fromParts(PhoneAccount.SCHEME_TEL, getRandomNumber(false), null)
                     : providedHandle;
 
             connection.setAddress(handle,  TelecomManager.PRESENTATION_ALLOWED);
@@ -613,7 +612,7 @@ public class TestConnectionService extends ConnectionService {
      * @param isVideo {@code True} if the call is a video call.
      * @return The phone number.
      */
-    private String getDummyNumber(boolean isVideo) {
+    private String getRandomNumber(boolean isVideo) {
         int videoDigit = isVideo ? 1 : 0;
         int number = mRandom.nextInt(999);
         return String.format("555%s%03d", videoDigit, number);

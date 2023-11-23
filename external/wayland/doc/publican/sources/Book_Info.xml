@@ -28,9 +28,9 @@
 	<imagedata fileref="images/wayland.png" format="PNG" />
       </imageobject>
       <textobject>
-        <phrase>
-          Wayland logo
-        </phrase>
+	<phrase>
+	  Wayland logo
+	</phrase>
       </textobject>
     </inlinemediaobject>
   </corpauthor>

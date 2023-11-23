@@ -17,16 +17,16 @@
 
 #pragma once
 
-#include <deque>
 #include <string>
 #include <vector>
 
-#include <android-base/thread_annotations.h>
 #include <netdutils/DumpWriter.h>
+
+#include "LockedQueue.h"
 
 namespace android::net {
 
-// A circular buffer based class used for query logging. It's thread-safe for concurrent access.
+// This class stores query records in a locked ring buffer. It's thread-safe for concurrent access.
 class DnsQueryLog {
   public:
     static constexpr std::string_view DUMP_KEYWORD = "querylog";
@@ -52,15 +52,13 @@ class DnsQueryLog {
     // Allow the tests to set the capacity and the validaty time in milliseconds.
     DnsQueryLog(size_t size = kDefaultLogSize,
                 std::chrono::milliseconds time = kDefaultValidityMinutes)
-        : mCapacity(size), mValidityTimeMs(time) {}
+        : mQueue(size), mValidityTimeMs(time) {}
 
-    void push(Record&& record) EXCLUDES(mLock);
-    void dump(netdutils::DumpWriter& dw) const EXCLUDES(mLock);
+    void push(Record&& record);
+    void dump(netdutils::DumpWriter& dw) const;
 
   private:
-    mutable std::mutex mLock;
-    std::deque<Record> mQueue GUARDED_BY(mLock);
-    const size_t mCapacity;
+    LockedRingBuffer<Record> mQueue;
     const std::chrono::milliseconds mValidityTimeMs;
 
     // The capacity of the circular buffer.

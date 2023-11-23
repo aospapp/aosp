@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Endirmə menecerinə daxil olun."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Tətbiq BluetoothPaylaşım menecerinə daxil ola və faylları ötürmək üçün ondan istifadə edə bilər."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Bluetooth cihazına girişi ağ siyahıya salın."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Tətbiq Bluetooth cihazını müvəqqəti olaraq ağ siyahıya daxil edə bilər, bununla həmin cihaz istifadəçi təsdiqi olmadan bu cihaza fayllar göndərə biləcək."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Bluetooth cihazı girişini qəbul siyahısına daxil edin."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Tətbiqin Bluetooth cihazını müvəqqəti olaraq qəbul siyahısına daxil etməsinə imkan verir, bununla həmin cihaz istifadəçi təsdiqi olmadan bu cihaza fayllar göndərə biləcək."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Naməlum cihaz"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Naməlum"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" adlı istifadəçidən gələn faylı qəbul edərkən gecikmə baş verdi"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Gələn fayl"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> <xliff:g id="FILE">%2$s</xliff:g> faylını göndərməyə hazırdır"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> bu faylı göndərməyə hazırdır: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetooth paylaşım: <xliff:g id="FILE">%1$s</xliff:g> qəbul edilir"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetooth paylaşım: <xliff:g id="FILE">%1$s</xliff:g> qəbul edildi"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetooth paylaşım: <xliff:g id="FILE">%1$s</xliff:g> faylı qəbul edilmədi"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" adlı istifadəçiyə fayl göndərilir"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" adlı istifadəçiyə <xliff:g id="NUMBER">%1$s</xliff:g> fayl göndərilir"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" adlı istifadəçiyə faylın göndərilməsi dayandırıldı"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" tərəfindən göndərilən faylı yadda saxlamaq üçün USB yaddaşında kifayət qədər yer yoxdur"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" tərəfindən göndərilən faylı yadda saxlamaq üçün SD kartda kifayət qədər yer yoxdur"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"Faylı saxlamaq üçün USB yaddaşında kifayət qədər yer yoxdur."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"Faylı saxlamaq üçün SD kartda kifayət qədər yer yoxdur."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Gərəkli: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Həddindən çox sorğu işlənilir. Sonra bir daha cəhd edin."</string>
     <string name="status_pending" msgid="2503691772030877944">"Fayl transferi hələ başlamayıb."</string>
@@ -121,7 +121,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Açın"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Siyahıdan silin"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Silin"</string>
-    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"İndi Efirdə"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Hazırda oxudulan"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Yadda saxlayın"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Ləğv edin"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Bluetooth vasitəsilə paylaşmaq istədiyiniz hesabları seçin. Qoşulma zamanı hesablara olan istənilən girişi qəbul etməlisiniz."</string>

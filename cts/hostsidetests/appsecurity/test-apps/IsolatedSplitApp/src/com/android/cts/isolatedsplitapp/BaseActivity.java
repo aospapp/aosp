@@ -17,6 +17,28 @@
 package com.android.cts.isolatedsplitapp;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.res.Configuration;
+import android.os.Bundle;
 
 public class BaseActivity extends Activity {
+    private static Configuration sOverrideConfiguration;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.base_linearlayout);
+    }
+
+    @Override
+    protected void attachBaseContext(Context newBase) {
+        super.attachBaseContext(newBase);
+        if (sOverrideConfiguration != null) {
+            applyOverrideConfiguration(sOverrideConfiguration);
+        }
+    }
+
+    public static void setOverrideConfiguration(Configuration overrideConfiguration) {
+        sOverrideConfiguration = overrideConfiguration;
+    }
 }

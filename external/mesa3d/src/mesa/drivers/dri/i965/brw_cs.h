@@ -29,13 +29,22 @@
 extern "C" {
 #endif
 
+struct brw_cs_parameters {
+   unsigned group_size;
+   unsigned simd_size;
+   unsigned threads;
+};
+
+struct brw_cs_parameters
+brw_cs_get_parameters(const struct brw_context *brw);
+
 void
 brw_upload_cs_prog(struct brw_context *brw);
 
 void
 brw_cs_populate_key(struct brw_context *brw, struct brw_cs_prog_key *key);
 void
-brw_cs_populate_default_key(const struct gen_device_info *devinfo,
+brw_cs_populate_default_key(const struct brw_compiler *compiler,
                             struct brw_cs_prog_key *key,
                             struct gl_program *prog);
 

@@ -21,12 +21,11 @@ import android.security.cts.R;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.media.MediaMetadataRetriever;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 
 import java.io.IOException;
 
-@SecurityTest
 public class MediaMetadataRetrieverTest extends AndroidTestCase {
     protected Resources mResources;
     protected MediaMetadataRetriever mRetriever;
@@ -54,6 +53,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    @AsbSecurityTest(cveBugId = 24623447)
     public void testID3v2EmbeddedPicture() {
         setDataSourceFd(R.raw.id3v2_3_extended_header_overflow_padding);
 

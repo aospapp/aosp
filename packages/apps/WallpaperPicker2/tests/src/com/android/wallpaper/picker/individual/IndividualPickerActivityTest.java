@@ -19,12 +19,9 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
-import static androidx.test.espresso.intent.Intents.intended;
 import static androidx.test.espresso.intent.Intents.intending;
-import static androidx.test.espresso.intent.matcher.ComponentNameMatchers.hasClassName;
 import static androidx.test.espresso.intent.matcher.IntentMatchers.hasAction;
-import static androidx.test.espresso.intent.matcher.IntentMatchers.hasComponent;
-import static androidx.test.espresso.intent.matcher.IntentMatchers.hasExtra;
+import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.isChecked;
 import static androidx.test.espresso.matcher.ViewMatchers.isClickable;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
@@ -33,8 +30,6 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static junit.framework.TestCase.assertFalse;
 
-import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -45,11 +40,8 @@ import android.app.Instrumentation.ActivityResult;
 import android.app.WallpaperManager;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.drawable.ColorDrawable;
-import android.widget.FrameLayout;
 
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.test.espresso.contrib.RecyclerViewActions;
 import androidx.test.espresso.intent.Intents;
 import androidx.test.filters.MediumTest;
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner;
@@ -57,21 +49,19 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.wallpaper.R;
-import com.android.wallpaper.config.Flags;
 import com.android.wallpaper.model.Category;
 import com.android.wallpaper.model.PickerIntentFactory;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.model.WallpaperRotationInitializer;
 import com.android.wallpaper.model.WallpaperRotationInitializer.RotationInitializationState;
-import com.android.wallpaper.module.FormFactorChecker;
 import com.android.wallpaper.module.Injector;
 import com.android.wallpaper.module.InjectorProvider;
 import com.android.wallpaper.testing.TestCategoryProvider;
 import com.android.wallpaper.testing.TestFormFactorChecker;
 import com.android.wallpaper.testing.TestInjector;
-import com.android.wallpaper.testing.TestUserEventLogger;
 import com.android.wallpaper.testing.TestWallpaperCategory;
 import com.android.wallpaper.testing.TestWallpaperInfo;
+import com.android.wallpaper.testing.TestWallpaperPreferences;
 import com.android.wallpaper.testing.TestWallpaperRotationInitializer;
 
 import org.hamcrest.Matcher;
@@ -108,6 +98,9 @@ public class IndividualPickerActivityTest {
 
     private TestWallpaperCategory mTestCategory;
 
+    private TestWallpaperPreferences mPreferences;
+    private ArrayList<WallpaperInfo> mWallpapers;
+
     @Rule
     public ActivityTestRule<IndividualPickerActivity> mActivityRule =
             new ActivityTestRule<>(IndividualPickerActivity.class, false, false);
@@ -125,6 +118,15 @@ public class IndividualPickerActivityTest {
 
         sWallpaperInfo1.setAttributions(Arrays.asList(
                 "Attribution 0", "Attribution 1", "Attribution 2"));
+
+        sWallpaperInfo1.setCollectionId("collection");
+
+        mPreferences = (TestWallpaperPreferences) mInjector.getPreferences(context);
+
+        mWallpapers = new ArrayList<>();
+        mWallpapers.add(sWallpaperInfo1);
+        mWallpapers.add(sWallpaperInfo2);
+        mWallpapers.add(sWallpaperInfo3);
     }
 
     @After
@@ -145,15 +147,8 @@ public class IndividualPickerActivityTest {
 
     private void setActivityWithMockWallpapers(boolean isRotationEnabled,
             @RotationInitializationState int rotationState) {
-        sWallpaperInfo1.setCollectionId("collection");
-
-        ArrayList<WallpaperInfo> wallpapers = new ArrayList<>();
-        wallpapers.add(sWallpaperInfo1);
-        wallpapers.add(sWallpaperInfo2);
-        wallpapers.add(sWallpaperInfo3);
-
         mTestCategory = new TestWallpaperCategory(
-                "Test category", "collection", wallpapers, 0 /* priority */);
+                "Test category", "collection", mWallpapers, 0 /* priority */);
         mTestCategory.setIsRotationEnabled(isRotationEnabled);
         mTestCategory.setRotationInitializationState(rotationState);
 
@@ -185,130 +180,12 @@ public class IndividualPickerActivityTest {
     }
 
     @Test
-    public void testClickTile_Mobile_LaunchesPreviewActivityWithWallpaper() {
-        mTestFormFactorChecker.setFormFactor(FormFactorChecker.FORM_FACTOR_MOBILE);
-
-        setActivityWithMockWallpapers(false /* isRotationEnabled */,
-                WallpaperRotationInitializer.ROTATION_NOT_INITIALIZED);
-        getActivity();
-
-        onView(withId(R.id.wallpaper_grid)).perform(
-                RecyclerViewActions.actionOnItemAtPosition(0, click()));
-        intended(allOf(
-                hasComponent(hasClassName("com.android.wallpaper.picker.PreviewActivity")),
-                hasExtra(equalTo(EXTRA_WALLPAPER_INFO), equalTo(sWallpaperInfo1))));
-
-        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        TestUserEventLogger eventLogger = (TestUserEventLogger) mInjector.getUserEventLogger(
-                context);
-        assertEquals(1, eventLogger.getNumIndividualWallpaperSelectedEvents());
-        assertEquals(sWallpaperInfo1.getCollectionId(context), eventLogger.getLastCollectionId());
-    }
-
-    /**
-     * Tests that the static daily rotation tile (with flag dynamicStartRotationTileEnabled=false)
-     * has a background of the light blue accent color and says "Tap to turn on".
-     */
-    @Test
-    public void testRotationEnabled_StaticDailyRotationTile() {
-        Flags.dynamicStartRotationTileEnabled = false;
+    public void testClickDailyRefreshAction_ShowsStartRotationDialog() {
         setActivityWithMockWallpapers(true /* isRotationEnabled */,
                 WallpaperRotationInitializer.ROTATION_NOT_INITIALIZED);
         getActivity();
 
-        onView(withText(R.string.daily_refresh_tile_title)).check(matches(isDisplayed()));
-        onView(withText(R.string.daily_refresh_tile_subtitle)).check(matches(isDisplayed()));
-
-        // Check that the background color of the "daily refresh" tile is the blue accent color.
-        FrameLayout rotationTile = getActivity().findViewById(R.id.daily_refresh);
-        int backgroundColor = ((ColorDrawable) rotationTile.getBackground()).getColor();
-        assertEquals(getActivity().getResources().getColor(R.color.accent_color),
-                backgroundColor);
-    }
-
-    /**
-     * Tests that when rotation is enabled and the rotation for this category is already in effect
-     * on both home & lock screens, then the "start rotation" tile reads "Home & Lock".
-     */
-    @Test
-    public void testRotationEnabled_RotationInitializedHomeAndLock() {
-        Flags.dynamicStartRotationTileEnabled = true;
-
-        setActivityWithMockWallpapers(true /* isRotationEnabled */,
-                WallpaperRotationInitializer.ROTATION_HOME_AND_LOCK);
-        getActivity();
-
-        onView(withText(R.string.daily_refresh_tile_title)).check(matches(isDisplayed()));
-        onView(withText(R.string.home_and_lock_short_label)).check(matches(isDisplayed()));
-    }
-
-    /**
-     * Tests that when rotation is enabled and the rotation is aleady for this category is already
-     * in
-     * effect on the home-screen only, then the "start rotation" tile reads "Home screen".
-     */
-    @Test
-    public void testRotationEnabled_RotationInitializedHomeScreenOnly() {
-        Flags.dynamicStartRotationTileEnabled = true;
-
-        setActivityWithMockWallpapers(true /* isRotationEnabled */,
-                WallpaperRotationInitializer.ROTATION_HOME_ONLY);
-        getActivity();
-
-        onView(withText(R.string.daily_refresh_tile_title)).check(matches(isDisplayed()));
-        onView(withText(R.string.home_screen_message)).check(matches(isDisplayed()));
-    }
-
-    /**
-     * Tests that after the IndividualPickerActivity loads, if the state of the current category's
-     * rotation changes while the activity is restarted, then the UI for the "start rotation" tile
-     * changes to reflect that new state.
-     */
-    @Test
-    public void testActivityRestarted_RotationStateChanges_StartRotationTileUpdates()
-            throws Throwable {
-        Flags.dynamicStartRotationTileEnabled = true;
-
-        setActivityWithMockWallpapers(true /* isRotationEnabled */,
-                WallpaperRotationInitializer.ROTATION_HOME_ONLY);
-
-        onView(withText(R.string.daily_refresh_tile_title)).check(matches(isDisplayed()));
-        onView(withText(R.string.home_screen_message)).check(matches(isDisplayed()));
-
-        // Now change the rotation initialization state such that the tile should say
-        // "Tap to turn on" after the activity resumes.
-        setUpFragmentForTesting();
-        TestWallpaperRotationInitializer
-                testWPRotationInitializer = (TestWallpaperRotationInitializer)
-                mTestCategory.getWallpaperRotationInitializer();
-        testWPRotationInitializer.setRotationInitializationState(
-                WallpaperRotationInitializer.ROTATION_NOT_INITIALIZED);
-
-        // Restart the activity.
-        IndividualPickerActivity activity = getActivity();
-        mActivityRule.runOnUiThread(activity::recreate);
-
-        onView(withText(R.string.daily_refresh_tile_title)).check(matches(isDisplayed()));
-        onView(withText(R.string.daily_refresh_tile_subtitle)).check(matches(isDisplayed()));
-    }
-
-    @Test
-    public void testRotationDisabled_DoesNotRenderDailyRefreshTile() {
-        setActivityWithMockWallpapers(false /* isRotationEnabled */,
-                WallpaperRotationInitializer.ROTATION_NOT_INITIALIZED);
-        getActivity();
-
-        onView(withText(R.string.daily_refresh_tile_title)).check(doesNotExist());
-        onView(withText(R.string.daily_refresh_tile_subtitle)).check(doesNotExist());
-    }
-
-    @Test
-    public void testClickDailyRefreshTile_ShowsStartRotationDialog() {
-        setActivityWithMockWallpapers(true /* isRotationEnabled */,
-                WallpaperRotationInitializer.ROTATION_NOT_INITIALIZED);
-        getActivity();
-
-        onView(withId(R.id.daily_refresh)).perform(click());
+        onView(withId(R.id.action_rotation)).perform(click());
 
         onView(withId(R.id.start_rotation_wifi_only_checkbox))
                 .check(matches(isDisplayed()));
@@ -323,7 +200,7 @@ public class IndividualPickerActivityTest {
                 WallpaperRotationInitializer.ROTATION_NOT_INITIALIZED);
         getActivity();
 
-        onView(withId(R.id.daily_refresh)).perform(click());
+        onView(withId(R.id.action_rotation)).perform(click());
 
         onView(withText(R.string.start_rotation_dialog_body)).check(matches(isDisplayed()));
         onView(withText(android.R.string.cancel)).check(matches(isDisplayed()));
@@ -354,7 +231,7 @@ public class IndividualPickerActivityTest {
         Matcher<Intent> expectedIntent = hasAction(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER);
         intending(expectedIntent).respondWith(new ActivityResult(Activity.RESULT_OK, null));
 
-        onView(withId(R.id.daily_refresh)).perform(click());
+        onView(withId(R.id.action_rotation)).perform(click());
 
         onView(withText(android.R.string.ok)).perform(click());
         mActivityRule.runOnUiThread(() -> {
@@ -379,15 +256,17 @@ public class IndividualPickerActivityTest {
                 mTestCategory.getWallpaperRotationInitializer();
         assertFalse(testWPRotationInitializer.isRotationInitialized());
 
-        onView(withId(R.id.daily_refresh)).perform(click());
+        onView(withId(R.id.action_rotation)).perform(click());
         onView(withText(android.R.string.ok)).perform(click());
 
         testWPRotationInitializer.finishDownloadingFirstWallpaper(false /* isSuccessful */);
         assertFalse(testWPRotationInitializer.isRotationInitialized());
 
         // Error dialog should be shown with retry option.
-        onView(withText(R.string.start_rotation_error_message)).check(matches(isDisplayed()));
-        onView(withText(R.string.try_again)).check(matches(isDisplayed()));
+        onView(withText(R.string.start_rotation_error_message))
+                .inRoot(isDialog()).check(matches(isDisplayed()));
+        onView(withText(R.string.try_again))
+                .inRoot(isDialog()).check(matches(isDisplayed()));
     }
 
     @Test
@@ -402,14 +281,14 @@ public class IndividualPickerActivityTest {
                 mTestCategory.getWallpaperRotationInitializer();
         assertFalse(testWPRotationInitializer.isRotationInitialized());
 
-        onView(withId(R.id.daily_refresh)).perform(click());
+        onView(withId(R.id.action_rotation)).perform(click());
         onView(withText(android.R.string.ok)).perform(click());
 
         testWPRotationInitializer.finishDownloadingFirstWallpaper(false /* isSuccessful */);
         assertFalse(testWPRotationInitializer.isRotationInitialized());
 
         // Click try again to retry.
-        onView(withText(R.string.try_again)).perform(click());
+        onView(withText(R.string.try_again)).inRoot(isDialog()).perform(click());
 
         mActivityRule.runOnUiThread(() -> {
             testWPRotationInitializer.finishDownloadingFirstWallpaper(true /* isSuccessful */);
@@ -431,7 +310,7 @@ public class IndividualPickerActivityTest {
                 mTestCategory.getWallpaperRotationInitializer();
         assertFalse(testWPRotationInitializer.isRotationInitialized());
 
-        onView(withId(R.id.daily_refresh)).perform(click());
+        onView(withId(R.id.action_rotation)).perform(click());
         // Click on WiFi-only option to toggle it off.
         onView(withId(R.id.start_rotation_wifi_only_checkbox)).perform(click());
         onView(withText(android.R.string.ok)).perform(click());
@@ -456,7 +335,7 @@ public class IndividualPickerActivityTest {
                 mTestCategory.getWallpaperRotationInitializer();
         assertFalse(testWPRotationInitializer.isRotationInitialized());
 
-        onView(withId(R.id.daily_refresh)).perform(click());
+        onView(withId(R.id.action_rotation)).perform(click());
         // Click on WiFi-only option to toggle it off.
         onView(withId(R.id.start_rotation_wifi_only_checkbox)).perform(click());
         onView(withText(android.R.string.ok)).perform(click());
@@ -465,7 +344,7 @@ public class IndividualPickerActivityTest {
         assertFalse(testWPRotationInitializer.isRotationInitialized());
 
         // Click try again to retry.
-        onView(withText(R.string.try_again)).perform(click());
+        onView(withText(R.string.try_again)).inRoot(isDialog()).perform(click());
 
         mActivityRule.runOnUiThread(() -> {
             testWPRotationInitializer.finishDownloadingFirstWallpaper(true /* isSuccessful */);
@@ -486,7 +365,7 @@ public class IndividualPickerActivityTest {
                 mTestCategory.getWallpaperRotationInitializer();
         assertFalse(testWPRotationInitializer.isRotationInitialized());
 
-        onView(withId(R.id.daily_refresh)).perform(click());
+        onView(withId(R.id.action_rotation)).perform(click());
         onView(withId(R.id.start_rotation_wifi_only_checkbox)).check(matches(isDisplayed()));
         // WiFi-only option should be checked by default.
         onView(withId(R.id.start_rotation_wifi_only_checkbox)).check(matches(isChecked()));
@@ -514,5 +393,51 @@ public class IndividualPickerActivityTest {
         RecyclerView.ViewHolder holder = recyclerView.findViewHolderForAdapterPosition(0);
         assertEquals("Attribution 0", holder.itemView.findViewById(R.id.tile)
                 .getContentDescription());
+    }
+
+    /**
+     * Tests whether the selected wallpaper has a clipped thumbnail: first wallpaper.
+     */
+    @Test
+    public void testSelectFirstWallpaper_ShowsClippedThumbnail() {
+        runSelectWallpaperTest(0);
+    }
+
+    /**
+     * Tests whether the selected wallpaper has a clipped thumbnail: second wallpaper.
+     */
+    @Test
+    public void testSelectSecondWallpaper_ShowsClippedThumbnail() {
+        runSelectWallpaperTest(1);
+    }
+
+    /**
+     * Tests whether the selected wallpaper has a clipped thumbnail: third wallpaper.
+     */
+    @Test
+    public void testSelectThirdWallpaper_ShowsClippedThumbnail() {
+        runSelectWallpaperTest(2);
+    }
+
+    private void runSelectWallpaperTest(int selectedWallpaperIndex) {
+        mPreferences.setHomeWallpaperRemoteId(
+                mWallpapers.get(selectedWallpaperIndex).getWallpaperId());
+
+        setActivityWithMockWallpapers(false /* isRotationEnabled */,
+                WallpaperRotationInitializer.ROTATION_NOT_INITIALIZED);
+        IndividualPickerActivity activity = getActivity();
+
+        RecyclerView recyclerView = activity.findViewById(R.id.wallpaper_grid);
+
+        for (int index = 0; index < 3; index++) {
+            assertNotNull(recyclerView.findViewHolderForAdapterPosition(index));
+
+            CustomShapeImageView thumbnail =
+                    recyclerView.findViewHolderForAdapterPosition(index)
+                            .itemView.findViewById(R.id.thumbnail);
+
+            // Assert that only the selected wallpaper has a clipped thumbnail.
+            assertEquals(thumbnail.getClipped(), index == selectedWallpaperIndex);
+        }
     }
 }

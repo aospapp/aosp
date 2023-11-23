@@ -34,8 +34,8 @@ public class TestLocationListener implements LocationListener {
 
     // Timeout in sec for count down latch wait
     private static final int TIMEOUT_IN_SEC = 120;
-    private final CountDownLatch mCountDownLatch;
-    private ConcurrentLinkedQueue<Location> mLocationList = null;
+    private CountDownLatch mCountDownLatch;
+    private final ConcurrentLinkedQueue<Location> mLocationList;
 
     public TestLocationListener(int locationToCollect) {
         mCountDownLatch = new CountDownLatch(locationToCollect);
@@ -43,10 +43,16 @@ public class TestLocationListener implements LocationListener {
     }
 
     @Override
-    public void onLocationChanged(Location location) {
+    public synchronized void onLocationChanged(Location location) {
         mLocationReceived = true;
         mLocationList.add(location);
         mCountDownLatch.countDown();
+    }
+
+    /** Clears the received locations in {@link #mLocationList} */
+    public synchronized void clearReceivedLocationsAndResetCounter(int locationToCollect) {
+        mLocationList.clear();
+        mCountDownLatch = new CountDownLatch(locationToCollect);
     }
 
     @Override

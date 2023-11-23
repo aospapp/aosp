@@ -20,10 +20,11 @@
  */
 
 #include <jni.h>
-#include <nativehelper/JNIHelp.h>
 
 #include <stdbool.h>
 #include <string.h>
+
+#include "helper.h"
 
 // public native void nop();
 static void InstanceNonce_nop(JNIEnv *env, jobject this) {
@@ -107,8 +108,7 @@ static jobjectArray InstanceNonce_returnStringArray(JNIEnv *env,
     }
 
     if (stringClass == NULL) {
-        jniThrowException(env, "java/lang/AssertionError",
-                "class String not found");
+        throwException(env, "java/lang/AssertionError", "class String not found");
         return NULL;
     }
 
@@ -236,8 +236,7 @@ static jboolean InstanceNonce_takeOneOfEach(JNIEnv *env, jobject this,
     length = (*env)->GetStringUTFLength(env, v6);
 
     if (length != 3) {
-        jniThrowException(env, "java/lang/AssertionError",
-                "bad string length");
+        throwException(env, "java/lang/AssertionError", "bad string length");
         return false;
     }
 
@@ -252,8 +251,7 @@ static jboolean InstanceNonce_takeOneOfEach(JNIEnv *env, jobject this,
 
     length = (*env)->GetArrayLength(env, v9);
     if (length != 2) {
-        jniThrowException(env, "java/lang/AssertionError",
-                "bad array length");
+        throwException(env, "java/lang/AssertionError", "bad array length");
         return false;
     }
 
@@ -347,7 +345,7 @@ static JNINativeMethod methods[] = {
 };
 
 int register_InstanceNonce(JNIEnv *env) {
-    return jniRegisterNativeMethods(
+    return registerJniMethods(
             env, "android/jni/cts/InstanceNonce",
             methods, sizeof(methods) / sizeof(JNINativeMethod));
 }

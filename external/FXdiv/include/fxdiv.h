@@ -14,10 +14,13 @@
 
 #if defined(_MSC_VER)
 	#include <intrin.h>
+	#if defined(_M_IX86) || defined(_M_X64)
+		#include <immintrin.h>
+	#endif
 #endif
 
 #ifndef FXDIV_USE_INLINE_ASSEMBLY
-	#define FXDIV_USE_INLINE_ASSEMBLY 1
+	#define FXDIV_USE_INLINE_ASSEMBLY 0
 #endif
 
 static inline uint64_t fxdiv_mulext_uint32_t(uint32_t a, uint32_t b) {
@@ -121,14 +124,15 @@ static inline struct fxdiv_divisor_uint32_t fxdiv_init_uint32_t(uint32_t d) {
 			const uint32_t l_minus_1 = 31 - clz(d - 1);
 		#elif defined(__CUDA_ARCH__)
 			const uint32_t l_minus_1 = 31 - __clz((int) (d - 1));
-		#elif defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
+		#elif defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64) || defined(_M_ARM) || defined(_M_ARM64))
 			unsigned long l_minus_1;
 			_BitScanReverse(&l_minus_1, (unsigned long) (d - 1));
 		#elif defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__)) && FXDIV_USE_INLINE_ASSEMBLY
 			uint32_t l_minus_1;
 			__asm__("BSRL %[d_minus_1], %[l_minus_1]"
 				: [l_minus_1] "=r" (l_minus_1)
-				: [d_minus_1] "r" (d - 1));
+				: [d_minus_1] "r" (d - 1)
+				: "cc");
 		#elif defined(__GNUC__)
 			const uint32_t l_minus_1 = 31 - __builtin_clz(d - 1);
 		#else
@@ -167,7 +171,11 @@ static inline struct fxdiv_divisor_uint32_t fxdiv_init_uint32_t(uint32_t d) {
 			uint32_t q;
 			__asm__("DIVL %[d]"
 				: "=a" (q), "+d" (u_hi)
-				: [d] "r" (d), "a" (0));
+				: [d] "r" (d), "a" (0)
+				: "cc");
+		#elif (defined(_MSC_VER) && _MSC_VER >= 1920) && !defined(__clang__) && !defined(__INTEL_COMPILER) && (defined(_M_IX86) || defined(_M_X64))
+			unsigned int remainder;
+			const uint32_t q = (uint32_t) _udiv64((unsigned __int64) ((uint64_t) u_hi << 32), (unsigned int) d, &remainder);
 		#else
 			const uint32_t q = ((uint64_t) u_hi << 32) / d;
 		#endif
@@ -192,13 +200,13 @@ static inline struct fxdiv_divisor_uint64_t fxdiv_init_uint64_t(uint64_t d) {
 		#elif defined(__CUDA_ARCH__)
 			const uint32_t nlz_d = __clzll((long long) d);
 			const uint32_t l_minus_1 = 63 - __clzll((long long) (d - 1));
-		#elif defined(_MSC_VER) && defined(_M_X64)
+		#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_ARM64))
 			unsigned long l_minus_1;
 			_BitScanReverse64(&l_minus_1, (unsigned __int64) (d - 1));
 			unsigned long bsr_d;
 			_BitScanReverse64(&bsr_d, (unsigned __int64) d);
 			const uint32_t nlz_d = bsr_d ^ 0x3F;
-		#elif defined(_MSC_VER) && defined(_M_IX86)
+		#elif defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_ARM))
 			const uint64_t d_minus_1 = d - 1;
 			const uint8_t d_is_power_of_2 = (d & d_minus_1) == 0;
 			unsigned long l_minus_1;
@@ -213,7 +221,8 @@ static inline struct fxdiv_divisor_uint64_t fxdiv_init_uint64_t(uint64_t d) {
 			uint64_t l_minus_1;
 			__asm__("BSRQ %[d_minus_1], %[l_minus_1]"
 				: [l_minus_1] "=r" (l_minus_1)
-				: [d_minus_1] "r" (d - 1));
+				: [d_minus_1] "r" (d - 1)
+				: "cc");
 		#elif defined(__GNUC__)
 			const uint32_t l_minus_1 = 63 - __builtin_clzll(d - 1);
 			const uint32_t nlz_d = __builtin_clzll(d);
@@ -221,8 +230,8 @@ static inline struct fxdiv_divisor_uint64_t fxdiv_init_uint64_t(uint64_t d) {
 			/* Based on Algorithm 2 from Hacker's delight */
 			const uint64_t d_minus_1 = d - 1;
 			const uint32_t d_is_power_of_2 = (d & d_minus_1) == 0;
-			uint64_t l_minus_1 = 0;
-			uint32_t x = d_minus_1;
+			uint32_t l_minus_1 = 0;
+			uint32_t x = (uint32_t) d_minus_1;
 			uint32_t y = d_minus_1 >> 32;
 			if (y != 0) {
 				l_minus_1 += 32;
@@ -260,7 +269,14 @@ static inline struct fxdiv_divisor_uint64_t fxdiv_init_uint64_t(uint64_t d) {
 			uint64_t q;
 			__asm__("DIVQ %[d]"
 				: "=a" (q), "+d" (u_hi)
-				: [d] "r" (d), "a" (UINT64_C(0)));
+				: [d] "r" (d), "a" (UINT64_C(0))
+				: "cc");
+		#elif 0 && defined(__GNUC__) && defined(__SIZEOF_INT128__)
+			/* GCC, Clang, and Intel Compiler fail to inline optimized implementation and call into support library for 128-bit division */
+			const uint64_t q = (uint64_t) (((unsigned __int128) u_hi << 64) / ((unsigned __int128) d));
+		#elif (defined(_MSC_VER) && _MSC_VER >= 1920) && !defined(__clang__) && !defined(__INTEL_COMPILER) && defined(_M_X64)
+			unsigned __int64 remainder;
+			const uint64_t q = (uint64_t) _udiv128((unsigned __int64) u_hi, 0, (unsigned __int64) d, &remainder);
 		#else
 			/* Implementation based on code from Hacker's delight */
 

@@ -207,7 +207,7 @@ class GCNOParser(parser.GcovStreamParserUtil):
         """
 
         block_number = self.ReadInt()
-        self.ReadInt()  #  dummy value
+        self.ReadInt()
         lines = []
         src = self.ReadString()  #  source file name
         src_length = int(math.ceil(len(src) * 1.0 / self.BYTES_IN_WORD)) + 1

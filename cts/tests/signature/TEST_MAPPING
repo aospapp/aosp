@@ -28,15 +28,6 @@
       "name": "CtsIntentSignatureTestCases"
     },
     {
-        "name": "CtsHiddenApiKillswitchDebugClassTestCases"
-    },
-    {
-        "name": "CtsHiddenApiKillswitchWhitelistTestCases"
-    },
-    {
-        "name": "CtsHiddenApiKillswitchWildcardTestCases"
-    },
-    {
         "name": "CtsSystemApiAnnotationTestCases"
     },
     {
@@ -44,27 +35,32 @@
     },
     {
       "name": "CtsSharedLibsApiSignatureTestCases"
-    },
-    {
-      "name": "signature-host-tests",
-      "host" : true
     }
   ],
   "postsubmit": [
     {
-      "name": "CtsHiddenApiBlacklistApi27TestCases"
+        "name": "CtsHiddenApiKillswitchDebugClassTestCases"
     },
     {
-        "name": "CtsHiddenApiBlacklistApi28TestCases"
+        "name": "CtsHiddenApiKillswitchSdklistTestCases"
     },
     {
-      "name": "CtsHiddenApiBlacklistCurrentApiTestCases"
+        "name": "CtsHiddenApiKillswitchWildcardTestCases"
     },
     {
-      "name": "CtsHiddenApiBlacklistTestApiTestCases"
+      "name": "CtsHiddenApiBlocklistApi27TestCases"
     },
     {
-      "name": "CtsHiddenApiBlacklistDebugClassTestCases"
+        "name": "CtsHiddenApiBlocklistApi28TestCases"
+    },
+    {
+      "name": "CtsHiddenApiBlocklistCurrentApiTestCases"
+    },
+    {
+      "name": "CtsHiddenApiBlocklistTestApiTestCases"
+    },
+    {
+      "name": "CtsHiddenApiBlocklistDebugClassTestCases"
     }
   ]
 }

@@ -1,7 +1,0 @@
-# ==============================================
-# Policy File of /system/bin/mdlogger Executable File
-
-# ==============================================
-# Type Declaration
-# ==============================================
-type mdlogger ,domain;

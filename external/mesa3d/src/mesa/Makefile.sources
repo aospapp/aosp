@@ -12,8 +12,6 @@ MAIN_FILES = \
 	main/api_arrayelt.h \
 	main/api_exec.c \
 	main/api_exec.h \
-	main/api_loopback.c \
-	main/api_loopback.h \
 	main/arbprogram.c \
 	main/arbprogram.h \
 	main/arrayobj.c \
@@ -43,7 +41,6 @@ MAIN_FILES = \
 	main/colortab.h \
 	main/compute.c \
 	main/compute.h \
-	main/compiler.h \
 	main/condrender.c \
 	main/condrender.h \
 	main/config.h \
@@ -125,6 +122,11 @@ MAIN_FILES = \
 	main/glspirv.h \
 	main/glthread.c \
 	main/glthread.h \
+	main/glthread_bufferobj.c \
+	main/glthread_draw.c \
+	main/glthread_marshal.h \
+	main/glthread_shaderobj.c \
+	main/glthread_varray.c \
 	main/glheader.h \
 	main/hash.c \
 	main/hash.h \
@@ -134,23 +136,25 @@ MAIN_FILES = \
 	main/histogram.h \
 	main/image.c \
 	main/image.h \
-	main/imports.c \
-	main/imports.h \
+	main/mesa_private.h \
 	main/light.c \
 	main/light.h \
 	main/lines.c \
 	main/lines.h \
 	main/macros.h \
-	main/marshal.c \
-	main/marshal.h \
-	main/marshal_generated.c \
+	main/marshal_generated0.c \
+	main/marshal_generated1.c \
+	main/marshal_generated2.c \
+	main/marshal_generated3.c \
+	main/marshal_generated4.c \
+	main/marshal_generated5.c \
+	main/marshal_generated6.c \
+	main/marshal_generated7.c \
 	main/marshal_generated.h \
 	main/matrix.c \
 	main/matrix.h \
 	main/mipmap.c \
 	main/mipmap.h \
-	main/mm.c \
-	main/mm.h \
 	main/menums.h \
 	main/mtypes.h \
 	main/multisample.c \
@@ -209,6 +213,8 @@ MAIN_FILES = \
 	main/shader_query.cpp \
 	main/shared.c \
 	main/shared.h \
+	main/spirv_extensions.c \
+	main/spirv_extensions.h \
 	main/state.c \
 	main/state.h \
 	main/stencil.c \
@@ -412,6 +418,7 @@ VBO_FILES = \
 	vbo/vbo_exec_eval.c \
 	vbo/vbo_exec.h \
 	vbo/vbo.h \
+	vbo/vbo_init_tmp.h \
 	vbo/vbo_minmax_index.c \
 	vbo/vbo_noop.c \
 	vbo/vbo_noop.h \
@@ -421,7 +428,8 @@ VBO_FILES = \
 	vbo/vbo_save.c \
 	vbo/vbo_save_draw.c \
 	vbo/vbo_save.h \
-	vbo/vbo_save_loopback.c
+	vbo/vbo_save_loopback.c \
+	vbo/vbo_util.h
 
 STATETRACKER_FILES = \
 	state_tracker/st_atifs_to_tgsi.c \
@@ -483,6 +491,8 @@ STATETRACKER_FILES = \
 	state_tracker/st_cb_msaa.h \
 	state_tracker/st_cb_perfmon.c \
 	state_tracker/st_cb_perfmon.h \
+	state_tracker/st_cb_perfquery.c \
+	state_tracker/st_cb_perfquery.h \
 	state_tracker/st_cb_program.c \
 	state_tracker/st_cb_program.h \
 	state_tracker/st_cb_queryobj.c \
@@ -532,8 +542,6 @@ STATETRACKER_FILES = \
 	state_tracker/st_glsl_to_tgsi_private.h \
 	state_tracker/st_glsl_to_tgsi_temprename.cpp \
 	state_tracker/st_glsl_to_tgsi_temprename.h \
-	state_tracker/st_glsl_types.cpp \
-	state_tracker/st_glsl_types.h \
 	state_tracker/st_manager.c \
 	state_tracker/st_manager.h \
 	state_tracker/st_mesa_to_tgsi.c \
@@ -554,6 +562,8 @@ STATETRACKER_FILES = \
 	state_tracker/st_shader_cache.h \
 	state_tracker/st_texture.c \
 	state_tracker/st_texture.h \
+	state_tracker/st_tgsi_lower_depth_clamp.c \
+	state_tracker/st_tgsi_lower_depth_clamp.h \
 	state_tracker/st_tgsi_lower_yuv.c \
 	state_tracker/st_tgsi_lower_yuv.h \
 	state_tracker/st_util.h \

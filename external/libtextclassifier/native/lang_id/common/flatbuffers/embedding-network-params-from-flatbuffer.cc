@@ -384,6 +384,7 @@ const float16 *EmbeddingNetworkParamsFromFlatbuffer::SafeGetScales(
   const flatbuffers::Vector<uint16_t> *scales = matrix->scales();
   if (scales == nullptr) {
     SAFTM_LOG(ERROR) << "nullptr scales";
+    return nullptr;
   }
   return scales->data();
 }

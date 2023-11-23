@@ -17,13 +17,51 @@
 package com.android.test.cantsavestate1;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.os.Parcel;
+import android.os.RemoteException;
 
 public class CantSave1Activity extends Activity {
+
+    public static final String ACTION_FINISH = "com.android.test.action.FINISH";
+    public static final String EXTRA_CALLBACK = "android.app.stubs.extra.callback";
+
+    private IBinder mCallback;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.cant_save_1_activity);
         getWindow().getDecorView().requestFocus();
+        final Intent intent = getIntent();
+        final Bundle extras = intent.getExtras();
+        if (extras != null) {
+            mCallback = extras.getBinder(EXTRA_CALLBACK);
+        }
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        if (mCallback != null) {
+            final Parcel data = Parcel.obtain();
+            final Parcel reply = Parcel.obtain();
+            data.writeInt(level);
+            try {
+                mCallback.transact(IBinder.FIRST_CALL_TRANSACTION, data, reply, 0);
+            } catch (RemoteException e) {
+            } finally {
+                data.recycle();
+                reply.recycle();
+            }
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        if (ACTION_FINISH.equals(intent.getAction())) {
+            finish();
+        }
     }
 }

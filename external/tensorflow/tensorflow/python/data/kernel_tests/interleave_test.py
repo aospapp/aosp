@@ -35,13 +35,14 @@ from tensorflow.python.ops import sparse_ops
 from tensorflow.python.platform import test
 
 
-def _interleave(lists, cycle_length, block_length):
+def _interleave(lists, cycle_length, block_length, num_parallel_calls=None):
   """Reference implementation of interleave used for testing.
 
   Args:
     lists: a list of lists to interleave
     cycle_length: the length of the interleave cycle
     block_length: the length of the interleave block
+    num_parallel_calls: the number of parallel calls
 
   Yields:
     Elements of `lists` interleaved in the order determined by `cycle_length`
@@ -55,8 +56,15 @@ def _interleave(lists, cycle_length, block_length):
   # `open_iterators` are the iterators whose elements are currently being
   # interleaved.
   open_iterators = []
-  if cycle_length == dataset_ops.AUTOTUNE:
-    cycle_length = multiprocessing.cpu_count()
+  if cycle_length is None:
+    # The logic here needs to match interleave C++ kernels.
+    if num_parallel_calls is None:
+      cycle_length = multiprocessing.cpu_count()
+    elif num_parallel_calls == dataset_ops.AUTOTUNE:
+      cycle_length = (multiprocessing.cpu_count() + 2) // 3
+    else:
+      cycle_length = min(num_parallel_calls, multiprocessing.cpu_count())
+
   for i in range(cycle_length):
     if all_iterators:
       open_iterators.append(all_iterators.pop(0))
@@ -162,7 +170,7 @@ class InterleaveTest(test_base.DatasetTestBase, parameterized.TestCase):
                       num_parallel_calls=[None, 1, 3, 5, 7]) +
           combinations.combine(
               input_values=[np.int64([4, 5, 6, 7])],
-              cycle_length=dataset_ops.AUTOTUNE,
+              cycle_length=None,
               block_length=3,
               num_parallel_calls=[None, 1]) + combinations.combine(
                   input_values=[np.int64([]), np.int64([0, 0, 0])],
@@ -182,7 +190,8 @@ class InterleaveTest(test_base.DatasetTestBase, parameterized.TestCase):
             cycle_length, block_length, num_parallel_calls)
     expected_output = [
         element for element in _interleave(
-            _repeat(input_values, count), cycle_length, block_length)
+            _repeat(input_values, count), cycle_length, block_length,
+            num_parallel_calls)
     ]
     self.assertDatasetProduces(dataset, expected_output)
 
@@ -259,7 +268,7 @@ class InterleaveTest(test_base.DatasetTestBase, parameterized.TestCase):
                       block_length=2,
                       num_parallel_calls=[1, 3, 5, 7]) + combinations.combine(
                           input_values=[np.int64([4, 5, 6, 7])],
-                          cycle_length=dataset_ops.AUTOTUNE,
+                          cycle_length=None,
                           block_length=3,
                           num_parallel_calls=1) + combinations.combine(
                               input_values=[np.int64([4, 0, 6])],
@@ -278,7 +287,8 @@ class InterleaveTest(test_base.DatasetTestBase, parameterized.TestCase):
     dataset = dataset.with_options(options)
     expected_output = [
         element for element in _interleave(
-            _repeat(input_values, count), cycle_length, block_length)
+            _repeat(input_values, count), cycle_length, block_length,
+            num_parallel_calls)
     ]
     get_next = self.getNext(dataset)
     actual_output = []
@@ -318,8 +328,11 @@ class InterleaveTest(test_base.DatasetTestBase, parameterized.TestCase):
               local_determinism=[None, True, False],
               global_determinism=[True, False])))
   def testDeterminismConfiguration(self, local_determinism, global_determinism):
+    expect_determinism = local_determinism or (local_determinism is None and
+                                               global_determinism)
+    elements = list(range(1000))
 
-    def make_interleave_fn(delay_ms):
+    def dataset_fn(delay_ms):
 
       def interleave_fn(x):
         ds = dataset_ops.Dataset.from_tensors(x)
@@ -329,36 +342,18 @@ class InterleaveTest(test_base.DatasetTestBase, parameterized.TestCase):
           ds = ds.apply(testing.sleep(0))
         return ds
 
-      return interleave_fn
-
-    expect_determinism = local_determinism or (local_determinism is None and
-                                               global_determinism)
-    if expect_determinism:
-      delays_ms = [100]
-    else:
-      delays_ms = [10, 100, 1000, 20000]
-    # We consider the test a success if it succeeds under any delay_ms. The
-    # delay_ms needed to observe non-deterministic ordering varies across
-    # test machines. Usually 10 or 100 milliseconds is enough, but on slow
-    # machines it could take longer.
-    for delay_ms in delays_ms:
-      dataset = dataset_ops.Dataset.range(2)
-
+      dataset = dataset_ops.Dataset.from_tensor_slices(elements)
       dataset = dataset.interleave(
-          make_interleave_fn(delay_ms),
-          cycle_length=2,
-          num_parallel_calls=2,
+          interleave_fn,
+          cycle_length=10,
+          num_parallel_calls=10,
           deterministic=local_determinism)
-
       opts = dataset_ops.Options()
       opts.experimental_deterministic = global_determinism
       dataset = dataset.with_options(opts)
+      return dataset
 
-      expected = [0, 1] if expect_determinism else [1, 0]
-      actual = self.getDatasetOutput(dataset)
-      if actual == expected:
-        return
-    self.assertEqual(expected, actual)
+    self.checkDeterminism(dataset_fn, expect_determinism, elements)
 
 
 if __name__ == "__main__":

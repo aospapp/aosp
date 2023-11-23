@@ -43,13 +43,9 @@ class OemNetdListener : public BnOemNetd {
             const ::android::sp<IOemNetdUnsolicitedEventListener>& listener) override;
 
   private:
-    std::mutex mMutex;
     std::mutex mOemUnsolicitedMutex;
 
-    ::android::sp<::android::IBinder> mIBinder GUARDED_BY(mMutex);
     OemUnsolListenerMap mOemUnsolListenerMap GUARDED_BY(mOemUnsolicitedMutex);
-
-    ::android::sp<::android::IBinder> getIBinder() EXCLUDES(mMutex);
 
     void registerOemUnsolicitedEventListenerInternal(
             const ::android::sp<IOemNetdUnsolicitedEventListener>& listener)

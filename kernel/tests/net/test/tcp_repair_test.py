@@ -149,7 +149,7 @@ class TcpRepairTest(multinetwork_base.MultiNetworkBaseTest):
 
     sock.setsockopt(SOL_TCP, TCP_REPAIR, TCP_REPAIR_OFF)
     readData = sock.recv(4096)
-    self.assertEquals(readData, TEST_RECEIVED)
+    self.assertEqual(readData, TEST_RECEIVED)
     sock.close()
 
   # Test whether tcp read/write sequence number can be fetched correctly
@@ -164,20 +164,20 @@ class TcpRepairTest(multinetwork_base.MultiNetworkBaseTest):
     # test write queue sequence number
     sequence_before = self.GetWriteSequenceNumber(version, sock)
     expect_sequence = self.last_sent.getlayer("TCP").seq
-    self.assertEquals(sequence_before & 0xffffffff, expect_sequence)
+    self.assertEqual(sequence_before & 0xffffffff, expect_sequence)
     TEST_SEND = net_test.UDP_PAYLOAD
     self.sendData(netid, version, sock, TEST_SEND)
     sequence_after = self.GetWriteSequenceNumber(version, sock)
-    self.assertEquals(sequence_before + len(TEST_SEND), sequence_after)
+    self.assertEqual(sequence_before + len(TEST_SEND), sequence_after)
 
     # test read queue sequence number
     sequence_before = self.GetReadSequenceNumber(version, sock)
     expect_sequence = self.last_received.getlayer("TCP").seq + 1
-    self.assertEquals(sequence_before & 0xffffffff, expect_sequence)
+    self.assertEqual(sequence_before & 0xffffffff, expect_sequence)
     TEST_READ = net_test.UDP_PAYLOAD
     self.receiveData(netid, version, TEST_READ)
     sequence_after = self.GetReadSequenceNumber(version, sock)
-    self.assertEquals(sequence_before + len(TEST_READ), sequence_after)
+    self.assertEqual(sequence_before + len(TEST_READ), sequence_after)
     sock.close()
 
   def GetWriteSequenceNumber(self, version, sock):
@@ -267,12 +267,12 @@ class TcpRepairTest(multinetwork_base.MultiNetworkBaseTest):
 
     buf = ctypes.c_int()
     fcntl.ioctl(sock, SIOCINQ, buf)
-    self.assertEquals(buf.value, 0)
+    self.assertEqual(buf.value, 0)
 
     TEST_RECV_PAYLOAD = net_test.UDP_PAYLOAD
     self.receiveData(netid, version, TEST_RECV_PAYLOAD)
     fcntl.ioctl(sock, SIOCINQ, buf)
-    self.assertEquals(buf.value, len(TEST_RECV_PAYLOAD))
+    self.assertEqual(buf.value, len(TEST_RECV_PAYLOAD))
     sock.close()
 
   def writeQueueIdleTest(self, version):
@@ -281,14 +281,14 @@ class TcpRepairTest(multinetwork_base.MultiNetworkBaseTest):
     sock = self.createConnectedSocket(version, netid)
     buf = ctypes.c_int()
     fcntl.ioctl(sock, SIOCOUTQ, buf)
-    self.assertEquals(buf.value, 0)
+    self.assertEqual(buf.value, 0)
     # Change to repair mode with SEND_QUEUE, writing some data to the queue.
     sock.setsockopt(SOL_TCP, TCP_REPAIR, TCP_REPAIR_ON)
     TEST_SEND_PAYLOAD = net_test.UDP_PAYLOAD
     sock.setsockopt(SOL_TCP, TCP_REPAIR_QUEUE, TCP_SEND_QUEUE)
     self.sendData(netid, version, sock, TEST_SEND_PAYLOAD)
     fcntl.ioctl(sock, SIOCOUTQ, buf)
-    self.assertEquals(buf.value, len(TEST_SEND_PAYLOAD))
+    self.assertEqual(buf.value, len(TEST_SEND_PAYLOAD))
     sock.close()
 
     # Setup a connected socket again.
@@ -297,14 +297,14 @@ class TcpRepairTest(multinetwork_base.MultiNetworkBaseTest):
     # Send out some data and don't receive ACK yet.
     self.sendData(netid, version, sock, TEST_SEND_PAYLOAD)
     fcntl.ioctl(sock, SIOCOUTQ, buf)
-    self.assertEquals(buf.value, len(TEST_SEND_PAYLOAD))
+    self.assertEqual(buf.value, len(TEST_SEND_PAYLOAD))
     # Receive response ACK.
     remoteaddr = self.GetRemoteAddress(version)
     myaddr = self.MyAddress(version, netid)
     desc_ack, ack = packets.ACK(version, remoteaddr, myaddr, self.last_sent)
     self.ReceivePacketOn(netid, ack)
     fcntl.ioctl(sock, SIOCOUTQ, buf)
-    self.assertEquals(buf.value, 0)
+    self.assertEqual(buf.value, 0)
     sock.close()
 
 
@@ -315,7 +315,7 @@ class TcpRepairTest(multinetwork_base.MultiNetworkBaseTest):
     events = p.poll(500)
     for fd,event in events:
       if fd == sock.fileno():
-        self.assertEquals(event, expected)
+        self.assertEqual(event, expected)
       else:
         raise AssertionError("unexpected poll fd")
 
@@ -334,7 +334,7 @@ class SocketExceptionThread(threading.Thread):
   def run(self):
     try:
       self.operation(self.sock)
-    except (IOError, AssertionError), e:
+    except (IOError, AssertionError) as e:
       self.exception = e
 
 if __name__ == '__main__':

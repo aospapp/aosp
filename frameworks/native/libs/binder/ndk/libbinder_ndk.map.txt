@@ -95,8 +95,6 @@ LIBBINDER_NDK { # introduced=29
     AServiceManager_addService; # apex llndk
     AServiceManager_checkService; # apex llndk
     AServiceManager_getService; # apex llndk
-  local:
-    *;
 };
 
 LIBBINDER_NDK30 { # introduced=30
@@ -111,11 +109,45 @@ LIBBINDER_NDK30 { # introduced=30
     AIBinder_markVendorStability; # llndk
     AIBinder_markVintfStability; # apex llndk
     AIBinder_Class_setHandleShellCommand; # apex llndk
-  local:
-    *;
+};
+
+LIBBINDER_NDK31 { # introduced=31
+  global:
+    ABinderProcess_handlePolledCommands; # apex
+    ABinderProcess_setupPolling; # apex
+    AIBinder_getCallingSid; # apex
+    AIBinder_setRequestingSid; # apex
+    AParcel_markSensitive; # llndk
+    AServiceManager_forEachDeclaredInstance; # apex llndk
+    AServiceManager_forceLazyServicesPersist; # llndk
+    AServiceManager_isDeclared; # apex llndk
+    AServiceManager_isUpdatableViaApex; # apex
+    AServiceManager_reRegister; # llndk
+    AServiceManager_registerLazyService; # llndk
+    AServiceManager_setActiveServicesCallback; # llndk
+    AServiceManager_tryUnregister; # llndk
+    AServiceManager_waitForService; # apex llndk
+
+    AIBinder_forceDowngradeToSystemStability; # apex
+    AIBinder_forceDowngradeToVendorStability; # llndk
+
+    AIBinder_Class_getDescriptor;
+    AIBinder_Weak_clone;
+    AIBinder_Weak_lt;
+    AIBinder_lt;
+    AParcel_appendFrom;
+    AParcel_create;
+    AParcel_getDataSize;
+    AParcel_reset;
 };
 
 LIBBINDER_NDK_PLATFORM {
   global:
     AParcel_getAllowFds;
+    extern "C++" {
+        AIBinder_fromPlatformBinder*;
+        AIBinder_toPlatformBinder*;
+    };
+  local:
+    *;
 };

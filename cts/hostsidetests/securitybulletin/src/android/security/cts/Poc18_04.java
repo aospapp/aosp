@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -31,9 +31,8 @@ public class Poc18_04 extends SecurityTestCase {
      * a race condition
      */
     @Test
-    @SecurityTest(minPatchLevel = "2018-04")
+    @AsbSecurityTest(cveBugId = 69683251)
     public void testPocCVE_2017_13286() throws Exception {
-        getOomCatcher().setHighMemoryTest();
         LaunchSomeWhere.launchSomeWhere("CVE_2017_13286", getDevice());
     }
 
@@ -42,9 +41,8 @@ public class Poc18_04 extends SecurityTestCase {
      * Does not require root but must be a hostside test to avoid a race condition
      */
     @Test
-    @SecurityTest(minPatchLevel = "2018-04")
+    @AsbSecurityTest(cveBugId = 69634768)
     public void testPocCVE_2017_13288() throws Exception {
-        getOomCatcher().setHighMemoryTest();
         LaunchSomeWhere.launchSomeWhere("CVE_2017_13288", getDevice());
     }
 
@@ -53,9 +51,8 @@ public class Poc18_04 extends SecurityTestCase {
      * Does not require root but must be a hostside test to avoid a race condition
      */
     @Test
-    @SecurityTest(minPatchLevel = "2018-04")
+    @AsbSecurityTest(cveBugId = 70398564)
     public void testPocCVE_2017_13289() throws Exception {
-        getOomCatcher().setHighMemoryTest();
         LaunchSomeWhere.launchSomeWhere("CVE_2017_13289", getDevice());
     }
 }

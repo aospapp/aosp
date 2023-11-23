@@ -18,12 +18,12 @@
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
                   android:title="@string/text_to_speech_settings"
                   android:key="@string/psk_text_to_speech_output">
-    <com.android.car.settings.common.ButtonPreference
+    <com.android.car.ui.preference.CarUiTwoActionIconPreference
         android:fragment="com.android.car.settings.tts.PreferredEngineFragment"
         android:key="@string/pk_tts_preferred_engine_entry"
         android:title="@string/text_to_speech_preferred_engine_settings"
-        android:widgetLayout="@layout/details_preference_widget"
-        settings:controller="com.android.car.settings.tts.PreferredEngineEntryPreferenceController"/>
+        settings:controller="com.android.car.settings.tts.PreferredEngineEntryPreferenceController"
+        settings:secondaryActionIcon="@drawable/ic_settings_gear"/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_tts_playback_group"
         settings:controller="com.android.car.settings.tts.TtsPlaybackPreferenceController">

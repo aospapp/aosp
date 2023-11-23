@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/fs.h>
@@ -40,14 +39,12 @@ using android::fs_mgr::ReadFstabFromFile;
 
 // Open the appropriate fstab file and fallback to /fstab.device if
 // that's what's being used.
-static bool open_fstab(Fstab* fstab)
-{
+static bool open_fstab(Fstab* fstab) {
   return ReadDefaultFstab(fstab) || ReadFstabFromFile("/fstab.device", fstab);
 }
 
-int boot_info_open_partition(const char *name, uint64_t *out_size, int flags)
-{
-  char *path;
+int boot_info_open_partition(const char* name, uint64_t* out_size, int flags) {
+  char* path;
   int fd;
 
   // We can't use fs_mgr to look up |name| because fstab doesn't list
@@ -79,13 +76,13 @@ int boot_info_open_partition(const char *name, uint64_t *out_size, int flags)
     path = strdup(record->blk_device.c_str());
   } else {
     size_t trimmed_len, name_len;
-    const char *end_slash = strrchr(record->blk_device.c_str(), '/');
+    const char* end_slash = strrchr(record->blk_device.c_str(), '/');
     if (end_slash == NULL) {
       return -1;
     }
     trimmed_len = end_slash - record->blk_device.c_str() + 1;
     name_len = strlen(name);
-    path = static_cast<char *>(calloc(trimmed_len + name_len + 1, 1));
+    path = static_cast<char*>(calloc(trimmed_len + name_len + 1, 1));
     strncpy(path, record->blk_device.c_str(), trimmed_len);
     strncpy(path + trimmed_len, name, name_len);
   }
@@ -120,63 +117,51 @@ int boot_info_open_partition(const char *name, uint64_t *out_size, int flags)
 // that BrilloBootInfo is laid out this way.
 #define BOOTINFO_OFFSET 2048
 
-bool boot_info_load(BrilloBootInfo *out_info)
-{
+bool boot_info_load(BrilloBootInfo* out_info) {
   int fd;
 
   memset(out_info, '\0', sizeof(BrilloBootInfo));
 
   fd = boot_info_open_partition("misc", NULL, O_RDONLY);
-  if (fd == -1)
-    return false;
+  if (fd == -1) return false;
   if (lseek(fd, BOOTINFO_OFFSET, SEEK_SET) != BOOTINFO_OFFSET) {
     close(fd);
     return false;
   }
   ssize_t num_read;
   do {
-    num_read = read(fd, (void*) out_info, sizeof(BrilloBootInfo));
+    num_read = read(fd, (void*)out_info, sizeof(BrilloBootInfo));
   } while (num_read == -1 && errno == EINTR);
   close(fd);
-  if (num_read != sizeof(BrilloBootInfo))
-    return false;
+  if (num_read != sizeof(BrilloBootInfo)) return false;
   return true;
 }
 
-bool boot_info_save(BrilloBootInfo *info)
-{
+bool boot_info_save(BrilloBootInfo* info) {
   int fd;
 
   fd = boot_info_open_partition("misc", NULL, O_RDWR);
-  if (fd == -1)
-    return false;
+  if (fd == -1) return false;
   if (lseek(fd, BOOTINFO_OFFSET, SEEK_SET) != BOOTINFO_OFFSET) {
     close(fd);
     return false;
   }
   ssize_t num_written;
   do {
-    num_written = write(fd, (void*) info, sizeof(BrilloBootInfo));
+    num_written = write(fd, (void*)info, sizeof(BrilloBootInfo));
   } while (num_written == -1 && errno == EINTR);
   close(fd);
-  if (num_written != sizeof(BrilloBootInfo))
-    return false;
+  if (num_written != sizeof(BrilloBootInfo)) return false;
   return true;
 }
 
-bool boot_info_validate(BrilloBootInfo* info)
-{
-  if (info->magic[0] != 'B' ||
-      info->magic[1] != 'C' ||
-      info->magic[2] != 'c')
-    return false;
-  if (info->active_slot >= 2)
-    return false;
+bool boot_info_validate(BrilloBootInfo* info) {
+  if (info->magic[0] != 'B' || info->magic[1] != 'C' || info->magic[2] != 'c') return false;
+  if (info->active_slot >= 2) return false;
   return true;
 }
 
-void boot_info_reset(BrilloBootInfo* info)
-{
+void boot_info_reset(BrilloBootInfo* info) {
   memset(info, '\0', sizeof(BrilloBootInfo));
   info->magic[0] = 'B';
   info->magic[1] = 'C';

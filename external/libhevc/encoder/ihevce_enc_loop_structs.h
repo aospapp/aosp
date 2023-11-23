@@ -215,7 +215,8 @@ typedef UWORD32 (*pf_res_trans_chroma)(
     WORD16 *pi2_dst,
     WORD32 src_strd,
     WORD32 pred_strd,
-    WORD32 dst_strd_chr_flag);
+    WORD32 dst_strd,
+    CHROMA_PLANE_ID_T e_chroma_plane);
 
 /** \breif function pointer prototype for quantization and inv Quant for ssd
 calc. for all transform sizes */

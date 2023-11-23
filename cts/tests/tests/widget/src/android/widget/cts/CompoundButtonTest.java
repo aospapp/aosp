@@ -42,6 +42,8 @@ import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.Icon;
 import android.os.Parcelable;
 import android.util.AttributeSet;
 import android.util.StateSet;
@@ -251,6 +253,39 @@ public class CompoundButtonTest  {
 
         // update drawable
         mCompoundButton.setButtonDrawable(R.drawable.pass);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetButtonDrawableByIdAsync() {
+        // resId is 0
+        mCompoundButton.setButtonDrawableAsync(0).run();
+
+        // set drawable
+        mCompoundButton.setButtonDrawableAsync(R.drawable.scenery).run();
+
+        // set the same drawable again
+        mCompoundButton.setButtonDrawableAsync(R.drawable.scenery).run();
+
+        // update drawable
+        mCompoundButton.setButtonDrawableAsync(R.drawable.pass).run();
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetButtonIcon() {
+        mCompoundButton.setButtonIcon(null);
+        assertNull(mCompoundButton.getButtonDrawable());
+
+        mCompoundButton.setButtonIcon(Icon.createWithResource(mActivity, R.drawable.blue_fill));
+        GradientDrawable firstButton = (GradientDrawable) mCompoundButton.getButtonDrawable();
+        assertEquals(GradientDrawable.RECTANGLE, firstButton.getShape());
+        assertEquals(ColorStateList.valueOf(Color.BLUE), firstButton.getColor());
+
+        mCompoundButton.setButtonIcon(Icon.createWithResource(mActivity, R.drawable.red_fill));
+        GradientDrawable secondButton = (GradientDrawable) mCompoundButton.getButtonDrawable();
+        assertEquals(GradientDrawable.RECTANGLE, secondButton.getShape());
+        assertEquals(ColorStateList.valueOf(Color.RED), secondButton.getColor());
     }
 
     @Test

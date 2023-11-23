@@ -16,7 +16,7 @@
 
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- The name of this application, a theme picker. [CHAR LIMIT=50] -->
-    <string name="app_name">Styles &amp; wallpapers</string>
+    <string name="app_name">Wallpaper &amp; style</string>
 
     <!-- Title of a section of the customization picker where the user can select a Theme for the
         device. [CHAR LIMIT=15] -->
@@ -28,11 +28,7 @@
 
     <!-- Title of a section of the customization picker where the user can select a Grid size for
         the home screen. [CHAR LIMIT=15] -->
-    <string name="grid_title">Grid</string>
-
-    <!-- Title of a section of the customization picker where the user can select a Wallpaper.
-        [CHAR LIMIT=19] -->
-    <string name="wallpaper_title">Wallpaper</string>
+    <string name="grid_title">App grid</string>
 
     <!-- Label for a button that allows the user to apply the currently selected Theme.
         [CHAR LIMIT=20] -->
@@ -49,6 +45,24 @@
     <!-- Label for a button that allows the user to apply the currently selected customization option.
         [CHAR LIMIT=20] -->
     <string name="apply_btn">Apply</string>
+
+    <!-- Content description of theme preview card. [CHAR_LIMIT=30]-->
+    <string name="theme_preview_card_content_description">Style preview</string>
+
+    <!-- Content description of grid preview card. [CHAR_LIMIT=30]-->
+    <string name="grid_preview_card_content_description">Grid preview</string>
+
+    <!-- Content description of font preview. [CHAR_LIMIT=30]-->
+    <string name="font_preview_content_description">Font preview</string>
+
+    <!-- Content description of icon preview. [CHAR_LIMIT=30]-->
+    <string name="icon_preview_content_description">Icon preview</string>
+
+    <!-- Content description of color preview. [CHAR_LIMIT=30]-->
+    <string name="color_preview_content_description">Color preview</string>
+
+    <!-- Content description of shape preview. [CHAR_LIMIT=30]-->
+    <string name="shape_preview_content_description">Shape preview</string>
 
     <!-- Content description indicating that the selected option is currently applied to the device. [CHAR_LIMIT=NONE] -->
     <string name="option_applied_description"><xliff:g name="style_name">%1$s</xliff:g>, currently applied</string>
@@ -67,7 +81,7 @@
 
     <!-- Plus sign used to indicate that the user can add a custom theme -->
 
-    <!-- Name for the Android Theme that comes preset with the device [CHAR LIMIT=10]-->
+    <!-- Name for the Android Theme (Style/Wallpaper/Grid/Clock...) that comes preset with the device [CHAR LIMIT=10]-->
     <string name="default_theme_title">Default</string>
 
     <!-- Title of a page that shows the user the preview of a font selection [CHAR_LIMIT=20] -->
@@ -92,14 +106,20 @@
     <!-- Body text for previewing a font [CHAR LIMIT=160] -->
     <string name="font_card_body">Add your favorite fonts to every screen</string>
 
+    <!--Title for grid options [CHAR LIMIT=NONE] -->
+    <string name="grid_options_title">Choose a grid size</string>
+
     <!--Title for a grid option, describing the number of columns and rows, eg: 4x4 [CHAR LIMIT=10] -->
     <string name="grid_title_pattern"><xliff:g name="num_cols" example="1">%1$d</xliff:g>x<xliff:g name="num_rows" example="1">%2$d</xliff:g></string>
 
     <!-- Message shown when a theme has been applied successfully in the system [CHAR LIMIT=NONE] -->
-    <string name="applied_theme_msg">Style applied</string>
+    <string name="applied_theme_msg">Style set successfully</string>
 
     <!-- Message shown when a clock has been applied successfully in the system [CHAR LIMIT=NONE] -->
-    <string name="applied_clock_msg">Clock applied</string>
+    <string name="applied_clock_msg">Clock set successfully</string>
+
+    <!-- Message shown when a grid has been applied successfully in the system [CHAR LIMIT=NONE] -->
+    <string name="applied_grid_msg">Grid set successfully</string>
 
     <!-- Message shown when a theme couldn't be applied in the system because of an error
         [CHAR LIMIT=NONE] -->
@@ -112,6 +132,9 @@
     <!-- Label for a button that takes the user back to the previous step when configuring a custom theme.
         [CHAR LIMIT=20] -->
     <string name="custom_theme_previous">Previous</string>
+
+    <!-- Title for "Custom theme" option. [CHAR LIMIT=20] -->
+    <string name="custom_theme">Custom</string>
 
     <!-- Generic label for one system Style/Theme (combination of fonts/colors/icons) that is
         defined and customized by the user (note there could be more than one so the label includes
@@ -183,4 +206,44 @@
 
     <!-- Generic error message [CHAR_LIMIT=NONE] -->
     <string name="something_went_wrong">Oops! Something went wrong.</string>
+
+    <!-- Title for a section of a style preview screen that shows a preview of the style color and icons. [CHAR_LIMIT=30]-->
+    <string name="theme_preview_icons_section_title">Color / Icons</string>
+
+    <!-- Bottom sheet dialog which displaying different theme's info. [CHAR_LIMIT=80] -->
+    <string name="style_info_description">Preview of font, icons, app shape, and color</string>
+
+    <!-- Accessibility for custom style font page [CHAR_LIMIT=50] -->
+    <string name="accessibility_custom_font_title">Custom font</string>
+
+    <!-- Accessibility for custom style icon page [CHAR_LIMIT=50] -->
+    <string name="accessibility_custom_icon_title">Custom icon</string>
+
+    <!-- Accessibility for custom style color page [CHAR_LIMIT=50] -->
+    <string name="accessibility_custom_color_title">Custom color</string>
+
+    <!-- Accessibility for custom style shape page [CHAR_LIMIT=50] -->
+    <string name="accessibility_custom_shape_title">Custom shape</string>
+
+    <!-- Accessibility for custom style name page [CHAR_LIMIT=50] -->
+    <string name="accessibility_custom_name_title">Custom style name</string>
+
+    <!--Name of metadata in the main launcher Activity which values contains the authority
+    corresponding to a ContentProvider in launcher to query or change themed icon option  -->
+    <string name="themed_icon_metadata_key" translatable="false">com.android.launcher3.themedicon.option</string>
+
+    <!--  Strings for new customization UI.  -->
+
+    <!-- The title of mode section view. [CHAR_LIMIT=20] -->
+    <string name="mode_title" msgid="1000319159005403986">Dark theme</string>
+    <string name="mode_disabled_msg" msgid="1926077857799715086">Temporarily disabled due to Battery Saver</string>
+
+    <!-- Title of a section of the customization where the user can select color override for icon. [CHAR LIMIT=30] -->
+    <string name="themed_icon_title" msgid="4305612684940220645">Themed icons</string>
+
+    <!-- Title of the tag to indicate beta version. [CHAR LIMIT=6] -->
+    <string name="beta_title">Beta</string>
+
+    <!-- The content description of grid picker entry. [CHAR LIMIT=NONE] -->
+    <string name="gird_picker_entry_content_description" msgid="7538418512525897691">Change app grid</string>
 </resources>

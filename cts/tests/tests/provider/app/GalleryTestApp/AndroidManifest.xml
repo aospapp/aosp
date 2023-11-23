@@ -15,17 +15,18 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.provider.apps.cts.gallerytestapp">
+     package="android.provider.apps.cts.gallerytestapp">
 
     <application>
         <service android:name=".ReviewPrewarmService"/>
-        <activity android:name=".ReviewActivity">
+        <activity android:name=".ReviewActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.provider.action.REVIEW" />
-                <data android:scheme="content" />
+                <action android:name="android.provider.action.REVIEW"/>
+                <data android:scheme="content"/>
             </intent-filter>
             <meta-data android:name="android.media.review_gallery_prewarm_service"
-                       android:value="android.provider.apps.cts.gallerytestapp.ReviewPrewarmService"/>
+                 android:value="android.provider.apps.cts.gallerytestapp.ReviewPrewarmService"/>
         </activity>
     </application>
 

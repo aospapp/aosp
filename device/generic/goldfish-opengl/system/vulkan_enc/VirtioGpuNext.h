@@ -23,6 +23,7 @@
 #define VIRTGPU_PARAM_RESOURCE_BLOB 3 /* DRM_VIRTGPU_RESOURCE_CREATE_BLOB */
 #define VIRTGPU_PARAM_HOST_VISIBLE 4
 
+#ifndef VIRTGPU_BLOB_MEM_HOST3D
 struct drm_virtgpu_resource_create_blob {
 #define VIRTGPU_BLOB_MEM_GUEST              0x0001
 #define VIRTGPU_BLOB_MEM_HOST               0x0002
@@ -47,6 +48,14 @@ struct drm_virtgpu_resource_create_blob {
     uint64_t cmd;
     uint64_t blob_id;
 };
+#else
+#define VIRTGPU_BLOB_MEM_HOST               VIRTGPU_BLOB_MEM_HOST3D
+#define VIRTGPU_BLOB_MEM_HOST_GUEST         VIRTGPU_BLOB_MEM_HOST3D_GUEST
+
+#define VIRTGPU_BLOB_FLAG_MAPPABLE          VIRTGPU_BLOB_FLAG_USE_MAPPABLE
+#define VIRTGPU_BLOB_FLAG_SHAREABLE         VIRTGPU_BLOB_FLAG_USE_SHAREABLE
+#define VIRTGPU_BLOB_FLAG_CROSS_DEVICE      VIRTGPU_BLOB_FLAG_USE_CROSS_DEVICE
+#endif
 
 
 #define DRM_IOCTL_VIRTGPU_RESOURCE_CREATE_BLOB              \

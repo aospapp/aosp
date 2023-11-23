@@ -20,6 +20,9 @@
 
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
+    <!-- Must be debuggable for compat shell commands to work on user builds -->
+    <application android:debuggable="true" />
+
     <!--
         The CTS stubs package cannot be used as the target application here,
         since that requires many permissions to be set. Instead, specify this

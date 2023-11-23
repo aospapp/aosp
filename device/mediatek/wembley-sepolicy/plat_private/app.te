@@ -1,0 +1,8 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# Date: 2019/06/17
+# Operation : Migration
+# Purpose : appdomain need get system_mtk_amslog_prop
+get_prop(appdomain, system_mtk_amslog_prop)

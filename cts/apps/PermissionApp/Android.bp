@@ -12,9 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsPermissionApp",
-    defaults: ["cts_defaults"],
+    defaults: [
+        "cts_defaults",
+        "mts-target-sdk-version-current",
+    ],
     srcs: ["src/**/*.java"],
     sdk_version: "current",
     min_sdk_version: "23",
@@ -22,7 +29,7 @@ android_test_helper_app {
     test_suites: [
         "arcts",
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
 }

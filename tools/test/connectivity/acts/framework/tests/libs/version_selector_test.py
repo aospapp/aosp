@@ -21,15 +21,17 @@ import sys
 # A temporary hack to prevent tests/libs/logging from being selected as the
 # python default logging module.
 sys.path[0] = os.path.join(sys.path[0], '../')
-import unittest
+import logging
 import mock
+import shutil
+import tempfile
+import unittest
 
 from acts import base_test
 from acts.libs import version_selector
 from acts.test_decorators import test_tracker_info
 
 from mobly.config_parser import TestRunConfig
-
 
 def versioning_decorator(min_sdk, max_sdk):
     return version_selector.set_version(lambda ret, *_, **__: ret, min_sdk,
@@ -87,6 +89,10 @@ class VersionedClass(object):
 
 
 class VersionedTestClass(base_test.BaseTestClass):
+    @mock.patch('mobly.utils.create_dir')
+    def __init__(self, configs, _):
+        super().__init__(configs)
+
     @test_tracker_info('UUID_1')
     @test_versioning(1, 1)
     def test_1(self):
@@ -100,12 +106,21 @@ class VersionedTestClass(base_test.BaseTestClass):
 
 class VersionSelectorIntegrationTest(unittest.TestCase):
     """Tests the acts.libs.version_selector module."""
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp_dir = tempfile.mkdtemp()
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp_dir)
+
     def test_versioned_test_class_calls_both_functions(self):
         """Tests that VersionedTestClass (above) can be called with
         test_tracker_info."""
         test_run_config = TestRunConfig()
         test_run_config.log_path = ''
         test_run_config.summary_writer = mock.MagicMock()
+        test_run_config.log_path = self.tmp_dir
 
         test_class = VersionedTestClass(test_run_config)
         test_class.run(['test_1', 'test_2'])

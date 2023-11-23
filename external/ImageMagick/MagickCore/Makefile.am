@@ -1,4 +1,4 @@
-#  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+#  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
 #  dedicated to making software imaging solutions freely available.
 #
 #  You may not use this file except in compliance with the License.  You may
@@ -29,8 +29,8 @@ MAGICKCORE_BIN_SCRPTS = \
 
 MAGICKCORE_PKGCONFIG = \
   MagickCore/ImageMagick.pc \
-  MagickCore/MagickCore.pc \
   MagickCore/ImageMagick-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@.pc \
+  MagickCore/MagickCore.pc \
   MagickCore/MagickCore-@MAGICK_MAJOR_VERSION@.@MAGICK_ABI_SUFFIX@.pc
 
 OSX_GCOV_LDFLAG = @OSX_GCOV_LDFLAG@

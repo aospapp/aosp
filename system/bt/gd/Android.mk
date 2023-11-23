@@ -1,46 +1,106 @@
 LOCAL_PATH := $(call my-dir)
 
-bluetooth_cert_test_file_list := \
-    $(call all-named-files-under,*.py,cert) \
-    $(call all-named-files-under,*.sh,cert) \
-    $(call all-named-files-under,*.proto,cert facade hal hci/cert hci/facade l2cap/classic \
-	    l2cap/classic/cert neighbor/facade security) \
-    cert/cert_testcases_facade_only \
-    cert/android_devices_config.json \
-    cert/host_only_config_facade_only.json \
-    hal/cert/simple_hal_test.py \
-    hci/cert/acl_manager_test.py \
-    hci/cert/controller_test.py \
-    hci/cert/direct_hci_test.py \
-    hci/cert/le_acl_manager_test.py \
-    hci/cert/le_advertising_manager_test.py \
-    hci/cert/le_scanning_manager_test.py \
-    l2cap/classic/cert/l2cap_test.py \
-    l2cap/classic/cert/pts_l2cap_test.py \
-    neighbor/cert/neighbor_test.py \
-    security/cert/simple_security_test.py \
-    shim/cert/stack_test.py
+#LINT.IfChange
+LOCAL_cert_test_sources := \
+	$(call all-named-files-under,*.py,.) \
+	cert/all_cert_testcases
+LOCAL_cert_test_sources := \
+	$(filter-out gd_cert_venv% venv%, $(LOCAL_cert_test_sources))
+LOCAL_cert_test_sources := \
+	$(addprefix $(LOCAL_PATH)/, $(LOCAL_cert_test_sources))
 
+LOCAL_host_executables := \
+	$(HOST_OUT_EXECUTABLES)/bluetooth_stack_with_facade \
+	$(HOST_OUT_EXECUTABLES)/bluetooth_with_facades \
+	$(HOST_OUT_EXECUTABLES)/root-canal
 
-bluetooth_cert_test_file_list := $(addprefix $(LOCAL_PATH)/,$(bluetooth_cert_test_file_list))
+LOCAL_host_python_extension_libraries := \
+	$(HOST_OUT_SHARED_LIBRARIES)/bluetooth_packets_python3.so
 
-bluetooth_cert_test_file_list += \
-    $(HOST_OUT_EXECUTABLES)/bluetooth_stack_with_facade \
-    $(HOST_OUT_SHARED_LIBRARIES)/bluetooth_packets_python3.so \
-    $(HOST_OUT_SHARED_LIBRARIES)/libbluetooth_gd.so \
-    $(HOST_OUT_SHARED_LIBRARIES)/libc++.so \
-    $(HOST_OUT_SHARED_LIBRARIES)/libgrpc++_unsecure.so \
-    $(TARGET_OUT_EXECUTABLES)/bluetooth_stack_with_facade \
-    $(TARGET_OUT_SHARED_LIBRARIES)/libbluetooth_gd.so \
-    $(TARGET_OUT_SHARED_LIBRARIES)/libgrpc++_unsecure.so \
-    $(HOST_OUT_NATIVE_TESTS)/root-canal/root-canal
+LOCAL_host_libraries := \
+	$(HOST_OUT_SHARED_LIBRARIES)/libbase.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libbluetooth_gd.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libc++.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libchrome.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libcrypto-host.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libevent-host.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libgrpc++_unsecure.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libgrpc++.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libgrpc_wrap.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/liblog.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libssl-host.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libz-host.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libprotobuf-cpp-full.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libunwindstack.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/liblzma.so \
+	$(HOST_OUT_SHARED_LIBRARIES)/libbacktrace.so
 
-bluetooth_cert_zip_path := \
-    $(call intermediates-dir-for,PACKAGING,bluetooth_cert_test_package,HOST)/bluetooth_cert_test.zip
+LOCAL_target_executables := \
+	$(TARGET_OUT_EXECUTABLES)/bluetooth_stack_with_facade
 
-$(bluetooth_cert_zip_path): PRIVATE_BLUETOOTH_CERT_TEST_FILE_LIST := $(bluetooth_cert_test_file_list)
+LOCAL_target_libraries := \
+	$(TARGET_OUT_SHARED_LIBRARIES)/libcrypto.so \
+	$(TARGET_OUT_SHARED_LIBRARIES)/libbluetooth_gd.so \
+	$(TARGET_OUT_SHARED_LIBRARIES)/libgrpc++_unsecure.so
+#LINT.ThenChange(cert/run)
 
-$(bluetooth_cert_zip_path) : $(SOONG_ZIP) $(bluetooth_cert_test_file_list)
-	$(hide) $(SOONG_ZIP) -d -o $@ $(addprefix -f ,$(PRIVATE_BLUETOOTH_CERT_TEST_FILE_LIST))
+bluetooth_cert_src_and_bin_zip := \
+	$(call intermediates-dir-for,PACKAGING,bluetooth_cert_src_and_bin,HOST)/bluetooth_cert_src_and_bin.zip
 
-$(call dist-for-goals,bluetooth_stack_with_facade,$(bluetooth_cert_zip_path):bluetooth_cert_test.zip)
+# Assume 64-bit OS
+$(bluetooth_cert_src_and_bin_zip): PRIVATE_cert_test_sources := $(LOCAL_cert_test_sources)
+$(bluetooth_cert_src_and_bin_zip): PRIVATE_host_executables := $(LOCAL_host_executables)
+$(bluetooth_cert_src_and_bin_zip): PRIVATE_host_python_extension_libraries := $(LOCAL_host_python_extension_libraries)
+$(bluetooth_cert_src_and_bin_zip): PRIVATE_host_libraries := $(LOCAL_host_libraries)
+$(bluetooth_cert_src_and_bin_zip): PRIVATE_target_executables := $(LOCAL_target_executables)
+$(bluetooth_cert_src_and_bin_zip): PRIVATE_target_libraries := $(LOCAL_target_libraries)
+$(bluetooth_cert_src_and_bin_zip): $(SOONG_ZIP) $(LOCAL_cert_test_sources) \
+		$(LOCAL_host_executables) $(LOCAL_host_libraries) $(LOCAL_host_python_extension_libraries) \
+		$(LOCAL_target_executables) $(LOCAL_target_libraries)
+	$(hide) $(SOONG_ZIP) -d -o $@ \
+		-C system/bt/gd $(addprefix -f ,$(PRIVATE_cert_test_sources)) \
+		-C $(HOST_OUT_EXECUTABLES) $(addprefix -f ,$(PRIVATE_host_executables)) \
+		-C $(HOST_OUT_SHARED_LIBRARIES) $(addprefix -f ,$(PRIVATE_host_python_extension_libraries)) \
+		-P lib64 \
+		-C $(HOST_OUT_SHARED_LIBRARIES) $(addprefix -f ,$(PRIVATE_host_libraries)) \
+		-P target \
+		-C $(TARGET_OUT_EXECUTABLES) $(addprefix -f ,$(PRIVATE_target_executables)) \
+		-C $(TARGET_OUT_SHARED_LIBRARIES) $(addprefix -f ,$(PRIVATE_target_libraries))
+
+# TODO: Find a better way to locate output from SOONG genrule()
+LOCAL_cert_generated_py_zip := \
+	$(SOONG_OUT_DIR)/.intermediates/system/bt/gd/BluetoothFacadeAndCertGeneratedStub_py/gen/bluetooth_cert_generated_py.zip
+
+LOCAL_acts_zip := $(HOST_OUT)/acts-dist/acts.zip
+
+bluetooth_cert_tests_py_package_zip := \
+	$(call intermediates-dir-for,PACKAGING,bluetooth_cert_tests_py_package,HOST)/bluetooth_cert_tests.zip
+
+$(bluetooth_cert_tests_py_package_zip): PRIVATE_cert_src_and_bin_zip := $(bluetooth_cert_src_and_bin_zip)
+$(bluetooth_cert_tests_py_package_zip): PRIVATE_acts_zip := $(LOCAL_acts_zip)
+$(bluetooth_cert_tests_py_package_zip): PRIVATE_cert_generated_py_zip := $(LOCAL_cert_generated_py_zip)
+$(bluetooth_cert_tests_py_package_zip): $(SOONG_ZIP) $(LOCAL_acts_zip) \
+		$(bluetooth_cert_src_and_bin_zip) $(bluetooth_cert_generated_py_zip)
+	@echo "Packaging Bluetooth Cert Tests into $@"
+	@rm -rf $(dir $@)bluetooth_cert_tests
+	@rm -rf $(dir $@)acts
+	@mkdir -p $(dir $@)bluetooth_cert_tests
+	@mkdir -p $(dir $@)acts
+	$(hide) unzip -o -q $(PRIVATE_acts_zip) "tools/test/connectivity/acts/framework/*" -d $(dir $@)acts
+	$(hide) unzip -o -q $(PRIVATE_cert_src_and_bin_zip) -d $(dir $@)bluetooth_cert_tests
+	$(hide) unzip -o -q $(PRIVATE_cert_generated_py_zip) -d $(dir $@)bluetooth_cert_tests
+	# Make all subdirectory of gd Python pacakages except lib64 and target
+	$(hide) for f in `find $(dir $@)bluetooth_cert_tests -type d -name "*" \
+					-not -path "$(dir $@)bluetooth_cert_tests/target*" \
+					-not -path "$(dir $@)bluetooth_cert_tests/lib64*"` \
+			; do (touch -a $$f/__init__.py) ; done
+	$(hide) $(SOONG_ZIP) -d -o $@ -C $(dir $@)bluetooth_cert_tests -D $(dir $@)bluetooth_cert_tests \
+		-P acts_framework \
+		-C $(dir $@)acts/tools/test/connectivity/acts/framework -D $(dir $@)acts/tools/test/connectivity/acts/framework \
+		-P llvm_binutils -C $(LLVM_PREBUILTS_BASE)/linux-x86/$(LLVM_PREBUILTS_VERSION) \
+		-f $(LLVM_PREBUILTS_BASE)/linux-x86/$(LLVM_PREBUILTS_VERSION)/bin/llvm-cov \
+		-f $(LLVM_PREBUILTS_BASE)/linux-x86/$(LLVM_PREBUILTS_VERSION)/bin/llvm-profdata \
+		-f $(LLVM_PREBUILTS_BASE)/linux-x86/$(LLVM_PREBUILTS_VERSION)/bin/llvm-symbolizer \
+		-f $(LLVM_PREBUILTS_BASE)/linux-x86/$(LLVM_PREBUILTS_VERSION)/lib64/libc++.so.1
+
+$(call dist-for-goals,bluetooth_stack_with_facade,$(bluetooth_cert_tests_py_package_zip):bluetooth_cert_tests.zip)

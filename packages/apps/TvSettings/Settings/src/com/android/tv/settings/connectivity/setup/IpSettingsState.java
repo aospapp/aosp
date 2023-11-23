@@ -18,6 +18,7 @@ package com.android.tv.settings.connectivity.setup;
 
 import android.content.Context;
 import android.net.IpConfiguration;
+import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
@@ -30,6 +31,7 @@ import androidx.leanback.widget.GuidedAction;
 import androidx.lifecycle.ViewModelProviders;
 
 import com.android.tv.settings.R;
+import com.android.tv.settings.connectivity.WifiConfigHelper;
 import com.android.tv.settings.connectivity.util.AdvancedOptionsFlowUtil;
 import com.android.tv.settings.connectivity.util.State;
 import com.android.tv.settings.connectivity.util.StateMachine;
@@ -49,6 +51,14 @@ public class IpSettingsState implements State {
 
     @Override
     public void processForward() {
+        if (isNetworkLockedDown()) {
+            StateMachine stateMachine = ViewModelProviders
+                    .of(mActivity)
+                    .get(StateMachine.class);
+            stateMachine.getListener().onComplete(StateMachine.ADVANCED_FLOW_COMPLETE);
+            return;
+        }
+
         mFragment = new IpSettingsFragment();
         FragmentChangeListener listener = (FragmentChangeListener) mActivity;
         if (listener != null) {
@@ -65,6 +75,13 @@ public class IpSettingsState implements State {
         }
     }
 
+    private boolean isNetworkLockedDown() {
+        UserChoiceInfo userChoiceInfo = ViewModelProviders
+                .of(mActivity)
+                .get(UserChoiceInfo.class);
+        WifiConfiguration wifiConfiguration = userChoiceInfo.getWifiConfiguration();
+        return WifiConfigHelper.isNetworkLockedDown(mActivity, wifiConfiguration);
+    }
 
     @Override
     public Fragment getFragment() {

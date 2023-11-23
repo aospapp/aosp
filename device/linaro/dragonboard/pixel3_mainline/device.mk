@@ -19,12 +19,21 @@
 $(call inherit-product, frameworks/native/build/phone-xhdpi-2048-dalvik-heap.mk)
 
 PRODUCT_COPY_FILES := \
-    device/linaro/dragonboard/fstab.ramdisk.common:$(TARGET_COPY_OUT_RAMDISK)/fstab.pixel3_mainline \
-    device/linaro/dragonboard/fstab.ramdisk.common:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.pixel3_mainline \
-    device/linaro/dragonboard/fstab.common:$(TARGET_COPY_OUT_VENDOR)/etc/init/fstab.pixel3_mainline \
+    device/linaro/dragonboard/fstab.common:$(TARGET_COPY_OUT_RAMDISK)/fstab.pixel3_mainline \
+    device/linaro/dragonboard/fstab.common:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.pixel3_mainline \
     device/linaro/dragonboard/init.common.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.pixel3_mainline.rc \
     device/linaro/dragonboard/init.common.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.pixel3_mainline.usb.rc \
     device/linaro/dragonboard/common.kl:$(TARGET_COPY_OUT_VENDOR)/usr/keylayout/pixel3_mainline.kl
 
+ifneq (,$(wildcard $(PIXEL3_KERNEL_DIR)/Image.gz-dtb))
+    PRODUCT_COPY_FILES += $(PIXEL3_KERNEL_DIR)/Image.gz-dtb:kernel
+    PIXEL3_KERNEL_FOUND := true
+else
+    PIXEL3_KERNEL_FOUND := false
+endif
+
 # Build generic Audio HAL
 PRODUCT_PACKAGES := audio.primary.pixel3_mainline
+
+# Copy firmware files
+$(call inherit-product-if-exists, $(LOCAL_PATH)/firmware/device.mk)

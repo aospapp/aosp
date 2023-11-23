@@ -19,6 +19,6 @@
     <string name="etws_primary_default_message_earthquake" msgid="6322509321590329419">"Тайван байж, ойролцоох нуугдах газар хайна уу."</string>
     <string name="etws_primary_default_message_tsunami" msgid="2521384573822842618">"Эргийн бүс, голын эргийн бүсээс өндөрлөг газар зэрэг аюулгүй газар руу нэн даруй шилжинэ үү."</string>
     <string name="etws_primary_default_message_earthquake_and_tsunami" msgid="7826176257527823396">"Тайван байж, ойролцоох нуугдах газар хайна уу."</string>
-    <string name="etws_primary_default_message_test" msgid="2739829278266087553">"Онцгой байдлын зурвасын тест"</string>
+    <string name="etws_primary_default_message_test" msgid="2739829278266087553">"Онцгой байдлын мессежийн тест"</string>
     <string name="etws_primary_default_message_others" msgid="3271611843755121534">"Сэрэмжлүүлгийг орон нутгийн засгийн газраас гаргасан. Тун удахгүй дэлгэрэнгүй мэдээлэл гарна."</string>
 </resources>

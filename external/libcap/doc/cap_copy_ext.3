@@ -11,7 +11,7 @@ external representation translation
 .sp
 .BI "cap_t cap_copy_int(const void *" ext_p );
 .sp
-Link with \fI-lcap\fP.
+Link with \fI\-lcap\fP.
 .SH DESCRIPTION
 These functions translate between internal and external
 representations of a capability state.  The external representation is
@@ -34,7 +34,7 @@ function in order to hold the capability data record created from
 .BR cap_copy_ext ()
 copies a capability state in working storage, identified by
 .IR cap_p ,
-from system managed space to user-managed space (pointed to by
+from system-managed space to user-managed space (pointed to by
 .IR ext_p )
 and returns the length of the resulting data record.  The size parameter
 represents the maximum size, in bytes, of the resulting data record.  The
@@ -74,12 +74,12 @@ as an argument.
 .SH "RETURN VALUE"
 .BR cap_size ()
 returns the length required to hold a capability data record on success,
-and -1 on failure.
+and \-1 on failure.
 .PP
 .BR cap_copy_ext ()
 returns the number of bytes placed in the user managed space pointed to by
 .I ext_p 
-on success, and -1 on failure.
+on success, and \-1 on failure.
 .PP
 .BR cap_copy_int ()
 returns a pointer to the newly created capability state in working storage

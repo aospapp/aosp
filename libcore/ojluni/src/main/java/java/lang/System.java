@@ -25,11 +25,9 @@
  */
 package java.lang;
 
-import com.android.icu.util.Icu4cMetadata;
 import dalvik.annotation.optimization.CriticalNative;
 import dalvik.annotation.optimization.FastNative;
 import android.system.ErrnoException;
-import android.system.StructPasswd;
 import android.system.StructUtsname;
 import dalvik.system.VMRuntime;
 import java.io.*;
@@ -38,8 +36,8 @@ import java.nio.channels.spi.SelectorProvider;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.PropertyPermission;
+import libcore.icu.ICU;
 import libcore.io.Libcore;
-import libcore.timezone.TimeZoneDataFiles;
 
 import sun.reflect.CallerSensitive;
 import sun.reflect.Reflection;
@@ -982,12 +980,13 @@ public final class System {
 
         p.put("java.vm.version", runtime.vmVersion());
 
+        String userName;
         try {
-            StructPasswd passwd = Libcore.os.getpwuid(Libcore.os.getuid());
-            p.put("user.name", passwd.pw_name);
+            userName = Libcore.os.getpwuid(Libcore.os.getuid()).pw_name;
         } catch (ErrnoException exception) {
-            throw new AssertionError(exception);
+            userName = "unknown";
         }
+        p.put("user.name", userName);
 
         StructUtsname info = Libcore.os.uname();
         p.put("os.arch", info.machine);
@@ -997,16 +996,9 @@ public final class System {
         p.put("os.version", info.release);
 
         // Android-added: Undocumented properties that exist only on Android.
-        p.put("android.icu.library.version", Icu4cMetadata.getIcuVersion());
-        p.put("android.icu.unicode.version", Icu4cMetadata.getUnicodeVersion());
-        p.put("android.icu.cldr.version", Icu4cMetadata.getCldrVersion());
-
-        // Property override for ICU4J : this is the location of the ICU4C data. This
-        // is prioritized over the properties in ICUConfig.properties. The issue with using
-        // that is that it doesn't play well with jarjar and it needs complicated build rules
-        // to change its default value.
-        String icuDataPath = TimeZoneDataFiles.generateIcuDataPath();
-        p.put("android.icu.impl.ICUBinary.dataPath", icuDataPath);
+        p.put("android.icu.library.version", ICU.getIcuVersion());
+        p.put("android.icu.unicode.version", ICU.getUnicodeVersion());
+        p.put("android.icu.cldr.version", ICU.getCldrVersion());
 
         parsePropertyAssignments(p, specialProperties());
 

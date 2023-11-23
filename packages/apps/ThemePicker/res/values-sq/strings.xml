@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Stilet dhe imazhet e sfondit"</string>
+    <string name="app_name" msgid="1647136562008520313">"Imazhi i sfondit dhe stili"</string>
     <string name="theme_title" msgid="2144932106319405101">"Stili"</string>
     <string name="clock_title" msgid="2126046720254613991">"Ora"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Rrjeta"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Imazhi i sfondit"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Rrjeta e aplikacioneve"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Zbato"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Trokit për të modifikuar"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Mbaj imazhin aktual të sfondit"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Zbato"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Faqja <xliff:g id="ID_1">%1$d</xliff:g> nga <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Para"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Prapa"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Pamja paraprake e stilit"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Pamja paraprake e rrjetës"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Pamja paraprake e fontit"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Pamja paraprake e ikonës"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Pamja paraprake e ngjyrave"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Pamja paraprake e formës"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, është zbatuar aktualisht"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, aktualisht është zbatuar dhe në pamje paraprake"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, aktualisht në pamje paraprake"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Imazhi i sfondit"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Shto fontet e tua të preferuara në çdo ekran"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Zgjidh një madhësi rrjete"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Stili u zbatua"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Ora u zbatua"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Stili u caktua me sukses"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Ora u caktua me sukses"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"Rrjeta u caktua me sukses"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Kishte një problem me zbatimin e stilit"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Para"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Prapa"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Personalizo"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"E personalizuar <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Stili i personalizuar"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Fshi"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"Jo, faleminderit"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"Pamja paraprake e orës <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Mos! Ndodhi një gabim."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Ngjyra / Ikonat"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Pamja paraprake e fontit, ikonave, formës së aplikacionit dhe ngjyrës"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Fonti i personalizuar"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Ikona e personalizuar"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Ngjyra e personalizuar"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Forma e personalizuar"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Emri i stilit të personalizuar"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Tema e errët"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Çaktivizuar për shkak të \"Kursyesit të baterisë\""</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Ikona me temë"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Ndrysho rrjetën e aplikacioneve"</string>
 </resources>

@@ -25,6 +25,7 @@
 #include "base/bit_vector-inl.h"
 #include "base/scoped_arena_allocator.h"
 #include "base/scoped_arena_containers.h"
+#include "code_generator.h"
 #include "handle.h"
 #include "mirror/class.h"
 #include "obj_ptr-inl.h"
@@ -62,7 +63,7 @@ static bool IsExitTryBoundaryIntoExitBlock(HBasicBlock* block) {
 size_t GraphChecker::Run(bool pass_change, size_t last_size) {
   size_t current_size = GetGraph()->GetReversePostOrder().size();
   if (!pass_change) {
-    // Nothing changed for certain. Do a quick sanity check on that assertion
+    // Nothing changed for certain. Do a quick check of the validity on that assertion
     // for anything other than the first call (when last size was still 0).
     if (last_size != 0) {
       if (current_size != last_size) {
@@ -506,7 +507,12 @@ void GraphChecker::VisitInstruction(HInstruction* instruction) {
     }
   }
 
-  if (instruction->CanThrowIntoCatchBlock()) {
+  if (instruction->CanThrow() && !instruction->HasEnvironment()) {
+    AddError(StringPrintf("Throwing instruction %s:%d in block %d does not have an environment.",
+                          instruction->DebugName(),
+                          instruction->GetId(),
+                          current_block_->GetBlockId()));
+  } else if (instruction->CanThrowIntoCatchBlock()) {
     // Find the top-level environment. This corresponds to the environment of
     // the catch block since we do not inline methods with try/catch.
     HEnvironment* environment = instruction->GetEnvironment();
@@ -1138,6 +1144,28 @@ void GraphChecker::VisitTypeConversion(HTypeConversion* instruction) {
         instruction->GetId(),
         DataType::PrettyDescriptor(result_type),
         DataType::PrettyDescriptor(input_type)));
+  }
+}
+
+void GraphChecker::VisitVecOperation(HVecOperation* instruction) {
+  VisitInstruction(instruction);
+  if (codegen_ == nullptr) {
+    return;
+  }
+
+  if (!codegen_->SupportsPredicatedSIMD() && instruction->IsPredicated()) {
+    AddError(StringPrintf(
+             "%s %d must not be predicated.",
+             instruction->DebugName(),
+             instruction->GetId()));
+  }
+
+  if (codegen_->SupportsPredicatedSIMD() &&
+      (instruction->MustBePredicatedInPredicatedSIMDMode() != instruction->IsPredicated())) {
+    AddError(StringPrintf(
+             "%s %d predication mode is incorrect; see HVecOperation::MustBePredicated.",
+             instruction->DebugName(),
+             instruction->GetId()));
   }
 }
 

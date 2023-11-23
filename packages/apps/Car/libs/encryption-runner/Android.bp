@@ -12,15 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_library {
     name: "encryption-runner",
-    min_sdk_version: "23",
+    sdk_version: "current",
+    min_sdk_version: "28",
     product_variables: {
         pdk: {
             enabled: false,
         },
     },
     static_libs: [
+      "androidx.annotation_annotation",
       "ukey2",
     ],
     srcs: [
@@ -28,4 +34,3 @@ android_library {
     ],
     installable: true,
 }
-

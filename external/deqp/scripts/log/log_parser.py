@@ -21,6 +21,7 @@
 #-------------------------------------------------------------------------
 
 import shlex
+import sys
 import xml.dom.minidom
 
 class StatusCode:
@@ -73,7 +74,12 @@ class ParseError(Exception):
 		return "%s:%d: %s" % (self.filename, self.line, self.message)
 
 def splitContainerLine (line):
-	return shlex.split(line)
+	if sys.version_info > (3, 0):
+		# In Python 3, shlex works better with unicode.
+		return shlex.split(line)
+	else:
+		# In Python 2, shlex works better with bytes, so encode and decode again upon return.
+		return [w.decode('utf-8') for w in shlex.split(line.encode('utf-8'))]
 
 def getNodeText (node):
 	rc = []
@@ -131,7 +137,9 @@ class BatchResultParser:
 		self.filename			= filename
 
 	def parseLine (self, line):
-		if len(line) > 0 and line[0] == '#':
+		# Some test shaders contain invalid characters.
+		text = line.decode('utf-8', 'ignore')
+		if len(text) > 0 and text[0] == '#':
 			return self.parseContainerLine(line)
 		elif self.curResultText != None:
 			self.curResultText += line
@@ -140,7 +148,9 @@ class BatchResultParser:
 
 	def parseContainerLine (self, line):
 		isTestCaseResult = False
-		args = splitContainerLine(line)
+		# Some test shaders contain invalid characters.
+		text = line.decode('utf-8', 'ignore')
+		args = splitContainerLine(text)
 		if args[0] == "#sessionInfo":
 			if len(args) < 3:
 				print(args)
@@ -152,7 +162,7 @@ class BatchResultParser:
 			if len(args) != 2 or self.curCaseName != None:
 				self.parseError("Invalid #beginTestCaseResult")
 			self.curCaseName	= args[1]
-			self.curResultText	= ""
+			self.curResultText	= b""
 		elif args[0] == "#endTestCaseResult":
 			if len(args) != 1 or self.curCaseName == None:
 				self.parseError("Invalid #endTestCaseResult")

@@ -16,9 +16,12 @@
 
 package com.android.cts.verifier.notifications;
 
+import static android.app.Notification.VISIBILITY_PRIVATE;
+import static android.app.Notification.VISIBILITY_PUBLIC;
 import static android.app.NotificationManager.IMPORTANCE_LOW;
 import static android.app.NotificationManager.IMPORTANCE_MAX;
 import static android.app.NotificationManager.IMPORTANCE_NONE;
+import static android.app.NotificationManager.VISIBILITY_NO_OVERRIDE;
 import static android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS;
 import static android.provider.Settings.EXTRA_APP_PACKAGE;
 import static android.provider.Settings.EXTRA_CHANNEL_ID;
@@ -35,21 +38,30 @@ import static com.android.cts.verifier.notifications.MockListener.JSON_WHEN;
 import static com.android.cts.verifier.notifications.MockListener.REASON_LISTENER_CANCEL;
 
 import android.annotation.SuppressLint;
+import android.app.KeyguardManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationChannelGroup;
+import android.app.Person;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
+import android.graphics.drawable.Icon;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.provider.Settings.Secure;
+import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
+import android.util.ArraySet;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.RemoteViews;
 
 import androidx.core.app.NotificationCompat;
 
@@ -59,6 +71,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -66,9 +79,9 @@ import java.util.UUID;
 
 public class NotificationListenerVerifierActivity extends InteractiveVerifierActivity
         implements Runnable {
-    private static final String TAG = "NoListenerVerifier";
+    static final String TAG = "NoListenerVerifier";
     private static final String NOTIFICATION_CHANNEL_ID = TAG;
-    private static final String NOISY_NOTIFICATION_CHANNEL_ID = TAG + "Noisy";
+    private static final String NOISY_NOTIFICATION_CHANNEL_ID = TAG + "noisy";
     protected static final String PREFS = "listener_prefs";
     final int NUM_NOTIFICATIONS_SENT = 3; // # notifications sent by sendNotifications()
 
@@ -106,10 +119,19 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
 
     @Override
     protected List<InteractiveTestCase> createTestItems() {
+        boolean isAutomotive = getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_AUTOMOTIVE);
         List<InteractiveTestCase> tests = new ArrayList<>(17);
         tests.add(new IsEnabledTest());
         tests.add(new ServiceStartedTest());
         tests.add(new NotificationReceivedTest());
+        if (!isAutomotive) {
+            tests.add(new SendUserToChangeFilter());
+            tests.add(new AskIfFilterChanged());
+            tests.add(new NotificationTypeFilterTest());
+            tests.add(new ResetChangeFilter());
+        }
+        tests.add(new LongMessageTest());
         tests.add(new DataIntactTest());
         tests.add(new AudiblyAlertedTest());
         tests.add(new DismissOneTest());
@@ -120,19 +142,29 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
         tests.add(new SnoozeNotificationForTimeCancelTest());
         tests.add(new GetSnoozedNotificationTest());
         tests.add(new EnableHintsTest());
+        if (!isAutomotive) {
+            tests.add(new LockscreenVisibilityTest());
+        }
         tests.add(new ReceiveAppBlockNoticeTest());
         tests.add(new ReceiveAppUnblockNoticeTest());
-        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+        if (!isAutomotive) {
             tests.add(new ReceiveChannelBlockNoticeTest());
             tests.add(new ReceiveGroupBlockNoticeTest());
         }
         tests.add(new RequestUnbindTest());
         tests.add(new RequestBindTest());
         tests.add(new MessageBundleTest());
+        tests.add(new ConversationOrderingTest());
         tests.add(new EnableHintsTest());
         tests.add(new IsDisabledTest());
         tests.add(new ServiceStoppedTest());
         tests.add(new NotificationNotReceivedTest());
+        if (!isAutomotive) {
+            tests.add(new RestoreLockscreenVisibilityTest());
+            tests.add(new AddScreenLockTest());
+            tests.add(new SecureActionOnLockScreenTest());
+            tests.add(new RemoveScreenLockTest());
+        }
         return tests;
     }
 
@@ -154,11 +186,11 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
     @SuppressLint("NewApi")
     private void sendNotifications() {
         mTag1 = UUID.randomUUID().toString();
-        Log.d(TAG, "Sending " + mTag1);
+        Log.d(TAG, "Sending #1: " + mTag1);
         mTag2 = UUID.randomUUID().toString();
-        Log.d(TAG, "Sending " + mTag2);
+        Log.d(TAG, "Sending #2: " + mTag2);
         mTag3 = UUID.randomUUID().toString();
-        Log.d(TAG, "Sending " + mTag3);
+        Log.d(TAG, "Sending #3: " + mTag3);
 
         mWhen1 = System.currentTimeMillis() + 1;
         mWhen2 = System.currentTimeMillis() + 2;
@@ -211,7 +243,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
 
     private void sendNoisyNotification() {
         mTag4 = UUID.randomUUID().toString();
-        Log.d(TAG, "Sending " + mTag4);
+        Log.d(TAG, "Sending noisy notif: " + mTag4);
 
         mWhen4 = System.currentTimeMillis() + 4;
         mIcon4 = R.drawable.ic_stat_charlie;
@@ -253,8 +285,73 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
 
         @Override
         protected void test() {
-            List<String> result = new ArrayList<>(MockListener.getInstance().mPosted);
-            if (result.size() > 0 && result.contains(mTag1)) {
+            if (MockListener.getInstance().getPosted(mTag1) != null) {
+                status = PASS;
+            } else {
+                logFail();
+                status = FAIL;
+            }
+        }
+    }
+
+    private class LongMessageTest extends InteractiveTestCase {
+        private ViewGroup mParent;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mParent = createAutoItem(parent, R.string.nls_anr);
+            return mParent;
+        }
+
+        @Override
+        protected void setUp() {
+            createChannels();
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 20000; i++) {
+                sb.append("\u2009\u200a" + "\u200E\u200F" + "stuff");
+            }
+            Notification.Builder builder = new Notification.Builder(
+                    mContext, NOTIFICATION_CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_stat_alice)
+                    .setContentTitle("This is an long notification")
+                    .setContentText("Innocuous content")
+                    .setStyle(new Notification.MessagingStyle("Fake person")
+                            .addMessage("hey how is it goin", 0, "Person 1")
+                            .addMessage("hey", 0, "Person 1")
+                            .addMessage("u there", 0, "Person 1")
+                            .addMessage("how you like tHIS", 0, "Person 1")
+                            .addMessage(sb.toString(), 0, "Person 1")
+                    );
+            mTag1 = UUID.randomUUID().toString();
+            mId1 = NOTIFICATION_ID + 1;
+            mPackageString = "com.android.cts.verifier";
+            mNm.notify(mTag1, mId1, builder.build());
+            status = READY;
+        }
+
+        @Override
+        protected void tearDown() {
+            mNm.cancelAll();
+            MockListener.getInstance().resetData();
+            deleteChannels();
+        }
+
+        @Override
+        protected void test() {
+            StatusBarNotification sbn = MockListener.getInstance().getPosted(mTag1);
+            if (sbn == null) {
+                logFail();
+                status = FAIL;
+            } else {
+                ViewGroup parent = mParent.findViewById(R.id.feedback);
+                parent.setVisibility(View.VISIBLE);
+                final Notification.Builder recoveredBuilder = Notification.Builder.recoverBuilder(
+                        NotificationListenerVerifierActivity.this,
+                        sbn.getNotification());
+                RemoteViews rv = recoveredBuilder.createContentView();
+                View v = rv.apply(NotificationListenerVerifierActivity.this, parent);
+                parent.addView(v);
+            }
+            if (MockListener.getInstance().getPosted(mTag1) != null) {
                 status = PASS;
             } else {
                 logFail();
@@ -414,6 +511,85 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
             return new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
                     .putExtra(EXTRA_APP_PACKAGE, mContext.getPackageName());
+        }
+    }
+
+    /**
+     * Creates a notification channel. Sends the user to settings to disallow the channel from
+     * showing on the lockscreen. Sends a notification, checks the lockscreen setting in the
+     * ranking object.
+     */
+    protected class LockscreenVisibilityTest extends InteractiveTestCase {
+        private int mRetries = 3;
+        private View mView;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.nls_visibility);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            createChannels();
+            status = READY;
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            NotificationChannel channel = mNm.getNotificationChannel(NOTIFICATION_CHANNEL_ID);
+            if (channel.getLockscreenVisibility() == VISIBILITY_PRIVATE) {
+                if (mRetries == 3) {
+                    sendNotifications();
+                }
+
+                NotificationListenerService.Ranking rank =
+                        new NotificationListenerService.Ranking();
+                StatusBarNotification sbn = MockListener.getInstance().getPosted(mTag1);
+                if (sbn != null) {
+                    MockListener.getInstance().getCurrentRanking().getRanking(sbn.getKey(), rank);
+                    if (rank.getLockscreenVisibilityOverride() == VISIBILITY_PRIVATE) {
+                        status = PASS;
+                    } else {
+                        logFail("Actual visibility:" + rank.getLockscreenVisibilityOverride());
+                        status = FAIL;
+                    }
+                } else {
+                    if (mRetries > 0) {
+                        mRetries--;
+                        status = RETEST;
+                    } else {
+                        logFail("Notification wasn't posted");
+                        status = FAIL;
+                    }
+                }
+
+            } else {
+                // user hasn't jumped to settings  yet
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        protected void tearDown() {
+            MockListener.getInstance().resetData();
+            deleteChannels();
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                    .putExtra(EXTRA_APP_PACKAGE, mContext.getPackageName())
+                    .putExtra(EXTRA_CHANNEL_ID, NOTIFICATION_CHANNEL_ID);
         }
     }
 
@@ -977,8 +1153,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
             if (MockListener.getInstance() == null) {
                 status = PASS;
             } else {
-                List<String> result = new ArrayList<>(MockListener.getInstance().mPosted);
-                if (result.size() == 0) {
+                if (MockListener.getInstance().mPosted.size() == 0) {
                     status = PASS;
                 } else {
                     logFail();
@@ -1149,8 +1324,7 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
                     state = READY_TO_CHECK_FOR_UNSNOOZE;
                 }
             } else {
-                List<String> result = new ArrayList<>(MockListener.getInstance().mPosted);
-                if (result.size() > 0 && result.contains(mTag1)) {
+                if (MockListener.getInstance().getPosted(mTag1) != null) {
                     status = PASS;
                 } else {
                     logFail();
@@ -1430,6 +1604,397 @@ public class NotificationListenerVerifierActivity extends InteractiveVerifierAct
             }
 
             status = PASS;
+        }
+    }
+
+    /**
+     * Tests that conversation notifications appear at the top of the shade, if the device supports
+     * a separate conversation section
+     */
+    private class ConversationOrderingTest extends InteractiveTestCase {
+        private static final String SHARE_SHORTCUT_ID = "shareShortcut";
+        private static final String SHORTCUT_CATEGORY =
+                "com.android.cts.verifier.notifications.SHORTCUT_CATEGORY";
+
+        @Override
+        protected void setUp() {
+            createChannels();
+            createDynamicShortcut();
+            sendNotifications();
+            status = READY;
+        }
+
+        @Override
+        protected void tearDown() {
+            mNm.cancelAll();
+            deleteChannels();
+            delay();
+        }
+
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createPassFailItem(parent, R.string.conversation_section_ordering);
+        }
+
+        private void createDynamicShortcut() {
+            Person person = new Person.Builder()
+                    .setBot(false)
+                    .setIcon(Icon.createWithResource(mContext, R.drawable.ic_stat_alice))
+                    .setName("Person A")
+                    .setImportant(true)
+                    .build();
+
+            Set<String> categorySet = new ArraySet<>();
+            categorySet.add(SHORTCUT_CATEGORY);
+            Intent shortcutIntent =
+                    new Intent(mContext, BubbleActivity.class);
+            shortcutIntent.setAction(Intent.ACTION_VIEW);
+
+            ShortcutInfo shortcut = new ShortcutInfo.Builder(mContext, SHARE_SHORTCUT_ID)
+                    .setShortLabel(SHARE_SHORTCUT_ID)
+                    .setIcon(Icon.createWithResource(mContext, R.drawable.ic_stat_alice))
+                    .setIntent(shortcutIntent)
+                    .setPerson(person)
+                    .setCategories(categorySet)
+                    .setLongLived(true)
+                    .build();
+
+            ShortcutManager scManager =
+                    (ShortcutManager) mContext.getSystemService(Context.SHORTCUT_SERVICE);
+            scManager.addDynamicShortcuts(Arrays.asList(shortcut));
+        }
+
+        private void sendNotifications() {
+            mTag1 = UUID.randomUUID().toString();
+            mId1 = NOTIFICATION_ID + 1;
+
+            Person person = new Person.Builder()
+                    .setName("Person A")
+                    .build();
+
+            Notification n1 = new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
+                    .setContentTitle("ConversationOrderingTest")
+                    .setContentText(mTag1)
+                    .setSmallIcon(R.drawable.ic_stat_alice)
+                    .setShortcutId(SHARE_SHORTCUT_ID)
+                    .setStyle(new Notification.MessagingStyle(person)
+                            .setConversationTitle("Bubble Chat")
+                            .addMessage("Hello?",
+                                    SystemClock.currentThreadTimeMillis() - 300000, person)
+                            .addMessage("Is it me you're looking for?",
+                                    SystemClock.currentThreadTimeMillis(), person)
+                    )
+                    .build();
+            mNm.notify(mTag1, mId1, n1);
+
+            mTag2 = UUID.randomUUID().toString();
+            mId2 = mId1 + 1;
+            Notification n2 = new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
+                    .setContentTitle("Non-Person Notification")
+                    .setContentText(mTag1)
+                    .setSmallIcon(R.drawable.ic_stat_alice)
+                    .build();
+            mNm.notify(mTag2, mId2, n2);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            status = WAIT_FOR_USER;
+            next();
+        }
+    }
+
+    /**
+     * Creates a notification channel. Sends the user to settings to re-allow the channel to
+     * show content on the lockscreen.
+     * This asks the user to undo what they did for {@link LockscreenVisibilityTest}
+     */
+    protected class RestoreLockscreenVisibilityTest extends InteractiveTestCase {
+        private View mView;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.nls_restore_visibility);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            createChannels();
+            status = READY;
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            NotificationChannel channel = mNm.getNotificationChannel(NOTIFICATION_CHANNEL_ID);
+            int visibility = channel.getLockscreenVisibility();
+            if (visibility == VISIBILITY_PUBLIC || visibility == VISIBILITY_NO_OVERRIDE) {
+                status = PASS;
+            } else {
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        protected void tearDown() {
+            deleteChannels();
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                    .putExtra(EXTRA_APP_PACKAGE, mContext.getPackageName())
+                    .putExtra(EXTRA_CHANNEL_ID, NOTIFICATION_CHANNEL_ID);
+        }
+    }
+
+    private class AddScreenLockTest extends InteractiveTestCase {
+        private View mView;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.add_screen_lock);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            status = READY;
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            KeyguardManager km = getSystemService(KeyguardManager.class);
+            if (km.isDeviceSecure()) {
+                status = PASS;
+            } else {
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_SECURITY_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        }
+    }
+
+    private class SecureActionOnLockScreenTest extends InteractiveTestCase {
+        @Override
+        protected void setUp() {
+            createChannels();
+            ActionTriggeredReceiver.sendNotification(mContext, true);
+            status = READY;
+        }
+
+        @Override
+        protected void tearDown() {
+            mNm.cancelAll();
+            deleteChannels();
+            delay();
+        }
+
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createPassFailItem(parent, R.string.secure_action_lockscreen);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            status = WAIT_FOR_USER;
+            next();
+        }
+    }
+
+    private class RemoveScreenLockTest extends InteractiveTestCase {
+        private View mView;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            mView = createNlsSettingsItem(parent, R.string.remove_screen_lock);
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(false);
+            return mView;
+        }
+
+        @Override
+        protected void setUp() {
+            status = READY;
+            Button button = mView.findViewById(R.id.nls_action_button);
+            button.setEnabled(true);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            KeyguardManager km = getSystemService(KeyguardManager.class);
+            if (!km.isDeviceSecure()) {
+                status = PASS;
+            } else {
+                status = WAIT_FOR_USER;
+            }
+
+            next();
+        }
+
+        @Override
+        protected Intent getIntent() {
+            return new Intent(Settings.ACTION_SECURITY_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        }
+    }
+
+    /**
+     * Sends the user to settings filter out silent notifications for this notification listener.
+     * Sends silent and not silent notifs and makes sure only the non silent is received
+     */
+    private class NotificationTypeFilterTest extends InteractiveTestCase {
+        int mRetries = 3;
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createAutoItem(parent, R.string.nls_filter_test);
+
+        }
+
+        @Override
+        protected void setUp() {
+            createChannels();
+            sendNotifications();
+            sendNoisyNotification();
+            status = READY;
+        }
+
+        @Override
+        protected void tearDown() {
+            mNm.cancelAll();
+            MockListener.getInstance().resetData();
+            deleteChannels();
+        }
+
+        @Override
+        protected void test() {
+            if (MockListener.getInstance().getPosted(mTag4) == null) {
+                Log.d(TAG, "Could not find " + mTag4);
+                if (--mRetries > 0) {
+                    sleep(100);
+                    status = RETEST;
+                } else {
+                    status = FAIL;
+                }
+            } else if (MockListener.getInstance().getPosted(mTag2) != null) {
+                logFail("Found" + mTag2);
+                status = FAIL;
+            } else {
+                status = PASS;
+            }
+        }
+    }
+
+    protected class SendUserToChangeFilter extends InteractiveTestCase {
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createUserItem(
+                    parent, R.string.cp_start_settings,  R.string.nls_change_type_filter);
+        }
+
+        @Override
+        protected void setUp() {
+            // note: it's expected that the '0' type will be ignored since we've specified a
+            // type in the manifest
+            ArrayList<String> pkgs = new ArrayList<>();
+            pkgs.add("com.android.settings");
+            MockListener.getInstance().migrateNotificationFilter(0, pkgs);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            if (getIntent().resolveActivity(mPackageManager) == null) {
+                logFail("no settings activity");
+                status = FAIL;
+            } else {
+                if (buttonPressed) {
+                    status = PASS;
+                } else {
+                    status = RETEST_AFTER_LONG_DELAY;
+                }
+                next();
+            }
+        }
+
+        protected void tearDown() {
+            // wait for the service to start
+            delay();
+        }
+
+        @Override
+        protected Intent getIntent() {
+            Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS);
+            intent.putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                    MockListener.COMPONENT_NAME.flattenToString());
+            return intent;
+        }
+    }
+
+    protected class ResetChangeFilter extends SendUserToChangeFilter {
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createUserItem(
+                    parent, R.string.cp_start_settings,  R.string.nls_reset_type_filter);
+        }
+    }
+
+    protected class AskIfFilterChanged extends InteractiveTestCase {
+        @Override
+        protected View inflate(ViewGroup parent) {
+            return createPassFailItem(parent, R.string.nls_original_filter_verification);
+        }
+
+        @Override
+        boolean autoStart() {
+            return true;
+        }
+
+        @Override
+        protected void test() {
+            status = WAIT_FOR_USER;
+            next();
         }
     }
 }

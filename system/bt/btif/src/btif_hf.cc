@@ -27,24 +27,26 @@
 
 #define LOG_TAG "bt_btif_hf"
 
-#include <cstdlib>
-#include <cstring>
-#include <ctime>
+#include <cstdint>
+#include <string>
 
-#include <bta/include/bta_ag_api.h>
-#include <hardware/bluetooth.h>
-#include <hardware/bluetooth_headset_callbacks.h>
-#include <hardware/bluetooth_headset_interface.h>
-#include <hardware/bt_hf.h>
-#include <log/log.h>
-
+#include "bta/include/bta_ag_api.h"
 #include "bta/include/utl.h"
-#include "bta_ag_api.h"
-#include "btif_common.h"
-#include "btif_hf.h"
-#include "btif_profile_queue.h"
-#include "btif_util.h"
+#include "btif/include/btif_common.h"
+#include "btif/include/btif_profile_queue.h"
+#include "btif/include/btif_util.h"
 #include "common/metrics.h"
+#include "include/hardware/bluetooth_headset_callbacks.h"
+#include "include/hardware/bluetooth_headset_interface.h"
+#include "include/hardware/bt_hf.h"
+#include "main/shim/dumpsys.h"
+#include "osi/include/log.h"
+#include "stack/include/btm_api.h"
+#include "types/raw_address.h"
+
+namespace {
+constexpr char kBtmLogTag[] = "HFP";
+}
 
 namespace bluetooth {
 namespace headset {
@@ -69,15 +71,11 @@ namespace headset {
   { BTIF_HSAG_SERVICE_NAME, BTIF_HFAG_SERVICE_NAME }
 #endif
 
-#ifndef BTIF_HF_SECURITY
-#define BTIF_HF_SECURITY (BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT)
-#endif
-
 #ifndef BTIF_HF_FEATURES
-#define BTIF_HF_FEATURES                                       \
-  (BTA_AG_FEAT_3WAY | BTA_AG_FEAT_ECNR | BTA_AG_FEAT_REJECT |  \
-   BTA_AG_FEAT_ECS | BTA_AG_FEAT_EXTERR | BTA_AG_FEAT_VREC |   \
-   BTA_AG_FEAT_CODEC | BTA_AG_FEAT_HF_IND | BTA_AG_FEAT_ESCO | \
+#define BTIF_HF_FEATURES                                          \
+  (BTA_AG_FEAT_3WAY | BTA_AG_FEAT_ECNR | BTA_AG_FEAT_REJECT |     \
+   BTA_AG_FEAT_ECS | BTA_AG_FEAT_EXTERR | BTA_AG_FEAT_VREC |      \
+   BTA_AG_FEAT_CODEC | BTA_AG_FEAT_HF_IND | BTA_AG_FEAT_ESCO_S4 | \
    BTA_AG_FEAT_UNAT)
 #endif
 
@@ -298,22 +296,22 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
   tBTA_AG* p_data = (tBTA_AG*)p_param;
   int idx = p_data->hdr.handle - 1;
 
-  BTIF_TRACE_DEBUG("%s: event=%s", __func__, dump_hf_event(event));
+  LOG_DEBUG("HF Upstream event:%s", dump_hf_event(event));
 
   if ((idx < 0) || (idx >= BTA_AG_MAX_NUM_CLIENTS)) {
-    BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
+    LOG_ERROR("%s Invalid client index:%d", dump_hf_event(event), idx);
     return;
   }
   if (!bt_hf_callbacks) {
-    BTIF_TRACE_ERROR("%s: Headset callback is NULL", __func__);
+    LOG_ERROR("%s Headset callback is not set", dump_hf_event(event));
     return;
   }
 
   switch (event) {
     case BTA_AG_REGISTER_EVT:
       btif_hf_cb[idx].handle = p_data->reg.hdr.handle;
-      BTIF_TRACE_DEBUG("%s: BTA_AG_REGISTER_EVT, btif_hf_cb.handle = %d",
-                       __func__, btif_hf_cb[idx].handle);
+      LOG_DEBUG("%s idx:%d btif_hf_cb.handle = %d", dump_hf_event(event), idx,
+                btif_hf_cb[idx].handle);
       break;
     // RFCOMM connected or failed to connect
     case BTA_AG_OPEN_EVT:
@@ -390,10 +388,11 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
         btif_queue_advance();
       }
       break;
-    // SLC and RFCOMM both disconnected
     case BTA_AG_CLOSE_EVT: {
-      BTIF_TRACE_DEBUG("%s: BTA_AG_CLOSE_EVT, idx = %d, btif_hf_cb.handle = %d",
-                       __func__, idx, btif_hf_cb[idx].handle);
+      LOG_DEBUG(
+          "SLC and RFCOMM both disconnected event:%s idx:%d"
+          " btif_hf_cb.handle:%d",
+          dump_hf_event(event), idx, btif_hf_cb[idx].handle);
       // If AG_OPEN was received but SLC was not connected in time, then
       // AG_CLOSE may be received. We need to advance the queue here.
       bool failed_to_setup_slc =
@@ -409,9 +408,8 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       }
       break;
     }
-    // SLC connected
     case BTA_AG_CONN_EVT:
-      BTIF_TRACE_DEBUG("%s: BTA_AG_CONN_EVT, idx = %d ", __func__, idx);
+      LOG_DEBUG("SLC connected event:%s idx:%d", dump_hf_event(event), idx);
       btif_hf_cb[idx].peer_feat = p_data->conn.peer_feat;
       btif_hf_cb[idx].state = BTHF_CONNECTION_STATE_SLC_CONNECTED;
       bt_hf_callbacks->ConnectionStateCallback(btif_hf_cb[idx].state,
@@ -422,18 +420,21 @@ static void btif_hf_upstreams_evt(uint16_t event, char* p_param) {
       break;
 
     case BTA_AG_AUDIO_OPEN_EVT:
+      LOG_DEBUG("Audio open event:%s", dump_hf_event(event));
       bt_hf_callbacks->AudioStateCallback(BTHF_AUDIO_STATE_CONNECTED,
                                           &btif_hf_cb[idx].connected_bda);
       break;
 
     case BTA_AG_AUDIO_CLOSE_EVT:
+      LOG_DEBUG("Audio close event:%s", dump_hf_event(event));
       bt_hf_callbacks->AudioStateCallback(BTHF_AUDIO_STATE_DISCONNECTED,
                                           &btif_hf_cb[idx].connected_bda);
       break;
 
-    /* BTA auto-responds, silently discard */
     case BTA_AG_SPK_EVT:
     case BTA_AG_MIC_EVT:
+      LOG_DEBUG("BTA auto-responds, silently discard event:%s",
+                dump_hf_event(event));
       bt_hf_callbacks->VolumeControlCallback(
           (event == BTA_AG_SPK_EVT) ? BTHF_VOLUME_TYPE_SPK
                                     : BTHF_VOLUME_TYPE_MIC,
@@ -667,7 +668,7 @@ static bt_status_t connect_int(RawAddress* bd_addr, uint16_t uuid) {
   hf_cb->connected_bda = *bd_addr;
   hf_cb->is_initiator = true;
   hf_cb->peer_feat = 0;
-  BTA_AgOpen(hf_cb->handle, hf_cb->connected_bda, BTIF_HF_SECURITY);
+  BTA_AgOpen(hf_cb->handle, hf_cb->connected_bda);
   return BT_STATUS_SUCCESS;
 }
 
@@ -711,6 +712,8 @@ class HeadsetInterface : Interface {
   bt_status_t Disconnect(RawAddress* bd_addr) override;
   bt_status_t ConnectAudio(RawAddress* bd_addr) override;
   bt_status_t DisconnectAudio(RawAddress* bd_addr) override;
+  bt_status_t isNoiseReductionSupported(RawAddress* bd_addr) override;
+  bt_status_t isVoiceRecognitionSupported(RawAddress* bd_addr) override;
   bt_status_t StartVoiceRecognition(RawAddress* bd_addr) override;
   bt_status_t StopVoiceRecognition(RawAddress* bd_addr) override;
   bt_status_t VolumeControl(bthf_volume_type_t type, int volume,
@@ -832,6 +835,32 @@ bt_status_t HeadsetInterface::DisconnectAudio(RawAddress* bd_addr) {
     return BT_STATUS_FAIL;
   }
   BTA_AgAudioClose(btif_hf_cb[idx].handle);
+  return BT_STATUS_SUCCESS;
+}
+
+bt_status_t HeadsetInterface::isNoiseReductionSupported(RawAddress* bd_addr) {
+  CHECK_BTHF_INIT();
+  int idx = btif_hf_idx_by_bdaddr(bd_addr);
+  if ((idx < 0) || (idx >= BTA_AG_MAX_NUM_CLIENTS)) {
+    BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
+    return BT_STATUS_FAIL;
+  }
+  if (!(btif_hf_cb[idx].peer_feat & BTA_AG_PEER_FEAT_ECNR)) {
+    return BT_STATUS_UNSUPPORTED;
+  }
+  return BT_STATUS_SUCCESS;
+}
+
+bt_status_t HeadsetInterface::isVoiceRecognitionSupported(RawAddress* bd_addr) {
+  CHECK_BTHF_INIT();
+  int idx = btif_hf_idx_by_bdaddr(bd_addr);
+  if ((idx < 0) || (idx >= BTA_AG_MAX_NUM_CLIENTS)) {
+    BTIF_TRACE_ERROR("%s: Invalid index %d", __func__, idx);
+    return BT_STATUS_FAIL;
+  }
+  if (!(btif_hf_cb[idx].peer_feat & BTA_AG_PEER_FEAT_VREC)) {
+    return BT_STATUS_UNSUPPORTED;
+  }
   return BT_STATUS_SUCCESS;
 }
 
@@ -1082,14 +1111,15 @@ bt_status_t HeadsetInterface::PhoneStateChange(
     const char* number, bthf_call_addrtype_t type, const char* name,
     RawAddress* bd_addr) {
   CHECK_BTHF_INIT();
-  if (!bd_addr) {
-    BTIF_TRACE_WARNING("%s: bd_addr is null", __func__);
+  if (bd_addr == nullptr) {
+    LOG_WARN("bd_addr is null");
     return BT_STATUS_FAIL;
   }
+
+  const RawAddress raw_address(*bd_addr);
   int idx = btif_hf_idx_by_bdaddr(bd_addr);
   if (idx < 0 || idx > BTA_AG_MAX_NUM_CLIENTS) {
-    BTIF_TRACE_WARNING("%s: invalid index %d for %s", __func__, idx,
-                       bd_addr->ToString().c_str());
+    LOG_WARN("Invalid index %d for %s", idx, PRIVATE_ADDRESS(raw_address));
     return BT_STATUS_FAIL;
   }
   const btif_hf_cb_t& control_block = btif_hf_cb[idx];
@@ -1106,22 +1136,23 @@ bt_status_t HeadsetInterface::PhoneStateChange(
               << ", num_held=" << num_held;
     return BT_STATUS_SUCCESS;
   }
-  LOG(INFO) << __func__ << ": idx=" << idx << ", addr=" << *bd_addr
-            << ", active_bda=" << active_bda << ", num_active=" << num_active
-            << ", prev_num_active" << control_block.num_active
-            << ", num_held=" << num_held
-            << ", prev_num_held=" << control_block.num_held
-            << ", call_state=" << dump_hf_call_state(call_setup_state)
-            << ", prev_call_state="
-            << dump_hf_call_state(control_block.call_setup_state);
-  tBTA_AG_RES res = 0xFF;
+  LOG_DEBUG(
+      "bd_addr:%s active_bda:%s num_active:%u prev_num_active:%u num_held:%u "
+      "prev_num_held:%u call_state:%s prev_call_state:%s",
+      PRIVATE_ADDRESS((*bd_addr)), PRIVATE_ADDRESS(active_bda), num_active,
+      control_block.num_active, num_held, control_block.num_held,
+      dump_hf_call_state(call_setup_state),
+      dump_hf_call_state(control_block.call_setup_state));
+  tBTA_AG_RES res = BTA_AG_UNKNOWN;
   bt_status_t status = BT_STATUS_SUCCESS;
   bool active_call_updated = false;
 
   /* if all indicators are 0, send end call and return */
   if (num_active == 0 && num_held == 0 &&
       call_setup_state == BTHF_CALL_STATE_IDLE) {
-    VLOG(1) << __func__ << ": call ended";
+    if (control_block.num_active > 0) {
+      BTM_LogHistory(kBtmLogTag, raw_address, "Call Ended");
+    }
     BTA_AgResult(control_block.handle, BTA_AG_END_CALL_RES,
                  tBTA_AG_RES_DATA::kEmpty);
     /* if held call was present, reset that as well */
@@ -1260,6 +1291,13 @@ bt_status_t HeadsetInterface::PhoneStateChange(
           snprintf(ag_res.str, sizeof(ag_res.str), "%s",
                    call_number_stream.str().c_str());
         }
+        {
+          std::string cell_number(number);
+          BTM_LogHistory(
+              kBtmLogTag, raw_address, "Call Incoming",
+              base::StringPrintf("number:%s", PRIVATE_CELL(cell_number)));
+        }
+        // base::StringPrintf("number:%s", PRIVATE_CELL(number)));
         break;
       case BTHF_CALL_STATE_DIALING:
         if (!(num_active + num_held) && is_active_device(*bd_addr)) {
@@ -1427,8 +1465,7 @@ bt_status_t ExecuteService(bool b_enable) {
     /* Enable and register with BTA-AG */
     BTA_AgEnable(bte_hf_evt);
     for (uint8_t app_id = 0; app_id < btif_max_hf_clients; app_id++) {
-      BTA_AgRegister(BTIF_HF_SERVICES, BTIF_HF_SECURITY, btif_hf_features,
-                     service_names, app_id);
+      BTA_AgRegister(BTIF_HF_SERVICES, btif_hf_features, service_names, app_id);
     }
   } else {
     /* De-register AG */

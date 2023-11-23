@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library {
     defaults: ["native_bridge_stub_library_defaults"],
     name: "libnative_bridge_guest_libGLESv3",

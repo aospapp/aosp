@@ -16,5 +16,6 @@ third_party {
     value: "https://github.com/llvm/llvm-project.git"
   }
   version: "8f5e1755ca385566c0352a9bd292218cebfd3d0b"
+  license_type: NOTICE
   last_upgrade_date { year: 2019 month: 8 day: 21 }
 }

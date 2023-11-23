@@ -19,8 +19,7 @@ public class GridTileDrawable extends Drawable {
 
     // Path is expected configuration in following dimension: [100 x 100]))
     private static final float PATH_SIZE = 100f;
-    // We want each "icon" using 80% of the available size, so there's 10% padding on each side
-    private static final float ICON_SCALE = .8f;
+    private static final float SPACE_BETWEEN_ICONS = 6f;
     private final int mCols;
     private final int mRows;
     private final Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -28,7 +27,6 @@ public class GridTileDrawable extends Drawable {
     private final Path mTransformedPath;
     private final Matrix mScaleMatrix;
     private float mCellSize = -1f;
-    private float mSpaceBetweenIcons;
 
     public GridTileDrawable(int cols, int rows, String path) {
         mCols = cols;
@@ -42,21 +40,23 @@ public class GridTileDrawable extends Drawable {
     @Override
     protected void onBoundsChange(Rect bounds) {
         super.onBoundsChange(bounds);
-        mCellSize = (float) bounds.height() / mRows;
-        mSpaceBetweenIcons = mCellSize * ((1 - ICON_SCALE) / 2);
+        int longestSide = Math.max(mRows, mCols);
+        mCellSize = (float) bounds.width() / longestSide;
 
-        float scaleFactor = (mCellSize * ICON_SCALE) / PATH_SIZE;
+        float scaleFactor = (mCellSize - 2 * SPACE_BETWEEN_ICONS) / PATH_SIZE;
         mScaleMatrix.setScale(scaleFactor, scaleFactor);
         mShapePath.transform(mScaleMatrix, mTransformedPath);
     }
 
     @Override
     public void draw(Canvas canvas) {
+        double size = getBounds().width();
+
         for (int r = 0; r < mRows; r++) {
             for (int c = 0; c < mCols; c++) {
                 int saveCount = canvas.save();
-                float x = (c * mCellSize) + mSpaceBetweenIcons;
-                float y = (r * mCellSize) + mSpaceBetweenIcons;
+                float x = (float) ((r * size / mRows) + SPACE_BETWEEN_ICONS);
+                float y = (float) ((c * size / mCols) + SPACE_BETWEEN_ICONS);
                 canvas.translate(x, y);
                 canvas.drawPath(mTransformedPath, mPaint);
                 canvas.restoreToCount(saveCount);

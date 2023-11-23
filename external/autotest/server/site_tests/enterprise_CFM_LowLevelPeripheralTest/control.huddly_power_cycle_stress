@@ -9,7 +9,7 @@ NAME = "enterprise_CFM_LowLevelPeripheralTest.huddly_power_cycle_stress"
 PURPOSE = "Stresses an Huddly device by repeatedly power cycling its USB port."
 CRITERIA = ("Huddly detectable as a USB device after each cycle "
             "and no crash files appear")
-ATTRIBUTES = "suite:hotrod"
+ATTRIBUTES = "suite:hotrod-remora"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Stress"
 TEST_TYPE = "server"

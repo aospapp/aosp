@@ -49,3 +49,6 @@ dontaudit sensors sysfs_faceauth:file r_file_perms;
 
 # Access to wakelock sysfs
 wakelock_use(sensors)
+
+allow sensors sensors_vendor_data_file:dir rw_dir_perms;
+allow sensors sensors_vendor_data_file:file create_file_perms;

@@ -370,7 +370,7 @@ protected:
         int ret;
         switch (mode) {
             case ADDRESS:
-                ret = mSd.destroySockets("::1");
+                ret = mSd.destroySockets("::1", 0 /* ifindex */);
                 EXPECT_LE(0, ret) << ": Failed to destroy sockets on ::1: " << strerror(-ret);
                 break;
             case UID:

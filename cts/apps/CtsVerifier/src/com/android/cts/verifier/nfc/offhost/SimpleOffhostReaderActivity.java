@@ -16,14 +16,15 @@
 
 package com.android.cts.verifier.nfc.offhost;
 
-import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.nfc.NfcAdapter;
 import android.nfc.NfcAdapter.ReaderCallback;
-import android.nfc.tech.IsoDep;
 import android.nfc.Tag;
+import android.nfc.tech.IsoDep;
+import android.nfc.tech.NfcA;
+import android.nfc.tech.NfcB;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.util.Log;
@@ -36,12 +37,11 @@ import android.widget.TextView;
 
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
+import com.android.cts.verifier.nfc.hce.CommandApdu;
+import com.android.cts.verifier.nfc.hce.HceUtils;
 
 import java.io.IOException;
 import java.util.Arrays;
-
-import com.android.cts.verifier.nfc.hce.HceUtils;
-import com.android.cts.verifier.nfc.hce.CommandApdu;
 
 public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implements ReaderCallback,
         OnItemSelectedListener {
@@ -58,6 +58,7 @@ public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implem
     String[] mResponses;
     String mLabel;
     boolean mDeselect;
+    boolean mIsTypeB;
 
     TextView mTextView;
     Spinner mSpinner;
@@ -87,8 +88,8 @@ public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implem
         spinner.setOnItemSelectedListener(this);
 
         mPrefs = getSharedPreferences(PREFS_NAME, 0);
-        boolean isTypeB = mPrefs.getBoolean("typeB", false);
-        if (isTypeB) {
+        mIsTypeB = mPrefs.getBoolean("typeB", false);
+        if (mIsTypeB) {
             spinner.setSelection(1);
         }
     }
@@ -114,42 +115,110 @@ public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implem
     @Override
     public void onTagDiscovered(Tag tag) {
         final StringBuilder sb = new StringBuilder();
-        IsoDep isoDep = IsoDep.get(tag);
-        if (isoDep == null) {
-            // TODO dialog box
-            return;
-        }
+        long startTime = 0;
+        boolean success = true;
+        int count = 0;
 
         try {
-            isoDep.connect();
-            isoDep.setTimeout(5000);
-            int count = 0;
-            boolean success = true;
-            long startTime = System.currentTimeMillis();
-            for (CommandApdu apdu: mApdus) {
-                sb.append("Request APDU:\n");
-                sb.append(apdu.getApdu() + "\n\n");
-                long apduStartTime = System.currentTimeMillis();
-                byte[] response = isoDep.transceive(HceUtils.hexStringToBytes(apdu.getApdu()));
-                long apduEndTime = System.currentTimeMillis();
-                sb.append("Response APDU (in " + Long.toString(apduEndTime - apduStartTime) +
-                        " ms):\n");
-                sb.append(HceUtils.getHexBytes(null, response));
-
-                sb.append("\n\n\n");
-                boolean wildCard = "*".equals(mResponses[count]);
-                byte[] expectedResponse = HceUtils.hexStringToBytes(mResponses[count]);
-                Log.d(TAG, HceUtils.getHexBytes("APDU response: ", response));
-                if (!wildCard && !Arrays.equals(response, expectedResponse)) {
-                    Log.d(TAG, "Unexpected APDU response: " + HceUtils.getHexBytes("", response));
-                    success = false;
-                    break;
-                }
-                count++;
-            }
-
             if (mDeselect) {
+                mIsTypeB = mPrefs.getBoolean("typeB", false);
+                // Use FrameRF for deselect test case
+                if (mIsTypeB) {
+                    NfcB nfcb = NfcB.get(tag);
+                    if (nfcb == null) {
+                        // TODO dialog box
+                        return;
+                    }
+                    byte[] tagId = tag.getId();
+                    String tagIdString = HceUtils.getHexBytes("", tagId);
+                    nfcb.connect();
+                    startTime = System.currentTimeMillis();
+
+                    //ATTRIB
+                    int tagIdLen = tagId.length;
+                    if (tagIdLen != 4) {
+                        // NFCID0 should be 4 bytes
+                        return;
+                    }
+                    byte[] attrib = new byte[tagIdLen + 5];
+                    attrib[0] = (byte) 0x1d;
+                    for (int i = 0; i < tagIdLen; i++) {
+                        attrib[1 + i] = tagId[i];
+                    }
+                    attrib[tagIdLen + 1] = 0x00;
+                    attrib[tagIdLen + 2] = 0x08;
+                    attrib[tagIdLen + 3] = 0x01;
+                    attrib[tagIdLen + 4] = 0x00;
+                    nfcb.transceive(attrib);
+
+                    count = 0;
+                    for (CommandApdu apdu: mApdus) {
+                        sb.append("Request APDU:\n");
+                        sb.append(apdu.getApdu() + "\n\n");
+                        long apduStartTime = System.currentTimeMillis();
+                        byte[] response =
+                                nfcb.transceive(HceUtils.hexStringToBytes(apdu.getApdu()));
+                        long apduEndTime = System.currentTimeMillis();
+                        if (!responseCheck(sb, response, count, apduStartTime, apduEndTime)) {
+                            success = false;
+                            break;
+                        }
+                        count++;
+                    }
+                    nfcb.transceive(HceUtils.hexStringToBytes("C2"));
+                } else {
+                    NfcA nfca = NfcA.get(tag);
+                    if (nfca == null) {
+                        // TODO dialog box
+                        return;
+                    }
+                    nfca.connect();
+                    nfca.setTimeout(5000);
+                    startTime = System.currentTimeMillis();
+                    // RATS
+                    nfca.transceive(HceUtils.hexStringToBytes("E080"));
+
+                    count = 0;
+                    for (CommandApdu apdu: mApdus) {
+                        sb.append("Request APDU:\n");
+                        sb.append(apdu.getApdu() + "\n\n");
+                        long apduStartTime = System.currentTimeMillis();
+                        byte[] response =
+                                nfca.transceive(HceUtils.hexStringToBytes(apdu.getApdu()));
+                        long apduEndTime = System.currentTimeMillis();
+                        if (!responseCheck(sb, response, count, apduStartTime, apduEndTime)) {
+                            success = false;
+                            break;
+                        }
+                        count++;
+                    }
+                    // S-block DESELECT
+                    nfca.transceive(HceUtils.hexStringToBytes("C2"));
+                }
                 mAdapter.disableReaderMode(this);
+            } else {
+                IsoDep isoDep = IsoDep.get(tag);
+                if (isoDep == null) {
+                    // TODO dialog box
+                    return;
+                }
+                isoDep.connect();
+                isoDep.setTimeout(5000);
+                startTime = System.currentTimeMillis();
+
+                count = 0;
+                for (CommandApdu apdu: mApdus) {
+                    sb.append("Request APDU:\n");
+                    sb.append(apdu.getApdu() + "\n\n");
+                    long apduStartTime = System.currentTimeMillis();
+                    byte[] response = isoDep.transceive(HceUtils.hexStringToBytes(apdu.getApdu()));
+                    long apduEndTime = System.currentTimeMillis();
+                    if (!responseCheck(sb, response, count, apduStartTime, apduEndTime)) {
+                        success = false;
+                        break;
+                    }
+                    count++;
+                }
             }
 
             if (success) {
@@ -177,7 +246,6 @@ public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implem
                     }
                 });
             }
-
         } catch (IOException e) {
             sb.insert(0, "Error while reading: (did you keep the devices in range?)\nPlease try again\n.");
             runOnUiThread(new Runnable() {
@@ -188,6 +256,29 @@ public class SimpleOffhostReaderActivity extends PassFailButtons.Activity implem
             });
         } finally {
         }
+    }
+
+    private boolean responseCheck(StringBuilder sb, byte[] response, int count,
+            long apduStartTime, long apduEndTime) {
+        sb.append("Response APDU (in " + Long.toString(apduEndTime - apduStartTime)
+                + " ms):\n");
+        sb.append(HceUtils.getHexBytes(null, response));
+        sb.append("\n\n\n");
+        boolean wildCard = "*".equals(mResponses[count]);
+        byte[] expectedResponse = HceUtils.hexStringToBytes(mResponses[count]);
+        Log.d(TAG, HceUtils.getHexBytes("APDU response: ", response));
+
+        if (response.length > expectedResponse.length) {
+            response = Arrays.copyOfRange(response,
+                    response.length - expectedResponse.length, response.length);
+        }
+
+        if (!wildCard && !Arrays.equals(response, expectedResponse)) {
+            Log.d(TAG, "Unexpected APDU response: "
+                    + HceUtils.getHexBytes("", response));
+            return false;
+        }
+        return true;
     }
 
     @Override

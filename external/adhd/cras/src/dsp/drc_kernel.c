@@ -257,7 +257,7 @@ void dk_set_parameters(struct drc_kernel *dk, float db_threshold, float db_knee,
 	/* Empirical/perceptual tuning. */
 	full_range_makeup_gain = powf(full_range_makeup_gain, 0.6f);
 
-	dk->master_linear_gain =
+	dk->main_linear_gain =
 		decibels_to_linear(db_post_gain) * full_range_makeup_gain;
 
 	/* Attack parameters. */
@@ -566,7 +566,7 @@ static void dk_update_detector_average(struct drc_kernel *dk)
 #include <arm_neon.h>
 static void dk_compress_output(struct drc_kernel *dk)
 {
-	const float master_linear_gain = dk->master_linear_gain;
+	const float main_linear_gain = dk->main_linear_gain;
 	const float envelope_rate = dk->envelope_rate;
 	const float scaled_desired_gain = dk->scaled_desired_gain;
 	const float compressor_gain = dk->compressor_gain;
@@ -638,7 +638,7 @@ static void dk_compress_output(struct drc_kernel *dk)
 			  [A7]"w"(A7),
 			  [base]"w"(vdupq_n_f32(scaled_desired_gain)),
 			  [r4]"w"(vdupq_n_f32(r*r*r*r)),
-			  [g]"w"(vdupq_n_f32(master_linear_gain))
+			  [g]"w"(vdupq_n_f32(main_linear_gain))
 			: /* clobber */
 			  "memory", "cc");
 		// clang-format on
@@ -698,7 +698,7 @@ static void dk_compress_output(struct drc_kernel *dk)
 			  [A7]"w"(A7),
 			  [one]"w"(vdupq_n_f32(1)),
 			  [r4]"w"(vdupq_n_f32(r*r*r*r)),
-			  [g]"w"(vdupq_n_f32(master_linear_gain))
+			  [g]"w"(vdupq_n_f32(main_linear_gain))
 			: /* clobber */
 			  "memory", "cc");
 		// clang-format on
@@ -709,7 +709,7 @@ static void dk_compress_output(struct drc_kernel *dk)
 #include <emmintrin.h>
 static void dk_compress_output(struct drc_kernel *dk)
 {
-	const float master_linear_gain = dk->master_linear_gain;
+	const float main_linear_gain = dk->main_linear_gain;
 	const float envelope_rate = dk->envelope_rate;
 	const float scaled_desired_gain = dk->scaled_desired_gain;
 	const float compressor_gain = dk->compressor_gain;
@@ -789,7 +789,7 @@ static void dk_compress_output(struct drc_kernel *dk)
 			  [A7]"x"(A7),
 			  [base]"x"(_mm_set1_ps(scaled_desired_gain)),
 			  [r4]"x"(_mm_set1_ps(r*r*r*r)),
-			  [g]"x"(_mm_set1_ps(master_linear_gain))
+			  [g]"x"(_mm_set1_ps(main_linear_gain))
 			: /* clobber */
 			  "memory", "cc");
 		// clang-format on
@@ -862,7 +862,7 @@ static void dk_compress_output(struct drc_kernel *dk)
 			  [A7]"x"(A7),
 			  [one]"x"(_mm_set1_ps(1)),
 			  [r4]"x"(_mm_set1_ps(r*r*r*r)),
-			  [g]"x"(_mm_set1_ps(master_linear_gain))
+			  [g]"x"(_mm_set1_ps(main_linear_gain))
 			: /* clobber */
 			  "memory", "cc");
 		// clang-format on
@@ -872,7 +872,7 @@ static void dk_compress_output(struct drc_kernel *dk)
 #else
 static void dk_compress_output(struct drc_kernel *dk)
 {
-	const float master_linear_gain = dk->master_linear_gain;
+	const float main_linear_gain = dk->main_linear_gain;
 	const float envelope_rate = dk->envelope_rate;
 	const float scaled_desired_gain = dk->scaled_desired_gain;
 	const float compressor_gain = dk->compressor_gain;
@@ -902,8 +902,8 @@ static void dk_compress_output(struct drc_kernel *dk)
 				float post_warp_compressor_gain =
 					warp_sinf(x[j] + base);
 
-				/* Calculate total gain using master gain. */
-				float total_gain = master_linear_gain *
+				/* Calculate total gain using main gain. */
+				float total_gain = main_linear_gain *
 						   post_warp_compressor_gain;
 
 				/* Apply final gain. */
@@ -936,8 +936,8 @@ static void dk_compress_output(struct drc_kernel *dk)
 				float post_warp_compressor_gain =
 					warp_sinf(x[j]);
 
-				/* Calculate total gain using master gain. */
-				float total_gain = master_linear_gain *
+				/* Calculate total gain using main gain. */
+				float total_gain = main_linear_gain *
 						   post_warp_compressor_gain;
 
 				/* Apply final gain. */

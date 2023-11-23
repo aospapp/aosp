@@ -18,6 +18,9 @@ package libcore.java.time.chrono;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 
+import static java.time.chrono.JapaneseEra.REIWA;
+import static java.time.chrono.JapaneseEra.SHOWA;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -74,7 +77,7 @@ public class JapaneseChronologyTest {
         // first supported year in JapaneseChronology is Meiji 6.
         assertEquals(JapaneseEra.MEIJI, JapaneseDate.from(LocalDate.of(1873, 1, 1)).getEra());
         assertEquals(JapaneseEra.TAISHO, JapaneseDate.from(LocalDate.of(1913, 1, 1)).getEra());
-        assertEquals(JapaneseEra.SHOWA, JapaneseDate.from(LocalDate.of(1927, 1, 1)).getEra());
+        assertEquals(SHOWA, JapaneseDate.from(LocalDate.of(1927, 1, 1)).getEra());
         assertEquals(JapaneseEra.HEISEI, JapaneseDate.from(LocalDate.of(1990, 1, 1)).getEra());
     }
 
@@ -142,6 +145,17 @@ public class JapaneseChronologyTest {
 
         assertEquals("Heisei", heiseiDate.getEra().toString());
         assertEquals("Reiwa", reiwaDate.getEra().toString());
+    }
+
+    @Test
+    public void dateEpochDay() {
+        JapaneseDate epoch = JapaneseChronology.INSTANCE.dateEpochDay(0);
+        JapaneseDate today = JapaneseChronology.INSTANCE.dateEpochDay(18768);
+        JapaneseDate dayBeforeEpoch = JapaneseChronology.INSTANCE.dateEpochDay(-1);
+
+        assertEquals(JapaneseDate.of(SHOWA, 45, 1, 1), epoch);
+        assertEquals(JapaneseDate.of(REIWA, 3, 5, 21), today);
+        assertEquals(JapaneseDate.of(SHOWA, 44, 12, 31), dayBeforeEpoch);
     }
 
 }

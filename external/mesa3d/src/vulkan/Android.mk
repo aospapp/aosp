@@ -31,6 +31,9 @@ include $(LOCAL_PATH)/Makefile.sources
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libmesa_vulkan_util
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 intermediates := $(call local-generated-sources-dir)
@@ -38,7 +41,8 @@ prebuilt_intermediates := $(MESA_TOP)/prebuilt-intermediates
 
 LOCAL_C_INCLUDES := \
 	$(MESA_TOP)/include/vulkan \
-	$(MESA_TOP)/src/vulkan/util
+	$(MESA_TOP)/src/vulkan/util \
+	$(MESA_TOP)/src/gallium/include
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 27; echo $$?), 0)
 LOCAL_C_INCLUDES += \
@@ -63,12 +67,11 @@ $(intermediates)/util/vk_enum_to_str.h:$(prebuilt_intermediates)/util/vk_enum_to
 	@mkdir -p $(dir $@)
 	@cp -f $< $@
 
-LOCAL_EXPORT_C_INCLUDE_DIRS := \
-        $(intermediates)
+$(lastword $(LOCAL_GENERATED_SOURCES)): $(firstword $(LOCAL_GENERATED_SOURCES))
+
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(intermediates)/util
 
 ifeq ($(filter $(MESA_ANDROID_MAJOR_VERSION), 4 5 6 7),)
-LOCAL_HEADER_LIBRARIES += libcutils_headers libnativebase_headers libsystem_headers
-LOCAL_STATIC_LIBRARIES += libarect
 LOCAL_SHARED_LIBRARIES += libnativewindow
 endif
 

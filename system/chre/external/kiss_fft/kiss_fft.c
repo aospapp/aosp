@@ -18,6 +18,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  fixed or floating point complex numbers.  It also delares the kf_ internal functions.
  */
 
+// CHRE modifications begin
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-align"
+#pragma clang diagnostic ignored "-Wbad-function-cast"
+#endif
+// CHRE modifications end
+
 static void kf_bfly2(
         kiss_fft_cpx * Fout,
         const size_t fstride,
@@ -406,3 +414,9 @@ int kiss_fft_next_fast_size(int n)
     }
     return n;
 }
+
+// CHRE modifications begin
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+// CHRE modifications end

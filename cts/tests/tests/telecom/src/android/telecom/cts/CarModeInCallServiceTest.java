@@ -16,21 +16,33 @@
 
 package android.telecom.cts;
 
+import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
+import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+import static android.content.pm.PackageManager.DONT_KILL_APP;
+
 import android.app.UiModeManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.res.Configuration;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.telecom.TelecomManager;
 import android.telecom.cts.carmodetestapp.ICtsCarModeInCallServiceControl;
+import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
+import junit.framework.AssertionFailedError;
+
+import org.junit.Assert;
+import org.junit.Test;
+
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -48,38 +60,60 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
             return;
         }
 
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity("android.permission.ENTER_CAR_MODE_PRIORITIZED",
-                        "android.permission.CONTROL_INCALL_EXPERIENCE");
+                        "android.permission.CONTROL_INCALL_EXPERIENCE",
+                        "android.permission.TOGGLE_AUTOMOTIVE_PROJECTION");
 
         mCarModeIncallServiceControlOne = getControlBinder(CARMODE_APP1_PACKAGE);
         mCarModeIncallServiceControlTwo = getControlBinder(CARMODE_APP2_PACKAGE);
+        // Ensure we start the test without automotive projection set.
+        releaseAutomotiveProjection(mCarModeIncallServiceControlOne);
+        releaseAutomotiveProjection(mCarModeIncallServiceControlTwo);
         setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
 
         final UiModeManager uiModeManager = mContext.getSystemService(UiModeManager.class);
         assertEquals("Device must not be in car mode at start of test.",
                 Configuration.UI_MODE_TYPE_NORMAL, uiModeManager.getCurrentModeType());
+        mInCallCallbacks.resetLock();
     }
 
     @Override
     protected void tearDown() throws Exception {
-        super.tearDown();
         if (!mShouldTestTelecom) {
             return;
         }
-
-        if (mCarModeIncallServiceControlOne != null) {
-            mCarModeIncallServiceControlOne.reset();
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
         }
 
-        if (mCarModeIncallServiceControlTwo != null) {
-            mCarModeIncallServiceControlTwo.reset();
+        try {
+            disableAndVerifyCarMode(mCarModeIncallServiceControlOne,
+                    Configuration.UI_MODE_TYPE_NORMAL);
+            disableAndVerifyCarMode(mCarModeIncallServiceControlTwo,
+                    Configuration.UI_MODE_TYPE_NORMAL);
+            disconnectAllCallsAndVerify(mCarModeIncallServiceControlOne);
+            disconnectAllCallsAndVerify(mCarModeIncallServiceControlTwo);
+
+            if (mCarModeIncallServiceControlOne != null) {
+                mCarModeIncallServiceControlOne.reset();
+            }
+
+            if (mCarModeIncallServiceControlTwo != null) {
+                mCarModeIncallServiceControlTwo.reset();
+            }
+
+            assertUiMode(Configuration.UI_MODE_TYPE_NORMAL);
+
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .dropShellPermissionIdentity();
+        } finally {
+            super.tearDown();
         }
-
-        assertUiMode(Configuration.UI_MODE_TYPE_NORMAL);
-
-        InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .dropShellPermissionIdentity();
     }
 
     /**
@@ -90,8 +124,41 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
             return;
         }
 
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
         enableAndVerifyCarMode(mCarModeIncallServiceControlOne, 1000);
         disableAndVerifyCarMode(mCarModeIncallServiceControlOne, Configuration.UI_MODE_TYPE_NORMAL);
+    }
+
+    public void testRequestAutomotiveProjection() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlOne, true);
+        // Multiple calls should succeed.
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlOne, true);
+        releaseAutomotiveProjection(mCarModeIncallServiceControlOne);
+    }
+
+    public void testRequestAutomotiveProjectionExclusive() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlOne, true);
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlTwo, false);
+        releaseAutomotiveProjection(mCarModeIncallServiceControlOne);
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlTwo, true);
+        releaseAutomotiveProjection(mCarModeIncallServiceControlTwo);
     }
 
     /**
@@ -100,6 +167,10 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
      */
     public void testStartCallInCarMode() {
         if (!mShouldTestTelecom) {
+            return;
+        }
+
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
             return;
         }
 
@@ -115,6 +186,68 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
+     * Verifies we bind to a car mode InCallService when a call is started when the service has
+     * already set automotive projection.
+     */
+    public void testStartCallInAutomotiveProjection() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlOne, true);
+
+        // Place a call and verify we bound to the Car Mode InCallService
+        placeCarModeCall();
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+        assertCarModeCallCount(mCarModeIncallServiceControlOne, 1);
+        disconnectAllCallsAndVerify(mCarModeIncallServiceControlOne);
+
+        releaseAutomotiveProjection(mCarModeIncallServiceControlOne);
+    }
+
+    /**
+     * Verifies we bind to a car mode InCallService when a call is started and the service has set
+     * both car mode AND projection.
+     */
+    public void failingTestStartCallInCarModeAndAutomotiveProjection() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlOne, true);
+        enableAndVerifyCarMode(mCarModeIncallServiceControlOne, 1000);
+
+        // Place a call and verify we bound to the Car Mode InCallService
+        placeCarModeCall();
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+        assertCarModeCallCount(mCarModeIncallServiceControlOne, 1);
+
+        // Release projection and we should still have the call.
+        releaseAutomotiveProjection(mCarModeIncallServiceControlOne);
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+        assertCarModeCallCount(mCarModeIncallServiceControlOne, 1);
+
+        // Re-request projection.
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlOne, true);
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+        assertCarModeCallCount(mCarModeIncallServiceControlOne, 1);
+
+        // Exit car mode. Should still have the call by virtue of projection being set.
+        disableAndVerifyCarMode(mCarModeIncallServiceControlOne, Configuration.UI_MODE_TYPE_NORMAL);
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+        assertCarModeCallCount(mCarModeIncallServiceControlOne, 1);
+
+        disconnectAllCallsAndVerify(mCarModeIncallServiceControlOne);
+        releaseAutomotiveProjection(mCarModeIncallServiceControlOne);
+    }
+
+    /**
      * Tests a scenario where we have two apps enter car mode.
      * Ensures that the higher priority app is bound and receives information about the call.
      * When the higher priority app leaves car mode, verifies that the lower priority app is bound
@@ -122,6 +255,10 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
      */
     public void testStartCallInCarModeTwoServices() {
         if (!mShouldTestTelecom) {
+            return;
+        }
+
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
             return;
         }
 
@@ -140,6 +277,39 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
 
         // Drop the call from the second service.
         disconnectAllCallsAndVerify(mCarModeIncallServiceControlTwo);
+        disableAndVerifyCarMode(mCarModeIncallServiceControlTwo, Configuration.UI_MODE_TYPE_NORMAL);
+    }
+
+    /**
+     * Tests a scenario where one app enters car mode and the other sets automotive projection.
+     * Ensures that the automotive projection app is bound and receives information about the call.
+     * When the projecting app releases projection, verifies that the car mode app is bound
+     * and receives information about the call.
+     */
+    public void testStartCallingInCarModeAndProjectionTwoServices() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
+        enableAndVerifyCarMode(mCarModeIncallServiceControlOne, 1000);
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlTwo, true);
+
+        // Place a call and verify we bound to the Car Mode InCallService
+        placeCarModeCall();
+        verifyCarModeBound(mCarModeIncallServiceControlTwo);
+        assertCarModeCallCount(mCarModeIncallServiceControlTwo, 1);
+
+        // Now release projection from the projecting service
+        releaseAutomotiveProjection(mCarModeIncallServiceControlTwo);
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+        assertCarModeCallCount(mCarModeIncallServiceControlOne, 1);
+
+        // Drop the call from the car mode service.
+        disconnectAllCallsAndVerify(mCarModeIncallServiceControlOne);
+        disableAndVerifyCarMode(mCarModeIncallServiceControlOne, Configuration.UI_MODE_TYPE_NORMAL);
     }
 
     /**
@@ -148,6 +318,10 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
      */
     public void testSwitchToCarMode() {
         if (!mShouldTestTelecom) {
+            return;
+        }
+
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
             return;
         }
 
@@ -165,10 +339,14 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
-     * Similar to {@link #testSwitchToCarMode}, except exits car mode before the call terminates.
+     * Similar to {@link #testSwitchToCarMode()}, except exits car mode before the call terminates.
      */
     public void testSwitchToCarModeAndBack() {
         if (!mShouldTestTelecom) {
+            return;
+        }
+
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
             return;
         }
 
@@ -192,7 +370,7 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
                 fail("No call added to InCallService.");
             }
         } catch (InterruptedException e) {
-            fail("Interupted!");
+            fail("Interrupted!");
         }
 
         assertEquals(1, mInCallCallbacks.getService().getCallCount());
@@ -200,11 +378,15 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
-     * Similar to {@link #testSwitchToCarMode}, except enters car mode after the call starts.  Also
-     * uses multiple car mode InCallServices.
+     * Similar to {@link #testSwitchToCarMode()}, except enters car mode after the call starts.
+     * Also uses multiple car mode InCallServices.
      */
     public void testSwitchToCarModeMultiple() {
         if (!mShouldTestTelecom) {
+            return;
+        }
+
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
             return;
         }
 
@@ -241,10 +423,154 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
                 fail("No call added to InCallService.");
             }
         } catch (InterruptedException e) {
-            fail("Interupted!");
+            fail("Interrupted!");
         }
 
         assertEquals(1, mInCallCallbacks.getService().getCallCount());
+        mInCallCallbacks.getService().disconnectAllCalls();
+    }
+
+    /**
+     * Verifies we can switch from the default dialer to the car-mode InCallService when automotive
+     * projection is set.
+     */
+    public void testSwitchToAutomotiveProjection() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
+        // Place a call and verify it went to the default dialer
+        placeAndVerifyCall();
+        verifyConnectionForOutgoingCall();
+
+        // Now, request automotive projection; should have swapped to the InCallService.
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlOne, true);
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+        assertCarModeCallCount(mCarModeIncallServiceControlOne, 1);
+        disconnectAllCallsAndVerify(mCarModeIncallServiceControlOne);
+
+        releaseAutomotiveProjection(mCarModeIncallServiceControlOne);
+    }
+
+    /**
+     * Similar to {@link #testSwitchToAutomotiveProjection()}, except releases projection before the
+     * call terminates.
+     */
+    public void testSwitchToAutomotiveProjectionAndBack() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
+        // Place a call and verify it went to the default dialer
+        placeAndVerifyCall();
+        verifyConnectionForOutgoingCall();
+
+        // Now, request automotive projection and confirm we're using the car mode ICS.
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlOne, true);
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+        assertCarModeCallCount(mCarModeIncallServiceControlOne, 1);
+
+        // Now, release projection and confirm we're no longer using the car mode ICS.
+        releaseAutomotiveProjection(mCarModeIncallServiceControlOne);
+        verifyCarModeUnbound(mCarModeIncallServiceControlOne);
+
+        // Verify that we did bind back to the default dialer.
+        try {
+            if (!mInCallCallbacks.lock.tryAcquire(TestUtils.WAIT_FOR_CALL_ADDED_TIMEOUT_S,
+                    TimeUnit.SECONDS)) {
+                fail("No call added to InCallService.");
+            }
+        } catch (InterruptedException e) {
+            fail("Interrupted!");
+        }
+
+        assertEquals(1, mInCallCallbacks.getService().getCallCount());
+        mInCallCallbacks.getService().disconnectAllCalls();
+    }
+
+    /**
+     * Similar to {@link #testSwitchToAutomotiveProjection()}, except sets automotive projection
+     * after the call starts and has been bound to an InCallService using car mode.
+     */
+    public void testSwitchToAutomotiveProjectionMultiple() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
+        // Place a call and verify it went to the default dialer
+        placeAndVerifyCall();
+        verifyConnectionForOutgoingCall();
+
+        // Now, request automotive projection and confirm we're using the car mode ICS.
+        enableAndVerifyCarMode(mCarModeIncallServiceControlOne, Integer.MAX_VALUE);
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+        assertCarModeCallCount(mCarModeIncallServiceControlOne, 1);
+
+        // Now, request automotive projection from a different ICS and confirm we're using it.
+        requestAndVerifyAutomotiveProjection(mCarModeIncallServiceControlTwo, true);
+        verifyCarModeUnbound(mCarModeIncallServiceControlOne);
+        verifyCarModeBound(mCarModeIncallServiceControlTwo);
+        assertCarModeCallCount(mCarModeIncallServiceControlTwo, 1);
+
+        // Release automotive projection, verify we drop back to the car mode ICS.
+        releaseAutomotiveProjection(mCarModeIncallServiceControlTwo);
+        verifyCarModeUnbound(mCarModeIncallServiceControlTwo);
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+        assertCarModeCallCount(mCarModeIncallServiceControlOne, 1);
+
+        // Finally, disable car mode and confirm we're using the default dialer once more.
+        disableAndVerifyCarMode(mCarModeIncallServiceControlOne, Configuration.UI_MODE_TYPE_NORMAL);
+        verifyCarModeUnbound(mCarModeIncallServiceControlOne);
+
+        // Verify that we did bind back to the default dialer.
+        try {
+            if (!mInCallCallbacks.lock.tryAcquire(TestUtils.WAIT_FOR_CALL_ADDED_TIMEOUT_S,
+                    TimeUnit.SECONDS)) {
+                fail("No call added to InCallService.");
+            }
+        } catch (InterruptedException e) {
+            fail("Interrupted!");
+        }
+
+        assertEquals(1, mInCallCallbacks.getService().getCallCount());
+        mInCallCallbacks.getService().disconnectAllCalls();
+    }
+
+    public void testSwitchToCarModeWhenEnableCarModeApp() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
+
+        enableAndVerifyCarMode(mCarModeIncallServiceControlOne, 1000);
+        mContext.getPackageManager().setApplicationEnabledSetting(CARMODE_APP1_PACKAGE,
+                COMPONENT_ENABLED_STATE_DISABLED, DONT_KILL_APP);
+
+
+        placeCarModeCall();
+        try {
+            verifyCarModeBound(mCarModeIncallServiceControlOne);
+            throw new Exception("Car mode 1 was disabled but bound.");
+        } catch (AssertionFailedError e) {
+            // Expected
+        }
+
+        mContext.getPackageManager().setApplicationEnabledSetting(CARMODE_APP1_PACKAGE,
+                COMPONENT_ENABLED_STATE_ENABLED, DONT_KILL_APP);
+        verifyCarModeBound(mCarModeIncallServiceControlOne);
+
+        disableAndVerifyCarMode(mCarModeIncallServiceControlOne, Configuration.UI_MODE_TYPE_NORMAL);
         mInCallCallbacks.getService().disconnectAllCalls();
     }
 
@@ -261,34 +587,6 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
         mTelecomManager.placeCall(number, extras);
 
         verifyConnectionForOutgoingCall(number);
-    }
-
-    /**
-     * Verify the car mode ICS has an expected call count.
-     * @param expected
-     */
-    private void assertCarModeCallCount(ICtsCarModeInCallServiceControl control,  int expected) {
-        waitUntilConditionIsTrueOrTimeout(
-                new Condition() {
-                    @Override
-                    public Object expected() {
-                        return expected;
-                    }
-
-                    @Override
-                    public Object actual() {
-                        int callCount = 0;
-                        try {
-                            callCount = control.getCallCount();
-                        } catch (RemoteException re) {
-                            fail("Bee-boop; can't control the incall service");
-                        }
-                        return callCount;
-                    }
-                },
-                TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
-                "Expected " + expected + " calls."
-        );
     }
 
     /**
@@ -346,7 +644,7 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
-     * Use the control interface to enable car mode at a specified priority.
+     * Uses the control interface to enable car mode at a specified priority.
      * @param priority the requested priority.
      */
     private void enableAndVerifyCarMode(ICtsCarModeInCallServiceControl control, int priority) {
@@ -359,26 +657,31 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
-     * Uses the control interface to disable car mode.
-     * @param expectedUiMode
+     * Uses the control interface to request automotive projection assert success or failure.
+     * @param expectedSuccess whether or not we expect the operation to succeed.
      */
-    private void disableAndVerifyCarMode(ICtsCarModeInCallServiceControl control,
-            int expectedUiMode) {
+    private void requestAndVerifyAutomotiveProjection(ICtsCarModeInCallServiceControl control,
+            boolean expectedSuccess) {
         try {
-            control.disableCarMode();
+            assertEquals(expectedSuccess, control.requestAutomotiveProjection());
+        } catch (SecurityException se) {
+            fail("Not allowed to request automotive projection!");
         } catch (RemoteException re) {
             fail("Bee-boop; can't control the incall service");
         }
-        assertUiMode(expectedUiMode);
     }
 
-    private void disconnectAllCallsAndVerify(ICtsCarModeInCallServiceControl controlBinder) {
+    /**
+     * Uses the control interface to release automotive projection.
+     */
+    private void releaseAutomotiveProjection(ICtsCarModeInCallServiceControl control) {
         try {
-            controlBinder.disconnectCalls();
+            control.releaseAutomotiveProjection();
+        } catch (SecurityException se) {
+            fail("Not allowed to release automotive projection!");
         } catch (RemoteException re) {
             fail("Bee-boop; can't control the incall service");
         }
-        assertCarModeCallCount(controlBinder, 0);
     }
 
     /**
@@ -386,28 +689,28 @@ public class CarModeInCallServiceTest extends BaseTelecomTestWithMockServices {
      * @throws InterruptedException
      */
     private ICtsCarModeInCallServiceControl getControlBinder(String packageName)
-            throws InterruptedException {
+            throws Exception {
         Intent bindIntent = new Intent(
                 android.telecom.cts.carmodetestapp.CtsCarModeInCallServiceControl
                         .CONTROL_INTERFACE_ACTION);
         bindIntent.setPackage(packageName);
-        final LinkedBlockingQueue<ICtsCarModeInCallServiceControl> queue =
-                new LinkedBlockingQueue(1);
+        CompletableFuture<ICtsCarModeInCallServiceControl> future =
+                new CompletableFuture<>();
         boolean success = mContext.bindService(bindIntent, new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
-                queue.offer(android.telecom.cts.carmodetestapp
+                future.complete(android.telecom.cts.carmodetestapp
                         .ICtsCarModeInCallServiceControl.Stub.asInterface(service));
             }
 
             @Override
             public void onServiceDisconnected(ComponentName name) {
-                queue.offer(null);
+                future.complete(null);
             }
         }, Context.BIND_AUTO_CREATE);
         if (!success) {
             fail("Failed to get control interface -- bind error");
         }
-        return queue.poll(ASYNC_TIMEOUT, TimeUnit.MILLISECONDS);
+        return future.get(ASYNC_TIMEOUT, TimeUnit.MILLISECONDS);
     }
 }

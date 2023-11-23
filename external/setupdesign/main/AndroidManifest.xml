@@ -15,7 +15,15 @@
     limitations under the License.
 -->
 
-<manifest package="com.google.android.setupdesign">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.google.android.setupdesign">
   <!-- Set in the BUILD or gradle file -->
   <uses-sdk />
+  <!-- after SDK 30, package need to declare its visible packages. -->
+  <queries tools:node="merge">
+    <intent>
+      <action android:name="com.android.setupwizard.action.PARTNER_CUSTOMIZATION" />
+    </intent>
+  </queries>
 </manifest>

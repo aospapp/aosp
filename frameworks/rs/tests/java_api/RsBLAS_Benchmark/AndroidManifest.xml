@@ -22,12 +22,14 @@
     <application android:label="RsBlasBenchmark"
                  android:hardwareAccelerated="true">
         <uses-library android:name="android.test.runner" />
-        <activity android:name="BlasBenchmark">
+        <activity android:name="BlasBenchmark"
+                  android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
-        <activity class=".BlasControls" android:name="BlasControls">
+        <activity class=".BlasControls" android:name="BlasControls"
+                  android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

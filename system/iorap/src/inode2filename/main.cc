@@ -20,6 +20,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string_view>
 
 #if defined(IORAP_INODE2FILENAME_MAIN)
@@ -384,9 +385,16 @@ int main(int argc, char** argv) {
              << result.inode
              << " \"" << result.data.value() << "\"" << std::endl;
       } else if (output_format == OutputFormatKind::kIpc) {
-        fout << "K "
-             << result.inode
-             << " " << result.data.value() << std::endl;
+        std::stringstream stream;
+        stream << "K " << result.inode << " " << result.data.value();
+        std::string line = stream.str();
+
+        // Convert the size to 4 bytes.
+        int32_t size = line.size();
+        char buf[sizeof(int32_t)];
+        memcpy(buf, &size, sizeof(int32_t));
+        fout.write(buf, sizeof(int32_t));
+        fout.write(line.c_str(), size);
       } else if (output_format == OutputFormatKind::kTextCache) {
         // Same format as TextCacheDataSource (system/extras/pagecache/pagecache.py -d)
         //   "$device_number $inode $filesize $filename..."
@@ -407,9 +415,16 @@ int main(int argc, char** argv) {
              << result.inode
              << " '" << *result.ErrorMessage() << "'" << std::endl;
       } else if (output_format == OutputFormatKind::kIpc) {
-        fout << "E "
-             << result.inode
-             << " " << result.data.error() << std::endl;
+        std::stringstream stream;
+        stream << "E " << result.inode << " " << result.data.error() << std::endl;
+        std::string line = stream.str();
+
+        // Convert the size to 4 bytes.
+        int32_t size = line.size();
+        char buf[sizeof(int32_t)];
+        memcpy(buf, &size, sizeof(int32_t));
+        fout.write(buf, sizeof(int32_t));
+        fout.write(line.c_str(), size);
       }
       else if (output_format == OutputFormatKind::kTextCache) {
         // Don't add bad results to the textcache. They are dropped.

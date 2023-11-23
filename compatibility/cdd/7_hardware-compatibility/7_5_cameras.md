@@ -207,6 +207,11 @@ picture has been added to the media store.
 [`android.hardware.Camera`](https://developer.android.com/reference/android/hardware/Camera)
 API also accessible via the [`android.hardware.camera2`](https://developer.android.com/reference/android/hardware/camera2/package-summary)
 API.
+*   [C-0-12] MUST ensure that the facial appearance is NOT altered, including
+    but not limited to altering facial geometry, facial skin tone, or facial
+    skin smoothening for any [`android.hardware.camera2`](https://developer.android.com/reference/android/hardware/camera2/package-summary)
+    or [`android.hardware.Camera`](https://developer.android.com/reference/android/hardware/Camera)
+    API.
 *   [C-SR] For devices with multiple RGB cameras facing in the same direction,
 are STRONGLY RECOMMENDED to support a logical camera device that lists
 capability

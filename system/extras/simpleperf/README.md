@@ -5,7 +5,7 @@ There is also [user documentation](doc/README.md).
 
 ## Building new prebuilts
 
-To snap the aosp-simpleperf-release branch to ToT AOSP master and kick off a
+To snap the aosp-simpleperf-release branch to ToT AOSP main and kick off a
 build, use [this coastguard
 page](https://android-build.googleplex.com/coastguard/dashboard/5938649007521792/#/request/create)
 and choose "aosp-simpleperf-release" from the "Branch" dropdown. Then click

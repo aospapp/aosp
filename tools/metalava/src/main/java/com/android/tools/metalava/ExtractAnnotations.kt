@@ -19,7 +19,6 @@ package com.android.tools.metalava
 import com.android.SdkConstants
 import com.android.tools.lint.annotations.Extractor
 import com.android.tools.lint.client.api.AnnotationLookup
-import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.AnnotationTarget
 import com.android.tools.metalava.model.ClassItem

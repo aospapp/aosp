@@ -1,5 +1,5 @@
---- android_icu4j/src/main/java/android/icu/text/NumberFormat.java	2018-10-19 11:01:09.353895065 +0100
-+++ android_icu4j/src/main/java/android/icu/text/NumberFormat.java	2018-10-19 11:01:28.681998885 +0100
+--- android_icu4j/src/main/java/android/icu/text/NumberFormat.java	2021-01-19 16:26:28.450677551 +0000
++++ android_icu4j/src/main/java/android/icu/text/NumberFormat.java	2021-01-19 16:26:51.202839058 +0000
 @@ -39,7 +39,7 @@
   *
   * <p>

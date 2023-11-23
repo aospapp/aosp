@@ -31,55 +31,28 @@
             android:layout_height="match_parent"
             android:orientation="horizontal">
 
-            <com.android.wallpaper.widget.PreviewPager
-                android:id="@+id/theme_preview_pager"
+            <FrameLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@color/secondary_color"/>
-            <View
-                android:layout_width="1dp"
-                android:layout_height="match_parent"
-                android:background="@color/divider_color"/>
-            <LinearLayout
-                android:id="@+id/options_section"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:paddingVertical="10dp"
-                android:orientation="vertical">
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/options_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"/>
-
-                <RelativeLayout
+                android:layout_weight="1">
+                <FrameLayout
+                    android:id="@+id/preview_card_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@null"
-                    android:paddingHorizontal="10dp">
-                    <CheckBox
-                        android:id="@+id/use_my_wallpaper"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentStart="true"
-                        android:layout_centerVertical="true"
-                        android:layout_toStartOf="@+id/apply_button"
-                        android:ellipsize="end"
-                        android:paddingLeft="4dp"
-                        android:minHeight="@dimen/min_taptarget_height"
-                        android:text="@string/keep_my_wallpaper"/>
-                    <Button
-                        android:id="@+id/apply_button"
-                        style="@style/ActionPrimaryButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:text="@string/apply_theme_btn"/>
-                </RelativeLayout>
-            </LinearLayout>
+                    android:paddingTop="@dimen/preview_content_padding_top"
+                    android:paddingBottom="@dimen/preview_content_padding_bottom"
+                    android:clipToPadding="false"
+                    android:background="?android:colorSecondary">
+                    <include layout="@layout/theme_preview_card"/>
+                </FrameLayout>
+            </FrameLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/options_container"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:paddingVertical="10dp" />
         </LinearLayout>
 
         <androidx.core.widget.ContentLoadingProgressBar

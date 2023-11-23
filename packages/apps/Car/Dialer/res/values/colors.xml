@@ -14,6 +14,9 @@
      limitations under the License.
 -->
 <resources>
+    <!-- Color to tint the app icon for notifications -->
+    <color name="notification_app_icon_color">@*android:color/car_accent</color>
+
     <!-- InCall page -->
     <color name="phone_call">@color/car_green_700</color>
     <color name="phone_end_call">@color/car_red_500a</color>

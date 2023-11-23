@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"ダウンロード マネージャーにアクセスします。"</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"BluetoothShareマネージャーへのアクセスとそれを利用したファイル転送をアプリに許可します。"</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Bluetoothデバイスによるアクセスを許可します。"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Bluetoothデバイスによるアクセスを一時的に許可して、ユーザーの確認を受けずにそのデバイスからこのデバイスにファイルを送信することをアプリに許可します。"</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Bluetoothデバイスによるアクセスを許可します。"</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Bluetooth デバイスによるアクセスを一時的に許可して、ユーザーの確認を受けずにそのデバイスからこのデバイスにファイルを送信することをアプリに許可します。"</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"不明なモバイルデバイス"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"不明"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"「<xliff:g id="SENDER">%1$s</xliff:g>」からのファイル受信中に接続がタイムアウトしました"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"着信ファイル"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g>さんが<xliff:g id="FILE">%2$s</xliff:g>を送信できるようになりました"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> さんがファイル（<xliff:g id="FILE">%2$s</xliff:g>）を送信する準備ができました"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetooth共有: <xliff:g id="FILE">%1$s</xliff:g>を受信中"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetooth共有: <xliff:g id="FILE">%1$s</xliff:g>を受信済み"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetooth共有: ファイル<xliff:g id="FILE">%1$s</xliff:g>の受信に失敗"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"「<xliff:g id="RECIPIENT">%1$s</xliff:g>」にファイルを送信中"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g>個のファイルを「<xliff:g id="RECIPIENT">%2$s</xliff:g>」に送信中"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"「<xliff:g id="RECIPIENT">%1$s</xliff:g>」へのファイルの送信を停止しました"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"「<xliff:g id="SENDER">%1$s</xliff:g>」からのファイルを保存するのに十分な空き領域が USB ストレージにありません"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"「<xliff:g id="SENDER">%1$s</xliff:g>」からのファイルを保存するのに十分な空き領域が SD カードにありません"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"USB ストレージにファイルを保存するのに十分な容量がありません。"</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"SD カードにファイルを保存するのに十分な容量がありません。"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"必要な空き領域: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"処理中のリクエストが多すぎるため、しばらくしてからもう一度お試しください。"</string>
     <string name="status_pending" msgid="2503691772030877944">"ファイル転送はまだ開始されていません。"</string>
@@ -110,12 +110,12 @@
     <string name="outbound_noti_title" msgid="8051906709452260849">"Bluetooth共有: 送信したファイル"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"Bluetooth共有: 受信したファイル"</string>
     <plurals name="noti_caption_unsuccessful" formatted="false" msgid="2020750076679526122">
-      <item quantity="other"><xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g>件失敗しました。</item>
-      <item quantity="one"><xliff:g id="UNSUCCESSFUL_NUMBER_0">%1$d</xliff:g>件失敗しました。</item>
+      <item quantity="other">失敗: <xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g> 件</item>
+      <item quantity="one">失敗: <xliff:g id="UNSUCCESSFUL_NUMBER_0">%1$d</xliff:g>件</item>
     </plurals>
     <plurals name="noti_caption_success" formatted="false" msgid="1572472450257645181">
-      <item quantity="other"><xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g>件成功しました（%2$s）</item>
-      <item quantity="one"><xliff:g id="SUCCESSFUL_NUMBER_0">%1$d</xliff:g>件成功しました（%2$s）</item>
+      <item quantity="other">成功: <xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g> 件（%2$s）</item>
+      <item quantity="one">成功: <xliff:g id="SUCCESSFUL_NUMBER_0">%1$d</xliff:g> 件（%2$s）</item>
     </plurals>
     <string name="transfer_menu_clear_all" msgid="790017462957873132">"リストを消去"</string>
     <string name="transfer_menu_open" msgid="3368984869083107200">"開く"</string>

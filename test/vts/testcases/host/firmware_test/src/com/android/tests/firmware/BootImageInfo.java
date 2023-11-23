@@ -43,6 +43,9 @@ public class BootImageInfo implements AutoCloseable {
     static int V3_BOOT_HEADER_SIZE_OFFSET = 5 * 4;
     static int V3_BOOT_HEADER_SIZE = 1580;
 
+    // Definitions specific to boot header version 4.
+    static int V4_BOOT_HEADER_SIZE = 1584;
+
     private int mKernelSize = 0;
     private int mRamdiskSize = 0;
     private int mPageSize = 0;
@@ -213,6 +216,8 @@ public class BootImageInfo implements AutoCloseable {
                 return BOOT_HEADER_SIZE_OFFSET + 16;
             case 3:
                 return V3_BOOT_HEADER_SIZE;
+            case 4:
+                return V4_BOOT_HEADER_SIZE;
             default:
                 return -1;
         }

@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#define MaxPixelChannels  32
+#define MaxPixelChannels  64
 #undef index
 
 /*
@@ -36,9 +36,12 @@ typedef enum
   RedChannel = 0x0001,
   GrayChannel = 0x0001,
   CyanChannel = 0x0001,
+  LChannel = 0x0001,
   GreenChannel = 0x0002,
   MagentaChannel = 0x0002,
+  aChannel = 0x0002,
   BlueChannel = 0x0004,
+  bChannel = 0x0002,
   YellowChannel = 0x0004,
   BlackChannel = 0x0008,
   AlphaChannel = 0x0010,
@@ -232,7 +235,8 @@ extern MagickExport MagickBooleanType
     const Quantum *) magick_attribute((__pure__)),
   IsFuzzyEquivalencePixelInfo(const PixelInfo *,const PixelInfo *)
     magick_attribute((__pure__)),
-  SetPixelMetaChannels(Image *,const size_t,ExceptionInfo *);
+  SetPixelMetaChannels(Image *,const size_t,ExceptionInfo *),
+  SortImagePixels(Image *,ExceptionInfo *);
 
 extern MagickExport MagickRealType
   GetPixelInfoIntensity(const Image *magick_restrict,

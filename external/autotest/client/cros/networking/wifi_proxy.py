@@ -351,9 +351,12 @@ class WifiProxy(shill_proxy.ShillProxy):
                             self.SERVICE_PROPERTY_NAME: ssid}
         start_time = time.time()
         try:
+            # Find a matching service in any state (only_visible=False) to
+            # make it possible to detect the state of services that are not
+            # visible because they're not in a connected state.
             service_object = utils.poll_for_condition(
                     condition=lambda: self.find_matching_service(
-                            discovery_params),
+                            discovery_params, only_visible=False),
                     timeout=timeout_seconds,
                     sleep_interval=self.POLLING_INTERVAL_SECONDS,
                     desc='Find a matching service to the discovery params')

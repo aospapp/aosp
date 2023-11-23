@@ -156,6 +156,37 @@ void ap_sta_ip6addr_del(struct hostapd_data *hapd, struct sta_info *sta)
 }
 
 
+#ifdef CONFIG_PASN
+
+void ap_free_sta_pasn(struct hostapd_data *hapd, struct sta_info *sta)
+{
+	if (sta->pasn) {
+		wpa_printf(MSG_DEBUG, "PASN: Free PASN context: " MACSTR,
+			   MAC2STR(sta->addr));
+
+		if (sta->pasn->ecdh)
+			crypto_ecdh_deinit(sta->pasn->ecdh);
+
+		wpabuf_free(sta->pasn->secret);
+		sta->pasn->secret = NULL;
+
+#ifdef CONFIG_SAE
+		sae_clear_data(&sta->pasn->sae);
+#endif /* CONFIG_SAE */
+
+#ifdef CONFIG_FILS
+		/* In practice this pointer should be NULL */
+		wpabuf_free(sta->pasn->fils.erp_resp);
+		sta->pasn->fils.erp_resp = NULL;
+#endif /* CONFIG_FILS */
+
+		bin_clear_free(sta->pasn, sizeof(*sta->pasn));
+		sta->pasn = NULL;
+	}
+}
+
+#endif /* CONFIG_PASN */
+
 void ap_free_sta(struct hostapd_data *hapd, struct sta_info *sta)
 {
 	int set_beacon = 0;
@@ -326,6 +357,7 @@ void ap_free_sta(struct hostapd_data *hapd, struct sta_info *sta)
 	os_free(sta->vht_capabilities);
 	os_free(sta->vht_operation);
 	os_free(sta->he_capab);
+	os_free(sta->he_6ghz_capab);
 	hostapd_free_psk_list(sta->psk);
 	os_free(sta->identity);
 	os_free(sta->radius_cui);
@@ -369,6 +401,10 @@ void ap_free_sta(struct hostapd_data *hapd, struct sta_info *sta)
 #ifdef CONFIG_WNM_AP
 	eloop_cancel_timeout(ap_sta_reset_steer_flag_timer, hapd, sta);
 #endif /* CONFIG_WNM_AP */
+
+#ifdef CONFIG_PASN
+	ap_free_sta_pasn(hapd, sta);
+#endif /* CONFIG_PASN */
 
 	os_free(sta->ifname_wds);
 
@@ -1424,7 +1460,8 @@ int ap_sta_flags_txt(u32 flags, char *buf, size_t buflen)
 	int res;
 
 	buf[0] = '\0';
-	res = os_snprintf(buf, buflen, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+	res = os_snprintf(buf, buflen,
+			  "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
 			  (flags & WLAN_STA_AUTH ? "[AUTH]" : ""),
 			  (flags & WLAN_STA_ASSOC ? "[ASSOC]" : ""),
 			  (flags & WLAN_STA_AUTHORIZED ? "[AUTHORIZED]" : ""),
@@ -1444,6 +1481,7 @@ int ap_sta_flags_txt(u32 flags, char *buf, size_t buflen)
 			  (flags & WLAN_STA_HT ? "[HT]" : ""),
 			  (flags & WLAN_STA_VHT ? "[VHT]" : ""),
 			  (flags & WLAN_STA_HE ? "[HE]" : ""),
+			  (flags & WLAN_STA_6GHZ ? "[6GHZ]" : ""),
 			  (flags & WLAN_STA_VENDOR_VHT ? "[VENDOR_VHT]" : ""),
 			  (flags & WLAN_STA_WNM_SLEEP_MODE ?
 			   "[WNM_SLEEP_MODE]" : ""));
@@ -1515,7 +1553,7 @@ int ap_sta_re_add(struct hostapd_data *hapd, struct sta_info *sta)
 	if (hostapd_sta_add(hapd, sta->addr, 0, 0,
 			    sta->supported_rates,
 			    sta->supported_rates_len,
-			    0, NULL, NULL, NULL, 0,
+			    0, NULL, NULL, NULL, 0, NULL,
 			    sta->flags, 0, 0, 0, 0)) {
 		hostapd_logger(hapd, sta->addr,
 			       HOSTAPD_MODULE_IEEE80211,

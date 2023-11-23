@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 aidl_interface {
     name: "android.hardware.vibrator",
     vendor_available: true,
@@ -7,7 +16,7 @@ aidl_interface {
     stability: "vintf",
     backend: {
         java: {
-            platform_apis: true,
+            sdk_version: "module_current",
         },
         ndk: {
             vndk: {
@@ -15,5 +24,8 @@ aidl_interface {
             },
         },
     },
-    versions: ["1"],
+    versions: [
+        "1",
+        "2",
+    ],
 }

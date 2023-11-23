@@ -22,6 +22,7 @@ import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.site_utils import lxc
+from autotest_lib.site_utils.lxc import base_image
 from autotest_lib.site_utils.lxc import unittest_setup
 
 
@@ -29,7 +30,7 @@ TEST_JOB_ID = 123
 TEST_JOB_FOLDER = '123-debug_user'
 # Create a temp directory for functional tests. The directory is not under /tmp
 # for Moblab to be able to run the test.
-#But first, ensure that the containing directory exists:
+# But first, ensure that the containing directory exists:
 
 if not os.path.exists(lxc.DEFAULT_CONTAINER_PATH):
     os.makedirs(lxc.DEFAULT_CONTAINER_PATH)
@@ -166,10 +167,10 @@ AUTOSERV_COMMAND = (('/usr/bin/python -u /usr/local/autotest/server/autoserv '
                      '-u debug_user -l test -s -P %(job_id)s-debug_user/'
                      '%(test_dut)s -n %(result_path)s/%(test_control_file)s '
                      '--verify_job_repo_url') %
-                     {'job_id': TEST_JOB_ID,
-                      'result_path': TEST_RESULT_PATH,
-                      'test_dut': TEST_DUT,
-                      'test_control_file': TEST_CONTROL_FILE})
+                    {'job_id': TEST_JOB_ID,
+                     'result_path': TEST_RESULT_PATH,
+                     'test_dut': TEST_DUT,
+                     'test_control_file': TEST_CONTROL_FILE})
 # Content of the test control file.
 TEST_CONTROL_CONTENT = """
 def run(machine):
@@ -186,7 +187,7 @@ def setup_base(container_path):
     @param bucket: ContainerBucket to interact with containers.
     """
     logging.info('Rebuild base container in folder %s.', container_path)
-    image = lxc.BaseImage(container_path)
+    image = base_image.BaseImage(container_path, lxc.BASE)
     image.setup()
     logging.info('Base container created: %s', image.get().name)
 
@@ -216,12 +217,12 @@ def setup_test(bucket, container_id, skip_cleanup):
     if not utils.is_moblab():
         # Create fake '/etc/chrome-infra/ts-mon.json' if it doesn't exist.
         create_key_script = os.path.join(
-                RESULT_PATH, CREATE_FAKE_TS_MON_CONFIG_SCRIPT)
+            RESULT_PATH, CREATE_FAKE_TS_MON_CONFIG_SCRIPT)
         with open(create_key_script, 'w') as script:
             script.write(CREATE_FAKE_TS_MON_CONFIG_SCRIPT_CONTENT)
         container_result_path = lxc.RESULT_DIR_FMT % TEST_JOB_FOLDER
         container_create_key_script = os.path.join(
-                container_result_path, CREATE_FAKE_TS_MON_CONFIG_SCRIPT)
+            container_result_path, CREATE_FAKE_TS_MON_CONFIG_SCRIPT)
         container.attach_run('python %s' % container_create_key_script)
 
     return container
@@ -338,7 +339,7 @@ def main(options):
     # Verify that the test is running as the correct user.
     unittest_setup.verify_user()
 
-    log_level=(logging.DEBUG if options.verbose else logging.INFO)
+    log_level = (logging.DEBUG if options.verbose else logging.INFO)
     unittest_setup.setup_logging(log_level)
 
     setup_base(TEMP_DIR)

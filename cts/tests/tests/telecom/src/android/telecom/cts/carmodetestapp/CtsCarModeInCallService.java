@@ -23,16 +23,21 @@ import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A simple car-mode InCallService implementation.
  */
 public class CtsCarModeInCallService extends InCallService {
     private static final String TAG = CtsCarModeInCallService.class.getSimpleName();
+    private static final long TIMEOUT = 10000L;
     private static boolean sIsServiceBound = false;
     private static boolean sIsServiceUnbound = false;
     private static CtsCarModeInCallService sInstance = null;
     private int mCallCount = 0;
+    private static CountDownLatch sBoundLatch = new CountDownLatch(1);
+    private static CountDownLatch sUnboundLatch = new CountDownLatch(1);
     private List<Call> mCalls = new ArrayList<>();
 
     @Override
@@ -40,6 +45,7 @@ public class CtsCarModeInCallService extends InCallService {
         sIsServiceBound = true;
         sIsServiceUnbound = false;
         sInstance = this;
+        sBoundLatch.countDown();
         Log.i(TAG, "InCallService on bind");
         return super.onBind(intent);
     }
@@ -49,6 +55,7 @@ public class CtsCarModeInCallService extends InCallService {
         sIsServiceBound = false;
         sIsServiceUnbound = true;
         sInstance = null;
+        sUnboundLatch.countDown();
         Log.i(TAG, "InCallService on unbind");
         return super.onUnbind(intent);
     }
@@ -82,6 +89,8 @@ public class CtsCarModeInCallService extends InCallService {
     public static void reset() {
         sIsServiceUnbound = false;
         sIsServiceBound = false;
+        sBoundLatch = new CountDownLatch(1);
+        sUnboundLatch = new CountDownLatch(1);
     }
 
     public int getCallCount() {
@@ -91,6 +100,19 @@ public class CtsCarModeInCallService extends InCallService {
     public void disconnectCalls() {
         for (Call call : mCalls) {
             call.disconnect();
+        }
+    }
+
+    public static boolean checkBindStatus(boolean bind) {
+        Log.i(TAG, "checking latch status: service " + (bind ? "bound" : "not bound"));
+        return bind ? checkLatch(sBoundLatch) : checkLatch(sUnboundLatch);
+    }
+
+    private static boolean checkLatch(CountDownLatch latch) {
+        try {
+            return latch.await(TIMEOUT, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            return false;
         }
     }
 }

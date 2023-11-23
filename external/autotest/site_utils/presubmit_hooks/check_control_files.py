@@ -151,36 +151,36 @@ def CheckSuites(ctrl_data, test_name, useflags):
                 '<your_ebuild>. 3. emerge-<board> <your_ebuild>' % test_name)
 
 
-def CheckValidAttr(ctrl_data, attr_whitelist, bvt_whitelist, test_name):
+def CheckValidAttr(ctrl_data, attr_allowlist, bvt_allowlist, test_name):
     """
-    Check whether ATTRIBUTES are in the whitelist.
+    Check whether ATTRIBUTES are in the allowlist.
 
     Throw a ControlFileCheckerError if tags in ATTRIBUTES don't exist in the
-    whitelist.
+    allowlist.
 
     @param ctrl_data: The control_data object for a test.
-    @param attr_whitelist: whitelist set parsed from the attribute_whitelist.
-    @param bvt_whitelist: whitelist set parsed from the bvt_whitelist.
+    @param attr_allowlist: allowlist set parsed from the attribute_allowlist.
+    @param bvt_allowlist: allowlist set parsed from the bvt_allowlist.
     @param test_name: A string with the name of the test.
 
     @returns: None
     """
-    if not (attr_whitelist >= ctrl_data.attributes):
-        attribute_diff = ctrl_data.attributes - attr_whitelist
+    if not (attr_allowlist >= ctrl_data.attributes):
+        attribute_diff = ctrl_data.attributes - attr_allowlist
         raise ControlFileCheckerError(
-            'Attribute(s): %s not in the whitelist in control file for test '
-            'named %s. If this is a new attribute, please add it into '
-            'AUTOTEST_DIR/site_utils/attribute_whitelist.txt file'
-            % (attribute_diff, test_name))
+                'Attribute(s): %s not in the allowlist in control file for test '
+                'named %s. If this is a new attribute, please add it into '
+                'AUTOTEST_DIR/site_utils/attribute_allowlist.txt file' %
+                (attribute_diff, test_name))
     if ctrl_data.attributes & BVT_ATTRS:
-        for pattern in bvt_whitelist:
+        for pattern in bvt_allowlist:
             if fnmatch.fnmatch(test_name, pattern):
                 break
         else:
             raise ControlFileCheckerError(
-                '%s not in the BVT whitelist. New BVT tests should be written '
-                'in Tast, not in Autotest. See: %s'
-                % (test_name, TAST_PSA_URL))
+                    '%s not in the BVT allowlist. New BVT tests should be written '
+                    'in Tast, not in Autotest. See: %s' %
+                    (test_name, TAST_PSA_URL))
 
 
 def CheckSuiteLineRemoved(ctrl_file_path):
@@ -246,17 +246,22 @@ def main():
         raise ControlFileCheckerError('Expected a list of presubmit files in '
             'the PRESUBMIT_FILES environment variable.')
 
-    # Parse the whitelist set from file, hardcode the filepath to the whitelist.
-    path_attr_whitelist = os.path.join(common.autotest_dir,
-                                       'site_utils/attribute_whitelist.txt')
-    with open(path_attr_whitelist, 'r') as f:
-        attr_whitelist = {
-            line.strip() for line in f.readlines() if line.strip()}
+    # Parse the allowlist set from file, hardcode the filepath to the allowlist.
+    path_attr_allowlist = os.path.join(common.autotest_dir,
+                                       'site_utils/attribute_allowlist.txt')
+    with open(path_attr_allowlist, 'r') as f:
+        attr_allowlist = {
+                line.strip()
+                for line in f.readlines() if line.strip()
+        }
 
-    path_bvt_whitelist = os.path.join(common.autotest_dir,
-                                      'site_utils/bvt_whitelist.txt')
-    with open(path_bvt_whitelist, 'r') as f:
-        bvt_whitelist = {line.strip() for line in f.readlines() if line.strip()}
+    path_bvt_allowlist = os.path.join(common.autotest_dir,
+                                      'site_utils/bvt_allowlist.txt')
+    with open(path_bvt_allowlist, 'r') as f:
+        bvt_allowlist = {
+                line.strip()
+                for line in f.readlines() if line.strip()
+        }
 
     # Delay getting the useflags. The call takes long time, so init useflags
     # only when needed, i.e., the script needs to check any control file.
@@ -279,7 +284,7 @@ def main():
             if not useflags:
                 useflags = GetUseFlags(args.overlay)
             CheckSuites(ctrl_data, test_name, useflags)
-            CheckValidAttr(ctrl_data, attr_whitelist, bvt_whitelist, test_name)
+            CheckValidAttr(ctrl_data, attr_allowlist, bvt_allowlist, test_name)
             CheckRetry(ctrl_data, test_name)
             CheckDependencies(ctrl_data, test_name)
 

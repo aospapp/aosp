@@ -23,7 +23,7 @@ import com.android.car.ui.recyclerview.CarUiRecyclerView;
 import java.util.ArrayList;
 
 /**
- * Activity that shows PagedRecyclerView example with dummy data.
+ * Activity that shows {@link CarUiRecyclerView} example with placeholder data.
  */
 public class CarUiRecyclerViewSamples extends AbstractSampleActivity {
 
@@ -36,11 +36,11 @@ public class CarUiRecyclerViewSamples extends AbstractSampleActivity {
         Utils.onActivityCreateSetTheme(this);
         setContentView(R.layout.paged_recycler_view_samples);
         CarUiRecyclerView recyclerView = findViewById(R.id.list);
-        RecyclerViewAdapter adapter = new RecyclerViewAdapter(generateDummyData());
+        RecyclerViewAdapter adapter = new RecyclerViewAdapter(generatePlaceholderData());
         recyclerView.setAdapter(adapter);
     }
 
-    private ArrayList<String> generateDummyData() {
+    private ArrayList<String> generatePlaceholderData() {
         for (int i = 0; i <= mDataToGenerate; i++) {
             mData.add("data" + i);
         }

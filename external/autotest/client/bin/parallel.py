@@ -1,8 +1,17 @@
+# Lint as: python2, python3
 """ Parallel execution management """
 
 __author__ = """Copyright Andy Whitcroft 2006"""
 
-import sys, logging, os, pickle, traceback, gc, time
+import gc
+import logging
+import os
+import pickle
+import six
+import sys
+import time
+import traceback
+
 from autotest_lib.client.common_lib import error, utils
 
 def fork_start(tmp, l):
@@ -18,9 +27,9 @@ def fork_start(tmp, l):
             l()
         except error.AutotestError:
             raise
-        except Exception, e:
+        except Exception as e:
             raise error.UnhandledTestError(e)
-    except Exception, detail:
+    except Exception as detail:
         try:
             try:
                 logging.error('child process failed')
@@ -35,14 +44,20 @@ def fork_start(tmp, l):
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
                 ename = os.path.join(output_dir, "error-%d" % os.getpid())
-                pickle.dump(detail, open(ename, "w"))
+
+                # Python 3+ requires binary mode.
+                mode = 'w' if six.PY2 else 'wb'
+                with open(ename, mode) as pickle_out:
+                    pickle.dump(detail, pickle_out)
 
                 sys.stdout.flush()
                 sys.stderr.flush()
         finally:
             # clear exception information to allow garbage collection of
             # objects referenced by the exception's traceback
-            sys.exc_clear()
+            # exc_clear() doesn't exist in py3 (nor is needed).
+            if six.PY2:
+                sys.exc_clear()
             gc.collect()
             os._exit(1)
     else:
@@ -57,7 +72,10 @@ def _check_for_subprocess_exception(temp_dir, pid):
     ename = temp_dir + "/debug/error-%d" % pid
     if os.path.exists(ename):
         try:
-            e = pickle.load(file(ename, 'r'))
+            # Python 3+ requires binary mode.
+            mode = 'r' if six.PY2 else 'rb'
+            with open(ename, mode) as rf:
+                e = pickle.load(rf)
         except ImportError:
             with open(ename, 'r') as fp:
                 file_text = fp.read()

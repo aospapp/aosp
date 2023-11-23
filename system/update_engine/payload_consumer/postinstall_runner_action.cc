@@ -28,6 +28,7 @@
 #include <base/files/file_path.h>
 #include <base/files/file_util.h>
 #include <base/logging.h>
+#include <base/stl_util.h>
 #include <base/strings/string_split.h>
 #include <base/strings/string_util.h>
 
@@ -49,17 +50,48 @@ const int kPostinstallStatusFd = 3;
 
 namespace chromeos_update_engine {
 
-using brillo::MessageLoop;
 using std::string;
 using std::vector;
 
+PostinstallRunnerAction::PostinstallRunnerAction(
+    BootControlInterface* boot_control, HardwareInterface* hardware)
+    : boot_control_(boot_control), hardware_(hardware) {
+#ifdef __ANDROID__
+  fs_mount_dir_ = "/postinstall";
+#else   // __ANDROID__
+  base::FilePath temp_dir;
+  TEST_AND_RETURN(base::CreateNewTempDirectory("au_postint_mount", &temp_dir));
+  fs_mount_dir_ = temp_dir.value();
+#endif  // __ANDROID__
+  CHECK(!fs_mount_dir_.empty());
+  LOG(INFO) << "postinstall mount point: " << fs_mount_dir_;
+}
+
 void PostinstallRunnerAction::PerformAction() {
   CHECK(HasInputObject());
+  CHECK(boot_control_);
   install_plan_ = GetInputObject();
 
-  // Currently we're always powerwashing when rolling back.
+  auto dynamic_control = boot_control_->GetDynamicPartitionControl();
+  CHECK(dynamic_control);
+
+  // Mount snapshot partitions for Virtual AB Compression Compression.
+  if (dynamic_control->UpdateUsesSnapshotCompression()) {
+    // Before calling MapAllPartitions to map snapshot devices, all CowWriters
+    // must be closed, and MapAllPartitions() should be called.
+    dynamic_control->UnmapAllPartitions();
+    if (!dynamic_control->MapAllPartitions()) {
+      return CompletePostinstall(ErrorCode::kPostInstallMountError);
+    }
+  }
+
+  // We always powerwash when rolling back, however policy can determine
+  // if this is a full/normal powerwash, or a special rollback powerwash
+  // that retains a small amount of system state such as enrollment and
+  // network configuration. In both cases all user accounts are deleted.
   if (install_plan_.powerwash_required || install_plan_.is_rollback) {
-    if (hardware_->SchedulePowerwash(install_plan_.is_rollback)) {
+    if (hardware_->SchedulePowerwash(
+            install_plan_.rollback_data_save_requested)) {
       powerwash_scheduled_ = true;
     } else {
       return CompletePostinstall(ErrorCode::kPostinstallPowerwashError);
@@ -108,8 +140,7 @@ void PostinstallRunnerAction::PerformPartitionPostinstall() {
   const InstallPlan::Partition& partition =
       install_plan_.partitions[current_partition_];
 
-  const string mountable_device =
-      utils::MakePartitionNameForMount(partition.target_path);
+  const string mountable_device = partition.readonly_target_path;
   if (mountable_device.empty()) {
     LOG(ERROR) << "Cannot make mountable device from " << partition.target_path;
     return CompletePostinstall(ErrorCode::kPostinstallRunnerError);
@@ -118,14 +149,12 @@ void PostinstallRunnerAction::PerformPartitionPostinstall() {
   // Perform post-install for the current_partition_ partition. At this point we
   // need to call CompletePartitionPostinstall to complete the operation and
   // cleanup.
-#ifdef __ANDROID__
-  fs_mount_dir_ = "/postinstall";
-#else   // __ANDROID__
-  base::FilePath temp_dir;
-  TEST_AND_RETURN(base::CreateNewTempDirectory("au_postint_mount", &temp_dir));
-  fs_mount_dir_ = temp_dir.value();
-#endif  // __ANDROID__
 
+  if (!utils::FileExists(fs_mount_dir_.c_str())) {
+    LOG(ERROR) << "Mount point " << fs_mount_dir_
+               << " does not exist, mount call will fail";
+    return CompletePostinstall(ErrorCode::kPostinstallRunnerError);
+  }
   // Double check that the fs_mount_dir is not busy with a previous mounted
   // filesystem from a previous crashed postinstall step.
   if (utils::IsMountpoint(fs_mount_dir_)) {
@@ -162,11 +191,12 @@ void PostinstallRunnerAction::PerformPartitionPostinstall() {
   }
 #endif  // __ANDROID__
 
-  if (!utils::MountFilesystem(mountable_device,
-                              fs_mount_dir_,
-                              MS_RDONLY,
-                              partition.filesystem_type,
-                              constants::kPostinstallMountOptions)) {
+  if (!utils::MountFilesystem(
+          mountable_device,
+          fs_mount_dir_,
+          MS_RDONLY,
+          partition.filesystem_type,
+          hardware_->GetPartitionMountOptions(partition.name))) {
     return CompletePartitionPostinstall(
         1, "Error mounting the device " + mountable_device);
   }
@@ -215,13 +245,10 @@ void PostinstallRunnerAction::PerformPartitionPostinstall() {
     PLOG(ERROR) << "Unable to set non-blocking I/O mode on fd " << progress_fd_;
   }
 
-  progress_task_ = MessageLoop::current()->WatchFileDescriptor(
-      FROM_HERE,
+  progress_controller_ = base::FileDescriptorWatcher::WatchReadable(
       progress_fd_,
-      MessageLoop::WatchMode::kWatchRead,
-      true,
-      base::Bind(&PostinstallRunnerAction::OnProgressFdReady,
-                 base::Unretained(this)));
+      base::BindRepeating(&PostinstallRunnerAction::OnProgressFdReady,
+                          base::Unretained(this)));
 }
 
 void PostinstallRunnerAction::OnProgressFdReady() {
@@ -231,7 +258,7 @@ void PostinstallRunnerAction::OnProgressFdReady() {
     bytes_read = 0;
     bool eof;
     bool ok =
-        utils::ReadAll(progress_fd_, buf, arraysize(buf), &bytes_read, &eof);
+        utils::ReadAll(progress_fd_, buf, base::size(buf), &bytes_read, &eof);
     progress_buffer_.append(buf, bytes_read);
     // Process every line.
     vector<string> lines = base::SplitString(
@@ -246,8 +273,7 @@ void PostinstallRunnerAction::OnProgressFdReady() {
     if (!ok || eof) {
       // There was either an error or an EOF condition, so we are done watching
       // the file descriptor.
-      MessageLoop::current()->CancelTask(progress_task_);
-      progress_task_ = MessageLoop::kTaskIdNull;
+      progress_controller_.reset();
       return;
     }
   } while (bytes_read);
@@ -284,17 +310,18 @@ void PostinstallRunnerAction::ReportProgress(double frac) {
 void PostinstallRunnerAction::Cleanup() {
   utils::UnmountFilesystem(fs_mount_dir_);
 #ifndef __ANDROID__
-  if (!base::DeleteFile(base::FilePath(fs_mount_dir_), false)) {
+#if BASE_VER < 800000
+  if (!base::DeleteFile(base::FilePath(fs_mount_dir_), true)) {
+#else
+  if (!base::DeleteFile(base::FilePath(fs_mount_dir_))) {
+#endif
     PLOG(WARNING) << "Not removing temporary mountpoint " << fs_mount_dir_;
   }
-#endif  // !__ANDROID__
-  fs_mount_dir_.clear();
+#endif
 
   progress_fd_ = -1;
-  if (progress_task_ != MessageLoop::kTaskIdNull) {
-    MessageLoop::current()->CancelTask(progress_task_);
-    progress_task_ = MessageLoop::kTaskIdNull;
-  }
+  progress_controller_.reset();
+
   progress_buffer_.clear();
 }
 
@@ -348,11 +375,18 @@ void PostinstallRunnerAction::CompletePostinstall(ErrorCode error_code) {
       } else {
         // Schedules warm reset on next reboot, ignores the error.
         hardware_->SetWarmReset(true);
+        // Sets the vbmeta digest for the other slot to boot into.
+        hardware_->SetVbmetaDigestForInactiveSlot(false);
       }
     } else {
       error_code = ErrorCode::kUpdatedButNotActive;
     }
   }
+
+  auto dynamic_control = boot_control_->GetDynamicPartitionControl();
+  CHECK(dynamic_control);
+  dynamic_control->UnmapAllPartitions();
+  LOG(INFO) << "Unmapped all partitions.";
 
   ScopedActionCompleter completer(processor_, this);
   completer.set_code(error_code);

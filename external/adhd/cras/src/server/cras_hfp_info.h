@@ -24,21 +24,25 @@ struct hfp_packet_size_changed_callback {
 struct hfp_info;
 
 /* Creates an hfp_info instance.
- * Args:
- *    codec - 1 for CVSD, 2 for mSBC per HFP 1.7 specification.
  */
-struct hfp_info *hfp_info_create(int codec);
+struct hfp_info *hfp_info_create();
 
 /* Destroys given hfp_info instance. */
 void hfp_info_destroy(struct hfp_info *info);
+
+/* Sets the wbs_logger to hfp_info instance. */
+void hfp_info_set_wbs_logger(struct hfp_info *info,
+			     struct packet_status_logger *wbs_logger);
 
 /* Checks if given hfp_info is running. */
 int hfp_info_running(struct hfp_info *info);
 
 /* Starts the hfp_info to transmit and reveice samples to and from the file
  * descriptor of a SCO socket. This should be called from main thread.
+ * Args:
+ *    codec - 1 for CVSD, 2 for mSBC per HFP 1.7 specification.
  */
-int hfp_info_start(int fd, unsigned int mtu, struct hfp_info *info);
+int hfp_info_start(int fd, unsigned int mtu, int codec, struct hfp_info *info);
 
 /* Stops given hfp_info. This implies sample transmission will
  * stop and socket be closed. This should be called from main thread.

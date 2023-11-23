@@ -19,36 +19,36 @@ package com.android.cts.devicepolicy;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresProfileOwnerSupport;
+
 /**
  * Set of tests for pure (non-managed) profile owner use cases that also apply to device owners.
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTestApi25.
  */
+@RequiresProfileOwnerSupport
 public class MixedProfileOwnerTestApi25 extends DeviceAndProfileOwnerTestApi25 {
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
 
-        if (mHasFeature) {
-            mUserId = mPrimaryUserId;
+        mUserId = mPrimaryUserId;
 
-            installAppAsUser(DEVICE_ADMIN_APK, mUserId);
-            if (!setProfileOwner(
-                    DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId,
-                    /*expectFailure*/ false)) {
-                removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId);
-                getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
-                fail("Failed to set profile owner");
-            }
+        installAppAsUser(DEVICE_ADMIN_APK, mUserId);
+        if (!setProfileOwner(
+                DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId,
+                /*expectFailure*/ false)) {
+            removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId);
+            getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
+            fail("Failed to set profile owner");
         }
     }
 
     @Override
     public void tearDown() throws Exception {
-        if (mHasFeature) {
-            assertTrue("Failed to remove profile owner.",
-                    removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId));
-        }
+        assertTrue("Failed to remove profile owner.",
+                removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mUserId));
+
         super.tearDown();
     }
 }

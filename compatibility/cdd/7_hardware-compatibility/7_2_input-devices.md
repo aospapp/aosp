@@ -186,7 +186,8 @@ Device implementations:
      (either mouse-like or touch).
 *    SHOULD support fully independently tracked pointers.
 
-If device implementations include a touchscreen (single-touch or better), they:
+If device implementations include a touchscreen (single-touch or better) on a
+primary Android-compatible display, they:
 
 *    [C-1-1] MUST report `TOUCHSCREEN_FINGER` for the [`Configuration.touchscreen`](https://developer.android.com/reference/android/content/res/Configuration.html#touchscreen)
      API field.
@@ -194,18 +195,23 @@ If device implementations include a touchscreen (single-touch or better), they:
      `android.hardware.faketouch` feature flags.
 
 If device implementations include a touchscreen that can track more than
-a single touch, they:
+a single touch on a primary Android-compatible display, they:
 
-*    [C-2-1] MUST report the appropriate feature flags  `android.hardware.touchscreen.multitouch`,
+*    [C-2-1] MUST report the appropriate feature flags `android.hardware.touchscreen.multitouch`,
 `android.hardware.touchscreen.multitouch.distinct`, `android.hardware.touchscreen.multitouch.jazzhand`
 corresponding to the type of the specific touchscreen on the device.
 
-If device implementations do not include a touchscreen (and rely on a pointer
-device only) and meet the fake touch requirements in
+If device implementations rely on an external input device such as mouse or
+trackball (i.e. not directly touching the screen) for input on a primary
+Android-compatible display and meet the fake touch requirements in
 [section 7.2.5](#7_2_5_fake_touch_input), they:
 
 *    [C-3-1] MUST NOT report any feature flag starting with
-`android.hardware.touchscreen` and MUST report only `android.hardware.faketouch`.
+`android.hardware.touchscreen`.
+*    [C-3-2] MUST report only `android.hardware.faketouch`.
+*    [C-3-3] MUST report `TOUCHSCREEN_NOTOUCH` for the
+[`Configuration.touchscreen`](https://developer.android.com/reference/android/content/res/Configuration.html#touchscreen)
+API field.
 
 ### 7.2.5\. Fake Touch Input
 
@@ -247,8 +253,6 @@ up, which allows users to emulate a touch drag.
 *   [C-1-6] MUST support pointer down then allow users to quickly move the
 object to a different position on the screen and then pointer up on the screen,
 which allows users to fling an object on the screen.
-*   [C-1-7] MUST report `TOUCHSCREEN_NOTOUCH` for the [`Configuration.touchscreen`](https://developer.android.com/reference/android/content/res/Configuration.html#touchscreen)
-API field.
 
 If device implementations declare support for
 `android.hardware.faketouch.multitouch.distinct`, they:

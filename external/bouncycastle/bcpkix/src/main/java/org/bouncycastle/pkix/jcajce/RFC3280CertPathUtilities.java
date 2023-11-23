@@ -11,11 +11,11 @@ import java.security.cert.X509CertSelector;
 import java.security.cert.X509Certificate;
 import java.security.cert.X509Extension;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -38,12 +38,11 @@ import org.bouncycastle.jcajce.PKIXCRLStoreSelector;
 import org.bouncycastle.jcajce.PKIXCertStoreSelector;
 import org.bouncycastle.jcajce.PKIXExtendedBuilderParameters;
 import org.bouncycastle.jcajce.PKIXExtendedParameters;
+import org.bouncycastle.jcajce.util.JcaJceHelper;
 import org.bouncycastle.util.Arrays;
 
 class RFC3280CertPathUtilities
 {
-    private static final PKIXCRLUtil CRL_UTIL = new PKIXCRLUtil();
-
     /**
      * If the complete CRL includes an issuing distribution point (IDP) CRL
      * extension check the following:
@@ -386,7 +385,7 @@ class RFC3280CertPathUtilities
      * @param defaultCRLSignCert The issuer certificate of the certificate <code>cert</code>.
      * @param defaultCRLSignKey  The public key of the issuer certificate
      *                           <code>defaultCRLSignCert</code>.
-     * @param paramsPKIX         paramsPKIX PKIX parameters.
+     * @param paramsPKIX         PKIX parameters.
      * @param certPathCerts      The certificates on the certification path.
      * @return A <code>Set</code> with all keys of possible CRL issuer
      *         certificates.
@@ -400,7 +399,7 @@ class RFC3280CertPathUtilities
         PublicKey defaultCRLSignKey,
         PKIXExtendedParameters paramsPKIX,
         List certPathCerts,
-        PKIXJcaJceHelper helper)
+        JcaJceHelper helper)
         throws AnnotatedException
     {
         // (f)
@@ -421,11 +420,11 @@ class RFC3280CertPathUtilities
         PKIXCertStoreSelector selector = new PKIXCertStoreSelector.Builder(certSelector).build();
 
         // get CRL signing certs
-        Collection coll;
+        LinkedHashSet coll = new LinkedHashSet();
         try
         {
-            coll = RevocationUtilities.findCertificates(selector, paramsPKIX.getCertificateStores());
-            coll.addAll(RevocationUtilities.findCertificates(selector, paramsPKIX.getCertStores()));
+            RevocationUtilities.findCertificates(coll, selector, paramsPKIX.getCertificateStores());
+            RevocationUtilities.findCertificates(coll, selector, paramsPKIX.getCertStores());
         }
         catch (AnnotatedException e)
         {
@@ -434,11 +433,10 @@ class RFC3280CertPathUtilities
 
         coll.add(defaultCRLSignCert);
 
-        Iterator cert_it = coll.iterator();
-
         List validCerts = new ArrayList();
         List validKeys = new ArrayList();
 
+        Iterator cert_it = coll.iterator();
         while (cert_it.hasNext())
         {
             X509Certificate signingCert = (X509Certificate)cert_it.next();
@@ -506,9 +504,9 @@ class RFC3280CertPathUtilities
         for (int i = 0; i < validCerts.size(); i++)
         {
             X509Certificate signCert = (X509Certificate)validCerts.get(i);
-            boolean[] keyusage = signCert.getKeyUsage();
+            boolean[] keyUsage = signCert.getKeyUsage();
 
-            if (keyusage != null && (keyusage.length < 7 || !keyusage[CRL_SIGN]))
+            if (keyUsage != null && (keyUsage.length <= CRL_SIGN || !keyUsage[CRL_SIGN]))
             {
                 lastException = new AnnotatedException(
                     "Issuer certificate key usage extension does not permit CRL signing.");
@@ -582,8 +580,8 @@ class RFC3280CertPathUtilities
     }
 
     protected static Set processCRLA1i(
-        Date currentDate,
         PKIXExtendedParameters paramsPKIX,
+        Date currentDate,
         X509Certificate cert,
         X509CRL crl)
         throws AnnotatedException
@@ -644,13 +642,13 @@ class RFC3280CertPathUtilities
     }
 
     protected static Set[] processCRLA1ii(
-        Date currentDate,
         PKIXExtendedParameters paramsPKIX,
+        Date currentDate,
+        Date validityDate,
         X509Certificate cert,
         X509CRL crl)
         throws AnnotatedException
     {
-        Set deltaSet = new HashSet();
         X509CRLSelector crlselect = new X509CRLSelector();
         crlselect.setCertificateChecking(cert);
 
@@ -665,14 +663,9 @@ class RFC3280CertPathUtilities
 
         PKIXCRLStoreSelector extSelect = new PKIXCRLStoreSelector.Builder(crlselect).setCompleteCRLEnabled(true).build();
 
-        Date validityDate = currentDate;
-
-        if (paramsPKIX.getDate() != null)
-        {
-            validityDate = paramsPKIX.getDate();
-        }
-
-        Set completeSet = CRL_UTIL.findCRLs(extSelect, validityDate, paramsPKIX.getCertStores(), paramsPKIX.getCRLStores());
+        Set completeSet = PKIXCRLUtil.findCRLs(extSelect, validityDate, paramsPKIX.getCertStores(),
+            paramsPKIX.getCRLStores());
+        Set deltaSet = new HashSet();
 
         if (paramsPKIX.isUseDeltasEnabled())
         {
@@ -686,13 +679,8 @@ class RFC3280CertPathUtilities
                 throw new AnnotatedException("Exception obtaining delta CRLs.", e);
             }
         }
-        return new Set[]
-            {
-                completeSet,
-                deltaSet};
+        return new Set[]{ completeSet, deltaSet };
     }
-
-
 
     /**
      * If use-deltas is set, verify the issuer and scope of the delta CRL.
@@ -856,18 +844,18 @@ class RFC3280CertPathUtilities
     static void checkCRL(
         DistributionPoint dp,
         PKIXExtendedParameters paramsPKIX,
+        Date currentDate,
+        Date validityDate,
         X509Certificate cert,
-        Date validDate,
         X509Certificate defaultCRLSignCert,
         PublicKey defaultCRLSignKey,
         CertStatus certStatus,
         ReasonsMask reasonMask,
         List certPathCerts,
-        PKIXJcaJceHelper helper)
+        JcaJceHelper helper)
         throws AnnotatedException, CRLNotFoundException
     {
-        Date currentDate = new Date(System.currentTimeMillis());
-        if (validDate.getTime() > currentDate.getTime())
+        if (validityDate.getTime() > currentDate.getTime())
         {
             throw new AnnotatedException("Validation time is in future.");
         }
@@ -879,13 +867,6 @@ class RFC3280CertPathUtilities
          * CRLs must be enabled in the ExtendedPKIXParameters and are in
          * getAdditionalStore()
          */
-
-        Date validityDate = currentDate;
-
-        if (paramsPKIX.getDate() != null)
-        {
-            validityDate = paramsPKIX.getDate();
-        }
 
         Set crls = RevocationUtilities.getCompleteCRLs(dp, cert, validityDate, paramsPKIX.getCertStores(), paramsPKIX.getCRLStores());
         boolean validCrlFound = false;
@@ -964,10 +945,10 @@ class RFC3280CertPathUtilities
                 RFC3280CertPathUtilities.processCRLC(deltaCRL, crl, paramsPKIX);
 
                 // (i)
-                RFC3280CertPathUtilities.processCRLI(validDate, deltaCRL, cert, certStatus, paramsPKIX);
+                RFC3280CertPathUtilities.processCRLI(validityDate, deltaCRL, cert, certStatus, paramsPKIX);
 
                 // (j)
-                RFC3280CertPathUtilities.processCRLJ(validDate, crl, cert, certStatus);
+                RFC3280CertPathUtilities.processCRLJ(validityDate, crl, cert, certStatus);
 
                 // (k)
                 if (certStatus.getCertStatus() == CRLReason.removeFromCRL)

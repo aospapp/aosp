@@ -1,10 +1,17 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_bt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bt_license"],
+}
+
 cc_defaults {
     name: "audio_hearing_aid_hw_defaults",
     defaults: ["fluoride_defaults"],
     include_dirs: [
         "system/bt",
-        "system/bt/include",
-        "system/bt/audio_hearing_aid_hw/include",
     ],
 }
 
@@ -22,14 +29,6 @@ cc_library {
         "liblog",
     ],
     static_libs: ["libosi"],
-}
-
-cc_library_static {
-    name: "libaudio-hearing-aid-hw-utils",
-    defaults: ["audio_hearing_aid_hw_defaults"],
-    srcs: [
-        "src/audio_hearing_aid_hw_utils.cc",
-    ],
 }
 
 // Audio A2DP library unit tests for target and host

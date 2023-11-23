@@ -14,25 +14,26 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-
 <!--
-  ~ A dummy app used for when you need to install test packages that have a functioning package name
+  ~ A test app used for when you need to install test packages that have a functioning package name
   ~ and UID. For example, you could use it to set permissions or app-ops.
   -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.sharingapps.sharingapp1">
+     package="com.android.cts.sharingapps.sharingapp1">
     <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES"/>
     <application android:testOnly="true">
-        <uses-library android:name="android.test.runner" />
-        <activity android:name=".SimpleActivity" >
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name=".SimpleActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="*/*" />
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="*/*"/>
             </intent-filter>
         </activity>
     </application>

@@ -85,6 +85,11 @@ _lookup_ptr(clone_state *state, const void *ptr, bool global)
    if (!state->global_clone && global)
       return (void *)ptr;
 
+   if (unlikely(!state->remap_table)) {
+      assert(state->allow_remap_fallback);
+      return (void *)ptr;
+   }
+
    entry = _mesa_hash_table_search(state->remap_table, ptr);
    if (!entry) {
       assert(state->allow_remap_fallback);
@@ -254,7 +259,8 @@ __clone_dst(clone_state *state, nir_instr *ninstr,
    if (dst->is_ssa) {
       nir_ssa_dest_init(ninstr, ndst, dst->ssa.num_components,
                         dst->ssa.bit_size, dst->ssa.name);
-      add_remap(state, &ndst->ssa, &dst->ssa);
+      if (likely(state->remap_table))
+         add_remap(state, &ndst->ssa, &dst->ssa);
    } else {
       ndst->reg.reg = remap_reg(state, dst->reg.reg);
       if (dst->reg.indirect) {
@@ -270,6 +276,8 @@ clone_alu(clone_state *state, const nir_alu_instr *alu)
 {
    nir_alu_instr *nalu = nir_alu_instr_create(state->ns, alu->op);
    nalu->exact = alu->exact;
+   nalu->no_signed_wrap = alu->no_signed_wrap;
+   nalu->no_unsigned_wrap = alu->no_unsigned_wrap;
 
    __clone_dst(state, &nalu->instr, &nalu->dest.dest, &alu->dest.dest);
    nalu->dest.saturate = alu->dest.saturate;
@@ -286,6 +294,16 @@ clone_alu(clone_state *state, const nir_alu_instr *alu)
    return nalu;
 }
 
+nir_alu_instr *
+nir_alu_instr_clone(nir_shader *shader, const nir_alu_instr *orig)
+{
+   clone_state state = {
+      .allow_remap_fallback = true,
+      .ns = shader,
+   };
+   return clone_alu(&state, orig);
+}
+
 static nir_deref_instr *
 clone_deref_instr(clone_state *state, const nir_deref_instr *deref)
 {
@@ -294,7 +312,7 @@ clone_deref_instr(clone_state *state, const nir_deref_instr *deref)
 
    __clone_dst(state, &nderef->instr, &nderef->dest, &deref->dest);
 
-   nderef->mode = deref->mode;
+   nderef->modes = deref->modes;
    nderef->type = deref->type;
 
    if (deref->deref_type == nir_deref_type_var) {
@@ -321,6 +339,8 @@ clone_deref_instr(clone_state *state, const nir_deref_instr *deref)
 
    case nir_deref_type_cast:
       nderef->cast.ptr_stride = deref->cast.ptr_stride;
+      nderef->cast.align_mul = deref->cast.align_mul;
+      nderef->cast.align_offset = deref->cast.align_offset;
       break;
 
    default:
@@ -397,8 +417,10 @@ clone_tex(clone_state *state, const nir_tex_instr *tex)
    memcpy(ntex->tg4_offsets, tex->tg4_offsets, sizeof(tex->tg4_offsets));
 
    ntex->texture_index = tex->texture_index;
-   ntex->texture_array_size = tex->texture_array_size;
    ntex->sampler_index = tex->sampler_index;
+
+   ntex->texture_non_uniform = tex->texture_non_uniform;
+   ntex->sampler_non_uniform = tex->sampler_non_uniform;
 
    return ntex;
 }
@@ -450,6 +472,9 @@ clone_phi(clone_state *state, const nir_phi_instr *phi, nir_block *nblk)
 static nir_jump_instr *
 clone_jump(clone_state *state, const nir_jump_instr *jmp)
 {
+   /* These aren't handled because they require special block linking */
+   assert(jmp->type != nir_jump_goto && jmp->type != nir_jump_goto_if);
+
    nir_jump_instr *njmp = nir_jump_instr_create(state->ns, jmp->type);
 
    return njmp;
@@ -495,6 +520,16 @@ clone_instr(clone_state *state, const nir_instr *instr)
       unreachable("bad instr type");
       return NULL;
    }
+}
+
+nir_instr *
+nir_instr_clone(nir_shader *shader, const nir_instr *orig)
+{
+   clone_state state = {
+      .allow_remap_fallback = true,
+      .ns = shader,
+   };
+   return clone_instr(&state, orig);
 }
 
 static nir_block *
@@ -607,7 +642,7 @@ fixup_phi_srcs(clone_state *state)
          list_addtail(&src->src.use_link, &src->src.reg.reg->uses);
       }
    }
-   assert(list_empty(&state->phi_srcs));
+   assert(list_is_empty(&state->phi_srcs));
 }
 
 void
@@ -636,6 +671,9 @@ nir_cf_list_clone(nir_cf_list *dst, nir_cf_list *src, nir_cf_node *parent,
    clone_cf_list(&state, &dst->list, &src->list);
 
    fixup_phi_srcs(&state);
+
+   if (!remap_table)
+      free_clone_state(&state);
 }
 
 static nir_function_impl *
@@ -647,7 +685,7 @@ clone_function_impl(clone_state *state, const nir_function_impl *fi)
    clone_reg_list(state, &nfi->registers, &fi->registers);
    nfi->reg_alloc = fi->reg_alloc;
 
-   assert(list_empty(&state->phi_srcs));
+   assert(list_is_empty(&state->phi_srcs));
 
    clone_cf_list(state, &nfi->body, &fi->body);
 
@@ -684,8 +722,10 @@ clone_function(clone_state *state, const nir_function *fxn, nir_shader *ns)
    add_remap(state, nfxn, fxn);
 
    nfxn->num_params = fxn->num_params;
-   nfxn->params = ralloc_array(state->ns, nir_parameter, fxn->num_params);
-   memcpy(nfxn->params, fxn->params, sizeof(nir_parameter) * fxn->num_params);
+   if (fxn->num_params) {
+           nfxn->params = ralloc_array(state->ns, nir_parameter, fxn->num_params);
+           memcpy(nfxn->params, fxn->params, sizeof(nir_parameter) * fxn->num_params);
+   }
    nfxn->is_entrypoint = fxn->is_entrypoint;
 
    /* At first glance, it looks like we should clone the function_impl here.
@@ -706,12 +746,7 @@ nir_shader_clone(void *mem_ctx, const nir_shader *s)
    nir_shader *ns = nir_shader_create(mem_ctx, s->info.stage, s->options, NULL);
    state.ns = ns;
 
-   clone_var_list(&state, &ns->uniforms, &s->uniforms);
-   clone_var_list(&state, &ns->inputs,   &s->inputs);
-   clone_var_list(&state, &ns->outputs,  &s->outputs);
-   clone_var_list(&state, &ns->shared,   &s->shared);
-   clone_var_list(&state, &ns->globals,  &s->globals);
-   clone_var_list(&state, &ns->system_values, &s->system_values);
+   clone_var_list(&state, &ns->variables, &s->variables);
 
    /* Go through and clone functions */
    foreach_list_typed(nir_function, fxn, node, &s->functions)
@@ -736,7 +771,7 @@ nir_shader_clone(void *mem_ctx, const nir_shader *s)
    ns->num_inputs = s->num_inputs;
    ns->num_uniforms = s->num_uniforms;
    ns->num_outputs = s->num_outputs;
-   ns->num_shared = s->num_shared;
+   ns->shared_size = s->shared_size;
    ns->scratch_size = s->scratch_size;
 
    ns->constant_data_size = s->constant_data_size;
@@ -748,4 +783,38 @@ nir_shader_clone(void *mem_ctx, const nir_shader *s)
    free_clone_state(&state);
 
    return ns;
+}
+
+/** Overwrites dst and replaces its contents with src
+ *
+ * Everything ralloc parented to dst and src itself (but not its children)
+ * will be freed.
+ *
+ * This should only be used by test code which needs to swap out shaders with
+ * a cloned or deserialized version.
+ */
+void
+nir_shader_replace(nir_shader *dst, nir_shader *src)
+{
+   /* Delete all of dest's ralloc children */
+   void *dead_ctx = ralloc_context(NULL);
+   ralloc_adopt(dead_ctx, dst);
+   ralloc_free(dead_ctx);
+
+   /* Re-parent all of src's ralloc children to dst */
+   ralloc_adopt(dst, src);
+
+   memcpy(dst, src, sizeof(*dst));
+
+   /* We have to move all the linked lists over separately because we need the
+    * pointers in the list elements to point to the lists in dst and not src.
+    */
+   exec_list_move_nodes_to(&src->variables, &dst->variables);
+
+   /* Now move the functions over.  This takes a tiny bit more work */
+   exec_list_move_nodes_to(&src->functions, &dst->functions);
+   nir_foreach_function(function, dst)
+      function->shader = dst;
+
+   ralloc_free(src);
 }

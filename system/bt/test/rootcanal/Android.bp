@@ -13,8 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_bt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bt_license"],
+}
+
 cc_binary {
     name: "android.hardware.bluetooth@1.1-service.sim",
+    defaults: ["gd_defaults"],
     proprietary: true,
     relative_install_path: "hw",
     srcs: [
@@ -44,13 +54,14 @@ cc_binary {
     generated_headers: [
         "RootCanalGeneratedPackets_h",
         "BluetoothGeneratedPackets_h",
+        "libbt_init_flags_bridge_header",
     ],
     static_libs: [
         "android.hardware.bluetooth-async",
         "android.hardware.bluetooth-hci",
         "libbt-rootcanal",
         "libbt-rootcanal-types",
-	"libscriptedbeaconpayload-protos-lite",
+        "libscriptedbeaconpayload-protos-lite",
     ],
     include_dirs: [
         "system/bt",
@@ -64,6 +75,7 @@ cc_binary {
 
 cc_library_shared {
     name: "android.hardware.bluetooth@1.1-impl-sim",
+    defaults: ["gd_defaults"],
     proprietary: true,
     relative_install_path: "hw",
     srcs: [
@@ -91,6 +103,7 @@ cc_library_shared {
     generated_headers: [
         "RootCanalGeneratedPackets_h",
         "BluetoothGeneratedPackets_h",
+        "libbt_init_flags_bridge_header",
     ],
     static_libs: [
         "android.hardware.bluetooth-async",

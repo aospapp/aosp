@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="title" msgid="9099755437807065998">"Qurilmadagi tizim yangilanishi"</string>
+    <string name="title" msgid="9099755437807065998">"Mahalliy tizim yangilanishi"</string>
     <string name="invalid_file_type" msgid="5363346679377832590">"Bu yangilanish fayli yaroqsiz"</string>
     <string name="unknown_file" msgid="4460330045071455406">"Notanish fayl"</string>
     <string name="cannot_access_storage" msgid="692801523959625901">"Xotira qurilmasiga ruxsat berilmagan"</string>

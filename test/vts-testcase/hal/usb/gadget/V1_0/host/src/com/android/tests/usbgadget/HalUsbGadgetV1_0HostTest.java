@@ -17,6 +17,7 @@
 package com.android.tests.usbgadget;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import com.android.tests.usbgadget.libusb.ConfigDescriptor;
@@ -42,6 +43,7 @@ import org.junit.runner.RunWith;
 public class HalUsbGadgetV1_0HostTest extends BaseHostJUnit4Test {
     private static final int WAIT_TIME = 3000;
     private static final String HAL_SERVICE = "android.hardware.usb.gadget@1.0::IUsbGadget";
+    private static final String FEATURE_AUTOMOTIVE = "android.hardware.type.automotive";
 
     private static boolean mHasService;
     private static IUsbNative mUsb;
@@ -135,6 +137,8 @@ public class HalUsbGadgetV1_0HostTest extends BaseHostJUnit4Test {
      */
     @Test
     public void testMIDI() throws Exception {
+        assumeFalse("Skip test: MIDI support is not required for automotive",
+                getDevice().hasFeature(FEATURE_AUTOMOTIVE));
         assumeTrue(String.format("The device doesn't have service %s", HAL_SERVICE), mHasService);
         getDevice().executeShellCommand("svc usb setFunctions midi true");
         Thread.sleep(WAIT_TIME);
@@ -149,6 +153,8 @@ public class HalUsbGadgetV1_0HostTest extends BaseHostJUnit4Test {
      */
     @Test
     public void testRndis() throws Exception {
+        assumeFalse("Skip test: RNDIS support is not required for automotive",
+                getDevice().hasFeature(FEATURE_AUTOMOTIVE));
         assumeTrue(String.format("The device doesn't have service %s", HAL_SERVICE), mHasService);
         getDevice().executeShellCommand("svc usb setFunctions rndis true");
         Thread.sleep(WAIT_TIME);

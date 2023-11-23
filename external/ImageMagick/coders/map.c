@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -108,16 +108,16 @@ static Image *ReadMAPImage(const ImageInfo *image_info,ExceptionInfo *exception)
   Quantum
     index;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register Quantum
+  Quantum
     *q;
 
-  register ssize_t
+  ssize_t
     i;
 
-  register unsigned char
+  unsigned char
     *p;
 
   size_t
@@ -353,14 +353,14 @@ static MagickBooleanType WriteMAPImage(const ImageInfo *image_info,Image *image,
   MagickBooleanType
     status;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
-  register unsigned char
+  unsigned char
     *q;
 
   size_t
@@ -448,7 +448,7 @@ static MagickBooleanType WriteMAPImage(const ImageInfo *image_info,Image *image,
     {
       if (image->colors > 256)
         *q++=(unsigned char) ((size_t) GetPixelIndex(image,p) >> 8);
-      *q++=(unsigned char) GetPixelIndex(image,p);
+      *q++=(unsigned char) ((ssize_t) GetPixelIndex(image,p));
       p+=GetPixelChannels(image);
     }
     (void) WriteBlob(image,(size_t) (q-pixels),pixels);

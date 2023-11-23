@@ -17,9 +17,9 @@
     <string name="app_title" translatable="false">Car service</string>
     <!--  For permissions -->
     <!-- Permission text: can access your car's information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label">access car\u2019s information</string>
+    <string name="car_permission_label">Car information</string>
     <!-- Permission text: can access your car's information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc">Access your car\u2019s information.</string>
+    <string name="car_permission_desc">access your car\u2019s information</string>
     <!-- Permission text: apps can control car camera [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_camera">access car\u2019s camera</string>
     <!-- Permission text: apps can control car camera [CHAR LIMIT=NONE] -->
@@ -103,6 +103,9 @@
     <string name="car_permission_desc_bind_instrument_cluster_rendering">Receive instrument cluster data</string>
     <string name="car_permission_label_car_ux_restrictions_configuration">UX Restrictions Configuration</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration">Configure UX Restrictions</string>
+    <string name="car_permission_label_access_private_display_id">Read access to private display id</string>
+    <string name="car_permission_desc_access_private_display_id">Allows read access to private display id</string>
+
     <string name="car_permission_label_car_handle_usb_aoap_device">Communicate with USB device in AOAP mode</string>
     <string name="car_permission_desc_car_handle_usb_aoap_device">Allows an app to communicate with a device in AOAP mode</string>
 
@@ -172,6 +175,36 @@
     <!-- Permission text: apps can listen to driving state changes [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_driving_state">Listen to Driving state changes.</string>
 
+    <!-- Permission text: apps can collect metrics. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_use_telemetry_service">Use Car Telemetry Service</string>
+    <!-- Permission text: apps can collect metrics. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_use_telemetry_service">Collect car system health data.</string>
+
+    <!-- Permission text: apps can control EVS stream state. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_use_evs_service">Use Car EVS Service</string>
+    <!-- Permission text: apps can control EVS stream state. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_use_evs_service">Subscribe to EVS video streams</string>
+
+    <!-- Permission text: apps can request EVS preview activity. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_request_evs_activity">Request the EVS preview activity</string>
+    <!-- Permission text: apps can request EVS preview activity. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_request_evs_activity">Request the system to launch the EVS preview activity</string>
+
+    <!-- Permission text: apps can control EVS preview activity. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_control_evs_activity">Control the EVS preview activity</string>
+    <!-- Permission text: apps can control EVS preview activity. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_control_evs_activity">Control the EVS preview activity of the sytsem</string>
+
+    <!-- Permission text: apps can use EVS camera streams. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_use_evs_camera">Use the EVS camera</string>
+    <!-- Permission text: apps can use EVS camera streams. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_use_evs_camera">Subscribe to EVS camera streams</string>
+
+    <!-- Permission text: apps can monitor status changes of EVS service. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_monitor_evs_status">Monitor the status of the EVS service</string>
+    <!-- Permission text: apps can monitor status changes of EVS service. [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_monitor_evs_status">Listen to the status changes of the EVS service</string>
+
     <!-- Permission text: apps read Engine Detailed [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_car_engine_detailed">access car\u2019s engine detailed</string>
     <!-- Permission text: apps can listen to Engine Detailed [CHAR LIMIT=NONE] -->
@@ -226,6 +259,16 @@
     <string name="car_permission_label_car_exterior_lights">read car\u2019s exterior lights state</string>
     <!-- Permission text: apps access car's exterior lights state [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_car_exterior_lights">Access car\u2019s exterior lights state.</string>
+
+    <!-- Permission text: apps access car's epoch time [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_car_epoch_time">access car\u2019s epoch time</string>
+    <!-- Permission text: apps access car's epoch time [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_car_epoch_time">Access car\u2019s epoch time.</string>
+
+    <!-- Permission text: apps access car's encryption binding seed [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_encryption_binding_seed">access car\u2019s encryption binding seed </string>
+    <!-- Permission text: apps access car's encryption binding seed [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_encryption_binding_seed">Access car\u2019s encryption binding seed.</string>
 
     <!-- Permission text: apps control car's exterior lights [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_control_car_exterior_lights">read car\u2019s exterior lights</string>
@@ -465,6 +508,11 @@
     <!-- Permission text: apps control vendor properties in category 10 [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_set_car_vendor_category_10" translatable="false">Control vendor specific properties in category 10.</string>
 
+    <!-- Permission text: apps can receive car input events [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_monitor_input" translatable="false">receive car input events</string>
+    <!-- Permission text: apps can receive car input events [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_monitor_input" translatable="false">Receive car input events</string>
+
     <!-- Permission text: enable or disable car's features [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_control_car_features">Enable or disable car\u2019s features</string>
     <!-- Permission text: enable or disable car's features [CHAR LIMIT=NONE] -->
@@ -475,9 +523,65 @@
     <!-- Permission text: apps use car watchdog [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_use_car_watchdog">Use car watchdog.</string>
 
+    <!-- Permission text: apps control car watchdog config [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_control_car_watchdog_config">control car watchdog config</string>
+    <!-- Permission text: apps control car watchdog config [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_control_car_watchdog_config">Control car watchdog config.</string>
+
+    <!-- Permission text: apps collect car watchdog metrics [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_collect_car_watchdog_metrics">collect car watchdog metrics</string>
+    <!-- Permission text: apps collect car watchdog metrics [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_collect_car_watchdog_metrics">Collect car watchdog metrics.</string>
+
+    <!-- Permission text: apps read car power policy [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_read_car_power_policy">read car power policy</string>
+    <!-- Permission text: apps read car power policy [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_read_car_power_policy">Read car power policy.</string>
+
+    <!-- Permission text: apps control car power policy [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_control_car_power_policy">control car power policy</string>
+    <!-- Permission text: apps control car power policy [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_control_car_power_policy">Control car power policy.</string>
+
+    <!-- Permission text: app can render templates provided by another app [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_template_renderer">render templates</string>
+    <!-- Permission text: app can render templates provided by another app [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_template_renderer">Render templates.</string>
+
     <!-- The default name of device enrolled as trust device [CHAR LIMIT=NONE] -->
     <string name="trust_device_default_name">My Device</string>
 
     <!-- Default name for new guest users [CHAR LIMIT=20] -->
     <string name="default_guest_name">Guest</string>
+
+    <!-- Name of the default-importance notification channel [CHAR LIMIT=40] -->
+    <string name="importance_default">Default importance</string>
+    <!-- Name of the high-importance notification channel [CHAR LIMIT=40] -->
+    <string name="importance_high">High importance</string>
+
+    <!-- Title of notification shown when factory reset is required [CHAR_LIMIT=50] -->
+    <string name="factory_reset_notification_title">Factory reset required</string>
+    <!-- Message of notification shown when factory reset is required [CHAR LIMIT=NONE] -->
+    <string name="factory_reset_notification_text">All data in the infotainment system will be erased. After reset, you can set up a new profile.</string>
+    <!-- Label for the button that will show more information on delayed factory reset [CHAR_LIMIT=20] -->
+    <string name="factory_reset_notification_button">More</string>
+    <!-- Title for the dialog when delayed factory reset is required [CHAR_LIMIT=60] -->
+    <string name="factory_reset_parked_title">Reset the infotainment system</string>
+    <!-- Message for the dialog when delayed factory reset is required [CHAR_LIMIT=NONE] -->
+    <string name="factory_reset_parked_text">Your system has received a request to factory reset and erase all data. You can reset it now, or it will reset the next time the car starts. You can then set up a new profile.</string>
+    <!-- Label for the button that will reset the device now [CHAR_LIMIT=20] -->
+    <string name="factory_reset_now_button">Reset Now</string>
+    <!-- Label for the button that will reset the device later [CHAR_LIMIT=20] -->
+    <string name="factory_reset_later_button">Reset Later</string>
+    <!-- Text of the toast shown when the factory reset will be delayed [CHAR_LIMIT=50] -->
+    <string name="factory_reset_later_text">The infotainment system will reset the next time the car starts.</string>
+    <!-- Text of the toast shown to when detailed factory reset information is requested when driving [CHAR_LIMIT=50]-->
+    <string name="factory_reset_driving_text">The car must be parked to start the reset.</string>
+
+    <!--  TODO(b/175214581): STOPSHIP use proper sentence and remove translatable=false -->
+    <!--  Button on screen that warns the user that device is owned and managed by an enterprise
+          (like a car rental company), asking user to accept [CHAR_LIMIT=20] -->
+    <string name="new_user_managed_device_acceptance" translatable="false">Accept and continue</string>
+    <string name="new_user_managed_notification_title" translatable="false">Managed device</string>
+
 </resources>

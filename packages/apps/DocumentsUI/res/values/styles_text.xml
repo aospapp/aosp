@@ -19,6 +19,13 @@
         <item name="android:textSize">11sp</item>
     </style>
 
+    <style name="SectionHeader" parent="@*android:style/TextAppearance.DeviceDefault.Medium">
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="fontFamily">@string/config_fontFamilyMedium</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
     <style name="SortList" parent="@style/TextAppearance.AppCompat.Subhead">
         <item name="android:textColor">@color/sort_list_text</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
@@ -53,35 +60,36 @@
     <style name="CardPrimaryText" parent="@style/TextAppearance.AppCompat.Subhead">
         <item name="android:textColor">?android:attr/textColorPrimary</item>
         <item name="android:textSize">14sp</item>
+        <item name="fontFamily">@string/config_fontFamily</item>
     </style>
 
     <style name="ActionModeTitle" parent="@style/ToolbarTitle">
         <item name="android:textSize">@dimen/action_mode_text_size</item>
     </style>
 
-    <style name="ToolbarTitle" parent="@android:style/TextAppearance.Material.Title">
+    <style name="ToolbarTitle" parent="@*android:style/TextAppearance.DeviceDefault.Title">
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="DrawerMenuTitle" parent="@android:style/TextAppearance.Material.Title">
+    <style name="DrawerMenuTitle" parent="@*android:style/TextAppearance.DeviceDefault.Title">
         <item name="android:textSize">24sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="DrawerMenuHeader" parent="@android:style/TextAppearance.Material.Subhead">
+    <style name="DrawerMenuHeader" parent="@*android:style/TextAppearance.DeviceDefault.Subhead">
         <item name="android:textColor">?android:attr/textColorSecondary</item>
         <item name="android:textAllCaps">true</item>
         <item name="android:textSize">11sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="DrawerMenuPrimary" parent="android:style/TextAppearance.Material.Body2">
+    <style name="DrawerMenuPrimary" parent="*android:style/TextAppearance.DeviceDefault.Body2">
         <item name="android:textSize">14sp</item>
         <item name="android:textColor">@color/item_root_primary_text</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="DrawerMenuSecondary" parent="android:style/TextAppearance.Material.Body2">
+    <style name="DrawerMenuSecondary" parent="*android:style/TextAppearance.DeviceDefault.Body2">
         <item name="android:textSize">12sp</item>
         <item name="android:textColor">@color/item_root_secondary_text</item>
     </style>
@@ -96,7 +104,7 @@
     </style>
 
     <style name="BreadcrumbText" parent="@style/TextAppearance.Widget.AppCompat.Toolbar.Subtitle">
-        <item name="android:textColor">?android:attr/colorControlNormal</item>
+        <item name="android:textColor">@color/horizontal_breadcrumb_color</item>
         <item name="android:textSize">14sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
@@ -113,18 +121,24 @@
     </style>
 
     <style name="EmptyStateButtonTextAppearance">
-        <item name="android:textColor">@color/cross_profile_button_text_color</item>
+        <item name="android:textColor">?android:attr/colorAccent</item>
         <item name="android:textSize">14sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="TabTextAppearance" parent="@android:style/TextAppearance.DeviceDefault.Medium">
+    <style name="TabTextAppearance" parent="@*android:style/TextAppearance.DeviceDefault.Medium">
         <item name="android:textSize">14sp</item>
         <item name="fontFamily">@string/config_fontFamilyMedium</item>
     </style>
 
-    <style name="ItemDocListCaptionText" parent="@android:style/TextAppearance.Material.Caption">
+    <style name="ItemCaptionText" parent="@*android:style/TextAppearance.DeviceDefault.Caption">
         <item name="android:textColor">@color/doc_list_item_subtitle_color</item>
+        <item name="fontFamily">@string/config_fontFamily</item>
+    </style>
+
+    <style name="MenuItemTextAppearance" parent="*android:style/TextAppearance.DeviceDefault.Body2">
+        <item name="android:textSize">14sp</item>
+        <item name="fontFamily">@string/config_fontFamily</item>
     </style>
 
 </resources>

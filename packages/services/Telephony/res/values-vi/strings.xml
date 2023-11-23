@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Chỉ người dùng chính mới có thể sửa đổi Cài đặt thư thoại."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Thẻ SIM của bạn đã được bỏ chặn. Điện thoại của bạn đang mở khóa…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"Mã PIM mở khóa mạng SIM"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"Đã khóa SIM đối với nhà cung cấp dịch vụ"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Mở khóa"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Loại bỏ"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Đang yêu cầu mở khóa mạng..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Chuyển tiếp tới <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Tắt"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Nhà cung cấp dịch vụ của bạn không hỗ trợ vô hiệu hóa chuyển tiếp cuộc gọi khi điện thoại của bạn không thể truy cập được."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Nhà mạng của bạn không hỗ trợ tính năng chuyển tiếp cuộc gọi."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Bật chế độ cuộc gọi chờ?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Trong suốt cuộc gọi, bạn sẽ nhận được thông báo về các cuộc gọi đến"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Bật"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Hủy"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"Cuộc gọi chờ CDMA trong IMS đang bật"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Cuộc gọi chờ CDMA trong IMS đang tắt"</string>
     <string name="updating_title" msgid="6130548922615719689">"Cài đặt cuộc gọi"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Chỉ người dùng quản trị mới có thể thay đổi cài đặt cuộc gọi."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Cài đặt (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Chức năng SIM bị giới hạn"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Các cuộc gọi và dịch vụ dữ liệu của nhà mạng <xliff:g id="CARRIER_NAME">%1$s</xliff:g> có thể bị chặn khi bạn sử dụng số <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Các cuộc gọi và dịch vụ dữ liệu của nhà mạng <xliff:g id="CARRIER_NAME">%1$s</xliff:g> có thể bị chặn khi bạn sử dụng một SIM khác."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Đã tìm thấy và xóa các tài khoản SIP không dùng nữa"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Nền tảng Android không còn hỗ trợ tính năng gọi điện qua SIP.\nCác tài khoản SIP hiện có của bạn <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> đã bị xóa.\nVui lòng xác nhận chế độ cài đặt tài khoản gọi mặc định của bạn."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Chuyển đến phần Cài đặt"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Mức sử dụng dữ liệu của ứng dụng"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"Đã dùng <xliff:g id="ID_1">%1$s</xliff:g> dữ liệu di động: <xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Nâng cao"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Mật khẩu không đúng. SIM hiện đã bị chặn. Hãy nhập PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 bị chặn vĩnh viễn."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Bạn còn <xliff:g id="NUMBER">%d</xliff:g> lần thử."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 đang bị khóa. Hãy liên hệ với nhà cung cấp dịch vụ để mở khóa."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 không còn bị chặn"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Lỗi mạng hoặc thẻ SIM"</string>
     <string name="doneButton" msgid="7371209609238460207">"Xong"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Bật mạng di động, tắt chế độ trên máy bay hoặc tắt chế độ trình tiết kiệm pin để thực hiện cuộc gọi."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Tắt chế độ trên máy bay để thực hiện cuộc gọi."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Tắt chế độ trên máy bay hoặc kết nối với mạng không dây để thực hiện cuộc gọi."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Điện thoại quá nóng"</b>\n\n"Không thể hoàn tất cuộc gọi này. Hãy thử lại khi điện thoại nguội bớt.\n\nBạn vẫn có thể thực hiện cuộc gọi khẩn cấp."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Thoát khỏi chế độ gọi lại khẩn cấp để thực hiện cuộc gọi không khẩn cấp."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Chưa được đăng ký trên mạng."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Mạng di động không khả dụng."</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Mã phụ của SIM dữ liệu mặc định:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Băng thông DL (kb/giây):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Băng thông UL (kb/giây):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Thông tin vị trí mạng di động (không dùng nữa):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Cấu hình kênh LTE thực:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Tốc độ làm mới thông tin mạng di động:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Toàn bộ thông tin về số đo mạng di động:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Làm mới"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Bật/tắt chế độ kiểm tra DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Thông tin/Cài đặt dành riêng cho OEM"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"Hỗ trợ EN-DC:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"Hạn chế DCNR:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"Hỗ trợ NR:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"Trạng thái NR:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Tần số NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Đặt chế độ dải tần số"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Đang tải danh sách băng tần…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Đặt"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Thông tin điện thoại"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Thông tin cấp phép của nhà mạng"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Kích hoạt dịch vụ cấp phép của nhà mạng"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Tín hiệu Bluetooth của bạn đang yếu. Hãy thử chuyển sang loa ngoài."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Thông báo về chất lượng cuộc gọi"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Tài khoản SIP không dùng nữa"</string>
 </resources>

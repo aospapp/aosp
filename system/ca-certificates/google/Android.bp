@@ -12,6 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+//     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+//     DEPENDING ON IT IN YOUR PROJECT. ***
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_ca-certificates_license"
+    // to get the below license kinds:
+    //   legacy_by_exception_only (by exception only)
+    default_applicable_licenses: ["system_ca-certificates_license"],
+}
+
 ca_certificates {
     name: "cacerts_google",
     src_dir: "files",

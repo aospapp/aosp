@@ -16,8 +16,9 @@
 
 package com.android.internal.net.eap.statemachine;
 
+import static android.net.eap.EapSessionConfig.EapMethodConfig.EAP_TYPE_AKA_PRIME;
+
 import static com.android.internal.net.eap.EapAuthenticator.LOG;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_AKA_PRIME;
 import static com.android.internal.net.eap.message.simaka.EapAkaTypeData.EAP_AKA_CLIENT_ERROR;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_AUTN;
 import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP_AT_KDF;
@@ -26,12 +27,12 @@ import static com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.EAP
 import android.annotation.Nullable;
 import android.content.Context;
 import android.net.eap.EapSessionConfig.EapAkaPrimeConfig;
+import android.net.eap.EapSessionConfig.EapMethodConfig.EapMethod;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.net.crypto.KeyGenerationUtils;
 import com.android.internal.net.eap.EapResult;
 import com.android.internal.net.eap.crypto.HmacSha256ByteSigner;
-import com.android.internal.net.eap.message.EapData.EapMethod;
 import com.android.internal.net.eap.message.EapMessage;
 import com.android.internal.net.eap.message.simaka.EapAkaPrimeTypeData;
 import com.android.internal.net.eap.message.simaka.EapAkaPrimeTypeData.EapAkaPrimeTypeDataDecoder;
@@ -206,9 +207,9 @@ public class EapAkaPrimeMethodStateMachine extends EapAkaMethodStateMachine {
 
             boolean hasMatchingNetworkNames =
                     hasMatchingNetworkNames(
-                            mEapAkaPrimeConfig.networkName,
+                            mEapAkaPrimeConfig.getNetworkName(),
                             new String(atKdfInput.networkName, StandardCharsets.UTF_8));
-            return mEapAkaPrimeConfig.allowMismatchedNetworkNames || hasMatchingNetworkNames;
+            return mEapAkaPrimeConfig.allowsMismatchedNetworkNames() || hasMatchingNetworkNames;
         }
 
         /**

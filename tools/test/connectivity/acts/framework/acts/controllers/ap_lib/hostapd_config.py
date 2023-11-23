@@ -443,15 +443,26 @@ class HostapdConfig(object):
                 self._wmm_enabled = 1
             else:
                 self._wmm_enabled = 0
+        # Default PMF Values
         if pmf_support is None:
-            if self.security and self.security.wpa3:
+            if (self.security and self.security.security_mode_string
+                    == hostapd_constants.WPA3_STRING):
+                # Set PMF required for WP3
                 self._pmf_support = hostapd_constants.PMF_SUPPORT_REQUIRED
+            elif (self.security and self.security.security_mode_string
+                  in hostapd_constants.WPA3_MODE_STRINGS):
+                # Default PMF to enabled for WPA3 mixed modes (can be
+                # overwritten by explicitly provided value)
+                self._pmf_support = hostapd_constants.PMF_SUPPORT_ENABLED
             else:
+                # Default PMD to disabled for all other modes (can be
+                # overwritten by explicitly provided value)
                 self._pmf_support = hostapd_constants.PMF_SUPPORT_DISABLED
         elif pmf_support not in hostapd_constants.PMF_SUPPORT_VALUES:
             raise ValueError('Invalid value for pmf_support: %r' % pmf_support)
         elif (pmf_support != hostapd_constants.PMF_SUPPORT_REQUIRED
-              and self.security and self.security.wpa3):
+              and self.security and self.security.security_mode_string
+              == hostapd_constants.WPA3_STRING):
             raise ValueError('PMF support must be required with wpa3.')
         else:
             self._pmf_support = pmf_support

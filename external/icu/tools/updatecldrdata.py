@@ -5,7 +5,6 @@
 from __future__ import print_function
 
 import os
-import pipes
 import shutil
 import subprocess
 import sys
@@ -17,6 +16,10 @@ import icuutil
 # Run with no arguments from any directory, with no special setup required.
 # See icu4c/source/data/cldr-icu-readme.txt for the upstream ICU instructions.
 def main():
+  if subprocess.call(["which", "mvn"]) != 0 or subprocess.call(["which", "ant"]) != 0:
+    print("Can't find the required tools. Run `sudo apt-get install maven ant` to install")
+    exit(1)
+
   cldr_dir = icuutil.cldrDir()
   print('Found cldr in %s ...' % cldr_dir)
   icu_dir = icuutil.icuDir()
@@ -26,62 +29,90 @@ def main():
   # source directory so this build script creates a temporary directory and then
   # copies all necessary ICU4J and CLDR source code to here before building it:
   i18nutil.SwitchToNewTemporaryDirectory()
+  build_dir = os.getcwd()
+  cldr_build_dir = os.path.join(build_dir, 'cldr')
+  icu4c_build_dir = os.path.join(build_dir, 'icu4c')
+  icu4j_build_dir = os.path.join(build_dir, 'icu4j')
+  icu_tools_build_dir = os.path.join(build_dir, 'icu_tools')
 
+  print('Copying CLDR source code ...')
+  shutil.copytree(cldr_dir, cldr_build_dir, symlinks=True)
+  print('Copying ICU4C source code ...')
+  shutil.copytree(os.path.join(icu_dir, 'icu4c'), icu4c_build_dir, symlinks=True)
   print('Copying ICU4J source code ...')
-  shutil.copytree(os.path.join(icu_dir, 'icu4j'), 'icu4j', True)
-  print('Building ICU4J ...')
-  subprocess.check_call([
-      'ant',
-      '-f', 'icu4j/build.xml',
-      'jar',
-      'cldrUtil',
-  ])
+  shutil.copytree(os.path.join(icu_dir, 'icu4j'), icu4j_build_dir, symlinks=True)
+  print('Copying ICU tools source code ...')
+  shutil.copytree(os.path.join(icu_dir, 'tools'), icu_tools_build_dir, symlinks=True)
 
-  # Append the newly built JAR files to the Java CLASSPATH to use these instead
-  # of the pre-built JAR files in the CLDR source tree, to ensure that the same
-  # version of ICU is being used to build the data as will use the data:
-  cp = []
-  try:
-    cp.append(os.environ['CLASSPATH'])
-  except KeyError:
-    pass
-  cp.append('icu4j/icu4j.jar')
-  cp.append('icu4j/out/cldr_util/lib/utilities.jar')
-  os.environ['CLASSPATH'] = ':'.join(cp)
+  # Setup environment variables for all subshell
+  os.environ['ANT_OPTS'] = '-Xmx4096m'
 
   # This is the location of the original CLDR source tree (not the temporary
   # copy of the tools source code) from where the data files are to be read:
-  os.environ['CLDR_DIR'] = os.path.join(os.getcwd(), 'cldr')
+  os.environ['CLDR_DIR'] = cldr_build_dir  # os.path.join(os.getcwd(), 'cldr')
 
-  print('Copying CLDR source code ...')
-  shutil.copytree(cldr_dir, 'cldr', True)
-  print('Building CLDR tools ...')
+  os.environ['ICU4C_ROOT'] = icu4c_build_dir
+  os.environ['ICU4J_ROOT'] = icu4j_build_dir
+  os.environ['TOOLS_ROOT'] = icu_tools_build_dir
+  cldr_tmp_dir = os.path.join(build_dir, 'cldr-staging')
+  os.environ['CLDR_TMP_DIR'] = cldr_tmp_dir
+
+  icu_tools_cldr_dir = os.path.join(icu_tools_build_dir, 'cldr')
+  print('Installing CLDR tools ...')
+  os.chdir(icu_tools_cldr_dir)
+  subprocess.check_call(['ant', 'install-cldr-libs'])
+
+  print('Building ICU data...')
+  icu4c_data_build_dir = os.path.join(icu4c_build_dir, 'source/data')
+  os.chdir(icu4c_data_build_dir)
+  subprocess.check_call(['ant', 'cleanprod'])
+  subprocess.check_call(['ant', 'setup'])
+  subprocess.check_call(['ant', 'proddata'])
+
+  # Finally we "compile" CLDR-data to a "production" form and place it in ICU
+  os.chdir(os.path.join(icu_tools_build_dir, 'cldr', 'cldr-to-icu'))
+  cldr_production_tmp_dir = os.path.join(cldr_tmp_dir, 'production')
   subprocess.check_call([
-      'ant',
-      '-f', os.path.join('cldr', 'tools', 'java', 'build.xml'),
-      'jar',
-      'AddPseudolocales',
+    'ant',
+    '-f',
+    'build-icu-data.xml',
+    '-DcldrDataDir=' + cldr_production_tmp_dir,
+    '-DforceDelete=true',
+    '-DincludePseudoLocales=true'
   ])
 
-  # This is the temporary directory in which the CLDR tools have been built:
-  os.environ['CLDR_CLASSES'] = os.path.join(os.getcwd(), 'cldr', 'tools', 'java', 'classes')
-
-  # It's essential to set CLDR_DTD_CACHE for otherwise the repeated requests for
-  # the same file will cause the unicode.org web server to block this machine:
-  os.makedirs('cldr-dtd-cache')
-  os.environ['ANT_OPTS'] = '-DCLDR_DTD_CACHE=%s' % pipes.quote(os.path.join(
-      os.getcwd(), 'cldr-dtd-cache'))
-
-  print('Building ICU data source files ...')
+  os.chdir(icu_tools_cldr_dir)
   subprocess.check_call([
-      'ant',
-      '-f', os.path.join(icu_dir, 'icu4c/source/data/build.xml'),
-      'clean',
-      'all',
+    'ant',
+    'copy-cldr-testdata',
   ])
 
-  print('Look in %s/icu4c/source/data for new data source files' % icu_dir)
+  # Copy the generated data files from the temporary directory into AOSP.
+  icu4c_data_source_dir = os.path.join(icu_dir, 'icu4c/source/data')
+  rmAndCopyTree(icu4c_data_build_dir, icu4c_data_source_dir)
+  rmAndCopyTree(
+    os.path.join(icu4c_build_dir, 'source/test/testdata/cldr'),
+    os.path.join(icu_dir, 'icu4c/source/test/testdata/cldr'))
+  rmAndCopyTree(
+    os.path.join(icu4j_build_dir, 'main/tests/core/src/com/ibm/icu/dev/data/cldr'),
+    os.path.join(icu_dir, 'icu4j/main/tests/core/src/com/ibm/icu/dev/data/cldr'))
+
+  localeCanonicalization_src = os.path.join(
+    cldr_production_tmp_dir, 'common/testData/localeIdentifiers/localeCanonicalization.txt')
+  shutil.copy(localeCanonicalization_src, os.path.join(
+    icu_dir, 'icu4c/source/test/testdata/localeCanonicalization.txt'))
+  shutil.copy(localeCanonicalization_src, os.path.join(
+    icu_dir, 'icu4j/main/tests/core/src/com/ibm/icu/dev/data/unicode/localeCanonicalization.txt'))
+
+  print('Look in %s for new data source files' % icu4c_data_source_dir)
   sys.exit(0)
+
+
+def rmAndCopyTree(src, dst):
+  if os.path.exists(dst):
+    shutil.rmtree(dst)
+  shutil.copytree(src, dst)
+
 
 if __name__ == '__main__':
   main()

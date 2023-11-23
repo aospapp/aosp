@@ -27,6 +27,7 @@ namespace perfetto {
 namespace trace_processor {
 
 class ArgsTracker;
+class AsyncTrackSetTracker;
 class AndroidProbesTracker;
 class ChunkedTraceReader;
 class ClockTracker;
@@ -34,18 +35,21 @@ class EventTracker;
 class ForwardingTraceParser;
 class FtraceModule;
 class GlobalArgsTracker;
+class GlobalStackProfileTracker;
 class HeapGraphTracker;
 class HeapProfileTracker;
-class MetadataTracker;
 class PerfSampleTracker;
+class MetadataTracker;
 class ProtoImporterModule;
 class ProcessTracker;
 class SliceTracker;
+class FlowTracker;
 class TraceParser;
 class TraceSorter;
 class TraceStorage;
 class TrackTracker;
 class JsonTracker;
+class DescriptorPool;
 
 class TraceProcessorContext {
  public:
@@ -66,13 +70,16 @@ class TraceProcessorContext {
   std::unique_ptr<ArgsTracker> args_tracker;
 
   std::unique_ptr<TrackTracker> track_tracker;
+  std::unique_ptr<AsyncTrackSetTracker> async_track_set_tracker;
   std::unique_ptr<SliceTracker> slice_tracker;
+  std::unique_ptr<FlowTracker> flow_tracker;
   std::unique_ptr<ProcessTracker> process_tracker;
   std::unique_ptr<EventTracker> event_tracker;
   std::unique_ptr<ClockTracker> clock_tracker;
   std::unique_ptr<HeapProfileTracker> heap_profile_tracker;
-  std::unique_ptr<MetadataTracker> metadata_tracker;
   std::unique_ptr<PerfSampleTracker> perf_sample_tracker;
+  std::unique_ptr<GlobalStackProfileTracker> global_stack_profile_tracker;
+  std::unique_ptr<MetadataTracker> metadata_tracker;
 
   // These fields are stored as pointers to Destructible objects rather than
   // their actual type (a subclass of Destructible), as the concrete subclass
@@ -102,9 +109,13 @@ class TraceProcessorContext {
   std::unique_ptr<TraceParser> json_trace_parser;
   std::unique_ptr<TraceParser> fuchsia_trace_parser;
 
+  // This field contains the list of proto descriptors that can be used by
+  // reflection-based parsers.
+  std::unique_ptr<DescriptorPool> descriptor_pool_;
+
   // The module at the index N is registered to handle field id N in
   // TracePacket.
-  std::vector<ProtoImporterModule*> modules_by_field;
+  std::vector<std::vector<ProtoImporterModule*>> modules_by_field;
   std::vector<std::unique_ptr<ProtoImporterModule>> modules;
   FtraceModule* ftrace_module = nullptr;
 };

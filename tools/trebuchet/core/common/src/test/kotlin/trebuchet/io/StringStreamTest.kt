@@ -24,7 +24,6 @@ import trebuchet.importers.DummyImportFeedback
 import trebuchet.model.Model
 import trebuchet.task.ImportTask
 import trebuchet.testutils.makeReader
-import trebuchet.testutils.NeedsSampleData
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
@@ -37,17 +36,6 @@ class StringStreamTest {
 
     @Test fun testLineReaderCLRF() {
         expect1_20_300("1\r\n20\r\n300")
-    }
-
-    @Test @NeedsSampleData
-    fun testLineReaderOnFile() {
-        val file = File("${findSampleData()}/sample.ftrace")
-        Assert.assertTrue(file.exists())
-        val expected = BufferedReader(FileReader(file))
-        StreamingReader(readFile(file)).iterLines().forEach {
-            assertEquals(expected.readLine(), it.toString())
-        }
-        assertNull(expected.readLine())
     }
 
     @Test fun testLineReaderEmptyLines() {
@@ -64,17 +52,5 @@ class StringStreamTest {
         assertEquals("1", lines[0])
         assertEquals("20", lines[1])
         assertEquals("300", lines[2])
-    }
-
-    fun readFile(file: File): BufferProducer {
-        val inputStream = file.inputStream()
-        return object : BufferProducer {
-            override fun next(): DataSlice? {
-                val buffer = ByteArray(2 * 1024 * 1024)
-                val read = inputStream.read(buffer)
-                if (read == -1) return null
-                return buffer.asSlice(read)
-            }
-        }
     }
 }

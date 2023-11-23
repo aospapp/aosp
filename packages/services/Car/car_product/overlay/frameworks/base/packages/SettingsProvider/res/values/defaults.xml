@@ -26,4 +26,13 @@
 
     <!-- Disable system heads-up notifications -->
     <integer name="def_heads_up_enabled">0</integer>
+
+    <!-- Default for UI touch sounds disabled -->
+    <bool name="def_sound_effects_enabled">false</bool>
+
+    <!-- Initial value for the Settings.Secure.IMMERSIVE_MODE_CONFIRMATIONS setting,
+         which is a comma separated list of packages that no longer need confirmation
+         for immersive mode.
+         Override to disable immersive mode confirmation for certain packages. -->
+    <string name="def_immersive_mode_confirmations" translatable="false">confirmed</string>
 </resources>

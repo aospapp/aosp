@@ -20,15 +20,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:layout_gravity="center"
-    android:weightSum="7"
     android:orientation="vertical"
     tools:showIn="@layout/theme_preview_card">
     <TextView
         style="@style/FontCardTitleStyle"
         android:id="@+id/font_card_title"
         android:layout_width="wrap_content"
-        android:layout_height="16sp"
-        android:layout_weight="1.5"
+        android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:gravity="center_horizontal"
         android:maxLines="1"
@@ -36,10 +34,10 @@
     <Space
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="0"/>
+        android:layout_weight="1"/>
     <View
         android:id="@+id/font_card_divider"
-        android:layout_width="15dp"
+        android:layout_width="16dp"
         android:layout_height="2dp"
         android:layout_gravity="center"
         android:background="?android:colorAccent"/>
@@ -50,8 +48,7 @@
     <TextView
         style="@style/FontCardBodyTextStyle"
         android:id="@+id/font_card_body"
-        android:layout_height="56sp"
-        android:layout_weight="2"
+        android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
         android:gravity="center_horizontal"
         android:text="@string/font_card_body"/>

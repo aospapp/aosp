@@ -18,7 +18,7 @@
 #define ANDROID_SYSTEM_MEDIA_ALSA_UTILS_ALSA_DEVICE_PROFILE_H
 
 #include <stdbool.h>
-
+#include <system/audio.h>
 #include <tinyalsa/asoundlib.h>
 
 #define MAX_PROFILE_FORMATS         6  /* We long support the 5 standard formats defined
@@ -27,7 +27,8 @@
 #define MAX_PROFILE_SAMPLE_RATES    14 /* this number needs to be 1 more than the number of
                                         * sample rates in std_sample_rates[]
                                         * (in alsa_device_profile.c) */
-#define MAX_PROFILE_CHANNEL_COUNTS  9  /* this number need to be 1 more than the number of
+#define MAX_PROFILE_CHANNEL_COUNTS  (FCC_LIMIT + 1)
+                                       /* this number need to be 1 more than the number of
                                         * standard channel formats in std_channel_counts[]
                                         * (in alsa_device_profile.c) */
 

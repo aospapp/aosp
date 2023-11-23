@@ -27,6 +27,7 @@
 namespace amber {
 
 class Tokenizer;
+class Token;
 
 namespace amberscript {
 
@@ -34,6 +35,7 @@ namespace amberscript {
 class Parser : public amber::Parser {
  public:
   Parser();
+  explicit Parser(Delegate* delegate);
   ~Parser() override;
 
   // amber::Parser
@@ -49,24 +51,35 @@ class Parser : public amber::Parser {
 
   Result ParseStruct();
   Result ParseBuffer();
+  Result ParseImage();
   Result ParseBufferInitializer(Buffer*);
   Result ParseBufferInitializerSize(Buffer*);
   Result ParseBufferInitializerFill(Buffer*, uint32_t);
   Result ParseBufferInitializerSeries(Buffer*, uint32_t);
   Result ParseBufferInitializerData(Buffer*);
+  Result ParseBufferInitializerFile(Buffer*);
   Result ParseShaderBlock();
   Result ParsePipelineBlock();
   Result ParsePipelineAttach(Pipeline*);
   Result ParsePipelineShaderOptimizations(Pipeline*);
   Result ParsePipelineShaderCompileOptions(Pipeline*);
+  Result ParsePipelineSubgroup(Pipeline* pipeline);
   Result ParsePipelineFramebufferSize(Pipeline*);
   Result ParsePipelineBind(Pipeline*);
   Result ParsePipelineVertexData(Pipeline*);
   Result ParsePipelineIndexData(Pipeline*);
   Result ParsePipelineSet(Pipeline*);
+  Result ParsePipelinePolygonMode(Pipeline*);
+  Result ParsePipelineDepth(Pipeline* pipeline);
+  Result ParsePipelineStencil(Pipeline* pipeline);
   Result ParseRun();
+  Result ParseDebug();
+  Result ParseDebugThread(debug::Events*, Pipeline* pipeline);
+  Result ParseDebugThreadBody(debug::Thread* thread);
   Result ParseClear();
   Result ParseClearColor();
+  Result ParseClearDepth();
+  Result ParseClearStencil();
   Result ParseExpect();
   Result ParseCopy();
   Result ParseDeviceFeature();
@@ -80,6 +93,8 @@ class Parser : public amber::Parser {
   Result ParsePipelineBody(const std::string& cmd_name,
                            std::unique_ptr<Pipeline> pipeline);
   Result ParseShaderSpecialization(Pipeline* pipeline);
+  Result ParseSampler();
+  Result ParseTolerances(std::vector<Probe::Tolerance>* tolerances);
 
   /// Parses a set of values out of the token stream. |name| is the name of the
   /// current command we're parsing for error purposes. The |type| is the type
@@ -88,6 +103,8 @@ class Parser : public amber::Parser {
   Result ParseValues(const std::string& name,
                      Format* fmt,
                      std::vector<Value>* values);
+
+  Result ParseVirtualFile();
 
   std::unique_ptr<Tokenizer> tokenizer_;
   std::vector<std::unique_ptr<Command>> command_list_;

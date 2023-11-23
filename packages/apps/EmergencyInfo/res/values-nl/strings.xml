@@ -99,7 +99,7 @@
     <string name="ok" msgid="163967937451981024">"OK"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Geen informatie over de eigenaar van de telefoon"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Als dit je telefoon is, tik je op het potloodpictogram om informatie toe te voegen die hier wordt weergegeven in geval van nood"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Als dit je telefoon is, tik je op het potloodje om informatie toe te voegen die in geval van nood hier zichtbaar is"</string>
     <string name="clear_all" msgid="8899013032870561633">"Alles wissen"</string>
     <string name="clear" msgid="3648880442502887163">"Wissen"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Alle informatie en contacten wissen?"</string>

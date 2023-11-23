@@ -75,7 +75,7 @@ public final class UserIdentificationAssociationResponseTest {
         assertThat(response).isNotNull();
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getErrorMessage()).isNull();
-        assertThat(response.getValues()).asList().containsAllOf(1, 2, 3).inOrder();
+        assertThat(response.getValues()).asList().containsAtLeast(1, 2, 3).inOrder();
     }
 
     @Test
@@ -85,6 +85,6 @@ public final class UserIdentificationAssociationResponseTest {
         assertThat(response).isNotNull();
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getErrorMessage()).isEqualTo("D'OH!");
-        assertThat(response.getValues()).asList().containsAllOf(1, 2, 3).inOrder();
+        assertThat(response.getValues()).asList().containsAtLeast(1, 2, 3).inOrder();
     }
 }

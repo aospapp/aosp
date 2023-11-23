@@ -17,19 +17,26 @@
 #ifndef ANDROID_AUDIOTRACK_H
 #define ANDROID_AUDIOTRACK_H
 
+#include <binder/IMemory.h>
 #include <cutils/sched_policy.h>
 #include <media/AudioSystem.h>
 #include <media/AudioTimestamp.h>
-#include <media/IAudioTrack.h>
 #include <media/AudioResamplerPublic.h>
 #include <media/MediaMetricsItem.h>
 #include <media/Modulo.h>
+#include <media/VolumeShaper.h>
 #include <utils/threads.h>
+#include <android/content/AttributionSourceState.h>
+
+#include <string>
 
 #include "android/media/BnAudioTrackCallback.h"
+#include "android/media/IAudioTrack.h"
 #include "android/media/IAudioTrackCallback.h"
 
 namespace android {
+
+using content::AttributionSourceState;
 
 // ----------------------------------------------------------------------------
 
@@ -177,6 +184,8 @@ public:
      */
                         AudioTrack();
 
+                        AudioTrack(const AttributionSourceState& attributionSourceState);
+
     /* Creates an AudioTrack object and registers it with AudioFlinger.
      * Once created, the track needs to be started before it can be used.
      * Unspecified values are set to appropriate default values.
@@ -223,10 +232,10 @@ public:
      * transferType:       How data is transferred to AudioTrack.
      * offloadInfo:        If not NULL, provides offload parameters for
      *                     AudioSystem::getOutputForAttr().
-     * uid:                User ID of the app which initially requested this AudioTrack
-     *                     for power management tracking, or -1 for current user ID.
-     * pid:                Process ID of the app which initially requested this AudioTrack
-     *                     for power management tracking, or -1 for current process ID.
+     * attributionSource:  The attribution source of the app which initially requested this
+     *                     AudioTrack.
+     *                     Includes the UID and PID for power management tracking, or -1 for
+     *                     current user/process ID, plus the package name.
      * pAttributes:        If not NULL, supersedes streamType for use case selection.
      * doNotReconnect:     If set to true, AudioTrack won't automatically recreate the IAudioTrack
                            binder to AudioFlinger.
@@ -253,8 +262,8 @@ public:
                                     audio_session_t sessionId  = AUDIO_SESSION_ALLOCATE,
                                     transfer_type transferType = TRANSFER_DEFAULT,
                                     const audio_offload_info_t *offloadInfo = NULL,
-                                    uid_t uid = AUDIO_UID_INVALID,
-                                    pid_t pid = -1,
+                                    const AttributionSourceState& attributionSource =
+                                        AttributionSourceState(),
                                     const audio_attributes_t* pAttributes = NULL,
                                     bool doNotReconnect = false,
                                     float maxRequiredSpeed = 1.0f,
@@ -284,8 +293,8 @@ public:
                                     audio_session_t sessionId   = AUDIO_SESSION_ALLOCATE,
                                     transfer_type transferType = TRANSFER_DEFAULT,
                                     const audio_offload_info_t *offloadInfo = NULL,
-                                    uid_t uid = AUDIO_UID_INVALID,
-                                    pid_t pid = -1,
+                                    const AttributionSourceState& attributionSource =
+                                        AttributionSourceState(),
                                     const audio_attributes_t* pAttributes = NULL,
                                     bool doNotReconnect = false,
                                     float maxRequiredSpeed = 1.0f);
@@ -322,6 +331,27 @@ public:
                             uint32_t sampleRate,
                             audio_format_t format,
                             audio_channel_mask_t channelMask,
+                            size_t frameCount   = 0,
+                            audio_output_flags_t flags = AUDIO_OUTPUT_FLAG_NONE,
+                            callback_t cbf      = NULL,
+                            void* user          = NULL,
+                            int32_t notificationFrames = 0,
+                            const sp<IMemory>& sharedBuffer = 0,
+                            bool threadCanCallJava = false,
+                            audio_session_t sessionId  = AUDIO_SESSION_ALLOCATE,
+                            transfer_type transferType = TRANSFER_DEFAULT,
+                            const audio_offload_info_t *offloadInfo = NULL,
+                            const AttributionSourceState& attributionSource =
+                                AttributionSourceState(),
+                            const audio_attributes_t* pAttributes = NULL,
+                            bool doNotReconnect = false,
+                            float maxRequiredSpeed = 1.0f,
+                            audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE);
+    // FIXME(b/169889714): Vendor code depends on the old method signature at link time
+            status_t    set(audio_stream_type_t streamType,
+                            uint32_t sampleRate,
+                            audio_format_t format,
+                            uint32_t channelMask,
                             size_t frameCount   = 0,
                             audio_output_flags_t flags = AUDIO_OUTPUT_FLAG_NONE,
                             callback_t cbf      = NULL,
@@ -402,6 +432,19 @@ public:
      */
             ssize_t     setBufferSizeInFrames(size_t size);
 
+    /* Returns the start threshold on the buffer for audio streaming
+     * or a negative value if the AudioTrack is not initialized.
+     */
+            ssize_t     getStartThresholdInFrames() const;
+
+    /* Sets the start threshold in frames on the buffer for audio streaming.
+     *
+     * May be clamped internally. Returns the actual value set, or a negative
+     * value if the AudioTrack is not initialized or if the input
+     * is zero or greater than INT_MAX.
+     */
+            ssize_t     setStartThresholdInFrames(size_t startThresholdInFrames);
+
     /* Return the static buffer specified in constructor or set(), or 0 for streaming mode */
             sp<IMemory> sharedBuffer() const { return mSharedBuffer; }
 
@@ -438,6 +481,19 @@ public:
      */
             void        stop();
             bool        stopped() const;
+
+    /* Call stop() and then wait for all of the callbacks to return.
+     * It is safe to call this if stop() or pause() has already been called.
+     *
+     * This function is called from the destructor. But since AudioTrack
+     * is ref counted, the destructor may be called later than desired.
+     * This can be called explicitly as part of closing an AudioTrack
+     * if you want to be certain that callbacks have completely finished.
+     *
+     * This is not thread safe and should only be called from one thread,
+     * ideally as the AudioTrack is being closed.
+     */
+            void        stopAndJoinCallbacks();
 
     /* Flush a stopped or paused track. All previously buffered data is discarded immediately.
      * This has the effect of draining the buffers without mixing or output.
@@ -486,6 +542,18 @@ public:
      */
             uint32_t    getOriginalSampleRate() const;
 
+    /* Sets the Dual Mono mode presentation on the output device. */
+            status_t    setDualMonoMode(audio_dual_mono_mode_t mode);
+
+    /* Returns the Dual Mono mode presentation setting. */
+            status_t    getDualMonoMode(audio_dual_mono_mode_t* mode) const;
+
+    /* Sets the Audio Description Mix level in dB. */
+            status_t    setAudioDescriptionMixLevel(float leveldB);
+
+    /* Returns the Audio Description Mix level in dB. */
+            status_t    getAudioDescriptionMixLevel(float* leveldB) const;
+
     /* Set source playback rate for timestretch
      * 1.0 is normal speed: < 1.0 is slower, > 1.0 is faster
      * 1.0 is normal pitch: < 1.0 is lower pitch, > 1.0 is higher pitch
@@ -499,7 +567,7 @@ public:
             status_t    setPlaybackRate(const AudioPlaybackRate &playbackRate);
 
     /* Return current playback rate */
-            const AudioPlaybackRate& getPlaybackRate() const;
+            const AudioPlaybackRate& getPlaybackRate();
 
     /* Enables looping and sets the start and end points of looping.
      * Only supported for static buffer mode.
@@ -621,9 +689,7 @@ public:
      *  handle on audio hardware output, or AUDIO_IO_HANDLE_NONE if the
      *  track needed to be re-created but that failed
      */
-private:
             audio_io_handle_t    getOutput() const;
-public:
 
     /* Selects the audio device to use for output of this AudioTrack. A value of
      * AUDIO_PORT_HANDLE_NONE indicates default (AudioPolicyManager) routing.
@@ -947,6 +1013,23 @@ public:
      */
             audio_port_handle_t getPortId() const { return mPortId; };
 
+    /* Sets the LogSessionId field which is used for metrics association of
+     * this object with other objects. A nullptr or empty string clears
+     * the logSessionId.
+     */
+            void setLogSessionId(const char *logSessionId);
+
+    /* Sets the playerIId field to associate the AudioTrack with an interface managed by
+     * AudioService.
+     *
+     * If this value is not set, then the playerIId is reported as -1
+     * (not associated with an AudioService player interface).
+     *
+     * For metrics purposes, we keep the playerIId association in the native
+     * client AudioTrack to improve the robustness under track restoration.
+     */
+            void setPlayerIId(int playerIId);
+
             void setAudioTrackCallback(const sp<media::IAudioTrackCallback>& callback) {
                 mAudioTrackCallback->setAudioTrackCallback(callback);
             }
@@ -1043,8 +1126,14 @@ public:
 
             void     updateRoutedDeviceId_l();
 
+            /* Sets the Dual Mono mode presentation on the output device. */
+            status_t setDualMonoMode_l(audio_dual_mono_mode_t mode);
+
+            /* Sets the Audio Description Mix level in dB. */
+            status_t setAudioDescriptionMixLevel_l(float leveldB);
+
     // Next 4 fields may be changed if IAudioTrack is re-created, but always != 0
-    sp<IAudioTrack>         mAudioTrack;
+    sp<media::IAudioTrack>  mAudioTrack;
     sp<IMemory>             mCblkMemory;
     audio_track_cblk_t*     mCblk;                  // re-load after mLock.unlock()
     audio_io_handle_t       mOutput = AUDIO_IO_HANDLE_NONE; // from AudioSystem::getOutputForAttr()
@@ -1075,8 +1164,9 @@ public:
 
     // constant after constructor or set()
     audio_format_t          mFormat;                // as requested by client, not forced to 16-bit
-    audio_stream_type_t     mStreamType;            // mStreamType == AUDIO_STREAM_DEFAULT implies
-                                                    // this AudioTrack has valid attributes
+    // mOriginalStreamType == AUDIO_STREAM_DEFAULT implies this AudioTrack has valid attributes
+    audio_stream_type_t     mOriginalStreamType = AUDIO_STREAM_DEFAULT;
+    audio_stream_type_t     mStreamType = AUDIO_STREAM_DEFAULT;
     uint32_t                mChannelCount;
     audio_channel_mask_t    mChannelMask;
     sp<IMemory>             mSharedBuffer;
@@ -1210,6 +1300,19 @@ public:
     int                     mAuxEffectId;
     audio_port_handle_t     mPortId;                    // Id from Audio Policy Manager
 
+    /**
+     * mPlayerIId is the player id of the AudioTrack used by AudioManager.
+     * For an AudioTrack created by the Java interface, this is generally set once.
+     */
+    int                     mPlayerIId = -1;  // AudioManager.h PLAYER_PIID_INVALID
+
+    /**
+     * mLogSessionId is a string identifying this AudioTrack for the metrics service.
+     * It may be unique or shared with other objects.  An empty string means the
+     * logSessionId is not set.
+     */
+    std::string             mLogSessionId{};
+
     mutable Mutex           mLock;
 
     int                     mPreviousPriority;          // before start()
@@ -1248,10 +1351,13 @@ private:
 
     sp<DeathNotifier>       mDeathNotifier;
     uint32_t                mSequence;              // incremented for each new IAudioTrack attempt
-    uid_t                   mClientUid;
-    pid_t                   mClientPid;
+    AttributionSourceState mClientAttributionSource;
 
     wp<AudioSystem::AudioDeviceCallback> mDeviceCallback;
+
+    // Cached values to restore along with the AudioTrack.
+    audio_dual_mono_mode_t mDualMonoMode = AUDIO_DUAL_MONO_MODE_OFF;
+    float mAudioDescriptionMixLeveldB = -std::numeric_limits<float>::infinity();
 
 private:
     class MediaMetrics {

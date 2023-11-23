@@ -12,17 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "TestSmsRetrieverApp",
 
-    srcs: ["src/**/*.kt", "src/**/*.java"],
+    srcs: [
+        "src/**/*.kt",
+        "src/**/*.java",
+    ],
 
     static_libs: [
-        "compatibility-device-util-axt", "hamcrest-library",
+        "compatibility-device-util-axt",
+        "hamcrest-library",
     ],
 
     test_suites: [
         "cts",
+        "general-tests",
         "mts",
     ],
 }

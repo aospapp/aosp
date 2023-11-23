@@ -15,15 +15,17 @@
  */
 package com.android.managedprovisioning.preprovisioning.terms.adapters;
 
-import static org.hamcrest.CoreMatchers.sameInstance;
-import static org.junit.Assert.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 
 import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
+import com.android.managedprovisioning.common.StylerHelper;
+import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.preprovisioning.terms.TermsDocument;
 
 import org.junit.Before;
@@ -36,34 +38,43 @@ import java.util.List;
 
 @SmallTest
 public class TermsListAdapterTest {
+    private static final TermsDocument GENERIC_TERMS =
+            TermsDocument.createInstance("h0", "c0");
+    private static final TermsDocument DOC_1 = TermsDocument.createInstance("h1", "c1");
+    private static final TermsDocument DOC_2 = TermsDocument.createInstance("h2", "c2");
+    private static final TermsDocument DOC_3 = TermsDocument.createInstance("h3", "c3");
+    private static final List<TermsDocument> DOCS = Arrays.asList(DOC_1, DOC_2, DOC_3);
+
     @Mock private LayoutInflater mLayoutInflater;
     @Mock private AccessibilityContextMenuMaker mContextMenuMaker;
     @Mock private Context mContext;
 
-    private List<TermsDocument> mDocs;
-    private TermsListAdapter.GroupExpandedInfo mGroupInfoAlwaysCollapsed = i -> false;
+    private final TermsListAdapter.TermsBridge mTermsBridge =
+            new TermsListAdapter.TermsBridge() {
+                @Override
+                public boolean isTermExpanded(int groupPosition) {
+                    return false;
+                }
+
+                @Override
+                public void onTermExpanded(int groupPosition, boolean expanded) {}
+
+                @Override
+                public void onLinkClicked(Intent intent) {}
+            };
+    private final Utils mUtils = new Utils();
+    private final StylerHelper mStylerHelper = new StylerHelper();
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         MockitoAnnotations.initMocks(this);
-
-        TermsDocument doc1 = TermsDocument.createInstance("h1", "c1");
-        TermsDocument doc2 = TermsDocument.createInstance("h2", "c2");
-        TermsDocument doc3 = TermsDocument.createInstance("h3", "c3");
-        mDocs = Arrays.asList(doc1, doc2, doc3);
     }
 
     @Test
-    public void returnsCorrectDocument() {
-        // given: an adapter
-        TermsListAdapter adapter = new TermsListAdapter(mContext, mDocs, mLayoutInflater,
-                mContextMenuMaker, mGroupInfoAlwaysCollapsed, /* statusBarColor= */ 1);
+    public void getItemCount_hasExpectedNumberOfDocuments() {
+        TermsListAdapter adapter = new TermsListAdapter(mContext, GENERIC_TERMS, DOCS,
+                mLayoutInflater, mContextMenuMaker, mTermsBridge, mUtils, mStylerHelper);
 
-        // when: asked for a document from the initially passed-in list
-        for (int i = 0; i < mDocs.size(); i++) {
-            // then: elements from that list are returned
-            assertThat(adapter.getChild(i, 0), sameInstance(mDocs.get(i)));
-            assertThat(adapter.getGroup(i), sameInstance(mDocs.get(i)));
-        }
+        assertThat(adapter.getItemCount()).isEqualTo(4);
     }
 }

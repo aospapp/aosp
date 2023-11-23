@@ -18,12 +18,15 @@ class RootfsHandler(object):
     """An object to provide ChromeOS root FS related actions.
 
     It provides functions to verify the integrity of the root FS.
+
+    @type os_if: autotest_lib.client.cros.faft.utils.os_interface.OSInterface
     """
 
-    def __init__(self):
-        self.os_if = None
+    def __init__(self, os_if):
+        self.os_if = os_if
         self.root_dev = None
         self.kernel_dump_file = None
+        self.initialized = False
 
     def verify_rootfs(self, section):
         """Verifies the integrity of the root FS.
@@ -73,11 +76,8 @@ class RootfsHandler(object):
             self.os_if.run_shell_command_get_output(
                     'dmsetup remove %s' % _DM_DEVICE)
 
-    def init(self, os_if):
-        """Initialize the rootfs handler object.
-
-        @param os_if: OS interface object reference.
-        """
-        self.os_if = os_if
-        self.root_dev = os_if.get_root_dev()
-        self.kernel_dump_file = os_if.state_dir_file(TMP_FILE_NAME)
+    def init(self):
+        """Initialize the rootfs handler object."""
+        self.root_dev = self.os_if.get_root_dev()
+        self.kernel_dump_file = self.os_if.state_dir_file(TMP_FILE_NAME)
+        self.initialized = True

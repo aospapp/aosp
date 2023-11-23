@@ -181,11 +181,6 @@ void print_usage(char* cmd) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc > 9) {
-        print_usage(argv[0]);
-        exit(1);
-    }
-
     uint8_t* program = NULL;
     uint32_t program_len;
     const char* filename = NULL;

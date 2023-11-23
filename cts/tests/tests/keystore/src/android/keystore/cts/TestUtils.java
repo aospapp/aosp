@@ -18,12 +18,16 @@ package android.keystore.cts;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.pm.FeatureInfo;
 import android.os.SystemProperties;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
 import android.test.MoreAsserts;
+
+import com.android.internal.util.HexDump;
+
 import junit.framework.Assert;
 
 import java.io.ByteArrayOutputStream;
@@ -58,6 +62,7 @@ import java.security.spec.EllipticCurve;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -77,6 +82,54 @@ abstract class TestUtils extends Assert {
     static final long DAY_IN_MILLIS = 1000 * 60 * 60 * 24;
 
     private TestUtils() {}
+
+    // Returns 0 if not implemented. Otherwise returns the feature version.
+    //
+    static int getFeatureVersionKeystore(Context appContext) {
+        PackageManager pm = appContext.getPackageManager();
+
+        int featureVersionFromPm = 0;
+        if (pm.hasSystemFeature(PackageManager.FEATURE_HARDWARE_KEYSTORE)) {
+            FeatureInfo info = null;
+            FeatureInfo[] infos = pm.getSystemAvailableFeatures();
+            for (int n = 0; n < infos.length; n++) {
+                FeatureInfo i = infos[n];
+                if (i.name.equals(PackageManager.FEATURE_HARDWARE_KEYSTORE)) {
+                    info = i;
+                    break;
+                }
+            }
+            if (info != null) {
+                featureVersionFromPm = info.version;
+            }
+        }
+
+        return featureVersionFromPm;
+    }
+
+    // Returns 0 if not implemented. Otherwise returns the feature version.
+    //
+    static int getFeatureVersionKeystoreStrongBox(Context appContext) {
+        PackageManager pm = appContext.getPackageManager();
+
+        int featureVersionFromPm = 0;
+        if (pm.hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE)) {
+            FeatureInfo info = null;
+            FeatureInfo[] infos = pm.getSystemAvailableFeatures();
+            for (int n = 0; n < infos.length; n++) {
+                FeatureInfo i = infos[n];
+                if (i.name.equals(PackageManager.FEATURE_STRONGBOX_KEYSTORE)) {
+                    info = i;
+                    break;
+                }
+            }
+            if (info != null) {
+                featureVersionFromPm = info.version;
+            }
+        }
+
+        return featureVersionFromPm;
+    }
 
     /**
      * Returns whether 3DES KeyStore tests should run on this device. 3DES support was added in
@@ -180,7 +233,10 @@ abstract class TestUtils extends Assert {
         PrivateKey keystorePrivateKey = privEntry.getPrivateKey();
         PublicKey keystorePublicKey = cert.getPublicKey();
         assertEquals(keyPair.getPrivate(), keystorePrivateKey);
-        assertEquals(keyPair.getPublic(), keystorePublicKey);
+        assertTrue("Key1:\n" + HexDump.dumpHexString(keyPair.getPublic().getEncoded())
+                + "\nKey2:\n" + HexDump.dumpHexString(keystorePublicKey.getEncoded()) + "\n",
+                Arrays.equals(keyPair.getPublic().getEncoded(), keystorePublicKey.getEncoded()));
+
 
         assertEquals(
                 "Public key used to sign certificate should have the same algorithm as in KeyPair",
@@ -925,6 +981,28 @@ abstract class TestUtils extends Assert {
             return new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
                     .setDigests(digest)
                     .setSignaturePaddings(padding)
+                    .build();
+        } else {
+            throw new IllegalArgumentException(
+                    "Unsupported signature algorithm: " + signatureAlgorithm);
+        }
+    }
+
+    static KeyProtection getMinimalWorkingImportParametersWithLimitedUsageForSigningingWith(
+            String signatureAlgorithm, int maxUsageCount) {
+        String keyAlgorithm = getSignatureAlgorithmKeyAlgorithm(signatureAlgorithm);
+        String digest = getSignatureAlgorithmDigest(signatureAlgorithm);
+        if (KeyProperties.KEY_ALGORITHM_EC.equalsIgnoreCase(keyAlgorithm)) {
+            return new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+                    .setDigests(digest)
+                    .setMaxUsageCount(maxUsageCount)
+                    .build();
+        } else if (KeyProperties.KEY_ALGORITHM_RSA.equalsIgnoreCase(keyAlgorithm)) {
+            String padding = getSignatureAlgorithmPadding(signatureAlgorithm);
+            return new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+                    .setDigests(digest)
+                    .setSignaturePaddings(padding)
+                    .setMaxUsageCount(maxUsageCount)
                     .build();
         } else {
             throw new IllegalArgumentException(

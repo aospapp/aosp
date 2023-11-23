@@ -87,4 +87,6 @@ public int hashCode();
 
 @java.lang.SafeVarargs
 @libcore.util.NonNull public static <E> java.util.Set<@libcore.util.NonNull E> of(E @libcore.util.NonNull ... elements) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public static <E> java.util.Set<E> copyOf(@libcore.util.NonNull java.util.Collection<? extends E> coll)  { throw new RuntimeException("Stub!"); }
 }

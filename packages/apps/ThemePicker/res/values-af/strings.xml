@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Style en muurpapiere"</string>
+    <string name="app_name" msgid="1647136562008520313">"Muurpapier en styl"</string>
     <string name="theme_title" msgid="2144932106319405101">"Styl"</string>
     <string name="clock_title" msgid="2126046720254613991">"Horlosie"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Rooster"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Muurpapier"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Programrooster"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Pas toe"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Tik om te wysig"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Hou huidige muurpapier"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Pas toe"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Bladsy <xliff:g id="ID_1">%1$d</xliff:g> van <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Volgende"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Vorige"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Stylvoorskou"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Roostervoorskou"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Lettertipevoorskou"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Ikoonvoorskou"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Kleurvoorskou"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Vormvoorskou"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, tans toegepas"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, word tans toegepas en voorbeskou"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, word tans voorbeskou"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Muurpapier"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Voeg jou gunstelinglettertipes op elke skerm by"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Kies \'n roostergrootte"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g> x <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"Styl is toegepas"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"Horlosie is toegepas"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Styl is suksesvol gestel"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Horlosie is suksesvol gestel"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"Rooster is suksesvol gestel"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"Kon nie die styl toepas nie"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Volgende"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Vorige"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Gepasmaak"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"Gepasmaakte <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Gepasmaakte styl"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Vee uit"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"Nee, dankie"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g>-horlosievoorskou"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Oeps! Iets het skeefgeloop."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Kleur/ikone"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Voorskou van lettertipe, ikone, programvorm en kleur"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Gepasmaakte lettertipe"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Gepasmaakte ikoon"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Gepasmaakte kleur"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Gepasmaakte vorm"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Gepasmaakte stylnaam"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Donkertema"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Tydelik gedeaktiveer vanweë Batterybespaarder"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Tema-ikone"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Verander programrooster"</string>
 </resources>

@@ -22,6 +22,7 @@
 #include <health2/service.h>
 #include <healthd/healthd.h>
 #include <hidl/HidlTransportSupport.h>
+#include <pixelhealth/BatteryDefender.h>
 #include <pixelhealth/BatteryMetricsLogger.h>
 #include <pixelhealth/BatteryThermalControl.h>
 #include <pixelhealth/CycleCountBackupRestore.h>
@@ -41,6 +42,7 @@ using android::hardware::health::V2_0::DiskStats;
 using android::hardware::health::V2_0::StorageAttribute;
 using android::hardware::health::V2_0::StorageInfo;
 using ::device::google::crosshatch::health::BatteryRechargingControl;
+using hardware::google::pixel::health::BatteryDefender;
 using hardware::google::pixel::health::BatteryMetricsLogger;
 using hardware::google::pixel::health::BatteryThermalControl;
 using hardware::google::pixel::health::CycleCountBackupRestore;
@@ -51,6 +53,9 @@ constexpr char kBatteryResistance[] = "/sys/class/power_supply/maxfg/resistance"
 constexpr char kBatteryOCV[] = "/sys/class/power_supply/maxfg/voltage_ocv";
 constexpr char kVoltageAvg[] = "/sys/class/power_supply/maxfg/voltage_avg";
 
+#define WLC_DIR "/sys/class/power_supply/wireless"
+
+static BatteryDefender battDefender(WLC_DIR "/online");
 static BatteryRechargingControl battRechargingControl;
 static BatteryThermalControl battThermalControl("sys/devices/virtual/thermal/tz-by-name/soc/mode");
 static BatteryMetricsLogger battMetricsLogger(kBatteryResistance, kBatteryOCV);
@@ -71,6 +76,9 @@ const std::string kUfsHealthLifetimeB{UFS_DIR "/health/lifetimeB"};
 const std::string kUfsVersion{UFS_DIR "/version"};
 const std::string kDiskStatsFile{"/sys/block/sda/stat"};
 const std::string kUFSName{"UFS0"};
+
+static bool needs_wlc_updates = false;
+constexpr char kWlcCapacity[]{WLC_DIR "/capacity"};
 
 std::ifstream assert_open(const std::string &path) {
     std::ifstream stream(path);
@@ -103,6 +111,12 @@ void fill_ufs_storage_attribute(StorageAttribute *attr) {
 
 }  // anonymous namespace
 
+static bool FileExists(const std::string &filename) {
+    struct stat buffer;
+
+    return stat(filename.c_str(), &buffer) == 0;
+}
+
 void healthd_board_init(struct healthd_config *config) {
     using ::device::google::crosshatch::health::kChargerStatus;
 
@@ -110,6 +124,8 @@ void healthd_board_init(struct healthd_config *config) {
     ccBackupRestoreMAX.Restore();
 
     config->batteryStatusPath = kChargerStatus.c_str();
+
+    needs_wlc_updates = FileExists(kWlcCapacity);
 }
 
 int healthd_board_battery_update(struct android::BatteryProperties *props) {
@@ -120,9 +136,12 @@ int healthd_board_battery_update(struct android::BatteryProperties *props) {
     shutdownMetrics.logShutdownVoltage(props);
     ccBackupRestoreBMS.Backup(props->batteryLevel);
     ccBackupRestoreMAX.Backup(props->batteryLevel);
-    if (!android::base::WriteStringToFile(std::to_string(props->batteryLevel),
-                                          "/sys/class/power_supply/wireless/capacity"))
+    battDefender.update(props);
+
+    if (needs_wlc_updates &&
+        !android::base::WriteStringToFile(std::to_string(props->batteryLevel), kWlcCapacity))
         LOG(INFO) << "Unable to write battery level to wireless capacity";
+
     return 0;
 }
 

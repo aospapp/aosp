@@ -18,8 +18,14 @@ package android.content.pm.cts;
 
 import static android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL;
 
+import static com.android.compatibility.common.util.MatcherUtils.assertThrows;
+import static com.android.compatibility.common.util.MatcherUtils.hasMessageThat;
+import static com.android.compatibility.common.util.MatcherUtils.instanceOf;
+
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeNotNull;
 
@@ -32,6 +38,7 @@ import android.content.pm.PackageInstaller.SessionInfo;
 import android.content.pm.PackageInstaller.SessionParams;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.pm.cts.util.AbandonAllPackageSessionsRule;
 import android.net.Uri;
 import android.platform.test.annotations.AppModeFull;
 
@@ -40,10 +47,10 @@ import androidx.test.runner.AndroidJUnit4;
 
 import libcore.io.Streams;
 
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -53,6 +60,10 @@ import java.util.List;
 @RunWith(AndroidJUnit4.class)
 @AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class InstallSessionTransferTest {
+
+    @Rule
+    public AbandonAllPackageSessionsRule mAbandonSessionsRule = new AbandonAllPackageSessionsRule();
+
     /**
      * Get the sessionInfo if this package owns the session.
      *
@@ -81,7 +92,7 @@ public class InstallSessionTransferTest {
      */
     private static String getPackageInstallerPackageName() throws Exception {
         Intent installerIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
-        installerIntent.setDataAndType(Uri.fromFile(new File("foo.apk")),
+        installerIntent.setDataAndType(Uri.parse("content://com.example/"),
                 "application/vnd.android.package-archive");
 
         ResolveInfo installer = InstrumentationRegistry.getInstrumentation().getTargetContext()
@@ -218,13 +229,47 @@ public class InstallSessionTransferTest {
         assumeNotNull(packageInstallerPackage);
 
         session.openWrite("danglingWriteStream", 0, 1);
-        try {
-            // This will fail as the danglingWriteStream is still open
-            session.transfer(packageInstallerPackage);
-            fail();
-        } catch (SecurityException e) {
-            // Expected
-        }
+
+        // This will fail as the danglingWriteStream is still open
+        assertThrows(instanceOf(IllegalStateException.class,
+                hasMessageThat(containsString("Package is not valid"))),
+                () -> session.transfer(packageInstallerPackage));
+
+        session.abandon();
+    }
+
+    @Test
+    public void transfer_toNullPackageName_shouldFail() throws Exception {
+        Session session = createSession();
+        String packageInstallerPackage = getPackageInstallerPackageName();
+        assumeNotNull(packageInstallerPackage);
+
+        assertThrows(instanceOf(IllegalArgumentException.class, notNullValue()),
+                () -> session.transfer(null));
+
+        session.abandon();
+    }
+
+    @Test
+    public void transfer_toEmptyStringPackageName_shouldFail() throws Exception {
+        Session session = createSession();
+        String packageInstallerPackage = getPackageInstallerPackageName();
+        assumeNotNull(packageInstallerPackage);
+
+        assertThrows(instanceOf(IllegalArgumentException.class, notNullValue()),
+                () -> session.transfer(""));
+
+        session.abandon();
+    }
+
+    @Test
+    public void transfer_toInvalidPackageName_shouldFail() throws Exception {
+        Session session = createSession();
+        String packageInstallerPackage = getPackageInstallerPackageName();
+        assumeNotNull(packageInstallerPackage);
+
+        assertThrows(instanceOf(PackageManager.NameNotFoundException.class, notNullValue()),
+                () -> session.transfer("../" + packageInstallerPackage));
 
         session.abandon();
     }
@@ -240,15 +285,13 @@ public class InstallSessionTransferTest {
             out.flush();
         }
 
-        try {
-            // This will fail as the content of 'invalid' is not a valid APK
-            session.transfer(packageInstallerPackage);
-            fail();
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
+        // This will pass even the content of 'invalid' is not a valid APK
+        session.transfer(packageInstallerPackage);
 
-        session.abandon();
+        // The session transfers successfully. And then, it doesn't belong to the this test.
+        assertThrows(instanceOf(SecurityException.class,
+                hasMessageThat(containsString("Session does not belong to uid"))),
+                () -> session.abandon());
     }
 
     @Test
@@ -257,16 +300,14 @@ public class InstallSessionTransferTest {
         String packageInstallerPackage = getPackageInstallerPackageName();
         assumeNotNull(packageInstallerPackage);
 
-        writeApk(session, "CtsContentEmptyTestApp");
+        writeApk(session, "CtsContentLongPackageNameTestApp");
 
-        try {
-            // This will fail as the session contains the a apk from the wrong package
-            session.transfer(packageInstallerPackage);
-            fail();
-        } catch (SecurityException e) {
-            // expected
-        }
+        // This will pass even package name is too long
+        session.transfer(packageInstallerPackage);
 
-        session.abandon();
+        // The session transfers successfully. And then, it doesn't belong to the this test.
+        assertThrows(instanceOf(SecurityException.class,
+                hasMessageThat(containsString("Session does not belong to uid"))),
+                () -> session.abandon());
     }
 }

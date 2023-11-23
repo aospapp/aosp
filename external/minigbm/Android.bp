@@ -1,29 +1,55 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+package {
+    default_applicable_licenses: ["external_minigbm_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_minigbm_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-MIT",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_defaults {
     name: "minigbm_defaults",
 
     srcs: [
         "amdgpu.c",
         "drv.c",
-        "evdi.c",
+        "dumb_driver.c",
         "exynos.c",
         "helpers_array.c",
         "helpers.c",
         "i915.c",
-        "marvell.c",
         "mediatek.c",
-        "meson.c",
         "msm.c",
-        "nouveau.c",
-        "radeon.c",
         "rockchip.c",
-        "tegra.c",
-        "udl.c",
         "vc4.c",
-        "vgem.c",
-        "virtio_gpu.c",
+        "virtgpu.c",
+        "virtgpu_cross_domain.c",
+        "virtgpu_virgl.c",
     ],
 
     cflags: [
@@ -36,9 +62,14 @@ cc_defaults {
         "-Wcast-align",
         "-Wno-unused-parameter",
     ],
-    cppflags: ["-std=c++14"],
 
-    vendor: true,
+    cppflags: ["-std=c++14"],
+}
+
+cc_defaults {
+    name: "minigbm_cros_gralloc_defaults",
+
+    defaults: ["minigbm_defaults"],
 
     header_libs: [
         "libhardware_headers",
@@ -54,6 +85,18 @@ cc_defaults {
         "libsystem_headers",
     ],
 
+    srcs: [
+        "cros_gralloc/cros_gralloc_buffer.cc",
+        "cros_gralloc/cros_gralloc_helpers.cc",
+        "cros_gralloc/cros_gralloc_driver.cc",
+    ],
+
+    static_libs: ["libarect"],
+
+    export_static_lib_headers: ["libarect"],
+
+    vendor: true,
+
     shared_libs: [
         "libcutils",
         "libdrm",
@@ -62,28 +105,13 @@ cc_defaults {
         "liblog",
     ],
 
-    static_libs: ["libarect"],
-
-    export_static_lib_headers: ["libarect"],
+    relative_install_path: "hw",
 }
 
 cc_defaults {
-    name: "minigbm_cros_gralloc_defaults",
+    name: "gbm_defaults",
 
     defaults: ["minigbm_defaults"],
-
-    srcs: [
-        "cros_gralloc/cros_gralloc_buffer.cc",
-        "cros_gralloc/cros_gralloc_helpers.cc",
-        "cros_gralloc/cros_gralloc_driver.cc",
-    ]
-}
-
-cc_library_static {
-    name: "libminigbm",
-    defaults: ["minigbm_defaults"],
-    shared_libs: ["liblog"],
-    static_libs: ["libdrm"],
 
     srcs: [
         "gbm.c",
@@ -93,13 +121,44 @@ cc_library_static {
     export_include_dirs: ["."],
 }
 
-cc_library_static {
-    name: "libminigbm_cros_gralloc",
+cc_library {
+    name: "libgbm",
+    defaults: ["gbm_defaults"],
+    host_supported: true,
+
+    target: {
+        host: {
+            // Avoid linking to another host copy of libdrm; this library will cause
+            // binary GPU drivers to be loaded from the host, which might be linked
+            // to a system copy of libdrm, which conflicts with the AOSP one
+            allow_undefined_symbols: true,
+            header_libs: ["libdrm_headers"],
+        },
+        android: {
+            shared_libs: [
+                "libdrm",
+                "liblog"
+            ],
+        },
+    },
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+}
+
+cc_defaults {
+    name: "libminigbm_cros_gralloc_defaults",
     defaults: ["minigbm_cros_gralloc_defaults"],
     shared_libs: ["liblog"],
     static_libs: ["libdrm"],
 
     export_include_dirs: ["."],
+}
+
+cc_library_static {
+    name: "libminigbm_cros_gralloc",
+    defaults: ["libminigbm_cros_gralloc_defaults"],
 }
 
 cc_library_shared {
@@ -129,4 +188,19 @@ cc_library_shared {
     defaults: ["minigbm_cros_gralloc_defaults"],
     cflags: ["-DDRV_MESON"],
     srcs: ["cros_gralloc/gralloc0/gralloc0.cc"],
+}
+
+cc_library_shared {
+    name: "gralloc.minigbm_msm",
+    defaults: ["minigbm_cros_gralloc_defaults"],
+    cflags: ["-DDRV_MSM"],
+    srcs: [
+        "cros_gralloc/gralloc0/gralloc0.cc",
+    ],
+}
+
+cc_library_static {
+    name: "libminigbm_cros_gralloc_msm",
+    defaults: ["libminigbm_cros_gralloc_defaults"],
+    cflags: ["-DDRV_MSM"],
 }

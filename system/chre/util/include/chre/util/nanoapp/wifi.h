@@ -31,6 +31,16 @@ constexpr size_t kMaxSsidStrLen = CHRE_WIFI_SSID_MAX_LEN + 1;
 constexpr size_t kBssidStrLen = 18;
 
 /**
+ * Logs the contents of a chreWifiScanResult using the LOGX macro.
+ *
+ * @param result The WiFi scan result to log.
+ * @param logSsidOnly If true, only log the SSID of the WiFi scan result,
+ * otherwise logs other fields as well.
+ */
+void logChreWifiResult(const chreWifiScanResult &result,
+                       bool logSsidOnly = false);
+
+/**
  * @param buffer a pointer to a buffer to format into.
  * @param bufferLen a buffer to format into.
  * @param a pointer to SSID data.

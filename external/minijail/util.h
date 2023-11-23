@@ -16,6 +16,8 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include "libsyscalls.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -142,7 +144,12 @@ static inline bool debug_logging_allowed(void) {
 #endif
 }
 
-int lookup_syscall(const char *name);
+static inline size_t get_num_syscalls(void)
+{
+	return syscall_table_size;
+}
+
+int lookup_syscall(const char *name, size_t *ind);
 const char *lookup_syscall_name(int nr);
 
 long int parse_single_constant(char *constant_str, char **endptr);

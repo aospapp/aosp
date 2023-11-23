@@ -1,15 +1,17 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import httplib
 import logging
 import os
+import pprint
 import re
 import socket
-import xmlrpclib
-import pprint
 import sys
+
+import six.moves.http_client
+import six.moves.xmlrpc_client
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import logging_manager
@@ -19,7 +21,7 @@ from autotest_lib.client.cros import constants
 from autotest_lib.server import autotest
 from autotest_lib.server.cros.multimedia import assistant_facade_adapter
 from autotest_lib.server.cros.multimedia import audio_facade_adapter
-from autotest_lib.server.cros.multimedia import bluetooth_hid_facade_adapter
+from autotest_lib.server.cros.multimedia import bluetooth_facade_adapter
 from autotest_lib.server.cros.multimedia import browser_facade_adapter
 from autotest_lib.server.cros.multimedia import cfm_facade_adapter
 from autotest_lib.server.cros.multimedia import display_facade_adapter
@@ -81,7 +83,10 @@ class RemoteFacadeProxy(object):
     XMLRPC_RETRY_DELAY = 10
     REBOOT_TIMEOUT = 60
 
-    def __init__(self, host, no_chrome, extra_browser_args=None,
+    def __init__(self,
+                 host,
+                 no_chrome,
+                 extra_browser_args=None,
                  disable_arc=False):
         """Construct a RemoteFacadeProxy.
 
@@ -176,6 +181,9 @@ class RemoteFacadeProxy(object):
 
             return value
 
+        # Pop the no_retry flag (since rpcs won't expect it)
+        no_retry = dargs.pop('__no_retry', False)
+
         try:
             # TODO(ihf): This logs all traffic from server to client. Make
             # the spew optional.
@@ -186,8 +194,8 @@ class RemoteFacadeProxy(object):
             try:
                 return call_rpc_with_log()
             except (socket.error,
-                    xmlrpclib.ProtocolError,
-                    httplib.BadStatusLine,
+                    six.moves.xmlrpc_client.ProtocolError,
+                    six.moves.http_client.BadStatusLine,
                     WebSocketConnectionClosedException):
                 # Reconnect the RPC server in case connection lost, e.g. reboot.
                 self.connect()
@@ -196,9 +204,15 @@ class RemoteFacadeProxy(object):
                             reconnect=True, retry=False,
                             extra_browser_args=self._extra_browser_args,
                             disable_arc=self._disable_arc)
-                # Try again.
-                logging.warning('Retrying RPC %s.', rpc)
-                return call_rpc_with_log()
+
+                # Try again unless we explicitly disable retry for this rpc.
+                # If we're not retrying, re-raise the exception
+                if no_retry:
+                    logging.warning('Not retrying RPC %s.', rpc)
+                    raise
+                else:
+                    logging.warning('Retrying RPC %s.', rpc)
+                    return call_rpc_with_log()
         except:
             # Process the log if any. It is helpful for debug.
             process_log()
@@ -238,8 +252,8 @@ class RemoteFacadeProxy(object):
 
         """
         @retry.retry((socket.error,
-                      xmlrpclib.ProtocolError,
-                      httplib.BadStatusLine),
+                      six.moves.xmlrpc_client.ProtocolError,
+                      six.moves.http_client.BadStatusLine),
                       timeout_min=self.XMLRPC_RETRY_TIMEOUT / 60.0,
                       delay_sec=self.XMLRPC_RETRY_DELAY)
         def connect_with_retries():
@@ -317,8 +331,13 @@ class RemoteFacadeFactory(object):
 
     """
 
-    def __init__(self, host, no_chrome=False, install_autotest=True,
-                 results_dir=None, extra_browser_args=None, disable_arc=False):
+    def __init__(self,
+                 host,
+                 no_chrome=False,
+                 install_autotest=True,
+                 results_dir=None,
+                 extra_browser_args=None,
+                 disable_arc=False):
         """Construct a RemoteFacadeFactory.
 
         @param host: Host object representing a remote host.
@@ -393,9 +412,9 @@ class RemoteFacadeFactory(object):
         return browser_facade_adapter.BrowserFacadeRemoteAdapter(self._proxy)
 
 
-    def create_bluetooth_hid_facade(self):
-        """"Creates a bluetooth hid facade object."""
-        return bluetooth_hid_facade_adapter.BluetoothHIDFacadeRemoteAdapter(
+    def create_bluetooth_facade(self):
+        """"Creates a bluetooth facade object."""
+        return bluetooth_facade_adapter.BluetoothFacadeRemoteAdapter(
                 self._client, self._proxy)
 
 
@@ -411,8 +430,8 @@ class RemoteFacadeFactory(object):
 
 
     def create_kiosk_facade(self):
-         """"Creates a kiosk facade object."""
-         return kiosk_facade_adapter.KioskFacadeRemoteAdapter(
+        """"Creates a kiosk facade object."""
+        return kiosk_facade_adapter.KioskFacadeRemoteAdapter(
                 self._client, self._proxy)
 
 

@@ -26,6 +26,7 @@ import android.graphics.RectF;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.DngCreator;
@@ -35,16 +36,20 @@ import android.hardware.camera2.cts.rs.BitmapUtils;
 import android.hardware.camera2.cts.rs.RawConverter;
 import android.hardware.camera2.cts.rs.RenderScriptSingleton;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
+import android.hardware.camera2.params.InputConfiguration;
 import android.location.Location;
 import android.media.ExifInterface;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.ImageWriter;
 import android.os.ConditionVariable;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
 import android.view.Surface;
+
+import com.android.ex.camera2.blocking.BlockingSessionCallback;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -80,7 +85,10 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
 
     private static final double IMAGE_DIFFERENCE_TOLERANCE = 65;
     private static final int DEFAULT_PATCH_DIMEN = 512;
-    private static final int AE_TIMEOUT_MS = 2000;
+    private static final int AE_TIMEOUT_MS = 3000;
+    private static final int MAX_RESOLUTION_CAPTURE_WAIT_TIMEOUT_SCALE = 4;
+    private static final int MAX_RESOLUTION_CAPTURE_WAIT_TIMEOUT_MS =
+            CAPTURE_WAIT_TIMEOUT_MS * MAX_RESOLUTION_CAPTURE_WAIT_TIMEOUT_SCALE;
 
     // Constants used for GPS testing.
     private static final double GPS_DIFFERENCE_TOLERANCE = 0.0001;
@@ -103,6 +111,27 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
     class CapturedData {
         public Pair<List<Image>, CaptureResult> imagePair;
         public CameraCharacteristics characteristics;
+    }
+
+    // CapturedData for maximum resolution mode, raw and jpeg don't share the same capture result
+    // since mandatory streams for maximum resolution sensor pixel mode don't guarantee more than 1
+    // stream.
+    class CapturedDataMaximumResolution {
+        public Pair<Image, CaptureResult> raw;
+        public Pair<Image, CaptureResult> jpeg;
+        public CameraCharacteristics characteristics;
+    }
+
+    class DngDebugParams {
+        String deviceId;
+        String intermediateStr;
+        CameraCharacteristics characteristics;
+        CaptureResult captureResult;
+        FileOutputStream fileStream;
+        FileChannel fileChannel;
+        Image jpeg;
+        Image raw;
+        Bitmap rawBitmap;
     }
 
     @Override
@@ -179,6 +208,99 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
             } finally {
                 closeDevice(deviceId);
                 closeImageReader(captureReader);
+
+                if (outputStream != null) {
+                    outputStream.close();
+                }
+
+                if (fileStream != null) {
+                    fileStream.close();
+                }
+            }
+        }
+    }
+
+    /**
+     * Test basic maximum resolution raw capture and DNG saving functionality for each of the
+     * available ultra high resolution cameras.
+     *
+     * <p>
+     * For ultra high resolution each camera, capture a single RAW16 image at the first capture size
+     * reported for the maximum resolution raw format on that device, and save that image as a DNG
+     * file. No further validation is done.
+     * </p>
+     *
+     * <p>
+     * Note: Enabling adb shell setprop log.tag.DngCreatorTest VERBOSE will also cause the
+     * raw image captured for the first reported camera device to be saved to an output file.
+     * </p>
+     */
+    @Test
+    public void testSingleImageBasicMaximumResolution() throws Exception {
+        for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
+            String deviceId = mCameraIdsUnderTest[i];
+            ImageReader captureReader = null;
+            ImageReader reprocessCaptureReader = null;
+            FileOutputStream fileStream = null;
+            ByteArrayOutputStream outputStream = null;
+            try {
+                // All ultra high resolution sensors must necessarily support RAW
+                if (!mAllStaticInfo.get(deviceId).isCapabilitySupported(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR)) {
+                    Log.i(TAG, "ULTRA_HIGH_RESOLUTION_SENSOR capability is not supported in " +
+                            " camera " + mCameraIdsUnderTest[i] + ". Skip the test.");
+                    continue;
+                }
+
+                openDevice(deviceId);
+                Size activeArraySize = mStaticInfo.getRawDimensChecked(/*maxResolution*/true);
+
+                // Create capture image reader
+                CameraTestUtils.SimpleImageReaderListener captureReaderListener
+                        = new CameraTestUtils.SimpleImageReaderListener();
+                CameraTestUtils.SimpleImageReaderListener reprocessReaderListener
+                        = new CameraTestUtils.SimpleImageReaderListener();
+
+                captureReader = createImageReader(activeArraySize, ImageFormat.RAW_SENSOR, 2,
+                        captureReaderListener);
+
+                reprocessCaptureReader = createImageReader(activeArraySize, ImageFormat.RAW_SENSOR,
+                        2, reprocessReaderListener);
+                Pair<Image, CaptureResult> resultPair = null;
+                if (mAllStaticInfo.get(deviceId).isCapabilitySupported(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_REMOSAIC_REPROCESSING)) {
+                    resultPair =
+                            captureReprocessedRawShot(activeArraySize, captureReader,
+                                    reprocessCaptureReader, captureReaderListener,
+                                    reprocessReaderListener, /*waitForAe*/false);
+                } else {
+                    resultPair = captureSingleShotMaximumResolution(activeArraySize,
+                            captureReader, /*waitForAe*/false, captureReaderListener);
+                }
+                CameraCharacteristics characteristics = mStaticInfo.getCharacteristics();
+
+                // Test simple writeImage, no header checks
+                DngCreator dngCreator = new DngCreator(characteristics, resultPair.second);
+                outputStream = new ByteArrayOutputStream();
+                dngCreator.writeImage(outputStream, resultPair.first);
+
+                if (VERBOSE) {
+                    // Write DNG to file
+                    String dngFilePath = mDebugFileNameBase + "/camera_basic_max_resolution_" +
+                            deviceId + "_" + DEBUG_DNG_FILE;
+                    // Write out captured DNG file for the first camera device if setprop is enabled
+                    fileStream = new FileOutputStream(dngFilePath);
+                    fileStream.write(outputStream.toByteArray());
+                    fileStream.flush();
+                    fileStream.close();
+                    Log.v(TAG, "Test DNG file for camera " + deviceId + " saved to " + dngFilePath);
+                }
+                assertTrue("Generated DNG file does not pass validation",
+                        validateDngNative(outputStream.toByteArray()));
+            } finally {
+                closeDevice(deviceId);
+                closeImageReader(captureReader);
+                closeImageReader(reprocessCaptureReader);
 
                 if (outputStream != null) {
                     outputStream.close();
@@ -351,6 +473,106 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
     }
 
     /**
+     * Test basic maximum resolution RAW capture, and ensure that the rendered RAW output is
+     * similar to the maximum resolution JPEG created for a similar frame.
+     *
+     * Since mandatory streams for maximum resolution sensor pixel mode do not guarantee 2 maximum
+     * resolution streams we can't capture RAW + JPEG images of the same frame. Therefore, 2
+     * sessions are created, one for RAW capture and the other for JPEG capture.
+     *
+     * <p>
+     * This test renders the RAW buffer into an RGB bitmap using a rendering pipeline
+     * similar to one in the Adobe DNG validation tool.  JPEGs produced by the vendor hardware may
+     * have different tonemapping and saturation applied than the RGB bitmaps produced
+     * from this DNG rendering pipeline, and this test allows for fairly wide variations
+     * between the histograms for the RAW and JPEG buffers to avoid false positives.
+     * </p>
+     *
+     * <p>
+     * To ensure more subtle errors in the colorspace transforms returned for the HAL's RAW
+     * metadata, the DNGs and JPEGs produced here should also be manually compared using external
+     * DNG rendering tools.  The DNG, rendered RGB bitmap, and JPEG buffer for this test can be
+     * dumped to the SD card for further examination by enabling the 'verbose' mode for this test
+     * using:
+     * adb shell setprop log.tag.DngCreatorTest VERBOSE
+     * </p>
+     */
+    @Test
+    public void testRaw16JpegMaximumResolutionConsistency() throws Exception {
+        for (String deviceId : mCameraIdsUnderTest) {
+            ImageReader rawImageReader = null;
+            ImageReader jpegImageReader = null;
+            FileOutputStream fileStream = null;
+            FileChannel fileChannel = null;
+            try {
+                // All ultra high resolution sensors must necessarily support RAW
+                if (!mAllStaticInfo.get(deviceId).isCapabilitySupported(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR)) {
+                    Log.i(TAG, "ULTRA_HIGH_RESOLUTION_SENSOR capability is not supported in " +
+                            " camera " + deviceId + ". Skip " +
+                            "testRaw16JpegMaximumResolutionConsistency");
+                    continue;
+                }
+
+                CapturedDataMaximumResolution data =
+                        captureRawJpegImagePairMaximumResolution(deviceId, rawImageReader,
+                                jpegImageReader);
+                if (data == null) {
+                    continue;
+                }
+                Image raw = data.raw.first;
+                Image jpeg = data.jpeg.first;
+
+                Bitmap rawBitmap = Bitmap.createBitmap(raw.getWidth(), raw.getHeight(),
+                        Bitmap.Config.ARGB_8888);
+
+                byte[] rawPlane = new byte[raw.getPlanes()[0].getRowStride() * raw.getHeight()];
+
+                // Render RAW image to a bitmap
+                raw.getPlanes()[0].getBuffer().get(rawPlane);
+                raw.getPlanes()[0].getBuffer().rewind();
+
+                RawConverter.convertToSRGB(RenderScriptSingleton.getRS(), raw.getWidth(),
+                        raw.getHeight(), raw.getPlanes()[0].getRowStride(), rawPlane,
+                        data.characteristics, /*captureREsult*/data.raw.second, /*offsetX*/ 0,
+                        /*offsetY*/ 0, /*out*/ rawBitmap);
+
+                rawPlane = null;
+                System.gc(); // Hint to VM
+
+                if (VERBOSE) {
+                    DngDebugParams params = new DngDebugParams();
+                    params.deviceId = deviceId;
+                    params.characteristics = data.characteristics;
+                    params.captureResult = data.raw.second;
+                    params.fileStream = fileStream;
+                    params.raw = raw;
+                    params.jpeg = jpeg;
+                    params.fileChannel = fileChannel;
+                    params.rawBitmap = rawBitmap;
+                    params.intermediateStr = "maximum_resolution_";
+
+                    debugDumpDng(params);
+                }
+
+                validateRawJpegImagePair(rawBitmap, jpeg, deviceId);
+            } finally {
+                closeImageReader(rawImageReader);
+                closeImageReader(jpegImageReader);
+
+                if (fileChannel != null) {
+                    fileChannel.close();
+                }
+                if (fileStream != null) {
+                    fileStream.close();
+                }
+            }
+        }
+    }
+
+
+
+    /**
      * Test basic RAW capture, and ensure that the rendered RAW output is similar to the JPEG
      * created for the same frame.
      *
@@ -376,7 +598,6 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
         for (String deviceId : mCameraIdsUnderTest) {
             List<ImageReader> captureReaders = new ArrayList<>();
             FileOutputStream fileStream = null;
-            ByteArrayOutputStream outputStream = null;
             FileChannel fileChannel = null;
             try {
                 CapturedData data = captureRawJpegImagePair(deviceId, captureReaders);
@@ -404,40 +625,18 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
                 System.gc(); // Hint to VM
 
                 if (VERBOSE) {
-                    // Generate DNG file
-                    DngCreator dngCreator =
-                            new DngCreator(data.characteristics, data.imagePair.second);
+                    DngDebugParams params = new DngDebugParams();
+                    params.deviceId = deviceId;
+                    params.characteristics = data.characteristics;
+                    params.captureResult = data.imagePair.second;
+                    params.fileStream = fileStream;
+                    params.raw = raw;
+                    params.jpeg = jpeg;
+                    params.fileChannel = fileChannel;
+                    params.rawBitmap = rawBitmap;
+                    params.intermediateStr = "";
 
-                    // Write DNG to file
-                    String dngFilePath = mDebugFileNameBase + "/camera_" + deviceId + "_" +
-                            DEBUG_DNG_FILE;
-                    // Write out captured DNG file for the first camera device if setprop is enabled
-                    fileStream = new FileOutputStream(dngFilePath);
-                    dngCreator.writeImage(fileStream, raw);
-                    fileStream.flush();
-                    fileStream.close();
-                    Log.v(TAG, "Test DNG file for camera " + deviceId + " saved to " + dngFilePath);
-
-                    // Write JPEG to file
-                    String jpegFilePath = mDebugFileNameBase + "/camera_" + deviceId + "_jpeg.jpg";
-                    // Write out captured DNG file for the first camera device if setprop is enabled
-                    fileChannel = new FileOutputStream(jpegFilePath).getChannel();
-                    ByteBuffer jPlane = jpeg.getPlanes()[0].getBuffer();
-                    fileChannel.write(jPlane);
-                    fileChannel.close();
-                    jPlane.rewind();
-                    Log.v(TAG, "Test JPEG file for camera " + deviceId + " saved to " +
-                            jpegFilePath);
-
-                    // Write jpeg generated from demosaiced RAW frame to file
-                    String rawFilePath = mDebugFileNameBase + "/camera_" + deviceId + "_raw.jpg";
-                    // Write out captured DNG file for the first camera device if setprop is enabled
-                    fileStream = new FileOutputStream(rawFilePath);
-                    rawBitmap.compress(Bitmap.CompressFormat.JPEG, 90, fileStream);
-                    fileStream.flush();
-                    fileStream.close();
-                    Log.v(TAG, "Test converted RAW file for camera " + deviceId + " saved to " +
-                            rawFilePath);
+                    debugDumpDng(params);
                 }
 
                 validateRawJpegImagePair(rawBitmap, jpeg, deviceId);
@@ -448,10 +647,6 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
 
                 if (fileChannel != null) {
                     fileChannel.close();
-                }
-
-                if (outputStream != null) {
-                    outputStream.close();
                 }
 
                 if (fileStream != null) {
@@ -548,6 +743,114 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
 
             Image raw = data.imagePair.first.get(0);
             Size rawBitmapSize = new Size(raw.getWidth(), raw.getHeight());
+            assertTrue("Raw bitmap size must be equal to either pre-correction active array" +
+                    " size or pixel array size.", rawBitmapSize.equals(activeArraySize));
+
+            return data;
+        } finally {
+            closeDevice(deviceId);
+        }
+    }
+
+   private void debugDumpDng(DngDebugParams params) throws Exception {
+        // Generate DNG file
+        DngCreator dngCreator =
+                new DngCreator(params.characteristics, params.captureResult);
+
+        // Write DNG to file
+        String dngFilePath = mDebugFileNameBase + "/camera_" + params.intermediateStr +
+                params.deviceId + "_" + DEBUG_DNG_FILE;
+        // Write out captured DNG file for the first camera device if setprop is enabled
+        params.fileStream = new FileOutputStream(dngFilePath);
+        dngCreator.writeImage(params.fileStream, params.raw);
+        params.fileStream.flush();
+        params.fileStream.close();
+        Log.v(TAG, "Test DNG file for camera " + params.deviceId + " saved to " + dngFilePath);
+
+        // Write JPEG to file
+        String jpegFilePath = mDebugFileNameBase + "/camera_" + params.intermediateStr  +
+                params.deviceId + "_jpeg.jpg";
+        // Write out captured DNG file for the first camera device if setprop is enabled
+        params.fileChannel = new FileOutputStream(jpegFilePath).getChannel();
+        ByteBuffer jPlane = params.jpeg.getPlanes()[0].getBuffer();
+        params.fileChannel.write(jPlane);
+        params.fileChannel.close();
+        jPlane.rewind();
+        Log.v(TAG, "Test JPEG file for camera " + params.deviceId + " saved to " +
+                jpegFilePath);
+
+        // Write jpeg generated from demosaiced RAW frame to file
+        String rawFilePath = mDebugFileNameBase + "/camera_" + params.intermediateStr +
+                params.deviceId + "_raw.jpg";
+        // Write out captured DNG file for the first camera device if setprop is enabled
+        params.fileStream = new FileOutputStream(rawFilePath);
+        params.rawBitmap.compress(Bitmap.CompressFormat.JPEG, 90, params.fileStream);
+        params.fileStream.flush();
+        params.fileStream.close();
+        Log.v(TAG, "Test converted RAW file for camera " + params.deviceId + " saved to " +
+                rawFilePath);
+   }
+
+    /*
+     * Create RAW + JPEG image pair with characteristics info. Assumes the device supports the RAW
+     * capability.
+     */
+    private CapturedDataMaximumResolution captureRawJpegImagePairMaximumResolution(String deviceId,
+            ImageReader rawCaptureReader, ImageReader jpegCaptureReader)
+            throws Exception {
+        CapturedDataMaximumResolution data = new CapturedDataMaximumResolution();
+        try {
+
+            openDevice(deviceId);
+            Size activeArraySize = mStaticInfo.getRawDimensChecked(/*maxResolution*/true);
+
+            // Get largest jpeg size
+            Size[] targetJpegSizes = mStaticInfo.getAvailableSizesForFormatChecked(
+                    ImageFormat.JPEG, StaticMetadata.StreamDirection.Output, /*fastSizes*/ true,
+                    /*slowSizes*/ true, /*maxResolution*/true);
+
+            Size largestJpegSize = Collections.max(Arrays.asList(targetJpegSizes),
+                    new CameraTestUtils.SizeComparator());
+
+            // Create raw image reader and capture listener
+            CameraTestUtils.SimpleImageReaderListener rawCaptureReaderListener =
+                    new CameraTestUtils.SimpleImageReaderListener();
+            rawCaptureReader = createImageReader(activeArraySize, ImageFormat.RAW_SENSOR, 2,
+                    rawCaptureReaderListener);
+
+            // Create jpeg image reader and capture listener
+            CameraTestUtils.SimpleImageReaderListener jpegCaptureListener =
+                    new CameraTestUtils.SimpleImageReaderListener();
+            jpegCaptureReader = createImageReader(largestJpegSize, ImageFormat.JPEG, 2,
+                    jpegCaptureListener);
+
+            Pair<Image, CaptureResult> jpegResultPair =
+                    captureSingleShotMaximumResolution(activeArraySize,
+                             jpegCaptureReader, /*waitForAe*/true, jpegCaptureListener);
+            data.jpeg = jpegResultPair;
+            data.characteristics = mStaticInfo.getCharacteristics();
+            // Create capture image reader
+            CameraTestUtils.SimpleImageReaderListener outputRawCaptureReaderListener
+                    = new CameraTestUtils.SimpleImageReaderListener();
+            CameraTestUtils.SimpleImageReaderListener reprocessReaderListener
+                    = new CameraTestUtils.SimpleImageReaderListener();
+
+            ImageReader outputRawCaptureReader = createImageReader(activeArraySize,
+                    ImageFormat.RAW_SENSOR, 2, outputRawCaptureReaderListener);
+            Pair<Image, CaptureResult> rawResultPair = null;
+            if (mAllStaticInfo.get(deviceId).isCapabilitySupported(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_REMOSAIC_REPROCESSING)) {
+                rawResultPair =
+                        captureReprocessedRawShot(activeArraySize, outputRawCaptureReader,
+                                    rawCaptureReader, outputRawCaptureReaderListener,
+                                    reprocessReaderListener, /*waitForAe*/ true);
+            } else {
+                rawResultPair = captureSingleShotMaximumResolution(activeArraySize,
+                        rawCaptureReader, /*waitForAe*/true, rawCaptureReaderListener);
+            }
+            data.raw = rawResultPair;
+            Size rawBitmapSize =
+                    new Size(rawResultPair.first.getWidth(), rawResultPair.first.getHeight());
             assertTrue("Raw bitmap size must be equal to either pre-correction active array" +
                     " size or pixel array size.", rawBitmapSize.equals(activeArraySize));
 
@@ -656,7 +959,128 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
     private Pair<List<Image>, CaptureResult> captureSingleRawShot(Size s,
             List<ImageReader> captureReaders, boolean waitForAe,
             List<CameraTestUtils.SimpleImageReaderListener> captureListeners) throws Exception {
-        return captureRawShots(s, captureReaders, waitForAe, captureListeners, 1).get(0);
+        return captureRawShots(s, captureReaders, waitForAe, captureListeners, 1,
+                /*maxResolution*/false).get(0);
+    }
+
+    private Pair<Image, CaptureResult> captureSingleShotMaximumResolution(Size s,
+            ImageReader captureReader, boolean waitForAe,
+            CameraTestUtils.SimpleImageReaderListener captureListener)
+            throws Exception {
+        List<ImageReader> readers = new ArrayList<ImageReader>();
+        readers.add(captureReader);
+        List<CameraTestUtils.SimpleImageReaderListener> listeners =
+                new ArrayList<CameraTestUtils.SimpleImageReaderListener>();
+        listeners.add(captureListener);
+        Pair<List<Image>, CaptureResult> res = captureRawShots(s, readers, waitForAe,
+                listeners, /*numShots*/ 1, /*maxResolution*/ true).get(0);
+        return new Pair<Image, CaptureResult>(res.first.get(0), res.second);
+    }
+
+    private Pair<Image, CaptureResult> captureReprocessedRawShot(Size sz,
+            ImageReader inputReader,
+            ImageReader reprocessOutputReader,
+            CameraTestUtils.SimpleImageReaderListener inputReaderListener,
+            CameraTestUtils.SimpleImageReaderListener reprocessReaderListener,
+            boolean waitForAe) throws Exception {
+
+        InputConfiguration inputConfig =
+            new InputConfiguration(sz.getWidth(), sz.getHeight(), ImageFormat.RAW_SENSOR);
+        CameraTestUtils.SimpleCaptureCallback inputCaptureListener =
+                new CameraTestUtils.SimpleCaptureCallback();
+        CameraTestUtils.SimpleCaptureCallback reprocessOutputCaptureListener =
+                new CameraTestUtils.SimpleCaptureCallback();
+
+        inputReader.setOnImageAvailableListener(inputReaderListener, mHandler);
+        reprocessOutputReader.setOnImageAvailableListener(reprocessReaderListener, mHandler);
+
+        ArrayList<Surface> outputSurfaces = new ArrayList<Surface>();
+        outputSurfaces.add(inputReader.getSurface());
+        outputSurfaces.add(reprocessOutputReader.getSurface());
+        BlockingSessionCallback sessionListener = new BlockingSessionCallback();
+        ImageReader previewReader = null;
+        if (waitForAe) {
+            // Also setup a small YUV output for AE metering if needed
+            Size yuvSize = (mOrderedPreviewSizes.size() == 0) ? null :
+                    mOrderedPreviewSizes.get(mOrderedPreviewSizes.size() - 1);
+            assertNotNull("Must support at least one small YUV size.", yuvSize);
+            previewReader = createImageReader(yuvSize, ImageFormat.YUV_420_888,
+                        /*maxNumImages*/2, new CameraTestUtils.ImageDropperListener());
+            outputSurfaces.add(previewReader.getSurface());
+        }
+
+        createReprocessableSession(inputConfig, outputSurfaces);
+
+        if (waitForAe) {
+            CaptureRequest.Builder precaptureRequest =
+                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            assertNotNull("Fail to get captureRequest", precaptureRequest);
+            precaptureRequest.addTarget(previewReader.getSurface());
+            precaptureRequest.set(CaptureRequest.CONTROL_MODE,
+                    CaptureRequest.CONTROL_MODE_AUTO);
+            precaptureRequest.set(CaptureRequest.CONTROL_AE_MODE,
+                    CaptureRequest.CONTROL_AE_MODE_ON);
+
+            final ConditionVariable waitForAeCondition = new ConditionVariable(/*isOpen*/false);
+            CameraCaptureSession.CaptureCallback captureCallback =
+                    new CameraCaptureSession.CaptureCallback() {
+                @Override
+                public void onCaptureProgressed(CameraCaptureSession session,
+                        CaptureRequest request, CaptureResult partialResult) {
+                    Integer aeState = partialResult.get(CaptureResult.CONTROL_AE_STATE);
+                    if (aeState != null &&
+                            (aeState == CaptureRequest.CONTROL_AE_STATE_CONVERGED ||
+                             aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED)) {
+                        waitForAeCondition.open();
+                    }
+                }
+
+                @Override
+                public void onCaptureCompleted(CameraCaptureSession session,
+                        CaptureRequest request, TotalCaptureResult result) {
+                    int aeState = result.get(CaptureResult.CONTROL_AE_STATE);
+                    if (aeState == CaptureRequest.CONTROL_AE_STATE_CONVERGED ||
+                            aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED) {
+                        waitForAeCondition.open();
+                    }
+                }
+            };
+
+            startCapture(precaptureRequest.build(), /*repeating*/true, captureCallback, mHandler);
+
+            precaptureRequest.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
+                    CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_START);
+            startCapture(precaptureRequest.build(), /*repeating*/false, captureCallback, mHandler);
+            assertTrue("Timeout out waiting for AE to converge",
+                    waitForAeCondition.block(AE_TIMEOUT_MS));
+        }
+        ImageWriter inputWriter =
+                ImageWriter.newInstance(mCameraSession.getInputSurface(), 1);
+        // Prepare a request for reprocess input
+        CaptureRequest.Builder builder = mCamera.createCaptureRequest(
+                CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG);
+        builder.addTarget(inputReader.getSurface());
+        // This is a max resolution capture
+        builder.set(CaptureRequest.SENSOR_PIXEL_MODE,
+                CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION);
+        CaptureRequest inputRequest = builder.build();
+        mCameraSession.capture(inputRequest, inputCaptureListener, mHandler);
+        List<CaptureRequest> reprocessCaptureRequests = new ArrayList<>();
+
+        TotalCaptureResult inputResult =
+                inputCaptureListener.getTotalCaptureResult(
+                        MAX_RESOLUTION_CAPTURE_WAIT_TIMEOUT_MS);
+        builder = mCamera.createReprocessCaptureRequest(inputResult);
+        inputWriter.queueInputImage(inputReaderListener.getImage(
+                        MAX_RESOLUTION_CAPTURE_WAIT_TIMEOUT_MS));
+        builder.addTarget(reprocessOutputReader.getSurface());
+        reprocessCaptureRequests.add(builder.build());
+        mCameraSession.captureBurst(reprocessCaptureRequests, reprocessOutputCaptureListener,
+                mHandler);
+        TotalCaptureResult result = reprocessOutputCaptureListener.getTotalCaptureResult(
+                CAPTURE_WAIT_TIMEOUT_MS);
+        return new Pair<Image, CaptureResult>(reprocessReaderListener.getImage(
+                MAX_RESOLUTION_CAPTURE_WAIT_TIMEOUT_MS), result);
     }
 
     /**
@@ -664,27 +1088,50 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
      *
      * <p>Capture raw images for a given size.</p>
      *
-     * @param s The size of the raw image to capture.  Must be one of the available sizes for this
+     * @param sz The size of the raw image to capture.  Must be one of the available sizes for this
      *          device.
+     *
+     * @param captureReaders The image readers which are associated with the targets for this
+     *        capture.
+     *
+     * @param waitForAe Whether we should wait for AE to converge before capturing outputs for
+     *                  the captureReaders targets
+     *
+     * @param captureListeners ImageReader listeners which wait on the captured images to be
+     *                         available.
+     *
+     * @param numShots The number of shots to be captured
+     *
+     * @param maxResolution Whether the target in captureReaders are max resolution captures. If
+     *                      this is set to true, captureReaders.size() must be == 1 ( in order to
+     *                      satisfy mandatory streams for maximum resolution sensor pixel mode).
+     *
      * @return a list of pairs containing a {@link Image} and {@link CaptureResult} used for
      *          each capture.
      */
-    private List<Pair<List<Image>, CaptureResult>> captureRawShots(Size s,
+    private List<Pair<List<Image>, CaptureResult>> captureRawShots(Size sz,
             List<ImageReader> captureReaders, boolean waitForAe,
             List<CameraTestUtils.SimpleImageReaderListener> captureListeners,
-            int numShots) throws Exception {
+            int numShots, boolean maxResolution) throws Exception {
         if (VERBOSE) {
             Log.v(TAG, "captureSingleRawShot - Capturing raw image.");
         }
 
+        int timeoutScale = maxResolution ? MAX_RESOLUTION_CAPTURE_WAIT_TIMEOUT_SCALE : 1;
         Size[] targetCaptureSizes =
                 mStaticInfo.getAvailableSizesForFormatChecked(ImageFormat.RAW_SENSOR,
-                        StaticMetadata.StreamDirection.Output);
+                        StaticMetadata.StreamDirection.Output, /*fastSizes*/ true,
+                        /*slowSizes*/ true, maxResolution);
+
+        if (maxResolution) {
+            assertTrue("Maximum number of maximum resolution targets for a session should be 1 as" +
+                " per the mandatory streams guarantee", captureReaders.size() == 1);
+        }
 
         // Validate size
         boolean validSize = false;
         for (int i = 0; i < targetCaptureSizes.length; ++i) {
-            if (targetCaptureSizes[i].equals(s)) {
+            if (targetCaptureSizes[i].equals(sz)) {
                 validSize = true;
                 break;
             }
@@ -735,9 +1182,10 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
                 @Override
                 public void onCaptureProgressed(CameraCaptureSession session,
                         CaptureRequest request, CaptureResult partialResult) {
-                    int aeState = partialResult.get(CaptureResult.CONTROL_AE_STATE);
-                    if (aeState == CaptureRequest.CONTROL_AE_STATE_CONVERGED ||
-                            aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED) {
+                    Integer aeState = partialResult.get(CaptureResult.CONTROL_AE_STATE);
+                    if (aeState != null &&
+                            (aeState == CaptureRequest.CONTROL_AE_STATE_CONVERGED ||
+                             aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED)) {
                         waitForAeCondition.open();
                     }
                 }
@@ -763,6 +1211,10 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
 
         request.set(CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE,
                 CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_ON);
+        if (maxResolution) {
+            request.set(CaptureRequest.SENSOR_PIXEL_MODE,
+                    CaptureRequest.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION);
+        }
         CameraTestUtils.SimpleCaptureCallback resultListener =
                 new CameraTestUtils.SimpleCaptureCallback();
 
@@ -777,7 +1229,8 @@ public class DngCreatorTest extends Camera2AndroidTestCase {
 
             List<Image> resultImages = new ArrayList<Image>();
             for (CameraTestUtils.SimpleImageReaderListener captureListener : captureListeners) {
-                Image captureImage = captureListener.getImage(CAPTURE_WAIT_TIMEOUT_MS);
+                Image captureImage =
+                        captureListener.getImage(CAPTURE_WAIT_TIMEOUT_MS * timeoutScale);
 
             /*CameraTestUtils.validateImage(captureImage, s.getWidth(), s.getHeight(),
                     ImageFormat.RAW_SENSOR, null);*/

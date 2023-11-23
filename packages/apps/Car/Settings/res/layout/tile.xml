@@ -22,6 +22,7 @@
     android:layout_marginBottom="@dimen/tile_margin_bottom"
     android:layout_marginEnd="@dimen/tile_margin_end"
     android:layout_marginStart="@dimen/tile_margin_start"
+    android:background="?android:attr/selectableItemBackground"
     android:gravity="center_horizontal"
     android:orientation="vertical"
     android:padding="@dimen/tile_padding">
@@ -30,7 +31,6 @@
         android:layout_width="@dimen/touch_target_size"
         android:layout_height="@dimen/touch_target_size"
         android:layout_marginBottom="@dimen/tile_icon_margin_bottom"
-        android:background="@drawable/circle_ripple_bg"
         android:gravity="center">
         <View
             android:id="@+id/icon_background"

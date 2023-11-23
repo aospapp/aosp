@@ -64,7 +64,7 @@ enum GcRetentionPolicy {
   // collections won't scan these areas such as the Zygote.
   kGcRetentionPolicyFullCollect,
 };
-std::ostream& operator<<(std::ostream& os, const GcRetentionPolicy& policy);
+std::ostream& operator<<(std::ostream& os, GcRetentionPolicy policy);
 
 enum SpaceType {
   kSpaceTypeImageSpace,
@@ -74,7 +74,7 @@ enum SpaceType {
   kSpaceTypeLargeObjectSpace,
   kSpaceTypeRegionSpace,
 };
-std::ostream& operator<<(std::ostream& os, const SpaceType& space_type);
+std::ostream& operator<<(std::ostream& os, SpaceType space_type);
 
 // A space contains memory allocated for managed objects.
 class Space {
@@ -243,7 +243,10 @@ class AllocSpace {
   // from Heap::num_bytes_allocated_ or zero if unnecessary.
   virtual size_t RevokeAllThreadLocalBuffers() = 0;
 
-  virtual void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) = 0;
+  // Compute largest free contiguous chunk of memory available in the space and
+  // log it if it's smaller than failed_alloc_bytes and return true.
+  // Otherwise leave os untouched and return false.
+  virtual bool LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) = 0;
 
  protected:
   struct SweepCallbackContext {

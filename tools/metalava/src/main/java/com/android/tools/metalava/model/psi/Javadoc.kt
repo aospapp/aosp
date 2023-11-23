@@ -16,7 +16,7 @@
 
 package com.android.tools.metalava.model.psi
 
-import com.android.tools.metalava.doclava1.Issues
+import com.android.tools.metalava.Issues
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.PackageItem
@@ -48,12 +48,6 @@ import org.intellij.lang.annotations.Language
  *
  * TODO: Handle KDoc
  */
-
-/**
- * If true, we'll rewrite all the javadoc documentation in doc stubs
- * to include fully qualified names
- */
-const val EXPAND_DOCUMENTATION = true
 
 /**
  * If the reference is to a class in the same package, include the package prefix?
@@ -197,11 +191,11 @@ fun findParamTag(docComment: PsiDocComment, paramName: String): PsiDocTag? {
 }
 
 fun findFirstTag(docComment: PsiDocComment): PsiDocTag? {
-    return docComment.tags.asSequence().minBy { it.textRange.startOffset }
+    return docComment.tags.asSequence().minByOrNull { it.textRange.startOffset }
 }
 
 fun findLastTag(docComment: PsiDocComment): PsiDocTag? {
-    return docComment.tags.asSequence().maxBy { it.textRange.startOffset }
+    return docComment.tags.asSequence().maxByOrNull { it.textRange.startOffset }
 }
 
 fun findTagEnd(tag: PsiDocTag): Int {
@@ -738,6 +732,8 @@ fun handleTag(
 
     val reference = extractReference(element)
     val referenceText = reference?.element?.text ?: element.text
+    val customLinkText = extractCustomLinkText(element)
+    val displayText = customLinkText?.text ?: referenceText
     if (!PREPEND_LOCAL_CLASS && referenceText.startsWith("#")) {
         val suffix = element.text
         if (suffix.contains("(") && suffix.contains(")")) {
@@ -779,7 +775,7 @@ fun handleTag(
                             sb.append(suffix)
                         }
                         sb.append(' ')
-                        sb.append(referenceText)
+                        sb.append(displayText)
                         sb.append("}")
                         return true
                     }
@@ -837,8 +833,8 @@ fun handleTag(
                         val suffix = text.substring(text.indexOf(referenceText) + referenceText.length)
                         "@see $qualifiedName$suffix"
                     }
-                    text.startsWith("{") -> "{@$name $qualifiedName $referenceText}"
-                    else -> "@$name $qualifiedName $referenceText"
+                    text.startsWith("{") -> "{@$name $qualifiedName $displayText}"
+                    else -> "@$name $qualifiedName $displayText"
                 }
                 sb.append(append)
                 return true
@@ -868,8 +864,7 @@ fun handleTag(
                 // android.os.Bundle#getInt, but the resolved method actually points to
                 // an inherited method into android.os.Bundle from android.os.BaseBundle.
                 // In that case we don't want to rewrite the link.
-                for (index in 0 until referenceText.length) {
-                    val c = referenceText[index]
+                for (c in referenceText) {
                     if (c == '.') {
                         // Already qualified
                         sb.append(text)
@@ -913,7 +908,7 @@ fun handleTag(
                         close++
                     }
                     val memberPart = text.substring(nameEnd, close)
-                    val append = "${text.substring(0, start)}$qualifiedName$memberPart $referenceText}"
+                    val append = "${text.substring(0, start)}$qualifiedName$memberPart $displayText}"
                     sb.append(append)
                     return true
                 }
@@ -1035,4 +1030,14 @@ private fun extractReference(tag: PsiDocTag): PsiReference? {
         dataElements.firstOrNull { it !is PsiWhiteSpace && it !is PsiDocToken } ?: return null
     val child = salientElement.firstChild
     return if (child !is PsiReference) null else child
+}
+
+private fun extractCustomLinkText(tag: PsiDocTag): PsiDocToken? {
+    val dataElements = tag.dataElements
+    if (dataElements.isEmpty()) {
+        return null
+    }
+    val salientElement: PsiElement =
+        dataElements.lastOrNull { it !is PsiWhiteSpace && it !is PsiDocMethodOrFieldRef } ?: return null
+    return if (salientElement !is PsiDocToken) null else salientElement
 }

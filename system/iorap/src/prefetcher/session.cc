@@ -225,7 +225,7 @@ bool SessionDirect::ReadAhead(size_t path_id,
 
   switch (kind) {
     case ReadAheadKind::kFadvise:
-      if (posix_fadvise(entry_fd, offset, length, POSIX_FADV_WILLNEED) < 0) {
+      if (posix_fadvise(entry_fd, offset, length, POSIX_FADV_WILLNEED) != 0) {
         PLOG(ERROR) << "SessionDirect: Failed to fadvise entry " << file_name
                     << ", offset=" << offset << ", length=" << length;
         success = false;

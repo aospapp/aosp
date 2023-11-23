@@ -54,19 +54,20 @@ public class AuthBoundKeyTest extends BaseAppSecurityTest {
         assumeTrue("Device does not support secure lock",
                    getDevice().hasFeature("android.software.secure_lock_screen"));
         new InstallMultiple().addFile(APK).run();
-        getDevice().executeShellCommand("cmd lock_settings set-pin 1234");
-        runDeviceTests(PKG, CLASS, "testGenerateAuthBoundKey");
-        getDevice().executeShellCommand("cmd lock_settings clear --old 1234");
-        runDeviceTests(PKG, CLASS, "testUseKey");
-        getDevice().executeShellCommand("cmd lock_settings set-pin 12345");
-        getDevice().executeShellCommand("input keyevent 26");  // Screen on
-        getDevice().executeShellCommand("input keyevent 82");  // Bring up lock screen
-        getDevice().executeShellCommand("input text 12345");   // Input password
-        getDevice().executeShellCommand("input keyevent 66");  // Submit input
-        // try:finally clause to ensure the pin is wiped before testing continues
         try {
+            // try:finally clause to ensure the pin is wiped before testing continues
+            getDevice().executeShellCommand("cmd lock_settings set-pin 1234");
+            runDeviceTests(PKG, CLASS, "testGenerateAuthBoundKey");
+            getDevice().executeShellCommand("cmd lock_settings clear --old 1234");
+            runDeviceTests(PKG, CLASS, "testUseKey");
+            getDevice().executeShellCommand("cmd lock_settings set-pin 12345");
+            getDevice().executeShellCommand("input keyevent 26");  // Screen on
+            getDevice().executeShellCommand("input keyevent 82");  // Bring up lock screen
+            getDevice().executeShellCommand("input text 12345");   // Input password
+            getDevice().executeShellCommand("input keyevent 66");  // Submit input
             runDeviceTests(PKG, CLASS, "testUseKey");
         } finally {
+            getDevice().executeShellCommand("cmd lock_settings clear --old 1234");
             getDevice().executeShellCommand("cmd lock_settings clear --old 12345");
         }
     }

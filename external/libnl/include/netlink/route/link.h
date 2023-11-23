@@ -15,7 +15,6 @@
 #include <netlink/netlink.h>
 #include <netlink/cache.h>
 #include <netlink/addr.h>
-#include <linux/if.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -99,6 +98,7 @@ typedef enum {
 	RTNL_LINK_IP6_ECT1PKTS,		/*!< IPv6 SNMP InECT1Pkts */
 	RTNL_LINK_IP6_ECT0PKTS,		/*!< IPv6 SNMP InECT0Pkts */
 	RTNL_LINK_IP6_CEPKTS,		/*!< IPv6 SNMP InCEPkts */
+	RTNL_LINK_RX_NOHANDLER,		/*!< Received packets dropped on inactive device */
 	__RTNL_LINK_STATS_MAX,
 } rtnl_link_stat_id_t;
 
@@ -110,6 +110,9 @@ extern struct rtnl_link *rtnl_link_alloc(void);
 extern void	rtnl_link_put(struct rtnl_link *);
 
 extern int	rtnl_link_alloc_cache(struct nl_sock *, int, struct nl_cache **);
+extern int	rtnl_link_alloc_cache_flags(struct nl_sock *, int,
+					    struct nl_cache **,
+					    unsigned int flags);
 extern struct rtnl_link *rtnl_link_get(struct nl_cache *, int);
 extern struct rtnl_link *rtnl_link_get_by_name(struct nl_cache *, const char *);
 
@@ -197,11 +200,16 @@ extern int	rtnl_link_get_master(struct rtnl_link *);
 extern void	rtnl_link_set_carrier(struct rtnl_link *, uint8_t);
 extern uint8_t	rtnl_link_get_carrier(struct rtnl_link *);
 
+extern int	rtnl_link_get_carrier_changes(struct rtnl_link *, uint32_t *);
+
 extern void	rtnl_link_set_operstate(struct rtnl_link *, uint8_t);
 extern uint8_t	rtnl_link_get_operstate(struct rtnl_link *);
 
 extern void	rtnl_link_set_linkmode(struct rtnl_link *, uint8_t);
 extern uint8_t	rtnl_link_get_linkmode(struct rtnl_link *);
+
+int             rtnl_link_set_link_netnsid(struct rtnl_link *link, int32_t link_netnsid);
+int             rtnl_link_get_link_netnsid(const struct rtnl_link *link, int32_t *out_link_netnsid);
 
 extern const char *	rtnl_link_get_ifalias(struct rtnl_link *);
 extern void		rtnl_link_set_ifalias(struct rtnl_link *, const char *);
@@ -215,6 +223,9 @@ extern int	rtnl_link_set_stat(struct rtnl_link *, rtnl_link_stat_id_t,
 extern int	rtnl_link_set_type(struct rtnl_link *, const char *);
 extern char *	rtnl_link_get_type(struct rtnl_link *);
 
+extern int		rtnl_link_set_slave_type(struct rtnl_link *, const char *);
+extern const char *	rtnl_link_get_slave_type(const struct rtnl_link *);
+
 extern void	rtnl_link_set_promiscuity(struct rtnl_link *, uint32_t);
 extern uint32_t	rtnl_link_get_promiscuity(struct rtnl_link *);
 
@@ -224,7 +235,15 @@ extern uint32_t	rtnl_link_get_num_tx_queues(struct rtnl_link *);
 extern void	rtnl_link_set_num_rx_queues(struct rtnl_link *, uint32_t);
 extern uint32_t	rtnl_link_get_num_rx_queues(struct rtnl_link *);
 
+extern int	rtnl_link_get_gso_max_segs(struct rtnl_link *, uint32_t *);
+
+extern int	rtnl_link_get_gso_max_size(struct rtnl_link *, uint32_t *);
+
 extern struct nl_data *	rtnl_link_get_phys_port_id(struct rtnl_link *);
+
+extern char*	rtnl_link_get_phys_port_name(struct rtnl_link *);
+
+extern struct nl_data *	rtnl_link_get_phys_switch_id(struct rtnl_link *);
 
 extern void	rtnl_link_set_ns_fd(struct rtnl_link *, int);
 extern int	rtnl_link_get_ns_fd(struct rtnl_link *);
@@ -238,6 +257,10 @@ extern int	rtnl_link_release_ifindex(struct nl_sock *, int);
 extern int	rtnl_link_release(struct nl_sock *, struct rtnl_link *);
 extern int	rtnl_link_fill_info(struct nl_msg *, struct rtnl_link *);
 extern int	rtnl_link_info_parse(struct rtnl_link *, struct nlattr **);
+
+extern int rtnl_link_has_vf_list(struct rtnl_link *);
+extern void rtnl_link_set_vf_list(struct rtnl_link *);
+extern void rtnl_link_unset_vf_list(struct rtnl_link *);
 
 
 /* deprecated */

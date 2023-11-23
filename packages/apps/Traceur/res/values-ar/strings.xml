@@ -24,6 +24,9 @@
     <string name="saving_trace" msgid="1468692734770800541">"جارٍ حفظ آثار الأنشطة."</string>
     <string name="trace_saved" msgid="5869970594780992309">"تم حفظ آثار الأنشطة."</string>
     <string name="tap_to_share" msgid="6766732404489536899">"انقر لمشاركة آثار الأنشطة."</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"جارٍ إرفاق آثار الأنشطة إلى تقرير الخطأ."</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"تم إرفاق آثار الأنشطة إلى تقرير الخطأ"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"‏انقر لفتح BetterBug."</string>
     <string name="stop_tracing" msgid="8916938308534164152">"أوقف التتبّع"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"بعض فئات التتبّع غير متاحة:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"يتم تسجيل التتبّع"</string>
@@ -60,4 +63,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16384 كيلوبايت"</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32768 كيلوبايت"</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65536 كيلوبايت"</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"إيقاف التتبع لتقارير الأخطاء"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"لإيقاف تسجيلات التتبع النشطة عند بدء تقرير أخطاء."</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"إرفاق آثار الأنشطة بتقارير الخطأ"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"‏إرسال آثار الأنشطة الجاري تنفيذها إلى BetterBug عند جمع تقرير خطأ."</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"عرض ملفات التتبُّع"</string>
 </resources>

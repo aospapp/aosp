@@ -16,6 +16,8 @@
 
 package android.net.util;
 
+import static com.android.testutils.MiscAsserts.assertSameElements;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -26,10 +28,13 @@ import android.net.LinkAddress;
 import android.net.LinkProperties;
 import android.net.ProxyInfo;
 import android.net.RouteInfo;
-import android.net.util.LinkPropertiesUtils.CompareOrUpdateResult;
-import android.net.util.LinkPropertiesUtils.CompareResult;
+import android.util.ArraySet;
 
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.net.module.util.LinkPropertiesUtils;
+import com.android.net.module.util.LinkPropertiesUtils.CompareOrUpdateResult;
+import com.android.net.module.util.LinkPropertiesUtils.CompareResult;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,7 +42,6 @@ import org.junit.runner.RunWith;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.function.Function;
 
@@ -166,6 +170,58 @@ public final class LinkPropertiesUtilsTest {
         assertFalse(LinkPropertiesUtils.isIdenticalHttpProxy(target, source));
     }
 
+    private <T> void compareResult(List<T> oldItems, List<T> newItems, List<T> expectRemoved,
+            List<T> expectAdded) {
+        CompareResult<T> result = new CompareResult<>(oldItems, newItems);
+        assertEquals(new ArraySet<>(expectAdded), new ArraySet<>(result.added));
+        assertEquals(new ArraySet<>(expectRemoved), (new ArraySet<>(result.removed)));
+    }
+
+    @Test
+    public void testCompareResult() {
+        // Either adding or removing items
+        compareResult(Arrays.asList(1, 2, 3, 4), Arrays.asList(1),
+                Arrays.asList(2, 3, 4), new ArrayList<>());
+        compareResult(Arrays.asList(1, 2), Arrays.asList(3, 2, 1, 4),
+                new ArrayList<>(), Arrays.asList(3, 4));
+
+
+        // adding and removing items at the same time
+        compareResult(Arrays.asList(1, 2, 3, 4), Arrays.asList(2, 3, 4, 5),
+                Arrays.asList(1), Arrays.asList(5));
+        compareResult(Arrays.asList(1, 2, 3), Arrays.asList(4, 5, 6),
+                Arrays.asList(1, 2, 3), Arrays.asList(4, 5, 6));
+
+        // null cases
+        compareResult(Arrays.asList(1, 2, 3), null, Arrays.asList(1, 2, 3), new ArrayList<>());
+        compareResult(null, Arrays.asList(3, 2, 1), new ArrayList<>(), Arrays.asList(1, 2, 3));
+        compareResult(null, null, new ArrayList<>(), new ArrayList<>());
+
+        // Some more tests with strings
+        final ArrayList<String> list1 = new ArrayList<>();
+        list1.add("string1");
+
+        final ArrayList<String> list2 = new ArrayList<>(list1);
+        final CompareResult<String> cr1 = new CompareResult<>(list1, list2);
+        assertTrue(cr1.added.isEmpty());
+        assertTrue(cr1.removed.isEmpty());
+
+        list2.add("string2");
+        final CompareResult<String> cr2 = new CompareResult<>(list1, list2);
+        assertEquals(Arrays.asList("string2"), cr2.added);
+        assertTrue(cr2.removed.isEmpty());
+
+        list2.remove("string1");
+        final CompareResult<String> cr3 = new CompareResult<>(list1, list2);
+        assertEquals(Arrays.asList("string2"), cr3.added);
+        assertEquals(Arrays.asList("string1"), cr3.removed);
+
+        list1.add("string2");
+        final CompareResult<String> cr4 = new CompareResult<>(list1, list2);
+        assertTrue(cr4.added.isEmpty());
+        assertEquals(Arrays.asList("string1"), cr3.removed);
+    }
+
     @Test
     public void testCompareAddresses() {
         final LinkProperties source = createTestObject();
@@ -190,14 +246,6 @@ public final class LinkPropertiesUtilsTest {
         results = LinkPropertiesUtils.compareAddresses(source, target);
         assertEquals(linkAddr1, results.removed.get(0));
         assertEquals(linkAddr2, results.added.get(0));
-    }
-
-    private void assertSameElements(List<String> expected, List<String> actual) {
-        HashSet<String> expectedSet = new HashSet(expected);
-        assertEquals("expected list contains duplicates", expectedSet.size(), expected.size());
-        HashSet<String> actualSet = new HashSet(actual);
-        assertEquals("actual list contains duplicates", actualSet.size(), actual.size());
-        assertEquals(expectedSet, actualSet);
     }
 
     private void assertCompareOrUpdateResult(CompareOrUpdateResult result,

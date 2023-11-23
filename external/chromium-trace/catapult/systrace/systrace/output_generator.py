@@ -28,6 +28,7 @@ _SYSTRACE_TO_TRACE_DATA_NAME_MAPPING = {
     'systraceController': trace_data.TELEMETRY_PART,
     'traceEvents': trace_data.CHROME_TRACE_PART,
     'waltTrace': trace_data.WALT_TRACE_PART,
+    'cgroupDump': trace_data.CGROUP_TRACE_PART,
 }
 _SYSTRACE_HEADER = 'Systrace'
 
@@ -61,7 +62,7 @@ def GenerateHTMLOutput(trace_results, output_file_name):
   # Java verison of systrace. Java systrace is expected to be deleted at a later
   # date. We should consolidate this logic when that happens.
 
-  if len(trace_results) > 3:
+  if len(trace_results) > 4:
     NewGenerateHTMLOutput(trace_results, output_file_name)
     return os.path.abspath(output_file_name)
 
@@ -79,16 +80,27 @@ def GenerateHTMLOutput(trace_results, output_file_name):
   # Open the file in binary mode to prevent python from changing the
   # line endings, then write the prefix.
   systrace_dir = os.path.abspath(os.path.dirname(__file__))
-  html_prefix = _ReadAsset(systrace_dir, 'prefix.html')
+  html_prefix = _ReadAsset(systrace_dir, 'prefix.html.template')
   html_suffix = _ReadAsset(systrace_dir, 'suffix.html')
   trace_viewer_html = _ReadAsset(systrace_dir,
                                   'systrace_trace_viewer.html')
+  catapult_root = os.path.abspath(os.path.dirname(os.path.dirname(
+                                  os.path.dirname(__file__))))
+  polymer_dir = os.path.join(catapult_root, 'third_party', 'polymer',
+                             'components', 'webcomponentsjs')
+  webcomponent_v0_polyfill = _ReadAsset(polymer_dir, 'webcomponents.min.js')
+
+  # Add the polyfill
+  html_output = html_prefix.replace('{{WEBCOMPONENTS_V0_POLYFILL_JS}}',
+                                    webcomponent_v0_polyfill)
 
   # Open the file in binary mode to prevent python from changing the
   # line endings, then write the prefix.
   html_file = open(output_file_name, 'wb')
-  html_file.write(html_prefix.replace('{{SYSTRACE_TRACE_VIEWER_HTML}}',
+  html_file.write(html_output.replace('{{SYSTRACE_TRACE_VIEWER_HTML}}',
                                       trace_viewer_html))
+
+
 
   # Write the trace data itself. There is a separate section of the form
   # <script class="trace-data" type="application/text"> ... </script>

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019, STMicroelectronics - All Rights Reserved
+ * Copyright (C) 2018-2020, STMicroelectronics - All Rights Reserved
  *
  * SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
  */
@@ -12,6 +12,7 @@
 
 #include <arch_helpers.h>
 #include <common/debug.h>
+#include <common/fdt_wrappers.h>
 #include <drivers/st/stm32mp1_ddr.h>
 #include <drivers/st/stm32mp1_ddr_helpers.h>
 #include <drivers/st/stm32mp1_ram.h>
@@ -205,13 +206,13 @@ static int stm32mp1_ddr_setup(void)
 		return -EINVAL;
 	}
 
-	config.info.speed = fdt_read_uint32_default(node, "st,mem-speed", 0);
-	if (!config.info.speed) {
+	ret = fdt_read_uint32(fdt, node, "st,mem-speed", &config.info.speed);
+	if (ret < 0) {
 		VERBOSE("%s: no st,mem-speed\n", __func__);
 		return -EINVAL;
 	}
-	config.info.size = fdt_read_uint32_default(node, "st,mem-size", 0);
-	if (!config.info.size) {
+	ret = fdt_read_uint32(fdt, node, "st,mem-size", &config.info.size);
+	if (ret < 0) {
 		VERBOSE("%s: no st,mem-size\n", __func__);
 		return -EINVAL;
 	}
@@ -223,10 +224,10 @@ static int stm32mp1_ddr_setup(void)
 	INFO("RAM: %s\n", config.info.name);
 
 	for (idx = 0; idx < ARRAY_SIZE(param); idx++) {
-		ret = fdt_read_uint32_array(node, param[idx].name,
+		ret = fdt_read_uint32_array(fdt, node, param[idx].name,
+					    param[idx].size,
 					    (void *)((uintptr_t)&config +
-						     param[idx].offset),
-					    param[idx].size);
+						     param[idx].offset));
 
 		VERBOSE("%s: %s[0x%x] = %d\n", __func__,
 			param[idx].name, param[idx].size, ret);
@@ -250,8 +251,9 @@ static int stm32mp1_ddr_setup(void)
 	VERBOSE("%s : ram size(%x, %x)\n", __func__,
 		(uint32_t)priv->info.base, (uint32_t)priv->info.size);
 
-	write_sctlr(read_sctlr() & ~SCTLR_C_BIT);
-	dcsw_op_all(DC_OP_CISW);
+	if (stm32mp_map_ddr_non_cacheable() != 0) {
+		panic();
+	}
 
 	uret = ddr_test_data_bus();
 	if (uret != 0U) {
@@ -274,7 +276,9 @@ static int stm32mp1_ddr_setup(void)
 		panic();
 	}
 
-	write_sctlr(read_sctlr() | SCTLR_C_BIT);
+	if (stm32mp_unmap_ddr() != 0) {
+		panic();
+	}
 
 	return 0;
 }

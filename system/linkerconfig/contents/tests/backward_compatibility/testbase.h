@@ -15,9 +15,15 @@
  */
 #pragma once
 
+#include <android-base/strings.h>
+
+#include <algorithm>
+
+#include "linkerconfig/namespace.h"
 #include "linkerconfig/variables.h"
 
-inline void MockVndkVariables(std::string partition, std::string vndk_ver) {
+inline void MockVndkVariables(const std::string& partition,
+                              const std::string& vndk_ver) {
   using android::linkerconfig::modules::Variables;
 
   Variables::AddValue(partition + "_VNDK_VERSION", vndk_ver);
@@ -45,11 +51,55 @@ inline void MockVariables(std::string vndk_ver = "Q") {
 
   Variables::AddValue("VNDK_USING_CORE_VARIANT_LIBRARIES",
                       "vndk_using_core_variant_libraries");
-  Variables::AddValue("STUB_LIBRARIES", "stub_libraries");
   Variables::AddValue("SANITIZER_RUNTIME_LIBRARIES",
                       "sanitizer_runtime_libraries");
 }
 
-inline void MockVnkdLite() {
-  android::linkerconfig::modules::Variables::AddValue("ro.vndk.lite", "true");
+inline bool ContainsPath(const std::vector<std::string>& path_list,
+                         const std::string& path) {
+  return std::any_of(path_list.begin(),
+                     path_list.end(),
+                     [&](const std::string& item) { return item == path; });
+}
+
+inline bool ContainsSearchPath(
+    const android::linkerconfig::modules::Namespace* ns,
+    const std::string& path) {
+  if (!ContainsPath(ns->SearchPaths(), path)) {
+    return false;
+  }
+
+  auto asan_search_path = ns->AsanSearchPaths();
+
+  if (!ContainsPath(asan_search_path, path)) {
+    return false;
+  }
+
+  if (!android::base::StartsWith(path, "/apex") &&
+      !ContainsPath(asan_search_path, "/data/asan" + path)) {
+    return false;
+  }
+
+  return true;
+}
+
+inline bool ContainsPermittedPath(
+    const android::linkerconfig::modules::Namespace* ns,
+    const std::string& path) {
+  if (!ContainsPath(ns->PermittedPaths(), path)) {
+    return false;
+  }
+
+  auto asan_search_path = ns->AsanPermittedPaths();
+
+  if (!ContainsPath(asan_search_path, path)) {
+    return false;
+  }
+
+  if (!android::base::StartsWith(path, "/apex") &&
+      !ContainsPath(asan_search_path, "/data/asan" + path)) {
+    return false;
+  }
+
+  return true;
 }

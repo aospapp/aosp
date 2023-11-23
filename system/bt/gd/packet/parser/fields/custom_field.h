@@ -49,6 +49,16 @@ class CustomField : public PacketField {
 
   virtual void GenValidator(std::ostream&) const override;
 
+  virtual void GenStringRepresentation(std::ostream& s, std::string accessor) const override;
+
+  virtual void GenBuilderParameterFromView(std::ostream& s) const override;
+
+  virtual std::string GetRustDataType() const override;
+
+  void GenRustGetter(std::ostream& s, Size start_offset, Size end_offset) const override;
+
+  void GenRustWriter(std::ostream& s, Size start_offset, Size end_offset) const override;
+
  private:
   std::string type_name_;
 };

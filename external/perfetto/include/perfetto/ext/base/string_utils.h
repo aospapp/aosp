@@ -29,6 +29,8 @@
 namespace perfetto {
 namespace base {
 
+std::string QuoteAndEscapeControlCodes(const std::string& raw);
+
 inline char Lowercase(char c) {
   return ('A' <= c && c <= 'Z') ? static_cast<char>(c - ('A' - 'a')) : c;
 }
@@ -62,9 +64,11 @@ inline Optional<uint64_t> CStringToUInt64(const char* s, int base = 10) {
   return (*s && !*endptr) ? base::make_optional(value) : base::nullopt;
 }
 
+double StrToD(const char* nptr, char** endptr);
+
 inline Optional<double> CStringToDouble(const char* s) {
   char* endptr = nullptr;
-  double value = strtod(s, &endptr);
+  double value = StrToD(s, &endptr);
   Optional<double> result(base::nullopt);
   if (*s != '\0' && *endptr == '\0')
     result = value;
@@ -94,6 +98,7 @@ inline Optional<double> StringToDouble(const std::string& s) {
 bool StartsWith(const std::string& str, const std::string& prefix);
 bool EndsWith(const std::string& str, const std::string& suffix);
 bool Contains(const std::string& haystack, const std::string& needle);
+bool Contains(const std::string& haystack, char needle);
 size_t Find(const StringView& needle, const StringView& haystack);
 bool CaseInsensitiveEqual(const std::string& first, const std::string& second);
 std::string Join(const std::vector<std::string>& parts,
@@ -112,6 +117,13 @@ inline std::string ToHex(const std::string& s) {
   return ToHex(s.c_str(), s.size());
 }
 std::string IntToHexString(uint32_t number);
+std::string Uint64ToHexString(uint64_t number);
+std::string Uint64ToHexStringNoPrefix(uint64_t number);
+std::string ReplaceAll(std::string str,
+                       const std::string& to_replace,
+                       const std::string& replacement);
+std::string TrimLeading(const std::string& str);
+std::string Base64Encode(const void* raw, size_t size);
 
 }  // namespace base
 }  // namespace perfetto

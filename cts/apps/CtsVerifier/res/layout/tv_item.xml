@@ -55,7 +55,6 @@
         android:layout_height="wrap_content"
         android:id="@+id/loadingSpinner"
         android:layout_centerInParent="true"
-        android:layout_alignParentBottom="true"
         android:visibility="invisible"/>
 
 </RelativeLayout>

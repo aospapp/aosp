@@ -3,6 +3,11 @@
 # Add permission only for platform system
 # ==============================================
 
+# Date: 2018/01/17
+#allow bluetooth to set property
+set_prop(bluetooth, system_mtk_vendor_bluetooth_prop)
+set_prop(bluetooth, debug_prop)
+
 # Date: 2018/02/02
 # Add permission for different storage types logging
 
@@ -34,6 +39,10 @@ allow bluetooth vfat:file create_file_perms;
 allow bluetooth storage_file:dir { create_dir_perms };
 allow bluetooth tmpfs:lnk_file read;
 allow bluetooth storage_file:file { create_file_perms };
+
+# Date: 2019/06/14
+# Operation : Migration
+get_prop(bluetooth, system_mtk_amslog_prop)
 
 # Date: 2019/06/20
 # Add dir create perms for bluetooth on /data/debuglogger

@@ -1,2 +1,0 @@
-# Owners for modifying any build rules related to the contrib folder
-per-file Android.bp = guangzhu@google.com,jdesprez@google.com,tsu@google.com

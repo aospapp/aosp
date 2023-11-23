@@ -22,84 +22,28 @@
  *//*--------------------------------------------------------------------*/
 
 #include "tes31TestPackage.hpp"
+#include "tes31TestCaseWrapper.hpp"
 #include "tes31InfoTests.hpp"
 #include "es31fFunctionalTests.hpp"
 #include "es31sStressTests.hpp"
 #include "gluStateReset.hpp"
 #include "gluRenderContext.hpp"
+#include "gluContextInfo.hpp"
 #include "tcuTestLog.hpp"
+#include "tcuCommandLine.hpp"
+#include "tcuWaiverUtil.hpp"
+#include "glwEnums.hpp"
 
 namespace deqp
 {
 namespace gles31
 {
 
-class TestCaseWrapper : public tcu::TestCaseExecutor
-{
-public:
-									TestCaseWrapper		(TestPackage& package);
-									~TestCaseWrapper	(void);
-
-	void							init				(tcu::TestCase* testCase, const std::string& path);
-	void							deinit				(tcu::TestCase* testCase);
-	tcu::TestNode::IterateResult	iterate				(tcu::TestCase* testCase);
-
-private:
-	TestPackage&					m_testPackage;
-};
-
-TestCaseWrapper::TestCaseWrapper (TestPackage& package)
-	: m_testPackage(package)
-{
-}
-
-TestCaseWrapper::~TestCaseWrapper (void)
-{
-}
-
-void TestCaseWrapper::init (tcu::TestCase* testCase, const std::string&)
-{
-	testCase->init();
-}
-
-void TestCaseWrapper::deinit (tcu::TestCase* testCase)
-{
-	testCase->deinit();
-
-	DE_ASSERT(m_testPackage.getContext());
-	glu::resetState(m_testPackage.getContext()->getRenderContext(), m_testPackage.getContext()->getContextInfo());
-}
-
-tcu::TestNode::IterateResult TestCaseWrapper::iterate (tcu::TestCase* testCase)
-{
-	tcu::TestContext&					testCtx	= m_testPackage.getContext()->getTestContext();
-	const tcu::TestCase::IterateResult	result	= testCase->iterate();
-
-	// Call implementation specific post-iterate routine (usually handles native events and swaps buffers)
-	try
-	{
-		m_testPackage.getContext()->getRenderContext().postIterate();
-		return result;
-	}
-	catch (const tcu::ResourceError& e)
-	{
-		testCtx.getLog() << e;
-		testCtx.setTestResult(QP_TEST_RESULT_RESOURCE_ERROR, "Resource error in context post-iteration routine");
-		testCtx.setTerminateAfter(true);
-		return tcu::TestNode::STOP;
-	}
-	catch (const std::exception& e)
-	{
-		testCtx.getLog() << e;
-		testCtx.setTestResult(QP_TEST_RESULT_FAIL, "Error in context post-iteration routine");
-		return tcu::TestNode::STOP;
-	}
-}
-
 TestPackage::TestPackage (tcu::TestContext& testCtx)
 	: tcu::TestPackage	(testCtx, "dEQP-GLES31", "dEQP OpenGL ES 3.1 Tests")
 	, m_archive			(testCtx.getRootArchive(), "gles31/")
 	, m_context			(DE_NULL)
+	, m_waiverMechanism (new tcu::WaiverUtil)
 {
 }
 
@@ -115,12 +59,33 @@ void TestPackage::init (void)
 	try
 	{
 		// Create context
-		m_context = new Context(m_testCtx);
+		// Some of the tests will test ES3.2 functionality if supported so try to create a 3.2 context
+		// first. If that doesn't work then create an ES3.1 context.
+		try
+		{
+			m_context = new Context(m_testCtx, glu::ApiType::es(3, 2));
+		}
+		catch (...)
+		{
+			m_context = new Context(m_testCtx, glu::ApiType::es(3, 1));
+		}
+
+		// Setup waiver mechanism
+		if (m_testCtx.getCommandLine().getRunMode() == tcu::RUNMODE_EXECUTE)
+		{
+			const glu::ContextInfo&	contextInfo = m_context->getContextInfo();
+			std::string				vendor		= contextInfo.getString(GL_VENDOR);
+			std::string				renderer	= contextInfo.getString(GL_RENDERER);
+			const tcu::CommandLine&	commandLine	= m_context->getTestContext().getCommandLine();
+			tcu::SessionInfo		sessionInfo	(vendor, renderer, commandLine.getInitialCmdLine());
+			m_waiverMechanism->setup(commandLine.getWaiverFileName(), m_name, vendor, renderer, sessionInfo);
+			m_context->getTestContext().getLog().writeSessionInfo(sessionInfo.get());
+		}
 
 		// Add main test groups
-		addChild(new InfoTests						(*m_context));
-		addChild(new Functional::FunctionalTests	(*m_context));
-		addChild(new Stress::StressTests			(*m_context));
+		addChild(new InfoTests							(*m_context));
+		addChild(new Functional::GLES31FunctionalTests	(*m_context));
+		addChild(new Stress::StressTests				(*m_context));
 	}
 	catch (...)
 	{
@@ -140,7 +105,7 @@ void TestPackage::deinit (void)
 
 tcu::TestCaseExecutor* TestPackage::createExecutor (void) const
 {
-	return new TestCaseWrapper(const_cast<TestPackage&>(*this));
+	return new TestCaseWrapper<TestPackage>(const_cast<TestPackage&>(*this), m_waiverMechanism);
 }
 
 } // gles31

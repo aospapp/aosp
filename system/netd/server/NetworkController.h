@@ -22,6 +22,8 @@
 
 #include "NetdConstants.h"
 #include "Permission.h"
+#include "PhysicalNetwork.h"
+#include "UnreachableNetwork.h"
 #include "android/net/INetd.h"
 #include "netdutils/DumpWriter.h"
 
@@ -82,11 +84,12 @@ class VirtualNetwork;
  */
 class NetworkController {
 public:
-    // NetIds 52..98 are reserved for future use.
+    // NetIds 53..98 are reserved for future use.
     static constexpr int MIN_OEM_ID = 1;
     static constexpr int MAX_OEM_ID = 50;
     static constexpr int LOCAL_NET_ID = INetd::LOCAL_NET_ID;
-    static constexpr int DUMMY_NET_ID = 51;
+    static constexpr int DUMMY_NET_ID = INetd::DUMMY_NET_ID;
+    static constexpr int UNREACHABLE_NET_ID = INetd::UNREACHABLE_NET_ID;
 
     // Route mode for modify route
     enum RouteOperation { ROUTE_ADD, ROUTE_UPDATE, ROUTE_REMOVE };
@@ -104,7 +107,7 @@ public:
 
     [[nodiscard]] int createPhysicalNetwork(unsigned netId, Permission permission);
     [[nodiscard]] int createPhysicalOemNetwork(Permission permission, unsigned* netId);
-    [[nodiscard]] int createVirtualNetwork(unsigned netId, bool secure);
+    [[nodiscard]] int createVirtualNetwork(unsigned netId, bool secure, NativeVpnType vpnType);
     [[nodiscard]] int destroyNetwork(unsigned netId);
 
     [[nodiscard]] int addInterfaceToNetwork(unsigned netId, const char* interface);
@@ -116,8 +119,10 @@ public:
     [[nodiscard]] int setPermissionForNetworks(Permission permission,
                                                const std::vector<unsigned>& netIds);
 
-    [[nodiscard]] int addUsersToNetwork(unsigned netId, const UidRanges& uidRanges);
-    [[nodiscard]] int removeUsersFromNetwork(unsigned netId, const UidRanges& uidRanges);
+    [[nodiscard]] int addUsersToNetwork(unsigned netId, const UidRanges& uidRanges,
+                                        uint32_t subPriority);
+    [[nodiscard]] int removeUsersFromNetwork(unsigned netId, const UidRanges& uidRanges,
+                                             uint32_t subPriority);
 
     // |nexthop| can be NULL (to indicate a directly-connected route), "unreachable" (to indicate a
     // route that's blocked), "throw" (to indicate the lack of a match), or a regular IP address.
@@ -151,13 +156,12 @@ public:
     // set to a non-NETID_UNSET value if the user already has indicated a preference. Returns the
     // fwmark value to set on the socket when performing the DNS request.
     uint32_t getNetworkForDnsLocked(unsigned* netId, uid_t uid) const;
-
-    unsigned getNetworkForUserLocked(uid_t uid) const;
     unsigned getNetworkForConnectLocked(uid_t uid) const;
     unsigned getNetworkForInterfaceLocked(const char* interface) const;
     bool canProtectLocked(uid_t uid) const;
     bool isVirtualNetworkLocked(unsigned netId) const;
     VirtualNetwork* getVirtualNetworkForUserLocked(uid_t uid) const;
+    Network* getPhysicalOrUnreachableNetworkForUserLocked(uid_t uid) const;
     Permission getPermissionForUserLocked(uid_t uid) const;
     int checkUserNetworkAccessLocked(uid_t uid, unsigned netId) const;
     [[nodiscard]] int createPhysicalNetworkLocked(unsigned netId, Permission permission);

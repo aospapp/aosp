@@ -33,5 +33,5 @@ allow netmgr goldfish_ip_exec:file execute_no_trans;
 allow netmgr self:netlink_route_socket nlmsg_write;
 # Packet socket for wifi forwarding
 allow netmgr self:packet_socket { bind create read setopt write };
-allow netmgr kernel:system module_request;
 allow netmgr self:capability sys_module;
+allow netmgr self:vsock_socket create_socket_perms_no_ioctl;

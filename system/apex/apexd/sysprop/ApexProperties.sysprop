@@ -22,3 +22,19 @@ prop {
     access: Readonly
     prop_name: "ro.apex.updatable"
 }
+
+prop {
+    api_name: "dm_delete_timeout"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "apexd.config.dm_delete.timeout"
+}
+
+prop {
+    api_name: "dm_create_timeout"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "apexd.config.dm_create.timeout"
+}

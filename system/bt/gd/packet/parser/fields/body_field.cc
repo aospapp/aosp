@@ -20,12 +20,23 @@ const std::string BodyField::kFieldType = "BodyField";
 
 BodyField::BodyField(ParseLocation loc) : PacketField("body", loc) {}
 
+void BodyField::SetSizeField(const SizeField* size_field) {
+  if (size_field_ != nullptr) {
+    ERROR(this, size_field_, size_field) << "The size field for the body has already been assigned.";
+  }
+  size_field_ = size_field;
+}
+
 const std::string& BodyField::GetFieldType() const {
   return BodyField::kFieldType;
 }
 
 Size BodyField::GetSize() const {
-  return Size(0);
+  if (size_field_ == nullptr) {
+    return Size(0);
+  }
+  std::string dynamic_size = "(" + size_field_->GetName() + " * 8)";
+  return dynamic_size;
 }
 
 std::string BodyField::GetDataType() const {
@@ -60,3 +71,16 @@ void BodyField::GenInserter(std::ostream&) const {
 void BodyField::GenValidator(std::ostream&) const {
   // Do nothing
 }
+
+void BodyField::GenStringRepresentation(std::ostream& s, std::string accessor) const {
+  s << "\"BODY REPRESENTATION_UNIMPLEMENTED " << accessor << " \"";
+}
+
+std::string BodyField::GetRustDataType() const {
+  return GetDataType();
+}
+
+void BodyField::GenRustGetter(std::ostream&, Size, Size) const {
+}
+
+void BodyField::GenRustWriter(std::ostream&, Size, Size) const {}

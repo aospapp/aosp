@@ -59,6 +59,8 @@ status_t BasicRequestProcessor::ConfigureStreams(
       HalCameraMetadata::Clone(stream_config.session_params.get());
   process_block_stream_config->stream_config_counter =
       stream_config.stream_config_counter;
+  process_block_stream_config->multi_resolution_input_image =
+      stream_config.multi_resolution_input_image;
 
   return OK;
 }
@@ -93,6 +95,8 @@ status_t BasicRequestProcessor::ProcessRequest(const CaptureRequest& request) {
   block_request.frame_number = request.frame_number;
   block_request.settings = HalCameraMetadata::Clone(request.settings.get());
   block_request.input_buffers = request.input_buffers;
+  block_request.input_width = request.input_width;
+  block_request.input_height = request.input_height;
 
   for (auto& metadata : request.input_buffer_metadata) {
     block_request.input_buffer_metadata.push_back(

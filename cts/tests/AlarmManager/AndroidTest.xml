@@ -25,6 +25,12 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsAlarmManagerTestCases.apk" />
         <option name="test-file-name" value="AlarmTestApp.apk" />
+        <option name="test-file-name" value="AlarmTestApp30.apk" />
+    </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="settings put global activity_manager_constants background_settle_time=0" />
+        <option name="teardown-command" value="settings delete global activity_manager_constants" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
@@ -32,4 +38,8 @@
         <option name="runtime-hint" value="1m" />
     </test>
 
+    <object type="module_controller"
+            class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <option name="mainline-module-package-name" value="android.scheduling"/>
+    </object>
 </configuration>

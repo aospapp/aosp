@@ -15,8 +15,6 @@
 # Description:
 #   Functional tests for Dagger Producers
 
-package(default_visibility = ["//:src"])
-
 load(
     "//:build_defs.bzl",
     "DOCLINT_HTML_AND_SYNTAX",
@@ -25,20 +23,24 @@ load(
 )
 load("//:test_defs.bzl", "GenJavaTests")
 
+package(default_visibility = ["//:src"])
+
 GenJavaTests(
     name = "producers-functional-tests",
     srcs = glob(["**/*.java"]),
-    javacopts = SOURCE_7_TARGET_7 + DOCLINT_HTML_AND_SYNTAX + DOCLINT_REFERENCES,
+    javacopts = DOCLINT_HTML_AND_SYNTAX + DOCLINT_REFERENCES,
+    lib_javacopts = SOURCE_7_TARGET_7,
     deps = [
         "//:producers_with_compiler",
+        "//java/dagger/internal/guava:base",
+        "//java/dagger/internal/guava:collect",
+        "//java/dagger/internal/guava:concurrent",
         "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/guava",
         "@google_bazel_common//third_party/java/jsr305_annotations",
         "@google_bazel_common//third_party/java/jsr330_inject",
         "@google_bazel_common//third_party/java/junit",
         "@google_bazel_common//third_party/java/mockito",
         "@google_bazel_common//third_party/java/truth",
-        "@google_bazel_common//third_party/java/truth:truth8",
     ],
 )
 

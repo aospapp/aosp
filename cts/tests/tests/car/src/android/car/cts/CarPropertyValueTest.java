@@ -13,32 +13,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License
  */
+
 package android.car.cts;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import android.car.Car;
 import android.car.VehicleAreaType;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
-
-import android.util.SparseArray;
-import androidx.test.runner.AndroidJUnit4;
-import static com.google.common.truth.Truth.assertThat;
-
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import android.util.SparseArray;
+
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.Test.None;
 import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 @SmallTest
 @RequiresDevice
 @RunWith(AndroidJUnit4.class)
+@AppModeFull(reason = "Instant apps cannot get car related permissions.")
 public class CarPropertyValueTest extends CarApiTestBase {
     private CarPropertyManager mCarPropertyManager;
     private List<CarPropertyValue> mCarPropertyValues = new ArrayList<>();

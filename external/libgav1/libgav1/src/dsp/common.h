@@ -17,7 +17,6 @@
 #ifndef LIBGAV1_SRC_DSP_COMMON_H_
 #define LIBGAV1_SRC_DSP_COMMON_H_
 
-#include <cstddef>  // ptrdiff_t
 #include <cstdint>
 
 #include "src/dsp/constants.h"
@@ -26,10 +25,7 @@
 
 namespace libgav1 {
 
-struct LoopRestoration {
-  LoopRestorationType type[kMaxPlanes];
-  int unit_size[kMaxPlanes];
-};
+enum { kSgrStride = kRestorationUnitWidth + 32 };  // anonymous enum
 
 // Self guided projection filter.
 struct SgrProjInfo {
@@ -40,70 +36,45 @@ struct SgrProjInfo {
 struct WienerInfo {
   static const int kVertical = 0;
   static const int kHorizontal = 1;
-
-  alignas(kMaxAlignment) int16_t filter[2][kSubPixelTaps];
+  int16_t number_leading_zero_coefficients[2];
+  alignas(kMaxAlignment) int16_t filter[2][(kWienerFilterTaps + 1) / 2];
 };
 
-struct RestorationUnitInfo : public Allocable {
+struct RestorationUnitInfo : public MaxAlignedAllocable {
   LoopRestorationType type;
   SgrProjInfo sgr_proj_info;
   WienerInfo wiener_info;
 };
 
-struct RestorationBuffer {
-  // For self-guided filter.
-  int* box_filter_process_output[2];
-  ptrdiff_t box_filter_process_output_stride;
-  uint32_t* box_filter_process_intermediate[2];
-  ptrdiff_t box_filter_process_intermediate_stride;
-  // For wiener filter.
-  uint16_t* wiener_buffer;
-  ptrdiff_t wiener_buffer_stride;
+struct SgrBuffer {
+  alignas(kMaxAlignment) uint16_t sum3[4 * kSgrStride];
+  alignas(kMaxAlignment) uint16_t sum5[5 * kSgrStride];
+  alignas(kMaxAlignment) uint32_t square_sum3[4 * kSgrStride];
+  alignas(kMaxAlignment) uint32_t square_sum5[5 * kSgrStride];
+  alignas(kMaxAlignment) uint16_t ma343[4 * kRestorationUnitWidth];
+  alignas(kMaxAlignment) uint16_t ma444[3 * kRestorationUnitWidth];
+  alignas(kMaxAlignment) uint16_t ma565[2 * kRestorationUnitWidth];
+  alignas(kMaxAlignment) uint32_t b343[4 * kRestorationUnitWidth];
+  alignas(kMaxAlignment) uint32_t b444[3 * kRestorationUnitWidth];
+  alignas(kMaxAlignment) uint32_t b565[2 * kRestorationUnitWidth];
+  // The following 2 buffers are only used by the C functions. Since SgrBuffer
+  // is smaller than |wiener_buffer| in RestorationBuffer which is an union,
+  // it's OK to always keep the following 2 buffers.
+  alignas(kMaxAlignment) uint8_t ma[kSgrStride];  // [0, 255]
+  // b is less than 2^16 for 8-bit. However, making it a template slows down the
+  // C function by 5%. So b is fixed to 32-bit.
+  alignas(kMaxAlignment) uint32_t b[kSgrStride];
 };
 
-// Section 6.8.20.
-// Note: In spec, film grain section uses YCbCr to denote variable names,
-// such as num_cb_points, num_cr_points. To keep it consistent with other
-// parts of code, we use YUV, i.e., num_u_points, num_v_points, etc.
-struct FilmGrainParams {
-  bool apply_grain;
-  bool update_grain;
-  bool chroma_scaling_from_luma;
-  bool overlap_flag;
-  bool clip_to_restricted_range;
-
-  uint8_t num_y_points;  // [0, 14].
-  uint8_t num_u_points;  // [0, 10].
-  uint8_t num_v_points;  // [0, 10].
-  // Must be [0, 255]. 10/12 bit /= 4 or 16. Must be in increasing order.
-  uint8_t point_y_value[14];
-  uint8_t point_y_scaling[14];
-  uint8_t point_u_value[10];
-  uint8_t point_u_scaling[10];
-  uint8_t point_v_value[10];
-  uint8_t point_v_scaling[10];
-
-  uint8_t chroma_scaling;             // [8, 11].
-  uint8_t auto_regression_coeff_lag;  // [0, 3].
-  int auto_regression_coeff_y[24];
-  int auto_regression_coeff_u[25];
-  int auto_regression_coeff_v[25];
-  // Shift value: auto regression coeffs range
-  // 6: [-2, 2)
-  // 7: [-1, 1)
-  // 8: [-0.5, 0.5)
-  // 9: [-0.25, 0.25)
-  uint8_t auto_regression_shift;
-
-  uint16_t grain_seed;
-  int reference_index;
-  int grain_scale_shift;
-  int u_multiplier;
-  int u_luma_multiplier;
-  int u_offset;
-  int v_multiplier;
-  int v_luma_multiplier;
-  int v_offset;
+union RestorationBuffer {
+  // For self-guided filter.
+  SgrBuffer sgr_buffer;
+  // For wiener filter.
+  // The array |intermediate| in Section 7.17.4, the intermediate results
+  // between the horizontal and vertical filters.
+  alignas(kMaxAlignment) int16_t
+      wiener_buffer[(kRestorationUnitHeight + kWienerFilterTaps - 1) *
+                    kRestorationUnitWidth];
 };
 
 }  // namespace libgav1

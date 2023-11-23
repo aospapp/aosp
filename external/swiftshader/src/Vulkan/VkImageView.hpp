@@ -15,7 +15,7 @@
 #ifndef VK_IMAGE_VIEW_HPP_
 #define VK_IMAGE_VIEW_HPP_
 
-#include "VkFormat.h"
+#include "VkFormat.hpp"
 #include "VkImage.hpp"
 #include "VkObject.hpp"
 
@@ -26,6 +26,35 @@
 namespace vk {
 
 class SamplerYcbcrConversion;
+
+// Uniquely identifies state used by sampling routine generation.
+// ID space shared by image views and buffer views.
+union Identifier
+{
+	// Image view identifier
+	Identifier(const Image *image, VkImageViewType type, VkFormat format, VkComponentMapping mapping);
+
+	// Buffer view identifier
+	Identifier(VkFormat format);
+
+	operator uint32_t() const
+	{
+		static_assert(sizeof(Identifier) == sizeof(uint32_t), "Identifier must be 32-bit");
+		return id;
+	}
+
+	uint32_t id = 0;
+
+	struct
+	{
+		uint32_t imageViewType : 3;
+		uint32_t format : 8;
+		uint32_t r : 3;
+		uint32_t g : 3;
+		uint32_t b : 3;
+		uint32_t a : 3;
+	};
+};
 
 class ImageView : public Object<ImageView, VkImageView>
 {
@@ -50,6 +79,7 @@ public:
 	void resolve(ImageView *resolveAttachment);
 	void resolve(ImageView *resolveAttachment, int layer);
 	void resolveWithLayerMask(ImageView *resolveAttachment, uint32_t layerMask);
+	void resolveDepthStencil(ImageView *resolveAttachment, const VkSubpassDescriptionDepthStencilResolve &dsResolve);
 
 	VkImageViewType getType() const { return viewType; }
 	Format getFormat(Usage usage = RAW) const;
@@ -58,7 +88,9 @@ public:
 	int slicePitchBytes(VkImageAspectFlagBits aspect, uint32_t mipLevel, Usage usage = RAW) const;
 	int getMipLevelSize(VkImageAspectFlagBits aspect, uint32_t mipLevel, Usage usage = RAW) const;
 	int layerPitchBytes(VkImageAspectFlagBits aspect, Usage usage = RAW) const;
-	VkExtent3D getMipLevelExtent(uint32_t mipLevel) const;
+	VkExtent2D getMipLevelExtent(uint32_t mipLevel) const;
+	VkExtent2D getMipLevelExtent(uint32_t mipLevel, VkImageAspectFlagBits aspect) const;
+	int getDepthOrLayerCount(uint32_t mipLevel) const;
 
 	int getSampleCount() const
 	{
@@ -76,40 +108,35 @@ public:
 	bool hasDepthAspect() const { return (subresourceRange.aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT) != 0; }
 	bool hasStencilAspect() const { return (subresourceRange.aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) != 0; }
 
-	void prepareForSampling() const { image->prepareForSampling(subresourceRange); }
+	// This function is only called from the renderer, so use the USING_STORAGE flag,
+	// as it is required in order to write to an image from a shader
+	void contentsChanged() { image->contentsChanged(subresourceRange, Image::USING_STORAGE); }
+
+	void prepareForSampling() { image->prepareForSampling(subresourceRange); }
 
 	const VkComponentMapping &getComponentMapping() const { return components; }
 	const VkImageSubresourceRange &getSubresourceRange() const { return subresourceRange; }
-	size_t getImageSizeInBytes() const { return image->getMemoryRequirements().size; }
-
-	const uint32_t id = nextID++;
+	size_t getSizeInBytes() const { return image->getSizeInBytes(subresourceRange); }
 
 private:
-	static std::atomic<uint32_t> nextID;
-	friend class BufferView;  // ImageView/BufferView share the ID space above.
-
 	bool imageTypesMatch(VkImageType imageType) const;
 	const Image *getImage(Usage usage) const;
 
 	Image *const image = nullptr;
 	const VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D;
-	const Format format;
+	const Format format = VK_FORMAT_UNDEFINED;
 	const VkComponentMapping components = {};
 	const VkImageSubresourceRange subresourceRange = {};
 
 	const vk::SamplerYcbcrConversion *ycbcrConversion = nullptr;
+
+public:
+	const Identifier id;
 };
 
-// TODO(b/132437008): Also used by SamplerYcbcrConversion. Move somewhere centrally?
-inline VkComponentMapping ResolveIdentityMapping(VkComponentMapping m)
-{
-	return {
-		(m.r == VK_COMPONENT_SWIZZLE_IDENTITY) ? VK_COMPONENT_SWIZZLE_R : m.r,
-		(m.g == VK_COMPONENT_SWIZZLE_IDENTITY) ? VK_COMPONENT_SWIZZLE_G : m.g,
-		(m.b == VK_COMPONENT_SWIZZLE_IDENTITY) ? VK_COMPONENT_SWIZZLE_B : m.b,
-		(m.a == VK_COMPONENT_SWIZZLE_IDENTITY) ? VK_COMPONENT_SWIZZLE_A : m.a,
-	};
-}
+VkComponentMapping ResolveIdentityMapping(VkComponentMapping mapping);
+VkComponentMapping ResolveComponentMapping(VkComponentMapping mapping, vk::Format format);
+VkImageSubresourceRange ResolveRemainingLevelsLayers(VkImageSubresourceRange range, const vk::Image *image);
 
 static inline ImageView *Cast(VkImageView object)
 {

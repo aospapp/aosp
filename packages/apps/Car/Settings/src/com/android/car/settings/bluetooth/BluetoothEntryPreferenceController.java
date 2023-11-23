@@ -53,6 +53,6 @@ public class BluetoothEntryPreferenceController extends PreferenceController<Pre
             return UNSUPPORTED_ON_DEVICE;
         }
         return mUserManager.hasUserRestriction(DISALLOW_BLUETOOTH)
-                ? DISABLED_FOR_USER : AVAILABLE;
+                ? DISABLED_FOR_PROFILE : AVAILABLE;
     }
 }

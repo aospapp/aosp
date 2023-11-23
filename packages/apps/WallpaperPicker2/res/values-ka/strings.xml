@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"მთავარი ეკრანი"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"ჩაკეტილი ეკრანი"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"მთავარი და ჩაკეტილი ეკრანები"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"ფონის დაყენება"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"ფონის დაყენება"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"მთავარი ეკრანი"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"ჩაკეტილი ეკრანი"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"მთავარი ეკრანი და ჩაკეტილი ეკრანი"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"მთავარი და ჩაკეტილი ეკრანი"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"ფონი ცვალებადი სურათებით"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"ამჟამინდელი ფონის აქ საჩვენებლად <xliff:g id="APP_NAME">%1$s</xliff:g> საჭიროებს წვდომას თქვენი მოწყობილობის მეხსიერებაზე."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"ამჟამინდელი ფონის აქ საჩვენებლად Wallpapers საჭიროებს წვდომას თქვენი მოწყობილობის მეხსიერებაზე.\n\nამ პარამეტრის შესაცვლელად გადადით Wallpapers-ის აპის ინფორმაციის ნებართვების არეზე."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"ყოველდღიური ფონის განახლება"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"მიმდინარეობს ყოველდღიური ფონის განახლება…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"ყოველდღიური ფონი ვერ განახლდა. გთხოვთ, შეამოწმოთ ქსელის კავშირი და ხელახლა ცადოთ."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"ფონის ინფორმაციის პანელის ჩაკეცვა"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"ფონის ინფორმაციის პანელის გაშლა"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"მოწყობილობაზე შენახული ფონები"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"მოწყობილობიდან"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Android ფონი"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"ცენტრში ჩამოჭრა"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"გადაჭიმვა"</string>
     <string name="preview" msgid="1774602101743861071">"გადახედვა"</string>
+    <string name="tab_info" msgid="818614080690111416">"ინფორმაცია"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"მორგება"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"პარამეტრები..."</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"წაშლა"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"წაიშალოს ეს ფონი თქვენი ტელეფონიდან?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"უკან"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"რედაქტირება"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"ჩამოტვირთვა"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"ფონების სლაიდშოუ"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"მისადაგება"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"გვერდი <xliff:g id="ID_1">%1$d</xliff:g> / <xliff:g id="ID_2">%2$d</xliff:g>-დან"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"შემდეგი"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"წინა"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"ფონი"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"ფონის გადახედვა"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"კოლექცია არ არსებობს"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"UI გადახედვის დამალვა"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"UI გადახედვის გამოჩენა"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"ფონის შეცვლა"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"ჩაკეტილი ეკრანის ფონის გადახედვა"</string>
 </resources>

@@ -18,52 +18,52 @@ package android.platform.helpers;
 
 public interface IAutoMediaCenterNowPlayingHelper extends IAppHelper {
 
-  /**
-   * Setup expectations: Now Playing is open.
-   *
-   * This method is used to play media.
-   */
-  void playMedia();
+    /**
+     * Setup expectations: Now Playing is open.
+     *
+     * <p>This method is used to play media.
+     */
+    void playMedia();
 
-  /**
-   * Setup expectations: Now Playing is open.
-   *
-   * This method is used to pause media.
-   */
-  void pauseMedia();
+    /**
+     * Setup expectations: Now Playing is open.
+     *
+     * <p>This method is used to pause media.
+     */
+    void pauseMedia();
 
-  /**
-   * Setup expectations: Now Playing is open.
-   *
-   * This method is used to select next track.
-   */
-  void clickNextTrack();
+    /**
+     * Setup expectations: Now Playing is open.
+     *
+     * <p>This method is used to select next track.
+     */
+    void clickNextTrack();
 
-  /**
-   *  Setup expectations: Now Playing is open.
-   *
-   * This method is used to select previous track.
-   */
-  void clickPreviousTrack();
+    /**
+     * Setup expectations: Now Playing is open.
+     *
+     * <p>This method is used to select previous track.
+     */
+    void clickPreviousTrack();
 
-  /**
-   * Setup expectations: Now Playing is open.
-   *
-   * @return to get current playing track name from screen.
-   */
-  String getTrackName();
+    /**
+     * Setup expectations: Now Playing is open.
+     *
+     * @return to get current playing track name from home screen.
+     */
+    String getTrackName();
 
-  /**
-   * Setup expectations: Now Playing is open.
-   *
-   * @return to get current playing track's artist name from screen.
-   */
-  String getArtistName();
+    /**
+     * Setup expectations: Now Playing is open.
+     *
+     * @return to get current playing track's artist name from screen.
+     */
+    String getArtistName();
 
-  /**
-   * Setup expectations: Now Playing is open.
-   *
-   * This method is used to minimize now playing.
-   */
-  void minimizeNowPlaying();
+    /**
+     * Setup expectations: Now Playing is open.
+     *
+     * <p>This method is used to minimize now playing.
+     */
+    void minimizeNowPlaying();
 }

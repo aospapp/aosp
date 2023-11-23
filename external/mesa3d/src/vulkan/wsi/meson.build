@@ -20,6 +20,10 @@
 
 files_vulkan_wsi = files('wsi_common.c')
 
+if dep_libdrm.found()
+  files_vulkan_wsi += files('wsi_common_drm.c')
+endif
+
 if with_platform_x11
   files_vulkan_wsi += files('wsi_common_x11.c')
 endif
@@ -34,16 +38,16 @@ if with_platform_wayland
   ]
 endif
 
-if with_platform_drm
+if system_has_kms_drm and not with_platform_android
   files_vulkan_wsi += files('wsi_common_display.c')
 endif
 
 libvulkan_wsi = static_library(
   'vulkan_wsi',
   files_vulkan_wsi,
-  include_directories : [inc_common, inc_include],
-  link_with: [libxmlconfig],
-  dependencies : [vulkan_wsi_deps, dep_libdrm, idep_vulkan_util],
-  c_args : [c_vis_args, vulkan_wsi_args],
+  include_directories : [inc_include, inc_src],
+  dependencies : [vulkan_wsi_deps, dep_libdrm, idep_vulkan_util, idep_xmlconfig],
+  c_args : [vulkan_wsi_args],
+  gnu_symbol_visibility : 'hidden',
   build_by_default : false,
 )

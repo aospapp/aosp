@@ -56,6 +56,7 @@ public class DrawFramesActivity extends Activity implements Window.OnFrameMetric
     private int[] mFramesToDraw;
     private int mDroppedReportsCount = 0;
     private int mRenderedFrames = 0;
+    private CountDownLatch mFrameSetupFence = new CountDownLatch(0);
 
     @Override
     public void onCreate(Bundle bundle) {
@@ -84,6 +85,7 @@ public class DrawFramesActivity extends Activity implements Window.OnFrameMetric
     }
 
     private void setupFrame() {
+        mFrameSetupFence.countDown();
         updateColor();
         if (isFrameFlagSet(FRAME_JANK_LAYOUT)) {
             mColorView.requestLayout();
@@ -119,10 +121,11 @@ public class DrawFramesActivity extends Activity implements Window.OnFrameMetric
 
     private void spinSleep(int durationMs) {
         long until = System.currentTimeMillis() + durationMs;
-        while (System.currentTimeMillis() < until) {}
+        while (System.currentTimeMillis() <= until) {}
     }
 
     private void scheduleDraw() {
+        mFrameSetupFence = new CountDownLatch(1);
         mColorView.invalidate();
         mChoreographer.postFrameCallback((long timestamp) -> {
             setupFrame();
@@ -189,6 +192,17 @@ public class DrawFramesActivity extends Activity implements Window.OnFrameMetric
     @Override
     public void onFrameMetricsAvailable(Window window, FrameMetrics frameMetrics,
             int dropCountSinceLastInvocation) {
+        if (mFramesFinishedFence == null || mFramesFinishedFence.getCount() <= 0) {
+            // Count Metrics only when drawFrames is being actively executed. Ignore.
+            return;
+        }
+
+        if (mFrameSetupFence.getCount() > 0) {
+            // This callback is for a frame that was rendered before the first frame of the
+            // drawFrames. Ignore.
+            return;
+        }
+
         mDroppedReportsCount += dropCountSinceLastInvocation;
         mRenderedFrames++;
         onDrawFinished();

@@ -12,26 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsInputMethodTestCases",
     defaults: ["cts_defaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     compile_multilib: "both",
-    libs: ["android.test.runner.stubs"],
+    libs: ["android.test.runner"],
     static_libs: [
         "androidx.test.rules",
+        "androidx.test.uiautomator_uiautomator",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "CtsMockInputMethodLib",
+        "CtsMockSpellCheckerLib",
         "testng",
+        "kotlin-test",
     ],
     srcs: [
         "src/**/*.java",
+        "src/**/*.kt",
         "src/**/I*.aidl",
     ],
     aidl: {

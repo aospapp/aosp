@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Sesli Mesaj Ayarları yalnızca Birincil Kullanıcı tarafından değiştirilebilir."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"SIM kartınızın engellemesi kaldırıldı. Telefonunuzun kilidi açılıyor..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"SIM ağı kilit açma PIN kodu"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"SIM şu operatör için kilitlendi"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Kilit Aç"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Kapat"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Ağ kilidini açma isteği yapılıyor..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Şuraya yönlendiriliyor: <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Kapalı"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Operatörünüz, telefonunuza ulaşılamadığında çağrı yönlendirmenin devre dışı bırakılmasını desteklemiyor."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Operatörünüz arama yönlendirmeyi desteklemiyor."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Arama bekletme etkinleştirilsin mi?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Bir arama sırasında gelen aramalarla ilgili olarak bilgilendirilirsiniz"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Etkinleştir"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"İptal"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS altında CDMA Arama Bekletme Etkin"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS altında CDMA Arama Bekletme Devre Dışı"</string>
     <string name="updating_title" msgid="6130548922615719689">"Çağrı ayarları"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Çağrı ayarları sadece yönetici tarafından değiştirilebilir."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Ayarlar (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Sınırlı SIM işlevselliği"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> kullanılırken <xliff:g id="CARRIER_NAME">%1$s</xliff:g> aramaları ve veri hizmetleri engellenebilir."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Başka bir SIM kullanılırken <xliff:g id="CARRIER_NAME">%1$s</xliff:g> aramaları ve veri hizmetleri engellenebilir."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Kullanımdan kaldırılmış SIP hesapları bulundu ve kaldırıldı"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"SIP araması, Android platformunda artık desteklenmemektedir.\nMevcut SIP hesaplarınız <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> kaldırıldı.\nLütfen varsayılan arama hesabı ayarınızı onaylayın."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Ayarlara git"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Uygulama veri kullanımı"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g> arasında <xliff:g id="ID_1">%1$s</xliff:g> mobil veri kullanıldı"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Gelişmiş"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Şifre hatalı. SIM kilitlendi. PUK2\'yi girin."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 kalıcı olarak engellendi."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"<xliff:g id="NUMBER">%d</xliff:g> deneme hakkınız kaldı."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"PUK2 kilitlendi. Kilidi açmak için servis sağlayıcıyla iletişime geçin."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 artık engellenmiş durumda değil"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Ağ veya SIM kart hatası"</string>
     <string name="doneButton" msgid="7371209609238460207">"Bitti"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Telefon etmek için mobil ağı açın, uçak modunu veya pil tasarrufu modunu kapatın."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Telefon etmek için uçak modunu kapatın."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Telefon etmek için uçak modunu kapatın veya kablosuz ağa bağlanın."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Telefon çok ısındı"</b>\n\n"Bu arama tamamlanamıyor. Telefonunuz soğuyana kadar bekleyip tekrar deneyin.\n\nBu süre zarfında acil durum aramaları yapabilirsiniz."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Acil durum çağrısı dışında bir çağrı yapmak için acil durumda geri aranma modundan çıkın."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Ağda kayıtlı değil."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Mobil ağ kullanılamıyor."</string>
@@ -546,7 +559,7 @@
     <string name="emergency_information_hint" msgid="9208897544917793012">"Acil durum bilgisi"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Sahip"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Bilgileri görüntülemek için tekrar dokunun"</string>
-    <string name="emergency_enable_radio_dialog_title" msgid="2667568200755388829">"Acil durum çağrısı"</string>
+    <string name="emergency_enable_radio_dialog_title" msgid="2667568200755388829">"Acil durum araması"</string>
     <string name="single_emergency_number_title" msgid="8413371079579067196">"Acil durum numarası"</string>
     <string name="numerous_emergency_numbers_title" msgid="8972398932506755510">"Acil durum numaraları"</string>
     <string name="emergency_call_shortcut_hint" msgid="1290485125107779500">"<xliff:g id="EMERGENCY_NUMBER">%s</xliff:g> numaralı telefonu aramak için tekrar dokunun"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Varsayılan veri SIM\'inin alt kimliği:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"İndirme Bant Genişliği (kb/sn.):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Yükleme Bant Genişliği (kb/sn.):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Hücre Konumu Bilgisi (kullanımdan kaldırıldı):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE Fiziksel Kanal Yapılandırması:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Hücre Bilgilerini Yenileme Hızı:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Tüm Hücre Ölçümü Bilgileri:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Yenile"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"DNS Denetimini Aç/Kapat"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"OEM\'e Özgü Bilgiler/Ayarlar"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC Kullanılabilir:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR Kısıtlanmış:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR Kullanılabilir:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR Durumu:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR Frekansı:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Radyo Bant Modunu Ayarla"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Bant Listesi Yükleniyor…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Ayarla"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Telefon bilgileri"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Operatör Temel Hazırlık Bilgileri"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Tetikleyici Operatör Temel Hazırlığı"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Bluetooth sinyaliniz zayıf. Hoparlöre geçmeyi deneyin."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Arama Kalitesiyle İlgili Bildirim"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Kullanımdan kaldırılan SIP hesapları"</string>
 </resources>

@@ -53,6 +53,23 @@ extern "C" {
 	GLint rcSetColorBufferVulkanMode(uint32_t colorBuffer, uint32_t mode);
 	void rcReadColorBufferYUV(uint32_t colorbuffer, GLint x, GLint y, GLint width, GLint height, void* pixels, uint32_t pixels_size);
 	int rcIsSyncSignaled(uint64_t sync);
+	void rcCreateColorBufferWithHandle(uint32_t width, uint32_t height, GLenum internalFormat, uint32_t handle);
+	uint32_t rcCreateBuffer(uint32_t size);
+	void rcCloseBuffer(uint32_t buffer);
+	GLint rcSetColorBufferVulkanMode2(uint32_t colorBuffer, uint32_t mode, uint32_t memoryProperty);
+	int rcMapGpaToBufferHandle(uint32_t bufferHandle, uint64_t gpa);
+	uint32_t rcCreateBuffer2(uint64_t size, uint32_t memoryProperty);
+	int rcMapGpaToBufferHandle2(uint32_t bufferHandle, uint64_t gpa, uint64_t size);
+	void rcFlushWindowColorBufferAsyncWithFrameNumber(uint32_t windowSurface, uint32_t frameNumber);
+	void rcSetTracingForPuid(uint64_t puid, uint32_t enable, uint64_t guestTime);
+	void rcMakeCurrentAsync(uint32_t context, uint32_t drawSurf, uint32_t readSurf);
+	void rcComposeAsync(uint32_t bufferSize, void* buffer);
+	void rcDestroySyncKHRAsync(uint64_t sync);
+	GLint rcComposeWithoutPost(uint32_t bufferSize, void* buffer);
+	void rcComposeAsyncWithoutPost(uint32_t bufferSize, void* buffer);
+	int rcCreateDisplayById(uint32_t displayId);
+	int rcSetDisplayPoseDpi(uint32_t displayId, GLint x, GLint y, uint32_t w, uint32_t h, uint32_t dpi);
+	int rcReadColorBufferDMA(uint32_t colorbuffer, GLint x, GLint y, GLint width, GLint height, GLenum format, GLenum type, void* pixels, uint32_t pixels_size);
 };
 
 #ifndef GET_CONTEXT
@@ -347,5 +364,107 @@ int rcIsSyncSignaled(uint64_t sync)
 {
 	GET_CONTEXT;
 	return ctx->rcIsSyncSignaled(ctx, sync);
+}
+
+void rcCreateColorBufferWithHandle(uint32_t width, uint32_t height, GLenum internalFormat, uint32_t handle)
+{
+	GET_CONTEXT;
+	ctx->rcCreateColorBufferWithHandle(ctx, width, height, internalFormat, handle);
+}
+
+uint32_t rcCreateBuffer(uint32_t size)
+{
+	GET_CONTEXT;
+	return ctx->rcCreateBuffer(ctx, size);
+}
+
+void rcCloseBuffer(uint32_t buffer)
+{
+	GET_CONTEXT;
+	ctx->rcCloseBuffer(ctx, buffer);
+}
+
+GLint rcSetColorBufferVulkanMode2(uint32_t colorBuffer, uint32_t mode, uint32_t memoryProperty)
+{
+	GET_CONTEXT;
+	return ctx->rcSetColorBufferVulkanMode2(ctx, colorBuffer, mode, memoryProperty);
+}
+
+int rcMapGpaToBufferHandle(uint32_t bufferHandle, uint64_t gpa)
+{
+	GET_CONTEXT;
+	return ctx->rcMapGpaToBufferHandle(ctx, bufferHandle, gpa);
+}
+
+uint32_t rcCreateBuffer2(uint64_t size, uint32_t memoryProperty)
+{
+	GET_CONTEXT;
+	return ctx->rcCreateBuffer2(ctx, size, memoryProperty);
+}
+
+int rcMapGpaToBufferHandle2(uint32_t bufferHandle, uint64_t gpa, uint64_t size)
+{
+	GET_CONTEXT;
+	return ctx->rcMapGpaToBufferHandle2(ctx, bufferHandle, gpa, size);
+}
+
+void rcFlushWindowColorBufferAsyncWithFrameNumber(uint32_t windowSurface, uint32_t frameNumber)
+{
+	GET_CONTEXT;
+	ctx->rcFlushWindowColorBufferAsyncWithFrameNumber(ctx, windowSurface, frameNumber);
+}
+
+void rcSetTracingForPuid(uint64_t puid, uint32_t enable, uint64_t guestTime)
+{
+	GET_CONTEXT;
+	ctx->rcSetTracingForPuid(ctx, puid, enable, guestTime);
+}
+
+void rcMakeCurrentAsync(uint32_t context, uint32_t drawSurf, uint32_t readSurf)
+{
+	GET_CONTEXT;
+	ctx->rcMakeCurrentAsync(ctx, context, drawSurf, readSurf);
+}
+
+void rcComposeAsync(uint32_t bufferSize, void* buffer)
+{
+	GET_CONTEXT;
+	ctx->rcComposeAsync(ctx, bufferSize, buffer);
+}
+
+void rcDestroySyncKHRAsync(uint64_t sync)
+{
+	GET_CONTEXT;
+	ctx->rcDestroySyncKHRAsync(ctx, sync);
+}
+
+GLint rcComposeWithoutPost(uint32_t bufferSize, void* buffer)
+{
+	GET_CONTEXT;
+	return ctx->rcComposeWithoutPost(ctx, bufferSize, buffer);
+}
+
+void rcComposeAsyncWithoutPost(uint32_t bufferSize, void* buffer)
+{
+	GET_CONTEXT;
+	ctx->rcComposeAsyncWithoutPost(ctx, bufferSize, buffer);
+}
+
+int rcCreateDisplayById(uint32_t displayId)
+{
+	GET_CONTEXT;
+	return ctx->rcCreateDisplayById(ctx, displayId);
+}
+
+int rcSetDisplayPoseDpi(uint32_t displayId, GLint x, GLint y, uint32_t w, uint32_t h, uint32_t dpi)
+{
+	GET_CONTEXT;
+	return ctx->rcSetDisplayPoseDpi(ctx, displayId, x, y, w, h, dpi);
+}
+
+int rcReadColorBufferDMA(uint32_t colorbuffer, GLint x, GLint y, GLint width, GLint height, GLenum format, GLenum type, void* pixels, uint32_t pixels_size)
+{
+	GET_CONTEXT;
+	return ctx->rcReadColorBufferDMA(ctx, colorbuffer, x, y, width, height, format, type, pixels, pixels_size);
 }
 

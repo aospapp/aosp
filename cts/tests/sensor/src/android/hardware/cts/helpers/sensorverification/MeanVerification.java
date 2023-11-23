@@ -70,10 +70,16 @@ public class MeanVerification extends AbstractMeanVerification {
         Map<Integer, ExpectedValuesAndThresholds> currentDefaults =
                 new HashMap<Integer, ExpectedValuesAndThresholds>(DEFAULTS);
 
-        // For automotive flag, add car default tests.
-        if(environment.getContext().getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_AUTOMOTIVE)) {
-            addCarDefaultTests(currentDefaults);
+        // Handle automotive specific tests.
+        if(environment.isAutomotiveSpecificTest()) {
+            // If device is an automotive device, add car defaults.
+            if (environment.getContext().getPackageManager().hasSystemFeature(
+                    PackageManager.FEATURE_AUTOMOTIVE)) {
+                addCarDefaultTests(currentDefaults);
+            } else {
+                // Skip as this is an automotive test and device is non-automotive.
+                return null;
+            }
         }
 
         int sensorType = environment.getSensor().getType();

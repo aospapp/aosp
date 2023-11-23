@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"PKCS#12 fájlból külső tárolóban található %1$s vagy %2$s bővítmény segítségével telepíthet tanúsítványokat."</string>
     <string name="allow_button" msgid="3030990695030371561">"Választás"</string>
     <string name="deny_button" msgid="3766539809121892584">"Elutasítás"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Tanúsítványok betöltése…"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"A(z) %s tanúsítványt keres…"</string>
 </resources>

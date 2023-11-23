@@ -228,9 +228,26 @@ bool SocketClient::tryConnect(bool suppressErrorLogs) {
     // Set the send buffer size to 2MB to allow plenty of room for nanoapp
     // loading
     int sndbuf = 2 * 1024 * 1024;
-    int ret =
-        setsockopt(sockFd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
-    if (ret == 0) {
+    // Normally, send() should effectively return immediately, but in the event
+    // that we get blocked due to flow control, don't stay blocked for more than
+    // 3 seconds
+    struct timeval timeout = {
+        .tv_sec = 3,
+        .tv_usec = 0,
+    };
+    int ret;
+
+    if ((ret = setsockopt(sockFd, SOL_SOCKET, SO_SNDBUF, &sndbuf,
+                          sizeof(sndbuf))) != 0) {
+      if (!suppressErrorLogs) {
+        LOGE("Failed to set SO_SNDBUF to %d: %s", sndbuf, strerror(errno));
+      }
+    } else if ((ret = setsockopt(sockFd, SOL_SOCKET, SO_SNDTIMEO, &timeout,
+                                 sizeof(timeout))) != 0) {
+      if (!suppressErrorLogs) {
+        LOGE("Failed to set SO_SNDTIMEO: %s", strerror(errno));
+      }
+    } else {
       mSockFd = socket_local_client_connect(sockFd, mSocketName,
                                             ANDROID_SOCKET_NAMESPACE_RESERVED,
                                             SOCK_SEQPACKET);
@@ -240,8 +257,6 @@ bool SocketClient::tryConnect(bool suppressErrorLogs) {
         LOGE("Couldn't connect client socket to '%s': %s", mSocketName,
              strerror(errno));
       }
-    } else if (!suppressErrorLogs) {
-      LOGE("Failed to set SO_SNDBUF to %d: %s", sndbuf, strerror(errno));
     }
 
     if (!success) {

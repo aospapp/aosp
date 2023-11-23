@@ -16,6 +16,10 @@
 // This is the shared library included by the JNI test app.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libjvmtiattachingtestagent1",
     gtest: false,
@@ -27,6 +31,7 @@ cc_test_library {
         "-Wno-unused-parameter",
         "-DAGENT_NR=1",
     ],
+    header_libs: ["jni_headers"],
 }
 
 cc_test_library {
@@ -40,6 +45,7 @@ cc_test_library {
         "-Wno-unused-parameter",
         "-DAGENT_NR=2",
     ],
+    header_libs: ["jni_headers"],
 }
 
 cc_test_library {
@@ -53,6 +59,7 @@ cc_test_library {
         "-Wno-unused-parameter",
         "-DAGENT_NR=3",
     ],
+    header_libs: ["jni_headers"],
 }
 
 cc_test_library {
@@ -66,4 +73,5 @@ cc_test_library {
         "-Wno-unused-parameter",
         "-DAGENT_NR=4",
     ],
+    header_libs: ["jni_headers"],
 }

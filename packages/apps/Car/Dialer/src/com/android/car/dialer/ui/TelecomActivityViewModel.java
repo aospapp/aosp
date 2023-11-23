@@ -16,76 +16,60 @@
 
 package com.android.car.dialer.ui;
 
-import android.app.Application;
 import android.bluetooth.BluetoothDevice;
-import android.content.Context;
+import android.telecom.Call;
 
-import androidx.annotation.IntDef;
-import androidx.lifecycle.AndroidViewModel;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MediatorLiveData;
 import androidx.lifecycle.MutableLiveData;
-import androidx.lifecycle.Transformations;
+import androidx.lifecycle.ViewModel;
 
-import com.android.car.dialer.livedata.BluetoothErrorStringLiveData;
-import com.android.car.dialer.livedata.HfpDeviceListLiveData;
+import com.android.car.dialer.log.L;
+import com.android.car.dialer.telecom.LocalCallHandler;
+import com.android.car.dialer.ui.common.SingleLiveEvent;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+import java.util.List;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import dagger.hilt.android.lifecycle.HiltViewModel;
 
 /**
  * View model for {@link TelecomActivity}.
  */
-public class TelecomActivityViewModel extends AndroidViewModel {
+@HiltViewModel
+public class TelecomActivityViewModel extends ViewModel {
     private static final String TAG = "CD.TelecomActivityViewModel";
-    /**
-     * A constant which indicates that there's no Bluetooth error.
-     */
 
-    private final Context mApplicationContext;
-    private final LiveData<String> mErrorStringLiveData;
-    private final LiveData<Boolean> mRefreshTabsLiveData;
+    private final LocalCallHandler mLocalCallHandler;
+    private final LiveData<List<BluetoothDevice>> mHfpDeviceListLiveData;
+    private final LiveData<BluetoothDevice> mCurrentHfpDeviceLiveData;
+    private final LiveData<Boolean> mHasHfpDeviceConnectedLiveData;
+
+    private RefreshUiEvent mRefreshTabsLiveData;
 
     private final ToolbarTitleLiveData mToolbarTitleLiveData;
     private final MutableLiveData<Integer> mToolbarTitleMode;
 
-    private BluetoothDevice mBluetoothDevice;
+    @Inject
+    public TelecomActivityViewModel(
+            @Named("Hfp") LiveData<List<BluetoothDevice>> hfpDeviceListLiveData,
+            @Named("Hfp") LiveData<BluetoothDevice> currentHfpDeviceLiveData,
+            @Named("Hfp") LiveData<Boolean> hasHfpDeviceConnectedLiveData,
+            LocalCallHandler localCallHandler,
+            ToolbarTitleLiveData toolbarTitleLiveData) {
+        mLocalCallHandler = localCallHandler;
+        mHfpDeviceListLiveData = hfpDeviceListLiveData;
+        mCurrentHfpDeviceLiveData = currentHfpDeviceLiveData;
+        mHasHfpDeviceConnectedLiveData = hasHfpDeviceConnectedLiveData;
+        mToolbarTitleLiveData = toolbarTitleLiveData;
 
-    /**
-     * App state indicates if bluetooth is connected or it should just show the content fragments.
-     */
-    @IntDef({DialerAppState.DEFAULT, DialerAppState.BLUETOOTH_ERROR,
-            DialerAppState.EMERGENCY_DIALPAD})
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface DialerAppState {
-        int DEFAULT = 0;
-        int BLUETOOTH_ERROR = 1;
-        int EMERGENCY_DIALPAD = 2;
-    }
-
-    public TelecomActivityViewModel(Application application) {
-        super(application);
-        mApplicationContext = application.getApplicationContext();
-
-        mToolbarTitleMode = new MediatorLiveData<>();
-        mToolbarTitleLiveData = new ToolbarTitleLiveData(mApplicationContext, mToolbarTitleMode);
-        mErrorStringLiveData = BluetoothErrorStringLiveData.get(mApplicationContext);
-
-        HfpDeviceListLiveData hfpDeviceListLiveData = new HfpDeviceListLiveData(getApplication());
-        mRefreshTabsLiveData = Transformations.map(hfpDeviceListLiveData, (hfpDeviceList) -> {
-            if (hfpDeviceList != null && !hfpDeviceList.isEmpty()) {
-                if (!hfpDeviceList.contains(mBluetoothDevice)) {
-                    mBluetoothDevice = hfpDeviceList.get(0);
-                    return true;
-                }
-            } else {
-                if (mBluetoothDevice != null) {
-                    mBluetoothDevice = null;
-                    return true;
-                }
-            }
-            return false;
-        });
+        mToolbarTitleMode = mToolbarTitleLiveData.getToolbarTitleModeLiveData();
+        mRefreshTabsLiveData = new RefreshUiEvent(mHfpDeviceListLiveData,
+                mCurrentHfpDeviceLiveData);
     }
 
     /**
@@ -105,17 +89,58 @@ public class TelecomActivityViewModel extends AndroidViewModel {
     }
 
     /**
-     * Returns a LiveData which provides the warning string based on Bluetooth states. Returns
-     * {@link BluetoothErrorStringLiveData#NO_BT_ERROR} if there's no error.
-     */
-    public LiveData<String> getErrorMessage() {
-        return mErrorStringLiveData;
-    }
-
-    /**
      * Returns the live data which monitors whether to refresh Dialer.
      */
     public LiveData<Boolean> getRefreshTabsLiveData() {
         return mRefreshTabsLiveData;
+    }
+
+    /** Returns a {@link LiveData} which monitors if there are any connected HFP devices. */
+    public LiveData<Boolean> hasHfpDeviceConnected() {
+        return mHasHfpDeviceConnectedLiveData;
+    }
+
+    /** Returns the live data which monitors the ongoing call list. */
+    public LiveData<List<Call>> getOngoingCallListLiveData() {
+        return mLocalCallHandler.getOngoingCallListLiveData();
+    }
+
+    @Override
+    protected void onCleared() {
+        mLocalCallHandler.tearDown();
+    }
+
+    /**
+     * This is an event live data to determine if the Ui needs to be refreshed.
+     */
+    @VisibleForTesting
+    static class RefreshUiEvent extends SingleLiveEvent<Boolean> {
+        private LiveData<BluetoothDevice> mCurrentHfpDevice;
+        private BluetoothDevice mBluetoothDevice;
+
+        @VisibleForTesting
+        RefreshUiEvent(
+                LiveData<List<BluetoothDevice>> hfpDeviceListLiveData,
+                LiveData<BluetoothDevice> currentHfpDevice) {
+            mCurrentHfpDevice = currentHfpDevice;
+            addSource(hfpDeviceListLiveData, v -> update(v));
+        }
+
+        private void update(List<BluetoothDevice> hfpDeviceList) {
+            L.v(TAG, "HfpDeviceList update");
+            if (mBluetoothDevice != null && !listContainsDevice(hfpDeviceList, mBluetoothDevice)) {
+                setValue(true);
+            }
+            mBluetoothDevice = mCurrentHfpDevice.getValue();
+        }
+
+        private boolean listContainsDevice(@Nullable List<BluetoothDevice> hfpDeviceList,
+                @NonNull BluetoothDevice device) {
+            if (hfpDeviceList != null && hfpDeviceList.contains(device)) {
+                return true;
+            }
+
+            return false;
+        }
     }
 }

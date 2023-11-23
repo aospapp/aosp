@@ -1060,10 +1060,14 @@ extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecConfigure(
         jint bitRate,
         jint frameRate,
         jint iFrameInterval,
-        jobject csd,
+        jobject csd0,
+        jobject csd1,
         jint flags,
         jint lowLatency,
-        jobject surface) {
+        jobject surface,
+        jint range,
+        jint standard,
+        jint transfer) {
 
     AMediaFormat* format = AMediaFormat_new();
     if (format == NULL) {
@@ -1089,19 +1093,29 @@ extern "C" jboolean Java_android_media_cts_NdkMediaCodec_AMediaCodecConfigure(
             // need to specify the actual string, since this test needs
             // to run on API 29, where the symbol doesn't exist
             "low-latency", // AMEDIAFORMAT_KEY_LOW_LATENCY
+            AMEDIAFORMAT_KEY_COLOR_RANGE,
+            AMEDIAFORMAT_KEY_COLOR_STANDARD,
+            AMEDIAFORMAT_KEY_COLOR_TRANSFER,
     };
 
-    jint values[] = {width, height, colorFormat, bitRate, frameRate, iFrameInterval, lowLatency};
+    jint values[] = {width, height, colorFormat, bitRate, frameRate, iFrameInterval, lowLatency,
+                     range, standard, transfer};
     for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
         if (values[i] >= 0) {
             AMediaFormat_setInt32(format, keys[i], values[i]);
         }
     }
 
-    if (csd != NULL) {
-        void *csdPtr = env->GetDirectBufferAddress(csd);
-        jlong csdSize = env->GetDirectBufferCapacity(csd);
-        AMediaFormat_setBuffer(format, "csd-0", csdPtr, csdSize);
+    if (csd0 != NULL) {
+        void *csd0Ptr = env->GetDirectBufferAddress(csd0);
+        jlong csd0Size = env->GetDirectBufferCapacity(csd0);
+        AMediaFormat_setBuffer(format, "csd-0", csd0Ptr, csd0Size);
+    }
+
+    if (csd1 != NULL) {
+        void *csd1Ptr = env->GetDirectBufferAddress(csd1);
+        jlong csd1Size = env->GetDirectBufferCapacity(csd1);
+        AMediaFormat_setBuffer(format, "csd-1", csd1Ptr, csd1Size);
     }
 
     media_status_t err = AMediaCodec_configure(

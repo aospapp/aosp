@@ -37,6 +37,8 @@
 #include "event_type.h"
 #include "utils.h"
 
+using namespace simpleperf;
+
 static auto test_duration_for_long_tests = std::chrono::seconds(120);
 static auto cpu_hotplug_interval = std::chrono::microseconds(1000);
 static bool verbose_mode = false;
@@ -84,8 +86,7 @@ class ScopedMpdecisionKiller {
 #else
 class ScopedMpdecisionKiller {
  public:
-  ScopedMpdecisionKiller() {
-  }
+  ScopedMpdecisionKiller() {}
 };
 #endif
 
@@ -136,9 +137,10 @@ static bool SetCpuOnline(int cpu, bool online) {
       break;
     }
     LOG(ERROR) << "reading cpu retry count = " << retry_count << ", requested = " << online
-        << ", real = " << ret;
+               << ", real = " << ret;
     if (++retry_count == 10000) {
-      LOG(ERROR) << "setting cpu " << cpu << (online ? " online" : " offline") << " seems not to take effect";
+      LOG(ERROR) << "setting cpu " << cpu << (online ? " online" : " offline")
+                 << " seems not to take effect";
       return false;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -198,9 +200,7 @@ struct CpuToggleThreadArg {
   std::atomic<bool> end_flag;
   std::atomic<bool> cpu_hotplug_failed;
 
-  CpuToggleThreadArg(int cpu)
-      : toggle_cpu(cpu), end_flag(false), cpu_hotplug_failed(false) {
-  }
+  CpuToggleThreadArg(int cpu) : toggle_cpu(cpu), end_flag(false), cpu_hotplug_failed(false) {}
 };
 
 static void CpuToggleThread(CpuToggleThreadArg* arg) {
@@ -312,7 +312,6 @@ TEST(cpu_offline, offline_while_ioctl_enable) {
         GTEST_LOG_(INFO) << "Have Tested " << (diff.count() / 60.0) << " minutes.";
       }
       cur_time = std::chrono::steady_clock::now();
-
     }
     std::unique_ptr<EventFd> event_fd =
         EventFd::OpenEventFile(attr, -1, test_cpu, nullptr, event_type_modifier->name, false);
@@ -325,7 +324,8 @@ TEST(cpu_offline, offline_while_ioctl_enable) {
     ASSERT_TRUE(event_fd->SetEnableEvent(true));
     iterations++;
     if (verbose_mode) {
-      GTEST_LOG_(INFO) << "Test offline while ioctl(PERF_EVENT_IOC_ENABLE) for " << iterations << " times.";
+      GTEST_LOG_(INFO) << "Test offline while ioctl(PERF_EVENT_IOC_ENABLE) for " << iterations
+                       << " times.";
     }
   }
   if (cpu_toggle_arg.cpu_hotplug_failed) {
@@ -393,7 +393,7 @@ TEST(cpu_offline, offline_while_user_process_profiling) {
       auto diff = std::chrono::duration_cast<std::chrono::seconds>(
           std::chrono::steady_clock::now() - start_time);
       if (verbose_mode) {
-        GTEST_LOG_(INFO) << "Have Tested " <<  (diff.count() / 60.0) << " minutes.";
+        GTEST_LOG_(INFO) << "Have Tested " << (diff.count() / 60.0) << " minutes.";
       }
       cur_time = std::chrono::steady_clock::now();
     }
@@ -411,7 +411,8 @@ TEST(cpu_offline, offline_while_user_process_profiling) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     iterations++;
     if (verbose_mode) {
-      GTEST_LOG_(INFO) << "Test offline while user process profiling for " << iterations << " times.";
+      GTEST_LOG_(INFO) << "Test offline while user process profiling for " << iterations
+                       << " times.";
     }
   }
   if (cpu_toggle_arg.cpu_hotplug_failed) {
@@ -469,11 +470,12 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; ++i) {
     if (strcmp(argv[i], "--help") == 0) {
       printf("--long_test_duration <second> Set test duration for long tests. Default is 120s.\n");
-      printf("--cpu_hotplug_interval <microseconds> Set cpu hotplug interval. Default is 1000us.\n");
+      printf(
+          "--cpu_hotplug_interval <microseconds> Set cpu hotplug interval. Default is 1000us.\n");
       printf("--verbose  Show verbose log.\n");
     } else if (strcmp(argv[i], "--long_test_duration") == 0) {
       if (i + 1 < argc) {
-        int second_count = atoi(argv[i+1]);
+        int second_count = atoi(argv[i + 1]);
         if (second_count <= 0) {
           fprintf(stderr, "Invalid arg for --long_test_duration.\n");
           return 1;
@@ -483,7 +485,7 @@ int main(int argc, char** argv) {
       }
     } else if (strcmp(argv[i], "--cpu_hotplug_interval") == 0) {
       if (i + 1 < argc) {
-        int microsecond_count = atoi(argv[i+1]);
+        int microsecond_count = atoi(argv[i + 1]);
         if (microsecond_count <= 0) {
           fprintf(stderr, "Invalid arg for --cpu_hotplug_interval\n");
           return 1;

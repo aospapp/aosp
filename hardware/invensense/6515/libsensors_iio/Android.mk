@@ -19,6 +19,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libinvensense_hal
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-2.0 legacy_by_exception_only
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice restricted
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense
 
@@ -111,24 +113,34 @@ include $(CLEAR_VARS)
 ifeq ($(filter eng, userdebug, user, $(TARGET_BUILD_VARIANT)),)
 ifneq ($(filter manta full_grouper tilapia, $(TARGET_PRODUCT)),)
 LOCAL_MODULE := sensors.full_grouper
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-2.0 legacy_by_exception_only
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice restricted
 LOCAL_MODULE_OWNER := invensense
 else
 ifneq ($(filter aosp_hammerhead, $(TARGET_PRODUCT)),)
 LOCAL_MODULE := sensors.hammerhead
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-2.0 legacy_by_exception_only
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice restricted
 LOCAL_MODULE_OWNER := invensense
 else
 ifneq ($(filter aosp_flounder, $(TARGET_PRODUCT)),)
 LOCAL_MODULE := sensors.flounder
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-2.0 legacy_by_exception_only
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice restricted
 LOCAL_MODULE_OWNER := invensense
 endif
 endif
 ifneq ($(filter dory guppy, $(TARGET_DEVICE)),)
 LOCAL_MODULE := sensors.invensense
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-2.0 legacy_by_exception_only
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice restricted
 LOCAL_MODULE_OWNER := invensense
 endif
 endif
 else    # eng, user, & userdebug builds
 LOCAL_MODULE := sensors.invensense
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-2.0 legacy_by_exception_only
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice restricted
 endif   # eng, user & userdebug builds
 $(info YD>>LOCAL_MODULE=$(LOCAL_MODULE))
 
@@ -194,6 +206,8 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libmplmpu
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-2.0 legacy_by_exception_only
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice restricted
 LOCAL_SRC_FILES := libmplmpu.so
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense
@@ -206,6 +220,8 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libmllite
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-2.0 legacy_by_exception_only
+LOCAL_LICENSE_CONDITIONS := by_exception_only notice restricted
 LOCAL_SRC_FILES := libmllite.so
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense
@@ -215,4 +231,3 @@ LOCAL_MODULE_PATH := $(TARGET_OUT)/lib
 OVERRIDE_BUILT_MODULE_PATH := $(TARGET_OUT_INTERMEDIATE_LIBRARIES)
 LOCAL_STRIP_MODULE := true
 include $(BUILD_PREBUILT)
-

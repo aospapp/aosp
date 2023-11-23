@@ -18,20 +18,19 @@ package android.media.tv.tuner.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.tv.tuner.Tuner;
 import android.media.tv.tuner.dvr.DvrPlayback;
 import android.media.tv.tuner.dvr.DvrRecorder;
 import android.media.tv.tuner.dvr.DvrSettings;
 import android.media.tv.tuner.dvr.OnPlaybackStatusChangedListener;
 import android.media.tv.tuner.dvr.OnRecordStatusChangedListener;
-import android.media.tv.tuner.filter.FilterCallback;
-import android.media.tv.tuner.filter.FilterEvent;
 import android.media.tv.tuner.filter.Filter;
+import android.media.tv.tuner.filter.FilterCallback;
 import android.media.tv.tuner.filter.FilterConfiguration;
+import android.media.tv.tuner.filter.FilterEvent;
 import android.media.tv.tuner.filter.RecordSettings;
 import android.media.tv.tuner.filter.Settings;
 import android.media.tv.tuner.filter.TsFilterConfiguration;
@@ -41,20 +40,27 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.RequiredFeatureRule;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.util.concurrent.Executor;
-
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class TunerDvrTest {
     private static final String TAG = "MediaTunerDvrTest";
+
+    @Rule
+    public RequiredFeatureRule featureRule = new RequiredFeatureRule(
+            PackageManager.FEATURE_TUNER);
 
     private Context mContext;
     private Tuner mTuner;
@@ -64,7 +70,6 @@ public class TunerDvrTest {
         mContext = InstrumentationRegistry.getTargetContext();
         InstrumentationRegistry
                 .getInstrumentation().getUiAutomation().adoptShellPermissionIdentity();
-        if (!hasTuner()) return;
         mTuner = new Tuner(mContext, null, 100);
     }
 
@@ -78,7 +83,6 @@ public class TunerDvrTest {
 
     @Test
     public void testDvrSettings() throws Exception {
-        if (!hasTuner()) return;
         DvrSettings settings = getDvrSettings();
 
         assertEquals(Filter.STATUS_DATA_READY, settings.getStatusMask());
@@ -90,7 +94,6 @@ public class TunerDvrTest {
 
     @Test
     public void testDvrRecorder() throws Exception {
-        if (!hasTuner()) return;
         DvrRecorder d = mTuner.openDvrRecorder(1000, getExecutor(), getRecordListener());
         assertNotNull(d);
         d.configure(getDvrSettings());
@@ -135,7 +138,6 @@ public class TunerDvrTest {
 
     @Test
     public void testDvrPlayback() throws Exception {
-        if (!hasTuner()) return;
         DvrPlayback d = mTuner.openDvrPlayback(1000, getExecutor(), getPlaybackListener());
         assertNotNull(d);
         d.configure(getDvrSettings());

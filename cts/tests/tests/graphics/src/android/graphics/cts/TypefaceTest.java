@@ -31,6 +31,9 @@ import android.content.res.AssetManager;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.Typeface.Builder;
+import android.os.SharedMemory;
+import android.system.ErrnoException;
+import android.util.ArrayMap;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
@@ -45,7 +48,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -803,5 +808,66 @@ public class TypefaceTest {
                 .setItalic(false).build();
         assertEquals(100, typeface.getWeight());
         assertFalse(typeface.isItalic());
+    }
+
+    @Test
+    public void testSharedMemoryReadonly() {
+        SharedMemory shm = Typeface.getSystemFontMapSharedMemory();
+        if (shm == null) {
+            return;  // Likely ENABLE_LAZY_TYPEFACE_INITIALIZATION is disabled.
+        }
+        try {
+            shm.mapReadWrite();
+            fail("The Typeface map should be read-only.");
+        } catch (ErrnoException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testSharedMemoryReadonly_fromMap() {
+        HashMap<String, Typeface> map = new HashMap<>();
+
+        map.put("sans-serif", Typeface.SANS_SERIF);
+        map.put("serif", Typeface.SERIF);
+        map.put("monospace", Typeface.MONOSPACE);
+        SharedMemory shm;
+        try {
+            shm = Typeface.serializeFontMap(map);
+        } catch (ErrnoException | IOException e) {
+            throw new RuntimeException(e);
+        }
+        assertNotNull(shm);
+        try {
+            shm.mapReadWrite();
+            fail("The Typeface map should be read-only.");
+        } catch (ErrnoException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testSharedMemoryReadonly_serializeDeserialize() throws Exception {
+        HashMap<String, Typeface> map = new HashMap<>();
+
+        map.put("sans-serif", Typeface.SANS_SERIF);
+        map.put("serif", Typeface.SERIF);
+        map.put("monospace", Typeface.MONOSPACE);
+        SharedMemory shm;
+        try {
+            shm = Typeface.serializeFontMap(map);
+        } catch (ErrnoException | IOException e) {
+            throw new RuntimeException(e);
+        }
+        assertNotNull(shm);
+
+        Map<String, Typeface> reversedMap = new ArrayMap<>();
+        Typeface.deserializeFontMap(shm.mapReadOnly(), reversedMap);
+
+        // Typeface equality doesn't work here since the backing native object is different.
+        assertEquals(3, reversedMap.size());
+        assertTrue(reversedMap.containsKey("sans-serif"));
+        assertTrue(reversedMap.containsKey("serif"));
+        assertTrue(reversedMap.containsKey("monospace"));
     }
 }

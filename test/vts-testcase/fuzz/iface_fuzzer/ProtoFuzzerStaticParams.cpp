@@ -19,7 +19,7 @@
 #include <android-base/file.h>
 #include <android-base/macros.h>
 #include <android-base/strings.h>
-#include <vintf/VintfObject.h>
+#include <hidl/ServiceManagement.h>
 
 #define STRINGIFY(x) STRINGIFY_INTERNAL(x)
 #define STRINGIFY_INTERNAL(x) #x
@@ -28,8 +28,7 @@ using android::FQName;
 using android::base::GetExecutableDirectory;
 using android::base::Join;
 using android::base::Split;
-using android::vintf::Version;
-using android::vintf::VintfObject;
+using android::hardware::getAllHalInstanceNames;
 using std::cerr;
 using std::cout;
 using std::string;
@@ -51,12 +50,8 @@ static FQName FindAnyIfaceFQName(const FQName &package_and_version,
         major_version == spec.component_type_version_major() &&
         minor_version == spec.component_type_version_minor()) {
       auto iface_name = spec.component_name();
-      auto instance_names =
-          VintfObject::GetDeviceHalManifest()->getHidlInstances(
-              package,
-              Version(spec.component_type_version_major(),
-                      spec.component_type_version_minor()),
-              iface_name);
+      auto descriptor = package_and_version.string() + "::" + iface_name;
+      auto instance_names = getAllHalInstanceNames(descriptor);
 
       if (!instance_names.empty()) {
         auto version =

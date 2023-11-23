@@ -39,6 +39,10 @@ const val ANDROID_SUPPORT_VISIBLE_FOR_TESTING = "android.support.annotation.Visi
 const val ATTR_OTHERWISE = "otherwise"
 const val CARRIER_PRIVILEGES_MARKER = "carrier privileges"
 
+const val ANDROID_SUPPRESS_LINT = "android.annotation.SuppressLint"
+const val JAVA_LANG_SUPPRESS_WARNINGS = "java.lang.SuppressWarnings"
+const val KOTLIN_SUPPRESS = "kotlin.Suppress"
+
 const val ENV_VAR_METALAVA_TESTS_RUNNING = "METALAVA_TESTS_RUNNING"
 const val ENV_VAR_METALAVA_DUMP_ARGV = "METALAVA_DUMP_ARGV"
 const val ENV_VAR_METALAVA_PREPEND_ARGS = "METALAVA_PREPEND_ARGS"

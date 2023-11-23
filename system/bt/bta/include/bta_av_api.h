@@ -26,20 +26,15 @@
 #ifndef BTA_AV_API_H
 #define BTA_AV_API_H
 
-#include "a2dp_codec_api.h"
-#include "avdt_api.h"
-#include "avrc_api.h"
-#include "bta_api.h"
+#include <cstdint>
+
+#include "bta/include/bta_api.h"
+#include "stack/include/avrc_defs.h"
+#include "stack/include/bt_types.h"
 
 /*****************************************************************************
  *  Constants and data types
  ****************************************************************************/
-/* Set to TRUE if seperate authorization prompt desired for AVCTP besides A2DP
- * authorization */
-/* Typically FALSE when AVRCP is used in conjunction with A2DP */
-#ifndef BTA_AV_WITH_AVCTP_AUTHORIZATION
-#define BTA_AV_WITH_AVCTP_AUTHORIZATION FALSE
-#endif
 
 /* AV status values */
 #define BTA_AV_SUCCESS 0        /* successful operation */
@@ -66,7 +61,6 @@ typedef uint8_t tBTA_AV_STATUS;
 #define BTA_AV_FEAT_MULTI_AV \
   0x0080                          /* use multi-av, if controller supports it */
 #define BTA_AV_FEAT_BROWSE 0x0010 /* use browsing channel */
-#define BTA_AV_FEAT_MASTER 0x0100 /* stream only as master role */
 #define BTA_AV_FEAT_ADV_CTRL \
   0x0200 /* remote control Advanced Control command/response */
 #define BTA_AV_FEAT_DELAY_RPT 0x0400 /* allow delay reporting */
@@ -382,14 +376,8 @@ typedef void (*tBTA_AV_ACT)(tBTA_AV_SCB* p_cb, tBTA_AV_DATA* p_data);
 /* AV configuration structure */
 typedef struct {
   uint32_t company_id;  /* AVRCP Company ID */
-  uint16_t avrc_mtu;    /* AVRCP MTU at L2CAP for control channel */
-  uint16_t avrc_br_mtu; /* AVRCP MTU at L2CAP for browsing channel */
   uint16_t avrc_ct_cat; /* AVRCP controller categories */
   uint16_t avrc_tg_cat; /* AVRCP target categories */
-  uint16_t sig_mtu;     /* AVDTP signaling channel MTU at L2CAP */
-  uint16_t audio_mtu;   /* AVDTP audio transport channel MTU at L2CAP */
-  const uint16_t*
-      p_audio_flush_to;    /* AVDTP audio transport channel flush timeout */
   uint16_t audio_mqs;      /* AVDTP audio channel max data queue size */
   bool avrc_group;     /* true, to accept AVRC 1.3 group nevigation command */
   uint8_t num_co_ids;  /* company id count in p_meta_co_ids */
@@ -400,7 +388,6 @@ typedef struct {
       p_meta_co_ids; /* the metadata Get Capabilities response for company id */
   const uint8_t* p_meta_evt_ids; /* the the metadata Get Capabilities response
                                     for event id */
-  const tBTA_AV_ACT* p_act_tbl;  /* action function table for audio stream */
   char avrc_controller_name[BTA_SERVICE_NAME_LEN]; /* Default AVRCP controller
                                                       name */
   char avrc_target_name[BTA_SERVICE_NAME_LEN]; /* Default AVRCP target name*/
@@ -423,8 +410,7 @@ typedef struct {
  * Returns          void
  *
  ******************************************************************************/
-void BTA_AvEnable(tBTA_SEC sec_mask, tBTA_AV_FEAT features,
-                  tBTA_AV_CBACK* p_cback);
+void BTA_AvEnable(tBTA_AV_FEAT features, tBTA_AV_CBACK* p_cback);
 
 /*******************************************************************************
  *
@@ -478,7 +464,7 @@ void BTA_AvDeregister(tBTA_AV_HNDL hndl);
  *
  ******************************************************************************/
 void BTA_AvOpen(const RawAddress& bd_addr, tBTA_AV_HNDL handle, bool use_rc,
-                tBTA_SEC sec_mask, uint16_t uuid);
+                uint16_t uuid);
 
 /*******************************************************************************
  *
@@ -500,7 +486,7 @@ void BTA_AvClose(tBTA_AV_HNDL handle);
  * Returns          void
  *
  ******************************************************************************/
-void BTA_AvDisconnect(const RawAddress& bd_addr);
+void BTA_AvDisconnect(tBTA_AV_HNDL handle);
 
 /*******************************************************************************
  *

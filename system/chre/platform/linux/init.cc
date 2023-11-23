@@ -25,8 +25,8 @@
 #endif  // CHRE_AUDIO_SUPPORT_ENABLED
 #include "chre/platform/context.h"
 #include "chre/platform/fatal_error.h"
+#include "chre/platform/linux/platform_log.h"
 #include "chre/platform/log.h"
-#include "chre/platform/shared/platform_log.h"
 #include "chre/platform/system_timer.h"
 #include "chre/util/time.h"
 

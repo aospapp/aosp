@@ -34,7 +34,6 @@ CopyRight = '''
 import sys
 
 from u_format_parse import *
-import u_format_pack
 
 
 def layout_map(layout):
@@ -86,11 +85,12 @@ def write_format_table(formats):
     # This will print the copyright message on the top of this file
     print(CopyRight.strip())
     print()
+    print('#include "pipe/p_compiler.h"')
     print('#include "u_format.h"')
+    print('#include "u_half.h"')
+    print('#include "u_math.h"')
     print()
-    
-    u_format_pack.generate(formats)
-    
+
     def do_channel_array(channels, swizzles):
         print("   {")
         for i in range(4):
@@ -120,6 +120,16 @@ def write_format_table(formats):
             print("      %s%s\t/* %s */" % (swizzle_map[swizzle], sep, comment))
         print("   },")
 
+    def print_channels(format, func):
+        if format.nr_channels() <= 1:
+            func(format.le_channels, format.le_swizzles)
+        else:
+            print('#ifdef PIPE_ARCH_BIG_ENDIAN')
+            func(format.be_channels, format.be_swizzles)
+            print('#else')
+            func(format.le_channels, format.le_swizzles)
+            print('#endif')
+
     for format in formats:
         print('const struct util_format_description')
         print('util_format_%s_description = {' % (format.short_name(),))
@@ -132,8 +142,8 @@ def write_format_table(formats):
         print("   %s,\t/* is_array */" % (bool_map(format.is_array()),))
         print("   %s,\t/* is_bitmask */" % (bool_map(format.is_bitmask()),))
         print("   %s,\t/* is_mixed */" % (bool_map(format.is_mixed()),))
-        u_format_pack.print_channels(format, do_channel_array)
-        u_format_pack.print_channels(format, do_swizzle_array)
+        print_channels(format, do_channel_array)
+        print_channels(format, do_swizzle_array)
         print("   %s," % (colorspace_map(format.colorspace),))
         print("};")
         print()

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <binder/IProcessInfoService.h>
+#include <processinfo/IProcessInfoService.h>
 #include <binder/Parcel.h>
 #include <utils/Errors.h>
 #include <sys/types.h>
@@ -84,7 +84,7 @@ public:
     }
 };
 
-IMPLEMENT_META_INTERFACE(ProcessInfoService, "android.os.IProcessInfoService");
+IMPLEMENT_META_INTERFACE(ProcessInfoService, "android.os.IProcessInfoService")
 
 // ----------------------------------------------------------------------
 

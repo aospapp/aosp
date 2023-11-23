@@ -17,6 +17,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := GameCoreJavaTestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SDK_VERSION := 26  # Oreo
 LOCAL_STATIC_JAVA_LIBRARIES := \
     androidx.test.rules \

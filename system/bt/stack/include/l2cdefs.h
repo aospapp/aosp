@@ -33,16 +33,17 @@
 #define L2CAP_CMD_INFO_REQ 0x0A
 #define L2CAP_CMD_INFO_RSP 0x0B
 #define L2CAP_CMD_AMP_CONN_REQ 0x0C
-#define L2CAP_CMD_AMP_CONN_RSP 0x0D
 #define L2CAP_CMD_AMP_MOVE_REQ 0x0E
-#define L2CAP_CMD_AMP_MOVE_RSP 0x0F
-#define L2CAP_CMD_AMP_MOVE_CFM 0x10
-#define L2CAP_CMD_AMP_MOVE_CFM_RSP 0x11
 #define L2CAP_CMD_BLE_UPDATE_REQ 0x12
 #define L2CAP_CMD_BLE_UPDATE_RSP 0x13
 #define L2CAP_CMD_BLE_CREDIT_BASED_CONN_REQ 0x14
 #define L2CAP_CMD_BLE_CREDIT_BASED_CONN_RES 0x15
 #define L2CAP_CMD_BLE_FLOW_CTRL_CREDIT 0x16
+/* Enhanced CoC */
+#define L2CAP_CMD_CREDIT_BASED_CONN_REQ 0x17
+#define L2CAP_CMD_CREDIT_BASED_CONN_RES 0x18
+#define L2CAP_CMD_CREDIT_BASED_RECONFIG_REQ 0x19
+#define L2CAP_CMD_CREDIT_BASED_RECONFIG_RES 0x1A
 
 /* Define some packet and header lengths
 */
@@ -68,23 +69,8 @@
 #define L2CAP_ECHO_REQ_LEN 0
 /* Data is optional                     */
 #define L2CAP_ECHO_RSP_LEN 0
-/* Info type                            */
-#define L2CAP_INFO_REQ_LEN 2
 /* Info type, result (data is optional) */
 #define L2CAP_INFO_RSP_LEN 4
-/* Additional connectionless packet overhead */
-#define L2CAP_UCD_OVERHEAD 2
-
-/* PSM, CID, and remote controller ID   */
-#define L2CAP_AMP_CONN_REQ_LEN 5
-/* CID and remote controller ID         */
-#define L2CAP_AMP_MOVE_REQ_LEN 3
-/* CID and result                       */
-#define L2CAP_AMP_MOVE_RSP_LEN 4
-/* CID and result                       */
-#define L2CAP_AMP_MOVE_CFM_LEN 4
-/* CID                                  */
-#define L2CAP_AMP_MOVE_CFM_RSP_LEN 2
 
 /* Min and max interval, latency, tout  */
 #define L2CAP_CMD_BLE_UPD_REQ_LEN 8
@@ -98,62 +84,89 @@
 /* CID, Credit */
 #define L2CAP_CMD_BLE_FLOW_CTRL_CREDIT_LEN 4
 
+/* LE PSM, MTU, MPS, Initial Credits, SCIDS[] */
+#define L2CAP_CMD_CREDIT_BASED_CONN_REQ_MIN_LEN 8
+/* MTU, MPS, Initial Credits, Result, DCIDS[] */
+#define L2CAP_CMD_CREDIT_BASED_CONN_RES_MIN_LEN 8
+
+/* MTU, MPS, DCIDS[] */
+#define L2CAP_CMD_CREDIT_BASED_RECONFIG_REQ_MIN_LEN 4
+/* Result */
+#define L2CAP_CMD_CREDIT_BASED_RECONFIG_RES_LEN 2
+
 /* Define the packet boundary flags
 */
-#if (L2CAP_NON_FLUSHABLE_PB_INCLUDED == TRUE)
-#define L2CAP_PKT_START_FLUSHABLE 2
 #define L2CAP_PKT_START_NON_FLUSHABLE 0
-#endif
-#define L2CAP_COMPLETE_AMP_PKT 3 /* complete L2CAP packet on AMP HCI */
 #define L2CAP_PKT_START 2
 #define L2CAP_PKT_CONTINUE 1
-#define L2CAP_MASK_FLAG 0x0FFF
 #define L2CAP_PKT_TYPE_SHIFT 12
-#define L2CAP_PKT_TYPE_MASK 3
 
 /* Define the L2CAP connection result codes
 */
-#define L2CAP_CONN_OK 0
-#define L2CAP_CONN_PENDING 1
-#define L2CAP_CONN_NO_PSM 2
-#define L2CAP_CONN_SECURITY_BLOCK 3
-#define L2CAP_CONN_NO_RESOURCES 4
-#define L2CAP_CONN_BAD_CTLR_ID 5 /* AMP related */
-#define L2CAP_CONN_TIMEOUT 0xEEEE
-#define L2CAP_CONN_AMP_FAILED 254
-/* Add a couple of our own for internal use */
-#define L2CAP_CONN_NO_LINK 255
-#define L2CAP_CONN_CANCEL 256 /* L2CAP connection cancelled */
+typedef enum : uint16_t {
+  L2CAP_CONN_OK = 0,
+  L2CAP_CONN_PENDING = 1,
+  L2CAP_CONN_NO_PSM = 2,
+  L2CAP_CONN_SECURITY_BLOCK = 3,
+  L2CAP_CONN_NO_RESOURCES = 4,
+  L2CAP_CONN_OTHER_ERROR = 5,
+  L2CAP_CONN_TIMEOUT = 0xEEEE,
+  /* Add a couple of our own for internal use */
+  L2CAP_CONN_NO_LINK = 255,
+  L2CAP_CONN_CANCEL = 256, /* L2CAP connection cancelled */
+} tL2CAP_CONN;
 
 /* Define the LE L2CAP Connection Response Result codes
  */
-#define L2CAP_LE_RESULT_CONN_OK 0
-#define L2CAP_LE_RESULT_NO_PSM 2
-#define L2CAP_LE_RESULT_NO_RESOURCES 4
-#define L2CAP_LE_RESULT_INSUFFICIENT_AUTHENTICATION 5
-#define L2CAP_LE_RESULT_INSUFFICIENT_AUTHORIZATION 6
-#define L2CAP_LE_RESULT_INSUFFICIENT_ENCRYP_KEY_SIZE 7
-#define L2CAP_LE_RESULT_INSUFFICIENT_ENCRYP 8
-/* We don't like peer device response */
-#define L2CAP_LE_RESULT_INVALID_SOURCE_CID 9
-#define L2CAP_LE_RESULT_SOURCE_CID_ALREADY_ALLOCATED 0x0A
+typedef enum : uint8_t {
+  L2CAP_LE_RESULT_CONN_OK = 0,
+  L2CAP_LE_RESULT_NO_PSM = 2,
+  L2CAP_LE_RESULT_NO_RESOURCES = 4,
+  L2CAP_LE_RESULT_INSUFFICIENT_AUTHENTICATION = 5,
+  L2CAP_LE_RESULT_INSUFFICIENT_AUTHORIZATION = 6,
+  L2CAP_LE_RESULT_INSUFFICIENT_ENCRYP_KEY_SIZE = 7,
+  L2CAP_LE_RESULT_INSUFFICIENT_ENCRYP = 8,
+  /* We don't like peer device response */
+  L2CAP_LE_RESULT_INVALID_SOURCE_CID = 9,
+  L2CAP_LE_RESULT_SOURCE_CID_ALREADY_ALLOCATED = 0x0A,
+  L2CAP_LE_RESULT_UNACCEPTABLE_PARAMETERS = 0x0B,
+  L2CAP_LE_RESULT_INVALID_PARAMETERS = 0x0C
+} tL2CAP_LE_RESULT_CODE;
 
-typedef uint8_t tL2CAP_LE_RESULT_CODE;
+inline std::string l2cap_le_result_code_text(
+    const tL2CAP_LE_RESULT_CODE& code) {
+  switch (code) {
+    case L2CAP_LE_RESULT_CONN_OK:
+      return std::string("le connection success");
+    case L2CAP_LE_RESULT_NO_PSM:
+      return std::string("le no psm service");
+    case L2CAP_LE_RESULT_NO_RESOURCES:
+      return std::string("le no resources");
+    case L2CAP_LE_RESULT_INSUFFICIENT_AUTHENTICATION:
+      return std::string("le authentication failed");
+    case L2CAP_LE_RESULT_INSUFFICIENT_AUTHORIZATION:
+      return std::string("le authorization failed");
+    case L2CAP_LE_RESULT_INSUFFICIENT_ENCRYP_KEY_SIZE:
+      return std::string("le encryption key size failed");
+    case L2CAP_LE_RESULT_INSUFFICIENT_ENCRYP:
+      return std::string("le encryption failed");
+    case L2CAP_LE_RESULT_INVALID_SOURCE_CID:
+      return std::string("le invalid source channel identifier");
+    case L2CAP_LE_RESULT_SOURCE_CID_ALREADY_ALLOCATED:
+      return std::string("le source channel identifier busy");
+    case L2CAP_LE_RESULT_UNACCEPTABLE_PARAMETERS:
+      return std::string("le unacceptable parameters");
+    case L2CAP_LE_RESULT_INVALID_PARAMETERS:
+      return std::string("invalid parameters");
+  }
+}
 
-/* Define L2CAP Move Channel Response result codes
-*/
-#define L2CAP_MOVE_OK 0
-#define L2CAP_MOVE_PENDING 1
-#define L2CAP_MOVE_CTRL_ID_NOT_SUPPORT 2
-#define L2CAP_MOVE_SAME_CTRLR_ID 3
-#define L2CAP_MOVE_CONFIG_NOT_SUPPORTED 4
-#define L2CAP_MOVE_CHAN_COLLISION 5
-#define L2CAP_MOVE_NOT_ALLOWED 6
-
-/* Define L2CAP Move Channel Confirmation result codes
-*/
-#define L2CAP_MOVE_CFM_OK 0
-#define L2CAP_MOVE_CFM_REFUSED 1
+/* Credit based reconfig results code */
+#define L2CAP_RECONFIG_SUCCEED 0
+#define L2CAP_RECONFIG_REDUCTION_MTU_NO_ALLOWED 1
+#define L2CAP_RECONFIG_REDUCTION_MPS_NO_ALLOWED 2
+#define L2CAP_RECONFIG_INVALID_DCID 3
+#define L2CAP_RECONFIG_UNACCAPTED_PARAM 4
 
 /* Define the L2CAP command reject reason codes
 */
@@ -163,16 +176,16 @@ typedef uint8_t tL2CAP_LE_RESULT_CODE;
 
 /* L2CAP Predefined CIDs
 */
-#define L2CAP_SIGNALLING_CID 1
-#define L2CAP_CONNECTIONLESS_CID 2
-#define L2CAP_AMP_CID 3
-#define L2CAP_ATT_CID 4
-#define L2CAP_BLE_SIGNALLING_CID 5
-#define L2CAP_SMP_CID 6
-#define L2CAP_SMP_BR_CID 7
-#define L2CAP_AMP_TEST_CID 0x003F
-#define L2CAP_BASE_APPL_CID 0x0040
-#define L2CAP_BLE_CONN_MAX_CID 0x007F
+enum : uint16_t {
+  L2CAP_SIGNALLING_CID = 1,
+  L2CAP_CONNECTIONLESS_CID = 2,
+  L2CAP_AMP_CID = 3,
+  L2CAP_ATT_CID = 4,
+  L2CAP_BLE_SIGNALLING_CID = 5,
+  L2CAP_SMP_CID = 6,
+  L2CAP_SMP_BR_CID = 7,
+  L2CAP_BASE_APPL_CID = 0x0040,
+};
 
 /* Fixed Channels mask bits */
 
@@ -181,9 +194,6 @@ typedef uint8_t tL2CAP_LE_RESULT_CODE;
 
 /* Connectionless reception */
 #define L2CAP_FIXED_CHNL_CNCTLESS_BIT (1 << L2CAP_CONNECTIONLESS_CID)
-
-/* AMP Manager supported */
-#define L2CAP_FIXED_CHNL_AMP_BIT (1 << L2CAP_AMP_CID)
 
 /* Attribute protocol supported */
 #define L2CAP_FIXED_CHNL_ATT_BIT (1 << L2CAP_ATT_CID)
@@ -204,7 +214,10 @@ typedef uint8_t tL2CAP_LE_RESULT_CODE;
 #define L2CAP_CFG_FAILED_NO_REASON 2
 #define L2CAP_CFG_UNKNOWN_OPTIONS 3
 #define L2CAP_CFG_PENDING 4
-#define L2CAP_CFG_FLOW_SPEC_REJECTED 5
+
+static_assert(L2CAP_CONN_OTHER_ERROR != L2CAP_CFG_FAILED_NO_REASON,
+              "Different error code should be provided for Connect error and "
+              "Config error");
 
 /* Define the L2CAP configuration option types
 */
@@ -214,7 +227,6 @@ typedef uint8_t tL2CAP_LE_RESULT_CODE;
 #define L2CAP_CFG_TYPE_FCR 0x04
 #define L2CAP_CFG_TYPE_FCS 0x05
 #define L2CAP_CFG_TYPE_EXT_FLOW 0x06
-#define L2CAP_CFG_TYPE_EXT_WIN_SIZE 0x07
 
 #define L2CAP_CFG_MTU_OPTION_LEN 2       /* MTU option length    */
 #define L2CAP_CFG_FLUSH_OPTION_LEN 2     /* Flush option len     */
@@ -222,7 +234,6 @@ typedef uint8_t tL2CAP_LE_RESULT_CODE;
 #define L2CAP_CFG_FCR_OPTION_LEN 9       /* FCR option length    */
 #define L2CAP_CFG_FCS_OPTION_LEN 1       /* FCR option length    */
 #define L2CAP_CFG_EXT_FLOW_OPTION_LEN 16 /* Extended Flow Spec   */
-#define L2CAP_CFG_EXT_WIN_SIZE_LEN 2     /* Ext window size length */
 #define L2CAP_CFG_OPTION_OVERHEAD 2      /* Type and length      */
 
 /* Configuration Cmd/Rsp Flags mask
@@ -238,17 +249,14 @@ typedef uint8_t tL2CAP_LE_RESULT_CODE;
 /* Default values for configuration
 */
 #define L2CAP_NO_AUTOMATIC_FLUSH 0xFFFF
-#define L2CAP_NO_RETRANSMISSION 0x0001
 
 #define L2CAP_DEFAULT_MTU (672)
-#define L2CAP_DEFAULT_FLUSH_TO L2CAP_NO_AUTOMATIC_FLUSH
 #define L2CAP_DEFAULT_SERV_TYPE 1
 #define L2CAP_DEFAULT_TOKEN_RATE 0
 #define L2CAP_DEFAULT_BUCKET_SIZE 0
 #define L2CAP_DEFAULT_PEAK_BANDWIDTH 0
 #define L2CAP_DEFAULT_LATENCY 0xFFFFFFFF
 #define L2CAP_DEFAULT_DELAY 0xFFFFFFFF
-#define L2CAP_DEFAULT_FCS L2CAP_CFG_FCS_USE
 
 /* Define the L2CAP disconnect result codes
 */
@@ -277,11 +285,6 @@ typedef uint8_t tL2CAP_LE_RESULT_CODE;
 
 /* Extended features mask bits
 */
-/* Retransmission Mode (Not Supported)    */
-#define L2CAP_EXTFEA_RTRANS 0x00000001
-/* Flow Control Mode   (Not Supported)    */
-#define L2CAP_EXTFEA_FC 0x00000002
-#define L2CAP_EXTFEA_QOS 0x00000004
 /* Enhanced retransmission mode           */
 #define L2CAP_EXTFEA_ENH_RETRANS 0x00000008
 /* Streaming Mode                         */
@@ -332,11 +335,6 @@ typedef uint8_t tL2CAP_LE_RESULT_CODE;
  */
 #define L2CAP_SDU_LENGTH_MAX (8080 + 26 - (L2CAP_MIN_OFFSET + 6))
 constexpr uint16_t L2CAP_SDU_LENGTH_LE_MAX = 0xffff;
-
-/* Part of L2CAP_MIN_OFFSET that is not part of L2CAP
-*/
-#define L2CAP_OFFSET_WO_L2HDR \
-  (L2CAP_MIN_OFFSET - (L2CAP_PKT_OVERHEAD + L2CAP_FCR_OVERHEAD))
 
 /* SAR bits in the control word
 */

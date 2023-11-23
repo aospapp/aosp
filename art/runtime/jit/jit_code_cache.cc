@@ -43,6 +43,7 @@
 #include "gc/allocator/dlmalloc.h"
 #include "gc/scoped_gc_critical_section.h"
 #include "handle.h"
+#include "handle_scope-inl.h"
 #include "instrumentation.h"
 #include "intern_table.h"
 #include "jit/jit.h"
@@ -173,17 +174,21 @@ class JitCodeCache::JniStubData {
     return methods_;
   }
 
-  void RemoveMethodsIn(const LinearAlloc& alloc) {
-    auto kept_end = std::remove_if(
+  void RemoveMethodsIn(const LinearAlloc& alloc) REQUIRES_SHARED(Locks::mutator_lock_) {
+    auto kept_end = std::partition(
         methods_.begin(),
         methods_.end(),
-        [&alloc](ArtMethod* method) { return alloc.ContainsUnsafe(method); });
+        [&alloc](ArtMethod* method) { return !alloc.ContainsUnsafe(method); });
+    for (auto it = kept_end; it != methods_.end(); it++) {
+      VLOG(jit) << "JIT removed (JNI) " << (*it)->PrettyMethod() << ": " << code_;
+    }
     methods_.erase(kept_end, methods_.end());
   }
 
-  bool RemoveMethod(ArtMethod* method) {
+  bool RemoveMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_) {
     auto it = std::find(methods_.begin(), methods_.end(), method);
     if (it != methods_.end()) {
+      VLOG(jit) << "JIT removed (JNI) " << (*it)->PrettyMethod() << ": " << code_;
       methods_.erase(it);
       return true;
     } else {
@@ -263,7 +268,8 @@ JitCodeCache::JitCodeCache()
       collection_in_progress_(false),
       last_collection_increased_code_cache_(false),
       garbage_collect_code_(true),
-      number_of_compilations_(0),
+      number_of_baseline_compilations_(0),
+      number_of_optimized_compilations_(0),
       number_of_osr_compilations_(0),
       number_of_collections_(0),
       histogram_stack_map_memory_use_("Memory used for stack maps", 16),
@@ -279,17 +285,6 @@ bool JitCodeCache::PrivateRegionContainsPc(const void* ptr) const {
 
 bool JitCodeCache::ContainsPc(const void* ptr) const {
   return PrivateRegionContainsPc(ptr) || shared_region_.IsInExecSpace(ptr);
-}
-
-bool JitCodeCache::WillExecuteJitCode(ArtMethod* method) {
-  ScopedObjectAccess soa(art::Thread::Current());
-  ScopedAssertNoThreadSuspension sants(__FUNCTION__);
-  if (ContainsPc(method->GetEntryPointFromQuickCompiledCode())) {
-    return true;
-  } else if (method->GetEntryPointFromQuickCompiledCode() == GetQuickInstrumentationEntryPoint()) {
-    return FindCompiledCodeForInstrumentation(method) != nullptr;
-  }
-  return false;
 }
 
 bool JitCodeCache::ContainsMethod(ArtMethod* method) {
@@ -327,22 +322,6 @@ const void* JitCodeCache::GetJniStubCode(ArtMethod* method) {
   return nullptr;
 }
 
-const void* JitCodeCache::FindCompiledCodeForInstrumentation(ArtMethod* method) {
-  // If jit-gc is still on we use the SavedEntryPoint field for doing that and so cannot use it to
-  // find the instrumentation entrypoint.
-  if (LIKELY(GetGarbageCollectCode())) {
-    return nullptr;
-  }
-  ProfilingInfo* info = method->GetProfilingInfo(kRuntimePointerSize);
-  if (info == nullptr) {
-    return nullptr;
-  }
-  // When GC is disabled for trampoline tracing we will use SavedEntrypoint to hold the actual
-  // jit-compiled version of the method. If jit-gc is disabled for other reasons this will just be
-  // nullptr.
-  return info->GetSavedEntryPoint();
-}
-
 const void* JitCodeCache::GetSavedEntryPointOfPreCompiledMethod(ArtMethod* method) {
   if (method->IsPreCompiled()) {
     const void* code_ptr = nullptr;
@@ -375,6 +354,11 @@ bool JitCodeCache::WaitForPotentialCollectionToComplete(Thread* self) {
 static uintptr_t FromCodeToAllocation(const void* code) {
   size_t alignment = GetInstructionSetAlignment(kRuntimeISA);
   return reinterpret_cast<uintptr_t>(code) - RoundUp(sizeof(OatQuickMethodHeader), alignment);
+}
+
+static const void* FromAllocationToCode(const uint8_t* alloc) {
+  size_t alignment = GetInstructionSetAlignment(kRuntimeISA);
+  return reinterpret_cast<const void*>(alloc + RoundUp(sizeof(OatQuickMethodHeader), alignment));
 }
 
 static uint32_t GetNumberOfRoots(const uint8_t* stack_map) {
@@ -449,7 +433,8 @@ void JitCodeCache::SweepRootTables(IsMarkedVisitor* visitor) {
     }
   }
   // Walk over inline caches to clear entries containing unloaded classes.
-  for (ProfilingInfo* info : profiling_infos_) {
+  for (auto it : profiling_infos_) {
+    ProfilingInfo* info = it.second;
     for (size_t i = 0; i < info->number_of_inline_caches_; ++i) {
       InlineCache* cache = &info->cache_[i];
       for (size_t j = 0; j < InlineCache::kIndividualCacheSize; ++j) {
@@ -459,22 +444,18 @@ void JitCodeCache::SweepRootTables(IsMarkedVisitor* visitor) {
   }
 }
 
-void JitCodeCache::FreeCodeAndData(const void* code_ptr, bool free_debug_info) {
+void JitCodeCache::FreeCodeAndData(const void* code_ptr) {
   if (IsInZygoteExecSpace(code_ptr)) {
     // No need to free, this is shared memory.
     return;
   }
   uintptr_t allocation = FromCodeToAllocation(code_ptr);
-  if (free_debug_info) {
-    // Remove compressed mini-debug info for the method.
-    // TODO: This is expensive, so we should always do it in the caller in bulk.
-    RemoveNativeDebugInfoForJit(ArrayRef<const void*>(&code_ptr, 1));
-  }
+  const uint8_t* data = nullptr;
   if (OatQuickMethodHeader::FromCodePointer(code_ptr)->IsOptimized()) {
-    private_region_.FreeData(GetRootTable(code_ptr));
+    data = GetRootTable(code_ptr);
   }  // else this is a JNI stub without any data.
 
-  private_region_.FreeCode(reinterpret_cast<uint8_t*>(allocation));
+  FreeLocked(&private_region_, reinterpret_cast<uint8_t*>(allocation), data);
 }
 
 void JitCodeCache::FreeAllMethodHeaders(
@@ -483,25 +464,42 @@ void JitCodeCache::FreeAllMethodHeaders(
   // first since once we do FreeCode() below, the memory can be reused
   // so it's possible for the same method_header to start representing
   // different compile code.
-  MutexLock mu(Thread::Current(), *Locks::jit_lock_);
   {
     MutexLock mu2(Thread::Current(), *Locks::cha_lock_);
     Runtime::Current()->GetClassLinker()->GetClassHierarchyAnalysis()
         ->RemoveDependentsWithMethodHeaders(method_headers);
   }
 
-  // Remove compressed mini-debug info for the methods.
-  std::vector<const void*> removed_symbols;
-  removed_symbols.reserve(method_headers.size());
-  for (const OatQuickMethodHeader* method_header : method_headers) {
-    removed_symbols.push_back(method_header->GetCode());
-  }
-  std::sort(removed_symbols.begin(), removed_symbols.end());
-  RemoveNativeDebugInfoForJit(ArrayRef<const void*>(removed_symbols));
-
   ScopedCodeCacheWrite scc(private_region_);
   for (const OatQuickMethodHeader* method_header : method_headers) {
-    FreeCodeAndData(method_header->GetCode(), /*free_debug_info=*/ false);
+    FreeCodeAndData(method_header->GetCode());
+  }
+
+  // We have potentially removed a lot of debug info. Do maintenance pass to save space.
+  RepackNativeDebugInfoForJit();
+
+  // Check that the set of compiled methods exactly matches native debug information.
+  // Does not check zygote methods since they can change concurrently.
+  if (kIsDebugBuild && !Runtime::Current()->IsZygote()) {
+    std::map<const void*, ArtMethod*> compiled_methods;
+    VisitAllMethods([&](const void* addr, ArtMethod* method) {
+      if (!IsInZygoteExecSpace(addr)) {
+        CHECK(addr != nullptr && method != nullptr);
+        compiled_methods.emplace(addr, method);
+      }
+    });
+    std::set<const void*> debug_info;
+    ForEachNativeDebugSymbol([&](const void* addr, size_t, const char* name) {
+      addr = AlignDown(addr, GetInstructionSetInstructionAlignment(kRuntimeISA));  // Thumb-bit.
+      CHECK(debug_info.emplace(addr).second) << "Duplicate debug info: " << addr << " " << name;
+      CHECK_EQ(compiled_methods.count(addr), 1u) << "Extra debug info: " << addr << " " << name;
+    });
+    if (!debug_info.empty()) {  // If debug-info generation is enabled.
+      for (auto it : compiled_methods) {
+        CHECK_EQ(debug_info.count(it.first), 1u) << "No debug info: " << it.second->PrettyMethod();
+      }
+      CHECK_EQ(compiled_methods.size(), debug_info.size());
+    }
   }
 }
 
@@ -531,6 +529,7 @@ void JitCodeCache::RemoveMethodsIn(Thread* self, const LinearAlloc& alloc) {
       for (auto it = method_code_map_.begin(); it != method_code_map_.end();) {
         if (alloc.ContainsUnsafe(it->second)) {
           method_headers.insert(OatQuickMethodHeader::FromCodePointer(it->first));
+          VLOG(jit) << "JIT removed " << it->second->PrettyMethod() << ": " << it->first;
           it = method_code_map_.erase(it);
         } else {
           ++it;
@@ -547,17 +546,16 @@ void JitCodeCache::RemoveMethodsIn(Thread* self, const LinearAlloc& alloc) {
       }
     }
     for (auto it = profiling_infos_.begin(); it != profiling_infos_.end();) {
-      ProfilingInfo* info = *it;
+      ProfilingInfo* info = it->second;
       if (alloc.ContainsUnsafe(info->GetMethod())) {
-        info->GetMethod()->SetProfilingInfo(nullptr);
         private_region_.FreeWritableData(reinterpret_cast<uint8_t*>(info));
         it = profiling_infos_.erase(it);
       } else {
         ++it;
       }
     }
+    FreeAllMethodHeaders(method_headers);
   }
-  FreeAllMethodHeaders(method_headers);
 }
 
 bool JitCodeCache::IsWeakAccessEnabled(Thread* self) const {
@@ -594,17 +592,20 @@ void JitCodeCache::DisallowInlineCacheAccess() {
   is_weak_access_enabled_.store(false, std::memory_order_seq_cst);
 }
 
-void JitCodeCache::CopyInlineCacheInto(const InlineCache& ic,
-                                       Handle<mirror::ObjectArray<mirror::Class>> array) {
+void JitCodeCache::CopyInlineCacheInto(
+    const InlineCache& ic,
+    /*out*/StackHandleScope<InlineCache::kIndividualCacheSize>* classes) {
+  static_assert(arraysize(ic.classes_) == InlineCache::kIndividualCacheSize);
+  DCHECK_EQ(classes->NumberOfReferences(), InlineCache::kIndividualCacheSize);
+  DCHECK_EQ(classes->RemainingSlots(), InlineCache::kIndividualCacheSize);
   WaitUntilInlineCacheAccessible(Thread::Current());
   // Note that we don't need to lock `lock_` here, the compiler calling
   // this method has already ensured the inline cache will not be deleted.
-  for (size_t in_cache = 0, in_array = 0;
-       in_cache < InlineCache::kIndividualCacheSize;
-       ++in_cache) {
-    mirror::Class* object = ic.classes_[in_cache].Read();
+  for (const GcRoot<mirror::Class>& root : ic.classes_) {
+    mirror::Class* object = root.Read();
     if (object != nullptr) {
-      array->Set(in_array++, object);
+      DCHECK_NE(classes->RemainingSlots(), 0u);
+      classes->NewHandle(object);
     }
   }
 }
@@ -642,10 +643,12 @@ bool JitCodeCache::Commit(Thread* self,
                           ArrayRef<const uint8_t> reserved_data,
                           const std::vector<Handle<mirror::Object>>& roots,
                           ArrayRef<const uint8_t> stack_map,
-                          bool osr,
+                          const std::vector<uint8_t>& debug_info,
+                          bool is_full_debug_info,
+                          CompilationKind compilation_kind,
                           bool has_should_deoptimize_flag,
                           const ArenaSet<ArtMethod*>& cha_single_implementation_list) {
-  DCHECK(!method->IsNative() || !osr);
+  DCHECK(!method->IsNative() || (compilation_kind != CompilationKind::kOsr));
 
   if (!method->IsNative()) {
     // We need to do this before grabbing the lock_ because it needs to be able to see the string
@@ -673,7 +676,24 @@ bool JitCodeCache::Commit(Thread* self,
     return false;
   }
 
-  number_of_compilations_++;
+  switch (compilation_kind) {
+    case CompilationKind::kOsr:
+      number_of_osr_compilations_++;
+      break;
+    case CompilationKind::kBaseline:
+      number_of_baseline_compilations_++;
+      break;
+    case CompilationKind::kOptimized:
+      number_of_optimized_compilations_++;
+      break;
+  }
+
+  // We need to update the debug info before the entry point gets set.
+  // At the same time we want to do under JIT lock so that debug info and JIT maps are in sync.
+  if (!debug_info.empty()) {
+    // NB: Don't allow packing of full info since it would remove non-backtrace data.
+    AddNativeDebugInfoForJit(code_ptr, debug_info, /*allow_packing=*/ !is_full_debug_info);
+  }
 
   // We need to update the entry point in the runnable state for the instrumentation.
   {
@@ -721,8 +741,7 @@ bool JitCodeCache::Commit(Thread* self,
       } else {
         method_code_map_.Put(code_ptr, method);
       }
-      if (osr) {
-        number_of_osr_compilations_++;
+      if (compilation_kind == CompilationKind::kOsr) {
         osr_code_map_.Put(method, code_ptr);
       } else if (NeedsClinitCheckBeforeCall(method) &&
                  !method->GetDeclaringClass()->IsVisiblyInitialized()) {
@@ -745,7 +764,7 @@ bool JitCodeCache::Commit(Thread* self,
       GetLiveBitmap()->AtomicTestAndSet(FromCodeToAllocation(code_ptr));
     }
     VLOG(jit)
-        << "JIT added (osr=" << std::boolalpha << osr << std::noboolalpha << ") "
+        << "JIT added (kind=" << compilation_kind << ") "
         << ArtMethod::PrettyMethod(method) << "@" << method
         << " ccache_size=" << PrettySize(CodeCacheSizeLocked()) << ": "
         << " dcache_size=" << PrettySize(DataCacheSizeLocked()) << ": "
@@ -788,11 +807,10 @@ bool JitCodeCache::RemoveMethod(ArtMethod* method, bool release_memory) {
 
 bool JitCodeCache::RemoveMethodLocked(ArtMethod* method, bool release_memory) {
   if (LIKELY(!method->IsNative())) {
-    ProfilingInfo* info = method->GetProfilingInfo(kRuntimePointerSize);
-    if (info != nullptr) {
-      RemoveElement(profiling_infos_, info);
+    auto it = profiling_infos_.find(method);
+    if (it != profiling_infos_.end()) {
+      profiling_infos_.erase(it);
     }
-    method->SetProfilingInfo(nullptr);
   }
 
   bool in_cache = false;
@@ -817,6 +835,7 @@ bool JitCodeCache::RemoveMethodLocked(ArtMethod* method, bool release_memory) {
         if (release_memory) {
           FreeCodeAndData(it->first);
         }
+        VLOG(jit) << "JIT removed " << it->second->PrettyMethod() << ": " << it->first;
         it = method_code_map_.erase(it);
       } else {
         ++it;
@@ -855,19 +874,6 @@ void JitCodeCache::MoveObsoleteMethod(ArtMethod* old_method, ArtMethod* new_meth
       data.MoveObsoleteMethod(old_method, new_method);
     }
     return;
-  }
-  // Update ProfilingInfo to the new one and remove it from the old_method.
-  if (old_method->GetProfilingInfo(kRuntimePointerSize) != nullptr) {
-    DCHECK_EQ(old_method->GetProfilingInfo(kRuntimePointerSize)->GetMethod(), old_method);
-    ProfilingInfo* info = old_method->GetProfilingInfo(kRuntimePointerSize);
-    old_method->SetProfilingInfo(nullptr);
-    // Since the JIT should be paused and all threads suspended by the time this is called these
-    // checks should always pass.
-    DCHECK(!info->IsInUseByCompiler());
-    new_method->SetProfilingInfo(info);
-    // Get rid of the old saved entrypoint if it is there.
-    info->SetSavedEntryPoint(nullptr);
-    info->method_ = new_method;
   }
   // Update method_code_map_ to point to the new method.
   for (auto& it : method_code_map_) {
@@ -936,8 +942,8 @@ bool JitCodeCache::Reserve(Thread* self,
 
   const uint8_t* code;
   const uint8_t* data;
-  // We might need to try the allocation twice (with GC in between to free up memory).
-  for (int i = 0; i < 2; i++) {
+  while (true) {
+    bool at_max_capacity = false;
     {
       ScopedThreadSuspension sts(self, kSuspended);
       MutexLock mu(self, *Locks::jit_lock_);
@@ -945,18 +951,23 @@ bool JitCodeCache::Reserve(Thread* self,
       ScopedCodeCacheWrite ccw(*region);
       code = region->AllocateCode(code_size);
       data = region->AllocateData(data_size);
+      at_max_capacity = IsAtMaxCapacity();
     }
-    if (code == nullptr || data == nullptr) {
-      Free(self, region, code, data);
-      if (i == 0) {
-        GarbageCollectCache(self);
-        continue;  // Retry after GC.
-      } else {
-        return false;  // Fail.
-      }
+    if (code != nullptr && data != nullptr) {
+      break;
     }
-    break;  // Success.
+    Free(self, region, code, data);
+    if (at_max_capacity) {
+      VLOG(jit) << "JIT failed to allocate code of size "
+                << PrettySize(code_size)
+                << ", and data of size "
+                << PrettySize(data_size);
+      return false;
+    }
+    // Run a code cache collection and try again.
+    GarbageCollectCache(self);
   }
+
   *reserved_code = ArrayRef<const uint8_t>(code, code_size);
   *reserved_data = ArrayRef<const uint8_t>(data, data_size);
 
@@ -984,7 +995,12 @@ void JitCodeCache::Free(Thread* self,
                         const uint8_t* data) {
   MutexLock mu(self, *Locks::jit_lock_);
   ScopedCodeCacheWrite ccw(*region);
+  FreeLocked(region, code, data);
+}
+
+void JitCodeCache::FreeLocked(JitMemoryRegion* region, const uint8_t* code, const uint8_t* data) {
   if (code != nullptr) {
+    RemoveNativeDebugInfoForJit(reinterpret_cast<const void*>(FromAllocationToCode(code)));
     region->FreeCode(code);
   }
   if (data != nullptr) {
@@ -1021,7 +1037,7 @@ class MarkCodeClosure final : public Closure {
     if (kIsDebugBuild) {
       // The stack walking code queries the side instrumentation stack if it
       // sees an instrumentation exit pc, so the JIT code of methods in that stack
-      // must have been seen. We sanity check this below.
+      // must have been seen. We check this below.
       for (const auto& it : *thread->GetInstrumentationStack()) {
         // The 'method_' in InstrumentationStackFrame is the one that has return_pc_ in
         // its stack frame, it is not the method owning return_pc_. We just pass null to
@@ -1061,8 +1077,12 @@ void JitCodeCache::MarkCompiledCodeOnThreadStacks(Thread* self) {
   }
 }
 
+bool JitCodeCache::IsAtMaxCapacity() const {
+  return private_region_.GetCurrentCapacity() == private_region_.GetMaxCapacity();
+}
+
 bool JitCodeCache::ShouldDoFullCollection() {
-  if (private_region_.GetCurrentCapacity() == private_region_.GetMaxCapacity()) {
+  if (IsAtMaxCapacity()) {
     // Always do a full collection when the code cache is full.
     return true;
   } else if (private_region_.GetCurrentCapacity() < kReservedCapacity) {
@@ -1138,25 +1158,8 @@ void JitCodeCache::GarbageCollectCache(Thread* self) {
 
       // Start polling the liveness of compiled code to prepare for the next full collection.
       if (next_collection_will_be_full) {
-        if (Runtime::Current()->GetJITOptions()->CanCompileBaseline()) {
-          for (ProfilingInfo* info : profiling_infos_) {
-            info->SetBaselineHotnessCount(0);
-          }
-        } else {
-          // Save the entry point of methods we have compiled, and update the entry
-          // point of those methods to the interpreter. If the method is invoked, the
-          // interpreter will update its entry point to the compiled code and call it.
-          for (ProfilingInfo* info : profiling_infos_) {
-            const void* entry_point = info->GetMethod()->GetEntryPointFromQuickCompiledCode();
-            if (!IsInZygoteDataSpace(info) && ContainsPc(entry_point)) {
-              info->SetSavedEntryPoint(entry_point);
-              // Don't call Instrumentation::UpdateMethodsCode(), as it can check the declaring
-              // class of the method. We may be concurrently running a GC which makes accessing
-              // the class unsafe. We know it is OK to bypass the instrumentation as we've just
-              // checked that the current entry point is JIT compiled code.
-              info->GetMethod()->SetEntryPointFromQuickCompiledCode(GetQuickToInterpreterBridge());
-            }
-          }
+        for (auto it : profiling_infos_) {
+          it.second->SetBaselineHotnessCount(0);
         }
 
         // Change entry points of native methods back to the GenericJNI entrypoint.
@@ -1199,6 +1202,9 @@ void JitCodeCache::RemoveUnmarkedCode(Thread* self) {
         ++it;
       } else {
         method_headers.insert(OatQuickMethodHeader::FromCodePointer(data->GetCode()));
+        for (ArtMethod* method : data->GetMethods()) {
+          VLOG(jit) << "JIT removed (JNI) " << method->PrettyMethod() << ": " << data->GetCode();
+        }
         it = jni_stubs_map_.erase(it);
       }
     }
@@ -1210,11 +1216,12 @@ void JitCodeCache::RemoveUnmarkedCode(Thread* self) {
       } else {
         OatQuickMethodHeader* header = OatQuickMethodHeader::FromCodePointer(code_ptr);
         method_headers.insert(header);
+        VLOG(jit) << "JIT removed " << it->second->PrettyMethod() << ": " << it->first;
         it = method_code_map_.erase(it);
       }
     }
+    FreeAllMethodHeaders(method_headers);
   }
-  FreeAllMethodHeaders(method_headers);
 }
 
 bool JitCodeCache::GetGarbageCollectCode() {
@@ -1225,19 +1232,55 @@ bool JitCodeCache::GetGarbageCollectCode() {
 void JitCodeCache::SetGarbageCollectCode(bool value) {
   Thread* self = Thread::Current();
   MutexLock mu(self, *Locks::jit_lock_);
-  if (garbage_collect_code_ != value) {
-    if (garbage_collect_code_) {
-      // When dynamically disabling the garbage collection, we neee
-      // to make sure that a potential current collection is finished, and also
-      // clear the saved entry point in profiling infos to avoid dangling pointers.
-      WaitForPotentialCollectionToComplete(self);
-      for (ProfilingInfo* info : profiling_infos_) {
-        info->SetSavedEntryPoint(nullptr);
-      }
-    }
-    // Update the flag while holding the lock to ensure no thread will try to GC.
-    garbage_collect_code_ = value;
+  // Update the flag while holding the lock to ensure no thread will try to GC.
+  garbage_collect_code_ = value;
+}
+
+void JitCodeCache::RemoveMethodBeingCompiled(ArtMethod* method, CompilationKind kind) {
+  DCHECK(IsMethodBeingCompiled(method, kind));
+  switch (kind) {
+    case CompilationKind::kOsr:
+      current_osr_compilations_.erase(method);
+      break;
+    case CompilationKind::kBaseline:
+      current_baseline_compilations_.erase(method);
+      break;
+    case CompilationKind::kOptimized:
+      current_optimized_compilations_.erase(method);
+      break;
   }
+}
+
+void JitCodeCache::AddMethodBeingCompiled(ArtMethod* method, CompilationKind kind) {
+  DCHECK(!IsMethodBeingCompiled(method, kind));
+  switch (kind) {
+    case CompilationKind::kOsr:
+      current_osr_compilations_.insert(method);
+      break;
+    case CompilationKind::kBaseline:
+      current_baseline_compilations_.insert(method);
+      break;
+    case CompilationKind::kOptimized:
+      current_optimized_compilations_.insert(method);
+      break;
+  }
+}
+
+bool JitCodeCache::IsMethodBeingCompiled(ArtMethod* method, CompilationKind kind) {
+  switch (kind) {
+    case CompilationKind::kOsr:
+      return ContainsElement(current_osr_compilations_, method);
+    case CompilationKind::kBaseline:
+      return ContainsElement(current_baseline_compilations_, method);
+    case CompilationKind::kOptimized:
+      return ContainsElement(current_optimized_compilations_, method);
+  }
+}
+
+bool JitCodeCache::IsMethodBeingCompiled(ArtMethod* method) {
+  return ContainsElement(current_optimized_compilations_, method) ||
+      ContainsElement(current_osr_compilations_, method) ||
+      ContainsElement(current_baseline_compilations_, method);
 }
 
 void JitCodeCache::DoCollection(Thread* self, bool collect_profiling_info) {
@@ -1245,51 +1288,25 @@ void JitCodeCache::DoCollection(Thread* self, bool collect_profiling_info) {
   {
     MutexLock mu(self, *Locks::jit_lock_);
 
-    if (Runtime::Current()->GetJITOptions()->CanCompileBaseline()) {
-      // Update to interpreter the methods that have baseline entrypoints and whose baseline
-      // hotness count is zero.
-      // Note that these methods may be in thread stack or concurrently revived
-      // between. That's OK, as the thread executing it will mark it.
-      for (ProfilingInfo* info : profiling_infos_) {
-        if (info->GetBaselineHotnessCount() == 0) {
-          const void* entry_point = info->GetMethod()->GetEntryPointFromQuickCompiledCode();
-          if (ContainsPc(entry_point)) {
-            OatQuickMethodHeader* method_header =
-                OatQuickMethodHeader::FromEntryPoint(entry_point);
-            if (CodeInfo::IsBaseline(method_header->GetOptimizedCodeInfoPtr())) {
-              info->GetMethod()->SetEntryPointFromQuickCompiledCode(GetQuickToInterpreterBridge());
-            }
+    // Update to interpreter the methods that have baseline entrypoints and whose baseline
+    // hotness count is zero.
+    // Note that these methods may be in thread stack or concurrently revived
+    // between. That's OK, as the thread executing it will mark it.
+    for (auto it : profiling_infos_) {
+      ProfilingInfo* info = it.second;
+      if (info->GetBaselineHotnessCount() == 0) {
+        const void* entry_point = info->GetMethod()->GetEntryPointFromQuickCompiledCode();
+        if (ContainsPc(entry_point)) {
+          OatQuickMethodHeader* method_header =
+              OatQuickMethodHeader::FromEntryPoint(entry_point);
+          if (CodeInfo::IsBaseline(method_header->GetOptimizedCodeInfoPtr())) {
+            info->GetMethod()->SetEntryPointFromQuickCompiledCode(GetQuickToInterpreterBridge());
           }
-        }
-      }
-      // TODO: collect profiling info
-      // TODO: collect optimized code?
-    } else {
-      if (collect_profiling_info) {
-        // Clear the profiling info of methods that do not have compiled code as entrypoint.
-        // Also remove the saved entry point from the ProfilingInfo objects.
-        for (ProfilingInfo* info : profiling_infos_) {
-          const void* ptr = info->GetMethod()->GetEntryPointFromQuickCompiledCode();
-          if (!ContainsPc(ptr) && !info->IsInUseByCompiler() && !IsInZygoteDataSpace(info)) {
-            info->GetMethod()->SetProfilingInfo(nullptr);
-          }
-
-          if (info->GetSavedEntryPoint() != nullptr) {
-            info->SetSavedEntryPoint(nullptr);
-            // We are going to move this method back to interpreter. Clear the counter now to
-            // give it a chance to be hot again.
-            ClearMethodCounter(info->GetMethod(), /*was_warm=*/ true);
-          }
-        }
-      } else if (kIsDebugBuild) {
-        // Sanity check that the profiling infos do not have a dangling entry point.
-        for (ProfilingInfo* info : profiling_infos_) {
-          DCHECK(!Runtime::Current()->IsZygote());
-          const void* entry_point = info->GetSavedEntryPoint();
-          DCHECK(entry_point == nullptr || IsInZygoteExecSpace(entry_point));
         }
       }
     }
+    // TODO: collect profiling info
+    // TODO: collect optimized code
 
     // Mark compiled code that are entrypoints of ArtMethods. Compiled code that is not
     // an entry point is either:
@@ -1335,28 +1352,7 @@ void JitCodeCache::DoCollection(Thread* self, bool collect_profiling_info) {
   RemoveUnmarkedCode(self);
 
   if (collect_profiling_info) {
-    MutexLock mu(self, *Locks::jit_lock_);
-    // Free all profiling infos of methods not compiled nor being compiled.
-    auto profiling_kept_end = std::remove_if(profiling_infos_.begin(), profiling_infos_.end(),
-      [this] (ProfilingInfo* info) NO_THREAD_SAFETY_ANALYSIS {
-        const void* ptr = info->GetMethod()->GetEntryPointFromQuickCompiledCode();
-        // We have previously cleared the ProfilingInfo pointer in the ArtMethod in the hope
-        // that the compiled code would not get revived. As mutator threads run concurrently,
-        // they may have revived the compiled code, and now we are in the situation where
-        // a method has compiled code but no ProfilingInfo.
-        // We make sure compiled methods have a ProfilingInfo object. It is needed for
-        // code cache collection.
-        if (ContainsPc(ptr) &&
-            info->GetMethod()->GetProfilingInfo(kRuntimePointerSize) == nullptr) {
-          info->GetMethod()->SetProfilingInfo(info);
-        } else if (info->GetMethod()->GetProfilingInfo(kRuntimePointerSize) != info) {
-          // No need for this ProfilingInfo object anymore.
-          private_region_.FreeWritableData(reinterpret_cast<uint8_t*>(info));
-          return true;
-        }
-        return false;
-      });
-    profiling_infos_.erase(profiling_kept_end, profiling_infos_.end());
+    // TODO: Collect unused profiling infos.
   }
 }
 
@@ -1440,30 +1436,18 @@ OatQuickMethodHeader* JitCodeCache::LookupOsrMethodHeader(ArtMethod* method) {
 
 ProfilingInfo* JitCodeCache::AddProfilingInfo(Thread* self,
                                               ArtMethod* method,
-                                              const std::vector<uint32_t>& entries,
-                                              bool retry_allocation)
-    // No thread safety analysis as we are using TryLock/Unlock explicitly.
-    NO_THREAD_SAFETY_ANALYSIS {
+                                              const std::vector<uint32_t>& entries) {
   DCHECK(CanAllocateProfilingInfo());
   ProfilingInfo* info = nullptr;
-  if (!retry_allocation) {
-    // If we are allocating for the interpreter, just try to lock, to avoid
-    // lock contention with the JIT.
-    if (Locks::jit_lock_->ExclusiveTryLock(self)) {
-      info = AddProfilingInfoInternal(self, method, entries);
-      Locks::jit_lock_->ExclusiveUnlock(self);
-    }
-  } else {
-    {
-      MutexLock mu(self, *Locks::jit_lock_);
-      info = AddProfilingInfoInternal(self, method, entries);
-    }
+  {
+    MutexLock mu(self, *Locks::jit_lock_);
+    info = AddProfilingInfoInternal(self, method, entries);
+  }
 
-    if (info == nullptr) {
-      GarbageCollectCache(self);
-      MutexLock mu(self, *Locks::jit_lock_);
-      info = AddProfilingInfoInternal(self, method, entries);
-    }
+  if (info == nullptr) {
+    GarbageCollectCache(self);
+    MutexLock mu(self, *Locks::jit_lock_);
+    info = AddProfilingInfoInternal(self, method, entries);
   }
   return info;
 }
@@ -1471,29 +1455,24 @@ ProfilingInfo* JitCodeCache::AddProfilingInfo(Thread* self,
 ProfilingInfo* JitCodeCache::AddProfilingInfoInternal(Thread* self ATTRIBUTE_UNUSED,
                                                       ArtMethod* method,
                                                       const std::vector<uint32_t>& entries) {
+  // Check whether some other thread has concurrently created it.
+  auto it = profiling_infos_.find(method);
+  if (it != profiling_infos_.end()) {
+    return it->second;
+  }
+
   size_t profile_info_size = RoundUp(
       sizeof(ProfilingInfo) + sizeof(InlineCache) * entries.size(),
       sizeof(void*));
-
-  // Check whether some other thread has concurrently created it.
-  ProfilingInfo* info = method->GetProfilingInfo(kRuntimePointerSize);
-  if (info != nullptr) {
-    return info;
-  }
 
   const uint8_t* data = private_region_.AllocateData(profile_info_size);
   if (data == nullptr) {
     return nullptr;
   }
   uint8_t* writable_data = private_region_.GetWritableDataAddress(data);
-  info = new (writable_data) ProfilingInfo(method, entries);
+  ProfilingInfo* info = new (writable_data) ProfilingInfo(method, entries);
 
-  // Make sure other threads see the data in the profiling info object before the
-  // store in the ArtMethod's ProfilingInfo pointer.
-  std::atomic_thread_fence(std::memory_order_release);
-
-  method->SetProfilingInfo(info);
-  profiling_infos_.push_back(info);
+  profiling_infos_.Put(method, info);
   histogram_profiling_info_memory_use_.AddValue(profile_info_size);
   return info;
 }
@@ -1511,7 +1490,8 @@ void JitCodeCache::GetProfiledMethods(const std::set<std::string>& dex_base_loca
   MutexLock mu(self, *Locks::jit_lock_);
   ScopedTrace trace(__FUNCTION__);
   uint16_t jit_compile_threshold = Runtime::Current()->GetJITOptions()->GetCompileThreshold();
-  for (const ProfilingInfo* info : profiling_infos_) {
+  for (auto it : profiling_infos_) {
+    ProfilingInfo* info = it.second;
     ArtMethod* method = info->GetMethod();
     const DexFile* dex_file = method->GetDexFile();
     const std::string base_location = DexFileLoader::GetBaseLocation(dex_file->GetLocation());
@@ -1595,19 +1575,18 @@ bool JitCodeCache::IsOsrCompiled(ArtMethod* method) {
 
 bool JitCodeCache::NotifyCompilationOf(ArtMethod* method,
                                        Thread* self,
-                                       bool osr,
-                                       bool prejit,
-                                       bool baseline,
-                                       JitMemoryRegion* region) {
+                                       CompilationKind compilation_kind,
+                                       bool prejit) {
   const void* existing_entry_point = method->GetEntryPointFromQuickCompiledCode();
-  if (!osr && ContainsPc(existing_entry_point)) {
+  if (compilation_kind != CompilationKind::kOsr && ContainsPc(existing_entry_point)) {
     OatQuickMethodHeader* method_header =
         OatQuickMethodHeader::FromEntryPoint(existing_entry_point);
-    if (CodeInfo::IsBaseline(method_header->GetOptimizedCodeInfoPtr()) == baseline) {
+    bool is_baseline = (compilation_kind == CompilationKind::kBaseline);
+    if (CodeInfo::IsBaseline(method_header->GetOptimizedCodeInfoPtr()) == is_baseline) {
       VLOG(jit) << "Not compiling "
                 << method->PrettyMethod()
                 << " because it has already been compiled"
-                << " baseline=" << std::boolalpha << baseline;
+                << " kind=" << compilation_kind;
       return false;
     }
   }
@@ -1635,7 +1614,7 @@ bool JitCodeCache::NotifyCompilationOf(ArtMethod* method,
     }
   }
 
-  if (osr) {
+  if (compilation_kind == CompilationKind::kOsr) {
     MutexLock mu(self, *Locks::jit_lock_);
     if (osr_code_map_.find(method) != osr_code_map_.end()) {
       return false;
@@ -1671,53 +1650,52 @@ bool JitCodeCache::NotifyCompilationOf(ArtMethod* method,
     }
     return new_compilation;
   } else {
-    ProfilingInfo* info = method->GetProfilingInfo(kRuntimePointerSize);
-    if (CanAllocateProfilingInfo() && baseline && info == nullptr) {
-      // We can retry allocation here as we're the JIT thread.
-      if (ProfilingInfo::Create(self, method, /* retry_allocation= */ true)) {
-        info = method->GetProfilingInfo(kRuntimePointerSize);
+    if (CanAllocateProfilingInfo() && (compilation_kind == CompilationKind::kBaseline)) {
+      bool has_profiling_info = false;
+      {
+        MutexLock mu(self, *Locks::jit_lock_);
+        has_profiling_info = (profiling_infos_.find(method) != profiling_infos_.end());
+      }
+      if (!has_profiling_info) {
+        if (ProfilingInfo::Create(self, method) == nullptr) {
+          VLOG(jit) << method->PrettyMethod() << " needs a ProfilingInfo to be compiled baseline";
+          ClearMethodCounter(method, /*was_warm=*/ false);
+          return false;
+        }
       }
     }
-    if (info == nullptr) {
-      // When prejitting, we don't allocate a profiling info.
-      if (!prejit && !IsSharedRegion(*region)) {
-        VLOG(jit) << method->PrettyMethod() << " needs a ProfilingInfo to be compiled";
-        // Because the counter is not atomic, there are some rare cases where we may not hit the
-        // threshold for creating the ProfilingInfo. Reset the counter now to "correct" this.
-        ClearMethodCounter(method, /*was_warm=*/ false);
-        return false;
-      }
-    } else {
-      MutexLock mu(self, *Locks::jit_lock_);
-      if (info->IsMethodBeingCompiled(osr)) {
-        return false;
-      }
-      info->SetIsMethodBeingCompiled(true, osr);
+    MutexLock mu(self, *Locks::jit_lock_);
+    if (IsMethodBeingCompiled(method, compilation_kind)) {
+      return false;
     }
+    AddMethodBeingCompiled(method, compilation_kind);
     return true;
   }
 }
 
 ProfilingInfo* JitCodeCache::NotifyCompilerUse(ArtMethod* method, Thread* self) {
   MutexLock mu(self, *Locks::jit_lock_);
-  ProfilingInfo* info = method->GetProfilingInfo(kRuntimePointerSize);
-  if (info != nullptr) {
-    if (!info->IncrementInlineUse()) {
-      // Overflow of inlining uses, just bail.
-      return nullptr;
-    }
+  auto it = profiling_infos_.find(method);
+  if (it == profiling_infos_.end()) {
+    return nullptr;
   }
-  return info;
+  if (!it->second->IncrementInlineUse()) {
+    // Overflow of inlining uses, just bail.
+    return nullptr;
+  }
+  return it->second;
 }
 
 void JitCodeCache::DoneCompilerUse(ArtMethod* method, Thread* self) {
   MutexLock mu(self, *Locks::jit_lock_);
-  ProfilingInfo* info = method->GetProfilingInfo(kRuntimePointerSize);
-  DCHECK(info != nullptr);
-  info->DecrementInlineUse();
+  auto it = profiling_infos_.find(method);
+  DCHECK(it != profiling_infos_.end());
+  it->second->DecrementInlineUse();
 }
 
-void JitCodeCache::DoneCompiling(ArtMethod* method, Thread* self, bool osr) {
+void JitCodeCache::DoneCompiling(ArtMethod* method,
+                                 Thread* self,
+                                 CompilationKind compilation_kind) {
   DCHECK_EQ(Thread::Current(), self);
   MutexLock mu(self, *Locks::jit_lock_);
   if (UNLIKELY(method->IsNative())) {
@@ -1730,48 +1708,32 @@ void JitCodeCache::DoneCompiling(ArtMethod* method, Thread* self, bool osr) {
       jni_stubs_map_.erase(it);  // Remove the entry added in NotifyCompilationOf().
     }  // else Commit() updated entrypoints of all methods in the JniStubData.
   } else {
-    ProfilingInfo* info = method->GetProfilingInfo(kRuntimePointerSize);
-    if (info != nullptr) {
-      DCHECK(info->IsMethodBeingCompiled(osr));
-      info->SetIsMethodBeingCompiled(false, osr);
-    }
+    RemoveMethodBeingCompiled(method, compilation_kind);
   }
 }
 
 void JitCodeCache::InvalidateAllCompiledCode() {
   art::MutexLock mu(Thread::Current(), *Locks::jit_lock_);
-  size_t cnt = profiling_infos_.size();
-  size_t osr_size = osr_code_map_.size();
-  for (ProfilingInfo* pi : profiling_infos_) {
-    // NB Due to OSR we might run this on some methods multiple times but this should be fine.
-    ArtMethod* meth = pi->GetMethod();
-    pi->SetSavedEntryPoint(nullptr);
-    // We had a ProfilingInfo so we must be warm.
+  VLOG(jit) << "Invalidating all compiled code";
+  ClassLinker* linker = Runtime::Current()->GetClassLinker();
+  for (auto it : method_code_map_) {
+    ArtMethod* meth = it.second;
+    // We were compiled, so we must be warm.
     ClearMethodCounter(meth, /*was_warm=*/true);
-    ClassLinker* linker = Runtime::Current()->GetClassLinker();
     if (meth->IsObsolete()) {
       linker->SetEntryPointsForObsoleteMethod(meth);
     } else {
       linker->SetEntryPointsToInterpreter(meth);
     }
   }
+  saved_compiled_methods_map_.clear();
   osr_code_map_.clear();
-  VLOG(jit) << "Invalidated the compiled code of " << (cnt - osr_size) << " methods and "
-            << osr_size << " OSRs.";
 }
 
 void JitCodeCache::InvalidateCompiledCodeFor(ArtMethod* method,
                                              const OatQuickMethodHeader* header) {
   DCHECK(!method->IsNative());
-  ProfilingInfo* profiling_info = method->GetProfilingInfo(kRuntimePointerSize);
   const void* method_entrypoint = method->GetEntryPointFromQuickCompiledCode();
-  if ((profiling_info != nullptr) &&
-      (profiling_info->GetSavedEntryPoint() == header->GetEntryPoint())) {
-    // When instrumentation is set, the actual entrypoint is the one in the profiling info.
-    method_entrypoint = profiling_info->GetSavedEntryPoint();
-    // Prevent future uses of the compiled code.
-    profiling_info->SetSavedEntryPoint(nullptr);
-  }
 
   // Clear the method counter if we are running jitted code since we might want to jit this again in
   // the future.
@@ -1780,7 +1742,7 @@ void JitCodeCache::InvalidateCompiledCodeFor(ArtMethod* method,
     // and clear the counter to get the method Jitted again.
     Runtime::Current()->GetInstrumentation()->UpdateMethodsCode(
         method, GetQuickToInterpreterBridge());
-    ClearMethodCounter(method, /*was_warm=*/ profiling_info != nullptr);
+    ClearMethodCounter(method, /*was_warm=*/ true);
   } else {
     MutexLock mu(Thread::Current(), *Locks::jit_lock_);
     auto it = osr_code_map_.find(method);
@@ -1817,7 +1779,8 @@ void JitCodeCache::Dump(std::ostream& os) {
      << "Current JIT capacity: " << PrettySize(GetCurrentRegion()->GetCurrentCapacity()) << "\n"
      << "Current number of JIT JNI stub entries: " << jni_stubs_map_.size() << "\n"
      << "Current number of JIT code cache entries: " << method_code_map_.size() << "\n"
-     << "Total number of JIT compilations: " << number_of_compilations_ << "\n"
+     << "Total number of JIT baseline compilations: " << number_of_baseline_compilations_ << "\n"
+     << "Total number of JIT optimized compilations: " << number_of_optimized_compilations_ << "\n"
      << "Total number of JIT compilations for on stack replacement: "
         << number_of_osr_compilations_ << "\n"
      << "Total number of JIT code cache collections: " << number_of_collections_ << std::endl;
@@ -1851,7 +1814,8 @@ void JitCodeCache::PostForkChildAction(bool is_system_server, bool is_zygote) {
   }
 
   // Reset all statistics to be specific to this process.
-  number_of_compilations_ = 0;
+  number_of_baseline_compilations_ = 0;
+  number_of_optimized_compilations_ = 0;
   number_of_osr_compilations_ = 0;
   number_of_collections_ = 0;
   histogram_stack_map_memory_use_.Reset();
@@ -1872,6 +1836,28 @@ void JitCodeCache::PostForkChildAction(bool is_system_server, bool is_zygote) {
 
 JitMemoryRegion* JitCodeCache::GetCurrentRegion() {
   return Runtime::Current()->IsZygote() ? &shared_region_ : &private_region_;
+}
+
+void JitCodeCache::VisitAllMethods(const std::function<void(const void*, ArtMethod*)>& cb) {
+  for (const auto& it : jni_stubs_map_) {
+    const JniStubData& data = it.second;
+    if (data.IsCompiled()) {
+      for (ArtMethod* method : data.GetMethods()) {
+        cb(data.GetCode(), method);
+      }
+    }
+  }
+  for (auto it : method_code_map_) {  // Includes OSR methods.
+    cb(it.first, it.second);
+  }
+  for (auto it : saved_compiled_methods_map_) {
+    cb(it.second, it.first);
+  }
+  for (auto it : zygote_map_) {
+    if (it.code_ptr != nullptr && it.method != nullptr) {
+      cb(it.code_ptr, it.method);
+    }
+  }
 }
 
 void ZygoteMap::Initialize(uint32_t number_of_methods) {

@@ -18,6 +18,10 @@
 
 #include "security/pairing_handler_le.h"
 
+#include "os/rand.h"
+
+using bluetooth::os::GenerateRandom;
+
 namespace bluetooth {
 namespace security {
 
@@ -31,8 +35,8 @@ LegacyStage1ResultOrFailure PairingHandlerLe::DoLegacyStage1(const InitialInform
 
   if (pairing_request.GetOobDataFlag() == OobDataFlag::PRESENT &&
       pairing_response.GetOobDataFlag() == OobDataFlag::PRESENT) {
-    // OobDataFlag remote_oob_flag = IAmMaster(i) ? pairing_response.GetOobDataFlag() :
-    // pairing_request.GetOobDataFlag(); OobDataFlag my_oob_flag = IAmMaster(i) ? pairing_request.GetOobDataFlag() :
+    // OobDataFlag remote_oob_flag = IAmCentral(i) ? pairing_response.GetOobDataFlag() :
+    // pairing_request.GetOobDataFlag(); OobDataFlag my_oob_flag = IAmCentral(i) ? pairing_request.GetOobDataFlag() :
     // pairing_response.GetOobDataFlag();
     return LegacyOutOfBand(i);
   }
@@ -52,8 +56,8 @@ LegacyStage1ResultOrFailure PairingHandlerLe::DoLegacyStage1(const InitialInform
   // This if() should not be needed, these are only combinations left.
   if (iom == IoCapability::KEYBOARD_DISPLAY || iom == IoCapability::KEYBOARD_ONLY ||
       ios == IoCapability::KEYBOARD_DISPLAY || ios == IoCapability::KEYBOARD_ONLY) {
-    IoCapability my_iocaps = IAmMaster(i) ? iom : ios;
-    IoCapability remote_iocaps = IAmMaster(i) ? ios : iom;
+    IoCapability my_iocaps = IAmCentral(i) ? iom : ios;
+    IoCapability remote_iocaps = IAmCentral(i) ? ios : iom;
     return LegacyPasskeyEntry(i, my_iocaps, remote_iocaps);
   }
 
@@ -72,8 +76,8 @@ LegacyStage1ResultOrFailure PairingHandlerLe::LegacyPasskeyEntry(const InitialIn
   bool i_am_displaying = false;
   if (my_iocaps == IoCapability::DISPLAY_ONLY || my_iocaps == IoCapability::DISPLAY_YES_NO) {
     i_am_displaying = true;
-  } else if (IAmMaster(i) && remote_iocaps == IoCapability::KEYBOARD_DISPLAY &&
-             my_iocaps == IoCapability::KEYBOARD_DISPLAY) {
+  } else if (
+      IAmCentral(i) && remote_iocaps == IoCapability::KEYBOARD_DISPLAY && my_iocaps == IoCapability::KEYBOARD_DISPLAY) {
     i_am_displaying = true;
   } else if (my_iocaps == IoCapability::KEYBOARD_DISPLAY && remote_iocaps == IoCapability::KEYBOARD_ONLY) {
     i_am_displaying = true;
@@ -89,12 +93,13 @@ LegacyStage1ResultOrFailure PairingHandlerLe::LegacyPasskeyEntry(const InitialIn
     constexpr uint32_t PASSKEY_MAX = 999999;
     if (passkey > PASSKEY_MAX) passkey >>= 1;
 
-    i.user_interface_handler->Post(common::BindOnce(&UI::DisplayConfirmValue, common::Unretained(i.user_interface),
-                                                    i.remote_connection_address, i.remote_name, passkey));
+    ConfirmationData data(i.remote_connection_address, i.remote_name, passkey);
+    i.user_interface_handler->Post(
+        common::BindOnce(&UI::DisplayConfirmValue, common::Unretained(i.user_interface), data));
   } else {
-    i.user_interface_handler->Post(common::BindOnce(&UI::DisplayEnterPasskeyDialog,
-                                                    common::Unretained(i.user_interface), i.remote_connection_address,
-                                                    i.remote_name));
+    ConfirmationData data(i.remote_connection_address, i.remote_name);
+    i.user_interface_handler->Post(
+        common::BindOnce(&UI::DisplayEnterPasskeyDialog, common::Unretained(i.user_interface), data));
     std::optional<PairingEvent> response = WaitUiPasskey();
     if (!response) return PairingFailure("Passkey did not arrive!");
 
@@ -122,47 +127,57 @@ StkOrFailure PairingHandlerLe::DoLegacyStage2(const InitialInformations& i, cons
   std::vector<uint8_t> pres(pairing_response.begin(), pairing_response.end());
 
   Octet16 mrand, srand;
-  if (IAmMaster(i)) {
+  if (IAmCentral(i)) {
     mrand = GenerateRandom<16>();
 
-    // LOG(INFO) << +(IAmMaster(i)) << " tk = " << base::HexEncode(tk.data(), tk.size());
-    // LOG(INFO) << +(IAmMaster(i)) << " mrand = " << base::HexEncode(mrand.data(), mrand.size());
-    // LOG(INFO) << +(IAmMaster(i)) << " pres = " << base::HexEncode(pres.data(), pres.size());
-    // LOG(INFO) << +(IAmMaster(i)) << " preq = " << base::HexEncode(preq.data(), preq.size());
+    // LOG(INFO) << +(IAmCentral(i)) << " tk = " << base::HexEncode(tk.data(), tk.size());
+    // LOG(INFO) << +(IAmCentral(i)) << " mrand = " << base::HexEncode(mrand.data(), mrand.size());
+    // LOG(INFO) << +(IAmCentral(i)) << " pres = " << base::HexEncode(pres.data(), pres.size());
+    // LOG(INFO) << +(IAmCentral(i)) << " preq = " << base::HexEncode(preq.data(), preq.size());
 
     Octet16 mconfirm = crypto_toolbox::c1(
-        tk, mrand, preq.data(), pres.data(), (uint8_t)i.my_connection_address.GetAddressType(),
-        i.my_connection_address.GetAddress().address, (uint8_t)i.remote_connection_address.GetAddressType(),
-        i.remote_connection_address.GetAddress().address);
+        tk,
+        mrand,
+        preq.data(),
+        pres.data(),
+        (uint8_t)i.my_connection_address.GetAddressType(),
+        i.my_connection_address.GetAddress().data(),
+        (uint8_t)i.remote_connection_address.GetAddressType(),
+        i.remote_connection_address.GetAddress().data());
 
-    // LOG(INFO) << +(IAmMaster(i)) << " mconfirm = " << base::HexEncode(mconfirm.data(), mconfirm.size());
+    // LOG(INFO) << +(IAmCentral(i)) << " mconfirm = " << base::HexEncode(mconfirm.data(), mconfirm.size());
 
-    LOG_INFO("Master sends Mconfirm");
+    LOG_INFO("Central sends Mconfirm");
     SendL2capPacket(i, PairingConfirmBuilder::Create(mconfirm));
 
-    LOG_INFO("Master waits for the Sconfirm");
+    LOG_INFO("Central waits for the Sconfirm");
     auto sconfirm_pkt = WaitPairingConfirm();
     if (std::holds_alternative<PairingFailure>(sconfirm_pkt)) {
       return std::get<PairingFailure>(sconfirm_pkt);
     }
     Octet16 sconfirm = std::get<PairingConfirmView>(sconfirm_pkt).GetConfirmValue();
 
-    LOG_INFO("Master sends Mrand");
+    LOG_INFO("Central sends Mrand");
     SendL2capPacket(i, PairingRandomBuilder::Create(mrand));
 
-    LOG_INFO("Master waits for Srand");
+    LOG_INFO("Central waits for Srand");
     auto random_pkt = WaitPairingRandom();
     if (std::holds_alternative<PairingFailure>(random_pkt)) {
       return std::get<PairingFailure>(random_pkt);
     }
     srand = std::get<PairingRandomView>(random_pkt).GetRandomValue();
 
-    // LOG(INFO) << +(IAmMaster(i)) << " srand = " << base::HexEncode(srand.data(), srand.size());
+    // LOG(INFO) << +(IAmCentral(i)) << " srand = " << base::HexEncode(srand.data(), srand.size());
 
     Octet16 sconfirm_generated = crypto_toolbox::c1(
-        tk, srand, preq.data(), pres.data(), (uint8_t)i.my_connection_address.GetAddressType(),
-        i.my_connection_address.GetAddress().address, (uint8_t)i.remote_connection_address.GetAddressType(),
-        i.remote_connection_address.GetAddress().address);
+        tk,
+        srand,
+        preq.data(),
+        pres.data(),
+        (uint8_t)i.my_connection_address.GetAddressType(),
+        i.my_connection_address.GetAddress().data(),
+        (uint8_t)i.remote_connection_address.GetAddressType(),
+        i.remote_connection_address.GetAddress().data());
 
     if (sconfirm != sconfirm_generated) {
       LOG_INFO("sconfirm does not match generated value");
@@ -177,21 +192,26 @@ StkOrFailure PairingHandlerLe::DoLegacyStage2(const InitialInformations& i, cons
     std::vector<uint8_t> pres(pairing_response.begin(), pairing_response.end());
 
     Octet16 sconfirm = crypto_toolbox::c1(
-        tk, srand, preq.data(), pres.data(), (uint8_t)i.remote_connection_address.GetAddressType(),
-        i.remote_connection_address.GetAddress().address, (uint8_t)i.my_connection_address.GetAddressType(),
-        i.my_connection_address.GetAddress().address);
+        tk,
+        srand,
+        preq.data(),
+        pres.data(),
+        (uint8_t)i.remote_connection_address.GetAddressType(),
+        i.remote_connection_address.GetAddress().data(),
+        (uint8_t)i.my_connection_address.GetAddressType(),
+        i.my_connection_address.GetAddress().data());
 
-    LOG_INFO("Slave waits for the Mconfirm");
+    LOG_INFO("Peripheral waits for the Mconfirm");
     auto mconfirm_pkt = WaitPairingConfirm();
     if (std::holds_alternative<PairingFailure>(mconfirm_pkt)) {
       return std::get<PairingFailure>(mconfirm_pkt);
     }
     Octet16 mconfirm = std::get<PairingConfirmView>(mconfirm_pkt).GetConfirmValue();
 
-    LOG_INFO("Slave sends Sconfirm");
+    LOG_INFO("Peripheral sends Sconfirm");
     SendL2capPacket(i, PairingConfirmBuilder::Create(sconfirm));
 
-    LOG_INFO("Slave waits for Mrand");
+    LOG_INFO("Peripheral waits for Mrand");
     auto random_pkt = WaitPairingRandom();
     if (std::holds_alternative<PairingFailure>(random_pkt)) {
       return std::get<PairingFailure>(random_pkt);
@@ -199,9 +219,14 @@ StkOrFailure PairingHandlerLe::DoLegacyStage2(const InitialInformations& i, cons
     mrand = std::get<PairingRandomView>(random_pkt).GetRandomValue();
 
     Octet16 mconfirm_generated = crypto_toolbox::c1(
-        tk, mrand, preq.data(), pres.data(), (uint8_t)i.remote_connection_address.GetAddressType(),
-        i.remote_connection_address.GetAddress().address, (uint8_t)i.my_connection_address.GetAddressType(),
-        i.my_connection_address.GetAddress().address);
+        tk,
+        mrand,
+        preq.data(),
+        pres.data(),
+        (uint8_t)i.remote_connection_address.GetAddressType(),
+        i.remote_connection_address.GetAddress().data(),
+        (uint8_t)i.my_connection_address.GetAddressType(),
+        i.my_connection_address.GetAddress().data());
 
     if (mconfirm != mconfirm_generated) {
       LOG_INFO("mconfirm does not match generated value");
@@ -209,7 +234,7 @@ StkOrFailure PairingHandlerLe::DoLegacyStage2(const InitialInformations& i, cons
       return PairingFailure("mconfirm does not match generated value");
     }
 
-    LOG_INFO("Slave sends Srand");
+    LOG_INFO("Peripheral sends Srand");
     SendL2capPacket(i, PairingRandomBuilder::Create(srand));
   }
 

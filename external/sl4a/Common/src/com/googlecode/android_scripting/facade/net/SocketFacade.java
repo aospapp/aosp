@@ -16,7 +16,7 @@
 
 package com.googlecode.android_scripting.facade.net;
 
-import android.net.NetworkUtils;
+import android.net.InetAddresses;
 import android.os.ParcelFileDescriptor;
 import android.system.ErrnoException;
 import android.system.Os;
@@ -157,8 +157,8 @@ public class SocketFacade extends RpcReceiver {
             String local,
             Integer localPort) {
         try {
-            InetAddress remoteAddr = NetworkUtils.numericToInetAddress(remote);
-            InetAddress localAddr = NetworkUtils.numericToInetAddress(local);
+            InetAddress remoteAddr = InetAddresses.parseNumericAddress(remote);
+            InetAddress localAddr = InetAddresses.parseNumericAddress(local);
             Socket socket = new Socket(remoteAddr, remotePort.intValue(), localAddr,
                     localPort.intValue());
             socket.setSoLinger(true, 0);
@@ -209,7 +209,7 @@ public class SocketFacade extends RpcReceiver {
     @Rpc(description = "Open TCP server socket and accept connection")
     public String openTcpServerSocket(String addr, Integer port) {
         try {
-            InetAddress localAddr = NetworkUtils.numericToInetAddress(addr);
+            InetAddress localAddr = InetAddresses.parseNumericAddress(addr);
             ServerSocket serverSocket = new ServerSocket(port.intValue(), 10, localAddr);
             String id = getServerSocketId(serverSocket);
             sServerSocketHashMap.put(id, serverSocket);
@@ -402,13 +402,14 @@ public class SocketFacade extends RpcReceiver {
 
     /**
      * Open datagram socket using java.net.DatagramSocket
+     *
      * @param addr : IP addr to use
      * @param port : port to open socket on
      * @return Hash key of {@link DatagramSocket}
      */
     @Rpc(description = "Open datagram socket")
     public String openDatagramSocket(String addr, Integer port) {
-        InetAddress localAddr = NetworkUtils.numericToInetAddress(addr);
+        InetAddress localAddr = InetAddresses.parseNumericAddress(addr);
         try {
             DatagramSocket socket = new DatagramSocket(port.intValue(), localAddr);
             socket.setSoTimeout(SOCK_TIMEOUT);
@@ -458,7 +459,7 @@ public class SocketFacade extends RpcReceiver {
             Integer port) {
         byte[] buf = message.getBytes();
         try {
-            InetAddress remoteAddr = NetworkUtils.numericToInetAddress(addr);
+            InetAddress remoteAddr = InetAddresses.parseNumericAddress(addr);
             DatagramSocket socket = sDatagramSocketHashMap.get(datagramSocketId);
             DatagramPacket pkt = new DatagramPacket(buf, buf.length, remoteAddr, port.intValue());
             socket.send(pkt);
@@ -505,7 +506,7 @@ public class SocketFacade extends RpcReceiver {
     public String openSocket(Integer domain, Integer type, String addr, Integer port) {
         try {
             FileDescriptor fd = Os.socket(domain, type, 0);
-            InetAddress localAddr = NetworkUtils.numericToInetAddress(addr);
+            InetAddress localAddr = InetAddresses.parseNumericAddress(addr);
             Os.bind(fd, localAddr, port.intValue());
             String id = getFileDescriptorId(fd);
             sFileDescriptorHashMap.put(id, fd);
@@ -545,7 +546,7 @@ public class SocketFacade extends RpcReceiver {
     public Boolean sendDataOverSocket(
             String remoteAddr, Integer remotePort, String message, String id) {
         FileDescriptor fd = sFileDescriptorHashMap.get(id);
-        InetAddress remote = NetworkUtils.numericToInetAddress(remoteAddr);
+        InetAddress remote = InetAddresses.parseNumericAddress(remoteAddr);
         try {
             byte [] data = new String(message).getBytes(StandardCharsets.UTF_8);
             int bytes = Os.sendto(fd, data, 0, data.length, 0, remote, remotePort.intValue());
@@ -604,7 +605,7 @@ public class SocketFacade extends RpcReceiver {
     public Boolean connectSocket(String id, String addr, Integer port) {
         FileDescriptor fd = sFileDescriptorHashMap.get(id);
         try {
-            InetAddress remoteAddr = NetworkUtils.numericToInetAddress(addr);
+            InetAddress remoteAddr = InetAddresses.parseNumericAddress(addr);
             Os.connect(fd, remoteAddr, port.intValue());
             return true;
         } catch (SocketException | ErrnoException e) {

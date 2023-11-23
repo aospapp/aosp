@@ -44,14 +44,20 @@ extern "C" {
 
 /**
  * Introduced alongside CHRE API v1.2, adding support for RTT ranging and radio
- * chain preference
+ * chain preference.
  */
 #define CHRE_PAL_WIFI_API_V1_2 CHRE_PAL_CREATE_API_VERSION(1, 2)
 
 /**
- * The version of the WiFi GNSS PAL defined in this header file.
+ * Introduced alongside CHRE API v1.5, adding support for additional WiFi
+ * security modes.
  */
-#define CHRE_PAL_WIFI_API_CURRENT_VERSION CHRE_PAL_WIFI_API_V1_2
+#define CHRE_PAL_WIFI_API_V1_5 CHRE_PAL_CREATE_API_VERSION(1, 5)
+
+/**
+ * The version of the WiFi PAL defined in this header file.
+ */
+#define CHRE_PAL_WIFI_API_CURRENT_VERSION CHRE_PAL_WIFI_API_V1_5
 
 struct chrePalWifiCallbacks {
   /**

@@ -18,6 +18,7 @@ package android.appenumeration.cts;
 
 public class Constants {
     public static final String PKG_BASE = "android.appenumeration.";
+    public static final String TEST_PKG = "android.appenumeration.cts";
 
     /** A package that queries for {@link #TARGET_NO_API} package */
     public static final String QUERIES_PACKAGE = PKG_BASE + "queries.pkg";
@@ -59,6 +60,12 @@ public class Constants {
             PKG_BASE + "queries.nothing.sees.installer";
     /** A package that queries nothing, but is part of a shared user */
     public static final String QUERIES_NOTHING_SHARED_USER = PKG_BASE + "queries.nothing.shareduid";
+    /** A package that queries nothing, but uses a shared library */
+    public static final String QUERIES_NOTHING_USES_LIBRARY =
+            PKG_BASE + "queries.nothing.useslibrary";
+    /** A package that queries nothing, but uses a shared library */
+    public static final String QUERIES_NOTHING_USES_OPTIONAL_LIBRARY =
+            PKG_BASE + "queries.nothing.usesoptionallibrary";
     /** A package that queries via wildcard action. */
     public static final String QUERIES_WILDCARD_ACTION = PKG_BASE + "queries.wildcard.action";
     /** A package that queries for all BROWSABLE intents. */
@@ -78,10 +85,17 @@ public class Constants {
     public static final String TARGET_SHARED_USER = PKG_BASE + "noapi.shareduid";
     /** A package that exposes itself via various intent filters (activities, services, etc.) */
     public static final String TARGET_FILTERS = PKG_BASE + "filters";
-    /** A package that declares itself force queryable, making it visible to all other packages */
+    /** A package that declares itself force queryable, making it visible to all other packages.
+     *  This is installed as forceQueryable as non-system apps cannot declare themselves as such. */
     public static final String TARGET_FORCEQUERYABLE = PKG_BASE + "forcequeryable";
+    /** A package that declares itself force queryable, but is installed normally making it not
+     *  visible to other packages */
+    public static final String TARGET_FORCEQUERYABLE_NORMAL =
+            PKG_BASE + "forcequeryable.normalinstall";
     /** A package with no published API and so isn't queryable by anything but package name */
     public static final String TARGET_NO_API = PKG_BASE + "noapi";
+    /** A package with no published API and just for installing/uninstalling during test */
+    public static final String TARGET_STUB = PKG_BASE + "stub";
     /** A package that offers an activity used for opening / editing file types */
     public static final String TARGET_EDITOR = PKG_BASE + "editor.activity";
     /** A package that offers an activity used viewing a contact / profile */
@@ -94,9 +108,24 @@ public class Constants {
     public static final String TARGET_BROWSER = PKG_BASE + "browser.activity";
     /** A package that offers an activity acts as a browser, but uses a wildcard for host */
     public static final String TARGET_BROWSER_WILDCARD = PKG_BASE + "browser.wildcard.activity";
+    /** A package that offers a shared library */
+    public static final String TARGET_SHARED_LIBRARY_PACKAGE = "com.android.cts.ctsshim";
+    /** A package that exposes itself as a syncadapter. */
+    public static final String TARGET_SYNCADAPTER = PKG_BASE + "syncadapter";
+    /** A package that exposes itself as a syncadapter with a shared uid. */
+    public static final String TARGET_SYNCADAPTER_SHARED_USER = PKG_BASE + "syncadapter.shareduid";
+    /** A package that exposes itself as a appwidgetprovider. */
+    public static final String TARGET_APPWIDGETPROVIDER = PKG_BASE + "appwidgetprovider";
+    /** A package that exposes itself as a appwidgetprovider with a shared uid. */
+    public static final String TARGET_APPWIDGETPROVIDER_SHARED_USER =
+            PKG_BASE + "appwidgetprovider.shareduid";
+    /** A package that offers an activity which handles preferred activity test intent for the
+     *  tests of preferred activity. */
+    public static final String TARGET_PREFERRED_ACTIVITY = PKG_BASE + "preferred.activity";
 
     private static final String BASE_PATH = "/data/local/tmp/cts/appenumeration/";
     public static final String TARGET_NO_API_APK = BASE_PATH + "CtsAppEnumerationNoApi.apk";
+    public static final String TARGET_STUB_APK = BASE_PATH + "CtsAppEnumerationStub.apk";
     public static final String TARGET_FILTERS_APK = BASE_PATH + "CtsAppEnumerationFilters.apk";
     public static final String QUERIES_NOTHING_SEES_INSTALLER_APK =
             BASE_PATH + "CtsAppEnumerationQueriesNothingSeesInstaller.apk";
@@ -128,6 +157,15 @@ public class Constants {
     public static final String ACTION_MANIFEST_PROVIDER = PKG_BASE + "action.PROVIDER";
     public static final String ACTION_SEND_RESULT = PKG_BASE + "cts.action.SEND_RESULT";
     public static final String ACTION_GET_PACKAGE_INFO = PKG_BASE + "cts.action.GET_PACKAGE_INFO";
+    public static final String ACTION_GET_PACKAGES_FOR_UID =
+            PKG_BASE + "cts.action.GET_PACKAGES_FOR_UID";
+    public static final String ACTION_GET_NAME_FOR_UID =
+            PKG_BASE + "cts.action.GET_NAME_FOR_UID";
+    public static final String ACTION_GET_NAMES_FOR_UIDS =
+            PKG_BASE + "cts.action.GET_NAMES_FOR_UIDS";
+    public static final String ACTION_CHECK_SIGNATURES = PKG_BASE + "cts.action.CHECK_SIGNATURES";
+    public static final String ACTION_HAS_SIGNING_CERTIFICATE =
+            PKG_BASE + "cts.action.HAS_SIGNING_CERTIFICATE";
     public static final String ACTION_START_FOR_RESULT = PKG_BASE + "cts.action.START_FOR_RESULT";
     public static final String ACTION_START_DIRECTLY = PKG_BASE + "cts.action.START_DIRECTLY";
     public static final String ACTION_JUST_FINISH = PKG_BASE + "cts.action.JUST_FINISH";
@@ -148,10 +186,41 @@ public class Constants {
             PKG_BASE + "cts.action.START_SENDER_FOR_RESULT";
     public static final String ACTION_QUERY_RESOLVER =
             PKG_BASE + "cts.action.QUERY_RESOLVER_FOR_VISIBILITY";
-
+    public static final String ACTION_BIND_SERVICE = PKG_BASE + "cts.action.BIND_SERVICE";
+    public static final String ACTION_GET_SYNCADAPTER_TYPES =
+            PKG_BASE + "cts.action.GET_SYNCADAPTER_TYPES";
+    public static final String ACTION_GET_SYNCADAPTER_PACKAGES_FOR_AUTHORITY =
+            PKG_BASE + "cts.action.GET_SYNCADAPTER_PACKAGES_FOR_AUTHORITY";
+    public static final String ACTION_GET_INSTALLED_APPWIDGET_PROVIDERS =
+            PKG_BASE + "cts.action.GET_INSTALLED_APPWIDGET_PROVIDERS";
+    public static final String ACTION_AWAIT_PACKAGES_SUSPENDED =
+            PKG_BASE + "cts.action.AWAIT_PACKAGES_SUSPENDED";
+    public static final String ACTION_LAUNCHER_APPS_IS_ACTIVITY_ENABLED =
+            PKG_BASE + "cts.action.LAUNCHER_APPS_IS_ACTIVITY_ENABLED";
+    public static final String ACTION_AWAIT_LAUNCHER_APPS_CALLBACK =
+            PKG_BASE + "cts.action.AWAIT_LAUNCHER_APPS_CALLBACK";
+    public static final String ACTION_GET_SHAREDLIBRARY_DEPENDENT_PACKAGES =
+            PKG_BASE + "cts.action.GET_SHAREDLIBRARY_DEPENDENT_PACKAGES";
+    public static final String ACTION_GET_PREFERRED_ACTIVITIES =
+            PKG_BASE + "cts.action.GET_PREFERRED_ACTIVITIES";
+    public static final String ACTION_SET_INSTALLER_PACKAGE_NAME =
+            PKG_BASE + "cts.action.SET_INSTALLER_PACKAGE_NAME";
+    public static final String ACTION_GET_INSTALLED_ACCESSIBILITYSERVICES_PACKAGES =
+            PKG_BASE + "cts.action.GET_INSTALLED_ACCESSIBILITYSERVICES_PACKAGES";
     public static final String EXTRA_REMOTE_CALLBACK = "remoteCallback";
+    public static final String EXTRA_REMOTE_READY_CALLBACK = "remoteReadyCallback";
     public static final String EXTRA_ERROR = "error";
     public static final String EXTRA_FLAGS = "flags";
     public static final String EXTRA_DATA = "data";
+    public static final String EXTRA_CERT = "cert";
     public static final String EXTRA_AUTHORITY = "authority";
+
+    public static final int CALLBACK_EVENT_INVALID = -1;
+    public static final int CALLBACK_EVENT_PACKAGE_ADDED = 0;
+    public static final int CALLBACK_EVENT_PACKAGE_REMOVED = 1;
+    public static final int CALLBACK_EVENT_PACKAGE_CHANGED = 2;
+    public static final int CALLBACK_EVENT_PACKAGES_AVAILABLE = 3;
+    public static final int CALLBACK_EVENT_PACKAGES_UNAVAILABLE = 4;
+    public static final int CALLBACK_EVENT_PACKAGES_SUSPENDED = 5;
+    public static final int CALLBACK_EVENT_PACKAGES_UNSUSPENDED = 6;
 }

@@ -19,13 +19,17 @@ package com.android.server.telecom.tests;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.content.ComponentName;
 import android.net.Uri;
@@ -34,6 +38,7 @@ import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -44,6 +49,8 @@ import com.android.server.telecom.CallerInfoLookupHelper;
 import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.ClockProxy;
 import com.android.server.telecom.ConnectionServiceWrapper;
+import com.android.server.telecom.InCallController;
+import com.android.server.telecom.InCallController.InCallServiceInfo;
 import com.android.server.telecom.PhoneAccountRegistrar;
 import com.android.server.telecom.PhoneNumberUtilsAdapter;
 import com.android.server.telecom.TelecomSystem;
@@ -54,17 +61,23 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 
 @RunWith(AndroidJUnit4.class)
 public class CallTest extends TelecomTestCase {
     private static final Uri TEST_ADDRESS = Uri.parse("tel:555-1212");
+    private static final ComponentName COMPONENT_NAME_1 = ComponentName
+            .unflattenFromString("com.foo/.Blah");
+    private static final ComponentName COMPONENT_NAME_2 = ComponentName
+            .unflattenFromString("com.bar/.Blah");
     private static final PhoneAccountHandle SIM_1_HANDLE = new PhoneAccountHandle(
-            ComponentName.unflattenFromString("com.foo/.Blah"), "Sim1");
+            COMPONENT_NAME_1, "Sim1");
     private static final PhoneAccount SIM_1_ACCOUNT = new PhoneAccount.Builder(SIM_1_HANDLE, "Sim1")
             .setCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION
                     | PhoneAccount.CAPABILITY_CALL_PROVIDER)
             .setIsEnabled(true)
             .build();
+    private static final long TIMEOUT_MILLIS = 1000;
 
     @Mock private CallsManager mMockCallsManager;
     @Mock private CallerInfoLookupHelper mMockCallerInfoLookupHelper;

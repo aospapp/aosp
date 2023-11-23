@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, Arm Limited. All rights reserved.
+ * Copyright (c) 2019-2020, Arm Limited. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -50,6 +50,53 @@ static inline unsigned int get_armv8_5_mte_support(void)
 {
 	return ((read_id_aa64pfr1_el1() >> ID_AA64PFR1_EL1_MTE_SHIFT) &
 		ID_AA64PFR1_EL1_MTE_MASK);
+}
+
+static inline bool is_armv8_4_sel2_present(void)
+{
+	return ((read_id_aa64pfr0_el1() >> ID_AA64PFR0_SEL2_SHIFT) &
+		ID_AA64PFR0_SEL2_MASK) == 1ULL;
+}
+
+static inline bool is_armv8_6_twed_present(void)
+{
+	return (((read_id_aa64mmfr1_el1() >> ID_AA64MMFR1_EL1_TWED_SHIFT) &
+		ID_AA64MMFR1_EL1_TWED_MASK) == ID_AA64MMFR1_EL1_TWED_SUPPORTED);
+}
+
+static inline bool is_armv8_6_fgt_present(void)
+{
+	return ((read_id_aa64mmfr0_el1() >> ID_AA64MMFR0_EL1_FGT_SHIFT) &
+		ID_AA64MMFR0_EL1_FGT_MASK) == ID_AA64MMFR0_EL1_FGT_SUPPORTED;
+}
+
+static inline unsigned long int get_armv8_6_ecv_support(void)
+{
+	return ((read_id_aa64mmfr0_el1() >> ID_AA64MMFR0_EL1_ECV_SHIFT) &
+		ID_AA64MMFR0_EL1_ECV_MASK);
+}
+
+static inline bool is_armv8_5_rng_present(void)
+{
+	return ((read_id_aa64isar0_el1() >> ID_AA64ISAR0_RNDR_SHIFT) &
+		ID_AA64ISAR0_RNDR_MASK);
+}
+
+/*
+ * Return MPAM version:
+ *
+ * 0x00: None Armv8.0 or later
+ * 0x01: v0.1 Armv8.4 or later
+ * 0x10: v1.0 Armv8.2 or later
+ * 0x11: v1.1 Armv8.4 or later
+ *
+ */
+static inline unsigned int get_mpam_version(void)
+{
+	return (unsigned int)((((read_id_aa64pfr0_el1() >>
+		ID_AA64PFR0_MPAM_SHIFT) & ID_AA64PFR0_MPAM_MASK) << 4) |
+				((read_id_aa64pfr1_el1() >>
+		ID_AA64PFR1_MPAM_FRAC_SHIFT) & ID_AA64PFR1_MPAM_FRAC_MASK));
 }
 
 #endif /* ARCH_FEATURES_H */

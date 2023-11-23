@@ -11,6 +11,8 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"hash"
+
+	"golang.org/x/crypto/hkdf"
 )
 
 // Split a premaster secret in two as specified in RFC 4346, section 5.
@@ -391,7 +393,7 @@ func (h *finishedHash) zeroSecret() []byte {
 
 // addEntropy incorporates ikm into the running TLS 1.3 secret with HKDF-Expand.
 func (h *finishedHash) addEntropy(ikm []byte) {
-	h.secret = hkdfExtract(h.hash.New, h.secret, ikm)
+	h.secret = hkdf.Extract(h.hash.New, ikm, h.secret)
 }
 
 func (h *finishedHash) nextSecret() {
@@ -418,7 +420,11 @@ func hkdfExpandLabel(hash crypto.Hash, secret, label, hashValue []byte, length i
 	x = x[len(label):]
 	x[0] = byte(len(hashValue))
 	copy(x[1:], hashValue)
-	return hkdfExpand(hash.New, secret, hkdfLabel, length)
+	ret := make([]byte, length)
+	if n, err := hkdf.Expand(hash.New, secret, hkdfLabel).Read(ret); err != nil || n != length {
+		panic("hkdfExpandLabel: hkdf.Expand unexpectedly failed")
+	}
+	return ret
 }
 
 // appendContextHashes returns the concatenation of the handshake hash and the
@@ -449,6 +455,16 @@ var (
 // section 7.1 of draft ietf-tls-tls13-16.
 func (h *finishedHash) deriveSecret(label []byte) []byte {
 	return hkdfExpandLabel(h.hash, h.secret, label, h.appendContextHashes(nil), h.hash.Size())
+}
+
+// deriveSecretPeek is the same as deriveSecret, but it enables the caller to
+// tentatively append messages to the transcript. The |extraMessages| parameter
+// contains the bytes of these tentative messages.
+func (h *finishedHash) deriveSecretPeek(label []byte, extraMessages []byte) []byte {
+	hashPeek := h.hash.New()
+	hashPeek.Write(h.buffer)
+	hashPeek.Write(extraMessages)
+	return hkdfExpandLabel(h.hash, h.secret, label, hashPeek.Sum(nil), h.hash.Size())
 }
 
 // The following are context strings for CertificateVerify in TLS 1.3.

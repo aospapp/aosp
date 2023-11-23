@@ -26,7 +26,6 @@ import subprocess
 from acloud import errors
 from acloud.internal import constants
 from acloud.internal.lib import auth
-from acloud.internal.lib import adb_tools
 from acloud.internal.lib import cvd_compute_client_multi_stage
 from acloud.internal.lib import utils
 from acloud.internal.lib import ssh as ssh_object
@@ -52,12 +51,8 @@ def DeleteInstances(cfg, instances_to_delete):
         instances_to_delete: List of list.Instance() object.
 
     Returns:
-        Report instance if there are instances to delete, None otherwise.
+        Report object.
     """
-    if not instances_to_delete:
-        print("No instances to delete")
-        return None
-
     delete_report = report.Report(command="delete")
     remote_instance_list = []
     for instance in instances_to_delete:
@@ -136,7 +131,15 @@ def DeleteLocalCuttlefishInstance(instance, delete_report):
     Returns:
         delete_report.
     """
+    ins_lock = instance.GetLock()
+    if not ins_lock.Lock():
+        delete_report.AddError("%s is locked by another process." %
+                               instance.name)
+        delete_report.SetStatus(report.Status.FAIL)
+        return delete_report
+
     try:
+        ins_lock.SetInUse(False)
         instance.Delete()
         delete_report.SetStatus(report.Status.SUCCESS)
         device_driver.AddDeletionResultToReport(
@@ -146,6 +149,8 @@ def DeleteLocalCuttlefishInstance(instance, delete_report):
     except subprocess.CalledProcessError as e:
         delete_report.AddError(str(e))
         delete_report.SetStatus(report.Status.FAIL)
+    finally:
+        ins_lock.Unlock()
 
     return delete_report
 
@@ -162,20 +167,56 @@ def DeleteLocalGoldfishInstance(instance, delete_report):
     Returns:
         delete_report.
     """
-    adb = adb_tools.AdbTools(adb_port=instance.adb_port,
-                             device_serial=instance.device_serial)
-    if adb.EmuCommand("kill") == 0:
+    lock = instance.GetLock()
+    if not lock.Lock():
+        delete_report.AddError("%s is locked by another process." %
+                               instance.name)
+        delete_report.SetStatus(report.Status.FAIL)
+        return delete_report
+
+    try:
+        lock.SetInUse(False)
+        if instance.adb.EmuCommand("kill") == 0:
+            delete_report.SetStatus(report.Status.SUCCESS)
+            device_driver.AddDeletionResultToReport(
+                delete_report, [instance.name], failed=[],
+                error_msgs=[],
+                resource_name="instance")
+        else:
+            delete_report.AddError("Cannot kill %s." % instance.device_serial)
+            delete_report.SetStatus(report.Status.FAIL)
+    finally:
+        lock.Unlock()
+
+    return delete_report
+
+
+def ResetLocalInstanceLockByName(name, delete_report):
+    """Set the lock state of a local instance to be not in use.
+
+    Args:
+        name: The instance name.
+        delete_report: Report object.
+    """
+    ins_lock = list_instances.GetLocalInstanceLockByName(name)
+    if not ins_lock:
+        delete_report.AddError("%s is not a valid local instance name." % name)
+        delete_report.SetStatus(report.Status.FAIL)
+        return
+
+    if not ins_lock.Lock():
+        delete_report.AddError("%s is locked by another process." % name)
+        delete_report.SetStatus(report.Status.FAIL)
+        return
+
+    try:
+        ins_lock.SetInUse(False)
         delete_report.SetStatus(report.Status.SUCCESS)
         device_driver.AddDeletionResultToReport(
-            delete_report, [instance.name], failed=[],
-            error_msgs=[],
+            delete_report, [name], failed=[], error_msgs=[],
             resource_name="instance")
-    else:
-        delete_report.AddError("Cannot kill %s." % instance.device_serial)
-        delete_report.SetStatus(report.Status.FAIL)
-
-    instance.DeleteCreationTimestamp(ignore_errors=True)
-    return delete_report
+    finally:
+        ins_lock.Unlock()
 
 
 def CleanUpRemoteHost(cfg, remote_host, host_user,
@@ -227,18 +268,22 @@ def DeleteInstanceByNames(cfg, instances):
         A Report instance.
     """
     delete_report = report.Report(command="delete")
-    local_instances = [
-        ins for ins in instances if ins.startswith(_LOCAL_INSTANCE_PREFIX)
-    ]
-    remote_instances = list(set(instances) - set(local_instances))
-    if local_instances:
-        utils.PrintColorString("Deleting local instances")
-        delete_report = DeleteInstances(cfg, list_instances.FilterInstancesByNames(
-            list_instances.GetLocalInstances(), local_instances))
-    if remote_instances:
-        delete_report = DeleteRemoteInstances(cfg,
-                                              remote_instances,
-                                              delete_report)
+    local_names = set(name for name in instances if
+                      name.startswith(_LOCAL_INSTANCE_PREFIX))
+    remote_names = list(set(instances) - set(local_names))
+    if local_names:
+        active_instances = list_instances.GetLocalInstancesByNames(local_names)
+        inactive_names = local_names.difference(ins.name for ins in
+                                                active_instances)
+        if active_instances:
+            utils.PrintColorString("Deleting local instances")
+            delete_report = DeleteInstances(cfg, active_instances)
+        if inactive_names:
+            utils.PrintColorString("Unlocking local instances")
+            for name in inactive_names:
+                ResetLocalInstanceLockByName(name, delete_report)
+    if remote_names:
+        delete_report = DeleteRemoteInstances(cfg, remote_names, delete_report)
     return delete_report
 
 
@@ -276,4 +321,6 @@ def Run(args):
         # user didn't specify instances in args.
         instances = list_instances.ChooseInstancesFromList(instances)
 
+    if not instances:
+        utils.PrintColorString("No instances to delete")
     return DeleteInstances(cfg, instances)

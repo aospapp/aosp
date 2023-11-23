@@ -16,6 +16,6 @@ limitations under the License.
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6575346965016311017">"Mapes"</string>
+    <string name="app_name" msgid="6575346965016311017">"Maps"</string>
     <string name="error_text" msgid="5575174711944349180">"No hi ha cap aplicació de mapes instal·lada. Contacta amb el fabricant del cotxe."</string>
 </resources>

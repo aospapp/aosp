@@ -17,6 +17,6 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="4052407641316309322">"Thông báo cảnh báo"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="4165080207837566277">"Kiểm tra hàng tháng bắt buộc"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="4165080207837566277">"Cần phải kiểm tra hằng tháng"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="1339769389077152402">"Nhận thông báo kiểm tra của hệ thống cảnh báo an toàn"</string>
 </resources>

@@ -12,6 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["external_cblas_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_cblas_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_defaults {
     name: "cblas-defaults",
     srcs: [
@@ -168,12 +185,13 @@ cc_defaults {
 
 cc_library_shared {
     name: "libblas",
-    vendor_available: false,
+    vendor_available: true,
     // TODO(b/153609531): remove when no longer needed.
     native_bridge_supported: true,
     vndk: {
         enabled: true,
         support_system_process: true,
+        private: true,
     },
     defaults: ["cblas-defaults"],
     static_libs: ["libF77blas"],

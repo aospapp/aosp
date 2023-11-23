@@ -23,6 +23,12 @@ package predefined.types {
     method public void setTime(javax.xml.datatype.XMLGregorianCalendar);
   }
 
+  public class HexBinaryHelper {
+    ctor public HexBinaryHelper();
+    method public static String byteArrayToHexString(byte[]);
+    method public static byte[] hexStringToByteArray(String);
+  }
+
   public class ListPrimitiveTypes {
     ctor public ListPrimitiveTypes();
     method public java.util.List<java.lang.Boolean> getListBoolean();
@@ -46,7 +52,7 @@ package predefined.types {
     method public String getAnyType();
     method public String getAnyURI();
     method public byte[] getBase64Binary();
-    method public java.math.BigInteger getHexBinary();
+    method public byte[] getHexBinary();
     method public String getIDREF();
     method public java.util.List<java.lang.String> getIDREFS();
     method public String getQName();
@@ -56,7 +62,7 @@ package predefined.types {
     method public void setAnyType(String);
     method public void setAnyURI(String);
     method public void setBase64Binary(byte[]);
-    method public void setHexBinary(java.math.BigInteger);
+    method public void setHexBinary(byte[]);
     method public void setIDREF(String);
     method public void setIDREFS(java.util.List<java.lang.String>);
     method public void setQName(String);
@@ -142,6 +148,12 @@ package predefined.types {
     method public static predefined.types.Types read(java.io.InputStream) throws javax.xml.datatype.DatatypeConfigurationException, java.io.IOException, org.xmlpull.v1.XmlPullParserException;
     method public static String readText(org.xmlpull.v1.XmlPullParser) throws java.io.IOException, org.xmlpull.v1.XmlPullParserException;
     method public static void skip(org.xmlpull.v1.XmlPullParser) throws java.io.IOException, org.xmlpull.v1.XmlPullParserException;
+  }
+
+  public class XmlWriter implements java.io.Closeable {
+    ctor public XmlWriter(java.io.PrintWriter);
+    method public void close();
+    method public static void write(predefined.types.XmlWriter, predefined.types.Types) throws java.io.IOException;
   }
 
 }

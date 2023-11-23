@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
  *******************************************************************************
  * Copyright (c) 2004-2014, International Business Machines
@@ -31,6 +31,7 @@ import android.icu.text.DateIntervalInfo;
 import android.icu.text.DecimalFormat;
 import android.icu.text.DecimalFormatSymbols;
 import android.icu.text.DurationFormat;
+import android.icu.text.ListFormatter;
 import android.icu.text.MessageFormat;
 import android.icu.text.NumberFormat;
 import android.icu.text.PluralFormat;
@@ -1825,6 +1826,36 @@ public class FormatHandler
         public Object[] getTestObjects()
         {
             return new Object[] {DateIntervalFormat.SpanField.DATE_INTERVAL_SPAN};
+        }
+
+        @Override
+        public boolean hasSameBehavior(Object a, Object b)
+        {
+            return (a == b);
+        }
+    }
+
+    public static class ListFormatterFieldHandler implements SerializableTestUtility.Handler
+    {
+        @Override
+        public Object[] getTestObjects()
+        {
+            return new Object[] {ListFormatter.Field.ELEMENT, ListFormatter.Field.LITERAL};
+        }
+
+        @Override
+        public boolean hasSameBehavior(Object a, Object b)
+        {
+            return (a == b);
+        }
+    }
+
+    public static class ListFormatterSpanFieldHandler implements SerializableTestUtility.Handler
+    {
+        @Override
+        public Object[] getTestObjects()
+        {
+            return new Object[] {ListFormatter.SpanField.LIST_SPAN};
         }
 
         @Override

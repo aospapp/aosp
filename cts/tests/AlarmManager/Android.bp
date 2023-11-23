@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsAlarmManagerTestCases",
     defaults: ["cts_defaults"],
@@ -23,11 +27,13 @@ android_test {
     srcs: [
         "src/**/*.java",
         "app/src/**/*.java",
+        "app30/src/**/*.java",
+        ":CtsAlarmUtils",
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts-scheduling",
     ],
     platform_apis: true,
 }

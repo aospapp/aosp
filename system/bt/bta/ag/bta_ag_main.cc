@@ -22,60 +22,22 @@
  *
  ******************************************************************************/
 
-#include <stack/include/bt_types.h>
-#include <string.h>
+#include <string>
+#include <vector>
 
-#include "bta_ag_int.h"
-#include "bta_api.h"
-#include "bta_sys.h"
+#include "bta/ag/bta_ag_int.h"
+#include "main/shim/dumpsys.h"
+#include "osi/include/alarm.h"
+#include "osi/include/compat.h"
+#include "osi/include/log.h"
 #include "osi/include/osi.h"
-#include "utl.h"
+#include "stack/include/btm_api.h"
 
 /*****************************************************************************
  * Constants and types
  ****************************************************************************/
 /* state machine states */
 enum { BTA_AG_INIT_ST, BTA_AG_OPENING_ST, BTA_AG_OPEN_ST, BTA_AG_CLOSING_ST };
-
-/* state machine action enumeration list */
-enum {
-  BTA_AG_REGISTER,
-  BTA_AG_DEREGISTER,
-  BTA_AG_START_OPEN,
-  BTA_AG_RFC_DO_OPEN,
-  BTA_AG_RFC_DO_CLOSE,
-  BTA_AG_START_DEREG,
-  BTA_AG_START_CLOSE,
-  BTA_AG_RFC_OPEN,
-  BTA_AG_OPEN_FAIL,
-  BTA_AG_RFC_ACP_OPEN,
-  BTA_AG_RFC_CLOSE,
-  BTA_AG_RFC_FAIL,
-  BTA_AG_RFC_DATA,
-  BTA_AG_DISC_INT_RES,
-  BTA_AG_DISC_FAIL,
-  BTA_AG_DISC_ACP_RES,
-  BTA_AG_FREE_DB,
-  BTA_AG_SCO_CONN_OPEN,
-  BTA_AG_SCO_CONN_CLOSE,
-  BTA_AG_SCO_LISTEN,
-  BTA_AG_SCO_OPEN,
-  BTA_AG_SCO_CLOSE,
-  BTA_AG_SCO_SHUTDOWN,
-  BTA_AG_POST_SCO_OPEN,
-  BTA_AG_POST_SCO_CLOSE,
-  BTA_AG_SVC_CONN_OPEN,
-  BTA_AG_RESULT,
-  BTA_AG_SETCODEC,
-  BTA_AG_SEND_RING,
-  BTA_AG_HANDLE_COLLISION,
-  BTA_AG_NUM_ACTIONS
-};
-
-#define BTA_AG_IGNORE BTA_AG_NUM_ACTIONS
-
-/* type for action functions */
-typedef void (*tBTA_AG_ACTION)(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data);
 
 #define CASE_RETURN_STR(const) \
   case const:                  \
@@ -150,155 +112,6 @@ static const char* bta_ag_state_str(uint8_t state) {
       return "Unknown AG State";
   }
 }
-
-/* action functions */
-const tBTA_AG_ACTION bta_ag_action[] = {
-    bta_ag_register,       bta_ag_deregister,    bta_ag_start_open,
-    bta_ag_rfc_do_open,    bta_ag_rfc_do_close,  bta_ag_start_dereg,
-    bta_ag_start_close,    bta_ag_rfc_open,      bta_ag_open_fail,
-    bta_ag_rfc_acp_open,   bta_ag_rfc_close,     bta_ag_rfc_fail,
-    bta_ag_rfc_data,       bta_ag_disc_int_res,  bta_ag_disc_fail,
-    bta_ag_disc_acp_res,   bta_ag_free_db,       bta_ag_sco_conn_open,
-    bta_ag_sco_conn_close, bta_ag_sco_listen,    bta_ag_sco_open,
-    bta_ag_sco_close,      bta_ag_sco_shutdown,  bta_ag_post_sco_open,
-    bta_ag_post_sco_close, bta_ag_svc_conn_open, bta_ag_result,
-    bta_ag_setcodec,       bta_ag_send_ring,     bta_ag_handle_collision};
-
-static_assert(sizeof(bta_ag_action) / sizeof(tBTA_AG_ACTION) ==
-                  BTA_AG_NUM_ACTIONS,
-              "bta_ag_action must handle all actions");
-
-/* state table information */
-#define BTA_AG_ACTIONS 2    /* number of actions */
-#define BTA_AG_NEXT_STATE 2 /* position of next state */
-#define BTA_AG_NUM_COLS 3   /* number of columns in state tables */
-
-/* state table for init state */
-const uint8_t bta_ag_st_init[][BTA_AG_NUM_COLS] = {
-    /* Event                    Action 1                Action 2 Next state */
-    /* API_REGISTER_EVT */ {BTA_AG_REGISTER, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* API_DEREGISTER_EVT */ {BTA_AG_DEREGISTER, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* API_OPEN_EVT */ {BTA_AG_START_OPEN, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* API_CLOSE_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* API_AUDIO_OPEN_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* API_AUDIO_CLOSE_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* API_RESULT_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* API_SETCODEC_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* RFC_OPEN_EVT */ {BTA_AG_RFC_ACP_OPEN, BTA_AG_SCO_LISTEN, BTA_AG_OPEN_ST},
-    /* RFC_CLOSE_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* RFC_SRV_CLOSE_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* RFC_DATA_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* SCO_OPEN_EVT */ {BTA_AG_SCO_CONN_OPEN, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* SCO_CLOSE_EVT */ {BTA_AG_SCO_CONN_CLOSE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* DISC_ACP_RES_EVT */ {BTA_AG_FREE_DB, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* DISC_INT_RES_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* DISC_OK_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* DISC_FAIL_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* RING_TOUT_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* SVC_TOUT_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* COLLISION_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_INIT_ST}};
-
-/* state table for opening state */
-const uint8_t bta_ag_st_opening[][BTA_AG_NUM_COLS] = {
-    /* Event                    Action 1                Action 2 Next state */
-    /* API_REGISTER_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* API_DEREGISTER_EVT */
-    {BTA_AG_RFC_DO_CLOSE, BTA_AG_START_DEREG, BTA_AG_CLOSING_ST},
-    /* API_OPEN_EVT */ {BTA_AG_OPEN_FAIL, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* API_CLOSE_EVT */ {BTA_AG_RFC_DO_CLOSE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* API_AUDIO_OPEN_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* API_AUDIO_CLOSE_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* API_RESULT_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* API_SETCODEC_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* RFC_OPEN_EVT */ {BTA_AG_RFC_OPEN, BTA_AG_SCO_LISTEN, BTA_AG_OPEN_ST},
-    /* RFC_CLOSE_EVT */ {BTA_AG_RFC_FAIL, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* RFC_SRV_CLOSE_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* RFC_DATA_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* SCO_OPEN_EVT */ {BTA_AG_SCO_CONN_OPEN, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* SCO_CLOSE_EVT */
-    {BTA_AG_SCO_CONN_CLOSE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* DISC_ACP_RES_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* DISC_INT_RES_EVT */
-    {BTA_AG_DISC_INT_RES, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* DISC_OK_EVT */ {BTA_AG_RFC_DO_OPEN, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* DISC_FAIL_EVT */ {BTA_AG_DISC_FAIL, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* RING_TOUT_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* SVC_TOUT_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPENING_ST},
-    /* COLLISION_EVT */
-    {BTA_AG_HANDLE_COLLISION, BTA_AG_IGNORE, BTA_AG_INIT_ST}};
-
-/* state table for open state */
-const uint8_t bta_ag_st_open[][BTA_AG_NUM_COLS] = {
-    /* Event                    Action 1                Action 2 Next state */
-    /* API_REGISTER_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* API_DEREGISTER_EVT */
-    {BTA_AG_START_CLOSE, BTA_AG_START_DEREG, BTA_AG_CLOSING_ST},
-    /* API_OPEN_EVT */ {BTA_AG_OPEN_FAIL, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* API_CLOSE_EVT */ {BTA_AG_START_CLOSE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* API_AUDIO_OPEN_EVT */ {BTA_AG_SCO_OPEN, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* API_AUDIO_CLOSE_EVT */ {BTA_AG_SCO_CLOSE, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* API_RESULT_EVT */ {BTA_AG_RESULT, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* API_SETCODEC_EVT */ {BTA_AG_SETCODEC, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* RFC_OPEN_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* RFC_CLOSE_EVT */ {BTA_AG_RFC_CLOSE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* RFC_SRV_CLOSE_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* RFC_DATA_EVT */ {BTA_AG_RFC_DATA, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* SCO_OPEN_EVT */
-    {BTA_AG_SCO_CONN_OPEN, BTA_AG_POST_SCO_OPEN, BTA_AG_OPEN_ST},
-    /* SCO_CLOSE_EVT */
-    {BTA_AG_SCO_CONN_CLOSE, BTA_AG_POST_SCO_CLOSE, BTA_AG_OPEN_ST},
-    /* DISC_ACP_RES_EVT */ {BTA_AG_DISC_ACP_RES, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* DISC_INT_RES_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* DISC_OK_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* DISC_FAIL_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* RING_TOUT_EVT */ {BTA_AG_SEND_RING, BTA_AG_IGNORE, BTA_AG_OPEN_ST},
-    /* SVC_TOUT_EVT */ {BTA_AG_START_CLOSE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* COLLISION_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_OPEN_ST}};
-
-/* state table for closing state */
-const uint8_t bta_ag_st_closing[][BTA_AG_NUM_COLS] = {
-    /* Event                    Action 1                Action 2 Next state */
-    /* API_REGISTER_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* API_DEREGISTER_EVT */
-    {BTA_AG_START_DEREG, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* API_OPEN_EVT */ {BTA_AG_OPEN_FAIL, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* API_CLOSE_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* API_AUDIO_OPEN_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* API_AUDIO_CLOSE_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* API_RESULT_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* API_SETCODEC_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* RFC_OPEN_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* RFC_CLOSE_EVT */ {BTA_AG_RFC_CLOSE, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* RFC_SRV_CLOSE_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* RFC_DATA_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* SCO_OPEN_EVT */ {BTA_AG_SCO_CONN_OPEN, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* SCO_CLOSE_EVT */
-    {BTA_AG_SCO_CONN_CLOSE, BTA_AG_POST_SCO_CLOSE, BTA_AG_CLOSING_ST},
-    /* DISC_ACP_RES_EVT */ {BTA_AG_FREE_DB, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* DISC_INT_RES_EVT */ {BTA_AG_FREE_DB, BTA_AG_IGNORE, BTA_AG_INIT_ST},
-    /* DISC_OK_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* DISC_FAIL_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* RING_TOUT_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* SVC_TOUT_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST},
-    /* COLLISION_EVT */ {BTA_AG_IGNORE, BTA_AG_IGNORE, BTA_AG_CLOSING_ST}};
-
-constexpr size_t BTA_AG_NUM_EVENTS =
-    BTA_AG_MAX_EVT - BTA_SYS_EVT_START(BTA_ID_AG);
-static_assert(sizeof(bta_ag_st_init) / BTA_AG_NUM_COLS == BTA_AG_NUM_EVENTS,
-              "bta_ag_st_init must handle all AG events");
-static_assert(sizeof(bta_ag_st_opening) / BTA_AG_NUM_COLS == BTA_AG_NUM_EVENTS,
-              "bta_ag_st_opening must handle all AG events");
-static_assert(sizeof(bta_ag_st_open) / BTA_AG_NUM_COLS == BTA_AG_NUM_EVENTS,
-              "bta_ag_st_open must handle all AG events");
-static_assert(sizeof(bta_ag_st_closing) / BTA_AG_NUM_COLS == BTA_AG_NUM_EVENTS,
-              "bta_ag_st_closing must handle all AG events");
-
-/* type for state table */
-typedef const uint8_t (*tBTA_AG_ST_TBL)[BTA_AG_NUM_COLS];
-
-/* state table */
-const tBTA_AG_ST_TBL bta_ag_st_tbl[] = {bta_ag_st_init, bta_ag_st_opening,
-                                        bta_ag_st_open, bta_ag_st_closing};
 
 /*****************************************************************************
  * Global data
@@ -564,8 +377,7 @@ void bta_ag_resume_open(tBTA_AG_SCB* p_scb) {
   if (p_scb->state == BTA_AG_INIT_ST) {
     LOG(INFO) << __func__ << ": Resume connection to " << p_scb->peer_addr
               << ", handle" << bta_ag_scb_to_idx(p_scb);
-    tBTA_AG_DATA open_data = {.api_open = {.bd_addr = p_scb->peer_addr,
-                                           .sec_mask = p_scb->cli_sec_mask}};
+    tBTA_AG_DATA open_data = {.api_open = {.bd_addr = p_scb->peer_addr}};
     bta_ag_sm_execute(p_scb, BTA_AG_API_OPEN_EVT, open_data);
   } else {
     VLOG(1) << __func__ << ": device " << p_scb->peer_addr
@@ -653,8 +465,7 @@ void bta_ag_api_disable() {
  * Returns          void
  *
  ******************************************************************************/
-void bta_ag_api_register(tBTA_SERVICE_MASK services, tBTA_SEC sec_mask,
-                         tBTA_AG_FEAT features,
+void bta_ag_api_register(tBTA_SERVICE_MASK services, tBTA_AG_FEAT features,
                          const std::vector<std::string>& service_names,
                          uint8_t app_id) {
   tBTA_AG_SCB* p_scb = bta_ag_scb_alloc();
@@ -662,7 +473,6 @@ void bta_ag_api_register(tBTA_SERVICE_MASK services, tBTA_SEC sec_mask,
     APPL_TRACE_DEBUG("bta_ag_api_register: p_scb 0x%08x ", p_scb);
     tBTA_AG_DATA data = {};
     data.api_register.features = features;
-    data.api_register.sec_mask = sec_mask;
     data.api_register.services = services;
     data.api_register.app_id = app_id;
     for (int i = 0; i < BTA_AG_NUM_IDX; i++) {
@@ -700,20 +510,199 @@ void bta_ag_api_result(uint16_t handle, tBTA_AG_RES result,
   if (handle != BTA_AG_HANDLE_ALL) {
     p_scb = bta_ag_scb_by_idx(handle);
     if (p_scb) {
-      APPL_TRACE_DEBUG("bta_ag_api_result: p_scb 0x%08x ", p_scb);
+      LOG_DEBUG("Audio gateway event for one client handle:%hu scb:%s", handle,
+                p_scb->ToString().c_str());
       bta_ag_sm_execute(p_scb, static_cast<uint16_t>(BTA_AG_API_RESULT_EVT),
                         event_data);
+    } else {
+      LOG_WARN(
+          "Received audio gateway event for unknown AG control block "
+          "handle:%hu",
+          handle);
     }
   } else {
     int i;
     for (i = 0, p_scb = &bta_ag_cb.scb[0]; i < BTA_AG_MAX_NUM_CLIENTS;
          i++, p_scb++) {
       if (p_scb->in_use && p_scb->svc_conn) {
-        APPL_TRACE_DEBUG("bta_ag_api_result p_scb 0x%08x ", p_scb);
+        LOG_DEBUG("Audio gateway event for all clients scb:%s",
+                  p_scb->ToString().c_str());
         bta_ag_sm_execute(p_scb, static_cast<uint16_t>(BTA_AG_API_RESULT_EVT),
                           event_data);
       }
     }
+  }
+}
+
+static void bta_ag_better_state_machine(tBTA_AG_SCB* p_scb, uint16_t event,
+                                        const tBTA_AG_DATA& data) {
+  switch (p_scb->state) {
+    case BTA_AG_INIT_ST:
+      switch (event) {
+        case BTA_AG_API_REGISTER_EVT:
+          bta_ag_register(p_scb, data);
+          break;
+        case BTA_AG_API_DEREGISTER_EVT:
+          bta_ag_deregister(p_scb, data);
+          break;
+        case BTA_AG_API_OPEN_EVT:
+          p_scb->state = BTA_AG_OPENING_ST;
+          bta_ag_start_open(p_scb, data);
+          break;
+        case BTA_AG_RFC_OPEN_EVT:
+          p_scb->state = BTA_AG_OPEN_ST;
+          bta_ag_rfc_acp_open(p_scb, data);
+          bta_ag_sco_listen(p_scb, data);
+          break;
+        case BTA_AG_SCO_OPEN_EVT:
+          bta_ag_sco_conn_open(p_scb, data);
+          break;
+        case BTA_AG_SCO_CLOSE_EVT:
+          bta_ag_sco_conn_close(p_scb, data);
+          break;
+        case BTA_AG_DISC_ACP_RES_EVT:
+          bta_ag_free_db(p_scb, data);
+          break;
+        default:
+          LOG_ERROR("unknown event %d at state %d", event, p_scb->state);
+          break;
+      }
+      break;
+    case BTA_AG_OPENING_ST:
+      switch (event) {
+        case BTA_AG_API_DEREGISTER_EVT:
+          p_scb->state = BTA_AG_CLOSING_ST;
+          bta_ag_rfc_do_close(p_scb, data);
+          bta_ag_start_dereg(p_scb, data);
+          break;
+        case BTA_AG_API_OPEN_EVT:
+          bta_ag_open_fail(p_scb, data);
+          break;
+        case BTA_AG_API_CLOSE_EVT:
+          p_scb->state = BTA_AG_CLOSING_ST;
+          bta_ag_rfc_do_close(p_scb, data);
+          break;
+        case BTA_AG_RFC_OPEN_EVT:
+          p_scb->state = BTA_AG_OPEN_ST;
+          bta_ag_rfc_open(p_scb, data);
+          bta_ag_sco_listen(p_scb, data);
+          break;
+        case BTA_AG_RFC_CLOSE_EVT:
+          p_scb->state = BTA_AG_INIT_ST;
+          bta_ag_rfc_fail(p_scb, data);
+          break;
+        case BTA_AG_SCO_OPEN_EVT:
+          bta_ag_sco_conn_open(p_scb, data);
+          break;
+        case BTA_AG_SCO_CLOSE_EVT:
+          bta_ag_sco_conn_close(p_scb, data);
+          break;
+        case BTA_AG_DISC_INT_RES_EVT:
+          bta_ag_disc_int_res(p_scb, data);
+          break;
+        case BTA_AG_DISC_OK_EVT:
+          bta_ag_rfc_do_open(p_scb, data);
+          break;
+        case BTA_AG_DISC_FAIL_EVT:
+          p_scb->state = BTA_AG_INIT_ST;
+          bta_ag_disc_fail(p_scb, data);
+          break;
+        case BTA_AG_COLLISION_EVT:
+          p_scb->state = BTA_AG_INIT_ST;
+          bta_ag_handle_collision(p_scb, data);
+          break;
+        default:
+          LOG_ERROR("unknown event %d at state %d", event, p_scb->state);
+          break;
+      }
+      break;
+    case BTA_AG_OPEN_ST:
+      switch (event) {
+        case BTA_AG_API_DEREGISTER_EVT:
+          p_scb->state = BTA_AG_CLOSING_ST;
+          bta_ag_start_close(p_scb, data);
+          bta_ag_start_dereg(p_scb, data);
+          break;
+        case BTA_AG_API_OPEN_EVT:
+          bta_ag_open_fail(p_scb, data);
+          break;
+        case BTA_AG_API_CLOSE_EVT:
+          p_scb->state = BTA_AG_CLOSING_ST;
+          bta_ag_start_close(p_scb, data);
+          break;
+        case BTA_AG_API_AUDIO_OPEN_EVT:
+          bta_ag_sco_open(p_scb, data);
+          break;
+        case BTA_AG_API_AUDIO_CLOSE_EVT:
+          bta_ag_sco_close(p_scb, data);
+          break;
+        case BTA_AG_API_RESULT_EVT:
+          bta_ag_result(p_scb, data);
+          break;
+        case BTA_AG_API_SETCODEC_EVT:
+          bta_ag_setcodec(p_scb, data);
+          break;
+        case BTA_AG_RFC_CLOSE_EVT:
+          p_scb->state = BTA_AG_INIT_ST;
+          bta_ag_rfc_close(p_scb, data);
+          break;
+        case BTA_AG_RFC_DATA_EVT:
+          bta_ag_rfc_data(p_scb, data);
+          break;
+        case BTA_AG_SCO_OPEN_EVT:
+          bta_ag_sco_conn_open(p_scb, data);
+          bta_ag_post_sco_open(p_scb, data);
+          break;
+        case BTA_AG_SCO_CLOSE_EVT:
+          bta_ag_sco_conn_close(p_scb, data);
+          bta_ag_post_sco_close(p_scb, data);
+          break;
+        case BTA_AG_DISC_ACP_RES_EVT:
+          bta_ag_disc_acp_res(p_scb, data);
+          break;
+        case BTA_AG_RING_TIMEOUT_EVT:
+          bta_ag_send_ring(p_scb, data);
+          break;
+        case BTA_AG_SVC_TIMEOUT_EVT:
+          p_scb->state = BTA_AG_CLOSING_ST;
+          bta_ag_start_close(p_scb, data);
+          break;
+        default:
+          LOG_ERROR("unknown event %d at state %d", event, p_scb->state);
+          break;
+      }
+      break;
+    case BTA_AG_CLOSING_ST:
+      switch (event) {
+        case BTA_AG_API_DEREGISTER_EVT:
+          bta_ag_start_dereg(p_scb, data);
+          break;
+        case BTA_AG_API_OPEN_EVT:
+          bta_ag_open_fail(p_scb, data);
+          break;
+        case BTA_AG_RFC_CLOSE_EVT:
+          p_scb->state = BTA_AG_INIT_ST;
+          bta_ag_rfc_close(p_scb, data);
+          break;
+        case BTA_AG_SCO_OPEN_EVT:
+          bta_ag_sco_conn_open(p_scb, data);
+          break;
+        case BTA_AG_SCO_CLOSE_EVT:
+          bta_ag_sco_conn_close(p_scb, data);
+          bta_ag_post_sco_close(p_scb, data);
+          break;
+        case BTA_AG_DISC_ACP_RES_EVT:
+          bta_ag_free_db(p_scb, data);
+          break;
+        case BTA_AG_DISC_INT_RES_EVT:
+          p_scb->state = BTA_AG_INIT_ST;
+          bta_ag_free_db(p_scb, data);
+          break;
+        default:
+          LOG_ERROR("unknown event %d at state %d", event, p_scb->state);
+          break;
+      }
+      break;
   }
 }
 
@@ -729,45 +718,24 @@ void bta_ag_api_result(uint16_t handle, tBTA_AG_RES result,
  ******************************************************************************/
 void bta_ag_sm_execute(tBTA_AG_SCB* p_scb, uint16_t event,
                        const tBTA_AG_DATA& data) {
-  tBTA_AG_ST_TBL state_table;
-  uint8_t action;
-  int i;
   uint16_t previous_event = event;
   uint8_t previous_state = p_scb->state;
 
-  APPL_TRACE_EVENT(
-      "%s: handle=0x%04x, bd_addr=%s, state=%s(0x%02x), "
-      "event=%s(0x%04x), result=%s(0x%02x)",
-      __func__, bta_ag_scb_to_idx(p_scb), p_scb->peer_addr.ToString().c_str(),
+  LOG_DEBUG(
+      "Execute AG event handle:0x%04x bd_addr:%s state:%s[0x%02x]"
+      " event:%s[0x%04x] result:%s[0x%02x]",
+      bta_ag_scb_to_idx(p_scb), PRIVATE_ADDRESS(p_scb->peer_addr),
       bta_ag_state_str(p_scb->state), p_scb->state, bta_ag_evt_str(event),
       event, bta_ag_res_str(data.api_result.result), data.api_result.result);
 
-  event &= 0x00FF;
-  if (event >= (BTA_AG_MAX_EVT & 0x00FF)) {
-    APPL_TRACE_ERROR("%s: event out of range, ignored", __func__);
-    return;
-  }
+  bta_ag_better_state_machine(p_scb, event, data);
 
-  /* look up the state table for the current state */
-  state_table = bta_ag_st_tbl[p_scb->state];
-
-  /* set next state */
-  p_scb->state = state_table[event][BTA_AG_NEXT_STATE];
-
-  /* execute action functions */
-  for (i = 0; i < BTA_AG_ACTIONS; i++) {
-    action = state_table[event][i];
-    if (action != BTA_AG_IGNORE) {
-      (*bta_ag_action[action])(p_scb, data);
-    } else {
-      break;
-    }
-  }
   if (p_scb->state != previous_state) {
-    APPL_TRACE_EVENT(
-        "%s: handle=0x%04x, bd_addr=%s, state_change[%s(0x%02x)]->[%s(0x%02x)],"
-        " event[%s(0x%04x)], result[%s(0x%02x)]",
-        __func__, bta_ag_scb_to_idx(p_scb), p_scb->peer_addr.ToString().c_str(),
+    LOG_DEBUG(
+        "State changed handle:0x%04x bd_addr:%s "
+        "state_change:%s[0x%02x]->%s[0x%02x]"
+        " event:%s[0x%04x] result:%s[0x%02x]",
+        bta_ag_scb_to_idx(p_scb), PRIVATE_ADDRESS(p_scb->peer_addr),
         bta_ag_state_str(previous_state), previous_state,
         bta_ag_state_str(p_scb->state), p_scb->state,
         bta_ag_evt_str(previous_event), previous_event,
@@ -779,7 +747,8 @@ void bta_ag_sm_execute_by_handle(uint16_t handle, uint16_t event,
                                  const tBTA_AG_DATA& data) {
   tBTA_AG_SCB* p_scb = bta_ag_scb_by_idx(handle);
   if (p_scb) {
-    APPL_TRACE_DEBUG("%s: p_scb 0x%08x ", __func__, p_scb);
+    LOG_DEBUG("AG state machine event:%s[0x%04x] handle:0x%04x",
+              bta_ag_evt_str(event), event, handle);
     bta_ag_sm_execute(p_scb, event, data);
   }
 }
@@ -791,7 +760,7 @@ void bta_ag_sm_execute_by_handle(uint16_t handle, uint16_t event,
  * @param p_msg event message
  * @return True to free p_msg, or False if p_msg is freed within this function
  */
-bool bta_ag_hdl_event(BT_HDR* p_msg) {
+bool bta_ag_hdl_event(BT_HDR_RIGID* p_msg) {
   switch (p_msg->event) {
     case BTA_AG_RING_TIMEOUT_EVT:
     case BTA_AG_SVC_TIMEOUT_EVT:

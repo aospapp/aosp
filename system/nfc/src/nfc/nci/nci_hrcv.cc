@@ -26,6 +26,7 @@
 
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
+#include <log/log.h>
 
 #include "nfc_target.h"
 
@@ -252,6 +253,11 @@ void nci_proc_rf_management_ntf(NFC_HDR* p_msg) {
       break;
 
     case NCI_MSG_RF_DEACTIVATE:
+      if (p_msg->len < 5) {
+        /* NCI_HEADER(3) + Deactivation Type(1) + Deactivation Reason(1) */
+        android_errorWriteLog(0x534e4554, "164440989");
+        return;
+      }
       if (nfa_dm_p2p_prio_logic(op_code, pp, NFA_DM_P2P_PRIO_NTF) == false) {
         return;
       }
@@ -269,6 +275,10 @@ void nci_proc_rf_management_ntf(NFC_HDR* p_msg) {
       break;
 
     case NCI_MSG_RF_FIELD:
+      if (p_msg->len < 4) {
+        android_errorWriteLog(0x534e4554, "176582502");
+        return;
+      }
       nfc_ncif_proc_rf_field_ntf(*pp);
       break;
 
@@ -293,6 +303,10 @@ void nci_proc_rf_management_ntf(NFC_HDR* p_msg) {
 #endif
 #endif
     case NCI_MSG_RF_ISO_DEP_NAK_PRESENCE:
+      if (p_msg->len < 4) {
+        android_errorWriteLog(0x534e4554, "176582502");
+        return;
+      }
       nfc_ncif_proc_isodep_nak_presence_check_status(*pp, true);
       break;
     default:
@@ -350,6 +364,8 @@ void nci_proc_ee_management_rsp(NFC_HDR* p_msg) {
         nfc_response.mode_set.status = *pp;
       } else {
         nfc_response.mode_set.status = NFC_STATUS_FAILED;
+        android_errorWriteLog(0x534e4554, "176203800");
+        return;
       }
       nfc_response.mode_set.nfcee_id = *p_old++;
       nfc_response.mode_set.mode = *p_old++;
@@ -408,58 +424,91 @@ void nci_proc_ee_management_ntf(NFC_HDR* p_msg) {
       << StringPrintf("nci_proc_ee_management_ntf opcode:0x%x", op_code);
   len = *pp++;
 
-  if (op_code == NCI_MSG_NFCEE_DISCOVER) {
-    nfc_response.nfcee_info.nfcee_id = *pp++;
+  switch (op_code) {
+    case NCI_MSG_NFCEE_DISCOVER:
+      if (len < 3) {
+        p_cback = nullptr;
+        break;
+      } else {
+        len -= 3;
+      }
+      nfc_response.nfcee_info.nfcee_id = *pp++;
 
-    nfc_response.nfcee_info.ee_status = *pp++;
-    yy = *pp;
-    nfc_response.nfcee_info.num_interface = *pp++;
-    p = pp;
-
-    if (nfc_response.nfcee_info.num_interface > NFC_MAX_EE_INTERFACE)
-      nfc_response.nfcee_info.num_interface = NFC_MAX_EE_INTERFACE;
-
-    for (xx = 0; xx < nfc_response.nfcee_info.num_interface; xx++) {
-      nfc_response.nfcee_info.ee_interface[xx] = *pp++;
-    }
-
-    pp = p + yy;
-    nfc_response.nfcee_info.num_tlvs = *pp++;
-    DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
-        "nfcee_id: 0x%x num_interface:0x%x/0x%x, num_tlvs:0x%x",
-        nfc_response.nfcee_info.nfcee_id, nfc_response.nfcee_info.num_interface,
-        yy, nfc_response.nfcee_info.num_tlvs);
-
-    if (nfc_response.nfcee_info.num_tlvs > NFC_MAX_EE_TLVS)
-      nfc_response.nfcee_info.num_tlvs = NFC_MAX_EE_TLVS;
-
-    p_tlv = &nfc_response.nfcee_info.ee_tlv[0];
-
-    for (xx = 0; xx < nfc_response.nfcee_info.num_tlvs; xx++, p_tlv++) {
-      p_tlv->tag = *pp++;
-      p_tlv->len = yy = *pp++;
-      DLOG_IF(INFO, nfc_debug_enabled)
-          << StringPrintf("tag:0x%x, len:0x%x", p_tlv->tag, p_tlv->len);
-      if (p_tlv->len > NFC_MAX_EE_INFO) p_tlv->len = NFC_MAX_EE_INFO;
+      nfc_response.nfcee_info.ee_status = *pp++;
+      yy = *pp;
+      nfc_response.nfcee_info.num_interface = *pp++;
+      if (len < yy + 1) {
+        p_cback = nullptr;
+        break;
+      } else {
+        len -= yy + 1;
+      }
       p = pp;
-      STREAM_TO_ARRAY(p_tlv->info, pp, p_tlv->len);
-      pp = p += yy;
-    }
-  } else if (op_code == NCI_MSG_NFCEE_MODE_SET) {
-    nfc_response.mode_set.status = *pp;
-    nfc_response.mode_set.nfcee_id = *p_old++;
-    nfc_response.mode_set.mode = *p_old++;
-    event = NFC_NFCEE_MODE_SET_REVT;
-    nfc_cb.flags &= ~NFC_FL_WAIT_MODE_SET_NTF;
-    nfc_stop_timer(&nfc_cb.nci_mode_set_ntf_timer);
-  } else if (op_code == NCI_MSG_NFCEE_STATUS) {
-    event = NFC_NFCEE_STATUS_REVT;
-    nfc_response.nfcee_status.status = NCI_STATUS_OK;
-    nfc_response.nfcee_status.nfcee_id = *pp++;
-    nfc_response.nfcee_status.nfcee_status = *pp;
-  } else {
-    p_cback = nullptr;
-    LOG(ERROR) << StringPrintf("unknown opcode:0x%x", op_code);
+
+      if (nfc_response.nfcee_info.num_interface > NFC_MAX_EE_INTERFACE)
+        nfc_response.nfcee_info.num_interface = NFC_MAX_EE_INTERFACE;
+
+      for (xx = 0; xx < nfc_response.nfcee_info.num_interface; xx++) {
+        nfc_response.nfcee_info.ee_interface[xx] = *pp++;
+      }
+
+      pp = p + yy;
+      nfc_response.nfcee_info.num_tlvs = *pp++;
+      DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
+          "nfcee_id: 0x%x num_interface:0x%x/0x%x, num_tlvs:0x%x",
+          nfc_response.nfcee_info.nfcee_id,
+          nfc_response.nfcee_info.num_interface, yy,
+          nfc_response.nfcee_info.num_tlvs);
+
+      if (nfc_response.nfcee_info.num_tlvs > 0 && len < 2) {
+        p_cback = nullptr;
+        break;
+      }
+      if (nfc_response.nfcee_info.num_tlvs > NFC_MAX_EE_TLVS)
+        nfc_response.nfcee_info.num_tlvs = NFC_MAX_EE_TLVS;
+
+      p_tlv = &nfc_response.nfcee_info.ee_tlv[0];
+
+      for (xx = 0; xx < nfc_response.nfcee_info.num_tlvs; xx++, p_tlv++) {
+        p_tlv->tag = *pp++;
+        p_tlv->len = yy = *pp++;
+        if (len < yy + 2) {
+          p_cback = nullptr;
+          break;
+        } else {
+          len -= yy + 2;
+        }
+        DLOG_IF(INFO, nfc_debug_enabled)
+            << StringPrintf("tag:0x%x, len:0x%x", p_tlv->tag, p_tlv->len);
+        if (p_tlv->len > NFC_MAX_EE_INFO) p_tlv->len = NFC_MAX_EE_INFO;
+        STREAM_TO_ARRAY(p_tlv->info, pp, p_tlv->len);
+      }
+      break;
+    case NCI_MSG_NFCEE_MODE_SET:
+      if (len < 1) {
+        nfc_response.mode_set.status = NCI_STATUS_MESSAGE_CORRUPTED;
+      } else {
+        nfc_response.mode_set.status = *pp;
+      }
+      nfc_response.mode_set.nfcee_id = *p_old++;
+      nfc_response.mode_set.mode = *p_old++;
+      event = NFC_NFCEE_MODE_SET_REVT;
+      nfc_cb.flags &= ~NFC_FL_WAIT_MODE_SET_NTF;
+      nfc_stop_timer(&nfc_cb.nci_mode_set_ntf_timer);
+      break;
+    case NCI_MSG_NFCEE_STATUS:
+      event = NFC_NFCEE_STATUS_REVT;
+      if (len < 2) {
+        nfc_response.nfcee_status.status = NCI_STATUS_MESSAGE_CORRUPTED;
+        break;
+      }
+      nfc_response.nfcee_status.status = NCI_STATUS_OK;
+      nfc_response.nfcee_status.nfcee_id = *pp++;
+      nfc_response.nfcee_status.nfcee_status = *pp;
+      break;
+    default:
+      p_cback = nullptr;
+      LOG(ERROR) << StringPrintf("unknown opcode:0x%x", op_code);
   }
 
   if (p_cback) (*p_cback)(event, &nfc_response);

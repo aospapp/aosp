@@ -1,0 +1,28 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+allow radio proc_ccci_lp_mem:file r_file_perms;
+
+# Date : 2018/07/03
+# Purpose : Allow sim system to set prop
+set_prop(radio, system_mtk_sim_system_prop)
+
+# Date : 2018/07/03
+# Purpose : Allow Mwi to get vendor default properties (ro.vendor.*)
+# GOOGLE: Commented out for b/169606103
+#get_prop(radio, vendor_default_prop)
+
+# Operation : DEBUG
+# Purpose : Allow to use system_mtk_bgdata_disabled_prop
+set_prop(radio, system_mtk_bgdata_disabled_prop)
+
+# Date : 2018/07/03
+# Operation : DEBUG
+# Purpose : Allow to use system_mtk_gprs_attach_type_prop
+set_prop(radio, system_mtk_gprs_attach_type_prop)
+
+#Date : 2018/11/02
+# Operation : Allow radio set system_mtk_persist_xcap_rawurl_prop
+# Purpose : for set telephony xcap use raw url property in IMS SS
+set_prop(radio, system_mtk_persist_xcap_rawurl_prop)

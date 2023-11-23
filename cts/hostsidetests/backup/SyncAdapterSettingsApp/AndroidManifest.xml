@@ -16,35 +16,35 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.cts.backup.syncadaptersettingsapp">
+     package="android.cts.backup.syncadaptersettingsapp">
 
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS"/>
 
     <application android:label="BackupSyncAdapterSettings">
         <uses-library android:name="android.test.runner"/>
-        <service android:name=".SyncAdapterSettingsAuthenticator">
+        <service android:name=".SyncAdapterSettingsAuthenticator"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.accounts.AccountAuthenticator"/>
             </intent-filter>
-            <meta-data
-                android:name="android.accounts.AccountAuthenticator"
-                android:resource="@xml/authenticator"/>
+            <meta-data android:name="android.accounts.AccountAuthenticator"
+                 android:resource="@xml/authenticator"/>
         </service>
 
         <service android:name=".SyncAdapterSettingsService"
-                 android:exported="false">
+             android:exported="false">
             <intent-filter>
                 <action android:name="android.content.SyncAdapter"/>
             </intent-filter>
             <meta-data android:name="android.content.SyncAdapter"
-                       android:resource="@xml/syncadapter"/>
+                 android:resource="@xml/syncadapter"/>
         </service>
 
         <provider android:name=".SyncAdapterSettingsProvider"
-                  android:authorities="android.cts.backup.syncadaptersettingsapp.provider"/>
+             android:authorities="android.cts.backup.syncadaptersettingsapp.provider"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.cts.backup.syncadaptersettingsapp"/>
+         android:targetPackage="android.cts.backup.syncadaptersettingsapp"/>
 </manifest>

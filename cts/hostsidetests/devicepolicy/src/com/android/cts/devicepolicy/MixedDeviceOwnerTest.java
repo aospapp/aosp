@@ -17,26 +17,23 @@
 package com.android.cts.devicepolicy;
 
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
-import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.isStatsdEnabled;
 
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.LargeTest;
 import android.stats.devicepolicy.EventId;
 
+import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.IgnoreOnHeadlessSystemUserMode;
 import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
+
+import com.google.common.collect.ImmutableMap;
 
 import org.junit.Ignore;
 import org.junit.Test;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,44 +44,52 @@ import java.util.Map;
  * Set of tests for device owner use cases that also apply to profile owners.
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTest.
  */
-public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
+public final class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
 
     private static final String DELEGATION_NETWORK_LOGGING = "delegation-network-logging";
+    private static final String LOG_TAG_DEVICE_OWNER = "device-owner";
 
     private static final String ARG_SECURITY_LOGGING_BATCH_NUMBER = "batchNumber";
     private static final int SECURITY_EVENTS_BATCH_SIZE = 100;
+
+    private boolean mDeviceOwnerSet;
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
 
-        if (mHasFeature) {
-            mUserId = mPrimaryUserId;
+        mUserId = mPrimaryUserId;
 
-            installAppAsUser(DEVICE_ADMIN_APK, mUserId);
-            if (!setDeviceOwner(DEVICE_ADMIN_COMPONENT_FLATTENED, mUserId, /*expectFailure*/
-                    false)) {
-                removeAdmin(DEVICE_ADMIN_COMPONENT_FLATTENED, mUserId);
-                getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
-                fail("Failed to set device owner");
-            }
+        CLog.i("%s.setUp(): mUserId=%d, mPrimaryUserId=%d, mInitialUserId=%d, "
+                + "mDeviceOwnerUserId=%d", getClass(), mUserId, mPrimaryUserId, mInitialUserId,
+                mDeviceOwnerUserId);
+
+        installDeviceOwnerApp(DEVICE_ADMIN_APK);
+        mDeviceOwnerSet = setDeviceOwner(DEVICE_ADMIN_COMPONENT_FLATTENED, mDeviceOwnerUserId,
+                /*expectFailure= */ false);
+
+        if (!mDeviceOwnerSet) {
+            removeDeviceOwnerAdmin(DEVICE_ADMIN_COMPONENT_FLATTENED);
+            getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
+            fail("Failed to set device owner on user " + mDeviceOwnerUserId);
+        }
+        if (isHeadlessSystemUserMode()) {
+            affiliateUsers(DEVICE_ADMIN_PKG, mDeviceOwnerUserId, mPrimaryUserId);
         }
     }
 
     @Override
     public void tearDown() throws Exception {
-        if (mHasFeature) {
-            assertTrue("Failed to remove device owner",
-                    removeAdmin(DEVICE_ADMIN_COMPONENT_FLATTENED, mUserId));
+        if (mDeviceOwnerSet) {
+            removeDeviceOwnerAdmin(DEVICE_ADMIN_COMPONENT_FLATTENED);
         }
+
         super.tearDown();
     }
 
     @Test
     public void testLockTask_unaffiliatedUser() throws Exception {
-        if (!mHasFeature || !canCreateAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanCreateAdditionalUsers(1);
 
         final int userId = createSecondaryUserAsProfileOwner();
         runDeviceTestsAsUser(
@@ -101,24 +106,8 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
                 userId);
     }
 
-    @FlakyTest(bugId = 127270520)
-    @Test
-    public void testLockTask_affiliatedSecondaryUser() throws Exception {
-        if (!mHasFeature || !canCreateAdditionalUsers(1)) {
-            return;
-        }
-        final int userId = createSecondaryUserAsProfileOwner();
-        switchToUser(userId);
-        setUserAsAffiliatedUserToPrimary(userId);
-        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".LockTaskTest", userId);
-    }
-
     @Test
     public void testDelegatedCertInstallerDeviceIdAttestation() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
         setUpDelegatedCertInstallerAndRunTests(() ->
                 runDeviceTestsAsUser("com.android.cts.certinstaller",
                         ".DelegatedDeviceIdAttestationTest",
@@ -149,32 +138,31 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
     @FlakyTest(bugId = 137088260)
     @Test
     public void testWifi() throws Exception {
-        if (!mHasFeature || !hasDeviceFeature("android.hardware.wifi")) {
-            return;
-        }
-        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".WifiTest", "testGetWifiMacAddress", mUserId);
-        if (isStatsdEnabled(getDevice())) {
-            assertMetricsLogged(getDevice(), () -> {
-                executeDeviceTestMethod(".WifiTest", "testGetWifiMacAddress");
-            }, new DevicePolicyEventWrapper.Builder(EventId.GET_WIFI_MAC_ADDRESS_VALUE)
-                    .setAdminPackageName(DEVICE_ADMIN_PKG)
-                    .build());
-        }
+        assumeHasWifiFeature();
+
+        executeDeviceTestMethod(".WifiTest", "testGetWifiMacAddress");
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".WifiTest", "testGetWifiMacAddress");
+        }, new DevicePolicyEventWrapper.Builder(EventId.GET_WIFI_MAC_ADDRESS_VALUE)
+                .setAdminPackageName(DEVICE_ADMIN_PKG)
+                .build());
     }
 
     @Test
     public void testAdminConfiguredNetworks() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".AdminConfiguredNetworksTest", mPrimaryUserId);
+        executeDeviceTestClass(".AdminConfiguredNetworksTest");
+    }
+
+    @Override
+    @Test
+    @IgnoreOnHeadlessSystemUserMode(
+            reason = "Per-user application restriction is not applicable for headless user")
+    public void testApplicationRestrictions() throws Exception {
+        super.testApplicationRestrictions();
     }
 
     @Test
     public void testSetTime() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         assertMetricsLogged(getDevice(), () -> {
             executeDeviceTestMethod(".TimeManagementTest", "testSetTime");
         }, new DevicePolicyEventWrapper.Builder(EventId.SET_TIME_VALUE)
@@ -186,9 +174,6 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
 
     @Test
     public void testSetTimeZone() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         assertMetricsLogged(getDevice(), () -> {
             executeDeviceTestMethod(".TimeManagementTest", "testSetTimeZone");
         }, new DevicePolicyEventWrapper.Builder(EventId.SET_TIME_ZONE_VALUE)
@@ -205,15 +190,18 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
                         .setAdminPackageName(DELEGATE_APP_PKG)
                         .setBoolean(true)
                         .setInt(1)
+                        .setStrings(LOG_TAG_DEVICE_OWNER)
                         .build(),
                 new DevicePolicyEventWrapper.Builder(EventId.RETRIEVE_NETWORK_LOGS_VALUE)
                         .setAdminPackageName(DELEGATE_APP_PKG)
                         .setBoolean(true)
+                        .setStrings(LOG_TAG_DEVICE_OWNER)
                         .build(),
                 new DevicePolicyEventWrapper.Builder(EventId.SET_NETWORK_LOGGING_ENABLED_VALUE)
                         .setAdminPackageName(DELEGATE_APP_PKG)
                         .setBoolean(true)
                         .setInt(0)
+                        .setStrings(LOG_TAG_DEVICE_OWNER)
                         .build(),
         };
         result.put(".NetworkLoggingDelegateTest", expectedMetrics);
@@ -229,30 +217,19 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
 
     @Test
     public void testLockScreenInfo() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
+        executeDeviceTestClass(".LockScreenInfoTest");
 
-        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".LockScreenInfoTest", mUserId);
-
-        if (isStatsdEnabled(getDevice())) {
-            assertMetricsLogged(getDevice(), () -> {
-                executeDeviceTestMethod(".LockScreenInfoTest", "testSetAndGetLockInfo");
-            }, new DevicePolicyEventWrapper.Builder(EventId.SET_DEVICE_OWNER_LOCK_SCREEN_INFO_VALUE)
-                    .setAdminPackageName(DEVICE_ADMIN_PKG)
-                    .build());
-        }
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".LockScreenInfoTest", "testSetAndGetLockInfo");
+        }, new DevicePolicyEventWrapper.Builder(EventId.SET_DEVICE_OWNER_LOCK_SCREEN_INFO_VALUE)
+                .setAdminPackageName(DEVICE_ADMIN_PKG)
+                .build());
     }
 
     @Test
     public void testFactoryResetProtectionPolicy() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
         try {
-            runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".DeviceFeatureUtils",
-                    "testHasFactoryResetProtectionPolicy", mUserId);
+            executeDeviceTestMethod(".DeviceFeatureUtils", "testHasFactoryResetProtectionPolicy");
         } catch (AssertionError e) {
             // Unable to continue running tests because factory reset protection policy is not
             // supported on the device
@@ -263,7 +240,7 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
         }
 
         assertMetricsLogged(getDevice(), () -> {
-            runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".FactoryResetProtectionPolicyTest", mUserId);
+            executeDeviceTestClass(".FactoryResetProtectionPolicyTest");
         }, new DevicePolicyEventWrapper.Builder(EventId.SET_FACTORY_RESET_PROTECTION_VALUE)
                 .setAdminPackageName(DEVICE_ADMIN_PKG)
                 .build());
@@ -271,45 +248,34 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
 
     @Test
     public void testCommonCriteriaMode() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".CommonCriteriaModeTest", mUserId);
+        executeDeviceTestClass(".CommonCriteriaModeTest");
     }
 
     @LargeTest
     @Test
     @Ignore("b/145932189")
     public void testSystemUpdatePolicy() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".systemupdate.SystemUpdatePolicyTest", mUserId);
+        executeDeviceTestClass(".systemupdate.SystemUpdatePolicyTest");
     }
 
     @Test
     public void testInstallUpdate() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
         pushUpdateFileToDevice("notZip.zi");
         pushUpdateFileToDevice("empty.zip");
         pushUpdateFileToDevice("wrongPayload.zip");
         pushUpdateFileToDevice("wrongHash.zip");
         pushUpdateFileToDevice("wrongSize.zip");
-        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".systemupdate.InstallUpdateTest", mUserId);
+
+        executeInstallUpdateTest(/* testName= */ null);
     }
 
     @Test
     public void testInstallUpdateLogged() throws Exception {
-        if (!mHasFeature || !isDeviceAb() || !isStatsdEnabled(getDevice())) {
-            return;
-        }
+        assumeIsDeviceAb();
+
         pushUpdateFileToDevice("wrongHash.zip");
         assertMetricsLogged(getDevice(), () -> {
-            runDeviceTestsAsUser(DEVICE_ADMIN_PKG, ".systemupdate.InstallUpdateTest",
-                    "testInstallUpdate_failWrongHash", mUserId);
+            executeInstallUpdateTest("testInstallUpdate_failWrongHash");
         }, new DevicePolicyEventWrapper.Builder(EventId.INSTALL_SYSTEM_UPDATE_VALUE)
                     .setAdminPackageName(DEVICE_ADMIN_PKG)
                     .setBoolean(/* isDeviceAb */ true)
@@ -319,12 +285,15 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
                     .build());
     }
 
-    @FlakyTest(bugId = 137093665)
+    private void executeInstallUpdateTest(String testName) throws Exception {
+        // This test must run on system user as it calls installSystemUpdate(), which takes a
+        // Runnable callback (InstallSystemUpdateCallback) and hence it cannot be easily passed
+        // around through IPC (on headless system user mode).
+        executeDeviceTestMethodOnDeviceOwnerUser(".systemupdate.InstallUpdateTest", testName);
+    }
+
     @Test
     public void testSecurityLoggingWithSingleUser() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         // Backup stay awake setting because testGenerateLogs() will turn it off.
         final String stayAwake = getDevice().getSetting("global", "stay_on_while_plugged_in");
         try {
@@ -337,7 +306,6 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
             // Generate various types of events on device side and check that they are logged.
             executeDeviceTestMethod(".SecurityLoggingTest", "testGenerateLogs");
             getDevice().executeShellCommand("whoami"); // Generate adb command securty event
-            getDevice().executeShellCommand("dpm force-security-logs");
             executeDeviceTestMethod(".SecurityLoggingTest", "testVerifyGeneratedLogs");
 
             // Reboot the device, so the security event ids are reset.
@@ -345,8 +313,7 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
 
             // Verify event ids are consistent across a consecutive batch.
             for (int batchNumber = 0; batchNumber < 3; batchNumber++) {
-                generateDummySecurityLogs();
-                getDevice().executeShellCommand("dpm force-security-logs");
+                generateTestSecurityLogs();
                 executeDeviceTestMethod(".SecurityLoggingTest", "testVerifyLogIds",
                         Collections.singletonMap(ARG_SECURITY_LOGGING_BATCH_NUMBER,
                                 Integer.toString(batchNumber)));
@@ -367,9 +334,6 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
 
     @Test
     public void testSecurityLoggingEnabledLogged() throws Exception {
-        if (!mHasFeature || !isStatsdEnabled(getDevice())) {
-            return;
-        }
         assertMetricsLogged(getDevice(), () -> {
             executeDeviceTestMethod(".SecurityLoggingTest", "testEnablingSecurityLogging");
             executeDeviceTestMethod(".SecurityLoggingTest", "testDisablingSecurityLogging");
@@ -385,9 +349,7 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
 
     @Test
     public void testSecurityLoggingWithTwoUsers() throws Exception {
-        if (!mHasFeature || !canCreateAdditionalUsers(1)) {
-            return;
-        }
+        assumeCanCreateAdditionalUsers(1);
 
         final int userId = createUser();
         try {
@@ -405,13 +367,207 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
     }
 
     @Test
-    public void testLocationPermissionGrantNotifies() throws Exception {
-        if (!mHasFeature) {
-            return;
+    public void testSecurityLoggingDelegate() throws Exception {
+        installAppAsUser(DELEGATE_APP_APK, mDeviceOwnerUserId);
+        try {
+            // Test that the delegate cannot access the logs already
+            runDeviceTestsAsUser(DELEGATE_APP_PKG, ".SecurityLoggingDelegateTest",
+                    "testCannotAccessApis", mDeviceOwnerUserId);
+
+            // Set security logging delegate
+            executeDeviceTestMethodOnDeviceOwnerUser(".SecurityLoggingTest",
+                    "testSetDelegateScope_delegationSecurityLogging");
+
+            runSecurityLoggingTests(DELEGATE_APP_PKG, ".SecurityLoggingDelegateTest");
+        } finally {
+            // Remove security logging delegate
+            executeDeviceTestMethodOnDeviceOwnerUser(".SecurityLoggingTest",
+                    "testSetDelegateScope_noDelegation");
         }
+    }
+
+    /**
+     * Test for {@link DevicePolicyManager.setStorageEncryption} and
+     * {@link DevicePolicyManager.getStorageEncryption}.
+     *
+     * <p>This test needs to run as as the device owner user ID since
+     * {@link DevicePolicyManager#setStorageEncryption(ComponentName, boolean)}
+     * is only allowed for system user.
+     */
+    @Override
+    @Test
+    public void testSetStorageEncryption() throws Exception {
+        Map<String, String> params =
+                ImmutableMap.of(IS_SYSTEM_USER_PARAM, String.valueOf(/* isSystemUser= */ true));
+        runDeviceTestsAsUser(
+                DEVICE_ADMIN_PKG, STORAGE_ENCRYPTION_TEST_CLASS, null, mDeviceOwnerUserId, params);
+    }
+
+    private void runSecurityLoggingTests(String packageName, String testClassName)
+            throws Exception {
+        int userId = mDeviceOwnerUserId;
+        try {
+            // Turn logging on.
+            runDeviceTestsAsUser(packageName, testClassName, "testEnablingSecurityLogging", userId);
+            // Reboot to ensure ro.organization_owned is set to true in logd and logging is on.
+            rebootAndWaitUntilReady();
+            waitForUserUnlock(userId);
+
+            // Generate various types of events on device side and check that they are logged.
+            runDeviceTestsAsUser(packageName, testClassName, "testGenerateLogs", userId);
+            runDeviceTestsAsUser(packageName, testClassName, "testVerifyGeneratedLogs", userId);
+
+            // Immediately attempting to fetch events again should fail.
+            runDeviceTestsAsUser(packageName, testClassName,
+                    "testSecurityLoggingRetrievalRateLimited", userId);
+        } finally {
+            // Turn logging off.
+            runDeviceTestsAsUser(packageName, testClassName,
+                    "testDisablingSecurityLogging", userId);
+        }
+    }
+
+    @Test
+    public void testLocationPermissionGrantNotifies() throws Exception {
         installAppPermissionAppAsUser();
         configureNotificationListener();
-        executeDeviceTestMethod(".PermissionsTest", "testUserNotifiedOfLocationPermissionGrant");
+        executeDeviceTestMethod(".PermissionsTest",
+                "testPermissionGrantStateGranted_userNotifiedOfLocationPermission");
+    }
+
+    @Override
+    @Test
+    public void testAdminControlOverSensorPermissionGrantsDefault() throws Exception {
+        // In Device Owner mode, by default, admin should be able to grant sensors-related
+        // permissions.
+        executeDeviceTestMethod(".SensorPermissionGrantTest",
+                "testAdminCanGrantSensorsPermissions");
+    }
+
+    @Override
+    @Test
+    public void testGrantOfSensorsRelatedPermissions() throws Exception {
+        // Skip for now, re-enable when the code path sets DO as able to grant permissions.
+    }
+
+    @Override
+    @Test
+    public void testSensorsRelatedPermissionsNotGrantedViaPolicy() throws Exception {
+        // Skip for now, re-enable when the code path sets DO as able to grant permissions.
+    }
+
+    @Override
+    @Test
+    public void testStateOfSensorsRelatedPermissionsCannotBeRead() throws Exception {
+        // Skip because in DO mode the admin can read permission state.
+    }
+
+    //TODO(b/180413140) Investigate why the test fails on DO mode.
+    @Override
+    @Test
+    public void testPermissionPrompts() throws Exception {
+    }
+
+    @Override
+    @Test
+    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't launch activities")
+    public void testSuspendPackage() throws Exception {
+        super.testSuspendPackage();
+    }
+
+    @Override
+    @Test
+    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't launch activities")
+    public void testSuspendPackageWithPackageManager() throws Exception {
+        super.testSuspendPackageWithPackageManager();
+    }
+
+    @Override
+    @Test
+    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't have credentials")
+    public void testGetPasswordExpiration() throws Exception {
+        super.testGetPasswordExpiration();
+    }
+
+    @Override
+    @Test
+    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't have credentials")
+    public void testPasswordExpiration() throws Exception {
+        super.testPasswordExpiration();
+    }
+
+    @Override
+    @Test
+    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't have credentials")
+    public void testResetPasswordWithToken() throws Exception {
+        super.testResetPasswordWithToken();
+    }
+
+    @Override
+    @Test
+    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't have credentials")
+    public void testResetPasswordDeprecated() throws Exception {
+        super.testResetPasswordDeprecated();
+    }
+
+    @Override
+    @Test
+    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't launch activities")
+    public void testCreateAdminSupportIntent() throws Exception {
+        super.testCreateAdminSupportIntent();
+    }
+
+    @Override
+    @Test
+    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't launch activities")
+    public void testPersistentIntentResolving() throws Exception {
+        super.testPersistentIntentResolving();
+    }
+
+    @Override
+    @Test
+    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't launch activities")
+    public void testDisallowAutofill_allowed() throws Exception {
+        super.testDisallowAutofill_allowed();
+    }
+
+    @Override
+    public void testApplicationHidden() throws Exception {
+        if (isHeadlessSystemUserMode()) {
+            // Must run on user 0 because the test has a broadcast receiver that listen to packages
+            // added / removed intents
+            mUserId = mDeviceOwnerUserId;
+            CLog.d("testApplicationHidden(): setting mUserId as %d before running it", mUserId);
+        }
+        super.testApplicationHidden();
+    }
+
+    @Override
+    protected void installDelegateApp() throws Exception {
+        // TODO(b/176993670): must call installDeviceOwnerApp() - even though it's not one - so
+        // the permissions required to use DpmWrapper are set on headless system user mode
+        installDeviceOwnerApp(DELEGATE_APP_APK);
+    }
+
+    @Override
+    protected void runDeviceTestsAsUser(String pkgName, String testClassName, String testName,
+            int userId, Map<String, String> params) throws DeviceNotAvailableException {
+        Map<String, String> newParams = new HashMap(params);
+        newParams.putAll(getParamsForDeviceOwnerTest());
+        super.runDeviceTestsAsUser(
+                pkgName, testClassName, testName, userId, newParams);
+    }
+
+    @Override
+    protected void executeDeviceTestMethod(String className, String testName,
+            Map<String, String> params) throws Exception {
+        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, className, testName, mUserId, params);
+    }
+
+    private void executeDeviceTestMethodOnDeviceOwnerUser(String className, String testName)
+            throws Exception {
+        executeDeviceTestMethod(className, testName, mDeviceOwnerUserId,
+                /* params= */ new HashMap<>());
     }
 
     private void configureNotificationListener() throws DeviceNotAvailableException {
@@ -419,17 +575,21 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
                 + "com.android.cts.deviceandprofileowner/.NotificationListener");
     }
 
-    private void generateDummySecurityLogs() throws Exception {
+    private void generateTestSecurityLogs() throws Exception {
         // Trigger security events of type TAG_ADB_SHELL_CMD.
         for (int i = 0; i < SECURITY_EVENTS_BATCH_SIZE; i++) {
             getDevice().executeShellCommand("echo just_testing_" + i);
         }
     }
+
     private int createSecondaryUserAsProfileOwner() throws Exception {
-        final int userId = createUser();
+        final int userId = createUserAndWaitStart();
         installAppAsUser(INTENT_RECEIVER_APK, userId);
         installAppAsUser(DEVICE_ADMIN_APK, userId);
-        setProfileOwnerOrFail(DEVICE_ADMIN_COMPONENT_FLATTENED, userId);
+        // For headless system user mode, PO is set on any secondary user created
+        if (!isHeadlessSystemUserMode()) {
+            setProfileOwnerOrFail(DEVICE_ADMIN_COMPONENT_FLATTENED, userId);
+        }
         return userId;
     }
 

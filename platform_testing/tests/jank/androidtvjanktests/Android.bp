@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "AndroidTVJankTests",
     srcs: ["src/**/*.java"],
@@ -22,8 +26,13 @@ android_test {
         "timeresult-helper-lib",
         "dpad-util",
     ],
+    libs: [
+        "android.test.runner",
+        "android.test.base",
+    ],
 
-    sdk_version: "23",
+    sdk_version: "30",
+    min_sdk_version: "23",
 
     test_suites: ["device-tests"],
 }

@@ -31,15 +31,21 @@ always available.
    When an auditing event is raised through the :func:`sys.audit` function, each
    hook will be called in the order it was added with the event name and the
    tuple of arguments. Native hooks added by :c:func:`PySys_AddAuditHook` are
-   called first, followed by hooks added in the current interpreter.
+   called first, followed by hooks added in the current interpreter.  Hooks
+   can then log the event, raise an exception to abort the operation,
+   or terminate the process entirely.
 
    .. audit-event:: sys.addaudithook "" sys.addaudithook
 
-      Raise an auditing event ``sys.addaudithook`` with no arguments. If any
+      Calling :func:`sys.addaudithook` will itself raise an auditing event
+      named ``sys.addaudithook`` with no arguments. If any
       existing hooks raise an exception derived from :class:`RuntimeError`, the
       new hook will not be added and the exception suppressed. As a result,
       callers cannot assume that their hook has been added unless they control
       all existing hooks.
+
+   See the :ref:`audit events table <audit-events>` for all events raised by
+   CPython, and :pep:`578` for the original design discussion.
 
    .. versionadded:: 3.8
 
@@ -79,14 +85,23 @@ always available.
 
    .. index:: single: auditing
 
-   Raise an auditing event with any active hooks. The event name is a string
-   identifying the event and its associated schema, which is the number and
-   types of arguments. The schema for a given event is considered public and
-   stable API and should not be modified between releases.
+   Raise an auditing event and trigger any active auditing hooks.
+   *event* is a string identifying the event, and *args* may contain
+   optional arguments with more information about the event.  The
+   number and types of arguments for a given event are considered a
+   public and stable API and should not be modified between releases.
 
-   This function will raise the first exception raised by any hook. In general,
-   these errors should not be handled and should terminate the process as
-   quickly as possible.
+   For example, one auditing event is named ``os.chdir``. This event has
+   one argument called *path* that will contain the requested new
+   working directory.
+
+   :func:`sys.audit` will call the existing auditing hooks, passing
+   the event name and arguments, and will re-raise the first exception
+   from any hook. In general, if an exception is raised, it should not
+   be handled and the process should be terminated as quickly as
+   possible. This allows hook implementations to decide how to respond
+   to particular events: they can merely log the event or abort the
+   operation by raising an exception.
 
    Hooks are added using the :func:`sys.addaudithook` or
    :c:func:`PySys_AddAuditHook` functions.
@@ -343,6 +358,8 @@ always available.
    .. versionadded:: 3.7
       __breakpointhook__
 
+   .. versionadded:: 3.8
+      __unraisablehook__
 
 .. function:: exc_info()
 
@@ -428,9 +445,9 @@ always available.
    The :term:`named tuple` *flags* exposes the status of command line
    flags. The attributes are read only.
 
-   ============================= =============================
+   ============================= ================================================================
    attribute                     flag
-   ============================= =============================
+   ============================= ================================================================
    :const:`debug`                :option:`-d`
    :const:`inspect`              :option:`-i`
    :const:`interactive`          :option:`-i`
@@ -444,9 +461,9 @@ always available.
    :const:`bytes_warning`        :option:`-b`
    :const:`quiet`                :option:`-q`
    :const:`hash_randomization`   :option:`-R`
-   :const:`dev_mode`             :option:`-X` ``dev``
-   :const:`utf8_mode`            :option:`-X` ``utf8``
-   ============================= =============================
+   :const:`dev_mode`             :option:`-X dev <-X>` (:ref:`Python Development Mode <devmode>`)
+   :const:`utf8_mode`            :option:`-X utf8 <-X>`
+   ============================= ================================================================
 
    .. versionchanged:: 3.2
       Added ``quiet`` attribute for the new :option:`-q` flag.
@@ -461,8 +478,9 @@ always available.
       Added ``isolated`` attribute for :option:`-I` ``isolated`` flag.
 
    .. versionchanged:: 3.7
-      Added ``dev_mode`` attribute for the new :option:`-X` ``dev`` flag
-      and ``utf8_mode`` attribute for the new  :option:`-X` ``utf8`` flag.
+      Added the ``dev_mode`` attribute for the new :ref:`Python Development
+      Mode <devmode>` and the ``utf8_mode`` attribute for the new  :option:`-X`
+      ``utf8`` flag.
 
 
 .. data:: float_info
@@ -479,8 +497,10 @@ always available.
    +---------------------+----------------+--------------------------------------------------+
    | attribute           | float.h macro  | explanation                                      |
    +=====================+================+==================================================+
-   | :const:`epsilon`    | DBL_EPSILON    | difference between 1 and the least value greater |
-   |                     |                | than 1 that is representable as a float          |
+   | :const:`epsilon`    | DBL_EPSILON    | difference between 1.0 and the least value       |
+   |                     |                | greater than 1.0 that is representable as a float|
+   |                     |                |                                                  |
+   |                     |                | See also :func:`math.ulp`.                       |
    +---------------------+----------------+--------------------------------------------------+
    | :const:`dig`        | DBL_DIG        | maximum number of decimal digits that can be     |
    |                     |                | faithfully represented in a float;  see below    |
@@ -488,20 +508,24 @@ always available.
    | :const:`mant_dig`   | DBL_MANT_DIG   | float precision: the number of base-``radix``    |
    |                     |                | digits in the significand of a float             |
    +---------------------+----------------+--------------------------------------------------+
-   | :const:`max`        | DBL_MAX        | maximum representable finite float               |
+   | :const:`max`        | DBL_MAX        | maximum representable positive finite float      |
    +---------------------+----------------+--------------------------------------------------+
-   | :const:`max_exp`    | DBL_MAX_EXP    | maximum integer e such that ``radix**(e-1)`` is  |
+   | :const:`max_exp`    | DBL_MAX_EXP    | maximum integer *e* such that ``radix**(e-1)`` is|
    |                     |                | a representable finite float                     |
    +---------------------+----------------+--------------------------------------------------+
-   | :const:`max_10_exp` | DBL_MAX_10_EXP | maximum integer e such that ``10**e`` is in the  |
+   | :const:`max_10_exp` | DBL_MAX_10_EXP | maximum integer *e* such that ``10**e`` is in the|
    |                     |                | range of representable finite floats             |
    +---------------------+----------------+--------------------------------------------------+
-   | :const:`min`        | DBL_MIN        | minimum positive normalized float                |
+   | :const:`min`        | DBL_MIN        | minimum representable positive *normalized* float|
+   |                     |                |                                                  |
+   |                     |                | Use :func:`math.ulp(0.0) <math.ulp>` to get the  |
+   |                     |                | smallest positive *denormalized* representable   |
+   |                     |                | float.                                           |
    +---------------------+----------------+--------------------------------------------------+
-   | :const:`min_exp`    | DBL_MIN_EXP    | minimum integer e such that ``radix**(e-1)`` is  |
+   | :const:`min_exp`    | DBL_MIN_EXP    | minimum integer *e* such that ``radix**(e-1)`` is|
    |                     |                | a normalized float                               |
    +---------------------+----------------+--------------------------------------------------+
-   | :const:`min_10_exp` | DBL_MIN_10_EXP | minimum integer e such that ``10**e`` is a       |
+   | :const:`min_10_exp` | DBL_MIN_10_EXP | minimum integer *e* such that ``10**e`` is a     |
    |                     |                | normalized float                                 |
    +---------------------+----------------+--------------------------------------------------+
    | :const:`radix`      | FLT_RADIX      | radix of exponent representation                 |
@@ -569,14 +593,6 @@ always available.
    .. availability:: Android.
 
    .. versionadded:: 3.7
-
-
-.. function:: getcheckinterval()
-
-   Return the interpreter's "check interval"; see :func:`setcheckinterval`.
-
-   .. deprecated:: 3.2
-      Use :func:`getswitchinterval` instead.
 
 
 .. function:: getdefaultencoding()
@@ -1137,6 +1153,28 @@ always available.
       system's identity.
 
 
+.. data:: platlibdir
+
+   Name of the platform-specific library directory. It is used to build the
+   path of standard library and the paths of installed extension modules.
+
+   It is equal to ``"lib"`` on most platforms. On Fedora and SuSE, it is equal
+   to ``"lib64"`` on 64-bit platforms which gives the following ``sys.path``
+   paths (where ``X.Y`` is the Python ``major.minor`` version):
+
+   * ``/usr/lib64/pythonX.Y/``:
+     Standard library (like ``os.py`` of the :mod:`os` module)
+   * ``/usr/lib64/pythonX.Y/lib-dynload/``:
+     C extension modules of the standard library (like the :mod:`errno` module,
+     the exact filename is platform specific)
+   * ``/usr/lib/pythonX.Y/site-packages/`` (always use ``lib``, not
+     :data:`sys.platlibdir`): Third-party modules
+   * ``/usr/lib64/pythonX.Y/site-packages/``:
+     C extension modules of third-party packages
+
+   .. versionadded:: 3.9
+
+
 .. data:: prefix
 
    A string giving the site-specific directory prefix where the platform
@@ -1169,21 +1207,6 @@ always available.
    assigned to either variable, its :func:`str` is re-evaluated each time the
    interpreter prepares to read a new interactive command; this can be used to
    implement a dynamic prompt.
-
-
-.. function:: setcheckinterval(interval)
-
-   Set the interpreter's "check interval".  This integer value determines how often
-   the interpreter checks for periodic things such as thread switches and signal
-   handlers.  The default is ``100``, meaning the check is performed every 100
-   Python virtual instructions. Setting it to a larger value may increase
-   performance for programs using threads.  Setting it to a value ``<=`` 0 checks
-   every virtual instruction, maximizing responsiveness as well as overhead.
-
-   .. deprecated:: 3.2
-      This function doesn't have an effect anymore, as the internal logic for
-      thread switching and asynchronous tasks has been rewritten.  Use
-      :func:`setswitchinterval` instead.
 
 
 .. function:: setdlopenflags(n)
@@ -1469,9 +1492,15 @@ always available.
      for the Windows console, this only applies when
      :envvar:`PYTHONLEGACYWINDOWSSTDIO` is also set.
 
-   * When interactive, ``stdout`` and ``stderr`` streams are line-buffered.
-     Otherwise, they are block-buffered like regular text files.  You can
-     override this value with the :option:`-u` command-line option.
+   * When interactive, the ``stdout`` stream is line-buffered. Otherwise,
+     it is block-buffered like regular text files.  The ``stderr`` stream
+     is line-buffered in both cases.  You can make both streams unbuffered
+     by passing the :option:`-u` command-line option or setting the
+     :envvar:`PYTHONUNBUFFERED` environment variable.
+
+   .. versionchanged:: 3.9
+      Non-interactive ``stderr`` is now line-buffered instead of fully
+      buffered.
 
    .. note::
 

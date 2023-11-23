@@ -15,12 +15,32 @@
 // =====================
 // libdrmhwc_utils.a
 // =====================
+package {
+    default_applicable_licenses: ["external_drm_hwcomposer_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_drm_hwcomposer_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_static {
     name: "libdrmhwc_utils",
 
-    srcs: ["utils/worker.cpp"],
+    srcs: ["utils/Worker.cpp"],
 
-    include_dirs: ["external/drm_hwcomposer/include"],
+    include_dirs: [
+        "external/drm_hwcomposer/include",
+        "external/drm_hwcomposer",
+    ],
 
     cflags: [
         "-Wall",
@@ -41,13 +61,17 @@ cc_defaults {
         "libcutils",
         "libdrm",
         "libhardware",
+        "libhidlbase",
         "liblog",
         "libsync",
         "libui",
         "libutils",
     ],
 
-    include_dirs: ["external/drm_hwcomposer/include"],
+    include_dirs: [
+        "external/drm_hwcomposer/include",
+        "external/drm_hwcomposer",
+    ],
 
     static_libs: ["libdrmhwc_utils"],
 
@@ -61,6 +85,12 @@ cc_defaults {
         "-DHWC2_INCLUDE_STRINGIFICATION",
     ],
 
+    product_variables: {
+        platform_sdk_version: {
+            cflags: ["-DPLATFORM_SDK_VERSION=%d"],
+        },
+    },
+
     relative_install_path: "hw",
     vendor: true,
 }
@@ -68,26 +98,34 @@ cc_library_static {
     name: "drm_hwcomposer",
     defaults: ["hwcomposer.drm_defaults"],
     srcs: [
-        "drmhwctwo.cpp",
+        "DrmHwcTwo.cpp",
 
-        "compositor/drmdisplaycomposition.cpp",
-        "compositor/drmdisplaycompositor.cpp",
+        "bufferinfo/BufferInfoGetter.cpp",
+        "bufferinfo/BufferInfoMapperMetadata.cpp",
 
-        "drm/drmconnector.cpp",
-        "drm/drmcrtc.cpp",
-        "drm/drmdevice.cpp",
-        "drm/drmencoder.cpp",
-        "drm/drmeventlistener.cpp",
-        "drm/drmmode.cpp",
-        "drm/drmplane.cpp",
-        "drm/drmproperty.cpp",
-        "drm/resourcemanager.cpp",
-        "drm/vsyncworker.cpp",
+        "compositor/DrmDisplayComposition.cpp",
+        "compositor/DrmDisplayCompositor.cpp",
+        "compositor/Planner.cpp",
 
-        "platform/platform.cpp",
+        "drm/DrmConnector.cpp",
+        "drm/DrmCrtc.cpp",
+        "drm/DrmDevice.cpp",
+        "drm/DrmEncoder.cpp",
+        "drm/DrmEventListener.cpp",
+        "drm/DrmGenericImporter.cpp",
+        "drm/DrmMode.cpp",
+        "drm/DrmPlane.cpp",
+        "drm/DrmProperty.cpp",
+        "drm/ResourceManager.cpp",
+        "drm/VSyncWorker.cpp",
 
         "utils/autolock.cpp",
         "utils/hwcutils.cpp",
+
+        "backend/BackendManager.cpp",
+        "backend/Backend.cpp",
+        "backend/BackendClient.cpp",
+        "backend/BackendRCarDu.cpp",
     ],
 }
 
@@ -95,44 +133,37 @@ cc_library_shared {
     name: "hwcomposer.drm",
     defaults: ["hwcomposer.drm_defaults"],
     whole_static_libs: ["drm_hwcomposer"],
-    srcs: ["platform/platformdrmgeneric.cpp"],
-    cppflags: ["-DUSE_DRM_GENERIC_IMPORTER"],
+    srcs: ["bufferinfo/legacy/BufferInfoLibdrm.cpp"],
 }
 
 cc_library_shared {
     name: "hwcomposer.drm_minigbm",
     defaults: ["hwcomposer.drm_defaults"],
     whole_static_libs: ["drm_hwcomposer"],
-    srcs: [
-        "platform/platformdrmgeneric.cpp",
-        "platform/platformminigbm.cpp",
-    ],
+    srcs: ["bufferinfo/legacy/BufferInfoMinigbm.cpp"],
     include_dirs: ["external/minigbm/cros_gralloc"],
 }
 
 // Used by hwcomposer.drm_imagination
 filegroup {
     name: "drm_hwcomposer_platformimagination",
-    srcs: [
-        "platform/platformdrmgeneric.cpp",
-        "platform/platformimagination.cpp",
-    ],
+    srcs: ["bufferinfo/legacy/BufferInfoImagination.cpp"],
 }
 
 // Used by hwcomposer.drm_hikey and hwcomposer.drm_hikey960
 filegroup {
     name: "drm_hwcomposer_platformhisi",
-    srcs: [
-        "platform/platformdrmgeneric.cpp",
-        "platform/platformhisi.cpp",
-    ],
+    srcs: ["bufferinfo/legacy/BufferInfoMaliHisi.cpp"],
 }
 
 // Used by hwcomposer.drm_meson
 filegroup {
     name: "drm_hwcomposer_platformmeson",
-    srcs: [
-        "platform/platformdrmgeneric.cpp",
-        "platform/platformmeson.cpp",
-    ],
+    srcs: ["bufferinfo/legacy/BufferInfoMaliMeson.cpp"],
+}
+
+// Used by hwcomposer.drm_mediatek
+filegroup {
+    name: "drm_hwcomposer_platformmediatek",
+    srcs: ["bufferinfo/legacy/BufferInfoMaliMediatek.cpp"],
 }

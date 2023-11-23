@@ -63,12 +63,22 @@ public class GlifListLayout extends GlifLayout {
   }
 
   private void init(AttributeSet attrs, int defStyleAttr) {
+    if (isInEditMode()) {
+      return;
+    }
+
     listMixin = new ListMixin(this, attrs, defStyleAttr);
     registerMixin(ListMixin.class, listMixin);
 
     final RequireScrollMixin requireScrollMixin = getMixin(RequireScrollMixin.class);
     requireScrollMixin.setScrollHandlingDelegate(
         new ListViewScrollHandlingDelegate(requireScrollMixin, getListView()));
+
+    View view = this.findManagedViewById(R.id.sud_landscape_content_area);
+    if (view != null) {
+      applyPartnerCustomizationContentPaddingTopStyle(view);
+    }
+    updateLandscapeMiddleHorizontalSpacing();
   }
 
   @Override

@@ -1,6 +1,36 @@
 // This Blueprint file loosely follows the logic of cpu_features'
 // CMakeLists.txt and test/CMakeLists.txt files.
 
+package {
+    default_applicable_licenses: ["external_cpu_features_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_cpu_features_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_defaults {
     name: "cpu_features-defaults",
     host_supported: true,
@@ -12,6 +42,7 @@ cc_defaults {
         "-DSTACK_LINE_READER_BUFFER_SIZE=1024",
         "-Wno-gnu-designator",
     ],
+    min_sdk_version: "S",
 }
 
 cc_library {
@@ -27,14 +58,17 @@ cc_library {
             enabled: true,
         },
     },
+    apex_available: [
+        "com.android.art",
+        "com.android.art.debug",
+    ],
 }
 
 cc_library {
-    name: "libcpu_features-unix_based_hardware_detection",
+    name: "libcpu_features-hwcaps",
     defaults: ["cpu_features-defaults"],
     srcs: [
         "src/hwcaps.c",
-        "src/unix_features_aggregator.c",
     ],
     cflags: [
         "-DHAVE_DLFCN_H",
@@ -48,6 +82,10 @@ cc_library {
     },
     static_libs: [
         "libcpu_features-utils",
+    ],
+    apex_available: [
+        "com.android.art",
+        "com.android.art.debug",
     ],
 }
 
@@ -66,7 +104,7 @@ cc_library {
                 "src/cpuinfo_arm.c",
             ],
             whole_static_libs: [
-                "libcpu_features-unix_based_hardware_detection",
+                "libcpu_features-hwcaps",
             ],
         },
         arm64: {
@@ -74,7 +112,7 @@ cc_library {
                 "src/cpuinfo_aarch64.c",
             ],
             whole_static_libs: [
-                "libcpu_features-unix_based_hardware_detection",
+                "libcpu_features-hwcaps",
             ],
             cflags: [
                 "-Wno-gnu-designator",
@@ -102,6 +140,10 @@ cc_library {
             enabled: true,
         },
     },
+    apex_available: [
+        "com.android.art",
+        "com.android.art.debug",
+    ],
 }
 
 cc_binary {
@@ -115,6 +157,21 @@ cc_binary {
     static_libs: [
         "libcpu_features",
     ],
+    arch: {
+        // Function `AddCacheInfo` in `src/utils/list_cpu_features.c` is only used on x86/x86_64 and
+        // triggers an error with `-Werror and `-Wunused-function` on other architectures; disable
+        // the latter flag to avoid compilation errors on those architectures.
+        arm: {
+            cflags: [
+                "-Wno-unused-function",
+            ],
+        },
+        arm64: {
+            cflags: [
+                "-Wno-unused-function",
+            ],
+        },
+    },
 }
 
 // Tests.
@@ -159,8 +216,10 @@ cc_test_library {
     defaults: ["cpu_features-test-defaults"],
     cflags: [
         "-DCPU_FEATURES_MOCK_GET_ELF_HWCAP_FROM_GETAUXVAL",
+        "-DCPU_FEATURES_TEST",
     ],
     srcs: [
+        "src/hwcaps.c",
         "test/hwcaps_for_testing.cc",
     ],
     static_libs: [
@@ -212,9 +271,6 @@ cc_test_library {
         "cpu_features-test-defaults",
         "stack_line_reader-defaults",
     ],
-    srcs: [
-        "src/unix_features_aggregator.c",
-    ],
     whole_static_libs: [
         "libcpu_features-filesystem_for_testing",
         "libcpu_features-hwcaps_for_testing",
@@ -263,23 +319,15 @@ cc_test {
 }
 
 cc_test {
-    name: "cpu_features-unix_features_aggregator_test",
-    defaults: ["cpu_features-test-defaults"],
-    srcs: [
-        "test/unix_features_aggregator_test.cc",
-    ],
-    static_libs: [
-        "libcpu_features-all_libraries",
-    ],
-}
-
-cc_test {
     name: "cpu_features-cpuinfo_test",
     defaults: [
         "cpu_features-test-defaults",
     ],
     static_libs: [
         "libcpu_features-all_libraries",
+    ],
+    cflags: [
+        "-DSTACK_LINE_READER_BUFFER_SIZE=1024",
     ],
     arch: {
         x86: {
@@ -303,9 +351,6 @@ cc_test {
             ],
         },
         arm: {
-            cflags: [
-                "-DSTACK_LINE_READER_BUFFER_SIZE=1024",
-            ],
             srcs: [
                 "test/cpuinfo_arm_test.cc",
                 "src/cpuinfo_arm.c",
@@ -313,7 +358,6 @@ cc_test {
         },
         arm64: {
             cflags: [
-                "-DSTACK_LINE_READER_BUFFER_SIZE=1024",
                 "-Wno-gnu-designator",
             ],
             srcs: [

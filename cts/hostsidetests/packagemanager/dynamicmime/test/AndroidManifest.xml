@@ -16,11 +16,12 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.dynamicmime.testapp">
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+     package="android.dynamicmime.testapp">
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
     <application>
-        <uses-library android:name="android.test.runner" />
-        <activity android:name="android.dynamicmime.common.activity.FirstActivity">
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name="android.dynamicmime.common.activity.FirstActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
                 <action android:name="android.dynamicmime.testapp.FILTER_INFO_HOOK_group_first"/>
@@ -28,7 +29,8 @@
                 <data android:mimeGroup="group_first"/>
             </intent-filter>
         </activity>
-        <activity android:name="android.dynamicmime.common.activity.SecondActivity">
+        <activity android:name="android.dynamicmime.common.activity.SecondActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
                 <action android:name="android.dynamicmime.testapp.FILTER_INFO_HOOK_group_second"/>
@@ -37,7 +39,8 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.dynamicmime.common.activity.TwoGroupsActivity">
+        <activity android:name="android.dynamicmime.common.activity.TwoGroupsActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -47,7 +50,8 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.dynamicmime.common.activity.TwoGroupsAndTypeActivity">
+        <activity android:name="android.dynamicmime.common.activity.TwoGroupsAndTypeActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -59,8 +63,7 @@
         </activity>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android.dynamicmime.testapp">
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="android.dynamicmime.testapp">
     </instrumentation>
 </manifest>

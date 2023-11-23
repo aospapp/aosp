@@ -1,3 +1,43 @@
+// *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+//     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+//     DEPENDING ON IT IN YOUR PROJECT. ***
+package {
+    default_applicable_licenses: ["external_pdfium_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_pdfium_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-Artistic",
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-FTL",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-OFL", // by exception only
+        "SPDX-license-identifier-Zlib",
+        "SPDX-license-identifier-libtiff",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_defaults {
     name: "pdfium-common",
     cflags: [
@@ -11,14 +51,18 @@ cc_defaults {
         "-Wno-non-virtual-dtor",
         "-Wno-unused-parameter",
 
-        // The new pass manager causes non-deterministic build result.
-        // http://b/135660678
-        "-fno-experimental-new-pass-manager",
-
         // pdfium_common_config
         "-DOPJ_STATIC",
         "-DPNG_PREFIX",
         "-DPNG_USE_READ_MACROS",
+
+        // Do not export functions by default. Export only functions annotated
+        // with FPDF_EXPORT.
+        "-fvisibility=hidden",
+
+        // Macro definitions to enable FPDF_EXPORT.
+        "-DCOMPONENT_BUILD",
+        "-DFPDF_IMPLEMENTATION",
     ],
 
     arch: {
@@ -100,11 +144,15 @@ cc_library_shared {
 
     // TODO: figure out why turning on exceptions requires manually linking libdl
     shared_libs: [
-        "libandroidicu",
         "libdl",
         "libft2",
+        "libicu",
         "libjpeg",
         "libz",
+    ],
+
+    ldflags: [
+      "-Wl,-icf=all",
     ],
 
     export_include_dirs: ["public"],

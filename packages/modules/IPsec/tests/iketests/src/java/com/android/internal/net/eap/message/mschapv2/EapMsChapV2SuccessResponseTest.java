@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.message.mschapv2;
+package com.android.internal.net.eap.test.message.mschapv2;
 
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.EAP_MSCHAP_V2_SUCCESS_RESPONSE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EAP_MSCHAP_V2_SUCCESS;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.EAP_MSCHAP_V2_SUCCESS_RESPONSE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EAP_MSCHAP_V2_SUCCESS;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
-import com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2SuccessResponse;
+import com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2SuccessResponse;
 
 import org.junit.Test;
 

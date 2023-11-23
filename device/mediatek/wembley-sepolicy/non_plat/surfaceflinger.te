@@ -1,12 +1,11 @@
 # ==============================================
 # MTK Policy Rule
-# ============
+# ==============================================
 
 # Data : WK14.42
 # Operation : Migration
 # Purpose : Video playback
-allow surfaceflinger sw_sync_device:chr_file { rw_file_perms };
-allow surfaceflinger debug_prop:property_service set;
+allow surfaceflinger sw_sync_device:chr_file rw_file_perms;
 
 # Date : WK16.33
 # Purpose: Allow to access ged for gralloc_extra functions
@@ -29,7 +28,10 @@ allow surfaceflinger debugfs_ion:dir search;
 # Date : WK17.30
 # Operation : O Migration
 # Purpose: Allow to access cmdq driver
-allow surfaceflinger mtk_cmdq_device:chr_file { read ioctl open };
+allow surfaceflinger mtk_cmdq_device:chr_file r_file_perms;
+allow surfaceflinger mtk_mdp_device:chr_file r_file_perms;
+allow surfaceflinger mtk_mdp_sync:chr_file r_file_perms;
+allow surfaceflinger sysfs_boot_mode:file r_file_perms;
 
 # Date : W17.39
 # Perform Binder IPC.
@@ -58,27 +60,19 @@ allowxperm surfaceflinger proc_perfmgr:file ioctl {
 # Date : WK17.43
 # Operation : Debug
 # Purpose: Allow to dump HWC backtrace
-get_prop(surfaceflinger, graphics_hwc_pid_prop)
-get_prop(surfaceflinger, graphics_hwc_latch_unsignaled_prop)
+get_prop(surfaceflinger, vendor_mtk_graphics_hwc_pid_prop)
+get_prop(surfaceflinger, vendor_mtk_graphics_hwc_latch_unsignaled_prop)
+get_prop(surfaceflinger, vendor_mtk_graphics_hwc_validate_separate_prop)
 allow surfaceflinger hal_graphics_composer_default:dir search;
 allow surfaceflinger hal_graphics_composer_default:lnk_file read;
-
-# Date : WK18.36
-# Operation : Debug
-# Purpose: Allow to dump buffer queue
-get_prop(surfaceflinger, debug_bq_dump_prop)
+dontaudit surfaceflinger hal_graphics_composer_default:file r_file_perms;
 
 # Date : WK19.4
 # Operation : P Migration
 # Purpose: Allow to access /dev/mdp_device driver
 allow surfaceflinger mdp_device:chr_file rw_file_perms;
 
-# Date : WK19.09
-# Purpose: Allow to access property dev/mdp_sync
-#============= surfaceflinger ==============
-allow surfaceflinger mtk_mdp_device:chr_file rw_file_perms;
-
 # Date : WK18.43
 # Operation : HDR
 # Purpose: Allow to skip aosp hdr solution
-get_prop(surfaceflinger, graphics_hwc_hdr_prop)
+get_prop(surfaceflinger, vendor_mtk_graphics_hwc_hdr_prop)

@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -179,10 +179,10 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image,
   PixelInfo
     pixel;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
@@ -259,7 +259,7 @@ static MagickBooleanType WriteUILImage(const ImageInfo *image_info,Image *image,
       colors=image->colors;
       if (transparent != MagickFalse)
         {
-          register Quantum
+          Quantum
             *q;
 
           i=0;

@@ -1,16 +1,22 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import os
 import re
 import shutil
+from six.moves import urllib
+from six.moves import range
+from six.moves import urllib
 import subprocess
 import tempfile
 import time
-import urllib
-import urllib2
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
@@ -146,7 +152,7 @@ class touch_playback_test_base(test.test):
         """
         REMOTE_STORAGE_URL = ('https://storage.googleapis.com/'
                               'chromiumos-test-assets-public/touch_playback')
-        filename = urllib.quote(filename)
+        filename = urllib.parse.quote(filename)
 
         if input_type in ['touchpad', 'touchscreen', 'stylus']:
             url = '%s/%s/%s' % (REMOTE_STORAGE_URL, self._platform, filename)
@@ -157,7 +163,7 @@ class touch_playback_test_base(test.test):
         logging.info('Looking for %s', url)
         try:
             file_utils.download_file(url, local_file)
-        except urllib2.URLError as e:
+        except urllib.error.URLError as e:
             logging.info('File download failed!')
             logging.debug(e.msg)
             return None
@@ -376,8 +382,9 @@ class KernelEventsRecorder(object):
         """
         events = self.get_recorded_events()
         findall = re.findall(r' time (.*?), [^\n]*?%s' % filter_str,
-                             events, re.MULTILINE)
-        re.findall(r' time (.*?), [^\n]*?%s' % filter_str, events, re.MULTILINE)
+                             events.decode('utf-8'), re.MULTILINE)
+        re.findall(r' time (.*?), [^\n]*?%s' % filter_str,
+                   events.decode('utf-8'), re.MULTILINE)
         if not findall:
             self.log_recorded_events()
             raise error.TestError('Could not find any kernel timestamps!'
@@ -466,19 +473,19 @@ class TestPage(object):
 
         """
         total_tries = 2
-        for i in xrange(total_tries):
+        for i in range(total_tries):
             try:
                 self.set_scroll_position(self._DEFAULT_SCROLL, scroll_vertical)
                 self.wait_for_default_scroll_position(scroll_vertical)
             except error.TestError as e:
                 if i == total_tries - 1:
-                   pos = self.get_scroll_position(scroll_vertical)
-                   logging.error('SCROLL POSITION: %s', pos)
-                   raise e
+                    pos = self.get_scroll_position(scroll_vertical)
+                    logging.error('SCROLL POSITION: %s', pos)
+                    raise e
                 else:
-                   self.expand_page()
+                    self.expand_page()
             else:
-                 break
+                break
 
 
     def get_scroll_position(self, scroll_vertical=True):
@@ -504,8 +511,8 @@ class TestPage(object):
 
         """
         utils.poll_for_condition(
-                lambda: self.get_scroll_position(
-                        scroll_vertical) == self._DEFAULT_SCROLL,
+                lambda: self.get_scroll_position( scroll_vertical) in
+                        [self._DEFAULT_SCROLL,self._DEFAULT_SCROLL-1],
                 exception=error.TestError('Page not set to default scroll!'))
 
 

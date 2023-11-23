@@ -188,6 +188,7 @@ public class TelephonyConstants {
     public static final String RAT_TD_SCDMA = "TD_SCDMA";
     public static final String RAT_GLOBAL = "GLOBAL";
     public static final String RAT_LTE_CA = "LTE_CA";
+    public static final String RAT_NR = "NR";
     public static final String RAT_UNKNOWN = "UNKNOWN";
 
     /**
@@ -226,6 +227,15 @@ public class TelephonyConstants {
     public static final String DATA_STATE_CONNECTING = "CONNECTING";
     public static final String DATA_STATE_SUSPENDED = "SUSPENDED";
     public static final String DATA_STATE_UNKNOWN = "UNKNOWN";
+
+    /**
+     * Constant for Override Network Type
+     * **/
+    public static final String OVERRIDE_NETWORK_TYPE_NONE = "NONE";
+    public static final String OVERRIDE_NETWORK_TYPE_LTE_CA = "LTE_CA";
+    public static final String OVERRIDE_NETWORK_TYPE_LTE_ADVANCED_PRO = "LTE_ADVANCED_PRO";
+    public static final String OVERRIDE_NETWORK_TYPE_NR_NSA = "NR_NSA";
+    public static final String OVERRIDE_NETWORK_TYPE_NR_ADVANCED = "NR_MMWAVE";
 
     /**
      * Constant for Telephony Manager Call State
@@ -317,6 +327,17 @@ public class TelephonyConstants {
     public static final String NETWORK_MODE_LTE_TDSCDMA_GSM_WCDMA = "NETWORK_MODE_LTE_TDSCDMA_GSM_WCDMA";
     public static final String NETWORK_MODE_TDSCDMA_CDMA_EVDO_GSM_WCDMA = "NETWORK_MODE_TDSCDMA_CDMA_EVDO_GSM_WCDMA";
     public static final String NETWORK_MODE_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA = "NETWORK_MODE_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA";
+    public static final String NETWORK_MODE_NR_LTE_GSM_WCDMA = "NETWORK_MODE_NR_LTE_GSM_WCDMA";
+    public static final String NETWORK_MODE_NR_ONLY = "NETWORK_MODE_NR_ONLY";
+    public static final String NETWORK_MODE_NR_LTE = "NETWORK_MODE_NR_LTE";
+    public static final String NETWORK_MODE_NR_LTE_CDMA_EVDO = "NETWORK_MODE_NR_LTE_CDMA_EVDO";
+    public static final String NETWORK_MODE_NR_LTE_CDMA_EVDO_GSM_WCDMA = "NETWORK_MODE_NR_LTE_CDMA_EVDO_GSM_WCDMA";
+    public static final String NETWORK_MODE_NR_LTE_WCDMA = "NETWORK_MODE_NR_LTE_WCDMA";
+    public static final String NETWORK_MODE_NR_LTE_TDSCDMA = "NETWORK_MODE_NR_LTE_TDSCDMA";
+    public static final String NETWORK_MODE_NR_LTE_TDSCDMA_GSM = "NETWORK_MODE_NR_LTE_TDSCDMA_GSM";
+    public static final String NETWORK_MODE_NR_LTE_TDSCDMA_WCDMA = "NETWORK_MODE_NR_LTE_TDSCDMA_WCDMA";
+    public static final String NETWORK_MODE_NR_LTE_TDSCDMA_GSM_WCDMA = "NETWORK_MODE_NR_LTE_TDSCDMA_GSM_WCDMA";
+    public static final String NETWORK_MODE_NR_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA = "NETWORK_MODE_NR_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA";
     public static final String NETWORK_MODE_INVALID = "INVALID";
 
     /**
@@ -373,6 +394,7 @@ public class TelephonyConstants {
     public static final String EventPreciseStateChanged = "PreciseStateChanged";
     public static final String EventDataConnectionRealTimeInfoChanged = "DataConnectionRealTimeInfoChanged";
     public static final String EventDataConnectionStateChanged = "DataConnectionStateChanged";
+    public static final String EventDisplayInfoChanged = "DisplayInfoChanged";
     public static final String EventActiveDataSubIdChanged = "ActiveDataSubIdChanged";
     public static final String EventServiceStateChanged = "ServiceStateChanged";
     public static final String EventSignalStrengthChanged = "SignalStrengthChanged";
@@ -438,6 +460,13 @@ public class TelephonyConstants {
         public static final String DATA_CONNECTION_STATE = "dataConnectionState";
     }
 
+    public static class DisplayInfoContainer {
+        public static final String TIME = "time";
+        public static final String NETWORK = "network";
+        public static final String OVERRIDE = "override";
+        public static final String SUBSCRIPTION_ID = "subscriptionId";
+    }
+
     public static class ServiceStateContainer {
         public static final String VOICE_REG_STATE = "voiceRegState";
         public static final String VOICE_NETWORK_TYPE = "voiceNetworkType";
@@ -472,7 +501,7 @@ public class TelephonyConstants {
         public static final String IS_DATA_ROAMING_FROM_REGISTRATION =
                 "isDataRoamingFromRegistration";
         public static final String IS_USING_CARRIER_AGGREGATION = "isUsingCarrierAggregation";
-        public static final String LTE_EARFCN_RSRP_BOOST = "lteEarfcnRsrpBoost";
+        public static final String LTE_EARFCN_RSRP_BOOST = "LteEarfcnRsrpBoost";
     }
 
     public static class MessageWaitingIndicatorContainer {

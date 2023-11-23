@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Tests build_font.py by renaming a font.
 
@@ -22,10 +22,10 @@ class MyTest(unittest.TestCase):
   def test(self):
     font_name = "Roboto-Regular.ttf"
     srcdir = tempfile.mkdtemp()
-    print "srcdir: " + srcdir
+    print("srcdir: " + srcdir)
     shutil.copy(font_name, srcdir)
     destdir = tempfile.mkdtemp()
-    print "destdir: " + destdir
+    print("destdir: " + destdir)
     self.assertTrue(build_font.main([srcdir, destdir]) is None)
     out_path = os.path.join(destdir, font_name)
     ttx.main([out_path])

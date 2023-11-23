@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_defaults {
     name: "vts_treble_vintf_test_defaults",
-
     cflags: [
         "-Wall",
         "-Werror",
@@ -29,6 +32,7 @@ cc_defaults {
         "libz",
     ],
     static_libs: [
+        "apex_aidl_interface-cpp",
         "libaidlmetadata",
         "libgmock",
         "libhidl-gen-hash",
@@ -38,6 +42,7 @@ cc_defaults {
         "libselinux",
         "libtinyxml2",
         "libvintf",
+        "libvts_vintf_test_common",
     ],
     group_static_libs: true,
     srcs: [
@@ -100,8 +105,4 @@ cc_test {
         "SingleManifestTest.cpp",
         "SystemVendorTest.cpp",
     ],
-}
-
-vts_config {
-    name: "VtsTrebleVintfTestOMr1",
 }

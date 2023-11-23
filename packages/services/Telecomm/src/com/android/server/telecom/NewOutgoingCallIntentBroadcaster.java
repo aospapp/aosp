@@ -21,7 +21,6 @@ import android.app.AppOpsManager;
 import android.app.Activity;
 import android.app.BroadcastOptions;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -495,9 +494,7 @@ public class NewOutgoingCallIntentBroadcaster {
 
     private void launchSystemDialer(Uri handle) {
         Intent systemDialerIntent = new Intent();
-        systemDialerIntent.setComponent(
-                new ComponentName(mDefaultDialerCache.getSystemDialerApplication(),
-                    mContext.getResources().getString(R.string.dialer_default_class)));
+        systemDialerIntent.setComponent(mDefaultDialerCache.getDialtactsSystemDialerComponent());
         systemDialerIntent.setAction(Intent.ACTION_DIAL);
         systemDialerIntent.setData(handle);
         systemDialerIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

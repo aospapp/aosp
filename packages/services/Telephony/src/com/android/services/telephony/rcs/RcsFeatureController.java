@@ -20,9 +20,7 @@ import android.annotation.AnyThread;
 import android.content.Context;
 import android.net.Uri;
 import android.telephony.ims.ImsException;
-import android.telephony.ims.ImsRcsManager;
 import android.telephony.ims.ImsReasonInfo;
-import android.telephony.ims.RegistrationManager;
 import android.telephony.ims.aidl.IImsCapabilityCallback;
 import android.telephony.ims.aidl.IImsRegistrationCallback;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
@@ -30,7 +28,7 @@ import android.util.ArrayMap;
 import android.util.Log;
 
 import com.android.ims.FeatureConnector;
-import com.android.ims.IFeatureConnector;
+import com.android.ims.FeatureUpdates;
 import com.android.ims.RcsFeatureManager;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.imsphone.ImsRegistrationCallbackHelper;
@@ -65,28 +63,38 @@ public class RcsFeatureController {
         void onRcsDisconnected();
 
         /**
-         * The subscription associated with the slot this controller is bound to has changed or its
-         * carrier configuration has changed.
+         * The subscription associated with the slot this controller is bound to has changed.
          */
         void onAssociatedSubscriptionUpdated(int subId);
+
+        /**
+         * The carrier configuration associated with the active subscription id has changed.
+         */
+        void onCarrierConfigChanged();
 
         /**
          * Called when the feature should be destroyed.
          */
         void onDestroy();
+
+        /**
+         * Called when a dumpsys is being generated for this RcsFeatureController for all Features
+         * to report their status.
+         */
+        void dump(PrintWriter pw);
     }
 
     /**
      * Used to inject FeatureConnector instances for testing.
      */
     @VisibleForTesting
-    public interface FeatureConnectorFactory<T extends IFeatureConnector> {
+    public interface FeatureConnectorFactory<U extends FeatureUpdates> {
         /**
-         * @return a {@link FeatureConnector} associated for the given {@link IFeatureConnector}
-         * and slot id.
+         * @return a {@link FeatureConnector} associated for the given {@link FeatureUpdates}
+         * and slot index.
          */
-        FeatureConnector<T> create(Context context, int slotId,
-                FeatureConnector.Listener<T> listener, Executor executor, String tag);
+        FeatureConnector<U> create(Context context, int slotIndex,
+                FeatureConnector.Listener<U> listener, Executor executor, String logPrefix);
     }
 
     /**
@@ -102,7 +110,8 @@ public class RcsFeatureController {
                 ImsRegistrationCallbackHelper.ImsRegistrationUpdate cb, Executor executor);
     }
 
-    private FeatureConnectorFactory<RcsFeatureManager> mFeatureFactory = FeatureConnector::new;
+    private FeatureConnectorFactory<RcsFeatureManager> mFeatureFactory =
+            RcsFeatureManager::getConnector;
     private RegistrationHelperFactory mRegistrationHelperFactory =
             ImsRegistrationCallbackHelper::new;
 
@@ -113,14 +122,10 @@ public class RcsFeatureController {
     private final Object mLock = new Object();
     private FeatureConnector<RcsFeatureManager> mFeatureConnector;
     private RcsFeatureManager mFeatureManager;
+    private int mAssociatedSubId;
 
     private FeatureConnector.Listener<RcsFeatureManager> mFeatureConnectorListener =
             new FeatureConnector.Listener<RcsFeatureManager>() {
-                @Override
-                public RcsFeatureManager getFeatureManager() {
-                    return new RcsFeatureManager(mContext, mSlotId);
-                }
-
                 @Override
                 public void connectionReady(RcsFeatureManager manager)
                         throws com.android.ims.ImsException {
@@ -128,20 +133,26 @@ public class RcsFeatureController {
                         logw("connectionReady returned null RcsFeatureManager");
                         return;
                     }
+                    logd("connectionReady");
                     try {
                         // May throw ImsException if for some reason the connection to the
                         // ImsService is gone.
+                        updateConnectionStatus(manager);
                         setupConnectionToService(manager);
                     } catch (ImsException e) {
+                        updateConnectionStatus(null /*manager*/);
                         // Use deprecated Exception for compatibility.
                         throw new com.android.ims.ImsException(e.getMessage(),
                                 ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
                     }
-                    updateConnectionStatus(manager);
                 }
 
                 @Override
-                public void connectionUnavailable() {
+                public void connectionUnavailable(int reason) {
+                    if (reason == FeatureConnector.UNAVAILABLE_REASON_SERVER_UNAVAILABLE) {
+                        loge("unexpected - connectionUnavailable due to server unavailable");
+                    }
+                    logd("connectionUnavailable");
                     // Call before disabling connection to manager.
                     removeConnectionToService();
                     updateConnectionStatus(null /*manager*/);
@@ -167,9 +178,10 @@ public class RcsFeatureController {
                 }
             };
 
-    public RcsFeatureController(Context context, int slotId) {
+    public RcsFeatureController(Context context, int slotId, int associatedSubId) {
         mContext = context;
         mSlotId = slotId;
+        mAssociatedSubId = associatedSubId;
         mImsRcsRegistrationHelper = mRegistrationHelperFactory.create(mRcsRegistrationUpdate,
                 mContext.getMainExecutor());
     }
@@ -178,9 +190,11 @@ public class RcsFeatureController {
      * Should only be used to inject registration helpers for testing.
      */
     @VisibleForTesting
-    public RcsFeatureController(Context context, int slotId, RegistrationHelperFactory f) {
+    public RcsFeatureController(Context context, int slotId, int associatedSubId,
+            RegistrationHelperFactory f) {
         mContext = context;
         mSlotId = slotId;
+        mAssociatedSubId = associatedSubId;
         mRegistrationHelperFactory = f;
         mImsRcsRegistrationHelper = mRegistrationHelperFactory.create(mRcsRegistrationUpdate,
                 mContext.getMainExecutor());
@@ -244,20 +258,28 @@ public class RcsFeatureController {
     }
 
     /**
-     * Update the subscription associated with this controller.
+     * Update the Features associated with this controller due to the associated subscription
+     * changing.
      */
     public void updateAssociatedSubscription(int newSubId) {
-        RcsFeatureManager manager = getFeatureManager();
-        if (manager != null) {
-            try {
-                manager.updateCapabilities();
-            } catch (ImsException e) {
-                Log.w(LOG_TAG, "associatedSubscriptionChanged failed:" + e);
-            }
-        }
+        mAssociatedSubId = newSubId;
+        updateCapabilities();
         synchronized (mLock) {
             for (Feature c : mFeatures.values()) {
                 c.onAssociatedSubscriptionUpdated(newSubId);
+            }
+        }
+    }
+
+    /**
+     * Update the features associated with this controller due to the carrier configuration
+     * changing.
+     */
+    public void onCarrierConfigChangedForSubscription() {
+        updateCapabilities();
+        synchronized (mLock) {
+            for (Feature c : mFeatures.values()) {
+                c.onCarrierConfigChanged();
             }
         }
     }
@@ -280,7 +302,7 @@ public class RcsFeatureController {
     }
 
     @VisibleForTesting
-    public void setFeatureConnectorFactory(FeatureConnectorFactory factory) {
+    public void setFeatureConnectorFactory(FeatureConnectorFactory<RcsFeatureManager> factory) {
         mFeatureFactory = factory;
     }
 
@@ -310,8 +332,8 @@ public class RcsFeatureController {
     }
 
     /**
-     * Register an {@link ImsRcsManager.AvailabilityCallback} with the associated RcsFeature,
-     * which will provide availability updates.
+     * Register an {@link ImsRcsManager.OnAvailabilityChangedListener} with the associated
+     * RcsFeature, which will provide availability updates.
      */
     public void registerRcsAvailabilityCallback(int subId, IImsCapabilityCallback callback)
             throws ImsException {
@@ -324,7 +346,7 @@ public class RcsFeatureController {
     }
 
     /**
-     * Remove a registered {@link ImsRcsManager.AvailabilityCallback} from the RcsFeature.
+     * Remove a registered {@link ImsRcsManager.OnAvailabilityChangedListener} from the RcsFeature.
      */
     public void unregisterRcsAvailabilityCallback(int subId, IImsCapabilityCallback callback) {
         RcsFeatureManager manager = getFeatureManager();
@@ -349,13 +371,14 @@ public class RcsFeatureController {
     /**
      * Query the availability of an IMS RCS capability.
      */
-    public boolean isAvailable(int capability) throws android.telephony.ims.ImsException {
+    public boolean isAvailable(int capability, int radioTech)
+            throws android.telephony.ims.ImsException {
         RcsFeatureManager manager = getFeatureManager();
         if (manager == null) {
             throw new ImsException("Service is not available",
                     ImsException.CODE_ERROR_SERVICE_UNAVAILABLE);
         }
-        return manager.isAvailable(capability);
+        return manager.isAvailable(capability, radioTech);
     }
 
     /**
@@ -376,14 +399,27 @@ public class RcsFeatureController {
         callback.accept(mImsRcsRegistrationHelper.getImsRegistrationState());
     }
 
+    private void updateCapabilities() {
+        RcsFeatureManager manager = getFeatureManager();
+        if (manager != null) {
+            try {
+                manager.updateCapabilities(mAssociatedSubId);
+            } catch (ImsException e) {
+                Log.w(LOG_TAG, "updateCapabilities failed:" + e);
+            }
+        }
+    }
+
     private void setupConnectionToService(RcsFeatureManager manager) throws ImsException {
+        logd("setupConnectionToService");
         // Open persistent listener connection, sends RcsFeature#onFeatureReady.
         manager.openConnection();
-        manager.updateCapabilities();
+        manager.updateCapabilities(mAssociatedSubId);
         manager.registerImsRegistrationCallback(mImsRcsRegistrationHelper.getCallbackBinder());
     }
 
     private void removeConnectionToService() {
+        logd("removeConnectionToService");
         RcsFeatureManager manager = getFeatureManager();
         if (manager != null) {
             manager.unregisterImsRegistrationCallback(
@@ -427,11 +463,27 @@ public class RcsFeatureController {
         pw.print("connected=");
         synchronized (mLock) {
             pw.println(mFeatureManager != null);
+            pw.println();
+            pw.println("RcsFeatureControllers:");
+            pw.increaseIndent();
+            for (Feature f : mFeatures.values()) {
+                f.dump(pw);
+                pw.println();
+            }
+            pw.decreaseIndent();
         }
+    }
+
+    private void logd(String log) {
+        Log.d(LOG_TAG, getLogPrefix().append(log).toString());
     }
 
     private void logw(String log) {
         Log.w(LOG_TAG, getLogPrefix().append(log).toString());
+    }
+
+    private void loge(String log) {
+        Log.e(LOG_TAG, getLogPrefix().append(log).toString());
     }
 
     private StringBuilder getLogPrefix() {

@@ -67,6 +67,7 @@ enum {
   NFA_EE_NEW_EE_EVT, /* A new NFCEE is discovered                             */
   NFA_EE_ACTION_EVT, /* An action happened in NFCEE                           */
   NFA_EE_DISCOVER_REQ_EVT, /* NFCEE Discover Request Notification */
+  NFA_EE_PWR_AND_LINK_CTRL_EVT, /* NFCEE power and link ctrl */
   NFA_EE_NO_MEM_ERR_EVT,   /* Error - out of GKI buffers */
   NFA_EE_NO_CB_ERR_EVT /* Error - Can not find control block or wrong state */
 };
@@ -583,5 +584,21 @@ extern tNFA_STATUS NFA_EeSendData(tNFA_HANDLE ee_handle, uint16_t data_len,
 **
 *******************************************************************************/
 extern tNFA_STATUS NFA_EeDisconnect(tNFA_HANDLE ee_handle);
+
+/*******************************************************************************
+**
+** Function         NFA_EePowerAndLinkCtrl
+**
+** Description      This Control Message is used by the DH to constrain the way
+**                  the NFCC manages the power supply and communication links
+**                  between the NFCC and its connected NFCEEs.
+**
+** Returns          NFA_STATUS_OK if successfully initiated
+**                  NFA_STATUS_FAILED otherwise
+**                  NFA_STATUS_INVALID_PARAM If bad parameter
+**
+*******************************************************************************/
+extern tNFA_STATUS NFA_EePowerAndLinkCtrl(tNFA_HANDLE ee_handle,
+                                          uint8_t config);
 
 #endif /* NFA_EE_API_H */

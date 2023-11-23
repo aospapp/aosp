@@ -23,7 +23,8 @@ import static org.junit.Assert.fail;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.platform.test.annotations.SecurityTest;
+import android.os.UserManager;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.telephony.TelephonyManager;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -36,7 +37,7 @@ public class LocationPolicyTest {
     private final Context mContext = InstrumentationRegistry.getInstrumentation().getContext();
 
     @Test
-    @SecurityTest
+    @AsbSecurityTest(cveBugId = 148414207)
     public void testLocationPolicyPermissions() throws Exception {
         assertNotNull(mContext);
         PackageManager pm = mContext.getPackageManager();
@@ -49,6 +50,10 @@ public class LocationPolicyTest {
             PackageManager.PERMISSION_GRANTED,
             pm.checkPermission(Manifest.permission.ACCESS_COARSE_LOCATION,
             mContext.getPackageName()));
+        UserManager manager = mContext.getSystemService(UserManager.class);
+        if (manager.isSystemUser()) {
+            return;
+        }
         if (pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
             TelephonyManager tele = mContext.getSystemService(TelephonyManager.class);
             try {

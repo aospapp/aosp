@@ -346,7 +346,8 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         data = {
             constant.GEN_JAVA_DEPS: 'a/b/out/soong/bp_java_file',
             constant.GEN_CC_DEPS: 'a/b/out/soong/bp_java_file',
-            constant.GEN_COMPDB: path_compdb
+            constant.GEN_COMPDB: path_compdb,
+            constant.GEN_RUST: 'a/b/out/soong/bp_java_file'
         }
         self.assertEqual(
             data, common_util.get_blueprint_json_files_relative_dict())
@@ -387,6 +388,90 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         self.assertEqual(common_util.find_git_root('c/d'), '/a/b/c/d')
         mock_exist.return_value = False
         self.assertEqual(common_util.find_git_root('c/d'), None)
+
+    def test_determine_language_ide(self):
+        """Test determine_language_ide function."""
+        ide = 'u'
+        lang = 'u'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(
+                             lang, ide, ['some_module']))
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(
+                             lang, ide, None, ['some_module']))
+        self.assertEqual((constant.RUST, constant.IDE_VSCODE),
+                         common_util.determine_language_ide(
+                             lang, ide, None, None, ['some_module']))
+        lang = 'j'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'c'
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'j'
+        lang = 'u'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'j'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'c'
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'c'
+        ide = 'u'
+        self.assertEqual((constant.C_CPP, constant.IDE_CLION),
+                         common_util.determine_language_ide(lang, ide))
+        ide = 'j'
+        self.assertEqual((constant.JAVA, constant.IDE_INTELLIJ),
+                         common_util.determine_language_ide(lang, ide))
+
+    @mock.patch('zipfile.ZipFile.extractall')
+    @mock.patch('zipfile.ZipFile')
+    def test_unzip_file(self, mock_zipfile, mock_extract):
+        """Test unzip_file function."""
+        src = 'a/b/c.zip'
+        dest = 'a/b/d'
+        common_util.unzip_file(src, dest)
+        mock_zipfile.assert_called_with(src, 'r')
+        self.assertFalse(mock_extract.called)
+
+    @mock.patch('os.walk')
+    def test_check_java_or_kotlin_file_exists(self, mock_walk):
+        """Test check_java_or_kotlin_file_exists with conditions."""
+        root_dir = 'a/path/to/dir'
+        folder = 'path/to/dir'
+        target = 'test.java'
+        abs_path = os.path.join(root_dir, folder)
+        mock_walk.return_value = [(root_dir, [folder], [target])]
+        self.assertTrue(common_util.check_java_or_kotlin_file_exists(abs_path))
+        target = 'test.kt'
+        abs_path = os.path.join(root_dir, folder)
+        mock_walk.return_value = [(root_dir, [folder], [target])]
+        self.assertTrue(common_util.check_java_or_kotlin_file_exists(abs_path))
+        target = 'test.cpp'
+        mock_walk.return_value = [(root_dir, [folder], [target])]
+        self.assertFalse(common_util.check_java_or_kotlin_file_exists(abs_path))
+
+        # Only VS Code IDE supports Rust projects right now.
+        lang = 'r'
+        ide = 'u'
+        self.assertEqual((constant.RUST, constant.IDE_VSCODE),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'r'
+        ide = 'v'
+        self.assertEqual((constant.RUST, constant.IDE_VSCODE),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'r'
+        ide = 'j'
+        self.assertEqual((constant.RUST, constant.IDE_VSCODE),
+                         common_util.determine_language_ide(lang, ide))
+        lang = 'r'
+        ide = 'c'
+        self.assertEqual((constant.RUST, constant.IDE_VSCODE),
+                         common_util.determine_language_ide(lang, ide))
 
 
 # pylint: disable=unused-argument

@@ -62,7 +62,6 @@
 #include "netd_resolv/resolv.h"
 #include "res_comp.h"
 #include "res_debug.h"
-#include "res_init.h"
 #include "resolv_cache.h"
 #include "resolv_private.h"
 #include "util.h"
@@ -1436,8 +1435,7 @@ static int dns_getaddrinfo(const char* name, const addrinfo* pai,
             return EAI_FAMILY;
     }
 
-    ResState res;
-    res_init(&res, netcontext, event);
+    ResState res(netcontext, event);
 
     int he;
     if (res_searchN(name, &q, &res, &he) < 0) {
@@ -1605,6 +1603,7 @@ struct QueryResult {
     int ancount;
     int rcode;
     int herrno;
+    int qerrno;
     NetworkDnsEventReported event;
 };
 
@@ -1633,27 +1632,29 @@ QueryResult doQuery(const char* name, res_target* t, res_state res,
     NetworkDnsEventReported event;
     if (n <= 0) {
         LOG(ERROR) << __func__ << ": res_nmkquery failed";
-        return {0, -1, NO_RECOVERY, event};
         return {
                 .ancount = 0,
                 .rcode = -1,
                 .herrno = NO_RECOVERY,
+                .qerrno = errno,
                 .event = event,
         };
     }
 
-    ResState res_temp = fromResState(*res, &event);
+    ResState res_temp = res->clone(&event);
 
     int rcode = NOERROR;
     n = res_nsend(&res_temp, buf, n, t->answer.data(), anslen, &rcode, 0, sleepTimeMs);
     if (n < 0 || hp->rcode != NOERROR || ntohs(hp->ancount) == 0) {
+        // To ensure that the rcode handling is identical to res_queryN().
+        if (rcode != RCODE_TIMEOUT) rcode = hp->rcode;
         // if the query choked with EDNS0, retry without EDNS0
         if ((res_temp.netcontext_flags &
              (NET_CONTEXT_FLAG_USE_DNS_OVER_TLS | NET_CONTEXT_FLAG_USE_EDNS)) &&
             (res_temp._flags & RES_F_EDNS0ERR)) {
             LOG(DEBUG) << __func__ << ": retry without EDNS0";
             n = res_nmkquery(QUERY, name, cl, type, /*data=*/nullptr, /*datalen=*/0, buf,
-                             sizeof(buf), res->netcontext_flags);
+                             sizeof(buf), res_temp.netcontext_flags);
             n = res_nsend(&res_temp, buf, n, t->answer.data(), anslen, &rcode, 0);
         }
     }
@@ -1664,6 +1665,7 @@ QueryResult doQuery(const char* name, res_target* t, res_state res,
     return {
             .ancount = ntohs(hp->ancount),
             .rcode = rcode,
+            .qerrno = errno,
             .event = event,
     };
 }
@@ -1698,6 +1700,7 @@ static int res_queryN_parallel(const char* name, res_target* target, res_state r
         res->event->MergeFrom(r.event);
         ancount += r.ancount;
         rcode = r.rcode;
+        errno = r.qerrno;
     }
 
     if (ancount == 0) {
@@ -1710,7 +1713,7 @@ static int res_queryN_parallel(const char* name, res_target* target, res_state r
 
 static int res_queryN_wrapper(const char* name, res_target* target, res_state res, int* herrno) {
     const bool parallel_lookup =
-            android::net::Experiments::getInstance()->getFlag("parallel_lookup", 0);
+            android::net::Experiments::getInstance()->getFlag("parallel_lookup_release", 1);
     if (parallel_lookup) return res_queryN_parallel(name, target, res, herrno);
 
     return res_queryN(name, target, res, herrno);

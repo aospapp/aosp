@@ -283,7 +283,7 @@ public class ChannelDataManager implements Handler.Callback {
      * obsolete channels, which are previously scanned but are not in the current scanned result.
      */
     public void notifyScanCompleted() {
-        // Send a dummy message to check whether there is any MSG_HANDLE_CHANNEL in queue
+        // Send an empty message to check whether there is any MSG_HANDLE_CHANNEL in queue
         // and avoid race conditions.
         scanCompleted.set(true);
         mHandler.sendMessageAtFrontOfQueue(mHandler.obtainMessage(MSG_HANDLE_CHANNEL, null));
@@ -635,7 +635,7 @@ public class ChannelDataManager implements Handler.Callback {
     private void clearChannels() {
         int count = mContext.getContentResolver().delete(mChannelsUri, null, null);
         if (count > 0) {
-            // We have just deleted obsolete data. Now tell the user that he or she needs
+            // We have just deleted obsolete data. Now tell the user that they need
             // to perform the auto-scan again.
             if (mListener != null) {
                 mListener.onRescanNeeded();

@@ -16,25 +16,42 @@
 
 package dagger.internal.codegen;
 
-import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.DYNAMIC;
+import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.ISOLATING;
 
 import com.google.auto.common.BasicAnnotationProcessor;
 import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CheckReturnValue;
 import dagger.BindsInstance;
 import dagger.Component;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.codegen.SpiModule.TestingPlugins;
+import dagger.internal.codegen.base.ClearableCache;
+import dagger.internal.codegen.base.SourceFileGenerationException;
+import dagger.internal.codegen.base.SourceFileGenerator;
+import dagger.internal.codegen.binding.InjectBindingRegistry;
+import dagger.internal.codegen.binding.MembersInjectionBinding;
+import dagger.internal.codegen.binding.ProvisionBinding;
+import dagger.internal.codegen.bindinggraphvalidation.BindingGraphValidationModule;
+import dagger.internal.codegen.compileroption.CompilerOptions;
+import dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions;
+import dagger.internal.codegen.componentgenerator.ComponentGeneratorModule;
+import dagger.internal.codegen.validation.BindingGraphPlugins;
+import dagger.internal.codegen.validation.BindingMethodProcessingStep;
+import dagger.internal.codegen.validation.BindingMethodValidatorsModule;
+import dagger.internal.codegen.validation.BindsInstanceProcessingStep;
+import dagger.internal.codegen.validation.InjectBindingRegistryModule;
+import dagger.internal.codegen.validation.MonitoringModuleProcessingStep;
+import dagger.internal.codegen.validation.MultibindingAnnotationsProcessingStep;
 import dagger.spi.BindingGraphPlugin;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.inject.Inject;
@@ -48,7 +65,7 @@ import net.ltgt.gradle.incap.IncrementalAnnotationProcessor;
  *
  * <p>TODO(gak): give this some better documentation
  */
-@IncrementalAnnotationProcessor(DYNAMIC)
+@IncrementalAnnotationProcessor(ISOLATING)
 @AutoService(Processor.class)
 public class ComponentProcessor extends BasicAnnotationProcessor {
   private final Optional<ImmutableSet<BindingGraphPlugin>> testingPlugins;
@@ -58,8 +75,6 @@ public class ComponentProcessor extends BasicAnnotationProcessor {
   @Inject SourceFileGenerator<MembersInjectionBinding> membersInjectorGenerator;
   @Inject ImmutableList<ProcessingStep> processingSteps;
   @Inject BindingGraphPlugins bindingGraphPlugins;
-  @Inject CompilerOptions compilerOptions;
-  @Inject DaggerStatisticsCollector statisticsCollector;
   @Inject Set<ClearableCache> clearableCaches;
 
   public ComponentProcessor() {
@@ -95,28 +110,19 @@ public class ComponentProcessor extends BasicAnnotationProcessor {
 
   @Override
   public Set<String> getSupportedOptions() {
-    ImmutableSet.Builder<String> options = ImmutableSet.builder();
-    options.addAll(ProcessingEnvironmentCompilerOptions.supportedOptions());
-    options.addAll(bindingGraphPlugins.allSupportedOptions());
-    if (compilerOptions.useGradleIncrementalProcessing()) {
-      options.add("org.gradle.annotation.processing.isolating");
-    }
-    return options.build();
+    return Sets.union(
+            ProcessingEnvironmentCompilerOptions.supportedOptions(),
+            bindingGraphPlugins.allSupportedOptions())
+        .immutableCopy();
   }
 
   @Override
   protected Iterable<? extends ProcessingStep> initSteps() {
-    ProcessorComponent.builder()
-        .processingEnvironmentModule(new ProcessingEnvironmentModule(processingEnv))
-        .testingPlugins(testingPlugins)
-        .build()
-        .inject(this);
+    ProcessorComponent.factory().create(processingEnv, testingPlugins).inject(this);
 
-    statisticsCollector.processingStarted();
     bindingGraphPlugins.initializePlugins();
-    return Iterables.transform(
-        processingSteps,
-        step -> new DaggerStatisticsCollectingProcessingStep(step, statisticsCollector));
+
+    return processingSteps;
   }
 
   @Singleton
@@ -124,32 +130,27 @@ public class ComponentProcessor extends BasicAnnotationProcessor {
       modules = {
         BindingGraphValidationModule.class,
         BindingMethodValidatorsModule.class,
+        ComponentGeneratorModule.class,
         InjectBindingRegistryModule.class,
         ProcessingEnvironmentModule.class,
         ProcessingRoundCacheModule.class,
         ProcessingStepsModule.class,
         SourceFileGeneratorsModule.class,
-        SpiModule.class,
-        SystemComponentsModule.class,
-        TopLevelImplementationComponent.InstallationModule.class,
+        SpiModule.class
       })
   interface ProcessorComponent {
     void inject(ComponentProcessor processor);
 
-    static Builder builder() {
-      return DaggerComponentProcessor_ProcessorComponent.builder();
+    static Factory factory() {
+      return DaggerComponentProcessor_ProcessorComponent.factory();
     }
 
-    @CanIgnoreReturnValue
-    @Component.Builder
-    interface Builder {
-      Builder processingEnvironmentModule(ProcessingEnvironmentModule module);
-
-      @BindsInstance
-      Builder testingPlugins(
-          @TestingPlugins Optional<ImmutableSet<BindingGraphPlugin>> testingPlugins);
-
-      @CheckReturnValue ProcessorComponent build();
+    @Component.Factory
+    interface Factory {
+      @CheckReturnValue
+      ProcessorComponent create(
+          @BindsInstance ProcessingEnvironment processingEnv,
+          @BindsInstance @TestingPlugins Optional<ImmutableSet<BindingGraphPlugin>> testingPlugins);
     }
   }
 
@@ -159,6 +160,9 @@ public class ComponentProcessor extends BasicAnnotationProcessor {
     static ImmutableList<ProcessingStep> processingSteps(
         MapKeyProcessingStep mapKeyProcessingStep,
         InjectProcessingStep injectProcessingStep,
+        AssistedInjectProcessingStep assistedInjectProcessingStep,
+        AssistedFactoryProcessingStep assistedFactoryProcessingStep,
+        AssistedProcessingStep assistedProcessingStep,
         MonitoringModuleProcessingStep monitoringModuleProcessingStep,
         MultibindingAnnotationsProcessingStep multibindingAnnotationsProcessingStep,
         BindsInstanceProcessingStep bindsInstanceProcessingStep,
@@ -170,15 +174,14 @@ public class ComponentProcessor extends BasicAnnotationProcessor {
       return ImmutableList.of(
           mapKeyProcessingStep,
           injectProcessingStep,
+          assistedInjectProcessingStep,
+          assistedFactoryProcessingStep,
+          assistedProcessingStep,
           monitoringModuleProcessingStep,
           multibindingAnnotationsProcessingStep,
           bindsInstanceProcessingStep,
           moduleProcessingStep,
           compilerOptions.headerCompilation()
-                  // Ahead Of Time subcomponents use the regular hjar filtering in
-                  // HjarSourceFileGenerator since they must retain protected implementation methods
-                  // between subcomponents
-                  && !compilerOptions.aheadOfTimeSubcomponents()
               ? componentHjarProcessingStep
               : componentProcessingStep,
           bindingMethodProcessingStep);
@@ -187,10 +190,7 @@ public class ComponentProcessor extends BasicAnnotationProcessor {
 
   @Override
   protected void postRound(RoundEnvironment roundEnv) {
-    statisticsCollector.roundFinished();
-    if (roundEnv.processingOver()) {
-      statisticsCollector.processingStopped();
-    } else {
+    if (!roundEnv.processingOver()) {
       try {
         injectBindingRegistry.generateSourcesForRequiredBindings(
             factoryGenerator, membersInjectorGenerator);

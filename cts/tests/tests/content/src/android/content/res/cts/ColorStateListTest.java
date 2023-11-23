@@ -15,22 +15,17 @@
  */
 package android.content.res.cts;
 
-import java.io.IOException;
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-
+import android.content.cts.R;
 import android.content.pm.ActivityInfo;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
-import android.content.res.Resources.NotFoundException;
 import android.content.res.Resources.Theme;
 import android.graphics.Color;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
-
-import android.content.cts.R;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.core.graphics.ColorUtils;
 
 public class ColorStateListTest extends AndroidTestCase {
 
@@ -93,6 +88,40 @@ public class ColorStateListTest extends AndroidTestCase {
         assertNotSame(Color.RED, c1.getDefaultColor());
         assertEquals(alpha, c1.getDefaultColor() >>> 24);
         assertEquals(Color.RED & 0x00FF0000, c1.getDefaultColor() & 0x00FF0000);
+    }
+
+    @SmallTest
+    public void testWithLStar() {
+        final int[][] state = new int[][]{{0}, {0}};
+        final int[] colors = new int[]{Color.RED, Color.BLUE};
+        final ColorStateList c = new ColorStateList(state, colors);
+        final double lStar = 50.0;
+        final ColorStateList c1 = c.withLStar((float) lStar);
+        assertNotSame(Color.RED, c1.getDefaultColor());
+
+        final double[] labColor = new double[3];
+        ColorUtils.colorToLAB(c1.getDefaultColor(), labColor);
+        final double targetLStar = labColor[0];
+
+        assertEquals(lStar, targetLStar, 1.0 /* delta */);
+    }
+
+    @SmallTest
+    public void testCreateFromXmlWithLStar() throws Exception {
+        final int xmlId = R.color.testcolor_lstar;
+        final double lStarInXml = 50.0;
+        final int alphaInXml = 128;
+
+        final Resources res = getContext().getResources();
+        final ColorStateList c = ColorStateList.createFromXml(res, res.getXml(xmlId));
+        final int defaultColor = c.getDefaultColor();
+
+        final double[] labColor = new double[3];
+        ColorUtils.colorToLAB(defaultColor, labColor);
+
+        // There's precision loss when converting to @ColorInt. We need a small delta.
+        assertEquals(lStarInXml, labColor[0], 1.0 /* delta */);
+        assertEquals(alphaInXml, Color.alpha(defaultColor));
     }
 
     @SmallTest

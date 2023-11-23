@@ -317,43 +317,53 @@ public class AccessibilityViewTreeReportingTest {
         assertTrue(awaitedEvent.getSource().isImportantForAccessibility());
     }
 
-
     @Test
-    public void testHideView_receiveSubtreeEvent() throws Throwable {
+    public void testSetViewInvisible_receiveSubtreeEvent() throws Throwable {
         final View view = mActivity.findViewById(R.id.secondButton);
-        AccessibilityEvent awaitedEvent =
-                sUiAutomation.executeAndWaitForEvent(
-                        () -> mActivity.runOnUiThread(() -> view.setVisibility(View.GONE)),
-                        (event) -> {
-                            boolean isContentChanged = event.getEventType()
-                                    == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
-                            int isSubTree = (event.getContentChangeTypes()
-                                    & AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE);
-                            boolean isFromThisPackage = TextUtils.equals(event.getPackageName(),
-                                    mActivity.getPackageName());
-                            return isContentChanged && (isSubTree != 0) && isFromThisPackage;
-                        }, TIMEOUT_ASYNC_PROCESSING);
-        awaitedEvent.recycle();
+        receiveSubtreeEventWhenViewChangesVisibility(view, (View) view.getParentForAccessibility(), View.INVISIBLE);
     }
 
     @Test
-    public void testUnhideView_receiveSubtreeEvent() throws Throwable {
+    public void testSetViewGone_receiveSubtreeEvent() throws Throwable {
+        final View view = mActivity.findViewById(R.id.secondButton);
+        receiveSubtreeEventWhenViewChangesVisibility(view, (View) view.getParentForAccessibility(), View.GONE);
+    }
+
+    @Test
+    public void testSetViewVisible_receiveSubtreeEvent() throws Throwable {
         final View view = mActivity.findViewById(R.id.hiddenButton);
+        receiveSubtreeEventWhenViewChangesVisibility(view, view, View.VISIBLE);
+    }
+
+    private void receiveSubtreeEventWhenViewChangesVisibility(View view, View sendA11yEventParent,
+            int visibility) throws Throwable {
         AccessibilityEvent awaitedEvent =
                 sUiAutomation.executeAndWaitForEvent(
-                        () -> mActivity.runOnUiThread(() -> view.setVisibility(View.VISIBLE)),
+                        () -> {
+                            mActivity.runOnUiThread(() -> view.setVisibility(visibility));
+                        },
                         (event) -> {
                             boolean isContentChanged = event.getEventType()
                                     == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
-                            int isSubTree = (event.getContentChangeTypes()
-                                    & AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE);
+                            boolean isSubTree = event.getContentChangeTypes()
+                                    == AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE;
                             boolean isFromThisPackage = TextUtils.equals(event.getPackageName(),
                                     mActivity.getPackageName());
-                            return isContentChanged && (isSubTree != 0) && isFromThisPackage;
+                            boolean isFromThisNode;
+                            if (event.getSource() != null) {
+                                isFromThisNode = TextUtils.equals(
+                                        event.getSource().getViewIdResourceName(),
+                                        sInstrumentation.getTargetContext().getResources()
+                                                .getResourceName(sendA11yEventParent.getId()));
+                            } else {
+                                isFromThisNode = TextUtils.equals(event.getClassName(),
+                                        sendA11yEventParent.getAccessibilityClassName());
+                            }
+                            return isContentChanged && isSubTree && isFromThisPackage
+                                    && isFromThisNode;
                         }, TIMEOUT_ASYNC_PROCESSING);
         awaitedEvent.recycle();
     }
-
 
     private void setGetNonImportantViews(boolean getNonImportantViews) {
         AccessibilityServiceInfo serviceInfo = sUiAutomation.getServiceInfo();

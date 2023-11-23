@@ -28,7 +28,7 @@
 /*
  * Logging
  */
-void log_pcm_mask(const char* mask_name, struct pcm_mask* mask)
+void log_pcm_mask(const char* mask_name, const struct pcm_mask* mask)
 {
     const size_t num_slots = ARRAY_SIZE(mask->bits);
     const size_t bits_per_slot = (sizeof(mask->bits[0]) * 8);

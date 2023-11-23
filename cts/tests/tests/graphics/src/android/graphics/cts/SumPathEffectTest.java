@@ -60,6 +60,7 @@ public class SumPathEffectTest {
         paint.setPathEffect(first);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(0); // 1-pixel hairline
+        paint.setAntiAlias(false);
         canvas.drawPath(path, paint);
 
         PathEffect second = new DashPathEffect(new float[] { 10, 5 }, 5);

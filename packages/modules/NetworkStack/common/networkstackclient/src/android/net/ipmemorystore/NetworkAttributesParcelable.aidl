@@ -19,6 +19,7 @@ package android.net.ipmemorystore;
 // Blob[] is used to represent an array of byte[], as structured AIDL does not support arrays
 // of arrays.
 import android.net.ipmemorystore.Blob;
+import android.net.networkstack.aidl.quirks.IPv6ProvisioningLossQuirkParcelable;
 
 /**
  * An object to represent attributes of a single L2 network entry.
@@ -28,10 +29,12 @@ import android.net.ipmemorystore.Blob;
  * to convert the richer types to the parcelable types and back.
  * @hide
  */
+@JavaDerive(toString=true)
 parcelable NetworkAttributesParcelable {
     byte[] assignedV4Address;
     long assignedV4AddressExpiry;
     String cluster;
     Blob[] dnsAddresses;
     int mtu;
+    @nullable IPv6ProvisioningLossQuirkParcelable ipv6ProvisioningLossQuirk;
 }

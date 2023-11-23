@@ -14,6 +14,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := wpa_supplicant.conf
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-BSD-3-Clause SPDX-license-identifier-ISC legacy_unencumbered
+LOCAL_LICENSE_CONDITIONS := notice unencumbered
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../COPYING $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/etc/wifi

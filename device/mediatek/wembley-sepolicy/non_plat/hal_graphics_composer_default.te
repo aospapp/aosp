@@ -25,24 +25,24 @@ allow hal_graphics_composer_default debugfs_tracing:file open;
 # Date : WK17.30
 # Operation : O Migration
 # Purpose: Allow to access cmdq driver
-allow hal_graphics_composer_default mtk_cmdq_device:chr_file { read ioctl open };
+allow hal_graphics_composer_default mtk_cmdq_device:chr_file r_file_perms;
 
 # Date : W17.30
 # Add for control PowerHAL
-allow hal_graphics_composer_default mtk_hal_power_hwservice:hwservice_manager find;
-binder_call(hal_graphics_composer_default, mtk_hal_power)
+hal_client_domain(hal_graphics_composer_default, hal_power)
 
 # Date : WK17.32
 # Operation : O Migration
 # Purpose: Allow to access property
-set_prop(hal_graphics_composer_default, graphics_hwc_pid_prop)
-get_prop(hal_graphics_composer_default, graphics_hwc_pid_prop)
-set_prop(hal_graphics_composer_default, graphics_hwc_latch_unsignaled_prop)
-set_prop(hal_graphics_composer_default, graphics_hwc_hdr_prop)
+set_prop(hal_graphics_composer_default, vendor_mtk_graphics_hwc_pid_prop)
+set_prop(hal_graphics_composer_default, vendor_mtk_graphics_hwc_latch_unsignaled_prop)
+set_prop(hal_graphics_composer_default, vendor_mtk_graphics_hwc_hdr_prop)
+set_prop(hal_graphics_composer_default, vendor_mtk_graphics_hwc_validate_separate_prop)
 
 # Date : WK18.03
 # Purpose: Allow to access property dev/mdp_sync
-allow hal_graphics_composer_default mtk_mdp_device:chr_file rw_file_perms;
+allow hal_graphics_composer_default mtk_mdp_sync:chr_file r_file_perms;
+allow hal_graphics_composer_default mtk_mdp_device:chr_file r_file_perms;
 allow hal_graphics_composer_default mdp_device:chr_file rw_file_perms;
 allow hal_graphics_composer_default tee_device:chr_file rw_file_perms;
 allowxperm hal_graphics_composer_default proc_ged:file ioctl { proc_ged_ioctls };
@@ -55,3 +55,13 @@ allow hal_graphics_composer_default sysfs_boot_mode:file r_file_perms;
 # Date : WK19.46
 # Purpose: Allow to access ged debug node
 allow hal_graphics_composer_default debugfs_ged:file { w_file_perms };
+
+# Data: 2019/09/04
+# Purpose: Display architecture chage to DRM, so HWC has to access
+#          the DRM device node "/dev/dri/card0".
+allow hal_graphics_composer_default dri_device:chr_file rw_file_perms;
+
+# Data: 2020/03/25
+# Purpose: HWC has to access allocator for dbq
+hal_client_domain(hal_graphics_composer_default, hal_graphics_allocator);
+binder_call(hal_graphics_composer_default, hal_graphics_allocator)

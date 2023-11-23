@@ -15,6 +15,7 @@
  */
 
 #include "utils/resources.h"
+
 #include "utils/i18n/locale.h"
 #include "utils/resources_generated.h"
 #include "gmock/gmock.h"
@@ -23,8 +24,7 @@
 namespace libtextclassifier3 {
 namespace {
 
-class ResourcesTest
-    : public testing::TestWithParam<testing::tuple<bool, bool>> {
+class ResourcesTest : public testing::Test {
  protected:
   ResourcesTest() {}
 
@@ -57,7 +57,7 @@ class ResourcesTest
     test_resources.locale.back()->language = "zh";
     test_resources.locale.emplace_back(new LanguageTagT);
     test_resources.locale.back()->language = "fr";
-    test_resources.locale.back()->language = "fr-CA";
+    test_resources.locale.back()->region = "CA";
     if (add_default_language) {
       test_resources.locale.emplace_back(new LanguageTagT);  // default
     }
@@ -115,12 +115,6 @@ class ResourcesTest
     test_resources.resource_entry.back()->resource.back()->content = "龍";
     test_resources.resource_entry.back()->resource.back()->locale.push_back(7);
 
-    if (compress()) {
-      EXPECT_TRUE(CompressResources(
-          &test_resources,
-          /*build_compression_dictionary=*/build_dictionary()));
-    }
-
     flatbuffers::FlatBufferBuilder builder;
     builder.Finish(ResourcePool::Pack(builder, &test_resources));
 
@@ -128,16 +122,9 @@ class ResourcesTest
         reinterpret_cast<const char*>(builder.GetBufferPointer()),
         builder.GetSize());
   }
-
-  bool compress() const { return testing::get<0>(GetParam()); }
-
-  bool build_dictionary() const { return testing::get<1>(GetParam()); }
 };
 
-INSTANTIATE_TEST_SUITE_P(Compression, ResourcesTest,
-                         testing::Combine(testing::Bool(), testing::Bool()));
-
-TEST_P(ResourcesTest, CorrectlyHandlesExactMatch) {
+TEST_F(ResourcesTest, CorrectlyHandlesExactMatch) {
   std::string test_resources = BuildTestResources();
   Resources resources(
       flatbuffers::GetRoot<ResourcePool>(test_resources.data()));
@@ -162,7 +149,7 @@ TEST_P(ResourcesTest, CorrectlyHandlesExactMatch) {
   EXPECT_EQ("localiser", content);
 }
 
-TEST_P(ResourcesTest, CorrectlyHandlesTie) {
+TEST_F(ResourcesTest, CorrectlyHandlesTie) {
   std::string test_resources = BuildTestResources();
   Resources resources(
       flatbuffers::GetRoot<ResourcePool>(test_resources.data()));
@@ -173,7 +160,7 @@ TEST_P(ResourcesTest, CorrectlyHandlesTie) {
   EXPECT_EQ("localize", content);
 }
 
-TEST_P(ResourcesTest, RequiresLanguageMatch) {
+TEST_F(ResourcesTest, RequiresLanguageMatch) {
   {
     std::string test_resources =
         BuildTestResources(/*add_default_language=*/false);
@@ -196,7 +183,7 @@ TEST_P(ResourcesTest, RequiresLanguageMatch) {
   }
 }
 
-TEST_P(ResourcesTest, HandlesFallback) {
+TEST_F(ResourcesTest, HandlesFallback) {
   std::string test_resources = BuildTestResources();
   Resources resources(
       flatbuffers::GetRoot<ResourcePool>(test_resources.data()));
@@ -217,7 +204,7 @@ TEST_P(ResourcesTest, HandlesFallback) {
   EXPECT_EQ("localize", content);
 }
 
-TEST_P(ResourcesTest, HandlesFallbackMultipleLocales) {
+TEST_F(ResourcesTest, HandlesFallbackMultipleLocales) {
   std::string test_resources = BuildTestResources();
   Resources resources(
       flatbuffers::GetRoot<ResourcePool>(test_resources.data()));
@@ -252,7 +239,7 @@ TEST_P(ResourcesTest, HandlesFallbackMultipleLocales) {
   EXPECT_EQ("localize", content);
 }
 
-TEST_P(ResourcesTest, PreferGenericCallback) {
+TEST_F(ResourcesTest, PreferGenericCallback) {
   std::string test_resources = BuildTestResources();
   Resources resources(
       flatbuffers::GetRoot<ResourcePool>(test_resources.data()));
@@ -271,7 +258,7 @@ TEST_P(ResourcesTest, PreferGenericCallback) {
   EXPECT_EQ("龍", content);  // Falls back to zh, not zh-Hans-CN.
 }
 
-TEST_P(ResourcesTest, PreferGenericWhenGeneric) {
+TEST_F(ResourcesTest, PreferGenericWhenGeneric) {
   std::string test_resources = BuildTestResources();
   Resources resources(
       flatbuffers::GetRoot<ResourcePool>(test_resources.data()));

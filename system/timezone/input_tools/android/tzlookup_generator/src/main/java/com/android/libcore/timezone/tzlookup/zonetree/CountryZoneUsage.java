@@ -18,6 +18,7 @@ package com.android.libcore.timezone.tzlookup.zonetree;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * A record for a country of when zones stopped being (effectively) used.
@@ -34,12 +35,12 @@ public final class CountryZoneUsage {
         return isoCode;
     }
 
-    void addEntry(String zoneId, Instant notUsedAfterInstant) {
+    void addEntry(String zoneId, Instant notUsedAfterInstant, String notUsedReplacementId) {
         if (zoneIdEntryMap.containsKey(zoneId)) {
             throw new IllegalArgumentException(
                     "Entry exists for " + zoneId + " for isoCode=" + isoCode);
         }
-        zoneIdEntryMap.put(zoneId, new Entry(zoneId, notUsedAfterInstant));
+        zoneIdEntryMap.put(zoneId, new Entry(zoneId, notUsedAfterInstant, notUsedReplacementId));
     }
 
     public boolean hasEntry(String zoneId) {
@@ -50,18 +51,34 @@ public final class CountryZoneUsage {
         Entry entry = zoneIdEntryMap.get(zoneId);
         if (entry == null) {
             throw new IllegalArgumentException(
-                    "No entry for " + zoneId+ " for isoCode=" + isoCode);
+                    "No entry for " + zoneId + " for isoCode=" + isoCode);
         }
         return entry.notUsedAfter;
+    }
+
+    public String getNotUsedReplacementId(String zoneId) {
+        Entry entry = zoneIdEntryMap.get(zoneId);
+        if (entry == null) {
+            throw new IllegalArgumentException(
+                    "No entry for " + zoneId + " for isoCode=" + isoCode);
+        }
+        return entry.notUsedReplacementId;
     }
 
     private static class Entry {
         final String zoneId;
         final Instant notUsedAfter;
+        final String notUsedReplacementId;
 
-        Entry(String zoneId, Instant notUsedAfter) {
-            this.zoneId = zoneId;
+        Entry(String zoneId, Instant notUsedAfter, String notUsedReplacementId) {
+            this.zoneId = Objects.requireNonNull(zoneId);
+
+            if ((notUsedAfter == null) != (notUsedReplacementId == null)) {
+                throw new IllegalArgumentException(
+                        "Both notUsedAfter and notUsedReplacement, or neither required");
+            }
             this.notUsedAfter = notUsedAfter;
+            this.notUsedReplacementId = notUsedReplacementId;
         }
     }
 }

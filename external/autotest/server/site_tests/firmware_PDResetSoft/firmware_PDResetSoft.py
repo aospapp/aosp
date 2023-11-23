@@ -3,11 +3,11 @@
 # found in the LICENSE file.
 
 import logging
+import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 from autotest_lib.server.cros.servo import pd_device
-
 
 class firmware_PDResetSoft(FirmwareTest):
     """
@@ -19,9 +19,10 @@ class firmware_PDResetSoft(FirmwareTest):
     criteria is that all attempted soft resets are successful.
 
     """
+
     version = 1
     RESET_ITERATIONS = 5
-
+    PD_CONNECT_DELAY = 10
 
     def _test_soft_reset(self, port_pair):
         """Tests soft reset initated by both PDTester and the DUT
@@ -31,22 +32,28 @@ class firmware_PDResetSoft(FirmwareTest):
         for dev in port_pair:
             for _ in xrange(self.RESET_ITERATIONS):
                 try:
+                    time.sleep(self.PD_CONNECT_DELAY)
                     if dev.soft_reset() == False:
                         raise error.TestFail('Soft Reset Failed')
                 except NotImplementedError:
                     logging.warn('Device cant soft reset ... skipping')
                     break
 
-    def initialize(self, host, cmdline_args, flip_cc=False):
+    def initialize(self, host, cmdline_args, flip_cc=False, dts_mode=False,
+                   init_power_mode=None):
         super(firmware_PDResetSoft, self).initialize(host, cmdline_args)
-        self.setup_pdtester(flip_cc)
+        self.setup_pdtester(flip_cc, dts_mode, min_batt_level=10)
         # Only run in normal mode
         self.switcher.setup_mode('normal')
+        if init_power_mode:
+            # Set the DUT to suspend or shutdown mode
+            self.set_ap_off_power_mode(init_power_mode)
         # Turn off console prints, except for USBPD.
         self.usbpd.enable_console_channel('usbpd')
 
     def cleanup(self):
         self.usbpd.send_command('chan 0xffffffff')
+        self.restore_ap_on_power_mode()
         super(firmware_PDResetSoft, self).cleanup()
 
     def run_once(self):
@@ -64,6 +71,7 @@ class firmware_PDResetSoft(FirmwareTest):
         # Create list of available UART consoles
         consoles = [self.usbpd, self.pdtester]
         port_partner = pd_device.PDPortPartner(consoles)
+
         # Identify a valid test port pair
         port_pair = port_partner.identify_pd_devices()
         if not port_pair:

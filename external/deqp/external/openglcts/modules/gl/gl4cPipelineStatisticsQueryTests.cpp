@@ -85,6 +85,19 @@ const char* PipelineStatisticsQueryUtilities::dummy_cs_code =
 	"{\n"
 	"    atomicCounterIncrement(test_counter);\n"
 	"}\n";
+const char* PipelineStatisticsQueryUtilities::dummy_cs_code_arb =
+	"#version 330\n"
+	"#extension GL_ARB_compute_shader : require\n"
+	"#extension GL_ARB_shader_atomic_counters : require\n"
+	"\n"
+	"layout(local_size_x=1, local_size_y = 1, local_size_z = 1) in;\n"
+	"\n"
+	"layout(binding = 0) uniform atomic_uint test_counter;\n"
+	"\n"
+	"void main()\n"
+	"{\n"
+	"    atomicCounterIncrement(test_counter);\n"
+	"}\n";
 const char* PipelineStatisticsQueryUtilities::dummy_fs_code = "#version 130\n"
 															  "\n"
 															  "out vec4 result;\n"
@@ -444,7 +457,7 @@ bool PipelineStatisticsQueryUtilities::executeQuery(glw::GLenum query_type, glw:
 		{
 			gl.bindBuffer(GL_QUERY_BUFFER, qo_bo_id);
 		}
-		else
+		else if (qo_bo_id != 0)
 		{
 			gl.bindBuffer(GL_QUERY_BUFFER, 0 /* buffer */);
 		}
@@ -2067,6 +2080,7 @@ void PipelineStatisticsQueryTestFunctionalBase::initVBO(
 	unsigned int indirect_draw_bo_first_argument, unsigned int indirect_draw_bo_basevertex_argument)
 {
 	const glw::Functions& gl = m_context.getRenderContext().getFunctions();
+	glu::ContextType contextType = m_context.getRenderContext().getType();
 
 	/* If we already have initialized a VBO, delete it before we continue */
 	if (m_vbo_id != 0)
@@ -2089,7 +2103,7 @@ void PipelineStatisticsQueryTestFunctionalBase::initVBO(
 	const unsigned int indirect_arrays_draw_call_arguments_size   = sizeof(unsigned int) * 4; /* as per spec */
 	const unsigned int indirect_elements_draw_call_arguments_size = sizeof(unsigned int) * 5; /* as per spec */
 
-	m_vbo_n_indices						  = sizeof(raw_index_data_size) / sizeof(unsigned int);
+	m_vbo_n_indices						  = raw_index_data_size / sizeof(unsigned int);
 	m_vbo_vertex_data_offset			  = 0;
 	m_vbo_index_data_offset				  = raw_vertex_data_size;
 	m_vbo_indirect_arrays_argument_offset = m_vbo_index_data_offset + raw_index_data_size;
@@ -2119,7 +2133,11 @@ void PipelineStatisticsQueryTestFunctionalBase::initVBO(
 	GLU_EXPECT_NO_ERROR(gl.getError(), "glGenBuffers() call failed.");
 
 	gl.bindBuffer(GL_ARRAY_BUFFER, m_vbo_id);
-	gl.bindBuffer(GL_DRAW_INDIRECT_BUFFER, m_vbo_id);
+	if (glu::contextSupports(contextType, glu::ApiType::core(4, 0)) ||
+	    m_context.getContextInfo().isExtensionSupported("GL_ARB_draw_indirect"))
+	{
+		gl.bindBuffer(GL_DRAW_INDIRECT_BUFFER, m_vbo_id);
+	}
 	gl.bindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_vbo_id);
 	GLU_EXPECT_NO_ERROR(gl.getError(), "glBindBuffer() call(s) failed.");
 
@@ -2170,6 +2188,12 @@ tcu::TestNode::IterateResult PipelineStatisticsQueryTestFunctionalBase::iterate(
 		 ++n_query_target)
 	{
 		glw::GLenum current_query_target = PipelineStatisticsQueryUtilities::query_targets[n_query_target];
+
+		/* Make sure the query is supported */
+		if (!PipelineStatisticsQueryUtilities::isQuerySupported(current_query_target, m_context.getContextInfo(), m_context.getRenderContext()))
+		{
+			continue;
+		}
 
 		if (shouldExecuteForQueryTarget(current_query_target))
 		{
@@ -2433,7 +2457,7 @@ bool PipelineStatisticsQueryTestFunctional1::executeTest(glw::GLenum current_que
 		const glw::GLuint64 expected_value = 0;
 
 		result &= PipelineStatisticsQueryUtilities::verifyResultValues(
-			run_result, 1, &expected_value, m_qo_id != 0, /* should_check_qo_bo_values */
+			run_result, 1, &expected_value, m_bo_qo_id != 0, /* should_check_qo_bo_values */
 			current_query_target, DE_NULL, DE_NULL,
 			false, /* is_primitive_restart_enabled */
 			m_testCtx, PipelineStatisticsQueryUtilities::VERIFICATION_TYPE_EXACT_MATCH);
@@ -2864,7 +2888,7 @@ bool PipelineStatisticsQueryTestFunctional2::executeTest(glw::GLenum current_que
 				bool				has_passed	 = true;
 
 				has_passed = PipelineStatisticsQueryUtilities::verifyResultValues(
-					run_result, 1, &expected_value, m_qo_id != 0,  /* should_check_qo_bo_values */
+					run_result, 1, &expected_value, m_bo_qo_id != 0,  /* should_check_qo_bo_values */
 					current_query_target, DE_NULL, DE_NULL, false, /* is_primitive_restart_enabled */
 					m_testCtx, PipelineStatisticsQueryUtilities::VERIFICATION_TYPE_EXACT_MATCH);
 
@@ -3102,7 +3126,7 @@ bool PipelineStatisticsQueryTestFunctional3::executeTest(glw::GLenum current_que
 					}
 
 					result &= PipelineStatisticsQueryUtilities::verifyResultValues(
-						run_result, n_expected_values, expected_values, m_qo_id != 0, /* should_check_qo_bo_values */
+						run_result, n_expected_values, expected_values, m_bo_qo_id != 0, /* should_check_qo_bo_values */
 						current_query_target, &m_current_draw_call_type, &m_current_primitive_type,
 						m_is_primitive_restart_enabled, m_testCtx, verification_type);
 
@@ -3638,7 +3662,7 @@ bool PipelineStatisticsQueryTestFunctional4::executeTest(glw::GLenum current_que
 
 					/* Compare it against query result values */
 					result &= PipelineStatisticsQueryUtilities::verifyResultValues(
-						run_result, 1, &expected_value, m_qo_id != 0, /* should_check_qo_bo_values */
+						run_result, 1, &expected_value, m_bo_qo_id != 0, /* should_check_qo_bo_values */
 						current_query_target, &m_current_draw_call_type, &m_current_primitive_type,
 						false, /* is_primitive_restart_enabled */
 						m_testCtx, PipelineStatisticsQueryUtilities::VERIFICATION_TYPE_EQUAL_OR_GREATER);
@@ -3776,7 +3800,7 @@ bool PipelineStatisticsQueryTestFunctional5::executeTest(glw::GLenum current_que
 
 			/* Compare it against query result values */
 			result &= PipelineStatisticsQueryUtilities::verifyResultValues(
-				run_result, 1, &expected_value, m_qo_id != 0, /* should_check_qo_bo_values */
+				run_result, 1, &expected_value, m_bo_qo_id != 0, /* should_check_qo_bo_values */
 				current_query_target, &m_current_draw_call_type, &m_current_primitive_type,
 				false, /* is_primitive_restart_enabled */
 				m_testCtx, PipelineStatisticsQueryUtilities::VERIFICATION_TYPE_EQUAL_OR_GREATER);
@@ -3917,8 +3941,9 @@ bool PipelineStatisticsQueryTestFunctional6::executeTest(glw::GLenum current_que
 			 *
 			 * For GL_GEOMETRY_SHADER_INVOCATIONS, we only need a single iteration.
 			 **/
+			const bool streams_supported = glu::contextSupports(m_context.getRenderContext().getType(), glu::ApiType::core(4, 0));
 			const unsigned int n_internal_iterations =
-				(current_query_target == GL_GEOMETRY_SHADER_PRIMITIVES_EMITTED_ARB) ? 2 : 1;
+				(current_query_target == GL_GEOMETRY_SHADER_PRIMITIVES_EMITTED_ARB && streams_supported) ? 2 : 1;
 
 			for (unsigned int n_internal_iteration = 0; n_internal_iteration < n_internal_iterations;
 				 ++n_internal_iteration)
@@ -4024,7 +4049,7 @@ bool PipelineStatisticsQueryTestFunctional6::executeTest(glw::GLenum current_que
 						/* Compare it against query result values */
 						result &= PipelineStatisticsQueryUtilities::verifyResultValues(
 							run_result, n_expected_values, expected_values,
-							m_qo_id != 0, /* should_check_qo_bo_values */
+							m_bo_qo_id != 0, /* should_check_qo_bo_values */
 							current_query_target, &m_current_draw_call_type, &m_current_primitive_type,
 							false, /* is_primitive_restart_enabled */
 							m_testCtx, verification_type);
@@ -4187,7 +4212,7 @@ bool PipelineStatisticsQueryTestFunctional7::executeTest(glw::GLenum current_que
 
 				/* Compare it against query result values */
 				result &= PipelineStatisticsQueryUtilities::verifyResultValues(
-					run_result, 1, &expected_value, m_qo_id != 0, /* should_check_qo_bo_values */
+					run_result, 1, &expected_value, m_bo_qo_id != 0, /* should_check_qo_bo_values */
 					current_query_target, &m_current_draw_call_type, &m_current_primitive_type,
 					false, /* is_primitive_restart_enabled */
 					m_testCtx, PipelineStatisticsQueryUtilities::VERIFICATION_TYPE_EQUAL_OR_GREATER);
@@ -4297,7 +4322,7 @@ bool PipelineStatisticsQueryTestFunctional8::executeTest(glw::GLenum current_que
 
 			/* Compare it against query result values */
 			result &= PipelineStatisticsQueryUtilities::verifyResultValues(
-				run_result, 1, &expected_value, m_qo_id != 0,  /* should_check_qo_bo_values */
+				run_result, 1, &expected_value, m_bo_qo_id != 0,  /* should_check_qo_bo_values */
 				current_query_target, DE_NULL, DE_NULL, false, /* is_primitive_restart_enabled */
 				m_testCtx, PipelineStatisticsQueryUtilities::VERIFICATION_TYPE_EQUAL_OR_GREATER);
 		} /* if (run results were obtained successfully) */
@@ -4310,8 +4335,25 @@ bool PipelineStatisticsQueryTestFunctional8::executeTest(glw::GLenum current_que
 void PipelineStatisticsQueryTestFunctional8::initObjects()
 {
 	const glw::Functions& gl = m_context.getRenderContext().getFunctions();
+	const char*			  cs_code = NULL;
 
-	buildProgram(PipelineStatisticsQueryUtilities::dummy_cs_code, DE_NULL, /* fs_body */
+	/* This test should not execute if we don't have compute shaders */
+	if (glu::contextSupports(m_context.getRenderContext().getType(), glu::ApiType::core(4, 3)))
+	{
+		cs_code = PipelineStatisticsQueryUtilities::dummy_cs_code;
+	}
+	else if (m_context.getContextInfo().isExtensionSupported("GL_ARB_compute_shader") &&
+	m_context.getContextInfo().isExtensionSupported("GL_ARB_shader_atomic_counters"))
+	{
+		cs_code = PipelineStatisticsQueryUtilities::dummy_cs_code_arb;
+	}
+	else
+	{
+		throw tcu::NotSupportedError("OpenGL 4.3+ / compute shaders and atomic counters required to run this test.");
+	}
+
+	buildProgram(cs_code,
+				 DE_NULL,												   /* fs_body */
 				 DE_NULL,												   /* gs_body */
 				 DE_NULL,												   /* tc_body */
 				 DE_NULL,												   /* te_body */

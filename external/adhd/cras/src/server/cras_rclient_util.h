@@ -86,30 +86,40 @@ int rclient_handle_client_stream_disconnect(
 	struct cras_rclient *client,
 	const struct cras_disconnect_stream_message *msg);
 
-/*
- * Converts an old version of connect message to the correct
- * cras_connect_message. Returns zero on success, negative on failure.
- * Note that this is special check only for libcras transition in
- * clients, from CRAS_PROTO_VER = 3 to 5.
- * TODO(yuhsuan): clean up the function once clients transition is done.
+/* Generic rclient create function for different types of rclients.
+ * Creates a client structure and sends a message back informing the client
+ * that the connection has succeeded.
+ *
+ * Args:
+ *    fd - The file descriptor used for communication with the client.
+ *    id - Unique identifier for this client.
+ *    ops - cras_rclient_ops pointer for the client.
+ *    supported_directions - supported directions for the this rclient.
+ * Returns:
+ *    A pointer to the newly created rclient on success, NULL on failure.
  */
-static inline int
-convert_connect_message_old(const struct cras_server_message *msg,
-			    struct cras_connect_message *cmsg)
-{
-	struct cras_connect_message_old *old;
+struct cras_rclient *rclient_generic_create(int fd, size_t id,
+					    const struct cras_rclient_ops *ops,
+					    int supported_directions);
 
-	if (!MSG_LEN_VALID(msg, struct cras_connect_message_old))
-		return -EINVAL;
-
-	old = (struct cras_connect_message_old *)msg;
-	if (old->proto_version != 3 || CRAS_PROTO_VER != 5)
-		return -EINVAL;
-
-	memcpy(cmsg, old, sizeof(*old));
-	cmsg->client_type = CRAS_CLIENT_TYPE_LEGACY;
-	cmsg->client_shm_size = 0;
-	return 0;
-}
+/* Generic handle_message_from_client function for different types of rlicnets.
+ * Supports only stream connect and stream disconnect messages.
+ *
+ * If the message from clients has incorrect length (truncated message), return
+ * an error up to CRAS server.
+ * If the message from clients has invalid content, should return the errors to
+ * clients by send_message_to_client and return 0 here.
+ *
+ * Args:
+ *   client - The cras_rclient which gets the message.
+ *   msg - The cras_server_message from client.
+ *   fds - The array for incoming fds from client.
+ *   num_fds - The number of fds from client.
+ * Returns:
+ *   0 on success, negative error on failure.
+ */
+int rclient_handle_message_from_client(struct cras_rclient *client,
+				       const struct cras_server_message *msg,
+				       int *fds, unsigned int num_fds);
 
 #endif /* CRAS_RCLIENT_UTIL_H_ */

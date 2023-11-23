@@ -19,19 +19,46 @@ package android.app.stubs;;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.os.Parcel;
+import android.os.RemoteException;
 
 /**
  * A simple activity to install for various users to test LauncherApps.
  */
 public class SimpleActivity extends Activity {
+    private IBinder mCallback;
+
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
+
+        final Intent intent = getIntent();
+        final Bundle extras = intent.getExtras();
+        if (extras != null) {
+            mCallback = extras.getBinder(CommandReceiver.EXTRA_CALLBACK);
+        }
     }
 
     @Override
     public void onStart() {
         super.onStart();
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        if (mCallback != null) {
+            final Parcel data = Parcel.obtain();
+            final Parcel reply = Parcel.obtain();
+            data.writeInt(level);
+            try {
+                mCallback.transact(IBinder.FIRST_CALL_TRANSACTION, data, reply, 0);
+            } catch (RemoteException e) {
+            } finally {
+                data.recycle();
+                reply.recycle();
+            }
+        }
     }
 
     @Override

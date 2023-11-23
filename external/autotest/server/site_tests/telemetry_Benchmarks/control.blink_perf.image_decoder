@@ -8,7 +8,8 @@ from autotest_lib.client.common_lib import utils
 
 AUTHOR = 'Chrome OS Team'
 NAME = 'telemetry_Benchmarks.blink_perf.image_decoder'
-ATTRIBUTES = 'suite:crosbolt_perf_nightly'
+# Disable this test until it can be fixed: http://b/170998795
+# ATTRIBUTES = 'suite:crosbolt_perf_nightly'
 TIME = 'LONG'
 TEST_CATEGORY = 'Benchmark'
 TEST_CLASS = 'performance'

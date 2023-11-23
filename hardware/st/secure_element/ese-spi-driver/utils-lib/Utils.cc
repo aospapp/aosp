@@ -62,6 +62,22 @@ int Utils_getElapsedTimeInMs(struct timeval t1, struct timeval t2) {
 
 /*******************************************************************************
 **
+** Function        Utils_getElapsedTimeInUs
+**
+** Description     Returns the difference of time (in Us) between t1 and t2.
+**
+** Parameters      t1  - initial time.
+**                 t2  - final time.
+**
+** Returns       The difference t2 - t1 in ms.
+**
+*******************************************************************************/
+int Utils_getElapsedTimeInUs(struct timeval t1, struct timeval t2) {
+  return (t2.tv_sec - t1.tv_sec) * 1000000 + (t2.tv_usec - t1.tv_usec);
+}
+
+/*******************************************************************************
+**
 ** Function        Utils_printCurrentTime
 **
 ** Description     Prints current time to standard log.

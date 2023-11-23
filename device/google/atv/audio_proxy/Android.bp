@@ -1,7 +1,16 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "device_google_atv_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["device_google_atv_license"],
+}
+
 cc_library {
   name: "libaudio_proxy.google",
 
-  product_specific: true,
+  system_ext_specific: true,
 
   srcs: [
     "AudioProxy.cpp",
@@ -14,22 +23,26 @@ cc_library {
     "liblog",
     "libutils",
 
-    // HAL version 5.0
+    // Audio HAL version 5.0
     "android.hardware.audio@5.0",
     "android.hardware.audio.common@5.0",
-    "android.hardware.audio.common@5.0-util",
+
+    // HAL version 5.0
     "device.google.atv.audio_proxy@5.0",
+
+    // HAL version 5.1
+    "device.google.atv.audio_proxy@5.1",
   ],
 
   static_libs: [
-    "libaudio_proxy_client@5.0",
+    "libaudio_proxy_client@5.1",
   ],
 }
 
 cc_defaults {
   name: "libaudio_proxy_client_default",
 
-  product_specific: true,
+  system_ext_specific: true,
 
   srcs: [
     "AudioProxyDevice.cpp",
@@ -41,7 +54,6 @@ cc_defaults {
   ],
 
   header_libs: [
-    "android.hardware.audio.common.util@all-versions",
     "libaudio_system_headers",
   ],
 
@@ -55,20 +67,21 @@ cc_defaults {
 }
 
 cc_library_static {
-  name: "libaudio_proxy_client@5.0",
+  name: "libaudio_proxy_client@5.1",
 
   defaults: [ "libaudio_proxy_client_default" ],
 
   shared_libs: [
     "android.hardware.audio@5.0",
     "android.hardware.audio.common@5.0",
-    "android.hardware.audio.common@5.0-util",
     "device.google.atv.audio_proxy@5.0",
+    "device.google.atv.audio_proxy@5.1",
   ],
 
   cflags: [
     "-DMAJOR_VERSION=5",
     "-DMINOR_VERSION=0",
-    "-include common/all-versions/VersionMacro.h",
+    "-DAUDIO_PROXY_MINOR_VERSION=1",
+    "-include common/AudioProxyVersionMacro.h",
   ],
 }

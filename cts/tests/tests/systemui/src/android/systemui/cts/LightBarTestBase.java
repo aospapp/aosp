@@ -59,12 +59,12 @@ public class LightBarTestBase {
 
     protected Bitmap takeStatusBarScreenshot(LightBarBaseActivity activity) {
         Bitmap fullBitmap = getInstrumentation().getUiAutomation().takeScreenshot();
-        return Bitmap.createBitmap(fullBitmap, 0, 0, activity.getWidth(), activity.getTop());
+        return Bitmap.createBitmap(fullBitmap, 0, 0, fullBitmap.getWidth(), activity.getTop());
     }
 
     protected Bitmap takeNavigationBarScreenshot(LightBarBaseActivity activity) {
         Bitmap fullBitmap = getInstrumentation().getUiAutomation().takeScreenshot();
-        return Bitmap.createBitmap(fullBitmap, 0, activity.getBottom(), activity.getWidth(),
+        return Bitmap.createBitmap(fullBitmap, 0, activity.getBottom(), fullBitmap.getWidth(),
                 fullBitmap.getHeight() - activity.getBottom());
     }
 

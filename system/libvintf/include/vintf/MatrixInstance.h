@@ -64,14 +64,14 @@ class MatrixInstance {
 
     // Return a human-readable description of the interface.
     // Version is replaced by replaceVersion.
-    // e.g. android.hardware.foo@1.0::IFoo (HIDL),
-    //      android.hardware.foo.IFoo (AIDL)
+    // e.g. for HIDL, android.hardware.foo@1.0::IFoo,
+    //      for AIDL, android.hardware.foo.IFoo (@1)
     std::string interfaceDescription(Version replaceVersion) const;
 
     // Return a human-readable description of the instance.
     // Version is replaced by replaceVersion.
-    // e.g. android.hardware.foo@1.0::IFoo/default (HIDL),
-    //      android.hardware.foo.IFoo/default (AIDL)
+    // e.g. for HIDL, android.hardware.foo@1.0::IFoo/default,
+    //      for AIDL, android.hardware.foo.IFoo/default (@1)
     std::string description(Version replaceVersion) const;
 
    private:

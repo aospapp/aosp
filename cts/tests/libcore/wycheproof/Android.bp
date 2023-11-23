@@ -12,12 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsLibcoreWycheproofConscryptTestCases",
     defaults: ["cts_support_defaults"],
     platform_apis: true,
     static_libs: [
         "cts-core-test-runner-axt",
+
+        // Jar containing expectations files.
+        "libcore-expectations-knownfailures-jar",
+
         "wycheproof",
     ],
     srcs: ["src/**/*.java"],
@@ -33,8 +41,6 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
-    java_resources: [":libcore-expectations-knownfailures"],
 }

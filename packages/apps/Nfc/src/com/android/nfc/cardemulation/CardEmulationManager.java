@@ -275,6 +275,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
             if (numPaymentServices > 1) {
                 // More than one service left, leave default unset
                 if (DBG) Log.d(TAG, "No default set, more than one service left.");
+                setDefaultServiceForCategoryChecked(userId, null, CardEmulation.CATEGORY_PAYMENT);
             } else if (numPaymentServices == 1) {
                 // Make single found payment service the default
                 if (DBG) Log.d(TAG, "No default set, making single service default.");
@@ -283,6 +284,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
             } else {
                 // No payment services left, leave default at null
                 if (DBG) Log.d(TAG, "No default set, last payment service removed.");
+                setDefaultServiceForCategoryChecked(userId, null, CardEmulation.CATEGORY_PAYMENT);
             }
         }
     }
@@ -531,6 +533,13 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
             NfcPermissions.enforceUserPermissions(mContext);
             NfcPermissions.enforcePreferredPaymentInfoPermissions(mContext);
             return mServiceCache.getService(userId, mAidCache.getPreferredService());
+        }
+
+        @Override
+        public boolean isDefaultPaymentRegistered() throws RemoteException {
+            String defaultComponent = Settings.Secure.getString(mContext.getContentResolver(),
+                    Settings.Secure.NFC_PAYMENT_DEFAULT_COMPONENT);
+            return defaultComponent != null ? true : false;
         }
     }
 

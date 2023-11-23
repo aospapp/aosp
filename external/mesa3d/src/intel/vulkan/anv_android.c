@@ -22,6 +22,11 @@
  */
 
 #include <hardware/gralloc.h>
+
+#if ANDROID_API_LEVEL >= 26
+#include <hardware/gralloc1.h>
+#endif
+
 #include <hardware/hardware.h>
 #include <hardware/hwvulkan.h>
 #include <vulkan/vk_android_native_buffer.h>
@@ -186,7 +191,6 @@ anv_GetAndroidHardwareBufferPropertiesANDROID(
    VkAndroidHardwareBufferPropertiesANDROID *pProperties)
 {
    ANV_FROM_HANDLE(anv_device, dev, device_h);
-   struct anv_physical_device *pdevice = &dev->instance->physicalDevice;
 
    VkAndroidHardwareBufferFormatPropertiesANDROID *format_prop =
       vk_find_struct(pProperties->pNext,
@@ -208,7 +212,7 @@ anv_GetAndroidHardwareBufferPropertiesANDROID(
       return VK_ERROR_INVALID_EXTERNAL_HANDLE;
 
    /* All memory types. */
-   uint32_t memory_types = (1ull << pdevice->memory.type_count) - 1;
+   uint32_t memory_types = (1ull << dev->physical->memory.type_count) - 1;
 
    pProperties->allocationSize = lseek(dma_buf, 0, SEEK_END);
    pProperties->memoryTypeBits = memory_types;
@@ -301,15 +305,10 @@ anv_import_ahw_memory(VkDevice device_h,
    if (dma_buf < 0)
       return VK_ERROR_INVALID_EXTERNAL_HANDLE;
 
-   uint64_t bo_flags = ANV_BO_EXTERNAL;
-   if (device->instance->physicalDevice.supports_48bit_addresses)
-      bo_flags |= EXEC_OBJECT_SUPPORTS_48B_ADDRESS;
-   if (device->instance->physicalDevice.use_softpin)
-      bo_flags |= EXEC_OBJECT_PINNED;
-
-   VkResult result = anv_bo_cache_import(device, &device->bo_cache,
-                                dma_buf, bo_flags, &mem->bo);
-   assert(VK_SUCCESS);
+   VkResult result = anv_device_import_bo(device, dma_buf, 0,
+                                          0 /* client_address */,
+                                          &mem->bo);
+   assert(result == VK_SUCCESS);
 
    /* "If the vkAllocateMemory command succeeds, the implementation must
     * acquire a reference to the imported hardware buffer, which it must
@@ -388,14 +387,14 @@ VkResult
 anv_image_from_external(
    VkDevice device_h,
    const VkImageCreateInfo *base_info,
-   const struct VkExternalMemoryImageCreateInfo *create_info,
+   const VkExternalMemoryImageCreateInfo *create_info,
    const VkAllocationCallbacks *alloc,
    VkImage *out_image_h)
 {
 #if ANDROID_API_LEVEL >= 26
    ANV_FROM_HANDLE(anv_device, device, device_h);
 
-   const struct VkExternalFormatANDROID *ext_info =
+   const VkExternalFormatANDROID *ext_info =
       vk_find_struct_const(base_info->pNext, EXTERNAL_FORMAT_ANDROID);
 
    if (ext_info && ext_info->externalFormat != 0) {
@@ -445,8 +444,7 @@ anv_image_from_gralloc(VkDevice device_h,
    };
 
    if (gralloc_info->handle->numFds != 1) {
-      return vk_errorf(device->instance, device,
-                       VK_ERROR_INVALID_EXTERNAL_HANDLE,
+      return vk_errorf(device, device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                        "VkNativeBufferANDROID::handle::numFds is %d, "
                        "expected 1", gralloc_info->handle->numFds);
    }
@@ -457,15 +455,22 @@ anv_image_from_gralloc(VkDevice device_h,
     */
    int dma_buf = gralloc_info->handle->data[0];
 
-   uint64_t bo_flags = ANV_BO_EXTERNAL;
-   if (device->instance->physicalDevice.supports_48bit_addresses)
-      bo_flags |= EXEC_OBJECT_SUPPORTS_48B_ADDRESS;
-   if (device->instance->physicalDevice.use_softpin)
-      bo_flags |= EXEC_OBJECT_PINNED;
-
-   result = anv_bo_cache_import(device, &device->bo_cache, dma_buf, bo_flags, &bo);
+   /* We need to set the WRITE flag on window system buffers so that GEM will
+    * know we're writing to them and synchronize uses on other rings (for
+    * example, if the display server uses the blitter ring).
+    *
+    * If this function fails and if the imported bo was resident in the cache,
+    * we should avoid updating the bo's flags. Therefore, we defer updating
+    * the flags until success is certain.
+    *
+    */
+   result = anv_device_import_bo(device, dma_buf,
+                                 ANV_BO_ALLOC_IMPLICIT_SYNC |
+                                 ANV_BO_ALLOC_IMPLICIT_WRITE,
+                                 0 /* client_address */,
+                                 &bo);
    if (result != VK_SUCCESS) {
-      return vk_errorf(device->instance, device, result,
+      return vk_errorf(device, device, result,
                        "failed to import dma-buf from VkNativeBufferANDROID");
    }
 
@@ -481,14 +486,12 @@ anv_image_from_gralloc(VkDevice device_h,
       anv_info.isl_tiling_flags = ISL_TILING_Y0_BIT;
       break;
    case -1:
-      result = vk_errorf(device->instance, device,
-                         VK_ERROR_INVALID_EXTERNAL_HANDLE,
+      result = vk_errorf(device, device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                          "DRM_IOCTL_I915_GEM_GET_TILING failed for "
                          "VkNativeBufferANDROID");
       goto fail_tiling;
    default:
-      result = vk_errorf(device->instance, device,
-                         VK_ERROR_INVALID_EXTERNAL_HANDLE,
+      result = vk_errorf(device, device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                          "DRM_IOCTL_I915_GEM_GET_TILING returned unknown "
                          "tiling %d for VkNativeBufferANDROID", i915_tiling);
       goto fail_tiling;
@@ -509,8 +512,7 @@ anv_image_from_gralloc(VkDevice device_h,
       goto fail_create;
 
    if (bo->size < image->size) {
-      result = vk_errorf(device->instance, device,
-                         VK_ERROR_INVALID_EXTERNAL_HANDLE,
+      result = vk_errorf(device, device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                          "dma-buf from VkNativeBufferANDROID is too small for "
                          "VkImage: %"PRIu64"B < %"PRIu64"B",
                          bo->size, image->size);
@@ -523,18 +525,6 @@ anv_image_from_gralloc(VkDevice device_h,
    image->planes[0].address.bo = bo;
    image->planes[0].bo_is_owned = true;
 
-   /* We need to set the WRITE flag on window system buffers so that GEM will
-    * know we're writing to them and synchronize uses on other rings (for
-    * example, if the display server uses the blitter ring).
-    *
-    * If this function fails and if the imported bo was resident in the cache,
-    * we should avoid updating the bo's flags. Therefore, we defer updating
-    * the flags until success is certain.
-    *
-    */
-   bo->flags &= ~EXEC_OBJECT_ASYNC;
-   bo->flags |= EXEC_OBJECT_WRITE;
-
    /* Don't clobber the out-parameter until success is certain. */
    *out_image_h = image_h;
 
@@ -544,37 +534,18 @@ anv_image_from_gralloc(VkDevice device_h,
    anv_DestroyImage(device_h, image_h, alloc);
  fail_create:
  fail_tiling:
-   anv_bo_cache_release(device, &device->bo_cache, bo);
+   anv_device_release_bo(device, bo);
 
    return result;
 }
 
-VkResult anv_GetSwapchainGrallocUsageANDROID(
-    VkDevice            device_h,
-    VkFormat            format,
-    VkImageUsageFlags   imageUsage,
-    int*                grallocUsage)
+static VkResult
+format_supported_with_usage(VkDevice device_h, VkFormat format,
+                            VkImageUsageFlags imageUsage)
 {
    ANV_FROM_HANDLE(anv_device, device, device_h);
-   struct anv_physical_device *phys_dev = &device->instance->physicalDevice;
-   VkPhysicalDevice phys_dev_h = anv_physical_device_to_handle(phys_dev);
+   VkPhysicalDevice phys_dev_h = anv_physical_device_to_handle(device->physical);
    VkResult result;
-
-   *grallocUsage = 0;
-   intel_logd("%s: format=%d, usage=0x%x", __func__, format, imageUsage);
-
-   /* WARNING: Android's libvulkan.so hardcodes the VkImageUsageFlags
-    * returned to applications via VkSurfaceCapabilitiesKHR::supportedUsageFlags.
-    * The relevant code in libvulkan/swapchain.cpp contains this fun comment:
-    *
-    *     TODO(jessehall): I think these are right, but haven't thought hard
-    *     about it. Do we need to query the driver for support of any of
-    *     these?
-    *
-    * Any disagreement between this function and the hardcoded
-    * VkSurfaceCapabilitiesKHR:supportedUsageFlags causes tests
-    * dEQP-VK.wsi.android.swapchain.*.image_usage to fail.
-    */
 
    const VkPhysicalDeviceImageFormatInfo2 image_format_info = {
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
@@ -592,10 +563,30 @@ VkResult anv_GetSwapchainGrallocUsageANDROID(
    result = anv_GetPhysicalDeviceImageFormatProperties2(phys_dev_h,
                &image_format_info, &image_format_props);
    if (result != VK_SUCCESS) {
-      return vk_errorf(device->instance, device, result,
+      return vk_errorf(device, device, result,
                        "anv_GetPhysicalDeviceImageFormatProperties2 failed "
                        "inside %s", __func__);
    }
+   return VK_SUCCESS;
+}
+
+
+static VkResult
+setup_gralloc0_usage(struct anv_device *device, VkFormat format,
+                     VkImageUsageFlags imageUsage, int *grallocUsage)
+{
+   /* WARNING: Android's libvulkan.so hardcodes the VkImageUsageFlags
+    * returned to applications via VkSurfaceCapabilitiesKHR::supportedUsageFlags.
+    * The relevant code in libvulkan/swapchain.cpp contains this fun comment:
+    *
+    *     TODO(jessehall): I think these are right, but haven't thought hard
+    *     about it. Do we need to query the driver for support of any of
+    *     these?
+    *
+    * Any disagreement between this function and the hardcoded
+    * VkSurfaceCapabilitiesKHR:supportedUsageFlags causes tests
+    * dEQP-VK.wsi.android.swapchain.*.image_usage to fail.
+    */
 
    if (unmask32(&imageUsage, VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
@@ -611,7 +602,7 @@ VkResult anv_GetSwapchainGrallocUsageANDROID(
     * gralloc swapchains.
     */
    if (imageUsage != 0) {
-      return vk_errorf(device->instance, device, VK_ERROR_FORMAT_NOT_SUPPORTED,
+      return vk_errorf(device, device, VK_ERROR_FORMAT_NOT_SUPPORTED,
                        "unsupported VkImageUsageFlags(0x%x) for gralloc "
                        "swapchain", imageUsage);
    }
@@ -625,7 +616,7 @@ VkResult anv_GetSwapchainGrallocUsageANDROID(
     */
    switch (format) {
       case VK_FORMAT_B8G8R8A8_UNORM:
-      case VK_FORMAT_B5G6R5_UNORM_PACK16:
+      case VK_FORMAT_R5G6B5_UNORM_PACK16:
       case VK_FORMAT_R8G8B8A8_UNORM:
       case VK_FORMAT_R8G8B8A8_SRGB:
          *grallocUsage |= GRALLOC_USAGE_HW_FB |
@@ -633,13 +624,79 @@ VkResult anv_GetSwapchainGrallocUsageANDROID(
                           GRALLOC_USAGE_EXTERNAL_DISP;
          break;
       default:
-         intel_logw("%s: unsupported format=%d", __func__, format);
+         mesa_logw("%s: unsupported format=%d", __func__, format);
    }
 
    if (*grallocUsage == 0)
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    return VK_SUCCESS;
+}
+
+#if ANDROID_API_LEVEL >= 26
+VkResult anv_GetSwapchainGrallocUsage2ANDROID(
+    VkDevice            device_h,
+    VkFormat            format,
+    VkImageUsageFlags   imageUsage,
+    VkSwapchainImageUsageFlagsANDROID swapchainImageUsage,
+    uint64_t*           grallocConsumerUsage,
+    uint64_t*           grallocProducerUsage)
+{
+   ANV_FROM_HANDLE(anv_device, device, device_h);
+   VkResult result;
+
+   *grallocConsumerUsage = 0;
+   *grallocProducerUsage = 0;
+   mesa_logd("%s: format=%d, usage=0x%x", __func__, format, imageUsage);
+
+   result = format_supported_with_usage(device_h, format, imageUsage);
+   if (result != VK_SUCCESS)
+      return result;
+
+   int32_t grallocUsage = 0;
+   result = setup_gralloc0_usage(device, format, imageUsage, &grallocUsage);
+   if (result != VK_SUCCESS)
+      return result;
+
+   /* Setup gralloc1 usage flags from gralloc0 flags. */
+
+   if (grallocUsage & GRALLOC_USAGE_HW_RENDER) {
+      *grallocProducerUsage |= GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET;
+      *grallocConsumerUsage |= GRALLOC1_CONSUMER_USAGE_CLIENT_TARGET;
+   }
+
+   if (grallocUsage & GRALLOC_USAGE_HW_TEXTURE) {
+      *grallocConsumerUsage |= GRALLOC1_CONSUMER_USAGE_GPU_TEXTURE;
+   }
+
+   if (grallocUsage & (GRALLOC_USAGE_HW_FB |
+                       GRALLOC_USAGE_HW_COMPOSER |
+                       GRALLOC_USAGE_EXTERNAL_DISP)) {
+      *grallocProducerUsage |= GRALLOC1_PRODUCER_USAGE_GPU_RENDER_TARGET;
+      *grallocConsumerUsage |= GRALLOC1_CONSUMER_USAGE_HWCOMPOSER;
+   }
+
+   return VK_SUCCESS;
+}
+#endif
+
+VkResult anv_GetSwapchainGrallocUsageANDROID(
+    VkDevice            device_h,
+    VkFormat            format,
+    VkImageUsageFlags   imageUsage,
+    int*                grallocUsage)
+{
+   ANV_FROM_HANDLE(anv_device, device, device_h);
+   VkResult result;
+
+   *grallocUsage = 0;
+   mesa_logd("%s: format=%d, usage=0x%x", __func__, format, imageUsage);
+
+   result = format_supported_with_usage(device_h, format, imageUsage);
+   if (result != VK_SUCCESS)
+      return result;
+
+   return setup_gralloc0_usage(device, format, imageUsage, grallocUsage);
 }
 
 VkResult
@@ -662,7 +719,7 @@ anv_AcquireImageANDROID(
        * VkFence.
        */
       if (sync_wait(nativeFenceFd, /*timeout*/ -1) < 0) {
-         result = vk_errorf(device->instance, device, VK_ERROR_DEVICE_LOST,
+         result = vk_errorf(device, device, VK_ERROR_DEVICE_LOST,
                             "%s: failed to wait on nativeFenceFd=%d",
                             __func__, nativeFenceFd);
       }
@@ -708,7 +765,7 @@ anv_AcquireImageANDROID(
       result = anv_QueueSubmit(anv_queue_to_handle(&device->queue), 1,
                                &submit, fence_h);
       if (result != VK_SUCCESS) {
-         return vk_errorf(device->instance, device, result,
+         return vk_errorf(device, device, result,
                           "anv_QueueSubmit failed inside %s", __func__);
       }
    }

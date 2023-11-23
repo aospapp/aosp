@@ -15,29 +15,29 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.security.cts.launchanywhere"
-    android:versionCode="1"
-    android:versionName="1.0">
+     package="com.android.security.cts.launchanywhere"
+     android:versionCode="1"
+     android:versionName="1.0">
 
     <application android:label="LaunchAnyWhere Exploitation App">
-        <activity android:name=".StartExploit">
+        <activity android:name=".StartExploit"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
         <service android:name=".AuthenticatorService"
-            android:enabled="true"
-            android:exported="true">
+             android:enabled="true"
+             android:exported="true">
 
             <intent-filter>
-                <action android:name="android.accounts.AccountAuthenticator" />
+                <action android:name="android.accounts.AccountAuthenticator"/>
             </intent-filter>
 
-            <meta-data
-                android:name="android.accounts.AccountAuthenticator"
-                android:resource="@xml/launchanywhere_authenticator" />
+            <meta-data android:name="android.accounts.AccountAuthenticator"
+                 android:resource="@xml/launchanywhere_authenticator"/>
         </service>
 
     </application>

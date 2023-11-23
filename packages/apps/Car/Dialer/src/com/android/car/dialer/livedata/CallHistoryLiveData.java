@@ -18,10 +18,12 @@ package com.android.car.dialer.livedata;
 
 import static com.android.car.dialer.livedata.CallHistoryLiveData.CallType.CALL_TYPE_ALL;
 
+import android.Manifest;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.CallLog;
+import android.text.TextUtils;
 
 import androidx.annotation.IntDef;
 
@@ -59,28 +61,29 @@ public class CallHistoryLiveData extends AsyncQueryLiveData<List<PhoneCallLog>> 
      * Creates a new instance of call history live data which loads all types of call history
      * with a limit of 100 logs.
      */
-    public static CallHistoryLiveData newInstance(Context context) {
-        return newInstance(context, CALL_TYPE_ALL, DEFAULT_CALL_LOG_LIMIT);
+    public static CallHistoryLiveData newInstance(Context context, String accountName) {
+        return newInstance(context, CALL_TYPE_ALL, DEFAULT_CALL_LOG_LIMIT, accountName);
     }
 
-    /**
-     * Returns a new instance of last call live data.
-     */
-    public static CallHistoryLiveData newLastCallLiveData(Context context) {
-        return newInstance(context, CALL_TYPE_ALL, 1);
-    }
-
-    private static CallHistoryLiveData newInstance(Context context, int callType, int limit) {
+    private static CallHistoryLiveData newInstance(Context context, int callType, int limit,
+            String accountName) {
         StringBuilder where = new StringBuilder();
         List<String> selectionArgs = new ArrayList<>();
-        limit = limit < 0 ? 0 : limit;
+        limit = Math.max(limit, 0);
 
         if (callType != CALL_TYPE_ALL) {
             // add a filter for call type
-            where.append(String.format("(%s = ?)", CallLog.Calls.TYPE));
+            where.append(CallLog.Calls.TYPE + " = ?");
             selectionArgs.add(Integer.toString(callType));
+            where.append(" AND ");
         }
-        String selection = where.length() > 0 ? where.toString() : null;
+
+        if (TextUtils.isEmpty(accountName)) {
+            where.append(CallLog.Calls.PHONE_ACCOUNT_ID + " IS NULL");
+        } else {
+            where.append(CallLog.Calls.PHONE_ACCOUNT_ID + " = ?");
+            selectionArgs.add(accountName);
+        }
 
         Uri uri = CallLog.Calls.CONTENT_URI.buildUpon()
                 .appendQueryParameter(CallLog.Calls.LIMIT_PARAM_KEY,
@@ -89,9 +92,10 @@ public class CallHistoryLiveData extends AsyncQueryLiveData<List<PhoneCallLog>> 
         QueryParam queryParam = new QueryParam(
                 uri,
                 null,
-                selection,
+                where.toString(),
                 selectionArgs.toArray(EMPTY_STRING_ARRAY),
-                CallLog.Calls.DEFAULT_SORT_ORDER);
+                CallLog.Calls.DEFAULT_SORT_ORDER,
+                Manifest.permission.READ_CALL_LOG);
         return new CallHistoryLiveData(context, queryParam);
     }
 

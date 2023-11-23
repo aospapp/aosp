@@ -75,6 +75,7 @@ std::string buildShaderName			(VkShaderStageFlagBits			stage,
 									 VkDescriptorType				descriptorType,
 									 deBool							updateAfterBind,
 									 bool							calculateInLoop,
+									 bool							minNonUniform,
 									 bool							performWritesInVertex)
 {
 	const char* stageName = DE_NULL;
@@ -95,9 +96,10 @@ std::string buildShaderName			(VkShaderStageFlagBits			stage,
 	m["DESC"]	= de::toString(deUint32(descriptorType));
 	m["ABIND"]	= updateAfterBind		? "_afterBind"		: "";
 	m["LOOP"]	= calculateInLoop		? "_inLoop"			: "";
+	m["MINNU"]	= minNonUniform			? "_minNonUniform"	: "";
 	m["SHWR"]	= performWritesInVertex	? "_shaderWrites"	: "";
 
-	return tcu::StringTemplate("descriptorIndexing_${STAGE}${DESC}${ABIND}${LOOP}${SHWR}").specialize(m);
+	return tcu::StringTemplate("descriptorIndexing_${STAGE}${DESC}${ABIND}${LOOP}${MINNU}${SHWR}").specialize(m);
 }
 
 std::vector<deUint32> generatePrimes (deUint32						limit)
@@ -587,7 +589,7 @@ VkDeviceSize createBufferAndBind	(ut::BufferHandleAllocSp&	output,
 {
 	const size_t				nonCoherentAtomSize	(static_cast<size_t>(ctx.getDeviceProperties().limits.nonCoherentAtomSize));
 	const VkDeviceSize			roundedSize			(deAlignSize(static_cast<size_t>(desiredSize), nonCoherentAtomSize));
-	Allocator&                  allocator			(ctx.getDefaultAllocator());
+	Allocator&					allocator			(ctx.getDefaultAllocator());
 	VkDevice					device				(ctx.getDevice());
 	const DeviceInterface&		interface			(ctx.getDeviceInterface());
 
@@ -730,7 +732,7 @@ deUint32 DeviceProperties::computeMaxPerStageDescriptorCount	(VkDescriptorType	d
 		storageBuffersDynamic	= deMinu32(	deviceProps.limits.maxPerStageDescriptorStorageBuffers,					deviceProps.limits.maxDescriptorSetStorageBuffersDynamic);				// 8
 		sampledImages			= deMinu32(	deviceProps.limits.maxPerStageDescriptorSampledImages - reservedCount,	deviceProps.limits.maxDescriptorSetSampledImages - reservedCount);		// 1048576.
 		storageImages			= deMinu32(	deviceProps.limits.maxPerStageDescriptorStorageImages,					deviceProps.limits.maxDescriptorSetStorageImages);						// 1048576
-		inputAttachments		= deMinu32(	deviceProps.limits.maxPerStageDescriptorInputAttachments,				deviceProps.limits.maxDescriptorSetInputAttachments);					// 1048576
+		inputAttachments		= deMinu32(	deviceProps.limits.maxPerStageDescriptorInputAttachments - 1,			deviceProps.limits.maxDescriptorSetInputAttachments - 1);				// 1048576. -1 because tests use a prime number + 1 to reference subpass input attachment in shader
 	}
 
 	// adding arbitrary upper bound limits to restrain the size of the test ( we are testing big arrays, not the maximum size arrays )

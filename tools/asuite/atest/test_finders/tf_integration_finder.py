@@ -22,7 +22,11 @@ import copy
 import logging
 import os
 import re
+import shutil
+import tempfile
 import xml.etree.ElementTree as ElementTree
+
+from zipfile import ZipFile
 
 import atest_error
 import constants
@@ -33,12 +37,13 @@ from test_finders import test_finder_utils
 from test_runners import atest_tf_test_runner
 
 # Find integration name based on file path of integration config xml file.
-# Group matches "foo/bar" given "blah/res/config/blah/res/config/foo/bar.xml
-_INT_NAME_RE = re.compile(r'^.*\/res\/config\/(?P<int_name>.*).xml$')
+# Group matches "foo/bar" given "blah/res/config/foo/bar.xml from source code
+# res directory or "blah/config/foo/bar.xml from prebuilt jars.
+_INT_NAME_RE = re.compile(r'^.*\/config\/(?P<int_name>.*).xml$')
 _TF_TARGETS = frozenset(['tradefed', 'tradefed-contrib'])
 _GTF_TARGETS = frozenset(['google-tradefed', 'google-tradefed-contrib'])
 _CONTRIB_TARGETS = frozenset(['google-tradefed-contrib'])
-_TF_RES_DIR = '../res/config'
+_TF_RES_DIRS = frozenset(['../res/config', 'res/config'])
 
 
 class TFIntegrationFinder(test_finder_base.TestFinderBase):
@@ -48,12 +53,13 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
 
 
     def __init__(self, module_info=None):
-        super(TFIntegrationFinder, self).__init__()
+        super().__init__()
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
         self.module_info = module_info
         # TODO: Break this up into AOSP/google_tf integration finders.
         self.tf_dirs, self.gtf_dirs = self._get_integration_dirs()
         self.integration_dirs = self.tf_dirs + self.gtf_dirs
+        self.temp_dir = tempfile.TemporaryDirectory()
 
     def _get_mod_paths(self, module_name):
         """Return the paths of the given module name."""
@@ -62,7 +68,8 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             # changed to ../res/config.
             if module_name in _CONTRIB_TARGETS:
                 mod_paths = self.module_info.get_paths(module_name)
-                return [os.path.join(path, _TF_RES_DIR) for path in mod_paths]
+                return [os.path.join(path, res_path) for path in mod_paths
+                        for res_path in _TF_RES_DIRS]
             return self.module_info.get_paths(module_name)
         return []
 
@@ -125,6 +132,8 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
                     logging.warning('skipping <include> tag with no "name" value')
                     continue
                 full_paths = self._search_integration_dirs(integration_name)
+                if not full_paths:
+                    full_paths = self._search_prebuilt_jars(integration_name)
                 node = None
                 if full_paths:
                     node = self._load_xml_file(full_paths[0])
@@ -168,8 +177,9 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         if ':' in name:
             name, class_name = name.split(':')
         test_files = self._search_integration_dirs(name)
-        if test_files is None:
-            return None
+        if not test_files:
+            # Check prebuilt jars if input name is in jars.
+            test_files = self._search_prebuilt_jars(name)
         # Don't use names that simply match the path,
         # must be the actual name used by TF to run the test.
         t_infos = []
@@ -178,6 +188,82 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
             if t_info:
                 t_infos.append(t_info)
         return t_infos
+
+    def _get_prebuilt_jars(self):
+        """Get prebuilt jars based on targets.
+
+        Returns:
+            A tuple of lists of strings of prebuilt jars.
+        """
+        prebuilt_jars = []
+        for tf_dir in self.tf_dirs:
+            for tf_target in _TF_TARGETS:
+                jar_path = os.path.join(
+                    self.root_dir, tf_dir, '..', 'filegroups', 'tradefed',
+                    tf_target + '.jar')
+                if os.path.exists(jar_path):
+                    prebuilt_jars.append(jar_path)
+        for gtf_dir in self.gtf_dirs:
+            for gtf_target in _GTF_TARGETS:
+                jar_path = os.path.join(
+                    self.root_dir, gtf_dir, '..', 'filegroups',
+                    'google-tradefed', gtf_target + '.jar')
+                if os.path.exists(jar_path):
+                    prebuilt_jars.append(jar_path)
+        return prebuilt_jars
+
+    def _search_prebuilt_jars(self, name):
+        """Search tradefed prebuilt jar which has matched name.
+
+        Search if input name matched prebuilt tradefed jar. If matched, extract
+        the jar file to temp directly for later on test info handling.
+
+        Args:
+            name: A string of integration name as seen in tf's list configs.
+
+        Returns:
+            A list of test path.
+        """
+
+        xml_path = 'config/{}.xml'.format(name)
+        test_files = []
+        prebuilt_jars = self._get_prebuilt_jars()
+        logging.debug('Found prebuilt_jars=%s', prebuilt_jars)
+        for prebuilt_jar in prebuilt_jars:
+            with ZipFile(prebuilt_jar, 'r') as jar_file:
+                jar_contents = jar_file.namelist()
+                if xml_path in jar_contents:
+                    extract_path = os.path.join(
+                        self.temp_dir.name, os.path.basename(prebuilt_jar))
+                    if not os.path.exists(extract_path):
+                        logging.debug('Extracting %s to %s',
+                                      prebuilt_jar, extract_path)
+                        jar_file.extractall(extract_path)
+                    test_files.append(os.path.join(extract_path, xml_path))
+
+        # TODO(b/194362862): Remove below logic after prebuilt jars could be
+        # loaded by atest_tradefed.sh from prebuilt folder directly.
+        # If found in prebuilt jars, manually copy tradefed related jars
+        # to out/host as tradefed's java path.
+        if test_files:
+            host_framework_dir = os.path.join(
+                os.getenv(constants.ANDROID_HOST_OUT, ''), 'framework')
+            if not os.path.isdir(host_framework_dir):
+                os.makedirs(host_framework_dir)
+            prebuilt_dirs = []
+            for prebuilt_jar in prebuilt_jars:
+                prebuilt_dir = os.path.dirname(prebuilt_jar)
+                if prebuilt_dir not in prebuilt_dirs:
+                    prebuilt_dirs.append(prebuilt_dir)
+            for prebuilt_dir in prebuilt_dirs:
+                prebuilts = os.listdir(prebuilt_dir)
+                for prebuilt in prebuilts:
+                    if os.path.splitext(prebuilt)[1] == '.jar':
+                        prebuilt_jar = os.path.join(prebuilt_dir, prebuilt)
+                        logging.debug('Copy %s to %s',
+                                      prebuilt_jar, host_framework_dir)
+                        shutil.copy2(prebuilt_jar, host_framework_dir)
+        return test_files
 
     def _get_test_info(self, name, test_file, class_name):
         """Find the test info matching the given test_file and class_name.
@@ -253,6 +339,7 @@ class TFIntegrationFinder(test_finder_base.TestFinderBase):
         # create absolute path from cwd and remove symbolic links
         path = os.path.realpath(path)
         if not os.path.exists(path):
+            logging.debug('"%s": file not found!', path)
             return None
         int_dir = test_finder_utils.get_int_dir_from_path(path,
                                                           self.integration_dirs)

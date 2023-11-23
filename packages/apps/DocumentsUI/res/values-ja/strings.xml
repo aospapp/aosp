@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"この名前を変更してください"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"フォルダ名を追加してください"</string>
     <string name="files_label" msgid="771781190045103748">"ファイル"</string>
     <string name="downloads_label" msgid="5462789470049501103">"ダウンロード"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -168,7 +170,7 @@
     <string name="notification_touch_for_details" msgid="2385563502445129570">"タップすると詳細が表示されます"</string>
     <string name="close" msgid="905969391788869975">"閉じる"</string>
     <plurals name="copy_failure_alert_content" formatted="false" msgid="5570549471912990536">
-      <item quantity="other">ファイル <xliff:g id="LIST_1">%1$s</xliff:g> は圧縮されませんでした。</item>
+      <item quantity="other">ファイル <xliff:g id="LIST_1">%1$s</xliff:g> はコピーされませんでした。</item>
       <item quantity="one">ファイル <xliff:g id="LIST_0">%1$s</xliff:g> はコピーされませんでした。</item>
     </plurals>
     <plurals name="compress_failure_alert_content" formatted="false" msgid="5760632881868842400">
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"仕事用"</string>
     <string name="a11y_work" msgid="7504431382825242153">"仕事用"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"別のアプリからファイルを移動することはできません。"</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"グリッドモードで表示しています。"</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"リストモードで表示しています。"</string>
 </resources>

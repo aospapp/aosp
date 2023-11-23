@@ -43,6 +43,7 @@
 
     <!-- The title for the all-day events section. Only shown for more than one item. [CHAR LIMIT=120] -->
     <plurals name="all_day_title">
+        <item quantity="one">%d all day event</item>
         <item quantity="other">%d all day events</item>
     </plurals>
 </resources>

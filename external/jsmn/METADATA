@@ -9,7 +9,8 @@ third_party {
     type: ARCHIVE
     value: "https://github.com/zserge/jsmn/archive/fdcef3ebf886fa210d14956d3c068a653e76a24e.zip"
   }
-  version: "fdcef3ebf886fa210d14956d3c068a653e76a24e"
+  version: "v1.1.0"
+  license_type: NOTICE
   last_upgrade_date {
     year: 2019
     month: 5

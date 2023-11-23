@@ -16,7 +16,7 @@ class touch_MouseScroll(touch_playback_test_base.touch_playback_test_base):
 
     _MOUSE_DESCRIPTION = 'amazon_mouse.prop'
     _APPLE_MOUSE_DES = 'apple_mouse.prop'
-    _EXPECTED_VALUE_1 = 16 # Expected value of one scroll wheel turn.
+    _EXPECTED_RANGE_1 = [9, 11] # Expected value of one scroll wheel turn.
     _EXPECTED_DIRECTION = {'down': 1, 'up': -1, 'right': 1, 'left': -1}
     _TOLLERANCE = 4 # Fast scroll should go at least X times slow scroll.
 
@@ -64,14 +64,17 @@ class touch_MouseScroll(touch_playback_test_base.touch_playback_test_base):
         """
         name = direction + '_1'
         expected_direction = self._EXPECTED_DIRECTION[direction]
-        expected_value = self._EXPECTED_VALUE_1 * expected_direction
+        expected_range = sorted([x * expected_direction for x in
+            self._EXPECTED_RANGE_1])
         delta = self._get_scroll_delta(name, expected_direction,
                                        scroll_vertical)
 
-        if delta != expected_value:
+        if not expected_range[0] <= delta <= expected_range[1]:
             self._events.log_events()
-            raise error.TestFail('One tick scroll was wrong size: actual=%d, '
-                                 'expected=%d.' % (delta, expected_value))
+            raise error.TestFail(
+                'One tick scroll was wrong size: '
+                'direction=%s, actual=%d, expected=[%d, %d]' %
+                 (direction, delta, expected_range[0], expected_range[1]))
 
 
     def _verify_fast_vs_slow(self, direction, scroll_vertical=True):

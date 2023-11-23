@@ -204,10 +204,10 @@ inline void ImageTest::DoCompile(ImageHeader::StorageMode storage_mode,
     vdex_filenames.push_back(vdex_filename);
   }
 
-  std::unordered_map<const DexFile*, size_t> dex_file_to_oat_index_map;
+  HashMap<const DexFile*, size_t> dex_file_to_oat_index_map;
   size_t image_idx = 0;
   for (const DexFile* dex_file : class_path) {
-    dex_file_to_oat_index_map.emplace(dex_file, image_idx);
+    dex_file_to_oat_index_map.insert(std::make_pair(dex_file, image_idx));
     ++image_idx;
   }
   std::unique_ptr<ImageWriter> writer(new ImageWriter(*compiler_options_,
@@ -276,8 +276,7 @@ inline void ImageTest::DoCompile(ImageHeader::StorageMode storage_mode,
           ASSERT_TRUE(cur_opened_dex_files.empty());
         }
       }
-      bool image_space_ok =
-          writer->PrepareImageAddressSpace(/*preload_dex_caches=*/ true, &timings);
+      bool image_space_ok = writer->PrepareImageAddressSpace(&timings);
       ASSERT_TRUE(image_space_ok);
 
       DCHECK_EQ(out_helper.vdex_files.size(), out_helper.oat_files.size());
@@ -294,12 +293,7 @@ inline void ImageTest::DoCompile(ImageHeader::StorageMode storage_mode,
         ASSERT_TRUE(start_rodata_ok);
         oat_writer->Initialize(driver, writer.get(), cur_dex_files);
 
-        std::unique_ptr<BufferedOutputStream> vdex_out =
-            std::make_unique<BufferedOutputStream>(
-                std::make_unique<FileOutputStream>(out_helper.vdex_files[i].GetFile()));
-        oat_writer->WriteVerifierDeps(vdex_out.get(), nullptr);
-        oat_writer->WriteQuickeningInfo(vdex_out.get());
-        oat_writer->WriteChecksumsAndVdexHeader(vdex_out.get());
+        oat_writer->FinishVdexFile(out_helper.vdex_files[i].GetFile(), /*verifier_deps=*/ nullptr);
 
         oat_writer->PrepareLayout(&patcher);
         elf_writer->PrepareDynamicSection(oat_writer->GetOatHeader().GetExecutableOffset(),
@@ -344,20 +338,10 @@ inline void ImageTest::DoCompile(ImageHeader::StorageMode storage_mode,
       }
     }
 
-    bool success_image = writer->Write(kInvalidFd,
+    bool success_image = writer->Write(File::kInvalidFd,
                                        image_filenames,
                                        image_filenames.size());
     ASSERT_TRUE(success_image);
-
-    for (size_t i = 0, size = oat_filenames.size(); i != size; ++i) {
-      const char* oat_filename = oat_filenames[i].c_str();
-      std::unique_ptr<File> oat_file(OS::OpenFileReadWrite(oat_filename));
-      ASSERT_TRUE(oat_file != nullptr);
-      bool success_fixup = ElfWriter::Fixup(oat_file.get(), writer->GetOatDataBegin(i));
-      ASSERT_TRUE(success_fixup);
-      ASSERT_EQ(oat_file->FlushCloseOrErase(), 0) << "Could not flush and close oat file "
-                                                  << oat_filename;
-    }
   }
 }
 

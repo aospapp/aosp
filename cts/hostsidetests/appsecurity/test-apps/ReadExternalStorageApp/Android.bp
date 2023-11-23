@@ -12,17 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsReadExternalStorageApp",
     defaults: ["cts_support_defaults"],
-    sdk_version: "29",
+    target_sdk_version: "29",
+    sdk_version: "30",
     static_libs: [
         "androidx.test.rules",
         "CtsExternalStorageTestLib",
     ],
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
     srcs: [
         "src/**/*.java",
@@ -30,7 +35,6 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     dex_preopt: {

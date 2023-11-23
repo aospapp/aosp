@@ -20,7 +20,6 @@ import (
 	"html/template"
 	"io/ioutil"
 	"path/filepath"
-	"reflect"
 	"sort"
 
 	"github.com/google/blueprint/bootstrap"
@@ -44,9 +43,10 @@ var propertyRank = map[string]int{
 	"name":             0,
 	"src":              1,
 	"srcs":             2,
-	"defautls":         3,
-	"host_supported":   4,
-	"device_supported": 5,
+	"exclude_srcs":     3,
+	"defaults":         4,
+	"host_supported":   5,
+	"device_supported": 6,
 }
 
 // For each module type, extract its documentation and convert it to the template data.
@@ -95,14 +95,13 @@ func moduleTypeDocsToTemplates(moduleTypeList []*bpdoc.ModuleType) []moduleTypeT
 	return result
 }
 
-func writeDocs(ctx *android.Context, filename string) error {
-	moduleTypeFactories := android.ModuleTypeFactories()
-	bpModuleTypeFactories := make(map[string]reflect.Value)
-	for moduleType, factory := range moduleTypeFactories {
-		bpModuleTypeFactories[moduleType] = reflect.ValueOf(factory)
-	}
+func getPackages(ctx *android.Context, config interface{}) ([]*bpdoc.Package, error) {
+	moduleTypeFactories := android.ModuleTypeFactoriesForDocs()
+	return bootstrap.ModuleTypeDocs(ctx.Context, config, moduleTypeFactories)
+}
 
-	packages, err := bootstrap.ModuleTypeDocs(ctx.Context, bpModuleTypeFactories)
+func writeDocs(ctx *android.Context, config interface{}, filename string) error {
+	packages, err := getPackages(ctx, config)
 	if err != nil {
 		return err
 	}
@@ -115,7 +114,10 @@ func writeDocs(ctx *android.Context, filename string) error {
 		err = ioutil.WriteFile(filename, buf.Bytes(), 0666)
 	}
 
-	// Now, produce per-package module lists with detailed information.
+	// Now, produce per-package module lists with detailed information, and a list
+	// of keywords.
+	keywordsTmpl := template.Must(template.New("file").Parse(keywordsTemplate))
+	keywordsBuf := &bytes.Buffer{}
 	for _, pkg := range packages {
 		// We need a module name getter/setter function because I couldn't
 		// find a way to keep it in a variable defined within the template.
@@ -142,7 +144,17 @@ func writeDocs(ctx *android.Context, filename string) error {
 		if err != nil {
 			return err
 		}
+		err = keywordsTmpl.Execute(keywordsBuf, data)
+		if err != nil {
+			return err
+		}
 	}
+
+	// Write out list of keywords. This includes all module and property names, which is useful for
+	// building syntax highlighters.
+	keywordsFilename := filepath.Join(filepath.Dir(filename), "keywords.txt")
+	err = ioutil.WriteFile(keywordsFilename, keywordsBuf.Bytes(), 0666)
+
 	return err
 }
 
@@ -412,6 +424,11 @@ window.addEventListener('message', (e) => {
   }
 });
 </script>
+{{end}}
+`
+
+	keywordsTemplate = `
+{{range $moduleType := .Modules}}{{$moduleType.Name}}:{{range $property := $moduleType.Properties}}{{$property.Name}},{{end}}
 {{end}}
 `
 )

@@ -39,6 +39,10 @@ using android::hardware::gnss::V1_0::IGnssDebug;
 using android::hardware::gnss::V1_0::IGnssMeasurement;
 using android::sp;
 
+/*
+ * Since Utils.cpp depends on Gnss Hal 2.0, the tests for Gnss Hal 1.0 will use
+ * there own version of IsAutomotiveDevice() instead of the common version.
+ */
 static bool IsAutomotiveDevice() {
     char buffer[PROPERTY_VALUE_MAX] = {0};
     property_get("ro.hardware.type", buffer, "");
@@ -131,12 +135,29 @@ class GnssHalTest : public testing::TestWithParam<std::string> {
   }
 
   /*
+   * SetPositionMode:
+   * Helper function to set positioning mode and verify output
+   */
+  void SetPositionMode(const int min_interval_msec) {
+      const int kPreferredAccuracy = 0;  // Ideally perfect (matches GnssLocationProvider)
+      const int kPreferredTimeMsec = 0;  // Ideally immediate
+
+      auto result = gnss_hal_->setPositionMode(
+              IGnss::GnssPositionMode::MS_BASED, IGnss::GnssPositionRecurrence::RECURRENCE_PERIODIC,
+              min_interval_msec, kPreferredAccuracy, kPreferredTimeMsec);
+
+      ASSERT_TRUE(result.isOk());
+      EXPECT_TRUE(result);
+  }
+
+  /*
    * StartAndGetSingleLocation:
    * Helper function to get one Location and check fields
    *
    * returns  true if a location was successfully generated
    */
-  bool StartAndGetSingleLocation(bool checkAccuracies) {
+  bool StartAndGetSingleLocation(const bool checkAccuracies, const int min_interval_msec) {
+      SetPositionMode(min_interval_msec);
       auto result = gnss_hal_->start();
 
       EXPECT_TRUE(result.isOk());
@@ -345,37 +366,24 @@ TEST_P(GnssHalTest, SetCallbackCapabilitiesCleanup) {}
  * and checks them for reasonable validity.
  */
 TEST_P(GnssHalTest, GetLocation) {
-#define MIN_INTERVAL_MSEC 500
-#define PREFERRED_ACCURACY 0   // Ideally perfect (matches GnssLocationProvider)
-#define PREFERRED_TIME_MSEC 0  // Ideally immediate
+    const int kMinIntervalMsec = 500;
+    const int kLocationTimeoutSubsequentSec = 3;
+    const int kLocationsToCheck = 5;
 
-#define LOCATION_TIMEOUT_SUBSEQUENT_SEC 3
-#define LOCATIONS_TO_CHECK 5
+    bool checkMoreAccuracies = (info_called_count_ > 0 && last_info_.yearOfHw >= 2017);
 
-  bool checkMoreAccuracies =
-      (info_called_count_ > 0 && last_info_.yearOfHw >= 2017);
+    /*
+     * GPS signals initially optional for this test, so don't expect timeout yet.
+     */
+    bool gotLocation = StartAndGetSingleLocation(checkMoreAccuracies, kMinIntervalMsec);
 
-  auto result = gnss_hal_->setPositionMode(
-      IGnss::GnssPositionMode::MS_BASED,
-      IGnss::GnssPositionRecurrence::RECURRENCE_PERIODIC, MIN_INTERVAL_MSEC,
-      PREFERRED_ACCURACY, PREFERRED_TIME_MSEC);
-
-  ASSERT_TRUE(result.isOk());
-  EXPECT_TRUE(result);
-
-  /*
-   * GPS signals initially optional for this test, so don't expect no timeout
-   * yet
-   */
-  bool gotLocation = StartAndGetSingleLocation(checkMoreAccuracies);
-
-  if (gotLocation) {
-    for (int i = 1; i < LOCATIONS_TO_CHECK; i++) {
-        EXPECT_EQ(std::cv_status::no_timeout, wait(LOCATION_TIMEOUT_SUBSEQUENT_SEC));
-        EXPECT_EQ(location_called_count_, i + 1);
-        CheckLocation(last_location_, checkMoreAccuracies, true);
+    if (gotLocation) {
+        for (int i = 1; i < kLocationsToCheck; i++) {
+            EXPECT_EQ(std::cv_status::no_timeout, wait(kLocationTimeoutSubsequentSec));
+            EXPECT_EQ(location_called_count_, i + 1);
+            CheckLocation(last_location_, checkMoreAccuracies, true);
+        }
     }
-  }
 
   StopAndClearLocations();
 }
@@ -406,7 +414,7 @@ TEST_P(GnssHalTest, InjectDelete) {
   ASSERT_TRUE(resultVoid.isOk());
 
   // Ensure we can get a good location after a bad injection has been deleted
-  StartAndGetSingleLocation(false);
+  StartAndGetSingleLocation(false, /* min_interval_sec= */ 1000);
 
   StopAndClearLocations();
 }
@@ -426,7 +434,7 @@ TEST_P(GnssHalTest, InjectSeedLocation) {
     ASSERT_TRUE(result.isOk());
     EXPECT_TRUE(result);
 
-    StartAndGetSingleLocation(false);
+    StartAndGetSingleLocation(false, /* min_interval_msec= */ 1000);
 
     // Ensure we don't get a location anywhere within 111km (1 degree of lat or lng) of the seed
     // location.
@@ -492,9 +500,9 @@ TEST_P(GnssHalTest, GetAllExtensions) {
  * Verifies that modern hardware supports measurement capabilities.
  */
 TEST_P(GnssHalTest, MeasurementCapabilites) {
-  if (info_called_count_ > 0 && last_info_.yearOfHw >= 2016) {
-    EXPECT_TRUE(last_capabilities_ & IGnssCallback::Capabilities::MEASUREMENTS);
-  }
+    if (!IsAutomotiveDevice() && info_called_count_ > 0 && last_info_.yearOfHw >= 2016) {
+        EXPECT_TRUE(last_capabilities_ & IGnssCallback::Capabilities::MEASUREMENTS);
+    }
 }
 
 /*
@@ -507,6 +515,7 @@ TEST_P(GnssHalTest, SchedulingCapabilities) {
     }
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GnssHalTest);
 INSTANTIATE_TEST_SUITE_P(
         PerInstance, GnssHalTest,
         testing::ValuesIn(android::hardware::getAllHalInstanceNames(IGnss::descriptor)),

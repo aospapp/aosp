@@ -4,9 +4,12 @@
 
 """Server side bluetooth tests about sending bluetooth HID reports."""
 
+from __future__ import absolute_import
+
 import logging
 import time
 
+import common
 from autotest_lib.server.cros.bluetooth import bluetooth_adapter_tests
 
 
@@ -48,7 +51,18 @@ class BluetoothAdapterHIDReportTests(
         self.test_keyboard_input_from_trace(device, "simple_text")
 
 
-    def run_hid_reports_test(self, device, suspend_resume=False, reboot=False):
+    def run_battery_reporting_tests(self, device):
+        """Run battery reporting tests.
+
+        @param device: the Bluetooth device.
+
+        """
+
+        self.test_battery_reporting(device)
+
+    def run_hid_reports_test(self, device,
+                             check_connected_method=lambda device: True,
+                             suspend_resume=False, reboot=False):
         """Running Bluetooth HID reports tests."""
         logging.info("run hid reports test")
         # Reset the adapter and set it pairable.
@@ -56,12 +70,12 @@ class BluetoothAdapterHIDReportTests(
         self.test_pairable()
 
         # Let the adapter pair, and connect to the target device.
-        time.sleep(self.HID_TEST_SLEEP_SECS)
         self.test_discover_device(device.address)
-        time.sleep(self.HID_TEST_SLEEP_SECS)
         self.test_pairing(device.address, device.pin, trusted=True)
-        time.sleep(self.HID_TEST_SLEEP_SECS)
         self.test_connection_by_adapter(device.address)
+
+        # Run hid test to make sure profile is connected
+        check_connected_method(device)
 
         if suspend_resume:
             self.suspend_resume()
@@ -69,13 +83,17 @@ class BluetoothAdapterHIDReportTests(
             time.sleep(self.HID_TEST_SLEEP_SECS)
             self.test_device_is_paired(device.address)
 
-            # After a suspend/resume, we should check if the device is
-            # connected.
-            # NOTE: After a suspend/resume, the RN42 kit remains connected.
-            #       However, this is not expected behavior for all bluetooth
-            #       peripherals.
+
+            # check if peripheral is connected after suspend resume, reconnect
+            # if it isn't
+            if not self.ignore_failure(check_connected_method, device):
+                logging.info("device not connected after suspend_resume")
+                self.test_connection_by_device(device)
+            else:
+                logging.info("device remains connected after suspend_resume")
+
             time.sleep(self.HID_TEST_SLEEP_SECS)
-            self.test_device_is_connected(device.address)
+            check_connected_method(device)
 
             time.sleep(self.HID_TEST_SLEEP_SECS)
             self.test_device_name(device.address, device.name)
@@ -84,6 +102,10 @@ class BluetoothAdapterHIDReportTests(
             self.reboot()
 
             time.sleep(self.HID_TEST_SLEEP_SECS)
+            # TODO(b/173146480) - Power on the adapter for now until this bug
+            # is resolved.
+            self.test_power_on_adapter()
+
             self.test_device_is_paired(device.address)
 
             time.sleep(self.HID_TEST_SLEEP_SECS)
@@ -92,12 +114,9 @@ class BluetoothAdapterHIDReportTests(
             time.sleep(self.HID_TEST_SLEEP_SECS)
             self.test_device_name(device.address, device.name)
 
-        # Run tests about mouse reports.
-        if device.device_type.endswith('MOUSE'):
-            self.run_mouse_tests(device)
-
-        if device.device_type.endswith('KEYBOARD'):
-            self.run_keyboard_tests(device)
+        # Run HID test after suspend/reboot as well.
+        if suspend_resume or reboot:
+            check_connected_method(device)
 
         # Disconnect the device, and remove the pairing.
         self.test_disconnection_by_adapter(device.address)

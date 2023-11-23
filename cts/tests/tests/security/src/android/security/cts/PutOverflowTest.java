@@ -16,13 +16,12 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 import java.lang.reflect.Method;
 
-@SecurityTest
 public class PutOverflowTest extends AndroidTestCase {
-    @SecurityTest(minPatchLevel = "2015-02")
+    @AsbSecurityTest(cveBugId = 22802399)
     public void testCrash() throws Exception {
         try {
             Class<?> keystoreClass = Class.forName("android.security.KeyStore");

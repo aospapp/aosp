@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_pdfium_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-BSD
+    default_applicable_licenses: ["external_pdfium_license"],
+}
+
 cc_library_static {
     name: "libpdfium-fxcrt",
     defaults: ["pdfium-core"],
@@ -5,7 +14,7 @@ cc_library_static {
     visibility: ["//external/pdfium:__subpackages__"],
 
     export_shared_lib_headers: [
-        "libandroidicu",
+        "libicu",
     ],
 
     static_libs: [
@@ -13,7 +22,7 @@ cc_library_static {
     ],
 
     shared_libs: [
-        "libandroidicu",
+        "libicu",
     ],
 
     exclude_srcs: [

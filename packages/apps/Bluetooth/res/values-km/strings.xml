@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"ចូល​ដំណើរ​ការ​កម្មវិធី​គ្រប់គ្រង​ការ​ទាញ​យក​។"</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"អនុញ្ញាត​ឲ្យ​កម្មវិធី​ត្រូវ​​ចូល​ដំណើរការ​កម្មវិធី​គ្រប់គ្រង BluetoothShare ហើយ​​ប្រើ​វា​ដើម្បី​ផ្ទេរ​ឯកសារ។"</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"បញ្ជី​ស​ការ​ចូល​ដំណើរការ​ប៊្លូធូស។"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"​ឲ្យ​កម្មវិធី​ដាក់​ឧបករណ៍​ប៊្លូធូស​ក្នុង​បញ្ជី​បណ្ដោះអាសន្ន​ ដែល​អនុញ្ញាត​ឲ្យ​ឧបករណ៍​​នោះ ​ផ្ញើ​ឯកសារ​ទៅ​​កាន់​ឧបករណ៍​​​ដោយ​មិន​ចាំបាច់​ការ​បញ្ជាក់​​អ្នក​ប្រើ។"</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"សិទ្ធិ​ចូលប្រើ​ឧបករណ៍​ប៊្លូធូស​ក្នុងបញ្ជី​អនុញ្ញាត​។"</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"អនុញ្ញាតឱ្យ​កម្មវិធី​ដាក់​ឧបករណ៍​ប៊្លូធូស​ក្នុង​បញ្ជីអនុញ្ញាតជា​បណ្ដោះអាសន្ន​ ដែល​អនុញ្ញាត​ឱ្យ​ឧបករណ៍​នោះ​ផ្ញើ​ឯកសារ​ទៅ​ឧបករណ៍​​នេះដោយ​មិន​ចាំបាច់​បញ្ជាក់​អ្នកប្រើប្រាស់​។"</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"ប៊្លូធូស"</string>
     <string name="unknown_device" msgid="9221903979877041009">"មិន​ស្គាល់​ឧបករណ៍"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"មិន​ស្គាល់"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"យល់​ព្រម​"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"អស់​ពេល​ទទួល​​ឯកសារ​ចូល​ពី \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"ឯកសារចូល"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> ត្រៀមរួចរាល់ក្នុងការផ្ញើ <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> អាចផ្ញើឯកសារ​បានហើយ៖ <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"ការ​ចែក​រំលែក​ប៊្លូ​ធូ​ស៖ ទទួល <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"ការ​ចែក​រំលែក​ប៊្លូ​ធូ​ស៖ បាន​ទទួល​ <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"ការ​ចែក​រំលែក​ប៊្លូ​ធូ​ស៖ មិន​បាន​ទទួល​ឯកសារ <xliff:g id="FILE">%1$s</xliff:g>"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"ផ្ញើ​ឯកសារ​ទៅ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"ផ្ញើ​ឯកសារ <xliff:g id="NUMBER">%1$s</xliff:g> ទៅ \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"បាន​បញ្ឈប់​ការ​ផ្ញើ​ឯកសារ​ទៅ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"មិនមាន​ទំហំផ្ទុក​គ្រប់គ្រាន់​នៅក្នុង​ឧបករណ៍​ផ្ទុក USB សម្រាប់​រក្សាទុក​ឯកសារ​ពី \"<xliff:g id="SENDER">%1$s</xliff:g>\" ទេ"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"មិនមាន​ទំហំផ្ទុក​គ្រប់គ្រាន់​នៅលើ​កាត SD សម្រាប់​រក្សាទុក​ឯកសារ​ពី \"<xliff:g id="SENDER">%1$s</xliff:g>\" ទេ"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"មិនមាន​ទំហំផ្ទុក​គ្រប់គ្រាន់​នៅក្នុងឧបករណ៍​ផ្ទុក USB ដើម្បីរក្សាទុក​ឯកសារទេ។"</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"មិនមាន​ទំហំផ្ទុក​គ្រប់គ្រាន់​នៅលើកាត SD ដើម្បីរក្សាទុក​ឯកសារទេ។"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ទំហំ​ដែល​ត្រូវ​ការ៖ <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"កំពុង​ដំណើរការ​សំណើ​ជា​ច្រើន​​។ សូម​ព្យាយាម​ម្ដង​ទៀត​នៅ​ពេល​ក្រោយ​។"</string>
     <string name="status_pending" msgid="2503691772030877944">"មិន​ទាន់​បាន​ចាប់ផ្ដើម​ផ្ទេរ​ឯកសារ​នៅ​ឡើយ​ទេ។"</string>
@@ -99,7 +99,7 @@
     <string name="status_connection_error" msgid="947681831523219891">"ការ​តភ្ជាប់​​មិន​ជោគជ័យ​។"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"មិន​អាច​ដោះស្រាយ​សំណើ​​​​ដោយ​ត្រឹមត្រូវ​ទេ។"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"មិន​ស្គាល់​កំហុស។"</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"​បាន​ទទួល​​ប៊្លូ​ធូ​ស"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"​បាន​ទទួលតាម​​ប៊្លូ​ធូ​ស"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"ការ​ចែករំលែក​ប៊្លូ​ធូ​ស"</string>
     <string name="download_success" msgid="7036160438766730871">"បាន​ទទួល​ពេញ​លេញ <xliff:g id="FILE_SIZE">%1$s</xliff:g> ។"</string>
     <string name="upload_success" msgid="4014469387779648949">"បាន​ផ្ញើ​ពេញ​លេញ <xliff:g id="FILE_SIZE">%1$s</xliff:g> ។"</string>

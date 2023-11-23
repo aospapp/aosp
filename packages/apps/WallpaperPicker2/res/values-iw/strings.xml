@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"מסך הבית"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"מסך נעילה"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"מסך הבית ונעילה"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"הגדרת טפט"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"הגדרת טפט עבור"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"מסך הבית"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"מסך נעילה"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"מסך הבית ומסך נעילה"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"מסך הבית ומסך הנעילה"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"טפט של סבב תמונות"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"כדי להציג כאן את הטפט הנוכחי, האפליקציה <xliff:g id="APP_NAME">%1$s</xliff:g> צריכה לגשת לאחסון של המכשיר."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"צריך להעניק לאפליקציית הטפטים גישה לאחסון של המכשיר כדי להציג כאן את הטפט הנוכחי.\n\nכדי לשנות את ההגדרה הזו, ניתן לעבור לקטע \'הרשאות\' בפרטים של אפליקציית הטפטים."</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"רענון הטפט היומי"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"מרענן את הטפט היומי..."</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"רענון הטפט היומי נכשל. יש לבדוק את החיבור לרשת ולנסות שוב."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"כיווץ החלונית של פרטי הטפט"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"הרחבה של חלונית פרטי הטפט"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"טפטים במכשיר"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"במכשיר"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"‏טפט ל-Android"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"ממורכז וחתוך"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"מתוח"</string>
     <string name="preview" msgid="1774602101743861071">"תצוגה מקדימה"</string>
+    <string name="tab_info" msgid="818614080690111416">"מידע"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"התאמה אישית"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"הגדרות…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"מחיקה"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"למחוק את הטפט הזה מהטלפון?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"חזרה"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"עריכה"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"הורדה"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"טפט עם מצגת"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"אישור"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"דף <xliff:g id="ID_1">%1$d</xliff:g> מתוך <xliff:g id="ID_2">%2$d</xliff:g>"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"הבא"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"הקודם"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"טפט"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"תצוגה מקדימה של הטפט"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"האוסף לא קיים"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"ללא תצוגה מקדימה בממשק המשתמש"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"עם תצוגה מקדימה בממשק המשתמש"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"שינוי הטפט"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"תצוגה מקדימה של הטפט במסך הנעילה"</string>
 </resources>

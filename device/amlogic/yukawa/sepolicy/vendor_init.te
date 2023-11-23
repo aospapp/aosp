@@ -1,4 +1,5 @@
 allow vendor_init vendor_file:system { module_load };
 allow vendor_init self:capability { sys_module };
 allow vendor_init kernel:system module_request;
-allow vendor_init default_prop:file read;
+# GOOGLE(aosp/1496143): default_prop is readable only from coredomain
+#allow vendor_init default_prop:file read;

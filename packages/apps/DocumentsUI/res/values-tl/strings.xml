@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Kailangan mong i-rename ito"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Kailangan mong magdagdag ng pangalan ng folder"</string>
     <string name="files_label" msgid="771781190045103748">"Mga File"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Mga Download"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"Work"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Trabaho"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Hindi ka makakapaglipat ng mga file mula sa ibang app."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Ipinapakita sa grid mode."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Ipinapakita sa list mode."</string>
 </resources>

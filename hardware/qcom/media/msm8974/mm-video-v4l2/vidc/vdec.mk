@@ -110,6 +110,8 @@ libmm-vdec-inc      += frameworks/av/include/media/stagefright
 
 
 LOCAL_MODULE                    := libOmxVdec
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
 LOCAL_MODULE_TAGS               := optional
 LOCAL_CFLAGS                    := $(libOmxVdec-def)
 LOCAL_C_INCLUDES                += $(libmm-vdec-inc)
@@ -154,6 +156,8 @@ LOCAL_PATH:= $(ROOT_DIR)
 ifneq ($(filter msm8974 msm8610 msm8084 msm8952 msm8992 msm8994,$(TARGET_BOARD_PLATFORM)),)
 
 LOCAL_MODULE                    := libOmxVdecHevc
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
 LOCAL_MODULE_TAGS               := optional
 LOCAL_CFLAGS                    := $(libOmxVdec-def)
 LOCAL_C_INCLUDES                += $(libmm-vdec-inc)
@@ -190,6 +194,8 @@ mm-vdec-test-inc    += $(LOCAL_PATH)/vdec/inc
 mm-vdec-test-inc    += $(vdec-inc)
 
 LOCAL_MODULE                    := mm-vdec-omx-test
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
 LOCAL_MODULE_TAGS               := optional
 LOCAL_CFLAGS                    := $(libOmxVdec-def)
 LOCAL_C_INCLUDES                := $(mm-vdec-test-inc)
@@ -211,6 +217,8 @@ mm-vdec-drv-test-inc    += $(LOCAL_PATH)/vdec/inc
 mm-vdec-drv-test-inc    += $(vdec-inc)
 
 LOCAL_MODULE                    := mm-video-driver-test
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
 LOCAL_MODULE_TAGS               := optional
 LOCAL_CFLAGS                    := $(libOmxVdec-def)
 LOCAL_C_INCLUDES                := $(mm-vdec-drv-test-inc)

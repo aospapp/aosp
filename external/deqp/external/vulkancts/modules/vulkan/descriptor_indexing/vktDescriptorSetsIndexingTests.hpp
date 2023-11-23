@@ -120,6 +120,7 @@ std::string				buildShaderName			(VkShaderStageFlagBits			stage,
 												VkDescriptorType				descriptorType,
 												deBool							updateAfterBind,
 												bool							calculateInLoop,
+												bool							minNonUniform,
 												bool							performWritesInVertex);
 
 std::vector<deUint32>	generatePrimes			(deUint32						limit);
@@ -291,8 +292,7 @@ struct PixelBufferAccessBuffer : public UpdatablePixelBufferAccess
 	void fillColor (const tcu::Vec4&) const { }
 	void invalidate (void) const
 	{
-		const VkDeviceSize		bufferSize = calcTexSize(getFormat(), getWidth(), getHeight(), getDepth());
-		vk::invalidateMappedMemoryRange(m_interface, m_device, (*m_allocation)->getMemory(), (*m_allocation)->getOffset(), bufferSize);
+		invalidateAlloc(m_interface, m_device, **m_allocation);
 	}
 };
 

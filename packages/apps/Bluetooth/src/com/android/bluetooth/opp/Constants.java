@@ -69,8 +69,8 @@ public class Constants {
     static final String ACTION_OPEN_RECEIVED_FILES =
             "android.btopp.intent.action.OPEN_RECEIVED_FILES";
 
-    /** the intent that whitelists a remote bluetooth device for auto-receive confirmation (NFC) */
-    static final String ACTION_WHITELIST_DEVICE = "android.btopp.intent.action.WHITELIST_DEVICE";
+    /** the intent that acceptlists a remote bluetooth device for auto-receive confirmation (NFC) */
+    static final String ACTION_ACCEPTLIST_DEVICE = "android.btopp.intent.action.ACCEPTLIST_DEVICE";
 
     /** the intent that can be sent by handover requesters to stop a BTOPP transfer */
     static final String ACTION_STOP_HANDOVER = "android.btopp.intent.action.STOP_HANDOVER_TRANSFER";
@@ -172,7 +172,7 @@ public class Constants {
 
     /**
      * The MIME type(s) of we could accept from other device.
-     * This is in essence a "white list" of acceptable types.
+     * This is in essence a "acceptlist" of acceptable types.
      * Today, restricted to images, audio, video and certain text types.
      */
     static final String[] ACCEPTABLE_SHARE_INBOUND_TYPES = new String[]{
@@ -185,6 +185,7 @@ public class Constants {
             "text/plain",
             "text/html",
             "text/xml",
+            "application/epub+zip",
             "application/zip",
             "application/vnd.ms-excel",
             "application/msword",
@@ -250,8 +251,8 @@ public class Constants {
     }
 
     private static boolean mimeTypeMatches(String mimeType, String matchAgainst) {
-        Pattern p =
-                Pattern.compile(matchAgainst.replaceAll("\\*", "\\.\\*"), Pattern.CASE_INSENSITIVE);
+        String matchRegex = matchAgainst.replaceAll("\\+", "\\\\+").replaceAll("\\*", ".*");
+        Pattern p = Pattern.compile(matchRegex, Pattern.CASE_INSENSITIVE);
         return p.matcher(mimeType).matches();
     }
 

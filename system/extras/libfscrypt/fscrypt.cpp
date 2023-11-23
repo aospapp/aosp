@@ -98,7 +98,7 @@ static void log_ls(const char* dirname) {
     std::array<const char*, 3> argv = {"ls", "-laZ", dirname};
     int status = 0;
     auto res =
-        logwrap_fork_execvp(argv.size(), argv.data(), &status, false, LOG_ALOG, false, nullptr);
+            logwrap_fork_execvp(argv.size(), argv.data(), &status, false, LOG_ALOG, false, nullptr);
     if (res != 0) {
         PLOG(ERROR) << argv[0] << " " << argv[1] << " " << argv[2] << "failed";
         return;
@@ -196,16 +196,14 @@ bool ParseOptionsForApiLevel(unsigned int first_api_level, const std::string& op
     } else {
         options->filenames_mode = FSCRYPT_MODE_AES_256_CTS;
     }
-    if (parts.size() > 1 && !parts[1].empty()){
+    if (parts.size() > 1 && !parts[1].empty()) {
         if (!LookupModeByName(filenames_modes, parts[1], &options->filenames_mode)) {
             LOG(ERROR) << "Invalid file names encryption mode: " << parts[1];
             return false;
         }
     }
     // Default to v2 after Q
-    constexpr unsigned int pre_gki_level = 29;
-    auto is_gki = first_api_level > pre_gki_level;
-    options->version = is_gki ? 2 : 1;
+    options->version = first_api_level > __ANDROID_API_Q__ ? 2 : 1;
     options->flags = 0;
     options->use_hw_wrapped_key = false;
     if (parts.size() > 2 && !parts[2].empty()) {
@@ -234,7 +232,8 @@ bool ParseOptionsForApiLevel(unsigned int first_api_level, const std::string& op
     // For everything else, use 16-byte padding.  This is more secure (it helps
     // hide the length of filenames), and it makes the inputs evenly divisible
     // into cipher blocks which is more efficient for encryption and decryption.
-    if (!is_gki && options->version == 1 && options->filenames_mode == FSCRYPT_MODE_AES_256_CTS) {
+    if (first_api_level <= __ANDROID_API_Q__ && options->version == 1 &&
+        options->filenames_mode == FSCRYPT_MODE_AES_256_CTS) {
         options->flags |= FSCRYPT_POLICY_FLAGS_PAD_4;
     } else {
         options->flags |= FSCRYPT_POLICY_FLAGS_PAD_16;
@@ -245,12 +244,16 @@ bool ParseOptionsForApiLevel(unsigned int first_api_level, const std::string& op
     // encryption modes.
     if (options->contents_mode == FSCRYPT_MODE_ADIANTUM) {
         if (options->filenames_mode != FSCRYPT_MODE_ADIANTUM) {
-            LOG(ERROR) << "Adiantum must be both contents and filenames mode or neither, invalid options: " << options_string;
+            LOG(ERROR) << "Adiantum must be both contents and filenames mode or neither, invalid "
+                          "options: "
+                       << options_string;
             return false;
         }
         options->flags |= FSCRYPT_POLICY_FLAG_DIRECT_KEY;
     } else if (options->filenames_mode == FSCRYPT_MODE_ADIANTUM) {
-        LOG(ERROR) << "Adiantum must be both contents and filenames mode or neither, invalid options: " << options_string;
+        LOG(ERROR)
+                << "Adiantum must be both contents and filenames mode or neither, invalid options: "
+                << options_string;
         return false;
     }
 

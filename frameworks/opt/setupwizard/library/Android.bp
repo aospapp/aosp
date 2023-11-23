@@ -2,9 +2,29 @@
 // Build the platform version of setup wizard library.
 //
 
+package {
+    default_applicable_licenses: ["frameworks_opt_setupwizard_library_license"],
+}
+
+// Added automatically by a large-scale-change
+// http://go/android-license-faq
+license {
+    name: "frameworks_opt_setupwizard_library_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 android_library {
     name: "setup-wizard-lib",
 
+    lint: {
+    	baseline_filename: "lint-baseline-lib.xml",
+    },
     libs: ["androidx.annotation_annotation"],
     manifest: "main/AndroidManifest.xml",
     resource_dirs: [
@@ -26,6 +46,9 @@ android_library {
 
 android_library {
     name: "setup-wizard-lib-gingerbread-compat",
+    lint: {
+    	baseline_filename: "lint-baseline-gingerbread-lib.xml",
+    },
     manifest: "main/AndroidManifest.xml",
     resource_dirs: [
         "main/res",

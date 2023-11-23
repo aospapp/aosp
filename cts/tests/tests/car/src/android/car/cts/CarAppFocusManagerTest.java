@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package android.car.cts;
 
 import static android.car.CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION;
@@ -28,6 +29,7 @@ import static org.junit.Assert.fail;
 import android.car.Car;
 import android.car.CarAppFocusManager;
 import android.content.Context;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
@@ -45,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
+@AppModeFull(reason = "Test relies on other server to connect to.")
 public class CarAppFocusManagerTest extends CarApiTestBase {
     private static final String TAG = CarAppFocusManagerTest.class.getSimpleName();
 
@@ -116,12 +119,72 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
 
     @Test
     public void testRegisterUnregister() throws Exception {
-        FocusChangedListerner listener = new FocusChangedListerner();
-        FocusChangedListerner listener2 = new FocusChangedListerner();
-        mManager.addFocusListener(listener, 1);
-        mManager.addFocusListener(listener2, 1);
-        mManager.removeFocusListener(listener);
+        FocusChangedListener listener1 = new FocusChangedListener();
+        FocusChangedListener listener2 = new FocusChangedListener();
+
+        mManager.addFocusListener(listener1, APP_FOCUS_TYPE_NAVIGATION);
+        mManager.addFocusListener(listener2, APP_FOCUS_TYPE_NAVIGATION);
+        mManager.removeFocusListener(listener1);
+
+        assertThat(mManager.requestAppFocus(APP_FOCUS_TYPE_NAVIGATION,
+                new FocusOwnershipCallback()))
+                .isEqualTo(CarAppFocusManager.APP_FOCUS_REQUEST_SUCCEEDED);
+        // listener1 is unregistered from all types of app, no events are expected.
+        assertThat(listener1.waitForFocusChangedAndAssert(
+                DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isFalse();
+        assertThat(listener2.waitForFocusChangedAndAssert(
+                DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isTrue();
+
         mManager.removeFocusListener(listener2);
+
+        assertThat(mManager.requestAppFocus(APP_FOCUS_TYPE_NAVIGATION,
+                new FocusOwnershipCallback()))
+                .isEqualTo(CarAppFocusManager.APP_FOCUS_REQUEST_SUCCEEDED);
+        // listener1 is unregistered from all types of app, no events are expected.
+        assertThat(listener1.waitForFocusChangedAndAssert(
+                DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isFalse();
+        // listener2 is unregistered from all types of app, no events are expected.
+        assertThat(listener2.waitForFocusChangedAndAssert(
+                DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isFalse();
+
+        // Double unregistering should be okay.
+        mManager.removeFocusListener(listener1);
+        mManager.removeFocusListener(listener2);
+    }
+
+    @Test
+    public void testRegisterUnregisterSpecificApp() throws Exception {
+        FocusChangedListener listener1 = new FocusChangedListener();
+        FocusChangedListener listener2 = new FocusChangedListener();
+
+        mManager.addFocusListener(listener1, APP_FOCUS_TYPE_NAVIGATION);
+        mManager.addFocusListener(listener2, APP_FOCUS_TYPE_NAVIGATION);
+        mManager.removeFocusListener(listener1, APP_FOCUS_TYPE_NAVIGATION);
+
+        assertThat(mManager.requestAppFocus(APP_FOCUS_TYPE_NAVIGATION,
+                new FocusOwnershipCallback()))
+                .isEqualTo(CarAppFocusManager.APP_FOCUS_REQUEST_SUCCEEDED);
+        // listener1 is unregistered from navigation app, no events are expected.
+        assertThat(listener1.waitForFocusChangedAndAssert(
+                DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isFalse();
+        assertThat(listener2.waitForFocusChangedAndAssert(
+                DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isTrue();
+
+        mManager.removeFocusListener(listener2, APP_FOCUS_TYPE_NAVIGATION);
+
+        assertThat(mManager.requestAppFocus(APP_FOCUS_TYPE_NAVIGATION,
+                new FocusOwnershipCallback()))
+                .isEqualTo(CarAppFocusManager.APP_FOCUS_REQUEST_SUCCEEDED);
+        // listener1 is unregistered from navigation app, no events are expected.
+        assertThat(listener1.waitForFocusChangedAndAssert(
+                DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isFalse();
+        // listener2 is unregistered from navigation app, no events are expected.
+        assertThat(listener2.waitForFocusChangedAndAssert(
+                DEFAULT_WAIT_TIMEOUT_MS, APP_FOCUS_TYPE_NAVIGATION, true)).isFalse();
+
+        // Double unregistering should be okay.
+        mManager.removeFocusListener(listener1, APP_FOCUS_TYPE_NAVIGATION);
+        mManager.removeFocusListener(listener2, APP_FOCUS_TYPE_NAVIGATION);
     }
 
     @Test
@@ -137,8 +200,8 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
         final int[] emptyFocus = new int[0];
 
         Assert.assertArrayEquals(emptyFocus, mManager.getActiveAppTypes());
-        FocusChangedListerner change = new FocusChangedListerner();
-        FocusChangedListerner change2 = new FocusChangedListerner();
+        FocusChangedListener change = new FocusChangedListener();
+        FocusChangedListener change2 = new FocusChangedListener();
         FocusOwnershipCallback owner = new FocusOwnershipCallback();
         FocusOwnershipCallback owner2 = new FocusOwnershipCallback();
         mManager.addFocusListener(change, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
@@ -250,8 +313,8 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
 
         Assert.assertArrayEquals(new int[0], mManager.getActiveAppTypes());
 
-        FocusChangedListerner listener = new FocusChangedListerner();
-        FocusChangedListerner listener2 = new FocusChangedListerner();
+        FocusChangedListener listener = new FocusChangedListener();
+        FocusChangedListener listener2 = new FocusChangedListener();
         FocusOwnershipCallback owner = new FocusOwnershipCallback();
         mManager.addFocusListener(listener, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
         manager2.addFocusListener(listener2, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
@@ -277,8 +340,8 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
 
     @Test
     public void testMultipleChangeListenersPerManager() throws Exception {
-        FocusChangedListerner listener = new FocusChangedListerner();
-        FocusChangedListerner listener2 = new FocusChangedListerner();
+        FocusChangedListener listener = new FocusChangedListener();
+        FocusChangedListener listener2 = new FocusChangedListener();
         FocusOwnershipCallback owner = new FocusOwnershipCallback();
         mManager.addFocusListener(listener, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
         mManager.addFocusListener(listener2, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
@@ -295,14 +358,14 @@ public class CarAppFocusManagerTest extends CarApiTestBase {
 
         listener.reset();
         listener2.reset();
-        mManager.abandonAppFocus(owner, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
+        mManager.abandonAppFocus(owner);
         assertTrue(listener.waitForFocusChangedAndAssert(DEFAULT_WAIT_TIMEOUT_MS,
                 CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION, false));
         assertTrue(listener2.waitForFocusChangedAndAssert(DEFAULT_WAIT_TIMEOUT_MS,
                 CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION, false));
     }
 
-    private class FocusChangedListerner implements CarAppFocusManager.OnAppFocusChangedListener {
+    private class FocusChangedListener implements CarAppFocusManager.OnAppFocusChangedListener {
         private int mLastChangeAppType;
         private boolean mLastChangeAppActive;
         private final Semaphore mChangeWait = new Semaphore(0);

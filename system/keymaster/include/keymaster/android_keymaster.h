@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_ANDROID_KEYMASTER_H_
-#define SYSTEM_KEYMASTER_ANDROID_KEYMASTER_H_
+#pragma once
 
 #include <keymaster/android_keymaster_messages.h>
 #include <keymaster/authorization_set.h>
@@ -47,7 +46,8 @@ class OperationTable;
  */
 class AndroidKeymaster {
   public:
-    AndroidKeymaster(KeymasterContext* context, size_t operation_table_size);
+    AndroidKeymaster(KeymasterContext* context, size_t operation_table_size,
+                     uint32_t message_version = kDefaultMessageVersion);
     virtual ~AndroidKeymaster();
     AndroidKeymaster(AndroidKeymaster&&);
 
@@ -68,10 +68,13 @@ class AndroidKeymaster {
     GetHmacSharingParametersResponse GetHmacSharingParameters();
     ComputeSharedHmacResponse ComputeSharedHmac(const ComputeSharedHmacRequest& request);
     VerifyAuthorizationResponse VerifyAuthorization(const VerifyAuthorizationRequest& request);
-
+    void GenerateTimestampToken(GenerateTimestampTokenRequest& request,
+                                GenerateTimestampTokenResponse* response);
     void AddRngEntropy(const AddEntropyRequest& request, AddEntropyResponse* response);
     void Configure(const ConfigureRequest& request, ConfigureResponse* response);
     void GenerateKey(const GenerateKeyRequest& request, GenerateKeyResponse* response);
+    void GenerateRkpKey(const GenerateRkpKeyRequest& request, GenerateRkpKeyResponse* response);
+    void GenerateCsr(const GenerateCsrRequest& request, GenerateCsrResponse* response);
     void GetKeyCharacteristics(const GetKeyCharacteristicsRequest& request,
                                GetKeyCharacteristicsResponse* response);
     void ImportKey(const ImportKeyRequest& request, ImportKeyResponse* response);
@@ -89,18 +92,33 @@ class AndroidKeymaster {
 
     EarlyBootEndedResponse EarlyBootEnded();
     DeviceLockedResponse DeviceLocked(const DeviceLockedRequest& request);
+    GetVersion2Response GetVersion2(const GetVersion2Request& request);
+    ConfigureVendorPatchlevelResponse
+    ConfigureVendorPatchlevel(const ConfigureVendorPatchlevelRequest& request);
+    ConfigureBootPatchlevelResponse
+    ConfigureBootPatchlevel(const ConfigureBootPatchlevelRequest& request);
 
     bool has_operation(keymaster_operation_handle_t op_handle) const;
 
+    // Returns the message version negotiated in GetVersion2.  All response messages should have
+    // this passed to their constructors.  This is done automatically for the methods that return a
+    // response by value.  The caller must do it for the methods that take a response pointer.
+    uint32_t message_version() const { return message_version_; }
+
   private:
-    keymaster_error_t LoadKey(const keymaster_key_blob_t& key_blob,
-                              const AuthorizationSet& additional_params,
-                              const KeyFactory** factory, UniquePtr<Key>* key);
+    // Loads the KM key from `key_blob`, getting app ID and app data from `additional_params`, if
+    // needed.  If loading the key fails for any reason (including failure of the version binding
+    // check), the returned UniquePtr is null and `*error` is set (`error` must not be null).
+    UniquePtr<Key> LoadKey(const keymaster_key_blob_t& key_blob,
+                           const AuthorizationSet& additional_params, keymaster_error_t* error);
 
     UniquePtr<KeymasterContext> context_;
     UniquePtr<OperationTable> operation_table_;
+
+    // If the caller doesn't bother to use GetVersion2 or GetVersion to configure the message
+    // version, assume kDefaultVersion, i.e. assume the client and server always support the
+    // latest default, which is the latest, except when experimental features are being added.
+    uint32_t message_version_;
 };
 
 }  // namespace keymaster
-
-#endif  //  SYSTEM_KEYMASTER_ANDROID_KEYMASTER_H_

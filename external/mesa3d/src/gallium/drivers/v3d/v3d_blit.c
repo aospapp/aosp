@@ -21,7 +21,7 @@
  * IN THE SOFTWARE.
  */
 
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_surface.h"
 #include "util/u_blitter.h"
 #include "v3d_context.h"
@@ -128,7 +128,7 @@ v3d_tile_blit(struct pipe_context *pctx, const struct pipe_blit_info *info)
         struct pipe_surface *src_surf =
                 v3d_get_blit_surface(pctx, info->src.resource, info->src.level);
 
-        v3d_flush_jobs_reading_resource(v3d, info->src.resource);
+        v3d_flush_jobs_reading_resource(v3d, info->src.resource, false);
 
         struct v3d_job *job = v3d_get_job(v3d, dst_surf, NULL);
         pipe_surface_reference(&job->color_read, src_surf);
@@ -172,6 +172,7 @@ v3d_blitter_save(struct v3d_context *v3d)
         util_blitter_save_vertex_buffer_slot(v3d->blitter, v3d->vertexbuf.vb);
         util_blitter_save_vertex_elements(v3d->blitter, v3d->vtx);
         util_blitter_save_vertex_shader(v3d->blitter, v3d->prog.bind_vs);
+        util_blitter_save_geometry_shader(v3d->blitter, v3d->prog.bind_gs);
         util_blitter_save_so_targets(v3d->blitter, v3d->streamout.num_targets,
                                      v3d->streamout.targets);
         util_blitter_save_rasterizer(v3d->blitter, v3d->rasterizer);
@@ -380,8 +381,8 @@ v3d_tfu(struct pipe_context *pctx,
         if (dst_base_slice->tiling == VC5_TILING_RASTER)
                 return false;
 
-        v3d_flush_jobs_writing_resource(v3d, psrc);
-        v3d_flush_jobs_reading_resource(v3d, pdst);
+        v3d_flush_jobs_writing_resource(v3d, psrc, V3D_FLUSH_DEFAULT, false);
+        v3d_flush_jobs_reading_resource(v3d, pdst, V3D_FLUSH_DEFAULT, false);
 
         struct drm_v3d_submit_tfu tfu = {
                 .ios = (height << 16) | width,
@@ -405,7 +406,7 @@ v3d_tfu(struct pipe_context *pctx,
         }
 
         uint32_t dst_offset = (dst->bo->offset +
-                               v3d_layer_offset(pdst, src_level, dst_layer));
+                               v3d_layer_offset(pdst, base_level, dst_layer));
         tfu.ioa |= dst_offset;
         if (last_level != base_level)
                 tfu.ioa |= V3D_TFU_IOA_DIMTW;
@@ -457,7 +458,7 @@ v3d_tfu(struct pipe_context *pctx,
         return true;
 }
 
-boolean
+bool
 v3d_generate_mipmap(struct pipe_context *pctx,
                     struct pipe_resource *prsc,
                     enum pipe_format format,
@@ -537,5 +538,6 @@ v3d_blit(struct pipe_context *pctx, const struct pipe_blit_info *blit_info)
          * run into unexpected OOMs when blits are used for a large series of
          * texture uploads before using the textures.
          */
-        v3d_flush_jobs_writing_resource(v3d, info.dst.resource);
+        v3d_flush_jobs_writing_resource(v3d, info.dst.resource,
+                                        V3D_FLUSH_DEFAULT, false);
 }

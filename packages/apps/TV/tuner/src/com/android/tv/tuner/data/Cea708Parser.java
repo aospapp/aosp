@@ -142,7 +142,7 @@ public class Cea708Parser {
     private boolean mDtvCcPacking = false;
     private boolean mFirstServiceNumberDiscovered;
 
-    // Assign a dummy listener in order to avoid null checks.
+    // Assign an empty listener in order to avoid null checks.
     private OnCea708ParserListener mListener =
             new OnCea708ParserListener() {
                 @Override

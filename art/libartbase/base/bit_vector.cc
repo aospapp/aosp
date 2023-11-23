@@ -45,8 +45,9 @@ BitVector::BitVector(uint32_t start_bits,
               allocator,
               BitsToWords(start_bits),
               static_cast<uint32_t*>(allocator->Alloc(BitsToWords(start_bits) * kWordBytes))) {
+  // We don't know if the allocator cleared things.
+  ClearAllBits();
 }
-
 
 BitVector::BitVector(const BitVector& src,
                      bool expandable,
@@ -60,7 +61,10 @@ BitVector::BitVector(const BitVector& src,
 }
 
 BitVector::~BitVector() {
-  allocator_->Free(storage_);
+  if (storage_ != nullptr) {
+    // Only free if we haven't been moved out of.
+    allocator_->Free(storage_);
+  }
 }
 
 bool BitVector::SameBitsSet(const BitVector *src) const {
@@ -154,7 +158,7 @@ bool BitVector::Union(const BitVector* src) {
 
     EnsureSize(highest_bit);
 
-    // Paranoid: storage size should be big enough to hold this bit now.
+    // Check: storage size should be big enough to hold this bit now.
     DCHECK_LT(static_cast<uint32_t> (highest_bit), storage_size_ * kWordBits);
   }
 
@@ -186,7 +190,7 @@ bool BitVector::UnionIfNotIn(const BitVector* union_with, const BitVector* not_i
   if (storage_size_ < union_with_size) {
     EnsureSize(highest_bit);
 
-    // Paranoid: storage size should be big enough to hold this bit now.
+    // Check: storage size should be big enough to hold this bit now.
     DCHECK_LT(static_cast<uint32_t> (highest_bit), storage_size_ * kWordBits);
   }
 
@@ -370,6 +374,33 @@ void BitVector::EnsureSize(uint32_t idx) {
 
 Allocator* BitVector::GetAllocator() const {
   return allocator_;
+}
+
+void BaseBitVectorArray::Resize(size_t rows, size_t cols, bool clear) {
+  DCHECK(IsExpandable());
+  if (clear) {
+    Clear();
+  }
+  cols = RoundUp(cols, BitVector::kWordBits);
+  num_columns_ = cols;
+  num_rows_ = rows;
+  // Ensure size
+  GetRawData().SetBit(num_rows_ * num_columns_ - 1);
+  GetRawData().ClearBit(num_rows_ * num_columns_ - 1);
+}
+
+// In order to improve performance we do this in 4-byte blocks. Clang should be
+// able to optimize this to larger blocks if possible.
+void BaseBitVectorArray::UnionRows(size_t dest_row, size_t other) {
+  DCHECK_LT(dest_row, num_rows_);
+  DCHECK_LT(other, num_rows_);
+  size_t block_words = num_columns_ / BitVector::kWordBits;
+  uint32_t* dest =
+      GetRawData().GetRawStorage() + ((dest_row * num_columns_) / BitVector::kWordBits);
+  uint32_t* source = GetRawData().GetRawStorage() + ((other * num_columns_) / BitVector::kWordBits);
+  for (uint32_t i = 0; i < block_words; ++i, ++dest, ++source) {
+    *dest = (*dest) | (*source);
+  }
 }
 
 }  // namespace art

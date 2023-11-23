@@ -55,7 +55,7 @@ class TcpFastOpenTest(multinetwork_base.MultiNetworkBaseTest):
     daddr = self.GetRemoteAddress(version)
     self.tcp_metrics.DelMetrics(saddr, daddr)
     with self.assertRaisesErrno(ESRCH):
-      print self.tcp_metrics.GetMetrics(saddr, daddr)
+      print(self.tcp_metrics.GetMetrics(saddr, daddr))
 
   def assertNoTcpMetrics(self, version, netid):
     saddr = self.MyAddress(version, netid)

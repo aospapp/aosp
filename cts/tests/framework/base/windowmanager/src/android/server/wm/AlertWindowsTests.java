@@ -48,7 +48,7 @@ import java.util.List;
  *     atest CtsWindowManagerDeviceTestCases:AlertWindowsTests
  */
 @Presubmit
-@AppModeFull(reason = "Requires android.permission.MANAGE_ACTIVITY_STACKS")
+@AppModeFull(reason = "Requires android.permission.MANAGE_ACTIVITY_TASKS")
 public class AlertWindowsTests extends ActivityManagerTestBase {
 
     // From WindowManager.java

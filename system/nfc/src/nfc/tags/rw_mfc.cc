@@ -22,6 +22,7 @@
  ******************************************************************************/
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
+#include <log/log.h>
 #include <string.h>
 #include "bt_types.h"
 #include "nfc_target.h"
@@ -633,6 +634,11 @@ static void rw_mfc_conn_cback(uint8_t conn_id, tNFC_CONN_EVT event,
   NFC_HDR* mfc_data = nullptr;
   tRW_DATA rw_data;
 
+  if (!p_data) {
+    LOG(ERROR) << __func__ << "Invalid p_data";
+    return;
+  }
+
   DLOG_IF(INFO, nfc_debug_enabled)
       << StringPrintf("%s conn_id=%i, evt=0x%x", __func__, conn_id, event);
   /* Only handle static conn_id */
@@ -675,10 +681,7 @@ static void rw_mfc_conn_cback(uint8_t conn_id, tNFC_CONN_EVT event,
           evt_data.status = (tNFC_STATUS)(*(uint8_t*)p_data);
         } else if (p_data) {
           evt_data.status = p_data->status;
-        } else {
-          evt_data.status = NFC_STATUS_FAILED;
         }
-
         evt_data.p_data = NULL;
         (*rw_cb.p_cback)(RW_MFC_INTF_ERROR_EVT, (tRW_DATA*)&evt_data);
         break;
@@ -688,6 +691,11 @@ static void rw_mfc_conn_cback(uint8_t conn_id, tNFC_CONN_EVT event,
 
     default:
       break;
+  }
+
+  if ((p_mfc->state != RW_MFC_STATE_IDLE) && (mfc_data == NULL)) {
+    LOG(ERROR) << StringPrintf("%s NULL pointer", __func__);
+    return;
   }
 
   switch (p_mfc->state) {
@@ -997,6 +1005,7 @@ static void rw_mfc_handle_read_op(uint8_t* data) {
   NFC_HDR* mfc_data;
   uint16_t len;
   uint16_t offset;
+  uint16_t saved_length;
   bool failed = false;
   bool done = false;
   tRW_READ_DATA evt_data;
@@ -1010,7 +1019,7 @@ static void rw_mfc_handle_read_op(uint8_t* data) {
       if (tlv_found) {
         p_mfc->ndef_status = MFC_NDEF_DETECTED;
         p_mfc->ndef_first_block = p_mfc->last_block_accessed.block;
-        rw_mfc_ntf_tlv_detect_complete(tlv_found);
+        rw_mfc_ntf_tlv_detect_complete(NFC_STATUS_OK);
       }
       break;
 
@@ -1018,6 +1027,7 @@ static void rw_mfc_handle_read_op(uint8_t* data) {
       /* On the first read, adjust for any partial block offset */
       offset = 0;
       len = RW_MFC_1K_BLOCK_SIZE;
+      saved_length = p_mfc->ndef_length;
 
       if (p_mfc->work_offset == 0) {
         /* The Ndef Message offset may be present in the read 16 bytes */
@@ -1029,14 +1039,18 @@ static void rw_mfc_handle_read_op(uint8_t* data) {
         }
       }
 
-      /* Skip all reserved and lock bytes */
-      while ((offset < len) && (p_mfc->work_offset < p_mfc->ndef_length))
+      if (!failed && saved_length >= p_mfc->ndef_length) {
+        /* Skip all reserved and lock bytes */
+        while ((offset < len) && (p_mfc->work_offset < p_mfc->ndef_length))
 
-      {
-        /* Collect the NDEF Message */
-        p_mfc->p_ndef_buffer[p_mfc->work_offset] = p[offset];
-        p_mfc->work_offset++;
-        offset++;
+        {
+          /* Collect the NDEF Message */
+          p_mfc->p_ndef_buffer[p_mfc->work_offset] = p[offset];
+          p_mfc->work_offset++;
+          offset++;
+        }
+      } else {
+        android_errorWriteLog(0x534e4554, "178725766");
       }
 
       if (p_mfc->work_offset >= p_mfc->ndef_length) {

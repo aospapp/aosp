@@ -246,7 +246,7 @@ static int _make_decode_table(codebook *s,char *lengthlist,long quantvals,
      * This probably wastes a bit of space, but it shouldn't
      * impact behavior or size too much.
      */
-    s->dec_table=_ogg_malloc((s->entries*2+1)*sizeof(*work));
+    s->dec_table=_ogg_calloc((s->entries*2+1), sizeof(*work));
     if (!s->dec_table) return 1;
     /* +1 (rather than -2) is to accommodate 0 and 1 sized books,
        which are specialcased to nodeb==4 */
@@ -264,7 +264,7 @@ static int _make_decode_table(codebook *s,char *lengthlist,long quantvals,
   if(_make_words(lengthlist,s->entries,work,quantvals,s,opb,maptype)) goto error_out;
   if (s->used_entries > INT_MAX/(s->dec_leafw+1)) goto error_out;
   if (s->dec_nodeb && s->used_entries * (s->dec_leafw+1) > INT_MAX/s->dec_nodeb) goto error_out;
-  s->dec_table=_ogg_malloc((s->used_entries*(s->dec_leafw+1)-2)*
+  s->dec_table=_ogg_calloc((s->used_entries*(s->dec_leafw+1)-2),
                            s->dec_nodeb);
   if (!s->dec_table) goto error_out;
 
@@ -422,7 +422,7 @@ int vorbis_book_unpack(oggpack_buffer *opb,codebook *s){
 
   /* first the basic parameters */
   s->dim=oggpack_read(opb,16);
-  s->dec_buf=_ogg_malloc(sizeof(ogg_int32_t)*s->dim);
+  s->dec_buf=_ogg_calloc(s->dim, sizeof(ogg_int32_t));
   if (s->dec_buf == NULL)
       goto _errout;
   s->entries=oggpack_read(opb,24);
@@ -476,6 +476,7 @@ int vorbis_book_unpack(oggpack_buffer *opb,codebook *s){
       for(i=0;i<s->entries;){
         long num=oggpack_read(opb,_ilog(s->entries-i));
         if(num<0)goto _eofout;
+        if(length>32) goto _errout;
         for(j=0;j<num && i<s->entries;j++,i++)
           lengthlist[i]=(char)length;
         s->dec_maxlength=length;
@@ -873,8 +874,11 @@ long vorbis_book_decodev_add(codebook *book,ogg_int32_t *a,
     if (!v) return -1;
     for(i=0;i<n;){
       if(decode_map(book,b,v,point))return -1;
-      for (j=0;j<book->dim && i < n;j++)
-        a[i++]+=v[j];
+      for (j=0;j<book->dim && i < n;j++,i++){
+        if (__builtin_add_overflow(a[i], v[j], &a[i])) {
+           a[i] = v[j] > 0 ? INT32_MAX : INT32_MIN;
+        }
+      }
     }
   }
   return 0;

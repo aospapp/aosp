@@ -1,5 +1,5 @@
 // © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 /*
 **********************************************************************
 * Copyright (c) 2004-2016, International Business Machines
@@ -280,7 +280,7 @@ import com.ibm.icu.util.ULocale.Category;
  * or preformatted values, but not pattern strings or custom format objects.</p>
  *
  * <p>For more details, see the
- * <a href="http://userguide.icu-project.org/formatparse/messages">ICU User Guide</a>.</p>
+ * <a href="https://unicode-org.github.io/icu/userguide/format_parse/messages">ICU User Guide</a>.</p>
  *
  * <h4>Usage Information</h4>
  *

@@ -10,7 +10,7 @@ PURPOSE = "Force reinstall cros to a dut from the servo."
 TIME = "MEDIUM"
 TEST_CATEGORY = "Install"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 This test will do the same thing as ServoInstallRepair does, but with out

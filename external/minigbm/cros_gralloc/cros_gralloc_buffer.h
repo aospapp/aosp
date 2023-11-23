@@ -27,7 +27,8 @@ class cros_gralloc_buffer
 	int32_t lock(const struct rectangle *rect, uint32_t map_flags,
 		     uint8_t *addr[DRV_MAX_PLANES]);
 	int32_t unlock();
-	int32_t resource_info(uint32_t strides[DRV_MAX_PLANES], uint32_t offsets[DRV_MAX_PLANES]);
+	int32_t resource_info(uint32_t strides[DRV_MAX_PLANES], uint32_t offsets[DRV_MAX_PLANES],
+			      uint64_t *format_modifier);
 
 	int32_t invalidate();
 	int32_t flush();
@@ -50,7 +51,7 @@ class cros_gralloc_buffer
 
 	struct mapping *lock_data_[DRV_MAX_PLANES];
 
-	/* Optional additional shared memory region attached to some gralloc4 buffers. */
+	/* Optional additional shared memory region attached to some gralloc buffers. */
 	int32_t reserved_region_fd_;
 	uint64_t reserved_region_size_;
 	void *reserved_region_addr_;

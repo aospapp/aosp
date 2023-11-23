@@ -266,9 +266,9 @@ public class InetAddressTest {
     public void test_isReachable_neverThrows() throws Exception {
         InetAddress inetAddress = InetAddress.getByName("www.google.com");
 
-        final NetworkInterface netIf = NetworkInterface.getByName("dummy0");
+        final NetworkInterface netIf = NetworkInterface.getByName("fake0");
         if (netIf == null) {
-            System.logI("Skipping test_isReachable_neverThrows because dummy0 isn't available");
+            System.logI("Skipping test_isReachable_neverThrows because fake0 isn't available");
             return;
         }
 

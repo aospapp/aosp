@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
@@ -35,12 +36,14 @@ public final class ParameterSpec {
   public final List<AnnotationSpec> annotations;
   public final Set<Modifier> modifiers;
   public final TypeName type;
+  public final CodeBlock javadoc;
 
   private ParameterSpec(Builder builder) {
     this.name = checkNotNull(builder.name, "name == null");
     this.annotations = Util.immutableList(builder.annotations);
     this.modifiers = Util.immutableSet(builder.modifiers);
     this.type = checkNotNull(builder.type, "type == null");
+    this.javadoc = builder.javadoc.build();
   }
 
   public boolean hasModifier(Modifier modifier) {
@@ -81,8 +84,12 @@ public final class ParameterSpec {
   }
 
   public static ParameterSpec get(VariableElement element) {
+    checkArgument(element.getKind().equals(ElementKind.PARAMETER), "element is not a parameter");
+
     TypeName type = TypeName.get(element.asType());
     String name = element.getSimpleName().toString();
+    // Copying parameter annotations can be incorrect so we're deliberately not including them.
+    // See https://github.com/square/javapoet/issues/482.
     return ParameterSpec.builder(type, name)
         .addModifiers(element.getModifiers())
         .build();
@@ -96,9 +103,18 @@ public final class ParameterSpec {
     return result;
   }
 
+  private static boolean isValidParameterName(String name) {
+    // Allow "this" for explicit receiver parameters
+    // See https://docs.oracle.com/javase/specs/jls/se8/html/jls-8.html#jls-8.4.1.
+    if (name.endsWith(".this")) {
+      return SourceVersion.isIdentifier(name.substring(0, name.length() - ".this".length()));
+    }
+    return name.equals("this") || SourceVersion.isName(name);
+  }
+
   public static Builder builder(TypeName type, String name, Modifier... modifiers) {
     checkNotNull(type, "type == null");
-    checkArgument(SourceVersion.isName(name), "not a valid name: %s", name);
+    checkArgument(isValidParameterName(name), "not a valid name: %s", name);
     return new Builder(type, name)
         .addModifiers(modifiers);
   }
@@ -121,13 +137,24 @@ public final class ParameterSpec {
   public static final class Builder {
     private final TypeName type;
     private final String name;
+    private final CodeBlock.Builder javadoc = CodeBlock.builder();
 
-    private final List<AnnotationSpec> annotations = new ArrayList<>();
-    private final List<Modifier> modifiers = new ArrayList<>();
+    public final List<AnnotationSpec> annotations = new ArrayList<>();
+    public final List<Modifier> modifiers = new ArrayList<>();
 
     private Builder(TypeName type, String name) {
       this.type = type;
       this.name = name;
+    }
+
+    public Builder addJavadoc(String format, Object... args) {
+      javadoc.add(format, args);
+      return this;
+    }
+
+    public Builder addJavadoc(CodeBlock block) {
+      javadoc.add(block);
+      return this;
     }
 
     public Builder addAnnotations(Iterable<AnnotationSpec> annotationSpecs) {
@@ -160,6 +187,9 @@ public final class ParameterSpec {
     public Builder addModifiers(Iterable<Modifier> modifiers) {
       checkNotNull(modifiers, "modifiers == null");
       for (Modifier modifier : modifiers) {
+        if (!modifier.equals(Modifier.FINAL)) {
+          throw new IllegalStateException("unexpected parameter modifier: " + modifier);
+        }
         this.modifiers.add(modifier);
       }
       return this;

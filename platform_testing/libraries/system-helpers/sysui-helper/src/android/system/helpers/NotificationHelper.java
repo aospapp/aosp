@@ -26,10 +26,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.service.notification.StatusBarNotification;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.test.InstrumentationRegistry;
 
 import java.util.List;
 
@@ -253,8 +254,13 @@ public class NotificationHelper {
             toastIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             toastIntent.setAction("toast:" + text);
             toastIntent.putExtra("text", text);
-            PendingIntent pi = PendingIntent.getService(
-                    context, 58, toastIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+            PendingIntent pi =
+                    PendingIntent.getService(
+                            context,
+                            58,
+                            toastIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT
+                                    | PendingIntent.FLAG_MUTABLE_UNAUDITED);
             return pi;
         }
     }

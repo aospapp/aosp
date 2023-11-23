@@ -19,7 +19,7 @@ the unknown image and older versions.
 Note: it should nearly never be required to remove old versions of good/bad
 images from these directories.
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system"
+ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system, suite:infra_qual"
 TIME='FAST'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "gl"

@@ -21,7 +21,7 @@
 
     <style name="ActionModeStyle" parent="Widget.AppCompat.ActionMode">
         <!-- attr "height" was used by support lib should not in overlay scope -->
-        <item name="height">@dimen/action_bar_space_height</item>
+        <item name="height">@dimen/action_bar_size</item>
         <item name="titleTextStyle">@style/ActionModeTitle</item>
         <item name="android:layout_margin">@dimen/search_bar_margin</item>
     </style>
@@ -85,6 +85,7 @@
 
     <style name="DialogTextButton" parent="@style/Widget.MaterialComponents.Button.TextButton.Dialog">
         <item name="android:textAppearance">@style/MaterialButtonTextAppearance</item>
+        <item name="android:textColor">?android:attr/colorAccent</item>
     </style>
 
     <style name="EmptyStateButton" parent="@style/Widget.MaterialComponents.Button.TextButton">

@@ -4,6 +4,7 @@
 
 #include "brillo/userdb_utils.h"
 
+#include <errno.h>
 #include <grp.h>
 #include <pwd.h>
 #include <sys/types.h>
@@ -12,6 +13,7 @@
 #include <vector>
 
 #include <base/logging.h>
+#include <base/posix/safe_strerror.h>
 
 namespace brillo {
 namespace userdb {
@@ -23,8 +25,16 @@ bool GetUserInfo(const std::string& user, uid_t* uid, gid_t* gid) {
   passwd pwd_buf;
   passwd* pwd = nullptr;
   std::vector<char> buf(buf_len);
-  if (getpwnam_r(user.c_str(), &pwd_buf, buf.data(), buf_len, &pwd) || !pwd) {
-    PLOG(ERROR) << "Unable to find user " << user;
+
+  int err_num;
+  do {
+    err_num = getpwnam_r(user.c_str(), &pwd_buf, buf.data(), buf_len, &pwd);
+  } while (err_num == EINTR);
+
+  if (!pwd) {
+    LOG(ERROR) << "Unable to find user " << user << ": "
+               << (err_num ? base::safe_strerror(err_num)
+                           : "No matching record");
     return false;
   }
 
@@ -42,8 +52,16 @@ bool GetGroupInfo(const std::string& group, gid_t* gid) {
   struct group grp_buf;
   struct group* grp = nullptr;
   std::vector<char> buf(buf_len);
-  if (getgrnam_r(group.c_str(), &grp_buf, buf.data(), buf_len, &grp) || !grp) {
-    PLOG(ERROR) << "Unable to find group " << group;
+
+  int err_num;
+  do {
+    err_num = getgrnam_r(group.c_str(), &grp_buf, buf.data(), buf_len, &grp);
+  } while (err_num == EINTR);
+
+  if (!grp) {
+    LOG(ERROR) << "Unable to find group " << group << ": "
+               << (err_num ? base::safe_strerror(err_num)
+                           : "No matching record");
     return false;
   }
 

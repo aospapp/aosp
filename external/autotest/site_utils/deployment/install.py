@@ -67,6 +67,7 @@ from autotest_lib.client.common_lib import host_states
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import retry
+from autotest_lib.client.common_lib.utils import deprecated
 from autotest_lib.server import afe_utils
 from autotest_lib.server import constants
 from autotest_lib.server import frontend
@@ -74,6 +75,7 @@ from autotest_lib.server import hosts
 from autotest_lib.server.cros.dynamic_suite.constants import VERSION_PREFIX
 from autotest_lib.server.hosts import afe_store
 from autotest_lib.server.hosts import servo_host
+from autotest_lib.server.hosts import servo_constants
 from autotest_lib.site_utils.deployment import cmdvalidate
 from autotest_lib.site_utils.deployment.prepare import dut as preparedut
 from autotest_lib.utils import labellib
@@ -111,6 +113,7 @@ class _MultiFileWriter(object):
 
     """Group file objects for writing at once."""
 
+    @deprecated
     def __init__(self, files):
         """Initialize _MultiFileWriter.
 
@@ -118,6 +121,7 @@ class _MultiFileWriter(object):
         """
         self._files = files
 
+    @deprecated
     def write(self, s):
         """Write a string to the files.
 
@@ -127,12 +131,14 @@ class _MultiFileWriter(object):
             file.write(s)
 
 
+@deprecated
 def _get_upload_log_path(arguments):
     return 'gs://{bucket}/{name}'.format(
         bucket=_LOG_BUCKET_NAME,
         name=arguments.upload_basename)
 
 
+@deprecated
 def _upload_logs(dirpath, gspath):
     """Upload report logs to Google Storage.
 
@@ -142,6 +148,7 @@ def _upload_logs(dirpath, gspath):
     utils.run(['gsutil', 'cp', '-r', '--', dirpath, gspath])
 
 
+@deprecated
 def _get_omaha_build(board):
     """Get the currently preferred Beta channel build for `board`.
 
@@ -168,10 +175,12 @@ def _get_omaha_build(board):
     return None
 
 
+@deprecated
 def _update_build(afe, report_log, arguments):
     raise RuntimeError("site_utils.deployment::_update_build is intentionally deleted")
 
 
+@deprecated
 def _create_host(hostname, afe, afe_host):
     """Create a CrosHost object for the DUT.
 
@@ -191,6 +200,7 @@ def _create_host(hostname, afe, afe_host):
     return hosts.create_host(machine_dict)
 
 
+@deprecated
 def _try_lock_host(afe_host):
     """Lock a host in the AFE, and report whether it succeeded.
 
@@ -211,6 +221,7 @@ def _try_lock_host(afe_host):
     return True
 
 
+@deprecated
 def _try_unlock_host(afe_host):
     """Unlock a host in the AFE, and report whether it succeeded.
 
@@ -230,6 +241,7 @@ def _try_unlock_host(afe_host):
     return True
 
 
+@deprecated
 def _update_host_attributes(afe, hostname, host_attrs):
     """Update the attributes for a given host.
 
@@ -240,18 +252,19 @@ def _update_host_attributes(afe, hostname, host_attrs):
     """
     s_hostname, s_port, s_serial = _extract_servo_attributes(hostname,
                                                              host_attrs)
-    afe.set_host_attribute(servo_host.SERVO_HOST_ATTR,
+    afe.set_host_attribute(servo_constants.SERVO_HOST_ATTR,
                            s_hostname,
                            hostname=hostname)
-    afe.set_host_attribute(servo_host.SERVO_PORT_ATTR,
+    afe.set_host_attribute(servo_constants.SERVO_PORT_ATTR,
                            s_port,
                            hostname=hostname)
     if s_serial:
-        afe.set_host_attribute(servo_host.SERVO_SERIAL_ATTR,
+        afe.set_host_attribute(servo_constants.SERVO_SERIAL_ATTR,
                                s_serial,
                                hostname=hostname)
 
 
+@deprecated
 def _extract_servo_attributes(hostname, host_attrs):
     """Extract servo attributes from the host attribute dict, setting defaults.
 
@@ -262,14 +275,15 @@ def _extract_servo_attributes(hostname, host_attrs):
     # attributes (because there are no appropriate defaults).  So, if
     # none are supplied, we assume it can't be V4, and apply the
     # defaults for servo V3.
-    s_hostname = (host_attrs.get(servo_host.SERVO_HOST_ATTR) or
+    s_hostname = (host_attrs.get(servo_constants.SERVO_HOST_ATTR) or
                   servo_host.make_servo_hostname(hostname))
-    s_port = (host_attrs.get(servo_host.SERVO_PORT_ATTR) or
+    s_port = (host_attrs.get(servo_constants.SERVO_PORT_ATTR) or
               str(servo_host.ServoHost.DEFAULT_PORT))
-    s_serial = host_attrs.get(servo_host.SERVO_SERIAL_ATTR)
+    s_serial = host_attrs.get(servo_constants.SERVO_SERIAL_ATTR)
     return s_hostname, s_port, s_serial
 
 
+@deprecated
 def _wait_for_idle(afe, host_id):
     """Helper function for `_ensure_host_idle`.
 
@@ -287,6 +301,7 @@ def _wait_for_idle(afe, host_id):
         time.sleep(0.2)
 
 
+@deprecated
 def _ensure_host_idle(afe, afe_host):
     """Abort any special task running on `afe_host`.
 
@@ -300,12 +315,12 @@ def _ensure_host_idle(afe, afe_host):
     @return A true value if the host is idle at return, or a false value
         if the host wasn't idle after some reasonable time.
     """
-    # We need to talk to the shard, not the master, for at least two
+    # We need to talk to the shard, not the main, for at least two
     # reasons:
-    #   * The `abort_special_tasks` RPC doesn't forward from the master
+    #   * The `abort_special_tasks` RPC doesn't forward from the main
     #     to the shard, and only the shard has access to the special
     #     tasks.
-    #   * Host status on the master can lag actual status on the shard
+    #   * Host status on the main can lag actual status on the shard
     #     by several minutes.  Only the shard can provide status
     #     guaranteed to post-date the call to lock the DUT.
     if afe_host.shard:
@@ -318,6 +333,7 @@ def _ensure_host_idle(afe, afe_host):
                              timeout_sec=5.0)[0]
 
 
+@deprecated
 def _get_afe_host(afe, hostname, host_attrs, arguments):
     """Get an AFE Host object for the given host.
 
@@ -372,6 +388,7 @@ def _get_afe_host(afe, hostname, host_attrs, arguments):
     return afe_host, unlock_on_failure
 
 
+@deprecated
 def _ensure_label_in_afe(afe_host, label_name, label_value):
     """Add the given board label, only if one doesn't already exist.
 
@@ -397,6 +414,7 @@ def _ensure_label_in_afe(afe_host, label_name, label_value):
                  afe_host.hostname))
 
 
+@deprecated
 def _create_host_for_installation(host, arguments):
     """Creates a context manager of hosts.CrosHost object for installation.
 
@@ -417,6 +435,7 @@ def _create_host_for_installation(host, arguments):
                                        s_serial, arguments.logdir)
 
 
+@deprecated
 def _install_test_image(host, arguments):
     """Install a test image to the DUT.
 
@@ -473,6 +492,7 @@ def _install_test_image(host, arguments):
             raise Exception('recovery mode validation failed')
 
 
+@deprecated
 def _install_and_update_afe(afe, hostname, host_attrs, arguments):
     """Perform all installation and AFE updates.
 
@@ -529,6 +549,7 @@ def _install_and_update_afe(afe, hostname, host_attrs, arguments):
         raise Exception('Install succeeded, but failed to unlock the DUT.')
 
 
+@deprecated
 def _install_dut(arguments, host_attr_dict, hostname):
     """Deploy or repair a single DUT.
 
@@ -564,6 +585,7 @@ def _install_dut(arguments, host_attr_dict, hostname):
     return None
 
 
+@deprecated
 def _report_hosts(report_log, heading, host_results_list):
     """Report results for a list of hosts.
 
@@ -588,6 +610,7 @@ def _report_hosts(report_log, heading, host_results_list):
     report_log.write('\n')
 
 
+@deprecated
 def _report_results(afe, report_log, hostnames, results, arguments):
     """Gather and report a summary of results from installation.
 
@@ -637,6 +660,7 @@ def _report_results(afe, report_log, hostnames, results, arguments):
         (len(success_reports), len(failure_reports)))
 
 
+@deprecated
 def _clear_root_logger_handlers():
     """Remove all handlers from root logger."""
     root_logger = logging.getLogger()
@@ -644,6 +668,7 @@ def _clear_root_logger_handlers():
         root_logger.removeHandler(h)
 
 
+@deprecated
 def _configure_logging_to_file(logfile):
     """Configure the logging module for `install_duts()`.
 
@@ -657,6 +682,7 @@ def _configure_logging_to_file(logfile):
     root_logger.addHandler(handler)
 
 
+@deprecated
 def _get_used_servo_ports(servo_hostname, afe):
     """
     Return a list of used servo ports for the given servo host.
@@ -668,16 +694,17 @@ def _get_used_servo_ports(servo_hostname, afe):
     """
     used_ports = []
     host_list = afe.get_hosts_by_attribute(
-            attribute=servo_host.SERVO_HOST_ATTR, value=servo_hostname)
+            attribute=servo_constants.SERVO_HOST_ATTR, value=servo_hostname)
     for host in host_list:
         afe_host = afe.get_hosts(hostname=host)
         if afe_host:
-            servo_port = afe_host[0].attributes.get(servo_host.SERVO_PORT_ATTR)
+            servo_port = afe_host[0].attributes.get(servo_constants.SERVO_PORT_ATTR)
             if servo_port:
                 used_ports.append(int(servo_port))
     return used_ports
 
 
+@deprecated
 def _get_free_servo_port(servo_hostname, used_servo_ports, afe):
     """
     Get a free servo port for the servo_host.
@@ -720,6 +747,7 @@ def _get_free_servo_port(servo_hostname, used_servo_ports, afe):
     return servo_port
 
 
+@deprecated
 def _get_afe_servo_port(host_info, afe):
     """
     Get the servo port from the afe if it matches the same servo host hostname.
@@ -736,10 +764,10 @@ def _get_afe_servo_port(host_info, afe):
     if not afe_hosts:
         raise _NoAFEServoPortError
 
-    servo_port = afe_hosts[0].attributes.get(servo_host.SERVO_PORT_ATTR)
-    afe_servo_host = afe_hosts[0].attributes.get(servo_host.SERVO_HOST_ATTR)
+    servo_port = afe_hosts[0].attributes.get(servo_constants.SERVO_PORT_ATTR)
+    afe_servo_host = afe_hosts[0].attributes.get(servo_constants.SERVO_HOST_ATTR)
     host_info_servo_host = host_info.host_attr_dict.get(
-        servo_host.SERVO_HOST_ATTR)
+        servo_constants.SERVO_HOST_ATTR)
 
     if afe_servo_host == host_info_servo_host and servo_port:
         return int(servo_port)
@@ -747,6 +775,7 @@ def _get_afe_servo_port(host_info, afe):
         raise _NoAFEServoPortError
 
 
+@deprecated
 def _get_host_attributes(host_info_list, afe):
     """
     Get host attributes if a hostname_file was supplied.
@@ -766,16 +795,17 @@ def _get_host_attributes(host_info_list, afe):
         # If the host already has an entry in the AFE that matches the same
         # servo host hostname and the servo port is set, use that port.
         try:
-            host_attr_dict[servo_host.SERVO_PORT_ATTR] = _get_afe_servo_port(
+            host_attr_dict[servo_constants.SERVO_PORT_ATTR] = _get_afe_servo_port(
                 host_info, afe)
         except _NoAFEServoPortError:
-            host_attr_dict[servo_host.SERVO_PORT_ATTR] = _get_free_servo_port(
-                host_attr_dict[servo_host.SERVO_HOST_ATTR], used_servo_ports,
+            host_attr_dict[servo_constants.SERVO_PORT_ATTR] = _get_free_servo_port(
+                host_attr_dict[servo_constants.SERVO_HOST_ATTR], used_servo_ports,
                 afe)
         host_attributes[host_info.hostname] = host_attr_dict
     return host_attributes
 
 
+@deprecated
 def _get_cros_repair_image_name(host):
     """Get the CrOS repair image name for given host.
 
@@ -788,6 +818,7 @@ def _get_cros_repair_image_name(host):
     return afe_utils.get_stable_cros_image_name_v2(info)
 
 
+@deprecated
 def install_duts(arguments):
     """Install a test image on DUTs, and deploy them.
 
@@ -848,6 +879,7 @@ def install_duts(arguments):
                              .format(upload_failure_log_path))
 
 
+@deprecated
 def _update_servo_type_attribute(host, host_to_update):
     """Update servo_type attribute for the DUT.
 
@@ -862,6 +894,7 @@ def _update_servo_type_attribute(host, host_to_update):
         host_to_update.host_info_store.commit(info)
 
 
+@deprecated
 def _setup_labstation(host):
     """Do initial setup for labstation host.
 

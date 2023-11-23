@@ -42,6 +42,7 @@ class SingleScanSettings : public ::android::Parcelable {
   ::android::status_t readFromParcel(const ::android::Parcel* parcel) override;
 
   int32_t scan_type_;
+  bool enable_6ghz_rnr_;
   std::vector<ChannelSettings> channel_settings_;
   std::vector<HiddenNetwork> hidden_networks_;
 

@@ -23,10 +23,10 @@ from tensorflow.python.framework import tensor_shape
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import check_ops
 from tensorflow.python.ops import math_ops
-from tensorflow.python.ops.ragged import ragged_array_ops
 from tensorflow.python.ops.ragged import ragged_gather_ops
 from tensorflow.python.ops.ragged import ragged_tensor
 from tensorflow.python.ops.ragged import ragged_util
+from tensorflow.python.util import dispatch
 from tensorflow.python.util.tf_export import tf_export
 
 
@@ -71,6 +71,7 @@ def concat(values, axis, name=None):
 
 
 @tf_export('ragged.stack')
+@dispatch.add_dispatch_support
 def stack(values, axis=0, name=None):
   """Stacks a list of rank-`R` tensors into one rank-`(R+1)` `RaggedTensor`.
 
@@ -105,7 +106,9 @@ def stack(values, axis=0, name=None):
     name: A name prefix for the returned tensor (optional).
 
   Returns:
-    A `RaggedTensor` with rank `R+1`.
+    A `RaggedTensor` with rank `R+1` (if `R>0`).
+    If `R==0`, then the result will be returned as a 1D `Tensor`, since
+    `RaggedTensor` can only be used when `rank>1`.
     `result.ragged_rank=1+max(axis, max(rt.ragged_rank for rt in values]))`.
 
   Raises:
@@ -146,11 +149,8 @@ def _ragged_stack_concat_helper(rt_inputs, axis, stack_values):
   rt_inputs = list(rt_inputs)
 
   # Special case: if there's only one input, then return it as-is.
-  if len(rt_inputs) == 1:
-    if stack_values:
-      return ragged_array_ops.expand_dims(rt_inputs[0], axis=axis)
-    else:
-      return rt_inputs[0]
+  if len(rt_inputs) == 1 and not stack_values:
+    return rt_inputs[0]
 
   # Check the rank (number of dimensions) of the input tensors.
   ndims = None
@@ -161,7 +161,7 @@ def _ragged_stack_concat_helper(rt_inputs, axis, stack_values):
       rt.shape.assert_has_rank(ndims)
 
   out_ndims = ndims if (ndims is None or not stack_values) else ndims + 1
-  axis = ragged_util.get_positive_axis(axis, out_ndims)
+  axis = array_ops.get_positive_axis(axis, out_ndims)
 
   if stack_values and ndims == 1 and axis == 0:
     return ragged_tensor.RaggedTensor.from_row_lengths(
@@ -260,7 +260,7 @@ def _ragged_stack_concat_axis_1(rt_inputs, stack_values):
   ]
 
   with ops.control_dependencies(nrows_checks):
-    # Concatentate the inputs together to put them in a single ragged tensor.
+    # Concatenate the inputs together to put them in a single ragged tensor.
     concatenated_rt = _ragged_stack_concat_axis_0(rt_inputs, stack_values=False)
 
     # Use ragged.gather to permute the rows of concatenated_rt.  In particular,

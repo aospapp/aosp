@@ -1,17 +1,30 @@
-qemu.                   u:object_r:qemu_prop:s0
-qemu.cmdline            u:object_r:qemu_cmdline:s0
-vendor.qemu		u:object_r:qemu_prop:s0
-vendor.network          u:object_r:vendor_net:s0
-ro.aae.simulateMultiZoneAudio u:object_r:hal_audio_default_prop:s0
-ro.emu.                 u:object_r:qemu_prop:s0
-ro.emulator.            u:object_r:qemu_prop:s0
-ro.radio.noril          u:object_r:radio_noril_prop:s0
-net.wlan0.               u:object_r:net_wlan0_prop:s0
-net.eth0.               u:object_r:net_eth0_prop:s0
-net.radio0.             u:object_r:net_radio0_prop:s0
-net.shared_net_ip       u:object_r:net_share_prop:s0
-net.wifi_mac_prefix     u:object_r:net_share_prop:s0
-ro.zygote.disable_gl_preload            u:object_r:qemu_prop:s0
-persist.dumpstate.verbose_logging.enabled u:object_r:hal_dumpstate_default_prop:s0
-bt.rootcanal_mac_address  u:object_r:hal_bluetooth_sim_prop:s0
-bt.rootcanal_test_console  u:object_r:hal_bluetooth_sim_prop:s0
+vendor.qemu.adb.copykey    u:object_r:vendor_qemu_adb_prop:s0 exact bool
+vendor.qemu.keyboard_layout    u:object_r:vendor_qemu_prop:s0 exact string
+vendor.qemu.networknamespace   u:object_r:vendor_qemu_prop:s0 exact string
+vendor.qemu.logcat_filter u:object_r:vendor_qemu_prop:s0 exact string
+vendor.qemu.sf.fake_camera     u:object_r:vendor_qemu_prop:s0 exact string
+vendor.qemu.vport.modem u:object_r:vendor_qemu_prop:s0 exact string
+vendor.qemu.vport.gnss  u:object_r:vendor_qemu_prop:s0 exact string
+vendor.qemu.timezone    u:object_r:vendor_qemu_prop:s0 exact string
+vendor.network.bridged  u:object_r:vendor_net:s0 exact string
+vendor.net.wlan0.gw     u:object_r:vendor_net_wlan0_prop:s0 exact string
+vendor.net.wlan0.dns1   u:object_r:vendor_net_wlan0_prop:s0 exact string
+vendor.net.wlan0.dns2   u:object_r:vendor_net_wlan0_prop:s0 exact string
+vendor.net.wlan0.dns3   u:object_r:vendor_net_wlan0_prop:s0 exact string
+vendor.net.wlan0.dns4   u:object_r:vendor_net_wlan0_prop:s0 exact string
+vendor.net.eth0.gw      u:object_r:vendor_net_eth0_prop:s0 exact string
+vendor.net.eth0.dns1    u:object_r:vendor_net_eth0_prop:s0 exact string
+vendor.net.eth0.dns2    u:object_r:vendor_net_eth0_prop:s0 exact string
+vendor.net.eth0.dns3    u:object_r:vendor_net_eth0_prop:s0 exact string
+vendor.net.eth0.dns4    u:object_r:vendor_net_eth0_prop:s0 exact string
+vendor.net.radio0.gw    u:object_r:vendor_net_radio0_prop:s0 exact string
+vendor.net.radio0.dns1  u:object_r:vendor_net_radio0_prop:s0 exact string
+vendor.net.radio0.dns2  u:object_r:vendor_net_radio0_prop:s0 exact string
+vendor.net.radio0.dns3  u:object_r:vendor_net_radio0_prop:s0 exact string
+vendor.net.radio0.dns4  u:object_r:vendor_net_radio0_prop:s0 exact string
+vendor.net.shared_net_ip       u:object_r:vendor_net_share_prop:s0 exact string
+vendor.net.wifi_mac_prefix     u:object_r:vendor_net_share_prop:s0 exact string
+vendor.bt.rootcanal_mac_address   u:object_r:vendor_bt_rootcanal_prop:s0 exact string
+vendor.bt.rootcanal_test_console  u:object_r:vendor_bt_rootcanal_prop:s0 exact string
+vendor.wlan.firmware.version   u:object_r:vendor_wlan_versions_prop:s0 exact string
+vendor.wlan.driver.version     u:object_r:vendor_wlan_versions_prop:s0 exact string

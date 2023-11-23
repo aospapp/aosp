@@ -30,16 +30,23 @@
     <string name="pk_bluetooth_settings_entry" translatable="false">bluetooth_settings_entry
     </string>
     <string name="pk_location_settings_entry" translatable="false">location_settings_entry</string>
-    <string name="pk_apps_and_notifications_settings_entry" translatable="false">
-        apps_and_notifications_settings_entry
+    <string name="pk_notifications_settings_entry" translatable="false">
+        notifications_settings_entry
     </string>
     <string name="pk_date_time_settings_entry" translatable="false">date_time_settings_entry
     </string>
-    <string name="pk_users_settings_entry" translatable="false">users_settings_entry</string>
-    <string name="pk_accounts_settings_entry" translatable="false">accounts_settings_entry</string>
+    <string name="pk_profiles_and_accounts_settings_entry" translatable="false">
+        profiles_and_accounts_settings_entry
+    </string>
     <string name="pk_privacy_settings_entry" translatable="false">privacy_settings_entry</string>
     <string name="pk_storage_settings_entry" translatable="false">storage_settings_entry</string>
     <string name="pk_security_settings_entry" translatable="false">security_settings_entry</string>
+    <string name="pk_apps_settings_entry" translatable="false">
+        apps_settings_entry
+    </string>
+    <string name="pk_assistant_and_voice_settings_entry" translatable="false">
+        assistant_and_voice_settings_entry
+    </string>
     <string name="pk_system_settings_entry" translatable="false">system_settings_entry</string>
     <string name="pk_device_extra_settings" translatable="false">device_extra_settings</string>
     <string name="pk_personal_extra_settings" translatable="false">personal_extra_settings</string>
@@ -77,6 +84,8 @@
     <string name="pk_wifi_tether_auto_off" translatable="false">wifi_tether_auto_off</string>
     <string name="pk_wifi_tether_password" translatable="false">wifi_tether_password</string>
     <string name="pk_wifi_tether_name" translatable="false">wifi_tether_name</string>
+    <string name="pk_wifi_tether_state_switch" translatable="false">wifi_tether_state_switch
+    </string>
 
     <!-- WIFI -->
     <string name="pk_wifi_settings_entry" translatable="false">wifi_settings_entry</string>
@@ -99,6 +108,14 @@
     <string name="pk_wifi_preferences" translatable="false">wifi_preferences</string>
     <string name="pk_wifi_cellular_fallback" translatable="false">wifi_cellular_fallback</string>
     <string name="pk_enable_wifi_wakeup" translatable="false">enable_wifi_wakeup</string>
+    <string name="pk_wifi_state_switch" translatable="false">wifi_state_switch</string>
+    <string name="pk_wifi_details_header" translatable="false">wifi_details_header
+    </string>
+    <string name="pk_wifi_details_action_buttons" translatable="false">wifi_details_action_buttons
+    </string>
+    <string name="pk_wifi_entry_group" translatable="false">wifi_entry_group</string>
+    <string name="pk_wifi_entry_state_switch" translatable="false">wifi_entry_state_switch</string>
+    <string name="pk_limited_wifi_list" translatable="false">limited_wifi_list</string>
 
     <!-- Bluetooth -->
     <string name="pk_bluetooth_paired_devices" translatable="false">bluetooth_paired_devicesd
@@ -115,11 +132,26 @@
     <string name="pk_bluetooth_device_address" translatable="false">bluetooth_device_address
     </string>
     <string name="pk_bluetooth_device_picker" translatable="false">bluetooth_device_picker</string>
+    <string name="pk_bluetooth_state_switch" translatable="false">bluetooth_state_switch</string>
+    <string name="pk_bluetooth_device_action_buttons" translatable="false">
+        bluetooth_device_action_buttons
+    </string>
 
-    <!-- Applications and Notifications Settings -->
+    <!-- Notifications Settings -->
+    <string name="pk_notifications_settings_recently_sent" translatable="false">
+        notifications_settings_recently_sent
+    </string>
+    <string name="pk_notifications_settings_all_apps" translatable="false">
+        notifications_settings_all_apps
+    </string>
+
+    <!-- Applications Settings -->
     <string name="pk_applications_settings_screen_entry" translatable="false">
         applications_settings_screen_entry
     </string>
+    <string name="pk_recent_apps_group" translatable="false">recent_apps_group</string>
+    <string name="pk_recent_apps_list" translatable="false">recent_apps_list</string>
+    <string name="pk_recent_apps_view_all" translatable="false">recent_apps_view_all</string>
     <string name="pk_default_applications_settings_entry" translatable="false">
         default_applications_entry
     </string>
@@ -133,9 +165,15 @@
     <string name="pk_application_extra_settings" translatable="false">
         application_extra_settings
     </string>
+    <string name="pk_all_applications_settings_hide_system_switch" translatable="false">
+        all_applications_settings_hide_system_switch
+    </string>
 
     <!-- Application Details -->
     <string name="pk_application_details_app" translatable="false">application_details_app</string>
+    <string name="pk_application_details_action_buttons" translatable="false">
+        application_details_action_buttons
+    </string>
     <string name="pk_application_details_notifications" translatable="false">
         application_details_notifications
     </string>
@@ -144,6 +182,15 @@
     </string>
     <string name="pk_application_details_storage" translatable="false">
         application_details_storage
+    </string>
+    <string name="pk_application_details_peak_performance" translatable="false">
+        pk_application_details_peak_performance
+    </string>
+    <string name="pk_hibernation_switch" translatable="false">
+        hibernation_switch
+    </string>
+    <string name="pk_hibernated_apps" translatable="false">
+        hibernated_apps
     </string>
     <string name="pk_application_details_version" translatable="false">
         application_details_version
@@ -185,6 +232,9 @@
     <string name="pk_modify_system_settings_description" translatable="false">
         modify_system_settings_description
     </string>
+    <string name="pk_modify_system_settings_hide_system_switch" translatable="false">
+        modify_system_settings_hide_system_switch
+    </string>
     <string name="pk_notification_access_entry" translatable="false">notification_access_entry
     </string>
     <string name="pk_notification_access" translatable="false">notification_access</string>
@@ -198,26 +248,22 @@
     <string name="pk_usage_access" translatable="false">usage_access</string>
     <string name="pk_usage_access_description" translatable="false">usage_access_description
     </string>
+    <string name="pk_usage_access_hide_system_switch" translatable="false">
+        usage_access_hide_system_switch
+    </string>
     <string name="pk_wifi_control_entry" translatable="false">wifi_control_entry</string>
     <string name="pk_wifi_control" translatable="false">wifi_control</string>
     <string name="pk_wifi_control_description" translatable="false">wifi_control_description
     </string>
-    <string name="pk_more_special_access" translatable="false">more_special_access</string>
-
-    <!-- DateTime Settings -->
-    <string name="pk_auto_datetime_switch" translatable="false">auto_datetime_switch</string>
-    <string name="pk_auto_timezone_switch" translatable="false">auto_timezone_switch</string>
-    <string name="pk_date_picker_entry" translatable="false">date_picker_entry</string>
-    <string name="pk_time_picker_entry" translatable="false">time_picker_entry</string>
-    <string name="pk_timezone_picker_screen_entry" translatable="false">
-        timezone_picker_screen_entry
+    <string name="pk_wifi_control_hide_system_switch" translatable="false">
+        wifi_control_hide_system_switch
     </string>
-    <string name="pk_use_24hour_switch" translatable="false">use_24hour_switch</string>
-    <string name="pk_timezone_picker_screen" translatable="false">timezone_picker_screen</string>
+    <string name="pk_more_special_access" translatable="false">more_special_access</string>
 
     <!-- Accounts -->
     <string name="pk_account_list" translatable="false">account_list</string>
     <string name="pk_account_settings" translatable="false">account_settings</string>
+    <string name="pk_account_settings_add" translatable="false">account_settings_add</string>
     <string name="pk_accounts_extra_settings" translatable="false">accounts_extra_settings</string>
     <string name="pk_account_auto_sync" translatable="false">account_auto_sync</string>
     <string name="pk_add_account" translatable="false">add_account</string>
@@ -226,11 +272,16 @@
     <string name="pk_account_details_with_sync" translatable="false">account_details_with_sync
     </string>
     <string name="pk_account_sync_details" translatable="false">account_sync_details</string>
+    <string name="pk_account_group" translatable="false">account_group</string>
 
     <!-- Privacy -->
+    <string name="pk_privacy_work_policy" translatable="false">privacy_work_policy</string>
     <string name="pk_privacy_manage_perms" translatable="false">privacy_manage_perms</string>
     <string name="pk_show_password" translatable="false">privacy_show_password</string>
     <string name="pk_privacy_extra_settings" translatable="false">privacy_extra_settings</string>
+    <string name="pk_mute_mic_switch" translatable="false">privacy_mute_mic</string>
+    <string name="pk_vehicle_data" translatable="false">vehicle_data</string>
+    <string name="pk_vehicle_data_delete_profile" translatable="false">vehicle_data_delete_profile</string>
 
     <!-- Storage -->
     <string name="pk_storage_music_audio" translatable="false">storage_music_audio</string>
@@ -238,8 +289,14 @@
     </string>
     <string name="pk_storage_music_audio_details" translatable="false">storage_music_audio_details
     </string>
+    <string name="pk_storage_music_audio_details_hide_system_switch" translatable="false">
+        storage_music_audio_details_hide_system_switch
+    </string>
     <string name="pk_storage_other_apps" translatable="false">storage_other_apps</string>
     <string name="pk_storage_other_apps_details" translatable="false">storage_other_apps_details
+    </string>
+    <string name="pk_storage_other_apps_details_hide_system_switch" translatable="false">
+        storage_other_apps_details_hide_system_switch
     </string>
     <string name="pk_storage_application_size" translatable="false">storage_application_size
     </string>
@@ -254,6 +311,9 @@
     </string>
     <string name="pk_storage_application_details" translatable="false">storage_application_details
     </string>
+    <string name="pk_storage_application_action_buttons" translatable="false">
+        storage_application_action_buttons
+    </string>
     <string name="pk_storage_files" translatable="false">storage_files</string>
     <string name="pk_storage_system" translatable="false">storage_system</string>
 
@@ -262,6 +322,16 @@
     </string>
     <string name="pk_brightness_level" translatable="false">brightness_level</string>
     <string name="pk_display_extra_settings" translatable="false">display_extra_settings</string>
+    <!-- DateTime Settings -->
+    <string name="pk_auto_datetime_switch" translatable="false">auto_datetime_switch</string>
+    <string name="pk_auto_timezone_switch" translatable="false">auto_timezone_switch</string>
+    <string name="pk_date_picker_entry" translatable="false">date_picker_entry</string>
+    <string name="pk_time_picker_entry" translatable="false">time_picker_entry</string>
+    <string name="pk_timezone_picker_screen_entry" translatable="false">
+        timezone_picker_screen_entry
+    </string>
+    <string name="pk_use_24hour_switch" translatable="false">use_24hour_switch</string>
+    <string name="pk_timezone_picker_screen" translatable="false">timezone_picker_screen</string>
 
     <!-- Sound Settings -->
     <string name="pk_volume_settings" translatable="false">volume_settings</string>
@@ -269,6 +339,7 @@
     <string name="pk_default_notification" translatable="false">default_notification</string>
     <string name="pk_default_alarm" translatable="false">default_alarm</string>
     <string name="pk_sounds_extra_settings" translatable="false">sounds_extra_settings</string>
+    <string name="pk_ringtone_picker" translatable="false">ringtone_picker</string>
 
     <!-- Units Settings -->
     <string name="pk_units_settings_entry" translatable="false">units_settings_entry</string>
@@ -291,13 +362,23 @@
     </string>
     <string name="pk_location_services" translatable="false">location_services</string>
     <string name="pk_location_footer" translatable="false">location_footer</string>
+    <string name="pk_location_state_switch" translatable="false">location_state_switch</string>
 
-    <!-- Users Settings -->
-    <string name="pk_users_list" translatable="false">users_list</string>
+    <!-- Profiles and Accounts Settings -->
+    <string name="pk_profiles_list" translatable="false">profiles_list</string>
+    <string name="pk_add_profile" translatable="false">add_profile</string>
     <string name="pk_choose_new_admin" translatable="false">choose_new_admin</string>
-    <string name="pk_edit_user_name_entry" translatable="false">edit_user_name_entry</string>
-    <string name="pk_make_user_admin" translatable="false">make_user_admin</string>
-    <string name="pk_user_permissions" translatable="false">user_permissions</string>
+    <string name="pk_profile_details_header" translatable="false">profile_details_header</string>
+    <string name="pk_profile_details_action_buttons" translatable="false">profile_details_action_buttons
+    </string>
+    <string name="pk_profile_details_permissions_header" translatable="false">
+        profile_details_permissions_header
+    </string>
+    <string name="pk_profile_details_permissions_action_buttons" translatable="false">
+        profile_details_permissions_action_buttons
+    </string>
+    <string name="pk_profile_details_delete" translatable="false">profile_details_delete</string>
+    <string name="pk_profile_permissions" translatable="false">profile_permissions</string>
 
     <!-- Security Settings -->
     <string name="pk_no_lock" translatable="false">no_lock</string>
@@ -375,7 +456,7 @@
     <!-- Reset Options -->
     <string name="pk_reset_network" translatable="false">reset_network</string>
     <string name="pk_reset_app_pref" translatable="false">reset_app_pref</string>
-    <string name="pk_master_clear" translatable="false">master_clear</string>
+    <string name="pk_factory_reset" translatable="false">factory_reset</string>
 
     <!-- Reset Network -->
     <string name="pk_reset_network_items" translatable="false">reset_network_items</string>
@@ -383,17 +464,26 @@
     <string name="pk_reset_network_subscription" translatable="false">reset_network_subscription
     </string>
 
-    <!-- Master Clear -->
-    <string name="pk_master_clear_desc" translatable="false">master_clear_desc</string>
-    <string name="pk_master_clear_account_list" translatable="false">master_clear_account_list
+    <!-- Factory Clear -->
+    <string name="pk_factory_reset_desc" translatable="false">factory_reset_desc</string>
+    <string name="pk_factory_reset_account_list" translatable="false">factory_reset_account_list
     </string>
-    <string name="pk_master_clear_other_users_present" translatable="false">
-        master_clear_other_users_present
+    <string name="pk_factory_reset_other_profiles_present" translatable="false">
+        factory_reset_other_profiles_present
     </string>
-    <string name="pk_master_clear_reset_esim" translatable="false">master_clear_reset_esim</string>
-    <string name="pk_master_clear_confirm_desc" translatable="false">master_clear_confirm_desc
+    <string name="pk_factory_reset_reset_esim" translatable="false">factory_reset_reset_esim</string>
+    <string name="pk_factory_reset_confirm_desc" translatable="false">factory_reset_confirm_desc
     </string>
 
     <!-- Developer Options -->
     <string name="pk_usb_debugging_toggle" translatable="false">usb_debugging_toggle</string>
+
+    <!-- Device Admin -->
+    <string name="pk_device_admin_add_header" translatable="false">device_admin_add_header</string>
+    <string name="pk_device_admin_add_explanation" translatable="false">device_admin_add_explanation</string>
+    <string name="pk_device_admin_add_warning" translatable="false">device_admin_add_warning</string>
+    <string name="pk_device_admin_add_policies" translatable="false">device_admin_add_policies</string>
+    <string name="pk_device_admin_add_support" translatable="false">device_admin_add_support</string>
+    <string name="pk_device_admin_add_action" translatable="false">device_admin_add_action</string>
+    <string name="pk_device_admin_add_cancel" translatable="false">device_admin_add_cancel</string>
 </resources>

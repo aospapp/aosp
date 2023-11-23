@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"Elfogadás"</string>
     <string name="reject" msgid="24751635160440693">"Elutasítás"</string>
     <string name="connections" msgid="8895413761760117180">"Kapcsolatok"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"Az alapértelmezett nyomtatási szolgáltatás nem talál Wi-Fi Directet használó nyomtatókat"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Direct tiltása"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Az alapértelmezett nyomtatási szolgáltatásnak helymeghatározási jogosultságra van szüksége ahhoz, hogy megtalálja a közelben lévő eszközöket."</string>
     <string name="fix" msgid="7784394272611365393">"Engedély áttekintése"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"A közelben lévő eszközök megtalálásához az alapértelmezett nyomtatási szolgáltatásnak szüksége van arra, hogy a helyszolgáltatások engedélyezve legyenek."</string>
+    <string name="enable_location" msgid="3627841004298863140">"Hely engedélyezése"</string>
     <string name="print" msgid="7851318072404916362">"Nyomtatás"</string>
 </resources>

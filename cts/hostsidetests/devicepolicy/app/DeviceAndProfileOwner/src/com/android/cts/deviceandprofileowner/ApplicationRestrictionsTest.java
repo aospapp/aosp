@@ -47,7 +47,7 @@ public class ApplicationRestrictionsTest extends BaseDeviceAdminTest {
     private static final String ACTION_RESTRICTIONS_VALUE =
             "com.android.cts.apprestrictions.targetapp.RESTRICTIONS_VALUE";
 
-    private static final String OTHER_PACKAGE = APP_RESTRICTIONS_TARGET_PKG + "dummy";
+    private static final String OTHER_PACKAGE = APP_RESTRICTIONS_TARGET_PKG + "placeholder";
 
     private static final String[] TEST_STRINGS = new String[] {
             "<bad/>",
@@ -112,7 +112,7 @@ public class ApplicationRestrictionsTest extends BaseDeviceAdminTest {
             fail("Expected SecurityException not thrown");
         } catch (SecurityException expected) {
             MoreAsserts.assertContainsRegex(
-                    "Caller with uid \\d+ is not a delegate of scope delegation-app-restrictions.",
+                    "Calling identity is not authorized",
                     expected.getMessage());
         }
         try {
@@ -120,7 +120,7 @@ public class ApplicationRestrictionsTest extends BaseDeviceAdminTest {
             fail("Expected SecurityException not thrown");
         } catch (SecurityException expected) {
             MoreAsserts.assertContainsRegex(
-                    "Caller with uid \\d+ is not a delegate of scope delegation-app-restrictions.",
+                    "Calling identity is not authorized",
                     expected.getMessage());
         }
     }
@@ -291,14 +291,14 @@ public class ApplicationRestrictionsTest extends BaseDeviceAdminTest {
     // Should be consistent with assertBundle1
     private static Bundle createBundle1() {
         Bundle result = new Bundle();
-        result.putInt("dummy", 1);
+        result.putInt("placeholder", 1);
         return result;
     }
 
     // Should be consistent with createBundle1
     private void assertBundle1(Bundle bundle) {
         assertEquals(1, bundle.size());
-        assertEquals(1, bundle.getInt("dummy"));
+        assertEquals(1, bundle.getInt("placeholder"));
     }
 
     private void startTestActivity() {

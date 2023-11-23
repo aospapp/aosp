@@ -5,9 +5,6 @@ init_daemon_domain(hostapd_nohidl)
 net_domain(hostapd_nohidl)
 
 allow hostapd_nohidl execns:fd use;
-
-allow hostapd_nohidl kernel:system module_request;
-
 allow hostapd_nohidl hostapd_data_file:file r_file_perms;
 allow hostapd_nohidl hostapd_data_file:dir r_dir_perms;
 allow hostapd_nohidl self:capability { net_admin net_raw setgid setuid };

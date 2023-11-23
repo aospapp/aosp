@@ -21,6 +21,8 @@ import socket
 import threading
 
 from acts import context
+from acts import utils
+from acts.controllers.adb_lib.error import AdbCommandError
 from acts.controllers.android_device import AndroidDevice
 from acts.controllers.iperf_server import _AndroidDeviceBridge
 from acts.controllers.fuchsia_lib.utils_lib import create_ssh_connection
@@ -34,7 +36,7 @@ from acts.event.event import TestClassBeginEvent
 from acts.event.event import TestClassEndEvent
 from acts.libs.proc import job
 from paramiko.buffered_pipe import PipeTimeout
-ACTS_CONTROLLER_CONFIG_NAME = 'IPerfClient'
+MOBLY_CONTROLLER_CONFIG_NAME = 'IPerfClient'
 ACTS_CONTROLLER_REFERENCE_NAME = 'iperf_clients'
 
 
@@ -173,14 +175,17 @@ class IPerfClientOverSsh(IPerfClientBase):
     """Class that handles iperf3 client operations on remote machines."""
     def __init__(self, ssh_config, use_paramiko=False, test_interface=None):
         self._ssh_settings = settings.from_config(ssh_config)
-        self._use_paramiko = use_paramiko
-        if str(self._use_paramiko) == 'True':
-            self._ssh_session = create_ssh_connection(
-                ip_address=self._ssh_settings.hostname,
-                ssh_username=self._ssh_settings.username,
-                ssh_config=self._ssh_settings.ssh_config)
-        else:
-            self._ssh_session = connection.SshConnection(self._ssh_settings)
+        if not (utils.is_valid_ipv4_address(self._ssh_settings.hostname)
+                or utils.is_valid_ipv6_address(self._ssh_settings.hostname)):
+            mdns_ip = utils.get_fuchsia_mdns_ipv6_address(
+                self._ssh_settings.hostname)
+            if mdns_ip:
+                self._ssh_settings.hostname = mdns_ip
+        # use_paramiko may be passed in as a string (from JSON), so this line
+        # guarantees it is a converted to a bool.
+        self._use_paramiko = str(use_paramiko).lower() == 'true'
+        self._ssh_session = None
+        self.start_ssh()
 
         self.hostname = self._ssh_settings.hostname
         self.test_interface = test_interface
@@ -210,6 +215,8 @@ class IPerfClientOverSsh(IPerfClientBase):
         full_out_path = self._get_full_file_path(tag)
 
         try:
+            if not self._ssh_session:
+                self.start_ssh()
             if self._use_paramiko:
                 if not ssh_is_connected(self._ssh_session):
                     logging.info('Lost SSH connection to %s. Reconnecting.' %
@@ -240,6 +247,26 @@ class IPerfClientOverSsh(IPerfClientBase):
             logging.exception('iperf run failed.')
 
         return full_out_path
+
+    def start_ssh(self):
+        """Starts an ssh session to the iperf client."""
+        if not self._ssh_session:
+            if self._use_paramiko:
+                self._ssh_session = create_ssh_connection(
+                    ip_address=self._ssh_settings.hostname,
+                    ssh_username=self._ssh_settings.username,
+                    ssh_config=self._ssh_settings.ssh_config)
+            else:
+                self._ssh_session = connection.SshConnection(
+                    self._ssh_settings)
+
+    def close_ssh(self):
+        """Closes the ssh session to the iperf client, if one exists, preventing
+        connection reset errors when rebooting client device.
+        """
+        if self._ssh_session:
+            self._ssh_session.close()
+            self._ssh_session = None
 
 
 class IPerfClientOverAdb(IPerfClientBase):
@@ -296,8 +323,8 @@ class IPerfClientOverAdb(IPerfClientBase):
             clean_out = out.split('\n')
             if 'error' in clean_out[0].lower():
                 raise IPerfError(clean_out)
-        except job.TimeoutError:
-            logging.warning('TimeoutError: Iperf measurement timed out.')
+        except (job.TimeoutError, AdbCommandError):
+            logging.warning('TimeoutError: Iperf measurement failed.')
 
         full_out_path = self._get_full_file_path(tag)
         with open(full_out_path, 'w') as out_file:

@@ -47,6 +47,8 @@ LOCAL_HEADER_LIBRARIES := \
     liblocation_api_headers
 
 LOCAL_MODULE := libgps.utils
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_PATH_32 := $(TARGET_OUT_VENDOR)/lib
 LOCAL_MODULE_PATH_64 := $(TARGET_OUT_VENDOR)/lib64
 LOCAL_MODULE_TAGS := optional
@@ -59,6 +61,8 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libgps.utils_headers
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 include $(BUILD_HEADER_LIBRARY)
 

@@ -21,13 +21,20 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "diagnostics.h"
+
+using android::aidl::DiagnosticID;
+using android::aidl::DiagnosticSeverity;
 using std::cerr;
 using std::endl;
 using std::string;
 using std::unique_ptr;
 using std::vector;
+using testing::internal::CaptureStderr;
+using testing::internal::GetCapturedStderr;
 
 namespace android {
 namespace aidl {
@@ -135,23 +142,6 @@ TEST(OptionsTests, ParsesCompileJava) {
   EXPECT_EQ(string{kCompileCommandJavaOutput}, options->OutputFile());
   EXPECT_EQ(false, options->AutoDepFile());
   EXPECT_EQ(false, options->DependencyFileNinja());
-  EXPECT_EQ(false, options->GenParcelableToString());
-
-  const char* argv[] = {
-      "aidl",  "-b", kCompileCommandIncludePath, kCompileCommandInput, "--parcelable-to-string",
-      nullptr,
-  };
-  options = GetOptions(argv);
-  EXPECT_EQ(Options::Task::COMPILE, options->GetTask());
-  EXPECT_EQ(Options::Language::JAVA, options->TargetLanguage());
-  EXPECT_EQ(true, options->FailOnParcelable());
-  EXPECT_EQ(1u, options->ImportDirs().size());
-  EXPECT_EQ(0u, options->PreprocessedFiles().size());
-  EXPECT_EQ(string{kCompileCommandInput}, options->InputFiles().front());
-  EXPECT_EQ(string{kCompileCommandJavaOutput}, options->OutputFile());
-  EXPECT_EQ(false, options->AutoDepFile());
-  EXPECT_EQ(false, options->DependencyFileNinja());
-  EXPECT_EQ(true, options->GenParcelableToString());
 }
 
 TEST(OptionsTests, ParsesCompileJavaNinja) {
@@ -176,27 +166,6 @@ TEST(OptionsTests, ParsesCompileCpp) {
   EXPECT_EQ(kCompileCommandInput, options->InputFiles().front());
   EXPECT_EQ(kCompileCommandHeaderDir, options->OutputHeaderDir());
   EXPECT_EQ(kCompileCommandCppOutput, options->OutputFile());
-  EXPECT_EQ(false, options->GenParcelableToString());
-
-  const char* argv[] = {
-      "aidl-cpp",
-      kCompileCommandIncludePath,
-      kCompileDepFile,
-      kCompileCommandInput,
-      kCompileCommandHeaderDir,
-      kCompileCommandCppOutput,
-      "--parcelable-to-string",
-      nullptr,
-  };
-  options = GetOptions(argv, Options::Language::CPP);
-  ASSERT_EQ(1u, options->ImportDirs().size());
-  EXPECT_EQ(string{kCompileCommandIncludePath}.substr(2), *options->ImportDirs().begin());
-  EXPECT_EQ(string{kCompileDepFile}.substr(2), options->DependencyFile());
-  EXPECT_EQ(false, options->DependencyFileNinja());
-  EXPECT_EQ(kCompileCommandInput, options->InputFiles().front());
-  EXPECT_EQ(kCompileCommandHeaderDir, options->OutputHeaderDir());
-  EXPECT_EQ(kCompileCommandCppOutput, options->OutputFile());
-  EXPECT_EQ(true, options->GenParcelableToString());
 }
 
 TEST(OptionsTests, ParsesCompileCppNinja) {
@@ -237,8 +206,29 @@ TEST(OptionsTests, ParsesCompileJavaMultiInput) {
   EXPECT_EQ(string{"src_out/"}, options->OutputDir());
 }
 
-TEST(OptionsTests, ParsesCompileJavaInvalid) {
+TEST(OptionsTests, ParsesCompileRust) {
+  const char* argv[] = {
+      "aidl",       "--lang=rust",        kCompileCommandIncludePath,
+      "-o src_out", kCompileCommandInput, nullptr,
+  };
+  unique_ptr<Options> options = GetOptions(argv);
+  EXPECT_EQ(Options::Task::COMPILE, options->GetTask());
+  EXPECT_EQ(Options::Language::RUST, options->TargetLanguage());
+  EXPECT_EQ(false, options->FailOnParcelable());
+  EXPECT_EQ(1u, options->ImportDirs().size());
+  EXPECT_EQ(0u, options->PreprocessedFiles().size());
+  EXPECT_EQ(string{kCompileCommandInput}, options->InputFiles().front());
+  EXPECT_EQ(string{""}, options->OutputFile());
+  EXPECT_EQ(string{""}, options->OutputHeaderDir());
+  EXPECT_EQ(string{"src_out/"}, options->OutputDir());
+  EXPECT_EQ(false, options->AutoDepFile());
+  EXPECT_EQ(false, options->DependencyFileNinja());
+}
+
+TEST(OptionsTests, ParsesCompileJavaInvalid_OutRequired) {
   // -o option is required
+  string expected_error = "Output directory is not set. Set with --out.";
+  CaptureStderr();
   const char* arg_with_no_out_dir[] = {
       "aidl",
       "--lang=java",
@@ -249,7 +239,12 @@ TEST(OptionsTests, ParsesCompileJavaInvalid) {
       nullptr,
   };
   EXPECT_EQ(false, GetOptions(arg_with_no_out_dir)->Ok());
+  EXPECT_THAT(GetCapturedStderr(), testing::HasSubstr(expected_error));
+}
 
+TEST(OptionsTests, ParsesCompileJavaInvalid_RejectHeaderOut) {
+  string expected_error = "Header output directory is set, which does not make sense for Java.";
+  CaptureStderr();
   // -h options is not for Java
   const char* arg_with_header_dir[] = {
       "aidl",          "--lang=java",           kCompileCommandIncludePath, "-o src_out",
@@ -257,6 +252,7 @@ TEST(OptionsTests, ParsesCompileJavaInvalid) {
       nullptr,
   };
   EXPECT_EQ(false, GetOptions(arg_with_header_dir)->Ok());
+  EXPECT_THAT(GetCapturedStderr(), testing::HasSubstr(expected_error));
 }
 
 TEST(OptionsTests, ParsesCompileCppMultiInput) {
@@ -287,8 +283,10 @@ TEST(OptionsTests, ParsesCompileCppMultiInput) {
   EXPECT_EQ(string{"src_out/"}, options->OutputDir());
 }
 
-TEST(OptionsTests, ParsesCompileCppInvalid) {
+TEST(OptionsTests, ParsesCompileCppInvalid_OutRequired) {
   // -o option is required
+  string expected_error = "Output directory is not set. Set with --out.";
+  CaptureStderr();
   const char* arg_with_no_out_dir[] = {
       "aidl",
       "--lang=cpp",
@@ -299,8 +297,13 @@ TEST(OptionsTests, ParsesCompileCppInvalid) {
       nullptr,
   };
   EXPECT_EQ(false, GetOptions(arg_with_no_out_dir)->Ok());
+  EXPECT_THAT(GetCapturedStderr(), testing::HasSubstr(expected_error));
+}
 
+TEST(OptionsTests, ParsesCompileCppInvalid_HeaderOutRequired) {
   // -h options is required as well
+  string expected_error = "Header output directory is not set. Set with --header_out";
+  CaptureStderr();
   const char* arg_with_no_header_dir[] = {
       "aidl",
       "--lang=cpp",
@@ -312,6 +315,134 @@ TEST(OptionsTests, ParsesCompileCppInvalid) {
       nullptr,
   };
   EXPECT_EQ(false, GetOptions(arg_with_no_header_dir)->Ok());
+  EXPECT_THAT(GetCapturedStderr(), testing::HasSubstr(expected_error));
+}
+
+TEST(OptionsTests, ParsesCompileRustInvalid_OutRequired) {
+  // -o option is required
+  string expected_error = "Output directory is not set. Set with --out";
+  CaptureStderr();
+  const char* arg_with_no_out_dir[] = {
+      "aidl",
+      "--lang=rust",
+      kCompileCommandIncludePath,
+      "directory/input1.aidl",
+      "directory/input2.aidl",
+      "directory/input3.aidl",
+      nullptr,
+  };
+  EXPECT_EQ(false, GetOptions(arg_with_no_out_dir)->Ok());
+  EXPECT_THAT(GetCapturedStderr(), testing::HasSubstr(expected_error));
+}
+
+TEST(OptionsTests, ParsesCompileRustInvalid_RejectHeaderOut) {
+  string expected_error = "Header output directory is set, which does not make sense for Rust.";
+  CaptureStderr();
+  // -h options is not for Rust
+  const char* arg_with_header_dir[] = {
+      "aidl",          "--lang=rust",           kCompileCommandIncludePath, "-o src_out",
+      "-h header_out", "directory/input1.aidl", "directory/input2.aidl",    "directory/input3.aidl",
+      nullptr,
+  };
+  EXPECT_EQ(false, GetOptions(arg_with_header_dir)->Ok());
+  EXPECT_THAT(GetCapturedStderr(), testing::HasSubstr(expected_error));
+}
+
+TEST(OptionsTests, ParsesWarningEnableAll) {
+  const char* args[] = {
+      "aidl", "--lang=java", "-Weverything", "--out=out", "input.aidl", nullptr,
+  };
+  auto options = GetOptions(args);
+  EXPECT_TRUE(options->Ok());
+  auto mapping = options->GetDiagnosticMapping();
+  EXPECT_EQ(DiagnosticSeverity::WARNING, mapping.Severity(DiagnosticID::interface_name));
+}
+
+TEST(OptionsTests, ParsesWarningEnableSpecificWarning) {
+  const char* args[] = {
+      "aidl", "--lang=java", "-Winterface-name", "--out=out", "input.aidl", nullptr,
+  };
+  auto options = GetOptions(args);
+  EXPECT_TRUE(options->Ok());
+  auto mapping = options->GetDiagnosticMapping();
+  EXPECT_EQ(DiagnosticSeverity::WARNING, mapping.Severity(DiagnosticID::interface_name));
+}
+
+TEST(OptionsTests, ParsesWarningDisableSpecificWarning) {
+  const char* args[] = {
+      "aidl",      "--lang=java", "-Weverything", "-Wno-interface-name",
+      "--out=out", "input.aidl",  nullptr,
+  };
+  auto options = GetOptions(args);
+  EXPECT_TRUE(options->Ok());
+  auto mapping = options->GetDiagnosticMapping();
+  EXPECT_EQ(DiagnosticSeverity::DISABLED, mapping.Severity(DiagnosticID::interface_name));
+}
+
+TEST(OptionsTests, ParsesWarningAsErrors) {
+  const char* args[] = {
+      "aidl", "--lang=java", "-Werror", "-Weverything", "--out=out", "input.aidl", nullptr,
+  };
+  auto options = GetOptions(args);
+  EXPECT_TRUE(options->Ok());
+  auto mapping = options->GetDiagnosticMapping();
+  EXPECT_EQ(DiagnosticSeverity::ERROR, mapping.Severity(DiagnosticID::interface_name));
+}
+
+TEST(OptionsTests, RejectsUnknownWarning) {
+  const char* args[] = {
+      "aidl", "--lang=java", "-Wfoobar", "--out=out", "input.aidl", nullptr,
+  };
+  CaptureStderr();
+  auto options = GetOptions(args);
+  EXPECT_FALSE(options->Ok());
+  EXPECT_THAT(GetCapturedStderr(), testing::HasSubstr("unknown warning: foobar"));
+}
+
+TEST(OptionsTests, CheckApi) {
+  const char* args[] = {
+      "aidl", "--checkapi", "old", "new", nullptr,
+  };
+  CaptureStderr();
+  auto options = GetOptions(args);
+  EXPECT_TRUE(options->Ok());
+  EXPECT_EQ("", GetCapturedStderr());
+  EXPECT_EQ(Options::Task::CHECK_API, options->GetTask());
+  EXPECT_EQ(Options::CheckApiLevel::COMPATIBLE, options->GetCheckApiLevel());
+}
+
+TEST(OptionsTests, CheckApiWithCompatible) {
+  const char* args[] = {
+      "aidl", "--checkapi=compatible", "old", "new", nullptr,
+  };
+  CaptureStderr();
+  auto options = GetOptions(args);
+  EXPECT_TRUE(options->Ok());
+  EXPECT_EQ("", GetCapturedStderr());
+  EXPECT_EQ(Options::Task::CHECK_API, options->GetTask());
+  EXPECT_EQ(Options::CheckApiLevel::COMPATIBLE, options->GetCheckApiLevel());
+}
+
+TEST(OptionsTests, CheckApiWithEqual) {
+  const char* args[] = {
+      "aidl", "--checkapi=equal", "old", "new", nullptr,
+  };
+  CaptureStderr();
+  auto options = GetOptions(args);
+  EXPECT_TRUE(options->Ok());
+  EXPECT_EQ("", GetCapturedStderr());
+  EXPECT_EQ(Options::Task::CHECK_API, options->GetTask());
+  EXPECT_EQ(Options::CheckApiLevel::EQUAL, options->GetCheckApiLevel());
+}
+
+TEST(OptionsTests, CheckApiWithUnknown) {
+  const char* args[] = {
+      "aidl", "--checkapi=unknown", "old", "new", nullptr,
+  };
+  CaptureStderr();
+  auto options = GetOptions(args);
+  EXPECT_FALSE(options->Ok());
+  EXPECT_THAT(GetCapturedStderr(), testing::HasSubstr("Unsupported --checkapi level: 'unknown'"));
 }
 
 }  // namespace aidl

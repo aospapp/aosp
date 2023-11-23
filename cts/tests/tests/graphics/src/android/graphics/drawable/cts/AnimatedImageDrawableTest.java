@@ -121,15 +121,27 @@ public class AnimatedImageDrawableTest {
     }
 
     private AnimatedImageDrawable createFromImageDecoder(int resId) {
-        Uri uri = null;
+        Uri uri = Utils.getAsResourceUri(resId);
         try {
-            uri = Utils.getAsResourceUri(resId);
             ImageDecoder.Source source = ImageDecoder.createSource(getContentResolver(), uri);
             Drawable drawable = ImageDecoder.decodeDrawable(source);
             assertTrue(drawable instanceof AnimatedImageDrawable);
             return (AnimatedImageDrawable) drawable;
         } catch (IOException e) {
             fail("failed to create image from " + uri);
+            return null;
+        }
+    }
+
+    private Bitmap decodeBitmap(int resId) {
+        Uri uri = Utils.getAsResourceUri(resId);
+        try {
+            ImageDecoder.Source source = ImageDecoder.createSource(getContentResolver(), uri);
+            return ImageDecoder.decodeBitmap(source, (decoder, info, src) -> {
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+            });
+        } catch (IOException e) {
+            fail("Failed to create Bitmap from " + uri);
             return null;
         }
     }
@@ -426,7 +438,7 @@ public class AnimatedImageDrawableTest {
         assertTrue(drawable.isRunning());
     }
 
-    private static Object[] parametersForTestEncodedRepeats() {
+    public static Object[] parametersForTestEncodedRepeats() {
         return new Object[] {
             new Object[] { R.drawable.animated, AnimatedImageDrawable.REPEAT_INFINITE },
             new Object[] { R.drawable.animated_one_loop, 1 },
@@ -477,6 +489,35 @@ public class AnimatedImageDrawableTest {
                 }
             }
         }
+    }
+
+    @Test
+    public void testExif() {
+        // This animation has an exif orientation that makes it match R.drawable.animated (RES_ID).
+        AnimatedImageDrawable exifAnimation = createFromImageDecoder(R.drawable.animated_webp);
+
+        Bitmap expected = decodeBitmap(RES_ID);
+        final int width = expected.getWidth();
+        final int height = expected.getHeight();
+
+        assertEquals(width, exifAnimation.getIntrinsicWidth());
+        assertEquals(height, exifAnimation.getIntrinsicHeight());
+
+        Bitmap actual = Bitmap.createBitmap(width, height, expected.getConfig(),
+                expected.hasAlpha(), expected.getColorSpace());
+        {
+            Canvas canvas = new Canvas(actual);
+            exifAnimation.setBounds(0, 0, width, height);
+            exifAnimation.draw(canvas);
+        }
+
+        // mseMargin was chosen by looking at the logs. The images are not exactly
+        // the same due to the fact that animated_webp's frames are encoded lossily,
+        // but the two images are perceptually identical.
+        final int mseMargin = 143;
+        final boolean lessThanMargin = true;
+        BitmapUtils.assertBitmapsMse(expected, actual, mseMargin, lessThanMargin,
+                expected.isPremultiplied());
     }
 
     @Test

@@ -71,8 +71,6 @@ func (c *notOnHostContext) Host() bool {
 }
 
 func makeVarsProvider(ctx android.MakeVarsContext) {
-	vendorPublicLibraries := vendorPublicLibraries(ctx.Config())
-
 	ctx.Strict("LLVM_RELEASE_VERSION", "${config.ClangShortVersion}")
 	ctx.Strict("LLVM_PREBUILTS_VERSION", "${config.ClangVersion}")
 	ctx.Strict("LLVM_PREBUILTS_BASE", "${config.ClangBase}")
@@ -97,16 +95,16 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	ctx.Strict("CLANG_EXTERNAL_CFLAGS", "${config.ClangExternalCflags}")
 	ctx.Strict("GLOBAL_CLANG_CFLAGS_NO_OVERRIDE", "${config.NoOverrideClangGlobalCflags}")
 	ctx.Strict("GLOBAL_CLANG_CPPFLAGS_NO_OVERRIDE", "")
-	ctx.Strict("NDK_PREBUILT_SHARED_LIBRARIES", strings.Join(ndkPrebuiltSharedLibs, " "))
 
 	ctx.Strict("BOARD_VNDK_VERSION", ctx.DeviceConfig().VndkVersion())
+	ctx.Strict("RECOVERY_SNAPSHOT_VERSION", ctx.DeviceConfig().RecoverySnapshotVersion())
 
 	// Filter vendor_public_library that are exported to make
 	exportedVendorPublicLibraries := []string{}
 	ctx.VisitAllModules(func(module android.Module) {
 		if ccModule, ok := module.(*Module); ok {
 			baseName := ccModule.BaseModuleName()
-			if inList(baseName, *vendorPublicLibraries) && module.ExportedToMake() {
+			if ccModule.IsVendorPublicLibrary() && module.ExportedToMake() {
 				if !inList(baseName, exportedVendorPublicLibraries) {
 					exportedVendorPublicLibraries = append(exportedVendorPublicLibraries, baseName)
 				}
@@ -149,22 +147,11 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	ctx.Strict("AIDL_CPP", "${aidlCmd}")
 	ctx.Strict("ALLOWED_MANUAL_INTERFACE_PATHS", strings.Join(allowedManualInterfacePaths, " "))
 
-	ctx.Strict("M4", "${m4Cmd}")
-
 	ctx.Strict("RS_GLOBAL_INCLUDES", "${config.RsGlobalIncludes}")
 
 	ctx.Strict("SOONG_STRIP_PATH", "${stripPath}")
 	ctx.Strict("XZ", "${xzCmd}")
-
-	nativeHelperIncludeFlags, err := ctx.Eval("${config.CommonNativehelperInclude}")
-	if err != nil {
-		panic(err)
-	}
-	nativeHelperIncludes, nativeHelperSystemIncludes := splitSystemIncludes(ctx, nativeHelperIncludeFlags)
-	if len(nativeHelperSystemIncludes) > 0 {
-		panic("native helper may not have any system includes")
-	}
-	ctx.Strict("JNI_H_INCLUDE", strings.Join(nativeHelperIncludes, " "))
+	ctx.Strict("CREATE_MINIDEBUGINFO", "${createMiniDebugInfo}")
 
 	includeFlags, err := ctx.Eval("${config.CommonGlobalIncludes}")
 	if err != nil {
@@ -174,8 +161,9 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	ctx.StrictRaw("SRC_HEADERS", strings.Join(includes, " "))
 	ctx.StrictRaw("SRC_SYSTEM_HEADERS", strings.Join(systemIncludes, " "))
 
-	sort.Strings(ndkMigratedLibs)
-	ctx.Strict("NDK_MIGRATED_LIBS", strings.Join(ndkMigratedLibs, " "))
+	ndkKnownLibs := *getNDKKnownLibs(ctx.Config())
+	sort.Strings(ndkKnownLibs)
+	ctx.Strict("NDK_KNOWN_LIBS", strings.Join(ndkKnownLibs, " "))
 
 	hostTargets := ctx.Config().Targets[android.BuildOs]
 	makeVarsToolchain(ctx, "", hostTargets[0])
@@ -291,17 +279,20 @@ func makeVarsToolchain(ctx android.MakeVarsContext, secondPrefix string,
 		ctx.Strict(makePrefix+"STRIP", "${config.MacStripPath}")
 	} else {
 		ctx.Strict(makePrefix+"AR", "${config.ClangBin}/llvm-ar")
-		ctx.Strict(makePrefix+"READELF", gccCmd(toolchain, "readelf"))
-		ctx.Strict(makePrefix+"NM", gccCmd(toolchain, "nm"))
-		ctx.Strict(makePrefix+"STRIP", gccCmd(toolchain, "strip"))
+		ctx.Strict(makePrefix+"READELF", "${config.ClangBin}/llvm-readelf")
+		ctx.Strict(makePrefix+"NM", "${config.ClangBin}/llvm-nm")
+		ctx.Strict(makePrefix+"STRIP", "${config.ClangBin}/llvm-strip")
 	}
 
 	if target.Os.Class == android.Device {
-		ctx.Strict(makePrefix+"OBJCOPY", gccCmd(toolchain, "objcopy"))
-		ctx.Strict(makePrefix+"LD", gccCmd(toolchain, "ld"))
-		ctx.Strict(makePrefix+"GCC_VERSION", toolchain.GccVersion())
+		ctx.Strict(makePrefix+"OBJCOPY", "${config.ClangBin}/llvm-objcopy")
+		ctx.Strict(makePrefix+"LD", "${config.ClangBin}/lld")
 		ctx.Strict(makePrefix+"NDK_TRIPLE", config.NDKTriple(toolchain))
+		// TODO: work out whether to make this "${config.ClangBin}/llvm-", which
+		// should mostly work, or remove it.
 		ctx.Strict(makePrefix+"TOOLS_PREFIX", gccCmd(toolchain, ""))
+		// TODO: GCC version is obsolete now that GCC has been removed.
+		ctx.Strict(makePrefix+"GCC_VERSION", toolchain.GccVersion())
 	}
 
 	if target.Os.Class == android.Host {

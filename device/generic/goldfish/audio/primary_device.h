@@ -16,8 +16,9 @@
 
 #pragma once
 #include <android/hardware/audio/6.0/IPrimaryDevice.h>
-#include <atomic>
-#include "talsa.h"
+#include <mutex>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace android {
 namespace hardware {
@@ -33,6 +34,9 @@ using ::android::hardware::Return;
 
 using namespace ::android::hardware::audio::common::V6_0;
 using namespace ::android::hardware::audio::V6_0;
+
+struct StreamIn;
+struct StreamOut;
 
 struct PrimaryDevice : public IPrimaryDevice {
     PrimaryDevice();
@@ -62,11 +66,11 @@ struct PrimaryDevice : public IPrimaryDevice {
     Return<void> createAudioPatch(const hidl_vec<AudioPortConfig>& sources,
                                   const hidl_vec<AudioPortConfig>& sinks,
                                   createAudioPatch_cb _hidl_cb) override;
-    Return<void> updateAudioPatch(int32_t previousPatch,
+    Return<void> updateAudioPatch(AudioPatchHandle previousPatch,
                                   const hidl_vec<AudioPortConfig>& sources,
                                   const hidl_vec<AudioPortConfig>& sinks,
                                   updateAudioPatch_cb _hidl_cb) override;
-    Return<Result> releaseAudioPatch(int32_t patch) override;
+    Return<Result> releaseAudioPatch(AudioPatchHandle patch) override;
     Return<void> getAudioPort(const AudioPort& port, getAudioPort_cb _hidl_cb) override;
     Return<Result> setAudioPortConfig(const AudioPortConfig& config) override;
     Return<Result> setScreenState(bool turnedOn) override;
@@ -99,15 +103,29 @@ struct PrimaryDevice : public IPrimaryDevice {
     Return<Result> updateRotation(IPrimaryDevice::Rotation rotation) override;
 
 private:
-    static void unrefDevice(IDevice*);
-    void unrefDeviceImpl();
+    friend StreamIn;
+    friend StreamOut;
 
-    talsa::MixerPtr     mMixer;
-    talsa::mixer_ctl_t  *mMixerMasterVolumeCtl = nullptr;
-    talsa::mixer_ctl_t  *mMixerCaptureVolumeCtl = nullptr;
-    talsa::mixer_ctl_t  *mMixerMasterPaybackSwitchCtl = nullptr;
-    talsa::mixer_ctl_t  *mMixerCaptureSwitchCtl = nullptr;
-    std::atomic<int>    mNStreams = 0;
+    void unrefDevice(StreamIn *);
+    void unrefDevice(StreamOut *);
+    void updateOutputStreamVolume(float masterVolume) const;
+    void updateInputStreamMicMute(bool micMute) const;
+
+    struct AudioPatch {
+        AudioPortConfig source;
+        AudioPortConfig sink;
+    };
+
+    AudioPatchHandle    mNextAudioPatchHandle = 0;
+    std::unordered_map<AudioPatchHandle, AudioPatch> mAudioPatches;
+
+    std::unordered_set<StreamIn *>  mInputStreams;  // requires mMutex
+    std::unordered_set<StreamOut *> mOutputStreams; // requires mMutex
+    mutable std::mutex mMutex;
+
+    float  mMasterVolume = 1.0f;
+    bool   mMasterMute = false;
+    bool   mMicMute = false;
 };
 
 }  // namespace implementation

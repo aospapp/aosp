@@ -68,10 +68,14 @@
     <string name="security" msgid="2279008326210305401">"ସୁରକ୍ଷା"</string>
     <string name="certificate_update_request" msgid="1314796413107139475">"ଏହି ପ୍ରିଣ୍ଟର୍ ଏକ ନୂଆ ସୁରକ୍ଷା ସାର୍ଟିଫିକେଟ୍ ପ୍ରଦାନ କରିଛି କିମ୍ବା ଅନ୍ୟ ଏକ ଡିଭାଇସ୍ ଏହାକୁ ପ୍ରତିରୂପଣ କରୁଛି। ନୂଆ ସାର୍ଟିଫିକେଟ୍ ସ୍ୱୀକାର କରିବେ?"</string>
     <string name="not_encrypted_request" msgid="4871472176807381642">"ଏହି ପ୍ରିଣ୍ଟର୍‌ ଏନ୍‌କ୍ରିପ୍ଟ ହୋ‍ଇଥିବା କାର୍ଯ୍ୟ ଆଉ ଗ୍ରହଣ କରୁନାହିଁ ପ୍ରିଣ୍ଟିଂ ଜାରି ରଖିବେ?"</string>
-    <string name="accept" msgid="4426153292469698134">"କଲ୍ ଉଠାନ୍ତୁ"</string>
+    <string name="accept" msgid="4426153292469698134">"ଗ୍ରହଣ କରନ୍ତୁ"</string>
     <string name="reject" msgid="24751635160440693">"ଅଗ୍ରାହ୍ୟ କରନ୍ତୁ"</string>
     <string name="connections" msgid="8895413761760117180">"ସଂଯୋଗଗୁଡ଼ିକ"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"Wi-Fi Direct ପ୍ରିଣ୍ଟରଗୁଡ଼ିକୁ ଡିଫଲ୍ଟ ପ୍ରିଣ୍ଟ ସେବା ଖୋଜିପାରିବ ନାହିଁ"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Direct ଅକ୍ଷମ"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ନିକଟସ୍ଥ ଡିଭାଇସ୍‍ଗୁଡ଼ିକୁ ଖୋଜିବା ପାଇଁ ଡିଫଲ୍ଟ ପ୍ରିଣ୍ଟ ସେବା ଲୋକେସନ୍‍ ଅନୁମତି ଆବଶ୍ୟକ କରୁଛି।"</string>
     <string name="fix" msgid="7784394272611365393">"ସମୀକ୍ଷା ଅନୁମତି"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"ଆଖପାଖରେ ଥିବା ଡିଭାଇସଗୁଡ଼ିକୁ ଖୋଜି ପାଇବା ପାଇଁ ଡିଫଲ୍ଟ ପ୍ରିଣ୍ଟ ସେବା ଲୋକେସନ୍ ସେବାଗୁଡ଼ିକୁ ସକ୍ଷମ କରାଯିବା ଆବଶ୍ୟକ କରେ।"</string>
+    <string name="enable_location" msgid="3627841004298863140">"ଲୋକେସନ୍ ସକ୍ଷମ କରନ୍ତୁ"</string>
     <string name="print" msgid="7851318072404916362">"ପ୍ରିଣ୍ଟ କରନ୍ତୁ"</string>
 </resources>

@@ -8,13 +8,14 @@
 #include <glib-object.h>
 #include <stdint.h>
 
-#include <base/logging.h>
-#include <base/macros.h>
-
 #include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <utility>
+
+#include <base/logging.h>
+#include <base/macros.h>
 
 namespace brillo {
 

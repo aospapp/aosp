@@ -19,6 +19,8 @@
 DEVICE_INFO_PACKAGE := com.android.compatibility.common.deviceinfo
 DEVICE_INFO_INSTRUMENT := androidx.test.runner.AndroidJUnitRunner
 DEVICE_INFO_USES_LIBRARY := android.test.runner
+DEVICE_INFO_USES_OPTIONAL_LIBRARIES := \
+  androidx.window.sidecar
 DEVICE_INFO_PERMISSIONS += \
   android.permission.READ_PHONE_STATE \
   android.permission.WRITE_EXTERNAL_STORAGE
@@ -35,11 +37,11 @@ DEVICE_INFO_ACTIVITIES += \
   $(DEVICE_INFO_PACKAGE).MediaDeviceInfo \
   $(DEVICE_INFO_PACKAGE).MemoryDeviceInfo \
   $(DEVICE_INFO_PACKAGE).PackageDeviceInfo \
-  $(DEVICE_INFO_PACKAGE).PropertyDeviceInfo \
   $(DEVICE_INFO_PACKAGE).ScreenDeviceInfo \
   $(DEVICE_INFO_PACKAGE).StorageDeviceInfo \
   $(DEVICE_INFO_PACKAGE).UserDeviceInfo \
-  $(DEVICE_INFO_PACKAGE).VintfDeviceInfo
+  $(DEVICE_INFO_PACKAGE).VintfDeviceInfo \
+  com.android.compatibility.common.util.DummyActivity
 
 ifeq ($(DEVICE_INFO_MIN_SDK),)
 DEVICE_INFO_MIN_SDK := 8
@@ -61,6 +63,7 @@ manifest_xml := $(call intermediates-dir-for,APPS,$(LOCAL_PACKAGE_NAME))/Android
 $(manifest_xml): PRIVATE_INFO_PERMISSIONS := $(foreach permission, $(DEVICE_INFO_PERMISSIONS),-r $(permission))
 $(manifest_xml): PRIVATE_INFO_ACTIVITIES := $(foreach activity,$(DEVICE_INFO_ACTIVITIES),-a $(activity))
 $(manifest_xml): PRIVATE_USES_LIBRARY := $(DEVICE_INFO_USES_LIBRARY)
+$(manifest_xml): PRIVATE_USES_OPTIONAL_LIBRARIES := $(foreach library,$(DEVICE_INFO_USES_OPTIONAL_LIBRARIES),-lo $(library))
 $(manifest_xml): PRIVATE_PACKAGE := $(DEVICE_INFO_PACKAGE)
 $(manifest_xml): PRIVATE_INSTRUMENT := $(DEVICE_INFO_INSTRUMENT)
 $(manifest_xml): PRIVATE_MIN_SDK := $(DEVICE_INFO_MIN_SDK)
@@ -74,6 +77,7 @@ $(manifest_xml): $(MANIFEST_GENERATOR_JAR) $(LOCAL_PATH)/Android.mk cts/build/de
 						$(PRIVATE_INFO_PERMISSIONS) \
 						$(PRIVATE_INFO_ACTIVITIES) \
 						-l $(PRIVATE_USES_LIBRARY) \
+						$(PRIVATE_USES_OPTIONAL_LIBRARIES) \
 						-p $(PRIVATE_PACKAGE) \
 						-i $(PRIVATE_INSTRUMENT) \
 						-s $(PRIVATE_MIN_SDK) \

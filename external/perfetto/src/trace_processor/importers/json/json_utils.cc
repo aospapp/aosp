@@ -22,6 +22,7 @@
 
 #if PERFETTO_BUILDFLAG(PERFETTO_TP_JSON)
 #include <json/reader.h>
+#include "perfetto/ext/base/string_utils.h"
 #endif
 
 namespace perfetto {
@@ -51,17 +52,26 @@ base::Optional<int64_t> CoerceToTs(TimeUnit unit, const Json::Value& value) {
 #if PERFETTO_BUILDFLAG(PERFETTO_TP_JSON)
   switch (static_cast<size_t>(value.type())) {
     case Json::realValue:
-      return static_cast<int64_t>(value.asDouble() * TimeUnitToNs(unit));
+      return static_cast<int64_t>(value.asDouble() *
+                                  static_cast<double>(TimeUnitToNs(unit)));
     case Json::uintValue:
     case Json::intValue:
       return value.asInt64() * TimeUnitToNs(unit);
     case Json::stringValue: {
       std::string s = value.asString();
-      char* end;
-      int64_t n = strtoll(s.c_str(), &end, 10);
-      if (end != s.data() + s.size())
+      size_t lhs_end = std::min<size_t>(s.find('.'), s.size());
+      size_t rhs_start = std::min<size_t>(lhs_end + 1, s.size());
+      base::Optional<int64_t> lhs = base::StringToInt64(s.substr(0, lhs_end));
+      base::Optional<double> rhs =
+          base::StringToDouble("0." + s.substr(rhs_start, std::string::npos));
+      if ((!lhs.has_value() && lhs_end > 0) ||
+          (!rhs.has_value() && rhs_start < s.size())) {
         return base::nullopt;
-      return n * TimeUnitToNs(unit);
+      }
+      int64_t factor = TimeUnitToNs(unit);
+      return lhs.value_or(0) * factor +
+             static_cast<int64_t>(rhs.value_or(0) *
+                                  static_cast<double>(factor));
     }
     default:
       return base::nullopt;
@@ -121,10 +131,12 @@ base::Optional<Json::Value> ParseJsonString(base::StringView raw_string) {
   PERFETTO_DCHECK(IsJsonSupported());
 
 #if PERFETTO_BUILDFLAG(PERFETTO_TP_JSON)
-  Json::Reader reader;
+  Json::CharReaderBuilder b;
+  auto reader = std::unique_ptr<Json::CharReader>(b.newCharReader());
+
   Json::Value value;
   const char* begin = raw_string.data();
-  return reader.parse(begin, begin + raw_string.size(), value)
+  return reader->parse(begin, begin + raw_string.size(), &value, nullptr)
              ? base::make_optional(std::move(value))
              : base::nullopt;
 #else
@@ -145,7 +157,7 @@ bool AddJsonValueToArgs(const Json::Value& value,
     auto it = value.begin();
     bool inserted = false;
     for (; it != value.end(); ++it) {
-      std::string child_name = it.memberName();
+      std::string child_name = it.name();
       std::string child_flat_key = flat_key.ToStdString() + "." + child_name;
       std::string child_key = key.ToStdString() + "." + child_name;
       inserted |=

@@ -21,7 +21,7 @@ config SNTP
     -a	Adjust system clock gradually
     -S	Serve time instead of querying (bind to SERVER address if specified)
     -m	Wait for updates from multicast ADDRESS (RFC 4330 default 224.0.1.1)
-    -M	Multicast server on ADDRESS (deault 224.0.0.1)
+    -M	Multicast server on ADDRESS (default 224.0.0.1)
     -t	TTL (multicast only, default 1)
     -d	Daemonize (run in background re-querying )
     -D	Daemonize but stay in foreground: re-query time every 1000 seconds
@@ -78,6 +78,8 @@ void sntp_main(void)
   union socksaddr sa;
   int fd, tries = 0;
 
+  if (FLAG(d)) xvdaemon();
+
   if (FLAG(M)) toys.optflags |= FLAG_S;
   if (!(FLAG(S)||FLAG(m)) && !*toys.optargs)
     error_exit("Need -SMm or SERVER address");
@@ -86,8 +88,6 @@ void sntp_main(void)
   if (!TT.p || !*TT.p) TT.p = "123";
   ai = xgetaddrinfo(*toys.optargs, TT.p, AF_UNSPEC, SOCK_DGRAM, IPPROTO_UDP,
     AI_PASSIVE*!*toys.optargs);
-
-  if (FLAG(d) && daemon(0, 0)) perror_exit("daemonize");
 
   // Act as server if necessary
   if (FLAG(S)||FLAG(m)) {

@@ -302,7 +302,7 @@ public class LambdaImplementationTest extends TestCase {
     private static void assertMultipleDefinitionCharacteristics(
             Callable<String> r1, Callable<String> r2) throws Exception {
 
-        // Sanity check that the lambdas do the same thing.
+        // Check that the lambdas do the same thing.
         assertEquals(r1.call(), r2.call());
 
         // Two lambdas from different definitions can share the same class or may not so there are
@@ -324,7 +324,7 @@ public class LambdaImplementationTest extends TestCase {
     private static void assertMultipleInstanceCharacteristics(
             Callable<String> r1, Callable<String> r2) throws Exception {
 
-        // Sanity check that the lambdas do the same thing.
+        // Check that the lambdas do the same thing.
         assertEquals(r1.call(), r2.call());
 
         // There doesn't appear to be anything else that is safe to assert here. Two lambdas

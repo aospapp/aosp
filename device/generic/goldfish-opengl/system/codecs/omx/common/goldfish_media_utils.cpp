@@ -17,6 +17,14 @@
 #include "goldfish_address_space.h"
 
 #include <log/log.h>
+
+#define DEBUG  0
+#if DEBUG
+#  define  DDD(...)    ALOGD(__VA_ARGS__)
+#else
+#  define  DDD(...)    ((void)0)
+#endif
+
 #include <memory>
 #include <vector>
 #include <mutex>
@@ -40,13 +48,26 @@ public:
     virtual __u64 offsetOf(uint64_t addr) const override;
 
 public:
-    // each lot has 8 M
+    // each lot has 2 M
     virtual int getMemorySlot() override {
         std::lock_guard<std::mutex> g{mMemoryMutex};
-        for (int i = mMemoryLotsAvailable.size() - 1; i >=0 ; --i) {
-            if (mMemoryLotsAvailable[i]) {
-                mMemoryLotsAvailable[i] = false;
-                return i;
+        // when there are just 1 decoder, it can pretty
+        // much use all the memory starting from 0;
+        // when there are two, each can use at least half
+        // the total memory, etc.
+        constexpr size_t search_order[] = {
+                0, // use 32M
+                16, // use 16M
+                8, 24, // use 8M
+                4, 12, 20, 28, // use 4M
+                2, 6, 10, 12, 18, 22, 26, 30, // use 2M
+                1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31 // use 1M
+        };
+        for (size_t i = 0; i < sizeof(search_order)/sizeof(search_order[0]); ++i) {
+            int slot = search_order[i];
+            if (mMemoryLotsAvailable[slot]) {
+                mMemoryLotsAvailable[slot] = false;
+                return slot;
             }
         }
         return -1;
@@ -64,7 +85,7 @@ public:
     }
 private:
     std::mutex mMemoryMutex;
-    std::vector<bool> mMemoryLotsAvailable = {true, true, true, true};
+    std::vector<bool> mMemoryLotsAvailable = std::vector<bool>(32,true);
 
     address_space_handle_t mHandle;
     uint64_t  mOffset;
@@ -111,11 +132,11 @@ GoldfishMediaTransportImpl::GoldfishMediaTransportImpl() {
     mSize = kParamSizeBytes + kInputSizeBytes + kOutputSizeBytes;
     bool success = goldfish_address_space_allocate(mHandle, mSize, &mPhysAddr, &mOffset);
     if (success) {
-        ALOGD("successfully allocated %d bytes in goldfish_address_block", (int)mSize);
+        ALOGI("successfully allocated %d bytes in goldfish_address_block", (int)mSize);
         mStartPtr = goldfish_address_space_map(mHandle, mOffset, mSize);
-        ALOGD("guest address is %p", mStartPtr);
+        ALOGI("guest address is %p", mStartPtr);
 
-        struct goldfish_address_space_ping pingInfo;
+        struct address_space_ping pingInfo;
         pingInfo.metadata = GoldfishAddressSpaceSubdeviceType::Media;
         pingInfo.offset = mOffset;
         if (goldfish_address_space_ping(mHandle, &pingInfo) == false) {
@@ -123,7 +144,7 @@ GoldfishMediaTransportImpl::GoldfishMediaTransportImpl() {
             abort();
             return;
         } else {
-            ALOGD("successfully pinged host to allocate memory");
+            ALOGI("successfully pinged host to allocate memory");
         }
     } else {
         ALOGE("failed to allocate %d bytes in goldfish_address_block", (int)mSize);
@@ -146,6 +167,10 @@ __u64 GoldfishMediaTransportImpl::makeMetadata(MediaCodecType type,
     // Shift |type| into the highest 8-bits, leaving the lower bits for other
     // metadata.
     offset = offset >> 20;
+    if (offset < 0 || offset >= 32) {
+        ALOGE("offset %d is wrong", (int)offset);
+        abort();
+    }
     return ((__u64)type << (64 - 8)) | (offset << 8) | static_cast<uint8_t>(op);
 }
 
@@ -177,7 +202,7 @@ void GoldfishMediaTransportImpl::writeParam(__u64 val, unsigned int num, unsigne
 
 bool GoldfishMediaTransportImpl::sendOperation(MediaCodecType type,
                                                MediaOperation op, unsigned int offSetToStartAddr) {
-    struct goldfish_address_space_ping pingInfo;
+    struct address_space_ping pingInfo;
     pingInfo.metadata = makeMetadata(type, op, offSetToStartAddr);
     pingInfo.offset = mOffset; // + (offSetToStartAddr);
     if (goldfish_address_space_ping(mHandle, &pingInfo) == false) {
@@ -185,7 +210,7 @@ bool GoldfishMediaTransportImpl::sendOperation(MediaCodecType type,
         abort();
         return false;
     } else {
-        ALOGD("successfully pinged host for operation type=%d, op=%d", (int)type, (int)op);
+        DDD("successfully pinged host for operation type=%d, op=%d", (int)type, (int)op);
     }
 
     return true;

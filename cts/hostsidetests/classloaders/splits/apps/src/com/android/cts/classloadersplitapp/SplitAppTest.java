@@ -20,6 +20,7 @@ import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.*;
 
 import android.app.Activity;
+import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -28,6 +29,7 @@ import android.os.Bundle;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
+import androidx.test.rule.ServiceTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Rule;
@@ -39,6 +41,7 @@ import org.junit.runners.model.Statement;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @RunWith(AndroidJUnit4.class)
 public class SplitAppTest {
@@ -59,6 +62,10 @@ public class SplitAppTest {
             ComponentName.createRelative(PACKAGE, ".feature_a.FeatureAActivity");
     private static final ComponentName FEATURE_B_ACTIVITY =
             ComponentName.createRelative(PACKAGE, ".feature_b.FeatureBActivity");
+    private static final ComponentName FEATURE_A_SERVICE =
+            ComponentName.createRelative(PACKAGE, ".feature_a.FeatureAService");
+    private static final ComponentName FEATURE_B_SERVICE =
+            ComponentName.createRelative(PACKAGE, ".feature_b.FeatureBService");
 
     @Rule
     public ActivityTestRule<BaseActivity> mBaseActivityRule =
@@ -73,6 +80,9 @@ public class SplitAppTest {
 
     @Rule
     public AppContextTestRule mAppContextTestRule = new AppContextTestRule();
+
+    @Rule
+    public ServiceTestRule mServiceTestRule = new ServiceTestRule();
 
     @Test
     public void testBaseClassLoader() throws Exception {
@@ -129,6 +139,40 @@ public class SplitAppTest {
             equalTo("dalvik.system.PathClassLoader"));
         assertThat(results.getString("featureB_parentClassName"),
             equalTo("dalvik.system.DelegateLastClassLoader"));
+    }
+
+    @Test
+    public void testBaseServiceClassLoader() throws Exception {
+        final Service service = getService(new ComponentName(mAppContextTestRule.getContext(),
+                BaseService.class));
+        assertThat(service.getClassLoader().getClass().getName(),
+                equalTo("dalvik.system.PathClassLoader"));
+    }
+
+    @Test
+    public void testFeatureAServiceClassLoader() throws Exception {
+        final Service service = getService(FEATURE_A_SERVICE);
+        assertThat(service.getClassLoader().getClass().getName(),
+                equalTo("dalvik.system.DelegateLastClassLoader"));
+        assertThat(service.getClassLoader().getParent().getClass().getName(),
+                equalTo("dalvik.system.PathClassLoader"));
+    }
+
+    @Test
+    public void testFeatureBServiceClassLoader() throws Exception {
+        final Service service = getService(FEATURE_B_SERVICE);
+        assertThat(service.getClassLoader().getClass().getName(),
+                equalTo("dalvik.system.PathClassLoader"));
+        assertThat(service.getClassLoader().getParent().getClass().getName(),
+                equalTo("dalvik.system.DelegateLastClassLoader"));
+    }
+
+    private Service getService(ComponentName componentName) throws TimeoutException {
+        final Intent intent = new Intent();
+        intent.setComponent(componentName);
+        final BaseService.LocalBinder localBinder = (BaseService.LocalBinder) mServiceTestRule
+                .bindService(intent);
+        return localBinder.getService();
     }
 
     private static class ExtrasResultReceiver extends BroadcastReceiver {

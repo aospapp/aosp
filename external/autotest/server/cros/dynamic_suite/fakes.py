@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 #pylint: disable-msg=C0111
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -5,8 +6,12 @@
 
 """Fakes for dynamic_suite-related unit tests."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import common
 from autotest_lib.client.common_lib import control_data
+from six.moves import map
 
 
 class FakeControlData(control_data.ControlData):
@@ -138,7 +143,7 @@ class FakeMultiprocessingPool(object):
 
     def map(self, func, iterable, chunksize=None):
         """Use the standard map() built-in instead of Pool.map()"""
-        return map(func, iterable)
+        return list(map(func, iterable))
 
 
     def close(self):

@@ -19,7 +19,7 @@ package com.android.tv.settings.device.storage;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidanceStylist;
 import androidx.leanback.widget.GuidedAction;
 
@@ -27,7 +27,7 @@ import com.android.tv.settings.R;
 
 import java.util.List;
 
-public class SlowDriveStepFragment extends GuidedStepFragment {
+public class SlowDriveStepFragment extends GuidedStepSupportFragment {
 
     public interface Callback {
         void onSlowDriveWarningComplete();

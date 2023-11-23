@@ -51,7 +51,7 @@ public class CarPackageManagerTest extends MockedCarTestBase {
         TestAppBlockingPolicyService.controlPolicySettingFromService(policyFromService);
         mCarPm = (CarPackageManager) getCar().getCarManager(Car.PACKAGE_SERVICE);
         assertNotNull(mCarPm);
-        mCarPmService = getPackageManagerService();
+        mCarPmService = CarLocalServices.getService(CarPackageManagerService.class);
         assertNotNull(mCarPmService);
         mCarPmService.startAppBlockingPolicies();
     }
@@ -83,7 +83,7 @@ public class CarPackageManagerTest extends MockedCarTestBase {
     @Suppress
     @Test
     @FlakyTest
-    public void testSettingWhitelist() throws Exception {
+    public void testSettingAllowlist() throws Exception {
         init(false);
         final String carServicePackageName = "com.android.car";
         final String activityAllowed = "NO_SUCH_ACTIVITY_BUT_ALLOWED";

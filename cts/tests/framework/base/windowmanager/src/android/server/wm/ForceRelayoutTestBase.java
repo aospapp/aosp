@@ -20,6 +20,7 @@ import static android.view.WindowInsets.Type.navigationBars;
 import static android.view.WindowInsets.Type.statusBars;
 import static android.view.WindowInsets.Type.systemBars;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+import static android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -48,7 +49,7 @@ public class ForceRelayoutTestBase {
     public ActivityTestRule<TestActivity> mDecorActivity = new ActivityTestRule<>(
             TestActivity.class);
 
-    void testRelayoutWhenInsetsChange(boolean expectRelayoutWhenInsetsChange)
+    void testRelayoutWhenInsetsChange(boolean expectRelayoutWhenInsetsChange, int softInputMode)
             throws Throwable {
         TestActivity activity = mDecorActivity.getActivity();
         assertNotNull("test setup failed", activity.mLastContentInsets);
@@ -58,6 +59,7 @@ public class ForceRelayoutTestBase {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
             activity.mLayoutHappened = false;
             activity.mMeasureHappened = false;
+            activity.getWindow().setSoftInputMode(softInputMode);
             activity.getWindow().getInsetsController().hide(systemBars());
         });
         activity.mZeroInsets.await(180, TimeUnit.SECONDS);

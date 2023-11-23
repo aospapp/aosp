@@ -24,6 +24,7 @@ import android.os.HandlerExecutor;
 import android.os.HandlerThread;
 import android.provider.DeviceConfig;
 import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
 import android.telephony.TelephonyRegistryManager;
 
@@ -132,8 +133,8 @@ public class TelephonyTest {
     private List<PhoneStateListener> registerFillerListeners() {
         int registrationLimit = ShellIdentityUtils.invokeStaticMethodWithShellPermissions(() ->
                 DeviceConfig.getInt(DeviceConfig.NAMESPACE_TELEPHONY,
-                        PhoneStateListener.FLAG_PER_PID_REGISTRATION_LIMIT,
-                        PhoneStateListener.DEFAULT_PER_PID_REGISTRATION_LIMIT));
+                        TelephonyCallback.FLAG_PER_PID_REGISTRATION_LIMIT,
+                        TelephonyCallback.DEFAULT_PER_PID_REGISTRATION_LIMIT));
         if (registrationLimit < 1) {
             // Don't test anything if the limit is too small
             return null;

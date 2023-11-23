@@ -124,7 +124,7 @@ static int pcm_cras_process_cb(struct cras_client *client,
 	struct snd_pcm_cras *pcm_cras;
 	const snd_pcm_channel_area_t *areas;
 	snd_pcm_uframes_t copied_frames;
-	char dummy_byte;
+	char empty_byte;
 	size_t chan, frame_bytes, sample_bytes;
 	int rc;
 	uint8_t *samples;
@@ -196,7 +196,7 @@ static int pcm_cras_process_cb(struct cras_client *client,
 		copied_frames += frames;
 	}
 
-	rc = write(pcm_cras->fd, &dummy_byte, 1); /* Wake up polling clients. */
+	rc = write(pcm_cras->fd, &empty_byte, 1); /* Wake up polling clients. */
 	if (rc < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
 		fprintf(stderr, "%s write failed %d\n", __func__, errno);
 

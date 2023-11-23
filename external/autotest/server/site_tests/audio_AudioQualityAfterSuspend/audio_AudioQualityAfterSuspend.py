@@ -4,11 +4,12 @@
 
 """This is a server side audio test using the Chameleon board."""
 
+from __future__ import print_function
+
 import logging
 import os
 import tempfile
 import time
-import threading
 
 from autotest_lib.client.common_lib import error, file_utils
 from autotest_lib.client.cros.chameleon import audio_test_utils
@@ -27,33 +28,7 @@ class audio_AudioQualityAfterSuspend(audio_test.AudioTest):
     """
     version = 1
     RECORD_SECONDS = 10
-    RESUME_TIMEOUT_SECS = 60
     SHORT_WAIT = 4
-    SUSPEND_SECONDS = 40
-
-
-    def action_suspend(self, suspend_time=SUSPEND_SECONDS):
-        """Calls the host method suspend.
-
-        @param suspend_time: time to suspend the device for.
-
-        """
-        self.host.suspend(suspend_time=suspend_time)
-
-
-    def suspend_resume(self):
-        """Performs suspend/resume."""
-
-        # Suspend
-        boot_id = self.host.get_boot_id()
-        thread = threading.Thread(target=self.action_suspend)
-        thread.start()
-
-        logging.info('Suspend start....')
-        self.host.test_wait_for_sleep(3 * self.SUSPEND_SECONDS / 4)
-        logging.info('Waiting for resume....')
-        self.host.test_wait_for_resume(boot_id, self.RESUME_TIMEOUT_SECS)
-        logging.info('Resume complete....')
 
 
     def check_correct_audio_node_selected(self):
@@ -79,7 +54,7 @@ class audio_AudioQualityAfterSuspend(audio_test.AudioTest):
                 os.path.basename(self.test_playback_file))
         with tempfile.NamedTemporaryFile() as tmpfile:
             file_utils.download_file(self.test_playback_file, tmpfile.name)
-            os.chmod(tmpfile.name, 0444)
+            os.chmod(tmpfile.name, 0o0444)
             self.host.send_file(tmpfile.name, host_file)
             logging.debug('Copied the file on the DUT at %s', host_file)
 
@@ -89,9 +64,7 @@ class audio_AudioQualityAfterSuspend(audio_test.AudioTest):
         logging.info('Start playing %s on Cros device', host_file)
 
         time.sleep(self.SHORT_WAIT)
-        logging.debug('Suspend.')
-        self.suspend_resume()
-        logging.debug('Resume.')
+        audio_test_utils.suspend_resume_and_verify(self.host, self.factory)
         time.sleep(self.SHORT_WAIT)
         logging.debug('Start recording.')
         recorder_widget.start_recording()

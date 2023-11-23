@@ -81,6 +81,8 @@ public synchronized java.lang.reflect.@libcore.util.NonNull TypeVariable<java.la
 
 @libcore.util.Nullable public java.lang.Package getPackage() { throw new RuntimeException("Stub!"); }
 
+@libcore.util.NonNull public java.lang.String getPackageName() { throw new RuntimeException("Stub!"); }
+
 public java.lang.@libcore.util.NonNull Class<?> @libcore.util.NonNull [] getInterfaces() { throw new RuntimeException("Stub!"); }
 
 public java.lang.reflect.@libcore.util.NonNull Type @libcore.util.NonNull [] getGenericInterfaces() { throw new RuntimeException("Stub!"); }

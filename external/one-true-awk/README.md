@@ -99,10 +99,21 @@ welcome.
 This compiles without change on Macintosh OS X using `gcc` and
 the standard developer tools.
 
+You can also use `make CC=g++` to build with the GNU C++ compiler,
+should you choose to do so.
+
 The version of `malloc` that comes with some systems is sometimes
 astonishly slow.  If `awk` seems slow, you might try fixing that.
 More generally, turning on optimization can significantly improve
 `awk`'s speed, perhaps by 1/3 for highest levels.
 
+## A Note About Maintenance
+
+NOTICE! Maintenance of this program is on a ``best effort''
+basis.  We try to get to issues and pull requests as quickly
+as we can.  Unfortunately, however, keeping this program going
+is not at the top of our priority list.
+
 #### Last Updated
-Wed Jan  1 22:44:38 IST 2020
+
+Fri Dec 25 16:53:34 EST 2020

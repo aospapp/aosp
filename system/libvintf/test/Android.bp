@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "system_libvintf_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_libvintf_license"],
+}
+
 cc_test {
     name: "libvintf_test",
     defaults: ["libvintf-defaults"],
@@ -33,9 +41,11 @@ cc_test {
         "libvintf",
     ],
     static_libs: [
+        "libgmock",
         "libgtest",
         "libassemblevintf",
         "libhidl-gen-utils",
+        "libvts_vintf_test_common",
     ],
 
     cflags: [
@@ -53,6 +63,9 @@ cc_test {
     test_suites: [
         "general-tests",
     ],
+    test_options: {
+        unit_test: true,
+    },
 }
 
 cc_test {
@@ -78,11 +91,12 @@ cc_test {
         "libhidl-gen-utils",
         "libz",
     ],
+    header_libs: [
+        "libvintf_local_headers",
+    ],
     cflags: [
         "-O0",
         "-g",
-        // Unexpected logging of string pointer warning from gmock
-        "-Wno-user-defined-warnings"
     ],
     target: {
         android: {
@@ -94,5 +108,20 @@ cc_test {
     test_suites: [
         "general-tests",
     ],
+    test_options: {
+        unit_test: true,
+    },
 }
 
+cc_test_host {
+    name: "libvintffm_test",
+    defaults: ["libvintffm-defaults"],
+    static_libs: [
+        "libc++fs",
+        "libgmock",
+        "libvintffm",
+    ],
+    srcs: [
+        "VintfFmTest.cpp",
+    ],
+}

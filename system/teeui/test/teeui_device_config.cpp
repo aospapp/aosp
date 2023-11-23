@@ -19,7 +19,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <teeui/example/teeui.h>
+#include <teeui/example/example.h>
 #include <unistd.h>
 
 #include "teeui_device_config.h"
@@ -31,20 +31,29 @@ namespace teeui {
 
 namespace test {
 
+using namespace example;
+
 void initRenderTest(int argc, char** argv) {
     ::teeui::test::TeeuiRenderTest::Instance()->initFromOptions(argc, argv);
 }
 
-int runRenderTest(const char* language, bool magnified) {
+int runRenderTest(const char* language, bool magnified, bool inverted,
+                  const char* confirmationMessage, const char* layout) {
+    std::unique_ptr<ITeeuiExample> sCurrentExample = createExample(
+        (strcmp(layout, kTouchButtonLayout) == 0) ? Examples::TouchButton : Examples::PhysButton);
+
     DeviceInfo* device_info_ptr = &TeeuiRenderTest::Instance()->device_info;
-    selectLanguage(language);
-    setDeviceInfo(*device_info_ptr, magnified);
+    sCurrentExample->setDeviceInfo(*device_info_ptr, magnified, inverted);
     uint32_t w = device_info_ptr->width_;
     uint32_t h = device_info_ptr->height_;
     uint32_t linestride = w;
     uint32_t buffer_size = h * linestride;
     std::vector<uint32_t> buffer(buffer_size);
-    int error = renderUIIntoBuffer(0, 0, w, h, linestride, buffer.data(), buffer_size);
+    sCurrentExample->setConfirmationMessage(confirmationMessage);
+    sCurrentExample->selectLanguage(language);
+
+    int error =
+        sCurrentExample->renderUIIntoBuffer(0, 0, w, h, linestride, buffer.data(), buffer_size);
     return error;
 }
 

@@ -112,7 +112,7 @@ public class ConfigTest {
 
     Config withMore = overlay(withString,
         new Builder().setShadows(new Class[]{Map.class, String.class}).build());
-    assertThat(withMore.shadows()).asList().containsAllOf(String.class, Map.class, String.class);
+    assertThat(withMore.shadows()).asList().containsAtLeast(String.class, Map.class, String.class);
   }
 
   @Test

@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -167,7 +167,7 @@ static MagickBooleanType WriteTHUMBNAILImage(const ImageInfo *image_info,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -199,7 +199,8 @@ static MagickBooleanType WriteTHUMBNAILImage(const ImageInfo *image_info,
       break;
     q++;
   }
-  if ((q+length) > (GetStringInfoDatum(profile)+GetStringInfoLength(profile)))
+  if ((q > (GetStringInfoDatum(profile)+GetStringInfoLength(profile))) ||
+      ((ssize_t) length > (GetStringInfoDatum(profile)+GetStringInfoLength(profile)-q)))
     ThrowWriterException(CoderError,"ImageDoesNotHaveAThumbnail");
   thumbnail_image=BlobToImage(image_info,q,length,exception);
   if (thumbnail_image == (Image *) NULL)

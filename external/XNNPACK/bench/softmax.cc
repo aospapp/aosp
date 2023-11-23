@@ -23,14 +23,14 @@
 #include "tensorflow/lite/version.h"
 #endif  // BENCHMARK_TENSORFLOW_LITE
 
-
-static void xnnpack_softmax_q8(benchmark::State& state) {
+#ifndef XNN_NO_QU8_OPERATORS
+static void xnnpack_softmax_qu8(benchmark::State& state) {
   const size_t batch_size = static_cast<size_t>(state.range(0));
   const size_t channels = static_cast<size_t>(state.range(1));
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto u8rng = std::bind(std::uniform_int_distribution<uint8_t>(), rng);
+  auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), std::ref(rng));
 
   std::vector<uint8_t> input(batch_size * channels);
   std::vector<uint8_t> output(batch_size * channels);
@@ -44,7 +44,7 @@ static void xnnpack_softmax_q8(benchmark::State& state) {
   }
 
   xnn_operator_t softmax_op = nullptr;
-  status = xnn_create_softmax_nc_q8(
+  status = xnn_create_softmax_nc_qu8(
     channels, channels /* input stride */, channels /* output stride */,
     1.0f /* input scale */,
     0 /* output zero point */, 1.0f / 256.0f /* output scale */,
@@ -54,7 +54,7 @@ static void xnnpack_softmax_q8(benchmark::State& state) {
     return;
   }
 
-  status = xnn_setup_softmax_nc_q8(
+  status = xnn_setup_softmax_nc_qu8(
     softmax_op,
     batch_size,
     input.data(), output.data(),
@@ -78,7 +78,10 @@ static void xnnpack_softmax_q8(benchmark::State& state) {
     return;
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
 
   const size_t elements_per_iteration = batch_size * channels;
   state.counters["elements"] =
@@ -95,7 +98,7 @@ static void xnnpack_softmax_f32(benchmark::State& state) {
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto f32rng = std::bind(std::uniform_real_distribution<float>(-100.0f, 100.0f), rng);
+  auto f32rng = std::bind(std::uniform_real_distribution<float>(-100.0f, 100.0f), std::ref(rng));
 
   std::vector<float> input(batch_size * channels + XNN_EXTRA_BYTES / sizeof(float));
   std::vector<float> output(batch_size * channels);
@@ -141,7 +144,10 @@ static void xnnpack_softmax_f32(benchmark::State& state) {
     return;
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
 
   const size_t elements_per_iteration = batch_size * channels;
   state.counters["elements"] =
@@ -151,6 +157,7 @@ static void xnnpack_softmax_f32(benchmark::State& state) {
   state.counters["bytes"] =
     benchmark::Counter(uint64_t(state.iterations()) * bytes_per_iteration, benchmark::Counter::kIsRate);
 }
+#endif  // XNN_NO_QU8_OPERATORS
 
 #ifdef BENCHMARK_TENSORFLOW_LITE
 static void tflite_softmax_f32(benchmark::State& state) {
@@ -159,7 +166,7 @@ static void tflite_softmax_f32(benchmark::State& state) {
 
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
-  auto f32rng = std::bind(std::uniform_real_distribution<float>(-100.0f, 100.0f), rng);
+  auto f32rng = std::bind(std::uniform_real_distribution<float>(-100.0f, 100.0f), std::ref(rng));
 
   flatbuffers::FlatBufferBuilder builder;
   flatbuffers::Offset<tflite::OperatorCode> operator_code =
@@ -254,7 +261,10 @@ static void tflite_softmax_f32(benchmark::State& state) {
     }
   }
 
-  state.counters["Freq"] = benchmark::utils::GetCurrentCpuFrequency();
+  const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
+  if (cpu_frequency != 0) {
+    state.counters["cpufreq"] = cpu_frequency;
+  }
 
   const size_t elements_per_iteration = batch_size * channels;
   state.counters["elements"] =
@@ -282,9 +292,14 @@ static void CharacteristicArguments(benchmark::internal::Benchmark* b)
   b->Args({1, 1001});
   // ImageNet-22K
   b->Args({1, 21841});
+  // ADE20K
+  b->Args({257 * 257, 151});
 }
 
-BENCHMARK(xnnpack_softmax_q8)->Apply(CharacteristicArguments)->UseRealTime();
+#ifndef XNN_NO_QU8_OPERATORS
+BENCHMARK(xnnpack_softmax_qu8)->Apply(CharacteristicArguments)->UseRealTime();
+#endif  // XNN_NO_QU8_OPERATORS
+
 BENCHMARK(xnnpack_softmax_f32)->Apply(CharacteristicArguments)->UseRealTime();
 #ifdef BENCHMARK_TENSORFLOW_LITE
 BENCHMARK(tflite_softmax_f32)->Apply(CharacteristicArguments)->UseRealTime();

@@ -79,7 +79,20 @@ class network_WiFi_APSupportedRates(wifi_cell_test_base.WiFiCellTestBase):
     def run_once(self):
         """Verify that we respond sanely to APs that disable legacy bitrates.
         """
+        # See b/138406224. ath10k only supports this on CrOS kernels >=4.14.
+        if self.context.client.host.get_board().split(':')[1] == 'scarlet':
+            raise error.TestNAError('Scarlet does not support this feature on '
+                                    'kernel 4.4')
+
         ap_config = self._ap_config
+
+        # TODO(b/160281713): remove this if we cherry-pick the bitrate fixes
+        # and deploy an OS update.
+        if (ap_config.frequency < 5000 and
+            self.context.capture_host.board == 'whirlwind'):
+            raise error.TestNAError('Whirlwind does not capture 802.11g/OFDM '
+                                    'rates correctly (b/160281713)')
+
         self.context.configure(ap_config)
         self.context.capture_host.start_capture(
                 ap_config.frequency,

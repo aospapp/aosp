@@ -21,7 +21,6 @@ import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -29,6 +28,8 @@ import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.ConstraintLayout;
+
+import com.android.car.apps.common.util.ViewUtils;
 
 /**
  * This is a compact CarControlBar that provides a fixed number of controls (with no overflow),
@@ -122,25 +123,7 @@ public class MinimizedControlBar extends ConstraintLayout implements CarControlB
                 viewToUse = mViews[viewIndex];
                 viewIndex++;
             }
-            setView(viewToUse, mSlots[CarControlBar.getSlotIndex(i, NUM_COLUMNS)]);
+            ViewUtils.setView(viewToUse, mSlots[CarControlBar.getSlotIndex(i, NUM_COLUMNS)]);
         }
     }
-
-    private void setView(@Nullable View view, FrameLayout container) {
-        container.removeAllViews();
-        if (view != null) {
-            ViewGroup parent = (ViewGroup) view.getParent();
-            // As we are removing views (on BT disconnect, for example), some items will be
-            // shifting from expanded to collapsed - remove those from the group before adding to
-            // the new slot
-            if (view.getParent() != null) {
-                parent.removeView(view);
-            }
-            container.addView(view);
-            container.setVisibility(VISIBLE);
-        } else {
-            container.setVisibility(INVISIBLE);
-        }
-    }
-
 }

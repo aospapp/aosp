@@ -21,14 +21,13 @@ import static com.android.cts.verifier.managedprovisioning.Utils.createInteracti
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
 
+import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
 import com.android.cts.verifier.ArrayTestListAdapter;
 import com.android.cts.verifier.IntentDrivenTestActivity.ButtonInfo;
 import com.android.cts.verifier.PassFailButtons;
@@ -67,8 +66,8 @@ public class DeviceOwnerRequestingBugreportTestActivity extends PassFailButtons.
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (ACTION_CHECK_DEVICE_OWNER_FOR_REQUESTING_BUGREPORT.equals(getIntent().getAction())) {
-            DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(
-                    Context.DEVICE_POLICY_SERVICE);
+            DevicePolicyManager dpm = TestAppSystemServiceFactory.getDevicePolicyManager(this,
+                    DeviceAdminTestReceiver.class);
             if (dpm.isDeviceOwnerApp(getPackageName())) {
                 TestResult.setPassedResult(this, getIntent().getStringExtra(EXTRA_TEST_ID),
                         null, null);

@@ -14,6 +14,12 @@
 
 import("../perfetto.gni")
 
+if (host_os == "win") {
+  _host_executable_suffix = ".exe"
+} else {
+  _host_executable_suffix = ""
+}
+
 template("proto_library") {
   assert(defined(invoker.sources))
   proto_sources = invoker.sources
@@ -33,6 +39,11 @@ template("proto_library") {
   # generate_python = true.
   assert(defined(invoker.generate_python) && !invoker.generate_python)
 
+  import_dirs = []
+  if (defined(invoker.import_dirs)) {
+    import_dirs = invoker.import_dirs
+  }
+
   # If false will not generate the default .pb.{cc,h} files. Used for custom
   # codegen plugins.
   generate_cc = true
@@ -43,12 +54,21 @@ template("proto_library") {
   generate_descriptor = ""
   if (defined(invoker.generate_descriptor)) {
     generate_descriptor = invoker.generate_descriptor
+
+    # Include imports to descriptor by default, but use exclude_imports to omit
+    # them if needed.
+    if (defined(invoker.exclude_imports)) {
+      exclude_imports = invoker.exclude_imports
+    } else {
+      exclude_imports = false
+    }
   }
 
   if (defined(invoker.generator_plugin_label)) {
     plugin_host_label = invoker.generator_plugin_label + "($host_toolchain)"
-    plugin_path = get_label_info(plugin_host_label, "root_out_dir") + "/" +
-                  get_label_info(plugin_host_label, "name")
+    plugin_path =
+        get_label_info(plugin_host_label, "root_out_dir") + "/" +
+        get_label_info(plugin_host_label, "name") + _host_executable_suffix
     generate_with_plugin = true
   } else if (defined(invoker.generator_plugin_script)) {
     plugin_path = invoker.generator_plugin_script
@@ -68,19 +88,19 @@ template("proto_library") {
     }
   }
 
-  cc_out_dir = "$root_gen_dir/" + proto_out_dir
-  rel_cc_out_dir = rebase_path(cc_out_dir, root_build_dir)
+  out_dir = "$root_gen_dir/" + proto_out_dir
+  rel_out_dir = rebase_path(out_dir, root_build_dir)
 
   # Prevent unused errors when generating descriptor only.
   if (generate_descriptor != "") {
-    not_needed([ "rel_cc_out_dir" ])
+    not_needed([ "rel_out_dir" ])
   }
 
   protos = rebase_path(proto_sources, proto_in_dir)
   protogens = []
 
   if (generate_descriptor != "") {
-    protogens += [ "$target_gen_dir/" + generate_descriptor ]
+    protogens += [ "$out_dir/${generate_descriptor}" ]
   }
 
   foreach(proto, protos) {
@@ -95,13 +115,13 @@ template("proto_library") {
 
     if (generate_cc) {
       protogens += [
-        "$cc_out_dir/$proto_path.pb.h",
-        "$cc_out_dir/$proto_path.pb.cc",
+        "$out_dir/$proto_path.pb.h",
+        "$out_dir/$proto_path.pb.cc",
       ]
     }
     if (generate_with_plugin) {
       foreach(suffix, generator_plugin_suffixes) {
-        protogens += [ "$cc_out_dir/${proto_path}${suffix}" ]
+        protogens += [ "$out_dir/${proto_path}${suffix}" ]
       }
     }
   }
@@ -115,7 +135,7 @@ template("proto_library") {
   }
 
   config(config_name) {
-    include_dirs = [ cc_out_dir ]
+    include_dirs = [ out_dir ]
   }
 
   # The XXX_gen action that generates the .pb.{cc,h} files.
@@ -123,28 +143,33 @@ template("proto_library") {
     if (generate_descriptor == "") {
       visibility = [ ":$source_set_name" ]
     }
-    script = "//gn/standalone/build_tool_wrapper.py"
     sources = proto_sources
     outputs = get_path_info(protogens, "abspath")
 
-    protoc_script = "//gn/standalone/protoc.py"
-
     if (perfetto_use_system_protobuf) {
-      protoc_rebased_path = "protoc"  # from PATH
+      protoc_rebased_path = "protoc" + _host_executable_suffix  # from PATH
     } else {
       protoc_label = "//gn:protoc($host_toolchain)"
-      protoc_path = get_label_info(protoc_label, "root_out_dir") + "/protoc"
+      protoc_path = get_label_info(protoc_label, "root_out_dir") + "/protoc" +
+                    _host_executable_suffix
       protoc_rebased_path = "./" + rebase_path(protoc_path, root_build_dir)
     }
+    script = "//gn/standalone/protoc.py"
     args = [
-      "./" + rebase_path(protoc_script, root_build_dir),
-
       # Path should be rebased because |root_build_dir| for current toolchain
       # may be different from |root_out_dir| of protoc built on host toolchain.
       protoc_rebased_path,
       "--proto_path",
       rebase_path(proto_in_dir, root_build_dir),
     ]
+
+    foreach(path, import_dirs) {
+      args += [
+        "--proto_path",
+        rebase_path(path, root_build_dir),
+      ]
+    }
+
     if (generate_cc) {
       cc_generator_options_ = ""
       if (defined(invoker.cc_generator_options)) {
@@ -152,15 +177,18 @@ template("proto_library") {
       }
       args += [
         "--cpp_out",
-        cc_generator_options_ + rel_cc_out_dir,
+        cc_generator_options_ + rel_out_dir,
       ]
     }
     if (generate_descriptor != "") {
-      depfile = "$target_gen_dir/$generate_descriptor.d"
+      depfile = "$root_gen_dir/$generate_descriptor.d"
+
+      if (!exclude_imports) {
+        args += [ "--include_imports" ]
+      }
       args += [
-        "--include_imports",
         "--descriptor_set_out",
-        rebase_path("$target_gen_dir/$generate_descriptor", root_build_dir),
+        rebase_path("$root_gen_dir/$generate_descriptor", root_build_dir),
         "--dependency_out",
         rebase_path(depfile, root_build_dir),
       ]
@@ -172,7 +200,7 @@ template("proto_library") {
       if (defined(invoker.generator_plugin_options)) {
         plugin_out_args += invoker.generator_plugin_options
       }
-      plugin_out_args += ":$rel_cc_out_dir"
+      plugin_out_args += ":$rel_out_dir"
 
       args += [
         "--plugin=protoc-gen-plugin=$plugin_path_rebased",

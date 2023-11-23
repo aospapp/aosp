@@ -1,9 +1,15 @@
+# Lint as: python2, python3
 #
 # kernel_versions.py -- linux kernel version comparisons
 #
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 __author__ = """Copyright Andy Whitcroft 2007"""
 
 import sys,re
+
+from six.moves import range
 
 #
 # Sort key for ordering versions chronologically.  The key ordering

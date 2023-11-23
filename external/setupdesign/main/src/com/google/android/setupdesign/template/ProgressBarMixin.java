@@ -17,12 +17,16 @@
 package com.google.android.setupdesign.template;
 
 import android.content.res.ColorStateList;
+import android.content.res.TypedArray;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
-import androidx.annotation.Nullable;
+import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewStub;
 import android.widget.ProgressBar;
+import androidx.annotation.AttrRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import com.google.android.setupcompat.internal.TemplateLayout;
 import com.google.android.setupcompat.template.Mixin;
 import com.google.android.setupdesign.R;
@@ -31,17 +35,64 @@ import com.google.android.setupdesign.R;
 public class ProgressBarMixin implements Mixin {
 
   private final TemplateLayout templateLayout;
+  private final boolean useBottomProgressBar;
 
   @Nullable private ColorStateList color;
 
   /** @param layout The layout this mixin belongs to. */
-  public ProgressBarMixin(TemplateLayout layout) {
+  public ProgressBarMixin(@NonNull TemplateLayout layout) {
+    this(layout, null, 0);
+  }
+
+  /**
+   * Constructor that allow using the bottom progress bar.
+   *
+   * @param layout The layout this mixin belongs to.
+   * @param useBottomProgressBar Whether to use bottom progress
+   */
+  public ProgressBarMixin(@NonNull TemplateLayout layout, boolean useBottomProgressBar) {
     templateLayout = layout;
+    this.useBottomProgressBar = useBottomProgressBar;
+  }
+
+  /**
+   * Constructor that provide styled attribute information in this Context's theme.
+   *
+   * @param layout The {@link TemplateLayout} containing this mixin.
+   * @param attrs XML attributes given to the layout.
+   * @param defStyleAttr The default style attribute as given to the constructor of the layout.
+   */
+  public ProgressBarMixin(
+      @NonNull TemplateLayout layout, AttributeSet attrs, @AttrRes int defStyleAttr) {
+    templateLayout = layout;
+
+    boolean useBottomProgressBar = false;
+    if (attrs != null) {
+      final TypedArray a =
+          layout
+              .getContext()
+              .obtainStyledAttributes(attrs, R.styleable.SudProgressBarMixin, defStyleAttr, 0);
+
+      if (a.hasValue(R.styleable.SudProgressBarMixin_sudUseBottomProgressBar)) {
+        // Set whether we use bottom progress bar or not
+        useBottomProgressBar =
+            a.getBoolean(R.styleable.SudProgressBarMixin_sudUseBottomProgressBar, false);
+      }
+
+      a.recycle();
+
+      // To avoid bottom progressbar bouncing, change the view state from GONE to INVISIBLE
+      setShown(false);
+    }
+
+    this.useBottomProgressBar = useBottomProgressBar;
   }
 
   /** @return True if the progress bar is currently shown. */
   public boolean isShown() {
-    final View progressBar = templateLayout.findManagedViewById(R.id.sud_layout_progress);
+    final View progressBar =
+        templateLayout.findManagedViewById(
+            useBottomProgressBar ? R.id.sud_glif_progress_bar : R.id.sud_layout_progress);
     return progressBar != null && progressBar.getVisibility() == View.VISIBLE;
   }
 
@@ -60,7 +111,7 @@ public class ProgressBarMixin implements Mixin {
     } else {
       View progressBar = peekProgressBar();
       if (progressBar != null) {
-        progressBar.setVisibility(View.GONE);
+        progressBar.setVisibility(useBottomProgressBar ? View.INVISIBLE : View.GONE);
       }
     }
   }
@@ -73,8 +124,8 @@ public class ProgressBarMixin implements Mixin {
    *     progress bar built-in.
    */
   private ProgressBar getProgressBar() {
-    final View progressBar = peekProgressBar();
-    if (progressBar == null) {
+    final View progressBarView = peekProgressBar();
+    if (progressBarView == null && !useBottomProgressBar) {
       final ViewStub progressBarStub =
           (ViewStub) templateLayout.findManagedViewById(R.id.sud_layout_progress_stub);
       if (progressBarStub != null) {
@@ -94,7 +145,9 @@ public class ProgressBarMixin implements Mixin {
    *     or if the template does not contain a progress bar.
    */
   public ProgressBar peekProgressBar() {
-    return (ProgressBar) templateLayout.findManagedViewById(R.id.sud_layout_progress);
+    return (ProgressBar)
+        templateLayout.findManagedViewById(
+            useBottomProgressBar ? R.id.sud_glif_progress_bar : R.id.sud_layout_progress);
   }
 
   /** Sets the color of the indeterminate progress bar. This method is a no-op on SDK < 21. */

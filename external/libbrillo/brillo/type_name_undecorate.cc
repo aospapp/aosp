@@ -5,6 +5,8 @@
 #include <brillo/type_name_undecorate.h>
 
 #include <cstring>
+#include <map>
+#include <string>
 
 #ifdef __GNUG__
 #include <cstdlib>

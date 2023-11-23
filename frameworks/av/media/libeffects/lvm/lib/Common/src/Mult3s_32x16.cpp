@@ -22,41 +22,11 @@
 #include "VectorArithmetic.h"
 #include "LVM_Macros.h"
 
-/**********************************************************************************
-FUNCTION MULT3S_16X16
-***********************************************************************************/
-
-void Mult3s_32x16( const LVM_INT32 *src,
-                  const LVM_INT16 val,
-                  LVM_INT32 *dst,
-                  LVM_INT16 n)
-{
-    LVM_INT16 ii;
-    LVM_INT32 srcval,temp;
-
-    for (ii = n; ii != 0; ii--)
-    {
-        srcval=*src;
-        src++;
-
-        MUL32x16INTO32(srcval,val,temp,15)
-
-        *dst = temp;
-        dst++;
-    }
-
-    return;
-}
-void Mult3s_Float( const LVM_FLOAT *src,
-                   const LVM_FLOAT val,
-                   LVM_FLOAT *dst,
-                   LVM_INT16 n)
-{
+void Mult3s_Float(const LVM_FLOAT* src, const LVM_FLOAT val, LVM_FLOAT* dst, LVM_INT16 n) {
     LVM_INT16 ii;
     LVM_FLOAT temp;
 
-    for (ii = n; ii != 0; ii--)
-    {
+    for (ii = n; ii != 0; ii--) {
         temp = (*src) * val;
         src++;
         *dst = temp;
@@ -64,4 +34,3 @@ void Mult3s_Float( const LVM_FLOAT *src,
     }
     return;
 }
-/**********************************************************************************/

@@ -33,6 +33,11 @@
         </uses-static-library>
     </application>
 
+    <queries>
+        <package android:name="android.os.lib.consumer2"/>
+        <package android:name="android.os.lib.consumer3"/>
+    </queries>
+
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="android.os.lib.consumer1"/>
 

@@ -18,6 +18,7 @@ package com.google.turbine.types;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.turbine.binder.bound.SourceTypeBoundClass;
 import com.google.turbine.binder.bound.TypeBoundClass.TyVarInfo;
 import com.google.turbine.binder.sym.TyVarSymbol;
@@ -26,15 +27,14 @@ import com.google.turbine.type.Type.ArrayTy;
 import com.google.turbine.type.Type.ClassTy;
 import com.google.turbine.type.Type.ClassTy.SimpleClassTy;
 import com.google.turbine.type.Type.IntersectionTy;
+import com.google.turbine.type.Type.MethodTy;
 import com.google.turbine.type.Type.TyVar;
+import com.google.turbine.type.Type.WildTy;
 
 /** Generic type erasure. */
 public class Erasure {
   public static Type erase(Type ty, Function<TyVarSymbol, SourceTypeBoundClass.TyVarInfo> tenv) {
     switch (ty.tyKind()) {
-      case PRIM_TY:
-      case VOID_TY:
-        return ty;
       case CLASS_TY:
         return eraseClassTy((Type.ClassTy) ty);
       case ARRAY_TY:
@@ -43,20 +43,37 @@ public class Erasure {
         return eraseTyVar((TyVar) ty, tenv);
       case INTERSECTION_TY:
         return eraseIntersectionTy((Type.IntersectionTy) ty, tenv);
-      default:
-        throw new AssertionError(ty.tyKind());
+      case WILD_TY:
+        return eraseWildTy((Type.WildTy) ty, tenv);
+      case METHOD_TY:
+        return erasureMethodTy((Type.MethodTy) ty, tenv);
+      case PRIM_TY:
+      case VOID_TY:
+      case ERROR_TY:
+      case NONE_TY:
+        return ty;
     }
+    throw new AssertionError(ty.tyKind());
+  }
+
+  private static ImmutableList<Type> erase(
+      ImmutableList<Type> types, Function<TyVarSymbol, TyVarInfo> tenv) {
+    ImmutableList.Builder<Type> result = ImmutableList.builder();
+    for (Type type : types) {
+      result.add(erase(type, tenv));
+    }
+    return result.build();
   }
 
   private static Type eraseIntersectionTy(
       IntersectionTy ty, Function<TyVarSymbol, TyVarInfo> tenv) {
-    return erase(ty.bounds().get(0), tenv);
+    return ty.bounds().isEmpty() ? ClassTy.OBJECT : erase(ty.bounds().get(0), tenv);
   }
 
   private static Type eraseTyVar(
       TyVar ty, Function<TyVarSymbol, SourceTypeBoundClass.TyVarInfo> tenv) {
     SourceTypeBoundClass.TyVarInfo info = tenv.apply(ty.sym());
-    return erase(info.bound(), tenv);
+    return erase(info.upperBound(), tenv);
   }
 
   private static Type.ArrayTy eraseArrayTy(
@@ -74,5 +91,25 @@ public class Erasure {
       }
     }
     return ClassTy.create(classes.build());
+  }
+
+  private static Type eraseWildTy(WildTy ty, Function<TyVarSymbol, TyVarInfo> tenv) {
+    switch (ty.boundKind()) {
+      case NONE:
+      case LOWER:
+        return ClassTy.OBJECT;
+      case UPPER:
+        return erase(ty.bound(), tenv);
+    }
+    throw new AssertionError(ty.boundKind());
+  }
+
+  private static Type erasureMethodTy(MethodTy ty, Function<TyVarSymbol, TyVarInfo> tenv) {
+    return MethodTy.create(
+        /* tyParams= */ ImmutableSet.of(),
+        erase(ty.returnType(), tenv),
+        ty.receiverType() != null ? erase(ty.receiverType(), tenv) : null,
+        erase(ty.parameters(), tenv),
+        erase(ty.thrown(), tenv));
   }
 }

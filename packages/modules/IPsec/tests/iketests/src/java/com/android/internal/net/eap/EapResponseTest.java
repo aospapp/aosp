@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap;
+package com.android.internal.net.eap.test;
 
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_RESPONSE_NAK_PACKET;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_SUCCESS_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_RESPONSE_NAK_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_SUCCESS_PACKET;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.eap.EapResult.EapError;
-import com.android.internal.net.eap.EapResult.EapResponse;
-import com.android.internal.net.eap.exceptions.InvalidEapResponseException;
-import com.android.internal.net.eap.message.EapMessage;
+import com.android.internal.net.eap.test.EapResult.EapError;
+import com.android.internal.net.eap.test.EapResult.EapResponse;
+import com.android.internal.net.eap.test.exceptions.InvalidEapResponseException;
+import com.android.internal.net.eap.test.message.EapMessage;
 
 import org.junit.Before;
 import org.junit.Test;

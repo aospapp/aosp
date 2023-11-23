@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Certifikáty můžete instalovat ze souboru PKCS#12 s příponou %1$s nebo %2$s, umístěného v externím úložišti."</string>
     <string name="allow_button" msgid="3030990695030371561">"Vybrat"</string>
     <string name="deny_button" msgid="3766539809121892584">"Odmítnout"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Načítání certifikátů..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s vyhledává certifikát…"</string>
 </resources>

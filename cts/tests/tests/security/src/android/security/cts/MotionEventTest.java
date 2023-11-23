@@ -129,19 +129,21 @@ public class MotionEventTest {
         WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, view, null /*runnable*/,
                 true /*forceLayout*/);
 
-	// This ensures the window is visible, where the code above ensures
+        // This ensures the window is visible, where the code above ensures
         // the view is on screen.
         mActivityRule.runOnUiThread(() -> {
             // This will force WindowManager to relayout, ensuring the
-	    // transaction to show the window are sent to the graphics code.
+            // transaction to show the window are sent to the graphics code.
             wm.updateViewLayout(view, wmlp);
         });
 
+        // Find the position inside the main activity and outside of the overlays.
         FutureTask<Point> clickLocationTask = new FutureTask<>(() -> {
             final int[] viewLocation = new int[2];
-            view.getLocationOnScreen(viewLocation);
+            final View decorView = mActivity.getWindow().getDecorView();
+            decorView.getLocationOnScreen(viewLocation);
             // Set y position to the center of the view, to make sure it is away from the status bar
-            return new Point(viewLocation[0], viewLocation[1] + view.getHeight() / 2);
+            return new Point(viewLocation[0], viewLocation[1] + decorView.getHeight() / 2);
         });
         mActivity.runOnUiThread(clickLocationTask);
         Point viewLocation = clickLocationTask.get(5, TimeUnit.SECONDS);

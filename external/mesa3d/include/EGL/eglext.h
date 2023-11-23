@@ -33,12 +33,12 @@ extern "C" {
 ** used to make the header, and the header can be found at
 **   http://www.khronos.org/registry/egl
 **
-** Khronos $Git commit SHA1: 9ed2ec4c67 $ on $Git commit date: 2019-01-09 17:54:35 -0800 $
+** Khronos $Git commit SHA1: b5409265f3 $ on $Git commit date: 2020-02-20 08:24:34 -0800 $
 */
 
 #include <EGL/eglplatform.h>
 
-#define EGL_EGLEXT_VERSION 20190124
+#define EGL_EGLEXT_VERSION 20200220
 
 /* Generated C header for:
  * API: egl
@@ -443,9 +443,9 @@ EGLAPI EGLSurface EGLAPIENTRY eglCreateStreamProducerSurfaceKHR (EGLDisplay dpy,
 
 #ifndef EGL_KHR_swap_buffers_with_damage
 #define EGL_KHR_swap_buffers_with_damage 1
-typedef EGLBoolean (EGLAPIENTRYP PFNEGLSWAPBUFFERSWITHDAMAGEKHRPROC) (EGLDisplay dpy, EGLSurface surface, EGLint *rects, EGLint n_rects);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLSWAPBUFFERSWITHDAMAGEKHRPROC) (EGLDisplay dpy, EGLSurface surface, const EGLint *rects, EGLint n_rects);
 #ifdef EGL_EGLEXT_PROTOTYPES
-EGLAPI EGLBoolean EGLAPIENTRY eglSwapBuffersWithDamageKHR (EGLDisplay dpy, EGLSurface surface, EGLint *rects, EGLint n_rects);
+EGLAPI EGLBoolean EGLAPIENTRY eglSwapBuffersWithDamageKHR (EGLDisplay dpy, EGLSurface surface, const EGLint *rects, EGLint n_rects);
 #endif
 #endif /* EGL_KHR_swap_buffers_with_damage */
 
@@ -461,6 +461,10 @@ typedef EGLint (EGLAPIENTRYP PFNEGLWAITSYNCKHRPROC) (EGLDisplay dpy, EGLSyncKHR 
 EGLAPI EGLint EGLAPIENTRY eglWaitSyncKHR (EGLDisplay dpy, EGLSyncKHR sync, EGLint flags);
 #endif
 #endif /* EGL_KHR_wait_sync */
+
+#ifndef EGL_ANDROID_GLES_layers
+#define EGL_ANDROID_GLES_layers 1
+#endif /* EGL_ANDROID_GLES_layers */
 
 #ifndef EGL_ANDROID_blob_cache
 #define EGL_ANDROID_blob_cache 1
@@ -593,6 +597,12 @@ EGLAPI EGLBoolean EGLAPIENTRY eglQuerySurfacePointerANGLE (EGLDisplay dpy, EGLSu
 #define EGL_ANGLE_window_fixed_size 1
 #define EGL_FIXED_SIZE_ANGLE              0x3201
 #endif /* EGL_ANGLE_window_fixed_size */
+
+#ifndef EGL_ARM_image_format
+#define EGL_ARM_image_format 1
+#define EGL_COLOR_COMPONENT_TYPE_UNSIGNED_INTEGER_ARM 0x3287
+#define EGL_COLOR_COMPONENT_TYPE_INTEGER_ARM 0x3288
+#endif /* EGL_ARM_image_format */
 
 #ifndef EGL_ARM_implicit_external_sync
 #define EGL_ARM_implicit_external_sync 1
@@ -913,9 +923,9 @@ EGLAPI EGLBoolean EGLAPIENTRY eglStreamConsumerOutputEXT (EGLDisplay dpy, EGLStr
 
 #ifndef EGL_EXT_swap_buffers_with_damage
 #define EGL_EXT_swap_buffers_with_damage 1
-typedef EGLBoolean (EGLAPIENTRYP PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC) (EGLDisplay dpy, EGLSurface surface, EGLint *rects, EGLint n_rects);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC) (EGLDisplay dpy, EGLSurface surface, const EGLint *rects, EGLint n_rects);
 #ifdef EGL_EGLEXT_PROTOTYPES
-EGLAPI EGLBoolean EGLAPIENTRY eglSwapBuffersWithDamageEXT (EGLDisplay dpy, EGLSurface surface, EGLint *rects, EGLint n_rects);
+EGLAPI EGLBoolean EGLAPIENTRY eglSwapBuffersWithDamageEXT (EGLDisplay dpy, EGLSurface surface, const EGLint *rects, EGLint n_rects);
 #endif
 #endif /* EGL_EXT_swap_buffers_with_damage */
 
@@ -1129,6 +1139,11 @@ EGLAPI EGLBoolean EGLAPIENTRY eglPostSubBufferNV (EGLDisplay dpy, EGLSurface sur
 #endif
 #endif /* EGL_NV_post_sub_buffer */
 
+#ifndef EGL_NV_quadruple_buffer
+#define EGL_NV_quadruple_buffer 1
+#define EGL_QUADRUPLE_BUFFER_NV           0x3231
+#endif /* EGL_NV_quadruple_buffer */
+
 #ifndef EGL_NV_robustness_video_memory_purge
 #define EGL_NV_robustness_video_memory_purge 1
 #define EGL_GENERATE_RESET_ON_VIDEO_MEMORY_PURGE_NV 0x334C
@@ -1169,6 +1184,12 @@ EGLAPI EGLBoolean EGLAPIENTRY eglStreamConsumerGLTextureExternalAttribsNV (EGLDi
 #define EGL_NV_stream_cross_system 1
 #define EGL_STREAM_CROSS_SYSTEM_NV        0x334F
 #endif /* EGL_NV_stream_cross_system */
+
+#ifndef EGL_NV_stream_dma
+#define EGL_NV_stream_dma 1
+#define EGL_STREAM_DMA_NV                 0x3371
+#define EGL_STREAM_DMA_SERVER_NV          0x3372
+#endif /* EGL_NV_stream_dma */
 
 #ifndef EGL_NV_stream_fifo_next
 #define EGL_NV_stream_fifo_next 1
@@ -1220,6 +1241,21 @@ EGLAPI EGLBoolean EGLAPIENTRY eglSetStreamMetadataNV (EGLDisplay dpy, EGLStreamK
 EGLAPI EGLBoolean EGLAPIENTRY eglQueryStreamMetadataNV (EGLDisplay dpy, EGLStreamKHR stream, EGLenum name, EGLint n, EGLint offset, EGLint size, void *data);
 #endif
 #endif /* EGL_NV_stream_metadata */
+
+#ifndef EGL_NV_stream_origin
+#define EGL_NV_stream_origin 1
+#define EGL_STREAM_FRAME_ORIGIN_X_NV      0x3366
+#define EGL_STREAM_FRAME_ORIGIN_Y_NV      0x3367
+#define EGL_STREAM_FRAME_MAJOR_AXIS_NV    0x3368
+#define EGL_CONSUMER_AUTO_ORIENTATION_NV  0x3369
+#define EGL_PRODUCER_AUTO_ORIENTATION_NV  0x336A
+#define EGL_LEFT_NV                       0x336B
+#define EGL_RIGHT_NV                      0x336C
+#define EGL_TOP_NV                        0x336D
+#define EGL_BOTTOM_NV                     0x336E
+#define EGL_X_AXIS_NV                     0x336F
+#define EGL_Y_AXIS_NV                     0x3370
+#endif /* EGL_NV_stream_origin */
 
 #ifndef EGL_NV_stream_remote
 #define EGL_NV_stream_remote 1
@@ -1317,6 +1353,11 @@ EGLAPI EGLuint64NV EGLAPIENTRY eglGetSystemTimeNV (void);
 #endif /* KHRONOS_SUPPORT_INT64 */
 #endif /* EGL_NV_system_time */
 
+#ifndef EGL_NV_triple_buffer
+#define EGL_NV_triple_buffer 1
+#define EGL_TRIPLE_BUFFER_NV              0x3230
+#endif /* EGL_NV_triple_buffer */
+
 #ifndef EGL_TIZEN_image_native_buffer
 #define EGL_TIZEN_image_native_buffer 1
 #define EGL_NATIVE_BUFFER_TIZEN           0x32A0
@@ -1327,8 +1368,39 @@ EGLAPI EGLuint64NV EGLAPIENTRY eglGetSystemTimeNV (void);
 #define EGL_NATIVE_SURFACE_TIZEN          0x32A1
 #endif /* EGL_TIZEN_image_native_surface */
 
-#include <EGL/eglmesaext.h>
-#include <EGL/eglextchromium.h>
+#ifndef EGL_WL_bind_wayland_display
+#define EGL_WL_bind_wayland_display 1
+#define PFNEGLBINDWAYLANDDISPLAYWL PFNEGLBINDWAYLANDDISPLAYWLPROC
+#define PFNEGLUNBINDWAYLANDDISPLAYWL PFNEGLUNBINDWAYLANDDISPLAYWLPROC
+#define PFNEGLQUERYWAYLANDBUFFERWL PFNEGLQUERYWAYLANDBUFFERWLPROC
+struct wl_display;
+struct wl_resource;
+#define EGL_WAYLAND_BUFFER_WL             0x31D5
+#define EGL_WAYLAND_PLANE_WL              0x31D6
+#define EGL_TEXTURE_Y_U_V_WL              0x31D7
+#define EGL_TEXTURE_Y_UV_WL               0x31D8
+#define EGL_TEXTURE_Y_XUXV_WL             0x31D9
+#define EGL_TEXTURE_EXTERNAL_WL           0x31DA
+#define EGL_WAYLAND_Y_INVERTED_WL         0x31DB
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLBINDWAYLANDDISPLAYWLPROC) (EGLDisplay dpy, struct wl_display *display);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLUNBINDWAYLANDDISPLAYWLPROC) (EGLDisplay dpy, struct wl_display *display);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLQUERYWAYLANDBUFFERWLPROC) (EGLDisplay dpy, struct wl_resource *buffer, EGLint attribute, EGLint *value);
+#ifdef EGL_EGLEXT_PROTOTYPES
+EGLAPI EGLBoolean EGLAPIENTRY eglBindWaylandDisplayWL (EGLDisplay dpy, struct wl_display *display);
+EGLAPI EGLBoolean EGLAPIENTRY eglUnbindWaylandDisplayWL (EGLDisplay dpy, struct wl_display *display);
+EGLAPI EGLBoolean EGLAPIENTRY eglQueryWaylandBufferWL (EGLDisplay dpy, struct wl_resource *buffer, EGLint attribute, EGLint *value);
+#endif
+#endif /* EGL_WL_bind_wayland_display */
+
+#ifndef EGL_WL_create_wayland_buffer_from_image
+#define EGL_WL_create_wayland_buffer_from_image 1
+#define PFNEGLCREATEWAYLANDBUFFERFROMIMAGEWL PFNEGLCREATEWAYLANDBUFFERFROMIMAGEWLPROC
+struct wl_buffer;
+typedef struct wl_buffer *(EGLAPIENTRYP PFNEGLCREATEWAYLANDBUFFERFROMIMAGEWLPROC) (EGLDisplay dpy, EGLImageKHR image);
+#ifdef EGL_EGLEXT_PROTOTYPES
+EGLAPI struct wl_buffer *EGLAPIENTRY eglCreateWaylandBufferFromImageWL (EGLDisplay dpy, EGLImageKHR image);
+#endif
+#endif /* EGL_WL_create_wayland_buffer_from_image */
 
 #ifdef __cplusplus
 }

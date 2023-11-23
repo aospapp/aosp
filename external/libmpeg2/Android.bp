@@ -1,3 +1,20 @@
+package {
+    default_applicable_licenses: ["external_libmpeg2_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_libmpeg2_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_static {
     name: "libmpeg2dec",
     vendor_available: true,
@@ -129,24 +146,6 @@ cc_library_static {
             ],
         },
 
-        mips: {
-            local_include_dirs: ["common/mips"],
-
-            srcs: [
-                "decoder/mips/impeg2d_function_selector.c",
-                "common/mips/ideint_function_selector.c",
-            ],
-        },
-
-        mips64: {
-            local_include_dirs: ["common/mips"],
-
-            srcs: [
-                "decoder/mips/impeg2d_function_selector.c",
-                "common/mips/ideint_function_selector.c",
-            ],
-        },
-
         x86: {
             cflags: [
                 "-DX86",
@@ -216,7 +215,7 @@ cc_library_static {
         misc_undefined: ["bounds"],
         // Enable CFI if this becomes a shared library.
         // cfi: true,
-        blacklist: "libmpeg2dec_blacklist.txt",
+        blocklist: "libmpeg2dec_blocklist.txt",
     },
     apex_available: [
         "//apex_available:platform",

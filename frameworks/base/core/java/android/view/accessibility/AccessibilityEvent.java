@@ -199,7 +199,7 @@ import java.util.List;
  * <b>Window state changed</b> - represents the event of a change to a section of
  * the user interface that is visually distinct. Should be sent from either the
  * root view of a window or from a view that is marked as a pane
- * {@link android.view.View#setAccessibilityPaneTitle(CharSequence)}. Not that changes
+ * {@link android.view.View#setAccessibilityPaneTitle(CharSequence)}. Note that changes
  * to true windows are represented by {@link #TYPE_WINDOWS_CHANGED}.</br>
  * <em>Type:</em> {@link #TYPE_WINDOW_STATE_CHANGED}</br>
  * <em>Properties:</em></br>
@@ -605,7 +605,10 @@ public final class AccessibilityEvent extends AccessibilityRecord implements Par
     /**
      * Change type for {@link #TYPE_WINDOW_CONTENT_CHANGED} event:
      * state description of the node as returned by
-     * {@link AccessibilityNodeInfo#getStateDescription} changed.
+     * {@link AccessibilityNodeInfo#getStateDescription} changed. If part of the state description
+     * changes, the changed part can be put into event text. For example, if state description
+     * changed from "on, wifi signal full" to "on, wifi three bars", "wifi three bars" can be put
+     * into the event text.
      */
     public static final int CONTENT_CHANGE_TYPE_STATE_DESCRIPTION = 0x00000040;
 

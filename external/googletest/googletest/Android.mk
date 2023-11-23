@@ -85,6 +85,9 @@ endef
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libgtest
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 LOCAL_SRC_FILES := src/gtest-all.cc
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/src $(LOCAL_PATH)/include
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
@@ -95,6 +98,9 @@ include $(BUILD_STATIC_LIBRARY)
 # Users don't need to manually depend on both.
 include $(CLEAR_VARS)
 LOCAL_MODULE := libgtest_main
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 LOCAL_SRC_FILES := src/gtest_main.cc
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/src $(LOCAL_PATH)/include
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
@@ -108,6 +114,9 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := googletest_static
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 LOCAL_SRC_FILES := src/gtest-all.cc
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/src $(LOCAL_PATH)/include
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
@@ -116,6 +125,9 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libgoogletest_main
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := src/gtest_main.cc
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/src $(LOCAL_PATH)/include
@@ -128,6 +140,9 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := googletest_shared
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 LOCAL_SRC_FILES := src/gtest-all.cc
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/src $(LOCAL_PATH)/include
 LOCAL_CFLAGS := -DGTEST_CREATE_SHARED_LIBRARY
@@ -137,6 +152,9 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := googletest_main_shared
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 LOCAL_SRC_FILES := src/gtest_main.cc
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/src $(LOCAL_PATH)/include
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include

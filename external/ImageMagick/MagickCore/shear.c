@@ -17,7 +17,7 @@
 %                                  July 1992                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -127,7 +127,7 @@ static MagickBooleanType CropToFitImage(Image **image,
     geometry,
     page;
 
-  register ssize_t
+  ssize_t
     i;
 
   /*
@@ -163,10 +163,10 @@ static MagickBooleanType CropToFitImage(Image **image,
     if (max.y < extent[i].y)
       max.y=extent[i].y;
   }
-  geometry.x=(ssize_t) ceil(min.x-0.5);
-  geometry.y=(ssize_t) ceil(min.y-0.5);
-  geometry.width=(size_t) floor(max.x-min.x+0.5);
-  geometry.height=(size_t) floor(max.y-min.y+0.5);
+  geometry.x=CastDoubleToLong(ceil(min.x-0.5));
+  geometry.y=CastDoubleToLong(ceil(min.y-0.5));
+  geometry.width=(size_t) CastDoubleToLong(floor(max.x-min.x+0.5));
+  geometry.height=(size_t) CastDoubleToLong(floor(max.y-min.y+0.5));
   page=(*image)->page;
   (void) ParseAbsoluteGeometry("0x0+0+0",&(*image)->page);
   crop_image=CropImage(*image,&geometry,exception);
@@ -219,11 +219,11 @@ static void RadonProjection(const Image *image,MatrixInfo *source_matrixs,
   MatrixInfo
     *swap;
 
-  register MatrixInfo
+  MatrixInfo
     *p,
     *q;
 
-  register ssize_t
+  ssize_t
     x;
 
   size_t
@@ -235,7 +235,7 @@ static void RadonProjection(const Image *image,MatrixInfo *source_matrixs,
   {
     for (x=0; x < (ssize_t) GetMatrixColumns(p); x+=2*(ssize_t) step)
     {
-      register ssize_t
+      ssize_t
         i;
 
       ssize_t
@@ -295,7 +295,7 @@ static void RadonProjection(const Image *image,MatrixInfo *source_matrixs,
 #endif
   for (x=0; x < (ssize_t) GetMatrixColumns(p); x++)
   {
-    register ssize_t
+    ssize_t
       y;
 
     size_t
@@ -384,10 +384,10 @@ static MagickBooleanType RadonTransform(const Image *image,
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       i,
       x;
 
@@ -441,10 +441,10 @@ static MagickBooleanType RadonTransform(const Image *image,
 #endif
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       i,
       x;
 
@@ -522,10 +522,10 @@ static void GetImageBackgroundColor(Image *image,const ssize_t offset,
   image_view=AcquireVirtualCacheView(image,exception);
   for (y=0; y < (ssize_t) image->rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict p;
 
-    register ssize_t
+    ssize_t
       x;
 
     if ((y >= offset) && (y < ((ssize_t) image->rows-offset)))
@@ -582,7 +582,7 @@ MagickExport Image *DeskewImage(const Image *image,const double threshold,
   RectangleInfo
     geometry;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -785,7 +785,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
 #endif
       for (tile_y=0; tile_y < (ssize_t) image->rows; tile_y+=(ssize_t) tile_height)
       {
-        register ssize_t
+        ssize_t
           tile_x;
 
         if (status == MagickFalse)
@@ -796,13 +796,13 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
           MagickBooleanType
             sync;
 
-          register const Quantum
+          const Quantum
             *magick_restrict p;
 
-          register Quantum
+          Quantum
             *magick_restrict q;
 
-          register ssize_t
+          ssize_t
             y;
 
           size_t
@@ -810,10 +810,10 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
             width;
 
           width=tile_width;
-          if ((tile_x+(ssize_t) tile_width) > (ssize_t) image->columns)
+          if ((tile_width+tile_x) > image->columns)
             width=(size_t) (tile_width-(tile_x+tile_width-image->columns));
           height=tile_height;
-          if ((tile_y+(ssize_t) tile_height) > (ssize_t) image->rows)
+          if ((tile_height+tile_y) > image->rows)
             height=(size_t) (tile_height-(tile_y+tile_height-image->rows));
           p=GetCacheViewVirtualPixels(image_view,tile_x,tile_y,width,height,
             exception);
@@ -824,10 +824,10 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
             }
           for (y=0; y < (ssize_t) width; y++)
           {
-            register const Quantum
+            const Quantum
               *magick_restrict tile_pixels;
 
-            register ssize_t
+            ssize_t
               x;
 
             if (status == MagickFalse)
@@ -843,7 +843,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
             tile_pixels=p+((height-1)*width+y)*GetPixelChannels(image);
             for (x=0; x < (ssize_t) height; x++)
             {
-              register ssize_t
+              ssize_t
                 i;
 
               for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -886,7 +886,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
     }
     case 2:
     {
-      register ssize_t
+      ssize_t
         y;
 
       /*
@@ -901,13 +901,13 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
         MagickBooleanType
           sync;
 
-        register const Quantum
+        const Quantum
           *magick_restrict p;
 
-        register Quantum
+        Quantum
           *magick_restrict q;
 
-        register ssize_t
+        ssize_t
           x;
 
         if (status == MagickFalse)
@@ -923,7 +923,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
         q+=GetPixelChannels(rotate_image)*image->columns;
         for (x=0; x < (ssize_t) image->columns; x++)
         {
-          register ssize_t
+          ssize_t
             i;
 
           q-=GetPixelChannels(rotate_image);
@@ -982,7 +982,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
 #endif
       for (tile_y=0; tile_y < (ssize_t) image->rows; tile_y+=(ssize_t) tile_height)
       {
-        register ssize_t
+        ssize_t
           tile_x;
 
         if (status == MagickFalse)
@@ -993,13 +993,13 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
           MagickBooleanType
             sync;
 
-          register const Quantum
+          const Quantum
             *magick_restrict p;
 
-          register Quantum
+          Quantum
             *magick_restrict q;
 
-          register ssize_t
+          ssize_t
             y;
 
           size_t
@@ -1007,10 +1007,10 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
             width;
 
           width=tile_width;
-          if ((tile_x+(ssize_t) tile_width) > (ssize_t) image->columns)
+          if ((tile_width+tile_x) > image->columns)
             width=(size_t) (tile_width-(tile_x+tile_width-image->columns));
           height=tile_height;
-          if ((tile_y+(ssize_t) tile_height) > (ssize_t) image->rows)
+          if ((tile_height+tile_y) > image->rows)
             height=(size_t) (tile_height-(tile_y+tile_height-image->rows));
           p=GetCacheViewVirtualPixels(image_view,tile_x,tile_y,width,height,
             exception);
@@ -1021,10 +1021,10 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
             }
           for (y=0; y < (ssize_t) width; y++)
           {
-            register const Quantum
+            const Quantum
               *magick_restrict tile_pixels;
 
-            register ssize_t
+            ssize_t
               x;
 
             if (status == MagickFalse)
@@ -1039,7 +1039,7 @@ MagickExport Image *IntegralRotateImage(const Image *image,size_t rotations,
             tile_pixels=p+((width-1)-y)*GetPixelChannels(image);
             for (x=0; x < (ssize_t) height; x++)
             {
-              register ssize_t
+              ssize_t
                 i;
 
               for (i=0; i < (ssize_t) GetPixelChannels(image); i++)
@@ -1184,11 +1184,11 @@ static MagickBooleanType XShearImage(Image *image,const double degrees,
       area,
       displacement;
 
-    register Quantum
+    Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       i;
 
     ShearDirection
@@ -1217,7 +1217,7 @@ static MagickBooleanType XShearImage(Image *image,const double degrees,
         displacement*=(-1.0);
         direction=LEFT;
       }
-    step=(ssize_t) floor((double) displacement);
+    step=CastDoubleToLong(floor((double) displacement));
     area=(double) (displacement-step);
     step++;
     pixel=background;
@@ -1401,11 +1401,11 @@ static MagickBooleanType YShearImage(Image *image,const double degrees,
       source,
       destination;
 
-    register Quantum
+    Quantum
       *magick_restrict p,
       *magick_restrict q;
 
-    register ssize_t
+    ssize_t
       i;
 
     ShearDirection
@@ -1434,7 +1434,7 @@ static MagickBooleanType YShearImage(Image *image,const double degrees,
         displacement*=(-1.0);
         direction=UP;
       }
-    step=(ssize_t) floor((double) displacement);
+    step=CastDoubleToLong(floor((double) displacement));
     area=(double) (displacement-step);
     step++;
     pixel=background;
@@ -1617,11 +1617,12 @@ MagickExport Image *ShearImage(const Image *image,const double x_shear,
   /*
     Compute image size.
   */
-  bounds.width=image->columns+(ssize_t) floor(fabs(shear.x)*image->rows+0.5);
-  bounds.x=(ssize_t) ceil((double) image->columns+((fabs(shear.x)*image->rows)-
-    image->columns)/2.0-0.5);
-  bounds.y=(ssize_t) ceil((double) image->rows+((fabs(shear.y)*bounds.width)-
-    image->rows)/2.0-0.5);
+  bounds.width=image->columns+CastDoubleToLong(floor(fabs(shear.x)*
+    image->rows+0.5));
+  bounds.x=CastDoubleToLong(ceil((double) image->columns+((fabs(shear.x)*
+    image->rows)-image->columns)/2.0-0.5));
+  bounds.y=CastDoubleToLong(ceil((double) image->rows+((fabs(shear.y)*
+    bounds.width)-image->rows)/2.0-0.5));
   /*
     Surround image with border.
   */
@@ -1769,9 +1770,9 @@ MagickExport Image *ShearRotateImage(const Image *image,const double degrees,
   bounds.height=(size_t) floor(fabs((double) bounds.width*shear.y)+height+0.5);
   shear_width=(size_t) floor(fabs((double) bounds.height*shear.x)+
     bounds.width+0.5);
-  bounds.x=(ssize_t) floor((double) ((shear_width > bounds.width) ? width :
-    bounds.width-shear_width+2)/2.0+0.5);
-  bounds.y=(ssize_t) floor(((double) bounds.height-height+2)/2.0+0.5);
+  bounds.x=CastDoubleToLong(floor((double) ((shear_width > bounds.width) ?
+    width : bounds.width-shear_width+2)/2.0+0.5));
+  bounds.y=CastDoubleToLong(floor(((double) bounds.height-height+2)/2.0+0.5));
   /*
     Surround image with a border.
   */

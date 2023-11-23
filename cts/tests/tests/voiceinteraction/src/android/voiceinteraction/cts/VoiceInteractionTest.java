@@ -45,7 +45,7 @@ import androidx.test.rule.ActivityTestRule;
 @AppModeFull(reason = "DirectActionsTest is enough")
 public class VoiceInteractionTest extends AbstractVoiceInteractionTestCase {
     static final String TAG = "VoiceInteractionTest";
-    private static final int TIMEOUT_MS = 20 * 1000;
+    private static final int TIMEOUT_MS = 30 * 1000;
 
     private TestStartActivity mTestActivity;
     private TestResultsReceiver mReceiver;

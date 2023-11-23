@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "actions/actions_model_generated.h"
+#include "actions/sensitive-classifier-base.h"
 #include "actions/types.h"
 #include "utils/tokenizer.h"
 #include "utils/utf8/unicodetext.h"
@@ -27,29 +28,30 @@
 
 namespace libtextclassifier3 {
 
-class NGramModel {
+class NGramSensitiveModel : public SensitiveTopicModelBase {
  public:
-  static std::unique_ptr<NGramModel> Create(
+  static std::unique_ptr<NGramSensitiveModel> Create(
       const UniLib* unilib, const NGramLinearRegressionModel* model,
       const Tokenizer* tokenizer);
 
   // Evaluates an n-gram linear regression model, and tests against the
   // threshold. Returns true in case of a positive classification. The caller
   // may also optionally query the score.
-  bool Eval(const UnicodeText& text, float* score = nullptr) const;
+  std::pair<bool, float> Eval(const UnicodeText& text) const override;
 
   // Evaluates an n-gram linear regression model against all messages in a
   // conversation and returns true in case of any positive classification.
-  bool EvalConversation(const Conversation& conversation,
-                        const int num_messages) const;
+  std::pair<bool, float> EvalConversation(const Conversation& conversation,
+                                          int num_messages) const override;
 
   // Exposed for testing only.
   static uint64 GetNumSkipGrams(int num_tokens, int max_ngram_length,
                                 int max_skips);
 
  private:
-  NGramModel(const UniLib* unilib, const NGramLinearRegressionModel* model,
-             const Tokenizer* tokenizer);
+  explicit NGramSensitiveModel(const UniLib* unilib,
+                               const NGramLinearRegressionModel* model,
+                               const Tokenizer* tokenizer);
 
   // Returns the (begin,end] range of n-grams where the first hashed token
   // matches the given value.

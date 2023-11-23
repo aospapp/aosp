@@ -9,7 +9,7 @@ class barriertest(test.test):
     version = 2
 
 
-    def run_once(self, our_addr, hostnames, master, timeout=120):
+    def run_once(self, our_addr, hostnames, main, timeout=120):
         # A reusable local server as we're using multiple barriers in one test.
         server = barrier.listen_server()
 
@@ -19,7 +19,7 @@ class barriertest(test.test):
         logging.info('1. rendezvous "First" complete.')
         time.sleep(2)
 
-        # A rendezvous_servers using a different master than the default.
+        # A rendezvous_servers using a different main than the default.
         self.job.barrier(our_addr, 'Second', timeout=timeout,
                          listen_server=server
                          ).rendezvous_servers(hostnames[-1], *hostnames[:-1])
@@ -46,15 +46,15 @@ class barriertest(test.test):
         # Now attempt a rendezvous_servers that also includes the server.
         self.job.barrier(our_addr, 'FinalSync', timeout=timeout,
                          listen_server=server
-                         ).rendezvous_servers(master, *hostnames)
+                         ).rendezvous_servers(main, *hostnames)
         logging.info('4. rendezvous_servers "FinalSync" complete.')
         time.sleep(2)
 
-        # rendezvous_servers, aborted from the master.
+        # rendezvous_servers, aborted from the main.
         try:
             self.job.barrier(our_addr, 'WillAbortServers', timeout=timeout,
                              listen_server=server
-                             ).rendezvous_servers(master, *hostnames)
+                             ).rendezvous_servers(main, *hostnames)
         except error.BarrierAbortError:
             pass
         except error.BarrierError, e:

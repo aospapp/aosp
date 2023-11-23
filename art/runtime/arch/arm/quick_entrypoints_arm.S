@@ -24,54 +24,6 @@
     /* Deliver an exception pending on a thread */
     .extern artDeliverPendingException
 
-    /*
-     * Macro that sets up the callee save frame to conform with
-     * Runtime::CreateCalleeSaveMethod(kSaveRefsOnly).
-     */
-.macro SETUP_SAVE_REFS_ONLY_FRAME rTemp
-    // Note: We could avoid saving R8 in the case of Baker read
-    // barriers, as it is overwritten by REFRESH_MARKING_REGISTER
-    // later; but it's not worth handling this special case.
-    push {r5-r8, r10-r11, lr}                     @ 7 words of callee saves
-    .cfi_adjust_cfa_offset 28
-    .cfi_rel_offset r5, 0
-    .cfi_rel_offset r6, 4
-    .cfi_rel_offset r7, 8
-    .cfi_rel_offset r8, 12
-    .cfi_rel_offset r10, 16
-    .cfi_rel_offset r11, 20
-    .cfi_rel_offset lr, 24
-    sub sp, #4                                    @ bottom word will hold Method*
-    .cfi_adjust_cfa_offset 4
-    RUNTIME_CURRENT2 \rTemp                       @ Load Runtime::Current into rTemp.
-    @ Load kSaveRefsOnly Method* into rTemp.
-    ldr \rTemp, [\rTemp, #RUNTIME_SAVE_REFS_ONLY_METHOD_OFFSET]
-    str \rTemp, [sp, #0]                          @ Place Method* at bottom of stack.
-    str sp, [rSELF, #THREAD_TOP_QUICK_FRAME_OFFSET]  @ Place sp in Thread::Current()->top_quick_frame.
-
-    // Ugly compile-time check, but we only have the preprocessor.
-#if (FRAME_SIZE_SAVE_REFS_ONLY != 28 + 4)
-#error "FRAME_SIZE_SAVE_REFS_ONLY(ARM) size not as expected."
-#endif
-.endm
-
-.macro RESTORE_SAVE_REFS_ONLY_FRAME
-    add sp, #4               @ bottom word holds Method*
-    .cfi_adjust_cfa_offset -4
-    // Note: Likewise, we could avoid restoring R8 in the case of Baker
-    // read barriers, as it is overwritten by REFRESH_MARKING_REGISTER
-    // later; but it's not worth handling this special case.
-    pop {r5-r8, r10-r11, lr} @ 7 words of callee saves
-    .cfi_restore r5
-    .cfi_restore r6
-    .cfi_restore r7
-    .cfi_restore r8
-    .cfi_restore r10
-    .cfi_restore r11
-    .cfi_restore lr
-    .cfi_adjust_cfa_offset -28
-.endm
-
 .macro SETUP_SAVE_REFS_AND_ARGS_FRAME rTemp
     SETUP_SAVE_REFS_AND_ARGS_FRAME_REGISTERS_ONLY
     RUNTIME_CURRENT3 \rTemp                       @ Load Runtime::Current into rTemp.
@@ -228,18 +180,6 @@ ENTRY \c_name
     mov r2, rSELF                   @ pass Thread::Current
     bl  \cxx_name                   @ \cxx_name(Thread*)
 END \c_name
-.endm
-
-.macro  RETURN_OR_DELIVER_PENDING_EXCEPTION_REG reg
-    ldr \reg, [rSELF, #THREAD_EXCEPTION_OFFSET]  @ Get exception field.
-    cbnz \reg, 1f
-    bx lr
-1:
-    DELIVER_PENDING_EXCEPTION
-.endm
-
-.macro  RETURN_OR_DELIVER_PENDING_EXCEPTION_R1
-    RETURN_OR_DELIVER_PENDING_EXCEPTION_REG r1
 .endm
 
 .macro RETURN_IF_RESULT_IS_ZERO_OR_DELIVER
@@ -1224,6 +1164,8 @@ ART_QUICK_ALLOC_OBJECT_ROSALLOC art_quick_alloc_object_initialized_rosalloc, art
 .endm
 
 // The common code for art_quick_alloc_object_*region_tlab
+// Currently the implementation ignores isInitialized. TODO(b/172087402): clean this up.
+// Caller must execute a constructor fence after this.
 .macro GENERATE_ALLOC_OBJECT_RESOLVED_TLAB name, entrypoint, isInitialized
 ENTRY \name
     // Fast path tlab allocation.
@@ -1290,6 +1232,7 @@ GENERATE_ALLOC_OBJECT_RESOLVED_TLAB art_quick_alloc_object_initialized_tlab, art
     bx     lr
 .endm
 
+// Caller must execute a constructor fence after this.
 .macro GENERATE_ALLOC_ARRAY_TLAB name, entrypoint, size_setup
 ENTRY \name
     // Fast path array allocation for region tlab allocation.
@@ -1313,10 +1256,6 @@ END \name
 .endm
 
 .macro COMPUTE_ARRAY_SIZE_UNKNOWN slow_path
-    bkpt                                                    // We should never enter here.
-                                                            // Code below is for reference.
-                                                            // Possibly a large object, go slow.
-                                                            // Also does negative array size check.
     movw r2, #((MIN_LARGE_OBJECT_THRESHOLD - MIRROR_WIDE_ARRAY_DATA_OFFSET) / 8)
     cmp r1, r2
     bhi \slow_path
@@ -1384,8 +1323,6 @@ END \name
     add    r2, r2, #(MIRROR_WIDE_ARRAY_DATA_OFFSET + OBJECT_ALIGNMENT_MASK)
 .endm
 
-// TODO(ngeoffray): art_quick_alloc_array_resolved_region_tlab is not used for arm, remove
-// the entrypoint once all backends have been updated to use the size variants.
 GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_UNKNOWN
 GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved8_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_8
 GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_region_tlab, artAllocArrayFromCodeResolvedRegionTLAB, COMPUTE_ARRAY_SIZE_16
@@ -1446,113 +1383,31 @@ END art_quick_proxy_invoke_handler
     /*
      * Called to resolve an imt conflict.
      * r0 is the conflict ArtMethod.
-     * r12 is a hidden argument that holds the target interface method's dex method index.
+     * r12 is a hidden argument that holds the target interface method.
      *
      * Note that this stub writes to r0, r4, and r12.
      */
-    .extern artLookupResolvedMethod
 ENTRY art_quick_imt_conflict_trampoline
-    push    {r1-r2}
-    .cfi_adjust_cfa_offset (2 * 4)
-    .cfi_rel_offset r1, 0
-    .cfi_rel_offset r2, 4
-    ldr     r4, [sp, #(2 * 4)]  // Load referrer.
-    ldr     r2, [r0, #ART_METHOD_JNI_OFFSET_32]  // Load ImtConflictTable
-    // Load the declaring class (without read barrier) and access flags (for obsolete method check).
-    // The obsolete flag is set with suspended threads, so we do not need an acquire operation here.
-#if ART_METHOD_ACCESS_FLAGS_OFFSET != ART_METHOD_DECLARING_CLASS_OFFSET + 4
-#error "Expecting declaring class and access flags to be consecutive for LDRD."
-#endif
-    ldrd    r0, r1, [r4, #ART_METHOD_DECLARING_CLASS_OFFSET]
-    // If the method is obsolete, just go through the dex cache miss slow path.
-    lsrs    r1, #(ACC_OBSOLETE_METHOD_SHIFT + 1)
-    bcs     .Limt_conflict_trampoline_dex_cache_miss
-    ldr     r4, [r0, #MIRROR_CLASS_DEX_CACHE_OFFSET]  // Load the DexCache (without read barrier).
-    UNPOISON_HEAP_REF r4
-    ubfx    r1, r12, #0, #METHOD_DEX_CACHE_HASH_BITS  // Calculate DexCache method slot index.
-    ldr     r4, [r4, #MIRROR_DEX_CACHE_RESOLVED_METHODS_OFFSET]  // Load the resolved methods.
-    add     r4, r4, r1, lsl #(POINTER_SIZE_SHIFT + 1)  // Load DexCache method slot address.
-
-// FIXME: Configure the build to use the faster code when appropriate.
-//        Currently we fall back to the slower version.
-#if HAS_ATOMIC_LDRD
-    ldrd    r0, r1, [r4]
-#else
-    push    {r3}
-    .cfi_adjust_cfa_offset 4
-    .cfi_rel_offset r3, 0
-.Limt_conflict_trampoline_retry_load:
-    ldrexd  r0, r1, [r4]
-    strexd  r3, r0, r1, [r4]
-    cmp     r3, #0
-    bne     .Limt_conflict_trampoline_retry_load
-    pop     {r3}
-    .cfi_adjust_cfa_offset -4
-    .cfi_restore r3
-#endif
-
-    ldr     r4, [r2]  // Load first entry in ImtConflictTable.
-    cmp     r1, r12   // Compare method index to see if we had a DexCache method hit.
-    bne     .Limt_conflict_trampoline_dex_cache_miss
+    ldr     r0, [r0, #ART_METHOD_JNI_OFFSET_32]  // Load ImtConflictTable
+    ldr     r4, [r0]  // Load first entry in ImtConflictTable.
 .Limt_table_iterate:
-    cmp     r4, r0
+    cmp     r4, r12
     // Branch if found. Benchmarks have shown doing a branch here is better.
     beq     .Limt_table_found
     // If the entry is null, the interface method is not in the ImtConflictTable.
     cbz     r4, .Lconflict_trampoline
     // Iterate over the entries of the ImtConflictTable.
-    ldr     r4, [r2, #(2 * __SIZEOF_POINTER__)]!
+    ldr     r4, [r0, #(2 * __SIZEOF_POINTER__)]!
     b .Limt_table_iterate
 .Limt_table_found:
     // We successfully hit an entry in the table. Load the target method
     // and jump to it.
-    ldr     r0, [r2, #__SIZEOF_POINTER__]
-    .cfi_remember_state
-    pop     {r1-r2}
-    .cfi_adjust_cfa_offset -(2 * 4)
-    .cfi_restore r1
-    .cfi_restore r2
+    ldr     r0, [r0, #__SIZEOF_POINTER__]
     ldr     pc, [r0, #ART_METHOD_QUICK_CODE_OFFSET_32]
-    .cfi_restore_state
 .Lconflict_trampoline:
-    // Call the runtime stub to populate the ImtConflictTable and jump to the
-    // resolved method.
-    .cfi_remember_state
-    pop     {r1-r2}
-    .cfi_adjust_cfa_offset -(2 * 4)
-    .cfi_restore r1
-    .cfi_restore r2
+    // Pass interface method to the trampoline.
+    mov r0, r12
     INVOKE_TRAMPOLINE_BODY artInvokeInterfaceTrampoline
-    .cfi_restore_state
-.Limt_conflict_trampoline_dex_cache_miss:
-    // We're not creating a proper runtime method frame here,
-    // artLookupResolvedMethod() is not allowed to walk the stack.
-
-    // Save ImtConflictTable (r2), remaining arg (r3), first entry (r4), return address (lr).
-    push    {r2-r4, lr}
-    .cfi_adjust_cfa_offset (4 * 4)
-    .cfi_rel_offset r3, 4
-    .cfi_rel_offset lr, 12
-    // Save FPR args.
-    vpush   {d0-d7}
-    .cfi_adjust_cfa_offset (8 * 8)
-
-    mov     r0, ip                      // Pass method index.
-    ldr     r1, [sp, #(8 * 8 + 6 * 4)]  // Pass referrer.
-    bl      artLookupResolvedMethod     // (uint32_t method_index, ArtMethod* referrer)
-
-    // Restore FPR args.
-    vpop    {d0-d7}
-    .cfi_adjust_cfa_offset -(8 * 8)
-    // Restore ImtConflictTable (r2), remaining arg (r3), first entry (r4), return address (lr).
-    pop     {r2-r4, lr}
-    .cfi_adjust_cfa_offset -(4 * 4)
-    .cfi_restore r3
-    .cfi_restore lr
-
-    cmp     r0, #0                  // If the method wasn't resolved,
-    beq     .Lconflict_trampoline   //   skip the lookup and go to artInvokeInterfaceTrampoline().
-    b       .Limt_table_iterate
 END art_quick_imt_conflict_trampoline
 
     .extern artQuickResolutionTrampoline
@@ -1643,6 +1498,7 @@ ENTRY art_quick_generic_jni_trampoline
 
     // Tear down the alloca.
     mov sp, r10
+    .cfi_remember_state
     .cfi_def_cfa_register sp
 
     // Tear down the callee-save frame. Skip arg registers.
@@ -1654,18 +1510,21 @@ ENTRY art_quick_generic_jni_trampoline
     // store into fpr, for when it's a fpr return...
     vmov d0, r0, r1
     bx lr      // ret
-    // Undo the unwinding information from above since it doesn't apply below.
-    .cfi_def_cfa_register r10
-    .cfi_adjust_cfa_offset FRAME_SIZE_SAVE_REFS_AND_ARGS-FRAME_SIZE_SAVE_REFS_ONLY
 
+    // Undo the unwinding information from above since it doesn't apply below.
+    .cfi_restore_state
+    .cfi_def_cfa r10, FRAME_SIZE_SAVE_REFS_AND_ARGS
 .Lexception_in_native:
     ldr ip, [rSELF, #THREAD_TOP_QUICK_FRAME_OFFSET]
     add ip, ip, #-1  // Remove the GenericJNI tag. ADD/SUB writing directly to SP is UNPREDICTABLE.
     mov sp, ip
-    .cfi_def_cfa_register sp
+    bl art_deliver_pending_exception
+END art_quick_generic_jni_trampoline
+
+ENTRY art_deliver_pending_exception
     # This will create a new save-all frame, required by the runtime.
     DELIVER_PENDING_EXCEPTION
-END art_quick_generic_jni_trampoline
+END art_deliver_pending_exception
 
     .extern artQuickToInterpreterBridge
 ENTRY art_quick_to_interpreter_bridge
@@ -2077,39 +1936,6 @@ ENTRY art_quick_string_builder_append
     RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER
 END art_quick_string_builder_append
 
-.macro CONDITIONAL_CBZ reg, reg_if, dest
-.ifc \reg, \reg_if
-    cbz \reg, \dest
-.endif
-.endm
-
-.macro CONDITIONAL_CMPBZ reg, reg_if, dest
-.ifc \reg, \reg_if
-    cmp \reg, #0
-    beq \dest
-.endif
-.endm
-
-// Use CBZ if the register is in {r0, r7} otherwise compare and branch.
-.macro SMART_CBZ reg, dest
-    CONDITIONAL_CBZ \reg, r0, \dest
-    CONDITIONAL_CBZ \reg, r1, \dest
-    CONDITIONAL_CBZ \reg, r2, \dest
-    CONDITIONAL_CBZ \reg, r3, \dest
-    CONDITIONAL_CBZ \reg, r4, \dest
-    CONDITIONAL_CBZ \reg, r5, \dest
-    CONDITIONAL_CBZ \reg, r6, \dest
-    CONDITIONAL_CBZ \reg, r7, \dest
-    CONDITIONAL_CMPBZ \reg, r8, \dest
-    CONDITIONAL_CMPBZ \reg, r9, \dest
-    CONDITIONAL_CMPBZ \reg, r10, \dest
-    CONDITIONAL_CMPBZ \reg, r11, \dest
-    CONDITIONAL_CMPBZ \reg, r12, \dest
-    CONDITIONAL_CMPBZ \reg, r13, \dest
-    CONDITIONAL_CMPBZ \reg, r14, \dest
-    CONDITIONAL_CMPBZ \reg, r15, \dest
-.endm
-
     /*
      * Create a function `name` calling the ReadBarrier::Mark routine,
      * getting its argument and returning its result through register
@@ -2444,11 +2270,15 @@ art_quick_read_barrier_mark_introspection_gc_roots\label_suffix:
      * The thunk also performs all the fast-path checks, so we need just the
      * slow path.
      *
-     * The UnsafeCASObject intrinsic is similar to the GC roots wide approach
-     * but using ADD (register, T3) instead of the LDR (immediate, T3), so the
-     * destination register is in bits 8-11 rather than 12-15. Therefore it has
-     * its own entrypoint, art_quick_read_barrier_mark_introspection_unsafe_cas
-     * at the offset BAKER_MARK_INTROSPECTION_UNSAFE_CAS_ENTRYPOINT_OFFSET.
+     * Intrinsic CAS operations (VarHandle*CompareAnd{Set,Exchange}* and
+     * UnsafeCASObject) use similar code to the GC roots wide load but using
+     * MOV (register, T3) instead of the LDR (immediate, T3), with destination
+     * register in bits 8-11 rather than 12-15. Therefore they have their own
+     * entrypoint, art_quick_read_barrier_mark_introspection_intrinsic_cas
+     * at the offset BAKER_MARK_INTROSPECTION_INTRINSIC_CAS_ENTRYPOINT_OFFSET.
+     * This is used only for high registers, low registers reuse the GC roots
+     * narrow load entrypoint as the low 3 bits of the destination register
+     * for MOV (register) encoding T1 match the LDR (immediate) encoding T1.
      *
      * The code structure is
      *   art_quick_read_barrier_mark_introspection:                   // @0x00
@@ -2485,9 +2315,9 @@ art_quick_read_barrier_mark_introspection_gc_roots\label_suffix:
      *     return switch.
      *   art_quick_read_barrier_mark_introspection_arrays:            // @0x100
      *     Exactly 128 bytes for array load switch cases (16x2 instructions).
-     *   art_quick_read_barrier_mark_introspection_unsafe_cas:        // @0x180
-     *     UnsafeCASObject intrinsic entrypoint for ADD (register) encoding T3
-     *     (6 bytes). Loads the return register and jumps to the runtime call.
+     *   art_quick_read_barrier_mark_introspection_intrinsic_cas:     // @0x180
+     *     Intrinsic CAS entrypoint for MOV (register) encoding T3 (6 bytes).
+     *     Loads the return register and jumps to the runtime call.
      */
 #if defined(USE_READ_BARRIER) && defined(USE_BAKER_READ_BARRIER)
 ENTRY_ALIGNED art_quick_read_barrier_mark_introspection, 512
@@ -2556,15 +2386,14 @@ art_quick_read_barrier_mark_introspection_arrays:
 
     .balign 8
     .thumb_func
-    .type art_quick_read_barrier_mark_introspection_unsafe_cas, #function
-    .hidden art_quick_read_barrier_mark_introspection_unsafe_cas
-    .global art_quick_read_barrier_mark_introspection_unsafe_cas
-art_quick_read_barrier_mark_introspection_unsafe_cas:
-    // Load the byte of the ADD instruction that contains Rd. Adjust for the thumb state in LR.
-    // The ADD (register, T3) is |11101011000|S|Rn|(0)imm3|Rd|imm2|type|Rm| and we're using
-    // no shift (type=0, imm2=0, imm3=0), so the byte we read here, i.e. |(0)imm3|Rd|,
-    // contains only the register number, the top 4 bits are 0.
-    ldrb    rMR, [lr, #(-1 + BAKER_MARK_INTROSPECTION_UNSAFE_CAS_ADD_OFFSET + 3)]
+    .type art_quick_read_barrier_mark_introspection_intrinsic_cas, #function
+    .hidden art_quick_read_barrier_mark_introspection_intrinsic_cas
+    .global art_quick_read_barrier_mark_introspection_intrinsic_cas
+art_quick_read_barrier_mark_introspection_intrinsic_cas:
+    // Load the byte of the MOV instruction that contains Rd. Adjust for the thumb state in LR.
+    // The MOV (register, T3) is |11101010010|S|1111|(0)000|Rd|0000|Rm|, so the byte we read
+    // here, i.e. |(0)000|Rd|, contains only the register number, the top 4 bits are 0.
+    ldrb    rMR, [lr, #(-1 + BAKER_MARK_INTROSPECTION_INTRINSIC_CAS_MOV_OFFSET + 3)]
     b .Lmark_introspection_runtime_call
 END art_quick_read_barrier_mark_introspection
 #else  // defined(USE_READ_BARRIER) && defined(USE_BAKER_READ_BARRIER)

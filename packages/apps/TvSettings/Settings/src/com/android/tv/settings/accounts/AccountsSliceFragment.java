@@ -18,7 +18,6 @@ package com.android.tv.settings.accounts;
 
 import androidx.annotation.Keep;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.twopanelsettings.slices.SliceFragment;
 
 /**
@@ -27,9 +26,4 @@ import com.android.tv.twopanelsettings.slices.SliceFragment;
  */
 @Keep
 public class AccountsSliceFragment extends SliceFragment {
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.ACCOUNTS_MANAGE_ACCOUNTS;
-    }
 }

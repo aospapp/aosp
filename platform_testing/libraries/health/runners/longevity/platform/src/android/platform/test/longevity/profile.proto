@@ -24,6 +24,7 @@ message Configuration {
     enum Schedule {
         TIMESTAMPED = 1;
         INDEXED = 2;
+        SEQUENTIAL = 3;
     }
     optional Schedule schedule = 1 [default = TIMESTAMPED];
 

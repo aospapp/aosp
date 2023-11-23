@@ -17,6 +17,7 @@
 
 #include "util.h"
 
+#include <android-base/format.h>
 #include <android-base/parseint.h>
 #include <server_configurable_flags/get_flags.h>
 
@@ -44,4 +45,14 @@ int getExperimentFlagInt(const std::string& flagName, int defaultValue) {
     int val = defaultValue;
     ParseInt(GetServerConfigurableFlag("netd_native", flagName, ""), &val);
     return val;
+}
+
+std::string timestampToString(const std::chrono::system_clock::time_point& ts) {
+    using std::chrono::duration_cast;
+    using std::chrono::milliseconds;
+    const auto time_sec = std::chrono::system_clock::to_time_t(ts);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%H:%M:%S", std::localtime(&time_sec));
+    int ms = duration_cast<milliseconds>(ts.time_since_epoch()).count() % 1000;
+    return fmt::format("{}.{:03d}", buf, ms);
 }

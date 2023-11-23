@@ -264,6 +264,14 @@ public class CallAudioManager extends CallsManagerListenerBase {
         }
     }
 
+    public void playRttUpgradeTone(Call call) {
+        if (call != mForegroundCall) {
+            // We only play tones for foreground calls.
+            return;
+        }
+        mPlayerFactory.createPlayer(InCallTonePlayer.TONE_RTT_REQUEST).startTone();
+    }
+
     /**
      * Play or stop a call hold tone for a call.  Triggered via
      * {@link Connection#sendConnectionEvent(String)} when the

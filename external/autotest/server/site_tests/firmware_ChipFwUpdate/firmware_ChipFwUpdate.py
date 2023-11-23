@@ -34,7 +34,7 @@ a bios.bin can be specified when invoking the test that will be used
 insteade of the bios.bin normally extracted from the DUT's system
 shellball.
 """
-
+import binascii
 import logging
 import os
 import tempfile
@@ -64,9 +64,6 @@ class firmware_ChipFwUpdate(FirmwareTest):
     """
     version = 1
 
-    BIOS = 'bios.bin'
-    HEXDUMP = 'hexdump -v -e \'1/1 "0x%02x\\n"\''
-
     def initialize(self, host, cmdline_args):
         dict_args = utils.args_to_dict(cmdline_args)
         super(firmware_ChipFwUpdate,
@@ -89,20 +86,26 @@ class firmware_ChipFwUpdate(FirmwareTest):
         # see if comand line specified new firmware blobs
         # for chips we know about
 
-        for chip in chip_utils.chip_id_map.itervalues():
-            chip_name = chip.chip_name
+        for chip_type in chip_utils.chip_id_map.values():
+            chip_name = chip_type.chip_name
             if chip_name not in dict_args:
                 continue
             chip_file = dict_args[chip_name]
             if not os.path.exists(chip_file):
                 raise error.TestError('file %s not found' % chip_file)
-            c = chip()
-            c.set_from_file(chip_file)
+
+            chip = chip_type()
+            chip.set_from_file(chip_file)
+
             if chip_name in self.req_chip_updates:
                 raise error.TestError('multiple %s args' % chip_name)
-            logging.info('request chip %s fw 0x%02x from command line',
-                         c.chip_name, c.fw_ver)
-            self.req_chip_updates[chip_name] = c
+
+            fw_ver_desc = ''
+            if chip.fw_ver:
+                fw_ver_desc = ' (version 0x%02x)' % chip.fw_ver
+            logging.info('got %s firmware from args: %s%s', chip.chip_name,
+                         chip_file, fw_ver_desc)
+            self.req_chip_updates[chip_name] = chip
 
     def dut_setup_cbfs(self):
         """Sets up a work dir for cbfstool.
@@ -124,30 +127,32 @@ class firmware_ChipFwUpdate(FirmwareTest):
         """
 
         for chip in self.req_chip_updates.itervalues():
-            logging.info('checking for %s firmware in %s',
-                         chip.chip_name, self.BIOS)
+            logging.info('checking for %s firmware in CBFS', chip.chip_name)
 
-            if not self.faft_client.updater.cbfs_extract_chip(chip.fw_name):
-                logging.warning('%s firmware not bundled in %s',
-                                chip.chip_name, self.BIOS)
+            if not self.faft_client.updater.cbfs_extract_chip(
+                    chip.fw_name, chip.extension, chip.hash_extension):
+                logging.warning('%s firmware not bundled in CBFS',
+                                chip.chip_name)
                 continue
 
             hashblob = self.faft_client.updater.cbfs_get_chip_hash(
-                chip.fw_name)
-            if not hashblob:
-                logging.warning('%s firmware hash not extracted from %s',
-                                chip.chip_name, self.BIOS)
-                continue
-
-            bundled_fw_ver = chip.fw_ver_from_hash(hashblob)
-            if not bundled_fw_ver:
-                raise error.TestFail(
-                    'could not decode %s firmware hash: %s' % (
-                        chip.chip_name, hashblob))
-
+                    chip.fw_name, chip.hash_extension)
+            if hashblob:
+                if hasattr(chip, 'fw_ver_from_hash'):
+                    bundled_fw_ver = chip.fw_ver_from_hash(hashblob)
+                    if bundled_fw_ver is None:
+                        raise error.TestFail(
+                                'could not determine version from %s firmware '
+                                'hash: %s' % (chip.chip_name, hashblob))
+                    logging.info('CBFS bundled firmware for %s is version %s',
+                                 chip.chip_name, bundled_fw_ver)
+                else:
+                    logging.info('CBFS bundled firmware for %s has hash %s',
+                                 chip.chip_name, hashblob)
+            else:
+                logging.warning('%s firmware hash not extracted from CBFS',
+                                chip.chip_name)
             self.cbfs_chip_types.add(type(chip))
-            logging.info('%s bundled firmware for %s is version %s',
-                         self.BIOS, chip.chip_name, bundled_fw_ver)
 
     def cbfs_replace_chips(self, host):
         """Iterates over known chips in cbfs.
@@ -160,12 +165,13 @@ class firmware_ChipFwUpdate(FirmwareTest):
             host: host handle to the DUT.
         """
 
-        for chip in self.cbfs_chip_types:
-            chip_name = chip.chip_name
-            logging.info('replacing %s firmware in %s', chip_name, self.BIOS)
+        for chip_type in self.cbfs_chip_types:
+            chip_name = chip_type.chip_name
+            logging.info('replacing %s firmware in CBFS', chip_name)
 
             fw_update = self.req_chip_updates[chip_name]
             fw_hash = fw_update.compute_hash_bytes()
+            logging.info("New file's hash is: %s", binascii.hexlify(fw_hash))
             (fd, n) = tempfile.mkstemp()
             with os.fdopen(fd, 'wb') as f:
                 f.write(fw_hash)
@@ -184,7 +190,8 @@ class firmware_ChipFwUpdate(FirmwareTest):
                                fw_update.cbfs_bin_name))
 
             if not self.faft_client.updater.cbfs_replace_chip(
-                    fw_update.fw_name):
+                    fw_update.fw_name, fw_update.extension,
+                    fw_update.hash_extension):
                 raise error.TestFail('could not replace %s blobs in cbfs' %
                                      fw_update.chip_name)
 

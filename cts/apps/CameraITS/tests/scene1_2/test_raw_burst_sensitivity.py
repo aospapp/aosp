@@ -11,105 +11,127 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Verifies RAW sensitivity burst."""
 
+
+import logging
 import os.path
-import its.caps
-import its.device
-import its.image
-import its.objects
 import matplotlib
 from matplotlib import pylab
+from mobly import test_runner
 
-GR_PLANE = 1  # GR plane index in RGGB data
-IMG_STATS_GRID = 9  # find used to find the center 11.11%
-NAME = os.path.basename(__file__).split(".")[0]
-NUM_STEPS = 5
-VAR_THRESH = 1.01  # each shot must be 1% noisier than previous
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import image_processing_utils
+import its_session_utils
+
+_GR_PLANE_IDX = 1  # GR plane index in RGGB data
+_IMG_STATS_GRID = 9  # find used to find the center 11.11%
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_NUM_STEPS = 5
+_VAR_THRESH = 1.01  # each shot must be 1% noisier than previous
 
 
-def main():
-    """Capture a set of raw images with increasing gains and measure the noise.
+def define_raw_stats_fmt(props):
+  """Defines the format using camera props active array width and height."""
+  aax = props['android.sensor.info.preCorrectionActiveArraySize']['left']
+  aay = props['android.sensor.info.preCorrectionActiveArraySize']['top']
+  aaw = props['android.sensor.info.preCorrectionActiveArraySize']['right'] - aax
+  aah = props[
+      'android.sensor.info.preCorrectionActiveArraySize']['bottom'] - aay
 
-    Capture raw-only, in a burst.
-    """
+  return {'format': 'rawStats',
+          'gridWidth': aaw // _IMG_STATS_GRID,
+          'gridHeight': aah // _IMG_STATS_GRID}
 
-    with its.device.ItsSession() as cam:
 
-        props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.raw16(props) and
-                             its.caps.manual_sensor(props) and
-                             its.caps.read_3a(props) and
-                             its.caps.per_frame_control(props) and
-                             not its.caps.mono_camera(props))
-        debug = its.caps.debug_mode()
+class RawSensitivityBurstTest(its_base_test.ItsBaseTest):
+  """Captures a set of RAW images with increasing sensitivity & measures noise.
 
-        # Expose for the scene with min sensitivity
-        sens_min, _ = props["android.sensor.info.sensitivityRange"]
-        # Digital gains might not be visible on RAW data
-        sens_max = props["android.sensor.maxAnalogSensitivity"]
-        sens_step = (sens_max - sens_min) / NUM_STEPS
-        s_ae, e_ae, _, _, f_dist = cam.do_3a(get_results=True)
-        s_e_prod = s_ae * e_ae
+  Sensitivity range (gain) is determined from camera properties and limited to
+  the analog sensitivity range as captures are RAW only in a burst. Digital
+  sensitivity range from props['android.sensor.info.sensitivityRange'] is not
+  used.
 
-        reqs = []
-        settings = []
-        for s in range(sens_min, sens_max, sens_step):
-            e = int(s_e_prod / float(s))
-            req = its.objects.manual_capture_request(s, e, f_dist)
-            reqs.append(req)
-            settings.append((s, e))
+  Uses RawStats capture format to speed up processing. RawStats defines a grid
+  over the RAW image and returns average and variance of requested areas.
+  white_level is found from camera to normalize variance values from RawStats.
 
-        if debug:
-            caps = cam.do_capture(reqs, cam.CAP_RAW)
-        else:
-            # Get the active array width and height.
-            aax = props["android.sensor.info.preCorrectionActiveArraySize"]["left"]
-            aay = props["android.sensor.info.preCorrectionActiveArraySize"]["top"]
-            aaw = props["android.sensor.info.preCorrectionActiveArraySize"]["right"]-aax
-            aah = props["android.sensor.info.preCorrectionActiveArraySize"]["bottom"]-aay
-            # Compute stats on a grid across each image.
-            caps = cam.do_capture(reqs,
-                                  {"format": "rawStats",
-                                   "gridWidth": aaw/IMG_STATS_GRID,
-                                   "gridHeight": aah/IMG_STATS_GRID})
+  Noise (image variance) of center patch should increase with increasing
+  sensitivity.
+  """
 
-        variances = []
-        for i, cap in enumerate(caps):
-            (s, e) = settings[i]
+  def test_raw_sensitivity_burst(self):
+    logging.debug('Starting %s', _NAME)
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.raw16(props) and
+          camera_properties_utils.manual_sensor(props) and
+          camera_properties_utils.read_3a(props) and
+          camera_properties_utils.per_frame_control(props) and
+          not camera_properties_utils.mono_camera(props))
 
-            # Each shot should be noisier than the previous shot (as the gain
-            # is increasing). Use the variance of the center stats grid cell.
-            if debug:
-                gr = its.image.convert_capture_to_planes(cap, props)[1]
-                tile = its.image.get_image_patch(gr, 0.445, 0.445, 0.11, 0.11)
-                var = its.image.compute_image_variances(tile)[0]
-                img = its.image.convert_capture_to_rgb_image(cap, props=props)
-                its.image.write_image(img,
-                                      "%s_s=%05d_var=%f.jpg" % (NAME, s, var))
-            else:
-                # find white level
-                white_level = float(props["android.sensor.info.whiteLevel"])
-                _, var_image = its.image.unpack_rawstats_capture(cap)
-                cfa_idxs = its.image.get_canonical_cfa_order(props)
-                var = var_image[IMG_STATS_GRID/2, IMG_STATS_GRID/2,
-                                cfa_idxs[GR_PLANE]]/white_level**2
-            variances.append(var)
-            print "s=%d, e=%d, var=%e" % (s, e, var)
+      # Load chart for scene
+      its_session_utils.load_scene(
+          cam, props, self.scene, self.tablet, self.chart_distance)
 
-        x = range(len(variances))
-        pylab.plot(x, variances, "-ro")
-        pylab.xticks(x)
-        pylab.xlabel("Setting Combination")
-        pylab.ylabel("Image Center Patch Variance")
-        matplotlib.pyplot.savefig("%s_variances.png" % NAME)
+      # Find sensitivity range and create capture requests
+      sens_min, _ = props['android.sensor.info.sensitivityRange']
+      sens_max = props['android.sensor.maxAnalogSensitivity']
+      sens_step = (sens_max - sens_min) // _NUM_STEPS
+      sens_ae, exp_ae, _, _, f_dist = cam.do_3a(get_results=True)
+      sens_exp_prod = sens_ae * exp_ae
+      reqs = []
+      settings = []
+      for sens in range(sens_min, sens_max, sens_step):
+        exp = int(sens_exp_prod / float(sens))
+        req = capture_request_utils.manual_capture_request(sens, exp, f_dist)
+        reqs.append(req)
+        settings.append((sens, exp))
 
-        # Test that each shot is noisier than the previous one.
-        x.pop()  # remove last element in x index
-        for i in x:
-            msg = 'variances [i]: %.5f, [i+1]: %.5f, THRESH: %.2f' % (
-                    variances[i], variances[i+1], VAR_THRESH)
-            assert variances[i] < variances[i+1] / VAR_THRESH, msg
+      # Get rawStats capture format
+      fmt = define_raw_stats_fmt(props)
 
-if __name__ == "__main__":
-    main()
+      # Do captures
+      caps = cam.do_capture(reqs, fmt)
 
+      # Extract variances from each shot
+      variances = []
+      for i, cap in enumerate(caps):
+        (sens, exp) = settings[i]
+
+        # Find white_level for RawStats normalization
+        white_level = float(props['android.sensor.info.whiteLevel'])
+        _, var_image = image_processing_utils.unpack_rawstats_capture(cap)
+        cfa_idxs = image_processing_utils.get_canonical_cfa_order(props)
+        var = var_image[_IMG_STATS_GRID//2, _IMG_STATS_GRID//2,
+                        cfa_idxs[_GR_PLANE_IDX]]/white_level**2
+        variances.append(var)
+        logging.debug('s=%d, e=%d, var=%e', sens, exp, var)
+
+      # Create a plot
+      x = range(len(variances))
+      pylab.figure(_NAME)
+      pylab.plot(x, variances, '-ro')
+      pylab.xticks(x)
+      pylab.ticklabel_format(style='sci', axis='y', scilimits=(-6, -6))
+      pylab.xlabel('Setting Combination')
+      pylab.ylabel('Image Center Patch Variance')
+      pylab.title(_NAME)
+      matplotlib.pyplot.savefig(
+          '%s_variances.png' % os.path.join(self.log_path, _NAME))
+
+      # Asserts that each shot is noisier than previous
+      for i in x[0:-1]:
+        e_msg = 'variances [i]: %.5f, [i+1]: %.5f, THRESH: %.2f' % (
+            variances[i], variances[i+1], _VAR_THRESH)
+        assert variances[i] < variances[i+1] / _VAR_THRESH, e_msg
+
+if __name__ == '__main__':
+  test_runner.main()

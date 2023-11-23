@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_AES_KEY_H_
-#define SYSTEM_KEYMASTER_AES_KEY_H_
+#pragma once
 
 #include <openssl/aes.h>
 
@@ -28,16 +27,15 @@ const size_t kMaxGcmTagLength = 16 * 8;
 
 class AesKeyFactory : public SymmetricKeyFactory {
   public:
-    explicit AesKeyFactory(const SoftwareKeyBlobMaker* blob_maker,
-                           const RandomSource* random_source) :
-		SymmetricKeyFactory(blob_maker, random_source) {}
+    explicit AesKeyFactory(const SoftwareKeyBlobMaker& blob_maker,
+                           const RandomSource& random_source)
+        : SymmetricKeyFactory(blob_maker, random_source) {}
 
     keymaster_algorithm_t registry_key() const { return KM_ALGORITHM_AES; }
 
     keymaster_error_t LoadKey(KeymasterKeyBlob&& key_material,
                               const AuthorizationSet& additional_params,
-                              AuthorizationSet&& hw_enforced,
-                              AuthorizationSet&& sw_enforced,
+                              AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                               UniquePtr<Key>* key) const override;
 
     OperationFactory* GetOperationFactory(keymaster_purpose_t purpose) const override;
@@ -53,11 +51,8 @@ class AesKeyFactory : public SymmetricKeyFactory {
 class AesKey : public SymmetricKey {
   public:
     AesKey(KeymasterKeyBlob&& key_material, AuthorizationSet&& hw_enforced,
-           AuthorizationSet&& sw_enforced,
-           const KeyFactory* key_factory)
+           AuthorizationSet&& sw_enforced, const KeyFactory* key_factory)
         : SymmetricKey(move(key_material), move(hw_enforced), move(sw_enforced), key_factory) {}
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_AES_KEY_H_

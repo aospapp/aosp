@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Μπορείτε να εγκαταστήσετε πιστοποιητικά από ένα αρχείο PKCS#12 με επέκταση %1$s ή %2$s που βρίσκονται σε εξωτερική συσκευή αποθήκευσης."</string>
     <string name="allow_button" msgid="3030990695030371561">"Επιλογή"</string>
     <string name="deny_button" msgid="3766539809121892584">"Απόρριψη"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Φόρτωση πιστοποιητικών…"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"Το %s ελέγχει για πιστοποιητικό…"</string>
 </resources>

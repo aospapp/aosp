@@ -39,3 +39,9 @@ f5bcda0e55d2cf2a8f9d5ebc436d6f967e210835dc4ac4ea014cd12bc476639e android.framewo
 392d98ed528ebd5ee14c9e65ef633cbbeeb33c74e5ab1be2cfd8a865ac4c9c86 android.frameworks.cameraservice.service@2.1::ICameraServiceListener
 aedecd4d47697f0cc2d62e46ff7442bab2c4571237719f44b222bfdfcbd30d92 android.frameworks.cameraservice.service@2.1::types
 fefd24d57da1924188e377073e9714dc03b6df181d581da1dab3651d45ebc3c9 android.frameworks.vr.composer@2.0::IVrComposerClient
+
+# HALs released in Android S
+3f47c629bee4057bd76e408bd335088b90f1f088c7ae73c703a75b812738d19e android.frameworks.cameraservice.device@2.1::ICameraDeviceUser
+2959b6f2b54e75c6965f6ddc90d4c8a0673d5585fa9aad2ab03f01f1b76b1945 android.frameworks.cameraservice.service@2.2::ICameraService
+
+# There should be no more HIDL HALs - please use AIDL instead.

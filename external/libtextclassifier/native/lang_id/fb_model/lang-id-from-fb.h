@@ -40,6 +40,11 @@ std::unique_ptr<LangId> GetLangIdFromFlatbufferFileDescriptor(
     FileDescriptorOrHandle fd);
 
 // Returns a LangId built using the SAFT model in flatbuffer format from
+// given file descriptor, staring at |offset| and of size |num_bytes|.
+std::unique_ptr<LangId> GetLangIdFromFlatbufferFileDescriptor(
+    FileDescriptorOrHandle fd, size_t offset, size_t num_bytes);
+
+// Returns a LangId built using the SAFT model in flatbuffer format from
 // the |num_bytes| bytes that start at address |data|.
 //
 // IMPORTANT: the model bytes must be alive during the lifetime of the returned

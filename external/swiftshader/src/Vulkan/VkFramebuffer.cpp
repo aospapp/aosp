@@ -13,21 +13,54 @@
 // limitations under the License.
 
 #include "VkFramebuffer.hpp"
+
 #include "VkImageView.hpp"
 #include "VkRenderPass.hpp"
+#include "VkStringify.hpp"
+
 #include <memory.h>
 #include <algorithm>
 
 namespace vk {
 
 Framebuffer::Framebuffer(const VkFramebufferCreateInfo *pCreateInfo, void *mem)
-    : attachmentCount(pCreateInfo->attachmentCount)
-    , attachments(reinterpret_cast<ImageView **>(mem))
+    : attachments(reinterpret_cast<ImageView **>(mem))
     , extent{ pCreateInfo->width, pCreateInfo->height, pCreateInfo->layers }
 {
-	for(uint32_t i = 0; i < attachmentCount; i++)
+	const VkBaseInStructure *curInfo = reinterpret_cast<const VkBaseInStructure *>(pCreateInfo->pNext);
+	const VkFramebufferAttachmentsCreateInfo *attachmentsCreateInfo = nullptr;
+	while(curInfo)
 	{
-		attachments[i] = vk::Cast(pCreateInfo->pAttachments[i]);
+		switch(curInfo->sType)
+		{
+			case VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO:
+				attachmentsCreateInfo = reinterpret_cast<const VkFramebufferAttachmentsCreateInfo *>(curInfo);
+				break;
+			default:
+				LOG_TRAP("pFramebufferCreateInfo->pNext->sType = %s", vk::Stringify(curInfo->sType).c_str());
+				break;
+		}
+		curInfo = curInfo->pNext;
+	}
+
+	if(pCreateInfo->flags & VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT)
+	{
+		// If flags includes VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT, the pNext chain **must**
+		// include a VkFramebufferAttachmentsCreateInfo.
+		ASSERT(attachmentsCreateInfo != nullptr);
+		attachmentCount = attachmentsCreateInfo->attachmentImageInfoCount;
+		for(uint32_t i = 0; i < attachmentCount; i++)
+		{
+			attachments[i] = nullptr;
+		}
+	}
+	else
+	{
+		attachmentCount = pCreateInfo->attachmentCount;
+		for(uint32_t i = 0; i < attachmentCount; i++)
+		{
+			attachments[i] = vk::Cast(pCreateInfo->pAttachments[i]);
+		}
 	}
 }
 
@@ -115,6 +148,13 @@ void Framebuffer::clearAttachment(const RenderPass *renderPass, uint32_t subpass
 	}
 }
 
+void Framebuffer::setAttachment(ImageView *imageView, uint32_t index)
+{
+	ASSERT(index < attachmentCount);
+	ASSERT(attachments[index] == nullptr);
+	attachments[index] = imageView;
+}
+
 ImageView *Framebuffer::getAttachment(uint32_t index) const
 {
 	return attachments[index];
@@ -143,11 +183,47 @@ void Framebuffer::resolve(const RenderPass *renderPass, uint32_t subpassIndex)
 			}
 		}
 	}
+
+	if(renderPass->hasDepthStencilResolve() && subpass.pDepthStencilAttachment != nullptr)
+	{
+		VkSubpassDescriptionDepthStencilResolve dsResolve = renderPass->getSubpassDepthStencilResolve(subpassIndex);
+		uint32_t depthStencilAttachment = subpass.pDepthStencilAttachment->attachment;
+		if(depthStencilAttachment != VK_ATTACHMENT_UNUSED)
+		{
+			ImageView *imageView = attachments[depthStencilAttachment];
+			imageView->resolveDepthStencil(attachments[dsResolve.pDepthStencilResolveAttachment->attachment], dsResolve);
+		}
+	}
 }
 
 size_t Framebuffer::ComputeRequiredAllocationSize(const VkFramebufferCreateInfo *pCreateInfo)
 {
-	return pCreateInfo->attachmentCount * sizeof(void *);
+	const VkBaseInStructure *curInfo = reinterpret_cast<const VkBaseInStructure *>(pCreateInfo->pNext);
+	const VkFramebufferAttachmentsCreateInfo *attachmentsInfo = nullptr;
+	while(curInfo)
+	{
+		switch(curInfo->sType)
+		{
+			case VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO:
+				attachmentsInfo = reinterpret_cast<const VkFramebufferAttachmentsCreateInfo *>(curInfo);
+				break;
+			default:
+				LOG_TRAP("pFramebufferCreateInfo->pNext->sType = %s", vk::Stringify(curInfo->sType).c_str());
+				break;
+		}
+
+		curInfo = curInfo->pNext;
+	}
+
+	if(pCreateInfo->flags & VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT)
+	{
+		ASSERT(attachmentsInfo != nullptr);
+		return attachmentsInfo->attachmentImageInfoCount * sizeof(void *);
+	}
+	else
+	{
+		return pCreateInfo->attachmentCount * sizeof(void *);
+	}
 }
 
 }  // namespace vk

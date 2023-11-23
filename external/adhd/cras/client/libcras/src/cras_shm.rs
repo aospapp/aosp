@@ -1,19 +1,26 @@
 // Copyright 2019 The Chromium OS Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+use std::convert::TryFrom;
 use std::io;
 use std::mem;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::ptr;
 use std::ptr::NonNull;
 use std::slice;
-
-use libc;
+use std::sync::atomic::{self, Ordering};
+use std::thread;
 
 use cras_sys::gen::{
-    cras_audio_shm_header, cras_server_state, CRAS_NUM_SHM_BUFFERS, CRAS_SHM_BUFFERS_MASK,
+    audio_dev_debug_info, audio_stream_debug_info, cras_audio_shm_header, cras_iodev_info,
+    cras_ionode_info, cras_server_state, CRAS_MAX_IODEVS, CRAS_MAX_IONODES, CRAS_NUM_SHM_BUFFERS,
+    CRAS_SERVER_STATE_VERSION, CRAS_SHM_BUFFERS_MASK, MAX_DEBUG_DEVS, MAX_DEBUG_STREAMS,
 };
-use data_model::VolatileRef;
+use cras_sys::{
+    AudioDebugInfo, AudioDevDebugInfo, AudioStreamDebugInfo, CrasIodevInfo, CrasIonodeInfo,
+};
+use data_model::{VolatileRef, VolatileSlice};
+use sys_util::warn;
 
 /// A structure wrapping a fd which contains a shared `cras_audio_shm_header`.
 /// * `shm_fd` - A shared memory fd contains a `cras_audio_shm_header`
@@ -45,7 +52,6 @@ impl CrasAudioShmHeaderFd {
 /// A wrapper for the raw structure `cras_audio_shm_header` with
 /// size information for the separate audio samples shm area and several
 /// `VolatileRef` to sub fields for safe access to the header.
-#[allow(dead_code)]
 pub struct CrasAudioHeader<'a> {
     addr: *mut libc::c_void,
     /// Size of the buffer for samples in CrasAudioBuffer
@@ -56,7 +62,7 @@ pub struct CrasAudioHeader<'a> {
     write_buf_idx: VolatileRef<'a, u32>,
     read_offset: [VolatileRef<'a, u32>; CRAS_NUM_SHM_BUFFERS as usize],
     write_offset: [VolatileRef<'a, u32>; CRAS_NUM_SHM_BUFFERS as usize],
-    buffer_offset: [VolatileRef<'a, u32>; CRAS_NUM_SHM_BUFFERS as usize],
+    buffer_offset: [VolatileRef<'a, u64>; CRAS_NUM_SHM_BUFFERS as usize],
 }
 
 // It is safe to send audio buffers between threads as this struct has exclusive ownership of the
@@ -226,8 +232,13 @@ impl<'a> CrasAudioHeader<'a> {
         self.frame_size.load() as usize
     }
 
-    /// Gets the size in bytes of the shared memory buffer.
-    fn get_used_size(&self) -> usize {
+    /// Gets the max size in bytes of each shared memory buffer within
+    /// the samples area.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - Value of `used_size` fetched from the shared memory header.
+    pub fn get_used_size(&self) -> usize {
         self.used_size.load() as usize
     }
 
@@ -299,7 +310,7 @@ impl<'a> CrasAudioHeader<'a> {
         Ok(())
     }
 
-    /// Sets `read_offset[idx]` of to count of written bytes.
+    /// Sets `read_offset[idx]` to count of written bytes.
     ///
     /// # Arguments
     /// `idx` - 0 <= `idx` < `CRAS_NUM_SHM_BUFFERS`
@@ -334,13 +345,23 @@ impl<'a> CrasAudioHeader<'a> {
             .load() as usize;
         let other_end = other_start + self.buffer_len_from_offset(other_start)?;
         if start < other_end && other_start < end {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!(
-                    "Setting buffer {} to [{}, {}) overlaps buffer {} at [{}, {})",
-                    idx, start, end, other_idx, other_start, other_end,
-                ),
-            ));
+            // Special case: occasionally we get the same buffer offset twice
+            // from the intel8x0 kernel driver in crosvm's AC97 device, and we
+            // don't want to crash in that case.
+            if start == other_start && end == other_end {
+                warn!(
+                    "Setting buffer {} to same index/offset as buffer {}, [{}, {})",
+                    idx, other_idx, other_start, other_end
+                );
+            } else {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!(
+                        "Setting buffer {} to [{}, {}) overlaps buffer {} at [{}, {})",
+                        idx, start, end, other_idx, other_start, other_end,
+                    ),
+                ));
+            }
         }
         Ok(())
     }
@@ -360,11 +381,11 @@ impl<'a> CrasAudioHeader<'a> {
     ///  * overlaps some other buffer `[other_offset, other_offset + used_size)`
     ///  * is close enough to the end of the samples area that the buffer would
     ///    be shorter than `frame_size`.
-    fn set_buffer_offset(&mut self, idx: usize, offset: usize) -> io::Result<()> {
+    pub fn set_buffer_offset(&mut self, idx: usize, offset: usize) -> io::Result<()> {
         self.check_buffer_offset(idx, offset)?;
 
         let buffer_offset = self.buffer_offset.get(idx).ok_or_else(index_out_of_range)?;
-        buffer_offset.store(offset as u32);
+        buffer_offset.store(offset as u64);
         Ok(())
     }
 
@@ -499,45 +520,252 @@ unsafe fn cras_mmap(
     cras_mmap_offset(len, prot, fd, 0)
 }
 
-/// A structure that points to RO shared memory area - `cras_server_state`
-/// The structure is created from a shared memory fd which contains the structure.
-#[allow(dead_code)]
-pub struct CrasServerState {
-    addr: *mut libc::c_void,
-    size: usize,
+/// An unsafe macro for getting a `VolatileSlice` representing an entire array
+/// field from a given NonNull pointer.
+///
+/// To use this macro safely, we need to
+/// - Make sure the pointer address is readable and writeable for its struct.
+/// - Make sure all `VolatileSlice`s generated from this macro have exclusive ownership for the same
+/// pointer.
+/// - Make sure the length of the array field is non-zero.
+#[macro_export]
+macro_rules! vslice_from_addr {
+    ($addr:ident, $($field:ident).*) => {{
+        let ptr = &mut $addr.as_mut().$($field).* as *mut _ as *mut u8;
+        let size = std::mem::size_of_val(&$addr.as_mut().$($field).*);
+        VolatileSlice::from_raw_parts(ptr, size)
+    }};
 }
 
-impl CrasServerState {
-    /// An unsafe function for creating `CrasServerState`. To use this function safely, we need to
-    /// - Make sure that the `shm_fd` must come from the server's message that provides the shared
-    /// memory region. The Id for the message is `CRAS_CLIENT_MESSAGE_ID::CRAS_CLIENT_CONNECTED`.
-    #[allow(dead_code)]
-    pub unsafe fn new(shm_fd: CrasShmFd) -> io::Result<Self> {
-        let size = mem::size_of::<cras_server_state>();
-        if size > shm_fd.size {
-            Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Invalid shared memory size.",
-            ))
-        } else {
-            let addr = cras_mmap(size, libc::PROT_READ, shm_fd.as_raw_fd())?;
-            Ok(CrasServerState { addr, size })
+/// A structure that points to RO shared memory area - `cras_server_state`
+/// The structure is created from a shared memory fd which contains the structure.
+#[derive(Debug)]
+pub struct CrasServerState<'a> {
+    addr: *mut libc::c_void,
+    volume: VolatileRef<'a, u32>,
+    mute: VolatileRef<'a, i32>,
+    num_output_devs: VolatileRef<'a, u32>,
+    output_devs: VolatileSlice<'a>,
+    num_input_devs: VolatileRef<'a, u32>,
+    input_devs: VolatileSlice<'a>,
+    num_output_nodes: VolatileRef<'a, u32>,
+    num_input_nodes: VolatileRef<'a, u32>,
+    output_nodes: VolatileSlice<'a>,
+    input_nodes: VolatileSlice<'a>,
+    update_count: VolatileRef<'a, u32>,
+    debug_info_num_devs: VolatileRef<'a, u32>,
+    debug_info_devs: VolatileSlice<'a>,
+    debug_info_num_streams: VolatileRef<'a, u32>,
+    debug_info_streams: VolatileSlice<'a>,
+}
+
+// It is safe to send server_state between threads as this struct has exclusive
+// ownership of the shared memory area contained in it.
+unsafe impl<'a> Send for CrasServerState<'a> {}
+
+impl<'a> CrasServerState<'a> {
+    /// Create a CrasServerState
+    pub fn try_new(state_fd: CrasServerStateShmFd) -> io::Result<Self> {
+        // Safe because the creator of CrasServerStateShmFd already
+        // ensured that state_fd contains a cras_server_state.
+        let mmap_addr =
+            unsafe { cras_mmap(state_fd.fd.size, libc::PROT_READ, state_fd.fd.as_raw_fd())? };
+
+        let mut addr = NonNull::new(mmap_addr as *mut cras_server_state).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "Failed to create CrasServerState.")
+        })?;
+
+        // Safe because we know that addr is a non-null pointer to cras_server_state.
+        let state_version = unsafe { vref_from_addr!(addr, state_version) };
+        if state_version.load() != CRAS_SERVER_STATE_VERSION {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "CrasServerState version {} does not match expected version {}",
+                    state_version.load(),
+                    CRAS_SERVER_STATE_VERSION
+                ),
+            ));
+        }
+
+        // Safe because we know that mmap_addr (contained in addr) contains a
+        // cras_server_state, and the mapped area will be exclusively
+        // owned by this struct.
+        unsafe {
+            Ok(CrasServerState {
+                addr: addr.as_ptr() as *mut libc::c_void,
+                volume: vref_from_addr!(addr, volume),
+                mute: vref_from_addr!(addr, mute),
+                num_output_devs: vref_from_addr!(addr, num_output_devs),
+                num_input_devs: vref_from_addr!(addr, num_input_devs),
+                output_devs: vslice_from_addr!(addr, output_devs),
+                input_devs: vslice_from_addr!(addr, input_devs),
+                num_output_nodes: vref_from_addr!(addr, num_output_nodes),
+                num_input_nodes: vref_from_addr!(addr, num_input_nodes),
+                output_nodes: vslice_from_addr!(addr, output_nodes),
+                input_nodes: vslice_from_addr!(addr, input_nodes),
+                update_count: vref_from_addr!(addr, update_count),
+                debug_info_num_devs: vref_from_addr!(addr, audio_debug_info.num_devs),
+                debug_info_devs: vslice_from_addr!(addr, audio_debug_info.devs),
+                debug_info_num_streams: vref_from_addr!(addr, audio_debug_info.num_streams),
+                debug_info_streams: vslice_from_addr!(addr, audio_debug_info.streams),
+            })
         }
     }
 
-    // Gets `cras_server_state` reference from the structure.
-    #[allow(dead_code)]
-    fn get_ref(&self) -> VolatileRef<cras_server_state> {
-        unsafe { VolatileRef::new(self.addr as *mut _) }
+    /// Gets the system volume.
+    ///
+    /// Read the current value for system volume from shared memory.
+    pub fn get_system_volume(&self) -> u32 {
+        self.volume.load()
+    }
+
+    /// Gets the system mute.
+    ///
+    /// Read the current value for system mute from shared memory.
+    pub fn get_system_mute(&self) -> bool {
+        self.mute.load() != 0
+    }
+
+    /// Runs a closure safely such that it can be sure that the server state
+    /// was not updated during the read.
+    /// This can be used for an "atomic" read of non-atomic data from the
+    /// state shared memory.
+    fn synchronized_state_read<F, T>(&self, mut func: F) -> T
+    where
+        F: FnMut() -> T,
+    {
+        // Waits until the server has completed a state update before returning
+        // the current update count.
+        let begin_server_state_read = || -> u32 {
+            loop {
+                let update_count = self.update_count.load();
+                if update_count % 2 == 0 {
+                    atomic::fence(Ordering::Acquire);
+                    return update_count;
+                } else {
+                    thread::yield_now();
+                }
+            }
+        };
+
+        // Checks that the update count has not changed since the start
+        // of the server state read.
+        let end_server_state_read = |count: u32| -> bool {
+            let result = count == self.update_count.load();
+            atomic::fence(Ordering::Release);
+            result
+        };
+
+        // Get the state's update count and run the provided closure.
+        // If the update count has not changed once the closure is finished,
+        // return the result, otherwise repeat the process.
+        loop {
+            let update_count = begin_server_state_read();
+            let result = func();
+            if end_server_state_read(update_count) {
+                return result;
+            }
+        }
+    }
+
+    /// Gets a list of output devices
+    ///
+    /// Read a list of the currently attached output devices from shared memory.
+    pub fn output_devices(&self) -> impl Iterator<Item = CrasIodevInfo> {
+        let mut devs: Vec<cras_iodev_info> = vec![Default::default(); CRAS_MAX_IODEVS as usize];
+        let num_devs = self.synchronized_state_read(|| {
+            self.output_devs.copy_to(&mut devs);
+            self.num_output_devs.load()
+        });
+        devs.into_iter()
+            .take(num_devs as usize)
+            .map(CrasIodevInfo::from)
+    }
+
+    /// Gets a list of input devices
+    ///
+    /// Read a list of the currently attached input devices from shared memory.
+    pub fn input_devices(&self) -> impl Iterator<Item = CrasIodevInfo> {
+        let mut devs: Vec<cras_iodev_info> = vec![Default::default(); CRAS_MAX_IODEVS as usize];
+        let num_devs = self.synchronized_state_read(|| {
+            self.input_devs.copy_to(&mut devs);
+            self.num_input_devs.load()
+        });
+        devs.into_iter()
+            .take(num_devs as usize)
+            .map(CrasIodevInfo::from)
+    }
+
+    /// Gets a list of output nodes
+    ///
+    /// Read a list of the currently attached output nodes from shared memory.
+    pub fn output_nodes(&self) -> impl Iterator<Item = CrasIonodeInfo> {
+        let mut nodes: Vec<cras_ionode_info> = vec![Default::default(); CRAS_MAX_IONODES as usize];
+        let num_nodes = self.synchronized_state_read(|| {
+            self.output_nodes.copy_to(&mut nodes);
+            self.num_output_nodes.load()
+        });
+        nodes
+            .into_iter()
+            .take(num_nodes as usize)
+            .map(CrasIonodeInfo::from)
+    }
+
+    /// Gets a list of input nodes
+    ///
+    /// Read a list of the currently attached input nodes from shared memory.
+    pub fn input_nodes(&self) -> impl Iterator<Item = CrasIonodeInfo> {
+        let mut nodes: Vec<cras_ionode_info> = vec![Default::default(); CRAS_MAX_IONODES as usize];
+        let num_nodes = self.synchronized_state_read(|| {
+            self.input_nodes.copy_to(&mut nodes);
+            self.num_input_nodes.load()
+        });
+        nodes
+            .into_iter()
+            .take(num_nodes as usize)
+            .map(CrasIonodeInfo::from)
+    }
+
+    /// Get audio debug info
+    ///
+    /// Loads the server's audio_debug_info struct and converts it into an
+    /// idiomatic rust representation.
+    ///
+    /// # Errors
+    /// * If any of the stream debug information structs are invalid.
+    pub fn get_audio_debug_info(&self) -> Result<AudioDebugInfo, cras_sys::Error> {
+        let mut devs: Vec<audio_dev_debug_info> = vec![Default::default(); MAX_DEBUG_DEVS as usize];
+        let mut streams: Vec<audio_stream_debug_info> =
+            vec![Default::default(); MAX_DEBUG_STREAMS as usize];
+        let (num_devs, num_streams) = self.synchronized_state_read(|| {
+            self.debug_info_devs.copy_to(&mut devs);
+            self.debug_info_streams.copy_to(&mut streams);
+            (
+                self.debug_info_num_devs.load(),
+                self.debug_info_num_streams.load(),
+            )
+        });
+        let dev_info = devs
+            .into_iter()
+            .take(num_devs as usize)
+            .map(AudioDevDebugInfo::from)
+            .collect();
+        let stream_info = streams
+            .into_iter()
+            .take(num_streams as usize)
+            .map(AudioStreamDebugInfo::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(AudioDebugInfo::new(dev_info, stream_info))
     }
 }
 
-impl Drop for CrasServerState {
+impl<'a> Drop for CrasServerState<'a> {
     /// Call `munmap` for `addr`.
     fn drop(&mut self) {
         unsafe {
             // Safe because all references must be gone by the time drop is called.
-            libc::munmap(self.addr, self.size);
+            libc::munmap(self.addr, mem::size_of::<cras_server_state>());
         }
     }
 }
@@ -602,6 +830,16 @@ pub fn create_header_and_buffers<'a>(
     Ok((header, buffer))
 }
 
+/// Creates header from header shared memory fds. Use this function
+/// when mapping the samples shm is not necessary, for instance with a
+/// client-provided shm stream.
+pub fn create_header<'a>(
+    header_fd: CrasAudioShmHeaderFd,
+    samples_len: usize,
+) -> io::Result<CrasAudioHeader<'a>> {
+    Ok(CrasAudioHeader::new(header_fd, samples_len)?)
+}
+
 /// A structure wrapping a fd which contains a shared memory area and its size.
 /// * `fd` - The shared memory file descriptor, a `libc::c_int`.
 /// * `size` - Size of the shared memory area.
@@ -650,8 +888,7 @@ impl Drop for CrasShmFd {
 /// A structure wrapping a fd which contains a shared `cras_server_state`.
 /// * `shm_fd` - A shared memory fd contains a `cras_server_state`
 pub struct CrasServerStateShmFd {
-    #[allow(dead_code)]
-    shm_fd: CrasShmFd,
+    fd: CrasShmFd,
 }
 
 impl CrasServerStateShmFd {
@@ -670,7 +907,7 @@ impl CrasServerStateShmFd {
     /// - The shared memory area in the input fd contains a `cras_server_state`.
     pub unsafe fn new(fd: libc::c_int) -> Self {
         Self {
-            shm_fd: CrasShmFd::new(fd, mem::size_of::<cras_server_state>()),
+            fd: CrasShmFd::new(fd, mem::size_of::<cras_server_state>()),
         }
     }
 }
@@ -680,6 +917,8 @@ mod tests {
     use super::*;
     use std::fs::File;
     use std::os::unix::io::IntoRawFd;
+    use std::sync::{Arc, Mutex};
+    use std::thread;
     use sys_util::{kernel_has_memfd, SharedMemory};
 
     #[test]
@@ -885,13 +1124,16 @@ mod tests {
         header.write_offset[1].store(0);
         header.buffer_offset[1].store(10);
 
-        // Setting buffer_offset to overlap with other buffer is not okay
-        assert!(header.set_buffer_offset(0, 10).is_err());
+        // Setting buffer_offset to exactly overlap with other buffer is okay
+        assert!(header.set_buffer_offset(0, 10).is_ok());
+
+        // Setting buffer_offset to partially overlap other buffer is not okay
+        assert!(header.set_buffer_offset(0, 9).is_err());
 
         header.buffer_offset[0].store(0);
         header.write_offset[1].store(8);
         // With samples, it's still an error.
-        assert!(header.set_buffer_offset(0, 10).is_err());
+        assert!(header.set_buffer_offset(0, 9).is_err());
 
         // Setting the offset past the end of the other buffer is okay
         assert!(header.set_buffer_offset(0, 20).is_ok());
@@ -906,9 +1148,9 @@ mod tests {
         assert!(header.set_buffer_offset(0, 30).is_err());
 
         // If we try to overlap another buffer with that other buffer at the end,
-        // it's not okay.
+        // it's not okay, unless it's the exact same index.
         assert!(header.set_buffer_offset(1, 25).is_err());
-        assert!(header.set_buffer_offset(1, 27).is_err());
+        assert!(header.set_buffer_offset(1, 27).is_ok());
         assert!(header.set_buffer_offset(1, 28).is_err());
 
         // Setting buffer offset past the end of samples is an error.
@@ -965,5 +1207,102 @@ mod tests {
         }
         let rc = unsafe { cras_mmap(10, libc::PROT_READ, -1) };
         assert!(rc.is_err());
+    }
+
+    #[test]
+    fn cras_server_state() {
+        let size = mem::size_of::<cras_server_state>();
+        let shm = create_shm(size);
+        unsafe {
+            let addr = cras_mmap(size, libc::PROT_WRITE, shm.as_raw_fd())
+                .expect("failed to mmap state shm");
+            {
+                let state: &mut cras_server_state = &mut *(addr as *mut cras_server_state);
+                state.state_version = CRAS_SERVER_STATE_VERSION;
+                state.volume = 47;
+                state.mute = 1;
+            }
+            libc::munmap(addr, size);
+        };
+        let state_fd = unsafe { CrasServerStateShmFd::new(shm.into_raw_fd()) };
+        let state =
+            CrasServerState::try_new(state_fd).expect("try_new failed for valid server_state fd");
+        assert_eq!(state.get_system_volume(), 47);
+        assert_eq!(state.get_system_mute(), true);
+    }
+
+    #[test]
+    fn cras_server_state_old_version() {
+        let size = mem::size_of::<cras_server_state>();
+        let shm = create_shm(size);
+        unsafe {
+            let addr = cras_mmap(size, libc::PROT_WRITE, shm.as_raw_fd())
+                .expect("failed to mmap state shm");
+            {
+                let state: &mut cras_server_state = &mut *(addr as *mut cras_server_state);
+                state.state_version = CRAS_SERVER_STATE_VERSION - 1;
+                state.volume = 29;
+                state.mute = 0;
+            }
+            libc::munmap(addr, size);
+        };
+        let state_fd = unsafe { CrasServerStateShmFd::new(shm.into_raw_fd()) };
+        CrasServerState::try_new(state_fd)
+            .expect_err("try_new succeeded for invalid state version");
+    }
+
+    #[test]
+    fn cras_server_sync_state_read() {
+        let size = mem::size_of::<cras_server_state>();
+        let shm = create_shm(size);
+        let addr = unsafe { cras_mmap(size, libc::PROT_WRITE, shm.as_raw_fd()).unwrap() };
+        let state: &mut cras_server_state = unsafe { &mut *(addr as *mut cras_server_state) };
+        state.state_version = CRAS_SERVER_STATE_VERSION;
+        state.update_count = 14;
+        state.volume = 12;
+
+        let state_fd = unsafe { CrasServerStateShmFd::new(shm.into_raw_fd()) };
+        let state_struct = CrasServerState::try_new(state_fd).unwrap();
+
+        // Create a lock so that we can block the reader while we change the
+        // update_count;
+        let lock = Arc::new(Mutex::new(()));
+        let thread_lock = lock.clone();
+        let reader_thread = {
+            let _guard = lock.lock().unwrap();
+
+            // Create reader thread that will get the value of volume. Since we
+            // hold the lock currently, this will block until we release the lock.
+            let reader_thread = thread::spawn(move || {
+                state_struct.synchronized_state_read(|| {
+                    let _guard = thread_lock.lock().unwrap();
+                    state_struct.volume.load()
+                })
+            });
+
+            // Update volume and change update count so that the synchronized read
+            // will not return (odd update count means update in progress).
+            state.volume = 27;
+            state.update_count = 15;
+
+            reader_thread
+        };
+
+        // The lock has been released, but the reader thread should still not
+        // terminate, because of the update in progress.
+
+        // Yield thread to give reader_thread a chance to get scheduled.
+        thread::yield_now();
+        {
+            let _guard = lock.lock().unwrap();
+
+            // Update volume and change update count to indicate the write has
+            // finished.
+            state.volume = 42;
+            state.update_count = 16;
+        }
+
+        let read_value = reader_thread.join().unwrap();
+        assert_eq!(read_value, 42);
     }
 }

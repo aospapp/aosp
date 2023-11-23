@@ -1,2 +1,0 @@
-# Car watchdog server
-/system/bin/carwatchdogd  u:object_r:carwatchdogd_exec:s0

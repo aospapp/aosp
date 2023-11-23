@@ -24,8 +24,8 @@
 //
 // The only class you want to use from here is "List".
 //
-#ifndef _LIBS_UTILS_LIST_H
-#define _LIBS_UTILS_LIST_H
+
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -38,15 +38,13 @@ namespace keymaster {
  * Objects added to the list are copied using the assignment operator,
  * so this must be defined.
  */
-template<typename T> 
-class List 
-{
-protected:
+template <typename T> class List {
+  protected:
     /*
      * One element in the list.
      */
     class _Node {
-    public:
+      public:
         explicit _Node(const T& val) : mVal(val) {}
         ~_Node() {}
         inline T& getRef() { return mVal; }
@@ -56,53 +54,46 @@ protected:
         inline void setVal(const T& val) { mVal = val; }
         inline void setPrev(_Node* ptr) { mpPrev = ptr; }
         inline void setNext(_Node* ptr) { mpNext = ptr; }
-    private:
+
+      private:
         friend class List;
         friend class _ListIterator;
-        T           mVal;
-        _Node*      mpPrev;
-        _Node*      mpNext;
+        T mVal;
+        _Node* mpPrev;
+        _Node* mpNext;
     };
 
     /*
      * Iterator for walking through the list.
      */
-    
-    template <typename TYPE>
-    struct CONST_ITERATOR {
-        typedef _Node const * NodePtr;
+
+    template <typename TYPE> struct CONST_ITERATOR {
+        typedef _Node const* NodePtr;
         typedef const TYPE Type;
     };
-    
-    template <typename TYPE>
-    struct NON_CONST_ITERATOR {
+
+    template <typename TYPE> struct NON_CONST_ITERATOR {
         typedef _Node* NodePtr;
         typedef TYPE Type;
     };
-    
-    template<
-        typename U,
-        template <class> class Constness
-    > 
-    class _ListIterator {
-        typedef _ListIterator<U, Constness>     _Iter;
-        typedef typename Constness<U>::NodePtr  _NodePtr;
-        typedef typename Constness<U>::Type     _Type;
+
+    template <typename U, template <class> class Constness> class _ListIterator {
+        typedef _ListIterator<U, Constness> _Iter;
+        typedef typename Constness<U>::NodePtr _NodePtr;
+        typedef typename Constness<U>::Type _Type;
 
         explicit _ListIterator(_NodePtr ptr) : mpNode(ptr) {}
 
-    public:
+      public:
         _ListIterator() {}
         _ListIterator(const _Iter& rhs) : mpNode(rhs.mpNode) {}
         ~_ListIterator() {}
-        
+
         // this will handle conversions from iterator to const_iterator
         // (and also all convertible iterators)
         // Here, in this implementation, the iterators can be converted
         // if the nodes can be converted
-        template<typename V> explicit 
-        _ListIterator(const V& rhs) : mpNode(rhs.mpNode) {}
-        
+        template <typename V> explicit _ListIterator(const V& rhs) : mpNode(rhs.mpNode) {}
 
         /*
          * Dereference operator.  Used to get at the juicy insides.
@@ -113,40 +104,38 @@ protected:
         /*
          * Iterator comparison.
          */
-        inline bool operator==(const _Iter& right) const { 
-            return mpNode == right.mpNode; }
-        
-        inline bool operator!=(const _Iter& right) const { 
-            return mpNode != right.mpNode; }
+        inline bool operator==(const _Iter& right) const { return mpNode == right.mpNode; }
+
+        inline bool operator!=(const _Iter& right) const { return mpNode != right.mpNode; }
 
         /*
          * handle comparisons between iterator and const_iterator
          */
-        template<typename OTHER>
-        inline bool operator==(const OTHER& right) const { 
-            return mpNode == right.mpNode; }
-        
-        template<typename OTHER>
-        inline bool operator!=(const OTHER& right) const { 
-            return mpNode != right.mpNode; }
+        template <typename OTHER> inline bool operator==(const OTHER& right) const {
+            return mpNode == right.mpNode;
+        }
+
+        template <typename OTHER> inline bool operator!=(const OTHER& right) const {
+            return mpNode != right.mpNode;
+        }
 
         /*
          * Incr/decr, used to move through the list.
          */
-        inline _Iter& operator++() {     // pre-increment
+        inline _Iter& operator++() {  // pre-increment
             mpNode = mpNode->getNext();
             return *this;
         }
-        const _Iter operator++(int) {    // post-increment
+        const _Iter operator++(int) {  // post-increment
             _Iter tmp(*this);
             mpNode = mpNode->getNext();
             return tmp;
         }
-        inline _Iter& operator--() {     // pre-increment
+        inline _Iter& operator--() {  // pre-increment
             mpNode = mpNode->getPrev();
             return *this;
         }
-        const _Iter operator--(int) {   // post-increment
+        const _Iter operator--(int) {  // post-increment
             _Iter tmp(*this);
             mpNode = mpNode->getPrev();
             return tmp;
@@ -154,22 +143,20 @@ protected:
 
         inline _NodePtr getNode() const { return mpNode; }
 
-        _NodePtr mpNode;    /* should be private, but older gcc fails */
-    private:
+        _NodePtr mpNode; /* should be private, but older gcc fails */
+      private:
         friend class List;
     };
 
-public:
-    List() {
-        prep();
-    }
-    List(const List<T>& src) {      // copy-constructor
+  public:
+    List() { prep(); }
+    List(const List<T>& src) {  // copy-constructor
         prep();
         insert(begin(), src.begin(), src.end());
     }
     virtual ~List() {
         clear();
-        delete[] (unsigned char*) mpMiddle;
+        delete[](unsigned char*) mpMiddle;
     }
 
     typedef _ListIterator<T, NON_CONST_ITERATOR> iterator;
@@ -181,36 +168,27 @@ public:
     inline bool empty() const { return mpMiddle->getNext() == mpMiddle; }
 
     /* return #of elements in list */
-    size_t size() const {
-        return size_t(distance(begin(), end()));
-    }
+    size_t size() const { return size_t(distance(begin(), end())); }
 
     /*
      * Return the first element or one past the last element.  The
      * _Node* we're returning is converted to an "iterator" by a
      * constructor in _ListIterator.
      */
-    inline iterator begin() { 
-        return iterator(mpMiddle->getNext()); 
+    inline iterator begin() { return iterator(mpMiddle->getNext()); }
+    inline const_iterator begin() const {
+        return const_iterator(const_cast<_Node const*>(mpMiddle->getNext()));
     }
-    inline const_iterator begin() const { 
-        return const_iterator(const_cast<_Node const*>(mpMiddle->getNext())); 
-    }
-    inline iterator end() { 
-        return iterator(mpMiddle); 
-    }
-    inline const_iterator end() const { 
-        return const_iterator(const_cast<_Node const*>(mpMiddle)); 
-    }
+    inline iterator end() { return iterator(mpMiddle); }
+    inline const_iterator end() const { return const_iterator(const_cast<_Node const*>(mpMiddle)); }
 
     /* add the object to the head or tail of the list */
     void push_front(const T& val) { insert(begin(), val); }
     void push_back(const T& val) { insert(end(), val); }
 
     /* insert before the current node; returns iterator at new node */
-    iterator insert(iterator posn, const T& val) 
-    {
-        _Node* newNode = new(std::nothrow) _Node(val);        // alloc & copy-construct
+    iterator insert(iterator posn, const T& val) {
+        _Node* newNode = new (std::nothrow) _Node(val);  // alloc & copy-construct
         newNode->setNext(posn.getNode());
         newNode->setPrev(posn.getNode()->getPrev());
         posn.getNode()->getPrev()->setNext(newNode);
@@ -220,7 +198,7 @@ public:
 
     /* insert a range of elements before the current node */
     void insert(iterator posn, const_iterator first, const_iterator last) {
-        for ( ; first != last; ++first)
+        for (; first != last; ++first)
             insert(posn, *first);
     }
 
@@ -237,7 +215,7 @@ public:
     /* remove a range of elements */
     iterator erase(iterator first, iterator last) {
         while (first != last)
-            erase(first++);     // don't erase than incr later!
+            erase(first++);  // don't erase than incr later!
         return iterator(last);
     }
 
@@ -260,19 +238,13 @@ public:
      * will be equal to "last".  The iterators must refer to the same
      * list.
      *
-     * FIXME: This is actually a generic iterator function. It should be a 
+     * FIXME: This is actually a generic iterator function. It should be a
      * template function at the top-level with specializations for things like
      * vector<>, which can just do pointer math). Here we limit it to
      * _ListIterator of the same type but different constness.
      */
-    template<
-        typename U,
-        template <class> class CL,
-        template <class> class CR
-    > 
-    ptrdiff_t distance(
-            _ListIterator<U, CL> first, _ListIterator<U, CR> last) const 
-    {
+    template <typename U, template <class> class CL, template <class> class CR>
+    ptrdiff_t distance(_ListIterator<U, CL> first, _ListIterator<U, CR> last) const {
         ptrdiff_t count = 0;
         while (first != last) {
             ++first;
@@ -281,7 +253,7 @@ public:
         return count;
     }
 
-private:
+  private:
     /*
      * I want a _Node but don't need it to hold valid data.  More
      * to the point, I don't want T's constructor to fire, since it
@@ -289,7 +261,7 @@ private:
      * slightly uncouth storage alloc.
      */
     void prep() {
-        mpMiddle = (_Node*) new(std::nothrow) unsigned char[sizeof(_Node)];
+        mpMiddle = (_Node*)new (std::nothrow) unsigned char[sizeof(_Node)];
         mpMiddle->setPrev(mpMiddle);
         mpMiddle->setNext(mpMiddle);
     }
@@ -299,7 +271,7 @@ private:
      * It sits in the middle of a circular list of nodes.  The iterator
      * runs around the circle until it encounters this one.
      */
-    _Node*      mpMiddle;
+    _Node* mpMiddle;
 };
 
 /*
@@ -309,24 +281,19 @@ private:
  * fill it with the source.  However, we can speed things along by
  * re-using existing elements.
  */
-template<class T>
-List<T>& List<T>::operator=(const List<T>& right)
-{
-    if (this == &right)
-        return *this;       // self-assignment
+template <class T> List<T>& List<T>::operator=(const List<T>& right) {
+    if (this == &right) return *this;  // self-assignment
     iterator firstDst = begin();
     iterator lastDst = end();
     const_iterator firstSrc = right.begin();
     const_iterator lastSrc = right.end();
     while (firstSrc != lastSrc && firstDst != lastDst)
         *firstDst++ = *firstSrc++;
-    if (firstSrc == lastSrc)        // ran out of elements in source?
-        erase(firstDst, lastDst);   // yes, erase any extras
+    if (firstSrc == lastSrc)       // ran out of elements in source?
+        erase(firstDst, lastDst);  // yes, erase any extras
     else
-        insert(lastDst, firstSrc, lastSrc);     // copy remaining over
+        insert(lastDst, firstSrc, lastSrc);  // copy remaining over
     return *this;
 }
 
-}; // namespace android
-
-#endif // _LIBS_UTILS_LIST_H
+};  // namespace keymaster

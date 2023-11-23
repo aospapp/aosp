@@ -20,9 +20,9 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.verify;
 
 import android.telephony.ims.aidl.IImsConfig;
-import android.test.suitebuilder.annotation.SmallTest;
 
-import androidx.test.runner.AndroidJUnit4;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Before;

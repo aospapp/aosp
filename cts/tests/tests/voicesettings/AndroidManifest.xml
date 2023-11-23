@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!--
  * Copyright (C) 2015 The Android Open Source Project
  *
@@ -15,31 +16,31 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.voicesettings.cts">
+     package="android.voicesettings.cts">
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
         <activity android:name=".BroadcastTestStartActivity"
-                  android:label="The Target Activity for VoiceSettings CTS Test">
+             android:label="The Target Activity for VoiceSettings CTS Test"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.TEST_START_ACTIVITY_ZEN_MODE" />
-                <action android:name="android.intent.action.TEST_START_ACTIVITY_AIRPLANE_MODE" />
-                <action android:name="android.intent.action.TEST_START_ACTIVITY_BATTERYSAVER_MODE" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.TEST_START_ACTIVITY_ZEN_MODE"/>
+                <action android:name="android.intent.action.TEST_START_ACTIVITY_AIRPLANE_MODE"/>
+                <action android:name="android.intent.action.TEST_START_ACTIVITY_BATTERYSAVER_MODE"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.voicesettings.cts"
-                     android:label="CTS tests of android.voicesettings">
+         android:targetPackage="android.voicesettings.cts"
+         android:label="CTS tests of android.voicesettings">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 </manifest>
-

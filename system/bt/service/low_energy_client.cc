@@ -22,9 +22,12 @@
 #include "service/logging_helpers.h"
 #include "stack/include/bt_types.h"
 #include "stack/include/hcidefs.h"
+#include "types/bt_transport.h"
 
 using std::lock_guard;
 using std::mutex;
+
+constexpr int kPhyLe1MbMask = 1;
 
 namespace bluetooth {
 
@@ -58,7 +61,7 @@ bool LowEnergyClient::Connect(const std::string& address, bool is_direct) {
 
   bt_status_t status =
       hal::BluetoothGattInterface::Get()->GetClientHALInterface()->connect(
-          client_id_, bda, is_direct, BT_TRANSPORT_LE, false, PHY_LE_1M_MASK);
+          client_id_, bda, is_direct, BT_TRANSPORT_LE, false, kPhyLe1MbMask);
   if (status != BT_STATUS_SUCCESS) {
     LOG(ERROR) << "HAL call to connect failed";
     return false;
@@ -218,7 +221,8 @@ bool LowEnergyClientFactory::RegisterInstance(
   const btgatt_client_interface_t* hal_iface =
       hal::BluetoothGattInterface::Get()->GetClientHALInterface();
 
-  if (hal_iface->register_client(uuid) != BT_STATUS_SUCCESS) return false;
+  if (hal_iface->register_client(uuid, false) != BT_STATUS_SUCCESS)
+    return false;
 
   pending_calls_[uuid] = callback;
 

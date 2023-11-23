@@ -20,6 +20,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- When not in touch mode, if we clear focus in current window, Android will re-focus the
+         first focusable view in the window automatically. Adding a FocusParkingView to the window
+         can fix this issue, because it can take focus, and it is transparent and its default focus
+         highlight is disabled, so it's invisible to the user no matter whether it's focused or not.
+         -->
+    <com.android.car.ui.FocusParkingView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
     <Button
         android:id="@+id/menu_button"
         android:layout_width="wrap_content"

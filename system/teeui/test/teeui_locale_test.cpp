@@ -21,7 +21,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <teeui/example/teeui.h>
+#include <teeui/example/example.h>
 #include <unistd.h>
 
 #include "teeui_device_config.h"
@@ -40,7 +40,7 @@ TEST_F(TeeuiLocaleTest, Test_en) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_en_M) {
+TEST_F(TeeuiLocaleTest, Test_en_magnified) {
     int error = runRenderTest("en", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -50,7 +50,7 @@ TEST_F(TeeuiLocaleTest, Test_AF) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_AF_M) {
+TEST_F(TeeuiLocaleTest, Test_AF_magnified) {
     int error = runRenderTest("af", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -60,7 +60,7 @@ TEST_F(TeeuiLocaleTest, Test_AM) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_AM_M) {
+TEST_F(TeeuiLocaleTest, Test_AM_magnified) {
     int error = runRenderTest("am", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -70,7 +70,7 @@ TEST_F(TeeuiLocaleTest, Test_AR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_AR_M) {
+TEST_F(TeeuiLocaleTest, Test_AR_magnified) {
     int error = runRenderTest("ar", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -80,7 +80,7 @@ TEST_F(TeeuiLocaleTest, Test_AR_EG) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_AR_EG_M) {
+TEST_F(TeeuiLocaleTest, Test_AR_EG_magnified) {
     int error = runRenderTest("ar-EG", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -90,7 +90,7 @@ TEST_F(TeeuiLocaleTest, Test_AR_JO) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_AR_JO_M) {
+TEST_F(TeeuiLocaleTest, Test_AR_JO_magnified) {
     int error = runRenderTest("ar-JO", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -100,7 +100,7 @@ TEST_F(TeeuiLocaleTest, Test_AR_MA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_AR_MA_M) {
+TEST_F(TeeuiLocaleTest, Test_AR_MA_magnified) {
     int error = runRenderTest("ar-MA", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -110,7 +110,7 @@ TEST_F(TeeuiLocaleTest, Test_AR_SA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_AR_SA_M) {
+TEST_F(TeeuiLocaleTest, Test_AR_SA_magnified) {
     int error = runRenderTest("ar-SA", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -120,7 +120,7 @@ TEST_F(TeeuiLocaleTest, Test_AR_XB) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_AR_XB_M) {
+TEST_F(TeeuiLocaleTest, Test_AR_XB_magnified) {
     int error = runRenderTest("ar-XB", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -130,7 +130,7 @@ TEST_F(TeeuiLocaleTest, Test_AS) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_AS_M) {
+TEST_F(TeeuiLocaleTest, Test_AS_magnified) {
     int error = runRenderTest("as", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -140,7 +140,7 @@ TEST_F(TeeuiLocaleTest, Test_AZ) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_AZ_M) {
+TEST_F(TeeuiLocaleTest, Test_AZ_magnified) {
     int error = runRenderTest("az", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -150,7 +150,7 @@ TEST_F(TeeuiLocaleTest, Test_BE) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_BE_M) {
+TEST_F(TeeuiLocaleTest, Test_BE_magnified) {
     int error = runRenderTest("be", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -160,7 +160,7 @@ TEST_F(TeeuiLocaleTest, Test_BG) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_BG_M) {
+TEST_F(TeeuiLocaleTest, Test_BG_magnified) {
     int error = runRenderTest("bg", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -170,7 +170,7 @@ TEST_F(TeeuiLocaleTest, Test_BN) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_BN_M) {
+TEST_F(TeeuiLocaleTest, Test_BN_magnified) {
     int error = runRenderTest("bn", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -180,7 +180,7 @@ TEST_F(TeeuiLocaleTest, Test_BS) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_BS_M) {
+TEST_F(TeeuiLocaleTest, Test_BS_magnified) {
     int error = runRenderTest("bs", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -190,7 +190,7 @@ TEST_F(TeeuiLocaleTest, Test_CA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_CA_M) {
+TEST_F(TeeuiLocaleTest, Test_CA_magnified) {
     int error = runRenderTest("ca", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -200,7 +200,7 @@ TEST_F(TeeuiLocaleTest, Test_CS) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_CS_M) {
+TEST_F(TeeuiLocaleTest, Test_CS_magnified) {
     int error = runRenderTest("cs", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -210,7 +210,7 @@ TEST_F(TeeuiLocaleTest, Test_DA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_DA_M) {
+TEST_F(TeeuiLocaleTest, Test_DA_magnified) {
     int error = runRenderTest("da", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -220,7 +220,7 @@ TEST_F(TeeuiLocaleTest, Test_DE) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_DE_M) {
+TEST_F(TeeuiLocaleTest, Test_DE_magnified) {
     int error = runRenderTest("de", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -230,7 +230,7 @@ TEST_F(TeeuiLocaleTest, Test_DE_AT) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_DE_AT_M) {
+TEST_F(TeeuiLocaleTest, Test_DE_AT_magnified) {
     int error = runRenderTest("de-AT", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -240,7 +240,7 @@ TEST_F(TeeuiLocaleTest, Test_DE_CH) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_DE_CH_M) {
+TEST_F(TeeuiLocaleTest, Test_DE_CH_magnified) {
     int error = runRenderTest("de-CH", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -250,7 +250,7 @@ TEST_F(TeeuiLocaleTest, Test_EL) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EL_M) {
+TEST_F(TeeuiLocaleTest, Test_EL_magnified) {
     int error = runRenderTest("el", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -260,7 +260,7 @@ TEST_F(TeeuiLocaleTest, Test_EN_AU) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EN_AU_M) {
+TEST_F(TeeuiLocaleTest, Test_EN_AU_magnified) {
     int error = runRenderTest("en-AU", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -270,7 +270,7 @@ TEST_F(TeeuiLocaleTest, Test_EN_CA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EN_CA_M) {
+TEST_F(TeeuiLocaleTest, Test_EN_CA_magnified) {
     int error = runRenderTest("en-CA", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -280,7 +280,7 @@ TEST_F(TeeuiLocaleTest, Test_EN_GB) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EN_GB_M) {
+TEST_F(TeeuiLocaleTest, Test_EN_GB_magnified) {
     int error = runRenderTest("en-GB", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -290,7 +290,7 @@ TEST_F(TeeuiLocaleTest, Test_EN_IE) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EN_IE_M) {
+TEST_F(TeeuiLocaleTest, Test_EN_IE_magnified) {
     int error = runRenderTest("en-IE", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -300,7 +300,7 @@ TEST_F(TeeuiLocaleTest, Test_EN_IN) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EN_IN_M) {
+TEST_F(TeeuiLocaleTest, Test_EN_IN_magnified) {
     int error = runRenderTest("en-IN", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -310,7 +310,7 @@ TEST_F(TeeuiLocaleTest, Test_EN_NZ) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EN_NZ_M) {
+TEST_F(TeeuiLocaleTest, Test_EN_NZ_magnified) {
     int error = runRenderTest("en-NZ", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -320,7 +320,7 @@ TEST_F(TeeuiLocaleTest, Test_EN_SG) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EN_SG_M) {
+TEST_F(TeeuiLocaleTest, Test_EN_SG_magnified) {
     int error = runRenderTest("en-SG", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -330,7 +330,7 @@ TEST_F(TeeuiLocaleTest, Test_EN_XA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EN_XA_M) {
+TEST_F(TeeuiLocaleTest, Test_EN_XA_magnified) {
     int error = runRenderTest("en-XA", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -340,7 +340,7 @@ TEST_F(TeeuiLocaleTest, Test_EN_XC) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EN_XC_M) {
+TEST_F(TeeuiLocaleTest, Test_EN_XC_magnified) {
     int error = runRenderTest("en-XC", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -350,7 +350,7 @@ TEST_F(TeeuiLocaleTest, Test_EN_ZA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EN_ZA_M) {
+TEST_F(TeeuiLocaleTest, Test_EN_ZA_magnified) {
     int error = runRenderTest("en-ZA", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -360,7 +360,7 @@ TEST_F(TeeuiLocaleTest, Test_ES) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_magnified) {
     int error = runRenderTest("es", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -370,7 +370,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_419) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_419_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_419_magnified) {
     int error = runRenderTest("es-419", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -380,7 +380,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_AR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_AR_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_AR_magnified) {
     int error = runRenderTest("es-AR", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -390,7 +390,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_BO) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_BO_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_BO_magnified) {
     int error = runRenderTest("es-BO", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -400,7 +400,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_CL) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_CL_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_CL_magnified) {
     int error = runRenderTest("es-CL", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -410,7 +410,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_CO) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_CO_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_CO_magnified) {
     int error = runRenderTest("es-CO", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -420,7 +420,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_CR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_CR_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_CR_magnified) {
     int error = runRenderTest("es-CR", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -430,7 +430,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_DO) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_DO_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_DO_magnified) {
     int error = runRenderTest("es-DO", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -440,7 +440,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_EC) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_EC_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_EC_magnified) {
     int error = runRenderTest("es-EC", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -450,7 +450,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_GT) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_GT_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_GT_magnified) {
     int error = runRenderTest("es-GT", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -460,7 +460,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_HN) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_HN_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_HN_magnified) {
     int error = runRenderTest("es-HN", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -470,7 +470,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_MX) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_MX_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_MX_magnified) {
     int error = runRenderTest("es-MX", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -480,7 +480,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_NI) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_NI_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_NI_magnified) {
     int error = runRenderTest("es-NI", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -490,7 +490,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_PA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_PA_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_PA_magnified) {
     int error = runRenderTest("es-PA", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -500,7 +500,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_PE) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_PE_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_PE_magnified) {
     int error = runRenderTest("es-PE", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -510,7 +510,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_PR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_PR_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_PR_magnified) {
     int error = runRenderTest("es-PR", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -520,7 +520,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_PY) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_PY_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_PY_magnified) {
     int error = runRenderTest("es-PY", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -530,7 +530,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_SV) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_SV_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_SV_magnified) {
     int error = runRenderTest("es-SV", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -540,7 +540,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_US) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_US_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_US_magnified) {
     int error = runRenderTest("es-US", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -550,7 +550,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_UY) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_UY_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_UY_magnified) {
     int error = runRenderTest("es-UY", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -560,7 +560,7 @@ TEST_F(TeeuiLocaleTest, Test_ES_VE) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ES_VE_M) {
+TEST_F(TeeuiLocaleTest, Test_ES_VE_magnified) {
     int error = runRenderTest("es-VE", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -570,7 +570,7 @@ TEST_F(TeeuiLocaleTest, Test_ET) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ET_M) {
+TEST_F(TeeuiLocaleTest, Test_ET_magnified) {
     int error = runRenderTest("et", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -580,7 +580,7 @@ TEST_F(TeeuiLocaleTest, Test_EU) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_EU_M) {
+TEST_F(TeeuiLocaleTest, Test_EU_magnified) {
     int error = runRenderTest("eu", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -590,7 +590,7 @@ TEST_F(TeeuiLocaleTest, Test_FA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_FA_M) {
+TEST_F(TeeuiLocaleTest, Test_FA_magnified) {
     int error = runRenderTest("fa", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -600,7 +600,7 @@ TEST_F(TeeuiLocaleTest, Test_FI) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_FI_M) {
+TEST_F(TeeuiLocaleTest, Test_FI_magnified) {
     int error = runRenderTest("fi", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -610,7 +610,7 @@ TEST_F(TeeuiLocaleTest, Test_FIL) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_FIL_M) {
+TEST_F(TeeuiLocaleTest, Test_FIL_magnified) {
     int error = runRenderTest("fil", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -620,7 +620,7 @@ TEST_F(TeeuiLocaleTest, Test_FR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_FR_M) {
+TEST_F(TeeuiLocaleTest, Test_FR_magnified) {
     int error = runRenderTest("fr", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -630,7 +630,7 @@ TEST_F(TeeuiLocaleTest, Test_FR_CA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_FR_CA_M) {
+TEST_F(TeeuiLocaleTest, Test_FR_CA_magnified) {
     int error = runRenderTest("fr-CA", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -640,7 +640,7 @@ TEST_F(TeeuiLocaleTest, Test_FR_CH) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_FR_CH_M) {
+TEST_F(TeeuiLocaleTest, Test_FR_CH_magnified) {
     int error = runRenderTest("fr-CH", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -650,7 +650,7 @@ TEST_F(TeeuiLocaleTest, Test_GL) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_GL_M) {
+TEST_F(TeeuiLocaleTest, Test_GL_magnified) {
     int error = runRenderTest("gl", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -660,7 +660,7 @@ TEST_F(TeeuiLocaleTest, Test_GSW) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_GSW_M) {
+TEST_F(TeeuiLocaleTest, Test_GSW_magnified) {
     int error = runRenderTest("gsw", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -670,7 +670,7 @@ TEST_F(TeeuiLocaleTest, Test_GU) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_GU_M) {
+TEST_F(TeeuiLocaleTest, Test_GU_magnified) {
     int error = runRenderTest("gu", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -680,7 +680,7 @@ TEST_F(TeeuiLocaleTest, Test_HE) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_HE_M) {
+TEST_F(TeeuiLocaleTest, Test_HE_magnified) {
     int error = runRenderTest("he", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -690,7 +690,7 @@ TEST_F(TeeuiLocaleTest, Test_HI) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_HI_M) {
+TEST_F(TeeuiLocaleTest, Test_HI_magnified) {
     int error = runRenderTest("hi", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -700,7 +700,7 @@ TEST_F(TeeuiLocaleTest, Test_HR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_HR_M) {
+TEST_F(TeeuiLocaleTest, Test_HR_magnified) {
     int error = runRenderTest("hr", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -710,7 +710,7 @@ TEST_F(TeeuiLocaleTest, Test_HU) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_HU_M) {
+TEST_F(TeeuiLocaleTest, Test_HU_magnified) {
     int error = runRenderTest("hu", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -720,7 +720,7 @@ TEST_F(TeeuiLocaleTest, Test_HY) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_HY_M) {
+TEST_F(TeeuiLocaleTest, Test_HY_magnified) {
     int error = runRenderTest("hy", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -730,7 +730,7 @@ TEST_F(TeeuiLocaleTest, Test_ID) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ID_M) {
+TEST_F(TeeuiLocaleTest, Test_ID_magnified) {
     int error = runRenderTest("id", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -740,7 +740,7 @@ TEST_F(TeeuiLocaleTest, Test_IN) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_IN_M) {
+TEST_F(TeeuiLocaleTest, Test_IN_magnified) {
     int error = runRenderTest("in", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -750,7 +750,7 @@ TEST_F(TeeuiLocaleTest, Test_IS) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_IS_M) {
+TEST_F(TeeuiLocaleTest, Test_IS_magnified) {
     int error = runRenderTest("is", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -760,7 +760,7 @@ TEST_F(TeeuiLocaleTest, Test_IT) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_IT_M) {
+TEST_F(TeeuiLocaleTest, Test_IT_magnified) {
     int error = runRenderTest("it", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -770,7 +770,7 @@ TEST_F(TeeuiLocaleTest, Test_IW) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_IW_M) {
+TEST_F(TeeuiLocaleTest, Test_IW_magnified) {
     int error = runRenderTest("iw", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -780,7 +780,7 @@ TEST_F(TeeuiLocaleTest, Test_JA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_JA_M) {
+TEST_F(TeeuiLocaleTest, Test_JA_magnified) {
     int error = runRenderTest("ja", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -790,7 +790,7 @@ TEST_F(TeeuiLocaleTest, Test_KA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_KA_M) {
+TEST_F(TeeuiLocaleTest, Test_KA_magnified) {
     int error = runRenderTest("ka", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -800,7 +800,7 @@ TEST_F(TeeuiLocaleTest, Test_KK) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_KK_M) {
+TEST_F(TeeuiLocaleTest, Test_KK_magnified) {
     int error = runRenderTest("kk", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -810,7 +810,7 @@ TEST_F(TeeuiLocaleTest, Test_KM) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_KM_M) {
+TEST_F(TeeuiLocaleTest, Test_KM_magnified) {
     int error = runRenderTest("km", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -820,7 +820,7 @@ TEST_F(TeeuiLocaleTest, Test_KN) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_KN_M) {
+TEST_F(TeeuiLocaleTest, Test_KN_magnified) {
     int error = runRenderTest("kn", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -830,7 +830,7 @@ TEST_F(TeeuiLocaleTest, Test_KO) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_KO_M) {
+TEST_F(TeeuiLocaleTest, Test_KO_magnified) {
     int error = runRenderTest("ko", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -840,7 +840,7 @@ TEST_F(TeeuiLocaleTest, Test_KY) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_KY_M) {
+TEST_F(TeeuiLocaleTest, Test_KY_magnified) {
     int error = runRenderTest("ky", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -850,7 +850,7 @@ TEST_F(TeeuiLocaleTest, Test_LN) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_LN_M) {
+TEST_F(TeeuiLocaleTest, Test_LN_magnified) {
     int error = runRenderTest("ln", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -860,7 +860,7 @@ TEST_F(TeeuiLocaleTest, Test_LO) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_LO_M) {
+TEST_F(TeeuiLocaleTest, Test_LO_magnified) {
     int error = runRenderTest("lo", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -870,7 +870,7 @@ TEST_F(TeeuiLocaleTest, Test_LT) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_LT_M) {
+TEST_F(TeeuiLocaleTest, Test_LT_magnified) {
     int error = runRenderTest("lt", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -880,7 +880,7 @@ TEST_F(TeeuiLocaleTest, Test_LV) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_LV_M) {
+TEST_F(TeeuiLocaleTest, Test_LV_magnified) {
     int error = runRenderTest("lv", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -890,7 +890,7 @@ TEST_F(TeeuiLocaleTest, Test_MK) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_MK_M) {
+TEST_F(TeeuiLocaleTest, Test_MK_magnified) {
     int error = runRenderTest("mk", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -900,7 +900,7 @@ TEST_F(TeeuiLocaleTest, Test_ML) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ML_M) {
+TEST_F(TeeuiLocaleTest, Test_ML_magnified) {
     int error = runRenderTest("ml", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -910,7 +910,7 @@ TEST_F(TeeuiLocaleTest, Test_MN) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_MN_M) {
+TEST_F(TeeuiLocaleTest, Test_MN_magnified) {
     int error = runRenderTest("mn", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -920,7 +920,7 @@ TEST_F(TeeuiLocaleTest, Test_MO) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_MO_M) {
+TEST_F(TeeuiLocaleTest, Test_MO_magnified) {
     int error = runRenderTest("mo", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -930,7 +930,7 @@ TEST_F(TeeuiLocaleTest, Test_MR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_MR_M) {
+TEST_F(TeeuiLocaleTest, Test_MR_magnified) {
     int error = runRenderTest("mr", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -940,7 +940,7 @@ TEST_F(TeeuiLocaleTest, Test_MS) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_MS_M) {
+TEST_F(TeeuiLocaleTest, Test_MS_magnified) {
     int error = runRenderTest("ms", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -950,7 +950,7 @@ TEST_F(TeeuiLocaleTest, Test_MY) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_MY_M) {
+TEST_F(TeeuiLocaleTest, Test_MY_magnified) {
     int error = runRenderTest("my", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -960,7 +960,7 @@ TEST_F(TeeuiLocaleTest, Test_NB) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_NB_M) {
+TEST_F(TeeuiLocaleTest, Test_NB_magnified) {
     int error = runRenderTest("nb", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -970,7 +970,7 @@ TEST_F(TeeuiLocaleTest, Test_NE) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_NE_M) {
+TEST_F(TeeuiLocaleTest, Test_NE_magnified) {
     int error = runRenderTest("ne", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -980,7 +980,7 @@ TEST_F(TeeuiLocaleTest, Test_NL) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_NL_M) {
+TEST_F(TeeuiLocaleTest, Test_NL_magnified) {
     int error = runRenderTest("nl", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -990,7 +990,7 @@ TEST_F(TeeuiLocaleTest, Test_NO) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_NO_M) {
+TEST_F(TeeuiLocaleTest, Test_NO_magnified) {
     int error = runRenderTest("no", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1000,7 +1000,7 @@ TEST_F(TeeuiLocaleTest, Test_OR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_OR_M) {
+TEST_F(TeeuiLocaleTest, Test_OR_magnified) {
     int error = runRenderTest("or", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1010,7 +1010,7 @@ TEST_F(TeeuiLocaleTest, Test_PA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_PA_M) {
+TEST_F(TeeuiLocaleTest, Test_PA_magnified) {
     int error = runRenderTest("pa", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1020,7 +1020,7 @@ TEST_F(TeeuiLocaleTest, Test_PL) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_PL_M) {
+TEST_F(TeeuiLocaleTest, Test_PL_magnified) {
     int error = runRenderTest("pl", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1030,7 +1030,7 @@ TEST_F(TeeuiLocaleTest, Test_PT) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_PT_M) {
+TEST_F(TeeuiLocaleTest, Test_PT_magnified) {
     int error = runRenderTest("pt", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1040,7 +1040,7 @@ TEST_F(TeeuiLocaleTest, Test_PT_BR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_PT_BR_M) {
+TEST_F(TeeuiLocaleTest, Test_PT_BR_magnified) {
     int error = runRenderTest("pt-BR", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1050,7 +1050,7 @@ TEST_F(TeeuiLocaleTest, Test_PT_PT) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_PT_PT_M) {
+TEST_F(TeeuiLocaleTest, Test_PT_PT_magnified) {
     int error = runRenderTest("pt-PT", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1060,7 +1060,7 @@ TEST_F(TeeuiLocaleTest, Test_RO) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_RO_M) {
+TEST_F(TeeuiLocaleTest, Test_RO_magnified) {
     int error = runRenderTest("ro", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1070,7 +1070,7 @@ TEST_F(TeeuiLocaleTest, Test_RU) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_RU_M) {
+TEST_F(TeeuiLocaleTest, Test_RU_magnified) {
     int error = runRenderTest("ru", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1080,7 +1080,7 @@ TEST_F(TeeuiLocaleTest, Test_SI) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_SI_M) {
+TEST_F(TeeuiLocaleTest, Test_SI_magnified) {
     int error = runRenderTest("si", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1090,7 +1090,7 @@ TEST_F(TeeuiLocaleTest, Test_SK) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_SK_M) {
+TEST_F(TeeuiLocaleTest, Test_SK_magnified) {
     int error = runRenderTest("sk", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1100,7 +1100,7 @@ TEST_F(TeeuiLocaleTest, Test_SL) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_SL_M) {
+TEST_F(TeeuiLocaleTest, Test_SL_magnified) {
     int error = runRenderTest("sl", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1110,7 +1110,7 @@ TEST_F(TeeuiLocaleTest, Test_SQ) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_SQ_M) {
+TEST_F(TeeuiLocaleTest, Test_SQ_magnified) {
     int error = runRenderTest("sq", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1120,7 +1120,7 @@ TEST_F(TeeuiLocaleTest, Test_SR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_SR_M) {
+TEST_F(TeeuiLocaleTest, Test_SR_magnified) {
     int error = runRenderTest("sr", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1130,7 +1130,7 @@ TEST_F(TeeuiLocaleTest, Test_SR_LATN) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_SR_LATN_M) {
+TEST_F(TeeuiLocaleTest, Test_SR_LATN_magnified) {
     int error = runRenderTest("sr-Latn", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1140,7 +1140,7 @@ TEST_F(TeeuiLocaleTest, Test_SV) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_SV_M) {
+TEST_F(TeeuiLocaleTest, Test_SV_magnified) {
     int error = runRenderTest("sv", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1150,7 +1150,7 @@ TEST_F(TeeuiLocaleTest, Test_SW) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_SW_M) {
+TEST_F(TeeuiLocaleTest, Test_SW_magnified) {
     int error = runRenderTest("sw", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1160,7 +1160,7 @@ TEST_F(TeeuiLocaleTest, Test_TA) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_TA_M) {
+TEST_F(TeeuiLocaleTest, Test_TA_magnified) {
     int error = runRenderTest("ta", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1170,7 +1170,7 @@ TEST_F(TeeuiLocaleTest, Test_TE) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_TE_M) {
+TEST_F(TeeuiLocaleTest, Test_TE_magnified) {
     int error = runRenderTest("te", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1180,7 +1180,7 @@ TEST_F(TeeuiLocaleTest, Test_TH) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_TH_M) {
+TEST_F(TeeuiLocaleTest, Test_TH_magnified) {
     int error = runRenderTest("th", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1190,7 +1190,7 @@ TEST_F(TeeuiLocaleTest, Test_TL) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_TL_M) {
+TEST_F(TeeuiLocaleTest, Test_TL_magnified) {
     int error = runRenderTest("tl", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1200,7 +1200,7 @@ TEST_F(TeeuiLocaleTest, Test_TR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_TR_M) {
+TEST_F(TeeuiLocaleTest, Test_TR_magnified) {
     int error = runRenderTest("tr", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1210,7 +1210,7 @@ TEST_F(TeeuiLocaleTest, Test_UK) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_UK_M) {
+TEST_F(TeeuiLocaleTest, Test_UK_magnified) {
     int error = runRenderTest("uk", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1220,7 +1220,7 @@ TEST_F(TeeuiLocaleTest, Test_UR) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_UR_M) {
+TEST_F(TeeuiLocaleTest, Test_UR_magnified) {
     int error = runRenderTest("ur", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1230,7 +1230,7 @@ TEST_F(TeeuiLocaleTest, Test_UZ) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_UZ_M) {
+TEST_F(TeeuiLocaleTest, Test_UZ_magnified) {
     int error = runRenderTest("uz", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1240,7 +1240,7 @@ TEST_F(TeeuiLocaleTest, Test_VI) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_VI_M) {
+TEST_F(TeeuiLocaleTest, Test_VI_magnified) {
     int error = runRenderTest("vi", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1250,7 +1250,7 @@ TEST_F(TeeuiLocaleTest, Test_ZH) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ZH_M) {
+TEST_F(TeeuiLocaleTest, Test_ZH_magnified) {
     int error = runRenderTest("zh", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1260,7 +1260,7 @@ TEST_F(TeeuiLocaleTest, Test_ZH_CN) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ZH_CN_M) {
+TEST_F(TeeuiLocaleTest, Test_ZH_CN_magnified) {
     int error = runRenderTest("zh-CN", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1270,7 +1270,7 @@ TEST_F(TeeuiLocaleTest, Test_ZH_HK) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ZH_HK_M) {
+TEST_F(TeeuiLocaleTest, Test_ZH_HK_magnified) {
     int error = runRenderTest("zh-HK", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1280,7 +1280,7 @@ TEST_F(TeeuiLocaleTest, Test_ZH_TW) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ZH_TW_M) {
+TEST_F(TeeuiLocaleTest, Test_ZH_TW_magnified) {
     int error = runRenderTest("zh-TW", true /* magnified */);
     ASSERT_EQ(error, 0);
 }
@@ -1290,7 +1290,7 @@ TEST_F(TeeuiLocaleTest, Test_ZU) {
     ASSERT_EQ(error, 0);
 }
 
-TEST_F(TeeuiLocaleTest, Test_ZU_M) {
+TEST_F(TeeuiLocaleTest, Test_ZU_magnified) {
     int error = runRenderTest("zu", true /* magnified */);
     ASSERT_EQ(error, 0);
 }

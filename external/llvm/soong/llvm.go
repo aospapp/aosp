@@ -92,10 +92,14 @@ func forceBuildLlvmComponents(ctx android.LoadHookContext) {
 				Host struct {
 					Enabled *bool
 				}
+				Linux_bionic_arm64 struct {
+					Enabled *bool
+				}
 			}
 		}
 		p := &props{}
 		p.Target.Host.Enabled = proptools.BoolPtr(false)
+		p.Target.Linux_bionic_arm64.Enabled = proptools.BoolPtr(true)
 		ctx.AppendProperties(p)
 	}
 }

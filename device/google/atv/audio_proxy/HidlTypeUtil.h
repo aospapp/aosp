@@ -22,7 +22,7 @@
 // clang-format on
 
 namespace audio_proxy {
-namespace CPP_VERSION {
+namespace AUDIO_PROXY_CPP_VERSION {
 
 using namespace ::android::hardware::audio::CPP_VERSION;
 using namespace ::android::hardware::audio::common::CPP_VERSION;
@@ -34,5 +34,5 @@ AudioConfig toHidlAudioConfig(const audio_proxy_config_t& config);
 // Convert from HIDL type to C type.
 audio_proxy_config_t toAudioProxyConfig(const AudioConfig& hidlConfig);
 
-}  // namespace CPP_VERSION
+}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

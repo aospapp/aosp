@@ -5,6 +5,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := TvCommonRoboTests
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
@@ -34,6 +36,8 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 #############################################################
 include $(CLEAR_VARS)
 LOCAL_MODULE := RunTvCommonRoboTests
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_ROBOTEST_FILES := $(call find-files-in-subdirs,$(LOCAL_PATH)/src,*Test.java,.)
 

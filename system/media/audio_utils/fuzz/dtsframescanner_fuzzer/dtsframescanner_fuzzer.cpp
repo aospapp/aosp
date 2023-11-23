@@ -18,7 +18,7 @@
 #include <stddef.h>
 #include <audio_utils/spdif/SPDIFEncoder.h>
 #include <audio_utils/format.h>
-#include <system/audio-base.h>
+#include <system/audio.h>
 
 namespace android {
 

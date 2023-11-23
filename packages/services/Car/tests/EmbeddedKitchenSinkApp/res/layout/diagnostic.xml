@@ -17,7 +17,7 @@
 android:layout_width="match_parent"
 android:layout_height="match_parent"
 android:orientation="vertical" >
-<!--  dummy one for top area -->
+<!--  placeholder one for top area -->
 <LinearLayout
     android:layout_width="match_parent"
     android:layout_height="50dp"

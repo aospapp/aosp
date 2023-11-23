@@ -15,9 +15,13 @@
  */
 package com.android.cts.devicepolicy;
 
+import static com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.FEATURE_MANAGED_USERS;
+
 import static org.junit.Assert.assertTrue;
 
+import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresAdditionalFeatures;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
 
 import org.junit.Test;
 
@@ -49,24 +53,27 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
         super.setUp();
 
         mRemoveOwnerInTearDown = false;
-        mDeviceOwnerUserId = mPrimaryUserId;
     }
 
     @Override
     public void tearDown() throws Exception {
-        if (mHasFeature) {
-            if (mRemoveOwnerInTearDown) {
-                assertTrue("Failed to clear owner",
-                        removeAdmin(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS,
-                                mDeviceOwnerUserId));
-                runTests("userrestrictions.CheckNoOwnerRestrictionsTest", mDeviceOwnerUserId);
+        if (mRemoveOwnerInTearDown) {
+            String componentName = DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS;
+            assertTrue("Failed to clear owner", removeAdmin(componentName, mDeviceOwnerUserId));
+            runTests("userrestrictions.CheckNoOwnerRestrictionsTest", mDeviceOwnerUserId);
+            if (isHeadlessSystemUserMode()) {
+                boolean removed = removeAdmin(componentName, mPrimaryUserId);
+                if (!removed) {
+                    CLog.e("Failed to remove %s on user %d", componentName, mPrimaryUserId);
+                }
             }
-
-            // DO/PO might have set DISALLOW_REMOVE_USER, so it needs to be done after removing
-            // them.
-            removeTestUsers();
-            getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
         }
+
+        // DO/PO might have set DISALLOW_REMOVE_USER, so it needs to be done after removing
+        // them.
+        removeTestUsers();
+        getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
+
         super.tearDown();
     }
 
@@ -82,9 +89,6 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
 
     @Test
     public void testUserRestrictions_deviceOwnerOnly() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         setDo();
 
         runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
@@ -97,14 +101,6 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
 
     @Test
     public void testUserRestrictions_primaryProfileOwnerOnly() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        if (hasUserSplit()) {
-            // Can't set PO on user-0 in this mode.
-            return;
-        }
-
         setPoAsUser(mDeviceOwnerUserId);
 
         runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
@@ -118,9 +114,8 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
     // Checks restrictions for managed user (NOT managed profile).
     @Test
     public void testUserRestrictions_secondaryProfileOwnerOnly() throws Exception {
-        if (!mHasFeature || !mSupportsMultiUser) {
-            return;
-        }
+        assumeSupportsMultiUser();
+
         final int secondaryUserId = createUser();
         setPoAsUser(secondaryUserId);
 
@@ -133,11 +128,10 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
     }
 
     // Checks restrictions for managed profile.
+    @RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
     @Test
     public void testUserRestrictions_managedProfileOwnerOnly() throws Exception {
-        if (!mHasFeature || !mSupportsMultiUser || !mHasManagedUserFeature) {
-            return;
-        }
+        assumeCanCreateOneManagedUser();
 
         // Create managed profile.
         final int profileUserId = createManagedProfile(mDeviceOwnerUserId /* parentUserId */);
@@ -158,14 +152,18 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testUserRestrictions_layering() throws Exception {
-        if (!mHasFeature || !mSupportsMultiUser) {
-            return;
-        }
+        assumeSupportsMultiUser();
         setDo();
 
-        // Create another user and set PO.
-        final int secondaryUserId = createUser();
-        setPoAsUser(secondaryUserId);
+        final int secondaryUserId;
+        if (!isHeadlessSystemUserMode()) {
+            // Create another user and set PO.
+            secondaryUserId = createUserAndWaitStart();
+            setPoAsUser(secondaryUserId);
+        } else {
+            // In headless system user mode, PO is set on primary user when DO is set
+            secondaryUserId = mPrimaryUserId;
+        }
 
         // Ensure that UserManager differentiates its own restrictions from DO restrictions.
         runTests("userrestrictions.DeviceOwnerUserRestrictionsTest",
@@ -201,13 +199,8 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testUserRestrictions_layering_profileOwnerNoLeaking() throws Exception {
-        if (!mHasFeature || !mSupportsMultiUser) {
-            return;
-        }
-        if (hasUserSplit()) {
-            // Can't set PO on user-0 in this mode.
-            return;
-        }
+        assumeSupportsMultiUser();
+
         // Set PO on user 0
         setPoAsUser(mDeviceOwnerUserId);
 
@@ -230,14 +223,17 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
      */
     @Test
     public void testUserRestrictions_profileGlobalRestrictionsAsDo() throws Exception {
-        if (!mHasFeature || !mSupportsMultiUser) {
-            return;
-        }
+        assumeSupportsMultiUser();
         setDo();
-
-        // Create another user with PO.
-        final int secondaryUserId = createUser();
-        setPoAsUser(secondaryUserId);
+        final int secondaryUserId;
+        if (!isHeadlessSystemUserMode()) {
+            // Create another user and set PO.
+            secondaryUserId = createUserAndWaitStart();
+            setPoAsUser(secondaryUserId);
+        } else {
+            // In headless system user mode, PO is set on primary user when DO is set.
+            secondaryUserId = mPrimaryUserId;
+        }
 
         final int[] usersToCheck = {mDeviceOwnerUserId, secondaryUserId};
 
@@ -249,11 +245,11 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
      * Managed profile owner sets profile global restrictions (only ENSURE_VERIFY_APPS), should
      * affect all users.
      */
+    @RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
     @Test
     public void testUserRestrictions_ProfileGlobalRestrictionsAsPo() throws Exception {
-        if (!mHasFeature || !mSupportsMultiUser || !mHasManagedUserFeature) {
-            return;
-        }
+        assumeCanCreateOneManagedUser();
+
         // Set PO on user 0
         setPoAsUser(mDeviceOwnerUserId);
 
@@ -285,11 +281,16 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
 
     /** Installs admin package and makes it a device owner. */
     private void setDo() throws Exception {
-        installAppAsUser(DEVICE_ADMIN_APK, mDeviceOwnerUserId);
+        installDeviceOwnerApp(DEVICE_ADMIN_APK);
+
         assertTrue("Failed to set device owner",
                 setDeviceOwner(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS,
                         mDeviceOwnerUserId, /*expectFailure*/ false));
         mRemoveOwnerInTearDown = true;
+
+        if (isHeadlessSystemUserMode()) {
+            affiliateUsers(DEVICE_ADMIN_PKG, mDeviceOwnerUserId, mPrimaryUserId);
+        }
     }
 
     /**

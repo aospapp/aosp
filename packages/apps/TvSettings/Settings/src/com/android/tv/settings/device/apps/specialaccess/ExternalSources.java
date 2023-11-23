@@ -27,10 +27,10 @@ import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
-import androidx.preference.SwitchPreference;
-import androidx.preference.TwoStatePreference;
 
-import com.android.internal.logging.nano.MetricsProto;
+import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
+import com.android.settingslib.RestrictedLockUtilsInternal;
+import com.android.settingslib.RestrictedSwitchPreference;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
 
@@ -40,11 +40,6 @@ import com.android.tv.settings.R;
 @Keep
 public class ExternalSources extends ManageAppOp {
     private AppOpsManager mAppOpsManager;
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.MANAGE_EXTERNAL_SOURCES;
-    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -70,14 +65,14 @@ public class ExternalSources extends ManageAppOp {
     @NonNull
     @Override
     public Preference createAppPreference() {
-        return new SwitchPreference(getPreferenceManager().getContext());
+        return new RestrictedSwitchPreference(getPreferenceManager().getContext());
     }
 
     @NonNull
     @Override
     public Preference bindPreference(@NonNull Preference preference,
             ApplicationsState.AppEntry entry) {
-        final TwoStatePreference switchPref = (SwitchPreference) preference;
+        final RestrictedSwitchPreference switchPref = (RestrictedSwitchPreference) preference;
         switchPref.setTitle(entry.label);
         switchPref.setKey(entry.info.packageName);
         switchPref.setIcon(entry.icon);
@@ -88,37 +83,42 @@ public class ExternalSources extends ManageAppOp {
 
         PermissionState state = (PermissionState) entry.extraInfo;
         switchPref.setChecked(state.isAllowed());
-        switchPref.setSummary(getPreferenceSummary(entry));
-        switchPref.setEnabled(canChange(entry));
+
+        EnforcedAdmin admin = checkIfRestrictionEnforcedByAdmin(entry);
+        if (admin != null) {
+            switchPref.setDisabledByAdmin(admin);
+        } else {
+            switchPref.setEnabled(canChange(entry));
+            switchPref.setSummary(getPreferenceSummary(entry));
+        }
+
         return switchPref;
     }
 
-    private boolean canChange(ApplicationsState.AppEntry entry) {
-        final UserManager um = UserManager.get(getContext());
-        final int userRestrictionSource = um.getUserRestrictionSource(
-                UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES,
-                UserHandle.getUserHandleForUid(entry.info.uid));
-        switch (userRestrictionSource) {
-            case UserManager.RESTRICTION_SOURCE_DEVICE_OWNER:
-            case UserManager.RESTRICTION_SOURCE_PROFILE_OWNER:
-            case UserManager.RESTRICTION_SOURCE_SYSTEM:
-                return false;
-            default:
-                return true;
+    private EnforcedAdmin checkIfRestrictionEnforcedByAdmin(ApplicationsState.AppEntry entry) {
+        int userId = UserHandle.getUserId(entry.info.uid);
+        EnforcedAdmin admin = RestrictedLockUtilsInternal.checkIfRestrictionEnforced(getContext(),
+                UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, userId);
+
+        if (admin != null) {
+            return admin;
         }
+
+        return RestrictedLockUtilsInternal.checkIfRestrictionEnforced(getContext(),
+                UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY, userId);
+    }
+
+    private boolean canChange(ApplicationsState.AppEntry entry) {
+        final UserHandle userHandle = UserHandle.getUserHandleForUid(entry.info.uid);
+        final UserManager um = UserManager.get(getContext());
+        return !um.hasBaseUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, userHandle)
+                && !um.hasBaseUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY,
+                        userHandle);
     }
 
     private CharSequence getPreferenceSummary(ApplicationsState.AppEntry entry) {
-        final UserManager um = UserManager.get(getContext());
-        final int userRestrictionSource = um.getUserRestrictionSource(
-                UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES,
-                UserHandle.getUserHandleForUid(entry.info.uid));
-        switch (userRestrictionSource) {
-            case UserManager.RESTRICTION_SOURCE_DEVICE_OWNER:
-            case UserManager.RESTRICTION_SOURCE_PROFILE_OWNER:
-                return getContext().getString(R.string.disabled_by_admin);
-            case UserManager.RESTRICTION_SOURCE_SYSTEM:
-                return getContext().getString(R.string.disabled);
+        if (!canChange(entry)) {
+            return getContext().getString(R.string.disabled);
         }
 
         return getContext().getString(((PermissionState) entry.extraInfo).isAllowed()

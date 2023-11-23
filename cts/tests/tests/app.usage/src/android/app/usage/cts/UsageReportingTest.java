@@ -51,6 +51,8 @@ public class UsageReportingTest extends ActivityManagerTestBase {
     private static final String TOKEN_0 = "SuperSecretToken";
     private static final String TOKEN_1 = "AnotherSecretToken";
 
+    private static final String DEVICE_SLEEP_COMMAND = "input keyevent KEYCODE_SLEEP";
+
     private static final int ASSERT_TIMEOUT_SECONDS = 5; // 5 seconds
 
     @Before
@@ -119,7 +121,7 @@ public class UsageReportingTest extends ActivityManagerTestBase {
         assertAppOrTokenUsed(mFullToken0, true);
 
         // Send the device to sleep to get onStop called for the token reporting activities.
-        mUiDevice.sleep();
+        mUiDevice.executeShellCommand(DEVICE_SLEEP_COMMAND);
         Thread.sleep(1000);
 
         assertAppOrTokenUsed(mFullToken0, false);
@@ -203,7 +205,7 @@ public class UsageReportingTest extends ActivityManagerTestBase {
 
 
         // Send the device to sleep to get onStop called for the token reporting activities.
-        mUiDevice.sleep();
+        mUiDevice.executeShellCommand(DEVICE_SLEEP_COMMAND);
         Thread.sleep(1000);
 
         assertAppOrTokenUsed(mFullToken0, false);
@@ -311,10 +313,12 @@ public class UsageReportingTest extends ActivityManagerTestBase {
         mUsageStatsManager.reportUsageStop(activity0, TOKEN_0);
         assertAppOrTokenUsed(mFullToken0, true);
 
-        // Send the device to sleep to get onStop called for the token reporting activities.
-        mUiDevice.sleep();
-        Thread.sleep(1000);
-        assertAppOrTokenUsed(mFullToken0, false);
+        // Send the device to keyguard to get onStop called for the token reporting activities.
+        try (final LockScreenSession lockScreenSession = new LockScreenSession()) {
+            lockScreenSession.gotoKeyguard();
+            Thread.sleep(1000);
+            assertAppOrTokenUsed(mFullToken0, false);
+        }
     }
 
     @Test

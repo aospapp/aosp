@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"እጅግ ከባድ የድንገተኛ አደጋ ማንቂያ"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"በተፈጥሮ አደጋዎች ወቅት እንደ የስደት መመሪያዎች ያሉ ማንቂያዎች ስልክዎ ሊልክልዎ ይችላል። ይህ አገልግሎት በብሔራዊ የድንገተኛ አደጋ አስተዳደር ኤጄንሲ፣ በአውታረመረብ አቅራቢዎች እና በመሣሪያ አምራቾች መካከል ያለ ትብብር ነው።\n\nበመሣሪያዎ ላይ ችግር ካለ ወይም የአውታረ መረብ ሁኔታዎች ደካማ ከሆኑ ማንቂያዎች ላያገኙ ይችላሉ።"</string>
 </resources>

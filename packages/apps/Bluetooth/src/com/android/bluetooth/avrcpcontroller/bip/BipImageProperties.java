@@ -43,6 +43,13 @@ import java.util.Objects;
  * various transformations. Attachments describes other items that can be downloaded that are
  * associated with the image (text, sounds, etc.)
  *
+ * The specification requires that
+ *     1. The fixed version string of "1.0" is used
+ *     2. There is an image handle
+ *     3. The "imaging thumbnail format" is included. This is defined for BIP in section 4.4.3
+ *        (160x120 JPEG) and redefined for AVRCP in section 5.14.2.2.1 I (200x200 JPEG). It can be
+ *        either a native or variant format.
+ *
  * Example:
  *     <image-properties version="1.0" handle="123456789">
  *     <native encoding="JPEG" pixel="1280*1024" size="1048576"/>
@@ -143,6 +150,11 @@ public class BipImageProperties {
     private String mFriendlyName = null;
 
     /**
+     * Whether we have the required imaging thumbnail format
+     */
+    private boolean mHasThumbnailFormat = false;
+
+    /**
      * The various sets of available formats.
      */
     private ArrayList<BipImageFormat> mNativeFormats;
@@ -220,6 +232,10 @@ public class BipImageProperties {
         return mImageHandle;
     }
 
+    public String getVersion() {
+        return mVersion;
+    }
+
     public String getFriendlyName() {
         return mFriendlyName;
     }
@@ -243,6 +259,10 @@ public class BipImageProperties {
                     + "' but expected '" + BipImageFormat.FORMAT_NATIVE + "'");
         }
         mNativeFormats.add(format);
+
+        if (!mHasThumbnailFormat && isThumbnailFormat(format)) {
+            mHasThumbnailFormat = true;
+        }
     }
 
     private void addVariantFormat(BipImageFormat format) {
@@ -252,6 +272,29 @@ public class BipImageProperties {
                     + "' but expected '" + BipImageFormat.FORMAT_VARIANT + "'");
         }
         mVariantFormats.add(format);
+
+        if (!mHasThumbnailFormat && isThumbnailFormat(format)) {
+            mHasThumbnailFormat = true;
+        }
+    }
+
+    private boolean isThumbnailFormat(BipImageFormat format) {
+        if (format == null) return false;
+
+        BipEncoding encoding = format.getEncoding();
+        if (encoding == null || encoding.getType() != BipEncoding.JPEG) return false;
+
+        BipPixel pixel = format.getPixel();
+        if (pixel == null) return false;
+        switch (pixel.getType()) {
+            case BipPixel.TYPE_FIXED:
+                return pixel.getMaxWidth() == 200 && pixel.getMaxHeight() == 200;
+            case BipPixel.TYPE_RESIZE_MODIFIED_ASPECT_RATIO:
+                return pixel.getMaxWidth() >= 200 && pixel.getMaxHeight() >= 200;
+            case BipPixel.TYPE_RESIZE_FIXED_ASPECT_RATIO:
+                return pixel.getMaxWidth() == pixel.getMaxHeight() && pixel.getMaxWidth() >= 200;
+        }
+        return false;
     }
 
     private void addAttachment(BipAttachmentFormat format) {
@@ -268,8 +311,11 @@ public class BipImageProperties {
             xmlMsgElement.startDocument("UTF-8", true);
             xmlMsgElement.setFeature("http://xmlpull.org/v1/doc/features.html#indent-output", true);
             xmlMsgElement.startTag(null, "image-properties");
-            xmlMsgElement.attribute(null, "version", mVersion);
-            xmlMsgElement.attribute(null, "handle", mImageHandle);
+            if (mVersion != null) xmlMsgElement.attribute(null, "version", mVersion);
+            if (mImageHandle != null) xmlMsgElement.attribute(null, "handle", mImageHandle);
+            if (mFriendlyName != null) {
+                xmlMsgElement.attribute(null, "friendly-name", mFriendlyName);
+            }
 
             for (BipImageFormat format : mNativeFormats) {
                 BipEncoding encoding = format.getEncoding();
@@ -354,15 +400,31 @@ public class BipImageProperties {
     /**
      * Serialize this object into a byte array
      *
+     * Objects that are not valid will fail to serialize and return null.
+     *
      * @return Byte array representing this object, ready to send over OBEX, or null on error.
      */
     public byte[] serialize() {
+        if (!isValid()) return null;
         String s = toString();
         try {
             return s != null ? s.getBytes("UTF-8") : null;
         } catch (UnsupportedEncodingException e) {
             return null;
         }
+    }
+
+    /**
+     * Determine if the contents of this BipImageProperties object are valid and meet the
+     * specification requirements:
+     *     1. Include the fixed 1.0 version
+     *     2. Include an image handle
+     *     3. Have the thumbnail format as either the native or variant
+     *
+     * @return True if our contents are valid, false otherwise
+     */
+    public boolean isValid() {
+        return sVersion.equals(mVersion) && mImageHandle != null && mHasThumbnailFormat;
     }
 
     private static void warn(String msg) {

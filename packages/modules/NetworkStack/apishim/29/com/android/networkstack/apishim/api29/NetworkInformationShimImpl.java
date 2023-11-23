@@ -57,6 +57,14 @@ public class NetworkInformationShimImpl implements NetworkInformationShim {
         return false;
     }
 
+    /**
+     * Indicates whether the shim can use APIs above the R SDK.
+     */
+    @VisibleForTesting
+    public static boolean useApiAboveR() {
+        return false;
+    }
+
     @Nullable
     @Override
     public Uri getCaptivePortalApiUrl(@Nullable LinkProperties lp) {
@@ -103,6 +111,16 @@ public class NetworkInformationShimImpl implements NetworkInformationShim {
     @Override
     public void setDhcpServerAddress(@NonNull LinkProperties lp,
             @NonNull Inet4Address serverAddress) {
+        // Not supported on this API level: no-op
+    }
+
+    /**
+     * Set captive portal data in {@link LinkProperties}
+     * @param lp Link properties object to be updated
+     * @param captivePortalData Captive portal data to be used
+     */
+    public void setCaptivePortalData(@NonNull LinkProperties lp,
+            @Nullable CaptivePortalDataShim captivePortalData) {
         // Not supported on this API level: no-op
     }
 }

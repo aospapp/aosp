@@ -124,10 +124,12 @@ public final class BluetoothPairingService extends Service {
                 .setLocalOnly(true);
 
         PendingIntent pairIntent = PendingIntent.getActivity(this, 0,
-                getPairingDialogIntent(this, intent), PendingIntent.FLAG_ONE_SHOT);
+                getPairingDialogIntent(this, intent),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT);
 
         PendingIntent dismissIntent = PendingIntent.getBroadcast(this, 0,
-                new Intent(ACTION_DISMISS_PAIRING), PendingIntent.FLAG_ONE_SHOT);
+                new Intent(ACTION_DISMISS_PAIRING),
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_ONE_SHOT);
 
         mDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
 

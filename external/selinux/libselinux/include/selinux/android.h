@@ -19,6 +19,8 @@ extern struct selabel_handle* selinux_android_hw_service_context_handle(void);
 
 extern struct selabel_handle* selinux_android_vendor_service_context_handle(void);
 
+extern struct selabel_handle* selinux_android_keystore2_key_context_handle(void);
+
 extern void selinux_android_set_sehandle(const struct selabel_handle *hndl);
 
 extern int selinux_android_load_policy(void);
@@ -31,6 +33,11 @@ extern int selinux_android_setcontext(uid_t uid,
 				      bool isSystemServer,
 				      const char *seinfo,
 				      const char *name);
+
+extern int selinux_android_context_with_level(const char * context,
+					      char ** newContext,
+					      uid_t userid,
+					      uid_t appid);
 
 extern int selinux_log_callback(int type, const char *fmt, ...)
     __attribute__ ((format(printf, 2, 3)));

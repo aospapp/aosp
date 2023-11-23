@@ -47,11 +47,7 @@ android::linkerconfig::modules::Configuration CreateBaseConfiguration(
     Context& ctx) {
   std::vector<Section> sections;
 
-  if (android::linkerconfig::modules::IsVndkLiteDevice()) {
-    ctx.SetCurrentLinkerConfigType(LinkerConfigType::Vndklite);
-  } else {
-    ctx.SetCurrentLinkerConfigType(LinkerConfigType::Default);
-  }
+  ctx.SetCurrentLinkerConfigType(LinkerConfigType::Default);
 
   // Don't change the order here. The first pattern that matches with the
   // absolute path of an executable is selected.
@@ -79,21 +75,35 @@ android::linkerconfig::modules::Configuration CreateBaseConfiguration(
       {"/data/nativetest/unrestricted", "unrestricted"},
       {"/data/nativetest64/unrestricted", "unrestricted"},
 
-      // TODO(b/123864775): Ensure tests are run from /data/nativetest{,64} or
-      // (if necessary) the unrestricted subdirs above. Then clean this up.
+      // Create isolated namespace for development purpose.
+      // This isolates binary from the system so binaries and libraries from
+      // this location can be separated from system libraries.
+      {"/data/local/tmp/isolated", "isolated"},
+
+      // Create directories under shell-writable /data/local/tests for
+      // each namespace in order to run tests.
+      {"/data/local/tests/product", "product"},
+      {"/data/local/tests/system", "system"},
+      {"/data/local/tests/unrestricted", "unrestricted"},
+      {"/data/local/tests/vendor", "vendor"},
+
+      // TODO(b/123864775): Ensure tests are run from one of the subdirectories
+      // above.  Then clean this up.
       {"/data/local/tmp", "unrestricted"},
 
       {"/postinstall", "postinstall"},
       // Fallback entry to provide APEX namespace lookups for binaries anywhere
       // else. This must be last.
       {"/data", "system"},
+      // TODO(b/168556887): Remove this when we have a dedicated section for
+      // binaries in APKs
+      {Var("PRODUCT") + "/app/", "system"},
   };
 
   sections.emplace_back(BuildSystemSection(ctx));
   if (ctx.IsVndkAvailable()) {
     sections.emplace_back(BuildVendorSection(ctx));
-    if (android::linkerconfig::modules::IsProductVndkVersionDefined() &&
-        !android::linkerconfig::modules::IsVndkLiteDevice()) {
+    if (android::linkerconfig::modules::IsProductVndkVersionDefined()) {
       sections.emplace_back(BuildProductSection(ctx));
     } else {
       RedirectSection(dirToSection, "product", "system");
@@ -105,6 +115,8 @@ android::linkerconfig::modules::Configuration CreateBaseConfiguration(
 
   sections.emplace_back(BuildUnrestrictedSection(ctx));
   sections.emplace_back(BuildPostInstallSection(ctx));
+
+  sections.emplace_back(BuildIsolatedSection(ctx));
 
   return android::linkerconfig::modules::Configuration(std::move(sections),
                                                        dirToSection);

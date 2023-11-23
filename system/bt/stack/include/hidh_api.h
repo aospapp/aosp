@@ -25,11 +25,6 @@
  *  Constants
  ****************************************************************************/
 
-enum {
-  HID_SDP_NO_SERV_UUID = (SDP_ILLEGAL_PARAMETER + 1),
-  HID_SDP_MANDATORY_MISSING
-};
-
 /* Attributes mask values to be used in HID_HostAddDev API */
 #define HID_VIRTUAL_CABLE 0x0001
 #define HID_NORMALLY_CONNECTABLE 0x0002
@@ -194,28 +189,6 @@ extern tHID_STATUS HID_HostCloseDev(uint8_t dev_handle);
  * Returns          void
  ******************************************************************************/
 extern void HID_HostInit(void);
-
-/*******************************************************************************
- * Function        HID_HostSetSecurityLevel
- *
- * Description     This function sets the security level for the devices which
- *                 are marked by application as requiring security
- *
- * Returns         tHID_STATUS
- ******************************************************************************/
-extern tHID_STATUS HID_HostSetSecurityLevel(const char serv_name[],
-                                            uint8_t sec_lvl);
-
-/*******************************************************************************
- *
- * Function         hid_known_hid_device
- *
- * Description      This function checks if this device is  of type HID Device
- *
- * Returns          true if device exists else false
- *
- ******************************************************************************/
-bool hid_known_hid_device(const RawAddress& bd_addr);
 
 /*******************************************************************************
  *

@@ -65,9 +65,9 @@ static void *burn_fn(void *arg LTP_ATTRIBUTE_UNUSED)
 		return NULL;
 	}
 
-	SAFE_FILE_PRINTF(TRACING_DIR "trace_marker", "affined");
+	tracefs_write("trace_marker", "affined");
 	burn(BURN_MSEC * 1000, 0);
-	SAFE_FILE_PRINTF(TRACING_DIR "trace_marker", "small task");
+	tracefs_write("trace_marker", "small task");
 	burn(BURN_MSEC * 1000, 1);
 
 	return NULL;
@@ -205,17 +205,17 @@ static void run(void)
 	printf("CPU hog will be bound to CPU %d.\n", test_cpu);
 
 	/* configure and enable tracing */
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
-	SAFE_FILE_PRINTF(TRACING_DIR "buffer_size_kb", "16384");
-	SAFE_FILE_PRINTF(TRACING_DIR "set_event", TRACE_EVENTS);
-	SAFE_FILE_PRINTF(TRACING_DIR "trace", "\n");
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "1");
+	tracefs_write("tracing_on", "0");
+	tracefs_write("buffer_size_kb", "16384");
+	tracefs_write("set_event", TRACE_EVENTS);
+	tracefs_write("trace", "\n");
+	tracefs_write("tracing_on", "1");
 
 	SAFE_PTHREAD_CREATE(&burn_thread, NULL, burn_fn, NULL);
 	SAFE_PTHREAD_JOIN(burn_thread, NULL);
 
 	/* disable tracing */
-	SAFE_FILE_PRINTF(TRACING_DIR "tracing_on", "0");
+	tracefs_write("tracing_on", "0");
 	LOAD_TRACE();
 
 	if (parse_results())
@@ -226,5 +226,6 @@ static void run(void)
 
 static struct tst_test test = {
 	.test_all = run,
+	.setup = trace_setup,
 	.cleanup = trace_cleanup,
 };

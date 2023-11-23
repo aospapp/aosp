@@ -21,7 +21,7 @@ import android.app.PendingIntent;
 import android.telephony.euicc.EuiccManager;
 
 /**
- * A dummy activity which simulates a resolution activity. Returns {@link Activity#RESULT_OK} to
+ * A mock activity which simulates a resolution activity. Returns {@link Activity#RESULT_OK} to
  * caller if 1) {@link Activity#onResume()} is called (as proof that the activity has been
  * successfully started), and 2) the callback intent is verified.
  */

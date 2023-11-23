@@ -28,6 +28,11 @@ enum pm_query_id {
 	PM_QID_CLOCK_GET_MAX_DIVISOR,
 };
 
+enum pm_register_access_id {
+	CONFIG_REG_WRITE,
+	CONFIG_REG_READ,
+};
+
 /**********************************************************
  * System-level API function declarations
  **********************************************************/
@@ -151,11 +156,8 @@ enum pm_ret_status pm_clock_setparent(unsigned int clock_id,
 				      unsigned int parent_id);
 enum pm_ret_status pm_clock_getparent(unsigned int clock_id,
 				      unsigned int *parent_id);
-enum pm_ret_status pm_query_data(enum pm_query_id qid,
-				 unsigned int arg1,
-				 unsigned int arg2,
-				 unsigned int arg3,
-				 unsigned int *data);
+void pm_query_data(enum pm_query_id qid, unsigned int arg1, unsigned int arg2,
+		   unsigned int arg3, unsigned int *data);
 enum pm_ret_status pm_sha_hash(uint32_t address_high,
 				    uint32_t address_low,
 				    uint32_t size,
@@ -178,6 +180,11 @@ enum pm_ret_status pm_fpga_read(uint32_t reg_numframes,
 enum pm_ret_status pm_aes_engine(uint32_t address_high,
 				 uint32_t address_low,
 				 uint32_t  *value);
+enum pm_ret_status pm_register_access(unsigned int register_access_id,
+				      unsigned int address,
+				      unsigned int mask,
+				      unsigned int value,
+				      unsigned int *out);
 
 enum pm_ret_status pm_pll_set_parameter(enum pm_node_id nid,
 				enum pm_pll_param param_id,
@@ -189,5 +196,10 @@ enum pm_ret_status pm_pll_get_parameter(enum pm_node_id nid,
 
 enum pm_ret_status pm_pll_set_mode(enum pm_node_id nid, enum pm_pll_mode mode);
 enum pm_ret_status pm_pll_get_mode(enum pm_node_id nid, enum pm_pll_mode *mode);
+enum pm_ret_status pm_efuse_access(uint32_t address_high,
+				   uint32_t address_low, uint32_t *value);
+enum pm_ret_status em_set_action(unsigned int *value);
+enum pm_ret_status em_remove_action(unsigned int *value);
+enum pm_ret_status em_send_errors(unsigned int *value);
 
 #endif /* PM_API_SYS_H */

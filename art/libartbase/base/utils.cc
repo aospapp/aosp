@@ -25,11 +25,13 @@
 
 #include <fstream>
 #include <memory>
+#include <string>
 
 #include "android-base/file.h"
 #include "android-base/stringprintf.h"
 #include "android-base/strings.h"
 
+#include "base/stl_util.h"
 #include "bit_utils.h"
 #include "os.h"
 
@@ -179,7 +181,7 @@ bool CacheOperationsMaySegFault() {
   return false;
 }
 
-pid_t GetTid() {
+uint32_t GetTid() {
 #if defined(__APPLE__)
   uint64_t owner;
   CHECK_PTHREAD_CALL(pthread_threadid_np, (nullptr, &owner), __FUNCTION__);  // Requires Mac OS 10.6
@@ -209,47 +211,65 @@ std::string GetThreadName(pid_t tid) {
   return result;
 }
 
-std::string PrettySize(int64_t byte_count) {
+std::string PrettySize(uint64_t byte_count) {
   // The byte thresholds at which we display amounts.  A byte count is displayed
   // in unit U when kUnitThresholds[U] <= bytes < kUnitThresholds[U+1].
-  static const int64_t kUnitThresholds[] = {
-    0,       // B up to...
-    10*KB,   // KB up to...
-    10*MB,   // MB up to...
-    10LL*GB  // GB from here.
+  static const uint64_t kUnitThresholds[] = {
+    0,        // B up to...
+    10*KB,    // KB up to...
+    10*MB,    // MB up to...
+    10ULL*GB  // GB from here.
   };
-  static const int64_t kBytesPerUnit[] = { 1, KB, MB, GB };
+  static const uint64_t kBytesPerUnit[] = { 1, KB, MB, GB };
   static const char* const kUnitStrings[] = { "B", "KB", "MB", "GB" };
-  const char* negative_str = "";
-  if (byte_count < 0) {
-    negative_str = "-";
-    byte_count = -byte_count;
-  }
   int i = arraysize(kUnitThresholds);
   while (--i > 0) {
     if (byte_count >= kUnitThresholds[i]) {
       break;
     }
   }
-  return StringPrintf("%s%" PRId64 "%s",
-                      negative_str, byte_count / kBytesPerUnit[i], kUnitStrings[i]);
+  return StringPrintf("%" PRIu64 "%s",
+                      byte_count / kBytesPerUnit[i], kUnitStrings[i]);
 }
 
-void Split(const std::string& s, char separator, std::vector<std::string>* result) {
-  const char* p = s.data();
-  const char* end = p + s.size();
-  while (p != end) {
-    if (*p == separator) {
-      ++p;
-    } else {
-      const char* start = p;
-      while (++p != end && *p != separator) {
-        // Skip to the next occurrence of the separator.
-      }
-      result->push_back(std::string(start, p - start));
+template <typename StrIn, typename Str>
+void Split(const StrIn& s, char separator, std::vector<Str>* out_result) {
+  auto split = SplitString(std::string_view(s), separator);
+  for (std::string_view p : split) {
+    if (p.empty()) {
+      continue;
     }
+    out_result->push_back(Str(p));
   }
 }
+
+template void Split(const char *const& s, char separator, std::vector<std::string>* out_result);
+template void Split(const std::string& s, char separator, std::vector<std::string>* out_result);
+template void Split(const char *const& s, char separator, std::vector<std::string_view>* out_result);
+template void Split(const std::string_view& s,
+                    char separator,
+                    std::vector<std::string_view>* out_result);
+
+template <typename Str>
+void Split(const Str& s, char separator, size_t len, Str* out_result) {
+  Str* last = out_result + len;
+  auto split = SplitString(std::string_view(s), separator);
+  for (std::string_view p : split) {
+    if (p.empty()) {
+      continue;
+    }
+    if (out_result == last) {
+      return;
+    }
+    *out_result++ = Str(p);
+  }
+}
+
+template void Split(const std::string& s, char separator, size_t len, std::string* out_result);
+template void Split(const std::string_view& s,
+                    char separator,
+                    size_t len,
+                    std::string_view* out_result);
 
 void SetThreadName(const char* thread_name) {
   bool hasAt = false;

@@ -363,16 +363,16 @@ static enum overlay_result ufdt_apply_fragment(struct ufdt *tree,
   struct ufdt_node *target_node = NULL;
   struct ufdt_node *overlay_node = NULL;
 
+  overlay_node = ufdt_node_get_node_by_path(frag_node, "__overlay__");
+  if (overlay_node == NULL) {
+    return OVERLAY_RESULT_MISSING_OVERLAY;
+  }
+
   enum overlay_result result =
       ufdt_overlay_get_target(tree, frag_node, &target_node);
   if (target_node == NULL) {
+    dto_error("Unable to resolve target for %s\n", ufdt_node_name(frag_node));
     return result;
-  }
-
-  overlay_node = ufdt_node_get_node_by_path(frag_node, "__overlay__");
-  if (overlay_node == NULL) {
-    dto_error("missing __overlay__ sub-node\n");
-    return OVERLAY_RESULT_MISSING_OVERLAY;
   }
 
   int err = ufdt_overlay_node(target_node, overlay_node, pool);
@@ -392,15 +392,17 @@ static enum overlay_result ufdt_apply_fragment(struct ufdt *tree,
 static int ufdt_overlay_apply_fragments(struct ufdt *main_tree,
                                         struct ufdt *overlay_tree,
                                         struct ufdt_node_pool *pool) {
-  enum overlay_result err;
+  enum overlay_result ret;
   struct ufdt_node **it;
   /*
    * This loop may iterate to subnodes that's not a fragment node.
-   * In such case, ufdt_apply_fragment would fail with return value = -1.
+   * We must fail for any other error.
    */
   for_each_node(it, overlay_tree->root) {
-    err = ufdt_apply_fragment(main_tree, *it, pool);
-    if (err == OVERLAY_RESULT_MERGE_FAIL) {
+    ret = ufdt_apply_fragment(main_tree, *it, pool);
+    if ((ret != OVERLAY_RESULT_OK) && (ret != OVERLAY_RESULT_MISSING_OVERLAY)) {
+      dto_error("failed to apply overlay fragment %s ret: %d\n",
+                ufdt_node_name(*it), ret);
       return -1;
     }
   }

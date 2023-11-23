@@ -32,7 +32,7 @@ namespace art {
 static constexpr bool kUseTlabFastPath = true;
 
 template <bool kInitialized,
-          bool kFinalize,
+          bool kWithChecks,
           bool kInstrumented,
           gc::AllocatorType allocator_type>
 static ALWAYS_INLINE inline mirror::Object* artAllocObjectFromCode(
@@ -40,7 +40,10 @@ static ALWAYS_INLINE inline mirror::Object* artAllocObjectFromCode(
     Thread* self) REQUIRES_SHARED(Locks::mutator_lock_) {
   ScopedQuickEntrypointChecks sqec(self);
   DCHECK(klass != nullptr);
-  if (kUseTlabFastPath && !kInstrumented && allocator_type == gc::kAllocatorTypeTLAB) {
+  if (kUseTlabFastPath &&
+      !kWithChecks &&
+      !kInstrumented &&
+      allocator_type == gc::kAllocatorTypeTLAB) {
     // The "object size alloc fast path" is set when the class is
     // visibly initialized, objects are fixed size and non-finalizable.
     // Otherwise, the value is too large for the size check to succeed.
@@ -60,7 +63,7 @@ static ALWAYS_INLINE inline mirror::Object* artAllocObjectFromCode(
   }
   if (kInitialized) {
     return AllocObjectFromCodeInitialized<kInstrumented>(klass, self, allocator_type).Ptr();
-  } else if (!kFinalize) {
+  } else if (!kWithChecks) {
     return AllocObjectFromCodeResolved<kInstrumented>(klass, self, allocator_type).Ptr();
   } else {
     return AllocObjectFromCode<kInstrumented>(klass, self, allocator_type).Ptr();
@@ -211,7 +214,7 @@ void SetQuickAllocEntryPointsInstrumented(bool instrumented) {
   entry_points_instrumented = instrumented;
 }
 
-void ResetQuickAllocEntryPoints(QuickEntryPoints* qpoints, bool is_marking) {
+void ResetQuickAllocEntryPoints(QuickEntryPoints* qpoints) {
 #if !defined(__APPLE__) || !defined(__LP64__)
   switch (entry_points_allocator) {
     case gc::kAllocatorTypeDlMalloc: {
@@ -239,12 +242,7 @@ void ResetQuickAllocEntryPoints(QuickEntryPoints* qpoints, bool is_marking) {
     }
     case gc::kAllocatorTypeRegionTLAB: {
       CHECK(kMovingCollector);
-      if (is_marking) {
-        SetQuickAllocEntryPoints_region_tlab(qpoints, entry_points_instrumented);
-      } else {
-        // Not marking means we need no read barriers and can just use the normal TLAB case.
-        SetQuickAllocEntryPoints_tlab(qpoints, entry_points_instrumented);
-      }
+      SetQuickAllocEntryPoints_region_tlab(qpoints, entry_points_instrumented);
       return;
     }
     default:
@@ -252,7 +250,6 @@ void ResetQuickAllocEntryPoints(QuickEntryPoints* qpoints, bool is_marking) {
   }
 #else
   UNUSED(qpoints);
-  UNUSED(is_marking);
 #endif
   UNIMPLEMENTED(FATAL);
   UNREACHABLE();

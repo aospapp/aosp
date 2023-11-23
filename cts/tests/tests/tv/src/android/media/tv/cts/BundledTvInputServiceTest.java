@@ -23,6 +23,7 @@ import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.media.tv.TvView;
+import android.platform.test.annotations.Presubmit;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.ArrayMap;
 
@@ -37,6 +38,7 @@ import java.util.Map;
 /**
  * Test {@link android.media.tv.TvView}.
  */
+@Presubmit
 public class BundledTvInputServiceTest
         extends ActivityInstrumentationTestCase2<TvViewStubActivity> {
     /** The maximum time to wait for an operation. */

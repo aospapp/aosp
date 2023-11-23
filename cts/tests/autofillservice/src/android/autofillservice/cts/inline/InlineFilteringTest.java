@@ -16,14 +16,16 @@
 
 package android.autofillservice.cts.inline;
 
-import static android.autofillservice.cts.Helper.ID_PASSWORD;
-import static android.autofillservice.cts.Helper.ID_USERNAME;
-import static android.autofillservice.cts.Helper.getContext;
-import static android.autofillservice.cts.inline.InstrumentedAutoFillServiceInlineEnabled.SERVICE_NAME;
+import static android.autofillservice.cts.testcore.Helper.ID_PASSWORD;
+import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
+import static android.autofillservice.cts.testcore.Helper.getContext;
+import static android.autofillservice.cts.testcore.InstrumentedAutoFillServiceInlineEnabled.SERVICE_NAME;
 
-import android.autofillservice.cts.AbstractLoginActivityTestCase;
-import android.autofillservice.cts.CannedFillResponse;
-import android.autofillservice.cts.Helper;
+import android.autofillservice.cts.commontests.AbstractLoginActivityTestCase;
+import android.autofillservice.cts.testcore.CannedFillResponse;
+import android.autofillservice.cts.testcore.Helper;
+import android.autofillservice.cts.testcore.InlineUiBot;
+import android.platform.test.annotations.Presubmit;
 
 import org.junit.Test;
 import org.junit.rules.TestRule;
@@ -33,6 +35,7 @@ import org.junit.rules.TestRule;
  * Tests for inline suggestion filtering. Tests for filtering datasets that need authentication are
  * in {@link InlineAuthenticationTest}.
  */
+@Presubmit
 public class InlineFilteringTest extends AbstractLoginActivityTestCase {
 
     private static final String TAG = "InlineLoginActivityTest";
@@ -70,7 +73,6 @@ public class InlineFilteringTest extends AbstractLoginActivityTestCase {
                         .setInlinePresentation(createInlinePresentation("Second Dude"))
                         .build());
         sReplier.addResponse(builder.build());
-        mActivity.expectAutoFill("test", "tweet");
 
         // Trigger autofill, then make sure it's showing initially.
         mUiBot.selectByRelativeId(ID_USERNAME);
@@ -93,6 +95,7 @@ public class InlineFilteringTest extends AbstractLoginActivityTestCase {
         mUiBot.waitForIdleSync();
         mUiBot.assertDatasets("Second Dude");
 
+        mActivity.expectAutoFill("test", "tweet");
         mUiBot.selectDataset("Second Dude");
         mUiBot.waitForIdleSync();
         mActivity.assertAutoFilled();

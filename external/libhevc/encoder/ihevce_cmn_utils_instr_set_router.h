@@ -40,6 +40,7 @@
 #define __IHEVCE_CMN_UTILS_INSTR_SET_ROUTER_H_
 
 #include "ihevc_typedefs.h"
+#include "ihevc_defs.h"
 #include "ihevce_defs.h"
 
 /*****************************************************************************/
@@ -47,7 +48,8 @@
 /*****************************************************************************/
 typedef UWORD32 FT_CALC_HAD_SATD_8BIT(UWORD8 *, WORD32, UWORD8 *, WORD32, WORD16 *, WORD32);
 
-typedef LWORD64 FT_SSD_CALCULATOR(UWORD8 *, UWORD8 *, UWORD32, UWORD32, UWORD32, UWORD32);
+typedef LWORD64 FT_SSD_CALCULATOR(
+    UWORD8 *, UWORD8 *, UWORD32, UWORD32, UWORD32, UWORD32, CHROMA_PLANE_ID_T);
 
 typedef LWORD64 FT_SSD_AND_SAD_CALCULATOR(UWORD8 *, WORD32, UWORD8 *, WORD32, WORD32, UWORD32 *);
 

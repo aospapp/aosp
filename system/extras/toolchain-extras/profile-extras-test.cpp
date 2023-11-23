@@ -20,19 +20,26 @@
 
 #include "profile-extras.h"
 
-static int flush_count = 0;
+static int dump_count = 0;
+static int reset_count = 0;
 
 extern "C" {
-void __gcov_flush() {
-  flush_count++;
+void __gcov_dump() {
+  dump_count++;
+}
+
+void __gcov_reset() {
+  reset_count++;
 }
 }
 
 TEST(profile_extras, smoke) {
-  flush_count = 0;
+  dump_count = 0;
+  reset_count = 0;
 
-  ASSERT_EQ(0, flush_count);
+  ASSERT_EQ(0, dump_count);
   kill(getpid(), COVERAGE_FLUSH_SIGNAL);
   sleep(2);
-  ASSERT_EQ(1, flush_count);
+  ASSERT_EQ(1, dump_count);
+  ASSERT_EQ(1, reset_count);
 }

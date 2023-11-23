@@ -16,12 +16,14 @@
 
 package android.net.ssl;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
+import com.android.org.conscrypt.javax.net.ssl.TestSSLSocketPair;
 import com.android.org.conscrypt.tlswire.TlsTester;
 import com.android.org.conscrypt.tlswire.handshake.ClientHello;
 import com.android.org.conscrypt.tlswire.handshake.HelloExtension;
@@ -87,14 +89,13 @@ public class SSLSocketsTest {
         assertFalse(SSLSockets.isSupportedSocket(s));
     }
 
-    @Test
-    public void testUseSessionTickets() throws Exception {
-        try {
-            SSLSockets.setUseSessionTickets(new BrokenSSLSocket(), true);
-            fail();
-        } catch (IllegalArgumentException expected) {
-        }
+    @Test(expected = IllegalArgumentException.class)
+    public void setUseSessionTickets_InvalidSocket() {
+        SSLSockets.setUseSessionTickets(new BrokenSSLSocket(), true);
+    }
 
+    @Test
+    public void setUseSessionTickets_ValidSocket() throws Exception {
         SSLSocket s = (SSLSocket) SSLSocketFactory.getDefault().createSocket();
         SSLSockets.setUseSessionTickets(s, true);
 
@@ -115,5 +116,27 @@ public class SSLSocketsTest {
                     }
                 });
         assertNull(hello.findExtensionByType(HelloExtension.TYPE_SESSION_TICKET));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void exportKeyingMaterial_InvalidSocket() throws Exception {
+        SSLSockets.exportKeyingMaterial(new BrokenSSLSocket(), "label", null, 20);
+    }
+
+    @Test
+    public void exportKeyingMaterial_ValidSocket() throws Exception {
+        TestSSLSocketPair pair = TestSSLSocketPair.create();
+        String label = "Some label";
+        int keyLength = 32;
+
+        pair.connect();
+
+        byte[] clientEkm = SSLSockets.exportKeyingMaterial(pair.client, label, null, keyLength);
+        byte[] serverEkm = SSLSockets.exportKeyingMaterial(pair.server, label, null, keyLength);
+        assertNotNull(clientEkm);
+        assertNotNull(serverEkm);
+        assertEquals(keyLength, clientEkm.length);
+        assertEquals(keyLength, serverEkm.length);
+        assertArrayEquals(clientEkm, serverEkm);
     }
 }

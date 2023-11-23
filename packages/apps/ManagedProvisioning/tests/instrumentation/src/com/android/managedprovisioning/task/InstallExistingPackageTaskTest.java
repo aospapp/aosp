@@ -26,12 +26,11 @@ import static org.mockito.Mockito.when;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.UserHandle;
 
 import androidx.test.filters.SmallTest;
 
-import com.android.managedprovisioning.analytics.MetricsWriter;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
-import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import org.junit.Before;
@@ -50,6 +49,7 @@ public class InstallExistingPackageTaskTest {
             ADMIN_RECEIVER_NAME);
     private static final String INSTALL_PACKAGE_NAME = "com.install.package";
     private static final int TEST_USER_ID = 123;
+    private static final int OTHER_TEST_USER_ID = 456;
     private final ProvisioningParams TEST_PARAMS = new ProvisioningParams.Builder()
             .setProvisioningAction(ACTION_PROVISION_MANAGED_PROFILE)
             .setDeviceAdminComponentName(ADMIN_COMPONENT_NAME)
@@ -67,7 +67,7 @@ public class InstallExistingPackageTaskTest {
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
 
         mTask = new InstallExistingPackageTask(INSTALL_PACKAGE_NAME, mContext, TEST_PARAMS,
-                mCallback, mock(ProvisioningAnalyticsTracker.class));
+                mCallback, mock(ProvisioningAnalyticsTracker.class), UserHandle.USER_NULL);
     }
 
     @Test
@@ -82,6 +82,24 @@ public class InstallExistingPackageTaskTest {
         // THEN the existing package should have been installed
         verify(mPackageManager).installExistingPackageAsUser(INSTALL_PACKAGE_NAME, TEST_USER_ID);
         verify(mCallback).onSuccess(mTask);
+        verifyNoMoreInteractions(mCallback);
+    }
+
+    @Test
+    public void testSuccess_userIdFromConstructor() throws Exception {
+        // GIVEN that installing the existing package succeeds
+        when(mPackageManager.installExistingPackageAsUser(INSTALL_PACKAGE_NAME, TEST_USER_ID))
+                .thenReturn(PackageManager.INSTALL_SUCCEEDED);
+
+        InstallExistingPackageTask task =
+                new InstallExistingPackageTask(INSTALL_PACKAGE_NAME, mContext, TEST_PARAMS,
+                mCallback, mock(ProvisioningAnalyticsTracker.class), TEST_USER_ID);
+        // WHEN running the task
+        task.run(OTHER_TEST_USER_ID);
+
+        // THEN the existing package should have been installed
+        verify(mPackageManager).installExistingPackageAsUser(INSTALL_PACKAGE_NAME, TEST_USER_ID);
+        verify(mCallback).onSuccess(task);
         verifyNoMoreInteractions(mCallback);
     }
 

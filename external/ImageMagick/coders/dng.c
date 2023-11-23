@@ -17,7 +17,7 @@
 %                                 July 1999                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -64,6 +64,7 @@
 #include "MagickCore/resource_.h"
 #include "MagickCore/static.h"
 #include "MagickCore/string_.h"
+#include "MagickCore/string-private.h"
 #include "MagickCore/module.h"
 #include "MagickCore/transform.h"
 #include "MagickCore/utility.h"
@@ -162,67 +163,50 @@ static void SetDNGProperties(Image *image,const libraw_data_t *raw_info,
   ExceptionInfo *exception)
 {
   char
-    property[MagickPathExtent],
-    timestamp[MagickPathExtent];
+    timestamp[MagickTimeExtent];
 
   (void) SetImageProperty(image,"dng:make",raw_info->idata.make,exception);
   (void) SetImageProperty(image,"dng:camera.model.name",raw_info->idata.model,
     exception);
-  (void) FormatMagickTime(raw_info->other.timestamp,MagickPathExtent,timestamp);
+  (void) FormatMagickTime(raw_info->other.timestamp,sizeof(timestamp),timestamp);
   (void) SetImageProperty(image,"dng:create.date",timestamp,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%0.1f",
+  (void) FormatImageProperty(image,"dng:iso.setting","%0.1f",
     raw_info->other.iso_speed);
-  (void) SetImageProperty(image,"dng:iso.setting",property,exception);
 #if LIBRAW_COMPILE_CHECK_VERSION_NOTLESS(0,18)
   (void) SetImageProperty(image,"dng:software",raw_info->idata.software,
     exception);
   if (*raw_info->shootinginfo.BodySerial != '\0')
     (void) SetImageProperty(image,"dng:serial.number",
       raw_info->shootinginfo.BodySerial,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"1/%0.1f",
-    1.0/raw_info->other.shutter);
-  (void) SetImageProperty(image,"dng:exposure.time",property,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%0.1f",
+  (void) FormatImageProperty(image,"dng:exposure.time","1/%0.1f",
+    PerceptibleReciprocal(raw_info->other.shutter));
+  (void) FormatImageProperty(image,"dng:f.number","%0.1f",
     raw_info->other.aperture);
-  (void) SetImageProperty(image,"dng:f.number",property,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%0.1f",
+  (void) FormatImageProperty(image,"dng:max.aperture.value","%0.1f",
     raw_info->lens.EXIF_MaxAp);
-  (void) SetImageProperty(image,"dng:max.aperture.value",property,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%0.1f",
+  (void) FormatImageProperty(image,"dng:ocal.length","%0.1f",
     raw_info->other.focal_len);
-  (void) SetImageProperty(image,"dng:focal.length",property,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%f %f %f %f",
+  (void) FormatImageProperty(image,"dng:wb.rb.levels","%f %f %f %f",
     raw_info->color.cam_mul[0],raw_info->color.cam_mul[2],
     raw_info->color.cam_mul[1],raw_info->color.cam_mul[3]);
-  (void) SetImageProperty(image,"dng:wb.rb.levels",property,exception);
   (void) SetImageProperty(image,"dng:lens.type",
     raw_info->lens.makernotes.LensFeatures_suf,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,
-    "%0.1f-%0.1fmm f/%0.1f-%0.1f",raw_info->lens.makernotes.MinFocal,
-    raw_info->lens.makernotes.MaxFocal,raw_info->lens.makernotes.MaxAp4MinFocal,
+  (void) FormatImageProperty(image,"dng:lens","%0.1f-%0.1fmm f/%0.1f-%0.1f",
+    raw_info->lens.makernotes.MinFocal,raw_info->lens.makernotes.MaxFocal,
+    raw_info->lens.makernotes.MaxAp4MinFocal,
     raw_info->lens.makernotes.MaxAp4MaxFocal);
-  (void) SetImageProperty(image,"dng:lens",property,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%0.2f",
+  (void) FormatImageProperty(image,"dng:lens.f.stops","%0.2f",
     raw_info->lens.makernotes.LensFStops);
-  (void) SetImageProperty(image,"dng:lens.f.stops",property,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%0.1f mm",
+  (void) FormatImageProperty(image,"dng:min.focal.length","%0.1f mm",
     raw_info->lens.makernotes.MinFocal);
-  (void) SetImageProperty(image,"dng:min.focal.length",property,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%0.1f mm",
+  (void) FormatImageProperty(image,"dng:max.focal.length","%0.1f mm",
     raw_info->lens.makernotes.MaxFocal);
-  (void) SetImageProperty(image,"dng:max.focal.length",property,exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%0.1f",
+  (void) FormatImageProperty(image,"dng:max.aperture.at.min.focal","%0.1f",
     raw_info->lens.makernotes.MaxAp4MinFocal);
-  (void) SetImageProperty(image,"dng:max.aperture.at.min.focal",property,
-    exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%0.1f",
+  (void) FormatImageProperty(image,"dng:max.aperture.at.max.focal","%0.1f",
     raw_info->lens.makernotes.MaxAp4MaxFocal);
-  (void) SetImageProperty(image,"dng:max.aperture.at.max.focal",property,
-    exception);
-  (void) FormatLocaleString(property,MagickPathExtent,"%d mm",
+  (void) FormatImageProperty(image,"dng:focal.length.in.35mm.format","%d mm",
     raw_info->lens.FocalLengthIn35mmFormat);
-  (void) SetImageProperty(image,"dng:focal.length.in.35mm.format",property,
-    exception);
 #endif
 }
 #endif
@@ -327,6 +311,41 @@ static Image *InvokeDNGDelegate(const ImageInfo *image_info,Image *image,
   return(image);
 }
 
+#if defined(MAGICKCORE_RAW_R_DELEGATE)
+static void SetLibRawParams(const ImageInfo *image_info,Image *image,
+  libraw_data_t *raw_info)
+{
+  const char
+    *option;
+
+  raw_info->params.output_bps=16;
+  option=GetImageOption(image_info,"dng:use-camera-wb");
+  if (option == (const char *) NULL)
+    option=GetImageOption(image_info,"dng:use_camera_wb");
+  if (option != (const char *) NULL)
+    raw_info->params.use_camera_wb=IsStringTrue(option);
+  option=GetImageOption(image_info,"dng:use-auto-wb");
+  if (option == (const char *) NULL)
+    option=GetImageOption(image_info,"dng:use_auto_wb");
+  if (option != (const char *) NULL)
+    raw_info->params.use_auto_wb=IsStringTrue(option);
+  option=GetImageOption(image_info,"dng:no-auto-bright");
+  if (option == (const char *) NULL)
+    option=GetImageOption(image_info,"dng:no_auto_bright");
+  if (option != (const char *) NULL)
+    raw_info->params.no_auto_bright=IsStringTrue(option);
+  option=GetImageOption(image_info,"dng:output-color");
+  if (option == (const char *) NULL)
+    option=GetImageOption(image_info,"dng:output_color");
+  if (option != (const char *) NULL)
+    {
+      raw_info->params.output_color=StringToInteger(option);
+      if (raw_info->params.output_color == 5)
+        image->colorspace=XYZColorspace;
+    }
+}
+#endif
+
 static Image *ReadDNGImage(const ImageInfo *image_info,ExceptionInfo *exception)
 {
   Image
@@ -366,7 +385,7 @@ static Image *ReadDNGImage(const ImageInfo *image_info,ExceptionInfo *exception)
     libraw_processed_image_t
       *raw_image;
 
-    register ssize_t
+    ssize_t
       y;
 
     StringInfo
@@ -384,8 +403,6 @@ static Image *ReadDNGImage(const ImageInfo *image_info,ExceptionInfo *exception)
         libraw_close(raw_info);
         return(DestroyImageList(image));
       }
-    raw_info->params.use_camera_wb=IsStringTrue(GetImageOption(image_info,
-      "dng:use_camera_wb"));
 #if defined(MAGICKCORE_WINDOWS_SUPPORT) && defined(_MSC_VER) && (_MSC_VER > 1310)
     {
       wchar_t
@@ -430,7 +447,7 @@ static Image *ReadDNGImage(const ImageInfo *image_info,ExceptionInfo *exception)
         libraw_close(raw_info);
         return(DestroyImageList(image));
       }
-    raw_info->params.output_bps=16;
+    SetLibRawParams(image_info,image,raw_info);
     errcode=libraw_dcraw_process(raw_info);
     if (errcode != LIBRAW_SUCCESS)
       {
@@ -465,10 +482,10 @@ static Image *ReadDNGImage(const ImageInfo *image_info,ExceptionInfo *exception)
     p=(unsigned short *) raw_image->data;
     for (y=0; y < (ssize_t) image->rows; y++)
     {
-      register Quantum
+      Quantum
         *q;
 
-      register ssize_t
+      ssize_t
         x;
 
       q=QueueAuthenticPixels(image,0,y,image->columns,1,exception);

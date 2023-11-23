@@ -16,7 +16,6 @@
 
 package com.android.dialer.janktests;
 
-import android.content.ComponentName;
 import android.content.ContentProviderOperation;
 import android.content.ContentValues;
 import android.content.Intent;
@@ -33,18 +32,16 @@ import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.RawContacts;
-import android.support.test.jank.GfxMonitor;
-import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
-import android.view.View;
 
-import junit.framework.Assert;
+import androidx.test.jank.GfxMonitor;
+import androidx.test.jank.JankTest;
+import androidx.test.jank.JankTestBase;
 
 import java.util.ArrayList;
 import java.util.Random;

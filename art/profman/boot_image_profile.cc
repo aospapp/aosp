@@ -189,9 +189,9 @@ static bool IncludeInPreloadedClasses(const std::string& class_name,
                                       uint32_t max_aggregation_count,
                                       const FlattenProfileData::ItemMetadata& metadata,
                                       const BootImageOptions& options) {
-  bool blacklisted = options.preloaded_classes_blacklist.find(class_name) !=
-      options.preloaded_classes_blacklist.end();
-  return !blacklisted && IncludeItemInProfile(
+  bool denylisted = options.preloaded_classes_denylist.find(class_name) !=
+      options.preloaded_classes_denylist.end();
+  return !denylisted && IncludeItemInProfile(
       max_aggregation_count, options.preloaded_class_threshold, metadata, options);
 }
 
@@ -210,7 +210,7 @@ bool GenerateBootImageProfile(
 
   std::unique_ptr<FlattenProfileData> flattend_data(new FlattenProfileData());
   for (const std::string& profile_file : profile_files) {
-    ProfileCompilationInfo profile;
+    ProfileCompilationInfo profile(/*for_boot_image=*/ true);
     if (!profile.Load(profile_file, /*clear_if_invalid=*/ false)) {
       LOG(ERROR) << "Profile is not a valid: " << profile_file;
       return false;

@@ -55,9 +55,14 @@ void SparseBitSet::initFromRanges(const uint32_t* ranges, size_t nRanges) {
         return;
     }
     mMaxVal = maxVal;
-    mIndices.reset(new uint16_t[(mMaxVal + kPageMask) >> kLogValuesPerPage]);
+    mIndicesCount = (mMaxVal + kPageMask) >> kLogValuesPerPage;
+    // Avoid zero-filling mOwnedIndices.
+    mOwnedIndices.reset(new uint16_t[mIndicesCount]);
+    mIndices = mOwnedIndices.get();
     uint32_t nPages = calcNumPages(ranges, nRanges);
-    mBitmaps.reset(new element[nPages << (kLogValuesPerPage - kLogBitsPerEl)]());
+    mBitmapsCount = nPages << (kLogValuesPerPage - kLogBitsPerEl);
+    mOwnedBitmaps = std::make_unique<element[]>(mBitmapsCount);
+    mBitmaps = mOwnedBitmaps.get();
     mZeroPageIndex = noZeroPage;
     uint32_t nonzeroPageEnd = 0;
     uint32_t currentPage = 0;
@@ -73,30 +78,50 @@ void SparseBitSet::initFromRanges(const uint32_t* ranges, size_t nRanges) {
                     mZeroPageIndex = (currentPage++) << (kLogValuesPerPage - kLogBitsPerEl);
                 }
                 for (uint32_t j = nonzeroPageEnd; j < startPage; j++) {
-                    mIndices[j] = mZeroPageIndex;
+                    mOwnedIndices[j] = mZeroPageIndex;
                 }
             }
-            mIndices[startPage] = (currentPage++) << (kLogValuesPerPage - kLogBitsPerEl);
+            mOwnedIndices[startPage] = (currentPage++) << (kLogValuesPerPage - kLogBitsPerEl);
         }
 
         size_t index = ((currentPage - 1) << (kLogValuesPerPage - kLogBitsPerEl)) +
                        ((start & kPageMask) >> kLogBitsPerEl);
         size_t nElements = (end - (start & ~kElMask) + kElMask) >> kLogBitsPerEl;
         if (nElements == 1) {
-            mBitmaps[index] |=
+            mOwnedBitmaps[index] |=
                     (kElAllOnes >> (start & kElMask)) & (kElAllOnes << ((~end + 1) & kElMask));
         } else {
-            mBitmaps[index] |= kElAllOnes >> (start & kElMask);
+            mOwnedBitmaps[index] |= kElAllOnes >> (start & kElMask);
             for (size_t j = 1; j < nElements - 1; j++) {
-                mBitmaps[index + j] = kElAllOnes;
+                mOwnedBitmaps[index + j] = kElAllOnes;
             }
-            mBitmaps[index + nElements - 1] |= kElAllOnes << ((~end + 1) & kElMask);
+            mOwnedBitmaps[index + nElements - 1] |= kElAllOnes << ((~end + 1) & kElMask);
         }
         for (size_t j = startPage + 1; j < endPage + 1; j++) {
-            mIndices[j] = (currentPage++) << (kLogValuesPerPage - kLogBitsPerEl);
+            mOwnedIndices[j] = (currentPage++) << (kLogValuesPerPage - kLogBitsPerEl);
         }
         nonzeroPageEnd = endPage + 1;
     }
+}
+
+void SparseBitSet::initFromBuffer(BufferReader* reader) {
+    mMaxVal = reader->read<uint32_t>();
+    // mIndices and mBitmaps are not initialized when mMaxVal == 0
+    if (mMaxVal == 0) return;
+    std::tie(mIndices, mIndicesCount) = reader->readArray<uint16_t>();
+    // element is uint32_t
+    static_assert(sizeof(element) == 4);
+    std::tie(mBitmaps, mBitmapsCount) = reader->readArray<element>();
+    mZeroPageIndex = reader->read<uint16_t>();
+}
+
+void SparseBitSet::writeTo(BufferWriter* writer) const {
+    writer->write<uint32_t>(mMaxVal);
+    // mIndices and mBitmaps are not initialized when mMaxVal == 0
+    if (mMaxVal == 0) return;
+    writer->writeArray<uint16_t>(mIndices, mIndicesCount);
+    writer->writeArray<element>(mBitmaps, mBitmapsCount);
+    writer->write<uint16_t>(mZeroPageIndex);
 }
 
 int SparseBitSet::CountLeadingZeros(element x) {

@@ -23,6 +23,7 @@ import static android.view.Display.DEFAULT_DISPLAY;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
@@ -57,6 +58,18 @@ public class DisplayTests extends MultiDisplayTestBase {
                 primaryDisplay.mOverrideConfiguration, primaryDisplay.mFullConfiguration);
         assertEquals("Primary display's configuration should be equal to global configuration.",
                 primaryDisplay.mOverrideConfiguration, primaryDisplay.mMergedOverrideConfiguration);
+    }
+
+    /**
+     * Tests that config_remoteInsetsControllerControlsSystemBars is not set to true for
+     * non-automotive devices.
+     */
+    @Test
+    public void testRemoteInsetsControllerNotControlSystemBarsForNonAutoDevies() {
+        assumeFalse(isCar());
+
+        assertFalse("Non auto devices should not set config_remoteInsetsControllerControlsSystemBars",
+                remoteInsetsControllerControlsSystemBars());
     }
 
     /**

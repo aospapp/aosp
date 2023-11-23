@@ -19,13 +19,20 @@ import threading
 import time
 
 from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import error, enum
+from autotest_lib.client.common_lib import autotest_enum
+from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.client.common_lib.utils import poll_for_condition_ex
 from autotest_lib.client.cros import kernel_trace
 from autotest_lib.client.cros.power import power_utils
 
-BatteryDataReportType = enum.Enum('CHARGE', 'ENERGY')
+BatteryDataReportType = autotest_enum.AutotestEnum('CHARGE', 'ENERGY')
 
+# For devices whose full capacity is significantly lower than design full
+# capacity, scale down their design full capacity.
+BATTERY_DESIGN_FULL_SCALE = {'jinlon': 0.95, # b/161307060
+                             'berknip': 0.94, # b/172625511
+                             }
 # battery data reported at 1e6 scale
 BATTERY_DATA_SCALE = 1e6
 # number of times to retry reading the battery in the case of bad data
@@ -311,9 +318,19 @@ class BatteryStat(DevStat):
         if voltage_nominal == 0:
             raise error.TestError('Failed to determine battery voltage')
 
+        battery_design_full_scale = 1
+        model = utils.get_platform()
+        if model in BATTERY_DESIGN_FULL_SCALE:
+            battery_design_full_scale = BATTERY_DESIGN_FULL_SCALE.get(model)
+            logging.info(
+                    'Apply %f scale to design full battery capacity for model '
+                    '%s', battery_design_full_scale, model)
+
         # Since charge data is present, calculate parameters based upon
         # reported charge data.
         if battery_type == BatteryDataReportType.CHARGE:
+            self.charge_full_design *= battery_design_full_scale
+
             self.charge_full = self.charge_full / BATTERY_DATA_SCALE
             self.charge_full_design = self.charge_full_design / \
                                       BATTERY_DATA_SCALE
@@ -335,6 +352,8 @@ class BatteryStat(DevStat):
         # Charge data not present, so calculate parameters based upon
         # reported energy data.
         elif battery_type == BatteryDataReportType.ENERGY:
+            self.energy_full_design *= battery_design_full_scale
+
             self.charge_full = self.energy_full / voltage_nominal
             self.charge_full_design = self.energy_full_design / \
                                       voltage_nominal
@@ -694,13 +713,11 @@ class AbstractStats(object):
             results['wavg_%s' % (name)] = wavg
 
 
-    def __init__(self, name=None, incremental=True):
-        if not name:
-            raise error.TestFail("Need to name AbstractStats instance please.")
+    def __init__(self, name, incremental=True):
         self.name = name
         self.incremental = incremental
         self._stats = self._read_stats()
-
+        self._first_stats = self._stats.copy()
 
     def refresh(self):
         """
@@ -718,12 +735,15 @@ class AbstractStats(object):
         Turns a dict with absolute times (or percentages) into a weighted
         average value.
         """
-        total = sum(self._stats.itervalues())
+        stats = self._stats
+        if self.incremental:
+            stats = self.do_diff(stats, self._first_stats)
+
+        total = sum(stats.itervalues())
         if total == 0:
             return None
 
-        return sum((float(k)*v) / total for (k, v) in self._stats.iteritems())
-
+        return sum(float(k) * v / total for k, v in stats.iteritems())
 
     def _supports_automatic_weighted_average(self):
         """
@@ -773,10 +793,9 @@ def count_all_cpus():
 
 def get_online_cpus():
     """
-    Return list of integer cpu numbers that are online.
+    Return frozenset of integer cpu numbers that are online.
     """
-    cpus = [int(f.split('/')[-1]) for f in glob.iglob('/dev/cpu/[0-9]*')]
-    return frozenset(cpus)
+    return frozenset(read_cpu_set('/sys/devices/system/cpu/online'))
 
 def get_cpus_filepaths_for_suffix(cpus, suffix):
     """
@@ -790,13 +809,14 @@ def get_cpus_filepaths_for_suffix(cpus, suffix):
     for c in cpus:
         c_file_path = os.path.join(CPU_BASE_PATH, 'cpu%d' % c, suffix)
         if os.path.exists(c_file_path):
-          available_cpus.append(c)
-          available_paths.append(c_file_path)
+            available_cpus.append(c)
+            available_paths.append(c_file_path)
     return (available_cpus, available_paths)
 
-class CPUFreqStats(AbstractStats):
+
+class CPUFreqStatsPState(AbstractStats):
     """
-    CPU Frequency statistics
+    CPU Frequency statistics for intel_pstate
     """
     MSR_PLATFORM_INFO = 0xce
     MSR_IA32_MPERF = 0xe7
@@ -804,20 +824,67 @@ class CPUFreqStats(AbstractStats):
 
     def __init__(self, cpus=None):
         name = 'cpufreq'
-        stats_suffix = 'cpufreq/stats/time_in_state'
-        key_suffix = 'cpufreq/scaling_available_frequencies'
-        cpufreq_driver = '/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver'
         if not cpus:
             cpus = get_online_cpus()
-        _, self._file_paths = get_cpus_filepaths_for_suffix(cpus,
-                                                            stats_suffix)
+        self._cpus = cpus
 
         if len(cpus) and len(cpus) < count_all_cpus():
             name = '%s_%s' % (name, '_'.join([str(c) for c in cpus]))
-        self._running_intel_pstate = False
+
         self._initial_perf = None
         self._current_perf = None
-        self._max_freq = 0
+
+        # max_freq is supposed to be the same for all CPUs and remain
+        # constant throughout. So, we set the entry only once.
+        # Note that this is max non-turbo frequency, some CPU can run at
+        # higher turbo frequency in some condition.
+        platform_info = utils.rdmsr(self.MSR_PLATFORM_INFO)
+        mul = platform_info >> 8 & 0xff
+        bclk = utils.get_intel_bclk_khz()
+        self._max_freq = mul * bclk
+
+        super(CPUFreqStatsPState, self).__init__(name)
+
+    def _read_stats(self):
+        aperf = 0
+        mperf = 0
+
+        for cpu in self._cpus:
+            aperf += utils.rdmsr(self.MSR_IA32_APERF, cpu)
+            mperf += utils.rdmsr(self.MSR_IA32_MPERF, cpu)
+
+        if not self._initial_perf:
+            self._initial_perf = (aperf, mperf)
+
+        self._current_perf = (aperf, mperf)
+
+        return {}
+
+    def _weighted_avg_fn(self):
+        if (self._current_perf
+                    and self._current_perf[1] != self._initial_perf[1]):
+            # Avg freq = max_freq * aperf_delta / mperf_delta
+            return self._max_freq * \
+                float(self._current_perf[0] - self._initial_perf[0]) / \
+                (self._current_perf[1] - self._initial_perf[1])
+        return 1.0
+
+
+class CPUFreqStats(AbstractStats):
+    """
+    CPU Frequency statistics
+    """
+
+    def __init__(self, cpus=None):
+        name = 'cpufreq'
+        stats_suffix = 'cpufreq/stats/time_in_state'
+        key_suffix = 'cpufreq/scaling_available_frequencies'
+        if not cpus:
+            cpus = get_online_cpus()
+        _, self._file_paths = get_cpus_filepaths_for_suffix(cpus, stats_suffix)
+
+        if len(cpus) and len(cpus) < count_all_cpus():
+            name = '%s_%s' % (name, '_'.join([str(c) for c in cpus]))
         self._cpus = cpus
         self._available_freqs = set()
 
@@ -825,44 +892,14 @@ class CPUFreqStats(AbstractStats):
             logging.debug('time_in_state file not found')
 
         # assumes cpufreq driver for CPU0 is the same as the others.
-        freq_driver = utils.read_one_line(cpufreq_driver)
-        if freq_driver == 'intel_pstate':
-            logging.debug('intel_pstate driver active')
-            self._running_intel_pstate = True
-        else:
-            _, cpufreq_key_paths = get_cpus_filepaths_for_suffix(cpus,
-                                                                 key_suffix)
-            for path in cpufreq_key_paths:
-                self._available_freqs |= set(int(x) for x in
-                                             utils.read_file(path).split())
+        _, cpufreq_key_paths = get_cpus_filepaths_for_suffix(cpus, key_suffix)
+        for path in cpufreq_key_paths:
+            self._available_freqs |= set(
+                    int(x) for x in utils.read_file(path).split())
 
-        super(CPUFreqStats, self).__init__(name=name)
-
+        super(CPUFreqStats, self).__init__(name)
 
     def _read_stats(self):
-        if self._running_intel_pstate:
-            aperf = 0
-            mperf = 0
-
-            for cpu in self._cpus:
-                aperf += utils.rdmsr(self.MSR_IA32_APERF, cpu)
-                mperf += utils.rdmsr(self.MSR_IA32_MPERF, cpu)
-
-            # max_freq is supposed to be the same for all CPUs and remain
-            # constant throughout. So, we set the entry only once.
-            # Note that this is max non-turbo frequency, some CPU can run at
-            # higher turbo frequency in some condition.
-            if not self._max_freq:
-                platform_info = utils.rdmsr(self.MSR_PLATFORM_INFO)
-                mul = platform_info >> 8 & 0xff
-                bclk = utils.get_intel_bclk_khz()
-                self._max_freq = mul * bclk
-
-            if not self._initial_perf:
-                self._initial_perf = (aperf, mperf)
-
-            self._current_perf = (aperf, mperf)
-
         stats = dict((k, 0) for k in self._available_freqs)
         for path in self._file_paths:
             if not os.path.exists(path):
@@ -880,21 +917,8 @@ class CPUFreqStats(AbstractStats):
                     stats[freq] = timeunits
         return stats
 
-
     def _supports_automatic_weighted_average(self):
-        return not self._running_intel_pstate
-
-
-    def _weighted_avg_fn(self):
-        if not self._running_intel_pstate:
-            return None
-
-        if self._current_perf[1] != self._initial_perf[1]:
-            # Avg freq = max_freq * aperf_delta / mperf_delta
-            return self._max_freq * \
-                float(self._current_perf[0] - self._initial_perf[0]) / \
-                (self._current_perf[1] - self._initial_perf[1])
-        return 1.0
+        return True
 
 
 class CPUCStateStats(AbstractStats):
@@ -903,7 +927,7 @@ class CPUCStateStats(AbstractStats):
     """
     def __init__(self, name, non_c0_stat=''):
         self._non_c0_stat = non_c0_stat
-        super(CPUCStateStats, self).__init__(name=name)
+        super(CPUCStateStats, self).__init__(name)
 
 
     def to_percent(self, stats):
@@ -1016,6 +1040,7 @@ class CPUPackageStats(CPUCStateStats):
                 'Silvermont':   self.SILVERMONT,
                 'Skylake':      self.BROADWELL,
                 'Tiger Lake':   self.BROADWELL,
+                'Tremont':      self.GOLDMONT,
                 'Westmere':     self.NEHALEM,
                 }.get(cpu_uarch, None)
 
@@ -1059,7 +1084,7 @@ class DevFreqStats(AbstractStats):
     _DIR = '/sys/class/devfreq'
 
 
-    def __init__(self, f):
+    def __init__(self, path):
         """Constructs DevFreqStats Object that track frequency stats
         for the path of the given Devfreq device.
 
@@ -1071,15 +1096,17 @@ class DevFreqStats(AbstractStats):
         Example:
             /sys/class/devfreq/dmc
         """
-        self._path = os.path.join(self._DIR, f)
+        self._path = os.path.join(self._DIR, path)
         if not os.path.exists(self._path):
-            raise error.TestError('DevFreqStats: devfreq device does not exist')
+            raise error.TestError(
+                    'DevFreqStats: devfreq device does not exist: %s' %
+                    self._path)
 
         fname = os.path.join(self._path, 'available_frequencies')
         af = utils.read_one_line(fname).strip()
         self._available_freqs = sorted(af.split(), key=int)
 
-        super(DevFreqStats, self).__init__(name=f)
+        super(DevFreqStats, self).__init__(path)
 
     def _read_stats(self):
         stats = dict((freq, 0) for freq in self._available_freqs)
@@ -1203,7 +1230,7 @@ class GPUFreqStats(AbstractStats):
             events = self._I915_EVENTS
             with open(i915_path) as fd:
                 for ln in fd.readlines():
-                    logging.debug("ln = %s", ln)
+                    logging.debug("ln = %s", ln.strip())
                     result = re.findall(self._I915_CUR_FREQ_RE, ln)
                     if result:
                         cur_mhz = result[0]
@@ -1235,7 +1262,7 @@ class GPUFreqStats(AbstractStats):
             logging.debug("Current GPU freq: %s", cur_mhz)
             logging.debug("All GPU freqs: %s", self._freqs)
 
-        super(GPUFreqStats, self).__init__(name='gpufreq', incremental=incremental)
+        super(GPUFreqStats, self).__init__('gpufreq', incremental=incremental)
 
 
     @classmethod
@@ -1337,7 +1364,7 @@ class USBSuspendStats(AbstractStats):
         self._file_paths = glob.glob(usb_stats_path)
         if not self._file_paths:
             logging.debug('USB stats path not found')
-        super(USBSuspendStats, self).__init__(name='usb')
+        super(USBSuspendStats, self).__init__('usb')
 
 
     def _read_stats(self):
@@ -1363,6 +1390,24 @@ class USBSuspendStats(AbstractStats):
         return usb_stats
 
 
+def read_cpu_set(filename):
+    """
+    Parse data of form "0,2-4,9"
+
+    Return a set of ints
+    """
+    data = utils.read_file(filename)
+    ret = set()
+
+    for entry in data.split(','):
+        entry_data = entry.split('-')
+        start = end = int(entry_data[0])
+        if len(entry_data) > 1:
+            end = int(entry_data[1])
+        ret |= set(range(start, end + 1))
+    return ret
+
+
 def get_cpu_sibling_groups():
     """
     Get CPU core groups in HMP systems.
@@ -1379,15 +1424,7 @@ def get_cpu_sibling_groups():
         if c in cpus_processed:
             # This cpu is already part of a sibling group. Skip.
             continue
-        siblings_data = utils.read_file(siblings_path)
-        sibling_group = set()
-        for sibling_entry in siblings_data.split(','):
-            entry_data = sibling_entry.split('-')
-            sibling_start = sibling_end = int(entry_data[0])
-            if len(entry_data) > 1:
-              sibling_end = int(entry_data[1])
-            siblings = set(range(sibling_start, sibling_end + 1))
-            sibling_group |= siblings
+        sibling_group = read_cpu_set(siblings_path)
         cpus_processed |= sibling_group
         sibling_groups.append(frozenset(sibling_group))
     return tuple(sibling_groups)
@@ -1397,11 +1434,19 @@ def get_available_cpu_stats():
     """Return CPUFreq/CPUIdleStats groups by big-small siblings groups."""
     ret = [CPUPackageStats()]
     cpu_sibling_groups = get_cpu_sibling_groups()
+
+    cpufreq_stat_class = CPUFreqStats
+    # assumes cpufreq driver for CPU0 is the same as the others.
+    cpufreq_driver = '/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver'
+    if utils.read_one_line(cpufreq_driver) == 'intel_pstate':
+        logging.debug('intel_pstate driver active')
+        cpufreq_stat_class = CPUFreqStatsPState
+
     if not cpu_sibling_groups:
-        ret.append(CPUFreqStats())
+        ret.append(cpufreq_stat_class())
         ret.append(CPUIdleStats())
     for cpu_group in cpu_sibling_groups:
-        ret.append(CPUFreqStats(cpu_group))
+        ret.append(cpufreq_stat_class(cpu_group))
         ret.append(CPUIdleStats(cpu_group))
     if has_rc6_support():
         ret.append(GPURC6Stats())
@@ -1560,6 +1605,22 @@ class SystemPower(PowerMeasurement):
         """
         keyvals = parse_power_supply_info()
         return float(keyvals['Battery']['energy rate'])
+
+
+class BatteryStateOfCharge(PowerMeasurement):
+    """Class for logging battery state of charge."""
+
+    def __init__(self):
+        """Constructor."""
+        super(BatteryStateOfCharge, self).__init__('battery_soc')
+
+    def refresh(self):
+        """refresh method.
+
+        See superclass PowerMeasurement for details.
+        """
+        keyvals = parse_power_supply_info()
+        return float(keyvals['Battery']['percentage'])
 
 
 class CheckpointLogger(object):
@@ -1799,10 +1860,8 @@ class MeasurementLogger(threading.Thread):
         self.readings = []
         self.times = []
 
-        self.domains = []
         self._measurements = measurements
-        for meas in self._measurements:
-            self.domains.append(meas.domain)
+        self.domains = [meas.domain for meas in self._measurements]
 
         self._checkpoint_logger = \
             checkpoint_logger if checkpoint_logger else CheckpointLogger()
@@ -1819,10 +1878,7 @@ class MeasurementLogger(threading.Thread):
         Returns:
             list of sampled data for every measurements.
         """
-        readings = []
-        for meas in self._measurements:
-            readings.append(meas.refresh())
-        return readings
+        return [meas.refresh() for meas in self._measurements]
 
     def run(self):
         """Threads run method."""
@@ -1903,7 +1959,18 @@ class MeasurementLogger(threading.Thread):
 
         for i, domain_readings in enumerate(zip(*self.readings)):
             meas = numpy.array(domain_readings)
-            domain = self.domains[i]
+            try:
+                domain = self.domains[i]
+            except IndexError:
+                # TODO (evanbenn) temp logging for b:162610351
+                logging.debug('b:162610351 IndexError: %s, %d, %d, (%s)',
+                              type(self).__name__,
+                              len(self.readings),
+                              len(self.domains),
+                              ', '.join(str(len(r)) for r in self.readings))
+                logging.debug('b:162610351 domains: %s',
+                              ', '.join(self.domains))
+                raise
 
             for tname, tlist in self._checkpoint_logger.checkpoint_data.iteritems():
                 if tname:
@@ -1964,18 +2031,18 @@ class MeasurementLogger(threading.Thread):
                           will be [fname]_[raw|summary].txt
         """
         if not fname_prefix:
-          fname_prefix = 'meas_results_%.0f' % time.time()
+            fname_prefix = 'meas_results_%.0f' % time.time()
         fname = '%s_summary.txt' % fname_prefix
         raw_fname = fname.replace('summary', 'raw')
         for name, data in [(fname, self._results),
                            (raw_fname, self._raw_results)]:
-          with open(os.path.join(resultsdir, name), 'wt') as f:
-              # First row contains the headers
-              f.write('%s\n' % '\t'.join(data[0]))
-              for row in data[1:]:
-                  # First column name, rest are numbers. See _calc_power()
-                  fmt_row = [row[0]] + ['%.2f' % x for x in row[1:]]
-                  f.write('%s\n' % '\t'.join(fmt_row))
+            with open(os.path.join(resultsdir, name), 'wt') as f:
+                # First row contains the headers
+                f.write('%s\n' % '\t'.join(data[0]))
+                for row in data[1:]:
+                    # First column name, rest are numbers. See _calc_power()
+                    fmt_row = [row[0]] + ['%.2f' % x for x in row[1:]]
+                    f.write('%s\n' % '\t'.join(fmt_row))
 
 
 class CPUStatsLogger(MeasurementLogger):
@@ -2042,13 +2109,36 @@ class CPUStatsLogger(MeasurementLogger):
 
 
 class PowerLogger(MeasurementLogger):
-    """Class to measure power consumption.
-    """
+    """Class to measure power consumption."""
+
+    def __init__(self, measurements, seconds_period=1.0,
+                 checkpoint_logger=None):
+        if not measurements:
+            measurements = self.create_measurements()
+        super(PowerLogger, self).__init__(measurements, seconds_period,
+                                          checkpoint_logger)
+
+    def create_measurements(self):
+        """Create power measurements based on device config."""
+        # Import here to avoid import loop.
+        from autotest_lib.client.cros.power import power_rapl
+
+        measurements = []
+        status = get_status()
+        if status.battery:
+            measurements.append(BatteryStateOfCharge())
+        if status.battery_discharging():
+            measurements.append(SystemPower(status.battery_path))
+        if power_utils.has_powercap_support():
+            measurements += power_rapl.create_powercap()
+        elif power_utils.has_rapl_support():
+            measurements += power_rapl.create_rapl()
+        return measurements
+
     def save_results(self, resultsdir, fname_prefix=None):
         if not fname_prefix:
             fname_prefix = 'power_results_%.0f' % time.time()
         super(PowerLogger, self).save_results(resultsdir, fname_prefix)
-
 
     def calc(self, mtype='pwr'):
         return super(PowerLogger, self).calc(mtype)
@@ -2119,42 +2209,48 @@ def has_battery_temp():
 
 class TempLogger(MeasurementLogger):
     """A thread that logs temperature readings in millidegrees Celsius."""
-    def __init__(self, measurements, seconds_period=30.0, checkpoint_logger=None):
+
+    def __init__(self, measurements, seconds_period=30.0,
+                 checkpoint_logger=None):
         if not measurements:
-            domains = set()
-            measurements = []
-            tstats = ThermalStatHwmon()
-            for kname in tstats.fields:
-                match = re.match(r'(\S+)_temp(\d+)_input', kname)
-                if not match:
-                    continue
-                domain = match.group(1) + '-t' + match.group(2)
-                fpath = tstats.fields[kname][0]
-                new_meas = TempMeasurement(domain, fpath)
-                measurements.append(new_meas)
-                domains.add(domain)
+            measurements = self.create_measurements()
+        super(TempLogger, self).__init__(measurements, seconds_period,
+                                         checkpoint_logger)
 
-            if has_battery_temp():
-                measurements.append(BatteryTempMeasurement())
+    def create_measurements(self):
+        """Create measurements for TempLogger."""
+        domains = set()
+        measurements = []
+        tstats = ThermalStatHwmon()
+        for kname in tstats.fields:
+            match = re.match(r'(\S+)_temp(\d+)_input', kname)
+            if not match:
+                continue
+            domain = match.group(1) + '-t' + match.group(2)
+            fpath = tstats.fields[kname][0]
+            new_meas = TempMeasurement(domain, fpath)
+            measurements.append(new_meas)
+            domains.add(domain)
 
-            sysfs_paths = '/sys/class/thermal/thermal_zone*'
-            paths = glob.glob(sysfs_paths)
-            for path in paths:
-                domain_path = os.path.join(path, 'type')
-                temp_path = os.path.join(path, 'temp')
+        if has_battery_temp():
+            measurements.append(BatteryTempMeasurement())
 
-                domain = utils.read_one_line(domain_path)
+        sysfs_paths = '/sys/class/thermal/thermal_zone*'
+        paths = glob.glob(sysfs_paths)
+        for path in paths:
+            domain_path = os.path.join(path, 'type')
+            temp_path = os.path.join(path, 'temp')
 
-                # Skip when thermal_zone and hwmon have same domain.
-                if domain in domains:
-                    continue
+            domain = utils.read_one_line(domain_path)
 
-                domain = domain.replace(' ', '_')
-                new_meas = TempMeasurement(domain, temp_path)
-                measurements.append(new_meas)
+            # Skip when thermal_zone and hwmon have same domain.
+            if domain in domains:
+                continue
 
-        super(TempLogger, self).__init__(measurements, seconds_period, checkpoint_logger)
-
+            domain = domain.replace(' ', '_')
+            new_meas = TempMeasurement(domain, temp_path)
+            measurements.append(new_meas)
+        return measurements
 
     def save_results(self, resultsdir, fname_prefix=None):
         if not fname_prefix:
@@ -2168,6 +2264,38 @@ class TempLogger(MeasurementLogger):
 
 class VideoFpsLogger(MeasurementLogger):
     """Class to measure Video FPS."""
+
+    @classmethod
+    def time_until_ready(cls, tab, num_video=1, timeout=120):
+        """Wait until tab is ready for VideoFpsLogger and return time used.
+
+        Keep polling Chrome tab until these 2 conditions are met one by one.
+        - Number of <video> elements detected is equal to |num_video|.
+        - All videos are played for at least 1 ms.
+
+        Args:
+            tab: Chrome tab object
+            num_video: number of expected <video> elements, default 1.
+            timeout: timeout in seconds, default 120.
+
+        Returns:
+            float, number of seconds elasped until condition met.
+
+        Raises:
+            py_utils.TimeoutException if condition are not met by timeout.
+        """
+        start_time = time.time()
+
+        # Number of <video> elements detected is equal to |num_video|.
+        c = 'document.getElementsByTagName("video").length == %d' % num_video
+        tab.WaitForJavaScriptCondition(c, timeout=timeout)
+
+        # All videos are played for at least 1 ms.
+        c = ('Math.min(...Array.from(document.getElementsByTagName("video"))'
+             '.map(v => v.currentTime)) >= 0.001')
+        timeout_left = timeout - (time.time() - start_time)
+        tab.WaitForJavaScriptCondition(c, timeout=timeout_left)
+        return time.time() - start_time
 
     def __init__(self, tab, seconds_period=1.0, checkpoint_logger=None):
         """Initialize a VideoFpsLogger.
@@ -2185,10 +2313,13 @@ class VideoFpsLogger(MeasurementLogger):
         self.refresh()
 
     def refresh(self):
-        current = self._tab.EvaluateJavaScript(
-            'Array.from(document.getElementsByTagName("video")).map('
-            'v => v.webkitDecodedFrameCount)')
-        fps = [(b - a) / self.seconds_period
+        @retry.retry(Exception, timeout_min=0.5, delay_sec=0.1)
+        def get_fps():
+            return self._tab.EvaluateJavaScript(
+                'Array.from(document.getElementsByTagName("video")).map('
+                'v => v.webkitDecodedFrameCount)')
+        current = get_fps()
+        fps = [(b - a if b >= a else b) / self.seconds_period
                for a, b in zip(self._last , current)]
         self._last = current
         return fps
@@ -2200,6 +2331,94 @@ class VideoFpsLogger(MeasurementLogger):
 
     def calc(self, mtype='fps'):
         return super(VideoFpsLogger, self).calc(mtype)
+
+
+def get_num_fans():
+    """Count how many fan DUT has.
+
+    Returns:
+        Integer, number of fans that DUT has.
+    """
+    res = utils.run('ectool pwmgetnumfans | grep -o [0-9]', ignore_status=True)
+    if not res or res.exit_status != 0:
+        return 0
+    return int(res.stdout)
+
+
+def has_fan():
+    """Determine if DUT has fan.
+
+    Returns:
+        Boolean, True if dut has fan.  False otherwise.
+    """
+    return get_num_fans() > 0
+
+
+class FanRpmLogger(MeasurementLogger):
+    """Class to measure Fan RPM."""
+
+    def __init__(self, seconds_period=1.0, checkpoint_logger=None):
+        """Initialize a FanRpmLogger."""
+        super(FanRpmLogger, self).__init__([], seconds_period,
+                                             checkpoint_logger)
+        self.domains =  ['fan_' + str(i) for i in range(get_num_fans())]
+        self.refresh()
+
+    def refresh(self):
+        @retry.retry(Exception, timeout_min=0.1, delay_sec=2)
+        def get_fan_rpm_all():
+            """Some example outputs from ectool
+
+            * Two fan system
+            localhost ~ # ectool pwmgetfanrpm all
+            Fan 0 RPM: 4012
+            Fan 1 RPM: 4009
+
+            * One fan but its stalled
+            localhost ~ # ectool pwmgetfanrpm all
+            Fan 0 stalled!
+            """
+            cmd = 'ectool pwmgetfanrpm all'
+            res = utils.run(cmd, ignore_status=True,
+                            stdout_tee=utils.TEE_TO_LOGS,
+                            stderr_tee=utils.TEE_TO_LOGS)
+            rpm_data = []
+            for i, ln in enumerate(res.stdout.splitlines()):
+                if ln.find('stalled') != -1:
+                    rpm_data.append(0)
+                else:
+                    rpm_data.append(int(ln.split(':')[1]))
+            return rpm_data
+        return get_fan_rpm_all()
+
+    def save_results(self, resultsdir, fname_prefix=None):
+        if not fname_prefix:
+            fname_prefix = 'fan_rpm_results_%.0f' % time.time()
+        super(FanRpmLogger, self).save_results(resultsdir, fname_prefix)
+
+    def calc(self, mtype='rpm'):
+        return super(FanRpmLogger, self).calc(mtype)
+
+
+def create_measurement_loggers(seconds_period=20.0, checkpoint_logger=None):
+    """Create loggers for power test that is not test-specific.
+
+    Args:
+       seconds_period: float, probing interval in seconds. Default 20.0
+       checkpoint_logger: CheckpointLogger class for the loggers
+
+    Returns:
+        list of loggers created.
+    """
+    loggers = [
+        PowerLogger(None, seconds_period, checkpoint_logger),
+        TempLogger(None, seconds_period, checkpoint_logger),
+        CPUStatsLogger(seconds_period, checkpoint_logger),
+    ]
+    if has_fan():
+        loggers.append(FanRpmLogger(seconds_period, checkpoint_logger))
+
+    return loggers
 
 
 class DiskStateLogger(threading.Thread):
@@ -2399,6 +2618,103 @@ class S0ixResidencyStats(object):
         return parse_pmc_s0ix_residency_info() - self._initial_residency
 
 
+class S2IdleStateStats(object):
+    """
+    Usage stats of an s2idle state.
+    """
+
+    def __init__(self, usage, time):
+        self.usage = usage
+        self.time = time
+
+
+def get_s2idle_path(cpu, state):
+    path = os.path.join(CPU_BASE_PATH,
+                        "cpu{}/cpuidle/{}/s2idle".format(cpu, state))
+    if not os.path.exists(path):
+        return None
+
+    return path
+
+
+def get_s2idle_stats_for_state(cpu, state):
+    """
+    Returns the s2idle stats for a given idle state of a CPU.
+    """
+    s2idle_path = get_s2idle_path(cpu, state)
+
+    path = os.path.join(s2idle_path, 'usage')
+    if not os.path.exists(path):
+        raise error.TestFail("File not found: {}" % path)
+
+    usage = int(utils.read_one_line(path))
+
+    path = os.path.join(s2idle_path, 'time')
+    if not os.path.exists(path):
+        raise error.TestFail("File not found: {}" % path)
+
+    time = int(utils.read_one_line(path))
+
+    return S2IdleStateStats(usage, time)
+
+
+def get_cpuidle_states(cpu):
+    """
+    Returns the cpuidle states of a CPU.
+    """
+    cpuidle_path = os.path.join(CPU_BASE_PATH, "cpu{}/cpuidle".format(cpu))
+
+    pattern = os.path.join(cpuidle_path, 'state*')
+    state_paths = glob.glob(pattern)
+
+    return [s.split('/')[-1] for s in state_paths]
+
+
+def get_s2idle_stats_for_cpu(cpu):
+    """
+    Returns the s2idle stats for a CPU.
+    """
+    return {s: get_s2idle_stats_for_state(cpu, s)
+            for s in get_cpuidle_states(cpu)
+            if get_s2idle_path(cpu, s) is not None}
+
+
+def get_s2idle_stats():
+    """
+    Returns the s2idle stats for all CPUs.
+    """
+    return {cpu: get_s2idle_stats_for_cpu(cpu) for cpu in get_online_cpus()}
+
+
+def get_s2idle_residency_total_usecs():
+    """
+    Get total s2idle residency time for all CPUs and states.
+    """
+    total_usecs = 0
+
+    all_stats = get_s2idle_stats()
+    for stats in all_stats.itervalues():
+        for st in stats.itervalues():
+            total_usecs += st.time
+
+    return total_usecs
+
+
+class S2IdleResidencyStats(object):
+    """
+    Measures the s2idle residency of a given board over time.
+    """
+
+    def __init__(self):
+        self._initial_residency = get_s2idle_residency_total_usecs()
+
+    def get_accumulated_residency_usecs(self):
+        """
+        @returns s2idle residency since the class has been initialized.
+        """
+        return get_s2idle_residency_total_usecs() - self._initial_residency
+
+
 class DMCFirmwareStats(object):
     """
     Collect DMC firmware stats of Intel based system (SKL+), (APL+).
@@ -2514,13 +2830,14 @@ class RC6ResidencyStats(object):
         # Note that the max counter is bound for sysfs overflow, while the
         # accumulated residency here is the diff against the first reading.
         if current_stat < self._previous_stat:
-          if self._max_counter is None:
-            logging.warning('GPU: Detect rc6_residency_ms wraparound')
-            self._accumulated_stat += current_stat
-          else:
-            self._accumulated_stat += current_stat + (self._max_counter - self._previous_stat)
+            if self._max_counter is None:
+                logging.warning('GPU: Detect rc6_residency_ms wraparound')
+                self._accumulated_stat += current_stat
+            else:
+                self._accumulated_stat += current_stat + (self._max_counter -
+                                                          self._previous_stat)
         else:
-          self._accumulated_stat += current_stat - self._previous_stat
+            self._accumulated_stat += current_stat - self._previous_stat
 
         self._previous_stat = current_stat
         return self._accumulated_stat
@@ -2575,7 +2892,7 @@ class PCHPowergatingStats(object):
                  power consumption S0ix, empty list if none.
         """
         # PCH IP block that is on for S0ix. Ignore these IP block.
-        S0IX_WHITELIST = set([
+        S0IX_ALLOWLIST = set([
                 'PMC', 'OPI-DMI', 'SPI / eSPI', 'XHCI', 'xHCI', 'FUSE', 'Fuse',
                 'PCIE0', 'NPKVRC', 'NPKVNN', 'NPK_VNN', 'PSF1', 'PSF2', 'PSF3',
                 'PSF4', 'SBR0', 'SBR1', 'SBR2', 'SBR4', 'SBR5', 'SBR6', 'SBR7'])
@@ -2588,14 +2905,15 @@ class PCHPowergatingStats(object):
 
         # CNV device has 0x31dc as devid .
         if len(utils.system_output('lspci -d :31dc')) > 0:
-            S0IX_WHITELIST.add('CNV')
+            S0IX_ALLOWLIST.add('CNV')
 
-        # HrP2 device has 0x02f0 as devid.
-        if len(utils.system_output('lspci -d :02f0')) > 0:
-            S0IX_WHITELIST.update(['CNVI', 'NPK_AON'])
+        # HrP2 device has 0x02f0(CML) or 0x4df0(JSL) as devid.
+        if (len(utils.system_output('lspci -d :02f0')) > 0 or
+            len(utils.system_output('lspci -d :4df0')) > 0):
+            S0IX_ALLOWLIST.update(['CNVI', 'NPK_AON'])
 
         on_ip = set(ip['name'] for ip in self._stat if ip['state'])
-        on_ip -= S0IX_WHITELIST
+        on_ip -= S0IX_ALLOWLIST
 
         if on_ip:
             on_ip_in_warn_list = on_ip & S0IX_WARNLIST
@@ -2607,8 +2925,8 @@ class PCHPowergatingStats(object):
         if on_ip:
             logging.error('Found PCH IP that need to powergate: %s',
                           ', '.join(on_ip))
-            return False
-        return True
+            return on_ip
+        return []
 
     def read_pch_powergating_info(self, sleep_seconds=1):
         """

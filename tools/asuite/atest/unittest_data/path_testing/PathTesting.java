@@ -16,7 +16,7 @@
 
 package android.jank.cts.ui;
 
-/** Dummy Class file for unit tests. */
-public class SomeClassForTesting {
-    private static final String SOME_DUMMY_VAR = "For testing purposes";
+/** Unused Class file for unit tests. */
+public class SomeClassForTesting extends AtestClass {
+    private static final String SOME_UNUSED_VAR = "For testing purposes";
 }

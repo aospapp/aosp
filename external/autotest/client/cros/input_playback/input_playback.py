@@ -264,11 +264,11 @@ class InputPlayback(object):
         """
         input_names = glob.glob(os.path.join(device_dir, 'input', 'input*'))
         for input_name in input_names:
-          name_path = os.path.join(input_name, 'name')
-          if not os.path.exists(name_path):
-            continue
-          if name == self._get_contents_of_file(name_path):
-            return os.path.basename(input_name)
+            name_path = os.path.join(input_name, 'name')
+            if not os.path.exists(name_path):
+                continue
+            if name == self._get_contents_of_file(name_path):
+                return os.path.basename(input_name)
         # Raise if name could not be matched.
         logging.error('Input names found(%s): %s', device_dir, input_names)
         raise error.TestError('Could not match input* to this device!')

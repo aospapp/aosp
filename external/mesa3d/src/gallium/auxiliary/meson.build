@@ -46,6 +46,7 @@ files_libgallium = files(
   'draw/draw_pipe_stipple.c',
   'draw/draw_pipe_twoside.c',
   'draw/draw_pipe_unfilled.c',
+  'draw/draw_pipe_user_cull.c',
   'draw/draw_pipe_util.c',
   'draw/draw_pipe_validate.c',
   'draw/draw_pipe_vbuf.c',
@@ -70,6 +71,8 @@ files_libgallium = files(
   'draw/draw_pt_vsplit_tmp.h',
   'draw/draw_so_emit_tmp.h',
   'draw/draw_split_tmp.h',
+  'draw/draw_tess.c',
+  'draw/draw_tess.h',
   'draw/draw_vbuf.h',
   'draw/draw_vertex.c',
   'draw/draw_vertex.h',
@@ -180,6 +183,7 @@ files_libgallium = files(
   'tgsi/tgsi_build.h',
   'tgsi/tgsi_dump.c',
   'tgsi/tgsi_dump.h',
+  'tgsi/tgsi_dynamic_indexing.c',
   'tgsi/tgsi_exec.c',
   'tgsi/tgsi_exec.h',
   'tgsi/tgsi_emulate.c',
@@ -214,6 +218,7 @@ files_libgallium = files(
   'tgsi/tgsi_ureg.h',
   'tgsi/tgsi_util.c',
   'tgsi/tgsi_util.h',
+  'tgsi/tgsi_vpos.c',
   'translate/translate.c',
   'translate/translate.h',
   'translate/translate_cache.c',
@@ -227,8 +232,6 @@ files_libgallium = files(
   'util/u_bitmask.c',
   'util/u_bitmask.h',
   'util/u_blend.h',
-  'util/u_blit.c',
-  'util/u_blit.h',
   'util/u_blitter.c',
   'util/u_blitter.h',
   'util/u_box.h',
@@ -236,21 +239,14 @@ files_libgallium = files(
   'util/u_cache.h',
   'util/u_compute.c',
   'util/u_compute.h',
-  'util/u_debug_gallium.h',
-  'util/u_debug_gallium.c',
   'util/u_debug_describe.c',
   'util/u_debug_describe.h',
   'util/u_debug_flush.c',
   'util/u_debug_flush.h',
   'util/u_debug_image.c',
   'util/u_debug_image.h',
-  'util/u_debug_memory.c',
   'util/u_debug_refcnt.c',
   'util/u_debug_refcnt.h',
-  'util/u_debug_stack.c',
-  'util/u_debug_stack.h',
-  'util/u_debug_symbol.c',
-  'util/u_debug_symbol.h',
   'util/u_dirty_flags.h',
   'util/u_dirty_surfaces.h',
   'util/u_dl.c',
@@ -264,48 +260,25 @@ files_libgallium = files(
   'util/u_dump.h',
   'util/u_dump_state.c',
   'util/u_fifo.h',
-  'util/u_format.c',
-  'util/u_format.h',
-  'util/u_format_bptc.c',
-  'util/u_format_bptc.h',
-  'util/u_format_etc.c',
-  'util/u_format_etc.h',
-  'util/u_format_latc.c',
-  'util/u_format_latc.h',
-  'util/u_format_other.c',
-  'util/u_format_other.h',
-  'util/u_format_rgtc.c',
-  'util/u_format_rgtc.h',
-  'util/u_format_s3tc.c',
-  'util/u_format_s3tc.h',
-  'util/u_format_tests.c',
-  'util/u_format_tests.h',
-  'util/u_format_yuv.c',
-  'util/u_format_yuv.h',
-  'util/u_format_zs.c',
-  'util/u_format_zs.h',
   'util/u_framebuffer.c',
   'util/u_framebuffer.h',
   'util/u_gen_mipmap.c',
   'util/u_gen_mipmap.h',
-  'util/u_half.h',
   'util/u_handle_table.c',
   'util/u_handle_table.h',
   'util/u_hash_table.c',
   'util/u_hash_table.h',
   'util/u_helpers.c',
   'util/u_helpers.h',
-  'util/u_idalloc.c',
-  'util/u_idalloc.h',
   'util/u_index_modify.c',
   'util/u_index_modify.h',
   'util/u_inlines.h',
   'util/u_linear.c',
   'util/u_linear.h',
+  'util/u_live_shader_cache.c',
+  'util/u_live_shader_cache.h',
   'util/u_log.c',
   'util/u_log.h',
-  'util/u_mm.c',
-  'util/u_mm.h',
   'util/u_network.c',
   'util/u_network.h',
   'util/u_pack_color.h',
@@ -321,22 +294,20 @@ files_libgallium = files(
   'util/u_rect.h',
   'util/u_resource.c',
   'util/u_resource.h',
-  'util/u_ringbuffer.c',
-  'util/u_ringbuffer.h',
   'util/u_sampler.c',
   'util/u_sampler.h',
   'util/u_screen.c',
   'util/u_screen.h',
   'util/u_simple_shaders.c',
   'util/u_simple_shaders.h',
+  'util/u_split_draw.c',
+  'util/u_split_draw.h',
   'util/u_split_prim.h',
   'util/u_sse.h',
   'util/u_suballoc.c',
   'util/u_suballoc.h',
   'util/u_surface.c',
   'util/u_surface.h',
-  'util/u_surfaces.c',
-  'util/u_surfaces.h',
   'util/u_tests.c',
   'util/u_tests.h',
   'util/u_texture.c',
@@ -358,6 +329,10 @@ files_libgallium = files(
   'util/u_viewport.h',
   'nir/tgsi_to_nir.c',
   'nir/tgsi_to_nir.h',
+  'nir/nir_to_tgsi.c',
+  'nir/nir_to_tgsi.h',
+  'nir/nir_draw_helpers.c',
+  'nir/nir_draw_helpers.h',
 )
 
 if dep_libdrm.found()
@@ -381,6 +356,8 @@ if with_llvm
     'gallivm/lp_bld_const.h',
     'gallivm/lp_bld_conv.c',
     'gallivm/lp_bld_conv.h',
+    'gallivm/lp_bld_coro.c',
+    'gallivm/lp_bld_coro.h',
     'gallivm/lp_bld_debug.cpp',
     'gallivm/lp_bld_debug.h',
     'gallivm/lp_bld_flow.c',
@@ -401,11 +378,16 @@ if with_llvm
     'gallivm/lp_bld_init.h',
     'gallivm/lp_bld_intr.c',
     'gallivm/lp_bld_intr.h',
+    'gallivm/lp_bld_ir_common.c',
+    'gallivm/lp_bld_ir_common.h',
     'gallivm/lp_bld_limits.h',
     'gallivm/lp_bld_logic.c',
     'gallivm/lp_bld_logic.h',
     'gallivm/lp_bld_misc.cpp',
     'gallivm/lp_bld_misc.h',
+    'gallivm/lp_bld_nir.h',
+    'gallivm/lp_bld_nir.c',
+    'gallivm/lp_bld_nir_soa.c',
     'gallivm/lp_bld_pack.c',
     'gallivm/lp_bld_pack.h',
     'gallivm/lp_bld_printf.c',
@@ -435,6 +417,12 @@ if with_llvm
     'draw/draw_llvm_sample.c',
     'draw/draw_pt_fetch_shade_pipeline_llvm.c',
     'draw/draw_vs_llvm.c',
+    'tessellator/tessellator.cpp',
+    'tessellator/tessellator.hpp',
+    'tessellator/p_tessellator.cpp',
+    'tessellator/p_tessellator.h',
+    'nir/nir_to_tgsi_info.c',
+    'nir/nir_to_tgsi_info.h',
   )
 endif
 
@@ -479,19 +467,17 @@ files_libgalliumvl = files(
 )
 
 vlwinsys_deps = []
-files_libgalliumvlwinsys = files('vl/vl_winsys.h')
+files_libgalliumvlwinsys = files('vl/vl_winsys.h',
+                                 'vl/vl_winsys_drm.c')
 if with_dri2 and with_platform_x11
   files_libgalliumvlwinsys += files('vl/vl_winsys_dri.c')
   if with_dri3
     vlwinsys_deps += [
       dep_xcb_sync, dep_xcb_present, dep_xshmfence, dep_xcb_xfixes,
-      dep_xcb_dri3, 
+      dep_xcb_dri3,
     ]
     files_libgalliumvlwinsys += files('vl/vl_winsys_dri3.c')
   endif
-endif
-if with_platform_drm
-  files_libgalliumvlwinsys += files('vl/vl_winsys_drm.c')
 endif
 
 u_indices_gen_c = custom_target(
@@ -510,38 +496,28 @@ u_unfilled_gen_c = custom_target(
   capture : true,
 )
 
-u_format_table_c = custom_target(
-  'u_format_table.c',
-  input : ['util/u_format_table.py', 'util/u_format.csv'],
-  output : 'u_format_table.c',
-  command : [prog_python, '@INPUT@'],
-  depend_files : files('util/u_format_pack.py', 'util/u_format_parse.py'),
-  capture : true,
-)
-
 libgallium = static_library(
   'gallium',
-  [files_libgallium, u_indices_gen_c, u_unfilled_gen_c, u_format_table_c],
+  [files_libgallium, u_indices_gen_c, u_unfilled_gen_c],
   include_directories : [
     inc_loader, inc_gallium, inc_src, inc_include, include_directories('util')
   ],
-  c_args : [c_vis_args, c_msvc_compat_args],
-  cpp_args : [cpp_vis_args, cpp_msvc_compat_args],
+  c_args : [c_msvc_compat_args],
+  cpp_args : [cpp_msvc_compat_args],
+  gnu_symbol_visibility : 'hidden',
   dependencies : [
-    dep_libdrm, dep_llvm, dep_unwind, dep_dl, dep_m, dep_thread, dep_lmsensors,
-    idep_nir_headers,
+    dep_libdrm, dep_llvm, dep_dl, dep_m, dep_thread, dep_lmsensors,
+    idep_nir, idep_nir_headers, idep_mesautil,
   ],
-  build_by_default : false,
-  link_with: [
-    libglsl
-  ]
+  build_by_default : false
 )
 
 libgalliumvl_stub = static_library(
   'galliumvl_stub',
   'vl/vl_stubs.c',
-  c_args : [c_vis_args, c_msvc_compat_args],
-  cpp_args : [cpp_vis_args, cpp_msvc_compat_args],
+  c_args : [c_msvc_compat_args],
+  cpp_args : [cpp_msvc_compat_args],
+  gnu_symbol_visibility : 'hidden',
   include_directories: [inc_gallium, inc_include, inc_src],
   build_by_default : false,
 )
@@ -549,8 +525,9 @@ libgalliumvl_stub = static_library(
 libgalliumvl = static_library(
   'galliumvl',
   files_libgalliumvl,
-  c_args : [c_vis_args, c_msvc_compat_args],
-  cpp_args : [cpp_vis_args, cpp_msvc_compat_args],
+  c_args : [c_msvc_compat_args],
+  cpp_args : [cpp_msvc_compat_args],
+  gnu_symbol_visibility : 'hidden',
   include_directories : [inc_gallium, inc_include, inc_src],
   build_by_default : false,
 )

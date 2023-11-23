@@ -3,6 +3,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+
 import re
 import time
 
@@ -115,6 +117,6 @@ class ChaosLogAnalyzer(object):
 
         """
         timestamp = self._extract_attempt_timestamp(attempt_num)
-        print "Attempt started at: " + time.asctime(timestamp)
+        print("Attempt started at: " + time.asctime(timestamp))
         self._extract_message_log_lines(attempt_num)
         self._extract_net_log_lines(timestamp)

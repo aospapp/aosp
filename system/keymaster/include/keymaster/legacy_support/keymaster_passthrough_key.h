@@ -15,50 +15,55 @@
 ** limitations under the License.
 */
 
-#ifndef SYSTEM_KEYMASTER_KEYMASTER_PASSTHROUGH_KEY_H_
-#define SYSTEM_KEYMASTER_KEYMASTER_PASSTHROUGH_KEY_H_
+#pragma once
 
-#include <keymaster/key.h>
 #include <keymaster/android_keymaster_utils.h>
-#include <keymaster/logger.h>
-#include <keymaster/key_factory.h>
 #include <keymaster/authorization_set.h>
+#include <keymaster/key.h>
+#include <keymaster/key_factory.h>
+#include <keymaster/logger.h>
 
 #include "keymaster_passthrough_engine.h"
 
 namespace keymaster {
 
-//class SoftKeymasterContext;
+// class SoftKeymasterContext;
 
 /**
- * KeymasterPassthroughKeyFactory is a KeyFactory that creates and loads keys which are actually backed
- * by a hardware keymaster2 module.
+ * KeymasterPassthroughKeyFactory is a KeyFactory that creates and loads keys which are actually
+ * backed by a hardware keymaster2 module.
  */
 class KeymasterPassthroughKeyFactory : public KeyFactory {
     using engine_t = KeymasterPassthroughEngine;
+
   public:
     KeymasterPassthroughKeyFactory(const engine_t* engine, keymaster_algorithm_t algorithm)
-          : KeyFactory(), engine_(engine), algorithm_(algorithm) {}
+        : KeyFactory(), engine_(engine), algorithm_(algorithm) {}
 
     keymaster_error_t GenerateKey(const AuthorizationSet& key_description,
+                                  UniquePtr<Key> /* attest_key */,
+                                  const KeymasterBlob& /* issuer_subject */,
                                   KeymasterKeyBlob* key_blob, AuthorizationSet* hw_enforced,
-                                  AuthorizationSet* sw_enforced) const override {
+                                  AuthorizationSet* sw_enforced,
+                                  CertificateChain* /* cert_chain */) const override {
         return engine_->GenerateKey(key_description, key_blob, hw_enforced, sw_enforced);
     }
 
     keymaster_error_t ImportKey(const AuthorizationSet& key_description,
                                 keymaster_key_format_t input_key_material_format,
                                 const KeymasterKeyBlob& input_key_material,
+                                UniquePtr<Key> /* attest_key */,
+                                const KeymasterBlob& /* issuer_subject */,
                                 KeymasterKeyBlob* output_key_blob, AuthorizationSet* hw_enforced,
-                                AuthorizationSet* sw_enforced) const override {
+                                AuthorizationSet* sw_enforced,
+                                CertificateChain* /* cert_chain */) const override {
         return engine_->ImportKey(key_description, input_key_material_format, input_key_material,
                                   output_key_blob, hw_enforced, sw_enforced);
     }
 
     keymaster_error_t LoadKey(KeymasterKeyBlob&& key_material,
                               const AuthorizationSet& additional_params,
-                              AuthorizationSet&& hw_enforced,
-                              AuthorizationSet&& sw_enforced,
+                              AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                               UniquePtr<Key>* key) const override;
 
     OperationFactory* GetOperationFactory(keymaster_purpose_t purpose) const override {
@@ -76,16 +81,15 @@ class KeymasterPassthroughKeyFactory : public KeyFactory {
 class KeymasterPassthroughKey : public Key {
   public:
     KeymasterPassthroughKey(KeymasterKeyBlob&& key_material, AuthorizationSet&& hw_enforced,
-                       AuthorizationSet&& sw_enforced,
-                       const KeyFactory* key_factory, keymaster_error_t* error,
-                       const AuthorizationSet& additional_parameters,
-                       const KeymasterPassthroughEngine* engine)
+                            AuthorizationSet&& sw_enforced, const KeyFactory* key_factory,
+                            keymaster_error_t* error, const AuthorizationSet& additional_parameters,
+                            const KeymasterPassthroughEngine* engine)
         : Key(move(hw_enforced), move(sw_enforced), key_factory),
           additional_parameters_(additional_parameters), engine_(engine) {
         key_material_ = move(key_material);
         if (*error != KM_ERROR_OK) return;
-        if (additional_parameters.is_valid() != additional_parameters_.is_valid()
-                && additional_parameters_.is_valid() == AuthorizationSet::ALLOCATION_FAILURE) {
+        if (additional_parameters.is_valid() != additional_parameters_.is_valid() &&
+            additional_parameters_.is_valid() == AuthorizationSet::ALLOCATION_FAILURE) {
             *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
         }
     }
@@ -100,5 +104,3 @@ class KeymasterPassthroughKey : public Key {
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_KEYMASTER_PASSTHROUGH_KEY_H_

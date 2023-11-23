@@ -48,17 +48,25 @@ isl_gen9_files = files(
   'isl_gen9.h',
 )
 
+isl_gen12_files = files(
+  'isl_gen12.c',
+  'isl_gen12.h',
+)
+
 isl_gen_libs = []
 foreach g : [['40', isl_gen4_files], ['50', []], ['60', isl_gen6_files],
              ['70', isl_gen7_files], ['75', []], ['80', isl_gen8_files],
-             ['90', isl_gen9_files], ['100', []], ['110', []]]
+             ['90', isl_gen9_files], ['110', []], ['120', isl_gen12_files]]
   _gen = g[0]
   isl_gen_libs += static_library(
     'isl_gen@0@'.format(_gen),
     [g[1], isl_gen_files, gen_xml_pack],
-    include_directories : [inc_common, inc_intel],
-    c_args : [c_vis_args, no_override_init_args,
-              '-DGEN_VERSIONx10=@0@'.format(_gen)],
+    include_directories : [inc_include, inc_src, inc_gallium, inc_intel],
+    c_args : [
+      no_override_init_args,
+      '-DGEN_VERSIONx10=@0@'.format(_gen)
+    ],
+    gnu_symbol_visibility : 'hidden',
   )
 endforeach
 
@@ -81,9 +89,10 @@ isl_tiled_memcpy = static_library(
   'isl_tiled_memcpy',
   [files_isl_tiled_memcpy],
   include_directories : [
-    inc_common, inc_intel, inc_include,
+    inc_include, inc_src, inc_mesa, inc_gallium, inc_intel,
   ],
-  c_args : [c_vis_args, no_override_init_args, '-msse2'],
+  c_args : [no_override_init_args, '-msse2'],
+  gnu_symbol_visibility : 'hidden',
   extra_files : ['isl_tiled_memcpy.c']
 )
 
@@ -92,10 +101,11 @@ if with_sse41
     'isl_tiled_memcpy_sse41',
     [files_isl_tiled_memcpy_sse41],
     include_directories : [
-      inc_common, inc_intel, inc_include,
+      inc_include, inc_src, inc_mesa, inc_gallium, inc_intel,
     ],
     link_args : ['-Wl,--exclude-libs=ALL'],
-    c_args : [c_vis_args, no_override_init_args, '-msse2', sse41_args],
+    c_args : [no_override_init_args, '-msse2', sse41_args],
+    gnu_symbol_visibility : 'hidden',
     extra_files : ['isl_tiled_memcpy.c']
   )
 else
@@ -105,6 +115,7 @@ endif
 libisl_files = files(
   'isl.c',
   'isl.h',
+  'isl_aux_info.c',
   'isl_drm.c',
   'isl_genX_priv.h',
   'isl_format.c',
@@ -115,9 +126,10 @@ libisl_files = files(
 libisl = static_library(
   'isl',
   [libisl_files, isl_format_layout_c, genX_bits_h],
-  include_directories : [inc_common, inc_intel, inc_include],
+  include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_intel],
   link_with : [isl_gen_libs, isl_tiled_memcpy, isl_tiled_memcpy_sse41],
-  c_args : [c_vis_args, no_override_init_args],
+  c_args : [no_override_init_args],
+  gnu_symbol_visibility : 'hidden',
 )
 
 if with_tests
@@ -126,9 +138,24 @@ if with_tests
     executable(
       'isl_surf_get_image_offset_test',
       'tests/isl_surf_get_image_offset_test.c',
-      dependencies : dep_m,
-      include_directories : [inc_common, inc_intel],
-      link_with : [libisl, libintel_dev, libmesa_util],
+      dependencies : [dep_m, idep_mesautil],
+      include_directories : [inc_include, inc_src, inc_gallium, inc_intel],
+      link_with : [libisl, libintel_dev],
+    ),
+    suite : ['intel'],
+  )
+  test(
+    'isl_aux_info',
+    executable(
+      'isl_aux_info_test',
+      [
+        'tests/isl_aux_info_test.cpp',
+        'isl_aux_info.c',
+      ],
+      dependencies : [dep_m, idep_gtest, idep_mesautil],
+      include_directories : [inc_include, inc_src, inc_gallium, inc_intel],
+      c_args : '-DIN_UNIT_TEST',
+      cpp_args : '-DIN_UNIT_TEST',
     ),
     suite : ['intel'],
   )

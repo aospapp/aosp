@@ -13,11 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_defaults {
     name: "android.hardware.vibrator-defaults.cs40l25",
     cflags: [
         "-DATRACE_TAG=(ATRACE_TAG_VIBRATOR | ATRACE_TAG_HAL)",
         "-DLOG_TAG=\"android.hardware.vibrator-cs40l25\"",
+    ],
+    shared_libs: [
+        "libbinder",
     ],
 }
 
@@ -35,13 +42,23 @@ cc_defaults {
         "PixelVibratorTestDefaults",
         "android.hardware.vibrator-defaults.cs40l25",
     ],
-    static_libs: ["android.hardware.vibrator-impl.cs40l25"],
+    shared_libs: ["android.hardware.vibrator-impl.cs40l25"],
+    include_dirs: [
+        "external/tinyalsa/include",
+    ],
 }
 
-cc_library {
+cc_library_shared {
     name: "android.hardware.vibrator-impl.cs40l25",
     defaults: ["VibratorHalCs40l25BinaryDefaults"],
     srcs: ["Vibrator.cpp"],
+    include_dirs: [
+        "external/tinyalsa/include",
+    ],
+    shared_libs: [
+        "libcutils",
+        "libtinyalsa",
+    ],
     export_include_dirs: ["."],
     vendor_available: true,
     visibility: [":__subpackages__"],
@@ -53,6 +70,31 @@ cc_binary {
     init_rc: ["android.hardware.vibrator-service.cs40l25.rc"],
     vintf_fragments: ["android.hardware.vibrator-service.cs40l25.xml"],
     srcs: ["service.cpp"],
-    static_libs: ["android.hardware.vibrator-impl.cs40l25"],
+    include_dirs: [
+        "external/tinyalsa/include"
+    ],
+    shared_libs: [
+        "android.hardware.vibrator-impl.cs40l25",
+        "libcutils",
+        "libtinyalsa",
+    ],
+    proprietary: true,
+}
+
+cc_binary {
+    name: "android.hardware.vibrator-service.cs40l25-dual",
+    defaults: ["VibratorHalCs40l25BinaryDefaults"],
+    init_rc: ["android.hardware.vibrator-service.cs40l25-dual.rc"],
+    vintf_fragments: ["android.hardware.vibrator-service.cs40l25-dual.xml"],
+    srcs: ["service.cpp"],
+    include_dirs: [
+        "external/tinyalsa/include"
+    ],
+    shared_libs: [
+        "android.hardware.vibrator-impl.cs40l25",
+        "libcutils",
+        "libtinyalsa",
+    ],
+    cflags: ["-DVIBRATOR_NAME=\"dual\""],
     proprietary: true,
 }

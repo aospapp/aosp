@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap;
+package com.android.internal.net.eap.test;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_REQUEST_AKA_IDENTITY_PACKET;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_REQUEST_AKA_IDENTITY_PACKET;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -25,9 +25,9 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
-import android.net.eap.EapSessionConfig;
+import android.net.eap.test.EapSessionConfig;
 
-import com.android.internal.net.eap.statemachine.EapStateMachine;
+import com.android.internal.net.eap.test.statemachine.EapStateMachine;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -42,7 +42,10 @@ public class EapMsChapV2Test extends EapMethodEndToEndTest {
             hexStringToByteArray("21402324255E262A28295F2B3A337C7E");
     private static final byte[] MSK =
             hexStringToByteArray(
-                    "D5F0E9521E3EA9589645E86051C822268B7CDC149B993A1BA118CB153F56DCCB");
+                    "D5F0E9521E3EA9589645E86051C822268B7CDC149B993A1BA118CB153F56DCCB"
+                            + "0000000000000000000000000000000000000000000000000000000000000000");
+    private static final int EMSK_LEN = 64;
+    private static final byte[] EMSK = new byte[EMSK_LEN];
 
     // Server-Name = hex("authenticator@android.net")
     private static final byte[] EAP_MSCHAP_V2_CHALLENGE_REQUEST =
@@ -108,7 +111,7 @@ public class EapMsChapV2Test extends EapMethodEndToEndTest {
     public void testEapMsChapV2EndToEndSuccess() {
         verifyEapMsChapV2Challenge();
         verifyEapMsChapV2SuccessRequest();
-        verifyEapSuccess(MSK, new byte[0]);
+        verifyEapSuccess(MSK, EMSK);
     }
 
     @Test
@@ -124,7 +127,7 @@ public class EapMsChapV2Test extends EapMethodEndToEndTest {
 
         verifyEapMsChapV2Challenge();
         verifyEapMsChapV2SuccessRequest();
-        verifyEapSuccess(MSK, new byte[0]);
+        verifyEapSuccess(MSK, EMSK);
     }
 
     @Test
@@ -137,7 +140,7 @@ public class EapMsChapV2Test extends EapMethodEndToEndTest {
         verifyEapMsChapV2SuccessRequest();
         verifyEapNotification(3);
 
-        verifyEapSuccess(MSK, new byte[0]);
+        verifyEapSuccess(MSK, EMSK);
     }
 
     private void verifyEapMsChapV2Challenge() {

@@ -51,13 +51,13 @@ int AHardwareBuffer_allocate(const AHardwareBuffer_Desc* desc, AHardwareBuffer**
             std::string("AHardwareBuffer pid [") + std::to_string(getpid()) + "]"));
 
     status_t err = gbuffer->initCheck();
-    if (err != 0 || gbuffer->handle == 0) {
+    if (err != 0 || gbuffer->handle == nullptr) {
         if (err == NO_MEMORY) {
             GraphicBuffer::dumpAllocationsToSystemLog();
         }
         ALOGE("GraphicBuffer(w=%u, h=%u, lc=%u) failed (%s), handle=%p",
                 desc->width, desc->height, desc->layers, strerror(-err), gbuffer->handle);
-        return err;
+        return err == 0 ? UNKNOWN_ERROR : err;
     }
 
     *outBuffer = AHardwareBuffer_from_GraphicBuffer(gbuffer.get());
@@ -397,6 +397,16 @@ int AHardwareBuffer_isSupported(const AHardwareBuffer_Desc* desc) {
     return 0;
 }
 
+int AHardwareBuffer_getId(const AHardwareBuffer* buffer, uint64_t* outId) {
+    if (!buffer || !outId) return BAD_VALUE;
+
+    const GraphicBuffer* gb = AHardwareBuffer_to_GraphicBuffer(buffer);
+    if (!gb) return BAD_VALUE;
+
+    *outId = gb->getId();
+
+    return OK;
+}
 
 // ----------------------------------------------------------------------------
 // VNDK functions

@@ -16,6 +16,10 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <com.android.car.ui.FocusParkingView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/divider"
         android:layout_width="wrap_content"
@@ -23,32 +27,46 @@
         android:orientation="vertical"
         app:layout_constraintGuide_percent="0.5"/>
 
-    <fragment
-        android:id="@+id/dialpad_fragment"
-        android:name="com.android.car.dialer.ui.dialpad.KeypadFragment"
+    <com.android.car.ui.FocusArea
+        android:id="@+id/dialpad_focus_area"
         android:layout_height="wrap_content"
         android:layout_width="wrap_content"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toLeftOf="@+id/divider"/>
+        app:layout_constraintRight_toLeftOf="@+id/divider">
+
+        <fragment
+            android:id="@+id/dialpad_fragment"
+            android:name="com.android.car.dialer.ui.dialpad.KeypadFragment"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"/>
+
+    </com.android.car.ui.FocusArea>
 
     <include
         layout="@layout/dialpad_info"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintTop_toTopOf="@id/dialpad_fragment"
-        app:layout_constraintBottom_toTopOf="@+id/call_button"
+        app:layout_constraintTop_toTopOf="@id/dialpad_focus_area"
+        app:layout_constraintBottom_toTopOf="@+id/call_button_focus_area"
         app:layout_constraintLeft_toRightOf="@id/divider"
         app:layout_constraintRight_toRightOf="parent"/>
 
-    <ImageView
-        android:id="@+id/call_button"
-        style="@style/DialpadPrimaryButton"
-        android:src="@drawable/icon_call_button"
-        android:layout_marginBottom="@dimen/dialpad_info_edge_padding_size"
+    <com.android.car.ui.FocusArea
+        android:id="@+id/call_button_focus_area"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toRightOf="@id/divider"
-        app:layout_constraintRight_toRightOf="parent"/>
+        app:layout_constraintRight_toRightOf="parent">
+
+        <ImageView
+            android:id="@+id/call_button"
+            style="@style/DialpadPrimaryButton"
+            android:src="@drawable/icon_call_button"
+            android:layout_marginBottom="@dimen/dialpad_info_edge_padding_size"/>
+
+    </com.android.car.ui.FocusArea>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

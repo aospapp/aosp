@@ -137,7 +137,7 @@ public class PasswordHelper {
 
     private int validatePin(byte[] pin) {
         int errorCode = NO_ERROR;
-        PasswordMetrics metrics = PasswordMetrics.computeForPassword(pin);
+        PasswordMetrics metrics = PasswordMetrics.computeForPasswordOrPin(pin, /* isPin */ true);
         int passwordQuality = getPasswordQuality();
 
         if (metrics.length < MIN_LENGTH) {
@@ -189,5 +189,23 @@ public class PasswordHelper {
         }
 
         return messages;
+    }
+
+    /**
+     * Zero out credentials and force garbage collection to remove any remnants of user password
+     * shards from memory. Should be used in onDestroy for any LockscreenCredential fields.
+     *
+     * @param credentials the credentials to zero out, can be null
+     **/
+    public static void zeroizeCredentials(LockscreenCredential... credentials) {
+        for (LockscreenCredential credential : credentials) {
+            if (credential != null) {
+                credential.zeroize();
+            }
+        }
+
+        System.gc();
+        System.runFinalization();
+        System.gc();
     }
 }

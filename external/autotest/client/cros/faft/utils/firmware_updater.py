@@ -38,6 +38,8 @@ class FirmwareUpdater(object):
     DEFAULT_SUBDIR = 'autest'  # subdirectory of os_interface.state_dir
     DEFAULT_SECTION_FOR_TARGET = {'bios': 'a', 'ec': 'rw'}
 
+    CBFS_REGIONS_MAP = {'a': 'FW_MAIN_A', 'b': 'FW_MAIN_B'}
+
     def __init__(self, os_if):
         """Initialize the updater tools, but don't load the image data yet."""
         self.os_if = os_if
@@ -105,9 +107,11 @@ class FirmwareUpdater(object):
             subdir = '%s/%s.%s' % (self.DEFAULT_SUBDIR, target, suffix)
         else:
             subdir = '%s/%s' % (self.DEFAULT_SUBDIR, target)
-        return flashrom_handler.FlashromHandler(
-                self.os_if, self.pubkey_path, self._keys_path, target=target,
-                subdir=subdir)
+        return flashrom_handler.FlashromHandler(self.os_if,
+                                                self.pubkey_path,
+                                                self._keys_path,
+                                                target=target,
+                                                subdir=subdir)
 
     def _get_image_path(self, target):
         """Return the handler for the given target
@@ -203,45 +207,18 @@ class FirmwareUpdater(object):
         else:
             return None
 
-    def get_all_fwids(self, target='bios'):
-        """Get all non-empty fwids from in-memory image, for the given target.
+    def get_device_fwids(self, target='bios'):
+        """Get all non-empty fwids from flash, for the given target.
 
         @param target: the image type to get from: 'bios' (default) or 'ec'
-        @return: fwid for the sections
-
-        @type target: str
-        @rtype: dict | None
-        """
-        image_path = self._get_image_path(target)
-        if target == 'ec' and not os.path.isfile(image_path):
-            # If the EC image is missing, report a specific error message.
-            raise FirmwareUpdaterError("Shellball does not contain ec.bin")
-
-        handler = self._get_handler(target)
-        handler.new_image(image_path)
-
-        fwids = {}
-        for section in handler.fv_sections:
-            fwid = handler.get_section_fwid(section)
-            if fwid is not None:
-                fwids[section] = fwid
-        return fwids
-
-    def get_all_installed_fwids(self, target='bios', filename=None):
-        """Get all non-empty fwids from disk or flash, for the given target.
-
-        @param target: the image type to get from: 'bios' (default) or 'ec'
-        @param filename: filename to read instead of using the actual flash
         @return: fwid for the sections
 
         @type target: str
         @type filename: str
         @rtype: dict
         """
-        handler = self._create_handler(target, 'installed')
-        if filename:
-            filename = os.path.join(self._temp_path, filename)
-        handler.new_image(filename)
+        handler = self._create_handler(target, 'flashdevice')
+        handler.new_image()
 
         fwids = {}
         for section in handler.fv_sections:
@@ -250,7 +227,36 @@ class FirmwareUpdater(object):
                 fwids[section] = fwid
         return fwids
 
-    def modify_fwids(self, target='bios', sections=None):
+    def get_image_fwids(self, target='bios', filename=None):
+        """Get all non-empty fwids from disk, for the given target.
+
+        @param target: the image type to get from: 'bios' (default) or 'ec'
+        @param filename: filename to read instead of using the default shellball
+        @return: fwid for the sections
+
+        @type target: str
+        @type filename: str
+        @rtype: dict
+        """
+        if filename:
+            filename = os.path.join(self._temp_path, filename)
+            handler = self._create_handler(target, 'image')
+            handler.new_image(filename)
+        else:
+            filename = self._get_image_path(target)
+            handler = self._get_handler(target)
+            if target == 'ec' and not os.path.isfile(filename):
+                # If the EC image is missing, report a specific error message.
+                raise FirmwareUpdaterError("Shellball does not contain ec.bin")
+
+        fwids = {}
+        for section in handler.fv_sections:
+            fwid = handler.get_section_fwid(section)
+            if fwid is not None:
+                fwids[section] = fwid
+        return fwids
+
+    def modify_image_fwids(self, target='bios', sections=None):
         """Modify the fwid in the image, but don't flash it.
 
         @param target: the image type to modify: 'bios' (default) or 'ec'
@@ -315,7 +321,7 @@ class FirmwareUpdater(object):
         # Replace ecrw.hash to the new one
         ecrw_hash_path = os.path.join(self._cbfs_work_path,
                                       chip_utils.ecrw.cbfs_hash_name)
-        with open(ecrw_hash_path, 'w') as f:
+        with open(ecrw_hash_path, 'wb') as f:
             f.write(self.get_ec_hash())
 
         # Store the modified ecrw and its hash to cbfs
@@ -324,13 +330,12 @@ class FirmwareUpdater(object):
         # Resign and flash the AP firmware back to the system
         self.cbfs_sign_and_flash()
 
-    def corrupt_diagnostics_image(self, local_filename):
+    def corrupt_diagnostics_image(self, local_path):
         """Corrupts a diagnostics image in the CBFS working directory.
 
-        @param local_filename: Filename for storing the diagnostics image in the
+        @param local_path: Filename for storing the diagnostics image in the
             CBFS working directory
         """
-        local_path = os.path.join(self._cbfs_work_path, local_filename)
 
         # Invert the last few bytes of the image. Note that cbfstool will
         # silently ignore bytes added after the end of the ELF, and it will
@@ -394,7 +399,6 @@ class FirmwareUpdater(object):
         if manifest_text:
             return json.loads(manifest_text)
         else:
-            # TODO(dgoyette): Perhaps raise an exception for empty manifest?
             return None
 
     def _detect_image_paths(self, shellball=None):
@@ -441,8 +445,8 @@ class FirmwareUpdater(object):
         if append:
             working_shellball = working_shellball + '-%s' % append
 
-        self.os_if.run_shell_command(
-                'sh %s --unpack %s' % (working_shellball, self._work_path))
+        self.os_if.run_shell_command('sh %s --unpack %s' %
+                                     (working_shellball, self._work_path))
 
         # use the json file that was extracted, to catch extraction problems.
         self._detect_image_paths()
@@ -468,8 +472,8 @@ class FirmwareUpdater(object):
             self.os_if.copy_file(working_shellball, new_shellball)
             working_shellball = new_shellball
 
-        self.os_if.run_shell_command(
-                'sh %s --repack %s' % (working_shellball, self._work_path))
+        self.os_if.run_shell_command('sh %s --repack %s' %
+                                     (working_shellball, self._work_path))
 
         # use the shellball that was repacked, to catch repacking problems.
         self._detect_image_paths(working_shellball)
@@ -491,8 +495,8 @@ class FirmwareUpdater(object):
             self._real_ec_handler.deinit()
             self._real_ec_handler.init(ec_file, allow_fallback=True)
 
-    def run_firmwareupdate(self, mode, append=None, options=None):
-        """Do firmwareupdate with updater in temp_dir.
+    def get_firmwareupdate_command(self, mode, append=None, options=None):
+        """Get the command to run firmwareupdate with updater in temp_dir.
 
         @param append: decide which shellball to use with format
                 chromeos-firmwareupdate-[append].
@@ -508,7 +512,7 @@ class FirmwareUpdater(object):
             # Since CL:459837, bootok is moved to chromeos-setgoodfirmware.
             set_good_cmd = '/usr/sbin/chromeos-setgoodfirmware'
             if os.path.isfile(set_good_cmd):
-                return self.os_if.run_shell_command_get_status(set_good_cmd)
+                return set_good_cmd
 
         updater = os.path.join(self._temp_path, 'chromeos-firmwareupdate')
         if append:
@@ -530,10 +534,23 @@ class FirmwareUpdater(object):
                 bios_reader.dump_flash(fake_bios)
             options = ['--emulate', fake_bios] + options
 
-        update_cmd = '/bin/sh %s --mode %s %s' % (updater, mode,
-                                                  ' '.join(options))
+        return '/bin/sh %s --mode %s %s' % (updater, mode, ' '.join(options))
 
-        return self.os_if.run_shell_command_get_status(update_cmd)
+    def run_firmwareupdate(self, mode, append=None, options=None):
+        """Do firmwareupdate with updater in temp_dir.
+
+        @param append: decide which shellball to use with format
+                chromeos-firmwareupdate-[append].
+                Use'chromeos-firmwareupdate' if append is None.
+        @param mode: ex.'autoupdate', 'recovery', 'bootok', 'factory_install'...
+        @param options: ex. ['--noupdate_ec', '--force'] or [] or None.
+
+        @type append: str
+        @type mode: str
+        @type options: list | tuple | None
+        """
+        return self.os_if.run_shell_command_get_status(
+                self.get_firmwareupdate_command(mode, append, options))
 
     def cbfs_setup_work_dir(self):
         """Sets up cbfs on DUT.
@@ -542,16 +559,92 @@ class FirmwareUpdater(object):
         bios.bin.  If a bios.bin was specified, it is copied to the DUT
         and used instead of the native bios.bin.
 
-        Returns:
-            The cbfs work directory path.
+        @return: The cbfs work directory path.
         """
-
         self.os_if.remove_dir(self._cbfs_work_path)
         self.os_if.copy_dir(self._work_path, self._cbfs_work_path)
 
         return self._cbfs_work_path
 
-    def cbfs_extract_chip(self, fw_name, extension='.bin'):
+    @classmethod
+    def _cbfs_regions(cls, sections):
+        """Map from ['A', 'B'] to ['FW_MAIN_A', 'FW_MAIN_B']"""
+        regions = set()
+        for section in sections:
+            region = cls.CBFS_REGIONS_MAP.get(section.lower(), section)
+            regions.add(region)
+        return sorted(regions)
+
+    def cbfs_expand(self, regions):
+        """Expand the CBFS to fill available space
+
+        @param regions: string, such as FW_MAIN_A,FW_MAIN_B
+        """
+        bios = os.path.join(self._cbfs_work_path, self._bios_path)
+        expand_cmd = '%s %s expand -r %s' % (self.CBFSTOOL, bios,
+                                             ','.join(regions))
+        self.os_if.run_shell_command(expand_cmd)
+        return True
+
+    def cbfs_truncate(self, regions):
+        """Truncate the CBFS to fill minimum space
+
+        @param regions: string, such as FW_MAIN_A,FW_MAIN_B
+        """
+        bios = os.path.join(self._cbfs_work_path, self._bios_path)
+        truncate_cmd = '%s %s truncate -r %s' % (self.CBFSTOOL, bios,
+                                                 ','.join(regions))
+        self.os_if.run_shell_command(truncate_cmd)
+        return True
+
+    def cbfs_extract(self,
+                     filename,
+                     extension,
+                     regions=('a', ),
+                     local_filename=None,
+                     arch=None,
+                     bios=None):
+        """Extracts an arbitrary file from cbfs.
+
+        Note that extracting from
+        @param filename: Filename in cbfs, including extension
+        @param extension: Extension of the file, including '.'
+        @param regions: Tuple of regions (the default is just 'a')
+        @param arch: Specific machine architecture to extract (default unset)
+        @param local_filename: Path to use on the DUT, overriding the default in
+                           the cbfs work dir.
+        @param bios: Image from which the cbfs file to be extracted
+        @return: The full path of the extracted file, or None
+        """
+        regions = self._cbfs_regions(regions)
+        if bios is None:
+            bios = os.path.join(self._cbfs_work_path, self._bios_path)
+
+        cbfs_filename = filename + extension
+        if local_filename is None:
+            local_filename = os.path.join(self._cbfs_work_path,
+                                          filename + extension)
+
+        extract_cmd = ('%s %s extract -r %s -n %s%s -f %s' %
+                       (self.CBFSTOOL, bios, ','.join(regions), filename,
+                        extension, local_filename))
+        if arch:
+            extract_cmd += ' -m %s' % arch
+        try:
+            self.os_if.run_shell_command(extract_cmd)
+            if not self.os_if.path_exists(local_filename):
+                self.os_if.log("Warning: file does not exist after extracting:"
+                               " %s" % local_filename)
+            return os.path.abspath(local_filename)
+        except error.CmdError:
+            # already logged by run_shell_command()
+            return None
+
+    def cbfs_extract_chip(self,
+                          fw_name,
+                          extension='.bin',
+                          hash_extension='.bash',
+                          regions=('a', )):
         """Extracts chip firmware blob from cbfs.
 
         For a given chip type, looks for the corresponding firmware
@@ -561,156 +654,161 @@ class FirmwareUpdater(object):
         The extracted blobs will be <fw_name><extension> and
         <fw_name>.hash located in cbfs_work_path.
 
-        Args:
-            fw_name: Chip firmware name to be extracted.
-            extension: Extension of the name of the cbfs component.
-
-        Returns:
-            Boolean success status.
+        @param fw_name: Chip firmware name to be extracted.
+        @param extension: File extension of the cbfs file, including '.'
+        @param hash_extension: File extension of the hash file, including '.'
+        @return: dict of {'image': image_fullpath, 'hash': hash_fullpath},
         """
+        regions = self._cbfs_regions(regions)
 
-        bios = os.path.join(self._cbfs_work_path, self._bios_path)
-        fw = fw_name
-        cbfs_extract = '%s %s extract -r FW_MAIN_A -n %s%%s -f %s%%s' % (
-                self.CBFSTOOL, bios, fw, os.path.join(self._cbfs_work_path,
-                                                      fw))
+        results = {}
 
-        cmd = cbfs_extract % (extension, extension)
-        if self.os_if.run_shell_command_get_status(cmd) != 0:
-            return False
+        if extension is not None:
+            image_path = self.cbfs_extract(fw_name, extension, regions)
+            if image_path:
+                results['image'] = image_path
 
-        cmd = cbfs_extract % ('.hash', '.hash')
-        if self.os_if.run_shell_command_get_status(cmd) != 0:
-            return False
+        if hash_extension is not None and hash_extension != extension:
+            hash_path = self.cbfs_extract(fw_name, hash_extension, regions)
+            if hash_path:
+                results['hash'] = hash_path
 
-        return True
+        return results
 
-    def cbfs_extract_diagnostics(self, diag_name, local_filename):
+    def cbfs_extract_diagnostics(self, diag_name, local_path):
         """Runs cbfstool to extract a diagnostics image.
 
         @param diag_name: Name of the diagnostics image in CBFS
-        @param local_filename: Filename for storing the diagnostics image in the
+        @param local_path: Filename for storing the diagnostics image in the
             CBFS working directory
         """
-        bios_path = os.path.join(self._cbfs_work_path, self._bios_path)
-        cbfs_extract = '%s %s extract -m x86 -r RW_LEGACY -n %s -f %s' % (
-                self.CBFSTOOL, bios_path, diag_name,
-                os.path.join(self._cbfs_work_path, local_filename))
+        return self.cbfs_extract(diag_name,
+                                 '', ['RW_LEGACY'],
+                                 local_path,
+                                 arch='x86')
 
-        self.os_if.run_shell_command(cbfs_extract)
-
-    def cbfs_get_chip_hash(self, fw_name):
+    def cbfs_get_chip_hash(self, fw_name, hash_extension='.hash'):
         """Returns chip firmware hash blob.
 
         For a given chip type, returns the chip firmware hash blob.
         Before making this request, the chip blobs must have been
         extracted from cbfs using cbfs_extract_chip().
-        The hash data is returned as hexadecimal string.
+        The hash data is returned as a list of stringified two-byte pieces:
+        \x12\x34...\xab\xcd\xef -> ['0x12', '0x34', ..., '0xab', '0xcd', '0xef']
 
         @param fw_name: Chip firmware name whose hash blob to get.
         @return: Boolean success status.
         @raise error.CmdError: Underlying remote shell operations failed.
         """
-
-        hexdump_cmd = '%s %s.hash' % (
-                self.HEXDUMP, os.path.join(self._cbfs_work_path, fw_name))
+        fw_path = os.path.join(self._cbfs_work_path, fw_name)
+        hexdump_cmd = '%s %s%s' % (self.HEXDUMP, fw_path, hash_extension)
         hashblob = self.os_if.run_shell_command_get_output(hexdump_cmd)
         return hashblob
 
-    def cbfs_replace_chip(self, fw_name, extension='.bin'):
-        """Replaces chip firmware in CBFS (bios.bin).
+    def cbfs_remove(self, filename, extension, regions=('a', 'b')):
+        """Remove the given binary from CBFS, in FW_MAIN_A/FW_MAIN_B
+
+        @param filename: Name within cbfs of the file, without extension
+        @param extension: Extension of the name of the cbfs component.
+        @param regions: tuple of regions to act on (full name, or 'A' or 'B')
+        @return: Boolean success status.
+        @raise error.CmdError: If underlying remote shell operations failed.
+        """
+        regions = self._cbfs_regions(regions)
+
+        bios = os.path.join(self._cbfs_work_path, self._bios_path)
+        rm_cmd = '%s %s remove -r %s -n %s%s' % (
+                self.CBFSTOOL, bios, ','.join(regions), filename, extension)
+
+        self.os_if.run_shell_command(rm_cmd)
+        return True
+
+    def cbfs_add(self,
+                 filename,
+                 extension,
+                 regions=('a', 'b'),
+                 local_filename=None):
+        """Add the given binary to CBFS, in the specified regions
+
+        If extension is .hash, the compression is assumed to be none.
+        For any other extension, it's assumed to be lzma.
+
+        @param filename: Name within cbfs of the file, without extension
+        @param extension: Extension of the name of the cbfs component.
+        @param regions: tuple of regions to act on (full name, or 'A' or 'B')
+        @param local_filename
+        @return: Boolean success status.
+        @raise error.CmdError: If underlying remote shell operations failed.
+        """
+        regions = self._cbfs_regions(regions)
+
+        if extension == '.hash':
+            compression = 'none'
+        else:
+            compression = 'lzma'
+
+        if local_filename is None:
+            local_filename = os.path.join(self._cbfs_work_path,
+                                          filename + extension)
+
+        bios = os.path.join(self._cbfs_work_path, self._bios_path)
+        add_cmd = '%s %s add -r %s -t raw -c %s -n %s%s -f %s' % (
+                self.CBFSTOOL, bios, ','.join(regions), compression, filename,
+                extension, local_filename)
+
+        self.os_if.run_shell_command(add_cmd)
+        return True
+
+    def cbfs_replace_chip(self,
+                          fw_name,
+                          extension='.bin',
+                          hash_extension='.hash',
+                          regions=('a', 'b')):
+        """Replaces chip firmware and its hash in CBFS (bios.bin).
 
         For a given chip type, replaces its firmware blob and hash in
         bios.bin.  All files referenced are expected to be in the
         directory set up using cbfs_setup_work_dir().
 
-        @param fw_name: Chip firmware name to be replaced.
+        @param cbfs_filename: Name within cbfs of the file, without extension
         @param extension: Extension of the name of the cbfs component.
+        @param regions: tuple of regions to act on (full name, or 'A' or 'B')
         @return: Boolean success status.
-        @raise error.CmdError: Underlying remote shell operations failed.
+        @raise error.CmdError: If underlying remote shell operations failed.
         """
-
-        bios = os.path.join(self._cbfs_work_path, self._bios_path)
-        rm_hash_cmd = '%s %s remove -r FW_MAIN_A,FW_MAIN_B -n %s.hash' % (
-                self.CBFSTOOL, bios, fw_name)
-        rm_bin_cmd = '%s %s remove -r FW_MAIN_A,FW_MAIN_B -n %s%s' % (
-                self.CBFSTOOL, bios, fw_name, extension)
-        expand_cmd = '%s %s expand -r FW_MAIN_A,FW_MAIN_B' % (self.CBFSTOOL,
-                                                              bios)
-        add_hash_cmd = ('%s %s add -r FW_MAIN_A,FW_MAIN_B -t raw -c none '
-                        '-f %s.hash -n %s.hash') % (
-                                self.CBFSTOOL, bios,
-                                os.path.join(self._cbfs_work_path,
-                                             fw_name), fw_name)
-        add_bin_cmd = ('%s %s add -r FW_MAIN_A,FW_MAIN_B -t raw -c lzma '
-                       '-f %s%s -n %s%s') % (
-                               self.CBFSTOOL, bios,
-                               os.path.join(self._cbfs_work_path, fw_name),
-                               extension, fw_name, extension)
-        truncate_cmd = '%s %s truncate -r FW_MAIN_A,FW_MAIN_B' % (
-                self.CBFSTOOL, bios)
-
-        self.os_if.run_shell_command(rm_hash_cmd)
-        self.os_if.run_shell_command(rm_bin_cmd)
-        try:
-            self.os_if.run_shell_command(expand_cmd)
-        except error.CmdError:
-            self.os_if.log(
-                    ('%s may be too old, '
-                     'continuing without "expand" support') % self.CBFSTOOL)
-
-        self.os_if.run_shell_command(add_hash_cmd)
-        self.os_if.run_shell_command(add_bin_cmd)
-        try:
-            self.os_if.run_shell_command(truncate_cmd)
-        except error.CmdError:
-            self.os_if.log(
-                    ('%s may be too old, '
-                     'continuing without "truncate" support') % self.CBFSTOOL)
-
+        regions = self._cbfs_regions(regions)
+        self.cbfs_expand(regions)
+        if hash_extension is not None and hash_extension != extension:
+            self.cbfs_remove(fw_name, hash_extension, regions)
+        self.cbfs_remove(fw_name, extension, regions)
+        if hash_extension is not None and hash_extension != extension:
+            self.cbfs_add(fw_name, hash_extension, regions)
+        self.cbfs_add(fw_name, extension, regions)
+        self.cbfs_truncate(regions)
         return True
 
-    def cbfs_replace_diagnostics(self, diag_name, local_filename):
+    def cbfs_replace_diagnostics(self, diag_name, local_path):
         """Runs cbfstool to replace a diagnostics image in the firmware image.
 
         @param diag_name: Name of the diagnostics image in CBFS
-        @param local_filename: Filename for storing the diagnostics image in the
+        @param local_path: Filename for storing the diagnostics image in the
             CBFS working directory
         """
-        bios_path = os.path.join(self._cbfs_work_path, self._bios_path)
-        rm_cmd = '%s %s remove -r RW_LEGACY -n %s' % (
-                self.CBFSTOOL, bios_path, diag_name)
-        expand_cmd = '%s %s expand -r RW_LEGACY' % (self.CBFSTOOL, bios_path)
-        add_cmd = ('%s %s add-payload -r RW_LEGACY -c lzma -n %s -f %s') % (
-                self.CBFSTOOL, bios_path, diag_name,
-                os.path.join(self._cbfs_work_path, local_filename))
-        truncate_cmd = '%s %s truncate -r RW_LEGACY' % (
-                self.CBFSTOOL, bios_path)
-
-        self.os_if.run_shell_command(rm_cmd)
-
-        try:
-            self.os_if.run_shell_command(expand_cmd)
-        except error.CmdError:
-            self.os_if.log(
-                    '%s may be too old, continuing without "expand" support'
-                    % self.CBFSTOOL)
-
-        self.os_if.run_shell_command(add_cmd)
-
-        try:
-            self.os_if.run_shell_command(truncate_cmd)
-        except error.CmdError:
-            self.os_if.log(
-                    '%s may be too old, continuing without "truncate" support'
-                    % self.CBFSTOOL)
+        regions = ['RW_LEGACY']
+        self.cbfs_expand(regions)
+        self.cbfs_remove(diag_name, '', regions)
+        self.cbfs_add(diag_name, '', regions, local_path)
+        self.cbfs_truncate(regions)
 
     def cbfs_sign_and_flash(self):
         """Signs CBFS (bios.bin) and flashes it."""
         self.resign_firmware(work_path=self._cbfs_work_path)
         bios = self._get_handler('bios')
-        bios.new_image(os.path.join(self._cbfs_work_path, self._bios_path))
-        bios.write_whole()
+        bios_file = os.path.join(self._cbfs_work_path, self._bios_path)
+        bios.new_image(bios_file)
+        # futility makes sure to preserve important sections (HWID, GBB, VPD).
+        self.os_if.run_shell_command_get_result(
+                'futility update --mode=recovery -i %s' % bios_file)
         return True
 
     def copy_bios(self, filename):
@@ -723,8 +821,8 @@ class FirmwareUpdater(object):
         @rtype: str
         """
         if not isinstance(filename, basestring):
-            raise FirmwareUpdaterError(
-                    "Filename must be a string: %s" % repr(filename))
+            raise FirmwareUpdaterError("Filename must be a string: %s" %
+                                       repr(filename))
         src_bios = os.path.join(self._work_path, self._bios_path)
         dst_bios = os.path.join(self._temp_path, filename)
         self.os_if.copy_file(src_bios, dst_bios)
@@ -782,3 +880,4 @@ class FirmwareUpdater(object):
             handler = self._get_handler('bios')
         handler.set_gbb_flags(flags)
         handler.dump_whole(filename)
+

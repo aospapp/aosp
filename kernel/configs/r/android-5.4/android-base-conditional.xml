@@ -1,4 +1,4 @@
-<kernel minlts="5.4.42" />
+<kernel minlts="5.4.61" />
 
 <!-- KEEP ALPHABETICALLY SORTED -->
 <!-- ARM base requirements -->
@@ -121,20 +121,6 @@
 	</conditions>
 	<config>
 		<key>CONFIG_ACPI</key>
-		<value type="bool">y</value>
-	</config>
-</group>
-
-<!-- CONFIG_IKHEADERS=y || CONFIG_IKHEADERS=m -->
-<group>
-	<conditions>
-		<config>
-			<key>CONFIG_IKHEADERS</key>
-			<value type="tristate">n</value>
-		</config>
-	</conditions>
-	<config>
-		<key>DISALLOW_CONFIG_IKHEADERS_IS_N</key>
 		<value type="bool">y</value>
 	</config>
 </group>

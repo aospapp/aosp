@@ -315,6 +315,22 @@ TEST(RampTestSuite, RampDownWhileHalfWayRampUp) {
   cras_ramp_destroy(ramp);
 }
 
+TEST(RampTestSuite, NullWontCrash) {
+  float from;
+  float to;
+  int duration_frames = 48000;
+  int rc = 0;
+  struct cras_ramp* ramp = NULL;
+
+  ResetStubData();
+
+  from = 0.0;
+  to = 1.0;
+  rc = cras_mute_ramp_start(ramp, from, to, duration_frames, NULL, NULL);
+
+  EXPECT_EQ(-EINVAL, rc);
+}
+
 TEST(RampTestSuite, RampDownWhileHalfWayRampDown) {
   float from = 1.0;
   float to = 0.0;
@@ -350,6 +366,28 @@ TEST(RampTestSuite, RampDownWhileHalfWayRampDown) {
   EXPECT_FLOAT_EQ(scaler, action.scaler);
   EXPECT_FLOAT_EQ(second_down_increment, action.increment);
   EXPECT_FLOAT_EQ(to, action.target);
+
+  cras_ramp_destroy(ramp);
+}
+
+TEST(RampTestSuite, MuteRamp) {
+  float from = 0.0;
+  float to = 0.0;
+  int duration_frames = 48000;
+  struct cras_ramp* ramp;
+  struct cras_ramp_action action;
+
+  ResetStubData();
+
+  ramp = cras_ramp_create();
+  cras_mute_ramp_start(ramp, from, to, duration_frames, NULL, NULL);
+
+  action = cras_ramp_get_current_action(ramp);
+
+  EXPECT_EQ(CRAS_RAMP_ACTION_PARTIAL, action.type);
+  EXPECT_FLOAT_EQ(0.0, action.scaler);
+  EXPECT_FLOAT_EQ(0.0, action.increment);
+  EXPECT_FLOAT_EQ(0.0, action.target);
 
   cras_ramp_destroy(ramp);
 }

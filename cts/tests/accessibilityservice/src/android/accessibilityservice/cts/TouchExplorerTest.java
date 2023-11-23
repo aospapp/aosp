@@ -17,11 +17,14 @@
 package android.accessibilityservice.cts;
 
 import static android.accessibilityservice.cts.utils.AsyncUtils.await;
+import static android.accessibilityservice.cts.utils.GestureUtils.IS_ACTION_DOWN;
+import static android.accessibilityservice.cts.utils.GestureUtils.IS_ACTION_UP;
 import static android.accessibilityservice.cts.utils.GestureUtils.add;
 import static android.accessibilityservice.cts.utils.GestureUtils.click;
 import static android.accessibilityservice.cts.utils.GestureUtils.dispatchGesture;
 import static android.accessibilityservice.cts.utils.GestureUtils.doubleTap;
 import static android.accessibilityservice.cts.utils.GestureUtils.doubleTapAndHold;
+import static android.accessibilityservice.cts.utils.GestureUtils.isRawAtPoint;
 import static android.accessibilityservice.cts.utils.GestureUtils.multiTap;
 import static android.accessibilityservice.cts.utils.GestureUtils.secondFingerMultiTap;
 import static android.accessibilityservice.cts.utils.GestureUtils.swipe;
@@ -43,8 +46,13 @@ import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_ACCESSIBIL
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_CLICKED;
 import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_LONG_CLICKED;
 
+import static org.hamcrest.CoreMatchers.both;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
 import android.accessibility.cts.common.InstrumentedAccessibilityServiceTestRule;
+import android.accessibility.cts.common.ShellCommandBuilder;
 import android.accessibilityservice.GestureDescription;
 import android.accessibilityservice.GestureDescription.StrokeDescription;
 import android.accessibilityservice.cts.AccessibilityGestureDispatchTest.GestureDispatchActivity;
@@ -56,12 +64,14 @@ import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.graphics.Point;
 import android.graphics.PointF;
 import android.graphics.Region;
 import android.platform.test.annotations.AppModeFull;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
+import android.util.TypedValue;
 import android.view.Display;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
@@ -71,11 +81,14 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
+
+import java.util.List;
 
 /**
  * A set of tests for testing touch exploration. Each test dispatches a gesture and checks for the
@@ -86,13 +99,14 @@ import org.junit.runner.RunWith;
 @AppModeFull
 public class TouchExplorerTest {
     // Constants
-    private static final float GESTURE_LENGTH_INCHES = 1.0f;
+    private static final float GESTURE_LENGTH_MMS = 10.0f;
     private TouchExplorationStubAccessibilityService mService;
     private Instrumentation mInstrumentation;
     private UiAutomation mUiAutomation;
     private boolean mHasTouchscreen;
     private boolean mScreenBigEnough;
     private long mSwipeTimeMillis;
+    private String mEnabledServices;
     private EventCapturingHoverListener mHoverListener = new EventCapturingHoverListener(false);
     private EventCapturingTouchListener mTouchListener = new EventCapturingTouchListener(false);
     private EventCapturingClickListener mClickListener = new EventCapturingClickListener();
@@ -114,32 +128,43 @@ public class TouchExplorerTest {
     public final RuleChain mRuleChain =
             RuleChain.outerRule(mActivityRule).around(mServiceRule).around(mDumpOnFailureRule);
 
-    Point mCenter; // Center of screen. Gestures all start from this point.
-    PointF mTapLocation;
+    PointF mTapLocation; // Center of activity. Gestures all start from around this point.
     float mSwipeDistance;
     View mView;
 
     @Before
     public void setUp() throws Exception {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
-        mUiAutomation =
-                mInstrumentation.getUiAutomation(
-                        UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        // Save enabled accessibility services before disabling them so they can be re-enabled after
+        // the test.
+        mEnabledServices = Settings.Secure.getString(
+                mInstrumentation.getContext().getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        // Disable all services before enabling Accessibility service to prevent flakiness
+        // that depends on which services are enabled.
+        InstrumentedAccessibilityService.disableAllServices();
         PackageManager pm = mInstrumentation.getContext().getPackageManager();
         mHasTouchscreen =
                 pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)
                         || pm.hasSystemFeature(PackageManager.FEATURE_FAKETOUCH);
-        // Find screen size, check that it is big enough for gestures.
-        // Gestures will start in the center of the screen, so we need enough horiz/vert space.
+        // Find window size, check that it is big enough for gestures.
+        // Gestures will start in the center of the window, so we need enough horiz/vert space.
+        mService = mServiceRule.enableService();
+        // To prevent a deadlock, we disable UiAutomation while another a11y service is running.
+        mInstrumentation.getUiAutomation(
+                UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).destroy();
+        mView = mActivityRule.getActivity().findViewById(R.id.full_screen_text_view);
         WindowManager windowManager =
                 (WindowManager)
                         mInstrumentation.getContext().getSystemService(Context.WINDOW_SERVICE);
         final DisplayMetrics metrics = new DisplayMetrics();
         windowManager.getDefaultDisplay().getRealMetrics(metrics);
-        mScreenBigEnough = (metrics.widthPixels / (2 * metrics.xdpi) > GESTURE_LENGTH_INCHES);
+        mScreenBigEnough =
+                mView.getWidth() / 2
+                        > TypedValue.applyDimension(
+                                TypedValue.COMPLEX_UNIT_MM, GESTURE_LENGTH_MMS, metrics);
         if (!mHasTouchscreen || !mScreenBigEnough) return;
-        mService = mServiceRule.enableService();
-        mView = mActivityRule.getActivity().findViewById(R.id.full_screen_text_view);
+
         mView.setOnHoverListener(mHoverListener);
         mView.setOnTouchListener(mTouchListener);
         mInstrumentation.runOnMainSync(
@@ -149,13 +174,24 @@ public class TouchExplorerTest {
                     final int midX = mView.getWidth() / 2;
                     final int midY = mView.getHeight() / 2;
                     mView.getLocationOnScreen(viewLocation);
-                    mCenter = new Point(viewLocation[0] + midX, viewLocation[1] + midY);
-                    mTapLocation = new PointF(mCenter);
-                    mSwipeDistance = (viewLocation[0] + mView.getWidth()) / 4;
-                    mSwipeTimeMillis = (long) mSwipeDistance * 4;
+                    mTapLocation = new PointF(viewLocation[0] + midX, viewLocation[1] + midY);
+                    mSwipeDistance = mView.getWidth() / 4;
+
+                    // This must be slower than 10mm per 150ms to be detected as touch exploration.
+                    final double swipeDistanceMm = mSwipeDistance / metrics.xdpi * 25.4;
+                    mSwipeTimeMillis = (long) swipeDistanceMm * 20;
+
                     mView.setOnClickListener(mClickListener);
                     mView.setOnLongClickListener(mLongClickListener);
                 });
+    }
+
+    @After
+    public void postTestTearDown() {
+        ShellCommandBuilder.create(mInstrumentation)
+                .putSecureSetting(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, mEnabledServices)
+                .run();
+
     }
 
     /** Test a slow swipe which should initiate touch exploration. */
@@ -163,6 +199,7 @@ public class TouchExplorerTest {
     @AppModeFull
     public void testSlowSwipe_initiatesTouchExploration() {
         if (!mHasTouchscreen || !mScreenBigEnough) return;
+        PointF endPoint = add(mTapLocation, mSwipeDistance, 0);
         dispatch(swipe(mTapLocation, add(mTapLocation, mSwipeDistance, 0), mSwipeTimeMillis));
         mHoverListener.assertPropagated(ACTION_HOVER_ENTER, ACTION_HOVER_MOVE, ACTION_HOVER_EXIT);
         mTouchListener.assertNonePropagated();
@@ -178,7 +215,8 @@ public class TouchExplorerTest {
     @AppModeFull
     public void testFastSwipe_doesNotInitiateTouchExploration() {
         if (!mHasTouchscreen || !mScreenBigEnough) return;
-        dispatch(swipe(mTapLocation, add(mTapLocation, mSwipeDistance, 0)));
+        PointF endPoint = add(mTapLocation, mSwipeDistance, 0);
+        dispatch(swipe(mTapLocation, endPoint));
         mHoverListener.assertNonePropagated();
         mTouchListener.assertNonePropagated();
         mService.assertPropagated(
@@ -186,6 +224,11 @@ public class TouchExplorerTest {
                 TYPE_GESTURE_DETECTION_START,
                 TYPE_GESTURE_DETECTION_END,
                 TYPE_TOUCH_INTERACTION_END);
+        List<MotionEvent> motionEvents = getMotionEventsForLastGesture();
+        assertThat(motionEvents.get(0), both(IS_ACTION_DOWN).and(isRawAtPoint(mTapLocation, 1.0f)));
+        assertThat(
+                motionEvents.get(motionEvents.size() - 1),
+                both(IS_ACTION_UP).and(isRawAtPoint(endPoint, 1.0f)));
     }
 
     /**
@@ -288,6 +331,11 @@ public class TouchExplorerTest {
         mService.assertPropagated(TYPE_TOUCH_INTERACTION_START, TYPE_TOUCH_INTERACTION_END);
         mService.clearEvents();
         mClickListener.assertNoneClicked();
+        List<MotionEvent> motionEvents = getMotionEventsForLastGesture();
+        assertThat(motionEvents.get(0), both(IS_ACTION_DOWN).and(isRawAtPoint(mTapLocation, 1.0f)));
+        assertThat(motionEvents.get(1), both(IS_ACTION_UP).and(isRawAtPoint(mTapLocation, 1.0f)));
+        assertThat(motionEvents.get(2), both(IS_ACTION_DOWN).and(isRawAtPoint(mTapLocation, 1.0f)));
+        assertThat(motionEvents.get(3), both(IS_ACTION_UP).and(isRawAtPoint(mTapLocation, 1.0f)));
     }
 
     /**
@@ -482,7 +530,7 @@ public class TouchExplorerTest {
     @AppModeFull
     public void testGestureDetectionPassthrough_initiatesTouchExploration() {
         if (!mHasTouchscreen || !mScreenBigEnough) return;
-        setRightSideOfScreenGestureDetectionPassthrough();
+        setRightSideOfActivityWindowGestureDetectionPassthrough();
         // Swipe in the passthrough region. This should generate hover events.
         dispatch(swipe(mTapLocation, add(mTapLocation, mSwipeDistance, 0)));
         mHoverListener.assertPropagated(ACTION_HOVER_ENTER, ACTION_HOVER_MOVE, ACTION_HOVER_EXIT);
@@ -524,7 +572,7 @@ public class TouchExplorerTest {
     @AppModeFull
     public void testTouchExplorationPassthrough_sendsTouchEvents() {
         if (!mHasTouchscreen || !mScreenBigEnough) return;
-        setRightSideOfScreenTouchExplorationPassthrough();
+        setRightSideOfActivityWindowTouchExplorationPassthrough();
         // Swipe in the passthrough region. This should generate  touch events.
         dispatch(swipe(mTapLocation, add(mTapLocation, mSwipeDistance, 0)));
         mTouchListener.assertPropagated(ACTION_DOWN, ACTION_MOVE, ACTION_UP);
@@ -569,23 +617,23 @@ public class TouchExplorerTest {
     private void syncAccessibilityFocusToInputFocus() {
         mService.runOnServiceSync(
                 () -> {
-                    mUiAutomation
-                            .getRootInActiveWindow()
-                            .findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-                            .performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
+                    AccessibilityNodeInfo focus = mService.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+                    focus.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
+                    focus.recycle();
                 });
+        mService.waitForAccessibilityFocus();
     }
 
-    private void setRightSideOfScreenGestureDetectionPassthrough() {
-        Region region = getRightSideOfScreenRegion();
+    private void setRightSideOfActivityWindowGestureDetectionPassthrough() {
+        Region region = getRightSideOfActivityWindowRegion();
         mService.runOnServiceSync(
                 () -> {
                     mService.setGestureDetectionPassthroughRegion(Display.DEFAULT_DISPLAY, region);
                 });
     }
 
-    private void setRightSideOfScreenTouchExplorationPassthrough() {
-        Region region = getRightSideOfScreenRegion();
+    private void setRightSideOfActivityWindowTouchExplorationPassthrough() {
+        Region region = getRightSideOfActivityWindowRegion();
         mService.runOnServiceSync(
                 () -> {
                     mService.setTouchExplorationPassthroughRegion(Display.DEFAULT_DISPLAY, region);
@@ -602,17 +650,19 @@ public class TouchExplorerTest {
                 });
     }
 
-    private Region getRightSideOfScreenRegion() {
-        WindowManager windowManager =
-                (WindowManager)
-                        mInstrumentation.getContext().getSystemService(Context.WINDOW_SERVICE);
-        final DisplayMetrics metrics = new DisplayMetrics();
-        windowManager.getDefaultDisplay().getRealMetrics(metrics);
-        int top = 0;
-        int left = metrics.widthPixels / 2;
-        int right = metrics.widthPixels;
-        int bottom = metrics.heightPixels;
+    private Region getRightSideOfActivityWindowRegion() {
+        int[] viewLocation = new int[2];
+        mView.getLocationOnScreen(viewLocation);
+
+        int top = viewLocation[1];
+        int left = viewLocation[0] + mView.getWidth() / 2;
+        int right = viewLocation[0] + mView.getWidth();
+        int bottom = viewLocation[1] + mView.getHeight();
         Region region = new Region(left, top, right, bottom);
         return region;
+    }
+
+    private List<MotionEvent> getMotionEventsForLastGesture() {
+        return mService.getGestureInfo(mService.getGestureInfoSize() - 1).getMotionEvents();
     }
 }

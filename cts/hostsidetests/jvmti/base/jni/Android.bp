@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "libctsjvmtiagent",
 
@@ -24,6 +28,7 @@ cc_library_shared {
     ],
 
     header_libs: [
+        "jni_headers",
         "libopenjdkjvmti_headers",
     ],
 

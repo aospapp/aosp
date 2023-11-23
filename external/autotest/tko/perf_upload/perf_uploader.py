@@ -24,11 +24,24 @@ import common
 from autotest_lib.tko import utils as tko_utils
 
 _ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+_OAUTH_IMPORT_OK = False
+_OAUTH_CREDS = None
+try:
+    from google.oauth2 import service_account
+    from google.auth.transport.requests import Request
+    from google.auth.exceptions import RefreshError
+    _OAUTH_IMPORT_OK = True
+except ImportError as e:
+    tko_utils.dprint('Failed to import google-auth:\n%s' % e)
+
+_DASHBOARD_UPLOAD_URL = 'https://chromeperf.appspot.com/add_point'
+_OAUTH_SCOPES = ['https://www.googleapis.com/auth/userinfo.email']
 _PRESENTATION_CONFIG_FILE = os.path.join(
         _ROOT_DIR, 'perf_dashboard_config.json')
 _PRESENTATION_SHADOW_CONFIG_FILE = os.path.join(
         _ROOT_DIR, 'perf_dashboard_shadow_config.json')
-_DASHBOARD_UPLOAD_URL = 'https://chromeperf.appspot.com/add_point'
+_SERVICE_ACCOUNT_FILE = '/creds/service_accounts/skylab-drone.json'
 
 # Format for Chrome and Chrome OS version strings.
 VERSION_REGEXP = r'^(\d+)\.(\d+)\.(\d+)\.(\d+)$'
@@ -106,7 +119,7 @@ def _gather_presentation_info(config_data, test_name):
 
 
 def _format_for_upload(board_name, cros_version, chrome_version,
-                       hardware_id, hardware_hostname, perf_data,
+                       hardware_id, hardware_hostname, perf_values,
                        presentation_info, jobname):
     """Formats perf data suitable to upload to the perf dashboard.
 
@@ -124,7 +137,7 @@ def _format_for_upload(board_name, cros_version, chrome_version,
             executed on.
     @param hardware_hostname: String that identifies the name of the device the
             test was executed on.
-    @param perf_data: A dictionary of measured perf data as computed by
+    @param perf_values: A dictionary of measured perf data as computed by
             _compute_avg_stddev().
     @param presentation_info: A dictionary of dashboard presentation info for
             the given test, as identified by _gather_presentation_info().
@@ -135,13 +148,12 @@ def _format_for_upload(board_name, cros_version, chrome_version,
         to the performance dashboard.
 
     """
-    perf_values = perf_data
     # Client side case - server side comes with its own charts data section.
     if 'charts' not in perf_values:
         perf_values = {
           'format_version': '1.0',
           'benchmark_name': presentation_info['test_name'],
-          'charts': perf_data,
+          'charts': perf_values,
         }
 
     dash_entry = {
@@ -255,6 +267,46 @@ def _get_id_from_version(chrome_version, cros_version):
     return int(result_digits)
 
 
+def _initialize_oauth():
+    """Initialize oauth using local credentials and scopes.
+
+    @return A boolean if oauth is apparently ready to use.
+    """
+    global _OAUTH_CREDS
+    if _OAUTH_CREDS:
+        return True
+    if not _OAUTH_IMPORT_OK:
+        return False
+    try:
+        _OAUTH_CREDS = (service_account.Credentials.from_service_account_file(
+                        _SERVICE_ACCOUNT_FILE)
+                        .with_scopes(_OAUTH_SCOPES))
+        return True
+    except Exception as e:
+        tko_utils.dprint('Failed to initialize oauth credentials:\n%s' % e)
+        return False
+
+
+def _add_oauth_token(headers):
+    """Add support for oauth2 via service credentials.
+
+    This is currently best effort, we will silently not add the token
+    for a number of possible reasons (missing service account, etc).
+
+    TODO(engeg@): Once this is validated, make mandatory.
+
+    @param headers: A map of request headers to add the token to.
+    """
+    if _initialize_oauth():
+        if not _OAUTH_CREDS.valid:
+            try:
+                _OAUTH_CREDS.refresh(Request())
+            except RefreshError as e:
+                tko_utils.dprint('Failed to refresh oauth token:\n%s' % e)
+                return
+        _OAUTH_CREDS.apply(headers)
+
+
 def _send_to_dashboard(data_obj):
     """Sends formatted perf data to the perf dashboard.
 
@@ -266,6 +318,7 @@ def _send_to_dashboard(data_obj):
     """
     encoded = urllib.urlencode(data_obj)
     req = urllib2.Request(_DASHBOARD_UPLOAD_URL, encoded)
+    _add_oauth_token(req.headers)
     try:
         urllib2.urlopen(req)
     except urllib2.HTTPError as e:
@@ -341,7 +394,7 @@ def upload_test(job, test, jobname):
                                             presentation_info, jobname)
         _send_to_dashboard(formatted_data)
     except PerfUploadingError as e:
-        tko_utils.dprint('Error when uploading perf data to the perf '
+        tko_utils.dprint('Warning: unable to upload perf data to the perf '
                          'dashboard for test %s: %s' % (test_name, e))
     else:
         tko_utils.dprint('Successfully uploaded perf data to the perf '

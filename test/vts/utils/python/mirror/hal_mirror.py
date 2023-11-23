@@ -160,15 +160,15 @@ class HalMirror(native_entity_mirror.NativeEntityMirror):
                 function_pointer = kwargs[api.name]
             else:
 
-                def dummy(*args):
-                    """Dummy implementation for any callback function."""
+                def stub(*args):
+                    """Stub implementation for any callback function."""
                     logging.debug(
-                        "Entering dummy implementation"
+                        "Entering stub implementation"
                         " for callback function: %s", api.name)
                     for arg_index in range(len(args)):
                         logging.debug("arg%s: %s", arg_index, args[arg_index])
 
-                function_pointer = dummy
+                function_pointer = stub
             func_pt_msg = var_msg.function_pointer.add()
             func_pt_msg.function_name = api.name
             func_pt_msg.id = self.GetCallbackFunctionID(function_pointer)

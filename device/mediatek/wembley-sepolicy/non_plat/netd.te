@@ -60,4 +60,9 @@ allow netd untrusted_app:unix_stream_socket { read write getopt setopt};
 allow netd isolated_app:fd use;
 
 # MTK support antutu feature
-get_prop(netd, mtk_antutu_prop);
+get_prop(netd, vendor_mtk_antutu_prop)
+
+userdebug_or_eng(`
+  allow netd mobile_log_d:fd use;
+  allow netd mobile_log_d:tcp_socket {read write getopt setopt};
+')

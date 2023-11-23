@@ -16,21 +16,22 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.devicepolicy.autofillapp" >
+     package="com.android.cts.devicepolicy.autofillapp">
 
     <application>
-        <activity android:name=".SimpleActivity" android:exported="true">
+        <activity android:name=".SimpleActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".SimpleAutofillService"
-            android:permission="android.permission.BIND_AUTOFILL_SERVICE" >
+        <service android:name=".SimpleAutofillService"
+             android:permission="android.permission.BIND_AUTOFILL_SERVICE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.autofill.AutofillService" />
+                <action android:name="android.service.autofill.AutofillService"/>
             </intent-filter>
         </service>
     </application>

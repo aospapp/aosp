@@ -17,7 +17,7 @@ package com.android.cts.signedconfig;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
@@ -262,8 +262,8 @@ public class SignedConfigHostTest implements IDeviceTest, IBuildReceiver {
     }
 
     @Test
-    public void testDebugKeyValidOnDebugBuild() throws Exception {
-        Assume.assumeThat(getDevice().getBuildFlavor(), not(endsWith("-user")));
+    public void testDebugKeyValidOnDebuggableBuild() throws Exception {
+        Assume.assumeThat(getDevice().getProperty("ro.debuggable"), is("1"));
         installPackage(TEST_APP_APK_NAME_V1_DEBUG_KEY);
         waitUntilSettingMatches(SETTING_SIGNED_CONFIG_VERSION, "1");
         assertThat(getDevice().getSetting("global", SETTING_BLACKLIST_EXEMPTIONS)).isEqualTo(
@@ -271,8 +271,8 @@ public class SignedConfigHostTest implements IDeviceTest, IBuildReceiver {
     }
 
     @Test
-    public void testDebugKeyNotValidOnUserBuild() throws Exception {
-        Assume.assumeThat(getDevice().getBuildFlavor(), endsWith("-user"));
+    public void testDebugKeyNotValidOnNonDebuggableBuild() throws Exception {
+        Assume.assumeThat(getDevice().getProperty("ro.debuggable"), not(is("1")));
         installPackage(TEST_APP_APK_NAME_V1_DEBUG_KEY);
         waitForDevice(5);
         assertThat(getDevice().getSetting("global", SETTING_SIGNED_CONFIG_VERSION))

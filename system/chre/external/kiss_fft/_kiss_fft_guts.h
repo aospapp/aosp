@@ -55,9 +55,13 @@ struct kiss_fft_state{
 #define SAMP_MIN -SAMP_MAX
 
 #if defined(CHECK_OVERFLOW)
+#ifdef CHRE_KISS_FFT_CAN_USE_STDIO
 #  define CHECK_OVERFLOW_OP(a,op,b)  \
 	if ( (SAMPPROD)(a) op (SAMPPROD)(b) > SAMP_MAX || (SAMPPROD)(a) op (SAMPPROD)(b) < SAMP_MIN ) { \
 		fprintf(stderr,"WARNING:overflow @ " __FILE__ "(%d): (%d " #op" %d) = %ld\n",__LINE__,(a),(b),(SAMPPROD)(a) op (SAMPPROD)(b) );  }
+#else
+#define CHECK_OVERFLOW(a, op, b) {}
+#endif
 #endif
 
 
@@ -145,10 +149,13 @@ struct kiss_fft_state{
 	}while(0)
 
 
+#ifdef CHRE_KISS_FFT_CAN_USE_STDIO
 /* a debugging function */
 #define pcpx(c)\
     fprintf(stderr,"%g + %gi\n",(double)((c)->r),(double)((c)->i) )
-
+#else
+#define pcpx(c) {}
+#endif
 
 #ifdef KISS_FFT_USE_ALLOCA
 // define this to allow use of alloca instead of malloc for temporary buffers

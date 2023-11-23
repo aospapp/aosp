@@ -17,15 +17,16 @@
 
 #include "SpirvShader.hpp"
 
-#include "Device/Context.hpp"
 #include "Reactor/Coroutine.hpp"
 #include "Vulkan/VkDescriptorSet.hpp"
+#include "Vulkan/VkPipeline.hpp"
 
 #include <functional>
 
 namespace vk {
+class Device;
 class PipelineLayout;
-}
+}  // namespace vk
 
 namespace sw {
 
@@ -45,7 +46,7 @@ class ComputeProgram : public Coroutine<SpirvShader::YieldResult(
                            int32_t subgroupCount)>
 {
 public:
-	ComputeProgram(SpirvShader const *spirvShader, vk::PipelineLayout const *pipelineLayout, const vk::DescriptorSet::Bindings &descriptorSets);
+	ComputeProgram(vk::Device *device, SpirvShader const *spirvShader, vk::PipelineLayout const *pipelineLayout, const vk::DescriptorSet::Bindings &descriptorSets);
 
 	virtual ~ComputeProgram();
 
@@ -54,9 +55,10 @@ public:
 
 	// run executes the compute shader routine for all workgroups.
 	void run(
+	    vk::DescriptorSet::Array const &descriptorSetObjects,
 	    vk::DescriptorSet::Bindings const &descriptorSetBindings,
 	    vk::DescriptorSet::DynamicOffsets const &descriptorDynamicOffsets,
-	    PushConstantStorage const &pushConstants,
+	    vk::Pipeline::PushConstantStorage const &pushConstants,
 	    uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ,
 	    uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
 
@@ -74,10 +76,11 @@ protected:
 		uint32_t invocationsPerSubgroup;   // SPIR-V: "SubgroupSize"
 		uint32_t subgroupsPerWorkgroup;    // SPIR-V: "NumSubgroups"
 		uint32_t invocationsPerWorkgroup;  // Total number of invocations per workgroup.
-		PushConstantStorage pushConstants;
+		vk::Pipeline::PushConstantStorage pushConstants;
 		const Constants *constants;
 	};
 
+	vk::Device *const device;
 	SpirvShader const *const shader;
 	vk::PipelineLayout const *const pipelineLayout;
 	const vk::DescriptorSet::Bindings &descriptorSets;

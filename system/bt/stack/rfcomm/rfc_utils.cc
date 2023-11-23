@@ -27,7 +27,6 @@
 
 #include "bt_utils.h"
 #include "btm_api.h"
-#include "btm_int.h"
 #include "btu.h"
 #include "osi/include/osi.h"
 #include "port_api.h"
@@ -323,7 +322,7 @@ void rfcomm_mcb_timer_timeout(void* data) {
  ******************************************************************************/
 void rfc_sec_check_complete(UNUSED_ATTR const RawAddress* bd_addr,
                             UNUSED_ATTR tBT_TRANSPORT transport,
-                            void* p_ref_data, uint8_t res) {
+                            void* p_ref_data, tBTM_STATUS res) {
   tPORT* p_port = (tPORT*)p_ref_data;
 
   /* Verify that PORT is still waiting for Security to complete */

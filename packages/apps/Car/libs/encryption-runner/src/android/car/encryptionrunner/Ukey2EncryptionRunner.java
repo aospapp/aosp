@@ -16,12 +16,12 @@
 
 package android.car.encryptionrunner;
 
-import android.annotation.IntDef;
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.util.Log;
 
-import com.android.internal.annotations.VisibleForTesting;
+import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.google.security.cryptauth.lib.securegcm.D2DConnectionContext;
 import com.google.security.cryptauth.lib.securegcm.Ukey2Handshake;

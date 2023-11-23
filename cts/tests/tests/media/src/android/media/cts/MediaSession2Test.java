@@ -140,7 +140,7 @@ public class MediaSession2Test {
     public void testBuilder_setSessionActivity() {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         PendingIntent pendingIntent = PendingIntent.getActivity(
-                mContext, 0 /* requestCode */, intent, 0 /* flags */);
+                mContext, 0 /* requestCode */, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED /* flags */);
         try (MediaSession2 session = new MediaSession2.Builder(mContext)
                 .setSessionActivity(pendingIntent)
                 .build()) {

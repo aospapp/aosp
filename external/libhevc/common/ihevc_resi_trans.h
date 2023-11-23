@@ -42,7 +42,8 @@ typedef UWORD32 ihevc_resi_trans_4x4_ttype1_ft(UWORD8 *pu1_src,
                                     WORD16 *pi2_dst,
                                     WORD32 src_strd,
                                     WORD32 pred_strd,
-                                    WORD32 dst_strd_chr_flag);
+                                    WORD32 dst_strd,
+                                    CHROMA_PLANE_ID_T e_chroma_plane);
 
 typedef UWORD32 ihevc_hbd_resi_trans_4x4_ttype1_ft(UWORD16 *pu2_src,
                                     UWORD16 *pu2_pred,
@@ -50,7 +51,8 @@ typedef UWORD32 ihevc_hbd_resi_trans_4x4_ttype1_ft(UWORD16 *pu2_src,
                                     WORD16 *pi2_dst,
                                     WORD32 src_strd,
                                     WORD32 pred_strd,
-                                    WORD32 dst_strd_chr_flag,
+                                    WORD32 dst_strd,
+                                    CHROMA_PLANE_ID_T e_chroma_plane,
                                     UWORD8 bit_depth);
 
 typedef UWORD32 ihevc_resi_trans_4x4_ft(UWORD8 *pu1_src,
@@ -59,7 +61,8 @@ typedef UWORD32 ihevc_resi_trans_4x4_ft(UWORD8 *pu1_src,
                              WORD16 *pi2_dst,
                              WORD32 src_strd,
                              WORD32 pred_strd,
-                             WORD32 dst_strd_chr_flag);
+                             WORD32 dst_strd,
+                             CHROMA_PLANE_ID_T e_chroma_plane);
 
 typedef UWORD32 ihevc_hbd_resi_trans_4x4_ft
     (
@@ -79,7 +82,8 @@ typedef UWORD32 ihevc_resi_trans_8x8_ft(UWORD8 *pu1_src,
                              WORD16 *pi2_dst,
                              WORD32 src_strd,
                              WORD32 pred_strd,
-                             WORD32 dst_strd_chr_flag);
+                             WORD32 dst_strd,
+                             CHROMA_PLANE_ID_T e_chroma_plane);
 
 typedef UWORD32 ihevc_hbd_resi_trans_8x8_ft
     (
@@ -100,7 +104,8 @@ typedef UWORD32 ihevc_resi_trans_16x16_ft(UWORD8 *pu1_src,
                                WORD16 *pi2_dst,
                                WORD32 src_strd,
                                WORD32 pred_strd,
-                               WORD32 dst_strd_chr_flag);
+                               WORD32 dst_strd,
+                               CHROMA_PLANE_ID_T e_chroma_plane);
 
 typedef UWORD32 ihevc_hbd_resi_trans_16x16_ft(UWORD16 *pu2_src,
                                UWORD16 *pu2_pred,
@@ -108,7 +113,8 @@ typedef UWORD32 ihevc_hbd_resi_trans_16x16_ft(UWORD16 *pu2_src,
                                WORD16 *pi2_dst,
                                WORD32 src_strd,
                                WORD32 pred_strd,
-                               WORD32 dst_strd_chr_flag,
+                               WORD32 dst_strd,
+                               CHROMA_PLANE_ID_T e_chroma_plane,
                                UWORD8 bit_depth);
 
 typedef UWORD32 ihevc_resi_trans_32x32_ft(UWORD8 *pu1_src,
@@ -117,7 +123,8 @@ typedef UWORD32 ihevc_resi_trans_32x32_ft(UWORD8 *pu1_src,
                                WORD16 *pi2_dst,
                                WORD32 src_strd,
                                WORD32 pred_strd,
-                               WORD32 dst_strd_chr_flag);
+                               WORD32 dst_strd,
+                               CHROMA_PLANE_ID_T e_chroma_plane);
 
 typedef UWORD32 ihevc_hbd_resi_trans_32x32_ft(UWORD16 *pu2_src,
                                UWORD16 *pu2_pred,
@@ -125,7 +132,8 @@ typedef UWORD32 ihevc_hbd_resi_trans_32x32_ft(UWORD16 *pu2_src,
                                WORD16 *pi2_dst,
                                WORD32 src_strd,
                                WORD32 pred_strd,
-                               WORD32 dst_strd_chr_flag,
+                               WORD32 dst_strd,
+                               CHROMA_PLANE_ID_T e_chroma_plane,
                                UWORD8 bit_depth);
 
 

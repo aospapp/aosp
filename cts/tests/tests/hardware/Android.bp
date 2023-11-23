@@ -12,19 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsHardwareTestCases",
     defaults: ["cts_defaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     compile_multilib: "both",
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
     static_libs: [
         "androidx.annotation_annotation",
@@ -32,6 +35,7 @@ android_test {
         "compatibility-device-util-axt",
         "cts-input-lib",
         "ctstestrunner-axt",
+        "cts-wm-util",
         "mockito-target-minus-junit4",
         "platform-test-annotations",
         "ub-uiautomator",

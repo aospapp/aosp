@@ -747,13 +747,13 @@ int NdcDispatcher::FirewallCmd::parseRule(const char* arg) {
 }
 
 int NdcDispatcher::FirewallCmd::parseFirewallType(const char* arg) {
-    if (!strcmp(arg, "whitelist")) {
-        return INetd::FIREWALL_WHITELIST;
-    } else if (!strcmp(arg, "blacklist")) {
-        return INetd::FIREWALL_BLACKLIST;
+    if (!strcmp(arg, "allowlist")) {
+        return INetd::FIREWALL_ALLOWLIST;
+    } else if (!strcmp(arg, "denylist")) {
+        return INetd::FIREWALL_DENYLIST;
     } else {
         LOG(LOGLEVEL) << "failed to parse firewall type " << arg;
-        return INetd::FIREWALL_BLACKLIST;
+        return INetd::FIREWALL_DENYLIST;
     }
 }
 
@@ -764,6 +764,8 @@ int NdcDispatcher::FirewallCmd::parseChildChain(const char* arg) {
         return INetd::FIREWALL_CHAIN_STANDBY;
     } else if (!strcmp(arg, "powersave")) {
         return INetd::FIREWALL_CHAIN_POWERSAVE;
+    } else if (!strcmp(arg, "restricted")) {
+        return INetd::FIREWALL_CHAIN_RESTRICTED;
     } else if (!strcmp(arg, "none")) {
         return INetd::FIREWALL_CHAIN_NONE;
     } else {
@@ -781,7 +783,7 @@ int NdcDispatcher::FirewallCmd::runCommand(NdcClient* cli, int argc, char** argv
     if (!strcmp(argv[1], "enable")) {
         if (argc != 3) {
             cli->sendMsg(ResponseCode::CommandSyntaxError,
-                         "Usage: firewall enable <whitelist|blacklist>", false);
+                         "Usage: firewall enable <allowlist|denylist>", false);
             return 0;
         }
         int res = !mNetd->firewallSetFirewallType(parseFirewallType(argv[2])).isOk();
@@ -1047,9 +1049,12 @@ int NdcDispatcher::NetworkCommand::runCommand(NdcClient* cli, int argc, char** a
             return syntaxError(cli, "Missing argument");
         }
         unsigned netId = stringToNetId(argv[2]);
-        if (argc == 6 && !strcmp(argv[3], "vpn")) {
+        if (argc == 5 && !strcmp(argv[3], "vpn")) {
             bool secure = strtol(argv[4], nullptr, 2);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             if (Status status = mNetd->networkCreateVpn(netId, secure); !status.isOk()) {
+#pragma clang diagnostic pop
                 return operationError(cli, "createVirtualNetwork() failed",
                                       status.serviceSpecificErrorCode());
             }
@@ -1063,7 +1068,10 @@ int NdcDispatcher::NetworkCommand::runCommand(NdcClient* cli, int argc, char** a
                     return syntaxError(cli, "Unknown permission");
                 }
             }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             if (Status status = mNetd->networkCreatePhysical(netId, permission); !status.isOk()) {
+#pragma clang diagnostic pop
                 return operationError(cli, "createPhysicalNetwork() failed",
                                       status.serviceSpecificErrorCode());
             }

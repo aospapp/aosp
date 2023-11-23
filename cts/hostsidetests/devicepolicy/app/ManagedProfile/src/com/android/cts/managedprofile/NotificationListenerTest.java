@@ -82,21 +82,21 @@ public class NotificationListenerTest {
     }
 
     @Test
-    public void testSetEmptyWhitelist() throws Exception {
+    public void testSetEmptyAllowlist() throws Exception {
         mDpm.setPermittedCrossProfileNotificationListeners(
                 BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT,
                 Collections.<String>emptyList());
     }
 
     @Test
-    public void testAddListenerToWhitelist() throws Exception {
+    public void testAddListenerToAllowlist() throws Exception {
         mDpm.setPermittedCrossProfileNotificationListeners(
                 BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT,
                 Collections.singletonList(mContext.getPackageName()));
     }
 
     @Test
-    public void testSetNullWhitelist() throws Exception {
+    public void testSetNullAllowlist() throws Exception {
         mDpm.setPermittedCrossProfileNotificationListeners(
                 BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT, null);
     }

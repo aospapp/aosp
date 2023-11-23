@@ -19,15 +19,25 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_VENDOR_MODULE := true
 emulator_hwcomposer_shared_libraries := \
-    liblog \
-    libutils \
-    libcutils \
+    android.hardware.graphics.mapper@2.0 \
+    android.hardware.graphics.mapper@4.0 \
+    libbase \
     libEGL \
-    libutils \
+    libcutils \
+    libcuttlefish_device_config \
+    libcuttlefish_device_config_proto \
+    libcuttlefish_utils \
+    libcuttlefish_fs \
+    libdrm \
+    libgralloctypes \
     libhardware \
+    libhidlbase \
+    libjpeg \
+    liblog \
     libsync \
     libui \
-    android.hardware.graphics.mapper@2.0 \
+    libutils \
+    libutils \
 
 emulator_hwcomposer_cflags += \
     -DLOG_TAG=\"hwc2\" \
@@ -35,30 +45,62 @@ emulator_hwcomposer_cflags += \
     -DANDROID_BASE_UNIQUE_FD_DISABLE_IMPLICIT_CONVERSION
 
 emulator_hwcomposer_c_includes += \
+    device/generic/goldfish-opengl/host/include/libOpenglRender \
+    device/generic/goldfish-opengl/android-emu \
+    device/generic/goldfish-opengl/shared/OpenglCodecCommon \
+    device/generic/goldfish-opengl/system/OpenglSystemCommon \
+    device/generic/goldfish-opengl/system/include \
+    device/generic/goldfish-opengl/system/renderControl_enc \
+    external/libdrm \
     system/core/libsync \
     system/core/libsync/include \
-    device/generic/goldfish-opengl/system/include \
-    device/generic/goldfish-opengl/system/OpenglSystemCommon \
-    device/generic/goldfish-opengl/host/include/libOpenglRender \
-    device/generic/goldfish-opengl/shared/OpenglCodecCommon \
-    device/generic/goldfish-opengl/system/renderControl_enc
 
 emulator_hwcomposer_relative_path := hw
 
 emulator_hwcomposer2_src_files := \
-    EmuHWC2.cpp
+    Device.cpp \
+    Display.cpp \
+    Drm.cpp \
+    DrmPresenter.cpp \
+    Gralloc.cpp \
+    GuestComposer.cpp \
+    HostComposer.cpp \
+    Layer.cpp \
 
 include $(CLEAR_VARS)
 
 LOCAL_VENDOR_MODULE := true
+LOCAL_STATIC_LIBRARIES := libyuv_static
 LOCAL_SHARED_LIBRARIES := $(emulator_hwcomposer_shared_libraries)
 LOCAL_SHARED_LIBRARIES += libOpenglSystemCommon lib_renderControl_enc
 LOCAL_SHARED_LIBRARIES += libui
 LOCAL_SRC_FILES := $(emulator_hwcomposer2_src_files)
 LOCAL_C_INCLUDES := $(emulator_hwcomposer_c_includes)
+LOCAL_C_INCLUDES += external/drm_hwcomposer
+LOCAL_C_INCLUDES += external/minigbm/cros_gralloc
 LOCAL_MODULE_RELATIVE_PATH := $(emulator_hwcomposer_relative_path)
 
 LOCAL_MODULE := hwcomposer.ranchu
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_VENDOR_MODULE := true
+LOCAL_SRC_FILES := drmTest.cpp
+LOCAL_SHARED_LIBRARIES := $(emulator_hwcomposer_shared_libraries)
+LOCAL_SHARED_LIBRARIES += libOpenglSystemCommon lib_renderControl_enc
+LOCAL_SHARED_LIBRARIES += libui
+LOCAL_SHARED_LIBRARIES += libdrm
+LOCAL_C_INCLUDES := $(emulator_hwcomposer_c_includes)
+LOCAL_C_INCLUDES += external/libdrm
+LOCAL_C_INCLUDES += external/drm_hwcomposer
+LOCAL_C_INCLUDES += external/minigbm/cros_gralloc
+LOCAL_MODULE := emulatorDrmTest
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
+include $(BUILD_EXECUTABLE)

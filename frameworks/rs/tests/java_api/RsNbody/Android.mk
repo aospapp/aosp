@@ -25,6 +25,8 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 LOCAL_STATIC_ANDROID_LIBRARIES += androidx.legacy_legacy-support-v4
 
 LOCAL_PACKAGE_NAME := RsNbody
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SDK_VERSION := current
 LOCAL_RENDERSCRIPT_TARGET_API := 23
 

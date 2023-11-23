@@ -16,7 +16,7 @@
 %                              December 2001                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -319,7 +319,7 @@ MagickExport RandomInfo *DestroyRandomInfo(RandomInfo *random_info)
 #if !defined(MAGICKCORE_WINDOWS_SUPPORT)
 static ssize_t ReadRandom(int file,unsigned char *source,size_t length)
 {
-  register unsigned char
+  unsigned char
     *q;
 
   ssize_t
@@ -451,32 +451,6 @@ static StringInfo *GenerateEntropicChaos(RandomInfo *random_info)
   SetStringInfoLength(chaos,sizeof(nanoseconds));
   SetStringInfoDatum(chaos,(unsigned char *) &nanoseconds);
   ConcatenateStringInfo(entropy,chaos);
-#if defined(MAGICKCORE_HAVE_MKSTEMP)
-  {
-    char
-      path[MagickPathExtent];
-
-    int
-      file;
-
-    (void) strcpy(path,"XXXXXX");
-    file=mkstemp(path);
-    if (file != -1)
-      {
-#if defined(MAGICKCORE_HAVE_FCHMOD)
-        (void) fchmod(file,0600);
-#endif
-#if defined(__OS2__)
-        setmode(file,O_BINARY);
-#endif
-        (void) close(file);
-      }
-    (void) remove_utf8(path);
-    SetStringInfoLength(chaos,strlen(path));
-    SetStringInfoDatum(chaos,(unsigned char *) path);
-    ConcatenateStringInfo(entropy,chaos);
-  }
-#endif
 #if defined(MAGICKCORE_WINDOWS_SUPPORT)
   {
     double
@@ -524,7 +498,7 @@ static StringInfo *GenerateEntropicChaos(RandomInfo *random_info)
     */
     if (environ != (char **) NULL)
       {
-        register ssize_t
+        ssize_t
           i;
 
         /*
@@ -857,7 +831,7 @@ MagickPrivate void RandomComponentTerminus(void)
 
 static inline void IncrementRandomNonce(StringInfo *nonce)
 {
-  register ssize_t
+  ssize_t
     i;
 
   unsigned char
@@ -876,10 +850,10 @@ static inline void IncrementRandomNonce(StringInfo *nonce)
 MagickExport void SetRandomKey(RandomInfo *random_info,const size_t length,
   unsigned char *key)
 {
-  register size_t
+  size_t
     i;
 
-  register unsigned char
+  unsigned char
     *p;
 
   SignatureInfo

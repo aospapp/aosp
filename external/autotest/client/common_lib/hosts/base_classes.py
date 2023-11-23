@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2009 Google Inc. Released under the GPL v2
 
 """
@@ -9,6 +10,11 @@ You should import the "hosts" package instead of importing each type of host.
         Host: a machine on which you can run programs
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+
 __author__ = """
 mbligh@google.com (Martin J. Bligh),
 poirier@google.com (Benjamin Poirier),
@@ -19,6 +25,7 @@ import json, logging, os, re, time
 
 from autotest_lib.client.common_lib import global_config, error, utils
 from autotest_lib.client.common_lib.cros import path_utils
+import six
 
 
 class Host(object):
@@ -616,7 +623,7 @@ class Host(object):
         vmlinuz_prefix = os.path.join(boot_dir, 'vmlinuz-')
         boot_info = self.bootloader.get_entries()
         used_kernver = [boot['kernel'][len(vmlinuz_prefix):]
-                        for boot in boot_info.itervalues()]
+                        for boot in six.itervalues(boot_info)]
 
         # find all the unused vmlinuz images in /boot
         all_vmlinuz = self.list_files_glob(vmlinuz_prefix + '*')

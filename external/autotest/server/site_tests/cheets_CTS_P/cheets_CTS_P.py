@@ -14,7 +14,9 @@
 
 import logging
 import os
+import subprocess
 
+from autotest_lib.client.bin import utils as client_utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import hosts
 from autotest_lib.server import utils
@@ -28,10 +30,10 @@ _CTS_TIMEOUT_SECONDS = 3600
 _PUBLIC_CTS = 'https://dl.google.com/dl/android/cts/'
 _PARTNER_CTS = 'gs://chromeos-partner-cts/'
 _CTS_URI = {
-    'arm': _PUBLIC_CTS + 'android-cts-9.0_r10-linux_x86-arm.zip',
-    'x86': _PUBLIC_CTS + 'android-cts-9.0_r10-linux_x86-x86.zip',
+        'arm': _PUBLIC_CTS + 'android-cts-9.0_r14-linux_x86-arm.zip',
+        'x86': _PUBLIC_CTS + 'android-cts-9.0_r14-linux_x86-x86.zip',
 }
-_CTS_MEDIA_URI = _PUBLIC_CTS + 'android-cts-media-1.4.zip'
+_CTS_MEDIA_URI = _PUBLIC_CTS + 'android-cts-media-1.5.zip'
 _CTS_MEDIA_LOCALPATH = '/tmp/android-cts-media'
 
 
@@ -40,13 +42,13 @@ class cheets_CTS_P(tradefed_test.TradefedTest):
     version = 1
 
     _SHARD_CMD = '--shard-count'
-    _SCENE_URI = ('https://storage.googleapis.com'
-                  '/chromiumos-test-assets-public/camerabox/scene.pdf')
+    _SCENE_URI = (
+            'https://storage.googleapis.com/chromiumos-test-assets-public'
+            '/camerabox/cts_portrait_scene.jpg')
 
     def _tradefed_retry_command(self, template, session_id):
         """Build tradefed 'retry' command from template."""
         cmd = []
-        cmd += self.extra_command_flags
         for arg in template:
             cmd.append(arg.format(session_id=session_id))
         return cmd
@@ -54,16 +56,24 @@ class cheets_CTS_P(tradefed_test.TradefedTest):
     def _tradefed_run_command(self, template):
         """Build tradefed 'run' command from template."""
         cmd = template[:]
-        cmd += self.extra_command_flags
         # If we are running outside of the lab we can collect more data.
         if not utils.is_in_container():
             logging.info('Running outside of lab, adding extra debug options.')
             cmd.append('--log-level-display=DEBUG')
-        elif self._timeout <= 3600:
-            # TODO(kinaba): remove once crbug.com/1041833 is resolved.
-            logging.info('Add more debug log for small modules')
-            cmd.append('--log-level-display=VERBOSE')
+            # Apply this PATH change only for chroot environment
+            if not client_utils.is_moblab():
+                try:
+                    os.environ['JAVA_HOME'] = '/opt/icedtea-bin-3.4.0'
+                    os.environ['PATH'] = os.environ['JAVA_HOME']\
+                                       + '/bin:' + os.environ['PATH']
+                    logging.info(subprocess.check_output(['java', '-version'], stderr=subprocess.STDOUT))
+                    # TODO(jiyounha): remove once crbug.com/1105515 is resolved.
+                    logging.info(subprocess.check_output(['whereis', 'java'], stderr=subprocess.STDOUT))
+                except OSError:
+                    logging.error('Can\'t change current PATH directory')
 
+        # Suppress redundant output from tradefed.
+        cmd.append('--quiet-output=true')
         return cmd
 
     def _get_default_bundle_url(self, bundle):
@@ -109,6 +119,7 @@ class cheets_CTS_P(tradefed_test.TradefedTest):
             chart.initialize()
 
         for dut in self.dut_fixtures:
+            dut.log_camera_scene()
             dut.initialize()
 
         for host in self._hosts:
@@ -136,7 +147,6 @@ class cheets_CTS_P(tradefed_test.TradefedTest):
             retry_manual_tests=retry_manual_tests,
             warn_on_test_retry=warn_on_test_retry,
             hard_reboot_on_failure=hard_reboot_on_failure)
-        self.extra_command_flags = []
         if camera_facing:
             self.initialize_camerabox(camera_facing, cmdline_args)
 
@@ -146,8 +156,6 @@ class cheets_CTS_P(tradefed_test.TradefedTest):
                  retry_template=None,
                  target_module=None,
                  target_plan=None,
-                 target_class=None,
-                 target_method=None,
                  needs_push_media=False,
                  enable_default_apps=False,
                  executable_test_count=None,
@@ -172,8 +180,6 @@ class cheets_CTS_P(tradefed_test.TradefedTest):
                                          '{session_id}']
         @param target_module: the name of test module to run.
         @param target_plan: the name of the test plan to run.
-        @param target_class: the name of the class to be tested.
-        @param target_method: the name of the method to be tested.
         @param needs_push_media: need to push test media streams.
         @param executable_test_count: the known number of tests in the run
         @param bundle: the type of the CTS bundle: 'arm' or 'x86'
@@ -184,10 +190,6 @@ class cheets_CTS_P(tradefed_test.TradefedTest):
         @param prerequisites: a list of prerequisites that identify rogue DUTs.
         @param timeout: time after which tradefed can be interrupted.
         """
-        # See b/149889853. Non-media test basically does not require dynamic
-        # config. To reduce the flakiness, let us suppress the config.
-        if not needs_push_media:
-            self.extra_command_flags.append('--dynamic-config-url=')
         self._run_tradefed_with_retries(
             test_name=test_name,
             run_template=run_template,

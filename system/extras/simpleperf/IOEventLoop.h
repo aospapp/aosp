@@ -24,9 +24,12 @@
 #include <memory>
 #include <vector>
 
+struct event_base;
+
+namespace simpleperf {
+
 struct IOEvent;
 typedef IOEvent* IOEventRef;
-struct event_base;
 
 // IOEventLoop is a class wrapper of libevent, it monitors events happened,
 // and calls the corresponding callbacks. Possible events are: file ready to
@@ -53,8 +56,7 @@ class IOEventLoop {
   bool AddSignalEvent(int sig, const std::function<bool()>& callback);
 
   // Register a vector of signal Events.
-  bool AddSignalEvents(std::vector<int> sigs,
-                       const std::function<bool()>& callback);
+  bool AddSignalEvents(std::vector<int> sigs, const std::function<bool()>& callback);
 
   // Register a periodic Event, so [callback] is called periodically every
   // [duration].
@@ -87,5 +89,7 @@ class IOEventLoop {
   bool use_precise_timer_;
   bool in_loop_;
 };
+
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_IOEVENT_LOOP_H_

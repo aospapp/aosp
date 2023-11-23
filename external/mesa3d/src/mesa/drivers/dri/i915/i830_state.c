@@ -602,11 +602,11 @@ i830CullFaceFrontFace(struct gl_context * ctx, GLenum unused)
       mode = CULLMODE_CW;
 
       if (ctx->DrawBuffer && _mesa_is_user_fbo(ctx->DrawBuffer))
-         mode ^= (CULLMODE_CW ^ CULLMODE_CCW);
+         mode ^= CULLMODE_NONE;
       if (ctx->Polygon.CullFaceMode == GL_FRONT)
-         mode ^= (CULLMODE_CW ^ CULLMODE_CCW);
+         mode ^= CULLMODE_NONE;
       if (ctx->Polygon.FrontFace != GL_CCW)
-         mode ^= (CULLMODE_CW ^ CULLMODE_CCW);
+         mode ^= CULLMODE_NONE;
    }
    else {
       mode = CULLMODE_BOTH;

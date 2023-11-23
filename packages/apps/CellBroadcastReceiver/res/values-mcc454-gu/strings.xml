@@ -16,7 +16,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="2500559695815098491">"અત્યંત ઇમર્જન્સીના સમયનું અલર્ટ"</string>
-    <string name="cmas_extreme_alert" msgid="6487533089309567518">"ઇમર્જન્સી અલર્ટ"</string>
-    <string name="cmas_required_monthly_test" msgid="4861373660989211951">"પરીક્ષણ માટેનો સંદેશ"</string>
+    <string name="cmas_presidential_level_alert" msgid="8798462930675572592">"અત્યંત ઇમર્જન્સી અલર્ટ"</string>
+    <string name="cmas_extreme_alert" msgid="666310502927269524">"ઇમર્જન્સી અલર્ટ"</string>
+    <string name="cmas_required_monthly_test" msgid="3412608025684914213">"પરીક્ષણ માટેનો સંદેશ"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="8186076761036041808">"ઇમર્જન્સી અલર્ટ મેળવો"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="4587011587057993053">"પરીક્ષણ માટેના સંદેશા"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="6148921520813876460">"પરીક્ષણ માટેના સંદેશા પ્રાપ્ત કરો"</string>
 </resources>

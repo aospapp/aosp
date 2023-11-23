@@ -1,0 +1,11 @@
+type mtk_hal_usb, domain;
+hal_server_domain(mtk_hal_usb, hal_usb)
+hal_server_domain(mtk_hal_usb, hal_usb_gadget)
+
+type mtk_hal_usb_exec, exec_type, file_type, vendor_file_type;
+init_daemon_domain(mtk_hal_usb)
+
+r_dir_file(mtk_hal_usb, sysfs_usb_nonplat)
+allow mtk_hal_usb sysfs_usb_nonplat:file w_file_perms;
+
+set_prop(mtk_hal_usb, vendor_mtk_usb_prop)

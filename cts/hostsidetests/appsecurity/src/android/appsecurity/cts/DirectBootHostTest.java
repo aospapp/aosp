@@ -20,10 +20,12 @@ import static android.appsecurity.cts.Utils.waitForBootCompleted;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import android.platform.test.annotations.RequiresDevice;
 
-import com.android.ddmlib.Log;
+import com.android.compatibility.common.util.PropertyUtil;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
@@ -58,6 +60,8 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
     private static final String FEATURE_SECURE_LOCK_SCREEN =
             "feature:android.software.secure_lock_screen";
     private static final String FEATURE_AUTOMOTIVE = "feature:android.hardware.type.automotive";
+    private static final String FEATURE_SECURITY_MODEL_COMPATIBLE =
+            "feature:android.hardware.security.model.compatible";
 
     private static final long SHUTDOWN_TIME_MS = 30 * 1000;
 
@@ -82,13 +86,8 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
      */
     @Test
     public void testAutomotiveNativeFbe() throws Exception {
-        if (!isSupportedDevice()) {
-            Log.v(TAG, "Device not supported; skipping test");
-            return;
-        } else if (!isAutomotiveDevice()) {
-            Log.v(TAG, "Device not automotive; skipping test");
-            return;
-        }
+        assumeSupportedDevice();
+        assumeTrue("Device not automotive; skipping test", isAutomotiveDevice());
 
         assertTrue("Automotive devices must support native FBE",
             MODE_NATIVE.equals(getFbeMode()));
@@ -99,14 +98,9 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
      */
     @Test
     public void testDirectBootNative() throws Exception {
-        if (!isSupportedDevice()) {
-            Log.v(TAG, "Device not supported; skipping test");
-            return;
-        } else if (!MODE_NATIVE.equals(getFbeMode())) {
-            Log.v(TAG, "Device doesn't have native FBE; skipping test");
-            return;
-        }
-
+        assumeSupportedDevice();
+        assumeTrue("Device doesn't have native FBE; skipping test",
+                MODE_NATIVE.equals(getFbeMode()));
         doDirectBootTest(MODE_NATIVE);
     }
 
@@ -116,14 +110,9 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
     @Test
     @RequiresDevice
     public void testDirectBootEmulated() throws Exception {
-        if (!isSupportedDevice()) {
-            Log.v(TAG, "Device not supported; skipping test");
-            return;
-        } else if (MODE_NATIVE.equals(getFbeMode())) {
-            Log.v(TAG, "Device has native FBE; skipping test");
-            return;
-        }
-
+        assumeSupportedDevice();
+        assumeFalse("Device has native FBE; skipping test",
+                MODE_NATIVE.equals(getFbeMode()));
         doDirectBootTest(MODE_EMULATED);
     }
 
@@ -132,14 +121,9 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
      */
     @Test
     public void testDirectBootNone() throws Exception {
-        if (!isSupportedDevice()) {
-            Log.v(TAG, "Device not supported; skipping test");
-            return;
-        } else if (MODE_NATIVE.equals(getFbeMode())) {
-            Log.v(TAG, "Device has native FBE; skipping test");
-            return;
-        }
-
+        assumeSupportedDevice();
+        assumeFalse("Device has native FBE; skipping test",
+                MODE_NATIVE.equals(getFbeMode()));
         doDirectBootTest(MODE_NONE);
     }
 
@@ -214,9 +198,17 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
         return getDevice().executeShellCommand("sm get-fbe-mode").trim();
     }
 
-    private boolean isSupportedDevice() throws Exception {
-        return getDevice().hasFeature(FEATURE_DEVICE_ADMIN)
-                && getDevice().hasFeature(FEATURE_SECURE_LOCK_SCREEN);
+    private void assumeSupportedDevice() throws Exception {
+        assumeTrue("Skipping test: FEATURE_DEVICE_ADMIN missing.",
+                getDevice().hasFeature(FEATURE_DEVICE_ADMIN));
+        assumeTrue("Skipping test: FEATURE_SECURE_LOCK_SCREEN missing.",
+                getDevice().hasFeature(FEATURE_SECURE_LOCK_SCREEN));
+        // This feature name check only applies to devices that first shipped with
+        // SC or later.
+        if (PropertyUtil.getFirstApiLevel(getDevice()) >= 31) {
+            assumeTrue("Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.",
+                    getDevice().hasFeature("feature:android.hardware.security.model.compatible"));
+        }
     }
 
     private boolean isAutomotiveDevice() throws Exception {

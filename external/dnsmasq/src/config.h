@@ -69,7 +69,7 @@
 #define DHCP_CLIENT_ALTPORT 1068
 #define LOG_MAX 5 /* log-queue length */
 #define RANDFILE "/dev/urandom"
-#define DAD_WAIT 20 /* retry binding IPv6 sockets for this long */
+#define DAD_WAIT 1 /* retry binding IPv6 sockets for this long */
 
 /* A small collection of RR-types which are missing on some platforms */
 

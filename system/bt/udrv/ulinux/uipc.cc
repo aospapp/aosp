@@ -365,7 +365,7 @@ static void uipc_flush_ch_locked(tUIPC_STATE& uipc, tUIPC_CH_ID ch_id) {
 
     /* read sufficiently large buffer to ensure flush empties socket faster than
        it is getting refilled */
-    read(pfd.fd, &buf, UIPC_FLUSH_BUFFER_SIZE);
+    (void)read(pfd.fd, &buf, UIPC_FLUSH_BUFFER_SIZE);
   }
 }
 
@@ -485,7 +485,7 @@ int uipc_start_main_server_thread(tUIPC_STATE& uipc) {
   uipc.running = 1;
 
   if (pthread_create(&uipc.tid, (const pthread_attr_t*)NULL, uipc_read_task,
-                     &uipc) < 0) {
+                     &uipc) != 0) {
     BTIF_TRACE_ERROR("uipc_thread_create pthread_create failed:%d", errno);
     return -1;
   }

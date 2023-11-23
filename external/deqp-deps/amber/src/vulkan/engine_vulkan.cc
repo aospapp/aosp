@@ -28,6 +28,9 @@ namespace amber {
 namespace vulkan {
 namespace {
 
+const uint32_t kTrianglesPerCell = 2;
+const uint32_t kVerticesPerTriangle = 3;
+
 Result ToVkShaderStage(ShaderType type, VkShaderStageFlagBits* ret) {
   switch (type) {
     case kShaderTypeGeometry:
@@ -76,17 +79,11 @@ bool AreAllExtensionsSupported(
 EngineVulkan::EngineVulkan() : Engine() {}
 
 EngineVulkan::~EngineVulkan() {
-  for (auto it = pipeline_map_.begin(); it != pipeline_map_.end(); ++it) {
-    auto& info = it->second;
-
-    for (auto mod_it = info.shader_info.begin();
-         mod_it != info.shader_info.end(); ++mod_it) {
-      auto vk_device = device_->GetVkDevice();
-      if (vk_device != VK_NULL_HANDLE &&
-          mod_it->second.shader != VK_NULL_HANDLE) {
-        device_->GetPtrs()->vkDestroyShaderModule(
-            vk_device, mod_it->second.shader, nullptr);
-      }
+  auto vk_device = device_->GetVkDevice();
+  if (vk_device != VK_NULL_HANDLE) {
+    for (auto shader : shaders_) {
+      device_->GetPtrs()->vkDestroyShaderModule(vk_device, shader.second,
+                                                nullptr);
     }
   }
 }
@@ -143,25 +140,23 @@ Result EngineVulkan::CreatePipeline(amber::Pipeline* pipeline) {
   auto& info = pipeline_map_[pipeline];
 
   for (const auto& shader_info : pipeline->GetShaders()) {
-    Result r =
-        SetShader(pipeline, shader_info.GetShaderType(), shader_info.GetData());
+    Result r = SetShader(pipeline, shader_info);
     if (!r.IsSuccess())
       return r;
   }
 
   for (const auto& colour_info : pipeline->GetColorAttachments()) {
     auto fmt = colour_info.buffer->GetFormat();
-    if (!device_->IsFormatSupportedByPhysicalDevice(*fmt, colour_info.buffer))
+    if (!device_->IsFormatSupportedByPhysicalDevice(*fmt, colour_info.type))
       return Result("Vulkan color attachment format is not supported");
   }
 
-  Format* depth_fmt = nullptr;
-  if (pipeline->GetDepthBuffer().buffer) {
-    const auto& depth_info = pipeline->GetDepthBuffer();
+  if (pipeline->GetDepthStencilBuffer().buffer) {
+    const auto& depth_stencil_info = pipeline->GetDepthStencilBuffer();
 
-    depth_fmt = depth_info.buffer->GetFormat();
-    if (!device_->IsFormatSupportedByPhysicalDevice(*depth_fmt,
-                                                    depth_info.buffer)) {
+    auto fmt = depth_stencil_info.buffer->GetFormat();
+    if (!device_->IsFormatSupportedByPhysicalDevice(*fmt,
+                                                    depth_stencil_info.type)) {
       return Result("Vulkan depth attachment format is not supported");
     }
   }
@@ -181,8 +176,9 @@ Result EngineVulkan::CreatePipeline(amber::Pipeline* pipeline) {
       return r;
   } else {
     vk_pipeline = MakeUnique<GraphicsPipeline>(
-        device_.get(), pipeline->GetColorAttachments(), depth_fmt,
-        engine_data.fence_timeout_ms, stage_create_info);
+        device_.get(), pipeline->GetColorAttachments(),
+        pipeline->GetDepthStencilBuffer(), engine_data.fence_timeout_ms,
+        stage_create_info);
 
     r = vk_pipeline->AsGraphics()->Initialize(pipeline->GetFramebufferWidth(),
                                               pipeline->GetFramebufferHeight(),
@@ -207,13 +203,15 @@ Result EngineVulkan::CreatePipeline(amber::Pipeline* pipeline) {
 
   for (const auto& vtex_info : pipeline->GetVertexBuffers()) {
     auto fmt = vtex_info.buffer->GetFormat();
-    if (!device_->IsFormatSupportedByPhysicalDevice(*fmt, vtex_info.buffer))
+    if (!device_->IsFormatSupportedByPhysicalDevice(*fmt, vtex_info.type))
       return Result("Vulkan vertex buffer format is not supported");
     if (!info.vertex_buffer)
       info.vertex_buffer = MakeUnique<VertexBuffer>(device_.get());
 
     info.vertex_buffer->SetData(static_cast<uint8_t>(vtex_info.location),
-                                vtex_info.buffer);
+                                vtex_info.buffer, vtex_info.input_rate,
+                                vtex_info.format, vtex_info.offset,
+                                vtex_info.stride);
   }
 
   if (pipeline->GetIndexBuffer()) {
@@ -230,20 +228,53 @@ Result EngineVulkan::CreatePipeline(amber::Pipeline* pipeline) {
 
   for (const auto& buf_info : pipeline->GetBuffers()) {
     auto type = BufferCommand::BufferType::kSSBO;
-    if (buf_info.buffer->GetBufferType() == BufferType::kUniform) {
+    if (buf_info.type == BufferType::kStorageImage) {
+      type = BufferCommand::BufferType::kStorageImage;
+    } else if (buf_info.type == BufferType::kSampledImage) {
+      type = BufferCommand::BufferType::kSampledImage;
+    } else if (buf_info.type == BufferType::kCombinedImageSampler) {
+      type = BufferCommand::BufferType::kCombinedImageSampler;
+    } else if (buf_info.type == BufferType::kUniformTexelBuffer) {
+      type = BufferCommand::BufferType::kUniformTexelBuffer;
+    } else if (buf_info.type == BufferType::kStorageTexelBuffer) {
+      type = BufferCommand::BufferType::kStorageTexelBuffer;
+    } else if (buf_info.type == BufferType::kUniform) {
       type = BufferCommand::BufferType::kUniform;
-    } else if (buf_info.buffer->GetBufferType() != BufferType::kStorage) {
+    } else if (buf_info.type == BufferType::kUniformDynamic) {
+      type = BufferCommand::BufferType::kUniformDynamic;
+    } else if (buf_info.type == BufferType::kStorageDynamic) {
+      type = BufferCommand::BufferType::kSSBODynamic;
+    } else if (buf_info.type != BufferType::kStorage) {
       return Result("Vulkan: CreatePipeline - unknown buffer type: " +
-                    std::to_string(static_cast<uint32_t>(
-                        buf_info.buffer->GetBufferType())));
+                    std::to_string(static_cast<uint32_t>(buf_info.type)));
     }
 
     auto cmd = MakeUnique<BufferCommand>(type, pipeline);
     cmd->SetDescriptorSet(buf_info.descriptor_set);
     cmd->SetBinding(buf_info.binding);
+    cmd->SetBaseMipLevel(buf_info.base_mip_level);
+    cmd->SetDynamicOffset(buf_info.dynamic_offset);
     cmd->SetBuffer(buf_info.buffer);
+    cmd->SetSampler(buf_info.sampler);
 
-    r = info.vk_pipeline->AddDescriptor(cmd.get());
+    if (cmd->GetValues().empty()) {
+      cmd->GetBuffer()->SetSizeInElements(cmd->GetBuffer()->ElementCount());
+    } else {
+      cmd->GetBuffer()->SetDataWithOffset(cmd->GetValues(), cmd->GetOffset());
+    }
+
+    r = info.vk_pipeline->AddBufferDescriptor(cmd.get());
+    if (!r.IsSuccess())
+      return r;
+  }
+
+  for (const auto& sampler_info : pipeline->GetSamplers()) {
+    auto cmd = MakeUnique<SamplerCommand>(pipeline);
+    cmd->SetDescriptorSet(sampler_info.descriptor_set);
+    cmd->SetBinding(sampler_info.binding);
+    cmd->SetSampler(sampler_info.sampler);
+
+    r = info.vk_pipeline->AddSamplerDescriptor(cmd.get());
     if (!r.IsSuccess())
       return r;
   }
@@ -252,31 +283,75 @@ Result EngineVulkan::CreatePipeline(amber::Pipeline* pipeline) {
 }
 
 Result EngineVulkan::SetShader(amber::Pipeline* pipeline,
-                               ShaderType type,
-                               const std::vector<uint32_t>& data) {
+                               const amber::Pipeline::ShaderInfo& shader) {
+  const auto type = shader.GetShaderType();
+  const auto& data = shader.GetData();
+  const auto shader_name = shader.GetShader()->GetName();
   auto& info = pipeline_map_[pipeline];
 
   auto it = info.shader_info.find(type);
   if (it != info.shader_info.end())
     return Result("Vulkan::Setting Duplicated Shader Types Fail");
 
-  VkShaderModuleCreateInfo create_info = VkShaderModuleCreateInfo();
-  create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  create_info.codeSize = data.size() * sizeof(uint32_t);
-  create_info.pCode = data.data();
+  VkShaderModule shader_module;
+  if (shaders_.find(shader_name) != shaders_.end()) {
+    shader_module = shaders_[shader_name];
+  } else {
+    VkShaderModuleCreateInfo create_info = VkShaderModuleCreateInfo();
+    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    create_info.codeSize = data.size() * sizeof(uint32_t);
+    create_info.pCode = data.data();
 
-  VkShaderModule shader;
-  if (device_->GetPtrs()->vkCreateShaderModule(device_->GetVkDevice(),
-                                               &create_info, nullptr,
-                                               &shader) != VK_SUCCESS) {
-    return Result("Vulkan::Calling vkCreateShaderModule Fail");
+    if (device_->GetPtrs()->vkCreateShaderModule(
+            device_->GetVkDevice(), &create_info, nullptr, &shader_module) !=
+        VK_SUCCESS) {
+      return Result("Vulkan::Calling vkCreateShaderModule Fail");
+    }
+
+    shaders_[shader_name] = shader_module;
   }
 
-  info.shader_info[type].shader = shader;
+  info.shader_info[type].shader = shader_module;
 
   for (auto& shader_info : pipeline->GetShaders()) {
     if (shader_info.GetShaderType() != type)
       continue;
+
+    const auto required_subgroup_size_setting =
+        shader_info.GetRequiredSubgroupSizeSetting();
+    uint32_t required_subgroup_size_uint = 0;
+    switch (required_subgroup_size_setting) {
+      case amber::Pipeline::ShaderInfo::RequiredSubgroupSizeSetting::
+          kSetToMinimumSize:
+        required_subgroup_size_uint = device_->GetMinSubgroupSize();
+        break;
+      case amber::Pipeline::ShaderInfo::RequiredSubgroupSizeSetting::
+          kSetToMaximumSize:
+        required_subgroup_size_uint = device_->GetMaxSubgroupSize();
+        break;
+      default:
+        required_subgroup_size_uint = shader_info.GetRequiredSubgroupSize();
+        break;
+    }
+    if (required_subgroup_size_uint > 0) {
+      if (!device_->IsRequiredSubgroupSizeSupported(
+              type, required_subgroup_size_uint)) {
+        return Result(
+            "Vulkan::Setting Required subgroup size is not supported by the "
+            "device.");
+      }
+    }
+    info.shader_info[type].required_subgroup_size = required_subgroup_size_uint;
+
+    info.shader_info[type].create_flags = 0;
+    if (shader_info.GetVaryingSubgroupSize()) {
+      info.shader_info[type].create_flags |=
+          VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT_EXT;
+    }
+    if (shader_info.GetRequireFullSubgroups()) {
+      info.shader_info[type].create_flags |=
+          VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT_EXT;
+    }
 
     const auto& shader_spec_info = shader_info.GetSpecialization();
     if (shader_spec_info.empty())
@@ -322,6 +397,7 @@ Result EngineVulkan::GetVkShaderStageInfo(
     stage_info[stage_count] = VkPipelineShaderStageCreateInfo();
     stage_info[stage_count].sType =
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stage_info[stage_count].flags = it.second.create_flags;
     stage_info[stage_count].stage = stage;
     stage_info[stage_count].module = it.second.shader;
     stage_info[stage_count].pName = nullptr;
@@ -329,6 +405,17 @@ Result EngineVulkan::GetVkShaderStageInfo(
         !it.second.specialization_entries->empty()) {
       stage_info[stage_count].pSpecializationInfo =
           it.second.specialization_info.get();
+    }
+
+    if (stage == VK_SHADER_STAGE_COMPUTE_BIT &&
+        it.second.required_subgroup_size > 0) {
+      VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT* pSubgroupSize =
+          new VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT();
+      pSubgroupSize->sType =
+          VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT;  // NOLINT(whitespace/line_length)
+      pSubgroupSize->pNext = nullptr;
+      pSubgroupSize->requiredSubgroupSize = it.second.required_subgroup_size;
+      stage_info[stage_count].pNext = pSubgroupSize;
     }
     ++stage_count;
   }
@@ -417,13 +504,101 @@ Result EngineVulkan::DoDrawRect(const DrawRectCommand* command) {
   buf->SetData(std::move(values));
 
   auto vertex_buffer = MakeUnique<VertexBuffer>(device_.get());
-  vertex_buffer->SetData(0, buf.get());
+  vertex_buffer->SetData(0, buf.get(), InputRate::kVertex, buf->GetFormat(), 0,
+                         buf->GetFormat()->SizeInBytes());
 
   DrawArraysCommand draw(command->GetPipeline(), *command->GetPipelineData());
   draw.SetTopology(command->IsPatch() ? Topology::kPatchList
                                       : Topology::kTriangleStrip);
   draw.SetFirstVertexIndex(0);
   draw.SetVertexCount(4);
+  draw.SetInstanceCount(1);
+
+  Result r = graphics->Draw(&draw, vertex_buffer.get());
+  if (!r.IsSuccess())
+    return r;
+
+  return {};
+}
+
+Result EngineVulkan::DoDrawGrid(const DrawGridCommand* command) {
+  auto& info = pipeline_map_[command->GetPipeline()];
+  if (!info.vk_pipeline->IsGraphics())
+    return Result("Vulkan::DrawGrid for Non-Graphics Pipeline");
+
+  auto* graphics = info.vk_pipeline->AsGraphics();
+
+  float x = command->GetX();
+  float y = command->GetY();
+  float width = command->GetWidth();
+  float height = command->GetHeight();
+  const uint32_t columns = command->GetColumns();
+  const uint32_t rows = command->GetRows();
+  const uint32_t vertices =
+      columns * rows * kVerticesPerTriangle * kTrianglesPerCell;
+
+  // Ortho calculation
+  const float frame_width = static_cast<float>(graphics->GetWidth());
+  const float frame_height = static_cast<float>(graphics->GetHeight());
+  x = ((x / frame_width) * 2.0f) - 1.0f;
+  y = ((y / frame_height) * 2.0f) - 1.0f;
+  width = (width / frame_width) * 2.0f;
+  height = (height / frame_height) * 2.0f;
+
+  std::vector<Value> values(vertices * 2);
+
+  const float cell_width = width / static_cast<float>(columns);
+  const float cell_height = height / static_cast<float>(rows);
+
+  for (uint32_t i = 0, c = 0; i < rows; i++) {
+    for (uint32_t j = 0; j < columns; j++, c += 12) {
+      // Calculate corners
+      float x0 = x + cell_width * static_cast<float>(j);
+      float y0 = y + cell_height * static_cast<float>(i);
+      float x1 = x + cell_width * static_cast<float>(j + 1);
+      float y1 = y + cell_height * static_cast<float>(i + 1);
+
+      // Bottom right
+      values[c + 0].SetDoubleValue(static_cast<double>(x1));
+      values[c + 1].SetDoubleValue(static_cast<double>(y1));
+      // Bottom left
+      values[c + 2].SetDoubleValue(static_cast<double>(x0));
+      values[c + 3].SetDoubleValue(static_cast<double>(y1));
+      // Top left
+      values[c + 4].SetDoubleValue(static_cast<double>(x0));
+      values[c + 5].SetDoubleValue(static_cast<double>(y0));
+      // Bottom right
+      values[c + 6].SetDoubleValue(static_cast<double>(x1));
+      values[c + 7].SetDoubleValue(static_cast<double>(y1));
+      // Top left
+      values[c + 8].SetDoubleValue(static_cast<double>(x0));
+      values[c + 9].SetDoubleValue(static_cast<double>(y0));
+      // Top right
+      values[c + 10].SetDoubleValue(static_cast<double>(x1));
+      values[c + 11].SetDoubleValue(static_cast<double>(y0));
+    }
+  }
+
+  // |format| is not Format for frame buffer but for vertex buffer.
+  // Since draw rect command contains its vertex information and it
+  // does not include a format of vertex buffer, we can choose any
+  // one that is suitable. We use VK_FORMAT_R32G32_SFLOAT for it.
+  TypeParser parser;
+  auto type = parser.Parse("R32G32_SFLOAT");
+  Format fmt(type.get());
+
+  auto buf = MakeUnique<Buffer>();
+  buf->SetFormat(&fmt);
+  buf->SetData(std::move(values));
+
+  auto vertex_buffer = MakeUnique<VertexBuffer>(device_.get());
+  vertex_buffer->SetData(0, buf.get(), InputRate::kVertex, buf->GetFormat(), 0,
+                         buf->GetFormat()->SizeInBytes());
+
+  DrawArraysCommand draw(command->GetPipeline(), *command->GetPipelineData());
+  draw.SetTopology(Topology::kTriangleList);
+  draw.SetFirstVertexIndex(0);
+  draw.SetVertexCount(vertices);
   draw.SetInstanceCount(1);
 
   Result r = graphics->Draw(&draw, vertex_buffer.get());
@@ -482,8 +657,17 @@ Result EngineVulkan::DoBuffer(const BufferCommand* cmd) {
         "Vulkan::DoBuffer exceed maxBoundDescriptorSets limit of physical "
         "device");
   }
-  auto& info = pipeline_map_[cmd->GetPipeline()];
-  return info.vk_pipeline->AddDescriptor(cmd);
+  if (cmd->GetValues().empty()) {
+    cmd->GetBuffer()->SetSizeInElements(cmd->GetBuffer()->ElementCount());
+  } else {
+    cmd->GetBuffer()->SetDataWithOffset(cmd->GetValues(), cmd->GetOffset());
+  }
+  if (cmd->IsPushConstant()) {
+    auto& info = pipeline_map_[cmd->GetPipeline()];
+    return info.vk_pipeline->AddPushConstantBuffer(cmd->GetBuffer(),
+                                                   cmd->GetOffset());
+  }
+  return {};
 }
 
 }  // namespace vulkan

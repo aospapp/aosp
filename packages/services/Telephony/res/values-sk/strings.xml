@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Nastavenia hlasovej schránky môže zmeniť iba primárny používateľ."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"SIM karta bola odblokovaná. Prebieha odomykanie telefónu..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"Kód PIN odomknutia siete pre SIM kartu"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"SIM karta je uzamknutá pre operátora"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Odomknúť"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Zatvoriť"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Žiadosť o odomknutie siete..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Presmerovanie na <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Vypnuté"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Váš operátor neumožňuje zakázanie presmerovaní, keď je telefón nedostupný."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Váš operátor nepodporuje presmerovanie hovorov."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Chcete zapnúť funkciu Čakajúci hovor?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Počas hovoru budete dostávať upozornenia na prichádzajúce hovory"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Zapnúť"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Zrušiť"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"CDMA – čakajúci hovor službe IMS – zapnuté"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA – čakajúci hovor v službe IMS – vypnuté"</string>
     <string name="updating_title" msgid="6130548922615719689">"Nastavenia hovorov"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Nastavenia hovorov môže zmeniť iba používateľ s povoleniami správcu."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Nastavenia (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -171,7 +179,7 @@
     <string name="network_query_error" msgid="3862515805115145124">"Nepodarilo sa nájsť siete. Skúste to znova."</string>
     <string name="register_on_network" msgid="4194770527833960423">"Prebieha registrácia v sieti <xliff:g id="NETWORK">%s</xliff:g>..."</string>
     <string name="not_allowed" msgid="8541221928746104798">"Vaša SIM karta nepovoľuje pripojenie k tejto sieti."</string>
-    <string name="connect_later" msgid="1950138106010005425">"V tejto chvíli sa nedá pripojiť k sieti. Skúste to znova neskôr."</string>
+    <string name="connect_later" msgid="1950138106010005425">"V tejto chvíli sa nedá pripojiť k sieti. Skúste to neskôr."</string>
     <string name="registration_done" msgid="5337407023566953292">"Prihlásenie k sieti prebehlo úspešne."</string>
     <string name="already_auto" msgid="8607068290733079336">"Už v automatickom výbere"</string>
     <string name="select_automatically" msgid="779750291257872651">"Vybrať sieť automaticky"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Obmedzená funkčnosť SIM karty"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Hovory a dátové služby operátora <xliff:g id="CARRIER_NAME">%1$s</xliff:g> môžu byť zablokované, keď používate číslo <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Hovory a dátové služby operátora <xliff:g id="CARRIER_NAME">%1$s</xliff:g> môžu byť s inou SIM kartou blokované."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Boli nájdené a odstránené účty SIP s ukončenou podporou"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Platforma Androidu už nepodporuje volanie SIP.\nVaše existujúce účty SIP <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> boli odstránené.\nPotvrďte svoje predvolené nastavenie účtu na volanie."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Prejsť do nastavení"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Spotreba dát aplikácií"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"Spotreba mobilných dát za obdobie <xliff:g id="ID_2">%2$s</xliff:g> je <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Rozšírené"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Heslo je nesprávne. SIM karta bola uzamknutá. Zadajte kód PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"Kód PUK2 je natrvalo blokovaný."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Zostávajú vám pokusy (počet: <xliff:g id="NUMBER">%d</xliff:g>)"</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"SIM karta je blokovaná kódom PUK2. Ak ju chcete odblokovať, kontaktujte poskytovateľa služieb."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"Kód PIN2 už nie je blokovaný"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Došlo k chybe siete alebo SIM karty"</string>
     <string name="doneButton" msgid="7371209609238460207">"Hotovo"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Ak chcete volať, zapnite mobilnú sieť a vypnite režim v lietadle alebo režim šetriča batérie."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Ak chcete volať, vypnite režim v lietadle"</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Ak chcete volať, vypnite režim v lietadle alebo sa pripojte k bezdrôtovej sieti"</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Telefón sa príliš zahrial"</b>\n\n"Tento hovor sa nedá uskutočniť. Skúste to znova, keď telefón vychladne.\n\nTiesňové volania môžete uskutočňovať aj naďalej."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Ak chcete volať štandardným spôsobom, ukončite režim tiesňového spätného volania."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Prihlásenie do siete nebolo úspešné."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Mobilná sieť nie je k dispozícii."</string>
@@ -873,7 +886,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"Podradený identifikátor predvolenej dátovej SIM karty:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Rýchlosť pripojenia DL (kB/s):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Rýchlosť pripojenia UL (kB/s):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Informácie o polohe mobilnej siete (podpora bola ukončená):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Konfigurácia fyzického kanála LTE:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Frekvencia obnovenia informácií o mobilnej sieti:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Všetky informácie o meraní mobilnej siete:"</string>
@@ -904,6 +916,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Obnoviť"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Prepnúť kontrolu DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Informácie alebo nastavenia špecifické pre výrobcu OEM"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"Dostupné EN-DC:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"Obmedzené DCNR:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"Dostupné NR:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"Stav NR:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Frekvencia NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Nastaviť režim rádiového pásma"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Načítava sa zoznam pásiem…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Nastaviť"</string>
@@ -913,4 +930,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Informácie o telefóne"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Informácie o poskytovaní služieb operátorom"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Spustiť poskytovanie služieb operátorom"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Signál Bluetooth je slabý. Skúste prepnúť na reproduktor."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Upozornenie o kvalite hovoru"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Účty SIP s ukončenou podporou"</string>
 </resources>

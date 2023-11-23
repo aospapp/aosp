@@ -28,7 +28,7 @@ struct AidlInterfaceMetadata {
   // stability of interface (e.g. "vintf")
   std::string stability;
 
-  // list of types e.g. android.hardware.foo::IFoo
+  // list of types e.g. android.hardware.foo.IFoo
   std::vector<std::string> types;
 
   // list of all hashes

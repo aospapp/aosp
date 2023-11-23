@@ -33,6 +33,23 @@ public class ClassSymbol implements Symbol {
   public static final ClassSymbol STRING = new ClassSymbol("java/lang/String");
   public static final ClassSymbol ENUM = new ClassSymbol("java/lang/Enum");
   public static final ClassSymbol ANNOTATION = new ClassSymbol("java/lang/annotation/Annotation");
+  public static final ClassSymbol INHERITED = new ClassSymbol("java/lang/annotation/Inherited");
+  public static final ClassSymbol CLONEABLE = new ClassSymbol("java/lang/Cloneable");
+  public static final ClassSymbol SERIALIZABLE = new ClassSymbol("java/io/Serializable");
+  public static final ClassSymbol DEPRECATED = new ClassSymbol("java/lang/Deprecated");
+  public static final ClassSymbol PROFILE_ANNOTATION = new ClassSymbol("jdk/Profile+Annotation");
+  public static final ClassSymbol PROPRIETARY_ANNOTATION =
+      new ClassSymbol("sun/Proprietary+Annotation");
+  public static final ClassSymbol ERROR = new ClassSymbol("<error>");
+
+  public static final ClassSymbol CHARACTER = new ClassSymbol("java/lang/Character");
+  public static final ClassSymbol SHORT = new ClassSymbol("java/lang/Short");
+  public static final ClassSymbol INTEGER = new ClassSymbol("java/lang/Integer");
+  public static final ClassSymbol LONG = new ClassSymbol("java/lang/Long");
+  public static final ClassSymbol FLOAT = new ClassSymbol("java/lang/Float");
+  public static final ClassSymbol DOUBLE = new ClassSymbol("java/lang/Double");
+  public static final ClassSymbol BOOLEAN = new ClassSymbol("java/lang/Boolean");
+  public static final ClassSymbol BYTE = new ClassSymbol("java/lang/Byte");
 
   private final String className;
 
@@ -63,5 +80,18 @@ public class ClassSymbol implements Symbol {
   @Override
   public Kind symKind() {
     return Kind.CLASS;
+  }
+
+  public String simpleName() {
+    return binaryName().substring(binaryName().lastIndexOf('/') + 1);
+  }
+
+  public String packageName() {
+    int idx = binaryName().lastIndexOf('/');
+    return idx != -1 ? binaryName().substring(0, idx) : "";
+  }
+
+  public PackageSymbol owner() {
+    return new PackageSymbol(packageName());
   }
 }

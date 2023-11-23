@@ -20,7 +20,7 @@ def run_TS(machine):
         'cheets_GTS',
         hosts=host_list,
         iterations=1,
-        max_retry=2,
+        max_retry=5,
         tag='GtsExoPlayerTestCases',
         test_name='cheets_GTS.GtsExoPlayerTestCases',
         run_template=['run', 'commandAndExit', 'gts', '--module', 'GtsExoPlayerTestCases', '--ignore-business-logic-failure'],
@@ -28,6 +28,7 @@ def run_TS(machine):
         target_module='GtsExoPlayerTestCases',
         target_plan=None,
         retry_manual_tests=True,
+        use_jdk9=True,
         warn_on_test_retry=False,
         timeout=5400)
 

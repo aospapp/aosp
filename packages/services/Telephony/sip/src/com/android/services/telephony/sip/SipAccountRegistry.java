@@ -16,8 +16,12 @@
 
 package com.android.services.telephony.sip;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
-import android.net.sip.SipException;
+import android.content.Intent;
 import android.net.sip.SipManager;
 import android.net.sip.SipProfile;
 import android.telecom.PhoneAccount;
@@ -25,9 +29,13 @@ import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.util.Log;
 
+import com.android.phone.R;
+
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 /**
  * Manages the {@link PhoneAccount} entries for SIP calling.
@@ -42,41 +50,6 @@ public final class SipAccountRegistry {
 
         SipProfile getProfile() {
             return mProfile;
-        }
-
-        /**
-         * Starts the SIP service associated with the SIP profile.
-         *
-         * @param sipManager The SIP manager.
-         * @param context The context.
-         * @param isReceivingCalls {@code True} if the sip service is being started to make and
-         *          receive calls.  {@code False} if the sip service is being started only for
-         *          outgoing calls.
-         * @return {@code True} if the service started successfully.
-         */
-        boolean startSipService(SipManager sipManager, Context context, boolean isReceivingCalls) {
-            if (VERBOSE) log("startSipService, profile: " + mProfile);
-            try {
-                // Stop the Sip service for the profile if it is already running.  This is important
-                // if we are changing the state of the "receive calls" option.
-                sipManager.close(mProfile.getUriString());
-
-                // Start the sip service for the profile.
-                if (isReceivingCalls) {
-                    sipManager.open(
-                            mProfile,
-                            SipUtil.createIncomingCallPendingIntent(context,
-                                    mProfile.getProfileName()),
-                            null);
-                } else {
-                    sipManager.open(mProfile);
-                }
-                return true;
-            } catch (SipException e) {
-                log("startSipService, profile: " + mProfile.getProfileName() +
-                        ", exception: " + e);
-            }
-            return false;
         }
 
         /**
@@ -102,8 +75,15 @@ public final class SipAccountRegistry {
     private static final String PREFIX = "[SipAccountRegistry] ";
     private static final boolean VERBOSE = false; /* STOP SHIP if true */
     private static final SipAccountRegistry INSTANCE = new SipAccountRegistry();
+    private static final String NOTIFICATION_TAG = SipAccountRegistry.class.getSimpleName();
+    private static final int SIP_ACCOUNTS_REMOVED_NOTIFICATION_ID = 1;
+
+    private static final String CHANNEL_ID_SIP_ACCOUNTS_REMOVED = "sipAccountsRemoved";
 
     private final List<AccountEntry> mAccounts = new CopyOnWriteArrayList<>();
+
+    private NotificationChannel mNotificationChannel;
+    private NotificationManager mNm;
 
     private SipAccountRegistry() {}
 
@@ -115,8 +95,20 @@ public final class SipAccountRegistry {
      * Sets up the Account registry and performs any upgrade operations before it is used.
      */
     public void setup(Context context) {
+        setupNotificationChannel(context);
         verifyAndPurgeInvalidPhoneAccounts(context);
-        startSipProfilesAsync(context, (String) null, false);
+        startSipProfilesAsync(context);
+    }
+
+    private void setupNotificationChannel(Context context) {
+        mNotificationChannel = new NotificationChannel(
+                CHANNEL_ID_SIP_ACCOUNTS_REMOVED,
+                context.getText(R.string.notification_channel_sip_account),
+                NotificationManager.IMPORTANCE_HIGH);
+        mNm = context.getSystemService(NotificationManager.class);
+        if (mNm != null) {
+            mNm.createNotificationChannel(mNotificationChannel);
+        }
     }
 
     /**
@@ -149,8 +141,8 @@ public final class SipAccountRegistry {
      * @param sipProfileName The name of the {@link SipProfile} to start, or {@code null} for all.
      * @param enableProfile Sip account should be enabled
      */
-    void startSipService(Context context, String sipProfileName, boolean enableProfile) {
-        startSipProfilesAsync(context, sipProfileName, enableProfile);
+    void startSipService(Context context, String sipProfileName, boolean enabledProfile) {
+        startSipProfilesAsync(context);
     }
 
     /**
@@ -193,33 +185,20 @@ public final class SipAccountRegistry {
     }
 
     /**
-     * Causes the SIP service to be restarted for all {@link SipProfile}s.  For example, if the user
-     * toggles the "receive calls" option for SIP, this method handles restarting the SIP services
-     * in the new mode.
-     *
-     * @param context The context.
-     */
-    public void restartSipService(Context context) {
-        startSipProfiles(context, null, false);
-    }
-
-    /**
      * Performs an asynchronous call to
      * {@link SipAccountRegistry#startSipProfiles(android.content.Context, String)}, starting the
      * specified SIP profile and registering its {@link android.telecom.PhoneAccount}.
      *
      * @param context The context.
-     * @param sipProfileName Name of the SIP profile.
-     * @param enableProfile Sip account should be enabled.
      */
     private void startSipProfilesAsync(
-            final Context context, final String sipProfileName, final boolean enableProfile) {
+            final Context context) {
         if (VERBOSE) log("startSipProfiles, start auto registration");
 
         new Thread(new Runnable() {
             @Override
             public void run() {
-                startSipProfiles(context, sipProfileName, enableProfile);
+                startSipProfiles(context);
             }}
         ).start();
     }
@@ -230,48 +209,54 @@ public final class SipAccountRegistry {
      * register the associated SIP account.
      *
      * @param context The context.
-     * @param sipProfileName A specific SIP profile Name to start, or {@code null} to start all.
-     * @param enableProfile Sip account should be enabled.
      */
-    private void startSipProfiles(Context context, String sipProfileName, boolean enableProfile) {
-        final SipPreferences sipPreferences = new SipPreferences(context);
-        boolean isReceivingCalls = sipPreferences.isReceivingCallsEnabled();
-        TelecomManager telecomManager = context.getSystemService(TelecomManager.class);
-        SipManager sipManager = SipManager.newInstance(context);
+    private void startSipProfiles(Context context) {
         SipProfileDb profileDb = new SipProfileDb(context);
         List<SipProfile> sipProfileList = profileDb.retrieveSipProfileList();
 
-        for (SipProfile profile : sipProfileList) {
-            // Register a PhoneAccount for the profile and optionally enable the primary
-            // profile.
-            if (sipProfileName == null || sipProfileName.equals(profile.getProfileName())) {
-                PhoneAccount phoneAccount = SipUtil.createPhoneAccount(context, profile);
-                telecomManager.registerPhoneAccount(phoneAccount);
-                if (enableProfile) {
-                    telecomManager.enablePhoneAccount(phoneAccount.getAccountHandle(), true);
+        // If there're SIP profiles existing in DB, display a notification and delete all these
+        // profiles.
+        if (!sipProfileList.isEmpty()) {
+            for (SipProfile profile : sipProfileList) {
+                stopSipService(context, profile.getProfileName());
+                removeSipProfile(profile.getProfileName());
+                try {
+                    profileDb.deleteProfile(profile);
+                } catch (IOException e) {
+                    // Ignore
                 }
-                startSipServiceForProfile(profile, sipManager, context, isReceivingCalls);
             }
+            sendSipAccountsRemovedNotification(context, sipProfileList);
         }
     }
 
-    /**
-     * Starts the SIP service for a sip profile and saves a new {@code AccountEntry} in the
-     * registry.
-     *
-     * @param profile The {@link SipProfile} to start.
-     * @param sipManager The SIP manager.
-     * @param context The context.
-     * @param isReceivingCalls {@code True} if the profile should be started such that it can
-     *      receive incoming calls.
-     */
-    private void startSipServiceForProfile(SipProfile profile, SipManager sipManager,
-            Context context, boolean isReceivingCalls) {
-        removeSipProfile(profile.getUriString());
+    private void sendSipAccountsRemovedNotification(Context context, List<SipProfile> profiles) {
+        String sipAccounts = profiles.stream().map(p -> p.getProfileName())
+                .collect(Collectors.joining(","));
 
-        AccountEntry entry = new AccountEntry(profile);
-        if (entry.startSipService(sipManager, context, isReceivingCalls)) {
-            mAccounts.add(entry);
+        Intent intent = new Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS);
+        intent.setFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 0);
+
+        Notification.Action action = new Notification.Action.Builder(R.drawable.ic_sim_card,
+                context.getString(R.string.sip_accounts_removed_notification_action),
+                pendingIntent).build();
+        Notification.Builder builder = new Notification.Builder(context)
+                .setSmallIcon(R.drawable.ic_sim_card)
+                .setChannelId(CHANNEL_ID_SIP_ACCOUNTS_REMOVED)
+                .setContentTitle(context.getText(R.string.sip_accounts_removed_notification_title))
+                .setStyle(new Notification.BigTextStyle()
+                .bigText(context.getString(
+                        R.string.sip_accounts_removed_notification_message,
+                        sipAccounts)))
+                .setAutoCancel(true)
+                .addAction(action);
+        Notification notification = builder.build();
+        if (mNm != null) {
+            mNm.notify(NOTIFICATION_TAG, SIP_ACCOUNTS_REMOVED_NOTIFICATION_ID,
+                    notification);
+        } else {
+            log("NotificationManager is null when send the notification of removed SIP accounts");
         }
     }
 

@@ -136,6 +136,15 @@ class TestCParser_fundamentals(TestCParser_base):
             ['Decl', 'foo',
                 ['TypeDecl', ['IdentifierType', ['int']]]])
 
+    def test_initial_semi(self):
+        t = self.parse(';')
+        self.assertEqual(len(t.ext), 0)
+        t = self.parse(';int foo;')
+        self.assertEqual(len(t.ext), 1)
+        self.assertEqual(expand_decl(t.ext[0]),
+            ['Decl', 'foo',
+                ['TypeDecl', ['IdentifierType', ['int']]]])
+
     def test_coords(self):
         """ Tests the "coordinates" of parsed elements - file
             name, line and column numbers, with modification
@@ -413,6 +422,7 @@ class TestCParser_fundamentals(TestCParser_base):
                         ['TypeDecl', ['IdentifierType', ['int']]]]]])
 
     def test_func_decls_with_array_dim_qualifiers(self):
+        # named function parameter
         self.assertEqual(self.get_decl('int zz(int p[static 10]);'),
             ['Decl', 'zz',
                 ['FuncDecl',
@@ -439,6 +449,30 @@ class TestCParser_fundamentals(TestCParser_base):
             ['Decl', 'zz',
                 ['FuncDecl',
                     [['Decl', 'p', ['ArrayDecl', '10', ['const', 'restrict', 'static'],
+                        ['ArrayDecl', '5', [],
+                            ['TypeDecl', ['IdentifierType', ['int']]]]]]],
+                    ['TypeDecl', ['IdentifierType', ['int']]]]])
+
+        # unnamed function parameter
+        self.assertEqual(self.get_decl('int zz(int [const 10]);'),
+            ['Decl', 'zz',
+                ['FuncDecl',
+                    [['Typename', ['ArrayDecl', '10', ['const'],
+                                       ['TypeDecl', ['IdentifierType', ['int']]]]]],
+                    ['TypeDecl', ['IdentifierType', ['int']]]]])
+
+        self.assertEqual(self.get_decl('int zz(int [restrict][5]);'),
+            ['Decl', 'zz',
+                ['FuncDecl',
+                    [['Typename', ['ArrayDecl', '', ['restrict'],
+                        ['ArrayDecl', '5', [],
+                            ['TypeDecl', ['IdentifierType', ['int']]]]]]],
+                    ['TypeDecl', ['IdentifierType', ['int']]]]])
+
+        self.assertEqual(self.get_decl('int zz(int [const restrict volatile 10][5]);'),
+            ['Decl', 'zz',
+                ['FuncDecl',
+                    [['Typename', ['ArrayDecl', '10', ['const', 'restrict', 'volatile'],
                         ['ArrayDecl', '5', [],
                             ['TypeDecl', ['IdentifierType', ['int']]]]]]],
                     ['TypeDecl', ['IdentifierType', ['int']]]]])
@@ -495,6 +529,18 @@ class TestCParser_fundamentals(TestCParser_base):
                             ['IdentifierType', ['int']]]]]])
 
     def test_offsetof(self):
+        def expand_ref(n):
+            if isinstance(n, StructRef):
+                return ['StructRef', expand_ref(n.name), expand_ref(n.field)]
+            elif isinstance(n, ArrayRef):
+                return ['ArrayRef', expand_ref(n.name), expand_ref(n.subscript)]
+            elif isinstance(n, ID):
+                return ['ID', n.name]
+            elif isinstance(n, Constant):
+                return ['Constant', n.type, n.value]
+            else:
+                raise TypeError("Unexpected type " + n.__class__.__name__)
+
         e = """
             void foo() {
                 int a = offsetof(struct S, p);
@@ -512,8 +558,20 @@ class TestCParser_fundamentals(TestCParser_base):
         self.assertIsInstance(s1.args.exprs[1], ID)
         s3 = compound.block_items[2].init
         self.assertIsInstance(s3.args.exprs[1], StructRef)
+        self.assertEqual(expand_ref(s3.args.exprs[1]),
+            ['StructRef',
+                ['StructRef', ['ID', 'p'], ['ID', 'q']],
+                ['ID', 'r']])
         s4 = compound.block_items[3].init
         self.assertIsInstance(s4.args.exprs[1], ArrayRef)
+        self.assertEqual(expand_ref(s4.args.exprs[1]),
+            ['ArrayRef',
+                ['ArrayRef',
+                    ['StructRef',
+                        ['ArrayRef', ['ID', 'p'], ['Constant', 'int', '5']],
+                        ['ID', 'q']],
+                    ['Constant', 'int', '4']],
+                ['Constant', 'int', '5']])
 
     def test_compound_statement(self):
         e = """
@@ -827,6 +885,19 @@ class TestCParser_fundamentals(TestCParser_base):
                     ['Decl', 'c', ['TypeDecl', ['IdentifierType', ['float']]]],
                     ['Decl', 'd',
                         ['TypeDecl', ['IdentifierType', ['char']]]]]]]])
+
+    def test_struct_with_initial_semi(self):
+        s1 = """
+            struct {
+                ;int a;
+            } foo;
+        """
+        s1_ast = self.parse(s1)
+        self.assertEqual(expand_decl(s1_ast.ext[0]),
+            ['Decl', 'foo',
+                ['TypeDecl', ['Struct', None,
+                    [['Decl', 'a',
+                        ['TypeDecl', ['IdentifierType', ['int']]]]]]]])
 
     def test_anonymous_struct_union(self):
         s1 = """
@@ -1240,6 +1311,22 @@ class TestCParser_fundamentals(TestCParser_base):
         self.assertEqual(self.get_decl_init(d55),
             ['Constant', 'float', '0xDE.38p0'])
 
+        d6 = 'int i = 1;'
+        self.assertEqual(self.get_decl_init(d6),
+            ['Constant', 'int', '1'])
+
+        d61 = 'long int li = 1l;'
+        self.assertEqual(self.get_decl_init(d61),
+            ['Constant', 'long int', '1l'])
+
+        d62 = 'unsigned int ui = 1u;'
+        self.assertEqual(self.get_decl_init(d62),
+            ['Constant', 'unsigned int', '1u'])
+
+        d63 = 'unsigned long long int ulli = 1LLU;'
+        self.assertEqual(self.get_decl_init(d63),
+            ['Constant', 'unsigned long long int', '1LLU'])
+
     def test_decl_named_inits(self):
         d1 = 'int a = {.k = 16};'
         self.assertEqual(self.get_decl_init(d1),
@@ -1407,6 +1494,10 @@ class TestCParser_fundamentals(TestCParser_base):
             void main() {
                 #pragma foo
                 for(;;) {}
+                #pragma baz
+                {
+                    int i = 0;
+                }
                 #pragma
             }
             struct s {
@@ -1423,12 +1514,16 @@ class TestCParser_fundamentals(TestCParser_base):
         self.assertEqual(s1_ast.ext[1].body.block_items[0].coord.line, 4)
 
         self.assertIsInstance(s1_ast.ext[1].body.block_items[2], Pragma)
-        self.assertEqual(s1_ast.ext[1].body.block_items[2].string, '')
+        self.assertEqual(s1_ast.ext[1].body.block_items[2].string, 'baz')
         self.assertEqual(s1_ast.ext[1].body.block_items[2].coord.line, 6)
+
+        self.assertIsInstance(s1_ast.ext[1].body.block_items[4], Pragma)
+        self.assertEqual(s1_ast.ext[1].body.block_items[4].string, '')
+        self.assertEqual(s1_ast.ext[1].body.block_items[4].coord.line, 10)
 
         self.assertIsInstance(s1_ast.ext[2].type.type.decls[0], Pragma)
         self.assertEqual(s1_ast.ext[2].type.type.decls[0].string, 'baz')
-        self.assertEqual(s1_ast.ext[2].type.type.decls[0].coord.line, 9)
+        self.assertEqual(s1_ast.ext[2].type.type.decls[0].coord.line, 13)
 
     def test_pragmacomp_or_statement(self):
         s1 = r'''
@@ -1475,8 +1570,10 @@ class TestCParser_fundamentals(TestCParser_base):
         self.assertIsInstance(s1_ast.ext[0].body.block_items[4].iftrue.block_items[1], Assignment)
         self.assertIsInstance(s1_ast.ext[0].body.block_items[5], Switch)
         self.assertIsInstance(s1_ast.ext[0].body.block_items[5].stmt.stmts[0], Compound)
-        self.assertIsInstance(s1_ast.ext[0].body.block_items[5].stmt.stmts[0].block_items[0], Pragma)
-        self.assertIsInstance(s1_ast.ext[0].body.block_items[5].stmt.stmts[0].block_items[1], Assignment)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[5].stmt.stmts[0].block_items[0],
+                              Pragma)
+        self.assertIsInstance(s1_ast.ext[0].body.block_items[5].stmt.stmts[0].block_items[1],
+                              Assignment)
 
 
 class TestCParser_whole_code(TestCParser_base):
@@ -1719,6 +1816,7 @@ class TestCParser_whole_code(TestCParser_base):
         switch = ps1.ext[0].body.block_items[0]
 
         block = switch.stmt.block_items
+        self.assertEqual(len(block), 4)
         assert_case_node(block[0], '10')
         self.assertEqual(len(block[0].stmts), 3)
         assert_case_node(block[1], '20')
@@ -1746,6 +1844,7 @@ class TestCParser_whole_code(TestCParser_base):
         switch = ps2.ext[0].body.block_items[0]
 
         block = switch.stmt.block_items
+        self.assertEqual(len(block), 5)
         assert_default_node(block[0])
         self.assertEqual(len(block[0].stmts), 2)
         assert_case_node(block[1], '10')
@@ -1756,6 +1855,18 @@ class TestCParser_whole_code(TestCParser_base):
         self.assertEqual(len(block[1].stmts), 0)
         assert_case_node(block[4], '40')
         self.assertEqual(len(block[4].stmts), 1)
+
+        s3 = r'''
+        int foo(void) {
+            switch (myvar) {
+            }
+            return 0;
+        }
+        '''
+        ps3 = self.parse(s3)
+        switch = ps3.ext[0].body.block_items[0]
+
+        self.assertEqual(switch.stmt.block_items, [])
 
     def test_for_statement(self):
         s2 = r'''

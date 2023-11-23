@@ -26,10 +26,13 @@ public:
     bool hasOpPlayAudio() const;
 
     static sp<OpPlayAudioMonitor> createIfNeeded(
-            uid_t uid, const audio_attributes_t& attr, int id, audio_stream_type_t streamType);
+            const AttributionSourceState& attributionSource,
+            const audio_attributes_t& attr, int id,
+            audio_stream_type_t streamType);
 
 private:
-    OpPlayAudioMonitor(uid_t uid, audio_usage_t usage, int id);
+    OpPlayAudioMonitor(const AttributionSourceState& attributionSource,
+        audio_usage_t usage, int id);
     void onFirstRef() override;
     static void getPackagesForUid(uid_t uid, Vector<String16>& packages);
 
@@ -49,8 +52,7 @@ private:
     void checkPlayAudioForUsage();
 
     std::atomic_bool mHasOpPlayAudio;
-    Vector<String16> mPackages;
-    const uid_t mUid;
+    const AttributionSourceState mAttributionSource;
     const int32_t mUsage; // on purpose not audio_usage_t because always checked in appOps as int32_t
     const int mId; // for logging purposes only
 };
@@ -71,13 +73,14 @@ public:
                                 const sp<IMemory>& sharedBuffer,
                                 audio_session_t sessionId,
                                 pid_t creatorPid,
-                                uid_t uid,
+                                const AttributionSourceState& attributionSource,
                                 audio_output_flags_t flags,
                                 track_type type,
                                 audio_port_handle_t portId = AUDIO_PORT_HANDLE_NONE,
                                 /** default behaviour is to start when there are as many frames
                                   * ready as possible (aka. Buffer is full). */
-                                size_t frameCountToBeReady = SIZE_MAX);
+                                size_t frameCountToBeReady = SIZE_MAX,
+                                float speed = 1.0f);
     virtual             ~Track();
     virtual status_t    initCheck() const;
 
@@ -115,6 +118,12 @@ public:
             int         auxEffectId() const { return mAuxEffectId; }
     virtual status_t    getTimestamp(AudioTimestamp& timestamp);
             void        signal();
+            status_t    getDualMonoMode(audio_dual_mono_mode_t* mode);
+            status_t    setDualMonoMode(audio_dual_mono_mode_t mode);
+            status_t    getAudioDescriptionMixLevel(float* leveldB);
+            status_t    setAudioDescriptionMixLevel(float leveldB);
+            status_t    getPlaybackRateParameters(audio_playback_rate_t* playbackRate);
+            status_t    setPlaybackRateParameters(const audio_playback_rate_t& playbackRate);
 
 // implement FastMixerState::VolumeProvider interface
     virtual gain_minifloat_packed_t getVolumeLR();
@@ -138,15 +147,7 @@ public:
     void                setFinalVolume(float volume);
     float               getFinalVolume() const { return mFinalVolume; }
 
-    /** @return true if the track has changed (metadata or volume) since
-     *          the last time this function was called,
-     *          true if this function was never called since the track creation,
-     *          false otherwise.
-     *  Thread safe.
-     */
-    bool            readAndClearHasChanged() { return !mChangeNotified.test_and_set(); }
-
-    using SourceMetadatas = std::vector<playback_track_metadata_t>;
+    using SourceMetadatas = std::vector<playback_track_metadata_v7_t>;
     using MetadataInserter = std::back_insert_iterator<SourceMetadatas>;
     /** Copy the track metadata in the provided iterator. Thread safe. */
     virtual void    copyMetadataTo(MetadataInserter& backInserter) const;
@@ -159,12 +160,12 @@ public:
                 mHapticPlaybackEnabled = hapticPlaybackEnabled;
             }
             /** Return at what intensity to play haptics, used in mixer. */
-            AudioMixer::haptic_intensity_t getHapticIntensity() const { return mHapticIntensity; }
+            os::HapticScale getHapticIntensity() const { return mHapticIntensity; }
             /** Set intensity of haptic playback, should be set after querying vibrator service. */
-            void    setHapticIntensity(AudioMixer::haptic_intensity_t hapticIntensity) {
-                if (AudioMixer::isValidHapticIntensity(hapticIntensity)) {
+            void    setHapticIntensity(os::HapticScale hapticIntensity) {
+                if (os::isValidHapticScale(hapticIntensity)) {
                     mHapticIntensity = hapticIntensity;
-                    setHapticPlaybackEnabled(mHapticIntensity != AudioMixer::HAPTIC_SCALE_MUTE);
+                    setHapticPlaybackEnabled(mHapticIntensity != os::HapticScale::MUTE);
                 }
             }
             sp<os::ExternalVibration> getExternalVibration() const { return mExternalVibration; }
@@ -181,6 +182,9 @@ public:
                    mAudioTrackServerProxy->getUnderrunFrames());
        }
     }
+
+    audio_output_flags_t getOutputFlags() const { return mFlags; }
+    float getSpeed() const { return mSpeed; }
 protected:
     // for numerous
     friend class PlaybackThread;
@@ -209,19 +213,34 @@ protected:
     void flushAck();
     bool isResumePending();
     void resumeAck();
+    // For direct or offloaded tracks ensure that the pause state is acknowledged
+    // by the playback thread in case of an immediate flush.
+    bool isPausePending() const { return mPauseHwPending; }
+    void pauseAck();
     void updateTrackFrameInfo(int64_t trackFramesReleased, int64_t sinkFramesWritten,
             uint32_t halSampleRate, const ExtendedTimestamp &timeStamp);
 
     sp<IMemory> sharedBuffer() const { return mSharedBuffer; }
 
+    // presentationComplete checked by frames. (Mixed Tracks).
     // framesWritten is cumulative, never reset, and is shared all tracks
     // audioHalFrames is derived from output latency
-    // FIXME parameters not needed, could get them from the thread
     bool presentationComplete(int64_t framesWritten, size_t audioHalFrames);
+
+    // presentationComplete checked by time. (Direct Tracks).
+    bool presentationComplete(uint32_t latencyMs);
+
+    void resetPresentationComplete() {
+        mPresentationCompleteFrames = 0;
+        mPresentationCompleteTimeNs = 0;
+    }
+
+    // notifyPresentationComplete is called when presentationComplete() detects
+    // that the track is finished stopping.
+    void notifyPresentationComplete();
+
     void signalClientFlag(int32_t flag);
 
-    /** Set that a metadata has changed and needs to be notified to backend. Thread safe. */
-    void setMetadataHasChanged() { mChangeNotified.clear(); }
 public:
     void triggerEvents(AudioSystem::sync_event_t type);
     virtual void invalidate();
@@ -250,9 +269,6 @@ protected:
     int32_t             *mAuxBuffer;
     int                 mAuxEffectId;
     bool                mHasVolumeController;
-    size_t              mPresentationCompleteFrames; // number of frames written to the
-                                    // audio HAL when this track will be fully rendered
-                                    // zero means not monitoring
 
     // access these three variables only when holding thread lock.
     LinearMap<int64_t> mFrameMap;           // track frame to server frame mapping
@@ -265,7 +281,7 @@ protected:
 
     bool                mHapticPlaybackEnabled = false; // indicates haptic playback enabled or not
     // intensity to play haptic data
-    AudioMixer::haptic_intensity_t mHapticIntensity = AudioMixer::HAPTIC_SCALE_MUTE;
+    os::HapticScale mHapticIntensity = os::HapticScale::MUTE;
     class AudioVibrationController : public os::BnExternalVibrationController {
     public:
         explicit AudioVibrationController(Track* track) : mTrack(track) {}
@@ -276,8 +292,10 @@ protected:
     };
     sp<AudioVibrationController> mAudioVibrationController;
     sp<os::ExternalVibration>    mExternalVibration;
-    /** How many frames should be in the buffer before the track is considered ready */
-    const size_t        mFrameCountToBeReady;
+
+    audio_dual_mono_mode_t mDualMonoMode = AUDIO_DUAL_MONO_MODE_OFF;
+    float               mAudioDescriptionMixLevel = -std::numeric_limits<float>::infinity();
+    audio_playback_rate_t  mPlaybackRateParameters = AUDIO_PLAYBACK_RATE_INITIALIZER;
 
 private:
     void                interceptBuffer(const AudioBufferProvider::Buffer& buffer);
@@ -285,6 +303,14 @@ private:
     void                forEachTeePatchTrack(F f) {
         for (auto& tp : mTeePatches) { f(tp.patchTrack); }
     };
+
+    size_t              mPresentationCompleteFrames = 0; // (Used for Mixed tracks)
+                                    // The number of frames written to the
+                                    // audio HAL when this track is considered fully rendered.
+                                    // Zero means not monitoring.
+    int64_t             mPresentationCompleteTimeNs = 0; // (Used for Direct tracks)
+                                    // The time when this track is considered fully rendered.
+                                    // Zero means not monitoring.
 
     // The following fields are only for fast tracks, and should be in a subclass
     int                 mFastIndex; // index within FastMixerState::mFastTracks[];
@@ -302,10 +328,10 @@ private:
     sp<AudioTrackServerProxy>  mAudioTrackServerProxy;
     bool                mResumeToStopping; // track was paused in stopping state.
     bool                mFlushHwPending; // track requests for thread flush
+    bool                mPauseHwPending = false; // direct/offload track request for thread pause
     audio_output_flags_t mFlags;
-    // If the last track change was notified to the client with readAndClearHasChanged
-    std::atomic_flag     mChangeNotified = ATOMIC_FLAG_INIT;
     TeePatches  mTeePatches;
+    const float         mSpeed;
 };  // end of Track
 
 
@@ -324,7 +350,7 @@ public:
                                 audio_format_t format,
                                 audio_channel_mask_t channelMask,
                                 size_t frameCount,
-                                uid_t uid);
+                                const AttributionSourceState& attributionSource);
     virtual             ~OutputTrack();
 
     virtual status_t    start(AudioSystem::sync_event_t event =

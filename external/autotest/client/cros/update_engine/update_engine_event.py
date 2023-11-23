@@ -3,62 +3,56 @@
 # found in the LICENSE file.
 
 # Update event types.
-EVENT_TYPE_DOWNLOAD_COMPLETE = '1'
-EVENT_TYPE_INSTALL_COMPLETE = '2'
-EVENT_TYPE_UPDATE_COMPLETE = '3'
-EVENT_TYPE_DOWNLOAD_STARTED = '13'
-EVENT_TYPE_DOWNLOAD_FINISHED = '14'
-EVENT_TYPE_REBOOTED_AFTER_UPDATE = '54'
+EVENT_TYPE_DOWNLOAD_COMPLETE = 1
+EVENT_TYPE_INSTALL_COMPLETE = 2
+EVENT_TYPE_UPDATE_COMPLETE = 3
+EVENT_TYPE_DOWNLOAD_STARTED = 13
+EVENT_TYPE_DOWNLOAD_FINISHED = 14
+EVENT_TYPE_REBOOTED_AFTER_UPDATE = 54
 
 # Update event results.
-EVENT_RESULT_ERROR = '0'
-EVENT_RESULT_SUCCESS = '1'
-EVENT_RESULT_UPDATE_DEFERRED = '9'
+EVENT_RESULT_ERROR = 0
+EVENT_RESULT_SUCCESS = 1
+EVENT_RESULT_UPDATE_DEFERRED = 9
 
-# Omaha event types/results, from update_engine/omaha_request_action.h
-# These are stored in dict form in order to easily print out the keys.
 EVENT_TYPE_DICT = {
     EVENT_TYPE_DOWNLOAD_COMPLETE: 'download_complete',
     EVENT_TYPE_INSTALL_COMPLETE: 'install_complete',
     EVENT_TYPE_UPDATE_COMPLETE: 'update_complete',
     EVENT_TYPE_DOWNLOAD_STARTED: 'download_started',
     EVENT_TYPE_DOWNLOAD_FINISHED: 'download_finished',
-    EVENT_TYPE_REBOOTED_AFTER_UPDATE: 'rebooted_after_update'
-}
-
-EVENT_RESULT_DICT = {
-    EVENT_RESULT_ERROR: 'error',
-    EVENT_RESULT_SUCCESS: 'success',
-    EVENT_RESULT_UPDATE_DEFERRED: 'update_deferred'
+    EVENT_TYPE_REBOOTED_AFTER_UPDATE: 'rebooted_after_update',
+    None: 'initial_check'
 }
 
 
 def get_event_type(event_type_code):
-    """Utility to look up the different event type codes."""
+    """
+    Utility to look up the different event types by ID.
+
+    @param event_type_code: An integer event type code.
+    @returns: a string representation of the event type.
+
+    """
     return EVENT_TYPE_DICT[event_type_code]
-
-
-def get_event_result(event_result_code):
-    """Utility to look up the different event result codes."""
-    return EVENT_RESULT_DICT[event_result_code]
 
 
 class UpdateEngineEvent(object):
     """This class represents a single EXPECTED update engine event.
 
-    This class's data will be compared against an ACTUAL event returned by
-    update_engine.
+    This class's data will be compared against an ACTUAL event from a hostlog.
     """
 
     def __init__(self, event_type=None, event_result=None, version=None,
-                 previous_version=None, on_error=None):
+                 previous_version=None, timeout=None):
         """Initializes an event.
 
         @param event_type: Expected event type.
         @param event_result: Expected event result code.
         @param version: Expected reported image version.
         @param previous_version: Expected reported previous image version.
-        @param on_error: a function to call when the event's data is invalid.
+        @param timeout: How many seconds max should it take to reach this event
+                        from the previous one.
         """
         self._expected_attrs = {
             'event_type': event_type,
@@ -66,30 +60,7 @@ class UpdateEngineEvent(object):
             'version': version,
             'previous_version': previous_version,
         }
-        self._on_error = on_error
-
-
-    def _verify_event_attribute(self, attr_name, expected_attr_val,
-                                actual_attr_val):
-        """Compares a single attribute to ensure expected matches actual.
-
-        @param attr_name: name of the attribute to verify.
-        @param expected_attr_val: expected attribute value.
-        @param actual_attr_val: actual attribute value.
-
-        @return True if actual value is present and matches, False otherwise.
-        """
-        # None values are assumed to be missing and non-matching.
-        if actual_attr_val is None:
-            return False
-
-        # We allow expected version numbers (e.g. 2940.0.0) to be contained in
-        # actual values (2940.0.0-a1) for developer images.
-        if (actual_attr_val == expected_attr_val or
-           ('version' in attr_name and expected_attr_val in actual_attr_val)):
-            return True
-
-        return False
+        self._timeout = timeout
 
 
     def __str__(self):
@@ -98,21 +69,23 @@ class UpdateEngineEvent(object):
                                    self._expected_attrs.iteritems()])
 
     def equals(self, actual_event):
-        """Compares this expected event with an actual event from the update.
-
-        @param actual_event: a dictionary containing event attributes.
-
-        @return An error message, or None if all attributes as expected.
         """
-        mismatched_attrs = [
-            attr_name for attr_name, expected_attr_val
-            in self._expected_attrs.iteritems()
-            if (expected_attr_val and
-                not self._verify_event_attribute(attr_name, expected_attr_val,
-                                                 actual_event.get(attr_name)))]
+        Compares this expected event with an actual event from the hostlog.
 
-        if not mismatched_attrs:
-            return None
+        We only compare values from the expected event that are not empty.
+        None values in the actual event are assumed to be missing and
+        non-matching.
 
-        return self._on_error(self._expected_attrs, actual_event,
-                              mismatched_attrs)
+        @param actual_event: a hostlog event.
+        @return A list of mismatched attributes or None if events match.
+
+        """
+        mismatched_attrs = []
+        for expected_name, expected_val in self._expected_attrs.iteritems():
+            actual_val = actual_event.get(expected_name)
+            if (expected_val and (actual_val is None or
+                                  expected_val != actual_val)):
+                mismatched_attrs.append(expected_name)
+
+        return mismatched_attrs if mismatched_attrs else None
+

@@ -34,7 +34,7 @@ class BpfBenchMark : public ::benchmark::Fixture {
 };
 
 BENCHMARK_DEFINE_F(BpfBenchMark, MapWriteNewEntry)(benchmark::State& state) {
-    for (auto _ : state) {
+    for (auto _ : state) {  // NOLINT(clang-analyzer-deadcode.DeadStores)
         // TODO(b/147676069) assert
         mBpfTestMap.writeValue(state.range(0), state.range(0), BPF_NOEXIST);
     }
@@ -45,7 +45,7 @@ BENCHMARK_DEFINE_F(BpfBenchMark, MapUpdateEntry)(benchmark::State& state) {
         // TODO(b/147676069) assert
         mBpfTestMap.writeValue(i, i, BPF_NOEXIST);
     }
-    for (auto _ : state) {
+    for (auto _ : state) {  // NOLINT(clang-analyzer-deadcode.DeadStores)
         // TODO(b/147676069) assert
         mBpfTestMap.writeValue(state.range(0), state.range(0) + 1, BPF_EXIST);
     }
@@ -56,7 +56,7 @@ BENCHMARK_DEFINE_F(BpfBenchMark, MapDeleteAddEntry)(benchmark::State& state) {
         // TODO(b/147676069) assert
         mBpfTestMap.writeValue(i, i, BPF_NOEXIST);
     }
-    for (auto _ : state) {
+    for (auto _ : state) {  // NOLINT(clang-analyzer-deadcode.DeadStores)
         // TODO(b/147676069) assert
         mBpfTestMap.deleteValue(state.range(0));
         // TODO(b/147676069) assert
@@ -65,7 +65,7 @@ BENCHMARK_DEFINE_F(BpfBenchMark, MapDeleteAddEntry)(benchmark::State& state) {
 }
 
 BENCHMARK_DEFINE_F(BpfBenchMark, WaitForRcu)(benchmark::State& state) {
-    for (auto _ : state) {
+    for (auto _ : state) {  // NOLINT(clang-analyzer-deadcode.DeadStores)
         int ret = android::bpf::synchronizeKernelRCU();
         if (ret) {
             state.SkipWithError(

@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2017 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.dev.test.format;
 
 import static org.junit.Assert.assertEquals;
@@ -9,7 +9,6 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.text.FieldPosition;
-import java.text.Format.Field;
 
 import org.junit.Test;
 
@@ -173,7 +172,7 @@ public class FormattedStringBuilderTest {
             FormattedStringBuilder sb = new FormattedStringBuilder();
             sb.append(str, null);
             sb.append(str, NumberFormat.Field.CURRENCY);
-            Field[] fields = sb.toFieldArray();
+            Object[] fields = sb.toFieldArray();
             assertEquals(str.length() * 2, fields.length);
             for (int i = 0; i < str.length(); i++) {
                 assertEquals(null, fields[i]);
@@ -201,7 +200,7 @@ public class FormattedStringBuilderTest {
             int numNull = 0;
             int numCurr = 0;
             int numInt = 0;
-            Field[] oldFields = fields;
+            Object[] oldFields = fields;
             fields = sb.toFieldArray();
             for (int i = 0; i < sb.length(); i++) {
                 assertEquals(oldFields[i % oldFields.length], fields[i]);

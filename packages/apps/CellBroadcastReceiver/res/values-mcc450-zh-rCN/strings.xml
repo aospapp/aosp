@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"极重要的紧急警报"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"您的手机可在自然灾害发生期间向您发出警报，例如疏散指示。这项服务是由韩国国家应急管理署、网络服务提供商和设备制造商联合提供的。\n\n如果您的设备存在问题或网络条件不佳，您可能会收不到警报。"</string>
 </resources>

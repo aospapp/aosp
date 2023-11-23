@@ -25,7 +25,7 @@
 /*efine	HAS__FSETMODE 	1		/* _fsetmode -- set file mode	*/
 
 #define	HAS_STRING_H 	1		/* /usr/include/string.h 	*/
-#define	HAS_STRINGS_H	1		/* /usr/include/strings.h 	*/
+/*efine	HAS_STRINGS_H	1		/* /usr/include/strings.h 	*/
 
 #define	HAS_UNISTD_H	1		/* /usr/include/unistd.h	*/
 #define	HAS_UTIME	1		/* POSIX utime(path, times)	*/

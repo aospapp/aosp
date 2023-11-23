@@ -27,7 +27,8 @@ import android.content.Context;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.ArrayMap;
-import android.util.Log;
+import android.util.IndentingPrintWriter;
+import android.util.Slog;
 
 import com.android.car.Listeners.ClientWithRate;
 import com.android.car.hal.DiagnosticHalService;
@@ -35,7 +36,6 @@ import com.android.car.hal.DiagnosticHalService.DiagnosticCapabilities;
 import com.android.car.internal.CarPermission;
 import com.android.internal.annotations.GuardedBy;
 
-import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
@@ -167,7 +167,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
                 setRecentmostFreezeFrame(event);
                 listeners = mDiagnosticListeners.get(CarDiagnosticManager.FRAME_TYPE_FREEZE);
             } else {
-                Log.w(
+                Slog.w(
                         CarLog.TAG_DIAGNOSTIC,
                         String.format("received unknown diagnostic event: %s", event));
                 continue;
@@ -216,7 +216,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
                 try {
                     listener.asBinder().linkToDeath(diagnosticClient, 0);
                 } catch (RemoteException e) {
-                    Log.w(
+                    Slog.w(
                             CarLog.TAG_DIAGNOSTIC,
                             String.format(
                                     "received RemoteException trying to register listener for %s",
@@ -250,7 +250,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
         } finally {
             mDiagnosticLock.unlock();
         }
-        Log.i(
+        Slog.i(
                 CarLog.TAG_DIAGNOSTIC,
                 String.format(
                         "shouldStartDiagnostics = %s for %s at rate %d",
@@ -259,7 +259,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
         if (shouldStartDiagnostics) {
             if (!startDiagnostic(frameType, rate)) {
                 // failed. so remove from active diagnostic list.
-                Log.w(CarLog.TAG_DIAGNOSTIC, "startDiagnostic failed");
+                Slog.w(CarLog.TAG_DIAGNOSTIC, "startDiagnostic failed");
                 mDiagnosticLock.lock();
                 try {
                     diagnosticClient.removeDiagnostic(frameType);
@@ -278,12 +278,11 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
     }
 
     private boolean startDiagnostic(int frameType, int rate) {
-        Log.i(CarLog.TAG_DIAGNOSTIC, String.format("starting diagnostic %s at rate %d",
-                frameType, rate));
+        Slog.i(CarLog.TAG_DIAGNOSTIC, "starting diagnostic " + frameType + " at rate " + rate);
         DiagnosticHalService diagnosticHal = getDiagnosticHal();
         if (diagnosticHal != null) {
             if (!diagnosticHal.isReady()) {
-                Log.w(CarLog.TAG_DIAGNOSTIC, "diagnosticHal not ready");
+                Slog.w(CarLog.TAG_DIAGNOSTIC, "diagnosticHal not ready");
                 return false;
             }
             switch (frameType) {
@@ -322,7 +321,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
         try {
             DiagnosticClient diagnosticClient = findDiagnosticClientLocked(listener);
             if (diagnosticClient == null) {
-                Log.i(
+                Slog.i(
                         CarLog.TAG_DIAGNOSTIC,
                         String.format(
                                 "trying to unregister diagnostic client %s for %s which is not registered",
@@ -356,7 +355,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
         } finally {
             mDiagnosticLock.unlock();
         }
-        Log.i(
+        Slog.i(
                 CarLog.TAG_DIAGNOSTIC,
                 String.format(
                         "shouldStopDiagnostic = %s, shouldRestartDiagnostic = %s for type %s",
@@ -371,7 +370,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
     private void stopDiagnostic(int frameType) {
         DiagnosticHalService diagnosticHal = getDiagnosticHal();
         if (diagnosticHal == null || !diagnosticHal.isReady()) {
-            Log.w(CarLog.TAG_DIAGNOSTIC, "diagnosticHal not ready");
+            Slog.w(CarLog.TAG_DIAGNOSTIC, "diagnosticHal not ready");
             return;
         }
         switch (frameType) {
@@ -665,7 +664,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
     }
 
     @Override
-    public void dump(PrintWriter writer) {
+    public void dump(IndentingPrintWriter writer) {
         writer.println("*CarDiagnosticService*");
         writer.println("**last events for diagnostics**");
         if (null != mLiveFrameDiagnosticRecord.getLastEvent()) {

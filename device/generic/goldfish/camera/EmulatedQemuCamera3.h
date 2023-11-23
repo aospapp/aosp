@@ -226,7 +226,7 @@ private:
       private:
         static const nsecs_t kWaitPerLoop = 10000000L;  // 10 ms
         static const nsecs_t kMaxWaitLoops = 1000;
-        static const size_t kMaxQueueSize = 2;
+        static const size_t kMaxQueueSize = 4;
 
         EmulatedQemuCamera3 *mParent;
         Mutex mLock;

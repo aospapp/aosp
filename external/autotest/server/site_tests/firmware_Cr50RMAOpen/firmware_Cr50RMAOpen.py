@@ -74,7 +74,7 @@ class firmware_Cr50RMAOpen(Cr50Test):
 
         # Disable all capabilities at the start of the test. Go ahead and enable
         # testlab mode if it isn't enabled.
-        self.fast_open(enable_testlab=True)
+        self.fast_ccd_open(enable_testlab=True)
         self.cr50.send_command('ccd reset')
         self.cr50.set_ccd_level('lock')
         # Make sure all capabilities are set to default.

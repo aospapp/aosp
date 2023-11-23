@@ -17,7 +17,7 @@ import java.util.Collection;
 import java.util.List;
 
 import org.jacoco.core.analysis.IBundleCoverage;
-import org.jacoco.core.data.ExecutionData;
+import org.jacoco.core.data.IExecutionData;
 import org.jacoco.core.data.SessionInfo;
 import org.jacoco.report.IReportGroupVisitor;
 import org.jacoco.report.IReportVisitor;
@@ -61,7 +61,9 @@ public class XMLFormatter {
 			private XMLGroupVisitor groupVisitor;
 
 			public void visitInfo(final List<SessionInfo> sessionInfos,
-					final Collection<ExecutionData> executionData)
+					// BEGIN android-change
+					final Collection<IExecutionData> executionData)
+					// END android-change
 					throws IOException {
 				this.sessionInfos = sessionInfos;
 			}

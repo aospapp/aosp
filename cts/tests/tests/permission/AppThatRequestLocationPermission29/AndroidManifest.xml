@@ -19,8 +19,6 @@
     package="android.permission.cts.appthatrequestpermission"
     android:versionCode="1">
 
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29" />
-
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application />

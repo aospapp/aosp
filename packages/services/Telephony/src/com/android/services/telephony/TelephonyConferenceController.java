@@ -177,7 +177,7 @@ final class TelephonyConferenceController {
     }
 
     private void recalculateConference() {
-        Set<Connection> conferencedConnections = new HashSet<>();
+        Set<TelephonyConnection> conferencedConnections = new HashSet<>();
         int numGsmConnections = 0;
 
         for (TelephonyConnection connection : mTelephonyConnections) {
@@ -254,16 +254,38 @@ final class TelephonyConferenceController {
                     PhoneAccountHandle phoneAccountHandle = null;
                     if (!conferencedConnections.isEmpty()) {
                         TelephonyConnection telephonyConnection =
-                                (TelephonyConnection) conferencedConnections.iterator().next();
+                                conferencedConnections.iterator().next();
                         phoneAccountHandle = PhoneUtils.makePstnPhoneAccountHandle(
                                 telephonyConnection.getPhone());
                     }
 
                     mTelephonyConference = new TelephonyConference(phoneAccountHandle);
-                    for (Connection connection : conferencedConnections) {
+                    Log.i(this, "Creating new TelephonyConference to hold conferenced connections."
+                            + " conference=" + mTelephonyConference);
+                    boolean isDowngradedConference = false;
+                    for (TelephonyConnection connection : conferencedConnections) {
                         Log.d(this, "Adding a connection to a conference call: %s %s",
                                 mTelephonyConference, connection);
+                        if ((connection.getConnectionProperties()
+                                & Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE) != 0) {
+                            // Remove all instances of PROPERTY_IS_DOWNGRADED_CONFERENCE. This
+                            // property should only be set on the parent call (i.e. the newly
+                            // created TelephonyConference.
+                            Log.d(this, "Removing PROPERTY_IS_DOWNGRADED_CONFERENCE from connection"
+                                    + " %s", connection);
+                            int newProperties = connection.getConnectionProperties()
+                                    & ~Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE;
+                            connection.setTelephonyConnectionProperties(newProperties);
+                            isDowngradedConference = true;
+                        }
                         mTelephonyConference.addTelephonyConnection(connection);
+                    }
+                    // Reapply the downgraded-conference flag to the parent conference if it was on
+                    // one of the children.
+                    if (isDowngradedConference) {
+                        mTelephonyConference.setConnectionProperties(
+                                mTelephonyConference.getConnectionProperties()
+                                        | Connection.PROPERTY_IS_DOWNGRADED_CONFERENCE);
                     }
                     mTelephonyConference.updateCallRadioTechAfterCreation();
                     mConnectionService.addConference(mTelephonyConference);

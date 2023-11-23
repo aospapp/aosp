@@ -26,6 +26,7 @@
 #include <assert.h>
 #include <jni.h>
 #include <nativehelper/JNIHelp.h>
+#include <sys/stat.h>
 
 #include <android/native_window_jni.h>
 
@@ -59,8 +60,10 @@ static bool gGotVendorDefinedEvent = false;
 static bool gListenerGotValidExpiryTime = false;
 static bool gOnKeyChangeListenerOK = false;
 
-static const size_t kPlayTimeSeconds = 30;
-static const size_t kUuidSize = 16;
+static const char kFileScheme[] = "file://";
+static constexpr size_t kFileSchemeStrLen = sizeof(kFileScheme) - 1;
+static constexpr size_t kPlayTimeSeconds = 30;
+static constexpr size_t kUuidSize = 16;
 
 static const uint8_t kClearKeyUuid[kUuidSize] = {
     0x10, 0x77, 0xef, 0xec, 0xc0, 0xb2, 0x4d, 0x02,
@@ -129,6 +132,40 @@ static Uuid jbyteArrayToUuid(JNIEnv* env, jbyteArray const &uuid) {
         juuid = jbyteArrayToVector(env, uuid);
     }
     return juuid;
+}
+
+static media_status_t setDataSourceFdFromUrl(
+    AMediaExtractor* extractor, const char* url) {
+
+    const char *path = url + kFileSchemeStrLen;
+    FILE* fp = fopen(path, "r");
+    struct stat buf {};
+    media_status_t status = AMEDIA_ERROR_BASE;
+    if (fp && !fstat(fileno(fp), &buf)) {
+      status = AMediaExtractor_setDataSourceFd(
+          extractor,
+          fileno(fp), 0, buf.st_size);
+    } else {
+        status = AMEDIA_ERROR_IO;
+        ALOGE("Failed to convert URL to Fd");
+    }
+    if (fp && fclose(fp) == EOF) {
+        // 0 indicate success, EOF for error
+        ALOGE("Failed to close file pointer");
+    }
+    return status;
+}
+
+static media_status_t setDataSourceFdOrUrl(
+    AMediaExtractor* extractor, const char* url) {
+
+    media_status_t status = AMEDIA_ERROR_BASE;
+    if (strlen(url) > kFileSchemeStrLen && strncmp(url, kFileScheme, kFileSchemeStrLen) == 0) {
+        status = setDataSourceFdFromUrl(extractor, url);
+    } else {
+       status = AMediaExtractor_setDataSource(extractor, url);
+    }
+    return status;
 }
 
 extern "C" jboolean Java_android_media_cts_NativeMediaDrmClearkeyTest_isCryptoSchemeSupportedNative(
@@ -279,7 +316,7 @@ extern "C" jboolean Java_android_media_cts_NativeMediaDrmClearkeyTest__testPsshN
     aMediaObjects.setVideoExtractor(AMediaExtractor_new());
     const char* url = env->GetStringUTFChars(videoUrl, 0);
     if (url) {
-        media_status_t status = AMediaExtractor_setDataSource(
+        media_status_t status = setDataSourceFdOrUrl(
             aMediaObjects.getVideoExtractor(), url);
         env->ReleaseStringUTFChars(videoUrl, url);
 
@@ -696,7 +733,7 @@ extern "C" jboolean Java_android_media_cts_NativeMediaDrmClearkeyTest_testClearK
     aMediaObjects.setAudioExtractor(AMediaExtractor_new());
     const char* url = env->GetStringUTFChars(params.audioUrl, 0);
     if (url) {
-        status = AMediaExtractor_setDataSource(
+        status = setDataSourceFdOrUrl(
             aMediaObjects.getAudioExtractor(), url);
         env->ReleaseStringUTFChars(params.audioUrl, url);
 
@@ -710,7 +747,7 @@ extern "C" jboolean Java_android_media_cts_NativeMediaDrmClearkeyTest_testClearK
     aMediaObjects.setVideoExtractor(AMediaExtractor_new());
     url = env->GetStringUTFChars(params.videoUrl, 0);
     if (url) {
-        status = AMediaExtractor_setDataSource(
+        status = setDataSourceFdOrUrl(
             aMediaObjects.getVideoExtractor(), url);
         env->ReleaseStringUTFChars(params.videoUrl, url);
 

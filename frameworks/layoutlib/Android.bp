@@ -20,14 +20,42 @@
 // transform the framework jar into the temp_layoutlib jar.
 //
 
+package {
+    default_applicable_licenses: ["frameworks_layoutlib_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_layoutlib_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-EPL",
+    ],
+    // large-scale-change unable to identify any license_text files
+}
+
 java_genrule_host {
     name: "temp_layoutlib",
     tools: ["layoutlib_create"],
     out: ["temp_layoutlib.jar"],
     srcs: [
         ":atf-prebuilt{.jar}",
-        ":core-icu4j{.jar}",
-        ":core-libart{.jar}",
+        ":core-icu4j-for-host{.jar}",
+        ":core-libart-for-host{.jar}",
         ":framework-all{.jar}",
         ":ext{.jar}",
         ":icu4j-icudata-jarjar{.jar}", // HOST

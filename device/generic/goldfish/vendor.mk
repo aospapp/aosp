@@ -18,6 +18,9 @@
 #
 $(call inherit-product-if-exists, frameworks/native/build/phone-xhdpi-2048-dalvik-heap.mk)
 
+# Enable Scoped Storage related
+$(call inherit-product, $(SRC_TARGET_DIR)/product/emulated_storage.mk)
+
 PRODUCT_SOONG_NAMESPACES += \
     device/generic/goldfish \
     device/generic/goldfish-opengl
@@ -36,9 +39,9 @@ PRODUCT_PACKAGES += \
     libandroidemu \
     libOpenglCodecCommon \
     libOpenglSystemCommon \
-    libgoldfish-ril \
+    libcuttlefish-ril-2 \
     libgoldfish-rild \
-    libril-goldfish-fork \
+    qemu-adb-keys \
     qemu-props \
     stagefright \
     fingerprint.ranchu \
@@ -50,16 +53,22 @@ PRODUCT_PACKAGES += \
     toybox_vendor \
     android.hardware.wifi@1.0-service \
     android.hardware.biometrics.fingerprint@2.1-service \
+    android.hardware.media.c2@1.0-service-goldfish \
+    libcodec2_goldfish_vp8dec \
+    libcodec2_goldfish_vp9dec \
+    libcodec2_goldfish_avcdec \
     sh_vendor \
     ip_vendor \
     iw_vendor \
     local_time.default \
     SdkSetup \
     EmulatorRadioConfig \
+    EmulatorTetheringConfigOverlay \
     libstagefrighthw \
     libstagefright_goldfish_vpxdec \
     libstagefright_goldfish_avcdec \
-    MultiDisplayProvider
+    MultiDisplayProvider \
+    libGoldfishProfiler \
 
 ifneq ($(BUILD_EMULATOR_OPENGL),false)
 PRODUCT_PACKAGES += \
@@ -69,18 +78,17 @@ PRODUCT_PACKAGES += \
     libGLESv2_enc \
     libvulkan_enc \
     libGLESv2_emulation \
-    libGLESv1_enc
+    libGLESv1_enc \
+    libEGL_angle \
+    libGLESv1_CM_angle \
+    libGLESv2_angle \
+    libfeature_support_angle.so
 endif
-
-PRODUCT_PACKAGES += \
-    audio.r_submix.default \
-    android.hardware.audio.service \
-    android.hardware.audio.effect@6.0-impl:32
 
 PRODUCT_PACKAGES += \
     android.hardware.bluetooth@1.1-service.sim \
     android.hardware.bluetooth.audio@2.0-impl
-PRODUCT_PROPERTY_OVERRIDES += bt.rootcanal_test_console=off
+PRODUCT_PROPERTY_OVERRIDES += vendor.bt.rootcanal_test_console=off
 
 PRODUCT_PACKAGES += \
     android.hardware.health@2.1-service \
@@ -99,10 +107,25 @@ PRODUCT_PACKAGES += \
 
 PRODUCT_PACKAGES += \
     DisplayCutoutEmulationEmu01Overlay \
+    EmulationPixel5Overlay \
+    SystemUIEmulationPixel5Overlay \
+    EmulationPixel4XLOverlay \
+    SystemUIEmulationPixel4XLOverlay \
+    EmulationPixel4Overlay \
+    SystemUIEmulationPixel4Overlay \
+    EmulationPixel4aOverlay \
+    SystemUIEmulationPixel4aOverlay \
+    EmulationPixel3XLOverlay \
+    SystemUIEmulationPixel3XLOverlay \
+    SystemUIEmulationPixel3Overlay \
+    SystemUIEmulationPixel3aOverlay \
+    SystemUIEmulationPixel3aXLOverlay \
+    EmulationPixel2XLOverlay \
+    SystemUIEmulationPixel2XLOverlay \
     NavigationBarMode2ButtonOverlay \
 
 ifneq ($(EMULATOR_VENDOR_NO_GNSS),true)
-PRODUCT_PACKAGES += android.hardware.gnss@2.0-service.ranchu
+PRODUCT_PACKAGES += android.hardware.gnss-service.example
 endif
 
 ifneq ($(EMULATOR_VENDOR_NO_SENSORS),true)
@@ -120,15 +143,16 @@ endif
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-service \
     android.hardware.drm@1.0-impl \
-    android.hardware.drm@1.3-service.clearkey \
-    android.hardware.drm@1.3-service.widevine
+    android.hardware.drm@1.4-service.clearkey \
+
 
 PRODUCT_PACKAGES += \
     android.hardware.power-service.example \
 
-PRODUCT_PROPERTY_OVERRIDES += ro.control_privapp_permissions=enforce
+PRODUCT_PROPERTY_OVERRIDES += ro.control_privapp_permissions?=enforce
 PRODUCT_PROPERTY_OVERRIDES += ro.hardware.power=ranchu
 PRODUCT_PROPERTY_OVERRIDES += ro.crypto.volume.filenames_mode=aes-256-cts
+PRODUCT_VENDOR_PROPERTIES += graphics.gpu.profiler.support=true
 
 PRODUCT_PROPERTY_OVERRIDES += persist.sys.zram_enabled=1 \
 
@@ -140,26 +164,31 @@ PRODUCT_PROPERTY_OVERRIDES += ro.logd.size=1M \
 
 ifneq ($(EMULATOR_VENDOR_NO_CAMERA),true)
 PRODUCT_PACKAGES += \
-    camera.device@1.0-impl \
     android.hardware.camera.provider@2.4-service \
     android.hardware.camera.provider@2.4-impl \
     camera.ranchu \
     camera.ranchu.jpeg \
-    android.hardware.camera.provider@2.6-service-google \
+    android.hardware.camera.provider@2.7-service-google \
     libgooglecamerahwl_impl \
-    android.hardware.camera.provider@2.6-impl-google
+    android.hardware.camera.provider@2.7-impl-google
 DEVICE_MANIFEST_FILE += device/generic/goldfish/manifest.camera.xml
 endif
 
-ifneq ($(EMULATOR_VENDOR_NO_SOUND_TRIGGER),true)
-PRODUCT_PACKAGES += android.hardware.soundtrigger@2.2-impl.ranchu
-endif
-
 ifneq ($(EMULATOR_VENDOR_NO_SOUND),true)
-PRODUCT_PACKAGES += android.hardware.audio@6.0-impl.ranchu
+PRODUCT_PACKAGES += \
+    android.hardware.audio.service \
+    android.hardware.audio@6.0-impl.ranchu \
+    android.hardware.soundtrigger@2.2-impl.ranchu \
+    android.hardware.audio.effect@6.0-impl \
+
 PRODUCT_COPY_FILES += \
     device/generic/goldfish/audio/policy/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml \
-    device/generic/goldfish/audio/policy/primary_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/primary_audio_policy_configuration.xml
+    device/generic/goldfish/audio/policy/primary_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/primary_audio_policy_configuration.xml \
+    frameworks/av/services/audiopolicy/config/r_submix_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/r_submix_audio_policy_configuration.xml \
+    frameworks/av/services/audiopolicy/config/audio_policy_volumes.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_volumes.xml \
+    frameworks/av/services/audiopolicy/config/default_volume_tables.xml:$(TARGET_COPY_OUT_VENDOR)/etc/default_volume_tables.xml \
+    frameworks/av/media/libeffects/data/audio_effects.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_effects.xml \
+
 endif
 
 PRODUCT_PACKAGES += \
@@ -226,12 +255,11 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.contexthub@1.1-service.mock
 
-# Goldfish does not support ION needed for Codec 2.0
-# still disable it until b/143473631 is fixed
-# now this is setup on init.ranchu.rc
+# for 32, 32+64 guest, default using omx, but can be
+# modified at command line as follows
 # -qemu -append qemu.media.ccodec=<value> can override it; default 0
-#PRODUCT_PROPERTY_OVERRIDES += \
-#    debug.stagefright.ccodec=0
+PRODUCT_PROPERTY_OVERRIDES += \
+    debug.stagefright.ccodec=0
 
 # Enable Incremental on the device via kernel driver
 PRODUCT_PROPERTY_OVERRIDES += ro.incremental.enable=yes
@@ -241,11 +269,16 @@ PRODUCT_COPY_FILES += \
     device/generic/goldfish/data/etc/dtb.img:dtb.img \
     device/generic/goldfish/data/etc/apns-conf.xml:data/misc/apns/apns-conf.xml \
     device/generic/goldfish/radio/RadioConfig/radioconfig.xml:data/misc/emulator/config/radioconfig.xml \
+    device/generic/goldfish/data/etc/iccprofile_for_sim0.xml:data/misc/modem_simulator/iccprofile_for_sim0.xml \
+    device/google/cuttlefish/host/commands/modem_simulator/files/iccprofile_for_sim0_for_CtsCarrierApiTestCases.xml:data/misc/modem_simulator/iccprofile_for_carrierapitests.xml \
+    device/generic/goldfish/data/etc/numeric_operator.xml:data/misc/modem_simulator/etc/modem_simulator/files/numeric_operator.xml \
     device/generic/goldfish/data/etc/local.prop:data/local.prop \
+    device/generic/goldfish/init.qemu-adb-keys.sh:$(TARGET_COPY_OUT_SYSTEM_EXT)/bin/init.qemu-adb-keys.sh \
     device/generic/goldfish/init.ranchu-core.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.ranchu-core.sh \
     device/generic/goldfish/init.ranchu-net.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.ranchu-net.sh \
     device/generic/goldfish/wifi/init.wifi.sh:$(TARGET_COPY_OUT_VENDOR)/bin/init.wifi.sh \
     device/generic/goldfish/init.ranchu.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.ranchu.rc \
+    device/generic/goldfish/init.system_ext.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/init.system_ext.rc \
     device/generic/goldfish/fstab.ranchu:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.ranchu \
     device/generic/goldfish/ueventd.ranchu.rc:$(TARGET_COPY_OUT_VENDOR)/ueventd.rc \
     device/generic/goldfish/input/goldfish_rotary.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/goldfish_rotary.idc \
@@ -262,14 +295,17 @@ PRODUCT_COPY_FILES += \
     device/generic/goldfish/input/virtio_input_multi_touch_9.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/virtio_input_multi_touch_9.idc \
     device/generic/goldfish/input/virtio_input_multi_touch_10.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/virtio_input_multi_touch_10.idc \
     device/generic/goldfish/input/virtio_input_multi_touch_11.idc:$(TARGET_COPY_OUT_VENDOR)/usr/idc/virtio_input_multi_touch_11.idc \
+    device/generic/goldfish/display_settings_freeform.xml:$(TARGET_COPY_OUT_VENDOR)/etc/display_settings_freeform.xml \
+    device/generic/goldfish/display_settings.xml:$(TARGET_COPY_OUT_VENDOR)/etc/display_settings.xml \
+    device/generic/goldfish/device_state_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/devicestate/device_state_configuration.xml \
     device/generic/goldfish/data/etc/config.ini:config.ini \
     device/generic/goldfish/wifi/simulated_hostapd.conf:$(TARGET_COPY_OUT_VENDOR)/etc/simulated_hostapd.conf \
     device/generic/goldfish/wifi/wpa_supplicant.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/wpa_supplicant.conf \
-    device/generic/goldfish/wifi/WifiConfigStore.xml:data/misc/wifi/WifiConfigStore.xml \
     frameworks/native/data/etc/android.hardware.bluetooth_le.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth_le.xml \
     frameworks/native/data/etc/android.hardware.bluetooth.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.bluetooth.xml \
     system/bt/vendor_libs/test_vendor_lib/data/controller_properties.json:vendor/etc/bluetooth/controller_properties.json \
     frameworks/native/data/etc/android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml \
+    frameworks/native/data/etc/android.hardware.wifi.passpoint.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.passpoint.xml \
     frameworks/native/data/etc/android.hardware.wifi.direct.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.direct.xml \
     device/generic/goldfish/data/etc/handheld_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml \
     device/generic/goldfish/camera/media_profiles.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_profiles_V1_0.xml \
@@ -280,24 +316,20 @@ PRODUCT_COPY_FILES += \
     device/generic/goldfish/camera/media_codecs_performance.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_performance.xml \
     frameworks/native/data/etc/android.hardware.touchscreen.multitouch.jazzhand.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.touchscreen.multitouch.jazzhand.xml \
     frameworks/native/data/etc/android.hardware.camera.ar.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.ar.xml \
-    frameworks/native/data/etc/android.hardware.camera.autofocus.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.autofocus.xml \
+    frameworks/native/data/etc/android.hardware.camera.flash-autofocus.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.flash-autofocus.xml \
+    frameworks/native/data/etc/android.hardware.camera.concurrent.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.concurrent.xml \
     frameworks/native/data/etc/android.hardware.camera.front.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.front.xml \
     frameworks/native/data/etc/android.hardware.camera.full.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.full.xml \
+    frameworks/native/data/etc/android.hardware.camera.raw.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.raw.xml \
     frameworks/native/data/etc/android.hardware.fingerprint.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.fingerprint.xml \
     frameworks/native/data/etc/android.hardware.vulkan.level-1.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.vulkan.level.xml \
     frameworks/native/data/etc/android.hardware.vulkan.compute-0.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.vulkan.compute.xml \
     frameworks/native/data/etc/android.hardware.vulkan.version-1_1.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.vulkan.version.xml \
-    device/generic/goldfish/data/etc/android.software.vulkan.deqp.level-2019-03-01.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.vulkan.deqp.level-2019-03-01.xml \
+    frameworks/native/data/etc/android.software.vulkan.deqp.level-2020-03-01.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.vulkan.deqp.level.xml \
+    frameworks/native/data/etc/android.software.opengles.deqp.level-2020-03-01.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.opengles.deqp.level.xml \
     frameworks/native/data/etc/android.software.autofill.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.autofill.xml \
     frameworks/native/data/etc/android.software.verified_boot.xml:${TARGET_COPY_OUT_PRODUCT}/etc/permissions/android.software.verified_boot.xml \
-    frameworks/av/media/libeffects/data/audio_effects.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_effects.xml \
-    frameworks/av/services/audiopolicy/config/audio_policy_volumes.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_volumes.xml \
-    frameworks/av/services/audiopolicy/config/default_volume_tables.xml:$(TARGET_COPY_OUT_VENDOR)/etc/default_volume_tables.xml \
     device/generic/goldfish/data/etc/permissions/privapp-permissions-goldfish.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/privapp-permissions-goldfish.xml \
     hardware/google/camera/devices/EmulatedCamera/hwl/configs/emu_camera_back.json:$(TARGET_COPY_OUT_VENDOR)/etc/config/emu_camera_back.json \
     hardware/google/camera/devices/EmulatedCamera/hwl/configs/emu_camera_front.json:$(TARGET_COPY_OUT_VENDOR)/etc/config/emu_camera_front.json \
     hardware/google/camera/devices/EmulatedCamera/hwl/configs/emu_camera_depth.json:$(TARGET_COPY_OUT_VENDOR)/etc/config/emu_camera_depth.json \
-
-# Windowing settings config files
-PRODUCT_COPY_FILES += \
-    device/generic/goldfish/display_settings_freeform.xml:$(TARGET_COPY_OUT_DATA)/system/display_settings_freeform.xml

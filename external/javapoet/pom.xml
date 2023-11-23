@@ -11,7 +11,7 @@
 
   <groupId>com.squareup</groupId>
   <artifactId>javapoet</artifactId>
-  <version>1.11.1</version>
+  <version>1.13.0</version>
 
   <name>JavaPoet</name>
   <description>Use beautiful Java code to generate beautiful Java code.</description>
@@ -94,7 +94,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.7.0</version>
+        <version>3.8.0</version>
         <configuration>
           <compilerId>javac-with-errorprone</compilerId>
           <forceJavacCompilerUse>true</forceJavacCompilerUse>
@@ -123,7 +123,7 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>8.7</version>
+            <version>8.18</version>
           </dependency>
         </dependencies>
         <configuration>

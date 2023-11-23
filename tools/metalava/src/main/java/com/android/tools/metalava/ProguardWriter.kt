@@ -63,7 +63,7 @@ class ProguardWriter(
         val modifiers = method.modifiers
         val visibilityLevel = modifiers.getVisibilityLevel()
         if (visibilityLevel != VisibilityLevel.PACKAGE_PRIVATE) {
-            writer.write(visibilityLevel.sourceCodeModifier + " ")
+            writer.write(visibilityLevel.javaSourceCodeModifier + " ")
         }
 
         if (modifiers.isStatic()) {
@@ -104,7 +104,7 @@ class ProguardWriter(
         val modifiers = field.modifiers
         val visibilityLevel = modifiers.getVisibilityLevel()
         if (visibilityLevel != VisibilityLevel.PACKAGE_PRIVATE) {
-            writer.write(visibilityLevel.sourceCodeModifier + " ")
+            writer.write(visibilityLevel.javaSourceCodeModifier + " ")
         }
 
         if (modifiers.isStatic()) {

@@ -409,7 +409,8 @@ public abstract class InstrumentClusterRenderingService extends Service {
         intent.putExtra(Car.CAR_EXTRA_CLUSTER_ACTIVITY_STATE, mActivityState.toBundle());
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
-            startActivityAsUser(intent, mActivityOptions.toBundle(), UserHandle.CURRENT);
+            startFixedActivityModeForDisplayAndUser(intent, mActivityOptions,
+                    UserHandle.CURRENT.getIdentifier());
             Log.i(TAG, String.format("Activity launched: %s (options: %s, displayId: %d)",
                     mActivityOptions, intent, mActivityOptions.getLaunchDisplayId()));
         } catch (ActivityNotFoundException e) {

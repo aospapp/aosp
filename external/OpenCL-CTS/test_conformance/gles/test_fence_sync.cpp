@@ -160,7 +160,7 @@ GLuint createShaderProgram(GLint *posLoc, GLint *colLoc)
     glAttachShader(program, vpShader);
 
     GLuint fpShader;
-    char* fpstr = (char*)malloc(strlen(fragmentshader));
+    char *fpstr = (char *)malloc(sizeof(fragmentshader));
     strcpy(fpstr, fragmentshader);
     fpShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fpShader, 1, (const GLchar **)&fpstr, NULL);
@@ -297,7 +297,7 @@ public:
     virtual void * IRun( void )
     {
         cl_int error = run_cl_kernel( mKernel, mQueue, mStream0, mStream1, mRowIdx, mFenceEvent, mNumThreads );
-        return (void *)error;
+        return (void *)(intptr_t)error;
     }
 };
 

@@ -17,9 +17,9 @@
 #ifndef CHRE_PLATFORM_LINUX_STATIC_NANOAPP_INIT_H_
 #define CHRE_PLATFORM_LINUX_STATIC_NANOAPP_INIT_H_
 
-#include "chre/core/nanoapp.h"
+#include "chre/core/static_nanoapps.h"
 #include "chre/platform/fatal_error.h"
-#include "chre/util/unique_ptr.h"
+#include "chre/platform/shared/nanoapp_support_lib_dso.h"
 
 /**
  * Initializes a static nanoapp that is based on the Linux implementation of
@@ -28,8 +28,10 @@
  * @param appName the name of the nanoapp. This will be prefixed by gNanoapp
  * when creating the global instance of the nanoapp.
  * @param appId the app's unique 64-bit ID
+ * @param appVersion the application-defined 32-bit version number
+ * @param appPerms the declared CHRE_PERMS_ permissions for the nanoapp.
  */
-#define CHRE_STATIC_NANOAPP_INIT(appName, appId_, appVersion_)               \
+#define CHRE_STATIC_NANOAPP_INIT(appName, appId_, appVersion_, appPerms)     \
   namespace chre {                                                           \
                                                                              \
   UniquePtr<Nanoapp> initializeStaticNanoapp##appName() {                    \
@@ -48,6 +50,7 @@
     appInfo.entryPoints.handleEvent = nanoappHandleEvent;                    \
     appInfo.entryPoints.end = nanoappEnd;                                    \
     appInfo.appVersionString = "<undefined>";                                \
+    appInfo.appPermissions = appPerms;                                       \
     if (nanoapp.isNull()) {                                                  \
       FATAL_ERROR("Failed to allocate nanoapp " #appName);                   \
     } else {                                                                 \
@@ -56,6 +59,7 @@
                                                                              \
     return nanoapp;                                                          \
   }                                                                          \
-  } /* namespace chre */
+                                                                             \
+  }  // namespace chre
 
 #endif  // CHRE_PLATFORM_LINUX_STATIC_NANOAPP_INIT_H_

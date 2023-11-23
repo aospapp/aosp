@@ -18,21 +18,26 @@ package android.media.cts;
 
 import android.content.Context;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
-import android.media.cts.R;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -43,10 +48,12 @@ import java.util.concurrent.TimeUnit;
 
 @SmallTest
 @RequiresDevice
+@AppModeFull(reason = "Instant apps cannot access the SD card")
 public class EncoderTest extends AndroidTestCase {
     private static final String TAG = "EncoderTest";
     private static final boolean VERBOSE = false;
 
+    static final String mInpPrefix = WorkDir.getMediaDirString();
     private static final int kNumInputBytes = 512 * 1024;
     private static final long kTimeoutUs = 100;
 
@@ -105,19 +112,22 @@ public class EncoderTest extends AndroidTestCase {
         testEncoderWithFormats(MediaFormat.MIMETYPE_AUDIO_AMR_WB, formats);
     }
 
+    @CddTest(requirement="5.1.3")
     public void testOpusEncoders() {
         LinkedList<MediaFormat> formats = new LinkedList<MediaFormat>();
 
         final int kBitRates[] =
-            { 6600, 8850, 12650, 14250, 15850, 18250, 19850, 23050, 23850 };
+            { 8000, 12000, 16000, 24000, 48000 };
 
         for (int j = 0; j < kBitRates.length; ++j) {
-            MediaFormat format  = new MediaFormat();
-            format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_OPUS);
-            format.setInteger(MediaFormat.KEY_SAMPLE_RATE, 16000);
-            format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
-            format.setInteger(MediaFormat.KEY_BIT_RATE, kBitRates[j]);
-            formats.push(format);
+            for (int nChannels = 1; nChannels <= 2; ++nChannels) {
+                MediaFormat format  = new MediaFormat();
+                format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_OPUS);
+                format.setInteger(MediaFormat.KEY_SAMPLE_RATE, 16000);
+                format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, nChannels);
+                format.setInteger(MediaFormat.KEY_BIT_RATE, kBitRates[j]);
+                formats.push(format);
+            }
         }
 
         testEncoderWithFormats(MediaFormat.MIMETYPE_AUDIO_OPUS, formats);
@@ -163,16 +173,8 @@ public class EncoderTest extends AndroidTestCase {
         testEncoderWithFormats(MediaFormat.MIMETYPE_AUDIO_AAC, formats);
     }
 
-    private void testEncoderWithFormats(
-            String mime, List<MediaFormat> formatList) {
-        MediaFormat[] formats = formatList.toArray(new MediaFormat[formatList.size()]);
-        String[] componentNames = MediaUtils.getEncoderNames(formats);
-        if (componentNames.length == 0) {
-            MediaUtils.skipTest("no encoders found for " + Arrays.toString(formats));
-            return;
-        }
-
-        int ThreadCount = 3;
+    private void testEncoderWithFormatsParallel(String mime, List<MediaFormat> formats,
+            List<String> componentNames, int ThreadCount) {
         int testsStarted = 0;
         int allowPerTest = 30;
 
@@ -195,6 +197,42 @@ public class EncoderTest extends AndroidTestCase {
                     pool.awaitTermination(waitingSeconds, TimeUnit.SECONDS));
         } catch (InterruptedException e) {
             fail("interrupted while waiting for encoder threads");
+        }
+    }
+
+    private void testEncoderWithFormats(
+            String mime, List<MediaFormat> formatList) {
+        MediaFormat[] formats = formatList.toArray(new MediaFormat[formatList.size()]);
+        String[] componentNames = MediaUtils.getEncoderNames(formats);
+        if (componentNames.length == 0) {
+            MediaUtils.skipTest("no encoders found for " + Arrays.toString(formats));
+            return;
+        }
+
+        final int ThreadPoolCount = 3;
+        List<String>[] componentNamesGrouped = new List[ThreadPoolCount];
+        for (int i = 0; i < ThreadPoolCount; i++) {
+            componentNamesGrouped[i] = new ArrayList<>();
+        }
+        for (String componentName : componentNames) {
+            MediaCodec codec = null;
+            try {
+                codec = MediaCodec.createByCodecName(componentName);
+                MediaCodecInfo info = codec.getCodecInfo();
+                MediaCodecInfo.CodecCapabilities cap = info.getCapabilitiesForType(mime);
+                int instances = Math.min(cap.getMaxSupportedInstances(), ThreadPoolCount);
+                assertTrue(instances >= 1 && instances <= ThreadPoolCount);
+                componentNamesGrouped[instances - 1].add(componentName);
+            } catch (Exception e) {
+                fail("codec '" + componentName + "' failed construction.");
+            } finally {
+                codec.release();
+            }
+        }
+        for (int i = 0; i < ThreadPoolCount; i++) {
+            if (componentNamesGrouped[i].size() > 0) {
+                testEncoderWithFormatsParallel(mime, formatList, componentNamesGrouped[i], i + 1);
+            }
         }
     }
 
@@ -276,30 +314,36 @@ public class EncoderTest extends AndroidTestCase {
         }
         @Override
         public void run() {
-            testEncoder(mComponentName, mFormat);
+            try {
+                testEncoder(mComponentName, mFormat);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                fail("Received exception " + e);
+            }
         }
     }
 
-    private void testEncoder(String componentName, MediaFormat format) {
+    private void testEncoder(String componentName, MediaFormat format)
+            throws FileNotFoundException {
         Log.i(TAG, "testEncoder " + componentName + "/" + format);
         // test with all zeroes/silence
-        testEncoder(componentName, format, 0, -1, MODE_SILENT);
+        testEncoder(componentName, format, 0, null, MODE_SILENT);
 
         // test with pcm input file
-        testEncoder(componentName, format, 0, R.raw.okgoogle123_good, MODE_RESOURCE);
-        testEncoder(componentName, format, 0, R.raw.okgoogle123_good, MODE_RESOURCE | MODE_QUIET);
-        testEncoder(componentName, format, 0, R.raw.tones, MODE_RESOURCE);
-        testEncoder(componentName, format, 0, R.raw.tones, MODE_RESOURCE | MODE_QUIET);
+        testEncoder(componentName, format, 0, "okgoogle123_good.wav", MODE_RESOURCE);
+        testEncoder(componentName, format, 0, "okgoogle123_good.wav", MODE_RESOURCE | MODE_QUIET);
+        testEncoder(componentName, format, 0, "tones.wav", MODE_RESOURCE);
+        testEncoder(componentName, format, 0, "tones.wav", MODE_RESOURCE | MODE_QUIET);
 
         // test with random data, with and without a few leading zeroes
         for (int i = 0; i < mBadSeeds.length; i++) {
-            testEncoder(componentName, format, mBadSeeds[i], -1, MODE_RANDOM);
-            testEncoder(componentName, format, mBadSeeds[i], -1, MODE_RANDOM | MODE_SILENTLEAD);
+            testEncoder(componentName, format, mBadSeeds[i], null, MODE_RANDOM);
+            testEncoder(componentName, format, mBadSeeds[i], null, MODE_RANDOM | MODE_SILENTLEAD);
         }
     }
 
     private void testEncoder(String componentName, MediaFormat format,
-            long startSeed, int resid, int mode) {
+            long startSeed, final String res, int mode) throws FileNotFoundException {
 
         Log.i(TAG, "testEncoder " + componentName + "/" + mode + "/" + format);
         int sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
@@ -313,9 +357,9 @@ public class EncoderTest extends AndroidTestCase {
             try {
                 String outFile = "/data/local/tmp/transcoded-" + componentName +
                         "-" + sampleRate + "Hz-" + channelCount + "ch-" + outBitrate +
-                        "bps-" + mode + "-" + resid + "-" + startSeed + "-" +
+                        "bps-" + mode + "-" + res + "-" + startSeed + "-" +
                         (android.os.Process.is64Bit() ? "64bit" : "32bit") + ".mp4";
-                new File("outFile").delete();
+                new File(outFile).delete();
                 muxer = new MediaMuxer(outFile, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
                 // The track can't be added until we have the codec specific data
             } catch (Exception e) {
@@ -325,7 +369,8 @@ public class EncoderTest extends AndroidTestCase {
 
         InputStream istream = null;
         if ((mode & MODE_RESOURCE) != 0) {
-            istream = mContext.getResources().openRawResource(resid);
+            Preconditions.assertTestFileExists(mInpPrefix + res);
+            istream = new FileInputStream(mInpPrefix + res);
         }
 
         Random random = new Random(startSeed);

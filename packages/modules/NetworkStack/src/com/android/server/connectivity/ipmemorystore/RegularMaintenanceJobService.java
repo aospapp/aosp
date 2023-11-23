@@ -29,7 +29,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
 
-import java.util.ArrayList;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -65,7 +65,8 @@ public final class RegularMaintenanceJobService extends JobService {
         }
     }
 
-    private static final ArrayList<InterruptMaintenance> sInterruptList = new ArrayList<>();
+    private static final CopyOnWriteArrayList<InterruptMaintenance> sInterruptList =
+            new CopyOnWriteArrayList<>();
     private static IpMemoryStoreService sIpMemoryStoreService;
 
     @Override

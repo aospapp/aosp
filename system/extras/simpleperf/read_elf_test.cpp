@@ -23,6 +23,7 @@
 #include <android-base/file.h>
 
 #include "get_test_data.h"
+#include "read_apk.h"
 #include "test_util.h"
 #include "utils.h"
 
@@ -63,14 +64,20 @@ TEST(read_elf, GetBuildIdFromNoteSection) {
 
 TEST(read_elf, GetBuildIdFromElfFile) {
   BuildId build_id;
-  ASSERT_EQ(ElfStatus::NO_ERROR, GetBuildIdFromElfFile(GetTestData(ELF_FILE), &build_id));
+  ElfStatus status;
+  auto elf = ElfFile::Open(GetTestData(ELF_FILE), &status);
+  ASSERT_EQ(status, ElfStatus::NO_ERROR);
+  ASSERT_EQ(ElfStatus::NO_ERROR, elf->GetBuildId(&build_id));
   ASSERT_EQ(build_id, BuildId(elf_file_build_id));
 }
 
 TEST(read_elf, GetBuildIdFromEmbeddedElfFile) {
   BuildId build_id;
-  ASSERT_EQ(ElfStatus::NO_ERROR, GetBuildIdFromEmbeddedElfFile(GetTestData(APK_FILE), NATIVELIB_OFFSET_IN_APK,
-                                            NATIVELIB_SIZE_IN_APK, &build_id));
+  ElfStatus status;
+  std::string path = GetUrlInApk(APK_FILE, NATIVELIB_IN_APK);
+  auto elf = ElfFile::Open(GetTestData(path), &status);
+  ASSERT_EQ(status, ElfStatus::NO_ERROR);
+  ASSERT_EQ(ElfStatus::NO_ERROR, elf->GetBuildId(&build_id));
   ASSERT_EQ(build_id, native_lib_build_id);
 }
 
@@ -98,37 +105,60 @@ void CheckElfFileSymbols(const std::map<std::string, ElfFileSymbol>& symbols) {
 
 TEST(read_elf, parse_symbols_from_elf_file_with_correct_build_id) {
   std::map<std::string, ElfFileSymbol> symbols;
-  ASSERT_EQ(ElfStatus::NO_ERROR, ParseSymbolsFromElfFile(GetTestData(ELF_FILE), elf_file_build_id,
-                                      std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+  ElfStatus status;
+  auto elf = ElfFile::Open(GetTestData(ELF_FILE), &elf_file_build_id, &status);
+  ASSERT_EQ(ElfStatus::NO_ERROR, status);
+  ASSERT_EQ(ElfStatus::NO_ERROR,
+            elf->ParseSymbols(std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
   CheckElfFileSymbols(symbols);
 }
 
 TEST(read_elf, parse_symbols_from_elf_file_without_build_id) {
   std::map<std::string, ElfFileSymbol> symbols;
-  ASSERT_EQ(ElfStatus::NO_ERROR, ParseSymbolsFromElfFile(GetTestData(ELF_FILE), BuildId(),
-                                      std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+  ElfStatus status;
+  // Test no build_id.
+  auto elf = ElfFile::Open(GetTestData(ELF_FILE), &status);
+  ASSERT_EQ(ElfStatus::NO_ERROR, status);
+  ASSERT_EQ(ElfStatus::NO_ERROR,
+            elf->ParseSymbols(std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+  CheckElfFileSymbols(symbols);
+
+  // Test empty build id.
+  symbols.clear();
+  BuildId build_id;
+  elf = ElfFile::Open(GetTestData(ELF_FILE), &build_id, &status);
+  ASSERT_EQ(ElfStatus::NO_ERROR, status);
+  ASSERT_EQ(ElfStatus::NO_ERROR,
+            elf->ParseSymbols(std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
   CheckElfFileSymbols(symbols);
 }
 
 TEST(read_elf, parse_symbols_from_elf_file_with_wrong_build_id) {
   BuildId build_id("01010101010101010101");
   std::map<std::string, ElfFileSymbol> symbols;
-  ASSERT_EQ(ElfStatus::BUILD_ID_MISMATCH, ParseSymbolsFromElfFile(GetTestData(ELF_FILE), build_id,
-                                       std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+  ElfStatus status;
+  auto elf = ElfFile::Open(GetTestData(ELF_FILE), &build_id, &status);
+  ASSERT_EQ(ElfStatus::BUILD_ID_MISMATCH, status);
 }
 
 TEST(read_elf, ParseSymbolsFromEmbeddedElfFile) {
   std::map<std::string, ElfFileSymbol> symbols;
-  ASSERT_EQ(ElfStatus::NO_SYMBOL_TABLE, ParseSymbolsFromEmbeddedElfFile(GetTestData(APK_FILE), NATIVELIB_OFFSET_IN_APK,
-                                              NATIVELIB_SIZE_IN_APK, native_lib_build_id,
-                                              std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+  ElfStatus status;
+  std::string path = GetUrlInApk(APK_FILE, NATIVELIB_IN_APK);
+  auto elf = ElfFile::Open(GetTestData(path), &native_lib_build_id, &status);
+  ASSERT_EQ(status, ElfStatus::NO_ERROR);
+  ASSERT_EQ(ElfStatus::NO_SYMBOL_TABLE,
+            elf->ParseSymbols(std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
   CheckElfFileSymbols(symbols);
 }
 
 TEST(read_elf, ParseSymbolFromMiniDebugInfoElfFile) {
   std::map<std::string, ElfFileSymbol> symbols;
-  ASSERT_EQ(ElfStatus::NO_ERROR, ParseSymbolsFromElfFile(GetTestData(ELF_FILE_WITH_MINI_DEBUG_INFO), BuildId(),
-                                      std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+  ElfStatus status;
+  auto elf = ElfFile::Open(GetTestData(ELF_FILE_WITH_MINI_DEBUG_INFO), &status);
+  ASSERT_EQ(ElfStatus::NO_ERROR, status);
+  ASSERT_EQ(ElfStatus::NO_ERROR,
+            elf->ParseSymbols(std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
   CheckFunctionSymbols(symbols);
 }
 
@@ -155,32 +185,38 @@ TEST(read_elf, ElfFile_Open) {
 
 TEST(read_elf, check_symbol_for_plt_section) {
   std::map<std::string, ElfFileSymbol> symbols;
-  ASSERT_EQ(ElfStatus::NO_ERROR, ParseSymbolsFromElfFile(GetTestData(ELF_FILE), BuildId(),
-                                      std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+  ElfStatus status;
+  auto elf = ElfFile::Open(GetTestData(ELF_FILE), &status);
+  ASSERT_EQ(ElfStatus::NO_ERROR, status);
+  ASSERT_EQ(ElfStatus::NO_ERROR,
+            elf->ParseSymbols(std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
   ASSERT_NE(symbols.find("@plt"), symbols.end());
 }
 
 TEST(read_elf, read_elf_with_broken_section_table) {
   std::string elf_path = GetTestData("libsgmainso-6.4.36.so");
   std::map<std::string, ElfFileSymbol> symbols;
+  ElfStatus status;
+  auto elf = ElfFile::Open(elf_path, &status);
+  ASSERT_EQ(ElfStatus::NO_ERROR, status);
   ASSERT_EQ(ElfStatus::NO_SYMBOL_TABLE,
-            ParseSymbolsFromElfFile(elf_path, BuildId(),
-                                    std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+            elf->ParseSymbols(std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+
   BuildId build_id;
-  ASSERT_EQ(ElfStatus::NO_BUILD_ID, GetBuildIdFromElfFile(elf_path, &build_id));
-  uint64_t min_vaddr;
+  ASSERT_EQ(ElfStatus::NO_BUILD_ID, elf->GetBuildId(&build_id));
+
   uint64_t file_offset_of_min_vaddr;
-  ASSERT_EQ(ElfStatus::NO_ERROR, ReadMinExecutableVirtualAddressFromElfFile(
-      elf_path, BuildId(), &min_vaddr, &file_offset_of_min_vaddr));
+  uint64_t min_vaddr = elf->ReadMinExecutableVaddr(&file_offset_of_min_vaddr);
   ASSERT_EQ(min_vaddr, 0u);
   ASSERT_EQ(file_offset_of_min_vaddr, 0u);
 }
 
-TEST(read_elf, ReadMinExecutableVirtualAddressFromElfFile) {
-  uint64_t min_vaddr;
+TEST(read_elf, ReadMinExecutableVaddr) {
+  ElfStatus status;
+  auto elf = ElfFile::Open(GetTestData("libc.so"), &status);
+  ASSERT_EQ(status, ElfStatus::NO_ERROR);
   uint64_t file_offset_of_min_vaddr;
-  ASSERT_EQ(ElfStatus::NO_ERROR, ReadMinExecutableVirtualAddressFromElfFile(
-      GetTestData("libc.so"), BuildId(), &min_vaddr, &file_offset_of_min_vaddr));
+  uint64_t min_vaddr = elf->ReadMinExecutableVaddr(&file_offset_of_min_vaddr);
   ASSERT_EQ(min_vaddr, 0x29000u);
   ASSERT_EQ(file_offset_of_min_vaddr, 0x29000u);
 }
@@ -194,7 +230,30 @@ TEST(read_elf, NoUndefinedSymbol) {
     }
   };
 
-  ASSERT_EQ(ElfStatus::NO_ERROR,
-            ParseSymbolsFromElfFile(GetTestData("libc.so"), BuildId(), parse_symbol));
+  ElfStatus status;
+  auto elf = ElfFile::Open(GetTestData("libc.so"), &status);
+  ASSERT_EQ(status, ElfStatus::NO_ERROR);
+  ASSERT_EQ(ElfStatus::NO_ERROR, elf->ParseSymbols(parse_symbol));
   ASSERT_FALSE(has_dlerror);
+}
+
+TEST(read_elf, VaddrToOff) {
+  auto elf = ElfFile::Open(GetTestData(ELF_FILE));
+  ASSERT_TRUE(elf != nullptr);
+  uint64_t off;
+  ASSERT_TRUE(elf->VaddrToOff(0x400200, &off));
+  ASSERT_EQ(off, 0x200);
+  ASSERT_FALSE(elf->VaddrToOff(0x300200, &off));
+  ASSERT_FALSE(elf->VaddrToOff(0x420000, &off));
+}
+
+TEST(read_elf, GetSectionHeader) {
+  auto elf = ElfFile::Open(GetTestData(ELF_FILE));
+  ASSERT_TRUE(elf != nullptr);
+  std::vector<ElfSection> sections = elf->GetSectionHeader();
+  ASSERT_EQ(sections.size(), 30);
+  ASSERT_EQ(sections[13].name, ".text");
+  ASSERT_EQ(sections[13].vaddr, 0x400400);
+  ASSERT_EQ(sections[13].file_offset, 0x400);
+  ASSERT_EQ(sections[13].size, 0x1b2);
 }

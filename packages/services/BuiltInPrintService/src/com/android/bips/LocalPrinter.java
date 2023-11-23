@@ -16,6 +16,8 @@
 
 package com.android.bips;
 
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.net.Uri;
 import android.print.PrinterCapabilitiesInfo;
 import android.print.PrinterId;
@@ -29,9 +31,11 @@ import com.android.bips.ipp.CapabilitiesCache;
 import com.android.bips.jni.LocalPrinterCapabilities;
 import com.android.bips.p2p.P2pPrinterConnection;
 import com.android.bips.p2p.P2pUtils;
+import com.android.bips.ui.MoreOptionsActivity;
 
 import java.net.InetAddress;
 import java.util.Collections;
+import java.util.UUID;
 
 /**
  * A session-specific printer record. Encapsulates logic for getting the latest printer
@@ -87,7 +91,8 @@ class LocalPrinter implements CapabilitiesCache.OnLocalPrinterCapabilities {
                         mPrinterId, mDiscoveredPrinter.name,
                         PrinterInfo.STATUS_IDLE)
                         .setIconResourceId(R.drawable.ic_printer)
-                        .setDescription(mPrintService.getDescription(mDiscoveredPrinter));
+                        .setDescription(mPrintService.getDescription(mDiscoveredPrinter))
+                        .setInfoIntent(getMoreOptionsActivityPendingIntent());
                 return builder.build();
             } else if (!knownGood) {
                 // Ignore unknown LAN printers with no caps
@@ -110,7 +115,8 @@ class LocalPrinter implements CapabilitiesCache.OnLocalPrinterCapabilities {
                 mPrinterId, printer.name,
                 idle ? PrinterInfo.STATUS_IDLE : PrinterInfo.STATUS_UNAVAILABLE)
                 .setIconResourceId(R.drawable.ic_printer)
-                .setDescription(mPrintService.getDescription(mDiscoveredPrinter));
+                .setDescription(mPrintService.getDescription(mDiscoveredPrinter))
+                .setInfoIntent(getMoreOptionsActivityPendingIntent());
 
         if (mCapabilities != null) {
             // Add capabilities if we have them
@@ -241,5 +247,20 @@ class LocalPrinter implements CapabilitiesCache.OnLocalPrinterCapabilities {
     @Override
     public String toString() {
         return mDiscoveredPrinter.toString();
+    }
+
+    /**
+     * Returns a pending intent to the more options activity with the given printer info as an extra
+     * @return Pending Intent
+     */
+    public PendingIntent getMoreOptionsActivityPendingIntent() {
+        return PendingIntent.getActivity(
+                mPrintService,
+                mPrinterId.hashCode(),
+                new Intent(mPrintService, MoreOptionsActivity.class)
+                        .setIdentifier(UUID.randomUUID().toString())
+                        .putExtra(MoreOptionsActivity.EXTRA_PRINTER_ID, mPrinterId),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
     }
 }

@@ -16,6 +16,7 @@
 #include <drivers/generic_delay_timer.h>
 #include <mcucfg.h>
 #include <mt_gic_v3.h>
+#include <mt_timer.h>
 #include <lib/coreboot.h>
 #include <lib/mmio.h>
 #include <mtk_mcdi.h>
@@ -112,7 +113,7 @@ entry_point_info_t *bl31_plat_get_next_image_ep_info(uint32_t type)
 void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 				u_register_t arg2, u_register_t arg3)
 {
-	static console_16550_t console;
+	static console_t console;
 
 	params_early_setup(arg1);
 
@@ -147,6 +148,8 @@ void bl31_platform_setup(void)
 	/* Initialize the GIC driver, CPU and distributor interfaces */
 	mt_gic_driver_init();
 	mt_gic_init();
+
+	mt_systimer_init();
 
 	/* Init mcsi SF */
 	plat_mtk_cci_init_sf();

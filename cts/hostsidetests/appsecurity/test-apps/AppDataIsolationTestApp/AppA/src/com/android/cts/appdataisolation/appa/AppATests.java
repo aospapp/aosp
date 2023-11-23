@@ -16,9 +16,12 @@
 
 package com.android.cts.appdataisolation.appa;
 
+import static com.android.cts.appdataisolation.common.FileUtils.APPA_PKG;
+import static com.android.cts.appdataisolation.common.FileUtils.APPB_PKG;
 import static com.android.cts.appdataisolation.common.FileUtils.CE_DATA_FILE_NAME;
 import static com.android.cts.appdataisolation.common.FileUtils.DE_DATA_FILE_NAME;
 import static com.android.cts.appdataisolation.common.FileUtils.EXTERNAL_DATA_FILE_NAME;
+import static com.android.cts.appdataisolation.common.FileUtils.NOT_INSTALLED_PKG;
 import static com.android.cts.appdataisolation.common.FileUtils.OBB_FILE_NAME;
 import static com.android.cts.appdataisolation.common.FileUtils.assertDirDoesNotExist;
 import static com.android.cts.appdataisolation.common.FileUtils.assertDirIsAccessible;
@@ -26,6 +29,7 @@ import static com.android.cts.appdataisolation.common.FileUtils.assertDirIsNotAc
 import static com.android.cts.appdataisolation.common.FileUtils.assertFileDoesNotExist;
 import static com.android.cts.appdataisolation.common.FileUtils.assertFileExists;
 import static com.android.cts.appdataisolation.common.FileUtils.touchFile;
+import static com.android.cts.appdataisolation.common.UserUtils.getCurrentUserId;
 
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -37,13 +41,17 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.ApplicationInfo;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
+import android.os.SystemProperties;
 import android.support.test.uiautomator.UiDevice;
 import android.view.KeyEvent;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.PropertyUtil;
 import com.android.cts.appdataisolation.common.FileUtils;
 
 import org.junit.Before;
@@ -171,23 +179,25 @@ public class AppATests {
 
     @Test
     public void testAppACurProfileDataAccessible() {
-        assertDirIsAccessible("/data/misc/profiles/cur/0/" + mContext.getPackageName());
+        assertDirIsAccessible("/data/misc/profiles/cur/"+ getCurrentUserId() + "/"
+                + mContext.getPackageName());
     }
 
     @Test
-    public void testAppARefProfileDataNotAccessible() {
-        assertDirIsNotAccessible("/data/misc/profiles/ref");
+    public void testAppARefProfileDataAccessible() {
+        assertDirIsAccessible("/data/misc/profiles/ref/"
+                + mContext.getPackageName());
     }
 
     @Test
     public void testCannotAccessAppBDataDir() throws Exception {
-        ApplicationInfo applicationInfo = mContext.getPackageManager().getApplicationInfo(
-                FileUtils.APPB_PKG,0);
+        ApplicationInfo applicationInfo = mContext.getPackageManager()
+                .getApplicationInfo(APPB_PKG, 0);
         assertDirDoesNotExist(applicationInfo.dataDir);
         assertDirDoesNotExist(applicationInfo.deviceProtectedDataDir);
-        assertDirDoesNotExist("/data/data/" + FileUtils.APPB_PKG);
-        assertDirDoesNotExist("/data/misc/profiles/cur/0/" + FileUtils.APPB_PKG);
-        assertDirIsNotAccessible("/data/misc/profiles/ref");
+        assertDirDoesNotExist("/data/data/" + APPB_PKG);
+        assertDirDoesNotExist("/data/misc/profiles/cur/" + getCurrentUserId() + "/" + APPB_PKG);
+        assertDirDoesNotExist("/data/misc/profiles/ref/" + APPB_PKG);
     }
 
     @Test
@@ -239,17 +249,18 @@ public class AppATests {
         mContext.registerReceiver(receiver, new IntentFilter(Intent.ACTION_BOOT_COMPLETED));
 
         testUnlockDevice();
-        setUpExternalStoragePaths();
 
         assertTrue("User not unlocked", unlocked.await(1, TimeUnit.MINUTES));
         assertTrue("No locked boot complete", bootCompleted.await(1, TimeUnit.MINUTES));
+
+        setUpExternalStoragePaths();
 
         // The test app process should be still running, make sure CE DE now is available
         testAppACeDataExists();
         testAppADeDataExists();
         testAppAExternalDirsDoExist();
         testAppACurProfileDataAccessible();
-        testAppARefProfileDataNotAccessible();
+        testAppARefProfileDataAccessible();
 
         // Verify after unlocking device, app a has still no access to app b dir.
         testCannotAccessAppBDataDir();
@@ -282,5 +293,60 @@ public class AppATests {
         } finally {
             mContext.unbindService(mServiceConnection);
         }
+    }
+
+    @Test
+    public void testOtherUserDirsNotPresent() throws Exception {
+        final Bundle arguments = InstrumentationRegistry.getArguments();
+        final int otherUserId = Integer.parseInt(arguments.getString("other_user_id"));
+
+        final String ceDataRoot = "/data/user/" + otherUserId;
+        final String deDataRoot = "/data/user_de/" + otherUserId;
+        final String profileRoot = "/data/misc/profiles/cur/" + otherUserId;
+
+        assertDirDoesNotExist(ceDataRoot);
+        assertDirDoesNotExist(deDataRoot);
+        assertDirDoesNotExist(profileRoot);
+    }
+
+    @Test
+    public void testOtherUserDirsNotAccessible() throws Exception {
+        final Bundle arguments = InstrumentationRegistry.getArguments();
+        final int otherUserId = Integer.parseInt(arguments.getString("other_user_id"));
+
+        final String ceDataRoot = "/data/user/" + otherUserId;
+        final String deDataRoot = "/data/user_de/" + otherUserId;
+        final String profileRoot = "/data/misc/profiles/cur/" + otherUserId;
+
+        // APPA (this app) is installed in this user but not the other one.
+        // APPB is installed in this user and the other one.
+        // NOT_INSTALLED_PKG isn't installed anywhere.
+        // We must get the same answer for all of them, so we can't infer if any of them are or
+        // are not installed in the other user.
+        assertDirIsNotAccessible(ceDataRoot);
+        assertDirIsNotAccessible(ceDataRoot + "/" + APPA_PKG);
+        assertDirIsNotAccessible(ceDataRoot + "/" + APPB_PKG);
+        assertDirIsNotAccessible(ceDataRoot + "/" + NOT_INSTALLED_PKG);
+
+        assertDirIsNotAccessible(deDataRoot);
+        assertDirIsNotAccessible(deDataRoot + "/" + APPA_PKG);
+        assertDirIsNotAccessible(deDataRoot + "/" + APPB_PKG);
+        assertDirIsNotAccessible(deDataRoot + "/" + NOT_INSTALLED_PKG);
+
+        // If the vendor policy is pre-R then backward compatibility rules apply.
+        if (isVendorPolicyNewerThanR()) {
+            assertDirIsNotAccessible(profileRoot);
+            assertDirIsNotAccessible(profileRoot + "/" + APPA_PKG);
+            assertDirIsNotAccessible(profileRoot + "/" + APPB_PKG);
+            assertDirIsNotAccessible(profileRoot + "/" + NOT_INSTALLED_PKG);
+        }
+    }
+
+    private boolean isVendorPolicyNewerThanR() {
+        if (SystemProperties.get("ro.vndk.version").equals("S")) {
+            // Vendor build is S, but before the API level bump - good enough for us.
+            return true;
+        }
+        return PropertyUtil.isVendorApiLevelNewerThan(Build.VERSION_CODES.R);
     }
 }

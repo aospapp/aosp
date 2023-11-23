@@ -17,7 +17,12 @@
 #include "art_api/dex_file_support.h"
 
 #include <dlfcn.h>
+#include <inttypes.h>
 #include <mutex>
+#include <sys/stat.h>
+
+#include <android-base/mapped_file.h>
+#include <android-base/stringprintf.h>
 
 #ifndef STATIC_LIB
 // Not used in the static lib, so avoid a dependency on this header in
@@ -28,25 +33,15 @@
 namespace art_api {
 namespace dex {
 
-#define FOR_ALL_DLFUNCS(MACRO) \
-  MACRO(DexString, ExtDexFileMakeString) \
-  MACRO(DexString, ExtDexFileGetString) \
-  MACRO(DexString, ExtDexFileFreeString) \
-  MACRO(DexFile, ExtDexFileOpenFromMemory) \
-  MACRO(DexFile, ExtDexFileOpenFromFd) \
-  MACRO(DexFile, ExtDexFileGetMethodInfoForOffset) \
-  MACRO(DexFile, ExtDexFileGetAllMethodInfos) \
-  MACRO(DexFile, ExtDexFileFree)
-
-#ifdef STATIC_LIB
-#define DEFINE_DLFUNC_PTR(CLASS, DLFUNC) decltype(DLFUNC)* CLASS::g_##DLFUNC = DLFUNC;
+#if defined(STATIC_LIB)
+#define DEFINE_ADEX_FILE_SYMBOL(DLFUNC) decltype(DLFUNC)* g_##DLFUNC = DLFUNC;
 #else
-#define DEFINE_DLFUNC_PTR(CLASS, DLFUNC) decltype(DLFUNC)* CLASS::g_##DLFUNC = nullptr;
+#define DEFINE_ADEX_FILE_SYMBOL(DLFUNC) decltype(DLFUNC)* g_##DLFUNC = nullptr;
 #endif
-FOR_ALL_DLFUNCS(DEFINE_DLFUNC_PTR)
-#undef DEFINE_DLFUNC_PTR
+FOR_EACH_ADEX_FILE_SYMBOL(DEFINE_ADEX_FILE_SYMBOL)
+#undef DEFINE_ADEX_FILE_SYMBOL
 
-bool TryLoadLibdexfileExternal([[maybe_unused]] std::string* err_msg) {
+bool TryLoadLibdexfile([[maybe_unused]] std::string* err_msg) {
 #if defined(STATIC_LIB)
   // Nothing to do here since all function pointers are initialised statically.
   return true;
@@ -64,10 +59,10 @@ bool TryLoadLibdexfileExternal([[maybe_unused]] std::string* err_msg) {
     // Check which version is already loaded to avoid loading both debug and
     // release builds. We might also be backtracing from separate process, in
     // which case neither is loaded.
-    const char* so_name = "libdexfiled_external.so";
+    const char* so_name = "libdexfiled.so";
     void* handle = dlopen(so_name, RTLD_NOLOAD | RTLD_NOW | RTLD_NODELETE);
     if (handle == nullptr) {
-      so_name = "libdexfile_external.so";
+      so_name = "libdexfile.so";
       handle = dlopen(so_name, RTLD_NOW | RTLD_GLOBAL | RTLD_NODELETE);
     }
     if (handle == nullptr) {
@@ -75,18 +70,18 @@ bool TryLoadLibdexfileExternal([[maybe_unused]] std::string* err_msg) {
       return false;
     }
 
-#define RESOLVE_DLFUNC_PTR(CLASS, DLFUNC) \
-    decltype(DLFUNC)* DLFUNC##_ptr = reinterpret_cast<decltype(DLFUNC)*>(dlsym(handle, #DLFUNC)); \
-    if (DLFUNC == nullptr) { \
+#define RESOLVE_ADEX_FILE_SYMBOL(DLFUNC) \
+    auto DLFUNC##_ptr = reinterpret_cast<decltype(DLFUNC)*>(dlsym(handle, #DLFUNC)); \
+    if (DLFUNC##_ptr == nullptr) { \
       *err_msg = dlerror(); \
       return false; \
     }
-    FOR_ALL_DLFUNCS(RESOLVE_DLFUNC_PTR);
-#undef RESOLVE_DLFUNC_PTR
+FOR_EACH_ADEX_FILE_SYMBOL(RESOLVE_ADEX_FILE_SYMBOL)
+#undef RESOLVE_ADEX_FILE_SYMBOL
 
-#define SET_DLFUNC_PTR(CLASS, DLFUNC) CLASS::g_##DLFUNC = DLFUNC##_ptr;
-    FOR_ALL_DLFUNCS(SET_DLFUNC_PTR);
-#undef SET_DLFUNC_PTR
+#define SET_ADEX_FILE_SYMBOL(DLFUNC) g_##DLFUNC = DLFUNC##_ptr;
+    FOR_EACH_ADEX_FILE_SYMBOL(SET_ADEX_FILE_SYMBOL);
+#undef SET_ADEX_FILE_SYMBOL
 
     is_loaded = true;
   }
@@ -95,23 +90,12 @@ bool TryLoadLibdexfileExternal([[maybe_unused]] std::string* err_msg) {
 #endif  // !defined(NO_DEXFILE_SUPPORT) && !defined(STATIC_LIB)
 }
 
-void LoadLibdexfileExternal() {
+void LoadLibdexfile() {
 #ifndef STATIC_LIB
-  if (std::string err_msg; !TryLoadLibdexfileExternal(&err_msg)) {
+  if (std::string err_msg; !TryLoadLibdexfile(&err_msg)) {
     LOG_ALWAYS_FATAL("%s", err_msg.c_str());
   }
 #endif
-}
-
-DexFile::~DexFile() { g_ExtDexFileFree(ext_dex_file_); }
-
-MethodInfo DexFile::AbsorbMethodInfo(const ExtDexFileMethodInfo& ext_method_info) {
-  return {ext_method_info.offset, ext_method_info.len, DexString(ext_method_info.name)};
-}
-
-void DexFile::AddMethodInfoCallback(const ExtDexFileMethodInfo* ext_method_info, void* ctx) {
-  auto vect = static_cast<MethodInfoVector*>(ctx);
-  vect->emplace_back(AbsorbMethodInfo(*ext_method_info));
 }
 
 }  // namespace dex

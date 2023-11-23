@@ -1,6 +1,12 @@
-subdirs = [
-    "hidl"
-]
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_native_license"],
+}
+
 cc_library_shared {
     name: "libsensorservice",
 
@@ -43,9 +49,12 @@ cc_library_shared {
         "libhardware_legacy",
         "libutils",
         "liblog",
+        "libactivitymanager_aidl",
+        "libbatterystats_aidl",
         "libbinder",
         "libsensor",
         "libsensorprivacy",
+        "libpermission",
         "libprotoutil",
         "libcrypto",
         "libbase",
@@ -62,8 +71,12 @@ cc_library_shared {
 
     generated_headers: ["framework-cppstream-protos"],
 
-    // our public headers depend on libsensor and libsensorprivacy
-    export_shared_lib_headers: ["libsensor", "libsensorprivacy"],
+    export_shared_lib_headers: [
+        "libactivitymanager_aidl",
+        "libsensor",
+        "libsensorprivacy",
+        "libpermission",
+    ],
 }
 
 cc_binary {

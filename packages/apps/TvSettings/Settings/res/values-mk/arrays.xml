@@ -64,6 +64,12 @@
     <item msgid="8127599536762217559">"75%"</item>
     <item msgid="4680121960387090302">"100%"</item>
   </string-array>
+  <string-array name="font_scale_entries">
+    <item msgid="6953338104484431184">"Мал"</item>
+    <item msgid="3988732129988118066">"Стандарден"</item>
+    <item msgid="366536516474422757">"Голем"</item>
+    <item msgid="2224819763437549790">"Најголем"</item>
+  </string-array>
   <string-array name="wifi_peap_phase2_entries">
     <item msgid="5504589898033185752">"Нема"</item>
     <item msgid="7421097083214266845">"MSCHAPV2"</item>

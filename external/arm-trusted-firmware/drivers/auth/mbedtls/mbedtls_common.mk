@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015-2019, ARM Limited and Contributors. All rights reserved.
+# Copyright (c) 2015-2020, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -23,15 +23,18 @@ MBEDTLS_SOURCES	+=		drivers/auth/mbedtls/mbedtls_common.c
 
 
 LIBMBEDTLS_SRCS		:= $(addprefix ${MBEDTLS_DIR}/library/,	\
+					aes.c 					\
 					asn1parse.c 				\
 					asn1write.c 				\
+					cipher.c 				\
+					cipher_wrap.c 				\
 					memory_buffer_alloc.c			\
 					oid.c 					\
 					platform.c 				\
 					platform_util.c				\
 					bignum.c				\
+					gcm.c 					\
 					md.c					\
-					md_wrap.c				\
 					pk.c 					\
 					pk_wrap.c 				\
 					pkparse.c 				\
@@ -72,7 +75,7 @@ endif
 ifeq (${HASH_ALG}, sha384)
     TF_MBEDTLS_HASH_ALG_ID	:=	TF_MBEDTLS_SHA384
 else ifeq (${HASH_ALG}, sha512)
-   TF_MBEDTLS_HASH_ALG_ID	:=	TF_MBEDTLS_SHA512
+    TF_MBEDTLS_HASH_ALG_ID	:=	TF_MBEDTLS_SHA512
 else
     TF_MBEDTLS_HASH_ALG_ID	:=	TF_MBEDTLS_SHA256
 endif
@@ -87,11 +90,20 @@ else
     $(error "TF_MBEDTLS_KEY_ALG=${TF_MBEDTLS_KEY_ALG} not supported on mbed TLS")
 endif
 
-# Needs to be set to drive mbed TLS configuration correctly
-$(eval $(call add_define,TF_MBEDTLS_KEY_ALG_ID))
-$(eval $(call add_define,TF_MBEDTLS_KEY_SIZE))
-$(eval $(call add_define,TF_MBEDTLS_HASH_ALG_ID))
+ifeq (${DECRYPTION_SUPPORT}, aes_gcm)
+    TF_MBEDTLS_USE_AES_GCM	:=	1
+else
+    TF_MBEDTLS_USE_AES_GCM	:=	0
+endif
 
+# Needs to be set to drive mbed TLS configuration correctly
+$(eval $(call add_defines,\
+    $(sort \
+        TF_MBEDTLS_KEY_ALG_ID \
+        TF_MBEDTLS_KEY_SIZE \
+        TF_MBEDTLS_HASH_ALG_ID \
+        TF_MBEDTLS_USE_AES_GCM \
+)))
 
 $(eval $(call MAKE_LIB,mbedtls))
 

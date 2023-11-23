@@ -14,11 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import inspect
 import logging
-import tempfile
 import traceback
-from os import path
 
 from acts.context import get_context_for_event
 from acts.event import event_bus
@@ -28,7 +25,6 @@ from acts.event.event import TestCaseBeginEvent
 from acts.event.event import TestCaseEndEvent
 from acts.event.event import TestClassBeginEvent
 from acts.event.event import TestClassEndEvent
-from acts.libs.proto.proto_utils import compile_import_proto
 from acts.metrics.core import ProtoMetricPublisher
 
 
@@ -123,28 +119,6 @@ class MetricLogger(object):
             The proxy logger.
         """
         return TestClassLoggerProxy(cls, args, kwargs)
-
-    @classmethod
-    def _compile_proto(cls, proto_path, compiler_out=None):
-        """Compile and return a proto file into a module.
-
-        Args:
-            proto_path: the path to the proto file. Can be either relative to
-                        the logger class file or absolute.
-            compiler_out: the directory in which to write the result of the
-                          compilation
-        """
-        if not compiler_out:
-            compiler_out = tempfile.mkdtemp()
-
-        if path.isabs(proto_path):
-            abs_proto_path = proto_path
-        else:
-            classfile = inspect.getfile(cls)
-            base_dir = path.dirname(path.realpath(classfile))
-            abs_proto_path = path.normpath(path.join(base_dir, proto_path))
-
-        return compile_import_proto(compiler_out, abs_proto_path)
 
     def __init__(self, context=None, publisher=None, event=None):
         """Initializes a MetricLogger.

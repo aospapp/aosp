@@ -51,4 +51,23 @@ class TypeItemTest {
         assertThat(TypeItem.equalsWithoutSpace("true", " true  false")).isFalse()
         assertThat(TypeItem.equalsWithoutSpace("false ", "falser")).isFalse()
     }
+
+    @Test
+    fun testToLambdaFormat() {
+        fun check(typeName: String, expected: String = typeName) {
+            assertThat(TypeItem.toLambdaFormat(typeName)).isEqualTo(expected)
+        }
+
+        // Expected to pass string through unchanged
+        check("androidx.pkg.Foo")
+        check("kotlin.jvm.functions<<>")
+
+        check("kotlin.jvm.functions.Function0<kotlin.Unit>", "() -> kotlin.Unit")
+        check("kotlin.jvm.functions.Function1<pkg.Foo, pkg.Bar>", "(pkg.Foo) -> pkg.Bar")
+        check(
+            "kotlin.jvm.functions.Function2<Integer, String, Map<Integer, String>>",
+            "(Integer, String) -> Map<Integer, String>"
+        )
+        check("kotlin.jvm.functions<<>")
+    }
 }

@@ -14,8 +14,7 @@ For local experimentation (using Minijail libraries from the source directory):
 
 ```
 $ make LIBDIR=/lib64
-$ sudo ./minijail0 --preload-library=./libminijailpreload.so \
-  -u ${USER} -g 5000 -- /usr/bin/id
+$ sudo ./minijail0.sh -u ${USER} -g 5000 -- /usr/bin/id
 ```
 
 For system-wide usage, install `libminijail.so` and `libminijailpreload.so` to
@@ -35,6 +34,14 @@ $ make tests
 ```
 
 Building the tests will automatically execute them.
+
+## Code Review
+
+We use [Android Review] for Minijail code review. The easiest way to submit
+changes for review is using `repo upload` on a Chromium OS or Android checkout.
+Go to [Android Review HTTP Credentials] to obtain credentials to push code. For
+more detailed instructions see the [Android source documentation] or the
+[Chromium OS documentation].
 
 ## Source Style
 
@@ -71,5 +78,9 @@ Please keep it in sync with [minijail0_cli.c].
 [minijail0.1]: ./minijail0.1
 [minijail0.5]: ./minijail0.5
 [minijail0_cli.c]: ./minijail0_cli.c
+[Android Review]: https://android-review.googlesource.com/
+[Android Review HTTP Credentials]: https://android-review.googlesource.com/settings/#HTTPCredentials
+[Android source documentation]: https://source.android.com/setup/start
+[Chromium OS documentation]: https://chromium.googlesource.com/chromiumos/docs/+/HEAD/developer_guide.md
 [Google Markdown style guide]: https://github.com/google/styleguide/blob/gh-pages/docguide/style.md
 [Google Test]: https://github.com/google/googletest

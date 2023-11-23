@@ -90,9 +90,4 @@ public class MigrateSystemAppsSnapshotTask extends AbstractProvisioningTask {
         FileUtils.deleteContentsAndDir(legacyFolder);
     }
 
-    @Override
-    public int getStatusMsgId() {
-        // OTA only task, not used.
-        return 0;
-    }
 }

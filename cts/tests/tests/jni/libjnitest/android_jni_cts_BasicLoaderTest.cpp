@@ -19,9 +19,11 @@
  */
 
 #include <dlfcn.h>
+#include <errno.h>
 #include <jni.h>
 #include <libgen.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -29,9 +31,8 @@
 
 #include <string>
 
-#include "nativehelper/JNIHelp.h"
-#include "nativehelper/ScopedLocalRef.h"
-#include "nativehelper/ScopedUtfChars.h"
+#include "nativehelper/scoped_local_ref.h"
+#include "nativehelper/scoped_utf_chars.h"
 
 static constexpr const char* kTestLibName = "libjni_test_dlclose.so";
 

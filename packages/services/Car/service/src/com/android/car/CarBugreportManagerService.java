@@ -38,10 +38,11 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.SystemProperties;
-import android.util.Log;
+import android.util.IndentingPrintWriter;
 import android.util.Slog;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.BufferedReader;
 import java.io.DataInputStream;
@@ -50,7 +51,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CarBugreportManagerService extends ICarBugreportService.Stub implements
         CarServiceBase {
 
-    private static final String TAG = "CarBugreportMgrService";
+    private static final String TAG = CarLog.tagFor(CarBugreportManagerService.class);
 
     /**
      * {@code dumpstate} progress prefixes.
@@ -72,10 +72,10 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
     private static final String FAIL_PREFIX = "FAIL:";
 
     /**
-     * The services are defined in {@code packages/services/Car/car-bugreportd/car-bugreportd.rc}.
+     * The services are defined in {@code packages/services/Car/cpp/bugreport/carbugreportd.rc}.
      */
-    private static final String BUGREPORTD_SERVICE = "car-bugreportd";
-    private static final String DUMPSTATEZ_SERVICE = "car-dumpstatez";
+    private static final String BUGREPORTD_SERVICE = "carbugreportd";
+    private static final String DUMPSTATEZ_SERVICE = "cardumpstatez";
 
     // The socket definitions must match the actual socket names defined in car_bugreportd service
     // definition.
@@ -87,12 +87,14 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
     private static final int SOCKET_CONNECTION_RETRY_DELAY_IN_MS = 5000;
 
     private final Context mContext;
+    private final boolean mIsUserBuild;
     private final Object mLock = new Object();
 
     private final HandlerThread mHandlerThread = CarServiceUtils.getHandlerThread(
             getClass().getSimpleName());
     private final Handler mHandler = new Handler(mHandlerThread.getLooper());
     private final AtomicBoolean mIsServiceRunning = new AtomicBoolean(false);
+    private boolean mIsDumpstateDryRun = false;
 
     /**
      * Create a CarBugreportManagerService instance.
@@ -100,7 +102,14 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
      * @param context the context
      */
     public CarBugreportManagerService(Context context) {
+        // Per https://source.android.com/setup/develop/new-device, user builds are debuggable=0
+        this(context, !Build.IS_DEBUGGABLE);
+    }
+
+    @VisibleForTesting
+    CarBugreportManagerService(Context context, boolean isUserBuild) {
         mContext = context;
+        mIsUserBuild = isUserBuild;
     }
 
     @Override
@@ -116,7 +125,7 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
     @Override
     @RequiresPermission(android.Manifest.permission.DUMP)
     public void requestBugreport(ParcelFileDescriptor output, ParcelFileDescriptor extraOutput,
-            ICarBugreportCallback callback) {
+            ICarBugreportCallback callback, boolean dumpstateDryRun) {
         mContext.enforceCallingOrSelfPermission(
                 android.Manifest.permission.DUMP, "requestBugreport");
         ensureTheCallerIsSignedWithPlatformKeys();
@@ -127,7 +136,7 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
                 reportError(callback, CarBugreportManagerCallback.CAR_BUGREPORT_IN_PROGRESS);
                 return;
             }
-            requestBugReportLocked(output, extraOutput, callback);
+            requestBugReportLocked(output, extraOutput, callback, dumpstateDryRun);
         }
     }
 
@@ -160,6 +169,18 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
             } catch (RuntimeException e) {
                 Slog.e(TAG, "Failed to stop " + DUMPSTATEZ_SERVICE, e);
             }
+            if (mIsDumpstateDryRun) {
+                setDumpstateDryRun(false);
+            }
+        }
+    }
+
+    /** See {@code dumpstate} docs to learn about dry_run. */
+    private void setDumpstateDryRun(boolean dryRun) {
+        try {
+            SystemProperties.set("dumpstate.dry_run", dryRun ? "true" : null);
+        } catch (RuntimeException e) {
+            Slog.e(TAG, "Failed to set dumpstate.dry_run", e);
         }
     }
 
@@ -174,8 +195,7 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
 
     /** Checks only on user builds. */
     private void ensureTheCallerIsDesignatedBugReportApp() {
-        if (Build.IS_DEBUGGABLE) {
-            // Per https://source.android.com/setup/develop/new-device, user builds are debuggable=0
+        if (!mIsUserBuild) {
             return;
         }
         String defaultAppPkgName = mContext.getString(R.string.config_car_bugreport_application);
@@ -194,9 +214,16 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
     }
 
     @GuardedBy("mLock")
-    private void requestBugReportLocked(ParcelFileDescriptor output,
-            ParcelFileDescriptor extraOutput, ICarBugreportCallback callback) {
+    private void requestBugReportLocked(
+            ParcelFileDescriptor output,
+            ParcelFileDescriptor extraOutput,
+            ICarBugreportCallback callback,
+            boolean dumpstateDryRun) {
         Slog.i(TAG, "Starting " + BUGREPORTD_SERVICE);
+        mIsDumpstateDryRun = dumpstateDryRun;
+        if (mIsDumpstateDryRun) {
+            setDumpstateDryRun(true);
+        }
         try {
             // This tells init to start the service. Note that this is achieved through
             // setting a system property which is not thread-safe. So the lock here offers
@@ -212,6 +239,9 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
             try {
                 processBugreportSockets(output, extraOutput, callback);
             } finally {
+                if (mIsDumpstateDryRun) {
+                    setDumpstateDryRun(false);
+                }
                 mIsServiceRunning.set(false);
             }
         });
@@ -333,7 +363,7 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
     }
 
     @Override
-    public void dump(PrintWriter writer) {
+    public void dump(IndentingPrintWriter writer) {
         // TODO(sgurun) implement
     }
 
@@ -347,7 +377,7 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
         while (true) {
             // There are a few factors impacting the socket delay:
             // 1. potential system slowness
-            // 2. car-bugreportd takes the screenshots early (before starting dumpstate). This
+            // 2. carbugreportd takes the screenshots early (before starting dumpstate). This
             //    should be taken into account as the socket opens after screenshots are
             //    captured.
             // Therefore we are generous in setting the timeout. Most cases should not even
@@ -374,7 +404,7 @@ public class CarBugreportManagerService extends ICarBugreportService.Stub implem
                             + " after " + retryCount + " retries", e);
                     return null;
                 }
-                Log.i(TAG, "Failed to connect to " + socketName + ". Will try again. "
+                Slog.i(TAG, "Failed to connect to " + socketName + ". Will try again. "
                         + e.getMessage());
             }
         }

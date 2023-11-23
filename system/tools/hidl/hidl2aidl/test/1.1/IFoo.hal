@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package hidl2aidl@1.1;
+package hidl2aidl.test@1.1;
 
 import @1.0::IFoo;
 import @1.0::Outer;
@@ -22,6 +22,7 @@ import @1.0::Outer;
 interface IFoo extends @1.0::IFoo {
     struct BigStruct {
         uint8_t type;
+        uint8_t value;
     };
 
     // Should take precedence over @1.0::someBar
@@ -32,12 +33,6 @@ interface IFoo extends @1.0::IFoo {
 
     useStruct() generates (BigStruct type);
     useImportedStruct(Outer outer);
-
-    /**
-     * @param mem memory
-     */
-    useMemory(memory mem);
-    shouldImportCorrectTypes() generates (vec<OnlyIn11> lst);
 
     /**
      * @return output output

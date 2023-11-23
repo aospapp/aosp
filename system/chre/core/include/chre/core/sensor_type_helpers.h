@@ -99,6 +99,14 @@ class SensorTypeHelpers : public PlatformSensorTypeHelpers {
   static const char *getSensorTypeName(uint8_t sensorType);
 
   /**
+   * @param sensorType The sensor type.
+   * @return The corresponding uncalibrated sensor type. If the sensor does not
+   *     have one or is already uncalibrated, then the input sensorType is
+   *     returned.
+   */
+  static uint8_t toUncalibratedSensorType(uint8_t sensorType);
+
+  /**
    * Extracts the last sample from the suppled event and updates it to the
    * supplied last event memory as a single-sample event. No-op if not an
    * on-change sensor.

@@ -18,7 +18,7 @@
 // use helper functions std::ref() and std::cref() to create non-const and
 // const references respectively. In such a case, the type of contained data
 // will be std::reference_wrapper<T>. See 'References' unit tests in
-// any_unittest.cc for examples.
+// any_test.cc for examples.
 
 #ifndef LIBBRILLO_BRILLO_ANY_H_
 #define LIBBRILLO_BRILLO_ANY_H_
@@ -26,6 +26,8 @@
 #include <brillo/any_internal_impl.h>
 
 #include <algorithm>
+#include <string>
+#include <utility>
 
 #include <brillo/brillo_export.h>
 #include <brillo/type_name_undecorate.h>
@@ -189,7 +191,7 @@ class BRILLO_EXPORT Any final {
   // (an appropriate specialization of AppendValueToWriter<T>() is available).
   // Returns false if the Any is empty or if there is no serialization method
   // defined for the contained data.
-  void AppendToDBusMessageWriter(dbus::MessageWriter* writer) const;
+  void AppendToDBusMessageWriter(::dbus::MessageWriter* writer) const;
 
  private:
   // Returns a pointer to a static buffer containing type tag (sort of a type

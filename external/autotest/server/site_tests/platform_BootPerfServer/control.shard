@@ -14,9 +14,8 @@ the client that is assigned to it will be rebooted, which guarantees that
 the client has a healthy testing history, and is ready for continuous jobs.
 """
 
-
 def run_bootperf(machine):
     host = hosts.create_host(machine)
-    job.run_test("platform_BootPerfServer", host=host)
+    job.run_test("platform_BootPerfServer", host=host, cmdline_args=args)
 
 parallel_simple(run_bootperf, machines)

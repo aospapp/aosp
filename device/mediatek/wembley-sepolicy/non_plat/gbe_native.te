@@ -1,0 +1,18 @@
+# ==============================================
+# Policy File of /vendor/bin/gbe Executable File
+
+# ==============================================
+# Type Declaration
+# ==============================================
+type gbe_native_exec, exec_type, file_type, vendor_file_type;
+type gbe_native, domain;
+
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+init_daemon_domain(gbe_native)
+
+allow gbe_native self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
+set_prop(gbe_native, vendor_mtk_gbe_prop)
+allow gbe_native sysfs_boot_mode:file r_file_perms;
+hal_client_domain(gbe_native, hal_power)

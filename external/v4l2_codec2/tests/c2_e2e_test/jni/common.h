@@ -7,6 +7,7 @@
 
 #include <fstream>
 #include <ios>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -70,20 +71,26 @@ public:
     // Get the size of the file.
     size_t GetLength();
     // Set position to the beginning of the file.
-    void Rewind();
+    virtual void Rewind();
 
 protected:
     std::ifstream file_;
 };
 
 // Wrapper of std::ifstream for reading binary file.
-class InputFileStream : public InputFile {
+class CachedInputFileStream : public InputFile {
 public:
-    explicit InputFileStream(std::string file_path);
+    explicit CachedInputFileStream(std::string file_path);
 
     // Read the given number of bytes to the buffer. Return the number of bytes
     // read or -1 on error.
     size_t Read(char* buffer, size_t size);
+
+    void Rewind() override;
+
+private:
+    std::vector<char> data_;
+    size_t position_ = 0;
 };
 
 // Wrapper of std::ifstream for reading ASCII file.
@@ -93,6 +100,40 @@ public:
 
     // Read one line from the file. Return false if EOF.
     bool ReadLine(std::string* line);
+};
+
+// IVF file writer, can be used to write an encoded VP8/9 video to disk.
+class IVFWriter {
+public:
+    IVFWriter(std::ofstream* output_file, VideoCodecType codec);
+
+    // Write the IVF file header.
+    bool WriteHeader(const Size& resolution, uint32_t frame_rate, uint32_t num_frames);
+    // Append the specified frame data to the IVF file.
+    bool WriteFrame(const uint8_t* data, uint32_t data_size, uint64_t timestamp);
+    // Set the number of video frames in the IVF file header.
+    bool SetNumFrames(uint32_t num_frames);
+
+private:
+    std::ofstream* output_file_;
+    VideoCodecType codec_ = VideoCodecType::UNKNOWN;
+};
+
+class OutputFile {
+public:
+    bool Open(const std::string& file_path, VideoCodecType codec);
+    void Close();
+    bool IsOpen();
+
+    // Write the video file header.
+    bool WriteHeader(const Size& resolution, uint32_t frame_rate, uint32_t num_frames);
+    // Append the specified frame data to the video file.
+    bool WriteFrame(uint32_t data_size, const uint8_t* data);
+
+private:
+    std::ofstream output_file_;
+    std::unique_ptr<IVFWriter> ivf_writer_;
+    uint64_t frame_index_ = 0;
 };
 
 // The helper class to calculate FPS.

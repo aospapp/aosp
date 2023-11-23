@@ -26,7 +26,7 @@
 
 package java.nio.charset;
 
-import com.android.icu.charset.CharsetICU;
+import com.android.icu.charset.CharsetFactory;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -508,7 +508,7 @@ public abstract class Charset
 
         // Android-changed: Drop support for "standard" and "extended"
         // providers.
-        if ((cs = CharsetICU.charsetForName(charsetName))  != null ||
+        if ((cs = CharsetFactory.create(charsetName))  != null ||
             (cs = lookupViaProviders(charsetName))              != null)
         {
             cache(charsetName, cs);
@@ -628,8 +628,8 @@ public abstract class Charset
                     TreeMap<String,Charset> m =
                         new TreeMap<String,Charset>(
                             ASCIICaseInsensitiveComparator.CASE_INSENSITIVE_ORDER);
-                    for (String charsetName : CharsetICU.getAvailableCharsetNames()) {
-                        Charset charset = CharsetICU.charsetForName(charsetName);
+                    for (String charsetName : CharsetFactory.getAvailableCharsetNames()) {
+                        Charset charset = CharsetFactory.create(charsetName);
                         m.put(charset.name(), charset);
                     }
                     // Android-changed: No more "standard" provider.
@@ -685,7 +685,6 @@ public abstract class Charset
      * @throws IllegalCharsetNameException
      *         If the canonical name or any of the aliases are illegal
      */
-    @libcore.api.IntraCoreApi
     protected Charset(String canonicalName, String[] aliases) {
         checkName(canonicalName);
         String[] as = (aliases == null) ? new String[0] : aliases;

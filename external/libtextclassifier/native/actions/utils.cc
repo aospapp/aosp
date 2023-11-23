@@ -16,14 +16,19 @@
 
 #include "actions/utils.h"
 
+#include "annotator/collections.h"
 #include "utils/base/logging.h"
 #include "utils/normalization.h"
 #include "utils/strings/stringpiece.h"
 
 namespace libtextclassifier3 {
 
+// Name for a datetime annotation that only includes time but no date.
+const std::string& kTimeAnnotation =
+    *[]() { return new std::string("time"); }();
+
 void FillSuggestionFromSpec(const ActionSuggestionSpec* action,
-                            ReflectiveFlatbuffer* entity_data,
+                            MutableFlatbuffer* entity_data,
                             ActionSuggestion* suggestion) {
   if (action != nullptr) {
     suggestion->score = action->score();
@@ -52,7 +57,7 @@ void FillSuggestionFromSpec(const ActionSuggestionSpec* action,
 }
 
 void SuggestTextRepliesFromCapturingMatch(
-    const ReflectiveFlatbufferBuilder* entity_data_builder,
+    const MutableFlatbufferBuilder* entity_data_builder,
     const RulesModel_::RuleActionSpec_::RuleCapturingGroup* group,
     const UnicodeText& match_text, const std::string& smart_reply_action_type,
     std::vector<ActionSuggestion>* actions) {
@@ -60,7 +65,7 @@ void SuggestTextRepliesFromCapturingMatch(
     ActionSuggestion suggestion;
     suggestion.response_text = match_text.ToUTF8String();
     suggestion.type = smart_reply_action_type;
-    std::unique_ptr<ReflectiveFlatbuffer> entity_data =
+    std::unique_ptr<MutableFlatbuffer> entity_data =
         entity_data_builder != nullptr ? entity_data_builder->NewRoot()
                                        : nullptr;
     FillSuggestionFromSpec(group->text_reply(), entity_data.get(), &suggestion);
@@ -72,13 +77,18 @@ UnicodeText NormalizeMatchText(
     const UniLib& unilib,
     const RulesModel_::RuleActionSpec_::RuleCapturingGroup* group,
     StringPiece match_text) {
-  UnicodeText normalized_match_text =
-      UTF8ToUnicodeText(match_text, /*do_copy=*/false);
-  if (group->normalization_options() != nullptr) {
-    normalized_match_text = NormalizeText(
-        unilib, group->normalization_options(), normalized_match_text);
+  return NormalizeMatchText(unilib, group,
+                            UTF8ToUnicodeText(match_text, /*do_copy=*/false));
+}
+
+UnicodeText NormalizeMatchText(
+    const UniLib& unilib,
+    const RulesModel_::RuleActionSpec_::RuleCapturingGroup* group,
+    const UnicodeText match_text) {
+  if (group->normalization_options() == nullptr) {
+    return match_text;
   }
-  return normalized_match_text;
+  return NormalizeText(unilib, group->normalization_options(), match_text);
 }
 
 bool FillAnnotationFromCapturingMatch(
@@ -104,7 +114,7 @@ bool FillAnnotationFromCapturingMatch(
 
 bool MergeEntityDataFromCapturingMatch(
     const RulesModel_::RuleActionSpec_::RuleCapturingGroup* group,
-    StringPiece match_text, ReflectiveFlatbuffer* buffer) {
+    StringPiece match_text, MutableFlatbuffer* buffer) {
   if (group->entity_field() != nullptr) {
     if (!buffer->ParseAndSet(group->entity_field(), match_text.ToString())) {
       TC3_LOG(ERROR) << "Could not set entity data from rule capturing group.";
@@ -119,6 +129,31 @@ bool MergeEntityDataFromCapturingMatch(
     }
   }
   return true;
+}
+
+void ConvertDatetimeToTime(std::vector<AnnotatedSpan>* annotations) {
+  for (int i = 0; i < annotations->size(); i++) {
+    ClassificationResult* classification =
+        &(*annotations)[i].classification.front();
+    // Specialize datetime annotation to time annotation if no date
+    // component is present.
+    if (classification->collection == Collections::DateTime() &&
+        classification->datetime_parse_result.IsSet()) {
+      bool has_only_time = true;
+      for (const DatetimeComponent& component :
+           classification->datetime_parse_result.datetime_components) {
+        if (component.component_type !=
+                DatetimeComponent::ComponentType::UNSPECIFIED &&
+            component.component_type < DatetimeComponent::ComponentType::HOUR) {
+          has_only_time = false;
+          break;
+        }
+      }
+      if (has_only_time) {
+        classification->collection = kTimeAnnotation;
+      }
+    }
+  }
 }
 
 }  // namespace libtextclassifier3

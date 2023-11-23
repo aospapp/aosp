@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.turbine.options.TurbineOptions.ReducedClasspathMode;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -95,7 +96,7 @@ public class TurbineOptionsTest {
     assertThat(options.outputDeps()).hasValue("out.jdeps");
     assertThat(options.targetLabel()).hasValue("//java/com/google/test");
     assertThat(options.injectingRuleKind()).hasValue("foo_library");
-    assertThat(options.shouldReduceClassPath()).isTrue();
+    assertThat(options.reducedClasspathMode()).isEqualTo(ReducedClasspathMode.NONE);
   }
 
   @Test
@@ -261,13 +262,22 @@ public class TurbineOptionsTest {
   @Test
   public void javacopts() throws Exception {
     String[] lines = {
-      "--javacopts", "--release", "9", "--", "--sources", "Test.java",
+      "--javacopts",
+      "--release",
+      "8",
+      "--",
+      "--sources",
+      "Test.java",
+      "--javacopts",
+      "--release",
+      "9",
+      "--",
     };
 
     TurbineOptions options =
         TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
 
-    assertThat(options.javacOpts()).containsExactly("--release", "9").inOrder();
+    assertThat(options.javacOpts()).containsExactly("--release", "8", "--release", "9").inOrder();
     assertThat(options.sources()).containsExactly("Test.java");
   }
 
@@ -315,20 +325,14 @@ public class TurbineOptionsTest {
   }
 
   @Test
-  public void shouldReduceClasspath() throws Exception {
-    {
-      TurbineOptions options =
-          TurbineOptionsParser.parse(
-              Iterables.concat(BASE_ARGS, ImmutableList.of("--reduce_classpath")));
-      assertThat(options.shouldReduceClassPath()).isTrue();
-    }
-
-    {
-      TurbineOptions options =
-          TurbineOptionsParser.parse(
-              Iterables.concat(BASE_ARGS, ImmutableList.of("--noreduce_classpath")));
-      assertThat(options.shouldReduceClassPath()).isFalse();
-    }
+  public void miscOutputs() throws Exception {
+    TurbineOptions options =
+        TurbineOptionsParser.parse(
+            Iterables.concat(
+                BASE_ARGS,
+                ImmutableList.of("--gensrc_output", "gensrc.jar", "--profile", "turbine.prof")));
+    assertThat(options.gensrcOutput()).hasValue("gensrc.jar");
+    assertThat(options.profile()).hasValue("turbine.prof");
   }
 
   @Test
@@ -348,6 +352,25 @@ public class TurbineOptionsTest {
       TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
       fail();
     } catch (IllegalArgumentException expected) {
+    }
+  }
+
+  @Test
+  public void builtinProcessors() throws Exception {
+    String[] lines = {"--builtin_processors", "BuiltinProcessor"};
+    TurbineOptions options =
+        TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
+    assertThat(options.builtinProcessors()).containsExactly("BuiltinProcessor");
+  }
+
+  @Test
+  public void reducedClasspathMode() throws Exception {
+    for (ReducedClasspathMode mode : ReducedClasspathMode.values()) {
+      TurbineOptions options =
+          TurbineOptionsParser.parse(
+              Iterables.concat(
+                  BASE_ARGS, ImmutableList.of("--reduce_classpath_mode", mode.name())));
+      assertThat(options.reducedClasspathMode()).isEqualTo(mode);
     }
   }
 }

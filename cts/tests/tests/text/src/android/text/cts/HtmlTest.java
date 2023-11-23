@@ -20,7 +20,9 @@ import static android.text.Spanned.SPAN_EXCLUSIVE_INCLUSIVE;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.text.Html;
 import android.text.Layout;
@@ -41,15 +43,17 @@ import android.text.style.URLSpan;
 import android.text.style.UnderlineSpan;
 
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+
 @SmallTest
-@RunWith(AndroidJUnit4.class)
+@RunWith(JUnitParamsRunner.class)
 public class HtmlTest {
     @Test
     public void testSingleTagOnWhileString() {
@@ -104,50 +108,104 @@ public class HtmlTest {
         assertEquals(expected, spanned);
     }
 
+    private static Object[] paramsForTestColor() {
+        return new Object[] {
+                new Object[] { "<font color=\"#00FF00\">something</font>", 0xFF00FF00 },
+                new Object[] { "<font color=\"navy\">NAVY</font>", 0xFF000080 },
+                // By default use the color values from android.graphics.Color instead of HTML/CSS
+                new Object[] { "<font color=\"green\">GREEN</font>", 0xFF00FF00 },
+                new Object[] { "<font color=\"gray\">GRAY</font>", 0xFF888888 },
+                new Object[] { "<font color=\"grey\">GREY</font>", 0xFF888888 },
+                new Object[] { "<font color=\"lightgray\">LIGHTGRAY</font>", 0xFFCCCCCC },
+                new Object[] { "<font color=\"lightgrey\">LIGHTGREY</font>", 0xFFCCCCCC },
+                new Object[] { "<font color=\"darkgray\">DARKGRAY</font>", 0xFF444444 },
+                new Object[] { "<font color=\"darkgrey\">DARKGREY</font>", 0xFF444444 },
+                new Object[] { "<font color=\"Black\">BLACK</font>", Color.BLACK },
+                new Object[] { "<font color=\"RED\">red</font>", Color.RED },
+                new Object[] { "<font color=\"bLUE\">blue</font>", Color.BLUE },
+                new Object[] { "<font color=\"yellow\">YELLOW</font>", Color.YELLOW },
+                new Object[] { "<font color=\"CYAN\">cyan</font>", Color.CYAN },
+                new Object[] { "<font color=\"magenta\">magenta</font>", Color.MAGENTA },
+                new Object[] { "<font color=\"AQUA\">AQUA</font>", 0xFF00FFFF },
+                new Object[] { "<font color=\"fuchsia\">FUCHSIA</font>", 0xFFFF00FF },
+                new Object[] { "<font color=\"lime\">LIME</font>", 0xFF00FF00 },
+                new Object[] { "<font color=\"maroon\">MAROON</font>", 0xFF800000 },
+                new Object[] { "<font color=\"puRPLE\">PURPLE</font>", 0xFF800080 },
+                new Object[] { "<font color=\"olive\">OLIVE</font>", 0xFF808000 },
+                new Object[] { "<font color=\"silver\">SILVER</font>", 0xFFC0C0C0 },
+                new Object[] { "<font color=\"teal\">TEAL</font>", 0xFF008080 },
+                new Object[] { "<font color=\"#FFFFFF\">white</font>", 0xFFFFFFFF },
+
+                // Note that while Color.parseColor requires 6 or 8 hex-digit colors (i.e.
+                // #RRGGBB or #AARRGGBB), Html supports 7 or less. (But in a 7 digit hex-digit
+                // color, the first is ignored.)
+                new Object[] { "<font color=\"#00FFF\">something</font>", 0xFF000FFF }, // [23]
+                new Object[] { "<font color=\"#FF\">blue</font>", 0xFF0000FF },
+                new Object[] { "<font color=\"#FFFFFFF\">7 F's</font>", Color.WHITE },
+                new Object[] { "<font color=\"#FF00FF1\">7 hexigits</font>", 0xFFF00FF1 },
+                new Object[] { "<font color=\"#7F00FF1\">7 hexigits</font>", 0xFFF00FF1 },
+
+                new Object[] { "<font color=\"0xFF0000\">red</font>", 0xFFFF0000 },
+                new Object[] { "<font color=\"0\">zero</font>", 0xFF000000 },
+                new Object[] { "<font color=\"01\">little blue</font>", 0xFF000001 },
+                new Object[] { "<font color=\"+02\">positive blue</font>", 0xFF000002 },
+                new Object[] { "<font color=\"16777215\">decimal white</font>", Color.WHITE },
+                new Object[] { "<font color=\"16777214\">almost white</font>", 0xFFFFFFFE },
+
+                // Beyond 3 bytes rolls over, in decimal, octal, or hex.
+                new Object[] { "<font color=\"16777217\">decimal roll over</font>", 0xFF000001 },
+                new Object[] { "<font color=\"0100000007\">octal roll over</font>", 0xFF000007 },
+                new Object[] { "<font color=\"0x1000002\">hex roll over</font>", 0xFF000002 },
+        };
+    }
+
     @Test
-    public void testColor() {
+    @Parameters(method = "paramsForTestColor")
+    public void testColor(String html, int expectedColor) {
         final Class<ForegroundColorSpan> type = ForegroundColorSpan.class;
 
-        Spanned s = Html.fromHtml("<font color=\"#00FF00\">something</font>");
+        Spanned s = Html.fromHtml(html);
         ForegroundColorSpan[] colors = s.getSpans(0, s.length(), type);
-        assertEquals(0xFF00FF00, colors[0].getForegroundColor());
+        if (colors.length == 0) {
+            fail("Failed to create a span from " + html);
+        }
+        int actualColor = colors[0].getForegroundColor();
+        assertEquals("Wrong color for " + html + "\nexpected: 0x"
+                + Integer.toHexString(expectedColor) + "\nactual: 0x"
+                + Integer.toHexString(actualColor), expectedColor, actualColor);
+    }
 
-        s = Html.fromHtml("<font color=\"navy\">NAVY</font>");
-        colors = s.getSpans(0, s.length(), type);
-        assertEquals(0xFF000080, colors[0].getForegroundColor());
+    private static Object[] paramsForTestColorInvalid() {
+        return new Object[]{
+                "<font color=\"gibberish\">something</font>",
+                "<font color=\"WHITE\">doesn't work</font>",
+                "<font color=\"0xFF000000\">alpha not supported</font>",
+                "<font color=\"#88FFFFFF\">another with alpha</font>",
+                "<font color=\"#88FFFFFF00\">too many digits</font>",
+                "<font color=\"0x88FFFFFF00\">too many digits</font>",
+                "<font color=\"08\">not octal</font>",
+                "<font color=\"#GG\">not hex</font>",
+                "<font color=\"#00FF00+\">something</font>",
+                "<font color=\"[]\">brackets</font>",
+                "<font color=\"-01\">negative blue</font>",
+                "<font color=\"4294967000\">too big decimal</font>",
+                "<font color=\"01FFFFFFFF\">too big octal</font>",
+                "<font color=\"#FFFFFFF1\">too big hex</font>",
+        };
+    }
 
-        s = Html.fromHtml("<font color=\"gibberish\">something</font>");
-        colors = s.getSpans(0, s.length(), type);
+    @Test
+    @Parameters(method = "paramsForTestColorInvalid")
+    public void testColorInvalid(String html) {
+        final Class<ForegroundColorSpan> type = ForegroundColorSpan.class;
+
+        Spanned s = Html.fromHtml(html);
+        ForegroundColorSpan[] colors = s.getSpans(0, s.length(), type);
+        if (colors.length > 0) {
+            fail("Expected 0 spans from " + html + ". Got the color 0x"
+                    + Integer.toHexString(colors[0].getForegroundColor()));
+        }
         assertEquals(0, colors.length);
-
-        // By default use the color values from android.graphics.Color instead of HTML/CSS
-        s = Html.fromHtml("<font color=\"green\">GREEN</font>");
-        colors = s.getSpans(0, s.length(), type);
-        assertEquals(0xFF00FF00, colors[0].getForegroundColor());
-
-        s = Html.fromHtml("<font color=\"gray\">GRAY</font>");
-        colors = s.getSpans(0, s.length(), type);
-        assertEquals(0xFF888888, colors[0].getForegroundColor());
-
-        s = Html.fromHtml("<font color=\"grey\">GREY</font>");
-        colors = s.getSpans(0, s.length(), type);
-        assertEquals(0xFF888888, colors[0].getForegroundColor());
-
-        s = Html.fromHtml("<font color=\"lightgray\">LIGHTGRAY</font>");
-        colors = s.getSpans(0, s.length(), type);
-        assertEquals(0xFFCCCCCC, colors[0].getForegroundColor());
-
-        s = Html.fromHtml("<font color=\"lightgrey\">LIGHTGREY</font>");
-        colors = s.getSpans(0, s.length(), type);
-        assertEquals(0xFFCCCCCC, colors[0].getForegroundColor());
-
-        s = Html.fromHtml("<font color=\"darkgray\">DARKGRAY</font>");
-        colors = s.getSpans(0, s.length(), type);
-        assertEquals(0xFF444444, colors[0].getForegroundColor());
-
-        s = Html.fromHtml("<font color=\"darkgrey\">DARKGREY</font>");
-        colors = s.getSpans(0, s.length(), type);
-        assertEquals(0xFF444444, colors[0].getForegroundColor());
     }
 
     @Test

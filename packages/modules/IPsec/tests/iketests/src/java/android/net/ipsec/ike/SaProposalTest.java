@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package android.net.ipsec.ike;
+package android.net.ipsec.test.ike;
 
-import static android.net.ipsec.ike.SaProposal.DH_GROUP_1024_BIT_MODP;
-import static android.net.ipsec.ike.SaProposal.DH_GROUP_2048_BIT_MODP;
-import static android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_12;
-import static android.net.ipsec.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_8;
-import static android.net.ipsec.ike.SaProposal.INTEGRITY_ALGORITHM_NONE;
-import static android.net.ipsec.ike.SaProposal.KEY_LEN_AES_128;
-import static android.net.ipsec.ike.SaProposal.KEY_LEN_UNUSED;
-import static android.net.ipsec.ike.SaProposal.PSEUDORANDOM_FUNCTION_AES128_XCBC;
-import static android.net.ipsec.ike.SaProposal.PSEUDORANDOM_FUNCTION_SHA2_256;
+import static android.net.ipsec.test.ike.SaProposal.DH_GROUP_1024_BIT_MODP;
+import static android.net.ipsec.test.ike.SaProposal.DH_GROUP_2048_BIT_MODP;
+import static android.net.ipsec.test.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_12;
+import static android.net.ipsec.test.ike.SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_8;
+import static android.net.ipsec.test.ike.SaProposal.INTEGRITY_ALGORITHM_NONE;
+import static android.net.ipsec.test.ike.SaProposal.KEY_LEN_AES_128;
+import static android.net.ipsec.test.ike.SaProposal.KEY_LEN_UNUSED;
+import static android.net.ipsec.test.ike.SaProposal.PSEUDORANDOM_FUNCTION_AES128_XCBC;
+import static android.net.ipsec.test.ike.SaProposal.PSEUDORANDOM_FUNCTION_SHA2_256;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -32,17 +32,20 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.android.internal.net.ipsec.ike.message.IkePayload;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.DhGroupTransform;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.EncryptionTransform;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.IntegrityTransform;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.PrfTransform;
-import com.android.internal.net.ipsec.ike.message.IkeSaPayload.Transform;
+import android.os.PersistableBundle;
+
+import com.android.internal.net.ipsec.test.ike.message.IkePayload;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.DhGroupTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.EncryptionTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.IntegrityTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.PrfTransform;
+import com.android.internal.net.ipsec.test.ike.message.IkeSaPayload.Transform;
 
 import org.junit.Test;
 
 public final class SaProposalTest {
     private final EncryptionTransform mEncryption3DesTransform;
+    private final EncryptionTransform mEncryptionAesCbcTransform;
     private final EncryptionTransform mEncryptionAesGcm8Transform;
     private final EncryptionTransform mEncryptionAesGcm12Transform;
     private final IntegrityTransform mIntegrityHmacSha1Transform;
@@ -50,9 +53,15 @@ public final class SaProposalTest {
     private final PrfTransform mPrfAes128XCbcTransform;
     private final DhGroupTransform mDhGroup1024Transform;
 
+    // For all crypto algorithms, private use range starts from 1024
+    private static final int ALGORITHM_ID_INVALID = 1024;
+
     public SaProposalTest() {
         mEncryption3DesTransform =
                 new EncryptionTransform(SaProposal.ENCRYPTION_ALGORITHM_3DES, KEY_LEN_UNUSED);
+        mEncryptionAesCbcTransform =
+                new EncryptionTransform(
+                        SaProposal.ENCRYPTION_ALGORITHM_AES_CBC, SaProposal.KEY_LEN_AES_128);
         mEncryptionAesGcm8Transform =
                 new EncryptionTransform(
                         SaProposal.ENCRYPTION_ALGORITHM_AES_GCM_8, SaProposal.KEY_LEN_AES_128);
@@ -66,16 +75,19 @@ public final class SaProposalTest {
         mDhGroup1024Transform = new DhGroupTransform(SaProposal.DH_GROUP_1024_BIT_MODP);
     }
 
+    // Package private for use in IkeTunnelConnectionParamsTest
+    static IkeSaProposal buildTestIkeProposal() {
+        return new IkeSaProposal.Builder()
+                .addEncryptionAlgorithm(SaProposal.ENCRYPTION_ALGORITHM_3DES, KEY_LEN_UNUSED)
+                .addIntegrityAlgorithm(SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA1_96)
+                .addPseudorandomFunction(SaProposal.PSEUDORANDOM_FUNCTION_AES128_XCBC)
+                .addDhGroup(SaProposal.DH_GROUP_1024_BIT_MODP)
+                .build();
+    }
+
     @Test
     public void testBuildIkeSaProposalWithNormalModeCipher() throws Exception {
-        IkeSaProposal proposal =
-                new IkeSaProposal.Builder()
-                        .addEncryptionAlgorithm(
-                                SaProposal.ENCRYPTION_ALGORITHM_3DES, KEY_LEN_UNUSED)
-                        .addIntegrityAlgorithm(SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA1_96)
-                        .addPseudorandomFunction(SaProposal.PSEUDORANDOM_FUNCTION_AES128_XCBC)
-                        .addDhGroup(SaProposal.DH_GROUP_1024_BIT_MODP)
-                        .build();
+        IkeSaProposal proposal = buildTestIkeProposal();
 
         assertEquals(IkePayload.PROTOCOL_ID_IKE, proposal.getProtocolId());
         assertArrayEquals(
@@ -112,19 +124,28 @@ public final class SaProposalTest {
         assertTrue(proposal.getIntegrityTransforms().length == 0);
     }
 
+    // Package private for use in IkeTunnelParamsTest
+    static ChildSaProposal buildTestChildProposal() {
+        return new ChildSaProposal.Builder()
+                .addEncryptionAlgorithm(SaProposal.ENCRYPTION_ALGORITHM_AES_CBC, KEY_LEN_AES_128)
+                .addIntegrityAlgorithm(SaProposal.INTEGRITY_ALGORITHM_NONE)
+                .addDhGroup(SaProposal.DH_GROUP_1024_BIT_MODP)
+                .build();
+    }
+
     @Test
     public void testBuildChildSaProposalWithNormalCipher() throws Exception {
         ChildSaProposal proposal =
                 new ChildSaProposal.Builder()
                         .addEncryptionAlgorithm(
-                                SaProposal.ENCRYPTION_ALGORITHM_3DES, KEY_LEN_UNUSED)
+                                SaProposal.ENCRYPTION_ALGORITHM_AES_CBC, KEY_LEN_AES_128)
                         .addIntegrityAlgorithm(SaProposal.INTEGRITY_ALGORITHM_NONE)
                         .addDhGroup(SaProposal.DH_GROUP_1024_BIT_MODP)
                         .build();
 
         assertEquals(IkePayload.PROTOCOL_ID_ESP, proposal.getProtocolId());
         assertArrayEquals(
-                new EncryptionTransform[] {mEncryption3DesTransform},
+                new EncryptionTransform[] {mEncryptionAesCbcTransform},
                 proposal.getEncryptionTransforms());
         assertArrayEquals(
                 new IntegrityTransform[] {mIntegrityNoneTransform},
@@ -133,12 +154,46 @@ public final class SaProposalTest {
                 new DhGroupTransform[] {mDhGroup1024Transform}, proposal.getDhGroupTransforms());
     }
 
+    private static void verifyPersistableBundleEncodeDecodeIsLossless(SaProposal proposal) {
+        PersistableBundle bundle = proposal.toPersistableBundle();
+        SaProposal resultProposal = SaProposal.fromPersistableBundle(bundle);
+
+        assertEquals(proposal, resultProposal);
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeIsLosslessChildProposal() throws Exception {
+        ChildSaProposal proposal =
+                new ChildSaProposal.Builder()
+                        .addEncryptionAlgorithm(
+                                SaProposal.ENCRYPTION_ALGORITHM_AES_CBC, KEY_LEN_AES_128)
+                        .addIntegrityAlgorithm(SaProposal.INTEGRITY_ALGORITHM_NONE)
+                        .addDhGroup(SaProposal.DH_GROUP_1024_BIT_MODP)
+                        .build();
+
+        verifyPersistableBundleEncodeDecodeIsLossless(proposal);
+    }
+
+    @Test
+    public void testPersistableBundleEncodeDecodeIsLosslessIkeProposal() throws Exception {
+        IkeSaProposal proposal =
+                new IkeSaProposal.Builder()
+                        .addEncryptionAlgorithm(
+                                SaProposal.ENCRYPTION_ALGORITHM_3DES, KEY_LEN_UNUSED)
+                        .addIntegrityAlgorithm(SaProposal.INTEGRITY_ALGORITHM_HMAC_SHA1_96)
+                        .addPseudorandomFunction(SaProposal.PSEUDORANDOM_FUNCTION_AES128_XCBC)
+                        .addDhGroup(SaProposal.DH_GROUP_1024_BIT_MODP)
+                        .build();
+
+        verifyPersistableBundleEncodeDecodeIsLossless(proposal);
+    }
+
     @Test
     public void testGetCopyWithoutDhGroup() throws Exception {
         ChildSaProposal proposal =
                 new ChildSaProposal.Builder()
                         .addEncryptionAlgorithm(
-                                SaProposal.ENCRYPTION_ALGORITHM_3DES, KEY_LEN_UNUSED)
+                                SaProposal.ENCRYPTION_ALGORITHM_AES_CBC, KEY_LEN_AES_128)
                         .addIntegrityAlgorithm(SaProposal.INTEGRITY_ALGORITHM_NONE)
                         .addDhGroup(SaProposal.DH_GROUP_1024_BIT_MODP)
                         .build();
@@ -350,5 +405,16 @@ public final class SaProposalTest {
                         .build();
 
         assertTrue(respProposal.isNegotiatedFrom(reqProposal));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuildChildProposalWithUnsupportedEncryptionAlgo() throws Exception {
+        new ChildSaProposal.Builder()
+                .addEncryptionAlgorithm(SaProposal.ENCRYPTION_ALGORITHM_3DES, KEY_LEN_UNUSED);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuildChildProposalWithUnsupportedIntegrityAlgo() throws Exception {
+        new ChildSaProposal.Builder().addIntegrityAlgorithm(ALGORITHM_ID_INVALID);
     }
 }

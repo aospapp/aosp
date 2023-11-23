@@ -23,6 +23,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothProtoEnums;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -214,25 +215,8 @@ public class DatabaseManager {
     }
 
     boolean isValidMetaKey(int key) {
-        switch (key) {
-            case BluetoothDevice.METADATA_MANUFACTURER_NAME:
-            case BluetoothDevice.METADATA_MODEL_NAME:
-            case BluetoothDevice.METADATA_SOFTWARE_VERSION:
-            case BluetoothDevice.METADATA_HARDWARE_VERSION:
-            case BluetoothDevice.METADATA_COMPANION_APP:
-            case BluetoothDevice.METADATA_MAIN_ICON:
-            case BluetoothDevice.METADATA_IS_UNTETHERED_HEADSET:
-            case BluetoothDevice.METADATA_UNTETHERED_LEFT_ICON:
-            case BluetoothDevice.METADATA_UNTETHERED_RIGHT_ICON:
-            case BluetoothDevice.METADATA_UNTETHERED_CASE_ICON:
-            case BluetoothDevice.METADATA_UNTETHERED_LEFT_BATTERY:
-            case BluetoothDevice.METADATA_UNTETHERED_RIGHT_BATTERY:
-            case BluetoothDevice.METADATA_UNTETHERED_CASE_BATTERY:
-            case BluetoothDevice.METADATA_UNTETHERED_LEFT_CHARGING:
-            case BluetoothDevice.METADATA_UNTETHERED_RIGHT_CHARGING:
-            case BluetoothDevice.METADATA_UNTETHERED_CASE_CHARGING:
-            case BluetoothDevice.METADATA_ENHANCED_SETTINGS_UI_URI:
-                return true;
+        if (key >= 0 && key <= BluetoothDevice.getMaxMetadataKey()) {
+            return true;
         }
         Log.w(TAG, "Invalid metadata key " + key);
         return false;
@@ -310,7 +294,7 @@ public class DatabaseManager {
      * {@link BluetoothProfile#PAN}, {@link BluetoothProfile#PBAP},
      * {@link BluetoothProfile#PBAP_CLIENT}, {@link BluetoothProfile#MAP},
      * {@link BluetoothProfile#MAP_CLIENT}, {@link BluetoothProfile#SAP},
-     * {@link BluetoothProfile#HEARING_AID}
+     * {@link BluetoothProfile#HEARING_AID}, {@link BluetoothProfile#LE_AUDIO}
      * @param newConnectionPolicy the connectionPolicy to set; one of
      * {@link BluetoothProfile.CONNECTION_POLICY_UNKNOWN},
      * {@link BluetoothProfile.CONNECTION_POLICY_FORBIDDEN},
@@ -366,7 +350,7 @@ public class DatabaseManager {
      * {@link BluetoothProfile#PAN}, {@link BluetoothProfile#PBAP},
      * {@link BluetoothProfile#PBAP_CLIENT}, {@link BluetoothProfile#MAP},
      * {@link BluetoothProfile#MAP_CLIENT}, {@link BluetoothProfile#SAP},
-     * {@link BluetoothProfile#HEARING_AID}
+     * {@link BluetoothProfile#HEARING_AID}, {@link BluetoothProfile#LE_AUDIO}
      * @return the profile connection policy of the device; one of
      * {@link BluetoothProfile.CONNECTION_POLICY_UNKNOWN},
      * {@link BluetoothProfile.CONNECTION_POLICY_FORBIDDEN},
@@ -889,6 +873,8 @@ public class DatabaseManager {
             data.setProfileConnectionPolicy(BluetoothProfile.SAP, sapConnectionPolicy);
             data.setProfileConnectionPolicy(BluetoothProfile.HEARING_AID,
                     hearingaidConnectionPolicy);
+            data.setProfileConnectionPolicy(BluetoothProfile.LE_AUDIO,
+                    BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
             data.a2dpSupportsOptionalCodecs = a2dpSupportsOptionalCodec;
             data.a2dpOptionalCodecsEnabled = a2dpOptionalCodecEnabled;
             mMetadataCache.put(address, data);

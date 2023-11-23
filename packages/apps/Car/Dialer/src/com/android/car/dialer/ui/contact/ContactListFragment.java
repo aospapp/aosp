@@ -21,20 +21,22 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModelProviders;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.dialer.Constants;
 import com.android.car.dialer.R;
 import com.android.car.dialer.ui.common.DialerListBaseFragment;
-import com.android.car.telephony.common.Contact;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * Contact Fragment.
  */
-public class ContactListFragment extends DialerListBaseFragment implements
-        ContactListAdapter.OnShowContactDetailListener {
-    private ContactListAdapter mContactListAdapter;
+@AndroidEntryPoint(DialerListBaseFragment.class)
+public class ContactListFragment extends Hilt_ContactListFragment {
+    @Inject ContactListAdapter mContactListAdapter;
 
     public static ContactListFragment newInstance() {
         return new ContactListFragment();
@@ -43,16 +45,11 @@ public class ContactListFragment extends DialerListBaseFragment implements
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        // Don't recreate the adapter if we already have one, so that the list items
-        // will display immediately upon the view being recreated. If they're not displayed
-        // immediately, we won't remember our scroll position.
-        if (mContactListAdapter == null) {
-            mContactListAdapter = new ContactListAdapter(
-                    getContext(), /* onShowContactDetailListener= */this);
-        }
-        getRecyclerView().setAdapter(mContactListAdapter);
 
-        ContactListViewModel contactListViewModel = ViewModelProviders.of(this).get(
+        getRecyclerView().setAdapter(mContactListAdapter);
+        getUxrContentLimiter().setAdapter(mContactListAdapter);
+
+        ContactListViewModel contactListViewModel = new ViewModelProvider(this).get(
                 ContactListViewModel.class);
         contactListViewModel.getAllContacts().observe(this, contacts -> {
             if (contacts.isLoading()) {
@@ -65,11 +62,5 @@ public class ContactListFragment extends DialerListBaseFragment implements
                 showContent();
             }
         });
-    }
-
-    @Override
-    public void onShowContactDetail(Contact contact) {
-        Fragment contactDetailsFragment = ContactDetailsFragment.newInstance(contact);
-        pushContentFragment(contactDetailsFragment, ContactDetailsFragment.FRAGMENT_TAG);
     }
 }

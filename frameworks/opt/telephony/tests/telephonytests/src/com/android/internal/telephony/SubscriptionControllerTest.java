@@ -24,37 +24,41 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.Manifest;
-import android.app.AppOpsManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelUuid;
+import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.provider.Settings;
+import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.UiccSlotInfo;
 import android.test.mock.MockContentResolver;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import androidx.test.filters.FlakyTest;
+import androidx.test.filters.SmallTest;
 
 import com.android.internal.telephony.uicc.IccCardStatus;
 import com.android.internal.telephony.uicc.UiccController;
@@ -76,6 +80,7 @@ import java.util.UUID;
 public class SubscriptionControllerTest extends TelephonyTest {
     private static final int SINGLE_SIM = 1;
     private static final int DUAL_SIM = 2;
+    private static final int FAKE_SUBID = 123;
     private String mCallingPackage;
     private String mCallingFeature;
     private SubscriptionController mSubscriptionControllerUT;
@@ -91,6 +96,9 @@ public class SubscriptionControllerTest extends TelephonyTest {
     private ISetOpportunisticDataCallback mSetOpptDataCallback;
     @Mock
     private Handler mHandler;
+    @Mock
+    private SubscriptionInfo mMockSubscriptionInfo;
+    private PersistableBundle mCarrierConfigs;
 
     private static final String MAC_ADDRESS_PREFIX = "mac_";
     private static final String DISPLAY_NAME_PREFIX = "my_phone_";
@@ -98,10 +106,15 @@ public class SubscriptionControllerTest extends TelephonyTest {
     private static final String UNAVAILABLE_ICCID = "";
     private static final String UNAVAILABLE_NUMBER = "";
     private static final String DISPLAY_NUMBER = "123456";
+    private static final String DISPLAY_NAME = "testing_display_name";
 
     @Before
     public void setUp() throws Exception {
         super.setUp("SubscriptionControllerTest");
+
+        if (Looper.myLooper() == null) {
+            Looper.prepare();
+        }
 
         doReturn(SINGLE_SIM).when(mTelephonyManager).getSimCount();
         doReturn(SINGLE_SIM).when(mTelephonyManager).getPhoneCount();
@@ -118,6 +131,10 @@ public class SubscriptionControllerTest extends TelephonyTest {
         mCallingFeature = mContext.getAttributionTag();
 
         doReturn(1).when(mProxyController).getMaxRafSupported();
+
+        // Carrier Config
+        mCarrierConfigs = mContextFixture.getCarrierConfigBundle();
+
         mContextFixture.putIntArrayResource(com.android.internal.R.array.sim_colors, new int[]{5});
 
         setupMocksForTelephonyPermissions(Build.VERSION_CODES.R);
@@ -131,8 +148,10 @@ public class SubscriptionControllerTest extends TelephonyTest {
 
         /*clear sub info in mSubscriptionControllerUT since they will otherwise be persistent
          * between each test case. */
-        mSubscriptionControllerUT.clearSubInfo();
-        mSubscriptionControllerUT.resetStaticMembers();
+        if (mSubscriptionControllerUT != null) {
+            mSubscriptionControllerUT.clearSubInfo();
+            mSubscriptionControllerUT.resetStaticMembers();
+        }
 
         /* clear settings for default voice/data/sms sub ID */
         Settings.Global.putInt(mContext.getContentResolver(),
@@ -242,6 +261,244 @@ public class SubscriptionControllerTest extends TelephonyTest {
         assertEquals(TelephonyIntents.ACTION_SUBINFO_RECORD_UPDATED,
                 captorIntent.getValue().getAction());
 
+    }
+
+    private void setSimEmbedded(boolean isEmbedded) throws Exception {
+        ContentValues values = new ContentValues();
+        values.put(SubscriptionManager.IS_EMBEDDED, isEmbedded ? 1 : 0);
+        mFakeTelephonyProvider.update(SubscriptionManager.CONTENT_URI, values,
+                SubscriptionManager.UNIQUE_KEY_SUBSCRIPTION_ID + "=" + getFirstSubId(),
+                null);
+    }
+
+    @Test @SmallTest
+    public void testSetGetDisplayNameSrc_updateNameSourceCarrierWithEmbeddedSim()
+            throws Exception {
+        testInsertSim();
+
+        // Set values of DB
+        setSimEmbedded(true);
+        int subId = getFirstSubId();
+        int nameSource = SubscriptionManager.NAME_SOURCE_CARRIER;
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(DISPLAY_NAME, subId, nameSource);
+
+        // Update with new value
+        String newDisplayName = "display_name_pnn";
+        int newNameSource = SubscriptionManager.NAME_SOURCE_SIM_PNN;
+
+        // Save to DB after updated
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(newDisplayName, subId, newNameSource);
+
+        SubscriptionInfo subInfo = mSubscriptionControllerUT
+                .getActiveSubscriptionInfo(subId, mCallingPackage, mCallingFeature);
+
+        assertNotNull(subInfo);
+        assertEquals(DISPLAY_NAME, subInfo.getDisplayName());
+        assertEquals(nameSource, subInfo.getNameSource());
+    }
+
+    @Test @SmallTest
+    public void testSetGetDisplayNameSrc_updateNameSourceCarrierWithConfigIsNull()
+            throws Exception {
+        testInsertSim();
+
+        // Set values of DB
+        setSimEmbedded(false);
+        int subId = getFirstSubId();
+        int nameSource = SubscriptionManager.NAME_SOURCE_CARRIER;
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(DISPLAY_NAME, subId, nameSource);
+
+        // Update with new value
+        String newDisplayName = "display_name_spn";
+        int newNameSource = SubscriptionManager.NAME_SOURCE_SIM_SPN;
+        when(mCarrierConfigManager.getConfigForSubId(subId)).thenReturn(null);
+
+        // Save to DB after updated
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(newDisplayName, subId, newNameSource);
+
+        SubscriptionInfo subInfo = mSubscriptionControllerUT
+                .getActiveSubscriptionInfo(subId, mCallingPackage, mCallingFeature);
+
+        assertNotNull(subInfo);
+        assertEquals(DISPLAY_NAME, subInfo.getDisplayName());
+        assertEquals(nameSource, subInfo.getNameSource());
+    }
+
+    @Test @SmallTest
+    public void testSetGetDisplayNameSrc_updateNameSourceCarrierWithCarrierNameOverride()
+            throws Exception {
+        testInsertSim();
+
+        // Set values of DB
+        setSimEmbedded(false);
+        int subId = getFirstSubId();
+        int nameSource = SubscriptionManager.NAME_SOURCE_CARRIER;
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(DISPLAY_NAME, subId, nameSource);
+
+        // Update with new value
+        int newNameSource = SubscriptionManager.NAME_SOURCE_SIM_SPN;
+        String newDisplayName = "display_name_spn";
+        mCarrierConfigs.putBoolean(CarrierConfigManager.KEY_CARRIER_NAME_OVERRIDE_BOOL, true);
+
+        // Save to DB after updated
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(newDisplayName, subId, newNameSource);
+
+        SubscriptionInfo subInfo = mSubscriptionControllerUT
+                .getActiveSubscriptionInfo(subId, mCallingPackage, mCallingFeature);
+
+        assertNotNull(subInfo);
+        assertEquals(DISPLAY_NAME, subInfo.getDisplayName());
+        assertEquals(nameSource, subInfo.getNameSource());
+    }
+
+    @Test @SmallTest
+    public void testSetGetDisplayNameSrc_updateNameSourceCarrierWithSpnAndCarrierName()
+            throws Exception {
+        testInsertSim();
+
+        // Set values of DB
+        setSimEmbedded(false);
+        int subId = getFirstSubId();
+        int nameSource = SubscriptionManager.NAME_SOURCE_CARRIER;
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(DISPLAY_NAME, subId, nameSource);
+
+        // Update with new value
+        int newNameSource = SubscriptionManager.NAME_SOURCE_SIM_SPN;
+        String carrierName = "testing_carrier_name";
+        String newDisplayName = "display_name_spn";
+        when(mUiccController.getUiccProfileForPhone(anyInt())).thenReturn(mUiccProfile);
+        when(mUiccProfile.getServiceProviderName()).thenReturn(null);
+        mCarrierConfigs.putBoolean(CarrierConfigManager.KEY_CARRIER_NAME_OVERRIDE_BOOL, false);
+        mCarrierConfigs.putString(CarrierConfigManager.KEY_CARRIER_NAME_STRING, carrierName);
+
+        // Save to DB after updated
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(newDisplayName, subId, newNameSource);
+
+        SubscriptionInfo subInfo = mSubscriptionControllerUT
+                .getActiveSubscriptionInfo(subId, mCallingPackage, mCallingFeature);
+
+        assertNotNull(subInfo);
+        assertEquals(DISPLAY_NAME, subInfo.getDisplayName());
+        assertEquals(nameSource, subInfo.getNameSource());
+    }
+
+    @Test @SmallTest
+    public void testSetGetDisplayNameSrc_updateNameSourcePnnToNameSourceCarrierId()
+            throws Exception {
+        testInsertSim();
+
+        // Set values of DB
+        int subId = getFirstSubId();
+        int nameSource = SubscriptionManager.NAME_SOURCE_SIM_PNN;
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(DISPLAY_NAME, subId, nameSource);
+
+        // Update with new value
+        String newDisplayName = "display_name_carrier_id";
+        int newNameSource = SubscriptionManager.NAME_SOURCE_CARRIER_ID;
+        when(mPhone.getPlmn()).thenReturn("testing_pnn");
+
+        // Save to DB after updated
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(newDisplayName, subId, newNameSource);
+
+        SubscriptionInfo subInfo = mSubscriptionControllerUT
+                .getActiveSubscriptionInfo(subId, mCallingPackage, mCallingFeature);
+
+        assertNotNull(subInfo);
+        assertEquals(DISPLAY_NAME, subInfo.getDisplayName());
+        assertEquals(nameSource, subInfo.getNameSource());
+    }
+
+    @Test @SmallTest
+    public void testSetGetDisplayNameSrc_updateNameSourceUserInputToNameSourceSpn()
+            throws Exception {
+        testInsertSim();
+
+        // Set values of DB
+        int subId = getFirstSubId();
+        int nameSource = SubscriptionManager.NAME_SOURCE_USER_INPUT;
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(DISPLAY_NAME, subId, nameSource);
+
+        // Update with new value
+        String newDisplayName = "display_name_spn";
+        int newNameSource = SubscriptionManager.NAME_SOURCE_SIM_SPN;
+
+        // Save to DB after updated
+        mSubscriptionControllerUT.setDisplayNameUsingSrc(newDisplayName, subId, newNameSource);
+
+        SubscriptionInfo subInfo = mSubscriptionControllerUT
+                .getActiveSubscriptionInfo(subId, mCallingPackage, mCallingFeature);
+
+        assertNotNull(subInfo);
+        assertEquals(DISPLAY_NAME, subInfo.getDisplayName());
+        assertEquals(nameSource, subInfo.getNameSource());
+    }
+
+    @Test @SmallTest
+    public void testIsExistingNameSourceStillValid_pnnIsNotNull_returnTrue() {
+        when((mMockSubscriptionInfo).getSubscriptionId()).thenReturn(FAKE_SUBID);
+        when(mMockSubscriptionInfo.getNameSource())
+                .thenReturn(SubscriptionManager.NAME_SOURCE_SIM_PNN);
+        when(mPhone.getPlmn()).thenReturn("testing_pnn");
+
+        assertTrue(mSubscriptionControllerUT.isExistingNameSourceStillValid(mMockSubscriptionInfo));
+    }
+
+    @Test @SmallTest
+    public void testIsExistingNameSourceStillValid_spnIsNotNull_returnTrue() {
+        when((mMockSubscriptionInfo).getSubscriptionId()).thenReturn(FAKE_SUBID);
+        when(mMockSubscriptionInfo.getNameSource())
+                .thenReturn(SubscriptionManager.NAME_SOURCE_SIM_SPN);
+        when(mUiccController.getUiccProfileForPhone(anyInt())).thenReturn(mUiccProfile);
+        when(mUiccProfile.getServiceProviderName()).thenReturn("testing_spn");
+
+        assertTrue(mSubscriptionControllerUT.isExistingNameSourceStillValid(mMockSubscriptionInfo));
+    }
+
+    @Test @SmallTest
+    public void testIsExistingNameSourceStillValid_simIsEmbedded_returnTrue() {
+        when(mMockSubscriptionInfo.isEmbedded()).thenReturn(true);
+        when((mMockSubscriptionInfo).getSubscriptionId()).thenReturn(FAKE_SUBID);
+        when(mMockSubscriptionInfo.getNameSource())
+                .thenReturn(SubscriptionManager.NAME_SOURCE_CARRIER);
+
+        assertTrue(mSubscriptionControllerUT.isExistingNameSourceStillValid(mMockSubscriptionInfo));
+    }
+
+    @Test @SmallTest
+    public void testIsExistingNameSourceStillValid_carrierConfigIsNull_returnTrue() {
+        when(mMockSubscriptionInfo.isEmbedded()).thenReturn(false);
+        when((mMockSubscriptionInfo).getSubscriptionId()).thenReturn(FAKE_SUBID);
+        when(mMockSubscriptionInfo.getNameSource())
+                .thenReturn(SubscriptionManager.NAME_SOURCE_CARRIER);
+        when(mCarrierConfigManager.getConfigForSubId(FAKE_SUBID)).thenReturn(null);
+
+        assertTrue(mSubscriptionControllerUT.isExistingNameSourceStillValid(mMockSubscriptionInfo));
+    }
+
+    @Test @SmallTest
+    public void testIsExistingNameSourceStillValid_carrierNameOverrideIsTrue_returnTrue() {
+        when(mMockSubscriptionInfo.isEmbedded()).thenReturn(false);
+        when((mMockSubscriptionInfo).getSubscriptionId()).thenReturn(FAKE_SUBID);
+        when(mMockSubscriptionInfo.getNameSource())
+                .thenReturn(SubscriptionManager.NAME_SOURCE_CARRIER);
+        mCarrierConfigs.putBoolean(CarrierConfigManager.KEY_CARRIER_NAME_OVERRIDE_BOOL, true);
+
+        assertTrue(mSubscriptionControllerUT.isExistingNameSourceStillValid(mMockSubscriptionInfo));
+    }
+
+    @Test @SmallTest
+    public void testIsExistingNameSourceStillValid_spnIsNullAndCarrierNameIsNotNull_returnTrue() {
+        when(mMockSubscriptionInfo.isEmbedded()).thenReturn(false);
+        when((mMockSubscriptionInfo).getSubscriptionId()).thenReturn(FAKE_SUBID);
+        when(mMockSubscriptionInfo.getNameSource())
+                .thenReturn(SubscriptionManager.NAME_SOURCE_CARRIER);
+        when(mUiccController.getUiccProfileForPhone(anyInt())).thenReturn(mUiccProfile);
+        when(mUiccProfile.getServiceProviderName()).thenReturn(null);
+        mCarrierConfigs.putBoolean(CarrierConfigManager.KEY_CARRIER_NAME_OVERRIDE_BOOL, false);
+        mCarrierConfigs.putString(CarrierConfigManager.KEY_CARRIER_NAME_STRING,
+                "testing_carrier_name");
+
+        assertTrue(mSubscriptionControllerUT.isExistingNameSourceStillValid(mMockSubscriptionInfo));
     }
 
     @Test @SmallTest
@@ -1070,12 +1327,13 @@ public class SubscriptionControllerTest extends TelephonyTest {
     }
 
     @Test
-    public void testGetActiveSubscriptionWithReadPhoneNumbers() throws Exception {
-        // If the calling package has the READ_PHONE_NUMBERS permission the number should be
-        // available in the SubscriptionInfo.
+    public void testGetActiveSubscriptionWithPhoneNumberAccess() throws Exception {
+        // If the calling package meets any of the requirements for the
+        // LegacyPermissionManager#checkPhoneNumberAccess test then the number should be available
+        // in the SubscriptionInfo.
         testInsertSim();
         setupReadPhoneNumbersTest();
-        mContextFixture.addCallingOrSelfPermission(Manifest.permission.READ_PHONE_NUMBERS);
+        setPhoneNumberAccess(PackageManager.PERMISSION_GRANTED);
         int subId = getFirstSubId();
 
         SubscriptionInfo subscriptionInfo = mSubscriptionControllerUT.getActiveSubscriptionInfo(
@@ -1153,13 +1411,14 @@ public class SubscriptionControllerTest extends TelephonyTest {
     }
 
     @Test
-    public void testGetActiveSubscriptionInfoForSimSlotIndexWithReadPhoneNumbers()
+    public void testGetActiveSubscriptionInfoForSimSlotIndexWithPhoneNumberAccess()
             throws Exception {
-        // If the calling package has the READ_PHONE_NUMBERS permission the number should be
-        // available in the SubscriptionInfo.
+        // If the calling package meets any of the requirements for the
+        // LegacyPermissionManager#checkPhoneNumberAccess test then the number should be available
+        // in the SubscriptionInfo.
         testInsertSim();
         setupReadPhoneNumbersTest();
-        mContextFixture.addCallingOrSelfPermission(Manifest.permission.READ_PHONE_NUMBERS);
+        setPhoneNumberAccess(PackageManager.PERMISSION_GRANTED);
 
         SubscriptionInfo subscriptionInfo =
                 mSubscriptionControllerUT.getActiveSubscriptionInfoForSimSlotIndex(0,
@@ -1239,12 +1498,13 @@ public class SubscriptionControllerTest extends TelephonyTest {
     }
 
     @Test
-    public void testGetActiveSubscriptionInfoListWithReadPhoneNumbers() throws Exception {
-        // If the calling package has the READ_PHONE_NUMBERS permission the number should be
-        // available in the SubscriptionInfo.
+    public void testGetActiveSubscriptionInfoListWithPhoneNumberAccess() throws Exception {
+        // If the calling package meets any of the requirements for the
+        // LegacyPermissionManager#checkPhoneNumberAccess test then the number should be available
+        // in the SubscriptionInfo.
         testInsertSim();
         setupReadPhoneNumbersTest();
-        mContextFixture.addCallingOrSelfPermission(Manifest.permission.READ_PHONE_NUMBERS);
+        setPhoneNumberAccess(PackageManager.PERMISSION_GRANTED);
 
         List<SubscriptionInfo> subInfoList =
                 mSubscriptionControllerUT.getActiveSubscriptionInfoList(mCallingPackage,
@@ -1298,6 +1558,29 @@ public class SubscriptionControllerTest extends TelephonyTest {
         SubscriptionInfo subInfo = subInfoList.get(0);
         assertEquals("test2", subInfo.getIccId());
         assertEquals(DISPLAY_NUMBER, subInfo.getNumber());
+    }
+
+    @Test
+    public void testGetActiveSubscriptionInfoListCheckOrder()
+            throws Exception {
+        // If an app does not have the READ_PHONE_STATE permission but has carrier privileges on one
+        // out of multiple sub IDs then the SubscriptionInfo for that subId should be returned with
+        // the ICC ID and phone number.
+        testInsertSim();
+        doReturn(2).when(mTelephonyManager).getPhoneCount();
+        mSubscriptionControllerUT.addSubInfoRecord("test2", 1);
+        int firstSubId = getFirstSubId();
+        int secondSubId = getSubIdAtIndex(1);
+        setupIdentifierCarrierPrivilegesTest();
+        setCarrierPrivilegesForSubId(false, firstSubId);
+        setCarrierPrivilegesForSubId(true, secondSubId);
+
+        List<SubscriptionInfo> subInfoList =
+                mSubscriptionControllerUT.getActiveSubscriptionInfoList(mCallingPackage,
+                        mCallingFeature);
+
+        assertEquals(2, subInfoList.size());
+        assertTrue(subInfoList.get(0).getSubscriptionId() < subInfoList.get(1).getSubscriptionId());
     }
 
     @Test
@@ -1375,12 +1658,13 @@ public class SubscriptionControllerTest extends TelephonyTest {
     }
 
     @Test
-    public void testGetSubscriptionInGroupWithReadPhoneNumbers() throws Exception {
-        // If the calling package has the READ_PHONE_NUMBERS permission the number should be
-        // available in the SubscriptionInfo.
+    public void testGetSubscriptionInGroupWithPhoneNumberAccess() throws Exception {
+        // If the calling package meets any of the requirements for the
+        // LegacyPermissionManager#checkPhoneNumberAccess test then the number should be available
+        // in the SubscriptionInfo.
         ParcelUuid groupUuid = setupGetSubscriptionsInGroupTest();
         setupReadPhoneNumbersTest();
-        mContextFixture.addCallingOrSelfPermission(Manifest.permission.READ_PHONE_NUMBERS);
+        setPhoneNumberAccess(PackageManager.PERMISSION_GRANTED);
 
         List<SubscriptionInfo> subInfoList = mSubscriptionControllerUT.getSubscriptionsInGroup(
                 groupUuid, mCallingPackage, mCallingFeature);
@@ -1437,9 +1721,7 @@ public class SubscriptionControllerTest extends TelephonyTest {
         mContextFixture.removeCallingOrSelfPermission(ContextFixture.PERMISSION_ENABLE_ALL);
         mContextFixture.addCallingOrSelfPermission(Manifest.permission.READ_PHONE_STATE);
         setupMocksForTelephonyPermissions(Build.VERSION_CODES.R);
-        doReturn(AppOpsManager.MODE_DEFAULT).when(mAppOpsManager).noteOp(
-                eq(AppOpsManager.OPSTR_WRITE_SMS), anyInt(), anyString(),
-                nullable(String.class), nullable(String.class));
+        setPhoneNumberAccess(PackageManager.PERMISSION_DENIED);
     }
 
     private void setupIdentifierCarrierPrivilegesTest() throws Exception {
@@ -1640,5 +1922,39 @@ public class SubscriptionControllerTest extends TelephonyTest {
         verify(mHandler).sendMessageAtTime(any(), anyLong());
         assertFalse(mSubscriptionControllerUT.getActiveSubscriptionInfo(
                 1, mContext.getOpPackageName(), null).areUiccApplicationsEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testInsertEmptySubInfoRecord_returnsNull_ifRecordExists() {
+        final String mockedIccid = "123456789";
+        final int mockedSlotIndex = 1;
+
+        assertNotNull(mSubscriptionControllerUT.insertEmptySubInfoRecord(
+                mockedIccid, mockedSlotIndex));
+        // Insert second time with the same iccid should result in no-op and return null.
+        assertNull(mSubscriptionControllerUT.insertEmptySubInfoRecord(
+                mockedIccid, mockedSlotIndex));
+        assertEquals(
+                1,
+                mSubscriptionControllerUT
+                        .getAllSubInfoList(mCallingPackage, mCallingFeature).size());
+    }
+
+    @Test
+    @SmallTest
+    public void testCheckPhoneIdAndIccIdMatch() {
+        try {
+            testSetSubscriptionGroupWithModifyPermission();
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e);
+        }
+
+        mSubscriptionControllerUT.addSubInfoRecord("test3",
+                SubscriptionManager.INVALID_SIM_SLOT_INDEX);
+
+        assertTrue(mSubscriptionControllerUT.checkPhoneIdAndIccIdMatch(0, "test"));
+        assertTrue(mSubscriptionControllerUT.checkPhoneIdAndIccIdMatch(0, "test2"));
+        assertFalse(mSubscriptionControllerUT.checkPhoneIdAndIccIdMatch(0, "test3"));
     }
 }

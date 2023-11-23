@@ -67,7 +67,7 @@ public final class BuiltInWallpaperAsset extends Asset {
 
     @Override
     public void decodeBitmapRegion(Rect rect, int targetWidth, int targetHeight,
-                                   BitmapReceiver receiver) {
+            boolean shouldAdjustForRtl, BitmapReceiver receiver) {
         DecodeBitmapRegionAsyncTask task = new DecodeBitmapRegionAsyncTask(rect, receiver);
         task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }

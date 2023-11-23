@@ -29,7 +29,7 @@
 #include "util/u_debug.h"
 #include "util/u_inlines.h"
 #include "util/u_math.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_draw.h"
 
 
@@ -107,7 +107,7 @@ util_draw_max_index(
             max_index = MIN2(max_index, buffer_max_index);
          }
          else {
-            /* Per-instance data. Simply make sure the state tracker didn't
+            /* Per-instance data. Simply make sure gallium frontends didn't
              * request more instances than those that fit in the buffer */
             if ((info->start_instance + info->instance_count)/element->instance_divisor
                 > (buffer_max_index + 1)) {
@@ -136,33 +136,56 @@ util_draw_indirect(struct pipe_context *pipe,
    struct pipe_draw_info info;
    struct pipe_transfer *transfer;
    uint32_t *params;
-   const unsigned num_params = info_in->index_size ? 5 : 4;
+   unsigned num_params = info_in->index_size ? 5 : 4;
 
    assert(info_in->indirect);
    assert(!info_in->count_from_stream_output);
 
    memcpy(&info, info_in, sizeof(info));
 
+   uint32_t draw_count = info_in->indirect->draw_count;
+
+   if (info_in->indirect->indirect_draw_count) {
+      struct pipe_transfer *dc_transfer;
+      uint32_t *dc_param = pipe_buffer_map_range(pipe,
+                                                 info_in->indirect->indirect_draw_count,
+                                                 info_in->indirect->indirect_draw_count_offset,
+                                                 4, PIPE_MAP_READ, &dc_transfer);
+      if (!dc_transfer) {
+         debug_printf("%s: failed to map indirect draw count buffer\n", __FUNCTION__);
+         return;
+      }
+      if (dc_param[0] < draw_count)
+         draw_count = dc_param[0];
+      pipe_buffer_unmap(pipe, dc_transfer);
+   }
+
+   if (info_in->indirect->stride)
+      num_params = MIN2(info_in->indirect->stride / 4, num_params);
    params = (uint32_t *)
       pipe_buffer_map_range(pipe,
                             info_in->indirect->buffer,
                             info_in->indirect->offset,
-                            num_params * sizeof(uint32_t),
-                            PIPE_TRANSFER_READ,
+                            (num_params * info_in->indirect->draw_count) * sizeof(uint32_t),
+                            PIPE_MAP_READ,
                             &transfer);
    if (!transfer) {
       debug_printf("%s: failed to map indirect buffer\n", __FUNCTION__);
       return;
    }
 
-   info.count = params[0];
-   info.instance_count = params[1];
-   info.start = params[2];
-   info.index_bias = info_in->index_size ? params[3] : 0;
-   info.start_instance = info_in->index_size ? params[4] : params[3];
-   info.indirect = NULL;
+   for (unsigned i = 0; i < draw_count; i++) {
+      info.count = params[0];
+      info.instance_count = params[1];
+      info.start = params[2];
+      info.index_bias = info_in->index_size ? params[3] : 0;
+      info.start_instance = info_in->index_size ? params[4] : params[3];
+      info.drawid = i;
+      info.indirect = NULL;
 
+      pipe->draw_vbo(pipe, &info);
+
+      params += info_in->indirect->stride / 4;
+   }
    pipe_buffer_unmap(pipe, transfer);
-
-   pipe->draw_vbo(pipe, &info);
 }

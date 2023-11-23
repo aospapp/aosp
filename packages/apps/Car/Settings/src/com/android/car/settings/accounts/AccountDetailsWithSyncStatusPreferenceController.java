@@ -24,10 +24,11 @@ import android.content.SyncInfo;
 import android.content.SyncStatusInfo;
 import android.content.SyncStatusObserver;
 
-import androidx.preference.Preference;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
+import com.android.car.ui.preference.CarUiTwoActionIconPreference;
 import com.android.settingslib.utils.ThreadUtils;
 
 import java.util.List;
@@ -35,17 +36,16 @@ import java.util.Set;
 
 /**
  * Controller for the preference that shows information about an account, including info about
- * failures.
+ * failures. It also handles a secondary button for account syncing.
  */
 public class AccountDetailsWithSyncStatusPreferenceController extends
-        AccountDetailsPreferenceController {
-    private boolean mIsStarted = false;
+        AccountDetailsBasePreferenceController {
     private Object mStatusChangeListenerHandle;
     private SyncStatusObserver mSyncStatusObserver =
             which -> ThreadUtils.postOnMainThread(() -> {
                 // The observer call may occur even if the fragment hasn't been started, so
                 // only force an update if the fragment hasn't been stopped.
-                if (mIsStarted) {
+                if (isStarted()) {
                     refreshUi();
                 }
             });
@@ -55,13 +55,11 @@ public class AccountDetailsWithSyncStatusPreferenceController extends
         super(context, preferenceKey, fragmentController, uxRestrictions);
     }
 
-
     /**
      * Registers the account update and sync status change callbacks.
      */
     @Override
     protected void onStartInternal() {
-        mIsStarted = true;
         mStatusChangeListenerHandle = ContentResolver.addStatusChangeListener(
                 ContentResolver.SYNC_OBSERVER_TYPE_ACTIVE
                         | ContentResolver.SYNC_OBSERVER_TYPE_STATUS
@@ -73,25 +71,25 @@ public class AccountDetailsWithSyncStatusPreferenceController extends
      */
     @Override
     protected void onStopInternal() {
-        mIsStarted = false;
         if (mStatusChangeListenerHandle != null) {
             ContentResolver.removeStatusChangeListener(mStatusChangeListenerHandle);
         }
     }
 
     @Override
-    protected void updateState(Preference preference) {
+    protected void updateState(CarUiTwoActionIconPreference preference) {
         super.updateState(preference);
         if (isSyncFailing()) {
             preference.setSummary(R.string.sync_is_failing);
         } else {
             preference.setSummary("");
         }
+        updateSyncButton();
     }
 
     private boolean isSyncFailing() {
         int userId = getUserHandle().getIdentifier();
-        List<SyncInfo> currentSyncs = ContentResolver.getCurrentSyncsAsUser(userId);
+        List<SyncInfo> currentSyncs = getCurrentSyncs(userId);
         boolean syncIsFailing = false;
 
         Set<SyncAdapterType> syncAdapters = AccountSyncHelper.getVisibleSyncAdaptersForAccount(
@@ -117,5 +115,54 @@ public class AccountDetailsWithSyncStatusPreferenceController extends
         }
 
         return syncIsFailing;
+    }
+
+    private void updateSyncButton() {
+        // Set the button to either request or cancel sync, depending on the current state
+        boolean hasActiveSyncs = !getCurrentSyncs(
+                getUserHandle().getIdentifier()).isEmpty();
+
+        // If there are active syncs, clicking the button with cancel them. Otherwise, clicking the
+        // button will start them.
+        getPreference().setSecondaryActionIcon(
+                hasActiveSyncs ? R.drawable.ic_sync_cancel : R.drawable.ic_sync);
+        getPreference().setOnSecondaryActionClickListener(hasActiveSyncs
+                ? this::cancelSyncForEnabledProviders
+                : this::requestSyncForEnabledProviders);
+    }
+
+    private void requestSyncForEnabledProviders() {
+        int userId = getUserHandle().getIdentifier();
+
+        Set<SyncAdapterType> adapters = AccountSyncHelper.getSyncableSyncAdaptersForAccount(
+                getAccount(), getUserHandle());
+        for (SyncAdapterType adapter : adapters) {
+            requestSync(adapter.authority, userId);
+        }
+    }
+
+    private void cancelSyncForEnabledProviders() {
+        int userId = getUserHandle().getIdentifier();
+
+        Set<SyncAdapterType> adapters = AccountSyncHelper.getSyncableSyncAdaptersForAccount(
+                getAccount(), getUserHandle());
+        for (SyncAdapterType adapter : adapters) {
+            cancelSync(adapter.authority, userId);
+        }
+    }
+
+    @VisibleForTesting
+    List<SyncInfo> getCurrentSyncs(int userId) {
+        return ContentResolver.getCurrentSyncsAsUser(userId);
+    }
+
+    @VisibleForTesting
+    void requestSync(String authority, int userId) {
+        AccountSyncHelper.requestSyncIfAllowed(getAccount(), authority, userId);
+    }
+
+    @VisibleForTesting
+    void cancelSync(String authority, int userId) {
+        ContentResolver.cancelSyncAsUser(getAccount(), authority, userId);
     }
 }

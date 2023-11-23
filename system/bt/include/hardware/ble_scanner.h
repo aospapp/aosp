@@ -17,7 +17,9 @@
 #ifndef ANDROID_INCLUDE_BLE_SCANNER_H
 #define ANDROID_INCLUDE_BLE_SCANNER_H
 
+#include <bluetooth/uuid.h>
 #include <stdint.h>
+#include <memory>
 #include <vector>
 #include "bt_common_types.h"
 #include "bt_gatt_client.h"
@@ -50,28 +52,69 @@ typedef struct {
   track_adv_event_callback track_adv_event_cb;
 } btgatt_scanner_callbacks_t;
 
+class AdvertisingTrackInfo {
+ public:
+  uint8_t scanner_id;
+  uint8_t filter_index;
+  uint8_t advertiser_state;
+  uint8_t advertiser_info_present;
+  RawAddress advertiser_address;
+  uint8_t advertiser_address_type;
+  uint8_t tx_power;
+  int8_t rssi;
+  uint16_t time_stamp;
+  uint8_t adv_packet_len;
+  std::vector<uint8_t> adv_packet;
+  uint8_t scan_response_len;
+  std::vector<uint8_t> scan_response;
+};
+
+/**
+ * LE Scanning related callbacks invoked from from the Bluetooth native stack
+ * All callbacks are invoked on the JNI thread
+ */
+class ScanningCallbacks {
+ public:
+  virtual ~ScanningCallbacks() = default;
+  virtual void OnScannerRegistered(const bluetooth::Uuid app_uuid,
+                                   uint8_t scannerId, uint8_t status) = 0;
+  virtual void OnScanResult(uint16_t event_type, uint8_t addr_type,
+                            RawAddress bda, uint8_t primary_phy,
+                            uint8_t secondary_phy, uint8_t advertising_sid,
+                            int8_t tx_power, int8_t rssi,
+                            uint16_t periodic_adv_int,
+                            std::vector<uint8_t> adv_data) = 0;
+  virtual void OnTrackAdvFoundLost(
+      AdvertisingTrackInfo advertising_track_info) = 0;
+  virtual void OnBatchScanReports(int client_if, int status, int report_format,
+                                  int num_records,
+                                  std::vector<uint8_t> data) = 0;
+  virtual void OnBatchScanThresholdCrossed(int client_if) = 0;
+};
+
 class BleScannerInterface {
  public:
   virtual ~BleScannerInterface() = default;
 
   using RegisterCallback =
-      base::Callback<void(uint8_t /* scanner_id */, uint8_t /* status */)>;
+      base::Callback<void(uint8_t /* scanner_id */, uint8_t /* btm_status */)>;
 
-  using Callback = base::Callback<void(uint8_t /* status */)>;
+  using Callback = base::Callback<void(uint8_t /* btm_status */)>;
 
   using EnableCallback =
-      base::Callback<void(uint8_t /* action */, uint8_t /* status */)>;
+      base::Callback<void(uint8_t /* action */, uint8_t /* btm_status */)>;
 
   using FilterParamSetupCallback =
       base::Callback<void(uint8_t /* avbl_space */, uint8_t /* action_type */,
-                          uint8_t /* status */)>;
+                          uint8_t /* btm_status */)>;
 
   using FilterConfigCallback =
       base::Callback<void(uint8_t /* filt_type */, uint8_t /* avbl_space */,
-                          uint8_t /* action */, uint8_t /* status */)>;
+                          uint8_t /* action */, uint8_t /* btm_status */)>;
 
   /** Registers a scanner with the stack */
-  virtual void RegisterScanner(RegisterCallback) = 0;
+  virtual void RegisterScanner(const bluetooth::Uuid& app_uuid,
+                               RegisterCallback) = 0;
 
   /** Unregister a scanner from the stack */
   virtual void Unregister(int scanner_id) = 0;
@@ -128,6 +171,8 @@ class BleScannerInterface {
                          uint16_t timeout, StartSyncCb start_cb,
                          SyncReportCb report_cb, SyncLostCb lost_cb) = 0;
   virtual void StopSync(uint16_t handle) = 0;
+
+  virtual void RegisterCallbacks(ScanningCallbacks* callbacks) = 0;
 };
 
 #endif /* ANDROID_INCLUDE_BLE_SCANNER_H */

@@ -35,6 +35,8 @@ enum MessageType : uint {
   BREAK_IT_TEST,
   /// Should be used with NanoappResponseMessage
   NANOAPP_RESPONSE,
+  /// Should be used with GnssMeasurementMessage
+  GNSS_MEASUREMENT_TEST,
 }
 
 /// Represents a message to ask the nanoapp to create a timer that wakes up at
@@ -44,11 +46,40 @@ table TimerMessage {
   wakeup_interval_ns:ulong;
 }
 
+/// All the various WiFi scan types that can be interacted with inside the
+/// nanoapp. The values used here map directly to values from the CHRE API.
+enum WifiScanType : ubyte {
+  ACTIVE = 0,
+  ACTIVE_PLUS_PASSIVE_DFS = 1,
+  PASSIVE = 2,
+  NO_PREFERENCE = 3,
+}
+
+/// All the various WiFi radio chain preferences that can be interacted with
+/// inside the nanoapp. The values used here map directly to values from the
+/// CHRE API.
+enum WifiRadioChain : ubyte {
+  DEFAULT = 0,
+  LOW_LATENCY = 1,
+  LOW_POWER = 2,
+  HIGH_ACCURACY = 3,
+}
+
+/// All the various WiFi channel sets that can be interacted with inside the
+/// nanoapp. The values used here map directly to values from the CHRE API.
+enum WifiChannelSet : ubyte {
+  NON_DFS = 0,
+  ALL = 1,
+}
+
 /// Represents a message to ask the nanoapp to start or stop WiFi scanning and
 /// the scan interval to use if scanning is being started
 table WifiScanMessage {
   enable:bool;
   scan_interval_ns:ulong;
+  scan_type:WifiScanType;
+  radio_chain:WifiRadioChain;
+  channel_set:WifiChannelSet;
 }
 
 /// Represents a message to ask the nanoapp to start or stop Gnss location
@@ -91,6 +122,7 @@ enum SensorType : ubyte {
   LIGHT = 12,
   PROXIMITY = 13,
   STEP_DETECT = 23,
+  STEP_COUNTER = 24,
   UNCALIBRATED_ACCELEROMETER = 55,
   ACCELEROMETER_TEMPERATURE = 56,
   GYROSCOPE_TEMPERATURE = 57,
@@ -117,4 +149,11 @@ table BreakItMessage {
 /// Any failures will be printed to the logs.
 table NanoappResponseMessage {
   success:bool;
+}
+
+/// Represents a message to ask the nanoapp to start or stop Gnss measurement
+/// sampling at the requested interval
+table GnssMeasurementMessage {
+  enable:bool;
+  min_interval_millis:uint;
 }

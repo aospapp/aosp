@@ -22,7 +22,7 @@
     <string name="phoneIconLabel" msgid="3015941229249651419">"電話"</string>
     <string name="fdnListLabel" msgid="4119121875004244097">"固定撥號清單"</string>
     <string name="unknown" msgid="8279698889921830815">"不明"</string>
-    <string name="private_num" msgid="4487990167889159992">"私人號碼"</string>
+    <string name="private_num" msgid="4487990167889159992">"隱藏號碼"</string>
     <string name="payphone" msgid="7936735771836716941">"公用電話"</string>
     <string name="onHold" msgid="6132725550015899006">"通話保留"</string>
     <string name="carrier_mmi_msg_title" msgid="6050165242447507034">"「<xliff:g id="MMICARRIER">%s</xliff:g>」的訊息"</string>
@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"只有主要使用者可以修改語音信箱設定。"</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"您的 SIM 卡已解鎖。正在解鎖手機中…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"SIM 網路解鎖 PIN"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"以下電信業者的 SIM 卡已鎖定"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"解除鎖定"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"關閉"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"正在要求解除網路鎖定…"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"轉接至 <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"關閉"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"您的電信業者不支援手機無收訊時停用轉接功能。"</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"你的電信業者不支援來電轉接功能。"</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"要開啟來電等候功能嗎？"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"如果通話期間有來電，系統會通知你"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"開啟"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"取消"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"IMS 的 CDMA 來電等候功能已開啟"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS 的 CDMA 來電等候功能已關閉"</string>
     <string name="updating_title" msgid="6130548922615719689">"通話設定"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"只有管理員使用者可以變更通話設定。"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"設定 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"SIM 卡功能受限"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"使用 <xliff:g id="PHONE_NUMBER">%2$s</xliff:g> 時，「<xliff:g id="CARRIER_NAME">%1$s</xliff:g>」的通話和數據服務可能會遭到封鎖。"</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"當你使用另一張 SIM 卡時，「<xliff:g id="CARRIER_NAME">%1$s</xliff:g>」的通話和數據服務可能會遭到封鎖。"</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"系統找到不適用的 SIP 帳戶，並已將這些帳戶移除"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Android 平台不再支援 SIP 通話功能。\n系統已移除你現有的 SIP 帳戶 (<xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g>)。\n請確認你的預設通話帳戶設定。"</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"前往設定"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"應用程式數據用量"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_2">%2$s</xliff:g>期間使用了 <xliff:g id="ID_1">%1$s</xliff:g> 的行動數據"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"進階"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"密碼不正確，SIM 卡現已遭到封鎖。請輸入 PUK2。"</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"PUK2 遭到永久封鎖。"</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"您還可以嘗試 <xliff:g id="NUMBER">%d</xliff:g> 次。"</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"SIM 卡已遭 PUK2 碼鎖定，請要求服務供應商協助解鎖。"</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"PIN2 已解除封鎖"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"網路或 SIM 卡錯誤"</string>
     <string name="doneButton" msgid="7371209609238460207">"完成"</string>
@@ -522,9 +534,10 @@
     <string name="notification_voicemail_no_vm_number" msgid="3423686009815186750">"無語音信箱號碼"</string>
     <string name="notification_network_selection_title" msgid="255595526707809121">"沒有服務"</string>
     <string name="notification_network_selection_text" msgid="553288408722427659">"所選網路 (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) 無法使用"</string>
-    <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"如要撥打電話，請開啟行動網路，並關閉飛航模式或節約耗電量模式。"</string>
+    <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"如要撥打電話，請開啟行動網路，並關閉飛航模式或省電模式。"</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"關閉飛航模式即可撥打電話。"</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"關閉飛航模式或連上無線網路即可撥打電話。"</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"手機過熱"</b>\n\n"無法撥打這通電話。請等到手機降溫後再試一次。\n\n在這段期間內仍可撥打緊急電話。"</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"結束緊急回撥模式，以便撥打非緊急電話。"</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"尚未註冊網路。"</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"無法使用 Google 行動服務網路。"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"預設資料 SIM 卡的子 ID："</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"下行頻寬 (kbps)："</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"上行頻寬 (kbps)："</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"行動網路位置資訊 (已不適用)："</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"LTE 實體通道設定："</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"行動網路資訊重新整理頻率："</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"所有行動網路測量資訊："</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"重新整理"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"切換 DNS 檢查"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"原始設備製造商 (OEM) 專用資訊/設定"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"EN-DC 可供使用："</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"DCNR 受限："</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"NR 可供使用："</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"NR 狀態："</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"NR 頻率："</string>
     <string name="band_mode_title" msgid="7988822920724576842">"設定無線電頻帶模式"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"正在載入頻帶清單…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"設定"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"手機資訊"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"電信業者佈建資訊"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"觸發電信業者佈建程序"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"你的藍牙訊號微弱，建議你改用擴音模式。"</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"通話品質通知"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"不適用的 SIP 帳戶"</string>
 </resources>

@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -29,7 +29,7 @@ public class Poc16_07 extends SecurityTestCase {
      *  b/28740702
      */
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 28740702)
     public void testPocCVE_2016_3818() throws Exception {
         AdbUtils.runPoc("CVE-2016-3818", getDevice(), 60);
     }
@@ -38,7 +38,7 @@ public class Poc16_07 extends SecurityTestCase {
      *  b/27890802
      */
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 27890802)
     public void testPocCVE_2016_3746() throws Exception {
         AdbUtils.runPocAssertNoCrashes("CVE-2016-3746", getDevice(), "mediaserver");
     }
@@ -47,7 +47,7 @@ public class Poc16_07 extends SecurityTestCase {
      *  b/28557020
      */
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 28557020)
     public void testPocCVE_2014_9803() throws Exception {
         AdbUtils.runPocAssertExitStatusNotVulnerable("CVE-2014-9803", getDevice(), 60);
     }
@@ -56,9 +56,8 @@ public class Poc16_07 extends SecurityTestCase {
      * b/27903498
      */
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 27903498)
     public void testPocCVE_2016_3747() throws Exception {
-        getOomCatcher().setHighMemoryTest();
         AdbUtils.runPocAssertNoCrashes("CVE-2016-3747", getDevice(), "mediaserver");
     }
 }

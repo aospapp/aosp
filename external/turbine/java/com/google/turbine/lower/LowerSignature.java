@@ -92,17 +92,8 @@ public class LowerSignature {
     while (curr.targs().isEmpty() && it.hasNext()) {
       curr = it.next();
     }
-    String pkg;
-    String name;
-    int idx = curr.sym().binaryName().lastIndexOf('/');
-    if (idx == -1) {
-      pkg = "";
-      name = curr.sym().binaryName();
-    } else {
-      pkg = curr.sym().binaryName().substring(0, idx);
-      name = curr.sym().binaryName().substring(idx + 1);
-    }
-    classes.add(new Sig.SimpleClassTySig(name, tyArgSigs(curr)));
+    String pkg = curr.sym().packageName();
+    classes.add(new Sig.SimpleClassTySig(curr.sym().simpleName(), tyArgSigs(curr)));
     while (it.hasNext()) {
       SimpleClassTy outer = curr;
       curr = it.next();
@@ -128,9 +119,8 @@ public class LowerSignature {
         return new UpperBoundTySig(signature(((Type.WildUpperBoundedTy) ty).bound()));
       case LOWER:
         return new LowerBoundTySig(signature(((Type.WildLowerBoundedTy) ty).bound()));
-      default:
-        throw new AssertionError(ty.boundKind());
     }
+    throw new AssertionError(ty.boundKind());
   }
 
   /**
@@ -284,13 +274,13 @@ public class LowerSignature {
     String identifier = sym.name();
     Sig.TySig cbound = null;
     ImmutableList.Builder<Sig.TySig> ibounds = ImmutableList.builder();
-    if (info.bound().bounds().isEmpty()) {
+    if (info.upperBound().bounds().isEmpty()) {
       cbound =
           new ClassTySig(
               "java/lang", ImmutableList.of(new SimpleClassTySig("Object", ImmutableList.of())));
     } else {
       boolean first = true;
-      for (Type bound : info.bound().bounds()) {
+      for (Type bound : info.upperBound().bounds()) {
         TySig sig = signature(bound);
         if (first) {
           if (!isInterface(bound, env)) {

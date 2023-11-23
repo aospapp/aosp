@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libctsseccomp_jni",
     gtest: false,
@@ -20,6 +24,7 @@ cc_test_library {
         "android_seccomp_cts_app_SeccompDeviceTest.cpp",
     ],
     sdk_version: "current",
+    header_libs: ["jni_headers"],
     static_libs: ["cpufeatures"],
     cflags: [
         "-Wall",

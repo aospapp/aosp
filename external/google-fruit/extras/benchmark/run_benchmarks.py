@@ -22,13 +22,15 @@ import tempfile
 import os
 import shutil
 import itertools
+import traceback
+from typing import Dict, List, Tuple, Optional, Any, TypeVar, Callable, Iterable
+
 import numpy
 import subprocess
 import yaml
 from numpy import floor, log10
 import scipy
 import multiprocessing
-import sh
 import json
 import statsmodels.stats.api as stats
 from generate_benchmark import generate_benchmark
@@ -36,7 +38,7 @@ import git
 from functools import lru_cache as memoize
 
 class CommandFailedException(Exception):
-    def __init__(self, command, stdout, stderr, error_code):
+    def __init__(self, command: List[str], stdout: str, stderr: str, error_code: str):
         self.command = command
         self.stdout = stdout
         self.stderr = stderr
@@ -53,7 +55,7 @@ class CommandFailedException(Exception):
         {stderr}
         ''').format(command=self.command, error_code=self.error_code, stdout=self.stdout, stderr=self.stderr)
 
-def run_command(executable, args=[], cwd=None, env=None):
+def run_command(executable: str, args: List[Any]=[], cwd: str=None, env: Dict[str, str]=None) -> Tuple[str, str]:
     args = [str(arg) for arg in args]
     command = [executable] + args
     try:
@@ -70,7 +72,7 @@ compile_flags = ['-O2', '-DNDEBUG']
 
 make_args = ['-j', multiprocessing.cpu_count() + 1]
 
-def parse_results(result_lines):
+def parse_results(result_lines: List[str]) -> Dict[str, float]:
     """
      Parses results from the format:
      ['Dimension name1        = 123',
@@ -89,7 +91,7 @@ def parse_results(result_lines):
 
 # We memoize the result since this might be called repeatedly and it's somewhat expensive.
 @memoize(maxsize=None)
-def determine_compiler_name(compiler_executable_name):
+def determine_compiler_name(compiler_executable_name: str) -> str:
     tmpdir = tempfile.gettempdir() + '/fruit-determine-compiler-version-dir'
     ensure_empty_dir(tmpdir)
     with open(tmpdir + '/CMakeLists.txt', 'w') as file:
@@ -112,7 +114,7 @@ def determine_compiler_name(compiler_executable_name):
 
 # Returns a pair (sha256_hash, version_name), where version_name will be None if no version tag was found at HEAD.
 @memoize(maxsize=None)
-def git_repo_info(repo_path):
+def git_repo_info(repo_path: str) -> Tuple[str, str]:
     repo = git.Repo(repo_path)
     head_tags = [tag.name for tag in repo.tags if tag.commit == repo.head.commit and re.match('v[0-9].*', tag.name)]
     if head_tags == []:
@@ -129,7 +131,7 @@ def git_repo_info(repo_path):
 # We put the compiler name/version in the results because the same 'compiler' value might refer to different compiler versions
 # (e.g. if GCC 6.0.0 is installed when benchmarks are run, then it's updated to GCC 6.0.1 and finally the results are formatted, we
 # want the formatted results to say "GCC 6.0.0" instead of "GCC 6.0.1").
-def add_synthetic_benchmark_parameters(original_benchmark_parameters, path_to_code_under_test):
+def add_synthetic_benchmark_parameters(original_benchmark_parameters: Dict[str, Any], path_to_code_under_test: Optional[str]):
     benchmark_params = original_benchmark_parameters.copy()
     benchmark_params['compiler_name'] = determine_compiler_name(original_benchmark_parameters['compiler'])
     if path_to_code_under_test is not None:
@@ -140,8 +142,13 @@ def add_synthetic_benchmark_parameters(original_benchmark_parameters, path_to_co
     return benchmark_params
 
 
-class SimpleNewDeleteRunTimeBenchmark:
-    def __init__(self, benchmark_definition, fruit_benchmark_sources_dir):
+class Benchmark:
+    def prepare(self) -> None: ...
+    def run(self) -> Dict[str, float]: ...
+    def describe(self) -> str: ...
+
+class SimpleNewDeleteRunTimeBenchmark(Benchmark):
+    def __init__(self, benchmark_definition: Dict[str, Any], fruit_benchmark_sources_dir: str):
         self.benchmark_definition = add_synthetic_benchmark_parameters(benchmark_definition, path_to_code_under_test=None)
         self.fruit_benchmark_sources_dir = fruit_benchmark_sources_dir
 
@@ -170,8 +177,8 @@ class SimpleNewDeleteRunTimeBenchmark:
         return self.benchmark_definition
 
 
-class FruitSingleFileCompileTimeBenchmark:
-    def __init__(self, benchmark_definition, fruit_sources_dir, fruit_build_dir, fruit_benchmark_sources_dir):
+class FruitSingleFileCompileTimeBenchmark(Benchmark):
+    def __init__(self, benchmark_definition: Dict[str, Any], fruit_sources_dir: str, fruit_build_dir: str, fruit_benchmark_sources_dir: str):
         self.benchmark_definition = add_synthetic_benchmark_parameters(benchmark_definition, path_to_code_under_test=fruit_sources_dir)
         self.fruit_sources_dir = fruit_sources_dir
         self.fruit_build_dir = fruit_build_dir
@@ -207,7 +214,7 @@ class FruitSingleFileCompileTimeBenchmark:
         return self.benchmark_definition
 
 
-def ensure_empty_dir(dirname):
+def ensure_empty_dir(dirname: str):
     # We start by creating the directory instead of just calling rmtree with ignore_errors=True because that would ignore
     # all errors, so we might otherwise go ahead even if the directory wasn't properly deleted.
     os.makedirs(dirname, exist_ok=True)
@@ -215,7 +222,7 @@ def ensure_empty_dir(dirname):
     os.makedirs(dirname)
 
 
-class GenericGeneratedSourcesBenchmark:
+class GenericGeneratedSourcesBenchmark(Benchmark):
     def __init__(self,
                  di_library,
                  benchmark_definition,
@@ -258,6 +265,10 @@ class GenericGeneratedSourcesBenchmark:
         self.arbitrary_files = [files[i * (len(files) // (num_files_changed + 2))]
                                 for i in range(1, num_files_changed + 1)]
 
+    def prepare_compile_memory_benchmark(self):
+        self.prepare_compile_benchmark()
+        self.run_compile_memory_benchmark()
+
     def prepare_runtime_benchmark(self):
         self.prepare_compile_benchmark()
         self.run_make_build()
@@ -288,6 +299,16 @@ class GenericGeneratedSourcesBenchmark:
         end = timer()
         result = {'incremental_compile_time': end - start}
         return result
+
+    def run_compile_memory_benchmark(self):
+        run_command('make', args=make_args + ['clean'], cwd=self.tmpdir)
+        run_command('make', args=make_args + ['main_ram.txt'], cwd=self.tmpdir)
+        with open(self.tmpdir + '/main_ram.txt') as f:
+            ram_usages = [int(n)*1024 for n in f.readlines()]
+        return {
+            'total_max_ram_usage': sum(ram_usages),
+            'max_ram_usage': max(ram_usages),
+        }
 
     def run_runtime_benchmark(self):
         num_classes = self.benchmark_definition['num_classes']
@@ -339,6 +360,17 @@ class IncrementalCompileTimeBenchmark(GenericGeneratedSourcesBenchmark):
 
     def run(self):
         return self.run_incremental_compile_benchmark()
+
+class CompileMemoryBenchmark(GenericGeneratedSourcesBenchmark):
+    def __init__(self, **kwargs):
+        super().__init__(generate_runtime_bench_code=False,
+                         **kwargs)
+
+    def prepare(self):
+        self.prepare_compile_memory_benchmark()
+
+    def run(self):
+        return self.run_compile_memory_benchmark()
 
 class StartupTimeBenchmark(GenericGeneratedSourcesBenchmark):
     def __init__(self, **kwargs):
@@ -395,6 +427,13 @@ class FruitIncrementalCompileTimeBenchmark(IncrementalCompileTimeBenchmark):
                          fruit_sources_dir=fruit_sources_dir,
                          **kwargs)
 
+class FruitCompileMemoryBenchmark(CompileMemoryBenchmark):
+    def __init__(self, fruit_sources_dir, **kwargs):
+        super().__init__(di_library='fruit',
+                         path_to_code_under_test=fruit_sources_dir,
+                         fruit_sources_dir=fruit_sources_dir,
+                         **kwargs)
+
 class FruitRunTimeBenchmark(RunTimeBenchmark):
     def __init__(self, fruit_sources_dir, **kwargs):
         super().__init__(di_library='fruit',
@@ -444,6 +483,13 @@ class BoostDiIncrementalCompileTimeBenchmark(IncrementalCompileTimeBenchmark):
                          boost_di_sources_dir=boost_di_sources_dir,
                          **kwargs)
 
+class BoostDiCompileMemoryBenchmark(CompileMemoryBenchmark):
+    def __init__(self, boost_di_sources_dir, **kwargs):
+        super().__init__(di_library='boost_di',
+                         path_to_code_under_test=boost_di_sources_dir,
+                         boost_di_sources_dir=boost_di_sources_dir,
+                         **kwargs)
+
 class BoostDiRunTimeBenchmark(RunTimeBenchmark):
     def __init__(self, boost_di_sources_dir, **kwargs):
         super().__init__(di_library='boost_di',
@@ -484,6 +530,11 @@ class SimpleDiIncrementalCompileTimeBenchmark(IncrementalCompileTimeBenchmark):
         super().__init__(di_library='none',
                          **kwargs)
 
+class SimpleDiCompileMemoryBenchmark(CompileMemoryBenchmark):
+    def __init__(self, **kwargs):
+        super().__init__(di_library='none',
+                         **kwargs)
+
 class SimpleDiRunTimeBenchmark(RunTimeBenchmark):
     def __init__(self, **kwargs):
         super().__init__(di_library='none',
@@ -514,6 +565,10 @@ class SimpleDiWithInterfacesIncrementalCompileTimeBenchmark(SimpleDiIncrementalC
     def __init__(self, **kwargs):
         super().__init__(use_interfaces=True, **kwargs)
 
+class SimpleDiWithInterfacesCompileMemoryBenchmark(SimpleDiCompileMemoryBenchmark):
+    def __init__(self, **kwargs):
+        super().__init__(use_interfaces=True, **kwargs)
+
 class SimpleDiWithInterfacesRunTimeBenchmark(SimpleDiRunTimeBenchmark):
     def __init__(self, **kwargs):
         super().__init__(use_interfaces=True, **kwargs)
@@ -540,6 +595,10 @@ class SimpleDiWithInterfacesAndNewDeleteIncrementalCompileTimeBenchmark(SimpleDi
     def __init__(self, **kwargs):
         super().__init__(use_new_delete=True, **kwargs)
 
+class SimpleDiWithInterfacesAndNewDeleteCompileMemoryBenchmark(SimpleDiWithInterfacesCompileMemoryBenchmark):
+    def __init__(self, **kwargs):
+        super().__init__(use_new_delete=True, **kwargs)
+
 class SimpleDiWithInterfacesAndNewDeleteRunTimeBenchmark(SimpleDiWithInterfacesRunTimeBenchmark):
     def __init__(self, **kwargs):
         super().__init__(use_new_delete=True, **kwargs)
@@ -559,13 +618,13 @@ class SimpleDiWithInterfacesAndNewDeleteExecutableSizeBenchmarkWithoutExceptions
         super().__init__(use_new_delete=True, **kwargs)
 
 
-def round_to_significant_digits(n, num_significant_digits):
+def round_to_significant_digits(n: float, num_significant_digits: int) -> float:
     if n <= 0:
         # We special-case this, otherwise the log10 below will fail.
         return 0
     return round(n, num_significant_digits - int(floor(log10(n))) - 1)
 
-def run_benchmark(benchmark, max_runs, timeout_hours, output_file, min_runs=3):
+def run_benchmark(benchmark: Benchmark, max_runs: int, timeout_hours: int, output_file: str, min_runs: int=3) -> None:
     def run_benchmark_once():
         print('Running benchmark... ', end='', flush=True)
         result = benchmark.run()
@@ -627,7 +686,7 @@ def run_benchmark(benchmark, max_runs, timeout_hours, output_file, min_runs=3):
     print()
 
 
-def expand_benchmark_definition(benchmark_definition):
+def expand_benchmark_definition(benchmark_definition: Dict[str, Any]) -> List[Dict[str, Tuple[Any]]]:
     """
     Takes a benchmark definition, e.g.:
     [{name: 'foo', compiler: ['g++-5', 'g++-6']},
@@ -650,12 +709,15 @@ def expand_benchmark_definition(benchmark_definition):
             for value_combination in value_combinations]
 
 
-def expand_benchmark_definitions(benchmark_definitions):
+def expand_benchmark_definitions(benchmark_definitions: List[Dict[str, Any]]):
     return list(itertools.chain(*[expand_benchmark_definition(benchmark_definition) for benchmark_definition in benchmark_definitions]))
 
-def group_by(l, element_to_key):
-    """Takes a list and returns a dict of sublists, where the elements are grouped using the provided function"""
-    result = defaultdict(list)
+T = TypeVar('T')
+K = TypeVar('K')
+
+def group_by(l: List[T], element_to_key: Callable[[T], K]) -> Iterable[Tuple[K, List[T]]]:
+    """Takes a list and returns a list of sublists, where the elements are grouped using the provided function"""
+    result = defaultdict(list)  # type: Dict[K, List[T]]
     for elem in l:
         result[element_to_key(elem)].append(elem)
     return result.items()
@@ -690,7 +752,7 @@ def main():
     fruit_build_dir = tempfile.gettempdir() + '/fruit-benchmark-build-dir'
 
     with open(args.benchmark_definition, 'r') as f:
-        yaml_file_content = yaml.load(f)
+        yaml_file_content = yaml.full_load(f)
         global_definitions = yaml_file_content['global']
         benchmark_definitions = expand_benchmark_definitions(yaml_file_content['benchmarks'])
 
@@ -702,24 +764,28 @@ def main():
                             (benchmark_definition['compiler'], tuple(benchmark_definition['additional_cmake_args']))):
 
         print('Preparing for benchmarks with the compiler %s, with additional CMake args %s' % (compiler_executable_name, additional_cmake_args))
-        # We compute this here (and memoize the result) so that the benchmark's describe() will retrieve the cached
-        # value instantly.
-        determine_compiler_name(compiler_executable_name)
+        try:
+            # We compute this here (and memoize the result) so that the benchmark's describe() will retrieve the cached
+            # value instantly.
+            determine_compiler_name(compiler_executable_name)
 
-        # Build Fruit in fruit_build_dir, so that fruit_build_dir points to a built Fruit (useful for e.g. the config header).
-        shutil.rmtree(fruit_build_dir, ignore_errors=True)
-        os.makedirs(fruit_build_dir)
-        modified_env = os.environ.copy()
-        modified_env['CXX'] = compiler_executable_name
-        run_command('cmake',
-                    args=[
-                        args.fruit_sources_dir,
-                        '-DCMAKE_BUILD_TYPE=Release',
-                        *additional_cmake_args,
-                    ],
-                    cwd=fruit_build_dir,
-                    env=modified_env)
-        run_command('make', args=make_args, cwd=fruit_build_dir)
+            # Build Fruit in fruit_build_dir, so that fruit_build_dir points to a built Fruit (useful for e.g. the config header).
+            shutil.rmtree(fruit_build_dir, ignore_errors=True)
+            os.makedirs(fruit_build_dir)
+            modified_env = os.environ.copy()
+            modified_env['CXX'] = compiler_executable_name
+            run_command('cmake',
+                        args=[
+                            args.fruit_sources_dir,
+                            '-DCMAKE_BUILD_TYPE=Release',
+                            *additional_cmake_args,
+                        ],
+                        cwd=fruit_build_dir,
+                        env=modified_env)
+            run_command('make', args=make_args, cwd=fruit_build_dir)
+        except Exception as e:
+            print('Exception while preparing for benchmarks with the compiler %s, with additional CMake args %s.\n%s\nGoing ahead with the rest.' % (compiler_executable_name, additional_cmake_args, traceback.format_exc()))
+            continue
 
         for benchmark_definition in benchmark_definitions_with_current_config:
             benchmark_index += 1
@@ -744,6 +810,7 @@ def main():
                 benchmark_class = {
                     'fruit_compile_time': FruitCompileTimeBenchmark,
                     'fruit_incremental_compile_time': FruitIncrementalCompileTimeBenchmark,
+                    'fruit_compile_memory': FruitCompileMemoryBenchmark,
                     'fruit_run_time': FruitRunTimeBenchmark,
                     'fruit_startup_time': FruitStartupTimeBenchmark,
                     'fruit_startup_time_with_normalized_component': FruitStartupTimeWithNormalizedComponentBenchmark,
@@ -758,6 +825,7 @@ def main():
                 benchmark_class = {
                     'boost_di_compile_time': BoostDiCompileTimeBenchmark,
                     'boost_di_incremental_compile_time': BoostDiIncrementalCompileTimeBenchmark,
+                    'boost_di_compile_memory': BoostDiCompileMemoryBenchmark,
                     'boost_di_run_time': BoostDiRunTimeBenchmark,
                     'boost_di_startup_time': BoostDiStartupTimeBenchmark,
                     'boost_di_executable_size': BoostDiExecutableSizeBenchmark,
@@ -770,18 +838,21 @@ def main():
                 benchmark_class = {
                     'simple_di_compile_time': SimpleDiCompileTimeBenchmark,
                     'simple_di_incremental_compile_time': SimpleDiIncrementalCompileTimeBenchmark,
+                    'simple_di_compile_memory': SimpleDiCompileMemoryBenchmark,
                     'simple_di_run_time': SimpleDiRunTimeBenchmark,
                     'simple_di_startup_time': SimpleDiStartupTimeBenchmark,
                     'simple_di_executable_size': SimpleDiExecutableSizeBenchmark,
                     'simple_di_executable_size_without_exceptions_and_rtti': SimpleDiExecutableSizeBenchmarkWithoutExceptionsAndRtti,
                     'simple_di_with_interfaces_compile_time': SimpleDiWithInterfacesCompileTimeBenchmark,
                     'simple_di_with_interfaces_incremental_compile_time': SimpleDiWithInterfacesIncrementalCompileTimeBenchmark,
+                    'simple_di_with_interfaces_compile_memory': SimpleDiWithInterfacesCompileMemoryBenchmark,
                     'simple_di_with_interfaces_run_time': SimpleDiWithInterfacesRunTimeBenchmark,
                     'simple_di_with_interfaces_startup_time': SimpleDiWithInterfacesStartupTimeBenchmark,
                     'simple_di_with_interfaces_executable_size': SimpleDiWithInterfacesExecutableSizeBenchmark,
                     'simple_di_with_interfaces_executable_size_without_exceptions_and_rtti': SimpleDiWithInterfacesExecutableSizeBenchmarkWithoutExceptionsAndRtti,
                     'simple_di_with_interfaces_and_new_delete_compile_time': SimpleDiWithInterfacesAndNewDeleteCompileTimeBenchmark,
                     'simple_di_with_interfaces_and_new_delete_incremental_compile_time': SimpleDiWithInterfacesAndNewDeleteIncrementalCompileTimeBenchmark,
+                    'simple_di_with_interfaces_and_new_delete_compile_memory': SimpleDiWithInterfacesAndNewDeleteCompileMemoryBenchmark,
                     'simple_di_with_interfaces_and_new_delete_run_time': SimpleDiWithInterfacesAndNewDeleteRunTimeBenchmark,
                     'simple_di_with_interfaces_and_new_delete_startup_time': SimpleDiWithInterfacesAndNewDeleteStartupTimeBenchmark,
                     'simple_di_with_interfaces_and_new_delete_executable_size': SimpleDiWithInterfacesAndNewDeleteExecutableSizeBenchmark,
@@ -795,11 +866,14 @@ def main():
             if benchmark.describe() in previous_run_completed_benchmarks:
                 print("Skipping benchmark that was already run previously (due to --continue-benchmark):", benchmark.describe())
                 continue
-
-            run_benchmark(benchmark,
-                          output_file=args.output_file,
-                          max_runs=global_definitions['max_runs'],
-                          timeout_hours=global_definitions['max_hours_per_combination'])
+            
+            try:
+                run_benchmark(benchmark,
+                            output_file=args.output_file,
+                            max_runs=global_definitions['max_runs'],
+                            timeout_hours=global_definitions['max_hours_per_combination'])
+            except Exception as e:
+                print('Exception while running benchmark: %s.\n%s\nGoing ahead with the rest.' % (benchmark.describe(), traceback.format_exc()))
 
 
 if __name__ == "__main__":

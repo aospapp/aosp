@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "system_timezone_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_timezone_license"],
+}
+
 // A static library for the zone_compactor host tool.
 // The tool can be run with java -jar zone_compactor.jar
 java_binary_host {
@@ -19,4 +27,3 @@ java_binary_host {
     main_class: "ZoneCompactor",
     srcs: ["main/java/**/*.java"],
 }
-

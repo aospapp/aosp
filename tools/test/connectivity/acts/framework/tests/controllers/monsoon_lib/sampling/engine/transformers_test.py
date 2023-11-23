@@ -19,26 +19,13 @@ import unittest
 import mock
 
 from acts.controllers.monsoon_lib.sampling.engine.transformers import DownSampler
+from acts.controllers.monsoon_lib.sampling.engine.transformers import PerfgateTee
 from acts.controllers.monsoon_lib.sampling.engine.transformers import SampleAggregator
 from acts.controllers.monsoon_lib.sampling.engine.transformers import Tee
+from acts.controllers.monsoon_lib.sampling.hvpm.transformers import HvpmReading
 
 ARGS = 0
 KWARGS = 1
-
-
-# TODO: Import HvpmReading directly when it is added to the codebase.
-class HvpmReading(object):
-    def __init__(self, data, time):
-        self.main_current = data[0]
-        self.sample_time = time
-
-    def __add__(self, other):
-        return HvpmReading([self.main_current + other.main_current],
-                           self.sample_time + other.sample_time)
-
-    def __truediv__(self, other):
-        return HvpmReading([self.main_current / other],
-                           self.sample_time / other)
 
 
 class TeeTest(unittest.TestCase):
@@ -67,8 +54,8 @@ class TeeTest(unittest.TestCase):
         tee.on_begin()
 
         expected_output = [
-            '0.010000000s 1.414213562370\n', '0.020000000s 2.718281828460\n',
-            '0.030000000s 3.141592653590\n'
+            '0.010000000 1.414213562370\n', '0.020000000 2.718281828460\n',
+            '0.030000000 3.141592653590\n'
         ]
 
         tee._transform_buffer([
@@ -82,13 +69,55 @@ class TeeTest(unittest.TestCase):
             self.assertEqual(call[ARGS][0], out)
 
 
+class PerfgateTeeTest(unittest.TestCase):
+    """Unit tests the transformers.PerfgateTee class."""
+
+    @mock.patch('builtins.open')
+    def test_begin_opens_file_on_expected_filename(self, open_mock):
+        expected_filename = 'foo'
+
+        PerfgateTee(expected_filename).on_begin()
+
+        open_mock.assert_called_with(expected_filename, 'w+')
+
+    @mock.patch('builtins.open')
+    def test_end_closes_file(self, open_mock):
+        tee = PerfgateTee('foo')
+        tee.on_begin()
+
+        tee.on_end()
+
+        self.assertTrue(open_mock().close.called)
+
+    @mock.patch('builtins.open')
+    def test_transform_buffer_outputs_correct_format(self, open_mock):
+        tee = PerfgateTee('foo')
+        tee.on_begin()
+
+        expected_output = [
+            '1596149635552503296,0.000223,4.193050\n',
+            '1596149635562476032,0.000212,4.193190\n',
+            '1596149635572549376,0.000225,4.193135\n',
+        ]
+
+        tee._transform_buffer([
+            HvpmReading([0.000223, 0, 0, 4.193050, 0], 1596149635.552503296),
+            HvpmReading([0.000212, 0, 0, 4.193190, 0], 1596149635.562476032),
+            HvpmReading([0.000225, 0, 0, 4.193135, 0], 1596149635.572549376),
+        ])
+
+        for call, out in zip(open_mock().write.call_args_list,
+                             expected_output):
+            self.assertEqual(call[ARGS][0], out)
+
+
 class SampleAggregatorTest(unittest.TestCase):
     """Unit tests the transformers.SampleAggregator class."""
 
     def test_transform_buffer_respects_start_after_seconds_flag(self):
-        sample_aggregator = SampleAggregator(start_after_seconds=1)
+        sample_aggregator = SampleAggregator(start_after_seconds=1.0)
         sample_aggregator._transform_buffer([
-            HvpmReading([1.41421356237, 0, 0, 0, 0], 0.01),
+            HvpmReading([1.41421356237, 0, 0, 0, 0], 0.00),
             HvpmReading([2.71828182846, 0, 0, 0, 0], 0.99),
             HvpmReading([3.14159265359, 0, 0, 0, 0], 1.00),
         ])

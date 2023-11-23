@@ -36,7 +36,7 @@ namespace minikin {
 // paragraphs, accuracy could degrade using only 32-bit float. Note however that float is used
 // extensively on the Java side for this. This is a typedef so that we can easily change it based
 // on performance/accuracy tradeoff.
-typedef double ParaWidth;
+typedef float ParaWidth;
 
 // Hyphenates a string potentially containing non-breaking spaces.
 std::vector<HyphenationType> hyphenate(const U16StringPiece& string, const Hyphenator& hypenator);

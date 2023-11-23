@@ -39,12 +39,30 @@
     },
     {
       "FLAGS": "browsable",
+      "PLAYABLE_HINT": "LIST",
+      "METADATA": {
+        "MEDIA_ID": "advanced toggles",
+        "DISPLAY_TITLE": "Node toggles (hide/show specific nodes)"
+      },
+      "INCLUDE":"media_items/toggles.json"
+    },
+    {
+      "FLAGS": "browsable",
       "BROWSABLE_HINT": "GRID_CATEGORY",
       "METADATA": {
         "MEDIA_ID": "advanced art nodes",
         "DISPLAY_TITLE": "Album Art"
       },
       "INCLUDE":"media_items/album_art/art_nodes.json"
+    },
+    {
+      "FLAGS": "browsable",
+      "PLAYABLE_HINT": "LIST",
+      "METADATA": {
+        "MEDIA_ID": "advanced more songs",
+        "DISPLAY_TITLE": "More songs"
+      },
+      "INCLUDE":"media_items/hundreds_songs.json"
     },
     {
       "FLAGS": "browsable",

@@ -21,6 +21,7 @@
     <string name="bugreport_info_quit" msgid="5590138890181142473">"Затваряне"</string>
     <string name="bugreport_info_start" msgid="667324824650830832">"Създаване на сигнал за програмна грешка"</string>
     <string name="bugreport_info_status" msgid="7211044508792815451">"Състояние:"</string>
+    <string name="bugreport_info_expires_soon_notice" msgid="927139313070992675">"Този сигнал за програмна грешка скоро ще изтече"</string>
     <string name="bugreport_dialog_submit" msgid="2789636252713280633">"Изпращане"</string>
     <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"Отказ"</string>
     <string name="bugreport_dialog_upload" msgid="2517386929450370781">"Качване"</string>

@@ -11,8 +11,8 @@ import textwrap
 from io import StringIO, BytesIO
 from itertools import chain
 from random import choice
-from socket import getfqdn
 from threading import Thread
+from unittest.mock import patch
 
 import email
 import email.policy
@@ -310,6 +310,41 @@ class TestMessageAPI(TestEmailBase):
         g = Generator(s, policy=newpolicy)
         g.flatten(msg)
         self.assertEqual(fullrepr, s.getvalue())
+
+    def test_nonascii_as_string_without_cte(self):
+        m = textwrap.dedent("""\
+            MIME-Version: 1.0
+            Content-type: text/plain; charset="iso-8859-1"
+
+            Test if non-ascii messages with no Content-Transfer-Encoding set
+            can be as_string'd:
+            Föö bär
+            """)
+        source = m.encode('iso-8859-1')
+        expected = textwrap.dedent("""\
+            MIME-Version: 1.0
+            Content-type: text/plain; charset="iso-8859-1"
+            Content-Transfer-Encoding: quoted-printable
+
+            Test if non-ascii messages with no Content-Transfer-Encoding set
+            can be as_string'd:
+            F=F6=F6 b=E4r
+            """)
+        msg = email.message_from_bytes(source)
+        self.assertEqual(msg.as_string(), expected)
+
+    def test_nonascii_as_string_without_content_type_and_cte(self):
+        m = textwrap.dedent("""\
+            MIME-Version: 1.0
+
+            Test if non-ascii messages with no Content-Type nor
+            Content-Transfer-Encoding set can be as_string'd:
+            Föö bär
+            """)
+        source = m.encode('iso-8859-1')
+        expected = source.decode('ascii', 'replace')
+        msg = email.message_from_bytes(source)
+        self.assertEqual(msg.as_string(), expected)
 
     def test_as_bytes(self):
         msg = self._msgobj('msg_01.txt')
@@ -1008,7 +1043,7 @@ Test""")
 Subject: the first part of this is short,
  but_the_second_part_does_not_fit_within_maxlinelen_and_thus_should_be_on_a_line_all_by_itself""")
 
-    def test_splittable_leading_char_followed_by_overlong_unsplitable(self):
+    def test_splittable_leading_char_followed_by_overlong_unsplittable(self):
         eq = self.ndiffAssertEqual
         h = Header(', but_the_second'
             '_part_does_not_fit_within_maxlinelen_and_thus_should_be_on_a_line'
@@ -1017,7 +1052,7 @@ Subject: the first part of this is short,
 ,
  but_the_second_part_does_not_fit_within_maxlinelen_and_thus_should_be_on_a_line_all_by_itself""")
 
-    def test_multiple_splittable_leading_char_followed_by_overlong_unsplitable(self):
+    def test_multiple_splittable_leading_char_followed_by_overlong_unsplittable(self):
         eq = self.ndiffAssertEqual
         h = Header(', , but_the_second'
             '_part_does_not_fit_within_maxlinelen_and_thus_should_be_on_a_line'
@@ -1026,14 +1061,14 @@ Subject: the first part of this is short,
 , ,
  but_the_second_part_does_not_fit_within_maxlinelen_and_thus_should_be_on_a_line_all_by_itself""")
 
-    def test_trailing_splitable_on_overlong_unsplitable(self):
+    def test_trailing_splittable_on_overlong_unsplittable(self):
         eq = self.ndiffAssertEqual
         h = Header('this_part_does_not_fit_within_maxlinelen_and_thus_should_'
             'be_on_a_line_all_by_itself;')
         eq(h.encode(), "this_part_does_not_fit_within_maxlinelen_and_thus_should_"
             "be_on_a_line_all_by_itself;")
 
-    def test_trailing_splitable_on_overlong_unsplitable_with_leading_splitable(self):
+    def test_trailing_splittable_on_overlong_unsplittable_with_leading_splittable(self):
         eq = self.ndiffAssertEqual
         h = Header('; '
             'this_part_does_not_fit_within_maxlinelen_and_thus_should_'
@@ -1466,7 +1501,7 @@ Blah blah blah
         g.flatten(msg)
         self.assertEqual(b.getvalue(), source + b'>From R\xc3\xb6lli\n')
 
-    def test_mutltipart_with_bad_bytes_in_cte(self):
+    def test_multipart_with_bad_bytes_in_cte(self):
         # bpo30835
         source = textwrap.dedent("""\
             From: aperson@example.com
@@ -3342,9 +3377,11 @@ multipart/report
             '.test-idstring@testdomain-string>')
 
     def test_make_msgid_default_domain(self):
-        self.assertTrue(
-            email.utils.make_msgid().endswith(
-                '@' + getfqdn() + '>'))
+        with patch('socket.getfqdn') as mock_getfqdn:
+            mock_getfqdn.return_value = domain = 'pythontest.example.com'
+            self.assertTrue(
+                email.utils.make_msgid().endswith(
+                    '@' + domain + '>'))
 
     def test_Generator_linend(self):
         # Issue 14645.

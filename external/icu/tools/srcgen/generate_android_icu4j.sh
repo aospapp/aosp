@@ -43,7 +43,7 @@ if [ -n "$GEN_DIR" ]; then
     mkdir -p ${ANDROID_ICU4J_DIR}
 fi
 
-WHITELIST_API_FILE=${ICU_SRCGEN_DIR}/whitelisted-public-api.txt
+ALLOWLIST_API_FILE=${ICU_SRCGEN_DIR}/allowlisted-public-api.txt
 CORE_PLATFORM_API_FILE=${ICU_SRCGEN_DIR}/core-platform-api.txt
 INTRA_CORE_API_FILE=${ICU_SRCGEN_DIR}/intra-core-api.txt
 UNSUPPORTED_APP_USAGE_FILE=${ICU_SRCGEN_DIR}/unsupported-app-usage.json
@@ -58,12 +58,12 @@ rm -rf ${DEST_RESOURCE_DIR}
 mkdir -p ${DEST_RESOURCE_DIR}
 
 # Generate the source code needed by Android.
-# Branches used for testing new versions of ICU will have have the ${WHITELIST_API_FILE} file
+# Branches used for testing new versions of ICU will have have the ${ALLOWLIST_API_FILE} file
 # that prevents new (stable) APIs being added to the Android public SDK API. The file should
 # not exist on "normal" release branches and master.
 ICU4J_BASE_COMMAND="${SRCGEN_TOOL_BINARY} Icu4jTransform"
-if [ -e "${WHITELIST_API_FILE}" ]; then
-  ICU4J_BASE_COMMAND+=" --hide-non-whitelisted-api ${WHITELIST_API_FILE}"
+if [ -e "${ALLOWLIST_API_FILE}" ]; then
+  ICU4J_BASE_COMMAND+=" --hide-non-allowlisted-api ${ALLOWLIST_API_FILE}"
 fi
 ${ICU4J_BASE_COMMAND} ${INPUT_DIRS} ${DEST_SRC_DIR} ${CORE_PLATFORM_API_FILE} ${INTRA_CORE_API_FILE} ${UNSUPPORTED_APP_USAGE_FILE}
 

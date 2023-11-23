@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import mock
 import unittest
@@ -10,6 +15,7 @@ from autotest_lib.frontend.afe.json_rpc import proxy as rpc_proxy
 from autotest_lib.server import frontend
 from autotest_lib.server.hosts import afe_store
 from autotest_lib.server.hosts import host_info
+from six.moves import zip
 
 class AfeStoreTest(unittest.TestCase):
     """Test refresh/commit success cases for AfeStore."""

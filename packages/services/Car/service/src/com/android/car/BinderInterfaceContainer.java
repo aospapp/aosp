@@ -23,8 +23,8 @@ import android.os.RemoteException;
 
 import com.android.internal.annotations.GuardedBy;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -148,12 +148,11 @@ public class BinderInterfaceContainer<T extends IInterface> {
     }
 
     /**
-     * Returns an unmodified collection containing all registered {@link BinderInterface} objects
-     * with this container.
+     * Returns a shallow copy of all registered {@link BinderInterface} objects in this container.
      */
     public Collection<BinderInterface<T>> getInterfaces() {
         synchronized (mLock) {
-            return Collections.unmodifiableCollection(mBinders.values());
+            return new ArrayList<>(mBinders.values());
         }
     }
 

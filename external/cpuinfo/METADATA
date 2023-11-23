@@ -1,8 +1,5 @@
 name: "cpuinfo"
-description:
-    "cpuinfo is a library to detect essential for performance optimization "
-    "information about host CPU."
-
+description: "cpuinfo is a library to detect essential for performance optimization information about host CPU."
 third_party {
   url {
     type: HOMEPAGE
@@ -12,7 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/pytorch/cpuinfo"
   }
-  version: "e39a5790059b6b8274ed91f7b5b5b13641dff267"
-  last_upgrade_date { year: 2020 month: 2 day: 3 }
+  version: "5916273f79a21551890fd3d56fc5375a78d1598d"
   license_type: NOTICE
+  last_upgrade_date {
+    year: 2020
+    month: 12
+    day: 22
+  }
 }

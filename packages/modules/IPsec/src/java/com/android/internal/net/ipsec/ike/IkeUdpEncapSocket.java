@@ -17,26 +17,19 @@
 package com.android.internal.net.ipsec.ike;
 
 import static android.net.ipsec.ike.IkeManager.getIkeLog;
-import static android.system.OsConstants.F_SETFL;
-import static android.system.OsConstants.SOCK_DGRAM;
-import static android.system.OsConstants.SOCK_NONBLOCK;
 
 import android.net.IpSecManager;
 import android.net.IpSecManager.ResourceUnavailableException;
 import android.net.IpSecManager.UdpEncapsulationSocket;
-import android.net.Network;
 import android.os.Handler;
 import android.os.Looper;
 import android.system.ErrnoException;
-import android.system.Os;
-import android.util.LongSparseArray;
 
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,64 +37,62 @@ import java.util.Map;
 /**
  * IkeUdpEncapSocket uses an {@link UdpEncapsulationSocket} to send and receive IKE packets.
  *
- * <p>Caller MUST provide one {@link Network} when trying to get an instance of IkeUdpEncapSocket.
- * Each {@link Network} can only be bound with one IkeUdpEncapSocket instance. When caller requests
- * for IkeUdpEncapSocket with an already bound {@link Network}, an existing instance will be
+ * <p>Caller MUST provide one IkeSocketConfig when trying to get an instance of IkeUdpEncapSocket.
+ * Each IkeSocketConfig can only be bound by one IkeUdpEncapSocket instance. When caller requests
+ * for IkeUdpEncapSocket with an already bound IkeSocketConfig, an existing instance will be
  * returned.
  */
 public final class IkeUdpEncapSocket extends IkeSocket {
     private static final String TAG = "IkeUdpEncapSocket";
 
-    // A Non-ESP marker helps the recipient to distinguish IKE packets from ESP packets.
-    @VisibleForTesting static final int NON_ESP_MARKER_LEN = 4;
-    @VisibleForTesting static final byte[] NON_ESP_MARKER = new byte[NON_ESP_MARKER_LEN];
+    // Map from IkeSocketConfig to IkeSocket instances.
+    private static Map<IkeSocketConfig, IkeUdpEncapSocket> sConfigToSocketMap = new HashMap<>();
 
-    // Map from Network to IkeSocket instances.
-    private static Map<Network, IkeUdpEncapSocket> sNetworkToIkeSocketMap = new HashMap<>();
-
-    private static IPacketReceiver sPacketReceiver = new PacketReceiver();
+    private static IPacketReceiver sPacketReceiver =
+            new IkeUdpEncapPortPacketHandler.PacketReceiver();
 
     // UdpEncapsulationSocket for sending and receving IKE packet.
     private final UdpEncapsulationSocket mUdpEncapSocket;
 
+    private final IkeUdpEncapPortPacketHandler mUdpEncapPortPacketHandler;
+
     private IkeUdpEncapSocket(
-            UdpEncapsulationSocket udpEncapSocket, Network network, Handler handler) {
-        super(network, handler);
+            UdpEncapsulationSocket udpEncapSocket, IkeSocketConfig sockConfig, Handler handler) {
+        super(sockConfig, handler);
         mUdpEncapSocket = udpEncapSocket;
+
+        mUdpEncapPortPacketHandler = new IkeUdpEncapPortPacketHandler(getFd());
     }
 
     /**
      * Get an IkeUdpEncapSocket instance.
      *
      * <p>Return the existing IkeUdpEncapSocket instance if it has been created for the input
-     * Network. Otherwise, create and return a new IkeUdpEncapSocket instance.
+     * IkeSocketConfig. Otherwise, create and return a new IkeUdpEncapSocket instance.
      *
-     * @param network the Network this socket will be bound to
+     * @param sockConfig the socket configuration
      * @param ipsecManager for creating {@link UdpEncapsulationSocket}
      * @param ikeSession the IkeSessionStateMachine that is requesting an IkeUdpEncapSocket.
      * @return an IkeUdpEncapSocket instance
      */
     public static IkeUdpEncapSocket getIkeUdpEncapSocket(
-            Network network,
+            IkeSocketConfig sockConfig,
             IpSecManager ipsecManager,
             IkeSessionStateMachine ikeSession,
             Looper looper)
             throws ErrnoException, IOException, ResourceUnavailableException {
-        IkeUdpEncapSocket ikeSocket = sNetworkToIkeSocketMap.get(network);
+        IkeUdpEncapSocket ikeSocket = sConfigToSocketMap.get(sockConfig);
         if (ikeSocket == null) {
             UdpEncapsulationSocket udpEncapSocket = ipsecManager.openUdpEncapsulationSocket();
             FileDescriptor fd = udpEncapSocket.getFileDescriptor();
+            applySocketConfig(sockConfig, fd, false /* isIpv6 */);
 
-            // {@link PacketReader} requires non-blocking I/O access. Set SOCK_NONBLOCK here.
-            Os.fcntlInt(fd, F_SETFL, SOCK_DGRAM | SOCK_NONBLOCK);
-            network.bindSocket(fd);
-
-            ikeSocket = new IkeUdpEncapSocket(udpEncapSocket, network, new Handler(looper));
+            ikeSocket = new IkeUdpEncapSocket(udpEncapSocket, sockConfig, new Handler(looper));
 
             // Create and register FileDescriptor for receiving IKE packet on current thread.
             ikeSocket.start();
 
-            sNetworkToIkeSocketMap.put(network, ikeSocket);
+            sConfigToSocketMap.put(sockConfig, ikeSocket);
         }
         ikeSocket.mAliveIkeSessions.add(ikeSession);
         return ikeSocket;
@@ -124,32 +115,6 @@ public final class IkeUdpEncapSocket extends IkeSocket {
 
     /** Package private */
     @VisibleForTesting
-    static final class PacketReceiver implements IkeSocket.IPacketReceiver {
-        public void handlePacket(
-                byte[] recvbuf, LongSparseArray<IkeSessionStateMachine> spiToIkeSession) {
-            ByteBuffer byteBuffer = ByteBuffer.wrap(recvbuf);
-
-            // Check the existence of the Non-ESP Marker. A received packet can be either an IKE
-            // packet starts with 4 zero-valued bytes Non-ESP Marker or an ESP packet starts with 4
-            // bytes ESP SPI. ESP SPI value can never be zero.
-            byte[] espMarker = new byte[NON_ESP_MARKER_LEN];
-            byteBuffer.get(espMarker);
-            if (!Arrays.equals(NON_ESP_MARKER, espMarker)) {
-                // Drop the received ESP packet.
-                getIkeLog().e(TAG, "Receive an ESP packet.");
-                return;
-            }
-
-            // Re-direct IKE packet to IkeSessionStateMachine according to the locally generated
-            // IKE SPI.
-            byte[] ikePacketBytes = new byte[byteBuffer.remaining()];
-            byteBuffer.get(ikePacketBytes);
-            parseAndDemuxIkePacket(ikePacketBytes, spiToIkeSession, TAG);
-        }
-    }
-
-    /** Package private */
-    @VisibleForTesting
     static void setPacketReceiver(IkeSocket.IPacketReceiver receiver) {
         sPacketReceiver = receiver;
     }
@@ -163,40 +128,9 @@ public final class IkeUdpEncapSocket extends IkeSocket {
         sPacketReceiver.handlePacket(Arrays.copyOfRange(recvbuf, 0, length), mSpiToIkeSession);
     }
 
-    /**
-     * Send encoded IKE packet to destination address
-     *
-     * @param ikePacket encoded IKE packet
-     * @param serverAddress IP address of remote server
-     */
     @Override
     public void sendIkePacket(byte[] ikePacket, InetAddress serverAddress) {
-        getIkeLog()
-                .d(
-                        TAG,
-                        "Send packet to "
-                                + serverAddress.getHostAddress()
-                                + "( "
-                                + ikePacket.length
-                                + " bytes)");
-        try {
-            ByteBuffer buffer = ByteBuffer.allocate(NON_ESP_MARKER_LEN + ikePacket.length);
-
-            // Build outbound UDP Encapsulation packet body for sending IKE message.
-            buffer.put(NON_ESP_MARKER).put(ikePacket);
-            buffer.rewind();
-
-            // Use unconnected UDP socket because one {@UdpEncapsulationSocket} may be shared by
-            // multiple IKE sessions that send messages to different destinations.
-            Os.sendto(
-                    mUdpEncapSocket.getFileDescriptor(),
-                    buffer,
-                    0,
-                    serverAddress,
-                    SERVER_PORT_UDP_ENCAPSULATED);
-        } catch (ErrnoException | IOException e) {
-            // TODO: Handle exception
-        }
+        mUdpEncapPortPacketHandler.sendIkePacket(ikePacket, serverAddress);
     }
 
     @Override
@@ -207,7 +141,7 @@ public final class IkeUdpEncapSocket extends IkeSocket {
     /** Implement {@link AutoCloseable#close()} */
     @Override
     public void close() {
-        sNetworkToIkeSocketMap.remove(getNetwork());
+        sConfigToSocketMap.remove(getIkeSocketConfig());
 
         try {
             mUdpEncapSocket.close();

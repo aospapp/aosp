@@ -35,9 +35,11 @@ struct MediaSizeTableElement {
     const float WidthInMm; // Width in mm for metric based media sizes or UNKNOWN_VALUE otherwise
     const float HeightInMm; // Height in mm for metric based media sizes or UNKNOWN_VALUE otherwise
     const char *PWGName;
+    const unsigned int WidthInMicrometers;
+    const unsigned int HeightInMicrometers;
 };
 
-#define SUPPORTED_MEDIA_SIZE_COUNT 15
+#define SUPPORTED_MEDIA_SIZE_COUNT 29
 extern struct MediaSizeTableElement SupportedMediaSizes[SUPPORTED_MEDIA_SIZE_COUNT];
 
 #endif // __MEDIA_H__

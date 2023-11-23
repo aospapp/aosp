@@ -46,6 +46,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.KeyManager;
@@ -76,7 +77,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import tests.net.DelegatingSSLSocketFactory;
 import tests.util.ForEachRunner;
-import tests.util.ForEachRunner.Callback;
 import tests.util.Pair;
 
 @RunWith(JUnit4.class)
@@ -504,7 +504,7 @@ public class SSLSocketTest {
         final SSLSocket referenceClientSocket =
             (SSLSocket) referenceContext.clientContext.getSocketFactory().createSocket();
 
-        final boolean[] wasCalled = new boolean[1];
+        final AtomicInteger checkServerTrustedWasCalled = new AtomicInteger(0);
         TestSSLContext c = TestSSLContext.newBuilder()
             .clientTrustManager(new X509ExtendedTrustManager() {
                 @Override
@@ -525,11 +525,12 @@ public class SSLSocketTest {
                         assertEquals(referenceContext.host.getHostName(), session.getPeerHost());
                         String sessionSuite = session.getCipherSuite();
                         List<String> enabledSuites =
-                                Arrays.asList(referenceClientSocket.getEnabledCipherSuites());
-                        assertTrue("Expected enabled suites to contain " + sessionSuite
-                                        + ", got: " + enabledSuites,
-                                enabledSuites.contains(sessionSuite));
-                        wasCalled[0] = true;
+                            Arrays.asList(referenceClientSocket.getEnabledCipherSuites());
+                        String message = "Handshake session has invalid cipher suite: "
+                                + (sessionSuite == null ? "(null)" : sessionSuite);
+                        assertTrue(message, enabledSuites.contains(sessionSuite));
+
+                        checkServerTrustedWasCalled.incrementAndGet();
                     } catch (Exception e) {
                         throw new CertificateException("Something broke", e);
                     }
@@ -582,7 +583,7 @@ public class SSLSocketTest {
         client.close();
         server.close();
         c.close();
-        assertTrue(wasCalled[0]);
+        assertEquals(1, checkServerTrustedWasCalled.get());
     }
 
     @Test
@@ -594,7 +595,7 @@ public class SSLSocketTest {
         final SSLSocket referenceClientSocket =
             (SSLSocket) referenceContext.clientContext.getSocketFactory().createSocket();
 
-        final boolean[] wasCalled = new boolean[1];
+        final AtomicInteger checkClientTrustedWasCalled = new AtomicInteger(0);
         TestSSLContext c = TestSSLContext.newBuilder()
             .client(TestKeyStore.getClientCertificate())
             .serverTrustManager(new X509ExtendedTrustManager() {
@@ -608,8 +609,17 @@ public class SSLSocketTest {
                         // By the point of the handshake where we're validating client certificates,
                         // the cipher suite should be agreed and the server's own certificates
                         // should have been delivered
-                        assertEquals(referenceClientSocket.getEnabledCipherSuites()[0],
-                            session.getCipherSuite());
+
+                        // The negotiated cipher suite should be one of the enabled ones, but
+                        // BoringSSL may have reordered them based on things like hardware support,
+                        // so we don't know which one may have been negotiated.
+                        String sessionSuite = session.getCipherSuite();
+                        List<String> enabledSuites =
+                                Arrays.asList(referenceClientSocket.getEnabledCipherSuites());
+                        String message = "Handshake session has invalid cipher suite: "
+                                + (sessionSuite == null ? "(null)" : sessionSuite);
+                        assertTrue(message, enabledSuites.contains(sessionSuite));
+
                         assertNotNull(session.getLocalCertificates());
                         assertEquals("CN=localhost",
                             ((X509Certificate) session.getLocalCertificates()[0])
@@ -617,7 +627,7 @@ public class SSLSocketTest {
                         assertEquals("CN=Test Intermediate Certificate Authority",
                             ((X509Certificate) session.getLocalCertificates()[0])
                                 .getIssuerDN().getName());
-                        wasCalled[0] = true;
+                        checkClientTrustedWasCalled.incrementAndGet();
                     } catch (Exception e) {
                         throw new CertificateException("Something broke", e);
                     }
@@ -677,7 +687,7 @@ public class SSLSocketTest {
         client.close();
         server.close();
         c.close();
-        assertTrue(wasCalled[0]);
+        assertEquals(1, checkClientTrustedWasCalled.get());
     }
 
     @Test
@@ -860,7 +870,7 @@ public class SSLSocketTest {
 
     @Test
     public void test_SSLSocket_ClientHello_cipherSuites() throws Exception {
-        ForEachRunner.runNamed(new Callback<SSLSocketFactory>() {
+        ForEachRunner.runNamed(new ForEachRunner.Callback<SSLSocketFactory>() {
             @Override
             public void run(SSLSocketFactory sslSocketFactory) throws Exception {
                 ClientHello clientHello = TlsTester
@@ -891,7 +901,7 @@ public class SSLSocketTest {
 
     @Test
     public void test_SSLSocket_ClientHello_supportedCurves() throws Exception {
-        ForEachRunner.runNamed(new Callback<SSLSocketFactory>() {
+        ForEachRunner.runNamed(new ForEachRunner.Callback<SSLSocketFactory>() {
             @Override
             public void run(SSLSocketFactory sslSocketFactory) throws Exception {
                 ClientHello clientHello = TlsTester
@@ -917,7 +927,7 @@ public class SSLSocketTest {
 
     @Test
     public void test_SSLSocket_ClientHello_clientProtocolVersion() throws Exception {
-        ForEachRunner.runNamed(new Callback<SSLSocketFactory>() {
+        ForEachRunner.runNamed(new ForEachRunner.Callback<SSLSocketFactory>() {
             @Override
             public void run(SSLSocketFactory sslSocketFactory) throws Exception {
                 ClientHello clientHello = TlsTester
@@ -929,7 +939,7 @@ public class SSLSocketTest {
 
     @Test
     public void test_SSLSocket_ClientHello_compressionMethods() throws Exception {
-        ForEachRunner.runNamed(new Callback<SSLSocketFactory>() {
+        ForEachRunner.runNamed(new ForEachRunner.Callback<SSLSocketFactory>() {
             @Override
             public void run(SSLSocketFactory sslSocketFactory) throws Exception {
                 ClientHello clientHello = TlsTester

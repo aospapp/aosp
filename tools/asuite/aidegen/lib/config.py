@@ -58,6 +58,7 @@ class AidegenConfig:
         os.path.expanduser('~'), '.config', 'asuite', 'aidegen')
     _CONFIG_FILE_PATH = os.path.join(_CONFIG_DIR, _DEFAULT_CONFIG_FILE)
     _KEY_APPEND = 'preferred_version'
+    _KEY_PLUGIN_PREFERENCE = 'Asuite_plugin_preference'
 
     # Constants of enable debugger
     _ENABLE_DEBUG_CONFIG_DIR = 'enable_debugger'
@@ -124,6 +125,24 @@ class AidegenConfig:
         """
         key = '_'.join([ide, self._KEY_APPEND]) if ide else self._KEY_APPEND
         self._config[key] = preferred_version
+
+    @property
+    def plugin_preference(self):
+        """Gets Asuite plugin user's preference
+
+        Returns:
+             A string of the user's preference: yes/no/auto.
+        """
+        return self._config.get(self._KEY_PLUGIN_PREFERENCE, '')
+
+    @plugin_preference.setter
+    def plugin_preference(self, preference):
+        """Sets Asuite plugin user's preference
+
+        Args:
+            preference: A string of the user's preference: yes/no/auto.
+        """
+        self._config[self._KEY_PLUGIN_PREFERENCE] = preference
 
     def _load_aidegen_config(self):
         """Load data from configuration file."""

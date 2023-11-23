@@ -4,7 +4,7 @@
 
 AUTHOR = 'The Chromium OS Authors,chromeos-audio@google.com'
 NAME = 'audio_Aplay.headphone'
-ATTRIBUTES = "suite:kernel_per-build_regression"
+ATTRIBUTES = "suite:audio"
 PURPOSE = 'Test that simple Aplay with headphone succeeds. Used in other tests.'
 CRITERIA = """
 Check that the system plays...used in stress or after resume tests.

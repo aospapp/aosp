@@ -17,6 +17,7 @@ class firmware_EventLog(FirmwareTest):
     Test to ensure eventlog is written on boot and suspend/resume.
     """
     version = 1
+    NEEDS_SERVO_USB = True
 
     _TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 

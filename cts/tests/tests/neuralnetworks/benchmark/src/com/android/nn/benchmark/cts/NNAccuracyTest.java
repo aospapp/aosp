@@ -93,22 +93,28 @@ public class NNAccuracyTest {
     @Test
     @LargeTest
     public void testNNAPI() throws BenchmarkException, IOException {
-        if (!NNTestBase.hasAccelerator()) {  // Skip.
-            return;
-        }
+        List<String> accelerators = new ArrayList<>();
+        NNTestBase.getAcceleratorNames(accelerators);
+        for (String accelerator : accelerators) {
+            if (accelerator.equals("nnapi-reference")) {  // Skip.
+                continue;
+            }
 
-        NNTestBase test = mModel.createNNTestBase(/*useNNAPI=*/true,
-                /*enableIntermediateTensorsDump=*/false);
-        test.setupModel(mActivity);
-        Pair<List<InferenceInOutSequence>, List<InferenceResult>> inferenceResults =
-                test.runBenchmarkCompleteInputSet(/*setRepeat=*/1, /*timeoutSec=*/3600);
-        BenchmarkResult benchmarkResult =
-                BenchmarkResult.fromInferenceResults(
-                        mModel.mModelName,
-                        BenchmarkResult.BACKEND_TFLITE_NNAPI,
-                        inferenceResults.first,
-                        inferenceResults.second,
-                        test.getEvaluator());
-        assertFalse(benchmarkResult.hasValidationErrors());
+            try (NNTestBase test = mModel.createNNTestBase(/*useNNAPI=*/true,
+                        /*enableIntermediateTensorsDump=*/false)) {
+                test.setNNApiDeviceName(accelerator);
+                test.setupModel(mActivity);
+                Pair<List<InferenceInOutSequence>, List<InferenceResult>> inferenceResults =
+                        test.runBenchmarkCompleteInputSet(/*setRepeat=*/1, /*timeoutSec=*/3600);
+                BenchmarkResult benchmarkResult =
+                        BenchmarkResult.fromInferenceResults(
+                                mModel.mModelName,
+                                BenchmarkResult.BACKEND_TFLITE_NNAPI,
+                                inferenceResults.first,
+                                inferenceResults.second,
+                                test.getEvaluator());
+                assertFalse(benchmarkResult.hasValidationErrors());
+            }
+        }
     }
 }

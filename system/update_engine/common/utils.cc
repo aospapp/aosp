@@ -28,6 +28,7 @@
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/resource.h>
+#include <sys/sendfile.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
@@ -52,7 +53,6 @@
 #include <base/strings/stringprintf.h>
 #include <brillo/data_encoding.h>
 
-#include "update_engine/common/clock_interface.h"
 #include "update_engine/common/constants.h"
 #include "update_engine/common/platform_constants.h"
 #include "update_engine/common/prefs_interface.h"
@@ -84,49 +84,6 @@ const int kGetFileFormatMaxHeaderSize = 32;
 // The path to the kernel's boot_id.
 const char kBootIdPath[] = "/proc/sys/kernel/random/boot_id";
 
-// Return true if |disk_name| is an MTD or a UBI device. Note that this test is
-// simply based on the name of the device.
-bool IsMtdDeviceName(const string& disk_name) {
-  return base::StartsWith(
-             disk_name, "/dev/ubi", base::CompareCase::SENSITIVE) ||
-         base::StartsWith(disk_name, "/dev/mtd", base::CompareCase::SENSITIVE);
-}
-
-// Return the device name for the corresponding partition on a NAND device.
-// WARNING: This function returns device names that are not mountable.
-string MakeNandPartitionName(int partition_num) {
-  switch (partition_num) {
-    case 2:
-    case 4:
-    case 6: {
-      return base::StringPrintf("/dev/mtd%d", partition_num);
-    }
-    default: {
-      return base::StringPrintf("/dev/ubi%d_0", partition_num);
-    }
-  }
-}
-
-// Return the device name for the corresponding partition on a NAND device that
-// may be mountable (but may not be writable).
-string MakeNandPartitionNameForMount(int partition_num) {
-  switch (partition_num) {
-    case 2:
-    case 4:
-    case 6: {
-      return base::StringPrintf("/dev/mtd%d", partition_num);
-    }
-    case 3:
-    case 5:
-    case 7: {
-      return base::StringPrintf("/dev/ubiblock%d_0", partition_num);
-    }
-    default: {
-      return base::StringPrintf("/dev/ubi%d_0", partition_num);
-    }
-  }
-}
-
 // If |path| is absolute, or explicit relative to the current working directory,
 // leaves it as is. Otherwise, uses the system's temp directory, as defined by
 // base::GetTempDir() and prepends it to |path|. On success stores the full
@@ -154,27 +111,6 @@ bool GetTempName(const string& path, base::FilePath* template_path) {
 }  // namespace
 
 namespace utils {
-
-string ParseECVersion(string input_line) {
-  base::TrimWhitespaceASCII(input_line, base::TRIM_ALL, &input_line);
-
-  // At this point we want to convert the format key=value pair from mosys to
-  // a vector of key value pairs.
-  vector<pair<string, string>> kv_pairs;
-  if (base::SplitStringIntoKeyValuePairs(input_line, '=', ' ', &kv_pairs)) {
-    for (const pair<string, string>& kv_pair : kv_pairs) {
-      // Finally match against the fw_verion which may have quotes.
-      if (kv_pair.first == "fw_version") {
-        string output;
-        // Trim any quotes.
-        base::TrimString(kv_pair.second, "\"", &output);
-        return output;
-      }
-    }
-  }
-  LOG(ERROR) << "Unable to parse fwid from ec info.";
-  return "";
-}
 
 bool WriteFile(const char* path, const void* data, size_t data_len) {
   int fd = HANDLE_EINTR(open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600));
@@ -256,10 +192,10 @@ bool WriteAll(const FileDescriptorPtr& fd, const void* buf, size_t count) {
   return true;
 }
 
-bool PWriteAll(const FileDescriptorPtr& fd,
-               const void* buf,
-               size_t count,
-               off_t offset) {
+bool WriteAll(const FileDescriptorPtr& fd,
+              const void* buf,
+              size_t count,
+              off_t offset) {
   TEST_AND_RETURN_FALSE_ERRNO(fd->Seek(offset, SEEK_SET) !=
                               static_cast<off_t>(-1));
   return WriteAll(fd, buf, count);
@@ -282,11 +218,11 @@ bool PReadAll(
   return true;
 }
 
-bool PReadAll(const FileDescriptorPtr& fd,
-              void* buf,
-              size_t count,
-              off_t offset,
-              ssize_t* out_bytes_read) {
+bool ReadAll(const FileDescriptorPtr& fd,
+             void* buf,
+             size_t count,
+             off_t offset,
+             ssize_t* out_bytes_read) {
   TEST_AND_RETURN_FALSE_ERRNO(fd->Seek(offset, SEEK_SET) !=
                               static_cast<off_t>(-1));
   char* c_buf = static_cast<char*>(buf);
@@ -301,6 +237,31 @@ bool PReadAll(const FileDescriptorPtr& fd,
   }
   *out_bytes_read = bytes_read;
   return true;
+}
+
+bool PReadAll(const FileDescriptorPtr& fd,
+              void* buf,
+              size_t count,
+              off_t offset,
+              ssize_t* out_bytes_read) {
+  auto old_off = fd->Seek(0, SEEK_CUR);
+  TEST_AND_RETURN_FALSE_ERRNO(old_off >= 0);
+
+  auto success = ReadAll(fd, buf, count, offset, out_bytes_read);
+  TEST_AND_RETURN_FALSE_ERRNO(fd->Seek(old_off, SEEK_SET) == old_off);
+  return success;
+}
+
+bool PWriteAll(const FileDescriptorPtr& fd,
+               const void* buf,
+               size_t count,
+               off_t offset) {
+  auto old_off = fd->Seek(0, SEEK_CUR);
+  TEST_AND_RETURN_FALSE_ERRNO(old_off >= 0);
+
+  auto success = WriteAll(fd, buf, count, offset);
+  TEST_AND_RETURN_FALSE_ERRNO(fd->Seek(old_off, SEEK_SET) == old_off);
+  return success;
 }
 
 // Append |nbytes| of content from |buf| to the vector pointed to by either
@@ -474,22 +435,6 @@ bool SplitPartitionName(const string& partition_name,
     return false;
   }
 
-  size_t partition_name_len = string::npos;
-  if (partition_name[last_nondigit_pos] == '_') {
-    // NAND block devices have weird naming which could be something
-    // like "/dev/ubiblock2_0". We discard "_0" in such a case.
-    size_t prev_nondigit_pos =
-        partition_name.find_last_not_of("0123456789", last_nondigit_pos - 1);
-    if (prev_nondigit_pos == string::npos ||
-        (prev_nondigit_pos + 1) == last_nondigit_pos) {
-      LOG(ERROR) << "Unable to parse partition device name: " << partition_name;
-      return false;
-    }
-
-    partition_name_len = last_nondigit_pos - prev_nondigit_pos;
-    last_nondigit_pos = prev_nondigit_pos;
-  }
-
   if (out_disk_name) {
     // Special case for MMC devices which have the following naming scheme:
     // mmcblk0p2
@@ -502,8 +447,7 @@ bool SplitPartitionName(const string& partition_name,
   }
 
   if (out_partition_num) {
-    string partition_str =
-        partition_name.substr(last_nondigit_pos + 1, partition_name_len);
+    string partition_str = partition_name.substr(last_nondigit_pos + 1);
     *out_partition_num = atoi(partition_str.c_str());
   }
   return true;
@@ -520,13 +464,6 @@ string MakePartitionName(const string& disk_name, int partition_num) {
     return string();
   }
 
-  if (IsMtdDeviceName(disk_name)) {
-    // Special case for UBI block devices.
-    //   1. ubiblock is not writable, we need to use plain "ubi".
-    //   2. There is a "_0" suffix.
-    return MakeNandPartitionName(partition_num);
-  }
-
   string partition_name = disk_name;
   if (isdigit(partition_name.back())) {
     // Special case for devices with names ending with a digit.
@@ -538,17 +475,6 @@ string MakePartitionName(const string& disk_name, int partition_num) {
   partition_name += std::to_string(partition_num);
 
   return partition_name;
-}
-
-string MakePartitionNameForMount(const string& part_name) {
-  if (IsMtdDeviceName(part_name)) {
-    int partition_num;
-    if (!SplitPartitionName(part_name, nullptr, &partition_num)) {
-      return "";
-    }
-    return MakeNandPartitionNameForMount(partition_num);
-  }
-  return part_name;
 }
 
 string ErrnoNumberAsString(int err) {
@@ -567,31 +493,9 @@ bool IsSymlink(const char* path) {
   return lstat(path, &stbuf) == 0 && S_ISLNK(stbuf.st_mode) != 0;
 }
 
-bool TryAttachingUbiVolume(int volume_num, int timeout) {
-  const string volume_path = base::StringPrintf("/dev/ubi%d_0", volume_num);
-  if (FileExists(volume_path.c_str())) {
-    return true;
-  }
-
-  int exit_code;
-  vector<string> cmd = {"ubiattach",
-                        "-m",
-                        base::StringPrintf("%d", volume_num),
-                        "-d",
-                        base::StringPrintf("%d", volume_num)};
-  TEST_AND_RETURN_FALSE(Subprocess::SynchronousExec(cmd, &exit_code, nullptr));
-  TEST_AND_RETURN_FALSE(exit_code == 0);
-
-  cmd = {"ubiblock", "--create", volume_path};
-  TEST_AND_RETURN_FALSE(Subprocess::SynchronousExec(cmd, &exit_code, nullptr));
-  TEST_AND_RETURN_FALSE(exit_code == 0);
-
-  while (timeout > 0 && !FileExists(volume_path.c_str())) {
-    sleep(1);
-    timeout--;
-  }
-
-  return FileExists(volume_path.c_str());
+bool IsRegFile(const char* path) {
+  struct stat stbuf;
+  return lstat(path, &stbuf) == 0 && S_ISREG(stbuf.st_mode) != 0;
 }
 
 bool MakeTempFile(const string& base_filename_template,
@@ -925,7 +829,7 @@ ErrorCode GetBaseErrorCode(ErrorCode code) {
   return base_code;
 }
 
-string StringVectorToString(const vector<string> &vec_str) {
+string StringVectorToString(const vector<string>& vec_str) {
   string str = "[";
   for (vector<string>::const_iterator i = vec_str.begin(); i != vec_str.end();
        ++i) {
@@ -954,7 +858,7 @@ string CalculateP2PFileId(const brillo::Blob& payload_hash,
                             encoded_hash.c_str());
 }
 
-bool ConvertToOmahaInstallDate(Time time, int *out_num_days) {
+bool ConvertToOmahaInstallDate(Time time, int* out_num_days) {
   time_t unix_time = time.ToTimeT();
   // Output of: date +"%s" --date="Jan 1, 2007 0:00 PST".
   const time_t kOmahaEpoch = 1167638400;
@@ -1013,6 +917,25 @@ bool ReadExtents(const string& path,
   }
   TEST_AND_RETURN_FALSE(out_data_size == bytes_read);
   *out_data = data;
+  return true;
+}
+
+bool GetVpdValue(string key, string* result) {
+  int exit_code = 0;
+  string value, error;
+  vector<string> cmd = {"vpd_get_value", key};
+  if (!chromeos_update_engine::Subprocess::SynchronousExec(
+          cmd, &exit_code, &value, &error) ||
+      exit_code) {
+    LOG(ERROR) << "Failed to get vpd key for " << value
+               << " with exit code: " << exit_code << " and error: " << error;
+    return false;
+  } else if (!error.empty()) {
+    LOG(INFO) << "vpd_get_value succeeded but with following errors: " << error;
+  }
+
+  base::TrimWhitespaceASCII(value, base::TRIM_ALL, &value);
+  *result = value;
   return true;
 }
 
@@ -1081,6 +1004,40 @@ string GetTimeAsString(time_t utime) {
   char str[16];
   CHECK_EQ(strftime(str, sizeof(str), "%Y%m%d-%H%M%S", &tm), 15u);
   return str;
+}
+
+string GetExclusionName(const string& str_to_convert) {
+  return base::NumberToString(base::StringPieceHash()(str_to_convert));
+}
+
+static bool ParseTimestamp(const std::string& str, int64_t* out) {
+  if (!base::StringToInt64(str, out)) {
+    LOG(WARNING) << "Invalid timestamp: " << str;
+    return false;
+  }
+  return true;
+}
+
+ErrorCode IsTimestampNewer(const std::string& old_version,
+                           const std::string& new_version) {
+  if (old_version.empty() || new_version.empty()) {
+    LOG(WARNING)
+        << "One of old/new timestamp is empty, permit update anyway. Old: "
+        << old_version << " New: " << new_version;
+    return ErrorCode::kSuccess;
+  }
+  int64_t old_ver = 0;
+  if (!ParseTimestamp(old_version, &old_ver)) {
+    return ErrorCode::kError;
+  }
+  int64_t new_ver = 0;
+  if (!ParseTimestamp(new_version, &new_ver)) {
+    return ErrorCode::kDownloadManifestParseError;
+  }
+  if (old_ver > new_ver) {
+    return ErrorCode::kPayloadTimestampError;
+  }
+  return ErrorCode::kSuccess;
 }
 
 }  // namespace utils

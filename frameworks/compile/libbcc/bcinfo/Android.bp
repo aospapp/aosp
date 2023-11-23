@@ -14,6 +14,16 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_compile_libbcc_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-NCSA
+    default_applicable_licenses: ["frameworks_compile_libbcc_license"],
+}
+
 cc_library_shared {
     name: "libbcinfo",
     vendor_available: true,
@@ -81,12 +91,6 @@ cc_library_shared {
                 "libcutils",
                 "liblog",
             ],
-            product_variables: {
-                unbundled_build: {
-                    // don't build for unbundled branches
-                    enabled: false,
-                },
-            },
         },
         android: {
             shared_libs: [

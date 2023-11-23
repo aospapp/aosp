@@ -75,7 +75,7 @@ public class CarProjectionServiceTest {
     private static final String MD_NAME2 = "Device2";
     private static final int DEFAULT_TIMEOUT_MS = 1000;
     private static final String MD_EXTRA_KEY = "com.some.key.md";
-    private static final String MD_EXTRA_VALUE = "this is dummy value";
+    private static final String MD_EXTRA_VALUE = "this is placeholder value";
     private static final String STATUS_EXTRA_KEY = "com.some.key.status";
     private static final String STATUS_EXTRA_VALUE = "additional status value";
 

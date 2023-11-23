@@ -27,6 +27,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.SystemProperties;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
@@ -36,9 +37,9 @@ import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.SwitchPreference;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.datetime.ZoneGetter;
 import com.android.tv.settings.R;
+import com.android.tv.settings.RestrictedPreferenceAdapter;
 import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.Calendar;
@@ -67,9 +68,9 @@ public class DateTimeFragment extends SettingsPreferenceFragment implements
     //    private TvInputManager mTvInputManager;
     private final Calendar mDummyDate = Calendar.getInstance();
 
-    private Preference mDatePref;
-    private Preference mTimePref;
-    private Preference mTimeZone;
+    private RestrictedPreferenceAdapter<Preference> mDatePref;
+    private RestrictedPreferenceAdapter<Preference> mTimePref;
+    private RestrictedPreferenceAdapter<Preference> mTimeZone;
     private Preference mTime24Pref;
 
     private BroadcastReceiver mIntentReceiver = new BroadcastReceiver() {
@@ -99,10 +100,11 @@ public class DateTimeFragment extends SettingsPreferenceFragment implements
 
         final boolean isRestricted = SecurityFragment.isRestrictedProfileInEffect(getContext());
 
-        mDatePref = findPreference(KEY_SET_DATE);
-        mDatePref.setVisible(!isRestricted);
-        mTimePref = findPreference(KEY_SET_TIME);
-        mTimePref.setVisible(!isRestricted);
+        Preference datePref = findPreference(KEY_SET_DATE);
+        datePref.setVisible(!isRestricted);
+
+        Preference timePref = findPreference(KEY_SET_TIME);
+        timePref.setVisible(!isRestricted);
 
         final boolean tsTimeCapable = SystemProperties.getBoolean("ro.config.ts.date.time", false);
         final ListPreference autoDateTimePref =
@@ -114,10 +116,18 @@ public class DateTimeFragment extends SettingsPreferenceFragment implements
             autoDateTimePref.setEntryValues(R.array.auto_date_time_ts_entry_values);
         }
         autoDateTimePref.setVisible(!isRestricted);
-        mTimeZone = findPreference(KEY_SET_TIME_ZONE);
-        mTimeZone.setVisible(!isRestricted);
+
+        Preference timeZonePref = findPreference(KEY_SET_TIME_ZONE);
+        timeZonePref.setVisible(!isRestricted);
+
         mTime24Pref = findPreference(KEY_USE_24_HOUR);
         mTime24Pref.setOnPreferenceChangeListener(this);
+
+        final String userRestriction = UserManager.DISALLOW_CONFIG_DATE_TIME;
+        mDatePref = RestrictedPreferenceAdapter.adapt(datePref, userRestriction);
+        mTimePref = RestrictedPreferenceAdapter.adapt(timePref, userRestriction);
+        mTimeZone = RestrictedPreferenceAdapter.adapt(timeZonePref, userRestriction);
+        RestrictedPreferenceAdapter.adapt(autoDateTimePref, userRestriction);
     }
 
     @Override
@@ -150,17 +160,23 @@ public class DateTimeFragment extends SettingsPreferenceFragment implements
         // We use 13:00 so we can demonstrate the 12/24 hour options.
         mDummyDate.set(now.get(Calendar.YEAR), 11, 31, 13, 0, 0);
         Date dummyDate = mDummyDate.getTime();
-        mDatePref.setSummary(DateFormat.getLongDateFormat(context).format(now.getTime()));
-        mTimePref.setSummary(DateFormat.getTimeFormat(getActivity()).format(now.getTime()));
-        mTimeZone.setSummary(ZoneGetter.getTimeZoneOffsetAndName(getActivity(),
-                now.getTimeZone(), now.getTime()));
+
+        mDatePref.updatePreference(pref ->
+                pref.setSummary(DateFormat.getLongDateFormat(context).format(now.getTime())));
+        mTimePref.updatePreference(pref ->
+                pref.setSummary(DateFormat.getTimeFormat(getActivity()).format(now.getTime())));
+        mTimeZone.updatePreference(pref ->
+                pref.setSummary(ZoneGetter.getTimeZoneOffsetAndName(getActivity(),
+                        now.getTimeZone(), now.getTime())));
+
         mTime24Pref.setSummary(DateFormat.getTimeFormat(getActivity()).format(dummyDate));
     }
 
     private void updateTimeDateEnable() {
         final boolean enable = TextUtils.equals(getAutoDateTimeState(), AUTO_DATE_TIME_OFF);
-        mDatePref.setEnabled(enable);
-        mTimePref.setEnabled(enable);
+
+        mDatePref.updatePreference(pref -> pref.setEnabled(enable));
+        mTimePref.updatePreference(pref -> pref.setEnabled(enable));
     }
 
     @Override
@@ -241,11 +257,6 @@ public class DateTimeFragment extends SettingsPreferenceFragment implements
         }
 
         return AUTO_DATE_TIME_OFF;
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.DATE_TIME;
     }
 
     @Override

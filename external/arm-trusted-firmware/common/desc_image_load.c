@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2016-2020, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -214,8 +214,9 @@ void populate_next_bl_params_config(bl_params_t *bl2_to_next_bl_params)
 {
 	bl_params_node_t *params_node;
 	unsigned int fw_config_id;
-	uintptr_t hw_config_base = 0, fw_config_base;
+	uintptr_t fw_config_base;
 	bl_mem_params_node_t *mem_params;
+	uintptr_t hw_config_base = 0;
 
 	assert(bl2_to_next_bl_params != NULL);
 
@@ -224,6 +225,7 @@ void populate_next_bl_params_config(bl_params_t *bl2_to_next_bl_params)
 	 * if available.
 	 */
 	mem_params = get_bl_mem_params_node(HW_CONFIG_ID);
+
 	if (mem_params != NULL)
 		hw_config_base = mem_params->image_info.image_base;
 
@@ -237,8 +239,16 @@ void populate_next_bl_params_config(bl_params_t *bl2_to_next_bl_params)
 			fw_config_id = SOC_FW_CONFIG_ID;
 			break;
 		case BL32_IMAGE_ID:
+		/*
+		 * At the moment, OPTEE cannot accept a DTB in secure memory,
+		 * so fall back and use NT_FW_CONFIG instead.
+		 * This MUST be fixed as soon as OPTEE has support to
+		 * receive DTBs in secure memory.
+		 */
+#ifndef SPD_opteed
 			fw_config_id = TOS_FW_CONFIG_ID;
 			break;
+#endif
 		case BL33_IMAGE_ID:
 			fw_config_id = NT_FW_CONFIG_ID;
 			break;
@@ -249,31 +259,50 @@ void populate_next_bl_params_config(bl_params_t *bl2_to_next_bl_params)
 
 		if (fw_config_id != INVALID_IMAGE_ID) {
 			mem_params = get_bl_mem_params_node(fw_config_id);
-			if (mem_params != NULL)
+			if (mem_params != NULL) {
 				fw_config_base = mem_params->image_info.image_base;
+			}
 		}
 
+#ifdef SPD_opteed
 		/*
-		 * Pass hw and tb_fw config addresses to next images. NOTE - for
-		 * EL3 runtime images (BL31 for AArch64 and BL32 for AArch32),
-		 * arg0 is already used by generic code. Take care of not
-		 * overwriting the previous initialisations.
+		 * If SPD_opteed is enabled, arg[0,2] are populated by
+		 * parse_optee_header(), which is called by
+		 * arm_bl2_handle_post_image_load(). The meaning of the
+		 * arguments are:
+		 * arg0 <-- MODE_RW
+		 * arg1 <-- Paged image base
+		 * arg2 <-- Paged image size
 		 */
-		if (params_node == bl2_to_next_bl_params->head) {
-			if (params_node->ep_info->args.arg1 == 0U)
-				params_node->ep_info->args.arg1 =
-								fw_config_base;
-			if (params_node->ep_info->args.arg2 == 0U)
-				params_node->ep_info->args.arg2 =
-								hw_config_base;
+		if (params_node->image_id == BL32_IMAGE_ID) {
+			params_node->ep_info->args.arg3 = fw_config_base;
 		} else {
-			if (params_node->ep_info->args.arg0 == 0U)
-				params_node->ep_info->args.arg0 =
+#endif
+			/*
+			 * Pass hw and tb_fw config addresses to next images.
+			 * NOTE - for EL3 runtime images (BL31 for AArch64
+			 * and BL32 for AArch32), arg0 is already used by
+			 * generic code. Take care of not overwriting the
+			 * previous initialisations.
+			 */
+			if (params_node == bl2_to_next_bl_params->head) {
+				if (params_node->ep_info->args.arg1 == 0U)
+					params_node->ep_info->args.arg1 =
 								fw_config_base;
-			if (params_node->ep_info->args.arg1 == 0U)
-				params_node->ep_info->args.arg1 =
+				if (params_node->ep_info->args.arg2 == 0U)
+					params_node->ep_info->args.arg2 =
 								hw_config_base;
+			} else {
+				if (params_node->ep_info->args.arg0 == 0U)
+					params_node->ep_info->args.arg0 =
+								fw_config_base;
+				if (params_node->ep_info->args.arg1 == 0U)
+					params_node->ep_info->args.arg1 =
+								hw_config_base;
+			}
+#ifdef SPD_opteed
 		}
+#endif
 	}
 }
 
@@ -301,9 +330,9 @@ void bl31_params_parse_helper(u_register_t param,
 			image_info_t *bl33_image_info;
 		} *v1 = (void *)(uintptr_t)param;
 		assert(v1->h.type == PARAM_BL31);
-		if (bl32_ep_info_out)
+		if (bl32_ep_info_out != NULL)
 			*bl32_ep_info_out = *v1->bl32_ep_info;
-		if (bl33_ep_info_out)
+		if (bl33_ep_info_out != NULL)
 			*bl33_ep_info_out = *v1->bl33_ep_info;
 		return;
 	}
@@ -311,12 +340,12 @@ void bl31_params_parse_helper(u_register_t param,
 
 	assert(v2->h.version == PARAM_VERSION_2);
 	assert(v2->h.type == PARAM_BL_PARAMS);
-	for (node = v2->head; node; node = node->next_params_info) {
+	for (node = v2->head; node != NULL; node = node->next_params_info) {
 		if (node->image_id == BL32_IMAGE_ID)
-			if (bl32_ep_info_out)
+			if (bl32_ep_info_out != NULL)
 				*bl32_ep_info_out = *node->ep_info;
 		if (node->image_id == BL33_IMAGE_ID)
-			if (bl33_ep_info_out)
+			if (bl33_ep_info_out != NULL)
 				*bl33_ep_info_out = *node->ep_info;
 	}
 }

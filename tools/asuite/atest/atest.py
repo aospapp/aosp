@@ -38,6 +38,7 @@ import platform
 from multiprocessing import Process
 
 import atest_arg_parser
+import atest_configs
 import atest_error
 import atest_execution_info
 import atest_utils
@@ -52,7 +53,7 @@ from metrics import metrics
 from metrics import metrics_base
 from metrics import metrics_utils
 from test_runners import regression_test_runner
-from tools import atest_tools
+from tools import atest_tools as at
 
 EXPECTED_VARS = frozenset([
     constants.ANDROID_BUILD_TOP,
@@ -71,29 +72,25 @@ TEST_COUNT = 'test_count'
 TEST_TYPE = 'test_type'
 # Tasks that must run in the build time but unable to build by soong.
 # (e.g subprocesses that invoke host commands.)
-EXTRA_TASKS = {
-    'index-targets': atest_tools.index_targets
-}
+ACLOUD_CREATE = at.acloud_create
+INDEX_TARGETS = at.index_targets
 
 
-def _run_extra_tasks(join=False):
-    """Execute EXTRA_TASKS with multiprocessing.
+def _run_multi_proc(func, *args, **kwargs):
+    """Start a process with multiprocessing and return Process object.
 
     Args:
-        join: A boolean that indicates the process should terminate when
-        the main process ends or keep itself alive. True indicates the
-        main process will wait for all subprocesses finish while False represents
-        killing all subprocesses when the main process exits.
+        func: A string of function name which will be the target name.
+        args/kwargs: check doc page:
+        https://docs.python.org/3.8/library/multiprocessing.html#process-and-exceptions
+
+    Returns:
+        multiprocessing.Process object.
     """
-    _running_procs = []
-    for task in EXTRA_TASKS.values():
-        proc = Process(target=task)
-        proc.daemon = not join
-        proc.start()
-        _running_procs.append(proc)
-    if join:
-        for proc in _running_procs:
-            proc.join()
+
+    proc = Process(target=func, *args, **kwargs)
+    proc.start()
+    return proc
 
 
 def _parse_args(argv):
@@ -116,7 +113,9 @@ def _parse_args(argv):
     args = parser.parse_args(pruned_argv)
     args.custom_args = []
     if custom_args_index is not None:
-        args.custom_args = argv[custom_args_index+1:]
+        for arg in argv[custom_args_index+1:]:
+            logging.debug('Quoting regex argument %s', arg)
+            args.custom_args.append(atest_utils.quote(arg))
     return args
 
 
@@ -126,6 +125,8 @@ def _configure_logging(verbose):
     Args:
         verbose: A boolean. If true display DEBUG level logs.
     """
+    # Clear the handlers to prevent logging.basicConfig from being called twice.
+    logging.getLogger('').handlers = []
     log_format = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
     datefmt = '%Y-%m-%d %H:%M:%S'
     if verbose:
@@ -198,7 +199,10 @@ def get_extra_args(args):
                 'sharding': constants.SHARDING,
                 'tf_debug': constants.TF_DEBUG,
                 'tf_template': constants.TF_TEMPLATE,
-                'user_type': constants.USER_TYPE}
+                'user_type': constants.USER_TYPE,
+                'flakes_info': constants.FLAKES_INFO,
+                'tf_early_device_release': constants.TF_EARLY_DEVICE_RELEASE,
+                'request_upload_result': constants.REQUEST_UPLOAD_RESULT}
     not_match = [k for k in arg_maps if k not in vars(args)]
     if not_match:
         raise AttributeError('%s object has no attribute %s'
@@ -245,8 +249,11 @@ def _validate_exec_mode(args, test_infos, host_tests=None):
     err_msg = None
     # In the case of '$atest <device-only> --host', exit.
     if (host_tests or args.host) and constants.DEVICE_TEST in all_device_modes:
-        err_msg = ('Test side and option(--host) conflict. Please remove '
-                   '--host if the test run on device side.')
+        device_only_tests = [x.test_name for x in test_infos
+                             if x.get_supported_exec_mode() == constants.DEVICE_TEST]
+        err_msg = ('Specified --host, but the following tests are device-only:\n  ' +
+                   '\n  '.join(sorted(device_only_tests)) + '\nPlease remove the option '
+                   'when running device-only tests.')
     # In the case of '$atest <host-only> <device-only> --host' or
     # '$atest <host-only> <device-only>', exit.
     if (constants.DEVICELESS_TEST in all_device_modes and
@@ -470,13 +477,14 @@ def _split_test_mapping_tests(test_infos):
 
 
 # pylint: disable=too-many-locals
-def _run_test_mapping_tests(results_dir, test_infos, extra_args):
+def _run_test_mapping_tests(results_dir, test_infos, extra_args, mod_info):
     """Run all tests in TEST_MAPPING files.
 
     Args:
         results_dir: String directory to store atest results.
         test_infos: A set of TestInfos.
         extra_args: Dict of extra args to add to test run.
+        mod_info: ModuleInfo object.
 
     Returns:
         Exit code.
@@ -501,7 +509,7 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args):
         atest_utils.colorful_print(header, constants.MAGENTA)
         logging.debug('\n'.join([str(info) for info in tests]))
         tests_exit_code, reporter = test_runner_handler.run_all_tests(
-            results_dir, tests, args, delay_print_summary=True)
+            results_dir, tests, args, mod_info, delay_print_summary=True)
         atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
         test_results.append((tests_exit_code, reporter, test_type))
 
@@ -527,20 +535,21 @@ def _run_test_mapping_tests(results_dir, test_infos, extra_args):
     return all_tests_exit_code
 
 
-def _dry_run(results_dir, extra_args, test_infos):
+def _dry_run(results_dir, extra_args, test_infos, mod_info):
     """Only print the commands of the target tests rather than running them in actual.
 
     Args:
         results_dir: Path for saving atest logs.
         extra_args: Dict of extra args for test runners to utilize.
         test_infos: A list of TestInfos.
+        mod_info: ModuleInfo object.
 
     Returns:
         A list of test commands.
     """
     all_run_cmds = []
     for test_runner, tests in test_runner_handler.group_tests_by_test_runners(test_infos):
-        runner = test_runner(results_dir)
+        runner = test_runner(results_dir, module_info=mod_info)
         run_cmds = runner.generate_run_commands(tests, extra_args)
         for run_cmd in run_cmds:
             all_run_cmds.append(run_cmd)
@@ -615,7 +624,7 @@ def _non_action_validator(args):
         atest_utils.colorful_print(stop_msg, constants.RED)
         atest_utils.colorful_print(msg, constants.CYAN)
 
-def _dry_run_validator(args, results_dir, extra_args, test_infos):
+def _dry_run_validator(args, results_dir, extra_args, test_infos, mod_info):
     """Method which process --dry-run argument.
 
     Args:
@@ -623,9 +632,12 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos):
         result_dir: A string path of the results dir.
         extra_args: A dict of extra args for test runners to utilize.
         test_infos: A list of test_info.
+        mod_info: ModuleInfo object.
+    Returns:
+        Exit code.
     """
     args.tests.sort()
-    dry_run_cmds = _dry_run(results_dir, extra_args, test_infos)
+    dry_run_cmds = _dry_run(results_dir, extra_args, test_infos, mod_info)
     if args.verify_cmd_mapping:
         try:
             atest_utils.handle_test_runner_cmd(' '.join(args.tests),
@@ -637,8 +649,58 @@ def _dry_run_validator(args, results_dir, extra_args, test_infos):
     if args.update_cmd_mapping:
         atest_utils.handle_test_runner_cmd(' '.join(args.tests),
                                            dry_run_cmds)
-    sys.exit(constants.EXIT_CODE_SUCCESS)
+    return constants.EXIT_CODE_SUCCESS
 
+def _exclude_modules_in_targets(build_targets):
+    """Method that excludes MODULES-IN-* targets.
+
+    Args:
+        build_targets: A set of build targets.
+
+    Returns:
+        A set of build targets that excludes MODULES-IN-*.
+    """
+    shrank_build_targets = build_targets.copy()
+    logging.debug('Will exclude all "%s*" from the build targets.',
+                  constants.MODULES_IN)
+    for target in build_targets:
+        if target.startswith(constants.MODULES_IN):
+            logging.debug('Ignore %s.', target)
+            shrank_build_targets.remove(target)
+    return shrank_build_targets
+
+def acloud_create_validator(results_dir, args):
+    """Check lunch'd target before running 'acloud create'.
+
+    Args:
+        results_dir: A string of the results directory.
+        args: A list of arguments.
+
+    Returns:
+        If the target is valid:
+            A tuple of (multiprocessing.Process,
+                        string of report file path)
+        else:
+            None, None
+    """
+    if not any((args.acloud_create, args.start_avd)):
+        return None, None
+    if args.start_avd:
+        args.acloud_create = ['--num=1']
+    acloud_args = ' '.join(args.acloud_create)
+    target = os.getenv('TARGET_PRODUCT', "")
+    if 'cf_x86' in target:
+        report_file = at.get_report_file(results_dir, acloud_args)
+        acloud_proc = _run_multi_proc(
+            func=ACLOUD_CREATE,
+            args=[report_file],
+            kwargs={'args':acloud_args,
+                    'no_metrics_notice':args.no_metrics})
+        return acloud_proc, report_file
+    atest_utils.colorful_print(
+        '{} is not cf_x86 family; will not create any AVD.'.format(target),
+        constants.RED)
+    return None, None
 
 # pylint: disable=too-many-statements
 # pylint: disable=too-many-branches
@@ -664,21 +726,25 @@ def main(argv, results_dir, args):
         cwd=os.getcwd(),
         os=os_pyver)
     _non_action_validator(args)
+    proc_acloud, report_file = acloud_create_validator(results_dir, args)
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     if args.rebuild_module_info:
-        _run_extra_tasks(join=True)
-    translator = cli_translator.CLITranslator(module_info=mod_info,
-                                              print_cache_msg=not args.clear_cache)
+        proc_idx = _run_multi_proc(INDEX_TARGETS)
+        proc_idx.join()
+    translator = cli_translator.CLITranslator(
+        module_info=mod_info,
+        print_cache_msg=not args.clear_cache)
     if args.list_modules:
         _print_testable_modules(mod_info, args.list_modules)
         return constants.EXIT_CODE_SUCCESS
-    # Clear cache if user pass -c option
-    if args.clear_cache:
-        atest_utils.clean_test_info_caches(args.tests)
     build_targets = set()
     test_infos = set()
     if _will_run_tests(args):
+        find_start = time.time()
         build_targets, test_infos = translator.translate(args)
+        if args.no_modules_in:
+            build_targets = _exclude_modules_in_targets(build_targets)
+        find_duration = time.time() - find_start
         if not test_infos:
             return constants.EXIT_CODE_TEST_NOT_FOUND
         if not is_from_test_mapping(test_infos):
@@ -691,7 +757,8 @@ def main(argv, results_dir, args):
                                                               test_infos)
     extra_args = get_extra_args(args)
     if any((args.update_cmd_mapping, args.verify_cmd_mapping, args.dry_run)):
-        _dry_run_validator(args, results_dir, extra_args, test_infos)
+        return _dry_run_validator(args, results_dir, extra_args, test_infos,
+                                  mod_info)
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
                           .get_test_runner_build_reqs())
@@ -701,18 +768,49 @@ def main(argv, results_dir, args):
         if constants.TEST_STEP in steps and not args.rebuild_module_info:
             # Run extra tasks along with build step concurrently. Note that
             # Atest won't index targets when only "-b" is given(without -t).
-            _run_extra_tasks(join=False)
+            proc_idx = _run_multi_proc(INDEX_TARGETS, daemon=True)
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
         build_start = time.time()
         success = atest_utils.build(build_targets, verbose=args.verbose)
+        build_duration = time.time() - build_start
         metrics.BuildFinishEvent(
-            duration=metrics_utils.convert_duration(time.time() - build_start),
+            duration=metrics_utils.convert_duration(build_duration),
             success=success,
             targets=build_targets)
+        rebuild_module_info = constants.DETECT_TYPE_NOT_REBUILD_MODULE_INFO
+        if args.rebuild_module_info:
+            rebuild_module_info = constants.DETECT_TYPE_REBUILD_MODULE_INFO
+        metrics.LocalDetectEvent(
+            detect_type=rebuild_module_info,
+            result=int(build_duration))
         if not success:
             return constants.EXIT_CODE_BUILD_FAILURE
+        # Always reload module-info after build finish.
+        # TODO(b/178675689) Move it to a thread when running test.
+        mod_info.generate_atest_merged_dep_file()
+        if proc_acloud:
+            proc_acloud.join()
+            status = at.probe_acloud_status(report_file)
+            if status != 0:
+                return status
+            acloud_duration = at.get_acloud_duration(report_file)
+            find_build_duration = find_duration + build_duration
+            if find_build_duration - acloud_duration >= 0:
+                # find+build took longer, saved acloud create time.
+                logging.debug('Saved acloud create time: %ss.',
+                              acloud_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=constants.DETECT_TYPE_ACLOUD_CREATE,
+                    result=round(acloud_duration))
+            else:
+                # acloud create took longer, saved find+build time.
+                logging.debug('Saved Find and Build time: %ss.',
+                              find_build_duration)
+                metrics.LocalDetectEvent(
+                    detect_type=constants.DETECT_TYPE_FIND_BUILD,
+                    result=round(find_build_duration))
     elif constants.TEST_STEP not in steps:
         logging.warning('Install step without test step currently not '
                         'supported, installing AND testing instead.')
@@ -722,15 +820,16 @@ def main(argv, results_dir, args):
     if constants.TEST_STEP in steps:
         if not is_from_test_mapping(test_infos):
             tests_exit_code, reporter = test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args)
+                results_dir, test_infos, extra_args, mod_info)
             atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
         else:
             tests_exit_code = _run_test_mapping_tests(
-                results_dir, test_infos, extra_args)
+                results_dir, test_infos, extra_args, mod_info)
     if args.detect_regression:
         regression_args = _get_regression_detection_args(args, results_dir)
         # TODO(b/110485713): Should not call run_tests here.
-        reporter = result_reporter.ResultReporter()
+        reporter = result_reporter.ResultReporter(
+            collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY))
         atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
         tests_exit_code |= regression_test_runner.RegressionTestRunner(
             '').run_tests(
@@ -751,11 +850,11 @@ def main(argv, results_dir, args):
 
 if __name__ == '__main__':
     RESULTS_DIR = make_test_run_dir()
-    ARGS = _parse_args(sys.argv[1:])
-    with atest_execution_info.AtestExecutionInfo(sys.argv[1:],
-                                                 RESULTS_DIR,
-                                                 ARGS) as result_file:
-        if not ARGS.no_metrics:
+    atest_configs.GLOBAL_ARGS = _parse_args(sys.argv[1:])
+    with atest_execution_info.AtestExecutionInfo(
+            sys.argv[1:], RESULTS_DIR,
+            atest_configs.GLOBAL_ARGS) as result_file:
+        if not atest_configs.GLOBAL_ARGS.no_metrics:
             atest_utils.print_data_collection_notice()
             USER_FROM_TOOL = os.getenv(constants.USER_FROM_TOOL, '')
             if USER_FROM_TOOL == '':
@@ -763,11 +862,12 @@ if __name__ == '__main__':
             else:
                 metrics_base.MetricsBase.tool_name = USER_FROM_TOOL
 
-        EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, ARGS)
+        EXIT_CODE = main(sys.argv[1:], RESULTS_DIR, atest_configs.GLOBAL_ARGS)
         DETECTOR = bug_detector.BugDetector(sys.argv[1:], EXIT_CODE)
-        metrics.LocalDetectEvent(
-            detect_type=constants.DETECT_TYPE_BUG_DETECTED,
-            result=DETECTOR.caught_result)
-        if result_file:
-            print("Run 'atest --history' to review test result history.")
+        if EXIT_CODE not in constants.EXIT_CODES_BEFORE_TEST:
+            metrics.LocalDetectEvent(
+                detect_type=constants.DETECT_TYPE_BUG_DETECTED,
+                result=DETECTOR.caught_result)
+            if result_file:
+                print("Run 'atest --history' to review test result history.")
     sys.exit(EXIT_CODE)

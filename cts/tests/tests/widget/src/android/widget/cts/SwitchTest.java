@@ -18,6 +18,7 @@ package android.widget.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -30,6 +31,8 @@ import android.graphics.PorterDuff.Mode;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.Icon;
 import android.view.ContextThemeWrapper;
 import android.view.ViewGroup;
 import android.widget.Switch;
@@ -323,5 +326,123 @@ public class SwitchTest {
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mSwitch,
                 () -> mSwitch.setSplitTrack(false));
         assertFalse(mSwitch.getSplitTrack());
+    }
+
+    @Test
+    public void testSetTrackIcon() {
+        mSwitch = findSwitchById(R.id.switch3);
+
+        Icon blueFill = Icon.createWithResource(mActivity, R.drawable.blue_fill);
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                () -> mSwitch.setTrackIcon(blueFill));
+        GradientDrawable track = (GradientDrawable) mSwitch.getTrackDrawable();
+        assertEquals(GradientDrawable.RECTANGLE, track.getShape());
+        assertEquals(ColorStateList.valueOf(Color.BLUE), track.getColor());
+
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                () -> mSwitch.setTrackIcon(null));
+        assertNull(mSwitch.getTrackDrawable());
+    }
+
+    @Test
+    public void testSetTrackIconAsync() {
+        mSwitch = findSwitchById(R.id.switch3);
+
+        Icon blueFill = Icon.createWithResource(mActivity, R.drawable.blue_fill);
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                mSwitch.setTrackIconAsync(blueFill));
+        GradientDrawable track = (GradientDrawable) mSwitch.getTrackDrawable();
+        assertEquals(GradientDrawable.RECTANGLE, track.getShape());
+        assertEquals(ColorStateList.valueOf(Color.BLUE), track.getColor());
+
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                mSwitch.setTrackIconAsync(null));
+        assertNull(mSwitch.getTrackDrawable());
+    }
+
+    @Test
+    public void testSetTrackResourceAsync() {
+        mSwitch = findSwitchById(R.id.switch3);
+
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                mSwitch.setTrackResourceAsync(R.drawable.blue_fill));
+        GradientDrawable track = (GradientDrawable) mSwitch.getTrackDrawable();
+        assertEquals(GradientDrawable.RECTANGLE, track.getShape());
+        assertEquals(ColorStateList.valueOf(Color.BLUE), track.getColor());
+
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                mSwitch.setTrackResourceAsync(0));
+        assertNull(mSwitch.getTrackDrawable());
+    }
+
+    @Test
+    public void testSetThumbIcon() {
+        mSwitch = findSwitchById(R.id.switch3);
+
+        Icon blueFill = Icon.createWithResource(mActivity, R.drawable.blue_fill);
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                () -> mSwitch.setThumbIcon(blueFill));
+        GradientDrawable thumb = (GradientDrawable) mSwitch.getThumbDrawable();
+        assertEquals(GradientDrawable.RECTANGLE, thumb.getShape());
+        assertEquals(ColorStateList.valueOf(Color.BLUE), thumb.getColor());
+
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                () -> mSwitch.setThumbIcon(null));
+        assertNull(mSwitch.getThumbDrawable());
+    }
+
+    @Test
+    public void testSetThumbIconAsync() {
+        mSwitch = findSwitchById(R.id.switch3);
+
+        Icon blueFill = Icon.createWithResource(mActivity, R.drawable.blue_fill);
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                mSwitch.setThumbIconAsync(blueFill));
+        GradientDrawable thumb = (GradientDrawable) mSwitch.getThumbDrawable();
+        assertEquals(GradientDrawable.RECTANGLE, thumb.getShape());
+        assertEquals(ColorStateList.valueOf(Color.BLUE), thumb.getColor());
+
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                mSwitch.setThumbIconAsync(null));
+        assertNull(mSwitch.getThumbDrawable());
+    }
+
+    @Test
+    public void testSetThumbResourceAsync() {
+        mSwitch = findSwitchById(R.id.switch3);
+
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                mSwitch.setThumbResourceAsync(R.drawable.blue_fill));
+        GradientDrawable thumb = (GradientDrawable) mSwitch.getThumbDrawable();
+        assertEquals(GradientDrawable.RECTANGLE, thumb.getShape());
+        assertEquals(ColorStateList.valueOf(Color.BLUE), thumb.getColor());
+
+        WidgetTestUtils.runOnMainAndDrawSync(
+                mActivityRule,
+                mSwitch,
+                mSwitch.setThumbResourceAsync(0));
+        assertNull(mSwitch.getThumbDrawable());
     }
 }

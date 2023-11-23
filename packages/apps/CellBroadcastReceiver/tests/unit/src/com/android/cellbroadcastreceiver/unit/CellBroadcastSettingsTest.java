@@ -22,9 +22,11 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.support.test.uiautomator.UiDevice;
 
+import androidx.preference.PreferenceManager;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.FlakyTest;
 import androidx.test.runner.AndroidJUnit4;
@@ -50,7 +52,7 @@ public class CellBroadcastSettingsTest extends
     }
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mContext = mInstrumentation.getTargetContext();
         mDevice = UiDevice.getInstance(mInstrumentation);
@@ -90,6 +92,34 @@ public class CellBroadcastSettingsTest extends
         } catch (Exception e) {
             Assert.fail("Exception " + e);
         }
+    }
+
+    @Test
+    public void testResetAllPreferences() throws Throwable {
+        Looper.prepare();
+        // set a few preferences so we can verify they are reset to the default
+        PreferenceManager.getDefaultSharedPreferences(mContext).edit()
+                .putBoolean(CellBroadcastSettings.KEY_RECEIVE_CMAS_IN_SECOND_LANGUAGE, true)
+                .putBoolean(CellBroadcastSettings.KEY_ENABLE_ALERT_VIBRATE, false).apply();
+        assertTrue("receive_cmas_in_second_language was not set to true",
+                PreferenceManager.getDefaultSharedPreferences(mContext)
+                        .getBoolean(CellBroadcastSettings.KEY_RECEIVE_CMAS_IN_SECOND_LANGUAGE,
+                                false));
+        assertFalse("enable_alert_vibrate was not set to false",
+                PreferenceManager.getDefaultSharedPreferences(mContext)
+                        .getBoolean(CellBroadcastSettings.KEY_ENABLE_ALERT_VIBRATE, true));
+
+        // see preferences.xml for default values.
+        // receive_cmas_in_second_language is false by default
+        // enable_alert_vibrate is true by default
+        CellBroadcastSettings.resetAllPreferences(mContext);
+
+        assertFalse("receive_cmas_in_second_language was not reset to the default (false)",
+                PreferenceManager.getDefaultSharedPreferences(mContext)
+                .getBoolean(CellBroadcastSettings.KEY_RECEIVE_CMAS_IN_SECOND_LANGUAGE, true));
+        assertTrue("enable_alert_vibrate was not reset to the default (true)",
+                PreferenceManager.getDefaultSharedPreferences(mContext)
+                .getBoolean(CellBroadcastSettings.KEY_ENABLE_ALERT_VIBRATE, false));
     }
 
     public void waitUntilDialogOpens(Runnable r, long maxWaitMs) {

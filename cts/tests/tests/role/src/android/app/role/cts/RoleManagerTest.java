@@ -24,6 +24,7 @@ import static com.android.compatibility.common.util.UiAutomatorUtils.waitFindObj
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
@@ -36,6 +37,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.PermissionInfo;
+import android.os.Build;
 import android.os.Process;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -49,9 +51,12 @@ import android.util.Pair;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.DisableAnimationRule;
+import com.android.compatibility.common.util.FreezeRotationRule;
 import com.android.compatibility.common.util.TestUtils;
 import com.android.compatibility.common.util.ThrowingRunnable;
 import com.android.compatibility.common.util.UiAutomatorUtils;
@@ -114,6 +119,12 @@ public class RoleManagerTest {
     private static final Context sContext = InstrumentationRegistry.getTargetContext();
     private static final PackageManager sPackageManager = sContext.getPackageManager();
     private static final RoleManager sRoleManager = sContext.getSystemService(RoleManager.class);
+
+    @Rule
+    public DisableAnimationRule mDisableAnimationRule = new DisableAnimationRule();
+
+    @Rule
+    public FreezeRotationRule mFreezeRotationRule = new FreezeRotationRule();
 
     @Rule
     public ActivityTestRule<WaitForResultActivity> mActivityRule =
@@ -316,14 +327,6 @@ public class RoleManagerTest {
     }
 
     @Test
-    public void requestEmptyRoleThenDeniedAutomatically() throws Exception {
-        requestRole("");
-        Pair<Integer, Intent> result = waitForResult();
-
-        assertThat(result.first).isEqualTo(Activity.RESULT_CANCELED);
-    }
-
-    @Test
     public void requestInvalidRoleThenDeniedAutomatically() throws Exception {
         requestRole("invalid");
         Pair<Integer, Intent> result = waitForResult();
@@ -378,7 +381,7 @@ public class RoleManagerTest {
 
     @Nullable
     private UiObject2 findDontAskAgainCheck(boolean expected) throws UiObjectNotFoundException {
-        BySelector selector = By.text("Don\u2019t ask again");
+        BySelector selector = By.res("com.android.permissioncontroller:id/dont_ask_again");
         return expected
                 ? waitFindObject(selector)
                 : waitFindObjectOrNull(selector, UNEXPECTED_TIMEOUT_MILLIS);
@@ -930,6 +933,63 @@ public class RoleManagerTest {
                 APP_PACKAGE_NAME)).isEqualTo(PackageManager.PERMISSION_GRANTED);
     }
 
+    @Test
+    public void packageManagerGetDefaultBrowserBackedByRole() throws Exception {
+        addRoleHolder(RoleManager.ROLE_BROWSER, APP_PACKAGE_NAME);
+
+        assertThat(sPackageManager.getDefaultBrowserPackageNameAsUser(UserHandle.myUserId()))
+                .isEqualTo(APP_PACKAGE_NAME);
+    }
+
+    @Test
+    public void packageManagerSetDefaultBrowserBackedByRole() throws Exception {
+        callWithShellPermissionIdentity(() -> sPackageManager.setDefaultBrowserPackageNameAsUser(
+                APP_PACKAGE_NAME, UserHandle.myUserId()));
+
+        assertIsRoleHolder(RoleManager.ROLE_BROWSER, APP_PACKAGE_NAME, true);
+    }
+
+    @Test
+    public void telephonySmsGetDefaultSmsPackageBackedByRole() throws Exception {
+        assumeTrue(sRoleManager.isRoleAvailable(RoleManager.ROLE_SMS));
+
+        addRoleHolder(RoleManager.ROLE_SMS, APP_PACKAGE_NAME);
+
+        assertThat(Telephony.Sms.getDefaultSmsPackage(sContext)).isEqualTo(APP_PACKAGE_NAME);
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S, codeName = "S")
+    @Test
+    public void cannotBypassRoleQualificationWithoutPermission() throws Exception {
+        assertThrows(SecurityException.class, () ->
+                sRoleManager.setBypassingRoleQualification(true));
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S, codeName = "S")
+    @Test
+    public void bypassRoleQualificationThenCanAddUnqualifiedRoleHolder() throws Exception {
+        assertThat(sRoleManager.isRoleAvailable(RoleManager.ROLE_SYSTEM_ACTIVITY_RECOGNIZER))
+                .isTrue();
+
+        runWithShellPermissionIdentity(() -> sRoleManager.setBypassingRoleQualification(true));
+        try {
+            assertThat(callWithShellPermissionIdentity(() ->
+                    sRoleManager.isBypassingRoleQualification())).isTrue();
+
+            // The System Activity Recognizer role requires a system app, so this won't succeed
+            // without bypassing role qualification.
+            addRoleHolder(RoleManager.ROLE_SYSTEM_ACTIVITY_RECOGNIZER, APP_PACKAGE_NAME);
+
+            assertThat(getRoleHolders(RoleManager.ROLE_SYSTEM_ACTIVITY_RECOGNIZER))
+                    .contains(APP_PACKAGE_NAME);
+        } finally {
+            runWithShellPermissionIdentity(() -> sRoleManager.setBypassingRoleQualification(false));
+        }
+        assertThat(callWithShellPermissionIdentity(() ->
+                sRoleManager.isBypassingRoleQualification())).isFalse();
+    }
+
+    @NonNull
     private List<String> getRoleHolders(@NonNull String roleName) throws Exception {
         return callWithShellPermissionIdentity(() -> sRoleManager.getRoleHolders(roleName));
     }

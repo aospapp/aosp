@@ -32,9 +32,14 @@ class TransferImage : public Resource {
   TransferImage(Device* device,
                 const Format& format,
                 VkImageAspectFlags aspect,
+                VkImageType image_type,
                 uint32_t x,
                 uint32_t y,
-                uint32_t z);
+                uint32_t z,
+                uint32_t mip_levels,
+                uint32_t base_mip_level,
+                uint32_t used_mip_levels,
+                uint32_t samples);
   ~TransferImage() override;
 
   Result Initialize(VkImageUsageFlags usage);
@@ -52,13 +57,16 @@ class TransferImage : public Resource {
   void CopyToHost(CommandBuffer* command_buffer) override;
 
  private:
-  Result CreateVkImageView();
+  Result CreateVkImageView(VkImageAspectFlags aspect);
   Result AllocateAndBindMemoryToVkImage(VkImage image,
                                         VkDeviceMemory* memory,
                                         VkMemoryPropertyFlags flags,
                                         bool force_flags,
                                         uint32_t* memory_type_index);
-  VkBufferImageCopy CreateBufferImageCopy();
+  VkBufferImageCopy CreateBufferImageCopy(VkImageAspectFlags aspect,
+                                          uint32_t mip_level);
+
+  VkImageViewType GetImageViewType() const;
 
   /// An extra `VkBuffer` is used to facilitate the transfer of data from the
   /// host into the `VkImage` on the device.
@@ -74,6 +82,11 @@ class TransferImage : public Resource {
 
   VkImageLayout layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
   VkPipelineStageFlags stage_ = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+  uint32_t mip_levels_;
+  uint32_t base_mip_level_;
+  uint32_t used_mip_levels_;
+  uint32_t samples_;
 };
 
 }  // namespace vulkan

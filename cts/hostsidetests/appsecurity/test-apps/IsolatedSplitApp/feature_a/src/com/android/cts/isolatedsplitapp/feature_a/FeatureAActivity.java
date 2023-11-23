@@ -15,8 +15,18 @@
  */
 package com.android.cts.isolatedsplitapp.feature_a;
 
+import android.os.Bundle;
+import android.widget.LinearLayout;
+
 import com.android.cts.isolatedsplitapp.BaseActivity;
 
 public class FeatureAActivity extends BaseActivity {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
+        final LinearLayout linearLayout = findViewById(
+                com.android.cts.isolatedsplitapp.R.id.base_layout);
+        getLayoutInflater().inflate(R.layout.feature_a_textview, linearLayout);
+    }
 }

@@ -25,7 +25,6 @@ import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.DialogInterface.OnClickListener;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -37,6 +36,7 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
@@ -59,6 +59,9 @@ import com.google.android.material.textfield.TextInputLayout;
  */
 public class CreateDirectoryFragment extends DialogFragment {
     private static final String TAG_CREATE_DIRECTORY = "create_directory";
+    private @Nullable DialogInterface mDialog;
+    private EditText mEditText;
+    private TextInputLayout mInputWrapper;
 
     public static void show(FragmentManager fm) {
         if (fm.isStateSaved()) {
@@ -78,30 +81,20 @@ public class CreateDirectoryFragment extends DialogFragment {
         final LayoutInflater dialogInflater = LayoutInflater.from(builder.getContext());
 
         final View view = dialogInflater.inflate(R.layout.dialog_file_name, null, false);
-        final EditText editText = (EditText) view.findViewById(android.R.id.text1);
+        mEditText = (EditText) view.findViewById(android.R.id.text1);
 
-        final TextInputLayout inputWrapper = view.findViewById(R.id.input_wrapper);
-        inputWrapper.setHint(getString(R.string.input_hint_new_folder));
+        mInputWrapper = view.findViewById(R.id.input_wrapper);
+        mInputWrapper.setHint(getString(R.string.input_hint_new_folder));
 
         builder.setTitle(R.string.menu_create_dir);
         builder.setView(view);
-
-        builder.setPositiveButton(
-                android.R.string.ok,
-                new OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        createDirectory(editText.getText().toString());
-                    }
-                });
-
+        builder.setPositiveButton(android.R.string.ok, null);
         builder.setNegativeButton(android.R.string.cancel, null);
         final AlertDialog dialog = builder.create();
-
+        dialog.setOnShowListener(this::onShowDialog);
         // Workaround for the problem - virtual keyboard doesn't show on the phone.
         Shared.ensureKeyboardPresent(context, dialog);
-
-        editText.setOnEditorActionListener(
+        mEditText.setOnEditorActionListener(
                 new OnEditorActionListener() {
                     @Override
                     public boolean onEditorAction(
@@ -109,24 +102,39 @@ public class CreateDirectoryFragment extends DialogFragment {
                         if ((actionId == EditorInfo.IME_ACTION_DONE) || (event != null
                                 && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
                                 && event.hasNoModifiers())) {
-                            createDirectory(editText.getText().toString());
-                            dialog.dismiss();
+                            createDirectory(mEditText.getText().toString());
                             return true;
                         }
                         return false;
                     }
                 });
-        editText.requestFocus();
+        mEditText.requestFocus();
 
         return dialog;
     }
 
-    private void createDirectory(String name) {
-        final BaseActivity activity = (BaseActivity) getActivity();
-        final DocumentInfo cwd = activity.getCurrentDirectory();
+    private void onShowDialog(DialogInterface dialog) {
+        mDialog = dialog;
+        Button button = ((AlertDialog) dialog).getButton(AlertDialog.BUTTON_POSITIVE);
+        button.setOnClickListener(this::onClickDialog);
+    }
 
-        new CreateDirectoryTask(activity, cwd, name).executeOnExecutor(
-                ProviderExecutor.forAuthority(cwd.authority));
+    private void onClickDialog(View view) {
+        createDirectory(mEditText.getText().toString());
+    }
+
+    private void createDirectory(String name) {
+        if (name.isEmpty()) {
+            mInputWrapper.setError(getContext().getString(
+                    R.string.add_folder_name_error));
+        } else {
+            final BaseActivity activity = (BaseActivity) getActivity();
+            final DocumentInfo cwd = activity.getCurrentDirectory();
+
+            new CreateDirectoryTask(activity, cwd, name).executeOnExecutor(
+                    ProviderExecutor.forAuthority(cwd.authority));
+            mDialog.dismiss();
+        }
     }
 
     private class CreateDirectoryTask extends AsyncTask<Void, Void, DocumentInfo> {

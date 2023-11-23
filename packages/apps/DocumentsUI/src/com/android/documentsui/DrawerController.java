@@ -55,7 +55,7 @@ public abstract class DrawerController implements DrawerListener {
         DrawerLayout layout = (DrawerLayout) activity.findViewById(R.id.drawer_layout);
 
         if (layout == null) {
-            return new DummyDrawerController();
+            return new StubDrawerController();
         }
 
         View drawer = activity.findViewById(R.id.drawer_roots);
@@ -76,8 +76,8 @@ public abstract class DrawerController implements DrawerListener {
     /**
      * Returns a controller suitable for {@code Layout}.
      */
-    static DrawerController createDummy() {
-        return new DummyDrawerController();
+    static DrawerController createStub() {
+        return new StubDrawerController();
     }
 
     private static int calculateDrawerWidth(Activity activity) {
@@ -235,9 +235,9 @@ public abstract class DrawerController implements DrawerListener {
     }
 
     /*
-     * Dummy controller useful with clients that don't host a real drawer.
+     * Stub controller useful with clients that don't host a real drawer.
      */
-    private static final class DummyDrawerController extends DrawerController {
+    private static final class StubDrawerController extends DrawerController {
 
         @Override
         public void setOpen(boolean open) {}

@@ -20,6 +20,6 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="photo_view_count" msgid="3972196711827497300">"<xliff:g id="CURRENT_POS">%1$d</xliff:g> од <xliff:g id="COUNT">%2$d</xliff:g>"</string>
     <string name="retry" msgid="3791698559547529232">"Обиди се повторно"</string>
-    <string name="failed" msgid="8338915262229269954">"Сликата не можеше да се вчита"</string>
+    <string name="failed" msgid="8338915262229269954">"Сликата не може да се вчита"</string>
     <string name="titles" msgid="3827868765772315200">"<xliff:g id="TITLE_0">%1$s</xliff:g>, <xliff:g id="SUBTITLE">%2$s</xliff:g>"</string>
 </resources>

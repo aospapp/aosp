@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "art_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["art_license"],
+}
+
 cc_defaults {
     name: "dexdump_defaults",
     defaults: ["art_defaults"],
@@ -37,7 +46,7 @@ art_cc_binary {
         // Use static libs on host: required for Windows build and
         // static_sdk_tools build.
         host: {
-            enabled: true,
+            stl: "libc++_static",
             static_libs: [
                 "libdexfile",
                 "libartbase",
@@ -51,18 +60,42 @@ art_cc_binary {
         darwin: {
             enabled: true,
         },
+        windows: {
+            // dexdump is provided in the Windows SDK.
+            enabled: true,
+        },
     },
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
-        "//apex_available:platform", // for SDK
     ],
 }
 
+art_cc_defaults {
+    name: "art_dexdump_tests_defaults",
+    srcs: ["dexdump_test.cc"],
+    target: {
+        host: {
+            required: ["dexdump"],
+        },
+    },
+}
+
+// Version of ART gtest `art_dexdump_tests` bundled with the ART APEX on target.
+// TODO(b/192274705): Remove this module when the migration to standalone ART gtests is complete.
 art_cc_test {
     name: "art_dexdump_tests",
     defaults: [
         "art_gtest_defaults",
+        "art_dexdump_tests_defaults",
     ],
-    srcs: ["dexdump_test.cc"],
+}
+
+// Standalone version of ART gtest `art_dexdump_tests`, not bundled with the ART APEX on target.
+art_cc_test {
+    name: "art_standalone_dexdump_tests",
+    defaults: [
+        "art_standalone_gtest_defaults",
+        "art_dexdump_tests_defaults",
+    ],
 }

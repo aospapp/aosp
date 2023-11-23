@@ -25,7 +25,7 @@ import static org.junit.Assert.assertTrue;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.server.util.NetworkStackConstants;
+import com.android.net.module.util.NetworkStackConstants;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

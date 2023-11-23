@@ -344,7 +344,7 @@ public final class SipService extends ISipService.Stub {
         if (DBG) log("notify: profile added: " + localProfile);
         Intent intent = new Intent(SipManager.ACTION_SIP_ADD_PHONE);
         intent.putExtra(SipManager.EXTRA_LOCAL_URI, localProfile.getUriString());
-        mContext.sendBroadcast(intent);
+        mContext.sendBroadcast(intent, android.Manifest.permission.USE_SIP);
         if (mSipGroups.size() == 1) {
             registerReceivers();
         }
@@ -354,7 +354,7 @@ public final class SipService extends ISipService.Stub {
         if (DBG) log("notify: profile removed: " + localProfile);
         Intent intent = new Intent(SipManager.ACTION_SIP_REMOVE_PROFILE);
         intent.putExtra(SipManager.EXTRA_LOCAL_URI, localProfile.getUriString());
-        mContext.sendBroadcast(intent);
+        mContext.sendBroadcast(intent, android.Manifest.permission.USE_SIP);
         if (mSipGroups.size() == 0) {
             unregisterReceivers();
         }

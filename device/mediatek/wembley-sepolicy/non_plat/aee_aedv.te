@@ -53,12 +53,12 @@ allow aee_aedv usermodehelper:file r_file_perms;
 # Date: W15.34
 # Operation: Migration
 # Purpose: For pagemap & pageflags information in NE DB
-userdebug_or_eng(`allow aee_aedv self:capability sys_admin;')
+allow aee_aedv self:capability sys_admin;
 
 # Purpose: aee_aedv set property
-set_prop(aee_aedv, persist_mtk_aeev_prop);
-set_prop(aee_aedv, persist_aeev_prop);
-set_prop(aee_aedv, debug_mtk_aeev_prop);
+set_prop(aee_aedv, vendor_mtk_persist_mtk_aeev_prop)
+set_prop(aee_aedv, vendor_mtk_persist_aeev_prop)
+set_prop(aee_aedv, vendor_mtk_debug_mtk_aeev_prop)
 
 # Purpose: mnt/user/*
 allow aee_aedv mnt_user_file:dir search;
@@ -118,27 +118,33 @@ allow aee_aedv crash_dump:file r_file_perms;
 allow aee_aedv vendor_file:file execute_no_trans;
 
 # Purpose: debugfs files
-allow aee_aedv debugfs_binder:dir { read open };
-allow aee_aedv debugfs_binder:file { read open };
-allow aee_aedv debugfs_blockio:file { read open };
+allow aee_aedv debugfs_binder:dir r_dir_perms;
+allow aee_aedv debugfs_binder:file r_file_perms;
+allow aee_aedv debugfs_blockio:file r_file_perms;
 allow aee_aedv debugfs_fb:dir search;
-allow aee_aedv debugfs_fb:file { read open };
+allow aee_aedv debugfs_fb:file r_file_perms;
 allow aee_aedv debugfs_fuseio:dir search;
-allow aee_aedv debugfs_fuseio:file { read open };
+allow aee_aedv debugfs_fuseio:file r_file_perms;
 allow aee_aedv debugfs_ged:dir search;
-allow aee_aedv debugfs_ged:file { read open };
+allow aee_aedv debugfs_ged:file r_file_perms;
 allow aee_aedv debugfs_rcu:dir search;
-allow aee_aedv debugfs_shrinker_debug:file { read open };
-allow aee_aedv debugfs_wakeup_sources:file { read open };
-allow aee_aedv debugfs_dmlog_debug:file { read open };
-allow aee_aedv debugfs_page_owner_slim_debug:file { read open };
+allow aee_aedv debugfs_shrinker_debug:file r_file_perms;
+allow aee_aedv debugfs_wakeup_sources:file r_file_perms;
+allow aee_aedv debugfs_dmlog_debug:file r_file_perms;
+allow aee_aedv debugfs_page_owner_slim_debug:file r_file_perms;
 allow aee_aedv debugfs_ion_mm_heap:dir search;
 allow aee_aedv debugfs_ion_mm_heap:file r_file_perms;
 allow aee_aedv debugfs_ion_mm_heap:lnk_file read;
 allow aee_aedv debugfs_cpuhvfs:dir search;
-allow aee_aedv debugfs_cpuhvfs:file { read open };
-allow aee_aedv debugfs_emi_mbw_buf:file { read open };
-allow aee_aedv debugfs_vpu_device_dbg:file { read open };
+allow aee_aedv debugfs_cpuhvfs:file r_file_perms;
+allow aee_aedv debugfs_emi_mbw_buf:file r_file_perms;
+allow aee_aedv debugfs_vpu_device_dbg:file r_file_perms;
+allow aee_aedv debugfs_vpu_memory:file r_file_perms;
+allow aee_aedv debugfs_apusys_midware_register_all:file r_file_perms;
+allow aee_aedv debugfs_apusys_mdla_memory:file r_file_perms;
+allow aee_aedv debugfs_apusys_mnoc_sta_dump:file r_file_perms;
+allow aee_aedv debugfs_apusys_debug_log:file r_file_perms;
+allow aee_aedv debugfs_apusys_midware_mem:file r_file_perms;
 
 # Purpose:
 # 01-01 00:02:46.390  3315  3315 W aee_dumpstatev: type=1400 audit(0.0:4728):
@@ -273,7 +279,8 @@ allow aee_aedv debugfs_dynamic_debug:file r_file_perms;
 # [ 241.001976] <1>.(1)[209:logd.auditd]type=1400 audit(1262304586.172:515): avc: denied { read }
 # for pid=1978 comm="aee_aedv64" name="atag,devinfo" dev="sysfs" ino=2349 scontext=u:r:aee_aedv:s0
 # tcontext=u:object_r:sysfs:s0 tclass=file permissive=0
-allow aee_aedv sysfs_mrdump_lbaooo:file w_file_perms;
+allow aee_aedv sysfs_mrdump:file rw_file_perms;
+allow aee_aedv sysfs_memory:file r_file_perms;
 
 # Purpose: Allow aee_aedv to use HwBinder IPC.
 hwbinder_use(aee_aedv)
@@ -402,7 +409,8 @@ allow aee_aedv proc_slabtrace:file r_file_perms;
 allow aee_aedv proc_cmdq_debug:file r_file_perms;
 
 # temp solution
-get_prop(aee_aedv, vendor_default_prop)
+# GOOGLE: Commented out for b/169606103
+#get_prop(aee_aedv, vendor_default_prop)
 
 #data/dipdebug
 allow aee_aedv aee_dipdebug_vendor_file:dir r_dir_perms;
@@ -437,3 +445,37 @@ allow aee_aedv proc_aed_reboot_reason:file r_file_perms;
 allow aee_aedv proc_drop_caches:file rw_file_perms;
 
 allow aee_aedv proc_wmt_aee:file r_file_perms;
+
+allow aee_aedv proc_aed:file rw_file_perms;
+allow aee_aedv proc_aed:dir r_dir_perms;
+allow aee_aedv proc_ppm:dir r_dir_perms;
+
+allow aee_aedv dpm_block_device:blk_file r_file_perms;
+allow aee_aedv boot_para_block_device:blk_file rw_file_perms;
+
+allow aee_aedv proc_modules:file r_file_perms;
+
+set_prop(aee_aedv, powerctl_prop)
+
+allow aee_aedv debugfs_apusys_power_fail_log:file r_file_perms;
+
+allow aee_aedv proc_ccci_dump:file r_file_perms;
+allow aee_aedv proc_log_much:file r_file_perms;
+
+# Purpose: Allow aee_aedv to read /sys/kernel/tracing/instances/mmstat/trace
+allow aee_aedv debugfs_tracing_instances:dir r_dir_perms;
+allow aee_aedv debugfs_tracing_instances:file r_file_perms;
+
+allow aee_aedv binderfs_logs:dir r_dir_perms;
+allow aee_aedv binderfs_logs:file r_file_perms;
+
+allow aee_aedv proc_ion:dir r_dir_perms;
+allow aee_aedv proc_ion:file r_file_perms;
+allow aee_aedv proc_m4u_dbg:dir r_dir_perms;
+allow aee_aedv proc_m4u_dbg:file r_file_perms;
+allow aee_aedv proc_mtkfb:file r_file_perms;
+
+allow aee_aedv debugfs_cmdq:file r_file_perms;
+
+allow aee_aedv sysfs_dvfsrc_dbg:dir r_dir_perms;
+allow aee_aedv sysfs_dvfsrc_dbg:file r_file_perms;

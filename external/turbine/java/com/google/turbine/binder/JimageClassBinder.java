@@ -33,6 +33,7 @@ import com.google.turbine.binder.bytecode.BytecodeBoundClass;
 import com.google.turbine.binder.env.Env;
 import com.google.turbine.binder.lookup.LookupKey;
 import com.google.turbine.binder.lookup.LookupResult;
+import com.google.turbine.binder.lookup.PackageScope;
 import com.google.turbine.binder.lookup.Scope;
 import com.google.turbine.binder.lookup.TopLevelIndex;
 import com.google.turbine.binder.sym.ClassSymbol;
@@ -150,7 +151,7 @@ public class JimageClassBinder {
             String binaryName = modulePath.relativize(path).toString();
             binaryName = binaryName.substring(0, binaryName.length() - ".class".length());
             ClassSymbol sym = new ClassSymbol(binaryName);
-            packageClassesBySimpleName.put(packageName, simpleName(sym), sym);
+            packageClassesBySimpleName.put(packageName, sym.simpleName(), sym);
             JimageClassBinder.this.env.put(
                 sym, new BytecodeBoundClass(sym, toByteArrayOrDie(path), env, path.toString()));
           }
@@ -174,16 +175,6 @@ public class JimageClassBinder {
             }
           }
         });
-  }
-
-  private static String simpleName(ClassSymbol sym) {
-    int idx = sym.binaryName().lastIndexOf('/');
-    return idx != -1 ? sym.binaryName().substring(idx + 1) : sym.binaryName();
-  }
-
-  private static String packageName(ClassSymbol sym) {
-    int idx = sym.binaryName().lastIndexOf('/');
-    return idx != -1 ? sym.binaryName().substring(0, idx) : "";
   }
 
   private class JimageTopLevelIndex implements TopLevelIndex {
@@ -222,17 +213,22 @@ public class JimageClassBinder {
     }
 
     @Override
-    public Scope lookupPackage(ImmutableList<String> name) {
+    public PackageScope lookupPackage(Iterable<String> name) {
       String packageName = Joiner.on('/').join(name);
       if (!initPackage(packageName)) {
         return null;
       }
-      return new Scope() {
+      return new PackageScope() {
         @Nullable
         @Override
         public LookupResult lookup(LookupKey lookupKey) {
           ClassSymbol sym = packageClassesBySimpleName.get(packageName, lookupKey.first().value());
           return sym != null ? new LookupResult(sym, lookupKey) : null;
+        }
+
+        @Override
+        public Iterable<ClassSymbol> classes() {
+          return packageClassesBySimpleName.row(packageName).values();
         }
       };
     }
@@ -247,7 +243,7 @@ public class JimageClassBinder {
       return new Env<ClassSymbol, BytecodeBoundClass>() {
         @Override
         public BytecodeBoundClass get(ClassSymbol sym) {
-          return initPackage(packageName(sym)) ? env.get(sym) : null;
+          return initPackage(sym.packageName()) ? env.get(sym) : null;
         }
       };
     }
@@ -265,6 +261,11 @@ public class JimageClassBinder {
     @Override
     public TopLevelIndex index() {
       return index;
+    }
+
+    @Override
+    public Supplier<byte[]> resource(String input) {
+      return null;
     }
   }
 }

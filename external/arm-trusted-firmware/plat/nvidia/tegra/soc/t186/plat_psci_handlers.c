@@ -1,10 +1,12 @@
 /*
  * Copyright (c) 2015-2018, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include <assert.h>
+#include <stdbool.h>
 #include <string.h>
 
 #include <arch.h>
@@ -18,9 +20,11 @@
 #include <lib/psci/psci.h>
 #include <plat/common/platform.h>
 
+#include <bpmp_ipc.h>
 #include <mce.h>
+#include <memctrl_v2.h>
+#include <security_engine.h>
 #include <smmu.h>
-#include <stdbool.h>
 #include <t18x_ari.h>
 #include <tegra186_private.h>
 #include <tegra_private.h>
@@ -68,6 +72,11 @@ int32_t tegra_soc_validate_power_state(uint32_t power_state,
 	case PSTATE_ID_CORE_IDLE:
 	case PSTATE_ID_CORE_POWERDN:
 
+		if (psci_get_pstate_type(power_state) != PSTATE_TYPE_POWERDOWN) {
+			ret = PSCI_E_INVALID_PARAMS;
+			break;
+		}
+
 		/* Core powerdown request */
 		req_state->pwr_domain_state[MPIDR_AFFLVL0] = state_id;
 		req_state->pwr_domain_state[MPIDR_AFFLVL1] = state_id;
@@ -83,6 +92,12 @@ int32_t tegra_soc_validate_power_state(uint32_t power_state,
 	return ret;
 }
 
+int32_t tegra_soc_cpu_standby(plat_local_state_t cpu_state)
+{
+	(void)cpu_state;
+	return PSCI_E_SUCCESS;
+}
+
 int32_t tegra_soc_pwr_domain_suspend(const psci_power_state_t *target_state)
 {
 	const plat_local_state_t *pwr_domain_state;
@@ -90,7 +105,7 @@ int32_t tegra_soc_pwr_domain_suspend(const psci_power_state_t *target_state)
 	uint32_t cpu = plat_my_core_pos();
 	const plat_params_from_bl2_t *params_from_bl2 = bl31_get_plat_params();
 	mce_cstate_info_t cstate_info = { 0 };
-	uint64_t smmu_ctx_base;
+	uint64_t mc_ctx_base;
 	uint32_t val;
 
 	/* get the state ID */
@@ -123,10 +138,9 @@ int32_t tegra_soc_pwr_domain_suspend(const psci_power_state_t *target_state)
 		val = mmio_read_32(TEGRA_MISC_BASE + MISCREG_PFCFG);
 		mmio_write_32(TEGRA_SCRATCH_BASE + SCRATCH_SECURE_BOOTP_FCFG, val);
 
-		/* save SMMU context to TZDRAM */
-		smmu_ctx_base = params_from_bl2->tzdram_base +
-				tegra186_get_smmu_ctx_offset();
-		tegra_smmu_save_context((uintptr_t)smmu_ctx_base);
+		/* save MC context to TZDRAM */
+		mc_ctx_base = params_from_bl2->tzdram_base;
+		tegra_mc_save_context((uintptr_t)mc_ctx_base);
 
 		/* Prepare for system suspend */
 		cstate_info.cluster = (uint32_t)TEGRA_ARI_CLUSTER_CC7;
@@ -147,9 +161,6 @@ int32_t tegra_soc_pwr_domain_suspend(const psci_power_state_t *target_state)
 		/* Instruct the MCE to enter system suspend state */
 		(void)mce_command_handler((uint64_t)MCE_CMD_ENTER_CSTATE,
 			(uint64_t)TEGRA_ARI_CORE_C7, MCE_CORE_SLEEP_TIME_INFINITE, 0U);
-
-		/* set system suspend state for house-keeping */
-		tegra186_set_system_suspend_entry();
 
 	} else {
 		; /* do nothing */
@@ -273,20 +284,65 @@ int32_t tegra_soc_pwr_domain_power_down_wfi(const psci_power_state_t *target_sta
 	uint8_t stateid_afflvl2 = pwr_domain_state[PLAT_MAX_PWR_LVL] &
 		TEGRA186_STATE_ID_MASK;
 	uint64_t val;
+	uint64_t src_len_in_bytes = (uint64_t)(((uintptr_t)(&__BL31_END__) -
+					(uintptr_t)BL31_BASE));
+	int32_t ret;
 
 	if (stateid_afflvl2 == PSTATE_ID_SOC_POWERDN) {
+		val = params_from_bl2->tzdram_base +
+			tegra186_get_mc_ctx_size();
+
+		/* Initialise communication channel with BPMP */
+		assert(tegra_bpmp_ipc_init() == 0);
+
+		/* Enable SE clock */
+		ret = tegra_bpmp_ipc_enable_clock(TEGRA186_CLK_SE);
+		if (ret != 0) {
+			ERROR("Failed to enable clock\n");
+			return ret;
+		}
+
+		/*
+		 * Generate/save SHA256 of ATF during SC7 entry
+		 */
+		if (tegra_se_save_sha256_hash(BL31_BASE,
+					(uint32_t)src_len_in_bytes) != 0) {
+			ERROR("Hash calculation failed. Reboot\n");
+			(void)tegra_soc_prepare_system_reset();
+		}
+
 		/*
 		 * The TZRAM loses power when we enter system suspend. To
 		 * allow graceful exit from system suspend, we need to copy
 		 * BL3-1 over to TZDRAM.
 		 */
 		val = params_from_bl2->tzdram_base +
-			tegra186_get_cpu_reset_handler_size();
+			tegra186_get_mc_ctx_size();
 		memcpy16((void *)(uintptr_t)val, (void *)(uintptr_t)BL31_BASE,
 			 (uintptr_t)BL31_END - (uintptr_t)BL31_BASE);
+
+		/*
+		 * Save code base and size; this would be used by SC7-RF to
+		 * verify binary
+		 */
+		mmio_write_32(TEGRA_SCRATCH_BASE + SECURE_SCRATCH_RSV68_LO,
+				(uint32_t)val);
+		mmio_write_32(TEGRA_SCRATCH_BASE + SECURE_SCRATCH_RSV0_HI,
+				(uint32_t)src_len_in_bytes);
+
+		ret = tegra_bpmp_ipc_disable_clock(TEGRA186_CLK_SE);
+		if (ret != 0) {
+			ERROR("Failed to disable clock\n");
+			return ret;
+		}
 	}
 
 	return PSCI_E_SUCCESS;
+}
+
+int32_t tegra_soc_pwr_domain_suspend_pwrdown_early(const psci_power_state_t *target_state)
+{
+	return PSCI_E_NOT_SUPPORTED;
 }
 
 int32_t tegra_soc_pwr_domain_on(u_register_t mpidr)

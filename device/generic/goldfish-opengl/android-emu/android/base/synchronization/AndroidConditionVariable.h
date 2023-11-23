@@ -41,13 +41,20 @@ public:
     // efficient to signal the variable before unlocking mutex, while on others
     // (Windows) it's exactly the opposite. Functions implement the best way
     // for each platform and abstract it out from the user.
-    void signalAndUnlock(StaticLock* lock);
-    void signalAndUnlock(AutoLock* lock);
+    template <bool IsRecursive>
+    void signalAndUnlock(StaticLock<IsRecursive>* lock);
 
-    void broadcastAndUnlock(StaticLock* lock);
-    void broadcastAndUnlock(AutoLock* lock);
+    template <class Lockable>
+    void signalAndUnlock(AutoLock<Lockable>* lock);
 
-    void wait(AutoLock* userLock) {
+    template <bool IsRecursive>
+    void broadcastAndUnlock(StaticLock<IsRecursive>* lock);
+
+    template <class Lockable>
+    void broadcastAndUnlock(AutoLock<Lockable>* lock);
+
+    template <class Lockable>
+    void wait(AutoLock<Lockable>* userLock) {
         assert(userLock->mLocked);
         wait(&userLock->mLock);
     }
@@ -70,15 +77,15 @@ public:
     //          signature and returns a condition when one should stop waiting.
     //
 
-    template <class Predicate>
-    void wait(StaticLock* lock, Predicate pred) {
+    template <bool IsRecursive, class Predicate>
+    void wait(StaticLock<IsRecursive>* lock, Predicate pred) {
         while (!pred()) {
             this->wait(lock);
         }
     }
 
-    template <class Predicate>
-    void wait(AutoLock* lock, Predicate pred) {
+    template <class Lockable, class Predicate>
+    void wait(AutoLock<Lockable>* lock, Predicate pred) {
         this->wait(&lock->mLock, pred);
     }
 
@@ -101,11 +108,13 @@ public:
     //
     //    if (!condition) { condVar.wait(&lock); }
     //
-    void wait(StaticLock* userLock) {
+    template <bool IsRecursive>
+    void wait(StaticLock<IsRecursive>* userLock) {
         ::SleepConditionVariableSRW(&mCond, &userLock->mLock, INFINITE, 0);
     }
 
-    bool timedWait(StaticLock *userLock, System::Duration waitUntilUs) {
+    template <bool IsRecursive>
+    bool timedWait(StaticLock<IsRecursive>* userLock, System::Duration waitUntilUs) {
         const auto now = System::get()->getUnixTimeUs();
         const auto timeout =
                 std::max<System::Duration>(0, waitUntilUs  - now) / 1000;
@@ -139,18 +148,21 @@ private:
         pthread_cond_destroy(&mCond);
     }
 
-    void wait(StaticLock* userLock) {
+    template <bool IsRecursive>
+    void wait(StaticLock<IsRecursive>* userLock) {
         pthread_cond_wait(&mCond, &userLock->mLock);
     }
 
-    bool timedWait(StaticLock* userLock, uint64_t waitUntilUs) {
+    template <bool IsRecursive>
+    bool timedWait(StaticLock<IsRecursive>* userLock, uint64_t waitUntilUs) {
         timespec abstime;
         abstime.tv_sec = waitUntilUs / 1000000LL;
         abstime.tv_nsec = (waitUntilUs % 1000000LL) * 1000;
         return timedWait(userLock, abstime);
     }
 
-    bool timedWait(StaticLock* userLock, const timespec& abstime) {
+    template <bool IsRecursive>
+    bool timedWait(StaticLock<IsRecursive>* userLock, const timespec& abstime) {
         return pthread_cond_timedwait(&mCond, &userLock->mLock, &abstime) == 0;
     }
 
@@ -171,37 +183,46 @@ private:
 };
 
 #ifdef _WIN32
-inline void ConditionVariable::signalAndUnlock(StaticLock* lock) {
+template <bool IsRecursive>
+inline void ConditionVariable::signalAndUnlock(StaticLock<IsRecursive>* lock) {
     lock->unlock();
     signal();
 }
-inline void ConditionVariable::signalAndUnlock(AutoLock* lock) {
+template <class Lockable>
+inline void ConditionVariable::signalAndUnlock(AutoLock<Lockable>* lock) {
     lock->unlock();
     signal();
 }
 
-inline void ConditionVariable::broadcastAndUnlock(StaticLock* lock) {
+template <bool IsRecursive>
+inline void ConditionVariable::broadcastAndUnlock(StaticLock<IsRecursive>* lock) {
     lock->unlock();
     broadcast();
 }
-inline void ConditionVariable::broadcastAndUnlock(AutoLock* lock) {
+template <class Lockable>
+inline void ConditionVariable::broadcastAndUnlock(AutoLock<Lockable>* lock) {
     lock->unlock();
     broadcast();
 }
 #else  // !_WIN32
-inline void ConditionVariable::signalAndUnlock(StaticLock* lock) {
+
+template <bool IsRecursive>
+inline void ConditionVariable::signalAndUnlock(StaticLock<IsRecursive>* lock) {
     signal();
     lock->unlock();
 }
-inline void ConditionVariable::signalAndUnlock(AutoLock* lock) {
+template <class Lockable>
+inline void ConditionVariable::signalAndUnlock(AutoLock<Lockable>* lock) {
     signal();
     lock->unlock();
 }
-inline void ConditionVariable::broadcastAndUnlock(StaticLock* lock) {
+template <bool IsRecursive>
+inline void ConditionVariable::broadcastAndUnlock(StaticLock<IsRecursive>* lock) {
     broadcast();
     lock->unlock();
 }
-inline void ConditionVariable::broadcastAndUnlock(AutoLock* lock) {
+template <class Lockable>
+inline void ConditionVariable::broadcastAndUnlock(AutoLock<Lockable>* lock) {
     broadcast();
     lock->unlock();
 }

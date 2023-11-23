@@ -27,7 +27,7 @@
     <string name="toast_message_sent_success" msgid="1159956191974273064">"မက်ဆေ့ဂျ် ပို့ပြီးပါပြီ။"</string>
     <string name="notification_service_label" msgid="7512186049723777468">"ကားအကြောင်းကြားချက် နားဆင်စနစ် ဝန်ဆောင်မှု"</string>
     <string name="notifications" msgid="2865534625906329283">"အကြောင်းကြားချက် စင်တာ"</string>
-    <string name="clear_all" msgid="1845314281571237722">"အားလုံး ဖယ်ရန်"</string>
+    <string name="clear_all" msgid="1845314281571237722">"အားလုံးထုတ်ပစ်ရန်"</string>
     <string name="ellipsized_string" msgid="6993649229498857557">"…"</string>
     <string name="show_more" msgid="7291378544926443344">"နောက်ထပ် ပြရန်"</string>
     <string name="notification_header" msgid="324550431063568049">"အကြောင်းကြားချက်များ"</string>
@@ -39,4 +39,5 @@
       <item quantity="other">မက်ဆေ့ဂျ်သစ် <xliff:g id="COUNT">%d</xliff:g> စောင်</item>
       <item quantity="one">မက်ဆေ့ဂျ်သစ် ၁ စောင်</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"စီမံရန်"</string>
 </resources>

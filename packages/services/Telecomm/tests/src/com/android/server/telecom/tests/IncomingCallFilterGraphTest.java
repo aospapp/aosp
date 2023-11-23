@@ -112,7 +112,7 @@ public class IncomingCallFilterGraphTest extends TelecomTestCase {
     @Test
     public void testEmptyGraph() throws Exception {
         CompletableFuture<CallFilteringResult> testResult = new CompletableFuture<>();
-        CallFilterResultCallback listener = (call, result) -> testResult.complete(result);
+        CallFilterResultCallback listener = (call, result, timeout) -> testResult.complete(result);
 
         IncomingCallFilterGraph graph = new IncomingCallFilterGraph(mCall, listener, mContext,
                 mTimeoutsAdapter, mLock);
@@ -125,7 +125,7 @@ public class IncomingCallFilterGraphTest extends TelecomTestCase {
     @Test
     public void testFiltersPerformOrder() throws Exception {
         CompletableFuture<CallFilteringResult> testResult = new CompletableFuture<>();
-        CallFilterResultCallback listener = (call, result) -> testResult.complete(result);
+        CallFilterResultCallback listener = (call, result, timeout) -> testResult.complete(result);
 
         IncomingCallFilterGraph graph = new IncomingCallFilterGraph(mCall, listener, mContext,
                 mTimeoutsAdapter, mLock);
@@ -143,7 +143,7 @@ public class IncomingCallFilterGraphTest extends TelecomTestCase {
     @Test
     public void testFiltersPerformInParallel() throws Exception {
         CompletableFuture<CallFilteringResult> testResult = new CompletableFuture<>();
-        CallFilterResultCallback listener = (call, result) -> testResult.complete(result);
+        CallFilterResultCallback listener = (call, result, timeout) -> testResult.complete(result);
 
         IncomingCallFilterGraph graph = new IncomingCallFilterGraph(mCall, listener, mContext,
                 mTimeoutsAdapter, mLock);
@@ -162,7 +162,7 @@ public class IncomingCallFilterGraphTest extends TelecomTestCase {
     @Test
     public void testFiltersTimeout() throws Exception {
         CompletableFuture<CallFilteringResult> testResult = new CompletableFuture<>();
-        CallFilterResultCallback listener = (call, result) -> testResult.complete(result);
+        CallFilterResultCallback listener = (call, result, timeout) -> testResult.complete(result);
 
         IncomingCallFilterGraph graph = new IncomingCallFilterGraph(mCall, listener, mContext,
                 mTimeoutsAdapter, mLock);

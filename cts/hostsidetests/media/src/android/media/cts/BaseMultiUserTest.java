@@ -43,26 +43,7 @@ import javax.annotation.Nullable;
 /**
  * Base class for host-side tests for multi-user aware media APIs.
  */
-public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver {
-    private static final String RUNNER = "androidx.test.runner.AndroidJUnitRunner";
-
-    /**
-     * The defined timeout (in milliseconds) is used as a maximum waiting time when expecting the
-     * command output from the device. At any time, if the shell command does not output anything
-     * for a period longer than the defined timeout the Tradefed run terminates.
-     */
-    private static final long DEFAULT_SHELL_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(5);
-
-    /**
-     * Instrumentation test runner argument key used for individual test timeout
-     **/
-    protected static final String TEST_TIMEOUT_INST_ARGS_KEY = "timeout_msec";
-
-    /**
-     * Sets timeout (in milliseconds) that will be applied to each test. In the
-     * event of a test timeout it will log the results and proceed with executing the next test.
-     */
-    private static final long DEFAULT_TEST_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(5);
+public class BaseMultiUserTest extends BaseMediaHostSideTest {
     private static final String SETTINGS_PACKAGE_VERIFIER_NAMESPACE = "global";
     private static final String SETTINGS_PACKAGE_VERIFIER_NAME = "package_verifier_enable";
 
@@ -78,7 +59,6 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
      */
     protected static final int USER_SYSTEM = 0;
 
-    private IBuildInfo mCtsBuild;
     private String mPackageVerifier;
 
     private Set<String> mExistingPackages;
@@ -104,7 +84,7 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
                 "0",
                 USER_ALL);
 
-        mExistingUsers = new ArrayList();
+        mExistingUsers = new ArrayList<>();
         int primaryUserId = getDevice().getPrimaryUserId();
         mExistingUsers.add(primaryUserId);
         mExistingUsers.add(USER_SYSTEM);
@@ -139,11 +119,6 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
         super.tearDown();
     }
 
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mCtsBuild = buildInfo;
-    }
-
     /**
      * Installs the app as if the user of the ID {@param userId} has installed the app.
      *
@@ -163,20 +138,6 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
                 asInstantApp ? "--instant" : "");
         assertNull("Failed to install " + appFileName + " for user " + userId + ": " + result,
                 result);
-    }
-
-    /**
-     * Excutes shell command and returns the result.
-     *
-     * @param command command to run.
-     * @return result from the command. If the result was {@code null}, empty string ("") will be
-     *    returned instead. Otherwise, trimmed result will be returned.
-     */
-    protected @Nonnull String executeShellCommand(final String command) throws Exception {
-        CLog.d("Starting command " + command);
-        String commandOutput = getDevice().executeShellCommand(command);
-        CLog.d("Output for command " + command + ": " + commandOutput);
-        return commandOutput != null ? commandOutput.trim() : "";
     }
 
     private int createAndStartUser(String extraParam) throws Exception {
@@ -227,6 +188,7 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
     protected void removeUser(int userId) throws Exception  {
         if (getDevice().listUsers().contains(userId) && userId != USER_SYSTEM
                 && !mExistingUsers.contains(userId)) {
+            getDevice().executeShellCommand("am wait-for-broadcast-idle");
             // Don't log output, as tests sometimes set no debug user restriction, which
             // causes this to fail, we should still continue and remove the user.
             String stopUserCommand = "am stop-user -w -f " + userId;
@@ -247,49 +209,15 @@ public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver 
      *    {@code null}.
      * @param userId user ID to run the tests as.
      */
-    protected void runDeviceTestsAsUser(
+    protected void runDeviceTests(
             String pkgName, @Nullable String testClassName,
             @Nullable String testMethodName, int userId) throws DeviceNotAvailableException {
-        if (testClassName != null && testClassName.startsWith(".")) {
-            testClassName = pkgName + testClassName;
-        }
-
-        RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(
-                pkgName, RUNNER, getDevice().getIDevice());
-        testRunner.setMaxTimeToOutputResponse(DEFAULT_SHELL_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-        testRunner.addInstrumentationArg(
-                TEST_TIMEOUT_INST_ARGS_KEY, Long.toString(DEFAULT_TEST_TIMEOUT_MILLIS));
-        if (testClassName != null && testMethodName != null) {
-            testRunner.setMethodName(testClassName, testMethodName);
-        } else if (testClassName != null) {
-            testRunner.setClassName(testClassName);
-        }
-
+        RemoteAndroidTestRunner testRunner = getTestRunner(pkgName, testClassName, testMethodName);
         CollectingTestListener listener = new CollectingTestListener();
         assertTrue(getDevice().runInstrumentationTestsAsUser(testRunner, userId, listener));
 
         final TestRunResult result = listener.getCurrentRunResults();
-        if (result.isRunFailure()) {
-            throw new AssertionError("Failed to successfully run device tests for "
-                    + result.getName() + ": " + result.getRunFailureMessage());
-        }
-        if (result.getNumTests() == 0) {
-            throw new AssertionError("No tests were run on the device");
-        }
-
-        if (result.hasFailedTests()) {
-            // Build a meaningful error message
-            StringBuilder errorBuilder = new StringBuilder("On-device tests failed:\n");
-            for (Map.Entry<TestDescription, TestResult> resultEntry :
-                    result.getTestResults().entrySet()) {
-                if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
-                    errorBuilder.append(resultEntry.getKey().toString());
-                    errorBuilder.append(":\n");
-                    errorBuilder.append(resultEntry.getValue().getStackTrace());
-                }
-            }
-            throw new AssertionError(errorBuilder.toString());
-        }
+        assertTestsPassed(result);
     }
 
     /**

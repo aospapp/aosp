@@ -21,6 +21,8 @@ import android.os.Build;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 
+import com.android.wallpaper.module.WallpaperPersister.Destination;
+
 import java.util.List;
 
 /**
@@ -143,6 +145,16 @@ public interface WallpaperPreferences {
     void setHomeWallpaperPackageName(String packageName);
 
     /**
+     * Gets the home wallpaper's service name, which is present for live wallpapers.
+     */
+    String getHomeWallpaperServiceName();
+
+    /**
+     * Sets the home wallpaper's service name, which is present for live wallpapers.
+     */
+    void setHomeWallpaperServiceName(String serviceName);
+
+    /**
      * Gets the home wallpaper's ID, which is provided by WallpaperManager for static wallpapers.
      */
     @TargetApi(Build.VERSION_CODES.N)
@@ -255,6 +267,18 @@ public interface WallpaperPreferences {
      */
     @TargetApi(Build.VERSION_CODES.N)
     void setLockWallpaperId(int lockWallpaperId);
+
+    /**
+     * Gets the lock wallpaper's remote identifier.
+     */
+    String getLockWallpaperRemoteId();
+
+    /**
+     * Sets the lock wallpaper's remote identifier to SharedPreferences. This should be a string
+     * which uniquely identifies the currently set lock wallpaper in the context of a remote
+     * wallpaper collection.
+     */
+    void setLockWallpaperRemoteId(String wallpaperRemoteId);
 
     /**
      * Persists the timestamp of a daily wallpaper rotation that just occurred.
@@ -431,6 +455,36 @@ public interface WallpaperPreferences {
      * Resets the consecutive number of days daily rotation was not attempted to 0.
      */
     void resetNumDaysDailyRotationNotAttempted();
+
+    /**
+     * Return the count of wallpaper picker launch.
+     */
+    int getAppLaunchCount();
+
+    /**
+     * Return the date for the first time to launch wallpaper picker.
+     */
+    int getFirstLaunchDateSinceSetup();
+
+    /**
+     * Increments the number of wallpaper picker launch.
+     */
+    void incrementAppLaunched();
+
+    /**
+     * Returns the date for the first time to apply a wallpaper.
+     */
+    int getFirstWallpaperApplyDateSinceSetup();
+
+    /**
+     * Update currently set daily wallpaper info.
+     *
+     * @param destination  The wallpaper destination, 1: home, 2: lockscreen, 3: both.
+     * @param collectionId wallpaper category.
+     * @param wallpaperId  wallpaper id.
+     */
+    void updateDailyWallpaperSet(@Destination int destination, String collectionId,
+            String wallpaperId);
 
     /**
      * The possible wallpaper presentation modes, i.e., either "static" or "rotating".

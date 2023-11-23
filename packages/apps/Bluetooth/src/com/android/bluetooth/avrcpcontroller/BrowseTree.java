@@ -21,6 +21,8 @@ import android.net.Uri;
 import android.support.v4.media.MediaBrowserCompat.MediaItem;
 import android.util.Log;
 
+import com.android.bluetooth.Utils;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -76,8 +78,9 @@ public class BrowseTree {
         } else {
             mRootNode = new BrowseNode(new AvrcpItem.Builder().setDevice(device)
                     .setUuid(ROOT + device.getAddress().toString())
-                    .setTitle(device.getName()).setBrowsable(true).build());
+                    .setTitle(Utils.getName(device)).setBrowsable(true).build());
         }
+
         mRootNode.mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST;
         mRootNode.setExpectedChildren(255);
 
@@ -156,8 +159,8 @@ public class BrowseTree {
             AvrcpItem.Builder aid = new AvrcpItem.Builder();
             aid.setDevice(device);
             aid.setUuid(playerKey);
-            aid.setDisplayableName(device.getName());
-            aid.setTitle(device.getName());
+            aid.setDisplayableName(Utils.getName(device));
+            aid.setTitle(Utils.getName(device));
             aid.setBrowsable(true);
             mItem = aid.build();
         }

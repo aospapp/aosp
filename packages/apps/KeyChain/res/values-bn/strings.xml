@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"বহিরাগত সঞ্চয়স্থানে অবস্থিত %1$s বা %2$s এক্সটেনশান সহ PKCS#12 ফাইল থেকে আপনি আপনার সার্টিফিকেটগুলি ইনস্টল করতে পারেন।"</string>
     <string name="allow_button" msgid="3030990695030371561">"বেছে নিন"</string>
     <string name="deny_button" msgid="3766539809121892584">"অস্বীকার করুন"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"সার্টিফিকেট লোড করা হচ্ছে..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s সার্টিফিকেট আছে কিনা চেক করছে…"</string>
 </resources>

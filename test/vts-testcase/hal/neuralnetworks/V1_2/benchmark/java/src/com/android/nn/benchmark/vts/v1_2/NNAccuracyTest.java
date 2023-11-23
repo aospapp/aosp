@@ -117,17 +117,18 @@ public class NNAccuracyTest {
     @Test
     @LargeTest
     public void testDriver() throws BenchmarkException, IOException {
-        NNTestBase test = mModel.mEntry.createNNTestBase();
-        test.useNNApi();
-        test.setNNApiDeviceName(mModel.mInstance);
-        if (!test.setupModel(mActivity)) {
-            throw new AssumptionViolatedException("The driver rejected the model.");
+        try (NNTestBase test = mModel.mEntry.createNNTestBase()) {
+            test.useNNApi();
+            test.setNNApiDeviceName(mModel.mInstance);
+            if (!test.setupModel(mActivity)) {
+                throw new AssumptionViolatedException("The driver rejected the model.");
+            }
+            Pair<List<InferenceInOutSequence>, List<InferenceResult>> inferenceResults =
+                    test.runBenchmarkCompleteInputSet(/*setRepeat=*/1, /*timeoutSec=*/3600);
+            BenchmarkResult benchmarkResult = BenchmarkResult.fromInferenceResults(
+                    mModel.mEntry.mModelName, BenchmarkResult.BACKEND_TFLITE_NNAPI,
+                    inferenceResults.first, inferenceResults.second, test.getEvaluator());
+            assertFalse(benchmarkResult.hasValidationErrors());
         }
-        Pair<List<InferenceInOutSequence>, List<InferenceResult>> inferenceResults =
-                test.runBenchmarkCompleteInputSet(/*setRepeat=*/1, /*timeoutSec=*/3600);
-        BenchmarkResult benchmarkResult = BenchmarkResult.fromInferenceResults(
-                mModel.mEntry.mModelName, BenchmarkResult.BACKEND_TFLITE_NNAPI,
-                inferenceResults.first, inferenceResults.second, test.getEvaluator());
-        assertFalse(benchmarkResult.hasValidationErrors());
     }
 }

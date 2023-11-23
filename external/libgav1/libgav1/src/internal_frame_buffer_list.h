@@ -21,22 +21,28 @@
 #include <cstdint>
 #include <memory>
 
-#include "src/frame_buffer.h"
+#include "src/gav1/frame_buffer.h"
 #include "src/utils/memory.h"
+#include "src/utils/vector.h"
 
 namespace libgav1 {
 
-extern "C" int GetInternalFrameBuffer(void* private_data,
-                                      size_t y_plane_min_size,
-                                      size_t uv_plane_min_size,
-                                      FrameBuffer* frame_buffer);
+extern "C" Libgav1StatusCode OnInternalFrameBufferSizeChanged(
+    void* callback_private_data, int bitdepth, Libgav1ImageFormat image_format,
+    int width, int height, int left_border, int right_border, int top_border,
+    int bottom_border, int stride_alignment);
 
-extern "C" int ReleaseInternalFrameBuffer(void* private_data,
-                                          FrameBuffer* frame_buffer);
+extern "C" Libgav1StatusCode GetInternalFrameBuffer(
+    void* callback_private_data, int bitdepth, Libgav1ImageFormat image_format,
+    int width, int height, int left_border, int right_border, int top_border,
+    int bottom_border, int stride_alignment, Libgav1FrameBuffer* frame_buffer);
+
+extern "C" void ReleaseInternalFrameBuffer(void* callback_private_data,
+                                           void* buffer_private_data);
 
 class InternalFrameBufferList : public Allocable {
  public:
-  static std::unique_ptr<InternalFrameBufferList> Create(size_t num_buffers);
+  InternalFrameBufferList() = default;
 
   // Not copyable or movable.
   InternalFrameBufferList(const InternalFrameBufferList&) = delete;
@@ -44,9 +50,21 @@ class InternalFrameBufferList : public Allocable {
 
   ~InternalFrameBufferList() = default;
 
-  int GetFrameBuffer(size_t y_plane_min_size, size_t uv_plane_min_size,
-                     FrameBuffer* frame_buffer);
-  int ReleaseFrameBuffer(FrameBuffer* frame_buffer);
+  Libgav1StatusCode OnFrameBufferSizeChanged(int bitdepth,
+                                             Libgav1ImageFormat image_format,
+                                             int width, int height,
+                                             int left_border, int right_border,
+                                             int top_border, int bottom_border,
+                                             int stride_alignment);
+
+  Libgav1StatusCode GetFrameBuffer(int bitdepth,
+                                   Libgav1ImageFormat image_format, int width,
+                                   int height, int left_border,
+                                   int right_border, int top_border,
+                                   int bottom_border, int stride_alignment,
+                                   Libgav1FrameBuffer* frame_buffer);
+
+  void ReleaseFrameBuffer(void* buffer_private_data);
 
  private:
   struct Buffer : public Allocable {
@@ -55,11 +73,7 @@ class InternalFrameBufferList : public Allocable {
     bool in_use = false;
   };
 
-  InternalFrameBufferList(std::unique_ptr<Buffer[]> buffers,
-                          size_t num_buffers);
-
-  const std::unique_ptr<Buffer[]> buffers_;
-  const size_t num_buffers_;
+  Vector<std::unique_ptr<Buffer>> buffers_;
 };
 
 }  // namespace libgav1

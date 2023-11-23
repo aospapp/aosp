@@ -19,21 +19,26 @@ package com.android.car.settings.wifi;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
 import android.net.TetheringManager;
+import android.os.Handler;
 import android.os.HandlerExecutor;
+import android.os.Looper;
 
-import androidx.preference.Preference;
-
+import com.android.car.settings.R;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceController;
-import com.android.internal.os.BackgroundThread;
+import com.android.car.ui.preference.CarUiTwoActionSwitchPreference;
 
 /**
  * Controls the availability of wifi tethering preference based on whether tethering is supported
  */
-public class WifiTetherPreferenceController extends PreferenceController<Preference> {
+public class WifiTetherPreferenceController extends
+        PreferenceController<CarUiTwoActionSwitchPreference>
+        implements WifiTetheringHandler.WifiTetheringAvailabilityListener {
 
     private final TetheringManager mTetheringManager =
             getContext().getSystemService(TetheringManager.class);
+    private final Handler mHandler;
+    private WifiTetheringHandler mWifiTetheringHandler;
     private volatile boolean mIsTetheringSupported;
     private volatile boolean mReceivedTetheringEventCallback = false;
 
@@ -52,22 +57,36 @@ public class WifiTetherPreferenceController extends PreferenceController<Prefere
     public WifiTetherPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
+        mHandler = new Handler(Looper.getMainLooper());
+        mWifiTetheringHandler = new WifiTetheringHandler(context,
+                fragmentController.getSettingsLifecycle(), this);
     }
 
     @Override
-    protected Class<Preference> getPreferenceType() {
-        return Preference.class;
+    protected Class<CarUiTwoActionSwitchPreference> getPreferenceType() {
+        return CarUiTwoActionSwitchPreference.class;
+    }
+
+    @Override
+    protected void onCreateInternal() {
+        getPreference().setOnSecondaryActionClickListener(isChecked -> {
+            mWifiTetheringHandler.updateWifiTetheringState(isChecked);
+        });
     }
 
     @Override
     protected void onStartInternal() {
         mTetheringManager.registerTetheringEventCallback(
-                new HandlerExecutor(BackgroundThread.getHandler()), mTetheringCallback);
+                new HandlerExecutor(mHandler), mTetheringCallback);
+        boolean tetheringEnabled = mWifiTetheringHandler.isWifiTetheringEnabled();
+        updateSwitchPreference(tetheringEnabled);
+        mWifiTetheringHandler.onStartInternal();
     }
 
     @Override
     protected void onStopInternal() {
         mTetheringManager.unregisterTetheringEventCallback(mTetheringCallback);
+        mWifiTetheringHandler.onStopInternal();
     }
 
     @Override
@@ -76,5 +95,31 @@ public class WifiTetherPreferenceController extends PreferenceController<Prefere
             return AVAILABLE_FOR_VIEWING;
         }
         return  mIsTetheringSupported ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
+    }
+
+    @Override
+    public void onWifiTetheringAvailable() {
+        updateSwitchPreference(true);
+    }
+
+    @Override
+    public void onWifiTetheringUnavailable() {
+        updateSwitchPreference(false);
+    }
+
+    @Override
+    public void enablePreference() {
+        getPreference().setSecondaryActionEnabled(true);
+    }
+
+    @Override
+    public void disablePreference() {
+        getPreference().setSecondaryActionEnabled(false);
+    }
+
+    private void updateSwitchPreference(boolean switchOn) {
+        getPreference().setSummary(switchOn ? R.string.car_ui_preference_switch_on
+                : R.string.car_ui_preference_switch_off);
+        getPreference().setSecondaryActionChecked(switchOn);
     }
 }

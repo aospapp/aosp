@@ -4,7 +4,6 @@
 
 #include "brillo/key_value_store.h"
 
-#include <map>
 #include <string>
 #include <vector>
 
@@ -15,7 +14,6 @@
 #include <brillo/strings/string_utils.h>
 #include <brillo/map_utils.h>
 
-using std::map;
 using std::string;
 using std::vector;
 
@@ -36,6 +34,11 @@ string TrimKey(const string& key) {
 }
 
 }  // namespace
+
+KeyValueStore::KeyValueStore() = default;
+KeyValueStore::~KeyValueStore() = default;
+KeyValueStore::KeyValueStore(KeyValueStore&&) = default;
+KeyValueStore& KeyValueStore::operator=(KeyValueStore&&) = default;
 
 bool KeyValueStore::Load(const base::FilePath& path) {
   string file_data;
@@ -87,6 +90,10 @@ string KeyValueStore::SaveToString() const {
   for (const auto& key_value : store_)
     data += key_value.first + "=" + key_value.second + "\n";
   return data;
+}
+
+void KeyValueStore::Clear() {
+  store_.clear();
 }
 
 bool KeyValueStore::GetString(const string& key, string* value) const {

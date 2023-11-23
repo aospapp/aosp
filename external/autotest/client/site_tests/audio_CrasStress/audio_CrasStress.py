@@ -11,6 +11,7 @@ import time
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros import upstart
 from autotest_lib.client.cros.audio import audio_helper
 
 _STREAM_TYPE_INPUT = 0
@@ -36,6 +37,10 @@ class audio_CrasStress(test.test):
     _BLOCK_SIZES = ['512', '1024']
     _INPUT_BUFFER_DRIFT_CRITERIA = 2 * 1024
     _OUTPUT_BUFFER_DRIFT_CRITERIA = 3 * 1024
+
+    def initialize(self):
+        """Initialize the test"""
+        upstart.stop_job('ui')
 
     def _new_stream(self, stream_type):
         """Runs new stream by cras_test_client."""
@@ -74,6 +79,7 @@ class audio_CrasStress(test.test):
         while len(self._streams) > 0:
             self._streams[0].kill()
             self._streams.remove(self._streams[0])
+        upstart.restart_job('ui')
 
     def run_once(self, input_stream=True, output_stream=True):
         """

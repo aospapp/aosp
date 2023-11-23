@@ -24,9 +24,9 @@ import android.content.Context;
 import android.net.wifi.cts.WifiFeature;
 import android.net.wifi.nl80211.NativeScanResult;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;

@@ -1889,8 +1889,8 @@ static void do_options(struct dhcp_context* context, struct dhcp_packet* mess, u
                 *(p++) = 255;
 
                 if (fqdn_flags & 0x04) {
-                    p = do_rfc1035_name(p, hostname);
-                    if (domain) p = do_rfc1035_name(p, domain);
+                    p = do_rfc1035_name(p, hostname, NULL);
+                    if (domain) p = do_rfc1035_name(p, domain, NULL);
                     *p++ = 0;
                 } else {
                     memcpy(p, hostname, strlen(hostname));

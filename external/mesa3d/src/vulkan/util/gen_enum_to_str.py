@@ -25,7 +25,7 @@ from __future__ import print_function
 import argparse
 import os
 import textwrap
-import xml.etree.cElementTree as et
+import xml.etree.ElementTree as et
 
 from mako.template import Template
 
@@ -60,6 +60,7 @@ C_TEMPLATE = Template(textwrap.dedent(u"""\
     #include <string.h>
     #include <vulkan/vulkan.h>
     #include <vulkan/vk_android_native_buffer.h>
+    #include <vulkan/vk_layer.h>
     #include "util/macros.h"
     #include "vk_enum_to_str.h"
 
@@ -71,23 +72,16 @@ C_TEMPLATE = Template(textwrap.dedent(u"""\
     const char *
     vk_${enum.name[2:]}_to_str(${enum.name} input)
     {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wswitch"
         switch(input) {
         % for v in sorted(enum.values.keys()):
-            % if enum.values[v] in FOREIGN_ENUM_VALUES:
-
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wswitch"
-            % endif
             case ${v}:
                 return "${enum.values[v]}";
-            % if enum.values[v] in FOREIGN_ENUM_VALUES:
-            #pragma GCC diagnostic pop
-
-            % endif
         % endfor
-        default:
-            unreachable("Undefined enum value.");
         }
+        #pragma GCC diagnostic pop
+        unreachable("Undefined enum value.");
     }
 
       % if enum.guard:
@@ -97,6 +91,8 @@ C_TEMPLATE = Template(textwrap.dedent(u"""\
 
     size_t vk_structure_type_size(const struct VkBaseInStructure *item)
     {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wswitch"
         switch(item->sType) {
     % for struct in structs:
         % if struct.extension is not None and struct.extension.define is not None:
@@ -107,9 +103,11 @@ C_TEMPLATE = Template(textwrap.dedent(u"""\
         case ${struct.stype}: return sizeof(${struct.name});
         % endif
     %endfor
-        default:
-            unreachable("Undefined struct type.");
+        case VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO: return sizeof(VkLayerInstanceCreateInfo);
+        case VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO: return sizeof(VkLayerDeviceCreateInfo);
         }
+        #pragma GCC diagnostic pop
+        unreachable("Undefined struct type.");
     }
 
     void vk_load_instance_commands(VkInstance instance,
@@ -225,12 +223,6 @@ H_TEMPLATE = Template(textwrap.dedent(u"""\
     #endif"""),
     output_encoding='utf-8')
 
-# These enums are defined outside their respective enum blocks, and thus cause
-# -Wswitch warnings.
-FOREIGN_ENUM_VALUES = [
-    "VK_STRUCTURE_TYPE_NATIVE_BUFFER_ANDROID",
-]
-
 
 class NamedFactory(object):
     """Factory for creating enums."""
@@ -269,10 +261,23 @@ class VkEnum(object):
         self.values = values or dict()
         self.name_to_value = dict()
         self.guard = None
+        self.name_to_alias_list = {}
 
     def add_value(self, name, value=None,
-                  extnum=None, offset=None,
+                  extnum=None, offset=None, alias=None,
                   error=False):
+        if alias is not None:
+            assert value is None and offset is None
+            if alias not in self.name_to_value:
+                # We don't have this alias yet.  Just record the alias and
+                # we'll deal with it later.
+                alias_list = self.name_to_alias_list.get(alias, [])
+                alias_list.append(name);
+                return
+
+            # Use the value from the alias
+            value = self.name_to_value[alias]
+
         assert value is not None or extnum is not None
         if value is None:
             value = 1000000000 + (extnum - 1) * 1000 + offset
@@ -285,14 +290,19 @@ class VkEnum(object):
         elif len(self.values[value]) > len(name):
             self.values[value] = name
 
+        # Now that the value has been fully added, resolve aliases, if any.
+        if name in self.name_to_alias_list:
+            for alias in self.name_to_alias_list[name]:
+                add_value(alias, value)
+            del self.name_to_alias_list[name]
+
     def add_value_from_xml(self, elem, extension=None):
         self.extension = extension
         if 'value' in elem.attrib:
             self.add_value(elem.attrib['name'],
                            value=int(elem.attrib['value'], base=0))
         elif 'alias' in elem.attrib:
-            self.add_value(elem.attrib['name'],
-                           value=self.name_to_value[elem.attrib['alias']])
+            self.add_value(elem.attrib['name'], alias=elem.attrib['alias'])
         else:
             error = 'dir' in elem.attrib and elem.attrib['dir'] == '-'
             if 'extnumber' in elem.attrib:
@@ -433,8 +443,7 @@ def main():
                 enums=enums,
                 extensions=extensions,
                 structs=structs,
-                copyright=COPYRIGHT,
-                FOREIGN_ENUM_VALUES=FOREIGN_ENUM_VALUES))
+                copyright=COPYRIGHT))
 
 
 if __name__ == '__main__':

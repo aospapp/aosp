@@ -20,6 +20,9 @@
     <string name="saving_trace" msgid="1468692734770800541">"டிரேஸைச் சேமிக்கிறது"</string>
     <string name="trace_saved" msgid="5869970594780992309">"டிரேஸ் சேமிக்கப்பட்டது"</string>
     <string name="tap_to_share" msgid="6766732404489536899">"டிரேஸைப் பகிர, தட்டவும்"</string>
+    <string name="attaching_to_report" msgid="2629202947947275886">"பிழை அறிக்கையுடன் டிரேஸை இணைக்கிறது"</string>
+    <string name="attached_to_report" msgid="5806905349184608870">"பிழை அறிக்கையுடன் டிரேஸ் இணைக்கப்பட்டது"</string>
+    <string name="attached_to_report_summary" msgid="7665675771190391355">"BetterBug கருவியைத் திறக்க தட்டவும்"</string>
     <string name="stop_tracing" msgid="8916938308534164152">"டிரேஸ் செய்வதை நிறுத்தவும்"</string>
     <string name="tracing_categories_unavailable" msgid="5609076391417077752">"கிடைக்காத டிரேஸ் வகைகள்:"</string>
     <string name="trace_is_being_recorded" msgid="5947378146009337469">"டிரேஸ் பதிவுசெய்யப்படுகிறது"</string>
@@ -56,4 +59,9 @@
     <string name="sixteen_thousand_kb" msgid="7342517169232459259">"16384 கி.பை."</string>
     <string name="thirtytwo_thousand_kb" msgid="654328198799196150">"32768 கி.பை."</string>
     <string name="sixtyfive_thousand_kb" msgid="8168144138598305306">"65536 கி.பை."</string>
+    <string name="stop_on_bugreport" msgid="2045328149107284734">"பிழை அறிக்கைகளுக்காக டிரேஸ் செய்வதை நிறுத்து"</string>
+    <string name="stop_on_bugreport_summary" msgid="7844074306038850040">"பிழை அறிக்கை தொடங்கியதும் செயலிலுள்ள டிரேஸ் ரெக்கார்டிங்குகளை நிறுத்திவிடும்"</string>
+    <string name="attach_to_bug_report" msgid="2953745117960948415">"பிழை அறிக்கைகளுடன் டிரேஸ்களை இணை"</string>
+    <string name="attach_to_bug_report_summary" msgid="2225208904634565377">"பிழை அறிக்கை சேகரிக்கப்பட்டதும் செயலிலுள்ள டிரேஸ்கள் தானாகவே BetterBug கருவிக்கு அனுப்பப்படும்"</string>
+    <string name="link_to_traces" msgid="6569969595898995517">"டிரேஸ் கோப்புகளைக் காட்டு"</string>
 </resources>

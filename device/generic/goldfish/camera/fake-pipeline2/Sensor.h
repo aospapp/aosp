@@ -81,7 +81,6 @@
 
 #include "Scene.h"
 #include "Base.h"
-
 namespace android {
 
 class EmulatedFakeCamera2;
@@ -219,6 +218,8 @@ class Sensor: private Thread, public virtual RefBase {
     // Time of sensor startup, used for simulation zero-time point
     nsecs_t mStartupTime;
 
+    bool mIsMinigbm;
+
     /**
      * Inherited Thread virtual overrides, and members only used by the
      * processing thread
@@ -239,6 +240,7 @@ class Sensor: private Thread, public virtual RefBase {
     void captureRGBA(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height);
     void captureRGB(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height);
     void captureYU12(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height);
+    void captureNV12(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height);
     void captureDepth(uint8_t *img, uint32_t gain, uint32_t width, uint32_t height);
     void captureDepthCloud(uint8_t *img);
 

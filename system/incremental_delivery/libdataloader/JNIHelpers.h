@@ -59,6 +59,14 @@ static inline jint GetStaticIntFieldValueOrDie(JNIEnv* env, jclass clazz, const 
     return env->GetStaticIntField(clazz, res);
 }
 
+static inline jstring GetStringField(JNIEnv* env, jobject obj, jfieldID field) {
+    return reinterpret_cast<jstring>(env->GetObjectField(obj, field));
+}
+
+static inline jbyteArray GetByteArrayField(JNIEnv* env, jobject obj, jfieldID field) {
+    return reinterpret_cast<jbyteArray>(env->GetObjectField(obj, field));
+}
+
 static inline JNIEnv* GetJNIEnvironment(JavaVM* vm) {
     JNIEnv* env;
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {

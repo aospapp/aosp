@@ -16,9 +16,9 @@ to an in-memory executable. libbcc is versatile because:
   performance *at the same time*. libbcc attempts to address these
   design constraints.
 
-* it supports on-device linking. Each device vendor can supply his or
-  her own runtime bitcode library (lib*.bc) that differentiates his or
-  her system. Specialization becomes ecosystem-friendly.
+* it supports on-device linking. Each device vendor can supply their
+  own runtime bitcode library (lib*.bc) that differentiates their
+  system. Specialization becomes ecosystem-friendly.
 
 libbcc provides:
 

@@ -14,8 +14,14 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsUsePermissionAppWithOverlay",
+    defaults: ["mts-target-sdk-version-current"],
+    min_sdk_version: "30",
     srcs: [
         "src/**/*.kt",
     ],

@@ -30,7 +30,7 @@ MEASUREMENT_DURATION_SECONDS = 12
 # Time in seconds to wait for cpu idle until giveup.
 IDLE_CPU_WAIT_TIMEOUT_SECONDS = 60.0
 # Maximum percent of cpu usage considered as idle.
-IDLE_CPU_LOAD_PERCENTAGE = 0.2
+IDLE_CPU_LOAD_PERCENTAGE = 2.5
 
 GRAPH_NAME = 'power_consumption'
 

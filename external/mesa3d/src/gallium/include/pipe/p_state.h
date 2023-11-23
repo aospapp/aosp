@@ -111,6 +111,7 @@ struct pipe_rasterizer_state
    unsigned point_tri_clip:1; /** large points clipped as tris or points */
    unsigned point_size_per_vertex:1; /**< size computed in vertex shader */
    unsigned multisample:1;         /* XXX maybe more ms state in future */
+   unsigned no_ms_sample_mask_out:1;
    unsigned force_persample_interp:1;
    unsigned line_smooth:1;
    unsigned line_stipple_enable:1;
@@ -213,6 +214,10 @@ struct pipe_viewport_state
 {
    float scale[3];
    float translate[3];
+   enum pipe_viewport_swizzle swizzle_x:8;
+   enum pipe_viewport_swizzle swizzle_y:8;
+   enum pipe_viewport_swizzle swizzle_z:8;
+   enum pipe_viewport_swizzle swizzle_w:8;
 };
 
 
@@ -272,7 +277,7 @@ struct pipe_stream_output_info
  *
  * NOTE: since it is expected that the consumer will want to perform
  * additional passes on the nir_shader, the driver takes ownership of
- * the nir_shader.  If state trackers need to hang on to the IR (for
+ * the nir_shader.  If gallium frontends need to hang on to the IR (for
  * example, variant management), it should use nir_shader_clone().
  */
 struct pipe_shader_state
@@ -358,7 +363,10 @@ struct pipe_blend_state
    unsigned logicop_func:4;      /**< PIPE_LOGICOP_x */
    unsigned dither:1;
    unsigned alpha_to_coverage:1;
+   unsigned alpha_to_coverage_dither:1;
    unsigned alpha_to_one:1;
+   unsigned max_rt:3;            /* index of max rt, Ie. # of cbufs minus 1 */
+   unsigned advanced_blend_func:4;
    struct pipe_rt_blend_state rt[PIPE_MAX_COLOR_BUFS];
 };
 
@@ -567,6 +575,10 @@ struct pipe_resource
    struct pipe_screen *screen; /**< screen that this texture belongs to */
 };
 
+/**
+ * Opaque object used for separate resource/memory allocations.
+ */
+struct pipe_memory_allocation;
 
 /**
  * Transfer object.  For data transfer to/from a resource.
@@ -575,7 +587,7 @@ struct pipe_transfer
 {
    struct pipe_resource *resource; /**< resource to transfer to/from  */
    unsigned level;                 /**< texture mipmap level */
-   enum pipe_transfer_usage usage;
+   enum pipe_map_flags usage;
    struct pipe_box box;            /**< region of the resource to access */
    unsigned stride;                /**< row stride in bytes */
    unsigned layer_stride;          /**< image/layer stride in bytes */
@@ -709,18 +721,16 @@ struct pipe_draw_indirect_info
    struct pipe_resource *indirect_draw_count;
 };
 
+struct pipe_draw_start_count {
+   unsigned start;
+   unsigned count;
+};
 
 /**
  * Information to describe a draw_vbo call.
  */
 struct pipe_draw_info
 {
-   ubyte index_size;  /**< if 0, the draw is not indexed. */
-   enum pipe_prim_type mode:8;  /**< the mode of the primitive */
-   unsigned primitive_restart:1;
-   unsigned has_user_indices:1; /**< if true, use index.user_buffer */
-   ubyte vertices_per_patch; /**< the number of vertices per patch */
-
    /**
     * Direct draws: start is the index of the first vertex
     * Non-indexed indirect draws: not used
@@ -728,6 +738,13 @@ struct pipe_draw_info
     */
    unsigned start;
    unsigned count;  /**< number of vertices */
+
+   enum pipe_prim_type mode:8;  /**< the mode of the primitive */
+   ubyte vertices_per_patch; /**< the number of vertices per patch */
+   ubyte index_size;  /**< if 0, the draw is not indexed. */
+   bool primitive_restart:1;
+   bool has_user_indices:1; /**< if true, use index.user_buffer */
+   char _pad:6;             /**< padding for memcmp */
 
    unsigned start_instance; /**< first instance id */
    unsigned instance_count; /**< number of instances */
@@ -796,17 +813,17 @@ struct pipe_blit_info
    unsigned mask; /**< bitmask of PIPE_MASK_R/G/B/A/Z/S */
    unsigned filter; /**< PIPE_TEX_FILTER_* */
 
-   boolean scissor_enable;
+   bool scissor_enable;
    struct pipe_scissor_state scissor;
 
    /* Window rectangles can either be inclusive or exclusive. */
-   boolean window_rectangle_include;
+   bool window_rectangle_include;
    unsigned num_window_rectangles;
    struct pipe_scissor_state window_rectangles[PIPE_MAX_WINDOW_RECTANGLES];
 
-   boolean render_condition_enable; /**< whether the blit should honor the
-                                    current render condition */
-   boolean alpha_blend; /* dst.rgb = src.rgb * src.a + dst.rgb * (1 - src.a) */
+   bool render_condition_enable; /**< whether the blit should honor the
+                                 current render condition */
+   bool alpha_blend; /* dst.rgb = src.rgb * src.a + dst.rgb * (1 - src.a) */
 };
 
 /**
@@ -879,11 +896,12 @@ struct pipe_grid_info
 };
 
 /**
- * Structure used as a header for serialized LLVM programs.
+ * Structure used as a header for serialized compute programs.
  */
-struct pipe_llvm_program_header
+struct pipe_binary_program_header
 {
    uint32_t num_bytes; /**< Number of bytes in the LLVM bytecode program. */
+   char blob[];
 };
 
 struct pipe_compute_state
@@ -897,7 +915,7 @@ struct pipe_compute_state
 
 /**
  * Structure that contains a callback for debug messages from the driver back
- * to the state tracker.
+ * to the gallium frontend.
  */
 struct pipe_debug_callback
 {
@@ -909,7 +927,7 @@ struct pipe_debug_callback
 
    /**
     * Callback for the driver to report debug/performance/etc information back
-    * to the state tracker.
+    * to the gallium frontend.
     *
     * \param data       user-supplied data pointer
     * \param id         message type identifier, if pointed value is 0, then a
@@ -928,7 +946,7 @@ struct pipe_debug_callback
 
 /**
  * Structure that contains a callback for device reset messages from the driver
- * back to the state tracker.
+ * back to the gallium frontend.
  *
  * The callback must not be called from driver-created threads.
  */

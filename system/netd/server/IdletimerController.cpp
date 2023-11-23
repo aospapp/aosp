@@ -39,8 +39,8 @@
  * # For notifications to work the lable name must match the name of a valid interface.
  * # If the label name does match an interface, the rules will be a no-op.
  *
- * iptables -t raw -A idletimer_PREROUTING -i rmnet0 -j IDLETIMER  --timeout 5 --label test-chain --send_nl_msg 1
- * iptables -t mangle -A idletimer_POSTROUTING -o rmnet0 -j IDLETIMER  --timeout 5 --label test-chain --send_nl_msg 1
+ * iptables -t raw -A idletimer_PREROUTING -i rmnet0 -j IDLETIMER  --timeout 5 --label test-chain --send_nl_msg
+ * iptables -t mangle -A idletimer_POSTROUTING -o rmnet0 -j IDLETIMER  --timeout 5 --label test-chain --send_nl_msg
  *
  * iptables -nxvL -t raw
  * iptables -nxvL -t mangle
@@ -147,14 +147,14 @@ int IdletimerController::modifyInterfaceIdletimer(IptOp op, const char *iface,
 
     const char *addRemove = (op == IptOpAdd) ? "-A" : "-D";
     std::vector<std::string> cmds = {
-        "*raw",
-        StringPrintf("%s %s -i %s -j IDLETIMER --timeout %u --label %s --send_nl_msg 1",
-                    addRemove, LOCAL_RAW_PREROUTING, iface, timeout, classLabel),
-        "COMMIT",
-        "*mangle",
-        StringPrintf("%s %s -o %s -j IDLETIMER --timeout %u --label %s --send_nl_msg 1",
-                    addRemove, LOCAL_MANGLE_POSTROUTING, iface, timeout, classLabel),
-        "COMMIT\n",
+            "*raw",
+            StringPrintf("%s %s -i %s -j IDLETIMER --timeout %u --label %s --send_nl_msg",
+                         addRemove, LOCAL_RAW_PREROUTING, iface, timeout, classLabel),
+            "COMMIT",
+            "*mangle",
+            StringPrintf("%s %s -o %s -j IDLETIMER --timeout %u --label %s --send_nl_msg",
+                         addRemove, LOCAL_MANGLE_POSTROUTING, iface, timeout, classLabel),
+            "COMMIT\n",
     };
 
     return (execIptablesRestore(V4V6, Join(cmds, '\n')) == 0) ? 0 : -EREMOTEIO;

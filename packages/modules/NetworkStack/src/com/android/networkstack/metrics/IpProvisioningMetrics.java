@@ -16,12 +16,13 @@
 
 package com.android.networkstack.metrics;
 
-import android.net.util.NetworkStackUtils;
 import android.net.util.Stopwatch;
 import android.stats.connectivity.DhcpErrorCode;
 import android.stats.connectivity.DhcpFeature;
 import android.stats.connectivity.DisconnectCode;
 import android.stats.connectivity.HostnameTransResult;
+
+import com.android.net.module.util.ConnectivityUtils;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -70,7 +71,7 @@ public class IpProvisioningMetrics {
      */
     public void setIPv4ProvisionedLatencyOnFirstTime(final boolean isIpv4Provisioned) {
         if (isIpv4Provisioned && !mStatsBuilder.hasIpv4LatencyMicros()) {
-            mStatsBuilder.setIpv4LatencyMicros(NetworkStackUtils.saturatedCast(mIpv4Watch.stop()));
+            mStatsBuilder.setIpv4LatencyMicros(ConnectivityUtils.saturatedCast(mIpv4Watch.stop()));
         }
     }
 
@@ -79,7 +80,7 @@ public class IpProvisioningMetrics {
      */
     public void setIPv6ProvisionedLatencyOnFirstTime(final boolean isIpv6Provisioned) {
         if (isIpv6Provisioned && !mStatsBuilder.hasIpv6LatencyMicros()) {
-            mStatsBuilder.setIpv6LatencyMicros(NetworkStackUtils.saturatedCast(mIpv6Watch.stop()));
+            mStatsBuilder.setIpv6LatencyMicros(ConnectivityUtils.saturatedCast(mIpv6Watch.stop()));
         }
     }
 

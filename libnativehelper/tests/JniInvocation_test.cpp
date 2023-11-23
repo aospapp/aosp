@@ -14,82 +14,58 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "NativeBridge_test"
+#include "../JniInvocation-priv.h"
 
-#include <nativehelper/JniInvocation.h>
 #include <gtest/gtest.h>
+#include <jni.h>
 
 
-#include "string.h"
-
-#if defined(__ANDROID__) && defined(__BIONIC__)
-#define HAVE_TEST_STUFF 1
-#else
-#undef HAVE_TEST_STUFF
-#endif
-
-#ifdef HAVE_TEST_STUFF
-
-// PROPERTY_VALUE_MAX.
-#include "cutils/properties.h"
-
-#endif
-
-#ifdef HAVE_TEST_STUFF
+static const char* kDefaultJniInvocationLibrary = "libart.so";
 static const char* kTestNonNull = "libartd.so";
 static const char* kTestNonNull2 = "libartd2.so";
-static const char* kExpected = "libart.so";
-#endif
 
 TEST(JNIInvocation, Debuggable) {
-#ifdef HAVE_TEST_STUFF
-    auto is_debuggable = []() { return true; };
-    auto get_library_system_property = [](char* buffer) -> int {
-        strcpy(buffer, kTestNonNull2);
-        return sizeof(kTestNonNull2);
-    };
+    const char* result = JniInvocationGetLibraryWith(nullptr, true, kTestNonNull2);
+    EXPECT_STREQ(result, kTestNonNull2);
 
-    char buffer[PROPERTY_VALUE_MAX];
-    const char* result =
-        JniInvocation::GetLibrary(NULL, buffer, is_debuggable, get_library_system_property);
-    EXPECT_FALSE(result == NULL);
-    if (result != NULL) {
-        EXPECT_TRUE(strcmp(result, kTestNonNull2) == 0);
-        EXPECT_FALSE(strcmp(result, kExpected) == 0);
-    }
+    result = JniInvocationGetLibraryWith(kTestNonNull, true, kTestNonNull2);
+    EXPECT_STREQ(result, kTestNonNull);
 
-    result =
-        JniInvocation::GetLibrary(kTestNonNull, buffer, is_debuggable, get_library_system_property);
-    EXPECT_FALSE(result == NULL);
-    if (result != NULL) {
-        EXPECT_TRUE(strcmp(result, kTestNonNull) == 0);
-        EXPECT_FALSE(strcmp(result, kTestNonNull2) == 0);
-    }
-#else
-    GTEST_LOG_(WARNING) << "Host testing unsupported. Please run target tests.";
-#endif
+    result = JniInvocationGetLibraryWith(kTestNonNull, true, nullptr);
+    EXPECT_STREQ(result, kTestNonNull);
+
+    result = JniInvocationGetLibraryWith(nullptr, true, nullptr);
+    EXPECT_STREQ(result, kDefaultJniInvocationLibrary);
 }
 
 TEST(JNIInvocation, NonDebuggable) {
-#ifdef HAVE_TEST_STUFF
-    auto is_debuggable = []() { return false; };
+    const char* result = JniInvocationGetLibraryWith(nullptr, false, kTestNonNull2);
+    EXPECT_STREQ(result, kDefaultJniInvocationLibrary);
 
-    char buffer[PROPERTY_VALUE_MAX];
-    const char* result = JniInvocation::GetLibrary(NULL, buffer, is_debuggable, nullptr);
-    EXPECT_FALSE(result == NULL);
-    if (result != NULL) {
-        EXPECT_TRUE(strcmp(result, kExpected) == 0);
-        EXPECT_FALSE(strcmp(result, kTestNonNull) == 0);
-        EXPECT_FALSE(strcmp(result, kTestNonNull2) == 0);
-    }
+    result = JniInvocationGetLibraryWith(kTestNonNull, false, kTestNonNull2);
+    EXPECT_STREQ(result, kDefaultJniInvocationLibrary);
 
-    result = JniInvocation::GetLibrary(kTestNonNull, buffer, is_debuggable, nullptr);
-    EXPECT_FALSE(result == NULL);
-    if (result != NULL) {
-        EXPECT_TRUE(strcmp(result, kExpected) == 0);
-        EXPECT_FALSE(strcmp(result, kTestNonNull) == 0);
-    }
-#else
-    GTEST_LOG_(WARNING) << "Host testing unsupported. Please run target tests.";
-#endif
+    result = JniInvocationGetLibraryWith(kTestNonNull, false, nullptr);
+    EXPECT_STREQ(result, kDefaultJniInvocationLibrary);
+
+    result = JniInvocationGetLibraryWith(nullptr, false, nullptr);
+    EXPECT_STREQ(result, kDefaultJniInvocationLibrary);
+}
+
+TEST(JNIInvocation, GetDefaultJavaVMInitArgsBeforeInit) {
+    EXPECT_DEATH(JNI_GetDefaultJavaVMInitArgs(nullptr), "Runtime library not loaded.");
+}
+
+TEST(JNIInvocation, CreateJavaVMBeforeInit) {
+    JavaVM *vm;
+    JNIEnv *env;
+    EXPECT_DEATH(JNI_CreateJavaVM(&vm, &env, nullptr), "Runtime library not loaded.");
+}
+
+TEST(JNIInvocation, GetCreatedJavaVMsBeforeInit) {
+    jsize vm_count;
+    JavaVM *vm;
+    int status = JNI_GetCreatedJavaVMs(&vm, 1, &vm_count);
+    EXPECT_EQ(status, JNI_OK);
+    EXPECT_EQ(vm_count, 0);
 }

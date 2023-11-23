@@ -17,7 +17,7 @@ import time
 
 from acts.controllers.rohdeschwarz_lib import cmw500
 from acts.controllers import cellular_simulator as cc
-from acts.test_utils.power.tel_simulations import LteSimulation
+from acts.controllers.cellular_lib import LteSimulation
 
 CMW_TM_MAPPING = {
     LteSimulation.TransmissionMode.TM1: cmw500.TransmissionModes.TM1,
@@ -358,7 +358,7 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
             self.cmw.configure_mimo_settings(cmw500.MimoScenario.SCEN4x4)
             bts.dl_antenna = cmw500.MimoModes.MIMO4x4
         else:
-            RuntimeError('The requested MIMO mode is not supported.')
+            raise RuntimeError('The requested MIMO mode is not supported.')
 
     def set_transmission_mode(self, bts_index, tmode):
         """ Sets the transmission mode for the indicated base station.
@@ -452,15 +452,6 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
             self.log.info('dl rb configurations set to {}'.format(
                 bts.rb_configuration_dl))
 
-    def set_enabled_for_ca(self, bts_index, enabled):
-        """ Enables or disables the base station during carrier aggregation.
-
-        Args:
-            bts_index: the base station number
-            enabled: whether the base station should be enabled for ca.
-        """
-        raise NotImplementedError()
-
     def set_dl_modulation(self, bts_index, modulation):
         """ Sets the DL modulation for the indicated base station.
 
@@ -540,9 +531,14 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
         self.log.error('Configuring the PHICH resource setting is not yet '
                        'implemented in the CMW500 controller.')
 
-    def lte_attach_secondary_carriers(self):
+    def lte_attach_secondary_carriers(self, ue_capability_enquiry):
         """ Activates the secondary carriers for CA. Requires the DUT to be
-        attached to the primary carrier first. """
+        attached to the primary carrier first.
+
+        Args:
+            ue_capability_enquiry: UE capability enquiry message to be sent to
+        the UE before starting carrier aggregation.
+        """
         raise NotImplementedError()
 
     def wait_until_attached(self, timeout=120):

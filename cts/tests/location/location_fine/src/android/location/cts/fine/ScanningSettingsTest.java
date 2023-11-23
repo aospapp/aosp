@@ -30,6 +30,9 @@ import android.provider.Settings;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.UiScrollable;
+import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.test.AndroidTestCase;
 
@@ -63,11 +66,12 @@ public class ScanningSettingsTest extends AndroidTestCase {
     private PackageManager mPackageManager;
 
     @Override
-    protected void setUp() {
+    protected void setUp() throws Exception {
+        super.setUp();
         // Can't use assumeTrue / assumeFalse because this is not a junit test, and so doesn't
         // support using these keywords to trigger assumption failure and skip test.
-        if (FeatureUtil.isTV() || FeatureUtil.isAutomotive()) {
-            // TV and auto do not support the setting options of WIFI scanning and Bluetooth
+        if (FeatureUtil.isTV() || FeatureUtil.isAutomotive() || FeatureUtil.isWatch()) {
+            // TV, auto, and watch do not support the setting options of WIFI scanning and Bluetooth
             // scanning
             return;
         }
@@ -83,10 +87,11 @@ public class ScanningSettingsTest extends AndroidTestCase {
 
     @CddTest(requirement = "7.4.2/C-2-1")
     public void testWifiScanningSettings() throws Exception {
-        if (FeatureUtil.isTV() || FeatureUtil.isAutomotive()) {
+        if (FeatureUtil.isTV() || FeatureUtil.isAutomotive() || FeatureUtil.isWatch()) {
             return;
         }
-        launchScanningSettings();
+        launchLocationServicesSettings();
+        launchScanningSettingsFragment(WIFI_SCANNING_TITLE_RES);
 
         final Resources res = mPackageManager.getResourcesForApplication(SETTINGS_PACKAGE);
         final int resId = res.getIdentifier(WIFI_SCANNING_TITLE_RES, "string", SETTINGS_PACKAGE);
@@ -115,15 +120,17 @@ public class ScanningSettingsTest extends AndroidTestCase {
 
     @CddTest(requirement = "7.4.3/C-4-1")
     public void testBleScanningSettings() throws PackageManager.NameNotFoundException {
-        if (FeatureUtil.isTV() || FeatureUtil.isAutomotive()) {
+        if (FeatureUtil.isTV() || FeatureUtil.isAutomotive() || FeatureUtil.isWatch()) {
             return;
         }
-        launchScanningSettings();
+        launchLocationServicesSettings();
+        launchScanningSettingsFragment(BLUETOOTH_SCANNING_TITLE_RES);
+
         toggleSettingAndVerify(BLUETOOTH_SCANNING_TITLE_RES,
                 Settings.Global.BLE_SCAN_ALWAYS_AVAILABLE);
     }
 
-    private void launchScanningSettings() {
+    private void launchLocationServicesSettings() {
         // Start from the home screen
         mDevice.pressHome();
         mDevice.wait(Until.hasObject(By.pkg(mLauncherPackage).depth(0)), TIMEOUT);
@@ -135,6 +142,25 @@ public class ScanningSettingsTest extends AndroidTestCase {
 
         // Wait for the app to appear
         mDevice.wait(Until.hasObject(By.pkg(SETTINGS_PACKAGE).depth(0)), TIMEOUT);
+    }
+
+    private void launchScanningSettingsFragment(String name)
+            throws PackageManager.NameNotFoundException {
+        final Resources res = mPackageManager.getResourcesForApplication(SETTINGS_PACKAGE);
+        int resId = res.getIdentifier(name, "string", SETTINGS_PACKAGE);
+        UiScrollable uiScrollable = new UiScrollable(new UiSelector().scrollable(true));
+        try {
+            uiScrollable.scrollTextIntoView(res.getString(resId));
+        } catch (UiObjectNotFoundException e) {
+            // Scrolling can fail if the UI is not scrollable
+        }
+
+        UiObject2 pref = mDevice.findObject(By.text(res.getString(resId)));
+        // Click the preference to show the Scanning fragment
+        pref.click();
+
+        // Wait for the Scanning fragment to appear
+        mDevice.wait(Until.hasObject(By.pkg(SETTINGS_PACKAGE).depth(1)), TIMEOUT);
     }
 
     private void clickAndWaitForSettingChange(UiObject2 pref, ContentResolver resolver,

@@ -30,7 +30,11 @@ using android::Mutex;
 using android::hardware::Return;
 
 ASensorEventQueue::ASensorEventQueue(ALooper* looper, ALooper_callbackFunc callback, void* data)
-    : mLooper(looper), mCallback(callback), mData(data), mRequestAdditionalInfo(false) {}
+    : mLooper(looper),
+      mCallback(callback),
+      mData(data),
+      mRequestAdditionalInfo(false),
+      mValid(true) {}
 
 void ASensorEventQueue::setImpl(const sp<IEventQueue> &queueImpl) {
     mQueueImpl = queueImpl;
@@ -106,17 +110,31 @@ Return<void> ASensorEventQueue::onEvent(const Event &event) {
     LOG(VERBOSE) << "ASensorEventQueue::onEvent";
 
     if (static_cast<int32_t>(event.sensorType) != ASENSOR_TYPE_ADDITIONAL_INFO ||
-        mRequestAdditionalInfo.load()) {
-        {
-            Mutex::Autolock autoLock(mLock);
+            mRequestAdditionalInfo.load()) {
 
+        {
+            // Only lock the mutex in this block to avoid the following deadlock scenario:
+            //
+            // ASensorEventQueue::onEvent is called which grabs ASensorEventQueue::mLock followed
+            // by ALooper::mLock via ALooper::signalSensorEvents.
+            //
+            // Meanwhile
+            //
+            // ASensorEventQueue::dispatchCallback is invoked from ALooper::pollOnce which has
+            // has ALooper::mLock locked and the dispatched callback invokes
+            // ASensorEventQueue::getEvents which would try to grab ASensorEventQueue::mLock
+            // resulting in a deadlock.
+            Mutex::Autolock autoLock(mLock);
             mQueue.emplace_back();
             sensors_event_t* sensorEvent = &mQueue[mQueue.size() - 1];
             android::hardware::sensors::V1_0::implementation::convertToSensorEvent(event,
                                                                                    sensorEvent);
         }
 
-        mLooper->signalSensorEvents(this);
+        Mutex::Autolock autoLock(mValidLock);
+        if (mValid) {
+            mLooper->signalSensorEvents(this);
+        }
     }
 
     return android::hardware::Void();
@@ -134,6 +152,13 @@ void ASensorEventQueue::dispatchCallback() {
 }
 
 void ASensorEventQueue::invalidate() {
+    {
+      // Only lock within this context to avoid locking while calling invalidateSensorQueue which
+      // also holds a lock. This is safe to do because mValid can't be made true after it's false
+      // so onEvent will never signal new sensor events after mValid is false.
+      Mutex::Autolock autoLock(mValidLock);
+      mValid = false;
+    }
     mLooper->invalidateSensorQueue(this);
     setImpl(nullptr);
 }

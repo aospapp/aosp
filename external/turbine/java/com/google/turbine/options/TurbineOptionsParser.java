@@ -22,6 +22,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.turbine.options.TurbineOptions.ReducedClasspathMode;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -69,16 +70,19 @@ public class TurbineOptionsParser {
           readOne(argumentDeque);
           break;
         case "--processors":
-          builder.addProcessors(readList(argumentDeque));
+          builder.setProcessors(readList(argumentDeque));
+          break;
+        case "--builtin_processors":
+          builder.setBuiltinProcessors(readList(argumentDeque));
           break;
         case "--processorpath":
-          builder.addProcessorPathEntries(readList(argumentDeque));
+          builder.setProcessorPath(readList(argumentDeque));
           break;
         case "--classpath":
-          builder.addClassPathEntries(readList(argumentDeque));
+          builder.setClassPath(readList(argumentDeque));
           break;
         case "--bootclasspath":
-          builder.addBootClassPathEntries(readList(argumentDeque));
+          builder.setBootClassPath(readList(argumentDeque));
           break;
         case "--release":
           builder.setRelease(readOne(argumentDeque));
@@ -94,16 +98,19 @@ public class TurbineOptionsParser {
             break;
           }
         case "--sources":
-          builder.addSources(readList(argumentDeque));
+          builder.setSources(readList(argumentDeque));
           break;
         case "--output_deps":
           builder.setOutputDeps(readOne(argumentDeque));
           break;
+        case "--output_manifest_proto":
+          builder.setOutputManifest(readOne(argumentDeque));
+          break;
         case "--direct_dependencies":
-          builder.addDirectJars(readList(argumentDeque));
+          builder.setDirectJars(readList(argumentDeque));
           break;
         case "--deps_artifacts":
-          builder.addAllDepsArtifacts(readList(argumentDeque));
+          builder.setDepsArtifacts(readList(argumentDeque));
           break;
         case "--target_label":
           builder.setTargetLabel(readOne(argumentDeque));
@@ -112,16 +119,32 @@ public class TurbineOptionsParser {
           builder.setInjectingRuleKind(readOne(argumentDeque));
           break;
         case "--javac_fallback":
-          builder.setJavacFallback(true);
-          break;
         case "--nojavac_fallback":
-          builder.setJavacFallback(false);
+          // TODO(cushon): remove this case once blaze stops passing the flag
           break;
         case "--reduce_classpath":
-          builder.setShouldReduceClassPath(true);
+          builder.setReducedClasspathMode(ReducedClasspathMode.JAVABUILDER_REDUCED);
           break;
         case "--noreduce_classpath":
-          builder.setShouldReduceClassPath(false);
+          builder.setReducedClasspathMode(ReducedClasspathMode.NONE);
+          break;
+        case "--reduce_classpath_mode":
+          builder.setReducedClasspathMode(ReducedClasspathMode.valueOf(readOne(argumentDeque)));
+          break;
+        case "--full_classpath_length":
+          builder.setFullClasspathLength(Integer.parseInt(readOne(argumentDeque)));
+          break;
+        case "--reduced_classpath_length":
+          builder.setReducedClasspathLength(Integer.parseInt(readOne(argumentDeque)));
+          break;
+        case "--profile":
+          builder.setProfile(readOne(argumentDeque));
+          break;
+        case "--gensrc_output":
+          builder.setGensrcOutput(readOne(argumentDeque));
+          break;
+        case "--resource_output":
+          builder.setResourceOutput(readOne(argumentDeque));
           break;
         case "--help":
           builder.setHelp(true);

@@ -1,4 +1,4 @@
-# Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -25,7 +25,6 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 args_dict['name'] = 'cellular_modem_repair'
 args_dict['add_experimental'] = True
-args_dict['suite_dependencies'] = 'modem_repair'
 args_dict['job'] = job
 
 dynamic_suite.reimage_and_run(**args_dict)

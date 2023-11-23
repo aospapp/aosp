@@ -19,6 +19,6 @@
           package="com.android.tv.twopanelsettings">
 
     <uses-sdk
-        android:minSdkVersion="21" />
+        android:minSdkVersion="29" />
 
 </manifest>

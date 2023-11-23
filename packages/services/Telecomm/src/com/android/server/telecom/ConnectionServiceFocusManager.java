@@ -391,7 +391,7 @@ public class ConnectionServiceFocusManager {
     }
 
     private void handleRequestFocus(FocusRequest focusRequest) {
-        Log.d(this, "handleRequestFocus req = %s", focusRequest);
+        Log.i(this, "handleRequestFocus req = %s", focusRequest);
         if (mCurrentFocus == null
                 || mCurrentFocus.equals(focusRequest.call.getConnectionServiceWrapper())) {
             updateConnectionServiceFocus(focusRequest.call.getConnectionServiceWrapper());

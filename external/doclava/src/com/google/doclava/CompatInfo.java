@@ -44,12 +44,12 @@ public class CompatInfo {
     public final int sourceLine;
     public final boolean disabled;
     public final boolean loggingOnly;
-    public final int enableAfterTargetSdk;
+    public final int enableSinceTargetSdk;
 
 
     CompatChange(String name, long id, String description, String definedInClass,
             String sourceFile, int sourceLine, boolean disabled, boolean loggingOnly,
-            int enableAfterTargetSdk) {
+            int enableAfterTargetSdk, int enableSinceTargetSdk) {
       this.name = name;
       this.id = id;
       this.description = description;
@@ -58,7 +58,14 @@ public class CompatInfo {
       this.sourceLine = sourceLine;
       this.disabled = disabled;
       this.loggingOnly = loggingOnly;
-      this.enableAfterTargetSdk = enableAfterTargetSdk;
+      if (enableSinceTargetSdk > 0) {
+        this.enableSinceTargetSdk = enableSinceTargetSdk;
+      } else if (enableAfterTargetSdk > 0) {
+        this.enableSinceTargetSdk = enableAfterTargetSdk + 1;
+      } else {
+        this.enableSinceTargetSdk = 0;
+      }
+
     }
 
     static class Builder {
@@ -71,11 +78,12 @@ public class CompatInfo {
       private boolean mDisabled;
       private boolean mLoggingOnly;
       private int mEnableAfterTargetSdk;
+      private int mEnableSinceTargetSdk;
 
       CompatChange build() {
         return new CompatChange(
             mName, mId, mDescription, mDefinedInClass, mSourceFile, mSourceLine,
-                mDisabled, mLoggingOnly, mEnableAfterTargetSdk);
+                mDisabled, mLoggingOnly, mEnableAfterTargetSdk, mEnableSinceTargetSdk);
       }
 
       Builder name(String name) {
@@ -144,6 +152,18 @@ public class CompatInfo {
         }
         return this;
       }
+      Builder enableSinceTargetSdk(String enableSince) throws SAXException {
+        if (enableSince == null) {
+          mEnableSinceTargetSdk = 0;
+        } else {
+          try {
+            mEnableSinceTargetSdk = Integer.parseInt(enableSince);
+          } catch (NumberFormatException nfe) {
+            throw new SAXException("Invalid SDK version int: " + enableSince, nfe);
+          }
+        }
+        return this;
+      }
     }
 
   }
@@ -166,6 +186,7 @@ public class CompatInfo {
         mCurrentChange.name(attributes.getValue("name"))
                 .description(attributes.getValue("description"))
                 .enableAfterTargetSdk(attributes.getValue("enableAfterTargetSdk"))
+                .enableSinceTargetSdk(attributes.getValue("enableSinceTargetSdk"))
                 .disabled(attributes.getValue("disabled"))
                 .loggingOnly(attributes.getValue("loggingOnly"));
 
@@ -232,16 +253,16 @@ public class CompatInfo {
         definedInContainer = Converter.obtainPackage("android");
       }
       if (change.description == null) {
-        throw new RuntimeException("No desriprion found for @ChangeId " + change.name);
+        throw new RuntimeException("No description found for @ChangeId " + change.name);
       }
       Comment comment = new Comment(change.description, definedInContainer, new SourcePositionInfo(
           change.sourceFile, change.sourceLine, 1));
       String path = "change." + i;
       hdf.setValue(path + ".id", Long.toString(change.id));
       hdf.setValue(path + ".name", change.name);
-      if (change.enableAfterTargetSdk != 0) {
-        hdf.setValue(path + ".enableAfterTargetSdk",
-            Integer.toString(change.enableAfterTargetSdk));
+      if (change.enableSinceTargetSdk != 0) {
+        hdf.setValue(path + ".enableSinceTargetSdk",
+            Integer.toString(change.enableSinceTargetSdk));
       }
       if (change.loggingOnly) {
         hdf.setValue(path + ".loggingOnly", Boolean.toString(true));

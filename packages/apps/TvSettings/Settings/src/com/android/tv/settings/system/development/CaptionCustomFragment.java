@@ -22,7 +22,7 @@ import android.provider.Settings;
 import android.text.TextUtils;
 
 import androidx.annotation.Keep;
-import androidx.leanback.preference.LeanbackPreferenceFragment;
+import androidx.leanback.preference.LeanbackPreferenceFragmentCompat;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.TwoStatePreference;
@@ -30,7 +30,7 @@ import androidx.preference.TwoStatePreference;
 import com.android.tv.settings.R;
 
 @Keep
-public class CaptionCustomFragment extends LeanbackPreferenceFragment implements
+public class CaptionCustomFragment extends LeanbackPreferenceFragmentCompat implements
         Preference.OnPreferenceChangeListener {
 
     private static final String KEY_FONT_FAMILY = "font_family";

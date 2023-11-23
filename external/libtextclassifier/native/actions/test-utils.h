@@ -20,7 +20,6 @@
 #include <string>
 
 #include "actions/actions_model_generated.h"
-#include "utils/flatbuffers.h"
 #include "gmock/gmock.h"
 
 namespace libtextclassifier3 {

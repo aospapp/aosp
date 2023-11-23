@@ -14,6 +14,15 @@
 //  limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_sl4a_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["external_sl4a_license"],
+}
+
 java_library {
     name: "sl4a.Common",
     owner: "google",
@@ -23,19 +32,25 @@ java_library {
         "android-common",
         "sl4a.Utils",
         "junit",
+        "modules-utils-build",
     ],
 
     sdk_version: "core_platform",
     libs: [
         "framework-wifi.impl", // allow SL4A to access @hide Wifi APIs
+        "framework-connectivity.impl",
         "framework",
 
         "telephony-common",
         "ims-common",
+        "bouncycastle-repackaged-unbundled",
     ],
 
     srcs: [
         "src/com/googlecode/android_scripting/**/*.java",
         "src/org/apache/commons/codec/**/*.java",
+        ":cellbroadcast-shared-with-sl4a",
+        ":cellbroadcast-util-shared-srcs",
+        ":cellbroadcast-constants-shared-srcs",
     ],
 }

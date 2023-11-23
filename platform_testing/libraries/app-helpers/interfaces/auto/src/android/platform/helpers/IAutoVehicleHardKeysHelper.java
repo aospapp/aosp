@@ -26,6 +26,14 @@ public interface IAutoVehicleHardKeysHelper extends IAppHelper {
         Navigation,
     }
 
+    /** Enum class for driving state */
+    enum DrivingState {
+        UNKNOWN,
+        MOVING,
+        IDLING,
+        PARKED,
+    }
+
     /**
      * Setup expectations: incoming call in progress.
      *
@@ -105,4 +113,21 @@ public interface IAutoVehicleHardKeysHelper extends IAppHelper {
      * @param type type of volume to get current volume level from.
      */
     int getCurrentVolumeLevel(VolumeType type);
+
+    /** Get driving state. */
+    DrivingState getDrivingState();
+
+    /**
+     * Set driving state.
+     *
+     * @param state to be set.
+     */
+    void setDrivingState(DrivingState state);
+
+    /**
+     * Set vehicle speed.
+     *
+     * @param speed to be set.
+     */
+    void setSpeed(int speed);
 }

@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "dawn/dawncpp.h"
@@ -54,12 +55,17 @@ class EngineDawn : public Engine {
   Result DoClearDepth(const ClearDepthCommand* cmd) override;
   Result DoClear(const ClearCommand* cmd) override;
   Result DoDrawRect(const DrawRectCommand* cmd) override;
+  Result DoDrawGrid(const DrawGridCommand* cmd) override;
   Result DoDrawArrays(const DrawArraysCommand* cmd) override;
   Result DoCompute(const ComputeCommand* cmd) override;
   Result DoEntryPoint(const EntryPointCommand* cmd) override;
   Result DoPatchParameterVertices(
       const PatchParameterVerticesCommand* cmd) override;
   Result DoBuffer(const BufferCommand* cmd) override;
+
+  std::pair<Debugger*, Result> GetDebugger(VirtualFileStore*) override {
+    return {nullptr, Result("Dawn does not currently support a debugger")};
+  }
 
  private:
   // Returns the Dawn-specific render pipeline for the given command,

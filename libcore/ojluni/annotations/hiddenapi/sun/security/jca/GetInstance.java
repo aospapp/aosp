@@ -75,7 +75,7 @@ public class GetInstance {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public static sun.security.jca.GetInstance.Instance getInstance(
             java.lang.String type,
             java.lang.Class<?> clazz,
@@ -94,7 +94,7 @@ public class GetInstance {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public static sun.security.jca.GetInstance.Instance getInstance(
             java.lang.String type,
             java.lang.Class<?> clazz,
@@ -114,7 +114,7 @@ public class GetInstance {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public static sun.security.jca.GetInstance.Instance getInstance(
             java.lang.String type,
             java.lang.Class<?> clazz,
@@ -156,13 +156,13 @@ public class GetInstance {
             throw new RuntimeException("Stub!");
         }
 
-        @android.compat.annotation.UnsupportedAppUsage public final java.lang.Object impl;
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553) public final java.lang.Object impl;
 
         {
             impl = null;
         }
 
-        @android.compat.annotation.UnsupportedAppUsage public final java.security.Provider provider;
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553) public final java.security.Provider provider;
 
         {
             provider = null;

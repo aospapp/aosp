@@ -16,7 +16,11 @@
 
 package android.telecom.cts;
 
-import static android.telecom.cts.TestUtils.*;
+import static android.telecom.cts.AdhocConferenceTest.PARTICIPANTS;
+import static android.telecom.cts.TestUtils.InvokeCounter;
+import static android.telecom.cts.TestUtils.TEST_PHONE_ACCOUNT_HANDLE;
+import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_CALLBACK;
+import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 
 import android.graphics.SurfaceTexture;
 import android.net.Uri;
@@ -24,10 +28,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.telecom.Call;
+import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.RemoteConference;
 import android.telecom.RemoteConnection;
 import android.telecom.RemoteConnection.VideoProvider;
 import android.telecom.StatusHints;
@@ -130,6 +136,94 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
         assertConnectionState(mConnection, Connection.STATE_DISCONNECTED);
         assertRemoteConnectionState(mRemoteConnectionObject, Connection.STATE_DISCONNECTED);
         assertConnectionState(mRemoteConnection, Connection.STATE_DISCONNECTED);
+    }
+
+    public void testRemoteIncomingConference() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        try {
+            MockConnectionService managerConnectionService = new MockConnectionService() {
+                @Override
+                public Conference onCreateIncomingConference(
+                        PhoneAccountHandle connectionManagerPhoneAccount,
+                        ConnectionRequest request) {
+                    MockConference conference = (MockConference) super.onCreateIncomingConference(
+                            connectionManagerPhoneAccount, request);
+                    ConnectionRequest remoteRequest = new ConnectionRequest(
+                            TEST_REMOTE_PHONE_ACCOUNT_HANDLE,
+                            request.getAddress(),
+                            request.getExtras());
+                    RemoteConference remoteConference = CtsConnectionService
+                            .createRemoteIncomingConferenceToTelecom(
+                                    TEST_REMOTE_PHONE_ACCOUNT_HANDLE, remoteRequest);
+                    conference.setRemoteConference(remoteConference);
+                    return conference;
+                }
+            };
+            setupConnectionServices(managerConnectionService, null,
+                    FLAG_REGISTER | FLAG_ENABLE);
+        } catch (Exception e) {
+            fail("Error in setting up the connection services");
+        }
+
+        try {
+            mTelecomManager.addNewIncomingConference(TEST_PHONE_ACCOUNT_HANDLE, null);
+            MockConference conference = verifyConference(2);
+            MockConference remoteConference = verifyConferenceOnRemoteCS(2);
+            RemoteConferenceTest.verifyRemoteConferenceObject(conference.getRemoteConference(),
+                    remoteConference, conference);
+            conference.onDisconnect();
+        } catch (Exception e) {
+            fail(e.getMessage());
+        } finally {
+            CtsConnectionService.tearDown();
+            CtsRemoteConnectionService.tearDown();
+        }
+    }
+
+    public void testRemoteOutgoingConference() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        try {
+            MockConnectionService managerConnectionService = new MockConnectionService() {
+                @Override
+                public Conference onCreateOutgoingConference(
+                        PhoneAccountHandle connectionManagerPhoneAccount,
+                        ConnectionRequest request) {
+                    MockConference conference = (MockConference) super.onCreateIncomingConference(
+                            connectionManagerPhoneAccount, request);
+                    ConnectionRequest remoteRequest = new ConnectionRequest(
+                            TEST_REMOTE_PHONE_ACCOUNT_HANDLE,
+                            request.getAddress(),
+                            request.getExtras());
+                    RemoteConference remoteConference = CtsConnectionService
+                            .createRemoteOutgoingConferenceToTelecom(
+                                    TEST_REMOTE_PHONE_ACCOUNT_HANDLE, remoteRequest);
+                    conference.setRemoteConference(remoteConference);
+                    return conference;
+                }
+            };
+            setupConnectionServices(managerConnectionService, null,
+                    FLAG_REGISTER | FLAG_ENABLE);
+        } catch (Exception e) {
+            fail("Error in setting up the connection services");
+        }
+
+        try {
+            mTelecomManager.startConference(PARTICIPANTS, null);
+            MockConference conference = verifyConference(2);
+            MockConference remoteConference = verifyConferenceOnRemoteCS(2);
+            RemoteConferenceTest.verifyRemoteConferenceObject(conference.getRemoteConference(),
+                    remoteConference, conference);
+            conference.onDisconnect();
+        } catch (Exception e) {
+            fail(e.getMessage());
+        } finally {
+            CtsConnectionService.tearDown();
+            CtsRemoteConnectionService.tearDown();
+        }
     }
 
     public void testRemoteConnectionDTMFTone() {
@@ -636,6 +730,24 @@ public class RemoteConnectionTest extends BaseRemoteTelecomTest {
                 mRemoteConnection.getInvokeCounter(MockConnection.ON_PULL_EXTERNAL_CALL);
         mRemoteConnectionObject.pullExternalCall();
         counter.waitForCount(1);
+    }
+
+    /**
+     * Verifies that a call to {@link RemoteConnection#addConferenceParticipants(List)} is proxied
+     * to {@link Connection#onAddConferenceParticipants(List)}.
+     */
+    public void testAddConferenceParticipants() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        setupRemoteConnectionCallbacksTest();
+
+        InvokeCounter counter = mRemoteConnection.getInvokeCounter(
+                MockConnection.ON_ADD_CONFERENCE_PARTICIPANTS);
+        mRemoteConnectionObject.addConferenceParticipants(PARTICIPANTS);
+        counter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        assertEquals(PARTICIPANTS, counter.getArgs(0)[0]);
     }
 
     public void testRemoteConnectionCallbacks_Destroy() {

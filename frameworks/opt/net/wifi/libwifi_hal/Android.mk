@@ -59,11 +59,16 @@ endif
 ifdef WIFI_DRIVER_STATE_OFF
 wifi_hal_cflags += -DWIFI_DRIVER_STATE_OFF=\"$(WIFI_DRIVER_STATE_OFF)\"
 endif
+ifeq ($(WIFI_MULTIPLE_VENDOR_HALS), true)
+wifi_hal_cflags += -DWIFI_MULTIPLE_VENDOR_HALS
+endif
 
 # Common code shared between the HALs.
 # ============================================================
 include $(CLEAR_VARS)
 LOCAL_MODULE := libwifi-hal-common
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_CFLAGS := $(wifi_hal_cflags)
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
@@ -77,6 +82,8 @@ include $(BUILD_STATIC_LIBRARY)
 # ============================================================
 include $(CLEAR_VARS)
 LOCAL_MODULE := libwifi-hal-fallback
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_CFLAGS := $(wifi_hal_cflags)
 LOCAL_SRC_FILES := wifi_hal_fallback.cpp
@@ -85,32 +92,45 @@ include $(BUILD_STATIC_LIBRARY)
 
 # Pick a vendor provided HAL implementation library.
 # ============================================================
-LIB_WIFI_HAL := libwifi-hal-fallback
-VENDOR_LOCAL_SHARED_LIBRARIES :=
-ifeq ($(BOARD_WLAN_DEVICE), bcmdhd)
-  LIB_WIFI_HAL := libwifi-hal-bcm
-  VENDOR_LOCAL_SHARED_LIBRARIES := libcrypto
-else ifeq ($(BOARD_WLAN_DEVICE), qcwcn)
-  LIB_WIFI_HAL := libwifi-hal-qcom
-  VENDOR_LOCAL_SHARED_LIBRARIES := libcld80211
-else ifeq ($(BOARD_WLAN_DEVICE), mrvl)
-  # this is commented because none of the nexus devices
-  # that sport Marvell's wifi have support for HAL
-  # LIB_WIFI_HAL := libwifi-hal-mrvl
-else ifeq ($(BOARD_WLAN_DEVICE), MediaTek)
-  # support MTK WIFI HAL
-  LIB_WIFI_HAL := libwifi-hal-mt66xx
-else ifeq ($(BOARD_WLAN_DEVICE), realtek)
-  # support Realtek WIFI HAL
-  LIB_WIFI_HAL := libwifi-hal-rtk
-else ifeq ($(BOARD_WLAN_DEVICE), emulator)
-  LIB_WIFI_HAL := libwifi-hal-emu
+ifeq ($(WIFI_MULTIPLE_VENDOR_HALS), true)
+  # vendor HALs are loaded dynamically and not linked here
+  LIB_WIFI_HAL :=
+else
+  LIB_WIFI_HAL ?= libwifi-hal-fallback
+  VENDOR_LOCAL_SHARED_LIBRARIES :=
+  ifeq ($(BOARD_WLAN_DEVICE), bcmdhd)
+    LIB_WIFI_HAL := libwifi-hal-bcm
+    VENDOR_LOCAL_SHARED_LIBRARIES := libcrypto
+ifneq ($(wildcard vendor/google/libraries/GoogleWifiConfigLib),)
+    VENDOR_LOCAL_SHARED_LIBRARIES += \
+        google_wifi_firmware_config_version_c_wrapper
+endif
+  else ifeq ($(BOARD_WLAN_DEVICE), qcwcn)
+    LIB_WIFI_HAL := libwifi-hal-qcom
+    VENDOR_LOCAL_SHARED_LIBRARIES := libcld80211
+  else ifeq ($(BOARD_WLAN_DEVICE), mrvl)
+    # this is commented because none of the nexus devices
+    # that sport Marvell's wifi have support for HAL
+    # LIB_WIFI_HAL := libwifi-hal-mrvl
+  else ifeq ($(BOARD_WLAN_DEVICE), MediaTek)
+    # support MTK WIFI HAL
+    LIB_WIFI_HAL := libwifi-hal-mt66xx
+  else ifeq ($(BOARD_WLAN_DEVICE), realtek)
+    # support Realtek WIFI HAL
+    LIB_WIFI_HAL := libwifi-hal-rtk
+  else ifeq ($(BOARD_WLAN_DEVICE), emulator)
+    LIB_WIFI_HAL := libwifi-hal-emu
+  else ifeq ($(BOARD_WLAN_DEVICE), slsi)
+    LIB_WIFI_HAL := libwifi-hal-slsi
+  endif
 endif
 
 # The WiFi HAL that you should be linking.
 # ============================================================
 include $(CLEAR_VARS)
 LOCAL_MODULE := libwifi-hal
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_CFLAGS := $(wifi_hal_cflags)
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
@@ -135,6 +155,8 @@ include $(BUILD_SHARED_LIBRARY)
 # ============================================================
 include $(CLEAR_VARS)
 LOCAL_MODULE := libwifi-hal-test
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_CFLAGS := $(wifi_hal_cflags)
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/include \

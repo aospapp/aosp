@@ -39,6 +39,7 @@
 #include <zlib.h>
 
 #include "common/gen_decoder.h"
+#include "dev/gen_debug.h"
 #include "util/macros.h"
 
 #define CSI "\e["
@@ -289,6 +290,7 @@ struct section {
    const char *buffer_name;
    uint32_t *data;
    int dword_count;
+   size_t data_offset;
 };
 
 #define MAX_SECTIONS 256
@@ -380,6 +382,17 @@ static int ascii85_decode(const char *in, uint32_t **out, bool inflate)
    return zlib_inflate(out, len);
 }
 
+static int qsort_hw_context_first(const void *a, const void *b)
+{
+   const struct section *sa = a, *sb = b;
+   if (strcmp(sa->buffer_name, "HW Context") == 0)
+      return -1;
+   if (strcmp(sb->buffer_name, "HW Context") == 0)
+      return 1;
+   else
+      return 0;
+}
+
 static struct gen_batch_decode_bo
 get_gen_batch_bo(void *user_data, bool ppgtt, uint64_t address)
 {
@@ -406,6 +419,8 @@ read_data_file(FILE *file)
    char *line = NULL;
    size_t line_size;
    uint32_t offset, value;
+   uint32_t ring_head = UINT32_MAX, ring_tail = UINT32_MAX;
+   bool ring_wraps = false;
    char *ring_name = NULL;
    struct gen_device_info devinfo;
 
@@ -439,7 +454,9 @@ read_data_file(FILE *file)
             const char *name;
          } buffers[] = {
             { "ringbuffer", "ring buffer" },
+            { "ring", "ring buffer" },
             { "gtt_offset", "batch buffer" },
+            { "batch", "batch buffer" },
             { "hw context", "HW Context" },
             { "hw status", "HW status" },
             { "wa context", "WA context" },
@@ -490,7 +507,7 @@ read_data_file(FILE *file)
                matched = sscanf(pci_id_start, "PCI ID: 0x%04x\n", &reg);
          }
          if (matched == 1) {
-            if (!gen_get_device_info(reg, &devinfo)) {
+            if (!gen_get_device_info_from_pci_id(reg, &devinfo)) {
                printf("Unable to identify devid=%x\n", reg);
                exit(EXIT_FAILURE);
             }
@@ -514,6 +531,9 @@ read_data_file(FILE *file)
          matched = sscanf(line, "  HEAD: 0x%08x\n", &reg);
          if (matched == 1)
             print_head(reg);
+
+         sscanf(line, "  HEAD: 0x%08x [0x%08X]\n", &reg, &ring_head);
+         sscanf(line, "  TAIL: 0x%08x\n", &ring_tail);
 
          matched = sscanf(line, "  ACTHD: 0x%08x\n", &reg);
          if (matched == 1) {
@@ -582,6 +602,56 @@ read_data_file(FILE *file)
    free(line);
    free(ring_name);
 
+   /*
+    * Order sections so that the hardware context section is visited by the
+    * decoder before other command buffers. This will allow the decoder to see
+    * persistent state that was set before the current batch.
+    */
+   qsort(sections, num_sections, sizeof(sections[0]), qsort_hw_context_first);
+
+   for (int s = 0; s < num_sections; s++) {
+      if (strcmp(sections[s].buffer_name, "ring buffer") != 0)
+         continue;
+      if (ring_head == UINT32_MAX) {
+         ring_head = 0;
+         ring_tail = UINT32_MAX;
+      }
+      if (ring_tail == UINT32_MAX)
+         ring_tail = (ring_head - sizeof(uint32_t)) %
+            (sections[s].dword_count * sizeof(uint32_t));
+      if (ring_head > ring_tail) {
+         size_t total_size = sections[s].dword_count * sizeof(uint32_t) -
+            ring_head + ring_tail;
+         size_t size1 = total_size - ring_tail;
+         uint32_t *new_data = calloc(total_size, 1);
+         memcpy(new_data, (uint8_t *)sections[s].data + ring_head, size1);
+         memcpy((uint8_t *)new_data + size1, sections[s].data, ring_tail);
+         free(sections[s].data);
+         sections[s].data = new_data;
+         ring_head = 0;
+         ring_tail = total_size;
+         ring_wraps = true;
+      }
+      sections[s].data_offset = ring_head;
+      sections[s].dword_count = (ring_tail - ring_head) / sizeof(uint32_t);
+   }
+
+   for (int s = 0; s < num_sections; s++) {
+      if (sections[s].dword_count * 4 > intel_debug_identifier_size() &&
+          memcmp(sections[s].data, intel_debug_identifier(),
+                 intel_debug_identifier_size()) == 0) {
+         const struct gen_debug_block_driver *driver_desc =
+            intel_debug_get_identifier_block(sections[s].data,
+                                             sections[s].dword_count * 4,
+                                             GEN_DEBUG_BLOCK_TYPE_DRIVER);
+         if (driver_desc) {
+            printf("Driver identifier: %s\n",
+                   (const char *) driver_desc->description);
+         }
+         break;
+      }
+   }
+
    enum gen_batch_decode_flags batch_flags = 0;
    if (option_color == COLOR_ALWAYS)
       batch_flags |= GEN_BATCH_DECODE_IN_COLOR;
@@ -605,14 +675,19 @@ read_data_file(FILE *file)
              (unsigned) (sections[s].gtt_offset >> 32),
              (unsigned) sections[s].gtt_offset);
 
-      if (option_print_all_bb ||
+      bool is_ring_buffer = strcmp(sections[s].buffer_name, "ring buffer") == 0;
+      if (option_print_all_bb || is_ring_buffer ||
           strcmp(sections[s].buffer_name, "batch buffer") == 0 ||
-          strcmp(sections[s].buffer_name, "ring buffer") == 0 ||
           strcmp(sections[s].buffer_name, "HW Context") == 0) {
+         if (is_ring_buffer && ring_wraps)
+            batch_ctx.flags &= ~GEN_BATCH_DECODE_OFFSETS;
          batch_ctx.engine = class;
-         gen_print_batch(&batch_ctx, sections[s].data,
-                         sections[s].dword_count * 4,
-                         sections[s].gtt_offset, false);
+         uint8_t *data = (uint8_t *)sections[s].data + sections[s].data_offset;
+         uint64_t batch_addr = sections[s].gtt_offset + sections[s].data_offset;
+         gen_print_batch(&batch_ctx, (uint32_t *)data,
+                         sections[s].dword_count * 4, batch_addr,
+                         is_ring_buffer);
+         batch_ctx.flags = batch_flags;
       }
    }
 
@@ -684,7 +759,7 @@ main(int argc, char *argv[])
       { "no-pager",   no_argument,       (int *) &pager,                false },
       { "no-offsets", no_argument,       (int *) &option_print_offsets, false },
       { "headers",    no_argument,       (int *) &option_full_decode,   false },
-      { "color",      required_argument, NULL,                          'c' },
+      { "color",      optional_argument, NULL,                          'c' },
       { "xml",        required_argument, NULL,                          'x' },
       { "all-bb",     no_argument,       (int *) &option_print_all_bb,  true },
       { NULL,         0,                 NULL,                          0 }
@@ -757,7 +832,7 @@ main(int argc, char *argv[])
       setup_pager();
 
    if (S_ISDIR(st.st_mode)) {
-      MAYBE_UNUSED int ret;
+      ASSERTED int ret;
       char *filename;
 
       ret = asprintf(&filename, "%s/i915_error_state", path);

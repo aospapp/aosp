@@ -16,9 +16,8 @@
 
 package com.android.internal.net.ipsec.ike.message;
 
+import android.net.ipsec.ike.exceptions.AuthenticationFailedException;
 import android.net.ipsec.ike.exceptions.IkeProtocolException;
-
-import com.android.internal.net.ipsec.ike.exceptions.AuthenticationFailedException;
 
 import java.io.ByteArrayInputStream;
 import java.nio.ByteBuffer;

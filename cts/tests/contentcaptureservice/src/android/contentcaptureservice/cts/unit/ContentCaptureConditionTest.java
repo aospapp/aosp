@@ -47,7 +47,7 @@ public class ContentCaptureConditionTest {
         final ContentCaptureCondition condition =
                 new ContentCaptureCondition(mLocusId, FLAG_IS_REGEX);
         assertThat(condition).isNotNull();
-        assertThat(condition.getLocusId()).isSameAs(mLocusId);
-        assertThat(condition.getFlags()).isSameAs(FLAG_IS_REGEX);
+        assertThat(condition.getLocusId()).isSameInstanceAs(mLocusId);
+        assertThat(condition.getFlags()).isSameInstanceAs(FLAG_IS_REGEX);
     }
 }

@@ -14,12 +14,15 @@
 
 #pragma once
 
+#include <atomic>
 #include <mutex>
 #include <vector>
 
 // clang-format off
-#include PATH(device/google/atv/audio_proxy/FILE_VERSION/IBusDevice.h)
+#include PATH(device/google/atv/audio_proxy/AUDIO_PROXY_FILE_VERSION/IBusDevice.h)
 // clang-format on
+
+#include <utils/RefBase.h>
 
 namespace audio_proxy {
 namespace service {
@@ -27,10 +30,32 @@ namespace service {
 using ::android::sp;
 using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::hidl_string;
-using ::device::google::atv::audio_proxy::CPP_VERSION::IBusDevice;
+using ::device::google::atv::audio_proxy::AUDIO_PROXY_CPP_VERSION::IBusDevice;
 
 class BusDeviceProvider {
  public:
+  class Handle : public ::android::RefBase {
+   public:
+    Handle(sp<IBusDevice> device,
+           const hidl_string& address,
+           uint64_t token);
+    ~Handle() override;
+
+    const sp<IBusDevice>& getDevice() const;
+    const hidl_string& getAddress() const;
+    uint64_t getToken() const;
+    int getStreamCount() const;
+
+    void onStreamOpen();
+    void onStreamClose();
+
+   private:
+    const sp<IBusDevice> mDevice;
+    const hidl_string mAddress;
+    const uint64_t mToken;
+    std::atomic<int> mStreamCount = 0;
+  };
+
   BusDeviceProvider();
   ~BusDeviceProvider();
 
@@ -38,33 +63,28 @@ class BusDeviceProvider {
   // process exits.
   bool add(const hidl_string& address, sp<IBusDevice> device);
 
-  // Get IBusDevice with `address`. Caller should only keep the strong pointer
-  // shortly, a.k.a caller should release the strong pointer as soon as its
-  // function scope exits.
-  sp<IBusDevice> get(const hidl_string& address);
+  // Get IBusDevice handle with `address`. Caller should only keep the strong
+  // pointer shortly, a.k.a caller should release the strong pointer as soon as
+  // its function scope exits.
+  sp<Handle> get(const hidl_string& address);
 
   // Remove all the added devices.
   void removeAll();
 
  private:
   class DeathRecipient;
-  struct BusDeviceHolder {
-    sp<IBusDevice> device;
-    hidl_string address;
-    uint64_t token;
-  };
 
   friend class DeathRecipient;
 
   // Called by DeathRecipient to remove device when the host process exits.
-  void removeByToken(uint64_t token);
+  sp<Handle> removeByToken(uint64_t token);
 
   sp<hidl_death_recipient> mDeathRecipient;
 
   std::mutex mDevicesLock;
 
   // Use a vector since we don't have too much registered devices.
-  std::vector<BusDeviceHolder> mBusDevices;
+  std::vector<sp<Handle>> mBusDevices;
   uint64_t mNextToken = 0;
 };
 

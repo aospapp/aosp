@@ -14,6 +14,10 @@
 
 // TODO(harrytczhang@): Refactor to share command with the similar genrule in samples. See
 // b/119635583 for similar bug.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_genrule {
     name: "common-profile-text-protos",
     host_supported: true,
@@ -59,7 +63,7 @@ android_test {
     name: "PlatformCommonScenarioTests",
     min_sdk_version: "24",
     static_libs: [
-        "android-support-test",
+        "androidx.test.rules",
         "collector-device-lib-platform",
         "common-platform-scenarios",
         "common-profile-text-protos",
@@ -71,6 +75,7 @@ android_test {
         "platform-test-composers",
         "platform-test-options",
         "platform-test-rules",
+        "ub-uiautomator",
     ],
     srcs: ["src/**/*.java"],
     test_suites: ["device-tests"],

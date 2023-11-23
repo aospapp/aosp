@@ -75,7 +75,12 @@ public class RingtoneFactory {
 
         if(ringtoneUri != null && userContext != null) {
             // Ringtone URI is explicitly specified. First, try to create a Ringtone with that.
-            ringtone = RingtoneManager.getRingtone(userContext, ringtoneUri, volumeShaperConfig);
+            try {
+                ringtone = RingtoneManager.getRingtone(userContext, ringtoneUri,
+                        volumeShaperConfig);
+            } catch (NullPointerException npe) {
+                Log.e(this, npe, "getRingtone: NPE while getting ringtone.");
+            }
         }
         if(ringtone == null) {
             // Contact didn't specify ringtone or custom Ringtone creation failed. Get default
@@ -91,8 +96,12 @@ public class RingtoneFactory {
             if (defaultRingtoneUri == null) {
                 return null;
             }
-            ringtone = RingtoneManager.getRingtone(
-                contextToUse, defaultRingtoneUri, volumeShaperConfig);
+            try {
+                ringtone = RingtoneManager.getRingtone(
+                        contextToUse, defaultRingtoneUri, volumeShaperConfig);
+            } catch (NullPointerException npe) {
+                Log.e(this, npe, "getRingtone: NPE while getting ringtone.");
+            }
         }
         if (ringtone != null) {
             ringtone.setAudioAttributes(new AudioAttributes.Builder()

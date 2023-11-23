@@ -19,6 +19,7 @@ package android.media.cts;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.expectThrows;
 
+import android.audio.policy.configuration.V7_0.AudioUsage;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.os.Parcel;
@@ -198,6 +199,27 @@ public class AudioAttributesTest extends CtsAndroidTestCase {
         AudioAttributes attr2 = builder2.build();
 
         assertEquals(attr1, attr2);
+    }
+
+    // -----------------------------------------------------------------
+    // audio_policy_configuration.xsd converter tests
+    // ----------------------------------
+    public void testXsdStringToUsage_returnsCorrectUsage() {
+        int usage = AudioAttributes.xsdStringToUsage(AudioUsage.AUDIO_USAGE_MEDIA.toString());
+
+        assertEquals(AudioAttributes.USAGE_MEDIA, usage);
+    }
+
+    public void testXsdStringToUsage_withUnsupportedString_returnsUnknownUsage() {
+        int usage = AudioAttributes.xsdStringToUsage("not a usage");
+
+        assertEquals(AudioAttributes.USAGE_UNKNOWN, usage);
+    }
+
+    public void testUsageToXsdString_returnsCorrectString() {
+        String xsdUsage = AudioAttributes.usageToXsdString(AudioAttributes.USAGE_MEDIA);
+
+        assertEquals(AudioUsage.AUDIO_USAGE_MEDIA.toString(), xsdUsage);
     }
 
     // -------------------------------------------------------------------

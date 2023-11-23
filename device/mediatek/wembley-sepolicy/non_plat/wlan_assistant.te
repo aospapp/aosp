@@ -37,7 +37,5 @@ allow wlan_assistant nvdata_file:file { read getattr open };
 allow wlan_assistant wmtWifi_device:chr_file { read write getattr open };
 
 allow wlan_assistant mnt_vendor_file :dir search;
-allow wlan_assistant init:unix_stream_socket connectto;
-allow wlan_assistant property_socket:sock_file write;
 
-set_prop(wlan_assistant, mtk_nvram_ready_prop)
+set_prop(wlan_assistant, vendor_mtk_nvram_ready_prop)

@@ -27,6 +27,8 @@ import android.os.Bundle;
 import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.FragmentActivity;
 
+import com.android.settingslib.core.lifecycle.HideNonSystemOverlayMixin;
+
 /**
  * BluetoothPairingDialog asks the user to enter a PIN / Passkey / simple confirmation
  * for pairing with a remote Bluetooth device. It is an activity that appears as a dialog.
@@ -64,6 +66,9 @@ public class BluetoothPairingDialog extends FragmentActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        getLifecycle().addObserver(new HideNonSystemOverlayMixin(this));
+
         Intent intent = getIntent();
         mBluetoothPairingController = new BluetoothPairingController(intent, this);
         // build the dialog fragment

@@ -183,4 +183,9 @@ I think so, so how about double this string, like copy and paste! </string>
     <string name="permdesc_callAbroad">Make calls abroad</string>
 
     <string name="density_string">default</string>
+
+    <string name="attribution_label_one">attribution label one</string>
+    <string name="attribution_label_two">attribution label two</string>
+
+    <string name="config_overridden_string">default</string>
 </resources>

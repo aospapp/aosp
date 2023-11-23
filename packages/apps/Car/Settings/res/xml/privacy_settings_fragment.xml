@@ -21,34 +21,59 @@
     android:title="@string/privacy_settings_title"
     android:key="@string/psk_privacy_settings">
 
+    <!--  TODO(b/182409057): proper icon -->
     <Preference
+        android:key="@string/pk_privacy_work_policy"
+        android:title="@string/work_policy_privacy_settings"
+        android:summary="@string/work_policy_privacy_settings_summary"
+        android:icon="@drawable/privacy_app_permissions"
+        settings:controller="com.android.car.settings.enterprise.WorkPolicyInfoPreferenceController">
+    </Preference>
+
+    <com.android.car.ui.preference.CarUiTwoActionSwitchPreference
+        android:key="@string/pk_mute_mic_switch"
+        android:title="@string/mute_mic_title"
+        android:summary="@string/mute_mic_summary"
+        android:icon="@drawable/privacy_mic"
+        settings:controller="com.android.car.settings.privacy.MuteMicTogglePreferenceController">
+        <intent android:action="android.intent.action.MANAGE_PERMISSION_APPS">
+            <extra android:name="android.intent.extra.PERMISSION_NAME"
+                   android:value="android.permission-group.MICROPHONE"/>
+        </intent>
+    </com.android.car.ui.preference.CarUiTwoActionSwitchPreference>
+
+    <com.android.car.ui.preference.CarUiTwoActionSwitchPreference
+        android:fragment="com.android.car.settings.location.LocationSettingsFragment"
         android:key="@string/pk_location_settings_entry"
         android:title="@string/location_settings_title"
-        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
-        <intent android:targetPackage="com.android.car.settings"
-                android:targetClass="com.android.car.settings.common.CarSettingActivities$LocationSettingsActivity"/>
-    </Preference>
+        android:summary="@string/privacy_location_summary"
+        android:icon="@drawable/privacy_location"
+        settings:controller="com.android.car.settings.privacy.LocationTogglePreferenceController"/>
 
     <Preference
         android:key="@string/pk_privacy_manage_perms"
         android:title="@string/app_permissions"
         android:summary="@string/app_permissions_summary"
-        settings:controller="com.android.car.settings.applications.AppPermissionsEntryPreferenceController">
+        android:icon="@drawable/privacy_app_permissions"
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController">
         <intent android:action="android.intent.action.MANAGE_PERMISSIONS"/>
     </Preference>
 
+    <Preference
+        android:fragment="com.android.car.settings.privacy.VehicleDataFragment"
+        android:key="@string/pk_vehicle_data"
+        android:summary="@string/vehicle_data_summary"
+        android:title="@string/vehicle_data_title"
+        android:icon="@drawable/privacy_vehicle_data"
+        settings:controller="com.android.car.settings.common.DefaultRestrictionsPreferenceController"/>
+
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_privacy_extra_settings"
-        settings:controller="com.android.car.settings.privacy.PrivacyExtraPreferenceController">
-        <intent android:action="com.android.settings.action.IA_SETTINGS">
+        settings:controller="com.android.car.settings.common.ExtraSettingsPreferenceController">
+        <intent>
             <extra android:name="com.android.settings.category"
                    android:value="com.android.settings.category.ia.privacy"/>
         </intent>
     </com.android.car.settings.common.LogicalPreferenceGroup>
-
-    <Preference
-        android:key="terms"
-        android:title="@string/terms_title"
-        settings:controller="com.android.car.settings.system.legal.TermsPreferenceController"/>
 
 </PreferenceScreen>

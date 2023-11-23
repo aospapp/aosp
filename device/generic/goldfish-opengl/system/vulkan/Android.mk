@@ -36,7 +36,6 @@ LOCAL_CFLAGS += \
     -Wno-unused-function
 
 LOCAL_SRC_FILES := \
-    func_table.cpp \
     goldfish_vulkan.cpp \
 
 $(call emugl-end-module)

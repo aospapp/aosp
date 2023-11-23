@@ -23,7 +23,18 @@ using AmberScriptParserTest = testing::Test;
 TEST_F(AmberScriptParserTest, DeviceFeature) {
   std::string in = R"(
 DEVICE_FEATURE vertexPipelineStoresAndAtomics
-DEVICE_FEATURE VariablePointerFeatures.variablePointersStorageBuffer)";
+DEVICE_FEATURE VariablePointerFeatures.variablePointersStorageBuffer
+DEVICE_FEATURE Float16Int8Features.shaderFloat16
+DEVICE_FEATURE Float16Int8Features.shaderInt8
+DEVICE_FEATURE Storage8BitFeatures.storageBuffer8BitAccess
+DEVICE_FEATURE Storage8BitFeatures.uniformAndStorageBuffer8BitAccess
+DEVICE_FEATURE Storage8BitFeatures.storagePushConstant8
+DEVICE_FEATURE Storage16BitFeatures.storageBuffer16BitAccess
+DEVICE_FEATURE Storage16BitFeatures.uniformAndStorageBuffer16BitAccess
+DEVICE_FEATURE Storage16BitFeatures.storagePushConstant16
+DEVICE_FEATURE Storage16BitFeatures.storageInputOutput16
+DEVICE_FEATURE SubgroupSizeControl.subgroupSizeControl
+DEVICE_FEATURE SubgroupSizeControl.computeFullSubgroups)";
 
   Parser parser;
   Result r = parser.Parse(in);
@@ -31,10 +42,23 @@ DEVICE_FEATURE VariablePointerFeatures.variablePointersStorageBuffer)";
 
   auto script = parser.GetScript();
   const auto& features = script->GetRequiredFeatures();
-  ASSERT_EQ(2U, features.size());
+  ASSERT_EQ(13U, features.size());
   EXPECT_EQ("vertexPipelineStoresAndAtomics", features[0]);
   EXPECT_EQ("VariablePointerFeatures.variablePointersStorageBuffer",
             features[1]);
+  EXPECT_EQ("Float16Int8Features.shaderFloat16", features[2]);
+  EXPECT_EQ("Float16Int8Features.shaderInt8", features[3]);
+  EXPECT_EQ("Storage8BitFeatures.storageBuffer8BitAccess", features[4]);
+  EXPECT_EQ("Storage8BitFeatures.uniformAndStorageBuffer8BitAccess",
+            features[5]);
+  EXPECT_EQ("Storage8BitFeatures.storagePushConstant8", features[6]);
+  EXPECT_EQ("Storage16BitFeatures.storageBuffer16BitAccess", features[7]);
+  EXPECT_EQ("Storage16BitFeatures.uniformAndStorageBuffer16BitAccess",
+            features[8]);
+  EXPECT_EQ("Storage16BitFeatures.storagePushConstant16", features[9]);
+  EXPECT_EQ("Storage16BitFeatures.storageInputOutput16", features[10]);
+  EXPECT_EQ("SubgroupSizeControl.subgroupSizeControl", features[11]);
+  EXPECT_EQ("SubgroupSizeControl.computeFullSubgroups", features[12]);
 }
 
 TEST_F(AmberScriptParserTest, DeviceFeatureMissingFeature) {
@@ -70,7 +94,8 @@ TEST_F(AmberScriptParserTest, DeviceFeatureExtraParams) {
   Parser parser;
   Result r = parser.Parse(in);
   ASSERT_FALSE(r.IsSuccess());
-  EXPECT_EQ("1: extra parameters after DEVICE_FEATURE command", r.Error());
+  EXPECT_EQ("1: extra parameters after DEVICE_FEATURE command: EXTRA",
+            r.Error());
 }
 
 }  // namespace amberscript

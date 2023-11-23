@@ -77,7 +77,7 @@ static int read_main_message(int msg_fd, uint8_t *buf, size_t max_len)
 	return 0;
 }
 
-static void handle_main_messages(void *arg)
+static void handle_main_messages(void *arg, int revents)
 {
 	uint8_t buf[256];
 	int rc;
@@ -112,5 +112,6 @@ void cras_main_message_init()
 	cras_make_fd_nonblocking(main_msg_fds[0]);
 	cras_make_fd_nonblocking(main_msg_fds[1]);
 
-	cras_system_add_select_fd(main_msg_fds[0], handle_main_messages, NULL);
+	cras_system_add_select_fd(main_msg_fds[0], handle_main_messages, NULL,
+				  POLLIN);
 }

@@ -98,17 +98,20 @@ static status_t _init(const ifc_print_job_t *this_p, const char *printer_address
     ipp_scheme = (use_secure_uri) ? IPPS_PREFIX : IPP_PREFIX;
 
     httpAssembleURIf(HTTP_URI_CODING_ALL, ipp_job->printer_uri, sizeof(ipp_job->printer_uri),
-            ipp_scheme, NULL, printer_address, ippPortNumber, printer_uri);
+            ipp_scheme, NULL, printer_address, ippPortNumber, "%s", printer_uri);
     getResourceFromURI(ipp_job->printer_uri, ipp_job->http_resource, 1024);
     if (use_secure_uri) {
-        ipp_job->http = httpConnectEncrypt(printer_address, ippPortNumber, HTTP_ENCRYPTION_ALWAYS);
+        ipp_job->http = httpConnect2(printer_address, ippPortNumber, NULL, AF_UNSPEC,
+                HTTP_ENCRYPTION_ALWAYS, 1, HTTP_TIMEOUT_MILLIS, NULL);
 
         // If ALWAYS doesn't work, fall back to REQUIRED
         if (ipp_job->http == NULL) {
-            ipp_job->http = httpConnectEncrypt(printer_address, ippPortNumber, HTTP_ENCRYPT_REQUIRED);
+            ipp_job->http = httpConnect2(printer_address, ippPortNumber, NULL, AF_UNSPEC,
+                    HTTP_ENCRYPTION_REQUIRED, 1, HTTP_TIMEOUT_MILLIS, NULL);
         }
     } else {
-        ipp_job->http = httpConnectEncrypt(printer_address, ippPortNumber, HTTP_ENCRYPTION_IF_REQUESTED);
+        ipp_job->http = httpConnect2(printer_address, ippPortNumber, NULL, AF_UNSPEC,
+                HTTP_ENCRYPTION_IF_REQUESTED, 1, HTTP_TIMEOUT_MILLIS, NULL);
     }
 
     httpSetTimeout(ipp_job->http, DEFAULT_IPP_TIMEOUT, NULL, 0);
@@ -349,6 +352,10 @@ static ipp_t *_fill_job(int ipp_op, char *printer_uri, const wprint_job_params_t
         }
 
         switch (job_params->media_type) {
+            case MEDIA_AUTO:
+                ippAddString(col[col_index], IPP_TAG_JOB, IPP_TAG_KEYWORD, "media-type", NULL,
+                             "auto");
+                break;
             case MEDIA_PHOTO_GLOSSY:
                 ippAddString(col[col_index], IPP_TAG_JOB, IPP_TAG_KEYWORD, "media-type", NULL,
                         "photographic-glossy");
@@ -514,8 +521,6 @@ static status_t _start_job(const ifc_print_job_t *this_p, const wprint_job_param
                 ippDelete(request);
                 continue;
             }
-
-            _cupsSetHTTPError(ipp_job->status);
         }
         ippDelete(request);
         LOGI("_start_job httpPrint fd %d status %d ipp_status %d", ipp_job->http->fd,

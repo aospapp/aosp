@@ -63,7 +63,7 @@ class ForceSocketBufferOptionTest(net_test.NetworkTest):
     val = 4097
     self.assertGreater(2 * val, minbuf)
     s.setsockopt(SOL_SOCKET, force_option, val)
-    self.assertEquals(2 * val, s.getsockopt(SOL_SOCKET, option))
+    self.assertEqual(2 * val, s.getsockopt(SOL_SOCKET, option))
 
     # Check that the force option sets at least the minimum value instead
     # of a negative value on integer overflow. Because the kernel multiplies

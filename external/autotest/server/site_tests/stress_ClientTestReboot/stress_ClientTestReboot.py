@@ -14,9 +14,11 @@ class stress_ClientTestReboot(test.test):
     version = 1
 
     def run_once(self, client_ip, testname, loops):
+        """Test body."""
+
         host = hosts.create_host(client_ip)
         autotest_client = autotest.Autotest(host)
         for i in xrange(loops):
             logging.debug('Starting loop #%d', i)
-            autotest_client.run_test(testname)
+            autotest_client.run_test(testname, check_client_result=True)
             host.reboot()

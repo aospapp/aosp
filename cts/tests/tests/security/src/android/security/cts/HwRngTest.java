@@ -17,7 +17,6 @@
 package android.security.cts;
 
 import android.platform.test.annotations.AppModeFull;
-import android.platform.test.annotations.SecurityTest;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 import com.android.compatibility.common.util.DeviceReportLog;
@@ -38,7 +37,6 @@ import java.util.Map;
 /**
  * Tests for hardware random number generator device {@code /dev/hw_random}.
  */
-@SecurityTest
 public class HwRngTest extends CtsAndroidTestCase {
 
     // The block of constants below is from hw_random framework documentation and source code:
@@ -83,7 +81,7 @@ public class HwRngTest extends CtsAndroidTestCase {
             return;
         }
 
-        // Sanity check based on https://www.kernel.org/doc/Documentation/hw_random.txt.
+        // Quick check based on https://www.kernel.org/doc/Documentation/hw_random.txt.
 
         // In short, assert that:
         // 1. hwrng kernel driver is using MAJOR 10 and MINOR 183,

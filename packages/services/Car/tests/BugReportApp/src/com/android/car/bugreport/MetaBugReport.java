@@ -102,6 +102,12 @@ abstract class MetaBugReport implements Parcelable {
      */
     public abstract int getType();
 
+    /**
+     * @return how many TTL (time-to-live) points left until the bugreport gets
+     *         {@link Status#STATUS_EXPIRED}.
+     */
+    public abstract int getTtlPoints();
+
     /** @return {@link Builder} from the meta bug report. */
     public abstract Builder toBuilder();
 
@@ -122,6 +128,7 @@ abstract class MetaBugReport implements Parcelable {
         dest.writeInt(getStatus());
         dest.writeString(getStatusMessage());
         dest.writeInt(getType());
+        dest.writeInt(getTtlPoints());
     }
 
     /** Converts {@link Date} to bugreport timestamp. */
@@ -155,6 +162,7 @@ abstract class MetaBugReport implements Parcelable {
                     int status = in.readInt();
                     String statusMessage = in.readString();
                     int type = in.readInt();
+                    int ttlPoints = in.readInt();
                     return MetaBugReport.builder()
                             .setId(id)
                             .setTimestamp(timestamp)
@@ -166,6 +174,7 @@ abstract class MetaBugReport implements Parcelable {
                             .setStatus(status)
                             .setStatusMessage(statusMessage)
                             .setType(type)
+                            .setTtlPoints(ttlPoints)
                             .build();
                 }
 
@@ -206,6 +215,9 @@ abstract class MetaBugReport implements Parcelable {
 
         /** Sets the {@link BugReportType}. */
         public abstract Builder setType(@BugReportType int type);
+
+        /** Sets the bugreport TTL (time-to-live) points. */
+        public abstract Builder setTtlPoints(int ttlPoints);
 
         public abstract MetaBugReport build();
     }

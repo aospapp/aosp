@@ -14,26 +14,26 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.statemachine;
+package com.android.internal.net.eap.test.statemachine;
 
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_AKA_PRIME;
 import static android.telephony.TelephonyManager.APPTYPE_USIM;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_AKA_PRIME;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_REQUEST;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.CK_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_AKA_PRIME_AUTHENTICATION_REJECT;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_AKA_PRIME_IDENTITY_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_AKA_PRIME_IDENTITY_RESPONSE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.ID_INT;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.IK_BYTES;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.IMSI;
-import static com.android.internal.net.eap.message.simaka.EapAkaTypeData.EAP_AKA_CHALLENGE;
-import static com.android.internal.net.eap.message.simaka.EapAkaTypeData.EAP_AKA_IDENTITY;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.AUTN_BYTES;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.MAC_BYTES;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1_BYTES;
-import static com.android.internal.net.eap.message.simaka.attributes.EapTestAttributeDefinitions.RES_BYTES;
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_REQUEST;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.CK_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_PRIME_AUTHENTICATION_REJECT;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_PRIME_IDENTITY_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_AKA_PRIME_IDENTITY_RESPONSE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.ID_INT;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.IK_BYTES;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.IMSI;
+import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EAP_AKA_CHALLENGE;
+import static com.android.internal.net.eap.test.message.simaka.EapAkaTypeData.EAP_AKA_IDENTITY;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.AUTN_BYTES;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.MAC_BYTES;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RAND_1_BYTES;
+import static com.android.internal.net.eap.test.message.simaka.attributes.EapTestAttributeDefinitions.RES_BYTES;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
@@ -44,22 +44,22 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import android.net.eap.EapSessionConfig;
+import android.net.eap.test.EapSessionConfig;
 
-import com.android.internal.net.eap.EapResult.EapResponse;
-import com.android.internal.net.eap.message.EapData;
-import com.android.internal.net.eap.message.EapMessage;
-import com.android.internal.net.eap.message.simaka.EapAkaPrimeTypeData;
-import com.android.internal.net.eap.message.simaka.EapAkaTypeData;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtAnyIdReq;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtAutn;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtKdf;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtKdfInput;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtMac;
-import com.android.internal.net.eap.message.simaka.EapSimAkaAttribute.AtRandAka;
-import com.android.internal.net.eap.message.simaka.EapSimAkaTypeData.DecodeResult;
-import com.android.internal.net.eap.statemachine.EapAkaMethodStateMachine.ChallengeState.RandChallengeResult;
-import com.android.internal.net.eap.statemachine.EapAkaPrimeMethodStateMachine.ChallengeState;
+import com.android.internal.net.eap.test.EapResult.EapResponse;
+import com.android.internal.net.eap.test.message.EapData;
+import com.android.internal.net.eap.test.message.EapMessage;
+import com.android.internal.net.eap.test.message.simaka.EapAkaPrimeTypeData;
+import com.android.internal.net.eap.test.message.simaka.EapAkaTypeData;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtAnyIdReq;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtAutn;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtKdf;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtKdfInput;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtMac;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaAttribute.AtRandAka;
+import com.android.internal.net.eap.test.message.simaka.EapSimAkaTypeData.DecodeResult;
+import com.android.internal.net.eap.test.statemachine.EapAkaMethodStateMachine.ChallengeState.RandChallengeResult;
+import com.android.internal.net.eap.test.statemachine.EapAkaPrimeMethodStateMachine.ChallengeState;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -99,6 +99,7 @@ public class EapAkaPrimeChallengeStateTest extends EapAkaPrimeStateTest {
 
     private ChallengeState mState;
 
+    @Override
     @Before
     public void setUp() {
         super.setUp();

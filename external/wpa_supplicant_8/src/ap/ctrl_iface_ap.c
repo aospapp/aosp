@@ -748,7 +748,8 @@ int hostapd_ctrl_iface_status(struct hostapd_data *hapd, char *buf,
 			  iface->conf->ieee80211n && !hapd->conf->disable_11n,
 			  iface->conf->ieee80211ac &&
 			  !hapd->conf->disable_11ac,
-			  iface->conf->ieee80211ax,
+			  iface->conf->ieee80211ax &&
+			  !hapd->conf->disable_11ax,
 			  iface->conf->beacon_int,
 			  hapd->conf->dtim_period);
 	if (os_snprintf_error(buflen - len, ret))
@@ -756,7 +757,7 @@ int hostapd_ctrl_iface_status(struct hostapd_data *hapd, char *buf,
 	len += ret;
 
 #ifdef CONFIG_IEEE80211AX
-	if (iface->conf->ieee80211ax) {
+	if (iface->conf->ieee80211ax && !hapd->conf->disable_11ax) {
 		ret = os_snprintf(buf + len, buflen - len,
 				  "he_oper_chwidth=%d\n"
 				  "he_oper_centr_freq_seg0_idx=%d\n"
@@ -908,6 +909,7 @@ int hostapd_parse_csa_settings(const char *pos,
 	SET_CSA_SETTING(sec_channel_offset);
 	settings->freq_params.ht_enabled = !!os_strstr(pos, " ht");
 	settings->freq_params.vht_enabled = !!os_strstr(pos, " vht");
+	settings->freq_params.he_enabled = !!os_strstr(pos, " he");
 	settings->block_tx = !!os_strstr(pos, " blocktx");
 #undef SET_CSA_SETTING
 

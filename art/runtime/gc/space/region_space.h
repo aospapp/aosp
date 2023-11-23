@@ -227,7 +227,7 @@ class RegionSpace final : public ContinuousMemMapAllocSpace {
   accounting::ContinuousSpaceBitmap::SweepCallback* GetSweepCallback() override {
     return nullptr;
   }
-  void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) override
+  bool LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) override
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!region_lock_);
 
   // Object alignment within the space.
@@ -378,6 +378,10 @@ class RegionSpace final : public ContinuousMemMapAllocSpace {
 
   size_t EvacBytes() const NO_THREAD_SAFETY_ANALYSIS {
     return num_evac_regions_ * kRegionSize;
+  }
+
+  uint64_t GetMadviseTime() const {
+    return madvise_time_;
   }
 
  private:
@@ -738,6 +742,7 @@ class RegionSpace final : public ContinuousMemMapAllocSpace {
   const bool use_generational_cc_;
   uint32_t time_;                  // The time as the number of collections since the startup.
   size_t num_regions_;             // The number of regions in this space.
+  uint64_t madvise_time_;          // The amount of time spent in madvise for purging pages.
   // The number of non-free regions in this space.
   size_t num_non_free_regions_ GUARDED_BY(region_lock_);
 
@@ -764,7 +769,7 @@ class RegionSpace final : public ContinuousMemMapAllocSpace {
 
   Region* current_region_;         // The region currently used for allocation.
   Region* evac_region_;            // The region currently used for evacuation.
-  Region full_region_;             // The dummy/sentinel region that looks full.
+  Region full_region_;             // The fake/sentinel region that looks full.
 
   // Index into the region array pointing to the starting region when
   // trying to allocate a new region. Only used when
@@ -777,8 +782,8 @@ class RegionSpace final : public ContinuousMemMapAllocSpace {
   DISALLOW_COPY_AND_ASSIGN(RegionSpace);
 };
 
-std::ostream& operator<<(std::ostream& os, const RegionSpace::RegionState& value);
-std::ostream& operator<<(std::ostream& os, const RegionSpace::RegionType& value);
+std::ostream& operator<<(std::ostream& os, RegionSpace::RegionState value);
+std::ostream& operator<<(std::ostream& os, RegionSpace::RegionType value);
 
 }  // namespace space
 }  // namespace gc

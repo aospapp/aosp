@@ -71,6 +71,7 @@ struct nl_msg_deleter {
 
 constexpr char kHwSimFamilyName[] = "MAC80211_HWSIM";
 constexpr int kHwSimVersion = 1;
+constexpr int kChannels = 2;
 
 const char* nlErrStr(const int e) { return (e < 0) ? nl_geterror(e) : ""; }
 
@@ -113,6 +114,9 @@ buildCreateRadioMessage(const int family, const uint8_t mac[ETH_ALEN]) {
 
     ret = nla_put_flag(msg.get(), HWSIM_ATTR_SUPPORT_P2P_DEVICE);
     if (ret) { RETURN_NL_ERROR("nla_put(HWSIM_ATTR_SUPPORT_P2P_DEVICE)", ret, nullptr); }
+
+    ret = nla_put_u32(msg.get(), HWSIM_ATTR_CHANNELS, kChannels);
+    if (ret) { RETURN_NL_ERROR("nla_put(HWSIM_ATTR_CHANNELS)", ret, nullptr); }
 
     RETURN(msg);
 }

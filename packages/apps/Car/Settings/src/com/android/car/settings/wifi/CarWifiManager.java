@@ -13,38 +13,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.android.car.settings.wifi;
 
 import android.annotation.Nullable;
 import android.content.Context;
-import android.net.NetworkInfo;
 import android.net.wifi.SoftApConfiguration;
 import android.net.wifi.WifiManager;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 
-import androidx.annotation.UiThread;
+import androidx.annotation.MainThread;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleObserver;
+import androidx.lifecycle.OnLifecycleEvent;
 
-import com.android.settingslib.wifi.AccessPoint;
-import com.android.settingslib.wifi.WifiTracker;
+import com.android.wifitrackerlib.WifiEntry;
+import com.android.wifitrackerlib.WifiPickerTracker;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 /**
  * Manages Wifi configuration: e.g. monitors wifi states, change wifi setting etc.
  */
-public class CarWifiManager implements WifiTracker.WifiListener {
-    private final Context mContext;
-    private final List<Listener> mListeners = new ArrayList<>();
-    private boolean mStarted;
+public class CarWifiManager implements WifiPickerTracker.WifiPickerTrackerCallback,
+        LifecycleObserver {
+    private static final String TAG = "CarWifiManager";
 
-    private WifiTracker mWifiTracker;
+    private final Context mContext;
+    private final Lifecycle mLifecycle;
+    private final List<Listener> mListeners = new ArrayList<>();
+
+    private HandlerThread mWorkerThread;
+    private WifiPickerTracker mWifiTracker;
     private WifiManager mWifiManager;
 
     public interface Listener {
         /**
          * Something about wifi setting changed.
          */
-        void onAccessPointsChanged();
+        void onWifiEntriesChanged();
 
         /**
          * Called when the state of Wifi has changed, the state will be one of
@@ -62,10 +73,30 @@ public class CarWifiManager implements WifiTracker.WifiListener {
         void onWifiStateChanged(int state);
     }
 
-    public CarWifiManager(Context context) {
+    public CarWifiManager(Context context, Lifecycle lifecycle) {
         mContext = context;
+        mLifecycle = lifecycle;
+        mLifecycle.addObserver(this);
         mWifiManager = mContext.getSystemService(WifiManager.class);
-        mWifiTracker = new WifiTracker(context, this, true, true);
+        mWorkerThread = new HandlerThread(TAG
+                + "{" + Integer.toHexString(System.identityHashCode(this)) + "}",
+                android.os.Process.THREAD_PRIORITY_BACKGROUND);
+        mWorkerThread.start();
+        mWifiTracker = WifiUtil.createWifiPickerTracker(lifecycle, context,
+                new Handler(Looper.getMainLooper()), mWorkerThread.getThreadHandler(),
+                /* listener= */ this);
+    }
+
+    /**
+     * Lifecycle method to clean up worker thread on destroy.
+     */
+    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+    @MainThread
+    public void onDestroy() {
+        if (mWorkerThread != null) {
+            mWorkerThread.quit();
+        }
+        mLifecycle.removeObserver(this);
     }
 
     /**
@@ -83,78 +114,49 @@ public class CarWifiManager implements WifiTracker.WifiListener {
     }
 
     /**
-     * Starts {@link CarWifiManager}.
-     * This should be called only from main thread.
+     * Returns the currently connected Wi-Fi entry or {@code null} if there is no Wi-Fi
+     * network connected.
      */
-    @UiThread
-    public void start() {
-        if (!mStarted) {
-            mStarted = true;
-            mWifiTracker.onStart();
-        }
-    }
-
-    /**
-     * Stops {@link CarWifiManager}.
-     * This should be called only from main thread.
-     */
-    @UiThread
-    public void stop() {
-        if (mStarted) {
-            mStarted = false;
-            mWifiTracker.onStop();
-        }
-    }
-
-    /**
-     * Destroys {@link CarWifiManager}
-     * This should only be called from main thread.
-     */
-    @UiThread
-    public void destroy() {
-        mWifiTracker.onDestroy();
-    }
-
-    /**
-     * Returns a list of all reachable access points.
-     */
-    public List<AccessPoint> getAllAccessPoints() {
-        return getAccessPoints(false);
-    }
-
-    /**
-     * Returns a list of saved access points.
-     */
-    public List<AccessPoint> getSavedAccessPoints() {
-        return getAccessPoints(true);
-    }
-
-    private List<AccessPoint> getAccessPoints(boolean saved) {
-        List<AccessPoint> accessPoints = new ArrayList<AccessPoint>();
+    @Nullable
+    public WifiEntry getConnectedWifiEntry() {
         if (mWifiManager.isWifiEnabled()) {
-            for (AccessPoint accessPoint : mWifiTracker.getAccessPoints()) {
-                // ignore out of reach access points.
-                if (shouldIncludeAp(accessPoint, saved)) {
-                    accessPoints.add(accessPoint);
+            return mWifiTracker.getConnectedWifiEntry();
+        }
+        return null;
+    }
+
+    /**
+     * Returns a list of all reachable Wi-Fi entries, not including the connected Wi-Fi entry.
+     */
+    public List<WifiEntry> getAllWifiEntries() {
+        return getWifiEntries(false);
+    }
+
+    /**
+     * Returns a list of saved Wi-Fi entries, not including the connected Wi-Fi entry.
+     */
+    public List<WifiEntry> getSavedWifiEntries() {
+        return getWifiEntries(true);
+    }
+
+    private List<WifiEntry> getWifiEntries(boolean onlySaved) {
+        List<WifiEntry> wifiEntries = new ArrayList<WifiEntry>();
+        if (mWifiManager.isWifiEnabled()) {
+            for (WifiEntry wifiEntry : mWifiTracker.getWifiEntries()) {
+                // ignore out of reach Wi-Fi entries.
+                if (shouldIncludeWifiEntry(wifiEntry, onlySaved)) {
+                    wifiEntries.add(wifiEntry);
                 }
             }
         }
-        return accessPoints;
+        return wifiEntries;
     }
 
-    private boolean shouldIncludeAp(AccessPoint accessPoint, boolean saved) {
-        return saved ? accessPoint.isReachable() && accessPoint.isSaved()
-                : accessPoint.isReachable();
-    }
-
-    @Nullable
-    public AccessPoint getConnectedAccessPoint() {
-        for (AccessPoint accessPoint : getAllAccessPoints()) {
-            if (accessPoint.getDetailedState() == NetworkInfo.DetailedState.CONNECTED) {
-                return accessPoint;
-            }
-        }
-        return null;
+    private boolean shouldIncludeWifiEntry(WifiEntry wifiEntry, boolean onlySaved) {
+        boolean reachable = wifiEntry.getLevel() != WifiEntry.WIFI_LEVEL_UNREACHABLE;
+        return onlySaved
+                ? reachable && wifiEntry.isSaved()
+                : reachable;
     }
 
     /**
@@ -209,34 +211,36 @@ public class CarWifiManager implements WifiTracker.WifiListener {
         return mWifiManager.setWifiEnabled(enabled);
     }
 
-    /** Connects to an public wifi access point. */
-    public void connectToPublicWifi(AccessPoint accessPoint, WifiManager.ActionListener listener) {
-        accessPoint.generateOpenNetworkConfig();
-        mWifiManager.connect(accessPoint.getConfig(), listener);
+    /** Adds callback for Soft AP */
+    public void registerSoftApCallback(Executor executor, WifiManager.SoftApCallback callback) {
+        mWifiManager.registerSoftApCallback(executor, callback);
     }
 
-    /** Connects to a saved access point. */
-    public void connectToSavedWifi(AccessPoint accessPoint, WifiManager.ActionListener listener) {
-        if (accessPoint.isSaved()) {
-            mWifiManager.connect(accessPoint.getConfig(), listener);
+    /** Removes callback for Soft AP */
+    public void unregisterSoftApCallback(WifiManager.SoftApCallback callback) {
+        mWifiManager.unregisterSoftApCallback(callback);
+    }
+
+    @Override
+    public void onWifiEntriesChanged() {
+        for (Listener listener : mListeners) {
+            listener.onWifiEntriesChanged();
         }
     }
 
     @Override
-    public void onWifiStateChanged(int state) {
+    public void onNumSavedNetworksChanged() {
+    }
+
+    @Override
+    public void onNumSavedSubscriptionsChanged() {
+    }
+
+    @Override
+    public void onWifiStateChanged() {
+        int state = mWifiTracker.getWifiState();
         for (Listener listener : mListeners) {
             listener.onWifiStateChanged(state);
-        }
-    }
-
-    @Override
-    public void onConnectedChanged() {
-    }
-
-    @Override
-    public void onAccessPointsChanged() {
-        for (Listener listener : mListeners) {
-            listener.onAccessPointsChanged();
         }
     }
 }

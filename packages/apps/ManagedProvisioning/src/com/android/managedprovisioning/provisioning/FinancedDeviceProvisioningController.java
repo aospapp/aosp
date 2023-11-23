@@ -23,17 +23,32 @@ import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.DeviceOwnerInitializeProvisioningTask;
 import com.android.managedprovisioning.task.DisallowAddUserTask;
-import com.android.managedprovisioning.task.DownloadPackageTask;
-import com.android.managedprovisioning.task.InstallPackageTask;
-import com.android.managedprovisioning.task.SetDevicePolicyTask;
-import com.android.managedprovisioning.task.VerifyPackageTask;
+import com.android.managedprovisioning.task.SetDeviceOwnerPolicyTask;
 
 /**
  * Controller for financed device provisioning.
  */
+// TODO(b/178711424): move any business logic from here into the framework.
 public final class FinancedDeviceProvisioningController extends AbstractProvisioningController  {
 
-    public FinancedDeviceProvisioningController(
+    /**
+     * Instantiates a new {@link FinancedDeviceProvisioningController} instance and creates the
+     * relevant tasks.
+     *
+     * @return the newly created instance
+     */
+    static FinancedDeviceProvisioningController createInstance(
+            Context context,
+            ProvisioningParams params,
+            int userId,
+            ProvisioningControllerCallback callback) {
+        FinancedDeviceProvisioningController controller =
+                new FinancedDeviceProvisioningController(context, params, userId, callback);
+        controller.setUpTasks();
+        return controller;
+    }
+
+    private FinancedDeviceProvisioningController(
             Context context,
             ProvisioningParams params,
             int userId,
@@ -45,20 +60,11 @@ public final class FinancedDeviceProvisioningController extends AbstractProvisio
     protected void setUpTasks() {
         addTasks(new DeviceOwnerInitializeProvisioningTask(mContext, mParams, this));
 
-        if (mParams.deviceAdminDownloadInfo != null) {
-            DownloadPackageTask downloadTask = new DownloadPackageTask(mContext, mParams, this);
-            addTasks(downloadTask,
-                    new VerifyPackageTask(downloadTask, mContext, mParams, this),
-                    new InstallPackageTask(downloadTask, mContext, mParams, this));
-        }
-        addTasks(
-                new SetDevicePolicyTask(mContext, mParams, this),
-                new DisallowAddUserTask(mContext, mParams, this));
-    }
+        addDownloadAndInstallDeviceOwnerPackageTasks();
 
-    @Override
-    protected void performCleanup() {
-        // do nothing here because factory reset will be enforced
+        addTasks(
+                new SetDeviceOwnerPolicyTask(mContext, mParams, this),
+                new DisallowAddUserTask(mContext, mParams, this));
     }
 
     @Override

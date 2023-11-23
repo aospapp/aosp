@@ -12,9 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "system_timezone_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_timezone_license"],
+}
+
 java_library_host {
     name: "timezone_host_debug_tools",
     srcs: ["main/java/**/*.java"],
     static_libs: ["guava"],
 }
 
+java_binary_host {
+    name: "zone_splitter",
+    main_class: "ZoneSplitter",
+    static_libs: ["timezone_host_debug_tools"],
+}
+
+java_binary_host {
+    name: "tz_file_dumper",
+    main_class: "TzFileDumper",
+    static_libs: ["timezone_host_debug_tools"],
+}
+
+java_binary_host {
+    name: "unique_zones_visualizer",
+    main_class: "com.android.libcore.timezone.tzlookup.zonetree.UniqueZonesVisualizer",
+    static_libs: ["tzlookup"],
+}

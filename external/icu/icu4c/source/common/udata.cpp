@@ -111,13 +111,31 @@ static u_atomic_int32_t gHaveTriedToLoadCommonData = ATOMIC_INT32_T_INITIALIZER(
 static UHashtable  *gCommonDataCache = NULL;  /* Global hash table of opened ICU data files.  */
 static icu::UInitOnce gCommonDataCacheInitOnce = U_INITONCE_INITIALIZER;
 
-#if !defined(ICU_DATA_DIR_WINDOWS)
+// Android-changed: On Android, use our patched version of openCommonData() to load the data,
+//   and do not try to load ICU data from other files.
+#if U_PLATFORM == U_PF_ANDROID
+static UDataFileAccess  gDataFileAccess = UDATA_NO_FILES;
+#elif !defined(ICU_DATA_DIR_WINDOWS)
 static UDataFileAccess  gDataFileAccess = UDATA_DEFAULT_ACCESS;  // Access not synchronized.
                                                                  // Modifying is documented as thread-unsafe.
 #else
 // If we are using the Windows data directory, then look in one spot only.
 static UDataFileAccess  gDataFileAccess = UDATA_NO_FILES;
 #endif
+
+// BEGIN Android-added: Include android/host-linux-specific headers and variables.
+#ifdef ANDROID // if using the AOSP build system, e.g. Soong, but not the normal GNU make used by ./updateicudata.py
+  #if U_PLATFORM == U_PF_ANDROID ||  U_PLATFORM == U_PF_LINUX // if targeting Android or host linux
+    #define AOSP_ICU_INIT 1
+  #endif
+#endif
+
+#ifdef AOSP_ICU_INIT
+  #include "androidicuinit/android_icu_init.h"
+  static icu::UInitOnce gAospInitOnce = U_INITONCE_INITIALIZER;
+#endif
+// END Android-added: Include android/host-linux-specific headers and variables.
+
 
 static UBool U_CALLCONV
 udata_cleanup(void)
@@ -135,6 +153,13 @@ udata_cleanup(void)
         gCommonICUDataArray[i] = NULL;
     }
     gHaveTriedToLoadCommonData = 0;
+
+// BEGIN Android-added: Use specialized libandroidicuinit to unload the data on Android/ART host.
+#ifdef AOSP_ICU_INIT
+    android_icu_cleanup();
+    gAospInitOnce.reset();
+#endif
+// END Android-added: Use specialized libandroidicuinit to unload the data on Android/ART host.
 
     return TRUE;                   /* Everything was cleaned up */
 }
@@ -703,6 +728,13 @@ openCommonData(const char *path,          /*  Path from OpenChoice?          */
             }
 #endif
         }
+
+// BEGIN Android-added: Use specialized libandroidicuinit to load the data on Android/ART host.
+#ifdef AOSP_ICU_INIT // Do nothing on other platforms, e.g. Windows
+        // android_icu_init() is only called once.
+        umtx_initOnce(gAospInitOnce, &android_icu_init);
+#endif // AOSP_ICU_INIT
+// END Android-added: Use specialized libandroidicuinit to load the data on Android/ART host.
 
         /* Add the linked-in data to the list. */
         /*

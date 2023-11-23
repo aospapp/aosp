@@ -16,6 +16,8 @@
 
 package com.android.documentsui.services;
 
+import static android.content.ContentResolver.wrap;
+
 import static com.android.documentsui.services.FileOperationService.OPERATION_MOVE;
 
 import android.app.Notification;
@@ -44,6 +46,8 @@ final class CompressJob extends CopyJob {
 
     private static final String TAG = "CompressJob";
     private static final String NEW_ARCHIVE_EXTENSION = ".zip";
+
+    private Uri mArchiveUri;
 
     /**
      * Moves files to a destination identified by {@code destination}.
@@ -99,17 +103,16 @@ final class CompressJob extends CopyJob {
             displayName = service.getString(R.string.new_archive_file_name, NEW_ARCHIVE_EXTENSION);
         }
 
-        Uri archiveUri;
         try {
-            archiveUri = DocumentsContract.createDocument(
-                resolver, mDstInfo.derivedUri, "application/zip", displayName);
+            mArchiveUri = DocumentsContract.createDocument(
+                    resolver, mDstInfo.derivedUri, "application/zip", displayName);
         } catch (Exception e) {
-            archiveUri = null;
+            mArchiveUri = null;
         }
 
         try {
             mDstInfo = DocumentInfo.fromUri(resolver, ArchivesProvider.buildUriForArchive(
-                    archiveUri, ParcelFileDescriptor.MODE_WRITE_ONLY), UserId.DEFAULT_USER);
+                    mArchiveUri, ParcelFileDescriptor.MODE_WRITE_ONLY), UserId.DEFAULT_USER);
             ArchivesProvider.acquireArchive(getClient(mDstInfo), mDstInfo.derivedUri);
         } catch (FileNotFoundException e) {
             Log.e(TAG, "Failed to create dstInfo.", e);
@@ -132,7 +135,14 @@ final class CompressJob extends CopyJob {
             Log.e(TAG, "Failed to release the archive.");
         }
 
-        // TODO: Remove the archive file in case of an error.
+        // Remove the archive file in case of an error.
+        try {
+            if (!isFinished() || isCanceled()) {
+                DocumentsContract.deleteDocument(wrap(getClient(mArchiveUri)), mArchiveUri);
+            }
+        } catch (RemoteException | FileNotFoundException e) {
+            Log.w(TAG, "Failed to cleanup after compress error: " + mDstInfo.toString(), e);
+        }
 
         super.finish();
     }

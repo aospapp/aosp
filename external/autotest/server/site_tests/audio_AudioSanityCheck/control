@@ -11,7 +11,7 @@ CRITERIA = """
 This test will fail if functions that audio tests rely on are broken
 after a suspension.
 """
-ATTRIBUTES = "suite:chameleon_audio_unstable"
+#ATTRIBUTES = "chameleon_audio_unstable"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"

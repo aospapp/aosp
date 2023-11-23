@@ -16,22 +16,22 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.devicepolicy.accountcheck.testonly"
-    android:sharedUserId="com.android.cts.devicepolicy.accountcheck.uid">
+     package="com.android.cts.devicepolicy.accountcheck.testonly"
+     android:sharedUserId="com.android.cts.devicepolicy.accountcheck.uid">
 
     <application android:testOnly="true">
-        <receiver
-            android:name="com.android.cts.devicepolicy.accountcheck.owner.AdminReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+        <receiver android:name="com.android.cts.devicepolicy.accountcheck.owner.AdminReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                android:resource="@xml/device_admin" />
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
     </application>
     <!--
-      Don't need instrumentation. All the three device side apps have the same UID, so we're able
-      to run all tests from the Auth package.
-    -->
+              Don't need instrumentation. All the three device side apps have the same UID, so we're able
+              to run all tests from the Auth package.
+            -->
 </manifest>

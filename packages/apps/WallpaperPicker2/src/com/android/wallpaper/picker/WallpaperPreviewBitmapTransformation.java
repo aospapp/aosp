@@ -18,6 +18,7 @@ package com.android.wallpaper.picker;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
@@ -56,16 +57,25 @@ public class WallpaperPreviewBitmapTransformation extends BitmapTransformation {
         float scale = WallpaperCropUtils.calculateMinZoom(
                 new Point(toTransform.getWidth(), toTransform.getHeight()),
                 mScreenSize);
+        Rect originalSize = new Rect(0, 0, toTransform.getWidth(),
+                toTransform.getHeight());
         Point scaledThumbnailSize = new Point(Math.round(toTransform.getWidth() * scale),
                 Math.round(toTransform.getHeight() * scale));
         Point scaledThumbnailToScreenSize = WallpaperCropUtils.calculateCenterPosition(
                 scaledThumbnailSize, mScreenSize, false /* alignStart */, mIsRtl);
 
-        Bitmap cropped = Bitmap.createBitmap(toTransform,
-                Math.round(scaledThumbnailToScreenSize.x / scale),
-                Math.round(scaledThumbnailToScreenSize.y / scale),
-                Math.round(mScreenSize.x / scale),
-                Math.round(mScreenSize.y / scale));
+        int x = Math.round(scaledThumbnailToScreenSize.x / scale);
+        int y = Math.round(scaledThumbnailToScreenSize.y / scale);
+        Rect cropSize = new Rect(x, y, x + Math.round(mScreenSize.x / scale),
+                y + Math.round(mScreenSize.y / scale));
+        Bitmap cropped;
+        if (!originalSize.contains(cropSize)) {
+            // If crop size is not smaller than original, then use the original bitmap
+            cropped = toTransform;
+        } else {
+            cropped = Bitmap.createBitmap(toTransform, cropSize.left, cropSize.top,
+                    cropSize.width(), cropSize.height());
+        }
 
         return BitmapProcessor.blur(mContext, cropped, cropped.getWidth(), cropped.getHeight());
     }

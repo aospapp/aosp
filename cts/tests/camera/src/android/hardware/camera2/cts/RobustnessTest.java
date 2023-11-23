@@ -26,6 +26,7 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
@@ -176,6 +177,13 @@ public class RobustnessTest extends Camera2AndroidTestCase {
      */
     @Test
     public void testMandatoryOutputCombinations() throws Exception {
+        testMandatoryOutputCombinations(/*maxResolution*/false);
+    }
+
+    /**
+     * Test for making sure the mandatory stream combinations work as expected.
+     */
+    private void testMandatoryOutputCombinations(boolean maxResolution) throws Exception {
         final int AVAILABILITY_TIMEOUT_MS = 10;
         final LinkedBlockingQueue<Pair<String, String>> unavailablePhysicalCamEventQueue =
                 new LinkedBlockingQueue<>();
@@ -198,14 +206,20 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                 java.util.concurrent.TimeUnit.MILLISECONDS);
         }
         mCameraManager.unregisterAvailabilityCallback(ac);
+        CameraCharacteristics.Key<MandatoryStreamCombination []> ck =
+                CameraCharacteristics.SCALER_MANDATORY_STREAM_COMBINATIONS;
 
+        if (maxResolution) {
+            ck = CameraCharacteristics.SCALER_MANDATORY_MAXIMUM_RESOLUTION_STREAM_COMBINATIONS;
+        }
         for (String id : mCameraIdsUnderTest) {
             openDevice(id);
-            MandatoryStreamCombination[] combinations =
-                    mStaticInfo.getCharacteristics().get(
-                            CameraCharacteristics.SCALER_MANDATORY_STREAM_COMBINATIONS);
+            MandatoryStreamCombination[] combinations = mStaticInfo.getCharacteristics().get(ck);
+
             if (combinations == null) {
-                Log.i(TAG, "No mandatory stream combinations for camera: " + id + " skip test");
+                String maxResolutionStr = maxResolution ? " " : " maximum resolution ";
+                Log.i(TAG, "No mandatory" + maxResolutionStr + "stream combinations for camera: " +
+                        id + " skip test");
                 closeDevice(id);
                 continue;
             }
@@ -213,8 +227,14 @@ public class RobustnessTest extends Camera2AndroidTestCase {
             try {
                 for (MandatoryStreamCombination combination : combinations) {
                     if (!combination.isReprocessable()) {
-                        testMandatoryStreamCombination(id, mStaticInfo,
-                                null/*physicalCameraId*/, combination);
+                        if (maxResolution) {
+                            testMandatoryStreamCombination(id, mStaticInfo,
+                                    /*physicalCameraId*/ null, combination, /*substituteY8*/false,
+                                    /*substituteHeic*/false, /*maxResolution*/true);
+                        } else {
+                            testMandatoryStreamCombination(id, mStaticInfo,
+                                    null/*physicalCameraId*/, combination);
+                        }
                     }
                 }
 
@@ -237,9 +257,9 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                             }
                         }
                         StaticMetadata physicalStaticInfo = mAllStaticInfo.get(physicalId);
+
                         MandatoryStreamCombination[] phyCombinations =
-                                physicalStaticInfo.getCharacteristics().get(
-                                        CameraCharacteristics.SCALER_MANDATORY_STREAM_COMBINATIONS);
+                                physicalStaticInfo.getCharacteristics().get(ck);
 
                         if (phyCombinations == null) {
                             Log.i(TAG, "No mandatory stream combinations for physical camera device: " + id + " skip test");
@@ -248,8 +268,14 @@ public class RobustnessTest extends Camera2AndroidTestCase {
 
                         for (MandatoryStreamCombination combination : phyCombinations) {
                             if (!combination.isReprocessable()) {
-                                testMandatoryStreamCombination(id, physicalStaticInfo,
-                                        physicalId, combination);
+                                if (maxResolution) {
+                                   testMandatoryStreamCombination(id, physicalStaticInfo,
+                                           physicalId, combination, /*substituteY8*/false,
+                                           /*substituteHeic*/false, /*maxResolution*/true);
+                                } else {
+                                    testMandatoryStreamCombination(id, physicalStaticInfo,
+                                            physicalId, combination);
+                                }
                             }
                         }
                     }
@@ -259,6 +285,15 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                 closeDevice(id);
             }
         }
+    }
+
+
+    /**
+     * Test for making sure the mandatory stream combinations work as expected.
+     */
+    @Test
+    public void testMandatoryMaximumResolutionOutputCombinations() throws Exception {
+        testMandatoryOutputCombinations(/*maxResolution*/ true);
     }
 
     private void testMandatoryStreamCombination(String cameraId, StaticMetadata staticInfo,
@@ -295,54 +330,67 @@ public class RobustnessTest extends Camera2AndroidTestCase {
         }
         Log.i(TAG, log);
         testMandatoryStreamCombination(cameraId, staticInfo, physicalCameraId, combination,
-                /*substituteY8*/false, /*substituteHeic*/false);
+                /*substituteY8*/false, /*substituteHeic*/false, /*maxResolution*/false);
 
         if (substituteY8) {
             Log.i(TAG, log + " with Y8");
             testMandatoryStreamCombination(cameraId, staticInfo, physicalCameraId, combination,
-                    /*substituteY8*/true, /*substituteHeic*/false);
+                    /*substituteY8*/true, /*substituteHeic*/false, /*maxResolution*/false);
         }
 
         if (substituteHeic) {
             Log.i(TAG, log + " with HEIC");
             testMandatoryStreamCombination(cameraId, staticInfo, physicalCameraId, combination,
-                    /*substituteY8*/false, /*substituteHeic*/true);
+                    /*substituteY8*/false, /*substituteHeic*/true, /**maxResolution*/ false);
         }
     }
 
     private void testMandatoryStreamCombination(String cameraId,
             StaticMetadata staticInfo, String physicalCameraId,
             MandatoryStreamCombination combination,
-            boolean substituteY8, boolean substituteHeic) throws Exception {
+            boolean substituteY8, boolean substituteHeic, boolean ultraHighResolution)
+            throws Exception {
 
         // Timeout is relaxed by 1 second for LEGACY devices to reduce false positive rate in CTS
-        final int TIMEOUT_FOR_RESULT_MS = (staticInfo.isHardwareLevelLegacy()) ? 2000 : 1000;
+        // TODO: This needs to be adjusted based on feedback
+        final int TIMEOUT_MULTIPLIER = ultraHighResolution ? 2 : 1;
+        final int TIMEOUT_FOR_RESULT_MS =
+                ((staticInfo.isHardwareLevelLegacy()) ? 2000 : 1000) * TIMEOUT_MULTIPLIER;
         final int MIN_RESULT_COUNT = 3;
 
         // Set up outputs
-        List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration>();
-        List<SurfaceTexture> privTargets = new ArrayList<SurfaceTexture>();
-        List<ImageReader> jpegTargets = new ArrayList<ImageReader>();
-        List<ImageReader> yuvTargets = new ArrayList<ImageReader>();
-        List<ImageReader> y8Targets = new ArrayList<ImageReader>();
-        List<ImageReader> rawTargets = new ArrayList<ImageReader>();
-        List<ImageReader> heicTargets = new ArrayList<ImageReader>();
-        List<ImageReader> depth16Targets = new ArrayList<ImageReader>();
+        List<OutputConfiguration> outputConfigs = new ArrayList<>();
+        List<Surface> outputSurfaces = new ArrayList<Surface>();
+        List<Surface> uhOutputSurfaces = new ArrayList<Surface>();
+        StreamCombinationTargets targets = new StreamCombinationTargets();
 
-        CameraTestUtils.setupConfigurationTargets(combination.getStreamsInformation(), privTargets,
-                jpegTargets, yuvTargets, y8Targets, rawTargets, heicTargets, depth16Targets,
-                outputConfigs, MIN_RESULT_COUNT, substituteY8, substituteHeic, physicalCameraId,
+        CameraTestUtils.setupConfigurationTargets(combination.getStreamsInformation(),
+                targets, outputConfigs, outputSurfaces, uhOutputSurfaces, MIN_RESULT_COUNT,
+                substituteY8, substituteHeic, physicalCameraId, /*multiResStreamConfig*/null,
                 mHandler);
 
         boolean haveSession = false;
         try {
             CaptureRequest.Builder requestBuilder =
                     mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            CaptureRequest.Builder uhRequestBuilder =
+                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
 
-            for (OutputConfiguration c : outputConfigs) {
-                requestBuilder.addTarget(c.getSurface());
+            for (Surface s : outputSurfaces) {
+                requestBuilder.addTarget(s);
             }
 
+            for (Surface s : uhOutputSurfaces) {
+                uhRequestBuilder.addTarget(s);
+            }
+            // We need to explicitly set the sensor pixel mode to default since we're mixing default
+            // and max resolution requests in the same capture session.
+            requestBuilder.set(CaptureRequest.SENSOR_PIXEL_MODE,
+                    CameraMetadata.SENSOR_PIXEL_MODE_DEFAULT);
+            if (ultraHighResolution) {
+                uhRequestBuilder.set(CaptureRequest.SENSOR_PIXEL_MODE,
+                        CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION);
+            }
             CameraCaptureSession.CaptureCallback mockCaptureCallback =
                     mock(CameraCaptureSession.CaptureCallback.class);
 
@@ -370,14 +418,26 @@ public class RobustnessTest extends Camera2AndroidTestCase {
             createSessionByConfigs(outputConfigs);
             haveSession = true;
             CaptureRequest request = requestBuilder.build();
+            CaptureRequest uhRequest = uhRequestBuilder.build();
             mCameraSession.setRepeatingRequest(request, mockCaptureCallback, mHandler);
-
+            if (ultraHighResolution) {
+                mCameraSession.capture(uhRequest, mockCaptureCallback, mHandler);
+            }
             verify(mockCaptureCallback,
                     timeout(TIMEOUT_FOR_RESULT_MS * MIN_RESULT_COUNT).atLeast(MIN_RESULT_COUNT))
                     .onCaptureCompleted(
                         eq(mCameraSession),
                         eq(request),
                         isA(TotalCaptureResult.class));
+           if (ultraHighResolution) {
+                verify(mockCaptureCallback,
+                        timeout(TIMEOUT_FOR_RESULT_MS).atLeast(1))
+                        .onCaptureCompleted(
+                            eq(mCameraSession),
+                            eq(uhRequest),
+                            isA(TotalCaptureResult.class));
+            }
+
             verify(mockCaptureCallback, never()).
                     onCaptureFailed(
                         eq(mCameraSession),
@@ -400,27 +460,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
             }
         }
 
-        for (SurfaceTexture target : privTargets) {
-            target.release();
-        }
-        for (ImageReader target : jpegTargets) {
-            target.close();
-        }
-        for (ImageReader target : yuvTargets) {
-            target.close();
-        }
-        for (ImageReader target : y8Targets) {
-            target.close();
-        }
-        for (ImageReader target : rawTargets) {
-            target.close();
-        }
-        for (ImageReader target : heicTargets) {
-            target.close();
-        }
-        for (ImageReader target : depth16Targets) {
-            target.close();
-        }
+        targets.close();
     }
 
     /**
@@ -429,11 +469,40 @@ public class RobustnessTest extends Camera2AndroidTestCase {
      */
     @Test
     public void testMandatoryReprocessConfigurations() throws Exception {
+        testMandatoryReprocessConfigurations(/*maxResolution*/false);
+    }
+
+    /**
+     * Test for making sure the required reprocess input/output combinations for each hardware
+     * level and capability work as expected.
+     */
+    @Test
+    public void testMandatoryMaximumResolutionReprocessConfigurations() throws Exception {
+        testMandatoryReprocessConfigurations(/*maxResolution*/true);
+    }
+
+    /**
+     * Test for making sure the required reprocess input/output combinations for each hardware
+     * level and capability work as expected.
+     */
+    public void testMandatoryReprocessConfigurations(boolean maxResolution) throws Exception {
         for (String id : mCameraIdsUnderTest) {
             openDevice(id);
-            MandatoryStreamCombination[] combinations =
-                    mStaticInfo.getCharacteristics().get(
-                            CameraCharacteristics.SCALER_MANDATORY_STREAM_COMBINATIONS);
+            CameraCharacteristics chars = mStaticInfo.getCharacteristics();
+            if (maxResolution && !CameraTestUtils.hasCapability(
+                  chars, CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_REMOSAIC_REPROCESSING)) {
+                Log.i(TAG, "Camera id " + id + "doesn't support REMOSAIC_REPROCESSING, skip test");
+                closeDevice(id);
+                continue;
+            }
+            CameraCharacteristics.Key<MandatoryStreamCombination []> ck =
+                    CameraCharacteristics.SCALER_MANDATORY_STREAM_COMBINATIONS;
+
+            if (maxResolution) {
+                ck = CameraCharacteristics.SCALER_MANDATORY_MAXIMUM_RESOLUTION_STREAM_COMBINATIONS;
+            }
+
+            MandatoryStreamCombination[] combinations = chars.get(ck);
             if (combinations == null) {
                 Log.i(TAG, "No mandatory stream combinations for camera: " + id + " skip test");
                 closeDevice(id);
@@ -445,7 +514,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     if (combination.isReprocessable()) {
                         Log.i(TAG, "Testing mandatory reprocessable stream combination: " +
                                 combination.getDescription() + " on camera: " + id);
-                        testMandatoryReprocessableStreamCombination(id, combination);
+                        testMandatoryReprocessableStreamCombination(id, combination, maxResolution);
                     }
                 }
             } finally {
@@ -455,10 +524,14 @@ public class RobustnessTest extends Camera2AndroidTestCase {
     }
 
     private void testMandatoryReprocessableStreamCombination(String cameraId,
-            MandatoryStreamCombination combination) {
+            MandatoryStreamCombination combination, boolean maxResolution)  throws Exception {
         // Test reprocess stream combination
         testMandatoryReprocessableStreamCombination(cameraId, combination,
-                /*substituteY8*/false, /*substituteHeic*/false);
+                /*substituteY8*/false, /*substituteHeic*/false, maxResolution/*maxResolution*/);
+        if (maxResolution) {
+            // Maximum resolution mode doesn't guarantee HEIC and Y8 streams.
+            return;
+        }
 
         // Test substituting YUV_888 format with Y8 format in reprocess stream combination.
         if (mStaticInfo.isMonochromeWithY8()) {
@@ -471,7 +544,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
             }
             if (substituteY8) {
                 testMandatoryReprocessableStreamCombination(cameraId, combination,
-                        /*substituteY8*/true, /*substituteHeic*/false);
+                        /*substituteY8*/true, /*substituteHeic*/false, false/*maxResolution*/);
             }
         }
 
@@ -485,27 +558,24 @@ public class RobustnessTest extends Camera2AndroidTestCase {
             }
             if (substituteHeic) {
                 testMandatoryReprocessableStreamCombination(cameraId, combination,
-                        /*substituteY8*/false, /*substituteHeic*/true);
+                        /*substituteY8*/false, /*substituteHeic*/true, false/*maxResolution*/);
             }
         }
     }
 
     private void testMandatoryReprocessableStreamCombination(String cameraId,
             MandatoryStreamCombination combination, boolean substituteY8,
-            boolean substituteHeic) {
+            boolean substituteHeic, boolean maxResolution) throws Exception {
 
-        final int TIMEOUT_FOR_RESULT_MS = 5000;
+        final int TIMEOUT_MULTIPLIER = maxResolution ? 2 : 1;
+        final int TIMEOUT_FOR_RESULT_MS = 5000 * TIMEOUT_MULTIPLIER;
         final int NUM_REPROCESS_CAPTURES_PER_CONFIG = 3;
 
-        List<SurfaceTexture> privTargets = new ArrayList<>();
-        List<ImageReader> jpegTargets = new ArrayList<>();
-        List<ImageReader> yuvTargets = new ArrayList<>();
-        List<ImageReader> y8Targets = new ArrayList<>();
-        List<ImageReader> rawTargets = new ArrayList<>();
-        List<ImageReader> heicTargets = new ArrayList<>();
-        List<ImageReader> depth16Targets = new ArrayList<>();
-        ArrayList<Surface> outputSurfaces = new ArrayList<>();
-        List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration>();
+        StreamCombinationTargets targets = new StreamCombinationTargets();
+        ArrayList<Surface> defaultOutputSurfaces = new ArrayList<>();
+        ArrayList<Surface> allOutputSurfaces = new ArrayList<>();
+        List<OutputConfiguration> outputConfigs = new ArrayList<>();
+        List<Surface> uhOutputSurfaces = new ArrayList<Surface>();
         ImageReader inputReader = null;
         ImageWriter inputWriter = null;
         SimpleImageReaderListener inputReaderListener = new SimpleImageReaderListener();
@@ -514,7 +584,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
 
         List<MandatoryStreamInformation> streamInfo = combination.getStreamsInformation();
         assertTrue("Reprocessable stream combinations should have at least 3 or more streams",
-                    (streamInfo != null) && (streamInfo.size() >= 3));
+                (streamInfo != null) && (streamInfo.size() >= 3));
 
         assertTrue("The first mandatory stream information in a reprocessable combination must " +
                 "always be input", streamInfo.get(0).isInput());
@@ -531,16 +601,16 @@ public class RobustnessTest extends Camera2AndroidTestCase {
         try {
             // The second stream information entry is the ZSL stream, which is configured
             // separately.
-            CameraTestUtils.setupConfigurationTargets(streamInfo.subList(2, streamInfo.size()),
-                    privTargets, jpegTargets, yuvTargets, y8Targets, rawTargets, heicTargets,
-                    depth16Targets, outputConfigs, NUM_REPROCESS_CAPTURES_PER_CONFIG, substituteY8,
-                    substituteHeic, null/*overridePhysicalCameraId*/, mHandler);
-
-            outputSurfaces.ensureCapacity(outputConfigs.size());
-            for (OutputConfiguration config : outputConfigs) {
-                outputSurfaces.add(config.getSurface());
-            }
-
+            List<MandatoryStreamInformation> mandatoryStreamInfos = null;
+            mandatoryStreamInfos = new ArrayList<MandatoryStreamInformation>();
+            mandatoryStreamInfos = streamInfo.subList(2, streamInfo.size());
+            CameraTestUtils.setupConfigurationTargets(mandatoryStreamInfos, targets,
+                    outputConfigs, defaultOutputSurfaces, uhOutputSurfaces,
+                    NUM_REPROCESS_CAPTURES_PER_CONFIG,
+                    substituteY8, substituteHeic, null/*overridePhysicalCameraId*/,
+                    /*multiResStreamConfig*/null, mHandler);
+            allOutputSurfaces.addAll(defaultOutputSurfaces);
+            allOutputSurfaces.addAll(uhOutputSurfaces);
             InputConfiguration inputConfig = new InputConfiguration(inputSizes.get(0).getWidth(),
                     inputSizes.get(0).getHeight(), inputFormat);
 
@@ -548,12 +618,12 @@ public class RobustnessTest extends Camera2AndroidTestCase {
             // the YUV/Y8 ImageReader for input is also used for output.)
             final boolean inputIsYuv = inputConfig.getFormat() == ImageFormat.YUV_420_888;
             final boolean inputIsY8 = inputConfig.getFormat() == ImageFormat.Y8;
-            final boolean useYuv = inputIsYuv || yuvTargets.size() > 0;
-            final boolean useY8 = inputIsY8 || y8Targets.size() > 0;
-            final int totalNumReprocessCaptures =  NUM_REPROCESS_CAPTURES_PER_CONFIG * (
-                    ((inputIsYuv || inputIsY8) ? 1 : 0) +
-                    (substituteHeic ? heicTargets.size() : jpegTargets.size()) +
-                    (useYuv ? yuvTargets.size() : y8Targets.size()));
+            final boolean useYuv = inputIsYuv || targets.mYuvTargets.size() > 0;
+            final boolean useY8 = inputIsY8 || targets.mY8Targets.size() > 0;
+            final int totalNumReprocessCaptures =  NUM_REPROCESS_CAPTURES_PER_CONFIG *
+                    (maxResolution ? 1 : (((inputIsYuv || inputIsY8) ? 1 : 0) +
+                    (substituteHeic ? targets.mHeicTargets.size() : targets.mJpegTargets.size()) +
+                    (useYuv ? targets.mYuvTargets.size() : targets.mY8Targets.size())));
 
             // It needs 1 input buffer for each reprocess capture + the number of buffers
             // that will be used as outputs.
@@ -561,9 +631,9 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                     inputConfig.getFormat(),
                     totalNumReprocessCaptures + NUM_REPROCESS_CAPTURES_PER_CONFIG);
             inputReader.setOnImageAvailableListener(inputReaderListener, mHandler);
-            outputSurfaces.add(inputReader.getSurface());
+            allOutputSurfaces.add(inputReader.getSurface());
 
-            checkSessionConfigurationWithSurfaces(mCamera, mHandler, outputSurfaces,
+            checkSessionConfigurationWithSurfaces(mCamera, mHandler, allOutputSurfaces,
                     inputConfig, SessionConfiguration.SESSION_REGULAR, /*defaultSupport*/ true,
                     String.format("Session configuration query %s failed",
                     combination.getDescription()));
@@ -571,7 +641,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
             // Verify we can create a reprocessable session with the input and all outputs.
             BlockingSessionCallback sessionListener = new BlockingSessionCallback();
             CameraCaptureSession session = configureReprocessableCameraSession(mCamera,
-                    inputConfig, outputSurfaces, sessionListener, mHandler);
+                    inputConfig, allOutputSurfaces, sessionListener, mHandler);
             inputWriter = ImageWriter.newInstance(session.getInputSurface(),
                     totalNumReprocessCaptures);
 
@@ -579,6 +649,10 @@ public class RobustnessTest extends Camera2AndroidTestCase {
             CaptureRequest.Builder builder = mCamera.createCaptureRequest(
                     CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG);
             builder.addTarget(inputReader.getSurface());
+            if (maxResolution) {
+                builder.set(CaptureRequest.SENSOR_PIXEL_MODE,
+                        CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION);
+            }
 
             for (int i = 0; i < totalNumReprocessCaptures; i++) {
                 session.capture(builder.build(), inputCaptureListener, mHandler);
@@ -586,24 +660,35 @@ public class RobustnessTest extends Camera2AndroidTestCase {
 
             List<CaptureRequest> reprocessRequests = new ArrayList<>();
             List<Surface> reprocessOutputs = new ArrayList<>();
-            if (inputIsYuv || inputIsY8) {
-                reprocessOutputs.add(inputReader.getSurface());
-            }
 
-            for (ImageReader reader : jpegTargets) {
-                reprocessOutputs.add(reader.getSurface());
-            }
+            if (maxResolution) {
+                if (uhOutputSurfaces.size() == 0) { // RAW -> RAW reprocessing
+                    reprocessOutputs.add(inputReader.getSurface());
+                } else {
+                    for (Surface surface : uhOutputSurfaces) {
+                        reprocessOutputs.add(surface);
+                    }
+                }
+            } else {
+                if (inputIsYuv || inputIsY8) {
+                    reprocessOutputs.add(inputReader.getSurface());
+                }
 
-            for (ImageReader reader : heicTargets) {
-                reprocessOutputs.add(reader.getSurface());
-            }
+                for (ImageReader reader : targets.mJpegTargets) {
+                    reprocessOutputs.add(reader.getSurface());
+                }
 
-            for (ImageReader reader : yuvTargets) {
-                reprocessOutputs.add(reader.getSurface());
-            }
+                for (ImageReader reader : targets.mHeicTargets) {
+                    reprocessOutputs.add(reader.getSurface());
+                }
 
-            for (ImageReader reader : y8Targets) {
-                reprocessOutputs.add(reader.getSurface());
+                for (ImageReader reader : targets.mYuvTargets) {
+                    reprocessOutputs.add(reader.getSurface());
+                }
+
+                for (ImageReader reader : targets.mY8Targets) {
+                    reprocessOutputs.add(reader.getSurface());
+                }
             }
 
             for (int i = 0; i < NUM_REPROCESS_CAPTURES_PER_CONFIG; i++) {
@@ -630,34 +715,7 @@ public class RobustnessTest extends Camera2AndroidTestCase {
         } finally {
             inputReaderListener.drain();
             reprocessOutputCaptureListener.drain();
-
-            for (SurfaceTexture target : privTargets) {
-                target.release();
-            }
-
-            for (ImageReader target : jpegTargets) {
-                target.close();
-            }
-
-            for (ImageReader target : yuvTargets) {
-                target.close();
-            }
-
-            for (ImageReader target : y8Targets) {
-                target.close();
-            }
-
-            for (ImageReader target : rawTargets) {
-                target.close();
-            }
-
-            for (ImageReader target : heicTargets) {
-                target.close();
-            }
-
-            for (ImageReader target : depth16Targets) {
-                target.close();
-            }
+            targets.close();
 
             if (inputReader != null) {
                 inputReader.close();
@@ -1401,6 +1459,26 @@ public class RobustnessTest extends Camera2AndroidTestCase {
     }
 
     @Test
+    public void testConfigureInvalidSensorPixelModes() throws Exception {
+        for (String id : mCameraIdsUnderTest) {
+            // Go through given, stream configuration map, add the incorrect sensor pixel mode
+            // to an OutputConfiguration, make sure the session configuration fails.
+            CameraCharacteristics chars = mCameraManager.getCameraCharacteristics(id);
+            StreamConfigurationMap defaultStreamConfigMap =
+                    chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            StreamConfigurationMap maxStreamConfigMap =
+                    chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION);
+            openDevice(id);
+            try {
+                verifyBasicSensorPixelModes(id, defaultStreamConfigMap, /*maxResolution*/ false);
+                verifyBasicSensorPixelModes(id, maxStreamConfigMap, /*maxResolution*/ true);
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
+    @Test
     public void testConfigureAbandonedSurface() throws Exception {
         for (String id : mCameraIdsUnderTest) {
             Log.i(TAG, String.format(
@@ -1649,6 +1727,74 @@ public class RobustnessTest extends Camera2AndroidTestCase {
                 aeState == CaptureResult.CONTROL_AE_STATE_SEARCHING ||
                 aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED ||
                 aeState == CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED);
+    }
+
+    private void verifyBasicSensorPixelModes(String id, StreamConfigurationMap configs,
+            boolean maxResolution) throws Exception {
+        // Go through StreamConfiguration map, set up OutputConfiguration and add the opposite
+        // sensorPixelMode.
+        final int MIN_RESULT_COUNT = 3;
+        if (!maxResolution) {
+            assertTrue("Default stream config map must be present for id: " + id, configs != null);
+        }
+        if (configs == null) {
+            Log.i(TAG, "camera id " + id + " has no StreamConfigurationMap for max resolution " +
+                ", skipping verifyBasicSensorPixelModes");
+            return;
+        }
+        OutputConfiguration outputConfig = null;
+        for (int format : configs.getOutputFormats()) {
+            Size targetSize = CameraTestUtils.getMaxSize(configs.getOutputSizes(format));
+            // Create outputConfiguration with this size and format
+            SimpleImageReaderListener imageListener = new SimpleImageReaderListener();
+            SurfaceTexture textureTarget = null;
+            ImageReader readerTarget = null;
+            if (format == ImageFormat.PRIVATE) {
+                textureTarget = new SurfaceTexture(1);
+                textureTarget.setDefaultBufferSize(targetSize.getWidth(), targetSize.getHeight());
+                outputConfig = new OutputConfiguration(new Surface(textureTarget));
+            } else {
+                readerTarget = ImageReader.newInstance(targetSize.getWidth(),
+                        targetSize.getHeight(), format, MIN_RESULT_COUNT);
+                readerTarget.setOnImageAvailableListener(imageListener, mHandler);
+                outputConfig = new OutputConfiguration(readerTarget.getSurface());
+            }
+            try {
+                int invalidSensorPixelMode =
+                        maxResolution ? CameraMetadata.SENSOR_PIXEL_MODE_DEFAULT :
+                                CameraMetadata.SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION;
+
+                outputConfig.addSensorPixelModeUsed(invalidSensorPixelMode);
+                CameraCaptureSession.StateCallback sessionListener =
+                        mock(CameraCaptureSession.StateCallback.class);
+                List<OutputConfiguration> outputs = new ArrayList<>();
+                outputs.add(outputConfig);
+                CameraCaptureSession session =
+                        CameraTestUtils.configureCameraSessionWithConfig(mCamera, outputs,
+                                sessionListener, mHandler);
+
+                verify(sessionListener, timeout(CONFIGURE_TIMEOUT).atLeastOnce()).
+                        onConfigureFailed(any(CameraCaptureSession.class));
+                verify(sessionListener, never()).onConfigured(any(CameraCaptureSession.class));
+
+                // Remove the invalid sensor pixel mode, session configuration should succeed
+                sessionListener = mock(CameraCaptureSession.StateCallback.class);
+                outputConfig.removeSensorPixelModeUsed(invalidSensorPixelMode);
+                CameraTestUtils.configureCameraSessionWithConfig(mCamera, outputs,
+                        sessionListener, mHandler);
+                verify(sessionListener, timeout(CONFIGURE_TIMEOUT).atLeastOnce()).
+                        onConfigured(any(CameraCaptureSession.class));
+                verify(sessionListener, never()).onConfigureFailed(any(CameraCaptureSession.class));
+            } finally {
+                if (textureTarget != null) {
+                    textureTarget.release();
+                }
+
+                if (readerTarget != null) {
+                    readerTarget.close();
+                }
+            }
+        }
     }
 
     private void verifyStartingAfState(int afMode, int afState) {
@@ -2053,15 +2199,25 @@ public class RobustnessTest extends Camera2AndroidTestCase {
     private boolean isMandatoryCombinationAvailable(final int[] combination,
             final MaxStreamSizes maxSizes, boolean isInput,
             final MandatoryStreamCombination[] availableCombinations) {
+        boolean supportYuvReprocess = mStaticInfo.isCapabilitySupported(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING);
+        boolean supportOpaqueReprocess = mStaticInfo.isCapabilitySupported(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING);
         // Static combinations to be verified can be composed of multiple entries
         // that have the following layout (format, size). In case "isInput" is set,
         // the first stream configuration entry will contain the input format and size
         // as well as the first matching output.
         int streamCount = combination.length / 2;
-        ArrayList<Pair<Pair<Integer, Boolean>, Size>> currentCombination =
+
+        List<Pair<Pair<Integer, Boolean>, Size>> currentCombination =
                 new ArrayList<Pair<Pair<Integer, Boolean>, Size>>(streamCount);
         for (int i = 0; i < combination.length; i += 2) {
             if (isInput && (i == 0)) {
+                // Skip the combination if the format is not supported for reprocessing.
+                if ((combination[i] == YUV && !supportYuvReprocess) ||
+                        (combination[i] == PRIV && !supportOpaqueReprocess)) {
+                    return true;
+                }
                 Size sz = maxSizes.getMaxInputSizeForFormat(combination[i]);
                 currentCombination.add(Pair.create(Pair.create(new Integer(combination[i]),
                             new Boolean(true)), sz));

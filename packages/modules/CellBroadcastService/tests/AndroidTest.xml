@@ -20,6 +20,7 @@
 
     <option name="test-suite-tag" value="apct" />
     <option name="test-tag" value="CellBroadcastServiceTests" />
+    <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.cellbroadcast.apex" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.cellbroadcastservice.tests" />
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />

@@ -44,6 +44,8 @@ public class Install {
     private int mRollbackDataPolicy = 0;
     private int mSessionMode = PackageInstaller.SessionParams.MODE_FULL_INSTALL;
     private int mInstallFlags = 0;
+    private boolean mBypassAllowedApexUpdateCheck = true;
+    private boolean mBypassStagedInstallerCheck = true;
 
     private Install(boolean isMultiPackage, TestApp... testApps) {
         mIsMultiPackage = isMultiPackage;
@@ -145,6 +147,24 @@ public class Install {
     }
 
     /**
+     * Sets whether to call {@code pm bypass-allowed-apex-update-check true} when creating install
+     * session.
+     */
+    public Install setBypassAllowedApexUpdateCheck(boolean bypassAllowedApexUpdateCheck) {
+        mBypassAllowedApexUpdateCheck = bypassAllowedApexUpdateCheck;
+        return this;
+    }
+
+    /**
+     * Sets whether to call {@code pm bypass-staged-installer-check true} when creating install
+     * session.
+     */
+    public Install setBypassStangedInstallerCheck(boolean bypassStagedInstallerCheck) {
+        mBypassStagedInstallerCheck = bypassStagedInstallerCheck;
+        return this;
+    }
+
+    /**
      * Commits the install.
      *
      * @return the session id of the install session, if the session is successful.
@@ -154,17 +174,10 @@ public class Install {
         int sessionId = createSession();
         try (PackageInstaller.Session session =
                      InstallUtils.openPackageInstallerSession(sessionId)) {
-            session.commit(LocalIntentSender.getIntentSender());
-            Intent result = LocalIntentSender.getIntentSenderResult();
-            int status = result.getIntExtra(PackageInstaller.EXTRA_STATUS,
-                    PackageInstaller.STATUS_FAILURE);
-            if (status == -1) {
-                throw new AssertionError("PENDING USER ACTION");
-            } else if (status > 0) {
-                String message = result.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
-                throw new AssertionError(message == null ? "UNKNOWN FAILURE" : message);
-            }
-
+            LocalIntentSender sender = new LocalIntentSender();
+            session.commit(sender.getIntentSender());
+            Intent result = sender.getResult();
+            InstallUtils.assertStatusSuccess(result);
             if (mIsStaged) {
                 InstallUtils.waitForSessionReady(sessionId);
             }
@@ -205,8 +218,11 @@ public class Install {
      */
     private int createEmptyInstallSession(boolean multiPackage, boolean isApex)
             throws IOException {
-        if (mIsStaged) {
+        if ((mIsStaged || isApex) && mBypassStagedInstallerCheck) {
             SystemUtil.runShellCommandForNoOutput("pm bypass-staged-installer-check true");
+        }
+        if (isApex && mBypassAllowedApexUpdateCheck) {
+            SystemUtil.runShellCommandForNoOutput("pm bypass-allowed-apex-update-check true");
         }
         try {
             PackageInstaller.SessionParams params =
@@ -227,8 +243,11 @@ public class Install {
             }
             return InstallUtils.getPackageInstaller().createSession(params);
         } finally {
-            if (mIsStaged) {
+            if ((mIsStaged || isApex) && mBypassStagedInstallerCheck) {
                 SystemUtil.runShellCommandForNoOutput("pm bypass-staged-installer-check false");
+            }
+            if (isApex && mBypassAllowedApexUpdateCheck) {
+                SystemUtil.runShellCommandForNoOutput("pm bypass-allowed-apex-update-check false");
             }
         }
     }

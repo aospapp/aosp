@@ -29,6 +29,7 @@ import android.content.pm.PackageInstaller;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.SystemUtil;
 import com.android.cts.install.lib.Install;
 import com.android.cts.install.lib.InstallUtils;
 import com.android.cts.install.lib.LocalIntentSender;
@@ -41,11 +42,22 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+
 /**
  * Tests for multi-package (a.k.a. atomic) installs.
  */
 @RunWith(JUnit4.class)
 public class AtomicInstallTest {
+    /**
+     * Time between repeated checks in {@link #retry}.
+     */
+    private static final long RETRY_CHECK_INTERVAL_MILLIS = 500;
+    /**
+     * Maximum number of checks in {@link #retry} before a timeout occurs.
+     */
+    private static final long RETRY_MAX_INTERVALS = 20;
 
     public static final String TEST_APP_CORRUPT_FILENAME = "corrupt.apk";
     private static final TestApp CORRUPT_TESTAPP = new TestApp(
@@ -63,7 +75,7 @@ public class AtomicInstallTest {
     public void setup() throws Exception {
         adoptShellPermissions();
 
-        Uninstall.packages(TestApp.A, TestApp.B);
+        Uninstall.packages(TestApp.A, TestApp.B, TestApp.C);
     }
 
     @After
@@ -74,11 +86,90 @@ public class AtomicInstallTest {
                 .dropShellPermissionIdentity();
     }
 
+    /**
+     * Cleans up sessions that are not committed during tests.
+     */
+    @After
+    public void cleanUpSessions() {
+        InstallUtils.getPackageInstaller().getMySessions().forEach(info -> {
+            try {
+                InstallUtils.getPackageInstaller().abandonSession(info.getSessionId());
+            } catch (Exception ignore) {
+            }
+        });
+    }
+
+    private static <T> T retry(Supplier<T> supplier, Predicate<T> predicate, String message)
+            throws InterruptedException {
+        for (int i = 0; i < RETRY_MAX_INTERVALS; i++) {
+            T result = supplier.get();
+            if (predicate.test(result)) {
+                return result;
+            }
+            Thread.sleep(RETRY_CHECK_INTERVAL_MILLIS);
+        }
+        throw new AssertionError(message);
+    }
+
+    /**
+     * Tests a completed session should be cleaned up.
+     */
+    @Test
+    public void testSessionCleanUp_Single() throws Exception {
+        int sessionId = Install.single(TestApp.A1).commit();
+        assertThat(getInstalledVersion(TestApp.A)).isEqualTo(1);
+        // The session is cleaned up asynchronously after install completed.
+        // Retry until the session no longer exists.
+        retry(() -> InstallUtils.getPackageInstaller().getSessionInfo(sessionId),
+                info -> info == null,
+                "Session " + sessionId + " not cleaned up");
+    }
+
+    /**
+     * Tests a completed session should be cleaned up.
+     */
+    @Test
+    public void testSessionCleanUp_Multi() throws Exception {
+        int sessionId = Install.multi(TestApp.A1, TestApp.B1).commit();
+        assertThat(getInstalledVersion(TestApp.A)).isEqualTo(1);
+        assertThat(getInstalledVersion(TestApp.B)).isEqualTo(1);
+        // The session is cleaned up asynchronously after install completed.
+        // Retry until the session no longer exists.
+        retry(() -> InstallUtils.getPackageInstaller().getSessionInfo(sessionId),
+                info -> info == null,
+                "Session " + sessionId + " not cleaned up");
+    }
+
     @Test
     public void testInstallTwoApks() throws Exception {
         Install.multi(TestApp.A1, TestApp.B1).commit();
         assertThat(getInstalledVersion(TestApp.A)).isEqualTo(1);
         assertThat(getInstalledVersion(TestApp.B)).isEqualTo(1);
+    }
+
+    /**
+     * Tests a removed child shouldn't be installed.
+     */
+    @Test
+    public void testRemoveChild() throws Exception {
+        assertThat(getInstalledVersion(TestApp.A)).isEqualTo(-1);
+        assertThat(getInstalledVersion(TestApp.B)).isEqualTo(-1);
+        assertThat(getInstalledVersion(TestApp.C)).isEqualTo(-1);
+
+        int parentId = Install.multi(TestApp.A1).createSession();
+        int childBId = Install.single(TestApp.B1).createSession();
+        int childCId = Install.single(TestApp.C1).createSession();
+        try (PackageInstaller.Session parent = openPackageInstallerSession(parentId)) {
+            parent.addChildSessionId(childBId);
+            parent.addChildSessionId(childCId);
+            parent.removeChildSessionId(childBId);
+            LocalIntentSender sender = new LocalIntentSender();
+            parent.commit(sender.getIntentSender());
+            InstallUtils.assertStatusSuccess(sender.getResult());
+            assertThat(getInstalledVersion(TestApp.A)).isEqualTo(1);
+            assertThat(getInstalledVersion(TestApp.B)).isEqualTo(-1);
+            assertThat(getInstalledVersion(TestApp.C)).isEqualTo(1);
+        }
     }
 
     @Test
@@ -139,6 +230,117 @@ public class AtomicInstallTest {
     }
 
     @Test
+    public void testInvalidStateScenario_MultiSessionCantBeApex() throws Exception {
+        try {
+            SystemUtil.runShellCommandForNoOutput("pm bypass-staged-installer-check true");
+            PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(
+                    PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+            params.setMultiPackage();
+            params.setInstallAsApex();
+            params.setStaged();
+            try {
+                InstallUtils.getPackageInstaller().createSession(params);
+                fail("Should not be able to create a multi-session set as APEX!");
+            } catch (Exception ignore) {
+            }
+        } finally {
+            SystemUtil.runShellCommandForNoOutput("pm bypass-staged-installer-check false");
+        }
+    }
+
+    /**
+     * Tests a single-session can't have child.
+     */
+    @Test
+    public void testInvalidStateScenario_AddChildToSingleSessionShouldFail() throws Exception {
+        int parentId = Install.single(TestApp.A1).createSession();
+        int childId = Install.single(TestApp.B1).createSession();
+        try (PackageInstaller.Session parent = openPackageInstallerSession(parentId)) {
+            try {
+                parent.addChildSessionId(childId);
+                fail("Should not be able to add a child session to a single-session!");
+            } catch (Exception ignore) {
+            }
+        }
+    }
+
+    /**
+     * Tests a multi-session can't be a child.
+     */
+    @Test
+    public void testInvalidStateScenario_MultiSessionAddedAsChildShouldFail() throws Exception {
+        int parentId = Install.multi(TestApp.A1).createSession();
+        int childId = Install.multi(TestApp.B1).createSession();
+        try (PackageInstaller.Session parent = openPackageInstallerSession(parentId)) {
+            try {
+                parent.addChildSessionId(childId);
+                fail("Should not be able to add a multi-session as a child!");
+            } catch (Exception ignore) {
+            }
+        }
+    }
+
+    /**
+     * Tests a committed session can't add child.
+     */
+    @Test
+    public void testInvalidStateScenario_AddChildToCommittedSessionShouldFail() throws Exception {
+        int parentId = Install.multi(TestApp.A1).createSession();
+        int childId = Install.single(TestApp.B1).createSession();
+        try (PackageInstaller.Session parent = openPackageInstallerSession(parentId)) {
+            LocalIntentSender sender = new LocalIntentSender();
+            parent.commit(sender.getIntentSender());
+            try {
+                parent.addChildSessionId(childId);
+                fail("Should not be able to add child to a committed session");
+            } catch (Exception ignore) {
+            }
+        }
+    }
+
+    /**
+     * Tests a committed session can't remove child.
+     */
+    @Test
+    public void testInvalidStateScenario_RemoveChildFromCommittedSessionShouldFail()
+            throws Exception {
+        int parentId = Install.multi(TestApp.A1).createSession();
+        int childId = Install.single(TestApp.B1).createSession();
+        try (PackageInstaller.Session parent = openPackageInstallerSession(parentId)) {
+            parent.addChildSessionId(childId);
+            LocalIntentSender sender = new LocalIntentSender();
+            parent.commit(sender.getIntentSender());
+            try {
+                parent.removeChildSessionId(childId);
+                fail("Should not be able to remove child from a committed session");
+            } catch (Exception ignore) {
+            }
+        }
+    }
+
+    /**
+     * Tests removing a child that is not its own should do nothing.
+     */
+    @Test
+    public void testInvalidStateScenario_RemoveWrongChildShouldDoNothing() throws Exception {
+        int parent1Id = Install.multi(TestApp.A1).createSession();
+        int parent2Id = Install.multi(TestApp.C1).createSession();
+        int childId = Install.single(TestApp.B1).createSession();
+        try (PackageInstaller.Session parent1 = openPackageInstallerSession(parent1Id);
+             PackageInstaller.Session parent2 = openPackageInstallerSession(parent2Id);) {
+            parent1.addChildSessionId(childId);
+            // Should do nothing since the child doesn't belong to parent2
+            parent2.removeChildSessionId(childId);
+            int currentParentId =
+                    InstallUtils.getPackageInstaller().getSessionInfo(childId).getParentSessionId();
+            // Check this child still belongs to parent1
+            assertThat(currentParentId).isEqualTo(parent1Id);
+            assertThat(parent1.getChildSessionIds()).asList().contains(childId);
+            assertThat(parent2.getChildSessionIds()).asList().doesNotContain(childId);
+        }
+    }
+
+    @Test
     public void testInvalidStateScenarios() throws Exception {
         int parentSessionId = Install.multi(TestApp.A1, TestApp.B1).createSession();
         try (PackageInstaller.Session parentSession =
@@ -147,7 +349,8 @@ public class AtomicInstallTest {
                 try (PackageInstaller.Session childSession =
                              openPackageInstallerSession(childSessionId)) {
                     try {
-                        childSession.commit(LocalIntentSender.getIntentSender());
+                        LocalIntentSender sender = new LocalIntentSender();
+                        childSession.commit(sender.getIntentSender());
                         fail("Should not be able to commit a child session!");
                     } catch (IllegalStateException e) {
                         // ignore
@@ -172,8 +375,9 @@ public class AtomicInstallTest {
                 }
             }
 
-            parentSession.commit(LocalIntentSender.getIntentSender());
-            assertStatusSuccess(LocalIntentSender.getIntentSenderResult());
+            LocalIntentSender sender = new LocalIntentSender();
+            parentSession.commit(sender.getIntentSender());
+            assertStatusSuccess(sender.getResult());
         }
     }
 
@@ -186,6 +390,6 @@ public class AtomicInstallTest {
     }
 
     private static void assertInconsistentSettings(String failMessage, Install install) {
-        InstallUtils.commitExpectingFailure(AssertionError.class, failMessage, install);
+        InstallUtils.commitExpectingFailure(IllegalStateException.class, failMessage, install);
     }
 }

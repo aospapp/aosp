@@ -11,6 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package {
+    default_visibility: ["//external/icu:__subpackages__"],
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_icu_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-BSD
+    //   SPDX-license-identifier-ICU
+    //   SPDX-license-identifier-MIT
+    //   SPDX-license-identifier-Unicode-DFS
+    default_applicable_licenses: ["external_icu_license"],
+}
 
 // Android repo only headers for icu4c
 // The header should mainly contain config for C preprocessor,
@@ -20,15 +32,12 @@ cc_library_headers {
     host_supported: true,
     native_bridge_supported: true,
     export_include_dirs: ["include"],
+    apex_available: [
+        "com.android.i18n",
+    ],
     target: {
         windows: {
             enabled: true,
         },
     },
-
-    apex_available: [
-        "//apex_available:platform",
-        "com.android.art.debug",
-        "com.android.art.release",
-    ],
 }

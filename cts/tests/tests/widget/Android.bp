@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsWidgetTestCases",
     defaults: ["cts_defaults"],
@@ -20,6 +24,7 @@ android_test {
         "androidx.annotation_annotation",
         "androidx.test.ext.junit",
         "androidx.test.rules",
+	"ctsdeviceutillegacy-axt",
         "mockito-target-minus-junit4",
         "android-common",
         "compatibility-device-util-axt",
@@ -28,7 +33,7 @@ android_test {
         "truth-prebuilt",
     ],
 
-    libs: ["android.test.runner.stubs"],
+    libs: ["android.test.runner"],
 
     srcs: [
         "src/**/*.java",
@@ -41,7 +46,6 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 

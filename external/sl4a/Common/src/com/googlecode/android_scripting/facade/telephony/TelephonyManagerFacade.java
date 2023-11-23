@@ -55,6 +55,8 @@ import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
 import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
                                                    .DataConnectionStateChangeListener;
 import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
+                                                   .DisplayInfoStateChangeListener;
+import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
                                                    .ServiceStateChangeListener;
 import com.googlecode.android_scripting.facade.telephony.TelephonyStateListeners
                                                    .SignalStrengthChangeListener;
@@ -303,6 +305,28 @@ public class TelephonyManagerFacade extends RpcReceiver {
         return true;
     }
 
+    @Rpc(description = "Starts tracking display info change" +
+                       "for default subscription ID.")
+    public Boolean telephonyStartTrackingDisplayInfoChange() {
+        return telephonyStartTrackingDisplayInfoChangeForSubscription(
+                              SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+    }
+
+    @Rpc(description = "Starts tracking display info change" +
+                       "for specified subscription ID.")
+    public Boolean telephonyStartTrackingDisplayInfoChangeForSubscription(
+                @RpcParameter(name = "subId") Integer subId) {
+        StateChangeListener listener = getStateChangeListenerForSubscription(subId, true);
+        if(listener == null) {
+            Log.e("Invalid subscription ID");
+            return false;
+        }
+        mTelephonyManager.createForSubscriptionId(subId).listen(
+            listener.mDisplayInfoStateChangeListener,
+            PhoneStateListener.LISTEN_DISPLAY_INFO_CHANGED);
+        return true;
+    }
+
     @Rpc(description = "Turn on/off precise listening on fore/background or" +
                        " ringing calls for default voice subscription ID.")
     public Boolean telephonyAdjustPreciseCallStateListenLevel(
@@ -377,6 +401,28 @@ public class TelephonyManagerFacade extends RpcReceiver {
         }
         mTelephonyManager.createForSubscriptionId(subId).listen(
             listener.mActiveDataSubIdChangeListener,
+            PhoneStateListener.LISTEN_NONE);
+        return true;
+    }
+
+    @Rpc(description = "Stops tracking display info change " +
+                       "for default subscription ID.")
+    public Boolean telephonyStopTrackingDisplayInfoChange() {
+        return telephonyStopTrackingDisplayInfoChangeForSubscription(
+                SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
+    }
+
+    @Rpc(description = "Stops tracking display info change " +
+                       "for specified subscription ID.")
+    public Boolean telephonyStopTrackingDisplayInfoChangeForSubscription(
+                   @RpcParameter(name = "subId") Integer subId) {
+        StateChangeListener listener = getStateChangeListenerForSubscription(subId, false);
+        if(listener == null) {
+            Log.e("Invalid subscription ID");
+            return false;
+        }
+        mTelephonyManager.createForSubscriptionId(subId).listen(
+            listener.mDisplayInfoStateChangeListener,
             PhoneStateListener.LISTEN_NONE);
         return true;
     }
@@ -756,7 +802,12 @@ public class TelephonyManagerFacade extends RpcReceiver {
     public boolean telephonySetAlwaysAllowMmsData(
             @RpcParameter(name = "subId") Integer subId,
             @RpcParameter(name = "alwaysAllow") Boolean alwaysAllow) {
-        return mTelephonyManager.createForSubscriptionId(subId).setAlwaysAllowMmsData(alwaysAllow);
+        boolean wasAlwaysAllow = mTelephonyManager.isMobileDataPolicyEnabled(
+                TelephonyManager.MOBILE_DATA_POLICY_MMS_ALWAYS_ALLOWED);
+        mTelephonyManager.createForSubscriptionId(subId)
+                .setMobileDataPolicyEnabled(
+                        TelephonyManager.MOBILE_DATA_POLICY_MMS_ALWAYS_ALLOWED, alwaysAllow);
+        return wasAlwaysAllow == alwaysAllow;
     }
 
     /**
@@ -1506,6 +1557,7 @@ public class TelephonyManagerFacade extends RpcReceiver {
         public CellInfoChangeListener mCellInfoChangeListener;
         public DataConnectionStateChangeListener mDataConnectionStateChangeListener;
         public ActiveDataSubIdChangeListener mActiveDataSubIdChangeListener;
+        public DisplayInfoStateChangeListener mDisplayInfoStateChangeListener;
         public DataConnectionRealTimeInfoChangeListener mDataConnectionRTInfoChangeListener;
         public VoiceMailStateChangeListener mVoiceMailStateChangeListener;
 
@@ -1519,6 +1571,9 @@ public class TelephonyManagerFacade extends RpcReceiver {
                         mEventFacade, mTelephonyManager, subId, mService.getMainLooper());
             mActiveDataSubIdChangeListener =
                 new ActiveDataSubIdChangeListener(
+                        mEventFacade, mTelephonyManager, subId, mService.getMainLooper());
+            mDisplayInfoStateChangeListener =
+                new DisplayInfoStateChangeListener(
                         mEventFacade, mTelephonyManager, subId, mService.getMainLooper());
             mCallStateChangeListener =
                 new CallStateChangeListener(mEventFacade, subId, mService.getMainLooper());
@@ -1543,6 +1598,9 @@ public class TelephonyManagerFacade extends RpcReceiver {
                     PhoneStateListener.LISTEN_NONE);
             mTelephonyManager.listen(
                     mActiveDataSubIdChangeListener,
+                    PhoneStateListener.LISTEN_NONE);
+            mTelephonyManager.listen(
+                    mDisplayInfoStateChangeListener,
                     PhoneStateListener.LISTEN_NONE);
             mTelephonyManager.listen(
                     mCellInfoChangeListener,

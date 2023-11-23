@@ -38,12 +38,14 @@ public class SimpleActivityImmediateExit extends Activity {
     @Override
     public void onStart() {
         super.onStart();
+        Log.i(TAG, "Starting SimpleActivityImmediateExit.");
         finish();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        Log.i(TAG, "Stopping SimpleActivityImmediateExit.");
         // Notify any listener that this activity is about to end now.
         Intent reply = new Intent();
         reply.setAction(ACTIVITY_EXIT_ACTION);

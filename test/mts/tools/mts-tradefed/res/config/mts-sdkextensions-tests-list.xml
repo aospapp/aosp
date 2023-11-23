@@ -15,6 +15,7 @@
 -->
 <configuration description="Runs MTS-sdkextensions from a pre-existing MTS installation">
 
+    <option name="compatibility:include-filter" value="CtsClasspathsTestCases" />
     <option name="compatibility:include-filter" value="CtsSdkExtensionsTestCases" />
 
    <!-- Enable SdkExtensions MTS tests to use MainlineTestModuleController -->

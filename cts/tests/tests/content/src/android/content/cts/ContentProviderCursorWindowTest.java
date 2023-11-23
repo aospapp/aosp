@@ -20,17 +20,17 @@ import android.database.Cursor;
 import android.database.CursorWindowAllocationException;
 import android.database.sqlite.SQLiteException;
 import android.net.Uri;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
 /**
  * Test {@link CursorWindowContentProvider} .
  */
-@SecurityTest
 public class ContentProviderCursorWindowTest extends AndroidTestCase {
     private static final String TAG = "ContentProviderCursorWindowTest";
 
+    @AsbSecurityTest(cveBugId = 34128677)
     public void testQuery() {
         // First check if the system has a patch for enforcing protected Parcel data
         Cursor cursor;

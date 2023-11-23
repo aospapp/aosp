@@ -20,6 +20,13 @@
     xmlns:settings="http://schemas.android.com/apk/res-auto"
     android:title="@string/applications_settings"
     android:key="@string/psk_applications_settings">
+    <com.android.car.settings.common.ColoredSwitchPreference
+        android:key="@string/pk_all_applications_settings_hide_system_switch"
+        android:title="@string/hide_system_apps"
+        style="@style/ColoredSwitchPreferenceStyle"
+        settings:controller="com.android.car.settings.applications.HideSystemSwitchPreferenceController"
+        settings:searchable="false"/>
+    <com.android.car.settings.common.DividerPreference/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_all_applications_settings_list"
         settings:controller="com.android.car.settings.applications.ApplicationsSettingsPreferenceController"/>

@@ -256,7 +256,7 @@ public class AudioHelper {
     public static class TimestampVerifier {
 
         // CDD 5.6 1ms timestamp accuracy
-        private static final double TEST_MAX_JITTER_MS_ALLOWED = 6.; // a sanity check
+        private static final double TEST_MAX_JITTER_MS_ALLOWED = 6.; // a validity check
         private static final double TEST_STD_JITTER_MS_ALLOWED = 3.; // flaky tolerance 3x
         private static final double TEST_STD_JITTER_MS_WARN = 1.;    // CDD requirement warning
 
@@ -272,6 +272,7 @@ public class AudioHelper {
 
         private final String mTag;
         private final int mSampleRate;
+        private final long mStartFrames; // initial timestamp condition for verification.
 
         // Running statistics
         private int mCount = 0;
@@ -284,9 +285,10 @@ public class AudioHelper {
         private int mWarmupCount = 0;
 
         public TimestampVerifier(@Nullable String tag, @IntRange(from=4000) int sampleRate,
-                boolean isProAudioDevice) {
+                                 long startFrames, boolean isProAudioDevice) {
             mTag = tag;  // Log accepts null
             mSampleRate = sampleRate;
+            mStartFrames = startFrames;
             // Warning if higher than MUST value for pro audio.  Zero means ignore.
             TEST_STARTUP_TIME_MS_WARN = isProAudioDevice ? 200. : 0.;
         }
@@ -296,14 +298,14 @@ public class AudioHelper {
         public double getStdJitterMs() { return Math.sqrt(mSecondMomentJitterMs / mJitterCount); }
         public double getMaxAbsJitterMs() { return mMaxAbsJitterMs; }
         public double getStartTimeNs() {
-            return mLastTimeNs - (mLastFrames * NANOS_PER_SECOND / mSampleRate);
+            return mLastTimeNs - ((mLastFrames - mStartFrames) * NANOS_PER_SECOND / mSampleRate);
         }
 
         public void add(@NonNull AudioTimestamp ts) {
             final long frames = ts.framePosition;
             final long timeNs = ts.nanoTime;
 
-            assertTrue("timestamps must have causal time", System.nanoTime() >= timeNs);
+            assertTrue(mTag + " timestamps must have causal time", System.nanoTime() >= timeNs);
 
             if (mCount > 0) { // need delta info from previous iteration (skipping first)
                 final long deltaFrames = frames - mLastFrames;
@@ -322,8 +324,8 @@ public class AudioHelper {
                         + ") deltaFrames(" + deltaFrames
                         + ") deltaTimeNs(" + deltaTimeNs
                         + ") jitterMs(" + jitterMs + ")");
-                assertTrue("timestamp time should be increasing", deltaTimeNs >= 0);
-                assertTrue("timestamp frames should be increasing", deltaFrames >= 0);
+                assertTrue(mTag + " timestamp time should be increasing", deltaTimeNs >= 0);
+                assertTrue(mTag + " timestamp frames should be increasing", deltaFrames >= 0);
 
                 if (mLastFrames != 0) {
                     if (mWarmupCount++ > 1) { // ensure device is warmed up
@@ -350,7 +352,7 @@ public class AudioHelper {
 
         public void verifyAndLog(long trackStartTimeNs, @Nullable String logName) {
             // enough timestamps?
-            assertTrue("need at least 2 jitter measurements", mJitterCount >= 2);
+            assertTrue(mTag + " need at least 2 jitter measurements", mJitterCount >= 2);
 
             // Compute startup time and std jitter.
             final int startupTimeMs =
@@ -358,7 +360,7 @@ public class AudioHelper {
             final double stdJitterMs = getStdJitterMs();
 
             // Check startup time
-            assertTrue("expect startupTimeMs " + startupTimeMs
+            assertTrue(mTag + " expect startupTimeMs " + startupTimeMs
                             + " <= " + TEST_STARTUP_TIME_MS_ALLOWED,
                     startupTimeMs <= TEST_STARTUP_TIME_MS_ALLOWED);
             if (TEST_STARTUP_TIME_MS_WARN > 0 && startupTimeMs > TEST_STARTUP_TIME_MS_WARN) {
@@ -370,7 +372,7 @@ public class AudioHelper {
             }
 
             // Check maximum jitter
-            assertTrue("expect maxAbsJitterMs(" + mMaxAbsJitterMs + ") < "
+            assertTrue(mTag + " expect maxAbsJitterMs(" + mMaxAbsJitterMs + ") < "
                             + TEST_MAX_JITTER_MS_ALLOWED,
                     mMaxAbsJitterMs < TEST_MAX_JITTER_MS_ALLOWED);
 
@@ -379,7 +381,8 @@ public class AudioHelper {
                 Log.w(mTag, "CDD warning: std timestamp jitter " + stdJitterMs
                         + " > " + TEST_STD_JITTER_MS_WARN);
             }
-            assertTrue("expect stdJitterMs " + stdJitterMs + " < " + TEST_STD_JITTER_MS_ALLOWED,
+            assertTrue(mTag + " expect stdJitterMs " + stdJitterMs +
+                            " < " + TEST_STD_JITTER_MS_ALLOWED,
                     stdJitterMs < TEST_STD_JITTER_MS_ALLOWED);
 
             Log.d(mTag, "startupTimeMs(" + startupTimeMs

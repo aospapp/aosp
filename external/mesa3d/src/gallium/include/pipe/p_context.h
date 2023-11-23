@@ -49,6 +49,7 @@ struct pipe_debug_callback;
 struct pipe_depth_stencil_alpha_state;
 struct pipe_device_reset_callback;
 struct pipe_draw_info;
+struct pipe_draw_start_count;
 struct pipe_grid_info;
 struct pipe_fence_handle;
 struct pipe_framebuffer_state;
@@ -91,7 +92,7 @@ struct pipe_context {
    void *draw;  /**< private, for draw module (temporary?) */
 
    /**
-    * Stream uploaders created by the driver. All drivers, state trackers, and
+    * Stream uploaders created by the driver. All drivers, gallium frontends, and
     * modules should use them.
     *
     * Use u_upload_alloc or u_upload_data as many times as you want.
@@ -108,6 +109,41 @@ struct pipe_context {
    /*@{*/
    void (*draw_vbo)( struct pipe_context *pipe,
                      const struct pipe_draw_info *info );
+
+   /**
+    * Direct multi draw specifying "start" and "count" for each draw.
+    *
+    * For indirect multi draws, use draw_vbo, which supports them through
+    * "info->indirect".
+    *
+    * Differences against draw_vbo:
+    * - "start" and "count" are taken from "draws", not "info"
+    * - "info->has_user_indices" is always false
+    * - "info->indirect" and "info->count_from_stream_output" are always NULL
+    *
+    * Differences against glMultiDraw:
+    * - "info->draw_id" is 0 and should be 0 for every draw
+    *   (we could make this configurable)
+    * - "info->index_bias" is always constant due to hardware performance
+    *   concerns (this is very important) and the lack of apps using
+    *   glMultiDrawElementsBaseVertex.
+    *
+    * The main use case is to optimize applications that submit many
+    * back-to-back draws or when mesa/main or st/mesa eliminates redundant
+    * state changes, resulting in back-to-back draws in the driver. It requires
+    * DrawID = 0 for every draw. u_threaded_context is the module that converts
+    * back-to-back draws into a multi draw. It's done trivially by looking
+    * ahead within a gallium command buffer and collapsing draws.
+    *
+    * \param pipe          context
+    * \param info          draw info
+    * \param draws         array of (start, count) pairs
+    * \param num_draws     number of draws
+    */
+   void (*multi_draw)(struct pipe_context *pipe,
+                      const struct pipe_draw_info *info,
+                      const struct pipe_draw_start_count *draws,
+                      unsigned num_draws);
    /*@}*/
 
    /**
@@ -118,7 +154,7 @@ struct pipe_context {
     */
    void (*render_condition)( struct pipe_context *pipe,
                              struct pipe_query *query,
-                             boolean condition,
+                             bool condition,
                              enum pipe_render_cond_flag mode );
 
    /**
@@ -151,7 +187,7 @@ struct pipe_context {
    void (*destroy_query)(struct pipe_context *pipe,
                          struct pipe_query *q);
 
-   boolean (*begin_query)(struct pipe_context *pipe, struct pipe_query *q);
+   bool (*begin_query)(struct pipe_context *pipe, struct pipe_query *q);
    bool (*end_query)(struct pipe_context *pipe, struct pipe_query *q);
 
    /**
@@ -159,10 +195,10 @@ struct pipe_context {
     * \param wait  if true, this query will block until the result is ready
     * \return TRUE if results are ready, FALSE otherwise
     */
-   boolean (*get_query_result)(struct pipe_context *pipe,
-                               struct pipe_query *q,
-                               boolean wait,
-                               union pipe_query_result *result);
+   bool (*get_query_result)(struct pipe_context *pipe,
+                            struct pipe_query *q,
+                            bool wait,
+                            union pipe_query_result *result);
 
    /**
     * Get results of a query, storing into resource. Note that this may not
@@ -179,7 +215,7 @@ struct pipe_context {
     */
    void (*get_query_result_resource)(struct pipe_context *pipe,
                                      struct pipe_query *q,
-                                     boolean wait,
+                                     bool wait,
                                      enum pipe_query_value_type result_type,
                                      int index,
                                      struct pipe_resource *resource,
@@ -189,7 +225,51 @@ struct pipe_context {
     * Set whether all current non-driver queries except TIME_ELAPSED are
     * active or paused.
     */
-   void (*set_active_query_state)(struct pipe_context *pipe, boolean enable);
+   void (*set_active_query_state)(struct pipe_context *pipe, bool enable);
+
+   /**
+    * INTEL Performance Query
+    */
+   /*@{*/
+
+   unsigned (*init_intel_perf_query_info)(struct pipe_context *pipe);
+
+   void (*get_intel_perf_query_info)(struct pipe_context *pipe,
+                                     unsigned query_index,
+                                     const char **name,
+                                     uint32_t *data_size,
+                                     uint32_t *n_counters,
+                                     uint32_t *n_active);
+
+   void (*get_intel_perf_query_counter_info)(struct pipe_context *pipe,
+                                             unsigned query_index,
+                                             unsigned counter_index,
+                                             const char **name,
+                                             const char **desc,
+                                             uint32_t *offset,
+                                             uint32_t *data_size,
+                                             uint32_t *type_enum,
+                                             uint32_t *data_type_enum,
+                                             uint64_t *raw_max);
+
+   struct pipe_query *(*new_intel_perf_query_obj)(struct pipe_context *pipe,
+                                                 unsigned query_index);
+
+   bool (*begin_intel_perf_query)(struct pipe_context *pipe, struct pipe_query *q);
+
+   void (*end_intel_perf_query)(struct pipe_context *pipe, struct pipe_query *q);
+
+   void (*delete_intel_perf_query)(struct pipe_context *pipe, struct pipe_query *q);
+
+   void (*wait_intel_perf_query)(struct pipe_context *pipe, struct pipe_query *q);
+
+   bool (*is_intel_perf_query_ready)(struct pipe_context *pipe, struct pipe_query *q);
+
+   void (*get_intel_perf_query_data)(struct pipe_context *pipe,
+                                     struct pipe_query *q,
+                                     size_t data_size,
+                                     uint32_t *data,
+                                     uint32_t *bytes_written);
 
    /*@}*/
 
@@ -276,6 +356,26 @@ struct pipe_context {
                                 enum pipe_shader_type shader, uint index,
                                 const struct pipe_constant_buffer *buf );
 
+   /**
+    * Set inlinable constants for constant buffer 0.
+    *
+    * These are constants that the driver would like to inline in the IR
+    * of the current shader and recompile it. Drivers can determine which
+    * constants they prefer to inline in finalize_nir and store that
+    * information in shader_info::*inlinable_uniform*. When the state tracker
+    * or frontend uploads constants to a constant buffer, it can pass
+    * inlinable constants separately via this call.
+    *
+    * Any set_constant_buffer call invalidates this state, so this function
+    * must be called after it. Binding a shader also invalidates this state.
+    *
+    * There is no PIPE_CAP for this. Drivers shouldn't set the shader_info
+    * fields if they don't want this or if they don't implement this.
+    */
+   void (*set_inlinable_constants)( struct pipe_context *,
+                                    enum pipe_shader_type shader,
+                                    uint num_values, uint32_t *values );
+
    void (*set_framebuffer_state)( struct pipe_context *,
                                   const struct pipe_framebuffer_state * );
 
@@ -315,7 +415,7 @@ struct pipe_context {
                                const struct pipe_scissor_state * );
 
    void (*set_window_rectangles)( struct pipe_context *,
-                                  boolean include,
+                                  bool include,
                                   unsigned num_rectangles,
                                   const struct pipe_scissor_state * );
 
@@ -425,6 +525,17 @@ struct pipe_context {
 
 
    /**
+    * INTEL_blackhole_render
+    */
+   /*@{*/
+
+   void (*set_frontend_noop)(struct pipe_context *,
+                             bool enable);
+
+   /*@}*/
+
+
+   /**
     * Resource functions for blit-like functionality
     *
     * If a driver supports multisampling, blit must implement color resolve.
@@ -457,12 +568,14 @@ struct pipe_context {
     * The entire buffers are cleared (no scissor, no colormask, etc).
     *
     * \param buffers  bitfield of PIPE_CLEAR_* values.
+    * \param scissor_state  the scissored region to clear
     * \param color  pointer to a union of fiu array for each of r, g, b, a.
     * \param depth  depth clear value in [0,1].
     * \param stencil  stencil clear value
     */
    void (*clear)(struct pipe_context *pipe,
                  unsigned buffers,
+                 const struct pipe_scissor_state *scissor_state,
                  const union pipe_color_union *color,
                  double depth,
                  unsigned stencil);
@@ -617,7 +730,7 @@ struct pipe_context {
    void *(*transfer_map)(struct pipe_context *,
                          struct pipe_resource *resource,
                          unsigned level,
-                         unsigned usage,  /* a combination of PIPE_TRANSFER_x */
+                         unsigned usage,  /* a combination of PIPE_MAP_x */
                          const struct pipe_box *,
                          struct pipe_transfer **out_transfer);
 
@@ -637,7 +750,7 @@ struct pipe_context {
     */
    void (*buffer_subdata)(struct pipe_context *,
                           struct pipe_resource *,
-                          unsigned usage, /* a combination of PIPE_TRANSFER_x */
+                          unsigned usage, /* a combination of PIPE_MAP_x */
                           unsigned offset,
                           unsigned size,
                           const void *data);
@@ -645,7 +758,7 @@ struct pipe_context {
    void (*texture_subdata)(struct pipe_context *,
                            struct pipe_resource *,
                            unsigned level,
-                           unsigned usage, /* a combination of PIPE_TRANSFER_x */
+                           unsigned usage, /* a combination of PIPE_MAP_x */
                            const struct pipe_box *,
                            const void *data,
                            unsigned stride,
@@ -853,13 +966,13 @@ struct pipe_context {
     * Generate mipmap.
     * \return TRUE if mipmap generation succeeds, FALSE otherwise
     */
-   boolean (*generate_mipmap)(struct pipe_context *ctx,
-                              struct pipe_resource *resource,
-                              enum pipe_format format,
-                              unsigned base_level,
-                              unsigned last_level,
-                              unsigned first_layer,
-                              unsigned last_layer);
+   bool (*generate_mipmap)(struct pipe_context *ctx,
+                           struct pipe_resource *resource,
+                           enum pipe_format format,
+                           unsigned base_level,
+                           unsigned last_level,
+                           unsigned first_layer,
+                           unsigned last_layer);
 
    /**
     * Create a 64-bit texture handle.

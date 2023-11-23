@@ -37,6 +37,9 @@ LOCAL_C_INCLUDES := \
 	$(GALLIUM_TOP)/drivers/svga/include
 
 LOCAL_MODULE := libmesa_winsys_svga
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../LICENSE
 
 include $(GALLIUM_COMMON_MK)
 include $(BUILD_STATIC_LIBRARY)

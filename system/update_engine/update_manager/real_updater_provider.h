@@ -20,7 +20,6 @@
 #include <memory>
 #include <string>
 
-#include "update_engine/system_state.h"
 #include "update_engine/update_manager/generic_variables.h"
 #include "update_engine/update_manager/updater_provider.h"
 
@@ -34,8 +33,7 @@ class RealUpdaterProvider : public UpdaterProvider {
   // guarantees that parts of the system state can be mocked out at any time
   // during testing. We further assume that, by the time Init() is called, the
   // system state object is fully populated and usable.
-  explicit RealUpdaterProvider(
-      chromeos_update_engine::SystemState* system_state);
+  RealUpdaterProvider();
 
   // Initializes the provider and returns whether it succeeded.
   bool Init() { return true; }
@@ -94,10 +92,11 @@ class RealUpdaterProvider : public UpdaterProvider {
     return var_update_restrictions_.get();
   }
 
- private:
-  // A pointer to the update engine's system state aggregator.
-  chromeos_update_engine::SystemState* system_state_;
+  Variable<int64_t>* var_test_update_check_interval_timeout() override {
+    return var_test_update_check_interval_timeout_.get();
+  }
 
+ private:
   // Variable implementations.
   ConstCopyVariable<base::Time> var_updater_started_time_;
   std::unique_ptr<Variable<base::Time>> var_last_checked_time_;
@@ -114,6 +113,7 @@ class RealUpdaterProvider : public UpdaterProvider {
   std::unique_ptr<Variable<unsigned int>> var_server_dictated_poll_interval_;
   std::unique_ptr<Variable<UpdateRequestStatus>> var_forced_update_requested_;
   std::unique_ptr<Variable<UpdateRestrictions>> var_update_restrictions_;
+  std::unique_ptr<Variable<int64_t>> var_test_update_check_interval_timeout_;
 
   DISALLOW_COPY_AND_ASSIGN(RealUpdaterProvider);
 };

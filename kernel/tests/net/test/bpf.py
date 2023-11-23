@@ -14,14 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""kernel net test library for bpf testing."""
+
 import ctypes
 import os
+import platform
+import resource
+import socket
 
 import csocket
 import cstruct
 import net_test
-import socket
-import platform
 
 # __NR_bpf syscall numbers for various architectures.
 # NOTE: If python inherited COMPAT_UTS_MACHINE, uname's 'machine' field will
@@ -29,8 +32,11 @@ import platform
 # around this problem and pick the right syscall nr, we can additionally check
 # the bitness of the python interpreter. Assume that the 64-bit architectures
 # are not running with COMPAT_UTS_MACHINE and must be 64-bit at all times.
-# TODO: is there a better way of doing this?
-__NR_bpf = {
+#
+# Is there a better way of doing this?
+# Is it correct to use os.uname()[4] instead of platform.machine() ?
+# Should we use 'sys.maxsize > 2**32' instead of platform.architecture()[0] ?
+__NR_bpf = {  # pylint: disable=invalid-name
     "aarch64-32bit": 386,
     "aarch64-64bit": 280,
     "armv7l-32bit": 386,
@@ -150,13 +156,18 @@ BPF_CALL = 0x80
 BPF_EXIT = 0x90
 
 # BPF helper function constants
+# pylint: disable=invalid-name
 BPF_FUNC_unspec = 0
 BPF_FUNC_map_lookup_elem = 1
 BPF_FUNC_map_update_elem = 2
 BPF_FUNC_map_delete_elem = 3
+BPF_FUNC_ktime_get_ns = 5
 BPF_FUNC_get_current_uid_gid = 15
+BPF_FUNC_skb_change_head = 43
 BPF_FUNC_get_socket_cookie = 46
 BPF_FUNC_get_socket_uid = 47
+BPF_FUNC_ktime_get_boot_ns = 125
+# pylint: enable=invalid-name
 
 BPF_F_RDONLY = 1 << 3
 BPF_F_WRONLY = 1 << 4
@@ -164,19 +175,30 @@ BPF_F_WRONLY = 1 << 4
 #  These object below belongs to the same kernel union and the types below
 #  (e.g., bpf_attr_create) aren't kernel struct names but just different
 #  variants of the union.
-BpfAttrCreate = cstruct.Struct("bpf_attr_create", "=IIIII",
-                               "map_type key_size value_size max_entries, map_flags")
-BpfAttrOps = cstruct.Struct("bpf_attr_ops", "=QQQQ",
-                            "map_fd key_ptr value_ptr flags")
+# pylint: disable=invalid-name
+BpfAttrCreate = cstruct.Struct(
+    "bpf_attr_create", "=IIIII",
+    "map_type key_size value_size max_entries, map_flags")
+BpfAttrOps = cstruct.Struct(
+    "bpf_attr_ops", "=QQQQ",
+    "map_fd key_ptr value_ptr flags")
 BpfAttrProgLoad = cstruct.Struct(
     "bpf_attr_prog_load", "=IIQQIIQI", "prog_type insn_cnt insns"
     " license log_level log_size log_buf kern_version")
 BpfAttrProgAttach = cstruct.Struct(
     "bpf_attr_prog_attach", "=III", "target_fd attach_bpf_fd attach_type")
 BpfInsn = cstruct.Struct("bpf_insn", "=BBhi", "code dst_src_reg off imm")
+# pylint: enable=invalid-name
 
 libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
 HAVE_EBPF_SUPPORT = net_test.LINUX_VERSION >= (4, 4, 0)
+HAVE_EBPF_4_9 = net_test.LINUX_VERSION >= (4, 9, 0)
+HAVE_EBPF_4_14 = net_test.LINUX_VERSION >= (4, 14, 0)
+HAVE_EBPF_4_19 = net_test.LINUX_VERSION >= (4, 19, 0)
+HAVE_EBPF_5_4 = net_test.LINUX_VERSION >= (5, 4, 0)
+
+# set memlock resource 1 GiB
+resource.setrlimit(resource.RLIMIT_MEMLOCK, (1073741824, 1073741824))
 
 
 # BPF program syscalls
@@ -184,6 +206,7 @@ def BpfSyscall(op, attr):
   ret = libc.syscall(__NR_bpf, op, csocket.VoidPointer(attr), len(attr))
   csocket.MaybeRaiseSocketError(ret)
   return ret
+
 
 def CreateMap(map_type, key_size, value_size, max_entries, map_flags=0):
   attr = BpfAttrCreate((map_type, key_size, value_size, max_entries, map_flags))
@@ -209,20 +232,23 @@ def LookupMap(map_fd, key):
 
 
 def GetNextKey(map_fd, key):
+  """Get the next key in the map after the specified key."""
   if key is not None:
     c_key = ctypes.c_uint32(key)
     c_next_key = ctypes.c_uint32(0)
     key_ptr = ctypes.addressof(c_key)
   else:
-    key_ptr = 0;
+    key_ptr = 0
   c_next_key = ctypes.c_uint32(0)
   attr = BpfAttrOps(
       (map_fd, key_ptr, ctypes.addressof(c_next_key), 0))
   BpfSyscall(BPF_MAP_GET_NEXT_KEY, attr)
   return c_next_key
 
+
 def GetFirstKey(map_fd):
   return GetNextKey(map_fd, None)
+
 
 def DeleteMap(map_fd, key):
   c_key = ctypes.c_uint32(key)
@@ -230,16 +256,17 @@ def DeleteMap(map_fd, key):
   BpfSyscall(BPF_MAP_DELETE_ELEM, attr)
 
 
-def BpfProgLoad(prog_type, instructions):
+def BpfProgLoad(prog_type, instructions, prog_license=b"GPL"):
   bpf_prog = "".join(instructions)
   insn_buff = ctypes.create_string_buffer(bpf_prog)
-  gpl_license = ctypes.create_string_buffer(b"GPL")
+  gpl_license = ctypes.create_string_buffer(prog_license)
   log_buf = ctypes.create_string_buffer(b"", LOG_SIZE)
   attr = BpfAttrProgLoad((prog_type, len(insn_buff) / len(BpfInsn),
                           ctypes.addressof(insn_buff),
                           ctypes.addressof(gpl_license), LOG_LEVEL,
                           LOG_SIZE, ctypes.addressof(log_buf), 0))
   return BpfSyscall(BPF_PROG_LOAD, attr)
+
 
 # Attach a socket eBPF filter to a target socket
 def BpfProgAttachSocket(sock_fd, prog_fd):
@@ -248,10 +275,12 @@ def BpfProgAttachSocket(sock_fd, prog_fd):
                         ctypes.pointer(uint_fd), ctypes.sizeof(uint_fd))
   csocket.MaybeRaiseSocketError(ret)
 
+
 # Attach a eBPF filter to a cgroup
 def BpfProgAttach(prog_fd, target_fd, prog_type):
   attr = BpfAttrProgAttach((target_fd, prog_fd, prog_type))
   return BpfSyscall(BPF_PROG_ATTACH, attr)
+
 
 # Detach a eBPF filter from a cgroup
 def BpfProgDetach(target_fd, prog_type):

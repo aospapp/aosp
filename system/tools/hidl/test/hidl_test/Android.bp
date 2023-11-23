@@ -1,5 +1,29 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_tools_hidl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_tools_hidl_license"],
+}
+
+python_test_host {
+    name: "hidl_test",
+    main: "hidl_test.py",
+    srcs: ["hidl_test.py"],
+    test_config: "hidl_test.xml",
+    target_required: [
+        "hidl_test_client",
+        "hidl_test_servers",
+    ],
+    test_suites: ["general-tests"],
+    test_options: {
+        unit_test: false,
+    },
+}
+
 cc_defaults {
-    name: "hidl_test_client-defaults",
+    name: "hidl_test-defaults",
     defaults: ["hidl-gen-defaults"],
 
     shared_libs: [
@@ -52,16 +76,27 @@ cc_defaults {
     ],
 
     group_static_libs: true,
+
+    compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+    test_suites: ["general-tests"],
 }
 
 cc_test {
     name: "hidl_test_client",
-    defaults: ["hidl_test_client-defaults"],
+    defaults: ["hidl_test-defaults"],
 
     srcs: [
         "hidl_test_client.cpp",
         "FooCallback.cpp",
-        "static_test.cpp"
+        "static_test.cpp",
     ],
 
     shared_libs: [
@@ -71,7 +106,7 @@ cc_test {
 
 cc_test {
     name: "hidl_test_servers",
-    defaults: ["hidl_test_client-defaults"],
+    defaults: ["hidl_test-defaults"],
     srcs: ["hidl_test_servers.cpp"],
     gtest: false,
 }

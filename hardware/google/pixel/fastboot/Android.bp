@@ -13,8 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library {
-    name: "android.hardware.fastboot@1.0-impl.pixel",
+    name: "android.hardware.fastboot@1.1-impl.pixel",
     recovery: true,
     srcs: [
         "Fastboot.cpp",
@@ -22,10 +26,17 @@ cc_library {
     relative_install_path: "hw",
     export_include_dirs: ["include"],
     shared_libs: [
+        "liblog",
         "libbase",
         "libhidlbase",
         "libutils",
         "libcutils",
         "android.hardware.fastboot@1.0",
+        "android.hardware.fastboot@1.1",
+    ],
+    static_libs: [
+        "libnos_for_fastboot",
+        "libnos_citadel_for_fastboot",
+        "libfstab",
     ],
 }

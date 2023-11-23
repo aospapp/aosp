@@ -10,6 +10,16 @@ import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 
+/**
+ * OCSP RFC 2560, RFC 6960
+ * <pre>
+ * BasicOCSPResponse       ::= SEQUENCE {
+ *    tbsResponseData      ResponseData,
+ *    signatureAlgorithm   AlgorithmIdentifier,
+ *    signature            BIT STRING,
+ *    certs                [0] EXPLICIT SEQUENCE OF Certificate OPTIONAL }
+ * </pre>
+ */
 public class BasicOCSPResponse
     extends ASN1Object
 {
@@ -97,7 +107,7 @@ public class BasicOCSPResponse
      */
     public ASN1Primitive toASN1Primitive()
     {
-        ASN1EncodableVector v = new ASN1EncodableVector();
+        ASN1EncodableVector v = new ASN1EncodableVector(4);
 
         v.add(tbsResponseData);
         v.add(signatureAlgorithm);

@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"डाउनलोड म्यानेजर पहुँच गर्नुहोस्।"</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"एपलाई ब्लुटुथसाझेदारी प्रबन्धक पहुँचको अनुमति दिन्छ र यसलाई फाइलहरू स्थानान्तरण गर्न प्रयोग गर्दछ।"</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"स्वेतसूची ब्लुटुथ उपकरण पहुँच।"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"त्यस उपकरणलाई यस उपकरणमा फाइलहरू पठाउन बिना कुनै पुष्टि अनुमति दिँदै एपलाई अस्थायी रूपमा ब्लुटुथ उपकरणलाई स्वेतसूचीमा राख्न अनुमति दिन्छ।"</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"ब्लुटूथ चल्ने यन्त्रको एक्सेस श्वेतसूचीमा राख्नुहोस्।"</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"यो सेटिङले यस एपलाई केही समयका लागि ब्लुटुथ चल्ने कुनै यन्त्र श्वेतसूचीमा राख्ने अनुमति दिन्छ। यस प्रकार श्वेतसूचीमा राखिएको उक्त यन्त्रले प्रयोगकर्ताको अनुमति नलिइकन यो डिभाइसमा फाइलहरू पठाउन सक्छ।"</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"ब्लुटुथ"</string>
     <string name="unknown_device" msgid="9221903979877041009">"अज्ञात उपकरण"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"अज्ञात"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ठिक छ"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" बाट आगमन फाइल स्वीकार्दा समय सकिएको थियो"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"आगमन फाइल"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> ले <xliff:g id="FILE">%2$s</xliff:g> पठाउन तयार छ"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> निम्न फाइल पठाउन तयार हुनुहुन्छ: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"ब्लुटुथ साझेदारी:<xliff:g id="FILE">%1$s</xliff:g> प्राप्त गर्दै"</string>
     <string name="notification_received" msgid="3324588019186687985">"ब्लुटुथ साझेदारी: <xliff:g id="FILE">%1$s</xliff:g> प्राप्त भयो"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"ब्लुटुथ साझेदारी: फाइल: <xliff:g id="FILE">%1$s</xliff:g> प्राप्त भएन"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\"लाई फाइल पठाउँदै"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g> फाइल \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\"लाई पठाउँदै"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g> \"लाई फाइल पठाउन बन्द भयो"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" बाट फाइल सुरक्षित गर्न USB भण्डारणमा पर्याप्त खाली ठाउँ छैन।"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" बाट फाइल सुरक्षित गर्न SD कार्डमा पर्याप्त खाली ठाउँ छैन"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"USB भण्डारणमा यो फाइल सुरक्षित गर्न पुग्ने ठाउँ छैन।"</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"SD कार्डमा यो फाइल सुरक्षित गर्न पुग्ने ठाउँ छैन।"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ठाउँ चाहियो: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"निकै धेरै अनुरोधहरू प्रसोधिन भइरहेका छन्। पछि फेरि प्रयास गर्नुहोस्।"</string>
     <string name="status_pending" msgid="2503691772030877944">"फाइल स्थानान्तरण अहिलेसम्म सुरु भएको छैन।"</string>
@@ -122,7 +122,7 @@
     <string name="transfer_menu_clear" msgid="5854038118831427492">"सूचीबाट हटाउनुहोस्"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"हटाउनुहोस्"</string>
     <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Now Playing"</string>
-    <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"सुरक्षित गर्नुहोस्"</string>
+    <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"सेभ गर्नुहोस्"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"रद्द गर्नुहोस्"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"तपाईंले ब्लुटुथ मार्फत साझेदारी गर्न चाहेका खाताहरू चयन गर्नुहोस्। तपाईंले अझै पनि खाताहरूमा जडान गर्दा कुनै पनि पहुँच स्वीकार गर्नुपर्छ।"</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"स्लटहरू बाँकी:"</string>
@@ -133,5 +133,5 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"ब्लुटुथ सम्बन्धी अडियो यन्त्रलाई विच्छेद गरियो"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"ब्लुटुथको अडियो"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"४ जि.बि. भन्दा ठूला फाइलहरूलाई स्थानान्तरण गर्न सकिँदैन"</string>
-    <string name="bluetooth_connect_action" msgid="4009848433321657090">"ब्लुटुथमा जोड्नुहोस्"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"ब्लुटुथमा कनेक्ट गर्नुहोस्"</string>
 </resources>

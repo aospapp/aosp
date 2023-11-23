@@ -9,4 +9,75 @@ ro.audio.usb.period_us u:object_r:exported_default_prop:s0 exact int
 persist.adb.nonblocking_ffs u:object_r:exported_default_prop:s0 exact int
 
 #============system fingerprint property===========
-ro.system.build.fingerprint u:object_r:exported_fingerprint_prop:s0 exact string
+# exported_fingerprint_prop is removed in Android S
+#ro.system.build.fingerprint u:object_r:exported_fingerprint_prop:s0 exact string
+
+vendor.MB.logpost         u:object_r:system_mtk_mobile_log_post_prop:s0
+vendor.MB.logpost.        u:object_r:system_mtk_mobile_log_post_prop:s0
+persist.vendor.MB.logpost u:object_r:system_mtk_mobile_log_post_prop:s0
+
+#=============allow vendor-init/system process access ro.telephony property==============
+# exported3_default_prop is removed in Android S
+#ro.telephony.sim.count         u:object_r:exported3_default_prop:s0 exact int
+
+#=============allow netlog==============
+vendor.mtklog         u:object_r:system_mtk_debug_mtklog_prop:s0
+persist.vendor.mtklog u:object_r:system_mtk_persist_mtklog_prop:s0
+vendor.netlog         u:object_r:system_mtk_debug_netlog_prop:s0
+
+#=============allow mdlogger==============
+vendor.mdlogger      u:object_r:system_mtk_debug_mdlogger_prop:s0
+vendor.mdl           u:object_r:system_mtk_mdl_prop:s0
+vendor.starting.mode u:object_r:system_mtk_mdl_start_prop:s0
+persist.vendor.mdl   u:object_r:system_mtk_persist_mdlog_prop:s0
+vendor.pullmdlog     u:object_r:system_mtk_mdl_pulllog_prop:s0
+
+#=============allow AEE==============
+# persist.vendor.mtk.aee.mode && persist.vendor.mtk.aee.dal
+persist.vendor.mtk.aee. u:object_r:system_mtk_persist_mtk_aee_prop:s0
+
+# persist.vendor.aee.core.dump && persist.vendor.aee.core.direct
+persist.vendor.aee. u:object_r:system_mtk_persist_aee_prop:s0
+
+# vendor.debug.mtk.aee.db
+vendor.debug.mtk.aee. u:object_r:system_mtk_debug_mtk_aee_prop:s0
+
+#=============allow AEE_Dumpstate==============
+vendor.debug.bq.dump u:object_r:system_mtk_debug_bq_dump_prop:s0
+
+#=============allow bootanim==============
+persist.vendor.bootanim. u:object_r:system_mtk_bootani_prop:s0
+
+#=============allow mobile log property================
+vendor.MB. u:object_r:system_mtk_mobile_log_prop:s0
+
+#=============allow em to set bgdata disabled property================
+persist.vendor.radio.bgdata.disabled u:object_r:system_mtk_bgdata_disabled_prop:s0
+
+#=============allow em to set gprs attach type property================
+persist.vendor.radio.gprs.attach.type u:object_r:system_mtk_gprs_attach_type_prop:s0
+
+#=============allow em to set poweroffmd property================
+vendor.ril.test.poweroffmd u:object_r:system_mtk_power_off_md_prop:s0
+vendor.ril.testmode        u:object_r:system_mtk_power_off_md_prop:s0
+
+#=============allow sim config property==============
+vendor.gsm.sim.operator.default-name u:object_r:system_mtk_sim_system_prop:s0
+
+#=============allow consyslogger==============
+vendor.connsysfw u:object_r:system_mtk_connsysfw_prop:s0
+
+#=============allow bluetooth==============
+vendor.bthcisnoop u:object_r:system_mtk_vendor_bluetooth_prop:s0
+
+#=============allow radio to set/get xcap rawurl config================
+persist.vendor.mtk.xcap.rawurl u:object_r:system_mtk_persist_xcap_rawurl_prop:s0
+
+#=============allow ccci_mdinit to ctl. mdlogger==============
+ctl.mdlogger   u:object_r:system_mtk_ctl_mdlogger_prop:s0
+ctl.emdlogger1 u:object_r:system_mtk_ctl_emdlogger1_prop:s0
+ctl.emdlogger2 u:object_r:system_mtk_ctl_emdlogger2_prop:s0
+ctl.emdlogger3 u:object_r:system_mtk_ctl_emdlogger3_prop:s0
+
+init.svc.emdlogger1 u:object_r:system_mtk_init_svc_emdlogger1_prop:s0
+init.svc.aee_aedv   u:object_r:system_mtk_init_svc_aee_aedv_prop:s0

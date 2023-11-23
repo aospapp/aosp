@@ -37,6 +37,13 @@ class CustomizedMetadataEntity {
     public byte[] untethered_right_charging;
     public byte[] untethered_case_charging;
     public byte[] enhanced_settings_ui_uri;
+    public byte[] device_type;
+    public byte[] main_battery;
+    public byte[] main_charging;
+    public byte[] main_low_battery_threshold;
+    public byte[] untethered_left_low_battery_threshold;
+    public byte[] untethered_right_low_battery_threshold;
+    public byte[] untethered_case_low_battery_threshold;
 
     public String toString() {
         StringBuilder builder = new StringBuilder();
@@ -73,7 +80,21 @@ class CustomizedMetadataEntity {
                 .append("|untethered_case_charging=")
                 .append(metadataToString(untethered_case_charging))
                 .append("|enhanced_settings_ui_uri=")
-                .append(metadataToString(enhanced_settings_ui_uri));
+                .append(metadataToString(enhanced_settings_ui_uri))
+                .append("|device_type=")
+                .append(metadataToString(device_type))
+                .append("|main_battery=")
+                .append(metadataToString(main_battery))
+                .append("|main_charging=")
+                .append(metadataToString(main_charging))
+                .append("|main_low_battery_threshold=")
+                .append(metadataToString(main_low_battery_threshold))
+                .append("|untethered_left_low_battery_threshold=")
+                .append(metadataToString(untethered_left_low_battery_threshold))
+                .append("|untethered_right_low_battery_threshold=")
+                .append(metadataToString(untethered_right_low_battery_threshold))
+                .append("|untethered_case_low_battery_threshold=")
+                .append(metadataToString(untethered_case_low_battery_threshold));
 
         return builder.toString();
     }

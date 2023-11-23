@@ -51,8 +51,7 @@ fun stripComments(source: String, stripLineComments: Boolean = true): String {
     val IN_STRING_ESCAPE = 6
     val IN_CHAR = 7
     val AFTER_CHAR = 8
-    for (i in 0 until source.length) {
-        val c = source[i]
+    for (c in source) {
         when (state) {
             INIT -> {
                 when (c) {

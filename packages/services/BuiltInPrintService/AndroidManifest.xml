@@ -27,7 +27,7 @@
     <uses-permission android:name="android.permission.READ_PRINT_SERVICES" />
     <uses-permission android:name="android.permission.READ_PRINT_SERVICE_RECOMMENDATIONS" />
     <uses-permission android:name="android.permission.SUBSTITUTE_SHARE_TARGET_APP_NAME_AND_ICON" />
-
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <application
@@ -36,6 +36,7 @@
         android:allowBackup="true"
         android:supportsRtl="true">
         <service android:name="com.android.bips.BuiltInPrintService"
+                 android:exported="true"
                  android:permission="android.permission.BIND_PRINT_SERVICE">
             <intent-filter>
                 <action android:name="android.printservice.PrintService" />
@@ -73,6 +74,7 @@
             android:name="com.android.bips.ImagePrintActivity"
             android:label="@string/print"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="true"
             android:configChanges="keyboardHidden|orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -85,6 +87,7 @@
             android:name="com.android.bips.PdfPrintActivity"
             android:label="@string/print"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="true"
             android:configChanges="keyboardHidden|orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

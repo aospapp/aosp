@@ -17,7 +17,6 @@
 package com.android.car.notification;
 
 import android.app.ActivityManager;
-import android.car.userlib.CarUserManagerHelper;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;

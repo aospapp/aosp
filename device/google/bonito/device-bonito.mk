@@ -40,14 +40,14 @@ PRODUCT_COPY_FILES += \
 
 # Vibrator HAL
 PRODUCT_PRODUCT_PROPERTIES +=\
-    ro.vibrator.hal.config.dynamic=1 \
-    ro.vibrator.hal.click.duration=8 \
-    ro.vibrator.hal.tick.duration=5 \
-    ro.vibrator.hal.heavyclick.duration=12 \
-    ro.vibrator.hal.short.voltage=120 \
-    ro.vibrator.hal.long.voltage=90 \
-    ro.vibrator.hal.long.frequency.shift=10 \
-    ro.vibrator.hal.double_click.duration=182
+    ro.vendor.vibrator.hal.config.dynamic=1 \
+    ro.vendor.vibrator.hal.click.duration=8 \
+    ro.vendor.vibrator.hal.tick.duration=5 \
+    ro.vendor.vibrator.hal.heavyclick.duration=12 \
+    ro.vendor.vibrator.hal.short.voltage=120 \
+    ro.vendor.vibrator.hal.long.voltage=90 \
+    ro.vendor.vibrator.hal.long.frequency.shift=10 \
+    ro.vendor.vibrator.hal.double_click.duration=182
 
 # DRV2624 Haptics Waveform
 PRODUCT_COPY_FILES += \

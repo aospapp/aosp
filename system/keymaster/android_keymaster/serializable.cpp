@@ -18,8 +18,6 @@
 
 #include <assert.h>
 
-#include <keymaster/new.h>
-
 #include <keymaster/android_keymaster_utils.h>
 
 namespace keymaster {
@@ -33,7 +31,7 @@ bool buffer_bound_check(const uint8_t* buf, const uint8_t* end, size_t len) {
     return (!overflow_occurred) && (buf_next <= __pval(end));
 }
 
-}
+}  // namespace
 
 uint8_t* append_to_buf(uint8_t* buf, const uint8_t* end, const void* data, size_t data_len) {
     if (buffer_bound_check(buf, end, data_len)) {
@@ -56,8 +54,7 @@ bool copy_from_buf(const uint8_t** buf_ptr, const uint8_t* end, void* dest, size
 
 bool copy_size_and_data_from_buf(const uint8_t** buf_ptr, const uint8_t* end, size_t* size,
                                  UniquePtr<uint8_t[]>* dest) {
-    if (!copy_uint32_from_buf(buf_ptr, end, size))
-        return false;
+    if (!copy_uint32_from_buf(buf_ptr, end, size)) return false;
 
     if (*size == 0) {
         dest->reset();
@@ -79,8 +76,7 @@ bool Buffer::reserve(size_t size) {
     if (available_write() < size) {
         size_t new_size = buffer_size_ + size - available_write();
         uint8_t* new_buffer = new (std::nothrow) uint8_t[new_size];
-        if (!new_buffer)
-            return false;
+        if (!new_buffer) return false;
         memcpy(new_buffer, buffer_.get() + read_position_, available_read());
         memset_s(buffer_.get(), 0, buffer_size_);
         buffer_.reset(new_buffer);
@@ -94,8 +90,7 @@ bool Buffer::reserve(size_t size) {
 bool Buffer::Reinitialize(size_t size) {
     Clear();
     buffer_.reset(new (std::nothrow) uint8_t[size]);
-    if (!buffer_.get())
-        return false;
+    if (!buffer_.get()) return false;
     buffer_size_ = size;
     read_position_ = 0;
     write_position_ = 0;
@@ -107,8 +102,7 @@ bool Buffer::Reinitialize(const void* data, size_t data_len) {
     if (__pval(data) + data_len < __pval(data))  // Pointer wrap check
         return false;
     buffer_.reset(new (std::nothrow) uint8_t[data_len]);
-    if (!buffer_.get())
-        return false;
+    if (!buffer_.get()) return false;
     buffer_size_ = data_len;
     memcpy(buffer_.get(), data, data_len);
     read_position_ = 0;
@@ -128,16 +122,14 @@ size_t Buffer::available_read() const {
 }
 
 bool Buffer::write(const uint8_t* src, size_t write_length) {
-    if (available_write() < write_length)
-        return false;
+    if (available_write() < write_length) return false;
     memcpy(buffer_.get() + write_position_, src, write_length);
     write_position_ += write_length;
     return true;
 }
 
 bool Buffer::read(uint8_t* dest, size_t read_length) {
-    if (available_read() < read_length)
-        return false;
+    if (available_read() < read_length) return false;
     memcpy(dest, buffer_.get() + read_position_, read_length);
     read_position_ += read_length;
     return true;

@@ -28,7 +28,9 @@
     sensors -->
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="dumpsys sensorservice restrict .cts" />
+        <option name="run-command" value="cmd sensor_privacy disable 0 microphone" />
         <option name="teardown-command" value="dumpsys sensorservice enable" />
+        <option name="teardown-command" value="cmd sensor_privacy reset 0 microphone" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.hardware.sensor.cts" />

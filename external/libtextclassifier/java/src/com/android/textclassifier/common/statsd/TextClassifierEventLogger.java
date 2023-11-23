@@ -19,9 +19,6 @@ package com.android.textclassifier.common.statsd;
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Strings.nullToEmpty;
 
-import android.util.StatsEvent;
-import android.util.StatsLog;
-import android.view.textclassifier.TextClassifier;
 import com.android.textclassifier.common.base.TcLog;
 import com.android.textclassifier.common.logging.ResultIdUtils;
 import com.android.textclassifier.common.logging.TextClassificationContext;
@@ -36,11 +33,6 @@ import javax.annotation.Nullable;
 /** Logs {@link android.view.textclassifier.TextClassifierEvent}. */
 public final class TextClassifierEventLogger {
   private static final String TAG = "TCEventLogger";
-  // These constants are defined in atoms.proto.
-  private static final int TEXT_SELECTION_EVENT_ATOM_ID = 219;
-  static final int TEXT_LINKIFY_EVENT_ATOM_ID = 220;
-  private static final int CONVERSATION_ACTIONS_EVENT_ATOM_ID = 221;
-  private static final int LANGUAGE_DETECTION_EVENT_ATOM_ID = 222;
 
   /** Emits a text classifier event to the logs. */
   public void writeEvent(
@@ -69,24 +61,20 @@ public final class TextClassifierEventLogger {
       @Nullable TextClassificationSessionId sessionId,
       TextClassifierEvent.TextSelectionEvent event) {
     ImmutableList<String> modelNames = getModelNames(event);
-    StatsEvent statsEvent =
-        StatsEvent.newBuilder()
-            .setAtomId(TEXT_SELECTION_EVENT_ATOM_ID)
-            .writeString(sessionId == null ? null : sessionId.getValue())
-            .writeInt(getEventType(event))
-            .writeString(getItemAt(modelNames, /* index= */ 0, /* defaultValue= */ null))
-            .writeInt(getWidgetType(event))
-            .writeInt(event.getEventIndex())
-            .writeString(getItemAt(event.getEntityTypes(), /* index= */ 0))
-            .writeInt(event.getRelativeWordStartIndex())
-            .writeInt(event.getRelativeWordEndIndex())
-            .writeInt(event.getRelativeSuggestedWordStartIndex())
-            .writeInt(event.getRelativeSuggestedWordEndIndex())
-            .writeString(getPackageName(event))
-            .writeString(getItemAt(modelNames, /* index= */ 1, /* defaultValue= */ null))
-            .usePooledBuffer()
-            .build();
-    StatsLog.write(statsEvent);
+    TextClassifierStatsLog.write(
+        TextClassifierStatsLog.TEXT_SELECTION_EVENT,
+        sessionId == null ? null : sessionId.getValue(),
+        getEventType(event),
+        getItemAt(modelNames, /* index= */ 0, /* defaultValue= */ null),
+        getWidgetType(event),
+        event.getEventIndex(),
+        getItemAt(event.getEntityTypes(), /* index= */ 0),
+        event.getRelativeWordStartIndex(),
+        event.getRelativeWordEndIndex(),
+        event.getRelativeSuggestedWordStartIndex(),
+        event.getRelativeSuggestedWordEndIndex(),
+        getPackageName(event),
+        getItemAt(modelNames, /* index= */ 1, /* defaultValue= */ null));
   }
 
   private static int getEventType(TextClassifierEvent.TextSelectionEvent event) {
@@ -103,24 +91,20 @@ public final class TextClassifierEventLogger {
   private static void logTextLinkifyEvent(
       TextClassificationSessionId sessionId, TextClassifierEvent.TextLinkifyEvent event) {
     ImmutableList<String> modelNames = getModelNames(event);
-    StatsEvent statsEvent =
-        StatsEvent.newBuilder()
-            .setAtomId(TEXT_LINKIFY_EVENT_ATOM_ID)
-            .writeString(sessionId == null ? null : sessionId.getValue())
-            .writeInt(event.getEventType())
-            .writeString(getItemAt(modelNames, /* index= */ 0, /* defaultValue= */ null))
-            .writeInt(getWidgetType(event))
-            .writeInt(event.getEventIndex())
-            .writeString(getItemAt(event.getEntityTypes(), /* index= */ 0))
-            .writeInt(/* numOfLinks */ 0)
-            .writeInt(/* linkedTextLength */ 0)
-            .writeInt(/* textLength */ 0)
-            .writeLong(/* latencyInMillis */ 0L)
-            .writeString(getPackageName(event))
-            .writeString(getItemAt(modelNames, /* index= */ 1, /* defaultValue= */ null))
-            .usePooledBuffer()
-            .build();
-    StatsLog.write(statsEvent);
+    TextClassifierStatsLog.write(
+        TextClassifierStatsLog.TEXT_LINKIFY_EVENT,
+        sessionId == null ? null : sessionId.getValue(),
+        event.getEventType(),
+        getItemAt(modelNames, /* index= */ 0, /* defaultValue= */ null),
+        getWidgetType(event),
+        event.getEventIndex(),
+        getItemAt(event.getEntityTypes(), /* index= */ 0),
+        /* numOfLinks */ 0,
+        /* linkedTextLength */ 0,
+        /* textLength */ 0,
+        /* latencyInMillis */ 0L,
+        getPackageName(event),
+        getItemAt(modelNames, /* index= */ 1, /* defaultValue= */ null));
   }
 
   private static void logConversationActionsEvent(
@@ -128,46 +112,37 @@ public final class TextClassifierEventLogger {
       TextClassifierEvent.ConversationActionsEvent event) {
     String resultId = nullToEmpty(event.getResultId());
     ImmutableList<String> modelNames = ResultIdUtils.getModelNames(resultId);
-    StatsEvent statsEvent =
-        StatsEvent.newBuilder()
-            .setAtomId(CONVERSATION_ACTIONS_EVENT_ATOM_ID)
-            // TODO: Update ExtServices to set the session id.
-            .writeString(
-                sessionId == null
-                    ? Hashing.goodFastHash(64).hashString(resultId, UTF_8).toString()
-                    : sessionId.getValue())
-            .writeInt(event.getEventType())
-            .writeString(getItemAt(modelNames, /* index= */ 0, /* defaultValue= */ null))
-            .writeInt(getWidgetType(event))
-            .writeString(getItemAt(event.getEntityTypes(), /* index= */ 0))
-            .writeString(getItemAt(event.getEntityTypes(), /* index= */ 1))
-            .writeString(getItemAt(event.getEntityTypes(), /* index= */ 2))
-            .writeFloat(getFloatAt(event.getScores(), /* index= */ 0))
-            .writeString(getPackageName(event))
-            .writeString(getItemAt(modelNames, /* index= */ 1, /* defaultValue= */ null))
-            .writeString(getItemAt(modelNames, /* index= */ 2, /* defaultValue= */ null))
-            .usePooledBuffer()
-            .build();
-    StatsLog.write(statsEvent);
+    TextClassifierStatsLog.write(
+        TextClassifierStatsLog.CONVERSATION_ACTIONS_EVENT,
+        // TODO: Update ExtServices to set the session id.
+        sessionId == null
+            ? Hashing.goodFastHash(64).hashString(resultId, UTF_8).toString()
+            : sessionId.getValue(),
+        event.getEventType(),
+        getItemAt(modelNames, /* index= */ 0, /* defaultValue= */ null),
+        getWidgetType(event),
+        getItemAt(event.getEntityTypes(), /* index= */ 0),
+        getItemAt(event.getEntityTypes(), /* index= */ 1),
+        getItemAt(event.getEntityTypes(), /* index= */ 2),
+        getFloatAt(event.getScores(), /* index= */ 0),
+        getPackageName(event),
+        getItemAt(modelNames, /* index= */ 1, /* defaultValue= */ null),
+        getItemAt(modelNames, /* index= */ 2, /* defaultValue= */ null));
   }
 
   private static void logLanguageDetectionEvent(
       @Nullable TextClassificationSessionId sessionId,
       TextClassifierEvent.LanguageDetectionEvent event) {
-    StatsEvent statsEvent =
-        StatsEvent.newBuilder()
-            .setAtomId(LANGUAGE_DETECTION_EVENT_ATOM_ID)
-            .writeString(sessionId == null ? null : sessionId.getValue())
-            .writeInt(event.getEventType())
-            .writeString(getItemAt(getModelNames(event), /* index= */ 0, /* defaultValue= */ null))
-            .writeInt(getWidgetType(event))
-            .writeString(getItemAt(event.getEntityTypes(), /* index= */ 0))
-            .writeFloat(getFloatAt(event.getScores(), /* index= */ 0))
-            .writeInt(getIntAt(event.getActionIndices(), /* index= */ 0))
-            .writeString(getPackageName(event))
-            .usePooledBuffer()
-            .build();
-    StatsLog.write(statsEvent);
+    TextClassifierStatsLog.write(
+        TextClassifierStatsLog.LANGUAGE_DETECTION_EVENT,
+        sessionId == null ? null : sessionId.getValue(),
+        event.getEventType(),
+        getItemAt(getModelNames(event), /* index= */ 0, /* defaultValue= */ null),
+        getWidgetType(event),
+        getItemAt(event.getEntityTypes(), /* index= */ 0),
+        getFloatAt(event.getScores(), /* index= */ 0),
+        getIntAt(event.getActionIndices(), /* index= */ 0),
+        getPackageName(event));
   }
 
   @Nullable
@@ -219,6 +194,14 @@ public final class TextClassifierEventLogger {
     return ResultIdUtils.getModelNames(event.getResultId());
   }
 
+  private static int getWidgetType(TextClassifierEvent event) {
+    TextClassificationContext eventContext = event.getEventContext();
+    if (eventContext == null) {
+      return TextClassifierStatsLog.TEXT_SELECTION_EVENT__WIDGET_TYPE__WIDGET_TYPE_UNKNOWN;
+    }
+    return WidgetTypeConverter.toLoggingValue(eventContext.getWidgetType());
+  }
+
   @Nullable
   private static String getPackageName(TextClassifierEvent event) {
     TextClassificationContext eventContext = event.getEventContext();
@@ -226,53 +209,5 @@ public final class TextClassifierEventLogger {
       return null;
     }
     return eventContext.getPackageName();
-  }
-
-  private static int getWidgetType(TextClassifierEvent event) {
-    TextClassificationContext eventContext = event.getEventContext();
-    if (eventContext == null) {
-      return WidgetType.WIDGET_TYPE_UNKNOWN;
-    }
-    switch (eventContext.getWidgetType()) {
-      case TextClassifier.WIDGET_TYPE_UNKNOWN:
-        return WidgetType.WIDGET_TYPE_UNKNOWN;
-      case TextClassifier.WIDGET_TYPE_TEXTVIEW:
-        return WidgetType.WIDGET_TYPE_TEXTVIEW;
-      case TextClassifier.WIDGET_TYPE_EDITTEXT:
-        return WidgetType.WIDGET_TYPE_EDITTEXT;
-      case TextClassifier.WIDGET_TYPE_UNSELECTABLE_TEXTVIEW:
-        return WidgetType.WIDGET_TYPE_UNSELECTABLE_TEXTVIEW;
-      case TextClassifier.WIDGET_TYPE_WEBVIEW:
-        return WidgetType.WIDGET_TYPE_WEBVIEW;
-      case TextClassifier.WIDGET_TYPE_EDIT_WEBVIEW:
-        return WidgetType.WIDGET_TYPE_EDIT_WEBVIEW;
-      case TextClassifier.WIDGET_TYPE_CUSTOM_TEXTVIEW:
-        return WidgetType.WIDGET_TYPE_CUSTOM_TEXTVIEW;
-      case TextClassifier.WIDGET_TYPE_CUSTOM_EDITTEXT:
-        return WidgetType.WIDGET_TYPE_CUSTOM_EDITTEXT;
-      case TextClassifier.WIDGET_TYPE_CUSTOM_UNSELECTABLE_TEXTVIEW:
-        return WidgetType.WIDGET_TYPE_CUSTOM_UNSELECTABLE_TEXTVIEW;
-      case TextClassifier.WIDGET_TYPE_NOTIFICATION:
-        return WidgetType.WIDGET_TYPE_NOTIFICATION;
-      default: // fall out
-    }
-    return WidgetType.WIDGET_TYPE_UNKNOWN;
-  }
-
-  /** Widget type constants for logging. */
-  public static final class WidgetType {
-    // Sync these constants with textclassifier_enums.proto.
-    public static final int WIDGET_TYPE_UNKNOWN = 0;
-    public static final int WIDGET_TYPE_TEXTVIEW = 1;
-    public static final int WIDGET_TYPE_EDITTEXT = 2;
-    public static final int WIDGET_TYPE_UNSELECTABLE_TEXTVIEW = 3;
-    public static final int WIDGET_TYPE_WEBVIEW = 4;
-    public static final int WIDGET_TYPE_EDIT_WEBVIEW = 5;
-    public static final int WIDGET_TYPE_CUSTOM_TEXTVIEW = 6;
-    public static final int WIDGET_TYPE_CUSTOM_EDITTEXT = 7;
-    public static final int WIDGET_TYPE_CUSTOM_UNSELECTABLE_TEXTVIEW = 8;
-    public static final int WIDGET_TYPE_NOTIFICATION = 9;
-
-    private WidgetType() {}
   }
 }

@@ -16,6 +16,9 @@
 
 package io.grpc;
 
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.net.URI;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -126,6 +129,7 @@ public abstract class NameResolver {
    *
    * @since 1.0.0
    */
+  @ExperimentalApi("https://github.com/grpc/grpc-java/issues/1770")
   @ThreadSafe
   public interface Listener {
     /**
@@ -134,10 +138,11 @@ public abstract class NameResolver {
      * <p>Implementations will not modify the given {@code servers}.
      *
      * @param servers the resolved server addresses. An empty list will trigger {@link #onError}
-     * @param attributes extra metadata from naming system
+     * @param attributes extra information from naming system.
      * @since 1.3.0
      */
-    void onAddresses(List<EquivalentAddressGroup> servers, Attributes attributes);
+    void onAddresses(
+        List<EquivalentAddressGroup> servers, @ResolutionResultAttr Attributes attributes);
 
     /**
      * Handles an error from the resolver. The listener is responsible for eventually invoking
@@ -148,4 +153,13 @@ public abstract class NameResolver {
      */
     void onError(Status error);
   }
+
+  /**
+   * Annotation for name resolution result attributes. It follows the annotation semantics defined
+   * by {@link Attributes}.
+   */
+  @ExperimentalApi("https://github.com/grpc/grpc-java/issues/4972")
+  @Retention(RetentionPolicy.SOURCE)
+  @Documented
+  public @interface ResolutionResultAttr {}
 }

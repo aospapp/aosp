@@ -30,7 +30,7 @@ import java.util.function.Consumer;
  */
 public class NotificationListener extends NotificationListenerService {
 
-    private static final int TIMEOUT_SECONDS = 120;
+    private static final int TIMEOUT_SECONDS = 150;
 
     private static NotificationListener instance;
     private static CountDownLatch connectedLatch = new CountDownLatch(1);

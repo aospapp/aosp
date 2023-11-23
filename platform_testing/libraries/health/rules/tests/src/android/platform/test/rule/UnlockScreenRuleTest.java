@@ -20,14 +20,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.os.RemoteException;
-import android.support.test.uiautomator.UiDevice;
+
+import androidx.test.uiautomator.UiDevice;
 
 import org.junit.Test;
 import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.junit.runners.model.Statement;
-
 import org.mockito.Mockito;
 
 /** Unit test the logic for {@link UnlockScreenRule} */

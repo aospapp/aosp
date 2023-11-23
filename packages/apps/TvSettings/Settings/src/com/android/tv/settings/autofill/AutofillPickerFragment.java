@@ -32,7 +32,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.applications.DefaultAppInfo;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
@@ -219,10 +218,5 @@ public class AutofillPickerFragment extends SettingsPreferenceFragment {
             negative.requestFocus();
         });
         dialog.show();
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.DEFAULT_AUTOFILL_PICKER;
     }
 }

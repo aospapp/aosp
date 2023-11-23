@@ -1,12 +1,44 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
 # Date: W18.32
 # Operation : dontaudit writing to timerslack_ns
 dontaudit system_server appdomain:file w_file_perms;
 allow system_server ota_package_file:dir getattr;
 allow uncrypt uncrypt:capability fowner;
 
+# Date : WK18.33
+# Purpose : type=1400 audit(0.0:1592): avc: denied { read }
+#           for comm=4572726F722064756D703A20646174 name=
+#           "u:object_r:system_mtk_persist_mtk_aee_prop:s0" dev="tmpfs"
+#           ino=10312 scontext=u:r:system_server:s0 tcontext=
+#           u:object_r:system_mtk_persist_mtk_aee_prop:s0 tclass=file permissive=0
+get_prop(system_server, system_mtk_persist_mtk_aee_prop)
+
 # Purpose: receive dropbox message
 allow system_server crash_dump:fifo_file w_file_perms;
 allow system_server crash_dump:fd use;
+
+# Property service.
+set_prop(system_server, ctl_bootanim_prop)
+
+# Date : WK16.36
+# Purpose: Allow to set property log.tag.WifiHW to control log level of WifiHW
+set_prop(system_server, log_tag_prop)
+
+# Fix bootup violation
+get_prop(system_server, wifi_prop)
+
+# Date: 2019/06/14
+# Operation : Migration
+# GOOGLE: Commented out for b/169606103
+#get_prop(system_server, vendor_default_prop)
+
+#Date:2019/10/09
+#Operation:Q Migration
+get_prop(system_server, system_mtk_debug_mtk_aee_prop)
+get_prop(system_server, system_mtk_debug_bq_dump_prop)
 
 #Date:2019/10/10
 #Operation:Q Migration

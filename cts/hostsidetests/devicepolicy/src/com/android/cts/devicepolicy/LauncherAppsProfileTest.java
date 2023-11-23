@@ -16,8 +16,11 @@
 
 package com.android.cts.devicepolicy;
 
+import static com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.FEATURE_MANAGED_USERS;
+
 import android.platform.test.annotations.FlakyTest;
 
+import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresAdditionalFeatures;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import org.junit.Test;
@@ -27,6 +30,7 @@ import java.util.Collections;
 /**
  * Set of tests for LauncherApps with managed profiles.
  */
+@RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
 public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
 
     private static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
@@ -44,39 +48,33 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        mHasFeature = mHasFeature && hasDeviceFeature("android.software.managed_users");
-        if (mHasFeature) {
-            removeTestUsers();
-            // Create a managed profile
-            mParentUserId = mPrimaryUserId;
-            mProfileUserId = createManagedProfile(mParentUserId);
-            installAppAsUser(MANAGED_PROFILE_APK, mProfileUserId);
-            setProfileOwnerOrFail(MANAGED_PROFILE_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS,
-                    mProfileUserId);
-            mProfileSerialNumber = Integer.toString(getUserSerialNumber(mProfileUserId));
-            mMainUserSerialNumber = Integer.toString(getUserSerialNumber(mParentUserId));
-            startUserAndWait(mProfileUserId);
 
-            // Install test APK on primary user and the managed profile.
-            installTestApps(USER_ALL);
-        }
+        removeTestUsers();
+        // Create a managed profile
+        mParentUserId = mPrimaryUserId;
+        mProfileUserId = createManagedProfile(mParentUserId);
+        installAppAsUser(MANAGED_PROFILE_APK, mProfileUserId);
+        setProfileOwnerOrFail(MANAGED_PROFILE_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS,
+                mProfileUserId);
+        mProfileSerialNumber = Integer.toString(getUserSerialNumber(mProfileUserId));
+        mMainUserSerialNumber = Integer.toString(getUserSerialNumber(mParentUserId));
+        startUserAndWait(mProfileUserId);
+
+        // Install test APK on primary user and the managed profile.
+        installTestApps(USER_ALL);
     }
 
     @Override
     public void tearDown() throws Exception {
-        if (mHasFeature) {
-            removeUser(mProfileUserId);
-            uninstallTestApps();
-            getDevice().uninstallPackage(LAUNCHER_TESTS_HAS_LAUNCHER_ACTIVITY_APK);
-        }
+        removeUser(mProfileUserId);
+        uninstallTestApps();
+        getDevice().uninstallPackage(LAUNCHER_TESTS_HAS_LAUNCHER_ACTIVITY_APK);
+
         super.tearDown();
     }
 
     @Test
     public void testGetActivitiesWithProfile() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         // Install app for all users.
         installAppAsUser(SIMPLE_APP_APK, mParentUserId);
         installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
@@ -110,9 +108,6 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
 
     @Test
     public void testProfileOwnerAppHiddenInPrimaryProfile() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         String command = "pm disable --user " + mParentUserId + " " + MANAGED_PROFILE_PKG
                 + "/.PrimaryUserFilterSetterActivity";
         CLog.d("Output for command " + command + ": " + getDevice().executeShellCommand(command));
@@ -123,9 +118,6 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
 
     @Test
     public void testNoHiddenActivityInProfile() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         // Install app for all users.
         installAppAsUser(LAUNCHER_TESTS_HAS_LAUNCHER_ACTIVITY_APK, mParentUserId);
         installAppAsUser(LAUNCHER_TESTS_HAS_LAUNCHER_ACTIVITY_APK, mProfileUserId);
@@ -142,9 +134,6 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
     @FlakyTest
     @Test
     public void testLauncherCallbackPackageAddedProfile() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         startCallbackService(mPrimaryUserId);
         installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
         runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
@@ -156,9 +145,6 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
     @FlakyTest
     @Test
     public void testLauncherCallbackPackageRemovedProfile() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
         startCallbackService(mPrimaryUserId);
         getDevice().uninstallPackage(SIMPLE_APP_PKG);
@@ -171,9 +157,6 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
     @FlakyTest
     @Test
     public void testLauncherCallbackPackageChangedProfile() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
         startCallbackService(mPrimaryUserId);
         installAppAsUser(SIMPLE_APP_APK, /* grantPermissions */ true, /* dontKillApp */ true,
@@ -186,9 +169,6 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
 
     @Test
     public void testReverseAccessNoThrow() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
 
         runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,

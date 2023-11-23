@@ -14,9 +14,8 @@
      limitations under the License.
 -->
 <configuration description="Runs KernelDynamicPartitionsTest">
-    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MinApiLevelModuleController">
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController">
         <option name="min-api-level" value="29" />
-        <option name="api-level-prop" value="ro.product.first_api_level" />
     </object>
 
     <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer" />

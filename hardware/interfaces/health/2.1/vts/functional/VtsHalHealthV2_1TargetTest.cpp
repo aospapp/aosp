@@ -233,16 +233,17 @@ TEST_P(HealthHidlTest, getHealthInfo_2_1) {
         ASSERT_EQ(Result::SUCCESS, result);
 
         EXPECT_TRUE(IsEnum(value.batteryCapacityLevel)) << " BatteryCapacityLevel";
-        EXPECT_GE(value.batteryChargeTimeToFullNowSeconds, 0);
+        EXPECT_GE(value.batteryChargeTimeToFullNowSeconds, -1);
 
-        EXPECT_GE(value.batteryFullChargeDesignCapacityUah, 0)
-                << "batteryFullChargeDesignCapacityUah should not be negative";
+        if (value.batteryFullChargeDesignCapacityUah != 0) {
+            EXPECT_GT((long)value.batteryFullChargeDesignCapacityUah, FULL_CHARGE_DESIGN_CAP_MIN)
+                    << "batteryFullChargeDesignCapacityUah should be greater than 100 mAh, or 0 if "
+                       "unknown";
 
-        EXPECT_GT((long)value.batteryFullChargeDesignCapacityUah, FULL_CHARGE_DESIGN_CAP_MIN)
-                << "batteryFullChargeDesignCapacityUah should be greater than 100 mAh";
-
-        EXPECT_LT((long)value.batteryFullChargeDesignCapacityUah, FULL_CHARGE_DESIGN_CAP_MAX)
-                << "batteryFullChargeDesignCapacityUah should be less than 100,000 mAh";
+            EXPECT_LT((long)value.batteryFullChargeDesignCapacityUah, FULL_CHARGE_DESIGN_CAP_MAX)
+                    << "batteryFullChargeDesignCapacityUah should be less than 100,000 mAh, or 0 "
+                       "if unknown";
+        }
     })));
 }
 
@@ -258,6 +259,7 @@ TEST_P(HealthHidlTest, shouldKeepScreenOn) {
     })));
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(HealthHidlTest);
 INSTANTIATE_TEST_SUITE_P(
         PerInstance, HealthHidlTest,
         testing::ValuesIn(android::hardware::getAllHalInstanceNames(IHealth::descriptor)),

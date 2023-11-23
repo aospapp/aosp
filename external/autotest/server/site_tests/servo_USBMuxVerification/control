@@ -9,10 +9,11 @@ NAME = "servo_USBMuxVerification"
 PURPOSE = "Validate the usb mux on servo can face both host and DUT."
 CRITERIA = "This test is a wrapper for a client test."
 TIME = "SHORT"
+ATTRIBUTES = "suite:servo_lab"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "servo"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 

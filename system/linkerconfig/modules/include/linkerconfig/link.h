@@ -35,13 +35,20 @@ class Link {
   Link(Link&&) = default;
   Link& operator=(Link&&) = default;
 
-  template <typename T, typename... Args>
-  void AddSharedLib(T&& lib_name, Args&&... lib_names);
+  template <typename... Args>
+  void AddSharedLib(const std::string& lib_name, Args&&... lib_names);
   void AddSharedLib(const std::vector<std::string>& lib_names);
   void AllowAllSharedLibs();
   void WriteConfig(ConfigWriter& writer) const;
 
+  bool IsAllSharedLibsAllowed() const {
+    return allow_all_shared_libs_;
+  }
+
   // accessors
+  bool Empty() const {
+    return !allow_all_shared_libs_ && shared_libs_.empty();
+  }
   std::vector<std::string> GetSharedLibs() const {
     return shared_libs_;
   }
@@ -56,10 +63,10 @@ class Link {
   bool allow_all_shared_libs_;
 };
 
-template <typename T, typename... Args>
-void Link::AddSharedLib(T&& lib_name, Args&&... lib_names) {
+template <typename... Args>
+void Link::AddSharedLib(const std::string& lib_name, Args&&... lib_names) {
   if (!allow_all_shared_libs_) {
-    shared_libs_.push_back(std::forward<T>(lib_name));
+    shared_libs_.push_back(lib_name);
     if constexpr (sizeof...(Args) > 0) {
       AddSharedLib(std::forward<Args>(lib_names)...);
     }

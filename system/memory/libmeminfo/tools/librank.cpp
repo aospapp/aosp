@@ -41,6 +41,13 @@ using ::android::meminfo::MemUsage;
 using ::android::meminfo::ProcMemInfo;
 using ::android::meminfo::Vma;
 
+// The output format that can be specifid by user.
+enum Format {
+    RAW = 0,
+    JSON,
+    CSV
+};
+
 [[noreturn]] static void usage(int exit_status) {
     fprintf(stderr,
             "Usage: %s [ -P | -L ] [ -v | -r | -p | -u | -s | -h ]\n"
@@ -59,6 +66,8 @@ using ::android::meminfo::Vma;
             "    -c  Only show cached (storage backed) pages\n"
             "    -C  Only show non-cached (ram/swap backed) pages\n"
             "    -k  Only show pages collapsed by KSM\n"
+            "    -f  [raw][json][csv] Print output in the specified format.\n"
+            "        (Default format is raw text.)\n"
             "    -h  Display this help screen.\n",
             getprogname());
     exit(exit_status);
@@ -141,7 +150,7 @@ struct LibRecord {
 static std::map<std::string, LibRecord> g_libs;
 
 // List of library/map names that we don't want to show by default
-static const std::vector<std::string> g_blacklisted_libs = {"[heap]", "[stack]"};
+static const std::vector<std::string> g_excluded_libs = {"[heap]", "[stack]"};
 
 // Global flags affected by command line
 static uint64_t g_pgflags = 0;
@@ -191,9 +200,9 @@ static bool scan_libs_per_process(pid_t pid) {
             continue;
         }
 
-        // skip blacklisted library / map names
-        if (!g_all_libs && (std::find(g_blacklisted_libs.begin(), g_blacklisted_libs.end(),
-                                      map.name) != g_blacklisted_libs.end())) {
+        // skip excluded library / map names
+        if (!g_all_libs && (std::find(g_excluded_libs.begin(), g_excluded_libs.end(),
+                                      map.name) != g_excluded_libs.end())) {
             continue;
         }
 
@@ -230,6 +239,98 @@ static uint16_t parse_mapflags(const char* mapflags) {
     return ret;
 }
 
+static std::string escape_csv_string(const std::string& raw) {
+  std::string ret;
+  for (auto it = raw.cbegin(); it != raw.cend(); it++) {
+    switch (*it) {
+      case '"':
+        ret += "\"\"";
+        break;
+      default:
+        ret += *it;
+        break;
+    }
+  }
+  return '"' + ret + '"';
+}
+
+std::string to_csv(LibRecord& l, ProcessRecord& p) {
+    const MemUsage& usage = p.usage();
+    return  escape_csv_string(l.name())
+            + "," + std::to_string(l.pss() / 1024)
+            + "," + escape_csv_string(p.cmdline())
+            + ",\"[" + std::to_string(p.pid()) + "]\""
+            + "," + std::to_string(usage.vss/1024)
+            + "," + std::to_string(usage.rss/1024)
+            + "," + std::to_string(usage.pss/1024)
+            + "," + std::to_string(usage.uss/1024)
+            + (g_has_swap ? "," + std::to_string(usage.swap/1024) : "");
+}
+
+static std::string escape_json_string(const std::string& raw) {
+  std::string ret;
+  for (auto it = raw.cbegin(); it != raw.cend(); it++) {
+    switch (*it) {
+      case '\\':
+        ret += "\\\\";
+        break;
+      case '"':
+        ret += "\\\"";
+        break;
+      case '/':
+        ret += "\\/";
+        break;
+      case '\b':
+        ret += "\\b";
+        break;
+      case '\f':
+        ret += "\\f";
+        break;
+      case '\n':
+        ret += "\\n";
+        break;
+      case '\r':
+        ret += "\\r";
+        break;
+      case '\t':
+        ret += "\\t";
+        break;
+      default:
+        ret += *it;
+        break;
+    }
+  }
+  return '"' + ret + '"';
+}
+
+std::string to_json(LibRecord& l, ProcessRecord& p) {
+    const MemUsage& usage = p.usage();
+    return "{\"Library\":" + escape_json_string(l.name())
+            + ",\"Total_RSS\":" + std::to_string(l.pss() / 1024)
+            + ",\"Process\":" + escape_json_string(p.cmdline())
+            + ",\"PID\":\"" + std::to_string(p.pid()) + "\""
+            + ",\"VSS\":" + std::to_string(usage.vss/1024)
+            + ",\"RSS\":" + std::to_string(usage.rss/1024)
+            + ",\"PSS\":" + std::to_string(usage.pss/1024)
+            + ",\"USS\":" + std::to_string(usage.uss/1024)
+            + (g_has_swap ? ",\"Swap\":" + std::to_string(usage.swap/1024) : "")
+            + "}";
+}
+
+static Format get_format(std::string arg) {
+    if (arg.compare("json") == 0) {
+        return JSON;
+    }
+    if (arg.compare("csv") == 0) {
+        return CSV;
+    }
+    if (arg.compare("raw") == 0) {
+        return RAW;
+    }
+    error(EXIT_FAILURE, 0, "Invalid format.");
+    return RAW;
+}
+
 int main(int argc, char* argv[]) {
     int opt;
 
@@ -255,7 +356,8 @@ int main(int argc, char* argv[]) {
 
     std::function<bool(const ProcessRecord&, const ProcessRecord&)> sort_func = pss_sort;
 
-    while ((opt = getopt(argc, argv, "acChkm:pP:uvrsR")) != -1) {
+    Format format = RAW;
+    while ((opt = getopt(argc, argv, "acCf:hkm:pP:uvrsR")) != -1) {
         switch (opt) {
             case 'a':
                 g_all_libs = true;
@@ -266,6 +368,9 @@ int main(int argc, char* argv[]) {
                 break;
             case 'C':
                 g_pgflags = g_pgflags_mask = (1 << KPF_SWAPBACKED);
+                break;
+            case 'f':
+                format = get_format(optarg);
                 break;
             case 'h':
                 usage(EXIT_SUCCESS);
@@ -305,11 +410,24 @@ int main(int argc, char* argv[]) {
         error(EXIT_FAILURE, 0, "Failed to read all pids from the system");
     }
 
-    printf(" %6s   %7s   %6s   %6s   %6s  ", "RSStot", "VSS", "RSS", "PSS", "USS");
-    if (g_has_swap) {
-        printf(" %6s  ", "Swap");
+    switch (format) {
+        case RAW:
+            printf(" %6s   %7s   %6s   %6s   %6s  ", "RSStot", "VSS", "RSS", "PSS", "USS");
+            if (g_has_swap) {
+                printf(" %6s  ", "Swap");
+            }
+            printf("Name/PID\n");
+            break;
+        case CSV:
+            printf("\"Library\",\"Total_RSS\",\"Process\",\"PID\",\"VSS\",\"RSS\",\"PSS\",\"USS\"");
+            if (g_has_swap) {
+                printf(", \"Swap\"");
+            }
+            printf("\n");
+            break;
+        case JSON:
+            break;
     }
-    printf("Name/PID\n");
 
     std::vector<LibRecord> v_libs;
     v_libs.reserve(g_libs.size());
@@ -321,11 +439,13 @@ int main(int argc, char* argv[]) {
               [](const LibRecord& l1, const LibRecord& l2) { return l1.pss() > l2.pss(); });
 
     for (auto& lib : v_libs) {
-        printf("%6" PRIu64 "K   %7s   %6s   %6s   %6s  ", lib.pss() / 1024, "", "", "", "");
-        if (g_has_swap) {
-            printf(" %6s  ", "");
+        if (format == RAW) {
+            printf("%6" PRIu64 "K   %7s   %6s   %6s   %6s  ", lib.pss() / 1024, "", "", "", "");
+            if (g_has_swap) {
+                printf(" %6s  ", "");
+            }
+            printf("%s\n", lib.name().c_str());
         }
-        printf("%s\n", lib.name().c_str());
 
         // sort all mappings first
 
@@ -338,12 +458,22 @@ int main(int argc, char* argv[]) {
 
         for (auto& p : procs) {
             const MemUsage& usage = p.usage();
-            printf(" %6s  %7" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  ", "",
-                   usage.vss / 1024, usage.rss / 1024, usage.pss / 1024, usage.uss / 1024);
-            if (g_has_swap) {
-                printf("%6" PRIu64 "K  ", usage.swap / 1024);
+            switch (format) {
+                case RAW:
+                    printf(" %6s  %7" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  ", "",
+                        usage.vss / 1024, usage.rss / 1024, usage.pss / 1024, usage.uss / 1024);
+                    if (g_has_swap) {
+                        printf("%6" PRIu64 "K  ", usage.swap / 1024);
+                    }
+                    printf("  %s [%d]\n", p.cmdline().c_str(), p.pid());
+                    break;
+                case JSON:
+                    printf("%s\n", to_json(lib, p).c_str());
+                    break;
+                case CSV:
+                    printf("%s\n", to_csv(lib, p).c_str());
+                    break;
             }
-            printf("  %s [%d]\n", p.cmdline().c_str(), p.pid());
         }
     }
 

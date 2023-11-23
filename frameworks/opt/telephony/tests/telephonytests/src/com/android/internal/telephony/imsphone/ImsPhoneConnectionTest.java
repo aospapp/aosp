@@ -15,6 +15,9 @@
  */
 package com.android.internal.telephony.imsphone;
 
+import static android.telephony.ims.ImsStreamMediaProfile.AUDIO_QUALITY_AMR_WB;
+import static android.telephony.ims.ImsStreamMediaProfile.AUDIO_QUALITY_EVS_SWB;
+
 import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
 
 import static org.junit.Assert.assertEquals;
@@ -27,8 +30,10 @@ import static org.mockito.Mockito.anyChar;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.os.AsyncResult;
 import android.os.Bundle;
@@ -40,16 +45,21 @@ import android.telephony.PhoneNumberUtils;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 import android.telephony.ims.ImsCallProfile;
+import android.telephony.ims.ImsStreamMediaProfile;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 
+import com.android.ims.ImsCall;
+import com.android.ims.ImsException;
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.GsmCdmaCall;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.TelephonyTest;
+import com.android.internal.telephony.metrics.TelephonyMetrics;
+import com.android.internal.telephony.metrics.VoiceCallSessionStats;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -61,10 +71,15 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
 public class ImsPhoneConnectionTest extends TelephonyTest {
+    private static final int TIMEOUT_MILLIS = 5000;
+
     private ImsPhoneConnection mConnectionUT;
     private Bundle mBundle = new Bundle();
     @Mock
@@ -94,6 +109,18 @@ public class ImsPhoneConnectionTest extends TelephonyTest {
 
     @Test
     @SmallTest
+    public void testNullExtras() {
+        mImsCallProfile.mCallExtras = null;
+        try {
+            mConnectionUT = new ImsPhoneConnection(mImsPhone, mImsCall, mImsCT, mForeGroundCall,
+                    false);
+        } catch (NullPointerException npe) {
+            Assert.fail("Should not get NPE updating extras.");
+        }
+    }
+
+    @Test
+    @SmallTest
     public void testImsIncomingConnectionCorrectness() {
         logd("Testing initial state of MT ImsPhoneConnection");
         mConnectionUT = new ImsPhoneConnection(mImsPhone, mImsCall, mImsCT, mForeGroundCall, false);
@@ -114,7 +141,7 @@ public class ImsPhoneConnectionTest extends TelephonyTest {
 
         logd("Testing initial state of MO ImsPhoneConnection");
         mConnectionUT = new ImsPhoneConnection(mImsPhone, String.format("+1 (700).555-41NN%c1234",
-                PhoneNumberUtils.PAUSE), mImsCT, mForeGroundCall, false);
+                PhoneNumberUtils.PAUSE), mImsCT, mForeGroundCall, false, false);
         assertEquals(PhoneConstants.PRESENTATION_ALLOWED, mConnectionUT.getNumberPresentation());
         assertEquals(PhoneConstants.PRESENTATION_ALLOWED, mConnectionUT.getCnapNamePresentation());
         assertEquals("+1 (700).555-41NN,1234", mConnectionUT.getOrigDialString());
@@ -127,7 +154,7 @@ public class ImsPhoneConnectionTest extends TelephonyTest {
     public void testImsUpdateStateForeGround() {
         // MO Foreground Connection dailing -> active
         mConnectionUT = new ImsPhoneConnection(mImsPhone, "+1 (700).555-41NN1234", mImsCT,
-                mForeGroundCall, false);
+                mForeGroundCall, false, false);
         // initially in dialing state
         doReturn(Call.State.DIALING).when(mForeGroundCall).getState();
         assertTrue(mConnectionUT.update(mImsCall, Call.State.ACTIVE));
@@ -135,6 +162,16 @@ public class ImsPhoneConnectionTest extends TelephonyTest {
         assertEquals(Connection.PostDialState.COMPLETE, mConnectionUT.getPostDialState());
         verify(mForeGroundCall, times(1)).update(eq(mConnectionUT), eq(mImsCall),
                 eq(Call.State.ACTIVE));
+    }
+
+    @Test
+    @SmallTest
+    public void testUpdateCodec() {
+        // MO Foreground Connection dailing -> active
+        mConnectionUT = new ImsPhoneConnection(mImsPhone, "+1 (700).555-41NN1234", mImsCT,
+                mForeGroundCall, false, false);
+        doReturn(Call.State.ACTIVE).when(mForeGroundCall).getState();
+        assertTrue(mConnectionUT.updateMediaCapabilities(mImsCall));
     }
 
     @Test
@@ -155,7 +192,7 @@ public class ImsPhoneConnectionTest extends TelephonyTest {
     @SmallTest
     public void testImsUpdateStatePendingHold() {
         mConnectionUT = new ImsPhoneConnection(mImsPhone, "+1 (700).555-41NN1234", mImsCT,
-                mForeGroundCall, false);
+                mForeGroundCall, false, false);
         doReturn(true).when(mImsCall).isPendingHold();
         assertFalse(mConnectionUT.update(mImsCall, Call.State.ACTIVE));
         verify(mForeGroundCall, times(0)).update(eq(mConnectionUT), eq(mImsCall),
@@ -200,7 +237,7 @@ public class ImsPhoneConnectionTest extends TelephonyTest {
     @SmallTest
     public void testPostDialWait() {
         mConnectionUT = new ImsPhoneConnection(mImsPhone, String.format("+1 (700).555-41NN%c1234",
-                PhoneNumberUtils.WAIT), mImsCT, mForeGroundCall, false);
+                PhoneNumberUtils.WAIT), mImsCT, mForeGroundCall, false, false);
         doReturn(Call.State.DIALING).when(mForeGroundCall).getState();
         doAnswer(new Answer() {
             @Override
@@ -223,7 +260,7 @@ public class ImsPhoneConnectionTest extends TelephonyTest {
     @MediumTest
     public void testPostDialPause() {
         mConnectionUT = new ImsPhoneConnection(mImsPhone, String.format("+1 (700).555-41NN%c1234",
-                PhoneNumberUtils.PAUSE), mImsCT, mForeGroundCall, false);
+                PhoneNumberUtils.PAUSE), mImsCT, mForeGroundCall, false, false);
         doReturn(Call.State.DIALING).when(mForeGroundCall).getState();
         doAnswer(new Answer() {
             @Override
@@ -351,7 +388,7 @@ public class ImsPhoneConnectionTest extends TelephonyTest {
                 {"12345*00000", "12346", "12346"}};
         for (String[] testAddress : testAddressMappingSet) {
             mConnectionUT = new ImsPhoneConnection(mImsPhone, testAddress[0], mImsCT,
-                    mForeGroundCall, false);
+                    mForeGroundCall, false, false);
             mConnectionUT.setIsIncoming(true);
             mImsCallProfile.setCallExtra(ImsCallProfile.EXTRA_OI, testAddress[1]);
             mConnectionUT.updateAddressDisplay(mImsCall);
@@ -369,7 +406,7 @@ public class ImsPhoneConnectionTest extends TelephonyTest {
         String updateAddress = "6789";
 
         mConnectionUT = new ImsPhoneConnection(mImsPhone, inputAddress, mImsCT, mForeGroundCall,
-                false);
+                false, false);
         mConnectionUT.setIsIncoming(false);
         mImsCallProfile.setCallExtra(ImsCallProfile.EXTRA_OI, updateAddress);
         mConnectionUT.updateAddressDisplay(mImsCall);
@@ -390,5 +427,57 @@ public class ImsPhoneConnectionTest extends TelephonyTest {
                         ImsCallProfile.VERIFICATION_STATUS_NOT_VERIFIED));
         assertEquals(android.telecom.Connection.VERIFICATION_STATUS_NOT_VERIFIED,
                 ImsPhoneConnection.toTelecomVerificationStatus(90210));
+    }
+
+    @Test
+    @SmallTest
+    public void testSetRedirectingAddress() {
+        mConnectionUT = new ImsPhoneConnection(mImsPhone, mImsCall, mImsCT, mForeGroundCall, false);
+        ArrayList<String> forwardedNumber = new ArrayList<String>();
+        forwardedNumber.add("11111");
+        forwardedNumber.add("22222");
+        forwardedNumber.add("33333");
+
+        assertEquals(mConnectionUT.getForwardedNumber(), null);
+        mBundle.putStringArrayList(ImsCallProfile.EXTRA_FORWARDED_NUMBER, forwardedNumber);
+        assertTrue(mConnectionUT.update(mImsCall, Call.State.ACTIVE));
+        assertEquals(forwardedNumber, mConnectionUT.getForwardedNumber());
+    }
+
+    @Test
+    @SmallTest
+    public void testReportMediaCodecChange() throws InterruptedException, ImsException {
+        ImsCall imsCall = mock(ImsCall.class);
+        ImsStreamMediaProfile mediaProfile = new ImsStreamMediaProfile();
+        ImsCallProfile profile = new ImsCallProfile();
+        profile.mMediaProfile = mediaProfile;
+        mediaProfile.mAudioQuality = AUDIO_QUALITY_AMR_WB;
+        when(imsCall.getLocalCallProfile()).thenReturn(profile);
+
+        // Blech; mocks required which are unrelated to this test
+        when(mImsCT.getPhone()).thenReturn(mImsPhone);
+        VoiceCallSessionStats stats = mock(VoiceCallSessionStats.class);
+        when(mImsPhone.getVoiceCallSessionStats()).thenReturn(stats);
+
+        mConnectionUT = new ImsPhoneConnection(mImsPhone, imsCall, mImsCT, mForeGroundCall, false);
+        mConnectionUT.setTelephonyMetrics(mock(TelephonyMetrics.class));
+        CountDownLatch latch = new CountDownLatch(1);
+        boolean[] receivedCountCallback = new boolean[1];
+        mConnectionUT.addListener(new Connection.ListenerBase() {
+            @Override
+            public void onMediaAttributesChanged() {
+                receivedCountCallback[0] = true;
+                latch.countDown();
+            }
+        });
+
+        mConnectionUT.updateMediaCapabilities(imsCall);
+
+        // Make an update to the media caps
+        mediaProfile.mAudioQuality = AUDIO_QUALITY_EVS_SWB;
+        mConnectionUT.updateMediaCapabilities(imsCall);
+
+        latch.await(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        assertTrue(receivedCountCallback[0]);
     }
 }

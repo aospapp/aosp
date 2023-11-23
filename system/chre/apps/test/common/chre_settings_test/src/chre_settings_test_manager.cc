@@ -21,6 +21,7 @@
 
 #include "chre/util/nanoapp/callbacks.h"
 #include "chre/util/nanoapp/log.h"
+#include "chre/util/time.h"
 #include "chre_settings_test.nanopb.h"
 #include "chre_settings_test_util.h"
 
@@ -37,6 +38,13 @@ constexpr uint32_t kWifiRttCookie = 0x2345;
 constexpr uint32_t kGnssLocationCookie = 0x3456;
 constexpr uint32_t kGnssMeasurementCookie = 0x4567;
 constexpr uint32_t kWwanCellInfoCookie = 0x5678;
+
+// Flag to verify if an audio data event was received after a valid sampling
+// change event (i.e., we only got the data event after a source-enabled-and-
+// not-suspended event).
+bool gGotSourceEnabledEvent = false;
+
+uint32_t gTimerHandle = CHRE_TIMER_INVALID;
 
 bool getFeature(const chre_settings_test_TestCommand &command,
                 Manager::Feature *feature) {
@@ -56,6 +64,9 @@ bool getFeature(const chre_settings_test_TestCommand &command,
       break;
     case chre_settings_test_TestCommand_Feature_WWAN_CELL_INFO:
       *feature = Manager::Feature::WWAN_CELL_INFO;
+      break;
+    case chre_settings_test_TestCommand_Feature_AUDIO:
+      *feature = Manager::Feature::AUDIO;
       break;
     default:
       LOGE("Unknown feature %d", command.feature);
@@ -158,8 +169,13 @@ bool Manager::isFeatureSupported(Feature feature) {
                   ((capabilities & CHRE_WWAN_GET_CELL_INFO) != 0);
       break;
     }
+    case Feature::AUDIO: {
+      struct chreAudioSource source;
+      supported = chreAudioGetSource(0 /* handle */, &source);
+      break;
+    }
     default:
-      LOGE("Unknown feature %" PRIu8, feature);
+      LOGE("Unknown feature %" PRIu8, static_cast<uint8_t>(feature));
   }
 
   return supported;
@@ -190,6 +206,9 @@ void Manager::handleMessageFromHost(uint32_t senderInstanceId,
       if (getFeature(testCommand, &feature) &&
           getFeatureState(testCommand, &state) &&
           getTestStep(testCommand, &step)) {
+        LOGD("starting test: feature: %u, state %u, step %u",
+             static_cast<uint8_t>(feature), static_cast<uint8_t>(state),
+             static_cast<uint8_t>(step));
         handleStartTestMessage(hostData->hostEndpoint, feature, state, step);
         success = true;
       }
@@ -205,12 +224,15 @@ void Manager::handleStartTestMessage(uint16_t hostEndpointId, Feature feature,
                                      FeatureState state, TestStep step) {
   // If the test/feature is not supported, treat as success and skip the test.
   if (!isTestSupported() || !isFeatureSupported(feature)) {
+    LOGW("Skipping test - TestSupported: %u, FeatureSupported: %u",
+         isTestSupported(), isFeatureSupported(feature));
     sendTestResult(hostEndpointId, true /* success */);
   } else {
     bool success = false;
     if (step == TestStep::SETUP) {
       if (feature != Feature::WIFI_RTT) {
-        LOGE("Unexpected feature %" PRIu8 " for test step", feature);
+        LOGE("Unexpected feature %" PRIu8 " for test step",
+             static_cast<uint8_t>(feature));
       } else {
         success = chreWifiRequestScanAsyncDefault(&kWifiScanningCookie);
       }
@@ -231,23 +253,37 @@ void Manager::handleDataFromChre(uint16_t eventType, const void *eventData) {
     // The validation for the correct data w.r.t. the current test session
     // will be done in the methods called from here.
     switch (eventType) {
-      case CHRE_EVENT_WIFI_ASYNC_RESULT: {
+      case CHRE_EVENT_AUDIO_DATA:
+        handleAudioDataEvent(
+            static_cast<const struct chreAudioDataEvent *>(eventData));
+        break;
+
+      case CHRE_EVENT_AUDIO_SAMPLING_CHANGE:
+        handleAudioSourceStatusEvent(
+            static_cast<const struct chreAudioSourceStatusEvent *>(eventData));
+        break;
+
+      case CHRE_EVENT_TIMER:
+        handleTimeout();
+        break;
+
+      case CHRE_EVENT_WIFI_ASYNC_RESULT:
         handleWifiAsyncResult(static_cast<const chreAsyncResult *>(eventData));
         break;
-      }
-      case CHRE_EVENT_WIFI_SCAN_RESULT: {
+
+      case CHRE_EVENT_WIFI_SCAN_RESULT:
         handleWifiScanResult(static_cast<const chreWifiScanEvent *>(eventData));
         break;
-      }
-      case CHRE_EVENT_GNSS_ASYNC_RESULT: {
+
+      case CHRE_EVENT_GNSS_ASYNC_RESULT:
         handleGnssAsyncResult(static_cast<const chreAsyncResult *>(eventData));
         break;
-      }
-      case CHRE_EVENT_WWAN_CELL_INFO_RESULT: {
+
+      case CHRE_EVENT_WWAN_CELL_INFO_RESULT:
         handleWwanCellInfoResult(
             static_cast<const chreWwanCellInfoResult *>(eventData));
         break;
-      }
+
       default:
         LOGE("Unknown event type %" PRIu16, eventType);
     }
@@ -257,10 +293,10 @@ void Manager::handleDataFromChre(uint16_t eventType, const void *eventData) {
 bool Manager::startTestForFeature(Feature feature) {
   bool success = true;
   switch (feature) {
-    case Feature::WIFI_SCANNING: {
+    case Feature::WIFI_SCANNING:
       success = chreWifiRequestScanAsyncDefault(&kWifiScanningCookie);
       break;
-    }
+
     case Feature::WIFI_RTT: {
       if (!mCachedRangingTarget.has_value()) {
         LOGE("No cached WiFi RTT ranging target");
@@ -271,30 +307,42 @@ bool Manager::startTestForFeature(Feature feature) {
       }
       break;
     }
-    case Feature::GNSS_LOCATION: {
+
+    case Feature::GNSS_LOCATION:
       success = chreGnssLocationSessionStartAsync(1000 /* minIntervalMs */,
                                                   0 /* minTimeToNextFixMs */,
                                                   &kGnssLocationCookie);
       break;
-    }
-    case Feature::GNSS_MEASUREMENT: {
+
+    case Feature::GNSS_MEASUREMENT:
       success = chreGnssMeasurementSessionStartAsync(1000 /* minIntervalMs */,
                                                      &kGnssMeasurementCookie);
       break;
-    }
-    case Feature::WWAN_CELL_INFO: {
+
+    case Feature::WWAN_CELL_INFO:
       success = chreWwanGetCellInfoAsync(&kWwanCellInfoCookie);
       break;
+
+    case Feature::AUDIO: {
+      struct chreAudioSource source;
+      if ((success = chreAudioGetSource(0 /* handle */, &source))) {
+        success = chreAudioConfigureSource(0 /* handle */, true /* enable */,
+                                           source.minBufferDuration,
+                                           source.minBufferDuration);
+      }
+      break;
     }
+
     default:
-      LOGE("Unknown feature %" PRIu8, feature);
+      LOGE("Unknown feature %" PRIu8, static_cast<uint8_t>(feature));
       return false;
   }
 
   if (!success) {
-    LOGE("Failed to make request for test feature %" PRIu8, feature);
+    LOGE("Failed to make request for test feature %" PRIu8,
+         static_cast<uint8_t>(feature));
   } else {
-    LOGI("Starting test for feature %" PRIu8, feature);
+    LOGI("Starting test for feature %" PRIu8, static_cast<uint8_t>(feature));
   }
 
   return success;
@@ -306,14 +354,14 @@ bool Manager::validateAsyncResult(const chreAsyncResult *result,
   if (result->cookie != expectedCookie) {
     LOGE("Unexpected cookie on async result");
   } else {
-    chreError expectedErrorCode =
-        (mTestSession->featureState == FeatureState::ENABLED)
-            ? CHRE_ERROR_NONE
-            : CHRE_ERROR_FUNCTION_DISABLED;
+    bool featureEnabled = (mTestSession->featureState == FeatureState::ENABLED);
+    bool disabledErrorCode =
+        (result->errorCode == CHRE_ERROR_FUNCTION_DISABLED);
 
-    if (result->errorCode != expectedErrorCode) {
-      LOGE("Unexpected async result: error code %" PRIu8 " expect %" PRIu8,
-           result->errorCode, expectedErrorCode);
+    if (featureEnabled && disabledErrorCode) {
+      LOGE("Got disabled error code when feature is enabled");
+    } else if (!featureEnabled && !disabledErrorCode) {
+      LOGE("Got non-disabled error code when feature is disabled");
     } else {
       success = true;
     }
@@ -334,7 +382,7 @@ void Manager::handleWifiAsyncResult(const chreAsyncResult *result) {
       }
       if (mTestSession->feature != Feature::WIFI_SCANNING) {
         LOGE("Unexpected WiFi scan async result: test feature %" PRIu8,
-             mTestSession->feature);
+             static_cast<uint8_t>(mTestSession->feature));
       } else {
         success = validateAsyncResult(
             result, static_cast<const void *>(&kWifiScanningCookie));
@@ -344,7 +392,7 @@ void Manager::handleWifiAsyncResult(const chreAsyncResult *result) {
     case CHRE_WIFI_REQUEST_TYPE_RANGING: {
       if (mTestSession->feature != Feature::WIFI_RTT) {
         LOGE("Unexpected WiFi ranging async result: test feature %" PRIu8,
-             mTestSession->feature);
+             static_cast<uint8_t>(mTestSession->feature));
       } else {
         success = validateAsyncResult(
             result, static_cast<const void *>(&kWifiRttCookie));
@@ -394,7 +442,7 @@ void Manager::handleGnssAsyncResult(const chreAsyncResult *result) {
     case CHRE_GNSS_REQUEST_TYPE_LOCATION_SESSION_START: {
       if (mTestSession->feature != Feature::GNSS_LOCATION) {
         LOGE("Unexpected GNSS location async result: test feature %" PRIu8,
-             mTestSession->feature);
+             static_cast<uint8_t>(mTestSession->feature));
       } else {
         success = validateAsyncResult(
             result, static_cast<const void *>(&kGnssLocationCookie));
@@ -405,7 +453,7 @@ void Manager::handleGnssAsyncResult(const chreAsyncResult *result) {
     case CHRE_GNSS_REQUEST_TYPE_MEASUREMENT_SESSION_START: {
       if (mTestSession->feature != Feature::GNSS_MEASUREMENT) {
         LOGE("Unexpected GNSS measurement async result: test feature %" PRIu8,
-             mTestSession->feature);
+             static_cast<uint8_t>(mTestSession->feature));
       } else {
         success = validateAsyncResult(
             result, static_cast<const void *>(&kGnssMeasurementCookie));
@@ -426,7 +474,7 @@ void Manager::handleWwanCellInfoResult(const chreWwanCellInfoResult *result) {
   // CHRE API requirements.
   if (mTestSession->feature != Feature::WWAN_CELL_INFO) {
     LOGE("Unexpected WWAN cell info result: test feature %" PRIu8,
-         mTestSession->feature);
+         static_cast<uint8_t>(mTestSession->feature));
   } else if (result->cookie != &kWwanCellInfoCookie) {
     LOGE("Unexpected cookie on WWAN cell info result");
   } else if (result->errorCode != CHRE_ERROR_NONE) {
@@ -440,6 +488,86 @@ void Manager::handleWwanCellInfoResult(const chreWwanCellInfoResult *result) {
   }
 
   sendTestResult(mTestSession->hostEndpointId, success);
+}
+
+// The MicDisabled Settings test works as follows:
+// * The contents of the Source Status Event are parsed, and there are 4
+//   possible scenarios for the flow of our test:
+//
+// - Mic Access was disabled, source was suspended
+// -- Since CHRE guarantees that we'll receive audio data events spaced at
+//    the source's minBufferDuration apart (plus a small delay/latency),
+//    we set a timer for (minBufferDuration + 1) seconds to verify that no
+//    data event was received. We pass the test on a timeout.
+//
+// - Mic Access was disabled, source wasn't suspended
+// -- We fail the test
+//
+// - Mic Access was enabled, source was suspended
+// -- We fail the test
+//
+// - Mic Access was enabled, source wasn't suspended
+// -- We set a flag 'GotSourceEnabledEvent'. The audio data event checks this
+// flag, and reports success/failure appropriately.
+
+void Manager::handleAudioSourceStatusEvent(
+    const struct chreAudioSourceStatusEvent *event) {
+  bool success = false;
+  if (mTestSession.has_value()) {
+    if (mTestSession->featureState == FeatureState::ENABLED) {
+      if (event->status.suspended) {
+        struct chreAudioSource source;
+        if (chreAudioGetSource(0 /* handle */, &source)) {
+          const uint64_t duration =
+              source.minBufferDuration + kOneSecondInNanoseconds;
+          gTimerHandle =
+              chreTimerSet(duration, nullptr /* cookie */, true /* oneShot */);
+
+          if (gTimerHandle == CHRE_TIMER_INVALID) {
+            LOGE("Failed to set timer");
+          } else {
+            success = true;
+          }
+        } else {
+          LOGE("Failed to query audio source");
+        }
+      } else {
+        LOGE("Source wasn't suspended when Mic Access was disabled");
+      }
+    } else {
+      gGotSourceEnabledEvent = true;
+      success = true;
+    }
+
+    if (!success) {
+      sendTestResult(mTestSession->hostEndpointId, success);
+    }
+  }
+}
+
+void Manager::handleAudioDataEvent(const struct chreAudioDataEvent *event) {
+  bool success = false;
+  if (mTestSession.has_value()) {
+    if (mTestSession->featureState == FeatureState::ENABLED) {
+      if (gTimerHandle != CHRE_TIMER_INVALID) {
+        chreTimerCancel(gTimerHandle);
+        gTimerHandle = CHRE_TIMER_INVALID;
+      }
+    } else if (gGotSourceEnabledEvent) {
+      success = true;
+    }
+    chreAudioConfigureSource(0 /* handle */, false /* enable */,
+                             0 /* minBufferDuration */,
+                             0 /* maxbufferDuration */);
+    sendTestResult(mTestSession->hostEndpointId, success);
+  }
+}
+
+void Manager::handleTimeout() {
+  gTimerHandle = CHRE_TIMER_INVALID;
+  chreAudioConfigureSource(0 /*handle*/, false /*enable*/,
+                           0 /*minBufferDuration*/, 0 /*maxBufferDuration*/);
+  sendTestResult(mTestSession->hostEndpointId, true /*success*/);
 }
 
 void Manager::sendTestResult(uint16_t hostEndpointId, bool success) {

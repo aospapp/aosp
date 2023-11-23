@@ -114,14 +114,14 @@ enum class TestNames : uint32_t {
   kBasicProximity = 0x040F,
 
   /**
-   * Test: VersionSanityTest
+   * Test: VersionConsistencyTest
    */
-  kVersionSanity = 0x0410,
+  kVersionConsistency = 0x0410,
 
   /**
-   * Test: LoggingSanityTest
+   * Test: LoggingConsistencyTest
    */
-  kLoggingSanity = 0x0411,
+  kLoggingConsistency = 0x0411,
 
   /**
    * Test: SendMessageToHostTest

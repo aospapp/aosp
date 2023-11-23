@@ -31,6 +31,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Process;
 import android.os.RemoteException;
+import android.util.IndentingPrintWriter;
 import android.util.Log;
 
 import com.android.car.CarServiceBase;
@@ -145,18 +146,23 @@ public final class IExperimentalCarImpl extends IExperimentalCar.Stub {
 
     /** dump */
     public void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
-        ArrayList<CarServiceBase> services;
-        synchronized (mLock) {
-            writer.println("mReleased:" + mReleased);
-            writer.println("ALL_AVAILABLE_FEATURES:" + ALL_AVAILABLE_FEATURES);
-            services = new ArrayList<>(mRunningServices);
-        }
-        writer.println(" Number of running services:" + services.size());
-        int i = 0;
-        for (CarServiceBase service : services) {
-            writer.print(i + ":");
-            service.dump(writer);
-            i++;
+        try (IndentingPrintWriter pw = new IndentingPrintWriter(writer)) {
+            ArrayList<CarServiceBase> services;
+            synchronized (mLock) {
+                pw.printf("mReleased: %b\n", mReleased);
+                pw.printf("ALL_AVAILABLE_FEATURES: %s\n", ALL_AVAILABLE_FEATURES);
+                services = new ArrayList<>(mRunningServices);
+            }
+            pw.printf(" Number of running services: %d\n", services.size());
+            int i = 0;
+
+            for (CarServiceBase service : services) {
+                writer.printf("%d:\n", i);
+                pw.increaseIndent();
+                service.dump(pw);
+                pw.decreaseIndent();
+                i++;
+            }
         }
     }
 

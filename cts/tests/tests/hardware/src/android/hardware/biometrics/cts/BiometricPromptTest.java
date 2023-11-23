@@ -24,6 +24,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.platform.test.annotations.Presubmit;
 import android.test.AndroidTestCase;
+import android.text.TextUtils;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
@@ -88,10 +89,10 @@ public class BiometricPromptTest extends AndroidTestCase {
             });
 
             final BiometricPrompt prompt = builder.build();
-            assertEquals(title, prompt.getTitle());
-            assertEquals(subtitle, prompt.getSubtitle());
-            assertEquals(description, prompt.getDescription());
-            assertEquals(negativeButtonText, prompt.getNegativeButtonText());
+            assertTrue(TextUtils.equals(title, prompt.getTitle()));
+            assertTrue(TextUtils.equals(subtitle, prompt.getSubtitle()));
+            assertTrue(TextUtils.equals(description, prompt.getDescription()));
+            assertTrue(TextUtils.equals(negativeButtonText, prompt.getNegativeButtonText()));
 
             prompt.authenticate(cancellationSignal, mExecutor, mAuthenticationCallback);
             mLatch.await(AWAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);

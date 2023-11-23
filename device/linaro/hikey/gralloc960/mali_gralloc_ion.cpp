@@ -45,12 +45,21 @@
 #include "mali_gralloc_usages.h"
 #include "mali_gralloc_bufferdescriptor.h"
 #include "ion_4.12.h"
-
+#include "dma-heap.h"
 
 
 #define ION_SYSTEM     (char*)"ion_system_heap"
 #define ION_CMA        (char*)"linux,cma"
-static bool gralloc_legacy_ion;
+
+#define DMABUF_SYSTEM	(char*)"system"
+#define DMABUF_CMA	(char*)"linux,cma"
+static enum {
+	INTERFACE_UNKNOWN,
+	INTERFACE_ION_LEGACY,
+	INTERFACE_ION_MODERN,
+	INTERFACE_DMABUF_HEAPS
+} interface_ver;
+
 static int system_heap_id;
 static int cma_heap_id;
 
@@ -150,18 +159,63 @@ static int find_heap_id(int ion_client, char *name)
 	return heap_id;
 }
 
+#define DEVPATH "/dev/dma_heap"
+int dma_heap_open(const char* name)
+{
+	int ret, fd;
+	char buf[256];
+
+	ret = sprintf(buf, "%s/%s", DEVPATH, name);
+	if (ret < 0) {
+		AERR("sprintf failed!\n");
+		return ret;
+	}
+
+	fd = open(buf, O_RDONLY);
+	if (fd < 0)
+		AERR("open %s failed!\n", buf);
+	return fd;
+}
+
+int dma_heap_alloc(int fd, size_t len, unsigned int flags, int *dmabuf_fd)
+{
+	struct dma_heap_allocation_data data = {
+		.len = len,
+		.fd_flags = O_RDWR | O_CLOEXEC,
+		.heap_flags = flags,
+	};
+	int ret;
+
+	if (dmabuf_fd == NULL)
+		return -EINVAL;
+
+	ret = ioctl(fd, DMA_HEAP_IOCTL_ALLOC, &data);
+	if (ret < 0)
+		return ret;
+	*dmabuf_fd = (int)data.fd;
+	return ret;
+}
+
 static int alloc_ion_fd(int ion_fd, size_t size, unsigned int heap_mask, unsigned int flags, int *shared_fd)
 {
 	int heap;
 
-	if (!gralloc_legacy_ion) {
+	if (interface_ver == INTERFACE_DMABUF_HEAPS) {
+		int fd = system_heap_id;
+		unsigned long flg = 0;
+		if (heap_mask == ION_HEAP_TYPE_DMA_MASK)
+			fd = cma_heap_id;
+
+		return dma_heap_alloc(fd, size, flg, shared_fd);
+	}
+
+	if (interface_ver == INTERFACE_ION_MODERN) {
 		heap = 1 << system_heap_id;
 		if (heap_mask == ION_HEAP_TYPE_DMA_MASK)
 			heap = 1 << cma_heap_id;
 	} else {
 		heap = heap_mask;
 	}
-
 	return ion_alloc_fd(ion_fd, size, 0, heap, flags, shared_fd);
 }
 
@@ -170,10 +224,11 @@ static int alloc_from_ion_heap(int ion_fd, size_t size, unsigned int heap_mask, 
 	ion_user_handle_t ion_hnd = -1;
 	int shared_fd, ret;
 
-	if ((ion_fd < 0) || (size <= 0) || (heap_mask == 0) || (min_pgsz == NULL))
-	{
+	if ((interface_ver != INTERFACE_DMABUF_HEAPS) && (ion_fd < 0))
 		return -1;
-	}
+
+	if ((size <= 0) || (heap_mask == 0) || (min_pgsz == NULL))
+		return -1;
 
 	ret = alloc_ion_fd(ion_fd, size, heap_mask, flags, &(shared_fd));
 	if (ret < 0)
@@ -378,6 +433,55 @@ static int get_max_buffer_descriptor_index(const gralloc_buffer_descriptor_t *de
 	return max_buffer_index;
 }
 
+
+
+static int initialize_interface(mali_gralloc_module *m)
+{
+	int fd;
+
+	if (interface_ver != INTERFACE_UNKNOWN)
+		return 0;
+
+	/* test for dma-heaps*/
+	fd = dma_heap_open(DMABUF_SYSTEM);
+	if (fd >= 0) {
+		AINF("Using DMA-BUF Heaps.\n");
+		interface_ver = INTERFACE_DMABUF_HEAPS;
+		system_heap_id = fd;
+		cma_heap_id = dma_heap_open(DMABUF_CMA);
+		/* Open other dma heaps here */
+		return 0;
+	}
+
+	/* test for modern vs legacy ION */
+	m->ion_client = ion_open();
+	if (m->ion_client < 0) {
+		AERR("ion_open failed with %s", strerror(errno));
+		return -1;
+	}
+	if (!ion_is_legacy(m->ion_client)) {
+		system_heap_id = find_heap_id(m->ion_client, ION_SYSTEM);
+		cma_heap_id = find_heap_id(m->ion_client, ION_CMA);
+		if (system_heap_id < 0) {
+			ion_close(m->ion_client);
+			m->ion_client = -1;
+			AERR( "ion_open failed: no system heap found" );
+			return -1;
+		}
+		if (cma_heap_id < 0) {
+			AERR("No cma heap found, falling back to system");
+			cma_heap_id = system_heap_id;
+		}
+		AINF("Using ION Modern interface.\n");
+		interface_ver = INTERFACE_ION_MODERN;
+	} else {
+		AINF("Using ION Legacy interface.\n");
+		interface_ver = INTERFACE_ION_LEGACY;
+	}
+	return 0;
+}
+
+
 int mali_gralloc_ion_allocate(mali_gralloc_module *m, const gralloc_buffer_descriptor_t *descriptors,
                               uint32_t numDescriptors, buffer_handle_t *pHandle, bool *shared_backend)
 {
@@ -389,32 +493,16 @@ int mali_gralloc_ion_allocate(mali_gralloc_module *m, const gralloc_buffer_descr
 	int shared_fd, ret, ion_flags = 0;
 	int min_pgsz = 0;
 
-	if (m->ion_client < 0)
-	{
-		m->ion_client = ion_open();
+	ret = initialize_interface(m);
+	if (ret)
+		return ret;
 
-		if (m->ion_client < 0)
-		{
+	/* we may need to reopen the /dev/ion device */
+	if ((interface_ver != INTERFACE_DMABUF_HEAPS) && (m->ion_client < 0)) {
+		m->ion_client = ion_open();
+		if (m->ion_client < 0) {
 			AERR("ion_open failed with %s", strerror(errno));
 			return -1;
-		}
-
-		gralloc_legacy_ion = ion_is_legacy(m->ion_client);
-		if (!gralloc_legacy_ion)
-		{
-			system_heap_id = find_heap_id(m->ion_client, ION_SYSTEM);
-			cma_heap_id = find_heap_id(m->ion_client, ION_CMA);
-			if (system_heap_id < 0)
-			{
-				ion_close(m->ion_client);
-				m->ion_client = -1;
-				AERR( "ion_open failed: no system heap found" );
-				return -1;
-			}
-			if (cma_heap_id < 0) {
-				AERR("No cma heap found, falling back to system");
-				cma_heap_id = system_heap_id;
-			}
 		}
 	}
 
@@ -603,7 +691,7 @@ static void mali_gralloc_ion_free_internal(buffer_handle_t *pHandle, uint32_t nu
 
 void mali_gralloc_ion_sync(const mali_gralloc_module *m, private_handle_t *hnd)
 {
-	if (!gralloc_legacy_ion)
+	if (interface_ver != INTERFACE_ION_LEGACY)
 		return;
 
 	if (m != NULL && hnd != NULL)
@@ -642,23 +730,6 @@ int mali_gralloc_ion_map(private_handle_t *hnd)
 			AERR("Could not get gralloc module for handle: %p", hnd);
 			retval = -errno;
 			break;
-		}
-
-		/* the test condition is set to m->ion_client <= 0 here, because:
-		 * 1) module structure are initialized to 0 if no initial value is applied
-		 * 2) a second user process should get a ion fd greater than 0.
-		 */
-		if (m->ion_client <= 0)
-		{
-			/* a second user process must obtain a client handle first via ion_open before it can obtain the shared ion buffer*/
-			m->ion_client = ion_open();
-
-			if (m->ion_client < 0)
-			{
-				AERR("Could not open ion device for handle: %p", hnd);
-				retval = -errno;
-				break;
-			}
 		}
 
 		mappedAddress = (unsigned char *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, hnd->share_fd, 0);

@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"承認"</string>
     <string name="reject" msgid="24751635160440693">"拒否"</string>
     <string name="connections" msgid="8895413761760117180">"接続"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"デフォルトの印刷サービスが Wi-Fi Direct プリンタを検出できません"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Wi-Fi Direct を無効にする"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"デフォルト印刷サービスが近くのデバイスを検出するには、位置情報の利用許可が必要です。"</string>
     <string name="fix" msgid="7784394272611365393">"権限を確認"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"デフォルトの印刷サービスが近くのデバイスを検出するには、位置情報サービスを有効にする必要があります。"</string>
+    <string name="enable_location" msgid="3627841004298863140">"位置情報を有効にする"</string>
     <string name="print" msgid="7851318072404916362">"印刷"</string>
 </resources>

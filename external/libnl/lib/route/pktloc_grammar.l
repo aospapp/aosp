@@ -4,7 +4,11 @@
  #include <netlink/netlink.h>
  #include <netlink/utils.h>
  #include <netlink/route/pktloc.h>
+ #include <linux/tc_ematch/tc_em_cmp.h>
  #include "pktloc_syntax.h"
+
+ int pktloc_get_column(yyscan_t);
+ void pktloc_set_column(int, yyscan_t);
 %}
 
 %option 8bit

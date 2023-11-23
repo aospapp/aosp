@@ -70,7 +70,7 @@ TEST(PolledIntervalCheckerTest, DoesNotResetAutomatically) {
 
   struct polled_interval* interval = create_interval();
 
-  // Sanity check.
+  // Initial check.
   EXPECT_FALSE(pic_interval_elapsed(interval));
 
   // Increment time so the interval elapses.
@@ -100,7 +100,7 @@ TEST(PolledIntervalCheckerTest, Reset) {
 
   struct polled_interval* interval = create_interval();
 
-  // Sanity check.
+  // Initial check.
   EXPECT_FALSE(pic_interval_elapsed(interval));
 
   // Increment time so the interval elapses.

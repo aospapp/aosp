@@ -16,16 +16,13 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 #
 
-LOCAL_PATH:= $(call my-dir)
-LIBUSB_ROOT_REL:= ../..
-LIBUSB_ROOT_ABS:= $(LOCAL_PATH)/../..
+LOCAL_PATH := $(call my-dir)
+LIBUSB_ROOT_REL := ../..
+LIBUSB_ROOT_ABS := $(LOCAL_PATH)/../..
 
 # libusb
 
 include $(CLEAR_VARS)
-
-LIBUSB_ROOT_REL:= ../..
-LIBUSB_ROOT_ABS:= $(LOCAL_PATH)/../..
 
 LOCAL_SRC_FILES := \
   $(LIBUSB_ROOT_REL)/libusb/core.c \
@@ -35,7 +32,7 @@ LOCAL_SRC_FILES := \
   $(LIBUSB_ROOT_REL)/libusb/sync.c \
   $(LIBUSB_ROOT_REL)/libusb/strerror.c \
   $(LIBUSB_ROOT_REL)/libusb/os/linux_usbfs.c \
-  $(LIBUSB_ROOT_REL)/libusb/os/poll_posix.c \
+  $(LIBUSB_ROOT_REL)/libusb/os/events_posix.c \
   $(LIBUSB_ROOT_REL)/libusb/os/threads_posix.c \
   $(LIBUSB_ROOT_REL)/libusb/os/linux_netlink.c
 
@@ -47,8 +44,13 @@ LOCAL_C_INCLUDES += \
 LOCAL_EXPORT_C_INCLUDES := \
   $(LIBUSB_ROOT_ABS)/libusb
 
+LOCAL_CFLAGS := -fvisibility=hidden -pthread
+
 LOCAL_LDLIBS := -llog
 
 LOCAL_MODULE := libusb1.0
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-LGPL SPDX-license-identifier-LGPL-2.1 SPDX-license-identifier-LGPL-3.0
+LOCAL_LICENSE_CONDITIONS := restricted
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../COPYING $(LOCAL_PATH)/../../NOTICE
 
 include $(BUILD_SHARED_LIBRARY)

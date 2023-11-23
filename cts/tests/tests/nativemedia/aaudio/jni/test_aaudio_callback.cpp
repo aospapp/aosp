@@ -27,6 +27,9 @@
 #include "test_aaudio.h"
 #include "utils.h"
 
+constexpr int kExtremelyHighCallbackPeriodMillis = 200;
+constexpr int kMinCallbacksPerSecond = MILLIS_PER_SECOND / kExtremelyHighCallbackPeriodMillis;
+
 static int32_t measureLatency(AAudioStream *stream) {
     int64_t presentationTime = 0;
     int64_t presentationPosition = 0;
@@ -109,6 +112,7 @@ class AAudioStreamCallbackTest : public ::testing::TestWithParam<CbTestParams> {
         int32_t maxLatency;
         std::atomic<aaudio_result_t> callbackError;
         std::atomic<int32_t> callbackCount;
+        std::atomic<bool> returnStop;
 
         AAudioCallbackTestData() {
             reset(0);
@@ -120,6 +124,7 @@ class AAudioStreamCallbackTest : public ::testing::TestWithParam<CbTestParams> {
             maxLatency = 0;
             callbackError = AAUDIO_OK;
             callbackCount = 0;
+            returnStop = false;
         }
         void updateFrameCount(int32_t numFrames) {
             if (numFrames != expectedFramesPerCallback) {
@@ -170,7 +175,7 @@ aaudio_data_callback_result_t AAudioInputStreamCallbackTest::MyDataCallbackProc(
     myData->updateFrameCount(numFrames);
     // No latency measurement as there is no API for querying capture position.
     myData->callbackCount++;
-    return AAUDIO_CALLBACK_RESULT_CONTINUE;
+    return myData->returnStop ? AAUDIO_CALLBACK_RESULT_STOP : AAUDIO_CALLBACK_RESULT_CONTINUE;
 }
 
 void AAudioInputStreamCallbackTest::SetUp() {
@@ -212,7 +217,7 @@ void AAudioInputStreamCallbackTest::SetUp() {
 
 }
 
-// Test Reading from an AAudioStream using a Callback
+// Test starting and stopping an INPUT AAudioStream that uses a Callback
 TEST_P(AAudioInputStreamCallbackTest, testRecording) {
     if (!mSetupSuccesful) return;
 
@@ -222,29 +227,47 @@ TEST_P(AAudioInputStreamCallbackTest, testRecording) {
         ASSERT_EQ(framesPerDataCallback, streamFramesPerDataCallback);
     }
 
-    mCbData->reset(streamFramesPerDataCallback);
+    constexpr int kSleepSeconds = 2;
+    constexpr int kMinExpectedCallbacks = kMinCallbacksPerSecond * kSleepSeconds;
 
-    mHelper->startStream();
-    // See b/62090113. For legacy path, the device is only known after
-    // the stream has been started.
-    EXPECT_NE(AAUDIO_UNSPECIFIED, AAudioStream_getDeviceId(stream()));
-    sleep(2); // let the stream run
+    // Try both methods of stopping a stream.
+    const int kNumMethods = 2;
 
-    ASSERT_EQ(AAUDIO_OK, mCbData->callbackError);
-    ASSERT_GT(mCbData->callbackCount, 10);
+    // Start/stop more than once to see if it fails after the first time.
+    // Also check to make sure we do not get callbacks after the stop.
+    for (int loopIndex = 0; loopIndex < kNumMethods; loopIndex++) {
+        mCbData->reset(streamFramesPerDataCallback);
 
-    mHelper->stopStream();
+        mHelper->startStream();
+        // See b/62090113. For legacy path, the device is only known after
+        // the stream has been started.
+        EXPECT_NE(AAUDIO_UNSPECIFIED, AAudioStream_getDeviceId(stream()));
+        sleep(kSleepSeconds); // let the stream run
 
-    int32_t oldCallbackCount = mCbData->callbackCount;
-    EXPECT_GT(oldCallbackCount, 10);
-    sleep(1);
-    EXPECT_EQ(oldCallbackCount, mCbData->callbackCount); // expect not advancing
+        ASSERT_EQ(AAUDIO_OK, mCbData->callbackError);
+        ASSERT_GT(mCbData->callbackCount, kMinExpectedCallbacks);
 
-    if (streamFramesPerDataCallback != AAUDIO_UNSPECIFIED) {
-        ASSERT_EQ(streamFramesPerDataCallback, mCbData->actualFramesPerCallback);
+        switch (loopIndex % kNumMethods) {
+            case 0:
+                mCbData->returnStop = true; // callback return
+                mHelper->waitForState(AAUDIO_STREAM_STATE_STOPPED);
+                break;
+            case 1:
+                mHelper->stopStream();
+                break;
+        }
+
+        int32_t oldCallbackCount = mCbData->callbackCount;
+        EXPECT_GT(oldCallbackCount, kMinExpectedCallbacks);
+        sleep(1);
+        EXPECT_EQ(oldCallbackCount, mCbData->callbackCount); // expect not advancing
+
+        if (streamFramesPerDataCallback != AAUDIO_UNSPECIFIED) {
+            ASSERT_EQ(streamFramesPerDataCallback, mCbData->actualFramesPerCallback);
+        }
+
+        ASSERT_EQ(AAUDIO_OK, mCbData->callbackError);
     }
-
-    ASSERT_EQ(AAUDIO_OK, mCbData->callbackError);
 }
 
 INSTANTIATE_TEST_CASE_P(SPM, AAudioInputStreamCallbackTest,
@@ -319,7 +342,7 @@ aaudio_data_callback_result_t AAudioOutputStreamCallbackTest::MyDataCallbackProc
     myData->updateFrameCount(numFrames);
     myData->updateLatency(measureLatency(stream));
     myData->callbackCount++;
-    return AAUDIO_CALLBACK_RESULT_CONTINUE;
+    return myData->returnStop ? AAUDIO_CALLBACK_RESULT_STOP : AAUDIO_CALLBACK_RESULT_CONTINUE;
 }
 
 void AAudioOutputStreamCallbackTest::SetUp() {
@@ -344,7 +367,7 @@ void AAudioOutputStreamCallbackTest::SetUp() {
 
 }
 
-// Test Writing to an AAudioStream using a Callback
+// Test starting and stopping an OUTPUT AAudioStream that uses a Callback
 TEST_P(AAudioOutputStreamCallbackTest, testPlayback) {
     if (!mSetupSuccesful) return;
 
@@ -354,29 +377,41 @@ TEST_P(AAudioOutputStreamCallbackTest, testPlayback) {
         ASSERT_EQ(framesPerDataCallback, streamFramesPerDataCallback);
     }
 
+    constexpr int kSleepSeconds = 2;
+    constexpr int kMinExpectedCallbacks = kMinCallbacksPerSecond * kSleepSeconds;
+
+    // Try all 3 methods of stopping/pausing a stream.
+    constexpr int kNumMethods = 3;
+
     // Start/stop more than once to see if it fails after the first time.
-    // Write some data and measure the rate to see if the timing is OK.
-    for (int loopIndex = 0; loopIndex < 2; loopIndex++) {
+    // Also check to make sure we do not get callbacks after the stop.
+    for (int loopIndex = 0; loopIndex < kNumMethods; loopIndex++) {
         mCbData->reset(streamFramesPerDataCallback);
 
         mHelper->startStream();
         // See b/62090113. For legacy path, the device is only known after
         // the stream has been started.
         EXPECT_NE(AAUDIO_UNSPECIFIED, AAudioStream_getDeviceId(stream()));
-        sleep(2); // let the stream run
+        sleep(kSleepSeconds); // let the stream run
 
         ASSERT_EQ(AAUDIO_OK, mCbData->callbackError);
-        ASSERT_GT(mCbData->callbackCount, 10);
+        ASSERT_GT(mCbData->callbackCount, kMinExpectedCallbacks);
 
-        // For more coverage, alternate pausing and stopping.
-        if ((loopIndex & 1) == 0) {
-            mHelper->pauseStream();
-        } else {
-            mHelper->stopStream();
+        switch (loopIndex % kNumMethods) {
+            case 0:
+                mCbData->returnStop = true; // callback return
+                mHelper->waitForState(AAUDIO_STREAM_STATE_STOPPED);
+                break;
+            case 1:
+                mHelper->pauseStream();
+                break;
+            case 2:
+                mHelper->stopStream();
+                break;
         }
 
         int32_t oldCallbackCount = mCbData->callbackCount;
-        EXPECT_GT(oldCallbackCount, 10);
+        EXPECT_GT(oldCallbackCount, kMinExpectedCallbacks);
         sleep(1);
         EXPECT_EQ(oldCallbackCount, mCbData->callbackCount); // expect not advancing
 
@@ -391,9 +426,9 @@ TEST_P(AAudioOutputStreamCallbackTest, testPlayback) {
                     "Suspiciously high callback latency: %d", mCbData->maxLatency);
         }
         //printf("latency: %d, %d\n", mCbData->minLatency, mCbData->maxLatency);
-    }
 
-    ASSERT_EQ(AAUDIO_OK, mCbData->callbackError);
+        ASSERT_EQ(AAUDIO_OK, mCbData->callbackError);
+    }
 }
 
 INSTANTIATE_TEST_CASE_P(SPM, AAudioOutputStreamCallbackTest,

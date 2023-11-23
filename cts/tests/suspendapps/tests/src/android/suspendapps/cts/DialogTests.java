@@ -55,7 +55,7 @@ import java.util.regex.Pattern;
 @RunWith(AndroidJUnit4.class)
 public class DialogTests {
     private static final String TEST_APP_LABEL = "Suspend Test App";
-    private static final long UI_TIMEOUT_MS = 30_000;
+    private static final long UI_TIMEOUT_MS = 60_000;
 
     /** Used to poll for the intents sent by the system to this package */
     static final SynchronousQueue<Intent> sIncomingIntent = new SynchronousQueue<>();
@@ -176,10 +176,47 @@ public class DialogTests {
                 TEST_APP_PACKAGE_NAME, incomingIntent.getStringExtra(Intent.EXTRA_PACKAGE_NAME));
     }
 
+    @Test
+    public void testInterceptorActivity_strings() throws Exception {
+        // The dialog should have correct specifications
+        final String expectedTitle = "Test Dialog Title";
+        final String expectedMessage = "This is a test message";
+        final String expectedButtonText = "Test button";
+
+        final SuspendDialogInfo dialogInfo = new SuspendDialogInfo.Builder()
+                .setIcon(R.drawable.ic_settings)
+                .setTitle(expectedTitle)
+                .setMessage(expectedMessage)
+                .setNeutralButtonText(expectedButtonText)
+                .build();
+        SuspendTestUtils.suspend(null, null, dialogInfo);
+        // Ensure test app's activity is stopped before proceeding.
+        assertTrue(mTestAppInterface.awaitTestActivityStop());
+
+        startTestAppActivity(null);
+        // Test activity should not start.
+        assertNull("Test activity started while suspended",
+                mTestAppInterface.awaitTestActivityStart(5_000));
+
+
+        assertNotNull("Given dialog title: " + expectedTitle + " not shown",
+                mUiDevice.wait(Until.findObject(By.text(expectedTitle)), UI_TIMEOUT_MS));
+        assertNotNull("Given dialog message: " + expectedMessage + " not shown",
+                mUiDevice.findObject(By.text(expectedMessage)));
+        // Sometimes, button texts can have styles that override case (e.g. b/134033532)
+        final Pattern buttonTextIgnoreCase = Pattern.compile(Pattern.quote(expectedButtonText),
+                Pattern.CASE_INSENSITIVE);
+        final UiObject2 moreDetailsButton = mUiDevice.findObject(
+                By.clickable(true).text(buttonTextIgnoreCase));
+        assertNotNull(expectedButtonText + " button not shown", moreDetailsButton);
+    }
+
     @After
     public void tearDown() {
         if (mTestAppInterface != null) {
             mTestAppInterface.disconnect();
         }
+        mUiDevice.pressBack();
+        mUiDevice.pressHome();
     }
 }

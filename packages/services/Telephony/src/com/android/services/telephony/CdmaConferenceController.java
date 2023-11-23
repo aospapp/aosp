@@ -20,11 +20,14 @@ import android.os.Handler;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
+import android.util.ArraySet;
 
 import com.android.phone.PhoneUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Manages CDMA conference calls. CDMA conference calls are much more limited than GSM conference
@@ -83,6 +86,9 @@ final class CdmaConferenceController {
 
     private final Handler mHandler = new Handler();
 
+    private final Set<CdmaConnection> mPendingAddConnections = Collections.synchronizedSet(
+            new ArraySet<>());
+
     public CdmaConferenceController(TelephonyConnectionService connectionService) {
         mConnectionService = connectionService;
     }
@@ -91,7 +97,7 @@ final class CdmaConferenceController {
     private CdmaConference mConference;
 
     void add(final CdmaConnection connection) {
-        if (mCdmaConnections.contains(connection)) {
+        if (mCdmaConnections.contains(connection) || !mPendingAddConnections.add(connection)) {
             // Adding a duplicate realistically shouldn't happen.
             Log.w(this, "add - connection already tracked; connection=%s", connection);
             return;
@@ -140,6 +146,7 @@ final class CdmaConferenceController {
 
     private void addInternal(CdmaConnection connection) {
         mCdmaConnections.add(connection);
+        mPendingAddConnections.remove(connection);
         connection.addTelephonyConnectionListener(mTelephonyConnectionListener);
         recalculateConference();
     }

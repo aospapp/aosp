@@ -3,7 +3,6 @@
 # type traced is defined under /public (because iorapd rules
 # under public/ need to refer to it).
 type traced_exec, system_file_type, exec_type, file_type;
-type traced_tmpfs, file_type;
 
 # Allow init to exec the daemon.
 init_daemon_domain(traced)
@@ -28,11 +27,19 @@ allow traced shell:fifo_file { read write };
 # Allow the service to create new files within /data/misc/perfetto-traces.
 allow traced perfetto_traces_data_file:file create_file_perms;
 allow traced perfetto_traces_data_file:dir rw_dir_perms;
+# ... and /data/misc/perfetto-traces/bugreport*
+allow traced perfetto_traces_bugreport_data_file:file create_file_perms;
+allow traced perfetto_traces_bugreport_data_file:dir rw_dir_perms;
 
 # Allow traceur to pass open file descriptors to traced, so traced can directly
 # write into the output file without doing roundtrips over IPC.
 allow traced traceur_app:fd use;
 allow traced trace_data_file:file { read write };
+
+# Allow perfetto to access the proxy service for notifying Traceur.
+allow traced tracingproxy_service:service_manager find;
+binder_use(traced);
+binder_call(traced, system_server);
 
 # Allow iorapd to pass memfd descriptors to traced, so traced can directly
 # write into the shmem buffer file without doing roundtrips over IPC.
@@ -62,6 +69,9 @@ set_prop(traced, system_trace_prop)
 # Allow to lazily start producers.
 set_prop(traced, traced_lazy_prop)
 
+# Allow traced to talk to statsd for logging metrics.
+unix_socket_send(traced, statsdw, statsd)
+
 ###
 ### Neverallow rules
 ###
@@ -82,6 +92,7 @@ neverallow traced domain:process ptrace;
 neverallow traced {
   data_file_type
   -perfetto_traces_data_file
+  -perfetto_traces_bugreport_data_file
   -system_data_file
   -system_data_root_file
   # TODO(b/72998741) Remove vendor_data_file exemption. Further restricted in a
@@ -97,6 +108,7 @@ neverallow traced {
   data_file_type
   -zoneinfo_data_file
   -perfetto_traces_data_file
+  -perfetto_traces_bugreport_data_file
   -trace_data_file
   with_native_coverage(`-method_trace_data_file')
 }:file ~write;
@@ -104,3 +116,6 @@ neverallow traced {
 # Only init is allowed to enter the traced domain via exec()
 neverallow { domain -init } traced:process transition;
 neverallow * traced:process dyntransition;
+
+# Limit the processes that can access tracingproxy_service.
+neverallow { domain -traced -dumpstate -traceur_app -shell -system_server } tracingproxy_service:service_manager find;

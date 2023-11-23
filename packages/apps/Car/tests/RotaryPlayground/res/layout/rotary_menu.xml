@@ -25,35 +25,55 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:text="Cards" />
+        android:text="Cards"
+        style="@style/tab" />
     <Button
         android:id="@+id/direct_manipulation"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:text="Direct Manipulation" />
+        android:text="Direct Manipulation"
+        style="@style/tab" />
     <Button
         android:id="@+id/sys_ui_direct_manipulation"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:text="Sys UI Manipulation" />
+        android:text="Sys UI Manipulation"
+        style="@style/tab" />
     <Button
         android:id="@+id/grid"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:text="Grid" />
+        android:text="Grid"
+        style="@style/tab" />
     <Button
         android:id="@+id/notification"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:text="Notification" />
+        android:text="Notification"
+        style="@style/tab" />
     <Button
         android:id="@+id/scroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:text="Scroll" />
+        android:text="Scroll"
+        style="@style/tab" />
+    <Button
+        android:id="@+id/web_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="WebView"
+        style="@style/tab" />
+    <Button
+        android:id="@+id/custom_focus_areas"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="Custom FocusAreas"
+        style="@style/tab" />
 </com.android.car.ui.FocusArea>

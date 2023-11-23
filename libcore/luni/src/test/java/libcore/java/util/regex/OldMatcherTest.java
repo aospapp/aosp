@@ -617,7 +617,7 @@ public class OldMatcherTest extends TestCase {
                             }
                             m.appendTail(sb);
                         } catch (Exception expected) {
-                            // This code is inherently unsafe and crazy;
+                            // This code is inherently unsafe;
                             // we're just trying to provoke native crashes!
                         }
                     }

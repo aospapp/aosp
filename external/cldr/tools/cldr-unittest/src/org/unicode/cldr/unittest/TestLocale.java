@@ -17,7 +17,6 @@ import java.util.Set;
 import javax.xml.xpath.XPathException;
 
 import org.unicode.cldr.test.ExampleGenerator;
-import org.unicode.cldr.test.ExampleGenerator.ExampleType;
 import org.unicode.cldr.util.AttributeValueValidity;
 import org.unicode.cldr.util.AttributeValueValidity.MatcherPattern;
 import org.unicode.cldr.util.CLDRConfig;
@@ -44,7 +43,6 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
-import com.ibm.icu.dev.util.CollectionUtilities;
 import com.ibm.icu.impl.Relation;
 import com.ibm.icu.impl.Row;
 import com.ibm.icu.impl.Row.R2;
@@ -78,7 +76,7 @@ public class TestLocale extends TestFmwkPlus {
     public void TestLanguageRegions() {
         Set<String> missingLanguageRegion = new LinkedHashSet<String>();
         // TODO This should be derived from metadata: https://unicode.org/cldr/trac/ticket/11224
-        Set<String> knownMultiScriptLanguages = new HashSet<String>(Arrays.asList("az", "ff", "bs", "pa", "shi", "sr", "vai", "uz", "yue", "zh"));
+        Set<String> knownMultiScriptLanguages = new HashSet<String>(Arrays.asList("az", "ff", "bs", "hi", "ks", "mni", "ms", "pa", "sat", "sd", "shi", "sr", "su", "vai", "uz", "yue", "zh"));
         Set<String> available = testInfo.getCldrFactory().getAvailable();
         LanguageTagParser ltp = new LanguageTagParser();
         Set<String> defaultContents = SUPPLEMENTAL_DATA_INFO
@@ -411,14 +409,15 @@ public class TestLocale extends TestFmwkPlus {
             if (row[0] != null) {
                 int typeCode = CLDRFile.typeNameToCode(row[0]);
                 String standAlone = f.getName(typeCode, row[1]);
+                logln(typeCode + ": " + standAlone);
                 if (!assertEquals("stand-alone " + row[3], row[2], standAlone)) {
                     typeCode = CLDRFile.typeNameToCode(row[0]);
                     standAlone = f.getName(typeCode, row[1]);
                 }
-                ;
+
                 if (row[5] != null) {
                     String path = CLDRFile.getKey(typeCode, row[1]);
-                    String example = eg.getExampleHtml(path, "?" + row[2] + "?", ExampleType.NATIVE);
+                    String example = eg.getExampleHtml(path, "?" + row[2] + "?");
                     assertEquals("example " + row[3], row[5], ExampleGenerator.simplify(example));
                 }
             }
@@ -542,6 +541,9 @@ public class TestLocale extends TestFmwkPlus {
                 continue keyLoop;
             case "tz": 
                 showName(cldrFile, seen, localeBase, "uslax", "gblon", "chzrh");
+                continue keyLoop;
+            case "dx": 
+                // skip for now, probably need to fix something in CLDRFile
                 continue keyLoop;
             }
             for (String value : keyValues.getValue()) {
@@ -707,6 +709,9 @@ public class TestLocale extends TestFmwkPlus {
         case "REORDER_CODE":    // [u, kr, REORDER_CODE] 
             valuesSet = ImmutableSet.of("arab", "digit-deva-latn");
             break;
+        case "SCRIPT_CODE":    // [u, dx, SCRIPT_CODE] 
+            valuesSet = ImmutableSet.of("thai", "thai-laoo");
+            break;
         case "RG_KEY_VALUE":    // [u, rg, RG_KEY_VALUE]
             valuesSet = ImmutableSet.of("ustx", "gbeng");
             break;
@@ -726,7 +731,7 @@ public class TestLocale extends TestFmwkPlus {
     private void showItem(LanguageTagParser ltp, String extension, String key, String gorp, String... values) {
 
         String locale = "en-GB-" + extension + (extension.equals("t") ? "-hi" : "")
-            + "-" + key + "-" + CollectionUtilities.join(values, "-") + gorp;
+            + "-" + key + "-" + String.join("-", values) + gorp;
         ltp.set(locale);
 
         logln(ltp.toString(Format.bcp47) 

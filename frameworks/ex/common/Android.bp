@@ -15,6 +15,10 @@
 // Note: the source code is in java/, not src/, because this code is also part of
 // the framework library, and build/core/pathmap.mk expects a java/ subdirectory.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library_static {
     name: "android-common",
     sdk_version: "8",

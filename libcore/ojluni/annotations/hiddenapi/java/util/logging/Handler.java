@@ -118,6 +118,6 @@ public abstract class Handler {
         offValue = 0;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     boolean sealed = true;
 }

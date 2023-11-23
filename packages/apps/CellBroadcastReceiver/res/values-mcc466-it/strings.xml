@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="public_safety_message" msgid="4052407641316309322">"Messaggio di avviso"</string>
+    <string name="public_safety_message" msgid="4052407641316309322">"Messaggio di allerta"</string>
     <string name="enable_cmas_test_alerts_title" msgid="4165080207837566277">"Test mensile obbligatorio"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="1339769389077152402">"Ricevi messaggi di prova per il sistema di avvisi relativi alla sicurezza"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="1339769389077152402">"Ricevi messaggi di prova per il sistema di allerta per la sicurezza"</string>
 </resources>

@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Få adgang til downloadadministrator."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Tillader, at appen får adgang til BluetoothShare-administratoren og kan bruge den til overførsel af filer."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Godkender adgang til Bluetooth-enheden."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Tillader, at appen midlertidigt godkender en Bluetooth-enhed, så der kan sendes filer derfra til din enhed uden bekræftelse fra brugerens side."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Godkend adgang for Bluetooth-enhed"</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Tillader, at appen midlertidigt godkender en Bluetooth-enhed, så der kan sendes filer fra den pågældende enhed til din enhed uden bekræftelse fra brugerens side."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Ukendt enhed"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Ukendt"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Der opstod timeout ved modtagelse af indgående fil fra \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Indgående fil"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> er klar til at sende <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> er klar til at sende en fil: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetooth-deling: Modtager <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetooth-deling: Modtog <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetooth-deling: Filen <xliff:g id="FILE">%1$s</xliff:g> blev ikke modtaget"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Sender filen til \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Sender <xliff:g id="NUMBER">%1$s</xliff:g> filer til \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Afsendelse af fil til \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" stoppede"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Der er ikke nok plads på USB-lageret til at gemme filen fra \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Der er ikke nok plads på SD-kortet til at gemme filen fra \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"Der er ikke nok plads på USB-lageret til at gemme filen."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"Der er ikke nok plads på SD-kortet til at gemme filen."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Nødvendig plads: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Der behandles for mange anmodninger. Prøv igen senere."</string>
     <string name="status_pending" msgid="2503691772030877944">"Filoverførslen er endnu ikke påbegyndt."</string>

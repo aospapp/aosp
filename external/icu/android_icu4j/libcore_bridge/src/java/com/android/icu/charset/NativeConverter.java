@@ -21,6 +21,9 @@ public final class NativeConverter {
     private static final NativeAllocationRegistry registry = NativeAllocationRegistry
         .createMalloced(NativeConverter.class.getClassLoader(), getNativeFinalizer());
 
+    /** All methods are static, no need to instantiate. */
+    private NativeConverter() {}
+
     /* package */ static native int decode(long converterHandle, byte[] input, int inEnd,
             char[] output, int outEnd, int[] data, boolean flush);
 

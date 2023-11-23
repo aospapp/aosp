@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 
 import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CldrUtility;
@@ -21,11 +22,12 @@ import org.unicode.cldr.util.DtdData.Element;
 import org.unicode.cldr.util.DtdType;
 import org.unicode.cldr.util.SupplementalDataInfo;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.ibm.icu.dev.util.CollectionUtilities;
 import com.ibm.icu.impl.Utility;
 import com.ibm.icu.util.VersionInfo;
 
@@ -35,9 +37,14 @@ import com.ibm.icu.util.VersionInfo;
  */
 public class ChartDtdDelta extends Chart {
 
+    private static final Splitter SPLITTER_SPACE = Splitter.on(' ');
+
     private static final String DEPRECATED_PREFIX = "⊖";
 
     private static final String NEW_PREFIX = "+";
+    private static final String ORDERED_SIGN = "⇣";
+    private static final String UNORDERED_SIGN = "⇟";
+
 
     private static final Set<String> OMITTED_ATTRIBUTES = Collections.singleton("⊕");
 
@@ -63,16 +70,17 @@ public class ChartDtdDelta extends Chart {
             + "<li>Element attributes are abbreviated as ⊕ where is no change to them, "
             + "but the element is newly the child of another.</li>\n"
             + "<li>LDML DTDs have augmented data:\n"
-            + "<ul><li>Attribute status is marked by: " 
+            + "<ul><li>Attribute status is marked by: "
             + AttributeStatus.distinguished.shortName + "=" + AttributeStatus.distinguished + ", "
             + AttributeStatus.value.shortName + "=" + AttributeStatus.value + ", or "
             + AttributeStatus.metadata.shortName + "=" + AttributeStatus.metadata + ".</li>\n"
             + "<li>Attribute value constraints are marked with ⟨…⟩ (for DTD constraints) and ⟪…⟫ (for augmented constraints, added in v35.0).</li>\n"
-            + "<li>Changes in status or constraints are shown with ➠.</li>\n"
+            + "<li>Changes in status or constraints are shown with ➠, with identical sections shown with ….</li>\n"
+            + "<li>Newly ordered elements are indicated with " + ORDERED_SIGN + "; newly unordered with " + UNORDERED_SIGN + ".</li>\n"
             + "</ul></li></ul>\n"
             + "<p>For more information, see the LDML spec.</p>";
     }
-    
+
     @Override
     public void writeContents(FormattedFileWriter pw) throws IOException {
         TablePrinter tablePrinter = new TablePrinter()
@@ -92,11 +100,10 @@ public class ChartDtdDelta extends Chart {
             .setSpanRows(false);
 
         String last = null;
-        LinkedHashSet<String> allVersions = new LinkedHashSet<>(ToolConstants.CLDR_VERSIONS);
-        allVersions.add(ToolConstants.LAST_CHART_VERSION);
-        for (String current : allVersions) {
+
+        for (String current : ToolConstants.CLDR_RELEASE_AND_DEV_VERSION_SET) {
             System.out.println("DTD delta: " + current);
-            final boolean finalVersion = current.equals(ToolConstants.LAST_CHART_VERSION);
+            final boolean finalVersion = current.equals(ToolConstants.DEV_VERSION);
             String currentName = finalVersion ? ToolConstants.CHART_DISPLAY_VERSION : current;
             for (DtdType type : TYPES) {
                 String firstVersion = type.firstVersion; // FIRST_VERSION.get(type);
@@ -106,7 +113,10 @@ public class ChartDtdDelta extends Chart {
                 DtdData dtdCurrent = null;
                 try {
                     dtdCurrent = DtdData.getInstance(type,
-                        finalVersion && ToolConstants.CHART_STATUS != ToolConstants.ChartStatus.release ? null : current);
+                        finalVersion
+                        // && ToolConstants.CHART_STATUS != ToolConstants.ChartStatus.release
+                        ? null
+                            : current);
                 } catch (Exception e) {
                     if (!(e.getCause() instanceof FileNotFoundException)) {
                         throw e;
@@ -127,6 +137,9 @@ public class ChartDtdDelta extends Chart {
                 diff(currentName, dtdLast, dtdCurrent);
             }
             last = current;
+            if (current.contentEquals(ToolConstants.CHART_VERSION)) {
+                break;
+            }
         }
 
         for (DiffElement datum : data) {
@@ -168,7 +181,7 @@ public class ChartDtdDelta extends Chart {
     static final boolean SHOW = false;
 
     @SuppressWarnings("unused")
-    private void checkNames(String version, DtdData dtdCurrent, DtdData dtdLast, Map<String, Element> oldNameToElement, String path, Element element, 
+    private void checkNames(String version, DtdData dtdCurrent, DtdData dtdLast, Map<String, Element> oldNameToElement, String path, Element element,
         HashSet<Element> seen, boolean showAnyway) {
         String name = element.getName();
 
@@ -199,21 +212,24 @@ public class ChartDtdDelta extends Chart {
 
 
         Element oldElement = null;
+        boolean ordered = element.isOrdered();
 
         if (!oldNameToElement.containsKey(name)) {
             Set<String> attributeNames = getAttributeNames(dtdCurrent, dtdLast, name, Collections.emptyMap(), element.getAttributes());
-            addData(dtdCurrent, NEW_PREFIX + name, version, newPath, attributeNames);
+            addData(dtdCurrent, NEW_PREFIX + name + (ordered ? ORDERED_SIGN : ""), version, newPath, attributeNames);
         } else {
             oldElement = oldNameToElement.get(name);
+            boolean oldOrdered = oldElement.isOrdered();
             Set<String> attributeNames = getAttributeNames(dtdCurrent, dtdLast, name, oldElement.getAttributes(), element.getAttributes());
             boolean currentDeprecated = element.isDeprecated();
             boolean lastDeprecated = dtdLast == null ? false : oldElement.isDeprecated(); //  + (currentDeprecated ? "ⓓ" : "")
             boolean newlyDeprecated = currentDeprecated && !lastDeprecated;
+            String orderingStatus = (ordered == oldOrdered || currentDeprecated) ? "" : ordered ? ORDERED_SIGN : UNORDERED_SIGN;
             if (newlyDeprecated) {
-                addData(dtdCurrent, DEPRECATED_PREFIX + name, version, newPath, Collections.emptySet());
+                addData(dtdCurrent, DEPRECATED_PREFIX + name + orderingStatus, version, newPath, Collections.emptySet());
             }
             if (!attributeNames.isEmpty()) {
-                addData(dtdCurrent, (newlyDeprecated ? DEPRECATED_PREFIX : "") + name, version, newPath, attributeNames);
+                addData(dtdCurrent, (newlyDeprecated ? DEPRECATED_PREFIX : "") + name + orderingStatus, version, newPath, attributeNames);
             }
         }
         if (element.getName().equals("coordinateUnit")) {
@@ -257,8 +273,8 @@ public class ChartDtdDelta extends Chart {
             }
             dtdType = dtdCurrent.dtdType;
             this.newPath = fix(newPath);
-            this.attributeNames = attributeNames2.isEmpty() ? NONE :  
-                START_ATTR + CollectionUtilities.join(attributeNames2, END_ATTR + START_ATTR) + END_ATTR;
+            this.attributeNames = attributeNames2.isEmpty() ? NONE :
+                START_ATTR + Joiner.on(END_ATTR + START_ATTR).join(attributeNames2) + END_ATTR;
             this.newElement = newElement;
         }
 
@@ -300,7 +316,7 @@ public class ChartDtdDelta extends Chart {
 
     static final Set<String> SKIP_ATTRIBUTES = ImmutableSet.of("references", "standard", "draft", "alt");
 
-    private static Set<String> getAttributeNames(DtdData dtdCurrent, DtdData dtdLast, String elementName, 
+    private static Set<String> getAttributeNames(DtdData dtdCurrent, DtdData dtdLast, String elementName,
         Map<Attribute, Integer> attributesOld,
         Map<Attribute, Integer> attributes) {
         Set<String> names = new LinkedHashSet<>();
@@ -308,7 +324,7 @@ public class ChartDtdDelta extends Chart {
             int debug = 0;
         }
 
-        main: 
+        main:
             // we want to add a name that is new or that becomes deprecated
             for (Attribute attribute : attributes.keySet()) {
                 String name = attribute.getName();
@@ -321,11 +337,11 @@ public class ChartDtdDelta extends Chart {
 //            if (isDeprecated(dtdCurrent, elementName, name)) { // SDI.isDeprecated(dtdCurrent, elementName, name, "*")) {
 //                continue;
 //            }
-                String oldMatch = "?"; 
+                String oldMatch = "?";
                 String pre, post;
                 Attribute attributeOld = attribute.getMatchingName(attributesOld);
                 if (attributeOld == null) {
-                    display += " " + AttributeStatus.getShortName(status) + " " + match;
+                    display = NEW_PREFIX + name +  " " + AttributeStatus.getShortName(status) + " " + match;
                 } else if (attribute.isDeprecated() && !attributeOld.isDeprecated()) {
                     display = DEPRECATED_PREFIX + name;
                 } else {
@@ -335,7 +351,7 @@ public class ChartDtdDelta extends Chart {
                     boolean matchEquals = match.equals(oldMatch);
                     if (status != oldStatus) {
                         pre = AttributeStatus.getShortName(oldStatus);
-                        post = AttributeStatus.getShortName(status); 
+                        post = AttributeStatus.getShortName(status);
                         if (!matchEquals) {
                             pre += " " + oldMatch;
                             post += " " + match;
@@ -346,11 +362,43 @@ public class ChartDtdDelta extends Chart {
                     } else {
                         continue main; // skip attribute entirely;
                     }
-                    display += " " + pre + "➠" + post;
+                    display = name + " " + diff(pre, post);
                 }
                 names.add(display);
             }
         return names;
+    }
+
+    public static String diff(String pre, String post) {
+        Matcher matcherPre = Attribute.LEAD_TRAIL.matcher(pre);
+        Matcher matcherPost = Attribute.LEAD_TRAIL.matcher(post);
+        if (matcherPre.matches() && matcherPost.matches()) {
+            List<String> preParts = SPLITTER_SPACE.splitToList(matcherPre.group(2));
+            List<String> postParts = SPLITTER_SPACE.splitToList(matcherPost.group(2));
+            pre = matcherPre.group(1) + remove(preParts, postParts) + matcherPre.group(3);
+            post = matcherPost.group(1) + remove(postParts, preParts) + matcherPost.group(3);
+        }
+        return pre + "➠" + post;
+    }
+
+    private static String remove(List<String> main, List<String> toRemove) {
+        List<String> result = new ArrayList<>();
+        boolean removed = false;
+        for (String s : main) {
+            if (toRemove.contains(s)) {
+                removed = true;
+            } else {
+                if (removed) {
+                    result.add("…");
+                    removed = false;
+                }
+                result.add(s);
+            }
+        }
+        if (removed) {
+            result.add("…");
+        }
+        return Joiner.on(" ").join(result);
     }
 
 //    private static boolean isDeprecated(DtdData dtdCurrent, String elementName, String attributeName) {

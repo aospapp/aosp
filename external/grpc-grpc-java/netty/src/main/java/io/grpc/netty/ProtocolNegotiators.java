@@ -22,12 +22,12 @@ import static io.grpc.netty.GrpcSslContexts.NEXT_PROTOCOL_VERSIONS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import io.grpc.Attributes;
-import io.grpc.CallCredentials;
 import io.grpc.Grpc;
 import io.grpc.Internal;
 import io.grpc.InternalChannelz;
 import io.grpc.SecurityLevel;
 import io.grpc.Status;
+import io.grpc.internal.GrpcAttributes;
 import io.grpc.internal.GrpcUtil;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelFuture;
@@ -90,6 +90,7 @@ public final class ProtocolNegotiators {
             // Set sttributes before replace to be sure we pass it before accepting any requests.
             handler.handleProtocolNegotiationCompleted(Attributes.newBuilder()
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, ctx.channel().remoteAddress())
+                .set(Grpc.TRANSPORT_ATTR_LOCAL_ADDR, ctx.channel().localAddress())
                 .build(),
                 /*securityInfo=*/ null);
             // Just replace this handler with the gRPC handler.
@@ -104,6 +105,9 @@ public final class ProtocolNegotiators {
 
         return new PlaintextHandler();
       }
+
+      @Override
+      public void close() {}
     };
   }
 
@@ -117,6 +121,9 @@ public final class ProtocolNegotiators {
       public Handler newHandler(GrpcHttp2ConnectionHandler handler) {
         return new ServerTlsHandler(sslContext, handler);
       }
+
+      @Override
+      public void close() {}
     };
   }
 
@@ -157,6 +164,7 @@ public final class ProtocolNegotiators {
                 Attributes.newBuilder()
                     .set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session)
                     .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, ctx.channel().remoteAddress())
+                    .set(Grpc.TRANSPORT_ATTR_LOCAL_ADDR, ctx.channel().localAddress())
                     .build(),
                 new InternalChannelz.Security(new InternalChannelz.Tls(session)));
             // Replace this handler with the GRPC handler.
@@ -206,6 +214,13 @@ public final class ProtocolNegotiators {
         }
         return new BufferUntilProxyTunnelledHandler(
             proxyHandler, negotiator.newHandler(http2Handler));
+      }
+
+      // This method is not normally called, because we use httpProxy on a per-connection basis in
+      // NettyChannelBuilder. Instead, we expect `negotiator' to be closed by NettyTransportFactory.
+      @Override
+      public void close() {
+        negotiator.close();
       }
     }
 
@@ -310,6 +325,9 @@ public final class ProtocolNegotiators {
       };
       return new BufferUntilTlsNegotiatedHandler(sslBootstrap, handler);
     }
+
+    @Override
+    public void close() {}
   }
 
   /** A tuple of (host, port). */
@@ -341,6 +359,9 @@ public final class ProtocolNegotiators {
           new HttpClientUpgradeHandler(httpClientCodec, upgradeCodec, 1000);
       return new BufferingHttp2UpgradeHandler(upgrader, handler);
     }
+
+    @Override
+    public void close() {}
   }
 
   /**
@@ -357,6 +378,9 @@ public final class ProtocolNegotiators {
     public Handler newHandler(GrpcHttp2ConnectionHandler handler) {
       return new BufferUntilChannelActiveHandler(handler);
     }
+
+    @Override
+    public void close() {}
   }
 
   private static RuntimeException unavailableException(String msg) {
@@ -651,7 +675,8 @@ public final class ProtocolNegotiators {
                 Attributes.newBuilder()
                     .set(Grpc.TRANSPORT_ATTR_SSL_SESSION, session)
                     .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, ctx.channel().remoteAddress())
-                    .set(CallCredentials.ATTR_SECURITY_LEVEL, SecurityLevel.PRIVACY_AND_INTEGRITY)
+                    .set(Grpc.TRANSPORT_ATTR_LOCAL_ADDR, ctx.channel().localAddress())
+                    .set(GrpcAttributes.ATTR_SECURITY_LEVEL, SecurityLevel.PRIVACY_AND_INTEGRITY)
                     .build(),
                 new InternalChannelz.Security(new InternalChannelz.Tls(session)));
             writeBufferedAndRemove(ctx);
@@ -699,7 +724,8 @@ public final class ProtocolNegotiators {
           Attributes
               .newBuilder()
               .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, ctx.channel().remoteAddress())
-              .set(CallCredentials.ATTR_SECURITY_LEVEL, SecurityLevel.NONE)
+              .set(Grpc.TRANSPORT_ATTR_LOCAL_ADDR, ctx.channel().localAddress())
+              .set(GrpcAttributes.ATTR_SECURITY_LEVEL, SecurityLevel.NONE)
               .build(),
           /*securityInfo=*/ null);
       super.channelActive(ctx);
@@ -742,7 +768,8 @@ public final class ProtocolNegotiators {
             Attributes
                 .newBuilder()
                 .set(Grpc.TRANSPORT_ATTR_REMOTE_ADDR, ctx.channel().remoteAddress())
-                .set(CallCredentials.ATTR_SECURITY_LEVEL, SecurityLevel.NONE)
+                .set(Grpc.TRANSPORT_ATTR_LOCAL_ADDR, ctx.channel().localAddress())
+                .set(GrpcAttributes.ATTR_SECURITY_LEVEL, SecurityLevel.NONE)
                 .build(),
             /*securityInfo=*/ null);
       } else if (evt == HttpClientUpgradeHandler.UpgradeEvent.UPGRADE_REJECTED) {

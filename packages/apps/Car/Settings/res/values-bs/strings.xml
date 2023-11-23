@@ -22,12 +22,8 @@
     <string name="display_settings" msgid="5325515247739279185">"Ekran"</string>
     <string name="brightness" msgid="2919605130898772866">"Nivo osvjetljenja"</string>
     <string name="auto_brightness_title" msgid="9124647862844666581">"Prilagodljiva osvijetljenost"</string>
-    <string name="auto_brightness_summary" msgid="4741887033140384352">"Optimiziranje nivoa osvjetljenja u odnosu na osvijetljenost okoline"</string>
+    <string name="auto_brightness_summary" msgid="2002570577219479702">"Prilagodite osvijetljenost ekrana okruženju"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"Noćno svjetlo je uključeno"</string>
-    <string name="keywords_display" msgid="3978416985146943922">"ekran, ekran osjetljiv na dodir"</string>
-    <string name="keywords_display_brightness_level" msgid="3956411572536209195">"zatamnjenje ekrana, ekran osjetljiv na dodir, baterija"</string>
-    <string name="keywords_display_auto_brightness" msgid="2700310050333468752">"zatamnjenje ekrana, ekran osjetljiv na dodir, baterija"</string>
-    <string name="keywords_display_night_display" msgid="2922294576679769957">"zatamnjenje ekrana, noć, boja"</string>
     <string name="night_mode_tile_label" msgid="6603597795502131664">"Noćni način rada"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"Mreža i internet"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"Mobilna mreža"</string>
@@ -86,15 +82,21 @@
     <string name="data_usage_warning_editor_title" msgid="2041517150169038813">"Postavljanje upozorenja o prijenosu podataka"</string>
     <string name="data_usage_limit_editor_title" msgid="133468242379286689">"Postavljanje ograničenja za prijenos podataka"</string>
     <string name="usage_bytes_threshold_picker_positive_button" msgid="4625479840977965519">"Postavi"</string>
+    <string name="network_and_internet_oem_network_title" msgid="6436902713696212250">"Mreža za OEM"</string>
+    <string name="network_and_internet_data_usage_time_range_summary" msgid="1792995626433410056">"Iskorišteno %1$s %2$s - %3$s"</string>
+    <string name="network_and_internet_join_other_network_title" msgid="7126831320010062712">"Pridružite se drugoj mreži"</string>
+    <string name="network_and_internet_network_preferences_title" msgid="2983548049081168876">"Postavke mreže"</string>
     <string name="wifi_settings" msgid="7701477685273103841">"WiFi"</string>
     <string name="wifi_starting" msgid="473253087503153167">"Uključivanje WiFi-a…"</string>
     <string name="wifi_stopping" msgid="3534173972547890148">"Isključivanje WiFi-a…"</string>
     <string name="loading_wifi_list" msgid="8584901433195876465">"Učitavanje liste WiFi mreža"</string>
-    <string name="wifi_disabled" msgid="5013262438128749950">"Wi‑Fi mreža je onemogućena"</string>
+    <string name="wifi_disabled" msgid="5013262438128749950">"WiFi je onemogućen"</string>
     <string name="wifi_failed_forget_message" msgid="121732682699377206">"Zaboravljanje mreže nije uspjelo"</string>
     <string name="wifi_failed_connect_message" msgid="4447498225022147324">"Povezivanje na mrežu nije uspjelo"</string>
     <string name="wifi_setup_add_network" msgid="3660498520389954620">"Dodaj mrežu"</string>
     <string name="wifi_setup_connect" msgid="3512399573397979101">"Poveži"</string>
+    <string name="wifi_connecting" msgid="1930665730621677960">"Povezivanje…"</string>
+    <string name="wifi_not_in_range_message" msgid="2617126307140203787">"Mreža nije u dometu"</string>
     <string name="wifi_password" msgid="5565632142720292397">"Lozinka"</string>
     <string name="wifi_show_password" msgid="8423293211933521097">"Prikaži lozinku"</string>
     <string name="wifi_no_network_name" msgid="6819604337231313594">"Unesite naziv mreže"</string>
@@ -137,7 +139,7 @@
     <string name="wifi_cellular_fallback_title" msgid="8322675436784870862">"Automatsko prebacivanje na prijenos podataka na mobilnoj mreži"</string>
     <string name="wifi_cellular_fallback_summary" msgid="2433848528924203758">"Korištenje prijenosa podataka na mobilnoj mreži kada WiFi mreža nema pristup internetu. Mogu nastati troškovi prijenosa podataka."</string>
     <string name="learn_more" msgid="8214605928933358604">"Saznajte više"</string>
-    <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Ime pristupne tačke"</string>
+    <string name="wifi_hotspot_name_title" msgid="8844779338692535356">"Naziv pristupne tačke"</string>
     <string name="wifi_hotspot_name_summary_connecting" msgid="5262510450498600038">"Uključivanje <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>..."</string>
     <string name="wifi_hotspot_name_summary_connected" msgid="7421325340822195506">"Drugi uređaji se mogu povezati na pristupnu tačku <xliff:g id="WIFI_HOTSPOT_NAME">%1$s</xliff:g>"</string>
     <string name="wifi_hotspot_password_title" msgid="4103948315849351988">"Lozinka pristupne tačke"</string>
@@ -153,12 +155,20 @@
     <string name="wifi_ap_2G" msgid="5364135697314262014">"2,4 GHz"</string>
     <string name="wifi_ap_5G" msgid="4945574428537860279">"5,0 GHz"</string>
     <string name="wifi_ap_band_select_one" msgid="615578175244067396">"Odaberite barem jedan frekvencijski pojas za WiFi pristupnu tačku:"</string>
-    <string name="tether_settings_title_all" msgid="4663704772599383169">"Pristupna tačka i dijeljenje mobilne veze"</string>
+    <string name="tether_settings_title_all" msgid="4663704772599383169">"Pristupna tačka i povezivanje putem mobitela"</string>
+    <string name="hotspot_settings_title" msgid="8220814387592756713">"Pristupna tačka"</string>
     <string name="wifi_hotspot_auto_off_title" msgid="7871858619924599922">"Automatski isključi pristupnu tačku"</string>
     <string name="wifi_hotspot_auto_off_summary" msgid="4830341947541735136">"WiFi pristupna tačka će se isključiti ako nijedan uređaj nije povezan"</string>
     <string name="wifi_ask_enable" msgid="4452418245680754578">"<xliff:g id="REQUESTER">%s</xliff:g> želi uključiti WiFi"</string>
     <string name="wifi_ask_disable" msgid="2949290055916181553">"<xliff:g id="REQUESTER">%s</xliff:g> želi isključiti WiFi"</string>
     <string name="wifi_error" msgid="3105105447117289410">"Greška"</string>
+    <string name="network_connection_request_dialog_title" msgid="8449606155059098762">"Korištenje uređaja s aplikacijom <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
+    <string name="network_connection_timeout_dialog_message" msgid="2536299451668687586">"Nije pronađen nijedan uređaj Provjerite jesu li uređaji uključeni i dostupni za povezivanje."</string>
+    <string name="network_connection_timeout_dialog_ok" msgid="2228662561126434792">"Pokušaj ponovo"</string>
+    <string name="network_connection_errorstate_dialog_message" msgid="4268321315241218483">"Nešto se dogodilo. Ova aplikacija je otkazala zahtjev za odabir uređaja."</string>
+    <string name="network_connection_connect_successful" msgid="7893957133113302365">"Uspješno povezivanje"</string>
+    <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"Prikaži sve"</string>
+    <string name="progress_scanning" msgid="7191583064717479795">"Pretraživanje"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"Bluetooth"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"Neimenovani uređaj"</string>
     <string name="bluetooth_paired_devices" msgid="6463199569164652410">"Upareni uređaji"</string>
@@ -185,12 +195,17 @@
     <string name="bluetooth_ask_discovery_no_name" msgid="164397600370102369">"Aplikacija želi da vaša glavna jedinica bude vidljiva drugim Bluetooth uređajima na <xliff:g id="TIMEOUT">%1$d</xliff:g> s."</string>
     <string name="bluetooth_ask_enablement_and_discovery" msgid="5487502083015708674">"Aplikacija <xliff:g id="APP_NAME">%1$s</xliff:g> želi uključiti Bluetooth te učiniti vašu glavu jedinicu vidljivom drugim uređajima na <xliff:g id="TIMEOUT">%2$d</xliff:g> s."</string>
     <string name="bluetooth_ask_enablement_and_discovery_no_name" msgid="907153034209916282">"Aplikacija želi uključiti Bluetooth te učiniti vašu glavnu jedinicu vidljivom drugim uređajima na <xliff:g id="TIMEOUT">%1$d</xliff:g> s."</string>
-    <string name="bluetooth_notif_ticker" msgid="7192577740198156792">"Zahtjev za Bluetooth uparivanje"</string>
+    <string name="bluetooth_state_switch_summary" msgid="171929910916432266">"Drugim uređajima će se prikazivati kao %1$s"</string>
+    <string name="bluetooth_my_devices" msgid="6352010339607939612">"Moji uređaji"</string>
+    <string name="bluetooth_previously_connected" msgid="5206229557831180323">"Prethodno povezano"</string>
+    <string name="bluetooth_device_connected_toast" msgid="4614765282582494488">"Uređaj %1$s je povezan"</string>
+    <string name="bluetooth_device_disconnected_toast" msgid="8889122688851623920">"Prekinuta je veza s uređajem %1$s"</string>
+    <string name="bluetooth_notif_ticker" msgid="7192577740198156792">"Zahtjev za uparivanje putem Bluetootha"</string>
     <string name="bluetooth_device_context_pair_connect" msgid="3138105800372470422">"Upari i poveži"</string>
-    <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"Kôd za Bluetooth uparivanje"</string>
+    <string name="bluetooth_pairing_key_msg" msgid="5066825929751599037">"Kôd za uparivanje putem Bluetootha"</string>
     <string name="bluetooth_enable_alphanumeric_pin" msgid="1636575922217263060">"PIN sadrži slova ili simbole"</string>
     <string name="bluetooth_enter_passkey_msg" msgid="5955236916732265593">"Upišite kôd za uparivanje, a zatim pritisnite Return ili Enter"</string>
-    <string name="bluetooth_pairing_request" msgid="4769675459526556801">"Upariti sa uređajem <xliff:g id="DEVICE_NAME">%1$s</xliff:g>?"</string>
+    <string name="bluetooth_pairing_request" msgid="4769675459526556801">"Upariti s uređajem <xliff:g id="DEVICE_NAME">%1$s</xliff:g>?"</string>
     <string name="bluetooth_pairing_shares_phonebook" msgid="2015966932886300630">"Dozvoli uređaju <xliff:g id="DEVICE_NAME">%1$s</xliff:g> pristup kontaktima i historiji poziva"</string>
     <string name="bluetooth_enter_pin_other_device" msgid="7825091249522704764">"Možda ćete morati unijeti ovaj PIN na drugom uređaju."</string>
     <string name="bluetooth_enter_passkey_other_device" msgid="7147248221018865922">"Možda ćete morati unijeti ovaj pristupni kôd na drugom uređaju."</string>
@@ -222,6 +237,11 @@
     <string name="ringtone_title" msgid="8370531086214517972">"Melodija zvona telefona"</string>
     <string name="notification_ringtone_title" msgid="8661716239594010288">"Zadani zvuk obavještenja"</string>
     <string name="alarm_ringtone_title" msgid="3257364170646440908">"Zadani zvuk alarma"</string>
+    <string name="ringtone_picker_save_title" msgid="4388137432517227001">"Sačuvaj"</string>
+    <string name="sound_alert_sounds" msgid="6838044721739163867">"Zvukovi obavještenja"</string>
+    <string name="sound_alert_sounds_summary" msgid="816501423095651281">"Melodija zvona, obavještenja, alarm"</string>
+    <string name="display_brightness" msgid="5718970880488110840">"Osvjetljenje"</string>
+    <string name="display_night_mode_summary" msgid="4939425286027546230">"Podesite ekran za slabo osvjetljenje"</string>
     <string name="units_settings" msgid="402325305096925886">"Jedinice"</string>
     <string name="units_speed_title" msgid="7115143916747108160">"Brzina"</string>
     <string name="units_distance_title" msgid="6257691565990474635">"Razdaljina"</string>
@@ -274,24 +294,37 @@
     <string name="all_applications" msgid="7798210477486822168">"Prikaži sve aplikacije"</string>
     <string name="default_applications" msgid="1558183275638697087">"Zadane aplikacije"</string>
     <string name="app_permissions" msgid="32799922508313948">"Odobrenja za aplikaciju"</string>
-    <string name="app_permissions_summary" msgid="1842858532315056367">"Aplikacije koje koriste aplikacije: <xliff:g id="APPS">%1$s</xliff:g>"</string>
+    <string name="app_permissions_summary" msgid="5402214755935368418">"Kontrolirajte pristup aplikacije podacima"</string>
     <string name="applications_settings" msgid="794261395191035632">"Informacije o aplikaciji"</string>
     <string name="force_stop" msgid="2153183697014720520">"Prisilno zaustavi"</string>
     <string name="force_stop_dialog_title" msgid="3342850939200388694">"Prisilno zaustaviti?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"Ako prisilno zaustavite aplikaciju, moguće je da će nepravilno funkcionirati."</string>
+    <string name="peak_performance_dialog_title" msgid="5970933611683430870">"Isključiti zaštitu performansi?"</string>
+    <string name="peak_performance_dialog_text" msgid="7648337738884134499">"Ako to uradite, vaš softver i hardver možda neće funkcionirati kako je namijenjeno."</string>
+    <string name="peak_performance_dialog_action_on" msgid="2139033153500237350">"Ostavi uključeno"</string>
+    <string name="peak_performance_dialog_action_off" msgid="1019653666533456482">"Isključi"</string>
     <string name="disable_text" msgid="4358165448648990820">"Onemogući"</string>
     <string name="enable_text" msgid="1794971777861881238">"Omogući"</string>
     <string name="uninstall_text" msgid="277907956072833012">"Deinstaliraj"</string>
     <string name="app_disable_dialog_text" msgid="7731155411006654025">"Ako onemogućite ovu aplikaciju, moguće je da Android i druge aplikacije više neće funkcionirati ispravno."</string>
     <string name="app_disable_dialog_positive" msgid="4448684722791563349">"Onemogući aplikaciju"</string>
-    <string name="not_installed" msgid="4218816013370552746">"Nije instalirano za ovog korisnika"</string>
+    <string name="not_installed" msgid="4163454337822508007">"Nije instalirano za ovaj profil"</string>
     <string name="permissions_label" msgid="2701446753515612685">"Odobrenja"</string>
     <string name="notifications_label" msgid="6586089149665170731">"Obavještenja"</string>
     <string name="storage_application_label" msgid="5911779903670978586">"Pohrana i keš memorija"</string>
+    <string name="peak_performance_label" msgid="1592816366516845648">"Najbolje performanse"</string>
     <string name="application_version_label" msgid="8556889839783311649">"Verzija: %1$s"</string>
     <string name="runtime_permissions_summary_no_permissions_granted" msgid="6001439205270250021">"Nema dodijeljenih odobrenja"</string>
     <string name="runtime_permissions_summary_no_permissions_requested" msgid="4074220596273432442">"Nema zatraženih odobrenja"</string>
-    <string name="storage_type_internal" msgid="8918688427078709570">"%s u unutrašnjoj memoriji"</string>
+    <string name="unused_apps" msgid="648471933781010395">"Nekorištene aplikacije"</string>
+    <plurals name="unused_apps_summary" formatted="false" msgid="6410080383909014362">
+      <item quantity="one"><xliff:g id="COUNT_1">%d</xliff:g> nekorištena aplikacija</item>
+      <item quantity="few"><xliff:g id="COUNT_1">%d</xliff:g> nekorištene aplikacije</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%d</xliff:g> nekorištenih aplikacija</item>
+    </plurals>
+    <string name="unused_apps_switch" msgid="4433958286200341563">"Ukloni odobrenja i oslobodi prostor"</string>
+    <string name="storage_type_internal" msgid="8918688427078709570">"%s u unutrašnjoj pohrani"</string>
+    <string name="peak_performance_summary" msgid="2450911487290019786">"Po potrebi zatvara aplikaciju da ne koristi izvore prekomjerno"</string>
     <string name="data_usage_summary_title" msgid="4368024763485916986">"Prijenos podataka"</string>
     <string name="data_usage_app_summary_title" msgid="5012851696585421420">"Prijenos podataka za apl."</string>
     <string name="computing_size" msgid="5791407621793083965">"Računanje…"</string>
@@ -329,15 +362,23 @@
     <string name="app_link_open_ask" msgid="7242075065136237456">"Pitaj svaki put"</string>
     <string name="app_link_open_never" msgid="2173174327831792316">"Nemoj otvarati u ovoj aplikaciji"</string>
     <string name="app_launch_supported_domain_urls_title" msgid="7345116365785981158">"Podržani linkovi"</string>
+    <string name="apps_settings_title" msgid="3982535942394315336">"Aplikacije"</string>
+    <string name="apps_recently_opened" msgid="5320377037971195984">"Nedavno otvarano"</string>
+    <string name="apps_view_all_apps_title" msgid="2322120325505230530">"Prikaži sve aplikacije (%1$d)"</string>
+    <string name="apps_permission_manager_title" msgid="8776335943862484131">"Upravitelj odobrenja"</string>
+    <string name="apps_permission_manager_summary" msgid="4180424218228141274">"Kontrolirajte pristup aplikacije podacima"</string>
+    <string name="apps_default_apps_summary" msgid="2017792579839972926">"Za Asistenta i druge usluge"</string>
+    <string name="apps_special_app_access_summary" msgid="6464767436309742163">"Za sistem i druge postavke"</string>
     <string name="special_access" msgid="5730278220917123811">"Poseban pristup aplikacijama"</string>
     <string name="show_system" msgid="4401355756969485287">"Prikaži sistemske procese"</string>
     <string name="hide_system" msgid="8845453295584638040">"Sakrij sistemske procese"</string>
+    <string name="hide_system_apps" msgid="6583947381056154020">"Sakrij sistemske aplikacije"</string>
     <string name="modify_system_settings_title" msgid="4596320571562433972">"Izmjena postavki sistema"</string>
     <string name="modify_system_settings_description" msgid="5295023124419592452">"Ovo odobrenje omogućava aplikaciji da izmijeni postavke sistema."</string>
     <string name="notification_access_title" msgid="1467340098885813473">"Pristup obavještenjima"</string>
-    <string name="notification_listener_security_warning_title" msgid="2893273335175140895">"Dozvoliti pristup obavještenjima za uslugu <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
+    <string name="notification_listener_security_warning_title" msgid="2893273335175140895">"Dozvoliti aplikaciji <xliff:g id="SERVICE">%1$s</xliff:g> pristup obavještenjima?"</string>
     <string name="notification_listener_security_warning_summary" msgid="7280197998063498125">"<xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> će moći čitati sva obavještenja, uključujući lične informacije kao što su imena kontakata i tekst primljenih poruka. Također će moći odbaciti obavještenja ili koristiti dugmad za radnje u obavještenjima.\n\nTime će se aplikaciji dati i mogućnost da uključi i isključi način rada Ne ometaj te da promijeni postavke povezane s tom opcijom."</string>
-    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Ako korisniku <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> isključite pristup obavještenjima, može se isključiti i pristup načinu rada Ne ometaj."</string>
+    <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"Ako aplikaciji <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g> isključite pristup obavještenjima, može se isključiti i pristup načinu rada Ne ometaj."</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"Isključi"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"Otkaži"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"Pristup premium SMS-ovima"</string>
@@ -352,8 +393,12 @@
     <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"Nema nedavnih zahtjeva za lokaciju"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"Odobrenja na nivou aplikacija"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"Usluge lokacije"</string>
+    <string name="location_use_location_title" msgid="117735895374606680">"Koristi lokaciju"</string>
+    <string name="location_settings_footer" msgid="296892848338100051">"Lokacija može koristiti izvore kao što su GPS, WiFi, mobilne mreže i senzori za lakšu procjenu lokacije uređaja."</string>
     <string name="system_setting_title" msgid="6864599341809463440">"Sistem"</string>
     <string name="system_update_settings_title" msgid="8448588267784138855">"Ažuriranja sistema"</string>
+    <string name="system_advanced_title" msgid="6303355131691523362">"Napredno"</string>
+    <string name="system_advanced_summary" msgid="5833643795981791953">"Osnovne informacije, pravne informacije, poništavanje i drugo"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Verzija Androida"</string>
     <string name="security_patch" msgid="4794276590178386903">"Nivo sigurnosne zakrpe Androida"</string>
     <string name="hardware_info" msgid="3973165746261507658">"Model i hardver"</string>
@@ -413,25 +458,24 @@
     <string name="reset_network_confirm_button_text" msgid="5246859685069024851">"Vrati postavke na zadano"</string>
     <string name="reset_network_complete_toast" msgid="3804108209431416865">"Postavke mreže su vraćene na zadano"</string>
     <string name="reset_app_pref_title" msgid="5855420038951743992">"Vrati postavke aplikacije na zadano"</string>
-    <string name="reset_app_pref_desc" msgid="579392665146962149">"Ovim će se vratiti sve postavke na zadano za:\n\n"<li>" Onemogućene aplikacije"</li>\n<li>"Obavještenja za onemogućene aplikacije"</li>\n<li>"Zadane aplikacije za radnje"</li>\n<li>" Ograničenje pozadinskih podataka za aplikacije"</li>\n<li>" Sva ograničenja za odobrenja"</li>\n\n" Nećete izgubiti podatke iz aplikacija."</string>
+    <string name="reset_app_pref_desc" msgid="579392665146962149">"Ovim će se vratiti sve postavke na zadano za:\n\n"<li>"Onemogućene aplikacije"</li>\n<li>"Obavještenja za onemogućene aplikacije"</li>\n<li>"Zadane aplikacije za radnje"</li>\n<li>"Ograničenje pozadinskih podataka za aplikacije"</li>\n<li>"Sva ograničenja za odobrenja"</li>\n\n"Nećete izgubiti podatke iz aplikacija."</string>
     <string name="reset_app_pref_button_text" msgid="6270820447321231609">"Vrati aplikacije na zadano"</string>
     <string name="reset_app_pref_complete_toast" msgid="8709072932243594166">"Postavke aplikacije su vraćene na zadano"</string>
-    <string name="master_clear_title" msgid="8515335233363214414">"Potpuno izbriši sve podatke"</string>
-    <string name="master_clear_desc" msgid="9058719802779893535">"Na ovaj način će se izbrisati svi podaci s glavne jedinice vozila, uključujući:\n\n"<li>"vaš Google račun"</li>\n<li>"sistemske i aplikacijske podatke i postavke"</li>\n<li>"preuzete aplikacije"</li></string>
-    <string name="master_clear_accounts" msgid="7797522012993567494">"Trenutno ste prijavljeni u sljedeće račune:"</string>
-    <string name="master_clear_other_users_present" msgid="8383376863095743337">"Drugi korisnici su prisutni u ovom vozilu."</string>
-    <string name="master_clear_button_text" msgid="8010754220392741160">"Vrati vozilo na zadano"</string>
-    <string name="master_clear_confirm_title" msgid="8646455623132887370">"Vratiti na zadano?"</string>
-    <string name="master_clear_confirm_desc" msgid="8920446291698038558">"Izbrisati sve vaše lične podatke i preuzete aplikacije? Ovu radnju ne možete poništiti!"</string>
-    <string name="master_clear_confirm_button_text" msgid="7981254968588121786">"Izbriši sve"</string>
-    <string name="master_clear_progress_title" msgid="7087480656932674774">"Brisanje u toku"</string>
-    <string name="master_clear_progress_text" msgid="3440789441935303176">"Pričekajte..."</string>
+    <string name="factory_reset_title" msgid="4019066569214122052">"Izbriši sve (vrati na fabričke postavke)"</string>
+    <string name="factory_reset_summary" msgid="854815182943504327">"Brisanje svih podataka i profila s informativno-zabavnog sistema"</string>
+    <string name="factory_reset_desc" msgid="1688333312943433244">"Ovim ćete u potpunosti izbrisati sve podatke informativno-zabavnog sistema vozila, uključujući:\n\n"<li>"vaš Google račun"</li>\n<li>"podatke i postavke sistema i aplikacija"</li>\n<li>"preuzete aplikacije"</li></string>
+    <string name="factory_reset_accounts" msgid="5523956654938834209">"Trenutno ste prijavljeni na sljedećim računima:"</string>
+    <string name="factory_reset_other_users_present" msgid="3852324375352090570">"Drugi profili su postavljeni za ovo vozilo."</string>
+    <string name="factory_reset_button_text" msgid="2626666247051368256">"Potpuno izbriši sve podatke"</string>
+    <string name="factory_reset_confirm_title" msgid="3354542161765761879">"Potpuno izbrisati sve podatke?"</string>
+    <string name="factory_reset_confirm_desc" msgid="2037199381372030510">"Ovim ćete potpuno izbrisati podatke svog ličnog profila, račune i preuzete aplikacije na ovom informativno-zabavnom sistemu.\n\nNe možete opozvati ovu radnju."</string>
+    <string name="factory_reset_confirm_button_text" msgid="1797490544756481809">"Izbriši sve podatke"</string>
+    <string name="factory_reset_progress_title" msgid="4580937077054738173">"Potpuno brisanje podataka"</string>
+    <string name="factory_reset_progress_text" msgid="7704636573522634757">"Pričekajte..."</string>
     <string name="date_and_time_settings_title" msgid="4058492663544475485">"Datum i vrijeme"</string>
     <string name="date_and_time_settings_summary" msgid="7669856855390804666">"Postavi datum, vrijeme, vremensku zonu i formate"</string>
-    <string name="date_time_auto" msgid="3570339569471779767">"Automatski datum i vrijeme"</string>
-    <string name="date_time_auto_summary" msgid="3311706425095342759">"Koristi vrijeme koje definira mreža"</string>
-    <string name="zone_auto" msgid="3701878581920206160">"Automatska vremenska zona"</string>
-    <string name="zone_auto_summary" msgid="4345856882906981864">"Koristi vremensku zonu koju definira mreža"</string>
+    <string name="date_time_auto" msgid="6018635902717385962">"Postavi vrijeme automatski"</string>
+    <string name="zone_auto" msgid="4174874778459184605">"Automatski postavi vremensku zonu"</string>
     <string name="date_time_24hour_title" msgid="3025576547136168692">"24-satni format"</string>
     <string name="date_time_24hour" msgid="1137618702556486913">"Koristi 24-satni format"</string>
     <string name="date_time_set_time_title" msgid="5884883050656937853">"Vrijeme"</string>
@@ -446,36 +490,37 @@
     <string name="time_picker_title" msgid="7436045944320504639">"Vrijeme"</string>
     <string name="user_admin" msgid="1535484812908584809">"Administrator"</string>
     <string name="signed_in_admin_user" msgid="1267225622818673274">"Prijavljeni ste kao administrator"</string>
-    <string name="grant_admin_permissions_title" msgid="4628430467359951437">"Sva odobrenja administratora"</string>
+    <string name="grant_admin_permissions_title" msgid="4496239754512028468">"Dodijeliti odobrenja administratora?"</string>
     <string name="grant_admin_permissions_button_text" msgid="988239414372882401">"Postavi kao administratora"</string>
-    <string name="grant_admin_permissions_message" msgid="1751910369004774830">"Korisnik će moći izbrisati korisnike, uključujući druge Administratore te vratiti sistem na fabričke postavke."</string>
+    <string name="grant_admin_permissions_message" msgid="5205433947453539566">"Administrator će moći izbrisati druge profile, uključujući one za druge administratore i vratiti informativno-zabavni sistem na fabričke postavke."</string>
     <string name="action_not_reversible_message" msgid="740401337875726973">"Ova radnja se ne može poništiti."</string>
     <string name="confirm_grant_admin" msgid="7852596890218647682">"Da, postavi kao administratora"</string>
-    <string name="create_user_permission_title" msgid="7781550880565935298">"Kreirajte nove korisnike"</string>
+    <string name="create_user_permission_title" msgid="2402003632264628632">"Kreiranje novih profila"</string>
     <string name="outgoing_calls_permission_title" msgid="1230180443712099293">"Uspostavljajte telefonske pozive"</string>
     <string name="sms_messaging_permission_title" msgid="6099328509729071243">"Poruke putem mobilnih podataka auta"</string>
     <string name="install_apps_permission_title" msgid="3099705360827925296">"Instalirajte nove aplikacije"</string>
     <string name="uninstall_apps_permission_title" msgid="8448422340567430659">"Deinstalirajte aplikacije"</string>
-    <string name="user_add_user_menu" msgid="5319151436895941496">"Dodaj korisnika"</string>
-    <string name="user_new_user_name" msgid="7115771396412339662">"Novi korisnik"</string>
-    <string name="user_add_user_title" msgid="7458813670614932479">"Dodati novog korisnika?"</string>
-    <string name="user_add_user_message_setup" msgid="6030901156040053106">"Kada dodate novog korisnika, ta osoba treba postaviti svoj prostor."</string>
-    <string name="user_add_user_message_update" msgid="1528170913388932459">"Svaki korisnik može ažurirati aplikacije za sve druge korisnike."</string>
-    <string name="user_limit_reached_title" msgid="8803355734556061238">"Dostignut limit za broj korisnika"</string>
-    <plurals name="user_limit_reached_message" formatted="false" msgid="2651922256448824747">
-      <item quantity="one">Možete kreirati najviše <xliff:g id="COUNT">%d</xliff:g> korisnika.</item>
-      <item quantity="few">Možete kreirati najviše <xliff:g id="COUNT">%d</xliff:g> korisnika.</item>
-      <item quantity="other">Možete kreirati najviše <xliff:g id="COUNT">%d</xliff:g> korisnika.</item>
+    <string name="user_add_user_menu" msgid="4125869008006021799">"Dodaj profil"</string>
+    <string name="user_new_user_name" msgid="906698527658609819">"Novi profil"</string>
+    <string name="user_add_user_title" msgid="6296827596015729982">"Dodati novi profil?"</string>
+    <string name="user_add_user_message_setup" msgid="812616230454605159">"Kada kreirate novi profil, korisnik ga treba samostalno prilagoditi."</string>
+    <string name="user_add_user_message_update" msgid="3836353291078729240">"Aplikacije se mogu ažurirati s bilo kojeg profila da se koriste na svim drugim profilima."</string>
+    <string name="user_limit_reached_title" msgid="5677729355746623293">"Dosegnuli ste maksimalni broj profila"</string>
+    <plurals name="user_limit_reached_message" formatted="false" msgid="3310152546154693349">
+      <item quantity="one">Možete kreirati najviše <xliff:g id="COUNT">%d</xliff:g> profil.</item>
+      <item quantity="few">Možete kreirati najviše <xliff:g id="COUNT">%d</xliff:g> profila.</item>
+      <item quantity="other">Možete kreirati najviše <xliff:g id="COUNT">%d</xliff:g> profila.</item>
     </plurals>
-    <string name="add_user_error_title" msgid="3206300411663817038">"Kreiranje novog korisnika nije uspjelo"</string>
-    <string name="delete_user_dialog_title" msgid="3422867434431562007">"Izbrisati ovog korisnika?"</string>
-    <string name="delete_user_dialog_message" msgid="4346777604351785057">"Sve aplikacije i podaci će biti izbrisani."</string>
-    <string name="delete_user_error_title" msgid="7609819398530124827">"Brisanje korisnika nije uspjelo."</string>
+    <string name="add_user_error_title" msgid="7589792057846396341">"Kreiranje novog profila nije uspjelo"</string>
+    <string name="delete_user_dialog_title" msgid="575517556232943687">"Izbrisati ovaj profil?"</string>
+    <string name="delete_user_dialog_message" msgid="3916865958419051299">"Sve aplikacije i podaci za ovaj profil će se izbrisati"</string>
+    <string name="delete_user_error_title" msgid="6422249596301690254">"Brisanje profila nije uspjelo."</string>
+    <string name="delete_user_error_set_ephemeral_title" msgid="9062453678745644817">"Ovaj profil će se izbrisati kada zamijenite profile ili ponovo pokrenete vozilo."</string>
     <string name="delete_user_error_dismiss" msgid="429156446763738273">"Odbaci"</string>
     <string name="delete_user_error_retry" msgid="5116434895572670563">"Pokušaj ponovo"</string>
-    <string name="delete_last_user_dialog_title" msgid="3644392025675369680">"Brisati zadnjeg korisnika?"</string>
-    <string name="delete_last_user_admin_created_message" msgid="1856897729010319054">"Nakon što izbrišete preostalog korisnika ovog automobila, kreirat će se novi korisnik administrator."</string>
-    <string name="delete_last_user_system_setup_required_message" msgid="8550730509371697989">"Svi podaci, postavke i aplikacije povezane s ovim korisnikom bit će izbrisani. Morat ćete ponovo postaviti sistem."</string>
+    <string name="delete_last_user_dialog_title" msgid="3454454005909291260">"Izbrisati posljednji preostali profil?"</string>
+    <string name="delete_last_user_delete_warning" msgid="7189499586859833988">"Ako izbrišete jedini preostali profil za ovo vozilo, svi podaci, postavke i aplikacije povezani s ovim profilom će se potpuno izbrisati."</string>
+    <string name="delete_last_user_system_setup_required_message" msgid="726196874941282088">"Nakon vraćanja na zadano, možete postaviti novi profil."</string>
     <string name="choose_new_admin_title" msgid="1915428454917699587">"Odabir novog administratora"</string>
     <string name="choose_new_admin_message" msgid="7468286545352043354">"Morate odabrati najmanje jednog administratora. Da izbrišete ovog, prvo odaberite zamjenskog."</string>
     <string name="choose_new_admin_label" msgid="5987653639387437939">"Odaberite administratora"</string>
@@ -485,10 +530,11 @@
     <string name="current_user_name" msgid="3813671533249316823">"Vi (%1$s)"</string>
     <string name="user_name_label" msgid="3210832645046206845">"Ime"</string>
     <string name="user_summary_not_set_up" msgid="1473688119241224145">"Nije postavljen"</string>
-    <string name="edit_user_name_title" msgid="6890782937520262478">"Izmjena korisničkog imena"</string>
+    <string name="edit_user_name_title" msgid="1118500707473139995">"Uredite naziv profila"</string>
     <string name="name_input_blank_error" msgid="2088850865880984123">"Polje ne može biti prazno."</string>
-    <string name="name_input_invalid_error" msgid="3523545780580744273">"Korisničko ime koje ste unijeli je nevažeće."</string>
+    <string name="name_input_invalid_error" msgid="4355625213535164704">"Naziv profila koji ste unijeli nije važeći."</string>
     <string name="users_list_title" msgid="770764290290240909">"Korisnici"</string>
+    <string name="profiles_list_title" msgid="1443396686780460221">"Profili"</string>
     <string name="user_details_admin_title" msgid="3530292857178371891">"Odobrenja za korisnika %1$s"</string>
     <string name="storage_settings_title" msgid="8957054192781341797">"Pohrana"</string>
     <string name="storage_music_audio" msgid="7827147379976134040">"Muzika i zvuk"</string>
@@ -499,7 +545,7 @@
     <string name="storage_audio_files_title" msgid="5183170457027181700">"Audio fajlovi"</string>
     <string name="memory_calculating_size" msgid="1672238502950390033">"Računanje…"</string>
     <string name="storage_application_size_label" msgid="1146156683170661354">"Veličina aplikacije"</string>
-    <string name="storage_data_size_label" msgid="5022911581004239367">"Korisnički podaci"</string>
+    <string name="storage_data_size_label" msgid="7986110464268960652">"Podaci profila"</string>
     <string name="storage_cache_size_label" msgid="6361308766707419555">"Keš memorija"</string>
     <string name="storage_total_size_label" msgid="3892138268243791912">"Ukupno"</string>
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"Obriši pohranu"</string>
@@ -533,7 +579,7 @@
     <string name="account_sync_summary_all_off" msgid="6550959714035312414">"Sinhronizacija je isključena za sve stavke"</string>
     <string name="sync_disabled" msgid="393531064334628258">"Sinhronizir. ISKLJUČENO"</string>
     <string name="sync_error" msgid="6698021343089247914">"Greška u sinhroniziranju"</string>
-    <string name="last_synced" msgid="4745124489150101529">"Posljednje sinhroniziranje: <xliff:g id="LAST_SYNC_TIME">%1$s</xliff:g>"</string>
+    <string name="last_synced" msgid="4745124489150101529">"Posljednja sinhronizacija: <xliff:g id="LAST_SYNC_TIME">%1$s</xliff:g>"</string>
     <string name="sync_in_progress" msgid="1237573373537382416">"Sinhroniziranje u toku…"</string>
     <string name="sync_one_time_sync" msgid="491707183321353107">"Dodirnite da sinhronizirate odmah<xliff:g id="LAST_SYNC_TIME">
 %1$s</xliff:g>"</string>
@@ -541,13 +587,22 @@
     <string name="sync_button_sync_cancel" msgid="7739510554513641393">"Otkaži sinhroniziranje"</string>
     <string name="sync_is_failing" msgid="5766255460901806206">"Trenutno se javljaju problemi sa sinhroniziranjem. Ubrzo će opet raditi."</string>
     <string name="privacy_settings_title" msgid="3150145262029229572">"Privatnost"</string>
+    <string name="privacy_vehicle_data_title" msgid="6385777370742595651">"Podaci informativno-zabavnog sistema"</string>
+    <string name="privacy_location_summary" msgid="7019817848470566242">"Kontrolirajte pristup aplikacije vašoj lokaciji"</string>
+    <string name="mute_mic_title" msgid="2813215197799569553">"Mikrofon"</string>
+    <string name="mute_mic_summary" msgid="5426953935775303904">"Kontrolirajte pristup aplikacije mikrofonu"</string>
+    <string name="vehicle_data_title" msgid="935933215161763721">"Podaci infor.-zabavnog sistema"</string>
+    <string name="vehicle_data_summary" msgid="9204836361819386115">"Upravljajte aktivnostima i informacijama pohranjenim u ovom vozilu"</string>
+    <string name="vehicle_data_delete_user_title" msgid="9132472153739085346">"Izbriši profil"</string>
+    <string name="vehicle_data_delete_user_summary" msgid="5900205773710111394">"Izbrišite profile i račune s informativno-zabavnog sistema"</string>
+    <string name="action_unavailable" msgid="7087119418684417249">"Ova radnja nije dostupna za vaš profil"</string>
     <string name="security_settings_title" msgid="6955331714774709746">"Sigurnost"</string>
     <string name="security_settings_subtitle" msgid="2244635550239273229">"Zaključavanje ekrana"</string>
-    <string name="security_lock_none" msgid="1054645093754839638">"Nema"</string>
+    <string name="security_lock_none" msgid="1054645093754839638">"Ništa"</string>
     <string name="security_lock_pattern" msgid="1174352995619563104">"Uzorak"</string>
     <string name="security_lock_pin" msgid="4891899974369503200">"PIN"</string>
     <string name="security_lock_password" msgid="4420203740048322494">"Lozinka"</string>
-    <string name="lock_settings_picker_title" msgid="6590330165050361632">"Izaberite vrstu zaklj."</string>
+    <string name="lock_settings_picker_title" msgid="6590330165050361632">"Izaberite vrstu zaključavanja"</string>
     <string name="screen_lock_options" msgid="8531177937577168185">"Opcije zaključavanja"</string>
     <string name="lock_settings_enter_pattern" msgid="4826034565853171624">"Unesite svoj uzorak"</string>
     <string name="lockpattern_confirm_button_text" msgid="7784925958324484965">"Potvrdi"</string>
@@ -557,7 +612,6 @@
     <string name="lockscreen_skip_button_text" msgid="3755748786396198091">"Preskoči"</string>
     <string name="set_screen_lock" msgid="5239317292691332780">"Postavljanje zaključavanja ekrana"</string>
     <string name="lockscreen_choose_your_pin" msgid="1645229555410061526">"Odabir PIN-a"</string>
-    <string name="lockscreen_choose_your_pattern" msgid="6801175111142593404">"Odaberite uzorak"</string>
     <string name="lockscreen_choose_your_password" msgid="4487577710136014069">"Odabir lozinke"</string>
     <string name="current_screen_lock" msgid="637651611145979587">"Trenutni način zaključavanja ekrana"</string>
     <string name="choose_lock_pattern_message" msgid="6242765203541309524">"Postavite uzorak radi sigurnosti"</string>
@@ -567,16 +621,19 @@
     <string name="lockpattern_recording_intro_header" msgid="7864149726033694408">"Nacrtajte uzorak za otključavanje"</string>
     <string name="lockpattern_recording_inprogress" msgid="1575019990484725964">"Podignite prst kada završite"</string>
     <string name="lockpattern_pattern_entered" msgid="6103071005285320575">"Uzorak snimljen"</string>
-    <string name="lockpattern_need_to_confirm" msgid="4648070076022940382">"Ponovo nacrtajte uzorak za potvrdu"</string>
+    <string name="lockpattern_need_to_confirm" msgid="4648070076022940382">"Ponovo nacrtajte uzorak da potvrdite"</string>
     <string name="lockpattern_recording_incorrect_too_short" msgid="2417932185815083082">"Povežite bar 4 tačke. Pokušajte ponovo."</string>
     <string name="lockpattern_pattern_wrong" msgid="929223969555399363">"Pogrešan uzorak"</string>
     <string name="lockpattern_settings_help_how_to_record" msgid="4436556875843192284">"Kako nacrtati uzorak za otključavanje"</string>
     <string name="error_saving_lockpattern" msgid="2933512812768570130">"Greška prilikom pohrane uzorka"</string>
+    <string name="lockpattern_too_many_failed_confirmation_attempts" msgid="4636307830951251013">"Previše pogrešnih pokušaja. Pokušajte ponovo za <xliff:g id="NUMBER">%d</xliff:g> s."</string>
     <string name="okay" msgid="4589873324439764349">"UREDU"</string>
     <string name="remove_screen_lock_title" msgid="1234382338764193387">"Ukloniti zaključavanje ekrana?"</string>
     <string name="remove_screen_lock_message" msgid="6675850371585564965">"Svi će imati pristup vašem računu"</string>
+    <string name="security_profile_lock_title" msgid="3082523481292617350">"Zaključavanje profila"</string>
+    <string name="security_unlock_profile_summary" msgid="6742592419759865631">"Postavite automatsko otključavanje"</string>
     <string name="lock_settings_enter_pin" msgid="1669172111244633904">"Unesite svoj PIN"</string>
-    <string name="lock_settings_enter_password" msgid="2636669926649496367">"Unesite svoju lozinku"</string>
+    <string name="lock_settings_enter_password" msgid="2636669926649496367">"Unesite lozinku"</string>
     <string name="choose_lock_pin_message" msgid="2963792070267774417">"Postavite PIN radi sigurnosti"</string>
     <string name="confirm_your_pin_header" msgid="9096581288537156102">"Ponovo unesite PIN"</string>
     <string name="choose_lock_pin_hints" msgid="7362906249992020844">"PIN mora sadržavati najmanje 4 cifre"</string>
@@ -590,7 +647,7 @@
     <string name="confirm_passwords_dont_match" msgid="7300229965206501753">"Lozinke se ne podudaraju"</string>
     <string name="lockpassword_clear_label" msgid="6363680971025188064">"Obriši"</string>
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"Otkaži"</string>
-    <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Potvrdi"</string>
+    <string name="lockpassword_confirm_label" msgid="5918463281546146953">"Potvrdite"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"Mora sadržavati najmanje 4 znaka"</string>
     <string name="lockpassword_password_too_short" msgid="6681218025001328405">"Broj znakova mora biti najmanje <xliff:g id="COUNT">%d</xliff:g>"</string>
     <string name="lockpassword_pin_too_short" msgid="6363004004424904218">"Broj cifri u PIN-u mora biti najmanje <xliff:g id="COUNT">%d</xliff:g>"</string>
@@ -598,7 +655,7 @@
     <string name="lockpassword_pin_too_long" msgid="62957683396974404">"Ukupan broj cifri mora biti manji od <xliff:g id="NUMBER">%d</xliff:g>"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"Mora sadržavati samo cifre 0-9."</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"Administrator uređaja ne dozvoljava korištenje nedavnog PIN kôda"</string>
-    <string name="lockpassword_pin_blacklisted_by_admin" msgid="7412709707800738442">"Vaš IT administrator je blokirao uobičajene PIN kôdove. Probajte drugi PIN kôd."</string>
+    <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"Vaš IT administrator je blokirao česte PIN kodove. Probajte drugi PIN kôd."</string>
     <string name="lockpassword_illegal_character" msgid="1984970060523635618">"Ne može sadržavati nevažeći znak."</string>
     <string name="lockpassword_invalid_password" msgid="1690956113717418430">"Lozinka je nevažeća. Mora sadržavati najmanje 4 znaka."</string>
     <plurals name="lockpassword_password_requires_letters" formatted="false" msgid="424616259312760303">
@@ -633,7 +690,7 @@
     </plurals>
     <string name="lockpassword_password_recently_used" msgid="8255729487108602924">"Administrator uređaja ne dozvoljava korištenje nedavne lozinke"</string>
     <string name="error_saving_password" msgid="8334882262622500658">"Greška prilikom pohrane lozinke"</string>
-    <string name="lockpassword_password_blacklisted_by_admin" msgid="7965893810326503891">"Vaš IT administrator je blokirao uobičajene lozinke. Probajte drugu lozinku."</string>
+    <string name="lockpassword_password_denylisted_by_admin" msgid="8611831198794524730">"Vaš IT administrator je blokirao česte lozinke. Probajte drugu lozinku."</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="38813552228809240">"Nije dozvoljen rastući, opadajući ili ponavljajući niz cifri."</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"Opcije zaključavanja ekrana"</string>
     <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : prije <xliff:g id="NUM_DAYS">%3$s</xliff:g> dana"</string>
@@ -654,10 +711,24 @@
     <string name="enter_key" msgid="2121394305541579468">"Tipka Enter"</string>
     <string name="exit_retail_button_text" msgid="6093240315583384473">"Izađite iz demonstr."</string>
     <string name="exit_retail_mode_dialog_title" msgid="7970631760237469168">"Izađite iz načina demonstr."</string>
-    <string name="exit_retail_mode_dialog_body" msgid="8314316171782527301">"Ovim će se izbrisati račun za demonstraciju i vratiti sistem na fabričke postavke. Svi korisnički podaci bit će izgubljeni."</string>
+    <string name="exit_retail_mode_dialog_body" msgid="6513854703627380365">"Ovim ćete izbrisati račun za demonstraciju i vratiti sistem na fabričke postavke. Svi podaci profila će se izgubiti."</string>
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"Izađite iz demonstr."</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"ODBACI"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"Funkcija nije dostupna tokom vožnje"</string>
-    <string name="add_user_restricted_while_driving" msgid="4754946754222453656">"Nije moguće dodati korisnika za vrijeme vožnje"</string>
+    <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"Nije moguće dodati profil za vrijeme vožnje"</string>
     <string name="default_search_query" msgid="3137420627428857068">"Pretraživanje"</string>
+    <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Asistent i glas"</string>
+    <string name="assistant_and_voice_assistant_app_title" msgid="5981647244625171285">"Aplikacija digitalnog asistenta"</string>
+    <string name="assistant_and_voice_use_text_from_screen_title" msgid="5851460943413795599">"Korištenje teksta s ekrana"</string>
+    <string name="assistant_and_voice_use_text_from_screen_summary" msgid="4161751708121301541">"Dozvoli Asistentu da pristupi sadržaju ekrana"</string>
+    <string name="assistant_and_voice_use_screenshot_title" msgid="1930735578425470046">"Koristi snimak ekrana"</string>
+    <string name="assistant_and_voice_use_screenshot_summary" msgid="3738474919393817950">"Dozvolite Asistentu da pristupi snimku ekrana"</string>
+    <string name="notifications_recently_sent" msgid="9051696542615302799">"Nedavno poslano"</string>
+    <string name="notifications_all_apps" msgid="3557079551048958846">"Sve aplikacije"</string>
+    <string name="profiles_and_accounts_settings_title" msgid="2672643892127659812">"Profili i računi"</string>
+    <string name="manage_other_profiles_button_text" msgid="2262188413455510828">"Upravljajte drugim profilima"</string>
+    <string name="add_a_profile_button_text" msgid="8027395095117925114">"Dodaj profil"</string>
+    <string name="delete_this_profile_text" msgid="6035404714526922665">"Izbriši ovaj profil"</string>
+    <string name="add_profile_text" msgid="9118410102199116969">"Dodaj profil"</string>
+    <string name="power_component_disabled" msgid="7084144472096800457">"Ovu postavku trenutno nije moguće promijeniti"</string>
 </resources>

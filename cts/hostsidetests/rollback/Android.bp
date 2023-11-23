@@ -12,11 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "CtsRollbackManagerHostTestCases",
     defaults: ["cts_defaults"],
     srcs: ["src/**/*.java"],
-    libs: ["cts-tradefed", "tradefed", "truth-prebuilt"],
+    libs: ["cts-tradefed", "cts-shim-host-lib", "tradefed", "truth-prebuilt"],
+    static_libs: ["cts-install-lib-host"],
     data: [":CtsRollbackManagerHostTestHelperApp", ":CtsRollbackManagerHostTestHelperApp2"],
     test_suites: ["cts", "general-tests"],
 }

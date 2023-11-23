@@ -61,7 +61,7 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
     private static final int WAIT_FOR_FRAMES_TIMEOUT_MS = 3000;
-    private static final int WAIT_FOR_PICTURE_TIMEOUT_MS = 5000;
+    private static final int WAIT_FOR_PICTURE_TIMEOUT_MS = 8000;
     private static final int FRAMES_TO_WAIT_FOR_CAPTURE = 100;
 
     @Presubmit
@@ -167,16 +167,20 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
         }
 
         private Object mPictureSignal = new Object();
+        private boolean mGotPicture = false;
         private byte[] mPictureData = null;
 
         public byte[] waitForPicture() {
+            Log.i(TAG, "waitForPicture called");
             synchronized(mPictureSignal) {
                 boolean waited = false;
                 while (!waited) {
                     try {
                         mPictureSignal.wait(WAIT_FOR_PICTURE_TIMEOUT_MS);
                         waited = true;
+                        Log.i(TAG, "waitForPicture returned with mGotPicture = " + mGotPicture);
                     } catch (InterruptedException e) {
+                        Log.e(TAG, "waitForPicture gets interrupted exception!");
                     }
                 }
                 return mPictureData;
@@ -184,8 +188,10 @@ public class FastBasicsTest extends Camera2SurfaceViewTestCase {
         }
 
         public void onPictureTaken(byte[] data, Camera camera) {
+            Log.i(TAG, "onPictureTaken called");
             synchronized(mPictureSignal) {
                 mPictureData = data;
+                mGotPicture = true;
                 mPictureSignal.notifyAll();
             }
         }

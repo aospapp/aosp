@@ -23,6 +23,6 @@
     <string name="pws_other_message_identifiers" msgid="7907712751421890873">"ਸੁਚੇਤਨਾਵਾਂ"</string>
     <string name="enable_emergency_alerts_message_title" msgid="5267857032926801433">"ਸੁਚੇਤਨਾਵਾਂ"</string>
     <string name="enable_emergency_alerts_message_summary" msgid="8961532453478455676">"ਜਾਨ ਜਾਂ ਮਾਲ ਦੀ ਸੁਰੱਖਿਆ ਕਰ ਸਕਣ ਵਾਲੀਆਂ ਸਿਫ਼ਾਰਸ਼ੀ ਕਾਰਵਾਈਆਂ"</string>
-    <string name="cmas_required_monthly_test" msgid="197559096432885563">"ਜਾਂਚ ਸੁਚੇਤਨਾਵਾਂ"</string>
+    <string name="cmas_required_monthly_test" msgid="5733131786754331921">"ਜਾਂਚ ਸੁਚੇਤਨਾਵਾਂ"</string>
     <string name="cmas_exercise_alert" msgid="7249058541625071454">"ਕਸਰਤਾਂ"</string>
 </resources>

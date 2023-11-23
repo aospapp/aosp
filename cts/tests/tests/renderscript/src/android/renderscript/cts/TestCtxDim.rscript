@@ -22,7 +22,7 @@
 int gDimX, gDimY, gDimZ;
 static bool failed = false;
 
-void __attribute__((kernel)) check_kernel(int32_t in /* dummy */, rs_kernel_context context) {
+void __attribute__((kernel)) check_kernel(int32_t unused, rs_kernel_context context) {
     uint32_t dimX = rsGetDimX(context);
     _RS_ASSERT(gDimX == dimX);
     uint32_t dimY = rsGetDimY(context);

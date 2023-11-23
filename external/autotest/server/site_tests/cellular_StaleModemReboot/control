@@ -16,7 +16,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:cellular_modem_repair"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
   Tests that a cellular modem is available for testing.

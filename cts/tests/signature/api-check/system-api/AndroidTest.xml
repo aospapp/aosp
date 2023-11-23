@@ -28,8 +28,11 @@
         <option name="runner" value="repackaged.android.test.InstrumentationTestRunner" />
         <option name="class" value="android.signature.cts.api.system.SignatureTest" />
         <option name="instrumentation-arg" key="base-api-files" value="current.api.gz" />
-        <option name="instrumentation-arg" key="expected-api-files" value="system-current.api.gz,system-removed.api.gz,system-all.api.zip" />
+        <option name="instrumentation-arg" key="system-api-files" value="system-current.api.gz,system-removed.api.gz" />
+        <option name="instrumentation-arg" key="previous-api-files" value = "system-all.api.zip" />
         <option name="instrumentation-arg" key="unexpected-api-files" value="android-test-mock-current.api.gz,android-test-runner-current.api.gz" />
         <option name="runtime-hint" value="30s" />
+        <!-- Disable hidden API checks (http://b/171459260). -->
+        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

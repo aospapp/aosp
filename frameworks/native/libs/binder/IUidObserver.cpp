@@ -71,10 +71,11 @@ public:
 
 // ----------------------------------------------------------------------
 
-IMPLEMENT_META_INTERFACE(UidObserver, "android.app.IUidObserver");
+IMPLEMENT_META_INTERFACE(UidObserver, "android.app.IUidObserver")
 
 // ----------------------------------------------------------------------
 
+// NOLINTNEXTLINE(google-default-arguments)
 status_t BnUidObserver::onTransact(
     uint32_t code, const Parcel& data, Parcel* reply, uint32_t flags)
 {

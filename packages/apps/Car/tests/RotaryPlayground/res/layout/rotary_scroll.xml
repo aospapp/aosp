@@ -17,6 +17,7 @@
 
 <com.android.car.ui.FocusArea
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
@@ -26,11 +27,17 @@
         android:layout_height="wrap_content"
         android:singleLine="true"/>
 
+    <!-- Use contentDescription to enable rotary scrolling for this view. With rotary scrolling
+         enabled, rotation will scroll rather than moving the focus if moving the focus would
+         cause a lot of scrolling. Rotary scrolling should be enabled for scrolling views which
+         contain content which the user may want to see but can't interact with, either alone or
+         with interactive (focusable) content. -->
     <com.android.car.ui.recyclerview.CarUiRecyclerView
         android:id="@+id/rotary_scroll_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"/>
+        android:layout_weight="1"
+        app:rotaryScrollEnabled="true"/>
 
     <EditText
         android:layout_width="match_parent"

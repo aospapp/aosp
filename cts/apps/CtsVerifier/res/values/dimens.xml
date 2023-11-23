@@ -43,4 +43,13 @@
     <dimen name="activity_vertical_margin">16dp</dimen>
 
     <dimen name="display_cutout_test_button_size">25dp</dimen>
+
+    <!-- WaveformView -->
+    <dimen name="waveform_stroke_width">2.0dp</dimen>
+
+    <!-- Should be the same as base/libs/WindowManager/Shell/res/values
+        R.dimen.bubble_expanded_default_height -->
+    <dimen name="bubble_expanded_view_min_height">180dp</dimen>
+    <dimen name="bubble_expanded_view_max_height_buffer">100dp</dimen>
+
 </resources>

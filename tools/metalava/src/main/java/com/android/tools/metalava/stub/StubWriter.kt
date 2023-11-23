@@ -16,9 +16,9 @@
 
 package com.android.tools.metalava.stub
 
-import com.android.tools.metalava.doclava1.ApiPredicate
-import com.android.tools.metalava.doclava1.FilterPredicate
-import com.android.tools.metalava.doclava1.Issues
+import com.android.tools.metalava.ApiPredicate
+import com.android.tools.metalava.FilterPredicate
+import com.android.tools.metalava.Issues
 import com.android.tools.metalava.model.AnnotationTarget
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Codebase
@@ -28,7 +28,6 @@ import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.ModifierList
 import com.android.tools.metalava.model.PackageItem
-import com.android.tools.metalava.model.psi.EXPAND_DOCUMENTATION
 import com.android.tools.metalava.model.psi.trimDocIndent
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import com.android.tools.metalava.model.visitors.ItemVisitor
@@ -54,11 +53,7 @@ class StubWriter(
     // Methods are by default sorted in source order in stubs, to encourage methods
     // that are near each other in the source to show up near each other in the documentation
     methodComparator = MethodItem.sourceOrderComparator,
-    filterEmit = FilterPredicate(ApiPredicate(ignoreShown = true, includeDocOnly = docStubs))
-        // In stubs we have to include non-strippable things too. This is an error in the API,
-        // and we've removed all of it from the framework, but there are libraries which still
-        // have reference errors.
-        .or { it is ClassItem && it.notStrippable },
+    filterEmit = FilterPredicate(ApiPredicate(ignoreShown = true, includeDocOnly = docStubs)),
     filterReference = ApiPredicate(ignoreShown = true, includeDocOnly = docStubs),
     includeEmptyOuterClasses = true
 ) {
@@ -131,7 +126,7 @@ class StubWriter(
             }
             startFile(sourceFile)
 
-            appendDocumentation(pkg, packageInfoWriter)
+            appendDocumentation(pkg, packageInfoWriter, docStubs)
 
             if (annotations.isNotEmpty()) {
                 ModifierList.writeAnnotations(
@@ -166,8 +161,13 @@ class StubWriter(
 
     private fun getClassFile(classItem: ClassItem): File {
         assert(classItem.containingClass() == null) { "Should only be called on top level classes" }
-        // TODO: Look up compilation unit language
-        return File(getPackageDir(classItem.containingPackage()), "${classItem.simpleName()}.java")
+        val packageDir = getPackageDir(classItem.containingPackage())
+
+        return if (classItem.isKotlin() && options.kotlinStubs) {
+            File(packageDir, "${classItem.simpleName()}.kt")
+        } else {
+            File(packageDir, "${classItem.simpleName()}.java")
+        }
     }
 
     /**
@@ -194,28 +194,17 @@ class StubWriter(
 
             startFile(sourceFile)
 
-            stubWriter = JavaStubWriter(textWriter, filterEmit, filterReference, generateAnnotations, preFiltered, docStubs)
+            stubWriter = if (options.kotlinStubs && cls.isKotlin()) {
+                KotlinStubWriter(textWriter, filterEmit, filterReference, generateAnnotations, preFiltered, docStubs)
+            } else {
+                JavaStubWriter(textWriter, filterEmit, filterReference, generateAnnotations, preFiltered, docStubs)
+            }
 
             // Copyright statements from the original file?
             val compilationUnit = cls.getCompilationUnit()
             compilationUnit?.getHeaderComments()?.let { textWriter.println(it) }
         }
         stubWriter?.visitClass(cls)
-    }
-
-    private fun appendDocumentation(item: Item, writer: PrintWriter) {
-        if (options.includeDocumentationInStubs || docStubs) {
-            val documentation = if (docStubs && EXPAND_DOCUMENTATION) {
-                item.fullyQualifiedDocumentation()
-            } else {
-                item.documentation
-            }
-            if (documentation.isNotBlank()) {
-                val trimmed = trimDocIndent(documentation)
-                writer.println(trimmed)
-                writer.println()
-            }
-        }
     }
 
     override fun afterVisitClass(cls: ClassItem) {
@@ -251,5 +240,20 @@ class StubWriter(
 
     override fun afterVisitField(field: FieldItem) {
         stubWriter?.afterVisitField(field)
+    }
+}
+
+internal fun appendDocumentation(
+    item: Item,
+    writer: PrintWriter,
+    docStubs: Boolean
+) {
+    if (options.includeDocumentationInStubs || docStubs) {
+        val documentation = item.fullyQualifiedDocumentation()
+        if (documentation.isNotBlank()) {
+            val trimmed = trimDocIndent(documentation)
+            writer.println(trimmed)
+            writer.println()
+        }
     }
 }

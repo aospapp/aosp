@@ -50,6 +50,7 @@ allow cnd ipa_vendor_data_file:file r_file_perms;
 
 # To register cnd to hwbinder
 add_hwservice(cnd, hal_datafactory_hwservice)
+add_hwservice(cnd, hal_mwqemadapter_hwservice)
 hwbinder_use(cnd)
 get_prop(cnd, hwservicemanager_prop)
 binder_call(cnd, dataservice_app)
@@ -63,3 +64,5 @@ userdebug_or_eng(`
 
 # For WFC call(RAT change into IWLAN)
 binder_call(cnd, qtidataservices_app)
+
+get_prop(cnd, wifi_hal_prop)

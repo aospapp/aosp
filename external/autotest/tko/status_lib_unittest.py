@@ -9,18 +9,18 @@ from autotest_lib.client.common_lib import log
 class clean_raw_line_test(unittest.TestCase):
     def test_default(self):
         raw_line_temp = 'this \r is a %s line \x00 yeah\n'
-        raw_line = raw_line_temp % status_lib.DEFAULT_BLACKLIST[0]
+        raw_line = raw_line_temp % status_lib.DEFAULT_BLOCKLIST[0]
         cleaned = status_lib.clean_raw_line(raw_line)
         self.assertEquals(cleaned, raw_line_temp % '')
 
 
     def test_multi(self):
-        blacklist = ('\r\x00', 'FOOBAR', 'BLAh')
+        blocklist = ('\r\x00', 'FOOBAR', 'BLAh')
         raw_line_temp = 'this \x00 FOO is BAR \r a %s line %s BL yeah %s ah\n'
-        raw_line = raw_line_temp % blacklist
-        cleaned = status_lib.clean_raw_line(raw_line, blacklist)
+        raw_line = raw_line_temp % blocklist
+        cleaned = status_lib.clean_raw_line(raw_line, blocklist)
         self.assertEquals(
-            cleaned, raw_line_temp % (('',) * len(blacklist)))
+            cleaned, raw_line_temp % (('',) * len(blocklist)))
 
 
 class line_buffer_test(unittest.TestCase):

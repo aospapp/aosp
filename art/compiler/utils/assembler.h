@@ -229,7 +229,7 @@ class AssemblerBuffer {
 
   // When building the C++ tests, assertion code is enabled. To allow
   // asserting that the user of the assembler buffer has ensured the
-  // capacity needed for emitting, we add a dummy method in non-debug mode.
+  // capacity needed for emitting, we add a placeholder method in non-debug mode.
   bool HasEnsuredCapacity() const { return true; }
 
 #endif
@@ -371,6 +371,7 @@ class Assembler : public DeletableArenaObject<kArenaAllocAssembler> {
   // the instructions that can trigger signals into branch delay slots. Handling
   // signals from instructions in delay slots is a bit problematic and should be
   // avoided.
+  // TODO: Re-evaluate whether we still need this now that MIPS support has been removed.
   virtual size_t CodePosition() { return CodeSize(); }
 
   // Copy instructions out of assembly buffer into the given region of memory

@@ -16,8 +16,12 @@
 
 package android.server.wm;
 
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
+import static android.app.WindowConfiguration.WINDOWING_MODE_UNDEFINED;
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.server.wm.ActivityManagerTestBase.executeShellCommand;
 import static android.server.wm.WindowInsetsAnimationUtils.requestControlThenTransitionToVisibility;
+import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.WindowInsets.Type.ime;
 import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN;
@@ -25,8 +29,10 @@ import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HI
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Insets;
@@ -55,10 +61,12 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.SystemUtil;
 
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.lang.reflect.Array;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
@@ -71,10 +79,6 @@ public class WindowInsetsAnimationSynchronicityTests {
 
     @Rule
     public LimitedErrorCollector mErrorCollector = new LimitedErrorCollector();
-
-    @Rule
-    public ActivityTestRule<TestActivity> mActivityRule = new ActivityTestRule<>(
-            TestActivity.class, false, false);
 
     private final Context mContext = InstrumentationRegistry.getInstrumentation().getContext();
 
@@ -90,7 +94,7 @@ public class WindowInsetsAnimationSynchronicityTests {
 
     private void runTest(boolean useControlApi) throws Exception {
         try (ImeSession imeSession = new ImeSession(SimpleIme.getName(mContext))) {
-            TestActivity activity = mActivityRule.launchActivity(null);
+            TestActivity activity = launchActivity();
             activity.setUseControlApi(useControlApi);
             PollingCheck.waitFor(activity::hasWindowFocus);
             activity.setEvaluator(() -> {
@@ -111,7 +115,20 @@ public class WindowInsetsAnimationSynchronicityTests {
                 }
             });
             Thread.sleep(2000);
+            activity.setEvaluator(null);
         }
+    }
+
+    private TestActivity launchActivity() {
+        final ActivityOptions options= ActivityOptions.makeBasic();
+        options.setLaunchWindowingMode(WINDOWING_MODE_FULLSCREEN);
+        final TestActivity[] activity = (TestActivity[]) Array.newInstance(TestActivity.class, 1);
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            activity[0] = (TestActivity) getInstrumentation().startActivitySync(
+                    new Intent(getInstrumentation().getTargetContext(), TestActivity.class)
+                            .addFlags(FLAG_ACTIVITY_NEW_TASK), options.toBundle());
+        });
+        return activity[0];
     }
 
     private static int lowestPixelWithColor(int color, int x, Bitmap bitmap) {

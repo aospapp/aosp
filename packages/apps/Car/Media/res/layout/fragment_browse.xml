@@ -15,56 +15,21 @@
   limitations under the License.
 -->
 <androidx.constraintlayout.widget.ConstraintLayout
-        xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:app="http://schemas.android.com/apk/res-auto"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
-    <ImageView
-        android:id="@+id/error_icon"
-        android:layout_width="@dimen/missing_permission_icon_size"
-        android:layout_height="@dimen/missing_permission_icon_size"
-        app:layout_constraintTop_toBottomOf="@+id/app_bar"
-        app:layout_constraintBottom_toTopOf="@+id/error_message"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_chainStyle="packed"
-        android:src="@drawable/error_illustration"
-        android:visibility="gone"
-        android:tint="@color/icon_tint"/>
+    <include layout="@layout/ui_guides"/>
 
-    <TextView
-        android:id="@+id/error_message"
-        android:layout_width="wrap_content"
-        style="@style/ErrorTextStyle"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/browse_state_error_margin_top"
-        app:layout_constraintTop_toBottomOf="@+id/error_icon"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:maxLines="3"
-        android:text="@string/nothing_to_play"
-        android:visibility="gone" />
-
-    <com.android.car.ui.recyclerview.CarUiRecyclerView
-        android:id="@+id/browse_list"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:clickable="true"
-        android:focusable="true"
-        android:clipToPadding="false"
-        android:visibility="gone"
-        app:layoutStyle="grid"
-        app:numOfColumns="@integer/num_browse_columns"
-    />
-
-    <com.android.car.media.widgets.AppBarView
-        android:id="@+id/app_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+    <FrameLayout
+        android:id="@+id/browse_content_area"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintStart_toStartOf="@+id/ui_content_start_guideline"
+        app:layout_constraintEnd_toEndOf="@+id/ui_content_end_guideline"
         app:layout_constraintTop_toTopOf="parent"
-        app:showMenuItemsWhileSearching="false"
+        app:layout_constraintBottom_toTopOf="@+id/ui_content_bottom_guideline"
     />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

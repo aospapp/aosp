@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"স্টাইল ও ওয়ালপেপার"</string>
+    <string name="app_name" msgid="1647136562008520313">"ওয়ালপেপার এবং স্টাইল"</string>
     <string name="theme_title" msgid="2144932106319405101">"স্টাইল"</string>
     <string name="clock_title" msgid="2126046720254613991">"ঘড়ি"</string>
-    <string name="grid_title" msgid="2825094404523390773">"গ্রিড"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"ওয়ালপেপার"</string>
+    <string name="grid_title" msgid="1688173478777254123">"অ্যাপ গ্রিড"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"প্রয়োগ করুন"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"এডিট করতে ট্যাপ করুন"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"এখন যে ওয়ালপেপার আছে সেটি রাখুন"</string>
     <string name="apply_btn" msgid="7965877231041987336">"প্রয়োগ করুন"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"<xliff:g id="ID_2">%2$d</xliff:g>টি পৃষ্ঠার মধ্যে <xliff:g id="ID_1">%1$d</xliff:g> নম্বর"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"পরবর্তী"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"আগের"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"স্টাইল প্রিভিউ করুন"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"গ্রিড প্রিভিউ করুন"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"ফন্ট প্রিভিউ করুন"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"আইকন প্রিভিউ করুন"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"রঙ প্রিভিউ করুন"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"আকার প্রিভিউ করুন"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"<xliff:g id="ID_1">%1$s</xliff:g>, বর্তমানে প্রয়োগ করা হয়েছে"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"এখন <xliff:g id="ID_1">%1$s</xliff:g> থিম প্রয়োগ করে প্রিভিউ করা হচ্ছে"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"এখন <xliff:g id="ID_1">%1$s</xliff:g> থিম প্রিভিউ করছেন"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"ওয়ালপেপার"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • ১২৩"</string>
     <string name="font_card_body" msgid="6790525594503904468">"প্রতিটি স্ক্রিনে আপনার পছন্দের ফন্ট যোগ করুন"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"গ্রিডের সাইজ বেছে নিন"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g>x<xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"স্টাইল প্রয়োগ করা হয়েছে"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"ঘড়ি প্রয়োগ করা হয়েছে"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"স্টাইল সফলভাবে সেট করা হয়েছে"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"ঘড়ি সফলভাবে সেট করা হয়েছে"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"গ্রিড সফলভাবে সেট করা হয়েছে"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"স্টাইল প্রয়োগ করার সময়ে সমস্যা হয়েছে"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"পরবর্তী"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"আগের"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"কাস্টম"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"কাস্টম <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"কাস্টম স্টাইল"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"মুছে ফেলুন"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"না, থাক"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"<xliff:g id="ID_1">%1$s</xliff:g> ঘড়ির প্রিভিউ"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"উপস! কিছু সমস্যা হয়েছে।"</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"রঙ / আইকন"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"থিমের ফন্ট, আইকন, অ্যাপের আকার, ও রঙের প্রিভিউ"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"কাস্টম ফন্ট"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"কাস্টম আইকন"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"কাস্টম রঙ"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"কাস্টম আকৃতি"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"কাস্টম স্টাইলের নাম"</string>
+    <string name="mode_title" msgid="2394873501427436055">"ডার্ক থিম"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"ব্যাটারি সেভারের কারণে সাময়িকভাবে বন্ধ করা আছে"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"থিমযুক্ত আইকন"</string>
+    <string name="beta_title" msgid="8703819523760746458">"বিটা"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"অ্যাপ গ্রিড পরিবর্তন করুন"</string>
 </resources>

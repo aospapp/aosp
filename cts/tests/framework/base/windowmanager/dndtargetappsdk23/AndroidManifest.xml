@@ -15,9 +15,10 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.server.wm.dndtargetappsdk23">
+     package="android.server.wm.dndtargetappsdk23">
     <application android:label="CtsDnDTarget">
-        <activity android:name="android.server.wm.dndtargetappsdk23.DropTarget">
+        <activity android:name="android.server.wm.dndtargetappsdk23.DropTarget"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

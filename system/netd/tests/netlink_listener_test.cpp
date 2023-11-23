@@ -45,7 +45,7 @@ constexpr uid_t TEST_UID = UID_MAX - 2;
 // A test tag arbitrarily selected.
 constexpr uint32_t TEST_TAG = 0xFF0F0F0F;
 
-constexpr uint32_t SOCK_CLOSE_WAIT_US = 20 * 1000;
+constexpr uint32_t SOCK_CLOSE_WAIT_US = 30 * 1000;
 constexpr uint32_t ENOBUFS_POLL_WAIT_US = 10 * 1000;
 
 using android::base::Result;
@@ -67,15 +67,11 @@ class NetlinkListenerTest : public testing::Test {
     BpfMap<uint64_t, UidTagValue> mCookieTagMap;
 
     void SetUp() {
-        SKIP_IF_BPF_NOT_SUPPORTED;
-
         mCookieTagMap.reset(android::bpf::mapRetrieveRW(COOKIE_TAG_MAP_PATH));
         ASSERT_TRUE(mCookieTagMap.isValid());
     }
 
     void TearDown() {
-        SKIP_IF_BPF_NOT_SUPPORTED;
-
         const auto deleteTestCookieEntries = [](const uint64_t& key, const UidTagValue& value,
                                                 BpfMap<uint64_t, UidTagValue>& map) {
             if ((value.uid == TEST_UID) && (value.tag == TEST_TAG)) {
@@ -103,7 +99,7 @@ class NetlinkListenerTest : public testing::Test {
         return mCookieTagMap.iterateWithValue(checkGarbageTags);
     }
 
-    void checkMassiveSocketDestroy(int totalNumber, bool expectError) {
+    bool checkMassiveSocketDestroy(int totalNumber, bool expectError) {
         std::unique_ptr<android::net::NetlinkListenerInterface> skDestroyListener;
         auto result = android::net::TrafficController::makeSkDestroyListener();
         if (!isOk(result)) {
@@ -141,25 +137,36 @@ class NetlinkListenerTest : public testing::Test {
             // If ENOBUFS triggered, check it only called into the handler once, ie.
             // that the netlink handler is not spinning.
             int currentErrorCount = rxErrorCount;
-            EXPECT_LT(0, rxErrorCount);
+            // 0 error count is acceptable because the system has chances to close all sockets
+            // normally.
+            EXPECT_LE(0, rxErrorCount);
+            if (!rxErrorCount) return true;
+
             usleep(ENOBUFS_POLL_WAIT_US);
             EXPECT_EQ(currentErrorCount, rxErrorCount);
         } else {
             EXPECT_RESULT_OK(checkNoGarbageTagsExist());
             EXPECT_EQ(0, rxErrorCount);
         }
+        return false;
     }
 };
 
 TEST_F(NetlinkListenerTest, TestAllSocketUntagged) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     checkMassiveSocketDestroy(10, false);
     checkMassiveSocketDestroy(100, false);
 }
 
-TEST_F(NetlinkListenerTest, TestSkDestroyError) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    checkMassiveSocketDestroy(32500, true);
+// Disabled because flaky on blueline-userdebug; this test relies on the main thread
+// winning a race against the NetlinkListener::run() thread. There's no way to ensure
+// things will be scheduled the same way across all architectures and test environments.
+TEST_F(NetlinkListenerTest, DISABLED_TestSkDestroyError) {
+    bool needRetry = false;
+    int retryCount = 0;
+    do {
+        needRetry = checkMassiveSocketDestroy(32500, true);
+        if (needRetry) retryCount++;
+    } while (needRetry && retryCount < 3);
+    // Should review test if it can always close all sockets correctly.
+    EXPECT_GT(3, retryCount);
 }

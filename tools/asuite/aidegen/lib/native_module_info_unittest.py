@@ -130,6 +130,7 @@ class NativeModuleInfoUnittests(unittest.TestCase):
         """Test get_module_includes with include paths."""
         mock_load.return_value = None, _CC_NAME_TO_MODULE_INFO
         mod_info = native_module_info.NativeModuleInfo()
+        mod_info.name_to_module_info = _CC_NAME_TO_MODULE_INFO
         result = mod_info.get_module_includes('multiarch')
         self.assertEqual(set(_NATIVE_INCLUDES1), result)
 

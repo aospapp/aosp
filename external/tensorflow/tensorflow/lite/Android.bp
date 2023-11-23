@@ -12,8 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_tensorflow_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-MIT
+    default_applicable_licenses: ["external_tensorflow_license"],
+}
+
 cc_defaults {
     name: "tflite_defaults",
+    vendor_available: true,
+    host_supported: true,
     header_libs: [
         "tensorflow_headers",
     ],
@@ -53,51 +65,47 @@ cc_library_static {
         "core/subgraph.cc",
         "delegates/nnapi/nnapi_delegate.cc",
         "delegates/nnapi/quant_lstm_sup.cc",
+        "experimental/resource/resource_variable.cc",
         "external_cpu_backend_context.cc",
         "graph_info.cc",
         "interpreter.cc",
+        "interpreter_builder.cc",
+        "kernels/cpu_backend_context.cc",
+        "kernels/cpu_backend_gemm_eigen.cc",
+        "kernels/eigen_support.cc",
         "minimal_logging.cc",
         "minimal_logging_android.cc",
         "mmap_allocation.cc",
-        "model.cc",
+        "model_builder.cc",
         "mutable_op_resolver.cc",
         "nnapi/nnapi_implementation.cc",
         "nnapi/nnapi_util.cc",
         "optional_debug_tools.cc",
+        "profiling/atrace_profiler.cc",
+        "profiling/platform_profiler.cc",
+        "schema/schema_utils.cc",
         "simple_memory_arena.cc",
         "stderr_reporter.cc",
         "string_util.cc",
+        "tflite_with_xnnpack_optional.cc",
         "tools/optimize/sparsity/format_converter.cc",
         "util.cc",
-        "kernels/cpu_backend_context.cc",
-        "kernels/cpu_backend_gemm_eigen.cc",
-        "kernels/eigen_support.cc",
-        "experimental/resource/resource_variable.cc",
-        "experimental/ruy/allocator.cc",
-        "experimental/ruy/block_map.cc",
-        "experimental/ruy/blocking_counter.cc",
-        "experimental/ruy/context.cc",
-        "experimental/ruy/detect_arm.cc",
-        "experimental/ruy/detect_x86.cc",
-        "experimental/ruy/have_built_path_for_avx2.cc",
-        "experimental/ruy/have_built_path_for_avx512.cc",
-        "experimental/ruy/have_built_path_for_avxvnni.cc",
-        "experimental/ruy/have_built_path_for_sse42.cc",
-        "experimental/ruy/kernel_arm32.cc",
-        "experimental/ruy/kernel_arm64.cc",
-        "experimental/ruy/pack_arm.cc",
-        "experimental/ruy/prepacked_cache.cc",
-        "experimental/ruy/thread_pool.cc",
-        "experimental/ruy/trmul.cc",
-        "experimental/ruy/tune.cc",
-        "experimental/ruy/wait.cc",
+    ],
+    include_dirs: [
+        "external/libtextclassifier/native/",
+    ],
+    whole_static_libs: [
+        "libtextclassifier_hash_static",
     ],
     header_libs: [
-        "libeigen",
         "flatbuffer_headers",
         "gemmlowp_headers",
+        "libbase_headers",
+        "libeigen",
+        "libruy_headers",
     ],
     cflags: [
+        "-DNAMESPACE_FOR_HASH_FUNCTIONS=farmhash",
         "-Wno-deprecated-declarations",
         "-Wno-extern-c-compat",
         "-Wno-ignored-attributes",
@@ -105,6 +113,7 @@ cc_library_static {
         "-Wno-mismatched-tags",
         "-Wno-sign-compare",
         "-Wno-unused-const-variable",
+        "-Wno-unused-function",
         "-Wno-unused-lambda-capture",
     ],
 }
@@ -113,6 +122,8 @@ cc_library_shared {
     name: "libtflite",
     defaults: ["tflite_defaults"],
     shared_libs: [
+        "libflatbuffers-cpp",
+        "libruy",
         "libtextclassifier_hash",
     ],
     whole_static_libs: [

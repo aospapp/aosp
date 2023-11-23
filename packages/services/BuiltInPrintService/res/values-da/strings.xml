@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="3551052199033657984">"Standardudskrivningstjeneste"</string>
+    <string name="app_name" msgid="3551052199033657984">"Standardtjeneste til udskrivning"</string>
     <string name="printer_busy" msgid="8604311528104955859">"Optaget"</string>
     <string name="printer_out_of_paper" msgid="4882186432807703877">"Der mangler papir"</string>
     <string name="printer_out_of_ink" msgid="7361897651097675464">"Der mangler blæk"</string>
@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"Acceptér"</string>
     <string name="reject" msgid="24751635160440693">"Afvis"</string>
     <string name="connections" msgid="8895413761760117180">"Forbindelser"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"Standardtjenesten til udskrivning kan ikke finde printere med Wi-Fi Direct"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Deaktiver Wi-Fi Direct"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Standardtjenesten til udskrivning skal have adgangstilladelse til din placering for at finde enheder i nærheden."</string>
     <string name="fix" msgid="7784394272611365393">"Gennemgå tilladelsen"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"Placeringstjenester skal være aktiveret, før standardtjenesten til udskrivning kan finde enheder i nærheden."</string>
+    <string name="enable_location" msgid="3627841004298863140">"Aktivér Placering"</string>
     <string name="print" msgid="7851318072404916362">"Udskriv"</string>
 </resources>

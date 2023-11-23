@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_native_libs_ui_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_native_libs_ui_license"],
+}
+
 cc_test {
     name: "Region_test",
     shared_libs: ["libui"],
@@ -25,6 +34,20 @@ cc_test {
     name: "colorspace_test",
     shared_libs: ["libui"],
     srcs: ["colorspace_test.cpp"],
+    cflags: ["-Wall", "-Werror"],
+}
+
+cc_test {
+    name: "DisplayId_test",
+    shared_libs: ["libui"],
+    srcs: ["DisplayId_test.cpp"],
+    cflags: ["-Wall", "-Werror"],
+}
+
+cc_test {
+    name: "FlattenableHelpers_test",
+    shared_libs: ["libui"],
+    srcs: ["FlattenableHelpers_test.cpp"],
     cflags: ["-Wall", "-Werror"],
 }
 
@@ -75,6 +98,14 @@ cc_test {
         "libui",
         "libutils",
     ],
+}
+
+cc_test {
+    name: "Rect_test",
+    test_suites: ["device-tests"],
+    shared_libs: ["libui"],
+    srcs: ["Rect_test.cpp"],
+    cflags: ["-Wall", "-Werror"],
 }
 
 cc_test {

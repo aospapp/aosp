@@ -77,10 +77,11 @@ with the Android Open Source Project. For this reason, device implementers
 SHOULD use the source code available via the Android Open Source Project where
 possible, rather than re-implement significant parts of the system.
 
-## 3.5.1\. Background Restriction
+## 3.5.1\. Application Restriction
 
-If device implementations implement the app restrictions that are included in
-AOSP or extend the app restrictions, they:
+If device implementations implement a proprietary mechanism to restrict apps and
+that mechanism is more restrictive than [the Rare App Standby Bucket](
+https://developer.android.com/topic/performance/power/power-details), they:
 
 *    [C-1-1] MUST provide user affordance where the user can see the list of
 restricted apps.
@@ -97,7 +98,8 @@ the market, MUST NOT be used as criteria.
 has turned off app restrictions manually, and MAY suggest the user to apply
 app restrictions.
 *    [C-1-5] MUST inform users if app restrictions are applied to an app
-automatically.
+automatically. Such information MUST be provided within 24 hours of when
+the restrictions are applied.
 *    [C-1-6] MUST return `true` for [`ActivityManager.isBackgroundRestricted()`](
 https://developer.android.com/reference/android/app/ActivityManager.html#isBackgroundRestricted%28%29)
 when the restricted app calls this API.

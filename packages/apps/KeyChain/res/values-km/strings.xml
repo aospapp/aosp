@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"អ្នក​អាច​ដំឡើង​វិញ្ញាបនបត្រ​ពី​ឯកសារ PKCS#12 ជា​មួយ​ផ្នែក​បន្ថែម %1$s ឬ %2$s ដែល​ស្ថិត​ក្នុង​ឧបករណ៍​ផ្ទុក​ខាង​ក្រៅ។"</string>
     <string name="allow_button" msgid="3030990695030371561">"ជ្រើស"</string>
     <string name="deny_button" msgid="3766539809121892584">"បដិសេធ"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"កំពុងផ្ទុក​វិញ្ញាបនបត្រ..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s កំពុងពិនិត្យមើលវិញ្ញាបនបត្រ…"</string>
 </resources>

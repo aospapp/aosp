@@ -12,10 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_av_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_av_license"],
+}
+
 apex_defaults {
     name: "com.android.media-defaults",
     updatable: true,
-    java_libs: ["updatable-media"],
+    bootclasspath_fragments: ["com.android.media-bootclasspath-fragment"],
+    systemserverclasspath_fragments: ["com.android.media-systemserverclasspath-fragment"],
     multilib: {
         first: {
             // Extractor process runs only with the primary ABI.
@@ -32,12 +42,24 @@ apex_defaults {
                 "liboggextractor",
                 "libwavextractor",
             ],
+            // Transcoding service only run with primary ABI.
+            binaries: [
+                "mediatranscoding",
+            ],
         },
     },
+    // JNI
+    native_shared_libs: [
+        "libmediaparser-jni",
+        "libmediaformatshaper",
+    ],
+    compile_multilib: "both",
     prebuilts: [
-        "mediaextractor.policy",
         "code_coverage.policy",
+        "com.android.media-mediatranscoding.rc",
         "crash_dump.policy",
+        "mediaextractor.policy",
+        "media-linker-config",
     ],
     key: "com.android.media.key",
     certificate: ":com.android.media.certificate",
@@ -53,12 +75,65 @@ apex_defaults {
     // - build artifacts (lib/javalib/bin) against Android 10 SDK
     //   so that the artifacts can run.
     min_sdk_version: "29",
+    // Indicates that pre-installed version of this apex can be compressed.
+    // Whether it actually will be compressed is controlled on per-device basis.
+    compressible: true,
 }
 
 apex {
     name: "com.android.media",
     manifest: "manifest.json",
     defaults: ["com.android.media-defaults"],
+    prebuilts: ["current_sdkinfo"],
+}
+
+linker_config {
+    name: "media-linker-config",
+    src: "linker.config.json",
+    installable: false,
+}
+
+// Encapsulate the contributions made by the com.android.media to the bootclasspath.
+bootclasspath_fragment {
+    name: "com.android.media-bootclasspath-fragment",
+    contents: ["updatable-media"],
+    apex_available: ["com.android.media"],
+
+    api: {
+        stub_libs: [
+            // Stubs for the APIs provided by updatable-media. This has to be
+            // specified explicitly because updatable-media is not a
+            // java_sdk_library.
+            "framework-media",
+        ],
+    },
+
+    // The bootclasspath_fragments that provide APIs on which this depends.
+    fragments: [
+        {
+            apex: "com.android.art",
+            module: "art-bootclasspath-fragment",
+        },
+    ],
+
+    // Additional stubs libraries that this fragment's contents use which are
+    // not provided by another bootclasspath_fragment.
+    additional_stubs: [
+        "android-non-updatable",
+    ],
+
+    // Additional hidden API flag files to override the defaults. This must only be
+    // modified by the Soong or platform compat team.
+    hidden_api: {
+        max_target_o_low_priority: ["hiddenapi/hiddenapi-max-target-o-low-priority.txt"],
+    },
+}
+
+// Encapsulate the contributions made by the com.android.media to the systemserverclasspath.
+systemserverclasspath_fragment {
+    name: "com.android.media-systemserverclasspath-fragment",
+    contents: ["service-media-s"],
+    apex_available: ["com.android.media"],
 }
 
 filegroup {
@@ -77,6 +152,12 @@ apex_defaults {
     binaries: [
         "mediaswcodec",
     ],
+    native_shared_libs: [
+        "libcodec2_hidl@1.0",
+        "libcodec2_hidl@1.1",
+        "libcodec2_hidl@1.2",
+        "libstagefright_foundation",
+    ],
     prebuilts: [
         "com.android.media.swcodec-mediaswcodec.rc",
         "com.android.media.swcodec-ld.config.txt",
@@ -85,7 +166,6 @@ apex_defaults {
         "crash_dump.policy",
         "mediaswcodec.xml",
     ],
-    use_vendor: true,
     key: "com.android.media.swcodec.key",
     certificate: ":com.android.media.swcodec.certificate",
 
@@ -100,6 +180,16 @@ apex_defaults {
     // - build artifacts (lib/javalib/bin) against Android 10 SDK
     //   so that the artifacts can run.
     min_sdk_version: "29",
+    // Indicates that pre-installed version of this apex can be compressed.
+    // Whether it actually will be compressed is controlled on per-device basis.
+    compressible: true,
+}
+
+prebuilt_etc {
+    name: "com.android.media-mediatranscoding.rc",
+    src: "mediatranscoding.rc",
+    filename: "init.rc",
+    installable: false,
 }
 
 prebuilt_etc {

@@ -145,6 +145,7 @@ class ExperimentFactory(object):
     config.AddConfig('no_email', global_settings.GetField('no_email'))
     share_cache = global_settings.GetField('share_cache')
     results_dir = global_settings.GetField('results_dir')
+    compress_results = global_settings.GetField('compress_results')
     # Warn user that option use_file_locks is deprecated.
     use_file_locks = global_settings.GetField('use_file_locks')
     if use_file_locks:
@@ -229,8 +230,8 @@ class ExperimentFactory(object):
 
       iterations = benchmark_settings.GetField('iterations')
       if cwp_dso:
-        if cwp_dso_iterations != 0 and iterations != cwp_dso_iterations:
-          raise RuntimeError('Iterations of each benchmark run are not the ' \
+        if cwp_dso_iterations not in (0, iterations):
+          raise RuntimeError('Iterations of each benchmark run are not the '
                              'same')
         cwp_dso_iterations = iterations
 
@@ -288,20 +289,37 @@ class ExperimentFactory(object):
                                   perf_args, suite, show_all_results, retries,
                                   run_local, cwp_dso, weight)
           # Add non-telemetry toolchain-perf benchmarks:
+
+          # Tast test platform.ReportDiskUsage for image size.
           benchmarks.append(
               Benchmark(
-                  'graphics_WebGLAquarium',
-                  'graphics_WebGLAquarium',
+                  'platform.ReportDiskUsage',
+                  'platform.ReportDiskUsage',
                   '',
-                  iterations,
+                  1,  # This is not a performance benchmark, only run once.
                   rm_chroot_tmp,
-                  perf_args,
-                  'crosperf_Wrapper',  # Use client wrapper in Autotest
+                  '',
+                  'tast',  # Specify the suite to be 'tast'
                   show_all_results,
-                  retries,
-                  run_local=False,
-                  cwp_dso=cwp_dso,
-                  weight=weight))
+                  retries))
+
+          # TODO: crbug.com/1057755 Do not enable graphics_WebGLAquarium until
+          # it gets fixed.
+          #
+          # benchmarks.append(
+          #     Benchmark(
+          #         'graphics_WebGLAquarium',
+          #         'graphics_WebGLAquarium',
+          #         '',
+          #         iterations,
+          #         rm_chroot_tmp,
+          #         perf_args,
+          #         'crosperf_Wrapper',  # Use client wrapper in Autotest
+          #         show_all_results,
+          #         retries,
+          #         run_local=False,
+          #         cwp_dso=cwp_dso,
+          #         weight=weight))
         elif test_name == 'all_toolchain_perf_old':
           self.AppendBenchmarkSet(
               benchmarks, telemetry_toolchain_old_perf_tests, test_args,
@@ -421,8 +439,8 @@ class ExperimentFactory(object):
                             chromeos_root, cache_conditions, labels, benchmarks,
                             experiment_file.Canonicalize(), email,
                             acquire_timeout, log_dir, log_level, share_cache,
-                            results_dir, locks_dir, cwp_dso, ignore_min_max,
-                            skylab, dut_config)
+                            results_dir, compress_results, locks_dir, cwp_dso,
+                            ignore_min_max, skylab, dut_config)
 
     return experiment
 

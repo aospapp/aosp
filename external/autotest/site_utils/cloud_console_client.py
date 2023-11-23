@@ -84,30 +84,6 @@ class CloudConsoleClient(object):
         """
         pass
 
-    def send_log(self, msg, level=None, session_id=None):
-        """Sends a log message to the remote console.
-
-        @param msg: The log message.
-        @param level: The logging level.
-        @param session_id: The current session id.
-
-        @returns True if the notification is successfully sent.
-            Otherwise, False.
-        """
-        pass
-
-    def send_alert(self, msg, level=None, session_id=None):
-        """Sends an alert to the remote console.
-
-        @param msg: The alert message.
-        @param level: The logging level.
-        @param session_id: The current session id.
-
-        @returns True if the notification is successfully sent.
-            Otherwise, False.
-        """
-        pass
-
     def send_test_job_offloaded_message(self, gcs_uri):
         """Sends a test job offloaded message to the remote console.
 

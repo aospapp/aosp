@@ -25,7 +25,11 @@
 #ifndef BTA_HF_CLIENT_API_H
 #define BTA_HF_CLIENT_API_H
 
+#include <cstdint>
+
 #include "bta_api.h"
+#include "bta_hfp_api.h"
+#include "types/raw_address.h"
 
 /*****************************************************************************
  *  Constants and data types
@@ -45,7 +49,8 @@
 #define BTA_HF_CLIENT_PEER_ECC 0x00000080 /* Enhanced Call Control */
 #define BTA_HF_CLIENT_PEER_EXTERR 0x00000100 /* Extended error codes */
 #define BTA_HF_CLIENT_PEER_CODEC 0x00000200  /* Codec Negotiation */
-#define BTA_HF_CLIENT_PEER_S4 0x00000800     /* ESCO S4 link setting */
+#define BTA_HF_CLIENT_PEER_HF_IND 0x00000400 /* HF Indicators */
+#define BTA_HF_CLIENT_PEER_ESCO_S4 0x00000800 /* ESCO S4 link setting */
 
 typedef uint16_t tBTA_HF_CLIENT_PEER_FEAT;
 
@@ -61,7 +66,8 @@ typedef uint16_t tBTA_HF_CLIENT_PEER_FEAT;
 #define BTA_HF_CLIENT_FEAT_ECS 0x00000020   /* Enhanced Call Status */
 #define BTA_HF_CLIENT_FEAT_ECC 0x00000040   /* Enhanced Call Control */
 #define BTA_HF_CLIENT_FEAT_CODEC 0x00000080 /* Codec Negotiation */
-#define BTA_HF_CLIENT_FEAT_S4 0x00000200    /* ESCO S4 link setting */
+#define BTA_HF_CLIENT_FEAT_HF_IND 0x00000100  /* HF Indicators */
+#define BTA_HF_CLIENT_FEAT_ESCO_S4 0x00000200 /* ESCO S4 link setting */
 
 /* HFP HF extended call handling - masks not related to any spec */
 #define BTA_HF_CLIENT_CHLD_REL \
@@ -89,7 +95,7 @@ typedef uint16_t tBTA_HF_CLIENT_CHLD_FEAT;
 #define BTA_HF_CLIENT_AT_RESULT_BUSY 3
 #define BTA_HF_CLIENT_AT_RESULT_NO_ANSWER 4
 #define BTA_HF_CLIENT_AT_RESULT_DELAY 5
-#define BTA_HF_CLIENT_AT_RESULT_BLACKLISTED 6
+#define BTA_HF_CLIENT_AT_RESULT_REJECTLISTED 6
 #define BTA_HF_CLIENT_AT_RESULT_CME 7
 
 typedef uint8_t tBTA_HF_CLIENT_AT_RESULT_TYPE;
@@ -165,6 +171,7 @@ typedef uint8_t tBTA_HF_CLIENT_IND_TYPE;
 #define BTA_HF_CLIENT_AT_CMD_BLDN 14
 #define BTA_HF_CLIENT_AT_CMD_NREC 15
 #define BTA_HF_CLIENT_AT_CMD_VENDOR_SPECIFIC_CMD 16
+#define BTA_HF_CLIENT_AT_CMD_BIEV 17
 
 typedef uint8_t tBTA_HF_CLIENT_AT_CMD_TYPE;
 
@@ -287,7 +294,7 @@ typedef void(tBTA_HF_CLIENT_CBACK)(tBTA_HF_CLIENT_EVT event,
  * Returns          BTA_SUCCESS if OK, BTA_FAILURE otherwise.
  *
  ******************************************************************************/
-tBTA_STATUS BTA_HfClientEnable(tBTA_HF_CLIENT_CBACK* p_cback, tBTA_SEC sec_mask,
+tBTA_STATUS BTA_HfClientEnable(tBTA_HF_CLIENT_CBACK* p_cback,
                                tBTA_HF_CLIENT_FEAT features,
                                const char* p_service_name);
 
@@ -317,8 +324,7 @@ void BTA_HfClientDisable(void);
  * Returns          void
  *
  ******************************************************************************/
-void BTA_HfClientOpen(const RawAddress& bd_addr, tBTA_SEC sec_mask,
-                      uint16_t* p_handle);
+void BTA_HfClientOpen(const RawAddress& bd_addr, uint16_t* p_handle);
 
 /*******************************************************************************
  *

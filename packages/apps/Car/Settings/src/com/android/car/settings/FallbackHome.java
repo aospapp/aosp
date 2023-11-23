@@ -29,7 +29,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.SystemClock;
-import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.view.Gravity;
@@ -40,6 +39,7 @@ import android.view.animation.AnimationUtils;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.android.car.internal.common.UserHelperLite;
 import com.android.car.settings.common.Logger;
 
 import java.util.Objects;
@@ -52,6 +52,8 @@ public class FallbackHome extends Activity {
     private static final int PROGRESS_TIMEOUT = 2000;
 
     private boolean mProvisioned;
+
+    private boolean mFinished;
 
     private final Runnable mProgressTimeoutRunnable = () -> {
         View v = getLayoutInflater().inflate(
@@ -135,6 +137,10 @@ public class FallbackHome extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         unregisterReceiver(mReceiver);
+        if (!mFinished) {
+            LOG.d("User " + getUserId() + " FallbackHome is finished");
+            finishFallbackHome();
+        }
     }
 
     private BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -150,23 +156,27 @@ public class FallbackHome extends Activity {
                     .addCategory(Intent.CATEGORY_HOME);
             final ResolveInfo homeInfo = getPackageManager().resolveActivity(homeIntent, 0);
             if (Objects.equals(getPackageName(), homeInfo.activityInfo.packageName)) {
-                if (UserManager.isSplitSystemUser()
-                        && UserHandle.myUserId() == UserHandle.USER_SYSTEM) {
-                    // This avoids the situation where the system user has no home activity after
-                    // SUW and this activity continues to throw out warnings. See b/28870689.
-                    return;
-                }
                 LOG.d("User " + getUserId() + " unlocked but no home; let's hope someone enables "
                         + "one soon?");
                 mHandler.sendEmptyMessageDelayed(0, 500);
             } else {
-                LOG.d("User " + getUserId() + " unlocked and real home ("
-                        + homeInfo.activityInfo.packageName + ") found; let's go!");
-                getSystemService(PowerManager.class).userActivity(
-                        SystemClock.uptimeMillis(), false);
-                finishAndRemoveTask();
+                String homePackageName = homeInfo.activityInfo.packageName;
+                if (UserHelperLite.isHeadlessSystemUser(getUserId())) {
+                    // This is the transient state in HeadlessSystemMode to boot for user 10+.
+                    LOG.d("User 0 unlocked, but will not launch real home: " + homePackageName);
+                    return;
+                }
+                LOG.d("User " + getUserId() + " unlocked and real home (" + homePackageName
+                        + ") found; let's go!");
+                finishFallbackHome();
             }
         }
+    }
+
+    private void finishFallbackHome() {
+        getSystemService(PowerManager.class).userActivity(SystemClock.uptimeMillis(), false);
+        finishAndRemoveTask();
+        mFinished = true;
     }
 
     private Handler mHandler = new Handler() {

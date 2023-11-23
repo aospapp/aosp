@@ -128,14 +128,14 @@ public class TvInputManagerHelper {
 
     private static final String PERMISSION_ACCESS_ALL_EPG_DATA =
             "com.android.providers.tv.permission.ACCESS_ALL_EPG_DATA";
-    private static final String[] mPhysicalTunerBlackList = {
+    private static final String[] mPhysicalTunerBlockList = {
         "com.google.android.videos", // Play Movies
     };
     private static final String META_LABEL_SORT_KEY = "input_sort_key";
 
     private static final String TV_INPUT_ALLOW_3RD_PARTY_INPUTS = "tv_input_allow_3rd_party_inputs";
 
-    private static final String[] SYSTEM_INPUT_ID_BLACKLIST = {
+    private static final String[] SYSTEM_INPUT_ID_BLOCKLIST = {
         "com.google.android.videos/" // Play Movies
     };
 
@@ -160,7 +160,7 @@ public class TvInputManagerHelper {
         DEFAULT_TV_INPUT_PRIORITY.add(TvInputInfo.TYPE_OTHER);
     }
 
-    private static final String[] PARTNER_TUNER_INPUT_PREFIX_BLACKLIST = {
+    private static final String[] PARTNER_TUNER_INPUT_PREFIX_BLOCKLIST = {
         /* Begin_AOSP_Comment_Out
         // Disabled partner's tuner input prefix list.
         "com.mediatek.tvinput/.dtv"
@@ -597,7 +597,7 @@ public class TvInputManagerHelper {
 
     private boolean isInputPhysicalTuner(TvInputInfo input) {
         String packageName = input.getServiceInfo().packageName;
-        if (Arrays.asList(mPhysicalTunerBlackList).contains(packageName)) {
+        if (Arrays.asList(mPhysicalTunerBlockList).contains(packageName)) {
             return false;
         }
 
@@ -628,9 +628,9 @@ public class TvInputManagerHelper {
         return true;
     }
 
-    private boolean isInBlackList(String inputId) {
-        if (TvFeatures.USE_PARTNER_INPUT_BLACKLIST.isEnabled(mContext)) {
-            for (String disabledTunerInputPrefix : PARTNER_TUNER_INPUT_PREFIX_BLACKLIST) {
+    private boolean isBlocked(String inputId) {
+        if (TvFeatures.USE_PARTNER_INPUT_BLOCKLIST.isEnabled(mContext)) {
+            for (String disabledTunerInputPrefix : PARTNER_TUNER_INPUT_PREFIX_BLOCKLIST) {
                 if (inputId.contains(disabledTunerInputPrefix)) {
                     return true;
                 }
@@ -694,13 +694,13 @@ public class TvInputManagerHelper {
             if (!isSystemInput(info)) {
                 return true;
             }
-            for (String id : SYSTEM_INPUT_ID_BLACKLIST) {
+            for (String id : SYSTEM_INPUT_ID_BLOCKLIST) {
                 if (info.getId().startsWith(id)) {
                     return true;
                 }
             }
         }
-        return isInBlackList(info.getId());
+        return isBlocked(info.getId());
     }
 
     /**

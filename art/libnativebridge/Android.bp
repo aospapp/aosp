@@ -1,11 +1,23 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "art_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["art_license"],
+}
+
 cc_defaults {
     name: "libnativebridge-defaults",
     defaults: ["art_defaults"],
-    cppflags: [
-        "-fvisibility=protected",
+    header_libs: [
+        "jni_headers",
+        "libnativebridge-headers",
     ],
-    header_libs: ["libnativebridge-headers"],
-    export_header_lib_headers: ["libnativebridge-headers"],
+    export_header_lib_headers: [
+        "jni_headers",
+        "libnativebridge-headers",
+    ],
 }
 
 cc_library_headers {
@@ -16,12 +28,14 @@ cc_library_headers {
 
     apex_available: [
         "//apex_available:platform",
+        "com.android.art",
         "com.android.art.debug",
-        "com.android.art.release",
+        "com.android.media",
     ],
+    min_sdk_version: "S",
 }
 
-cc_library {
+art_cc_library {
     name: "libnativebridge",
     defaults: ["libnativebridge-defaults"],
     visibility: [
@@ -30,7 +44,7 @@ cc_library {
         "//frameworks/base/native/webview/loader/libwebviewchromium_loader",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
 
@@ -47,10 +61,10 @@ cc_library {
 
     target: {
         android: {
-            version_script: "libnativebridge.map.txt",
-        },
-        linux: {
-            version_script: "libnativebridge.map.txt",
+            header_libs: [
+                "libnativeloader-headers", // For dlext_namespaces.h
+            ],
+            shared_libs: ["libdl_android"],
         },
     },
 
@@ -70,10 +84,16 @@ cc_library {
         "//frameworks/native/opengl/libs",
         "//frameworks/native/vulkan/libvulkan",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.media",
+        "com.android.media.swcodec",
+    ],
 
     host_supported: false,
     srcs: ["native_bridge_lazy.cc"],
-    required: ["libnativebridge"],
+    runtime_libs: ["libnativebridge"],
+    shared_libs: ["liblog"],
 }
 
 subdirs = ["tests"]

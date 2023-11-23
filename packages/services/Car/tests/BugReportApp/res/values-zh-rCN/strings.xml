@@ -21,6 +21,7 @@
     <string name="bugreport_info_quit" msgid="5590138890181142473">"关闭"</string>
     <string name="bugreport_info_start" msgid="667324824650830832">"开始收集错误报告"</string>
     <string name="bugreport_info_status" msgid="7211044508792815451">"状态："</string>
+    <string name="bugreport_info_expires_soon_notice" msgid="927139313070992675">"这份错误报告即将到期"</string>
     <string name="bugreport_dialog_submit" msgid="2789636252713280633">"提交"</string>
     <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"取消"</string>
     <string name="bugreport_dialog_upload" msgid="2517386929450370781">"上传"</string>

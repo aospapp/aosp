@@ -22,12 +22,17 @@ import android.app.INotificationManager;
 import android.app.NotificationManager;
 import android.app.tvsettings.TvSettingsEnums;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.os.RemoteException;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.preference.SwitchPreference;
 
+import com.android.settingslib.Utils;
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;
 
@@ -48,6 +53,7 @@ public class NotificationsPreference extends SwitchPreference {
 
     /**
      * Set entry and refresh pref.
+     *
      * @param entry entry
      */
     public void setEntry(@NonNull ApplicationsState.AppEntry entry) {
@@ -57,7 +63,7 @@ public class NotificationsPreference extends SwitchPreference {
 
     public void refresh() {
         setTitle(R.string.device_apps_app_management_notifications);
-
+        setEnabled(isBlockable(getContext(), mEntry.info));
         try {
             super.setChecked(
                     mNotificationManager.areNotificationsEnabledForPackage(mEntry.info.packageName,
@@ -70,6 +76,9 @@ public class NotificationsPreference extends SwitchPreference {
 
     @Override
     public void setChecked(boolean checked) {
+        if (!isEnabled()) {
+            return;
+        }
         logToggleInteracted(TvSettingsEnums.APPS_ALL_APPS_APP_ENTRY_NOTIFICATIONS, checked);
         if (setNotificationsEnabled(checked)) {
             super.setChecked(checked);
@@ -82,11 +91,63 @@ public class NotificationsPreference extends SwitchPreference {
             try {
                 mNotificationManager.setNotificationsEnabledForPackage(
                         mEntry.info.packageName, mEntry.info.uid, enabled);
-            } catch (android.os.RemoteException ex) {
+            } catch (RemoteException ex) {
                 result = false;
             }
         }
         return result;
     }
 
+    /**
+     * Returns if changes to notifications for an app should be allowed in TV settings. If the app
+     * is NOT blockable disabling notifications for the app should be disallowed.
+     */
+    private boolean isBlockable(Context context, ApplicationInfo info) {
+        final boolean blocked = getNotificationsBanned(info.packageName, info.uid);
+        final boolean systemApp = isSystemApp(context, info);
+        // allow Notifications setting change if not a system app
+        // or if a system app, but somehow notifications are turned off atm
+        return !systemApp || (systemApp && blocked);
+    }
+
+    private boolean getNotificationsBanned(String pkg, int uid) {
+        try {
+            final boolean enabled = mNotificationManager.areNotificationsEnabledForPackage(pkg,
+                    uid);
+            return !enabled;
+        } catch (RemoteException e) {
+            Log.w(TAG, "Error calling NotificationManager ", e);
+            return false;
+        }
+    }
+
+    /**
+     * In this context a system app is either an actual system app or on the
+     * config_nonBlockableNotificationPackages list of packages
+     */
+    private boolean isSystemApp(Context context, ApplicationInfo app) {
+        try {
+            PackageInfo info = context.getPackageManager().getPackageInfo(
+                    app.packageName, PackageManager.GET_SIGNATURES);
+            return Utils.isSystemPackage(context.getResources(), context.getPackageManager(), info)
+                    || isNonBlockablePackage(context.getResources(), app.packageName);
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    private boolean isNonBlockablePackage(Resources resources, String packageName) {
+        final String[] nonBlockablePkgs = resources.getStringArray(
+                com.android.internal.R.array.config_nonBlockableNotificationPackages);
+        for (String pkg : nonBlockablePkgs) {
+            // The non blockable package list can contain channels in the `package:channelId`
+            // format. Since TV settings don't support notifications channels, we'll consider
+            // the package non blockable if one of its channels is blocked
+            if (pkg != null && packageName.equals(pkg.split(":", 2)[0])) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

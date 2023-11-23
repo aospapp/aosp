@@ -26,7 +26,7 @@ import com.example.android.autofill.service.util.Util;
 public class MyPreferences {
     private static final String RESPONSE_AUTH_KEY = "response_auth";
     private static final String DATASET_AUTH_KEY = "dataset_auth";
-    private static final String MASTER_PASSWORD_KEY = "master_password";
+    private static final String MAIN_PASSWORD_KEY = "main_password";
     private static final String LOGGING_LEVEL = "logging_level";
     private static final String DAL_CHECK_REQUIRED = "dal_check_required";
     private static final String NUMBER_DATASETS = "number_datasets";
@@ -74,21 +74,21 @@ public class MyPreferences {
     }
 
     /**
-     * Gets autofill master username.
+     * Gets autofill main username.
      */
-    public String getMasterPassword() {
-        return mPrefs.getString(MASTER_PASSWORD_KEY, null);
+    public String getMainPassword() {
+        return mPrefs.getString(MAIN_PASSWORD_KEY, null);
     }
 
     /**
-     * Sets autofill master password.
+     * Sets autofill main password.
      */
-    public void setMasterPassword(@NonNull String masterPassword) {
-        mPrefs.edit().putString(MASTER_PASSWORD_KEY, masterPassword).apply();
+    public void setMainPassword(@NonNull String mainPassword) {
+        mPrefs.edit().putString(MAIN_PASSWORD_KEY, mainPassword).apply();
     }
 
     public void clearCredentials() {
-        mPrefs.edit().remove(MASTER_PASSWORD_KEY).apply();
+        mPrefs.edit().remove(MAIN_PASSWORD_KEY).apply();
     }
 
     public Util.LogLevel getLoggingLevel() {

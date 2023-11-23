@@ -135,13 +135,10 @@ int cras_alsa_set_hwparams(snd_pcm_t *handle, struct cras_audio_format *format,
 /* Sets up the swparams to alsa.
  * Args:
  *    handle - The open PCM to configure.
- *    enable_htimestamp - If non-zero, enable and configure hardware timestamps,
- *                        updated to reflect whether MONOTONIC RAW htimestamps
- *                        are supported by the kernel implementation.
  * Returns:
  *    0 on success, negative error on failure.
  */
-int cras_alsa_set_swparams(snd_pcm_t *handle, int *enable_htimestamp);
+int cras_alsa_set_swparams(snd_pcm_t *handle);
 
 /* Get the number of used frames in the alsa buffer.
  *

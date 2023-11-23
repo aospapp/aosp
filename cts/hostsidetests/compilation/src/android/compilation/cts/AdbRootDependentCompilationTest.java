@@ -104,7 +104,7 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
         // real profile.
         byte[] profileBytes = ByteStreams.toByteArray(
                 getClass().getResourceAsStream("/primary.prof.txt"));
-        assertTrue("empty profile", profileBytes.length > 0); // sanity check
+        assertTrue("empty profile", profileBytes.length > 0); // validity check
         textProfileFile = File.createTempFile("compilationtest", "prof.txt");
         Files.write(profileBytes, textProfileFile);
 
@@ -127,8 +127,22 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
         if (!canRunTest(EnumSet.noneOf(ProfileLocation.class))) {
             return;
         }
+
+        resetProfileState();
+
+        // Copy the profile to the reference location so that the bg-dexopt
+        // can actually do work if it's configured to speed-profile.
+        for (ProfileLocation profileLocation : EnumSet.of(ProfileLocation.REF)) {
+            writeProfile(profileLocation);
+        }
+
         // Usually "interpret-only"
         String expectedInstallFilter = Objects.requireNonNull(mDevice.getProperty("pm.dexopt.install"));
+        if (expectedInstallFilter.equals("speed-profile")) {
+            // If the filter is speed-profile but no profile is present, the compiler
+            // will change it to verify.
+            expectedInstallFilter = "verify";
+        }
         // Usually "speed-profile"
         String expectedBgDexoptFilter = Objects.requireNonNull(mDevice.getProperty("pm.dexopt.bg-dexopt"));
 
@@ -170,16 +184,17 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
     }
 
     public void testCompile_refProfile() throws Exception {
-        compileWithProfilesAndCheckFilter(false /* expectOdexChange */,
+        compileWithProfilesAndCheckFilter(true /* expectOdexChange */,
                  EnumSet.of(ProfileLocation.REF));
-        // We assume that the compiler isn't smart enough to realize that the
-        // previous odex was compiled before the ref profile was in place, even
-        // though theoretically it could be.
+        // expect a change in odex because the of the change form
+        // verify -> speed-profile
     }
 
     public void testCompile_curAndRefProfile() throws Exception {
-        compileWithProfilesAndCheckFilter(false /* expectOdexChange */,
+        compileWithProfilesAndCheckFilter(true /* expectOdexChange */,
                 EnumSet.of(ProfileLocation.CUR, ProfileLocation.REF));
+        // expect a change in odex because the of the change form
+        // verify -> speed-profile
     }
 
     private byte[] readFileOnClient(String clientPath) throws Exception {
@@ -206,17 +221,13 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
         if (!canRunTest(profileLocations)) {
             return false;
         }
-        // ensure no profiles initially present
-        for (ProfileLocation profileLocation : ProfileLocation.values()) {
-            String clientPath = profileLocation.getPath();
-            if (doesFileExist(clientPath)) {
-                executeSuShellAdbCommand(0, "rm", clientPath);
-            }
-        }
+
+        resetProfileState();
+
         executeCompile("-m", "speed-profile", "-f");
         String odexFilePath = getOdexFilePath();
         byte[] initialOdexFileContents = readFileOnClient(odexFilePath);
-        assertTrue("empty odex file", initialOdexFileContents.length > 0); // sanity check
+        assertTrue("empty odex file", initialOdexFileContents.length > 0); // validity check
 
         for (ProfileLocation profileLocation : profileLocations) {
             writeProfile(profileLocation);
@@ -226,7 +237,9 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
         // Confirm the compiler-filter used in creating the odex file
         String compilerFilter = getCompilerFilter(odexFilePath);
 
-        assertEquals("compiler-filter", "speed-profile", compilerFilter);
+        // Without profiles, the compiler filter should be verify.
+        String expectedCompilerFilter = profileLocations.isEmpty() ? "verify" : "speed-profile";
+        assertEquals("compiler-filter", expectedCompilerFilter, compilerFilter);
 
         byte[] odexFileContents = readFileOnClient(odexFilePath);
         boolean odexChanged = !(Arrays.equals(initialOdexFileContents, odexFileContents));
@@ -239,6 +252,11 @@ public class AdbRootDependentCompilationTest extends DeviceTestCase {
             fail("odex file should have changed when recompiling with " + profileLocations);
         }
         return true;
+    }
+
+    public void resetProfileState() throws Exception {
+        executeSuShellAdbCommand(0, "rm", "-f", ProfileLocation.REF.getPath());
+        executeSuShellAdbCommand(0, "truncate", "-s", "0", ProfileLocation.CUR.getPath());
     }
 
     /**

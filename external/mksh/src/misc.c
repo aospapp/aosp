@@ -3,7 +3,8 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014, 2015, 2016, 2017
+ *		 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2019,
+ *		 2020
  *	mirabilos <m@mirbsd.org>
  * Copyright (c) 2015
  *	Daniel Richard G. <skunk@iSKUNK.ORG>
@@ -32,7 +33,7 @@
 #include <grp.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.293 2018/08/10 02:53:35 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.299 2020/05/16 22:19:58 tg Exp $");
 
 #define KSH_CHVT_FLAG
 #ifdef MKSH_SMALL
@@ -62,13 +63,13 @@ static int make_path(const char *, const char *, char **, XString *, int *);
 
 #ifdef SETUID_CAN_FAIL_WITH_EAGAIN
 /* we don't need to check for other codes, EPERM won't happen */
-#define DO_SETUID(func, argvec) do {					\
+#define DO_SETUID(func,argvec) do {					\
 	if ((func argvec) && errno == EAGAIN)				\
 		errorf("%s failed with EAGAIN, probably due to a"	\
 		    " too low process limit; aborting", #func);		\
 } while (/* CONSTCOND */ 0)
 #else
-#define DO_SETUID(func, argvec) func argvec
+#define DO_SETUID(func,argvec) func argvec
 #endif
 
 
@@ -141,7 +142,8 @@ struct options_info {
 };
 
 static void options_fmt_entry(char *, size_t, unsigned int, const void *);
-static void printoptions(bool);
+static int printoptions(bool);
+static int printoption(size_t);
 
 /* format a single select menu item */
 static void
@@ -154,10 +156,32 @@ options_fmt_entry(char *buf, size_t buflen, unsigned int i, const void *arg)
 	    Flag(oi->opts[i]) ? "on" : "off");
 }
 
-static void
+static int
+printoption(size_t i)
+{
+	if (Flag(i) == baseline_flags[i])
+		return (0);
+	if (!OFN(i)[0]) {
+#if !defined(MKSH_SMALL) || defined(DEBUG)
+		bi_errorf(Tf_sd, "change in unnamed option", (int)i);
+#endif
+		return (1);
+	}
+	if (Flag(i) != 0 && Flag(i) != 1) {
+#if !defined(MKSH_SMALL) || defined(DEBUG)
+		bi_errorf(Tf_s_sD_s, Tdo, OFN(i), "not 0 or 1");
+#endif
+		return (1);
+	}
+	shprintf(Tf__s_s, Flag(i) ? Tdo : Tpo, OFN(i));
+	return (0);
+}
+
+static int
 printoptions(bool verbose)
 {
 	size_t i = 0;
+	int rv = 0;
 
 	if (verbose) {
 		size_t n = 0, len, octs = 0;
@@ -187,13 +211,17 @@ printoptions(bool verbose)
 	} else {
 		/* short version like AT&T ksh93 */
 		shf_puts(Tset, shl_stdout);
-		while (i < NELEM(options)) {
-			if (Flag(i) && OFN(i)[0])
-				shprintf(" -o %s", OFN(i));
+		shf_puts(To_o_reset, shl_stdout);
+		printoption(FSH);
+		printoption(FPOSIX);
+		while (i < FNFLAGS) {
+			if (i != FSH && i != FPOSIX)
+				rv |= printoption(i);
 			++i;
 		}
 		shf_putc('\n', shl_stdout);
 	}
+	return (rv);
 }
 
 char *
@@ -216,70 +244,85 @@ getoptions(void)
 void
 change_flag(enum sh_flag f, int what, bool newset)
 {
-	unsigned char oldval;
+	unsigned char oldval = Flag(f);
 	unsigned char newval = (newset ? 1 : 0);
 
 	if (f == FXTRACE) {
 		change_xtrace(newval, true);
 		return;
-	}
-	oldval = Flag(f);
-	Flag(f) = newval = (newset ? 1 : 0);
-#ifndef MKSH_UNEMPLOYED
-	if (f == FMONITOR) {
-		if (what != OF_CMDLINE && newval != oldval)
-			j_change();
-	} else
-#endif
-#ifndef MKSH_NO_CMDLINE_EDITING
-	  if ((
-#if !MKSH_S_NOVI
-	    f == FVI ||
-#endif
-	    f == FEMACS || f == FGMACS) && newval) {
-#if !MKSH_S_NOVI
-		Flag(FVI) =
-#endif
-		    Flag(FEMACS) = Flag(FGMACS) = 0;
-		Flag(f) = newval;
-	} else
-#endif
-	  if (f == FPRIVILEGED && oldval && !newval) {
-		/* Turning off -p? */
+	} else if (f == FPRIVILEGED) {
+		if (!oldval)
+			/* no getting back dropped privs */
+			return;
+		else if (!newval) {
+			/* turning off -p */
+			kshegid = kshgid;
+			ksheuid = kshuid;
+		} else if (oldval != 3)
+			/* nor going full sugid */
+			goto change_flag;
 
-		/*XXX this can probably be optimised */
-		kshegid = kshgid = getgid();
-		ksheuid = kshuid = getuid();
+		/* +++ set group IDs +++ */
 #if HAVE_SETRESUGID
-		DO_SETUID(setresgid, (kshegid, kshegid, kshegid));
-#if HAVE_SETGROUPS
-		/* setgroups doesn't EAGAIN on Linux */
-		setgroups(1, &kshegid);
-#endif
-		DO_SETUID(setresuid, (ksheuid, ksheuid, ksheuid));
+		DO_SETUID(setresgid, (kshegid, kshegid, kshgid));
 #else /* !HAVE_SETRESUGID */
-		/* setgid, setegid, seteuid don't EAGAIN on Linux */
+		/* setgid, setegid don't EAGAIN on Linux */
 		setgid(kshegid);
 #ifndef MKSH__NO_SETEUGID
 		setegid(kshegid);
-#endif
+#endif /* !MKSH__NO_SETEUGID */
+#endif /* !HAVE_SETRESUGID */
+
+		/* +++ wipe groups vector +++ */
+#if HAVE_SETGROUPS
+		/* setgroups doesn't EAGAIN on Linux */
+		setgroups(0, NULL);
+#endif /* HAVE_SETGROUPS */
+
+		/* +++ set user IDs +++ */
+#if HAVE_SETRESUGID
+		DO_SETUID(setresuid, (ksheuid, ksheuid, kshuid));
+#else /* !HAVE_SETRESUGID */
+		/* seteuid doesn't EAGAIN on Linux */
 		DO_SETUID(setuid, (ksheuid));
 #ifndef MKSH__NO_SETEUGID
 		seteuid(ksheuid);
-#endif
+#endif /* !MKSH__NO_SETEUGID */
 #endif /* !HAVE_SETRESUGID */
+
+		/* +++ privs changed +++ */
 	} else if ((f == FPOSIX || f == FSH) && newval) {
-		/* Turning on -o posix or -o sh? */
-		Flag(FBRACEEXPAND) = 0;
 		/* Turning on -o posix? */
-		if (f == FPOSIX) {
+		if (f == FPOSIX)
 			/* C locale required for compliance */
 			UTFMODE = 0;
-		}
-	} else if (f == FTALKING) {
+		/* Turning on -o posix or -o sh? */
+		Flag(FBRACEEXPAND) = 0;
+#ifndef MKSH_NO_CMDLINE_EDITING
+	} else if ((f == FEMACS ||
+#if !MKSH_S_NOVI
+	    f == FVI ||
+#endif
+	    f == FGMACS) && newval) {
+#if !MKSH_S_NOVI
+		Flag(FVI) = 0;
+#endif
+		Flag(FEMACS) = Flag(FGMACS) = 0;
+#endif
+	}
+
+ change_flag:
+	Flag(f) = newval;
+
+	if (f == FTALKING) {
 		/* Changing interactive flag? */
 		if ((what == OF_CMDLINE || what == OF_SET) && procpid == kshpid)
 			Flag(FTALKING_I) = newval;
+#ifndef MKSH_UNEMPLOYED
+	} else if (f == FMONITOR) {
+		if (what != OF_CMDLINE && newval != oldval)
+			j_change();
+#endif
 	}
 }
 
@@ -347,7 +390,8 @@ parse_args(const char **argv,
 #undef SHFLAGS_NOT_CMD
 	    ;
 	bool set;
-	const char *opts;
+	const char *opts = what == OF_CMDLINE || what == OF_FIRSTTIME ?
+	    cmd_opts : set_opts;
 	const char *array = NULL;
 	Getopt go;
 	size_t i;
@@ -355,22 +399,6 @@ parse_args(const char **argv,
 	bool sortargs = false;
 	bool fcompatseen = false;
 
-	if (what == OF_CMDLINE) {
-		const char *p = argv[0], *q;
-		/*
-		 * Set FLOGIN before parsing options so user can clear
-		 * flag using +l.
-		 */
-		if (*p != '-')
-			for (q = p; *q; )
-				if (mksh_cdirsep(*q++))
-					p = q;
-		Flag(FLOGIN) = (*p == '-');
-		opts = cmd_opts;
-	} else if (what == OF_FIRSTTIME) {
-		opts = cmd_opts;
-	} else
-		opts = set_opts;
 	ksh_getopt_reset(&go, GF_ERROR|GF_PLUSOPT);
 	while ((optc = ksh_getopt(argv, &go, opts)) != -1) {
 		set = tobool(!(go.info & GI_PLUS));
@@ -393,7 +421,15 @@ parse_args(const char **argv,
 				 * an option (ie, can't get here if what is
 				 * OF_CMDLINE).
 				 */
-				printoptions(set);
+#if !defined(MKSH_SMALL) || defined(DEBUG)
+				if (!set && !baseline_flags[(int)FNFLAGS]) {
+					bi_errorf(Tf_s_s, "too early",
+					    Tset_po);
+					return (-1);
+				}
+#endif
+				if (printoptions(set))
+					return (-1);
 				break;
 			}
 			i = option(go.optarg);
@@ -418,7 +454,23 @@ parse_args(const char **argv,
 				;
 			else if ((i != (size_t)-1) && (OFF(i) & what))
 				change_flag((enum sh_flag)i, what, set);
-			else {
+			else if (!strcmp(go.optarg, To_reset)) {
+#if !defined(MKSH_SMALL) || defined(DEBUG)
+				if (!baseline_flags[(int)FNFLAGS]) {
+					bi_errorf(Tf_ss, "too early",
+					    To_o_reset);
+					return (-1);
+				}
+#endif
+				/*
+				 * ordering, with respect to side effects,
+				 * was ensured above by printoptions
+				 */
+				for (i = 0; i < FNFLAGS; ++i)
+					if (Flag(i) != baseline_flags[i])
+						change_flag((enum sh_flag)i,
+						    what, baseline_flags[i]);
+			} else {
 				bi_errorf(Tf_sD_s, go.optarg,
 				    Tunknown_option);
 				return (-1);
@@ -1674,14 +1726,13 @@ do_realpath(const char *upath)
 		if (getdrvwd(&ldest, ord(*upath)))
 			return (NULL);
 		/* A:foo -> A:/cwd/foo; A: -> A:/cwd */
-		ipath = shf_smprintf(Tf_sss, ldest,
-		    upath[2] ? "/" : "", upath + 2);
+		strpathx(ipath, ldest, upath + 2, 0);
 #endif
 	} else {
 		/* upath is a relative pathname, prepend cwd */
 		if ((tp = ksh_get_wd()) == NULL || !mksh_abspath(tp))
 			return (NULL);
-		ipath = shf_smprintf(Tf_sss, tp, "/", upath);
+		strpathx(ipath, tp, upath, 1);
 		afree(tp, ATEMP);
 	}
 
@@ -1783,7 +1834,7 @@ do_realpath(const char *upath)
  assemble_symlink:
 #endif
 			/* append rest of current input path to link target */
-			tp = shf_smprintf(Tf_sss, ldest, *ip ? "/" : "", ip);
+			strpathx(tp, ldest, ip, 0);
 			afree(ipath, ATEMP);
 			ip = ipath = tp;
 			if (!mksh_abspath(ipath)) {
@@ -2199,8 +2250,7 @@ c_cd(const char **wp)
 	tryp = NULL;
 	if (mksh_drvltr(dir) && !mksh_cdirsep(dir[2]) &&
 	    !getdrvwd(&tryp, ord(*dir))) {
-		dir = shf_smprintf(Tf_sss, tryp,
-		    dir[2] ? "/" : "", dir + 2);
+		strpathx(dir, tryp, dir + 2, 0);
 		afree(tryp, ATEMP);
 		afree(allocd, ATEMP);
 		allocd = dir;

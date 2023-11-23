@@ -1,3 +1,24 @@
+package {
+    default_applicable_licenses: ["external_tinycompress_license"],
+}
+
+// Added automatically by a large-scale-change
+//
+// large-scale-change filtered out the below license kinds as false-positives:
+//   SPDX-license-identifier-LGPL
+//   SPDX-license-identifier-LGPL-2.1
+// See: http://go/android-license-faq
+license {
+    name: "external_tinycompress_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_shared {
     name: "libtinycompress",
     vendor: true,
@@ -12,6 +33,9 @@ cc_library_shared {
     srcs: [
         "compress.c",
         "utils.c",
+        "compress_hw.c",
+         "compress_plugin.c",
+         "snd_utils.c",
     ],
     shared_libs: [
         "libcutils",

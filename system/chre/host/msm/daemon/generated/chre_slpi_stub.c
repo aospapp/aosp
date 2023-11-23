@@ -152,9 +152,11 @@ static __inline void _qaic_memmove(void* dst, void* src, int size) {
 #define _ASSERT(nErr, ff) _TRY(nErr, 0 == (ff) ? AEE_EBADPARM : AEE_SUCCESS)
 
 #ifdef __QAIC_DEBUG__
-#define _ALLOCATE(nErr, pal, size, alignment, pv) _TRY(nErr, _allocator_alloc(pal, __FILE_LINE__, size, alignment, (void**)&pv))
+#define _ALLOCATE(nErr, pal, size, alignment, pv) _TRY(nErr, _allocator_alloc(pal, __FILE_LINE__, size, alignment, (void**)&pv));\
+                                                  _ASSERT(nErr,pv || !(size))   
 #else
-#define _ALLOCATE(nErr, pal, size, alignment, pv) _TRY(nErr, _allocator_alloc(pal, 0, size, alignment, (void**)&pv))
+#define _ALLOCATE(nErr, pal, size, alignment, pv) _TRY(nErr, _allocator_alloc(pal, 0, size, alignment, (void**)&pv));\
+                                                  _ASSERT(nErr,pv || !(size))
 #endif
 
 
@@ -429,12 +431,12 @@ struct Interface {
 #endif
 
 static const Type types[1];
-static const Type types[1] = {{0x1,{{(const uintptr_t)0,(const uintptr_t)0}}, 2,0x1}};
-static const Parameter parameters[3] = {{SLIM_IFPTR32(0x8,0x10),{{(const uintptr_t)&(types[0]),(const uintptr_t)0x0}}, 9,SLIM_IFPTR32(0x4,0x8),3,0},{0x4,{{(const uintptr_t)0,(const uintptr_t)0}}, 2,0x4,3,0},{SLIM_IFPTR32(0x8,0x10),{{(const uintptr_t)&(types[0]),(const uintptr_t)0x0}}, 9,SLIM_IFPTR32(0x4,0x8),0,0}};
+static const Type types[1] = {{0x1,{{(const uintptr_t)0,(const uintptr_t)1}}, 2,0x1}};
+static const Parameter parameters[3] = {{SLIM_IFPTR32(0x8,0x10),{{(const uintptr_t)&(types[0]),(const uintptr_t)0x0}}, 9,SLIM_IFPTR32(0x4,0x8),3,0},{0x4,{{(const uintptr_t)0,(const uintptr_t)1}}, 2,0x4,3,0},{SLIM_IFPTR32(0x8,0x10),{{(const uintptr_t)&(types[0]),(const uintptr_t)0x0}}, 9,SLIM_IFPTR32(0x4,0x8),0,0}};
 static const Parameter* const parameterArrays[3] = {(&(parameters[0])),(&(parameters[1])),(&(parameters[2]))};
 static const Method methods[3] = {{REMOTE_SCALARS_MAKEX(0,0,0x0,0x0,0x0,0x0),0x0,0x0,0,0,0,0x0,0x0},{REMOTE_SCALARS_MAKEX(0,0,0x1,0x2,0x0,0x0),0x4,0x4,4,2,(&(parameterArrays[0])),0x4,0x4},{REMOTE_SCALARS_MAKEX(0,0,0x2,0x0,0x0,0x0),0x4,0x0,2,1,(&(parameterArrays[2])),0x4,0x0}};
 static const Method* const methodArrays[6] = {&(methods[0]),&(methods[0]),&(methods[0]),&(methods[0]),&(methods[1]),&(methods[2])};
-static const char strings[144] = "initialize_reverse_monitor\0deliver_message_from_host\0get_message_to_host\0wait_on_thread_exit\0start_thread\0stop_thread\0messageLen\0message\0buffer\0";
+static const char strings[145] = "initialize_reverse_monitor\0deliver_message_from_host\0get_message_to_host\0wait_on_thread_exit\0start_thread\0stop_thread\0messageLen\0message\0buffer\0";
 static const uint16_t methodStrings[9] = {53,137,118,27,129,106,0,73,93};
 static const uint16_t methodStringsArrays[6] = {8,7,6,5,0,3};
 __QAIC_SLIM_EXPORT const Interface __QAIC_SLIM(chre_slpi_slim) = {6,&(methodArrays[0]),0,0,&(methodStringsArrays [0]),methodStrings,strings};
@@ -533,6 +535,7 @@ __QAIC_STUB_EXPORT int __QAIC_STUB(chre_slpi_skel_invoke)(uint32_t _sc, remote_a
 #ifdef __cplusplus
 extern "C" {
 #endif
+extern int remote_register_dma_handle(int, uint32_t);
 static __inline int _stub_method(remote_handle _handle, uint32_t _mid) {
    remote_arg* _pra = 0;
    int _nErr = 0;
@@ -556,7 +559,7 @@ __QAIC_STUB_EXPORT int __QAIC_STUB(chre_slpi_stop_thread)(void) __QAIC_STUB_ATTR
    uint32_t _mid = 3;
    return _stub_method(_chre_slpi_handle(), _mid);
 }
-static __inline int _stub_method_1(remote_handle _handle, uint32_t _mid, char* _rout0[1], uint32_t _rout0Len[1], uint32_t _rout1[1]) {
+static __inline int _stub_method_1(remote_handle _handle, uint32_t _mid, unsigned char* _rout0[1], int _rout0Len[1], unsigned int _rout1[1]) {
    int _numIn[1];
    remote_arg _pra[3];
    uint32_t _primIn[1];
@@ -581,9 +584,9 @@ static __inline int _stub_method_1(remote_handle _handle, uint32_t _mid, char* _
 }
 __QAIC_STUB_EXPORT int __QAIC_STUB(chre_slpi_get_message_to_host)(unsigned char* buffer, int bufferLen, unsigned int* messageLen) __QAIC_STUB_ATTRIBUTE {
    uint32_t _mid = 4;
-   return _stub_method_1(_chre_slpi_handle(), _mid, (char**)&buffer, (uint32_t*)&bufferLen, (uint32_t*)messageLen);
+   return _stub_method_1(_chre_slpi_handle(), _mid, (unsigned char**)&buffer, (int*)&bufferLen, (unsigned int*)messageLen);
 }
-static __inline int _stub_method_2(remote_handle _handle, uint32_t _mid, char* _in0[1], uint32_t _in0Len[1]) {
+static __inline int _stub_method_2(remote_handle _handle, uint32_t _mid, const unsigned char* _in0[1], int _in0Len[1]) {
    remote_arg _pra[2];
    uint32_t _primIn[1];
    remote_arg* _praIn;
@@ -592,7 +595,7 @@ static __inline int _stub_method_2(remote_handle _handle, uint32_t _mid, char* _
    _pra[0].buf.nLen = sizeof(_primIn);
    _COPY(_primIn, 0, _in0Len, 0, 4);
    _praIn = (_pra + 1);
-   _praIn[0].buf.pv = _in0[0];
+   _praIn[0].buf.pv = (void*) _in0[0];
    _praIn[0].buf.nLen = (1 * _in0Len[0]);
    _TRY(_nErr, __QAIC_REMOTE(remote_handle_invoke)(_handle, REMOTE_SCALARS_MAKEX(0, _mid, 2, 0, 0, 0), _pra));
    _CATCH(_nErr) {}
@@ -600,7 +603,7 @@ static __inline int _stub_method_2(remote_handle _handle, uint32_t _mid, char* _
 }
 __QAIC_STUB_EXPORT int __QAIC_STUB(chre_slpi_deliver_message_from_host)(const unsigned char* message, int messageLen) __QAIC_STUB_ATTRIBUTE {
    uint32_t _mid = 5;
-   return _stub_method_2(_chre_slpi_handle(), _mid, (char**)&message, (uint32_t*)&messageLen);
+   return _stub_method_2(_chre_slpi_handle(), _mid, (const unsigned char**)&message, (int*)&messageLen);
 }
 #ifdef __cplusplus
 }

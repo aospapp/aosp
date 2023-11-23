@@ -11,6 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package {
+    default_visibility: ["//external/icu:__subpackages__"],
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_icu_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Unicode-DFS
+    default_applicable_licenses: ["external_icu_license"],
+}
+
 cc_library_static {
     name: "libandroidicu_static",
     host_supported: true,
@@ -36,13 +46,26 @@ cc_library_static {
                 "-DANDROID_LINK_SHARED_ICU4C",
             ],
         },
+        native_bridge: {
+            exclude_shared_libs: [
+                "libicuuc",
+                "libicui18n",
+            ],
+            header_libs: [
+                "libicuuc_headers",
+                "libicui18n_headers",
+            ],
+            shared_libs: [
+                "libnative_bridge_guest_libicuuc",
+                "libnative_bridge_guest_libicui18n",
+            ],
+        },
         windows: {
             enabled: true,
         },
     },
     apex_available: [
-        "com.android.art.release",
-        "com.android.art.debug",
+        "com.android.i18n",
         // b/133140750 Clean this up. This is due to the dependency to from libmedia
         "//apex_available:platform",
     ],

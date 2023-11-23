@@ -12,45 +12,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_test {
-    name: "cintltst",
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_icu_icu4c_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Unicode-DFS
+    default_applicable_licenses: ["external_icu_icu4c_license"],
+}
+
+cc_defaults {
+    name: "cintltst_defaults",
     defaults: ["icu_test_defaults"],
-    multilib: {
-        lib64: {
-            suffix: "64",
-        },
-        lib32: {
-            suffix: "32",
-        },
-    },
     srcs: [
         "**/*.c",
         "**/*.cpp",
     ],
     cflags: [
-        "-DANDROID_LINK_SHARED_ICU4C",
-        // Force the test to use the data file on
-        "-DANDROID_USE_ICU_REG",
-        // Disable some file IO tests to workaround test crashing due to missing data files.
-        "-DUCONFIG_NO_FILE_IO",
         "-DZERO_EXIT_CODE_FOR_FAILURES",
     ],
     exclude_srcs: [
         // Not built directly, but #included from other sources.
         "usrchdat.c",
     ],
-    // Workaround Soong's limitation that data property can only include
-    // dependencies with a single variant
-    compile_multilib: "first",
 }
 
-java_test_host {
-    name: "cintltst_test",
-    data: [
-        ":cintltst",
-        ":icu4c_test_data",
-        ":ICU4CTestRunner",
-    ],
-    test_config: "AndroidTest.xml",
-    test_suites: ["device-tests"],
+// Build exactly one variant even for 32-bit / 64-bit only target, because
+// CtsIcu4cTestCases depends on this module from the "data:" property which allows single-variant
+// dependency only.
+// Soong selects the first variant where 32-bit is prioritized on "cintltst32" and 64-bit is
+// prioritized on "cintltst64".
+cc_test {
+    name: "cintltst32",
+    defaults: ["cintltst_defaults"],
+    multilib: {
+        // On 64-bit platform, this binary is compiled, but not used.
+        lib64: {
+            suffix: "_fake",
+        },
+    },
+    compile_multilib: "first_prefer32",
+}
+
+cc_test {
+    name: "cintltst64",
+    defaults: ["cintltst_defaults"],
+    multilib: {
+        // On 32-bit platform, this binary is compiled, but not used.
+        lib32: {
+            suffix: "_fake",
+        },
+    },
+    compile_multilib: "first",
 }

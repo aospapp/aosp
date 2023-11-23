@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,8 +7,8 @@ import errno
 import logging
 import os
 import shutil
+from six.moves import urllib
 import subprocess
-import urllib2
 
 from autotest_lib.client.common_lib import global_config
 
@@ -138,32 +139,32 @@ def download_file(remote_path, local_path):
             proxies[name[:-6]] = value
 
     if proxies:
-        proxy_handler = urllib2.ProxyHandler(proxies)
-        opener = urllib2.build_opener(proxy_handler)
-        urllib2.install_opener(opener)
+        proxy_handler = urllib.request.ProxyHandler(proxies)
+        opener = urllib.request.build_opener(proxy_handler)
+        urllib.request.install_opener(opener)
 
     # Unlike urllib.urlopen urllib2.urlopen will immediately throw on error
     # If we could not find the file pointed by remote_path we will get an
     # exception, catch the exception to log useful information then re-raise
 
     try:
-        remote_file = urllib2.urlopen(remote_path)
+        remote_file = urllib.request.urlopen(remote_path)
 
         # Catch exceptions, extract exception properties and then re-raise
         # This helps us with debugging what went wrong quickly as we get to see
         # test_that output immediately
 
-    except urllib2.HTTPError as e:
+    except urllib.error.HTTPError as e:
         e.msg = (("""HTTPError raised while retrieving file %s\n.
                        Http Code = %s.\n. Reason = %s\n. Headers = %s.\n
                        Original Message = %s.\n""")
                  % (remote_path, e.code, e.reason, e.headers, e.msg))
         raise
 
-    except urllib2.URLError as e:
+    except urllib.error.URLError as e:
         e.msg = (("""URLError raised while retrieving file %s\n.
                         Reason = %s\n. Original Message = %s\n.""")
-                 % (remote_path, e.reason, e.message))
+                 % (remote_path, e.reason, str(e)))
         raise
 
     with open(local_path, 'wb') as local_file:
@@ -194,7 +195,7 @@ def get_directory_size_kibibytes(directory):
         logging.warning(stderr_data)
         return 0
 
-    return int(stdout_data.split('\t', 1)[0])
+    return int(stdout_data.split(b'\t', 1)[0])
 
 
 def recursive_path_permission(path):

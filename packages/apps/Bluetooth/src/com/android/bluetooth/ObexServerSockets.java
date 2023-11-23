@@ -143,6 +143,10 @@ public class ObexServerSockets {
             } catch (IOException e) {
                 Log.e(STAG, "Error create ServerSockets ", e);
                 initSocketOK = false;
+            } catch (SecurityException e) {
+                Log.e(STAG, "Error create ServerSockets ", e);
+                initSocketOK = false;
+                break;
             }
             if (!initSocketOK) {
                 // Need to break out of this loop if BT is being turned off.

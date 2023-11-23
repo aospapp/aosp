@@ -9,7 +9,8 @@ CRITERIA = "This test will always succeed."
 ATTRIBUTES = (
         "suite:dummy_server,"
         " suite:dummy_server_nossp,"
-        " suite:skylab_staging_test"
+        " suite:skylab_staging_test,"
+        " suite:dev_drone_image_test"
 )
 TIME = "SHORT"
 TEST_CATEGORY = "General"

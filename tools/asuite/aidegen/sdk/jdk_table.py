@@ -272,5 +272,8 @@ class JDKTableXML():
         self._generate_jdk_config_string()
         self._generate_sdk_config_string()
         if self._modify_config:
+            if not os.path.exists(self._config_file):
+                common_util.file_generate(
+                    self._config_file, templates.JDK_TABLE_XML)
             self._xml.write(self._config_file)
         return bool(self._android_sdk_version)

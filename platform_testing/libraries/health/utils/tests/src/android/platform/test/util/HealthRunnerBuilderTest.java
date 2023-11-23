@@ -31,7 +31,7 @@ import org.junit.runners.model.InitializationError;
 /** Unit tests for {@link HealthRunnerBuilder}. */
 @RunWith(JUnit4.class)
 public class HealthRunnerBuilderTest {
-    // A dummy test class.
+    // A no-op test class.
     @RunWith(JUnit4.class)
     public static class SampleTest {
         @Test
@@ -40,7 +40,7 @@ public class HealthRunnerBuilderTest {
         }
     }
 
-    // A dummy runner class.
+    // A no-op runner class.
     public static class SampleRunner extends BlockJUnit4ClassRunner {
         public SampleRunner(Class<?> testClass) throws InitializationError {
             super(testClass);

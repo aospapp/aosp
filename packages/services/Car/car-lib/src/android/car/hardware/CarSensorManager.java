@@ -51,18 +51,20 @@ public final class CarSensorManager extends CarManagerBase {
     public static final int SENSOR_TYPE_RESERVED1                   = 1;
     /**
      * This sensor represents vehicle speed in m/s.
-     * Sensor data in {@link CarSensorEvent} is a float which will be >= 0.
-     * This requires {@link Car#PERMISSION_SPEED} permission.
+     *
+     * <p>Sensor data in {@link CarSensorEvent} is a float. When the vehicle is moving forward,
+     * SENSOR_TYPE_CAR_SPEED is positive and negative when the vehicle is moving backward. Also,
+     * this value is independent of SENSOR_TYPE_GEAR. For example, if SENSOR_TYPE_GEAR is {@link
+     * CarSensorEvent#GEAR_NEUTRAL}, SENSOR_TYPE_CAR_SPEED is positive when the vehicle is moving
+     * forward, negative when moving backward, and zero when not moving.
      */
     public static final int SENSOR_TYPE_CAR_SPEED                   = 0x11600207;
     /**
      * Represents engine RPM of the car. Sensor data in {@link CarSensorEvent} is a float.
-     * This requires {@link Car#PERMISSION_CAR_ENGINE_DETAILED} permission.
      */
     public static final int SENSOR_TYPE_RPM                         = 0x11600305;
     /**
      * Total travel distance of the car in Kilometer. Sensor data is a float.
-     * This requires {@link Car#PERMISSION_MILEAGE} permission.
      */
     public static final int SENSOR_TYPE_ODOMETER                    = 0x11600204;
     /**
@@ -138,12 +140,10 @@ public final class CarSensorManager extends CarManagerBase {
     public static final int SENSOR_TYPE_WHEEL_TICK_DISTANCE         = 0x11510306;
     /**
      * Set to true when ABS is active.  This sensor is event driven.
-     * This requires {@link Car#PERMISSION_CAR_DYNAMICS_STATE} permission.
      */
     public static final int SENSOR_TYPE_ABS_ACTIVE                  = 0x1120040a;
     /**
      * Set to true when traction control is active.  This sensor is event driven.
-     * This requires {@link Car#PERMISSION_CAR_DYNAMICS_STATE} permission.
      */
     public static final int SENSOR_TYPE_TRACTION_CONTROL_ACTIVE     = 0x1120040b;
     /** @hide */
@@ -156,8 +156,8 @@ public final class CarSensorManager extends CarManagerBase {
 
     /**
      * Indicates battery level of the car.
-     * In {@link CarSensorEvent}, represents battery level in WH.  floatValues[{@link
-     * CarSensorEvent#INDEX_EV_BATTERY_CAPACITY_ACTUAL}] represents the actual battery capacity in
+     * In {@link CarSensorEvent}, represents battery level in WH.  floatValues of
+     * INDEX_EV_BATTERY_CAPACITY_ACTUAL property represents the actual battery capacity in
      * WH.  The battery degrades over time, so this value is expected to drop slowly over the life
      * of the vehicle.
      * This requires {@link Car#PERMISSION_ENERGY} permission.
@@ -180,7 +180,6 @@ public final class CarSensorManager extends CarManagerBase {
     public static final int SENSOR_TYPE_EV_BATTERY_CHARGE_RATE      = 0x1160030c;
     /**
      * Oil level sensor.
-     * This requires {@link Car#PERMISSION_CAR_ENGINE_DETAILED} permission
      */
     public static final int SENSOR_TYPE_ENGINE_OIL_LEVEL            = 0x11400303;
 

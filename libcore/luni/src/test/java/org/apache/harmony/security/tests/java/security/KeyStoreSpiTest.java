@@ -97,7 +97,7 @@ public class KeyStoreSpiTest extends TestCase {
         BadKeyStoreEntry badEntry = new BadKeyStoreEntry();
         BadKeyStoreProtectionParameter badParameter = new BadKeyStoreProtectionParameter();
 
-        KeyStore.SecretKeyEntry dummyEntry = new KeyStore.SecretKeyEntry(new SecretKey() {
+        KeyStore.SecretKeyEntry fakeEntry = new KeyStore.SecretKeyEntry(new SecretKey() {
             @Override public String getAlgorithm() { return null; }
             @Override public String getFormat() { return null; }
             @Override public byte[] getEncoded() { return null; }
@@ -132,7 +132,7 @@ public class KeyStoreSpiTest extends TestCase {
         } catch (KeyStoreException expected) {
         }
 
-        ksSpi.engineSetEntry("aaa", dummyEntry, null);
+        ksSpi.engineSetEntry("aaa", fakeEntry, null);
         assertTrue(keyEntryWasSet[0]);
     }
 

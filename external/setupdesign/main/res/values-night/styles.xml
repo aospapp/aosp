@@ -22,5 +22,7 @@
     <style name="SudThemeGlif.DayNight" parent="SudThemeGlif" />
     <style name="SudThemeGlifV2.DayNight" parent="SudThemeGlifV2" />
     <style name="SudThemeGlifV3.DayNight" parent="SudThemeGlifV3" />
+    <style name="SudDynamicColorThemeGlifV3.DayNight" parent="SudDynamicColorThemeGlifV3" />
+    <style name="SudFullDynamicColorThemeGlifV3.DayNight" parent="SudFullDynamicColorThemeGlifV3" />
 
 </resources>

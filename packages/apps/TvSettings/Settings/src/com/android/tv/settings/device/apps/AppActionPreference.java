@@ -20,15 +20,15 @@ import android.content.Context;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
-import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.app.GuidedStepSupportFragment;
 import androidx.leanback.widget.GuidedAction;
-import androidx.preference.Preference;
 
+import com.android.settingslib.RestrictedPreference;
 import com.android.settingslib.applications.ApplicationsState;
 
 import java.util.List;
 
-public abstract class AppActionPreference extends Preference {
+public abstract class AppActionPreference extends RestrictedPreference {
     protected ApplicationsState.AppEntry mEntry;
 
     public AppActionPreference(Context context, ApplicationsState.AppEntry entry) {
@@ -50,7 +50,7 @@ public abstract class AppActionPreference extends Preference {
      */
     public abstract void refresh();
 
-    public static abstract class ConfirmationFragment extends GuidedStepFragment {
+    public abstract static class ConfirmationFragment extends GuidedStepSupportFragment {
         private static final int ID_OK = 0;
         private static final int ID_CANCEL = 1;
 

@@ -177,7 +177,6 @@ struct StmI2cDev {
     const struct StmI2cBoardCfg *board;
     struct I2cStmState state;
 
-    uint32_t next;
     uint32_t last;
 
     struct Gpio *scl;
@@ -244,8 +243,10 @@ static inline struct StmI2cXfer *stmI2cGetXfer(void)
 
 static inline void stmI2cPutXfer(struct StmI2cXfer *xfer)
 {
-    if (xfer)
+    if (xfer) {
+        atomicWrite32bits(&xfer->id, 0);
         atomicBitsetClearBit(mXfersValid, xfer - mXfers);
+    }
 }
 
 static inline void stmI2cAckEnable(struct StmI2cDev *pdev)
@@ -486,13 +487,30 @@ static void stmI2cSlaveNakRxed(struct StmI2cDev *pdev)
     regs->SR1 &= ~I2C_SR1_AF;
 }
 
+static inline struct StmI2cXfer *stmI2cGetNextPendingXfer(uint8_t busId)
+{
+    uint32_t currId = UINT32_MAX;
+    struct StmI2cXfer *pendingXfer = NULL;
+
+    for (int i = 0; i < I2C_MAX_QUEUE_DEPTH; i++) {
+        struct StmI2cXfer *xfer = &mXfers[i];
+        if (xfer->busId == busId) {
+            uint32_t xferId = atomicRead32bits(&xfer->id);
+            if (xferId > 0 && xferId <= currId) {
+                pendingXfer = xfer;
+                currId = xferId;
+            }
+        }
+    }
+
+    return pendingXfer;
+}
+
 static inline void stmI2cMasterTxRxDone(struct StmI2cDev *pdev, int err)
 {
     struct I2cStmState *state = &pdev->state;
     size_t txOffst = state->tx.offset;
     size_t rxOffst = state->rx.offset;
-    uint32_t id;
-    int i;
     struct StmI2cXfer *xfer;
 
     if (pdev->board->sleepDev >= 0)
@@ -502,34 +520,26 @@ static inline void stmI2cMasterTxRxDone(struct StmI2cDev *pdev, int err)
     state->rx.offset = 0;
     stmI2cInvokeTxCallback(state, txOffst, rxOffst, err);
 
-    do {
-        id = atomicAdd32bits(&pdev->next, 1);
-    } while (!id);
-
-    for (i=0; i<I2C_MAX_QUEUE_DEPTH; i++) {
-        xfer = &mXfers[i];
-
-        if (xfer->busId == (pdev - mStmI2cDevs) &&
-                atomicCmpXchg32bits(&xfer->id, id, 0)) {
-            pdev->addr = xfer->addr;
-            state->tx.cbuf = xfer->txBuf;
-            state->tx.offset = 0;
-            state->tx.size = xfer->txSize;
-            state->tx.callback = xfer->callback;
-            state->tx.cookie = xfer->cookie;
-            state->rx.buf = xfer->rxBuf;
-            state->rx.offset = 0;
-            state->rx.size = xfer->rxSize;
-            state->rx.callback = NULL;
-            state->rx.cookie = NULL;
-            state->tid = xfer->tid;
-            atomicWriteByte(&state->masterState, STM_I2C_MASTER_START);
-            if (pdev->board->sleepDev >= 0)
-                platRequestDevInSleepMode(pdev->board->sleepDev, 12);
-            stmI2cPutXfer(xfer);
-            stmI2cStartEnable(pdev);
-            return;
-        }
+    xfer = stmI2cGetNextPendingXfer(pdev - mStmI2cDevs);
+    if (xfer) {
+        atomicWriteByte(&state->masterState, STM_I2C_MASTER_START);
+        pdev->addr = xfer->addr;
+        state->tx.cbuf = xfer->txBuf;
+        state->tx.offset = 0;
+        state->tx.size = xfer->txSize;
+        state->tx.callback = xfer->callback;
+        state->tx.cookie = xfer->cookie;
+        state->rx.buf = xfer->rxBuf;
+        state->rx.offset = 0;
+        state->rx.size = xfer->rxSize;
+        state->rx.callback = NULL;
+        state->rx.cookie = NULL;
+        state->tid = xfer->tid;
+        if (pdev->board->sleepDev >= 0)
+            platRequestDevInSleepMode(pdev->board->sleepDev, 12);
+        stmI2cPutXfer(xfer);
+        stmI2cStartEnable(pdev);
+        return;
     }
 
     atomicWriteByte(&state->masterState, STM_I2C_MASTER_IDLE);
@@ -839,7 +849,6 @@ int i2cMasterRequest(uint32_t busId, uint32_t speed)
 
         pdev->cfg = cfg;
         pdev->board = board;
-        pdev->next = 2;
         pdev->last = 1;
         atomicBitsetInit(mXfersValid, I2C_MAX_QUEUE_DEPTH);
 
@@ -943,7 +952,7 @@ int i2cMasterTxRx(uint32_t busId, uint32_t addr,
                 STM_I2C_MASTER_IDLE, STM_I2C_MASTER_START)) {
             // it is possible for this transfer to already be complete by the
             // time we get here. if so, transfer->id will have been set to 0.
-            if (atomicCmpXchg32bits(&xfer->id, id, 0)) {
+            if (atomicRead32bits(&xfer->id) != 0) {
                 pdev->addr = xfer->addr;
                 state->tx.cbuf = xfer->txBuf;
                 state->tx.offset = 0;

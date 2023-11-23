@@ -120,6 +120,13 @@ public class ShadowArscApkAssets9 extends ShadowApkAssets {
     ApkAssets call();
   }
 
+  // BEGIN-INTERNAL
+  // Overwrite ApkAssets.java to prevent clearing out the apk assets
+  @Implementation(minSdk = Build.VERSION_CODES.S)
+  protected void close() {
+  }
+  // END-INTERNAL
+
   private static ApkAssets getFromCacheOrLoad(Key key, ApkAssetMaker callable) {
     synchronized (cachedApkAssets) {
       WeakReference<ApkAssets> cachedRef = cachedApkAssets.get(key);

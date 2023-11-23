@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"صرف بنیادی صارف ہی صوتی میل کی ترتیبات تبدیل کر سکتا ہے۔"</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"‏آپ کا SIM کارڈ غیر مسدود ہوگیا ہے۔ آپ کا فون غیر مقفل ہو رہا ہے…"</string>
     <string name="label_ndp" msgid="7617392683877410341">"‏SIM نیٹ ورک غیر مقفل کرنے کا PIN"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"‏آپریٹر کے لیے SIM مقفل ہے"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"غیر مقفل کریں"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"برخاست کریں"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"نیٹ ورک غیر مقفل کرنے کی درخواست کر رہا ہے…"</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> کو آگے بھیج رہا ہے"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"آف"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"آپ کا کیریئر آپ کا فون ناقابل رسائی ہونے پر کال آگے منتقل کرنے کو غیر فعال کرنے کا تعاون نہیں کرتا ہے۔"</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"آپ کا کیریئر کال فارورڈنگ کو سپورٹ نہیں کرتا ہے۔"</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"\'کال کا انتظار کرنا\' آن کریں؟"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"کال کے دوران، آپ کو موصول ہونے والی کالز کے بارے میں مطلع کیا جائے گا"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"آن کریں"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"منسوخ کریں"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"‏IMS آن کے تحت CDMA کال کا انتظار کرنا"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"‏IMS آف کے تحت CDMA کال کا انتظار کرنا"</string>
     <string name="updating_title" msgid="6130548922615719689">"کال کی ترتیبات"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"صرف منتظم صارف ہی کال کی ترتیبات تبدیل کر سکتا ہے۔"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"ترتیبات (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -159,7 +167,7 @@
     <string name="vm_change_pin_progress_message" msgid="626015184502739044">"براہ کرم انتظار کریں۔"</string>
     <string name="vm_change_pin_error_too_short" msgid="1789139338449945483">"‏نیا PIN بہت ہی مختصر ہے۔"</string>
     <string name="vm_change_pin_error_too_long" msgid="3634907034310018954">"‏نیا PIN بہت ہی طویل ہے۔"</string>
-    <string name="vm_change_pin_error_too_weak" msgid="8581892952627885719">"‏نیا PIN بہت ہی کمزور ہے۔ مضبوط پاسورڈ میں مسلسل ترتیب یا دہرے عدد نہیں ہونے چاہئیں۔"</string>
+    <string name="vm_change_pin_error_too_weak" msgid="8581892952627885719">"‏نیا PIN بہت ہی کمزور ہے۔ مضبوط پاس ورڈ میں مسلسل ترتیب یا دہرے عدد نہیں ہونے چاہئیں۔"</string>
     <string name="vm_change_pin_error_mismatch" msgid="5364847280026257331">"‏پرانا PIN مماثل نہیں ہے۔"</string>
     <string name="vm_change_pin_error_invalid" msgid="5230002671175580674">"‏نئے PIN میں غلط کریکٹرز شامل ہیں۔"</string>
     <string name="vm_change_pin_error_system_error" msgid="9116483527909681791">"‏PIN تبدیل کرنے سے قاصر"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"‏SIM کے محدود فنکشن"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"<xliff:g id="PHONE_NUMBER">%2$s</xliff:g> کے استعمال کے دوران <xliff:g id="CARRIER_NAME">%1$s</xliff:g> سے کالز اور ڈیٹا سروسز کو مسدود کیا جا سکتا ہے۔"</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"‏دوسرے SIM کے استعمال کے دوران <xliff:g id="CARRIER_NAME">%1$s</xliff:g> سے کالز اور ڈیٹا سروسز کو مسدود کیا جا سکتا ہے۔"</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"‏فرسودہ SIP اکاؤنٹس ملیں اور انہیں ہٹا دیا گیا"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"‏Android پلیٹ فارم کے ذریعے SIP کالنگ اب تعاون یافتہ نہیں ہے۔\nآپ کے موجودہ SIP اکاؤنٹس <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> ہٹا دیے گئے ہیں۔\nبراہ کرم اپنے ڈیفالٹ کالنگ اکاؤنٹ کی ترتیب کی تصدیق کریں۔"</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"ترتیبات پر جائیں"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"ایپ ڈیٹا کا استعمال"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> موبائل ڈیٹا <xliff:g id="ID_2">%2$s</xliff:g> میں استعمال ہوا"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"جدید ترین"</string>
@@ -504,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"‏پاس ورڈ غلط ہے۔ SIM اب مقفل ہے۔ PUK2 درج کریں۔"</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"‏PUK2 مستقل طور پر مسدود ہے۔"</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"آپ کے پاس <xliff:g id="NUMBER">%d</xliff:g> کوششیں بچی ہیں۔"</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"‏PUK2 مقفل ہے۔ غیر مقفل کرنے کے ليے سروس فراہم کنندہ سے رابطہ کریں۔"</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"‏PIN2 اب مسدود نہیں ہے"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"‏نیٹ ورک یا SIM کارڈ کی خرابی"</string>
     <string name="doneButton" msgid="7371209609238460207">"ہوگیا"</string>
@@ -525,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"کال کرنے کیل‏ئے موبائل نیٹ ورک آن کریں، ہوائی جہاز موڈ یا بیٹری سیور موڈ آف کریں۔"</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"کال کرنے کیلئے ہوائی جہاز وضع آف کریں۔"</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"کال کرنے کیلئے ہوائی جہاز وضع آف کریں یا کسی وائرلیس نیٹ ورک سے منسلک ہوں۔"</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"فون بہت گرم ہے"</b>\n\n"اس کال کو مکمل نہیں کیا جا سکتا۔ جب آپ کا فون ٹھنڈا ہو جائے تو دوبارہ کوشش کریں۔\n\nآپ اب بھی ہنگامی کالز کر سکتے ہیں۔"</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"غیر ہنگامی کال کرنے کیلئے ہنگامی کال بیک موڈ سے اخراج کریں۔"</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"نیٹ ورک پر رجسٹرڈ نہیں ہے۔"</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"موبائل نیٹ ورک دستیاب نہیں ہے۔"</string>
@@ -867,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"‏ڈیفالٹ ڈیٹا SIM کی SubId:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"‏DL بینڈ وڈتھ (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"‏UL بینڈ وڈتھ (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"سیل کے مقام کی معلومات (فرسودہ):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"‏LTE فزيکل چینل کنفیگریشن:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"سیل کی معلومات ریفریش کرنے کی شرح:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"سیل پیمائش کی تمام معلومات:"</string>
@@ -898,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"ریفریش کریں"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"‏DNS چیک ٹوگل کریں"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"‏OEM-کیلئے مخصوص معلومات/ترتیبات"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"‏EN-DC دستیاب ہے:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"‏DCNR محدود کردہ:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"‏NR دستیاب ہے:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"‏NR ریاست:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"‏NR فریکوئنسی:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"ریڈیو بینڈ موڈ سیٹ کریں"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"بینڈ کی فہرست لوڈ ہو رہی ہے…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"سیٹ کریں"</string>
@@ -907,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"فون کی معلومات"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"کیرئیر فراہمی معلومات"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"ٹرگر کیرئیر فراہمی"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"آپ کا بلوٹوتھ سگنل کمزور ہے۔ اسپیکر فون پر سوئچ کر کے آزمائیں۔"</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"کال کی کوالٹی کی اطلاع"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"‏فرسودہ SIP اکاؤنٹس"</string>
 </resources>

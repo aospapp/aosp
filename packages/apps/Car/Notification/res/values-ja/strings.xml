@@ -39,4 +39,5 @@
       <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> 件の新着メッセージ</item>
       <item quantity="one">1 件の新着メッセージ</item>
     </plurals>
+    <string name="manage_text" msgid="4225197445283791757">"管理"</string>
 </resources>

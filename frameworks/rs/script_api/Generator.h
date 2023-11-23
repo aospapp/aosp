@@ -29,10 +29,10 @@ bool generateTestFiles(const std::string& directory, unsigned int versionOfTestF
  */
 bool generateDocumentation(const std::string& director);
 
-/* Generates the RSStubsWhiteList.cpp file.  Also generates script test files that are used
- * when testing slang and that can be used to manually verify the white list.
- * The implementation is in GenerateStubsWhiteList.cpp.
+/* Generates the RSFunctionsList.cpp file.  Also generates script test files that are used
+ * when testing slang and that can be used to manually verify the list.
+ * The implementation is in GenerateRSFunctionsList.cpp.
  */
-bool generateStubsWhiteList(const std::string& slangTestDirectory, unsigned int maxApiLevel);
+bool generateRSFunctionsList(const std::string& slangTestDirectory, unsigned int maxApiLevel);
 
 #endif  // ANDROID_RS_API_GENERATOR_GENERATOR_H

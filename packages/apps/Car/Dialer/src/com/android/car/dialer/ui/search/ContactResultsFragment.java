@@ -23,7 +23,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.ViewModelProviders;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.dialer.R;
@@ -33,13 +33,18 @@ import com.android.car.dialer.ui.contact.ContactDetailsFragment;
 import com.android.car.telephony.common.Contact;
 import com.android.car.ui.toolbar.Toolbar;
 import com.android.car.ui.toolbar.ToolbarController;
+import com.android.car.uxr.LifeCycleObserverUxrContentLimiter;
+import com.android.car.uxr.UxrContentLimiterImpl;
+
+import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * A fragment that will take a search query, look up contacts that match and display those
  * results as a list.
  */
-public class ContactResultsFragment extends DialerListBaseFragment implements
-        ContactResultsAdapter.OnShowContactDetailListener, Toolbar.OnSearchListener {
+@AndroidEntryPoint(DialerListBaseFragment.class)
+public class ContactResultsFragment extends Hilt_ContactResultsFragment implements
+        Toolbar.OnSearchListener {
 
     /**
      * Creates a new instance of the {@link ContactResultsFragment}.
@@ -61,22 +66,27 @@ public class ContactResultsFragment extends DialerListBaseFragment implements
     private static final String SEARCH_QUERY = "SearchQuery";
 
     private ContactResultsViewModel mContactResultsViewModel;
-    private final ContactResultsAdapter mAdapter = new ContactResultsAdapter(this);
+    private final ContactResultsAdapter mAdapter = new ContactResultsAdapter(
+            contactResult -> onShowContactDetail(contactResult.getContact()));
 
     private RecyclerView.OnScrollListener mOnScrollChangeListener;
     private ToolbarController mToolbar;
+
+    private LifeCycleObserverUxrContentLimiter mUxrContentLimiter;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mContactResultsViewModel = ViewModelProviders.of(this).get(
+        mContactResultsViewModel = new ViewModelProvider(this).get(
                 ContactResultsViewModel.class);
         mContactResultsViewModel.getContactSearchResults().observe(this,
                 contactResults -> {
                     mAdapter.setData(contactResults);
                     showContent();
                 });
+        mContactResultsViewModel.getSortOrderLiveData().observe(this,
+                v -> mAdapter.setSortMethod(v));
 
         // Set the initial search query, if one was provided from a Intent.ACTION_SEARCH
         if (getArguments() != null) {
@@ -86,12 +96,10 @@ public class ContactResultsFragment extends DialerListBaseFragment implements
             }
             getArguments().clear();
         }
-    }
 
-    @Override
-    public void onViewCreated(View view, Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        getRecyclerView().setAdapter(mAdapter);
+        mUxrContentLimiter = new LifeCycleObserverUxrContentLimiter(
+                new UxrContentLimiterImpl(getContext(), R.xml.uxr_config));
+        getLifecycle().addObserver(mUxrContentLimiter);
 
         mOnScrollChangeListener = new RecyclerView.OnScrollListener() {
             @Override
@@ -101,18 +109,28 @@ public class ContactResultsFragment extends DialerListBaseFragment implements
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 if (dy != 0) {
-                    // Clear the focus to dismiss the keyboard.
-                    getActivity().getCurrentFocus().clearFocus();
+                    // Clear the focus to dismiss the keyboard in touch mode.
+                    View focusedView = getActivity().getCurrentFocus();
+                    if (focusedView != null && focusedView.isInTouchMode()) {
+                        focusedView.clearFocus();
+                    }
                 }
             }
         };
-        getRecyclerView().addOnScrollListener(mOnScrollChangeListener);
+    }
+
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        getRecyclerView().setAdapter(mAdapter);
+        mUxrContentLimiter.setAdapter(mAdapter);
     }
 
     @Override
     public void onDestroyView() {
-        super.onDestroyView();
         getRecyclerView().removeOnScrollListener(mOnScrollChangeListener);
+        mToolbar.unregisterOnSearchListener(this);
+        super.onDestroyView();
     }
 
     @Override
@@ -122,12 +140,13 @@ public class ContactResultsFragment extends DialerListBaseFragment implements
         mToolbar.registerOnSearchListener(this);
         mToolbar.setSearchIcon(R.drawable.ic_app_icon);
         setSearchQuery(mContactResultsViewModel.getSearchQuery());
-    }
 
-    @Override
-    public void onStop() {
-        super.onStop();
-        mToolbar.unregisterOnSearchListener(this);
+        if (mToolbar.canShowSearchResultsView()) {
+            mToolbar.setSearchResultsView(getRecyclerView());
+        } else {
+            // Widescreen IME list should not set the scroll listener to dismiss the keyboard.
+            getRecyclerView().addOnScrollListener(mOnScrollChangeListener);
+        }
     }
 
     /** Sets the search query that should be used to filter contacts. */
@@ -146,8 +165,7 @@ public class ContactResultsFragment extends DialerListBaseFragment implements
         mContactResultsViewModel.setSearchQuery(newQuery);
     }
 
-    @Override
-    public void onShowContactDetail(Contact contact) {
+    protected void onShowContactDetail(Contact contact) {
         Fragment contactDetailsFragment = ContactDetailsFragment.newInstance(contact);
         pushContentFragment(contactDetailsFragment, ContactDetailsFragment.FRAGMENT_TAG);
     }

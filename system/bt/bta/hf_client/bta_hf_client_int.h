@@ -17,18 +17,19 @@
  *
  ******************************************************************************/
 
-#include "bta_api.h"
-#include "bta_hf_client_api.h"
-#include "bta_hf_client_at.h"
-#include "bta_sys.h"
+#include <cstdint>
+#include <unordered_set>
+
+#include "bta/hf_client/bta_hf_client_at.h"
+#include "bta/include/bta_hf_client_api.h"
+#include "bta/sys/bta_sys.h"
+#include "osi/include/alarm.h"
+#include "stack/include/bt_types.h"
+#include "types/raw_address.h"
 
 /*****************************************************************************
  *  Constants
  ****************************************************************************/
-#define HFP_VERSION_1_1 0x0101
-#define HFP_VERSION_1_5 0x0105
-#define HFP_VERSION_1_6 0x0106
-#define HFP_VERSION_1_7 0x0107
 
 /* RFCOMM MTU SIZE */
 #define BTA_HF_CLIENT_MTU 256
@@ -98,6 +99,10 @@ enum {
   BTA_HF_CLIENT_AT_CNUM,
   BTA_HF_CLIENT_AT_NREC,
   BTA_HF_CLIENT_AT_BINP,
+  BTA_HF_CLIENT_AT_BIND_SET_IND,
+  BTA_HF_CLIENT_AT_BIND_READ_SUPPORTED_IND,
+  BTA_HF_CLIENT_AT_BIND_READ_ENABLED_IND,
+  BTA_HF_CLIENT_AT_BIEV,
   BTA_HF_CLIENT_AT_VENDOR_SPECIFIC,
 };
 
@@ -106,27 +111,26 @@ enum {
  ****************************************************************************/
 /* data type for BTA_HF_CLIENT_API_OPEN_EVT */
 typedef struct {
-  BT_HDR hdr;
+  BT_HDR_RIGID hdr;
   RawAddress bd_addr;
   uint16_t* handle;
-  tBTA_SEC sec_mask;
 } tBTA_HF_CLIENT_API_OPEN;
 
 /* data type for BTA_HF_CLIENT_DISC_RESULT_EVT */
 typedef struct {
-  BT_HDR hdr;
+  BT_HDR_RIGID hdr;
   uint16_t status;
 } tBTA_HF_CLIENT_DISC_RESULT;
 
 /* data type for RFCOMM events */
 typedef struct {
-  BT_HDR hdr;
+  BT_HDR_RIGID hdr;
   uint16_t port_handle;
 } tBTA_HF_CLIENT_RFC;
 
 /* generic purpose data type for other events */
 typedef struct {
-  BT_HDR hdr;
+  BT_HDR_RIGID hdr;
   bool bool_val;
   uint8_t uint8_val;
   uint32_t uint32_val1;
@@ -136,7 +140,7 @@ typedef struct {
 
 /* union of all event datatypes */
 typedef union {
-  BT_HDR hdr;
+  BT_HDR_RIGID hdr;
   tBTA_HF_CLIENT_API_OPEN api_open;
   tBTA_HF_CLIENT_DISC_RESULT disc_result;
   tBTA_HF_CLIENT_RFC rfc;
@@ -167,7 +171,6 @@ typedef struct {
   RawAddress peer_addr;         /* peer bd address */
   tSDP_DISCOVERY_DB* p_disc_db; /* pointer to discovery database */
   uint16_t conn_handle;         /* RFCOMM handle of connected service */
-  tBTA_SEC cli_sec_mask;        /* client security mask */
   tBTA_HF_CLIENT_PEER_FEAT peer_features; /* peer device features */
   tBTA_HF_CLIENT_CHLD_FEAT chld_features; /* call handling features */
   uint16_t peer_version;                  /* profile version of peer device */
@@ -179,10 +182,14 @@ typedef struct {
   tBTM_SCO_CODEC_TYPE negotiated_codec; /* negotiated codec */
   bool svc_conn;      /* set to true when service level connection is up */
   bool send_at_reply; /* set to true to notify framework about AT results */
-  tBTA_HF_CLIENT_AT_CB at_cb;           /* AT Parser control block */
-  uint8_t state;                        /* state machine state */
-  bool is_allocated; /* if the control block is already allocated */
-  alarm_t* collision_timer;             /* Collision timer */
+  tBTA_HF_CLIENT_AT_CB at_cb; /* AT Parser control block */
+  uint8_t state;              /* state machine state */
+  bool is_allocated;          /* if the control block is already allocated */
+  alarm_t* collision_timer;   /* Collision timer */
+  std::unordered_set<int>
+      peer_hf_indicators; /* peer supported hf indicator indices (HFP1.7) */
+  std::unordered_set<int>
+      enabled_hf_indicators; /* enabled hf indicator indices (HFP1.7) */
 } tBTA_HF_CLIENT_CB;
 
 typedef struct {
@@ -191,7 +198,6 @@ typedef struct {
   uint8_t scn;
   tBTA_HF_CLIENT_CBACK* p_cback; /* application callback */
   tBTA_HF_CLIENT_FEAT features;  /* features registered by application */
-  tBTA_SEC serv_sec_mask;        /* server security mask */
   uint16_t serv_handle;          /* RFCOMM server handle */
   bool deregister;               /* true if service shutting down */
 
@@ -211,7 +217,7 @@ extern tBTA_HF_CLIENT_CB* bta_hf_client_find_cb_by_bda(
     const RawAddress& bd_addr);
 extern tBTA_HF_CLIENT_CB* bta_hf_client_find_cb_by_rfc_handle(uint16_t handle);
 extern tBTA_HF_CLIENT_CB* bta_hf_client_find_cb_by_sco_handle(uint16_t handle);
-extern bool bta_hf_client_hdl_event(BT_HDR* p_msg);
+extern bool bta_hf_client_hdl_event(BT_HDR_RIGID* p_msg);
 extern void bta_hf_client_sm_execute(uint16_t event,
                                      tBTA_HF_CLIENT_DATA* p_data);
 extern void bta_hf_client_slc_seq(tBTA_HF_CLIENT_CB* client_cb, bool error);
@@ -223,7 +229,6 @@ extern void bta_hf_client_collision_cback(tBTA_SYS_CONN_STATUS status,
                                           const RawAddress& peer_addr);
 extern void bta_hf_client_resume_open(tBTA_HF_CLIENT_CB* client_cb);
 extern tBTA_STATUS bta_hf_client_api_enable(tBTA_HF_CLIENT_CBACK* p_cback,
-                                            tBTA_SEC sec_mask,
                                             tBTA_HF_CLIENT_FEAT features,
                                             const char* p_service_name);
 
@@ -271,6 +276,9 @@ extern void bta_hf_client_send_at_cmer(tBTA_HF_CLIENT_CB* client_cb,
                                        bool activate);
 extern void bta_hf_client_send_at_chld(tBTA_HF_CLIENT_CB* client_cb, char cmd,
                                        uint32_t idx);
+extern void bta_hf_client_send_at_bind(tBTA_HF_CLIENT_CB* client_cb, int step);
+extern void bta_hf_client_send_at_biev(tBTA_HF_CLIENT_CB* client_cb, int ind_id,
+                                       int value);
 extern void bta_hf_client_send_at_clip(tBTA_HF_CLIENT_CB* client_cb,
                                        bool activate);
 extern void bta_hf_client_send_at_ccwa(tBTA_HF_CLIENT_CB* client_cb,

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"کال مینجمنٹ"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"فون کالز"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"فون"</string>
     <string name="unknown" msgid="6993977514360123431">"نامعلوم"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"چھوٹی ہوئی کال"</string>
@@ -104,7 +104,7 @@
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"یہ کال کرنے کا طریقہ منتخب کریں"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g> کے ذریعے کال کو ریڈائریکٹ کریں"</string>
     <string name="alert_place_unredirect_outgoing_call" msgid="2467608535225764006">"میرا فون نمبر استعمال کر کے کال کريں"</string>
-    <string name="alert_redirect_outgoing_call_timeout" msgid="5568101425637373060">"<xliff:g id="OTHER_APP">%1$s</xliff:g> کے ذریعے کال نہیں کی جا سکتی۔ کال آگے بڑھانے والی کوئی دوسری ایپ آزما کر یا مدد کے لیے ڈیولپر سے رابطہ کر کے دیکھیں۔"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="5568101425637373060">"<xliff:g id="OTHER_APP">%1$s</xliff:g> کے ذریعے کال نہیں کی جا سکتی۔ کال آگے بڑھانے والی کوئی دوسری ایپ آزما کر یا مدد کے لیے ڈویلپر سے رابطہ کر کے دیکھیں۔"</string>
     <string name="phone_settings_call_blocking_txt" msgid="7311523114822507178">"کال مسدود کرنا"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="2602249106007265757">"وہ نمبرز جو رابطوں میں نہیں ہیں"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="963327038085718969">"ان نمبرز کو مسدود کریں جو آپ کے رابطوں میں مندرج نہیں ہیں"</string>
@@ -118,6 +118,6 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="1713632946174016619">"کال مسدود کرنا غیر فعال ہو گیا ہے"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="6629412508584507377">"ہنگامی کال کی گئی"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="3140411733995271126">"ہنگامی حالت میں جواب دہندگان کو آپ سے رابطہ کرنے کی اجازت دینے کیلئے کال مسدود کرنا غیر فعال ہو گیا ہے۔"</string>
-    <string name="developer_title" msgid="9146088855661672353">"ٹیلی کام ڈیولپر مینو"</string>
+    <string name="developer_title" msgid="9146088855661672353">"ٹیلی کام ڈویلپر مینو"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"ہنگامی کال کے دوران کالز نہیں لی جائیں گی۔"</string>
 </resources>

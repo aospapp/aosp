@@ -30,6 +30,7 @@ import android.hardware.HardwareBuffer;
 import android.util.Size;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.media.CamcorderProfile;
+import android.media.EncoderProfiles;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
@@ -134,6 +135,11 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
     private void doBasicRecording(boolean useVideoStab, boolean useIntermediateSurface)
             throws Exception {
+        doBasicRecording(useVideoStab, useIntermediateSurface, false);
+    }
+
+    private void doBasicRecording(boolean useVideoStab, boolean useIntermediateSurface,
+            boolean useEncoderProfiles) throws Exception {
         for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
             try {
                 Log.i(TAG, "Testing basic recording for camera " + mCameraIdsUnderTest[i]);
@@ -164,7 +170,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                 initSupportedVideoSize(mCameraIdsUnderTest[i]);
 
                 basicRecordingTestByCamera(mCamcorderProfileList, useVideoStab,
-                        useIntermediateSurface);
+                        useIntermediateSurface, useEncoderProfiles);
             } finally {
                 closeDevice();
                 releaseRecorder();
@@ -220,6 +226,25 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     @Test(timeout=60*60*1000) // timeout = 60 mins for long running tests
     public void testIntermediateSurfaceRecording() throws Exception {
         doBasicRecording(/*useVideoStab*/false, /*useIntermediateSurface*/true);
+    }
+
+    /**
+     * <p>
+     * Test basic camera recording using encoder profiles.
+     * </p>
+     * <p>
+     * This test covers the typical basic use case of camera recording.
+     * MediaRecorder is used to record the audio and video,
+     * EncoderProfiles are used to configure the MediaRecorder. It
+     * goes through the pre-defined CamcorderProfile list, test each
+     * encoder profile combination and validate the recorded video.
+     * Preview is set to the video size.
+     * </p>
+     */
+    @Test(timeout=60*60*1000) // timeout = 60 mins for long running tests
+    public void testBasicEncoderProfilesRecording() throws Exception {
+        doBasicRecording(/*useVideoStab*/false,  /*useIntermediateSurface*/false,
+                /*useEncoderProfiles*/true);
     }
 
     /**
@@ -1087,17 +1112,26 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         basicRecordingTestByCamera(camcorderProfileList, useVideoStab, false);
     }
 
+    private void basicRecordingTestByCamera(int[] camcorderProfileList, boolean useVideoStab,
+            boolean useIntermediateSurface) throws Exception {
+        basicRecordingTestByCamera(camcorderProfileList, useVideoStab,
+                useIntermediateSurface, false);
+    }
+
     /**
      * Test camera recording by using each available CamcorderProfile for a
      * given camera. preview size is set to the video size.
      */
     private void basicRecordingTestByCamera(int[] camcorderProfileList, boolean useVideoStab,
-            boolean useIntermediateSurface) throws Exception {
+            boolean useIntermediateSurface, boolean useEncoderProfiles) throws Exception {
         Size maxPreviewSize = mOrderedPreviewSizes.get(0);
         List<Range<Integer> > fpsRanges = Arrays.asList(
                 mStaticInfo.getAeAvailableTargetFpsRangesChecked());
         int cameraId = Integer.valueOf(mCamera.getId());
         int maxVideoFrameRate = -1;
+
+        // only validate recording for non-perf measurement runs
+        boolean validateRecording = !isPerfMeasure();
         for (int profileId : camcorderProfileList) {
             if (!CamcorderProfile.hasProfile(cameraId, profileId)) {
                 continue;
@@ -1105,6 +1139,7 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
 
             CamcorderProfile profile = CamcorderProfile.get(cameraId, profileId);
             Size videoSz = new Size(profile.videoFrameWidth, profile.videoFrameHeight);
+
             Range<Integer> fpsRange = new Range(profile.videoFrameRate, profile.videoFrameRate);
             if (maxVideoFrameRate < profile.videoFrameRate) {
                 maxVideoFrameRate = profile.videoFrameRate;
@@ -1127,59 +1162,130 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
                     ") must be one of the camera device available FPS range!",
                     fpsRanges.contains(fpsRange));
 
-            if (VERBOSE) {
-                Log.v(TAG, "Testing camera recording with video size " + videoSz.toString());
-            }
 
-            // Configure preview and recording surfaces.
-            mOutMediaFileName = mDebugFileNameBase + "/test_video.mp4";
-            if (DEBUG_DUMP) {
-                mOutMediaFileName = mDebugFileNameBase + "/test_video_" + cameraId + "_"
-                        + videoSz.toString() + ".mp4";
-            }
-
-            prepareRecordingWithProfile(profile, useIntermediateSurface);
-
-            // prepare preview surface by using video size.
-            updatePreviewSurfaceWithVideo(videoSz, profile.videoFrameRate);
-
-            // Start recording
-            SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
-            startRecording(/* useMediaRecorder */true, resultListener, useVideoStab,
-                    useIntermediateSurface);
-
-            // Record certain duration.
-            SystemClock.sleep(RECORDING_DURATION_MS);
-
-            // Stop recording and preview
-            stopRecording(/* useMediaRecorder */true, useIntermediateSurface,
-                    /* stopCameraStreaming */false);
-            // Convert number of frames camera produced into the duration in unit of ms.
-            float frameDurationMs = 1000.0f / profile.videoFrameRate;
-            float durationMs = 0.f;
-            if (useIntermediateSurface) {
-                durationMs = mQueuer.getQueuedCount() * frameDurationMs;
+            if (useEncoderProfiles) {
+                // Iterate through all video-audio codec combination
+                EncoderProfiles profiles = CamcorderProfile.getAll(mCamera.getId(), profileId);
+                for (EncoderProfiles.VideoProfile videoProfile : profiles.getVideoProfiles()) {
+                    boolean hasAudioProfile = false;
+                    for (EncoderProfiles.AudioProfile audioProfile : profiles.getAudioProfiles()) {
+                        hasAudioProfile = true;
+                        doBasicRecordingByProfile(profiles, videoProfile, audioProfile,
+                                useVideoStab, useIntermediateSurface, validateRecording);
+                        // Only measure the default video profile of the largest video
+                        // recording size when measuring perf
+                        if (isPerfMeasure()) {
+                            break;
+                        }
+                    }
+                    // Timelapse profiles do not have audio track
+                    if (!hasAudioProfile) {
+                        doBasicRecordingByProfile(profiles, videoProfile, /* audioProfile */null,
+                                useVideoStab, useIntermediateSurface, validateRecording);
+                    }
+                }
             } else {
-                durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
-            }
-
-            if (VERBOSE) {
-                Log.v(TAG, "video frame rate: " + profile.videoFrameRate +
-                                ", num of frames produced: " + resultListener.getTotalNumFrames());
+                doBasicRecordingByProfile(
+                        profile, useVideoStab, useIntermediateSurface, validateRecording);
             }
 
             if (isPerfMeasure()) {
                 // Only measure the largest video recording size when measuring perf
                 break;
-            } else {
-                // Validation.
-                validateRecording(videoSz, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
             }
         }
         if (maxVideoFrameRate != -1) {
             // At least one CamcorderProfile is present, check FPS
             assertTrue("At least one CamcorderProfile must support >= 24 FPS",
                     maxVideoFrameRate >= 24);
+        }
+    }
+
+    private void doBasicRecordingByProfile(
+            CamcorderProfile profile, boolean userVideoStab,
+            boolean useIntermediateSurface, boolean validate) throws Exception {
+        Size videoSz = new Size(profile.videoFrameWidth, profile.videoFrameHeight);
+        int frameRate = profile.videoFrameRate;
+
+        if (VERBOSE) {
+            Log.v(TAG, "Testing camera recording with video size " + videoSz.toString());
+        }
+
+        // Configure preview and recording surfaces.
+        mOutMediaFileName = mDebugFileNameBase + "/test_video.mp4";
+        if (DEBUG_DUMP) {
+            mOutMediaFileName = mDebugFileNameBase + "/test_video_" + mCamera.getId() + "_"
+                    + videoSz.toString() + ".mp4";
+        }
+
+        setupMediaRecorder(profile);
+        completeBasicRecording(videoSz, frameRate, userVideoStab, useIntermediateSurface, validate);
+    }
+
+    private void doBasicRecordingByProfile(
+            EncoderProfiles profiles,
+            EncoderProfiles.VideoProfile videoProfile, EncoderProfiles.AudioProfile audioProfile,
+            boolean userVideoStab, boolean useIntermediateSurface, boolean validate)
+                    throws Exception {
+        Size videoSz = new Size(videoProfile.getWidth(), videoProfile.getHeight());
+        int frameRate = videoProfile.getFrameRate();
+
+        if (VERBOSE) {
+            Log.v(TAG, "Testing camera recording with video size " + videoSz.toString() +
+                  ", video codec " + videoProfile.getMediaType() + ", and audio codec " +
+                  (audioProfile == null ? "(null)" : audioProfile.getMediaType()));
+        }
+
+        // Configure preview and recording surfaces.
+        mOutMediaFileName = mDebugFileNameBase + "/test_video.mp4";
+        if (DEBUG_DUMP) {
+            mOutMediaFileName = mDebugFileNameBase + "/test_video_" + mCamera.getId() + "_"
+                    + videoSz.toString() + "_" + videoProfile.getCodec();
+            if (audioProfile != null) {
+                mOutMediaFileName += "_" + audioProfile.getCodec();
+            }
+            mOutMediaFileName += ".mp4";
+        }
+
+        setupMediaRecorder(profiles, videoProfile, audioProfile);
+        completeBasicRecording(videoSz, frameRate, userVideoStab, useIntermediateSurface, validate);
+    }
+
+    private void completeBasicRecording(
+            Size videoSz, int frameRate, boolean useVideoStab,
+            boolean useIntermediateSurface, boolean validate) throws Exception {
+        prepareRecording(useIntermediateSurface);
+
+        // prepare preview surface by using video size.
+        updatePreviewSurfaceWithVideo(videoSz, frameRate);
+
+        // Start recording
+        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+        startRecording(/* useMediaRecorder */true, resultListener, useVideoStab,
+                useIntermediateSurface);
+
+        // Record certain duration.
+        SystemClock.sleep(RECORDING_DURATION_MS);
+
+        // Stop recording and preview
+        stopRecording(/* useMediaRecorder */true, useIntermediateSurface,
+                /* stopCameraStreaming */true);
+        // Convert number of frames camera produced into the duration in unit of ms.
+        float frameDurationMs = 1000.0f / frameRate;
+        float durationMs = 0.f;
+        if (useIntermediateSurface) {
+            durationMs = mQueuer.getQueuedCount() * frameDurationMs;
+        } else {
+            durationMs = resultListener.getTotalNumFrames() * frameDurationMs;
+        }
+
+        if (VERBOSE) {
+            Log.v(TAG, "video frame rate: " + frameRate +
+                            ", num of frames produced: " + resultListener.getTotalNumFrames());
+        }
+
+        if (validate) {
+            validateRecording(videoSz, durationMs, frameDurationMs, FRMDRP_RATE_TOLERANCE);
         }
     }
 
@@ -1264,7 +1370,12 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         Size maxVideoSize = SIZE_BOUND_1080P;
         if (CamcorderProfile.hasProfile(CamcorderProfile.QUALITY_2160P)) {
             maxVideoSize = SIZE_BOUND_2160P;
+        } else if (CamcorderProfile.hasProfile(CamcorderProfile.QUALITY_QHD)) {
+            maxVideoSize = SIZE_BOUND_QHD;
+        } else if (CamcorderProfile.hasProfile(CamcorderProfile.QUALITY_2K)) {
+            maxVideoSize = SIZE_BOUND_2K;
         }
+
         mSupportedVideoSizes =
                 getSupportedVideoSizes(cameraId, mCameraManager, maxVideoSize);
     }
@@ -1679,9 +1790,39 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
     private void prepareRecordingWithProfile(CamcorderProfile profile,
             boolean useIntermediateSurface) throws Exception {
         // Prepare MediaRecorder.
+        setupMediaRecorder(profile);
+        prepareRecording(useIntermediateSurface);
+    }
+
+    private void setupMediaRecorder(CamcorderProfile profile) throws Exception {
+        // Set-up MediaRecorder.
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
         mMediaRecorder.setProfile(profile);
+
+        mVideoFrameRate = profile.videoFrameRate;
+        mVideoSize = new Size(profile.videoFrameWidth, profile.videoFrameHeight);
+    }
+
+    private void setupMediaRecorder(
+            EncoderProfiles profiles,
+            EncoderProfiles.VideoProfile videoProfile,
+            EncoderProfiles.AudioProfile audioProfile) throws Exception {
+        // Set-up MediaRecorder.
+        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
+        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+        mMediaRecorder.setOutputFormat(profiles.getRecommendedFileFormat());
+        mMediaRecorder.setVideoProfile(videoProfile);
+        if (audioProfile != null) {
+            mMediaRecorder.setAudioProfile(audioProfile);
+        }
+
+        mVideoFrameRate = videoProfile.getFrameRate();
+        mVideoSize = new Size(videoProfile.getWidth(), videoProfile.getHeight());
+    }
+
+    private void prepareRecording(boolean useIntermediateSurface) throws Exception {
+        // Continue preparing MediaRecorder
         mMediaRecorder.setOutputFile(mOutMediaFileName);
         if (mPersistentSurface != null) {
             mMediaRecorder.setInputSurface(mPersistentSurface);
@@ -1692,12 +1833,10 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             mRecordingSurface = mMediaRecorder.getSurface();
         }
         assertNotNull("Recording surface must be non-null!", mRecordingSurface);
-        mVideoFrameRate = profile.videoFrameRate;
-        mVideoSize = new Size(profile.videoFrameWidth, profile.videoFrameHeight);
 
         if (useIntermediateSurface) {
             mIntermediateReader = ImageReader.newInstance(
-                    profile.videoFrameWidth, profile.videoFrameHeight,
+                    mVideoSize.getWidth(), mVideoSize.getHeight(),
                     ImageFormat.PRIVATE, /*maxImages*/3, HardwareBuffer.USAGE_VIDEO_ENCODE);
 
             mIntermediateSurface = mIntermediateReader.getSurface();
@@ -1833,8 +1972,20 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
         sharedConfig.addSurface(mRecordingSurface);
         outputConfigs.add(sharedConfig);
 
+        CaptureRequest.Builder recordingRequestBuilder =
+                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+        // Make sure camera output frame rate is set to correct value.
+        Range<Integer> fpsRange = (variableFpsRange == null) ?
+                Range.create(mVideoFrameRate, mVideoFrameRate) : variableFpsRange;
+        recordingRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
+        if (useVideoStab) {
+            recordingRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON);
+        }
+        CaptureRequest recordingRequest = recordingRequestBuilder.build();
+
         mSessionListener = new BlockingSessionCallback();
-        mSession = tryConfigureCameraSessionWithConfig(mCamera, outputConfigs,
+        mSession = tryConfigureCameraSessionWithConfig(mCamera, outputConfigs, recordingRequest,
                 mSessionListener, mHandler);
 
         if (mSession == null) {
@@ -1842,17 +1993,6 @@ public class RecordingTest extends Camera2SurfaceViewTestCase {
             return false;
         }
 
-        CaptureRequest.Builder recordingRequestBuilder =
-                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
-        // Make sure camera output frame rate is set to correct value.
-        Range<Integer> fpsRange = (variableFpsRange == null) ?
-                Range.create(mVideoFrameRate, mVideoFrameRate) : variableFpsRange;
-
-        recordingRequestBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
-        if (useVideoStab) {
-            recordingRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
-                    CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON);
-        }
         recordingRequestBuilder.addTarget(mRecordingSurface);
         recordingRequestBuilder.addTarget(mPreviewSurface);
         mSession.setRepeatingRequest(recordingRequestBuilder.build(), listener, mHandler);

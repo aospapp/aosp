@@ -17,6 +17,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace android {
@@ -24,13 +25,17 @@ namespace wakelock {
 
 // RAII-style wake lock implementation
 class WakeLock {
-  public:
-    WakeLock(const std::string& name);
-    ~WakeLock();
-
   private:
     class WakeLockImpl;
     std::unique_ptr<WakeLockImpl> mImpl;
+
+  public:
+    static std::optional<WakeLock> tryGet(const std::string& name);
+    // Constructor is only made public for use with std::optional.
+    // It is not intended to be and cannot be invoked from public context,
+    // since private WakeLockImpl prevents calling the constructor directly.
+    WakeLock(std::unique_ptr<WakeLockImpl> wlImpl);
+    ~WakeLock();
 };
 
 }  // namespace wakelock

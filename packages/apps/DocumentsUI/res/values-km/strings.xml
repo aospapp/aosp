@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"អ្នកត្រូវប្ដូរឈ្មោះវា"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"អ្នកត្រូវបញ្ចូលឈ្មោះថត"</string>
     <string name="files_label" msgid="771781190045103748">"ឯកសារ"</string>
     <string name="downloads_label" msgid="5462789470049501103">"ដោនឡូត"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -51,7 +53,7 @@
     <string name="menu_new_window" msgid="2947837751796109126">"ផ្ទាំងវិនដូថ្មី"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"កាត់"</string>
     <string name="menu_copy_to_clipboard" msgid="5064081159073330776">"ចម្លង"</string>
-    <string name="menu_paste_from_clipboard" msgid="360947260414135827">"បិទភ្ជាប់"</string>
+    <string name="menu_paste_from_clipboard" msgid="360947260414135827">"ដាក់ចូល"</string>
     <string name="menu_paste_into_folder" msgid="8000644546983240101">"បិទភ្ជាប់ទៅក្នុងថត"</string>
     <string name="menu_advanced_show" msgid="7558626506462906726">"បង្ហាញទំហំផ្ទុកខាងក្នុង"</string>
     <string name="menu_advanced_hide" msgid="6488381508009246334">"លាក់​ឧបករណ៍​​ផ្ទុក​ខាងក្នុង"</string>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"ការងារ"</string>
     <string name="a11y_work" msgid="7504431382825242153">"ការងារ"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"អ្នកមិនអាច​ផ្លាស់ទី​ឯកសារ​ពីកម្មវិធី​ផ្សេងទៀត​បានទេ។"</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"បង្ហាញក្នុងមុខងារ​ក្រឡា។"</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"បង្ហាញក្នុង​មុខងារបញ្ជី។"</string>
 </resources>

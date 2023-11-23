@@ -15,24 +15,23 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.phone.testapps.telephonyregistry">
+     package="com.android.phone.testapps.telephonyregistry">
     <uses-sdk android:minSdkVersion="25"
-          android:targetSdkVersion="25"/>
+         android:targetSdkVersion="25"/>
 
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
     <uses-permission android:name="android.permission.READ_PRECISE_PHONE_STATE"/>
     <application android:label="TelephonyRegistryTestApp">
-        <activity
-            android:name=".TelephonyRegistryTestApp"
-            android:label="TelephonyRegistryTestApp">
+        <activity android:name=".TelephonyRegistryTestApp"
+             android:label="TelephonyRegistryTestApp"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 </manifest>
-

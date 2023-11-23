@@ -17,7 +17,9 @@
 package com.android.car.carlauncher;
 
 import android.annotation.Nullable;
+import android.content.ComponentName;
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,6 +35,8 @@ import java.util.List;
 final class AppGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public static final int RECENT_APPS_TYPE = 1;
     public static final int APP_ITEM_TYPE = 2;
+    private static final long RECENT_APPS_ID = 0;
+    private static final String TAG = "AppGridAdapter";
 
     private final Context mContext;
     private final int mColumnNumber;
@@ -47,6 +51,8 @@ final class AppGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         mInflater = LayoutInflater.from(context);
         mColumnNumber =
                 mContext.getResources().getInteger(R.integer.car_app_selector_column_number);
+        // Stable IDs improve performance and make rotary work better.
+        setHasStableIds(true);
     }
 
     void setIsDistractionOptimizationRequired(boolean isDistractionOptimizationRequired) {
@@ -58,6 +64,27 @@ final class AppGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     void setMostRecentApps(@Nullable List<AppMetaData> mostRecentApps) {
         mMostRecentApps = mostRecentApps;
         notifyDataSetChanged();
+    }
+
+    @Override
+    public long getItemId(int position) {
+        if (position == 0 && hasRecentlyUsedApps()) {
+            return RECENT_APPS_ID;
+        }
+        if (mApps == null) {
+            Log.w(TAG, "apps list not set");
+            return RecyclerView.NO_ID;
+        }
+        int index = hasRecentlyUsedApps() ? position - 1 : position;
+        if (index < 0 || index >= mApps.size()) {
+            Log.w(TAG, "index out of range");
+            return RecyclerView.NO_ID;
+        }
+        ComponentName componentName = mApps.get(index).getComponentName();
+        long id = componentName.getPackageName().hashCode();
+        id <<= Integer.SIZE;
+        id |= componentName.getClassName().hashCode();
+        return id;
     }
 
     void setAllApps(@Nullable List<AppMetaData> apps) {

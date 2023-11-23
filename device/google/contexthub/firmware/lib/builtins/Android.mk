@@ -19,6 +19,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanobuiltins
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-MIT SPDX-license-identifier-NCSA
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/LICENSE.TXT $(LOCAL_PATH)/NOTICE
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES_cortexm4 := \

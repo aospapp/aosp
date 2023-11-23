@@ -17,7 +17,6 @@ LOCAL_SRC_FILES := \
     android/base/files/Stream.cpp \
     android/base/files/StreamSerializing.cpp \
     android/base/Pool.cpp \
-    android/base/ring_buffer.c \
     android/base/StringFormat.cpp \
     android/base/AndroidSubAllocator.cpp \
     android/base/synchronization/AndroidMessageChannel.cpp \
@@ -27,6 +26,14 @@ LOCAL_SRC_FILES := \
     android/base/threads/AndroidWorkPool.cpp \
     android/base/Tracing.cpp \
     android/utils/debug.c \
+
+$(call emugl-end-module)
+
+$(call emugl-begin-static-library,libringbuffer)
+$(call emugl-export,C_INCLUDES,$(LOCAL_PATH))
+
+LOCAL_SRC_FILES := \
+    android/base/ring_buffer.c \
 
 $(call emugl-end-module)
 endif

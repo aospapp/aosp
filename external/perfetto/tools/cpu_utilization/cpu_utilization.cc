@@ -15,7 +15,6 @@
  */
 
 #include <fcntl.h>
-#include <getopt.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <sys/stat.h>
@@ -27,6 +26,8 @@
 
 #include "perfetto/base/logging.h"
 #include "perfetto/base/time.h"
+#include "perfetto/ext/base/file_utils.h"
+#include "perfetto/ext/base/getopt.h"
 #include "perfetto/ext/base/scoped_file.h"
 
 // Periodically prints an un-normalized cpu usage ratio (full use of a single
@@ -66,14 +67,13 @@ int CpuUtilizationMain(int argc, char** argv) {
   int sleep_intervals = 6;
   int target_pid = -1;
 
-  static struct option long_options[] = {
+  static option long_options[] = {
       {"pid", required_argument, nullptr, 'p'},
       {"sleep-duration-us", required_argument, nullptr, 't'},
       {"sleep-intervals", required_argument, nullptr, 'n'},
       {nullptr, 0, nullptr, 0}};
-  int option_index;
   int c;
-  while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1) {
+  while ((c = getopt_long(argc, argv, "", long_options, nullptr)) != -1) {
     switch (c) {
       case 'p':
         target_pid = atoi(optarg);
@@ -156,8 +156,8 @@ int CpuUtilizationMain(int argc, char** argv) {
     double utime_diff_ms = static_cast<double>(utime_diff * 1000 / ticks_per_s);
     double stime_diff_ms = static_cast<double>(stime_diff * 1000 / ticks_per_s);
 
-    double utime_ratio = utime_diff_ms / wall_diff_ms;
-    double stime_ratio = stime_diff_ms / wall_diff_ms;
+    double utime_ratio = utime_diff_ms / static_cast<double>(wall_diff_ms);
+    double stime_ratio = stime_diff_ms / static_cast<double>(wall_diff_ms);
 
     PERFETTO_LOG("utime ratio   : %f", utime_ratio);
     PERFETTO_LOG("stime ratio   : %f", stime_ratio);
@@ -174,8 +174,8 @@ int CpuUtilizationMain(int argc, char** argv) {
   uint64_t wall_diff_ms = last_walltime_ms - first_walltime_ms;
   double utime_diff_ms = static_cast<double>(utime_diff * 1000 / ticks_per_s);
   double stime_diff_ms = static_cast<double>(stime_diff * 1000 / ticks_per_s);
-  double utime_ratio = utime_diff_ms / wall_diff_ms;
-  double stime_ratio = stime_diff_ms / wall_diff_ms;
+  double utime_ratio = utime_diff_ms / static_cast<double>(wall_diff_ms);
+  double stime_ratio = stime_diff_ms / static_cast<double>(wall_diff_ms);
   PERFETTO_LOG("utime ratio   : %f", utime_ratio);
   PERFETTO_LOG("stime ratio   : %f", stime_ratio);
   PERFETTO_LOG("combined ratio: %f\n", utime_ratio + stime_ratio);

@@ -24,6 +24,7 @@
 #define MVEBU_3900_DEV_ID		(0x6025)
 #define MVEBU_80X0_DEV_ID		(0x8040)
 #define MVEBU_80X0_CP115_DEV_ID		(0x8045)
+#define MVEBU_CN9130_DEV_ID		(0x7025)
 #define MVEBU_CP110_SA_DEV_ID		(0x110)
 #define MVEBU_CP110_REF_ID_A1		1
 #define MVEBU_CP110_REF_ID_A2		2
@@ -51,5 +52,6 @@ static inline uint32_t cp110_rev_id_get(uintptr_t base)
 
 void cp110_init(uintptr_t cp110_base, uint32_t stream_id);
 void cp110_ble_init(uintptr_t cp110_base);
+void cp110_amb_init(uintptr_t base);
 
 #endif /* CP110_SETUP_H */

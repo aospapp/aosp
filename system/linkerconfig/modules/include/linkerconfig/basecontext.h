@@ -18,6 +18,8 @@
 #include <string>
 #include <vector>
 
+#include <linker_config.pb.h>
+
 #include "linkerconfig/apex.h"
 #include "linkerconfig/namespace.h"
 
@@ -39,11 +41,18 @@ class BaseContext {
   virtual Namespace BuildApexNamespace(const ApexInfo& apex_info,
                                        bool visible) const;
 
+  void SetSystemConfig(const android::linkerconfig::proto::LinkerConfig& config);
+  const std::vector<std::string>& GetSystemProvideLibs() const;
+  const std::vector<std::string>& GetSystemRequireLibs() const;
+
  private:
   bool strict_;
 
   // Available APEX Modules which contains binary and/or library
   std::vector<ApexInfo> apex_modules_;
+
+  std::vector<std::string> system_provide_libs_;
+  std::vector<std::string> system_require_libs_;
 };
 
 }  // namespace modules

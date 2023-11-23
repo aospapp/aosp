@@ -40,7 +40,7 @@ public class EvilMapTest extends junit.framework.TestCase {
     // ...but potentially return many entries.
     @Override public Set<Entry<K, V>> entrySet() { return entries; }
 
-    // Dummy implementation, not relevant for this test but
+    // Fake implementation, not relevant for this test but
     // necessary to implement AbstractMap.
     @Override public V put(K key, V val) { return val; }
   }

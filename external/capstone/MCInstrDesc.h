@@ -13,15 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 /* Capstone Disassembly Engine */
-/* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2014 */
+/* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2015 */
 
 #ifndef CS_LLVM_MC_MCINSTRDESC_H
 #define CS_LLVM_MC_MCINSTRDESC_H
 
-#if !defined(_MSC_VER) || !defined(_KERNEL_MODE)
-#include <stdint.h>
-#endif
-#include "include/platform.h"
+#include "capstone/platform.h"
 
 //===----------------------------------------------------------------------===//
 // Machine Operand Flags and Description
@@ -113,6 +110,8 @@ enum {
 	MCID_ExtraSrcRegAllocReq,
 	MCID_ExtraDefRegAllocReq,
 	MCID_RegSequence,
+	MCID_ExtractSubreg,
+	MCID_InsertSubreg
 };
 
 /// MCInstrDesc - Describe properties that are true of each instruction in the
@@ -130,7 +129,7 @@ typedef struct MCInstrDesc {
 	uint64_t        TSFlags;       // Target Specific Flag values
 	char ImplicitUses;  // Registers implicitly read by this instr
 	char ImplicitDefs;  // Registers implicitly defined by this instr
-	MCOperandInfo *OpInfo;   // 'NumOperands' entries about operands
+	const MCOperandInfo *OpInfo;   // 'NumOperands' entries about operands
 	uint64_t DeprecatedFeatureMask;// Feature bits that this is deprecated on, if any     
 	// A complex method to determine is a certain is deprecated or not, and return        
 	// the reason for deprecation.
@@ -138,8 +137,8 @@ typedef struct MCInstrDesc {
 	unsigned char ComplexDeprecationInfo;	// dummy field, just to satisfy initializer
 } MCInstrDesc;
 
-bool MCOperandInfo_isPredicate(MCOperandInfo *m);
+bool MCOperandInfo_isPredicate(const MCOperandInfo *m);
 
-bool MCOperandInfo_isOptionalDef(MCOperandInfo *m);
+bool MCOperandInfo_isOptionalDef(const MCOperandInfo *m);
 
 #endif

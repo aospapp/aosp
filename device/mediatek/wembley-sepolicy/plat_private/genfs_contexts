@@ -3,4 +3,18 @@ genfscon sysfs /devices/platform/vibrator@0/leds/vibrator u:object_r:sysfs_vibra
 
 genfscon sysfs /block/mmcblk0rpmb/size u:object_r:access_sys_file:s0
 genfscon sysfs /devices/virtual/misc/mcupm  u:object_r:sysfs_mcupm:s0
+
 genfscon sysfs /firmware/devicetree/base/chosen/atag,boot    u:object_r:sysfs_boot_info:s0
+
+# Date : 2020/04/17
+# Purpose : mtk Audio headset detect
+genfscon sysfs /bus/platform/drivers/Accdet_Driver/state u:object_r:sysfs_headset:s0
+genfscon sysfs /bus/platform/drivers/pmic-codec-accdet/state u:object_r:sysfs_headset:s0
+
+genfscon proc /ccci_lp_mem u:object_r:proc_ccci_lp_mem:s0
+
+# Date : WK20.20
+# Operation: R migration
+# Purpose : read vbus voltage
+genfscon sysfs /devices/platform/charger/ADC_Charger_Voltage u:object_r:sysfs_vbus:s0
+genfscon sysfs /devices/platform/battery/ADC_Charger_Voltage u:object_r:sysfs_vbus:s0

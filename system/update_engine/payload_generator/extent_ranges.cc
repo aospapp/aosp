@@ -27,7 +27,6 @@
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_generator/extent_utils.h"
 
-using std::set;
 using std::vector;
 
 namespace chromeos_update_engine {
@@ -201,6 +200,15 @@ void ExtentRanges::SubtractRepeatedExtents(
   for (int i = 0, e = exts.size(); i != e; ++i) {
     SubtractExtent(exts.Get(i));
   }
+}
+
+bool ExtentRanges::OverlapsWithExtent(const Extent& extent) const {
+  for (const auto& entry : extent_set_) {
+    if (ExtentsOverlap(entry, extent)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool ExtentRanges::ContainsBlock(uint64_t block) const {

@@ -15,6 +15,9 @@
  */
 package com.android.providers.blockednumber;
 
+import static android.os.UserHandle.MIN_SECONDARY_USER_ID;
+import static android.os.UserHandle.USER_SYSTEM;
+
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
@@ -46,6 +49,7 @@ import android.telephony.CarrierConfigManager;
 import android.telephony.TelephonyManager;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
+import android.text.TextUtils;
 import android.test.suitebuilder.annotation.MediumTest;
 
 import junit.framework.Assert;
@@ -70,7 +74,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
         mMockContext.initializeContext();
         mResolver = mMockContext.getContentResolver();
 
-        when(mMockContext.mUserManager.isPrimaryUser()).thenReturn(true);
+        doReturn(USER_SYSTEM).when(mMockContext).getUserId();
         when(mMockContext.mCountryDetector.detectCountry())
                 .thenReturn(new Country("US", Country.COUNTRY_SOURCE_LOCATION));
         when(mMockContext.mAppOpsManager.noteOp(
@@ -608,6 +612,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
 
     public void testEmergencyNumbersAreNotBlockedBySystem() {
         String emergencyNumber = getEmergencyNumberFromSystemPropertiesOrDefault();
+        doReturn(true).when(mMockContext.mTelephonyManager).isEmergencyNumber(emergencyNumber);
         insert(cv(BlockedNumbers.COLUMN_ORIGINAL_NUMBER, emergencyNumber));
 
         assertIsBlocked(true, emergencyNumber);
@@ -633,7 +638,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
     }
 
     public void testPrivilegedAppAccessingApisAsSecondaryUser() {
-        when(mMockContext.mUserManager.isPrimaryUser()).thenReturn(false);
+        doReturn(MIN_SECONDARY_USER_ID).when(mMockContext).getUserId();
 
         assertFalse(BlockedNumberContract.canCurrentUserBlockNumbers(mMockContext));
 
@@ -670,7 +675,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
     }
 
     public void testRegularAppAccessingApisAsSecondaryUser() {
-        when(mMockContext.mUserManager.isPrimaryUser()).thenReturn(false);
+        doReturn(MIN_SECONDARY_USER_ID).when(mMockContext).getUserId();
         doReturn(PackageManager.PERMISSION_DENIED)
                 .when(mMockContext).checkCallingPermission(anyString());
 
@@ -767,7 +772,7 @@ public class BlockedNumberProviderTest extends AndroidTestCase {
 
     private String getEmergencyNumberFromSystemPropertiesOrDefault() {
         String systemEmergencyNumbers = SystemProperties.get("ril.ecclist");
-        if (systemEmergencyNumbers == null) {
+        if (TextUtils.isEmpty(systemEmergencyNumbers)) {
             return "911";
         } else {
             return systemEmergencyNumbers.split(",")[0];

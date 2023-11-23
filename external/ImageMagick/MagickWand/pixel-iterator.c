@@ -23,7 +23,7 @@
 %                                March 2003                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -162,10 +162,8 @@ WandExport PixelIterator *ClonePixelIterator(const PixelIterator *iterator)
   assert(iterator->signature == MagickWandSignature);
   if (iterator->debug != MagickFalse)
     (void) LogMagickEvent(WandEvent,GetMagickModule(),"%s",iterator->name);
-  clone_iterator=(PixelIterator *) AcquireMagickMemory(sizeof(*clone_iterator));
-  if (clone_iterator == (PixelIterator *) NULL)
-    ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
-      iterator->name);
+  clone_iterator=(PixelIterator *) AcquireCriticalMemory(
+    sizeof(*clone_iterator));
   (void) memset(clone_iterator,0,sizeof(*clone_iterator));
   clone_iterator->id=AcquireWandId();
   (void) FormatLocaleString(clone_iterator->name,MagickPathExtent,"%s-%.20g",
@@ -316,10 +314,7 @@ WandExport PixelIterator *NewPixelIterator(MagickWand *wand)
   view=AcquireVirtualCacheView(image,exception);
   if (view == (CacheView *) NULL)
     return((PixelIterator *) NULL);
-  iterator=(PixelIterator *) AcquireMagickMemory(sizeof(*iterator));
-  if (iterator == (PixelIterator *) NULL)
-    ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
-      GetExceptionMessage(errno));
+  iterator=(PixelIterator *) AcquireCriticalMemory(sizeof(*iterator));
   (void) memset(iterator,0,sizeof(*iterator));
   iterator->id=AcquireWandId();
   (void) FormatLocaleString(iterator->name,MagickPathExtent,"%s-%.20g",
@@ -435,10 +430,7 @@ WandExport PixelIterator *NewPixelRegionIterator(MagickWand *wand,
   view=AcquireVirtualCacheView(image,exception);
   if (view == (CacheView *) NULL)
     return((PixelIterator *) NULL);
-  iterator=(PixelIterator *) AcquireMagickMemory(sizeof(*iterator));
-  if (iterator == (PixelIterator *) NULL)
-    ThrowWandFatalException(ResourceLimitFatalError,"MemoryAllocationFailed",
-      wand->name);
+  iterator=(PixelIterator *) AcquireCriticalMemory(sizeof(*iterator));
   (void) memset(iterator,0,sizeof(*iterator));
   iterator->id=AcquireWandId();
   (void) FormatLocaleString(iterator->name,MagickPathExtent,"%s-%.20g",
@@ -488,10 +480,10 @@ WandExport PixelIterator *NewPixelRegionIterator(MagickWand *wand,
 WandExport PixelWand **PixelGetCurrentIteratorRow(PixelIterator *iterator,
   size_t *number_wands)
 {
-  register const Quantum
+  const Quantum
     *pixels;
 
-  register ssize_t
+  ssize_t
     x;
 
   assert(iterator != (PixelIterator *) NULL);
@@ -561,7 +553,8 @@ WandExport char *PixelGetIteratorException(const PixelIterator *iterator,
   *description='\0';
   if (iterator->exception->reason != (char *) NULL)
     (void) CopyMagickString(description,GetLocaleExceptionMessage(
-      iterator->exception->severity,iterator->exception->reason),MagickPathExtent);
+      iterator->exception->severity,iterator->exception->reason),
+      MagickPathExtent);
   if (iterator->exception->description != (char *) NULL)
     {
       (void) ConcatenateMagickString(description," (",MagickPathExtent);
@@ -667,10 +660,10 @@ WandExport ssize_t PixelGetIteratorRow(PixelIterator *iterator)
 WandExport PixelWand **PixelGetNextIteratorRow(PixelIterator *iterator,
   size_t *number_wands)
 {
-  register const Quantum
+  const Quantum
     *pixels;
 
-  register ssize_t
+  ssize_t
     x;
 
   assert(iterator != (PixelIterator *) NULL);
@@ -726,10 +719,10 @@ WandExport PixelWand **PixelGetNextIteratorRow(PixelIterator *iterator,
 WandExport PixelWand **PixelGetPreviousIteratorRow(PixelIterator *iterator,
   size_t *number_wands)
 {
-  register const Quantum
+  const Quantum
     *pixels;
 
-  register ssize_t
+  ssize_t
     x;
 
   assert(iterator != (PixelIterator *) NULL);
@@ -918,10 +911,10 @@ WandExport MagickBooleanType PixelSyncIterator(PixelIterator *iterator)
   MagickBooleanType
     status;
 
-  register Quantum
+  Quantum
     *magick_restrict pixels;
 
-  register ssize_t
+  ssize_t
     x;
 
   assert(iterator != (const PixelIterator *) NULL);

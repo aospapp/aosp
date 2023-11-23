@@ -27,12 +27,12 @@ public class DefaultSetupFlags implements SetupFlags {
     }
 
     @Override
-    public StringListParam setupPassThroughPackageWhitelist() {
+    public StringListParam setupPassThroughPackageAllowlist() {
         return StringListParam.getDefaultInstance();
     }
 
     @Override
-    public boolean useWhitelistForSetupPassThrough() {
+    public boolean useAllowlistForSetupPassThrough() {
         return false;
     }
 }

@@ -1,93 +1,109 @@
 /*
  * strnlen test.
  *
- * Copyright (c) 2019, Arm Limited.
+ * Copyright (c) 2019-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
-#define _POSIX_C_SOURCE 200809L
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include "mte.h"
 #include "stringlib.h"
+#include "stringtest.h"
+
+#define F(x, mte) {#x, x, mte},
 
 static const struct fun
 {
-	const char *name;
-	size_t (*fun)(const char *s, size_t m);
+  const char *name;
+  size_t (*fun) (const char *s, size_t m);
+  int test_mte;
 } funtab[] = {
-#define F(x) {#x, x},
-F(strnlen)
+  // clang-format off
+  F(strnlen, 0)
 #if __aarch64__
-F(__strnlen_aarch64)
+  F(__strnlen_aarch64, 1)
 # if __ARM_FEATURE_SVE
-F(__strnlen_aarch64_sve)
+  F(__strnlen_aarch64_sve, 1)
 # endif
 #endif
-#undef F
-	{0, 0}
+  {0, 0, 0}
+  // clang-format on
 };
+#undef F
 
-static int test_status;
-#define ERR(...) (test_status=1, printf(__VA_ARGS__))
+#define ALIGN 32
+#define LEN 512
+static char *sbuf;
 
-#define A 32
-#define SP 512
-#define LEN 250000
-static char sbuf[LEN+2*A];
-
-static void *alignup(void *p)
+static void *
+alignup (void *p)
 {
-	return (void*)(((uintptr_t)p + A-1) & -A);
+  return (void *) (((uintptr_t) p + ALIGN - 1) & -ALIGN);
 }
 
-static void test(const struct fun *fun, int align, int maxlen, int len)
+static void
+test (const struct fun *fun, int align, size_t maxlen, size_t len)
 {
-	char *src = alignup(sbuf);
-	char *s = src + align;
-	size_t r;
-	size_t e = maxlen < len ? maxlen : len - 1;
+  char *src = alignup (sbuf);
+  char *s = src + align;
+  size_t r;
+  size_t e = maxlen < len ? maxlen : len;
 
-	if (len > LEN || align >= A)
-		abort();
+  if (err_count >= ERR_LIMIT)
+    return;
+  if (len > LEN || align >= ALIGN)
+    abort ();
 
-	for (int i = 0; i < len + A; i++)
-		src[i] = '?';
-	for (int i = 0; i < len - 2; i++)
-		s[i] = 'a' + i%23;
-	s[len - 1] = '\0';
+  for (int i = 0; src + i < s; i++)
+    src[i] = 0;
+  for (int i = 1; i <= ALIGN; i++)
+    s[len + i] = (len + align) & 1 ? 1 : 0;
+  for (int i = 0; i < len; i++)
+    s[i] = 'a' + (i & 31);
+  s[len] = 0;
+  if ((len + align) & 1)
+    s[e + 1] = 0;
 
-	r = fun->fun(s, maxlen);
-	if (r != e) {
-		ERR("%s(%p) returned %zu\n", fun->name, s, r);
-		ERR("input:    %.*s\n", align+len+1, src);
-		ERR("expected: %d\n", len);
-		abort();
-	}
+  size_t mte_len = maxlen < len + 1 ? maxlen : len + 1;
+  s = tag_buffer (s, mte_len, fun->test_mte);
+  r = fun->fun (s, maxlen);
+  untag_buffer (s, mte_len, fun->test_mte);
+
+  if (r != e)
+    {
+      ERR ("%s (%p, %zu) len %zu returned %zu, expected %zu\n",
+	   fun->name, s, maxlen, len, r, e);
+      quote ("input", s, len);
+    }
 }
 
-int main()
+int
+main (void)
 {
-	int r = 0;
-	for (int i=0; funtab[i].name; i++) {
-		test_status = 0;
-		for (int a = 0; a < A; a++) {
-			int n;
-			for (n = 1; n < 100; n++)
-				for (int maxlen = 0; maxlen < 100; maxlen++)
-					test(funtab+i, a, maxlen, n);
-			for (; n < LEN; n *= 2) {
-				test(funtab+i, a, n*2, n);
-				test(funtab+i, a, n, n);
-				test(funtab+i, a, n/2, n);
-			}
-		}
-		printf("%s %s\n", test_status ? "FAIL" : "PASS", funtab[i].name);
-		if (test_status)
-			r = -1;
-	}
-	return r;
+  sbuf = mte_mmap (LEN + 3 * ALIGN);
+  int r = 0;
+  for (int i = 0; funtab[i].name; i++)
+    {
+      err_count = 0;
+      for (int a = 0; a < ALIGN; a++)
+	for (int n = 0; n < LEN; n++)
+	  {
+	    for (int maxlen = 0; maxlen < LEN; maxlen++)
+	      test (funtab + i, a, maxlen, n);
+	    test (funtab + i, a, SIZE_MAX - a, n);
+	  }
+      char *pass = funtab[i].test_mte && mte_enabled () ? "MTE PASS" : "PASS";
+      printf ("%s %s\n", err_count ? "FAIL" : pass, funtab[i].name);
+      if (err_count)
+	r = -1;
+    }
+  return r;
 }

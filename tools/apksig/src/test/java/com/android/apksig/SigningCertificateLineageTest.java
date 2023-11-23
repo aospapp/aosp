@@ -21,20 +21,15 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.android.apksig.SigningCertificateLineage.SignerCapabilities;
+import com.android.apksig.SigningCertificateLineage.SignerConfig;
 import com.android.apksig.apk.ApkFormatException;
 import com.android.apksig.internal.apk.ApkSigningBlockUtils;
+import com.android.apksig.internal.apk.v3.V3SchemeConstants;
 import com.android.apksig.internal.apk.v3.V3SchemeSigner;
-import com.android.apksig.internal.util.ByteBufferDataSource;
 import com.android.apksig.internal.util.ByteBufferUtils;
 import com.android.apksig.internal.util.Resources;
-
-import com.android.apksig.SigningCertificateLineage.SignerConfig;
-import com.android.apksig.SigningCertificateLineage.SignerCapabilities;
-
 import com.android.apksig.util.DataSource;
-
-import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -42,6 +37,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
@@ -94,6 +90,23 @@ public class SigningCertificateLineageTest {
     }
 
     @Test
+    public void testLineageFromBytesContainsExpectedSigners() throws Exception {
+        // This file contains the lineage with the three rsa-2048 signers
+        DataSource lineageDataSource = Resources.toDataSource(getClass(),
+                "rsa-2048-lineage-3-signers");
+        SigningCertificateLineage lineage = SigningCertificateLineage.readFromBytes(
+                lineageDataSource.getByteBuffer(0, (int) lineageDataSource.size()).array());
+        List<SignerConfig> signers = new ArrayList<>(3);
+        signers.add(
+                Resources.toLineageSignerConfig(getClass(), FIRST_RSA_2048_SIGNER_RESOURCE_NAME));
+        signers.add(
+                Resources.toLineageSignerConfig(getClass(), SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+        signers.add(
+                Resources.toLineageSignerConfig(getClass(), THIRD_RSA_2048_SIGNER_RESOURCE_NAME));
+        assertLineageContainsExpectedSigners(lineage, signers);
+    }
+
+    @Test
     public void testLineageFromFileContainsExpectedSigners() throws Exception {
         // This file contains the lineage with the three rsa-2048 signers
         DataSource lineageDataSource = Resources.toDataSource(getClass(),
@@ -132,6 +145,17 @@ public class SigningCertificateLineageTest {
         // This file contains the lineage with two rsa-2048 signers and an invalid value of FF for
         // the version
         Resources.toSigningCertificateLineage(getClass(), "rsa-2048-lineage-invalid-version");
+    }
+
+    @Test
+    public void testLineageWrittenToBytesContainsExpectedSigners() throws Exception {
+        SigningCertificateLineage lineage = createLineageWithSignersFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        lineage = updateLineageWithSignerFromResources(lineage,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+        byte[] lineageBytes = lineage.getBytes();
+        lineage = SigningCertificateLineage.readFromBytes(lineageBytes);
+        assertLineageContainsExpectedSigners(lineage, mSigners);
     }
 
     @Test
@@ -249,7 +273,8 @@ public class SigningCertificateLineageTest {
         // * length-prefixed bytes: attribute pair
         //   * uint32: ID
         //   * bytes: value - encoded V3 SigningCertificateLineage
-        ByteBuffer v3SignerAttribute = ByteBuffer.wrap(lineage.generateV3SignerAttribute());
+        ByteBuffer v3SignerAttribute = ByteBuffer.wrap(
+                V3SchemeSigner.generateV3SignerAttribute(lineage));
         v3SignerAttribute.order(ByteOrder.LITTLE_ENDIAN);
         ByteBuffer attribute = ApkSigningBlockUtils.getLengthPrefixedSlice(v3SignerAttribute);
         // The generateV3SignerAttribute method should only use the PROOF_OF_ROTATION_ATTR_ID
@@ -258,7 +283,7 @@ public class SigningCertificateLineageTest {
         assertEquals(
                 "The ID of the v3SignerAttribute ByteBuffer is not the expected "
                         + "PROOF_OF_ROTATION_ATTR_ID",
-                V3SchemeSigner.PROOF_OF_ROTATION_ATTR_ID, id);
+                V3SchemeConstants.PROOF_OF_ROTATION_ATTR_ID, id);
         lineage = SigningCertificateLineage.readFromV3AttributeValue(
                 ByteBufferUtils.toByteArray(attribute));
         assertLineageContainsExpectedSigners(lineage, mSigners);

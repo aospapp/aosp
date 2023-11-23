@@ -89,21 +89,23 @@ public class Channel implements IBinder.DeathRecipient {
     /**
      * Closes the channel.
      */
-    public synchronized void close() {
+    public void close() {
         synchronized (mLock) {
-            if (isBasicChannel()) {
-                Log.i(mTag, "Close basic channel - Select without AID ...");
-                mTerminal.selectDefaultApplication();
-            }
-
-            mTerminal.closeChannel(this);
+            if (isClosed())
+                return;
             mIsClosed = true;
-            if (mBinder != null) {
-                mBinder.unlinkToDeath(this, 0);
-            }
-            if (mSession != null) {
-                mSession.removeChannel(this);
-            }
+        }
+        if (isBasicChannel()) {
+            Log.i(mTag, "Close basic channel - Select without AID ...");
+            mTerminal.selectDefaultApplication();
+        }
+
+        mTerminal.closeChannel(this);
+        if (mBinder != null) {
+            mBinder.unlinkToDeath(this, 0);
+        }
+        if (mSession != null) {
+            mSession.removeChannel(this);
         }
     }
 

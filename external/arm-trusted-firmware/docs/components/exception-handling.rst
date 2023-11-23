@@ -10,13 +10,9 @@ of the following exceptions when targeted at EL3:
 -  Asynchronous External Aborts
 
 |TF-A|'s handling of synchronous ``SMC`` exceptions raised from lower ELs is
-described in the `Firmware Design document`__. However, the |EHF| changes the
-semantics of `interrupt handling`__ and `synchronous exceptions`__ other than
-SMCs.
-
-.. __: firmware-design.rst#handling-an-smc
-.. __: `Interrupt handling`_
-.. __: `Effect on SMC calls`_
+described in the :ref:`Firmware Design document <handling-an-smc>`. However, the
+|EHF| changes the semantics of `Interrupt handling`_ and :ref:`synchronous
+exceptions <Effect on SMC calls>` other than SMCs.
 
 The |EHF| is selected by setting the build option ``EL3_EXCEPTION_HANDLING`` to
 ``1``, and is only available for AArch64 systems.
@@ -77,10 +73,9 @@ On any given system, all of the above handling models may be employed
 independently depending on platform choice and the nature of the exception
 received.
 
-.. [#spd] Not to be confused with `Secure Payload Dispatcher`__, which is an
-   EL3 component that operates in EL3 on behalf of Secure OS.
-
-.. __: firmware-design.rst#secure-el1-payloads-and-dispatchers
+.. [#spd] Not to be confused with :ref:`Secure Payload Dispatcher
+   <firmware_design_sel1_spd>`, which is an EL3 component that operates in EL3
+   on behalf of Secure OS.
 
 The role of Exception Handling Framework
 ----------------------------------------
@@ -139,6 +134,8 @@ unstacked in strictly the reverse order. For interrupts, the GIC ensures this is
 the case; for non-interrupts, the |EHF| monitors and asserts this. See
 `Transition of priority levels`_.
 
+.. _interrupt-handling:
+
 Interrupt handling
 ------------------
 
@@ -151,15 +148,12 @@ implications:
    sufficient priority are signalled as FIQs, and therefore will be routed to
    EL3. As a result, S-EL1 software cannot expect to handle Non-secure
    interrupts at S-EL1. Essentially, this deprecates the routing mode described
-   as `CSS=0, TEL3=0`__.
-
-   .. __: interrupt-framework-design.rst#el3-interrupts
+   as :ref:`CSS=0, TEL3=0 <EL3 interrupts>`.
 
    In order for S-EL1 software to handle Non-secure interrupts while having
    |EHF| enabled, the dispatcher must adopt a model where Non-secure interrupts
-   are received at EL3, but are then `synchronously`__ handled over to S-EL1.
-
-   .. __: interrupt-framework-design.rst#secure-payload
+   are received at EL3, but are then :ref:`synchronously <sp-synchronous-int>`
+   handled over to S-EL1.
 
 -  On GICv2 systems, it's required that the build option ``GICV2_G0_FOR_EL3`` is
    set to ``1`` so that *Group 0* interrupts target EL3.
@@ -175,6 +169,8 @@ handlers for them. A given priority level can be assigned to only one handler. A
 dispatcher may register more than one priority level.
 
 Dispatchers are assigned interrupt priority levels in two steps:
+
+.. _Partitioning priority levels:
 
 Partitioning priority levels
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -237,12 +233,11 @@ The text in `Partitioning priority levels`_ only describes how the platform
 expresses the required levels of priority. It however doesn't choose interrupts
 nor program the required priority in GIC.
 
-The `Firmware Design guide`__ explains methods for configuring secure
-interrupts. |EHF| requires the platform to enumerate interrupt properties (as
-opposed to just numbers) of Secure interrupts. The priority of secure interrupts
-must match that as determined in the `Partitioning priority levels`_ section above.
-
-.. __: firmware-design.rst#configuring-secure-interrupts
+The :ref:`Firmware Design guide<configuring-secure-interrupts>` explains methods
+for configuring secure interrupts. |EHF| requires the platform to enumerate
+interrupt properties (as opposed to just numbers) of Secure interrupts. The
+priority of secure interrupts must match that as determined in the
+`Partitioning priority levels`_ section above.
 
 See `Limitations`_, and also refer to `Interrupt handling example`_ for
 illustration.
@@ -281,15 +276,13 @@ The interrupt handler should have the following signature:
    typedef int (*ehf_handler_t)(uint32_t intr_raw, uint32_t flags, void *handle,
                    void *cookie);
 
-The parameters are as obtained from the top-level `EL3 interrupt handler`__.
+The parameters are as obtained from the top-level :ref:`EL3 interrupt handler
+<el3-runtime-firmware>`.
 
-.. __: interrupt-framework-design.rst#el3-runtime-firmware
-
-The `SDEI dispatcher`__, for example, expects the platform to allocate two
-different priority levels—``PLAT_SDEI_CRITICAL_PRI``, and
-``PLAT_SDEI_NORMAL_PRI``—and registers the same handler to handle both levels.
-
-.. __: sdei.rst
+The :ref:`SDEI dispatcher<SDEI: Software Delegated Exception Interface>`, for
+example, expects the platform to allocate two different priority levels—
+``PLAT_SDEI_CRITICAL_PRI``, and ``PLAT_SDEI_NORMAL_PRI`` —and registers the
+same handler to handle both levels.
 
 Interrupt handling example
 --------------------------
@@ -365,16 +358,16 @@ assign interrupts to fictitious dispatchers:
 
 See also the `Build-time flow`_ and the `Run-time flow`_.
 
+.. _Activating and Deactivating priorities:
+
 Activating and Deactivating priorities
 --------------------------------------
 
 A priority level is said to be *active* when an exception of that priority is
 being handled: for interrupts, this is implied when the interrupt is
-acknowledged; for non-interrupt exceptions, such as SErrors or `SDEI explicit
-dispatches`__, this has to be done via calling ``ehf_activate_priority()``. See
-`Run-time flow`_.
-
-.. __: sdei.rst#explicit-dispatch-of-events
+acknowledged; for non-interrupt exceptions, such as SErrors or :ref:`SDEI
+explicit dispatches <explicit-dispatch-of-events>`, this has to be done via
+calling ``ehf_activate_priority()``. See `Run-time flow`_.
 
 Conversely, when the dispatcher has reached a logical resolution for the cause
 of the exception, the corresponding priority level ought to be deactivated. As
@@ -453,6 +446,8 @@ calls to these APIs are subject to the following conditions:
 
 If these are violated, a panic will result.
 
+.. _Effect on SMC calls:
+
 Effect on SMC calls
 -------------------
 
@@ -467,7 +462,7 @@ SMCs from Non-secure world are synchronous exceptions, and are mechanisms for
 Non-secure world to request Secure services. They're broadly classified as
 *Fast* or *Yielding* (see `SMCCC`__).
 
-.. __: `http://infocenter.arm.com/help/topic/com.arm.doc.den0028a/index.html`
+.. __: https://developer.arm.com/docs/den0028/latest
 
 -  *Fast* SMCs are atomic from the caller's point of view. I.e., they return
    to the caller only when the Secure world has finished serving the request.
@@ -538,10 +533,8 @@ The following is an example flow for interrupts:
    interrupts belonging to different dispatchers.
 
 #. The |EHF|, during its initialisation, registers a top-level interrupt handler
-   with the `Interrupt Management Framework`__ for EL3 interrupts. This also
-   results in setting the routing bits in ``SCR_EL3``.
-
-   .. __: interrupt-framework-design.rst#el3-runtime-firmware
+   with the :ref:`Interrupt Management Framework<el3-runtime-firmware>` for EL3
+   interrupts. This also results in setting the routing bits in ``SCR_EL3``.
 
 #. When an interrupt belonging to a dispatcher fires, GIC raises an EL3/Group 0
    interrupt, and is taken to EL3.
@@ -621,6 +614,6 @@ The |EHF| has the following limitations:
 
 --------------
 
-*Copyright (c) 2018-2019, Arm Limited and Contributors. All rights reserved.*
+*Copyright (c) 2018-2020, Arm Limited and Contributors. All rights reserved.*
 
 .. _SDEI specification: http://infocenter.arm.com/help/topic/com.arm.doc.den0054a/ARM_DEN0054A_Software_Delegated_Exception_Interface.pdf

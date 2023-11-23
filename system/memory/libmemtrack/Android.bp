@@ -1,5 +1,9 @@
 // Copyright 2013 The Android Open Source Project
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "libmemtrack",
     vendor_available: true,
@@ -11,12 +15,14 @@ cc_library_shared {
     local_include_dirs: ["include"],
     include_dirs: ["hardware/libhardware/include"],
     shared_libs: [
+        "libbinder_ndk",
         "libhardware",
         "liblog",
         "libbase",
         "libhidlbase",
         "libutils",
         "android.hardware.memtrack@1.0",
+        "android.hardware.memtrack-V1-ndk_platform",
     ],
     cflags: [
         "-Wall",

@@ -25,4 +25,6 @@ interface ICtsThirdPartyInCallServiceControl {
     int getLocalCallCount();
 
     void resetLatchForServiceBound(boolean bind);
+
+    boolean checkPermissionGrant(String permission);
 }

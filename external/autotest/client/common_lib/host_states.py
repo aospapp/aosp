@@ -8,11 +8,12 @@ database. It is a stand alone module as these status strings
 are need from vairous disconnected pieces of code.
 """
 
-from autotest_lib.client.common_lib import enum
+from autotest_lib.client.common_lib import autotest_enum
 
-Status = enum.Enum('Verifying', 'Running', 'Ready', 'Repairing',
-'Repair Failed', 'Cleaning', 'Pending', 'Resetting',
-'Provisioning', string_values=True)
+Status = autotest_enum.AutotestEnum('Verifying', 'Running', 'Ready',
+                                    'Repairing', 'Repair Failed', 'Cleaning',
+                                    'Pending', 'Resetting', 'Provisioning',
+                                    string_values=True)
 
 # States associated with a DUT that is doing nothing, whether or not
 # it's eligible to run a test.

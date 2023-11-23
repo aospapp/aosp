@@ -17,6 +17,7 @@
 package dagger.internal.codegen;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static dagger.internal.codegen.Compilers.compilerWithOptions;
 import static dagger.internal.codegen.Compilers.daggerCompiler;
 import static dagger.internal.codegen.TestUtils.message;
 
@@ -219,6 +220,17 @@ public final class ComponentValidationTest {
             message(
                 "test.ComponentShort contains a cycle in its component dependencies:",
                 "    test.ComponentShort"));
+
+    // Test that this also fails when transitive validation is disabled.
+    compilation =
+        compilerWithOptions("-Adagger.validateTransitiveComponentDependencies=DISABLED")
+            .compile(shortLifetime);
+    assertThat(compilation).failed();
+    assertThat(compilation)
+        .hadErrorContaining(
+            message(
+                "test.ComponentShort contains a cycle in its component dependencies:",
+                "    test.ComponentShort"));
   }
 
   @Test
@@ -281,6 +293,13 @@ public final class ComponentValidationTest {
                 "    test.ComponentMedium",
                 "    test.ComponentShort"))
         .inFile(shortLifetime);
+
+    // Test that compilation succeeds when transitive validation is disabled because the cycle
+    // cannot be detected.
+    compilation =
+        compilerWithOptions("-Adagger.validateTransitiveComponentDependencies=DISABLED")
+            .compile(longLifetime, mediumLifetime, shortLifetime);
+    assertThat(compilation).succeeded();
   }
 
   @Test

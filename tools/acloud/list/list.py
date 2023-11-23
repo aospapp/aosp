@@ -49,6 +49,20 @@ def _ProcessInstances(instance_list):
     return [instance.RemoteInstance(gce_instance) for gce_instance in instance_list]
 
 
+def _SortInstancesForDisplay(instances):
+    """Sort the instances by connected first and then by age.
+
+    Args:
+        instances: List of instance.Instance()
+
+    Returns:
+        List of instance.Instance() after sorted.
+    """
+    instances.sort(key=lambda ins: ins.createtime, reverse=True)
+    instances.sort(key=lambda ins: ins.AdbConnected(), reverse=True)
+    return instances
+
+
 def PrintInstancesDetails(instance_list, verbose=False):
     """Display instances information.
 
@@ -110,30 +124,46 @@ def GetRemoteInstances(cfg):
     logger.debug("Instance list from: (filter: %s\n%s):",
                  filter_item, all_instances)
 
-    return _ProcessInstances(all_instances)
+    return _SortInstancesForDisplay(_ProcessInstances(all_instances))
 
 
-def _GetLocalCuttlefishInstances():
+def _GetLocalCuttlefishInstances(id_cfg_pairs):
     """Look for local cuttelfish instances.
 
     Gather local instances information from cuttlefish runtime config.
+
+    Args:
+        id_cfg_pairs: List of tuples. Each tuple consists of an instance id and
+                      a config path.
 
     Returns:
         instance_list: List of local instances.
     """
     local_instance_list = []
-    for cf_runtime_config_path in instance.GetAllLocalInstanceConfigs():
-        ins = instance.LocalInstance(cf_runtime_config_path)
-        if ins.CvdStatus():
-            local_instance_list.append(ins)
-        else:
-            logger.info("cvd runtime config found but instance is not active:%s"
-                        , cf_runtime_config_path)
+    for ins_id, cfg_path in id_cfg_pairs:
+        ins_lock = instance.GetLocalInstanceLock(ins_id)
+        if not ins_lock.Lock():
+            logger.warning("Cuttlefish Instance %d is locked by another "
+                           "process.", ins_id)
+            continue
+        try:
+            if not os.path.isfile(cfg_path):
+                continue
+            ins = instance.LocalInstance(cfg_path)
+            if ins.CvdStatus():
+                local_instance_list.append(ins)
+            else:
+                logger.info("Cvd runtime config is found at %s but instance "
+                            "%d is not active.", cfg_path, ins_id)
+        finally:
+            ins_lock.Unlock()
     return local_instance_list
 
 
 def GetActiveCVD(local_instance_id):
     """Check if the local AVD with specific instance id is running
+
+    This function does not lock the instance.
 
     Args:
         local_instance_id: Integer of instance id.
@@ -147,7 +177,7 @@ def GetActiveCVD(local_instance_id):
         if ins.CvdStatus():
             return ins
     cfg_path = instance.GetDefaultCuttlefishConfig()
-    if local_instance_id == 1 and os.path.isfile(cfg_path):
+    if local_instance_id == 1 and cfg_path:
         ins = instance.LocalInstance(cfg_path)
         if ins.CvdStatus():
             return ins
@@ -164,7 +194,8 @@ def GetLocalInstances():
     if not utils.IsSupportedPlatform():
         return []
 
-    return (_GetLocalCuttlefishInstances() +
+    id_cfg_pairs = instance.GetAllLocalInstanceConfigs()
+    return (_GetLocalCuttlefishInstances(id_cfg_pairs) +
             instance.LocalGoldfishInstance.GetExistingInstances())
 
 
@@ -244,7 +275,7 @@ def ChooseOneRemoteInstance(cfg):
     return instances_list[0]
 
 
-def FilterInstancesByNames(instances, names):
+def _FilterInstancesByNames(instances, names):
     """Find instances by names.
 
     Args:
@@ -272,6 +303,57 @@ def FilterInstancesByNames(instances, names):
     return found_instances
 
 
+def GetLocalInstanceLockByName(name):
+    """Get the lock of a local cuttelfish or goldfish instance.
+
+    Args:
+        name: The instance name.
+
+    Returns:
+        LocalInstanceLock object. None if the name is invalid.
+    """
+    cf_id = instance.GetLocalInstanceIdByName(name)
+    if cf_id is not None:
+        return instance.GetLocalInstanceLock(cf_id)
+
+    gf_id = instance.LocalGoldfishInstance.GetIdByName(name)
+    if gf_id is not None:
+        return instance.LocalGoldfishInstance.GetLockById(gf_id)
+
+    return None
+
+
+def GetLocalInstancesByNames(names):
+    """Get local cuttlefish and goldfish instances by names.
+
+    This method does not raise an error if it cannot find all instances.
+
+    Args:
+        names: Collection of instance names.
+
+    Returns:
+        List consisting of LocalInstance and LocalGoldfishInstance objects.
+    """
+    id_cfg_pairs = []
+    for name in names:
+        ins_id = instance.GetLocalInstanceIdByName(name)
+        if ins_id is None:
+            continue
+        cfg_path = instance.GetLocalInstanceConfig(ins_id)
+        if cfg_path:
+            id_cfg_pairs.append((ins_id, cfg_path))
+        if ins_id == 1:
+            cfg_path = instance.GetDefaultCuttlefishConfig()
+            if cfg_path:
+                id_cfg_pairs.append((ins_id, cfg_path))
+
+    gf_instances = [ins for ins in
+                    instance.LocalGoldfishInstance.GetExistingInstances()
+                    if ins.name in names]
+
+    return _GetLocalCuttlefishInstances(id_cfg_pairs) + gf_instances
+
+
 def GetInstancesFromInstanceNames(cfg, instance_names):
     """Get instances from instance names.
 
@@ -287,7 +369,9 @@ def GetInstancesFromInstanceNames(cfg, instance_names):
     Raises:
         errors.NoInstancesFound: No instances found.
     """
-    return FilterInstancesByNames(GetInstances(cfg), instance_names)
+    return _FilterInstancesByNames(
+        GetLocalInstancesByNames(instance_names) + GetRemoteInstances(cfg),
+        instance_names)
 
 
 def FilterInstancesByAdbPort(instances, adb_port):

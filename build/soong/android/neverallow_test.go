@@ -28,7 +28,7 @@ var neverallowTests = []struct {
 	rules []Rule
 
 	// Additional contents to add to the virtual filesystem used by the tests.
-	fs map[string][]byte
+	fs MockFS
 
 	// The expected error patterns. If empty then no errors are expected, otherwise each error
 	// reported must be matched by at least one of these patterns. A pattern matches if the error
@@ -76,7 +76,20 @@ var neverallowTests = []struct {
 		},
 	},
 	{
-		name: "include_dir can reference another location",
+		name: "include_dir not allowed to reference art",
+		fs: map[string][]byte{
+			"system/libfmq/Android.bp": []byte(`
+				cc_library {
+					name: "libother",
+					include_dirs: ["any/random/file"],
+				}`),
+		},
+		expectedErrors: []string{
+			"all usages of them in 'system/libfmq' have been migrated",
+		},
+	},
+	{
+		name: "include_dir can work",
 		fs: map[string][]byte{
 			"other/Android.bp": []byte(`
 				cc_library {
@@ -190,19 +203,6 @@ var neverallowTests = []struct {
 		},
 	},
 	{
-		name: "dependency on updatable-media",
-		fs: map[string][]byte{
-			"Android.bp": []byte(`
-				java_library {
-					name: "needs_updatable_media",
-					libs: ["updatable-media"],
-				}`),
-		},
-		expectedErrors: []string{
-			"updatable-media includes private APIs. Use updatable_media_stubs instead.",
-		},
-	},
-	{
 		name: "java_device_for_host",
 		fs: map[string][]byte{
 			"Android.bp": []byte(`
@@ -213,50 +213,6 @@ var neverallowTests = []struct {
 		},
 		expectedErrors: []string{
 			"java_device_for_host can only be used in allowed projects",
-		},
-	},
-	// Libcore rule tests
-	{
-		name: "sdk_version: \"none\" inside core libraries",
-		fs: map[string][]byte{
-			"libcore/Android.bp": []byte(`
-				java_library {
-					name: "inside_core_libraries",
-					sdk_version: "none",
-				}`),
-		},
-	},
-	{
-		name: "sdk_version: \"none\" on android_*stubs_current stub",
-		fs: map[string][]byte{
-			"frameworks/base/Android.bp": []byte(`
-				java_library {
-					name: "android_stubs_current",
-					sdk_version: "none",
-				}`),
-		},
-	},
-	{
-		name: "sdk_version: \"none\" outside core libraries",
-		fs: map[string][]byte{
-			"Android.bp": []byte(`
-				java_library {
-					name: "outside_core_libraries",
-					sdk_version: "none",
-				}`),
-		},
-		expectedErrors: []string{
-			"module \"outside_core_libraries\": violates neverallow",
-		},
-	},
-	{
-		name: "sdk_version: \"current\"",
-		fs: map[string][]byte{
-			"Android.bp": []byte(`
-				java_library {
-					name: "outside_core_libraries",
-					sdk_version: "current",
-				}`),
 		},
 	},
 	// CC sdk rule tests
@@ -326,40 +282,44 @@ var neverallowTests = []struct {
 			"module \"outside_art_libraries\": violates neverallow",
 		},
 	},
+	{
+		name: "disallowed makefile_goal",
+		fs: map[string][]byte{
+			"Android.bp": []byte(`
+				makefile_goal {
+					name: "foo",
+					product_out_path: "boot/trap.img"
+				}
+			`),
+		},
+		expectedErrors: []string{
+			"Only boot images may be imported as a makefile goal.",
+		},
+	},
 }
+
+var prepareForNeverAllowTest = GroupFixturePreparers(
+	FixtureRegisterWithContext(func(ctx RegistrationContext) {
+		ctx.RegisterModuleType("cc_library", newMockCcLibraryModule)
+		ctx.RegisterModuleType("java_library", newMockJavaLibraryModule)
+		ctx.RegisterModuleType("java_library_host", newMockJavaLibraryModule)
+		ctx.RegisterModuleType("java_device_for_host", newMockJavaLibraryModule)
+		ctx.RegisterModuleType("makefile_goal", newMockMakefileGoalModule)
+	}),
+)
 
 func TestNeverallow(t *testing.T) {
 	for _, test := range neverallowTests {
-		// Create a test per config to allow for test specific config, e.g. test rules.
-		config := TestConfig(buildDir, nil, "", test.fs)
-
 		t.Run(test.name, func(t *testing.T) {
-			// If the test has its own rules then use them instead of the default ones.
-			if test.rules != nil {
-				SetTestNeverallowRules(config, test.rules)
-			}
-			_, errs := testNeverallow(config)
-			CheckErrorsAgainstExpectations(t, errs, test.expectedErrors)
+			GroupFixturePreparers(
+				prepareForNeverAllowTest,
+				PrepareForTestWithNeverallowRules(test.rules),
+				test.fs.AddToFixture(),
+			).
+				ExtendWithErrorHandler(FixtureExpectsAllErrorsToMatchAPattern(test.expectedErrors)).
+				RunTest(t)
 		})
 	}
-}
-
-func testNeverallow(config Config) (*TestContext, []error) {
-	ctx := NewTestContext()
-	ctx.RegisterModuleType("cc_library", newMockCcLibraryModule)
-	ctx.RegisterModuleType("java_library", newMockJavaLibraryModule)
-	ctx.RegisterModuleType("java_library_host", newMockJavaLibraryModule)
-	ctx.RegisterModuleType("java_device_for_host", newMockJavaLibraryModule)
-	ctx.PostDepsMutators(RegisterNeverallowMutator)
-	ctx.Register(config)
-
-	_, errs := ctx.ParseBlueprintsFiles("Android.bp")
-	if len(errs) > 0 {
-		return ctx, errs
-	}
-
-	_, errs = ctx.PrepareBuildActions(config)
-	return ctx, errs
 }
 
 type mockCcLibraryProperties struct {
@@ -437,4 +397,23 @@ func newMockJavaLibraryModule() Module {
 }
 
 func (p *mockJavaLibraryModule) GenerateAndroidBuildActions(ModuleContext) {
+}
+
+type mockMakefileGoalProperties struct {
+	Product_out_path *string
+}
+
+type mockMakefileGoalModule struct {
+	ModuleBase
+	properties mockMakefileGoalProperties
+}
+
+func newMockMakefileGoalModule() Module {
+	m := &mockMakefileGoalModule{}
+	m.AddProperties(&m.properties)
+	InitAndroidModule(m)
+	return m
+}
+
+func (p *mockMakefileGoalModule) GenerateAndroidBuildActions(ModuleContext) {
 }

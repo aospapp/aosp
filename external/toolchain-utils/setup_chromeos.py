@@ -244,7 +244,7 @@ Default is 'latest_lkgm'.""")
   return cmd_executer.RunCommand(
       'git ls-remote '
       'https://chrome-internal.googlesource.com/chrome/src-internal.git '
-      '> /dev/null')
+      'refs/HEAD > /dev/null')
 
 
 if __name__ == '__main__':

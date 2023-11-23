@@ -44,6 +44,8 @@ struct VersionRange {
             && maxMinor == other.maxMinor;
     }
 
+    inline bool operator!=(const VersionRange& other) const { return !(*this == other); }
+
     inline bool contains(const Version &ver) const {
         return minVer() <= ver && ver <= maxVer();
     }

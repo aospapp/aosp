@@ -12,27 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsMediaParserTestCases",
-    defaults: ["cts_defaults"],
+    defaults: ["CtsMediaParserTestCasesDefaults", "cts_defaults"],
+    min_sdk_version: "29",
+    test_suites: [
+        "cts",
+        "general-tests",
+        "mts-media",
+    ],
+}
+
+// App for host-side testing of the MediaParser integration with MediaMetrics.
+android_test_helper_app {
+    name: "CtsMediaParserTestCasesApp",
+    defaults: ["CtsMediaParserTestCasesDefaults"],
+}
+
+java_defaults {
+    name: "CtsMediaParserTestCasesDefaults",
+    srcs: ["src/**/*.java"],
     static_libs: [
         "ctstestrunner-axt",
         "androidx.test.ext.junit",
         "exoplayer2-extractor-test-utils",
         "exoplayer2-extractor-tests-assets",
     ],
-    srcs: ["src/**/*.java"],
-    sdk_version: "test_current",
-    min_sdk_version: "29",
     libs: [
-        "android.test.base.stubs",
-        "android.test.runner.stubs",
+        "android.test.base",
+        "android.test.runner",
     ],
-
-    test_suites: [
-        "cts",
-        "vts10",
-        "general-tests",
-        "mts",
-    ],
+    sdk_version: "test_current",
 }

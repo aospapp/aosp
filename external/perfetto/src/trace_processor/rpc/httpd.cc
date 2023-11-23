@@ -39,7 +39,8 @@ namespace trace_processor {
 
 namespace {
 
-constexpr char kBindAddr[] = "127.0.0.1:9001";
+constexpr char kBindPort[] = "9001";
+constexpr size_t kOmitContentLength = static_cast<size_t>(-1);
 
 // 32 MiB payload + 128K for HTTP headers.
 constexpr size_t kMaxRequestSize = (32 * 1024 + 128) * 1024;
@@ -68,7 +69,7 @@ class HttpServer : public base::UnixSocket::EventListener {
  public:
   explicit HttpServer(std::unique_ptr<TraceProcessor>);
   ~HttpServer() override;
-  void Run();
+  void Run(const char*, const char*);
 
  private:
   size_t ParseOneHttpRequest(Client* client);
@@ -82,7 +83,8 @@ class HttpServer : public base::UnixSocket::EventListener {
 
   Rpc trace_processor_rpc_;
   base::UnixTaskRunner task_runner_;
-  std::unique_ptr<base::UnixSocket> sock_;
+  std::unique_ptr<base::UnixSocket> sock4_;
+  std::unique_ptr<base::UnixSocket> sock6_;
   std::vector<Client> clients_;
 };
 
@@ -97,8 +99,8 @@ void Append(std::vector<char>& buf, const std::string& str) {
 void HttpReply(base::UnixSocket* sock,
                const char* http_code,
                std::initializer_list<const char*> headers = {},
-               const uint8_t* body = nullptr,
-               size_t body_len = 0) {
+               const uint8_t* content = nullptr,
+               size_t content_length = 0) {
   std::vector<char> response;
   response.reserve(4096);
   Append(response, "HTTP/1.1 ");
@@ -108,12 +110,15 @@ void HttpReply(base::UnixSocket* sock,
     Append(response, hdr);
     Append(response, "\r\n");
   }
-  Append(response, "Content-Length: ");
-  Append(response, std::to_string(body_len));
-  Append(response, "\r\n\r\n");  // End-of-headers marker.
-  sock->Send(response.data(), response.size());
-  if (body_len)
-    sock->Send(body, body_len);
+  if (content_length != kOmitContentLength) {
+    Append(response, "Content-Length: ");
+    Append(response, std::to_string(content_length));
+    Append(response, "\r\n");
+  }
+  Append(response, "\r\n");                      // End-of-headers marker.
+  sock->Send(response.data(), response.size());  // Send response headers.
+  if (content_length > 0 && content_length != kOmitContentLength)
+    sock->Send(content, content_length);  // Send response payload.
 }
 
 void ShutdownBadRequest(base::UnixSocket* sock, const char* reason) {
@@ -126,11 +131,28 @@ HttpServer::HttpServer(std::unique_ptr<TraceProcessor> preloaded_instance)
     : trace_processor_rpc_(std::move(preloaded_instance)) {}
 HttpServer::~HttpServer() = default;
 
-void HttpServer::Run() {
-  PERFETTO_ILOG("[HTTP] Starting RPC server on %s", kBindAddr);
-  sock_ = base::UnixSocket::Listen(kBindAddr, this, &task_runner_,
-                                   base::SockFamily::kInet,
-                                   base::SockType::kStream);
+void HttpServer::Run(const char* kBindAddr4, const char* kBindAddr6) {
+  PERFETTO_ILOG("[HTTP] Starting RPC server on %s and %s", kBindAddr4,
+                kBindAddr6);
+
+  sock4_ = base::UnixSocket::Listen(kBindAddr4, this, &task_runner_,
+                                    base::SockFamily::kInet,
+                                    base::SockType::kStream);
+  bool ipv4_listening = sock4_ && sock4_->is_listening();
+  if (!ipv4_listening) {
+    PERFETTO_ILOG("Failed to listen on IPv4 socket");
+  }
+
+  sock6_ = base::UnixSocket::Listen(kBindAddr6, this, &task_runner_,
+                                    base::SockFamily::kInet6,
+                                    base::SockType::kStream);
+  bool ipv6_listening = sock6_ && sock6_->is_listening();
+  if (!ipv6_listening) {
+    PERFETTO_ILOG("Failed to listen on IPv6 socket");
+  }
+
+  PERFETTO_CHECK(ipv4_listening || ipv6_listening);
+
   task_runner_.Run();
 }
 
@@ -256,11 +278,15 @@ void HttpServer::HandleRequest(Client* client, const HttpRequest& req) {
                req.body.size());
   std::string allow_origin_hdr =
       "Access-Control-Allow-Origin: " + req.origin.ToStdString();
+
+  // This is the default. Overridden by the /query handler for chunked replies.
+  char transfer_encoding_hdr[255] = "Transfer-Encoding: identity";
   std::initializer_list<const char*> headers = {
       "Connection: Keep-Alive",                //
       "Cache-Control: no-cache",               //
       "Keep-Alive: timeout=5, max=1000",       //
       "Content-Type: application/x-protobuf",  //
+      transfer_encoding_hdr,                   //
       allow_origin_hdr.c_str()};
 
   if (req.method == "OPTIONS") {
@@ -290,8 +316,43 @@ void HttpServer::HandleRequest(Client* client, const HttpRequest& req) {
     return HttpReply(client->sock.get(), "200 OK", headers);
   }
 
+  // New endpoint, returns data in batches using chunked transfer encoding.
+  // The batch size is determined by |cells_per_batch_| and
+  // |batch_split_threshold_| in query_result_serializer.h.
+  // This is temporary, it will be switched to WebSockets soon.
+  if (req.uri == "/query") {
+    std::vector<uint8_t> response;
+
+    // Start the chunked reply.
+    strncpy(transfer_encoding_hdr, "Transfer-Encoding: chunked",
+            sizeof(transfer_encoding_hdr));
+    base::UnixSocket* cli_sock = client->sock.get();
+    HttpReply(cli_sock, "200 OK", headers, nullptr, kOmitContentLength);
+
+    // |on_result_chunk| will be called nested within the same callstack of the
+    // rpc.Query() call. No further calls will be made once Query() returns.
+    auto on_result_chunk = [&](const uint8_t* buf, size_t len, bool has_more) {
+      PERFETTO_DLOG("Sending response chunk, len=%zu eof=%d", len, !has_more);
+      char chunk_hdr[32];
+      auto hdr_len = static_cast<size_t>(sprintf(chunk_hdr, "%zx\r\n", len));
+      cli_sock->Send(chunk_hdr, hdr_len);
+      cli_sock->Send(buf, len);
+      cli_sock->Send("\r\n", 2);
+      if (!has_more) {
+        hdr_len = static_cast<size_t>(sprintf(chunk_hdr, "0\r\n\r\n"));
+        cli_sock->Send(chunk_hdr, hdr_len);
+      }
+    };
+    trace_processor_rpc_.Query(
+        reinterpret_cast<const uint8_t*>(req.body.data()), req.body.size(),
+        on_result_chunk);
+    return;
+  }
+
+  // Legacy endpoint.
+  // Returns a columnar-oriented one-shot result. Very inefficient for large
+  // result sets. Very inefficient in general too.
   if (req.uri == "/raw_query") {
-    PERFETTO_CHECK(req.body.size() > 0u);
     std::vector<uint8_t> response = trace_processor_rpc_.RawQuery(
         reinterpret_cast<const uint8_t*>(req.body.data()), req.body.size());
     return HttpReply(client->sock.get(), "200 OK", headers, response.data(),
@@ -314,6 +375,13 @@ void HttpServer::HandleRequest(Client* client, const HttpRequest& req) {
                      res.size());
   }
 
+  if (req.uri == "/get_metric_descriptors") {
+    std::vector<uint8_t> res = trace_processor_rpc_.GetMetricDescriptors(
+        reinterpret_cast<const uint8_t*>(req.body.data()), req.body.size());
+    return HttpReply(client->sock.get(), "200 OK", headers, res.data(),
+                     res.size());
+  }
+
   if (req.uri == "/enable_metatrace") {
     trace_processor_rpc_.EnableMetatrace();
     return HttpReply(client->sock.get(), "200 OK", headers);
@@ -330,9 +398,13 @@ void HttpServer::HandleRequest(Client* client, const HttpRequest& req) {
 
 }  // namespace
 
-void RunHttpRPCServer(std::unique_ptr<TraceProcessor> preloaded_instance) {
+void RunHttpRPCServer(std::unique_ptr<TraceProcessor> preloaded_instance,
+                      std::string port_number) {
   HttpServer srv(std::move(preloaded_instance));
-  srv.Run();
+  std::string port = port_number.empty() ? kBindPort : port_number;
+  std::string ipv4_addr = "127.0.0.1:" + port;
+  std::string ipv6_addr = "[::1]:" + port;
+  srv.Run(ipv4_addr.c_str(), ipv6_addr.c_str());
 }
 
 }  // namespace trace_processor

@@ -21,10 +21,12 @@
 #include "Device/Config.hpp"
 #include "Device/Sampler.hpp"
 #include "System/Debug.hpp"
+#include "System/Math.hpp"
 #include "System/Types.hpp"
-#include "Vulkan/VkConfig.h"
+#include "Vulkan/VkConfig.hpp"
 #include "Vulkan/VkDescriptorSet.hpp"
 
+#define SPV_ENABLE_UTILITY_CODE
 #include <spirv/unified1/spirv.hpp>
 
 #include <array>
@@ -63,17 +65,17 @@ class SpirvRoutine;
 
 // Incrementally constructed complex bundle of rvalues
 // Effectively a restricted vector, supporting only:
-// - allocation to a (runtime-known) fixed size
+// - allocation to a (runtime-known) fixed component count
 // - in-place construction of elements
 // - const operator[]
 class Intermediate
 {
 public:
-	Intermediate(uint32_t size)
-	    : scalar(new rr::Value *[size])
-	    , size(size)
+	Intermediate(uint32_t componentCount)
+	    : componentCount(componentCount)
+	    , scalar(new rr::Value *[componentCount])
 	{
-		memset(scalar, 0, sizeof(rr::Value *) * size);
+		for(auto i = 0u; i < componentCount; i++) { scalar[i] = nullptr; }
 	}
 
 	~Intermediate()
@@ -81,32 +83,41 @@ public:
 		delete[] scalar;
 	}
 
-	void move(uint32_t i, RValue<SIMD::Float> &&scalar) { emplace(i, scalar.value); }
-	void move(uint32_t i, RValue<SIMD::Int> &&scalar) { emplace(i, scalar.value); }
-	void move(uint32_t i, RValue<SIMD::UInt> &&scalar) { emplace(i, scalar.value); }
+	// TypeHint is used as a hint for rr::PrintValue::Ty<sw::Intermediate> to
+	// decide the format used to print the intermediate data.
+	enum class TypeHint
+	{
+		Float,
+		Int,
+		UInt
+	};
 
-	void move(uint32_t i, const RValue<SIMD::Float> &scalar) { emplace(i, scalar.value); }
-	void move(uint32_t i, const RValue<SIMD::Int> &scalar) { emplace(i, scalar.value); }
-	void move(uint32_t i, const RValue<SIMD::UInt> &scalar) { emplace(i, scalar.value); }
+	void move(uint32_t i, RValue<SIMD::Float> &&scalar) { emplace(i, scalar.value(), TypeHint::Float); }
+	void move(uint32_t i, RValue<SIMD::Int> &&scalar) { emplace(i, scalar.value(), TypeHint::Int); }
+	void move(uint32_t i, RValue<SIMD::UInt> &&scalar) { emplace(i, scalar.value(), TypeHint::UInt); }
+
+	void move(uint32_t i, const RValue<SIMD::Float> &scalar) { emplace(i, scalar.value(), TypeHint::Float); }
+	void move(uint32_t i, const RValue<SIMD::Int> &scalar) { emplace(i, scalar.value(), TypeHint::Int); }
+	void move(uint32_t i, const RValue<SIMD::UInt> &scalar) { emplace(i, scalar.value(), TypeHint::UInt); }
 
 	// Value retrieval functions.
 	RValue<SIMD::Float> Float(uint32_t i) const
 	{
-		ASSERT(i < size);
+		ASSERT(i < componentCount);
 		ASSERT(scalar[i] != nullptr);
 		return As<SIMD::Float>(scalar[i]);  // TODO(b/128539387): RValue<SIMD::Float>(scalar)
 	}
 
 	RValue<SIMD::Int> Int(uint32_t i) const
 	{
-		ASSERT(i < size);
+		ASSERT(i < componentCount);
 		ASSERT(scalar[i] != nullptr);
 		return As<SIMD::Int>(scalar[i]);  // TODO(b/128539387): RValue<SIMD::Int>(scalar)
 	}
 
 	RValue<SIMD::UInt> UInt(uint32_t i) const
 	{
-		ASSERT(i < size);
+		ASSERT(i < componentCount);
 		ASSERT(scalar[i] != nullptr);
 		return As<SIMD::UInt>(scalar[i]);  // TODO(b/128539387): RValue<SIMD::UInt>(scalar)
 	}
@@ -117,16 +128,23 @@ public:
 	Intermediate &operator=(Intermediate const &) = delete;
 	Intermediate &operator=(Intermediate &&) = delete;
 
+	const uint32_t componentCount;
+
 private:
-	void emplace(uint32_t i, rr::Value *value)
+	void emplace(uint32_t i, rr::Value *value, TypeHint type)
 	{
-		ASSERT(i < size);
+		ASSERT(i < componentCount);
 		ASSERT(scalar[i] == nullptr);
 		scalar[i] = value;
+		RR_PRINT_ONLY(typeHint = type;)
 	}
 
 	rr::Value **const scalar;
-	uint32_t size;
+
+#ifdef ENABLE_RR_PRINT
+	friend struct rr::PrintValue::Ty<sw::Intermediate>;
+	TypeHint typeHint = TypeHint::Float;
+#endif  // ENABLE_RR_PRINT
 };
 
 class SpirvShader
@@ -135,19 +153,29 @@ public:
 	using InsnStore = std::vector<uint32_t>;
 	InsnStore insns;
 
-	using ImageSampler = void(void *texture, void *sampler, void *uvsIn, void *texelOut, void *constants);
+	using ImageSampler = void(void *texture, void *uvsIn, void *texelOut, void *constants);
 
 	enum class YieldResult
 	{
 		ControlBarrier,
 	};
 
-	/* Pseudo-iterator over SPIRV instructions, designed to support range-based-for. */
+	class Type;
+	class Object;
+
+	// Pseudo-iterator over SPIRV instructions, designed to support range-based-for.
 	class InsnIterator
 	{
-		InsnStore::const_iterator iter;
-
 	public:
+		InsnIterator(InsnIterator const &other) = default;
+
+		InsnIterator() = default;
+
+		explicit InsnIterator(InsnStore::const_iterator iter)
+		    : iter{ iter }
+		{
+		}
+
 		spv::Op opcode() const
 		{
 			return static_cast<spv::Op>(*iter & spv::OpCodeMask);
@@ -173,6 +201,26 @@ public:
 		const char *string(uint32_t n) const
 		{
 			return reinterpret_cast<const char *>(wordPointer(n));
+		}
+
+		bool hasResultAndType() const
+		{
+			bool hasResult = false, hasResultType = false;
+			spv::HasResultAndType(opcode(), &hasResult, &hasResultType);
+
+			return hasResultType;
+		}
+
+		SpirvID<Type> resultTypeId() const
+		{
+			ASSERT(hasResultAndType());
+			return word(1);
+		}
+
+		SpirvID<Object> resultId() const
+		{
+			ASSERT(hasResultAndType());
+			return word(2);
 		}
 
 		bool operator==(InsnIterator const &other) const
@@ -203,14 +251,8 @@ public:
 			return ret;
 		}
 
-		InsnIterator(InsnIterator const &other) = default;
-
-		InsnIterator() = default;
-
-		explicit InsnIterator(InsnStore::const_iterator iter)
-		    : iter{ iter }
-		{
-		}
+	private:
+		InsnStore::const_iterator iter;
 	};
 
 	/* range-based-for interface */
@@ -233,7 +275,7 @@ public:
 
 		InsnIterator definition;
 		spv::StorageClass storageClass = static_cast<spv::StorageClass>(-1);
-		uint32_t sizeInComponents = 0;
+		uint32_t componentCount = 0;
 		bool isBuiltInBlock = false;
 
 		// Inner element type for pointers, arrays, vectors and matrices.
@@ -246,10 +288,11 @@ public:
 		using ID = SpirvID<Object>;
 
 		spv::Op opcode() const { return definition.opcode(); }
+		Type::ID typeId() const { return definition.resultTypeId(); }
+		Object::ID id() const { return definition.resultId(); }
 
 		InsnIterator definition;
-		Type::ID type;
-		std::unique_ptr<uint32_t[]> constantValue = nullptr;
+		std::vector<uint32_t> constantValue;
 
 		enum class Kind
 		{
@@ -396,7 +439,7 @@ public:
 	};
 
 	struct TypeOrObject
-	{};  // Dummy struct to represent a Type or Object.
+	{};
 
 	// TypeOrObjectID is an identifier that represents a Type or an Object,
 	// and supports implicit casting to and from Type::ID or Object::ID.
@@ -468,12 +511,12 @@ public:
 				uint32_t gatherComponent : 2;
 
 				// Parameters are passed to the sampling routine in this order:
-				uint32_t coordinates : 3;  // 1-4 (does not contain projection component)
-				                           //	uint32_t dref : 1;              // Indicated by Variant::ProjDref|Dref
-				                           //	uint32_t lodOrBias : 1;         // Indicated by SamplerMethod::Lod|Bias|Fetch
-				uint32_t grad : 2;         // 0-3 components (for each of dx / dy)
-				uint32_t offset : 2;       // 0-3 components
-				uint32_t sample : 1;       // 0-1 scalar integer
+				uint32_t coordinates : 3;       // 1-4 (does not contain projection component)
+				/*	uint32_t dref : 1; */       // Indicated by Variant::ProjDref|Dref
+				/*	uint32_t lodOrBias : 1; */  // Indicated by SamplerMethod::Lod|Bias|Fetch
+				uint32_t grad : 2;              // 0-3 components (for each of dx / dy)
+				uint32_t offset : 2;            // 0-3 components
+				uint32_t sample : 1;            // 0-1 scalar integer
 			};
 
 			uint32_t parameters;
@@ -510,9 +553,12 @@ public:
 		bool ContainsKill : 1;
 		bool ContainsControlBarriers : 1;
 		bool NeedsCentroid : 1;
+		bool ContainsSampleQualifier : 1;
 
 		// Compute workgroup dimensions
-		int WorkgroupSizeX = 1, WorkgroupSizeY = 1, WorkgroupSizeZ = 1;
+		int WorkgroupSizeX = 1;
+		int WorkgroupSizeY = 1;
+		int WorkgroupSizeZ = 1;
 	};
 
 	Modes const &getModes() const
@@ -524,18 +570,22 @@ public:
 	{
 		bool Matrix : 1;
 		bool Shader : 1;
+		bool StorageImageMultisample : 1;
 		bool ClipDistance : 1;
 		bool CullDistance : 1;
+		bool ImageCubeArray : 1;
+		bool SampleRateShading : 1;
 		bool InputAttachment : 1;
 		bool Sampled1D : 1;
 		bool Image1D : 1;
-		bool ImageCubeArray : 1;
 		bool SampledBuffer : 1;
 		bool SampledCubeArray : 1;
 		bool ImageBuffer : 1;
+		bool ImageMSArray : 1;
 		bool StorageImageExtendedFormats : 1;
 		bool ImageQuery : 1;
 		bool DerivativeControl : 1;
+		bool InterpolationFunction : 1;
 		bool GroupNonUniform : 1;
 		bool GroupNonUniformVote : 1;
 		bool GroupNonUniformBallot : 1;
@@ -734,8 +784,11 @@ public:
 	std::vector<InterfaceComponent> outputs;
 
 	void emitProlog(SpirvRoutine *routine) const;
-	void emit(SpirvRoutine *routine, RValue<SIMD::Int> const &activeLaneMask, RValue<SIMD::Int> const &storesAndAtomicsMask, const vk::DescriptorSet::Bindings &descriptorSets) const;
+	void emit(SpirvRoutine *routine, RValue<SIMD::Int> const &activeLaneMask, RValue<SIMD::Int> const &storesAndAtomicsMask, const vk::DescriptorSet::Bindings &descriptorSets, unsigned int multiSampleCount = 0) const;
 	void emitEpilog(SpirvRoutine *routine) const;
+	void clearPhis(SpirvRoutine *routine) const;
+
+	bool containsImageWrite() const { return imageWriteEmitted; }
 
 	using BuiltInHash = std::hash<std::underlying_type<spv::BuiltIn>::type>;
 	std::unordered_map<spv::BuiltIn, BuiltinMapping, BuiltInHash> inputBuiltins;
@@ -751,8 +804,9 @@ private:
 	HandleMap<Function> functions;
 	std::unordered_map<StringID, String> strings;
 	HandleMap<Extension> extensionsByID;
-	std::unordered_set<Extension::Name> extensionsImported;
+	std::unordered_set<uint32_t> extensionsImported;
 	Function::ID entryPoint;
+	mutable bool imageWriteEmitted = false;
 
 	const bool robustBufferAccess = true;
 	spv::ExecutionModel executionModel = spv::ExecutionModelMax;  // Invalid prior to OpEntryPoint parsing.
@@ -864,28 +918,50 @@ private:
 		          RValue<SIMD::Int> storesAndAtomicsMask,
 		          const vk::DescriptorSet::Bindings &descriptorSets,
 		          bool robustBufferAccess,
+		          unsigned int multiSampleCount,
 		          spv::ExecutionModel executionModel)
 		    : routine(routine)
 		    , function(function)
-		    , activeLaneMaskValue(activeLaneMask.value)
-		    , storesAndAtomicsMaskValue(storesAndAtomicsMask.value)
+		    , activeLaneMaskValue(activeLaneMask.value())
+		    , storesAndAtomicsMaskValue(storesAndAtomicsMask.value())
 		    , descriptorSets(descriptorSets)
 		    , robustBufferAccess(robustBufferAccess)
+		    , multiSampleCount(multiSampleCount)
 		    , executionModel(executionModel)
 		{
 			ASSERT(executionModelToStage(executionModel) != VkShaderStageFlagBits(0));  // Must parse OpEntryPoint before emitting.
 		}
 
+		// Returns the mask describing the active lanes as updated by dynamic
+		// control flow. Active lanes include helper invocations, used for
+		// calculating fragment derivitives, which must not perform memory
+		// stores or atomic writes.
+		//
+		// Use activeStoresAndAtomicsMask() to consider both control flow and
+		// lanes which are permitted to perform memory stores and atomic
+		// operations
 		RValue<SIMD::Int> activeLaneMask() const
 		{
 			ASSERT(activeLaneMaskValue != nullptr);
 			return RValue<SIMD::Int>(activeLaneMaskValue);
 		}
 
+		// Returns the immutable lane mask that describes which lanes are
+		// permitted to perform memory stores and atomic operations.
+		// Note that unlike activeStoresAndAtomicsMask() this mask *does not*
+		// consider lanes that have been made inactive due to control flow.
 		RValue<SIMD::Int> storesAndAtomicsMask() const
 		{
 			ASSERT(storesAndAtomicsMaskValue != nullptr);
 			return RValue<SIMD::Int>(storesAndAtomicsMaskValue);
+		}
+
+		// Returns a lane mask that describes which lanes are permitted to
+		// perform memory stores and atomic operations, considering lanes that
+		// may have been made inactive due to control flow.
+		RValue<SIMD::Int> activeStoresAndAtomicsMask() const
+		{
+			return activeLaneMask() & storesAndAtomicsMask();
 		}
 
 		// Add a new active lane mask edge from the current block to out.
@@ -912,11 +988,13 @@ private:
 
 		OutOfBoundsBehavior getOutOfBoundsBehavior(spv::StorageClass storageClass) const;
 
-		Intermediate &createIntermediate(Object::ID id, uint32_t size)
+		unsigned int getMultiSampleCount() const { return multiSampleCount; }
+
+		Intermediate &createIntermediate(Object::ID id, uint32_t componentCount)
 		{
 			auto it = intermediates.emplace(std::piecewise_construct,
 			                                std::forward_as_tuple(id),
-			                                std::forward_as_tuple(size));
+			                                std::forward_as_tuple(componentCount));
 			ASSERT_MSG(it.second, "Intermediate %d created twice", id.value());
 			return it.first->second;
 		}
@@ -946,6 +1024,7 @@ private:
 		std::unordered_map<Object::ID, SIMD::Pointer> pointers;
 
 		const bool robustBufferAccess = true;  // Emit robustBufferAccess safe code.
+		const unsigned int multiSampleCount = 0;
 		const spv::ExecutionModel executionModel = spv::ExecutionModelMax;
 	};
 
@@ -960,13 +1039,11 @@ private:
 	// Constants are transparently widened to per-lane values in operator[].
 	// This is appropriate in most cases -- if we're not going to do something
 	// significantly different based on whether the value is uniform across lanes.
-	class GenericValue
+	class Operand
 	{
-		SpirvShader::Object const &obj;
-		Intermediate const *intermediate;
-
 	public:
-		GenericValue(SpirvShader const *shader, EmitState const *state, SpirvShader::Object::ID objId);
+		Operand(const SpirvShader *shader, const EmitState *state, SpirvShader::Object::ID objectId);
+		Operand(const Intermediate &value);
 
 		RValue<SIMD::Float> Float(uint32_t i) const
 		{
@@ -978,9 +1055,7 @@ private:
 			// Constructing a constant SIMD::Float is not guaranteed to preserve the data's exact
 			// bit pattern, but SPIR-V provides 32-bit words representing "the bit pattern for the constant".
 			// Thus we must first construct an integer constant, and bitcast to float.
-			ASSERT(obj.kind == SpirvShader::Object::Kind::Constant);
-			auto constantValue = reinterpret_cast<uint32_t *>(obj.constantValue.get());
-			return As<SIMD::Float>(SIMD::UInt(constantValue[i]));
+			return As<SIMD::Float>(SIMD::UInt(constant[i]));
 		}
 
 		RValue<SIMD::Int> Int(uint32_t i) const
@@ -989,9 +1064,8 @@ private:
 			{
 				return intermediate->Int(i);
 			}
-			ASSERT(obj.kind == SpirvShader::Object::Kind::Constant);
-			auto constantValue = reinterpret_cast<int *>(obj.constantValue.get());
-			return SIMD::Int(constantValue[i]);
+
+			return SIMD::Int(constant[i]);
 		}
 
 		RValue<SIMD::UInt> UInt(uint32_t i) const
@@ -1000,19 +1074,37 @@ private:
 			{
 				return intermediate->UInt(i);
 			}
-			ASSERT(obj.kind == SpirvShader::Object::Kind::Constant);
-			auto constantValue = reinterpret_cast<uint32_t *>(obj.constantValue.get());
-			return SIMD::UInt(constantValue[i]);
+
+			return SIMD::UInt(constant[i]);
 		}
 
-		SpirvShader::Type::ID const type;
+		bool isConstantZero() const;
+
+	private:
+		RR_PRINT_ONLY(friend struct rr::PrintValue::Ty<Operand>;)
+
+		// Delegate constructor
+		Operand(const EmitState *state, const Object &object);
+
+		const uint32_t *constant;
+		const Intermediate *intermediate;
+
+	public:
+		const uint32_t componentCount;
 	};
+
+	RR_PRINT_ONLY(friend struct rr::PrintValue::Ty<Operand>;)
 
 	Type const &getType(Type::ID id) const
 	{
 		auto it = types.find(id);
 		ASSERT_MSG(it != types.end(), "Unknown type %d", id.value());
 		return it->second;
+	}
+
+	Type const &getType(const Object &object) const
+	{
+		return getType(object.typeId());
 	}
 
 	Object const &getObject(Object::ID id) const
@@ -1046,12 +1138,11 @@ private:
 	// Returns a SIMD::Pointer to the underlying data for the given pointer
 	// object.
 	// Handles objects of the following kinds:
-	//  • DescriptorSet
-	//  • DivergentPointer
-	//  • InterfaceVariable
-	//  • NonDivergentPointer
+	//  - DescriptorSet
+	//  - Pointer
+	//  - InterfaceVariable
 	// Calling GetPointerToData with objects of any other kind will assert.
-	SIMD::Pointer GetPointerToData(Object::ID id, int arrayIndex, EmitState const *state) const;
+	SIMD::Pointer GetPointerToData(Object::ID id, Int arrayIndex, EmitState const *state) const;
 
 	SIMD::Pointer WalkExplicitLayoutAccessChain(Object::ID id, uint32_t numIndexes, uint32_t const *indexIds, EmitState const *state) const;
 	SIMD::Pointer WalkAccessChain(Object::ID id, uint32_t numIndexes, uint32_t const *indexIds, EmitState const *state) const;
@@ -1134,12 +1225,30 @@ private:
 	EmitResult EmitGroupNonUniform(InsnIterator insn, EmitState *state) const;
 	EmitResult EmitArrayLength(InsnIterator insn, EmitState *state) const;
 
+	// Emits code to sample an image, regardless of whether any SIMD lanes are active.
+	void EmitImageSampleUnconditional(Array<SIMD::Float> &out, ImageInstruction instruction, InsnIterator insn, EmitState *state) const;
+
 	void GetImageDimensions(EmitState const *state, Type const &resultTy, Object::ID imageId, Object::ID lodId, Intermediate &dst) const;
-	SIMD::Pointer GetTexelAddress(EmitState const *state, SIMD::Pointer base, GenericValue const &coordinate, Type const &imageType, Pointer<Byte> descriptor, int texelSize, Object::ID sampleId, bool useStencilAspect) const;
+	SIMD::Pointer GetTexelAddress(EmitState const *state, Pointer<Byte> imageBase, Int imageSizeInBytes, Operand const &coordinate, Type const &imageType, Pointer<Byte> descriptor, int texelSize, Object::ID sampleId, bool useStencilAspect, OutOfBoundsBehavior outOfBoundsBehavior) const;
 	uint32_t GetConstScalarInt(Object::ID id) const;
 	void EvalSpecConstantOp(InsnIterator insn);
 	void EvalSpecConstantUnaryOp(InsnIterator insn);
 	void EvalSpecConstantBinaryOp(InsnIterator insn);
+
+	// Fragment input interpolation functions
+	uint32_t GetNumInputComponents(int32_t location) const;
+	enum InterpolationType
+	{
+		Centroid,
+		AtSample,
+		AtOffset,
+	};
+	SIMD::Float Interpolate(SIMD::Pointer const &ptr, int32_t location, Object::ID paramId, uint32_t component,
+	                        uint32_t component_count, EmitState *state, InterpolationType type) const;
+
+	// Helper for implementing OpStore, which doesn't take an InsnIterator so it
+	// can also store independent operands.
+	void Store(Object::ID pointerId, const Operand &value, bool atomic, std::memory_order memoryOrder, EmitState *state) const;
 
 	// LoadPhi loads the phi values from the alloca storage and places the
 	// load values into the intermediate with the phi's result id.
@@ -1156,9 +1265,12 @@ private:
 	// Helper for calling rr::Yield with res cast to an rr::Int.
 	void Yield(YieldResult res) const;
 
+	// WriteCFGGraphVizDotFile() writes a graphviz dot file of the shader's
+	// control flow to the given file path.
+	void WriteCFGGraphVizDotFile(const char *path) const;
+
 	// OpcodeName() returns the name of the opcode op.
-	// If NDEBUG is defined, then OpcodeName() will only return the numerical code.
-	static std::string OpcodeName(spv::Op op);
+	static const char *OpcodeName(spv::Op op);
 	static std::memory_order MemoryOrder(spv::MemorySemanticsMask memorySemantics);
 
 	// IsStatement() returns true if the given opcode actually performs
@@ -1166,8 +1278,12 @@ private:
 	// etc).
 	static bool IsStatement(spv::Op op);
 
+	// HasTypeAndResult() returns true if the given opcode's instruction
+	// has a result type ID and result ID, i.e. defines an Object.
+	static bool HasTypeAndResult(spv::Op op);
+
 	// Helper as we often need to take dot products as part of doing other things.
-	SIMD::Float Dot(unsigned numComponents, GenericValue const &x, GenericValue const &y) const;
+	SIMD::Float Dot(unsigned numComponents, Operand const &x, Operand const &y) const;
 
 	// Splits x into a floating-point significand in the range [0.5, 1.0)
 	// and an integral exponent of two, such that:
@@ -1179,7 +1295,7 @@ private:
 	static std::shared_ptr<rr::Routine> emitSamplerRoutine(ImageInstruction instruction, const Sampler &samplerState);
 
 	// TODO(b/129523279): Eliminate conversion and use vk::Sampler members directly.
-	static sw::FilterType convertFilterMode(const vk::Sampler *sampler);
+	static sw::FilterType convertFilterMode(const vk::Sampler *sampler, VkImageViewType imageViewType, ImageInstruction instruction);
 	static sw::MipmapType convertMipmapMode(const vk::Sampler *sampler);
 	static sw::AddressingMode convertAddressingMode(int coordinateIndex, const vk::Sampler *sampler, VkImageViewType imageViewType);
 
@@ -1254,12 +1370,24 @@ public:
 		Pointer<Byte> function;
 	};
 
+	struct InterpolationData
+	{
+		Pointer<Byte> primitive;
+		SIMD::Float x;
+		SIMD::Float y;
+		SIMD::Float rhw;
+		SIMD::Float xCentroid;
+		SIMD::Float yCentroid;
+		SIMD::Float rhwCentroid;
+	};
+
 	vk::PipelineLayout const *const pipelineLayout;
 
 	std::unordered_map<SpirvShader::Object::ID, Variable> variables;
 	std::unordered_map<SpirvShader::Object::ID, SamplerCache> samplerCache;
 	Variable inputs = Variable{ MAX_INTERFACE_COMPONENTS };
 	Variable outputs = Variable{ MAX_INTERFACE_COMPONENTS };
+	InterpolationData interpolationData;
 
 	Pointer<Byte> workgroupMemory;
 	Pointer<Pointer<Byte>> descriptorSets;
@@ -1273,7 +1401,7 @@ public:
 	// are only used when debugging. See b/146486064 for more information.
 	// Give careful consideration to the runtime performance loss before adding
 	// more state here.
-	SIMD::Int windowSpacePosition[2];
+	std::array<SIMD::Int, 2> windowSpacePosition;
 	Int viewID;  // slice offset into input attachments for multiview, even if the shader doesn't use ViewIndex
 	Int instanceID;
 	SIMD::Int vertexIndex;
@@ -1292,9 +1420,9 @@ public:
 
 	Pointer<Byte> dbgState;  // Pointer to a debugger state.
 
-	void createVariable(SpirvShader::Object::ID id, uint32_t size)
+	void createVariable(SpirvShader::Object::ID id, uint32_t componentCount)
 	{
-		bool added = variables.emplace(id, Variable(size)).second;
+		bool added = variables.emplace(id, Variable(componentCount)).second;
 		ASSERT_MSG(added, "Variable %d created twice", id.value());
 	}
 
@@ -1308,6 +1436,8 @@ public:
 	// setImmutableInputBuiltins() sets all the immutable input builtins,
 	// common for all shader types.
 	void setImmutableInputBuiltins(SpirvShader const *shader);
+
+	static SIMD::Float interpolateAtXY(const SIMD::Float &x, const SIMD::Float &y, const SIMD::Float &rhw, Pointer<Byte> planeEquation, bool flat, bool perspective);
 
 	// setInputBuiltin() calls f() with the builtin and value if the shader
 	// uses the input builtin, otherwise the call is a no-op.

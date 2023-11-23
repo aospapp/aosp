@@ -16,10 +16,34 @@
 
 package android.server.wm;
 
+import static android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION;
+import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_ATTACHED_DIALOG;
+import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_MEDIA;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_PANEL;
+import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_STARTING;
+import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL;
+import static android.view.WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
+import static android.view.WindowManager.LayoutParams.TYPE_DRAWN_APPLICATION;
+import static android.view.WindowManager.LayoutParams.TYPE_INPUT_METHOD;
+import static android.view.WindowManager.LayoutParams.TYPE_INPUT_METHOD_DIALOG;
+import static android.view.WindowManager.LayoutParams.TYPE_KEYGUARD_DIALOG;
+import static android.view.WindowManager.LayoutParams.TYPE_PHONE;
+import static android.view.WindowManager.LayoutParams.TYPE_PRIORITY_PHONE;
+import static android.view.WindowManager.LayoutParams.TYPE_PRIVATE_PRESENTATION;
+import static android.view.WindowManager.LayoutParams.TYPE_SEARCH_BAR;
+import static android.view.WindowManager.LayoutParams.TYPE_STATUS_BAR;
+import static android.view.WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
+import static android.view.WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG;
+import static android.view.WindowManager.LayoutParams.TYPE_SYSTEM_ERROR;
+import static android.view.WindowManager.LayoutParams.TYPE_SYSTEM_OVERLAY;
+import static android.view.WindowManager.LayoutParams.TYPE_TOAST;
+import static android.view.WindowManager.LayoutParams.TYPE_WALLPAPER;
 
+import android.content.Context;
 import android.platform.test.annotations.Presubmit;
+import android.view.Display;
 
 import org.junit.Test;
 
@@ -37,19 +61,47 @@ public class WindowContextPolicyTests extends WindowContextTestBase {
         mContext.createWindowContext(TYPE_APPLICATION_OVERLAY, null);
     }
 
-    @Test(expected = UnsupportedOperationException.class)
-    public void testCreateTooManyWindowContextWithoutViewThrowException() {
-        final WindowManagerState.DisplayContent display =  createManagedVirtualDisplaySession()
+    @Test(expected = IllegalArgumentException.class)
+    public void testWindowContextWithNullDisplay() {
+        final Context displayContext = createDisplayContext(Display.DEFAULT_DISPLAY);
+        displayContext.createWindowContext(null /* display */, TYPE_APPLICATION_OVERLAY,
+                null /* options */);
+    }
+
+    @Test
+    public void testWindowContextWithDisplayOnNonUiContext() {
+        createAllowSystemAlertWindowAppOpSession();
+        final Display display = mDm.getDisplay(Display.DEFAULT_DISPLAY);
+        mContext.createWindowContext(display, TYPE_APPLICATION_OVERLAY, null /* options */);
+    }
+
+    @Test
+    public void testCreateMultipleWindowContextsWithoutView() {
+        final WindowManagerState.DisplayContent display = createManagedVirtualDisplaySession()
                 .setSimulateDisplay(true).createDisplay();
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 10; i++) {
             createWindowContext(display.mId);
         }
     }
 
-    @Test(expected = RuntimeException.class)
-    public void testWindowContextWithIllegalWindowType() {
-        final WindowManagerState.DisplayContent display =  createManagedVirtualDisplaySession()
+    @Test
+    public void testWindowContextWithAllPublicTypes() {
+        final WindowManagerState.DisplayContent display = createManagedVirtualDisplaySession()
                 .setSimulateDisplay(true).createDisplay();
-        createWindowContext(display.mId, TYPE_APPLICATION);
+
+        final int[] allPublicWindowTypes = new int[] {
+                TYPE_BASE_APPLICATION, TYPE_APPLICATION, TYPE_APPLICATION_STARTING,
+                TYPE_DRAWN_APPLICATION, TYPE_APPLICATION_PANEL, TYPE_APPLICATION_MEDIA,
+                TYPE_APPLICATION_SUB_PANEL, TYPE_APPLICATION_ATTACHED_DIALOG,
+                TYPE_STATUS_BAR, TYPE_SEARCH_BAR, TYPE_PHONE, TYPE_SYSTEM_ALERT,
+                TYPE_TOAST, TYPE_SYSTEM_OVERLAY, TYPE_PRIORITY_PHONE,
+                TYPE_SYSTEM_DIALOG, TYPE_KEYGUARD_DIALOG, TYPE_SYSTEM_ERROR, TYPE_INPUT_METHOD,
+                TYPE_INPUT_METHOD_DIALOG, TYPE_WALLPAPER, TYPE_PRIVATE_PRESENTATION,
+                TYPE_ACCESSIBILITY_OVERLAY, TYPE_APPLICATION_OVERLAY
+        };
+
+        for (int windowType : allPublicWindowTypes) {
+            createWindowContext(display.mId, windowType);
+        }
     }
 }

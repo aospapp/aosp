@@ -58,6 +58,10 @@ final class Utils {
     }
   }
 
+  static void copyBytes(byte[] dst, int target, byte[] src, int start, int end) {
+    System.arraycopy(src, start, dst, target, end - start);
+  }
+
   static void copyBytesWithin(byte[] bytes, int target, int start, int end) {
     System.arraycopy(bytes, start, bytes, target, end - start);
   }
@@ -87,5 +91,16 @@ final class Utils {
   // Crazy pills factory: code compiled for JDK8 does not work on JRE9.
   static void flipBuffer(Buffer buffer) {
     buffer.flip();
+  }
+
+  static int isDebugMode() {
+    boolean assertsEnabled = Boolean.parseBoolean(System.getProperty("BROTLI_ENABLE_ASSERTS"));
+    return assertsEnabled ? 1 : 0;
+  }
+
+  // See BitReader.LOG_BITNESS
+  static int getLogBintness() {
+    boolean isLongExpensive = Boolean.parseBoolean(System.getProperty("BROTLI_32_BIT_CPU"));
+    return isLongExpensive ? 5 : 6;
   }
 }

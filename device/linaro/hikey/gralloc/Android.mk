@@ -29,6 +29,8 @@ LOCAL_VENDOR_MODULE := true
 MALI_DDK_TEST_PATH := hardware/arm/
 
 LOCAL_MODULE := gralloc.hikey
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-GPL-2.0
+LOCAL_LICENSE_CONDITIONS := notice restricted
 LOCAL_MODULE_RELATIVE_PATH := hw
 #LOCAL_MODULE_TAGS := optional
 

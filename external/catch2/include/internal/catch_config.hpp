@@ -42,7 +42,12 @@ namespace Catch {
 
         int abortAfter = -1;
         unsigned int rngSeed = 0;
-        int benchmarkResolutionMultiple = 100;
+
+        bool benchmarkNoAnalysis = false;
+        unsigned int benchmarkSamples = 100;
+        double benchmarkConfidenceInterval = 0.95;
+        unsigned int benchmarkResamples = 100000;
+        std::chrono::milliseconds::rep benchmarkWarmupTime = 100;
 
         Verbosity verbosity = Verbosity::Normal;
         WarnAbout::What warnings = WarnAbout::Nothing;
@@ -100,12 +105,16 @@ namespace Catch {
         ShowDurations::OrNot showDurations() const override;
         RunTests::InWhatOrder runOrder() const override;
         unsigned int rngSeed() const override;
-        int benchmarkResolutionMultiple() const override;
         UseColour::YesOrNo useColour() const override;
         bool shouldDebugBreak() const override;
         int abortAfter() const override;
         bool showInvisibles() const override;
         Verbosity verbosity() const override;
+        bool benchmarkNoAnalysis() const override;
+        int benchmarkSamples() const override;
+        double benchmarkConfidenceInterval() const override;
+        unsigned int benchmarkResamples() const override;
+        std::chrono::milliseconds benchmarkWarmupTime() const override;
 
     private:
 

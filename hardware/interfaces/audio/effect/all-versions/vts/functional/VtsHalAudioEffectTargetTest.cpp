@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
+#include <vector>
+
 #define LOG_TAG "AudioEffectHidlHalTest"
 #include <android-base/logging.h>
+#if MAJOR_VERSION <= 6
 #include <system/audio.h>
+#endif
 
 #include PATH(android/hardware/audio/effect/FILE_VERSION/IEffect.h)
 #include PATH(android/hardware/audio/effect/FILE_VERSION/IEffectsFactory.h)
@@ -25,6 +29,9 @@
 #include PATH(android/hardware/audio/effect/FILE_VERSION/types.h)
 #include <android/hidl/allocator/1.0/IAllocator.h>
 #include <android/hidl/memory/1.0/IMemory.h>
+#if MAJOR_VERSION >= 7
+#include <android_audio_policy_configuration_V7_0-enums.h>
+#endif
 
 #include <common/all-versions/VersionUtils.h>
 
@@ -45,6 +52,12 @@ using ::android::hidl::allocator::V1_0::IAllocator;
 using ::android::hidl::memory::V1_0::IMemory;
 using namespace ::android::hardware::audio::common::CPP_VERSION;
 using namespace ::android::hardware::audio::effect::CPP_VERSION;
+#if MAJOR_VERSION >= 7
+// Make an alias for enumerations generated from the APM config XSD.
+namespace xsd {
+using namespace ::android::audio::policy::configuration::CPP_VERSION;
+}
+#endif
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
@@ -171,7 +184,7 @@ class AudioEffectHidlTest : public ::testing::TestWithParam<EffectParameter> {
         effectsFactory = IEffectsFactory::getService(std::get<PARAM_FACTORY_NAME>(GetParam()));
         ASSERT_NE(nullptr, effectsFactory.get());
 
-        findAndCreateEffect(getEffectType());
+        ASSERT_NO_FATAL_FAILURE(findAndCreateEffect(getEffectType()));
         ASSERT_NE(nullptr, effect.get());
 
         Return<Result> ret = effect->init();
@@ -201,7 +214,7 @@ class AudioEffectHidlTest : public ::testing::TestWithParam<EffectParameter> {
 
 void AudioEffectHidlTest::findAndCreateEffect(const Uuid& type) {
     Uuid effectUuid;
-    findEffectInstance(type, &effectUuid);
+    ASSERT_NO_FATAL_FAILURE(findEffectInstance(type, &effectUuid));
     Return<void> ret = effectsFactory->createEffect(
             effectUuid, 1 /*session*/, 1 /*ioHandle*/,
 #if MAJOR_VERSION >= 6
@@ -244,10 +257,18 @@ void AudioEffectHidlTest::getChannelCount(uint32_t* channelCount) {
     });
     ASSERT_TRUE(ret.isOk());
     ASSERT_EQ(Result::OK, retval);
+#if MAJOR_VERSION <= 6
     ASSERT_TRUE(audio_channel_mask_is_valid(
         static_cast<audio_channel_mask_t>(currentConfig.outputCfg.channels)));
     *channelCount = audio_channel_count_from_out_mask(
         static_cast<audio_channel_mask_t>(currentConfig.outputCfg.channels));
+#else
+    ASSERT_EQ(AudioConfigBaseOptional::ChannelMask::hidl_discriminator::value,
+              currentConfig.outputCfg.base.channelMask.getDiscriminator());
+    *channelCount = android::audio::policy::configuration::V7_0::getChannelCount(
+            currentConfig.outputCfg.base.channelMask.value());
+    ASSERT_NE(*channelCount, 0);
+#endif
 }
 
 TEST_P(AudioEffectHidlTest, Close) {
@@ -290,6 +311,47 @@ TEST_P(AudioEffectHidlTest, GetSetConfig) {
     EXPECT_TRUE(ret2.isOk());
     EXPECT_EQ(Result::OK, ret2);
 }
+
+#if MAJOR_VERSION >= 7
+std::vector<EffectBufferConfig> generateInvalidConfigs(const EffectBufferConfig& src) {
+    std::vector<EffectBufferConfig> result;
+    EffectBufferConfig invalidFormat = src;
+    invalidFormat.base.format.value("random_string");
+    result.push_back(std::move(invalidFormat));
+    EffectBufferConfig invalidChannelMask = src;
+    invalidChannelMask.base.channelMask.value("random_string");
+    result.push_back(std::move(invalidChannelMask));
+    return result;
+}
+
+TEST_P(AudioEffectHidlTest, SetConfigInvalidArguments) {
+    description("Verify that invalid arguments are rejected by SetConfig");
+    Result retval = Result::NOT_INITIALIZED;
+    EffectConfig currentConfig;
+    Return<void> ret = effect->getConfig([&](Result r, const EffectConfig& conf) {
+        retval = r;
+        if (r == Result::OK) {
+            currentConfig = conf;
+        }
+    });
+    EXPECT_TRUE(ret.isOk());
+    EXPECT_EQ(Result::OK, retval);
+    for (const auto& invalidInputCfg : generateInvalidConfigs(currentConfig.inputCfg)) {
+        EffectConfig invalidConfig = currentConfig;
+        invalidConfig.inputCfg = invalidInputCfg;
+        Return<Result> ret = effect->setConfig(invalidConfig, nullptr, nullptr);
+        EXPECT_TRUE(ret.isOk());
+        EXPECT_EQ(Result::INVALID_ARGUMENTS, ret);
+    }
+    for (const auto& invalidOutputCfg : generateInvalidConfigs(currentConfig.outputCfg)) {
+        EffectConfig invalidConfig = currentConfig;
+        invalidConfig.outputCfg = invalidOutputCfg;
+        Return<Result> ret = effect->setConfig(invalidConfig, nullptr, nullptr);
+        EXPECT_TRUE(ret.isOk());
+        EXPECT_EQ(Result::INVALID_ARGUMENTS, ret);
+    }
+}
+#endif
 
 TEST_P(AudioEffectHidlTest, GetConfigReverse) {
     description("Verify that GetConfigReverse does not crash");
@@ -334,11 +396,22 @@ inline bool operator==(const AudioBuffer& lhs, const AudioBuffer& rhs) {
            rhs.data.handle() == nullptr;
 }
 
+#if MAJOR_VERSION <= 6
 inline bool operator==(const EffectBufferConfig& lhs, const EffectBufferConfig& rhs) {
-    return lhs.buffer == rhs.buffer && lhs.samplingRateHz == rhs.samplingRateHz &&
-           lhs.channels == rhs.channels && lhs.format == rhs.format &&
+    return lhs.buffer == rhs.buffer &&
+           lhs.samplingRateHz == rhs.samplingRateHz && lhs.channels == rhs.channels &&
+           lhs.format == rhs.format &&
            lhs.accessMode == rhs.accessMode && lhs.mask == rhs.mask;
 }
+#else
+inline bool operator==(const EffectBufferConfig& lhs, const EffectBufferConfig& rhs) {
+    return lhs.buffer.getDiscriminator() == rhs.buffer.getDiscriminator() &&
+           (lhs.buffer.getDiscriminator() ==
+                    EffectBufferConfig::OptionalBuffer::hidl_discriminator::unspecified ||
+            lhs.buffer.buf() == rhs.buffer.buf()) &&
+           lhs.base == rhs.base && lhs.accessMode == rhs.accessMode;
+}
+#endif  // MAJOR_VERSION <= 6
 
 inline bool operator==(const EffectConfig& lhs, const EffectConfig& rhs) {
     return lhs.inputCfg == rhs.inputCfg && lhs.outputCfg == rhs.outputCfg;
@@ -389,9 +462,24 @@ TEST_P(AudioEffectHidlTest, DisableEnableDisable) {
     EXPECT_EQ(Result::OK, ret);
 }
 
+#if MAJOR_VERSION >= 7
+TEST_P(AudioEffectHidlTest, SetDeviceInvalidDeviceAddress) {
+    description("Verify that invalid device address is rejected by SetDevice");
+    DeviceAddress device{.deviceType = "random_string"};
+    Return<Result> ret = effect->setDevice(device);
+    EXPECT_TRUE(ret.isOk());
+    EXPECT_EQ(Result::INVALID_ARGUMENTS, ret);
+}
+#endif
+
 TEST_P(AudioEffectHidlTest, SetDevice) {
     description("Verify that SetDevice works for an output chain effect");
+#if MAJOR_VERSION <= 6
     Return<Result> ret = effect->setDevice(mkEnumBitfield(AudioDevice::OUT_SPEAKER));
+#else
+    DeviceAddress device{.deviceType = toString(xsd::AudioDevice::AUDIO_DEVICE_OUT_SPEAKER)};
+    Return<Result> ret = effect->setDevice(device);
+#endif
     EXPECT_TRUE(ret.isOk());
     EXPECT_EQ(Result::OK, ret);
 }
@@ -439,24 +527,51 @@ TEST_P(AudioEffectHidlTest, SetConfigReverse) {
     EXPECT_TRUE(ret.isOk());
 }
 
+#if MAJOR_VERSION >= 7
+TEST_P(AudioEffectHidlTest, SetInputDeviceInvalidDeviceAddress) {
+    description("Verify that invalid device address is rejected by SetInputDevice");
+    DeviceAddress device{.deviceType = "random_string"};
+    Return<Result> ret = effect->setInputDevice(device);
+    EXPECT_TRUE(ret.isOk());
+    EXPECT_TRUE(ret == Result::INVALID_ARGUMENTS || ret == Result::NOT_SUPPORTED)
+            << ::testing::PrintToString(ret);
+}
+#endif
+
 TEST_P(AudioEffectHidlTest, SetInputDevice) {
     description("Verify that SetInputDevice does not crash");
+#if MAJOR_VERSION <= 6
     Return<Result> ret = effect->setInputDevice(mkEnumBitfield(AudioDevice::IN_BUILTIN_MIC));
+#else
+    DeviceAddress device{.deviceType = toString(xsd::AudioDevice::AUDIO_DEVICE_IN_BUILTIN_MIC)};
+    Return<Result> ret = effect->setInputDevice(device);
+#endif
     EXPECT_TRUE(ret.isOk());
 }
 
+#if MAJOR_VERSION >= 7
+TEST_P(AudioEffectHidlTest, SetInvalidAudioSource) {
+    description("Verify that an invalid audio source is rejected by SetAudioSource");
+    Return<Result> ret = effect->setAudioSource("random_string");
+    ASSERT_TRUE(ret.isOk());
+    EXPECT_TRUE(ret == Result::INVALID_ARGUMENTS || ret == Result::NOT_SUPPORTED)
+            << ::testing::PrintToString(ret);
+}
+#endif
+
 TEST_P(AudioEffectHidlTest, SetAudioSource) {
     description("Verify that SetAudioSource does not crash");
+#if MAJOR_VERSION <= 6
     Return<Result> ret = effect->setAudioSource(AudioSource::MIC);
+#else
+    Return<Result> ret = effect->setAudioSource(toString(xsd::AudioSource::AUDIO_SOURCE_MIC));
+#endif
     EXPECT_TRUE(ret.isOk());
 }
 
 TEST_P(AudioEffectHidlTest, Offload) {
     description("Verify that calling Offload method does not crash");
-    EffectOffloadParameter offloadParam;
-    offloadParam.isOffload = false;
-    offloadParam.ioHandle = static_cast<int>(AudioHandleConsts::AUDIO_IO_HANDLE_NONE);
-    Return<Result> ret = effect->offload(offloadParam);
+    Return<Result> ret = effect->offload(EffectOffloadParameter{});
     EXPECT_TRUE(ret.isOk());
 }
 
@@ -845,3 +960,9 @@ INSTANTIATE_TEST_SUITE_P(
                                    IEffectsFactory::descriptor)),
                            ::testing::Values(LOUDNESS_ENHANCER_EFFECT_TYPE)),
         EffectParameterToString);
+// When the VTS test runs on a device lacking the corresponding HAL version the parameter
+// list is empty, this isn't a problem.
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AudioEffectsFactoryHidlTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AudioEffectHidlTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(EqualizerAudioEffectHidlTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(LoudnessEnhancerAudioEffectHidlTest);

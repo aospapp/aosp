@@ -158,9 +158,6 @@ void Layout::appendLayout(const LayoutPiece& src, size_t start, float extraAdvan
             mAdvances[start] += extraAdvance;
         }
     }
-    MinikinRect srcBounds(src.bounds());
-    srcBounds.offset(mAdvance, 0);
-    mBounds.join(srcBounds);
     mAdvance += src.advance() + extraAdvance;
 }
 

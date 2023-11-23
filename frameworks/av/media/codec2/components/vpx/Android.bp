@@ -1,4 +1,23 @@
-cc_library_shared {
+package {
+    default_applicable_licenses: [
+        "frameworks_av_media_codec2_components_vpx_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_media_codec2_components_vpx_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
+cc_library {
     name: "libcodec2_soft_vp9dec",
     defaults: [
         "libcodec2_soft-defaults",
@@ -14,7 +33,7 @@ cc_library_shared {
     ],
 }
 
-cc_library_shared {
+cc_library {
     name: "libcodec2_soft_vp8dec",
     defaults: [
         "libcodec2_soft-defaults",
@@ -26,7 +45,7 @@ cc_library_shared {
     shared_libs: ["libvpx"],
 }
 
-cc_library_shared {
+cc_library {
     name: "libcodec2_soft_vp9enc",
     defaults: [
         "libcodec2_soft-defaults",
@@ -43,7 +62,7 @@ cc_library_shared {
     cflags: ["-DVP9"],
 }
 
-cc_library_shared {
+cc_library {
     name: "libcodec2_soft_vp8enc",
     defaults: [
         "libcodec2_soft-defaults",
@@ -57,4 +76,3 @@ cc_library_shared {
 
     shared_libs: ["libvpx"],
 }
-

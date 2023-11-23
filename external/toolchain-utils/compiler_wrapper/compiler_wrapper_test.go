@@ -148,3 +148,53 @@ func TestPrintOtherCompilerError(t *testing.T) {
 		t.Errorf("Unexpected string. Got: %s", buffer.String())
 	}
 }
+
+func TestPrintOtherCompilerErrorForAndroidLLVM(t *testing.T) {
+	buffer := bytes.Buffer{}
+
+	oldConfigName := ConfigName
+	defer func() { ConfigName = oldConfigName }()
+
+	ConfigName = "android"
+	printCompilerError(&buffer, errors.New("abcd"))
+	if buffer.String() != "Internal error. Please report to android-llvm@google.com.\nabcd\n" {
+		t.Errorf("Unexpected string. Got: %s", buffer.String())
+	}
+}
+
+func TestCalculateAndroidWrapperPath(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		mainBuilderPath string
+		absWrapperPath  string
+		want            string
+	}{
+		{
+			mainBuilderPath: "/foo/bar",
+			absWrapperPath:  "/bar/baz",
+			want:            "/foo/baz.real",
+		},
+		{
+			mainBuilderPath: "/my_wrapper",
+			absWrapperPath:  "/bar/baz",
+			want:            "/baz.real",
+		},
+		{
+			mainBuilderPath: "no_seps",
+			absWrapperPath:  "/bar/baz",
+			want:            "baz.real",
+		},
+		{
+			mainBuilderPath: "./a_sep",
+			absWrapperPath:  "/bar/baz",
+			want:            "./baz.real",
+		},
+	}
+
+	for _, tc := range testCases {
+		if result := calculateAndroidWrapperPath(tc.mainBuilderPath, tc.absWrapperPath); result != tc.want {
+			t.Errorf("Failed calculating the wrapper path with (%q, %q); got %q, want %q", tc.mainBuilderPath, tc.absWrapperPath, result, tc.want)
+		}
+	}
+}

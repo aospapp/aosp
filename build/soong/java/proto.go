@@ -34,7 +34,7 @@ func genProto(ctx android.ModuleContext, protoFiles android.Paths, flags android
 
 		outDir := srcJarFile.ReplaceExtension(ctx, "tmp")
 
-		rule := android.NewRuleBuilder()
+		rule := android.NewRuleBuilder(pctx, ctx)
 
 		rule.Command().Text("rm -rf").Flag(outDir.String())
 		rule.Command().Text("mkdir -p").Flag(outDir.String())
@@ -42,14 +42,14 @@ func genProto(ctx android.ModuleContext, protoFiles android.Paths, flags android
 		for _, protoFile := range shard {
 			depFile := srcJarFile.InSameDir(ctx, protoFile.String()+".d")
 			rule.Command().Text("mkdir -p").Flag(filepath.Dir(depFile.String()))
-			android.ProtoRule(ctx, rule, protoFile, flags, flags.Deps, outDir, depFile, nil)
+			android.ProtoRule(rule, protoFile, flags, flags.Deps, outDir, depFile, nil)
 		}
 
 		// Proto generated java files have an unknown package name in the path, so package the entire output directory
 		// into a srcjar.
 		rule.Command().
-			BuiltTool(ctx, "soong_zip").
-			Flag("-jar").
+			BuiltTool("soong_zip").
+			Flag("-srcjar").
 			Flag("-write_if_changed").
 			FlagWithOutput("-o ", srcJarFile).
 			FlagWithArg("-C ", outDir.String()).
@@ -66,7 +66,7 @@ func genProto(ctx android.ModuleContext, protoFiles android.Paths, flags android
 			ruleDesc += " " + strconv.Itoa(i)
 		}
 
-		rule.Build(pctx, ctx, ruleName, ruleDesc)
+		rule.Build(ruleName, ruleDesc)
 	}
 
 	return srcJarFiles
@@ -82,7 +82,7 @@ func protoDeps(ctx android.BottomUpMutatorContext, p *android.ProtoProperties) {
 		case "lite", "":
 			ctx.AddVariationDependencies(nil, staticLibTag, "libprotobuf-java-lite")
 		case "full":
-			if ctx.Host() {
+			if ctx.Host() || ctx.BazelConversionMode() {
 				ctx.AddVariationDependencies(nil, staticLibTag, "libprotobuf-java-full")
 			} else {
 				ctx.PropertyErrorf("proto.type", "full java protos only supported on the host")
@@ -94,7 +94,7 @@ func protoDeps(ctx android.BottomUpMutatorContext, p *android.ProtoProperties) {
 	}
 }
 
-func protoFlags(ctx android.ModuleContext, j *CompilerProperties, p *android.ProtoProperties,
+func protoFlags(ctx android.ModuleContext, j *CommonProperties, p *android.ProtoProperties,
 	flags javaBuilderFlags) javaBuilderFlags {
 
 	flags.proto = android.GetProtoFlags(ctx, p)

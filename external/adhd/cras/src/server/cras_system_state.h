@@ -20,7 +20,12 @@
 
 #define CRAS_MAX_SYSTEM_VOLUME 100
 #define DEFAULT_CAPTURE_GAIN 2000 /* 20dB of gain. */
-/* Default to 1--dB of range for palyback and capture. */
+/* Default to -6 dBFS as 90% of CrOS boards use microphone with -26dBFS
+ * sensitivity under 94dB SPL @ 1kHz and we generally added 20dB gain to it.
+ * This is a temporary value that should be refined when the standard process
+ * measuring intrinsic sensitivity is built. */
+#define DEFAULT_CAPTURE_VOLUME_DBFS -600
+/* Default to 1--dB of range for playback and capture. */
 #define DEFAULT_MIN_VOLUME_DBFS -10000
 #define DEFAULT_MAX_VOLUME_DBFS 0
 #define DEFAULT_MIN_CAPTURE_GAIN -5000
@@ -52,9 +57,8 @@ void cras_system_set_volume(size_t volume);
 /* Gets the current system volume. */
 size_t cras_system_get_volume();
 
-/* Sets the system capture volume.  Will be applied by the active device. */
-void cras_system_set_capture_gain(long gain);
-/* Gets the current system capture volume. */
+/* Gets the current system capture volume. As we remove the support of setting
+ * system capture gain, it should always be DEFAULT_CAPTURE_GAIN now. */
 long cras_system_get_capture_gain();
 
 /* Sets if the system is muted by the user. */
@@ -103,19 +107,6 @@ long cras_system_get_min_volume();
 /* Returns the dB value when volume = CRAS_MAX_SYSTEM_VOLUME, in dB * 100. */
 long cras_system_get_max_volume();
 
-/* Sets the limits in dB * 100 of the MAX and MIN capture gain.  This will allow
- * clients to query what range of control is available.  Both arguments are
- * specified as dB * 100.
- * Args:
- *     min - minimum allowed capture gain.
- *     max - maximum allowed capture gaax.
- */
-void cras_system_set_capture_gain_limits(long min, long max);
-/* Returns the max value allowed for capture gain in dB * 100. */
-long cras_system_get_min_capture_gain();
-/* Returns the min value allowed for capture gain in dB * 100. */
-long cras_system_get_max_capture_gain();
-
 /* Returns the default value of output buffer size in frames. */
 int cras_system_get_default_output_buffer_size();
 
@@ -130,6 +121,33 @@ void cras_system_set_bt_wbs_enabled(bool enabled);
 
 /* Gets the elable flag of bluetooth wideband speech feature. */
 bool cras_system_get_bt_wbs_enabled();
+
+/*
+ * Returns if Bluetooth WBS mic should be deprioritized for selecting
+ * as default audio input option.
+ */
+bool cras_system_get_deprioritize_bt_wbs_mic();
+
+/* Sets the flag to enable or disable Bluetooth fixed A2DP packet size. */
+void cras_system_set_bt_fix_a2dp_packet_size_enabled(bool enabled);
+
+/* Gets the flag of Bluetooth fixed A2DP packet size. */
+bool cras_system_get_bt_fix_a2dp_packet_size_enabled();
+
+/* Sets the flag to enable or disable Noise Cancellation. */
+void cras_system_set_noise_cancellation_enabled(bool enabled);
+
+/* Gets the flag of Noise Cancellation. */
+bool cras_system_get_noise_cancellation_enabled();
+
+/* Checks if the card ignores the ucm suffix. */
+bool cras_system_check_ignore_ucm_suffix(const char *card_name);
+
+/* Returns true if hotword detection is paused at system suspend. */
+bool cras_system_get_hotword_pause_at_suspend();
+
+/* Sets whether to pause hotword detection at system suspend. */
+void cras_system_set_hotword_pause_at_suspend(bool pause);
 
 /* Adds a card at the given index to the system.  When a new card is found
  * (through a udev event notification) this will add the card to the system,
@@ -174,8 +192,8 @@ int cras_system_alsa_card_exists(unsigned alsa_card_index);
  *    0 on success, or -EBUSY if there is already a registered handler.
  */
 int cras_system_set_select_handler(
-	int (*add)(int fd, void (*callback)(void *data), void *callback_data,
-		   void *select_data),
+	int (*add)(int fd, void (*callback)(void *data, int revents),
+		   void *callback_data, int events, void *select_data),
 	void (*rm)(int fd, void *select_data), void *select_data);
 
 /* Adds the fd and callback pair.  When select indicates that fd is readable,
@@ -184,11 +202,12 @@ int cras_system_set_select_handler(
  *    fd - The file descriptor to pass to select(2).
  *    callback - The callback to call when fd is ready.
  *    callback_data - Value passed back to the callback.
+ *    events - The events to poll for.
  * Returns:
  *    0 on success or a negative error code on failure.
  */
-int cras_system_add_select_fd(int fd, void (*callback)(void *data),
-			      void *callback_data);
+int cras_system_add_select_fd(int fd, void (*callback)(void *data, int revents),
+			      void *callback_data, int events);
 
 /* Removes the fd from the list of fds that are passed to select.
  * Args:
@@ -225,16 +244,20 @@ int cras_system_add_task(void (*callback)(void *data), void *callback_data);
  * subsystem is idle.
  * Args:
  *   direction - Directions of audio streams.
+ *   client_type - CRAS_CLIENT_TYPE of the audio stream.
  */
-void cras_system_state_stream_added(enum CRAS_STREAM_DIRECTION direction);
+void cras_system_state_stream_added(enum CRAS_STREAM_DIRECTION direction,
+				    enum CRAS_CLIENT_TYPE client_type);
 
 /* Signals that an audio input or output stream has been removed from the
  * system.  This allows the count of active streams can be used to notice when
  * the audio subsystem is idle.
  * Args:
  *   direction - Directions of audio stream.
+ *   client_type - CRAS_CLIENT_TYPE of the audio stream.
  */
-void cras_system_state_stream_removed(enum CRAS_STREAM_DIRECTION direction);
+void cras_system_state_stream_removed(enum CRAS_STREAM_DIRECTION direction,
+				      enum CRAS_CLIENT_TYPE client_type);
 
 /* Returns the number of active playback and capture streams. */
 unsigned cras_system_state_get_active_streams();
@@ -245,6 +268,16 @@ unsigned cras_system_state_get_active_streams();
  */
 unsigned cras_system_state_get_active_streams_by_direction(
 	enum CRAS_STREAM_DIRECTION direction);
+
+/* Returns the number of input streams with permission per CRAS_CLIENT_TYPE.
+ *
+ * Returns:
+ *   num_input_streams - An array with length = CRAS_NUM_CLIENT_TYPE and each
+ *                        element is the number of the current input
+ *                        streams with permission in each client type.
+ */
+void cras_system_state_get_input_streams_with_permission(
+	uint32_t num_input_streams[CRAS_NUM_CLIENT_TYPE]);
 
 /* Fills ts with the time the last stream was removed from the system, the time
  * the stream count went to zero.

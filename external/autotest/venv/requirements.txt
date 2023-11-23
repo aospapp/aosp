@@ -27,3 +27,6 @@ subprocess32==3.2.7
 #Do NOT need the mysql versions for autotest
 #MySQL-python==1.2.5
 protobuf==3.0.0
+#Extra requirements for RTD TLS integration
+grpcio==1.31.0
+grpcio-tools==1.31.0

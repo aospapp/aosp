@@ -16,6 +16,6 @@ limitations under the License.
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="assist_action_failed_toast" msgid="3250146468076483714">"לא ניתן לבקש מה-Assistant לבצע פעולה!"</string>
+    <string name="assist_action_failed_toast" msgid="3250146468076483714">"לא ניתן לבקש מ-Assistant לבצע פעולה!"</string>
     <string name="says" msgid="8575666015622916107">"רוצה להודיע כי"</string>
 </resources>

@@ -17,7 +17,7 @@
 %                               October 1998                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -140,7 +140,7 @@ MagickExport Image *ConstituteImage(const size_t columns,const size_t rows,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -157,6 +157,16 @@ MagickExport Image *ConstituteImage(const size_t columns,const size_t rows,
   image=AcquireImage((ImageInfo *) NULL,exception);
   if (image == (Image *) NULL)
     return((Image *) NULL);
+  switch (storage)
+  {
+    case CharPixel: image->depth=8*sizeof(unsigned char); break;
+    case DoublePixel: image->depth=8*sizeof(double); break;
+    case FloatPixel: image->depth=8*sizeof(float); break;
+    case LongPixel: image->depth=8*sizeof(unsigned long); break;
+    case LongLongPixel: image->depth=8*sizeof(MagickSizeType); break;
+    case ShortPixel: image->depth=8*sizeof(unsigned short); break;
+    default: break;
+  }
   length=strlen(map);
   for (i=0; i < (ssize_t) length; i++)
   {
@@ -651,7 +661,7 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
     char
       magick_path[MagickPathExtent],
       *property,
-      timestamp[MagickPathExtent];
+      timestamp[MagickTimeExtent];
 
     const char
       *option;
@@ -662,9 +672,15 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
     ssize_t
       option_type;
 
+    static const char
+      *source_date_epoch = (const char *) NULL;
+
+    static MagickBooleanType
+      epoch_initalized = MagickFalse;
+
     next->taint=MagickFalse;
     GetPathComponent(magick_filename,MagickPath,magick_path);
-    if (*magick_path == '\0' && *next->magick == '\0')
+    if ((*magick_path == '\0') && (*next->magick == '\0'))
       (void) CopyMagickString(next->magick,magick,MagickPathExtent);
     (void) CopyMagickString(next->magick_filename,magick_filename,
       MagickPathExtent);
@@ -791,12 +807,20 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
     profile=GetImageProfile(next,"iptc");
     if (profile == (const StringInfo *) NULL)
       profile=GetImageProfile(next,"8bim");
-    (void) FormatMagickTime((time_t) GetBlobProperties(next)->st_mtime,
-      MagickPathExtent,timestamp);
-    (void) SetImageProperty(next,"date:modify",timestamp,exception);
-    (void) FormatMagickTime((time_t) GetBlobProperties(next)->st_ctime,
-      MagickPathExtent,timestamp);
-    (void) SetImageProperty(next,"date:create",timestamp,exception);
+    if (epoch_initalized == MagickFalse)
+      {
+        source_date_epoch=getenv("SOURCE_DATE_EPOCH");
+        epoch_initalized=MagickTrue;
+      }
+    if (source_date_epoch == (const char *) NULL)
+      {
+        (void) FormatMagickTime((time_t) GetBlobProperties(next)->st_mtime,
+          sizeof(timestamp),timestamp);
+        (void) SetImageProperty(next,"date:modify",timestamp,exception);
+        (void) FormatMagickTime((time_t) GetBlobProperties(next)->st_ctime,
+          sizeof(timestamp),timestamp);
+        (void) SetImageProperty(next,"date:create",timestamp,exception);
+      }
     option=GetImageOption(image_info,"delay");
     if (option != (const char *) NULL)
       {
@@ -810,12 +834,14 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
           if ((flags & LessValue) != 0)
             {
               if (next->delay < (size_t) floor(geometry_info.rho+0.5))
-                next->ticks_per_second=(ssize_t) floor(geometry_info.sigma+0.5);
+                next->ticks_per_second=CastDoubleToLong(floor(
+                  geometry_info.sigma+0.5));
             }
           else
             next->delay=(size_t) floor(geometry_info.rho+0.5);
         if ((flags & SigmaValue) != 0)
-          next->ticks_per_second=(ssize_t) floor(geometry_info.sigma+0.5);
+          next->ticks_per_second=CastDoubleToLong(floor(
+            geometry_info.sigma+0.5));
       }
     option=GetImageOption(image_info,"dispose");
     if (option != (const char *) NULL)
@@ -830,6 +856,8 @@ MagickExport Image *ReadImage(const ImageInfo *image_info,
     image=next;
   }
   read_info=DestroyImageInfo(read_info);
+  if (GetBlobError(image) != MagickFalse)
+    ThrowReaderException(CorruptImageError,"UnableToReadImageData");
   return(GetFirstImageInList(image));
 }
 
@@ -974,7 +1002,7 @@ MagickExport Image *ReadInlineImage(const ImageInfo *image_info,
   size_t
     length;
 
-  register const char
+  const char
     *p;
 
   /*
@@ -984,9 +1012,7 @@ MagickExport Image *ReadInlineImage(const ImageInfo *image_info,
   for (p=content; (*p != ',') && (*p != '\0'); p++) ;
   if (*p == '\0')
     ThrowReaderException(CorruptImageError,"CorruptImage");
-  p++;
-  length=0;
-  blob=Base64Decode(p,&length);
+  blob=Base64Decode(++p,&length);
   if (length == 0)
     {
       blob=(unsigned char *) RelinquishMagickMemory(blob);
@@ -997,6 +1023,26 @@ MagickExport Image *ReadInlineImage(const ImageInfo *image_info,
     (void *) NULL);
   *read_info->filename='\0';
   *read_info->magick='\0';
+  for (p=content; (*p != '/') && (*p != '\0'); p++) ;
+  if (*p != '\0')
+    {
+      char
+        *q;
+
+      ssize_t
+        i;
+
+      /*
+        Extract media type.
+      */
+      if (LocaleNCompare(++p,"x-",2) == 0)
+        p+=2;
+      (void) strcpy(read_info->filename,"data.");
+      q=read_info->filename+5;
+      for (i=0; (*p != ';') && (*p != '\0') && (i < (MagickPathExtent-6)); i++)
+        *q++=(*p++);
+      *q++='\0';
+    }
   image=BlobToImage(read_info,blob,length,exception);
   blob=(unsigned char *) RelinquishMagickMemory(blob);
   read_info=DestroyImageInfo(read_info);
@@ -1263,6 +1309,8 @@ MagickExport MagickBooleanType WriteImage(const ImageInfo *image_info,
       (write_info->verbose != MagickFalse))
     (void) IdentifyImage(image,stdout,MagickFalse,exception);
   write_info=DestroyImageInfo(write_info);
+  if (GetBlobError(image) != MagickFalse)
+    ThrowWriterException(FileOpenError,"UnableToWriteFile");
   return(status);
 }
 
@@ -1328,7 +1376,7 @@ MagickExport MagickBooleanType WriteImages(const ImageInfo *image_info,
   MagickStatusType
     status;
 
-  register Image
+  Image
     *p;
 
   assert(image_info != (const ImageInfo *) NULL);
@@ -1355,7 +1403,7 @@ MagickExport MagickBooleanType WriteImages(const ImageInfo *image_info,
   p=images;
   for ( ; GetNextImageInList(p) != (Image *) NULL; p=GetNextImageInList(p))
   {
-    register Image
+    Image
       *next;
 
     next=GetNextImageInList(p);
@@ -1363,7 +1411,7 @@ MagickExport MagickBooleanType WriteImages(const ImageInfo *image_info,
       break;
     if (p->scene >= next->scene)
       {
-        register ssize_t
+        ssize_t
           i;
 
         /*

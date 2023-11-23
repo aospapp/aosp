@@ -115,7 +115,7 @@ bool PackageManagerRemote::ReconnectWithTimeout(int64_t timeout_ms) {
     package_service_ = GetPackageService();
     std::this_thread::sleep_for(interval);
     if (count * interval >= timeout) {
-      LOG(FATAL) << "Fail to create version map in "
+      LOG(ERROR) << "Fail to create version map in "
                  << timeout.count()
                  << " milliseconds."
                  << " Reason: Failed to connect to package manager service."
@@ -151,7 +151,8 @@ void PackageManagerRemote::RegisterPackageChangeObserver(
       });
 
   if (!status.isOk()) {
-    LOG(FATAL) << "Cannot register package change observer.";
+    LOG(ERROR) << "Cannot register package change observer. Is system_server down?";
+    exit(1);
   }
 }
 
@@ -181,7 +182,8 @@ void PackageManagerRemote::RegisterPackageManagerDeathRecipient(
   if (!ReconnectWithTimeout(kTimeoutMs) ||
       android::OK != android::IInterface::asBinder(
           package_service_.get())->linkToDeath(death_recipient)) {
-    LOG(FATAL) << "Failed to register package manager death recipient.";
+    LOG(ERROR) << "Failed to register package manager death recipient. Is system_server down?";
+    exit(1);
   }
 }
 

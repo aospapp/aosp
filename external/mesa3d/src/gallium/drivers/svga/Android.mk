@@ -33,6 +33,9 @@ LOCAL_SRC_FILES := $(C_SOURCES)
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 
 LOCAL_MODULE := libmesa_pipe_svga
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../LICENSE
 
 LOCAL_STATIC_LIBRARIES += libmesa_git_sha1
 

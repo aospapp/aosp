@@ -22,6 +22,8 @@ import com.android.ide.common.process.ProcessInfoBuilder
 import com.android.utils.LineCollector
 import com.android.utils.StdLogger
 import java.io.File
+import kotlin.math.max
+import kotlin.math.min
 
 // Copied from lint's test suite: TestUtils.diff in tools/base with
 // some changes to allow running native diff.
@@ -81,7 +83,7 @@ fun getDiff(
             if (before[i] == after[j]) {
                 lcs[i][j] = lcs[i + 1][j + 1] + 1
             } else {
-                lcs[i][j] = Math.max(lcs[i + 1][j], lcs[i][j + 1])
+                lcs[i][j] = max(lcs[i + 1][j], lcs[i][j + 1])
             }
         }
     }
@@ -94,13 +96,13 @@ fun getDiff(
             j++
         } else {
             sb.append("@@ -")
-            sb.append(Integer.toString(i + 1))
+            sb.append((i + 1).toString())
             sb.append(" +")
-            sb.append(Integer.toString(j + 1))
+            sb.append((j + 1).toString())
             sb.append('\n')
 
             if (windowSize > 0) {
-                for (context in Math.max(0, i - windowSize) until i) {
+                for (context in max(0, i - windowSize) until i) {
                     sb.append("  ")
                     sb.append(before[context])
                     sb.append("\n")
@@ -110,7 +112,7 @@ fun getDiff(
             while (i < n && j < m && before[i] != after[j]) {
                 if (lcs[i + 1][j] >= lcs[i][j + 1]) {
                     sb.append('-')
-                    if (!before[i].trim { it <= ' ' }.isEmpty()) {
+                    if (before[i].trim().isNotEmpty()) {
                         sb.append(' ')
                     }
                     sb.append(before[i])
@@ -118,7 +120,7 @@ fun getDiff(
                     i++
                 } else {
                     sb.append('+')
-                    if (!after[j].trim { it <= ' ' }.isEmpty()) {
+                    if (after[j].trim().isNotEmpty()) {
                         sb.append(' ')
                     }
                     sb.append(after[j])
@@ -128,7 +130,7 @@ fun getDiff(
             }
 
             if (windowSize > 0) {
-                for (context in i until Math.min(n, i + windowSize)) {
+                for (context in i until min(n, i + windowSize)) {
                     sb.append("  ")
                     sb.append(before[context])
                     sb.append("\n")
@@ -140,13 +142,13 @@ fun getDiff(
     if (i < n || j < m) {
         assert(i == n || j == m)
         sb.append("@@ -")
-        sb.append(Integer.toString(i + 1))
+        sb.append((i + 1).toString())
         sb.append(" +")
-        sb.append(Integer.toString(j + 1))
+        sb.append((j + 1).toString())
         sb.append('\n')
         while (i < n) {
             sb.append('-')
-            if (!before[i].trim { it <= ' ' }.isEmpty()) {
+            if (before[i].trim().isNotEmpty()) {
                 sb.append(' ')
             }
             sb.append(before[i])
@@ -155,7 +157,7 @@ fun getDiff(
         }
         while (j < m) {
             sb.append('+')
-            if (!after[j].trim { it <= ' ' }.isEmpty()) {
+            if (after[j].trim().isNotEmpty()) {
                 sb.append(' ')
             }
             sb.append(after[j])

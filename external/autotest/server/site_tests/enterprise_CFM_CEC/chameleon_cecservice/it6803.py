@@ -13,6 +13,8 @@
 
 # This code is a library for using IT680X chip in chameleon.
 
+from __future__ import print_function
+
 import sys
 import util
 from time import sleep
@@ -89,13 +91,13 @@ def main(cmdline):
         else:
             globals()[fname](args[2])
     else:
-        print 'Unknown command', cmd
+        print('Unknown command', cmd)
     cec_close()
 
 
 def cmd_help():
     """ Print help message. """
-    print usage
+    print(usage)
 
 
 def cec_open():
@@ -263,14 +265,14 @@ def cec_decode():
     # Validate message
     initiatorAddr = (rxCecBuf[1] >> 4) & 0x0F
     followerAddr = rxCecBuf[1] & 0x0F
-    print 'Initiator: {} Follower: {}'.format(initiatorAddr, followerAddr)
+    print('Initiator: {} Follower: {}'.format(initiatorAddr, followerAddr))
 
     if (rxCecBuf[2] == 0x04):
-        print 'received image-view-on'
+        print('received image-view-on')
     elif (rxCecBuf[2] == 0x36):
-        print 'received standby'
+        print('received standby')
     else:
-        print 'other command: {}'.format(rxCecBuf[2])
+        print('other command: {}'.format(rxCecBuf[2]))
     return rxCecBuf[2]
 
 def i2cset(addr, offset, value):

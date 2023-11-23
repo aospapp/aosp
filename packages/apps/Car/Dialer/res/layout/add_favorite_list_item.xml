@@ -25,8 +25,7 @@
     android:singleLine="true"
     android:gravity="top|center_horizontal"
     android:background="?android:attr/selectableItemBackground"
-    android:paddingStart="0dp"
-    android:paddingEnd="0dp"
+    android:padding="@dimen/favorite_item_padding"
     android:drawableTop="@drawable/ic_add_favorite"
     android:drawablePadding="@dimen/favorites_avatar_margin_bottom"
     app:carUxRestrictions="UX_RESTRICTIONS_NO_SETUP"/>

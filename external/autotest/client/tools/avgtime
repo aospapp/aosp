@@ -1,5 +1,12 @@
 #!/usr/bin/python2
-import sys, os, re
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import os
+import re
+import sys
+
 
 def avg_deviation(values):
     sum = 0
@@ -29,7 +36,7 @@ for line in sys.stdin.readlines():
 
     list.append((user, system, elapsed, cpu))
 
-print "   user: %0.2fs (%0.2f%%)" % avg_deviation([x[0] for x in list])
-print " system: %0.2fs (%0.2f%%)" % avg_deviation([x[1] for x in list])
-print "elapsed: %0.2fs (%0.2f%%)" % avg_deviation([x[2] for x in list])
-print "    cpu: %d%% (%0.2f%%)" % avg_deviation([x[3] for x in list])
+print("   user: %0.2fs (%0.2f%%)" % avg_deviation([x[0] for x in list]))
+print(" system: %0.2fs (%0.2f%%)" % avg_deviation([x[1] for x in list]))
+print("elapsed: %0.2fs (%0.2f%%)" % avg_deviation([x[2] for x in list]))
+print("    cpu: %d%% (%0.2f%%)" % avg_deviation([x[3] for x in list]))

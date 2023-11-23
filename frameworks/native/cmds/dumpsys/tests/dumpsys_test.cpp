@@ -16,12 +16,15 @@
 
 #include "../dumpsys.h"
 
+#include <regex>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <android-base/file.h>
+#include <binder/Binder.h>
+#include <binder/ProcessState.h>
 #include <serviceutils/PriorityDumper.h>
 #include <utils/String16.h>
 #include <utils/String8.h>
@@ -55,6 +58,8 @@ class ServiceManagerMock : public IServiceManager {
     MOCK_METHOD1(listServices, Vector<String16>(int));
     MOCK_METHOD1(waitForService, sp<IBinder>(const String16&));
     MOCK_METHOD1(isDeclared, bool(const String16&));
+    MOCK_METHOD1(getDeclaredInstances, Vector<String16>(const String16&));
+    MOCK_METHOD1(updatableViaApex, std::optional<String16>(const String16&));
   protected:
     MOCK_METHOD0(onAsBinder, IBinder*());
 };
@@ -206,10 +211,7 @@ class DumpsysTest : public Test {
     }
 
     void AssertRunningServices(const std::vector<std::string>& services) {
-        std::string expected;
-        if (services.size() > 1) {
-            expected.append("Currently running services:\n");
-        }
+        std::string expected = "Currently running services:\n";
         for (const std::string& service : services) {
             expected.append("  ").append(service).append("\n");
         }
@@ -222,6 +224,10 @@ class DumpsysTest : public Test {
 
     void AssertOutputContains(const std::string& expected) {
         EXPECT_THAT(stdout_, HasSubstr(expected));
+    }
+
+    void AssertOutputFormat(const std::string format) {
+        EXPECT_THAT(stdout_, testing::MatchesRegex(format));
     }
 
     void AssertDumped(const std::string& service, const std::string& dump) {
@@ -261,6 +267,21 @@ TEST_F(DumpsysTest, ListAllServices) {
     CallMain({"-l"});
 
     AssertRunningServices({"Locksmith", "Valet"});
+}
+
+TEST_F(DumpsysTest, ListServicesOneRegistered) {
+    ExpectListServices({"Locksmith"});
+    ExpectCheckService("Locksmith");
+
+    CallMain({"-l"});
+
+    AssertRunningServices({"Locksmith"});
+}
+
+TEST_F(DumpsysTest, ListServicesEmpty) {
+    CallMain({"-l"});
+
+    AssertRunningServices({});
 }
 
 // Tests 'dumpsys -l' when a service is not running
@@ -561,6 +582,30 @@ TEST_F(DumpsysTest, ListServiceWithPid) {
     AssertOutput(std::to_string(getpid()) + "\n");
 }
 
+// Tests 'dumpsys --thread'
+TEST_F(DumpsysTest, ListAllServicesWithThread) {
+    ExpectListServices({"Locksmith", "Valet"});
+    ExpectCheckService("Locksmith");
+    ExpectCheckService("Valet");
+
+    CallMain({"--thread"});
+
+    AssertRunningServices({"Locksmith", "Valet"});
+
+    const std::string format("(.|\n)*((Threads in use: [0-9]+/[0-9]+)?\n-(.|\n)*){2}");
+    AssertOutputFormat(format);
+}
+
+// Tests 'dumpsys --thread service_name'
+TEST_F(DumpsysTest, ListServiceWithThread) {
+    ExpectCheckService("Locksmith");
+
+    CallMain({"--thread", "Locksmith"});
+    // returns an empty string without root enabled
+    const std::string format("(^$|Threads in use: [0-9]/[0-9]+\n)");
+    AssertOutputFormat(format);
+}
+
 TEST_F(DumpsysTest, GetBytesWritten) {
     const char* serviceName = "service2";
     const char* dumpContents = "dump1";
@@ -585,4 +630,14 @@ TEST_F(DumpsysTest, WriteDumpWithoutThreadStart) {
         dump_.writeDump(STDOUT_FILENO, String16("service"), std::chrono::milliseconds(500),
                         /* as_proto = */ false, elapsedDuration, bytesWritten);
     EXPECT_THAT(status, Eq(INVALID_OPERATION));
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+
+    // start a binder thread pool for testing --thread option
+    android::ProcessState::self()->setThreadPoolMaxThreadCount(8);
+    ProcessState::self()->startThreadPool();
+
+    return RUN_ALL_TESTS();
 }

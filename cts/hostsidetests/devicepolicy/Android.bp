@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "CtsDevicePolicyManagerTestCases",
     defaults: ["cts_defaults"],
@@ -20,8 +24,6 @@ java_test_host {
         "tools-common-prebuilt",
         "cts-tradefed",
         "tradefed",
-        "compatibility-host-util",
-	"compatibility-host-util-axt",
         "guava",
         "truth-prebuilt",
     ],
@@ -30,7 +32,7 @@ java_test_host {
         "arcts",
         "cts",
         "general-tests",
-        "vts10",
+        "mts",
     ],
     java_resource_dirs: ["res"],
     data: [":current-api-xml"],

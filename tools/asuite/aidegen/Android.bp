@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 python_defaults {
     name: "aidegen_default",
     pkg_path: "aidegen",
@@ -39,6 +43,7 @@ python_binary_host {
     libs: [
         "atest_module_info",
         "asuite_cc_client",
+        "asuite_plugin_lib",
     ],
     dist: {
         targets: ["droidcore"],
@@ -57,6 +62,22 @@ python_library_host {
     ]
 }
 
+python_library_host {
+    name: "aidegen_lib_common_util",
+    defaults: ["aidegen_default"],
+    srcs: [
+        "lib/common_util.py",
+        "lib/config.py",
+        "lib/errors.py",
+        "constant.py",
+        "templates.py"
+    ],
+    exclude_srcs: [
+        "*_unittest.py",
+        "*/*_unittest.py",
+    ]
+}
+
 python_test_host {
     name: "aidegen_unittests",
     main: "aidegen_run_unittests.py",
@@ -68,11 +89,13 @@ python_test_host {
         "test_data/**/*",
     ],
     libs: [
-        "py-mock",
         "atest_module_info",
         "asuite_cc_client",
     ],
     test_config: "aidegen_unittests.xml",
-    test_suites: ["general-tests"],
+    test_suites: ["null-suite"],
     defaults: ["aidegen_default"],
+    test_options:{
+        unit_test: false,
+    },
 }

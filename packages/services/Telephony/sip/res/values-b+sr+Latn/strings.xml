@@ -22,7 +22,7 @@
     <string name="sip_receive_calls" msgid="3403644006618369349">"Primaj dolazne pozive"</string>
     <string name="sip_receive_calls_summary" msgid="5306603671778761443">"Više troši bateriju"</string>
     <string name="sip_call_options_title" msgid="5027066677561068192">"Koristite SIP pozivanje"</string>
-    <string name="sip_call_options_wifi_only_title" msgid="6663105297927456484">"Koristite SIP pozivanje (samo za Wi-Fi)"</string>
+    <string name="sip_call_options_wifi_only_title" msgid="6663105297927456484">"Koristite SIP pozivanje (samo za WiFi)"</string>
     <string name="sip_call_options_entry_1" msgid="4722647332760934261">"Za sve pozive kada je mreža za prenos podataka dostupna"</string>
     <string name="sip_call_options_entry_2" msgid="7338504256051655013">"Samo za SIP pozive"</string>
     <string name="sip_call_options_wifi_only_entry_1" msgid="922329055414010991">"Za sve pozive"</string>
@@ -41,7 +41,7 @@
     <string name="registration_status_still_trying" msgid="7178623685868766282">"I dalje pokušava..."</string>
     <string name="registration_status_not_receiving" msgid="3873074208531938401">"Ne primamo pozive."</string>
     <string name="registration_status_no_data" msgid="2987064560116584121">"Registracija naloga je zaustavljena zato što ne postoji internet veza."</string>
-    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Registracija naloga je zaustavljena zato što ne postoji Wi-Fi veza."</string>
+    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Registracija naloga je zaustavljena zato što ne postoji WiFi veza."</string>
     <string name="registration_status_not_running" msgid="6236403137652262659">"Registracija naloga nije uspela."</string>
     <string name="registration_status_done" msgid="6787397199273357721">"Primamo pozive."</string>
     <string name="registration_status_failed_try_later" msgid="7855389184910312091">"Registracija naloga nije uspela: <xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>; pokušaćemo kasnije"</string>
@@ -72,7 +72,7 @@
     <string name="empty_alert" msgid="3693655518612836718">"Polje <xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> je obavezno i ne može da bude prazno."</string>
     <string name="not_a_valid_port" msgid="3664668836663491376">"Broj porta bi trebalo da bude između 1000 i 65.534."</string>
     <string name="no_internet_available" msgid="161720645084325479">"Da biste uputili SIP poziv, prvo proverite internet vezu."</string>
-    <string name="no_wifi_available" msgid="1179092018692306312">"Treba da budete povezani sa Wi-Fi mrežom da biste upućivali SIP pozive (koristite Podešavanja bežičnih veza i mreža)."</string>
+    <string name="no_wifi_available" msgid="1179092018692306312">"Treba da budete povezani sa WiFi mrežom da biste upućivali SIP pozive (koristite Podešavanja bežičnih veza i mreža)."</string>
     <string name="no_voip" msgid="3366395789297981738">"SIP pozivanje nije podržano"</string>
     <string name="sip_system_decide" msgid="197230378376326430">"Automatski"</string>
     <string name="sip_always_send_keepalive" msgid="4986533673960084769">"Uvek šalji"</string>

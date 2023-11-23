@@ -18,19 +18,25 @@ package com.android.ims;
 
 import android.annotation.NonNull;
 import android.content.Context;
+import android.net.Uri;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.telephony.TelephonyManager;
+import android.telephony.ims.aidl.ICapabilityExchangeEventListener;
 import android.telephony.ims.aidl.IImsCapabilityCallback;
+import android.telephony.ims.aidl.IImsConfig;
 import android.telephony.ims.aidl.IImsRcsFeature;
 import android.telephony.ims.aidl.IImsRegistration;
 import android.telephony.ims.aidl.IImsRegistrationCallback;
-import android.telephony.ims.aidl.IRcsFeatureListener;
+import android.telephony.ims.aidl.IPublishResponseCallback;
+import android.telephony.ims.aidl.IOptionsResponseCallback;
+import android.telephony.ims.aidl.ISipTransport;
+import android.telephony.ims.aidl.ISubscribeResponseCallback;
 import android.telephony.ims.feature.CapabilityChangeRequest;
-import android.telephony.ims.feature.ImsFeature;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.telephony.Rlog;
+
+import java.util.List;
 
 /**
  * A container of the IImsServiceController binder, which implements all of the RcsFeatures that
@@ -107,131 +113,54 @@ public class RcsFeatureConnection extends FeatureConnection {
         }
     }
 
-    public static @NonNull RcsFeatureConnection create(Context context , int slotId,
-            IFeatureUpdate callback) {
-
-        RcsFeatureConnection serviceProxy = new RcsFeatureConnection(context, slotId, callback);
-
-        if (!ImsManager.isImsSupportedOnDevice(context)) {
-            // Return empty service proxy in the case that IMS is not supported.
-            sImsSupportedOnDevice = false;
-            Rlog.w(TAG, "create: IMS is not supported");
-            return serviceProxy;
-        }
-
-        TelephonyManager tm =
-                (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-        if (tm == null) {
-            Rlog.w(TAG, "create: TelephonyManager is null");
-            return serviceProxy;
-        }
-
-        IImsRcsFeature binder = tm.getImsRcsFeatureAndListen(slotId, serviceProxy.getListener());
-        if (binder != null) {
-            Rlog.d(TAG, "create: set binder");
-            serviceProxy.setBinder(binder.asBinder());
-            // Trigger the cache to be updated for feature status.
-            serviceProxy.getFeatureState();
-        } else {
-            Rlog.i(TAG, "create: binder is null! Slot Id: " + slotId);
-        }
-        return serviceProxy;
-    }
-
     @VisibleForTesting
     public AvailabilityCallbackManager mAvailabilityCallbackManager;
     @VisibleForTesting
     public RegistrationCallbackManager mRegistrationCallbackManager;
 
-    private RcsFeatureConnection(Context context, int slotId, IFeatureUpdate callback) {
-        super(context, slotId);
-        setStatusCallback(callback);
+    public RcsFeatureConnection(Context context, int slotId, IImsRcsFeature feature, IImsConfig c,
+            IImsRegistration r, ISipTransport s) {
+        super(context, slotId, c, r, s);
+        setBinder(feature != null ? feature.asBinder() : null);
         mAvailabilityCallbackManager = new AvailabilityCallbackManager(mContext);
         mRegistrationCallbackManager = new RegistrationCallbackManager(mContext);
     }
 
     public void close() {
-        removeRcsFeatureListener();
+        removeCapabilityExchangeEventListener();
         mAvailabilityCallbackManager.close();
         mRegistrationCallbackManager.close();
     }
 
     @Override
     protected void onRemovedOrDied() {
-        removeImsFeatureCallback();
+        close();
         super.onRemovedOrDied();
+    }
+
+    public void setCapabilityExchangeEventListener(ICapabilityExchangeEventListener listener)
+            throws RemoteException {
         synchronized (mLock) {
-            close();
+            // Only check if service is alive. The feature status may not be READY.
+            checkServiceIsAlive();
+            getServiceInterface(mBinder).setCapabilityExchangeEventListener(listener);
         }
     }
 
-    private void removeImsFeatureCallback() {
-        TelephonyManager tm = getTelephonyManager();
-        if (tm != null) {
-            tm.unregisterImsFeatureCallback(mSlotId, ImsFeature.FEATURE_RCS, getListener());
-        }
-    }
-
-    @Override
-    @VisibleForTesting
-    public void handleImsFeatureCreatedCallback(int slotId, int feature) {
-        logi("IMS feature created: slotId= " + slotId + ", feature=" + feature);
-        if (!isUpdateForThisFeatureAndSlot(slotId, feature)) {
-            return;
-        }
-        synchronized(mLock) {
-            if (!mIsAvailable) {
-                logi("RCS enabled on slotId: " + slotId);
-                mIsAvailable = true;
-            }
-        }
-    }
-
-    @Override
-    @VisibleForTesting
-    public void handleImsFeatureRemovedCallback(int slotId, int feature) {
-        logi("IMS feature removed: slotId= " + slotId + ", feature=" + feature);
-        if (!isUpdateForThisFeatureAndSlot(slotId, feature)) {
-            return;
-        }
-        synchronized(mLock) {
-            logi("Rcs UCE removed on slotId: " + slotId);
-            onRemovedOrDied();
-        }
-    }
-
-    @Override
-    @VisibleForTesting
-    public void handleImsStatusChangedCallback(int slotId, int feature, int status) {
-        logi("IMS status changed: slotId=" + slotId + ", feature=" + feature + ", status="
-                + status);
-        if (!isUpdateForThisFeatureAndSlot(slotId, feature)) {
-            return;
-        }
-        synchronized(mLock) {
-            mFeatureStateCached = status;
-        }
-    }
-
-    private boolean isUpdateForThisFeatureAndSlot(int slotId, int feature) {
-        if (mSlotId == slotId && feature == ImsFeature.FEATURE_RCS) {
-            return true;
-        }
-        return false;
-    }
-
-    public void setRcsFeatureListener(IRcsFeatureListener listener) throws RemoteException {
-        synchronized (mLock) {
-            checkServiceIsReady();
-            getServiceInterface(mBinder).setListener(listener);
-        }
-    }
-
-    public void removeRcsFeatureListener() {
+    public void removeCapabilityExchangeEventListener() {
         try {
-            setRcsFeatureListener(null);
+            setCapabilityExchangeEventListener(null);
         } catch (RemoteException e) {
             // If we are not still connected, there is no need to fail removing.
+        }
+    }
+
+    private void checkServiceIsAlive() throws RemoteException {
+        if (!sImsSupportedOnDevice) {
+            throw new RemoteException("IMS is not supported on this device.");
+        }
+        if (!isBinderAlive()) {
+            throw new RemoteException("ImsServiceProxy is not alive.");
         }
     }
 
@@ -298,6 +227,31 @@ public class RcsFeatureConnection extends FeatureConnection {
         }
     }
 
+    public void requestPublication(String pidfXml, IPublishResponseCallback responseCallback)
+            throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).publishCapabilities(pidfXml, responseCallback);
+        }
+    }
+
+    public void requestCapabilities(List<Uri> uris, ISubscribeResponseCallback c)
+            throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).subscribeForCapabilities(uris, c);
+        }
+    }
+
+    public void sendOptionsCapabilityRequest(Uri contactUri, List<String> myCapabilities,
+            IOptionsResponseCallback callback) throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).sendOptionsCapabilityRequest(contactUri, myCapabilities,
+                    callback);
+        }
+    }
+
     @Override
     @VisibleForTesting
     public Integer retrieveFeatureState() {
@@ -312,9 +266,9 @@ public class RcsFeatureConnection extends FeatureConnection {
     }
 
     @Override
-    protected IImsRegistration getRegistrationBinder() {
-        TelephonyManager tm = getTelephonyManager();
-        return  tm != null ? tm.getImsRegistration(mSlotId, ImsFeature.FEATURE_RCS) : null;
+    public void onFeatureCapabilitiesUpdated(long capabilities)
+    {
+        // doesn't do anything for RCS yet.
     }
 
     @VisibleForTesting

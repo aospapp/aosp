@@ -16,7 +16,6 @@
 
 package com.android.documentsui;
 
-import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
@@ -25,7 +24,6 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
-import android.provider.DocumentsContract.Document;
 import android.util.Log;
 
 import androidx.annotation.IntDef;
@@ -125,11 +123,21 @@ public class Model {
             return;
         }
 
-        mCursor = result.cursor;
+        mCursor = result.getCursor();
         mCursorCount = mCursor.getCount();
         doc = result.doc;
 
-        updateModelData();
+        if (result.getModelIds() != null && result.getFileNames() != null) {
+            mIds = result.getModelIds();
+            mFileNames.clear();
+            mFileNames.addAll(result.getFileNames());
+
+            // Populate the positions.
+            mPositions.clear();
+            for (int i = 0; i < mCursorCount; ++i) {
+                mPositions.put(mIds[i], i);
+            }
+        }
 
         final Bundle extras = mCursor.getExtras();
         if (extras != null) {
@@ -144,33 +152,6 @@ public class Model {
     @VisibleForTesting
     public int getItemCount() {
         return mCursorCount;
-    }
-
-    /**
-     * Scan over the incoming cursor data, generate Model IDs for each row, and sort the IDs
-     * according to the current sort order.
-     */
-    private void updateModelData() {
-        mIds = new String[mCursorCount];
-        mFileNames.clear();
-        mCursor.moveToPosition(-1);
-        for (int pos = 0; pos < mCursorCount; ++pos) {
-            if (!mCursor.moveToNext()) {
-                Log.e(TAG, "Fail to move cursor to next pos: " + pos);
-                return;
-            }
-            // Generates a Model ID for a cursor entry that refers to a document. The Model ID is a
-            // unique string that can be used to identify the document referred to by the cursor.
-            // Prefix the ids with the authority to avoid collisions.
-            mIds[pos] = ModelId.build(mCursor);
-            mFileNames.add(getCursorString(mCursor, Document.COLUMN_DISPLAY_NAME));
-        }
-
-        // Populate the positions.
-        mPositions.clear();
-        for (int i = 0; i < mCursorCount; ++i) {
-            mPositions.put(mIds[i], i);
-        }
     }
 
     public boolean hasFileWithName(String name) {

@@ -291,6 +291,12 @@ class GlobalSettings(Settings):
     self.AddField(
         TextField('results_dir', default='', description='The results dir.'))
     self.AddField(
+        BooleanField(
+            'compress_results',
+            default=True,
+            description='Whether to compress all test results other than '
+            'reports into a tarball to save disk space.'))
+    self.AddField(
         TextField(
             'locks_dir',
             default='',
@@ -344,16 +350,16 @@ class GlobalSettings(Settings):
         TextField(
             'intel_pstate',
             description='Intel Pstate mode.\n'
-            'Supported modes: passive, no_hwp.\n'
-            'By default kernel works in active HWP mode if HWP is supported'
-            " by CPU. This corresponds to a default intel_pstate=''",
+            'Supported modes: "active", "passive", "no_hwp".\n'
+            'Default is "no_hwp" which disables hardware pstates to avoid '
+            'noise in benchmarks.',
             required=False,
-            default=''))
+            default='no_hwp'))
     self.AddField(
         BooleanField(
             'turbostat',
             description='Run turbostat process in the background'
-            ' of a benchmark',
+            ' of a benchmark. Enabled by default.',
             required=False,
             default=True))
     self.AddField(
@@ -365,10 +371,11 @@ class GlobalSettings(Settings):
             ' data.\n'
             'With 0 - do not run top.\n'
             'NOTE: Running top with interval 1-5 sec has insignificant'
-            ' performance impact (performance degradation does not exceed 0.3%,'
-            ' measured on x86_64, ARM32, and ARM64).',
+            ' performance impact (performance degradation does not exceed'
+            ' 0.3%%, measured on x86_64, ARM32, and ARM64). '
+            'The default value is 1.',
             required=False,
-            default=0))
+            default=1))
     self.AddField(
         IntegerField(
             'cooldown_temp',
@@ -376,14 +383,16 @@ class GlobalSettings(Settings):
             default=40,
             description='Wait until CPU temperature goes down below'
             ' specified temperature in Celsius'
-            ' prior starting a benchmark.'))
+            ' prior starting a benchmark. '
+            'By default the value is set to 40 degrees.'))
     self.AddField(
         IntegerField(
             'cooldown_time',
             required=False,
-            default=0,
+            default=10,
             description='Wait specified time in minutes allowing'
-            ' CPU to cool down. Zero value disables cooldown.'))
+            ' CPU to cool down. Zero value disables cooldown. '
+            'The default value is 10 minutes.'))
     self.AddField(
         EnumField(
             'governor',
@@ -401,7 +410,8 @@ class GlobalSettings(Settings):
             required=False,
             description='Setup CPU governor for all cores.\n'
             'For more details refer to:\n'
-            'https://www.kernel.org/doc/Documentation/cpu-freq/governors.txt'))
+            'https://www.kernel.org/doc/Documentation/cpu-freq/governors.txt. '
+            'Default is "performance" governor.'))
     self.AddField(
         EnumField(
             'cpu_usage',
@@ -413,19 +423,22 @@ class GlobalSettings(Settings):
             ],
             default='all',
             required=False,
-            description='Restrict usage CPUs to decrease CPU interference.\n'
-            'all - no restrictions;\n'
-            'big-only, little-only - enable only big/little cores,'
+            description='Restrict usage of CPUs to decrease CPU interference.\n'
+            '"all" - no restrictions;\n'
+            '"big-only", "little-only" - enable only big/little cores,'
             ' applicable only on ARM;\n'
-            'exclusive-cores - (for future use)'
-            ' isolate cores for exclusive use of benchmark processes.'))
+            '"exclusive-cores" - (for future use)'
+            ' isolate cores for exclusive use of benchmark processes. '
+            'By default use all CPUs.'))
     self.AddField(
         IntegerField(
             'cpu_freq_pct',
             required=False,
-            default=100,
+            default=95,
             description='Setup CPU frequency to a supported value less than'
-            ' or equal to a percent of max_freq.'))
+            ' or equal to a percent of max_freq. '
+            'CPU frequency is reduced to 95%% by default to reduce thermal '
+            'throttling.'))
 
 
 class SettingsFactory(object):

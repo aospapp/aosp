@@ -25,26 +25,21 @@
 
 #define LOG_TAG "bt_bta_av"
 
-#include "bt_target.h"
+#include <cstdint>
 
-#include <base/logging.h>
-#include <string.h>
+#include "bt_target.h"  // Must be first to define build configuration
 
-#include "avdt_api.h"
-#include "avrcp_service.h"
-#include "bta_av_api.h"
-#include "bta_av_int.h"
-#include "l2c_api.h"
-#include "log/log.h"
-#include "osi/include/list.h"
+#include "bta/av/bta_av_int.h"
+#include "bta/include/bta_ar_api.h"
+#include "bta/include/utl.h"
+#include "btif/avrcp/avrcp_service.h"
+#include "osi/include/allocator.h"
 #include "osi/include/log.h"
-#include "osi/include/osi.h"
+#include "osi/include/osi.h"  // UNUSED_ATTR
 #include "osi/include/properties.h"
-#include "utl.h"
-
-#if (BTA_AR_INCLUDED == TRUE)
-#include "bta_ar_api.h"
-#endif
+#include "stack/include/acl_api.h"
+#include "stack/include/l2c_api.h"
+#include "types/raw_address.h"
 
 /*****************************************************************************
  *  Constants
@@ -188,7 +183,7 @@ static void bta_av_del_sdp_rec(uint32_t* p_sdp_handle) {
  *
  ******************************************************************************/
 static void bta_av_avrc_sdp_cback(UNUSED_ATTR uint16_t status) {
-  BT_HDR* p_msg = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_msg = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
 
   p_msg->event = BTA_AV_SDP_AVRC_DISC_EVT;
 
@@ -306,8 +301,7 @@ static void bta_av_rc_msg_cback(uint8_t handle, uint8_t label, uint8_t opcode,
 uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
                          uint8_t lidx) {
   if (is_new_avrcp_enabled()) {
-    APPL_TRACE_WARNING("%s: Skipping RC creation for the old AVRCP profile",
-                       __func__);
+    LOG_INFO("Skipping RC creation for the old AVRCP profile");
     return BTA_AV_RC_HANDLE_NONE;
   }
 
@@ -501,7 +495,7 @@ void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data) {
       APPL_TRACE_DEBUG("%s: shdl:%d, srch %d", __func__, i + 1,
                        p_scb->rc_handle);
       shdl = i + 1;
-      LOG_INFO(LOG_TAG, "%s: allow incoming AVRCP connections:%d", __func__,
+      LOG_INFO("%s: allow incoming AVRCP connections:%d", __func__,
                p_scb->use_rc);
       alarm_cancel(p_scb->avrc_ct_timer);
       disc = p_scb->hndl;
@@ -1097,11 +1091,9 @@ void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started) {
                    logbool(started).c_str(), started_msk);
 
   if (started) {
-    bta_av_cb.audio_streams |= started_msk;
     /* Let L2CAP know this channel is processed with high priority */
     L2CA_SetAclPriority(p_scb->PeerAddress(), L2CAP_PRIORITY_HIGH);
   } else {
-    bta_av_cb.audio_streams &= ~started_msk;
     /* Let L2CAP know this channel is processed with low priority */
     L2CA_SetAclPriority(p_scb->PeerAddress(), L2CAP_PRIORITY_NORMAL);
   }
@@ -1173,8 +1165,8 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
             "p_lcb_rc->conn_msk:x%x",
             __func__, p_lcb_rc->conn_msk);
         /* check if the RC is connected to the scb addr */
-        LOG_INFO(LOG_TAG, "%s: p_lcb_rc->addr: %s conn_chg.peer_addr: %s",
-                 __func__, p_lcb_rc->addr.ToString().c_str(),
+        LOG_INFO("%s: p_lcb_rc->addr: %s conn_chg.peer_addr: %s", __func__,
+                 p_lcb_rc->addr.ToString().c_str(),
                  p_data->conn_chg.peer_addr.ToString().c_str());
 
         if (p_lcb_rc->conn_msk &&
@@ -1270,8 +1262,7 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
     if (p_cb->audio_open_cnt == 1) {
       /* one audio channel goes down and there's one audio channel remains open.
        * restore the switch role in default link policy */
-      bta_sys_set_default_policy(BTA_ID_AV, HCI_ENABLE_MASTER_SLAVE_SWITCH);
-      /* allow role switch, if this is the last connection */
+      BTM_default_unblock_role_switch();
       bta_av_restore_switch();
     }
     if (p_cb->audio_open_cnt) {
@@ -1283,9 +1274,6 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
            */
           if (p_scbi->co_started != bta_av_cb.audio_open_cnt) {
             p_scbi->co_started = bta_av_cb.audio_open_cnt;
-            L2CA_SetFlushTimeout(
-                p_scbi->PeerAddress(),
-                p_bta_av_cfg->p_audio_flush_to[p_scbi->co_started - 1]);
           }
         }
       }
@@ -1303,7 +1291,7 @@ void bta_av_conn_chg(tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_disable(tBTA_AV_CB* p_cb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
-  BT_HDR hdr;
+  BT_HDR_RIGID hdr;
   bool disabling_in_progress = false;
   uint16_t xx;
 
@@ -1317,6 +1305,12 @@ void bta_av_disable(tBTA_AV_CB* p_cb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
    * expect BTA_AV_DEREG_COMP_EVT when deregister is complete */
   for (xx = 0; xx < BTA_AV_NUM_STRS; xx++) {
     if (p_cb->p_scb[xx] != NULL) {
+      // Free signalling timers
+      alarm_free(p_cb->p_scb[xx]->link_signalling_timer);
+      p_cb->p_scb[xx]->link_signalling_timer = NULL;
+      alarm_free(p_cb->p_scb[xx]->accept_signalling_timer);
+      p_cb->p_scb[xx]->accept_signalling_timer = NULL;
+
       hdr.layer_specific = xx + 1;
       bta_av_api_deregister((tBTA_AV_DATA*)&hdr);
       disabling_in_progress = true;
@@ -1327,10 +1321,6 @@ void bta_av_disable(tBTA_AV_CB* p_cb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
   // no needed to setup this disabling flag.
   p_cb->disabling = disabling_in_progress;
 
-  alarm_free(p_cb->link_signalling_timer);
-  p_cb->link_signalling_timer = NULL;
-  alarm_free(p_cb->accept_signalling_timer);
-  p_cb->accept_signalling_timer = NULL;
 }
 
 /*******************************************************************************
@@ -1343,8 +1333,10 @@ void bta_av_disable(tBTA_AV_CB* p_cb, UNUSED_ATTR tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_api_disconnect(tBTA_AV_DATA* p_data) {
-  AVDT_DisconnectReq(p_data->api_discnt.bd_addr, bta_av_conn_cback);
-  alarm_cancel(bta_av_cb.link_signalling_timer);
+  tBTA_AV_SCB* p_scb =
+      bta_av_hndl_to_scb(p_data->api_discnt.hdr.layer_specific);
+  AVDT_DisconnectReq(p_scb->PeerAddress(), bta_av_conn_cback);
+  alarm_cancel(p_scb->link_signalling_timer);
 }
 
 /**
@@ -1432,8 +1424,7 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
         AVDT_DisconnectReq(p_data->str_msg.bd_addr, NULL);
         return;
       }
-      LOG_INFO(LOG_TAG,
-               "%s: AVDT_CONNECT_IND_EVT: peer %s selected lcb_index %d",
+      LOG_INFO("%s: AVDT_CONNECT_IND_EVT: peer %s selected lcb_index %d",
                __func__, p_data->str_msg.bd_addr.ToString().c_str(), xx);
 
       tBTA_AV_SCB* p_scb = p_cb->p_scb[xx];
@@ -1463,24 +1454,31 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
          * The following function shall send the event and start the
          * recurring timer
          */
-        bta_av_signalling_timer(NULL);
+        if (!p_scb->link_signalling_timer) {
+          p_scb->link_signalling_timer = alarm_new("link_signalling_timer");
+        }
+        BT_HDR hdr;
+        hdr.layer_specific = p_scb->hndl;
+        bta_av_signalling_timer((tBTA_AV_DATA*)&hdr);
 
         APPL_TRACE_DEBUG("%s: Re-start timer for AVDTP service", __func__);
         bta_sys_conn_open(BTA_ID_AV, p_scb->app_id, p_scb->PeerAddress());
         /* Possible collision : need to avoid outgoing processing while the
          * timer is running */
         p_scb->coll_mask = BTA_AV_COLL_INC_TMR;
+        if (!p_scb->accept_signalling_timer) {
+          p_scb->accept_signalling_timer = alarm_new("accept_signalling_timer");
+        }
         alarm_set_on_mloop(
-            p_cb->accept_signalling_timer, BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS,
+            p_scb->accept_signalling_timer, BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS,
             bta_av_accept_signalling_timer_cback, UINT_TO_PTR(xx));
       }
     }
   }
-#if (BTA_AR_INCLUDED == TRUE)
   else if (event == BTA_AR_AVDT_CONN_EVT) {
-    alarm_cancel(bta_av_cb.link_signalling_timer);
+    uint8_t scb_index = p_data->str_msg.scb_index;
+    alarm_cancel(p_cb->p_scb[scb_index]->link_signalling_timer);
   }
-#endif
   else {
     /* disconnected. */
     APPL_TRACE_DEBUG("%s: bta_av_cb.conn_lcb=0x%x", __func__,
@@ -1526,6 +1524,9 @@ void bta_av_sig_chg(tBTA_AV_DATA* p_data) {
  *
  ******************************************************************************/
 void bta_av_signalling_timer(UNUSED_ATTR tBTA_AV_DATA* p_data) {
+  tBTA_AV_HNDL hndl = p_data->hdr.layer_specific;
+  tBTA_AV_SCB* p_scb = bta_av_hndl_to_scb(hndl);
+
   tBTA_AV_CB* p_cb = &bta_av_cb;
   int xx;
   uint8_t mask;
@@ -1542,9 +1543,10 @@ void bta_av_signalling_timer(UNUSED_ATTR tBTA_AV_DATA* p_data) {
     if (mask & p_cb->conn_lcb) {
       /* this entry is used. check if it is connected */
       if (!p_lcb->conn_msk) {
-        bta_sys_start_timer(p_cb->link_signalling_timer,
+        APPL_TRACE_DEBUG("%s hndl 0x%x", __func__, p_scb->hndl);
+        bta_sys_start_timer(p_scb->link_signalling_timer,
                             BTA_AV_SIGNALLING_TIMEOUT_MS,
-                            BTA_AV_SIGNALLING_TIMER_EVT, 0);
+                            BTA_AV_SIGNALLING_TIMER_EVT, hndl);
         tBTA_AV_PEND pend;
         pend.bd_addr = p_lcb->addr;
         tBTA_AV bta_av_data;
@@ -1589,7 +1591,7 @@ static void bta_av_accept_signalling_timer_cback(void* data) {
           /* We are still doing SDP. Run the timer again. */
           p_scb->coll_mask |= BTA_AV_COLL_INC_TMR;
 
-          alarm_set_on_mloop(p_cb->accept_signalling_timer,
+          alarm_set_on_mloop(p_scb->accept_signalling_timer,
                              BTA_AV_ACCEPT_SIGNALLING_TIMEOUT_MS,
                              bta_av_accept_signalling_timer_cback,
                              UINT_TO_PTR(inx));
@@ -2080,7 +2082,7 @@ void bta_av_rc_closed(tBTA_AV_DATA* p_data) {
         /* if the RCB uses the extra LCB, use the addr for event and clean it */
         p_lcb = &p_cb->lcb[BTA_AV_NUM_LINKS];
         rc_close.peer_addr = p_msg->peer_addr;
-        LOG_INFO(LOG_TAG, "%s: rc_only closed bd_addr: %s", __func__,
+        LOG_INFO("%s: rc_only closed bd_addr: %s", __func__,
                  p_msg->peer_addr.ToString().c_str());
         p_lcb->conn_msk = 0;
         p_lcb->lidx = 0;
@@ -2133,7 +2135,7 @@ void bta_av_rc_browse_opened(tBTA_AV_DATA* p_data) {
   tBTA_AV_RC_CONN_CHG* p_msg = (tBTA_AV_RC_CONN_CHG*)p_data;
   tBTA_AV_RC_BROWSE_OPEN rc_browse_open;
 
-  LOG_INFO(LOG_TAG, "%s: peer_addr: %s rc_handle:%d", __func__,
+  LOG_INFO("%s: peer_addr: %s rc_handle:%d", __func__,
            p_msg->peer_addr.ToString().c_str(), p_msg->handle);
 
   rc_browse_open.status = BTA_AV_SUCCESS;
@@ -2159,7 +2161,7 @@ void bta_av_rc_browse_closed(tBTA_AV_DATA* p_data) {
   tBTA_AV_RC_CONN_CHG* p_msg = (tBTA_AV_RC_CONN_CHG*)p_data;
   tBTA_AV_RC_BROWSE_CLOSE rc_browse_close;
 
-  LOG_INFO(LOG_TAG, "%s: peer_addr: %s rc_handle:%d", __func__,
+  LOG_INFO("%s: peer_addr: %s rc_handle:%d", __func__,
            p_msg->peer_addr.ToString().c_str(), p_msg->handle);
 
   rc_browse_close.rc_handle = p_msg->handle;
@@ -2273,9 +2275,17 @@ void bta_av_dereg_comp(tBTA_AV_DATA* p_data) {
 
     /* remove the A2DP SDP record, if no more audio stream is left */
     if (!p_cb->reg_audio) {
-#if (BTA_AR_INCLUDED == TRUE)
-      bta_ar_dereg_avrc(UUID_SERVCLASS_AV_REMOTE_CONTROL, BTA_ID_AV);
-#endif
+
+      /* Only remove the SDP record if we're the ones that created it */
+      if (is_new_avrcp_enabled()) {
+        APPL_TRACE_DEBUG("%s: newavrcp is the owner of the AVRCP Target SDP "
+            "record. Don't dereg the SDP record", __func__);
+      } else {
+        APPL_TRACE_DEBUG("%s: newavrcp is not enabled. Remove SDP record",
+            __func__);
+        bta_ar_dereg_avrc(UUID_SERVCLASS_AV_REMOTE_CONTROL);
+      }
+
       if (p_cb->sdp_a2dp_handle) {
         bta_av_del_sdp_rec(&p_cb->sdp_a2dp_handle);
         p_cb->sdp_a2dp_handle = 0;
@@ -2298,14 +2308,12 @@ void bta_av_dereg_comp(tBTA_AV_DATA* p_data) {
                    p_cb->disabling);
   /* if no stream control block is active */
   if (p_cb->reg_audio == 0) {
-#if (BTA_AR_INCLUDED == TRUE)
     /* deregister from AVDT */
-    bta_ar_dereg_avdt(BTA_ID_AV);
+    bta_ar_dereg_avdt();
 
     /* deregister from AVCT */
-    bta_ar_dereg_avrc(UUID_SERVCLASS_AV_REM_CTRL_TARGET, BTA_ID_AV);
-    bta_ar_dereg_avct(BTA_ID_AV);
-#endif
+    bta_ar_dereg_avrc(UUID_SERVCLASS_AV_REM_CTRL_TARGET);
+    bta_ar_dereg_avct();
 
     if (p_cb->disabling) {
       p_cb->disabling = false;

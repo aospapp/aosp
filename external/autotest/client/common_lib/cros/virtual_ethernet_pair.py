@@ -9,6 +9,9 @@ assign to both ends of the pair, however, if you wish to leave the interface
 unconfigured, simply pass None.  You may also specify the subnet of your ip
 addresses.  Failing to do so leaves them with default in ifconfig.
 
+# TODO b:169251326 terms below are set outside of this codebase
+# and should be updated when possible. ("master" -> "main", "slave" -> "node")
+
 Example usage:
 vif = virtual_ethernet_pair.VirtualEthernetPair(interface_name="master",
                                                 peer_interface_name="peer",
@@ -98,7 +101,7 @@ class VirtualEthernetPair(object):
 
         self._create_test_interface()
         if not self._interface_exists(self._interface_name):
-            logging.error('Failed to create master test interface.')
+            logging.error('Failed to create main test interface.')
             return
 
         if not self._interface_exists(self._peer_interface_name):
@@ -108,11 +111,11 @@ class VirtualEthernetPair(object):
         # get any IP traffic through.  Since this is basically a loopback
         # device, just allow all traffic.
         for name in (self._interface_name, self._peer_interface_name):
-            status = self._run('iptables -I INPUT -i %s -j ACCEPT' % name,
+            status = self._run('iptables -w -I INPUT -i %s -j ACCEPT' % name,
                                ignore_status=True)
             if status.exit_status != 0:
-                logging.error('iptables rule addition failed for interface %s',
-                              name)
+                logging.error('iptables rule addition failed for interface %s: '
+                              '%s', name, status.stderr)
         self._is_healthy = True
 
 
@@ -123,7 +126,7 @@ class VirtualEthernetPair(object):
         isn't there or fails to be removed.
         """
         for name in (self._interface_name, self._peer_interface_name):
-            self._run('iptables -D INPUT -i %s -j ACCEPT' % name,
+            self._run('iptables -w -D INPUT -i %s -j ACCEPT' % name,
                       ignore_status=True)
         if not self._either_interface_exists():
             logging.warning('VirtualEthernetPair.teardown() called, '

@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Можете да инсталирате сертификате из PKCS#12 датотеке са екстензијом %1$s или %2$s који се налази у спољној меморији."</string>
     <string name="allow_button" msgid="3030990695030371561">"Изабери"</string>
     <string name="deny_button" msgid="3766539809121892584">"Одбиј"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Учитавају се сертификати…"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s проверава да ли постоји сертификат…"</string>
 </resources>

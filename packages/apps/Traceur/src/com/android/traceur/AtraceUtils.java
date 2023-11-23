@@ -34,6 +34,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.TreeMap;
 
+import com.android.traceur.TraceUtils.Streamer;
+
 /**
  * Utility functions for calling atrace
  */
@@ -55,10 +57,10 @@ public class AtraceUtils implements TraceUtils.TraceEngine {
         return OUTPUT_EXTENSION;
     }
 
-    /* Note: longTrace and maxLongTrace* parameters are ignored in atrace mode. */
+    /* Note: attachToBugreport, longTrace, maxLongTrace* parameters are ignored in atrace mode. */
     public boolean traceStart(Collection<String> tags, int bufferSizeKb, boolean apps,
-            boolean longTrace, int maxLongTraceSizeMb, int maxLongTraceDurationMinutes) {
-
+            boolean attachToBugreport, boolean longTrace, int maxLongTraceSizeMb,
+            int maxLongTraceDurationMinutes) {
         String appParameter = apps ? "-a '*' " : "";
         String cmd = "atrace --async_start -c -b " + bufferSizeKb + " "
             + appParameter + TextUtils.join(" ", tags);
@@ -103,7 +105,7 @@ public class AtraceUtils implements TraceUtils.TraceEngine {
                 return false;
             }
 
-            Process ps = TraceUtils.exec("ps -AT");
+            Process ps = TraceUtils.exec("ps -AT", null, false);
 
             new Streamer("atraceDump:ps:stdout",
                     ps.getInputStream(), new FileOutputStream(outFile, true /* append */));
@@ -159,9 +161,8 @@ public class AtraceUtils implements TraceUtils.TraceEngine {
 
         Log.v(TAG, "Listing tags: " + cmd);
         try {
-            Process atrace = TraceUtils.exec(cmd);
+            Process atrace = TraceUtils.exec(cmd, null, false);
 
-            new Logger("atraceListCat:stderr", atrace.getErrorStream());
             BufferedReader stdout = new BufferedReader(
                     new InputStreamReader(atrace.getInputStream()));
 
@@ -180,85 +181,6 @@ public class AtraceUtils implements TraceUtils.TraceEngine {
             return result;
         } catch (Exception e) {
             throw new RuntimeException(e);
-        }
-    }
-
-
-    /**
-     * Streams data from an InputStream to an OutputStream
-     */
-    private static class Streamer {
-        private boolean mDone;
-
-        Streamer(final String tag, final InputStream in, final OutputStream out) {
-            new Thread(tag) {
-                @Override
-                public void run() {
-                    int read;
-                    byte[] buf = new byte[2 << 10];
-                    try {
-                        while ((read = in.read(buf)) != -1) {
-                            out.write(buf, 0, read);
-                        }
-                    } catch (IOException e) {
-                        Log.e(TAG, "Error while streaming " + tag);
-                    } finally {
-                        try {
-                            out.close();
-                        } catch (IOException e) {
-                            // Welp.
-                        }
-                        synchronized (Streamer.this) {
-                            mDone = true;
-                            Streamer.this.notify();
-                        }
-                    }
-                }
-            }.start();
-        }
-
-        synchronized boolean isDone() {
-            return mDone;
-        }
-
-        synchronized void waitForDone() {
-            while (!isDone()) {
-                try {
-                    wait();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        }
-    }
-
-    /**
-     * Streams data from an InputStream to an OutputStream
-     */
-    private static class Logger {
-
-        Logger(final String tag, final InputStream in) {
-            new Thread(tag) {
-                @Override
-                public void run() {
-                    int read;
-                    String line;
-                    BufferedReader r = new BufferedReader(new InputStreamReader(in));
-                    try {
-                        while ((line = r.readLine()) != null) {
-                            Log.e(TAG, tag + ": " + line);
-                        }
-                    } catch (IOException e) {
-                        Log.e(TAG, "Error while streaming " + tag);
-                    } finally {
-                        try {
-                            r.close();
-                        } catch (IOException e) {
-                            // Welp.
-                        }
-                    }
-                }
-            }.start();
         }
     }
 }

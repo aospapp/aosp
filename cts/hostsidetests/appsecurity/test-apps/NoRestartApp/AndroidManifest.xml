@@ -13,32 +13,32 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.android.cts.norestart"
-    android:targetSandboxVersion="2"
-    tools:ignore="MissingVersion" >
 
-    <application
-        tools:ignore="AllowBackup,MissingApplicationIcon" >
-        <activity
-            android:name=".NoRestartActivity"
-            android:launchMode="singleTop" >
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     xmlns:tools="http://schemas.android.com/tools"
+     package="com.android.cts.norestart"
+     android:targetSandboxVersion="2"
+     tools:ignore="MissingVersion">
+
+    <application tools:ignore="AllowBackup,MissingApplicationIcon">
+        <activity android:name=".NoRestartActivity"
+             android:launchMode="singleTop"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.norestart.START" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.norestart.START"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="https" />
-                <data android:host="cts.android.com" />
-                <data android:path="/norestart" />
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="https"/>
+                <data android:host="cts.android.com"/>
+                <data android:path="/norestart"/>
             </intent-filter>
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
             </activity>
     </application>

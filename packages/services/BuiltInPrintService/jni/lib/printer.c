@@ -122,7 +122,7 @@ static int _send_data(const ifc_print_job_t *this_p, const char *buffer, size_t 
                     if (FD_ISSET(print_job->psock, &w_fds)) {
                         bytes_written = write(print_job->psock, buffer, length);
                         if (bytes_written < 0) {
-                            LOGE("unable to transmit %d bytes of data (errno %d)", length, errno);
+                            LOGE("unable to transmit %zu bytes of data (errno %d)", length, errno);
                             retval = ERROR;
                         } else {
                             length -= bytes_written;

@@ -43,6 +43,7 @@ import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.NinePatchDrawable;
+import android.media.MediaFormat;
 import android.net.Uri;
 import android.util.DisplayMetrics;
 import android.util.Size;
@@ -53,6 +54,7 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
 
 import com.android.compatibility.common.util.BitmapUtils;
+import com.android.compatibility.common.util.MediaUtils;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -65,6 +67,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
@@ -98,19 +104,24 @@ public class ImageDecoderTest {
 
     private static final ColorSpace sSRGB = ColorSpace.get(ColorSpace.Named.SRGB);
 
-    static Object[] getRecords() {
-        return new Record[] {
-            new Record(R.drawable.baseline_jpeg, 1280, 960, "image/jpeg", false, false, sSRGB),
-            new Record(R.drawable.grayscale_jpg, 128, 128, "image/jpeg", true, false, sSRGB),
-            new Record(R.drawable.png_test, 640, 480, "image/png", false, false, sSRGB),
-            new Record(R.drawable.gif_test, 320, 240, "image/gif", false, false, sSRGB),
-            new Record(R.drawable.bmp_test, 320, 240, "image/bmp", false, false, sSRGB),
-            new Record(R.drawable.webp_test, 640, 480, "image/webp", false, false, sSRGB),
-            new Record(R.drawable.google_chrome, 256, 256, "image/x-ico", false, true, sSRGB),
-            new Record(R.drawable.color_wheel, 128, 128, "image/x-ico", false, true, sSRGB),
-            new Record(R.raw.sample_1mp, 600, 338, "image/x-adobe-dng", false, false, sSRGB),
-            new Record(R.raw.heifwriter_input, 1920, 1080, "image/heif", false, false, sSRGB),
-        };
+    static Record[] getRecords() {
+        ArrayList<Record> records = new ArrayList<>(Arrays.asList(new Record[] {
+                new Record(R.drawable.baseline_jpeg, 1280, 960, "image/jpeg", false, false, sSRGB),
+                new Record(R.drawable.grayscale_jpg, 128, 128, "image/jpeg", true, false, sSRGB),
+                new Record(R.drawable.png_test, 640, 480, "image/png", false, false, sSRGB),
+                new Record(R.drawable.gif_test, 320, 240, "image/gif", false, false, sSRGB),
+                new Record(R.drawable.bmp_test, 320, 240, "image/bmp", false, false, sSRGB),
+                new Record(R.drawable.webp_test, 640, 480, "image/webp", false, false, sSRGB),
+                new Record(R.drawable.google_chrome, 256, 256, "image/x-ico", false, true, sSRGB),
+                new Record(R.drawable.color_wheel, 128, 128, "image/x-ico", false, true, sSRGB),
+                new Record(R.raw.sample_1mp, 600, 338, "image/x-adobe-dng", false, false, sSRGB)
+        }));
+        if (MediaUtils.hasDecoder(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
+            // HEIF support is optional when HEVC decoder is not supported.
+            records.add(new Record(R.raw.heifwriter_input, 1920, 1080, "image/heif", false, false,
+                                   sSRGB));
+        }
+        return records.toArray(new Record[] {});
     }
 
     // offset is how many bytes to offset the beginning of the image.
@@ -172,10 +183,7 @@ public class ImageDecoderTest {
             File dir = new File(context.getFilesDir(), "images");
             dir.mkdirs();
             file = new File(dir, "test_file" + resId);
-            if (!file.createNewFile()) {
-                if (file.exists()) {
-                    return file;
-                }
+            if (!file.createNewFile() && !file.exists()) {
                 fail("Failed to create new File!");
             }
 
@@ -211,6 +219,7 @@ public class ImageDecoderTest {
     private interface SourceCreator extends IntFunction<ImageDecoder.Source> {};
 
     private SourceCreator[] mCreators = new SourceCreator[] {
+            resId -> ImageDecoder.createSource(getAsByteArray(resId)),
             resId -> ImageDecoder.createSource(getAsByteBufferWrap(resId)),
             resId -> ImageDecoder.createSource(getAsDirectByteBuffer(resId)),
             resId -> ImageDecoder.createSource(getAsReadOnlyByteBuffer(resId)),
@@ -357,9 +366,25 @@ public class ImageDecoderTest {
         }
     }
 
+    private Collection<Object[]> paramsForTestSetAllocatorDecodeBitmap() {
+        boolean[] trueFalse = new boolean[] { true, false };
+        List<Object[]> temp = new ArrayList<>();
+        for (Object record : getRecords()) {
+            for (int allocator : ALLOCATORS) {
+                for (boolean doCrop : trueFalse) {
+                    for (boolean doScale : trueFalse) {
+                        temp.add(new Object[]{record, allocator, doCrop, doScale});
+                    }
+                }
+            }
+        }
+        return temp;
+    }
+
     @Test
-    @Parameters(method = "getRecords")
-    public void testSetAllocatorDecodeBitmap(Record record) {
+    @Parameters(method = "paramsForTestSetAllocatorDecodeBitmap")
+    public void testSetAllocatorDecodeBitmap(Record record, int allocator, boolean doCrop,
+                                             boolean doScale) {
         class Listener implements ImageDecoder.OnHeaderDecodedListener {
             public int allocator;
             public boolean doCrop;
@@ -379,51 +404,52 @@ public class ImageDecoderTest {
         };
         Listener l = new Listener();
 
-        boolean trueFalse[] = new boolean[] { true, false };
+        // This test relies on ImageDecoder *not* scaling to account for density.
+        // Temporarily change the DisplayMetrics to prevent that scaling.
         Resources res = getResources();
+        final int originalDensity = res.getDisplayMetrics().densityDpi;
+        res.getDisplayMetrics().densityDpi = DisplayMetrics.DENSITY_DEFAULT;
         ImageDecoder.Source src = ImageDecoder.createSource(res, record.resId);
         assertNotNull(src);
-        for (int allocator : ALLOCATORS) {
-            for (boolean doCrop : trueFalse) {
-                for (boolean doScale : trueFalse) {
-                    l.doCrop = doCrop;
-                    l.doScale = doScale;
-                    l.allocator = allocator;
+        l.doCrop = doCrop;
+        l.doScale = doScale;
+        l.allocator = allocator;
 
-                    Bitmap bm = null;
-                    try {
-                        bm = ImageDecoder.decodeBitmap(src, l);
-                    } catch (IOException e) {
-                        fail("Failed " + Utils.getAsResourceUri(record.resId)
-                                + " with exception " + e);
-                    }
-                    assertNotNull(bm);
+        Bitmap bm = null;
+        try {
+            bm = ImageDecoder.decodeBitmap(src, l);
+        } catch (IOException e) {
+            fail("Failed " + Utils.getAsResourceUri(record.resId)
+                    + " with exception " + e);
+        } finally {
+            res.getDisplayMetrics().densityDpi = originalDensity;
+        }
+        assertNotNull(bm);
 
-                    switch (allocator) {
-                        case ImageDecoder.ALLOCATOR_SOFTWARE:
-                        // TODO: Once Bitmap provides access to its
-                        // SharedMemory, confirm that ALLOCATOR_SHARED_MEMORY
-                        // worked.
-                        case ImageDecoder.ALLOCATOR_SHARED_MEMORY:
-                            assertNotEquals(Bitmap.Config.HARDWARE, bm.getConfig());
+        switch (allocator) {
+            case ImageDecoder.ALLOCATOR_SHARED_MEMORY:
+                // For a Bitmap backed by shared memory, asShared will return
+                // the same Bitmap.
+                assertSame(bm, bm.asShared());
 
-                            if (!doScale && !doCrop) {
-                                BitmapFactory.Options options = new BitmapFactory.Options();
-                                options.inScaled = false;
-                                Bitmap reference = BitmapFactory.decodeResource(res,
-                                        record.resId, options);
-                                assertNotNull(reference);
-                                assertTrue(BitmapUtils.compareBitmaps(bm, reference));
-                            }
-                            break;
-                        default:
-                            String name = Utils.getAsResourceUri(record.resId).toString();
-                            assertEquals("image " + name + "; allocator: " + allocator,
-                                         Bitmap.Config.HARDWARE, bm.getConfig());
-                            break;
-                    }
+                // fallthrough
+            case ImageDecoder.ALLOCATOR_SOFTWARE:
+                assertNotEquals(Bitmap.Config.HARDWARE, bm.getConfig());
+
+                if (!doScale && !doCrop) {
+                    BitmapFactory.Options options = new BitmapFactory.Options();
+                    options.inScaled = false;
+                    Bitmap reference = BitmapFactory.decodeResource(res,
+                            record.resId, options);
+                    assertNotNull(reference);
+                    assertTrue(BitmapUtils.compareBitmaps(bm, reference));
                 }
-            }
+                break;
+            default:
+                String name = Utils.getAsResourceUri(record.resId).toString();
+                assertEquals("image " + name + "; allocator: " + allocator,
+                             Bitmap.Config.HARDWARE, bm.getConfig());
+                break;
         }
     }
 
@@ -1997,11 +2023,74 @@ public class ImageDecoderTest {
         }
     }
 
+    @Test
+    public void testOrientationWithSampleSize() {
+        Uri uri = Utils.getAsResourceUri(R.drawable.orientation_6);
+        ImageDecoder.Source src = ImageDecoder.createSource(getContentResolver(), uri);
+        final int sampleSize = 7;
+        try {
+            Bitmap bm = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
+                decoder.setTargetSampleSize(sampleSize);
+            });
+            assertNotNull(bm);
+
+            // The unsampled image, after rotation, is 100 x 80
+            assertEquals(100 / sampleSize, bm.getWidth());
+            assertEquals( 80 / sampleSize, bm.getHeight());
+        } catch (IOException e) {
+            fail("Failed to decode " + uri.toString() + " with a sampleSize (" + sampleSize + ")");
+        }
+    }
+
+    @Test(expected = ArrayIndexOutOfBoundsException.class)
+    public void testArrayOutOfBounds() {
+        byte[] array = new byte[10];
+        ImageDecoder.createSource(array, 1, 10);
+    }
+
+    @Test(expected = ArrayIndexOutOfBoundsException.class)
+    public void testOffsetOutOfBounds() {
+        byte[] array = new byte[10];
+        ImageDecoder.createSource(array, 10, 0);
+    }
+
+    @Test(expected = ArrayIndexOutOfBoundsException.class)
+    public void testLengthOutOfBounds() {
+        byte[] array = new byte[10];
+        ImageDecoder.createSource(array, 0, 11);
+    }
+
+    @Test(expected = ArrayIndexOutOfBoundsException.class)
+    public void testNegativeLength() {
+        byte[] array = new byte[10];
+        ImageDecoder.createSource(array, 0, -1);
+    }
+
+    @Test(expected = ArrayIndexOutOfBoundsException.class)
+    public void testNegativeOffset() {
+        byte[] array = new byte[10];
+        ImageDecoder.createSource(array, -1, 10);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testNullByteArray() {
+        ImageDecoder.createSource(null, 0, 0);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testNullByteArray2() {
+        byte[] array = null;
+        ImageDecoder.createSource(array);
+    }
+
+    @Test(expected = IOException.class)
+    public void testZeroLengthByteArray() throws IOException {
+        ImageDecoder.decodeDrawable(ImageDecoder.createSource(new byte[10], 0, 0));
+    }
+
     @Test(expected = IOException.class)
     public void testZeroLengthByteBuffer() throws IOException {
-        Drawable drawable = ImageDecoder.decodeDrawable(
-            ImageDecoder.createSource(ByteBuffer.wrap(new byte[10], 0, 0)));
-        fail("should not have reached here!");
+        ImageDecoder.decodeDrawable(ImageDecoder.createSource(ByteBuffer.wrap(new byte[10], 0, 0)));
     }
 
     private interface ByteBufferSupplier extends Supplier<ByteBuffer> {};
@@ -2090,6 +2179,24 @@ public class ImageDecoderTest {
             assertEquals("Mismatch for supplier " + i,
                     position, buffer.position());
         }
+    }
+
+    @Test
+    @Parameters(method = "getRecords")
+    public void testOffsetByteArray2(Record record) throws IOException {
+        ImageDecoder.Source src = ImageDecoder.createSource(getAsByteArray(record.resId));
+        Bitmap expected = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
+            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+        });
+
+        final int offset = 10;
+        final int extra = 15;
+        final byte[] array = getAsByteArray(record.resId, offset, extra);
+        src = ImageDecoder.createSource(array, offset, array.length - (offset + extra));
+        Bitmap actual = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
+            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+        });
+        assertTrue(actual.sameAs(expected));
     }
 
     @Test

@@ -23,17 +23,53 @@
     <bool name="show_amber_alert_settings">false</bool>
 
     <!-- Play alert sound in full volume regardless Do Not Disturb is on -->
-    <bool name="override_dnd_default">true</bool>
+    <bool name="override_dnd">true</bool>
+    <!-- 4370, 4383 -->
+    <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
+        <item>0x1112:rat=gsm, emergency=true, always_on=true, language=ar</item>
+        <!-- additional language -->
+        <item>0x111F:rat=gsm, emergency=true, always_on=true, language=en</item>
+    </string-array>
     <!-- Channels to receive emergency alerts -->
+    <!-- 4371~4372, 4384~4385 -->
+    <string-array name="cmas_alert_extreme_channels_range_strings" translatable="false">
+        <item>0x1113-0x1114:rat=gsm, emergency=true, always_on=true, language=ar</item>
+        <!-- additional language -->
+        <item>0x1120-0x1121:rat=gsm, emergency=true, always_on=true, language=en</item>
+    </string-array>
+    <!-- 4373~4378, 4386~4391 -->
+    <string-array name="cmas_alerts_severe_range_strings" translatable="false">
+        <item>0x1115-0x111A:rat=gsm, emergency=true, always_on=true, language=ar</item>
+        <!-- additional language -->
+        <item>0x1122-0x1127:rat=gsm, emergency=true, always_on=true, language=en</item>
+    </string-array>
     <!-- 4379, 4392 -->
     <string-array name="emergency_alerts_channels_range_strings" translatable="false">
-        <item>0x111B:rat=gsm, emergency=true</item>
+        <item>0x111B:rat=gsm, emergency=true, language=ar</item>
         <!-- additional language -->
-        <item>0x1128:rat=gsm, emergency=true</item>
+        <item>0x1128:rat=gsm, emergency=true, language=en</item>
     </string-array>
-    <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false">
+    <!-- 4380, 4393 -->
+    <string-array name="required_monthly_test_range_strings" translatable="false">
+        <item>0x111C:rat=gsm, emergency=true, language=ar</item>
+        <!-- additional language -->
+        <item>0x1129:rat=gsm, emergency=true, language=en</item>
     </string-array>
     <!-- Whether to always receive exercise alerts regardless of test alerts toggle state -->
     <!-- By default it's true for Saudi users -->
-    <bool name="always_enable_exercise_alert">true</bool>
+    <!-- 4381, 4394 -->
+    <string-array name="exercise_alert_range_strings" translatable="false">
+        <item>0x111D:rat=gsm, emergency=true, always_on=true, language=ar</item>
+        <!-- additional language -->
+        <item>0x112A:rat=gsm, emergency=true, always_on=true, language=en</item>
+    </string-array>
+    <string-array name="cmas_amber_alerts_channels_range_strings" translatable="false">
+    </string-array>
+
+    <!-- Whether to override the language of the alert dialog's title to match the message locale -->
+    <bool name="override_alert_title_language_to_match_message_locale">true</bool>
+    <!-- Whether enabling copy message text into clipboard by long press -->
+    <bool name="enable_text_copy">false</bool>
+    <!-- Text links generating method. does not allow text to be copied. so we can't use smart linkify. -->
+    <string name="link_method" translatable="false">legacy_linkify</string>
 </resources>

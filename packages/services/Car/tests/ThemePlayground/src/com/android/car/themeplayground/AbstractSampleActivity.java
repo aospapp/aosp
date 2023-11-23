@@ -52,6 +52,10 @@ public abstract class AbstractSampleActivity extends Activity implements
         switch (item.getItemId()) {
             case R.id.text_elements:
                 return startSampleActivity(TextSamples.class);
+            case R.id.button_elements:
+                return startSampleActivity(ButtonSamples.class);
+            case R.id.progress_bar_elements:
+                return startSampleActivity(ProgressBarSamples.class);
             case R.id.panel_elements:
                 return startSampleActivity(ColorSamples.class);
             case R.id.dialog_elements:

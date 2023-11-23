@@ -3,6 +3,7 @@
  * found in the LICENSE file.
  */
 
+#include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <string.h>
@@ -13,9 +14,11 @@
 #include <syslog.h>
 
 #include "cras_alsa_card.h"
+#include "cras_alert.h"
 #include "cras_board_config.h"
 #include "cras_config.h"
-#include "cras_device_blacklist.h"
+#include "cras_device_blocklist.h"
+#include "cras_iodev_list.h"
 #include "cras_observer.h"
 #include "cras_shm.h"
 #include "cras_system_state.h"
@@ -29,6 +32,11 @@ struct card_list {
 	struct card_list *prev, *next;
 };
 
+struct name_list {
+	char name[NAME_MAX];
+	struct name_list *prev, *next;
+};
+
 /* The system state.
  * Members:
  *    exp_state - The exported system state shared with clients.
@@ -40,7 +48,7 @@ struct card_list {
  *    device_config_dir - Directory of device configs where volume curves live.
  *    internal_ucm_suffix - The suffix to append to internal card name to
  *        control which ucm config file to load.
- *    device_blacklist - Blacklist of device the server will ignore.
+ *    device_blocklist - Blocklist of device the server will ignore.
  *    cards - A list of active sound cards in the system.
  *    update_lock - Protects the update_count, as audio threads can update the
  *      stream count.
@@ -48,6 +56,8 @@ struct card_list {
  *    add_task - Function to handle adding a task for main thread to execute.
  *    task_data - Data to be passed to add_task handler function.
  *    main_thread_tid - The thread id of the main thread.
+ *    bt_fix_a2dp_packet_size - The flag to override A2DP packet size set by
+ *      Blueetoh peer devices to a smaller default value.
  */
 static struct {
 	struct cras_server_state *exp_state;
@@ -57,13 +67,14 @@ static struct {
 	size_t shm_size;
 	const char *device_config_dir;
 	const char *internal_ucm_suffix;
-	struct cras_device_blacklist *device_blacklist;
+	struct name_list *ignore_suffix_cards;
+	struct cras_device_blocklist *device_blocklist;
 	struct card_list *cards;
 	pthread_mutex_t update_lock;
 	struct cras_tm *tm;
 	/* Select loop callback registration. */
-	int (*fd_add)(int fd, void (*cb)(void *data), void *cb_data,
-		      void *select_data);
+	int (*fd_add)(int fd, void (*cb)(void *data, int events), void *cb_data,
+		      int events, void *select_data);
 	void (*fd_rm)(int fd, void *select_data);
 	void *select_data;
 	int (*add_task)(void (*callback)(void *data), void *callback_data,
@@ -71,7 +82,41 @@ static struct {
 	void *task_data;
 	struct cras_audio_thread_snapshot_buffer snapshot_buffer;
 	pthread_t main_thread_tid;
+	bool bt_fix_a2dp_packet_size;
 } state;
+
+/* The string format is CARD1,CARD2,CARD3. Divide it into a list. */
+void init_ignore_suffix_cards(char *str)
+{
+	struct name_list *card;
+	char *ptr;
+
+	state.ignore_suffix_cards = NULL;
+
+	if (str == NULL)
+		return;
+
+	ptr = strtok(str, ",");
+	while (ptr != NULL) {
+		card = (struct name_list *)calloc(1, sizeof(*card));
+		if (!card) {
+			syslog(LOG_ERR, "Failed to call calloc: %d", errno);
+			return;
+		}
+		strncpy(card->name, ptr, NAME_MAX - 1);
+		DL_APPEND(state.ignore_suffix_cards, card);
+		ptr = strtok(NULL, ",");
+	}
+}
+
+void deinit_ignore_suffix_cards()
+{
+	struct name_list *card;
+	DL_FOREACH (state.ignore_suffix_cards, card) {
+		DL_DELETE(state.ignore_suffix_cards, card);
+		free(card);
+	}
+}
 
 /*
  * Exported Interface.
@@ -103,20 +148,21 @@ void cras_system_state_init(const char *device_config_dir, const char *shm_name,
 	exp_state->mute = 0;
 	exp_state->mute_locked = 0;
 	exp_state->suspended = 0;
-	exp_state->capture_gain = DEFAULT_CAPTURE_GAIN;
-	exp_state->capture_gain_target = DEFAULT_CAPTURE_GAIN;
 	exp_state->capture_mute = 0;
 	exp_state->capture_mute_locked = 0;
 	exp_state->min_volume_dBFS = DEFAULT_MIN_VOLUME_DBFS;
 	exp_state->max_volume_dBFS = DEFAULT_MAX_VOLUME_DBFS;
-	exp_state->min_capture_gain = DEFAULT_MIN_CAPTURE_GAIN;
-	exp_state->max_capture_gain = DEFAULT_MAX_CAPTURE_GAIN;
 	exp_state->num_streams_attached = 0;
 	exp_state->default_output_buffer_size =
 		board_config.default_output_buffer_size;
 	exp_state->aec_supported = board_config.aec_supported;
 	exp_state->aec_group_id = board_config.aec_group_id;
-	exp_state->bt_wbs_enabled = 0;
+	exp_state->bt_wbs_enabled = board_config.bt_wbs_enabled;
+	exp_state->deprioritize_bt_wbs_mic =
+		board_config.deprioritize_bt_wbs_mic;
+	exp_state->noise_cancellation_enabled = 0;
+	exp_state->hotword_pause_at_suspend =
+		board_config.hotword_pause_at_suspend;
 
 	if ((rc = pthread_mutex_init(&state.update_lock, 0) != 0)) {
 		syslog(LOG_ERR, "Fatal: system state mutex init");
@@ -126,11 +172,13 @@ void cras_system_state_init(const char *device_config_dir, const char *shm_name,
 	state.exp_state = exp_state;
 
 	/* Directory for volume curve configs.
-	 * Note that device_config_dir does not affect device blacklist.
-	 * Device blacklist is common to all boards so we do not need
-	 * to change device blacklist at run time. */
+	 * Note that device_config_dir does not affect device blocklist.
+	 * Device blocklist is common to all boards so we do not need
+	 * to change device blocklist at run time. */
 	state.device_config_dir = device_config_dir;
 	state.internal_ucm_suffix = NULL;
+	init_ignore_suffix_cards(board_config.ucm_ignore_suffix);
+	free(board_config.ucm_ignore_suffix);
 
 	state.tm = cras_tm_init();
 	if (!state.tm) {
@@ -138,9 +186,9 @@ void cras_system_state_init(const char *device_config_dir, const char *shm_name,
 		exit(-ENOMEM);
 	}
 
-	/* Read config file for blacklisted devices. */
-	state.device_blacklist =
-		cras_device_blacklist_create(CRAS_CONFIG_FILE_DIR);
+	/* Read config file for blocklisted devices. */
+	state.device_blocklist =
+		cras_device_blocklist_create(CRAS_CONFIG_FILE_DIR);
 
 	/* Initialize snapshot buffer memory */
 	memset(&state.snapshot_buffer, 0,
@@ -148,6 +196,8 @@ void cras_system_state_init(const char *device_config_dir, const char *shm_name,
 
 	/* Save thread id of the main thread. */
 	state.main_thread_tid = pthread_self();
+
+	state.bt_fix_a2dp_packet_size = false;
 }
 
 void cras_system_state_set_internal_ucm_suffix(const char *internal_ucm_suffix)
@@ -159,7 +209,7 @@ void cras_system_state_deinit()
 {
 	/* Free any resources used.  This prevents unit tests from leaking. */
 
-	cras_device_blacklist_destroy(state.device_blacklist);
+	cras_device_blocklist_destroy(state.device_blocklist);
 
 	cras_tm_deinit(state.tm);
 
@@ -170,6 +220,7 @@ void cras_system_state_deinit()
 			close(state.shm_fd_ro);
 	}
 
+	deinit_ignore_suffix_cards();
 	pthread_mutex_destroy(&state.update_lock);
 }
 
@@ -185,21 +236,6 @@ void cras_system_set_volume(size_t volume)
 size_t cras_system_get_volume()
 {
 	return state.exp_state->volume;
-}
-
-void cras_system_set_capture_gain(long gain)
-{
-	/* Adjust targeted gain to be in supported range. */
-	state.exp_state->capture_gain_target = gain;
-	gain = MAX(gain, state.exp_state->min_capture_gain);
-	gain = MIN(gain, state.exp_state->max_capture_gain);
-	state.exp_state->capture_gain = gain;
-	cras_observer_notify_capture_gain(state.exp_state->capture_gain);
-}
-
-long cras_system_get_capture_gain()
-{
-	return state.exp_state->capture_gain;
 }
 
 void cras_system_notify_mute(void)
@@ -310,6 +346,7 @@ void cras_system_set_suspended(int suspended)
 {
 	state.exp_state->suspended = suspended;
 	cras_observer_notify_suspend_changed(suspended);
+	cras_alert_process_all_pending_alerts();
 }
 
 void cras_system_set_volume_limits(long min, long max)
@@ -326,24 +363,6 @@ long cras_system_get_min_volume()
 long cras_system_get_max_volume()
 {
 	return state.exp_state->max_volume_dBFS;
-}
-
-void cras_system_set_capture_gain_limits(long min, long max)
-{
-	state.exp_state->min_capture_gain = MAX(min, DEFAULT_MIN_CAPTURE_GAIN);
-	state.exp_state->max_capture_gain = max;
-	/* Re-apply target gain subjected to the new supported range. */
-	cras_system_set_capture_gain(state.exp_state->capture_gain_target);
-}
-
-long cras_system_get_min_capture_gain()
-{
-	return state.exp_state->min_capture_gain;
-}
-
-long cras_system_get_max_capture_gain()
-{
-	return state.exp_state->max_capture_gain;
 }
 
 int cras_system_get_default_output_buffer_size()
@@ -371,6 +390,60 @@ bool cras_system_get_bt_wbs_enabled()
 	return !!state.exp_state->bt_wbs_enabled;
 }
 
+bool cras_system_get_deprioritize_bt_wbs_mic()
+{
+	return !!state.exp_state->deprioritize_bt_wbs_mic;
+}
+
+void cras_system_set_bt_fix_a2dp_packet_size_enabled(bool enabled)
+{
+	state.bt_fix_a2dp_packet_size = enabled;
+}
+
+bool cras_system_get_bt_fix_a2dp_packet_size_enabled()
+{
+	return state.bt_fix_a2dp_packet_size;
+}
+
+void cras_system_set_noise_cancellation_enabled(bool enabled)
+{
+	/* When the flag is toggled, propagate to all iodevs immediately. */
+	if (cras_system_get_noise_cancellation_enabled() != enabled) {
+		state.exp_state->noise_cancellation_enabled = enabled;
+		cras_iodev_list_reset_for_noise_cancellation();
+	}
+}
+
+bool cras_system_get_noise_cancellation_enabled()
+{
+	return !!state.exp_state->noise_cancellation_enabled;
+}
+
+bool cras_system_check_ignore_ucm_suffix(const char *card_name)
+{
+	/* Check the general case: ALSA Loopback card "Loopback". */
+	if (!strcmp("Loopback", card_name))
+		return true;
+
+	/* Check board-specific ignore ucm suffix cards. */
+	struct name_list *card;
+	DL_FOREACH (state.ignore_suffix_cards, card) {
+		if (!strcmp(card->name, card_name))
+			return true;
+	}
+	return false;
+}
+
+bool cras_system_get_hotword_pause_at_suspend()
+{
+	return !!state.exp_state->hotword_pause_at_suspend;
+}
+
+void cras_system_set_hotword_pause_at_suspend(bool pause)
+{
+	state.exp_state->hotword_pause_at_suspend = pause;
+}
+
 int cras_system_add_alsa_card(struct cras_alsa_card_info *alsa_card_info)
 {
 	struct card_list *card;
@@ -386,11 +459,10 @@ int cras_system_add_alsa_card(struct cras_alsa_card_info *alsa_card_info)
 		if (card_index == cras_alsa_card_get_index(card->card))
 			return -EEXIST;
 	}
-	alsa_card = cras_alsa_card_create(
-		alsa_card_info, state.device_config_dir, state.device_blacklist,
-		(alsa_card_info->card_type == ALSA_CARD_TYPE_INTERNAL) ?
-			state.internal_ucm_suffix :
-			NULL);
+	alsa_card =
+		cras_alsa_card_create(alsa_card_info, state.device_config_dir,
+				      state.device_blocklist,
+				      state.internal_ucm_suffix);
 	if (alsa_card == NULL)
 		return -ENOMEM;
 	card = calloc(1, sizeof(*card));
@@ -428,8 +500,8 @@ int cras_system_alsa_card_exists(unsigned alsa_card_index)
 }
 
 int cras_system_set_select_handler(
-	int (*add)(int fd, void (*callback)(void *data), void *callback_data,
-		   void *select_data),
+	int (*add)(int fd, void (*callback)(void *data, int events),
+		   void *callback_data, int events, void *select_data),
 	void (*rm)(int fd, void *select_data), void *select_data)
 {
 	if (state.fd_add != NULL || state.fd_rm != NULL)
@@ -440,12 +512,13 @@ int cras_system_set_select_handler(
 	return 0;
 }
 
-int cras_system_add_select_fd(int fd, void (*callback)(void *data),
-			      void *callback_data)
+int cras_system_add_select_fd(int fd, void (*callback)(void *data, int revents),
+			      void *callback_data, int events)
 {
 	if (state.fd_add == NULL)
 		return -EINVAL;
-	return state.fd_add(fd, callback, callback_data, state.select_data);
+	return state.fd_add(fd, callback, callback_data, events,
+			    state.select_data);
 }
 
 int cras_system_set_add_task_handler(int (*add_task)(void (*cb)(void *data),
@@ -475,7 +548,8 @@ void cras_system_rm_select_fd(int fd)
 		state.fd_rm(fd, state.select_data);
 }
 
-void cras_system_state_stream_added(enum CRAS_STREAM_DIRECTION direction)
+void cras_system_state_stream_added(enum CRAS_STREAM_DIRECTION direction,
+				    enum CRAS_CLIENT_TYPE client_type)
 {
 	struct cras_server_state *s;
 
@@ -485,13 +559,19 @@ void cras_system_state_stream_added(enum CRAS_STREAM_DIRECTION direction)
 
 	s->num_active_streams[direction]++;
 	s->num_streams_attached++;
+	if (direction == CRAS_STREAM_INPUT) {
+		s->num_input_streams_with_permission[client_type]++;
+		cras_observer_notify_input_streams_with_permission(
+			s->num_input_streams_with_permission);
+	}
 
 	cras_system_state_update_complete();
 	cras_observer_notify_num_active_streams(
 		direction, s->num_active_streams[direction]);
 }
 
-void cras_system_state_stream_removed(enum CRAS_STREAM_DIRECTION direction)
+void cras_system_state_stream_removed(enum CRAS_STREAM_DIRECTION direction,
+				      enum CRAS_CLIENT_TYPE client_type)
 {
 	struct cras_server_state *s;
 	unsigned i, sum;
@@ -509,6 +589,11 @@ void cras_system_state_stream_removed(enum CRAS_STREAM_DIRECTION direction)
 		cras_clock_gettime(CLOCK_MONOTONIC_RAW,
 				   &s->last_active_stream_time);
 	s->num_active_streams[direction]--;
+	if (direction == CRAS_STREAM_INPUT) {
+		s->num_input_streams_with_permission[client_type]--;
+		cras_observer_notify_input_streams_with_permission(
+			s->num_input_streams_with_permission);
+	}
 
 	cras_system_state_update_complete();
 	cras_observer_notify_num_active_streams(
@@ -528,6 +613,15 @@ unsigned cras_system_state_get_active_streams_by_direction(
 	enum CRAS_STREAM_DIRECTION direction)
 {
 	return state.exp_state->num_active_streams[direction];
+}
+
+void cras_system_state_get_input_streams_with_permission(
+	uint32_t num_input_streams[CRAS_NUM_CLIENT_TYPE])
+{
+	unsigned type;
+	for (type = 0; type < CRAS_NUM_CLIENT_TYPE; ++type)
+		num_input_streams[type] =
+			state.exp_state->num_input_streams_with_permission[type];
 }
 
 void cras_system_state_get_last_stream_active_time(struct cras_timespec *ts)

@@ -24,6 +24,8 @@
     <!-- playback_fragment.xml -->
     <dimen name="playback_fragment_text_margin_top">@dimen/car_ui_padding_4</dimen>
     <dimen name="playback_fragment_text_margin_x">@dimen/car_ui_padding_4</dimen>
+    <dimen name="playback_fragment_error_button_margin_top">@dimen/car_ui_padding_5</dimen>
+    <dimen name="playback_fragment_error_button_margin_bottom">@dimen/car_ui_padding_4</dimen>
 
     <dimen name="playback_fragment_app_icon_margin_right">@dimen/car_ui_padding_4</dimen>
     <dimen name="playback_fragment_controls_margin_bottom">@dimen/car_ui_padding_4</dimen>

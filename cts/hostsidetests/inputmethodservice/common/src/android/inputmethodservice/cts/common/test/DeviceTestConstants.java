@@ -53,6 +53,9 @@ public final class DeviceTestConstants {
             new TestInfo(PACKAGE, SERVICE_TEST, "testInputUnbindsOnAppStopped");
     public static final TestInfo TEST_IME_VISIBILITY_AFTER_IME_SWITCHING =
             new TestInfo(PACKAGE, SERVICE_TEST, "testImeVisibilityAfterImeSwitching");
+    public static final TestInfo TEST_IME_SWITCHING_WITHOUT_WINDOW_FOCUS_AFTER_DISPLAY_OFF_ON =
+            new TestInfo(PACKAGE, SERVICE_TEST,
+                    "testImeSwitchingWithoutWindowFocusAfterDisplayOffOn");
 
     /**
      * Device test class: ShellCommandDeviceTest.

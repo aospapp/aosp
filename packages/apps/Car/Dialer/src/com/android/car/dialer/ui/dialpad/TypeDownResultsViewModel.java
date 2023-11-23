@@ -16,32 +16,36 @@
 
 package com.android.car.dialer.ui.dialpad;
 
-import android.app.Application;
+import android.content.Context;
 
-import androidx.annotation.NonNull;
-import androidx.lifecycle.LiveData;
-
+import com.android.car.dialer.livedata.SharedPreferencesLiveData;
 import com.android.car.dialer.ui.common.ContactResultsLiveData;
 import com.android.car.dialer.ui.search.ContactResultsViewModel;
 
-import java.util.List;
+import javax.inject.Inject;
+
+import dagger.hilt.android.lifecycle.HiltViewModel;
+import dagger.hilt.android.qualifiers.ApplicationContext;
 
 /**
  * {link AndroidViewModel} used for type down functionality.
  */
+@HiltViewModel
 public class TypeDownResultsViewModel extends ContactResultsViewModel {
 
-    private final ContactResultsLiveData mContactSearchResultsLiveData;
-
-    public TypeDownResultsViewModel(@NonNull Application application) {
-        super(application);
-        mContactSearchResultsLiveData = new ContactResultsLiveData(application,
-                getSearchQueryLiveData(), getSharedPreferencesLiveData(),
-                /* showOnlyOneEntry */ false);
+    @Inject
+    public TypeDownResultsViewModel(@ApplicationContext Context context,
+            SharedPreferencesLiveData.Factory sharedPreferencesFactory,
+            ContactResultsLiveData.Factory contactResultsLiveDataFactory) {
+        super(context, sharedPreferencesFactory, contactResultsLiveDataFactory);
     }
 
     @Override
-    public LiveData<List<ContactResultsLiveData.ContactResultListItem>> getContactSearchResults() {
-        return mContactSearchResultsLiveData;
+    public ContactResultsLiveData createContactSearchResultsLiveData(
+            ContactResultsLiveData.Factory factory) {
+        return factory.create(
+                getSearchQueryLiveData(),
+                getSharedPreferencesLiveData(),
+                /* showOnlyOneEntry = */ false);
     }
 }

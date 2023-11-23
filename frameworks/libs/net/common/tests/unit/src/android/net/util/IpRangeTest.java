@@ -28,6 +28,8 @@ import android.net.IpPrefix;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.net.module.util.IpRange;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

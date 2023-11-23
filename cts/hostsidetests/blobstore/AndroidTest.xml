@@ -25,6 +25,9 @@
     </test>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="test-file-name" value="CtsBlobStoreHostTestHelper.apk" />
+        <option name="test-file-name" value="CtsBlobStoreHostTestHelperDev.apk" />
+        <option name="test-file-name" value="CtsBlobStoreHostTestHelperAssist.apk" />
+        <option name="install-arg" value="-t" />
         <option name="cleanup-apks" value="true" />
     </target_preparer>
 </configuration>

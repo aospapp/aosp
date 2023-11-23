@@ -13,6 +13,10 @@
       "name" : "linkerconfig_generator_unittest"
     },
     {
+      "name": "linkerconfig_diff_test",
+      "host": true
+    },
+    {
       "name": "malloc_debug_system_tests"
     },
     {

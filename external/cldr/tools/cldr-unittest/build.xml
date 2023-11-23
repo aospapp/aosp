@@ -17,7 +17,7 @@
 		<property name="doc.params" value="" />
 
 		<!-- Load local definitions from an optional properties file, if 
-			available. build.properties is NOT checked into SVN. -->
+			available. build.properties is NOT checked into version control. -->
 		<property file="build.properties" />
 		<!-- Load environment variables -->
 		<property environment="env" />
@@ -35,7 +35,7 @@
 			2) JVM_EXTRA_OPTIONS=xxx in build.properties
 			3) Environment variable - JVM_EXTRA_OPTIONS=xxx
 			4) Final fallback - "-Xmx6g" below -->
-		<property name="env.JVM_EXTRA_OPTIONS" value="-Xmx6g" />
+		<property name="env.JVM_EXTRA_OPTIONS" value="-Xmx6g -enableassertions" />
 		<property name="JVM_EXTRA_OPTIONS" value="${env.JVM_EXTRA_OPTIONS}" />
 		<property name="jvm_options" value="${JVM_OPTIONS} ${JVM_EXTRA_OPTIONS}" />
 
@@ -43,6 +43,9 @@
 			<pathelement path="${java.class.path}/" />
 			<pathelement path="${build.dir}" />
 			<pathelement path="${CLDR_TOOLS}/classes" />
+                        <!-- tools/java/dist/for-build/ can contain cldr.jar in lieu of the
+                             classes dir. Must be earlier than other libs. -->
+			<fileset erroronmissingdir="false" dir="${CLDR_TOOLS}/dist/for-build" includes="cldr.jar" />
 			<fileset dir="${CLDR_TOOLS}/libs" includes="*.jar" /> <!-- all libs -->
 		</path>
 	</target>
@@ -92,6 +95,7 @@
 		<mkdir dir="${log.dir}" />
 		<javac srcdir="${src.dir}"
 			includes="org/unicode/cldr/**/*.java"
+			excludes="**/TestShim.java"
 			destdir="${build.dir}" classpathref="project.class.path" source="1.8"
 			target="1.8" debug="on" deprecation="off" includeantruntime="false"
 			encoding="UTF-8" />

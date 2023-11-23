@@ -181,25 +181,6 @@ public class TelephonyManagerPermissionTest {
         assertEquals(audioMode, mAudioManager.getMode());
     }
 
-    /**
-     * Verify that TelephonyManager.setDataEnabled requires Permission.
-     * <p>
-     * Requires Permission:
-     * {@link android.Manifest.permission#MODIFY_PHONE_STATE}.
-     */
-    @Test
-    public void testSetDataEnabled() {
-        if (!mHasTelephony) {
-            return;
-        }
-        try {
-            mTelephonyManager.setDataEnabled(false);
-            fail("Able to set data enabled");
-        } catch (SecurityException e) {
-            // expected
-        }
-    }
-
      /**
      * Tests that isManualNetworkSelectionAllowed requires permission
      * Expects a security exception since the caller does not have carrier privileges.

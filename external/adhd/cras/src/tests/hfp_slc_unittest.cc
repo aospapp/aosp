@@ -17,6 +17,7 @@ extern "C" {
 static struct hfp_slc_handle* handle;
 static struct cras_telephony_handle fake_telephony;
 static int cras_bt_device_update_hardware_volume_called;
+static int cras_observer_notify_bt_batter_changed_called;
 static int slc_initialized_cb_called;
 static int slc_disconnected_cb_called;
 static int cras_system_add_select_fd_called;
@@ -35,6 +36,7 @@ void ResetStubData() {
   slc_initialized_cb_called = 0;
   cras_system_add_select_fd_called = 0;
   cras_bt_device_update_hardware_volume_called = 0;
+  cras_observer_notify_bt_batter_changed_called = 0;
   slc_cb = NULL;
   slc_cb_data = NULL;
 }
@@ -58,6 +60,8 @@ TEST(HfpSlc, InitializeSlc) {
   char buf[256];
   char* chp;
   ResetStubData();
+
+  btlog = cras_bt_event_log_init();
 
   ASSERT_EQ(0, socketpair(AF_UNIX, SOCK_STREAM, 0, sock));
   handle = hfp_slc_create(sock[0], 0, AG_ENHANCED_CALL_STATUS, device,
@@ -108,6 +112,7 @@ TEST(HfpSlc, InitializeSlc) {
   ASSERT_EQ(1, cras_bt_device_update_hardware_volume_called);
 
   hfp_slc_destroy(handle);
+  cras_bt_event_log_deinit(btlog);
 }
 
 TEST(HfpSlc, DisconnectSlc) {
@@ -127,6 +132,108 @@ TEST(HfpSlc, DisconnectSlc) {
   ASSERT_EQ(1, slc_disconnected_cb_called);
 
   hfp_slc_destroy(handle);
+}
+
+TEST(HfpSlc, InitializeSlcSupportsHfIndicator) {
+  int err;
+  int sock[2];
+  char buf[256];
+  char* chp;
+  ResetStubData();
+
+  btlog = cras_bt_event_log_init();
+
+  ASSERT_EQ(0, socketpair(AF_UNIX, SOCK_STREAM, 0, sock));
+  handle = hfp_slc_create(sock[0], 0, AG_ENHANCED_CALL_STATUS, device,
+                          slc_initialized_cb, slc_disconnected_cb);
+
+  /* Fake that HF supports HF indicator. */
+  err = write(sock[1], "AT+BRSF=256\r", 12);
+  ASSERT_EQ(err, 12);
+  slc_cb(slc_cb_data);
+  err = read(sock[1], buf, 256);
+
+  err = write(sock[1], "AT+CIND=?\r", 10);
+  ASSERT_EQ(10, err);
+  slc_cb(slc_cb_data);
+  err = read(sock[1], buf, 256);
+
+  /* Assert "\r\n+CIND: ... \r\n" response is received */
+  chp = strstr(buf, "\r\n");
+  ASSERT_NE((void*)NULL, (void*)chp);
+  ASSERT_EQ(0, strncmp("\r\n+CIND:", chp, 8));
+  chp += 2;
+  chp = strstr(chp, "\r\n");
+  ASSERT_NE((void*)NULL, (void*)chp);
+
+  /* Assert "\r\nOK\r\n" response is received */
+  chp += 2;
+  chp = strstr(chp, "\r\n");
+  ASSERT_NE((void*)NULL, (void*)chp);
+  ASSERT_EQ(0, strncmp("\r\nOK", chp, 4));
+
+  err = write(sock[1], "AT+CMER=3,0,0,1\r", 16);
+  ASSERT_EQ(16, err);
+  slc_cb(slc_cb_data);
+
+  ASSERT_NE((void*)NULL, cras_tm_timer_cb);
+  ASSERT_EQ(0, slc_initialized_cb_called);
+
+  /* Assert "\r\nOK\r\n" response is received */
+  err = read(sock[1], buf, 256);
+
+  chp = strstr(buf, "\r\nOK\r\n");
+  ASSERT_NE((void*)NULL, (void*)chp);
+
+  err = write(sock[1], "AT+BIND=2\r", 10);
+  ASSERT_EQ(err, 10);
+  slc_cb(slc_cb_data);
+
+  /* Assert "\r\nOK\r\n" response is received */
+  err = read(sock[1], buf, 256);
+
+  chp = strstr(buf, "\r\nOK\r\n");
+  ASSERT_NE((void*)NULL, (void*)chp);
+
+  err = write(sock[1], "AT+BIND=?\r", 10);
+  ASSERT_EQ(err, 10);
+  slc_cb(slc_cb_data);
+
+  /* Assert "\r\n+BIND: (2)\r\n" response is received */
+  err = read(sock[1], buf, 256);
+
+  chp = strstr(buf, "\r\n+BIND: (1,2)\r\n");
+  ASSERT_NE((void*)NULL, (void*)chp);
+  chp = strstr(buf, "\r\nOK\r\n");
+  ASSERT_NE((void*)NULL, (void*)chp);
+
+  err = write(sock[1], "AT+BIND?\r", 9);
+  ASSERT_EQ(err, 9);
+  slc_cb(slc_cb_data);
+
+  /* Assert "\r\n+BIND: 2,1\r\n" response is received */
+  err = read(sock[1], buf, 256);
+
+  chp = strstr(buf, "\r\n+BIND: 2,1\r\n");
+  ASSERT_NE((void*)NULL, (void*)chp);
+  chp = strstr(buf, "\r\nOK\r\n");
+  ASSERT_NE((void*)NULL, (void*)chp);
+
+  ASSERT_EQ(1, slc_initialized_cb_called);
+
+  err = write(sock[1], "AT+VGS=13\r", 10);
+  ASSERT_EQ(err, 10);
+  slc_cb(slc_cb_data);
+
+  err = read(sock[1], buf, 256);
+
+  chp = strstr(buf, "\r\nOK\r\n");
+  ASSERT_NE((void*)NULL, (void*)chp);
+
+  ASSERT_EQ(1, cras_bt_device_update_hardware_volume_called);
+
+  hfp_slc_destroy(handle);
+  cras_bt_event_log_deinit(btlog);
 }
 
 TEST(HfpSlc, CodecNegotiation) {
@@ -167,6 +274,11 @@ TEST(HfpSlc, CodecNegotiation) {
   codec = hfp_slc_get_selected_codec(handle);
   EXPECT_EQ(HFP_CODEC_ID_MSBC, codec);
 
+  /* Fake HF selects mSBC codec. */
+  err = write(sock[1], "AT+BCS=2\r", 9);
+  ASSERT_EQ(err, 9);
+
+  err = hfp_slc_codec_connection_setup(handle);
   /* Assert CRAS initiates codec selection to mSBC. */
   memset(buf, 0, 256);
   err = read(sock[1], buf, 256);
@@ -177,27 +289,11 @@ TEST(HfpSlc, CodecNegotiation) {
   ASSERT_EQ(err, 9);
   slc_cb(slc_cb_data);
 
-  /* Assert CRAS initiates codec selection to mSBC. */
-  memset(buf, 0, 256);
-  err = read(sock[1], buf, 256);
-  pos = strstr(buf, "\r\n+BCS:2\r\n");
-  ASSERT_NE((void*)NULL, pos);
-
-  /* Fake that receiving codec selection from HF. */
-  err = write(sock[1], "AT+BCS=2\r", 9);
-  ASSERT_EQ(err, 9);
-  slc_cb(slc_cb_data);
-
-  memset(buf, 0, 256);
-  err = read(sock[1], buf, 256);
-  pos = strstr(buf, "\r\n+BCS:2\r\n");
-  ASSERT_EQ((void*)NULL, pos);
-
   hfp_slc_destroy(handle);
   cras_bt_event_log_deinit(btlog);
 }
 
-TEST(HfpSlc, CodecNegotiationTimeout) {
+TEST(HfpSlc, CodecNegotiationCapabilityChanged) {
   int codec;
   int err;
   int sock[2];
@@ -231,29 +327,40 @@ TEST(HfpSlc, CodecNegotiationTimeout) {
   ASSERT_EQ(err, 16);
   slc_cb(slc_cb_data);
 
-  ASSERT_NE((void*)NULL, cras_tm_timer_cb);
-
   /* Assert that AG side prefers mSBC codec. */
   codec = hfp_slc_get_selected_codec(handle);
   EXPECT_EQ(HFP_CODEC_ID_MSBC, codec);
 
+  /* Fake HF selects mSBC codec. */
+  err = write(sock[1], "AT+BCS=2\r", 9);
+  ASSERT_EQ(err, 9);
+
+  err = hfp_slc_codec_connection_setup(handle);
   /* Assert CRAS initiates codec selection to mSBC. */
   memset(buf, 0, 256);
   err = read(sock[1], buf, 256);
   pos = strstr(buf, "\r\n+BCS:2\r\n");
   ASSERT_NE((void*)NULL, pos);
 
-  /* Assume codec negotiation failed. so timeout is reached. */
-  cras_tm_timer_cb(NULL, cras_tm_timer_cb_data);
+  /* Fake that HF changes supported codecs. */
+  err = write(sock[1], "AT+BAC=1\r", 9);
+  ASSERT_EQ(err, 9);
+  slc_cb(slc_cb_data);
+  err = read(sock[1], buf, 256);
 
-  codec = hfp_slc_get_selected_codec(handle);
-  EXPECT_EQ(HFP_CODEC_ID_CVSD, codec);
+  /* Fake HF selects CVSD codec. */
+  err = write(sock[1], "AT+BCS=1\r", 9);
+  ASSERT_EQ(err, 9);
 
-  /* Expects CRAS fallback and selects to CVSD codec. */
+  err = hfp_slc_codec_connection_setup(handle);
+  /* Assert CRAS initiates codec selection to CVSD. */
   memset(buf, 0, 256);
   err = read(sock[1], buf, 256);
   pos = strstr(buf, "\r\n+BCS:1\r\n");
   ASSERT_NE((void*)NULL, pos);
+
+  codec = hfp_slc_get_selected_codec(handle);
+  EXPECT_EQ(HFP_CODEC_ID_CVSD, codec);
 
   hfp_slc_destroy(handle);
   cras_bt_event_log_deinit(btlog);
@@ -286,9 +393,18 @@ int cras_system_add_select_fd(int fd,
 
 void cras_system_rm_select_fd(int fd) {}
 
+const char* cras_bt_device_address(struct cras_bt_device* device) {
+  return "";
+}
+
 void cras_bt_device_update_hardware_volume(struct cras_bt_device* device,
                                            int volume) {
   cras_bt_device_update_hardware_volume_called++;
+}
+
+void cras_observer_notify_bt_battery_changed(const char* address,
+                                             uint32_t level) {
+  cras_observer_notify_bt_batter_changed_called++;
 }
 
 /* To return fake errno */
@@ -308,6 +424,13 @@ struct cras_timer* cras_tm_create_timer(struct cras_tm* tm,
   cras_tm_timer_cb = cb;
   cras_tm_timer_cb_data = cb_data;
   return reinterpret_cast<struct cras_timer*>(0x404);
+}
+
+int cras_poll(struct pollfd* fds,
+              nfds_t nfds,
+              struct timespec* timeout,
+              const sigset_t* sigmask) {
+  return 1;
 }
 
 void cras_tm_cancel_timer(struct cras_tm* tm, struct cras_timer* t) {}

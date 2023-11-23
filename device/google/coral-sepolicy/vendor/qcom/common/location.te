@@ -64,3 +64,4 @@ userdebug_or_eng(`
   allow location diag_device:chr_file rw_file_perms;
 ')
 
+get_prop(location, wifi_hal_prop)

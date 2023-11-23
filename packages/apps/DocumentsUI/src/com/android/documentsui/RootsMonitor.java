@@ -22,7 +22,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
-
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.android.documentsui.AbstractActionHandler.CommonAddons;
@@ -137,7 +136,7 @@ final class RootsMonitor<T extends Activity & CommonAddons> {
             // activity.
             final Uri uri = mOwner.getIntent().getData();
             if (uri != null && uri.equals(mCurrentRoot.getUri())) {
-                mOwner.finishAndRemoveTask();
+                mOwner.finish();
                 return;
             }
 

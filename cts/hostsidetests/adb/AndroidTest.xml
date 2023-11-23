@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <configuration description="Config for the CTS adb host tests">
-    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MinApiLevelModuleController">
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController">
         <option name="min-api-level" value="30" />
-        <option name="api-level-prop" value="ro.product.first_api_level" />
     </object>
 
     <option name="test-suite-tag" value="cts" />

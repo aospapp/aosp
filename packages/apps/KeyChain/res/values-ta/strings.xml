@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"வெளிப்புறச் சேமிப்பிடத்தில் உள்ள %1$s அல்லது %2$s நீட்டிப்புடன் PKCS#12 கோப்பிலிருந்து நீங்கள் சான்றிதழ்களை நிறுவலாம்."</string>
     <string name="allow_button" msgid="3030990695030371561">"தேர்ந்தெடு"</string>
     <string name="deny_button" msgid="3766539809121892584">"நிராகரி"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"சான்றிதழ்களைக் காட்டுகிறது..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"%s சான்றிதழைத் தேடுகிறது…"</string>
 </resources>

@@ -30,6 +30,7 @@
 #include "nouveau_util.h"
 #include "nv04_3d.xml.h"
 #include "nv04_driver.h"
+#include "util/u_memory.h"
 
 static GLboolean
 texunit_needs_combiners(struct gl_texture_unit *u,
@@ -157,7 +158,7 @@ nv04_context_create(struct nouveau_screen *screen, gl_api api,
 		goto fail;
 
 	/* GL constants. */
-	ctx->Const.MaxTextureLevels = 11;
+	ctx->Const.MaxTextureSize = 1024;
 	ctx->Const.MaxTextureCoordUnits = NV04_TEXTURE_UNITS;
 	ctx->Const.Program[MESA_SHADER_FRAGMENT].MaxTextureImageUnits = NV04_TEXTURE_UNITS;
 	ctx->Const.MaxTextureUnits = NV04_TEXTURE_UNITS;

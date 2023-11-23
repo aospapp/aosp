@@ -24,14 +24,13 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.AfterClassWithInfo;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
-import com.android.tradefed.util.AbiFormatter;
+import com.android.tradefed.testtype.junit4.BeforeClassWithInfo;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 import java.io.File;
 import java.lang.Thread;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.regex.Matcher;
@@ -53,22 +52,30 @@ public class FastbootVerifyUserspaceTest extends BaseHostJUnit4Test {
     private ITestDevice mDevice;
     private IRunUtil mRunUtil = RunUtil.getDefault();
     private String mFuzzyFastbootPath;
+    private static String executeShellKernelARM64 =
+            "cat /proc/config.gz | gzip -d | grep CONFIG_ARM64=y";
+    private static boolean isGKI10;
 
-    @Before
-    public void setUp() throws Exception {
-        mDevice = getDevice();
-
-        ArrayList<String> supportedAbis = new ArrayList<>(Arrays.asList(AbiFormatter.getSupportedAbis(mDevice, "")));
-        if (supportedAbis.contains("arm64-v8a")) {
-            String output = mDevice.executeShellCommand("uname -r");
+    @BeforeClassWithInfo
+    public static void setUpClass(TestInformation testInfo) throws Exception {
+        boolean isKernelARM64 = testInfo.getDevice()
+                                        .executeShellCommand(executeShellKernelARM64)
+                                        .contains("CONFIG_ARM64");
+        isGKI10 = false;
+        if (isKernelARM64) {
+            String output = testInfo.getDevice().executeShellCommand("uname -r");
             Pattern p = Pattern.compile("^(\\d+)\\.(\\d+)");
             Matcher m1 = p.matcher(output);
             Assert.assertTrue(m1.find());
-            Assume.assumeTrue("Skipping test for fastbootd on GKI",
-                              Integer.parseInt(m1.group(1)) < 5 ||
-                              (Integer.parseInt(m1.group(1)) == 5 &&
-                               Integer.parseInt(m1.group(2)) < 4));
+            isGKI10 = (Integer.parseInt(m1.group(1)) == 5 && Integer.parseInt(m1.group(2)) == 4);
         }
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        Assume.assumeFalse("Skipping test for fastbootd on GKI 1.0", isGKI10);
+
+        mDevice = getDevice();
 
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
         File file = buildHelper.getTestFile("fuzzy_fastboot", getAbi());
@@ -92,7 +99,7 @@ public class FastbootVerifyUserspaceTest extends BaseHostJUnit4Test {
     @Test
     public void testFastbootdSlotOperations() throws Exception {
         CommandResult result = mRunUtil.runTimedCmd(MAX_CMD_RUN_TIME, mFuzzyFastbootPath,
-                String.format("--serial=%s", mDevice.getSerialNumber()),
+                String.format("--serial=%s", mDevice.getFastbootSerialNumber()),
                 "--gtest_filter=Conformance.Slots:Conformance.SetActive");
         Assert.assertEquals(CommandStatus.SUCCESS, result.getStatus());
     }
@@ -101,7 +108,7 @@ public class FastbootVerifyUserspaceTest extends BaseHostJUnit4Test {
     @Test
     public void testLogicalPartitionCommands() throws Exception {
         CommandResult result = mRunUtil.runTimedCmd(MAX_CMD_RUN_TIME, mFuzzyFastbootPath,
-                String.format("--serial=%s", mDevice.getSerialNumber()),
+                String.format("--serial=%s", mDevice.getFastbootSerialNumber()),
                 "--gtest_filter=LogicalPartitionCompliance.GetVarIsLogical:LogicalPartitionCompliance.SuperPartition");
         Assert.assertEquals(CommandStatus.SUCCESS, result.getStatus());
     }
@@ -117,7 +124,7 @@ public class FastbootVerifyUserspaceTest extends BaseHostJUnit4Test {
     @Test
     public void testFastbootReboot() throws Exception {
         CommandResult result = mRunUtil.runTimedCmd(MAX_CMD_RUN_TIME, mFuzzyFastbootPath,
-                String.format("--serial=%s", mDevice.getSerialNumber()),
+                String.format("--serial=%s", mDevice.getFastbootSerialNumber()),
                 "--gtest_filter=LogicalPartitionCompliance.FastbootRebootTest");
         Assert.assertEquals(CommandStatus.SUCCESS, result.getStatus());
     }
@@ -126,7 +133,7 @@ public class FastbootVerifyUserspaceTest extends BaseHostJUnit4Test {
     @Test
     public void testLogicalPartitionFlashing() throws Exception {
         CommandResult result = mRunUtil.runTimedCmd(MAX_CMD_RUN_TIME, mFuzzyFastbootPath,
-                String.format("--serial=%s", mDevice.getSerialNumber()),
+                String.format("--serial=%s", mDevice.getFastbootSerialNumber()),
                 "--gtest_filter=LogicalPartitionCompliance.CreateResizeDeleteLP");
         Assert.assertEquals(CommandStatus.SUCCESS, result.getStatus());
     }

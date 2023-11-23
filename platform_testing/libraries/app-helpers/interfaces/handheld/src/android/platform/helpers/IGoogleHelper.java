@@ -17,13 +17,55 @@
 package android.platform.helpers;
 
 import android.support.test.uiautomator.Direction;
+import android.support.test.uiautomator.UiObject2;
 
 public interface IGoogleHelper extends IAppHelper {
+
+    public enum NavigationTab {
+        DISCOVER("Discover"),
+        SNAPSHOT("Snapshot"),
+        SEARCH("Search"),
+        COLLECTIONS("Collections"),
+        MORE("More");
+
+        private final String text;
+
+        NavigationTab(String text) {
+            this.text = text;
+        }
+
+        @Override
+        public String toString() {
+            return text;
+        }
+    };
+
+    public enum SearchResultTab {
+        ALL("All"),
+        IMAGES("Images"),
+        VIDEOS("Videos"),
+        NEWS("News"),
+        MAPS("Maps"),
+        BOOKS("Books"),
+        SHOPPING("Shopping"),
+        FLIGHTS("Flights");
+
+        private final String mDisplayName;
+
+        SearchResultTab(String displayName) {
+            mDisplayName = displayName;
+        }
+
+        @Override
+        public String toString() {
+            return mDisplayName;
+        }
+    }
 
     /**
      * Setup expectations: Google app open
      *
-     * This method will start a voice search
+     * <p>This method will start a voice search
      *
      * @return true if the search is started, false otherwise
      */
@@ -32,74 +74,124 @@ public interface IGoogleHelper extends IAppHelper {
     /**
      * Setup expectations: Google app open to a search result
      *
-     * This method will return the query from the search
+     * <p>This method will return the query from the search
      */
     public String getSearchQuery();
 
     /**
+     * Setup expectations: Google app open.
+     *
+     * <p>This method goes to the specified tab, such as Discover, Search, Collections.
+     */
+    public void navigateToTab(NavigationTab tab);
+
+    /**
      * Setup expectations: In home and with search bar.
      *
-     * This method starts search from the search bar in home.
-     *
+     * <p>This method starts search from the search bar in home.
      */
-    default public void startSearch() {
+    public default void startSearch() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
     /**
      * Setup expectations: Google app open.
      *
-     * This method inputs keyword in search box.
+     * <p>This method inputs keyword in search box.
      *
      * @param query The keyword to search.
-     *
      */
-    default public void inputSearch(String query) {
+    public default void inputSearch(String query) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
     /**
      * Setup expectations: Google app open and a search keyword input.
      *
-     * This method clicks the search button and waits for the results.
-     *
+     * <p>This method clicks the search button and waits for the results.
      */
-    default public void clickSearchButtonAndWaitForResults() {
+    public default void clickSearchButtonAndWaitForResults() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
     /**
      * Setup expectations: Google app open to a search result.
      *
-     * This method flings the search results.
+     * <p>This method flings the search results.
      *
      * @param dir The direction of the fling, must be UP or DOWN.
-     *
      */
-    default public void flingSearchResults(Direction dir) {
+    public default void flingSearchResults(Direction dir) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Google app open to a search result.
+     *
+     * <p>This method scroll the search results.
+     *
+     * @param dir The direction of the fling, must be UP or DOWN.
+     */
+    public default void scrollSearchResults(Direction dir) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
     /**
      * Setup expectations: In home.
      *
-     * This method flings right to Google Feed.
-     *
+     * <p>This method flings right to Google Feed.
      */
-    default public void openFeed() {
+    public default void openFeed() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 
     /**
      * Setup expectations: Feed open.
      *
-     * This method flings the feed.
+     * <p>This method flings the feed.
      *
      * @param dir The direction of the fling, must be UP or DOWN.
      */
-    default public void flingFeed(Direction dir) {
+    public default void flingFeed(Direction dir) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
+
+    /**
+     * Setup expectations: Feed open.
+     *
+     * <p>Get the UiObject2 of feed container.
+     */
+    public UiObject2 getFeedContainer();
+
+    /**
+     * Setup expectations: Feed open.
+     *
+     * <p>This method flings the feed.
+     *
+     * @param container The container with scrollable elements.
+     * @param dir The direction of the fling, must be UP or DOWN.
+     */
+    public void flingFeed(UiObject2 container, Direction dir);
+
+    /**
+     * Setup expectations: Feed open.
+     *
+     * <p>This method scrolls the feed with speed.
+     *
+     * @param container The container with scrollable elements.
+     * @param dir The direction of the scroll, must be UP or DOWN.
+     * @param speed The speed of scroll.
+     */
+    public void scrollFeed(UiObject2 container, Direction dir, int speed);
+
+    /**
+     * Setup expectations: Google app open and has done a search.
+     *
+     * <p>This method will go to the specified search result tab.
+     *
+     * @param tab one of the tabs of the search result page.
+     */
+    public abstract void openSearchResultTab(IGoogleHelper.SearchResultTab tab);
 
     /**
      * Setup expectations: In home.

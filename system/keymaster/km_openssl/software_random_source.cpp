@@ -21,9 +21,8 @@
 namespace keymaster {
 
 keymaster_error_t SoftwareRandomSource::GenerateRandom(uint8_t* buffer, size_t length) const {
-    if (RAND_bytes(buffer, length) != 1)
-        return KM_ERROR_UNKNOWN_ERROR;
+    if (RAND_bytes(buffer, length) != 1) return KM_ERROR_UNKNOWN_ERROR;
     return KM_ERROR_OK;
 }
 
-}
+}  // namespace keymaster

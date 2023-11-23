@@ -19,13 +19,14 @@
 namespace chre {
 
 void PlatformSensorBase::initBase(uint8_t sensorType, uint64_t minInterval,
-                                  const char *sensorName,
-                                  bool passiveSupported) {
+                                  const char *sensorName, bool passiveSupported,
+                                  uint16_t targetGroupMask) {
   mSensorType = sensorType;
   mMinInterval = minInterval;
   memcpy(mSensorName, sensorName, kSensorNameMaxLen);
 
   mPassiveSupported = passiveSupported;
+  mTargetGroupMask = targetGroupMask;
 }
 
 uint8_t PlatformSensor::getSensorType() const {
@@ -48,8 +49,16 @@ const char *PlatformSensor::getSensorName() const {
   return mSensorName;
 }
 
+uint16_t PlatformSensor::getTargetGroupMask() const {
+  return mTargetGroupMask;
+}
+
 PlatformSensor::PlatformSensor(PlatformSensor &&other) {
   *this = std::move(other);
+}
+
+uint8_t PlatformSensor::getSensorIndex() const {
+  return CHRE_SENSOR_INDEX_DEFAULT;
 }
 
 PlatformSensor &PlatformSensor::operator=(PlatformSensor &&other) {
@@ -58,6 +67,7 @@ PlatformSensor &PlatformSensor::operator=(PlatformSensor &&other) {
   mSensorType = other.mSensorType;
   mMinInterval = other.mMinInterval;
   mPassiveSupported = other.mPassiveSupported;
+  mTargetGroupMask = other.mTargetGroupMask;
 
   memcpy(mSensorName, other.mSensorName, kSensorNameMaxLen);
 

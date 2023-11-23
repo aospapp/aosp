@@ -17,6 +17,7 @@ import logging
 import common
 from autotest_lib.client.bin import utils
 from autotest_lib.site_utils import lxc
+from autotest_lib.site_utils.lxc import base_image
 
 
 def parse_options():
@@ -41,8 +42,8 @@ def parse_options():
     options = parser.parse_args()
     if not options.setup and not options.force_delete:
         raise argparse.ArgumentError(
-                'Use --setup to setup a base container, or --force_delete to '
-                'delete all containers in given path.')
+            'Use --setup to setup a base container, or --force_delete to '
+            'delete all containers in given path.')
     return options
 
 
@@ -57,7 +58,7 @@ def main():
         utils.run('sudo true')
 
     options = parse_options()
-    image = lxc.BaseImage(container_path=options.path)
+    image = base_image.BaseImage(options.path, lxc.BASE)
     if options.setup:
         image.setup(name=options.name, force_delete=options.force_delete)
     elif options.force_delete:

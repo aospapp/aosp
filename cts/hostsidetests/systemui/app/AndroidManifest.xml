@@ -16,35 +16,39 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.systemui.cts">
+     package="android.systemui.cts">
 
     <application>
+        <activity android:name=".TestNotificationActivity"
+                  android:exported="true"/>
+
         <service android:name=".TestTileService"
-            android:icon="@android:drawable/ic_delete"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+             android:icon="@android:drawable/ic_delete"
+             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
+                <action android:name="android.service.quicksettings.action.QS_TILE"/>
             </intent-filter>
         </service>
 
         <service android:name=".TestActiveTileService"
-            android:icon="@android:drawable/ic_delete"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+             android:icon="@android:drawable/ic_delete"
+             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
+                <action android:name="android.service.quicksettings.action.QS_TILE"/>
             </intent-filter>
             <meta-data android:name="android.service.quicksettings.ACTIVE_TILE"
-                android:value="true" />
+                 android:value="true"/>
         </service>
 
-        <receiver
-            android:name=".TestActiveTileService$Receiver">
+        <receiver android:name=".TestActiveTileService$Receiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.sysui.testtile.REQUEST_LISTENING" />
+                <action android:name="android.sysui.testtile.REQUEST_LISTENING"/>
             </intent-filter>
         </receiver>
 
     </application>
 
 </manifest>
-

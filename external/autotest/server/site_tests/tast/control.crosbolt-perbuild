@@ -7,7 +7,7 @@ NAME = 'tast.crosbolt-perbuild'
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:crosbolt_perf_perbuild'
-MAX_RESULT_SIZE_KB = 50 * 1024
+MAX_RESULT_SIZE_KB = 1024 * 1024
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
@@ -27,10 +27,14 @@ See http://go/tast-failures for information about investigating failures.
 def run(machine):
     job.run_test('tast',
                  host=hosts.create_host(machine),
-                 test_exprs=['(!disabled && "group:crosbolt" && '
-                             'crosbolt_perbuild)'],
+                 test_exprs=['('
+                             '"group:crosbolt" && '
+                             'crosbolt_perbuild && '
+                             '!"dep:android*" && '
+                             '!"dep:plugin_vm"'
+                             ')'],
                  ignore_test_failures=True,
-                 max_run_sec=18000,  # 5 hours.
+                 max_run_sec=21600,  # 6 hours.
                  command_args=args)
 
 parallel_simple(run, machines)

@@ -8,7 +8,7 @@ AUTHOR = 'ejcaruso, samueltan, snanda'
 NAME = 'network_WiFi_WakeOnDisconnect'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-DEPENDENCIES = 'wificell, servo, lucidsleep'
+DEPENDENCIES = 'wificell, servo_state:WORKING, lucidsleep'
 ATTRIBUTES = 'suite:wifi_lucidsleep'
 
 DOC = """

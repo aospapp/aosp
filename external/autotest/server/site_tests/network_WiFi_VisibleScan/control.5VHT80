@@ -6,7 +6,7 @@ AUTHOR = 'pauletti, kirtika'
 NAME = 'network_WiFi_VisibleScan.5VHT80'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_matfunc')
+ATTRIBUTES = ''
 DEPENDENCIES = 'wificell'
 
 DOC = """

@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -31,7 +31,7 @@ public class Poc20_03 extends SecurityTestCase {
      * b/152874234
      */
     @Test
-    @SecurityTest(minPatchLevel = "2020-03")
+    @AsbSecurityTest(cveBugId = 147882143)
     public void testPocCVE_2020_0069() throws Exception {
         if(containsDriver(getDevice(), "/dev/mtk_cmdq") ||
            containsDriver(getDevice(), "/proc/mtk_cmdq") ||

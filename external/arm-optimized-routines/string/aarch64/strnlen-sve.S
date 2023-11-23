@@ -1,23 +1,22 @@
 /*
  * strnlen - calculate the length of a string with limit.
  *
- * Copyright (c) 2019, Arm Limited.
+ * Copyright (c) 2019-2021, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
+#include "../asmdefs.h"
+
+#if __ARM_FEATURE_SVE
 /* Assumptions:
  *
  * ARMv8-a, AArch64
  * SVE Available.
  */
 
-	.arch	armv8-a+sve
-	.text
-
-	.globl	__strnlen_aarch64_sve
-	.type	__strnlen_aarch64_sve, %function
-	.p2align 4
-__strnlen_aarch64_sve:
+ENTRY (__strnlen_aarch64_sve)
+	PTR_ARG (0)
+	SIZE_ARG (1)
 	setffr				/* initialize FFR */
 	mov	x2, 0			/* initialize len */
 	b	1f
@@ -66,7 +65,10 @@ __strnlen_aarch64_sve:
 	b	1b
 
 	/* End of count.  Return max.  */
-9:	mov	x0, x2
+9:	mov	x0, x1
 	ret
 
-	.size	__strnlen_aarch64_sve, . - __strnlen_aarch64_sve
+END (__strnlen_aarch64_sve)
+
+#endif
+

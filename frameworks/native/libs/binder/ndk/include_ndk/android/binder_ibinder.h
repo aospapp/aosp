@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
@@ -35,14 +36,9 @@
 
 __BEGIN_DECLS
 
-#ifndef __ANDROID_API__
-#error Android builds must be compiled against a specific API. If this is an \
- android platform host build, you must use libbinder_ndk_host_user.
-#endif
-
-#if __ANDROID_API__ >= 29
-
-// Also see TF_* in kernel's binder.h
+/**
+ * Flags for AIBinder_transact.
+ */
 typedef uint32_t binder_flags_t;
 enum {
     /**
@@ -54,7 +50,10 @@ enum {
     FLAG_ONEWAY = 0x01,
 };
 
-// Also see IBinder.h in libbinder
+/**
+ * Codes for AIBinder_transact. This defines the range of codes available for
+ * usage. Other codes are used or reserved by the Android system.
+ */
 typedef uint32_t transaction_code_t;
 enum {
     /**
@@ -151,6 +150,11 @@ typedef void (*AIBinder_Class_onDestroy)(void* userData);
 /**
  * This is called whenever a transaction needs to be processed by a local implementation.
  *
+ * This method will be called after the equivalent of
+ * android.os.Parcel#enforceInterface is called. That is, the interface
+ * descriptor associated with the AIBinder_Class descriptor will already be
+ * checked.
+ *
  * \param binder the object being transacted on.
  * \param code implementation-specific code representing which transaction should be taken.
  * \param in the implementation-specific input data to this transaction.
@@ -174,7 +178,7 @@ typedef binder_status_t (*AIBinder_Class_onTransact)(AIBinder* binder, transacti
  * Available since API level 29.
  *
  * \param interfaceDescriptor this is a unique identifier for the class. This is used internally for
- * sanity checks on transactions.
+ * validity checks on transactions. This should be utf-8.
  * \param onCreate see AIBinder_Class_onCreate.
  * \param onDestroy see AIBinder_Class_onDestroy.
  * \param onTransact see AIBinder_Class_onTransact.
@@ -209,7 +213,8 @@ typedef binder_status_t (*AIBinder_onDump)(AIBinder* binder, int fd, const char*
  *
  * Available since API level 29.
  *
- * \param dump function to call when an instance of this binder class is being dumped.
+ * \param clazz class which should use this dump function
+ * \param onDump function to call when an instance of this binder class is being dumped.
  */
 void AIBinder_Class_setOnDump(AIBinder_Class* clazz, AIBinder_onDump onDump) __INTRODUCED_IN(29);
 
@@ -407,6 +412,8 @@ int32_t AIBinder_debugGetRefCount(AIBinder* binder) __INTRODUCED_IN(29);
  * This returns true if the class association succeeds. If it fails, no change is made to the
  * binder object.
  *
+ * Warning: this may fail if the binder is dead.
+ *
  * Available since API level 29.
  *
  * \param binder the object to attach the class to.
@@ -450,12 +457,14 @@ void* AIBinder_getUserData(AIBinder* binder) __INTRODUCED_IN(29);
  */
 
 /**
- * Creates a parcel to start filling out for a transaction. This may add data to the parcel for
- * security, debugging, or other purposes. This parcel is to be sent via AIBinder_transact and it
- * represents the input data to the transaction. It is recommended to check if the object is local
- * and call directly into its user data before calling this as the parceling and unparceling cost
- * can be avoided. This AIBinder must be either built with a class or associated with a class before
- * using this API.
+ * Creates a parcel to start filling out for a transaction. This will add a header to the
+ * transaction that corresponds to android.os.Parcel#writeInterfaceToken. This may add debugging
+ * or other information to the transaction for platform use or to enable other features to work. The
+ * contents of this header is a platform implementation detail, and it is required to use
+ * libbinder_ndk. This parcel is to be sent via AIBinder_transact and it represents the input data
+ * to the transaction. It is recommended to check if the object is local and call directly into its
+ * user data before calling this as the parceling and unparceling cost can be avoided. This AIBinder
+ * must be either built with a class or associated with a class before using this API.
  *
  * This does not affect the ownership of binder. When this function succeeds, the in parcel's
  * ownership is passed to the caller. At this point, the parcel can be filled out and passed to
@@ -565,10 +574,6 @@ __attribute__((warn_unused_result)) AIBinder_DeathRecipient* AIBinder_DeathRecip
  */
 void AIBinder_DeathRecipient_delete(AIBinder_DeathRecipient* recipient) __INTRODUCED_IN(29);
 
-#endif  //__ANDROID_API__ >= 29
-
-#if __ANDROID_API__ >= 30
-
 /**
  * Gets the extension registered with AIBinder_setExtension.
  *
@@ -638,7 +643,91 @@ binder_status_t AIBinder_getExtension(AIBinder* binder, AIBinder** outExt) __INT
  */
 binder_status_t AIBinder_setExtension(AIBinder* binder, AIBinder* ext) __INTRODUCED_IN(30);
 
-#endif  //__ANDROID_API__ >= 30
+/**
+ * Retrieve the class descriptor for the class.
+ *
+ * Available since API level 31.
+ *
+ * \param clazz the class to fetch the descriptor from
+ *
+ * \return the class descriptor string. This pointer will never be null; a
+ * descriptor is required to define a class. The pointer is owned by the class
+ * and will remain valid as long as the class does. For a local class, this will
+ * be the same value (not necessarily pointer equal) as is passed into
+ * AIBinder_Class_define. Format is utf-8.
+ */
+const char* AIBinder_Class_getDescriptor(const AIBinder_Class* clazz) __INTRODUCED_IN(31);
+
+/**
+ * Whether AIBinder is less than another.
+ *
+ * This provides a per-process-unique total ordering of binders where a null
+ * AIBinder* object is considered to be before all other binder objects.
+ * For instance, two binders refer to the same object in a local or remote
+ * process when both AIBinder_lt(a, b) and AIBinder(b, a) are false. This API
+ * might be used to insert and lookup binders in binary search trees.
+ *
+ * AIBinder* pointers themselves actually also create a per-process-unique total
+ * ordering. However, this ordering is inconsistent with AIBinder_Weak_lt for
+ * remote binders. So, in general, this function should be preferred.
+ *
+ * Available since API level 31.
+ *
+ * \param lhs comparison object
+ * \param rhs comparison object
+ *
+ * \return whether "lhs < rhs" is true
+ */
+bool AIBinder_lt(const AIBinder* lhs, const AIBinder* rhs) __INTRODUCED_IN(31);
+
+/**
+ * Clone an AIBinder_Weak. Useful because even if a weak binder promotes to a
+ * null value, after further binder transactions, it may no longer promote to a
+ * null value.
+ *
+ * Available since API level 31.
+ *
+ * \param weak Object to clone
+ *
+ * \return clone of the input parameter. This must be deleted with
+ * AIBinder_Weak_delete. Null if weak input parameter is also null.
+ */
+AIBinder_Weak* AIBinder_Weak_clone(const AIBinder_Weak* weak) __INTRODUCED_IN(31);
+
+/**
+ * Whether AIBinder_Weak is less than another.
+ *
+ * This provides a per-process-unique total ordering of binders which is exactly
+ * the same as AIBinder_lt. Similarly, a null AIBinder_Weak* is considered to be
+ * ordered before all other weak references.
+ *
+ * This function correctly distinguishes binders even if one is deallocated. So,
+ * for instance, an AIBinder_Weak* entry representing a deleted binder will
+ * never compare as equal to an AIBinder_Weak* entry which represents a
+ * different allocation of a binder, even if the two binders were originally
+ * allocated at the same address. That is:
+ *
+ *     AIBinder* a = ...; // imagine this has address 0x8
+ *     AIBinder_Weak* bWeak = AIBinder_Weak_new(a);
+ *     AIBinder_decStrong(a); // a may be deleted, if this is the last reference
+ *     AIBinder* b = ...; // imagine this has address 0x8 (same address as b)
+ *     AIBinder_Weak* bWeak = AIBinder_Weak_new(b);
+ *
+ * Then when a/b are compared with other binders, their order will be preserved,
+ * and it will either be the case that AIBinder_Weak_lt(aWeak, bWeak) OR
+ * AIBinder_Weak_lt(bWeak, aWeak), but not both.
+ *
+ * Unlike AIBinder*, the AIBinder_Weak* addresses themselves have nothing to do
+ * with the underlying binder.
+ *
+ * Available since API level 31.
+ *
+ * \param lhs comparison object
+ * \param rhs comparison object
+ *
+ * \return whether "lhs < rhs" is true
+ */
+bool AIBinder_Weak_lt(const AIBinder_Weak* lhs, const AIBinder_Weak* rhs) __INTRODUCED_IN(31);
 
 __END_DECLS
 

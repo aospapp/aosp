@@ -1,9 +1,8 @@
-# Bug component: 1344
-jsharkey@android.com
-omakoto@google.com
-yamasani@google.com
+# Bug component: 655625
+
+include platform/frameworks/base:/core/java/android/os/storage/OWNERS
+
 tgunn@google.com
 nicksauer@google.com
 nona@google.com
-nandana@google.com
-zezeozue@google.com
+omakoto@google.com

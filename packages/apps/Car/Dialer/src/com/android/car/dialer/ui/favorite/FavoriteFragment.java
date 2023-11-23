@@ -24,7 +24,7 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.lifecycle.ViewModelProviders;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -34,12 +34,21 @@ import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.dialer.ui.common.DialerListBaseFragment;
 import com.android.car.dialer.ui.common.DialerUtils;
 import com.android.car.telephony.common.Contact;
+import com.android.car.ui.recyclerview.DelegatingContentLimitingAdapter;
+
+import javax.inject.Inject;
+
+import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * Contains a list of favorite contacts.
  */
-public class FavoriteFragment extends DialerListBaseFragment {
-    private FavoriteAdapter mFavoriteAdapter;
+@AndroidEntryPoint(DialerListBaseFragment.class)
+public class FavoriteFragment extends Hilt_FavoriteFragment {
+    @Inject UiCallManager mUiCallManager;
+
+    private DelegatingContentLimitingAdapter<FavoriteContactViewHolder>
+            mContentLimitingAdapter;
 
     /**
      * Constructs a new {@link FavoriteFragment}
@@ -54,12 +63,12 @@ public class FavoriteFragment extends DialerListBaseFragment {
         getRecyclerView().addItemDecoration(new ItemSpacingDecoration());
         getRecyclerView().setItemAnimator(null);
 
-        mFavoriteAdapter = new FavoriteAdapter();
-        mFavoriteAdapter.setOnAddFavoriteClickedListener(this::onAddFavoriteClicked);
+        FavoriteAdapter favoriteAdapter = new FavoriteAdapter();
+        favoriteAdapter.setOnAddFavoriteClickedListener(this::onAddFavoriteClicked);
 
-        FavoriteViewModel favoriteViewModel = ViewModelProviders.of(getActivity()).get(
+        FavoriteViewModel favoriteViewModel = new ViewModelProvider(getActivity()).get(
                 FavoriteViewModel.class);
-        mFavoriteAdapter.setOnListItemClickedListener(this::onItemClicked);
+        favoriteAdapter.setOnListItemClickedListener(this::onItemClicked);
         favoriteViewModel.getFavoriteContacts().observe(this, contacts -> {
             if (contacts.isLoading()) {
                 showLoading();
@@ -68,12 +77,24 @@ public class FavoriteFragment extends DialerListBaseFragment {
                         R.string.no_favorites_added, R.string.add_favorite_button,
                         v -> onAddFavoriteClicked(), true);
             } else {
-                mFavoriteAdapter.setFavoriteContacts(contacts.getData());
+                favoriteAdapter.setFavoriteContacts(contacts.getData());
+                int contactCount = contacts.getData().size();
+                mContentLimitingAdapter.updateUnderlyingDataChanged(contactCount,
+                        DialerUtils.validateListLimitingAnchor(
+                                contactCount,
+                                favoriteAdapter.getLastLimitingAnchorIndex()));
                 showContent();
             }
         });
+        favoriteViewModel.getSortOrderLiveData().observe(this,
+                v -> favoriteAdapter.setSortMethod(v));
 
-        getRecyclerView().setAdapter(mFavoriteAdapter);
+        mContentLimitingAdapter =
+                new DelegatingContentLimitingAdapter<>(
+                        favoriteAdapter,
+                        R.id.favorite_list_uxr_config);
+        getRecyclerView().setAdapter(mContentLimitingAdapter);
+        getUxrContentLimiter().setAdapter(mContentLimitingAdapter);
     }
 
     @NonNull
@@ -84,7 +105,7 @@ public class FavoriteFragment extends DialerListBaseFragment {
 
     private void onItemClicked(Contact contact) {
         DialerUtils.promptForPrimaryNumber(getContext(), contact, (phoneNumber, always) ->
-                UiCallManager.get().placeCall(phoneNumber.getRawNumber()));
+                mUiCallManager.placeCall(phoneNumber.getRawNumber()));
     }
 
     private void onAddFavoriteClicked() {
@@ -119,7 +140,10 @@ public class FavoriteFragment extends DialerListBaseFragment {
             SpanSizeLookup spanSizeLookup = new SpanSizeLookup() {
                 @Override
                 public int getSpanSize(int position) {
-                    if (mFavoriteAdapter.getItemViewType(position) == FavoriteAdapter.TYPE_HEADER) {
+                    if (mContentLimitingAdapter.getItemViewType(position)
+                            == FavoriteAdapter.TYPE_HEADER
+                            || mContentLimitingAdapter.getItemViewType(position)
+                            == mContentLimitingAdapter.getScrollingLimitedMessageViewType()) {
                         return getSpanCount();
                     }
                     return 1;

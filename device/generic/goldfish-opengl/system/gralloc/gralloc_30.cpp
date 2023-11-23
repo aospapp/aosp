@@ -149,7 +149,9 @@ std::unique_ptr<buffer_manager_t> create_buffer_manager(goldfish_gralloc30_modul
 
 class goldfish_gralloc30_module_t {
 public:
-    goldfish_gralloc30_module_t(): m_hostConn(HostConnection::createUnique()) {
+    // TODO(b/142677230): Use unique pointers instead.
+    goldfish_gralloc30_module_t()
+        : m_hostConn(HostConnection::createUnique().release()) {
         CRASH_IF(!m_hostConn, "m_hostConn cannot be nullptr");
         m_bufferManager = create_buffer_manager(this);
         CRASH_IF(!m_bufferManager, "m_bufferManager cannot be nullptr");

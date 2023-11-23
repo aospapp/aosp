@@ -70,7 +70,7 @@ class SettingsActivity : AppCompatActivity() {
                 settings_auth_credentials_label,
                 settings_auth_credentials_icon,
                 View.OnClickListener {
-                    if (MyPreferences.getMasterPassword(this@SettingsActivity) != null) {
+                    if (MyPreferences.getMainPassword(this@SettingsActivity) != null) {
                         buildCurrentCredentialsDialog().show()
                     } else {
                         buildNewCredentialsDialog().show()
@@ -101,13 +101,13 @@ class SettingsActivity : AppCompatActivity() {
         val currentPasswordField = LayoutInflater
                 .from(this@SettingsActivity)
                 .inflate(R.layout.multidataset_service_settings_authentication_dialog, null)
-                .findViewById<EditText>(R.id.master_password_field)
+                .findViewById<EditText>(R.id.main_password_field)
         return prepareCredentialsDialog()
                 .setMessage(R.string.settings_auth_enter_current_password)
                 .setView(currentPasswordField)
                 .setPositiveButton(R.string.ok) { dialog, which ->
                     val password = currentPasswordField.text.toString()
-                    if (MyPreferences.getMasterPassword(this@SettingsActivity) == password) {
+                    if (MyPreferences.getMainPassword(this@SettingsActivity) == password) {
                         buildNewCredentialsDialog().show()
                         dialog.dismiss()
                     }
@@ -119,13 +119,13 @@ class SettingsActivity : AppCompatActivity() {
         val newPasswordField = LayoutInflater
                 .from(this@SettingsActivity)
                 .inflate(R.layout.multidataset_service_settings_authentication_dialog, null)
-                .findViewById<EditText>(R.id.master_password_field)
+                .findViewById<EditText>(R.id.main_password_field)
         return prepareCredentialsDialog()
                 .setMessage(R.string.settings_auth_enter_new_password)
                 .setView(newPasswordField)
                 .setPositiveButton(R.string.ok) { dialog, which ->
                     val password = newPasswordField.text.toString()
-                    MyPreferences.setMasterPassword(this@SettingsActivity, password)
+                    MyPreferences.setMainPassword(this@SettingsActivity, password)
                     dialog.dismiss()
                 }
                 .create()

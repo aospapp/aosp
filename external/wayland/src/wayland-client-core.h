@@ -191,11 +191,21 @@ wl_proxy_get_version(struct wl_proxy *proxy);
 uint32_t
 wl_proxy_get_id(struct wl_proxy *proxy);
 
+void
+wl_proxy_set_tag(struct wl_proxy *proxy,
+		 const char * const *tag);
+
+const char * const *
+wl_proxy_get_tag(struct wl_proxy *proxy);
+
 const char *
 wl_proxy_get_class(struct wl_proxy *proxy);
 
 void
 wl_proxy_set_queue(struct wl_proxy *proxy, struct wl_event_queue *queue);
+
+struct wl_proxy *
+wl_proxy_from_object(struct wl_object *object);
 
 struct wl_display *
 wl_display_connect(const char *name);
@@ -260,8 +270,31 @@ wl_display_read_events(struct wl_display *display);
 void
 wl_log_set_handler_client(wl_log_func_t handler);
 
+enum wl_protocol_logger_client_type {
+	WL_PROTOCOL_LOGGER_CLIENT_REQUEST,
+	WL_PROTOCOL_LOGGER_CLIENT_EVENT,
+};
+
+struct wl_protocol_logger_client_message {
+	struct wl_proxy *proxy;
+	int message_opcode;
+	const struct wl_message *message;
+	int arguments_count;
+	const union wl_argument *arguments;
+};
+
+typedef void (*wl_protocol_logger_client_func_t)(
+		void *user_data,
+		enum wl_protocol_logger_client_type direction,
+		const struct wl_protocol_logger_client_message *message);
+
+struct wl_protocol_logger_client *
+wl_display_add_protocol_logger_client(struct wl_display *display,
+				      wl_protocol_logger_client_func_t,
+				      void *user_data);
+
 void
-wl_set_debug_client_flag(int value);
+wl_protocol_logger_client_destroy(struct wl_protocol_logger_client *logger);
 
 #ifdef  __cplusplus
 }

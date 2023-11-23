@@ -225,16 +225,23 @@ const ClassDef* DexFile::FindClassDef(dex::TypeIndex type_idx) const {
   return nullptr;
 }
 
-uint32_t DexFile::FindCodeItemOffset(const ClassDef& class_def, uint32_t method_idx) const {
+std::optional<uint32_t> DexFile::GetCodeItemOffset(const ClassDef &class_def,
+                                                   uint32_t method_idx) const {
   ClassAccessor accessor(*this, class_def);
   CHECK(accessor.HasClassData());
-  for (const ClassAccessor::Method& method : accessor.GetMethods()) {
+  for (const ClassAccessor::Method &method : accessor.GetMethods()) {
     if (method.GetIndex() == method_idx) {
       return method.GetCodeItemOffset();
     }
   }
-  LOG(FATAL) << "Unable to find method " << method_idx;
-  UNREACHABLE();
+  return std::nullopt;
+}
+
+uint32_t DexFile::FindCodeItemOffset(const dex::ClassDef &class_def,
+                                     uint32_t dex_method_idx) const {
+  std::optional<uint32_t> val = GetCodeItemOffset(class_def, dex_method_idx);
+  CHECK(val.has_value()) << "Unable to find method " << dex_method_idx;
+  return *val;
 }
 
 const FieldId* DexFile::FindFieldId(const TypeId& declaring_klass,
@@ -279,6 +286,13 @@ const MethodId* DexFile::FindMethodId(const TypeId& declaring_klass,
   const dex::TypeIndex class_idx = GetIndexForTypeId(declaring_klass);
   const dex::StringIndex name_idx = GetIndexForStringId(name);
   const dex::ProtoIndex proto_idx = GetIndexForProtoId(signature);
+  return FindMethodIdByIndex(class_idx, name_idx, proto_idx);
+}
+
+const MethodId* DexFile::FindMethodIdByIndex(dex::TypeIndex class_idx,
+                                             dex::StringIndex name_idx,
+                                             dex::ProtoIndex proto_idx) const {
+  // Binary search MethodIds knowing that they are sorted by class_idx, name_idx then proto_idx
   int32_t lo = 0;
   int32_t hi = NumMethodIds() - 1;
   while (hi >= lo) {
@@ -299,6 +313,9 @@ const MethodId* DexFile::FindMethodId(const TypeId& declaring_klass,
         } else if (proto_idx < method.proto_idx_) {
           hi = mid - 1;
         } else {
+          DCHECK_EQ(class_idx, method.class_idx_);
+          DCHECK_EQ(proto_idx, method.proto_idx_);
+          DCHECK_EQ(name_idx, method.name_idx_);
           return &method;
         }
       }
@@ -519,34 +536,35 @@ uint64_t DexFile::ReadUnsignedLong(const uint8_t* ptr, int zwidth, bool fill_on_
   return val;
 }
 
-std::string DexFile::PrettyMethod(uint32_t method_idx, bool with_signature) const {
+void DexFile::AppendPrettyMethod(uint32_t method_idx,
+                                 bool with_signature,
+                                 std::string* const result) const {
   if (method_idx >= NumMethodIds()) {
-    return StringPrintf("<<invalid-method-idx-%d>>", method_idx);
+    android::base::StringAppendF(result, "<<invalid-method-idx-%d>>", method_idx);
+    return;
   }
   const MethodId& method_id = GetMethodId(method_idx);
-  std::string result;
   const ProtoId* proto_id = with_signature ? &GetProtoId(method_id.proto_idx_) : nullptr;
   if (with_signature) {
-    AppendPrettyDescriptor(StringByTypeIdx(proto_id->return_type_idx_), &result);
-    result += ' ';
+    AppendPrettyDescriptor(StringByTypeIdx(proto_id->return_type_idx_), result);
+    result->push_back(' ');
   }
-  AppendPrettyDescriptor(GetMethodDeclaringClassDescriptor(method_id), &result);
-  result += '.';
-  result += GetMethodName(method_id);
+  AppendPrettyDescriptor(GetMethodDeclaringClassDescriptor(method_id), result);
+  result->push_back('.');
+  result->append(GetMethodName(method_id));
   if (with_signature) {
-    result += '(';
+    result->push_back('(');
     const TypeList* params = GetProtoParameters(*proto_id);
     if (params != nullptr) {
       const char* separator = "";
       for (uint32_t i = 0u, size = params->Size(); i != size; ++i) {
-        result += separator;
+        result->append(separator);
         separator = ", ";
-        AppendPrettyDescriptor(StringByTypeIdx(params->GetTypeItem(i).type_idx_), &result);
+        AppendPrettyDescriptor(StringByTypeIdx(params->GetTypeItem(i).type_idx_), result);
       }
     }
-    result += ')';
+    result->push_back(')');
   }
-  return result;
 }
 
 std::string DexFile::PrettyField(uint32_t field_idx, bool with_type) const {

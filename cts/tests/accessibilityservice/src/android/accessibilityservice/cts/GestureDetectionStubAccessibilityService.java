@@ -28,7 +28,7 @@ import java.util.List;
 /** Accessibility service stub, which will collect recognized gestures. */
 public class GestureDetectionStubAccessibilityService extends InstrumentedAccessibilityService {
     private static final long GESTURE_RECOGNIZE_TIMEOUT_MS = 3000;
-    private static final long EVENT_RECOGNIZE_TIMEOUT_MS = 5000;
+    protected static final long EVENT_RECOGNIZE_TIMEOUT_MS = 5000;
     // Member variables
     protected final Object mLock = new Object();
     private ArrayList<Integer> mCollectedGestures = new ArrayList();
@@ -154,18 +154,45 @@ public class GestureDetectionStubAccessibilityService extends InstrumentedAccess
     public void assertGestureReceived(int gestureId, int displayId) {
         // Wait for gesture recognizer, and check recognized gesture.
         waitUntilGestureInfo();
-        if(displayId == Display.DEFAULT_DISPLAY) {
-            assertEquals(1, getGesturesSize());
-            assertEquals(gestureId, getGesture(0));
+        if (displayId == Display.DEFAULT_DISPLAY) {
+            String expected = AccessibilityGestureEvent.gestureIdToString(gestureId);
+            if (getGesturesSize() == 0) {
+                fail("No gesture received when expecting " + expected);
+            } else if (getGesturesSize() > 1) {
+                List<String> received = new ArrayList<>();
+                for (int i = 0; i < getGesturesSize(); ++i) {
+                    received.add(AccessibilityGestureEvent.gestureIdToString(getGesture(i)));
+                }
+                fail("Expected " + expected + " but received " + received);
+            } else {
+                String received = AccessibilityGestureEvent.gestureIdToString(getGesture(0));
+                assertEquals(expected, received);
+            }
         }
-        assertEquals(1, getGestureInfoSize());
+        String expected = AccessibilityGestureEvent.gestureIdToString(gestureId);
+        if (getGestureInfoSize() == 0) {
+            fail("No gesture received when expecting " + expected);
+        } else if (getGestureInfoSize() > 1) {
+            List<String> received = new ArrayList<>();
+            for (int i = 0; i < getGesturesSize(); ++i) {
+                received.add(
+                        AccessibilityGestureEvent.gestureIdToString(
+                                getGestureInfo(i).getGestureId()));
+            }
+            fail("Expected " + expected + " but received " + received);
+        }
         AccessibilityGestureEvent expectedGestureEvent =
                 new AccessibilityGestureEvent(gestureId, displayId);
         AccessibilityGestureEvent actualGestureEvent = getGestureInfo(0);
         if (!expectedGestureEvent.toString().equals(actualGestureEvent.toString())) {
-            fail("Unexpected gesture received, "
-                    + "Received " + actualGestureEvent + ", Expected " + expectedGestureEvent);
+            fail(
+                    "Unexpected gesture received, "
+                            + "Received "
+                            + actualGestureEvent
+                            + ", Expected "
+                            + expectedGestureEvent);
         }
+        clearGestures();
     }
 
     /** Insure that the specified accessibility events have been received. */

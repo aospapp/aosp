@@ -16,12 +16,34 @@
 
 from acts.controllers.fuchsia_lib.base_lib import BaseLib
 
+import uuid
+
 
 class FuchsiaBleLib(BaseLib):
     def __init__(self, addr, tc, client_id):
         self.address = addr
         self.test_counter = tc
         self.client_id = client_id
+
+    def _convert_human_readable_uuid_to_byte_list(self, readable_uuid):
+        """Converts a readable uuid to a byte list.
+
+        Args:
+            readable_uuid: string, A readable uuid in the format:
+                Input: "00001101-0000-1000-8000-00805f9b34fb"
+                Output: ['fb', '34', '9b', '5f', '80', '00', '00', '80', '00', '10', '00', '00', '01', '11', '00', '00']
+
+        Returns:
+            A byte list representing the readable uuid.
+        """
+        hex_uuid_str = uuid.UUID(readable_uuid).hex
+        break_n_bytes = 2
+        byte_list = [
+            hex_uuid_str[i:i + break_n_bytes]
+            for i in range(0, len(hex_uuid_str), break_n_bytes)
+        ]
+        byte_list.reverse()
+        return byte_list
 
     def bleStopBleAdvertising(self):
         """BleStopAdvertising command
@@ -38,20 +60,55 @@ class FuchsiaBleLib(BaseLib):
 
     def bleStartBleAdvertising(self,
                                advertising_data,
+                               scan_response,
                                interval,
                                connectable=True):
         """BleStartAdvertising command
 
         Args:
-            advertising_data: dictionary, advertising data required for ble advertise.
+            advertising_data: dictionary, advertising data required for ble
+                advertise.
+            scan_response: dictionary, optional scan respones data to send.
             interval: int, Advertising interval (in ms).
+            connectable: bool, whether the advertisement is connectable or not.
 
         Returns:
             Dictionary, None if success, error string if error.
         """
         test_cmd = "ble_advertise_facade.BleAdvertise"
+        service_uuid_list = None
+        if type(advertising_data['service_uuids']) == list:
+            service_uuid_list = []
+            for single_uuid in advertising_data['service_uuids']:
+                service_uuid_list.append(
+                    self._convert_human_readable_uuid_to_byte_list(
+                        single_uuid))
+            advertising_data['service_uuids'] = service_uuid_list
+
+        service_uuid_list = None
+        if scan_response and type(scan_response['service_uuids']) == list:
+            service_uuid_list = []
+            for single_uuid in scan_response['service_uuids']:
+                service_uuid_list.append(
+                    self._convert_human_readable_uuid_to_byte_list(
+                        single_uuid))
+            scan_response['service_uuids'] = service_uuid_list
+
+        if scan_response and type(scan_response['service_data']) == list:
+            for service_data in scan_response['service_data']:
+                service_data[
+                    "uuid"] = self._convert_human_readable_uuid_to_byte_list(
+                        service_data["uuid"])
+
+        if type(advertising_data['service_data']) == list:
+            for service_data in advertising_data['service_data']:
+                service_data[
+                    "uuid"] = self._convert_human_readable_uuid_to_byte_list(
+                        service_data["uuid"])
+
         test_args = {
             "advertising_data": advertising_data,
+            "scan_response": scan_response,
             "interval_ms": interval,
             "connectable": connectable
         }

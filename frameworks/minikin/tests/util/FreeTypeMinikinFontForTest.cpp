@@ -37,8 +37,6 @@
 namespace minikin {
 namespace {
 
-static int uniqueId = 0;
-
 constexpr FT_Int32 LOAD_FLAG =
         FT_LOAD_NO_HINTING | FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH;
 
@@ -62,7 +60,7 @@ void loadGlyphOrDie(uint32_t glyphId, float size, FT_Face face) {
 }  // namespace
 
 FreeTypeMinikinFontForTest::FreeTypeMinikinFontForTest(const std::string& font_path, int index)
-        : MinikinFont(uniqueId++), mFontPath(font_path), mFontIndex(index) {
+        : mFontPath(font_path), mFontIndex(index) {
     int fd = open(font_path.c_str(), O_RDONLY);
     LOG_ALWAYS_FATAL_IF(fd == -1, "Open failed: %s", font_path.c_str());
     struct stat st = {};
@@ -112,6 +110,20 @@ void FreeTypeMinikinFontForTest::GetFontExtent(MinikinExtent* extent, const Mini
     float upem = mFtFace->units_per_EM;
     extent->ascent = -static_cast<float>(mFtFace->ascender) * paint.size / upem;
     extent->descent = -static_cast<float>(mFtFace->descender) * paint.size / upem;
+}
+
+void writeFreeTypeMinikinFontForTest(BufferWriter* writer, const MinikinFont* typeface) {
+    writer->writeString(typeface->GetFontPath());
+}
+
+std::shared_ptr<MinikinFont> loadFreeTypeMinikinFontForTest(BufferReader reader) {
+    std::string fontPath(reader.readString());
+    return std::make_shared<FreeTypeMinikinFontForTest>(fontPath);
+}
+
+Font::TypefaceLoader* readFreeTypeMinikinFontForTest(BufferReader* reader) {
+    reader->skipString();  // fontPath
+    return &loadFreeTypeMinikinFontForTest;
 }
 
 }  // namespace minikin

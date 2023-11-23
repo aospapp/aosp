@@ -49,6 +49,7 @@ public class SurfacePixelValidator2 {
     private int mResultSuccessFrames;
     private int mResultFailureFrames;
     private SparseArray<Bitmap> mFirstFailures = new SparseArray<>(MAX_CAPTURED_FAILURES);
+    private long mFrameNumber = 0;
 
     private ImageReader.OnImageAvailableListener mOnImageAvailable =
             new ImageReader.OnImageAvailableListener() {
@@ -65,7 +66,8 @@ public class SurfacePixelValidator2 {
             }
             Trace.endSection();
 
-            boolean success = mPixelChecker.validatePlane(plane, mBoundsToCheck, mWidth, mHeight);
+            boolean success = mPixelChecker.validatePlane(plane, mFrameNumber++, mBoundsToCheck,
+                    mWidth, mHeight);
 
             synchronized (mResultLock) {
                 mResultLock.notifyAll();

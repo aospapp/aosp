@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsStaticSharedLibProviderApp7",
     defaults: ["cts_support_defaults"],
@@ -23,7 +27,6 @@ android_test_helper_app {
     additional_certificates: [":cts-keyset-test-a"],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     optimize: {

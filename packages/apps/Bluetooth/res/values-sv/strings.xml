@@ -18,8 +18,8 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Åtkomst till nedladdningshanterare."</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Tillåter att appen använder BluetoothShare-hanteraren vid överföring av filer."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Lägga till åtkomst för Bluetooth-enheter på den godkända listan"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Appen tillåts lägga till en Bluetooth-enhet tillfälligt på den godkända listan, vilket gör det möjligt att skicka filer mellan olika enheter utan bekräftelse från användaren."</string>
+    <string name="permlab_bluetoothAcceptlist" msgid="2647575807648622053">"Lägg till åtkomst för Bluetooth-enheten på godkännandelistan."</string>
+    <string name="permdesc_bluetoothAcceptlist" msgid="2406423665674766442">"Tillåter att appen tillfälligt lägger till en Bluetooth-enhet på godkännandelistan så att det går att skicka filer från den enheten till den här utan bekräftelse från användaren."</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Okänd enhet"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Okänd"</string>
@@ -37,7 +37,7 @@
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Tidsgränsen överskreds när en inkommande fil från <xliff:g id="SENDER">%1$s</xliff:g> skulle tas emot"</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Inkommande fil"</string>
-    <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> är klar att skicka <xliff:g id="FILE">%2$s</xliff:g>"</string>
+    <string name="incoming_file_confirm_Notification_content" msgid="6237487486781004992">"<xliff:g id="SENDER">%1$s</xliff:g> är redo att skicka en fil: <xliff:g id="FILE">%2$s</xliff:g>"</string>
     <string name="notification_receiving" msgid="4674648179652543984">"Bluetooth-delning: tar emot <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="notification_received" msgid="3324588019186687985">"Bluetooth-delning: <xliff:g id="FILE">%1$s</xliff:g> har tagits emot"</string>
     <string name="notification_received_fail" msgid="3619350997285714746">"Bluetooth-delning: filen <xliff:g id="FILE">%1$s</xliff:g> har inte tagits emot"</string>
@@ -83,8 +83,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Skickar fil till <xliff:g id="RECIPIENT">%1$s</xliff:g>"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Skickar <xliff:g id="NUMBER">%1$s</xliff:g> filer till <xliff:g id="RECIPIENT">%2$s</xliff:g>"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Filöverföringen till <xliff:g id="RECIPIENT">%1$s</xliff:g> har avbrutits"</string>
-    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Det finns inte tillräckligt mycket utrymme på USB-lagringsenheten för att spara filen från <xliff:g id="SENDER">%1$s</xliff:g>"</string>
-    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Det finns för lite utrymme på SD-kortet för att spara filen från <xliff:g id="SENDER">%1$s</xliff:g>"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="5354343190503952837">"Det finns inte tillräckligt mycket utrymme på USB-lagringsenheten för att spara filen."</string>
+    <string name="bt_sm_2_1_default" msgid="2497541206648973852">"Det finns för lite utrymme på SD-kortet för att spara filen."</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Utrymmesbehov: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"För många begäranden bearbetas. Försök igen senare."</string>
     <string name="status_pending" msgid="2503691772030877944">"Filöverföringen har inte börjat."</string>

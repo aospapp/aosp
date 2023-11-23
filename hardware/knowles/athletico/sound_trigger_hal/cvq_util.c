@@ -796,7 +796,8 @@ exit:
     return err;
 }
 
-unsigned int get_hotword_version(struct iaxxx_odsp_hw *odsp_hdl)
+int get_hotword_info(struct iaxxx_odsp_hw *odsp_hdl,
+                    unsigned int *hotword_version, void *supported_model_arch)
 {
     int err = 0;
     const uint32_t inst_id = HOTWORD_INSTANCE_ID;
@@ -817,6 +818,15 @@ unsigned int get_hotword_version(struct iaxxx_odsp_hw *odsp_hdl)
                 ALOGD("%s: Value of parameter id %u is %u", __func__, param_id,
                       param_val);
             }
+            *hotword_version = param_val;
+            err = iaxxx_odsp_plugin_get_parameter_blk(odsp_hdl, inst_id, block_id,
+                                                    PARAM_BLOCK_GET_DSP_IDENTIFIER,
+                                                    supported_model_arch,
+                                                    PAYLOAD_MAX_STRING_LEN);
+            if (err != 0) {
+                ALOGE("%s: Failed to get dsp identifier with error %d: %s",
+                      __func__, err, strerror(errno));
+            }
         } else {
             ALOGE("%s: ERROR: setup hotword package failed", __func__);
         }
@@ -830,12 +840,21 @@ unsigned int get_hotword_version(struct iaxxx_odsp_hw *odsp_hdl)
             ALOGD("%s: Value of parameter id %u is %u", __func__, param_id,
                   param_val);
         }
+        *hotword_version = param_val;
+        err = iaxxx_odsp_plugin_get_parameter_blk(odsp_hdl, inst_id, block_id,
+                                                PARAM_BLOCK_GET_DSP_IDENTIFIER,
+                                                supported_model_arch,
+                                                PAYLOAD_MAX_STRING_LEN);
+        if (err != 0) {
+            ALOGE("%s: Failed to get dsp identifier with error %d: %s",
+                  __func__, err, strerror(errno));
+        }
         err = destroy_hotword_package(odsp_hdl);
         if (err != 0)
             ALOGE("%s: ERROR: destroy hotword package failed", __func__);
     }
 
-    return param_val;
+    return err;
 }
 
 int setup_ambient_package(struct iaxxx_odsp_hw *odsp_hdl)
@@ -905,7 +924,8 @@ exit:
     return err;
 }
 
-unsigned int get_ambient_version(struct iaxxx_odsp_hw *odsp_hdl)
+int get_ambient_info(struct iaxxx_odsp_hw *odsp_hdl,
+                    unsigned int *ambient_version, void *supported_model_arch)
 {
     int err = 0;
     const uint32_t inst_id = AMBIENT_INSTANCE_ID;
@@ -926,6 +946,15 @@ unsigned int get_ambient_version(struct iaxxx_odsp_hw *odsp_hdl)
                 ALOGD("%s: Value of parameter id %u is %u", __func__, param_id,
                       param_val);
             }
+            *ambient_version = param_val;
+            err = iaxxx_odsp_plugin_get_parameter_blk(odsp_hdl, inst_id, block_id,
+                                                    PARAM_BLOCK_GET_DSP_IDENTIFIER,
+                                                    supported_model_arch,
+                                                    PAYLOAD_MAX_STRING_LEN);
+            if (err != 0) {
+                ALOGE("%s: Failed to get dsp identifier with error %d: %s",
+                      __func__, err, strerror(errno));
+            }
         } else {
             ALOGE("%s: ERROR: setup Ambient package failed", __func__);
         }
@@ -939,12 +968,21 @@ unsigned int get_ambient_version(struct iaxxx_odsp_hw *odsp_hdl)
             ALOGD("%s: Value of parameter id %u is %u", __func__, param_id,
                   param_val);
         }
+        *ambient_version = param_val;
+        err = iaxxx_odsp_plugin_get_parameter_blk(odsp_hdl, inst_id, block_id,
+                                                PARAM_BLOCK_GET_DSP_IDENTIFIER,
+                                                supported_model_arch,
+                                                PAYLOAD_MAX_STRING_LEN);
+        if (err != 0) {
+            ALOGE("%s: Failed to get dsp identifier with error %d: %s",
+                  __func__, err, strerror(errno));
+        }
         err = destroy_ambient_package(odsp_hdl);
         if (err != 0)
             ALOGE("%s: ERROR: destroy Ambient package failed", __func__);
     }
 
-    return param_val;
+    return err;
 }
 
 int setup_aec_package(struct iaxxx_odsp_hw *odsp_hdl)
@@ -1224,7 +1262,7 @@ int setup_sensor_package(struct iaxxx_odsp_hw *odsp_hdl)
         return err;
     }
 
-    // Create Dummy sensor plugin
+    // Create placeholder sensor plugin
     err = iaxxx_odsp_plugin_create(odsp_hdl, SENSOR_INSTANCE_ID,
                                    SENSOR_PRIORITY, SENSOR_PKG_ID,
                                    SENSOR_PLUGIN_IDX, IAXXX_HMD_BLOCK_ID,
@@ -1783,8 +1821,8 @@ int get_entity_param_blk(struct iaxxx_odsp_hw *odsp_hdl, void *payload,
     err = iaxxx_odsp_plugin_get_parameter_blk(odsp_hdl,
                                             AMBIENT_INSTANCE_ID,
                                             IAXXX_HMD_BLOCK_ID,
-                                            100, payload,
-                                            payload_size);
+                                            PARAM_BLOCK_GET_RECOGNITION_PAYLOAD,
+                                            payload, payload_size);
 
     if (err < 0) {
         ALOGE("%s: Failed to get param blk error %s\n",
@@ -1800,8 +1838,8 @@ int get_wakeup_param_blk(struct iaxxx_odsp_hw *odsp_hdl, void *payload,
     err = iaxxx_odsp_plugin_get_parameter_blk(odsp_hdl,
                                             HOTWORD_INSTANCE_ID,
                                             IAXXX_HMD_BLOCK_ID,
-                                            100, payload,
-                                            payload_size);
+                                            PARAM_BLOCK_GET_RECOGNITION_PAYLOAD,
+                                            payload, payload_size);
 
     if (err < 0) {
         ALOGE("%s: Failed to get param blk error %s\n",

@@ -65,41 +65,17 @@ public class X500PrincipalTest extends TestCaseWithRules {
      * Confirm DRLCertFactory uses a non-hex format for T61String encoding: http://b/2102191
      */
     public void testGetName() throws Exception {
-        CertificateFactory certFactBC = CertificateFactory.getInstance("X.509", "BC");
-        CertificateFactory certFactOpenSSL = CertificateFactory.getInstance("X.509",
-                "AndroidOpenSSL");
-
-        X509Certificate certBC = (X509Certificate)
-                certFactBC.generateCertificate(new ByteArrayInputStream(T61STRING_CERT));
-        X509Certificate certOpenSSL = (X509Certificate)
-                certFactOpenSSL.generateCertificate(new ByteArrayInputStream(T61STRING_CERT));
-
-        assertEquals(certBC, certOpenSSL);
-
-        assertEquals(certBC.getSubjectX500Principal(), certBC.getSubjectX500Principal());
-        assertEquals(certOpenSSL.getIssuerX500Principal(), certOpenSSL.getIssuerX500Principal());
-
-        assertEquals(certBC.getSubjectX500Principal(), certOpenSSL.getSubjectX500Principal());
-        assertEquals(certBC.getIssuerX500Principal(), certOpenSSL.getIssuerX500Principal());
-
-        String[] formats = {
-            X500Principal.CANONICAL,
-            X500Principal.RFC1779,
-            X500Principal.RFC2253
-        };
-        for (String format : formats) {
-            assertEquals(certBC.getSubjectX500Principal().getName(format),
-                         certOpenSSL.getSubjectX500Principal().getName(format));
-            assertEquals(certBC.getIssuerX500Principal().getName(format),
-                         certOpenSSL.getIssuerX500Principal().getName(format));
-        }
+        CertificateFactory certFact = CertificateFactory.getInstance("X.509");
+        X509Certificate cert = (X509Certificate)
+                certFact.generateCertificate(new ByteArrayInputStream(T61STRING_CERT));
+        
         String expected = ""
                 + "cn=entrust.net certification authority (2048),"
                 + "ou=(c) 1999 entrust.net limited,"
                 + "ou=www.entrust.net/cps_2048 incorp. by ref. (limits liab.),"
                 + "o=entrust.net";
         assertEquals(expected,
-                     certBC.getSubjectX500Principal().getName(X500Principal.CANONICAL));
+            cert.getSubjectX500Principal().getName(X500Principal.CANONICAL));
 
     }
 

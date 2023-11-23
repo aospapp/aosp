@@ -19,7 +19,7 @@
 %                                 July 2009                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -165,7 +165,9 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
     progress;
 
   size_t
-    number_channels;
+    columns,
+    number_channels,
+    rows;
 
   ssize_t
     y;
@@ -193,17 +195,23 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
   image->depth=32UL;
   complex_images=NewImageList();
   AppendImageToList(&complex_images,image);
-  image=CloneImage(images,0,0,MagickTrue,exception);
+  image=CloneImage(images->next,0,0,MagickTrue,exception);
   if (image == (Image *) NULL)
     {
       complex_images=DestroyImageList(complex_images);
       return(complex_images);
     }
+  image->depth=32UL;
   AppendImageToList(&complex_images,image);
+  if (SetImageStorageClass(image,DirectClass,exception) == MagickFalse)
+    {
+      complex_images=DestroyImageList(complex_images);
+      return(complex_images);
+    }
   /*
     Apply complex mathematics to image pixels.
   */
-  artifact=GetImageArtifact(image,"complex:snr");
+  artifact=GetImageArtifact(images,"complex:snr");
   snr=0.0;
   if (artifact != (const char *) NULL)
     snr=StringToDouble(artifact,(char **) NULL);
@@ -231,33 +239,35 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
   Ci_view=AcquireAuthenticCacheView(Ci_image,exception);
   status=MagickTrue;
   progress=0;
+  columns=MagickMin(Cr_image->columns,Ci_image->columns);
+  rows=MagickMin(Cr_image->rows,Ci_image->rows);
 #if defined(MAGICKCORE_OPENMP_SUPPORT)
   #pragma omp parallel for schedule(static) shared(progress,status) \
-    magick_number_threads(Cr_image,complex_images,Cr_image->rows,1L)
+    magick_number_threads(Cr_image,complex_images,rows,1L)
 #endif
-  for (y=0; y < (ssize_t) Cr_image->rows; y++)
+  for (y=0; y < (ssize_t) rows; y++)
   {
-    register const Quantum
+    const Quantum
       *magick_restrict Ai,
       *magick_restrict Ar,
       *magick_restrict Bi,
       *magick_restrict Br;
 
-    register Quantum
+    Quantum
       *magick_restrict Ci,
       *magick_restrict Cr;
 
-    register ssize_t
+    ssize_t
       x;
 
     if (status == MagickFalse)
       continue;
-    Ar=GetCacheViewVirtualPixels(Ar_view,0,y,Cr_image->columns,1,exception);
-    Ai=GetCacheViewVirtualPixels(Ai_view,0,y,Cr_image->columns,1,exception);
-    Br=GetCacheViewVirtualPixels(Br_view,0,y,Cr_image->columns,1,exception);
-    Bi=GetCacheViewVirtualPixels(Bi_view,0,y,Cr_image->columns,1,exception);
-    Cr=QueueCacheViewAuthenticPixels(Cr_view,0,y,Cr_image->columns,1,exception);
-    Ci=QueueCacheViewAuthenticPixels(Ci_view,0,y,Ci_image->columns,1,exception);
+    Ar=GetCacheViewVirtualPixels(Ar_view,0,y,columns,1,exception);
+    Ai=GetCacheViewVirtualPixels(Ai_view,0,y,columns,1,exception);
+    Br=GetCacheViewVirtualPixels(Br_view,0,y,columns,1,exception);
+    Bi=GetCacheViewVirtualPixels(Bi_view,0,y,columns,1,exception);
+    Cr=QueueCacheViewAuthenticPixels(Cr_view,0,y,columns,1,exception);
+    Ci=QueueCacheViewAuthenticPixels(Ci_view,0,y,columns,1,exception);
     if ((Ar == (const Quantum *) NULL) || (Ai == (const Quantum *) NULL) || 
         (Br == (const Quantum *) NULL) || (Bi == (const Quantum *) NULL) ||
         (Cr == (Quantum *) NULL) || (Ci == (Quantum *) NULL))
@@ -265,9 +275,9 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
         status=MagickFalse;
         continue;
       }
-    for (x=0; x < (ssize_t) Cr_image->columns; x++)
+    for (x=0; x < (ssize_t) columns; x++)
     {
-      register ssize_t
+      ssize_t
         i;
 
       for (i=0; i < (ssize_t) number_channels; i++)
@@ -292,21 +302,22 @@ MagickExport Image *ComplexImages(const Image *images,const ComplexOperator op,
             double
               gamma;
 
-            gamma=PerceptibleReciprocal((double) Br[i]*Br[i]+Bi[i]*Bi[i]+snr);
-            Cr[i]=gamma*((double) Ar[i]*Br[i]+(double) Ai[i]*Bi[i]);
-            Ci[i]=gamma*((double) Ai[i]*Br[i]-(double) Ar[i]*Bi[i]);
+            gamma=QuantumRange*PerceptibleReciprocal(QuantumScale*Br[i]*Br[i]+
+              QuantumScale*Bi[i]*Bi[i]+snr);
+            Cr[i]=gamma*(QuantumScale*Ar[i]*Br[i]+QuantumScale*Ai[i]*Bi[i]);
+            Ci[i]=gamma*(QuantumScale*Ai[i]*Br[i]-QuantumScale*Ar[i]*Bi[i]);
             break;
           }
           case MagnitudePhaseComplexOperator:
           {
-            Cr[i]=sqrt((double) Ar[i]*Ar[i]+(double) Ai[i]*Ai[i]);
+            Cr[i]=sqrt(QuantumScale*Ar[i]*Ar[i]+QuantumScale*Ai[i]*Ai[i]);
             Ci[i]=atan2((double) Ai[i],(double) Ar[i])/(2.0*MagickPI)+0.5;
             break;
           }
           case MultiplyComplexOperator:
           {
-            Cr[i]=QuantumScale*((double) Ar[i]*Br[i]-(double) Ai[i]*Bi[i]);
-            Ci[i]=QuantumScale*((double) Ai[i]*Br[i]+(double) Ar[i]*Bi[i]);
+            Cr[i]=(QuantumScale*Ar[i]*Br[i]-QuantumScale*Ai[i]*Bi[i]);
+            Ci[i]=(QuantumScale*Ai[i]*Br[i]+QuantumScale*Ar[i]*Bi[i]);
             break;
           }
           case RealImaginaryComplexOperator:
@@ -401,7 +412,7 @@ static MagickBooleanType RollFourier(const size_t width,const size_t height,
   MemoryInfo
     *source_info;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
@@ -447,7 +458,7 @@ static MagickBooleanType ForwardQuadrantSwap(const size_t width,
   MagickBooleanType
     status;
 
-  register ssize_t
+  ssize_t
     x;
 
   ssize_t
@@ -477,7 +488,7 @@ static MagickBooleanType ForwardQuadrantSwap(const size_t width,
 static void CorrectPhaseLHS(const size_t width,const size_t height,
   double *fourier_pixels)
 {
-  register ssize_t
+  ssize_t
     x;
 
   ssize_t
@@ -510,10 +521,10 @@ static MagickBooleanType ForwardFourier(const FourierInfo *fourier_info,
     *magnitude_info,
     *phase_info;
 
-  register Quantum
+  Quantum
     *q;
 
-  register ssize_t
+  ssize_t
     x;
 
   ssize_t
@@ -701,10 +712,10 @@ static MagickBooleanType ForwardFourierTransform(FourierInfo *fourier_info,
     *forward_info,
     *source_info;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
@@ -794,7 +805,7 @@ static MagickBooleanType ForwardFourierTransform(FourierInfo *fourier_info,
         gamma;
 
       /*
-        Normalize fourier transform.
+        Normalize forward transform.
       */
       i=0L;
       gamma=PerceptibleReciprocal((double) fourier_info->width*
@@ -1072,7 +1083,7 @@ MagickExport Image *ForwardFourierTransformImage(const Image *image,
 static MagickBooleanType InverseQuadrantSwap(const size_t width,
   const size_t height,const double *source,double *destination)
 {
-  register ssize_t
+  ssize_t
     x;
 
   ssize_t
@@ -1114,10 +1125,10 @@ static MagickBooleanType InverseFourier(FourierInfo *fourier_info,
     *magnitude_info,
     *phase_info;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 
@@ -1313,10 +1324,10 @@ static MagickBooleanType InverseFourierTransform(FourierInfo *fourier_info,
   MemoryInfo
     *source_info;
 
-  register Quantum
+  Quantum
     *q;
 
-  register ssize_t
+  ssize_t
     i,
     x;
 

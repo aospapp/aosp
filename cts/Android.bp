@@ -1,3 +1,35 @@
+package {
+    default_applicable_licenses: ["cts_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "cts_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-CC-BY",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-NCSA",
+        "legacy_unencumbered",
+    ],
+    // large-scale-change unable to identify any license_text files
+}
+
 java_defaults {
     name: "cts_error_prone_rules",
     errorprone: {
@@ -75,4 +107,9 @@ java_defaults {
             static_libs: ["platform-test-annotations"],
         },
     },
+}
+
+java_defaults {
+    name: "mts-target-sdk-version-current",
+    target_sdk_version: "10000",
 }

@@ -9,7 +9,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:au-oobe"
+ATTRIBUTES = "suite:au-oobe, suite:infra_qual"
 DOC = """
 This tests the forced autoupdate flow at OOBE.
 

@@ -16,6 +16,10 @@
 
 package android.hardware.input.cts.tests;
 
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+import static org.junit.Assume.assumeFalse;
+
+import android.content.pm.PackageManager;
 import android.hardware.cts.R;
 import android.os.SystemClock;
 
@@ -28,18 +32,18 @@ import org.junit.runner.RunWith;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
-public class NintendoSwitchProTest extends InputTestCase {
+public class NintendoSwitchProTest extends InputHidTestCase {
     public NintendoSwitchProTest() {
         super(R.raw.nintendo_switchpro_register);
     }
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         super.setUp();
         /**
          * During probe, hid-nintendo sends commands to the joystick and waits for some of those
          * commands to execute. Somewhere in the middle of the commands, the driver will register
-         * an input device, which is the notification received by InputTestCase.
+         * an input device, which is the notification received by InputHidTestCase.
          * If a command is still being waited on while we start writing
          * events to uhid, all incoming events are dropped, because probe() still hasn't finished.
          * To ensure that hid-nintendo probe is done, add a delay here.
@@ -49,11 +53,18 @@ public class NintendoSwitchProTest extends InputTestCase {
 
     @Test
     public void testAllKeys() {
+        assumeFalse("Skipping test for wear devices", isWatch());
         testInputEvents(R.raw.nintendo_switchpro_keyeventtests);
     }
 
     @Test
     public void testAllMotions() {
+        assumeFalse("Skipping test for wear devices", isWatch());
         testInputEvents(R.raw.nintendo_switchpro_motioneventtests);
+    }
+
+    static boolean isWatch() {
+        final PackageManager pm = getInstrumentation().getContext().getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 }

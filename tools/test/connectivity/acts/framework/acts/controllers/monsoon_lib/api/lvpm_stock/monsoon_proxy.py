@@ -214,7 +214,8 @@ class MonsoonProxy(object):
                     self._flush_input()  # discard stale input
                     status = self.get_status()
                 except Exception as e:
-                    logging.exception('Error opening device %s: %s', dev, e)
+                    logging.warning('Error opening device %s: %s', dev, e,
+                                    exc_info=True)
                     continue
 
                 if not status:

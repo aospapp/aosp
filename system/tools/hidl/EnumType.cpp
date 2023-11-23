@@ -111,6 +111,22 @@ status_t EnumType::validate() const {
     return Scope::validate();
 }
 
+status_t EnumType::validateAnnotations() const {
+    for (const Annotation* annotation : annotations()) {
+        const std::string name = annotation->name();
+
+        if (name == "export") {
+            continue;
+        }
+
+        std::cerr << "WARNING: Unrecognized annotation '" << name << "' for " << typeName()
+                  << " at " << location() << ". Only @export is supported." << std::endl;
+        // This is a warning to avoid breaking downstream unnecessarily.
+        // return UNKNOWN_ERROR;
+    }
+    return OK;
+}
+
 status_t EnumType::validateUniqueNames() const {
     std::unordered_map<std::string, const EnumType*> registeredValueNames;
     for (const auto* type : superTypeChain()) {

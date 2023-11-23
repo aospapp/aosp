@@ -21,13 +21,16 @@ class ChromeLogin(object):
             self._hard_reboot_on_failure = True
 
     def __init__(self, host, board=None, dont_override_profile=False,
-                 enable_default_apps=False):
+                 enable_default_apps=False, toggle_ndk=False,
+                 nativebridge64=False):
         """Initializes the ChromeLogin object.
 
         @param board: optional parameter to extend timeout for login for slow
                       DUTs. Used in particular for virtual machines.
         @param dont_override_profile: reuses the existing test profile if any
         @param enable_default_apps: enables default apps (like Files app)
+        @param toggle_ndk: toggles native bridge engine switch.
+        @param nativebridge64: enables 64-bit native bridge experiment.
         """
         self._host = host
         self._timeout = constants.LOGIN_BOARD_TIMEOUT.get(
@@ -36,6 +39,8 @@ class ChromeLogin(object):
         self._enable_default_apps = enable_default_apps
         self._need_reboot = False
         self._hard_reboot_on_failure = False
+        self._toggle_ndk = toggle_ndk
+        self._nativebridge64 = nativebridge64
 
     def _cmd_builder(self, verbose=False):
         """Gets remote command to start browser with ARC enabled."""
@@ -43,11 +48,15 @@ class ChromeLogin(object):
         # getting the autodir will raise an exception.
         cmd = autotest.Autotest.get_installed_autodir(self._host)
         cmd += '/bin/autologin.py --arc'
+
         # We want to suppress the Google doodle as it is not part of the image
         # and can be different content every day interacting with testing.
         cmd += ' --no-startup-window'
         # Disable several forms of auto-installation to stablize the tests.
         cmd += ' --no-arc-syncs'
+        # Toggle the translation from houdini to ndk
+        if self._toggle_ndk:
+            cmd += ' --toggle_ndk'
         if self._dont_override_profile:
             logging.info('Starting Chrome with a possibly reused profile.')
             cmd += ' --dont_override_profile'
@@ -56,6 +65,8 @@ class ChromeLogin(object):
         if self._enable_default_apps:
             logging.info('Using --enable_default_apps to start Chrome.')
             cmd += ' --enable_default_apps'
+        if self._nativebridge64:
+            cmd += ' --nativebridge64'
         if not verbose:
             cmd += ' > /dev/null 2>&1'
         return cmd
@@ -79,17 +90,20 @@ class ChromeLogin(object):
                 install_autotest = True
 
         if install_autotest:
-            # Installs the autotest client to the DUT by running a dummy test.
+            # Installs the autotest client to the DUT by running a no-op test.
             autotest.Autotest(self._host).run_timed_test(
                 'dummy_Pass', timeout=2 * timeout, check_client_result=True)
             # The (re)run the login script.
             self._login_by_script(timeout=timeout, verbose=verbose)
 
-        # Sanity check if Android has really started. When autotest client
+        # Quick check if Android has really started. When autotest client
         # installed on the DUT was partially broken, the script may succeed
         # without actually logging into Chrome/Android. See b/129382439.
         self._host.run(
-            'android-sh -c "ls /data/misc/adb"', ignore_status=False, timeout=9)
+            # "/data/anr" is an arbitrary directory accessible only after
+            # proper login and data mount.
+            'android-sh -c "ls /data/anr"',
+            ignore_status=False, timeout=9)
 
     def enter(self):
         """Logs into Chrome with retry."""

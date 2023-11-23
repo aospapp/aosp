@@ -60,7 +60,7 @@ enum player_type {
 #define DEFAULT_AUDIOSINK_SAMPLERATE 44100
 
 // when the channel mask isn't known, use the channel count to derive a mask in AudioSink::open()
-#define CHANNEL_MASK_USE_CHANNEL_ORDER 0
+#define CHANNEL_MASK_USE_CHANNEL_ORDER AUDIO_CHANNEL_NONE
 
 // duration below which we do not allow deep audio buffering
 #define AUDIO_SINK_MIN_DEEP_BUFFER_DURATION_US 5000000
@@ -108,6 +108,7 @@ public:
         virtual audio_stream_type_t getAudioStreamType() const = 0;
         virtual uint32_t    getSampleRate() const = 0;
         virtual int64_t     getBufferDurationInUs() const = 0;
+        virtual audio_output_flags_t getFlags() const = 0;
 
         // If no callback is specified, use the "write" API below to submit
         // audio data.
@@ -180,6 +181,10 @@ public:
     }
 
     virtual status_t    setDataSource(const sp<DataSource>& /* source */) {
+        return INVALID_OPERATION;
+    }
+
+    virtual status_t    setDataSource(const String8& /* rtpParams */) {
         return INVALID_OPERATION;
     }
 

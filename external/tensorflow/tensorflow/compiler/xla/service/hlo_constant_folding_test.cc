@@ -17,9 +17,11 @@ limitations under the License.
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "tensorflow/compiler/xla/layout_util.h"
 #include "tensorflow/compiler/xla/literal.h"
+#include "tensorflow/compiler/xla/permutation_util.h"
 #include "tensorflow/compiler/xla/service/hlo_computation.h"
 #include "tensorflow/compiler/xla/service/hlo_instruction.h"
 #include "tensorflow/compiler/xla/service/hlo_opcode.h"
@@ -109,8 +111,8 @@ TEST_F(HloConstantFoldingTest, ConvertF32ArrayToS64Array) {
 TEST_F(HloConstantFoldingTest, Concatenate) {
   const struct TestConfig {
     int concat_dimension;
-    absl::Span<const int64> dimensions;
-    absl::Span<const int64> concat_sizes;
+    std::vector<int64> dimensions;
+    std::vector<int64> concat_sizes;
   } test_configs[] = {
       {1, {11, 0, 7, 5, 9}, {2, 5, 7, 11}},
       {3, {1, 4, 17, 0, 8}, {1, 3, 9, 12}},
@@ -201,7 +203,7 @@ TEST_F(HloConstantFoldingTest, TransposeConstantFold) {
   bool matched = true;
   root->literal().EachCell<NativeT>(
       [&](absl::Span<const int64> indices, NativeT value) {
-        std::vector<int64> rindexes = Permute(permutation, indices);
+        std::vector<int64> rindexes = PermuteInverse(indices, permutation);
         matched = matched && (value == literal_clone.Get<NativeT>(rindexes));
       });
   EXPECT_TRUE(matched);

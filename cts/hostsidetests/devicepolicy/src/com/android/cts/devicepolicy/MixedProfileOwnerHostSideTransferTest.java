@@ -15,29 +15,32 @@
  */
 package com.android.cts.devicepolicy;
 
+import static com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.FEATURE_MANAGED_USERS;
+
+import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresAdditionalFeatures;
+
 /**
- * Tests the DPC transfer functionality for profile owner. Testing is done by having two dummy DPCs,
+ * Tests the DPC transfer functionality for profile owner. Testing is done by having two test DPCs,
  * CtsTransferOwnerOutgoingApp and CtsTransferOwnerIncomingApp. The former is the current DPC
  * and the latter will be the new DPC after transfer. In order to run the tests from the correct
  * process, first we setup some policies in the client side in CtsTransferOwnerOutgoingApp and then
  * we verify the policies are still there in CtsTransferOwnerIncomingApp.
  */
+// We need managed users to be supported in order to create a profile of the user owner.
+@RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
 public class MixedProfileOwnerHostSideTransferTest extends
         DeviceAndProfileOwnerHostSideTransferTest {
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        // We need managed users to be supported in order to create a profile of the user owner.
-        mHasFeature &= hasDeviceFeature("android.software.managed_users");
-        if (mHasFeature) {
-            int profileOwnerUserId = setupManagedProfile(TRANSFER_OWNER_OUTGOING_APK,
-                    TRANSFER_OWNER_OUTGOING_TEST_RECEIVER);
-            if (profileOwnerUserId != -1) {
-                setupTestParameters(profileOwnerUserId, TRANSFER_PROFILE_OWNER_OUTGOING_TEST,
-                        TRANSFER_PROFILE_OWNER_INCOMING_TEST);
-                installAppAsUser(TRANSFER_OWNER_INCOMING_APK, mUserId);
-            }
+
+        int profileOwnerUserId = setupManagedProfile(TRANSFER_OWNER_OUTGOING_APK,
+                TRANSFER_OWNER_OUTGOING_TEST_RECEIVER);
+        if (profileOwnerUserId != -1) {
+            setupTestParameters(profileOwnerUserId, TRANSFER_PROFILE_OWNER_OUTGOING_TEST,
+                    TRANSFER_PROFILE_OWNER_INCOMING_TEST);
+            installAppAsUser(TRANSFER_OWNER_INCOMING_APK, mUserId);
         }
     }
 }

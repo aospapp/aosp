@@ -43,6 +43,7 @@ public class MultiDisplayService extends Service {
     private static final int mFlags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC |
                                       DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY |
                                       DisplayManager.VIRTUAL_DISPLAY_FLAG_ROTATES_WITH_CONTENT |
+                                      DisplayManager.VIRTUAL_DISPLAY_FLAG_TRUSTED |
                                       1 << 6 |//DisplayManager.VIRTUAL_DISPLAY_FLAG_SUPPORTS_TOUCH
                                       1 << 9; //DisplayManager.VIRTUAL_DISPLAY_FLAG_SHOULD_SHOW_SYSTEM_DECORATIONS;
     private DisplayManager mDisplayManager;

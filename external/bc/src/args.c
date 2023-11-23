@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,154 +33,159 @@
  *
  */
 
+#include <assert.h>
 #include <ctype.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <getopt.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif // _WIN32
 
-#include <status.h>
 #include <vector.h>
 #include <read.h>
-#include <vm.h>
 #include <args.h>
+#include <opt.h>
 
-static const struct option bc_args_lopt[] = {
+static const BcOptLong bc_args_lopt[] = {
 
-	{ "expression", required_argument, NULL, 'e' },
-	{ "file", required_argument, NULL, 'f' },
-	{ "help", no_argument, NULL, 'h' },
-	{ "interactive", no_argument, NULL, 'i' },
-	{ "no-prompt", no_argument, NULL, 'P' },
+	{ "expression", BC_OPT_REQUIRED, 'e' },
+	{ "file", BC_OPT_REQUIRED, 'f' },
+	{ "help", BC_OPT_NONE, 'h' },
+	{ "interactive", BC_OPT_NONE, 'i' },
+	{ "no-prompt", BC_OPT_NONE, 'P' },
+	{ "no-read-prompt", BC_OPT_NONE, 'R' },
 #if BC_ENABLED
-	{ "global-stacks", no_argument, NULL, 'g' },
-	{ "mathlib", no_argument, NULL, 'l' },
-	{ "quiet", no_argument, NULL, 'q' },
-	{ "standard", no_argument, NULL, 's' },
-	{ "warn", no_argument, NULL, 'w' },
+	{ "global-stacks", BC_OPT_BC_ONLY, 'g' },
+	{ "mathlib", BC_OPT_BC_ONLY, 'l' },
+	{ "quiet", BC_OPT_BC_ONLY, 'q' },
+	{ "standard", BC_OPT_BC_ONLY, 's' },
+	{ "warn", BC_OPT_BC_ONLY, 'w' },
 #endif // BC_ENABLED
-	{ "version", no_argument, NULL, 'v' },
+	{ "version", BC_OPT_NONE, 'v' },
+	{ "version", BC_OPT_NONE, 'V' },
 #if DC_ENABLED
-	{ "extended-register", no_argument, NULL, 'x' },
+	{ "extended-register", BC_OPT_DC_ONLY, 'x' },
 #endif // DC_ENABLED
-	{ 0, 0, 0, 0 },
+	{ NULL, 0, 0 },
 
 };
 
-#if !BC_ENABLED
-static const char* const bc_args_opt = "e:f:hiPvVx";
-#elif !DC_ENABLED
-static const char* const bc_args_opt = "e:f:ghilPqsvVw";
-#else // BC_ENABLED && DC_ENABLED
-static const char* const bc_args_opt = "e:f:ghilPqsvVwx";
-#endif // BC_ENABLED && DC_ENABLED
-
-static void bc_args_exprs(BcVec *exprs, const char *str) {
-	bc_vec_concat(exprs, str);
-	bc_vec_concat(exprs, "\n");
+static void bc_args_exprs(const char *str) {
+	BC_SIG_ASSERT_LOCKED;
+	if (vm.exprs.v == NULL) bc_vec_init(&vm.exprs, sizeof(uchar), NULL);
+	bc_vec_concat(&vm.exprs, str);
+	bc_vec_concat(&vm.exprs, "\n");
 }
 
-static BcStatus bc_args_file(BcVec *exprs, const char *file) {
+static void bc_args_file(const char *file) {
 
-	BcStatus s;
 	char *buf;
 
-	vm->file = file;
+	BC_SIG_ASSERT_LOCKED;
 
-	s = bc_read_file(file, &buf);
-	if (BC_ERR(s)) return s;
+	vm.file = file;
 
-	bc_args_exprs(exprs, buf);
+	bc_read_file(file, &buf);
+	bc_args_exprs(buf);
 	free(buf);
-
-	return s;
 }
 
-BcStatus bc_args(int argc, char *argv[]) {
+void bc_args(int argc, char *argv[], bool exit_exprs) {
 
-	BcStatus s = BC_STATUS_SUCCESS;
-	int c, i, err = 0;
+	int c;
+	size_t i;
 	bool do_exit = false, version = false;
+	BcOpt opts;
 
-	i = optind = 0;
+	BC_SIG_ASSERT_LOCKED;
 
-	while ((c = getopt_long(argc, argv, bc_args_opt, bc_args_lopt, &i)) != -1) {
+	bc_opt_init(&opts, argv);
+
+	while ((c = bc_opt_parse(&opts, bc_args_lopt)) != -1) {
 
 		switch (c) {
 
-			case 0:
-			{
-				// This is the case when a long option is found.
-				break;
-			}
-
 			case 'e':
 			{
-				bc_args_exprs(&vm->exprs, optarg);
+				if (vm.no_exit_exprs)
+					bc_vm_verr(BC_ERR_FATAL_OPTION, "-e (--expression)");
+				bc_args_exprs(opts.optarg);
+				vm.exit_exprs = (exit_exprs || vm.exit_exprs);
 				break;
 			}
 
 			case 'f':
 			{
-				s = bc_args_file(&vm->exprs, optarg);
-				if (BC_ERR(s)) return s;
+				if (!strcmp(opts.optarg, "-")) vm.no_exit_exprs = true;
+				else {
+					if (vm.no_exit_exprs)
+						bc_vm_verr(BC_ERR_FATAL_OPTION, "-f (--file)");
+					bc_args_file(opts.optarg);
+					vm.exit_exprs = (exit_exprs || vm.exit_exprs);
+				}
 				break;
 			}
 
 			case 'h':
 			{
-				bc_vm_info(vm->help);
+				bc_vm_info(vm.help);
 				do_exit = true;
 				break;
 			}
 
 			case 'i':
 			{
-				vm->flags |= BC_FLAG_I;
+				vm.flags |= BC_FLAG_I;
 				break;
 			}
 
 			case 'P':
 			{
-				vm->flags |= BC_FLAG_P;
+				vm.flags |= BC_FLAG_P;
+				break;
+			}
+
+			case 'R':
+			{
+				vm.flags |= BC_FLAG_R;
 				break;
 			}
 
 #if BC_ENABLED
 			case 'g':
 			{
-				if (BC_ERR(!BC_IS_BC)) err = c;
-				vm->flags |= BC_FLAG_G;
+				assert(BC_IS_BC);
+				vm.flags |= BC_FLAG_G;
 				break;
 			}
 
 			case 'l':
 			{
-				if (BC_ERR(!BC_IS_BC)) err = c;
-				vm->flags |= BC_FLAG_L;
+				assert(BC_IS_BC);
+				vm.flags |= BC_FLAG_L;
 				break;
 			}
 
 			case 'q':
 			{
-				if (BC_ERR(!BC_IS_BC)) err = c;
-				vm->flags |= BC_FLAG_Q;
+				assert(BC_IS_BC);
+				// Do nothing.
 				break;
 			}
 
 			case 's':
 			{
-				if (BC_ERR(!BC_IS_BC)) err = c;
-				vm->flags |= BC_FLAG_S;
+				assert(BC_IS_BC);
+				vm.flags |= BC_FLAG_S;
 				break;
 			}
 
 			case 'w':
 			{
-				if (BC_ERR(!BC_IS_BC)) err = c;
-				vm->flags |= BC_FLAG_W;
+				assert(BC_IS_BC);
+				vm.flags |= BC_FLAG_W;
 				break;
 			}
 #endif // BC_ENABLED
@@ -195,36 +200,31 @@ BcStatus bc_args(int argc, char *argv[]) {
 #if DC_ENABLED
 			case 'x':
 			{
-				if (BC_ERR(BC_IS_BC)) err = c;
-				vm->flags |= DC_FLAG_X;
+				assert(BC_IS_DC);
+				vm.flags |= DC_FLAG_X;
 				break;
 			}
 #endif // DC_ENABLED
 
-			// Getopt printed an error message, but we should exit.
+#ifndef NDEBUG
+			// We shouldn't get here because bc_opt_error()/bc_vm_error() should
+			// longjmp() out.
 			case '?':
+			case ':':
 			default:
 			{
-				return BC_STATUS_ERROR_FATAL;
+				abort();
 			}
-		}
-
-		if (BC_ERR(err)) {
-
-			for (i = 0; bc_args_lopt[i].name != NULL; ++i) {
-				if (bc_args_lopt[i].val == err) break;
-			}
-
-			return bc_vm_verr(BC_ERROR_FATAL_OPTION, err, bc_args_lopt[i].name);
+#endif // NDEBUG
 		}
 	}
 
 	if (version) bc_vm_info(NULL);
-	if (do_exit) exit((int) s);
-	if (vm->exprs.len > 1 || !BC_IS_BC) vm->flags |= BC_FLAG_Q;
-	if (argv[optind] != NULL && !strcmp(argv[optind], "--")) ++optind;
+	if (do_exit) exit((int) vm.status);
 
-	for (i = optind; i < argc; ++i) bc_vec_push(&vm->files, argv + i);
+	if (opts.optind < (size_t) argc && vm.files.v == NULL)
+		bc_vec_init(&vm.files, sizeof(char*), NULL);
 
-	return s;
+	for (i = opts.optind; i < (size_t) argc; ++i)
+		bc_vec_push(&vm.files, argv + i);
 }

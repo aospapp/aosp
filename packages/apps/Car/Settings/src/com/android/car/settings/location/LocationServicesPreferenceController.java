@@ -57,7 +57,7 @@ public class LocationServicesPreferenceController extends PreferenceController<P
     public LocationServicesPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mSettingsInjector = new SettingsInjector(context);
+        mSettingsInjector = new CarLocationSettingsInjector(context);
     }
 
     @VisibleForTesting

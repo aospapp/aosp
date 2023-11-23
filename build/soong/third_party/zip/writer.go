@@ -155,7 +155,14 @@ func (w *Writer) Close() error {
 
 		// store max values in the regular end record to signal that
 		// that the zip64 values should be used instead
-		records = uint16max
+		// BEGIN ANDROID CHANGE: only store uintmax for the number of entries in the regular
+		// end record if it doesn't fit.  p7zip 16.02 rejects zip files where the number of
+		// entries in the regular end record is larger than the number of entries counted
+		// in the central directory.
+		if records > uint16max {
+			records = uint16max
+		}
+		// END ANDROID CHANGE
 		size = uint32max
 		offset = uint32max
 	}
@@ -276,9 +283,6 @@ func writeHeader(w io.Writer, h *FileHeader) error {
 	} else {
 		b.uint32(h.CRC32)
 
-		if h.CompressedSize64 > uint32max || h.UncompressedSize64 > uint32max {
-			panic("skipping writing the data descriptor for a 64-bit value is not yet supported")
-		}
 		compressedSize := uint32(h.CompressedSize64)
 		if compressedSize == 0 {
 			compressedSize = h.CompressedSize
@@ -287,6 +291,21 @@ func writeHeader(w io.Writer, h *FileHeader) error {
 		uncompressedSize := uint32(h.UncompressedSize64)
 		if uncompressedSize == 0 {
 			uncompressedSize = h.UncompressedSize
+		}
+
+		if h.CompressedSize64 > uint32max || h.UncompressedSize64 > uint32max {
+			// Sizes don't fit in a 32-bit field, put them in a zip64 extra instead.
+			compressedSize = uint32max
+			uncompressedSize = uint32max
+
+			// append a zip64 extra block to Extra
+			var buf [20]byte // 2x uint16 + 2x uint64
+			eb := writeBuf(buf[:])
+			eb.uint16(zip64ExtraId)
+			eb.uint16(16) // size = 2x uint64
+			eb.uint64(h.UncompressedSize64)
+			eb.uint64(h.CompressedSize64)
+			h.Extra = append(h.Extra, buf[:]...)
 		}
 
 		b.uint32(compressedSize)

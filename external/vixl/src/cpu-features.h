@@ -27,6 +27,7 @@
 #ifndef VIXL_CPU_FEATURES_H
 #define VIXL_CPU_FEATURES_H
 
+#include <bitset>
 #include <ostream>
 
 #include "globals-vixl.h"
@@ -34,16 +35,65 @@
 namespace vixl {
 
 
+// VIXL aims to handle and detect all architectural features that are likely to
+// influence code-generation decisions at EL0 (user-space).
+//
+// - There may be multiple VIXL feature flags for a given architectural
+//   extension. This occurs where the extension allow components to be
+//   implemented independently, or where kernel support is needed, and is likely
+//   to be fragmented.
+//
+//   For example, Pointer Authentication (kPAuth*) has a separate feature flag
+//   for access to PACGA, and to indicate that the QARMA algorithm is
+//   implemented.
+//
+// - Conversely, some extensions have configuration options that do not affect
+//   EL0, so these are presented as a single VIXL feature.
+//
+//   For example, the RAS extension (kRAS) has several variants, but the only
+//   feature relevant to VIXL is the addition of the ESB instruction so we only
+//   need a single flag.
+//
+// - VIXL offers separate flags for separate features even if they're
+//   architecturally linked.
+//
+//   For example, the architecture requires kFPHalf and kNEONHalf to be equal,
+//   but they have separate hardware ID register fields so VIXL presents them as
+//   separate features.
+//
+// - VIXL can detect every feature for which it can generate code.
+//
+// - VIXL can detect some features for which it cannot generate code.
+//
+// The CPUFeatures::Feature enum — derived from the macro list below — is
+// frequently extended. New features may be added to the list at any point, and
+// no assumptions should be made about the numerical values assigned to each
+// enum constant. The symbolic names can be considered to be stable.
+//
+// The debug descriptions are used only for debug output. The 'cpuinfo' strings
+// are informative; VIXL does not use /proc/cpuinfo for feature detection.
+
 // clang-format off
 #define VIXL_CPU_FEATURE_LIST(V)                                               \
   /* If set, the OS traps and emulates MRS accesses to relevant (EL1) ID_*  */ \
   /* registers, so that the detailed feature registers can be read          */ \
   /* directly.                                                              */ \
+                                                                               \
+  /* Constant name        Debug description         Linux 'cpuinfo' string. */ \
   V(kIDRegisterEmulation, "ID register emulation",  "cpuid")                   \
                                                                                \
   V(kFP,                  "FP",                     "fp")                      \
   V(kNEON,                "NEON",                   "asimd")                   \
   V(kCRC32,               "CRC32",                  "crc32")                   \
+  V(kDGH,                 "DGH",                    "dgh")                     \
+  /* Speculation control features.                                          */ \
+  V(kCSV2,                "CSV2",                   NULL)                      \
+  V(kSCXTNUM,             "SCXTNUM",                NULL)                      \
+  V(kCSV3,                "CSV3",                   NULL)                      \
+  V(kSB,                  "SB",                     "sb")                      \
+  V(kSPECRES,             "SPECRES",                NULL)                      \
+  V(kSSBS,                "SSBS",                   NULL)                      \
+  V(kSSBSControl,         "SSBS (PSTATE control)",  "ssbs")                    \
   /* Cryptographic support instructions.                                    */ \
   V(kAES,                 "AES",                    "aes")                     \
   V(kSHA1,                "SHA1",                   "sha1")                    \
@@ -58,28 +108,36 @@ namespace vixl {
   V(kRDM,                 "RDM",                    "asimdrdm")                \
   /* Scalable Vector Extension.                                             */ \
   V(kSVE,                 "SVE",                    "sve")                     \
+  V(kSVEF64MM,            "SVE F64MM",              "svef64mm")                \
+  V(kSVEF32MM,            "SVE F32MM",              "svef32mm")                \
+  V(kSVEI8MM,             "SVE I8MM",               "svei8imm")                \
+  V(kSVEBF16,             "SVE BFloat16",           "svebf16")                 \
   /* SDOT and UDOT support (in NEON).                                       */ \
   V(kDotProduct,          "DotProduct",             "asimddp")                 \
+  /* Int8 matrix multiplication (in NEON).                                  */ \
+  V(kI8MM,                "NEON I8MM",              "i8mm")                    \
   /* Half-precision (FP16) support for FP and NEON, respectively.           */ \
   V(kFPHalf,              "FPHalf",                 "fphp")                    \
   V(kNEONHalf,            "NEONHalf",               "asimdhp")                 \
+  /* BFloat16 support (in both FP and NEON.)                                */ \
+  V(kBF16,                "FP/NEON BFloat 16",      "bf16")                    \
   /* The RAS extension, including the ESB instruction.                      */ \
   V(kRAS,                 "RAS",                    NULL)                      \
   /* Data cache clean to the point of persistence: DC CVAP.                 */ \
   V(kDCPoP,               "DCPoP",                  "dcpop")                   \
   /* Data cache clean to the point of deep persistence: DC CVADP.           */ \
-  V(kDCCVADP,             "DCCVADP",                NULL)                      \
+  V(kDCCVADP,             "DCCVADP",                "dcpodp")                  \
   /* Cryptographic support instructions.                                    */ \
   V(kSHA3,                "SHA3",                   "sha3")                    \
   V(kSHA512,              "SHA512",                 "sha512")                  \
   V(kSM3,                 "SM3",                    "sm3")                     \
   V(kSM4,                 "SM4",                    "sm4")                     \
   /* Pointer authentication for addresses.                                  */ \
-  V(kPAuth,               "PAuth",                  NULL)                      \
+  V(kPAuth,               "PAuth",                  "paca")                    \
   /* Pointer authentication for addresses uses QARMA.                       */ \
   V(kPAuthQARMA,          "PAuthQARMA",             NULL)                      \
   /* Generic authentication (using the PACGA instruction).                  */ \
-  V(kPAuthGeneric,        "PAuthGeneric",           NULL)                      \
+  V(kPAuthGeneric,        "PAuthGeneric",           "pacg")                    \
   /* Generic authentication uses QARMA.                                     */ \
   V(kPAuthGenericQARMA,   "PAuthGenericQARMA",      NULL)                      \
   /* JavaScript-style FP -> integer conversion instruction: FJCVTZS.        */ \
@@ -98,13 +156,21 @@ namespace vixl {
   /* Data-independent timing (for selected instructions).                   */ \
   V(kDIT,                 "DIT",                    "dit")                     \
   /* Branch target identification.                                          */ \
-  V(kBTI,                 "BTI",                    NULL)                      \
+  V(kBTI,                 "BTI",                    "bti")                     \
   /* Flag manipulation instructions: {AX,XA}FLAG                            */ \
-  V(kAXFlag,              "AXFlag",                 NULL)                      \
+  V(kAXFlag,              "AXFlag",                 "flagm2")                  \
   /* Random number generation extension,                                    */ \
-  V(kRNG,                 "RNG",                    NULL)                      \
+  V(kRNG,                 "RNG",                    "rng")                     \
   /* Floating-point round to {32,64}-bit integer.                           */ \
-  V(kFrintToFixedSizedInt,"Frint (bounded)",        NULL)
+  V(kFrintToFixedSizedInt,"Frint (bounded)",        "frint")                   \
+  /* Memory Tagging Extension.                                              */ \
+  V(kMTEInstructions,     "MTE (EL0 instructions)", NULL)                      \
+  V(kMTE,                 "MTE",                    NULL)                      \
+  /* PAuth extensions.                                                      */ \
+  V(kPAuthEnhancedPAC,    "PAuth EnhancedPAC",      NULL)                      \
+  V(kPAuthEnhancedPAC2,   "PAuth EnhancedPAC2",     NULL)                      \
+  V(kPAuthFPAC,           "PAuth FPAC",             NULL)                      \
+  V(kPAuthFPACCombined,   "PAuth FPACCombined",     NULL)
 // clang-format on
 
 
@@ -197,13 +263,13 @@ class CPUFeatures {
   // clang-format on
 
   // By default, construct with no features enabled.
-  CPUFeatures() : features_(0) {}
+  CPUFeatures() : features_{} {}
 
   // Construct with some features already enabled.
-  CPUFeatures(Feature feature0,
-              Feature feature1 = kNone,
-              Feature feature2 = kNone,
-              Feature feature3 = kNone);
+  template <typename T, typename... U>
+  CPUFeatures(T first, U... others) : features_{} {
+    Combine(first, others...);
+  }
 
   // Construct with all features enabled. This can be used to disable feature
   // checking: `Has(...)` returns true regardless of the argument.
@@ -236,41 +302,59 @@ class CPUFeatures {
   // exist in this set are left unchanged.
   void Combine(const CPUFeatures& other);
 
-  // Combine specific features into this set. Features that already exist in
-  // this set are left unchanged.
-  void Combine(Feature feature0,
-               Feature feature1 = kNone,
-               Feature feature2 = kNone,
-               Feature feature3 = kNone);
+  // Combine a specific feature into this set. If it already exists in the set,
+  // the set is left unchanged.
+  void Combine(Feature feature);
+
+  // Combine multiple features (or feature sets) into this set.
+  template <typename T, typename... U>
+  void Combine(T first, U... others) {
+    Combine(first);
+    Combine(others...);
+  }
 
   // Remove features in another CPUFeatures object from this one.
   void Remove(const CPUFeatures& other);
 
-  // Remove specific features from this set.
-  void Remove(Feature feature0,
-              Feature feature1 = kNone,
-              Feature feature2 = kNone,
-              Feature feature3 = kNone);
+  // Remove a specific feature from this set. This has no effect if the feature
+  // doesn't exist in the set.
+  void Remove(Feature feature0);
 
-  // Chaining helpers for convenient construction.
-  CPUFeatures With(const CPUFeatures& other) const;
-  CPUFeatures With(Feature feature0,
-                   Feature feature1 = kNone,
-                   Feature feature2 = kNone,
-                   Feature feature3 = kNone) const;
-  CPUFeatures Without(const CPUFeatures& other) const;
-  CPUFeatures Without(Feature feature0,
-                      Feature feature1 = kNone,
-                      Feature feature2 = kNone,
-                      Feature feature3 = kNone) const;
+  // Remove multiple features (or feature sets) from this set.
+  template <typename T, typename... U>
+  void Remove(T first, U... others) {
+    Remove(first);
+    Remove(others...);
+  }
 
-  // Query features.
-  // Note that an empty query (like `Has(kNone)`) always returns true.
+  // Chaining helpers for convenient construction by combining other CPUFeatures
+  // or individual Features.
+  template <typename... T>
+  CPUFeatures With(T... others) const {
+    CPUFeatures f(*this);
+    f.Combine(others...);
+    return f;
+  }
+
+  template <typename... T>
+  CPUFeatures Without(T... others) const {
+    CPUFeatures f(*this);
+    f.Remove(others...);
+    return f;
+  }
+
+  // Test whether the `other` feature set is equal to or a subset of this one.
   bool Has(const CPUFeatures& other) const;
-  bool Has(Feature feature0,
-           Feature feature1 = kNone,
-           Feature feature2 = kNone,
-           Feature feature3 = kNone) const;
+
+  // Test whether a single feature exists in this set.
+  // Note that `Has(kNone)` always returns true.
+  bool Has(Feature feature) const;
+
+  // Test whether all of the specified features exist in this set.
+  template <typename T, typename... U>
+  bool Has(T first, U... others) const {
+    return Has(first) && Has(others...);
+  }
 
   // Return the number of enabled features.
   size_t Count() const;
@@ -288,9 +372,8 @@ class CPUFeatures {
   const_iterator end() const;
 
  private:
-  // Each bit represents a feature. This field will be replaced as needed if
-  // features are added.
-  uint64_t features_;
+  // Each bit represents a feature. This set will be extended as needed.
+  std::bitset<kNumberOfFeatures> features_;
 
   friend std::ostream& operator<<(std::ostream& os,
                                   const vixl::CPUFeatures& features);
@@ -313,8 +396,8 @@ class CPUFeaturesConstIterator {
   bool operator!=(const CPUFeaturesConstIterator& other) const {
     return !(*this == other);
   }
-  CPUFeatures::Feature operator++();
-  CPUFeatures::Feature operator++(int);
+  CPUFeaturesConstIterator& operator++();
+  CPUFeaturesConstIterator operator++(int);
 
   CPUFeatures::Feature operator*() const {
     VIXL_ASSERT(IsValid());
@@ -359,21 +442,17 @@ class CPUFeaturesScope {
   // Start a CPUFeaturesScope on any object that implements
   // `CPUFeatures* GetCPUFeatures()`.
   template <typename T>
-  explicit CPUFeaturesScope(T* cpu_features_wrapper,
-                            CPUFeatures::Feature feature0 = CPUFeatures::kNone,
-                            CPUFeatures::Feature feature1 = CPUFeatures::kNone,
-                            CPUFeatures::Feature feature2 = CPUFeatures::kNone,
-                            CPUFeatures::Feature feature3 = CPUFeatures::kNone)
+  explicit CPUFeaturesScope(T* cpu_features_wrapper)
       : cpu_features_(cpu_features_wrapper->GetCPUFeatures()),
-        old_features_(*cpu_features_) {
-    cpu_features_->Combine(feature0, feature1, feature2, feature3);
-  }
+        old_features_(*cpu_features_) {}
 
-  template <typename T>
-  CPUFeaturesScope(T* cpu_features_wrapper, const CPUFeatures& other)
+  // Start a CPUFeaturesScope on any object that implements
+  // `CPUFeatures* GetCPUFeatures()`, with the specified features enabled.
+  template <typename T, typename U, typename... V>
+  CPUFeaturesScope(T* cpu_features_wrapper, U first, V... features)
       : cpu_features_(cpu_features_wrapper->GetCPUFeatures()),
         old_features_(*cpu_features_) {
-    cpu_features_->Combine(other);
+    cpu_features_->Combine(first, features...);
   }
 
   ~CPUFeaturesScope() { *cpu_features_ = old_features_; }

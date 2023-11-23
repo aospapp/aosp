@@ -9,6 +9,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PersistableBundle;
@@ -32,7 +33,17 @@ public class TestDialerActivity extends Activity {
 
     private EditText mNumberView;
     private CheckBox mRttCheckbox;
+    private CheckBox mComposerCheckbox;
     private EditText mPriorityView;
+
+    private static final String COMPOSER_SUBJECT = "Sample call composer subject";
+    private static final Location COMPOSER_LOCATION;
+    static {
+        // Area 51
+        COMPOSER_LOCATION = new Location("");
+        COMPOSER_LOCATION.setLongitude(-115.806407);
+        COMPOSER_LOCATION.setLatitude(37.236214);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +79,7 @@ public class TestDialerActivity extends Activity {
 
         mNumberView = (EditText) findViewById(R.id.number);
         mRttCheckbox = (CheckBox) findViewById(R.id.call_with_rtt_checkbox);
+        mComposerCheckbox = (CheckBox) findViewById(R.id.add_composer_attachments_checkbox);
         findViewById(R.id.enable_car_mode).setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -168,6 +180,11 @@ public class TestDialerActivity extends Activity {
         extras.putString("com.android.server.telecom.testapps.CALL_EXTRAS", "Hall was here");
         if (mRttCheckbox.isChecked()) {
             extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_RTT, true);
+        }
+        if (mComposerCheckbox.isChecked()) {
+            extras.putInt(TelecomManager.EXTRA_PRIORITY, TelecomManager.PRIORITY_URGENT);
+            extras.putParcelable(TelecomManager.EXTRA_LOCATION, COMPOSER_LOCATION);
+            extras.putString(TelecomManager.EXTRA_CALL_SUBJECT, COMPOSER_SUBJECT);
         }
 
         Bundle intentExtras = new Bundle();

@@ -21,9 +21,11 @@ LOCAL_PATH := $(call my-dir)
 define build_xml_api_file
 include $(CLEAR_VARS)
 LOCAL_MODULE := cts-$(subst .,-,$(1))
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_STEM := $(1)
 LOCAL_MODULE_CLASS := ETC
-LOCAL_COMPATIBILITY_SUITE := arcts cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := arcts cts vts general-tests sts
 include $(BUILD_SYSTEM)/base_rules.mk
 $$(LOCAL_BUILT_MODULE): $(2) | $(APICHECK)
 	@echo "Convert API file $$< -> $$@"
@@ -41,7 +43,7 @@ $(foreach ver,$(PLATFORM_SYSTEMSDK_VERSIONS),\
 
 $(foreach ver,$(call int_range_list,28,$(PLATFORM_SDK_VERSION)),\
   $(foreach api_level,public system,\
-    $(foreach lib,$(filter-out android,$(filter-out %removed,$(filter-out incompatibilities,\
+    $(foreach lib,$(filter-out android,$(filter-out %removed,$(filter-out %incompatibilities,\
       $(basename $(notdir $(wildcard $(HISTORICAL_SDK_VERSIONS_ROOT)/$(ver)/$(api_level)/api/*.txt)))))),\
         $(eval $(call build_xml_api_file,$(lib)-$(ver)-$(api_level).api,prebuilts/sdk/$(ver)/$(api_level)/api/$(lib).txt)) \
     )\

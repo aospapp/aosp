@@ -24,6 +24,7 @@ import android.telephony.PreciseCallState;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyDisplayInfo;
 import android.telephony.TelephonyManager;
 
 import com.googlecode.android_scripting.facade.EventFacade;
@@ -214,6 +215,45 @@ public class TelephonyStateListeners {
         public void onActiveDataSubscriptionIdChanged(int subId) {
             mEventFacade.postEvent(
                 TelephonyConstants.EventActiveDataSubIdChanged, subId);
+        }
+    }
+
+    public static class DisplayInfoStateChangeListener extends PhoneStateListener {
+
+        private final EventFacade mEventFacade;
+        private final TelephonyManager mTelephonyManager;
+        public static final int sListeningStates =
+                PhoneStateListener.LISTEN_DISPLAY_INFO_CHANGED;
+        public int subscriptionId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+
+        public DisplayInfoStateChangeListener(EventFacade ef, TelephonyManager tm) {
+            super();
+            mEventFacade = ef;
+            mTelephonyManager = tm;
+            subscriptionId = SubscriptionManager.DEFAULT_SUBSCRIPTION_ID;
+        }
+
+        public DisplayInfoStateChangeListener(EventFacade ef, TelephonyManager tm, int subId) {
+            super();
+            mEventFacade = ef;
+            mTelephonyManager = tm;
+            subscriptionId = subId;
+        }
+
+        public DisplayInfoStateChangeListener(
+                EventFacade ef, TelephonyManager tm, int subId, Looper looper) {
+            super(looper);
+            mEventFacade = ef;
+            mTelephonyManager = tm;
+            subscriptionId = subId;
+        }
+
+        @Override
+        public void onDisplayInfoChanged(TelephonyDisplayInfo mTelephonyDisplayInfo) {
+            mEventFacade.postEvent(
+                TelephonyConstants.EventDisplayInfoChanged,
+                    new TelephonyEvents.DisplayInfoChangedEvent(
+                        mTelephonyDisplayInfo, subscriptionId));
         }
     }
 

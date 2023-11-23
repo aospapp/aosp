@@ -21,6 +21,7 @@
 #include <base/macros.h>
 #include <base/observer_list.h>
 
+#include "abstract_observer_list.h"
 #include "service/hal/bluetooth_gatt_interface.h"
 
 namespace bluetooth {
@@ -35,7 +36,8 @@ class FakeBluetoothGattInterface : public BluetoothGattInterface {
    public:
     virtual ~TestClientHandler() = default;
 
-    virtual bt_status_t RegisterClient(const bluetooth::Uuid& app_uuid) = 0;
+    virtual bt_status_t RegisterClient(const bluetooth::Uuid& app_uuid,
+                                       bool eatt_support) = 0;
     virtual bt_status_t UnregisterClient(int client_if) = 0;
 
     virtual bt_status_t Connect(int client_if, const RawAddress& bd_addr,
@@ -51,7 +53,8 @@ class FakeBluetoothGattInterface : public BluetoothGattInterface {
    public:
     virtual ~TestServerHandler() = default;
 
-    virtual bt_status_t RegisterServer(const bluetooth::Uuid& app_uuid) = 0;
+    virtual bt_status_t RegisterServer(const bluetooth::Uuid& app_uuid,
+                                       bool eatt_support) = 0;
     virtual bt_status_t UnregisterServer(int server_if) = 0;
     virtual bt_status_t AddService(
         int server_if, std::vector<btgatt_db_element_t> service) = 0;
@@ -138,9 +141,9 @@ class FakeBluetoothGattInterface : public BluetoothGattInterface {
   const btgatt_server_interface_t* GetServerHALInterface() const override;
 
  private:
-  base::ObserverList<ScannerObserver> scanner_observers_;
-  base::ObserverList<ClientObserver> client_observers_;
-  base::ObserverList<ServerObserver> server_observers_;
+  btbase::AbstractObserverList<ScannerObserver> scanner_observers_;
+  btbase::AbstractObserverList<ClientObserver> client_observers_;
+  btbase::AbstractObserverList<ServerObserver> server_observers_;
   std::shared_ptr<BleScannerInterface> scanner_handler_;
   std::shared_ptr<TestClientHandler> client_handler_;
   std::shared_ptr<TestServerHandler> server_handler_;

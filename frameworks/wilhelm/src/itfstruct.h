@@ -69,7 +69,7 @@ typedef struct {
     const struct SL3DCommitItf_ *mItf;
     IObject *mThis;
     SLboolean mDeferred;
-    SLuint32 mGeneration;   // incremented each master clock cycle
+    SLuint32 mGeneration;   // incremented each main clock cycle
     SLuint32 mWaiting;      // number of threads waiting in Commit
 } I3DCommit;
 

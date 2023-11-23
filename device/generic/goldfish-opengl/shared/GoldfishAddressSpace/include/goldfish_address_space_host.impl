@@ -377,7 +377,7 @@ void goldfish_address_space_unmap(void*, uint64_t) { }
 bool goldfish_address_space_set_subdevice_type(
     address_space_handle_t handle, GoldfishAddressSpaceSubdeviceType type,
     address_space_handle_t* handle_out) {
-    struct goldfish_address_space_ping request;
+    struct address_space_ping request;
     request.metadata = (uint64_t)type;
     *handle_out = handle;
     return goldfish_address_space_ping(handle, &request);
@@ -385,7 +385,7 @@ bool goldfish_address_space_set_subdevice_type(
 
 bool goldfish_address_space_ping(
     address_space_handle_t handle,
-    struct goldfish_address_space_ping* ping) {
+    struct address_space_ping* ping) {
 
     AddressSpaceDevicePingInfo* asHostPingInfo =
         reinterpret_cast<AddressSpaceDevicePingInfo*>(ping);

@@ -16,24 +16,37 @@
 
 package android.telecom.cts;
 
+import static android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE;
 import static android.telecom.cts.TestUtils.COMPONENT;
 import static android.telecom.cts.TestUtils.PACKAGE;
+import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 import static android.telephony.TelephonyManager.CALL_STATE_RINGING;
 
 import android.content.ComponentName;
+import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.Telephony;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
 import android.telecom.Call;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.telecom.VideoProfile;
 import android.telephony.PhoneStateListener;
 
+import com.android.compatibility.common.util.ShellIdentityUtils;
+
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -107,6 +120,55 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
         verifyConnectionForIncomingCall();
         verifyPhoneStateListenerCallbacksForCall(CALL_STATE_RINGING,
                 testNumber.getSchemeSpecificPart());
+        verifyCallStateListener(CALL_STATE_RINGING);
+    }
+
+    /**
+     * This test verifies that when a default dialer is incapable of playing a ringtone that the
+     * platform still plays a ringtone.
+     * <p>
+     * Given that the default {@link MockInCallService} defined in the CTS tests does not declare
+     * {@link TelecomManager#METADATA_IN_CALL_SERVICE_RINGING}, we expect the Telecom framework to
+     * play a ringtone for an incoming call.
+     * @throws Exception
+     */
+    public void testRingOnIncomingCall() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        ShellIdentityUtils.invokeStaticMethodWithShellPermissions(
+                (ShellIdentityUtils.StaticShellPermissionMethodHelper<Void>) () -> {
+                    RingtoneManager.setActualDefaultRingtoneUri(mContext,
+                            RingtoneManager.TYPE_RINGTONE,
+                            Settings.System.DEFAULT_RINGTONE_URI);
+                    return null;
+                });
+        LinkedBlockingQueue<Boolean> queue = new LinkedBlockingQueue(1);
+        setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
+        AudioManager audioManager = mContext.getSystemService(AudioManager.class);
+        AudioManager.AudioPlaybackCallback callback = new AudioManager.AudioPlaybackCallback() {
+            @Override
+            public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
+                super.onPlaybackConfigChanged(configs);
+                boolean isPlayingRingtone = configs.stream()
+                        .anyMatch(c -> c.getAudioAttributes().getUsage()
+                                == USAGE_NOTIFICATION_RINGTONE);
+                if (isPlayingRingtone && queue.isEmpty()) {
+                    queue.add(isPlayingRingtone);
+                }
+            }
+        };
+        audioManager.registerAudioPlaybackCallback(callback, new Handler(Looper.getMainLooper()));
+        Uri testNumber = createTestNumber();
+        addAndVerifyNewIncomingCall(testNumber, null);
+        verifyConnectionForIncomingCall();
+        verifyPhoneStateListenerCallbacksForCall(CALL_STATE_RINGING,
+                testNumber.getSchemeSpecificPart());
+        Boolean ringing = queue.poll(WAIT_FOR_STATE_CHANGE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        assertNotNull("Telecom should have played a ringtone, timed out waiting for state change",
+                ringing);
+        assertTrue("Telecom should have played a ringtone.", ringing);
+        audioManager.unregisterAudioPlaybackCallback(callback);
     }
 
     /**
@@ -207,5 +269,86 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
 
         Thread.sleep(STATE_CHANGE_DELAY);
         assertEquals(CALL_STATE_RINGING, mTelephonyManager.getCallState());
+    }
+
+    /**
+     * Verifies that a call to {@link android.telecom.Call#answer(int)} with a passed video state of
+     * {@link android.telecom.VideoProfile#STATE_AUDIO_ONLY} will result in a call to
+     * {@link Connection#onAnswer()}.
+     * @throws Exception
+     */
+    public void testConnectionOnAnswerForAudioCall() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        // Get a new incoming call.
+        setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
+        addAndVerifyNewIncomingCall(createTestNumber(), null);
+        Call call = mInCallCallbacks.getService().getLastCall();
+        final MockConnection connection = verifyConnectionForIncomingCall();
+        TestUtils.InvokeCounter audioInvoke = connection.getInvokeCounter(
+                MockConnection.ON_ANSWER_CALLED);
+
+        // Answer as audio-only.
+        call.answer(VideoProfile.STATE_AUDIO_ONLY);
+
+        // Make sure we get a call to {@link Connection#onAnswer()}.
+        audioInvoke.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+    }
+
+    /**
+     * Verifies that a call to {@link android.telecom.Call#answer(int)} with a passed video state of
+     * {@link android.telecom.VideoProfile#STATE_AUDIO_ONLY} will result in a call to
+     * {@link Connection#onAnswer()} where overridden.
+     * @throws Exception
+     */
+    public void testConnectionOnAnswerForVideoCallAnsweredAsAudio() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        // Get a new incoming call.
+        Bundle extras = new Bundle();
+        extras.putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
+                VideoProfile.STATE_BIDIRECTIONAL);
+        setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
+        addAndVerifyNewIncomingCall(createTestNumber(), extras);
+        Call call = mInCallCallbacks.getService().getLastCall();
+        final MockConnection connection = verifyConnectionForIncomingCall();
+        TestUtils.InvokeCounter audioInvoke = connection.getInvokeCounter(
+                MockConnection.ON_ANSWER_CALLED);
+
+        // Answer as audio-only.
+        call.answer(VideoProfile.STATE_AUDIO_ONLY);
+
+        // Make sure we get a call to {@link Connection#onAnswer()}.
+        audioInvoke.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+    }
+
+    /**
+     * Verifies that a call to {@link android.telecom.Call#answer(int)} with a passed video state of
+     * {@link android.telecom.VideoProfile#STATE_BIDIRECTIONAL} will result in a call to
+     * {@link Connection#onAnswer(int)}.
+     * @throws Exception
+     */
+    public void testConnectionOnAnswerIntForVideoCallAnsweredAsVideo() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        // Get a new incoming call.
+        Bundle extras = new Bundle();
+        extras.putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
+                VideoProfile.STATE_BIDIRECTIONAL);
+        setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
+        addAndVerifyNewIncomingCall(createTestNumber(), extras);
+        Call call = mInCallCallbacks.getService().getLastCall();
+        final MockConnection connection = verifyConnectionForIncomingCall();
+        TestUtils.InvokeCounter audioInvoke = connection.getInvokeCounter(
+                MockConnection.ON_ANSWER_VIDEO_CALLED);
+
+        // Answer as audio-only.
+        call.answer(VideoProfile.STATE_BIDIRECTIONAL);
+
+        // Make sure we get a call to {@link Connection#onAnswer(int)}.
+        audioInvoke.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
     }
 }

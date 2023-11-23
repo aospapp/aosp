@@ -18,7 +18,6 @@ package android.media.cts;
 
 import android.annotation.TargetApi;
 import android.content.res.AssetFileDescriptor;
-import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
@@ -29,6 +28,7 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.media.MediaPlayer;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
@@ -38,9 +38,8 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 
-import android.media.cts.R;
-
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
@@ -66,6 +65,7 @@ public class ExtractDecodeEditEncodeMuxTest
 
     private static final String TAG = ExtractDecodeEditEncodeMuxTest.class.getSimpleName();
     private static final boolean VERBOSE = false; // lots of logging
+    static final String mInpPrefix = WorkDir.getMediaDirString();
 
     /** How long to wait for the next buffer to become available. */
     private static final int TIMEOUT_USEC = 10000;
@@ -115,7 +115,7 @@ public class ExtractDecodeEditEncodeMuxTest
     private int mHeight = -1;
 
     /** The raw resource used as the input file. */
-    private int mSourceResId;
+    private String mSourceRes;
 
     /** The destination file for the encoded output. */
     private String mOutputFile;
@@ -128,7 +128,7 @@ public class ExtractDecodeEditEncodeMuxTest
 
     public void testExtractDecodeEditEncodeMuxQCIF() throws Throwable {
         if(!setSize(176, 144)) return;
-        setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
+        setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyVideo();
         setVideoMimeType(MediaFormat.MIMETYPE_VIDEO_AVC);
         TestWrapper.runTest(this);
@@ -136,7 +136,7 @@ public class ExtractDecodeEditEncodeMuxTest
 
     public void testExtractDecodeEditEncodeMuxQVGA() throws Throwable {
         if(!setSize(320, 240)) return;
-        setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
+        setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyVideo();
         setVideoMimeType(MediaFormat.MIMETYPE_VIDEO_AVC);
         TestWrapper.runTest(this);
@@ -144,7 +144,7 @@ public class ExtractDecodeEditEncodeMuxTest
 
     public void testExtractDecodeEditEncodeMux720p() throws Throwable {
         if(!setSize(1280, 720)) return;
-        setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
+        setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyVideo();
         setVideoMimeType(MediaFormat.MIMETYPE_VIDEO_AVC);
         TestWrapper.runTest(this);
@@ -152,7 +152,7 @@ public class ExtractDecodeEditEncodeMuxTest
 
     public void testExtractDecodeEditEncodeMux2160pHevc() throws Throwable {
         if(!setSize(3840, 2160)) return;
-        setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
+        setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyVideo();
         setVideoMimeType(MediaFormat.MIMETYPE_VIDEO_HEVC);
         TestWrapper.runTest(this);
@@ -160,7 +160,7 @@ public class ExtractDecodeEditEncodeMuxTest
 
     public void testExtractDecodeEditEncodeMuxAudio() throws Throwable {
         if(!setSize(1280, 720)) return;
-        setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
+        setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyAudio();
         setVerifyAudioFormat();
         TestWrapper.runTest(this);
@@ -168,7 +168,7 @@ public class ExtractDecodeEditEncodeMuxTest
 
     public void testExtractDecodeEditEncodeMuxAudioVideo() throws Throwable {
         if(!setSize(1280, 720)) return;
-        setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
+        setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyAudio();
         setCopyVideo();
         setVerifyAudioFormat();
@@ -250,23 +250,23 @@ public class ExtractDecodeEditEncodeMuxTest
     /**
      * Sets the raw resource used as the source video.
      */
-    private void setSource(int resId) {
-        mSourceResId = resId;
+    private void setSource(String res) {
+        mSourceRes = res;
     }
 
     /**
      * Sets the name of the output file based on the other parameters.
      *
-     * <p>Must be called after {@link #setSize(int, int)} and {@link #setSource(int)}.
+     * <p>Must be called after {@link #setSize(int, int)} and {@link #setSource(String)}.
      */
     private void setOutputFile() {
         StringBuilder sb = new StringBuilder();
         sb.append(OUTPUT_FILENAME_DIR.getAbsolutePath());
         sb.append("/cts-media-");
         sb.append(getClass().getSimpleName());
-        assertTrue("should have called setSource() first", mSourceResId != -1);
+        assertTrue("should have called setSource() first", mSourceRes != null);
         sb.append('-');
-        sb.append(mSourceResId);
+        sb.append(mSourceRes);
         if (mCopyVideo) {
             assertTrue("should have called setSize() first", mWidth != -1);
             assertTrue("should have called setSize() first", mHeight != -1);
@@ -578,13 +578,21 @@ public class ExtractDecodeEditEncodeMuxTest
         }
     }
 
+    protected AssetFileDescriptor getAssetFileDescriptorFor(final String res)
+            throws FileNotFoundException {
+        Preconditions.assertTestFileExists(mInpPrefix + res);
+        File inpFile = new File(mInpPrefix + res);
+        ParcelFileDescriptor parcelFD =
+                ParcelFileDescriptor.open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
+        return new AssetFileDescriptor(parcelFD, 0, parcelFD.getStatSize());
+    }
+
     /**
-     * Creates an extractor that reads its frames from {@link #mSourceResId}.
+     * Creates an extractor that reads its frames from {@link #mSourceRes}.
      */
     private MediaExtractor createExtractor() throws IOException {
         MediaExtractor extractor;
-        Context context = getInstrumentation().getTargetContext();
-        AssetFileDescriptor srcFd = context.getResources().openRawResourceFd(mSourceResId);
+        AssetFileDescriptor srcFd = getAssetFileDescriptorFor(mSourceRes);
         extractor = new MediaExtractor();
         extractor.setDataSource(srcFd.getFileDescriptor(), srcFd.getStartOffset(),
                 srcFd.getLength());
@@ -1179,7 +1187,7 @@ public class ExtractDecodeEditEncodeMuxTest
             }
         }
 
-        // Basic sanity checks.
+        // Basic validation checks.
         if (mCopyVideo) {
             assertEquals("encoded and decoded video frame counts should match",
                     videoDecodedFrameCount, videoEncodedFrameCount);

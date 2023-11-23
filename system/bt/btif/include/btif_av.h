@@ -23,8 +23,13 @@
 #ifndef BTIF_AV_H
 #define BTIF_AV_H
 
-#include "bta_av_api.h"
-#include "btif_common.h"
+#include <cstdint>
+
+#include "include/hardware/bt_av.h"
+#include "types/raw_address.h"
+
+// #include "bta/include/bta_av_api.h"
+// #include "btif/include/btif_common.h"
 
 /**
  * When the local device is A2DP source, get the address of the active peer.
@@ -215,5 +220,12 @@ bool btif_av_is_a2dp_offload_running(void);
  *
  */
 bool btif_av_is_peer_silenced(const RawAddress& peer_address);
+
+/**
+ * Set the dynamic audio buffer size
+ *
+ * @param dynamic_audio_buffer_size to set
+ */
+void btif_av_set_dynamic_audio_buffer_size(uint8_t dynamic_audio_buffer_size);
 
 #endif /* BTIF_AV_H */

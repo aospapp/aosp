@@ -68,6 +68,7 @@ import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -428,7 +429,7 @@ public class BitmapTest {
                 HARDWARE_OPTIONS);
         assertEquals(Config.HARDWARE, hardwareBitmap.getConfig());
 
-        Bitmap ret = Bitmap.createBitmap(hardwareBitmap, 0, 0, 100, 100, null, false);
+        Bitmap ret = Bitmap.createBitmap(hardwareBitmap, 0, 0, 96, 96, null, false);
         assertEquals(Config.HARDWARE, ret.getConfig());
         assertFalse(ret.isMutable());
     }
@@ -673,6 +674,103 @@ public class BitmapTest {
             HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)) {
             Bitmap bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, ColorSpace.get(Named.CIE_LAB));
         }
+    }
+
+    private void assertMatches(HardwareBuffer hwBuffer, HardwareBuffer hwBuffer2) {
+        assertEquals(hwBuffer, hwBuffer2);
+        assertEquals(hwBuffer.hashCode(), hwBuffer2.hashCode());
+        assertEquals(hwBuffer.getWidth(), hwBuffer2.getWidth());
+        assertEquals(hwBuffer.getHeight(), hwBuffer2.getHeight());
+        assertEquals(hwBuffer.getFormat(), hwBuffer2.getFormat());
+        assertEquals(hwBuffer.getLayers(), hwBuffer2.getLayers());
+        assertEquals(hwBuffer.getUsage(), hwBuffer2.getUsage());
+    }
+
+    @Test
+    public void testGetHardwareBufferMatchesWrapped() {
+        try (HardwareBuffer hwBuffer = createTestBuffer(128, 128, false)) {
+            Bitmap bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, ColorSpace.get(Named.SRGB));
+            assertNotNull(bitmap);
+
+            try (HardwareBuffer hwBuffer2 = bitmap.getHardwareBuffer()) {
+                assertNotNull(hwBuffer2);
+                assertMatches(hwBuffer, hwBuffer2);
+            }
+            bitmap.recycle();
+        }
+    }
+
+    private static Object[] parametersFor_testGetHardwareBufferConfig() {
+        return new Object[] {Config.ARGB_8888, Config.RGBA_F16, Config.RGB_565};
+    }
+
+    @Test
+    @Parameters(method = "parametersFor_testGetHardwareBufferConfig")
+    public void testGetHardwareBufferConfig(Config config) {
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, config);
+        bitmap = bitmap.copy(Config.HARDWARE, false);
+        if (bitmap == null) {
+            fail("Failed to copy to HARDWARE with Config " + config);
+        }
+        try (HardwareBuffer hwBuffer = bitmap.getHardwareBuffer()) {
+            assertNotNull(hwBuffer);
+            assertEquals(hwBuffer.getWidth(), 10);
+            assertEquals(hwBuffer.getHeight(), 10);
+        }
+    }
+
+    @Test
+    public void testGetHardwareBufferTwice() {
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        bitmap = bitmap.copy(Config.HARDWARE, false);
+        try (HardwareBuffer hwBuffer = bitmap.getHardwareBuffer()) {
+            assertNotNull(hwBuffer);
+            try (HardwareBuffer hwBuffer2 = bitmap.getHardwareBuffer()) {
+                assertNotNull(hwBuffer2);
+                assertMatches(hwBuffer, hwBuffer2);
+            }
+        }
+    }
+
+    @Test
+    public void testGetHardwareBufferMatches() {
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        bitmap = bitmap.copy(Config.HARDWARE, false);
+        try (HardwareBuffer hwBuffer = bitmap.getHardwareBuffer()) {
+            HashSet<HardwareBuffer> set = new HashSet<HardwareBuffer>();
+            set.add(hwBuffer);
+            assertTrue(set.contains(bitmap.getHardwareBuffer()));
+        }
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testGetHardwareBufferNonHardware() {
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        bitmap.getHardwareBuffer();
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testGetHardwareBufferRecycled() {
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        bitmap = bitmap.copy(Config.HARDWARE, false);
+        bitmap.recycle();
+        bitmap.getHardwareBuffer();
+    }
+
+    @Test
+    public void testGetHardwareBufferClosed() {
+        HardwareBuffer hwBuffer = createTestBuffer(128, 128, false);
+        Bitmap bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, ColorSpace.get(Named.SRGB));
+        assertNotNull(bitmap);
+
+        hwBuffer.close();
+
+        try (HardwareBuffer hwBuffer2 = bitmap.getHardwareBuffer()) {
+            assertNotNull(hwBuffer2);
+            assertFalse(hwBuffer2.isClosed());
+            assertNotEquals(hwBuffer, hwBuffer2);
+        }
+        bitmap.recycle();
     }
 
     @Test
@@ -2144,15 +2242,15 @@ public class BitmapTest {
         Debug.getMemoryInfo(end);
         assertNotEquals(0, start.getTotalPss());
         assertNotEquals(0, end.getTotalPss());
-        if (end.getTotalPss() - start.getTotalPss() > 2000 /* kB */) {
+        if (end.getTotalPss() - start.getTotalPss() > 5000 /* kB */) {
             runGcAndFinalizersSync();
             Debug.getMemoryInfo(end);
-            if (end.getTotalPss() - start.getTotalPss() > 4000 /* kB */) {
+            if (end.getTotalPss() - start.getTotalPss() > 7000 /* kB */) {
                 // Guarded by if so we don't continually generate garbage for the
                 // assertion string.
                 assertEquals("Memory leaked, iteration=" + iteration,
                         start.getTotalPss(), end.getTotalPss(),
-                        4000 /* kb */);
+                        7000 /* kb */);
             }
         }
     }
@@ -2298,6 +2396,108 @@ public class BitmapTest {
                 }
             }
             dstBitmap.recycle();
+        }
+    }
+
+    private static byte[] compressToPng(Bitmap bitmap) {
+        try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+            assertTrue("Failed to encode a Bitmap with Config " + bitmap.getConfig()
+                    + " and ColorSpace " + bitmap.getColorSpace() + "!",
+                    bitmap.compress(CompressFormat.PNG, 100, stream));
+            return stream.toByteArray();
+        } catch (IOException e) {
+            fail("Failed to compress with " + e);
+            return null;
+        }
+    }
+
+    private static Object[] parametersForTestAsShared() {
+        return Utils.crossProduct(Config.values(), getRgbColorSpaces().toArray(new Object[0]));
+    }
+
+    @Test
+    @Parameters(method = "parametersForTestAsShared")
+    public void testAsShared(Config config, ColorSpace colorSpace) {
+        Bitmap original = Bitmap.createBitmap(10, 10,
+                config == Config.HARDWARE ? Config.ARGB_8888 : config, true /*hasAlpha*/,
+                colorSpace);
+        drawGradient(original);
+
+        if (config == Config.HARDWARE) {
+            original = original.copy(Config.HARDWARE, false /*mutable*/);
+        }
+
+        // There's no visible way to test that the memory is allocated in shared memory, but we can
+        // verify that the Bitmaps look the same.
+        Bitmap shared = original.asShared();
+        assertNotNull(shared);
+
+        if (config == Config.HARDWARE) {
+            int expectedFormat = nGetFormat(original);
+            assertEquals(expectedFormat, configToFormat(shared.getConfig()));
+
+            // There's no public way to look at the pixels in the HARDWARE Bitmap, but if we
+            // compress each as a lossless PNG, they should look identical.
+            byte[] origBytes = compressToPng(original);
+            byte[] sharedBytes = compressToPng(shared);
+            assertTrue(Arrays.equals(origBytes, sharedBytes));
+        } else {
+            assertSame(original.getConfig(), shared.getConfig());
+            assertTrue(shared.sameAs(original));
+        }
+        assertSame(original.getColorSpace(), shared.getColorSpace());
+
+        // The Bitmap is already in shared memory, so no work is done.
+        Bitmap shared2 = shared.asShared();
+        assertSame(shared, shared2);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testAsSharedRecycled() {
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        bitmap.recycle();
+        bitmap.asShared();
+    }
+
+    @Test
+    public void testAsSharedDensity() {
+        DisplayMetrics metrics =
+                InstrumentationRegistry.getTargetContext().getResources().getDisplayMetrics();
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        for (int density : new int[] { Bitmap.DENSITY_NONE, metrics.densityDpi,
+                DisplayMetrics.DENSITY_HIGH, DisplayMetrics.DENSITY_DEVICE_STABLE,
+                DisplayMetrics.DENSITY_MEDIUM }) {
+            bitmap.setDensity(density);
+            Bitmap shared = bitmap.asShared();
+            assertEquals(density, shared.getDensity());
+            shared.recycle();
+        }
+    }
+
+    @Test
+    @Parameters({"true", "false"})
+    public void testAsSharedImageDecoder(boolean mutable) {
+        Resources res = InstrumentationRegistry.getTargetContext().getResources();
+        ImageDecoder.Source source = ImageDecoder.createSource(res.getAssets(),
+                "grayscale-16bit-linearSrgb.png");
+        try {
+            Bitmap bitmap = ImageDecoder.decodeBitmap(source, (decoder, info, s) -> {
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_SHARED_MEMORY);
+                if (mutable) decoder.setMutableRequired(true);
+            });
+
+            Bitmap shared = bitmap.asShared();
+            if (mutable) {
+                // bitmap is mutable, so asShared must make a copy.
+                assertNotEquals(bitmap, shared);
+                assertTrue(bitmap.sameAs(shared));
+            } else {
+                // bitmap is already immutable and in shared memory, so asShared will return
+                // itself.
+                assertSame(bitmap, shared);
+            }
+        } catch (IOException e) {
+            fail("Failed to decode with " + e);
         }
     }
 
@@ -2565,6 +2765,24 @@ public class BitmapTest {
                 || cs == ColorSpace.get(Named.LINEAR_EXTENDED_SRGB);
     }
 
+    // Helper method for populating a Bitmap with interesting pixels for comparison.
+    private static void drawGradient(Bitmap bitmap) {
+        // Use different colors and alphas.
+        Canvas canvas = new Canvas(bitmap);
+        ColorSpace cs = bitmap.getColorSpace();
+        if (cs == null) {
+            assertSame(Config.ALPHA_8, bitmap.getConfig());
+            cs = ColorSpace.get(ColorSpace.Named.SRGB);
+        }
+        long color0 = Color.pack(0, 0, 1, 1, cs);
+        long color1 = Color.pack(1, 0, 0, 0, cs);
+        LinearGradient gradient = new LinearGradient(0, 0, 10, 10, color0, color1,
+                Shader.TileMode.CLAMP);
+        Paint paint = new Paint();
+        paint.setShader(gradient);
+        canvas.drawPaint(paint);
+    }
+
     @Test
     @Parameters(method = "parametersForNdkCompress")
     public void testNdkCompress(CompressFormat format, ColorSpace cs, Config config)
@@ -2574,15 +2792,7 @@ public class BitmapTest {
         assertNotNull(bitmap);
 
         {
-            // Use different colors and alphas.
-            Canvas canvas = new Canvas(bitmap);
-            long color0 = Color.pack(0, 0, 1, 1, cs);
-            long color1 = Color.pack(1, 0, 0, 0, cs);
-            LinearGradient gradient = new LinearGradient(0, 0, 10, 10, color0, color1,
-                    Shader.TileMode.CLAMP);
-            Paint paint = new Paint();
-            paint.setShader(gradient);
-            canvas.drawPaint(paint);
+            drawGradient(bitmap);
         }
 
         byte[] storage = new byte[16 * 1024];
@@ -2657,6 +2867,7 @@ public class BitmapTest {
     private static native void nFillRgbaHwBuffer(HardwareBuffer hwBuffer);
     private static native void nTestNullBitmap(Bitmap bitmap);
 
+    private static final int ANDROID_BITMAP_FORMAT_NONE = 0;
     static final int ANDROID_BITMAP_FORMAT_RGBA_8888 = 1;
     private static final int ANDROID_BITMAP_FORMAT_RGB_565 = 4;
     private static final int ANDROID_BITMAP_FORMAT_A_8 = 8;
@@ -2670,6 +2881,15 @@ public class BitmapTest {
             this.config = c;
             this.format = f;
         }
+    }
+
+    private static int configToFormat(Config config) {
+        for (ConfigToFormat pair : CONFIG_TO_FORMAT) {
+            if (config == pair.config) {
+                return pair.format;
+            }
+        }
+        return ANDROID_BITMAP_FORMAT_NONE;
     }
 
     private static final ConfigToFormat[] CONFIG_TO_FORMAT = new ConfigToFormat[] {

@@ -22,16 +22,6 @@
 #endif
 
 #include <getopt.h>
-
-#include <android/hardware/graphics/allocator/2.0/IAllocator.h>
-#include <android/hardware/graphics/allocator/3.0/IAllocator.h>
-#include <android/hardware/graphics/common/1.0/types.h>
-#include <android/hardware/graphics/common/1.1/types.h>
-#include <android/hardware/graphics/common/1.2/types.h>
-#include <android/hardware/graphics/mapper/2.0/IMapper.h>
-#include <android/hardware/graphics/mapper/2.0/types.h>
-#include <android/hardware/graphics/mapper/3.0/IMapper.h>
-#include <android/hardware/graphics/mapper/3.0/types.h>
 #include <gtest/gtest.h>
 #include <hidl/ServiceManagement.h>
 #include <media/stagefright/foundation/ALooper.h>
@@ -45,6 +35,9 @@
 #include <media/openmax/OMX_IndexExt.h>
 #include <media/openmax/OMX_AudioExt.h>
 #include <media/openmax/OMX_VideoExt.h>
+
+#include <ui/GraphicBufferAllocator.h>
+#include <ui/GraphicBufferMapper.h>
 
 /* TIME OUTS (Wait time in dequeueMessage()) */
 
@@ -78,8 +71,8 @@ enum bufferOwner {
     unknown,
 };
 
-// White list audio/video roles to be tested.
-static std::set<std::string> kWhiteListRoles{
+// List known and thus tested audio/video roles.
+static std::set<std::string> kKnownRoles{
         "audio_encoder.aac",      "audio_encoder.amrnb", "audio_encoder.amrwb",
         "audio_encoder.flac",     "audio_decoder.aac",   "audio_decoder.amrnb",
         "audio_decoder.amrwb",    "audio_decoder.flac",  "audio_decoder.g711alaw",
@@ -122,6 +115,7 @@ inline uint32_t toRawCommandType(OMX_COMMANDTYPE l) {
 struct BufferInfo {
     uint32_t id;
     bufferOwner owner;
+    buffer_handle_t handle;
     android::hardware::media::omx::V1_0::CodecBuffer omxBuffer;
     ::android::sp<IMemory> mMemory;
     int32_t slot;
@@ -312,35 +306,6 @@ Return<android::hardware::media::omx::V1_0::Status> setPortConfig(
 /*
  * common functions declarations
  */
-struct GrallocV2 {
-    using Format = android::hardware::graphics::common::V1_0::PixelFormat;
-    using Usage = android::hardware::hidl_bitfield<
-            android::hardware::graphics::common::V1_0::BufferUsage>;
-
-    using IAllocator = android::hardware::graphics::allocator::V2_0::IAllocator;
-
-    using IMapper = android::hardware::graphics::mapper::V2_0::IMapper;
-    using Error = android::hardware::graphics::mapper::V2_0::Error;
-    using Descriptor = android::hardware::graphics::mapper::V2_0::BufferDescriptor;
-    using YCbCrLayout = android::hardware::graphics::mapper::V2_0::YCbCrLayout;
-    using DescriptorInfo = IMapper::BufferDescriptorInfo;
-    using Rect = IMapper::Rect;
-};
-
-struct GrallocV3 {
-    using Format = android::hardware::graphics::common::V1_2::PixelFormat;
-    using Usage = android::hardware::hidl_bitfield<
-            android::hardware::graphics::common::V1_2::BufferUsage>;
-
-    using IAllocator = android::hardware::graphics::allocator::V3_0::IAllocator;
-
-    using IMapper = android::hardware::graphics::mapper::V3_0::IMapper;
-    using Error = android::hardware::graphics::mapper::V3_0::Error;
-    using Descriptor = android::hardware::graphics::mapper::V3_0::BufferDescriptor;
-    using YCbCrLayout = android::hardware::graphics::mapper::V3_0::YCbCrLayout;
-    using DescriptorInfo = IMapper::BufferDescriptorInfo;
-    using Rect = IMapper::Rect;
-};
 
 Return<android::hardware::media::omx::V1_0::Status> setRole(sp<IOmxNode> omxNode,
                                                             const std::string& role);
@@ -365,6 +330,9 @@ void allocatePortBuffers(sp<IOmxNode> omxNode,
                          PortMode portMode = PortMode::PRESET_BYTE_BUFFER,
                          bool allocGrap = false);
 
+void freePortBuffers(android::Vector<BufferInfo>* buffArray, PortMode portMode,
+                     bool allocGrap = false);
+
 void changeStateLoadedtoIdle(sp<IOmxNode> omxNode, sp<CodecObserver> observer,
                              android::Vector<BufferInfo>* iBuffer,
                              android::Vector<BufferInfo>* oBuffer,
@@ -374,8 +342,9 @@ void changeStateLoadedtoIdle(sp<IOmxNode> omxNode, sp<CodecObserver> observer,
 
 void changeStateIdletoLoaded(sp<IOmxNode> omxNode, sp<CodecObserver> observer,
                              android::Vector<BufferInfo>* iBuffer,
-                             android::Vector<BufferInfo>* oBuffer,
-                             OMX_U32 kPortIndexInput, OMX_U32 kPortIndexOutput);
+                             android::Vector<BufferInfo>* oBuffer, OMX_U32 kPortIndexInput,
+                             OMX_U32 kPortIndexOutput, PortMode* portMode = nullptr,
+                             bool allocGrap = false);
 
 void changeStateIdletoExecute(sp<IOmxNode> omxNode, sp<CodecObserver> observer);
 

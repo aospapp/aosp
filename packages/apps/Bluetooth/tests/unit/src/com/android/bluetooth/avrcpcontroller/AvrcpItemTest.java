@@ -72,7 +72,7 @@ public final class AvrcpItemTest {
         long totalTracks = 12;
         String genre = "Viking Metal";
         long playingTime = 301;
-        String artHandle = "abc123";
+        String artHandle = "0000001";
         Uri uri = Uri.parse("content://somewhere");
         Uri uri2 = Uri.parse("content://somewhereelse");
 
@@ -119,7 +119,7 @@ public final class AvrcpItemTest {
         String totalTracks = "12";
         String genre = "Viking Metal";
         String playingTime = "301";
-        String artHandle = "abc123";
+        String artHandle = "0000001";
 
         int[] attrIds = new int[]{
             MEDIA_ATTRIBUTE_TITLE,
@@ -171,7 +171,7 @@ public final class AvrcpItemTest {
         String totalTracks = "12";
         String genre = "Viking Metal";
         String playingTime = "301";
-        String artHandle = "abc123";
+        String artHandle = "0000001";
 
         int[] attrIds = new int[]{
             MEDIA_ATTRIBUTE_TITLE,
@@ -223,6 +223,214 @@ public final class AvrcpItemTest {
     }
 
     @Test
+    public void buildAvrcpItemFromAvrcpAttributes_imageHandleTooShort() {
+        String title = "Aaaaargh";
+        String artist = "Bluetooth";
+        String album = "The Best Protocol";
+        String trackNumber = "1";
+        String totalTracks = "12";
+        String genre = "Viking Metal";
+        String playingTime = "301";
+        String artHandle = "000001"; // length 6 and not 7
+
+        int[] attrIds = new int[]{
+            MEDIA_ATTRIBUTE_TITLE,
+            MEDIA_ATTRIBUTE_ARTIST_NAME,
+            MEDIA_ATTRIBUTE_ALBUM_NAME,
+            MEDIA_ATTRIBUTE_TRACK_NUMBER,
+            MEDIA_ATTRIBUTE_TOTAL_TRACK_NUMBER,
+            MEDIA_ATTRIBUTE_GENRE,
+            MEDIA_ATTRIBUTE_PLAYING_TIME,
+            MEDIA_ATTRIBUTE_COVER_ART_HANDLE
+        };
+
+        String[] attrMap = new String[]{
+            title,
+            artist,
+            album,
+            trackNumber,
+            totalTracks,
+            genre,
+            playingTime,
+            artHandle
+        };
+
+        AvrcpItem.Builder builder = new AvrcpItem.Builder();
+        builder.fromAvrcpAttributeArray(attrIds, attrMap);
+        AvrcpItem item = builder.build();
+
+        Assert.assertEquals(null, item.getDevice());
+        Assert.assertEquals(false, item.isPlayable());
+        Assert.assertEquals(false, item.isBrowsable());
+        Assert.assertEquals(0, item.getUid());
+        Assert.assertEquals(null, item.getUuid());
+        Assert.assertEquals(null, item.getDisplayableName());
+        Assert.assertEquals(title, item.getTitle());
+        Assert.assertEquals(artist, item.getArtistName());
+        Assert.assertEquals(album, item.getAlbumName());
+        Assert.assertEquals(1, item.getTrackNumber());
+        Assert.assertEquals(12, item.getTotalNumberOfTracks());
+        Assert.assertEquals(null, item.getCoverArtHandle());
+        Assert.assertEquals(null, item.getCoverArtLocation());
+    }
+
+    @Test
+    public void buildAvrcpItemFromAvrcpAttributes_imageHandleEmpty() {
+        String title = "Aaaaargh";
+        String artist = "Bluetooth";
+        String album = "The Best Protocol";
+        String trackNumber = "1";
+        String totalTracks = "12";
+        String genre = "Viking Metal";
+        String playingTime = "301";
+        String artHandle = "";
+
+        int[] attrIds = new int[]{
+            MEDIA_ATTRIBUTE_TITLE,
+            MEDIA_ATTRIBUTE_ARTIST_NAME,
+            MEDIA_ATTRIBUTE_ALBUM_NAME,
+            MEDIA_ATTRIBUTE_TRACK_NUMBER,
+            MEDIA_ATTRIBUTE_TOTAL_TRACK_NUMBER,
+            MEDIA_ATTRIBUTE_GENRE,
+            MEDIA_ATTRIBUTE_PLAYING_TIME,
+            MEDIA_ATTRIBUTE_COVER_ART_HANDLE
+        };
+
+        String[] attrMap = new String[]{
+            title,
+            artist,
+            album,
+            trackNumber,
+            totalTracks,
+            genre,
+            playingTime,
+            artHandle
+        };
+
+        AvrcpItem.Builder builder = new AvrcpItem.Builder();
+        builder.fromAvrcpAttributeArray(attrIds, attrMap);
+        AvrcpItem item = builder.build();
+
+        Assert.assertEquals(null, item.getDevice());
+        Assert.assertEquals(false, item.isPlayable());
+        Assert.assertEquals(false, item.isBrowsable());
+        Assert.assertEquals(0, item.getUid());
+        Assert.assertEquals(null, item.getUuid());
+        Assert.assertEquals(null, item.getDisplayableName());
+        Assert.assertEquals(title, item.getTitle());
+        Assert.assertEquals(artist, item.getArtistName());
+        Assert.assertEquals(album, item.getAlbumName());
+        Assert.assertEquals(1, item.getTrackNumber());
+        Assert.assertEquals(12, item.getTotalNumberOfTracks());
+        Assert.assertEquals(null, item.getCoverArtHandle());
+        Assert.assertEquals(null, item.getCoverArtLocation());
+    }
+
+    @Test
+    public void buildAvrcpItemFromAvrcpAttributes_imageHandleNull() {
+        String title = "Aaaaargh";
+        String artist = "Bluetooth";
+        String album = "The Best Protocol";
+        String trackNumber = "1";
+        String totalTracks = "12";
+        String genre = "Viking Metal";
+        String playingTime = "301";
+        String artHandle = null;
+
+        int[] attrIds = new int[]{
+            MEDIA_ATTRIBUTE_TITLE,
+            MEDIA_ATTRIBUTE_ARTIST_NAME,
+            MEDIA_ATTRIBUTE_ALBUM_NAME,
+            MEDIA_ATTRIBUTE_TRACK_NUMBER,
+            MEDIA_ATTRIBUTE_TOTAL_TRACK_NUMBER,
+            MEDIA_ATTRIBUTE_GENRE,
+            MEDIA_ATTRIBUTE_PLAYING_TIME,
+            MEDIA_ATTRIBUTE_COVER_ART_HANDLE
+        };
+
+        String[] attrMap = new String[]{
+            title,
+            artist,
+            album,
+            trackNumber,
+            totalTracks,
+            genre,
+            playingTime,
+            artHandle
+        };
+
+        AvrcpItem.Builder builder = new AvrcpItem.Builder();
+        builder.fromAvrcpAttributeArray(attrIds, attrMap);
+        AvrcpItem item = builder.build();
+
+        Assert.assertEquals(null, item.getDevice());
+        Assert.assertEquals(false, item.isPlayable());
+        Assert.assertEquals(false, item.isBrowsable());
+        Assert.assertEquals(0, item.getUid());
+        Assert.assertEquals(null, item.getUuid());
+        Assert.assertEquals(null, item.getDisplayableName());
+        Assert.assertEquals(title, item.getTitle());
+        Assert.assertEquals(artist, item.getArtistName());
+        Assert.assertEquals(album, item.getAlbumName());
+        Assert.assertEquals(1, item.getTrackNumber());
+        Assert.assertEquals(12, item.getTotalNumberOfTracks());
+        Assert.assertEquals(null, item.getCoverArtHandle());
+        Assert.assertEquals(null, item.getCoverArtLocation());
+    }
+
+    @Test
+    public void buildAvrcpItemFromAvrcpAttributes_imageHandleNotDigits() {
+        String title = "Aaaaargh";
+        String artist = "Bluetooth";
+        String album = "The Best Protocol";
+        String trackNumber = "1";
+        String totalTracks = "12";
+        String genre = "Viking Metal";
+        String playingTime = "301";
+        String artHandle = "123abcd";
+
+        int[] attrIds = new int[]{
+            MEDIA_ATTRIBUTE_TITLE,
+            MEDIA_ATTRIBUTE_ARTIST_NAME,
+            MEDIA_ATTRIBUTE_ALBUM_NAME,
+            MEDIA_ATTRIBUTE_TRACK_NUMBER,
+            MEDIA_ATTRIBUTE_TOTAL_TRACK_NUMBER,
+            MEDIA_ATTRIBUTE_GENRE,
+            MEDIA_ATTRIBUTE_PLAYING_TIME,
+            MEDIA_ATTRIBUTE_COVER_ART_HANDLE
+        };
+
+        String[] attrMap = new String[]{
+            title,
+            artist,
+            album,
+            trackNumber,
+            totalTracks,
+            genre,
+            playingTime,
+            artHandle
+        };
+
+        AvrcpItem.Builder builder = new AvrcpItem.Builder();
+        builder.fromAvrcpAttributeArray(attrIds, attrMap);
+        AvrcpItem item = builder.build();
+
+        Assert.assertEquals(null, item.getDevice());
+        Assert.assertEquals(false, item.isPlayable());
+        Assert.assertEquals(false, item.isBrowsable());
+        Assert.assertEquals(0, item.getUid());
+        Assert.assertEquals(null, item.getUuid());
+        Assert.assertEquals(null, item.getDisplayableName());
+        Assert.assertEquals(title, item.getTitle());
+        Assert.assertEquals(artist, item.getArtistName());
+        Assert.assertEquals(album, item.getAlbumName());
+        Assert.assertEquals(1, item.getTrackNumber());
+        Assert.assertEquals(12, item.getTotalNumberOfTracks());
+        Assert.assertEquals(null, item.getCoverArtHandle());
+        Assert.assertEquals(null, item.getCoverArtLocation());
+    }
+
+    @Test
     public void updateCoverArtLocation() {
         Uri uri = Uri.parse("content://somewhere");
         Uri uri2 = Uri.parse("content://somewhereelse");
@@ -246,7 +454,7 @@ public final class AvrcpItemTest {
         long totalTracks = 12;
         String genre = "Viking Metal";
         long playingTime = 301;
-        String artHandle = "abc123";
+        String artHandle = "0000001";
         Uri uri = Uri.parse("content://somewhere");
 
         AvrcpItem.Builder builder = new AvrcpItem.Builder();
@@ -303,7 +511,7 @@ public final class AvrcpItemTest {
         long totalTracks = 12;
         String genre = "Viking Metal";
         long playingTime = 301;
-        String artHandle = "abc123";
+        String artHandle = "0000001";
         Uri uri = Uri.parse("content://somewhere");
         int type = AvrcpItem.FOLDER_TITLES;
 
@@ -371,7 +579,7 @@ public final class AvrcpItemTest {
         Assert.assertEquals(UUID, desc.getMediaId());
         Assert.assertEquals(null, desc.getMediaUri());
         Assert.assertEquals(title, desc.getTitle().toString());
-        Assert.assertEquals(null, desc.getSubtitle());
+        Assert.assertEquals(desc.getSubtitle(), null);
         Assert.assertEquals(uri, desc.getIconUri());
         Assert.assertEquals(null, desc.getIconBitmap());
     }
@@ -400,7 +608,7 @@ public final class AvrcpItemTest {
         Assert.assertEquals(UUID, desc.getMediaId());
         Assert.assertEquals(null, desc.getMediaUri());
         Assert.assertEquals(displayName, desc.getTitle().toString());
-        Assert.assertEquals(null, desc.getSubtitle());
+        Assert.assertEquals(desc.getSubtitle(), null);
         Assert.assertEquals(uri, desc.getIconUri());
         Assert.assertEquals(null, desc.getIconBitmap());
     }
@@ -427,7 +635,7 @@ public final class AvrcpItemTest {
         Assert.assertEquals(UUID, desc.getMediaId());
         Assert.assertEquals(null, desc.getMediaUri());
         Assert.assertEquals(title, desc.getTitle().toString());
-        Assert.assertEquals(null, desc.getSubtitle());
+        Assert.assertEquals(desc.getSubtitle(), null);
         Assert.assertEquals(uri, desc.getIconUri());
         Assert.assertEquals(null, desc.getIconBitmap());
     }

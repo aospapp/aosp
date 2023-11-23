@@ -60,6 +60,7 @@ public class PartnerWallpaperInfo extends WallpaperInfo {
     }
 
     private PartnerWallpaperInfo(Parcel in) {
+        super(in);
         mThumbRes = in.readInt();
         mFullRes = in.readInt();
     }
@@ -158,6 +159,7 @@ public class PartnerWallpaperInfo extends WallpaperInfo {
 
     @Override
     public void writeToParcel(Parcel parcel, int i) {
+        super.writeToParcel(parcel, i);
         parcel.writeInt(mThumbRes);
         parcel.writeInt(mFullRes);
     }

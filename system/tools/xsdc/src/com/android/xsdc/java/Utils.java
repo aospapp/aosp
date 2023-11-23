@@ -72,6 +72,9 @@ class Utils {
     }
 
     static String toEnumName(String name) throws JavaCodeGeneratorException {
+        if ("".equals(name)) {
+            name = "EMPTY";
+        }
         String trimmed = name.replace(".", "_").replaceAll("[^A-Za-z0-9_]", "");
         if (trimmed.isEmpty()) {
             throw new JavaCodeGeneratorException(

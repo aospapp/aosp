@@ -52,7 +52,7 @@ public class MainActivity extends FragmentActivity
     private static final long TIME_THRESHOLD_NS = TimeUnit.SECONDS.toNanos(2);
 
     /**
-     * Earth gravity is around 9.8 m/s^2 but user may not completely direct his/her hand vertical
+     * Earth gravity is around 9.8 m/s^2 but user may not completely direct their hand vertical
      * during the exercise so we leave some room. Basically, if the x-component of gravity, as
      * measured by the Gravity sensor, changes with a variation delta > 0.03 from the hand down
      * and hand up threshold we define below, we consider that a successful count.

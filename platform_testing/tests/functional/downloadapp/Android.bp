@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "DownloadAppFunctionalTests",
 
@@ -7,7 +11,7 @@ android_test {
     static_libs: [
         "launcher-helper-lib",
         "ub-uiautomator",
-        "android-support-test",
+        "androidx.test.rules",
     ],
 
     libs: ["android.test.base.stubs"],

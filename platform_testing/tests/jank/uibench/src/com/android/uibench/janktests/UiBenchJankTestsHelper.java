@@ -55,7 +55,7 @@ public class UiBenchJankTestsHelper {
     private UiDevice mDevice;
     private Context mContext;
     private DisplayMetrics mDisplayMetrics;
-    protected UiObject2 mContents, mNavigation;
+    protected UiObject2 mContents, mNavigation, mRecyclerView;
 
     private UiBenchJankTestsHelper(Context context, UiDevice device) {
         mContext = context;
@@ -142,9 +142,11 @@ public class UiBenchJankTestsHelper {
     }
 
     public void slowSingleFlingDown(UiObject2 content) {
-        content.setGestureMargin(getEdgeSensitivity());
+        mRecyclerView =
+                mDevice.wait(Until.findObject(By.res(PACKAGE_NAME, "recyclerView")), TIMEOUT);
+        mRecyclerView.setGestureMargin(getEdgeSensitivity());
         SystemClock.sleep(SHORT_TIMEOUT);
-        content.fling(Direction.DOWN, (int)(SLOW_FLING_SPEED * mDisplayMetrics.density));
+        mRecyclerView.fling(Direction.DOWN, (int) (SLOW_FLING_SPEED * mDisplayMetrics.density));
         mDevice.waitForIdle();
     }
 

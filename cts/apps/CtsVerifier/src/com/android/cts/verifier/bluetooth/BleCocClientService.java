@@ -217,7 +217,6 @@ public class BleCocClientService extends Service {
                     break;
                 case BLE_COC_CLIENT_ACTION_EXCHANGE_DATA:
                     sendDataLargeBuf();
-                    readDataLargeBuf();
                     break;
                 case BLE_CLIENT_ACTION_CLIENT_DISCONNECT:
                     if (mBluetoothGatt != null) {
@@ -546,9 +545,16 @@ public class BleCocClientService extends Service {
             }
             Intent intent = new Intent(mNextReadCompletionIntent);
             sendBroadcast(intent);
-            mNextReadExpectedLen = -1;
-            mNextReadCompletionIntent = null;
             mTotalReadLen = 0;
+            if (mNextReadCompletionIntent.equals(BLE_DATA_8BYTES_READ)) {
+                // The server will not wait for any signal to send out the next bunch of data, after
+                // it finishes sending the first 8 bytes. That means if we set the expectation
+                // asynchronously, the data could come before that, so we have to do that here.
+                readDataLargeBuf();
+            } else {
+                mNextReadExpectedLen = -1;
+                mNextReadCompletionIntent = null;
+            }
         } else if (mNextReadExpectedLen > mTotalReadLen) {
             if (!checkReadBufContent(buf, len)) {
                 mNextReadExpectedLen = -1;

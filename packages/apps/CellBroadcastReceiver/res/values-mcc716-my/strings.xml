@@ -21,4 +21,5 @@
     <string name="cmas_required_monthly_test" msgid="9061179556831144678">"အရေးပေါ် သတိပေးချက်− စမ်းသပ်မက်ဆေ့ဂျ်"</string>
     <string name="cmas_exercise_alert" msgid="3061507852301643814">"အရေးပေါ် သတိပေးချက်− လေ့ကျင့်ရေး/သရုပ်ပြ မက်ဆေ့ဂျ်"</string>
     <string name="pws_other_message_identifiers" msgid="4992476982074198144">"အရေးပေါ် သတိပေးချက်− စမ်းသပ်မက်ဆေ့ဂျ်"</string>
+    <string name="button_dismiss" msgid="5823921161712171097">"ဝှက်ရန်"</string>
 </resources>

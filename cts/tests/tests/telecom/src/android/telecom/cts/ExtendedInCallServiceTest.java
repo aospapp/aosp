@@ -23,10 +23,13 @@ import static com.android.compatibility.common.util.BlockedNumberUtil.insertBloc
 import android.app.UiModeManager;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.res.Configuration;
+import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.CallAudioState;
 import android.telecom.Call;
+import android.telecom.CallScreeningService;
 import android.telecom.Connection;
 import android.telecom.ConnectionService;
 import android.telecom.InCallService;
@@ -137,7 +140,7 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
         assertAudioRoute(connection, secondRoute);
         assertAudioRoute(inCallService, secondRoute);
 
-        // Call requestBluetoothAudio on a dummy device. This will be a noop since no devices are
+        // Call requestBluetoothAudio on a device. This will be a noop since no devices are
         // connected.
         if(TestUtils.HAS_BLUETOOTH) {
             ((InCallService) inCallService).requestBluetoothAudio(TestUtils.BLUETOOTH_DEVICE1);
@@ -367,10 +370,16 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
             // The second call should now be active
             assertCallState(call2, Call.STATE_ACTIVE);
             assertConnectionState(connection2, Connection.STATE_ACTIVE);
-
         } finally {
+            // Cleanup the call explicitly before exiting car mode -- there's a potential race
+            // between disconnecting the calls from CTS and disabling car mode where if Telecom
+            // sees the car mode change first, it'll try and rebind the incall services while
+            // the calls are disconnecting.
+            cleanupCalls();
             // Set device back to normal
             manager.disableCarMode(0);
+            // Make sure the UI mode has been set back
+            assertUiMode(Configuration.UI_MODE_TYPE_NORMAL);
         }
     }
 
@@ -397,6 +406,59 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
             if (blockedUri != null) {
                 unblockNumber(blockedUri);
             }
+        }
+    }
+
+    public void testCallComposerAttachmentsStrippedCorrectly() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        Bundle extras = new Bundle();
+        extras.putParcelable(TelecomManager.EXTRA_LOCATION, new Location(""));
+        extras.putInt(TelecomManager.EXTRA_PRIORITY, TelecomManager.PRIORITY_URGENT);
+        extras.putString(TelecomManager.EXTRA_CALL_SUBJECT, "blah blah blah");
+
+        TestUtils.setSystemDialerOverride(getInstrumentation());
+        MockCallScreeningService.enableService(mContext);
+        try {
+            CallScreeningService.CallResponse response =
+                    new CallScreeningService.CallResponse.Builder()
+                            .setDisallowCall(false)
+                            .setRejectCall(false)
+                            .setSilenceCall(false)
+                            .setSkipCallLog(false)
+                            .setSkipNotification(false)
+                            .setShouldScreenCallViaAudioProcessing(false)
+                            .setCallComposerAttachmentsToShow(0)
+                            .build();
+
+            MockCallScreeningService.setCallbacks(
+                    new MockCallScreeningService.CallScreeningServiceCallbacks() {
+                        @Override
+                        public void onScreenCall(Call.Details callDetails) {
+                            getService().respondToCall(callDetails, response);
+                        }
+                    });
+
+            addAndVerifyNewIncomingCall(createTestNumber(), extras);
+            verifyConnectionForIncomingCall(0);
+            MockInCallService inCallService = mInCallCallbacks.getService();
+            Call call = inCallService.getLastCall();
+
+            assertFalse(call.getDetails().getExtras().containsKey(TelecomManager.EXTRA_LOCATION));
+            assertFalse(call.getDetails().getExtras().containsKey(TelecomManager.EXTRA_PRIORITY));
+            assertFalse(call.getDetails().getExtras()
+                    .containsKey(TelecomManager.EXTRA_CALL_SUBJECT));
+
+            assertFalse(call.getDetails().getIntentExtras()
+                    .containsKey(TelecomManager.EXTRA_LOCATION));
+            assertFalse(call.getDetails().getIntentExtras()
+                    .containsKey(TelecomManager.EXTRA_PRIORITY));
+            assertFalse(call.getDetails().getIntentExtras()
+                    .containsKey(TelecomManager.EXTRA_CALL_SUBJECT));
+        } finally {
+            MockCallScreeningService.disableService(mContext);
+            TestUtils.clearSystemDialerOverride(getInstrumentation());
         }
     }
 

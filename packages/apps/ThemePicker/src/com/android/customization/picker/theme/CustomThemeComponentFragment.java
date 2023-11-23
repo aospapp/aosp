@@ -15,42 +15,37 @@
  */
 package com.android.customization.picker.theme;
 
-import android.app.AlertDialog;
-import android.content.Context;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.StringRes;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.android.customization.model.theme.custom.CustomThemeManager;
 import com.android.customization.model.theme.custom.ThemeComponentOption;
 import com.android.customization.model.theme.custom.ThemeComponentOptionProvider;
 import com.android.customization.widget.OptionSelectorController;
+import com.android.customization.widget.OptionSelectorController.CheckmarkStyle;
 import com.android.wallpaper.R;
-import com.android.wallpaper.picker.ToolbarFragment;
+import com.android.wallpaper.picker.AppbarFragment;
 
 public class CustomThemeComponentFragment extends CustomThemeStepFragment {
     private static final String ARG_USE_GRID_LAYOUT = "CustomThemeComponentFragment.use_grid";;
 
     public static CustomThemeComponentFragment newInstance(CharSequence toolbarTitle, int position,
-            int titleResId) {
-        return newInstance(toolbarTitle, position, titleResId, false);
+            int titleResId, int accessibilityResId) {
+        return newInstance(toolbarTitle, position, titleResId, accessibilityResId, false);
     }
 
     public static CustomThemeComponentFragment newInstance(CharSequence toolbarTitle, int position,
-            int titleResId, boolean allowGridLayout) {
+            int titleResId, int accessibilityResId, boolean allowGridLayout) {
         CustomThemeComponentFragment fragment = new CustomThemeComponentFragment();
-        Bundle arguments = ToolbarFragment.createArguments(toolbarTitle);
+        Bundle arguments = AppbarFragment.createArguments(toolbarTitle);
         arguments.putInt(ARG_KEY_POSITION, position);
         arguments.putInt(ARG_KEY_TITLE_RES_ID, titleResId);
+        arguments.putInt(ARG_KEY_ACCESSIBILITY_RES_ID, accessibilityResId);
         arguments.putBoolean(ARG_USE_GRID_LAYOUT, allowGridLayout);
         fragment.setArguments(arguments);
         return fragment;
@@ -100,11 +95,14 @@ public class CustomThemeComponentFragment extends CustomThemeStepFragment {
     private void setUpOptions() {
         mProvider.fetch(options -> {
             mOptionsController = new OptionSelectorController(
-                    mOptionsContainer, options, mUseGridLayout, false);
+                    mOptionsContainer, options, mUseGridLayout, CheckmarkStyle.NONE);
 
             mOptionsController.addListener(selected -> {
                 mSelectedOption = (ThemeComponentOption) selected;
                 bindPreview();
+                // Preview and apply. The selection will be kept whatever user goes to previous page
+                // or encounter system config changes, the current selection can be recovered.
+                mCustomThemeManager.apply(mSelectedOption, /* callback= */ null);
             });
             mOptionsController.initOptions(mCustomThemeManager);
 

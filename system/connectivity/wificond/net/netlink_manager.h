@@ -85,7 +85,7 @@ typedef std::function<void(
 // domain or a intersection regulatory domain.
 // See details in defination of |nl80211_reg_type| from nl80211.h.
 typedef std::function<void(
-    std::string& country_code)> OnRegDomainChangedHandler;
+    uint32_t wiphy_index, std::string& country_code)> OnRegDomainChangedHandler;
 
 // Enum used for identifying channel bandwidth.
 // This is used by function |OnChannelSwitchEventHandler|.

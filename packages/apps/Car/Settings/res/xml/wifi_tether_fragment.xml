@@ -18,10 +18,17 @@
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
                   android:title="@string/tether_settings_title_all"
                   android:key="@string/psk_wifi_tether">
+    <com.android.car.settings.common.ColoredSwitchPreference
+        android:key="@string/pk_wifi_tether_state_switch"
+        style="@style/ColoredSwitchPreferenceStyle"
+        settings:controller="com.android.car.settings.wifi.WifiTetherStateSwitchPreferenceController"
+        settings:searchable="false"/>
+    <com.android.car.settings.common.DividerPreference/>
     <com.android.car.settings.common.ValidatedEditTextPreference
         android:key="@string/pk_wifi_tether_name"
         android:title="@string/wifi_hotspot_name_title"
-        settings:controller="com.android.car.settings.wifi.WifiTetherNamePreferenceController"/>
+        settings:controller="com.android.car.settings.wifi.WifiTetherNamePreferenceController"
+        settings:showChevron="false"/>
     <ListPreference
         android:key="@string/pk_wifi_tether_security"
         android:title="@string/wifi_hotspot_security_title"
@@ -32,7 +39,8 @@
         android:key="@string/pk_wifi_tether_password"
         android:title="@string/wifi_hotspot_password_title"
         android:persistent="false"
-        settings:controller="com.android.car.settings.wifi.WifiTetherPasswordPreferenceController"/>
+        settings:controller="com.android.car.settings.wifi.WifiTetherPasswordPreferenceController"
+        settings:showChevron="false"/>
     <SwitchPreference
         android:key="@string/pk_wifi_tether_auto_off"
         android:title="@string/wifi_hotspot_auto_off_title"

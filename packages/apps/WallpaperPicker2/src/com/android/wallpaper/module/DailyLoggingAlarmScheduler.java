@@ -15,6 +15,8 @@
  */
 package com.android.wallpaper.module;
 
+import static android.app.PendingIntent.FLAG_IMMUTABLE;
+
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -30,7 +32,6 @@ import java.util.concurrent.TimeUnit;
 public class DailyLoggingAlarmScheduler {
 
     private static final int UNUSED_REQUEST_CODE = 0;
-    private static final int UNUSED_REQUEST_FLAGS = 0;
 
     /**
      * Sets a new alarm to fire approximately 24 hours after the last one, or immediately if it has
@@ -79,7 +80,7 @@ public class DailyLoggingAlarmScheduler {
     private static PendingIntent createAlarmReceiverPendingIntent(Context appContext) {
         Intent intent = new Intent(appContext, DailyLoggingAlarmReceiver.class);
         return PendingIntent.getBroadcast(
-                appContext, UNUSED_REQUEST_CODE, intent, UNUSED_REQUEST_FLAGS);
+                appContext, UNUSED_REQUEST_CODE, intent, FLAG_IMMUTABLE);
     }
 
 }

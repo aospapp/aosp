@@ -29,6 +29,7 @@ import android.opengl.EGLImage;
 import android.opengl.EGLSurface;
 import android.opengl.EGLSync;
 import android.opengl.GLES20;
+import android.os.SystemProperties;
 
 import androidx.test.filters.SmallTest;
 
@@ -328,6 +329,12 @@ public class EGL15Test {
         int error;
 
         if (mEglVersion < 15) {
+            return;
+        }
+
+        // Required functionality for devices released with Android R (11),
+        // skip if launched with older version of Android.
+        if (SystemProperties.getInt("ro.product.first_api_level", 0) < 30) {
             return;
         }
 

@@ -10,26 +10,42 @@ package(
 
 exports_files(["LICENSE"])
 
+filegroup(
+    name = "all_py_srcs",
+    srcs = glob(["*.py"]),
+    visibility = [
+        "//tensorflow/python/keras/google/private_tf_api_test:__pkg__",
+    ],
+)
+
+config_setting(
+    name = "no_keras_py_deps",
+    define_values = {"no_keras_py_deps": "true"},
+    visibility = ["//visibility:public"],
+)
+
 py_library(
     name = "keras",
     srcs = [
         "__init__.py",
         "estimator/__init__.py",
         "keras_parameterized.py",
-        "ops.py",
-        "testing_utils.py",
     ],
-    srcs_version = "PY2AND3",
-    visibility = ["//visibility:public"],
+    srcs_version = "PY3",
     deps = [
         ":backend",
         ":engine",
+        # TODO(scottzhu): Stop exporting the test_utils after removing all
+        # callers that using it.
+        ":testing_utils",
         "//tensorflow/python:training",
         "//tensorflow/python/eager:monitoring",
         "//tensorflow/python/keras/applications",
         "//tensorflow/python/keras/datasets",
+        "//tensorflow/python/keras/distribute",
+        "//tensorflow/python/keras/feature_column",
         "//tensorflow/python/keras/layers",
-        "//tensorflow/python/keras/mixed_precision/experimental:mixed_precision_experimental",
+        "//tensorflow/python/keras/mixed_precision:mixed_precision_experimental",
         "//tensorflow/python/keras/optimizer_v2",
         "//tensorflow/python/keras/premade",
         "//tensorflow/python/keras/preprocessing",
@@ -43,7 +59,7 @@ py_library(
 py_library(
     name = "backend",
     srcs = ["backend.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":backend_config",
         "//tensorflow/core:protos_all_py",
@@ -51,10 +67,8 @@ py_library(
         "//tensorflow/python:check_ops",
         "//tensorflow/python:client",
         "//tensorflow/python:clip_ops",
-        "//tensorflow/python:composite_tensor_utils",
         "//tensorflow/python:constant_op",
         "//tensorflow/python:control_flow_ops",
-        "//tensorflow/python:control_flow_util",
         "//tensorflow/python:ctc_ops",
         "//tensorflow/python:dtypes",
         "//tensorflow/python:framework",
@@ -85,13 +99,21 @@ py_library(
         "//tensorflow/python/distribute:distribute_coordinator",
         "//tensorflow/python/distribute:distribute_lib",
         "//tensorflow/python/distribute:multi_worker_util",
+        "//tensorflow/python/keras/engine:keras_tensor",
+        "//tensorflow/python/keras/utils:control_flow_util",
+        "//tensorflow/python/keras/utils:object_identity",
+        "//tensorflow/python/keras/utils:tf_contextlib",
+        "//tensorflow/python/keras/utils:tf_inspect",
     ],
 )
 
 py_library(
     name = "backend_config",
     srcs = ["backend_config.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
+    deps = [
+        "//tensorflow/python:util",
+    ],
 )
 
 # TODO(scottzhu): Cleanup this target and point all the user to keras/engine.
@@ -101,7 +123,7 @@ py_library(
         ":metrics",
         ":models",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         "//tensorflow/python/keras/engine",
     ],
@@ -112,9 +134,10 @@ py_library(
     srcs = [
         "activations.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":backend",
+        "//tensorflow/python/keras/layers:advanced_activations",
         "//tensorflow/python/keras/utils:engine_utils",
     ],
 )
@@ -123,7 +146,7 @@ py_library(
 py_library(
     name = "base_layer",
     srcs = [],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         "//tensorflow/python/keras/engine:base_layer",
     ],
@@ -134,14 +157,30 @@ py_library(
     srcs = [
         "callbacks.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":backend",
-        "//tensorflow/python/distribute:distributed_file_utils",
-        "//tensorflow/python/keras/distribute:multi_worker_training_state",
+        "//tensorflow/python/keras/distribute:distributed_file_utils",
+        "//tensorflow/python/keras/distribute:worker_training_state",
+        "//tensorflow/python/keras/protobuf:projector_config_proto_py",
         "//tensorflow/python/keras/utils:engine_utils",
         "//tensorflow/python/keras/utils:mode_keys",
+        "//tensorflow/python/profiler:profiler_v2",
         "//tensorflow/tools/docs:doc_controls",
+    ],
+)
+
+py_library(
+    name = "combinations",
+    srcs = [
+        "combinations.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        ":testing_utils",
+        "//tensorflow/python:framework_combinations",
+        "//tensorflow/python:framework_test_combinations_lib",
+        "//tensorflow/python:tf2",
     ],
 )
 
@@ -150,11 +189,11 @@ py_library(
     srcs = [
         "callbacks_v1.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":backend",
-        "//tensorflow/python/eager:profiler",
         "//tensorflow/python/keras/utils:engine_utils",
+        "//tensorflow/python/profiler:profiler_v2",
     ],
 )
 
@@ -163,7 +202,7 @@ py_library(
     srcs = [
         "constraints.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":backend",
         "//tensorflow/python/keras/utils:engine_utils",
@@ -173,13 +212,25 @@ py_library(
 py_library(
     name = "initializers",
     srcs = [
-        "initializers.py",
+        "initializers/__init__.py",
+        "initializers/initializers_v1.py",
+        "initializers/initializers_v2.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":backend",
-        "//tensorflow/python:init_ops_v2",
-        "//tensorflow/python/keras/utils:engine_utils",
+        "//tensorflow/python:array_ops",
+        "//tensorflow/python:constant_op",
+        "//tensorflow/python:dtypes",
+        "//tensorflow/python:init_ops",
+        "//tensorflow/python:linalg_ops",
+        "//tensorflow/python:math_ops",
+        "//tensorflow/python:random_ops",
+        "//tensorflow/python:stateless_random_ops",
+        "//tensorflow/python:tf2",
+        "//tensorflow/python/keras/utils:generic_utils",
+        "//tensorflow/python/keras/utils:tf_inspect",
+        "//tensorflow/python/util:tf_export",
     ],
 )
 
@@ -188,7 +239,7 @@ py_library(
     srcs = [
         "losses.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":backend",
         "//tensorflow/python/keras/utils:engine_utils",
@@ -200,8 +251,9 @@ py_library(
     srcs = [
         "metrics.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
+        ":activations",
         ":backend",
         ":losses",
         "//tensorflow/python:array_ops",
@@ -239,7 +291,7 @@ py_library(
     srcs = [
         "models.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":backend",
         ":metrics",
@@ -257,9 +309,10 @@ py_library(
 py_library(
     name = "optimizers",
     srcs = [
+        "optimizer_v1.py",
         "optimizers.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":backend",
         "//tensorflow/python/keras/optimizer_v2",
@@ -272,10 +325,44 @@ py_library(
     srcs = [
         "regularizers.py",
     ],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     deps = [
         ":backend",
         "//tensorflow/python/keras/utils:engine_utils",
+    ],
+)
+
+# Internally six.moves.urllib.request.urlretrieve library requires Google
+# SSL context to be provided to work in python 3. This isn't needed in OSS.
+# copybara:uncomment_begin(google-only)
+# py_library(
+#     name = "url_utils",
+#     srcs = ["google/url_utils.py"],
+#     srcs_version = "PY3",
+#     deps = ["//pyglib/contrib/google_ssl"],
+# )
+# copybara:uncomment_end
+
+py_library(
+    name = "testing_utils",
+    srcs = [
+        "testing_utils.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        ":backend",
+        ":models",
+        "//tensorflow/python:config",
+        "//tensorflow/python:framework_test_lib",
+        "//tensorflow/python:tensor_shape",
+        "//tensorflow/python:tensor_spec",
+        "//tensorflow/python:tf2",
+        "//tensorflow/python:util",
+        "//tensorflow/python/eager:context",
+        "//tensorflow/python/keras/engine:base_layer_utils",
+        "//tensorflow/python/keras/layers",
+        "//tensorflow/python/keras/optimizer_v2",
+        "//third_party/py/numpy",
     ],
 )
 
@@ -285,10 +372,31 @@ tf_py_test(
     srcs = ["activations_test.py"],
     python_version = "PY3",
     deps = [
-        ":keras",
+        ":activations",
+        ":backend",
+        ":combinations",
         "//tensorflow/python:client_testlib",
         "//tensorflow/python:nn_ops",
+        "//tensorflow/python/keras/layers",
+        "//tensorflow/python/keras/layers:advanced_activations",
+        "//tensorflow/python/keras/layers:core",
         "//third_party/py/numpy",
+        "@absl_py//absl/testing:parameterized",
+    ],
+)
+
+tf_py_test(
+    name = "combinations_test",
+    size = "small",
+    srcs = ["combinations_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":combinations",
+        ":testing_utils",
+        "//tensorflow/python:client_testlib",
+        "//tensorflow/python:extra_py_tests_deps",
+        "//tensorflow/python:tf2",
+        "//tensorflow/python/eager:context",
         "@absl_py//absl/testing:parameterized",
     ],
 )
@@ -299,10 +407,11 @@ tf_py_test(
     srcs = ["constraints_test.py"],
     python_version = "PY3",
     deps = [
-        ":keras",
+        ":backend",
+        ":combinations",
+        ":constraints",
         "//tensorflow/python:client_testlib",
         "//third_party/py/numpy",
-        "@absl_py//absl/testing:parameterized",
     ],
 )
 
@@ -312,11 +421,17 @@ tf_py_test(
     srcs = ["initializers_test.py"],
     python_version = "PY3",
     deps = [
-        ":keras",
+        ":backend",
+        ":combinations",
+        ":initializers",
+        ":models",
+        "//tensorflow/python:array_ops",
         "//tensorflow/python:client_testlib",
+        "//tensorflow/python:framework_test_lib",
         "//tensorflow/python:init_ops",
+        "//tensorflow/python:tf2",
+        "//tensorflow/python/keras/engine",
         "//third_party/py/numpy",
-        "@absl_py//absl/testing:parameterized",
     ],
 )
 
@@ -354,10 +469,17 @@ tf_py_test(
     srcs = ["losses_test.py"],
     python_version = "PY3",
     deps = [
-        ":keras",
+        ":backend",
+        ":combinations",
+        ":losses",
         "//tensorflow/python:client_testlib",
+        "//tensorflow/python:constant_op",
+        "//tensorflow/python:dtypes",
+        "//tensorflow/python:errors",
+        "//tensorflow/python:framework_ops",
+        "//tensorflow/python:framework_test_lib",
+        "//tensorflow/python/keras/utils:engine_utils",
         "//third_party/py/numpy",
-        "@absl_py//absl/testing:parameterized",
     ],
 )
 
@@ -367,6 +489,7 @@ tf_py_test(
     srcs = ["metrics_functional_test.py"],
     python_version = "PY3",
     deps = [
+        ":combinations",
         ":keras",
         "//tensorflow/python:client_testlib",
         "//third_party/py/numpy",
@@ -380,10 +503,27 @@ tf_py_test(
     python_version = "PY3",
     shard_count = 4,
     deps = [
+        ":combinations",
         ":keras",
+        ":metrics",
+        ":testing_utils",
+        "//tensorflow/python:array_ops",
         "//tensorflow/python:client_testlib",
+        "//tensorflow/python:constant_op",
+        "//tensorflow/python:dtypes",
+        "//tensorflow/python:errors",
+        "//tensorflow/python:framework_ops",
+        "//tensorflow/python:framework_test_lib",
+        "//tensorflow/python:math_ops",
+        "//tensorflow/python:variables",
+        "//tensorflow/python:weights_broadcast_ops",
+        "//tensorflow/python/eager:context",
+        "//tensorflow/python/eager:def_function",
+        "//tensorflow/python/eager:function",
+        "//tensorflow/python/keras/layers",
+        "//tensorflow/python/ops/ragged:ragged_factory_ops",
+        "//tensorflow/python/training/tracking:util",
         "//third_party/py/numpy",
-        "@absl_py//absl/testing:parameterized",
     ],
 )
 
@@ -394,8 +534,17 @@ tf_py_test(
     python_version = "PY3",
     shard_count = 4,
     deps = [
-        ":keras",
+        ":combinations",
+        ":metrics",
+        ":models",
         "//tensorflow/python:client_testlib",
+        "//tensorflow/python:constant_op",
+        "//tensorflow/python:dtypes",
+        "//tensorflow/python:math_ops",
+        "//tensorflow/python:random_ops",
+        "//tensorflow/python:variables",
+        "//tensorflow/python/keras/layers",
+        "//tensorflow/python/keras/utils:metrics_utils",
         "//third_party/py/numpy",
         "@absl_py//absl/testing:parameterized",
     ],
@@ -420,14 +569,14 @@ tf_py_test(
     size = "medium",
     srcs = ["callbacks_test.py"],
     python_version = "PY3",
-    shard_count = 4,
+    shard_count = 6,
     tags = [
         "no_oss",
+        "no_tfrt",  # TODO(b/179690526)
         "notsan",
     ],
     deps = [
         ":keras",
-        "//tensorflow/python:client_testlib",
         "//third_party/py/numpy",
         "@absl_py//absl/testing:parameterized",
         "@six_archive//:six",
@@ -441,8 +590,16 @@ tf_py_test(
     python_version = "PY3",
     tags = ["notsan"],
     deps = [
-        ":keras",
+        ":callbacks",
+        ":callbacks_v1",
+        ":combinations",
+        ":testing_utils",
         "//tensorflow/python:client_testlib",
+        "//tensorflow/python:framework_ops",
+        "//tensorflow/python:training_lib",
+        "//tensorflow/python/keras/engine",
+        "//tensorflow/python/keras/layers",
+        "//tensorflow/python/keras/utils:np_utils",
         "//third_party/py/numpy",
         "@absl_py//absl/testing:parameterized",
     ],
@@ -455,7 +612,6 @@ tf_py_test(
     python_version = "PY3",
     shard_count = 8,
     tags = [
-        "no_rocm",
         "notsan",  # b/67509773
     ],
     deps = [
@@ -474,9 +630,23 @@ tf_py_test(
     python_version = "PY3",
     shard_count = 4,
     deps = [
-        ":keras",
+        ":backend",
+        ":combinations",
+        ":engine",
+        "//tensorflow/core:protos_all_py",
+        "//tensorflow/python:array_ops",
         "//tensorflow/python:client_testlib",
+        "//tensorflow/python:config",
+        "//tensorflow/python:errors",
+        "//tensorflow/python:extra_py_tests_deps",
+        "//tensorflow/python:framework_ops",
+        "//tensorflow/python:framework_test_lib",
+        "//tensorflow/python:nn",
+        "//tensorflow/python:sparse_tensor",
         "//tensorflow/python:util",
+        "//tensorflow/python:variables",
+        "//tensorflow/python/eager:context",
+        "//tensorflow/python/eager:def_function",
         "//third_party/py/numpy",
         "@absl_py//absl/testing:parameterized",
     ],
@@ -488,10 +658,10 @@ tf_py_test(
     srcs = ["backend_config_test.py"],
     python_version = "PY3",
     deps = [
-        ":keras",
+        ":backend",
+        ":backend_config",
+        ":combinations",
         "//tensorflow/python:client_testlib",
-        "//tensorflow/python:util",
-        "//third_party/py/numpy",
     ],
 )
 
@@ -508,3 +678,29 @@ tf_py_test(
         "@absl_py//absl/testing:parameterized",
     ],
 )
+
+# copybara:uncomment_begin(google-only)
+# tf_py_test(
+#     name = "url_utils_test",
+#     srcs = ["google/url_utils_test.py"],
+#     python_version = "PY3",
+#     deps = [
+#         ":url_utils",
+#         "//testing/pymocks:matchers",
+#         "//tensorflow/python:client_testlib",
+#     ],
+# )
+#
+# tf_py_test(
+#     name = "gfile_utils_test",
+#     size = "small",
+#     srcs = ["google_utils/gfile_utils_test.py"],
+#     python_version = "PY3",
+#     deps = [
+#         ":keras",
+#         "//testing/pymocks:matchers",
+#         "//tensorflow/python:client_testlib",
+#         "//tensorflow/python:util",
+#     ],
+# )
+# copybara:uncomment_end

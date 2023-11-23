@@ -65,116 +65,75 @@
 /* NOTES:                                                                           */
 /*                                                                                  */
 /************************************************************************************/
-LVCS_ReturnStatus_en LVCS_Process_CS(LVCS_Handle_t              hInstance,
-                                     const LVM_FLOAT            *pInData,
-                                     LVM_FLOAT                  *pOutData,
-                                     LVM_UINT16                 NumSamples)
-{
-    const LVM_FLOAT     *pInput;
-    LVCS_Instance_t     *pInstance = (LVCS_Instance_t  *)hInstance;
-    LVM_FLOAT           *pScratch;
+LVCS_ReturnStatus_en LVCS_Process_CS(LVCS_Handle_t hInstance, const LVM_FLOAT* pInData,
+                                     LVM_FLOAT* pOutData, LVM_UINT16 NumSamples) {
+    const LVM_FLOAT* pInput;
+    LVCS_Instance_t* pInstance = (LVCS_Instance_t*)hInstance;
+    LVM_FLOAT* pScratch;
     LVCS_ReturnStatus_en err;
-#ifdef SUPPORT_MC
-    LVM_FLOAT           *pStIn;
-    LVM_INT32           channels = pInstance->Params.NrChannels;
+    LVM_FLOAT* pStIn;
+    LVM_INT32 channels = pInstance->Params.NrChannels;
 #define NrFrames NumSamples  // alias for clarity
 
-    /*In case of mono processing, stereo input is created from mono
-     *and stored in pInData before applying any of the effects.
-     *However we do not update the value pInstance->Params.NrChannels
-     *at this point.
-     *So to treat the pInData as stereo we are setting channels to 2
-     */
-    if (channels == 1)
-    {
-        channels = 2;
-    }
-#endif
-
-    pScratch  = (LVM_FLOAT *) \
-                  pInstance->MemoryTable.Region[LVCS_MEMREGION_TEMPORARY_FAST].pBaseAddress;
+    pScratch = (LVM_FLOAT*)pInstance->pScratch;
 
     /*
      * Check if the processing is inplace
      */
-#ifdef SUPPORT_MC
     /*
      * The pInput buffer holds the first 2 (Left, Right) channels information.
      * Hence the memory required by this buffer is 2 * NumFrames.
      * The Concert Surround module carries out processing only on L, R.
      */
     pInput = pScratch + (2 * NrFrames);
-    pStIn  = pScratch + ((LVCS_SCRATCHBUFFERS - 2) * NrFrames);
-    /* The first two channel data is extracted from the input data and
-     * copied into pInput buffer
-     */
-    Copy_Float_Mc_Stereo((LVM_FLOAT *)pInData,
-                         (LVM_FLOAT *)pInput,
-                         NrFrames,
-                         channels);
-    Copy_Float((LVM_FLOAT *)pInput,
-               (LVM_FLOAT *)pStIn,
-               (LVM_INT16)(2 * NrFrames));
-#else
-    if (pInData == pOutData)
-    {
-        /* Processing inplace */
-        pInput = pScratch + (2 * NumSamples);
-        Copy_Float((LVM_FLOAT *)pInData,           /* Source */
-                   (LVM_FLOAT *)pInput,            /* Destination */
-                   (LVM_INT16)(2 * NumSamples));     /* Left and right */
+    pStIn = pScratch + ((LVCS_SCRATCHBUFFERS - 2) * NrFrames);
+    if (channels == FCC_1) {
+        Copy_Float((LVM_FLOAT*)pInData, (LVM_FLOAT*)pInput, (LVM_INT16)NrFrames);
+        Copy_Float((LVM_FLOAT*)pInput, (LVM_FLOAT*)pStIn, (LVM_INT16)NrFrames);
+    } else {
+        /* The first two channel data is extracted from the input data and
+         * copied into pInput buffer
+         */
+        Copy_Float_Mc_Stereo((LVM_FLOAT*)pInData, (LVM_FLOAT*)pInput, NrFrames, channels);
+        Copy_Float((LVM_FLOAT*)pInput, (LVM_FLOAT*)pStIn, (LVM_INT16)(FCC_2 * NrFrames));
     }
-    else
-    {
-        /* Processing outplace */
-        pInput = pInData;
-    }
-#endif
     /*
      * Call the stereo enhancer
      */
-#ifdef SUPPORT_MC
-    err = LVCS_StereoEnhancer(hInstance,              /* Instance handle */
-                              pStIn,                  /* Pointer to the input data */
-                              pOutData,               /* Pointer to the output data */
-                              NrFrames);              /* Number of frames to process */
-#else
-    err = LVCS_StereoEnhancer(hInstance,              /* Instance handle */
-                              pInData,                    /* Pointer to the input data */
-                              pOutData,                   /* Pointer to the output data */
-                              NumSamples);                /* Number of samples to process */
-#endif
+    err = LVCS_StereoEnhancer(hInstance, /* Instance handle */
+                              pStIn,     /* Pointer to the input data */
+                              pOutData,  /* Pointer to the output data */
+                              NrFrames); /* Number of frames to process */
 
     /*
      * Call the reverb generator
      */
-    err = LVCS_ReverbGenerator(hInstance,             /* Instance handle */
-                               pOutData,                  /* Pointer to the input data */
-                               pOutData,                  /* Pointer to the output data */
-                               NumSamples);               /* Number of samples to process */
+    err = LVCS_ReverbGenerator(hInstance,   /* Instance handle */
+                               pOutData,    /* Pointer to the input data */
+                               pOutData,    /* Pointer to the output data */
+                               NumSamples); /* Number of samples to process */
 
     /*
      * Call the equaliser
      */
-    err = LVCS_Equaliser(hInstance,                   /* Instance handle */
-                         pOutData,                        /* Pointer to the input data */
-                         NumSamples);                     /* Number of samples to process */
+    err = LVCS_Equaliser(hInstance,   /* Instance handle */
+                         pOutData,    /* Pointer to the input data */
+                         NumSamples); /* Number of samples to process */
 
     /*
      * Call the bypass mixer
      */
-    err = LVCS_BypassMixer(hInstance,                 /* Instance handle */
-                           pOutData,                      /* Pointer to the processed data */
-                           pInput,                        /* Pointer to the input (unprocessed) data */
-                           pOutData,                      /* Pointer to the output data */
-                           NumSamples);                   /* Number of samples to process */
+    err = LVCS_BypassMixer(hInstance,   /* Instance handle */
+                           pOutData,    /* Pointer to the processed data */
+                           pInput,      /* Pointer to the input (unprocessed) data */
+                           pOutData,    /* Pointer to the output data */
+                           NumSamples); /* Number of samples to process */
 
-    if(err != LVCS_SUCCESS)
-    {
+    if (err != LVCS_SUCCESS) {
         return err;
     }
 
-    return(LVCS_SUCCESS);
+    return (LVCS_SUCCESS);
 }
 /************************************************************************************/
 /*                                                                                  */
@@ -202,171 +161,117 @@ LVCS_ReturnStatus_en LVCS_Process_CS(LVCS_Handle_t              hInstance,
 /* NOTES:                                                                           */
 /*                                                                                  */
 /************************************************************************************/
-LVCS_ReturnStatus_en LVCS_Process(LVCS_Handle_t             hInstance,
-                                  const LVM_FLOAT           *pInData,
-                                  LVM_FLOAT                 *pOutData,
-                                  LVM_UINT16                NumSamples)
-{
-
-    LVCS_Instance_t *pInstance = (LVCS_Instance_t  *)hInstance;
+LVCS_ReturnStatus_en LVCS_Process(LVCS_Handle_t hInstance, const LVM_FLOAT* pInData,
+                                  LVM_FLOAT* pOutData, LVM_UINT16 NumSamples) {
+    LVCS_Instance_t* pInstance = (LVCS_Instance_t*)hInstance;
     LVCS_ReturnStatus_en err;
-#ifdef SUPPORT_MC
     /*Extract number of Channels info*/
     LVM_INT32 channels = pInstance->Params.NrChannels;
+    LVM_UINT16 destNumSamples = (channels == FCC_1) ? NumSamples : FCC_2 * NumSamples;
+    LVM_INT32 compGainInterval =
+            (channels == FCC_1) ? LVCS_COMPGAINFRAME : FCC_2 * LVCS_COMPGAINFRAME;
 #define NrFrames NumSamples  // alias for clarity
-    if (channels == 1)
-    {
-        channels = 2;
-    }
-#endif
     /*
      * Check the number of samples is not too large
      */
-    if (NumSamples > pInstance->Capabilities.MaxBlockSize)
-    {
-        return(LVCS_TOOMANYSAMPLES);
+    if (NumSamples > pInstance->Capabilities.MaxBlockSize) {
+        return (LVCS_TOOMANYSAMPLES);
     }
 
     /*
      * Check if the algorithm is enabled
      */
-    if (pInstance->Params.OperatingMode != LVCS_OFF)
-    {
-#ifdef SUPPORT_MC
-        LVM_FLOAT *pStereoOut;
+    if (pInstance->Params.OperatingMode != LVCS_OFF) {
+        LVM_FLOAT* pStereoOut;
         /*
          * LVCS_Process_CS uses output buffer to store intermediate outputs of StereoEnhancer,
          * Equalizer, ReverbGenerator and BypassMixer.
          * So, to avoid i/o data overlapping, when i/o buffers are common, use scratch buffer
          * to store intermediate outputs.
          */
-        if (pOutData == pInData)
-        {
-          /*
-           * Scratch memory is used in 4 chunks of (2 * NrFrames) size.
-           * First chunk of memory is used by LVCS_StereoEnhancer and LVCS_ReverbGenerator,
-           * second and fourth are used as input buffers by pInput and pStIn in LVCS_Process_CS.
-           * Hence, pStereoOut is pointed to use unused third portion of scratch memory.
-           */
-            pStereoOut = (LVM_FLOAT *) \
-                          pInstance->MemoryTable. \
-                          Region[LVCS_MEMREGION_TEMPORARY_FAST].pBaseAddress +
-                          ((LVCS_SCRATCHBUFFERS - 4) * NrFrames);
-        }
-        else
-        {
+        if (pOutData == pInData) {
+            /*
+             * Scratch memory is used in 4 chunks of (2 * NrFrames) size.
+             * First chunk of memory is used by LVCS_StereoEnhancer and LVCS_ReverbGenerator,
+             * second and fourth are used as input buffers by pInput and pStIn in LVCS_Process_CS.
+             * Hence, pStereoOut is pointed to use unused third portion of scratch memory.
+             */
+            pStereoOut = (LVM_FLOAT*)pInstance->pScratch + ((LVCS_SCRATCHBUFFERS - 4) * NrFrames);
+        } else {
             pStereoOut = pOutData;
         }
 
         /*
          * Call CS process function
          */
-            err = LVCS_Process_CS(hInstance,
-                                  pInData,
-                                  pStereoOut,
-                                  NrFrames);
-#else
-            err = LVCS_Process_CS(hInstance,
-                                  pInData,
-                                  pOutData,
-                                  NumSamples);
-#endif
+        err = LVCS_Process_CS(hInstance, pInData, pStereoOut, NrFrames);
 
         /*
          * Compress to reduce expansion effect of Concert Sound and correct volume
          * differences for difference settings. Not applied in test modes
          */
-        if ((pInstance->Params.OperatingMode == LVCS_ON)&& \
-                                        (pInstance->Params.CompressorMode == LVM_MODE_ON))
-        {
+        if ((pInstance->Params.OperatingMode == LVCS_ON) &&
+            (pInstance->Params.CompressorMode == LVM_MODE_ON)) {
             LVM_FLOAT Gain = pInstance->VolCorrect.CompMin;
             LVM_FLOAT Current1;
 
             Current1 = LVC_Mixer_GetCurrent(&pInstance->BypassMix.Mixer_Instance.MixerStream[0]);
-            Gain = (LVM_FLOAT)(  pInstance->VolCorrect.CompMin
-                               - (((LVM_FLOAT)pInstance->VolCorrect.CompMin  * (Current1)))
-                               + (((LVM_FLOAT)pInstance->VolCorrect.CompFull * (Current1))));
+            Gain = (LVM_FLOAT)(pInstance->VolCorrect.CompMin -
+                               (((LVM_FLOAT)pInstance->VolCorrect.CompMin * (Current1))) +
+                               (((LVM_FLOAT)pInstance->VolCorrect.CompFull * (Current1))));
 
-            if(NumSamples < LVCS_COMPGAINFRAME)
-            {
-#ifdef SUPPORT_MC
-                NonLinComp_Float(Gain,                    /* Compressor gain setting */
-                                 pStereoOut,
-                                 pStereoOut,
-                                 (LVM_INT32)(2 * NrFrames));
-#else
-                NonLinComp_Float(Gain,                    /* Compressor gain setting */
-                                 pOutData,
-                                 pOutData,
-                                 (LVM_INT32)(2 * NumSamples));
-#endif
-            }
-            else
-            {
-                LVM_FLOAT  GainStep;
-                LVM_FLOAT  FinalGain;
-                LVM_INT16  SampleToProcess = NumSamples;
-                LVM_FLOAT  *pOutPtr;
+            if (NumSamples < LVCS_COMPGAINFRAME) {
+                NonLinComp_Float(Gain, /* Compressor gain setting */
+                                 pStereoOut, pStereoOut, (LVM_INT32)destNumSamples);
+            } else {
+                LVM_FLOAT GainStep;
+                LVM_FLOAT FinalGain;
+                LVM_INT16 SampleToProcess = NumSamples;
+                LVM_FLOAT* pOutPtr;
 
                 /* Large changes in Gain can cause clicks in output
                    Split data into small blocks and use interpolated gain values */
 
-                GainStep = (LVM_FLOAT)(((Gain-pInstance->CompressGain) * \
-                                                LVCS_COMPGAINFRAME) / NumSamples);
+                GainStep = (LVM_FLOAT)(((Gain - pInstance->CompressGain) * LVCS_COMPGAINFRAME) /
+                                       NumSamples);
 
-                if((GainStep == 0) && (pInstance->CompressGain < Gain))
-                {
+                if ((GainStep == 0) && (pInstance->CompressGain < Gain)) {
                     GainStep = 1;
-                }
-                else
-                {
-                    if((GainStep == 0) && (pInstance->CompressGain > Gain))
-                    {
+                } else {
+                    if ((GainStep == 0) && (pInstance->CompressGain > Gain)) {
                         GainStep = -1;
                     }
                 }
 
                 FinalGain = Gain;
                 Gain = pInstance->CompressGain;
-#ifdef SUPPORT_MC
                 pOutPtr = pStereoOut;
-#else
-                pOutPtr = pOutData;
-#endif
 
-                while(SampleToProcess > 0)
-                {
+                while (SampleToProcess > 0) {
                     Gain = (LVM_FLOAT)(Gain + GainStep);
-                    if((GainStep > 0) && (FinalGain <= Gain))
-                    {
+                    if ((GainStep > 0) && (FinalGain <= Gain)) {
                         Gain = FinalGain;
                         GainStep = 0;
                     }
 
-                    if((GainStep < 0) && (FinalGain > Gain))
-                    {
+                    if ((GainStep < 0) && (FinalGain > Gain)) {
                         Gain = FinalGain;
                         GainStep = 0;
                     }
 
-                    if(SampleToProcess > LVCS_COMPGAINFRAME)
-                    {
-                        NonLinComp_Float(Gain,                    /* Compressor gain setting */
-                                         pOutPtr,
-                                         pOutPtr,
-                                         (LVM_INT32)(2 * LVCS_COMPGAINFRAME));
-                        pOutPtr += (2 * LVCS_COMPGAINFRAME);
+                    if (SampleToProcess > LVCS_COMPGAINFRAME) {
+                        NonLinComp_Float(Gain, /* Compressor gain setting */
+                                         pOutPtr, pOutPtr, compGainInterval);
+                        pOutPtr += compGainInterval;
                         SampleToProcess = (LVM_INT16)(SampleToProcess - LVCS_COMPGAINFRAME);
-                    }
-                    else
-                    {
-                        NonLinComp_Float(Gain,                    /* Compressor gain setting */
-                                         pOutPtr,
-                                         pOutPtr,
-                                         (LVM_INT32)(2 * SampleToProcess));
+                    } else {
+                        NonLinComp_Float(Gain, /* Compressor gain setting */
+                                         pOutPtr, pOutPtr,
+                                         (channels == FCC_1)
+                                                 ? (LVM_INT32)(SampleToProcess)
+                                                 : (LVM_INT32)(FCC_2 * SampleToProcess));
                         SampleToProcess = 0;
                     }
-
                 }
             }
 
@@ -374,57 +279,33 @@ LVCS_ReturnStatus_en LVCS_Process(LVCS_Handle_t             hInstance,
             pInstance->CompressGain = Gain;
         }
 
-        if(pInstance->bInOperatingModeTransition == LVM_TRUE){
-
+        if (pInstance->bInOperatingModeTransition == LVM_TRUE) {
             /*
              * Re-init bypass mix when timer has completed
              */
             if ((pInstance->bTimerDone == LVM_TRUE) &&
-                (pInstance->BypassMix.Mixer_Instance.MixerStream[1].CallbackSet == 0))
-            {
-                err = LVCS_BypassMixInit(hInstance,
-                                         &pInstance->Params);
+                (pInstance->BypassMix.Mixer_Instance.MixerStream[1].CallbackSet == 0)) {
+                err = LVCS_BypassMixInit(hInstance, &pInstance->Params);
 
-                if(err != LVCS_SUCCESS)
-                {
+                if (err != LVCS_SUCCESS) {
                     return err;
                 }
 
-            }
-            else{
-                LVM_Timer ( &pInstance->TimerInstance,
-                            (LVM_INT16)NumSamples);
+            } else {
+                LVM_Timer(&pInstance->TimerInstance, (LVM_INT16)NumSamples);
             }
         }
-#ifdef SUPPORT_MC
-        Copy_Float_Stereo_Mc(pInData,
-                             pStereoOut,
-                             pOutData,
-                             NrFrames,
-                             channels);
-#endif
-    }
-    else
-    {
-        if (pInData != pOutData)
-        {
-#ifdef SUPPORT_MC
+        Copy_Float_Stereo_Mc(pInData, (const LVM_FLOAT*)pStereoOut, pOutData, NrFrames, channels);
+    } else {
+        if (pInData != pOutData) {
             /*
              * The algorithm is disabled so just copy the data
              */
-            Copy_Float((LVM_FLOAT *)pInData,               /* Source */
-                       (LVM_FLOAT *)pOutData,                  /* Destination */
-                       (LVM_INT16)(channels * NrFrames));    /* All Channels*/
-#else
-            /*
-             * The algorithm is disabled so just copy the data
-             */
-            Copy_Float((LVM_FLOAT *)pInData,               /* Source */
-                       (LVM_FLOAT *)pOutData,                  /* Destination */
-                       (LVM_INT16)(2 * NumSamples));             /* Left and right */
-#endif
+            Copy_Float((LVM_FLOAT*)pInData,               /* Source */
+                       (LVM_FLOAT*)pOutData,              /* Destination */
+                       (LVM_INT16)(channels * NrFrames)); /* All Channels*/
         }
     }
 
-    return(LVCS_SUCCESS);
+    return (LVCS_SUCCESS);
 }

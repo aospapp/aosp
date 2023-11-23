@@ -17,7 +17,7 @@
 package android.server.wm;
 
 import static android.app.ActivityTaskManager.INVALID_STACK_ID;
-import static android.server.wm.WindowManagerState.STATE_RESUMED;
+import static android.server.wm.CliIntentExtra.extraString;
 import static android.server.wm.app.Components.MPP_ACTIVITY;
 import static android.server.wm.app.Components.MPP_ACTIVITY2;
 import static android.server.wm.app.Components.MPP_ACTIVITY3;
@@ -39,13 +39,13 @@ public class MinimalPostProcessingTests extends ActivityManagerTestBase {
 
     private void launchMppActivity(ComponentName name, boolean preferMinimalPostProcessing) {
         if (preferMinimalPostProcessing) {
-            launchActivity(name, EXTRA_PREFER_MPP, "anything");
+            launchActivity(name, extraString(EXTRA_PREFER_MPP, "anything"));
         } else {
             launchActivity(name);
         }
         mWmState.waitForValidState(name);
 
-        final int stackId = mWmState.getStackIdByActivity(name);
+        final int stackId = mWmState.getRootTaskIdByActivity(name);
 
         assertNotEquals(stackId, INVALID_STACK_ID);
 
@@ -80,13 +80,7 @@ public class MinimalPostProcessingTests extends ActivityManagerTestBase {
     }
 
     @Test
-    public void testNotPreferMinimalPostProcessingSimple() throws Exception {
-        launchMppActivity(MPP_ACTIVITY, NOT_PREFER_MPP);
-        assertDisplayRequestedMinimalPostProcessing(MPP_ACTIVITY, NOT_PREFER_MPP);
-    }
-
-    @Test
-    public void testAttrPreferMinimalPostProcessingDefault() throws Exception {
+    public void testPreferMinimalPostProcessingDefault() throws Exception {
         launchMppActivity(MPP_ACTIVITY, NOT_PREFER_MPP);
         assertDisplayRequestedMinimalPostProcessing(MPP_ACTIVITY, NOT_PREFER_MPP);
     }

@@ -33,7 +33,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //
 
-#ifndef GLSLANG_WEB
+#if !defined(GLSLANG_WEB) && !defined(GLSLANG_ANGLE)
 
 #ifndef _IOMAPPER_INCLUDED
 #define _IOMAPPER_INCLUDED
@@ -186,7 +186,7 @@ protected:
     }
 };
 
-// Defaulf I/O resolver for OpenGL
+// Default I/O resolver for OpenGL
 struct TDefaultGlslIoResolver : public TDefaultIoResolverBase {
 public:
     typedef std::map<TString, int> TVarSlotMap;  // <resourceName, location/binding>
@@ -244,7 +244,7 @@ struct TVarLivePair : std::pair<const TString, TVarEntryInfo> {
         second = _Right.second;
         return (*this);
     }
-    TVarLivePair(const TVarLivePair& src) { *this = src; }
+    TVarLivePair(const TVarLivePair& src) : pair(src) { }
 };
 typedef std::vector<TVarLivePair> TVarLiveVector;
 
@@ -262,10 +262,12 @@ public:
 class TGlslIoMapper : public TIoMapper {
 public:
     TGlslIoMapper() {
-        memset(inVarMaps,     0, sizeof(TVarLiveMap*)   * EShLangCount);
-        memset(outVarMaps,    0, sizeof(TVarLiveMap*)   * EShLangCount);
-        memset(uniformVarMap, 0, sizeof(TVarLiveMap*)   * EShLangCount);
-        memset(intermediates, 0, sizeof(TIntermediate*) * EShLangCount);
+        memset(inVarMaps,     0, sizeof(TVarLiveMap*)   * (EShLangCount + 1));
+        memset(outVarMaps,    0, sizeof(TVarLiveMap*)   * (EShLangCount + 1));
+        memset(uniformVarMap, 0, sizeof(TVarLiveMap*)   * (EShLangCount + 1));
+        memset(intermediates, 0, sizeof(TIntermediate*) * (EShLangCount + 1));
+        profile = ENoProfile;
+        version = 0;
     }
     virtual ~TGlslIoMapper() {
         for (size_t stage = 0; stage < EShLangCount; stage++) {
@@ -292,10 +294,12 @@ public:
                 *uniformVarMap[EShLangCount];
     TIntermediate* intermediates[EShLangCount];
     bool hadError = false;
+    EProfile profile;
+    int version;
 };
 
 } // end namespace glslang
 
 #endif // _IOMAPPER_INCLUDED
 
-#endif //  GLSLANG_WEB
+#endif // !GLSLANG_WEB && !GLSLANG_ANGLE

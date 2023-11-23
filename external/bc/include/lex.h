@@ -1,9 +1,9 @@
 /*
  * *****************************************************************************
  *
- * Copyright (c) 2018-2019 Gavin D. Howard and contributors.
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * All rights reserved.
+ * Copyright (c) 2018-2021 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,11 +43,26 @@
 #include <vector.h>
 #include <lang.h>
 
-#define bc_lex_err(l, e) (bc_vm_error((e), (l)->line))
-#define bc_lex_verr(l, e, ...) (bc_vm_error((e), (l)->line, __VA_ARGS__))
+#define bc_lex_err(l, e) (bc_vm_handleError((e), (l)->line))
+#define bc_lex_verr(l, e, ...) (bc_vm_handleError((e), (l)->line, __VA_ARGS__))
 
+#if BC_ENABLED
+
+#if DC_ENABLED
 #define BC_LEX_NEG_CHAR (BC_IS_BC ? '-' : '_')
 #define BC_LEX_LAST_NUM_CHAR (BC_IS_BC ? 'Z' : 'F')
+#else // DC_ENABLED
+#define BC_LEX_NEG_CHAR ('-')
+#define BC_LEX_LAST_NUM_CHAR ('Z')
+#endif // DC_ENABLED
+
+#else // BC_ENABLED
+
+#define BC_LEX_NEG_CHAR ('_')
+#define BC_LEX_LAST_NUM_CHAR ('F')
+
+#endif // BC_ENABLED
+
 #define BC_LEX_NUM_CHAR(c, pt, int_only)                          \
 	(isdigit(c) || ((c) >= 'A' && (c) <= BC_LEX_LAST_NUM_CHAR) || \
 	 ((c) == '.' && !(pt) && !(int_only)))
@@ -142,15 +157,27 @@ typedef enum BcLexType {
 	BC_LEX_KW_IBASE,
 	BC_LEX_KW_OBASE,
 	BC_LEX_KW_SCALE,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_SEED,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_LEX_KW_LENGTH,
 	BC_LEX_KW_PRINT,
 	BC_LEX_KW_SQRT,
 	BC_LEX_KW_ABS,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_IRAND,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_LEX_KW_QUIT,
 	BC_LEX_KW_READ,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_RAND,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_LEX_KW_MAXIBASE,
 	BC_LEX_KW_MAXOBASE,
 	BC_LEX_KW_MAXSCALE,
+#if BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
+	BC_LEX_KW_MAXRAND,
+#endif // BC_ENABLE_EXTRA_MATH && BC_ENABLE_RAND
 	BC_LEX_KW_ELSE,
 
 #if DC_ENABLED
@@ -173,6 +200,9 @@ typedef enum BcLexType {
 	BC_LEX_STORE_IBASE,
 	BC_LEX_STORE_OBASE,
 	BC_LEX_STORE_SCALE,
+#if BC_ENABLE_EXTRA_MATH
+	BC_LEX_STORE_SEED,
+#endif // BC_ENABLE_EXTRA_MATH
 	BC_LEX_LOAD,
 	BC_LEX_LOAD_POP,
 	BC_LEX_STORE_PUSH,
@@ -184,7 +214,7 @@ typedef enum BcLexType {
 } BcLexType;
 
 struct BcLex;
-typedef BcStatus (*BcLexNext)(struct BcLex*);
+typedef void (*BcLexNext)(struct BcLex*);
 
 typedef struct BcLex {
 
@@ -202,16 +232,16 @@ typedef struct BcLex {
 void bc_lex_init(BcLex *l);
 void bc_lex_free(BcLex *l);
 void bc_lex_file(BcLex *l, const char *file);
-BcStatus bc_lex_text(BcLex *l, const char *text);
-BcStatus bc_lex_next(BcLex *l);
+void bc_lex_text(BcLex *l, const char *text);
+void bc_lex_next(BcLex *l);
 
 void bc_lex_lineComment(BcLex *l);
-BcStatus bc_lex_comment(BcLex *l);
+void bc_lex_comment(BcLex *l);
 void bc_lex_whitespace(BcLex *l);
-BcStatus bc_lex_number(BcLex *l, char start);
+void bc_lex_number(BcLex *l, char start);
 void bc_lex_name(BcLex *l);
 void bc_lex_commonTokens(BcLex *l, char c);
 
-BcStatus bc_lex_invalidChar(BcLex *l, char c);
+void bc_lex_invalidChar(BcLex *l, char c);
 
 #endif // BC_LEX_H

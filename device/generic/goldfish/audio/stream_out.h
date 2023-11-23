@@ -15,10 +15,12 @@
  */
 
 #pragma once
+#include <atomic>
 #include <android/hardware/audio/6.0/IStreamOut.h>
 #include <android/hardware/audio/6.0/IDevice.h>
 #include "stream_common.h"
 #include "io_thread.h"
+#include "primary_device.h"
 
 namespace android {
 namespace hardware {
@@ -35,8 +37,7 @@ using namespace ::android::hardware::audio::common::V6_0;
 using namespace ::android::hardware::audio::V6_0;
 
 struct StreamOut : public IStreamOut {
-    StreamOut(sp<IDevice> dev,
-              void (*unrefDevice)(IDevice*),
+    StreamOut(sp<PrimaryDevice> dev,
               int32_t ioHandle,
               const DeviceAddress& device,
               const AudioConfig& config,
@@ -101,12 +102,30 @@ struct StreamOut : public IStreamOut {
     Return<void> getPlaybackRateParameters(getPlaybackRateParameters_cb _hidl_cb) override;
     Return<Result> setPlaybackRateParameters(const PlaybackRate &playbackRate) override;
 
+    void setMasterVolume(float volume);
+    float getEffectiveVolume() const { return mEffectiveVolume; }
+    const DeviceAddress &getDeviceAddress() const { return mCommon.m_device; }
+    const AudioConfig &getAudioConfig() const { return mCommon.m_config; }
+    const hidl_bitfield<AudioOutputFlag> &getAudioOutputFlags() const { return mCommon.m_flags; }
+
+    uint64_t &getFrameCounter() { return mFrames; }
+
 private:
-    sp<IDevice> mDev;
-    void (* const mUnrefDevice)(IDevice*);
+    Result closeImpl(bool fromDctor);
+    void updateEffectiveVolumeLocked();
+
+    sp<PrimaryDevice> mDev;
     const StreamCommon mCommon;
     const SourceMetadata mSourceMetadata;
     std::unique_ptr<IOThread> mWriteThread;
+
+    float mMasterVolume = 1.0f;  // requires mMutex
+    float mStreamVolume = 1.0f;  // requires mMutex
+    std::atomic<float> mEffectiveVolume = 1.0f;
+    std::mutex mMutex;
+
+    // The count is not reset to zero when output enters standby.
+    uint64_t mFrames = 0;
 };
 
 }  // namespace implementation

@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_MEMORY_HEAP_BASE_H
-#define ANDROID_MEMORY_HEAP_BASE_H
+#pragma once
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -51,33 +50,27 @@ public:
 
     /*
      * maps memory from ashmem, with the given name for debugging
+     * if the READ_ONLY flag is set, the memory will be writeable by the calling process,
+     * but not by others. this is NOT the case with the other ctors.
      */
     explicit MemoryHeapBase(size_t size, uint32_t flags = 0, char const* name = nullptr);
 
     virtual ~MemoryHeapBase();
 
     /* implement IMemoryHeap interface */
-    virtual int         getHeapID() const;
+    int         getHeapID() const override;
 
     /* virtual address of the heap. returns MAP_FAILED in case of error */
-    virtual void*       getBase() const;
+    void*       getBase() const override;
 
-    virtual size_t      getSize() const;
-    virtual uint32_t    getFlags() const;
-            off_t       getOffset() const override;
+    size_t      getSize() const override;
+    uint32_t    getFlags() const override;
+    off_t       getOffset() const override;
 
     const char*         getDevice() const;
 
     /* this closes this heap -- use carefully */
     void dispose();
-
-    /* this is only needed as a workaround, use only if you know
-     * what you are doing */
-    status_t setDevice(const char* device) {
-        if (mDevice == nullptr)
-            mDevice = device;
-        return mDevice ? NO_ERROR : ALREADY_EXISTS;
-    }
 
 protected:
             MemoryHeapBase();
@@ -86,7 +79,7 @@ protected:
             int flags = 0, const char* device = nullptr);
 
 private:
-    status_t mapfd(int fd, size_t size, off_t offset = 0);
+    status_t mapfd(int fd, bool writeableByCaller, size_t size, off_t offset = 0);
 
     int         mFD;
     size_t      mSize;
@@ -99,5 +92,3 @@ private:
 
 // ---------------------------------------------------------------------------
 } // namespace android
-
-#endif // ANDROID_MEMORY_HEAP_BASE_H

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -19,9 +20,9 @@ Subclasses of FactoryInstallTest supports the following flags:
         only)
 """
 
-import glob, logging, os, re, shutil, socket, sys, thread, time, traceback
+import glob, logging, os, re, shutil, socket, sys, six.moves._thread, time, traceback
 from abc import abstractmethod
-from StringIO import StringIO
+from six import StringIO
 
 from autotest_lib.client.bin import utils as client_utils
 from autotest_lib.client.common_lib import error
@@ -226,7 +227,7 @@ class FactoryInstallTest(test.test):
             stdout_tee=utils.TEE_TO_LOGS,
             stderr_tee=open(self.miniomaha_output, "w"))
         self.cleanup_tasks.append(lambda: utils.nuke_subprocess(bg_job.sp))
-        thread.start_new_thread(utils.join_bg_jobs, ([bg_job],))
+        six.moves._thread.start_new_thread(utils.join_bg_jobs, ([bg_job],))
 
         client_utils.poll_for_condition(is_miniomaha_up,
                                         timeout=_MINIOMAHA_TIMEOUT_SEC,

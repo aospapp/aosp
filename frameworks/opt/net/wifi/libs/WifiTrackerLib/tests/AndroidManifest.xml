@@ -20,7 +20,8 @@
     <application>
         <uses-library android:name="android.test.runner" />
         <activity android:label="WifiTrackerTestsDummyLabel"
-                  android:name="WifiTrackerTestsDummyName">
+                  android:name="WifiTrackerTestsDummyName"
+                  android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER"/>

@@ -19,10 +19,9 @@ package android.device.collectors;
 import android.device.collectors.annotations.OptionClass;
 import android.os.Bundle;
 import android.util.Log;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.helpers.DumpsysMeminfoHelper;
-
-import com.google.common.annotations.VisibleForTesting;
 
 @OptionClass(alias = "dumpsys-meminfo-listener")
 public class DumpsysMeminfoListener extends BaseCollectionListener<Long> {

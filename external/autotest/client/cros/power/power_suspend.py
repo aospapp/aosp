@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import collections, logging, os, re, shutil, time
+import collections, logging, os, re, subprocess, time
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -80,6 +80,16 @@ class Suspender(object):
     # the last resume.
     _TIMINGS_FILE = '/run/power_manager/root/last_resume_timings'
 
+    # Latest powerd log files
+    _POWERD_LOG_LATEST_PATH = '/var/log/power_manager/powerd.LATEST'
+    _POWERD_LOG_PREVIOUS_PATH = '/var/log/power_manager/powerd.PREVIOUS'
+
+    # Line to look for suspend abort due to override.
+    _ABORT_DUE_TO_OVERRIDE_LINE = 'Aborting suspend attempt for lockfile'
+
+    # Regexp to extract TS from powerd log line.
+    _POWERD_TS_RE = '\[(\d{4}/\d{6}\.\d{6}):.*\]'
+
     # Amount of lines to dump from the eventlog on a SpuriousWakeup. Should be
     # enough to include ACPI Wake Reason... 10 should be far on the safe side.
     _RELEVANT_EVENTLOG_LINES = 10
@@ -114,6 +124,7 @@ class Suspender(object):
         self._reset_pm_print_times = False
         self._restart_tlsdated = False
         self._log_file = None
+        self._powerd_cycle_start_ts = None
         self._suspend_state = suspend_state
         if device_times:
             self.device_times = []
@@ -188,6 +199,40 @@ class Suspender(object):
         return (utils.get_board().replace("_freon", ""))
 
 
+    def _retrive_last_matching_line_ts(self, filename, pattern):
+        """
+        Returns timestamp of last matching line or None
+        """
+        with open(filename) as f:
+            lines = f.readlines()
+            for line in reversed(lines):
+                if re.search(pattern, line):
+                    matches = re.search(self._POWERD_TS_RE, line)
+                    if matches:
+                        return matches.group(1)
+        return None
+
+
+    def _aborted_due_to_locking(self):
+        """
+        Returns true if we found evidences in the powerd log that the suspend
+        was aborted due to power_management override lock.
+        """
+        latest_ts = self._retrive_last_matching_line_ts(
+            self._POWERD_LOG_LATEST_PATH, self._ABORT_DUE_TO_OVERRIDE_LINE)
+        if latest_ts is None:
+            latest_ts = self._retrive_last_matching_line_ts(
+                self._POWERD_LOG_PREVIOUS_PATH, self._ABORT_DUE_TO_OVERRIDE_LINE)
+
+        if latest_ts is None:
+            return False
+
+        if latest_ts > self._powerd_cycle_start_ts:
+            return True
+
+        return False
+
+
     def _reset_logs(self):
         """Throw away cached log lines and reset log pointer to current end."""
         if self._log_file:
@@ -196,11 +241,16 @@ class Suspender(object):
         self._log_file.seek(0, os.SEEK_END)
         self._logs = []
 
+        self._powerd_cycle_start_ts = (
+            self._retrive_last_matching_line_ts(self._POWERD_LOG_LATEST_PATH,
+                                                self._POWERD_TS_RE))
 
-    def _update_logs(self, retries=11):
+
+    def _check_resume_finished(self, retries=11):
         """
         Read all lines logged since last reset into log cache. Block until last
-        powerd_suspend resume message was read, raise if it takes too long.
+        powerd_suspend resume message was read. Returns true if succeeded or
+        false if took too long
         """
         finished_regex = re.compile(r'powerd_suspend\[\d+\]: Resume finished')
         for retry in xrange(retries + 1):
@@ -212,10 +262,10 @@ class Suspender(object):
                 self._logs += lines
             for line in reversed(self._logs):
                 if (finished_regex.search(line)):
-                    return
+                    return True
             time.sleep(0.005 * 2**retry)
 
-        raise error.TestError("Sanity check failed: did not try to suspend.")
+        return False
 
 
     def _ts(self, name, retries=11):
@@ -267,10 +317,10 @@ class Suspender(object):
                     break
             else:
                 wake_syslog = 'unknown'
-            for b, e, s in sys_power.SpuriousWakeupError.S3_WHITELIST:
+            for b, e, s in sys_power.SpuriousWakeupError.S3_ALLOWLIST:
                 if (re.search(b, utils.get_board()) and
                         re.search(e, wake_elog) and re.search(s, wake_syslog)):
-                    logging.warning('Whitelisted spurious wake in S3: %s | %s',
+                    logging.warning('Allowlisted spurious wake in S3: %s | %s',
                                     wake_elog, wake_syslog)
                     return None
             raise sys_power.SpuriousWakeupError('Spurious wake in S3: %s | %s'
@@ -392,7 +442,7 @@ class Suspender(object):
         @returns: True iff we should retry.
 
         @raises:
-          sys_power.KernelError: for non-whitelisted kernel failures.
+          sys_power.KernelError: for non-allowlisted kernel failures.
           sys_power.SuspendTimeout: took too long to enter suspend.
           sys_power.SpuriousWakeupError: woke too soon from suspend.
           sys_power.SuspendFailure: unidentified failure.
@@ -420,13 +470,13 @@ class Suspender(object):
                 if i+2 < log_len:
                     text += '\n' + cros_logging.strip_timestamp(
                         self._logs[i + 2])
-                for p1, p2 in sys_power.KernelError.WHITELIST:
+                for p1, p2 in sys_power.KernelError.ALLOWLIST:
                     if re.search(p1, src) and re.search(p2, text):
-                        logging.info('Whitelisted KernelError: %s', src)
+                        logging.info('Allowlisted KernelError: %s', src)
                         break
                 else:
                     if ignore_kernel_warns:
-                        logging.warn('Non-whitelisted KernelError: %s', src)
+                        logging.warn('Non-allowlisted KernelError: %s', src)
                     else:
                         raise sys_power.KernelError("%s\n%s" % (src, text))
             if abort_regex.search(line):
@@ -436,10 +486,10 @@ class Suspender(object):
                 if match:
                     wake_source = match.group(1)
                 driver = self._identify_driver(wake_source)
-                for b, w in sys_power.SpuriousWakeupError.S0_WHITELIST:
+                for b, w in sys_power.SpuriousWakeupError.S0_ALLOWLIST:
                     if (re.search(b, utils.get_board()) and
                             re.search(w, wake_source)):
-                        logging.warning('Whitelisted spurious wake before '
+                        logging.warning('Allowlisted spurious wake before '
                                         'S3: %s | %s', wake_source, driver)
                         return True
                 if "rtc" in driver:
@@ -505,11 +555,17 @@ class Suspender(object):
         """
 
         if power_utils.get_sleep_state() == 'freeze':
-            self._s0ix_residency_stats = power_status.S0ixResidencyStats()
+            arch = utils.get_arch()
+
+            if arch == 'x86_64':
+                self._s0ix_residency_stats = power_status.S0ixResidencyStats()
+            elif arch == 'aarch64':
+                self._s2idle_residency_stats = \
+                    power_status.S2IdleResidencyStats()
 
         try:
             iteration = len(self.failures) + len(self.successes) + 1
-            # Retry suspend in case we hit a known (whitelisted) bug
+            # Retry suspend in case we hit a known (allowlisted) bug
             for _ in xrange(10):
                 # Clear powerd_suspend RTC timestamp, to avoid stale results.
                 utils.open_write_close(self.HWCLOCK_FILE, '')
@@ -527,29 +583,38 @@ class Suspender(object):
                     # might be another error, we check for it ourselves below
                     alarm = self._ALARM_FORCE_EARLY_WAKEUP
 
-                if os.path.exists('/sys/firmware/log'):
-                    for msg in re.findall(r'^.*ERROR.*$',
-                            utils.read_file('/sys/firmware/log'), re.M):
-                        for board, pattern in sys_power.FirmwareError.WHITELIST:
-                            if (re.search(board, utils.get_board()) and
-                                    re.search(pattern, msg)):
-                                logging.info('Whitelisted FW error: ' + msg)
-                                break
-                        else:
-                            firmware_log = os.path.join(self._logdir,
-                                    'firmware.log.' + str(iteration))
-                            shutil.copy('/sys/firmware/log', firmware_log)
-                            logging.info('Saved firmware log: ' + firmware_log)
-                            raise sys_power.FirmwareError(msg.strip('\r\n '))
+                log_data = subprocess.check_output(['cbmem',
+                                                    '-1']).decode('utf-8')
 
-                self._update_logs()
+                for msg in re.findall(r'^.*ERROR.*$', log_data, re.M):
+                    for board, pattern in sys_power.FirmwareError.ALLOWLIST:
+                        if (re.search(board, utils.get_board())
+                                    and re.search(pattern, msg)):
+                            logging.info('Allowlisted FW error: %s', msg)
+                            break
+                    else:
+                        firmware_log = os.path.join(self._logdir,
+                                'firmware.log.' + str(iteration))
+                        with open(firmware_log, 'w') as f:
+                            f.write(log_data)
+                            logging.info('Saved firmware log: %s',
+                                         firmware_log)
+
+                        raise sys_power.FirmwareError(
+                                    msg.strip('\r\n '))
+
+                if not self._check_resume_finished():
+                    if not self._aborted_due_to_locking():
+                        raise error.TestError("Sanity check failed: did not try to suspend.")
+                    logging.warning('Aborted suspend due to power override, will retry\n')
+                    continue
                 if not self._check_for_errors(ignore_kernel_warns):
                     hwclock_ts = self._hwclock_ts(alarm)
                     if hwclock_ts:
                         break
 
             else:
-                raise error.TestWarn('Ten tries failed due to whitelisted bug')
+                raise error.TestWarn('Ten tries failed due to allowlisted bug')
 
             # calculate general measurements
             start_resume = self._ts('start_resume_time')
@@ -590,6 +655,16 @@ class Suspender(object):
                         raise sys_power.S0ixResidencyNotChanged(msg)
                     logging.warn(msg)
                 logging.info('S0ix residency : %d secs.', s0ix_residency_secs)
+            elif hasattr(self, '_s2idle_residency_stats'):
+                s2idle_residency_usecs = \
+                        self._s2idle_residency_stats.\
+                                get_accumulated_residency_usecs()
+                if not s2idle_residency_usecs:
+                    msg = 's2idle residency did not change.'
+                    raise sys_power.S2IdleResidencyNotChanged(msg)
+
+                logging.info('s2idle residency : %d usecs.',
+                             s2idle_residency_usecs)
 
             successful_suspend = {
                 'seconds_system_suspend': kernel_down,

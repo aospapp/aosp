@@ -460,10 +460,10 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     @Test
     public void testGetPhoneAccount() throws RemoteException {
         makeAccountsVisibleToAllUsers(TEL_PA_HANDLE_16, SIP_PA_HANDLE_17);
-        assertEquals(TEL_PA_HANDLE_16, mTSIBinder.getPhoneAccount(TEL_PA_HANDLE_16)
-                .getAccountHandle());
-        assertEquals(SIP_PA_HANDLE_17, mTSIBinder.getPhoneAccount(SIP_PA_HANDLE_17)
-                .getAccountHandle());
+        assertEquals(TEL_PA_HANDLE_16, mTSIBinder.getPhoneAccount(TEL_PA_HANDLE_16,
+                mContext.getPackageName()).getAccountHandle());
+        assertEquals(SIP_PA_HANDLE_17, mTSIBinder.getPhoneAccount(SIP_PA_HANDLE_17,
+                mContext.getPackageName()).getAccountHandle());
     }
 
     @SmallTest
@@ -1199,6 +1199,39 @@ public class TelecomServiceImplTest extends TelecomTestCase {
             // desired result
         }
         verify(mFakeCallsManager, never()).hasOngoingCalls();
+    }
+
+    /**
+     * Ensure self-managed calls cannot be ended using {@link TelecomManager#endCall()}.
+     * @throws Exception
+     */
+    @SmallTest
+    @Test
+    public void testCannotEndSelfManagedCall() throws Exception {
+        Call call = mock(Call.class);
+        when(call.isSelfManaged()).thenReturn(true);
+        when(call.getState()).thenReturn(CallState.ACTIVE);
+        when(mFakeCallsManager.getFirstCallWithState(any()))
+                .thenReturn(call);
+        assertFalse(mTSIBinder.endCall(TEST_PACKAGE));
+        verify(mFakeCallsManager, never()).disconnectCall(eq(call));
+    }
+
+    /**
+     * Ensure self-managed calls cannot be answered using {@link TelecomManager#acceptRingingCall()}
+     * or {@link TelecomManager#acceptRingingCall(int)}.
+     * @throws Exception
+     */
+    @SmallTest
+    @Test
+    public void testCannotAnswerSelfManagedCall() throws Exception {
+        Call call = mock(Call.class);
+        when(call.isSelfManaged()).thenReturn(true);
+        when(call.getState()).thenReturn(CallState.ACTIVE);
+        when(mFakeCallsManager.getFirstCallWithState(any()))
+                .thenReturn(call);
+        mTSIBinder.acceptRingingCall(TEST_PACKAGE);
+        verify(mFakeCallsManager, never()).answerCall(eq(call), anyInt());
     }
 
     /**

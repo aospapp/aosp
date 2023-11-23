@@ -17,29 +17,21 @@
 
     <color name="material_white_text">#ffffff</color>
     <color name="material_grey500">#9e9e9e</color>
-    <color name="material_grey200">#eeeeee</color>
     <color name="material_white_100">#ffffff</color>
 
     <color name="material_googblue500">#4285f4</color>
 
     <color name="material_black_100">#000000</color>
 
-    <color name="material_white_divider">#1fffffff</color>
     <color name="text_color_dark">#2d2d2d</color>
     <color name="text_color_light">@color/material_white_text</color>
-    <color name="primary_color">#2d2d2d</color>
     <color name="secondary_color">#3a3a3a</color>
     <color name="accent_color">@color/material_googblue500</color>
 
     <color name="status_bar_color">@color/material_black_100</color>
-    <color name="toolbar_color">#000000</color>
-
-    <color name="preview_pager_arrow_disabled">@android:color/darker_gray</color>
-    <color name="preview_pager_background">@color/secondary_color</color>
-    <color name="google_grey900">#202124</color>
 
     <color name="google_grey700">#5f6368</color>
-    <color name="edit_background_base">@color/google_grey700</color>
-    <color name="option_border_default">@color/edit_background_base</color>
-    <color name="action_bar_bottom_sheet_text_color">@color/black_87_alpha</color>
+
+    <color name="smartspace_preview_shadow_color_dark">#B0000000</color>
+    <color name="smartspace_preview_shadow_color_transparent">@android:color/transparent</color>
 </resources>

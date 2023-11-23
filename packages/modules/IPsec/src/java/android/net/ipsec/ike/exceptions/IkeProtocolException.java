@@ -33,9 +33,7 @@ import java.nio.ByteBuffer;
  *
  * @see <a href="https://tools.ietf.org/html/rfc7296#section-3.10.1">RFC 7296, Internet Key Exchange
  *     Protocol Version 2 (IKEv2)</a>
- * @hide
  */
-@SystemApi
 public abstract class IkeProtocolException extends IkeException {
     /** @hide */
     @Retention(RetentionPolicy.SOURCE)
@@ -148,7 +146,7 @@ public abstract class IkeProtocolException extends IkeException {
         }
 
         mErrorType = code;
-        mErrorData = notifyData;
+        mErrorData = notifyData.clone();
     }
 
     /** @hide */
@@ -204,7 +202,9 @@ public abstract class IkeProtocolException extends IkeException {
      * they call this method.
      *
      * @return the included error data in byte array, or {@code null} if no error data is available.
+     * @hide
      */
+    @SystemApi
     @Nullable
     public byte[] getErrorData() {
         return mErrorData;

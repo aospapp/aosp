@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Du måste byta namn"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Du måste lägga till ett mappnamn"</string>
     <string name="files_label" msgid="771781190045103748">"Filer"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Nedladdningar"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -98,8 +100,8 @@
     <string name="cant_select_personal_files_error_message" msgid="4105905035459118209">"IT-administratören tillåter inte att du öppnar privata filer i en jobbapp"</string>
     <string name="cant_save_to_work_error_title" msgid="1351323070040641358">"Det går inte att spara i jobbprofilen"</string>
     <string name="cant_save_to_work_error_message" msgid="4975583233814059890">"IT-administratören tillåter inte att du sparar privata filer i jobbprofilen"</string>
-    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Det går inte att spara i den personliga profilen"</string>
-    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"IT-administratören tillåter inte att du sparar jobbfiler i den personliga profilen"</string>
+    <string name="cant_save_to_personal_error_title" msgid="858327493694069780">"Det går inte att spara i den privata profilen"</string>
+    <string name="cant_save_to_personal_error_message" msgid="6991758723736381751">"IT-administratören tillåter inte att du sparar jobbfiler i den privata profilen"</string>
     <string name="cross_profile_action_not_allowed_title" msgid="6611281348716476478">"Förbjuden åtgärd"</string>
     <string name="cross_profile_action_not_allowed_message" msgid="7331275433061690947">"Kontakta IT-administratören om du vill veta mer"</string>
     <string name="root_recent" msgid="1080156975424341623">"Senaste"</string>
@@ -275,7 +277,9 @@
     <string name="search_bar_hint" msgid="4517366509897977321">"Sök på telefonen"</string>
     <string name="delete_search_history" msgid="2202015025607694515">"Radera sökhistorik – <xliff:g id="TEXT">%1$s</xliff:g>"</string>
     <string name="personal_tab" msgid="3878576287868528503">"Privat"</string>
-    <string name="work_tab" msgid="7265359366883747413">"Arbete"</string>
+    <string name="work_tab" msgid="7265359366883747413">"Jobb"</string>
     <string name="a11y_work" msgid="7504431382825242153">"Jobb"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Du kan inte flytta filer från en annan app."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Visas i rutnätsläge."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Visas i listläge."</string>
 </resources>

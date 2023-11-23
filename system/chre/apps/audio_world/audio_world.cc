@@ -124,6 +124,25 @@ void handleAudioSamplingChangeEvent(
        event->handle, event->status.suspended);
 }
 
+void handleAudioSettingChangedNotification(
+    const struct chreUserSettingChangedEvent *event) {
+  // The following checks on event and setting are primarily meant for
+  // debugging and/or bring-up. Production nanoapps should not need to worry
+  // about these scenarios since CHRE guarantees that out-of-memory conditions
+  // are caught during event allocation before they're posted, and the setting
+  // is guaranteed to be a member of enum chreUserSettingState.
+  if (event != nullptr) {
+    if (event->setting != CHRE_USER_SETTING_MICROPHONE) {
+      LOGE("Unexpected setting ID: %u", event->setting);
+    } else {
+      LOGI("Microphone settings notification: status change to %d",
+           static_cast<int8_t>(event->settingState));
+    }
+  } else {
+    LOGE("Null event data for settings changed event");
+  }
+}
+
 bool nanoappStart() {
   LOGI("Started");
 
@@ -149,6 +168,13 @@ bool nanoappStart() {
   }
 
   initKissFft();
+
+  int8_t settingState = chreUserSettingGetState(CHRE_USER_SETTING_MICROPHONE);
+  LOGD("Microphone setting status: %d", settingState);
+
+  chreUserSettingConfigureEvents(CHRE_USER_SETTING_MICROPHONE,
+                                 true /* enable */);
+
   return true;
 }
 
@@ -163,6 +189,12 @@ void nanoappHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
       handleAudioSamplingChangeEvent(
           static_cast<const struct chreAudioSourceStatusEvent *>(eventData));
       break;
+
+    case CHRE_EVENT_SETTING_CHANGED_MICROPHONE:
+      handleAudioSettingChangedNotification(
+          static_cast<const struct chreUserSettingChangedEvent *>(eventData));
+      break;
+
     default:
       LOGW("Unknown event received");
       break;
@@ -174,6 +206,10 @@ void nanoappEnd() {
     chreAudioConfigureSource(gAudioHandle, false /* enable */,
                              0 /* bufferDuration */, 0 /* deliveryInterval */);
   }
+
+  chreUserSettingConfigureEvents(CHRE_USER_SETTING_MICROPHONE,
+                                 false /* enable */);
+
   LOGI("Stopped");
 }
 
@@ -183,6 +219,8 @@ void nanoappEnd() {
 
 #include "chre/platform/static_nanoapp_init.h"
 #include "chre/util/nanoapp/app_id.h"
+#include "chre/util/system/napp_permissions.h"
 
-CHRE_STATIC_NANOAPP_INIT(AudioWorld, chre::kAudioWorldAppId, 0);
+CHRE_STATIC_NANOAPP_INIT(AudioWorld, chre::kAudioWorldAppId, 0,
+                         chre::NanoappPermissions::CHRE_PERMS_AUDIO);
 #endif  // CHRE_NANOAPP_INTERNAL

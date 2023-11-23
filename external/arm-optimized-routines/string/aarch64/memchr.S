@@ -1,7 +1,7 @@
 /*
  * memchr - find a character in a memory zone
  *
- * Copyright (c) 2014-2019, Arm Limited.
+ * Copyright (c) 2014-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -47,6 +47,8 @@
  */
 
 ENTRY (__memchr_aarch64)
+	PTR_ARG (0)
+	SIZE_ARG (2)
 	/* Do not dereference srcin if no bytes to compare.  */
 	cbz	cntin, L(zero_length)
 	/*
@@ -110,7 +112,7 @@ L(end):
 	addp	vend.16b, vend.16b, vend.16b			/* 128->64 */
 	mov	synd, vend.d[0]
 	/* Only do the clear for the last possible block */
-	b.hi	L(tail)
+	b.hs	L(tail)
 
 L(masklast):
 	/* Clear the (32 - ((cntrem + soff) % 32)) * 2 upper bits */
@@ -141,3 +143,4 @@ L(zero_length):
 	ret
 
 END (__memchr_aarch64)
+

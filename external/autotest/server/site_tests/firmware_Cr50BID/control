@@ -10,7 +10,7 @@ PURPOSE = "Verify cr50 response to board id"
 ATTRIBUTES = "suite:faft_cr50_experimental"
 TIME = "LONG"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Verify cr50 board id behavior on a board id locked image.

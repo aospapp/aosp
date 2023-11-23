@@ -15,23 +15,25 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.crossprofileappstest">
+     package="com.android.cts.crossprofileappstest">
 
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="25"/>
+    <uses-sdk android:minSdkVersion="21"
+         android:targetSdkVersion="25"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
-        <receiver
-            android:name="com.android.cts.crossprofileappstest.AdminReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+        <uses-library android:name="android.test.runner"/>
+        <receiver android:name="com.android.cts.crossprofileappstest.AdminReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                       android:resource="@xml/device_admin" />
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
 
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".MainActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -39,13 +41,15 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".NonMainActivity" android:exported="true">
+        <activity android:name=".NonMainActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="nonMainActivity" />
+                <action android:name="nonMainActivity"/>
             </intent-filter>
         </activity>
 
-        <activity android:name=".NonExportedActivity" android:exported="false">
+        <activity android:name=".NonExportedActivity"
+             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -53,12 +57,19 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".CrossProfileSameTaskLauncherActivity" android:exported="true"/>
+        <activity android:name=".CrossProfileSameTaskLauncherActivity"
+             android:exported="true"/>
+
+        <activity android:name=".CrossProfileResultCheckerActivity"
+             android:exported="true"/>
+
+        <activity android:name=".CrossProfileResultReturnerActivity"
+             android:exported="true"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.crossprofileappstest"
-                     android:label="Launcher Apps CTS Tests"/>
+         android:targetPackage="com.android.cts.crossprofileappstest"
+         android:label="Launcher Apps CTS Tests"/>
 
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES"/>
 </manifest>

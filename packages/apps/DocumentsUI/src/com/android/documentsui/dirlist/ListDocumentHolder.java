@@ -22,7 +22,9 @@ import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Rect;
+import android.text.TextUtils;
 import android.text.format.Formatter;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -41,15 +43,20 @@ import com.android.documentsui.base.UserId;
 import com.android.documentsui.roots.RootCursorWrapper;
 import com.android.documentsui.ui.Views;
 
+import java.util.ArrayList;
 import java.util.function.Function;
 
 final class ListDocumentHolder extends DocumentHolder {
+    private static final String TAG = "ListDocumentHolder";
 
     private final TextView mTitle;
-    private final @Nullable LinearLayout mDetails;  // Container of date/size/summary
-    private final TextView mDate;
-    private final TextView mSize;
-    private final TextView mType;
+    private final @Nullable TextView mDate; // Non-null for tablets/sw720dp, null for other devices.
+    private final @Nullable TextView mSize; // Non-null for tablets/sw720dp, null for other devices.
+    private final @Nullable TextView mType; // Non-null for tablets/sw720dp, null for other devices.
+    // Container for date + size + summary, null only for tablets/sw720dp
+    private final @Nullable LinearLayout mDetails;
+    // TextView for date + size + summary, null only for tablets/sw720dp
+    private final @Nullable TextView mMetadataView;
     private final ImageView mIconMime;
     private final ImageView mIconThumb;
     private final ImageView mIconCheck;
@@ -75,6 +82,7 @@ final class ListDocumentHolder extends DocumentHolder {
         mSize = (TextView) itemView.findViewById(R.id.size);
         mDate = (TextView) itemView.findViewById(R.id.date);
         mType = (TextView) itemView.findViewById(R.id.file_type);
+        mMetadataView = (TextView) itemView.findViewById(R.id.metadata);
         // Warning: mDetails view doesn't exists in layout-sw720dp-land layout
         mDetails = (LinearLayout) itemView.findViewById(R.id.line2);
         mPreviewIcon = itemView.findViewById(R.id.preview_icon);
@@ -97,8 +105,7 @@ final class ListDocumentHolder extends DocumentHolder {
         }
 
         if (!itemView.isEnabled()) {
-            assert(!selected);
-            return;
+            assert (!selected);
         }
 
         super.setSelected(selected, animate);
@@ -183,12 +190,13 @@ final class ListDocumentHolder extends DocumentHolder {
 
     /**
      * Bind this view to the given document for display.
+     *
      * @param cursor Pointing to the item to be bound.
      * @param modelId The model ID of the item.
      */
     @Override
     public void bind(Cursor cursor, String modelId) {
-        assert(cursor != null);
+        assert (cursor != null);
 
         mModelId = modelId;
 
@@ -208,33 +216,50 @@ final class ListDocumentHolder extends DocumentHolder {
         mTitle.setText(mDoc.displayName, TextView.BufferType.SPANNABLE);
         mTitle.setVisibility(View.VISIBLE);
 
-
-        boolean hasDetails = false;
         if (mDoc.isDirectory()) {
             // Note, we don't show any details for any directory...ever.
-            hasDetails = false;
+            if (mDetails != null) {
+                // Non-tablets
+                mDetails.setVisibility(View.GONE);
+            }
         } else {
-            if (mDoc.lastModified > 0) {
-                hasDetails = true;
-                mDate.setText(Shared.formatTime(mContext, mDoc.lastModified));
+            // For tablets metadata is provided in columns mDate, mSize, mType.
+            // For other devices mMetadataView consolidates the metadata info.
+            if (mMetadataView != null) {
+                // Non-tablets
+                boolean hasDetails = false;
+                ArrayList<String> metadataList = new ArrayList<>();
+                if (mDoc.lastModified > 0) {
+                    hasDetails = true;
+                    metadataList.add(Shared.formatTime(mContext, mDoc.lastModified));
+                }
+                if (mDoc.size > -1) {
+                    hasDetails = true;
+                    metadataList.add(Formatter.formatFileSize(mContext, mDoc.size));
+                }
+                metadataList.add(mFileTypeLookup.lookup(mDoc.mimeType));
+                mMetadataView.setText(TextUtils.join(", ", metadataList));
+                if (mDetails != null) {
+                    mDetails.setVisibility(hasDetails ? View.VISIBLE : View.GONE);
+                } else {
+                    Log.w(TAG, "mDetails is unexpectedly null for non-tablet devices!");
+                }
             } else {
-                mDate.setText(null);
+                // Tablets
+                if (mDoc.lastModified > 0) {
+                    mDate.setVisibility(View.VISIBLE);
+                    mDate.setText(Shared.formatTime(mContext, mDoc.lastModified));
+                } else {
+                    mDate.setVisibility(View.INVISIBLE);
+                }
+                if (mDoc.size > -1) {
+                    mSize.setVisibility(View.VISIBLE);
+                    mSize.setText(Formatter.formatFileSize(mContext, mDoc.size));
+                } else {
+                    mSize.setVisibility(View.INVISIBLE);
+                }
+                mType.setText(mFileTypeLookup.lookup(mDoc.mimeType));
             }
-
-            if (mDoc.size > -1) {
-                hasDetails = true;
-                mSize.setVisibility(View.VISIBLE);
-                mSize.setText(Formatter.formatFileSize(mContext, mDoc.size));
-            } else {
-                mSize.setVisibility(View.INVISIBLE);
-            }
-
-            mType.setText(mFileTypeLookup.lookup(mDoc.mimeType));
-        }
-
-        // mDetails view doesn't exists in layout-sw720dp-land layout
-        if (mDetails != null) {
-            mDetails.setVisibility(hasDetails ? View.VISIBLE : View.GONE);
         }
 
         // TODO: Add document debug info

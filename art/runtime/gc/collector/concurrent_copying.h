@@ -152,6 +152,11 @@ class ConcurrentCopying : public GarbageCollector {
   }
   void RevokeThreadLocalMarkStack(Thread* thread) REQUIRES(!mark_stack_lock_);
 
+  // Blindly return the forwarding pointer from the lockword, or null if there is none.
+  static mirror::Object* GetFwdPtrUnchecked(mirror::Object* from_ref)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // If marked, return the to-space object, otherwise null.
   mirror::Object* IsMarked(mirror::Object* from_ref) override
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -161,6 +166,9 @@ class ConcurrentCopying : public GarbageCollector {
   void PushOntoMarkStack(Thread* const self, mirror::Object* obj)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!mark_stack_lock_);
+  // Returns a to-space copy of the from-space object from_ref, and atomically installs a
+  // forwarding pointer. Ensures that the forwarding reference is visible to other threads before
+  // the returned to-space pointer becomes visible to them.
   mirror::Object* Copy(Thread* const self,
                        mirror::Object* from_ref,
                        mirror::Object* holder,
@@ -169,7 +177,7 @@ class ConcurrentCopying : public GarbageCollector {
       REQUIRES(!mark_stack_lock_, !skipped_blocks_lock_, !immune_gray_stack_lock_);
   // Scan the reference fields of object `to_ref`.
   template <bool kNoUnEvac>
-  void Scan(mirror::Object* to_ref) REQUIRES_SHARED(Locks::mutator_lock_)
+  void Scan(mirror::Object* to_ref, size_t obj_size = 0) REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!mark_stack_lock_);
   // Scan the reference fields of object 'obj' in the dirty cards during
   // card-table scan. In addition to visiting the references, it also sets the
@@ -257,7 +265,7 @@ class ConcurrentCopying : public GarbageCollector {
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(Locks::heap_bitmap_lock_);
   void MarkZygoteLargeObjects()
       REQUIRES_SHARED(Locks::mutator_lock_);
-  void FillWithDummyObject(Thread* const self, mirror::Object* dummy_obj, size_t byte_size)
+  void FillWithFakeObject(Thread* const self, mirror::Object* fake_obj, size_t byte_size)
       REQUIRES(!mark_stack_lock_, !skipped_blocks_lock_, !immune_gray_stack_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
   mirror::Object* AllocateInSkippedBlock(Thread* const self, size_t alloc_size)
@@ -266,8 +274,8 @@ class ConcurrentCopying : public GarbageCollector {
   void CheckEmptyMarkStack() REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!mark_stack_lock_);
   void IssueEmptyCheckpoint() REQUIRES_SHARED(Locks::mutator_lock_);
   bool IsOnAllocStack(mirror::Object* ref) REQUIRES_SHARED(Locks::mutator_lock_);
-  mirror::Object* GetFwdPtr(mirror::Object* from_ref)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  // Return the forwarding pointer from the lockword. The argument must be in from space.
+  mirror::Object* GetFwdPtr(mirror::Object* from_ref) REQUIRES_SHARED(Locks::mutator_lock_);
   void FlipThreadRoots() REQUIRES(!Locks::mutator_lock_);
   void SwapStacks() REQUIRES_SHARED(Locks::mutator_lock_);
   void RecordLiveStackFreezeSize(Thread* self);
@@ -371,9 +379,6 @@ class ConcurrentCopying : public GarbageCollector {
   static constexpr size_t kMarkStackPoolSize = 256;
   std::vector<accounting::ObjectStack*> pooled_mark_stacks_
       GUARDED_BY(mark_stack_lock_);
-  // TODO(lokeshgidra b/140119552): remove this after bug fix.
-  std::unordered_map<Thread*, accounting::ObjectStack*> thread_mark_stack_map_
-      GUARDED_BY(mark_stack_lock_);
   Thread* thread_running_gc_;
   bool is_marking_;                       // True while marking is ongoing.
   // True while we might dispatch on the read barrier entrypoints.
@@ -405,10 +410,6 @@ class ConcurrentCopying : public GarbageCollector {
   // bytes_moved_gc_thread_ are critical for GC triggering; the others are just informative.
   Atomic<size_t> bytes_moved_;  // Used by mutators
   Atomic<size_t> objects_moved_;  // Used by mutators
-  size_t bytes_moved_gc_thread_;  // Used by GC
-  size_t objects_moved_gc_thread_;  // Used by GC
-  Atomic<uint64_t> cumulative_bytes_moved_;
-  Atomic<uint64_t> cumulative_objects_moved_;
 
   // copied_live_bytes_ratio_sum_ is read and written by CC per GC, in
   // ReclaimPhase, and is read by DumpPerformanceInfo (potentially from another
@@ -430,6 +431,15 @@ class ConcurrentCopying : public GarbageCollector {
 
   // reclaimed_bytes_ratio = reclaimed_bytes/num_allocated_bytes per GC cycle
   float reclaimed_bytes_ratio_sum_;
+
+  // Used only by GC thread, so need not be atomic. Also, should be kept
+  // in a different cacheline than bytes/objects_moved_ (above) to avoid false
+  // cacheline sharing.
+  size_t bytes_moved_gc_thread_;
+  size_t objects_moved_gc_thread_;
+  uint64_t bytes_scanned_;
+  uint64_t cumulative_bytes_moved_;
+  uint64_t cumulative_objects_moved_;
 
   // The skipped blocks are memory blocks/chucks that were copies of
   // objects that were unused due to lost races (cas failures) at
@@ -465,7 +475,7 @@ class ConcurrentCopying : public GarbageCollector {
   std::vector<mirror::Object*> immune_gray_stack_ GUARDED_BY(immune_gray_stack_lock_);
 
   // Class of java.lang.Object. Filled in from WellKnownClasses in FlipCallback. Must
-  // be filled in before flipping thread roots so that FillDummyObject can run. Not
+  // be filled in before flipping thread roots so that FillWithFakeObject can run. Not
   // ObjPtr since the GC may transition to suspended and runnable between phases.
   mirror::Class* java_lang_Object_;
 

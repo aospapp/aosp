@@ -14,51 +14,55 @@
 // limitations under the License.
 //
 
-android_test_helper_app {
-    name: "CtsUseEmbeddedDexApp_Canonical",
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+java_defaults {
+    name: "cts_use_embedded_dex_test_defaults",
     defaults: ["cts_support_defaults"],
-    use_embedded_dex: true,
     srcs: ["src/**/*.java"],
     sdk_version: "current",
-    min_sdk_version: "27",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
+    static_libs: [
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "ctstestrunner-axt",
+        "ub-uiautomator",
+    ],
+    libs: [
+        "android.test.runner",
+        "android.test.base",
+    ],
+}
+
+android_test_helper_app {
+    name: "CtsUseEmbeddedDexApp_Canonical",
+    defaults: ["cts_use_embedded_dex_test_defaults"],
+    min_sdk_version: "27",
+    use_embedded_dex: true,
 }
 
 android_test_helper_app {
     name: "CtsUseEmbeddedDexApp_DexCompressed",
-    defaults: ["cts_support_defaults"],
+    defaults: ["cts_use_embedded_dex_test_defaults"],
     // Not specifying use_embedded_dex keeps dex compressed
-    srcs: ["src/**/*.java"],
-    sdk_version: "current",
     min_sdk_version: "28",
-    test_suites: [
-        "cts",
-        "vts10",
-        "general-tests",
-    ],
 }
 
 android_test_helper_app {
     name: "CtsUseEmbeddedDexApp_NotPreferred",
-    defaults: ["cts_support_defaults"],
+    defaults: ["cts_use_embedded_dex_test_defaults"],
     manifest: "AndroidManifest_use_extracted_dex.xml",
-    srcs: ["src/**/*.java"],
-    sdk_version: "current",
     min_sdk_version: "28",
-    test_suites: [
-        "cts",
-        "vts10",
-        "general-tests",
-    ],
 }
 
 android_test_helper_app {
     name: "CtsUseEmbeddedDexAppSplit_Canonical",
-    defaults: ["cts_support_defaults"],
+    defaults: ["cts_use_embedded_dex_test_defaults"],
     manifest: "feature_split/AndroidManifest.xml",
     // We want the dex to be uncompressed, but there is a side effect of extra
     // android:useEmbeddedDex in the manifest (which the framework will ignore
@@ -67,25 +71,14 @@ android_test_helper_app {
     srcs: ["feature_split/src/**/*.java"],
     sdk_version: "current",
     min_sdk_version: "27",
-    test_suites: [
-        "cts",
-        "vts10",
-        "general-tests",
-    ],
 }
 
 android_test_helper_app {
     name: "CtsUseEmbeddedDexAppSplit_CompressedDex",
-    defaults: ["cts_support_defaults"],
+    defaults: ["cts_use_embedded_dex_test_defaults"],
     manifest: "feature_split/AndroidManifest.xml",
     srcs: ["feature_split/src/**/*.java"],
-    sdk_version: "current",
     min_sdk_version: "27",
-    test_suites: [
-        "cts",
-        "vts10",
-        "general-tests",
-    ],
 }
 
 //android_test_helper_app {

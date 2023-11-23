@@ -24,6 +24,10 @@
 
     <dimen name="first_min_resize_appwidget_size">60dp</dimen>
 
+    <dimen name="first_max_resize_appwidget_size">60dp</dimen>
+
+    <integer name="first_target_cell_appwidget_size">1</integer>
+
     <integer name="first_update_period_millis">86400000</integer>
 
     <integer name="first_resize_mode">3</integer>
@@ -37,6 +41,10 @@
     <dimen name="second_min_appwidget_size">50dp</dimen>
 
     <dimen name="second_min_resize_appwidget_size">70dp</dimen>
+
+    <dimen name="second_max_resize_appwidget_size">70dp</dimen>
+
+    <integer name="second_target_cell_appwidget_size">2</integer>
 
     <integer name="second_update_period_millis">86500000</integer>
 

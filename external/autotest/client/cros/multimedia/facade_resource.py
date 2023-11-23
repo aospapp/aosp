@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -211,7 +212,7 @@ class FacadeResource(object):
                 extension = self._chrome.autotest_ext
             else:
                 extension = self._chrome.get_extension(extension_path)
-        except KeyError, errmsg:
+        except KeyError as errmsg:
             # Trigger retry_chrome_call to retry to retrieve the
             # found extension.
             raise chrome.Error(errmsg)

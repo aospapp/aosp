@@ -17,9 +17,9 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.car.notification">
+     package="com.android.car.notification">
     <!-- Permission to show display overlay window for heads-up notifications -->
-    <uses-permission android:name="android.permission.INTERNAL_SYSTEM_WINDOW" />
+    <uses-permission android:name="android.permission.INTERNAL_SYSTEM_WINDOW"/>
     <!-- Permission to get the current user id to cancel a notification -->
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
     <!-- Permission to get the current user id to cancel all notifications -->
@@ -28,27 +28,28 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE"/>
 
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <!--Permission to talk to the Status bar service which proxies the calls to remove
-        notifications to the notification service -->
-    <uses-permission android:name="android.permission.STATUS_BAR_SERVICE" />
+                notifications to the notification service -->
+    <uses-permission android:name="android.permission.STATUS_BAR_SERVICE"/>
     <!--Permission to start a voice interaction service-->
     <uses-permission android:name="android.permission.ACCESS_VOICE_INTERACTION_SERVICE"/>
 
     <application android:name=".NotificationApplication">
-        <activity
-            android:name=".CarNotificationCenterActivity"
-            android:theme="@style/Theme.DeviceDefault.NoActionBar.Notification"
-            android:launchMode="singleInstance"
-            android:noHistory="true"
-            android:exported="true"
-            android:stateNotNeeded="true">
-            <meta-data android:name="distractionOptimized" android:value="true"/>
+        <activity android:name=".CarNotificationCenterActivity"
+             android:theme="@style/Theme.DeviceDefault.NoActionBar.Notification"
+             android:launchMode="singleInstance"
+             android:noHistory="true"
+             android:exported="true"
+             android:stateNotNeeded="true">
+            <meta-data android:name="distractionOptimized"
+                 android:value="true"/>
         </activity>
         <service android:name=".CarNotificationListener"
-              android:label="@string/notification_service_label"
-              android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-              android:directBootAware="true">
+             android:label="@string/notification_service_label"
+             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+             android:directBootAware="true"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService"/>
             </intent-filter>

@@ -13,32 +13,32 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-       package="com.android.cts.mediastorageapp29">
+     package="com.android.cts.mediastorageapp29">
 
-    <application
-        android:requestLegacyExternalStorage="true">
-        <uses-library android:name="android.test.runner" />
+    <application android:requestLegacyExternalStorage="true">
+        <uses-library android:name="android.test.runner"/>
 
-        <activity android:name="com.android.cts.mediastorageapp.StubActivity">
+        <activity android:name="com.android.cts.mediastorageapp.StubActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.APP_GALLERY" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.APP_GALLERY"/>
             </intent-filter>
         </activity>
 
-        <activity android:name="com.android.cts.mediastorageapp.GetResultActivity" />
+        <activity android:name="com.android.cts.mediastorageapp.GetResultActivity"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.mediastorageapp29" />
+         android:targetPackage="com.android.cts.mediastorageapp29"/>
 
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
-    <uses-sdk
-        android:minSdkVersion="29"
-        android:targetSdkVersion="29" />
+    <uses-sdk android:minSdkVersion="29"
+         android:targetSdkVersion="29"/>
 </manifest>

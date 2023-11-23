@@ -21,8 +21,6 @@ RESULT_DIR_FMT = os.path.join(CONTAINER_AUTOTEST_DIR, 'results',
 # Attributes to retrieve about containers.
 ATTRIBUTES = ['name', 'state']
 
-SSP_ENABLED = global_config.get_config_value('AUTOSERV', 'enable_ssp_container',
-                                             type=bool, default=True)
 # url to the folder stores base container.
 CONTAINER_BASE_FOLDER_URL = global_config.get_config_value('AUTOSERV',
                                                     'container_base_folder_url')

@@ -18,11 +18,11 @@ package com.google.android.setupcompat.template;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import androidx.annotation.Nullable;
 
 /** Button that can react to touch when disabled. */
 public class FooterActionButton extends Button {

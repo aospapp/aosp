@@ -109,5 +109,5 @@
     <string name="user_image_take_photo" msgid="2779924488370750102">"Tirar uma foto"</string>
     <string name="user_image_choose_photo" msgid="2442095378052415700">"Escolher uma imagem"</string>
     <string name="user_image_photo_selector" msgid="8941966433899876760">"Selecionar foto"</string>
-    <string name="user_nickname" msgid="7956055372443961161">"Pseudónimo"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Alcunha"</string>
 </resources>

@@ -16,17 +16,18 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.telephony.cts.externalimsservice">
+     package="android.telephony.cts.externalimsservice">
 
     <application>
         <service android:name=".TestExternalImsService"
-                 android:directBootAware="true"
-                 android:persistent="true">
-            <meta-data android:name="override_bind_check" android:value="true" />
+             android:directBootAware="true"
+             android:persistent="true"
+             android:exported="true">
+            <meta-data android:name="override_bind_check"
+                 android:value="true"/>
             <intent-filter>
-                <action android:name="android.telephony.ims.ImsService" />
+                <action android:name="android.telephony.ims.ImsService"/>
             </intent-filter>
         </service>
     </application>
 </manifest>
-

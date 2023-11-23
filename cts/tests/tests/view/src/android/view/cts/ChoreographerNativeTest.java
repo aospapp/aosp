@@ -16,21 +16,34 @@
 
 package android.view.cts;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
+import android.Manifest;
 import android.content.Context;
 import android.hardware.display.DisplayManager;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Display;
+import android.view.Display.Mode;
+import android.view.Window;
+import android.view.WindowManager;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.FlakyTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.AdoptShellPermissionsRule;
+import com.android.compatibility.common.util.DisplayUtil;
+
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -42,6 +55,18 @@ import java.util.Optional;
 @RunWith(AndroidJUnit4.class)
 public class ChoreographerNativeTest {
     private long mChoreographerPtr;
+
+    @Rule
+    public ActivityTestRule<CtsActivity> mTestActivityRule =
+            new ActivityTestRule<>(
+                CtsActivity.class);
+
+    @Rule
+    public final AdoptShellPermissionsRule mShellPermissionsRule =
+            new AdoptShellPermissionsRule(
+                    InstrumentationRegistry.getInstrumentation().getUiAutomation(),
+                    Manifest.permission.OVERRIDE_DISPLAY_MODE_REQUESTS,
+                    Manifest.permission.MODIFY_REFRESH_RATE_SWITCHING_TYPE);
 
     private static native long nativeGetChoreographer();
     private static native boolean nativePrepareChoreographerTests(long ptr, long[] refreshPeriods);
@@ -61,9 +86,12 @@ public class ChoreographerNativeTest {
     private static native void nativeTestAttemptToAddRefreshRateCallbackTwiceDoesNotAddTwice(
             long ptr);
     private static native void nativeTestRefreshRateCallbackMixedWithFrameCallbacks(long ptr);
+    private native void nativeTestRefreshRateCallbacksAreSyncedWithDisplayManager();
 
     private Context mContext;
     private DisplayManager mDisplayManager;
+    private Display mDefaultDisplay;
+    private long[] mSupportedPeriods;
 
     static {
         System.loadLibrary("ctsview_jni");
@@ -80,14 +108,14 @@ public class ChoreographerNativeTest {
                 .findFirst();
 
         assertTrue(defaultDisplayOpt.isPresent());
-        Display defaultDisplay = defaultDisplayOpt.get();
+        mDefaultDisplay = defaultDisplayOpt.get();
 
-        long[] supportedPeriods = Arrays.stream(defaultDisplay.getSupportedModes())
+        mSupportedPeriods = Arrays.stream(mDefaultDisplay.getSupportedModes())
                 .mapToLong(mode -> (long) (Duration.ofSeconds(1).toNanos() / mode.getRefreshRate()))
                 .toArray();
 
         mChoreographerPtr = nativeGetChoreographer();
-        if (!nativePrepareChoreographerTests(mChoreographerPtr, supportedPeriods)) {
+        if (!nativePrepareChoreographerTests(mChoreographerPtr, mSupportedPeriods)) {
             fail("Failed to setup choreographer tests");
         }
     }
@@ -159,4 +187,72 @@ public class ChoreographerNativeTest {
         nativeTestRefreshRateCallbackMixedWithFrameCallbacks(mChoreographerPtr);
     }
 
+    @SmallTest
+    @Test
+    public void testRefreshRateCallbacksIsSyncedWithDisplayManager() {
+        assumeTrue(mSupportedPeriods.length >= 2);
+        assumeTrue(findModeForSeamlessSwitch().isPresent());
+
+        int initialMatchContentFrameRate = 0;
+        try {
+
+            // Set-up just for this particular test:
+            // We must force the screen to be on for this window, and DisplayManager must be
+            // configured to always respect the app-requested refresh rate.
+            Handler handler = new Handler(Looper.getMainLooper());
+            handler.post(() -> {
+                mTestActivityRule.getActivity().getWindow().addFlags(
+                        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                                | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            });
+            mDisplayManager.setShouldAlwaysRespectAppRequestedMode(true);
+            initialMatchContentFrameRate = toSwitchingType(
+                    mDisplayManager.getMatchContentFrameRateUserPreference());
+            mDisplayManager.setRefreshRateSwitchingType(DisplayManager.SWITCHING_TYPE_NONE);
+            nativeTestRefreshRateCallbacksAreSyncedWithDisplayManager();
+        } finally {
+            mDisplayManager.setRefreshRateSwitchingType(initialMatchContentFrameRate);
+            mDisplayManager.setShouldAlwaysRespectAppRequestedMode(false);
+        }
+    }
+
+    // Called by jni in a refresh rate callback
+    private void checkRefreshRateIsCurrentAndSwitch(int refreshRate) {
+        assertEquals(Math.round(mDefaultDisplay.getRefreshRate()), refreshRate);
+
+        Optional<Mode> maybeNextMode = findModeForSeamlessSwitch();
+        assertTrue(maybeNextMode.isPresent());
+        Mode mode = maybeNextMode.get();
+
+        Handler handler = new Handler(Looper.getMainLooper());
+        handler.post(() -> {
+            Window window = mTestActivityRule.getActivity().getWindow();
+            WindowManager.LayoutParams params = window.getAttributes();
+            params.preferredDisplayModeId = mode.getModeId();
+            window.setAttributes(params);
+        });
+    }
+
+    private Optional<Mode> findModeForSeamlessSwitch() {
+        Mode activeMode = mDefaultDisplay.getMode();
+        int refreshRate = Math.round(mDefaultDisplay.getRefreshRate());
+        return Arrays.stream(mDefaultDisplay.getSupportedModes())
+                .filter(mode -> DisplayUtil.isModeSwitchSeamless(activeMode, mode))
+                .filter(mode ->  Math.round(mode.getRefreshRate()) != refreshRate)
+                .findFirst();
+    }
+
+    private int toSwitchingType(int matchContentFrameRateUserPreference) {
+        switch (matchContentFrameRateUserPreference) {
+            case DisplayManager.MATCH_CONTENT_FRAMERATE_NEVER:
+                return DisplayManager.SWITCHING_TYPE_NONE;
+            case DisplayManager.MATCH_CONTENT_FRAMERATE_SEAMLESSS_ONLY:
+                return DisplayManager.SWITCHING_TYPE_WITHIN_GROUPS;
+            case DisplayManager.MATCH_CONTENT_FRAMERATE_ALWAYS:
+                return DisplayManager.SWITCHING_TYPE_ACROSS_AND_WITHIN_GROUPS;
+            default:
+                return -1;
+        }
+    }
 }

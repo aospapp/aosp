@@ -50,6 +50,7 @@
     <string name="voice_number_setting_primary_user_only" msgid="3394706575741912843">"Izilungiselelo zevoyisimeyili zingashintshwa kuphela umsebenzisi oyinhloko."</string>
     <string name="puk_unlocked" msgid="4627340655215746511">"Ikhadi lakho le-SIM livuliwe. Ifoni yakho iyavula..."</string>
     <string name="label_ndp" msgid="7617392683877410341">"Inethiwekhi ye-SIM yokuvula i-PIN"</string>
+    <string name="label_phoneid" msgid="8775611434123577808">"I-SIM ivalelwe umsebenzisi"</string>
     <string name="sim_ndp_unlock_text" msgid="7737338355451978338">"Vula"</string>
     <string name="sim_ndp_dismiss_text" msgid="89667342248929777">"Cashisa"</string>
     <string name="requesting_unlock" msgid="930512210309437741">"Icela ukuvula inethiwekhi..."</string>
@@ -123,6 +124,13 @@
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"Idlulisela ku-<xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Valiwe"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Isiphathi sakho asisekeli ukuvimbela ukudlulisela ucingo lapho ifoni yakho ingafinyeleleki."</string>
+    <string name="registration_cf_forbidden" msgid="4386482610771190420">"Inkampani yakho yenethiwekhi ayisekeli ukudlulisela phambili ikholi."</string>
+    <string name="cdma_call_waiting" msgid="4565070960879673216">"Vula ukulinda ikholi?"</string>
+    <string name="enable_cdma_call_waiting_setting" msgid="5906811747921744307">"Phakathi nekholi, uzokwaziswa ngamakholi angenayo"</string>
+    <string name="enable_cdma_cw" msgid="811047045863422232">"Vula"</string>
+    <string name="disable_cdma_cw" msgid="7119290446496301734">"Hoxa"</string>
+    <string name="cdma_call_waiting_in_ims_on" msgid="6390979414188659218">"Ukulinda kwekholi ye-CDMA ngaphansi kwe-IMS kuvuliwe"</string>
+    <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"Ukulinda kwekholi ye-CDMA ngaphansi kwe-IMS kuvaliwe"</string>
     <string name="updating_title" msgid="6130548922615719689">"Izilungiselelo zekholi"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Izilungiselelo zekholi zingaguqulwa kuphela ngumsebenzisi oyinhloko."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Izilungiselelo (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
@@ -286,6 +294,9 @@
     <string name="limited_sim_function_notification_title" msgid="612715399099846281">"Ukusebenza okukhawulelwe kwe-SIM"</string>
     <string name="limited_sim_function_with_phone_num_notification_message" msgid="5928988883403677610">"Amakholi e-<xliff:g id="CARRIER_NAME">%1$s</xliff:g> namasevisi edatha angavinjelwa kusetshenziswa u-<xliff:g id="PHONE_NUMBER">%2$s</xliff:g>."</string>
     <string name="limited_sim_function_notification_message" msgid="5338638075496721160">"Amakholi e-<xliff:g id="CARRIER_NAME">%1$s</xliff:g> namasevisi edatha angavinjelwa ngenkathi kusetshenziswa enye i-SIM."</string>
+    <string name="sip_accounts_removed_notification_title" msgid="3528076957535736095">"Ama-akhawunti we-SIP eshlisiwe atholakele futhi asusiwe"</string>
+    <string name="sip_accounts_removed_notification_message" msgid="1916856744869791592">"Ukufona kwe-SIP akusasekelwa ingxenyekazi ye-Android.\nAma-akhawunti akho e-SIP akhona <xliff:g id="REMOVED_SIP_ACCOUNTS">%s</xliff:g> ahanjisiwe.\nSicela uqinisekise isethingi le-akhawunti yakho lokufona elizenzakalelayo."</string>
+    <string name="sip_accounts_removed_notification_action" msgid="3772778402370555562">"Iya kumasethingi"</string>
     <string name="data_usage_title" msgid="8438592133893837464">"Ukusetshenziswa kwedatha yohlelo lokusebenza"</string>
     <string name="data_usage_template" msgid="6287906680674061783">"<xliff:g id="ID_1">%1$s</xliff:g> kusetshenziswe idatha yeselula engu-<xliff:g id="ID_2">%2$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="9208195294513520934">"Okuthuthukisiwe"</string>
@@ -307,9 +318,7 @@
     <string name="throttle_time_frame" msgid="1813452485948918791">"Isikhathi sokusebenzisa idatha"</string>
     <string name="throttle_rate" msgid="7641913901133634905">"Inqubomgomo yokukala idatha"</string>
     <string name="throttle_help" msgid="2624535757028809735">"Funda kabanzi"</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for throttle_status_subtext (1110276415078236687) -->
-    <skip />
+    <string name="throttle_status_subtext" msgid="1110276415078236687">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) ye <xliff:g id="USED_2">%3$s</xliff:g> isikhathi esingeqiwe \nIsikhathi esilandelayo siqala ezinsukwini ezingu-<xliff:g id="USED_3">%4$d</xliff:g> (<xliff:g id="USED_4">%5$s</xliff:g>)"</string>
     <string name="throttle_data_usage_subtext" msgid="3185429653996709840">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) ye- <xliff:g id="USED_2">%3$s</xliff:g> isikhathi esiphezulu"</string>
     <string name="throttle_data_rate_reduced_subtext" msgid="8369839346277847725">"<xliff:g id="USED_0">%1$s</xliff:g>okuphezulu kufinyelelwe\nIsilinganiso sedatha sehliselwe ku- <xliff:g id="USED_1">%2$d</xliff:g> ama-Kb"</string>
     <string name="throttle_time_frame_subtext" msgid="6462089615392402127">"<xliff:g id="USED_0">%1$d</xliff:g>٪ lesikhathi esiphelile\nIsikhathi esilandelayo siqala ezinsukwini <xliff:g id="USED_1">%2$d</xliff:g> ezingu <xliff:g id="USED_2">%3$s</xliff:g>)"</string>
@@ -506,6 +515,7 @@
     <string name="puk2_requested" msgid="6992374450720307514">"Iphasiwedi ayilungile. I-SIM manje ikhiyiwe. Faka i-PUK2."</string>
     <string name="puk2_blocked" msgid="3131139031779319911">"I-PUK2 ivinjiwe unaphakade."</string>
     <string name="pin2_attempts" msgid="5625178102026453023">\n"Unemizamo engu-<xliff:g id="NUMBER">%d</xliff:g> esele."</string>
+    <string name="puk2_locked" msgid="6497760825455461057">"I-PUK2 ikhiyiwe. Xhumana nomhlinzeki wesevisi ukuze uvule."</string>
     <string name="pin2_unblocked" msgid="4481107908727789303">"I-PIN2 ayisavinjiwe"</string>
     <string name="pin2_error_exception" msgid="8116103864600823641">"Iphutha lenethiwekhi noma lekhadi le-SIM"</string>
     <string name="doneButton" msgid="7371209609238460207">"Kwenziwe"</string>
@@ -527,6 +537,7 @@
     <string name="incall_error_power_off" product="watch" msgid="7191184639454113633">"Vula inethiwekhi yeselula, vala imodi yendiza noma vala imodi yokulondoloza ibhethri ukuze wenze ikholi."</string>
     <string name="incall_error_power_off" product="default" msgid="8131672264311208673">"Vala imodi yendiza ukuze wenze ikholi."</string>
     <string name="incall_error_power_off_wfc" msgid="9125661184694727052">"Vala imodi yendiza noma xhumeka kunethiwekhi engenantambo ukuze wenze ikholi."</string>
+    <string name="incall_error_power_off_thermal" product="default" msgid="8695809601655300168"><b>"Ifoni ishisa kakhulu"</b>\n\n"Ayikwazi ukwenza le kholi. Zama futhi lapho ifoni iphola.\n\nUsengakwazi ukwenza amakholi aphuthumayo."</string>
     <string name="incall_error_ecm_emergency_only" msgid="5622379058883722080">"Phuma kwimodi yokushayela emuva yesiko esiphuthumayo ukuze wenze ikholi yemodi engaphuthumi."</string>
     <string name="incall_error_emergency_only" msgid="8786127461027964653">"Ayibhalisiwe kwinethiwekhi."</string>
     <string name="incall_error_out_of_service" msgid="1927265196942672791">"Inethiwekhi yefoni ayitholakali"</string>
@@ -869,7 +880,6 @@
     <string name="radio_info_dds" msgid="1122593144425697126">"I-SubId ye-SIM yedatha yokuzenzakalela:"</string>
     <string name="radio_info_dl_kbps" msgid="2382922659525318726">"Umkhawulokudonsa we-DL (kbps):"</string>
     <string name="radio_info_ul_kbps" msgid="2102225400904799036">"Umkhawulokudonsa we-UL (kbps):"</string>
-    <string name="radio_info_signal_location_label" msgid="6188435197086550049">"Ulwazi lwendawo lweseli (kwehlisiwe):"</string>
     <string name="radio_info_phy_chan_config" msgid="1277949603275436081">"Ukulungiselelwa okuphathekayo kwesiteshi se-LTE:"</string>
     <string name="radio_info_cell_info_refresh_rate" msgid="670511448975997340">"Isilinganiso sokuqalisa kabusha solwazi lweseli:"</string>
     <string name="radio_info_cellinfo_label" msgid="8199062974670377659">"Ulwazi lwesilinganiso seseli:"</string>
@@ -900,6 +910,11 @@
     <string name="radio_info_smsc_refresh_label" msgid="8409923721451604560">"Vuselela"</string>
     <string name="radio_info_toggle_dns_check_label" msgid="1394078554927787350">"Guqula ukuhlola i-DNS"</string>
     <string name="oem_radio_info_label" msgid="2914167475119997456">"Ulwazi oucacile kwe-OEM/Izilungiselelo"</string>
+    <string name="radio_info_endc_available" msgid="4410653375290113436">"I-EN-DC Iyatholakala:"</string>
+    <string name="radio_info_dcnr_restricted" msgid="2469125498066960807">"Okukhawulelwe kwe-DCNR:"</string>
+    <string name="radio_info_nr_available" msgid="1321318331361249997">"I-NR Iyatholakala:"</string>
+    <string name="radio_info_nr_state" msgid="1337571996788535356">"Isimo se-NR:"</string>
+    <string name="radio_info_nr_frequency" msgid="1201156032796584128">"Imvamisa ye-NR:"</string>
     <string name="band_mode_title" msgid="7988822920724576842">"Isetha imodi yebhendi yerediyo"</string>
     <string name="band_mode_loading" msgid="795923726636735967">"Ilayisha uhlu lwebhendi…"</string>
     <string name="band_mode_set" msgid="6657819412803771421">"Setha"</string>
@@ -909,4 +924,7 @@
     <string name="phone_info_label" product="default" msgid="1784175881556791433">"Ulwazi lwefoni"</string>
     <string name="carrier_provisioning" msgid="2668065041869578376">"Ulwazi lokuhlinzeka lenkampani yenethiwekhi"</string>
     <string name="trigger_carrier_provisioning" msgid="1301829588620638234">"Cupha ukunikezwa kwenkampani yenethiwekhi"</string>
+    <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Isignali yakho ye-bluetooth ayiqinile. Zama ukushintshela kusipikhasefoni."</string>
+    <string name="call_quality_notification_name" msgid="3476828289553948830">"Isaziso Sekhwalithi"</string>
+    <string name="notification_channel_sip_account" msgid="1261816025156179637">"Ama-akhawunti we-SIP ehlisiwe"</string>
 </resources>

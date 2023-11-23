@@ -20,7 +20,7 @@
 
 #include "CameraProviderManager.h"
 
-#include <android/hardware/camera/device/3.5/ICameraDevice.h>
+#include <android/hardware/camera/device/3.7/ICameraDevice.h>
 
 #include <algorithm>
 #include <chrono>
@@ -28,7 +28,6 @@
 #include <dlfcn.h>
 #include <future>
 #include <inttypes.h>
-#include <hardware/camera_common.h>
 #include <android/hidl/manager/1.2/IServiceManager.h>
 #include <hidl/ServiceManagement.h>
 #include <functional>
@@ -47,9 +46,10 @@ namespace android {
 
 using namespace ::android::hardware::camera;
 using namespace ::android::hardware::camera::common::V1_0;
+using camera3::SessionConfigurationUtils;
 using std::literals::chrono_literals::operator""s;
 using hardware::camera2::utils::CameraIdAndSessionConfiguration;
-using hardware::camera::provider::V2_6::CameraIdAndStreamCombination;
+using hardware::camera::provider::V2_7::CameraIdAndStreamCombination;
 
 namespace {
 const bool kEnableLazyHal(property_get_bool("ro.camera.enableLazyHal", false));
@@ -267,7 +267,7 @@ status_t CameraProviderManager::getCameraInfo(const std::string &id,
 }
 
 status_t CameraProviderManager::isSessionConfigurationSupported(const std::string& id,
-        const hardware::camera::device::V3_4::StreamConfiguration &configuration,
+        const hardware::camera::device::V3_7::StreamConfiguration &configuration,
         bool *status /*out*/) const {
     std::lock_guard<std::mutex> lock(mInterfaceMutex);
     auto deviceInfo = findDeviceInfoLocked(id);
@@ -279,9 +279,9 @@ status_t CameraProviderManager::isSessionConfigurationSupported(const std::strin
 }
 
 status_t CameraProviderManager::getCameraCharacteristics(const std::string &id,
-        CameraMetadata* characteristics) const {
+        bool overrideForPerfClass, CameraMetadata* characteristics) const {
     std::lock_guard<std::mutex> lock(mInterfaceMutex);
-    return getCameraCharacteristicsLocked(id, characteristics);
+    return getCameraCharacteristicsLocked(id, overrideForPerfClass, characteristics);
 }
 
 status_t CameraProviderManager::getHighestSupportedVersion(const std::string &id,
@@ -417,46 +417,6 @@ status_t CameraProviderManager::openSession(const std::string &id,
     return mapToStatusT(status);
 }
 
-status_t CameraProviderManager::openSession(const std::string &id,
-        const sp<device::V1_0::ICameraDeviceCallback>& callback,
-        /*out*/
-        sp<device::V1_0::ICameraDevice> *session) {
-
-    std::lock_guard<std::mutex> lock(mInterfaceMutex);
-
-    auto deviceInfo = findDeviceInfoLocked(id,
-            /*minVersion*/ {1,0}, /*maxVersion*/ {2,0});
-    if (deviceInfo == nullptr) return NAME_NOT_FOUND;
-
-    auto *deviceInfo1 = static_cast<ProviderInfo::DeviceInfo1*>(deviceInfo);
-    sp<ProviderInfo> parentProvider = deviceInfo->mParentProvider.promote();
-    if (parentProvider == nullptr) {
-        return DEAD_OBJECT;
-    }
-    const sp<provider::V2_4::ICameraProvider> provider = parentProvider->startProviderInterface();
-    if (provider == nullptr) {
-        return DEAD_OBJECT;
-    }
-    saveRef(DeviceMode::CAMERA, id, provider);
-
-    auto interface = deviceInfo1->startDeviceInterface<
-            CameraProviderManager::ProviderInfo::DeviceInfo1::InterfaceT>();
-    if (interface == nullptr) {
-        return DEAD_OBJECT;
-    }
-    hardware::Return<Status> status = interface->open(callback);
-    if (!status.isOk()) {
-        removeRef(DeviceMode::CAMERA, id);
-        ALOGE("%s: Transaction error opening a session for camera device %s: %s",
-                __FUNCTION__, id.c_str(), status.description().c_str());
-        return DEAD_OBJECT;
-    }
-    if (status == Status::OK) {
-        *session = interface;
-    }
-    return mapToStatusT(status);
-}
-
 void CameraProviderManager::saveRef(DeviceMode usageType, const std::string &cameraId,
         sp<provider::V2_4::ICameraProvider> provider) {
     if (!kEnableLazyHal) {
@@ -515,16 +475,17 @@ void CameraProviderManager::removeRef(DeviceMode usageType, const std::string &c
 hardware::Return<void> CameraProviderManager::onRegistration(
         const hardware::hidl_string& /*fqName*/,
         const hardware::hidl_string& name,
-        bool /*preexisting*/) {
+        bool preexisting) {
+    status_t res = OK;
     std::lock_guard<std::mutex> providerLock(mProviderLifecycleLock);
     {
         std::lock_guard<std::mutex> lock(mInterfaceMutex);
 
-        addProviderLocked(name);
+        res = addProviderLocked(name, preexisting);
     }
 
     sp<StatusListener> listener = getStatusListener();
-    if (nullptr != listener.get()) {
+    if (nullptr != listener.get() && res == OK) {
         listener->onNewProviderRegistered();
     }
 
@@ -727,9 +688,39 @@ void CameraProviderManager::ProviderInfo::DeviceInfo3::getSupportedDynamicDepthS
     }
 }
 
-status_t CameraProviderManager::ProviderInfo::DeviceInfo3::addDynamicDepthTags() {
-    uint32_t depthExclTag = ANDROID_DEPTH_DEPTH_IS_EXCLUSIVE;
-    uint32_t depthSizesTag = ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS;
+status_t CameraProviderManager::ProviderInfo::DeviceInfo3::addDynamicDepthTags(
+        bool maxResolution) {
+    const int32_t depthExclTag = ANDROID_DEPTH_DEPTH_IS_EXCLUSIVE;
+
+    const int32_t scalerSizesTag =
+              SessionConfigurationUtils::getAppropriateModeTag(
+                      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, maxResolution);
+    const int32_t scalerMinFrameDurationsTag =
+            ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS;
+    const int32_t scalerStallDurationsTag =
+                 SessionConfigurationUtils::getAppropriateModeTag(
+                        ANDROID_SCALER_AVAILABLE_STALL_DURATIONS, maxResolution);
+
+    const int32_t depthSizesTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                    ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS, maxResolution);
+    const int32_t depthStallDurationsTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                    ANDROID_DEPTH_AVAILABLE_DEPTH_STALL_DURATIONS, maxResolution);
+    const int32_t depthMinFrameDurationsTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                    ANDROID_DEPTH_AVAILABLE_DEPTH_MIN_FRAME_DURATIONS, maxResolution);
+
+    const int32_t dynamicDepthSizesTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                    ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STREAM_CONFIGURATIONS, maxResolution);
+    const int32_t dynamicDepthStallDurationsTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                    ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STALL_DURATIONS, maxResolution);
+    const int32_t dynamicDepthMinFrameDurationsTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                 ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_MIN_FRAME_DURATIONS, maxResolution);
+
     auto& c = mCameraCharacteristics;
     std::vector<std::tuple<size_t, size_t>> supportedBlobSizes, supportedDepthSizes,
             supportedDynamicDepthSizes, internalDepthSizes;
@@ -759,7 +750,7 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::addDynamicDepthTags()
         return BAD_VALUE;
     }
 
-    getSupportedSizes(c, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, HAL_PIXEL_FORMAT_BLOB,
+    getSupportedSizes(c, scalerSizesTag, HAL_PIXEL_FORMAT_BLOB,
             &supportedBlobSizes);
     getSupportedSizes(c, depthSizesTag, HAL_PIXEL_FORMAT_Y16, &supportedDepthSizes);
     if (supportedBlobSizes.empty() || supportedDepthSizes.empty()) {
@@ -786,10 +777,10 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::addDynamicDepthTags()
     std::vector<int64_t> blobMinDurations, blobStallDurations;
     std::vector<int64_t> dynamicDepthMinDurations, dynamicDepthStallDurations;
 
-    getSupportedDurations(c, ANDROID_DEPTH_AVAILABLE_DEPTH_MIN_FRAME_DURATIONS,
-            HAL_PIXEL_FORMAT_Y16, internalDepthSizes, &depthMinDurations);
-    getSupportedDurations(c, ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
-            HAL_PIXEL_FORMAT_BLOB, supportedDynamicDepthSizes, &blobMinDurations);
+    getSupportedDurations(c, depthMinFrameDurationsTag, HAL_PIXEL_FORMAT_Y16, internalDepthSizes,
+                          &depthMinDurations);
+    getSupportedDurations(c, scalerMinFrameDurationsTag, HAL_PIXEL_FORMAT_BLOB,
+                          supportedDynamicDepthSizes, &blobMinDurations);
     if (blobMinDurations.empty() || depthMinDurations.empty() ||
             (depthMinDurations.size() != blobMinDurations.size())) {
         ALOGE("%s: Unexpected number of available depth min durations! %zu vs. %zu",
@@ -797,10 +788,10 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::addDynamicDepthTags()
         return BAD_VALUE;
     }
 
-    getSupportedDurations(c, ANDROID_DEPTH_AVAILABLE_DEPTH_STALL_DURATIONS,
-            HAL_PIXEL_FORMAT_Y16, internalDepthSizes, &depthStallDurations);
-    getSupportedDurations(c, ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,
-            HAL_PIXEL_FORMAT_BLOB, supportedDynamicDepthSizes, &blobStallDurations);
+    getSupportedDurations(c, depthStallDurationsTag, HAL_PIXEL_FORMAT_Y16, internalDepthSizes,
+            &depthStallDurations);
+    getSupportedDurations(c, scalerStallDurationsTag, HAL_PIXEL_FORMAT_BLOB,
+            supportedDynamicDepthSizes, &blobStallDurations);
     if (blobStallDurations.empty() || depthStallDurations.empty() ||
             (depthStallDurations.size() != blobStallDurations.size())) {
         ALOGE("%s: Unexpected number of available depth stall durations! %zu vs. %zu",
@@ -845,15 +836,14 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::addDynamicDepthTags()
     supportedChTags.reserve(chTags.count + 3);
     supportedChTags.insert(supportedChTags.end(), chTags.data.i32,
             chTags.data.i32 + chTags.count);
-    supportedChTags.push_back(ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STREAM_CONFIGURATIONS);
-    supportedChTags.push_back(ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_MIN_FRAME_DURATIONS);
-    supportedChTags.push_back(ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STALL_DURATIONS);
-    c.update(ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STREAM_CONFIGURATIONS,
-            dynamicDepthEntries.data(), dynamicDepthEntries.size());
-    c.update(ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_MIN_FRAME_DURATIONS,
-            dynamicDepthMinDurationEntries.data(), dynamicDepthMinDurationEntries.size());
-    c.update(ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STALL_DURATIONS,
-            dynamicDepthStallDurationEntries.data(), dynamicDepthStallDurationEntries.size());
+    supportedChTags.push_back(dynamicDepthSizesTag);
+    supportedChTags.push_back(dynamicDepthMinFrameDurationsTag);
+    supportedChTags.push_back(dynamicDepthStallDurationsTag);
+    c.update(dynamicDepthSizesTag, dynamicDepthEntries.data(), dynamicDepthEntries.size());
+    c.update(dynamicDepthMinFrameDurationsTag, dynamicDepthMinDurationEntries.data(),
+            dynamicDepthMinDurationEntries.size());
+    c.update(dynamicDepthStallDurationsTag, dynamicDepthStallDurationEntries.data(),
+             dynamicDepthStallDurationEntries.size());
     c.update(ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS, supportedChTags.data(),
             supportedChTags.size());
 
@@ -1087,7 +1077,24 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::fillHeicStreamCombina
     return OK;
 }
 
-status_t CameraProviderManager::ProviderInfo::DeviceInfo3::deriveHeicTags() {
+status_t CameraProviderManager::ProviderInfo::DeviceInfo3::deriveHeicTags(bool maxResolution) {
+    int32_t scalerStreamSizesTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                    ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, maxResolution);
+    int32_t scalerMinFrameDurationsTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                    ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS, maxResolution);
+
+    int32_t heicStreamSizesTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                    ANDROID_HEIC_AVAILABLE_HEIC_STREAM_CONFIGURATIONS, maxResolution);
+    int32_t heicMinFrameDurationsTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                    ANDROID_HEIC_AVAILABLE_HEIC_MIN_FRAME_DURATIONS, maxResolution);
+    int32_t heicStallDurationsTag =
+            SessionConfigurationUtils::getAppropriateModeTag(
+                    ANDROID_HEIC_AVAILABLE_HEIC_STALL_DURATIONS, maxResolution);
+
     auto& c = mCameraCharacteristics;
 
     camera_metadata_entry halHeicSupport = c.find(ANDROID_HEIC_INFO_SUPPORTED);
@@ -1116,10 +1123,8 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::deriveHeicTags() {
     std::vector<int64_t> heicDurations;
     std::vector<int64_t> heicStallDurations;
 
-    camera_metadata_entry halStreamConfigs =
-            c.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    camera_metadata_entry minFrameDurations =
-            c.find(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS);
+    camera_metadata_entry halStreamConfigs = c.find(scalerStreamSizesTag);
+    camera_metadata_entry minFrameDurations = c.find(scalerMinFrameDurationsTag);
 
     status_t res = fillHeicStreamCombinations(&heicOutputs, &heicDurations, &heicStallDurations,
             halStreamConfigs, minFrameDurations);
@@ -1129,12 +1134,9 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::deriveHeicTags() {
         return res;
     }
 
-    c.update(ANDROID_HEIC_AVAILABLE_HEIC_STREAM_CONFIGURATIONS,
-           heicOutputs.data(), heicOutputs.size());
-    c.update(ANDROID_HEIC_AVAILABLE_HEIC_MIN_FRAME_DURATIONS,
-            heicDurations.data(), heicDurations.size());
-    c.update(ANDROID_HEIC_AVAILABLE_HEIC_STALL_DURATIONS,
-            heicStallDurations.data(), heicStallDurations.size());
+    c.update(heicStreamSizesTag, heicOutputs.data(), heicOutputs.size());
+    c.update(heicMinFrameDurationsTag, heicDurations.data(), heicDurations.size());
+    c.update(heicStallDurationsTag, heicStallDurations.data(), heicStallDurations.size());
 
     return OK;
 }
@@ -1186,6 +1188,17 @@ bool CameraProviderManager::isHiddenPhysicalCamera(const std::string& cameraId) 
     return isHiddenPhysicalCameraInternal(cameraId).first;
 }
 
+status_t CameraProviderManager::filterSmallJpegSizes(const std::string& cameraId) {
+    for (auto& provider : mProviders) {
+        for (auto& deviceInfo : provider->mDevices) {
+            if (deviceInfo->mId == cameraId) {
+                return deviceInfo->filterSmallJpegSizes();
+            }
+        }
+    }
+    return NAME_NOT_FOUND;
+}
+
 std::pair<bool, CameraProviderManager::ProviderInfo::DeviceInfo *>
 CameraProviderManager::isHiddenPhysicalCameraInternal(const std::string& cameraId) const {
     auto falseRet = std::make_pair(false, nullptr);
@@ -1201,14 +1214,6 @@ CameraProviderManager::isHiddenPhysicalCameraInternal(const std::string& cameraI
 
     for (auto& provider : mProviders) {
         for (auto& deviceInfo : provider->mDevices) {
-            CameraMetadata info;
-            status_t res = deviceInfo->getCameraCharacteristics(&info);
-            if (res != OK) {
-                ALOGE("%s: Failed to getCameraCharacteristics for id %s", __FUNCTION__,
-                        deviceInfo->mId.c_str());
-                return falseRet;
-            }
-
             std::vector<std::string> physicalIds;
             if (deviceInfo->mIsLogicalCamera) {
                 if (std::find(deviceInfo->mPhysicalIds.begin(), deviceInfo->mPhysicalIds.end(),
@@ -1230,31 +1235,53 @@ CameraProviderManager::isHiddenPhysicalCameraInternal(const std::string& cameraI
     return falseRet;
 }
 
-status_t CameraProviderManager::addProviderLocked(const std::string& newProvider) {
-    for (const auto& providerInfo : mProviders) {
-        if (providerInfo->mProviderName == newProvider) {
-            ALOGW("%s: Camera provider HAL with name '%s' already registered", __FUNCTION__,
-                    newProvider.c_str());
-            return ALREADY_EXISTS;
-        }
-    }
-
+status_t CameraProviderManager::tryToInitializeProviderLocked(
+        const std::string& providerName, const sp<ProviderInfo>& providerInfo) {
     sp<provider::V2_4::ICameraProvider> interface;
-    interface = mServiceProxy->tryGetService(newProvider);
+    interface = mServiceProxy->tryGetService(providerName);
 
     if (interface == nullptr) {
-        ALOGE("%s: Camera provider HAL '%s' is not actually available", __FUNCTION__,
-                newProvider.c_str());
+        // The interface may not be started yet. In that case, this is not a
+        // fatal error.
+        ALOGW("%s: Camera provider HAL '%s' is not actually available", __FUNCTION__,
+                providerName.c_str());
         return BAD_VALUE;
     }
 
-    sp<ProviderInfo> providerInfo = new ProviderInfo(newProvider, this);
-    status_t res = providerInfo->initialize(interface, mDeviceState);
-    if (res != OK) {
-        return res;
+    return providerInfo->initialize(interface, mDeviceState);
+}
+
+status_t CameraProviderManager::addProviderLocked(const std::string& newProvider,
+        bool preexisting) {
+    // Several camera provider instances can be temporarily present.
+    // Defer initialization of a new instance until the older instance is properly removed.
+    auto providerInstance = newProvider + "-" + std::to_string(mProviderInstanceId);
+    bool providerPresent = false;
+    for (const auto& providerInfo : mProviders) {
+        if (providerInfo->mProviderName == newProvider) {
+            ALOGW("%s: Camera provider HAL with name '%s' already registered",
+                    __FUNCTION__, newProvider.c_str());
+            if (preexisting) {
+                return ALREADY_EXISTS;
+            } else{
+                ALOGW("%s: The new provider instance will get initialized immediately after the"
+                        " currently present instance is removed!", __FUNCTION__);
+                providerPresent = true;
+                break;
+            }
+        }
+    }
+
+    sp<ProviderInfo> providerInfo = new ProviderInfo(newProvider, providerInstance, this);
+    if (!providerPresent) {
+        status_t res = tryToInitializeProviderLocked(newProvider, providerInfo);
+        if (res != OK) {
+            return res;
+        }
     }
 
     mProviders.push_back(providerInfo);
+    mProviderInstanceId++;
 
     return OK;
 }
@@ -1264,12 +1291,14 @@ status_t CameraProviderManager::removeProvider(const std::string& provider) {
     std::unique_lock<std::mutex> lock(mInterfaceMutex);
     std::vector<String8> removedDeviceIds;
     status_t res = NAME_NOT_FOUND;
+    std::string removedProviderName;
     for (auto it = mProviders.begin(); it != mProviders.end(); it++) {
-        if ((*it)->mProviderName == provider) {
+        if ((*it)->mProviderInstance == provider) {
             removedDeviceIds.reserve((*it)->mDevices.size());
             for (auto& deviceInfo : (*it)->mDevices) {
                 removedDeviceIds.push_back(String8(deviceInfo->mId.c_str()));
             }
+            removedProviderName = (*it)->mProviderName;
             mProviders.erase(it);
             res = OK;
             break;
@@ -1279,6 +1308,14 @@ status_t CameraProviderManager::removeProvider(const std::string& provider) {
         ALOGW("%s: Camera provider HAL with name '%s' is not registered", __FUNCTION__,
                 provider.c_str());
     } else {
+        // Check if there are any newer camera instances from the same provider and try to
+        // initialize.
+        for (const auto& providerInfo : mProviders) {
+            if (providerInfo->mProviderName == removedProviderName) {
+                return tryToInitializeProviderLocked(removedProviderName, providerInfo);
+            }
+        }
+
         // Inform camera service of loss of presence for all the devices from this provider,
         // without lock held for reentrancy
         sp<StatusListener> listener = getStatusListener();
@@ -1287,7 +1324,9 @@ status_t CameraProviderManager::removeProvider(const std::string& provider) {
             for (auto& id : removedDeviceIds) {
                 listener->onDeviceStatusChanged(id, CameraDeviceStatus::NOT_PRESENT);
             }
+            lock.lock();
         }
+
     }
     return res;
 }
@@ -1301,8 +1340,10 @@ sp<CameraProviderManager::StatusListener> CameraProviderManager::getStatusListen
 
 CameraProviderManager::ProviderInfo::ProviderInfo(
         const std::string &providerName,
+        const std::string &providerInstance,
         CameraProviderManager *manager) :
         mProviderName(providerName),
+        mProviderInstance(providerInstance),
         mProviderTagid(generateVendorTagId(providerName)),
         mUniqueDeviceCount(0),
         mManager(manager) {
@@ -1342,6 +1383,28 @@ status_t CameraProviderManager::ProviderInfo::initialize(
                 mMinorVersion = 5;
             }
         }
+    } else {
+        auto cast2_7 = provider::V2_7::ICameraProvider::castFrom(interface);
+        if (cast2_7.isOk()) {
+            sp<provider::V2_7::ICameraProvider> interface2_7 = cast2_7;
+            if (interface2_7 != nullptr) {
+                mMinorVersion = 7;
+            }
+        }
+    }
+
+    // cameraDeviceStatusChange callbacks may be called (and causing new devices added)
+    // before setCallback returns
+    hardware::Return<Status> status = interface->setCallback(this);
+    if (!status.isOk()) {
+        ALOGE("%s: Transaction error setting up callbacks with camera provider '%s': %s",
+                __FUNCTION__, mProviderName.c_str(), status.description().c_str());
+        return DEAD_OBJECT;
+    }
+    if (status != Status::OK) {
+        ALOGE("%s: Unable to register callbacks with camera provider '%s'",
+                __FUNCTION__, mProviderName.c_str());
+        return mapToStatusT(status);
     }
 
     hardware::Return<bool> linked = interface->linkToDeath(this, /*cookie*/ mId);
@@ -1372,7 +1435,6 @@ status_t CameraProviderManager::ProviderInfo::initialize(
         return res;
     }
 
-    Status status;
     // Get initial list of camera devices, if any
     std::vector<std::string> devices;
     hardware::Return<void> ret = interface->getCameraIdList([&status, this, &devices](
@@ -1437,26 +1499,43 @@ status_t CameraProviderManager::ProviderInfo::initialize(
         }
     }
 
-    // cameraDeviceStatusChange callbacks may be called (and causing new devices added)
-    // before setCallback returns. setCallback must be called after addDevice so that
-    // the physical camera status callback can look up available regular
-    // cameras.
-    hardware::Return<Status> st = interface->setCallback(this);
-    if (!st.isOk()) {
-        ALOGE("%s: Transaction error setting up callbacks with camera provider '%s': %s",
-                __FUNCTION__, mProviderName.c_str(), st.description().c_str());
-        return DEAD_OBJECT;
-    }
-    if (st != Status::OK) {
-        ALOGE("%s: Unable to register callbacks with camera provider '%s'",
-                __FUNCTION__, mProviderName.c_str());
-        return mapToStatusT(st);
-    }
-
     ALOGI("Camera provider %s ready with %zu camera devices",
             mProviderName.c_str(), mDevices.size());
 
-    mInitialized = true;
+    // Process cached status callbacks
+    std::unique_ptr<std::vector<CameraStatusInfoT>> cachedStatus =
+            std::make_unique<std::vector<CameraStatusInfoT>>();
+    {
+        std::lock_guard<std::mutex> lock(mInitLock);
+
+        for (auto& statusInfo : mCachedStatus) {
+            std::string id, physicalId;
+            status_t res = OK;
+            if (statusInfo.isPhysicalCameraStatus) {
+                res = physicalCameraDeviceStatusChangeLocked(&id, &physicalId,
+                    statusInfo.cameraId, statusInfo.physicalCameraId, statusInfo.status);
+            } else {
+                res = cameraDeviceStatusChangeLocked(&id, statusInfo.cameraId, statusInfo.status);
+            }
+            if (res == OK) {
+                cachedStatus->emplace_back(statusInfo.isPhysicalCameraStatus,
+                        id.c_str(), physicalId.c_str(), statusInfo.status);
+            }
+        }
+        mCachedStatus.clear();
+
+        mInitialized = true;
+    }
+
+    // The cached status change callbacks cannot be fired directly from this
+    // function, due to same-thread deadlock trying to acquire mInterfaceMutex
+    // twice.
+    if (listener != nullptr) {
+        mInitialStatusCallbackFuture = std::async(std::launch::async,
+                &CameraProviderManager::ProviderInfo::notifyInitialStatusChange, this,
+                listener, std::move(cachedStatus));
+    }
+
     return OK;
 }
 
@@ -1537,9 +1616,9 @@ status_t CameraProviderManager::ProviderInfo::addDevice(const std::string& name,
     std::unique_ptr<DeviceInfo> deviceInfo;
     switch (major) {
         case 1:
-            deviceInfo = initializeDeviceInfo<DeviceInfo1>(name, mProviderTagid,
-                    id, minor);
-            break;
+            ALOGE("%s: Device %s: Unsupported HIDL device HAL major version %d:", __FUNCTION__,
+                    name.c_str(), major);
+            return BAD_VALUE;
         case 3:
             deviceInfo = initializeDeviceInfo<DeviceInfo3>(name, mProviderTagid,
                     id, minor);
@@ -1588,7 +1667,7 @@ void CameraProviderManager::ProviderInfo::removeDevice(std::string id) {
 
 status_t CameraProviderManager::ProviderInfo::dump(int fd, const Vector<String16>&) const {
     dprintf(fd, "== Camera Provider HAL %s (v2.%d, %s) static info: %zu devices: ==\n",
-            mProviderName.c_str(),
+            mProviderInstance.c_str(),
             mMinorVersion,
             mIsRemote ? "remote" : "passthrough",
             mDevices.size());
@@ -1620,7 +1699,7 @@ status_t CameraProviderManager::ProviderInfo::dump(int fd, const Vector<String16
             dprintf(fd, "    Orientation: %d\n", info.orientation);
         }
         CameraMetadata info2;
-        res = device->getCameraCharacteristics(&info2);
+        res = device->getCameraCharacteristics(true /*overrideForPerfClass*/, &info2);
         if (res == INVALID_OPERATION) {
             dprintf(fd, "  API2 not directly supported\n");
         } else if (res != OK) {
@@ -1734,47 +1813,63 @@ hardware::Return<void> CameraProviderManager::ProviderInfo::cameraDeviceStatusCh
         CameraDeviceStatus newStatus) {
     sp<StatusListener> listener;
     std::string id;
-    bool initialized = false;
+    std::lock_guard<std::mutex> lock(mInitLock);
+
+    if (!mInitialized) {
+        mCachedStatus.emplace_back(false /*isPhysicalCameraStatus*/,
+                cameraDeviceName.c_str(), std::string().c_str(), newStatus);
+        return hardware::Void();
+    }
+
     {
         std::lock_guard<std::mutex> lock(mLock);
-        bool known = false;
-        for (auto& deviceInfo : mDevices) {
-            if (deviceInfo->mName == cameraDeviceName) {
-                ALOGI("Camera device %s status is now %s, was %s", cameraDeviceName.c_str(),
-                        deviceStatusToString(newStatus), deviceStatusToString(deviceInfo->mStatus));
-                deviceInfo->mStatus = newStatus;
-                // TODO: Handle device removal (NOT_PRESENT)
-                id = deviceInfo->mId;
-                known = true;
-                break;
-            }
-        }
-        // Previously unseen device; status must not be NOT_PRESENT
-        if (!known) {
-            if (newStatus == CameraDeviceStatus::NOT_PRESENT) {
-                ALOGW("Camera provider %s says an unknown camera device %s is not present. Curious.",
-                    mProviderName.c_str(), cameraDeviceName.c_str());
-                return hardware::Void();
-            }
-            addDevice(cameraDeviceName, newStatus, &id);
-        } else if (newStatus == CameraDeviceStatus::NOT_PRESENT) {
-            removeDevice(id);
+        if (OK != cameraDeviceStatusChangeLocked(&id, cameraDeviceName, newStatus)) {
+            return hardware::Void();
         }
         listener = mManager->getStatusListener();
-        initialized = mInitialized;
-        if (reCacheConcurrentStreamingCameraIdsLocked() != OK) {
-            ALOGE("%s: CameraProvider %s could not re-cache concurrent streaming camera id list ",
-                      __FUNCTION__, mProviderName.c_str());
-        }
     }
+
     // Call without lock held to allow reentrancy into provider manager
-    // Don't send the callback if providerInfo hasn't been initialized.
-    // CameraService will initialize device status after provider is
-    // initialized
-    if (listener != nullptr && initialized) {
+    if (listener != nullptr) {
         listener->onDeviceStatusChanged(String8(id.c_str()), newStatus);
     }
+
     return hardware::Void();
+}
+
+status_t CameraProviderManager::ProviderInfo::cameraDeviceStatusChangeLocked(
+        std::string* id, const hardware::hidl_string& cameraDeviceName,
+        CameraDeviceStatus newStatus) {
+    bool known = false;
+    std::string cameraId;
+    for (auto& deviceInfo : mDevices) {
+        if (deviceInfo->mName == cameraDeviceName) {
+            ALOGI("Camera device %s status is now %s, was %s", cameraDeviceName.c_str(),
+                    deviceStatusToString(newStatus), deviceStatusToString(deviceInfo->mStatus));
+            deviceInfo->mStatus = newStatus;
+            // TODO: Handle device removal (NOT_PRESENT)
+            cameraId = deviceInfo->mId;
+            known = true;
+            break;
+        }
+    }
+    // Previously unseen device; status must not be NOT_PRESENT
+    if (!known) {
+        if (newStatus == CameraDeviceStatus::NOT_PRESENT) {
+            ALOGW("Camera provider %s says an unknown camera device %s is not present. Curious.",
+                mProviderName.c_str(), cameraDeviceName.c_str());
+            return BAD_VALUE;
+        }
+        addDevice(cameraDeviceName, newStatus, &cameraId);
+    } else if (newStatus == CameraDeviceStatus::NOT_PRESENT) {
+        removeDevice(cameraId);
+    }
+    if (reCacheConcurrentStreamingCameraIdsLocked() != OK) {
+        ALOGE("%s: CameraProvider %s could not re-cache concurrent streaming camera id list ",
+                  __FUNCTION__, mProviderName.c_str());
+    }
+    *id = cameraId;
+    return OK;
 }
 
 hardware::Return<void> CameraProviderManager::ProviderInfo::physicalCameraDeviceStatusChange(
@@ -1783,53 +1878,72 @@ hardware::Return<void> CameraProviderManager::ProviderInfo::physicalCameraDevice
         CameraDeviceStatus newStatus) {
     sp<StatusListener> listener;
     std::string id;
-    bool initialized = false;
+    std::string physicalId;
+    std::lock_guard<std::mutex> lock(mInitLock);
+
+    if (!mInitialized) {
+        mCachedStatus.emplace_back(true /*isPhysicalCameraStatus*/, cameraDeviceName,
+                physicalCameraDeviceName, newStatus);
+        return hardware::Void();
+    }
+
     {
         std::lock_guard<std::mutex> lock(mLock);
-        bool known = false;
-        for (auto& deviceInfo : mDevices) {
-            if (deviceInfo->mName == cameraDeviceName) {
-                id = deviceInfo->mId;
 
-                if (!deviceInfo->mIsLogicalCamera) {
-                    ALOGE("%s: Invalid combination of camera id %s, physical id %s",
-                            __FUNCTION__, id.c_str(), physicalCameraDeviceName.c_str());
-                    return hardware::Void();
-                }
-                if (std::find(deviceInfo->mPhysicalIds.begin(), deviceInfo->mPhysicalIds.end(),
-                        physicalCameraDeviceName) == deviceInfo->mPhysicalIds.end()) {
-                    ALOGE("%s: Invalid combination of camera id %s, physical id %s",
-                            __FUNCTION__, id.c_str(), physicalCameraDeviceName.c_str());
-                    return hardware::Void();
-                }
-                ALOGI("Camera device %s physical device %s status is now %s, was %s",
-                        cameraDeviceName.c_str(), physicalCameraDeviceName.c_str(),
-                        deviceStatusToString(newStatus), deviceStatusToString(
-                        deviceInfo->mPhysicalStatus[physicalCameraDeviceName]));
-                known = true;
-                break;
-            }
-        }
-        // Previously unseen device; status must not be NOT_PRESENT
-        if (!known) {
-            ALOGW("Camera provider %s says an unknown camera device %s-%s is not present. Curious.",
-                    mProviderName.c_str(), cameraDeviceName.c_str(),
-                    physicalCameraDeviceName.c_str());
+        if (OK != physicalCameraDeviceStatusChangeLocked(&id, &physicalId, cameraDeviceName,
+                physicalCameraDeviceName, newStatus)) {
             return hardware::Void();
         }
+
         listener = mManager->getStatusListener();
-        initialized = mInitialized;
     }
     // Call without lock held to allow reentrancy into provider manager
-    // Don't send the callback if providerInfo hasn't been initialized.
-    // CameraService will initialize device status after provider is
-    // initialized
-    if (listener != nullptr && initialized) {
-        String8 physicalId(physicalCameraDeviceName.c_str());
+    if (listener != nullptr) {
         listener->onDeviceStatusChanged(String8(id.c_str()),
-                physicalId, newStatus);
+                String8(physicalId.c_str()), newStatus);
     }
     return hardware::Void();
+}
+
+status_t CameraProviderManager::ProviderInfo::physicalCameraDeviceStatusChangeLocked(
+            std::string* id, std::string* physicalId,
+            const hardware::hidl_string& cameraDeviceName,
+            const hardware::hidl_string& physicalCameraDeviceName,
+            CameraDeviceStatus newStatus) {
+    bool known = false;
+    std::string cameraId;
+    for (auto& deviceInfo : mDevices) {
+        if (deviceInfo->mName == cameraDeviceName) {
+            cameraId = deviceInfo->mId;
+            if (!deviceInfo->mIsLogicalCamera) {
+                ALOGE("%s: Invalid combination of camera id %s, physical id %s",
+                        __FUNCTION__, cameraId.c_str(), physicalCameraDeviceName.c_str());
+                return BAD_VALUE;
+            }
+            if (std::find(deviceInfo->mPhysicalIds.begin(), deviceInfo->mPhysicalIds.end(),
+                    physicalCameraDeviceName) == deviceInfo->mPhysicalIds.end()) {
+                ALOGE("%s: Invalid combination of camera id %s, physical id %s",
+                        __FUNCTION__, cameraId.c_str(), physicalCameraDeviceName.c_str());
+                return BAD_VALUE;
+            }
+            ALOGI("Camera device %s physical device %s status is now %s",
+                    cameraDeviceName.c_str(), physicalCameraDeviceName.c_str(),
+                    deviceStatusToString(newStatus));
+            known = true;
+            break;
+        }
+    }
+    // Previously unseen device; status must not be NOT_PRESENT
+    if (!known) {
+        ALOGW("Camera provider %s says an unknown camera device %s-%s is not present. Curious.",
+                mProviderName.c_str(), cameraDeviceName.c_str(),
+                physicalCameraDeviceName.c_str());
+        return BAD_VALUE;
+    }
+
+    *id = cameraId;
+    *physicalId = physicalCameraDeviceName.c_str();
+    return OK;
 }
 
 hardware::Return<void> CameraProviderManager::ProviderInfo::torchModeStatusChange(
@@ -1869,12 +1983,12 @@ hardware::Return<void> CameraProviderManager::ProviderInfo::torchModeStatusChang
 void CameraProviderManager::ProviderInfo::serviceDied(uint64_t cookie,
         const wp<hidl::base::V1_0::IBase>& who) {
     (void) who;
-    ALOGI("Camera provider '%s' has died; removing it", mProviderName.c_str());
+    ALOGI("Camera provider '%s' has died; removing it", mProviderInstance.c_str());
     if (cookie != mId) {
         ALOGW("%s: Unexpected serviceDied cookie %" PRIu64 ", expected %" PRIu32,
                 __FUNCTION__, cookie, mId);
     }
-    mManager->removeProvider(mProviderName);
+    mManager->removeProvider(mProviderInstance);
 }
 
 status_t CameraProviderManager::ProviderInfo::setUpVendorTags() {
@@ -1948,42 +2062,86 @@ status_t CameraProviderManager::ProviderInfo::isConcurrentSessionConfigurationSu
             // TODO: This might be some other problem
             return INVALID_OPERATION;
         }
-        auto castResult = provider::V2_6::ICameraProvider::castFrom(interface);
-        if (castResult.isOk()) {
-            sp<provider::V2_6::ICameraProvider> interface_2_6 = castResult;
-            if (interface_2_6 != nullptr) {
-                Status callStatus;
-                auto cb =
-                        [&isSupported, &callStatus](Status s, bool supported) {
-                              callStatus = s;
-                              *isSupported = supported; };
+        auto castResult2_6 = provider::V2_6::ICameraProvider::castFrom(interface);
+        auto castResult2_7 = provider::V2_7::ICameraProvider::castFrom(interface);
+        Status callStatus;
+        auto cb =
+                [&isSupported, &callStatus](Status s, bool supported) {
+                      callStatus = s;
+                      *isSupported = supported; };
 
-                auto ret =  interface_2_6->isConcurrentStreamCombinationSupported(
-                            halCameraIdsAndStreamCombinations, cb);
-                if (ret.isOk()) {
-                    switch (callStatus) {
-                        case Status::OK:
-                            // Expected case, do nothing.
-                            res = OK;
-                            break;
-                        case Status::METHOD_NOT_SUPPORTED:
-                            res = INVALID_OPERATION;
-                            break;
-                        default:
-                            ALOGE("%s: Session configuration query failed: %d", __FUNCTION__,
-                                      callStatus);
-                            res = UNKNOWN_ERROR;
-                    }
-                } else {
-                    ALOGE("%s: Unexpected binder error: %s", __FUNCTION__, ret.description().c_str());
-                    res = UNKNOWN_ERROR;
-                }
-                return res;
+        ::android::hardware::Return<void> ret;
+        sp<provider::V2_7::ICameraProvider> interface_2_7;
+        sp<provider::V2_6::ICameraProvider> interface_2_6;
+        if (mMinorVersion >= 7 && castResult2_7.isOk()) {
+            interface_2_7 = castResult2_7;
+            if (interface_2_7 != nullptr) {
+                ret = interface_2_7->isConcurrentStreamCombinationSupported_2_7(
+                        halCameraIdsAndStreamCombinations, cb);
             }
+        } else if (mMinorVersion == 6 && castResult2_6.isOk()) {
+            interface_2_6 = castResult2_6;
+            if (interface_2_6 != nullptr) {
+                hardware::hidl_vec<provider::V2_6::CameraIdAndStreamCombination>
+                        halCameraIdsAndStreamCombinations_2_6;
+                size_t numStreams = halCameraIdsAndStreamCombinations.size();
+                halCameraIdsAndStreamCombinations_2_6.resize(numStreams);
+                for (size_t i = 0; i < numStreams; i++) {
+                    using namespace camera3;
+                    auto const& combination = halCameraIdsAndStreamCombinations[i];
+                    halCameraIdsAndStreamCombinations_2_6[i].cameraId = combination.cameraId;
+                    bool success =
+                            SessionConfigurationUtils::convertHALStreamCombinationFromV37ToV34(
+                                    halCameraIdsAndStreamCombinations_2_6[i].streamConfiguration,
+                                    combination.streamConfiguration);
+                    if (!success) {
+                        *isSupported = false;
+                        return OK;
+                    }
+                }
+                ret = interface_2_6->isConcurrentStreamCombinationSupported(
+                        halCameraIdsAndStreamCombinations_2_6, cb);
+            }
+        }
+
+        if (interface_2_7 != nullptr || interface_2_6 != nullptr) {
+            if (ret.isOk()) {
+                switch (callStatus) {
+                    case Status::OK:
+                        // Expected case, do nothing.
+                        res = OK;
+                        break;
+                    case Status::METHOD_NOT_SUPPORTED:
+                        res = INVALID_OPERATION;
+                        break;
+                    default:
+                        ALOGE("%s: Session configuration query failed: %d", __FUNCTION__,
+                                  callStatus);
+                        res = UNKNOWN_ERROR;
+                }
+            } else {
+                ALOGE("%s: Unexpected binder error: %s", __FUNCTION__, ret.description().c_str());
+                res = UNKNOWN_ERROR;
+            }
+            return res;
         }
     }
     // unsupported operation
     return INVALID_OPERATION;
+}
+
+void CameraProviderManager::ProviderInfo::notifyInitialStatusChange(
+        sp<StatusListener> listener,
+        std::unique_ptr<std::vector<CameraStatusInfoT>> cachedStatus) {
+    for (auto& statusInfo : *cachedStatus) {
+        if (statusInfo.isPhysicalCameraStatus) {
+            listener->onDeviceStatusChanged(String8(statusInfo.cameraId.c_str()),
+                    String8(statusInfo.physicalCameraId.c_str()), statusInfo.status);
+        } else {
+            listener->onDeviceStatusChanged(
+                    String8(statusInfo.cameraId.c_str()), statusInfo.status);
+        }
+    }
 }
 
 template<class DeviceInfoT>
@@ -2031,35 +2189,6 @@ CameraProviderManager::ProviderInfo::startDeviceInterface(const std::string &nam
     ALOGE("%s: Device %s: Unknown HIDL device HAL major version %d:", __FUNCTION__,
             name.c_str(), InterfaceT::version.get_major());
     return nullptr;
-}
-
-template<>
-sp<device::V1_0::ICameraDevice>
-CameraProviderManager::ProviderInfo::startDeviceInterface
-        <device::V1_0::ICameraDevice>(const std::string &name) {
-    Status status;
-    sp<device::V1_0::ICameraDevice> cameraInterface;
-    hardware::Return<void> ret;
-    const sp<provider::V2_4::ICameraProvider> interface = startProviderInterface();
-    if (interface == nullptr) {
-        return nullptr;
-    }
-    ret = interface->getCameraDeviceInterface_V1_x(name, [&status, &cameraInterface](
-        Status s, sp<device::V1_0::ICameraDevice> interface) {
-                status = s;
-                cameraInterface = interface;
-            });
-    if (!ret.isOk()) {
-        ALOGE("%s: Transaction error trying to obtain interface for camera device %s: %s",
-                __FUNCTION__, name.c_str(), ret.description().c_str());
-        return nullptr;
-    }
-    if (status != Status::OK) {
-        ALOGE("%s: Unable to obtain interface for camera device %s: %s", __FUNCTION__,
-                name.c_str(), statusToString(status));
-        return nullptr;
-    }
-    return cameraInterface;
 }
 
 template<>
@@ -2112,126 +2241,6 @@ template<class InterfaceT>
 status_t CameraProviderManager::ProviderInfo::DeviceInfo::setTorchMode(InterfaceT& interface,
         bool enabled) {
     Status s = interface->setTorchMode(enabled ? TorchMode::ON : TorchMode::OFF);
-    return mapToStatusT(s);
-}
-
-CameraProviderManager::ProviderInfo::DeviceInfo1::DeviceInfo1(const std::string& name,
-        const metadata_vendor_id_t tagId, const std::string &id,
-        uint16_t minorVersion,
-        const CameraResourceCost& resourceCost,
-        sp<ProviderInfo> parentProvider,
-        const std::vector<std::string>& publicCameraIds,
-        sp<InterfaceT> interface) :
-        DeviceInfo(name, tagId, id, hardware::hidl_version{1, minorVersion},
-                   publicCameraIds, resourceCost, parentProvider) {
-    // Get default parameters and initialize flash unit availability
-    // Requires powering on the camera device
-    hardware::Return<Status> status = interface->open(nullptr);
-    if (!status.isOk()) {
-        ALOGE("%s: Transaction error opening camera device %s to check for a flash unit: %s",
-                __FUNCTION__, id.c_str(), status.description().c_str());
-        return;
-    }
-    if (status != Status::OK) {
-        ALOGE("%s: Unable to open camera device %s to check for a flash unit: %s", __FUNCTION__,
-                id.c_str(), CameraProviderManager::statusToString(status));
-        return;
-    }
-    hardware::Return<void> ret;
-    ret = interface->getParameters([this](const hardware::hidl_string& parms) {
-                mDefaultParameters.unflatten(String8(parms.c_str()));
-            });
-    if (!ret.isOk()) {
-        ALOGE("%s: Transaction error reading camera device %s params to check for a flash unit: %s",
-                __FUNCTION__, id.c_str(), status.description().c_str());
-        return;
-    }
-    const char *flashMode =
-            mDefaultParameters.get(CameraParameters::KEY_SUPPORTED_FLASH_MODES);
-    if (flashMode && strstr(flashMode, CameraParameters::FLASH_MODE_TORCH)) {
-        mHasFlashUnit = true;
-    }
-
-    status_t res = cacheCameraInfo(interface);
-    if (res != OK) {
-        ALOGE("%s: Could not cache CameraInfo", __FUNCTION__);
-        return;
-    }
-
-    ret = interface->close();
-    if (!ret.isOk()) {
-        ALOGE("%s: Transaction error closing camera device %s after check for a flash unit: %s",
-                __FUNCTION__, id.c_str(), status.description().c_str());
-    }
-
-    if (!kEnableLazyHal) {
-        // Save HAL reference indefinitely
-        mSavedInterface = interface;
-    }
-}
-
-CameraProviderManager::ProviderInfo::DeviceInfo1::~DeviceInfo1() {}
-
-status_t CameraProviderManager::ProviderInfo::DeviceInfo1::setTorchMode(bool enabled) {
-    return setTorchModeForDevice<InterfaceT>(enabled);
-}
-
-status_t CameraProviderManager::ProviderInfo::DeviceInfo1::getCameraInfo(
-        hardware::CameraInfo *info) const {
-    if (info == nullptr) return BAD_VALUE;
-    *info = mInfo;
-    return OK;
-}
-
-status_t CameraProviderManager::ProviderInfo::DeviceInfo1::cacheCameraInfo(
-        sp<CameraProviderManager::ProviderInfo::DeviceInfo1::InterfaceT> interface) {
-    Status status;
-    device::V1_0::CameraInfo cInfo;
-    hardware::Return<void> ret;
-    ret = interface->getCameraInfo([&status, &cInfo](Status s, device::V1_0::CameraInfo camInfo) {
-                status = s;
-                cInfo = camInfo;
-            });
-    if (!ret.isOk()) {
-        ALOGE("%s: Transaction error reading camera info from device %s: %s",
-                __FUNCTION__, mId.c_str(), ret.description().c_str());
-        return DEAD_OBJECT;
-    }
-    if (status != Status::OK) {
-        return mapToStatusT(status);
-    }
-
-    switch(cInfo.facing) {
-        case device::V1_0::CameraFacing::BACK:
-            mInfo.facing = hardware::CAMERA_FACING_BACK;
-            break;
-        case device::V1_0::CameraFacing::EXTERNAL:
-            // Map external to front for legacy API
-        case device::V1_0::CameraFacing::FRONT:
-            mInfo.facing = hardware::CAMERA_FACING_FRONT;
-            break;
-        default:
-            ALOGW("%s: Device %s: Unknown camera facing: %d",
-                    __FUNCTION__, mId.c_str(), cInfo.facing);
-            mInfo.facing = hardware::CAMERA_FACING_BACK;
-    }
-    mInfo.orientation = cInfo.orientation;
-
-    return OK;
-}
-
-status_t CameraProviderManager::ProviderInfo::DeviceInfo1::dumpState(int fd) {
-    native_handle_t* handle = native_handle_create(1,0);
-    handle->data[0] = fd;
-    const sp<InterfaceT> interface = startDeviceInterface<InterfaceT>();
-    if (interface == nullptr) {
-        return DEAD_OBJECT;
-    }
-    hardware::Return<Status> s = interface->dumpState(handle);
-    native_handle_delete(handle);
-    if (!s.isOk()) {
-        return INVALID_OPERATION;
-    }
     return mapToStatusT(s);
 }
 
@@ -2294,6 +2303,21 @@ CameraProviderManager::ProviderInfo::DeviceInfo3::DeviceInfo3(const std::string&
         ALOGE("%s: Unable to derive HEIC tags based on camera and media capabilities: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
     }
+
+    if (SessionConfigurationUtils::isUltraHighResolutionSensor(mCameraCharacteristics)) {
+        status_t status = addDynamicDepthTags(/*maxResolution*/true);
+        if (OK != status) {
+            ALOGE("%s: Failed appending dynamic depth tags for maximum resolution mode: %s (%d)",
+                    __FUNCTION__, strerror(-status), status);
+        }
+
+        status = deriveHeicTags(/*maxResolution*/true);
+        if (OK != status) {
+            ALOGE("%s: Unable to derive HEIC tags based on camera and media capabilities for"
+                    "maximum resolution mode: %s (%d)", __FUNCTION__, strerror(-status), status);
+        }
+    }
+
     res = addRotateCropTags();
     if (OK != res) {
         ALOGE("%s: Unable to add default SCALER_ROTATE_AND_CROP tags: %s (%d)", __FUNCTION__,
@@ -2464,10 +2488,15 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::dumpState(int fd) {
 }
 
 status_t CameraProviderManager::ProviderInfo::DeviceInfo3::getCameraCharacteristics(
-        CameraMetadata *characteristics) const {
+        bool overrideForPerfClass, CameraMetadata *characteristics) const {
     if (characteristics == nullptr) return BAD_VALUE;
 
-    *characteristics = mCameraCharacteristics;
+    if (!overrideForPerfClass && mCameraCharNoPCOverride != nullptr) {
+        *characteristics = *mCameraCharNoPCOverride;
+    } else {
+        *characteristics = mCameraCharacteristics;
+    }
+
     return OK;
 }
 
@@ -2484,7 +2513,7 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::getPhysicalCameraChar
 }
 
 status_t CameraProviderManager::ProviderInfo::DeviceInfo3::isSessionConfigurationSupported(
-        const hardware::camera::device::V3_4::StreamConfiguration &configuration,
+        const hardware::camera::device::V3_7::StreamConfiguration &configuration,
         bool *status /*out*/) {
 
     const sp<CameraProviderManager::ProviderInfo::DeviceInfo3::InterfaceT> interface =
@@ -2492,19 +2521,33 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::isSessionConfiguratio
     if (interface == nullptr) {
         return DEAD_OBJECT;
     }
-    auto castResult = device::V3_5::ICameraDevice::castFrom(interface);
-    sp<hardware::camera::device::V3_5::ICameraDevice> interface_3_5 = castResult;
-    if (interface_3_5 == nullptr) {
-        return INVALID_OPERATION;
-    }
+    auto castResult_3_5 = device::V3_5::ICameraDevice::castFrom(interface);
+    sp<hardware::camera::device::V3_5::ICameraDevice> interface_3_5 = castResult_3_5;
+    auto castResult_3_7 = device::V3_7::ICameraDevice::castFrom(interface);
+    sp<hardware::camera::device::V3_7::ICameraDevice> interface_3_7 = castResult_3_7;
 
     status_t res;
     Status callStatus;
-    auto ret =  interface_3_5->isStreamCombinationSupported(configuration,
+    ::android::hardware::Return<void> ret;
+    auto halCb =
             [&callStatus, &status] (Status s, bool combStatus) {
                 callStatus = s;
                 *status = combStatus;
-            });
+            };
+    if (interface_3_7 != nullptr) {
+        ret = interface_3_7->isStreamCombinationSupported_3_7(configuration, halCb);
+    } else if (interface_3_5 != nullptr) {
+        hardware::camera::device::V3_4::StreamConfiguration configuration_3_4;
+        bool success = SessionConfigurationUtils::convertHALStreamCombinationFromV37ToV34(
+                configuration_3_4, configuration);
+        if (!success) {
+            *status = false;
+            return OK;
+        }
+        ret = interface_3_5->isStreamCombinationSupported(configuration_3_4, halCb);
+    } else {
+        return INVALID_OPERATION;
+    }
     if (ret.isOk()) {
         switch (callStatus) {
             case Status::OK:
@@ -2524,6 +2567,97 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo3::isSessionConfiguratio
     }
 
     return res;
+}
+
+status_t CameraProviderManager::ProviderInfo::DeviceInfo3::filterSmallJpegSizes() {
+    int32_t thresholdW = SessionConfigurationUtils::PERF_CLASS_JPEG_THRESH_W;
+    int32_t thresholdH = SessionConfigurationUtils::PERF_CLASS_JPEG_THRESH_H;
+
+    if (mCameraCharNoPCOverride != nullptr) return OK;
+
+    mCameraCharNoPCOverride = std::make_unique<CameraMetadata>(mCameraCharacteristics);
+
+    // Remove small JPEG sizes from available stream configurations
+    size_t largeJpegCount = 0;
+    std::vector<int32_t> newStreamConfigs;
+    camera_metadata_entry streamConfigs =
+            mCameraCharacteristics.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (size_t i = 0; i < streamConfigs.count; i += 4) {
+        if ((streamConfigs.data.i32[i] == HAL_PIXEL_FORMAT_BLOB) && (streamConfigs.data.i32[i+3] ==
+                ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT)) {
+            if (streamConfigs.data.i32[i+1] < thresholdW  ||
+                    streamConfigs.data.i32[i+2] < thresholdH) {
+                continue;
+            } else {
+                largeJpegCount ++;
+            }
+        }
+        newStreamConfigs.insert(newStreamConfigs.end(), streamConfigs.data.i32 + i,
+                streamConfigs.data.i32 + i + 4);
+    }
+    if (newStreamConfigs.size() == 0 || largeJpegCount == 0) {
+        return BAD_VALUE;
+    }
+
+    // Remove small JPEG sizes from available min frame durations
+    largeJpegCount = 0;
+    std::vector<int64_t> newMinDurations;
+    camera_metadata_entry minDurations =
+            mCameraCharacteristics.find(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS);
+    for (size_t i = 0; i < minDurations.count; i += 4) {
+        if (minDurations.data.i64[i] == HAL_PIXEL_FORMAT_BLOB) {
+            if (minDurations.data.i64[i+1] < thresholdW ||
+                    minDurations.data.i64[i+2] < thresholdH) {
+                continue;
+            } else {
+                largeJpegCount++;
+            }
+        }
+        newMinDurations.insert(newMinDurations.end(), minDurations.data.i64 + i,
+                minDurations.data.i64 + i + 4);
+    }
+    if (newMinDurations.size() == 0 || largeJpegCount == 0) {
+        return BAD_VALUE;
+    }
+
+    // Remove small JPEG sizes from available stall durations
+    largeJpegCount = 0;
+    std::vector<int64_t> newStallDurations;
+    camera_metadata_entry stallDurations =
+            mCameraCharacteristics.find(ANDROID_SCALER_AVAILABLE_STALL_DURATIONS);
+    for (size_t i = 0; i < stallDurations.count; i += 4) {
+        if (stallDurations.data.i64[i] == HAL_PIXEL_FORMAT_BLOB) {
+            if (stallDurations.data.i64[i+1] < thresholdW ||
+                    stallDurations.data.i64[i+2] < thresholdH) {
+                continue;
+            } else {
+                largeJpegCount++;
+            }
+        }
+        newStallDurations.insert(newStallDurations.end(), stallDurations.data.i64 + i,
+                stallDurations.data.i64 + i + 4);
+    }
+    if (newStallDurations.size() == 0 || largeJpegCount == 0) {
+        return BAD_VALUE;
+    }
+
+    mCameraCharacteristics.update(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
+            newStreamConfigs.data(), newStreamConfigs.size());
+    mCameraCharacteristics.update(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
+            newMinDurations.data(), newMinDurations.size());
+    mCameraCharacteristics.update(ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,
+            newStallDurations.data(), newStallDurations.size());
+
+    // Re-generate metadata tags that have dependencies on BLOB sizes
+    auto res = addDynamicDepthTags();
+    if (OK != res) {
+        ALOGE("%s: Failed to append dynamic depth tags: %s (%d)", __FUNCTION__,
+                strerror(-res), res);
+        // Allow filtering of small JPEG sizes to succeed even if dynamic depth
+        // tags fail to generate.
+    }
+
+    return OK;
 }
 
 status_t CameraProviderManager::ProviderInfo::parseProviderName(const std::string& name,
@@ -2689,9 +2823,11 @@ status_t CameraProviderManager::ProviderInfo::parseDeviceName(const std::string&
 
 
 CameraProviderManager::ProviderInfo::~ProviderInfo() {
+    if (mInitialStatusCallbackFuture.valid()) {
+        mInitialStatusCallbackFuture.wait();
+    }
     // Destruction of ProviderInfo is only supposed to happen when the respective
     // CameraProvider interface dies, so do not unregister callbacks.
-
 }
 
 status_t CameraProviderManager::mapToStatusT(const Status& s)  {
@@ -2870,6 +3006,8 @@ CameraProviderManager::getConcurrentCameraIds() const {
 
 status_t CameraProviderManager::convertToHALStreamCombinationAndCameraIdsLocked(
         const std::vector<CameraIdAndSessionConfiguration> &cameraIdsAndSessionConfigs,
+        const std::set<std::string>& perfClassPrimaryCameraIds,
+        int targetSdkVersion,
         hardware::hidl_vec<CameraIdAndStreamCombination> *halCameraIdsAndStreamCombinations,
         bool *earlyExit) {
     binder::Status bStatus = binder::Status::ok();
@@ -2877,25 +3015,31 @@ status_t CameraProviderManager::convertToHALStreamCombinationAndCameraIdsLocked(
     bool shouldExit = false;
     status_t res = OK;
     for (auto &cameraIdAndSessionConfig : cameraIdsAndSessionConfigs) {
-        hardware::camera::device::V3_4::StreamConfiguration streamConfiguration;
+        const std::string& cameraId = cameraIdAndSessionConfig.mCameraId;
+        hardware::camera::device::V3_7::StreamConfiguration streamConfiguration;
         CameraMetadata deviceInfo;
-        res = getCameraCharacteristicsLocked(cameraIdAndSessionConfig.mCameraId, &deviceInfo);
+        bool overrideForPerfClass =
+                SessionConfigurationUtils::targetPerfClassPrimaryCamera(
+                        perfClassPrimaryCameraIds, cameraId, targetSdkVersion);
+        res = getCameraCharacteristicsLocked(cameraId, overrideForPerfClass, &deviceInfo);
         if (res != OK) {
             return res;
         }
-        metadataGetter getMetadata =
-                [this](const String8 &id) {
+        camera3::metadataGetter getMetadata =
+                [this](const String8 &id, bool overrideForPerfClass) {
                     CameraMetadata physicalDeviceInfo;
-                    getCameraCharacteristicsLocked(id.string(), &physicalDeviceInfo);
+                    getCameraCharacteristicsLocked(id.string(), overrideForPerfClass,
+                                                   &physicalDeviceInfo);
                     return physicalDeviceInfo;
                 };
         std::vector<std::string> physicalCameraIds;
-        isLogicalCameraLocked(cameraIdAndSessionConfig.mCameraId, &physicalCameraIds);
+        isLogicalCameraLocked(cameraId, &physicalCameraIds);
         bStatus =
             SessionConfigurationUtils::convertToHALStreamCombination(
                     cameraIdAndSessionConfig.mSessionConfiguration,
-                    String8(cameraIdAndSessionConfig.mCameraId.c_str()), deviceInfo, getMetadata,
-                    physicalCameraIds, streamConfiguration, &shouldExit);
+                    String8(cameraId.c_str()), deviceInfo, getMetadata,
+                    physicalCameraIds, streamConfiguration,
+                    overrideForPerfClass, &shouldExit);
         if (!bStatus.isOk()) {
             ALOGE("%s: convertToHALStreamCombination failed", __FUNCTION__);
             return INVALID_OPERATION;
@@ -2905,7 +3049,7 @@ status_t CameraProviderManager::convertToHALStreamCombinationAndCameraIdsLocked(
             return OK;
         }
         CameraIdAndStreamCombination halCameraIdAndStream;
-        halCameraIdAndStream.cameraId = cameraIdAndSessionConfig.mCameraId;
+        halCameraIdAndStream.cameraId = cameraId;
         halCameraIdAndStream.streamConfiguration = streamConfiguration;
         halCameraIdsAndStreamsV.push_back(halCameraIdAndStream);
     }
@@ -2938,7 +3082,8 @@ static bool checkIfSetContainsAll(
 
 status_t CameraProviderManager::isConcurrentSessionConfigurationSupported(
         const std::vector<CameraIdAndSessionConfiguration> &cameraIdsAndSessionConfigs,
-        bool *isSupported) {
+        const std::set<std::string>& perfClassPrimaryCameraIds,
+        int targetSdkVersion, bool *isSupported) {
     std::lock_guard<std::mutex> lock(mInterfaceMutex);
     // Check if all the devices are a subset of devices advertised by the
     // same provider through getConcurrentStreamingCameraIds()
@@ -2952,8 +3097,8 @@ status_t CameraProviderManager::isConcurrentSessionConfigurationSupported(
             hardware::hidl_vec<CameraIdAndStreamCombination> halCameraIdsAndStreamCombinations;
             bool knowUnsupported = false;
             status_t res = convertToHALStreamCombinationAndCameraIdsLocked(
-                    cameraIdsAndSessionConfigs, &halCameraIdsAndStreamCombinations,
-                    &knowUnsupported);
+                    cameraIdsAndSessionConfigs, perfClassPrimaryCameraIds,
+                    targetSdkVersion, &halCameraIdsAndStreamCombinations, &knowUnsupported);
             if (res != OK) {
                 ALOGE("%s unable to convert session configurations provided to HAL stream"
                       "combinations", __FUNCTION__);
@@ -2975,10 +3120,10 @@ status_t CameraProviderManager::isConcurrentSessionConfigurationSupported(
 }
 
 status_t CameraProviderManager::getCameraCharacteristicsLocked(const std::string &id,
-        CameraMetadata* characteristics) const {
+        bool overrideForPerfClass, CameraMetadata* characteristics) const {
     auto deviceInfo = findDeviceInfoLocked(id, /*minVersion*/ {3,0}, /*maxVersion*/ {5,0});
     if (deviceInfo != nullptr) {
-        return deviceInfo->getCameraCharacteristics(characteristics);
+        return deviceInfo->getCameraCharacteristics(overrideForPerfClass, characteristics);
     }
 
     // Find hidden physical camera characteristics

@@ -352,4 +352,15 @@ public class DateFormatTest {
                     "settings put system " + Settings.System.TIME_12_24 + " " + timeFormat);
         }
     }
+
+    @Test
+    public void test_getBestDateTimePattern() {
+        assertEquals("d MMMM", DateFormat.getBestDateTimePattern(new Locale("ca", "ES"), "MMMMd"));
+        assertEquals("d 'de' MMMM", DateFormat.getBestDateTimePattern(new Locale("es", "ES"),
+                "MMMMd"));
+        assertEquals("d. MMMM", DateFormat.getBestDateTimePattern(new Locale("de", "CH"), "MMMMd"));
+        assertEquals("MMMM d", DateFormat.getBestDateTimePattern(new Locale("en", "US"), "MMMMd"));
+        assertEquals("d LLLL", DateFormat.getBestDateTimePattern(new Locale("fa", "IR"), "MMMMd"));
+        assertEquals("M月d日", DateFormat.getBestDateTimePattern(new Locale("ja", "JP"), "MMMMd"));
+    }
 }

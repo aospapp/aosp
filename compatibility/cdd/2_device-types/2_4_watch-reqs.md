@@ -56,7 +56,7 @@ available to the kernel and userspace.
 
 *   [[7.8](#7_8_audio).1/W-0-1] MUST include a microphone.
 
-*   [[7.8](#7_8_audio).2/W] MAY but SHOULD NOT have audio output.
+*   [[7.8](#7_8_audio).2/W] MAY have audio output.
 
 ### 2.4.2\. Multimedia
 
@@ -71,6 +71,10 @@ Watch device implementations:
 *   [[3](#3_0_intro)/W-0-2] MUST support uiMode =
     [UI_MODE_TYPE_WATCH](
     http://developer.android.com/reference/android/content/res/Configuration.html#UI_MODE_TYPE_WATCH).
+*   [[3.2.3.1](#3_2_3_1_common_application_intents)/W-0-1]  MUST preload one
+or more applications or service components with an intent handler, for
+all the public intent filter patterns defined by the following application
+intents listed [here](https://developer.android.com/about/versions/11/reference/common-intents-30).
 
 Watch device implementations:
 

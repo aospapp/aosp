@@ -17,10 +17,12 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := cts-dynamic-config
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_CLASS := FAKE
 LOCAL_IS_HOST_MODULE := true
 
-LOCAL_COMPATIBILITY_SUITE := cts general-tests vts10 mts
+LOCAL_COMPATIBILITY_SUITE := cts general-tests mts
 
 # my_test_config_file := DynamicConfig.xml
 # TODO (sbasi): Update to use BUILD_HOST_TEST_CONFIG when it's primary install

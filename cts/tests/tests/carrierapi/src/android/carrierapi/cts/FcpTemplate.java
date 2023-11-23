@@ -21,13 +21,14 @@ import static android.carrierapi.cts.IccUtils.hexStringToBytes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
 import javax.annotation.Nonnull;
 
 /**
  * Class for representing a File Control Parameters (FCP) Template object. TS 101 220
  *
- * A correctly formatted FCP Template will be in the format:
- * | 1 byte: BER tag (0x62) | 1 byte: length of TLVs |...TLV objects...| 2 bytes: status |
+ * <p>A correctly formatted FCP Template will be in the format: | 1 byte: BER tag (0x62) | 1 byte:
+ * length of TLVs |...TLV objects...| 2 bytes: status |
  */
 public class FcpTemplate {
 
@@ -69,12 +70,11 @@ public class FcpTemplate {
      * Parses and returns a FcpTemplate for the given {@code fcpResponse}
      *
      * @param fcpResponse The Hex String response for a given Status APDU command. Expected to be in
-     * the format: | 1 byte: BER tag | 1 byte: length of TLVs |...TLV objects...| 2 bytes: status |
-     *
+     *     the format: | 1 byte: BER tag | 1 byte: length of TLVs |...TLV objects...| 2 bytes:
+     *     status |
      * @return a FcpTemplate for the given hex String
-     *
      * @throws FcpTemplateParseException for non-FCP inputs or inputs of the wrong length (encoded
-     *                                   length does not match actual length)
+     *     length does not match actual length)
      */
     public static FcpTemplate parseFcpTemplate(@Nonnull String fcpResponse) {
         final List<Tlv> tlvObjects = new ArrayList<>();
@@ -98,17 +98,15 @@ public class FcpTemplate {
             int tag = data[index++] & 0xFF;
             int length = data[index++] & 0xFF; // assumes that length is < 128 bytes.
             String value = fcpResponse.substring(index * 2, (index + length) * 2);
-            tlvObjects .add(new Tlv(tag, length, value));
+            tlvObjects.add(new Tlv(tag, length, value));
             index += length;
         }
 
         String status = fcpResponse.substring(fcpResponse.length() - 4);
-        return new FcpTemplate(tlvObjects , status);
+        return new FcpTemplate(tlvObjects, status);
     }
 
-    /**
-     * Represents a Tag-Length-Value object. TS 101 220 Section 2
-     */
+    /** Represents a Tag-Length-Value object. TS 101 220 Section 2 */
     public static class Tlv {
 
         private final int tag;
@@ -142,9 +140,7 @@ public class FcpTemplate {
                 return false;
             }
             Tlv tlv = (Tlv) o;
-            return tag == tlv.tag &&
-                    length == tlv.length &&
-                    value.equals(tlv.value);
+            return tag == tlv.tag && length == tlv.length && value.equals(tlv.value);
         }
 
         @Override
@@ -159,7 +155,6 @@ public class FcpTemplate {
     }
 
     private static final class FcpTemplateParseException extends RuntimeException {
-
         public FcpTemplateParseException(String message) {
             super(message);
         }

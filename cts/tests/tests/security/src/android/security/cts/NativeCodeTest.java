@@ -16,18 +16,17 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 
 import junit.framework.TestCase;
 
-@SecurityTest
 public class NativeCodeTest extends TestCase {
 
     static {
         System.loadLibrary("ctssecurity_jni");
     }
 
-    @SecurityTest
+    @AsbSecurityTest(cveBugId = 22300191)
     public void testSysVipc() throws Exception {
         assertTrue("Android does not support Sys V IPC, it must "
                    + "be removed from the kernel. In the kernel config: "

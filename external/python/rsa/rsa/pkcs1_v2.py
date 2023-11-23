@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 #  Copyright 2011 Sybren A. Stüvel <sybren@stuvel.eu>
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +18,6 @@ This module implements certain functionality from PKCS#1 version 2. Main
 documentation is RFC 2437: https://tools.ietf.org/html/rfc2437
 """
 
-from rsa._compat import range
 from rsa import (
     common,
     pkcs1,
@@ -28,7 +25,7 @@ from rsa import (
 )
 
 
-def mgf1(seed, length, hasher='SHA-1'):
+def mgf1(seed: bytes, length: int, hasher: str = 'SHA-1') -> bytes:
     """
     MGF1 is a Mask Generation Function based on a hash function.
 

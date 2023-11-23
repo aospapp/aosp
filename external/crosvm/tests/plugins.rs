@@ -6,16 +6,16 @@
 
 use std::env::{current_exe, var_os};
 use std::ffi::OsString;
-use std::fs::{remove_file, File};
+use std::fs::remove_file;
 use std::io::{Read, Write};
-use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
+use base::{ioctl, AsRawDescriptor};
 use rand_ish::urandom_str;
-use sys_util::{ioctl, SharedMemory};
+use tempfile::tempfile;
 
 struct RemovePath(PathBuf);
 impl Drop for RemovePath {
@@ -75,7 +75,7 @@ fn build_plugin(src: &str) -> RemovePath {
     let status = child.wait().expect("failed to wait for compiler");
     assert!(status.success(), "failed to build plugin");
 
-    RemovePath(PathBuf::from(out_bin))
+    RemovePath(out_bin)
 }
 
 fn run_plugin(bin_path: &Path, with_sandbox: bool) {
@@ -126,7 +126,7 @@ fn test_plugin(src: &str) {
     run_plugin(&bin_path.0, true);
 }
 
-fn keep_fd_on_exec<F: AsRawFd>(f: &F) {
+fn keep_fd_on_exec<F: AsRawDescriptor>(f: &F) {
     unsafe {
         ioctl(f, 0x5450 /* FIONCLEX */);
     }
@@ -134,28 +134,27 @@ fn keep_fd_on_exec<F: AsRawFd>(f: &F) {
 
 /// Takes assembly source code and returns the resulting assembly code.
 fn build_assembly(src: &str) -> Vec<u8> {
-    // Creates a shared memory region with the assembly source code in it.
-    let in_shm = SharedMemory::new(None).unwrap();
-    let mut in_shm_file: File = in_shm.into();
-    keep_fd_on_exec(&in_shm_file);
-    in_shm_file.write_all(src.as_bytes()).unwrap();
+    // Creates a file with the assembly source code in it.
+    let mut in_file = tempfile().expect("failed to create tempfile");
+    keep_fd_on_exec(&in_file);
+    in_file.write_all(src.as_bytes()).unwrap();
 
-    // Creates a shared memory region that will hold the nasm output.
-    let mut out_shm_file: File = SharedMemory::new(None).unwrap().into();
-    keep_fd_on_exec(&out_shm_file);
+    // Creates a file that will hold the nasm output.
+    let mut out_file = tempfile().expect("failed to create tempfile");
+    keep_fd_on_exec(&out_file);
 
     // Runs nasm with the input and output files set to the FDs of the above shared memory regions,
     // which we have preserved accross exec.
     let status = Command::new("nasm")
-        .arg(format!("/proc/self/fd/{}", in_shm_file.as_raw_fd()))
+        .arg(format!("/proc/self/fd/{}", in_file.as_raw_descriptor()))
         .args(&["-f", "bin", "-o"])
-        .arg(format!("/proc/self/fd/{}", out_shm_file.as_raw_fd()))
+        .arg(format!("/proc/self/fd/{}", out_file.as_raw_descriptor()))
         .status()
         .expect("failed to spawn assembler");
     assert!(status.success());
 
     let mut out_bytes = Vec::new();
-    out_shm_file.read_to_end(&mut out_bytes).unwrap();
+    out_file.read_to_end(&mut out_bytes).unwrap();
     out_bytes
 }
 
@@ -226,6 +225,16 @@ fn test_adder() {
 }
 
 #[test]
+fn test_hint() {
+    test_plugin(include_str!("plugin_hint.c"));
+}
+
+#[test]
+fn test_async_write() {
+    test_plugin(include_str!("plugin_async_write.c"));
+}
+
+#[test]
 fn test_dirty_log() {
     test_plugin(include_str!("plugin_dirty_log.c"));
 }
@@ -248,6 +257,11 @@ fn test_extensions() {
 #[test]
 fn test_supported_cpuid() {
     test_plugin(include_str!("plugin_supported_cpuid.c"));
+}
+
+#[test]
+fn test_enable_cap() {
+    test_plugin(include_str!("plugin_enable_cap.c"));
 }
 
 #[test]

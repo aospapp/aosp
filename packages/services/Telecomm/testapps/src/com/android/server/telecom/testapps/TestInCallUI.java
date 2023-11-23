@@ -21,6 +21,7 @@ import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Location;
 import android.os.Bundle;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
@@ -28,6 +29,7 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
+import android.telephony.ims.ImsCallProfile;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -248,6 +250,47 @@ public class TestInCallUI extends Activity {
                 enableInCallService();
             }
         });
+
+        // Find the ringing call and populate the composer extras
+        for (int i = 0; i < TestCallList.getInstance().size(); i++) {
+            Call call = TestCallList.getInstance().getCall(i);
+            if (call.getState() == Call.STATE_RINGING) {
+                int priority = call.getDetails()
+                        .getIntentExtras().getInt(TelecomManager.EXTRA_PRIORITY, -1);
+                Location location = call.getDetails()
+                        .getIntentExtras().getParcelable(TelecomManager.EXTRA_LOCATION);
+                String subject = call.getDetails()
+                        .getIntentExtras().getString(TelecomManager.EXTRA_CALL_SUBJECT);
+                boolean isBusiness = call.getDetails()
+                        .getExtras().getBoolean(ImsCallProfile.EXTRA_IS_BUSINESS_CALL);
+
+                StringBuilder display = new StringBuilder();
+                display.append("priority=");
+                switch (priority) {
+                    case TelecomManager.PRIORITY_NORMAL:
+                        display.append("normal");
+                        break;
+                    case TelecomManager.PRIORITY_URGENT:
+                        display.append("urgent");
+                        break;
+                    default:
+                        display.append("unset");
+                }
+                display.append(";");
+                if (location != null) {
+                    display.append("lat=" + location.getLatitude());
+                    display.append("lon=" + location.getLongitude());
+                } else {
+                    display.append("loc=null");
+                }
+
+                display.append(" subject=" + subject);
+                display.append(" isBusiness=" + isBusiness);
+                TextView attachmentsTextView = findViewById(R.id.incoming_composer_attachments);
+                attachmentsTextView.setText(display.toString());
+                break;
+            }
+        }
     }
 
     public void updateCallAudioState(CallAudioState cas) {

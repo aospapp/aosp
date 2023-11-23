@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019 The Khronos Group Inc.
+// Copyright (c) 2014-2020 The Khronos Group Inc.
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and/or associated documentation files (the "Materials"),
@@ -61,6 +61,8 @@ EnumValues ImageChannelDataTypeParams;
 EnumValues ImageOperandsParams;
 EnumValues FPFastMathParams;
 EnumValues FPRoundingModeParams;
+EnumValues FPDenormModeParams;
+EnumValues FPOperationModeParams;
 EnumValues LinkageTypeParams;
 EnumValues DecorationParams;
 EnumValues BuiltInParams;
@@ -77,6 +79,11 @@ EnumValues ScopeParams;
 EnumValues KernelEnqueueFlagsParams;
 EnumValues KernelProfilingInfoParams;
 EnumValues CapabilityParams;
+EnumValues RayFlagsParams;
+EnumValues RayQueryIntersectionParams;
+EnumValues RayQueryCommittedIntersectionTypeParams;
+EnumValues RayQueryCandidateIntersectionTypeParams;
+EnumValues FragmentShadingRateParams;
 
 std::pair<bool, std::string> ReadFile(const std::string& path)
 {
@@ -146,7 +153,7 @@ ClassOptionality ToOperandClassAndOptionality(const std::string& operandKind, co
         } else if (operandKind == "LiteralSpecConstantOpInteger") {
             type = OperandLiteralNumber;
         } else if (operandKind == "LiteralContextDependentNumber") {
-            type = OperandVariableLiterals;
+            type = OperandAnySizeLiteralNumber;
         } else if (operandKind == "SourceLanguage") {
             type = OperandSource;
         } else if (operandKind == "ExecutionModel") {
@@ -173,6 +180,10 @@ ClassOptionality ToOperandClassAndOptionality(const std::string& operandKind, co
             type = OperandImageChannelDataType;
         } else if (operandKind == "FPRoundingMode") {
             type = OperandFPRoundingMode;
+        } else if (operandKind == "FPDenormMode") {
+            type = OperandFPDenormMode;
+        } else if (operandKind == "FPOperationMode") {
+            type = OperandFPOperationMode;
         } else if (operandKind == "LinkageType") {
             type = OperandLinkageType;
         } else if (operandKind == "AccessQualifier") {
@@ -203,6 +214,16 @@ ClassOptionality ToOperandClassAndOptionality(const std::string& operandKind, co
             type = OperandFunction;
         } else if (operandKind == "MemoryAccess") {
             type = OperandMemoryOperands;
+        } else if (operandKind == "RayFlags") {
+            type = OperandRayFlags;
+        } else if (operandKind == "RayQueryIntersection") {
+            type = OperandRayQueryIntersection;
+        } else if (operandKind == "RayQueryCommittedIntersectionType") {
+            type = OperandRayQueryCommittedIntersectionType;
+        } else if (operandKind == "RayQueryCandidateIntersectionType") {
+            type = OperandRayQueryCandidateIntersectionType;
+        } else if (operandKind == "FragmentShadingRate") {
+            type = OperandFragmentShadingRate;
         }
 
         if (type == OperandNone) {
@@ -437,6 +458,10 @@ void jsonToSpirv(const std::string& jsonPath, bool buildingHeaders)
             establishOperandClass(enumName, OperandFPFastMath, &FPFastMathParams, operandEnum, category);
         } else if (enumName == "FPRoundingMode") {
             establishOperandClass(enumName, OperandFPRoundingMode, &FPRoundingModeParams, operandEnum, category);
+        } else if (enumName == "FPDenormMode") {
+            establishOperandClass(enumName, OperandFPDenormMode, &FPDenormModeParams, operandEnum, category);
+        } else if (enumName == "FPOperationMode") {
+            establishOperandClass(enumName, OperandFPOperationMode, &FPOperationModeParams, operandEnum, category);
         } else if (enumName == "LinkageType") {
             establishOperandClass(enumName, OperandLinkageType, &LinkageTypeParams, operandEnum, category);
         } else if (enumName == "FunctionParameterAttribute") {
@@ -463,6 +488,16 @@ void jsonToSpirv(const std::string& jsonPath, bool buildingHeaders)
             establishOperandClass(enumName, OperandKernelEnqueueFlags, &KernelEnqueueFlagsParams, operandEnum, category);
         } else if (enumName == "KernelProfilingInfo") {
             establishOperandClass(enumName, OperandKernelProfilingInfo, &KernelProfilingInfoParams, operandEnum, category);
+        } else if (enumName == "RayFlags") {
+            establishOperandClass(enumName, OperandRayFlags, &RayFlagsParams, operandEnum, category);
+        } else if (enumName == "RayQueryIntersection") {
+            establishOperandClass(enumName, OperandRayQueryIntersection, &RayQueryIntersectionParams, operandEnum, category);
+        } else if (enumName == "RayQueryCommittedIntersectionType") {
+            establishOperandClass(enumName, OperandRayQueryCommittedIntersectionType, &RayQueryCommittedIntersectionTypeParams, operandEnum, category);
+        } else if (enumName == "RayQueryCandidateIntersectionType") {
+            establishOperandClass(enumName, OperandRayQueryCandidateIntersectionType, &RayQueryCandidateIntersectionTypeParams, operandEnum, category);
+        } else if (enumName == "FragmentShadingRate") {
+            establishOperandClass(enumName, OperandFragmentShadingRate, &FragmentShadingRateParams, operandEnum, category);
         }
     }
 }

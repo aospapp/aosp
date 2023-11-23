@@ -13,7 +13,12 @@ Depends on libpfm4: http://perfmon2.sf.net/
 git://perfmon2.git.sourceforge.net/gitroot/perfmon2/libpfm4
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import sys, os, optparse, time, struct, perfmon
+from six.moves import range
 
 if __name__ == '__main__':
     parser = optparse.OptionParser()
@@ -28,7 +33,7 @@ if __name__ == '__main__':
     show_per_cpu = False
     if not options.cpulist:
         ncpus = os.sysconf('SC_NPROCESSORS_ONLN')
-        cpus = range(0, ncpus)
+        cpus = list(range(0, ncpus))
     else:
         cpus = options.cpulist.split(',')
         cpus = [ int(c) for c in cpus ]
@@ -71,13 +76,13 @@ if __name__ == '__main__':
               delta[e][c] = count - last[e][c]
               last[e][c] = count
               if show_per_cpu:
-                  print '''CPU%d: %s\t%lu''' % (c, e, delta[e][c])
+                  print('''CPU%d: %s\t%lu''' % (c, e, delta[e][c]))
               sum[e] += delta[e][c]
 
         cycles = sum['PERF_COUNT_HW_CPU_CYCLES']
         instructions = sum['PERF_COUNT_HW_INSTRUCTIONS']
         CPI = cycles * 1.0/instructions
-        print ('cycles: %12lu, instructions: %12lu, CPI: %2.4f'
+        print('cycles: %12lu, instructions: %12lu, CPI: %2.4f'
                % (cycles, instructions, CPI))
         sys.stdout.flush()
         time.sleep(interval)

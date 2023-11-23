@@ -17,7 +17,7 @@
 %                                 March 2000                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -155,7 +155,7 @@ MagickExport MagickBooleanType DefineImageArtifact(Image *image,
     key[MagickPathExtent],
     value[MagickPathExtent];
 
-  register char
+  char
     *p;
 
   assert(image != (Image *) NULL);
@@ -273,7 +273,7 @@ MagickExport void DestroyImageArtifacts(Image *image)
 MagickExport const char *GetImageArtifact(const Image *image,
   const char *artifact)
 {
-  register const char
+  const char
     *p;
 
   assert(image != (Image *) NULL);
@@ -425,8 +425,11 @@ MagickExport void ResetImageArtifactIterator(const Image *image)
 %                                                                             %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%  SetImageArtifact() associates makes a copy of the given string arguments
-%  and inserts it into the artifact tree of the given image.
+%  SetImageArtifact() sets a key-value pair in the image artifact namespace.
+%  Artifacts differ from properties.  Properties are public and are generally
+%  exported to an external image format if the format supports it.  Artifacts
+%  are private and are utilized by the internal ImageMagick API to modify the
+%  behavior of certain algorithms.
 %
 %  The format of the SetImageArtifact method is:
 %

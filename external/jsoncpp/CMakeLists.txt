@@ -1,117 +1,192 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.5)
-PROJECT(jsoncpp)
-ENABLE_TESTING()
+# vim: et ts=4 sts=4 sw=4 tw=0
 
-OPTION(JSONCPP_WITH_TESTS "Compile and run JsonCpp test executables" ON)
-OPTION(JSONCPP_WITH_POST_BUILD_UNITTEST "Automatically run unit-tests as a post build step" ON)
-OPTION(JSONCPP_WITH_WARNING_AS_ERROR "Force compilation to fail if a warning occurs" OFF)
-OPTION(JSONCPP_WITH_PKGCONFIG_SUPPORT "Generate and install .pc files" ON)
-OPTION(JSONCPP_WITH_CMAKE_PACKAGE "Generate and install cmake package files" OFF)
+# ==== Define cmake build policies that affect compilation and linkage default behaviors
+#
+# Set the JSONCPP_NEWEST_VALIDATED_POLICIES_VERSION string to the newest cmake version
+# policies that provide successful builds. By setting JSONCPP_NEWEST_VALIDATED_POLICIES_VERSION
+# to a value greater than the oldest policies, all policies between
+# JSONCPP_OLDEST_VALIDATED_POLICIES_VERSION and CMAKE_VERSION (used for this build)
+# are set to their NEW behaivor, thereby suppressing policy warnings related to policies
+# between the JSONCPP_OLDEST_VALIDATED_POLICIES_VERSION and CMAKE_VERSION.
+#
+# CMake versions greater than the JSONCPP_NEWEST_VALIDATED_POLICIES_VERSION policies will
+# continue to generate policy warnings "CMake Warning (dev)...Policy CMP0XXX is not set:"
+#
+set(JSONCPP_OLDEST_VALIDATED_POLICIES_VERSION "3.8.0")
+set(JSONCPP_NEWEST_VALIDATED_POLICIES_VERSION "3.13.2")
+cmake_minimum_required(VERSION ${JSONCPP_OLDEST_VALIDATED_POLICIES_VERSION})
+if("${CMAKE_VERSION}" VERSION_LESS "${JSONCPP_NEWEST_VALIDATED_POLICIES_VERSION}")
+    #Set and use the newest available cmake policies that are validated to work
+    set(JSONCPP_CMAKE_POLICY_VERSION "${CMAKE_VERSION}")
+else()
+    set(JSONCPP_CMAKE_POLICY_VERSION "${JSONCPP_NEWEST_VALIDATED_POLICIES_VERSION}")
+endif()
+cmake_policy(VERSION ${JSONCPP_CMAKE_POLICY_VERSION})
+#
+# Now enumerate specific policies newer than JSONCPP_NEWEST_VALIDATED_POLICIES_VERSION
+# that may need to be individually set to NEW/OLD
+#
+foreach(pnew "") # Currently Empty
+    if(POLICY ${pnew})
+        cmake_policy(SET ${pnew} NEW)
+    endif()
+endforeach()
+foreach(pold "") # Currently Empty
+    if(POLICY ${pold})
+        cmake_policy(SET ${pold} OLD)
+    endif()
+endforeach()
 
-# Ensures that CMAKE_BUILD_TYPE is visible in cmake-gui on Unix
-IF(NOT WIN32)
-    IF(NOT CMAKE_BUILD_TYPE)
-        SET(CMAKE_BUILD_TYPE Release CACHE STRING
-            "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel Coverage."
-            FORCE)
-    ENDIF(NOT CMAKE_BUILD_TYPE)
-ENDIF(NOT WIN32)
+# Build the library with C++11 standard support, independent from other including
+# software which may use a different CXX_STANDARD or CMAKE_CXX_STANDARD.
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-SET(RUNTIME_INSTALL_DIR bin
-    CACHE PATH "Install dir for executables and dlls")
-SET(ARCHIVE_INSTALL_DIR lib
-    CACHE PATH "Install dir for static libraries")
-SET(LIBRARY_INSTALL_DIR lib
-    CACHE PATH "Install dir for shared libraries")
-SET(INCLUDE_INSTALL_DIR include
-    CACHE PATH "Install dir for headers")
-SET(PACKAGE_INSTALL_DIR lib/cmake
-    CACHE PATH "Install dir for cmake package config files")
-MARK_AS_ADVANCED( RUNTIME_INSTALL_DIR ARCHIVE_INSTALL_DIR INCLUDE_INSTALL_DIR PACKAGE_INSTALL_DIR )
+# Ensure that CMAKE_BUILD_TYPE has a value specified for single configuration generators.
+if(NOT DEFINED CMAKE_BUILD_TYPE AND NOT DEFINED CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING
+        "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel Coverage.")
+endif()
 
-# This ensures shared DLL are in the same dir as executable on Windows.
-# Put all executables / libraries are in a project global directory.
-SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
-    CACHE PATH "Single directory for all static libraries.")
-SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
-    CACHE PATH "Single directory for all dynamic libraries on Unix.")
-SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    CACHE PATH "Single directory for all executable and dynamic libraries on Windows.")
-MARK_AS_ADVANCED( CMAKE_RUNTIME_OUTPUT_DIRECTORY CMAKE_LIBRARY_OUTPUT_DIRECTORY CMAKE_ARCHIVE_OUTPUT_DIRECTORY )
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# Set variable named ${VAR_NAME} to value ${VALUE}
-FUNCTION(set_using_dynamic_name VAR_NAME VALUE)
-    SET( "${VAR_NAME}" "${VALUE}" PARENT_SCOPE)
-ENDFUNCTION(set_using_dynamic_name)
+# ---------------------------------------------------------------------------
+# use ccache if found, has to be done before project()
+# ---------------------------------------------------------------------------
+find_program(CCACHE_EXECUTABLE "ccache" HINTS /usr/local/bin /opt/local/bin)
+if(CCACHE_EXECUTABLE)
+    message(STATUS "use ccache")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_EXECUTABLE}" CACHE PATH "ccache" FORCE)
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_EXECUTABLE}" CACHE PATH "ccache" FORCE)
+endif()
 
-# Extract major, minor, patch from version text
-# Parse a version string "X.Y.Z" and outputs
-# version parts in ${OUPUT_PREFIX}_MAJOR, _MINOR, _PATCH.
-# If parse succeeds then ${OUPUT_PREFIX}_FOUND is TRUE.
-MACRO(jsoncpp_parse_version VERSION_TEXT OUPUT_PREFIX)
-    SET(VERSION_REGEX "[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9_]+)?")
-    IF( ${VERSION_TEXT} MATCHES ${VERSION_REGEX} )
-        STRING(REGEX MATCHALL "[0-9]+|-([A-Za-z0-9_]+)" VERSION_PARTS ${VERSION_TEXT})
-        LIST(GET VERSION_PARTS 0 ${OUPUT_PREFIX}_MAJOR)
-        LIST(GET VERSION_PARTS 1 ${OUPUT_PREFIX}_MINOR)
-        LIST(GET VERSION_PARTS 2 ${OUPUT_PREFIX}_PATCH)
-        set_using_dynamic_name( "${OUPUT_PREFIX}_FOUND" TRUE )
-    ELSE( ${VERSION_TEXT} MATCHES ${VERSION_REGEX} )
-        set_using_dynamic_name( "${OUPUT_PREFIX}_FOUND" FALSE )
-    ENDIF( ${VERSION_TEXT} MATCHES ${VERSION_REGEX} )
-ENDMACRO(jsoncpp_parse_version)
+project(jsoncpp
+        # Note: version must be updated in three places when doing a release. This
+        # annoying process ensures that amalgamate, CMake, and meson all report the
+        # correct version.
+        # 1. ./meson.build
+        # 2. ./include/json/version.h
+        # 3. ./CMakeLists.txt
+        # IMPORTANT: also update the PROJECT_SOVERSION!!
+        VERSION 1.9.4 # <major>[.<minor>[.<patch>[.<tweak>]]]
+        LANGUAGES CXX)
 
-# Read out version from "version" file
-FILE(STRINGS "version" JSONCPP_VERSION)
+message(STATUS "JsonCpp Version: ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
+set(PROJECT_SOVERSION 24)
 
-jsoncpp_parse_version( ${JSONCPP_VERSION} JSONCPP_VERSION )
-IF(NOT JSONCPP_VERSION_FOUND)
-    MESSAGE(FATAL_ERROR "Failed to parse version string properly. Expect X.Y.Z")
-ENDIF(NOT JSONCPP_VERSION_FOUND)
+option(JSONCPP_WITH_TESTS "Compile and (for jsoncpp_check) run JsonCpp test executables" ON)
+option(JSONCPP_WITH_POST_BUILD_UNITTEST "Automatically run unit-tests as a post build step" ON)
+option(JSONCPP_WITH_WARNING_AS_ERROR "Force compilation to fail if a warning occurs" OFF)
+option(JSONCPP_WITH_STRICT_ISO "Issue all the warnings demanded by strict ISO C and ISO C++" ON)
+option(JSONCPP_WITH_PKGCONFIG_SUPPORT "Generate and install .pc files" ON)
+option(JSONCPP_WITH_CMAKE_PACKAGE "Generate and install cmake package files" ON)
+option(JSONCPP_WITH_EXAMPLE "Compile JsonCpp example" OFF)
+option(BUILD_SHARED_LIBS "Build jsoncpp_lib as a shared library." ON)
+option(BUILD_STATIC_LIBS "Build jsoncpp_lib as a static library." ON)
+option(BUILD_OBJECT_LIBS "Build jsoncpp_lib as a object library." ON)
 
-MESSAGE(STATUS "JsonCpp Version: ${JSONCPP_VERSION_MAJOR}.${JSONCPP_VERSION_MINOR}.${JSONCPP_VERSION_PATCH}")
-# File version.h is only regenerated on CMake configure step
-CONFIGURE_FILE( "${PROJECT_SOURCE_DIR}/src/lib_json/version.h.in"
-                "${PROJECT_SOURCE_DIR}/include/json/version.h" )
+# Adhere to GNU filesystem layout conventions
+include(GNUInstallDirs)
 
-macro(UseCompilationWarningAsError)
-	if ( MSVC )
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" CACHE PATH "Archive output dir.")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib" CACHE PATH "Library output dir.")
+set(CMAKE_PDB_OUTPUT_DIRECTORY     "${CMAKE_BINARY_DIR}/bin" CACHE PATH "PDB (MSVC debug symbol)output dir.")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH "Executable/dll output dir.")
+
+set(JSONCPP_USE_SECURE_MEMORY "0" CACHE STRING "-D...=1 to use memory-wiping allocator for STL")
+
+configure_file("${PROJECT_SOURCE_DIR}/version.in"
+    "${PROJECT_BINARY_DIR}/version"
+    NEWLINE_STYLE UNIX)
+
+macro(use_compilation_warning_as_error)
+    if(MSVC)
         # Only enabled in debug because some old versions of VS STL generate
         # warnings when compiled in release configuration.
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /WX ")
-	endif( MSVC )
+        add_compile_options($<$<CONFIG:Debug>:/WX>)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        add_compile_options(-Werror)
+        if(JSONCPP_WITH_STRICT_ISO)
+            add_compile_options(-pedantic-errors)
+        endif()
+    endif()
 endmacro()
 
 # Include our configuration header
-INCLUDE_DIRECTORIES( ${jsoncpp_SOURCE_DIR}/include )
+include_directories(${jsoncpp_SOURCE_DIR}/include)
 
-if ( MSVC )
+if(MSVC)
     # Only enabled in debug because some old versions of VS STL generate
     # unreachable code warning when compiled in release configuration.
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /W4 ")
-endif( MSVC )
+    add_compile_options($<$<CONFIG:Debug>:/W4>)
+endif()
 
-IF(JSONCPP_WITH_WARNING_AS_ERROR)
-    UseCompilationWarningAsError()
-ENDIF(JSONCPP_WITH_WARNING_AS_ERROR)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # using regular Clang or AppleClang
+    add_compile_options(-Wall -Wconversion -Wshadow -Werror=conversion -Werror=sign-compare)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # using GCC
+    add_compile_options(-Wall -Wconversion -Wshadow -Wextra)
+    # not yet ready for -Wsign-conversion
 
-IF(JSONCPP_WITH_PKGCONFIG_SUPPORT)
-	CONFIGURE_FILE(
-		"pkg-config/jsoncpp.pc.in"
-		"pkg-config/jsoncpp.pc"
-		@ONLY)
-	INSTALL(FILES "${CMAKE_BINARY_DIR}/pkg-config/jsoncpp.pc"
-		DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig")
-ENDIF(JSONCPP_WITH_PKGCONFIG_SUPPORT)
+    if(JSONCPP_WITH_STRICT_ISO)
+        add_compile_options(-Wpedantic)
+    endif()
+    if(JSONCPP_WITH_WARNING_AS_ERROR)
+        add_compile_options(-Werror=conversion)
+    endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+    # using Intel compiler
+    add_compile_options(-Wall -Wconversion -Wshadow -Wextra -Werror=conversion)
 
-IF(JSONCPP_WITH_CMAKE_PACKAGE)
-        INSTALL(EXPORT jsoncpp
-                DESTINATION ${PACKAGE_INSTALL_DIR}/jsoncpp
-                FILE        jsoncppConfig.cmake)
-ENDIF(JSONCPP_WITH_CMAKE_PACKAGE)
+    if(JSONCPP_WITH_STRICT_ISO AND NOT JSONCPP_WITH_WARNING_AS_ERROR)
+        add_compile_options(-Wpedantic)
+    endif()
+endif()
+
+if(JSONCPP_WITH_WARNING_AS_ERROR)
+    use_compilation_warning_as_error()
+endif()
+
+if(JSONCPP_WITH_PKGCONFIG_SUPPORT)
+    include(JoinPaths)
+
+    join_paths(libdir_for_pc_file "\${exec_prefix}" "${CMAKE_INSTALL_LIBDIR}")
+    join_paths(includedir_for_pc_file "\${prefix}" "${CMAKE_INSTALL_INCLUDEDIR}")
+
+    configure_file(
+        "pkg-config/jsoncpp.pc.in"
+        "pkg-config/jsoncpp.pc"
+        @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/pkg-config/jsoncpp.pc"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+endif()
+
+if(JSONCPP_WITH_CMAKE_PACKAGE)
+    include(CMakePackageConfigHelpers)
+    install(EXPORT jsoncpp
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/jsoncpp
+        FILE        jsoncppConfig.cmake)
+    write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/jsoncppConfigVersion.cmake"
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/jsoncppConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/jsoncpp)
+endif()
+
+if(JSONCPP_WITH_TESTS)
+    enable_testing()
+    include(CTest)
+endif()
 
 # Build the different applications
-ADD_SUBDIRECTORY( src )
+add_subdirectory(src)
 
 #install the includes
-ADD_SUBDIRECTORY( include )
+add_subdirectory(include)
+
+#install the example
+if(JSONCPP_WITH_EXAMPLE)
+    add_subdirectory(example)
+endif()

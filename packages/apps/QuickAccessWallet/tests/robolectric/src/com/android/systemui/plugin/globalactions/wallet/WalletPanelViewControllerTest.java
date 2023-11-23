@@ -131,7 +131,7 @@ public class WalletPanelViewControllerTest {
         View view1 = mViewController.getPanelContent();
         View view2 = mViewController.getPanelContent();
 
-        assertThat(view1).isSameAs(view2);
+        assertThat(view1).isSameInstanceAs(view2);
         verify(mWalletClient, never()).getWalletCards(any(), any(), any());
     }
 

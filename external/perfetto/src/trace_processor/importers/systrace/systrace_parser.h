@@ -155,8 +155,10 @@ inline SystraceParseResult ParseSystraceTracePoint(base::StringView str,
       size_t name_index = 2 + tgid_length + 1;
       out->name = base::StringView(
           s + name_index, len - name_index - (s[len - 1] == '\n' ? 1 : 0));
-      if (out->name.size() == 0)
-        return SystraceParseResult::kFailure;
+      if (out->name.empty()) {
+        static const char kEmptySliceName[] = "[empty slice name]";
+        out->name = base::StringView(kEmptySliceName);
+      }
       return SystraceParseResult::kSuccess;
     }
     case 'E': {
@@ -230,13 +232,13 @@ class SystraceParser : public Destructible {
 
   void ParsePrintEvent(int64_t ts, uint32_t pid, base::StringView event);
 
-  void ParseSdeTracingMarkWrite(int64_t ts,
-                                uint32_t pid,
-                                char trace_type,
-                                bool trace_begin,
-                                base::StringView trace_name,
-                                uint32_t tgid,
-                                int64_t value);
+  void ParseTracingMarkWrite(int64_t ts,
+                             uint32_t pid,
+                             char trace_type,
+                             bool trace_begin,
+                             base::StringView trace_name,
+                             uint32_t tgid,
+                             int64_t value);
 
   void ParseZeroEvent(int64_t ts,
                       uint32_t pid,
@@ -254,6 +256,7 @@ class SystraceParser : public Destructible {
   TraceProcessorContext* const context_;
   const StringId lmk_id_;
   const StringId screen_state_id_;
+  const StringId cookie_id_;
 };
 
 }  // namespace trace_processor

@@ -25,6 +25,8 @@
 #include "credential_source.h"
 #include "curl_wrapper.h"
 
+namespace cuttlefish {
+
 class Artifact {
   std::string name;
   size_t size;
@@ -56,6 +58,7 @@ struct DeviceBuild {
 
   std::string id;
   std::string target;
+  std::string product;
 };
 
 std::ostream& operator<<(std::ostream&, const DeviceBuild&);
@@ -63,12 +66,12 @@ std::ostream& operator<<(std::ostream&, const DeviceBuild&);
 struct DirectoryBuild {
   // TODO(schuffelen): Support local builds other than "eng"
   DirectoryBuild(const std::vector<std::string>& paths,
-                 const std::string& target)
-      : paths(paths), target(target), id("eng") {}
+                 const std::string& target);
 
   std::vector<std::string> paths;
   std::string target;
   std::string id;
+  std::string product;
 };
 
 std::ostream& operator<<(std::ostream&, const DirectoryBuild&);
@@ -90,6 +93,8 @@ public:
                             const std::string& target);
 
   std::string BuildStatus(const DeviceBuild&);
+
+  std::string ProductName(const DeviceBuild&);
 
   std::vector<Artifact> Artifacts(const DeviceBuild&);
 
@@ -116,3 +121,5 @@ public:
 Build ArgumentToBuild(BuildApi* api, const std::string& arg,
                       const std::string& default_build_target,
                       const std::chrono::seconds& retry_period);
+
+} // namespace cuttlefish

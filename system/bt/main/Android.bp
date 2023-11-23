@@ -1,10 +1,18 @@
 // Bluetooth main HW module / shared library for target
 // ========================================================
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_bt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bt_license"],
+}
+
 filegroup {
     name: "LibBluetoothSources",
     srcs: [
         "bte_conf.cc",
-        "bte_init.cc",
         "bte_init_cpp_logging.cc",
         "bte_logmsg.cc",
         "bte_main.cc",
@@ -22,6 +30,7 @@ cc_library_static {
     include_dirs: [
         "system/bt",
         "system/bt/gd",
+        "system/bt/gd/rust/shim",
         "system/bt/bta/include",
         "system/bt/bta/sys",
         "system/bt/bta/dm",
@@ -43,9 +52,15 @@ cc_library_static {
         "system/security/keystore/include",
         "hardware/interfaces/keymaster/4.0/support/include",
     ],
+    shared_libs: [
+            "libflatbuffers-cpp",
+    ],
     generated_headers: [
+        "BluetoothGeneratedBundlerSchema_h_bfbs",
+        "BluetoothGeneratedDumpsysDataSchema_h",
         "BluetoothGeneratedPackets_h",
     ],
+    header_libs: ["libbt_callbacks_cxx_headers"],
     host_supported: true,
 }
 
@@ -79,22 +94,22 @@ cc_library_shared {
     ],
     logtags: ["../EventLogTags.logtags"],
     shared_libs: [
-        "android.hardware.bluetooth@1.0",
-        "android.hardware.bluetooth@1.1",
         "android.hardware.bluetooth.a2dp@1.0",
         "android.hardware.bluetooth.audio@2.0",
-        "libaaudio",
+        "android.hardware.bluetooth.audio@2.1",
+        "android.hardware.bluetooth@1.0",
+        "android.hardware.bluetooth@1.1",
+        "libbinder_ndk",
+        "libcrypto",
         "libcutils",
-        "libdl",
-        "libfmq",
+        "libflatbuffers-cpp",
         "libhidlbase",
         "liblog",
         "libprocessgroup",
         "libprotobuf-cpp-lite",
-        "libutils",
         "libtinyxml2",
+        "libutils",
         "libz",
-        "libcrypto",
     ],
     static_libs: [
         "libbte",
@@ -104,6 +119,7 @@ cc_library_shared {
         "libg722codec",
         "libudrv-uipc",
         "libbluetooth_gd", // Gabeldorsche
+        "libbluetooth_rust_interop",
     ],
     whole_static_libs: [
         "libbt-bta",
@@ -117,6 +133,20 @@ cc_library_shared {
         "libosi",
         "libbt-protos-lite",
     ],
+    target: {
+        android: {
+            shared_libs: [
+                "android.system.suspend.control-V1-ndk",
+                "android.system.suspend@1.0",
+                "libaaudio",
+                "libfmq",
+            ],
+            required: [
+                "libldacBT_enc",
+                "libldacBT_abr",
+            ],
+        },
+    },
     // Shared library link options.
     // References to global symbols and functions should bind to the library
     // itself. This is to avoid issues with some of the unit/system tests
@@ -126,15 +156,14 @@ cc_library_shared {
     required: [
         "bt_did.conf",
         "bt_stack.conf",
-        "libldacBT_enc",
-        "libldacBT_abr",
     ],
     cflags: [
         "-DBUILDCFG",
     ],
     sanitize: {
-        scs: true,
+        never: true,
     },
+    host_supported: true,
 }
 
 cc_library_static {
@@ -149,6 +178,7 @@ cc_library_static {
     include_dirs: [
         "system/bt",
         "system/bt/gd",
+        "system/bt/gd/rust/shim",
         "system/bt/bta/include",
         "system/bt/btcore/include",
         "system/bt/btif/include",
@@ -158,12 +188,86 @@ cc_library_static {
         "system/bt/utils/include",
     ],
     generated_headers: [
+        "BluetoothGeneratedBundlerSchema_h_bfbs",
         "BluetoothGeneratedPackets_h",
+        "BluetoothGeneratedDumpsysDataSchema_h",
     ],
     cflags: [
         "-DBUILDCFG",
     ],
+    shared_libs: [
+        "libflatbuffers-cpp",
+    ],
     whole_static_libs: [
         "libbluetooth_gd", // Gabeldorsche
+    ],
+}
+
+cc_test {
+    name: "net_test_main_shim",
+    test_suites: ["device-tests"],
+    host_supported: true,
+    test_options: {
+        unit_test: true,
+    },
+    defaults: ["fluoride_defaults"],
+    include_dirs: [
+        "system/bt",
+        "system/bt/gd",
+        "system/bt/stack/include",
+    ],
+    srcs: [
+        ":TestMockBta",
+        ":TestMockBtif",
+        ":TestMockLegacyHciCommands",
+        ":TestMockMainShimEntry",
+        ":TestMockStack",
+        "shim/acl_api.cc",
+        "shim/acl.cc",
+        "shim/acl_legacy_interface.cc",
+        "shim/btm_api.cc",
+        "shim/btm.cc",
+        "shim/config.cc",
+        "shim/controller.cc",
+        "shim/dumpsys.cc",
+        "shim/hci_layer.cc",
+        "shim/l2c_api.cc",
+        "shim/le_advertising_manager.cc",
+        "shim/le_scanning_manager.cc",
+        "shim/link_policy.cc",
+        "shim/metric_id_api.cc",
+        "shim/metrics_api.cc",
+        "shim/shim.cc",
+        "shim/stack.cc",
+        "test/main_shim_test.cc",
+    ],
+    static_libs: [
+        "libbt-common",
+        "libbt-protos-lite",
+        "libgmock",
+        "liblog",
+        "libosi",
+        "libbtdevice",
+    ],
+    shared_libs: [
+        "libcrypto",
+        "libflatbuffers-cpp",
+        "libprotobuf-cpp-lite",
+    ],
+    sanitize: {
+        address: true,
+        all_undefined: true,
+        cfi: true,
+        integer_overflow: true,
+        scs: true,
+        diag: {
+            undefined : true
+        },
+    },
+    generated_headers: [
+        "BluetoothGeneratedBundlerSchema_h_bfbs",
+        "BluetoothGeneratedDumpsysDataSchema_h",
+        "BluetoothGeneratedDumpsysBundledSchema_h",
+        "BluetoothGeneratedPackets_h",
     ],
 }

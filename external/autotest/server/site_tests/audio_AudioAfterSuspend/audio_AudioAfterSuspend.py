@@ -4,6 +4,8 @@
 
 """This is a server side audio test using the Chameleon board."""
 
+from __future__ import print_function
+
 import logging
 import os
 import time
@@ -83,7 +85,7 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
         thread.start()
         try:
             self.host.test_wait_for_sleep(3 * self.SUSPEND_SECONDS / 4)
-        except error.TestFail, ex:
+        except error.TestFail as ex:
             self.errors.append("%s - %s" % (test_case, str(ex)))
 
         # Plugged after suspended
@@ -93,7 +95,7 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
         self.action_plug_jack(plugged_before_resume)
         try:
             self.host.test_wait_for_resume(boot_id, self.RESUME_TIMEOUT_SECS)
-        except error.TestFail, ex:
+        except error.TestFail as ex:
             self.errors.append("%s - %s" % (test_case, str(ex)))
 
 
@@ -170,7 +172,7 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
                     self.golden_file, recorder_widget,
                     second_peak_ratio=self.second_peak_ratio,
                     ignore_frequencies=self.ignore_frequencies)
-        except error.TestFail, e:
+        except error.TestFail as e:
             return (False, e)
 
         return (True, None)
@@ -196,6 +198,16 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
         @param plug_status: audio channel plug unplug sequence
 
         """
+        if ((bind_from == chameleon_audio_ids.CrosIds.HEADPHONE or
+            bind_to == chameleon_audio_ids.CrosIds.EXTERNAL_MIC) and
+            not audio_test_utils.has_audio_jack(self.host)):
+            raise error.TestNAError(
+                    'No audio jack for the DUT.'
+                    ' Confirm swarming bot dimension and control file'
+                    ' dependency for audio jack is matching.'
+                    ' For new boards, has_audio_jack might need to be updated.'
+            )
+
         if (recorder == chameleon_audio_ids.CrosIds.INTERNAL_MIC and
             not audio_test_utils.has_internal_microphone(host)):
             return
@@ -212,7 +224,8 @@ class audio_AudioAfterSuspend(audio_test.AudioTest):
                 recorder_id=recorder)
 
         self.ignore_frequencies = None
-        if source == chameleon_audio_ids.CrosIds.SPEAKER:
+        if (source == chameleon_audio_ids.CrosIds.SPEAKER
+                    or bind_to == chameleon_audio_ids.CrosIds.EXTERNAL_MIC):
             self.ignore_frequencies = [50, 60]
 
         self.errors = []

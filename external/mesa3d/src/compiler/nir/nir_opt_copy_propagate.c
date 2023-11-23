@@ -26,7 +26,6 @@
  */
 
 #include "nir.h"
-#include <main/imports.h>
 
 /**
  * SSA-based copy propagation
@@ -36,8 +35,7 @@ static bool is_move(nir_alu_instr *instr)
 {
    assert(instr->src[0].src.is_ssa);
 
-   if (instr->op != nir_op_fmov &&
-       instr->op != nir_op_imov)
+   if (instr->op != nir_op_mov)
       return false;
 
    if (instr->dest.saturate)
@@ -62,16 +60,15 @@ static bool is_vec(nir_alu_instr *instr)
          return false;
    }
 
-   return instr->op == nir_op_vec2 ||
-          instr->op == nir_op_vec3 ||
-          instr->op == nir_op_vec4;
+   assert(instr->dest.dest.is_ssa);
+   return nir_op_is_vec(instr->op);
 }
 
 static bool
 is_swizzleless_move(nir_alu_instr *instr)
 {
    if (is_move(instr)) {
-      for (unsigned i = 0; i < 4; i++) {
+      for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; i++) {
          if (!((instr->dest.write_mask >> i) & 1))
             break;
          if (instr->src[0].swizzle[i] != i)
@@ -144,8 +141,7 @@ copy_prop_alu_src(nir_alu_instr *parent_alu_instr, unsigned index)
    nir_ssa_def *def;
    unsigned new_swizzle[NIR_MAX_VEC_COMPONENTS] = {0, 0, 0, 0};
 
-   if (alu_instr->op == nir_op_fmov ||
-       alu_instr->op == nir_op_imov) {
+   if (alu_instr->op == nir_op_mov) {
       for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; i++)
          new_swizzle[i] = alu_instr->src[0].swizzle[src->swizzle[i]];
       def = alu_instr->src[0].src.ssa;
@@ -234,6 +230,16 @@ copy_prop_instr(nir_instr *instr)
       return progress;
    }
 
+   case nir_instr_type_jump: {
+      nir_jump_instr *jump = nir_instr_as_jump(instr);
+      if (jump->type == nir_jump_goto_if) {
+         while (copy_prop_src(&jump->condition, instr, NULL, 1))
+            progress = true;
+      }
+
+      return progress;
+   }
+
    case nir_instr_type_phi: {
       nir_phi_instr *phi = nir_instr_as_phi(instr);
       assert(phi->dest.is_ssa);
@@ -277,9 +283,7 @@ nir_copy_prop_impl(nir_function_impl *impl)
       nir_metadata_preserve(impl, nir_metadata_block_index |
                                   nir_metadata_dominance);
    } else {
-#ifndef NDEBUG
-      impl->valid_metadata &= ~nir_metadata_not_properly_reset;
-#endif
+      nir_metadata_preserve(impl, nir_metadata_all);
    }
 
    return progress;

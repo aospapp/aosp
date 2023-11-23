@@ -38,7 +38,7 @@ import com.example.android.autofill.app.view.autofillable.CustomVirtualViewCompa
 
  * <p>Useful to test an Autofill service that supports Compatibility Mode.
  *
- * <p><b>Note: </b>you must whitelist this app's package for compatibility mode. For exmaple, in
+ * <p><b>Note: </b>you must allowlist this app's package for compatibility mode. For exmaple, in
  * a UNIX-like OS such as Linux, you can run:
  *
  * <pre>
@@ -111,7 +111,7 @@ public class VirtualCompatModeSignInActivity extends AppCompatActivity {
     }
 
     /**
-     * Dummy implementation for demo purposes. A real service should use secure mechanisms to
+     * Placeholder implementation for demo purposes. A real service should use secure mechanisms to
      * authenticate users.
      */
     public boolean isValidCredentials(String username, String password) {

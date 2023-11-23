@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3077225713817780583">"Управување со повици"</string>
+    <string name="telecommAppLabel" product="default" msgid="1825598513414129827">"Телефонски повици"</string>
     <string name="userCallActivityLabel" product="default" msgid="3605391260292846248">"Телефон"</string>
     <string name="unknown" msgid="6993977514360123431">"Непознато"</string>
     <string name="notification_missedCallTitle" msgid="5060387047205532974">"Пропуштен повик"</string>
@@ -44,7 +44,7 @@
     <string name="respond_via_sms_setting_summary" msgid="8054571501085436868"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="6579353156073272157">"Брз одговор"</string>
     <string name="respond_via_sms_confirmation_format" msgid="2932395476561267842">"Порака е испратена на <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="respond_via_sms_failure_format" msgid="5198680980054596391">"Пораката не можеше да се испрати на <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
+    <string name="respond_via_sms_failure_format" msgid="5198680980054596391">"Пораката не може да се испрати на <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="6949224486748457976">"Сметки за повици"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="3424338207838851646">"Дозволени се само итни повици."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="8590468836581488679">"Оваа апликација не може да прави појдовни повици без дозволата Телефон."</string>
@@ -98,7 +98,7 @@
     <string name="notification_channel_missed_call" msgid="7168893015283909012">"Пропуштени повици"</string>
     <string name="notification_channel_call_blocking" msgid="2028807677868598710">"Блокирање повици"</string>
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"Повици во заднина"</string>
-    <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Исклучени повици"</string>
+    <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"Прекинати повици"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"Паднати апликации за телефон"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"Ако се воспостави повиков, вашиот повик на <xliff:g id="OTHER_APP">%1$s</xliff:g> ќе заврши."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"Изберете како да се воспостави повиков"</string>

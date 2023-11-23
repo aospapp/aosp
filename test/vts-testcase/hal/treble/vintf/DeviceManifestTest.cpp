@@ -17,7 +17,10 @@
 #include "DeviceManifestTest.h"
 
 #include <android-base/properties.h>
+#include <android-base/result.h>
+#include <libvts_vintf_test_common/common.h>
 #include <vintf/VintfObject.h>
+
 #include "SingleManifestTest.h"
 
 namespace android {
@@ -33,48 +36,27 @@ void DeviceManifestTest::SetUp() {
 }
 
 // Tests that Shipping FCM Version in the device manifest is at least the
-// minimum Shipping FCM Version as required by Shipping API level.
+// minimum Shipping FCM Version as required by Board API level.
 TEST_F(DeviceManifestTest, ShippingFcmVersion) {
-  uint64_t shipping_api_level = GetShippingApiLevel();
-  ASSERT_NE(shipping_api_level, 0u)
-      << "Device's shipping API level cannot be determined.";
-
+  uint64_t board_api_level = GetBoardApiLevel();
   Level shipping_fcm_version = VintfObject::GetDeviceHalManifest()->level();
-  if (shipping_fcm_version == Level::UNSPECIFIED) {
-    // O / O-MR1 vendor image doesn't have shipping FCM version declared and
-    // shipping FCM version is inferred from Shipping API level, hence it always
-    // meets the requirement.
-    return;
-  }
-
-  ASSERT_GE(shipping_api_level, kFcm2ApiLevelMap.begin()->first /* 25 */)
-      << "Pre-N devices should not run this test.";
-
-  auto it = kFcm2ApiLevelMap.find(shipping_api_level);
-  ASSERT_TRUE(it != kFcm2ApiLevelMap.end())
-      << "No launch requirement is set yet for Shipping API level "
-      << shipping_api_level << ". Please update the test.";
-
-  Level required_fcm_version = it->second;
-
-  ASSERT_GE(shipping_fcm_version, required_fcm_version)
-      << "Shipping API level == " << shipping_api_level
-      << " requires Shipping FCM Version >= " << required_fcm_version
-      << " (but is " << shipping_fcm_version << ")";
+  auto res = TestTargetFcmVersion(shipping_fcm_version, board_api_level);
+  ASSERT_RESULT_OK(res);
 }
 
 TEST_F(DeviceManifestTest, KernelFcmVersion) {
   Level shipping_fcm_version = VintfObject::GetDeviceHalManifest()->level();
-  Level kernel_fcm_version = VintfObject::GetRuntimeInfo()->kernelLevel();
 
   if (shipping_fcm_version == Level::UNSPECIFIED ||
       shipping_fcm_version < Level::R) {
     GTEST_SKIP() << "Kernel FCM version not enforced on target FCM version "
                  << shipping_fcm_version;
   }
+  std::string error;
+  Level kernel_fcm_version = VintfObject::GetInstance()->getKernelLevel(&error);
   ASSERT_NE(Level::UNSPECIFIED, kernel_fcm_version)
-      << "Kernel FCM version must be specified for target FCM version "
-      << shipping_fcm_version;
+      << "Kernel FCM version must be specified for target FCM version '"
+      << shipping_fcm_version << "': " << error;
   ASSERT_GE(kernel_fcm_version, shipping_fcm_version)
       << "Kernel FCM version " << kernel_fcm_version
       << " must be greater or equal to target FCM version "
@@ -95,7 +77,7 @@ TEST_F(DeviceManifestTest, NoDeprecatedHalsOnManifest) {
 // from this requirement, so we use this test to enforce instead of the
 // compatibility matrix.
 TEST_F(DeviceManifestTest, GrallocHalVersionCompatibility) {
-  Level shipping_fcm_version = vendor_manifest_->level();
+  Level shipping_fcm_version = VintfObject::GetDeviceHalManifest()->level();
   bool is_go_device =
       android::base::GetBoolProperty("ro.config.low_ram", false);
   if (shipping_fcm_version == Level::UNSPECIFIED ||

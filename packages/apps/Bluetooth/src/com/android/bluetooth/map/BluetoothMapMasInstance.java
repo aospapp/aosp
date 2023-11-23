@@ -106,7 +106,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
             new HashMap<Long, BluetoothMapConvoListingElement>();
 
     private int mRemoteFeatureMask = BluetoothMapUtils.MAP_FEATURE_DEFAULT_BITMASK;
-    private static int sFeatureMask = SDP_MAP_MAS_FEATURES_1_2;
+    private static int sFeatureMask = SDP_MAP_MAS_FEATURES_1_4;
 
     public static final String TYPE_SMS_MMS_STR = "SMS/MMS";
     public static final String TYPE_EMAIL_STR = "EMAIL";
@@ -347,7 +347,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
             }
         }
 
-        final String currentValue = SystemProperties.get(BLUETOOTH_MAP_VERSION_PROPERTY, "map12");
+        final String currentValue = SystemProperties.get(BLUETOOTH_MAP_VERSION_PROPERTY, "map14");
         int masVersion;
 
         switch (currentValue) {
@@ -364,8 +364,8 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
                 sFeatureMask = SDP_MAP_MAS_FEATURES_1_4;
                 break;
             default:
-                masVersion = SDP_MAP_MAS_VERSION_1_2;
-                sFeatureMask = SDP_MAP_MAS_FEATURES_1_2;
+                masVersion = SDP_MAP_MAS_VERSION_1_4;
+                sFeatureMask = SDP_MAP_MAS_FEATURES_1_4;
         }
 
         return SdpManager.getDefaultManager()

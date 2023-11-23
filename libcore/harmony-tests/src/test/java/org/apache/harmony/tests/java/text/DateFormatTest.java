@@ -21,9 +21,12 @@ import java.text.DateFormatSymbols;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 public class DateFormatTest extends junit.framework.TestCase {
 
@@ -42,18 +45,21 @@ public class DateFormatTest extends junit.framework.TestCase {
 	 * @tests java.text.DateFormat#getAvailableLocales()
 	 */
 	public void test_getAvailableLocales() {
+		// Locale.getAvailableLocales() and DateFormat.getAvailableLocales() should have
+		// the same set of locales.
+		Set<Locale> expectedLocales = new HashSet<>(Arrays.asList(
+				Locale.getAvailableLocales()));
 		Locale[] locales = DateFormat.getAvailableLocales();
 		assertTrue("No locales", locales.length > 0);
+		assertEquals(expectedLocales.size(), locales.length);
 		boolean english = false, german = false;
-		for (int i = locales.length; --i >= 0;) {
-			if (locales[i].equals(Locale.ENGLISH))
+		for (Locale locale : locales) {
+			assertTrue("Locale.getAvailableLocales() doesn't have the locale " + locale,
+					expectedLocales.contains(locale));
+			if (locale.equals(Locale.ENGLISH))
 				english = true;
-			if (locales[i].equals(Locale.GERMAN))
+			if (locale.equals(Locale.GERMAN))
 				german = true;
-			DateFormat f1 = DateFormat.getDateTimeInstance(DateFormat.SHORT,
-					DateFormat.SHORT, locales[i]);
-			assertTrue("Doesn't work",
-					f1.format(new Date()).getClass() == String.class);
 		}
 		assertTrue("Missing locales", english && german);
 	}

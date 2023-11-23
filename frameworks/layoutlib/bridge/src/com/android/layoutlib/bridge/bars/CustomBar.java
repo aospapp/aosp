@@ -16,7 +16,7 @@
 
 package com.android.layoutlib.bridge.bars;
 
-import com.android.ide.common.rendering.api.LayoutLog;
+import com.android.ide.common.rendering.api.ILayoutLog;
 import com.android.ide.common.rendering.api.RenderResources;
 import com.android.ide.common.rendering.api.ResourceValue;
 import com.android.ide.common.rendering.api.StyleResourceValue;
@@ -256,7 +256,7 @@ abstract class CustomBar extends LinearLayout {
                     return ResourceHelper.getColor(resource.getValue());
                 } catch (NumberFormatException e) {
                     // Conversion failed.
-                    Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_FORMAT,
+                    Bridge.getLog().warning(ILayoutLog.TAG_RESOURCES_FORMAT,
                             "Theme attribute @android:" + attr +
                                     " does not reference a color, instead is '" +
                                     resource.getValue() + "'.", null, resource);

@@ -16,6 +16,7 @@
 
 package android.permission3.cts
 
+import org.junit.Assume
 import org.junit.Before
 import org.junit.Test
 
@@ -23,8 +24,11 @@ import org.junit.Test
  * Runtime permission behavior tests for apps targeting API 22.
  */
 class PermissionTest22 : BaseUsePermissionTest() {
+
     @Before
     fun installApp22AndApprovePermissionReview() {
+        Assume.assumeFalse(packageManager.arePermissionsIndividuallyControlled())
+
         installPackage(APP_APK_PATH_22)
         approvePermissionReview()
     }

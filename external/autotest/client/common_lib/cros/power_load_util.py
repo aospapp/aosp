@@ -11,6 +11,8 @@ _URL_BASE = ('https://sites.google.com/a/chromium.org/dev/chromium-os'
 _PLTG_URL = _URL_BASE + '/pltg'
 _PLTU_URL = _URL_BASE + '/pltu'
 _PLTP_URL = _URL_BASE + '/pltp'
+_MEETU_URL = _URL_BASE + '/meetu'
+_MEETP_URL = _URL_BASE + '/meetp'
 
 
 def _get_content(url):
@@ -41,3 +43,13 @@ def get_username():
 def get_password():
     """Returns password for load testing."""
     return _get_content(_PLTP_URL)
+
+
+def get_meet_username():
+    """Returns username for meet testing."""
+    return _get_content(_MEETU_URL)
+
+
+def get_meet_password():
+    """Returns password for meet testing."""
+    return _get_content(_MEETP_URL)

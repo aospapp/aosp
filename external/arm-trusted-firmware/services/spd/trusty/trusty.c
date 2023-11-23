@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2020, NVIDIA Corporation. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -16,10 +17,17 @@
 #include <common/debug.h>
 #include <common/runtime_svc.h>
 #include <lib/el3_runtime/context_mgmt.h>
+#include <lib/smccc.h>
 #include <plat/common/platform.h>
+#include <tools_share/uuid.h>
 
 #include "sm_err.h"
 #include "smcall.h"
+
+/* Trusty UID: RFC-4122 compliant UUID version 4 */
+DEFINE_SVC_UUID2(trusty_uuid,
+		 0x40ee25f0, 0xa2bc, 0x304c, 0x8c, 0x4c,
+		 0xa1, 0x73, 0xc5, 0x7d, 0x8a, 0xf1);
 
 /* macro to check if Hypervisor is enabled in the HCR_EL2 register */
 #define HYP_ENABLE_FLAG		0x286001U
@@ -150,9 +158,9 @@ static uint64_t trusty_fiq_handler(uint32_t id,
 	(void)memcpy(&ctx->fiq_gpregs, get_gpregs_ctx(handle), sizeof(ctx->fiq_gpregs));
 	ctx->fiq_pc = SMC_GET_EL3(handle, CTX_ELR_EL3);
 	ctx->fiq_cpsr = SMC_GET_EL3(handle, CTX_SPSR_EL3);
-	ctx->fiq_sp_el1 = read_ctx_reg(get_sysregs_ctx(handle), CTX_SP_EL1);
+	ctx->fiq_sp_el1 = read_ctx_reg(get_el1_sysregs_ctx(handle), CTX_SP_EL1);
 
-	write_ctx_reg(get_sysregs_ctx(handle), CTX_SP_EL1, ctx->fiq_handler_sp);
+	write_ctx_reg(get_el1_sysregs_ctx(handle), CTX_SP_EL1, ctx->fiq_handler_sp);
 	cm_set_elr_spsr_el3(NON_SECURE, ctx->fiq_handler_pc, (uint32_t)ctx->fiq_handler_cpsr);
 
 	SMC_RET0(handle);
@@ -211,7 +219,7 @@ static uint64_t trusty_fiq_exit(void *handle, uint64_t x1, uint64_t x2, uint64_t
 	 */
 	(void)memcpy(get_gpregs_ctx(handle), &ctx->fiq_gpregs, sizeof(ctx->fiq_gpregs));
 	ctx->fiq_handler_active = 0;
-	write_ctx_reg(get_sysregs_ctx(handle), CTX_SP_EL1, ctx->fiq_sp_el1);
+	write_ctx_reg(get_el1_sysregs_ctx(handle), CTX_SP_EL1, ctx->fiq_sp_el1);
 	cm_set_elr_spsr_el3(NON_SECURE, ctx->fiq_pc, (uint32_t)ctx->fiq_cpsr);
 
 	SMC_RET0(handle);
@@ -256,6 +264,11 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 		SMC_RET1(handle, SMC_UNK);
 	} else {
 		switch (smc_fid) {
+		case SMC_FC64_GET_UUID:
+		case SMC_FC_GET_UUID:
+			/* provide the UUID for the service to the client */
+			SMC_UUID_RET(handle, trusty_uuid);
+			break;
 		case SMC_FC64_SET_FIQ_HANDLER:
 			return trusty_set_fiq_handler(handle, x1, x2, x3);
 		case SMC_FC64_GET_FIQ_REGS:
@@ -263,6 +276,12 @@ static uintptr_t trusty_smc_handler(uint32_t smc_fid,
 		case SMC_FC_FIQ_EXIT:
 			return trusty_fiq_exit(handle, x1, x2, x3);
 		default:
+			/* Not all OENs greater than SMC_ENTITY_SECURE_MONITOR are supported */
+			if (SMC_ENTITY(smc_fid) > SMC_ENTITY_SECURE_MONITOR) {
+				VERBOSE("%s: unsupported SMC FID (0x%x)\n", __func__, smc_fid);
+				SMC_RET1(handle, SMC_UNK);
+			}
+
 			if (is_hypervisor_mode())
 				vmid = SMC_GET_GP(handle, CTX_GPREG_X7);
 
@@ -390,6 +409,10 @@ static const spd_pm_ops_t trusty_pm = {
 
 void plat_trusty_set_boot_args(aapcs64_params_t *args);
 
+#if !defined(TSP_SEC_MEM_SIZE) && defined(BL32_MEM_SIZE)
+#define TSP_SEC_MEM_SIZE BL32_MEM_SIZE
+#endif
+
 #ifdef TSP_SEC_MEM_SIZE
 #pragma weak plat_trusty_set_boot_args
 void plat_trusty_set_boot_args(aapcs64_params_t *args)
@@ -409,7 +432,7 @@ static int32_t trusty_setup(void)
 	/* Get trusty's entry point info */
 	ep_info = bl31_plat_get_next_image_ep_info(SECURE);
 	if (ep_info == NULL) {
-		INFO("Trusty image missing.\n");
+		VERBOSE("Trusty image missing.\n");
 		return -1;
 	}
 
@@ -462,7 +485,7 @@ static int32_t trusty_setup(void)
 					      trusty_fiq_handler,
 					      flags);
 	if (ret != 0) {
-		ERROR("trusty: failed to register fiq handler, ret = %d\n", ret);
+		VERBOSE("trusty: failed to register fiq handler, ret = %d\n", ret);
 	}
 
 	if (aarch32) {
@@ -498,7 +521,7 @@ DECLARE_RT_SVC(
 	trusty_fast,
 
 	OEN_TOS_START,
-	SMC_ENTITY_SECURE_MONITOR,
+	OEN_TOS_END,
 	SMC_TYPE_FAST,
 	trusty_setup,
 	trusty_smc_handler

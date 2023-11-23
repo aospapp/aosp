@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 ar_XB{
-    Version{"36.1"}
     zoneStrings{
         "Africa:Sao_Tome"{
             ec{"؜‮São‬؜ ؜‮Tomé‬؜"}
@@ -15,14 +15,35 @@ ar_XB{
         "America:St_Barthelemy"{
             ec{"؜‮St‬؜. ؜‮Barthélemy‬؜"}
         }
+        "America:St_Johns"{
+            ec{"؜‮St‬؜. ؜‮John‬؜’؜‮s‬؜"}
+        }
+        "America:St_Kitts"{
+            ec{"؜‮St‬؜. ؜‮Kitts‬؜"}
+        }
+        "America:St_Lucia"{
+            ec{"؜‮St‬؜. ؜‮Lucia‬؜"}
+        }
+        "America:St_Thomas"{
+            ec{"؜‮St‬؜. ؜‮Thomas‬؜"}
+        }
+        "America:St_Vincent"{
+            ec{"؜‮St‬؜. ؜‮Vincent‬؜"}
+        }
         "Antarctica:DumontDUrville"{
             ec{"؜‮Dumont‬؜ ؜‮d‬؜’؜‮Urville‬؜"}
+        }
+        "Asia:Aqtau"{
+            ec{"؜‮Aqtau‬؜"}
         }
         "Asia:Qostanay"{
             ec{"؜‮Kostanay‬؜"}
         }
         "Asia:Saigon"{
             ec{"؜‮Ho‬؜ ؜‮Chi‬؜ ؜‮Minh‬؜ ؜‮City‬؜"}
+        }
+        "Atlantic:St_Helena"{
+            ec{"؜‮St‬؜. ؜‮Helena‬؜"}
         }
         "Etc:UTC"{
             ls{"؜‮Coordinated‬؜ ؜‮Universal‬؜ ؜‮Time‬؜"}
@@ -535,7 +556,9 @@ ar_XB{
             ls{"؜‮Niue‬؜ ؜‮Time‬؜"}
         }
         "meta:Norfolk"{
-            ls{"؜‮Norfolk‬؜ ؜‮Island‬؜ ؜‮Time‬؜"}
+            ld{"؜‮Norfolk‬؜ ؜‮Island‬؜ ؜‮Daylight‬؜ ؜‮Time‬؜"}
+            lg{"؜‮Norfolk‬؜ ؜‮Island‬؜ ؜‮Time‬؜"}
+            ls{"؜‮Norfolk‬؜ ؜‮Island‬؜ ؜‮Standard‬؜ ؜‮Time‬؜"}
         }
         "meta:Noronha"{
             ld{"؜‮Fernando‬؜ ؜‮de‬؜ ؜‮Noronha‬؜ ؜‮Summer‬؜ ؜‮Time‬؜"}
@@ -720,6 +743,7 @@ ar_XB{
             ls{"؜‮Yekaterinburg‬؜ ؜‮Standard‬؜ ؜‮Time‬؜"}
         }
         gmtFormat{"؜‮GMT‬؜{0}"}
+        hourFormat{"+HH:mm;-HH:mm"}
         regionFormat{"{0} ؜‮Time‬؜"}
         regionFormatDaylight{"{0} ؜‮Daylight‬؜ ؜‮Time‬؜"}
         regionFormatStandard{"{0} ؜‮Standard‬؜ ؜‮Time‬؜"}

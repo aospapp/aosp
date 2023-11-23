@@ -10,6 +10,7 @@ ioctl: arg1 in 0xffff41ff && arg1 & 0x00004100 || arg1 in 0xffff55ff && arg1 & 0
 ppoll: 1
 read: 1
 write: 1
+writev: 1
 newfstatat: 1
 fstat: 1
 openat: 1
@@ -30,6 +31,7 @@ sendto: 1
 brk: 1
 munmap: 1
 socket: arg0 == AF_UNIX || arg0 == AF_BLUETOOTH || arg0 == AF_NETLINK
+socketpair: 1
 statfs: 1
 getsockopt: 1
 accept: 1
@@ -37,6 +39,7 @@ pipe2: 1
 prctl: arg0 == PR_SET_NAME
 futex: 1
 ftruncate: 1
+fallocate: 1
 connect: 1
 bind: 1
 clock_getres: 1
@@ -49,7 +52,6 @@ exit: 1
 exit_group: 1
 fchmod: 1
 fchmodat: 1
-flock: 1
 flock: 1
 getegid: 1
 geteuid: 1
@@ -66,6 +68,7 @@ listen: 1
 lsetxattr: 1
 madvise: 1
 nanosleep: 1
+clock_nanosleep: 1
 restart_syscall: 1
 rt_sigprocmask: 1
 rt_sigreturn: 1
@@ -74,6 +77,7 @@ sched_get_priority_min: 1
 sched_setscheduler: 1
 setrlimit: 1
 set_robust_list: 1
+setpriority: 1
 setsockopt: 1
 set_tid_address: 1
 sysinfo: 1

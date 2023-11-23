@@ -232,7 +232,7 @@ public final class HttpCookie implements java.lang.Cloneable {
 
     private static final java.lang.String SET_COOKIE2 = "set-cookie2:";
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     static final java.util.Map<java.lang.String, java.net.HttpCookie.CookieAttributeAssignor>
             assignors;
 
@@ -240,16 +240,16 @@ public final class HttpCookie implements java.lang.Cloneable {
         assignors = null;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private java.lang.String comment;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private java.lang.String commentURL;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private java.lang.String domain;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private final java.lang.String header;
 
     {
@@ -260,35 +260,35 @@ public final class HttpCookie implements java.lang.Cloneable {
         publicAlternatives = "Use {@link #setHttpOnly()}/{@link #isHttpOnly()} instead.")
     private boolean httpOnly;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private long maxAge = -1L; // 0xffffffffffffffffL
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private final java.lang.String name;
 
     {
         name = null;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private java.lang.String path;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private java.lang.String portlist;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private boolean secure;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private boolean toDiscard;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private static final java.lang.String tspecials = ",;= \t";
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private java.lang.String value;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private int version = 1; // 0x1
 
     @UnsupportedAppUsage

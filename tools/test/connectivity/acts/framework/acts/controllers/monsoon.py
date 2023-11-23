@@ -17,7 +17,7 @@ from acts.controllers.monsoon_lib.api.hvpm.monsoon import Monsoon as HvpmMonsoon
 from acts.controllers.monsoon_lib.api.lvpm_stock.monsoon import \
     Monsoon as LvpmStockMonsoon
 
-ACTS_CONTROLLER_CONFIG_NAME = 'Monsoon'
+MOBLY_CONTROLLER_CONFIG_NAME = 'Monsoon'
 ACTS_CONTROLLER_REFERENCE_NAME = 'monsoons'
 
 
@@ -69,4 +69,9 @@ def create(configs):
 
 def destroy(monsoons):
     for monsoon in monsoons:
-        monsoon.release_monsoon_connection()
+        if monsoon.is_allocated():
+            monsoon.release_monsoon_connection()
+
+
+def get_info(monsoons):
+    return [{'serial': monsoon.serial} for monsoon in monsoons]

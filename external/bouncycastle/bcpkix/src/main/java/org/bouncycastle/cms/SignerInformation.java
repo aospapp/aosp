@@ -94,13 +94,26 @@ public class SignerInformation
     /**
      * Protected constructor. In some cases clients have their own idea about how to encode
      * the signed attributes and calculate the signature. This constructor is to allow developers
-     * to deal with that by extending off the class and overridng methods like getSignedAttributes().
+     * to deal with that by extending off the class and overriding methods like getSignedAttributes().
      *
      * @param baseInfo the SignerInformation to base this one on.
      */
     protected SignerInformation(SignerInformation baseInfo)
     {
-        this.info = baseInfo.info;
+        this(baseInfo, baseInfo.info);
+    }
+
+    /**
+     * Protected constructor. In some cases clients also have their own ideas about what
+     * goes in various SignerInfo fields. This constructor is to allow developers to deal with
+     * that by also tweaking the SignerInfo so that these issues can be dealt with.
+     *
+     * @param baseInfo the SignerInformation to base this one on.
+     * @param info the SignerInfo to associate with the existing baseInfo data.
+     */
+    protected SignerInformation(SignerInformation baseInfo, SignerInfo info)
+    {
+        this.info = info;
         this.contentType = baseInfo.contentType;
         this.isCounterSignature = baseInfo.isCounterSignature();
         this.sid = baseInfo.getSID();
@@ -147,7 +160,7 @@ public class SignerInformation
      */
     public int getVersion()
     {
-        return info.getVersion().getValue().intValue();
+        return info.getVersion().intValueExact();
     }
 
     public AlgorithmIdentifier getDigestAlgorithmID()

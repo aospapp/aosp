@@ -19,11 +19,13 @@ package android.net;
 import android.net.INetdUnsolicitedEventListener;
 import android.net.InterfaceConfigurationParcel;
 import android.net.MarkMaskParcel;
+import android.net.NativeNetworkConfig;
 import android.net.RouteInfoParcel;
 import android.net.TetherConfigParcel;
 import android.net.TetherOffloadRuleParcel;
 import android.net.TetherStatsParcel;
 import android.net.UidRangeParcel;
+import android.net.netd.aidl.NativeUidRangeConfig;
 
 /** {@hide} */
 interface INetd {
@@ -35,18 +37,18 @@ interface INetd {
     /**
      * Replaces the contents of the specified UID-based firewall chain.
      *
-     * The chain may be a whitelist chain or a blacklist chain. A blacklist chain contains DROP
-     * rules for the specified UIDs and a RETURN rule at the end. A whitelist chain contains RETURN
+     * The chain may be an allowlist chain or a denylist chain. A denylist chain contains DROP
+     * rules for the specified UIDs and a RETURN rule at the end. An allowlist chain contains RETURN
      * rules for the system UID range (0 to {@code UID_APP} - 1), RETURN rules for for the specified
      * UIDs, and a DROP rule at the end. The chain will be created if it does not exist.
      *
      * @param chainName The name of the chain to replace.
-     * @param isWhitelist Whether this is a whitelist or blacklist chain.
+     * @param isAllowlist Whether this is an allowlist or denylist chain.
      * @param uids The list of UIDs to allow/deny.
      * @return true if the chain was successfully replaced, false otherwise.
      */
     boolean firewallReplaceUidChain(in @utf8InCpp String chainName,
-                                    boolean isWhitelist,
+                                    boolean isAllowlist,
                                     in int[] uids);
 
     /**
@@ -69,6 +71,7 @@ interface INetd {
 
     /**
      * Creates a physical network (i.e., one containing physical interfaces.
+     * @deprecated use networkCreate() instead.
      *
      * @param netId the networkId to create.
      * @param permission the permission necessary to use the network. Must be one of
@@ -81,6 +84,7 @@ interface INetd {
 
     /**
      * Creates a VPN network.
+     * @deprecated use networkCreate() instead.
      *
      * @param netId the network to create.
      * @param secure whether unprivileged apps are allowed to bypass the VPN.
@@ -125,12 +129,12 @@ interface INetd {
     void networkRemoveInterface(int netId, in @utf8InCpp String iface);
 
     /**
-     * Adds the specified UID ranges to the specified network. The network must be a VPN. Traffic
-     * from the UID ranges will be routed through the VPN.
+     * Adds the specified UID ranges to the specified network. The network can be physical or
+     * virtual. Traffic from the UID ranges will be routed to the network by default.
      *
      * @param netId the network ID of the network to add the ranges to.
-     * @param uidRanges a set of non-overlapping, contiguous ranges of UIDs to add. The ranges
-     *        must not overlap with existing ranges routed to this network.
+     * @param uidRanges a set of non-overlapping ranges of UIDs to add. These exact ranges
+     *        must not overlap with existing ranges assigned to this network.
      *
      * @throws ServiceSpecificException in case of failure, with an error code corresponding to the
      *         unix errno.
@@ -138,12 +142,12 @@ interface INetd {
     void networkAddUidRanges(int netId, in UidRangeParcel[] uidRanges);
 
     /**
-     * Adds the specified UID ranges to the specified network. The network must be a VPN. Traffic
-     * from the UID ranges will no longer be routed through the VPN.
+     * Remove the specified UID ranges from the specified network. The network can be physical or
+     * virtual. Traffic from the UID ranges will no longer be routed to the network by default.
      *
      * @param netId the network ID of the network to remove the ranges from.
-     * @param uidRanges a set of non-overlapping, contiguous ranges of UIDs to add. The ranges
-     *        must already be routed to this network.
+     * @param uidRanges a set of non-overlapping ranges of UIDs to remove. These exact ranges
+     *        must already be assigned to this network.
      *
      * @throws ServiceSpecificException in case of failure, with an error code corresponding to the
      *         unix errno.
@@ -771,6 +775,22 @@ interface INetd {
 
     const int LOCAL_NET_ID = 99;
 
+    /**
+     * Constant net ID for the "dummy" network.
+     *
+     * The dummy network is used to blackhole or reject traffic. Any attempt to use it will
+     * either drop the packets or fail with ENETUNREACH.
+     */
+    const int DUMMY_NET_ID = 51;
+
+    /**
+     * Constant net ID for the "unreachable" network.
+     *
+     * The unreachable network is used to reject traffic. Any attempt to use it will fail
+     * with ENETUNREACH.
+     */
+    const int UNREACHABLE_NET_ID = 52;
+
     // Route does not specify a next hop
     const String NEXTHOP_NONE = "";
     // Route next hop is unreachable
@@ -981,17 +1001,26 @@ interface INetd {
     */
     boolean networkCanProtect(int uid);
 
-    // Whitelist only allows packets from specific UID/Interface
+    /** Only allows packets from specific UID/Interface.
+        @deprecated use FIREWALL_ALLOWLIST. */
     const int FIREWALL_WHITELIST = 0;
-    // Blacklist blocks packets from specific UID/Interface
+
+    /** Only allows packets from specific UID/Interface. */
+    const int FIREWALL_ALLOWLIST = 0;
+
+    /** Blocks packets from specific UID/Interface.
+        @deprecated use FIREWALL_DENYLIST. */
     const int FIREWALL_BLACKLIST = 1;
+
+    /** Blocks packets from specific UID/Interface. */
+    const int FIREWALL_DENYLIST = 1;
 
    /**
     * Set type of firewall
-    * Type whitelist only allows packets from specific UID/Interface
-    * Type blacklist blocks packets from specific UID/Interface
+    * Type allowlist only allows packets from specific UID/Interface
+    * Type denylist blocks packets from specific UID/Interface
     *
-    * @param firewalltype type of firewall, either FIREWALL_WHITELIST or FIREWALL_BLACKLIST
+    * @param firewalltype type of firewall, either FIREWALL_ALLOWLIST or FIREWALL_DENYLIST
     * @throws ServiceSpecificException in case of failure, with an error code indicating the
     *         cause of the failure.
     */
@@ -1010,6 +1039,9 @@ interface INetd {
     const int FIREWALL_CHAIN_STANDBY = 2;
     // Specify POWERSAVE chain(fw_powersave) which is used in power save mode
     const int FIREWALL_CHAIN_POWERSAVE = 3;
+    // Specify RESTRICTED chain(fw_restricted) which is used in restricted
+    // networking mode
+    const int FIREWALL_CHAIN_RESTRICTED = 4;
 
    /**
     * Set firewall rule for interface
@@ -1159,7 +1191,7 @@ interface INetd {
      * Add ingress interface filtering rules to a list of UIDs
      *
      * For a given uid, once a filtering rule is added, the kernel will only allow packets from the
-     * whitelisted interface and loopback to be sent to the list of UIDs.
+     * allowed interface and loopback to be sent to the list of UIDs.
      *
      * Calling this method on one or more UIDs with an existing filtering rule but a different
      * interface name will result in the filtering rule being updated to allow the new interface
@@ -1309,4 +1341,40 @@ interface INetd {
      *                                  cause of the failure.
      */
      TetherStatsParcel tetherOffloadGetAndClearStats(int ifIndex);
+
+    /**
+     * Creates a network.
+     *
+     * @param config the configuration of network.
+     * @throws ServiceSpecificException in case of failure, with an error code corresponding to the
+     *         unix errno.
+     */
+    void networkCreate(in NativeNetworkConfig config);
+
+    /**
+     * Adds the specified UID ranges to the specified network. The network can be physical or
+     * virtual. Traffic from the UID ranges will be routed to the network by default. The possible
+     * value of subsidiary priority for physical and unreachable networks is 0-999. 0 is the highest
+     * priority. 0 is also the default value. Virtual network supports only the default value.
+     *
+     * @param NativeUidRangeConfig a parcel contains netId, UID ranges, subsidiary priority, etc.
+     *
+     * @throws ServiceSpecificException in case of failure, with an error code corresponding to the
+     *         unix errno.
+     */
+    void networkAddUidRangesParcel(in NativeUidRangeConfig uidRangesConfig);
+
+    /**
+     * Removes the specified UID ranges from the specified network. The network can be physical or
+     * virtual. Traffic from the UID ranges will no longer be routed to the network by default. The
+     * possible value of subsidiary priority for physical and unreachable networks is 0-999. 0 is
+     * the highest priority. 0 is also the default value. Virtual network supports only the default
+     * value.
+     *
+     * @param NativeUidRangeConfig a parcel contains netId, UID ranges, subsidiary priority, etc.
+     *
+     * @throws ServiceSpecificException in case of failure, with an error code corresponding to the
+     *         unix errno.
+     */
+    void networkRemoveUidRangesParcel(in NativeUidRangeConfig uidRangesConfig);
 }

@@ -7,7 +7,7 @@
 
 from __future__ import print_function
 
-from whitelist import is_whitelisted
+from allowlist import is_allowlisted
 
 
 def not_by_gcc(dso_path, producer, comp_path):
@@ -21,10 +21,10 @@ def not_by_gcc(dso_path, producer, comp_path):
   Returns:
     False if compiled by gcc otherwise True.
   """
-  if is_whitelisted('ngcc_comp_path', comp_path):
+  if is_allowlisted('ngcc_comp_path', comp_path):
     return True
 
-  if is_whitelisted('ngcc_dso_path', dso_path):
+  if is_allowlisted('ngcc_dso_path', dso_path):
     return True
 
   return 'GNU C' not in producer

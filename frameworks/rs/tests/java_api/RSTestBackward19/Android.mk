@@ -27,6 +27,8 @@ LOCAL_RENDERSCRIPT_TARGET_API := 19
 LOCAL_MIN_SDK_VERSION := 17
 LOCAL_SDK_VERSION := current
 LOCAL_PACKAGE_NAME := RSTestBackward19
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 my_rs_unit_tests_path := ../RSUnitTests/src/com/android/rs/unittest
 LOCAL_SRC_FILES :=\
     $(call all-java-files-under,src)\
@@ -105,4 +107,3 @@ LOCAL_SRC_FILES :=\
 include $(BUILD_PACKAGE)
 
 my_rs_unit_tests_path :=
-

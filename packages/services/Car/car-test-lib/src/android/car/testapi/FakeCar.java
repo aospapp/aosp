@@ -24,8 +24,6 @@ import android.car.content.pm.ICarPackageManager;
 import android.car.diagnostic.ICarDiagnostic;
 import android.car.drivingstate.ICarDrivingState;
 import android.car.hardware.power.ICarPower;
-import android.car.media.ICarAudio;
-import android.car.settings.ICarConfigurationManager;
 import android.car.storagemonitoring.ICarStorageMonitoring;
 import android.content.Context;
 import android.os.IBinder;
@@ -43,7 +41,7 @@ import java.util.List;
     Car Service.  Effectively creating a fake version of Car Service that can run under Robolectric
     environment (thus running on the desktop rather than on a real device).
 
-    By default all interfaces are mocked out just to allow dummy implementation and avoid crashes.
+    By default all interfaces are mocked out just to allow placeholder implementation and avoid crashes.
     This will allow production code to call into Car*Manager w/o crashes because managers will just
     pass the call into mocked version of the interface. However, in many cases
     developers would like to have more sophisticated test cases and ability to simulate vehicle as
@@ -129,8 +127,15 @@ public class FakeCar {
         return mService.mCarUxRestrictionService;
     }
 
+    /**
+     * Returns a test controller that can modify and query the underlying service for the {@link
+     * android.car.telemetry.CarTelemetryManager}.
+     */
+    public CarTelemetryController getCarTelemetryController() {
+        return mService.mCarTelemetry;
+    }
+
     private static class FakeCarService extends ICar.Stub {
-        @Mock ICarAudio.Stub mCarAudio;
         @Mock ICarPackageManager.Stub mCarPackageManager;
         @Mock ICarDiagnostic.Stub mCarDiagnostic;
         @Mock ICarPower.Stub mCarPower;
@@ -138,47 +143,29 @@ public class FakeCar {
         @Mock ICarBluetooth.Stub mCarBluetooth;
         @Mock ICarStorageMonitoring.Stub mCarStorageMonitoring;
         @Mock ICarDrivingState.Stub mCarDrivingState;
-        @Mock ICarConfigurationManager.Stub mCarConfigurationManager;
 
+        private final FakeCarAudioService mCarAudio;
         private final FakeAppFocusService mAppFocus;
         private final FakeCarPropertyService mCarProperty;
         private final FakeCarProjectionService mCarProjection;
         private final FakeInstrumentClusterNavigation mInstrumentClusterNavigation;
         private final FakeCarUxRestrictionsService mCarUxRestrictionService;
+        private final FakeCarTelemetryService mCarTelemetry;
 
         FakeCarService(Context context) {
             MockitoAnnotations.initMocks(this);
+            mCarAudio = new FakeCarAudioService();
             mAppFocus = new FakeAppFocusService(context);
             mCarProperty = new FakeCarPropertyService();
             mCarProjection = new FakeCarProjectionService(context);
             mInstrumentClusterNavigation = new FakeInstrumentClusterNavigation();
             mCarUxRestrictionService = new FakeCarUxRestrictionsService();
+            mCarTelemetry = new FakeCarTelemetryService();
         }
 
         @Override
-        public void setCarServiceHelper(IBinder helper) throws RemoteException {
-            // Nothing to do yet.
-        }
-
-        @Override
-        public void onUserLifecycleEvent(int eventType, long timestampMs, int fromUserId,
-                int toUserId) {
-            // Nothing to do yet.
-        }
-
-        @Override
-        public void onFirstUserUnlocked(int userId, long timestampMs, long duration,
-                int halResponseTime) {
-            // Nothing to do yet.
-        }
-
-        @Override
-        public void getInitialUserInfo(int requestType, int timeoutMs, IBinder binder) {
-            // Nothing to do yet.
-        }
-
-        @Override
-        public void setInitialUser(int userId) {
+        public void setSystemServerConnections(IBinder helper, IBinder receiver)
+                throws RemoteException {
             // Nothing to do yet.
         }
 
@@ -216,8 +203,8 @@ public class FakeCar {
                     return mCarDrivingState;
                 case Car.CAR_UX_RESTRICTION_SERVICE:
                     return mCarUxRestrictionService;
-                case Car.CAR_CONFIGURATION_SERVICE:
-                    return mCarConfigurationManager;
+                case Car.CAR_TELEMETRY_SERVICE:
+                    return mCarTelemetry;
                 default:
                     Log.w(TAG, "getCarService for unknown service:" + serviceName);
                     return null;

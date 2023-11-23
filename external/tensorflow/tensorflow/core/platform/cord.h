@@ -18,11 +18,12 @@ limitations under the License.
 
 #include "tensorflow/core/platform/platform.h"
 
+// No Cord implementation on Android
 // Include appropriate platform-dependent implementations
-#if defined(PLATFORM_GOOGLE)
-#include "tensorflow/core/platform/google/cord.h"
-#else
-#include "tensorflow/core/platform/default/cord.h"
-#endif
+//#if defined(PLATFORM_GOOGLE)
+//#include "tensorflow/core/platform/google/cord.h"
+//#else
+//#include "tensorflow/core/platform/default/cord.h"
+//#endif
 
 #endif  // TENSORFLOW_CORE_PLATFORM_CORD_H_

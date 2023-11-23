@@ -5,6 +5,7 @@
 #include "policy/device_policy_impl.h"
 
 #include <algorithm>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -15,6 +16,7 @@
 #include <base/logging.h>
 #include <base/macros.h>
 #include <base/memory/ptr_util.h>
+#include <base/stl_util.h>
 #include <base/time/time.h>
 #include <base/values.h>
 #include <openssl/evp.h>
@@ -28,6 +30,12 @@
 namespace em = enterprise_management;
 
 namespace policy {
+
+// TODO(crbug.com/984789): Remove once support for OpenSSL <1.1 is dropped.
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#define EVP_MD_CTX_new EVP_MD_CTX_create
+#define EVP_MD_CTX_free EVP_MD_CTX_destroy
+#endif
 
 // Maximum value of RollbackAllowedMilestones policy.
 const int kMaxRollbackAllowedMilestones = 4;
@@ -54,36 +62,34 @@ bool ReadPublicKeyFromFile(const base::FilePath& key_file,
 bool VerifySignature(const std::string& signed_data,
                      const std::string& signature,
                      const std::string& public_key) {
-  EVP_MD_CTX ctx;
-  EVP_MD_CTX_init(&ctx);
+  std::unique_ptr<EVP_MD_CTX, void (*)(EVP_MD_CTX *)> ctx(EVP_MD_CTX_new(),
+                                                          EVP_MD_CTX_free);
+  if (!ctx)
+    return false;
 
   const EVP_MD* digest = EVP_sha1();
 
   char* key = const_cast<char*>(public_key.data());
   BIO* bio = BIO_new_mem_buf(key, public_key.length());
-  if (!bio) {
-    EVP_MD_CTX_cleanup(&ctx);
+  if (!bio)
     return false;
-  }
 
   EVP_PKEY* public_key_ssl = d2i_PUBKEY_bio(bio, nullptr);
   if (!public_key_ssl) {
     BIO_free_all(bio);
-    EVP_MD_CTX_cleanup(&ctx);
     return false;
   }
 
   const unsigned char* sig =
       reinterpret_cast<const unsigned char*>(signature.data());
-  int rv = EVP_VerifyInit_ex(&ctx, digest, nullptr);
+  int rv = EVP_VerifyInit_ex(ctx.get(), digest, nullptr);
   if (rv == 1) {
-    EVP_VerifyUpdate(&ctx, signed_data.data(), signed_data.length());
-    rv = EVP_VerifyFinal(&ctx, sig, signature.length(), public_key_ssl);
+    EVP_VerifyUpdate(ctx.get(), signed_data.data(), signed_data.length());
+    rv = EVP_VerifyFinal(ctx.get(), sig, signature.length(), public_key_ssl);
   }
 
   EVP_PKEY_free(public_key_ssl);
   BIO_free_all(bio);
-  EVP_MD_CTX_cleanup(&ctx);
 
   return rv == 1;
 }
@@ -95,7 +101,7 @@ std::string DecodeConnectionType(int type) {
       "ethernet", "wifi", "wimax", "bluetooth", "cellular",
   };
 
-  if (type < 0 || type >= static_cast<int>(arraysize(kConnectionTypes)))
+  if (type < 0 || type >= static_cast<int>(base::size(kConnectionTypes)))
     return std::string();
 
   return kConnectionTypes[type];
@@ -194,6 +200,17 @@ bool DevicePolicyImpl::LoadPolicy() {
   }
 
   return policy_loaded;
+}
+
+bool DevicePolicyImpl::IsEnterpriseEnrolled() const {
+  DCHECK(install_attributes_reader_);
+  if (!install_attributes_reader_->IsLocked())
+    return false;
+
+  const std::string& device_mode = install_attributes_reader_->GetAttribute(
+      InstallAttributesReader::kAttrMode);
+  return device_mode == InstallAttributesReader::kDeviceModeEnterprise ||
+      device_mode == InstallAttributesReader::kDeviceModeEnterpriseAD;
 }
 
 bool DevicePolicyImpl::GetPolicyRefreshRate(int* rate) const {
@@ -331,6 +348,9 @@ bool DevicePolicyImpl::GetReleaseChannelDelegated(
 }
 
 bool DevicePolicyImpl::GetUpdateDisabled(bool* update_disabled) const {
+  if (!IsEnterpriseEnrolled())
+    return false;
+
   if (!device_policy_.has_auto_update_settings())
     return false;
 
@@ -345,6 +365,9 @@ bool DevicePolicyImpl::GetUpdateDisabled(bool* update_disabled) const {
 
 bool DevicePolicyImpl::GetTargetVersionPrefix(
     std::string* target_version_prefix) const {
+  if (!IsEnterpriseEnrolled())
+    return false;
+
   if (!device_policy_.has_auto_update_settings())
     return false;
 
@@ -374,14 +397,7 @@ bool DevicePolicyImpl::GetRollbackToTargetVersion(
 bool DevicePolicyImpl::GetRollbackAllowedMilestones(
     int* rollback_allowed_milestones) const {
   // This policy can be only set for devices which are enterprise enrolled.
-  if (!install_attributes_reader_->IsLocked())
-    return false;
-  if (install_attributes_reader_->GetAttribute(
-          InstallAttributesReader::kAttrMode) !=
-          InstallAttributesReader::kDeviceModeEnterprise &&
-      install_attributes_reader_->GetAttribute(
-          InstallAttributesReader::kAttrMode) !=
-          InstallAttributesReader::kDeviceModeEnterpriseAD)
+  if (!IsEnterpriseEnrolled())
     return false;
 
   if (device_policy_.has_auto_update_settings()) {
@@ -398,8 +414,9 @@ bool DevicePolicyImpl::GetRollbackAllowedMilestones(
     }
   }
   // Policy is not present, use default for enterprise devices.
-  VLOG(1) << "RollbackAllowedMilestones policy is not set, using default 0.";
-  *rollback_allowed_milestones = 0;
+  VLOG(1) << "RollbackAllowedMilestones policy is not set, using default "
+          << kMaxRollbackAllowedMilestones << ".";
+  *rollback_allowed_milestones = kMaxRollbackAllowedMilestones;
   return true;
 }
 
@@ -419,6 +436,9 @@ bool DevicePolicyImpl::GetScatterFactorInSeconds(
 
 bool DevicePolicyImpl::GetAllowedConnectionTypesForUpdate(
     std::set<std::string>* connection_types) const {
+  if (!IsEnterpriseEnrolled())
+    return false;
+
   if (!device_policy_.has_auto_update_settings())
     return false;
 
@@ -541,9 +561,9 @@ bool DevicePolicyImpl::GetDeviceUpdateStagingSchedule(
   if (!list_val)
     return false;
 
-  for (base::Value* const& pair_value : *list_val) {
-    base::DictionaryValue* day_percentage_pair;
-    if (!pair_value->GetAsDictionary(&day_percentage_pair))
+  for (const auto& pair_value : *list_val) {
+    const base::DictionaryValue* day_percentage_pair;
+    if (!pair_value.GetAsDictionary(&day_percentage_pair))
       return false;
     int days, percentage;
     if (!day_percentage_pair->GetInteger("days", &days) ||
@@ -616,6 +636,8 @@ bool DevicePolicyImpl::GetSecondFactorAuthenticationMode(int* mode_out) const {
 bool DevicePolicyImpl::GetDisallowedTimeIntervals(
     std::vector<WeeklyTimeInterval>* intervals_out) const {
   intervals_out->clear();
+  if (!IsEnterpriseEnrolled())
+    return false;
 
   if (!device_policy_.has_auto_update_settings()) {
     return false;
@@ -633,14 +655,14 @@ bool DevicePolicyImpl::GetDisallowedTimeIntervals(
   if (!list_val)
     return false;
 
-  for (base::Value* const& interval_value : *list_val) {
-    base::DictionaryValue* interval_dict;
-    if (!interval_value->GetAsDictionary(&interval_dict)) {
+  for (const auto& interval_value : *list_val) {
+    const base::DictionaryValue* interval_dict;
+    if (!interval_value.GetAsDictionary(&interval_dict)) {
       LOG(ERROR) << "Invalid JSON string given. Interval is not a dict.";
       return false;
     }
-    base::DictionaryValue* start;
-    base::DictionaryValue* end;
+    const base::DictionaryValue* start;
+    const base::DictionaryValue* end;
     if (!interval_dict->GetDictionary("start", &start) ||
         !interval_dict->GetDictionary("end", &end)) {
       LOG(ERROR) << "Interval is missing start/end.";
@@ -656,6 +678,29 @@ bool DevicePolicyImpl::GetDisallowedTimeIntervals(
 
     intervals_out->push_back(weekly_interval);
   }
+  return true;
+}
+
+bool DevicePolicyImpl::GetDeviceQuickFixBuildToken(
+    std::string* device_quick_fix_build_token) const {
+  if (!IsEnterpriseEnrolled() || !device_policy_.has_auto_update_settings())
+    return false;
+
+  const em::AutoUpdateSettingsProto& proto =
+      device_policy_.auto_update_settings();
+  if (!proto.has_device_quick_fix_build_token())
+    return false;
+
+  *device_quick_fix_build_token = proto.device_quick_fix_build_token();
+  return true;
+}
+
+bool DevicePolicyImpl::GetDeviceDirectoryApiId(
+    std::string* directory_api_id_out) const {
+  if (!policy_data_.has_directory_api_id())
+    return false;
+
+  *directory_api_id_out = policy_data_.directory_api_id();
   return true;
 }
 

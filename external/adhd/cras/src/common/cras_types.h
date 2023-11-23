@@ -15,6 +15,7 @@
 
 #include "cras_audio_format.h"
 #include "cras_iodev_info.h"
+#include "packet_status_logger.h"
 
 /* Architecture independent timespec */
 struct __attribute__((__packed__)) cras_timespec {
@@ -48,6 +49,10 @@ enum CRAS_CONNECTION_TYPE {
 	CRAS_CONTROL, // For legacy client.
 	CRAS_PLAYBACK, // For playback client.
 	CRAS_CAPTURE, // For capture client.
+	CRAS_VMS_LEGACY, // For legacy client in vms.
+	CRAS_VMS_UNIFIED, // For unified client in vms.
+	CRAS_PLUGIN_PLAYBACK, // For playback client in vms/plugin.
+	CRAS_PLUGIN_UNIFIED, // For unified client in vms/plugin.
 	CRAS_NUM_CONN_TYPE,
 };
 
@@ -162,7 +167,16 @@ enum CRAS_CLIENT_TYPE {
 	CRAS_CLIENT_TYPE_ARC, /* ARC++ */
 	CRAS_CLIENT_TYPE_CROSVM, /* CROSVM */
 	CRAS_CLIENT_TYPE_SERVER_STREAM, /* Server stream */
+	CRAS_CLIENT_TYPE_LACROS, /* LaCrOS */
+	CRAS_CLIENT_TYPE_PLUGIN, /* PluginVM */
+	CRAS_CLIENT_TYPE_ARCVM, /* ARCVM */
+	CRAS_NUM_CLIENT_TYPE, /* numbers of CRAS_CLIENT_TYPE */
 };
+
+static inline bool cras_validate_client_type(enum CRAS_CLIENT_TYPE client_type)
+{
+	return 0 <= client_type && client_type < CRAS_NUM_CLIENT_TYPE;
+}
 
 #define ENUM_STR(x)                                                            \
 	case x:                                                                \
@@ -198,6 +212,9 @@ cras_client_type_str(enum CRAS_CLIENT_TYPE client_type)
 	ENUM_STR(CRAS_CLIENT_TYPE_ARC)
 	ENUM_STR(CRAS_CLIENT_TYPE_CROSVM)
 	ENUM_STR(CRAS_CLIENT_TYPE_SERVER_STREAM)
+	ENUM_STR(CRAS_CLIENT_TYPE_LACROS)
+	ENUM_STR(CRAS_CLIENT_TYPE_PLUGIN)
+	ENUM_STR(CRAS_CLIENT_TYPE_ARCVM)
 	default:
 		return "INVALID_CLIENT_TYPE";
 	}
@@ -250,6 +267,7 @@ static inline uint32_t node_index_of(cras_node_id_t id)
 #define MAX_DEBUG_STREAMS 8
 #define AUDIO_THREAD_EVENT_LOG_SIZE (1024 * 6)
 #define CRAS_BT_EVENT_LOG_SIZE 1024
+#define MAIN_THREAD_EVENT_LOG_SIZE 1024
 
 /* There are 8 bits of space for events. */
 enum AUDIO_THREAD_LOG_EVENTS {
@@ -270,7 +288,8 @@ enum AUDIO_THREAD_LOG_EVENTS {
 	AUDIO_THREAD_FETCH_STREAM,
 	AUDIO_THREAD_STREAM_ADDED,
 	AUDIO_THREAD_STREAM_REMOVED,
-	AUDIO_THREAD_A2DP_ENCODE,
+	AUDIO_THREAD_A2DP_FLUSH,
+	AUDIO_THREAD_A2DP_THROTTLE_TIME,
 	AUDIO_THREAD_A2DP_WRITE,
 	AUDIO_THREAD_DEV_STREAM_MIX,
 	AUDIO_THREAD_CAPTURE_POST,
@@ -296,6 +315,48 @@ enum AUDIO_THREAD_LOG_EVENTS {
 	AUDIO_THREAD_SEVERE_UNDERRUN,
 	AUDIO_THREAD_CAPTURE_DROP_TIME,
 	AUDIO_THREAD_DEV_DROP_FRAMES,
+	AUDIO_THREAD_LOOPBACK_PUT,
+	AUDIO_THREAD_LOOPBACK_GET,
+	AUDIO_THREAD_LOOPBACK_SAMPLE_HOOK,
+	AUDIO_THREAD_DEV_OVERRUN,
+};
+
+/* Important events in main thread.
+ * MAIN_THREAD_DEV_CLOSE - When an iodev closes at stream removal.
+ * MAIN_THREAD_DEV_DISABLE - When an iodev is removed from active dev list.
+ * MAIN_THREAD_DEV_INIT - When an iodev opens when stream attachs.
+ * MAIN_THREAD_DEV_REOPEN - When an iodev reopens for format change.
+ * MAIN_THREAD_ADD_ACTIVE_NODE - When an iodev is set as an additional
+ *    active device.
+ * MAIN_THREAD_SELECT_NODE - When UI selects an iodev as active.
+ * MAIN_THREAD_NODE_PLUGGED - When a jack of iodev is plugged/unplugged.
+ * MAIN_THREAD_ADD_TO_DEV_LIST - When iodev is added to list.
+ * MAIN_THREAD_INPUT_NODE_GAIN - When input node gain changes.
+ * MAIN_THREAD_OUTPUT_NODE_VOLUME - When output node volume changes.
+ * MAIN_THREAD_SET_OUTPUT_USER_MUTE - When output mute state is set.
+ * MAIN_THREAD_RESUME_DEVS - When system resumes and notifies CRAS.
+ * MAIN_THREAD_SUSPEND_DEVS - When system suspends and notifies CRAS.
+ * MAIN_THREAD_STREAM_ADDED - When an audio stream is added.
+ * MAIN_THREAD_STREAM_REMOVED - When an audio stream is removed.
+ */
+enum MAIN_THREAD_LOG_EVENTS {
+	/* iodev related */
+	MAIN_THREAD_DEV_CLOSE,
+	MAIN_THREAD_DEV_DISABLE,
+	MAIN_THREAD_DEV_INIT,
+	MAIN_THREAD_DEV_REOPEN,
+	MAIN_THREAD_ADD_ACTIVE_NODE,
+	MAIN_THREAD_SELECT_NODE,
+	MAIN_THREAD_NODE_PLUGGED,
+	MAIN_THREAD_ADD_TO_DEV_LIST,
+	MAIN_THREAD_INPUT_NODE_GAIN,
+	MAIN_THREAD_OUTPUT_NODE_VOLUME,
+	MAIN_THREAD_SET_OUTPUT_USER_MUTE,
+	MAIN_THREAD_RESUME_DEVS,
+	MAIN_THREAD_SUSPEND_DEVS,
+	/* stream related */
+	MAIN_THREAD_STREAM_ADDED,
+	MAIN_THREAD_STREAM_REMOVED,
 };
 
 /* There are 8 bits of space for events. */
@@ -309,12 +370,16 @@ enum CRAS_BT_LOG_EVENTS {
 	BT_A2DP_START,
 	BT_A2DP_SUSPENDED,
 	BT_CODEC_SELECTION,
-	BT_DEV_CONNECTED_CHANGE,
+	BT_DEV_CONNECTED,
+	BT_DEV_DISCONNECTED,
 	BT_DEV_CONN_WATCH_CB,
 	BT_DEV_SUSPEND_CB,
 	BT_HFP_NEW_CONNECTION,
 	BT_HFP_REQUEST_DISCONNECT,
 	BT_HFP_SUPPORTED_FEATURES,
+	BT_HFP_HF_INDICATOR,
+	BT_HFP_SET_SPEAKER_GAIN,
+	BT_HFP_UPDATE_SPEAKER_GAIN,
 	BT_HSP_NEW_CONNECTION,
 	BT_HSP_REQUEST_DISCONNECT,
 	BT_NEW_AUDIO_PROFILE_AFTER_CONNECT,
@@ -322,6 +387,8 @@ enum CRAS_BT_LOG_EVENTS {
 	BT_SCO_CONNECT,
 	BT_TRANSPORT_ACQUIRE,
 	BT_TRANSPORT_RELEASE,
+	BT_TRANSPORT_SET_VOLUME,
+	BT_TRANSPORT_UPDATE_VOLUME,
 };
 
 struct __attribute__((__packed__)) audio_thread_event {
@@ -393,6 +460,24 @@ struct __attribute__((__packed__)) audio_debug_info {
 	struct audio_thread_event_log log;
 };
 
+struct __attribute__((__packed__)) main_thread_event {
+	uint32_t tag_sec;
+	uint32_t nsec;
+	uint32_t data1;
+	uint32_t data2;
+	uint32_t data3;
+};
+
+struct __attribute__((__packed__)) main_thread_event_log {
+	uint32_t write_pos;
+	uint32_t len;
+	struct main_thread_event log[MAIN_THREAD_EVENT_LOG_SIZE];
+};
+
+struct __attribute__((__packed__)) main_thread_debug_info {
+	struct main_thread_event_log main_log;
+};
+
 struct __attribute__((__packed__)) cras_bt_event {
 	uint32_t tag_sec;
 	uint32_t nsec;
@@ -408,6 +493,7 @@ struct __attribute__((__packed__)) cras_bt_event_log {
 
 struct __attribute__((__packed__)) cras_bt_debug_info {
 	struct cras_bt_event_log bt_log;
+	struct packet_status_logger wbs_logger;
 };
 
 /*
@@ -415,11 +501,14 @@ struct __attribute__((__packed__)) cras_bt_debug_info {
  * or they will be ignored by the handler.
  */
 enum CRAS_AUDIO_THREAD_EVENT_TYPE {
+	AUDIO_THREAD_EVENT_A2DP_OVERRUN,
+	AUDIO_THREAD_EVENT_A2DP_THROTTLE,
 	AUDIO_THREAD_EVENT_BUSYLOOP,
 	AUDIO_THREAD_EVENT_DEBUG,
 	AUDIO_THREAD_EVENT_SEVERE_UNDERRUN,
 	AUDIO_THREAD_EVENT_UNDERRUN,
 	AUDIO_THREAD_EVENT_DROP_SAMPLES,
+	AUDIO_THREAD_EVENT_DEV_OVERRUN,
 	AUDIO_THREAD_EVENT_TYPE_COUNT,
 };
 
@@ -451,16 +540,8 @@ struct __attribute__((__packed__)) cras_audio_thread_snapshot_buffer {
  *    mute_locked - 0 = unlocked, 1 = locked.
  *    suspended - 1 = suspended, 0 = resumed.
  *    capture_gain - Capture gain in dBFS * 100.
- *    capture_gain_target - Target capture gain in dBFS * 100. The actual
- *                          capture gain will be subjected to current
- *                          supported range. When active device/node changes,
- *                          supported range changes accordingly. System state
- *                          should try to re-apply target gain subjected to new
- *                          range.
  *    capture_mute - 0 = unmuted, 1 = muted.
  *    capture_mute_locked - 0 = unlocked, 1 = locked.
- *    min_capture_gain - Min allowed capture gain in dBFS * 100.
- *    max_capture_gain - Max allowed capture gain in dBFS * 100.
  *    num_streams_attached - Total number of streams since server started.
  *    num_output_devs - Number of available output devices.
  *    num_input_devs - Number of available input devices.
@@ -490,6 +571,17 @@ struct __attribute__((__packed__)) cras_audio_thread_snapshot_buffer {
  *    snapshot_buffer - ring buffer for storing audio thread snapshots.
  *    bt_debug_info - ring buffer for storing bluetooth event logs.
  *    bt_wbs_enabled - Whether or not bluetooth wideband speech is enabled.
+ *    deprioritize_bt_wbs_mic - Whether Bluetooth wideband speech mic
+ *        should be deprioritized for selecting as default audio input.
+ *    main_thread_debug_info - ring buffer for storing main thread event logs.
+ *    num_input_streams_with_permission - An array containing numbers of input
+ *        streams with permission in each client type.
+ *    noise_cancellation_enabled - Whether or not Noise Cancellation is enabled.
+ *    hotword_pause_at_suspend - 1 = Pause hotword detection when the system
+ *        suspends. Hotword detection is resumed after system resumes.
+ *        0 - Hotword detection is allowed to continue running after system
+ *        suspends, so a detected hotword can wake up the device.
+ *
  */
 #define CRAS_SERVER_STATE_VERSION 2
 struct __attribute__((packed, aligned(4))) cras_server_state {
@@ -502,11 +594,8 @@ struct __attribute__((packed, aligned(4))) cras_server_state {
 	int32_t mute_locked;
 	int32_t suspended;
 	int32_t capture_gain;
-	int32_t capture_gain_target;
 	int32_t capture_mute;
 	int32_t capture_mute_locked;
-	int32_t min_capture_gain;
-	int32_t max_capture_gain;
 	uint32_t num_streams_attached;
 	uint32_t num_output_devs;
 	uint32_t num_input_devs;
@@ -529,6 +618,11 @@ struct __attribute__((packed, aligned(4))) cras_server_state {
 	struct cras_audio_thread_snapshot_buffer snapshot_buffer;
 	struct cras_bt_debug_info bt_debug_info;
 	int32_t bt_wbs_enabled;
+	int32_t deprioritize_bt_wbs_mic;
+	struct main_thread_debug_info main_thread_debug_info;
+	uint32_t num_input_streams_with_permission[CRAS_NUM_CLIENT_TYPE];
+	int32_t noise_cancellation_enabled;
+	int32_t hotword_pause_at_suspend;
 };
 
 /* Actions for card add/remove/change. */
@@ -595,12 +689,16 @@ enum CRAS_NODE_TYPE {
 	CRAS_NODE_TYPE_HOTWORD,
 	CRAS_NODE_TYPE_POST_MIX_PRE_DSP,
 	CRAS_NODE_TYPE_POST_DSP,
+	/* Type for the legacy BT narrow band mic .*/
+	CRAS_NODE_TYPE_BLUETOOTH_NB_MIC,
 	/* These value can be used for both output and input nodes. */
 	CRAS_NODE_TYPE_USB,
 	CRAS_NODE_TYPE_BLUETOOTH,
 	CRAS_NODE_TYPE_FALLBACK_NORMAL,
 	CRAS_NODE_TYPE_FALLBACK_ABNORMAL,
 	CRAS_NODE_TYPE_UNKNOWN,
+	CRAS_NODE_TYPE_ECHO_REFERENCE,
+	CRAS_NODE_TYPE_ALSA_LOOPBACK,
 };
 
 /* Position values to described where a node locates on the system.

@@ -37,6 +37,7 @@ import com.android.tv.common.CommonConstants;
 import com.android.tv.common.dagger.ApplicationModule;
 import com.android.tv.common.flags.impl.DefaultLegacyFlags;
 import com.android.tv.common.flags.impl.SettableFlagsModule;
+import com.android.tv.common.flags.proto.TypedFeatures.StringListParam;
 import com.android.tv.common.util.CommonUtils;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.epg.EpgFetcher;
@@ -53,7 +54,6 @@ import com.android.tv.util.TvInputManagerHelper;
 
 import com.google.android.tv.partner.support.EpgContract;
 import com.google.common.base.Optional;
-import com.android.tv.common.flags.proto.TypedFeatures.StringListParam;
 
 import dagger.Component;
 import dagger.Module;
@@ -71,7 +71,6 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.android.util.concurrent.RoboExecutorService;
 import org.robolectric.annotation.Config;
@@ -169,8 +168,7 @@ public class SetupPassthroughActivityTest {
                         CommonUtils.createSetupIntent(new Intent(), testInput.getId()));
         SetupPassthroughActivity activity = activityController.get();
         ShadowActivity shadowActivity = shadowOf(activity);
-        shadowActivity.setCallingActivity(
-                new ComponentName(CommonConstants.BASE_PACKAGE, "com.example.MyClass"));
+        shadowActivity.setCallingActivity(createTrustedComponent());
         activityController.create();
 
         ShadowActivity.IntentForResult shadowIntent =
@@ -205,6 +203,27 @@ public class SetupPassthroughActivityTest {
     }
 
     @Test
+    public void create_nullCallingPackage() {
+        testSingletonApp.tvInputManagerHelper.start();
+        testSingletonApp.tvInputManagerHelper.getFakeTvInputManager().add(testInput, -1);
+
+        ActivityController<SetupPassthroughActivity> activityController =
+                Robolectric.buildActivity(
+                        SetupPassthroughActivity.class,
+                        CommonUtils.createSetupIntent(new Intent(), testInput.getId()));
+        SetupPassthroughActivity activity = activityController.get();
+        ShadowActivity shadowActivity = shadowOf(activity);
+        shadowActivity.setCallingActivity(null);
+        activityController.create();
+
+        ShadowActivity.IntentForResult shadowIntent =
+                shadowActivity.getNextStartedActivityForResult();
+        // Since the calling activity is null, the next activity should not be started.
+        assertThat(shadowIntent).isNull();
+        assertThat(activity.isFinishing()).isTrue();
+    }
+
+    @Test
     public void onActivityResult_canceled() {
         testSingletonApp.tvInputManagerHelper.getFakeTvInputManager().add(testInput, -1);
         SetupPassthroughActivity activity = createSetupActivityFor(testInput.getId());
@@ -216,7 +235,7 @@ public class SetupPassthroughActivityTest {
 
     @Test
     public void onActivityResult_ok() {
-        TestSetupUtils setupUtils = new TestSetupUtils(RuntimeEnvironment.application);
+        TestSetupUtils setupUtils = new TestSetupUtils(ApplicationProvider.getApplicationContext());
         testSingletonApp.setupUtils = setupUtils;
         testSingletonApp.tvInputManagerHelper.getFakeTvInputManager().add(testInput, -1);
         SetupPassthroughActivity activity = createSetupActivityFor(testInput.getId());
@@ -234,7 +253,7 @@ public class SetupPassthroughActivityTest {
     @Test
     public void onActivityResult_3rdPartyEpg_ok() {
         TvFeatures.CLOUD_EPG_FOR_3RD_PARTY.enableForTest();
-        TestSetupUtils setupUtils = new TestSetupUtils(RuntimeEnvironment.application);
+        TestSetupUtils setupUtils = new TestSetupUtils(ApplicationProvider.getApplicationContext());
         testSingletonApp.setupUtils = setupUtils;
         testSingletonApp.tvInputManagerHelper.getFakeTvInputManager().add(testInput, -1);
         testSingletonApp
@@ -257,9 +276,9 @@ public class SetupPassthroughActivityTest {
     }
 
     @Test
-    public void onActivityResult_3rdPartyEpg_notWhiteListed() {
+    public void onActivityResult_3rdPartyEpg_notAllowed() {
         TvFeatures.CLOUD_EPG_FOR_3RD_PARTY.enableForTest();
-        TestSetupUtils setupUtils = new TestSetupUtils(RuntimeEnvironment.application);
+        TestSetupUtils setupUtils = new TestSetupUtils(ApplicationProvider.getApplicationContext());
         testSingletonApp.setupUtils = setupUtils;
         testSingletonApp.tvInputManagerHelper.getFakeTvInputManager().add(testInput, -1);
         SetupPassthroughActivity activity = createSetupActivityFor(testInput.getId());
@@ -280,7 +299,7 @@ public class SetupPassthroughActivityTest {
     @Test
     public void onActivityResult_3rdPartyEpg_disabled() {
         TvFeatures.CLOUD_EPG_FOR_3RD_PARTY.disableForTests();
-        TestSetupUtils setupUtils = new TestSetupUtils(RuntimeEnvironment.application);
+        TestSetupUtils setupUtils = new TestSetupUtils(ApplicationProvider.getApplicationContext());
         testSingletonApp.setupUtils = setupUtils;
         testSingletonApp.tvInputManagerHelper.getFakeTvInputManager().add(testInput, -1);
         testSingletonApp
@@ -305,7 +324,7 @@ public class SetupPassthroughActivityTest {
 
     @Test
     public void onActivityResult_ok_tvInputInfo_null() {
-        TestSetupUtils setupUtils = new TestSetupUtils(RuntimeEnvironment.application);
+        TestSetupUtils setupUtils = new TestSetupUtils(ApplicationProvider.getApplicationContext());
         testSingletonApp.setupUtils = setupUtils;
         FakeTvInputManager tvInputManager =
                 testSingletonApp.tvInputManagerHelper.getFakeTvInputManager();
@@ -320,11 +339,15 @@ public class SetupPassthroughActivityTest {
     }
 
     private SetupPassthroughActivity createSetupActivityFor(String inputId) {
-        return Robolectric.buildActivity(
+        ActivityController<SetupPassthroughActivity> activityController =
+                Robolectric.buildActivity(
                         SetupPassthroughActivity.class,
-                        CommonUtils.createSetupIntent(new Intent(), inputId))
-                .create()
-                .get();
+                        CommonUtils.createSetupIntent(new Intent(), inputId));
+        SetupPassthroughActivity activity = activityController.get();
+        ShadowActivity shadowActivity = shadowOf(activity);
+        shadowActivity.setCallingActivity(createTrustedComponent());
+        activityController.create();
+        return activity;
     }
 
     private TvInputInfo createMockInput(String inputId) {
@@ -344,6 +367,10 @@ public class SetupPassthroughActivityTest {
         return tvInputInfo;
     }
 
+    private static ComponentName createTrustedComponent() {
+        return new ComponentName(CommonConstants.BASE_PACKAGE, "com.example.MyClass");
+    }
+
     /**
      * Test SetupUtils.
      *
@@ -351,6 +378,7 @@ public class SetupPassthroughActivityTest {
      * bypasses all of that.
      */
     private static class TestSetupUtils extends SetupUtils {
+
         public String finishedId;
         public Runnable finishedRunnable;
 
@@ -413,6 +441,7 @@ public class SetupPassthroughActivityTest {
             })
     /** Module for {@link MyTestApp} */
     static class TestModule {
+
         private final MyTestApp myTestApp;
 
         TestModule(MyTestApp test) {

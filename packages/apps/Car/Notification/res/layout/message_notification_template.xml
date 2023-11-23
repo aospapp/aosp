@@ -54,11 +54,10 @@
                 style="@style/NotificationBodyTitleText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_alignParentStart="true"
                 android:layout_below="@id/notification_header"
                 android:layout_marginEnd="@dimen/card_end_margin"
                 android:layout_marginStart="@dimen/card_start_margin"
-                android:layout_toStartOf="@id/notification_body_icon"/>
+                android:layout_toLeftOf="@id/notification_body_icon"/>
 
             <RelativeLayout
                 android:id="@+id/message_content"
@@ -66,7 +65,7 @@
                 android:layout_height="wrap_content"
                 android:layout_below="@id/notification_body_title"
                 android:layout_marginStart="@dimen/card_start_margin"
-                android:layout_toStartOf="@id/notification_body_icon">
+                android:layout_toLeftOf="@id/notification_body_icon">
 
                 <TextView
                     android:id="@+id/notification_body_content"
@@ -75,6 +74,7 @@
                     android:layout_alignParentStart="true"
                     android:layout_marginBottom="@dimen/card_body_margin_bottom"
                     android:layout_toStartOf="@id/message_count"
+                    android:maxLines="@integer/config_notificationPanelMaxBodyLines"
                     style="@style/NotificationBodyContentText"/>
 
                 <TextView
@@ -89,24 +89,32 @@
                     style="@style/NotificationBodyContentText"/>
             </RelativeLayout>
 
-            <ImageButton
+            <ImageView
                 android:id="@+id/notification_body_icon"
                 style="@style/NotificationBodyImageIcon"
                 android:layout_width="@dimen/notification_touch_target_size"
                 android:layout_height="@dimen/notification_touch_target_size"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:layout_marginEnd="@dimen/card_end_margin"
-                android:layout_marginStart="@dimen/body_big_icon_margin"/>
+                android:layout_alignParentRight="true"
+                android:layout_below="@+id/notification_header"
+                android:layout_marginRight="@dimen/card_end_margin"/>
 
-            <com.android.car.notification.template.CarNotificationActionsView
-                android:id="@+id/notification_actions"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_below="@id/message_content"
-                android:gravity="left"
-                android:minHeight="@dimen/card_min_bottom_padding"/>
+                android:layout_below="@id/message_content">
 
+                <com.android.car.notification.template.CarNotificationActionsView
+                    android:id="@+id/notification_actions"
+                    style="@style/NotificationActionViewLayout"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+
+                <include
+                    layout="@layout/dismiss_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"/>
+
+            </FrameLayout>
         </RelativeLayout>
     </androidx.cardview.widget.CardView>
 </FrameLayout>

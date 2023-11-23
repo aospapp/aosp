@@ -35,4 +35,10 @@ prop {
     scope: Public
     prop_name: "ro.com.android.media.swcodec.ion.flags"
 }
-
+prop {
+    api_name: "codec2_dmabuf_padding"
+    type: Integer
+    access: Readonly
+    scope: Public
+    prop_name: "media.c2.dmabuf.padding"
+}

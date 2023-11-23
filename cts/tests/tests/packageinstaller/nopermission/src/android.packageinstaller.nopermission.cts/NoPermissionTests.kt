@@ -20,6 +20,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager;
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageInstaller.EXTRA_STATUS
 import android.content.pm.PackageInstaller.STATUS_FAILURE_INVALID
@@ -38,6 +39,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.runners.model.Statement
+import org.junit.runner.Description
+import org.junit.Rule
+import org.junit.rules.TestRule
+import org.junit.AssumptionViolatedException
+
 import java.io.File
 import java.lang.IllegalArgumentException
 
@@ -62,6 +69,7 @@ class NoPermissionTests {
     private var packageName = context.packageName
     private var apkFile = File(context.filesDir, TEST_APK_NAME)
     private var uiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+    private var isWatch: Boolean = pm.hasSystemFeature(PackageManager.FEATURE_WATCH)
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -71,6 +79,21 @@ class NoPermissionTests {
                 val activityIntent = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                 activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(activityIntent)
+            }
+        }
+    }
+
+    @get:Rule
+    val testRule: TestRule = object :TestRule {
+        override fun apply(base: Statement, description: Description?)
+                = NewStatement(base)
+        inner class NewStatement(private val base: Statement) : Statement() {
+            @Throws(Throwable::class)
+            override fun evaluate() {
+                if (isWatch) {
+                    throw AssumptionViolatedException("Install/uninstall feature is not supported on WearOs");
+                }
+                base.evaluate()
             }
         }
     }
@@ -122,7 +145,7 @@ class NoPermissionTests {
 
         // Commit session
         val pendingIntent = PendingIntent.getBroadcast(context, 0, Intent(ACTION),
-                PendingIntent.FLAG_UPDATE_CURRENT)
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
         session.commit(pendingIntent.intentSender)
     }
 

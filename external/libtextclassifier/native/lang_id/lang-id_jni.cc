@@ -28,9 +28,9 @@
 #include "lang_id/lang-id.h"
 
 using libtextclassifier3::JniHelper;
+using libtextclassifier3::JStringToUtf8String;
 using libtextclassifier3::ScopedLocalRef;
 using libtextclassifier3::StatusOr;
-using libtextclassifier3::ToStlString;
 using libtextclassifier3::mobile::lang_id::GetLangIdFromFlatbufferFile;
 using libtextclassifier3::mobile::lang_id::GetLangIdFromFlatbufferFileDescriptor;
 using libtextclassifier3::mobile::lang_id::LangId;
@@ -63,7 +63,7 @@ StatusOr<ScopedLocalRef<jobjectArray>> LangIdResultToJObjectArray(
             env, result_class.get(), result_class_constructor,
             predicted_language.get(),
             static_cast<jfloat>(lang_id_predictions[i].second)));
-    env->SetObjectArrayElement(results.get(), i, result.get());
+    JniHelper::SetObjectArrayElement(env, results.get(), i, result.get());
   }
   return results;
 }
@@ -74,7 +74,7 @@ float GetNoiseThreshold(const LangId& model) {
 }  // namespace
 
 TC3_JNI_METHOD(jlong, TC3_LANG_ID_CLASS_NAME, nativeNew)
-(JNIEnv* env, jobject thiz, jint fd) {
+(JNIEnv* env, jobject clazz, jint fd) {
   std::unique_ptr<LangId> lang_id = GetLangIdFromFlatbufferFileDescriptor(fd);
   if (!lang_id->is_valid()) {
     return reinterpret_cast<jlong>(nullptr);
@@ -83,8 +83,9 @@ TC3_JNI_METHOD(jlong, TC3_LANG_ID_CLASS_NAME, nativeNew)
 }
 
 TC3_JNI_METHOD(jlong, TC3_LANG_ID_CLASS_NAME, nativeNewFromPath)
-(JNIEnv* env, jobject thiz, jstring path) {
-  TC3_ASSIGN_OR_RETURN_0(const std::string path_str, ToStlString(env, path));
+(JNIEnv* env, jobject clazz, jstring path) {
+  TC3_ASSIGN_OR_RETURN_0(const std::string path_str,
+                         JStringToUtf8String(env, path));
   std::unique_ptr<LangId> lang_id = GetLangIdFromFlatbufferFile(path_str);
   if (!lang_id->is_valid()) {
     return reinterpret_cast<jlong>(nullptr);
@@ -92,14 +93,25 @@ TC3_JNI_METHOD(jlong, TC3_LANG_ID_CLASS_NAME, nativeNewFromPath)
   return reinterpret_cast<jlong>(lang_id.release());
 }
 
+TC3_JNI_METHOD(jlong, TC3_LANG_ID_CLASS_NAME, nativeNewWithOffset)
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size) {
+  std::unique_ptr<LangId> lang_id =
+      GetLangIdFromFlatbufferFileDescriptor(fd, offset, size);
+  if (!lang_id->is_valid()) {
+    return reinterpret_cast<jlong>(nullptr);
+  }
+  return reinterpret_cast<jlong>(lang_id.release());
+}
+
 TC3_JNI_METHOD(jobjectArray, TC3_LANG_ID_CLASS_NAME, nativeDetectLanguages)
-(JNIEnv* env, jobject clazz, jlong ptr, jstring text) {
+(JNIEnv* env, jobject thiz, jlong ptr, jstring text) {
   LangId* model = reinterpret_cast<LangId*>(ptr);
   if (!model) {
     return nullptr;
   }
 
-  TC3_ASSIGN_OR_RETURN_NULL(const std::string text_str, ToStlString(env, text));
+  TC3_ASSIGN_OR_RETURN_NULL(const std::string text_str,
+                            JStringToUtf8String(env, text));
 
   const std::vector<std::pair<std::string, float>>& prediction_results =
       libtextclassifier3::langid::GetPredictions(model, text_str);
@@ -111,7 +123,7 @@ TC3_JNI_METHOD(jobjectArray, TC3_LANG_ID_CLASS_NAME, nativeDetectLanguages)
 }
 
 TC3_JNI_METHOD(void, TC3_LANG_ID_CLASS_NAME, nativeClose)
-(JNIEnv* env, jobject clazz, jlong ptr) {
+(JNIEnv* env, jobject thiz, jlong ptr) {
   if (!ptr) {
     TC3_LOG(ERROR) << "Trying to close null LangId.";
     return;
@@ -121,7 +133,7 @@ TC3_JNI_METHOD(void, TC3_LANG_ID_CLASS_NAME, nativeClose)
 }
 
 TC3_JNI_METHOD(jint, TC3_LANG_ID_CLASS_NAME, nativeGetVersion)
-(JNIEnv* env, jobject clazz, jlong ptr) {
+(JNIEnv* env, jobject thiz, jlong ptr) {
   if (!ptr) {
     return -1;
   }
@@ -163,4 +175,14 @@ TC3_JNI_METHOD(jint, TC3_LANG_ID_CLASS_NAME, nativeGetMinTextSizeInBytes)
   }
   LangId* model = reinterpret_cast<LangId*>(ptr);
   return model->GetFloatProperty("min_text_size_in_bytes", 0);
+}
+
+TC3_JNI_METHOD(jint, TC3_LANG_ID_CLASS_NAME, nativeGetVersionWithOffset)
+(JNIEnv* env, jobject clazz, jint fd, jlong offset, jlong size) {
+  std::unique_ptr<LangId> lang_id =
+      GetLangIdFromFlatbufferFileDescriptor(fd, offset, size);
+  if (!lang_id->is_valid()) {
+    return -1;
+  }
+  return lang_id->GetModelVersion();
 }

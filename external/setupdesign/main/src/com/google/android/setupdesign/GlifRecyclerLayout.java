@@ -64,12 +64,22 @@ public class GlifRecyclerLayout extends GlifLayout {
   }
 
   private void init(AttributeSet attrs, int defStyleAttr) {
+    if (isInEditMode()) {
+      return;
+    }
+
     recyclerMixin.parseAttributes(attrs, defStyleAttr);
     registerMixin(RecyclerMixin.class, recyclerMixin);
 
     final RequireScrollMixin requireScrollMixin = getMixin(RequireScrollMixin.class);
     requireScrollMixin.setScrollHandlingDelegate(
         new RecyclerViewScrollHandlingDelegate(requireScrollMixin, getRecyclerView()));
+
+    View view = this.findManagedViewById(R.id.sud_landscape_content_area);
+    if (view != null) {
+      applyPartnerCustomizationContentPaddingTopStyle(view);
+    }
+    updateLandscapeMiddleHorizontalSpacing();
   }
 
   @Override

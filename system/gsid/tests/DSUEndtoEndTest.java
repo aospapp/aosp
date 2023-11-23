@@ -47,11 +47,6 @@ import java.util.concurrent.TimeUnit;
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class DSUEndtoEndTest extends BaseHostJUnit4Test {
     private static final long kDefaultUserdataSize = 4L * 1024 * 1024 * 1024;
-    private static final String APK = "LockScreenAutomation.apk";
-    private static final String PACKAGE = "com.google.android.lockscreenautomation";
-    private static final String UI_AUTOMATOR_INSTRUMENTATION_RUNNER =
-        "androidx.test.uiautomator.UiAutomatorInstrumentationTestRunner";
-    private static final String CLASS = "LockScreenAutomation";
     private static final String LPUNPACK_PATH = "bin/lpunpack";
     private static final String SIMG2IMG_PATH = "bin/simg2img";
 
@@ -74,7 +69,6 @@ public class DSUEndtoEndTest extends BaseHostJUnit4Test {
 
     @After
     public void teardown() throws Exception {
-        uninstallPackage(PACKAGE);
         if (mUnsparseSystemImage != null) {
             mUnsparseSystemImage.delete();
         }
@@ -129,13 +123,6 @@ public class DSUEndtoEndTest extends BaseHostJUnit4Test {
 
         expectGsiStatus("normal");
 
-        installPackage(APK);
-        String method = "setPin";
-        String testClass = PACKAGE + "." + CLASS;
-        String testMethod = testClass + "." + method;
-        Assert.assertTrue(testMethod + " failed.",
-            runDeviceTests(UI_AUTOMATOR_INSTRUMENTATION_RUNNER, PACKAGE, testClass, method));
-
         // Sleep after installing to allow time for gsi_tool to reboot. This prevents a race between
         // the device rebooting and waitForDeviceAvailable() returning.
         getDevice().executeShellV2Command("gsi_tool install --userdata-size " + mUserdataSize +
@@ -145,7 +132,7 @@ public class DSUEndtoEndTest extends BaseHostJUnit4Test {
 
         expectGsiStatus("running");
 
-        rebootAndUnlock();
+        getDevice().rebootUntilOnline();
 
         expectGsiStatus("installed");
 
@@ -162,15 +149,9 @@ public class DSUEndtoEndTest extends BaseHostJUnit4Test {
 
         getDevice().executeShellV2Command("gsi_tool wipe");
 
-        rebootAndUnlock();
+        getDevice().rebootUntilOnline();
 
         expectGsiStatus("normal");
-
-        method = "removePin";
-        testClass = PACKAGE + "." + CLASS;
-        testMethod = testClass + "." + method;
-        Assert.assertTrue(testMethod + " failed.",
-            runDeviceTests(UI_AUTOMATOR_INSTRUMENTATION_RUNNER, PACKAGE, testClass, method));
 
         if (wasRoot) {
             getDevice().enableAdbRoot();
@@ -181,17 +162,6 @@ public class DSUEndtoEndTest extends BaseHostJUnit4Test {
         CommandResult result = getDevice().executeShellV2Command("gsi_tool status");
         String status = result.getStdout().split("\n", 2)[0].trim();
         Assert.assertEquals("Device not in expected DSU state", expected, status);
-    }
-
-    private void rebootAndUnlock() throws Exception {
-        getDevice().rebootUntilOnline();
-        getDevice().executeShellV2Command("input keyevent 224"); // KeyEvent.KEYCODE_WAKEUP
-        getDevice().executeShellV2Command("wm dismiss-keyguard");
-        getDevice().executeShellV2Command("input keyevent 7"); // KeyEvent.KEYCODE_0
-        getDevice().executeShellV2Command("input keyevent 7");
-        getDevice().executeShellV2Command("input keyevent 7");
-        getDevice().executeShellV2Command("input keyevent 7");
-        getDevice().executeShellV2Command("input keyevent 66"); // KeyEvent.KEYCODE_ENTER
     }
 }
 

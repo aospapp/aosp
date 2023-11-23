@@ -12,12 +12,12 @@
 //===----------------------------------------------------------------------===//
 
 /* Capstone Disassembly Engine */
-/* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2014 */
+/* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2015 */
 
 #ifndef CS_LLVM_TARGET_ARM_ARMADDRESSINGMODES_H
 #define CS_LLVM_TARGET_ARM_ARMADDRESSINGMODES_H
 
-#include "../../include/platform.h"
+#include "capstone/platform.h"
 #include "../../MathExtras.h"
 
 /// ARM_AM - ARM Addressing Mode Stuff
@@ -35,12 +35,12 @@ typedef enum ARM_AM_AddrOpc {
 	ARM_AM_add
 } ARM_AM_AddrOpc;
 
-static inline char *ARM_AM_getAddrOpcStr(ARM_AM_AddrOpc Op)
+static inline const char *ARM_AM_getAddrOpcStr(ARM_AM_AddrOpc Op)
 {
 	return Op == ARM_AM_sub ? "-" : "";
 }
 
-static inline char *ARM_AM_getShiftOpcStr(ARM_AM_ShiftOpc Op)
+static inline const char *ARM_AM_getShiftOpcStr(ARM_AM_ShiftOpc Op)
 {
 	switch (Op) {
 		default: return "";	//llvm_unreachable("Unknown shift opc!");
@@ -658,7 +658,7 @@ static inline float getFPImmFloat(unsigned Imm)
 	// where B = NOT(b);
 
 	FPUnion.I = 0;
-	FPUnion.I |= Sign << 31;
+	FPUnion.I |= ((uint32_t) Sign) << 31;
 	FPUnion.I |= ((Exp & 0x4) != 0 ? 0 : 1) << 30;
 	FPUnion.I |= ((Exp & 0x4) != 0 ? 0x1f : 0) << 25;
 	FPUnion.I |= (Exp & 0x3) << 23;

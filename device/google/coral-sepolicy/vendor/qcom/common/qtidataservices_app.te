@@ -7,7 +7,7 @@ hwbinder_use(qtidataservices_app)
 
 get_prop(qtidataservices_app, hwservicemanager_prop)
 get_prop(qtidataservices_app, vendor_default_prop)
-set_prop(qtidataservices_app, exported_radio_prop)
+set_prop(qtidataservices_app, telephony_status_prop)
 
 allow qtidataservices_app hal_datafactory_hwservice:hwservice_manager find;
 allow qtidataservices_app hal_iwlan_hwservice:hwservice_manager find;

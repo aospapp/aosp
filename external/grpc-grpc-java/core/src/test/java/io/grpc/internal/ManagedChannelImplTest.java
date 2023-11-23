@@ -57,7 +57,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.grpc.Attributes;
 import io.grpc.BinaryLog;
 import io.grpc.CallCredentials;
-import io.grpc.CallCredentials.MetadataApplier;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
@@ -1388,6 +1387,7 @@ public class ManagedChannelImplTest {
    * propagated to newStream() and applyRequestMetadata().
    */
   @Test
+  @SuppressWarnings("deprecation")
   public void informationPropagatedToNewStreamAndCallCredentials() {
     createChannel();
     CallOptions callOptions = CallOptions.DEFAULT.withCallCredentials(creds);
@@ -1401,9 +1401,9 @@ public class ManagedChannelImplTest {
           credsApplyContexts.add(Context.current());
           return null;
         }
-      }).when(creds).applyRequestMetadata(
+      }).when(creds).applyRequestMetadata(  // TODO(zhangkun83): remove suppression of deprecations
           any(MethodDescriptor.class), any(Attributes.class), any(Executor.class),
-          any(MetadataApplier.class));
+          any(CallCredentials.MetadataApplier.class));
 
     // First call will be on delayed transport.  Only newCall() is run within the expected context,
     // so that we can verify that the context is explicitly attached before calling newStream() and
@@ -1435,7 +1435,7 @@ public class ManagedChannelImplTest {
 
     verify(creds, never()).applyRequestMetadata(
         any(MethodDescriptor.class), any(Attributes.class), any(Executor.class),
-        any(MetadataApplier.class));
+        any(CallCredentials.MetadataApplier.class));
 
     // applyRequestMetadata() is called after the transport becomes ready.
     transportInfo.listener.transportReady();
@@ -1444,7 +1444,8 @@ public class ManagedChannelImplTest {
     helper.updateBalancingState(READY, mockPicker);
     executor.runDueTasks();
     ArgumentCaptor<Attributes> attrsCaptor = ArgumentCaptor.forClass(Attributes.class);
-    ArgumentCaptor<MetadataApplier> applierCaptor = ArgumentCaptor.forClass(MetadataApplier.class);
+    ArgumentCaptor<CallCredentials.MetadataApplier> applierCaptor
+        = ArgumentCaptor.forClass(CallCredentials.MetadataApplier.class);
     verify(creds).applyRequestMetadata(same(method), attrsCaptor.capture(),
         same(executor.getScheduledExecutorService()), applierCaptor.capture());
     assertEquals("testValue", testKey.get(credsApplyContexts.poll()));
@@ -2761,7 +2762,7 @@ public class ManagedChannelImplTest {
 
     ManagedChannel mychannel = new CustomBuilder()
         .nameResolverFactory(factory)
-        .loadBalancerFactory(new AutoConfiguredLoadBalancerFactory()).build();
+        .loadBalancerFactory(new AutoConfiguredLoadBalancerFactory(null, null)).build();
 
     ClientCall<Void, Void> call1 =
         mychannel.newCall(TestMethodDescriptors.voidMethod(), CallOptions.DEFAULT);
@@ -2799,6 +2800,14 @@ public class ManagedChannelImplTest {
     }
 
     mychannel.shutdownNow();
+  }
+
+  @Test
+  public void getAuthorityAfterShutdown() throws Exception {
+    createChannel();
+    assertEquals(SERVICE_NAME, channel.authority());
+    channel.shutdownNow().awaitTermination(1, TimeUnit.SECONDS);
+    assertEquals(SERVICE_NAME, channel.authority());
   }
 
   private static final class ChannelBuilder

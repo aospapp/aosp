@@ -16,6 +16,7 @@
 #pragma once
 
 #include <aidl/android/hardware/vibrator/BnVibrator.h>
+#include <tinyalsa/asoundlib.h>
 
 #include <array>
 #include <fstream>
@@ -35,6 +36,8 @@ class Vibrator : public BnVibrator {
         // Stores the LRA resonant frequency to be used for PWLE playback
         // and click compensation.
         virtual bool setF0(uint32_t value) = 0;
+        // Stores the frequency offset for long vibrations.
+        virtual bool setF0Offset(uint32_t value) = 0;
         // Stores the LRA series resistance to be used for click
         // compensation.
         virtual bool setRedc(uint32_t value) = 0;
@@ -89,6 +92,15 @@ class Vibrator : public BnVibrator {
         // Blocks until vibrator reaches desired state
         // (true = enabled, false = disabled).
         virtual bool pollVibeState(bool value) = 0;
+        // Enables/disables closed-loop active braking.
+        virtual bool setClabEnable(bool value) = 0;
+        // Reports the number of available PWLE segments.
+        virtual bool getAvailablePwleSegments(uint32_t *value) = 0;
+        // Reports whether piecewise-linear envelope for waveforms is supported.
+        virtual bool hasPwle() = 0;
+        // Specifies piecewise-linear specifications to generate complex
+        // waveforms.
+        virtual bool setPwle(std::string value) = 0;
         // Emit diagnostic information to the given file.
         virtual void debug(int fd) = 0;
     };
@@ -97,6 +109,8 @@ class Vibrator : public BnVibrator {
     class HwCal {
       public:
         virtual ~HwCal() = default;
+        // Obtain the calibration version
+        virtual bool getVersion(uint32_t *value) = 0;
         // Obtains the LRA resonant frequency to be used for PWLE playback
         // and click compensation.
         virtual bool getF0(uint32_t *value) = 0;
@@ -106,9 +120,16 @@ class Vibrator : public BnVibrator {
         // Obtains the LRA Q factor to be used for Q-dependent waveform
         // selection.
         virtual bool getQ(uint32_t *value) = 0;
+        // Obtains frequency shift for long vibrations.
+        virtual bool getLongFrequencyShift(int32_t *value) = 0;
         // Obtains the discreet voltage levels to be applied for the various
         // waveforms, in units of 1%.
         virtual bool getVolLevels(std::array<uint32_t, 6> *value) = 0;
+        // Obtains the v0/v1(min/max) voltage levels to be applied for
+        // tick/click/long in units of 1%.
+        virtual bool getTickVolLevels(std::array<uint32_t, 2> *value) = 0;
+        virtual bool getClickVolLevels(std::array<uint32_t, 2> *value) = 0;
+        virtual bool getLongVolLevels(std::array<uint32_t, 2> *value) = 0;
         // Emit diagnostic information to the given file.
         virtual void debug(int fd) = 0;
     };
@@ -136,6 +157,16 @@ class Vibrator : public BnVibrator {
     ndk::ScopedAStatus getSupportedAlwaysOnEffects(std::vector<Effect> *_aidl_return) override;
     ndk::ScopedAStatus alwaysOnEnable(int32_t id, Effect effect, EffectStrength strength) override;
     ndk::ScopedAStatus alwaysOnDisable(int32_t id) override;
+    ndk::ScopedAStatus getResonantFrequency(float *resonantFreqHz) override;
+    ndk::ScopedAStatus getQFactor(float *qFactor) override;
+    ndk::ScopedAStatus getFrequencyResolution(float *freqResolutionHz) override;
+    ndk::ScopedAStatus getFrequencyMinimum(float *freqMinimumHz) override;
+    ndk::ScopedAStatus getBandwidthAmplitudeMap(std::vector<float> *_aidl_return) override;
+    ndk::ScopedAStatus getPwlePrimitiveDurationMax(int32_t *durationMs) override;
+    ndk::ScopedAStatus getPwleCompositionSizeMax(int32_t *maxSize) override;
+    ndk::ScopedAStatus getSupportedBraking(std::vector<Braking> *supported) override;
+    ndk::ScopedAStatus composePwle(const std::vector<PrimitivePwle> &composite,
+                                   const std::shared_ptr<IVibratorCallback> &callback) override;
 
     binder_status_t dump(int fd, const char **args, uint32_t numArgs) override;
 
@@ -161,17 +192,29 @@ class Vibrator : public BnVibrator {
     ndk::ScopedAStatus performEffect(uint32_t effectIndex, uint32_t volLevel,
                                      const std::string *effectQueue,
                                      const std::shared_ptr<IVibratorCallback> &callback);
+    ndk::ScopedAStatus setPwle(const std::string &pwleQueue);
     bool isUnderExternalControl();
     void waitForComplete(std::shared_ptr<IVibratorCallback> &&callback);
-    uint32_t intensityToVolLevel(float intensity);
+    uint32_t intensityToVolLevel(float intensity, uint32_t effectIndex);
+    bool findHapticAlsaDevice(int *card, int *device);
+    bool hasHapticAlsaDevice();
+    bool enableHapticPcmAmp(struct pcm **haptic_pcm, bool enable, int card, int device);
+    void createPwleMaxLevelLimitMap();
 
     std::unique_ptr<HwApi> mHwApi;
     std::unique_ptr<HwCal> mHwCal;
-    uint32_t mEffectVolMin;
-    uint32_t mEffectVolMax;
-    uint32_t mGlobalVolMax;
+    uint32_t mF0Offset;
+    std::array<uint32_t, 2> mTickEffectVol;
+    std::array<uint32_t, 2> mClickEffectVol;
+    std::array<uint32_t, 2> mLongEffectVol;
     std::vector<uint32_t> mEffectDurations;
     std::future<void> mAsyncHandle;
+    int32_t compositionSizeMax;
+    struct pcm *mHapticPcm;
+    int mCard;
+    int mDevice;
+    bool mHasHapticAlsaDevice;
+    bool mIsUnderExternalControl;
 };
 
 }  // namespace vibrator

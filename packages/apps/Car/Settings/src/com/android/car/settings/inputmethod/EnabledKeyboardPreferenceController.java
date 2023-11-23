@@ -26,6 +26,7 @@ import android.util.ArrayMap;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 
@@ -57,10 +58,8 @@ public class EnabledKeyboardPreferenceController extends
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
         mPackageManager = context.getPackageManager();
-        mDevicePolicyManager =
-                (DevicePolicyManager) context.getSystemService(Context.DEVICE_POLICY_SERVICE);
-        mInputMethodManager =
-                (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
+        mDevicePolicyManager = context.getSystemService(DevicePolicyManager.class);
+        mInputMethodManager = context.getSystemService(InputMethodManager.class);
     }
 
     @Override
@@ -126,9 +125,15 @@ public class EnabledKeyboardPreferenceController extends
                 getContext(), mInputMethodManager, inputMethodInfo));
         preference.setOnPreferenceClickListener(pref -> {
             try {
-                Intent intent = new Intent(Intent.ACTION_MAIN);
                 String settingsActivity = inputMethodInfo.getSettingsActivity();
-                intent.setClassName(inputMethodInfo.getPackageName(), settingsActivity);
+                if (settingsActivity == null) {
+                    LOG.d("IME's Settings Activity not defined.");
+                    return true;
+                }
+
+                Intent intent = createInputMethodSettingsIntent(inputMethodInfo.getPackageName(),
+                        settingsActivity);
+
                 // Invoke a settings activity of an input method.
                 getContext().startActivity(intent);
             } catch (final ActivityNotFoundException e) {
@@ -137,6 +142,13 @@ public class EnabledKeyboardPreferenceController extends
             return true;
         });
         return preference;
+    }
+
+    @VisibleForTesting
+    Intent createInputMethodSettingsIntent(String packageName, String settingsActivity) {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setClassName(packageName, settingsActivity);
+        return intent;
     }
 
     private boolean arePreferencesDifferent(Preference lhs, Preference rhs) {

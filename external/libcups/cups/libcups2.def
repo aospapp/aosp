@@ -1,5 +1,5 @@
 LIBRARY libcups2
-VERSION 2.13
+VERSION 2.14
 EXPORTS
 _cupsArrayAddStrings
 _cupsArrayNewStrings
@@ -12,6 +12,7 @@ _cupsCondWait
 _cupsConnect
 _cupsConvertOptions
 _cupsCreateDest
+_cupsEncodeOption
 _cupsEncodingName
 _cupsFilePeekAhead
 _cupsGet1284Values
@@ -29,6 +30,7 @@ _cupsMessageFree
 _cupsMessageLoad
 _cupsMessageLookup
 _cupsMessageNew
+_cupsMessageSave
 _cupsMutexInit
 _cupsMutexLock
 _cupsMutexUnlock
@@ -37,6 +39,19 @@ _cupsRWInit
 _cupsRWLockRead
 _cupsRWLockWrite
 _cupsRWUnlock
+_cupsRasterAddError
+_cupsRasterClearError
+_cupsRasterColorSpaceString
+_cupsRasterDelete
+_cupsRasterErrorString
+_cupsRasterExecPS
+_cupsRasterInitPWGHeader
+_cupsRasterInterpretPPD
+_cupsRasterNew
+_cupsRasterReadHeader
+_cupsRasterReadPixels
+_cupsRasterWriteHeader
+_cupsRasterWritePixels
 _cupsSetDefaults
 _cupsSetError
 _cupsSetHTTPError
@@ -54,13 +69,16 @@ _cupsThreadCreate
 _cupsThreadDetach
 _cupsThreadWait
 _cupsUserDefault
+_cups_gettimeofday
 _cups_safe_vsnprintf
+_cups_snprintf
 _cups_strcasecmp
 _cups_strcpy
 _cups_strcpy
 _cups_strlcat
 _cups_strlcpy
 _cups_strncasecmp
+_cups_vsnprintf
 _httpAddrSetPort
 _httpCreateCredentials
 _httpDecodeURI
@@ -80,7 +98,15 @@ _httpTLSWrite
 _httpUpdate
 _httpWait
 _ippCheckOptions
+_ippFileParse
+_ippFileReadToken
 _ippFindOption
+_ippVarsDeinit
+_ippVarsExpand
+_ippVarsGet
+_ippVarsInit
+_ippVarsPasswordCB
+_ippVarsSet
 _ppdCacheCreateWithFile
 _ppdCacheCreateWithPPD
 _ppdCacheDestroy
@@ -112,6 +138,7 @@ _pwgMediaTable
 _pwgMediaTypeForType
 _pwgPageSizeForMedia
 cupsAddDest
+cupsAddDestMediaOptions
 cupsAddIntegerOption
 cupsAddOption
 cupsAdminCreateWindowsPPD
@@ -160,6 +187,7 @@ cupsDoAuthentication
 cupsDoFileRequest
 cupsDoIORequest
 cupsDoRequest
+cupsEncodeOption
 cupsEncodeOptions
 cupsEncodeOptions2
 cupsEncryption
@@ -252,6 +280,30 @@ cupsPrintFiles
 cupsPrintFiles2
 cupsPutFd
 cupsPutFile
+cupsRasterClose
+cupsRasterClose
+cupsRasterErrorString
+cupsRasterErrorString
+cupsRasterInitPWGHeader
+cupsRasterInitPWGHeader
+cupsRasterInterpretPPD
+cupsRasterInterpretPPD
+cupsRasterOpen
+cupsRasterOpen
+cupsRasterOpenIO
+cupsRasterOpenIO
+cupsRasterReadHeader
+cupsRasterReadHeader
+cupsRasterReadHeader2
+cupsRasterReadHeader2
+cupsRasterReadPixels
+cupsRasterReadPixels
+cupsRasterWriteHeader
+cupsRasterWriteHeader
+cupsRasterWriteHeader2
+cupsRasterWriteHeader2
+cupsRasterWritePixels
+cupsRasterWritePixels
 cupsReadResponseData
 cupsRemoveDest
 cupsRemoveOption

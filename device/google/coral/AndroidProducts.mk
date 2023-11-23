@@ -14,6 +14,12 @@
 # limitations under the License.
 #
 
+#
+# In memory of David L. Gerg, a Googler from Munich, Germany, and a passionate
+# Android and Pixel fan who suddenly and unexpectedly passed way too early in
+# February 2020. We miss you David, R.I.P.
+#
+
 PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/aosp_coral.mk \
     $(LOCAL_DIR)/aosp_flame.mk \

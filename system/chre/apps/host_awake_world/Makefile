@@ -26,6 +26,9 @@ NANOAPP_NAME_STRING = \"Host\ Awake\ World\"
 
 COMMON_CFLAGS += -I.
 
+# Defines
+COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG
+
 # Common Source Files ##########################################################
 
 COMMON_SRCS += host_awake_world.cc

@@ -22,7 +22,7 @@ import android.renderscript.Allocation;
 import android.renderscript.RenderScript;
 import android.util.Log;
 import com.android.gallery3d.filtershow.cache.BitmapCache;
-import com.android.gallery3d.filtershow.imageshow.MasterImage;
+import com.android.gallery3d.filtershow.imageshow.PrimaryImage;
 
 public class Buffer {
     private static final String LOGTAG = "Buffer";
@@ -34,7 +34,7 @@ public class Buffer {
     public Buffer(Bitmap bitmap) {
         RenderScript rs = CachingPipeline.getRenderScriptContext();
         if (bitmap != null) {
-            BitmapCache cache = MasterImage.getImage().getBitmapCache();
+            BitmapCache cache = PrimaryImage.getImage().getBitmapCache();
             mBitmap = cache.getBitmapCopy(bitmap, BitmapCache.PREVIEW_CACHE);
         }
         if (mUseAllocation) {
@@ -88,10 +88,9 @@ public class Buffer {
     }
 
     public void remove() {
-        BitmapCache cache = MasterImage.getImage().getBitmapCache();
+        BitmapCache cache = PrimaryImage.getImage().getBitmapCache();
         if (cache.cache(mBitmap)) {
             mBitmap = null;
         }
     }
 }
-

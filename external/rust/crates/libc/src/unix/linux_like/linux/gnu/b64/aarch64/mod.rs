@@ -1,9 +1,5 @@
 //! AArch64-specific definitions for 64-bit linux-like values
 
-use pthread_mutex_t;
-
-pub type c_long = i64;
-pub type c_ulong = u64;
 pub type c_char = u8;
 pub type wchar_t = u32;
 pub type nlink_t = u32;
@@ -143,7 +139,7 @@ s! {
     }
 
     pub struct pthread_attr_t {
-        __size: [u64; 8]
+        __size: [usize; 8]
     }
 
     pub struct ipc_perm {
@@ -203,19 +199,19 @@ s! {
         pub ss_flags: ::c_int,
         pub ss_size: ::size_t
     }
+
+    pub struct ip_mreqn {
+        pub imr_multiaddr: ::in_addr,
+        pub imr_address: ::in_addr,
+        pub imr_ifindex: ::c_int,
+    }
 }
 
 pub const VEOF: usize = 4;
-pub const __SIZEOF_PTHREAD_RWLOCK_T: usize = 56;
 
 pub const RTLD_DEEPBIND: ::c_int = 0x8;
 pub const RTLD_GLOBAL: ::c_int = 0x100;
 pub const RTLD_NOLOAD: ::c_int = 0x4;
-
-pub const TIOCGSOFTCAR: ::c_ulong = 0x5419;
-pub const TIOCSSOFTCAR: ::c_ulong = 0x541A;
-pub const TIOCGRS485: ::c_int = 0x542E;
-pub const TIOCSRS485: ::c_int = 0x542F;
 
 pub const RLIMIT_RSS: ::__rlimit_resource_t = 5;
 pub const RLIMIT_AS: ::__rlimit_resource_t = 9;
@@ -326,61 +322,6 @@ pub const ERFKILL: ::c_int = 132;
 pub const POSIX_FADV_DONTNEED: ::c_int = 4;
 pub const POSIX_FADV_NOREUSE: ::c_int = 5;
 
-pub const SOL_SOCKET: ::c_int = 1;
-
-pub const SO_REUSEADDR: ::c_int = 2;
-pub const SO_TYPE: ::c_int = 3;
-pub const SO_ERROR: ::c_int = 4;
-pub const SO_DONTROUTE: ::c_int = 5;
-pub const SO_BROADCAST: ::c_int = 6;
-pub const SO_SNDBUF: ::c_int = 7;
-pub const SO_RCVBUF: ::c_int = 8;
-pub const SO_SNDBUFFORCE: ::c_int = 32;
-pub const SO_RCVBUFFORCE: ::c_int = 33;
-pub const SO_KEEPALIVE: ::c_int = 9;
-pub const SO_OOBINLINE: ::c_int = 10;
-pub const SO_NO_CHECK: ::c_int = 11;
-pub const SO_PRIORITY: ::c_int = 12;
-pub const SO_LINGER: ::c_int = 13;
-pub const SO_BSDCOMPAT: ::c_int = 14;
-pub const SO_REUSEPORT: ::c_int = 15;
-pub const SO_PASSCRED: ::c_int = 16;
-pub const SO_PEERCRED: ::c_int = 17;
-pub const SO_RCVLOWAT: ::c_int = 18;
-pub const SO_SNDLOWAT: ::c_int = 19;
-pub const SO_RCVTIMEO: ::c_int = 20;
-pub const SO_SNDTIMEO: ::c_int = 21;
-pub const SO_SECURITY_AUTHENTICATION: ::c_int = 22;
-pub const SO_SECURITY_ENCRYPTION_TRANSPORT: ::c_int = 23;
-pub const SO_SECURITY_ENCRYPTION_NETWORK: ::c_int = 24;
-pub const SO_BINDTODEVICE: ::c_int = 25;
-pub const SO_ATTACH_FILTER: ::c_int = 26;
-pub const SO_DETACH_FILTER: ::c_int = 27;
-pub const SO_GET_FILTER: ::c_int = SO_ATTACH_FILTER;
-pub const SO_PEERNAME: ::c_int = 28;
-pub const SO_TIMESTAMP: ::c_int = 29;
-pub const SO_ACCEPTCONN: ::c_int = 30;
-pub const SO_PEERSEC: ::c_int = 31;
-pub const SO_PASSSEC: ::c_int = 34;
-pub const SO_TIMESTAMPNS: ::c_int = 35;
-pub const SCM_TIMESTAMPNS: ::c_int = SO_TIMESTAMPNS;
-pub const SO_MARK: ::c_int = 36;
-pub const SO_PROTOCOL: ::c_int = 38;
-pub const SO_DOMAIN: ::c_int = 39;
-pub const SO_RXQ_OVFL: ::c_int = 40;
-pub const SO_WIFI_STATUS: ::c_int = 41;
-pub const SCM_WIFI_STATUS: ::c_int = SO_WIFI_STATUS;
-pub const SO_PEEK_OFF: ::c_int = 42;
-pub const SO_NOFCS: ::c_int = 43;
-pub const SO_LOCK_FILTER: ::c_int = 44;
-pub const SO_SELECT_ERR_QUEUE: ::c_int = 45;
-pub const SO_BUSY_POLL: ::c_int = 46;
-pub const SO_MAX_PACING_RATE: ::c_int = 47;
-pub const SO_BPF_EXTENSIONS: ::c_int = 48;
-pub const SO_INCOMING_CPU: ::c_int = 49;
-pub const SO_ATTACH_BPF: ::c_int = 50;
-pub const SO_DETACH_BPF: ::c_int = SO_DETACH_FILTER;
-
 pub const SOCK_STREAM: ::c_int = 1;
 pub const SOCK_DGRAM: ::c_int = 2;
 
@@ -429,6 +370,9 @@ pub const F_GETOWN: ::c_int = 9;
 pub const F_SETOWN: ::c_int = 8;
 pub const F_SETLK: ::c_int = 6;
 pub const F_SETLKW: ::c_int = 7;
+pub const F_OFD_GETLK: ::c_int = 36;
+pub const F_OFD_SETLK: ::c_int = 37;
+pub const F_OFD_SETLKW: ::c_int = 38;
 
 pub const F_RDLCK: ::c_int = 0;
 pub const F_WRLCK: ::c_int = 1;
@@ -444,7 +388,13 @@ pub const TIOCMGET: ::c_ulong = 0x5415;
 pub const TIOCMBIS: ::c_ulong = 0x5416;
 pub const TIOCMBIC: ::c_ulong = 0x5417;
 pub const TIOCMSET: ::c_ulong = 0x5418;
+pub const TIOCGSOFTCAR: ::c_ulong = 0x5419;
+pub const TIOCSSOFTCAR: ::c_ulong = 0x541A;
 pub const TIOCCONS: ::c_ulong = 0x541D;
+pub const TIOCSBRK: ::c_ulong = 0x5427;
+pub const TIOCCBRK: ::c_ulong = 0x5428;
+pub const TIOCGRS485: ::c_int = 0x542E;
+pub const TIOCSRS485: ::c_int = 0x542F;
 
 pub const TIOCM_ST: ::c_int = 0x008;
 pub const TIOCM_SR: ::c_int = 0x010;
@@ -485,37 +435,6 @@ pub const EPOLL_CLOEXEC: ::c_int = 0x80000;
 
 pub const EFD_CLOEXEC: ::c_int = 0x80000;
 
-pub const __SIZEOF_PTHREAD_CONDATTR_T: usize = 8;
-pub const __SIZEOF_PTHREAD_MUTEX_T: usize = 48;
-pub const __SIZEOF_PTHREAD_MUTEXATTR_T: usize = 8;
-
-align_const! {
-    pub const PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP: ::pthread_mutex_t =
-        pthread_mutex_t {
-            size: [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0,
-            ],
-        };
-    pub const PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP: ::pthread_mutex_t =
-        pthread_mutex_t {
-            size: [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0,
-            ],
-        };
-    pub const PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP: ::pthread_mutex_t =
-        pthread_mutex_t {
-            size: [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0,
-            ],
-        };
-}
-
 pub const O_DIRECT: ::c_int = 0x10000;
 pub const O_DIRECTORY: ::c_int = 0x4000;
 pub const O_NOFOLLOW: ::c_int = 0x8000;
@@ -530,6 +449,7 @@ pub const MAP_POPULATE: ::c_int = 0x08000;
 pub const MAP_NONBLOCK: ::c_int = 0x010000;
 pub const MAP_STACK: ::c_int = 0x020000;
 pub const MAP_HUGETLB: ::c_int = 0x040000;
+pub const MAP_SYNC: ::c_int = 0x080000;
 
 pub const EDEADLOCK: ::c_int = 35;
 
@@ -662,6 +582,51 @@ pub const TCSAFLUSH: ::c_int = 2;
 pub const TIOCLINUX: ::c_ulong = 0x541C;
 pub const TIOCGSERIAL: ::c_ulong = 0x541E;
 
+// sys/auxv.h
+pub const HWCAP_FP: ::c_ulong = 1 << 0;
+pub const HWCAP_ASIMD: ::c_ulong = 1 << 1;
+pub const HWCAP_EVTSTRM: ::c_ulong = 1 << 2;
+pub const HWCAP_AES: ::c_ulong = 1 << 3;
+pub const HWCAP_PMULL: ::c_ulong = 1 << 4;
+pub const HWCAP_SHA1: ::c_ulong = 1 << 5;
+pub const HWCAP_SHA2: ::c_ulong = 1 << 6;
+pub const HWCAP_CRC32: ::c_ulong = 1 << 7;
+pub const HWCAP_ATOMICS: ::c_ulong = 1 << 8;
+pub const HWCAP_FPHP: ::c_ulong = 1 << 9;
+pub const HWCAP_ASIMDHP: ::c_ulong = 1 << 10;
+pub const HWCAP_CPUID: ::c_ulong = 1 << 11;
+pub const HWCAP_ASIMDRDM: ::c_ulong = 1 << 12;
+pub const HWCAP_JSCVT: ::c_ulong = 1 << 13;
+pub const HWCAP_FCMA: ::c_ulong = 1 << 14;
+pub const HWCAP_LRCPC: ::c_ulong = 1 << 15;
+pub const HWCAP_DCPOP: ::c_ulong = 1 << 16;
+pub const HWCAP_SHA3: ::c_ulong = 1 << 17;
+pub const HWCAP_SM3: ::c_ulong = 1 << 18;
+pub const HWCAP_SM4: ::c_ulong = 1 << 19;
+pub const HWCAP_ASIMDDP: ::c_ulong = 1 << 20;
+pub const HWCAP_SHA512: ::c_ulong = 1 << 21;
+pub const HWCAP_SVE: ::c_ulong = 1 << 22;
+pub const HWCAP_ASIMDFHM: ::c_ulong = 1 << 23;
+pub const HWCAP_DIT: ::c_ulong = 1 << 24;
+pub const HWCAP_USCAT: ::c_ulong = 1 << 25;
+pub const HWCAP_ILRCPC: ::c_ulong = 1 << 26;
+pub const HWCAP_FLAGM: ::c_ulong = 1 << 27;
+pub const HWCAP_SSBS: ::c_ulong = 1 << 28;
+pub const HWCAP_SB: ::c_ulong = 1 << 29;
+pub const HWCAP_PACA: ::c_ulong = 1 << 30;
+pub const HWCAP_PACG: ::c_ulong = 1 << 31;
+// FIXME: enable these again once linux-api-headers are up to date enough on CI.
+// See discussion in https://github.com/rust-lang/libc/pull/1638
+//pub const HWCAP2_DCPODP: ::c_ulong = 1 << 0;
+//pub const HWCAP2_SVE2: ::c_ulong = 1 << 1;
+//pub const HWCAP2_SVEAES: ::c_ulong = 1 << 2;
+//pub const HWCAP2_SVEPMULL: ::c_ulong = 1 << 3;
+//pub const HWCAP2_SVEBITPERM: ::c_ulong = 1 << 4;
+//pub const HWCAP2_SVESHA3: ::c_ulong = 1 << 5;
+//pub const HWCAP2_SVESM4: ::c_ulong = 1 << 6;
+//pub const HWCAP2_FLAGM2: ::c_ulong = 1 << 7;
+//pub const HWCAP2_FRINT: ::c_ulong = 1 << 8;
+
 // Syscall table
 pub const SYS_io_setup: ::c_long = 0;
 pub const SYS_io_destroy: ::c_long = 1;
@@ -701,11 +666,15 @@ pub const SYS_mkdirat: ::c_long = 34;
 pub const SYS_unlinkat: ::c_long = 35;
 pub const SYS_symlinkat: ::c_long = 36;
 pub const SYS_linkat: ::c_long = 37;
-pub const SYS_renameat: ::c_long = 38;
+// 38 is renameat only on LP64
 pub const SYS_umount2: ::c_long = 39;
 pub const SYS_mount: ::c_long = 40;
 pub const SYS_pivot_root: ::c_long = 41;
 pub const SYS_nfsservctl: ::c_long = 42;
+pub const SYS_statfs: ::c_long = 43;
+pub const SYS_fstatfs: ::c_long = 44;
+pub const SYS_truncate: ::c_long = 45;
+pub const SYS_ftruncate: ::c_long = 46;
 pub const SYS_fallocate: ::c_long = 47;
 pub const SYS_faccessat: ::c_long = 48;
 pub const SYS_chdir: ::c_long = 49;
@@ -742,7 +711,7 @@ pub const SYS_fstat: ::c_long = 80;
 pub const SYS_sync: ::c_long = 81;
 pub const SYS_fsync: ::c_long = 82;
 pub const SYS_fdatasync: ::c_long = 83;
-pub const SYS_sync_file_range: ::c_long = 84;
+// 84 sync_file_range on LP64 and sync_file_range2 on ILP32
 pub const SYS_timerfd_create: ::c_long = 85;
 pub const SYS_timerfd_settime: ::c_long = 86;
 pub const SYS_timerfd_gettime: ::c_long = 87;
@@ -821,8 +790,8 @@ pub const SYS_setgroups: ::c_long = 159;
 pub const SYS_uname: ::c_long = 160;
 pub const SYS_sethostname: ::c_long = 161;
 pub const SYS_setdomainname: ::c_long = 162;
-pub const SYS_getrlimit: ::c_long = 163;
-pub const SYS_setrlimit: ::c_long = 164;
+// 163 is getrlimit only on LP64
+// 164 is setrlimit only on LP64
 pub const SYS_getrusage: ::c_long = 165;
 pub const SYS_umask: ::c_long = 166;
 pub const SYS_prctl: ::c_long = 167;
@@ -933,8 +902,26 @@ pub const SYS_pkey_mprotect: ::c_long = 288;
 pub const SYS_pkey_alloc: ::c_long = 289;
 pub const SYS_pkey_free: ::c_long = 290;
 pub const SYS_statx: ::c_long = 291;
+pub const SYS_pidfd_send_signal: ::c_long = 424;
+pub const SYS_io_uring_setup: ::c_long = 425;
+pub const SYS_io_uring_enter: ::c_long = 426;
+pub const SYS_io_uring_register: ::c_long = 427;
+pub const SYS_open_tree: ::c_long = 428;
+pub const SYS_move_mount: ::c_long = 429;
+pub const SYS_fsopen: ::c_long = 430;
+pub const SYS_fsconfig: ::c_long = 431;
+pub const SYS_fsmount: ::c_long = 432;
+pub const SYS_fspick: ::c_long = 433;
+pub const SYS_pidfd_open: ::c_long = 434;
+pub const SYS_clone3: ::c_long = 435;
+pub const SYS_close_range: ::c_long = 436;
+pub const SYS_openat2: ::c_long = 437;
+pub const SYS_pidfd_getfd: ::c_long = 438;
+pub const SYS_faccessat2: ::c_long = 439;
+pub const SYS_process_madvise: ::c_long = 440;
+pub const SYS_epoll_pwait2: ::c_long = 441;
+pub const SYS_mount_setattr: ::c_long = 442;
 
-#[link(name = "util")]
 extern "C" {
     pub fn sysctl(
         name: *mut ::c_int,
@@ -944,6 +931,16 @@ extern "C" {
         newp: *mut ::c_void,
         newlen: ::size_t,
     ) -> ::c_int;
+}
+
+cfg_if! {
+    if #[cfg(target_pointer_width = "32")] {
+        mod ilp32;
+        pub use self::ilp32::*;
+    } else {
+        mod lp64;
+        pub use self::lp64::*;
+    }
 }
 
 cfg_if! {

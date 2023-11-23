@@ -27,6 +27,9 @@
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libmesa_amdgpu_addrlib
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-ISC SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_SRC_FILES := $(ADDRLIB_FILES)
 
@@ -37,6 +40,7 @@ LOCAL_C_INCLUDES := \
 	$(MESA_TOP)/src/amd/addrlib/src \
 	$(MESA_TOP)/src/amd/addrlib/src/core \
 	$(MESA_TOP)/src/amd/addrlib/src/chip/gfx9 \
+	$(MESA_TOP)/src/amd/addrlib/src/chip/gfx10 \
 	$(MESA_TOP)/src/amd/addrlib/src/chip/r800
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := \

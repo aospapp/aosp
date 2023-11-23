@@ -19,6 +19,7 @@ package android.hardware.input.cts.tests;
 import static org.junit.Assert.assertEquals;
 
 import android.hardware.cts.R;
+import android.view.KeyEvent;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
@@ -28,7 +29,7 @@ import org.junit.runner.RunWith;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
-public class MicrosoftDesignerKeyboardTest extends InputTestCase {
+public class MicrosoftDesignerKeyboardTest extends InputHidTestCase {
 
     public MicrosoftDesignerKeyboardTest() {
         super(R.raw.microsoft_designer_keyboard_register);
@@ -40,15 +41,14 @@ public class MicrosoftDesignerKeyboardTest extends InputTestCase {
     }
 
     /**
-     * Relax the source check on this test because we encountered a Linux kernel behavior change in
-     * 4.18 or later that splits the device into multiple devices according to its applications in
-     * HID descriptor. That change further lets Android framework split the KeyboardInputMapper
-     * because it thinks they are different devices which in turn split the source flags. Therefore
-     * we relax the test so that it can pass with both behaviors until we reach a consensus with
-     * upstream Linux on the desired behavior.
+     * Microsoft Designer Keyboard has meta control keys of NUM_LOCK, CAPS_LOCK and SCROLL_LOCK.
+     * Do not verify the meta key states that have global state and initially to be on.
      */
     @Override
-    void assertSource(String testCase, int expectedSource, int actualSource) {
-        assertEquals(testCase + " (source)", expectedSource & actualSource, actualSource);
+    void assertMetaState(String testCase, int expectedMetaState, int actualMetaState) {
+        final int metaStates = KeyEvent.META_NUM_LOCK_ON | KeyEvent.META_CAPS_LOCK_ON
+                | KeyEvent.META_SCROLL_LOCK_ON;
+        actualMetaState &= ~metaStates;
+        assertEquals(testCase + " (meta state)", expectedMetaState , actualMetaState);
     }
 }

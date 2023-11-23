@@ -21,22 +21,32 @@ public class Main {
   private static int mY = -3;
 
   public static void main(String[] args) {
-    System.out.println(foo(3, 4));
-    System.out.println(mulAndIntrinsic());
-    System.out.println(directIntrinsic(-5));
+    System.out.println($noinline$foo(3, 4));
+    System.out.println($noinline$mulAndIntrinsic());
+    System.out.println($noinline$directIntrinsic(-5));
+    System.out.println($noinline$deoptimizeArray(new int[100]));
   }
 
-  public static int foo(int x, int y) {
-   try {
-      Class<?> c = Class.forName("Smali");
-      Method m = c.getMethod("foo", int.class, int.class);
-      return (Integer) m.invoke(null, x, y);
-    } catch (Throwable t) {
-      throw new RuntimeException(t);
-    }
+  private static int $inline$add(int a, int b) {
+    return a + b;
   }
 
-  /// CHECK-START: int Main.mulAndIntrinsic() GVN (before)
+  /// CHECK-START: int Main.$noinline$foo(int, int) GVN (before)
+  /// CHECK: Add
+  /// CHECK: Add
+  /// CHECK: Add
+
+  /// CHECK-START: int Main.$noinline$foo(int, int) GVN (after)
+  /// CHECK: Add
+  /// CHECK: Add
+  /// CHECK-NOT: Add
+  public static int $noinline$foo(int x, int y) {
+    int sum1 = $inline$add(x, y);
+    int sum2 = $inline$add(y, x);
+    return sum1 + sum2;
+  }
+
+  /// CHECK-START: int Main.$noinline$mulAndIntrinsic() GVN (before)
   /// CHECK: StaticFieldGet
   /// CHECK: StaticFieldGet
   /// CHECK: Mul
@@ -46,7 +56,7 @@ public class Main {
   /// CHECK: Mul
   /// CHECK: Add
 
-  /// CHECK-START: int Main.mulAndIntrinsic() GVN (after)
+  /// CHECK-START: int Main.$noinline$mulAndIntrinsic() GVN (after)
   /// CHECK: StaticFieldGet
   /// CHECK: StaticFieldGet
   /// CHECK: Mul
@@ -56,7 +66,7 @@ public class Main {
   /// CHECK-NOT: Mul
   /// CHECK: Add
 
-  public static int mulAndIntrinsic() {
+  public static int $noinline$mulAndIntrinsic() {
     // The intermediate call to abs() does not kill
     // the common subexpression on the multiplication.
     int mul1 = mX * mY;
@@ -65,21 +75,53 @@ public class Main {
     return abs + mul2;
   }
 
-  /// CHECK-START: int Main.directIntrinsic(int) GVN (before)
+  /// CHECK-START: int Main.$noinline$directIntrinsic(int) GVN (before)
   /// CHECK: Abs
   /// CHECK: Abs
   /// CHECK: Add
 
-  /// CHECK-START: int Main.directIntrinsic(int) GVN (after)
+  /// CHECK-START: int Main.$noinline$directIntrinsic(int) GVN (after)
   /// CHECK: Abs
   /// CHECK-NOT: Abs
   /// CHECK: Add
 
-  public static int directIntrinsic(int x) {
+  public static int $noinline$directIntrinsic(int x) {
     // Here, the two calls to abs() themselves can be replaced with just one.
     int abs1 = Math.abs(x);
     int abs2 = Math.abs(x);
     return abs1 + abs2;
   }
 
+  public static class MyList {
+    public int[] arr;
+  }
+
+  // The 4 deoptimize are pairs of checking for null and array-length. The
+  // repetition is due to the two loops.
+  // NB This is a very degenerate example and improvements to our analysis could
+  // allow for this entire function to be removed.
+  /// CHECK-START: int Main.$noinline$deoptimizeArray(int[]) GVN$after_arch (before)
+  /// CHECK: Deoptimize
+  /// CHECK: Deoptimize
+  /// CHECK: Deoptimize
+  /// CHECK: Deoptimize
+  /// CHECK-NOT: Deoptimize
+  // Get rid of redundant deoptimizes
+  /// CHECK-START: int Main.$noinline$deoptimizeArray(int[]) GVN$after_arch (after)
+  /// CHECK: Deoptimize
+  /// CHECK: Deoptimize
+  /// CHECK-NOT: Deoptimize
+  public static int $noinline$deoptimizeArray(int[] arr) {
+    if (arr == null) {
+      arr = new int[100];
+    }
+    for (int i = 0; i < 10; i++) {
+      arr[i] = i;
+    }
+    int sum = 0;
+    for (int i = 0; i < 10; i++) {
+      sum += arr[i];
+    }
+    return sum;
+  }
 }

@@ -15,14 +15,13 @@
  */
 
 #include <dirent.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <string>
 
 #include <android-base/properties.h>
+#include <android-base/strings.h>
 #include "utility/ValidateXml.h"
+
+using std::string_literals::operator""s;
 
 static void get_files_in_dirs(const char* dir_path, std::vector<std::string>& files) {
     DIR* d;
@@ -43,7 +42,7 @@ static void get_files_in_dirs(const char* dir_path, std::vector<std::string>& fi
 }
 
 TEST(CheckConfig, halManifestValidation) {
-    if (android::base::GetIntProperty("ro.product.first_api_level", 0) <= 28) {
+    if (android::base::GetIntProperty("ro.product.first_api_level", INT64_MAX) <= 28) {
         GTEST_SKIP();
     }
 
@@ -51,17 +50,30 @@ TEST(CheckConfig, halManifestValidation) {
                    "Verify that the hal manifest file "
                    "is valid according to the schema");
 
-    EXPECT_ONE_VALID_XML_MULTIPLE_LOCATIONS("manifest.xml", {"/vendor/etc/vintf/"},
-                                            "/data/local/tmp/hal_manifest.xsd");
+    constexpr const char* xsd = "/data/local/tmp/hal_manifest.xsd";
 
-    std::vector<const char*> locations = {"/vendor/etc/vintf/manifest", "/odm/etc/vintf"};
-
-    for (const char* dir_path : locations) {
+    // There may be compatibility matrices in .../etc/vintf. Manifests are only loaded from
+    // manifest.xml and manifest_*.xml, so only check those.
+    std::vector<const char*> vintf_locations = {"/vendor/etc/vintf", "/odm/etc/vintf"};
+    for (const char* dir_path : vintf_locations) {
         std::vector<std::string> files;
         get_files_in_dirs(dir_path, files);
         for (std::string file_name : files) {
-            EXPECT_ONE_VALID_XML_MULTIPLE_LOCATIONS(file_name.c_str(), {dir_path},
-                                                    "/data/local/tmp/hal_manifest.xsd");
+            if (android::base::StartsWith(file_name, "manifest")) {
+                EXPECT_VALID_XML((dir_path + "/"s + file_name).c_str(), xsd);
+            }
+        }
+    }
+
+    // .../etc/vintf/manifest should only contain manifest fragments, so all of them must match the
+    // schema.
+    std::vector<const char*> fragment_locations = {"/vendor/etc/vintf/manifest",
+                                                   "/odm/etc/vintf/manifest"};
+    for (const char* dir_path : fragment_locations) {
+        std::vector<std::string> files;
+        get_files_in_dirs(dir_path, files);
+        for (std::string file_name : files) {
+            EXPECT_VALID_XML((dir_path + "/"s + file_name).c_str(), xsd);
         }
     }
 }

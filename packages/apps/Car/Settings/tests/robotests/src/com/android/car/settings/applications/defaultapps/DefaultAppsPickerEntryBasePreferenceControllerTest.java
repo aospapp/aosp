@@ -36,9 +36,9 @@ import android.provider.Settings;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.Lifecycle;
 
-import com.android.car.settings.common.ButtonPreference;
 import com.android.car.settings.common.FragmentController;
 import com.android.car.settings.common.PreferenceControllerTestHelper;
+import com.android.car.ui.preference.CarUiTwoActionIconPreference;
 import com.android.settingslib.applications.DefaultAppInfo;
 
 import org.junit.Before;
@@ -84,7 +84,7 @@ public class DefaultAppsPickerEntryBasePreferenceControllerTest {
     }
 
     private Context mContext;
-    private ButtonPreference mButtonPreference;
+    private CarUiTwoActionIconPreference mButtonPreference;
     private PreferenceControllerTestHelper<TestDefaultAppsPickerEntryBasePreferenceController>
             mControllerHelper;
     private TestDefaultAppsPickerEntryBasePreferenceController mController;
@@ -92,7 +92,7 @@ public class DefaultAppsPickerEntryBasePreferenceControllerTest {
     @Before
     public void setUp() {
         mContext = spy(RuntimeEnvironment.application);
-        mButtonPreference = new ButtonPreference(mContext);
+        mButtonPreference = new CarUiTwoActionIconPreference(mContext);
         mControllerHelper = new PreferenceControllerTestHelper<>(mContext,
                 TestDefaultAppsPickerEntryBasePreferenceController.class, mButtonPreference);
         mController = mControllerHelper.getController();
@@ -104,7 +104,7 @@ public class DefaultAppsPickerEntryBasePreferenceControllerTest {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         mController.refreshUi();
 
-        assertThat(mButtonPreference.isActionShown()).isFalse();
+        assertThat(mButtonPreference.isSecondaryActionVisible()).isFalse();
     }
 
     @Test
@@ -117,7 +117,7 @@ public class DefaultAppsPickerEntryBasePreferenceControllerTest {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         mController.refreshUi();
 
-        assertThat(mButtonPreference.isActionShown()).isFalse();
+        assertThat(mButtonPreference.isSecondaryActionVisible()).isFalse();
     }
 
     @Test
@@ -132,7 +132,7 @@ public class DefaultAppsPickerEntryBasePreferenceControllerTest {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         mController.refreshUi();
 
-        assertThat(mButtonPreference.isActionShown()).isTrue();
+        assertThat(mButtonPreference.isSecondaryActionVisible()).isTrue();
     }
 
     @Test
@@ -141,7 +141,7 @@ public class DefaultAppsPickerEntryBasePreferenceControllerTest {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
         mController.refreshUi();
 
-        assertThat(mButtonPreference.isActionShown()).isTrue();
+        assertThat(mButtonPreference.isSecondaryActionVisible()).isTrue();
     }
 
     @Test
@@ -152,7 +152,7 @@ public class DefaultAppsPickerEntryBasePreferenceControllerTest {
                 any(String.class), any(Intent.class), eq(0), isNull());
         mController.setSettingIntent(TEST_INTENT);
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
-        mButtonPreference.performButtonClick();
+        mButtonPreference.performSecondaryActionClick();
 
         verify(mContext).startActivityForResult(
                 "android", TEST_INTENT, 0, null);

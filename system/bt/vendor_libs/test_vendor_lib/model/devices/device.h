@@ -18,7 +18,6 @@
 
 #include <chrono>
 #include <cstdint>
-#include <list>
 #include <map>
 #include <string>
 #include <vector>
@@ -87,16 +86,16 @@ class Device {
                                    Phy::Type phy_type);
 
  protected:
-  std::map<Phy::Type, std::list<std::shared_ptr<PhyLayer>>> phy_layers_;
+  std::vector<std::shared_ptr<PhyLayer>> phy_layers_;
 
   std::chrono::steady_clock::time_point last_advertisement_;
 
   // The time between page scans.
-  std::chrono::milliseconds page_scan_delay_ms_;
+  std::chrono::milliseconds page_scan_delay_ms_{};
 
   // The spec defines the advertising interval as a 16-bit value, but since it
   // is never sent in packets, we use std::chrono::milliseconds.
-  std::chrono::milliseconds advertising_interval_ms_;
+  std::chrono::milliseconds advertising_interval_ms_{};
 
   DeviceProperties properties_;
 };

@@ -18,6 +18,10 @@ package com.android.settings.intelligence.search.query;
 
 import android.text.TextUtils;
 
+import com.android.settings.intelligence.search.indexing.IndexData;
+
+import java.util.Locale;
+
 /**
  * Utils for Query-time operations.
  */
@@ -40,10 +44,16 @@ public class SearchQueryUtils {
      * resultName: Abcde, query: bc, Returns NAME_NO_MATCH
      * resultName: Abcde, query: xyz, Returns NAME_NO_MATCH
      * resultName: Abc de, query: de, Returns 4
+     *
+     * In Japanese, normalize resultName to match normalized query.
      */
     public static int getWordDifference(String resultName, String query) {
         if (TextUtils.isEmpty(resultName) || TextUtils.isEmpty(query)) {
             return NAME_NO_MATCH;
+        }
+
+        if (Locale.getDefault().equals(Locale.JAPAN)) {
+            resultName = IndexData.normalizeJapaneseString(resultName);
         }
 
         final char[] queryTokens = query.toLowerCase().toCharArray();

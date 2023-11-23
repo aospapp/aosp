@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -15,6 +16,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
+import org.unicode.cldr.test.CoverageLevel2;
 import org.unicode.cldr.util.Annotations;
 import org.unicode.cldr.util.Annotations.AnnotationSet;
 import org.unicode.cldr.util.CLDRConfig;
@@ -23,25 +25,30 @@ import org.unicode.cldr.util.CLDRPaths;
 import org.unicode.cldr.util.CldrUtility;
 import org.unicode.cldr.util.Emoji;
 import org.unicode.cldr.util.Factory;
+import org.unicode.cldr.util.Level;
+import org.unicode.cldr.util.PathHeader.PageId;
 import org.unicode.cldr.util.SimpleFactory;
+import org.unicode.cldr.util.SupplementalDataInfo;
 import org.unicode.cldr.util.XListFormatter;
 import org.unicode.cldr.util.XListFormatter.ListTypeLength;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
-import com.ibm.icu.dev.util.CollectionUtilities;
 import com.ibm.icu.dev.util.UnicodeMap;
-import com.ibm.icu.dev.util.UnicodeMap.EntryRange;
+import com.ibm.icu.impl.Row;
+import com.ibm.icu.impl.Row.R3;
+import com.ibm.icu.impl.Row.R4;
 import com.ibm.icu.impl.Utility;
+import com.ibm.icu.text.Collator;
 import com.ibm.icu.text.UnicodeSet;
 
 public class TestAnnotations extends TestFmwkPlus {
-    private static final boolean SHOW_LIST = false;
-    private static final boolean SHOW_ENGLISH = false;
+    private static final boolean DEBUG = false;
 
     public static void main(String[] args) {
         new TestAnnotations().run(args);
@@ -93,21 +100,9 @@ public class TestAnnotations extends TestFmwkPlus {
         }
     }
 
-    public void TestList() {
-        if (!SHOW_LIST) {
-            return;
-        }
-        if (isVerbose()) {
-            for (String locale : Annotations.getAvailable()) {
-                for (EntryRange<Annotations> s : Annotations.getData(locale).entryRanges()) {
-                    logln(s.toString());
-                }
-            }
-        }
-    }
+    final AnnotationSet eng = Annotations.getDataSet("en");
 
     public void TestNames() {
-        AnnotationSet eng = Annotations.getDataSet("en");
         String[][] tests = { // the expected value for keywords can use , as well as |.
             {"👨🏻", "man: light skin tone", "adult | man | light skin tone"},
             {"👱‍♂️", "man: blond hair", "blond, blond-haired man, hair, man, man: blond hair"},
@@ -125,10 +120,10 @@ public class TestAnnotations extends TestFmwkPlus {
             { "👩‍👩‍👧", "family: woman, woman, girl", "family | woman | girl" },
             { "👦🏻", "boy: light skin tone", "boy | young | light skin tone" },
             { "👩🏿", "woman: dark skin tone", "adult | woman | dark skin tone" },
-            { "👨‍⚖", "man judge", "justice | man | man judge | scales" },
-            { "👨🏿‍⚖", "man judge: dark skin tone", "justice | man | man judge | scales | dark skin tone" },
-            { "👩‍⚖", "woman judge", "judge | scales | woman" },
-            { "👩🏼‍⚖", "woman judge: medium-light skin tone", "judge | scales | woman | medium-light skin tone" },
+            { "👨‍⚖", "man judge", "justice | man | judge | scales" },
+            { "👨🏿‍⚖", "man judge: dark skin tone", "justice | man | judge | scales | dark skin tone" },
+            { "👩‍⚖", "woman judge", "judge | justice | scales | woman" },
+            { "👩🏼‍⚖", "woman judge: medium-light skin tone", "judge | justice | scales | woman | medium-light skin tone" },
             { "👮", "police officer", "cop | officer | police" },
             { "👮🏿", "police officer: dark skin tone", "cop | officer | police | dark skin tone" },
             { "👮‍♂️", "man police officer", "cop | man | officer | police" },
@@ -162,111 +157,122 @@ public class TestAnnotations extends TestFmwkPlus {
                 final Set<String> keywords = eng.getKeywords(emoji);
                 System.out.println("{\"" + emoji
                     + "\",\"" + shortName
-                    + "\",\"" + CollectionUtilities.join(keywords, " | ")
+                    + "\",\"" + Joiner.on(" | ").join(keywords)
                     + "\"},");
             }
         }
 
     }
-    
+    static final UnicodeSet symbols = new UnicodeSet(Emoji.EXTRA_SYMBOL_MINOR_CATEGORIES.keySet())
+        .freeze();
     /** The English name should line up with the emoji-test.txt file */
     public void TestNamesVsEmojiData() {
-        AnnotationSet eng = Annotations.getDataSet("en");
         for (Entry<String, Annotations> s : eng.getExplicitValues().entrySet()) {
             String emoji = s.getKey();
             Annotations annotations = s.getValue();
             String name = Emoji.getName(emoji);
             String annotationName = annotations.getShortName();
-            if (!emoji.contains("👲")) {
+            if (!symbols.contains(emoji) && !emoji.contains("👲")) {
                 assertEquals(emoji, name, annotationName);
             }
         }
     }
 
-    // comment this out, since we now have console check for this.
+    public void TestCategories() {
+        if (DEBUG) System.out.println();
+
+        TreeSet<R4<PageId, Long, String, R3<String, String, String>>> sorted = new TreeSet<>();
+        for (Entry<String, Annotations> s : eng.getExplicitValues().entrySet()) {
+            String emoji = s.getKey();
+            Annotations annotations = s.getValue();
+            final String rawCategory = Emoji.getMajorCategory(emoji);
+            PageId majorCategory = PageId.forString(rawCategory);
+            if (majorCategory == PageId.Symbols) {
+                majorCategory = PageId.Symbols2;
+            }
+            String minorCategory = Emoji.getMinorCategory(emoji);
+            long emojiOrder = Emoji.getEmojiToOrder(emoji);
+            R3<String, String, String> row2 = Row.of(emoji, annotations.getShortName(),
+                Joiner.on(" | ").join(annotations.getKeywords()));
+            R4<PageId, Long, String, R3<String, String, String>> row = Row.of(majorCategory, emojiOrder, minorCategory, row2);
+            sorted.add(row);
+        }
+        for (R4<PageId, Long, String, R3<String, String, String>> row : sorted) {
+            PageId majorCategory = row.get0();
+            Long emojiOrder = row.get1();
+            String minorCategory = row.get2();
+            R3<String, String, String> row2 = row.get3();
+            String emoji = row2.get0();
+            String shortName = row2.get1();
+            String keywords = row2.get2();
+            if (DEBUG) System.out.println(majorCategory
+                + "\t" + emojiOrder
+                + "\t" + minorCategory
+                + "\t" + emoji
+                + "\t" + shortName
+                + "\t" + keywords
+                );
+        }
+    }
+
     public void TestUniqueness() {
-//        if (logKnownIssue("cldrbug:10104", "Disable until the uniqueness problems are fixed")) {
-//            return;
-//        }
         Set<String> locales = new TreeSet<>();
-        
         locales.add("en");
         locales.addAll(Annotations.getAvailable());
         locales.remove("root");
-//        if (getInclusion() < 6) {
-//            locales.retainAll(CLDRConfig.getInstance().getStandardCodes().getLocaleCoverageLocales(Organization.cldr));
-//        }
-        //locales.remove("sr_Latn");
-        Multimap<String, String> localeToNameToEmoji = TreeMultimap.create();
-        Multimap<String, String> nameToEmoji = TreeMultimap.create();
-        UnicodeMap<Annotations> english = Annotations.getData("en");
-        AnnotationSet englishSet = Annotations.getDataSet("en");
-        UnicodeSet englishKeys = getCurrent(english.keySet());
-        Map<String, UnicodeSet> localeToMissing = new TreeMap<>();
+        /*
+         * Note: "problems" here is a work-around for what appears to be a deficiency
+         * in the function sourceLocation, involving the call stack. Seemingly sourceLocation
+         * can't handle the "->" notation used for parallelStream().forEach() if
+         * uniquePerLocale calls errln directly.
+         */
+        Set<String> problems = new HashSet<>();
+        locales.parallelStream().forEach(locale -> uniquePerLocale(locale, problems));
+        if (!problems.isEmpty()) {
+            problems.forEach(s -> errln(s));
+        }
+    }
 
-        for (String locale : locales) {
-            logln("uniqueness: " + locale);
-            AnnotationSet data = Annotations.getDataSet(locale);
-            nameToEmoji.clear();
-            localeToMissing.put(locale, new UnicodeSet(englishKeys).removeAll(data.keySet()).freeze());
-            for (String emoji : Emoji.getAllRgi()) { // Entry<String, Annotations> value : data.entrySet()) {
-                String name = data.getShortName(emoji);
-                if (name == null) {
-                    continue;
-                }
-                if (name.contains(CldrUtility.INHERITANCE_MARKER)) {
-                    throw new IllegalArgumentException(CldrUtility.INHERITANCE_MARKER + " in name of " + emoji + " in " + locale);
-                }
-                nameToEmoji.put(name, emoji);
+    private void uniquePerLocale(String locale, Set<String> problems) {
+        logln("uniqueness: " + locale);
+        Multimap<String, String> nameToEmoji = TreeMultimap.create();
+        AnnotationSet data = Annotations.getDataSet(locale);
+        for (String emoji : Emoji.getAllRgi()) {
+            String name = data.getShortName(emoji);
+            if (name == null) {
+                continue;
             }
-            for (Entry<String, Collection<String>> entry : nameToEmoji.asMap().entrySet()) {
-                String name = entry.getKey();
-                Collection<String> emojis = entry.getValue();
-                if (emojis.size() > 1) {
-                    errln("Duplicate name in " + locale + ": “" + name + "” for "
-                        + CollectionUtilities.join(emojis, " & "));
-                    localeToNameToEmoji.putAll(locale + "\t" + name, emojis);
+            if (name.contains(CldrUtility.INHERITANCE_MARKER)) {
+                throw new IllegalArgumentException(CldrUtility.INHERITANCE_MARKER + " in name of " + emoji + " in " + locale);
+            }
+            nameToEmoji.put(name, emoji);
+        }
+        Multimap<String, String> duplicateNameToEmoji = null;
+        for (Entry<String, Collection<String>> entry : nameToEmoji.asMap().entrySet()) {
+            String name = entry.getKey();
+            Collection<String> emojis = entry.getValue();
+            if (emojis.size() > 1) {
+                synchronized(problems) {
+                    if (problems.add("Duplicate name in " + locale + ": “" + name + "” for "
+                        + Joiner.on(" & ").join(emojis))) {
+                        int debug = 0;
+                    }
                 }
+                if (duplicateNameToEmoji == null) {
+                    duplicateNameToEmoji = TreeMultimap.create();
+                }
+                duplicateNameToEmoji.putAll(name, emojis);
             }
         }
-        if (isVerbose() && !localeToNameToEmoji.isEmpty()) {
+        if (isVerbose() && duplicateNameToEmoji != null && !duplicateNameToEmoji.isEmpty()) {
             System.out.println("\nCollisions");
-            for (Entry<String, String> entry : localeToNameToEmoji.entries()) {
-                String locale = entry.getKey();
+            for (Entry<String, String> entry : duplicateNameToEmoji.entries()) {
                 String emoji = entry.getValue();
                 System.out.println(locale
-                    + "\t" + englishSet.getShortName(emoji)
+                    + "\t" + eng.getShortName(emoji)
                     + "\t" + emoji);
             }
         }
-        if (SHOW_LIST && !localeToMissing.isEmpty()) {
-            System.out.println("\nMissing");
-            int count = 2;
-            for (Entry<String, UnicodeSet> entry : localeToMissing.entrySet()) {
-                String locale = entry.getKey();
-                for (String emoji : entry.getValue()) {
-                    System.out.println(locale
-                        + "\t" + emoji
-                        + "\t" + englishSet.getShortName(emoji)
-                        + "\t" + "=GOOGLETRANSLATE(C" + count + ",\"en\",A" + count + ")"
-                    // =GOOGLETRANSLATE(C2,"en",A2)
-                    );
-                    ++count;
-                }
-            }
-        }
-
-    }
-
-    private UnicodeSet getCurrent(UnicodeSet keySet) {
-        UnicodeSet currentAge = new UnicodeSet("[:age=9.0:]");
-        UnicodeSet result = new UnicodeSet();
-        for (String s : keySet) {
-            if (currentAge.containsAll(s)) {
-                result.add(s);
-            }
-        }
-        return result.freeze();
     }
 
     public void testAnnotationPaths() {
@@ -276,41 +282,53 @@ public class TestAnnotations extends TestFmwkPlus {
             CLDRFile enAnnotations = factoryAnnotations.make(locale, false);
             //               //ldml/annotations/annotation[@cp="🧜"][@type="tts"]
             Set<String> annotationPaths = enAnnotations.getPaths("//ldml/anno",
-                Pattern.compile("//ldml/annotations/annotation.*tts.*").matcher(""), new TreeSet<>());
+                Pattern.compile("//ldml/annotations/annotation.*tts.*").matcher(""),
+                new TreeSet<>());
             Set<String> annotationPathsExpected = Emoji.getNamePaths();
-            checkAMinusBIsC("(" + locale + ".xml - Emoji.getNamePaths)", annotationPaths, annotationPathsExpected, Collections.<String> emptySet());
+            if (!checkAMinusBIsC("(" + locale + ".xml - Emoji.getNamePaths)", annotationPaths, annotationPathsExpected, Collections.<String> emptySet())) {
+                System.out.println("Check Emoji.SPECIALS");
+            }
             checkAMinusBIsC("(Emoji.getNamePaths - " + locale + ".xml)", annotationPathsExpected, annotationPaths, Collections.<String> emptySet());
         }
     }
     public void testEmojiImages() {
+        if (CLDRPaths.ANNOTATIONS_DIRECTORY.contains("cldr-staging/production/"))  {
+            return; // don't bother checking production for this: the images are only in master, not production
+        }
         Factory factoryAnnotations = SimpleFactory.make(CLDRPaths.ANNOTATIONS_DIRECTORY, ".*");
         CLDRFile enAnnotations = factoryAnnotations.make("en", false);
 
-        String emojiImageDir = CLDRPaths.BASE_DIRECTORY + "/tools/cldr-apps/WebContent/images/emoji";
-        for (String emoji : Emoji.getNonConstructed()) { 
+        String emojiImageDir = CLDRPaths.BASE_DIRECTORY + "/tools/cldr-apps/src/main/webapp/images/emoji";
+        for (String emoji : Emoji.getNonConstructed()) {
             String noVs = emoji.replace(Emoji.EMOJI_VARIANT, "");
-            
+
             // example: emoji_1f1e7_1f1ec.png
             String fileName = "emoji_" + Utility.hex(noVs, 4, "_").toLowerCase(Locale.ENGLISH) + ".png";
             File file = new File(emojiImageDir, fileName);
-            
+
             if (!file.exists()) {
                 String name = enAnnotations.getStringValue("//ldml/annotations/annotation[@cp=\"" + noVs + "\"][@type=\"tts\"]");
                 errln(fileName + " missing; " + name);
             }
         }
     }
-    
+
     /**
-     * check that the order info and categories are consistent.
+     * Check that the order info, categories, and collation are consistent.
      */
     public void testEmojiOrdering() {
         // load an array for sorting
         // and test that every order value maps to exactly one emoji
         Map<String,String> minorToMajor = new HashMap<>();
-        Map<Integer, String> orderToEmoji = new TreeMap<>();
+        Map<Long, String> orderToEmoji = new TreeMap<>();
+        Collator col = CLDRConfig.getInstance().getCollatorRoot();
+
         for (String emoji : Emoji.getNonConstructed()) {
-            Integer emojiOrder = Emoji.getEmojiToOrder(emoji);
+            Long emojiOrder = Emoji.getEmojiToOrder(emoji);
+            if (DEBUG) {
+                String minor = Emoji.getMinorCategory(emoji);
+                System.out.println(emojiOrder + "\t" + emoji + "\t" + minor);
+            }
             String oldEmoji = orderToEmoji.get(emojiOrder);
             if (oldEmoji == null) {
                 orderToEmoji.put(emojiOrder, emoji);
@@ -322,8 +340,27 @@ public class TestAnnotations extends TestFmwkPlus {
         String lastMajor = "";
         Set<String> minorsSoFar = new TreeSet<>();
         String lastMinor = "";
-        for (Entry<Integer, String> entry : orderToEmoji.entrySet()) {
+        Set<String> lastMajorGroup = new LinkedHashSet<>();
+        Set<String> lastMinorGroup = new LinkedHashSet<>();
+        String lastEmoji = "";
+        long lastEmojiOrdering = -1L;
+        for (Entry<Long, String> entry : orderToEmoji.entrySet()) {
             String emoji = entry.getValue();
+            Long emojiOrdering = entry.getKey();
+            // check against collation
+            if (col.compare(emoji, lastEmoji) <= 0) {
+                String name = eng.getShortName(emoji);
+                String lastName = eng.getShortName(lastEmoji);
+                int errorType = ERR;
+                if (logKnownIssue("cldr13660", "slightly out of order")) {
+                    errorType = WARN;
+                }
+                msg("Out of order: "
+                    + lastEmoji + " (" + lastEmojiOrdering + ") " + lastName
+                    + " > "
+                    + emoji + " (" + emojiOrdering + ") " + name, errorType, true, true);
+            }
+
             String major = Emoji.getMajorCategory(emoji);
             String minor = Emoji.getMinorCategory(emoji);
             if (isVerbose()) {
@@ -332,31 +369,48 @@ public class TestAnnotations extends TestFmwkPlus {
             String oldMajor = minorToMajor.get(minor);
             // never get major1:minor1 and major2:minor1
             if (oldMajor == null) {
-                minorToMajor.put(minor, major); 
+                minorToMajor.put(minor, major);
             } else {
                 assertEquals(minor + " maps to different majors for " + Utility.hex(emoji), oldMajor, major);
             }
             // never get major1 < major2 < major1
             if (!major.equals(lastMajor)) {
-                if (majorsSoFar.contains(major)) {
-                    errln("Non-contiguous majors: " + major + " <… " + lastMajor + " < " + major);
-                }
+                //System.out.println(lastMajor + "\t" + lastMajorGroup);
+
+//                if (majorsSoFar.contains(major)) {
+//                    errln("Non-contiguous majors: " + major + " <… " + lastMajor + " < " + major);
+//                }
                 majorsSoFar.add(major);
                 lastMajor = major;
+                lastMajorGroup.clear();
+                lastMajorGroup.add(emoji); // add emoji with different cat
+            } else {
+                lastMajorGroup.add(emoji);
             }
             // never get minor1 < minor2 < minor1
             if (!minor.equals(lastMinor)) {
+                if (DEBUG) System.out.println(lastMinor + "\t" + lastMinorGroup);
                 if (minorsSoFar.contains(minor)) {
                     errln("Non-contiguous minors: " + minor + " <… " + lastMinor + " < " + minor);
                 }
                 minorsSoFar.add(minor);
                 lastMinor = minor;
+                lastMinorGroup.clear();
+                lastMinorGroup.add(emoji); // add emoji with different cat
+            } else {
+                lastMinorGroup.add(emoji);
             }
+            lastEmoji = emoji;
+            lastEmojiOrdering = emojiOrdering;
         }
+        if (DEBUG) System.out.println(lastMinor + "\t" + lastMinorGroup);
     }
 
 
     public void testSuperfluousAnnotationPaths() {
+        if (CLDRPaths.ANNOTATIONS_DIRECTORY.contains("cldr-staging/production/"))  {
+            return; // don't bother checking production for this: root is empty
+        }
         Factory factoryAnnotations = SimpleFactory.make(CLDRPaths.ANNOTATIONS_DIRECTORY, ".*");
         ImmutableSet<String> rootPaths = ImmutableSortedSet.copyOf(factoryAnnotations.make("root", false).iterator("//ldml/annotations/"));
 
@@ -377,7 +431,9 @@ public class TestAnnotations extends TestFmwkPlus {
         for (String locale : factoryAnnotations.getAvailable()) {
             ImmutableSet<String> currentPaths = ImmutableSortedSet.copyOf(factoryAnnotations.make(locale, false).iterator("//ldml/annotations/"));
             Set<String> superfluous = setDifference(currentPaths, rootPaths);
-            assertTrue("root contains " + locale, superfluous.isEmpty());
+            if (!assertTrue("root contains " + locale, superfluous.isEmpty())) {
+                int debug = 0;
+            }
             allSuperfluous.addAll(superfluous);
             for (String s : currentPaths) {
                 if (s.contains("\uFE0F")) {
@@ -402,12 +458,18 @@ public class TestAnnotations extends TestFmwkPlus {
         return superfluous;
     }
 
-    private void checkAMinusBIsC(String title, Set<String> a, Set<String> b, Set<String> c) {
+    private boolean checkAMinusBIsC(String title, Set<String> a, Set<String> b, Set<String> c) {
         Set<String> aMb = new TreeSet<>(a);
         aMb.removeAll(b);
-        assertEquals(title + " (" + aMb.size() + ")", c, aMb);
+        for (Iterator<String> it = aMb.iterator(); it.hasNext();) {
+            String item = it.next();
+            if (symbols.containsSome(item)) {
+                it.remove();
+            }
+        }
+        return assertEquals(title + " (" + aMb.size() + ")", c, aMb);
     }
-    
+
     public void testListFormatter() {
         Object[][] tests = {
             {"en", ListTypeLength.NORMAL, "ABC", "A, B, and C"},
@@ -424,6 +486,41 @@ public class TestAnnotations extends TestFmwkPlus {
             String source = (String)test[2];
             String actual = xlistFormatter.formatCodePoints(source);
             assertEquals(test[0] + ", " + listTypeLength + ", " + source, expected, actual);
+        }
+    }
+
+    public void testCoverage() {
+        UnicodeMap<Level> levels = new UnicodeMap<>();
+        UnicodeSet shouldBeComprehensive = new UnicodeSet("[‾‽‸⁂↚↛↮↙↜↝↞↟↠↡↢↣↤↥↦↧↨↫↬↭↯↰↱↲↳↴↵↶↷↸↹↺↻↼↽↾↿⇀⇁⇂⇃⇄⇇⇈⇉⇊⇋⇌⇐⇍⇑⇒⇏⇓⇔⇎⇖⇗⇘⇙⇚⇛⇜⇝⇞⇟⇠⇡⇢⇣⇤⇥⇦⇧⇨⇩⇪⇵∀∂∃∅∉∋∎∏∑≮≯∓∕⁄∗∘∙∝∟∠∣∥∧∫∬∮∴∵∶∷∼∽∾≃≅≌≒≖≣≦≧≪≫≬≳≺≻⊁⊃⊆⊇⊕⊖⊗⊘⊙⊚⊛⊞⊟⊥⊮⊰⊱⋭⊶⊹⊿⋁⋂⋃⋅⋆⋈⋒⋘⋙⋮⋯⋰⋱■□▢▣▤▥▦▧▨▩▬▭▮▰△▴▵▷▸▹►▻▽▾▿◁◂◃◄◅◆◇◈◉◌◍◎◐◑◒◓◔◕◖◗◘◙◜◝◞◟◠◡◢◣◤◥◦◳◷◻◽◿⨧⨯⨼⩣⩽⪍⪚⪺₢₣₤₰₳₶₷₨﷼]").freeze();
+        for (String minorCategory : Emoji.getMinorCategoriesWithExtras()) {
+            for (String s : Emoji.getEmojiInMinorCategoriesWithExtras(minorCategory)) {
+                if (s.contentEquals("‾")) {
+                    int debug = 0;
+                }
+                CoverageLevel2 coverageLevel = CoverageLevel2.getInstance(SupplementalDataInfo.getInstance(), "en");
+                final String pathKeyword = "//ldml/annotations/annotation[@cp=\"" + s + "\"]";
+                final String pathName = pathKeyword + "[@type=\"tts\"]";
+                Level levelKeyword = coverageLevel.getLevel(pathKeyword);
+                Level levelName = coverageLevel.getLevel(pathName);
+                assertEquals(s, levelName, levelKeyword);
+                levels.put(s, levelName);
+            }
+        }
+        for (Level level : Level.values()) {
+            UnicodeSet us = levels.getSet(level);
+            System.out.println(level + "\t" + us.size());
+            switch(level) {
+            case COMPREHENSIVE:
+                UnicodeSet us2 = new UnicodeSet(us).removeAll(us.strings());
+                assertEquals(level.toString(), shouldBeComprehensive.toPattern(false), us2.toPattern(false));
+                break;
+            case MODERN:
+                assertNotEquals(level.toString(), 0, us.size());
+                break;
+            default:
+                assertEquals(level.toString(), 0, us.size());
+                break;
+            }
         }
     }
 }

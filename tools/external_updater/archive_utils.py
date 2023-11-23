@@ -25,7 +25,6 @@ class ZipFileWithPermission(zipfile.ZipFile):
 
     See https://bugs.python.org/issue15795
     """
-
     def _extract_member(self, member, targetpath, pwd):
         ret_val = super()._extract_member(member, targetpath, pwd)
 
@@ -89,6 +88,10 @@ def get_extract_func(url):
     for ext, func in ARCHIVE_TYPES.items():
         if filename.endswith(ext):
             return func
+    # crates.io download url does not have file suffix
+    # e.g., https://crates.io/api/v1/crates/syn/1.0.16/download
+    if url.find('/crates.io/api/') > 0 or url.find('/static.crates.io/crates/'):
+        return untar
     return None
 
 

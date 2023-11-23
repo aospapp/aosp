@@ -62,6 +62,11 @@ public class TvContractTest extends AndroidTestCase {
         Channels.COLUMN_INTERNAL_PROVIDER_DATA,
         Channels.COLUMN_VERSION_NUMBER,
         Channels.COLUMN_INTERNAL_PROVIDER_ID,
+        Channels.COLUMN_REMOTE_CONTROL_KEY_PRESET_NUMBER,
+        Channels.COLUMN_SCRAMBLED,
+        Channels.COLUMN_VIDEO_RESOLUTION,
+        Channels.COLUMN_CHANNEL_LIST_ID,
+        Channels.COLUMN_BROADCAST_GENRE,
     };
 
     private static final String[] PROGRAMS_PROJECTION = {
@@ -331,6 +336,11 @@ public class TvContractTest extends AndroidTestCase {
             verifyStringColumn(cursor, expectedValues, Channels.COLUMN_INTERNAL_PROVIDER_ID);
             verifyBlobColumn(cursor, expectedValues, Channels.COLUMN_INTERNAL_PROVIDER_DATA);
             verifyIntegerColumn(cursor, expectedValues, Channels.COLUMN_VERSION_NUMBER);
+            verifyIntegerColumn(cursor, expectedValues, Channels.COLUMN_REMOTE_CONTROL_KEY_PRESET_NUMBER);
+            verifyIntegerColumn(cursor, expectedValues, Channels.COLUMN_SCRAMBLED);
+            verifyStringColumn(cursor, expectedValues, Channels.COLUMN_VIDEO_RESOLUTION);
+            verifyStringColumn(cursor, expectedValues, Channels.COLUMN_CHANNEL_LIST_ID);
+            verifyStringColumn(cursor, expectedValues, Channels.COLUMN_BROADCAST_GENRE);
         }
     }
 
@@ -557,6 +567,132 @@ public class TvContractTest extends AndroidTestCase {
         try (Cursor cursor = mContentResolver.query(
                 mChannelsUri, CHANNELS_PROJECTION, null, null, null)) {
             assertEquals(0, cursor.getCount());
+        }
+    }
+
+    public void testChannelsTableForRemoteControlKeyPresetNumber() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        // Test: insert
+        ContentValues values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_REMOTE_CONTROL_KEY_PRESET_NUMBER, 100);
+        Uri channelUri = mContentResolver.insert(mChannelsUri, values);
+        long channelId = ContentUris.parseId(channelUri);
+        verifyChannel(channelUri, values, channelId);
+
+        // Test: update
+        values = null;
+        values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_REMOTE_CONTROL_KEY_PRESET_NUMBER, 200);
+        int result = mContentResolver.update(channelUri, values, null, null);
+        assertEquals(1, result);
+        verifyChannel(channelUri, values, channelId);
+    }
+
+    public void testChannelsTableForScrambled() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        // Test: insert
+        ContentValues values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_SCRAMBLED, 0);
+        Uri channelUri = mContentResolver.insert(mChannelsUri, values);
+        long channelId = ContentUris.parseId(channelUri);
+        verifyChannel(channelUri, values, channelId);
+
+        // Test: update
+        values = null;
+        values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_SCRAMBLED, 1);
+        int result = mContentResolver.update(channelUri, values, null, null);
+        assertEquals(1, result);
+        verifyChannel(channelUri, values, channelId);
+    }
+
+    public void testChannelsTableForVideoResolution() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        // Test: insert
+        ContentValues values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_VIDEO_RESOLUTION, Channels.VIDEO_RESOLUTION_SD);
+        Uri channelUri = mContentResolver.insert(mChannelsUri, values);
+        long channelId = ContentUris.parseId(channelUri);
+        verifyChannel(channelUri, values, channelId);
+
+        // Test: update
+        values = null;
+        values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_VIDEO_RESOLUTION, Channels.VIDEO_RESOLUTION_HD);
+        int result = mContentResolver.update(channelUri, values, null, null);
+        assertEquals(1, result);
+        verifyChannel(channelUri, values, channelId);
+    }
+
+    public void testChannelsTableForChannelListId() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        // Test: insert
+        ContentValues values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_CHANNEL_LIST_ID, "Operator-0");
+        Uri channelUri = mContentResolver.insert(mChannelsUri, values);
+        long channelId = ContentUris.parseId(channelUri);
+        verifyChannel(channelUri, values, channelId);
+
+        // Test: update
+        values = null;
+        values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_CHANNEL_LIST_ID, "Operator-1");
+        int result = mContentResolver.update(channelUri, values, null, null);
+        assertEquals(1, result);
+        verifyChannel(channelUri, values, channelId);
+    }
+
+    public void testChannelsForBroadcastGenre() {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        String[] broadcastGenre = new String[] {"Animation", "Classic, opera"};
+
+        // Test: insert
+        ContentValues values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_BROADCAST_GENRE, Genres.encode(broadcastGenre));
+        Uri channelUri = mContentResolver.insert(mChannelsUri, values);
+        long channelId = ContentUris.parseId(channelUri);
+        verifyChannel(channelUri, values, channelId);
+
+        // Test: update
+        String[] newBroadcastGenre = new String[] {"Sports"};
+        values = null;
+        values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_BROADCAST_GENRE, Genres.encode(newBroadcastGenre));
+        int result = mContentResolver.update(channelUri, values, null, null);
+        assertEquals(1, result);
+        verifyChannel(channelUri, values, channelId);
+    }
+
+     public void testChannelsBroadcastGenreEncodeDecode() {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        String[] broadcastGenre = new String[] {"Animation", "Classic, opera"};
+
+        // Test: insert / Encode
+        ContentValues values = createDummyChannelValues(mInputId, true);
+        values.put(Channels.COLUMN_BROADCAST_GENRE, Genres.encode(broadcastGenre));
+        Uri channelUri = mContentResolver.insert(mChannelsUri, values);
+        long channelId = ContentUris.parseId(channelUri);
+        verifyChannel(channelUri, values, channelId);
+
+        // Test: Decode
+        try (Cursor c = mContentResolver.query(Channels.CONTENT_URI,
+                new String[] {Channels.COLUMN_BROADCAST_GENRE}, null, null, null)) {
+            assertNotNull(c);
+            assertEquals(1, c.getCount());
+            c.moveToNext();
+            MoreAsserts.assertEquals(broadcastGenre, Genres.decode(c.getString(0)));
         }
     }
 

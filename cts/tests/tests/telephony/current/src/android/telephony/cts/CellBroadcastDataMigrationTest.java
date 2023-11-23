@@ -30,9 +30,12 @@ import androidx.test.InstrumentationRegistry;
 
 public class CellBroadcastDataMigrationTest {
     private static final String TAG = CellBroadcastDataMigrationTest.class.getSimpleName();
+    private static final String DEFAULT_LEGACY_DATA_MIGRATION_APP =
+            "com.android.cellbroadcastreceiver";
+
     /**
      * To support data migration when upgrading from an older device, device need to define
-     * legacy content provider. This tests verify that the legacy cellbroadcast contentprovider
+     * legacy content provider. This tests verify that the AOSP legacy cellbroadcast contentprovider
      * only surfaces data for migration. The data should be protected by proper permissions and
      * it should be headless without any other activities, services or providers to handle alerts.
      */
@@ -48,6 +51,13 @@ public class CellBroadcastDataMigrationTest {
         // Verify that legacy provider is protected with certain permissions
         assertEquals("Legacy provider at MediaStore.AUTHORITY_LEGACY must protect its data",
                 android.Manifest.permission.READ_CELL_BROADCASTS, legacy.readPermission);
+
+        // Skip headless check for OEM defined data migration app. e.g, OEMs might use messaging
+        // apps to store CBR data pre-R.
+        if (!DEFAULT_LEGACY_DATA_MIGRATION_APP.equals(legacy.applicationInfo.packageName)) {
+            Log.d(TAG, "Device support data migration from OEM apps");
+            return;
+        }
 
         // And finally verify that legacy provider is headless. We expect the legacy provider only
         // surface the old data for migration rather than handling emergency alerts.

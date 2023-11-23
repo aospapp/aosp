@@ -16,13 +16,15 @@
 
 #include "ETMDecoder.h"
 
+#include <sstream>
+
+#include <android-base/expected.h>
 #include <android-base/logging.h>
 #include <android-base/strings.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <opencsd.h>
 
-using namespace simpleperf;
-
+namespace simpleperf {
 namespace {
 
 class DecoderLogStr : public ocsdMsgLogStrOutI {
@@ -53,7 +55,9 @@ class DecodeErrorLogger : public ocsdDefaultErrorLogger {
   ocsdMsgLogger msg_logger_;
 };
 
-static bool IsRespError(ocsd_datapath_resp_t resp) { return resp >= OCSD_RESP_ERR_CONT; }
+static bool IsRespError(ocsd_datapath_resp_t resp) {
+  return resp >= OCSD_RESP_ERR_CONT;
+}
 
 // Used instead of DecodeTree in OpenCSD to avoid linking decoders not for ETMV4 instruction tracing
 // in OpenCSD.
@@ -122,6 +126,7 @@ struct PacketCallback {
   // packet callbacks are called in priority order.
   enum Priority {
     MAP_LOCATOR,
+    BRANCH_LIST_PARSER,
     PACKET_TO_ELEMENT,
   };
 
@@ -169,6 +174,9 @@ class MapLocator : public PacketCallback {
       : PacketCallback(PacketCallback::MAP_LOCATOR), thread_tree_(thread_tree) {}
 
   ThreadTree& GetThreadTree() { return thread_tree_; }
+
+  // Return current thread id of a trace_id. If not available, return -1.
+  pid_t GetTid(uint8_t trace_id) const { return trace_data_[trace_id].tid; }
 
   ocsd_datapath_resp_t ProcessPacket(uint8_t trace_id, ocsd_datapath_op_t op,
                                      ocsd_trc_index_t index_sop,
@@ -250,18 +258,25 @@ class MemAccess : public ITargetMemAccess {
     if (map != nullptr) {
       llvm::MemoryBuffer* memory = GetMemoryBuffer(map->dso);
       if (memory != nullptr) {
-        uint64_t offset = address - map->start_addr + map->pgoff;
-        size_t file_size = memory->getBufferSize();
-        copy_size = file_size > offset ? std::min<size_t>(file_size - offset, *num_bytes) : 0;
-        if (copy_size > 0) {
-          memcpy(p_buffer, memory->getBufferStart() + offset, copy_size);
+        if (auto opt_offset = map->dso->IpToFileOffset(address, map->start_addr, map->pgoff);
+            opt_offset) {
+          uint64_t offset = opt_offset.value();
+          size_t file_size = memory->getBufferSize();
+          copy_size = file_size > offset ? std::min<size_t>(file_size - offset, *num_bytes) : 0;
+          if (copy_size > 0) {
+            memcpy(p_buffer, memory->getBufferStart() + offset, copy_size);
+          }
         }
       }
       // Update the last buffer cache.
-      data.buffer_map = map;
-      data.buffer = memory == nullptr ? nullptr : (memory->getBufferStart() + map->pgoff);
-      data.buffer_start = map->start_addr;
-      data.buffer_end = map->get_end_addr();
+      // Don't cache for the kernel map. Because simpleperf doesn't record an accurate kernel end
+      // addr.
+      if (!map->in_kernel) {
+        data.buffer_map = map;
+        data.buffer = memory == nullptr ? nullptr : (memory->getBufferStart() + map->pgoff);
+        data.buffer_start = map->start_addr;
+        data.buffer_end = map->get_end_addr();
+      }
     }
     *num_bytes = copy_size;
     return OCSD_OK;
@@ -403,7 +418,7 @@ class InstrRangeParser : public ElementCallback {
   };
 
  public:
-  InstrRangeParser(MapLocator& map_locator, const ETMDecoder::CallbackFn& callback)
+  InstrRangeParser(MapLocator& map_locator, const ETMDecoder::InstrRangeCallbackFn& callback)
       : map_locator_(map_locator), callback_(callback) {}
 
   ocsd_datapath_resp_t ProcessElement(const ocsd_trc_index_t, uint8_t trace_id,
@@ -468,7 +483,132 @@ class InstrRangeParser : public ElementCallback {
 
   MapLocator& map_locator_;
   std::unordered_map<uint8_t, TraceData> trace_data_;
-  ETMDecoder::CallbackFn callback_;
+  ETMDecoder::InstrRangeCallbackFn callback_;
+};
+
+// It parses ETMBranchLists from ETMV4IPackets.
+// It doesn't do element decoding and instruction decoding, thus is about 5 timers faster than
+// InstrRangeParser. But some data will be lost when converting ETMBranchLists to InstrRanges:
+//   1. InstrRanges described by Except packets (the last instructions executed before exeception,
+//      about 2%?).
+//   2. Branch to addresses of direct branch instructions across binaries.
+class BranchListParser : public PacketCallback {
+ private:
+  struct TraceData {
+    uint64_t addr = 0;
+    uint8_t addr_valid_bits = 0;
+    uint8_t isa = 0;
+    bool invalid_branch = false;
+    ETMBranchList branch;
+  };
+
+ public:
+  BranchListParser(MapLocator& map_locator, const ETMDecoder::BranchListCallbackFn& callback)
+      : PacketCallback(BRANCH_LIST_PARSER), map_locator_(map_locator), callback_(callback) {}
+
+  void CheckConfigs(std::unordered_map<uint8_t, EtmV4Config>& configs) {
+    // TODO: Current implementation doesn't support non-zero speculation length and return stack.
+    for (auto& p : configs) {
+      if (p.second.MaxSpecDepth() > 0) {
+        LOG(WARNING) << "branch list collection isn't accurate with non-zero speculation length";
+        break;
+      }
+    }
+    for (auto& p : configs) {
+      if (p.second.enabledRetStack()) {
+        LOG(WARNING) << "branch list collection will lose some data with return stack enabled";
+        break;
+      }
+    }
+  }
+
+  bool IsAddrPacket(const EtmV4ITrcPacket* pkt) {
+    return pkt->getType() >= ETM4_PKT_I_ADDR_CTXT_L_32IS0 &&
+           pkt->getType() <= ETM4_PKT_I_ADDR_L_64IS1;
+  }
+
+  bool IsAtomPacket(const EtmV4ITrcPacket* pkt) { return pkt->getAtom().num > 0; }
+
+  ocsd_datapath_resp_t ProcessPacket(uint8_t trace_id, ocsd_datapath_op_t op,
+                                     ocsd_trc_index_t /*index_sop */,
+                                     const EtmV4ITrcPacket* pkt) override {
+    TraceData& data = trace_data_[trace_id];
+    if (op == OCSD_OP_DATA) {
+      if (IsAddrPacket(pkt)) {
+        // Flush branch when seeing an Addr packet. Because it isn't correct to concatenate
+        // branches before and after an Addr packet.
+        FlushBranch(data);
+        data.addr = pkt->getAddrVal();
+        data.addr_valid_bits = pkt->v_addr.valid_bits;
+        data.isa = pkt->getAddrIS();
+      }
+
+      if (IsAtomPacket(pkt)) {
+        // An atom packet contains a branch list. We may receive one or more atom packets in a row,
+        // and need to concatenate them.
+        ProcessAtomPacket(trace_id, data, pkt);
+      }
+
+    } else {
+      // Flush branch when seeing a flush or reset operation.
+      FlushBranch(data);
+      if (op == OCSD_OP_RESET) {
+        data.addr = 0;
+        data.addr_valid_bits = 0;
+        data.isa = 0;
+        data.invalid_branch = false;
+      }
+    }
+    return OCSD_RESP_CONT;
+  }
+
+  void FinishData() {
+    for (auto& pair : trace_data_) {
+      FlushBranch(pair.second);
+    }
+  }
+
+ private:
+  void ProcessAtomPacket(uint8_t trace_id, TraceData& data, const EtmV4ITrcPacket* pkt) {
+    if (data.invalid_branch) {
+      return;  // Skip atom packets when we think a branch list is invalid.
+    }
+    if (data.branch.branch.empty()) {
+      // This is the first atom packet in a branch list. Check if we have tid and addr info to
+      // parse it and the following atom packets. If not, mark the branch list as invalid.
+      if (map_locator_.GetTid(trace_id) == -1 || data.addr_valid_bits == 0) {
+        data.invalid_branch = true;
+        return;
+      }
+      const MapEntry* map = map_locator_.FindMap(trace_id, data.addr);
+      if (map == nullptr) {
+        data.invalid_branch = true;
+        return;
+      }
+      data.branch.dso = map->dso;
+      data.branch.addr = map->GetVaddrInFile(data.addr);
+      if (data.isa == 1) {  // thumb instruction, mark it in bit 0.
+        data.branch.addr |= 1;
+      }
+    }
+    uint32_t bits = pkt->atom.En_bits;
+    for (size_t i = 0; i < pkt->atom.num; i++) {
+      data.branch.branch.push_back((bits & 1) == 1);
+      bits >>= 1;
+    }
+  }
+
+  void FlushBranch(TraceData& data) {
+    if (!data.branch.branch.empty()) {
+      callback_(data.branch);
+      data.branch.branch.clear();
+    }
+    data.invalid_branch = false;
+  }
+
+  MapLocator& map_locator_;
+  ETMDecoder::BranchListCallbackFn callback_;
+  std::unordered_map<uint8_t, TraceData> trace_data_;
 };
 
 // Etm data decoding in OpenCSD library has two steps:
@@ -523,10 +663,17 @@ class ETMDecoderImpl : public ETMDecoder {
     }
   }
 
-  void RegisterCallback(const CallbackFn& callback) {
+  void RegisterCallback(const InstrRangeCallbackFn& callback) {
     InstallMapLocator();
     instr_range_parser_.reset(new InstrRangeParser(*map_locator_, callback));
     InstallElementCallback(instr_range_parser_.get());
+  }
+
+  void RegisterCallback(const BranchListCallbackFn& callback) {
+    InstallMapLocator();
+    branch_list_parser_.reset(new BranchListParser(*map_locator_, callback));
+    branch_list_parser_->CheckConfigs(configs_);
+    InstallPacketCallback(branch_list_parser_.get());
   }
 
   bool ProcessData(const uint8_t* data, size_t size) override {
@@ -562,6 +709,9 @@ class ETMDecoderImpl : public ETMDecoder {
   bool FinishData() override {
     if (instr_range_parser_) {
       instr_range_parser_->FinishData();
+    }
+    if (branch_list_parser_) {
+      branch_list_parser_->FinishData();
     }
     return true;
   }
@@ -604,11 +754,10 @@ class ETMDecoderImpl : public ETMDecoder {
   size_t data_index_ = 0;
   std::unique_ptr<InstrRangeParser> instr_range_parser_;
   std::unique_ptr<MapLocator> map_locator_;
+  std::unique_ptr<BranchListParser> branch_list_parser_;
 };
 
 }  // namespace
-
-namespace simpleperf {
 
 bool ParseEtmDumpOption(const std::string& s, ETMDumpOption* option) {
   for (auto& value : android::base::Split(s, ",")) {
@@ -631,6 +780,137 @@ std::unique_ptr<ETMDecoder> ETMDecoder::Create(const AuxTraceInfoRecord& auxtrac
   auto decoder = std::make_unique<ETMDecoderImpl>(thread_tree);
   decoder->CreateDecodeTree(auxtrace_info);
   return std::unique_ptr<ETMDecoder>(decoder.release());
+}
+
+// Use OpenCSD instruction decoder to convert branches to instruction addresses.
+class BranchDecoder {
+ public:
+  android::base::expected<void, std::string> Init(Dso* dso) {
+    ElfStatus status;
+    elf_ = ElfFile::Open(dso->GetDebugFilePath(), &status);
+    if (!elf_) {
+      std::stringstream ss;
+      ss << status;
+      return android::base::unexpected(ss.str());
+    }
+    if (dso->type() == DSO_KERNEL_MODULE) {
+      // Kernel module doesn't have program header. So create a fake one mapping to .text section.
+      for (const auto& section : elf_->GetSectionHeader()) {
+        if (section.name == ".text") {
+          segments_.resize(1);
+          segments_[0].is_executable = true;
+          segments_[0].is_load = true;
+          segments_[0].file_offset = section.file_offset;
+          segments_[0].file_size = section.size;
+          segments_[0].vaddr = section.vaddr;
+          break;
+        }
+      }
+    } else {
+      segments_ = elf_->GetProgramHeader();
+      auto it = std::remove_if(segments_.begin(), segments_.end(),
+                               [](const ElfSegment& s) { return !s.is_executable; });
+      segments_.resize(it - segments_.begin());
+    }
+    if (segments_.empty()) {
+      return android::base::unexpected("no segments");
+    }
+    buffer_ = elf_->GetMemoryBuffer();
+    return {};
+  }
+
+  void SetAddr(uint64_t addr, bool is_thumb) {
+    memset(&instr_info_, 0, sizeof(instr_info_));
+    instr_info_.pe_type.arch = ARCH_V8;
+    instr_info_.pe_type.profile = profile_CortexA;
+    instr_info_.isa =
+        elf_->Is64Bit() ? ocsd_isa_aarch64 : (is_thumb ? ocsd_isa_thumb2 : ocsd_isa_arm);
+    instr_info_.instr_addr = addr;
+  }
+
+  bool FindNextBranch() {
+    // Loop until we find a branch instruction.
+    while (ReadMem(instr_info_.instr_addr, 4, &instr_info_.opcode)) {
+      ocsd_err_t err = instruction_decoder_.DecodeInstruction(&instr_info_);
+      if (err != OCSD_OK) {
+        break;
+      }
+      if (instr_info_.type != OCSD_INSTR_OTHER) {
+        return true;
+      }
+      instr_info_.instr_addr += instr_info_.instr_size;
+    }
+    return false;
+  };
+
+  ocsd_instr_info& InstrInfo() { return instr_info_; }
+
+ private:
+  bool ReadMem(uint64_t vaddr, size_t size, void* data) {
+    for (auto& segment : segments_) {
+      if (vaddr >= segment.vaddr && vaddr + size <= segment.vaddr + segment.file_size) {
+        uint64_t offset = vaddr - segment.vaddr + segment.file_offset;
+        memcpy(data, buffer_->getBufferStart() + offset, size);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  std::unique_ptr<ElfFile> elf_;
+  std::vector<ElfSegment> segments_;
+  llvm::MemoryBuffer* buffer_ = nullptr;
+  ocsd_instr_info instr_info_;
+  InstructionDecoder instruction_decoder_;
+};
+
+android::base::expected<void, std::string> ConvertBranchMapToInstrRanges(
+    Dso* dso, const BranchMap& branch_map, const ETMDecoder::InstrRangeCallbackFn& callback) {
+  ETMInstrRange instr_range;
+  instr_range.dso = dso;
+
+  BranchDecoder decoder;
+  if (auto result = decoder.Init(dso); !result.ok()) {
+    return result;
+  }
+
+  for (const auto& addr_p : branch_map) {
+    uint64_t start_addr = addr_p.first & ~1ULL;
+    bool is_thumb = addr_p.first & 1;
+    for (const auto& branch_p : addr_p.second) {
+      const std::vector<bool>& branch = branch_p.first;
+      uint64_t count = branch_p.second;
+      decoder.SetAddr(start_addr, is_thumb);
+
+      for (bool b : branch) {
+        ocsd_instr_info& instr = decoder.InstrInfo();
+        uint64_t from_addr = instr.instr_addr;
+        if (!decoder.FindNextBranch()) {
+          break;
+        }
+        bool end_with_branch = instr.type == OCSD_INSTR_BR || instr.type == OCSD_INSTR_BR_INDIRECT;
+        bool branch_taken = end_with_branch && b;
+        instr_range.start_addr = from_addr;
+        instr_range.end_addr = instr.instr_addr;
+        if (instr.type == OCSD_INSTR_BR) {
+          instr_range.branch_to_addr = instr.branch_addr;
+        } else {
+          instr_range.branch_to_addr = 0;
+        }
+        instr_range.branch_taken_count = branch_taken ? count : 0;
+        instr_range.branch_not_taken_count = branch_taken ? 0 : count;
+
+        callback(instr_range);
+
+        if (b) {
+          instr.instr_addr = instr.branch_addr;
+        } else {
+          instr.instr_addr += instr.instr_size;
+        }
+      }
+    }
+  }
+  return {};
 }
 
 }  // namespace simpleperf

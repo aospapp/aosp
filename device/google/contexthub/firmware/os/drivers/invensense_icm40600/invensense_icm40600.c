@@ -3258,9 +3258,6 @@ static void endTask(void)
 #ifdef ACCEL_CAL_ENABLED
     accelCalDestroy(&T(accel_cal));
 #endif
-#ifdef GYRO_CAL_ENABLED
-    gyroCalDestroy(&T(gyro_cal));
-#endif
     slabAllocatorDestroy(T(mDataSlab));
     spiMasterRelease(T(spiDev));
 

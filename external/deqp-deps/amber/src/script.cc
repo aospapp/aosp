@@ -14,28 +14,43 @@
 
 #include "src/script.h"
 
+#include "src/make_unique.h"
 #include "src/type_parser.h"
 
 namespace amber {
 
-Script::Script() = default;
+Script::Script() : virtual_files_(MakeUnique<VirtualFileStore>()) {}
 
 Script::~Script() = default;
 
 std::vector<ShaderInfo> Script::GetShaderInfo() const {
   std::vector<ShaderInfo> ret;
   for (const auto& shader : shaders_) {
-    // TODO(dsinclair): The name returned should be the
-    // `pipeline_name + shader_name` instead of just shader name when we have
-    // pipelines everywhere
+    bool in_pipeline = false;
+    // A given shader could be in multiple pipelines with different
+    // optimizations so make sure we check and report all pipelines.
+    for (const auto& pipeline : pipelines_) {
+      auto shader_info = pipeline->GetShader(shader.get());
+      if (shader_info) {
+        ret.emplace_back(
+            ShaderInfo{shader->GetFormat(), shader->GetType(),
+                       pipeline->GetName() + "-" + shader->GetName(),
+                       shader->GetData(), shader_info->GetShaderOptimizations(),
+                       shader->GetTargetEnv(), shader_info->GetData()});
 
-    // TODO(dsinclair): The optimization passes should be retrieved from the
-    // pipeline and returned here instead of an empty array.
-    ret.emplace_back(ShaderInfo{shader->GetFormat(),
-                                shader->GetType(),
-                                shader->GetName(),
-                                shader->GetData(),
-                                {}});
+        in_pipeline = true;
+      }
+    }
+
+    if (!in_pipeline) {
+      ret.emplace_back(ShaderInfo{shader->GetFormat(),
+                                  shader->GetType(),
+                                  shader->GetName(),
+                                  shader->GetData(),
+                                  {},
+                                  shader->GetTargetEnv(),
+                                  {}});
+    }
   }
   return ret;
 }
@@ -88,7 +103,18 @@ bool Script::IsKnownFeature(const std::string& name) const {
          name == "sparseResidencyAliased" ||
          name == "variableMultisampleRate" || name == "inheritedQueries" ||
          name == "VariablePointerFeatures.variablePointers" ||
-         name == "VariablePointerFeatures.variablePointersStorageBuffer";
+         name == "VariablePointerFeatures.variablePointersStorageBuffer" ||
+         name == "Float16Int8Features.shaderFloat16" ||
+         name == "Float16Int8Features.shaderInt8" ||
+         name == "Storage8BitFeatures.storageBuffer8BitAccess" ||
+         name == "Storage8BitFeatures.uniformAndStorageBuffer8BitAccess" ||
+         name == "Storage8BitFeatures.storagePushConstant8" ||
+         name == "Storage16BitFeatures.storageBuffer16BitAccess" ||
+         name == "Storage16BitFeatures.uniformAndStorageBuffer16BitAccess" ||
+         name == "Storage16BitFeatures.storagePushConstant16" ||
+         name == "Storage16BitFeatures.storageInputOutput16" ||
+         name == "SubgroupSizeControl.subgroupSizeControl" ||
+         name == "SubgroupSizeControl.computeFullSubgroups";
 }
 
 type::Type* Script::ParseType(const std::string& str) {

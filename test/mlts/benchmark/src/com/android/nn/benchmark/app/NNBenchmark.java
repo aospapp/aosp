@@ -16,6 +16,7 @@
 
 package com.android.nn.benchmark.app;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
@@ -26,7 +27,9 @@ import com.android.nn.benchmark.core.BenchmarkException;
 import com.android.nn.benchmark.core.BenchmarkResult;
 import com.android.nn.benchmark.core.Processor;
 import com.android.nn.benchmark.core.TestModels.TestModelEntry;
+import com.android.nn.benchmark.core.TfLiteBackend;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -40,6 +43,8 @@ public class NNBenchmark extends Activity implements Processor.Callback {
 
     public static final String EXTRA_RESULTS_TESTS = "tests";
     public static final String EXTRA_RESULTS_RESULTS = "results";
+    public static final long PROCESSOR_TERMINATION_TIMEOUT_MS = Duration.ofSeconds(20).toMillis();
+    public static final String EXTRA_MAX_ITERATIONS = "max_iterations";
 
     private int mTestList[];
 
@@ -55,13 +60,24 @@ public class NNBenchmark extends Activity implements Processor.Callback {
     }
 
     public void setUseNNApi(boolean useNNApi) {
-        mProcessor.setUseNNApi(useNNApi);
+        mProcessor.setTfLiteBackend(useNNApi ? TfLiteBackend.NNAPI : TfLiteBackend.CPU);
+    }
+
+    public void setNnApiAcceleratorName(String acceleratorName) {
+        mProcessor.setNnApiAcceleratorName(acceleratorName);
     }
 
     public void setCompleteInputSet(boolean completeInputSet) {
         mProcessor.setCompleteInputSet(completeInputSet);
     }
 
+    public void enableCompilationCachingBenchmarks(
+            float warmupTimeSeconds, float runTimeSeconds, int maxIterations) {
+        mProcessor.enableCompilationCachingBenchmarks(
+                warmupTimeSeconds, runTimeSeconds, maxIterations);
+    }
+
+    @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -76,7 +92,7 @@ public class NNBenchmark extends Activity implements Processor.Callback {
     protected void onPause() {
         super.onPause();
         if (mProcessor != null) {
-            mProcessor.exitWithTimeout(30000l);
+            mProcessor.exitWithTimeout(PROCESSOR_TERMINATION_TIMEOUT_MS);
             mProcessor = null;
         }
     }
@@ -93,6 +109,7 @@ public class NNBenchmark extends Activity implements Processor.Callback {
         finish();
     }
 
+    @SuppressLint("DefaultLocale")
     public void onStatusUpdate(int testNumber, int numTests, String modelName) {
         runOnUiThread(
                 () -> {
@@ -112,7 +129,8 @@ public class NNBenchmark extends Activity implements Processor.Callback {
             mProcessor = new Processor(this, this, mTestList);
             mProcessor.setToggleLong(i.getBooleanExtra(EXTRA_ENABLE_LONG, false));
             mProcessor.setTogglePause(i.getBooleanExtra(EXTRA_ENABLE_PAUSE, false));
-            mProcessor.setUseNNApi(!i.getBooleanExtra(EXTRA_DISABLE_NNAPI, false));
+            mProcessor.setTfLiteBackend(!i.getBooleanExtra(EXTRA_DISABLE_NNAPI, false) ? TfLiteBackend.NNAPI : TfLiteBackend.CPU);
+            mProcessor.setMaxRunIterations(i.getIntExtra(EXTRA_MAX_ITERATIONS, 0));
             executorService.submit(mProcessor);
         } else {
             Log.v(TAG, "No test to run, doing nothing");
@@ -125,7 +143,7 @@ public class NNBenchmark extends Activity implements Processor.Callback {
     }
 
     public BenchmarkResult runSynchronously(TestModelEntry testModel,
-        float warmupTimeSeconds, float runTimeSeconds) throws IOException, BenchmarkException {
-        return mProcessor.getInstrumentationResult(testModel, warmupTimeSeconds, runTimeSeconds);
+        float warmupTimeSeconds, float runTimeSeconds, boolean sampleResults) throws IOException, BenchmarkException {
+        return mProcessor.getInstrumentationResult(testModel, warmupTimeSeconds, runTimeSeconds, sampleResults);
     }
 }

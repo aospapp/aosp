@@ -30,7 +30,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.ViewModelProviders;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.apps.common.LetterTileDrawable;
 import com.android.car.dialer.R;
@@ -40,10 +40,15 @@ import com.android.car.telephony.common.TelecomUtils;
 
 import java.util.concurrent.CompletableFuture;
 
+import dagger.hilt.android.AndroidEntryPoint;
+
 /**
  * A fragment that displays information about onhold call.
  */
-public class OnHoldCallUserProfileFragment extends Fragment {
+@AndroidEntryPoint(Fragment.class)
+public class OnHoldCallUserProfileFragment extends Hilt_OnHoldCallUserProfileFragment {
+
+    private InCallViewModel mInCallViewModel;
 
     private TextView mTitle;
     private ImageView mAvatarView;
@@ -72,13 +77,12 @@ public class OnHoldCallUserProfileFragment extends Fragment {
         mSwapCallsView = fragmentView.findViewById(R.id.swap_calls_view);
         mSwapCallsView.setOnClickListener(v -> swapCalls());
 
-        InCallViewModel inCallViewModel = ViewModelProviders.of(getActivity()).get(
-                InCallViewModel.class);
-        inCallViewModel.getSecondaryCallDetail().observe(this, this::updateProfile);
-        mPrimaryCallLiveData = inCallViewModel.getPrimaryCall();
+        mInCallViewModel = new ViewModelProvider(getActivity()).get(InCallViewModel.class);
+        mInCallViewModel.getSecondaryCallDetail().observe(this, this::updateProfile);
+        mPrimaryCallLiveData = mInCallViewModel.getPrimaryCall();
 
         mTimeTextView = fragmentView.findViewById(R.id.time);
-        inCallViewModel.getSecondaryCallConnectTime().observe(this, this::updateConnectTime);
+        mInCallViewModel.getSecondaryCallConnectTime().observe(this, this::updateConnectTime);
 
         return fragmentView;
     }
@@ -114,12 +118,23 @@ public class OnHoldCallUserProfileFragment extends Fragment {
         String number = callDetail.getNumber();
         mTitle.setText(TelecomUtils.getFormattedNumber(getContext(), number));
 
-        mPhoneNumberInfoFuture = TelecomUtils.getPhoneNumberInfo(getContext(), number)
-                .thenAcceptAsync((info) -> {
-                    mTitle.setText(info.getDisplayName());
-                    TelecomUtils.setContactBitmapAsync(getContext(), mAvatarView,
-                            info.getAvatarUri(), info.getInitials(), info.getDisplayName());
-                }, getContext().getMainExecutor());
+        TelecomUtils.PhoneNumberInfo phoneNumberInfo = mInCallViewModel.getPhoneNumberInfo(number);
+
+        if (phoneNumberInfo != null) {
+            updateProfileInfo(mInCallViewModel.getPhoneNumberInfo(number));
+        } else {
+            mPhoneNumberInfoFuture = TelecomUtils.getPhoneNumberInfo(getContext(), number)
+                    .thenAcceptAsync((info) -> {
+                        mInCallViewModel.putPhoneNumberInfo(number, info);
+                        updateProfileInfo(info);
+                    }, getContext().getMainExecutor());
+        }
+    }
+
+    private void updateProfileInfo(TelecomUtils.PhoneNumberInfo info) {
+        mTitle.setText(info.getDisplayName());
+        TelecomUtils.setContactBitmapAsync(getContext(), mAvatarView,
+                info.getAvatarUri(), info.getInitials(), info.getDisplayName());
     }
 
     private void swapCalls() {

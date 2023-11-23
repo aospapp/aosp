@@ -74,10 +74,7 @@ public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
     }
 
     @After
-    @Override
     public void tearDown() throws Exception {
-        super.tearDown();
-
         // Clear backup data and uninstall the package (in that order!)
         clearBackupDataInLocalTransport(KEY_VALUE_RESTORE_APP_PACKAGE);
         assertNull(uninstallPackage(KEY_VALUE_RESTORE_APP_PACKAGE));
@@ -99,11 +96,6 @@ public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testKeyValueBackupAndRestore() throws Exception {
-        if (!mIsBackupSupported) {
-            CLog.i("android.software.backup feature is not supported on this device");
-            return;
-        }
-
         checkDeviceTest("checkSharedPrefIsEmpty");
 
         checkDeviceTest("saveSharedPreferencesAndNotifyBackupManager");
@@ -143,11 +135,6 @@ public class KeyValueBackupRestoreHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testSharedPreferencesRestore() throws Exception {
-        if (!mIsBackupSupported) {
-            CLog.i("android.software.backup feature is not supported on this device");
-            return;
-        }
-
         checkDeviceTest("launchSharedPrefActivity");
 
         getBackupUtils().backupNowAndAssertSuccess(SHARED_PREFERENCES_RESTORE_APP_PACKAGE);

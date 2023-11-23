@@ -24,7 +24,9 @@ Usage:
     --passwd PASSWD  passwd (ignored for CloudSQL)
 """
 
+from __future__ import absolute_import
 from __future__ import division
+from __future__ import print_function
 import argparse
 import collections
 import datetime
@@ -32,6 +34,7 @@ import os
 import re
 import sys
 import time
+import six
 
 
 BYTES_PER_GB = 2**30
@@ -65,7 +68,7 @@ class MySQLConnectionManager(object):
             return
         # Execute command.
         if execute_cmd:
-            self._cursor.execute(self._cmd.decode('utf-8'))
+            self._cursor.execute(six.ensure_text(self._cmd, 'utf-8'))
         self._cmd = ''
         if increment_cmd:
             self.cmd_num += 1
@@ -97,7 +100,7 @@ class CloudSQLConnectionFactory(object):
         Returns:
           A MySQLdb compatible database connection to the Cloud SQL instance.
         """
-        print 'Connecting to Cloud SQL instance %s.' % self._instance
+        print('Connecting to Cloud SQL instance %s.' % self._instance)
         try:
             from google.storage.speckle.python.api import rdbms_googleapi
         except ImportError:
@@ -122,7 +125,7 @@ class LocalSQLConnectionFactory(object):
         Returns:
           A MySQLdb database connection to the local MySQL database.
         """
-        print 'Connecting to mysql at localhost as %s.' % self._user
+        print('Connecting to mysql at localhost as %s.' % self._user)
         try:
             import MySQLdb
         except ImportError:
@@ -172,7 +175,7 @@ class MySQLState(object):
           out: A File-like object to write out saved state.
         """
         out.write(self._db_line)
-        for v in self._sets.itervalues():
+        for v in six.itervalues(self._sets):
             out.write(v)
         for l in self._table_lock:
             out.write(l)
@@ -212,7 +215,7 @@ def dump_to_cloudsql(dumpfile, manager, cmd_offset=0):
                 # Construct commands from lines and execute them.
                 state.process(line)
                 if manager.cmd_num == cmd_offset and cmd_offset != 0:
-                    print '\nRecreating state at line: %d' % line_num
+                    print('\nRecreating state at line: %d' % line_num)
                     state.write(manager)
                 manager.write(line, manager.cmd_num >= cmd_offset, True)
                 # Print status.
@@ -223,28 +226,28 @@ def dump_to_cloudsql(dumpfile, manager, cmd_offset=0):
                 sys.stdout.flush()
             # Handle interrupts and connection failures.
             except KeyboardInterrupt:
-                print ('\nInterrupted while executing command: %d' %
-                       manager.cmd_num)
+                print('\nInterrupted while executing command: %d' %
+                      manager.cmd_num)
                 raise
             except:
-                print '\nFailed while executing command: %d' % manager.cmd_num
+                print('\nFailed while executing command: %d' % manager.cmd_num)
                 delta = int(time.time() - start_time)
-                print 'Total time: %s' % str(datetime.timedelta(seconds=delta))
+                print('Total time: %s' % str(datetime.timedelta(seconds=delta)))
                 if state.breakpoint(line):
                     # Attempt to resume.
-                    print ('Execution can resume from here (line = %d)' %
-                           line_num)
+                    print('Execution can resume from here (line = %d)' %
+                          line_num)
                     manager.cmd_num += 1
                     cmd_offset = manager.cmd_num
-                    print ('Will now attempt to auto-resume at command: %d' %
-                           cmd_offset)
+                    print('Will now attempt to auto-resume at command: %d' %
+                          cmd_offset)
                     manager.disconnect()
                 else:
-                    print 'Execution may fail to resume correctly from here.'
-                    print ('Use --resume=%d to attempt to resume the dump.' %
-                           manager.cmd_num)
+                    print('Execution may fail to resume correctly from here.')
+                    print('Use --resume=%d to attempt to resume the dump.' %
+                          manager.cmd_num)
                     raise
-    print '\nDone.'
+    print('\nDone.')
 
 
 if __name__ == '__main__':
@@ -273,6 +276,6 @@ if __name__ == '__main__':
         connection = LocalSQLConnectionFactory(args.remote, args.user,
                                                args.passwd)
     if args.resume:
-        print 'Resuming execution at command: %d' % options.resume
+        print('Resuming execution at command: %d' % options.resume)
     dump_to_cloudsql(args.mysqldump, MySQLConnectionManager(connection),
                      args.resume)

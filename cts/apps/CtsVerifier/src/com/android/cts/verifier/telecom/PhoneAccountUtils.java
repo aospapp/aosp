@@ -19,6 +19,7 @@ package com.android.cts.verifier.telecom;
 import android.content.ComponentName;
 import android.content.Context;
 import android.net.Uri;
+import android.os.Bundle;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -51,10 +52,18 @@ public class PhoneAccountUtils {
             new PhoneAccountHandle(new ComponentName(
                     PassFailButtons.class.getPackage().getName(),
                     CtsConnectionService.class.getName()), TEST_SELF_MAANGED_PHONE_ACCOUNT_ID);
+    public static final Bundle TEST_SELF_MANAGED_PHONE_ACCOUNT_EXTRA;
+    static {
+        TEST_SELF_MANAGED_PHONE_ACCOUNT_EXTRA = new Bundle();
+        TEST_SELF_MANAGED_PHONE_ACCOUNT_EXTRA.putBoolean(
+                PhoneAccount.EXTRA_ADD_SELF_MANAGED_CALLS_TO_INCALLSERVICE, true);
+    }
+
     public static final PhoneAccount TEST_SELF_MANAGED_PHONE_ACCOUNT = new PhoneAccount.Builder(
             TEST_SELF_MANAGED_PHONE_ACCOUNT_HANDLE, TEST_SELF_MANAGED_PHONE_ACCOUNT_LABEL)
             .setAddress(TEST_SELF_MANAGED_PHONE_ACCOUNT_ADDRESS)
             .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)
+            .setExtras(TEST_SELF_MANAGED_PHONE_ACCOUNT_EXTRA)
             .build();
 
     public static final String TEST_SELF_MAANGED_PHONE_ACCOUNT2_ID = "selfMgdTest2";

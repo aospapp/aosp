@@ -166,8 +166,8 @@ class GoogleSDKBins(object):
         Returns:
             String, return message after execute gcloud command.
         """
-        return subprocess.check_output([self.gcloud_command_path] + cmd,
-                                       env=self._env, **kwargs)
+        return utils.CheckOutput([self.gcloud_command_path] + cmd,
+                                 env=self._env, **kwargs)
 
     def RunGsutil(self, cmd, **kwargs):
         """Run gsutil command.
@@ -180,8 +180,8 @@ class GoogleSDKBins(object):
         Returns:
             String, return message after execute gsutil command.
         """
-        return subprocess.check_output([self.gsutil_command_path] + cmd,
-                                       env=self._env, **kwargs)
+        return utils.CheckOutput([self.gsutil_command_path] + cmd,
+                                 env=self._env, **kwargs)
 
 
 class GoogleAPIService(object):
@@ -315,7 +315,7 @@ class GcpTaskRunner(base_task_runner.BaseTaskRunner):
 
     def _CreateStableHostImage(self):
         """Create the stable host image."""
-        # Write default stable_host_image_name with dummy value.
+        # Write default stable_host_image_name with unused value.
         # TODO(113091773): An additional step to create the host image.
         if not self.stable_host_image_name:
             UpdateConfigFile(self.config_path, "stable_host_image_name", "")

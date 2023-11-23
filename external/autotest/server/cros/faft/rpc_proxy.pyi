@@ -17,3 +17,8 @@ class RPCProxy(object):
     system: rpc_functions.SystemServicer
     tpm: rpc_functions.TpmServicer
     updater: rpc_functions.UpdaterServicer
+
+    connect: callable
+    disconnect: callable
+    quit: callable
+    ready: callable

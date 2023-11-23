@@ -95,6 +95,6 @@ struct mt_uart {
 void mt_uart_save(void);
 void mt_uart_restore(void);
 void mt_console_uart_cg(int on);
-int mt_console_uart_cg_status(void);
+uint32_t mt_console_uart_cg_status(void);
 
 #endif /* __UART_H__ */

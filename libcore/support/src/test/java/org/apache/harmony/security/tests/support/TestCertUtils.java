@@ -151,7 +151,7 @@ public final class TestCertUtils {
         private static final byte[] encoded = new byte[] { 1, 2, 3, 4, 5, 6, 7,
                 8, 9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF };
 
-        private static final String serializedData = "Just a dummy string to be serialized instead of real data";
+        private static final String serializedData = "Just a fake string to be serialized instead of real data";
 
         private Certificate[] certs;
 

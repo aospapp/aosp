@@ -15,6 +15,7 @@
 #include <string>
 #include "catch_compiler_capabilities.h"
 #include "catch_stream.h"
+#include "catch_interfaces_enum_values_registry.h"
 
 #ifdef CATCH_CONFIG_CPP17_STRING_VIEW
 #include <string_view>
@@ -43,9 +44,9 @@ namespace Catch {
 
         template<typename T>
         class IsStreamInsertable {
-            template<typename SS, typename TT>
+            template<typename Stream, typename U>
             static auto test(int)
-                -> decltype(std::declval<SS&>() << std::declval<TT>(), std::true_type());
+                -> decltype(std::declval<Stream&>() << std::declval<U>(), std::true_type());
 
             template<typename, typename>
             static auto test(...)->std::false_type;
@@ -209,6 +210,12 @@ namespace Catch {
         }
     };
 
+#if defined(CATCH_CONFIG_CPP17_BYTE)
+    template<>
+    struct StringMaker<std::byte> {
+        static std::string convert(std::byte value);
+    };
+#endif // defined(CATCH_CONFIG_CPP17_BYTE)
     template<>
     struct StringMaker<int> {
         static std::string convert(int value);
@@ -260,10 +267,13 @@ namespace Catch {
     template<>
     struct StringMaker<float> {
         static std::string convert(float value);
+        static int precision;
     };
+
     template<>
     struct StringMaker<double> {
         static std::string convert(double value);
+        static int precision;
     };
 
     template <typename T>
@@ -639,6 +649,17 @@ struct ratio_string<std::milli> {
 }
 #endif // CATCH_CONFIG_ENABLE_CHRONO_STRINGMAKER
 
+#define INTERNAL_CATCH_REGISTER_ENUM( enumName, ... ) \
+namespace Catch { \
+    template<> struct StringMaker<enumName> { \
+        static std::string convert( enumName value ) { \
+            static const auto& enumInfo = ::Catch::getMutableRegistryHub().getMutableEnumValuesRegistry().registerEnum( #enumName, #__VA_ARGS__, { __VA_ARGS__ } ); \
+            return static_cast<std::string>(enumInfo.lookup( static_cast<int>( value ) )); \
+        } \
+    }; \
+}
+
+#define CATCH_REGISTER_ENUM( enumName, ... ) INTERNAL_CATCH_REGISTER_ENUM( enumName, __VA_ARGS__ )
 
 #ifdef _MSC_VER
 #pragma warning(pop)

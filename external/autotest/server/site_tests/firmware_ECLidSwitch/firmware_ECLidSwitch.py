@@ -32,10 +32,8 @@ class firmware_ECLidSwitch(FirmwareTest):
     # Delay to allow FAFT client receive command
     RPC_DELAY = 2
 
-    # Delay between shutdown and wake by lid switch including kernel
-    # shutdown time
-    LONG_WAKE_DELAY = 25
-    SHORT_WAKE_DELAY = 15
+    # Delay between shutdown and wakeup by lid switch
+    WAKE_DELAY = 10
 
     def initialize(self, host, cmdline_args):
         super(firmware_ECLidSwitch, self).initialize(host, cmdline_args)
@@ -66,27 +64,28 @@ class firmware_ECLidSwitch(FirmwareTest):
         time.sleep(self.LID_DELAY)
         self._open_lid()
 
-    def long_delayed_wake(self):
-        """Delay for LONG_WAKE_DELAY and then wake DUT with lid switch."""
-        time.sleep(self.LONG_WAKE_DELAY)
-        if self.check_ec_capability(['x86'], suppress_warning=True):
-            self.check_shutdown_power_state("G3", pwr_retries=5)
+    def delayed_wake(self):
+        """
+        Confirm the device is in G3, wait for WAKE_DELAY, and then wake DUT
+        with lid switch.
+        """
+        self.check_shutdown_power_state(self.POWER_STATE_G3, pwr_retries=10)
+        time.sleep(self.WAKE_DELAY)
         self._wake_by_lid_switch()
 
-    def short_delayed_wake(self):
-        """Delay for SHORT_WAKE_DELAY and then wake DUT with lid switch."""
-        time.sleep(self.SHORT_WAKE_DELAY)
-        if self.check_ec_capability(['x86'], suppress_warning=True):
-            self.check_shutdown_power_state("G3", pwr_retries=5)
+    def immediate_wake(self):
+        """Confirm the device is in G3 and then wake DUT with lid switch."""
+        self.check_shutdown_power_state(self.POWER_STATE_G3, pwr_retries=10)
         self._wake_by_lid_switch()
 
-    def shutdown_and_wake(self, wake_func):
-        """Software shutdown and delay. Then wake by lid switch.
+    def shutdown_and_wake(self, shutdown_func, wake_func):
+        """Software shutdown and wake.
 
         Args:
+          shutdown_func: Function to shut down DUT.
           wake_func: Delayed function to wake DUT.
         """
-        self.faft_client.system.run_shell_command('shutdown -P now')
+        shutdown_func()
         wake_func()
 
     def _get_keyboard_backlight(self):
@@ -186,15 +185,23 @@ class firmware_ECLidSwitch(FirmwareTest):
         if not self.check_ec_capability(['lid']):
             raise error.TestNAError("Nothing needs to be tested on this device")
 
-        logging.info("Shutdown and long delayed wake.")
+        logging.info("Shut down and then wake up DUT after a delay.")
         self.switcher.mode_aware_reboot(
                 'custom',
-                lambda:self.shutdown_and_wake(self.long_delayed_wake))
-
-        logging.info("Shutdown and short delayed wake.")
+                lambda:self.shutdown_and_wake(
+                        shutdown_func=self.run_shutdown_cmd,
+                        wake_func=self.delayed_wake))
+        logging.info("Shut down and then wake up DUT immediately.")
         self.switcher.mode_aware_reboot(
                 'custom',
-                lambda:self.shutdown_and_wake(self.short_delayed_wake))
-
+                lambda:self.shutdown_and_wake(
+                        shutdown_func=self.run_shutdown_cmd,
+                        wake_func=self.immediate_wake))
+        logging.info("Close and then open the lid when not logged in.")
+        self.switcher.mode_aware_reboot(
+                'custom',
+                lambda:self.shutdown_and_wake(
+                        shutdown_func=self._close_lid,
+                        wake_func=self.immediate_wake))
         logging.info("Check keycode and backlight.")
         self.check_state(self.check_keycode_and_backlight)

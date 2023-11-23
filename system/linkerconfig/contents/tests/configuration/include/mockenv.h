@@ -45,8 +45,6 @@ inline void MockGenericVariables() {
       "VNDK_CORE_LIBRARIES_PRODUCT", "vndk_core_libraries");
   android::linkerconfig::modules::Variables::AddValue(
       "VNDK_USING_CORE_VARIANT_LIBRARIES", "");
-  android::linkerconfig::modules::Variables::AddValue("STUB_LIBRARIES",
-                                                      "stub_libraries");
   android::linkerconfig::modules::Variables::AddValue(
       "SANITIZER_DEFAULT_VENDOR", "sanitizer_default_libraries");
   android::linkerconfig::modules::Variables::AddValue(
@@ -63,10 +61,6 @@ inline void MockVndkVersion(std::string vndk_version) {
 inline void MockVndkUsingCoreVariant() {
   android::linkerconfig::modules::Variables::AddValue(
       "VNDK_USING_CORE_VARIANT_LIBRARIES", "vndk_using_core_variant_libraries");
-}
-
-inline void MockVnkdLite() {
-  android::linkerconfig::modules::Variables::AddValue("ro.vndk.lite", "true");
 }
 
 inline android::linkerconfig::contents::Context GenerateContextWithVndk() {

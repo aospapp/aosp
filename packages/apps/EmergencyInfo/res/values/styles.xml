@@ -31,6 +31,12 @@
         <item name="preferenceTheme">@style/PreferenceTheme</item>
     </style>
 
+    <!-- Base emergency theme. -->
+    <style name="AppThemeEmergencyAction" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimaryDark">@android:color/black</item>
+        <item name="colorPrimary">@color/primary_dark_color</item>
+    </style>
+
     <!-- ActionBar -->
     <style name="ActionBarThemeOverlay" parent="ThemeOverlay.AppCompat.ActionBar">
         <item name="colorAccent">@color/accent_color_dark</item>

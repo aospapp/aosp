@@ -129,4 +129,6 @@ public int hashCode();
 @libcore.util.NonNull public static <K, V> java.util.Comparator<java.util.Map.@libcore.util.NonNull Entry<@libcore.util.Nullable K, @libcore.util.NullFromTypeParam V>> comparingByValue(@libcore.util.NonNull java.util.Comparator<? super @libcore.util.NullFromTypeParam V> cmp) { throw new RuntimeException("Stub!"); }
 }
 
+@libcore.util.NonNull public static <K, V> java.util.Map<K, V> copyOf(@libcore.util.NonNull java.util.Map<? extends K, ? extends V> map);
+
 }

@@ -45,6 +45,8 @@ LOCAL_SHARED_LIBRARIES:= libutils libcamera_client liblog libcamera_metadata lib
 LOCAL_32_BIT_ONLY := $(BOARD_QTI_CAMERA_32BIT_ONLY)
 
 LOCAL_MODULE:= hal3-test-app
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS:= notice
 
 LOCAL_CFLAGS += -Wall -Wextra -Werror
 

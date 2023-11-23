@@ -4,15 +4,7 @@
       "name": "libvintf_test"
     },
     {
-      "name": "libvintf_test",
-      "host": true
-    },
-    {
       "name": "vintf_object_test"
-    },
-    {
-      "name": "vintf_object_test",
-      "host": true
     },
     {
       "name": "lshal_test"

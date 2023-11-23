@@ -1,5 +1,5 @@
 /*
-  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
   
   You may not use this file except in compliance with the License.  You may
@@ -17,6 +17,7 @@
 #define MAGICK_BYTE_BUFFER_PRIVATE_H
 
 #include "MagickCore/blob.h"
+#include "MagickCore/blob-private.h"
 
 typedef struct _MagickByteBuffer
 {
@@ -96,6 +97,22 @@ static inline void SkipMagickByteBuffer(MagickByteBuffer *buffer,
   CheckMagickByteBuffer(buffer,length);
   if ((ssize_t) (buffer->offset+length) < buffer->count)
     buffer->offset+=length;
+}
+
+static inline MagickBooleanType SkipMagickByteBufferUntilNewline(
+  MagickByteBuffer *buffer)
+{
+  int
+    c;
+
+  c=ReadMagickByteBuffer(buffer);
+  while ((c != '\n') && (c != '\r'))
+  {
+    c=ReadMagickByteBuffer(buffer);
+    if (c == EOF)
+      return(MagickFalse);
+  }
+  return(MagickTrue);
 }
 
 #endif

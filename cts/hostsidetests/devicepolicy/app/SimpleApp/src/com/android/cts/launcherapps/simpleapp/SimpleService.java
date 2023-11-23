@@ -19,10 +19,10 @@ package com.android.cts.launcherapps.simpleapp;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.Process;
@@ -36,6 +36,7 @@ public class SimpleService extends Service {
     static final String ACTION_STOP_FOREGROUND = "com.android.test.action.STOP_FOREGROUND";
 
     static final String CHANNEL_NAME = "SimpleService";
+    private static String NOTIF_EXTRAS_KEY = "NotifExtras";
 
     final Binder mBinder = new Binder() {
         @Override
@@ -66,11 +67,16 @@ public class SimpleService extends Service {
                 nm.createNotificationChannel(new NotificationChannel(CHANNEL_NAME, CHANNEL_NAME,
                         NotificationManager.IMPORTANCE_DEFAULT));
             }
+            Bundle extras = new Bundle();
+            if (intent.getBooleanExtra(NOTIF_EXTRAS_KEY, false)) {
+                extras.putSerializable("android.substName", new CustomSerializable());
+            }
             Notification notification = new Notification.Builder(this, CHANNEL_NAME)
                     .setSmallIcon(android.R.drawable.ic_popup_reminder)  // the status icon
                     .setWhen(System.currentTimeMillis())  // the time stamp
                     .setContentTitle("This is a test notification")  // the label
                     .setContentText("This is a test notification")  // the contents of the entry
+                    .setExtras(extras)
                     .build();
             startForeground(100, notification);
         } else if (ACTION_STOP_FOREGROUND.equals(intent.getAction())) {

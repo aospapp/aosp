@@ -20,11 +20,11 @@
 
 namespace chre {
 
-void *MemoryManager::doAlloc(Nanoapp *app, uint32_t bytes) {
+void *MemoryManager::doAlloc(Nanoapp * /* app */, uint32_t bytes) {
   return chre::memoryAlloc(bytes);
 }
 
-void MemoryManager::doFree(Nanoapp *app, void *ptr) {
+void MemoryManager::doFree(Nanoapp * /* app */, void *ptr) {
   chre::memoryFree(ptr);
 }
 

@@ -8,12 +8,20 @@
 
 """Unit tests for server/cros/dynamic_suite/job_status.py."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import mox
+import os
 import shutil
+import six
+from six.moves import map
+from six.moves import range
 import tempfile
 import time
 import unittest
-import os
+
 import common
 
 from autotest_lib.server import frontend
@@ -48,7 +56,7 @@ class StatusTest(mox.MoxTestBase):
         entries = [s.entry for s in job.statuses]
         self.afe.run('get_host_queue_entries',
                      job=job.id).AndReturn(entries)
-        if True not in map(lambda e: 'aborted' in e and e['aborted'], entries):
+        if True not in ['aborted' in e and e['aborted'] for e in entries]:
             self.tko.get_job_test_statuses_from_db(job.id).AndReturn(
                     job.statuses)
 
@@ -96,7 +104,7 @@ class StatusTest(mox.MoxTestBase):
         results = [result for result in waiter.wait_for_results()]
         for job in jobs[:6]:  # the 'GOOD' SERVER_JOB shouldn't be there.
             for status in job.statuses:
-                self.assertTrue(True in map(status.equals_record, results))
+                self.assertTrue(True in list(map(status.equals_record, results)))
 
 
     def testYieldSubdir(self):
@@ -133,8 +141,8 @@ class StatusTest(mox.MoxTestBase):
         group = self.mox.CreateMock(host_spec.HostGroup)
 
         statuses = {}
-        all_bad = True not in results.itervalues()
-        for hostname, result in results.iteritems():
+        all_bad = True not in six.itervalues(results)
+        for hostname, result in six.iteritems(results):
             status = self.mox.CreateMock(job_status.Status)
             status.record_all(record_entity).InAnyOrder('recording')
             status.is_good().InAnyOrder('recording').AndReturn(result)

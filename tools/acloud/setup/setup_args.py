@@ -18,6 +18,13 @@ r"""Setup args.
 Defines the setup arg parser that holds setup specific args.
 """
 
+from acloud import errors
+# pylint: disable=no-name-in-module,import-error
+from acloud.internal.proto.user_config_pb2 import UserConfig
+
+
+_FIELD_NAMES = sorted([field.name for field in UserConfig.DESCRIPTOR.fields])
+_CONFIG_FIELD = 0
 CMD_SETUP = "setup"
 
 
@@ -60,5 +67,34 @@ def GetSetupArgParser(subparser):
         dest="force",
         required=False,
         help="Force the setup steps even if it's not required.")
+    # TODO(157532869): Validate the field name.
+    setup_parser.add_argument(
+        "--update-config",
+        nargs=2,
+        dest="update_config",
+        required=False,
+        help="Update the acloud user config. The first arg is field name in "
+        "config, and the second arg is the value of the field. Command would "
+        "like: 'acloud setup --config stable_host_image_family acloud-release'."
+        " The first arg can be one of following fields:%s" % _FIELD_NAMES)
 
     return setup_parser
+
+
+def VerifyArgs(args):
+    """Verify args.
+
+    One example of command "acloud setup --update-config zone us-central1-c",
+    then this function would check "zone" is a valid field.
+
+    Args:
+        args: Namespace object from argparse.parse_args.
+
+    Raises:
+        errors.NotSupportedFieldName: The field name doesn't support in config.
+    """
+    if args.update_config:
+        if args.update_config[_CONFIG_FIELD] not in _FIELD_NAMES:
+            raise errors.NotSupportedFieldName(
+                "Field[%s] isn't in support list: %s" % (args.update_config[0],
+                                                         _FIELD_NAMES))

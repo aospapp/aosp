@@ -11,6 +11,7 @@ import time
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import test
 from autotest_lib.server.hosts import servo_host
+from autotest_lib.server.hosts import servo_constants
 
 class servo_LabControlVerification(test.test):
     """Ensure control list works, ensure all consoles are talkable."""
@@ -103,8 +104,8 @@ class servo_LabControlVerification(test.test):
             self.assert_servod_running(host=host)
         # Servod came up successfully - build a servo host and use it to verify
         # basic functionality.
-        servo_args = {servo_host.SERVO_HOST_ATTR: host.hostname,
-                      servo_host.SERVO_PORT_ATTR: 9999}
+        servo_args = {servo_constants.SERVO_HOST_ATTR: host.hostname,
+                      servo_constants.SERVO_PORT_ATTR: 9999}
         self.servo_host_proxy = servo_host.ServoHost(is_in_lab=False,
                                                      **servo_args)
         self.servo_host_proxy.connect_servo()

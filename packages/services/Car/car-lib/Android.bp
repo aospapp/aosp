@@ -12,11 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 filegroup {
     name: "libcarpowermanager_aidl",
     srcs: [
         "src/android/car/ICar.aidl",
+        "src/android/car/hardware/power/CarPowerPolicy.aidl",
+        "src/android/car/hardware/power/CarPowerPolicyFilter.aidl",
         "src/android/car/hardware/power/ICarPower.aidl",
+        "src/android/car/hardware/power/ICarPowerPolicyListener.aidl",
         "src/android/car/hardware/power/ICarPowerStateListener.aidl",
     ],
     path: "src",
@@ -53,6 +60,8 @@ cc_library {
     srcs: [
         ":libcarpowermanager_aidl",
         "native/CarPowerManager/CarPowerManager.cpp",
+        "native/CarPowerManager/CarPowerPolicy.cpp",
+        "native/CarPowerManager/CarPowerPolicyFilter.cpp",
     ],
 }
 
@@ -65,31 +74,37 @@ java_library {
     srcs: ["src/android/car/navigation/navigation_state.proto"]
 }
 
-// library to access settings from CarSettings 
+// library to access settings from CarSettings
 java_library {
     name: "android.car.settings",
     srcs: ["src/android/car/settings/CarSettings.java"]
+}
+
+// library to access common constants between carlibrary and system server.
+java_library {
+    name: "com.android.car.internal.common",
+    srcs: [
+        "src/com/android/car/internal/common/**/*.java",
+        "src/com/android/car/internal/common/EventLogTags.logtags",
+        "src/com/android/car/internal/ExcludeFromCodeCoverageGeneratedReport.java",
+    ],
 }
 
 java_library {
     name: "android.car",
     srcs: [
         "src/**/*.java",
-        "src/**/I*.aidl",
+        "src/**/*.aidl",
+        "src/com/android/car/internal/common/EventLogTags.logtags",
     ],
     aidl: {
         include_dirs: [
             "system/bt/binder",
-            "packages/services/Car/watchdog/aidl",
         ],
     },
     exclude_srcs: [
         "src/android/car/storagemonitoring/IoStats.aidl",
         "src/android/car/storagemonitoring/IoStatsEntry.aidl",
-    ],
-    static_libs: [
-        "android.car.internal.event-log-tags",
-        "carwatchdog_aidl_interface-java",
     ],
     product_variables: {
         pdk: {
@@ -139,8 +154,8 @@ genrule {
 droidstubs {
     name: "android.car-stubs-docs",
     defaults: ["android.car-docs-default"],
-    removed_dex_api_filename: "removed-dex.txt",
-    args: "--hide UnavailableSymbol --no-docs --stub-packages android.car* ",
+    args: "--hide UnavailableSymbol --no-docs --stub-packages android.car* " +
+        "--hide-package com.android.internal ",
     installable: false,
     check_api: {
         last_released: {
@@ -167,9 +182,10 @@ droidstubs {
 droidstubs {
     name: "android.car-system-stubs-docs",
     defaults: ["android.car-docs-default"],
-    removed_dex_api_filename: "system-removed-dex.txt",
-    args: "--hide UnavailableSymbol --no-docs --stub-packages android.car* " +
-        "--show-annotation android.annotation.SystemApi ",
+    // TODO(b/174572385): Remove CallbackInterface once this b/174572385 is fixed
+    args: "--hide CallbackInterface --hide UnavailableSymbol --hide HiddenSuperclass " +
+        "--no-docs --stub-packages android.car* " +
+        "--show-annotation android.annotation.SystemApi --hide-package com.android.internal ",
     installable: false,
     check_api: {
         last_released: {
@@ -226,6 +242,77 @@ droidstubs {
             enabled: false,
         },
     },
+}
+
+// Generates stubs for API documentation.
+droidstubs {
+    name: "car-doc-stubs",
+    srcs: [
+        "src/**/*.java",
+    ],
+    create_doc_stubs: true,
+    annotations_enabled: true,
+    api_levels_annotations_enabled: true,
+    api_levels_jar_filename: "android.car.jar",
+    api_levels_annotations_dirs: [
+        "sdk-dir",
+        "api-versions-jars-dir",
+    ],
+    previous_api: ":android-car-last-released-api",
+    merge_annotations_dirs: [
+        "metalava-manual",
+    ],
+    arg_files: [
+        "AndroidManifest.xml",
+    ],
+    // Add --verbose to print metalava details.
+    args: "--manifest $(location AndroidManifest.xml) " +
+          "--error UnhiddenSystemApi " +
+          "--hide RequiresPermission " +
+          "--hide CallbackInterface " +
+          "--hide MissingPermission " +
+          "--hide HiddenSuperclass --hide DeprecationMismatch --hide UnavailableSymbol " +
+          "--hide SdkConstant --hide HiddenTypeParameter --hide Todo --hide Typo " +
+          "--hide Todo --hide Typo ",
+    write_sdk_values: true,
+}
+
+// Generates API docs for go/devsite.
+//
+// How API docs are generated:
+//    source files -> (droidstubs/metalava) -> stub source files -> (droiddoc/doclava) -> docs
+//
+// The metalava conversion is done by droidstub module "car-doc-stubs".
+//
+// TODO(b/162958231): Remove "ds-car-docs" from build/soong/java/legacy_core_platform_api_usage.go.
+droiddoc {
+    name: "ds-car-docs",
+    srcs: [
+        ":car-doc-stubs",
+    ],
+    libs: [
+        "stub-annotations",
+        "unsupportedappusage",
+    ],
+    custom_template: "droiddoc-templates-sdk",
+    // These variables that are used in doclava templates.
+    hdf: [
+        "dac true",
+        "sdk.preview 0", // Not a preview version.
+        "sdk.version 31",
+        "android.whichdoc online",
+        "android.hasSamples false",
+    ],
+    arg_files: [
+        "AndroidManifest.xml",
+    ],
+    proofread_file: "ds-sdk-docs-proofrerad.txt",
+    // See doclava docs in https://github.com/tinks/doclava.
+    // See error numbers in external/doclava/src/com/google/doclava/Errors.java.
+    // TODO(b/163831343): Add -werror -lerror to catch bad javadocs
+    args: "-android -manifest $(location AndroidManifest.xml) -toroot / -devsite -yamlV2 -metalavaApiSince " +
+        "-hide 111 -hide 113 -hide 125 -hide 126 -hide 127 -hide 128 " +
+        "-stubpackages android.car -dac_libraryroot android/car ",
 }
 
 java_library {

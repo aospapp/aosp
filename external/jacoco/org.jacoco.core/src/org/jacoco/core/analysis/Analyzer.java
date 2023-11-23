@@ -20,7 +20,7 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import org.jacoco.core.data.ExecutionData;
+import org.jacoco.core.data.IExecutionData;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.internal.ContentTypeDetector;
 import org.jacoco.core.internal.InputStreams;
@@ -78,16 +78,18 @@ public class Analyzer {
 	 */
 	private ClassVisitor createAnalyzingVisitor(final long classid,
 			final String className) {
-		final ExecutionData data = executionData.get(classid);
+		// BEGIN android-change
+		final IExecutionData data = executionData.get(classid);
 		final boolean[] probes;
 		final boolean noMatch;
 		if (data == null) {
 			probes = null;
 			noMatch = executionData.contains(className);
 		} else {
-			probes = data.getProbes();
+			probes = data.getProbesCopy();
 			noMatch = false;
 		}
+		// END android-change
 		final ClassCoverageImpl coverage = new ClassCoverageImpl(className,
 				classid, noMatch);
 		final ClassAnalyzer analyzer = new ClassAnalyzer(coverage, probes,

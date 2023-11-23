@@ -22,22 +22,24 @@
  *  Broadcom's Bluetooth application layer for mobile phones.
  *
  ******************************************************************************/
-#include <string.h>
 
-#include "bt_target.h"
+#include <cstdint>
 
-#include "bt_common.h"
-#include "bt_utils.h"
-#include "bta_api.h"
-#include "bta_pan_api.h"
-#include "bta_pan_int.h"
-#include "bta_sys.h"
-#include "osi/include/osi.h"
-#include "pan_api.h"
-
+#include "bt_target.h"  // Must be first to define build configuration
 #if (BTA_PAN_INCLUDED == TRUE)
 
+#include "bta/pan/bta_pan_int.h"
+#include "osi/include/allocator.h"
+#include "osi/include/compat.h"
+#include "types/raw_address.h"
+
 static const tBTA_SYS_REG bta_pan_reg = {bta_pan_hdl_event, BTA_PanDisable};
+
+#ifndef PAN_SECURITY
+#define PAN_SECURITY                                                         \
+  (BTM_SEC_IN_AUTHENTICATE | BTM_SEC_OUT_AUTHENTICATE | BTM_SEC_IN_ENCRYPT | \
+   BTM_SEC_OUT_ENCRYPT)
+#endif
 
 /*******************************************************************************
  *
@@ -75,7 +77,7 @@ void BTA_PanEnable(tBTA_PAN_CBACK p_cback) {
  *
  ******************************************************************************/
 void BTA_PanDisable(void) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
 
   bta_sys_deregister(BTA_ID_PAN);
   p_buf->event = BTA_PAN_API_DISABLE_EVT;
@@ -95,7 +97,6 @@ void BTA_PanDisable(void) {
  *
  ******************************************************************************/
 void BTA_PanSetRole(tBTA_PAN_ROLE role, tBTA_PAN_ROLE_INFO* p_user_info,
-                    tBTA_PAN_ROLE_INFO* p_gn_info,
                     tBTA_PAN_ROLE_INFO* p_nap_info) {
   tBTA_PAN_API_SET_ROLE* p_buf =
       (tBTA_PAN_API_SET_ROLE*)osi_calloc(sizeof(tBTA_PAN_API_SET_ROLE));
@@ -103,28 +104,18 @@ void BTA_PanSetRole(tBTA_PAN_ROLE role, tBTA_PAN_ROLE_INFO* p_user_info,
   p_buf->hdr.event = BTA_PAN_API_SET_ROLE_EVT;
   p_buf->role = role;
 
-  if (p_user_info && (role & BTA_PAN_ROLE_PANU)) {
+  if (role & BTA_PAN_ROLE_PANU) {
     if (p_user_info->p_srv_name)
       strlcpy(p_buf->user_name, p_user_info->p_srv_name, BTA_SERVICE_NAME_LEN);
 
     p_buf->user_app_id = p_user_info->app_id;
-    p_buf->user_sec_mask = p_user_info->sec_mask;
   }
 
-  if (p_gn_info && (role & BTA_PAN_ROLE_GN)) {
-    if (p_gn_info->p_srv_name)
-      strlcpy(p_buf->gn_name, p_gn_info->p_srv_name, BTA_SERVICE_NAME_LEN);
-
-    p_buf->gn_app_id = p_gn_info->app_id;
-    p_buf->gn_sec_mask = p_gn_info->sec_mask;
-  }
-
-  if (p_nap_info && (role & BTA_PAN_ROLE_NAP)) {
+  if (role & BTA_PAN_ROLE_NAP) {
     if (p_nap_info->p_srv_name)
       strlcpy(p_buf->nap_name, p_nap_info->p_srv_name, BTA_SERVICE_NAME_LEN);
 
     p_buf->nap_app_id = p_nap_info->app_id;
-    p_buf->nap_sec_mask = p_nap_info->sec_mask;
   }
 
   bta_sys_sendmsg(p_buf);
@@ -166,7 +157,7 @@ void BTA_PanOpen(const RawAddress& bd_addr, tBTA_PAN_ROLE local_role,
  *
  ******************************************************************************/
 void BTA_PanClose(uint16_t handle) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
 
   p_buf->event = BTA_PAN_API_CLOSE_EVT;
   p_buf->layer_specific = handle;
@@ -174,6 +165,8 @@ void BTA_PanClose(uint16_t handle) {
   bta_sys_sendmsg(p_buf);
 }
 #else
+#include "bta/pan/bta_pan_int.h"
+#include "osi/include/osi.h"  // UNUSED_ATTR
 
 void BTA_PanEnable(UNUSED_ATTR tBTA_PAN_CBACK p_cback) {}
 

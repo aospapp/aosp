@@ -776,7 +776,7 @@ static void nfa_rw_handle_t2t_evt(tRW_EVENT event, tRW_DATA* p_rw_data) {
       break;
 
     case RW_T2T_TLV_DETECT_EVT: /* Lock control/Mem/Prop tlv detection complete
-                                   */
+                                 */
       nfa_rw_handle_tlv_detect(p_rw_data);
       break;
 
@@ -966,6 +966,9 @@ static void nfa_rw_handle_t3t_evt(tRW_EVENT event, tRW_DATA* p_rw_data) {
       break;
 
     case RW_T3T_INTF_ERROR_EVT:
+      DLOG_IF(INFO, nfc_debug_enabled)
+          << StringPrintf("%s; send deactivate", __func__);
+      nfa_dm_rf_deactivate(NFA_DEACTIVATE_TYPE_DISCOVERY);
       conn_evt_data.status = p_rw_data->status;
       nfa_dm_act_conn_cback_notify(NFA_RW_INTF_ERROR_EVT, &conn_evt_data);
       break;
@@ -1696,8 +1699,7 @@ static tNFC_STATUS nfa_rw_start_ndef_write(void) {
       status = RW_T3tUpdateNDef(nfa_rw_cb.ndef_wr_len, nfa_rw_cb.p_ndef_wr_buf);
     } else if (NFC_PROTOCOL_ISO_DEP == protocol) {
       /* ISODEP/4A,4B- NFC-A or NFC-B */
-      status = RW_T4tUpdateNDef((uint16_t)nfa_rw_cb.ndef_wr_len,
-                                nfa_rw_cb.p_ndef_wr_buf);
+      status = RW_T4tUpdateNDef(nfa_rw_cb.ndef_wr_len, nfa_rw_cb.p_ndef_wr_buf);
     } else if (NFC_PROTOCOL_T5T == protocol) {
       /* ISO 15693 */
       status = RW_I93UpdateNDef((uint16_t)nfa_rw_cb.ndef_wr_len,
@@ -1790,8 +1792,8 @@ static bool nfa_rw_write_ndef(tNFA_RW_MSG* p_data) {
   } else if (nfa_rw_cb.ndef_st == NFA_RW_NDEF_ST_FALSE) {
     if (nfa_rw_cb.protocol == NFC_PROTOCOL_T1T) {
       /* For Type 1 tag, NDEF can be written on Initialized tag
-      *  Perform ndef detection first to check if tag is in Initialized state to
-      * Write NDEF */
+       *  Perform ndef detection first to check if tag is in Initialized state
+       * to Write NDEF */
       write_status = nfa_rw_start_ndef_detection();
     } else {
       /* Tag is not NDEF */
@@ -2366,7 +2368,7 @@ static bool nfa_rw_i93_command(tNFA_RW_MSG* p_data) {
 
     case NFA_RW_OP_I93_STAY_QUIET:
       i93_command = I93_CMD_STAY_QUIET;
-      status = RW_I93StayQuiet();
+      status = RW_I93StayQuiet(p_data->op_req.params.i93_cmd.p_data);
       break;
 
     case NFA_RW_OP_I93_READ_SINGLE_BLOCK:
@@ -2447,6 +2449,25 @@ static bool nfa_rw_i93_command(tNFA_RW_MSG* p_data) {
       status = RW_I93GetMultiBlockSecurityStatus(
           p_data->op_req.params.i93_cmd.first_block_number,
           p_data->op_req.params.i93_cmd.number_blocks);
+      break;
+
+    case NFA_RW_OP_I93_SET_ADDR_MODE:
+      i93_command = I93_CMD_SET_ADDR_MODE;
+      DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
+          "%s - T5T addressing mode (0: addressed, "
+          "1: non-addressed) is %d",
+          __func__, p_data->op_req.params.i93_cmd.addr_mode);
+
+      status = RW_I93SetAddressingMode(p_data->op_req.params.i93_cmd.addr_mode);
+      if (status != NFC_STATUS_OK) {
+        break;
+      }
+
+      /* Command complete - perform cleanup, notify app */
+      nfa_rw_command_complete();
+      conn_evt_data.i93_cmd_cplt.status = NFA_STATUS_OK;
+      conn_evt_data.i93_cmd_cplt.sent_command = i93_command;
+      nfa_dm_act_conn_cback_notify(NFA_I93_CMD_CPLT_EVT, &conn_evt_data);
       break;
 
     default:
@@ -2634,22 +2655,16 @@ bool nfa_rw_activate_ntf(tNFA_RW_MSG* p_data) {
     memcpy(tag_params.t2t.uid, p_activate_params->rf_tech_param.param.pa.nfcid1,
            p_activate_params->rf_tech_param.param.pa.nfcid1_len);
   } else if (NFC_PROTOCOL_T3T == nfa_rw_cb.protocol) {
-    if (appl_dta_mode_flag) {
-      /* Incase of DTA mode Dont send commands to get system code. Just notify
-       * activation */
-      activate_notify = true;
-    } else {
-      /* Delay notifying upper layer of NFA_ACTIVATED_EVT until system codes
-       * are retrieved */
-      activate_notify = false;
+    /* Delay notifying upper layer of NFA_ACTIVATED_EVT until system codes
+     * are retrieved */
+    activate_notify = false;
 
-      /* Issue command to get Felica system codes */
-      tNFA_RW_MSG msg;
-      msg.op_req.op = NFA_RW_OP_T3T_GET_SYSTEM_CODES;
-      bool free_buf = nfa_rw_handle_op_req(&msg);
-      CHECK(free_buf)
-          << "nfa_rw_handle_op_req is holding on to soon-garbage stack memory.";
-    }
+    /* Issue command to get Felica system codes */
+    tNFA_RW_MSG msg;
+    msg.op_req.op = NFA_RW_OP_T3T_GET_SYSTEM_CODES;
+    bool free_buf = nfa_rw_handle_op_req(&msg);
+    CHECK(free_buf)
+        << "nfa_rw_handle_op_req is holding on to soon-garbage stack memory.";
   } else if (NFA_PROTOCOL_T5T == nfa_rw_cb.protocol) {
     /* Delay notifying upper layer of NFA_ACTIVATED_EVT to retrieve additional
      * tag infomation */
@@ -2699,8 +2714,23 @@ bool nfa_rw_activate_ntf(tNFA_RW_MSG* p_data) {
       /* Tag-it HF-I Plus Chip/Inlay supports Get System Information Command */
       /* just try for others */
 
-      if (RW_I93GetSysInfo(nfa_rw_cb.i93_uid) != NFC_STATUS_OK) {
-        /* notify activation without AFI/MEM size/IC-Ref */
+      if (!appl_dta_mode_flag) {
+        if (RW_I93GetSysInfo(nfa_rw_cb.i93_uid) != NFC_STATUS_OK) {
+          /* notify activation without AFI/MEM size/IC-Ref */
+          nfa_rw_cb.flags &= ~NFA_RW_FL_ACTIVATION_NTF_PENDING;
+          activate_notify = true;
+
+          tag_params.i93.info_flags = I93_INFO_FLAG_DSFID;
+          tag_params.i93.dsfid = nfa_rw_cb.i93_dsfid;
+          tag_params.i93.block_size = 0;
+          tag_params.i93.num_block = 0;
+          memcpy(tag_params.i93.uid, nfa_rw_cb.i93_uid, I93_UID_BYTE_LEN);
+        } else {
+          /* reset memory size */
+          nfa_rw_cb.i93_block_size = 0;
+          nfa_rw_cb.i93_num_block = 0;
+        }
+      } else {
         nfa_rw_cb.flags &= ~NFA_RW_FL_ACTIVATION_NTF_PENDING;
         activate_notify = true;
 
@@ -2709,10 +2739,6 @@ bool nfa_rw_activate_ntf(tNFA_RW_MSG* p_data) {
         tag_params.i93.block_size = 0;
         tag_params.i93.num_block = 0;
         memcpy(tag_params.i93.uid, nfa_rw_cb.i93_uid, I93_UID_BYTE_LEN);
-      } else {
-        /* reset memory size */
-        nfa_rw_cb.i93_block_size = 0;
-        nfa_rw_cb.i93_num_block = 0;
       }
     }
   }
@@ -2779,6 +2805,7 @@ bool nfa_rw_deactivate_ntf(__attribute__((unused)) tNFA_RW_MSG* p_data) {
 **
 *******************************************************************************/
 bool nfa_rw_handle_op_req(tNFA_RW_MSG* p_data) {
+  tNFA_CONN_EVT_DATA conn_evt_data;
   bool freebuf = true;
   uint16_t presence_check_start_delay = 0;
 
@@ -2817,7 +2844,6 @@ bool nfa_rw_handle_op_req(tNFA_RW_MSG* p_data) {
   /* Call appropriate handler for requested operation */
   switch (p_data->op_req.op) {
     case NFA_RW_OP_DETECT_NDEF:
-      nfa_rw_cb.skip_dyn_locks = false;
       nfa_rw_detect_ndef();
       break;
 
@@ -2904,6 +2930,22 @@ bool nfa_rw_handle_op_req(tNFA_RW_MSG* p_data) {
       nfa_rw_t2t_sector_select(p_data);
       break;
 
+    case NFA_RW_OP_T2T_READ_DYN_LOCKS:
+      if (p_data->op_req.params.t2t_read_dyn_locks.read_dyn_locks == true) {
+        nfa_rw_cb.skip_dyn_locks = false;
+      } else {
+        nfa_rw_cb.skip_dyn_locks = true;
+      }
+      DLOG_IF(INFO, nfc_debug_enabled)
+          << StringPrintf("%s - Skip reading of dynamic lock bytes: %d",
+                          __func__, nfa_rw_cb.skip_dyn_locks);
+
+      /* Command complete - perform cleanup, notify app */
+      nfa_rw_command_complete();
+      conn_evt_data.status = NFA_STATUS_OK;
+      nfa_dm_act_conn_cback_notify(NFA_T2T_CMD_CPLT_EVT, &conn_evt_data);
+      break;
+
     /* Type-3 tag commands */
     case NFA_RW_OP_T3T_READ:
       nfa_rw_t3t_read(p_data);
@@ -2933,6 +2975,7 @@ bool nfa_rw_handle_op_req(tNFA_RW_MSG* p_data) {
     case NFA_RW_OP_I93_LOCK_DSFID:
     case NFA_RW_OP_I93_GET_SYS_INFO:
     case NFA_RW_OP_I93_GET_MULTI_BLOCK_STATUS:
+    case NFA_RW_OP_I93_SET_ADDR_MODE:
       nfa_rw_i93_command(p_data);
       break;
 

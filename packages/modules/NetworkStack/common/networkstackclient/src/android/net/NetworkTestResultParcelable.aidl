@@ -16,6 +16,7 @@
 
 package android.net;
 
+@JavaDerive(toString=true)
 parcelable NetworkTestResultParcelable {
     /**
      * Timestamp of the evaluation, as determined by to SystemClock.elapsedRealtime().

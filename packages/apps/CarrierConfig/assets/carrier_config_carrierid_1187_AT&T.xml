@@ -8,9 +8,11 @@
     <boolean name="csp_enabled_bool" value="true"/>
     <boolean name="display_hd_audio_property_bool" value="false"/>
     <boolean name="enableSMSDeliveryReports" value="false"/>
+    <boolean name="ims.rcs_request_forbidden_by_sip_489_bool" value="true" />
     <boolean name="rtt_supported_bool" value="true"/>
     <boolean name="show_4g_for_3g_data_icon_bool" value="true"/>
     <boolean name="support_pause_ims_video_calls_bool" value="false"/>
+    <boolean name="rtt_supported_while_roaming_bool" value="true"/>
     <int name="maxImageHeight" value="1944"/>
     <int name="maxImageWidth" value="2592"/>
     <int name="maxMessageSize" value="1048576"/>
@@ -73,6 +75,8 @@
         <item value="#8"/>
         <item value="#9"/>
     </string-array>
-    <string name="5g_icon_display_grace_period_string" value="connected_mmwave,any,30"/>
-    <string name="unmetered_nr_nsa_mmwave_bool" value="true" />
+    <boolean name="use_lower_mtu_value_if_both_received" value="true" />
+    <string name="5g_icon_display_grace_period_string">connected_mmwave,any,30</string>
+    <boolean name="inflate_signal_strength_bool" value="true" />
+    <string name="5g_icon_configuration_string">connected_mmwave:5G_Plus,connected:5G,not_restricted_rrc_idle:5G,not_restricted_rrc_con:5G</string>
 </carrier_config>

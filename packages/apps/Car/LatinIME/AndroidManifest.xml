@@ -15,26 +15,29 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        coreApp="true"
-        package="com.android.inputmethod.latin">
+     coreApp="true"
+     package="com.android.inputmethod.latin">
 
-    <uses-sdk android:minSdkVersion="22" android:targetSdkVersion="23" />
+    <uses-sdk android:minSdkVersion="22"
+         android:targetSdkVersion="23"/>
 
     <application android:label="@string/english_ime_name"
-            android:icon="@drawable/ic_launcher_keyboard"
-            android:supportsRtl="true"
-            android:allowBackup="true"
-            android:directBootAware="true"
-            android:theme="@android:style/Theme.DeviceDefault.InputMethod">
+         android:icon="@drawable/ic_launcher_keyboard"
+         android:supportsRtl="true"
+         android:allowBackup="true"
+         android:directBootAware="true"
+         android:theme="@android:style/Theme.DeviceDefault.InputMethod">
 
         <!-- Services -->
         <service android:name="CarLatinIME"
-                android:label="@string/english_ime_name"
-                android:permission="android.permission.BIND_INPUT_METHOD">
+             android:label="@string/english_ime_name"
+             android:permission="android.permission.BIND_INPUT_METHOD"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.view.InputMethod" />
+                <action android:name="android.view.InputMethod"/>
             </intent-filter>
-            <meta-data android:name="android.view.im" android:resource="@xml/method" />
+            <meta-data android:name="android.view.im"
+                 android:resource="@xml/method"/>
         </service>
     </application>
 </manifest>

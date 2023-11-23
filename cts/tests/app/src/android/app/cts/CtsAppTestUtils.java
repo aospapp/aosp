@@ -64,4 +64,14 @@ class CtsAppTestUtils {
         String cmd = "am make-uid-idle " + packageName;
         return executeShellCmd(instrumentation, cmd);
     }
+
+    /**
+     * This method returns the ambiguously nullable platform type <code>T!</code> in Kotlin.
+     * This allows Kotlin tests cases to pass <code>null</code> to a Java method parameter annotated
+     * with <code>@NonNull</code>, which can be important for validating that the Java code under
+     * test implements runtime <code>null</code> checks.
+     */
+    public static <T> T platformNull() {
+        return null;
+    }
 }

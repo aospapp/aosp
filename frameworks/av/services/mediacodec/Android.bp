@@ -1,3 +1,20 @@
+package {
+    default_applicable_licenses: ["frameworks_av_services_mediacodec_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "frameworks_av_services_mediacodec_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_binary {
     name: "mediaswcodec",
     vendor_available: true,
@@ -15,23 +32,9 @@ cc_binary {
         "libmedia_codecserviceregistrant",
     ],
 
-    target: {
-        android: {
-            product_variables: {
-                malloc_not_svelte: {
-                    // Scudo increases memory footprint, so only enable on
-                    // non-svelte devices.
-                    shared_libs: ["libc_scudo"],
-                },
-            },
-        },
-    },
-
     header_libs: [
         "libmedia_headers",
     ],
-
-    init_rc: ["mediaswcodec.rc"],
 
     cflags: [
         "-Werror",

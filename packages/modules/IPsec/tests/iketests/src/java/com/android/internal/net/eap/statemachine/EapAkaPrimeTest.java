@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.statemachine;
+package com.android.internal.net.eap.test.statemachine;
 
 import static android.telephony.TelephonyManager.APPTYPE_USIM;
 
@@ -26,10 +26,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
-import android.net.eap.EapSessionConfig.EapAkaPrimeConfig;
+import android.net.eap.test.EapSessionConfig.EapAkaPrimeConfig;
 import android.telephony.TelephonyManager;
 
-import com.android.internal.net.eap.message.simaka.EapAkaPrimeTypeData;
+import com.android.internal.net.eap.test.message.simaka.EapAkaPrimeTypeData;
 
 import org.junit.Before;
 

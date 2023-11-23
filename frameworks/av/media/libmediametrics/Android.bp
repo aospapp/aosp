@@ -1,13 +1,21 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "frameworks_av_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["frameworks_av_license"],
+}
+
 cc_library_headers {
     name: "libmediametrics_headers",
     export_include_dirs: ["include"],
 }
 
-cc_library_shared {
+cc_library {
     name: "libmediametrics",
 
     srcs: [
-        "IMediaMetricsService.cpp",
         "MediaMetricsItem.cpp",
         "MediaMetrics.cpp",
     ],
@@ -17,6 +25,7 @@ cc_library_shared {
         "libcutils",
         "liblog",
         "libutils",
+        "mediametricsservice-aidl-cpp",
     ],
 
     export_include_dirs: ["include"],
@@ -53,7 +62,26 @@ cc_library_shared {
     visibility: [
         "//cts/tests/tests/nativemedia/mediametrics",
         "//frameworks/av:__subpackages__",
+        "//frameworks/base/apex/media/framework",
         "//frameworks/base/core/jni",
         "//frameworks/base/media/jni",
     ],
+}
+
+aidl_interface {
+    name: "mediametricsservice-aidl",
+    unstable: true,
+    local_include_dir: "aidl",
+    vendor_available: true,
+    srcs: [
+        "aidl/android/media/IMediaMetricsService.aidl",
+    ],
+    double_loadable: true,
+    backend: {
+        cpp: {
+            apex_available: [
+                "//apex_available:platform",
+            ],
+        },
+    },
 }

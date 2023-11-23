@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_googletest_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-BSD
+    default_applicable_licenses: ["external_googletest_license"],
+}
+
 cc_defaults {
     name: "gmock_test_defaults",
     host_supported: true,
@@ -45,9 +54,6 @@ cc_test {
         // Test is disabled because Android doesn't build gmock with exceptions.
         //"gmock_ex_test.cc",
 
-        "gmock-generated-actions_test.cc",
-        "gmock-generated-function-mockers_test.cc",
-        "gmock-generated-matchers_test.cc",
         "gmock-internal-utils_test.cc",
         "gmock-matchers_test.cc",
         "gmock-more-actions_test.cc",

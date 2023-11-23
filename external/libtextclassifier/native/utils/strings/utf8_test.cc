@@ -34,25 +34,18 @@ TEST(Utf8Test, IsValidUTF8) {
   EXPECT_TRUE(IsValidUTF8("\u304A\u00B0\u106B", 8));
   EXPECT_TRUE(IsValidUTF8("this is a test😋😋😋", 26));
   EXPECT_TRUE(IsValidUTF8("\xf0\x9f\x98\x8b", 4));
+  // Example with first byte payload of zero.
+  EXPECT_TRUE(IsValidUTF8("\xf0\x90\x80\x80", 4));
   // Too short (string is too short).
   EXPECT_FALSE(IsValidUTF8("\xf0\x9f", 2));
   // Too long (too many trailing bytes).
   EXPECT_FALSE(IsValidUTF8("\xf0\x9f\x98\x8b\x8b", 5));
   // Too short (too few trailing bytes).
   EXPECT_FALSE(IsValidUTF8("\xf0\x9f\x98\x61\x61", 5));
-}
-
-TEST(Utf8Test, ValidUTF8CharLength) {
-  EXPECT_EQ(ValidUTF8CharLength("1234😋hello", 13), 1);
-  EXPECT_EQ(ValidUTF8CharLength("\u304A\u00B0\u106B", 8), 3);
-  EXPECT_EQ(ValidUTF8CharLength("this is a test😋😋😋", 26), 1);
-  EXPECT_EQ(ValidUTF8CharLength("\xf0\x9f\x98\x8b", 4), 4);
-  // Too short (string is too short).
-  EXPECT_EQ(ValidUTF8CharLength("\xf0\x9f", 2), -1);
-  // Too long (too many trailing bytes). First character is valid.
-  EXPECT_EQ(ValidUTF8CharLength("\xf0\x9f\x98\x8b\x8b", 5), 4);
-  // Too short (too few trailing bytes).
-  EXPECT_EQ(ValidUTF8CharLength("\xf0\x9f\x98\x61\x61", 5), -1);
+  // Invalid continuation byte (can be encoded in less bytes).
+  EXPECT_FALSE(IsValidUTF8("\xc0\x81", 2));
+  // Invalid continuation byte (can be encoded in less bytes).
+  EXPECT_FALSE(IsValidUTF8("\xf0\x8a\x85\x8f", 4));
 }
 
 TEST(Utf8Test, CorrectlyTruncatesStrings) {

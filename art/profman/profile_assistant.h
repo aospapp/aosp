@@ -32,28 +32,47 @@ class ProfileAssistant {
   enum ProcessingResult {
     kSuccess = 0,  // Generic success code for non-analysis runs.
     kCompile = 1,
-    kSkipCompilation = 2,
+    kSkipCompilationSmallDelta = 2,
     kErrorBadProfiles = 3,
     kErrorIO = 4,
     kErrorCannotLock = 5,
     kErrorDifferentVersions = 6,
+    kSkipCompilationEmptyProfiles = 7,
   };
 
   class Options {
    public:
     static constexpr bool kForceMergeDefault = false;
     static constexpr bool kBootImageMergeDefault = false;
+    static constexpr uint32_t kMinNewMethodsPercentChangeForCompilation = 20;
+    static constexpr uint32_t kMinNewClassesPercentChangeForCompilation = 20;
 
     Options()
         : force_merge_(kForceMergeDefault),
-          boot_image_merge_(kBootImageMergeDefault) {
+          boot_image_merge_(kBootImageMergeDefault),
+          min_new_methods_percent_change_for_compilation_(
+              kMinNewMethodsPercentChangeForCompilation),
+          min_new_classes_percent_change_for_compilation_(
+              kMinNewClassesPercentChangeForCompilation) {
     }
 
     bool IsForceMerge() const { return force_merge_; }
     bool IsBootImageMerge() const { return boot_image_merge_; }
+    uint32_t GetMinNewMethodsPercentChangeForCompilation() const {
+        return min_new_methods_percent_change_for_compilation_;
+    }
+    uint32_t GetMinNewClassesPercentChangeForCompilation() const {
+        return min_new_classes_percent_change_for_compilation_;
+    }
 
     void SetForceMerge(bool value) { force_merge_ = value; }
     void SetBootImageMerge(bool value) { boot_image_merge_ = value; }
+    void SetMinNewMethodsPercentChangeForCompilation(uint32_t value) {
+      min_new_methods_percent_change_for_compilation_ = value;
+    }
+    void SetMinNewClassesPercentChangeForCompilation(uint32_t value) {
+      min_new_classes_percent_change_for_compilation_ = value;
+    }
 
    private:
     // If true, performs a forced merge, without analyzing if there is a
@@ -63,6 +82,8 @@ class ProfileAssistant {
     // Signals that the merge is for boot image profiles. It will ignore differences
     // in profile versions (instead of aborting).
     bool boot_image_merge_;
+    uint32_t min_new_methods_percent_change_for_compilation_;
+    uint32_t min_new_classes_percent_change_for_compilation_;
   };
 
   // Process the profile information present in the given files. Returns one of
@@ -75,10 +96,11 @@ class ProfileAssistant {
   // reference_profile will be updated with the profiling info obtain after
   // merging all profiles.
   //
-  // When the returned value is kSkipCompilation, the difference between the
-  // merge of the current profiles and the reference one is insignificant. In
-  // this case no file will be updated.
-  //
+  // When the returned value is kSkipCompilationSmallDelta, the difference between
+  // the merge of the current profiles and the reference one is insignificant. In
+  // this case no file will be updated. A variation of this code is
+  // kSkipCompilationEmptyProfiles which indicates that all the profiles are empty.
+  // This allow the caller to make fine grain decisions on the compilation strategy.
   static ProcessingResult ProcessProfiles(
       const std::vector<std::string>& profile_files,
       const std::string& reference_profile_file,

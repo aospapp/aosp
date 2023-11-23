@@ -48,7 +48,7 @@
 					 PLATFORM_CLUSTER_COUNT +	\
 					 PLATFORM_CORE_COUNT)
 
-#define PLAT_RK_CLST_TO_CPUID_SHIFT	8
+#define PLAT_RK_CLST_TO_CPUID_SHIFT	6
 
 #define PLAT_MAX_PWR_LVL		MPIDR_AFFLVL2
 
@@ -86,7 +86,7 @@
 #define PLAT_VIRT_ADDR_SPACE_SIZE   (1ULL << 32)
 #define PLAT_PHY_ADDR_SPACE_SIZE    (1ULL << 32)
 #define MAX_XLAT_TABLES		8
-#define MAX_MMAP_REGIONS	16
+#define MAX_MMAP_REGIONS	20
 
 /*******************************************************************************
  * Declarations and constants to access the mailboxes safely. Each mailbox is

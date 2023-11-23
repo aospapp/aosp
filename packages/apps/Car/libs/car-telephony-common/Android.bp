@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_library {
     name: "car-telephony-common",
 
@@ -25,6 +29,9 @@ android_library {
         enabled: false,
     },
 
+    sdk_version: "system_current",
+    min_sdk_version: "28",
+
     static_libs: [
         "androidx.legacy_legacy-support-v4",
         "car-apps-common",
@@ -32,6 +39,27 @@ android_library {
         "libphonenumber",
     ],
 
-    libs: ["android.car"],
+    libs: ["android.car-system-stubs"],
+}
 
+// Used by instrumented test
+android_app {
+    name: "CarTelephonyLibTestsApp",
+
+    resource_dirs: ["res"],
+
+    srcs: ["src/**/*.java"],
+
+    static_libs: [
+        "androidx.legacy_legacy-support-v4",
+        "car-apps-common",
+        "glide-prebuilt",
+        "libphonenumber",
+    ],
+
+    optimize: {
+        enabled: false,
+    },
+
+    sdk_version: "system_current",
 }

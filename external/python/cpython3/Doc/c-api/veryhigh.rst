@@ -16,11 +16,11 @@ parameter.  The available start symbols are :const:`Py_eval_input`,
 :const:`Py_file_input`, and :const:`Py_single_input`.  These are described
 following the functions which accept them as parameters.
 
-Note also that several of these functions take :c:type:`FILE\*` parameters.  One
+Note also that several of these functions take :c:type:`FILE*` parameters.  One
 particular issue which needs to be handled carefully is that the :c:type:`FILE`
 structure for different C libraries can be different and incompatible.  Under
 Windows (at least), it is possible for dynamically linked extensions to actually
-use different libraries, so care should be taken that :c:type:`FILE\*` parameters
+use different libraries, so care should be taken that :c:type:`FILE*` parameters
 are only passed to these functions if it is certain that they were created by
 the same library that the Python runtime is using.
 
@@ -117,7 +117,7 @@ the same library that the Python runtime is using.
    closed before PyRun_SimpleFileExFlags returns.
 
    .. note::
-      On Windows, *fp* should be opened as binary mode (e.g. ``fopen(filename, "rb")``.
+      On Windows, *fp* should be opened as binary mode (e.g. ``fopen(filename, "rb")``).
       Otherwise, Python may not handle script file with LF line ending correctly.
 
 
@@ -193,12 +193,16 @@ the same library that the Python runtime is using.
    :c:func:`PyParser_SimpleParseStringFlagsFilename` below, leaving  *filename* set
    to ``NULL`` and *flags* set to ``0``.
 
+   .. deprecated-removed:: 3.9 3.10
+
 
 .. c:function:: struct _node* PyParser_SimpleParseStringFlags( const char *str, int start, int flags)
 
    This is a simplified interface to
    :c:func:`PyParser_SimpleParseStringFlagsFilename` below, leaving  *filename* set
    to ``NULL``.
+
+   .. deprecated-removed:: 3.9 3.10
 
 
 .. c:function:: struct _node* PyParser_SimpleParseStringFlagsFilename( const char *str, const char *filename, int start, int flags)
@@ -209,17 +213,23 @@ the same library that the Python runtime is using.
    many times. *filename* is decoded from the filesystem encoding
    (:func:`sys.getfilesystemencoding`).
 
+   .. deprecated-removed:: 3.9 3.10
+
 
 .. c:function:: struct _node* PyParser_SimpleParseFile(FILE *fp, const char *filename, int start)
 
    This is a simplified interface to :c:func:`PyParser_SimpleParseFileFlags` below,
    leaving *flags* set to ``0``.
 
+   .. deprecated-removed:: 3.9 3.10
+
 
 .. c:function:: struct _node* PyParser_SimpleParseFileFlags(FILE *fp, const char *filename, int start, int flags)
 
    Similar to :c:func:`PyParser_SimpleParseStringFlagsFilename`, but the Python
    source code is read from *fp* instead of an in-memory string.
+
+   .. deprecated-removed:: 3.9 3.10
 
 
 .. c:function:: PyObject* PyRun_String(const char *str, int start, PyObject *globals, PyObject *locals)

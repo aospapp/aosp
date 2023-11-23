@@ -16,7 +16,10 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="cmas_presidential_level_alert" msgid="2500559695815098491">"تنبيه حالة طوارئ قصوى"</string>
-    <string name="cmas_extreme_alert" msgid="6487533089309567518">"تنبيه طوارئ"</string>
-    <string name="cmas_required_monthly_test" msgid="4861373660989211951">"رسالة اختبار"</string>
+    <string name="cmas_presidential_level_alert" msgid="8798462930675572592">"تنبيه حالة طوارئ قصوى"</string>
+    <string name="cmas_extreme_alert" msgid="666310502927269524">"تنبيه طوارئ"</string>
+    <string name="cmas_required_monthly_test" msgid="3412608025684914213">"رسالة اختبار"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="8186076761036041808">"تلقّي تنبيهات طوارئ"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="4587011587057993053">"رسائل اختبار"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="6148921520813876460">"تلقّي رسائل اختبار"</string>
 </resources>

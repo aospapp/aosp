@@ -30,9 +30,14 @@
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/Utils.h>
 
+#define UNUSED_PARAM __attribute__((unused))
+
 namespace android {
 
-static const uint8_t kHevcNalUnitTypes[5] = {
+static const uint8_t kHevcNalUnitTypes[8] = {
+    kHevcNalUnitTypeCodedSliceIdr,
+    kHevcNalUnitTypeCodedSliceIdrNoLP,
+    kHevcNalUnitTypeCodedSliceCra,
     kHevcNalUnitTypeVps,
     kHevcNalUnitTypeSps,
     kHevcNalUnitTypePps,
@@ -375,8 +380,56 @@ status_t HevcParameterSets::parseSps(const uint8_t* data, size_t size) {
     return reader.overRead() ? ERROR_MALFORMED : OK;
 }
 
+void HevcParameterSets::FindHEVCDimensions(const sp<ABuffer> &SpsBuffer, int32_t *width, int32_t *height)
+{
+    ALOGD("FindHEVCDimensions");
+    // See Rec. ITU-T H.265 v3 (04/2015) Chapter 7.3.2.2 for reference
+    ABitReader reader(SpsBuffer->data() + 1, SpsBuffer->size() - 1);
+    // Skip sps_video_parameter_set_id
+    reader.skipBits(4);
+    uint8_t maxSubLayersMinus1 = reader.getBitsWithFallback(3, 0);
+    // Skip sps_temporal_id_nesting_flag;
+    reader.skipBits(1);
+    // Skip general profile
+    reader.skipBits(96);
+    if (maxSubLayersMinus1 > 0) {
+        bool subLayerProfilePresentFlag[8];
+        bool subLayerLevelPresentFlag[8];
+        for (int i = 0; i < maxSubLayersMinus1; ++i) {
+            subLayerProfilePresentFlag[i] = reader.getBitsWithFallback(1, 0);
+            subLayerLevelPresentFlag[i] = reader.getBitsWithFallback(1, 0);
+        }
+        // Skip reserved
+        reader.skipBits(2 * (8 - maxSubLayersMinus1));
+        for (int i = 0; i < maxSubLayersMinus1; ++i) {
+            if (subLayerProfilePresentFlag[i]) {
+                // Skip profile
+                reader.skipBits(88);
+            }
+            if (subLayerLevelPresentFlag[i]) {
+                // Skip sub_layer_level_idc[i]
+                reader.skipBits(8);
+            }
+        }
+    }
+    // Skip sps_seq_parameter_set_id
+    skipUE(&reader);
+    uint8_t chromaFormatIdc = parseUEWithFallback(&reader, 0);
+    if (chromaFormatIdc == 3) {
+        // Skip separate_colour_plane_flag
+        reader.skipBits(1);
+    }
+    skipUE(&reader);
+    skipUE(&reader);
+
+    // pic_width_in_luma_samples
+    *width = parseUEWithFallback(&reader, 0);
+    // pic_height_in_luma_samples
+    *height = parseUEWithFallback(&reader, 0);
+}
+
 status_t HevcParameterSets::parsePps(
-        const uint8_t* data __unused, size_t size __unused) {
+        const uint8_t* data UNUSED_PARAM, size_t size UNUSED_PARAM) {
     return OK;
 }
 
@@ -489,4 +542,26 @@ status_t HevcParameterSets::makeHvcc(uint8_t *hvcc, size_t *hvccSize,
     return OK;
 }
 
+bool HevcParameterSets::IsHevcIDR(const uint8_t *data, size_t size) {
+    bool foundIDR = false;
+    const uint8_t *nalStart;
+    size_t nalSize;
+    while (!foundIDR && getNextNALUnit(&data, &size, &nalStart, &nalSize, true) == OK) {
+        if (nalSize == 0) {
+            ALOGE("Encountered zero-length HEVC NAL");
+            return false;
+        }
+
+        uint8_t nalType = (nalStart[0] & 0x7E) >> 1;
+        switch(nalType) {
+            case kHevcNalUnitTypeCodedSliceIdr:
+            case kHevcNalUnitTypeCodedSliceIdrNoLP:
+            case kHevcNalUnitTypeCodedSliceCra:
+                foundIDR = true;
+                break;
+        }
+    }
+
+    return foundIDR;
+}
 }  // namespace android

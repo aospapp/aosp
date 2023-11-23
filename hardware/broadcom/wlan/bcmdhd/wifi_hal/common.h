@@ -44,6 +44,7 @@
  */
 
 const uint32_t GOOGLE_OUI = 0x001A11;
+const uint32_t BRCM_OUI =  0x001018;
 /* TODO: define vendor OUI here */
 
 
@@ -54,6 +55,7 @@ const uint32_t GOOGLE_OUI = 0x001A11;
 #define NMRSTR "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
 #define NAN_MASTER_RANK_LEN 8
 
+#define SAR_CONFIG_SCENARIO_COUNT      100
 
 /*
  This enum defines ranges for various commands; commands themselves
@@ -102,8 +104,40 @@ typedef enum {
     ANDROID_NL80211_SUBCMD_PKT_FILTER_RANGE_END   = 0x18FF,
 
     /* define all tx power related commands between 0x1900 and 0x1910 */
-    ANDROID_NL80211_SUBCMD_TX_POWER_RANGE_START	= 0x1900,
-    ANDROID_NL80211_SUBCMD_TX_POWER_RANGE_END	= 0x1910,
+    ANDROID_NL80211_SUBCMD_TX_POWER_RANGE_START = 0x1900,
+    ANDROID_NL80211_SUBCMD_TX_POWER_RANGE_END	 = 0x1910,
+
+    /* define all thermal mode related commands between 0x1920 and 0x192F */
+    ANDROID_NL80211_SUBCMD_MITIGATION_RANGE_START = 0x1920,
+    ANDROID_NL80211_SUBCMD_MITIGATION_RANGE_END   = 0x192F,
+
+    /* define all DSCP related commands between 0x2000 and 0x20FF */
+    ANDROID_NL80211_SUBCMD_DSCP_RANGE_START =	0x2000,
+    ANDROID_NL80211_SUBCMD_DSCP_RANGE_END   =	0x20FF,
+
+    /* define all Channel Avoidance related commands between 0x2100 and 0x211F */
+    ANDROID_NL80211_SUBCMD_CHAVOID_RANGE_START =    0x2100,
+    ANDROID_NL80211_SUBCMD_CHAVOID_RANGE_END   =    0x211F,
+
+    /* define all OTA Download related commands between 0x2120 and 0x212F */
+    ANDROID_NL80211_SUBCMD_OTA_DOWNLOAD_START	= 0x2120,
+    ANDROID_NL80211_SUBCMD_OTA_DOWNLOAD_END	= 0x212F,
+
+    /* define all VOIP mode config related commands between 0x2130 and 0x213F */
+    ANDROID_NL80211_SUBCMD_VIOP_MODE_START =	    0x2130,
+    ANDROID_NL80211_SUBCMD_VIOP_MODE_END =	    0x213F,
+
+    /* define all TWT related commands between 0x2140 and 0x214F */
+    ANDROID_NL80211_SUBCMD_TWT_START =              0x2140,
+    ANDROID_NL80211_SUBCMD_TWT_END =                0x214F,
+
+    /* define all Usable Channel related commands between 0x2150 and 0x215F */
+    ANDROID_NL80211_SUBCMD_USABLE_CHANNEL_START =   0x2150,
+    ANDROID_NL80211_SUBCMD_USABLE_CHANNEL_END =     0x215F,
+
+    /* define all init/deinit related commands between 0x2160 and 0x216F */
+    ANDROID_NL80211_SUBCMD_INIT_DEINIT_RANGE_START = 0x2160,
+    ANDROID_NL80211_SUBCMD_INIT_DEINIT_RANGE_END   = 0x216F,
 
     /* This is reserved for future usage */
 
@@ -147,6 +181,9 @@ typedef enum {
     WIFI_SUBCMD_FW_ROAM_POLICY,                          /* 0x1019 */
     WIFI_SUBCMD_ROAM_CAPABILITY,                         /* 0x101a */
     WIFI_SUBCMD_SET_LATENCY_MODE,                        /* 0x101b */
+    WIFI_SUBCMD_SET_MULTISTA_PRIMARY_CONNECTION,         /* 0x101c */
+    WIFI_SUBCMD_SET_MULTISTA_USE_CASE,                   /* 0x101d */
+    WIFI_SUBCMD_SET_DTIM_CONFIG,                         /* 0x101e */
 
     GSCAN_SUBCMD_MAX,
 
@@ -172,7 +209,27 @@ typedef enum {
     NAN_SUBCMD_ENABLE_MERGE,                            /* 0x1712 */
     APF_SUBCMD_GET_CAPABILITIES = ANDROID_NL80211_SUBCMD_PKT_FILTER_RANGE_START,
     APF_SUBCMD_SET_FILTER,
+    APF_SUBCMD_READ_FILTER,
     WIFI_SUBCMD_TX_POWER_SCENARIO = ANDROID_NL80211_SUBCMD_TX_POWER_RANGE_START,
+    WIFI_SUBCMD_THERMAL_MITIGATION = ANDROID_NL80211_SUBCMD_MITIGATION_RANGE_START,
+    DSCP_SUBCMD_SET_TABLE = ANDROID_NL80211_SUBCMD_DSCP_RANGE_START,
+    DSCP_SUBCMD_RESET_TABLE,			    	/* 0x2001 */
+    CHAVOID_SUBCMD_SET_CONFIG = ANDROID_NL80211_SUBCMD_CHAVOID_RANGE_START,
+
+    TWT_SUBCMD_GETCAPABILITY	= ANDROID_NL80211_SUBCMD_TWT_START,
+    TWT_SUBCMD_SETUP_REQUEST,
+    TWT_SUBCMD_TEAR_DOWN_REQUEST,
+    TWT_SUBCMD_INFO_FRAME_REQUEST,
+    TWT_SUBCMD_GETSTATS,
+    TWT_SUBCMD_CLR_STATS,
+
+    WIFI_SUBCMD_CONFIG_VOIP_MODE = ANDROID_NL80211_SUBCMD_VIOP_MODE_START,
+
+    WIFI_SUBCMD_GET_OTA_CURRUNT_INFO = ANDROID_NL80211_SUBCMD_OTA_DOWNLOAD_START,
+    WIFI_SUBCMD_OTA_UPDATE,
+    WIFI_SUBCMD_USABLE_CHANNEL = ANDROID_NL80211_SUBCMD_USABLE_CHANNEL_START,
+    WIFI_SUBCMD_TRIGGER_SSR = ANDROID_NL80211_SUBCMD_INIT_DEINIT_RANGE_START,
+
 } WIFI_SUB_COMMAND;
 
 typedef enum {
@@ -212,10 +269,14 @@ typedef enum {
     NAN_EVENT_SDF				= 28,
     NAN_EVENT_TCA				= 29,
     NAN_EVENT_SUBSCRIBE_UNMATCH			= 30,
-    NAN_EVENT_UNKNOWN,
+    NAN_EVENT_UNKNOWN				= 31,
+    BRCM_VENDOR_EVENT_HANGED			= 33,
     ROAM_EVENT_START,
     GOOGLE_FILE_DUMP_EVENT			= 37,
-    NAN_ASYNC_RESPONSE_DISABLED			= 40
+    NAN_ASYNC_RESPONSE_DISABLED			= 40,
+    BRCM_VENDOR_EVENT_TWT			= 43,
+    BRCM_TPUT_DUMP_EVENT			= 44,
+    NAN_EVENT_MATCH_EXPIRY			= 45
 } WIFI_EVENT;
 
 typedef void (*wifi_internal_event_handler) (wifi_handle handle, int events);
@@ -239,6 +300,7 @@ typedef struct {
     wifi_handle handle;                             // handle to wifi data
     char name[IFNAMSIZ+1];                          // interface name + trailing null
     int  id;                                        // id to use when talking to driver
+    bool is_virtual;                                // mark each iface as virtual or static
 } interface_info;
 
 typedef struct {
@@ -265,6 +327,8 @@ typedef struct {
 
     interface_info **interfaces;                    // array of interfaces
     int num_interfaces;                             // number of interfaces
+    int max_num_interfaces;                         // max number of interfaces
+    wifi_subsystem_restart_handler restart_handler; // trigger sub system handler
 
 
     // add other details
@@ -302,6 +366,59 @@ typedef struct wifi_gscan_full_result {
     u8  ie_data[1];                  // IE data to follow
 } wifi_gscan_full_result_t;
 
+void twt_deinit_handler();
+
+typedef enum {
+    TWT_EVENT_INVALID          = 0,
+    TWT_SETUP_RESPONSE         = 1,
+    TWT_TEARDOWN_COMPLETION    = 2,
+    TWT_INFORM_FRAME           = 3,
+    TWT_NOTIFY                 = 4,
+    TWT_EVENT_LAST
+} TwtEventType;
+
+typedef enum {
+    TWT_INVALID			= 0,
+    TWT_SETUP_REQUEST		= 1,
+    TWT_INFO_FRAME_REQUEST	= 2,
+    TWT_TEAR_DOWN_REQUEST	= 3,
+    TWT_LAST
+} TwtRequestType;
+
+typedef enum {
+    TWT_ATTRIBUTE_INVALID		= 0,
+    TWT_ATTRIBUTE_CONFIG_ID		= 1,
+    TWT_ATTRIBUTE_NEG_TYPE		= 2,
+    TWT_ATTRIBUTE_TRIGGER_TYPE		= 3,
+    TWT_ATTRIBUTE_WAKE_DUR_US		= 4,
+    TWT_ATTRIBUTE_WAKE_INT_US		= 5,
+    TWT_ATTRIBUTE_WAKE_INT_MIN_US	= 6,
+    TWT_ATTRIBUTE_WAKE_INT_MAX_US	= 7,
+    TWT_ATTRIBUTE_WAKE_DUR_MIN_US	= 8,
+    TWT_ATTRIBUTE_WAKE_DUR_MAX_US	= 9,
+    TWT_ATTRIBUTE_AVG_PKT_SIZE		= 10,
+    TWT_ATTRIBUTE_AVG_PKT_NUM		= 11,
+    TWT_ATTRIBUTE_WAKE_TIME_OFF_US	= 12,
+    TWT_ATTRIBUTE_ALL_TWT		= 13,
+    TWT_ATTRIBUTE_RESUME_TIME_US	= 14,
+    TWT_ATTRIBUTE_AVG_EOSP_DUR		= 15,
+    TWT_ATTRIBUTE_EOSP_COUNT		= 16,
+    TWT_ATTRIBUTE_NUM_SP		= 17,
+    TWT_ATTRIBUTE_DEVICE_CAP		= 18,
+    TWT_ATTRIBUTE_PEER_CAP		= 19,
+    TWT_ATTRIBUTE_STATUS		= 20,
+    TWT_ATTRIBUTE_REASON_CODE		= 21,
+    TWT_ATTRIBUTE_RESUMED		= 22,
+    TWT_ATTRIBUTE_NOTIFICATION		= 23,
+    TWT_ATTRIBUTE_SUB_EVENT		= 24,
+    TWT_ATTRIBUTE_NUM_PEER_STATS	= 25,
+    TWT_ATTRIBUTE_AVG_PKT_NUM_TX	= 26,
+    TWT_ATTRIBUTE_AVG_PKT_SIZE_TX	= 27,
+    TWT_ATTRIBUTE_AVG_PKT_NUM_RX	= 28,
+    TWT_ATTRIBUTE_AVG_PKT_SIZE_RX	= 29,
+    TWT_ATTRIBUTE_MAX
+} TWT_ATTRIBUTE;
+
 wifi_error wifi_register_handler(wifi_handle handle, int cmd, nl_recvmsg_msg_cb_t func, void *arg);
 wifi_error wifi_register_vendor_handler(wifi_handle handle,
             uint32_t id, int subcmd, nl_recvmsg_msg_cb_t func, void *arg);
@@ -321,18 +438,91 @@ hal_info *getHalInfo(wifi_interface_handle handle);
 wifi_handle getWifiHandle(hal_info *info);
 wifi_interface_handle getIfaceHandle(interface_info *info);
 wifi_error wifi_cancel_cmd(wifi_request_id id, wifi_interface_handle iface);
+wifi_error wifi_get_cancel_cmd(wifi_request_id id, wifi_interface_handle iface);
 wifi_error nan_deinit_handler();
 wifi_error wifi_start_hal(wifi_interface_handle iface);
 wifi_error wifi_stop_hal(wifi_interface_handle iface);
 wifi_interface_handle wifi_get_wlan_interface(wifi_handle info,
 	    wifi_interface_handle *ifaceHandles, int numIfaceHandles);
+wifi_error wifi_hal_ota_update(wifi_interface_handle iface, uint32_t ota_version);
 wifi_error wifi_hal_preInit(wifi_interface_handle iface);
 /* API to get wake reason statistics */
 wifi_error wifi_get_wake_reason_stats(wifi_interface_handle handle,
         WLAN_DRIVER_WAKE_REASON_CNT *wifi_wake_reason_cnt);
+wifi_error wifi_virtual_interface_create(wifi_handle handle, const char* ifname,
+        wifi_interface_type iface_type);
+wifi_error wifi_virtual_interface_delete(wifi_handle handle, const char* ifname);
+wifi_error wifi_set_coex_unsafe_channels(wifi_handle handle, u32 num_channels,
+                                         wifi_coex_unsafe_channel channels[], u32 restrictions);
+wifi_error wifi_set_voip_mode(wifi_interface_handle handle, wifi_voip_mode mode);
+wifi_error wifi_set_dtim_config(wifi_interface_handle handle, u32 multiplier);
 void set_hautil_mode(bool halutil_mode);
 bool get_halutil_mode();
 
+/* API's to support TWT */
+
+/**@brief twt_get_capability
+ *        Request TWT capability
+ * @param wifi_interface_handle:
+ * @return Synchronous wifi_error and TwtCapabilitySet
+ */
+wifi_error twt_get_capability(wifi_interface_handle iface, TwtCapabilitySet* twt_cap_set);
+
+/**@brief twt_register_handler
+ *        Request to register TWT callback
+ * @param wifi_interface_handle:
+ * @param TwtCallbackHandler:
+ * @return Synchronous wifi_error
+ */
+wifi_error twt_register_handler(wifi_interface_handle iface, TwtCallbackHandler handler);
+
+/**@brief twt_setup_request
+ *        Request to send TWT setup frame
+ * @param wifi_interface_handle:
+ * @param TwtSetupRequest:
+ * @return Synchronous wifi_error
+ * @return Asynchronous EventTwtSetupResponse CB return TwtSetupResponse
+ */
+wifi_error twt_setup_request(wifi_interface_handle iface, TwtSetupRequest* msg);
+
+/**@brief twt_teardown_request
+ *        Request to send TWT teardown frame
+ * @param wifi_interface_handle:
+ * @param TwtTeardownRequest:
+ * @return Synchronous wifi_error
+ * @return Asynchronous EventTwtTeardownCompletion CB return TwtTeardownCompletion
+ * TwtTeardownCompletion may also be received due to other events
+ * like CSA, BTCX, TWT scheduler, MultiConnection, peer-initiated teardown, etc.
+ */
+wifi_error twt_teardown_request(wifi_interface_handle iface, TwtTeardownRequest* msg);
+
+/**@brief twt_info_frame_request
+ *        Request to send TWT info frame
+ * @param wifi_interface_handle:
+ * @param TwtInfoFrameRequest:
+ * @return Synchronous wifi_error
+ * @return Asynchronous EventTwtInfoFrameReceived CB return TwtInfoFrameReceived
+ * Driver may also receive Peer-initiated TwtInfoFrame
+ */
+wifi_error twt_info_frame_request(wifi_interface_handle iface, TwtInfoFrameRequest* msg);
+
+/**@brief twt_get_stats
+ *        Request to get TWT stats
+ * @param wifi_interface_handle:
+ * @param config_id:
+ * @return Synchronous wifi_error and TwtStats
+ */
+wifi_error twt_get_stats(wifi_interface_handle iface, u8 config_id, TwtStats* stats);
+
+/**@brief twt_clear_stats
+ *        Request to clear TWT stats
+ * @param wifi_interface_handle:
+ * @param config_id:
+ * @return Synchronous wifi_error
+ */
+wifi_error twt_clear_stats(wifi_interface_handle iface, u8 config_id);
+
+wifi_error wifi_trigger_subsystem_restart(wifi_handle handle);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))

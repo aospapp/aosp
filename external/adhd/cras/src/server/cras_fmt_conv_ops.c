@@ -223,6 +223,44 @@ size_t s16_stereo_to_51(size_t left, size_t right, size_t center,
 }
 
 /*
+ * Channel converter: quad to 5.1 surround.
+ *
+ * Fit the front left/right of input to the front left/right of output
+ * and rear left/right of input to the rear left/right of output
+ * respectively and fill others with zero.
+ */
+size_t s16_quad_to_51(size_t font_left, size_t front_right, size_t rear_left,
+		      size_t rear_right, const uint8_t *_in, size_t in_frames,
+		      uint8_t *_out)
+{
+	size_t i;
+	const int16_t *in = (const int16_t *)_in;
+	int16_t *out = (int16_t *)_out;
+
+	memset(out, 0, sizeof(*out) * 6 * in_frames);
+
+	if (font_left != -1 && front_right != -1 && rear_left != -1 &&
+	    rear_right != -1)
+		for (i = 0; i < in_frames; i++) {
+			out[6 * i + font_left] = in[4 * i];
+			out[6 * i + front_right] = in[4 * i + 1];
+			out[6 * i + rear_left] = in[4 * i + 2];
+			out[6 * i + rear_right] = in[4 * i + 3];
+		}
+	else
+		/* Use default 5.1 channel mapping for the conversion.
+		 */
+		for (i = 0; i < in_frames; i++) {
+			out[6 * i] = in[4 * i];
+			out[6 * i + 1] = in[4 * i + 1];
+			out[6 * i + 4] = in[4 * i + 2];
+			out[6 * i + 5] = in[4 * i + 3];
+		}
+
+	return in_frames;
+}
+
+/*
  * Channel converter: 5.1 surround to stereo.
  *
  * The out buffer can have room for just stereo samples. This convert function
@@ -235,20 +273,69 @@ size_t s16_51_to_stereo(const uint8_t *_in, size_t in_frames, uint8_t *_out)
 	int16_t *out = (int16_t *)_out;
 	static const unsigned int left_idx = 0;
 	static const unsigned int right_idx = 1;
-	/* static const unsigned int left_surround_idx = 2; */
-	/* static const unsigned int right_surround_idx = 3; */
-	static const unsigned int center_idx = 4;
-	/* static const unsigned int lfe_idx = 5; */
+	static const unsigned int center_idx = 2;
+	/* static const unsigned int lfe_idx = 3; */
+	/* static const unsigned int left_surround_idx = 4; */
+	/* static const unsigned int right_surround_idx = 5; */
+
 	size_t i;
-
+	int16_t half_center;
+	/* Use the normalized_factor from the left channel = 1 / (|1| + |0.707|)
+	 * to prevent mixing overflow.
+	 */
+	const float normalized_factor = 0.585;
 	for (i = 0; i < in_frames; i++) {
-		unsigned int half_center;
-
-		half_center = in[6 * i + center_idx] / 2;
+		half_center =
+			in[6 * i + center_idx] * 0.707 * normalized_factor;
 		out[2 * i + left_idx] =
-			s16_add_and_clip(in[6 * i + left_idx], half_center);
+			in[6 * i + left_idx] * normalized_factor + half_center;
 		out[2 * i + right_idx] =
-			s16_add_and_clip(in[6 * i + right_idx], half_center);
+			in[6 * i + right_idx] * normalized_factor + half_center;
+	}
+	return in_frames;
+}
+
+/*
+ * Channel converter: 5.1 surround to quad (front L/R, rear L/R).
+ *
+ * The out buffer can have room for just quad samples. This convert function
+ * is used as the default behavior when channel layout is not set from the
+ * client side.
+ */
+size_t s16_51_to_quad(const uint8_t *_in, size_t in_frames, uint8_t *_out)
+{
+	const int16_t *in = (const int16_t *)_in;
+	int16_t *out = (int16_t *)_out;
+	static const unsigned int l_quad = 0;
+	static const unsigned int r_quad = 1;
+	static const unsigned int rl_quad = 2;
+	static const unsigned int rr_quad = 3;
+
+	static const unsigned int l_51 = 0;
+	static const unsigned int r_51 = 1;
+	static const unsigned int center_51 = 2;
+	static const unsigned int lfe_51 = 3;
+	static const unsigned int rl_51 = 4;
+	static const unsigned int rr_51 = 5;
+
+	/* Use normalized_factor from the left channel = 1 / (|1| + |0.707| + |0.5|)
+	 * to prevent overflow. */
+	const float normalized_factor = 0.453;
+	size_t i;
+	for (i = 0; i < in_frames; i++) {
+		int16_t half_center;
+		int16_t lfe;
+
+		half_center = in[6 * i + center_51] * 0.707 * normalized_factor;
+		lfe = in[6 * i + lfe_51] * 0.5 * normalized_factor;
+		out[4 * i + l_quad] = normalized_factor * in[6 * i + l_51] +
+				      half_center + lfe;
+		out[4 * i + r_quad] = normalized_factor * in[6 * i + r_51] +
+				      half_center + lfe;
+		out[4 * i + rl_quad] =
+			normalized_factor * in[6 * i + rl_51] + lfe;
+		out[4 * i + rr_quad] =
+			normalized_factor * in[6 * i + rr_51] + lfe;
 	}
 	return in_frames;
 }
@@ -331,17 +418,47 @@ size_t s16_default_all_to_all(struct cras_audio_format *out_fmt,
 	unsigned int in_ch, out_ch, i;
 	const int16_t *in = (const int16_t *)_in;
 	int16_t *out = (int16_t *)_out;
+	int32_t sum;
 
-	memset(out, 0, in_frames * cras_get_format_bytes(out_fmt));
-	for (out_ch = 0; out_ch < num_out_ch; out_ch++) {
+	for (i = 0; i < in_frames; i++) {
+		sum = 0;
 		for (in_ch = 0; in_ch < num_in_ch; in_ch++) {
-			for (i = 0; i < in_frames; i++) {
-				out[out_ch + i * num_out_ch] +=
-					in[in_ch + i * num_in_ch] / num_in_ch;
-			}
+			sum += (int32_t)in[in_ch + i * num_in_ch];
+		}
+		/*
+		 * 1. Divide `int32_t` by `size_t` without an explicit
+		 *    conversion will generate corrupted results.
+		 * 2. After the division, `sum` should be in the range of
+		 *    int16_t. No clipping is needed.
+		 */
+		sum /= (int32_t)num_in_ch;
+		for (out_ch = 0; out_ch < num_out_ch; out_ch++) {
+			out[out_ch + i * num_out_ch] = (int16_t)sum;
 		}
 	}
 	return in_frames;
+}
+
+/*
+ * Copies the input channels across output channels. Drops input channels that
+ * don't fit. Ignores output channels greater than the number of input channels.
+ */
+size_t s16_some_to_some(const struct cras_audio_format *out_fmt,
+			const size_t num_in_ch, const size_t num_out_ch,
+			const uint8_t *_in, const size_t frame_count,
+			uint8_t *_out)
+{
+	unsigned int i;
+	const int16_t *in = (const int16_t *)_in;
+	int16_t *out = (int16_t *)_out;
+	const size_t num_copy_ch = MIN(num_in_ch, num_out_ch);
+
+	memset(out, 0, frame_count * cras_get_format_bytes(out_fmt));
+	for (i = 0; i < frame_count; i++, out += num_out_ch, in += num_in_ch) {
+		memcpy(out, in, num_copy_ch * sizeof(int16_t));
+	}
+
+	return frame_count;
 }
 
 /*

@@ -18,6 +18,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk30ModuleController" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -25,6 +26,7 @@
         <option name="test-file-name" value="CtsAppThatUsesAppOps.apk" />
         <option name="test-file-name" value="AppInBackground.apk" />
         <option name="test-file-name" value="AppThatCanBeForcedIntoForegroundStates.apk" />
+        <option name="test-file-name" value="AppForDiscreteTest.apk" />
     </target_preparer>
 
     <!-- Create place to store apks -->
@@ -39,11 +41,13 @@
         <option name="push-file" key="CtsAppToBlame2.apk" value="/data/local/tmp/cts/appops/CtsAppToBlame2.apk" />
         <option name="push-file" key="CtsAppToCollect.apk" value="/data/local/tmp/cts/appops/CtsAppToCollect.apk" />
         <option name="push-file" key="AppWithDuplicateAttribution.apk" value="/data/local/tmp/cts/appops/AppWithDuplicateAttribution.apk" />
+        <option name="push-file" key="AppForDiscreteTest.apk" value="/data/local/tmp/cts/appops/AppForDiscreteTest.apk" />
         <option name="push-file" key="AppWithAttributionInheritingFromExisting.apk" value="/data/local/tmp/cts/appops/AppWithAttributionInheritingFromExisting.apk" />
         <option name="push-file" key="AppWithAttributionInheritingFromSameAsOther.apk" value="/data/local/tmp/cts/appops/AppWithAttributionInheritingFromSameAsOther.apk" />
         <option name="push-file" key="AppWithAttributionInheritingFromSelf.apk" value="/data/local/tmp/cts/appops/AppWithAttributionInheritingFromSelf.apk" />
         <option name="push-file" key="AppWithLongAttributionTag.apk" value="/data/local/tmp/cts/appops/AppWithLongAttributionTag.apk" />
         <option name="push-file" key="AppWithTooManyAttributions.apk" value="/data/local/tmp/cts/appops/AppWithTooManyAttributions.apk" />
+        <option name="push-file" key="CtsAppWithReceiverAttribution.apk" value="/data/local/tmp/cts/appops/CtsAppWithReceiverAttribution.apk" />
     </target_preparer>
 
     <!-- Remove additional apps if installed -->

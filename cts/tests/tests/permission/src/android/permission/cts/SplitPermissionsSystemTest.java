@@ -20,10 +20,15 @@ import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.ACCESS_MEDIA_LOCATION;
+import static android.Manifest.permission.BLUETOOTH;
+import static android.Manifest.permission.BLUETOOTH_ADMIN;
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+import static android.Manifest.permission.BLUETOOTH_SCAN;
 import static android.Manifest.permission.READ_CALL_LOG;
 import static android.Manifest.permission.READ_CONTACTS;
 import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.Manifest.permission.READ_PHONE_STATE;
+import static android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE;
 import static android.Manifest.permission.WRITE_CALL_LOG;
 import static android.Manifest.permission.WRITE_CONTACTS;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
@@ -55,10 +60,6 @@ import java.util.Set;
 public class SplitPermissionsSystemTest {
 
     private static final int NO_TARGET = Build.VERSION_CODES.CUR_DEVELOPMENT + 1;
-
-    // Redefined here since it's only present in the system API surface.
-    private static final String READ_PRIVILEGED_PHONE_STATE =
-            "android.permission.READ_PRIVILEGED_PHONE_STATE";
 
     private List<SplitPermissionInfo> mSplitPermissions;
 
@@ -93,38 +94,45 @@ public class SplitPermissionsSystemTest {
                 case ACCESS_FINE_LOCATION:
                     // Q declares multiple for ACCESS_FINE_LOCATION, so assert both exist
                     if (newPermissions.contains(ACCESS_COARSE_LOCATION)) {
-                        assertSplit(split, ACCESS_COARSE_LOCATION, NO_TARGET);
+                        assertSplit(split, NO_TARGET, ACCESS_COARSE_LOCATION);
                     } else {
-                        assertSplit(split, ACCESS_BACKGROUND_LOCATION, Build.VERSION_CODES.Q);
+                        assertSplit(split, Build.VERSION_CODES.Q, ACCESS_BACKGROUND_LOCATION);
                     }
                     break;
                 case WRITE_EXTERNAL_STORAGE:
-                    assertSplit(split, READ_EXTERNAL_STORAGE, NO_TARGET);
+                    assertSplit(split, NO_TARGET, READ_EXTERNAL_STORAGE);
                     break;
                 case READ_CONTACTS:
-                    assertSplit(split, READ_CALL_LOG, Build.VERSION_CODES.JELLY_BEAN);
+                    assertSplit(split, Build.VERSION_CODES.JELLY_BEAN, READ_CALL_LOG);
                     break;
                 case WRITE_CONTACTS:
-                    assertSplit(split, WRITE_CALL_LOG, Build.VERSION_CODES.JELLY_BEAN);
+                    assertSplit(split, Build.VERSION_CODES.JELLY_BEAN, WRITE_CALL_LOG);
                     break;
                 case ACCESS_COARSE_LOCATION:
-                    assertSplit(split, ACCESS_BACKGROUND_LOCATION, Build.VERSION_CODES.Q);
+                    assertSplit(split, Build.VERSION_CODES.Q, ACCESS_BACKGROUND_LOCATION);
                     break;
                 case READ_EXTERNAL_STORAGE:
-                    assertSplit(split, ACCESS_MEDIA_LOCATION, Build.VERSION_CODES.Q);
+                    assertSplit(split, Build.VERSION_CODES.Q, ACCESS_MEDIA_LOCATION);
                     break;
                 case READ_PRIVILEGED_PHONE_STATE:
-                    assertSplit(split, READ_PHONE_STATE, NO_TARGET);
+                    assertSplit(split, NO_TARGET, READ_PHONE_STATE);
+                    break;
+                case BLUETOOTH_CONNECT:
+                    // STOPSHIP(b/184180558): replace with "S" once SDK is finalized
+                    assertSplit(split, Build.VERSION_CODES.R + 1, BLUETOOTH, BLUETOOTH_ADMIN);
+                    break;
+                case BLUETOOTH_SCAN:
+                    // STOPSHIP(b/184180558): replace with "S" once SDK is finalized
+                    assertSplit(split, Build.VERSION_CODES.R + 1, BLUETOOTH, BLUETOOTH_ADMIN);
                     break;
             }
         }
 
-        assertEquals(8, seenSplits.size());
+        assertEquals(13, seenSplits.size());
     }
 
-    private void assertSplit(SplitPermissionInfo split, String permission, int targetSdk) {
-        // For now, all system splits have 1 permission
-        assertThat(split.getNewPermissions()).containsExactly(permission);
+    private void assertSplit(SplitPermissionInfo split, int targetSdk, String... permission) {
+        assertThat(split.getNewPermissions()).containsExactlyElementsIn(permission);
         assertThat(split.getTargetSdk()).isEqualTo(targetSdk);
     }
 }

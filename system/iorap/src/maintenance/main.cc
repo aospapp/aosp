@@ -44,8 +44,9 @@ void Usage(char** argv) {
   std::cerr << "    --purge-package,-pp        Purge all files associated with a package." << std::endl;
   std::cerr << "    --verbose,-v               Set verbosity (default off)." << std::endl;
   std::cerr << "    --output-text,-ot          Output ascii text instead of protobuf (default off)." << std::endl;
-  std::cerr << "    --min_traces,-mt           The min number of perfetto traces needed for compilation (default 1)."
-            << std::endl;
+  std::cerr << "    --min_traces,-mt           The min number of perfetto traces needed "
+            << "for compilation (default 1)." << std::endl;
+  std::cerr << "    --exclude-dex-files,-edf   Set of exclude dex files" << std::endl;
   exit(1);
 }
 
@@ -69,6 +70,7 @@ int Main(int argc, char** argv){
   bool enable_verbose = false;
   bool arg_output_text = false;
   uint64_t arg_min_traces = 1;
+  bool exclude_dex_files = false;
 
   for (int arg = 1; arg < argc; ++arg) {
     std::string argstr = argv[arg];
@@ -117,8 +119,7 @@ int Main(int argc, char** argv){
       }
       arg_purge_package = arg_next;
       ++arg;
-    }
-    else if (argstr == "--verbose" || argstr == "-v") {
+    } else if (argstr == "--verbose" || argstr == "-v") {
       enable_verbose = true;
     } else if (argstr == "--recompile" || argstr == "-r") {
       recompile = true;
@@ -131,6 +132,8 @@ int Main(int argc, char** argv){
       }
       arg_min_traces = std::stoul(arg_next);
       ++arg;
+    } else if (argstr == "--exclude-dex-files" || argstr == "-edf") {
+      exclude_dex_files = true;
     } else {
       arg_input_filenames.push_back(argstr);
     }
@@ -167,7 +170,8 @@ int Main(int argc, char** argv){
     enable_verbose,
     recompile,
     arg_min_traces,
-    std::make_shared<Exec>()};
+    std::make_shared<Exec>(),
+    exclude_dex_files};
 
   int ret_code = 0;
   if (arg_package && arg_activity) {

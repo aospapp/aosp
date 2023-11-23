@@ -12,35 +12,55 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+python_defaults {
+    name: "external_updater_defaults",
+    version: {
+        py2: {
+            enabled: false,
+            embedded_launcher: false,
+        },
+        py3: {
+            enabled: true,
+            // Error if enable:
+            // certificate verify failed: unable to get local issuer certificate
+            embedded_launcher: false,
+        },
+    },
+}
+
 python_binary_host {
     name: "external_updater",
+    defaults: ["external_updater_defaults"],
     main: "external_updater.py",
-    srcs: [
-        "external_updater.py",
-    ],
-    libs: [
-        "external_updater_lib",
-    ],
+    srcs: ["external_updater.py"],
+    libs: ["external_updater_lib"],
 }
 
 python_binary_host {
     name: "external_updater_notifier",
+    defaults: ["external_updater_defaults"],
     main: "notifier.py",
-    srcs: [
-        "git_utils.py",
-        "notifier.py",
-    ],
+    srcs: ["notifier.py"],
 }
 
 python_library_host {
     name: "external_updater_lib",
+    defaults: ["external_updater_defaults"],
     srcs: [
         "archive_utils.py",
+        "base_updater.py",
+        "crates_updater.py",
         "fileutils.py",
         "git_updater.py",
         "git_utils.py",
         "github_archive_updater.py",
+        "hashtags.py",
         "metadata.proto",
+        "reviewers.py",
         "updater_utils.py",
     ],
     libs: [
@@ -52,26 +72,38 @@ python_library_host {
     },
     data: [
         "update_package.sh",
+        "regen_bp.sh",
     ],
+}
+
+python_defaults {
+    name: "external_updater_test_defaults",
+    defaults: ["external_updater_defaults"],
     version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
         py3: {
-            enabled: true,
-            embedded_launcher: false,
+            embedded_launcher: true,
         },
     },
 }
 
 python_test_host {
     name: "external_updater_test",
+    defaults: ["external_updater_test_defaults"],
     main: "external_updater_test.py",
-    srcs: [
-        "external_updater_test.py",
-    ],
-    libs: [
-        "external_updater_lib",
-    ],
+    srcs: ["external_updater_test.py"],
+    libs: ["external_updater_lib"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+python_test_host {
+    name: "external_updater_reviewers_test",
+    defaults: ["external_updater_test_defaults"],
+    main: "external_updater_reviewers_test.py",
+    srcs: ["external_updater_reviewers_test.py"],
+    libs: ["external_updater_lib"],
+    test_options: {
+        unit_test: true,
+    },
 }

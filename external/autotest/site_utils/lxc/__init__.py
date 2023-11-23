@@ -10,14 +10,9 @@
   5. Cleanup, e.g., destroy the container.
 """
 
-from base_image import BaseImage
 from constants import *
 from container import Container
 from container import ContainerId
 from container_bucket import ContainerBucket
 from container_factory import ContainerFactory
-from lxc import install_package
 from lxc import install_packages
-from lxc import install_python_package
-from shared_host_dir import SharedHostDir
-from zygote import Zygote

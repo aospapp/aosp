@@ -20,6 +20,7 @@
     </declare-styleable>
     <declare-styleable name="CarNotificationBodyView">
         <attr name="showBigIcon" format="boolean"/>
+        <attr name="maxLines" format="integer"/>
     </declare-styleable>
     <declare-styleable name="CarNotificationActionsView">
         <attr name="categoryCall" format="boolean"/>

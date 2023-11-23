@@ -74,9 +74,10 @@
         <item name="materialAlertDialogTheme">@style/MaterialAlertDialogTheme</item>
         <item name="queryBackground">@color/menu_search_background</item>
         <item name="snackbarButtonStyle">@style/SnackbarButtonStyle</item>
+        <item name="android:itemTextAppearance">@style/MenuItemTextAppearance</item>
     </style>
 
-    <style name="TabTheme" parent="@style/Theme.MaterialComponents.DayNight">
+    <style name="TabTheme" parent="@android:style/Theme.DeviceDefault.DayNight">
         <item name="colorPrimary">@color/edge_effect</item>
     </style>
 </resources>

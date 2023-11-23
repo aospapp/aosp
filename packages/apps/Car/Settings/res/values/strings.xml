@@ -25,15 +25,17 @@
     <!-- Sound & display settings screen, setting option name to enable adaptive brightness [CHAR LIMIT=30] -->
     <string name="auto_brightness_title">Adaptive brightness</string>
     <!-- Sound & display settings screen, setting option summary to enable adaptive brightness [CHAR LIMIT=100] -->
-    <string name="auto_brightness_summary">Optimize brightness level for available light</string>
+    <string name="auto_brightness_summary">Adjust screen brightness to environment</string>
     <!-- Title of condition that night display is on (renamed "Night Light" with title caps) [CHAR LIMIT=30] -->
     <string name="condition_night_display_title">Night Light is on</string>
-    <string name="keywords_display">screen, touchscreen</string>
-    <string name="keywords_display_brightness_level">dim screen, touchscreen, battery</string>
-    <string name="keywords_display_auto_brightness">dim screen, touchscreen, battery</string>
-    <string name="keywords_display_night_display">dim screen, night, tint</string>
+    <string name="keywords_display" translatable="false">screen, touchscreen</string>
+    <string name="keywords_display_brightness_level" translatable="false">dim screen, touchscreen, battery</string>
+    <string name="keywords_display_auto_brightness" translatable="false">dim screen, touchscreen, battery</string>
+    <string name="keywords_display_night_display" translatable="false">dim screen, night, tint</string>
     <!-- Label for night mode toggle tile in quick setting [CHAR LIMIT=20] -->
     <string name="night_mode_tile_label">Night mode</string>
+    <!-- Empty placeholder string to be used while waiting for a string to be loaded asynchronously. [CHAR LIMIT=NONE] -->
+    <string name="empty_placeholder" translatable="false">&#160;</string>
 
     <!-- Network and internet settings [CHAR LIMIT=40] -->
     <string name="network_and_internet">Network &amp; internet</string>
@@ -160,6 +162,14 @@
         <item>@*android:string/megabyteShort</item>
         <item>@*android:string/gigabyteShort</item>
     </string-array>
+    <!-- Network & internet settings screen, setting option name to enable OEM network connectivity [CHAR LIMIT=60] -->
+    <string name="network_and_internet_oem_network_title">OEM network</string>
+    <!-- Network & internet settings screen, setting option description of how much data has been used from a start date to end date ex. 80MB used Oct 3 - Nov 2 [CHAR LIMIT=100] -->
+    <string name="network_and_internet_data_usage_time_range_summary">%1$s used %2$s - %3$s</string>
+    <!-- Network & internet settings screen, setting option name to view other wifi networks to connect to [CHAR LIMIT=60] -->
+    <string name="network_and_internet_join_other_network_title">Join other network</string>
+    <!-- Network & internet settings screen, setting option name to view network options, such as wifi connectivity [CHAR LIMIT=60] -->
+    <string name="network_and_internet_network_preferences_title">Network preferences</string>
 
     <!-- wifi settings--><skip/>
     <!-- Used in the 1st-level settings screen to go to the 2nd-level settings screen  [CHAR LIMIT=20]-->
@@ -180,6 +190,10 @@
     <string name="wifi_setup_add_network">Add network</string>
     <!-- Button label to connect to a Wi-Fi network. [CHAR LIMIT=10] -->
     <string name="wifi_setup_connect">Connect</string>
+    <!-- Label for button when the car is connecting to a Wi-Fi network. [CHAR LIMIT=20] -->
+    <string name="wifi_connecting">Connecting\u2026</string>
+    <!-- Toast message shown when a network connection failed because it's not in range. [CHAR LIMIT=40] -->
+    <string name="wifi_not_in_range_message">Network not in range</string>
     <!-- Label for the password of the secured network -->
     <string name="wifi_password">Password</string>
     <!-- Label for the check box to show password -->
@@ -257,6 +271,8 @@
     <string name="wifi_cellular_fallback_title">Switch to mobile data automatically</string>
     <!-- Preference summary to automatically switch away from bad wifi networks [CHAR LIMIT=None]-->
     <string name="wifi_cellular_fallback_summary">Use mobile data when Wi\u2011Fi has no internet access. Data usage charges may apply.</string>
+    <!-- Content description for the wifi state switch. [CHAR LIMIT=NONE] -->
+    <string name="wifi_state_switch_content_description" translatable="false">Wi\u2011Fi toggle switch</string>
     <!-- url for the wifi scanning required dialog help page -->
     <string name="help_uri_wifi_scanning_required" translatable="false"></string>
     <!-- Button label to allow the user to view additional information [CHAR LIMIT=NONE] -->
@@ -296,16 +312,34 @@
     <string name="wifi_ap_band_select_one">Choose at least one band for Wi\u2011Fi hotspot:</string>
     <!-- Tethering controls, item title to go into the tethering settings when USB, Bluetooth and Wifi tethering are available [CHAR LIMIT=60]-->
     <string name="tether_settings_title_all">Hotspot &amp; tethering</string>
+    <!-- Settings title to go into the hotspot settings when USB, Bluetooth and Wifi tethering are available [CHAR LIMIT=60]-->
+    <string name="hotspot_settings_title">Hotspot</string>
     <!-- Title for the toggle to turn off hotspot automatically [CHAR LIMIT=50]-->
     <string name="wifi_hotspot_auto_off_title">Turn off hotspot automatically</string>
     <!-- Summary for the toggle to turn off hotspot automatically [CHAR LIMIT=100]-->
     <string name="wifi_hotspot_auto_off_summary">Wi\u2011Fi hotspot will turn off if no devices are connected</string>
+    <!-- Content description for the hotspot state switch. [CHAR LIMIT=NONE] -->
+    <string name="wifi_hotspot_state_switch_content_description" translatable="false">Hotspot toggle switch</string>
     <!-- This string asks the user whether or not to allow an app to enable WiFi. [CHAR LIMIT=NONE] -->
     <string name="wifi_ask_enable"><xliff:g id="requester" example="FancyApp">%s</xliff:g> wants to turn on Wi-Fi</string>
     <!-- This string asks the user whether or not to allow an app to disable WiFi. [CHAR LIMIT=NONE] -->
     <string name="wifi_ask_disable"><xliff:g id="requester" example="FancyApp">%s</xliff:g> wants to turn off Wi-Fi</string>
     <!-- Summary text when Wi-Fi has error -->
     <string name="wifi_error">Error</string>
+    <!-- Title for Network connection request Dialog [CHAR LIMIT=60] -->
+    <string name="network_connection_request_dialog_title">Device to use with <xliff:g id="appName" example="ThirdPartyAppName">%1$s</xliff:g></string>
+    <!-- Message for Network connection timeout Dialog [CHAR LIMIT=NONE] -->
+    <string name="network_connection_timeout_dialog_message">No devices found. Make sure devices are turned on and available to connect.</string>
+    <!-- OK button for Network connection timeout Dialog [CHAR LIMIT=30] -->
+    <string name="network_connection_timeout_dialog_ok">Try again</string>
+    <!-- Message for Network connection error state Dialog [CHAR LIMIT=NONE] -->
+    <string name="network_connection_errorstate_dialog_message">Something came up. The application has cancelled the request to choose a device.</string>
+    <!-- Toast message when connection is successful [CHAR LIMIT=30] -->
+    <string name="network_connection_connect_successful">Connection successful</string>
+    <!-- Neutral button for Network connection request Dialog [CHAR LIMIT=30] -->
+    <string name="network_connection_request_dialog_showall">Show all</string>
+    <!--Bluetooth settings screen, text that appears in heading bar when scanning for devices -->
+    <string name="progress_scanning">Searching</string>
 
     <!-- Bluetooth settings --><skip/>
     <!-- Title of Bluetooth settings pages. [CHAR LIMIT=30] -->
@@ -360,6 +394,18 @@
     <string name="bluetooth_ask_enablement_and_discovery"><xliff:g id="app_name">%1$s</xliff:g> wants to turn on Bluetooth and make your headunit visible to other devices for <xliff:g id="timeout">%2$d</xliff:g> seconds.</string>
     <!-- Strings for asking to the user whether to allow an app to enable bluetooth and discovery mode. [CHAR LIMIT=NONE] -->
     <string name="bluetooth_ask_enablement_and_discovery_no_name">An app wants to turn on Bluetooth and make your headunit visible to other devices for <xliff:g id="timeout">%1$d</xliff:g> seconds.</string>
+    <!-- Content description for bluetooth state switch. [CHAR LIMIT=NONE] -->
+    <string name="bluetooth_state_switch_content_description" translatable="false">Bluetooth toggle switch</string>
+    <!-- Bluetooth settings screen, setting option description for how the user's device will show up on other devices [CHAR LIMIT=100] -->
+    <string name="bluetooth_state_switch_summary">Visible as %1$s to other devices</string>
+    <!-- Title of user's current connected devices category [CHAR LIMIT=60] -->
+    <string name="bluetooth_my_devices">My devices</string>
+    <!-- Title of user's previously connected devices category [CHAR LIMIT=60] -->
+    <string name="bluetooth_previously_connected">Previously connected</string>
+    <!-- Popup indicating that the user's bluetooth device has been connected [CHAR LIMIT=30] -->
+    <string name="bluetooth_device_connected_toast">%1$s connected</string>
+    <!-- Popup indicating that the user's bluetooth device has been disconnected [CHAR LIMIT=30] -->
+    <string name="bluetooth_device_disconnected_toast">%1$s disconnected</string>
 
     <!-- Bluetooth pairing --><skip/>
     <!-- Notification ticker text (shown in the status bar) when a Bluetooth device wants to pair with us -->
@@ -439,6 +485,18 @@
     <string name="notification_ringtone_title">Default notification sound</string>
     <!-- Sound settings screen, title for the option defining the default alarm sound. [CHAR LIMIT=30] -->
     <string name="alarm_ringtone_title">Default alarm sound</string>
+    <!-- Ringtone picker save button. [CHAR LIMIT=30] -->
+    <string name="ringtone_picker_save_title">Save</string>
+    <!-- Sound settings screen, setting option name to manage ringtone, notifications, and alarm sounds [CHAR LIMIT=60] -->
+    <string name="sound_alert_sounds">Alert sounds</string>
+    <!-- Sound settings screen, setting option description of different alerts that can be changed [CHAR LIMIT=100] -->
+    <string name="sound_alert_sounds_summary">Ringtone, notifications, alarm</string>
+
+    <!-- Display settings --><skip/>
+    <!-- Display settings screen, setting option name to manage display brightness [CHAR LIMIT=60] -->
+    <string name="display_brightness">Brightness</string>
+    <!-- Display settings screen, setting option description for enabling night/dark mode [CHAR LIMIT=100] -->
+    <string name="display_night_mode_summary">Adjust screen for low light</string>
 
     <!-- Units Settings -->
     <!-- Units Settings title [CHAR LIMIT=10] -->
@@ -578,7 +636,7 @@
     <!-- Label for list that shows all permissions [CHAR LIMIT=40] -->
     <string name="app_permissions">App permissions</string>
     <!-- Summary of permissions currently granted to apps [CHAR LIMIT=60] -->
-    <string name="app_permissions_summary">Apps using <xliff:g id="apps" example="location">%1$s</xliff:g></string>
+    <string name="app_permissions_summary">Control app access to your data</string>
     <!-- Applications settings title. If clicked, the user is taken to the list of installed applications. [CHAR LIMIT=40] -->
     <string name="applications_settings">App info</string>
     <!-- Manage applications, text label for button to kill / force stop an application. [CHAR LIMIT=30] -->
@@ -587,6 +645,14 @@
     <string name="force_stop_dialog_title">Force stop?</string>
     <!-- Manage applications, text for dialog when killing persistent apps. [CHAR LIMIT=200] -->
     <string name="force_stop_dialog_text">If you force stop an app, it may misbehave.</string>
+    <!-- Manage applications, title for dialog when disabling I/O overuse killing for apps. [CHAR LIMIT=40] -->
+    <string name="peak_performance_dialog_title">Turn off performance protection?</string>
+    <!-- Manage applications, text for dialog when disabling I/O overuse killing for apps. [CHAR LIMIT=200] -->
+    <string name="peak_performance_dialog_text">If you do, your software and hardware may not work as well.</string>
+    <!-- Manage applications, text for dialog button when disabling I/O overuse killing for apps. [CHAR LIMIT=200] -->
+    <string name="peak_performance_dialog_action_on">Leave on</string>
+    <!-- Manage applications, text for dialog button when disabling I/O overuse killing for apps. [CHAR LIMIT=200] -->
+    <string name="peak_performance_dialog_action_off">Turn off</string>
     <!-- Manage applications, individual application info screen. Button to disable an existing application. [CHAR LIMIT=25] -->
     <string name="disable_text">Disable</string>
     <!-- Manage applications, individual application info screen. Button to re-enable an existing application. [CHAR LIMIT=25] -->
@@ -597,22 +663,35 @@
     <string name="app_disable_dialog_text">If you disable this app, Android and other apps may no longer function as intended.</string>
     <!-- Manage applications, label for option to disable app. [CHAR LIMIT=30] -->
     <string name="app_disable_dialog_positive">Disable app</string>
-    <!-- Manage applications, text informing that an application is not installed for the current user. [CHAR_LIMIT=NONE] -->
-    <string name="not_installed">Not installed for this user</string>
+    <!-- Manage applications, text informing that an application is not installed for the current profile. [CHAR_LIMIT=NONE] -->
+    <string name="not_installed">Not installed for this profile</string>
     <!-- Manage applications, individual application info screen, heading for settings related to the app's permissions. for example, it may list all the permissions the app has. -->
     <string name="permissions_label">Permissions</string>
     <!-- Label for the toggle that enables/disables an app's notifications. [CHAR LIMIT=20] -->
     <string name="notifications_label">Notifications</string>
     <!-- Label that lead into individual application storage info screen -->
     <string name="storage_application_label">Storage &amp; cache</string>
+    <!-- Label for the toggle that enables/disables car watchdog's I/O overuse killing feature for the app. [CHAR LIMIT=20] -->
+    <string name="peak_performance_label">Ensure peak performance</string>
     <!-- Label for displaying application version. -->
     <string name="application_version_label">Version: %1$s</string>
     <!-- Runtime permissions preference summary, shown when the app has no permissions granted. [CHAR LIMIT=40] -->
     <string name="runtime_permissions_summary_no_permissions_granted">No permissions granted</string>
     <!-- Runtime permissions preference summary, shown when the app requests no permissions. [CHAR LIMIT=40] -->
     <string name="runtime_permissions_summary_no_permissions_requested">No permissions requested</string>
+    <!-- Label for showing apps that have not been used for months. [CHAR LIMIT=40]-->
+    <string name="unused_apps">Unused apps</string>
+    <!-- Summary of number of apps that have not been used for months. [CHAR LIMIT=40]-->
+    <plurals name="unused_apps_summary">
+        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> unused app</item>
+        <item quantity="other"><xliff:g id="count" example="10">%d</xliff:g> unused apps</item>
+    </plurals>
+    <!-- Label of a switch preference that controls whether the system will remove the permissions and free up space when the app has not been used for months [CHAR LIMIT=40]-->
+    <string name="unused_apps_switch">Remove permissions and free up space</string>
     <!-- Application's internal storage size preference summary. [CHAR LIMIT=40] -->
     <string name="storage_type_internal">%s in internal storage</string>
+    <!-- Application's peak performance preference summary. [CHAR LIMIT=40] -->
+    <string name="peak_performance_summary">When necessary, close app to avoid excessive use of resources</string>
     <!-- Activity title for network data usage summary. [CHAR LIMIT=25] -->
     <string name="data_usage_summary_title">Data usage</string>
     <!-- Activity title for Appk data usage summary. [CHAR LIMIT=25] -->
@@ -689,6 +768,20 @@
     <string name="app_link_open_never">Don\u2019t open in this app</string>
     <!-- Title of dialog showing the supported link domains [CHAR LIMIT=40] -->
     <string name="app_launch_supported_domain_urls_title">Supported links</string>
+    <!-- Main Settings screen setting option name to go into the apps settings [CHAR LIMIT=40] -->
+    <string name="apps_settings_title">Apps</string>
+    <!-- Title of recently opened apps category [CHAR LIMIT=60] -->
+    <string name="apps_recently_opened">Recently opened</string>
+    <!-- Apps settings screen, setting option name to view all apps [CHAR LIMIT=60] -->
+    <string name="apps_view_all_apps_title">View all %1$d apps</string>
+    <!-- Apps settings screen, setting option name to manage permissions of all apps [CHAR LIMIT=60] -->
+    <string name="apps_permission_manager_title">Permission manager</string>
+    <!-- Apps settings screen, setting option description of app permission manager [CHAR LIMIT=100] -->
+    <string name="apps_permission_manager_summary">Control app access to your data</string>
+    <!-- Apps settings screen, setting option description of default apps [CHAR LIMIT=100] -->
+    <string name="apps_default_apps_summary">For Assistant and more</string>
+    <!-- Apps settings screen, setting option description of special app access [CHAR LIMIT=100] -->
+    <string name="apps_special_app_access_summary">To system and other settings</string>
 
     <!-- Label for screen where user can grant applications special access to various systems. [CHAR_LIMIT=60] -->
     <string name="special_access">Special app access</string>
@@ -696,6 +789,8 @@
     <string name="show_system">Show system</string>
     <!-- Text for toggle button to control whether system processes are hidden in app lists. [CHAR_LIMIT=30] -->
     <string name="hide_system">Hide system</string>
+    <!-- Text for toggle switch to control whether system processes are hidden in app lists. [CHAR_LIMIT=40] -->
+    <string name="hide_system_apps">Hide system apps</string>
     <!-- Title for managing apps which can modify system settings. [CHAR_LIMIT=40] -->
     <string name="modify_system_settings_title">Modify system settings</string>
     <!-- Description of modifying system settings. [CHAR_LIMIT=NONE] -->
@@ -738,12 +833,25 @@
     <string name="location_settings_app_permissions_title">App-level permissions</string>
     <!-- Title of Location Services category [CHAR LIMIT=60] -->
     <string name="location_settings_services_title">Location Services</string>
+    <!-- Content description for the location state switch. [CHAR LIMIT=NONE] -->
+    <string name="location_state_switch_content_description" translatable="false">Location toggle switch</string>
+    <!-- Location settings screen, setting option name to enable location tracking [CHAR LIMIT=60] -->
+    <string name="location_use_location_title">Use location</string>
+    <!-- Location settings footer warning text [CHAR LIMIT=NONE] -->
+    <string name="location_settings_footer">
+        Location may use sources like GPS, Wi\u2011Fi, mobile networks, and sensors to help estimate
+        your device\u2019s location.
+    </string>
 
     <!-- System --><skip/>
     <!-- Main setting menu item to go into system settings -->
     <string name="system_setting_title">System</string>
     <!-- System updates title.  Takes the user to the screen for seeing and installing system updates. [CHAR LIMIT=40] -->
     <string name="system_update_settings_title">System updates</string>
+    <!-- System settings screen, setting option name to view advanced system settings [CHAR LIMIT=60] -->
+    <string name="system_advanced_title">Advanced</string>
+    <!-- System settings screen, setting option description of advanced system settings [CHAR LIMIT=100] -->
+    <string name="system_advanced_summary">About, legal info, reset, and more</string>
 
     <!-- About phone screen, status item label  [CHAR LIMIT=40] -->
     <string name="firmware_version">Android version</string>
@@ -886,26 +994,28 @@
     <!-- Reset app preferences complete toast text. [CHAR LIMIT=75] -->
     <string name="reset_app_pref_complete_toast">App preferences have been reset</string>
 
-    <!-- Master Clear --><skip/>
+    <!-- Factory Clear --><skip/>
     <!-- Button title to factory data reset the entire device. The "(factory reset)" part is optional for translation. [CHAR LIMIT=40]-->
-    <string name="master_clear_title">Erase all data (factory reset)</string>
+    <string name="factory_reset_title">Erase all data (factory reset)</string>
+    <!-- Button summary to factory data reset the entire device.  Factory reset will delete all data from the vehicle. [CHAR LIMIT=NONE]-->
+    <string name="factory_reset_summary">Erase all data and profiles from the infotainment system</string>
     <!-- Message on screen after user selects factory reset. [CHAR LIMIT=NONE] -->
-    <string name="master_clear_desc">This will erase all data from your vehicle\u2019s head unit, including:\n\n<li>Your Google account</li>\n<li>System and app data and settings</li>\n<li>Downloaded apps</li></string>
+    <string name="factory_reset_desc">This will erase all data from your vehicle\u2019s infotainment system, including:\n\n<li>Your Google Account</li>\n<li>System and app data and settings</li>\n<li>Downloaded apps</li></string>
     <!-- The list of current accounts follows this text. [CHAR LIMIT=NONE] -->
-    <string name="master_clear_accounts">You are currently signed into the following accounts:</string>
-    <!-- Message on screen if other users are present on the device after user selects factory reset. [CHAR LIMIT=NONE] -->
-    <string name="master_clear_other_users_present">There are other users present on this vehicle.</string>
+    <string name="factory_reset_accounts">You are currently signed into the following accounts:</string>
+    <!-- Message on screen if other profiles are present on the device after user selects factory reset. [CHAR LIMIT=NONE] -->
+    <string name="factory_reset_other_users_present">Other profiles have been set up for this vehicle.</string>
     <!-- Button on screen after user selects factory reset. [CHAR LIMIT=30] -->
-    <string name="master_clear_button_text">Reset vehicle</string>
-    <!-- Master clear confirmation screen title. [CHAR LIMIT=30] -->
-    <string name="master_clear_confirm_title">Reset?</string>
+    <string name="factory_reset_button_text">Erase all data</string>
+    <!-- Factory clear confirmation screen title. [CHAR LIMIT=30] -->
+    <string name="factory_reset_confirm_title">Erase all data?</string>
     <!-- Message on screen after user selects Reset device button. [CHAR LIMIT=NONE] -->
-    <string name="master_clear_confirm_desc">Erase all your personal information and downloaded apps?  You can\u2019t undo this action!</string>
-    <string name="master_clear_confirm_button_text">Erase everything</string>
-    <!-- Master clear progress screen title. [CHAR LIMIT=30] -->
-    <string name="master_clear_progress_title" >Erasing</string>
-    <!-- Master clear progress screen text. [CHAR LIMIT=75] -->
-    <string name="master_clear_progress_text">Please wait...</string>
+    <string name="factory_reset_confirm_desc">This will erase all your personal profile data, accounts, and downloaded apps on this infotainment system.\n\nYou can\u2019t undo this action.</string>
+    <string name="factory_reset_confirm_button_text">Erase everything</string>
+    <!-- Factory clear progress screen title. [CHAR LIMIT=30] -->
+    <string name="factory_reset_progress_title" >Erasing</string>
+    <!-- Factory clear progress screen text. [CHAR LIMIT=75] -->
+    <string name="factory_reset_progress_text">Please wait...</string>
 
     <!-- Date and time settings --><skip/>
     <!-- Main Settings screen setting option name to go into the date and time settings-->
@@ -913,14 +1023,10 @@
     <!-- Main Settings screen setting option summary text for the item to go into the date and time settings. -->
     <string name="date_and_time_settings_summary">Set date, time, time zone, &amp; formats</string>
     <!-- Date & time setting screen setting check box title if the date and time should be determined automatically [CHAR LIMIT=30] -->
-    <string name="date_time_auto">Automatic date &amp; time</string>
-    <!-- Date & time setting screen setting option summary text when Automatic check box is selected (that is, when date and time should be determined automatically) [CHAR LIMIT=100] -->
-    <string name="date_time_auto_summary">Use network-provided time</string>
+    <string name="date_time_auto">Set time automatically</string>
     <!-- Date & time setting screen setting check box title if the time zone should be determined automatically [CHAR LIMIT=30] -->
-    <string name="zone_auto">Automatic time zone</string>
+    <string name="zone_auto">Set time zone automatically</string>
     <!-- Date & time setting screen setting option summary text when Automatic time zone check box is selected (that is, when date and time should be determined automatically) [CHAR LIMIT=100]  -->
-    <string name="zone_auto_summary">Use network-provided time zone</string>
-    <!-- Date & time setting screen setting check box title [CHAR LIMIT=30] -->
     <string name="date_time_24hour_title">24\u2011hour format</string>
     <!-- Date & time setting screen setting check box title -->
     <string name="date_time_24hour">Use 24-hour format</string>
@@ -951,11 +1057,11 @@
     <!-- User summary to be displayed next to the currently logged-in user if they are also an admin. [CHAR LIMIT=35] -->
     <string name="signed_in_admin_user">Signed in as admin</string>
     <!-- Title for the dialog that grants the user admin permissions. [CHAR LIMIT=50]-->
-    <string name="grant_admin_permissions_title">All admin permissions</string>
+    <string name="grant_admin_permissions_title">Grant admin permissions?</string>
     <!-- Button text for granting admin permissions to a user [CHAR LIMIT=35]-->
     <string name="grant_admin_permissions_button_text">Make Admin</string>
-    <!-- Message to inform the user of what will happen when another user is upgraded to Admin status. [CHAR LIMIT=NONE]-->
-    <string name="grant_admin_permissions_message">The user will be able to delete users, including other Admins, and factory reset the system.</string>
+    <!-- Message to inform the user of what will happen when another profile is upgraded to Admin status. [CHAR LIMIT=NONE]-->
+    <string name="grant_admin_permissions_message">The admin will be able to delete other profiles, including those for other admins, and factory reset the infotainment system.</string>
     <!-- Message to inform the user that granting admin permissions to another user is not reversible. [CHAR LIMIT=100]-->
     <string name="action_not_reversible_message">This action is not reversible.</string>
     <!-- Button text to confirm granting admin permissions to another user. [CHAR LIMIT=40]-->
@@ -963,8 +1069,8 @@
 
     <!-- User Restrictions --><skip/>
     <!-- Creating Users --><skip/>
-    <!-- Title for toggle that controls whether a user is able to create other users [CHAR LIMIT=35] -->
-    <string name="create_user_permission_title">Create new users</string>
+    <!-- Title for toggle that controls whether a profile is able to create other profiles [CHAR LIMIT=35] -->
+    <string name="create_user_permission_title">Create new profiles</string>
 
     <!-- Outgoing Calls --><skip/>
     <!-- Title for toggle that controls whether a user is able to make outgoing calls [CHAR LIMIT=35] -->
@@ -981,43 +1087,45 @@
     <string name="uninstall_apps_permission_title">Uninstall apps</string>
 
     <!-- Adding new users --><skip/>
-    <!-- User settings add user menu [CHAR LIMIT=35] -->
-    <string name="user_add_user_menu">Add user</string>
-    <!-- User details new user name [CHAR LIMIT=30] -->
-    <string name="user_new_user_name">New user</string>
-    <!-- Title of the alert dialog to ask user to confirm creation of new user. [CHAR LIMIT=30] -->
-    <string name="user_add_user_title">"Add new user?"</string>
-    <!-- Message to inform user that creation of new user requires that user to set up their space. [CHAR LIMIT=100] -->
-    <string name="user_add_user_message_setup">When you add a new user, that person needs to set up their space.</string>
-    <!-- Message to inform user that the newly created user will have permissions to update apps for all other users. [CHAR LIMIT=100] -->
-    <string name="user_add_user_message_update">Any user can update apps for all other users.</string>
-    <!-- Title for the dialog that lets users know that the maximum allowed number of users on the device has been reached. [CHAR LIMIT=35]-->
-    <string name="user_limit_reached_title">User limit reached</string>
-    <!-- Message that tells people what's the maximum number of uses allowed on the device. [CHAR_LIMIT=NONE]-->
+    <!-- Profile settings add profile menu [CHAR LIMIT=35] -->
+    <string name="user_add_user_menu">Add profile</string>
+    <!-- Profile details new profile name [CHAR LIMIT=30] -->
+    <string name="user_new_user_name">New profile</string>
+    <!-- Title of the alert dialog to ask user to confirm creation of new profile. [CHAR LIMIT=30] -->
+    <string name="user_add_user_title">"Add new profile?"</string>
+    <!-- Message to inform the profile creator that the user it's intended for should customize it for themselves. [CHAR LIMIT=100] -->
+    <string name="user_add_user_message_setup">After you create a new profile, that person should customize it for themselves.</string>
+    <!-- Message to inform user that the newly created profile will have permissions to update apps for all other profiles. [CHAR LIMIT=100] -->
+    <string name="user_add_user_message_update">Apps can be updated from any profile for use by all other profiles.</string>
+    <!-- Title for the dialog that lets users know that the maximum allowed number of profiles on the device has been reached. [CHAR LIMIT=35]-->
+    <string name="user_limit_reached_title">Profile limit reached</string>
+    <!-- Message that tells people what's the maximum number of profiles allowed on the device. [CHAR_LIMIT=NONE]-->
     <plurals name="user_limit_reached_message">
-        <item quantity="one">Only one user can be created.</item>
-        <item quantity="other">You can create up to <xliff:g example="3" id="count">%d</xliff:g> users.</item>
+        <item quantity="one">Only one profile can be created.</item>
+        <item quantity="other">You can create up to <xliff:g example="3" id="count">%d</xliff:g> profiles.</item>
     </plurals>
-    <!-- Title of the alert dialog to notify that the creation of new user has failed. [CHAR LIMIT=40] -->
-    <string name="add_user_error_title">Failed to create a new user</string>
+    <!-- Title of the alert dialog to notify that the creation of new profile has failed. [CHAR LIMIT=40] -->
+    <string name="add_user_error_title">Couldn\'t create new profile</string>
 
     <!-- Deleting users --><skip/>
     <!-- Title of the alert dialog to ask user to confirm user deletion [CHAR LIMIT=40] -->
-    <string name="delete_user_dialog_title">Delete this user?</string>
+    <string name="delete_user_dialog_title">Delete this profile?</string>
     <!-- Message to inform user that all of user's data will be deleted if confirmed [CHAR LIMIT=NONE] -->
-    <string name="delete_user_dialog_message">"All apps and data will be deleted."</string>
+    <string name="delete_user_dialog_message">"All apps and data for this profile will be deleted"</string>
     <!-- Title of the alert dialog to notify that user deletion has failed. [CHAR LIMIT=40] -->
-    <string name="delete_user_error_title">Failed to delete user.</string>
+    <string name="delete_user_error_title">Couldn\'t delete profile.</string>
+    <!-- Title of the alert dialog to notify that user deletion has failed. [CHAR LIMIT=100] -->
+    <string name="delete_user_error_set_ephemeral_title">This profile will be deleted when you switch profiles or restart the vehicle.</string>
     <!-- Button label to dismiss user deletion error [CHAR LIMIT=25] -->
     <string name="delete_user_error_dismiss">Dismiss</string>
     <!-- Button label to retry user deletion [CHAR LIMIT=25] -->
     <string name="delete_user_error_retry">Retry</string>
     <!-- Title of the alert dialog to ask user to confirm deletion of the last user on the device. [CHAR LIMIT=40] -->
-    <string name="delete_last_user_dialog_title">Delete last user?</string>
+    <string name="delete_last_user_dialog_title">Delete the last remaining profile?</string>
     <!-- Message to inform user that deletion of the last user will prompt the creation of a new admin user. [CHAR LIMIT=NONE] -->
-    <string name="delete_last_user_admin_created_message">"After deleting the only remaining user for this car, a new admin user will be created."</string>
+    <string name="delete_last_user_delete_warning">"If you delete the only remaining profile for this vehicle, all data, settings, and apps associated with this profile will be erased."</string>
     <!-- Message to inform user that deletion of the last user will require new system setup. [CHAR LIMIT=NONE] -->
-    <string name="delete_last_user_system_setup_required_message">"All data, settings, and apps associated with this user will be deleted. You'll need to set up the system again."</string>
+    <string name="delete_last_user_system_setup_required_message">"After reset, you can set up a new profile."</string>
     <!-- Title of the alert dialog to notify that new admin should be chosen. [CHAR LIMIT=40] -->
     <string name="choose_new_admin_title">Choose new admin</string>
     <!-- Message to notify that new admin must be chosen in order to delete the current one. [CHAR LIMIT=150] -->
@@ -1038,14 +1146,16 @@
     <string name="user_name_label">Name</string>
     <!-- User summary to indicate that user is currently not set up [CHAR LIMIT=100] -->
     <string name="user_summary_not_set_up">Not set up</string>
-    <!-- Title for edit user name page [CHAR LIMIT=30] -->
-    <string name="edit_user_name_title">Edit user name</string>
+    <!-- Title for edit profile name page [CHAR LIMIT=30] -->
+    <string name="edit_user_name_title">Edit profile name</string>
     <!-- An error message indicating that the name input field has been left blank and cannot be. [CHAR_LIMIT=50] -->
     <string name="name_input_blank_error">Field can\u2019t be blank.</string>
     <!-- An error message indicating that the name the user has entered is invalid. [CHAR_LIMIT=50] -->
-    <string name="name_input_invalid_error">Username entered is invalid.</string>
-    <!-- User settings header for list of users on the system. [CHAR LIMIT=35] -->
+    <string name="name_input_invalid_error">Profile name entered is invalid.</string>
+    <!-- Users settings header for list of users on the system. [CHAR LIMIT=35] -->
     <string name="users_list_title">Users</string>
+    <!-- Profiles settings header for list of profiles on the system. [CHAR LIMIT=35] -->
+    <string name="profiles_list_title">Profiles</string>
     <!-- Title for the user details page that shows the permissions granted to the user. The parameter is the name of the user. [CHAR LIMIT=40] -->
     <string name="user_details_admin_title">Permissions granted to %1$s</string>
 
@@ -1070,7 +1180,7 @@
     <!-- Individual application info screen, label under Storage heading. The amount of space taken up by the application itself (for example, the java compiled files) [CHAR LIMIT=35] -->
     <string name="storage_application_size_label">App size</string>
     <!-- Individual application info screen, label under Storage heading.  The amount of space taken up by the app's data (for example, downloaded emails) [CHAR LIMIT=35] -->
-    <string name="storage_data_size_label">User data</string>
+    <string name="storage_data_size_label">Profile data</string>
     <!-- Label that appears next to the cache size [CHAR LIMIT=35] -->
     <string name="storage_cache_size_label">Cache</string>
     <!-- Individual application info screen,label under Storage heading.  The total storage space taken up by this app. [CHAR LIMIT=35] -->
@@ -1157,6 +1267,24 @@
     <!-- Privacy --><skip/>
     <!-- Title for settings that lead into Privacy settings [CHAR LIMIT=40] -->
     <string name="privacy_settings_title">Privacy</string>
+    <!-- Title for Infotainment System Data privacy settings containing controls for clearing/resetting local data in the vehicle. [CHAR LIMIT=40] -->
+    <string name="privacy_vehicle_data_title">Infotainment system data</string>
+    <!-- Privacy settings screen, setting option that opens a page to manage location settings [CHAR LIMIT=NONE] -->
+    <string name="privacy_location_summary">Control app access to your location</string>
+    <!-- Privacy settings screen, title for setting option name enable/disable the microphone [CHAR LIMIT=30] -->
+    <string name="mute_mic_title">Microphone</string>
+    <!-- Privacy settings screen, summary for setting option to enable/disable the microphone [CHAR LIMIT=NONE] -->
+    <string name="mute_mic_summary">Control app access to microphone</string>
+    <!-- Privacy settings screen, button that navigates to a screen containing controls for clearing/resetting local data in the vehicle. [CHAR LIMIT=30] -->
+    <string name="vehicle_data_title">Infotainment system data</string>
+    <!-- Summary text for a screen containing controls for clearing/resetting local data in the vehicle. [CHAR LIMIT=NONE] -->
+    <string name="vehicle_data_summary">Manage activities and info saved on this vehicle</string>
+    <!-- Privacy settings screen, title for button that deletes the current user profile. [CHAR LIMIT=30] -->
+    <string name="vehicle_data_delete_user_title">Delete your profile</string>
+    <!-- Privacy settings screen, summary text for button that deletes the current user profile. [CHAR LIMIT=NONE] -->
+    <string name="vehicle_data_delete_user_summary">Erase your profile and accounts from the infotainment system</string>
+    <!-- Privacy settings screen, text that shows when a user tries to take an action that is unavailable to the current user. [CHAR LIMIT=60] -->
+    <string name="action_unavailable">This action is unavailable for your profile</string>
 
     <!-- security lock --><skip/>
     <!-- Title for security settings [CHAR LIMIT=20] -->
@@ -1191,8 +1319,6 @@
     <string name="set_screen_lock">Set a screen lock</string>
     <!-- Title string shown in choose lock PIN [CHAR LIMIT=40] -->
     <string name="lockscreen_choose_your_pin">Choose your PIN</string>
-    <!-- Title string shown in choose lock pattern [CHAR LIMIT=40] -->
-    <string name="lockscreen_choose_your_pattern">Choose your pattern</string>
     <!-- Title string shown in choose lock password [CHAR LIMIT=40] -->
     <string name="lockscreen_choose_your_password">Choose your password</string>
     <!-- Subtitle indicating the current screen lock type (none/PIN/pattern/password) [CHAR LIMIT=40] -->
@@ -1221,12 +1347,18 @@
     <string name="lockpattern_settings_help_how_to_record">How to draw an unlock pattern</string>
     <!-- Message shown when error is encountered when saving pattern [CHAR LIMIT=40] -->
     <string name="error_saving_lockpattern">Error saving pattern</string>
+    <!-- Message shown when in pattern unlock screen after too many incorrect attempts [CHAR LIMIT=120]-->
+    <string name="lockpattern_too_many_failed_confirmation_attempts">Too many incorrect attempts. Try again in <xliff:g id="number">%d</xliff:g> seconds.</string>
     <!-- Label for button to confirm picker selection [CHAR_LIMIT=20] -->
     <string name="okay">OK</string>
     <!-- Title of dialog asking the user if they really want to remove the screen lock [CHAR LIMIT=30]-->
     <string name="remove_screen_lock_title">Remove screen lock?</string>
     <!-- Message in dialog warning the user about the consequence if they choose to remove the screen lock [CHAR LIMIT=60]-->
     <string name="remove_screen_lock_message">This will allow anyone to access your account</string>
+    <!-- Security settings screen, setting option name to configure user profile security lock [CHAR LIMIT=60] -->
+    <string name="security_profile_lock_title">Profile lock</string>
+    <!-- Security settings screen, setting option description for unlocking user profile with phone [CHAR LIMIT=100] -->
+    <string name="security_unlock_profile_summary">Set up automatic unlocking</string>
 
     <!--  Title for screen asking user to enter their existing lock PIN [CHAR LIMIT=30] -->
     <string name="lock_settings_enter_pin">Enter your PIN</string>
@@ -1279,7 +1411,7 @@
     <string name="lockpassword_pin_recently_used">Device admin doesn\'t allow using a recent PIN</string>
 
     <!-- Error shown when a user is choosing a PIN for their work phone, but what they suggest is blocked by their company's IT administrator. The user should try another PIN that's less common and more complicated. [CHAR LIMIT=NONE] -->
-    <string name="lockpassword_pin_blacklisted_by_admin">Common PINs are blocked by your IT admin. Try a different PIN.</string>
+    <string name="lockpassword_pin_denylisted_by_admin">Common PINs are blocked by your IT admin. Try a different PIN.</string>
 
     <!-- Error shown when in PASSWORD mode and user enters an invalid character. Because this may be concatenated with other messages, please make sure there's a period at the end of the sentence.  [CHAR LIMIT=40] -->
     <string name="lockpassword_illegal_character">This can\'t include an invalid character.</string>
@@ -1330,7 +1462,7 @@
     <string name="error_saving_password">Error saving password</string>
 
     <!-- Error shown when a user is choosing a PASSWORD for their work phone, but what they suggest is blocked by their company's IT administrator. The user should try another PASSWORD that's less common and more complicated. [CHAR LIMIT=NONE] -->
-    <string name="lockpassword_password_blacklisted_by_admin">Common passwords are blocked by your IT admin. Try a different password.</string>
+    <string name="lockpassword_password_denylisted_by_admin">Common passwords are blocked by your IT admin. Try a different password.</string>
 
     <!-- [CHAR_LIMIT=NONE] Error shown when the user tries to set an ascending or descending sequence of digits. Because this may be concatenated with other messages, please make sure there's a period at the end of the sentence. [CHAR LIMIT=NONE] -->
     <string name="lockpassword_pin_no_sequential_digits">Ascending, descending, or repeated sequence of digits isn\'t allowed.</string>
@@ -1395,7 +1527,7 @@
     <!-- Title of dialog asking the user if they really want to exit the demo, which requires a factory reset [CHAR LIMIT=30]-->
     <string name="exit_retail_mode_dialog_title">Exit demo mode</string>
     <!-- Message in dialog asking the user if they really want to exit the demo, which requires a factory reset [CHAR LIMIT=150]-->
-    <string name="exit_retail_mode_dialog_body">This will delete the demo account and factory data reset the system. All user data will be lost.</string>
+    <string name="exit_retail_mode_dialog_body">This will delete the demo account and factory data reset the system. All profile data will be lost.</string>
     <!-- Text of confirmation button in dialog that appears to confirm that Demo Mode should be exited. [CHAR LIMIT=25]-->
     <string name="exit_retail_mode_dialog_confirmation_button_text">Exit Demo</string>
 
@@ -1405,9 +1537,126 @@
 
     <!-- Warn user that the action they are trying to perform is blocked while the car is in motion [CHAR LIMIT=60] -->
     <string name="restricted_while_driving">Feature not available while driving</string>
-    <!-- Warn user that adding a user is blocked while the car is in motion [CHAR LIMIT=60] -->
-    <string name="add_user_restricted_while_driving">Can\'t add user while driving</string>
+    <!-- Warn user that adding a profile is blocked while the car is in motion [CHAR LIMIT=60] -->
+    <string name="add_user_restricted_while_driving">Can\'t add profile while driving</string>
 
     <!-- Placeholder query for settings search -->
     <string name="default_search_query">Search</string>
+
+    <!-- Assistant & voice --><skip/>
+    <!-- Main Settings screen setting option name to go into the assistant & voice settings [CHAR LIMIT=40] -->
+    <string name="assistant_and_voice_setting_title">Assistant &amp; voice</string>
+    <!-- Assistant & voice settings screen, setting option name to choose the assistant app [CHAR LIMIT=60] -->
+    <string name="assistant_and_voice_assistant_app_title">Digital assistant app</string>
+    <!-- Assistant & voice settings screen, setting option name to allow the assistant app to read screen text [CHAR LIMIT=60] -->
+    <string name="assistant_and_voice_use_text_from_screen_title">Use text from screen</string>
+    <!-- Assistant & voice settings screen, setting option description for allowing the assistant app to read text from the screen [CHAR LIMIT=100] -->
+    <string name="assistant_and_voice_use_text_from_screen_summary">Allow assistant to access screen contents</string>
+    <!-- Assistant & voice settings screen, setting option name to allow the assistant app to access screen image [CHAR LIMIT=60] -->
+    <string name="assistant_and_voice_use_screenshot_title">Use screenshot</string>
+    <!-- Assistant & voice settings screen, setting option description for allowing the assistant app to use screenshots [CHAR LIMIT=100] -->
+    <string name="assistant_and_voice_use_screenshot_summary">Allow assistant to access screen image</string>
+
+    <!-- Notifications --><skip/>
+    <!-- Title of recently sent notifications category [CHAR LIMIT=60] -->
+    <string name="notifications_recently_sent">Recently sent</string>
+    <!-- Title of all apps category [CHAR LIMIT=60] -->
+    <string name="notifications_all_apps">All apps</string>
+
+    <!-- Profiles & accounts --><skip/>
+    <!-- Main Settings screen setting option name to go into the profiles & accounts settings [CHAR LIMIT=40] -->
+    <string name="profiles_and_accounts_settings_title">Profiles &amp; accounts</string>
+    <!-- Button text for viewing a list of other profiles [CHAR LIMIT=35] -->
+    <string name="manage_other_profiles_button_text">Manage other profiles</string>
+    <!-- Button text for creating a new user profile [CHAR LIMIT=35] -->
+    <string name="add_a_profile_button_text">Add a profile</string>
+    <!-- Button text for deleting the current user profile [CHAR LIMIT=35] -->
+    <string name="delete_this_profile_text">Delete this profile</string>
+    <!-- Profile settings add profile menu [CHAR LIMIT=35] -->
+    <string name="add_profile_text">Add profile</string>
+
+
+    <!-- TODO(b/186253868): remove translatable="false" once the real strings have been defined -->
+    <!-- Device Policy Management --><skip/>
+    <!-- Device admin add activity title -->
+    <string name="device_admin_add_title" translatable="false">Device admin</string>
+    <!-- Device admin warning message about policies an admin can use -->
+    <string name="device_admin_status" translatable="false">This admin app is active and allows
+        the app <xliff:g id="app_name">%1$s</xliff:g> to perform the
+        following operations:</string>
+    <!-- Device admin warning message about policies an admin can use -->
+    <string name="device_admin_warning" translatable="false">Activating this admin app will allow
+        the app <xliff:g id="app_name">%1$s</xliff:g> to perform the
+        following operations:</string>
+    <!-- Title for screen to add a device admin app [CHAR LIMIT=40] -->
+    <string name="add_device_admin_msg" translatable="false">Activate device admin app?</string>
+    <!-- Label for button to set the active device admin [CHAR_LIMIT=80] -->
+    <string name="add_device_admin" translatable="false">Activate this device admin app</string>
+    <!-- Label for button to remove the active device admin app [CHAR LIMIT=80] -->
+    <string name="remove_device_admin" translatable="false">Deactivate this device admin app</string>
+    <!-- Shown in dialog to allow user to see more information about the device admin [CHAR LIMIT=30] -->
+    <string name="admin_support_more_info" translatable="false">More details</string>
+    <!-- Shown in admin details page to warn user about policies the admin can set in a work profile. [CHAR LIMIT=NONE] -->
+    <string name="admin_profile_owner_message" translatable="false">Your admin can monitor and manage apps and data
+        associated with your work profile, including settings, permissions, corporate access,
+        network activity, and the device\'s location information.</string>
+    <!-- Shown in admin details page to warn user about policies the admin can set on a user. [CHAR LIMIT=NONE] -->
+    <string name="admin_profile_owner_user_message" translatable="false">Your admin can monitor and manage apps and data
+        associated with this user, including settings, permissions, corporate access,
+        network activity, and the device\'s location information.</string>
+    <!-- Shown in admin details page to warn user about policies the admin can set on a device. [CHAR LIMIT=NONE] -->
+    <string name="admin_device_owner_message" translatable="false">Your admin can monitor and manage apps and data
+        associated with this device, including settings, permissions, corporate access,
+        network activity, and the device\'s location information.</string>
+    <!-- Shown in admin details page to warn user about policies the admin can set on a financed device. [CHAR LIMIT=NONE] -->
+    <string name="admin_financed_message" translatable="false">Your device administrator may be able to access data
+        associated with this device, manage apps, and change this device\’s settings.</string>
+    <!-- Title for dialog displayed when user selects on a setting locked by an admin [CHAR LIMIT=30] -->
+    <string name="disabled_by_policy_title" translatable="false">Blocked by your IT admin</string>
+    <!-- Title for dialog displayed to tell user that changing volume was disallowed by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_adjust_volume" translatable="false">Can’t change volume</string>
+    <!-- Title for dialog displayed to tell user that outgoing calls were disabled by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_outgoing_calls" translatable="false">Can’t make calls</string>
+    <!-- Title for dialog displayed to tell user that sending SMS were disabled by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_sms" translatable="false">SMS not allowed</string>
+    <!-- Title for dialog displayed to tell user that the camera was disabled by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_camera" translatable="false">Can’t use camera</string>
+    <!-- Title for dialog displayed to tell user that screenshots are disabled by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_screen_capture" translatable="false">Can’t take screenshots</string>
+    <!-- Title for dialog displayed to tell user that the app was suspended by an admin [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_suspend_packages" translatable="false">Can’t open this app</string>
+    <!-- Dialog title. This dialog lets a user know that a specific setting is blocked by their credit provider. Since the user purchased the device from the credit provider, the credit provider controls what they can access. [CHAR LIMIT=50] -->
+    <string name="disabled_by_policy_title_financed_device" translatable="false">Blocked by your credit provider</string>
+    <!-- Dialog title shown when parental consent is required for the child to set up biometric authentication. [CHAR LIMIT=30] -->
+    <string name="disabled_by_policy_title_biometric_parental_consent" translatable="false">Parent needed</string>
+    <!-- Dialog content shown when parental consent is required for the child to set up biometric authentication. [CHAR LIMIT=NONE] -->
+    <string name="disabled_by_policy_content_biometric_parental_consent" translatable="false">Hand the phone to your parent to start setting this up</string>
+    <!-- Shown when the user tries to change a settings locked by an admin [CHAR LIMIT=200] -->
+    <string name="default_admin_support_msg" translatable="false">If you have questions, contact your IT admin</string>
+    <!-- url for learning more about IT admin policy disabling -->
+    <string name="help_url_action_disabled_by_it_admin" translatable="false"></string>
+    <!-- Title of setting on privacy settings screen that will show work policy info. [CHAR LIMIT=NONE] -->
+    <string name="work_policy_privacy_settings" translatable="false">Your work policy info</string>
+    <!-- Summary for Enterprise Privacy settings, explaining what the user can expect to find under it [CHAR LIMIT=NONE]-->
+    <string name="work_policy_privacy_settings_summary" translatable="false">Settings managed by your IT admin</string>
+
+    <!-- Power policy --><skip/>
+    <!-- Power components which are disabled by the current power policy cannot be toggled in Setting. [CHAR LIMIT=80] -->
+    <string name="power_component_disabled">This setting can\'t be changed right now</string>
+
+
+    <!-- TODO(b/186566325): remove translatable="false" once the string is finalized -->
+    <!-- Remote rquest bugreport --><skip/>
+    <!-- Title of dialog shown to ask for user consent for sharing a bugreport that was requested remotely by the vehicle's fleet manager. [CHAR LIMIT=50] -->
+    <string name="share_remote_bugreport_dialog_title" translatable="false">Share bug report?</string>
+    <!-- Message of a dialog shown to ask for user consent for sharing a bugreport that was requested remotely by the vehicle's fleet manager. [CHAR LIMIT=NONE] -->
+    <string name="share_remote_bugreport_dialog_message_finished" translatable="false">This vehicle\'s fleet manager requested a bug report to help troubleshoot this device. Apps and data may be shared.</string>
+    <!-- Message of a dialog shown to ask for user consent for sharing a bugreport that was requested remotely by the vehicle's fleet manager and it's still being taken. [CHAR LIMIT=NONE] -->
+    <string name="share_remote_bugreport_dialog_message" translatable="false">This vehicle\'s fleet manager requested a bug report to help troubleshoot this device. Apps and data may be shared, and your device may temporarily slow down.</string>
+    <!-- Message of a dialog shown to inform that the remote bugreport that was requested remotely by the vehicle\'s fleet manager is still being taken and will be shared when finished. [CHAR LIMIT=NONE]  -->
+    <string name="sharing_remote_bugreport_dialog_message" translatable="false">This bug report is being shared with this vehicle\'s fleet manager. Contact them for more details.</string>
+    <!-- Acceptance label of dialog shown to ask for user consent for sharing the remote bugreport. [CHAR LIMIT=20] -->
+    <string name="share_remote_bugreport_action" translatable="false">Share</string>
+    <!-- Decline label of dialog shown to ask for user consent for sharing the remote bugreport. [CHAR LIMIT=20] -->
+    <string name="decline_remote_bugreport_action" translatable="false">Decline</string>
 </resources>

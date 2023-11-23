@@ -60,10 +60,14 @@ interface TypeItem {
     /** Alias for [toTypeString] with erased=true */
     fun toErasedTypeString(context: Item? = null): String
 
-    /** Returns the internal name of the type, as seen in bytecode */
-    fun internalName(): String {
+    /**
+     * Returns the internal name of the type, as seen in bytecode. The optional [context]
+     * provides the method or class where this type appears, and can be used for example
+     * to resolve the bounds for a type variable used in a method that was specified on the class.
+     */
+    fun internalName(context: Item? = null): String {
         // Default implementation; PSI subclass is more accurate
-        return toSlashFormat(toErasedTypeString())
+        return toSlashFormat(toErasedTypeString(context))
     }
 
     /** Array dimensions of this type; for example, for String it's 0 and for String[][] it's 2. */
@@ -98,7 +102,7 @@ interface TypeItem {
 
     fun convertType(from: ClassItem, to: ClassItem): TypeItem {
         val map = from.mapTypeVariables(to)
-        if (!map.isEmpty()) {
+        if (map.isNotEmpty()) {
             return convertType(map)
         }
 
@@ -108,7 +112,8 @@ interface TypeItem {
     fun convertType(replacementMap: Map<String, String>?, owner: Item? = null): TypeItem
 
     fun convertTypeString(replacementMap: Map<String, String>?): String {
-        val typeString = toTypeString(outerAnnotations = true, innerAnnotations = true, kotlinStyleNulls = false)
+        val typeString =
+            toTypeString(outerAnnotations = true, innerAnnotations = true, kotlinStyleNulls = false)
         return convertTypeString(typeString, replacementMap)
     }
 
@@ -256,14 +261,15 @@ interface TypeItem {
                 // method provided in a hidden superclass), with generics signatures.
                 // We need to rewrite the generics variables in case they differ
                 // between the classes.
-                if (!replacementMap.isEmpty()) {
-                    replacementMap.forEach { from, to ->
+                if (replacementMap.isNotEmpty()) {
+                    replacementMap.forEach { (from, to) ->
                         // We can't just replace one string at a time:
                         // what if I have a map of {"A"->"B", "B"->"C"} and I tried to convert A,B,C?
                         // If I do the replacements one letter at a time I end up with C,C,C; if I do the substitutions
                         // simultaneously I get B,C,C. Therefore, we insert "___" as a magical prefix to prevent
                         // scenarios like this, and then we'll drop them afterwards.
-                        string = string.replace(Regex(pattern = """\b$from\b"""), replacement = "___$to")
+                        string =
+                            string.replace(Regex(pattern = """\b$from\b"""), replacement = "___$to")
                     }
                 }
                 string = string.replace("___", "")
@@ -272,6 +278,92 @@ interface TypeItem {
                 return string
             }
         }
+
+        /**
+         * Convert a type string containing to its lambda representation or return the original.
+         *
+         * E.g.: `"kotlin.jvm.functions.Function1<Integer, String>"` to `"(Integer) -> String"`.
+         */
+        fun toLambdaFormat(typeName: String): String {
+            // Bail if this isn't a Kotlin function type
+            if (!typeName.startsWith(KOTLIN_FUNCTION_PREFIX)) {
+                return typeName
+            }
+
+            // Find the first character after the first opening angle bracket. This will either be
+            // the first character of the paramTypes of the lambda if it has parameters.
+            val paramTypesStart =
+                typeName.indexOf('<', startIndex = KOTLIN_FUNCTION_PREFIX.length) + 1
+
+            // The last type param is always the return type. We find and set these boundaries with
+            // the push down loop below.
+            var paramTypesEnd = -1
+            var returnTypeStart = -1
+
+            // Get the exclusive end of the return type parameter by finding the last closing
+            // angle bracket.
+            val returnTypeEnd = typeName.lastIndexOf('>')
+
+            // Bail if an an unexpected format broke the indexOf's above.
+            if (paramTypesStart <= 0 || paramTypesStart >= returnTypeEnd) {
+                return typeName
+            }
+
+            // This loop looks for the last comma that is not inside the type parameters of a type
+            // parameter. It's a simple push down state machine that stores its depth as a counter
+            // instead of a stack. It runs backwards from the last character of the type parameters
+            // just before the last closing angle bracket to the beginning just before the first
+            // opening angle bracket.
+            var depth = 0
+            for (i in returnTypeEnd - 1 downTo paramTypesStart) {
+                val c = typeName[i]
+
+                // Increase or decrease stack depth on angle brackets
+                when (c) {
+                    '>' -> depth++
+                    '<' -> depth--
+                }
+
+                when {
+                    depth == 0 -> when { // At the top level
+                        c == ',' -> {
+                            // When top level comma is found, mark it as the exclusive end of the
+                            // parameter types and end the loop
+                            paramTypesEnd = i
+                            break
+                        }
+                        !c.isWhitespace() -> {
+                            // Keep moving the start of the return type back until whitespace
+                            returnTypeStart = i
+                        }
+                    }
+                    depth < 0 -> return typeName // Bail, unbalanced nesting
+                }
+            }
+
+            // Bail if some sort of unbalanced nesting occurred or the indices around the comma
+            // appear grossly incorrect.
+            if (depth > 0 || returnTypeStart < 0 || returnTypeStart <= paramTypesEnd) {
+                return typeName
+            }
+
+            return buildString(typeName.length) {
+                append("(")
+
+                // Slice param types, if any, and append them between the parenthesis
+                if (paramTypesEnd > 0) {
+                    append(typeName, paramTypesStart, paramTypesEnd)
+                }
+
+                append(") -> ")
+
+                // Slice out the return type param and append it after the arrow
+                append(typeName, returnTypeStart, returnTypeEnd)
+            }
+        }
+
+        /** Prefix of Kotlin JVM function types, used for lambdas. */
+        private const val KOTLIN_FUNCTION_PREFIX = "kotlin.jvm.functions.Function"
 
         // Copied from doclava1
         fun toSlashFormat(typeName: String): String {
@@ -290,7 +382,7 @@ interface TypeItem {
                 "char" -> "C"
                 "short" -> "S"
                 "int" -> "I"
-                "long" -> "L"
+                "long" -> "J"
                 "float" -> "F"
                 "double" -> "D"
                 else -> "L" + ClassContext.getInternalName(name) + ";"

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 tradefed_binary_host {
     name: "csuite-tradefed",
     wrapper: "src/scripts/csuite-tradefed",
@@ -33,5 +37,7 @@ java_test_host {
         "tradefed",
         "csuite-tradefed",
     ],
-    test_suites: ["general-tests"],
+    test_options: {
+        unit_test: true,
+    },
 }

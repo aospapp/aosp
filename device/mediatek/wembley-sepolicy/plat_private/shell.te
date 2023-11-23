@@ -1,2 +1,11 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
 allow shell debuglog_data_file:dir r_dir_perms;
 allow shell debuglog_data_file:file r_file_perms;
+
+get_prop(shell, system_mtk_mobile_log_prop)
+get_prop(shell, system_mtk_persist_mtk_aee_prop)
+get_prop(shell, system_mtk_persist_aee_prop)
+get_prop(shell, system_mtk_debug_mtk_aee_prop)

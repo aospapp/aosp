@@ -72,7 +72,8 @@ public class SendRequest extends MmsRequest {
         final String requestId = getRequestId();
         final MmsHttpClient mmsHttpClient = netMgr.getOrCreateHttpClient();
         if (mmsHttpClient == null) {
-            String notReady = "MMS network is not ready! messageId: " + mMessageId;
+            String notReady = "MMS network is not ready! "
+                    + MmsService.formatCrossStackMessageId(mMessageId);
             LogUtil.e(requestId, notReady);
             throw new MmsHttpException(0/*statusCode*/, notReady);
         }
@@ -95,14 +96,16 @@ public class SendRequest extends MmsRequest {
         final String requestId = getRequestId();
         try {
             if (mPduData == null) {
-                LogUtil.w(requestId, "Empty PDU raw data. messageId: " + mMessageId);
+                LogUtil.d(requestId, "Empty PDU raw data. "
+                        + MmsService.formatCrossStackMessageId(mMessageId));
                 return null;
             }
             final boolean supportContentDisposition =
                     mMmsConfig.getBoolean(SmsManager.MMS_CONFIG_SUPPORT_MMS_CONTENT_DISPOSITION);
             return new PduParser(mPduData, supportContentDisposition).parse();
         } catch (final Exception e) {
-            LogUtil.w(requestId, "Failed to parse PDU raw data. messageId: " + mMessageId);
+            LogUtil.e(requestId, "Failed to parse PDU raw data. "
+                    + MmsService.formatCrossStackMessageId(mMessageId), e);
         }
         return null;
     }
@@ -115,7 +118,8 @@ public class SendRequest extends MmsRequest {
         try {
             notifyIfEmergencyContact(parsedPdu);
         } catch (Exception e) {
-            LogUtil.w(getRequestId(), "Error in notifyIfEmergencyContact. messageId: " + mMessageId, e);
+            LogUtil.w(getRequestId(), "Error in notifyIfEmergencyContact. "
+                    + MmsService.formatCrossStackMessageId(mMessageId), e);
         }
     }
 
@@ -124,8 +128,8 @@ public class SendRequest extends MmsRequest {
             SendReq sendReq = (SendReq) parsedPdu;
             for (EncodedStringValue encodedStringValue : sendReq.getTo()) {
                 if (isEmergencyNumber(encodedStringValue.getString())) {
-                    LogUtil.i(getRequestId(), "Notifying emergency contact. messageId: "
-                            + mMessageId);
+                    LogUtil.i(getRequestId(), "Notifying emergency contact. "
+                            + MmsService.formatCrossStackMessageId(mMessageId));
                     new AsyncTask<Void, Void, Void>() {
                         @Override
                         protected Void doInBackground(Void... voids) {
@@ -134,8 +138,8 @@ public class SendRequest extends MmsRequest {
                                         .notifyEmergencyContact(mContext);
                             } catch (Exception e) {
                                 LogUtil.e(getRequestId(),
-                                    "Exception notifying emergency contact. messageId: "
-                                            + mMessageId + e);
+                                    "Exception notifying emergency contact. "
+                                            + MmsService.formatCrossStackMessageId(mMessageId) + e);
                             }
                             return null;
                         }
@@ -172,9 +176,11 @@ public class SendRequest extends MmsRequest {
             // Not required to persist
             return null;
         }
-        LogUtil.d(requestId, "persistIfRequired. messageId: " + mMessageId);
+        LogUtil.d(requestId, "persistIfRequired. "
+                + MmsService.formatCrossStackMessageId(mMessageId));
         if (mPduData == null) {
-            LogUtil.e(requestId, "persistIfRequired: empty PDU. messageId: " + mMessageId);
+            LogUtil.e(requestId, "persistIfRequired: empty PDU. "
+                    + MmsService.formatCrossStackMessageId(mMessageId));
             return null;
         }
         final long identity = Binder.clearCallingIdentity();
@@ -184,12 +190,13 @@ public class SendRequest extends MmsRequest {
             // Persist the request PDU first
             GenericPdu pdu = (new PduParser(mPduData, supportContentDisposition)).parse();
             if (pdu == null) {
-                LogUtil.e(requestId, "persistIfRequired: can't parse input PDU. messageId: "
-                        + mMessageId);
+                LogUtil.e(requestId, "persistIfRequired: can't parse input PDU. "
+                        + MmsService.formatCrossStackMessageId(mMessageId));
                 return null;
             }
             if (!(pdu instanceof SendReq)) {
-                LogUtil.d(requestId, "persistIfRequired: not SendReq. messageId: " + mMessageId);
+                LogUtil.d(requestId, "persistIfRequired: not SendReq. "
+                        + MmsService.formatCrossStackMessageId(mMessageId));
                 return null;
             }
             final PduPersister persister = PduPersister.getPduPersister(context);
@@ -200,8 +207,8 @@ public class SendRequest extends MmsRequest {
                     true/*groupMmsEnabled*/,
                     null/*preOpenedFiles*/);
             if (messageUri == null) {
-                LogUtil.e(requestId, "persistIfRequired: can not persist message. messageId: "
-                        + mMessageId);
+                LogUtil.e(requestId, "persistIfRequired: can not persist message. "
+                        + MmsService.formatCrossStackMessageId(mMessageId));
                 return null;
             }
             // Update the additional columns based on the send result
@@ -239,16 +246,16 @@ public class SendRequest extends MmsRequest {
             values.put(Telephony.Mms.SUBSCRIPTION_ID, mSubId);
             if (SqliteWrapper.update(context, context.getContentResolver(), messageUri, values,
                     null/*where*/, null/*selectionArg*/) != 1) {
-                LogUtil.e(requestId, "persistIfRequired: failed to update message. messageId: "
-                        + mMessageId);
+                LogUtil.e(requestId, "persistIfRequired: failed to update message. "
+                        + MmsService.formatCrossStackMessageId(mMessageId));
             }
             return messageUri;
         } catch (MmsException e) {
-            LogUtil.e(requestId, "persistIfRequired: can not persist message. messageId: "
-                    + mMessageId, e);
+            LogUtil.e(requestId, "persistIfRequired: can not persist message. "
+                    + MmsService.formatCrossStackMessageId(mMessageId), e);
         } catch (RuntimeException e) {
-            LogUtil.e(requestId, "persistIfRequired: unexpected parsing failure. messageId: "
-                    + mMessageId, e);
+            LogUtil.e(requestId, "persistIfRequired: unexpected parsing failure. "
+                    + MmsService.formatCrossStackMessageId(mMessageId), e);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -263,12 +270,13 @@ public class SendRequest extends MmsRequest {
     private void updateDestinationAddress(final GenericPdu pdu) {
         final String requestId = getRequestId();
         if (pdu == null) {
-            LogUtil.e(requestId, "updateDestinationAddress: can't parse input PDU. messageId: "
-                    + mMessageId);
+            LogUtil.e(requestId, "updateDestinationAddress: can't parse input PDU. "
+                    + MmsService.formatCrossStackMessageId(mMessageId));
             return ;
         }
         if (!(pdu instanceof SendReq)) {
-            LogUtil.i(requestId, "updateDestinationAddress: not SendReq. messageId: " + mMessageId);
+            LogUtil.i(requestId, "updateDestinationAddress: not SendReq. "
+                    + MmsService.formatCrossStackMessageId(mMessageId));
             return;
         }
 
@@ -393,36 +401,45 @@ public class SendRequest extends MmsRequest {
     /**
      * Sends the MMS through through the carrier app.
      */
-    private final class CarrierSendManager extends CarrierMessagingServiceWrapper {
+    private final class CarrierSendManager {
         // Initialized in sendMms
         private volatile CarrierSendCompleteCallback mCarrierSendCompleteCallback;
+        private final CarrierMessagingServiceWrapper mCarrierMessagingServiceWrapper =
+                new CarrierMessagingServiceWrapper();
+
+        void disposeConnection(Context context) {
+            mCarrierMessagingServiceWrapper.disconnect();
+        }
 
         void sendMms(Context context, String carrierMessagingServicePackage,
                 CarrierSendCompleteCallback carrierSendCompleteCallback) {
             mCarrierSendCompleteCallback = carrierSendCompleteCallback;
-            if (bindToCarrierMessagingService(context, carrierMessagingServicePackage)) {
-                LogUtil.v("bindService() for carrier messaging service succeeded. messageId: "
-                        + mMessageId);
+            if (mCarrierMessagingServiceWrapper.bindToCarrierMessagingService(
+                    context, carrierMessagingServicePackage, Runnable::run,
+                    () -> onServiceReady())) {
+                LogUtil.v("bindService() for carrier messaging service succeeded. "
+                        + MmsService.formatCrossStackMessageId(mMessageId));
             } else {
-                LogUtil.e("bindService() for carrier messaging service failed. messageId: "
-                        + mMessageId);
+                LogUtil.e("bindService() for carrier messaging service failed. "
+                        + MmsService.formatCrossStackMessageId(mMessageId));
                 carrierSendCompleteCallback.onSendMmsComplete(
                         CarrierMessagingService.SEND_STATUS_RETRY_ON_CARRIER_NETWORK,
                         null /* no sendConfPdu */);
             }
         }
 
-        @Override
-        public void onServiceReady() {
+        private void onServiceReady() {
             try {
                 Uri locationUri = null;
                 if (mLocationUrl != null) {
                     locationUri = Uri.parse(mLocationUrl);
                 }
-                sendMms(mPduUri, mSubId, locationUri, mCarrierSendCompleteCallback);
+                mCarrierMessagingServiceWrapper.sendMms(
+                        mPduUri, mSubId, locationUri, Runnable::run,
+                        mCarrierSendCompleteCallback);
             } catch (RuntimeException e) {
-                LogUtil.e("Exception sending MMS using the carrier messaging service. messageId: "
-                        + mMessageId + e, e);
+                LogUtil.e("Exception sending MMS using the carrier messaging service. "
+                        + MmsService.formatCrossStackMessageId(mMessageId) + e, e);
                 mCarrierSendCompleteCallback.onSendMmsComplete(
                         CarrierMessagingService.SEND_STATUS_RETRY_ON_CARRIER_NETWORK,
                         null /* no sendConfPdu */);
@@ -446,18 +463,21 @@ public class SendRequest extends MmsRequest {
 
         @Override
         public void onSendMmsComplete(int result, byte[] sendConfPdu) {
-            LogUtil.d("Carrier app result for sending messageId " + mMessageId + ": " + result);
+            LogUtil.d("Carrier app result for sending "
+                    + MmsService.formatCrossStackMessageId(mMessageId)
+                    + ": " + result);
             mCarrierSendManager.disposeConnection(mContext);
 
             if (!maybeFallbackToRegularDelivery(result)) {
                 processResult(mContext, toSmsManagerResult(result), sendConfPdu,
-                        0/* httpStatusCode */);
+                        0/* httpStatusCode */, /* handledByCarrierApp= */ true);
             }
         }
 
         @Override
         public void onDownloadMmsComplete(int result) {
-            LogUtil.e("Unexpected onDownloadMmsComplete call for messageId " + mMessageId
+            LogUtil.e("Unexpected onDownloadMmsComplete call for "
+                    + MmsService.formatCrossStackMessageId(mMessageId)
                     + " with result: " + result);
         }
     }

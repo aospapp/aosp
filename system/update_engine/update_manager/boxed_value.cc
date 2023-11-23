@@ -23,9 +23,10 @@
 
 #include <base/strings/string_number_conversions.h>
 #include <base/time/time.h>
+#include <base/version.h>
 
+#include "update_engine/common/connection_utils.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/connection_utils.h"
 #include "update_engine/update_manager/rollback_prefs.h"
 #include "update_engine/update_manager/shill_provider.h"
 #include "update_engine/update_manager/updater_provider.h"
@@ -51,41 +52,25 @@ string BoxedValue::ValuePrinter<string>(const void* value) {
 template <>
 string BoxedValue::ValuePrinter<int>(const void* value) {
   const int* val = reinterpret_cast<const int*>(value);
-#if BASE_VER < 576279
-  return base::IntToString(*val);
-#else
   return base::NumberToString(*val);
-#endif
 }
 
 template <>
 string BoxedValue::ValuePrinter<unsigned int>(const void* value) {
   const unsigned int* val = reinterpret_cast<const unsigned int*>(value);
-#if BASE_VER < 576279
-  return base::UintToString(*val);
-#else
   return base::NumberToString(*val);
-#endif
 }
 
 template <>
 string BoxedValue::ValuePrinter<int64_t>(const void* value) {
   const int64_t* val = reinterpret_cast<const int64_t*>(value);
-#if BASE_VER < 576279
-  return base::Int64ToString(*val);
-#else
   return base::NumberToString(*val);
-#endif
 }
 
 template <>
 string BoxedValue::ValuePrinter<uint64_t>(const void* value) {
   const uint64_t* val = reinterpret_cast<const uint64_t*>(value);
-#if BASE_VER < 576279
-  return base::Uint64ToString(*val);
-#else
   return base::NumberToString(*val);
-#endif
 }
 
 template <>
@@ -97,11 +82,7 @@ string BoxedValue::ValuePrinter<bool>(const void* value) {
 template <>
 string BoxedValue::ValuePrinter<double>(const void* value) {
   const double* val = reinterpret_cast<const double*>(value);
-#if BASE_VER < 576279
-  return base::DoubleToString(*val);
-#else
   return base::NumberToString(*val);
-#endif
 }
 
 template <>
@@ -167,8 +148,6 @@ string BoxedValue::ValuePrinter<RollbackToTargetVersion>(const void* value) {
       return "Rollback and powerwash";
     case RollbackToTargetVersion::kRollbackAndRestoreIfPossible:
       return "Rollback and restore if possible";
-    case RollbackToTargetVersion::kRollbackOnlyIfRestorePossible:
-      return "Rollback only if restore is possible";
     case RollbackToTargetVersion::kMaxValue:
       NOTREACHED();
       return "Max value";
@@ -199,6 +178,8 @@ string BoxedValue::ValuePrinter<Stage>(const void* value) {
       return "Reporting Error Event";
     case Stage::kAttemptingRollback:
       return "Attempting Rollback";
+    case Stage::kCleanupPreviousUpdate:
+      return "Cleanup Previous Update";
   }
   NOTREACHED();
   return "Unknown";
@@ -252,6 +233,32 @@ string BoxedValue::ValuePrinter<WeeklyTimeIntervalVector>(const void* value) {
     retval += interval.ToString() + "\n";
   }
   return retval;
+}
+
+template <>
+string BoxedValue::ValuePrinter<ChannelDowngradeBehavior>(const void* value) {
+  const ChannelDowngradeBehavior* val =
+      reinterpret_cast<const ChannelDowngradeBehavior*>(value);
+  switch (*val) {
+    case ChannelDowngradeBehavior::kUnspecified:
+      return "Unspecified";
+    case ChannelDowngradeBehavior::kWaitForVersionToCatchUp:
+      return "Wait for the target channel to catch up";
+    case ChannelDowngradeBehavior::kRollback:
+      return "Roll back and powerwash on channel downgrade";
+    case ChannelDowngradeBehavior::kAllowUserToConfigure:
+      return "User decides on channel downgrade behavior";
+  }
+  NOTREACHED();
+  return "Unknown";
+}
+
+template <>
+string BoxedValue::ValuePrinter<base::Version>(const void* value) {
+  const base::Version* val = reinterpret_cast<const base::Version*>(value);
+  if (val->IsValid())
+    return val->GetString();
+  return "Unknown";
 }
 
 }  // namespace chromeos_update_manager

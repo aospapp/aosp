@@ -1,7 +1,8 @@
-diff -ru mksh-R57/funcs.c src/funcs.c
---- mksh-R57/funcs.c	2018-10-20 14:04:55.000000000 -0700
-+++ src/funcs.c	2019-03-26 12:05:23.976821773 -0700
-@@ -103,7 +103,9 @@
+Only in src: FAQ.htm
+diff -u mksh-R59b/funcs.c src/funcs.c
+--- mksh-R59b/funcs.c	2020-05-16 15:38:48.000000000 -0700
++++ src/funcs.c	2020-05-20 17:14:19.588510856 -0700
+@@ -104,7 +104,9 @@
  	{Tsgbreak, c_brkcont},
  	{T__builtin, c_builtin},
  	{Tbuiltin, c_builtin},
@@ -11,7 +12,7 @@ diff -ru mksh-R57/funcs.c src/funcs.c
  	{Tcd, c_cd},
  	/* dash compatibility hack */
  	{"chdir", c_cd},
-@@ -126,7 +128,9 @@
+@@ -125,7 +127,9 @@
  	{"pwd", c_pwd},
  	{Tread, c_read},
  	{Tdsgreadonly, c_typeset},
@@ -20,8 +21,8 @@ diff -ru mksh-R57/funcs.c src/funcs.c
 +#endif
  	{"~rename", c_rename},
  	{"*=return", c_exitreturn},
- 	{Tsgset, c_set},
-@@ -160,8 +164,10 @@
+ 	{Tsghset, c_set},
+@@ -159,8 +163,10 @@
  	{"~printf", c_printf},
  #endif
  #if HAVE_SELECT
@@ -32,10 +33,10 @@ diff -ru mksh-R57/funcs.c src/funcs.c
  #ifdef __MirBSD__
  	/* alias to "true" for historical reasons */
  	{"domainname", c_true},
-diff -ru mksh-R57/main.c src/main.c
---- mksh-R57/main.c	2019-01-05 05:24:45.000000000 -0800
-+++ src/main.c	2019-03-26 12:05:23.980821764 -0700
-@@ -399,6 +399,12 @@
+diff -u mksh-R59b/main.c src/main.c
+--- mksh-R59b/main.c	2020-05-16 15:51:51.000000000 -0700
++++ src/main.c	2020-05-20 17:14:19.588510856 -0700
+@@ -414,6 +414,12 @@
  	/* import environment */
  	init_environ();
  
@@ -48,3 +49,9 @@ diff -ru mksh-R57/main.c src/main.c
  	/* for security */
  	typeset(TinitIFS, 0, 0, 0, 0);
  
+Only in src: main.c.orig
+Only in src: Rebuild.sh
+Only in src: rlimits.gen
+Only in src: sh_flags.gen
+Only in src: signames.inc
+Only in src: test.sh

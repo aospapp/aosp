@@ -16,6 +16,7 @@
 
 package com.android.camera;
 
+import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.RectF;
@@ -104,7 +105,7 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
         Log.v(TAG, "onLayoutChange");
         int width = right - left;
         int height = bottom - top;
-        int rotation = CameraUtil.getDisplayRotation();
+        int rotation = CameraUtil.getDisplayRotation((Activity) mPreview.getContext());
         if (mWidth != width || mHeight != height || mOrientation != rotation) {
             mWidth = width;
             mHeight = height;
@@ -355,7 +356,7 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
                 && (mAppController.getCurrentModuleIndex() == mCameraModeId ||
                 mAppController.getCurrentModuleIndex() == mCaptureIntentModeId)) {
             Log.v(TAG, "Applying Photo Mode, Capture Module, Nexus-4 specific fix for b/19271661");
-            mOrientation = CameraUtil.getDisplayRotation();
+            mOrientation = CameraUtil.getDisplayRotation((Activity) mPreview.getContext());
             matrix = getPreviewRotationalTransform(mOrientation,
                     new RectF(0, 0, mWidth, mHeight),
                     mCaptureLayoutHelper.getPreviewRect());

@@ -108,7 +108,7 @@ public class PrivilegedUpdateTests extends DeviceTestCase implements IAbiReceive
         runDeviceTests(TEST_PKG, ".PrivilegedUpdateTest", "testPrivilegedAppPriorities");
     }
 
-    public void testPrivilegedAppUpgradePriorities() throws Exception {
+    public void testPrivilegedAppUpgradePrioritiesPreservedOnReboot() throws Exception {
         if (!isDefaultAbi()) {
             Log.w(TAG, "Skipping test for non-default abi.");
             return;
@@ -119,6 +119,10 @@ public class PrivilegedUpdateTests extends DeviceTestCase implements IAbiReceive
         try {
             assertNull(getDevice().installPackage(
                     mBuildHelper.getTestFile(SHIM_UPDATE_APK), true));
+            runDeviceTests(TEST_PKG, ".PrivilegedUpdateTest", "testPrivilegedAppUpgradePriorities");
+
+            getDevice().reboot();
+
             runDeviceTests(TEST_PKG, ".PrivilegedUpdateTest", "testPrivilegedAppUpgradePriorities");
         } finally {
             getDevice().uninstallPackage(SHIM_PKG);

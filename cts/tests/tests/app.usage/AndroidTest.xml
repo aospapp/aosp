@@ -25,6 +25,7 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsUsageStatsTestCases.apk" />
         <option name="test-file-name" value="CtsUsageStatsTestApp1.apk" />
+        <option name="test-file-name" value="CtsUsageStatsTestApp2.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.app.usage.cts" />

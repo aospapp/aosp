@@ -21,8 +21,9 @@
     <string name="bugreport_info_quit" msgid="5590138890181142473">"Sulje"</string>
     <string name="bugreport_info_start" msgid="667324824650830832">"Aloita virheraportti"</string>
     <string name="bugreport_info_status" msgid="7211044508792815451">"Tila:"</string>
+    <string name="bugreport_info_expires_soon_notice" msgid="927139313070992675">"Tämä virheraportti vanhenee pian"</string>
     <string name="bugreport_dialog_submit" msgid="2789636252713280633">"Lähetä"</string>
-    <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"Peruuta"</string>
+    <string name="bugreport_dialog_cancel" msgid="4741928791364757040">"Peru"</string>
     <string name="bugreport_dialog_upload" msgid="2517386929450370781">"Lataa"</string>
     <string name="bugreport_dialog_save" msgid="3291363266190644226">"Tallenna"</string>
     <string name="bugreport_dialog_show_bugreports" msgid="6964385141627170297">"Näytä virheraportit"</string>

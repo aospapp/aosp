@@ -25,8 +25,8 @@
 #include <base/time/time.h>
 #include <policy/device_policy.h>
 
+#include "update_engine/common/connection_utils.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/connection_utils.h"
 #include "update_engine/update_manager/generic_variables.h"
 
 using base::TimeDelta;
@@ -105,10 +105,12 @@ void RealDevicePolicyProvider::RefreshDevicePolicyAndReschedule() {
 
 template <typename T>
 void RealDevicePolicyProvider::UpdateVariable(
-    AsyncCopyVariable<T>* var, bool (DevicePolicy::*getter_method)(T*) const) {
+    AsyncCopyVariable<T>* var,
+    // NOLINTNEXTLINE(readability/casting)
+    bool (DevicePolicy::*getter)(T*) const) {
   T new_value;
   if (policy_provider_->device_policy_is_loaded() &&
-      (policy_provider_->GetDevicePolicy().*getter_method)(&new_value)) {
+      (policy_provider_->GetDevicePolicy().*getter)(&new_value)) {
     var->SetValue(new_value);
   } else {
     var->UnsetValue();
@@ -118,10 +120,10 @@ void RealDevicePolicyProvider::UpdateVariable(
 template <typename T>
 void RealDevicePolicyProvider::UpdateVariable(
     AsyncCopyVariable<T>* var,
-    bool (RealDevicePolicyProvider::*getter_method)(T*) const) {
+    bool (RealDevicePolicyProvider::*getter)(T*) const) {
   T new_value;
   if (policy_provider_->device_policy_is_loaded() &&
-      (this->*getter_method)(&new_value)) {
+      (this->*getter)(&new_value)) {
     var->SetValue(new_value);
   } else {
     var->UnsetValue();
@@ -198,6 +200,30 @@ bool RealDevicePolicyProvider::ConvertDisallowedTimeIntervals(
   return true;
 }
 
+bool RealDevicePolicyProvider::ConvertHasOwner(bool* has_owner) const {
+  string owner;
+  if (!policy_provider_->GetDevicePolicy().GetOwner(&owner)) {
+    return false;
+  }
+  *has_owner = !owner.empty();
+  return true;
+}
+
+bool RealDevicePolicyProvider::ConvertChannelDowngradeBehavior(
+    ChannelDowngradeBehavior* channel_downgrade_behavior) const {
+  int behavior;
+  if (!policy_provider_->GetDevicePolicy().GetChannelDowngradeBehavior(
+          &behavior)) {
+    return false;
+  }
+  if (behavior < static_cast<int>(ChannelDowngradeBehavior::kFirstValue) ||
+      behavior > static_cast<int>(ChannelDowngradeBehavior::kLastValue)) {
+    return false;
+  }
+  *channel_downgrade_behavior = static_cast<ChannelDowngradeBehavior>(behavior);
+  return true;
+}
+
 void RealDevicePolicyProvider::RefreshDevicePolicy() {
   if (!policy_provider_->Reload()) {
     LOG(INFO) << "No device policies/settings present.";
@@ -209,6 +235,7 @@ void RealDevicePolicyProvider::RefreshDevicePolicy() {
   UpdateVariable(&var_release_channel_, &DevicePolicy::GetReleaseChannel);
   UpdateVariable(&var_release_channel_delegated_,
                  &DevicePolicy::GetReleaseChannelDelegated);
+  UpdateVariable(&var_release_lts_tag_, &DevicePolicy::GetReleaseLtsTag);
   UpdateVariable(&var_update_disabled_, &DevicePolicy::GetUpdateDisabled);
   UpdateVariable(&var_target_version_prefix_,
                  &DevicePolicy::GetTargetVersionPrefix);
@@ -225,7 +252,7 @@ void RealDevicePolicyProvider::RefreshDevicePolicy() {
   UpdateVariable(
       &var_allowed_connection_types_for_update_,
       &RealDevicePolicyProvider::ConvertAllowedConnectionTypesForUpdate);
-  UpdateVariable(&var_owner_, &DevicePolicy::GetOwner);
+  UpdateVariable(&var_has_owner_, &RealDevicePolicyProvider::ConvertHasOwner);
   UpdateVariable(&var_http_downloads_enabled_,
                  &DevicePolicy::GetHttpDownloadsEnabled);
   UpdateVariable(&var_au_p2p_enabled_, &DevicePolicy::GetAuP2PEnabled);
@@ -235,6 +262,12 @@ void RealDevicePolicyProvider::RefreshDevicePolicy() {
                  &DevicePolicy::GetAutoLaunchedKioskAppId);
   UpdateVariable(&var_disallowed_time_intervals_,
                  &RealDevicePolicyProvider::ConvertDisallowedTimeIntervals);
+  UpdateVariable(&var_channel_downgrade_behavior_,
+                 &RealDevicePolicyProvider::ConvertChannelDowngradeBehavior);
+  UpdateVariable(&var_device_minimum_version_,
+                 &DevicePolicy::GetHighestDeviceMinimumVersion);
+  UpdateVariable(&var_quick_fix_build_token_,
+                 &DevicePolicy::GetDeviceQuickFixBuildToken);
 }
 
 }  // namespace chromeos_update_manager

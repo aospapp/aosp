@@ -16,29 +16,27 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.inputmethodservice.cts.ime1">
+     package="android.inputmethodservice.cts.ime1">
 
     <!--
-      TODO: We may need to have another new APK that has the latest targetSdkVersion to check the
-      latest OS behaviors.
-    -->
-    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="25" />
+              TODO: We may need to have another new APK that has the latest targetSdkVersion to check the
+              latest OS behaviors.
+            -->
+    <uses-sdk android:minSdkVersion="19"
+         android:targetSdkVersion="25"/>
 
-    <application
-        android:label="@string/ime_name"
-        android:allowBackup="false"
-        android:theme="@android:style/Theme.InputMethod"
-    >
-        <service
-            android:name=".CtsInputMethod1"
-            android:label="@string/ime_name"
-            android:permission="android.permission.BIND_INPUT_METHOD">
+    <application android:label="@string/ime_name"
+         android:allowBackup="false"
+         android:theme="@android:style/Theme.InputMethod">
+        <service android:name=".CtsInputMethod1"
+             android:label="@string/ime_name"
+             android:permission="android.permission.BIND_INPUT_METHOD"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.view.InputMethod" />
+                <action android:name="android.view.InputMethod"/>
             </intent-filter>
-            <meta-data
-                android:name="android.view.im"
-                android:resource="@xml/ime1" />
+            <meta-data android:name="android.view.im"
+                 android:resource="@xml/ime1"/>
         </service>
     </application>
 

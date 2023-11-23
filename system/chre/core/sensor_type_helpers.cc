@@ -33,6 +33,8 @@ ReportingMode SensorTypeHelpers::getReportingMode(uint8_t sensorType) {
       return ReportingMode::OneShot;
     case CHRE_SENSOR_TYPE_LIGHT:
     case CHRE_SENSOR_TYPE_PROXIMITY:
+    case CHRE_SENSOR_TYPE_STEP_COUNTER:
+    case CHRE_SENSOR_TYPE_HINGE_ANGLE:
       return ReportingMode::OnChange;
     default:
       return ReportingMode::Continuous;
@@ -108,6 +110,7 @@ size_t SensorTypeHelpers::getLastEventSize(uint8_t sensorType) {
       case CHRE_SENSOR_TYPE_ACCELEROMETER_TEMPERATURE:
       case CHRE_SENSOR_TYPE_GYROSCOPE_TEMPERATURE:
       case CHRE_SENSOR_TYPE_GEOMAGNETIC_FIELD_TEMPERATURE:
+      case CHRE_SENSOR_TYPE_HINGE_ANGLE:
         return sizeof(chreSensorFloatData);
       case CHRE_SENSOR_TYPE_INSTANT_MOTION_DETECT:
       case CHRE_SENSOR_TYPE_STATIONARY_DETECT:
@@ -115,6 +118,8 @@ size_t SensorTypeHelpers::getLastEventSize(uint8_t sensorType) {
         return sizeof(chreSensorOccurrenceData);
       case CHRE_SENSOR_TYPE_PROXIMITY:
         return sizeof(chreSensorByteData);
+      case CHRE_SENSOR_TYPE_STEP_COUNTER:
+        return sizeof(chreSensorUint64Data);
       default:
         // Update implementation to prevent undefined from being used.
         CHRE_ASSERT(false);
@@ -150,6 +155,10 @@ const char *SensorTypeHelpers::getSensorTypeName(uint8_t sensorType) {
       return "Proximity";
     case CHRE_SENSOR_TYPE_STEP_DETECT:
       return "Step Detect";
+    case CHRE_SENSOR_TYPE_STEP_COUNTER:
+      return "Step Counter";
+    case CHRE_SENSOR_TYPE_HINGE_ANGLE:
+      return "Hinge Angle";
     case CHRE_SENSOR_TYPE_ACCELEROMETER_TEMPERATURE:
       return "Accelerometer Temp";
     case CHRE_SENSOR_TYPE_GYROSCOPE_TEMPERATURE:
@@ -168,6 +177,22 @@ const char *SensorTypeHelpers::getSensorTypeName(uint8_t sensorType) {
   }
 }
 
+uint8_t SensorTypeHelpers::toUncalibratedSensorType(uint8_t sensorType) {
+  switch (sensorType) {
+    case CHRE_SENSOR_TYPE_ACCELEROMETER:
+      return CHRE_SENSOR_TYPE_UNCALIBRATED_ACCELEROMETER;
+    case CHRE_SENSOR_TYPE_GYROSCOPE:
+      return CHRE_SENSOR_TYPE_UNCALIBRATED_GYROSCOPE;
+    case CHRE_SENSOR_TYPE_GEOMAGNETIC_FIELD:
+      return CHRE_SENSOR_TYPE_UNCALIBRATED_GEOMAGNETIC_FIELD;
+    default:
+      /* empty */
+      break;
+  }
+
+  return sensorType;
+}
+
 void SensorTypeHelpers::getLastSample(uint8_t sensorType,
                                       const ChreSensorData *event,
                                       ChreSensorData *lastEvent) {
@@ -181,12 +206,17 @@ void SensorTypeHelpers::getLastSample(uint8_t sensorType,
   } else {
     switch (sensorType) {
       case CHRE_SENSOR_TYPE_LIGHT:
+      case CHRE_SENSOR_TYPE_HINGE_ANGLE:
         copyLastSample<chreSensorFloatData>(&event->floatData,
                                             &lastEvent->floatData);
         break;
       case CHRE_SENSOR_TYPE_PROXIMITY:
         copyLastSample<chreSensorByteData>(&event->byteData,
                                            &lastEvent->byteData);
+        break;
+      case CHRE_SENSOR_TYPE_STEP_COUNTER:
+        copyLastSample<chreSensorUint64Data>(&event->uint64Data,
+                                             &lastEvent->uint64Data);
         break;
       default:
         LOGE("Unhandled sensor type %" PRIu8, sensorType);

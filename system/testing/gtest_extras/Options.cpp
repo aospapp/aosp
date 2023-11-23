@@ -15,20 +15,22 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
+#include <regex>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include <android-base/file.h>
-#include <android-base/parseint.h>
-#include <android-base/strings.h>
 #include <gtest/gtest.h>
 
 #include "Options.h"
@@ -90,20 +92,16 @@ static void PrintError(const std::string& arg, std::string msg, bool from_env) {
 }
 
 template <typename IntType>
-static bool GetNumeric(const char* arg, const char* value, IntType* numeric_value, bool from_env) {
-  bool result = false;
-  if constexpr (std::is_unsigned<IntType>::value) {
-    result = android::base::ParseUint<IntType>(value, numeric_value);
-  } else {
-    result = android::base::ParseInt<IntType>(value, numeric_value);
-  }
-  if (!result) {
-    if (errno == ERANGE) {
-      PrintError(arg, std::string("value overflows (") + value + ")", from_env);
-    } else {
-      PrintError(arg, std::string("value is not formatted as a numeric value (") + value + ")",
-                 from_env);
-    }
+static bool GetNumeric(const std::string& arg, const std::string& value, IntType* numeric_value,
+                       bool from_env) {
+  auto result = std::from_chars(value.c_str(), value.c_str() + value.size(), *numeric_value, 10);
+  if (result.ec == std::errc::result_out_of_range) {
+    PrintError(arg, std::string("value overflows (") + value + ")", from_env);
+    return false;
+  } else if (result.ec == std::errc::invalid_argument || result.ptr == nullptr ||
+             *result.ptr != '\0') {
+    PrintError(arg, std::string("value is not formatted as a numeric value (") + value + ")",
+               from_env);
     return false;
   }
   return true;
@@ -118,7 +116,7 @@ bool Options::SetPrintTime(const std::string&, const std::string& value, bool) {
 
 bool Options::SetNumeric(const std::string& arg, const std::string& value, bool from_env) {
   uint64_t* numeric = &numerics_.find(arg)->second;
-  if (!GetNumeric<uint64_t>(arg.c_str(), value.c_str(), numeric, from_env)) {
+  if (!GetNumeric<uint64_t>(arg, value, numeric, from_env)) {
     return false;
   }
   if (*numeric == 0) {
@@ -134,7 +132,7 @@ bool Options::SetNumericEnvOnly(const std::string& arg, const std::string& value
     return false;
   }
   uint64_t* numeric = &numerics_.find(arg)->second;
-  if (!GetNumeric<uint64_t>(arg.c_str(), value.c_str(), numeric, from_env)) {
+  if (!GetNumeric<uint64_t>(arg, value, numeric, from_env)) {
     return false;
   }
   return true;
@@ -146,7 +144,7 @@ bool Options::SetBool(const std::string& arg, const std::string&, bool) {
 }
 
 bool Options::SetIterations(const std::string& arg, const std::string& value, bool from_env) {
-  if (!GetNumeric<int>(arg.c_str(), value.c_str(), &num_iterations_, from_env)) {
+  if (!GetNumeric<int>(arg, value, &num_iterations_, from_env)) {
     return false;
   }
   return true;
@@ -214,13 +212,29 @@ bool Options::HandleArg(const std::string& arg, const std::string& value, const 
   return true;
 }
 
+static bool ReadFileToString(const std::string& file, std::string* contents) {
+  int fd = TEMP_FAILURE_RETRY(open(file.c_str(), O_RDONLY | O_CLOEXEC));
+  if (fd == -1) {
+    return false;
+  }
+  char buf[4096];
+  ssize_t bytes_read;
+  while ((bytes_read = TEMP_FAILURE_RETRY(read(fd, &buf, sizeof(buf)))) > 0) {
+    contents->append(buf, bytes_read);
+  }
+  close(fd);
+  return true;
+}
+
 bool Options::ProcessFlagfile(const std::string& file, std::vector<char*>* child_args) {
   std::string contents;
-  if (!android::base::ReadFileToString(file, &contents)) {
+  if (!ReadFileToString(file, &contents)) {
     printf("Unable to read data from file %s\n", file.c_str());
     return false;
   }
 
+  std::regex flag_regex("^\\s*(\\S.*\\S)\\s*$");
+  std::regex empty_line_regex("^\\s*$");
   size_t idx = 0;
   while (idx < contents.size()) {
     size_t newline_idx = contents.find('\n', idx);
@@ -229,8 +243,10 @@ bool Options::ProcessFlagfile(const std::string& file, std::vector<char*>* child
     }
     std::string line(&contents[idx], newline_idx - idx);
     idx = newline_idx + 1;
-    line = android::base::Trim(line);
-    if (line.empty()) {
+    std::smatch match;
+    if (std::regex_match(line, match, flag_regex)) {
+      line = match[1];
+    } else if (std::regex_match(line, match, empty_line_regex)) {
       // Skip lines with only whitespace.
       continue;
     }

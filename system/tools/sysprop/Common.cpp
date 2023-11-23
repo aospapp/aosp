@@ -141,6 +141,17 @@ Result<void> ValidateProp(const sysprop::Properties& props,
     return Errorf("Invalid prop name \"{}\"", prop.prop_name());
   }
 
+  std::string legacy_name = prop.legacy_prop_name();
+  if (!legacy_name.empty()) {
+    if (!IsCorrectPropertyName(legacy_name)) {
+      return Errorf("Invalid legacy prop name \"{}\"", legacy_name);
+    }
+    if (prop.access() != sysprop::Readonly) {
+      return Errorf("Prop \"{}\" which has legacy_prop_name must be Readonly",
+                    prop.prop_name());
+    }
+  }
+
   static const std::regex vendor_regex(
       "(init\\.svc\\.|ro\\.|persist\\.)?vendor\\..+|ro\\.hardware\\..+");
   static const std::regex odm_regex(
@@ -173,25 +184,10 @@ Result<void> ValidateProp(const sysprop::Properties& props,
       break;
   }
 
-  switch (prop.access()) {
-    case sysprop::ReadWrite:
-      if (android::base::StartsWith(prop_name, "ro.")) {
-        return Errorf("Prop \"{}\" is ReadWrite and also have prefix \"ro.\"",
-                      prop_name);
-      }
-      break;
-    default:
-      /*
-       * TODO: Some properties don't have prefix "ro." but not written in any
-       * Java or C++ codes. They might be misnamed and should be readonly. Will
-       * uncomment this check after fixing them all / or making a whitelist for
-       * them
-      if (!android::base::StartsWith(prop_name, "ro.")) {
-        return Errorf("Prop \"{}\" isn't ReadWrite, but don't have prefix
-      \"ro.\"", prop_name);
-      }
-      */
-      break;
+  if (prop.access() == sysprop::ReadWrite &&
+      android::base::StartsWith(prop_name, "ro.")) {
+    return Errorf("Prop \"{}\" is ReadWrite and also have prefix \"ro.\"",
+                  prop_name);
   }
 
   if (prop.integer_as_bool() && !(prop.type() == sysprop::Boolean ||
@@ -225,6 +221,7 @@ Result<void> ValidateProps(const sysprop::Properties& props) {
   }
 
   std::unordered_set<std::string> prop_names;
+  std::unordered_map<std::string, sysprop::Type> prop_types;
 
   for (int i = 0; i < props.prop_size(); ++i) {
     const auto& prop = props.prop(i);
@@ -232,6 +229,21 @@ Result<void> ValidateProps(const sysprop::Properties& props) {
 
     if (!res.second) {
       return Errorf("Duplicated API name \"{}\"", prop.api_name());
+    }
+
+    std::vector<std::string> prop_names{prop.prop_name()};
+    std::string legacy_name = prop.legacy_prop_name();
+    if (!legacy_name.empty()) prop_names.push_back(legacy_name);
+
+    sysprop::Type type = prop.type();
+
+    for (auto& name : prop_names) {
+      // get type if already exists. inserts mine if not.
+      sysprop::Type prev_type = prop_types.emplace(name, type).first->second;
+      if (prev_type != type) {
+        return Errorf("Type error on prop \"{}\": it's {} but was {}", name,
+                      sysprop::Type_Name(type), sysprop::Type_Name(prev_type));
+      }
     }
   }
 
@@ -263,6 +275,8 @@ bool IsListProp(const sysprop::Property& prop) {
     case sysprop::DoubleList:
     case sysprop::StringList:
     case sysprop::EnumList:
+    case sysprop::UIntList:
+    case sysprop::ULongList:
       return true;
     default:
       return false;
@@ -272,6 +286,10 @@ bool IsListProp(const sysprop::Property& prop) {
 std::string GetModuleName(const sysprop::Properties& props) {
   const std::string& module = props.module();
   return module.substr(module.rfind('.') + 1);
+}
+
+std::vector<std::string> ParseEnumValues(const std::string& enum_values) {
+  return android::base::Split(enum_values, "|");
 }
 
 Result<sysprop::Properties> ParseProps(const std::string& input_file_path) {
@@ -286,11 +304,12 @@ Result<sysprop::Properties> ParseProps(const std::string& input_file_path) {
     return Errorf("Error parsing file {}", input_file_path);
   }
 
+  SetDefaultValues(&ret);
+
+  // validate after filling default values such as prop_name
   if (auto res = ValidateProps(ret); !res.ok()) {
     return res.error();
   }
-
-  SetDefaultValues(&ret);
 
   return ret;
 }
@@ -318,11 +337,12 @@ Result<sysprop::SyspropLibraryApis> ParseApiFile(
                     input_file_path, props->module());
     }
 
+    SetDefaultValues(props);
+
+    // validate after filling default values such as prop_name
     if (auto res = ValidateProps(*props); !res.ok()) {
       return res.error();
     }
-
-    SetDefaultValues(props);
   }
 
   return ret;

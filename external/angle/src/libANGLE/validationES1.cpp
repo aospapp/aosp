@@ -146,6 +146,13 @@ bool ValidateBuiltinVertexAttributeCommon(const Context *context,
         case VertexAttribType::Fixed:
         case VertexAttribType::Float:
             break;
+        case VertexAttribType::UnsignedByte:
+            if (arrayType != ClientVertexArrayType::Color)
+            {
+                context->validationError(GL_INVALID_ENUM, kInvalidVertexPointerType);
+                return false;
+            }
+            break;
         default:
             context->validationError(GL_INVALID_ENUM, kInvalidVertexPointerType);
             return false;
@@ -290,9 +297,9 @@ bool ValidateMaterialQuery(const Context *context, GLenum face, MaterialParamete
         return false;
     }
 
-    GLfloat dummyParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    GLfloat validateParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
-    return ValidateMaterialCommon(context, face, pname, dummyParams);
+    return ValidateMaterialCommon(context, face, pname, validateParams);
 }
 
 bool ValidateMaterialSingleComponent(const Context *context,
@@ -378,7 +385,6 @@ bool ValidateFogCommon(const Context *context, GLenum pname, const GLfloat *para
                     return false;
             }
         }
-        break;
         case GL_FOG_START:
         case GL_FOG_END:
         case GL_FOG_COLOR:
@@ -545,15 +551,15 @@ bool ValidateGetTexEnvCommon(const Context *context,
                              TextureEnvTarget target,
                              TextureEnvParameter pname)
 {
-    GLfloat dummy[4] = {};
+    GLfloat validateParams[4] = {};
     switch (pname)
     {
         case TextureEnvParameter::Mode:
-            ConvertPackedEnum(TextureEnvMode::Add, dummy);
+            ConvertPackedEnum(TextureEnvMode::Add, validateParams);
             break;
         case TextureEnvParameter::CombineRgb:
         case TextureEnvParameter::CombineAlpha:
-            ConvertPackedEnum(TextureCombine::Add, dummy);
+            ConvertPackedEnum(TextureCombine::Add, validateParams);
             break;
         case TextureEnvParameter::Src0Rgb:
         case TextureEnvParameter::Src1Rgb:
@@ -561,7 +567,7 @@ bool ValidateGetTexEnvCommon(const Context *context,
         case TextureEnvParameter::Src0Alpha:
         case TextureEnvParameter::Src1Alpha:
         case TextureEnvParameter::Src2Alpha:
-            ConvertPackedEnum(TextureSrc::Constant, dummy);
+            ConvertPackedEnum(TextureSrc::Constant, validateParams);
             break;
         case TextureEnvParameter::Op0Rgb:
         case TextureEnvParameter::Op1Rgb:
@@ -569,18 +575,18 @@ bool ValidateGetTexEnvCommon(const Context *context,
         case TextureEnvParameter::Op0Alpha:
         case TextureEnvParameter::Op1Alpha:
         case TextureEnvParameter::Op2Alpha:
-            ConvertPackedEnum(TextureOp::SrcAlpha, dummy);
+            ConvertPackedEnum(TextureOp::SrcAlpha, validateParams);
             break;
         case TextureEnvParameter::RgbScale:
         case TextureEnvParameter::AlphaScale:
         case TextureEnvParameter::PointCoordReplace:
-            dummy[0] = 1.0f;
+            validateParams[0] = 1.0f;
             break;
         default:
             break;
     }
 
-    return ValidateTexEnvCommon(context, target, pname, dummy);
+    return ValidateTexEnvCommon(context, target, pname, validateParams);
 }
 
 bool ValidatePointParameterCommon(const Context *context,
@@ -858,8 +864,8 @@ bool ValidateGetLightfv(const Context *context,
                         LightParameter pname,
                         const GLfloat *params)
 {
-    GLfloat dummyParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    return ValidateLightCommon(context, light, pname, dummyParams);
+    GLfloat validateParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    return ValidateLightCommon(context, light, pname, validateParams);
 }
 
 bool ValidateGetLightxv(const Context *context,
@@ -867,8 +873,8 @@ bool ValidateGetLightxv(const Context *context,
                         LightParameter pname,
                         const GLfixed *params)
 {
-    GLfloat dummyParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    return ValidateLightCommon(context, light, pname, dummyParams);
+    GLfloat validateParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    return ValidateLightCommon(context, light, pname, validateParams);
 }
 
 bool ValidateGetMaterialfv(const Context *context,
@@ -1544,49 +1550,90 @@ bool ValidateGenFramebuffersOES(const Context *context,
                                 GLsizei n,
                                 const FramebufferID *framebuffers)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateGenOrDelete(context, n);
 }
 
 bool ValidateDeleteFramebuffersOES(const Context *context,
                                    GLsizei n,
                                    const FramebufferID *framebuffers)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateGenOrDelete(context, n);
 }
 
 bool ValidateGenRenderbuffersOES(const Context *context,
                                  GLsizei n,
                                  const RenderbufferID *renderbuffers)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateGenOrDelete(context, n);
 }
 
 bool ValidateDeleteRenderbuffersOES(const Context *context,
                                     GLsizei n,
                                     const RenderbufferID *renderbuffers)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateGenOrDelete(context, n);
 }
 
 bool ValidateBindFramebufferOES(const Context *context, GLenum target, FramebufferID framebuffer)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateBindFramebufferBase(context, target, framebuffer);
 }
 
 bool ValidateBindRenderbufferOES(const Context *context, GLenum target, RenderbufferID renderbuffer)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateBindRenderbufferBase(context, target, renderbuffer);
 }
 
 bool ValidateCheckFramebufferStatusOES(const Context *context, GLenum target)
 {
-    UNIMPLEMENTED();
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    if (!ValidFramebufferTarget(context, target))
+    {
+        context->validationError(GL_INVALID_ENUM, kInvalidFramebufferTarget);
+        return false;
+    }
+
     return true;
 }
 
@@ -1596,8 +1643,13 @@ bool ValidateFramebufferRenderbufferOES(const Context *context,
                                         GLenum rbtarget,
                                         RenderbufferID renderbuffer)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateFramebufferRenderbufferBase(context, target, attachment, rbtarget, renderbuffer);
 }
 
 bool ValidateFramebufferTexture2DOES(const Context *context,
@@ -1607,14 +1659,91 @@ bool ValidateFramebufferTexture2DOES(const Context *context,
                                      TextureID texture,
                                      GLint level)
 {
-    UNIMPLEMENTED();
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    if (level != 0)
+    {
+        context->validationError(GL_INVALID_VALUE, kInvalidFramebufferTextureLevel);
+        return false;
+    }
+
+    if (!ValidateFramebufferTextureBase(context, target, attachment, texture, level))
+    {
+        return false;
+    }
+
+    if (texture.value != 0)
+    {
+        Texture *tex = context->getTexture(texture);
+        ASSERT(tex);
+
+        const Caps &caps = context->getCaps();
+
+        switch (textarget)
+        {
+            case TextureTarget::_2D:
+            {
+                if (level > log2(caps.max2DTextureSize))
+                {
+                    context->validationError(GL_INVALID_VALUE, kInvalidMipLevel);
+                    return false;
+                }
+                if (tex->getType() != TextureType::_2D)
+                {
+                    context->validationError(GL_INVALID_OPERATION, kInvalidTextureTarget);
+                    return false;
+                }
+            }
+            break;
+
+            case TextureTarget::CubeMapNegativeX:
+            case TextureTarget::CubeMapNegativeY:
+            case TextureTarget::CubeMapNegativeZ:
+            case TextureTarget::CubeMapPositiveX:
+            case TextureTarget::CubeMapPositiveY:
+            case TextureTarget::CubeMapPositiveZ:
+            {
+                if (!context->getExtensions().textureCubeMapOES)
+                {
+                    context->validationError(GL_INVALID_ENUM, kInvalidTextureTarget);
+                    return false;
+                }
+
+                if (level > log2(caps.maxCubeMapTextureSize))
+                {
+                    context->validationError(GL_INVALID_VALUE, kInvalidMipLevel);
+                    return false;
+                }
+                if (tex->getType() != TextureType::CubeMap)
+                {
+                    context->validationError(GL_INVALID_OPERATION, kTextureTargetMismatch);
+                    return false;
+                }
+            }
+            break;
+
+            default:
+                context->validationError(GL_INVALID_ENUM, kInvalidTextureTarget);
+                return false;
+        }
+    }
+
     return true;
 }
 
 bool ValidateGenerateMipmapOES(const Context *context, TextureType target)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateGenerateMipmapBase(context, target);
 }
 
 bool ValidateGetFramebufferAttachmentParameterivOES(const Context *context,
@@ -1623,8 +1752,14 @@ bool ValidateGetFramebufferAttachmentParameterivOES(const Context *context,
                                                     GLenum pname,
                                                     const GLint *params)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateGetFramebufferAttachmentParameterivBase(context, target, attachment, pname,
+                                                           nullptr);
 }
 
 bool ValidateGetRenderbufferParameterivOES(const Context *context,
@@ -1632,19 +1767,34 @@ bool ValidateGetRenderbufferParameterivOES(const Context *context,
                                            GLenum pname,
                                            const GLint *params)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateGetRenderbufferParameterivBase(context, target, pname, nullptr);
 }
 
 bool ValidateIsFramebufferOES(const Context *context, FramebufferID framebuffer)
 {
-    UNIMPLEMENTED();
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
     return true;
 }
 
 bool ValidateIsRenderbufferOES(const Context *context, RenderbufferID renderbuffer)
 {
-    UNIMPLEMENTED();
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
     return true;
 }
 
@@ -1654,8 +1804,14 @@ bool ValidateRenderbufferStorageOES(const Context *context,
                                     GLsizei width,
                                     GLsizei height)
 {
-    UNIMPLEMENTED();
-    return true;
+    if (!context->getExtensions().framebufferObjectOES)
+    {
+        context->validationError(GL_INVALID_OPERATION, kExtensionNotEnabled);
+        return false;
+    }
+
+    return ValidateRenderbufferStorageParametersBase(context, target, 0, internalformat, width,
+                                                     height);
 }
 
 // GL_OES_texture_cube_map

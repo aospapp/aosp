@@ -167,9 +167,9 @@ static void do_twoside_color( struct brw_sf_compile *c )
    brw_IF(p, BRW_EXECUTE_4);
    {
       switch (c->nr_verts) {
-      case 3: copy_bfc(c, c->vert[2]);
-      case 2: copy_bfc(c, c->vert[1]);
-      case 1: copy_bfc(c, c->vert[0]);
+      case 3: copy_bfc(c, c->vert[2]); /* fallthrough */
+      case 2: copy_bfc(c, c->vert[1]); /* fallthrough */
+      case 1: copy_bfc(c, c->vert[0]); /* fallthrough */
       }
    }
    brw_ENDIF(p);
@@ -868,10 +868,10 @@ brw_compile_sf(const struct brw_compiler *compiler,
 
    const unsigned *program = brw_get_program(&c.func, final_assembly_size);
 
-   if (unlikely(INTEL_DEBUG & DEBUG_SF)) {
+   if (INTEL_DEBUG & DEBUG_SF) {
       fprintf(stderr, "sf:\n");
-      brw_disassemble(compiler->devinfo,
-                      program, 0, *final_assembly_size, stderr);
+      brw_disassemble_with_labels(compiler->devinfo,
+                                  program, 0, *final_assembly_size, stderr);
       fprintf(stderr, "\n");
    }
 

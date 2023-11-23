@@ -20,7 +20,8 @@ class BRILLO_EXPORT AsynchronousSignalHandlerInterface {
   virtual ~AsynchronousSignalHandlerInterface() = default;
 
   // The callback called when a signal is received.
-  using SignalHandler = base::Callback<bool(const struct signalfd_siginfo&)>;
+  using SignalHandler =
+      base::RepeatingCallback<bool(const struct signalfd_siginfo&)>;
 
   // Register a new handler for the given |signal|, replacing any previously
   // registered handler. |callback| will be called on the thread the

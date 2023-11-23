@@ -28,6 +28,7 @@ import collections
 import csv
 import os
 import re
+import math
 
 
 class ScoreException(Exception):
@@ -35,12 +36,23 @@ class ScoreException(Exception):
   pass
 
 
+LatencyResult = collections.namedtuple(
+    'LatencyResult',
+    ['iterations', 'total_time_sec', 'time_freq_start_sec', 'time_freq_step_sec', 'time_freq_sec'])
+
+
+COMPILATION_TYPES = ['compile_without_cache', 'save_to_cache', 'prepare_from_cache']
+BASELINE_COMPILATION_TYPE = COMPILATION_TYPES[0]
+CompilationResult = collections.namedtuple(
+    'CompilationResult',
+    ['cache_size_bytes'] + COMPILATION_TYPES)
+
+
 BenchmarkResult = collections.namedtuple(
     'BenchmarkResult',
-    ['name', 'backend_type', 'iterations', 'total_time_sec', 'max_single_error',
-     'testset_size', 'evaluator_keys', 'evaluator_values',
-     'time_freq_start_sec', 'time_freq_step_sec', 'time_freq_sec',
-     'validation_errors'])
+    ['name', 'backend_type', 'inference_latency', 'max_single_error',
+     'testset_size', 'evaluator_keys', 'evaluator_values', 'validation_errors',
+     'compilation_results'])
 
 
 ResultsWithBaseline = collections.namedtuple(
@@ -54,46 +66,102 @@ KNOWN_GROUPS = [
     (re.compile('mobilenet_v1.*'), 'MobileNet v1 Float'),
     (re.compile('mobilenet_v2.*quant.*'), 'MobileNet v2 Quantized'),
     (re.compile('mobilenet_v2.*'), 'MobileNet v2 Float'),
+    (re.compile('mobilenet_v3.*uint8.*'), 'MobileNet v3 Quantized'),
+    (re.compile('mobilenet_v3.*'), 'MobileNet v3 Float'),
     (re.compile('tts.*'), 'LSTM Text-to-speech'),
     (re.compile('asr.*'), 'LSTM Automatic Speech Recognition'),
 ]
 
 
+class BenchmarkResultParser:
+  """A helper class to parse the input CSV file."""
+
+  def __init__(self, csvfile):
+    self.csv_reader = csv.reader(filter(lambda row: row[0] != '#', csvfile))
+    self.row = None
+    self.index = 0
+
+  def next(self):
+    """Advance to the next row, returns the current row or None if reaches the end."""
+    try:
+      self.row = next(self.csv_reader)
+    except StopIteration:
+      self.row = None
+    finally:
+      self.index = 0
+      return self.row
+
+  def read_boolean(self):
+    """Read the next CSV cell as a boolean."""
+    s = self.read_typed(str).lower()
+    if s == 'true':
+      return True
+    elif s == 'false':
+      return False
+    else:
+      raise ValueError('Cannot convert \'%s\' to a boolean' % s)
+
+  def read_typed(self, Type):
+    """Read the next CSV cell as the given type."""
+    if Type is bool:
+      return self.read_boolean()
+    entry = self.row[self.index]
+    self.index += 1
+    return Type(entry)
+
+  def read_typed_array(self, Type, length):
+    """Read the next CSV cells as a typed array."""
+    return [self.read_typed(Type) for _ in range(length)]
+
+  def read_latency_result(self):
+    """Read the next CSV cells as a LatencyResult."""
+    result = {}
+    result['iterations'] = self.read_typed(int)
+    result['total_time_sec'] = self.read_typed(float)
+    result['time_freq_start_sec'] = self.read_typed(float)
+    result['time_freq_step_sec'] = self.read_typed(float)
+    time_freq_sec_count = self.read_typed(int)
+    result['time_freq_sec'] = self.read_typed_array(float, time_freq_sec_count)
+    return LatencyResult(**result)
+
+  def read_compilation_result(self):
+    """Read the next CSV cells as a CompilationResult."""
+    result = {}
+    for compilation_type in COMPILATION_TYPES:
+      has_results = self.read_typed(bool)
+      result[compilation_type] = self.read_latency_result() if has_results else None
+    result['cache_size_bytes'] = self.read_typed(int)
+    return CompilationResult(**result)
+
+  def read_benchmark_result(self):
+    """Read the next CSV cells as a BenchmarkResult."""
+    result = {}
+    result['name'] = self.read_typed(str)
+    result['backend_type'] = self.read_typed(str)
+    result['inference_latency'] = self.read_latency_result()
+    result['max_single_error'] = self.read_typed(float)
+    result['testset_size'] = self.read_typed(int)
+    evaluator_keys_count = self.read_typed(int)
+    validation_error_count = self.read_typed(int)
+    result['evaluator_keys'] = self.read_typed_array(str, evaluator_keys_count)
+    result['evaluator_values'] = self.read_typed_array(float, evaluator_keys_count)
+    result['validation_errors'] = self.read_typed_array(str, validation_error_count)
+    result['compilation_results'] = self.read_compilation_result()
+    return BenchmarkResult(**result)
+
+
 def parse_csv_input(input_filename):
   """Parse input CSV file, returns: (benchmarkInfo, list of BenchmarkResult)."""
   with open(input_filename, 'r') as csvfile:
-    csv_reader = csv.reader(filter(lambda row: row[0] != '#', csvfile))
+    parser = BenchmarkResultParser(csvfile)
 
     # First line contain device info
-    benchmark_info = next(csv_reader)
+    benchmark_info = parser.next()
 
     results = []
-    for row in csv_reader:
-      evaluator_keys_count = int(row[8])
-      time_freq_sec_count = int(row[9])
-      validation_error_count = int(row[10])
+    while parser.next():
+      results.append(parser.read_benchmark_result())
 
-      tf_start = 11 + evaluator_keys_count*2
-      time_freq_sec = [float(x) for x in
-                       row[tf_start:tf_start + time_freq_sec_count]]
-      ve_start = 11 + evaluator_keys_count*2 + time_freq_sec_count
-      validation_errors = row[ve_start: ve_start + validation_error_count]
-
-      results.append(BenchmarkResult(
-          name=row[0],
-          backend_type=row[1],
-          iterations=int(row[2]),
-          total_time_sec=float(row[3]),
-          max_single_error=float(row[4]),
-          testset_size=int(row[5]),
-          time_freq_start_sec=float(row[6]),
-          time_freq_step_sec=float(row[7]),
-          evaluator_keys=row[11:11 + evaluator_keys_count],
-          evaluator_values=row[
-              11 + evaluator_keys_count: 11 + evaluator_keys_count*2],
-          time_freq_sec=time_freq_sec,
-          validation_errors=validation_errors,
-      ))
     return (benchmark_info, results)
 
 
@@ -132,23 +200,27 @@ def group_results(results):
   return groupings_list
 
 
-def get_frequency_graph_min_max(results_with_bl):
+def get_frequency_graph_min_max(latencies):
   """Get min and max times of latencies frequency."""
   mins = []
   maxs = []
-  for result in [results_with_bl.baseline] + results_with_bl.other:
-    mins.append(result.time_freq_start_sec)
-    to_add = len(result.time_freq_sec) * result.time_freq_step_sec
-    maxs.append(result.time_freq_start_sec + to_add)
+  for latency in latencies:
+    mins.append(latency.time_freq_start_sec)
+    to_add = len(latency.time_freq_sec) * latency.time_freq_step_sec
+    maxs.append(latency.time_freq_start_sec + to_add)
   return min(mins), max(maxs)
 
 
 def get_frequency_graph(time_freq_start_sec, time_freq_step_sec, time_freq_sec,
                         start_sec, end_sec):
   """Generate input x/y data for latency frequency graph."""
-  left_to_pad = int((time_freq_start_sec - start_sec) / time_freq_step_sec)
+  left_to_pad = (int((time_freq_start_sec - start_sec) / time_freq_step_sec)
+                 if time_freq_step_sec != 0
+                 else math.inf)
   end_time = time_freq_start_sec + len(time_freq_sec) * time_freq_step_sec
-  right_to_pad = int((end_sec - end_time) / time_freq_step_sec)
+  right_to_pad = (int((end_sec - end_time) / time_freq_step_sec)
+                  if time_freq_step_sec != 0
+                  else math.inf)
 
   # After pading more that 64 values, graphs start to look messy,
   # bail out in that case.
@@ -293,13 +365,13 @@ def getchartjs_source():
               CHART_JS_FILE).read()
 
 
-def generate_avg_ms(baseline, result):
+def generate_avg_ms(baseline, latency):
   """Generate average latency value."""
-  if result is None:
-    result = baseline
+  if latency is None:
+    latency = baseline
 
-  result_avg_ms = (result.total_time_sec / result.iterations)*1000.0
-  if result is baseline:
+  result_avg_ms = (latency.total_time_sec / latency.iterations)*1000.0
+  if latency is baseline:
     return LATENCY_BASELINE_TEMPLATE.format(val=result_avg_ms)
   baseline_avg_ms = (baseline.total_time_sec / baseline.iterations)*1000.0
   diff = (result_avg_ms/baseline_avg_ms - 1.0) * 100.0
@@ -319,21 +391,58 @@ def generate_result_entry(baseline, result):
       row_class='failed' if result.validation_errors else 'normal',
       name=result.name,
       backend=result.backend_type,
-      iterations=result.iterations,
+      iterations=result.inference_latency.iterations,
       testset_size=result.testset_size,
       accuracy_values=generate_accuracy_values(baseline, result),
-      avg_ms=generate_avg_ms(baseline, result))
+      avg_ms=generate_avg_ms(baseline.inference_latency, result.inference_latency))
 
 
-def generate_latency_graph_entry(result, results_with_bl):
-  tmin, tmax = get_frequency_graph_min_max(results_with_bl)
+def generate_latency_graph_entry(tag, latency, tmin, tmax):
+  """Generate a single latency graph."""
   return LATENCY_GRAPH_ENTRY_TEMPLATE.format(
-      backend=result.backend_type,
-      i=id(result),
-      freq_data=get_frequency_graph(result.time_freq_start_sec,
-                                    result.time_freq_step_sec,
-                                    result.time_freq_sec,
+      tag=tag,
+      i=id(latency),
+      freq_data=get_frequency_graph(latency.time_freq_start_sec,
+                                    latency.time_freq_step_sec,
+                                    latency.time_freq_sec,
                                     tmin, tmax))
+
+
+def generate_latency_graphs_group(tags, latencies):
+  """Generate a group of latency graphs with the same tmin and tmax."""
+  tmin, tmax = get_frequency_graph_min_max(latencies)
+  return ''.join(
+      generate_latency_graph_entry(tag, latency, tmin, tmax)
+      for tag, latency in zip(tags, latencies))
+
+
+def snake_case_to_title(string):
+  return string.replace('_', ' ').title()
+
+
+def generate_inference_latency_graph_entry(results_with_bl):
+  """Generate a group of latency graphs for inference latencies."""
+  results = [results_with_bl.baseline] + results_with_bl.other
+  tags = [result.backend_type for result in results]
+  latencies = [result.inference_latency for result in results]
+  return generate_latency_graphs_group(tags, latencies)
+
+
+def generate_compilation_latency_graph_entry(results_with_bl):
+  """Generate a group of latency graphs for compilation latencies."""
+  tags = [
+      result.backend_type + ', ' + snake_case_to_title(type)
+      for result in results_with_bl.other
+      for type in COMPILATION_TYPES
+      if getattr(result.compilation_results, type)
+  ]
+  latencies = [
+      getattr(result.compilation_results, type)
+      for result in results_with_bl.other
+      for type in COMPILATION_TYPES
+      if getattr(result.compilation_results, type)
+  ]
+  return generate_latency_graphs_group(tags, latencies)
 
 
 def generate_validation_errors(entries_group):
@@ -352,6 +461,30 @@ def generate_validation_errors(entries_group):
                 backend=backend,
                 error=error) for name, backend, error in errors))
   return ''
+
+
+def generate_compilation_result_entry(result):
+  format_args = {
+      'row_class':
+          'failed' if result.validation_errors else 'normal',
+      'name':
+          result.name,
+      'backend':
+          result.backend_type,
+      'cache_size':
+          f'{result.compilation_results.cache_size_bytes:,}'
+          if result.compilation_results.cache_size_bytes > 0 else '-'
+  }
+  for compilation_type in COMPILATION_TYPES:
+    latency = getattr(result.compilation_results, compilation_type)
+    if latency:
+      format_args[compilation_type + '_iterations'] = f'{latency.iterations}'
+      format_args[compilation_type + '_avg_ms'] = generate_avg_ms(
+          result.compilation_results.compile_without_cache, latency)
+    else:
+      format_args[compilation_type + '_iterations'] = '-'
+      format_args[compilation_type + '_avg_ms'] = '-'
+  return COMPILATION_RESULT_ENTRY_TEMPLATE.format(**format_args)
 
 
 def generate_result(benchmark_info, data):
@@ -379,15 +512,23 @@ def generate_result(benchmark_info, data):
               validation_errors=generate_validation_errors(entries_group),
               latency_graphs=LATENCY_GRAPHS_TEMPLATE.format(
                   results=''.join(
-                      LATENCY_GRAPH_ENTRY_WITH_BL_TEMPLATE.format(
+                      LATENCY_GRAPH_ENTRY_GROUP_TEMPLATE.format(
                           name=result_and_bl.baseline.name,
-                          baseline=generate_latency_graph_entry(
-                              result_and_bl.baseline, result_and_bl),
-                          result=''.join(
-                              generate_latency_graph_entry(x, result_and_bl)
-                              for x in result_and_bl.other)
+                          results=generate_inference_latency_graph_entry(result_and_bl)
                       ) for result_and_bl in entries_group)
-              )
+              ),
+              compilation_results=''.join(
+                  COMPILATION_RESULT_ENTRIES_TEMPLATE.format(
+                      entries=''.join(
+                          generate_compilation_result_entry(x) for x in result_and_bl.other)
+                  ) for result_and_bl in entries_group),
+              compilation_latency_graphs=LATENCY_GRAPHS_TEMPLATE.format(
+                  results=''.join(
+                      LATENCY_GRAPH_ENTRY_GROUP_TEMPLATE.format(
+                          name=result_and_bl.baseline.name,
+                          results=generate_compilation_latency_graph_entry(result_and_bl)
+                      ) for result_and_bl in entries_group)
+              ),
           ) for entries_name, entries_group in group_results(data))
                           ))
 
@@ -455,6 +596,11 @@ MAIN_TEMPLATE = """<!doctype html>
       font-size: 140%;
       font-weight: bold;
     }}
+    .section_name {{
+      padding: 10px;
+      font-size: 120%;
+      font-weight: bold;
+    }}
     .latency_results {{
        padding: 10px;
        border: 1px solid #ddd;
@@ -480,6 +626,7 @@ Benchmark for {device_info}, started at {benchmark_time}
 
 RESULT_GROUP_TEMPLATE = """<div class="group">
 <div class="group_name">{group_name}</div>
+<div class="section_name">Inference results</div>
 <table class="results">
  <tr>
    <th>Name</th>
@@ -493,6 +640,27 @@ RESULT_GROUP_TEMPLATE = """<div class="group">
 </table>
 {validation_errors}
 {latency_graphs}
+<div class="section_name">Compilation results</div>
+<table class="results">
+ <tr>
+   <th rowspan="2">Name</th>
+   <th rowspan="2">Backend</th>
+   <th colspan="2">Compile Without Cache</th>
+   <th colspan="2">Save To Cache</th>
+   <th colspan="2">Prepare From Cache</th>
+   <th rowspan="2">Cache size bytes</th>
+ </tr>
+ <tr>
+   <th>Iterations</th>
+   <th>Average latency ms</th>
+   <th>Iterations</th>
+   <th>Average latency ms</th>
+   <th>Iterations</th>
+   <th>Average latency ms</th>
+ </tr>
+ {compilation_results}
+</table>
+{compilation_latency_graphs}
 </div>"""
 
 
@@ -520,17 +688,16 @@ LATENCY_GRAPHS_TEMPLATE = """
 <div style="clear: left;"></div>
 """
 
-LATENCY_GRAPH_ENTRY_WITH_BL_TEMPLATE = """
+LATENCY_GRAPH_ENTRY_GROUP_TEMPLATE = """
 <div class="latency_with_baseline" style="float: left;">
 <b>{name}</b>
-{baseline}
-{result}
+{results}
 </div>
 """
 
 LATENCY_GRAPH_ENTRY_TEMPLATE = """
 <div class="latency_result" style='width: 350px;'>
-{backend}
+{tag}
 <canvas id='latency_chart{i}' class='latency_chart'></canvas>
   <script>
    $(function() {{
@@ -591,6 +758,24 @@ RESULT_ENTRY_TEMPLATE = """
    <td>{testset_size:d}</td>
    <td>{avg_ms}</td>
    {accuracy_values}
+  </tr>"""
+
+COMPILATION_RESULT_ENTRIES_TEMPLATE = """
+ <tbody class="values">
+ {entries}
+ </tbody>
+"""
+COMPILATION_RESULT_ENTRY_TEMPLATE = """
+  <tr class={row_class}>
+   <td>{name}</td>
+   <td>{backend}</td>
+   <td>{compile_without_cache_iterations}</td>
+   <td>{compile_without_cache_avg_ms}</td>
+   <td>{save_to_cache_iterations}</td>
+   <td>{save_to_cache_avg_ms}</td>
+   <td>{prepare_from_cache_iterations}</td>
+   <td>{prepare_from_cache_avg_ms}</td>
+   <td>{cache_size}</td>
   </tr>"""
 
 LATENCY_BASELINE_TEMPLATE = """{val:.2f}ms"""

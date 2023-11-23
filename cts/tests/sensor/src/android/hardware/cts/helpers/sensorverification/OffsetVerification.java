@@ -19,6 +19,7 @@ package android.hardware.cts.helpers.sensorverification;
 import android.hardware.Sensor;
 import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorStats;
+import android.hardware.cts.helpers.SensorTestWarningException;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 
@@ -40,11 +41,11 @@ public class OffsetVerification extends AbstractSensorVerification {
     // CDD 7.3.2/C1-5: Magnetometer must have a hard iron offset value less than 700uT
     private static final float MAGNETOMETER_MAXIMUM_OFFSET_UT = 700.0f;
 
-    // Threshold to allow for the actual offset magnitudes to vary slightly from the CDD limit
-    // in order to account for rounding errors.
+    // Threshold to allow for the actual offsets to vary slightly from the CDD limit in order to
+    // account for rounding errors.
     private static final float ALLOWED_ERROR_PERCENT = 0.0001f;
 
-    private ArrayList<Float> mOffsetMagnitudes;
+    private ArrayList<TestSensorEvent> mInvalidSamples;
     private float mMaximumOffset;
 
     /**
@@ -54,7 +55,7 @@ public class OffsetVerification extends AbstractSensorVerification {
      *                      in units defined by the CDD
      */
     public OffsetVerification(float maximumOffset) {
-        mOffsetMagnitudes = new ArrayList<Float>();
+        mInvalidSamples = new ArrayList<TestSensorEvent>();
         mMaximumOffset = maximumOffset;
     }
 
@@ -83,24 +84,17 @@ public class OffsetVerification extends AbstractSensorVerification {
      * Visible for unit tests only.
      */
     protected void verify(SensorStats stats) {
-        final int count = mOffsetMagnitudes.size();
-        float maxOffset = Collections.max(mOffsetMagnitudes);
-        boolean pass = maxOffset < (mMaximumOffset * (1.0 + ALLOWED_ERROR_PERCENT));
+        boolean pass = mInvalidSamples.isEmpty();
 
         stats.addValue(PASSED_KEY, pass);
 
         if (!pass) {
             StringBuilder sb = new StringBuilder();
-            sb.append(count).append(" offsets: ");
-            for (int i = 0; i < Math.min(count, TRUNCATE_MESSAGE_LENGTH); i++) {
-                sb.append(String.format("position=%d, offset_magnitude=%f; ",
-                        i, mOffsetMagnitudes.get(i)));
-            }
-            if (count > TRUNCATE_MESSAGE_LENGTH) {
-                sb.append(count - TRUNCATE_MESSAGE_LENGTH).append(" more; ");
-            }
-            sb.append(String.format("(expected <%f)", mMaximumOffset));
-            Assert.fail(sb.toString());
+            sb.append("Magnetometer must have a hard iron offset value less than ")
+                .append(mMaximumOffset).append(" example sample: ").append(mInvalidSamples.get(0));
+            // TODO(b/146757096): Make this an assert once OEMs have had enough
+            // time to react to seeing the new warning.
+            throw new SensorTestWarningException(sb.toString());
         }
     }
 
@@ -117,9 +111,13 @@ public class OffsetVerification extends AbstractSensorVerification {
      */
     @Override
     protected void addSensorEventInternal(TestSensorEvent event) {
-        // Calculate the magnitude of the bias/offsets from the SensorEvent. Uncalibrated
-        // SensorEvent objects contain the bias in values[3], values[4] and values[5].
-        mOffsetMagnitudes.add((float)SensorCtsHelper.getMagnitude(
-                Arrays.copyOfRange(event.values, 3, 6)));
+        // Uncalibrated SensorEvent objects contain the bias in values[3], values[4] and values[5].
+        float[] offsets = Arrays.copyOfRange(event.values, 3, 6);
+        float maxOffsetWithError = mMaximumOffset * (1.0f + ALLOWED_ERROR_PERCENT);
+        for (float offset : offsets) {
+            if (offset > maxOffsetWithError) {
+                mInvalidSamples.add(event);
+            }
+        }
     }
 }

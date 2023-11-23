@@ -16,26 +16,27 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.crossprofilenotenabledapp">
+     package="com.android.cts.crossprofilenotenabledapp">
 
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
+    <uses-sdk android:minSdkVersion="29"
+         android:targetSdkVersion="29"/>
 
     <uses-permission android:name="android.permission.INTERACT_ACROSS_PROFILES"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"/>
 
-    <application
-        android:crossProfile="false">
-        <receiver android:name=".CrossProfileNotEnabledAppReceiver">
+    <application android:crossProfile="false">
+        <receiver android:name=".CrossProfileNotEnabledAppReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MANAGED_PROFILE_UNAVAILABLE" />
-                <action android:name="android.intent.action.MANAGED_PROFILE_AVAILABLE" />
-                <action android:name="android.intent.action.MANAGED_PROFILE_ADDED" />
-                <action android:name="android.intent.action.MANAGED_PROFILE_REMOVED" />
+                <action android:name="android.intent.action.MANAGED_PROFILE_UNAVAILABLE"/>
+                <action android:name="android.intent.action.MANAGED_PROFILE_AVAILABLE"/>
+                <action android:name="android.intent.action.MANAGED_PROFILE_ADDED"/>
+                <action android:name="android.intent.action.MANAGED_PROFILE_REMOVED"/>
             </intent-filter>
         </receiver>
     </application>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.crossprofilenotenabledapp"
-                     android:label="Launcher Apps CTS Tests"/>
+         android:targetPackage="com.android.cts.crossprofilenotenabledapp"
+         android:label="Launcher Apps CTS Tests"/>
 </manifest>

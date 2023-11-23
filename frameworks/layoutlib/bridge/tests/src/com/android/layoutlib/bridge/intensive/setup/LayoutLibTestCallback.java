@@ -72,7 +72,7 @@ public class LayoutLibTestCallback extends LayoutlibCallback {
         Class<?> rClass = mModuleClassLoader.loadClass(PACKAGE_NAME + ".R");
         Class<?>[] nestedClasses = rClass.getDeclaredClasses();
         for (Class<?> resClass : nestedClasses) {
-            final ResourceType resType = ResourceType.getEnum(resClass.getSimpleName());
+            final ResourceType resType = ResourceType.fromClassName(resClass.getSimpleName());
 
             if (resType != null) {
                 for (Field field : resClass.getDeclaredFields()) {

@@ -115,7 +115,7 @@ static ogg_buffer *_fetch_buffer(ogg_buffer_state *bs,long bytes){
   }else{
     /* allocate a new buffer */
     ob=_ogg_malloc(sizeof(*ob));
-    ob->data=_ogg_malloc(bytes<16?16:bytes);
+    ob->data=_ogg_calloc(bytes<16?16:bytes, 1);
     ob->size=bytes;
   }
 

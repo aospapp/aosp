@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"내 기기를 관리하는 앱:"</string>
     <string name="next" msgid="1004321437324424398">"다음"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"직장 프로필 설정 중..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT 관리자는 설정, 기업 액세스, 앱, 권한과 사용자의 네트워크 활동, 기기 위치, 통화 기록, 연락처 검색 기록 등 이 프로필과 연결된 데이터를 모니터링하고 관리할 수 있습니다.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>조직의 개인정보처리방침을 포함한 자세한 내용을 알아보려면 IT 관리자에게 문의하세요."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT 관리자는 설정, 기업 액세스, 앱, 권한과 사용자의 네트워크 활동, 기기 위치, 통화 기록, 연락처 검색 기록 등 이 기기와 연결된 데이터를 모니터링하고 관리할 수 있습니다.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>조직의 개인정보처리방침을 포함한 자세한 내용을 알아보려면 IT 관리자에게 문의하세요."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT 관리자는 설정, 기업 액세스, 앱, 권한과 사용자의 네트워크 활동, 기기 위치, 통화 기록, 연락처 검색 기록 등 이 프로필과 연결된 데이터를 모니터링하고 관리할 수 있습니다.<xliff:g id="LINE_BREAK">
+
+</xliff:g>조직의 개인정보처리방침을 포함한 자세한 내용을 알아보려면 IT 관리자에게 문의하세요."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT 관리자는 설정, 기업 액세스, 앱, 권한과 사용자의 네트워크 활동, 기기 위치, 통화 기록, 연락처 검색 기록 등 이 기기와 연결된 데이터를 모니터링하고 관리할 수 있습니다.<xliff:g id="LINE_BREAK">
+
+</xliff:g>조직의 개인정보처리방침을 포함한 자세한 내용을 알아보려면 IT 관리자에게 문의하세요."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"도난 방지 기능을 사용하려면 기기에 비밀번호로 보호되는 화면 잠금이 있어야 합니다."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"조직의 개인정보취급방침을 포함한 자세한 내용은 IT 관리자에게 문의하세요."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"자세히 알아보기"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"확인"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"동의합니다."</string>
     <string name="url_error" msgid="5958494012986243186">"표시할 수 없는 링크입니다."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"뒤로 탐색"</string>
     <string name="terms" msgid="8295436105384703903">"약관"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"직장 프로필 정보"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"관리 기기 정보"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"직장 프로필"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"기본 사용자"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"기존 프로필을 삭제하시겠습니까?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"이미 직장 프로필을 갖고 있습니다. 다음 앱을 통해 관리됩니다."</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"계속하기 전에 "<a href="#read_this_link">"이 글을 읽어주세요"</a>"."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"사용자 설정 완료되지 않음"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"업무 기기의 사용자"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"직장 기기 설정 중…"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"설정 데이터 처리 중..."</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Wi-Fi에 연결 중..."</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"모바일 네트워크에 연결 중…"</string>
-    <string name="progress_download" msgid="3522436271691064624">"관리 앱 다운로드 중..."</string>
-    <string name="progress_install" msgid="2258045670385866183">"관리 앱 설치 중..."</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"불필요한 시스템 앱 삭제 중…"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"마무리하는 중…"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"기기 소유자 설정 중..."</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"기기 초기화 중..."</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"이 기기는 설정에 필요한 암호화를 허용하지 않습니다. 도움이 필요하면 IT 관리자에게 문의하세요."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"설정을 중단하고 기기를 재설정하시겠습니까?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"기기가 재설정되고 처음 화면으로 이동합니다."</string>
@@ -162,14 +157,13 @@
     <string name="device_owner_description" msgid="168013145812679664">"이 기기는 조직에서 안전하게 보호 및 관리합니다."</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"직장 기기 설정 준비 중..."</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"관리자 앱 설정"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"나머지 설정하기"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"개인 계정을 추가하여 기기에서 더 많은 앱과 콘텐츠를 가져오세요"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"이제 직장 프로필이 준비되었으므로 개인 Google 계정을 추가하여 내 앱 및 콘텐츠에 액세스할 수 있습니다."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"내 조직에 속한 기기입니다."</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"다음 앱이 이 휴대전화를 관리하고 모니터링하는 데 사용됩니다."</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"관리되는 계정입니다"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"IT 관리자가 휴대기기 관리를 사용하여 보안 정책을 시행합니다."</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"직장 설정 준비 중…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"직장 프로필 설정"</string>
-    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"업무용 앱은 직장 프로필에 보관됩니다."</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"업무용 앱은 직장 프로필에 보관됩니다"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"업무가 끝나면 업무용 앱 일시중지"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"직장 프로필의 데이터가 IT 관리자에게 공개됩니다"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"직장 프로필 설정 중..."</string>
@@ -178,8 +172,16 @@
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"간편하게 업무용 앱 사용"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"비공개 기기가 아님"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"IT 관리자가 이 기기의 내 데이터와 활동을 볼 수 있습니다."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"활동 및 데이터"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"앱 권한"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"IT 관리자가 이 기기에 있는 앱의 마이크, 카메라, 위치 등에 대한 권한을 설정할 수 있습니다."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"기기 설정 중…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"이 기기를 사용하여 업무용 앱에 간편하게 액세스하세요. 이 기기는 비공개 기기가 아니므로 IT 관리자가 내 데이터와 활동을 볼 수 있습니다. 자세히 알아보려면 IT 관리자에게 문의하세요."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"이 기기를 사용하여 직장 앱에 간편하게 액세스하세요. 이 기기는 비공개 기기가 아니므로 IT 관리자가 내 데이터와 활동을 볼 수 있습니다."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"이 기기를 사용하여 직장 앱에 간편하게 액세스하세요. 이 기기는 개인 기기가 아니므로 IT 관리자가 활동 및 데이터를 볼 수 있습니다. IT 관리자는 이 기기에 있는 앱에서 마이크, 카메라, 위치 등에 대한 권한을 설정할 수도 있습니다."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"IT 관리자에게 기기 반품"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"이전 화면으로 돌아가거나 기기를 재설정하고 IT 관리자에게 기기를 반품합니다."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"설정 취소"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"재설정 및 기기 반품"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"직장 앱은 직장 프로필에 보관되며 IT 관리자가 관리합니다"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"개인 앱은 직장 앱과 분리되고 직장 앱에서 숨겨집니다"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT 관리자가 이 기기를 제어하고 특정 앱을 차단할 수 있습니다"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"기다려 주세요…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"개인정보 보호 알림"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"IT 관리자가 이 기기의 내 데이터와 활동을 볼 수 있습니다."</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"이제 기기를 사용할 수 있습니다."</string>
-    <string name="done" msgid="7755227776955952318">"완료"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"이 기기는 <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>에서 할부로 구매했습니다"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> 권한:"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> 앱을 설치하면 기기 값을 결제할 수 있습니다."</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"결제하지 않으면 이 기기에 대한 액세스가 제한됩니다."</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"이 기기는 <xliff:g id="CREDITOR_NAME">%s</xliff:g>에서 제공합니다"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"이 기기와 관련된 비용을 결제할 수 있습니다"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"사용자가 기기 값을 결제할 수 있도록 <xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g>에서 <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> 앱을 설치할 수 있습니다."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"이 기기가 제한될 수 있습니다."</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"결제하지 않으면 <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>에서 이 기기에 대한 액세스를 제한할 수 있습니다."</string>
 </resources>

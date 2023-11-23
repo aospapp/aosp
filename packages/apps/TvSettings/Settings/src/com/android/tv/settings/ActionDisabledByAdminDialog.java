@@ -16,17 +16,19 @@
 
 package com.android.tv.settings;
 
-import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.admin.DevicePolicyManager;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.UserHandle;
 
+import androidx.fragment.app.FragmentActivity;
+
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 
-public class ActionDisabledByAdminDialog extends Activity
+public class ActionDisabledByAdminDialog extends FragmentActivity
         implements DialogInterface.OnDismissListener {
 
     private ActionDisabledByAdminDialogHelper mDialogHelper;
@@ -38,9 +40,10 @@ public class ActionDisabledByAdminDialog extends Activity
                 getAdminDetailsFromIntent(getIntent());
         final String restriction = getRestrictionFromIntent(getIntent());
         mDialogHelper = new ActionDisabledByAdminDialogHelper(this);
-        mDialogHelper.prepareDialogBuilder(restriction, enforcedAdmin)
+        AlertDialog dialog = mDialogHelper.prepareDialogBuilder(restriction, enforcedAdmin)
                 .setOnDismissListener(this)
                 .show();
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).requestFocus();
     }
 
     @Override

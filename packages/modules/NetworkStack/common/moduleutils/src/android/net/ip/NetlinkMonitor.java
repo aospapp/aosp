@@ -26,7 +26,6 @@ import android.annotation.NonNull;
 import android.net.netlink.NetlinkErrorMessage;
 import android.net.netlink.NetlinkMessage;
 import android.net.netlink.NetlinkSocket;
-import android.net.util.PacketReader;
 import android.net.util.SharedLog;
 import android.net.util.SocketUtils;
 import android.os.Handler;
@@ -34,6 +33,8 @@ import android.os.SystemClock;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
+
+import com.android.net.module.util.PacketReader;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -108,7 +109,7 @@ public class NetlinkMonitor extends PacketReader {
         while (byteBuffer.remaining() > 0) {
             try {
                 final int position = byteBuffer.position();
-                final NetlinkMessage nlMsg = NetlinkMessage.parse(byteBuffer);
+                final NetlinkMessage nlMsg = NetlinkMessage.parse(byteBuffer, mFamily);
                 if (nlMsg == null || nlMsg.getHeader() == null) {
                     byteBuffer.position(position);
                     mLog.e("unparsable netlink msg: " + hexify(byteBuffer));

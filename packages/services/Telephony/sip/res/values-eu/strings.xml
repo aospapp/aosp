@@ -41,7 +41,7 @@
     <string name="registration_status_still_trying" msgid="7178623685868766282">"Oraindik saiatzen…"</string>
     <string name="registration_status_not_receiving" msgid="3873074208531938401">"Ez da deirik jasotzen ari."</string>
     <string name="registration_status_no_data" msgid="2987064560116584121">"Kontua erregistratzeko prozesua gelditu da ez zaudelako konektatuta Internetera."</string>
-    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Kontua erregistratzeko prozesua gelditu da ez dagoelako wifi bidezko konexiorik."</string>
+    <string name="registration_status_no_wifi_data" msgid="685470618241482948">"Kontua erregistratzeko prozesua gelditu da ez dagoelako wifi-konexiorik."</string>
     <string name="registration_status_not_running" msgid="6236403137652262659">"Ez da kontua erregistratu."</string>
     <string name="registration_status_done" msgid="6787397199273357721">"Deiak jasotzen."</string>
     <string name="registration_status_failed_try_later" msgid="7855389184910312091">"Ez da kontua erregistratu: (<xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>). Geroago saiatuko gara berriro."</string>

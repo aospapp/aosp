@@ -1,3 +1,22 @@
+package {
+    default_applicable_licenses: [
+        "external_grpc-grpc_third_party_address_sorting_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "external_grpc-grpc_third_party_address_sorting_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 cc_library_static {
     name: "libaddress_sorting",
     defaults: ["grpc_defaults"],

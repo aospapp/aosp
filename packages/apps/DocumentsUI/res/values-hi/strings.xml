@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"आपको इसका नाम बदलना होगा"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"फ़ोल्डर का नाम जोड़ना ज़रूरी है"</string>
     <string name="files_label" msgid="771781190045103748">"Files"</string>
     <string name="downloads_label" msgid="5462789470049501103">"डाउनलोड"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -68,7 +70,7 @@
     <string name="not_sorted" msgid="7813496644889115530">"क्रमबद्ध नहीं हैं"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"नाम"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"सारांश"</string>
-    <string name="sort_dimension_file_type" msgid="5779709622922085381">"प्रकार"</string>
+    <string name="sort_dimension_file_type" msgid="5779709622922085381">"टाइप"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"आकार"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"बदले जाने का समय"</string>
     <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"फ़ाइल का नाम (A से Z)"</string>
@@ -204,7 +206,7 @@
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> को <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> डिक्शनरी तक पहुंचने देना चाहते हैं?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> को <xliff:g id="STORAGE"><i>^2</i></xliff:g> पर मौजूद फ़ोटो और वीडियो के साथ, अपने डेटा तक पहुंचने देना चाहते हैं?"</string>
     <string name="allow" msgid="1275746941353040309">"अनुमति दें"</string>
-    <string name="deny" msgid="5127201668078153379">"अस्वीकार करें"</string>
+    <string name="deny" msgid="5127201668078153379">"अनुमति न दें"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> चयनित</item>
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> चयनित</item>
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"काम से जुड़ी"</string>
     <string name="a11y_work" msgid="7504431382825242153">"काम से जुड़ी"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"आप किसी दूसरे ऐप्लिकेशन से फ़ाइलें नहीं ले जा सकते."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"ग्रिड मोड में दिखाया जा रहा है."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"सूची मोड में दिखाया जा रहा है."</string>
 </resources>

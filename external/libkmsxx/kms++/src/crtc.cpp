@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include <unistd.h>
 #include <fcntl.h>
@@ -11,14 +11,12 @@ using namespace std;
 
 namespace kms
 {
-
-struct CrtcPriv
-{
+struct CrtcPriv {
 	drmModeCrtcPtr drm_crtc;
 };
 
-Crtc::Crtc(Card &card, uint32_t id, uint32_t idx)
-	:DrmPropObject(card, id, DRM_MODE_OBJECT_CRTC, idx)
+Crtc::Crtc(Card& card, uint32_t id, uint32_t idx)
+	: DrmPropObject(card, id, DRM_MODE_OBJECT_CRTC, idx)
 {
 	m_priv = new CrtcPriv();
 	m_priv->drm_crtc = drmModeGetCrtc(this->card().fd(), this->id());
@@ -65,13 +63,13 @@ int Crtc::set_mode(Connector* conn, const Videomode& mode)
 	unique_ptr<Blob> blob = mode.to_blob(card());
 
 	req.add(conn, {
-			{ "CRTC_ID", this->id() },
-		});
+			      { "CRTC_ID", this->id() },
+		      });
 
 	req.add(this, {
-			{ "ACTIVE", 1 },
-			{ "MODE_ID", blob->id() },
-		});
+			      { "ACTIVE", 1 },
+			      { "MODE_ID", blob->id() },
+		      });
 
 	int r = req.commit_sync(true);
 
@@ -117,7 +115,7 @@ int Crtc::disable_plane(Plane* plane)
 
 Plane* Crtc::get_primary_plane()
 {
-	Plane *primary = nullptr;
+	Plane* primary = nullptr;
 
 	for (Plane* p : get_possible_planes()) {
 		if (p->plane_type() != PlaneType::Primary)
@@ -135,7 +133,7 @@ Plane* Crtc::get_primary_plane()
 	throw invalid_argument(string("No primary plane for crtc ") + to_string(id()));
 }
 
-int Crtc::page_flip(Framebuffer& fb, void *data)
+int Crtc::page_flip(Framebuffer& fb, void* data)
 {
 	return drmModePageFlip(card().fd(), id(), fb.id(), DRM_MODE_PAGE_FLIP_EVENT, data);
 }
@@ -175,9 +173,25 @@ Videomode Crtc::mode() const
 	return drm_mode_to_video_mode(m_priv->drm_crtc->mode);
 }
 
-int Crtc::gamma_size() const
+int Crtc::legacy_gamma_size() const
 {
 	return m_priv->drm_crtc->gamma_size;
 }
 
+void Crtc::legacy_gamma_set(vector<tuple<uint16_t, uint16_t, uint16_t>> v)
+{
+	uint32_t len = v.size();
+	uint16_t red[len];
+	uint16_t green[len];
+	uint16_t blue[len];
+
+	for (uint32_t i = 0; i < len; ++i) {
+		red[i] = get<0>(v[i]);
+		green[i] = get<1>(v[i]);
+		blue[i] = get<2>(v[i]);
+	}
+
+	drmModeCrtcSetGamma(card().fd(), id(), len, red, green, blue);
 }
+
+} // namespace kms

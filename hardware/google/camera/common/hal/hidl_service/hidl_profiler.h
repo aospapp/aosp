@@ -25,47 +25,63 @@ namespace android {
 namespace hardware {
 namespace camera {
 namespace implementation {
-namespace hidl_profiler {
 
-class HidlProfilerItem {
+class HidlScopedProfiler {
  public:
-  HidlProfilerItem(
-      std::shared_ptr<google::camera_common::Profiler> profiler,
-      const std::string target, std::function<void()> on_end,
-      int request_id = google::camera_common::Profiler::kInvalidRequestId);
+  HidlScopedProfiler(std::shared_ptr<google::camera_common::Profiler> profiler,
+                     const std::string name, int id,
+                     std::function<void()> end_callback);
 
-  ~HidlProfilerItem();
+  ~HidlScopedProfiler();
 
  private:
   std::shared_ptr<google::camera_common::Profiler> profiler_;
-  const std::string target_;
-  int request_id_;
-  std::function<void()> on_end_;
+  const std::string name_;
+  int id_;
+  std::function<void()> end_callback_;
 };
 
-// Start timer for open camera. The timer will stop when the returned
-// ProfilerItem is destroyed.
-std::unique_ptr<HidlProfilerItem> OnCameraOpen();
+class HidlProfiler {
+ public:
+  enum class ScopedType {
+    kOpen,
+    kConfigureStream,
+    kFlush,
+    kClose,
+  };
+  virtual ~HidlProfiler() = default;
 
-// Start timer for flush camera. The timer will stop when the returned
-// ProfilerItem is destroyed.
-std::unique_ptr<HidlProfilerItem> OnCameraFlush();
+  static std::shared_ptr<HidlProfiler> Create(uint32_t camera_id);
 
-// Start timer for close camera. The timer will stop when the returned
-// ProfilerItem is destroyed.
-std::unique_ptr<HidlProfilerItem> OnCameraClose();
+  // Make a ScopedProfiler for given type.
+  virtual std::unique_ptr<HidlScopedProfiler> MakeScopedProfiler(
+      ScopedType type) = 0;
 
-// Start timer for configure streams. The timer will stop when the returned
-// ProfilerItem is destroyed.
-std::unique_ptr<HidlProfilerItem> OnCameraStreamConfigure();
+  // Call when first frame is requested.
+  virtual void FirstFrameStart() = 0;
 
-// Call when first frame is requested.
-void OnFirstFrameRequest();
+  // Call when all bufer in first frame is received.
+  virtual void FirstFrameEnd() = 0;
 
-// Call when all bufer in first frame is received.
-void OnFirstFrameResult();
+  // Call to profile frame rate for each stream.
+  virtual void ProfileFrameRate(const std::string& name) = 0;
 
-}  // namespace hidl_profiler
+  // Give a customized latency profiler so that client side can intercept various calls.
+  virtual void SetLatencyProfiler(
+      std::unique_ptr<google::camera_common::Profiler> profiler) = 0;
+
+  // Give a customized fps profiler so that client side can intercept various calls.
+  virtual void SetFpsProfiler(
+      std::unique_ptr<google::camera_common::Profiler> profiler) = 0;
+
+  virtual uint32_t GetCameraId() const = 0;
+  virtual int32_t GetLatencyFlag() const = 0;
+  virtual int32_t GetFpsFlag() const = 0;
+
+ protected:
+  HidlProfiler() = default;
+};
+
 }  // namespace implementation
 }  // namespace camera
 }  // namespace hardware

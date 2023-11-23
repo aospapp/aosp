@@ -28,7 +28,7 @@
     <string name="callFailed_timedOut" msgid="6780964135550644777">"कोणताही प्रतिसाद नाही, कालबाह्य झाले"</string>
     <string name="callFailed_server_unreachable" msgid="7004372091099175338">"सर्व्हर पोहचण्‍यायोग्‍य नाही"</string>
     <string name="callFailed_number_unreachable" msgid="2855741498610643943">"नंबर पोहचण्‍यायोग्‍य नाही"</string>
-    <string name="callFailed_invalid_credentials" msgid="1915881596632385418">"चुकीचे वापरकर्तानाव किंवा पासवर्ड"</string>
+    <string name="callFailed_invalid_credentials" msgid="1915881596632385418">"चुकीचे वापरकर्ता नाव किंवा पासवर्ड"</string>
     <string name="callFailed_out_of_network" msgid="3725361800376129141">"नेटवर्कच्या बाहेर कॉल"</string>
     <string name="callFailed_server_error" msgid="8449565039784274698">"सर्व्हर एरर. नंतर पुन्हा प्रयत्न करा."</string>
     <string name="callFailed_noSignal" msgid="7700332004458210245">"सिग्नल नाही"</string>

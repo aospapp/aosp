@@ -1,6 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
 // © 2017 and later: Unicode, Inc. and others.
-// License & terms of use: http://www.unicode.org/copyright.html#License
+// License & terms of use: http://www.unicode.org/copyright.html
 package android.icu.number;
 
 import java.util.Locale;
@@ -127,8 +127,10 @@ public final class NumberFormatter {
         FULL_NAME,
 
         /**
-         * Use the three-digit ISO XXX code in place of the symbol for displaying currencies. The
-         * behavior of this option is currently undefined for use with measure units.
+         * Use the three-digit ISO XXX code in place of the symbol for displaying currencies.
+         *
+         * <p>
+         * Behavior of this option with non-currency units is not defined at this time.
          *
          * <p>
          * In CLDR, this option corresponds to the "¤¤" placeholder for currencies.
@@ -136,6 +138,30 @@ public final class NumberFormatter {
          * @see NumberFormatter
          */
         ISO_CODE,
+
+        /**
+         * Use the formal variant of the currency symbol; for example, "NT$" for the New Taiwan
+         * dollar in zh-TW.
+         *
+         * <p>
+         * Behavior of this option with non-currency units is not defined at this time.
+         *
+         * @see NumberFormatter
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        FORMAL,
+
+        /**
+         * Use the alternate variant of the currency symbol; for example, "TL" for the Turkish
+         * lira (TRY).
+         *
+         * <p>
+         * Behavior of this option with non-currency units is not defined at this time.
+         *
+         * @see NumberFormatter
+         * @hide draft / provisional / internal are hidden on Android
+         */
+        VARIANT,
 
         /**
          * Format the number according to the specified unit, but do not display the unit. For
@@ -309,7 +335,7 @@ public final class NumberFormatter {
 
         /**
          * Show the minus sign on negative numbers and the plus sign on positive numbers. Do not show a
-         * sign on zero or NaN, unless the sign bit is set (-0.0 gets a sign).
+         * sign on zero, numbers that round to zero, or NaN.
          *
          * @see NumberFormatter
          */
@@ -317,9 +343,8 @@ public final class NumberFormatter {
 
         /**
          * Use the locale-dependent accounting format on negative numbers, and show the plus sign on
-         * positive numbers. Do not show a sign on zero or NaN, unless the sign bit is set (-0.0 gets a
-         * sign). For more information on the accounting format, see the ACCOUNTING sign display
-         * strategy.
+         * positive numbers. Do not show a sign on zero, numbers that round to zero, or NaN. For more
+         * information on the accounting format, see the ACCOUNTING sign display strategy.
          *
          * @see NumberFormatter
          */

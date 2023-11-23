@@ -28,8 +28,10 @@
 #include "IOEventLoop.h"
 #include "perf_event.h"
 
+namespace simpleperf {
+
 struct PerfCounter {
-  uint64_t value;  // The value of the event specified by the perf_event_file.
+  uint64_t value;         // The value of the event specified by the perf_event_file.
   uint64_t time_enabled;  // The enabled time.
   uint64_t time_running;  // The running time.
   uint64_t id;            // The id of the perf_event_file.
@@ -107,8 +109,8 @@ class EventFd {
   virtual bool StopPolling();
 
  protected:
-  EventFd(const perf_event_attr& attr, int perf_event_fd,
-          const std::string& event_name, pid_t tid, int cpu)
+  EventFd(const perf_event_attr& attr, int perf_event_fd, const std::string& event_name, pid_t tid,
+          int cpu)
       : attr_(attr),
         perf_event_fd_(perf_event_fd),
         id_(0),
@@ -152,5 +154,7 @@ class EventFd {
 };
 
 bool IsEventAttrSupported(const perf_event_attr& attr, const std::string& event_name);
+
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_EVENT_FD_H_

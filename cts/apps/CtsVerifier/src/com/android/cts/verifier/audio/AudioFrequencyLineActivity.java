@@ -16,9 +16,9 @@
 
 package com.android.cts.verifier.audio;
 
+import com.android.cts.verifier.CtsVerifierReportLog;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.audio.wavelib.*;
-import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 
@@ -51,8 +51,8 @@ public class AudioFrequencyLineActivity extends AudioFrequencyActivity implement
 
     OnBtnClickListener mBtnClickListener = new OnBtnClickListener();
 
-    Button mHeadsetPortYes;
-    Button mHeadsetPortNo;
+    Button mWiredPortYes;
+    Button mWiredPortNo;
 
     Button mLoopbackPlugReady;
     Button mTestButton;
@@ -106,19 +106,19 @@ public class AudioFrequencyLineActivity extends AudioFrequencyActivity implement
                     Log.i(TAG, "audio loopback test");
                     startAudioTest();
                     break;
-                case R.id.audio_general_headset_yes:
-                    Log.i(TAG, "User confirms Headset Port existence");
+                case R.id.audio_wired_yes:
+                    Log.i(TAG, "User confirms wired Port existence");
                     mLoopbackPlugReady.setEnabled(true);
                     recordHeasetPortFound(true);
-                    mHeadsetPortYes.setEnabled(false);
-                    mHeadsetPortNo.setEnabled(false);
+                    mWiredPortYes.setEnabled(false);
+                    mWiredPortNo.setEnabled(false);
                     break;
-                case R.id.audio_general_headset_no:
-                    Log.i(TAG, "User denies Headset Port existence");
+                case R.id.audio_wired_no:
+                    Log.i(TAG, "User denies wired Port existence");
                     recordHeasetPortFound(false);
                     getPassButton().setEnabled(true);
-                    mHeadsetPortYes.setEnabled(false);
-                    mHeadsetPortNo.setEnabled(false);
+                    mWiredPortYes.setEnabled(false);
+                    mWiredPortNo.setEnabled(false);
                     break;
             }
         }
@@ -129,10 +129,10 @@ public class AudioFrequencyLineActivity extends AudioFrequencyActivity implement
         super.onCreate(savedInstanceState);
         setContentView(R.layout.audio_frequency_line_activity);
 
-        mHeadsetPortYes = (Button)findViewById(R.id.audio_general_headset_yes);
-        mHeadsetPortYes.setOnClickListener(mBtnClickListener);
-        mHeadsetPortNo = (Button)findViewById(R.id.audio_general_headset_no);
-        mHeadsetPortNo.setOnClickListener(mBtnClickListener);
+        mWiredPortYes = (Button)findViewById(R.id.audio_wired_yes);
+        mWiredPortYes.setOnClickListener(mBtnClickListener);
+        mWiredPortNo = (Button)findViewById(R.id.audio_wired_no);
+        mWiredPortNo.setOnClickListener(mBtnClickListener);
 
         mLoopbackPlugReady = (Button)findViewById(R.id.audio_frequency_line_plug_ready_btn);
         mLoopbackPlugReady.setOnClickListener(mBtnClickListener);
@@ -427,8 +427,9 @@ public class AudioFrequencyLineActivity extends AudioFrequencyActivity implement
             }
 
             appendResultsToScreen(results.toString());
+
             //store results
-            recordTestResults(results);
+            storeTestResults(results);
         } else {
             appendResultsToScreen("Failed testing channel " + results.mLabel);
         }
@@ -443,36 +444,42 @@ public class AudioFrequencyLineActivity extends AudioFrequencyActivity implement
     /**
      * Store test results in log
      */
-    private void recordTestResults(Results results) {
+    private void storeTestResults(Results results) {
         String channelLabel = "channel_" + results.mLabel;
 
+        CtsVerifierReportLog reportLog = getReportLog();
         for (int b = 0; b < mBands; b++) {
             String bandLabel = String.format(channelLabel + "_%d", b);
-            getReportLog().addValue(
+            reportLog.addValue(
                     bandLabel + "_Level",
                     results.mAverageEnergyPerBand[b],
                     ResultType.HIGHER_BETTER,
                     ResultUnit.NONE);
 
-            getReportLog().addValue(
+            reportLog.addValue(
                     bandLabel + "_pointsinbound",
                     results.mInBoundPointsPerBand[b],
                     ResultType.HIGHER_BETTER,
                     ResultUnit.COUNT);
 
-            getReportLog().addValue(
+            reportLog.addValue(
                     bandLabel + "_pointstotal",
                     results.mPointsPerBand[b],
                     ResultType.NEUTRAL,
                     ResultUnit.COUNT);
         }
 
-        getReportLog().addValues(channelLabel + "_magnitudeSpectrumLog",
+        reportLog.addValues(channelLabel + "_magnitudeSpectrumLog",
                 results.mValuesLog,
                 ResultType.NEUTRAL,
                 ResultUnit.NONE);
 
         Log.v(TAG, "Results Recorded");
+    }
+
+    @Override // PassFailButtons
+    public void recordTestResults() {
+        getReportLog().submit();
     }
 
     private void recordHeasetPortFound(boolean found) {

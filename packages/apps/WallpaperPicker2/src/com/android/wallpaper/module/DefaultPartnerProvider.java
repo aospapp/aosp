@@ -25,8 +25,9 @@ import android.content.res.Resources;
 import android.util.Log;
 import android.util.Pair;
 
-import java.io.File;
+import androidx.annotation.Nullable;
 
+import java.io.File;
 
 /**
  * Provides content from the partner customization apk on the device (if there is one).
@@ -54,7 +55,8 @@ public class DefaultPartnerProvider implements PartnerProvider {
      * @return Pair of the package name and the Resources for the APK, or null if the APK isn't found
      * on the device.
      */
-    private static Pair<String, Resources> findSystemApk(PackageManager pm) {
+    @Nullable
+    protected Pair<String, Resources> findSystemApk(PackageManager pm) {
         final Intent intent = new Intent(PartnerProvider.ACTION_PARTNER_CUSTOMIZATION);
         for (ResolveInfo info : pm.queryBroadcastReceivers(intent, 0)) {
             if (info.activityInfo != null

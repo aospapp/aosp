@@ -18,6 +18,10 @@ The script uses latest gandof stable build as test build by default.
 
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import ast
 import datetime
@@ -29,7 +33,7 @@ import subprocess
 import sys
 import time
 import traceback
-import urllib2
+from six.moves import urllib
 
 import common
 try:
@@ -108,7 +112,7 @@ def check_dut_inventory(required_num_duts, pool):
     @param pool: the pool used by test_push.
     @raise TestPushException: if number of DUTs are less than the requirement.
     """
-    print 'Checking DUT inventory...'
+    print('Checking DUT inventory...')
     pool_label = constants.Labels.POOL_PREFIX + pool
     hosts = AFE.run('get_hosts', status='Ready', locked=False)
     hosts = [h for h in hosts if pool_label in h.get('labels', [])]
@@ -154,7 +158,7 @@ def powerwash_dut_to_test_repair(hostname, timeout):
 
 def reverify_all_push_duts():
     """Reverify all the push DUTs."""
-    print 'Reverifying all DUTs.'
+    print('Reverifying all DUTs.')
     hosts = [h.hostname for h in AFE.get_hosts()]
     AFE.reverify_hosts(hostnames=hosts)
 
@@ -270,7 +274,7 @@ def do_run_suite(suite_name, arguments, use_shard=False,
         # Break when run_suite process completed.
         if not line and proc.poll() != None:
             break
-        print line.rstrip()
+        print(line.rstrip())
         _run_suite_output.append(line.rstrip())
 
         if not suite_job_id:
@@ -295,7 +299,7 @@ def do_run_suite(suite_name, arguments, use_shard=False,
                         'flag has timed out after %d mins. Aborting it.' %
                         arguments.timeout_min)
 
-    print 'Suite job %s is completed.' % suite_job_id
+    print('Suite job %s is completed.' % suite_job_id)
     return suite_job_id
 
 
@@ -306,7 +310,7 @@ def check_dut_image(build, suite_job_id):
     @param suite_job_id: job ID of the suite job.
     @raise TestPushException: If a DUT does not have expected build imaged.
     """
-    print 'Checking image installed in DUTs...'
+    print('Checking image installed in DUTs...')
     job_ids = [job.id for job in
                models.Job.objects.filter(parent_job_id=suite_job_id)]
     hqes = [models.HostQueueEntry.objects.filter(job_id=job_id)[0]
@@ -352,7 +356,7 @@ def verify_test_results(job_id, expected_results):
     @param expected_results: A dictionary of test name to test result.
     @raise TestPushException: If verify fails.
     """
-    print 'Comparing test results...'
+    print('Comparing test results...')
     test_views = site_utils.get_test_views_from_tko(job_id, TKO)
     summary = test_push_common.summarize_push(test_views, expected_results,
                                               _IGNORED_TESTS)
@@ -361,8 +365,8 @@ def verify_test_results(job_id, expected_results):
     job_name = '%s-%s' % (job_id, getpass.getuser())
     log_link = URL_PATTERN % (rpc_client_lib.add_protocol(URL_HOST), job_name)
     try:
-        urllib2.urlopen(log_link).read()
-    except urllib2.URLError:
+        urllib.request.urlopen(log_link).read()
+    except urllib.error.URLError:
         summary.append('Failed to load page for link to log: %s.' % log_link)
 
     if summary:
@@ -400,7 +404,7 @@ def check_queue(queue):
         return
     exc_info = queue.get()
     # Raise the exception with original backtrace.
-    print 'Original stack trace of the exception:\n%s' % exc_info[2]
+    print('Original stack trace of the exception:\n%s' % exc_info[2])
     raise exc_info[0](exc_info[1])
 
 
@@ -504,7 +508,7 @@ def _main(arguments):
         check_dut_inventory(arguments.num_duts, arguments.pool)
         _run_test_suites(arguments)
         check_service_crash(arguments.service_respawn_limit, start_time)
-        print _SUCCESS_MSG
+        print(_SUCCESS_MSG)
     except Exception:
         # Abort running jobs unless flagged to continue when there is a failure.
         if not arguments.continue_on_failure:

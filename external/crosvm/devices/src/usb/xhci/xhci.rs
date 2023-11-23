@@ -10,12 +10,17 @@ use super::ring_buffer_stop_cb::RingBufferStopCallback;
 use super::usb_hub::UsbHub;
 use super::xhci_backend_device_provider::XhciBackendDeviceProvider;
 use super::xhci_regs::*;
-use crate::usb::host_backend::host_backend_device_provider::HostBackendDeviceProvider;
+use crate::usb::host_backend::{
+    error::Error as HostBackendProviderError,
+    host_backend_device_provider::HostBackendDeviceProvider,
+};
 use crate::utils::{Error as UtilsError, EventLoop, FailHandle};
+use base::{error, Event};
 use std::fmt::{self, Display};
 use std::sync::Arc;
+use std::thread;
 use sync::Mutex;
-use sys_util::{error, EventFd, GuestAddress, GuestMemory};
+use vm_memory::{GuestAddress, GuestMemory};
 
 #[derive(Debug)]
 pub enum Error {
@@ -27,7 +32,7 @@ pub enum Error {
     SetModeration(InterrupterError),
     SetupEventRing(InterrupterError),
     SetEventHandlerBusy(InterrupterError),
-    StartProvider,
+    StartProvider(HostBackendProviderError),
     RingDoorbell(DeviceSlotError),
     CreateCommandRingController(CommandRingControllerError),
     ResetPort,
@@ -48,7 +53,7 @@ impl Display for Error {
             SetModeration(e) => write!(f, "failed to set interrupter moderation: {}", e),
             SetupEventRing(e) => write!(f, "failed to setup event ring: {}", e),
             SetEventHandlerBusy(e) => write!(f, "failed to set event handler busy: {}", e),
-            StartProvider => write!(f, "failed to start backend provider"),
+            StartProvider(e) => write!(f, "failed to start backend provider: {}", e),
             RingDoorbell(e) => write!(f, "failed to ring doorbell: {}", e),
             CreateCommandRingController(e) => {
                 write!(f, "failed to create command ring controller: {}", e)
@@ -65,6 +70,8 @@ pub struct Xhci {
     interrupter: Arc<Mutex<Interrupter>>,
     command_ring_controller: Arc<CommandRingController>,
     device_slots: DeviceSlots,
+    event_loop: Arc<EventLoop>,
+    event_loop_join_handle: Option<thread::JoinHandle<()>>,
     // resample handler and device provider only lives on EventLoop to handle corresponding events.
     // By design, event loop only hold weak reference. We need to keep a strong reference here to
     // keep it alive.
@@ -80,11 +87,11 @@ impl Xhci {
         fail_handle: Arc<dyn FailHandle>,
         mem: GuestMemory,
         device_provider: HostBackendDeviceProvider,
-        irq_evt: EventFd,
-        irq_resample_evt: EventFd,
+        irq_evt: Event,
+        irq_resample_evt: Event,
         regs: XhciRegs,
     ) -> Result<Arc<Self>> {
-        let (event_loop, _join_handle) =
+        let (event_loop, join_handle) =
             EventLoop::start("xhci".to_string(), Some(fail_handle.clone()))
                 .map_err(Error::StartEventLoop)?;
         let interrupter = Arc::new(Mutex::new(Interrupter::new(mem.clone(), irq_evt, &regs)));
@@ -97,18 +104,18 @@ impl Xhci {
         let mut device_provider = device_provider;
         device_provider
             .start(fail_handle.clone(), event_loop.clone(), hub.clone())
-            .map_err(|_| Error::StartProvider)?;
+            .map_err(Error::StartProvider)?;
 
         let device_slots = DeviceSlots::new(
             fail_handle.clone(),
             regs.dcbaap.clone(),
-            hub.clone(),
+            hub,
             interrupter.clone(),
             event_loop.clone(),
             mem.clone(),
         );
         let command_ring_controller = CommandRingController::new(
-            mem.clone(),
+            mem,
             event_loop.clone(),
             device_slots.clone(),
             interrupter.clone(),
@@ -122,6 +129,8 @@ impl Xhci {
             command_ring_controller,
             device_slots,
             device_provider,
+            event_loop,
+            event_loop_join_handle: Some(join_handle),
         });
         Self::init_reg_callbacks(&xhci);
         Ok(xhci)
@@ -142,8 +151,7 @@ impl Xhci {
         let xhci_weak = Arc::downgrade(xhci);
         xhci.regs.crcr.set_write_cb(move |val: u64| {
             let xhci = xhci_weak.upgrade().unwrap();
-            let r = xhci.crcr_callback(val);
-            xhci.handle_register_callback_result(r, 0)
+            xhci.crcr_callback(val)
         });
 
         for i in 0..xhci.regs.portsc.len() {
@@ -221,7 +229,7 @@ impl Xhci {
     fn usbcmd_callback(&self, value: u32) -> Result<u32> {
         if (value & USB_CMD_RESET) > 0 {
             usb_debug!("xhci_controller: reset controller");
-            self.reset()?;
+            self.reset();
             return Ok(value & (!USB_CMD_RESET));
         }
 
@@ -230,7 +238,7 @@ impl Xhci {
             self.regs.usbsts.clear_bits(USB_STS_HALTED);
         } else {
             usb_debug!("xhci_controller: halt device");
-            self.halt()?;
+            self.halt();
             self.regs.crcr.clear_bits(CRCR_COMMAND_RING_RUNNING);
         }
 
@@ -246,9 +254,9 @@ impl Xhci {
     }
 
     // Callback for crcr register write.
-    fn crcr_callback(&self, value: u64) -> Result<u64> {
+    fn crcr_callback(&self, value: u64) -> u64 {
         usb_debug!("xhci_controller: write to crcr {:x}", value);
-        let value = if (self.regs.crcr.get_value() & CRCR_COMMAND_RING_RUNNING) == 0 {
+        if (self.regs.crcr.get_value() & CRCR_COMMAND_RING_RUNNING) == 0 {
             self.command_ring_controller
                 .set_dequeue_pointer(GuestAddress(value & CRCR_COMMAND_RING_POINTER));
             self.command_ring_controller
@@ -257,8 +265,7 @@ impl Xhci {
         } else {
             error!("Write to crcr while command ring is running");
             self.regs.crcr.get_value()
-        };
-        Ok(value)
+        }
     }
 
     // Callback for portsc register write.
@@ -372,21 +379,28 @@ impl Xhci {
             .map_err(Error::SetEventHandlerBusy)
     }
 
-    fn reset(&self) -> Result<()> {
+    fn reset(&self) {
         self.regs.usbsts.set_bits(USB_STS_CONTROLLER_NOT_READY);
         let usbsts = self.regs.usbsts.clone();
         self.device_slots.stop_all_and_reset(move || {
             usbsts.clear_bits(USB_STS_CONTROLLER_NOT_READY);
         });
-        Ok(())
     }
 
-    fn halt(&self) -> Result<()> {
+    fn halt(&self) {
         let usbsts = self.regs.usbsts.clone();
         self.device_slots
             .stop_all(RingBufferStopCallback::new(move || {
                 usbsts.set_bits(USB_STS_HALTED);
             }));
-        Ok(())
+    }
+}
+
+impl Drop for Xhci {
+    fn drop(&mut self) {
+        self.event_loop.stop();
+        if let Some(join_handle) = self.event_loop_join_handle.take() {
+            let _ = join_handle.join();
+        }
     }
 }

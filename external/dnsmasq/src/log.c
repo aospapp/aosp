@@ -104,7 +104,7 @@ int log_reopen(char* log_file) {
         return log_fd != -1;
     } else
 #if defined(__ANDROID__)
-#define _PATH_LOG "" /* dummy */
+#define _PATH_LOG "" /* unused */
         log_fd = -1;
 #else
     {

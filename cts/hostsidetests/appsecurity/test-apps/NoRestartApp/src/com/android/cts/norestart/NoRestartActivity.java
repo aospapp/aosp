@@ -16,13 +16,15 @@
 
 package com.android.cts.norestart;
 
-import com.android.cts.norestart.R;
-
 import android.app.Activity;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.os.Bundle;
 
 public class NoRestartActivity extends Activity {
+    private final static String RESOURCE_ID =
+            "com.android.cts.norestart.feature:string/no_restart_feature_text";
+
     private int mCreateCount;
     private int mNewIntentCount;
 
@@ -45,6 +47,16 @@ public class NoRestartActivity extends Activity {
         final Intent intent = new Intent("com.android.cts.norestart.BROADCAST");
         intent.putExtra("CREATE_COUNT", mCreateCount);
         intent.putExtra("NEW_INTENT_COUNT", mNewIntentCount);
+        intent.putExtra("RESOURCE_CONTENT", getResourceInFeature());
         sendBroadcast(intent);
+    }
+
+    private String getResourceInFeature() {
+        final Resources res = getResources();
+        final int resId = res.getIdentifier(RESOURCE_ID, null, null);
+        if (resId == 0) {
+            return null;
+        }
+        return res.getString(resId);
     }
 }

@@ -16,16 +16,13 @@
 
 package android.view.accessibility.cts;
 
-import android.app.Activity;
-import android.app.KeyguardManager;
-import android.content.Context;
 import android.os.Bundle;
 import android.view.accessibility.cts.R;
 
 /**
  * The accessibility shortcut target activity.
  */
-public class AccessibilityShortcutTargetActivity extends Activity {
+public class AccessibilityShortcutTargetActivity extends AccessibilityTestActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

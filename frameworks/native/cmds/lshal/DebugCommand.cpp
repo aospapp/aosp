@@ -28,7 +28,7 @@ std::string DebugCommand::getName() const {
 }
 
 std::string DebugCommand::getSimpleDescription() const {
-    return "Debug a specified HAL.";
+    return "Debug a specified HIDL HAL.";
 }
 
 Status DebugCommand::parseArgs(const Arg &arg) {
@@ -39,7 +39,7 @@ Status DebugCommand::parseArgs(const Arg &arg) {
     // Optargs cannnot be used because the flag should not be considered set
     // if it should really be contained in mOptions.
     if (std::string(arg.argv[optind]) == "-E") {
-        mExcludesParentInstances = true;
+        mParentDebugInfoLevel = ParentDebugInfoLevel::NOTHING;
         optind++;
     }
 
@@ -67,7 +67,7 @@ Status DebugCommand::main(const Arg &arg) {
 
     return mLshal.emitDebugInfo(
             pair.first, pair.second.empty() ? "default" : pair.second, mOptions,
-            mExcludesParentInstances,
+            mParentDebugInfoLevel,
             mLshal.out().buf(),
             mLshal.err());
 }
@@ -78,7 +78,7 @@ void DebugCommand::usage() const {
             "debug:\n"
             "    lshal debug [-E] <interface> [options [options [...]]] \n"
             "        Print debug information of a specified interface.\n"
-            "        -E: excludes debug output if HAL is actually a subclass.\n"
+            "        -E: excludes debug output if HIDL HAL is actually a subclass.\n"
             "        <interface>: Format is `android.hardware.foo@1.0::IFoo/default`.\n"
             "            If instance name is missing `default` is used.\n"
             "        options: space separated options to IBase::debug.\n";

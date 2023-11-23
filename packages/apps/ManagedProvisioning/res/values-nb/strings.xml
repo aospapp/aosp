@@ -28,8 +28,12 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Denne appen kommer til å administrere enheten din:"</string>
     <string name="next" msgid="1004321437324424398">"Neste"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Konfigurerer jobbprofilen …"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT-administratoren din har evnen til å overvåke og administrere innstillinger, bedriftstilgang, apper, tillatelser og data knyttet til denne profilen, inkludert nettverksaktiviteten din samt enhetens posisjon, samtalelogg og søkelogg for kontakter.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Ta kontakt med IT-administratoren din for å få mer informasjon, inkludert organisasjonens personvernregler."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT-administratoren din har evnen til å overvåke og administrere innstillinger, bedriftstilgang, apper, tillatelser og data knyttet til denne enheten, inkludert nettverksaktiviteten din samt enhetens posisjon, samtalelogg og søkelogg for kontakter.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Ta kontakt med IT-administratoren din for å få mer informasjon, inkludert organisasjonens personvernregler."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"IT-administratoren din har evnen til å overvåke og administrere innstillinger, bedriftstilgang, apper, tillatelser og data knyttet til denne profilen, inkludert nettverksaktiviteten din samt enhetens posisjon, samtalelogg og søkelogg for kontakter.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Ta kontakt med IT-administratoren din for å få mer informasjon, inkludert organisasjonens personvernregler."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"IT-administratoren din har evnen til å overvåke og administrere innstillinger, bedriftstilgang, apper, tillatelser og data knyttet til denne enheten, inkludert nettverksaktiviteten din samt enhetens posisjon, samtalelogg og søkelogg for kontakter.<xliff:g id="LINE_BREAK">
+
+</xliff:g>Ta kontakt med IT-administratoren din for å få mer informasjon, inkludert organisasjonens personvernregler."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"For å bruke funksjoner for tyveribeskyttelse må du ha en passordbeskyttet skjermlås på enheten din."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Hvis du vil ha mer informasjon, inkludert organisasjonens personvernregler, kan du kontakte IT-administratoren din."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Finn ut mer"</string>
@@ -37,11 +41,11 @@
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Jeg godtar"</string>
     <string name="url_error" msgid="5958494012986243186">"Kan ikke vise denne linken."</string>
+    <string name="navigation_button_description" msgid="6106309408994461239">"Gå opp"</string>
     <string name="terms" msgid="8295436105384703903">"Vilkår"</string>
     <string name="work_profile_info" msgid="5433388376309583996">"Informasjon om jobbprofil"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"Informasjon om administrert enhet"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"Arbeidsprofil"</string>
-    <string name="default_first_meat_user_name" msgid="7540515892748490540">"Hovedbruker"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"Vil du slette den eksisterende profilen?"</string>
     <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"Du har allerede en jobbprofil. Den administreres med følgende app:"</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343"><a href="#read_this_link">"Les dette"</a>" før du fortsetter."</string>
@@ -54,7 +58,7 @@
     <string name="encrypt" msgid="1749320161747489212">"Kryptér"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Krypteringen er fullført"</string>
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Trykk for å fortsette konfigureringen av jobbprofilen din"</string>
-    <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Kunne ikke konfigurere arbeidsprofilen din. Ta kontakt med IT-avdelingen og prøv på nytt senere."</string>
+    <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Kunne ikke konfigurere jobbprofilen din. Ta kontakt med IT-avdelingen og prøv på nytt senere."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Kan ikke legge til jobbprofilen"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Kan ikke erstatte eller fjerne jobbprofilen"</string>
     <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Jobbprofiler kan ikke legges til på denne enheten. Hvis du har spørsmål, kan du kontakte IT-administratoren din."</string>
@@ -65,15 +69,6 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Brukerkonfigureringen er ikke fullført"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Bruker av arbeidsenhet"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Konfigurerer jobbenheten …"</string>
-    <string name="progress_data_process" msgid="1707745321954672971">"Behandler konfigureringsdata …"</string>
-    <string name="progress_connect_to_wifi" msgid="472251154628863539">"Kobler til Wi-Fi …"</string>
-    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"Kobler til mobilnettverk …"</string>
-    <string name="progress_download" msgid="3522436271691064624">"Laster ned admin-appen …"</string>
-    <string name="progress_install" msgid="2258045670385866183">"Installerer admin-appen …"</string>
-    <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"Fjerner unødvendige systemapper …"</string>
-    <string name="progress_finishing_touches" msgid="9037776404089697198">"Setter siste hånd på verket …"</string>
-    <string name="progress_set_owner" msgid="8214062820093757961">"Angir enhetseieren …"</string>
-    <string name="progress_initialize" msgid="1104643492713424939">"Initialiserer enheten …"</string>
     <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Denne enheten tillater ikke kryptering, som kreves for konfigurering. Ta kontakt med IT-administratoren din for å få hjelp."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Vil du stoppe konfigureringen og tilbakestille enheten?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Dette tilbakestiller enheten din, og du blir ført tilbake til den første skjermen"</string>
@@ -162,24 +157,31 @@
     <string name="device_owner_description" msgid="168013145812679664">"Denne enheten holdes sikker og administreres av organisasjonen din"</string>
     <string name="setup_provisioning_header" msgid="4282483198266806271">"Forbereder konfigurering av jobbenheten …"</string>
     <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Konfigurerer administratorapp"</string>
-    <string name="set_up_everything_else" msgid="4407706086957916501">"Konfigurer alt annet"</string>
-    <string name="now_lets_set_up_everything_else" msgid="5829716209795747105">"Legg til en personlig konto for å få mer ut av enheten din"</string>
-    <string name="now_lets_set_up_everything_else_explanation" msgid="2730458857511288697">"Nå som jobbprofilen din er klar, kan du også legge til en personlig Google-konto for å få tilgang til appene dine og innholdet ditt."</string>
     <string name="brand_screen_header" msgid="8865808542690116648">"Denne enheten tilhører organisasjonen din"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Følgende app brukes til å administrere og overvåke denne telefonen"</string>
+    <string name="account_management_disclaimer_header" msgid="8013083414694316564">"Kontoen din administreres"</string>
+    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"IT-administratoren din bruker administrering av mobilenheter for å håndheve retningslinjene for sikkerhet"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Forbereder til jobbkonfigurering …"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"La oss konfigurere jobbprofilen din"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Jobbapper oppbevares i jobbprofilen din"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Sett jobbapper på pause når du er ferdig for dagen"</string>
     <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"Dataene i jobbprofilen din er synlige for IT-administratoren din"</string>
-    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Konfigurerer arbeidsprofilen din …"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Konfigurerer jobbprofilen din …"</string>
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Jobbapper oppbevares i jobbprofilen din. Du kan sette jobbappene dine på pause når du er ferdig for dagen. Dataene i jobbprofilen din er synlige for IT-administratoren din."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"La oss konfigurere jobbenheten din"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Få enkel tilgang til jobbappene dine"</string>
     <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Denne enheten er ikke privat"</string>
     <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"IT-administratoren din kan se dataene dine og aktiviteten din på denne enheten."</string>
+    <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Aktiviteten din og dataene dine"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Tillatelser for apper"</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"IT-administratoren din kan angi tillatelser for apper på denne enheten, for eksempel mikrofon-, kamera- og posisjonstillatelser."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Konfigurerer enheten din …"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Bruk denne enheten for å få tilgang til jobbappene dine. Denne enheten er ikke privat, så IT-administratoren din kan se dataene dine og aktiviteten din. For å finne ut mer, kontakt IT-administratoren din."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Bruk denne enheten for å få tilgang til jobbappene dine. Denne enheten er ikke privat, så IT-administratoren din kan se dataene dine og aktiviteten din."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Bruk denne enheten for å få tilgang til jobbappene dine. Denne enheten er ikke privat, så IT-administratoren din kan se aktiviteten din og dataene dine. IT-administratoren din kan også angi tillatelser for apper på denne enheten, for eksempel mikrofon-, kamera- og posisjonstillatelser."</string>
+    <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Returner denne enheten til ID-administratoren din"</string>
+    <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Gå tilbake til den forrige skjermen, eller tilbakestill denne enheten og returner den til IT-administratoren din."</string>
+    <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Avbryt konfigureringen"</string>
+    <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Tilbakestill og returner enheten"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Apper i jobbprofilen din administreres av IT-administratoren"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Personlige apper er atskilte og skjules fra jobbapper"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"IT-administratoren kan sjekke enheten og blokkere noen apper"</string>
@@ -187,10 +189,9 @@
     <string name="just_a_sec" msgid="6244676028626237220">"Vent litt"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Personvernpåminnelse"</string>
     <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"IT-administratoren din kan se dataene dine og aktiviteten din på denne enheten"</string>
-    <string name="device_provisioning_finished" msgid="3981783240592092906">"Enheten din er klar til bruk!"</string>
-    <string name="done" msgid="7755227776955952318">"Ferdig"</string>
-    <string name="financed_device_screen_header" msgid="7890706080917322376">"Denne enheten ble kjøpt på kreditt fra <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>"</string>
-    <string name="creditor_capabilities_header" msgid="6217362648469323253">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> kan"</string>
-    <string name="install_creditor_app_description" msgid="6159751782301108878">"installere <xliff:g id="CREDITOR_NAME">%1$s</xliff:g>-appen, slik at du kan betale for denne enheten"</string>
-    <string name="lock_device_description" msgid="2940362560732989166">"begrense tilgangen til denne enheten hvis du ikke betaler"</string>
+    <string name="financed_device_screen_header" msgid="6875169548352717124">"Denne enheten leveres av <xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Foreta betalinger for denne enheten"</string>
+    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> kan installere <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g>-appen, slik at du kan betale for denne enheten."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Denne enheten kan bli begrenset"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> kan begrense tilgangen til denne enheten hvis du ikke betaler."</string>
 </resources>

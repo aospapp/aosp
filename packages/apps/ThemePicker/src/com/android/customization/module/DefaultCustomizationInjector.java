@@ -16,6 +16,8 @@
 package com.android.customization.module;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
@@ -26,12 +28,13 @@ import com.android.customization.model.theme.ThemeManager;
 import com.android.wallpaper.model.CategoryProvider;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.BaseWallpaperInjector;
+import com.android.wallpaper.module.CustomizationSections;
 import com.android.wallpaper.module.DefaultCategoryProvider;
 import com.android.wallpaper.module.LoggingOptInStatusProvider;
 import com.android.wallpaper.module.WallpaperPreferences;
 import com.android.wallpaper.module.WallpaperRotationRefresher;
-import com.android.wallpaper.module.WallpaperSetter;
 import com.android.wallpaper.monitor.PerformanceMonitor;
+import com.android.wallpaper.picker.CustomizationPickerActivity;
 import com.android.wallpaper.picker.PreviewFragment;
 
 public class DefaultCustomizationInjector extends BaseWallpaperInjector
@@ -41,6 +44,7 @@ public class DefaultCustomizationInjector extends BaseWallpaperInjector
     private WallpaperRotationRefresher mWallpaperRotationRefresher;
     private PerformanceMonitor mPerformanceMonitor;
     private WallpaperPreferences mPrefs;
+    private CustomizationSections mCustomizationSections;
 
     @Override
     public synchronized WallpaperPreferences getPreferences(Context context) {
@@ -49,7 +53,6 @@ public class DefaultCustomizationInjector extends BaseWallpaperInjector
         }
         return mPrefs;
     }
-
 
     @Override
     public CustomizationPreferences getCustomizationPreferences(Context context) {
@@ -91,8 +94,23 @@ public class DefaultCustomizationInjector extends BaseWallpaperInjector
             Context context,
             WallpaperInfo wallpaperInfo,
             int mode,
+            boolean viewAsHome,
             boolean testingModeEnabled) {
-        return PreviewFragment.newInstance(wallpaperInfo, mode, testingModeEnabled);
+        return PreviewFragment.newInstance(wallpaperInfo, mode, viewAsHome, testingModeEnabled);
+    }
+
+    @Override
+    public Intent getDeepLinkRedirectIntent(Context context, Uri uri) {
+        Intent intent = new Intent();
+        intent.setClass(context, CustomizationPickerActivity.class);
+        intent.setData(uri);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        return intent;
+    }
+
+    @Override
+    public String getDownloadableIntentAction() {
+        return null;
     }
 
     @Override
@@ -115,9 +133,15 @@ public class DefaultCustomizationInjector extends BaseWallpaperInjector
 
     @Override
     public ThemeManager getThemeManager(ThemeBundleProvider provider, FragmentActivity activity,
-            WallpaperSetter wallpaperSetter, OverlayManagerCompat overlayManagerCompat,
-            ThemesUserEventLogger logger) {
-        return new ThemeManager(provider, activity, wallpaperSetter, overlayManagerCompat, logger);
+            OverlayManagerCompat overlayManagerCompat, ThemesUserEventLogger logger) {
+        return new ThemeManager(provider, activity, overlayManagerCompat, logger);
     }
 
+    @Override
+    public CustomizationSections getCustomizationSections() {
+        if (mCustomizationSections == null) {
+            mCustomizationSections = new DefaultCustomizationSections();
+        }
+        return mCustomizationSections;
+    }
 }

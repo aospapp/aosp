@@ -2,54 +2,63 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::os::unix::io::{AsRawFd, RawFd};
-use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
-use std::thread;
+use std::{path::PathBuf, thread};
 
-use byteorder::{ByteOrder, LittleEndian};
+use data_model::{DataInit, Le64};
 
-use ::vhost::Vsock as VhostVsockHandle;
-use sys_util::{error, warn, EventFd, GuestMemory};
-use virtio_sys::vhost;
+use base::{error, warn, AsRawDescriptor, Event, RawDescriptor};
+use vhost::Vhost;
+use vhost::Vsock as VhostVsockHandle;
+use vm_memory::GuestMemory;
 
 use super::worker::Worker;
 use super::{Error, Result};
-use crate::virtio::{Queue, VirtioDevice, TYPE_VSOCK};
+use crate::virtio::{copy_config, Interrupt, Queue, VirtioDevice, TYPE_VSOCK};
 
 const QUEUE_SIZE: u16 = 256;
 const NUM_QUEUES: usize = 3;
 const QUEUE_SIZES: &[u16] = &[QUEUE_SIZE; NUM_QUEUES];
 
 pub struct Vsock {
-    worker_kill_evt: Option<EventFd>,
-    kill_evt: Option<EventFd>,
+    worker_kill_evt: Option<Event>,
+    kill_evt: Option<Event>,
     vhost_handle: Option<VhostVsockHandle>,
     cid: u64,
-    interrupt: Option<EventFd>,
+    interrupts: Option<Vec<Event>>,
     avail_features: u64,
     acked_features: u64,
 }
 
 impl Vsock {
     /// Create a new virtio-vsock device with the given VM cid.
-    pub fn new(cid: u64, mem: &GuestMemory) -> Result<Vsock> {
-        let kill_evt = EventFd::new().map_err(Error::CreateKillEventFd)?;
-        let handle = VhostVsockHandle::new(mem).map_err(Error::VhostOpen)?;
+    pub fn new(
+        vhost_vsock_device_path: &PathBuf,
+        base_features: u64,
+        cid: u64,
+        mem: &GuestMemory,
+    ) -> Result<Vsock> {
+        let kill_evt = Event::new().map_err(Error::CreateKillEvent)?;
+        let handle =
+            VhostVsockHandle::new(vhost_vsock_device_path, mem).map_err(Error::VhostOpen)?;
 
-        let avail_features = 1 << vhost::VIRTIO_F_NOTIFY_ON_EMPTY
-            | 1 << vhost::VIRTIO_RING_F_INDIRECT_DESC
-            | 1 << vhost::VIRTIO_RING_F_EVENT_IDX
-            | 1 << vhost::VHOST_F_LOG_ALL
-            | 1 << vhost::VIRTIO_F_ANY_LAYOUT
-            | 1 << vhost::VIRTIO_F_VERSION_1;
+        let avail_features = base_features
+            | 1 << virtio_sys::vhost::VIRTIO_F_NOTIFY_ON_EMPTY
+            | 1 << virtio_sys::vhost::VIRTIO_RING_F_INDIRECT_DESC
+            | 1 << virtio_sys::vhost::VIRTIO_RING_F_EVENT_IDX
+            | 1 << virtio_sys::vhost::VHOST_F_LOG_ALL
+            | 1 << virtio_sys::vhost::VIRTIO_F_ANY_LAYOUT;
+
+        let mut interrupts = Vec::new();
+        for _ in 0..NUM_QUEUES {
+            interrupts.push(Event::new().map_err(Error::VhostIrqCreate)?);
+        }
 
         Ok(Vsock {
-            worker_kill_evt: Some(kill_evt.try_clone().map_err(Error::CloneKillEventFd)?),
+            worker_kill_evt: Some(kill_evt.try_clone().map_err(Error::CloneKillEvent)?),
             kill_evt: Some(kill_evt),
             vhost_handle: Some(handle),
             cid,
-            interrupt: Some(EventFd::new().map_err(Error::VhostIrqCreate)?),
+            interrupts: Some(interrupts),
             avail_features,
             acked_features: 0,
         })
@@ -61,7 +70,7 @@ impl Vsock {
             kill_evt: None,
             vhost_handle: None,
             cid,
-            interrupt: None,
+            interrupts: None,
             avail_features: features,
             acked_features: 0,
         }
@@ -74,7 +83,7 @@ impl Vsock {
 
 impl Drop for Vsock {
     fn drop(&mut self) {
-        // Only kill the child if it claimed its eventfd.
+        // Only kill the child if it claimed its event.
         if self.worker_kill_evt.is_none() {
             if let Some(kill_evt) = &self.kill_evt {
                 // Ignore the result because there is nothing we can do about it.
@@ -85,22 +94,24 @@ impl Drop for Vsock {
 }
 
 impl VirtioDevice for Vsock {
-    fn keep_fds(&self) -> Vec<RawFd> {
-        let mut keep_fds = Vec::new();
+    fn keep_rds(&self) -> Vec<RawDescriptor> {
+        let mut keep_rds = Vec::new();
 
         if let Some(handle) = &self.vhost_handle {
-            keep_fds.push(handle.as_raw_fd());
+            keep_rds.push(handle.as_raw_descriptor());
         }
 
-        if let Some(interrupt) = &self.interrupt {
-            keep_fds.push(interrupt.as_raw_fd());
+        if let Some(interrupt) = &self.interrupts {
+            for vhost_int in interrupt.iter() {
+                keep_rds.push(vhost_int.as_raw_descriptor());
+            }
         }
 
         if let Some(worker_kill_evt) = &self.worker_kill_evt {
-            keep_fds.push(worker_kill_evt.as_raw_fd());
+            keep_rds.push(worker_kill_evt.as_raw_descriptor());
         }
 
-        keep_fds
+        keep_rds
     }
 
     fn device_type(&self) -> u32 {
@@ -116,18 +127,8 @@ impl VirtioDevice for Vsock {
     }
 
     fn read_config(&self, offset: u64, data: &mut [u8]) {
-        match offset {
-            0 if data.len() == 8 => LittleEndian::write_u64(data, self.cid),
-            0 if data.len() == 4 => LittleEndian::write_u32(data, (self.cid & 0xffffffff) as u32),
-            4 if data.len() == 4 => {
-                LittleEndian::write_u32(data, ((self.cid >> 32) & 0xffffffff) as u32)
-            }
-            _ => warn!(
-                "vsock: virtio-vsock received invalid read request of {} bytes at offset {}",
-                data.len(),
-                offset
-            ),
-        }
+        let cid = Le64::from(self.cid);
+        copy_config(data, 0, DataInit::as_slice(&cid), offset);
     }
 
     fn ack_features(&mut self, value: u64) {
@@ -147,11 +148,9 @@ impl VirtioDevice for Vsock {
     fn activate(
         &mut self,
         _: GuestMemory,
-        interrupt_evt: EventFd,
-        interrupt_resample_evt: EventFd,
-        status: Arc<AtomicUsize>,
+        interrupt: Interrupt,
         queues: Vec<Queue>,
-        queue_evts: Vec<EventFd>,
+        queue_evts: Vec<Event>,
     ) {
         if queues.len() != NUM_QUEUES || queue_evts.len() != NUM_QUEUES {
             error!("net: expected {} queues, got {}", NUM_QUEUES, queues.len());
@@ -159,7 +158,7 @@ impl VirtioDevice for Vsock {
         }
 
         if let Some(vhost_handle) = self.vhost_handle.take() {
-            if let Some(interrupt) = self.interrupt.take() {
+            if let Some(interrupts) = self.interrupts.take() {
                 if let Some(kill_evt) = self.worker_kill_evt.take() {
                     let acked_features = self.acked_features;
                     let cid = self.cid;
@@ -172,19 +171,20 @@ impl VirtioDevice for Vsock {
                             let mut worker = Worker::new(
                                 vhost_queues,
                                 vhost_handle,
+                                interrupts,
                                 interrupt,
-                                status,
-                                interrupt_evt,
-                                interrupt_resample_evt,
                                 acked_features,
+                                kill_evt,
+                                None,
                             );
                             let activate_vqs = |handle: &VhostVsockHandle| -> Result<()> {
                                 handle.set_cid(cid).map_err(Error::VhostVsockSetCid)?;
                                 handle.start().map_err(Error::VhostVsockStart)?;
                                 Ok(())
                             };
+                            let cleanup_vqs = |_handle: &VhostVsockHandle| -> Result<()> { Ok(()) };
                             let result =
-                                worker.run(queue_evts, QUEUE_SIZES, kill_evt, activate_vqs);
+                                worker.run(queue_evts, QUEUE_SIZES, activate_vqs, cleanup_vqs);
                             if let Err(e) = result {
                                 error!("vsock worker thread exited with error: {:?}", e);
                             }
@@ -198,13 +198,26 @@ impl VirtioDevice for Vsock {
             }
         }
     }
+
+    fn on_device_sandboxed(&mut self) {
+        // ignore the error but to log the error. We don't need to do
+        // anything here because when activate, the other vhost set up
+        // will be failed to stop the activate thread.
+        if let Some(vhost_handle) = &self.vhost_handle {
+            match vhost_handle.set_owner() {
+                Ok(_) => {}
+                Err(e) => error!("{}: failed to set owner: {:?}", self.debug_label(), e),
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use byteorder::{ByteOrder, LittleEndian};
+    use std::convert::TryInto;
+
     #[test]
     fn ack_features() {
         let cid = 5;
@@ -245,15 +258,21 @@ mod tests {
         let cid = 0xfca9a559fdcb9756;
         let vsock = Vsock::new_for_testing(cid, 0);
 
-        let mut buf = [0 as u8; 8];
+        let mut buf = [0u8; 8];
         vsock.read_config(0, &mut buf);
-        assert_eq!(cid, LittleEndian::read_u64(&buf));
+        assert_eq!(cid, u64::from_le_bytes(buf));
 
         vsock.read_config(0, &mut buf[..4]);
-        assert_eq!((cid & 0xffffffff) as u32, LittleEndian::read_u32(&buf[..4]));
+        assert_eq!(
+            (cid & 0xffffffff) as u32,
+            u32::from_le_bytes(buf[..4].try_into().unwrap())
+        );
 
         vsock.read_config(4, &mut buf[..4]);
-        assert_eq!((cid >> 32) as u32, LittleEndian::read_u32(&buf[..4]));
+        assert_eq!(
+            (cid >> 32) as u32,
+            u32::from_le_bytes(buf[..4].try_into().unwrap())
+        );
 
         let data: [u8; 8] = [8, 226, 5, 46, 159, 59, 89, 77];
         buf.copy_from_slice(&data);

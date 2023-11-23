@@ -139,11 +139,11 @@ public class JobInfoRowArrayAdapter extends ArrayAdapter<JobInfo> {
     private String getNetworkType(NetworkRequest networkRequest) {
         if (networkRequest == null) {
             return "None";
-        } else if (networkRequest.networkCapabilities.hasCapability(NET_CAPABILITY_NOT_METERED)) {
+        } else if (networkRequest.hasCapability(NET_CAPABILITY_NOT_METERED)) {
             return "Unmetered";
-        } else if (networkRequest.networkCapabilities.hasCapability(NET_CAPABILITY_NOT_ROAMING)) {
+        } else if (networkRequest.hasCapability(NET_CAPABILITY_NOT_ROAMING)) {
             return "Not roaming";
-        } else if (networkRequest.networkCapabilities.hasTransport(TRANSPORT_CELLULAR)) {
+        } else if (networkRequest.hasTransport(TRANSPORT_CELLULAR)) {
             return "Cellular";
         } else {
             return "Any";

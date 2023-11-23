@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsPackageUninstallTestCases",
     defaults: ["cts_defaults"],
@@ -20,13 +24,15 @@ android_test {
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "platform-test-annotations",
+        "cts-wm-util",
     ],
+    resource_dirs: ["res"],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "sts",
     ],
 }

@@ -32,9 +32,11 @@
 #include "DnsResolver.h"
 #include "Experiments.h"
 #include "NetdPermissions.h"  // PERM_*
+#include "PrivateDnsConfiguration.h"
 #include "ResolverEventReporter.h"
 #include "resolv_cache.h"
 
+using aidl::android::net::ResolverOptionsParcel;
 using aidl::android::net::ResolverParamsParcel;
 using android::base::Join;
 using android::base::StringPrintf;
@@ -72,9 +74,9 @@ inline ::ndk::ScopedAStatus statusFromErrcode(int ret) {
 
 DnsResolverService::DnsResolverService() {
     // register log callback to BnDnsResolver::logFunc
-    BnDnsResolver::logFunc =
-            std::bind(binderCallLogFn, std::placeholders::_1,
-                      [](const std::string& msg) { gResNetdCallbacks.log(msg.c_str()); });
+    BnDnsResolver::logFunc = [](const auto& log) {
+        binderCallLogFn(log, [](const std::string& msg) { gResNetdCallbacks.log(msg.c_str()); });
+    };
 }
 
 binder_status_t DnsResolverService::start() {
@@ -117,6 +119,8 @@ binder_status_t DnsResolverService::dump(int fd, const char** args, uint32_t num
         gDnsResolv->resolverCtrl.dump(dw, netId);
         dw.blankline();
     }
+
+    PrivateDnsConfiguration::getInstance().dump(dw);
     Experiments::getInstance()->dump(dw);
     return STATUS_OK;
 }
@@ -134,6 +138,16 @@ binder_status_t DnsResolverService::dump(int fd, const char** args, uint32_t num
     ENFORCE_NETWORK_STACK_PERMISSIONS();
 
     int res = ResolverEventReporter::getInstance().addListener(listener);
+
+    return statusFromErrcode(res);
+}
+
+::ndk::ScopedAStatus DnsResolverService::registerUnsolicitedEventListener(
+        const std::shared_ptr<
+                aidl::android::net::resolv::aidl::IDnsResolverUnsolicitedEventListener>& listener) {
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+
+    int res = ResolverEventReporter::getInstance().addUnsolEventListener(listener);
 
     return statusFromErrcode(res);
 }
@@ -292,6 +306,14 @@ binder_status_t DnsResolverService::dump(int fd, const char** args, uint32_t num
     int res = gDnsResolv->resolverCtrl.flushNetworkCache(netId);
 
     return statusFromErrcode(res);
+}
+
+::ndk::ScopedAStatus DnsResolverService::setResolverOptions(int32_t netId,
+                                                            const ResolverOptionsParcel& options) {
+    // Locking happens in res_cache.cpp functions.
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+
+    return statusFromErrcode(resolv_set_options(netId, options));
 }
 
 }  // namespace net

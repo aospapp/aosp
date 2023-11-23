@@ -124,8 +124,8 @@ bool SentencePieceNormalizer::NormalizePrefix(
   }
   const bool no_match = match.match_length <= 0;
   if (no_match) {
-    const int char_length = ValidUTF8CharLength(input.data(), input.size());
-    if (char_length <= 0) {
+    int char_length;
+    if (!IsValidChar(input.data(), input.size(), &char_length)) {
       // Found a malformed utf8.
       // The rune is set to be 0xFFFD (REPLACEMENT CHARACTER),
       // which is a valid Unicode of three bytes in utf8,

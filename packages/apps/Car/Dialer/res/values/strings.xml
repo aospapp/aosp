@@ -62,14 +62,26 @@
     <string name="dial_a_number">Dial a number</string>
 
     <!-- Titles -->
-    <!-- Title for the favorites [CHAR LIMIT=30] -->
-    <string name="favorites_title">Favorites</string>
     <!-- Title for the call history [CHAR LIMIT=30] -->
     <string name="call_history_title">Recents</string>
     <!-- Title for the contacts [CHAR LIMIT=30] -->
     <string name="contacts_title">Contacts</string>
+    <!-- Title for the favorites [CHAR LIMIT=30] -->
+    <string name="favorites_title">Favorites</string>
     <!-- Title for the dialpad [CHAR LIMIT=30] -->
     <string name="dialpad_title">Dialpad</string>
+
+    <!-- String constants for tabs -->
+    <!-- String constant for the call history -->
+    <string name="tab_config_call_history" translatable="false">CALL_HISTORY</string>
+    <!-- String constant for the contacts -->
+    <string name="tab_config_contacts" translatable="false">CONTACTS</string>
+    <!-- String constant for the favorites -->
+    <string name="tab_config_favorites" translatable="false">FAVORITE</string>
+    <!-- String constant for the dialpad -->
+    <string name="tab_config_dial_pad" translatable="false">DIAL_PAD</string>
+    <!-- Default value for start page list preference -->
+    <string name="tab_config_default_value">@string/tab_config_call_history</string>
 
     <!-- Headers for call history -->
     <!-- Header in call log to group calls from the current day. [CHAR LIMIT=30] -->
@@ -197,6 +209,22 @@
     <string name="sort_order_title">Contact order</string>
     <string name="sort_order_key" translatable="false">contact_order</string>
 
+    <!-- Title of connected phone setting -->
+    <string name="pref_connected_phone_title">Connected Phone </string>
+    <string name="pref_connected_phone_key" translatable="false">connected_phone</string>
+
+    <!-- Title of no incoming call heads-up notification(HUN) setting -->
+    <string name="pref_no_incoming_call_hun_title">Privacy</string>
+    <string name="pref_no_incoming_call_hun_key" translatable="false">no_incoming_call_hun</string>
+    <!-- Summary of no incoming call heads-up notification(HUN) setting -->
+    <string name="pref_no_incoming_call_hun_summary">Only show call alerts in cluster</string>
+
+    <!-- Title of showing full screen active call UI when answered UI setting-->
+    <string name="pref_show_fullscreen_active_call_ui_title">Active Call</string>
+    <string name="pref_show_fullscreen_active_call_ui_key" translatable="false">show_fullscreen_active_call_ui</string>
+    <!-- Summary of showing full screen active call UI when answered UI setting -->
+    <string name="pref_show_fullscreen_active_call_ui_summary">Show active call view when answering call</string>
+
     <!-- Keys and titles of the settings for sorting Contacts in different orders -->
     <!-- Key of given name -->
     <string name="given_name_first_key" translatable="false">given_name</string>
@@ -206,6 +234,8 @@
     <string name="given_name_first_title">First name</string>
     <!-- Title of family name [CHAR LIMIT=40]-->
     <string name="family_name_first_title">Last name</string>
+    <!-- Default value for sort order list preference -->
+    <string name="sort_order_default_value">@string/given_name_first_key</string>
 
     <!-- Audio route selection dialog. Placeholder resources for overriding -->
     <string name="audio_route_dialog_title">Output call audio to:</string>
@@ -215,5 +245,13 @@
     <!-- Title of conference page -->
     <string name="ongoing_conf_title">Conference</string>
     <string name="ongoing_conf_title_format">%1$s (%2$d) -\u0020</string>
+
+    <!-- Dialing disabled warning [CHAR LIMIT=40] -->
+    <string name="dialing_disabled_warning">Dialing disabled</string>
+    <!-- Restricted dialing mode description -->
+    <string name="restricted_dialing_mode_label">Dialpad usage is restricted while driving</string>
+
+    <!-- Delimiter to join two unrelated strings together, a comma followed by a whitespace. Use case: join phone number label and phone call timestamp in Recents page, "Mobile, 4 days ago" for example. -->
+    <string name="comma_delimiter">,\u0020</string>
 
 </resources>

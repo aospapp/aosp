@@ -46,10 +46,14 @@ var mockFs = pathtools.MockFs(map[string][]byte{
 	"dangling -> missing": nil,
 	"a/a/d -> b":          nil,
 	"c":                   fileC,
-	"l_nl":                []byte("a/a/a\na/a/b\nc\n"),
-	"l_sp":                []byte("a/a/a a/a/b c"),
+	"l_nl":                []byte("a/a/a\na/a/b\nc\n\\[\n"),
+	"l_sp":                []byte("a/a/a a/a/b c \\["),
 	"l2":                  []byte("missing\n"),
+	"rsp":                 []byte("'a/a/a'\na/a/b\n'@'\n'foo'\\''bar'\n'['"),
+	"@ -> c":              nil,
+	"foo'bar -> c":        nil,
 	"manifest.txt":        fileCustomManifest,
+	"[":                   fileEmpty,
 })
 
 func fh(name string, contents []byte, method uint16) zip.FileHeader {
@@ -58,7 +62,7 @@ func fh(name string, contents []byte, method uint16) zip.FileHeader {
 		Method:             method,
 		CRC32:              crc32.ChecksumIEEE(contents),
 		UncompressedSize64: uint64(len(contents)),
-		ExternalAttrs:      0,
+		ExternalAttrs:      (syscall.S_IFREG | 0644) << 16,
 	}
 }
 
@@ -68,7 +72,7 @@ func fhManifest(contents []byte) zip.FileHeader {
 		Method:             zip.Store,
 		CRC32:              crc32.ChecksumIEEE(contents),
 		UncompressedSize64: uint64(len(contents)),
-		ExternalAttrs:      (syscall.S_IFREG | 0700) << 16,
+		ExternalAttrs:      (syscall.S_IFREG | 0644) << 16,
 	}
 }
 
@@ -88,7 +92,7 @@ func fhDir(name string) zip.FileHeader {
 		Method:             zip.Store,
 		CRC32:              crc32.ChecksumIEEE(nil),
 		UncompressedSize64: 0,
-		ExternalAttrs:      (syscall.S_IFDIR|0700)<<16 | 0x10,
+		ExternalAttrs:      (syscall.S_IFDIR|0755)<<16 | 0x10,
 	}
 }
 
@@ -124,13 +128,15 @@ func TestZip(t *testing.T) {
 			args: fileArgsBuilder().
 				File("a/a/a").
 				File("a/a/b").
-				File("c"),
+				File("c").
+				File(`\[`),
 			compressionLevel: 9,
 
 			files: []zip.FileHeader{
 				fh("a/a/a", fileA, zip.Deflate),
 				fh("a/a/b", fileB, zip.Deflate),
 				fh("c", fileC, zip.Deflate),
+				fh("[", fileEmpty, zip.Store),
 			},
 		},
 		{
@@ -232,6 +238,7 @@ func TestZip(t *testing.T) {
 				fh("a/a/a", fileA, zip.Deflate),
 				fh("a/a/b", fileB, zip.Deflate),
 				fh("c", fileC, zip.Deflate),
+				fh("[", fileEmpty, zip.Store),
 			},
 		},
 		{
@@ -244,6 +251,21 @@ func TestZip(t *testing.T) {
 				fh("a/a/a", fileA, zip.Deflate),
 				fh("a/a/b", fileB, zip.Deflate),
 				fh("c", fileC, zip.Deflate),
+				fh("[", fileEmpty, zip.Store),
+			},
+		},
+		{
+			name: "rsp",
+			args: fileArgsBuilder().
+				RspFile("rsp"),
+			compressionLevel: 9,
+
+			files: []zip.FileHeader{
+				fh("a/a/a", fileA, zip.Deflate),
+				fh("a/a/b", fileB, zip.Deflate),
+				fh("@", fileC, zip.Deflate),
+				fh("foo'bar", fileC, zip.Deflate),
+				fh("[", fileEmpty, zip.Store),
 			},
 		},
 		{
@@ -426,7 +448,7 @@ func TestZip(t *testing.T) {
 			args.Stderr = &bytes.Buffer{}
 
 			buf := &bytes.Buffer{}
-			err := ZipTo(args, buf)
+			err := zipTo(args, buf)
 
 			if (err != nil) != (test.err != nil) {
 				t.Fatalf("want error %v, got %v", test.err, err)
@@ -513,73 +535,6 @@ func TestZip(t *testing.T) {
 	}
 }
 
-func TestReadRespFile(t *testing.T) {
-	testCases := []struct {
-		name, in string
-		out      []string
-	}{
-		{
-			name: "single quoting test case 1",
-			in:   `./cmd '"'-C`,
-			out:  []string{"./cmd", `"-C`},
-		},
-		{
-			name: "single quoting test case 2",
-			in:   `./cmd '-C`,
-			out:  []string{"./cmd", `-C`},
-		},
-		{
-			name: "single quoting test case 3",
-			in:   `./cmd '\"'-C`,
-			out:  []string{"./cmd", `\"-C`},
-		},
-		{
-			name: "single quoting test case 4",
-			in:   `./cmd '\\'-C`,
-			out:  []string{"./cmd", `\\-C`},
-		},
-		{
-			name: "none quoting test case 1",
-			in:   `./cmd \'-C`,
-			out:  []string{"./cmd", `'-C`},
-		},
-		{
-			name: "none quoting test case 2",
-			in:   `./cmd \\-C`,
-			out:  []string{"./cmd", `\-C`},
-		},
-		{
-			name: "none quoting test case 3",
-			in:   `./cmd \"-C`,
-			out:  []string{"./cmd", `"-C`},
-		},
-		{
-			name: "double quoting test case 1",
-			in:   `./cmd "'"-C`,
-			out:  []string{"./cmd", `'-C`},
-		},
-		{
-			name: "double quoting test case 2",
-			in:   `./cmd "\\"-C`,
-			out:  []string{"./cmd", `\-C`},
-		},
-		{
-			name: "double quoting test case 3",
-			in:   `./cmd "\""-C`,
-			out:  []string{"./cmd", `"-C`},
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			got := ReadRespFile([]byte(testCase.in))
-			if !reflect.DeepEqual(got, testCase.out) {
-				t.Errorf("expected %q got %q", testCase.out, got)
-			}
-		})
-	}
-}
-
 func TestSrcJar(t *testing.T) {
 	mockFs := pathtools.MockFs(map[string][]byte{
 		"wrong_package.java":       []byte("package foo;"),
@@ -606,7 +561,7 @@ func TestSrcJar(t *testing.T) {
 	args.Stderr = &bytes.Buffer{}
 
 	buf := &bytes.Buffer{}
-	err := ZipTo(args, buf)
+	err := zipTo(args, buf)
 	if err != nil {
 		t.Fatalf("got error %v", err)
 	}

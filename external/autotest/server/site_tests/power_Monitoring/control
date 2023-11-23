@@ -12,7 +12,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 This wrapper test runs the tests specified under a given suite in a continuous

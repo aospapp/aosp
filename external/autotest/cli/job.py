@@ -18,6 +18,8 @@ See topic_common.py for a High Level Design and Algorithm.
 
 # pylint: disable=missing-docstring
 
+from __future__ import print_function
+
 import getpass, re
 from autotest_lib.cli import topic_common, action_common
 from autotest_lib.client.common_lib import control_data
@@ -605,7 +607,7 @@ class job_abort(job, action_common.atest_delete):
     def execute(self):
         data = {'job__id__in': self.jobids}
         self.execute_rpc(op='abort_host_queue_entries', **data)
-        print 'Aborting jobs: %s' % ', '.join(self.jobids)
+        print('Aborting jobs: %s' % ', '.join(self.jobids))
 
 
     def get_items(self):

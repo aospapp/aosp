@@ -72,9 +72,12 @@ public class RVCVXCheckAnalyzer {
     private static final double DECIMATION_FPS_TARGET = 15.0;
     private static final double MIN_VIDEO_LENGTH_SEC = 10;
 
-    RVCVXCheckAnalyzer(String path)
+    private final boolean mHaveInvertedImu;
+
+    RVCVXCheckAnalyzer(String path, boolean haveInvertedImu)
     {
         mPath = path;
+        mHaveInvertedImu = haveInvertedImu;
     }
 
     /**
@@ -200,7 +203,7 @@ public class RVCVXCheckAnalyzer {
             }
             if (nvlog <= 0 || nframe <= 0) {
                 // invalid results
-                report.reason = "Unable to to load recorded video.";
+                report.reason = "Unable to load recorded video.";
                 return report;
             }
             if (nframe < MIN_VIDEO_LENGTH_SEC*VALID_FRAME_THRESHOLD) {
@@ -400,6 +403,7 @@ public class RVCVXCheckAnalyzer {
 
         double t0 = -1;
 
+        Log.i(TAG, "Converting sensor log; inverted IMU adjustment: " + mHaveInvertedImu);
         try {
             br = new BufferedReader(new FileReader(csvFile));
             while ((line = br.readLine()) != null) {
@@ -418,6 +422,19 @@ public class RVCVXCheckAnalyzer {
 
                 //
                 quat2rpy(quat, rpy);
+
+                if (mHaveInvertedImu) {
+                    // Compensate for front-facing camera rotated around hinge along
+                    // Y-axis with IMU on same panel (so IMU X & Z axes are inverted
+                    // compared to what we expect): offset roll by 180 degrees and
+                    // invert pitch and roll directions
+                    rpy[0] -= Math.PI;
+                    if (rpy[0] <= -Math.PI) {
+                      rpy[0] += 2 * Math.PI;
+                    }
+                    rpy[0] *= -1;
+                    rpy[1] *= -1;
+                }
 
                 if (t0 < 0) {
                     t0 = Long.parseLong(items[0])/1e9;

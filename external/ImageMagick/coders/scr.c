@@ -17,7 +17,7 @@
 %                               October 2003                                  %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -106,7 +106,7 @@ static Image *ReadSCRImage(const ImageInfo *image_info,ExceptionInfo *exception)
     int paper;
     int bright;
 
-  unsigned char colour_palette[] = {
+  unsigned char color_palette[] = {
       0,  0,  0,
       0,  0,192,
     192,  0,  0,
@@ -131,7 +131,7 @@ static Image *ReadSCRImage(const ImageInfo *image_info,ExceptionInfo *exception)
   MagickBooleanType
     status;
 
-  register Quantum
+  Quantum
     *q;
 
   ssize_t
@@ -225,18 +225,18 @@ static Image *ReadSCRImage(const ImageInfo *image_info,ExceptionInfo *exception)
               if(binar[z])
             {
                 SetPixelRed(image,ScaleCharToQuantum(
-                  colour_palette[3*ink]),q);
+                  color_palette[3*ink]),q);
                 SetPixelGreen(image,ScaleCharToQuantum(
-                  colour_palette[1+(3*ink)]),q);
+                  color_palette[1+(3*ink)]),q);
                 SetPixelBlue(image,ScaleCharToQuantum(
-                  colour_palette[2+(3*ink)]),q);
+                  color_palette[2+(3*ink)]),q);
             } else {
                 SetPixelRed(image,ScaleCharToQuantum(
-                  colour_palette[3*paper]),q);
+                  color_palette[3*paper]),q);
                 SetPixelGreen(image,ScaleCharToQuantum(
-                  colour_palette[1+(3*paper)]),q);
+                  color_palette[1+(3*paper)]),q);
                 SetPixelBlue(image,ScaleCharToQuantum(
-                  colour_palette[2+(3*paper)]),q);
+                  color_palette[2+(3*paper)]),q);
             }
 
               pix++;

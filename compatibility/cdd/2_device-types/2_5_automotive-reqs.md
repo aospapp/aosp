@@ -73,6 +73,20 @@ up to 250 degrees per second.
 gyroscope’s measurement range to +/-250dps in order to maximize the resolution
 possible
 
+If Automotive device implementations include a GPS/GNSS receiver, but do not
+include cellular network-based data connectivity, they:
+
+*    [[7.3](#7_3_sensors).3/A-3-1] MUST determine location the very first time
+     the GPS/GNSS receiver is turned on or after 4+ days within 60 seconds.
+*    [[7.3](#7_3_sensors).3/A-3-2] MUST meet the time-to-first-fix criteria as
+     described in [7.3.3/C-1-2](#7_3_3_gps) and [7.3.3/C-1-6](#7_3_3_gps)
+     for all other location requests (i.e requests which are not the first time
+     ever or after 4+ days). The requirement [7.3.3/C-1-2](#7_3_3_gps) is
+     typically met in vehicles without cellular network-based data connectivity,
+     by using GNSS orbit predictions calculated on the receiver, or using the
+     last known vehicle location along with the ability to dead reckon for at
+     least 60 seconds with a position accuracy satisfying
+     [7.3.3/C-1-3](#7_3_3_gps), or a combination of both.
 
 Automotive device implementations:
 
@@ -250,9 +264,27 @@ http://developer.android.com/reference/android/content/res/Configuration.html#UI
 [`android.car.*`](https://developer.android.com/reference/android/car/package-summary)
 namespace.
 
+If Automotive device implementations provide a proprietary API using
+[`android.car.CarPropertyManager`](https://developer.android.com/reference/android/car/hardware/property/CarPropertyManager) with
+[`android.car.VehiclePropertyIds`](https://developer.android.com/reference/android/car/VehiclePropertyIds),
+they:
+
+*   [[3](#3_0_intro)/A-1-1] MUST NOT attach special privileges to system
+    application's use of these properties, or prevent third-party applications
+    from using these properties.
+*   [[3](#3_0_intro)/A-1-2] MUST NOT replicate a vehicle property that already
+    exists in the [SDK](https://developer.android.com/reference/android/car/VehiclePropertyIds).
+
+Automotive device implementations:
+
 *   [[3.2](#3_2_soft_api_compatibility).1/A-0-1] MUST support and enforce all
 permissions constants as documented by the [Automotive Permission reference page](
 https://developer.android.com/reference/android/car/Car).
+
+*   [[3.2.3.1](#3_2_3_1_common_application_intents)/A-0-1]  MUST preload one or
+more applications or service components with an intent handler, for all the
+public intent filter patterns defined by the following application intents
+listed [here](https://developer.android.com/about/versions/11/reference/common-intents-30).
 
 *   [[3.4](#3_4_web_compatibility).1/A-0-1] MUST provide a complete
 implementation of the `android.webkit.Webview` API.
@@ -331,18 +363,13 @@ intent.
 Automotive device implementations:
 
 *    [[3.8](#3_8_user-interface-compatibility)/A] MAY restrict the application
-     requests to limit the ability to enter a full screen mode as described in
-     [`immersive documentation`](
+     requests to enter a full screen mode as described in [`immersive documentation`](
      https://developer.android.com/training/system-ui/immersive).
 *   [[3.8](#3_8_user-interface-compatibility)/A] MAY keep the status bar and
     the navigation bar visible at all times.
 *   [[3.8](#3_8_user-interface-compatibility)/A] MAY restrict the application
-    requests to limit the ability to change the colors behind the system UI
-    elements, to ensure those elements are clearly visible at all times,
-    as described in the [`WindowManager.LayoutParams#FLAG_TRANSLUCENT_STATUS`](
-    https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_TRANSLUCENT_STATUS)
-    and [`WindowManager.LayoutParams#FLAG_TRANSLUCENT_NAVIGATION`](
-    https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_TRANSLUCENT_NAVIGATION).
+    requests to change the colors behind the system UI elements, to ensure
+    those elements are clearly visible at all times.
 
 ### 2.5.4\. Performance and Power
 
@@ -353,10 +380,10 @@ bytes read and written to non-volatile storage per each process's UID so the
 stats are available to developers through System API
 `android.car.storagemonitoring.CarStorageMonitoringManager`. The Android Open
 Source Project meets the requirement through the `uid_sys_stats` kernel module.
-*   [[8.3](#8_3_power_saving_modes)/A-1-3] MUST enter [Garage Mode](https://source.android.com/devices/automotive/garage_mode)
-at least once before the car is powered down.
-*   [[8.3](#8_3_power_saving_modes)/A-1-4] MUST be in [Garage Mode](https://source.android.com/devices/automotive/garage_mode)
-for at least 15 minutes unless:
+*   [[8.3](#8_3_power_saving_modes)/A-1-3] MUST support [Garage Mode](
+    https://source.android.com/devices/automotive/garage_mode).
+*   [[8.3](#8_3_power_saving_modes)/A] SHOULD be in Garage Mode for at least
+    15 minutes after every drive unless:
     *    The battery is drained.
     *    No idle jobs are scheduled.
     *    The driver exits Garage Mode.
@@ -429,12 +456,6 @@ version, such a device is exempted from the requirement to have a keystore
 backed by an isolated execution environment and support the key attestation,
 unless it declares the `android.hardware.fingerprint` feature which requires a
 keystore backed by an isolated execution environment.
-
-If Automotive device implementations support a secure lock screen, they:
-
-*    [[9.11](#9_11_permissions)/A-1-1] MUST allow the user to choose the Sleep
-     timeout for transition from the unlocked to the locked state, with a
-     minimum allowable timeout up to 15 seconds or less.
 
 Automotive device implementations:
 

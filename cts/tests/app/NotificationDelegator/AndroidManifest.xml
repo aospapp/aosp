@@ -13,28 +13,32 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.test.notificationdelegator">
+     package="com.android.test.notificationdelegator">
     <application android:label="Notification Delegator">
-        <activity android:name="com.android.test.notificationdelegator.NotificationDelegator">
+        <activity android:name="com.android.test.notificationdelegator.NotificationDelegator"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-        <activity android:name="com.android.test.notificationdelegator.NotificationRevoker">
+        <activity android:name="com.android.test.notificationdelegator.NotificationRevoker"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
 
-        <activity android:name="com.android.test.notificationdelegator.NotificationDelegateAndPost">
+        <activity android:name="com.android.test.notificationdelegator.NotificationDelegateAndPost"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
 

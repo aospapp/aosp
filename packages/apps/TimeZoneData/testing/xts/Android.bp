@@ -16,6 +16,10 @@
 // OEMs can include this as a "_STATIC_" dependency and anything else needed to integrate with their
 // own test suite. At runtime the libs below (or a superset) must be present.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library_host {
     name: "time_zone_data_app_testing",
     srcs: ["src/**/*.java"],

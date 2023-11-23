@@ -103,6 +103,7 @@ parcelable ResolverParamsParcel {
     /**
      * Knobs for OEM to control alternative behavior.
      */
+    @nullable
     ResolverOptionsParcel resolverOptions;
 
     /**

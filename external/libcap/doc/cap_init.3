@@ -13,7 +13,7 @@ cap_init, cap_free, cap_dup \- capability data object storage management
 .sp
 .BI "cap_t cap_dup(cap_t " cap_p );
 .sp
-Link with \fI-lcap\fP.
+Link with \fI\-lcap\fP.
 .SH DESCRIPTION
 The capabilities associated with a file or process are never edited
 directly.  Instead, working storage is allocated to contain a
@@ -41,7 +41,7 @@ The
 argument may identify either a
 .I cap_t
 entity, or a
-.I char *
+.I "char\ *"
 entity allocated by the
 .BR cap_to_text ()
 function.

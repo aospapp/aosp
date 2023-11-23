@@ -22,7 +22,11 @@
 #include <shared/send_message.h>
 #include <shared/time_util.h>
 
+#include "chre/util/nanoapp/log.h"
+
 #include <chre.h>
+
+#define LOG_TAG "[BasicSensorTest]"
 
 using nanoapp_testing::kOneMillisecondInNanoseconds;
 using nanoapp_testing::kOneSecondInNanoseconds;
@@ -37,8 +41,8 @@ using nanoapp_testing::sendSuccessToHost;
  * Our general test flow is as follows:
  *
  * Constructor: Send startEvent to self to start.
- * StartEvent: Get default sensor and perform various sanity checks.  Configure
- *    the sensor.
+ * StartEvent: Get default sensor and perform various consistency checks.
+ * Configure the sensor.
  *
  * At this point, it depends what kind of sensor we have for how we proceed
  * with the test.
@@ -47,8 +51,8 @@ using nanoapp_testing::sendSuccessToHost;
  * On-change: Wait for one data event from sensor.  Then finishTest().
  * Continuous: Wait for two data events from sensor.  Then finishTest().
  *
- * We also look for and perform basic sanity checking on sampling status
- * change events, as well as bias data reports.
+ * We also look for and perform basic consistency checking on sampling
+ * status change events, as well as bias data reports.
  */
 
 namespace general_test {
@@ -65,6 +69,13 @@ uint64_t getEventDuration(const chreSensorThreeAxisData *event) {
 
   return duration;
 }
+
+bool isBiasEventType(uint16_t eventType) {
+  return (eventType == CHRE_EVENT_SENSOR_ACCELEROMETER_BIAS_INFO) ||
+         (eventType == CHRE_EVENT_SENSOR_GYROSCOPE_BIAS_INFO) ||
+         (eventType == CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_BIAS_INFO);
+}
+
 }  // anonymous namespace
 
 BasicSensorTestBase::BasicSensorTestBase()
@@ -81,6 +92,12 @@ void BasicSensorTestBase::setUp(uint32_t messageSize,
     sendFatalFailureToHost("Beginning message expects 0 additional bytes, got ",
                            &messageSize);
   }
+
+  sendStartTestMessage();
+}
+
+void BasicSensorTestBase::sendStartTestMessage() {
+  mState = State::kPreStart;
   // Most tests start running in the constructor.  However, since this
   // is a base class, and we invoke abstract methods when running our
   // test, we don't start until after the class has been fully
@@ -162,14 +179,27 @@ void BasicSensorTestBase::checkPassiveConfigure() {
 
 void BasicSensorTestBase::startTest() {
   mState = State::kPreConfigure;
-  if (!chreSensorFindDefault(getSensorType(), &mSensorHandle)) {
-    if (isRequiredSensor()) {
-      sendFatalFailureToHost("Sensor is required, but no default found.");
+
+  bool found = false;
+  if (mApiVersion >= CHRE_API_VERSION_1_5) {
+    found =
+        chreSensorFind(getSensorType(), mCurrentSensorIndex, &mSensorHandle);
+    if (!found && chreSensorFind(getSensorType(), mCurrentSensorIndex + 1,
+                                 &mSensorHandle)) {
+      sendFatalFailureToHostUint8("Missing sensor index ", mCurrentSensorIndex);
+      return;
     }
+  } else {
+    found = chreSensorFindDefault(getSensorType(), &mSensorHandle);
+  }
+
+  if (!found) {
     sendStringToHost(MessageType::kSkipped,
                      "No default sensor found for optional sensor.");
     return;
   }
+
+  LOGI("Starting test for sensor index %" PRIu8, mCurrentSensorIndex);
 
   chreSensorInfo info;
   if (!chreGetSensorInfo(mSensorHandle, &info)) {
@@ -287,19 +317,39 @@ void BasicSensorTestBase::finishTest() {
       }
     }
   }
-  mState = State::kFinished;
-  sendSuccessToHost();
+
+  LOGI("Test passed for sensor index %" PRIu8, mCurrentSensorIndex);
+
+  bool finished = true;
+  if (mApiVersion >= CHRE_API_VERSION_1_5) {
+    mCurrentSensorIndex++;
+    uint32_t sensorHandle;
+    if (chreSensorFind(getSensorType(), mCurrentSensorIndex, &sensorHandle)) {
+      finished = false;
+      mPrevSensorHandle = mSensorHandle;
+      sendStartTestMessage();
+    }
+  }
+
+  if (finished) {
+    mState = State::kFinished;
+    sendSuccessToHost();
+  }
 }
 
-void BasicSensorTestBase::sanityCheckHeader(const chreSensorDataHeader *header,
-                                            bool modifyTimestamps,
+void BasicSensorTestBase::verifyEventHeader(const chreSensorDataHeader *header,
+                                            uint16_t eventType,
                                             uint64_t eventDuration) {
   if (header->sensorHandle != mSensorHandle) {
     sendFatalFailureToHost("SensorDataHeader for wrong handle",
                            &header->sensorHandle);
   }
 
-  if (!isOnChangeSensor()) {
+  // Bias and on-change sensor events may have timestamps from before any of our
+  // requests started since they aren't generated in response to requests. For
+  // these types of events, only ensure the provided timestamp is less than the
+  // current time.
+  if (!isOnChangeSensor() && !isBiasEventType(eventType)) {
     // An on-change sensor is supposed to send its current state, which
     // could be timestamped in the past.  Everything else should be
     // getting recent data.
@@ -339,10 +389,13 @@ void BasicSensorTestBase::sanityCheckHeader(const chreSensorDataHeader *header,
         (header->baseTimestamp > mDoneTimestamp)) {
       sendFatalFailureToHost("SensorDataHeader is from after DONE");
     }
-    if (modifyTimestamps) {
-      *timeToUpdate = header->baseTimestamp;
-    }
+    *timeToUpdate = header->baseTimestamp;
   }
+
+  if (header->baseTimestamp > chreGetTime()) {
+    sendFatalFailureToHost("SensorDataHeader is in the future");
+  }
+
   if (header->readingCount == 0) {
     sendFatalFailureToHost("SensorDataHeader has readingCount of 0");
   }
@@ -369,6 +422,8 @@ void BasicSensorTestBase::handleBiasEvent(
     expectedSensorType = CHRE_SENSOR_TYPE_GYROSCOPE;
   } else if (eventType == CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_BIAS_INFO) {
     expectedSensorType = CHRE_SENSOR_TYPE_GEOMAGNETIC_FIELD;
+  } else if (eventType == CHRE_EVENT_SENSOR_ACCELEROMETER_BIAS_INFO) {
+    expectedSensorType = CHRE_SENSOR_TYPE_ACCELEROMETER;
   } else {
     sendInternalFailureToHost("Illegal eventType in handleBiasEvent", &eType);
   }
@@ -376,49 +431,57 @@ void BasicSensorTestBase::handleBiasEvent(
   if (expectedSensorType != getSensorType()) {
     sendFatalFailureToHost("Unexpected bias event:", &eType);
   }
-  sanityCheckHeader(&eventData->header, false, getEventDuration(eventData));
+  verifyEventHeader(&eventData->header, eventType, getEventDuration(eventData));
 
-  // TODO: Sanity check the eventData.  This check is out-of-scope for
+  // TODO: consistency check the eventData.  This check is out-of-scope for
   //     Android N testing.
 }
 
 void BasicSensorTestBase::handleSamplingChangeEvent(
     const chreSensorSamplingStatusEvent *eventData) {
+  if (mPrevSensorHandle.has_value() &&
+      (mPrevSensorHandle.value() == eventData->sensorHandle)) {
+    // We can get a "DONE" event from the previous sensor for multi-sensor
+    // devices, so we ignore these events.
+    return;
+  }
+
   if (eventData->sensorHandle != mSensorHandle) {
     sendFatalFailureToHost("SamplingChangeEvent for wrong sensor handle:",
                            &eventData->sensorHandle);
   }
-  if (mState == State::kFinished) {
-    // TODO: If we strictly define whether this event is or isn't
-    //     generated upon being DONE with a sensor, then we can perform
-    //     a strict check here.  For now, we just let this go.
-    return;
-  }
-  // Passive sensor requests do not guarantee sensors will always be enabled.
-  // Bypass 'enabled' check for passive configurations.
-  if (!eventData->status.enabled) {
-    sendFatalFailureToHost("SamplingChangeEvent disabled the sensor.");
-  }
 
-  if ((mNewStatus.interval != eventData->status.interval) ||
-      (mNewStatus.latency != eventData->status.latency)) {
-    // This is from someone other than us.  Let's note that so we know
-    // our sanity checks are invalid.
-    mExternalSamplingStatusChange = true;
+  // TODO: If we strictly define whether this event is or isn't
+  //     generated upon being DONE with a sensor, then we can perform
+  //     a strict check here.  For now, we just let this go.
+  if (mState != State::kFinished) {
+    // Passive sensor requests do not guarantee sensors will always be enabled.
+    // Bypass 'enabled' check for passive configurations.
+    if (!eventData->status.enabled) {
+      sendFatalFailureToHost("SamplingChangeEvent disabled the sensor.");
+    }
+
+    if ((mNewStatus.interval != eventData->status.interval) ||
+        (mNewStatus.latency != eventData->status.latency)) {
+      // This is from someone other than us.  Let's note that so we know
+      // our consistency checks are invalid.
+      mExternalSamplingStatusChange = true;
+    }
   }
 }
 
-void BasicSensorTestBase::handleSensorDataEvent(const void *eventData) {
+void BasicSensorTestBase::handleSensorDataEvent(uint16_t eventType,
+                                                const void *eventData) {
   if ((mState == State::kPreStart) || (mState == State::kPreConfigure)) {
     sendFatalFailureToHost("SensorDataEvent sent too early.");
   }
   // Note, if mState is kFinished, we could be getting batched data which
-  // hadn't been delivered yet at the time we were DONE.  We'll sanity
+  // hadn't been delivered yet at the time we were DONE.  We'll consistency
   // check it, even though in theory we're done testing.
   uint64_t eventDuration =
       getEventDuration(static_cast<const chreSensorThreeAxisData *>(eventData));
-  sanityCheckHeader(static_cast<const chreSensorDataHeader *>(eventData), true,
-                    eventDuration);
+  verifyEventHeader(static_cast<const chreSensorDataHeader *>(eventData),
+                    eventType, eventDuration);
 
   // Send to the sensor itself for any additional checks of actual data.
   confirmDataIsSane(eventData);
@@ -447,9 +510,6 @@ void BasicSensorTestBase::handleEvent(uint32_t senderInstanceId,
     if ((eventType == kStartEvent) && (mState == State::kPreStart)) {
       startTest();
     }
-  } else if ((mState == State::kPreStart) || (mState == State::kPreConfigure)) {
-    unexpectedEvent(eventType);
-
   } else if (senderInstanceId != CHRE_INSTANCE_ID) {
     sendFatalFailureToHost("Unexpected senderInstanceId:", &senderInstanceId);
 
@@ -458,14 +518,13 @@ void BasicSensorTestBase::handleEvent(uint32_t senderInstanceId,
     sendFatalFailureToHost("Got NULL eventData for event:", &eType);
 
   } else if (eventType == dataEventType) {
-    handleSensorDataEvent(eventData);
+    handleSensorDataEvent(eventType, eventData);
 
   } else if (eventType == CHRE_EVENT_SENSOR_SAMPLING_CHANGE) {
     handleSamplingChangeEvent(
         static_cast<const chreSensorSamplingStatusEvent *>(eventData));
 
-  } else if ((eventType == CHRE_EVENT_SENSOR_GYROSCOPE_BIAS_INFO) ||
-             (eventType == CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_BIAS_INFO)) {
+  } else if (isBiasEventType(eventType)) {
     handleBiasEvent(eventType,
                     static_cast<const chreSensorThreeAxisData *>(eventData));
 

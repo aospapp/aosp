@@ -15,15 +15,16 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.dexmetadata.splitapp"
-        android:isFeatureSplit="true"
-        split="feature_a">
+     package="com.android.cts.dexmetadata.splitapp"
+     android:isFeatureSplit="true"
+     split="feature_a">
 
     <application android:debuggable="true">
-        <activity android:name=".feature_a.FeatureAActivity">
+        <activity android:name=".feature_a.FeatureAActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>

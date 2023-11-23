@@ -1,6 +1,6 @@
 {
-    "remote": "https://android.googlesource.com/platform/external/deqp",
-    "sha": "da1463790952d1c1ac6c1409d814c29286da1aea",
+    "remote": "https://github.com/KhronosGroup/VK-GL-CTS.git",
+    "sha": "288b9dd96a84b5ed2509c435ad1ca480dd8c7962",
     "patches": [
         "tests/regres/deqp-patches/deqp-x11.patch"
     ]

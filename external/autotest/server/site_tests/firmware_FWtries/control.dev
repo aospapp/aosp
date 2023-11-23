@@ -4,7 +4,8 @@
 
 AUTHOR = "Chrome OS Team"
 NAME = "firmware_FWtries.dev"
-ATTRIBUTES = "suite:faft_bios, suite:faft_bios_au_1, suite:faft_bios_au_2, suite:faft_bios_au_3, suite:faft_dev, suite:faft_lv1, suite:faft_bios_ec3po, suite:faft_bios_tot"
+ATTRIBUTES = "suite:faft_bios, suite:faft_bios_ro_qual, suite:faft_bios_rw_qual, suite:faft_dev, suite:faft_lv1, suite:faft_bios_ec3po, suite:faft_bios_tot"
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"

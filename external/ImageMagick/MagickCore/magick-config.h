@@ -1,5 +1,5 @@
 /*
-  Copyright 2012 ImageMagick Studio LLC, a non-profit organization
+  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization
   dedicated to making software imaging solutions freely available.
 
   You may not use this file except in compliance with the License.  You may
@@ -245,10 +245,6 @@ extern "C" {
 /* for Clang compatibility */
 #ifndef __has_builtin
 #  define __has_builtin(x) 0
-#endif
-
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ > 201112L && !defined(__MINGW32__)
-# define MAGICKCORE_HAVE_STDC_ALIGNED_ALLOC 1
 #endif
 
 #if defined(__GNUC__) && !defined(__clang__)

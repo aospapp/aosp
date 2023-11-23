@@ -5,11 +5,15 @@
 
 """This module provides abstraction of audio data."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import contextlib
 import copy
 import numpy as np
 import struct
-import StringIO
+from six.moves import range
+import six
 
 
 """The dict containing information on how to parse sample from raw data.
@@ -70,7 +74,7 @@ class AudioRawData(object):
         @param sample_format: One of the keys in audio_data.SAMPLE_FORMATS.
         """
         self.channel = channel
-        self.channel_data = [[] for _ in xrange(self.channel)]
+        self.channel_data = [[] for _ in range(self.channel)]
         self.sample_format = sample_format
         if binary:
             self.read_binary(binary)
@@ -93,7 +97,7 @@ class AudioRawData(object):
 
         # Reads data from a string into 1-D array.
         np_array = np.fromstring(binary, dtype=np_dtype)
-        n_frames = len(np_array) / self.channel
+        n_frames = len(np_array) // self.channel
         # Reshape np_array into an array of shape (n_frames, channel).
         np_array = np_array.reshape(n_frames, self.channel)
         # Transpose np_arrya so it becomes of shape (channel, n_frames).

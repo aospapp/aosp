@@ -39,6 +39,7 @@
 #include "VendorNdk.h"
 #include "Version.h"
 #include "Vndk.h"
+#include "WithFileName.h"
 #include "XmlFileGroup.h"
 
 namespace android {
@@ -51,17 +52,25 @@ namespace details {
 using InstancesOfVersion =
     std::map<std::string /* interface */, std::set<std::string /* instance */>>;
 using Instances = std::map<Version, InstancesOfVersion>;
+
+class CheckVintfUtils;
+class FmOnlyVintfObject;
+
 }  // namespace details
 
 // A HalManifest is reported by the hardware and query-able from
 // framework code. This is the API for the framework.
-struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestXmlFile> {
+struct HalManifest : public HalGroup<ManifestHal>,
+                     public XmlFileGroup<ManifestXmlFile>,
+                     public WithFileName {
    public:
 
     // Construct a device HAL manifest.
     HalManifest() : mType(SchemaType::DEVICE) {}
 
-    bool add(ManifestHal&& hal) override;
+    bool add(ManifestHal&& hal, std::string* error = nullptr) override;
+    // Move all hals from another HalManifest to this.
+    bool addAllHals(HalManifest* other, std::string* error = nullptr);
 
     // Given a component name (e.g. "android.hardware.camera"),
     // return getHal(name)->transport if the component exist and v exactly matches
@@ -81,7 +90,7 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
                             CheckFlags::Type flags = CheckFlags::DEFAULT) const;
 
     // Generate a compatibility matrix such that checkCompatibility will return true.
-    CompatibilityMatrix generateCompatibleMatrix() const;
+    CompatibilityMatrix generateCompatibleMatrix(bool optional = true) const;
 
     // Returns all component names.
     std::set<std::string> getHalNames() const;
@@ -119,6 +128,8 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     // Alternative to forEachInstance if you just need a set of instance names instead.
     std::set<std::string> getHidlInstances(const std::string& package, const Version& version,
                                            const std::string& interfaceName) const;
+    std::set<std::string> getAidlInstances(const std::string& package, size_t version,
+                                           const std::string& interfaceName) const;
     std::set<std::string> getAidlInstances(const std::string& package,
                                            const std::string& interfaceName) const;
 
@@ -126,7 +137,11 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     bool hasHidlInstance(const std::string& package, const Version& version,
                          const std::string& interfaceName, const std::string& instance) const;
 
-    // Return whether a given AIDL instance is in this manifest.
+    // Return whether a given AIDL instance is in this manifest with version >= the given version.
+    bool hasAidlInstance(const std::string& package, size_t version,
+                         const std::string& interfaceName, const std::string& instance) const;
+
+    // Return whether a given AIDL instance is in this manifest with any version.
     bool hasAidlInstance(const std::string& package, const std::string& interfaceName,
                          const std::string& instance) const;
 
@@ -142,7 +157,7 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
 
    protected:
     // Check before add()
-    bool shouldAdd(const ManifestHal& toAdd) const override;
+    bool shouldAdd(const ManifestHal& toAdd, std::string* error) const;
     bool shouldAddXmlFile(const ManifestXmlFile& toAdd) const override;
 
     bool forEachInstanceOfVersion(
@@ -153,7 +168,9 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     friend struct HalManifestConverter;
     friend class VintfObject;
     friend class AssembleVintfImpl;
+    friend class details::CheckVintfUtils;
     friend struct LibVintfTest;
+    friend class details::FmOnlyVintfObject;
     friend std::string dump(const HalManifest &vm);
     friend bool operator==(const HalManifest &lft, const HalManifest &rgt);
 
@@ -206,6 +223,13 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
     // True if kernel()->checkCompatibility can be called.
     bool shouldCheckKernelCompatibility() const;
 
+    // Helper for shouldAdd(). Check if |hal| has a conflicting major version with this. Return
+    // false if hal should not be added, and set |error| accordingly. Return true if check passes.
+    bool addingConflictingMajorVersion(const ManifestHal& hal, std::string* error) const;
+
+    // Inferred kernel level.
+    Level inferredKernelLevel() const;
+
     SchemaType mType;
     Level mLevel = Level::UNSPECIFIED;
 
@@ -226,7 +250,6 @@ struct HalManifest : public HalGroup<ManifestHal>, public XmlFileGroup<ManifestX
         SystemSdk mSystemSdk;
     } framework;
 };
-
 
 } // namespace vintf
 } // namespace android

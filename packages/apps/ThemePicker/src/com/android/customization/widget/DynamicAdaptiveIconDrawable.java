@@ -3,7 +3,6 @@ package com.android.customization.widget;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
-import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.BitmapShader;
 import android.graphics.Canvas;
@@ -26,8 +25,6 @@ import android.util.DisplayMetrics;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
-import com.android.wallpaper.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -765,6 +762,8 @@ public class DynamicAdaptiveIconDrawable extends Drawable implements Drawable.Ca
     }
 
     static class LayerState extends ConstantState {
+        private final DynamicAdaptiveIconDrawable mOwner;
+
         private int[] mThemeAttrs;
 
         final static int N_CHILDREN = 2;
@@ -791,6 +790,7 @@ public class DynamicAdaptiveIconDrawable extends Drawable implements Drawable.Ca
 
         LayerState(@Nullable LayerState orig, @NonNull DynamicAdaptiveIconDrawable owner,
                 @Nullable Resources res) {
+            mOwner = owner;
             mChildren = new ChildDrawable[N_CHILDREN];
             if (orig != null) {
                 final ChildDrawable[] origChildDrawable = orig.mChildren;
@@ -800,7 +800,7 @@ public class DynamicAdaptiveIconDrawable extends Drawable implements Drawable.Ca
 
                 for (int i = 0; i < N_CHILDREN; i++) {
                     final ChildDrawable or = origChildDrawable[i];
-                    mChildren[i] = new ChildDrawable(or, owner, res);
+                    mChildren[i] = new ChildDrawable(or, mOwner, res);
                 }
 
                 mCheckedOpacity = orig.mCheckedOpacity;
@@ -842,12 +842,13 @@ public class DynamicAdaptiveIconDrawable extends Drawable implements Drawable.Ca
 
         @Override
         public Drawable newDrawable() {
-            return new DynamicAdaptiveIconDrawable(this, null, null);
+            return new DynamicAdaptiveIconDrawable(mOwner.getBackground(), mOwner.getForeground(),
+                    mOwner.mOriginalMask);
         }
 
         @Override
         public Drawable newDrawable(@Nullable Resources res) {
-            return new DynamicAdaptiveIconDrawable(this, res, null);
+            return newDrawable();
         }
 
         @Override

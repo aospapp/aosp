@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"Aceitar"</string>
     <string name="reject" msgid="24751635160440693">"Recusar"</string>
     <string name="connections" msgid="8895413761760117180">"Conexões"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"O serviço de impressão padrão não encontrou impressoras com Wi-Fi Direct"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"Desativar Wi-Fi Direct"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"O serviço de impressão padrão precisa da permissão de localização para encontrar os dispositivos próximos."</string>
     <string name="fix" msgid="7784394272611365393">"Analisar permissão"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"O serviço de impressão padrão precisa que os Serviços de localização estejam ativados para encontrar dispositivos próximos."</string>
+    <string name="enable_location" msgid="3627841004298863140">"Ativar localização"</string>
     <string name="print" msgid="7851318072404916362">"Imprimir"</string>
 </resources>

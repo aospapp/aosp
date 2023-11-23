@@ -19,6 +19,8 @@
 
 #include "generic_context_hub_v1_1.h"
 
+#include "context_hub_settings_util.h"
+
 #include <chrono>
 #include <cinttypes>
 #include <vector>
@@ -34,56 +36,20 @@ namespace implementation {
 
 using ::android::chre::HostProtocolHost;
 using ::android::hardware::Return;
+using ::android::hardware::contexthub::common::implementation::getFbsSetting;
+using ::android::hardware::contexthub::common::implementation::
+    getFbsSettingValue;
 using ::flatbuffers::FlatBufferBuilder;
 
 // Aliased for consistency with the way these symbols are referenced in
 // CHRE-side code
 namespace fbs = ::chre::fbs;
 
-namespace {
-
-bool getFbsSetting(Setting setting, fbs::Setting *fbsSetting) {
-  bool foundSetting = true;
-
-  switch (setting) {
-    case Setting::LOCATION:
-      *fbsSetting = fbs::Setting::LOCATION;
-      break;
-    default:
-      foundSetting = false;
-      ALOGE("Setting update with invalid enum value %hhu", setting);
-      break;
-  }
-
-  return foundSetting;
-}
-
-bool getFbsSettingValue(SettingValue newValue, fbs::SettingState *fbsState) {
-  bool foundSettingValue = true;
-
-  switch (newValue) {
-    case SettingValue::ENABLED:
-      *fbsState = fbs::SettingState::ENABLED;
-      break;
-    case SettingValue::DISABLED:
-      *fbsState = fbs::SettingState::DISABLED;
-      break;
-    default:
-      foundSettingValue = false;
-      ALOGE("Setting value update with invalid enum value %hhu", newValue);
-      break;
-  }
-
-  return foundSettingValue;
-}
-
-}  // namespace
-
 Return<void> GenericContextHubV1_1::onSettingChanged(Setting setting,
                                                      SettingValue newValue) {
   fbs::Setting fbsSetting;
   fbs::SettingState fbsState;
-  if (getFbsSetting(setting, &fbsSetting) &&
+  if (getFbsSetting(reinterpret_cast<V1_2::Setting &>(setting), &fbsSetting) &&
       getFbsSettingValue(newValue, &fbsState)) {
     FlatBufferBuilder builder(64);
     HostProtocolHost::encodeSettingChangeNotification(builder, fbsSetting,

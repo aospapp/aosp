@@ -23,6 +23,7 @@
 #include <inttypes.h>
 
 #include "result_dispatcher.h"
+#include "utils.h"
 
 namespace android {
 namespace google_camera_hal {
@@ -50,6 +51,16 @@ ResultDispatcher::ResultDispatcher(
   ATRACE_CALL();
   notify_callback_thread_ =
       std::thread([this] { this->NotifyCallbackThreadLoop(); });
+
+  if (utils::SupportRealtimeThread()) {
+    status_t res =
+        utils::SetRealtimeThread(notify_callback_thread_.native_handle());
+    if (res != OK) {
+      ALOGE("%s: SetRealtimeThread fail", __FUNCTION__);
+    } else {
+      ALOGI("%s: SetRealtimeThread OK", __FUNCTION__);
+    }
+  }
 }
 
 ResultDispatcher::~ResultDispatcher() {
@@ -217,8 +228,11 @@ status_t ResultDispatcher::AddResult(std::unique_ptr<CaptureResult> result) {
       failed = true;
     }
   }
-
-  notify_callback_condition_.notify_one();
+  {
+    std::unique_lock<std::mutex> lock(notify_callback_lock);
+    is_result_shutter_updated_ = true;
+    notify_callback_condition_.notify_one();
+  }
   return failed ? UNKNOWN_ERROR : OK;
 }
 
@@ -245,8 +259,11 @@ status_t ResultDispatcher::AddShutter(uint32_t frame_number,
 
   shutter_it->second.timestamp_ns = timestamp_ns;
   shutter_it->second.ready = true;
-
-  notify_callback_condition_.notify_one();
+  {
+    std::unique_lock<std::mutex> lock(notify_callback_lock);
+    is_result_shutter_updated_ = true;
+    notify_callback_condition_.notify_one();
+  }
   return OK;
 }
 
@@ -255,7 +272,10 @@ status_t ResultDispatcher::AddError(const ErrorMessage& error) {
   std::lock_guard<std::mutex> lock(result_lock_);
   uint32_t frame_number = error.frame_number;
   // No need to deliver the shutter message on an error
-  pending_shutters_.erase(frame_number);
+  if (error.error_code == ErrorCode::kErrorDevice ||
+      error.error_code == ErrorCode::kErrorResult) {
+    pending_shutters_.erase(frame_number);
+  }
   // No need to deliver the result metadata on a result metadata error
   if (error.error_code == ErrorCode::kErrorResult) {
     pending_final_metadata_.erase(frame_number);
@@ -280,6 +300,7 @@ void ResultDispatcher::NotifyResultMetadata(
   result->physical_metadata = std::move(physical_metadata);
   result->partial_result = partial_result;
 
+  std::lock_guard<std::mutex> lock(process_capture_result_lock_);
   process_capture_result_(std::move(result));
 }
 
@@ -378,12 +399,14 @@ void ResultDispatcher::NotifyCallbackThreadLoop() {
       ALOGV("%s: NotifyCallbackThreadLoop exits.", __FUNCTION__);
       return;
     }
-
-    if (notify_callback_condition_.wait_for(
-            lock, std::chrono::milliseconds(kCallbackThreadTimeoutMs)) ==
-        std::cv_status::timeout) {
-      PrintTimeoutMessages();
+    if (!is_result_shutter_updated_) {
+      if (notify_callback_condition_.wait_for(
+              lock, std::chrono::milliseconds(kCallbackThreadTimeoutMs)) ==
+          std::cv_status::timeout) {
+        PrintTimeoutMessages();
+      }
     }
+    is_result_shutter_updated_ = false;
   }
 }
 
@@ -414,8 +437,6 @@ status_t ResultDispatcher::GetReadyShutterMessage(NotifyMessage* message) {
     return BAD_VALUE;
   }
 
-  std::lock_guard<std::mutex> lock(result_lock_);
-
   auto shutter_it = pending_shutters_.begin();
   if (shutter_it == pending_shutters_.end() || !shutter_it->second.ready) {
     // The first pending shutter is not ready.
@@ -433,8 +454,11 @@ status_t ResultDispatcher::GetReadyShutterMessage(NotifyMessage* message) {
 void ResultDispatcher::NotifyShutters() {
   ATRACE_CALL();
   NotifyMessage message = {};
-
-  while (GetReadyShutterMessage(&message) == OK) {
+  while (true) {
+    std::lock_guard<std::mutex> lock(result_lock_);
+    if (GetReadyShutterMessage(&message) != OK) {
+      break;
+    }
     ALOGV("%s: Notify shutter for frame %u timestamp %" PRIu64, __FUNCTION__,
           message.message.shutter.frame_number,
           message.message.shutter.timestamp_ns);
@@ -529,6 +553,7 @@ void ResultDispatcher::NotifyBuffers() {
       ALOGE("%s: result is nullptr", __FUNCTION__);
       return;
     }
+    std::lock_guard<std::mutex> lock(process_capture_result_lock_);
     process_capture_result_(std::move(result));
   }
 }

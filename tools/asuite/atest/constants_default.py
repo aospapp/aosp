@@ -56,6 +56,10 @@ RETRY_ANY_FAILURE = 'RETRY_ANY_FAILURE'
 TF_DEBUG = 'TF_DEBUG'
 COLLECT_TESTS_ONLY = 'COLLECT_TESTS_ONLY'
 TF_TEMPLATE = 'TF_TEMPLATE'
+FLAKES_INFO = 'FLAKES_INFO'
+TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
+REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
+MODULES_IN = 'MODULES-IN-'
 
 # Application exit codes.
 EXIT_CODE_SUCCESS = 0
@@ -66,6 +70,14 @@ EXIT_CODE_TEST_NOT_FOUND = 4
 EXIT_CODE_TEST_FAILURE = 5
 EXIT_CODE_VERIFY_FAILURE = 6
 EXIT_CODE_OUTSIDE_ROOT = 7
+EXIT_CODE_AVD_CREATE_FAILURE = 8
+EXIT_CODE_AVD_INVALID_ARGS = 9
+# Conditions that atest should exit without sending result to metrics.
+EXIT_CODES_BEFORE_TEST = [EXIT_CODE_ENV_NOT_SETUP,
+                          EXIT_CODE_TEST_NOT_FOUND,
+                          EXIT_CODE_OUTSIDE_ROOT,
+                          EXIT_CODE_AVD_CREATE_FAILURE,
+                          EXIT_CODE_AVD_INVALID_ARGS]
 
 # Codes of specific events. These are exceptions that don't stop anything
 # but sending metrics.
@@ -85,13 +97,19 @@ MODULE_CLASS_ROBOLECTRIC = 'ROBOLECTRIC'
 MODULE_CLASS_NATIVE_TESTS = 'NATIVE_TESTS'
 MODULE_CLASS_JAVA_LIBRARIES = 'JAVA_LIBRARIES'
 MODULE_TEST_CONFIG = 'test_config'
+MODULE_MAINLINE_MODULES = 'test_mainline_modules'
+MODULE_DEPENDENCIES = 'dependencies'
+MODULE_SRCS = 'srcs'
+MODULE_IS_UNIT_TEST = 'is_unit_test'
 
 # Env constants
 ANDROID_BUILD_TOP = 'ANDROID_BUILD_TOP'
 ANDROID_OUT = 'OUT'
 ANDROID_OUT_DIR = 'OUT_DIR'
+ANDROID_OUT_DIR_COMMON_BASE = 'OUT_DIR_COMMON_BASE'
 ANDROID_HOST_OUT = 'ANDROID_HOST_OUT'
 ANDROID_PRODUCT_OUT = 'ANDROID_PRODUCT_OUT'
+ANDROID_TARGET_PRODUCT = 'TARGET_PRODUCT'
 
 # Test Info data keys
 # Value of include-filter option.
@@ -109,8 +127,10 @@ GTF_TARGET = 'google-tradefed-core'
 TEST_MAPPING = 'TEST_MAPPING'
 # Test group for tests in TEST_MAPPING
 TEST_GROUP_PRESUBMIT = 'presubmit'
+TEST_GROUP_PRESUBMIT_LARGE = 'presubmit-large'
 TEST_GROUP_POSTSUBMIT = 'postsubmit'
 TEST_GROUP_ALL = 'all'
+DEFAULT_TEST_GROUPS = [TEST_GROUP_PRESUBMIT, TEST_GROUP_PRESUBMIT_LARGE]
 # Key in TEST_MAPPING file for a list of imported TEST_MAPPING file
 TEST_MAPPING_IMPORTS = 'imports'
 
@@ -125,6 +145,7 @@ TF_MODULE_ARG = '--module-arg'
 TF_MODULE_ARG_VALUE_FMT = '{test_name}:{option_name}:{option_value}'
 TF_SUITE_FILTER_ARG_VALUE_FMT = '"{test_name} {option_value}"'
 TF_SKIP_LOADING_CONFIG_JAR = '--skip-loading-config-jar'
+TF_MODULE_FILTER = '--module'
 
 # Suite Plans
 SUITE_PLANS = frozenset(['cts'])
@@ -139,13 +160,10 @@ ALL_STEPS = [BUILD_STEP, INSTALL_STEP, TEST_STEP]
 # ANSI code shift for colorful print
 BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
 
-# Answers equivalent to YES!
-AFFIRMATIVES = ['y', 'Y', 'yes', 'Yes', 'YES', '']
-LD_RANGE = 2
-
 # Types of Levenshetine Distance Cost
 COST_TYPO = (1, 1, 1)
 COST_SEARCH = (8, 1, 5)
+LD_RANGE = 2
 
 # Value of TestInfo install_locations.
 DEVICELESS_TEST = 'host'
@@ -171,8 +189,20 @@ USER_FROM_TOOL = 'USER_FROM_TOOL'
 TF_PREPARATION = 'tf-preparation'
 
 # Detect type for local_detect_event.
-# Next expansion : DETECT_TYPE_XXX = 1
+# Next expansion : DETECT_TYPE_XXX = 8
 DETECT_TYPE_BUG_DETECTED = 0
+DETECT_TYPE_ACLOUD_CREATE = 1
+DETECT_TYPE_FIND_BUILD = 2
+DETECT_TYPE_NO_FLAKE = 3
+DETECT_TYPE_HAS_FLAKE = 4
+DETECT_TYPE_TF_TEARDOWN_LOGCAT = 5
+DETECT_TYPE_REBUILD_MODULE_INFO = 6
+DETECT_TYPE_NOT_REBUILD_MODULE_INFO = 7
+DETECT_TYPE_ONLY_BUILD_MODULE_INFO = 8
+# XTS suite types encode from 100 to 199
+DETECT_TYPE_XTS_SUITE = {'cts': 101,
+                         'vts': 104}
+
 # Considering a trade-off between speed and size, we set UPPER_LIMIT to 100000
 # to make maximum file space 10M(100000(records)*100(byte/record)) at most.
 # Therefore, to update history file will spend 1 sec at most in each run.
@@ -202,11 +232,13 @@ ATEST_TF_MODULE = 'atest-tradefed'
 # generate modules' dependencies info when make.
 # With SOONG_COLLECT_JAVA_DEPS enabled, out/soong/module_bp_java_deps.json will
 # be generated when make.
-ATEST_BUILD_ENV = {'RECORD_ALL_DEPS':'true', 'SOONG_COLLECT_JAVA_DEPS':'true'}
+ATEST_BUILD_ENV = {'RECORD_ALL_DEPS':'true', 'SOONG_COLLECT_JAVA_DEPS':'true',
+                   'SOONG_COLLECT_CC_DEPS':'true'}
 
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
 LOCATE_CACHE = os.path.join(INDEX_DIR, 'mlocate.db')
+LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'mlocate.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
 CC_CLASS_INDEX = os.path.join(INDEX_DIR, 'cc_classes.idx')
@@ -232,7 +264,11 @@ PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s
                                r'(?P<package>[^(;|\s)]+)\s*')
 
 ATEST_RESULT_ROOT = '/tmp/atest_result'
+ATEST_TEST_RECORD_PROTO = 'test_record.proto'
 LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
+ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
+TEST_WITH_MAINLINE_MODULES_RE = re.compile(r'(?P<test>.*)\[(?P<mainline_modules>.*'
+                                           r'[.](apk|apks|apex))\]$')
 
 # Tests list which need vts_kernel_tests as test dependency
 REQUIRED_KERNEL_TEST_MODULES = [
@@ -249,3 +285,69 @@ REQUIRED_KERNEL_TEST_MODULES = [
     'vts_ltp_test_x86_64',
     'vts_ltp_test_x86'
 ]
+
+# XTS suite set dependency.
+SUITE_DEPS = {}
+
+# Tradefed log file name term.
+TF_HOST_LOG = 'host_log_*'
+
+# Flake service par path
+FLAKE_SERVICE_PATH = '/foo'
+FLAKE_TMP_PATH = '/tmp'
+FLAKE_FILE = 'flakes_info.par'
+FLAKE_TARGET = 'aosp_cf_x86_phone-userdebug'
+FLAKE_BRANCH = 'aosp-master'
+FLAKE_TEST_NAME = 'suite/test-mapping-presubmit-retry_cloud-tf'
+FLAKE_PERCENT = 'flake_percent'
+FLAKE_POSTSUBMIT = 'postsubmit_flakes_per_week'
+
+# cert status command
+CERT_STATUS_CMD = ''
+
+ASUITE_REPO_PROJECT_NAME = 'platform/tools/asuite'
+
+# logstorage api scope.
+SCOPE_BUILD_API_SCOPE = ''
+STORAGE_API_VERSION = ''
+STORAGE_SERVICE_NAME = ''
+DO_NOT_UPLOAD = 'DO_NOT_UPLOAD'
+CLIENT_ID = ''
+CLIENT_SECRET = ''
+CREDENTIAL_FILE_NAME = ''
+TOKEN_FILE_PATH = ''
+INVOCATION_ID = 'INVOCATION_ID'
+WORKUNIT_ID = 'WORKUNIT_ID'
+RESULT_LINK = ''
+TF_GLOBAL_CONFIG = ''
+UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
+
+# messages that share among libraries.
+REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
+                           ' is new. Running with "{}" may resolve the issue.)')
+
+# AndroidJUnitTest related argument.
+ANDROID_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
+INCLUDE_ANNOTATION = 'include-annotation'
+EXCLUDE_ANNOTATION = 'exclude-annotation'
+SUPPORTED_FILTERS = [INCLUDE_ANNOTATION, EXCLUDE_ANNOTATION]
+
+# Tradefed config-descriptor metadata.
+CONFIG_DESCRIPTOR = 'config-descriptor:metadata'
+PARAMETER_KEY = 'parameter'
+
+# Tradefed related constant.
+TF_TEST_ARG = '--test-arg'
+TF_AND_JUNIT_CLASS = 'com.android.tradefed.testtype.AndroidJUnitTest'
+TF_EXCLUDE_ANNOTATE = 'exclude-annotation'
+INSTANT_MODE_ANNOTATE = 'android.platform.test.annotations.AppModeInstant'
+TF_PARA_INSTANT_APP = 'instant_app'
+TF_PARA_SECOND_USR = 'secondary_user'
+TF_PARA_MULTIABI = 'multi_abi'
+DEFAULT_EXCLUDE_PARAS = {TF_PARA_INSTANT_APP,
+                         TF_PARA_SECOND_USR,
+                         TF_PARA_MULTIABI
+                         }
+DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
+                            'not_' + TF_PARA_SECOND_USR,
+                            'not_' + TF_PARA_MULTIABI}

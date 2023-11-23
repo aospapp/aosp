@@ -16,7 +16,7 @@
 #include <memory>
 #include <unordered_map>
 
-#include "hci/acl_manager.h"
+#include "hci/acl_manager/le_acl_connection.h"
 #include "hci/address.h"
 #include "l2cap/internal/scheduler_fifo.h"
 #include "l2cap/le/internal/link.h"
@@ -54,7 +54,8 @@ void LinkManager::ConnectFixedChannelServices(hci::AddressWithType address_with_
         continue;
       }
       // Allocate channel for newly registered fixed channels
-      auto fixed_channel_impl = link->AllocateFixedChannel(fixed_channel_service.first, SecurityPolicy());
+      auto fixed_channel_impl = link->AllocateFixedChannel(
+          fixed_channel_service.first, SecurityPolicy::NO_SECURITY_WHATSOEVER_PLAINTEXT_TRANSPORT_OK);
       fixed_channel_service.second->NotifyChannelCreation(
           std::make_unique<FixedChannel>(fixed_channel_impl, l2cap_handler_));
       num_new_channels++;
@@ -79,14 +80,14 @@ void LinkManager::ConnectFixedChannelServices(hci::AddressWithType address_with_
   }
   pending_link->second.pending_fixed_channel_connections_.push_back(std::move(pending_fixed_channel_connection));
   // Then create new ACL connection
-  acl_manager_->CreateLeConnection(address_with_type);
+  acl_manager_->CreateLeConnection(address_with_type, /* is_direct */ true);
 }
 
 void LinkManager::ConnectDynamicChannelServices(
     hci::AddressWithType device, Link::PendingDynamicChannelConnection pending_dynamic_channel_connection, Psm psm) {
   auto* link = GetLink(device);
   if (link == nullptr) {
-    acl_manager_->CreateLeConnection(device);
+    acl_manager_->CreateLeConnection(device, /* is_direct */ true);
     pending_dynamic_channels_[device].push_back(std::make_pair(psm, std::move(pending_dynamic_channel_connection)));
     return;
   }
@@ -101,40 +102,29 @@ Link* LinkManager::GetLink(hci::AddressWithType address_with_type) {
 }
 
 void LinkManager::OnLeConnectSuccess(hci::AddressWithType connecting_address_with_type,
-                                     std::unique_ptr<hci::AclConnection> acl_connection) {
+                                     std::unique_ptr<hci::acl_manager::LeAclConnection> acl_connection) {
   // Same link should not be connected twice
-  hci::AddressWithType connected_address_with_type(acl_connection->GetAddress(), acl_connection->GetAddressType());
+  hci::AddressWithType connected_address_with_type = acl_connection->GetRemoteAddress();
+  uint16_t handle = acl_connection->GetHandle();
   ASSERT_LOG(GetLink(connected_address_with_type) == nullptr, "%s is connected twice without disconnection",
-             acl_connection->GetAddress().ToString().c_str());
-  // Register ACL disconnection callback in LinkManager so that we can clean up link resource properly
-  acl_connection->RegisterDisconnectCallback(
-      common::BindOnce(&LinkManager::OnDisconnect, common::Unretained(this), connected_address_with_type),
-      l2cap_handler_);
+             acl_connection->GetRemoteAddress().ToString().c_str());
   links_.try_emplace(connected_address_with_type, l2cap_handler_, std::move(acl_connection), parameter_provider_,
-                     dynamic_channel_service_manager_, fixed_channel_service_manager_);
+                     dynamic_channel_service_manager_, fixed_channel_service_manager_, this);
   auto* link = GetLink(connected_address_with_type);
-  // Allocate and distribute channels for all registered fixed channel services
-  auto fixed_channel_services = fixed_channel_service_manager_->GetRegisteredServices();
-  for (auto& fixed_channel_service : fixed_channel_services) {
-    auto fixed_channel_impl = link->AllocateFixedChannel(fixed_channel_service.first, SecurityPolicy());
-    fixed_channel_service.second->NotifyChannelCreation(
-        std::make_unique<FixedChannel>(fixed_channel_impl, l2cap_handler_));
-  }
-  if (pending_dynamic_channels_.find(connected_address_with_type) != pending_dynamic_channels_.end()) {
-    for (auto& psm_callback : pending_dynamic_channels_[connected_address_with_type]) {
-      link->SendConnectionRequest(psm_callback.first, std::move(psm_callback.second));
-    }
-    pending_dynamic_channels_.erase(connected_address_with_type);
+
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_,
+        &LinkPropertyListener::OnLinkConnected,
+        connected_address_with_type,
+        handle,
+        link->GetRole());
   }
 
   // Remove device from pending links list, if any
-  auto pending_link = pending_links_.find(connecting_address_with_type);
-  if (pending_link == pending_links_.end()) {
-    // This an incoming connection, exit
-    return;
-  }
-  // This is an outgoing connection, remove entry in pending link list
-  pending_links_.erase(pending_link);
+  pending_links_.erase(connecting_address_with_type);
+
+  link->ReadRemoteVersionInformation();
 }
 
 void LinkManager::OnLeConnectFail(hci::AddressWithType address_with_type, hci::ErrorCode reason) {
@@ -142,7 +132,7 @@ void LinkManager::OnLeConnectFail(hci::AddressWithType address_with_type, hci::E
   auto pending_link = pending_links_.find(address_with_type);
   if (pending_link == pending_links_.end()) {
     // There is no pending link, exit
-    LOG_DEBUG("Connection to %s failed without a pending link", address_with_type.ToString().c_str());
+    LOG_INFO("Connection to %s failed without a pending link", address_with_type.ToString().c_str());
     return;
   }
   for (auto& pending_fixed_channel_connection : pending_link->second.pending_fixed_channel_connections_) {
@@ -155,12 +145,70 @@ void LinkManager::OnLeConnectFail(hci::AddressWithType address_with_type, hci::E
   pending_links_.erase(pending_link);
 }
 
-void LinkManager::OnDisconnect(hci::AddressWithType address_with_type, hci::ErrorCode status) {
+void LinkManager::OnDisconnect(bluetooth::hci::AddressWithType address_with_type) {
   auto* link = GetLink(address_with_type);
-  ASSERT_LOG(link != nullptr, "Device %s is disconnected with reason 0x%x, but not in local database",
-             address_with_type.ToString().c_str(), static_cast<uint8_t>(status));
-  link->OnAclDisconnected(status);
-  links_.erase(address_with_type);
+  ASSERT_LOG(link != nullptr, "Device %s is disconnected but not in local database",
+             address_with_type.ToString().c_str());
+  if (links_with_pending_packets_.count(address_with_type) != 0) {
+    disconnected_links_.emplace(address_with_type);
+  } else {
+    links_.erase(address_with_type);
+  }
+
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_, &LinkPropertyListener::OnLinkDisconnected, address_with_type);
+  }
+}
+
+void LinkManager::RegisterLinkPropertyListener(os::Handler* handler, LinkPropertyListener* listener) {
+  link_property_callback_handler_ = handler;
+  link_property_listener_ = listener;
+}
+
+void LinkManager::OnReadRemoteVersionInformationComplete(
+    hci::ErrorCode hci_status,
+    hci::AddressWithType address_with_type,
+    uint8_t lmp_version,
+    uint16_t manufacturer_name,
+    uint16_t sub_version) {
+  if (link_property_callback_handler_ != nullptr) {
+    link_property_callback_handler_->CallOn(
+        link_property_listener_,
+        &LinkPropertyListener::OnReadRemoteVersionInformation,
+        hci_status,
+        address_with_type,
+        lmp_version,
+        manufacturer_name,
+        sub_version);
+  }
+
+  auto* link = GetLink(address_with_type);
+  // Allocate and distribute channels for all registered fixed channel services
+  auto fixed_channel_services = fixed_channel_service_manager_->GetRegisteredServices();
+  for (auto& fixed_channel_service : fixed_channel_services) {
+    auto fixed_channel_impl = link->AllocateFixedChannel(
+        fixed_channel_service.first, SecurityPolicy::NO_SECURITY_WHATSOEVER_PLAINTEXT_TRANSPORT_OK);
+    fixed_channel_service.second->NotifyChannelCreation(
+        std::make_unique<FixedChannel>(fixed_channel_impl, l2cap_handler_));
+  }
+  if (pending_dynamic_channels_.find(address_with_type) != pending_dynamic_channels_.end()) {
+    for (auto& psm_callback : pending_dynamic_channels_[address_with_type]) {
+      link->SendConnectionRequest(psm_callback.first, std::move(psm_callback.second));
+    }
+    pending_dynamic_channels_.erase(address_with_type);
+  }
+}
+
+void LinkManager::OnPendingPacketChange(hci::AddressWithType remote, int num_packets) {
+  if (disconnected_links_.count(remote) != 0 && num_packets == 0) {
+    links_.erase(remote);
+    links_with_pending_packets_.erase(remote);
+  } else if (num_packets != 0) {
+    links_with_pending_packets_.emplace(remote);
+  } else {
+    links_with_pending_packets_.erase(remote);
+  }
 }
 
 }  // namespace internal

@@ -74,6 +74,9 @@ BRILLO_EXPORT void SetSystemSalt(std::string* salt);
 // Returns the system salt.
 BRILLO_EXPORT std::string* GetSystemSalt();
 
+// Ensures the system salt is loaded in the memory.
+BRILLO_EXPORT bool EnsureSystemSaltIsLoaded();
+
 }  // namespace home
 }  // namespace cryptohome
 }  // namespace brillo

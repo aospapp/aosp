@@ -42,6 +42,10 @@
 # include <chre.h>
 # define CAL_DEBUG_LOG(tag, fmt, ...) \
    chreLog(CHRE_LOG_INFO, "%s " fmt, tag, ##__VA_ARGS__)
+#elif ROHAN_DEBUG_LOG
+# include "caraway/logging.h"
+# define CAL_DEBUG_LOG(tag, format, ...) \
+   LOG_DEBUG("%s " format, tag, ##__VA_ARGS__)
 #else
 // CHRE/SLPI Nanoapp Logging.
 # include "chre/util/nanoapp/log.h"

@@ -16,20 +16,20 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.launcherapps.simplepremapp">
+     package="com.android.cts.launcherapps.simplepremapp">
 
     <uses-sdk android:targetSdkVersion="21"/>
 
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
 
     <application>
-        <activity android:name=".SimpleActivity" >
+        <activity android:name=".SimpleActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 
 </manifest>
-

@@ -67,6 +67,8 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
     private ToolbarController mToolbar;
     private RadioPagerAdapter mRadioPagerAdapter;
 
+    private boolean mUseSourceLogoForAppSelector;
+
     @Override
     public void onCarUiInsetsChanged(Insets insets) {
         // This InsetsChangedListener is just a marker that we will later handle
@@ -96,12 +98,17 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
         ViewPager viewPager = findViewById(R.id.viewpager);
         viewPager.setAdapter(mRadioPagerAdapter);
 
+        mUseSourceLogoForAppSelector =
+                getResources().getBoolean(R.bool.use_media_source_logo_for_app_selector);
+
         mToolbar = requireToolbar(this);
         mToolbar.setState(HOME);
         mToolbar.setTitle(R.string.app_name);
-        mToolbar.setLogo(R.drawable.logo_fm_radio);
+        if (!mUseSourceLogoForAppSelector) {
+            mToolbar.setLogo(R.drawable.logo_fm_radio);
+        }
         mToolbar.registerOnTabSelectedListener(t ->
-                viewPager.setCurrentItem(mToolbar.getTabLayout().getTabPosition(t)));
+                viewPager.setCurrentItem(mToolbar.getTabPosition(t)));
 
         updateMenuItems();
         setupTabsWithViewPager(viewPager);
@@ -198,7 +205,9 @@ public class RadioActivity extends FragmentActivity implements InsetsChangedList
 
         Intent appSelectorIntent = MediaSource.getSourceSelectorIntent(this, false);
         MenuItem appSelectorMenuItem = MenuItem.builder(this)
-                .setIcon(R.drawable.ic_app_switch)
+                .setIcon(mUseSourceLogoForAppSelector
+                        ? R.drawable.logo_fm_radio : R.drawable.ic_app_switch)
+                .setTinted(!mUseSourceLogoForAppSelector)
                 .setOnClickListener(m -> startActivity(appSelectorIntent))
                 .build();
 

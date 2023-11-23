@@ -66,7 +66,6 @@ typedef struct {
   uint8_t allocated;  /* 0, not allocated. index+1, otherwise. */
   uint8_t state;      /* The state machine state */
   uint8_t ch_state;   /* L2CAP channel state */
-  uint8_t ch_flags;   /* L2CAP configuration flags */
 } tAVCT_SCB;
 
 /* link control block type */
@@ -77,7 +76,6 @@ typedef struct {
   uint8_t allocated;      /* 0, not allocated. index+1, otherwise. */
   uint8_t state;          /* The state machine state */
   uint8_t ch_state;       /* L2CAP channel state */
-  uint8_t ch_flags;       /* L2CAP configuration flags */
   BT_HDR* p_rx_msg;       /* Message being reassembled */
   uint16_t conflict_lcid; /* L2CAP channel LCID */
   RawAddress peer_addr;   /* BD address of peer */
@@ -93,7 +91,6 @@ typedef struct {
   uint8_t allocated;  /* 0, not allocated. index+1, otherwise. */
   uint8_t state;      /* The state machine state */
   uint8_t ch_state;   /* L2CAP channel state */
-  uint8_t ch_flags;   /* L2CAP configuration flags */
   BT_HDR* p_tx_msg;  /* Message to be sent - in case the browsing channel is not
                         open when MsgReg is called */
   uint8_t ch_close;  /* CCB index+1, if CCB initiated channel close */
@@ -134,8 +131,6 @@ typedef struct {
   tAVCT_LCB lcb[AVCT_NUM_LINKS]; /* link control blocks */
   tAVCT_BCB bcb[AVCT_NUM_LINKS]; /* browse control blocks */
   tAVCT_CCB ccb[AVCT_NUM_CONN];  /* connection control blocks */
-  uint16_t mtu;                  /* our L2CAP MTU */
-  uint16_t mtu_br;               /* our L2CAP MTU for the Browsing channel */
   uint8_t trace_level;           /* trace level */
 } tAVCT_CB;
 
@@ -200,7 +195,6 @@ extern void avct_bcb_dealloc(tAVCT_BCB* p_bcb, tAVCT_LCB_EVT* p_data);
 
 extern const tAVCT_BCB_ACTION avct_bcb_action[];
 extern const uint8_t avct_lcb_pkt_type_len[];
-extern const tL2CAP_FCR_OPTS avct_l2c_br_fcr_opts_def;
 
 /* CCB function declarations */
 extern tAVCT_CCB* avct_ccb_alloc(tAVCT_CC* p_cc);
@@ -219,5 +213,11 @@ extern tAVCT_CB avct_cb;
 /* L2CAP callback registration structure */
 extern const tL2CAP_APPL_INFO avct_l2c_appl;
 extern const tL2CAP_APPL_INFO avct_l2c_br_appl;
+
+void avct_l2c_disconnect(uint16_t lcid, uint16_t result);
+void avct_l2c_br_disconnect(uint16_t lcid, uint16_t result);
+
+constexpr uint16_t kAvrcMtu = 512;
+constexpr uint16_t kAvrcBrMtu = 1008;
 
 #endif /* AVCT_INT_H */

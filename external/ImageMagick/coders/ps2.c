@@ -17,7 +17,7 @@
 %                                 July 1992                                   %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -375,7 +375,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
 
   char
     buffer[MagickPathExtent],
-    date[MagickPathExtent],
+    date[MagickTimeExtent],
     page_geometry[MagickPathExtent],
     **labels;
 
@@ -420,13 +420,13 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
     media_info,
     page_info;
 
-  register const Quantum
+  const Quantum
     *p;
 
-  register ssize_t
+  ssize_t
     x;
 
-  register ssize_t
+  ssize_t
     i;
 
   SegmentInfo
@@ -566,7 +566,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
           image->filename);
         (void) WriteBlobString(image,buffer);
         timer=GetMagickTime();
-        (void) FormatMagickTime(timer,MagickPathExtent,date);
+        (void) FormatMagickTime(timer,sizeof(date),date);
         (void) FormatLocaleString(buffer,MagickPathExtent,
           "%%%%CreationDate: (%s)\n",date);
         (void) WriteBlobString(image,buffer);
@@ -769,7 +769,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
             MemoryInfo
               *pixel_info;
 
-            register unsigned char
+            unsigned char
               *q;
 
             /*
@@ -868,7 +868,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
               MemoryInfo
                 *pixel_info;
 
-              register unsigned char
+              unsigned char
                 *q;
 
               /*
@@ -1019,7 +1019,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
               MemoryInfo
                 *pixel_info;
 
-              register unsigned char
+              unsigned char
                 *q;
 
               /*
@@ -1042,7 +1042,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
                   break;
                 for (x=0; x < (ssize_t) image->columns; x++)
                 {
-                  *q++=(unsigned char) GetPixelIndex(image,p);
+                  *q++=(unsigned char) ((ssize_t) GetPixelIndex(image,p));
                   p+=GetPixelChannels(image);
                 }
                 progress=SetImageProgress(image,SaveImageTag,(MagickOffsetType)
@@ -1076,7 +1076,7 @@ static MagickBooleanType WritePS2Image(const ImageInfo *image_info,Image *image,
                   break;
                 for (x=0; x < (ssize_t) image->columns; x++)
                 {
-                  Ascii85Encode(image,(unsigned char) GetPixelIndex(image,p));
+                  Ascii85Encode(image,(unsigned char) ((ssize_t) GetPixelIndex(image,p)));
                   p+=GetPixelChannels(image);
                 }
                 progress=SetImageProgress(image,SaveImageTag,(MagickOffsetType)

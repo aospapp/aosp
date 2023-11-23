@@ -288,7 +288,7 @@ public class ContentRatingSystem {
                 ratings.add(builder.build(subRatings));
             }
 
-            // Sanity check.
+            // Soundness check.
             for (SubRating subRating : subRatings) {
                 boolean used = false;
                 for (Rating rating : ratings) {

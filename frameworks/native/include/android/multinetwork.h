@@ -60,8 +60,6 @@ typedef uint64_t net_handle_t;
  * on failure with an appropriate errno value set.
  */
 
-#if __ANDROID_API__ >= 23
-
 /**
  * Set the network to be used by the given socket file descriptor.
  *
@@ -85,11 +83,46 @@ int android_setsocknetwork(net_handle_t network, int fd) __INTRODUCED_IN(23);
  *
  * To clear a previous process binding, invoke with NETWORK_UNSPECIFIED.
  *
- * This is the equivalent of: [android.net.ConnectivityManager#setProcessDefaultNetwork()](https://developer.android.com/reference/android/net/ConnectivityManager.html#setProcessDefaultNetwork(android.net.Network))
+ * This is the equivalent of: [android.net.ConnectivityManager#bindProcessToNetwork()](https://developer.android.com/reference/android/net/ConnectivityManager.html#bindProcessToNetwork(android.net.Network))
  *
  * Available since API level 23.
  */
 int android_setprocnetwork(net_handle_t network) __INTRODUCED_IN(23);
+
+
+/**
+ * Gets the |network| bound to the current process, as per android_setprocnetwork.
+ *
+ * This is the equivalent of: [android.net.ConnectivityManager#getBoundNetworkForProcess()](https://developer.android.com/reference/android/net/ConnectivityManager.html#getBoundNetworkForProcess(android.net.Network))
+ * Returns 0 on success, or -1 setting errno to EINVAL if a null pointer is
+ * passed in.
+ *
+ *
+ * Available since API level 31.
+ */
+int android_getprocnetwork(net_handle_t *network) __INTRODUCED_IN(31);
+
+/**
+ * Binds domain name resolutions performed by this process to |network|.
+ * android_setprocnetwork takes precedence over this setting.
+ *
+ * To clear a previous process binding, invoke with NETWORK_UNSPECIFIED.
+ * On success 0 is returned. On error -1 is returned, and errno is set.
+ *
+ * Available since API level 31.
+ */
+int android_setprocdns(net_handle_t network) __INTRODUCED_IN(31);
+
+/**
+ * Gets the |network| to which domain name resolutions are bound on the
+ * current process.
+ *
+ * Returns 0 on success, or -1 setting errno to EINVAL if a null pointer is
+ * passed in.
+ *
+ * Available since API level 31.
+ */
+int android_getprocdns(net_handle_t *network) __INTRODUCED_IN(31);
 
 
 /**
@@ -110,10 +143,6 @@ int android_setprocnetwork(net_handle_t network) __INTRODUCED_IN(23);
 int android_getaddrinfofornetwork(net_handle_t network,
         const char *node, const char *service,
         const struct addrinfo *hints, struct addrinfo **res) __INTRODUCED_IN(23);
-
-#endif /* __ANDROID_API__ >= 23 */
-
-#if __ANDROID_API__ >= 29
 
 /**
  * Possible values of the flags argument to android_res_nsend and android_res_nquery.
@@ -186,8 +215,6 @@ int android_res_nresult(int fd,
  * Available since API level 29.
  */
 void android_res_cancel(int nsend_fd) __INTRODUCED_IN(29);
-
-#endif /* __ANDROID_API__ >= 29 */
 
 __END_DECLS
 

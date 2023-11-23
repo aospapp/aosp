@@ -1,7 +1,7 @@
 /*
  * strcpy/stpcpy - copy a string returning pointer to start/end.
  *
- * Copyright (c) 2013-2019, Arm Limited.
+ * Copyright (c) 2013-2020, Arm Limited.
  * SPDX-License-Identifier: MIT
  */
 
@@ -80,6 +80,8 @@
 #define MIN_PAGE_SIZE (1 << MIN_PAGE_P2)
 
 ENTRY (STRCPY)
+	PTR_ARG (0)
+	PTR_ARG (1)
 	/* For moderately short strings, the fastest way to do the copy is to
 	   calculate the length of the string in the same way as strlen, then
 	   essentially do a memcpy of the result.  This avoids the need for
@@ -306,3 +308,4 @@ L(page_cross):
 	b	L(fp_gt8)
 
 END (STRCPY)
+

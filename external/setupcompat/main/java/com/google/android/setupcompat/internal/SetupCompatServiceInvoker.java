@@ -21,9 +21,9 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.RemoteException;
 import androidx.annotation.VisibleForTesting;
-import android.util.Log;
 import com.google.android.setupcompat.ISetupCompatService;
 import com.google.android.setupcompat.logging.internal.SetupMetricsLoggingConstants.MetricType;
+import com.google.android.setupcompat.util.Logger;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -41,11 +41,14 @@ import java.util.concurrent.TimeoutException;
  */
 public class SetupCompatServiceInvoker {
 
+  private static final Logger LOG = new Logger("SetupCompatServiceInvoker");
+
+  @SuppressLint("DefaultLocale")
   public void logMetricEvent(@MetricType int metricType, Bundle args) {
     try {
       loggingExecutor.execute(() -> invokeLogMetric(metricType, args));
     } catch (RejectedExecutionException e) {
-      Log.e(TAG, String.format("Metric of type %d dropped since queue is full.", metricType), e);
+      LOG.e(String.format("Metric of type %d dropped since queue is full.", metricType), e);
     }
   }
 
@@ -53,7 +56,7 @@ public class SetupCompatServiceInvoker {
     try {
       setupCompatExecutor.execute(() -> invokeBindBack(screenName, bundle));
     } catch (RejectedExecutionException e) {
-      Log.e(TAG, String.format("Screen %s bind back fail.", screenName), e);
+      LOG.e(String.format("Screen %s bind back fail.", screenName), e);
     }
   }
 
@@ -66,10 +69,10 @@ public class SetupCompatServiceInvoker {
       if (setupCompatService != null) {
         setupCompatService.logMetric(metricType, args, Bundle.EMPTY);
       } else {
-        Log.w(TAG, "logMetric failed since service reference is null. Are the permissions valid?");
+        LOG.w("logMetric failed since service reference is null. Are the permissions valid?");
       }
-    } catch (InterruptedException | TimeoutException | RemoteException e) {
-      Log.e(TAG, String.format("Exception occurred while trying to log metric = [%s]", args), e);
+    } catch (InterruptedException | TimeoutException | RemoteException | IllegalStateException e) {
+      LOG.e(String.format("Exception occurred while trying to log metric = [%s]", args), e);
     }
   }
 
@@ -81,11 +84,10 @@ public class SetupCompatServiceInvoker {
       if (setupCompatService != null) {
         setupCompatService.validateActivity(screenName, bundle);
       } else {
-        Log.w(TAG, "BindBack failed since service reference is null. Are the permissions valid?");
+        LOG.w("BindBack failed since service reference is null. Are the permissions valid?");
       }
     } catch (InterruptedException | TimeoutException | RemoteException e) {
-      Log.e(
-          TAG,
+      LOG.e(
           String.format("Exception occurred while %s trying bind back to SetupWizard.", screenName),
           e);
     }
@@ -125,5 +127,4 @@ public class SetupCompatServiceInvoker {
   private static SetupCompatServiceInvoker instance;
 
   private static final long MAX_WAIT_TIME_FOR_CONNECTION_MS = TimeUnit.SECONDS.toMillis(10);
-  private static final String TAG = "SucServiceInvoker";
 }

@@ -7,23 +7,23 @@
 Django gets configured with three database connections in frontend/settings.py.
 - The default database
     - This database should be used for most things.
-    - For the master, this is the global database.
+    - For the main, this is the global database.
     - For shards, this this is the shard-local database.
 - The global database
-    - For the master, this is the same database as default, which is the global
+    - For the main, this is the same database as default, which is the global
       database.
-    - For the shards, this is the global database (the same as for the master).
+    - For the shards, this is the global database (the same as for the main).
 - The readonly connection
     - This should be the same database as the global database, but it should
       use an account on the database that only has readonly permissions.
 - The server database
     - This is the database stores information about all servers in the Autotest
-      instance. Each instance, master or shard should have its own server
+      instance. Each instance, main or shard should have its own server
       database is use_server_db is enabled in global config.
 
 The reason shards need two distinct databases for different objects is, that
 the tko parser should always write to the global database. Otherwise test
-results wouldn't be synced back to the master and would not be accessible in one
+results wouldn't be synced back to the main and would not be accessible in one
 place.
 
 Therefore this class will route all queries for tables starts with `server`

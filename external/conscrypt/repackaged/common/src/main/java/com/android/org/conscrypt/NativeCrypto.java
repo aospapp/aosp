@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.SocketTimeoutException;
 import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
@@ -209,6 +210,13 @@ public final class NativeCrypto {
 
     static native int ECDSA_verify(byte[] data, byte[] sig, NativeRef.EVP_PKEY pkey);
 
+    // --- Curve25519 --------------
+
+    static native boolean X25519(byte[] out, byte[] privateKey, byte[] publicKey)
+            throws InvalidKeyException;
+
+    static native void X25519_keypair(byte[] outPublicKey, byte[] outPrivateKey);
+
     // --- Message digest functions --------------
 
     // These return const references
@@ -341,11 +349,33 @@ public final class NativeCrypto {
 
     static native int EVP_AEAD_CTX_seal(long evpAead, byte[] key, int tagLengthInBytes, byte[] out,
             int outOffset, byte[] nonce, byte[] in, int inOffset, int inLength, byte[] ad)
-            throws ShortBufferException, BadPaddingException, IndexOutOfBoundsException;
+            throws ShortBufferException, BadPaddingException;
+
+    static native int EVP_AEAD_CTX_seal_buf(long evpAead, byte[] key, int tagLengthInBytes,
+            ByteBuffer out, byte[] nonce, ByteBuffer input, byte[] ad)
+            throws ShortBufferException, BadPaddingException;
 
     static native int EVP_AEAD_CTX_open(long evpAead, byte[] key, int tagLengthInBytes, byte[] out,
             int outOffset, byte[] nonce, byte[] in, int inOffset, int inLength, byte[] ad)
-            throws ShortBufferException, BadPaddingException, IndexOutOfBoundsException;
+            throws ShortBufferException, BadPaddingException;
+
+    static native int EVP_AEAD_CTX_open_buf(long evpAead, byte[] key, int tagLengthInBytes,
+            ByteBuffer out, byte[] nonce, ByteBuffer input, byte[] ad)
+            throws ShortBufferException, BadPaddingException;
+
+    // --- CMAC functions ------------------------------------------------------
+
+    static native long CMAC_CTX_new();
+
+    static native void CMAC_CTX_free(long ctx);
+
+    static native void CMAC_Init(NativeRef.CMAC_CTX ctx, byte[] key);
+
+    static native void CMAC_Update(NativeRef.CMAC_CTX ctx, byte[] in, int inOffset, int inLength);
+
+    static native void CMAC_UpdateDirect(NativeRef.CMAC_CTX ctx, long inPtr, int inLength);
+
+    static native byte[] CMAC_Final(NativeRef.CMAC_CTX ctx);
 
     // --- HMAC functions ------------------------------------------------------
 
@@ -427,8 +457,6 @@ public final class NativeCrypto {
 
     static native void X509_free(long x509ctx, OpenSSLX509Certificate holder);
 
-    static native long X509_dup(long x509ctx, OpenSSLX509Certificate holder);
-
     static native int X509_cmp(long x509ctx1, OpenSSLX509Certificate holder, long x509ctx2, OpenSSLX509Certificate holder2);
 
     static native void X509_print_ex(long bioCtx, long x509ctx, OpenSSLX509Certificate holder, long nmflag, long certflag);
@@ -474,7 +502,10 @@ public final class NativeCrypto {
     static native void X509_verify(long x509ctx, OpenSSLX509Certificate holder, NativeRef.EVP_PKEY pkeyCtx)
             throws BadPaddingException;
 
-    static native byte[] get_X509_cert_info_enc(long x509ctx, OpenSSLX509Certificate holder);
+    static native byte[] get_X509_tbs_cert(long x509ctx, OpenSSLX509Certificate holder);
+
+    static native byte[] get_X509_tbs_cert_without_ext(
+            long x509ctx, OpenSSLX509Certificate holder, String oid);
 
     static native byte[] get_X509_signature(long x509ctx, OpenSSLX509Certificate holder);
 
@@ -534,8 +565,6 @@ public final class NativeCrypto {
     static native String[] get_X509_CRL_ext_oids(long x509Crlctx, OpenSSLX509CRL holder, int critical);
 
     static native byte[] X509_CRL_get_ext_oid(long x509CrlCtx, OpenSSLX509CRL holder, String oid);
-
-    static native void X509_delete_ext(long x509, OpenSSLX509Certificate holder, String oid);
 
     static native long X509_CRL_get_version(long x509CrlCtx, OpenSSLX509CRL holder);
 
@@ -1437,24 +1466,10 @@ public final class NativeCrypto {
             SSLHandshakeCallbacks shc) throws IOException;
 
     /**
-     * Writes data from the given array to the BIO.
-     */
-    static native int ENGINE_SSL_write_BIO_heap(long ssl, NativeSsl ssl_holder, long bioRef, byte[] sourceJava,
-            int sourceOffset, int sourceLength, SSLHandshakeCallbacks shc)
-            throws IOException, IndexOutOfBoundsException;
-
-    /**
      * Reads data from the given BIO into a direct {@link java.nio.ByteBuffer}.
      */
     static native int ENGINE_SSL_read_BIO_direct(long ssl, NativeSsl ssl_holder, long bioRef, long address, int len,
             SSLHandshakeCallbacks shc) throws IOException;
-
-    /**
-     * Reads data from the given BIO into an array.
-     */
-    static native int ENGINE_SSL_read_BIO_heap(long ssl, NativeSsl ssl_holder, long bioRef, byte[] destJava,
-            int destOffset, int destLength, SSLHandshakeCallbacks shc)
-            throws IOException, IndexOutOfBoundsException;
 
     /**
      * Forces the SSL object to process any data pending in the BIO.
@@ -1468,6 +1483,11 @@ public final class NativeCrypto {
      */
     static native void ENGINE_SSL_shutdown(long ssl, NativeSsl ssl_holder, SSLHandshakeCallbacks shc)
             throws IOException;
+
+    /**
+     * Return {@code true} if BoringSSL has been built in FIPS mode.
+     */
+    static native boolean usesBoringSSL_FIPS_mode();
 
     /**
      * Used for testing only.

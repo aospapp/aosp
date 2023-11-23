@@ -2,6 +2,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := liblocbatterylistener
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SANITIZE += $(GNSS_SANITIZE)
 # activate the following line for debug purposes only, comment out for production
 #LOCAL_SANITIZE_DIAG += $(GNSS_SANITIZE_DIAG)
@@ -34,8 +36,8 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := liblocbatterylistener_headers
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 
 include $(BUILD_HEADER_LIBRARY)
-
-

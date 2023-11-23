@@ -16,52 +16,62 @@
 
 package com.android.car.settings.applications;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 
-import com.android.car.settings.R;
 import com.android.car.settings.common.SettingsFragment;
-import com.android.car.ui.toolbar.MenuItem;
-
-import java.util.Collections;
-import java.util.List;
 
 /**
- * Fragment base class for use in cases where a list of applications is displayed with the option to
- * show/hide system apps in the list.
+ * Fragment base class for use in cases where a list of applications is displayed. Includes a
+ * a shared preference instance that can be used to show/hide system apps in the list.
  */
 public abstract class AppListFragment extends SettingsFragment {
 
-    private static final String KEY_SHOW_SYSTEM = "showSystem";
+    protected static final String SHARED_PREFERENCE_PATH =
+            "com.android.car.settings.applications.AppListFragment";
+    protected static final String KEY_HIDE_SYSTEM =
+            "com.android.car.settings.applications.HIDE_SYSTEM";
 
-    private boolean mShowSystem;
-    private MenuItem mSystemButton;
+    private boolean mHideSystem = true;
+
+    private SharedPreferences mSharedPreferences;
+    private SharedPreferences.OnSharedPreferenceChangeListener mSharedPreferenceChangeListener =
+            (sharedPreferences, key) -> {
+                if (KEY_HIDE_SYSTEM.equals(key)) {
+                    mHideSystem = sharedPreferences.getBoolean(KEY_HIDE_SYSTEM,
+                            /* defaultValue= */ true);
+                    onToggleShowSystemApps(!mHideSystem);
+                }
+            };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mSharedPreferences =
+                getContext().getSharedPreferences(SHARED_PREFERENCE_PATH, Context.MODE_PRIVATE);
         if (savedInstanceState != null) {
-            mShowSystem = savedInstanceState.getBoolean(KEY_SHOW_SYSTEM, false);
+            mHideSystem = savedInstanceState.getBoolean(KEY_HIDE_SYSTEM,
+                    /* defaultValue= */ true);
+            mSharedPreferences.edit().putBoolean(KEY_HIDE_SYSTEM, mHideSystem).apply();
+        } else {
+            mSharedPreferences.edit().putBoolean(KEY_HIDE_SYSTEM, true).apply();
         }
-
-        mSystemButton = new MenuItem.Builder(getContext())
-                .setOnClickListener(i -> {
-                    mShowSystem = !mShowSystem;
-                    onToggleShowSystemApps(mShowSystem);
-                    i.setTitle(mShowSystem ? R.string.hide_system : R.string.show_system);
-                })
-                .setTitle(mShowSystem ? R.string.hide_system : R.string.show_system)
-                .build();
-    }
-
-    @Override
-    public List<MenuItem> getToolbarMenuItems() {
-        return Collections.singletonList(mSystemButton);
     }
 
     @Override
     public void onStart() {
         super.onStart();
-        onToggleShowSystemApps(mShowSystem);
+        onToggleShowSystemApps(!mHideSystem);
+        mSharedPreferences.registerOnSharedPreferenceChangeListener(
+                mSharedPreferenceChangeListener);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        mSharedPreferences.unregisterOnSharedPreferenceChangeListener(
+                mSharedPreferenceChangeListener);
     }
 
     /** Called when a user toggles the option to show system applications in the list. */
@@ -69,12 +79,12 @@ public abstract class AppListFragment extends SettingsFragment {
 
     /** Returns {@code true} if system applications should be shown in the list. */
     protected final boolean shouldShowSystemApps() {
-        return mShowSystem;
+        return !mHideSystem;
     }
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putBoolean(KEY_SHOW_SYSTEM, mShowSystem);
+        outState.putBoolean(KEY_HIDE_SYSTEM, mHideSystem);
     }
 }

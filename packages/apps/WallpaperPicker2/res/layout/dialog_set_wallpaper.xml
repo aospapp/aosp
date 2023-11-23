@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?><!--
+<?xml version="1.0" encoding="utf-8"?>
+<!--
      Copyright (C) 2017 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,32 +14,47 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:paddingBottom="@dimen/set_wallpaper_dialog_padding_bottom"
-    android:paddingTop="@dimen/set_wallpaper_dialog_padding_top">
+    android:layout_height="match_parent"
+    android:background="?androidprv:attr/colorSurface"
+    android:padding="@dimen/set_wallpaper_dialog_padding">
 
-    <Button
-        android:id="@+id/set_home_wallpaper_button"
-        style="@style/set_wallpaper_destination_item"
+    <LinearLayout
+        android:id="@+id/dialog_set_wallpaper_options"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/set_wallpaper_home_screen_destination" />
+        android:orientation="vertical"
+        android:divider="@drawable/divider_4dp"
+        android:showDividers="middle"
+        android:background="@drawable/dialog_round_background">
 
-    <Button
-        android:id="@+id/set_lock_wallpaper_button"
-        style="@style/set_wallpaper_destination_item"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/set_wallpaper_lock_screen_destination" />
+        <Button
+            android:id="@+id/set_home_wallpaper_button"
+            style="@style/set_wallpaper_destination_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/set_wallpaper_home_screen_destination"
+            android:textColor="?androidprv:attr/textColorOnAccent" />
 
-    <Button
-        android:id="@+id/set_both_wallpaper_button"
-        style="@style/set_wallpaper_destination_item"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/set_wallpaper_both_destination" />
+        <Button
+            android:id="@+id/set_lock_wallpaper_button"
+            style="@style/set_wallpaper_destination_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/set_wallpaper_lock_screen_destination"
+            android:textColor="?androidprv:attr/textColorOnAccent" />
 
-</LinearLayout>
+        <Button
+            android:id="@+id/set_both_wallpaper_button"
+            style="@style/set_wallpaper_destination_item"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/set_wallpaper_both_destination"
+            android:textColor="?androidprv:attr/textColorOnAccent" />
+
+    </LinearLayout>
+
+</FrameLayout>

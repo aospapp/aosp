@@ -55,7 +55,7 @@
 #define HAVE_POSIX_MEMALIGN 1
 
 /* Define to 1 if the system has `pthread_barrier'. */
-#undef HAVE_PTHREAD_BARRIERS
+#define HAVE_PTHREAD_BARRIERS 1
 
 /* Define to 1 if you have the <pthread.h> header file. */
 #define HAVE_PTHREAD_H 1
@@ -73,7 +73,7 @@
 #define HAVE_SOCKET 1
 
 /* Define to 1 if stdbool.h conforms to C99. */
-/* #undef HAVE_STDBOOL_H */
+#define HAVE_STDBOOL_H 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
@@ -144,7 +144,7 @@
 #define PACKAGE_NAME "stressapptest"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "stressapptest 1.0.7_autoconf"
+#define PACKAGE_STRING "stressapptest 1.0.9_autoconf"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "stressapptest"
@@ -153,7 +153,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.0.7_autoconf"
+#define PACKAGE_VERSION "1.0.9_autoconf"
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void
@@ -174,13 +174,10 @@
 /* #undef STRERROR_R_CHAR_P */
 
 /* Defined if the target CPU is armv7a */
-#define STRESSAPPTEST_CPU_ARMV7A /**/
+/* #define STRESSAPPTEST_CPU_ARMV7A */
 
 /* Defined if the target CPU is i686 */
 /* #undef STRESSAPPTEST_CPU_I686 */
-
-/* Defined if the target CPU is mips */
-/* #undef STRESSAPPTEST_CPU_MIPS */
 
 /* Defined if the target CPU is PowerPC */
 /* #undef STRESSAPPTEST_CPU_PPC */
@@ -206,7 +203,7 @@
 #define TIME_WITH_SYS_TIME 1
 
 /* Version number of package */
-#define VERSION "1.0.7_autoconf"
+#define VERSION "1.0.9_autoconf"
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */

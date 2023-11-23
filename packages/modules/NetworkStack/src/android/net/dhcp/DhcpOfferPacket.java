@@ -47,9 +47,12 @@ public class DhcpOfferPacket extends DhcpPacket {
             }
         }
 
-        return s + " OFFER, ip " + mYourIp + ", mask " + mSubnetMask +
-                dnsServers + ", gateways " + mGateways +
-                " lease time " + mLeaseTime + ", domain " + mDomainName;
+        return s + " OFFER, ip " + mYourIp
+                + ", mask " + mSubnetMask + dnsServers
+                + ", gateways " + mGateways
+                + ", lease time " + mLeaseTime
+                + ", domain " + mDomainName
+                + (mIpv6OnlyWaitTime != null ? ", V6ONLY_WAIT " + mIpv6OnlyWaitTime : "");
     }
 
     /**

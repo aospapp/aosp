@@ -7,6 +7,7 @@ import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
+from autotest_lib.server.cros.servo import servo
 
 
 class firmware_Cr50OpenWhileAPOff(Cr50Test):
@@ -23,7 +24,6 @@ class firmware_Cr50OpenWhileAPOff(Cr50Test):
     SLEEP_DELAY = 20
     SHORT_DELAY = 2
     CCD_PASSWORD_RATE_LIMIT = 3
-    PASSWORD = 'Password'
 
     def initialize(self, host, cmdline_args, full_args):
         """Initialize the test"""
@@ -45,16 +45,14 @@ class firmware_Cr50OpenWhileAPOff(Cr50Test):
             raise error.TestNAError('Plug in servo v4 type c cable into ccd '
                     'port')
 
-        self.fast_open(enable_testlab=True)
+        self.fast_ccd_open(enable_testlab=True)
         # make sure password is cleared.
         self.cr50.send_command('ccd reset')
         # Set GscFullConsole to Always, so we can always use gpioset.
         self.cr50.set_cap('GscFullConsole', 'Always')
-
-        self.cr50.get_ccd_info()
         # You can only open cr50 from the console if a password is set. Set
         # a password, so we can use it to open cr50 while the AP is off.
-        self.set_ccd_password(self.PASSWORD)
+        self.set_ccd_password(self.CCD_PASSWORD)
 
         # Asserting warm_reset will hold the AP in reset if the system uses
         # SYS_RST instead of PLT_RST. If the system uses PLT_RST, we have to
@@ -114,12 +112,12 @@ class firmware_Cr50OpenWhileAPOff(Cr50Test):
         # Verify the cr50 console responds to commands.
         try:
             logging.info(self.cr50.get_ccdstate())
-        except error.TestFail as e:
-            msg = str(e)
-            if ('Timeout waiting for response' in msg or
-                'No data was sent from the pty' in msg):
-                raise error.TestFail('Could not restore Cr50 console')
-            raise
+        except servo.ResponsiveConsoleError as e:
+            logging.info('Console is responsive. Unable to match output: %s',
+                         str(e))
+        except servo.UnresponsiveConsoleError as e:
+            raise error.TestFail('Could not restore Cr50 console')
+        logging.info('Cr50 console ok.')
 
 
     def turn_device(self, state):
@@ -201,14 +199,14 @@ class firmware_Cr50OpenWhileAPOff(Cr50Test):
 
     def try_ccd_open(self, cr50_reset):
         """Try 'ccd open' and make sure the console doesn't hang"""
-        self.cr50.set_ccd_level('lock', self.PASSWORD)
+        self.cr50.set_ccd_level('lock', self.CCD_PASSWORD)
         try:
             self.turn_device('off')
             if cr50_reset:
                 if not self.deep_sleep_reset_get_count():
                     raise error.TestFail('Did not detect a cr50 reset')
             # Verify ccd open
-            self.cr50.set_ccd_level('open', self.PASSWORD)
+            self.cr50.set_ccd_level('open', self.CCD_PASSWORD)
         finally:
             self.restore_dut()
 

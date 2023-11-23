@@ -7,6 +7,16 @@
 #define CRAS_AUDIO_THREAD_MONITOR_H_
 
 /*
+ * Notifies the main thread when A2DP buffer overruns.
+ */
+int cras_audio_thread_event_a2dp_overrun();
+
+/*
+ * Notifies the main thread when A2DP packet transmittion throttles.
+ */
+int cras_audio_thread_event_a2dp_throttle();
+
+/*
  * Sends a debug event to the audio thread for debugging.
  */
 int cras_audio_thread_event_debug();
@@ -30,6 +40,11 @@ int cras_audio_thread_event_severe_underrun();
  * Notifies the main thread when a drop samples event happens.
  */
 int cras_audio_thread_event_drop_samples();
+
+/*
+ * Notifies the main thread when a device overrun event happens.
+ */
+int cras_audio_thread_event_dev_overrun();
 
 /*
  * Initializes audio thread monitor and sets main thread callback.

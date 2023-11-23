@@ -24,6 +24,8 @@ include $(CLEAR_VARS)
 
 LOCAL_HEADER_LIBRARIES += libhardware_headers
 LOCAL_MODULE := audio.primary.$(TARGET_BOARD_PLATFORM)
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_VENDOR_MODULE := true
 
@@ -48,4 +50,3 @@ LOCAL_C_INCLUDES += \
 LOCAL_STATIC_LIBRARIES := libxtensa_proxy
 endif
 include $(BUILD_SHARED_LIBRARY)
-

@@ -18,116 +18,219 @@
 #ifndef GATT_API_H
 #define GATT_API_H
 
+#include <base/strings/stringprintf.h>
+#include <string>
+
 #include "bt_target.h"
 #include "btm_ble_api.h"
 #include "gattdefs.h"
+#include "types/bt_transport.h"
 
 /*****************************************************************************
  *  Constants
  ****************************************************************************/
 /* Success code and error codes */
-#define GATT_SUCCESS 0x00
-#define GATT_INVALID_HANDLE 0x01
-#define GATT_READ_NOT_PERMIT 0x02
-#define GATT_WRITE_NOT_PERMIT 0x03
-#define GATT_INVALID_PDU 0x04
-#define GATT_INSUF_AUTHENTICATION 0x05
-#define GATT_REQ_NOT_SUPPORTED 0x06
-#define GATT_INVALID_OFFSET 0x07
-#define GATT_INSUF_AUTHORIZATION 0x08
-#define GATT_PREPARE_Q_FULL 0x09
-#define GATT_NOT_FOUND 0x0a
-#define GATT_NOT_LONG 0x0b
-#define GATT_INSUF_KEY_SIZE 0x0c
-#define GATT_INVALID_ATTR_LEN 0x0d
-#define GATT_ERR_UNLIKELY 0x0e
-#define GATT_INSUF_ENCRYPTION 0x0f
-#define GATT_UNSUPPORT_GRP_TYPE 0x10
-#define GATT_INSUF_RESOURCE 0x11
+typedef enum GattStatus : uint8_t {
+  GATT_SUCCESS = 0x00,
+  GATT_INVALID_HANDLE = 0x01,
+  GATT_READ_NOT_PERMIT = 0x02,
+  GATT_WRITE_NOT_PERMIT = 0x03,
+  GATT_INVALID_PDU = 0x04,
+  GATT_INSUF_AUTHENTICATION = 0x05,
+  GATT_REQ_NOT_SUPPORTED = 0x06,
+  GATT_INVALID_OFFSET = 0x07,
+  GATT_INSUF_AUTHORIZATION = 0x08,
+  GATT_PREPARE_Q_FULL = 0x09,
+  GATT_NOT_FOUND = 0x0a,
+  GATT_NOT_LONG = 0x0b,
+  GATT_INSUF_KEY_SIZE = 0x0c,
+  GATT_INVALID_ATTR_LEN = 0x0d,
+  GATT_ERR_UNLIKELY = 0x0e,
+  GATT_INSUF_ENCRYPTION = 0x0f,
+  GATT_UNSUPPORT_GRP_TYPE = 0x10,
+  GATT_INSUF_RESOURCE = 0x11,
+  GATT_DATABASE_OUT_OF_SYNC = 0x12,
+  GATT_VALUE_NOT_ALLOWED = 0x13,
+  GATT_ILLEGAL_PARAMETER = 0x87,
+  GATT_TOO_SHORT = 0x7f,
+  GATT_NO_RESOURCES = 0x80,
+  GATT_INTERNAL_ERROR = 0x81,
+  GATT_WRONG_STATE = 0x82,
+  GATT_DB_FULL = 0x83,
+  GATT_BUSY = 0x84,
+  GATT_ERROR = 0x85,
+  GATT_CMD_STARTED = 0x86,
+  GATT_PENDING = 0x88,
+  GATT_AUTH_FAIL = 0x89,
+  GATT_MORE = 0x8a,
+  GATT_INVALID_CFG = 0x8b,
+  GATT_SERVICE_STARTED = 0x8c,
+  GATT_ENCRYPED_MITM = GATT_SUCCESS,
+  GATT_ENCRYPED_NO_MITM = 0x8d,
+  GATT_NOT_ENCRYPTED = 0x8e,
+  GATT_CONGESTED = 0x8f,
+  GATT_DUP_REG = 0x90,      /* 0x90 */
+  GATT_ALREADY_OPEN = 0x91, /* 0x91 */
+  GATT_CANCEL = 0x92,       /* 0x92 */
+  /* = 0xE0 ~ 0xFC reserved for future use */
 
-#define GATT_ILLEGAL_PARAMETER 0x87
-#define GATT_NO_RESOURCES 0x80
-#define GATT_INTERNAL_ERROR 0x81
-#define GATT_WRONG_STATE 0x82
-#define GATT_DB_FULL 0x83
-#define GATT_BUSY 0x84
-#define GATT_ERROR 0x85
-#define GATT_CMD_STARTED 0x86
-#define GATT_PENDING 0x88
-#define GATT_AUTH_FAIL 0x89
-#define GATT_MORE 0x8a
-#define GATT_INVALID_CFG 0x8b
-#define GATT_SERVICE_STARTED 0x8c
-#define GATT_ENCRYPED_MITM GATT_SUCCESS
-#define GATT_ENCRYPED_NO_MITM 0x8d
-#define GATT_NOT_ENCRYPTED 0x8e
-#define GATT_CONGESTED 0x8f
+  /* Client Characteristic Configuration Descriptor Improperly Configured */
+  GATT_CCC_CFG_ERR = 0xFD,
+  /* Procedure Already in progress */
+  GATT_PRC_IN_PROGRESS = 0xFE,
+  /* Attribute value out of range */
+  GATT_OUT_OF_RANGE = 0xFF,
+} tGATT_STATUS;
 
-#define GATT_DUP_REG 0x90      /* 0x90 */
-#define GATT_ALREADY_OPEN 0x91 /* 0x91 */
-#define GATT_CANCEL 0x92       /* 0x92 */
-/* 0xE0 ~ 0xFC reserved for future use */
+typedef enum : uint8_t {
+  GATT_RSP_ERROR = 0x01,
+  GATT_REQ_MTU = 0x02,
+  GATT_RSP_MTU = 0x03,
+  GATT_REQ_FIND_INFO = 0x04,
+  GATT_RSP_FIND_INFO = 0x05,
+  GATT_REQ_FIND_TYPE_VALUE = 0x06,
+  GATT_RSP_FIND_TYPE_VALUE = 0x07,
+  GATT_REQ_READ_BY_TYPE = 0x08,
+  GATT_RSP_READ_BY_TYPE = 0x09,
+  GATT_REQ_READ = 0x0A,
+  GATT_RSP_READ = 0x0B,
+  GATT_REQ_READ_BLOB = 0x0C,
+  GATT_RSP_READ_BLOB = 0x0D,
+  GATT_REQ_READ_MULTI = 0x0E,
+  GATT_RSP_READ_MULTI = 0x0F,
+  GATT_REQ_READ_BY_GRP_TYPE = 0x10,
+  GATT_RSP_READ_BY_GRP_TYPE = 0x11,
+  /*                 0001-0010 (write)*/
+  GATT_REQ_WRITE = 0x12,
+  GATT_RSP_WRITE = 0x13,
+  /* changed in V4.0 01001-0010(write cmd)*/
+  GATT_CMD_WRITE = 0x52,
+  GATT_REQ_PREPARE_WRITE = 0x16,
+  GATT_RSP_PREPARE_WRITE = 0x17,
+  GATT_REQ_EXEC_WRITE = 0x18,
+  GATT_RSP_EXEC_WRITE = 0x19,
+  GATT_HANDLE_VALUE_NOTIF = 0x1B,
+  GATT_HANDLE_VALUE_IND = 0x1D,
+  GATT_HANDLE_VALUE_CONF = 0x1E,
 
-/* Client Characteristic Configuration Descriptor Improperly Configured */
-#define GATT_CCC_CFG_ERR 0xFD
-/* Procedure Already in progress */
-#define GATT_PRC_IN_PROGRESS 0xFE
-/* Attribute value out of range */
-#define GATT_OUT_OF_RANGE 0xFF
-typedef uint8_t tGATT_STATUS;
+  GATT_REQ_READ_MULTI_VAR = 0x20,
+  GATT_RSP_READ_MULTI_VAR = 0x21,
+  GATT_HANDLE_MULTI_VALUE_NOTIF = 0x23,
 
-#define GATT_RSP_ERROR 0x01
-#define GATT_REQ_MTU 0x02
-#define GATT_RSP_MTU 0x03
-#define GATT_REQ_FIND_INFO 0x04
-#define GATT_RSP_FIND_INFO 0x05
-#define GATT_REQ_FIND_TYPE_VALUE 0x06
-#define GATT_RSP_FIND_TYPE_VALUE 0x07
-#define GATT_REQ_READ_BY_TYPE 0x08
-#define GATT_RSP_READ_BY_TYPE 0x09
-#define GATT_REQ_READ 0x0A
-#define GATT_RSP_READ 0x0B
-#define GATT_REQ_READ_BLOB 0x0C
-#define GATT_RSP_READ_BLOB 0x0D
-#define GATT_REQ_READ_MULTI 0x0E
-#define GATT_RSP_READ_MULTI 0x0F
-#define GATT_REQ_READ_BY_GRP_TYPE 0x10
-#define GATT_RSP_READ_BY_GRP_TYPE 0x11
-/*                 0001-0010 (write)*/
-#define GATT_REQ_WRITE 0x12
-#define GATT_RSP_WRITE 0x13
-/* changed in V4.0 01001-0010(write cmd)*/
-#define GATT_CMD_WRITE 0x52
-#define GATT_REQ_PREPARE_WRITE 0x16
-#define GATT_RSP_PREPARE_WRITE 0x17
-#define GATT_REQ_EXEC_WRITE 0x18
-#define GATT_RSP_EXEC_WRITE 0x19
-#define GATT_HANDLE_VALUE_NOTIF 0x1B
-#define GATT_HANDLE_VALUE_IND 0x1D
-#define GATT_HANDLE_VALUE_CONF 0x1E
-/* changed in V4.0 1101-0010 (signed write)  see write cmd above*/
-#define GATT_SIGN_CMD_WRITE 0xD2
-/* 0x1E = 30 + 1 = 31*/
-#define GATT_OP_CODE_MAX (GATT_HANDLE_VALUE_CONF + 1)
+  /* changed in V4.0 1101-0010 (signed write)  see write cmd above*/
+  GATT_SIGN_CMD_WRITE = 0xD2,
+  /* 0x1E = 30 + 1 = 31*/
+  GATT_OP_CODE_MAX = (GATT_HANDLE_MULTI_VALUE_NOTIF + 1),
+} tGATT_OP_CODE;
+
+inline std::string gatt_op_code_text(const tGATT_OP_CODE& op_code) {
+  switch (op_code) {
+    case GATT_RSP_ERROR:
+      return std::string("GATT_RSP_ERROR");
+    case GATT_REQ_MTU:
+      return std::string("GATT_REQ_MTU");
+    case GATT_RSP_MTU:
+      return std::string("GATT_RSP_MTU");
+    case GATT_REQ_FIND_INFO:
+      return std::string("GATT_REQ_FIND_INFO");
+    case GATT_RSP_FIND_INFO:
+      return std::string("GATT_RSP_FIND_INFO");
+    case GATT_REQ_FIND_TYPE_VALUE:
+      return std::string("GATT_REQ_FIND_TYPE_VALUE");
+    case GATT_RSP_FIND_TYPE_VALUE:
+      return std::string("GATT_RSP_FIND_TYPE_VALUE");
+    case GATT_REQ_READ_BY_TYPE:
+      return std::string("GATT_REQ_READ_BY_TYPE");
+    case GATT_RSP_READ_BY_TYPE:
+      return std::string("GATT_RSP_READ_BY_TYPE");
+    case GATT_REQ_READ:
+      return std::string("GATT_REQ_READ");
+    case GATT_RSP_READ:
+      return std::string("GATT_RSP_READ");
+    case GATT_REQ_READ_BLOB:
+      return std::string("GATT_REQ_READ_BLOB");
+    case GATT_RSP_READ_BLOB:
+      return std::string("GATT_RSP_READ_BLOB");
+    case GATT_REQ_READ_MULTI:
+      return std::string("GATT_REQ_READ_MULTI");
+    case GATT_RSP_READ_MULTI:
+      return std::string("GATT_RSP_READ_MULTI");
+    case GATT_REQ_READ_BY_GRP_TYPE:
+      return std::string("GATT_REQ_READ_BY_GRP_TYPE");
+    case GATT_RSP_READ_BY_GRP_TYPE:
+      return std::string("GATT_RSP_READ_BY_GRP_TYPE");
+    case GATT_REQ_WRITE:
+      return std::string("GATT_REQ_WRITE");
+    case GATT_RSP_WRITE:
+      return std::string("GATT_RSP_WRITE");
+    case GATT_CMD_WRITE:
+      return std::string("GATT_CMD_WRITE");
+    case GATT_REQ_PREPARE_WRITE:
+      return std::string("GATT_REQ_PREPARE_WRITE");
+    case GATT_RSP_PREPARE_WRITE:
+      return std::string("GATT_RSP_PREPARE_WRITE");
+    case GATT_REQ_EXEC_WRITE:
+      return std::string("GATT_REQ_EXEC_WRITE");
+    case GATT_RSP_EXEC_WRITE:
+      return std::string("GATT_RSP_EXEC_WRITE");
+    case GATT_HANDLE_VALUE_NOTIF:
+      return std::string("GATT_HANDLE_VALUE_NOTIF");
+    case GATT_HANDLE_VALUE_IND:
+      return std::string("GATT_HANDLE_VALUE_IND");
+    case GATT_HANDLE_VALUE_CONF:
+      return std::string("GATT_HANDLE_VALUE_CONF");
+    case GATT_REQ_READ_MULTI_VAR:
+      return std::string("GATT_REQ_READ_MULTI_VAR");
+    case GATT_RSP_READ_MULTI_VAR:
+      return std::string("GATT_RSP_READ_MULTI_VAR");
+    case GATT_HANDLE_MULTI_VALUE_NOTIF:
+      return std::string("GATT_HANDLE_MULTI_VALUE_NOTIF");
+    case GATT_SIGN_CMD_WRITE:
+      return std::string("GATT_SIGN_CMD_WRITE");
+    case GATT_OP_CODE_MAX:
+      return std::string("GATT_OP_CODE_MAX");
+  };
+}
 
 #define GATT_HANDLE_IS_VALID(x) ((x) != 0)
 
-#define GATT_CONN_UNKNOWN 0
-/* general L2cap failure  */
-#define GATT_CONN_L2C_FAILURE 1
-/* 0x08 connection timeout  */
-#define GATT_CONN_TIMEOUT HCI_ERR_CONNECTION_TOUT
-/* 0x13 connection terminate by peer user  */
-#define GATT_CONN_TERMINATE_PEER_USER HCI_ERR_PEER_USER
-/* 0x16 connectionterminated by local host  */
-#define GATT_CONN_TERMINATE_LOCAL_HOST HCI_ERR_CONN_CAUSE_LOCAL_HOST
-/* 0x03E connection fail to establish  */
-#define GATT_CONN_FAIL_ESTABLISH HCI_ERR_CONN_FAILED_ESTABLISHMENT
-/* 0x22 connection fail for LMP response tout */
-#define GATT_CONN_LMP_TIMEOUT HCI_ERR_LMP_RESPONSE_TIMEOUT
-/* 0x0100 L2CAP connection cancelled  */
-#define GATT_CONN_CANCEL L2CAP_CONN_CANCEL
-typedef uint16_t tGATT_DISCONN_REASON;
+typedef enum : uint16_t {
+  GATT_CONN_OK = 0,
+  GATT_CONN_UNKNOWN = 0,
+  /* general L2cap failure  */
+  GATT_CONN_L2C_FAILURE = 1,
+  /* 0x08 connection timeout  */
+  GATT_CONN_TIMEOUT = HCI_ERR_CONNECTION_TOUT,
+  /* 0x13 connection terminate by peer user  */
+  GATT_CONN_TERMINATE_PEER_USER = HCI_ERR_PEER_USER,
+  /* 0x16 connectionterminated by local host  */
+  GATT_CONN_TERMINATE_LOCAL_HOST = HCI_ERR_CONN_CAUSE_LOCAL_HOST,
+  /* 0x22 connection fail for LMP response tout */
+  GATT_CONN_LMP_TIMEOUT = HCI_ERR_LMP_RESPONSE_TIMEOUT,
+
+  BTA_GATT_CONN_NONE = 0x0101, /* 0x0101 no connection to cancel  */
+
+} tGATT_DISCONN_REASON;
+
+#define CASE_RETURN_TEXT(code) \
+  case code:                   \
+    return #code
+
+inline std::string gatt_disconnection_reason_text(
+    const tGATT_DISCONN_REASON& reason) {
+  switch (reason) {
+    CASE_RETURN_TEXT(GATT_CONN_OK);
+    CASE_RETURN_TEXT(GATT_CONN_L2C_FAILURE);
+    CASE_RETURN_TEXT(GATT_CONN_TIMEOUT);
+    CASE_RETURN_TEXT(GATT_CONN_TERMINATE_PEER_USER);
+    CASE_RETURN_TEXT(GATT_CONN_TERMINATE_LOCAL_HOST);
+    CASE_RETURN_TEXT(GATT_CONN_LMP_TIMEOUT);
+    CASE_RETURN_TEXT(BTA_GATT_CONN_NONE);
+    default:
+      return std::string("UNKNOWN[%hu]", reason);
+  }
+}
+#undef CASE_RETURN_TEXT
 
 /* MAX GATT MTU size
 */
@@ -339,12 +442,6 @@ typedef union {
 
 } tGATTS_RSP;
 
-/* Transports for the primary service  */
-#define GATT_TRANSPORT_LE BT_TRANSPORT_LE
-#define GATT_TRANSPORT_BR_EDR BT_TRANSPORT_BR_EDR
-#define GATT_TRANSPORT_LE_BR_EDR (BT_TRANSPORT_LE | BT_TRANSPORT_BR_EDR)
-typedef uint8_t tGATT_TRANSPORT;
-
 #define GATT_PREP_WRITE_CANCEL 0x00
 #define GATT_PREP_WRITE_EXEC 0x01
 typedef uint8_t tGATT_EXEC_FLAG;
@@ -399,7 +496,7 @@ typedef uint8_t tGATTS_REQ_TYPE;
 /* Client Used Data Structure
 */
 /* definition of different discovery types */
-enum {
+typedef enum : uint8_t {
   GATT_DISC_SRVC_ALL = 1, /* discover all services */
   GATT_DISC_SRVC_BY_UUID, /* discover service of a special type */
   GATT_DISC_INC_SRVC,     /* discover the included service within a service */
@@ -407,8 +504,7 @@ enum {
                      requirement */
   GATT_DISC_CHAR_DSCPT, /* discover characteristic descriptors of a character */
   GATT_DISC_MAX         /* maximnun discover type */
-};
-typedef uint8_t tGATT_DISC_TYPE;
+} tGATT_DISC_TYPE;
 
 /* GATT read type enumeration
 */
@@ -439,6 +535,7 @@ typedef struct {
   tGATT_AUTH_REQ auth_req;
   uint16_t num_handles;                          /* number of handles to read */
   uint16_t handles[GATT_MAX_READ_MULTI_HANDLES]; /* handles list to be read */
+  bool variable_len;
 } tGATT_READ_MULTI;
 
 /*   Read By Handle Request (GATT_READ_BY_HANDLE) data */
@@ -474,19 +571,21 @@ typedef union {
   tGATT_VALUE att_value;
   uint16_t mtu;
   uint16_t handle;
+  uint16_t cid;
 } tGATT_CL_COMPLETE;
 
 /* GATT client operation type, used in client callback function
 */
-#define GATTC_OPTYPE_NONE 0
-#define GATTC_OPTYPE_DISCOVERY 1
-#define GATTC_OPTYPE_READ 2
-#define GATTC_OPTYPE_WRITE 3
-#define GATTC_OPTYPE_EXE_WRITE 4
-#define GATTC_OPTYPE_CONFIG 5
-#define GATTC_OPTYPE_NOTIFICATION 6
-#define GATTC_OPTYPE_INDICATION 7
-typedef uint8_t tGATTC_OPTYPE;
+typedef enum : uint8_t {
+  GATTC_OPTYPE_NONE = 0,
+  GATTC_OPTYPE_DISCOVERY = 1,
+  GATTC_OPTYPE_READ = 2,
+  GATTC_OPTYPE_WRITE = 3,
+  GATTC_OPTYPE_EXE_WRITE = 4,
+  GATTC_OPTYPE_CONFIG = 5,
+  GATTC_OPTYPE_NOTIFICATION = 6,
+  GATTC_OPTYPE_INDICATION = 7,
+} tGATTC_OPTYPE;
 
 /* characteristic declaration
 */
@@ -573,27 +672,27 @@ typedef void(tGATT_ENC_CMPL_CB)(tGATT_IF gatt_if, const RawAddress& bda);
 /* Define a callback function when phy is updated. */
 typedef void(tGATT_PHY_UPDATE_CB)(tGATT_IF gatt_if, uint16_t conn_id,
                                   uint8_t tx_phy, uint8_t rx_phy,
-                                  uint8_t status);
+                                  tGATT_STATUS status);
 
 /* Define a callback function when connection parameters are updated */
 typedef void(tGATT_CONN_UPDATE_CB)(tGATT_IF gatt_if, uint16_t conn_id,
                                    uint16_t interval, uint16_t latency,
-                                   uint16_t timeout, uint8_t status);
+                                   uint16_t timeout, tGATT_STATUS status);
 
 /* Define the structure that applications use to register with
  * GATT. This structure includes callback functions. All functions
  * MUST be provided.
 */
 typedef struct {
-  tGATT_CONN_CBACK* p_conn_cb;
-  tGATT_CMPL_CBACK* p_cmpl_cb;
-  tGATT_DISC_RES_CB* p_disc_res_cb;
-  tGATT_DISC_CMPL_CB* p_disc_cmpl_cb;
-  tGATT_REQ_CBACK* p_req_cb;
-  tGATT_ENC_CMPL_CB* p_enc_cmpl_cb;
-  tGATT_CONGESTION_CBACK* p_congestion_cb;
-  tGATT_PHY_UPDATE_CB* p_phy_update_cb;
-  tGATT_CONN_UPDATE_CB* p_conn_update_cb;
+  tGATT_CONN_CBACK* p_conn_cb{nullptr};
+  tGATT_CMPL_CBACK* p_cmpl_cb{nullptr};
+  tGATT_DISC_RES_CB* p_disc_res_cb{nullptr};
+  tGATT_DISC_CMPL_CB* p_disc_cmpl_cb{nullptr};
+  tGATT_REQ_CBACK* p_req_cb{nullptr};
+  tGATT_ENC_CMPL_CB* p_enc_cmpl_cb{nullptr};
+  tGATT_CONGESTION_CBACK* p_congestion_cb{nullptr};
+  tGATT_PHY_UPDATE_CB* p_phy_update_cb{nullptr};
+  tGATT_CONN_UPDATE_CB* p_conn_update_cb{nullptr};
 } tGATT_CBACK;
 
 /*****************  Start Handle Management Definitions   *********************/
@@ -698,8 +797,8 @@ extern bool GATTS_NVRegister(tGATT_APPL_INFO* p_cb_info);
  *                  on error error status is returned.
  *
  ******************************************************************************/
-extern uint16_t GATTS_AddService(tGATT_IF gatt_if, btgatt_db_element_t* service,
-                                 int count);
+extern tGATT_STATUS GATTS_AddService(tGATT_IF gatt_if,
+                                     btgatt_db_element_t* service, int count);
 
 /*******************************************************************************
  *
@@ -911,7 +1010,7 @@ extern tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id,
  *
  ******************************************************************************/
 extern void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
-                                tGATT_TRANSPORT transport);
+                                tBT_TRANSPORT transport);
 
 /*******************************************************************************
  *
@@ -922,13 +1021,15 @@ extern void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
  *
  * Parameter        p_app_uuid128: Application UUID
  *                  p_cb_info: callback functions.
+ *                  eatt_support: set support for eatt
  *
  * Returns          0 for error, otherwise the index of the client registered
  *                  with GATT
  *
  ******************************************************************************/
 extern tGATT_IF GATT_Register(const bluetooth::Uuid& p_app_uuid128,
-                              tGATT_CBACK* p_cb_info);
+                              const std::string name, tGATT_CBACK* p_cb_info,
+                              bool eatt_support);
 
 /*******************************************************************************
  *
@@ -1083,7 +1184,7 @@ extern void gatt_free(void);
 extern void gatt_notify_enc_cmpl(const RawAddress& bd_addr);
 
 /** Reset bg device list. If called after controller reset, set |after_reset| to
- * true, as there is no need to wipe controller white list in this case. */
+ * true, as there is no need to wipe controller acceptlist in this case. */
 extern void gatt_reset_bgdev_list(bool after_reset);
 
 #endif /* GATT_API_H */

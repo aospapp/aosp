@@ -16,7 +16,6 @@
 
 #include "calibration/accelerometer/accel_cal.h"
 
-#include <errno.h>
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -40,7 +39,10 @@
 #define MAX_OFF 0.1f    // Will not accept offsets that are larger than 100 mg.
 #define MIN_TEMP 20.0f  // No Data is collected below 20 degree C.
 #define MAX_TEMP 45.0f  // No Data is collected above 45 degree C.
-#define TEMP_CUT 30     // Separation point for temperature buckets 30 degree C.
+#define TEMP_CUT \
+  ((MAX_TEMP - MIN_TEMP) / \
+   ACCEL_CAL_NUM_TEMP_WINDOWS) // Separation window size for temperature buckets
+                               // in degrees C.
 #define EIGEN_RATIO 0.35f  // EIGEN_RATIO (must be greater than 0.35).
 #define EIGEN_MAG 0.97f    // Eigen value magnitude (must be greater than 0.97).
 #define ACCEL_NEW_BIAS_THRESHOLD (0.0f)  // Bias update detection threshold.
@@ -179,13 +181,14 @@ bool accelCalNewBiasAvailable(struct AccelCal *acc) {
 // Accel cal init.
 void accelCalInit(struct AccelCal *acc,
                   const struct AccelCalParameters *parameters) {
-  // Init core accel data.
-  accelCalAlgoInit(&acc->ac1[0], parameters->fx, parameters->fxb,
-                   parameters->fy, parameters->fyb, parameters->fz,
-                   parameters->fzb, parameters->fle);
-  accelCalAlgoInit(&acc->ac1[1], parameters->fx, parameters->fxb,
-                   parameters->fy, parameters->fyb, parameters->fz,
-                   parameters->fzb, parameters->fle);
+  int i;
+
+  for (i = 0; i < ACCEL_CAL_NUM_TEMP_WINDOWS; ++i) {
+    // Init core accel data.
+    accelCalAlgoInit(&acc->ac1[i], parameters->fx, parameters->fxb,
+                     parameters->fy, parameters->fyb, parameters->fz,
+                     parameters->fzb, parameters->fle);
+  }
 
   // Stillness Reset.
   accelStillInit(&acc->asd, parameters->t0, parameters->n_s, parameters->th);
@@ -483,12 +486,7 @@ void accelCalRun(struct AccelCal *acc, uint64_t sample_time_nanos, float x,
       accelTempHisto(&acc->adf, temp);
 #endif
 
-      // Two temp buckets.
-      if (temp < TEMP_CUT) {
-        temp_gate = 0;
-      } else {
-        temp_gate = 1;
-      }
+      temp_gate = (int) ((temp - MIN_TEMP) / TEMP_CUT);
 #ifdef ACCEL_CAL_DBG_ENABLED
       accelStatsCounter(&acc->asd, &acc->adf);
 #endif

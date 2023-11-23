@@ -53,6 +53,9 @@ LOCAL_COPY_HEADERS:= \
     $(RPC_INC)/LocApiRpc.h
 
 LOCAL_MODULE:= libloc_api-rpc-qc
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/../../NOTICE
 LOCAL_MODULE_OWNER := qcom
 
 LOCAL_MODULE_TAGS := optional

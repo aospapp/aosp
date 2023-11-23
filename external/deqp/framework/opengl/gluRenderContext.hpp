@@ -148,6 +148,8 @@ public:
 	explicit			ContextType		(ApiType apiType, ContextFlags flags = ContextFlags(0));
 
 	ApiType				getAPI			(void) const	{ return ApiType::fromBits(m_bits & ((1u<<TOTAL_API_BITS)-1u));			}
+	void				setAPI			(const ApiType& apiType)	{ m_bits = apiType.getPacked();								}
+
 	ContextFlags		getFlags		(void) const	{ return ContextFlags((m_bits>>FLAGS_SHIFT)	& ((1u<<FLAGS_BITS)-1u));	}
 
 	using ApiType::getMajorVersion;
@@ -191,6 +193,7 @@ inline deUint32 ContextType::pack (deUint32 apiBits, ContextFlags flags)
 inline bool		isContextTypeES				(ContextType type)	{ return type.getAPI().getProfile() == PROFILE_ES;				}
 inline bool		isContextTypeGLCore			(ContextType type)	{ return type.getAPI().getProfile() == PROFILE_CORE;			}
 inline bool		isContextTypeGLCompatibility(ContextType type)	{ return type.getAPI().getProfile() == PROFILE_COMPATIBILITY;	}
+inline bool		isES2Context				(ContextType type)	{ return isContextTypeES(type) && type.getMajorVersion() == 2; }
 bool			contextSupports				(ContextType ctxType, ApiType requiredApiType);
 
 const char*		getApiTypeDescription		(ApiType type);

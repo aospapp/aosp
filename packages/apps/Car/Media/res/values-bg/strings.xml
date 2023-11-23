@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"Мултимедия"</string>
     <string name="search_hint" msgid="5401750426238148416">"Търсете песни, изпълнители и др..."</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"Сега слушате"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"Нещо не е наред. Опитайте по-късно."</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"Понастоящем тази заявка не може да се изпълни"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"Приложението не може да изпълни тази заявка"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"Влезте в профила си, за да използвате това приложение"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"За достъп се изисква платен профил"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"Слуша се на твърде много устройства"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"Това съдържание е блокирано"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"Това съдържание не е налице за региона ви"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"Това съдържание вече се възпроизвежда"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"Не могат да се пропускат повече записи"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"Не можа да завърши. Опитайте отново."</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"Нищо друго не е поставено на опашка"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"Установява се връзка с мултимедията"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"Настройки за звука"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"Превключване на приложенията"</string>

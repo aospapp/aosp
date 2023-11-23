@@ -41,7 +41,7 @@ public class AllowedAccountManagementTest extends BaseDeviceAdminTest {
     // Account type for MockAccountAuthenticator
     private final static String ACCOUNT_TYPE_1 =
             "com.android.cts.devicepolicy.accountmanagement.account.type";
-    private final static String ACCOUNT_TYPE_2 = "com.dummy.account";
+    private final static String ACCOUNT_TYPE_2 = "com.placeholder.account";
     private final static Account ACCOUNT = new Account("user0", ACCOUNT_TYPE_1);
 
     private AccountManager mAccountManager;

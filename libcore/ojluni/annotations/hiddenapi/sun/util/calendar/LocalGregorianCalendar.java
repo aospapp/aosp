@@ -68,12 +68,12 @@ public class LocalGregorianCalendar extends sun.util.calendar.BaseCalendar {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public sun.util.calendar.LocalGregorianCalendar.Date newCalendarDate(java.util.TimeZone zone) {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public boolean validate(sun.util.calendar.CalendarDate date) {
         throw new RuntimeException("Stub!");
     }
@@ -82,7 +82,7 @@ public class LocalGregorianCalendar extends sun.util.calendar.BaseCalendar {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public boolean normalize(sun.util.calendar.CalendarDate date) {
         throw new RuntimeException("Stub!");
     }
@@ -122,7 +122,7 @@ public class LocalGregorianCalendar extends sun.util.calendar.BaseCalendar {
             throw new RuntimeException("Stub!");
         }
 
-        @android.compat.annotation.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         public sun.util.calendar.LocalGregorianCalendar.Date setEra(sun.util.calendar.Era era) {
             throw new RuntimeException("Stub!");
         }
@@ -131,17 +131,17 @@ public class LocalGregorianCalendar extends sun.util.calendar.BaseCalendar {
             throw new RuntimeException("Stub!");
         }
 
-        @android.compat.annotation.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         public sun.util.calendar.LocalGregorianCalendar.Date setYear(int localYear) {
             throw new RuntimeException("Stub!");
         }
 
-        @android.compat.annotation.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         public int getNormalizedYear() {
             throw new RuntimeException("Stub!");
         }
 
-        @android.compat.annotation.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         public void setNormalizedYear(int normalizedYear) {
             throw new RuntimeException("Stub!");
         }

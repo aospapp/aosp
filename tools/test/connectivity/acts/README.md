@@ -5,7 +5,7 @@ devices. It provides a simple execution interface; a set of pluggable libraries
 for accessing commercially avilable devices, Android devices, and a collection
 of utility functions to further ease test development. It is an ideal desktop
 tool for a wireless stack developer or integrator whether exercising a new code
-path, performing sanity testing, or running extended regression test suites.
+path, performing confidence testing, or running extended regression test suites.
 
 Included in the tests/google directory are a bundle of tests, many of which can
 be run with as little as one or two Android devices with wifi, cellular, or
@@ -76,7 +76,7 @@ displayed. Check the "Always" box and click "Yes".
 2. Run "python3.4 setup.py install" with elevated permissions
 3. To verify ACTS is ready to go, at the location for README, and run:
      cd framework/tests/ \
-     && act.py -c acts_sanity_test_config.json -tc IntegrationTest
+     && act.py -c acts_confidence_test_config.json -tc IntegrationTest
 
 After installation, `act.py` will be in usr/bin and can be called as command
 line utilities. Components in ACTS are importable under the package "acts."
@@ -90,11 +90,11 @@ $ python
 
 ## Breaking Down a Sample Command
 
-Above, the command `act.py -c acts_sanity_test_config.json -tc IntegrationTest`
+Above, the command `act.py -c acts_confidence_test_config.json -tc IntegrationTest`
 was run to verify ACTS was properly set up.
 Below are the components of that command:
 - `act.py`: is the script that runs the test
--  -c acts_sanity_test_config: is the flag and name of the configuration file
+-  -c acts_confidence_test_config: is the flag and name of the configuration file
 to be used in the test
 -  -tc IntegrationTest: is the name of the test case
 

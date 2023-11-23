@@ -38,7 +38,11 @@
 using namespace android;  // TODO just import names needed
 using namespace aaudio;   // TODO just import names needed
 
-std::string AAudioServiceEndpoint::dump() const {
+AAudioServiceEndpoint::~AAudioServiceEndpoint() {
+    ALOGD("%s() called", __func__);
+}
+
+std::string AAudioServiceEndpoint::dump() const NO_THREAD_SAFETY_ANALYSIS {
     std::stringstream result;
 
     const bool isLocked = AAudio_tryUntilTrue(
@@ -182,11 +186,12 @@ audio_attributes_t AAudioServiceEndpoint::getAudioAttributesFrom(
             : AUDIO_SOURCE_DEFAULT;
     audio_flags_mask_t flags;
     if (direction == AAUDIO_DIRECTION_OUTPUT) {
-        flags = AUDIO_FLAG_LOW_LATENCY
-            | AAudioConvert_allowCapturePolicyToAudioFlagsMask(params->getAllowedCapturePolicy());
+        flags = static_cast<audio_flags_mask_t>(AUDIO_FLAG_LOW_LATENCY
+                | AAudioConvert_allowCapturePolicyToAudioFlagsMask(
+                        params->getAllowedCapturePolicy()));
     } else {
-        flags = AUDIO_FLAG_LOW_LATENCY
-            | AAudioConvert_privacySensitiveToAudioFlagsMask(params->isPrivacySensitive());
+        flags = static_cast<audio_flags_mask_t>(AUDIO_FLAG_LOW_LATENCY
+                | AAudioConvert_privacySensitiveToAudioFlagsMask(params->isPrivacySensitive()));
     }
     return {
             .content_type = contentType,

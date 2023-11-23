@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,7 +8,10 @@ database (defined in global config section AUTOTEST_SERVER_DB).
 
 """
 
-import collections
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import json
 import socket
 import subprocess
@@ -52,7 +56,7 @@ def warn_missing_role(role, exclude_server):
                    'removed from server %s. Autotest will not function '
                    'normally without any server in role %s.' %
                    (role, exclude_server.hostname, role))
-        print >> sys.stderr, message
+        print(message, file=sys.stderr)
 
 
 def get_servers(hostname=None, role=None, status=None):
@@ -126,33 +130,6 @@ def format_servers_nameonly(servers):
     return '\n'.join(s.hostname for s in servers)
 
 
-def _get_servers_by_role(servers):
-    """Return a mapping from roles to servers.
-
-    @param servers: Iterable of servers.
-    @returns: Mapping of role strings to lists of servers.
-    """
-    roles = [role for role, _ in server_models.ServerRole.ROLE.choices()]
-    servers_by_role = collections.defaultdict(list)
-    for server in servers:
-        for role in server.get_role_names():
-            servers_by_role[role].append(server)
-    return servers_by_role
-
-
-def _format_role_servers_summary(role, servers):
-    """Format one line of servers for a role in a server list summary.
-
-    @param role: Role string.
-    @param servers: Iterable of Server instances.
-    @returns: String.
-    """
-    servers_part = ', '.join(
-            '%s(%s)' % (server.hostname, server.status)
-            for server in servers)
-    return '%-15s: %s' % (role, servers_part)
-
-
 def check_server(hostname, role):
     """Confirm server with given hostname is ready to be primary of given role.
 
@@ -171,8 +148,8 @@ def check_server(hostname, role):
         infra.execute_command(hostname, 'true')
         return True
     except subprocess.CalledProcessError as e:
-        print >> sys.stderr, ('Failed to check server %s, error: %s' %
-                              (hostname, e))
+        print('Failed to check server %s, error: %s' %
+              (hostname, e), file=sys.stderr)
         return False
 
 
@@ -244,8 +221,8 @@ def delete_attribute(server, attribute):
         raise ServerActionError('Server %s does not have attribute %s' %
                                 (server.hostname, attribute))
     attributes[0].delete()
-    print 'Attribute %s is deleted from server %s.' % (attribute,
-                                                       server.hostname)
+    print('Attribute %s is deleted from server %s.' % (attribute,
+                                                       server.hostname))
 
 
 def change_attribute(server, attribute, value):
@@ -268,13 +245,13 @@ def change_attribute(server, attribute, value):
         old_value = attributes[0].value
         attributes[0].value = value
         attributes[0].save()
-        print ('Attribute `%s` of server %s is changed from %s to %s.' %
-                     (attribute, server.hostname, old_value, value))
+        print('Attribute `%s` of server %s is changed from %s to %s.' %
+              (attribute, server.hostname, old_value, value))
     else:
         server_models.ServerAttribute.objects.create(
                 server=server, attribute=attribute, value=value)
-        print ('Attribute `%s` of server %s is set to %s.' %
-               (attribute, server.hostname, value))
+        print('Attribute `%s` of server %s is set to %s.' %
+              (attribute, server.hostname, value))
 
 
 def get_shards():

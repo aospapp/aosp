@@ -153,6 +153,7 @@ void testPrint(FILE *stream, const char *fmt, ...)
         ALOG(LOG_INFO, logCatTag, "%s", line);
     }
     vfprintf(stream, fmt, args);
+    va_end(args);
     fputc('\n', stream);
 }
 

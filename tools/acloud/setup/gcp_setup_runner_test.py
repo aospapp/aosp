@@ -17,7 +17,8 @@
 
 import unittest
 import os
-import mock
+
+from unittest import mock
 import six
 
 # pylint: disable=no-name-in-module,import-error,no-member
@@ -36,7 +37,6 @@ account = new@google.com
 disable_usage_reporting = False
 project = new_project
 """
-
 
 def _CreateCfgFile():
     """A helper method that creates a mock configuration object."""
@@ -94,7 +94,7 @@ class AcloudGCPSetupTest(unittest.TestCase):
             self.assertEqual(cfg.project, "test_project")
 
     @mock.patch("os.path.dirname", return_value="")
-    @mock.patch("subprocess.check_output")
+    @mock.patch.object(utils, "CheckOutput")
     def testSeupProjectZone(self, mock_runner, mock_path):
         """Test setup project and zone."""
         gcloud_runner = gcp_setup_runner.GoogleSDKBins(mock_path)
@@ -146,7 +146,7 @@ class AcloudGCPSetupTest(unittest.TestCase):
     @mock.patch.object(gcp_setup_runner, "GoogleSDKBins")
     def testSetupGcloudInfo(self, mock_sdk, mock_set, mock_run, mock_create):
         """test setup gcloud info"""
-        with mock.patch("google_sdk.GoogleSDK"):
+        with mock.patch("acloud.setup.google_sdk.GoogleSDK"):
             self.gcp_env_runner._SetupGcloudInfo()
             mock_sdk.assert_called_once()
             mock_set.assert_called_once()
@@ -226,7 +226,7 @@ class AcloudGCPSetupTest(unittest.TestCase):
         self.gcp_env_runner.client_secret = "test_client_secret"
         self.assertFalse(self.gcp_env_runner._NeedClientIDSetup(False))
 
-    @mock.patch("subprocess.check_output")
+    @mock.patch.object(utils, "CheckOutput")
     def testEnableGcloudServices(self, mock_run):
         """test enable Gcloud services."""
         mock_run.return_value = ""
@@ -239,7 +239,7 @@ class AcloudGCPSetupTest(unittest.TestCase):
                        gcp_setup_runner._COMPUTE_ENGINE_SERVICE],
                       env=self.gcloud_runner._env, stderr=-2)])
 
-    @mock.patch("subprocess.check_output")
+    @mock.patch.object(utils, "CheckOutput")
     def testGoogleAPIService(self, mock_run):
         """Test GoogleAPIService"""
         api_service = gcp_setup_runner.GoogleAPIService("service_name",
@@ -249,7 +249,7 @@ class AcloudGCPSetupTest(unittest.TestCase):
             mock.call(["gcloud", "services", "enable", "service_name"],
                       env=self.gcloud_runner._env, stderr=-2)])
 
-    @mock.patch("subprocess.check_output")
+    @mock.patch.object(utils, "CheckOutput")
     def testCheckBillingEnable(self, mock_run):
         """Test CheckBillingEnable"""
         # Test billing account in gcp project already enabled.

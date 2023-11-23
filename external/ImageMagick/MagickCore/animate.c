@@ -17,7 +17,7 @@
 %                                July 1992                                    %
 %                                                                             %
 %                                                                             %
-%  Copyright 1999-2020 ImageMagick Studio LLC, a non-profit organization      %
+%  Copyright 1999-2021 ImageMagick Studio LLC, a non-profit organization      %
 %  dedicated to making software imaging solutions freely available.           %
 %                                                                             %
 %  You may not use this file except in compliance with the License.  You may  %
@@ -404,7 +404,7 @@ static Image *XMagickCommand(Display *display,XResourceInfo *resource_info,
       int
         number_files;
 
-      register int
+      int
         i;
 
       static char
@@ -617,16 +617,13 @@ static Image *XMagickCommand(Display *display,XResourceInfo *resource_info,
       if (mozilla_window != (Window) NULL)
         {
           char
-            command[MagickPathExtent],
-            *url;
+            command[MagickPathExtent];
 
           /*
             Display documentation using Netscape remote control.
           */
-          url=GetMagickHomeURL();
           (void) FormatLocaleString(command,MagickPathExtent,
-            "openurl(%s,new-tab)",url);
-          url=DestroyString(url);
+            "openurl(%s,new-tab)",MagickAuthoritativeURL);
           mozilla_atom=XInternAtom(display,"_MOZILLA_COMMAND",MagickFalse);
           (void) XChangeProperty(display,mozilla_window,mozilla_atom,
             XA_STRING,8,PropModeReplace,(unsigned char *) command,
@@ -753,7 +750,7 @@ MagickExport void XAnimateBackgroundImage(Display *display,
   RectangleInfo
     geometry_info;
 
-  register ssize_t
+  ssize_t
     i;
 
   size_t
@@ -1340,10 +1337,10 @@ MagickExport Image *XAnimateImages(Display *display,
   RectangleInfo
     geometry_info;
 
-  register char
+  char
     *p;
 
-  register ssize_t
+  ssize_t
     i;
 
   ssize_t
@@ -1436,7 +1433,7 @@ MagickExport Image *XAnimateImages(Display *display,
     }
   else
     {
-      register Image
+      Image
         *p;
 
       /*
@@ -1984,7 +1981,7 @@ MagickExport Image *XAnimateImages(Display *display,
     else
       {
         char
-          window_name[MaxTextExtent];
+          window_name[MagickPathExtent];
 
         p=image_list[scene]->magick_filename+
           strlen(image_list[scene]->magick_filename)-1;
@@ -2104,7 +2101,7 @@ MagickExport Image *XAnimateImages(Display *display,
               (resource_info->title != (char *) NULL))
             {
               char
-                name[MaxTextExtent];
+                name[MagickPathExtent];
 
               /*
                 Update window title.

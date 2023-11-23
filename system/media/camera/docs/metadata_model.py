@@ -977,8 +977,7 @@ class EnumValue(Node):
     id: An optional numeric string, e.g. '0' or '0xFF'
     deprecated: A boolean, True if the enum should be deprecated.
     optional: A boolean
-    hidden: A boolean, True if the enum should be hidden.
-    ndk_hidden: A boolean, True if the enum should be hidden in NDK
+    visibility: A string, one of "system", "java_public", "ndk_public", "hidden", "public"
     notes: A string describing the notes, or None.
     sdk_notes: A string describing extra notes for public SDK only
     ndk_notes: A string describing extra notes for public NDK only
@@ -987,13 +986,12 @@ class EnumValue(Node):
     hal_minor_version: The minor HIDL HAL version this value was first added in
   """
   def __init__(self, name, parent,
-      id=None, deprecated=False, optional=False, hidden=False, notes=None, sdk_notes=None, ndk_notes=None, ndk_hidden=False, hal_version='3.2'):
+               id=None, deprecated=False, optional=False, visibility=None, notes=None, sdk_notes=None, ndk_notes=None, hal_version='3.2'):
     self._name = name                    # str, e.g. 'ON' or 'OFF'
     self._id = id                        # int, e.g. '0'
     self._deprecated = deprecated        # bool
     self._optional = optional            # bool
-    self._hidden = hidden                # bool
-    self._ndk_hidden = ndk_hidden        # bool
+    self._visibility = visibility        # None or str; None is same as public
     self._notes = notes                  # None or str
     self._sdk_notes = sdk_notes          # None or str
     self._ndk_notes = ndk_notes          # None or str
@@ -1022,12 +1020,29 @@ class EnumValue(Node):
     return self._optional
 
   @property
+  def visibility(self):
+    return self._visibility
+
+  @property
+  def applied_visibility(self):
+    return self._visibility or 'public'
+
+  @property
+  def hidl_comment_string(self):
+    parent_enum = None
+    if (self.parent is not None and self.parent.parent is not None):
+      parent_enum = self.parent.parent
+    if parent_enum is not None and parent_enum.visibility == 'fwk_only' or self._visibility == 'fwk_only':
+      return ','
+    return ', // HIDL v' + str(self._hal_major_version) + '.' + str(self.hal_minor_version)
+
+  @property
   def hidden(self):
-    return self._hidden
+    return self.visibility in {'hidden', 'ndk_public', 'test'}
 
   @property
   def ndk_hidden(self):
-    return self._ndk_hidden
+    return self._visibility in {'hidden', 'java_public', 'test'}
 
   @property
   def notes(self):
@@ -1063,12 +1078,12 @@ class Enum(Node):
         non-empty id property.
   """
   def __init__(self, parent, values, ids={}, deprecateds=[],
-      optionals=[], hiddens=[], notes={}, sdk_notes={}, ndk_notes={}, ndk_hiddens=[], hal_versions={}):
+               optionals=[], visibilities={}, notes={}, sdk_notes={}, ndk_notes={}, hal_versions={}):
     self._parent = parent
     self._name = None
     self._values =                                                             \
-      [ EnumValue(val, self, ids.get(val), val in deprecateds, val in optionals, val in hiddens,  \
-                  notes.get(val), sdk_notes.get(val), ndk_notes.get(val), val in ndk_hiddens, hal_versions.get(val))     \
+      [ EnumValue(val, self, ids.get(val), val in deprecateds, val in optionals, visibilities.get(val), \
+                  notes.get(val), sdk_notes.get(val), ndk_notes.get(val), hal_versions.get(val))        \
         for val in values ]
 
   @property
@@ -1233,6 +1248,13 @@ class Entry(Node):
     return self._visibility or 'system'
 
   @property
+  def hidl_comment_string(self):
+    if self._visibility == 'fwk_only':
+      return 'fwk_only'
+    visibility_lj = str(self.applied_visibility).ljust(12)
+    return visibility_lj + ' | HIDL v' + str(self._hal_major_version) + '.' + str(self._hal_minor_version)
+
+  @property
   def applied_ndk_visible(self):
     if self._visibility in ("public", "ndk_public"):
       return "true"
@@ -1381,8 +1403,7 @@ class Entry(Node):
     enum_values = kwargs.get('enum_values')
     enum_deprecateds = kwargs.get('enum_deprecateds')
     enum_optionals = kwargs.get('enum_optionals')
-    enum_hiddens = kwargs.get('enum_hiddens')
-    enum_ndk_hiddens = kwargs.get('enum_ndk_hiddens')
+    enum_visibilities = kwargs.get('enum_visibilities')
     enum_notes = kwargs.get('enum_notes')  # { value => notes }
     enum_sdk_notes = kwargs.get('enum_sdk_notes')  # { value => sdk_notes }
     enum_ndk_notes = kwargs.get('enum_ndk_notes')  # { value => ndk_notes }
@@ -1407,7 +1428,7 @@ class Entry(Node):
 
     if kwargs.get('enum', False):
       self._enum = Enum(self, enum_values, enum_ids, enum_deprecateds, enum_optionals,
-                        enum_hiddens, enum_notes, enum_sdk_notes, enum_ndk_notes, enum_ndk_hiddens, enum_hal_versions)
+                        enum_visibilities, enum_notes, enum_sdk_notes, enum_ndk_notes, enum_hal_versions)
     else:
       self._enum = None
 

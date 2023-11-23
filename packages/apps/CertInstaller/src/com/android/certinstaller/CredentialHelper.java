@@ -17,7 +17,8 @@
 package com.android.certinstaller;
 
 import static android.security.KeyStore.UID_SELF;
-
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.KeyguardManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
@@ -34,11 +35,12 @@ import android.text.Html;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.org.bouncycastle.asn1.ASN1InputStream;
-import com.android.org.bouncycastle.asn1.ASN1Sequence;
-import com.android.org.bouncycastle.asn1.DEROctetString;
-import com.android.org.bouncycastle.asn1.x509.BasicConstraints;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.org.conscrypt.TrustedCertificateStore;
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.x509.BasicConstraints;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -59,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A helper class for accessing the raw data in the intent extra and handling
@@ -78,7 +81,7 @@ class CredentialHelper {
     private String mName = "";
     private String mCertUsageSelected = "";
     private String mReferrer = "";
-    private int mUid = -1;
+    private int mUid = Process.INVALID_UID;
     private PrivateKey mUserKey;
     private X509Certificate mUserCert;
     private List<X509Certificate> mCaCerts = new ArrayList<X509Certificate>();
@@ -86,36 +89,31 @@ class CredentialHelper {
     CredentialHelper() {
     }
 
-    CredentialHelper(Intent intent) {
-        Bundle bundle = intent.getExtras();
-        if (bundle == null) {
-            return;
-        }
-
-        String name = bundle.getString(KeyChain.EXTRA_NAME);
-        bundle.remove(KeyChain.EXTRA_NAME);
+    /**
+     * @param byteMap keeps raw data from intent's extra
+     * @param name
+     * @param referrer
+     * @param certUsageSelected used to assign mUid according to certificate usage
+     * @param uid is ignored unless certUsageSelected is null
+     */
+    CredentialHelper(@NonNull Map<String, byte[]> byteMap, @Nullable String name,
+            @Nullable String referrer, @Nullable String certUsageSelected, int uid) {
         if (name != null) {
             mName = name;
         }
 
-        String certUsageSelected = bundle.getString(Credentials.EXTRA_CERTIFICATE_USAGE);
-        bundle.remove(Credentials.EXTRA_CERTIFICATE_USAGE);
-        if (certUsageSelected != null) {
-            setCertUsageSelectedAndUid(certUsageSelected);
-        } else {
-            mUid = bundle.getInt(Credentials.EXTRA_INSTALL_AS_UID, -1);
-        }
-        bundle.remove(Credentials.EXTRA_INSTALL_AS_UID);
-
-        String referrer = bundle.getString(Intent.EXTRA_REFERRER);
-        bundle.remove(Intent.EXTRA_REFERRER);
         if (referrer != null) {
             mReferrer = referrer;
         }
 
-        Log.d(TAG, "# extras: " + bundle.size());
-        for (String key : bundle.keySet()) {
-            byte[] bytes = bundle.getByteArray(key);
+        if (certUsageSelected != null) {
+            setCertUsageSelectedAndUid(certUsageSelected);
+        } else {
+            mUid = uid;
+        }
+
+        for (String key : byteMap.keySet()) {
+            byte[] bytes = byteMap.get(key);
             Log.d(TAG, "   " + key + ": " + ((bytes == null) ? -1 : bytes.length));
             mBundle.put(key, bytes);
         }
@@ -149,7 +147,7 @@ class CredentialHelper {
     void onRestoreStates(Bundle savedStates) {
         mBundle = (HashMap) savedStates.getSerializable(DATA_KEY);
         mName = savedStates.getString(KeyChain.EXTRA_NAME);
-        mUid = savedStates.getInt(Credentials.EXTRA_INSTALL_AS_UID, -1);
+        mUid = savedStates.getInt(Credentials.EXTRA_INSTALL_AS_UID, Process.INVALID_UID);
         String userKeyAlgorithm = savedStates.getString(USER_KEY_ALGORITHM);
         byte[] userKeyBytes = savedStates.getByteArray(Credentials.USER_PRIVATE_KEY);
         Log.d(TAG, "Loaded key algorithm: " + userKeyAlgorithm);
@@ -474,5 +472,10 @@ class CredentialHelper {
 
     public String getReferrer() {
         return mReferrer;
+    }
+
+    @VisibleForTesting
+    public int getUid() {
+        return mUid;
     }
 }

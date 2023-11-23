@@ -11,6 +11,8 @@
 
 extern "C" {
 #include "cras_observer.c"
+#include "cras_observer.h"
+#include "cras_types.h"
 }
 
 namespace {
@@ -56,6 +58,9 @@ static size_t cb_num_active_streams_changed_called;
 static std::vector<enum CRAS_STREAM_DIRECTION>
     cb_num_active_streams_changed_dir;
 static std::vector<uint32_t> cb_num_active_streams_changed_num;
+static size_t cb_num_input_streams_with_permission_called;
+static std::vector<std::vector<uint32_t>>
+    cb_num_input_streams_with_permission_array;
 
 static void ResetStubData() {
   cras_alert_destroy_called = 0;
@@ -99,6 +104,8 @@ static void ResetStubData() {
   cb_num_active_streams_changed_called = 0;
   cb_num_active_streams_changed_dir.clear();
   cb_num_active_streams_changed_num.clear();
+  cb_num_input_streams_with_permission_called = 0;
+  cb_num_input_streams_with_permission_array.clear();
 }
 
 /* System output volume changed. */
@@ -190,6 +197,15 @@ void cb_num_active_streams_changed(void* context,
   cb_num_active_streams_changed_num.push_back(num_active_streams);
 }
 
+void cb_num_input_streams_with_permission_changed(
+    void* context,
+    uint32_t num_input_streams[CRAS_NUM_CLIENT_TYPE]) {
+  cb_num_input_streams_with_permission_called++;
+  cb_context.push_back(context);
+  cb_num_input_streams_with_permission_array.push_back(std::vector<uint32_t>(
+      num_input_streams, num_input_streams + CRAS_NUM_CLIENT_TYPE));
+}
+
 class ObserverTest : public testing::Test {
  protected:
   virtual void SetUp() {
@@ -198,7 +214,7 @@ class ObserverTest : public testing::Test {
     ResetStubData();
     rc = cras_observer_server_init();
     ASSERT_EQ(0, rc);
-    EXPECT_EQ(15, cras_alert_create_called);
+    EXPECT_EQ(17, cras_alert_create_called);
     EXPECT_EQ(reinterpret_cast<void*>(output_volume_alert),
               cras_alert_add_callback_map[g_observer->alerts.output_volume]);
     EXPECT_EQ(reinterpret_cast<void*>(output_mute_alert),
@@ -240,6 +256,9 @@ class ObserverTest : public testing::Test {
     EXPECT_EQ(reinterpret_cast<void*>(non_empty_audio_state_changed_alert),
               cras_alert_add_callback_map[g_observer->alerts
                                               .non_empty_audio_state_changed]);
+    EXPECT_EQ(
+        reinterpret_cast<void*>(bt_battery_changed_alert),
+        cras_alert_add_callback_map[g_observer->alerts.bt_battery_changed]);
 
     cras_observer_get_ops(NULL, &ops1_);
     EXPECT_NE(0, cras_observer_ops_are_empty(&ops1_));
@@ -253,7 +272,7 @@ class ObserverTest : public testing::Test {
 
   virtual void TearDown() {
     cras_observer_server_free();
-    EXPECT_EQ(15, cras_alert_destroy_called);
+    EXPECT_EQ(17, cras_alert_destroy_called);
     ResetStubData();
   }
 
@@ -575,6 +594,37 @@ TEST_F(ObserverTest, NotifyNumActiveStreams) {
   DoObserverRemoveClear(num_active_streams_alert, data);
 };
 
+TEST_F(ObserverTest, NotifyNumInputStreamsWithPermission) {
+  struct cras_observer_alert_data_input_streams* data;
+  uint32_t num_input_streams[CRAS_NUM_CLIENT_TYPE] = {};
+  for (unsigned type = 0; type < CRAS_NUM_CLIENT_TYPE; ++type) {
+    num_input_streams[type] = (uint32_t)type;
+  }
+
+  cras_observer_notify_input_streams_with_permission(num_input_streams);
+  ASSERT_EQ(cras_alert_pending_data_size_value, sizeof(*data));
+  ASSERT_NE(cras_alert_pending_data_value, reinterpret_cast<void*>(NULL));
+  data = reinterpret_cast<struct cras_observer_alert_data_input_streams*>(
+      cras_alert_pending_data_value);
+  for (unsigned type = 0; type < CRAS_NUM_CLIENT_TYPE; ++type) {
+    EXPECT_EQ(data->num_input_streams[type], num_input_streams[type]);
+  }
+
+  ops1_.num_input_streams_with_permission_changed =
+      cb_num_input_streams_with_permission_changed;
+  ops2_.num_input_streams_with_permission_changed =
+      cb_num_input_streams_with_permission_changed;
+  DoObserverAlert(num_input_streams_with_permission_alert, data);
+  ASSERT_EQ(2, cb_num_input_streams_with_permission_called);
+  for (auto cb_num_input_streams : cb_num_input_streams_with_permission_array) {
+    ASSERT_EQ(cb_num_input_streams.size(), (size_t)CRAS_NUM_CLIENT_TYPE);
+    for (unsigned type = 0; type < CRAS_NUM_CLIENT_TYPE; ++type) {
+      EXPECT_EQ(cb_num_input_streams[type], num_input_streams[type]);
+    }
+  }
+  DoObserverRemoveClear(num_input_streams_with_permission_alert, data);
+}
+
 TEST_F(ObserverTest, NotifyHotwordTriggered) {
   struct cras_observer_alert_data_hotword_triggered* data;
 
@@ -600,6 +650,21 @@ TEST_F(ObserverTest, NonEmpyAudioStateChanged) {
   data = reinterpret_cast<struct cras_observer_non_empty_audio_state*>(
       cras_alert_pending_data_value);
   EXPECT_EQ(data->non_empty, 1);
+}
+
+TEST_F(ObserverTest, BluetoothBatteryChanged) {
+  struct cras_observer_alert_data_bt_battery_changed* data;
+  const char* address = "test";
+
+  cras_observer_notify_bt_battery_changed(address, 30);
+  EXPECT_EQ(cras_alert_pending_alert_value,
+            g_observer->alerts.bt_battery_changed);
+  ASSERT_EQ(cras_alert_pending_data_size_value, sizeof(*data));
+  ASSERT_NE(cras_alert_pending_data_value, reinterpret_cast<void*>(NULL));
+  data = reinterpret_cast<struct cras_observer_alert_data_bt_battery_changed*>(
+      cras_alert_pending_data_value);
+  EXPECT_EQ(data->address, address);
+  EXPECT_EQ(data->level, 30);
 }
 
 // Stubs

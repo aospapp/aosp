@@ -14,26 +14,27 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.statemachine;
+package com.android.internal.net.eap.test.statemachine;
 
-import static com.android.internal.net.eap.message.EapData.EAP_TYPE_MSCHAP_V2;
-import static com.android.internal.net.eap.message.EapMessage.EAP_CODE_REQUEST;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_MSCHAP_V2_FAILURE_RESPONSE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.EAP_MSCHAP_V2_SUCCESS_RESPONSE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.ID_INT;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.INVALID_AUTHENTICATOR_RESPONSE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_AUTHENTICATOR_CHALLENGE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_AUTHENTICATOR_RESPONSE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_ID_INT;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_NT_RESPONSE;
-import static com.android.internal.net.eap.message.EapTestMessageDefinitions.MSCHAP_V2_PEER_CHALLENGE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.CHALLENGE_BYTES;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.ERROR_CODE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.MESSAGE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.PASSWORD_CHANGE_PROTOCOL;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2PacketDefinitions.RETRY_BIT;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EAP_MSCHAP_V2_FAILURE;
-import static com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EAP_MSCHAP_V2_SUCCESS;
+import static android.net.eap.test.EapSessionConfig.EapMethodConfig.EAP_TYPE_MSCHAP_V2;
+
+import static com.android.internal.net.eap.test.message.EapMessage.EAP_CODE_REQUEST;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_MSCHAP_V2_FAILURE_RESPONSE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.EAP_MSCHAP_V2_SUCCESS_RESPONSE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.ID_INT;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.INVALID_AUTHENTICATOR_RESPONSE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_AUTHENTICATOR_CHALLENGE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_AUTHENTICATOR_RESPONSE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_ID_INT;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_NT_RESPONSE;
+import static com.android.internal.net.eap.test.message.EapTestMessageDefinitions.MSCHAP_V2_PEER_CHALLENGE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.CHALLENGE_BYTES;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.ERROR_CODE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.MESSAGE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.PASSWORD_CHANGE_PROTOCOL;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2PacketDefinitions.RETRY_BIT;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EAP_MSCHAP_V2_FAILURE;
+import static com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EAP_MSCHAP_V2_SUCCESS;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertTrue;
@@ -43,19 +44,19 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.android.internal.net.eap.EapResult;
-import com.android.internal.net.eap.EapResult.EapError;
-import com.android.internal.net.eap.EapResult.EapFailure;
-import com.android.internal.net.eap.EapResult.EapResponse;
-import com.android.internal.net.eap.exceptions.EapInvalidRequestException;
-import com.android.internal.net.eap.message.EapData;
-import com.android.internal.net.eap.message.EapMessage;
-import com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2FailureRequest;
-import com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2SuccessRequest;
-import com.android.internal.net.eap.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2TypeDataDecoder.DecodeResult;
-import com.android.internal.net.eap.statemachine.EapMethodStateMachine.FinalState;
-import com.android.internal.net.eap.statemachine.EapMsChapV2MethodStateMachine.AwaitingEapFailureState;
-import com.android.internal.net.eap.statemachine.EapMsChapV2MethodStateMachine.AwaitingEapSuccessState;
+import com.android.internal.net.eap.test.EapResult;
+import com.android.internal.net.eap.test.EapResult.EapError;
+import com.android.internal.net.eap.test.EapResult.EapFailure;
+import com.android.internal.net.eap.test.EapResult.EapResponse;
+import com.android.internal.net.eap.test.exceptions.EapInvalidRequestException;
+import com.android.internal.net.eap.test.message.EapData;
+import com.android.internal.net.eap.test.message.EapMessage;
+import com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2FailureRequest;
+import com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2SuccessRequest;
+import com.android.internal.net.eap.test.message.mschapv2.EapMsChapV2TypeData.EapMsChapV2TypeDataDecoder.DecodeResult;
+import com.android.internal.net.eap.test.statemachine.EapMethodStateMachine.FinalState;
+import com.android.internal.net.eap.test.statemachine.EapMsChapV2MethodStateMachine.AwaitingEapFailureState;
+import com.android.internal.net.eap.test.statemachine.EapMsChapV2MethodStateMachine.AwaitingEapSuccessState;
 
 import org.junit.Before;
 import org.junit.Test;

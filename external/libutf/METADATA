@@ -11,5 +11,6 @@ third_party {
     value: "http://google3/third_party/libutf"
   }
   version: "1.1"
+  license_type: NOTICE
   last_upgrade_date { year: 2018 month: 9 day: 19 }
 }

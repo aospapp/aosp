@@ -19,6 +19,7 @@
 #include <cinttypes>
 
 #include "chre/core/audio_request_manager.h"
+#include "chre/core/audio_util.h"
 #include "chre/core/event_loop_manager.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
@@ -43,16 +44,14 @@ void PlatformAudioBase::audioReadCallback(void *cookie) {
   auto *platformAudio = static_cast<PlatformAudio *>(cookie);
 
   auto &dataEvent = platformAudio->mDataEvent;
-  Nanoseconds samplingTime =
-      AudioRequestManager::getDurationFromSampleCountAndRate(
-          platformAudio->mNumSamples, kAndroidAudioSampleRate);
+  Nanoseconds samplingTime = AudioUtil::getDurationFromSampleCountAndRate(
+      platformAudio->mNumSamples, kAndroidAudioSampleRate);
   dataEvent.timestamp =
       (SystemTime::getMonotonicTime() - samplingTime).toRawNanoseconds();
 
   if (dataEvent.format == CHRE_AUDIO_DATA_FORMAT_16_BIT_SIGNED_PCM) {
-    uint32_t intervalNumSamples =
-        AudioRequestManager::getSampleCountFromRateAndDuration(
-            kAndroidAudioSampleRate, platformAudio->mEventDelay);
+    uint32_t intervalNumSamples = AudioUtil::getSampleCountFromRateAndDuration(
+        kAndroidAudioSampleRate, platformAudio->mEventDelay);
 
     // Determine how much new audio data is required to be read from the device.
     // Samples that are already buffered by this implementation may be reused.
@@ -110,10 +109,10 @@ PlatformAudio::PlatformAudio() {
   int32_t bufferSize = AAudioStream_getBufferCapacityInFrames(mStream);
   LOGD("Created audio stream with %" PRId32 " frames buffer size", bufferSize);
 
-  mMinBufferDuration = AudioRequestManager::getDurationFromSampleCountAndRate(
+  mMinBufferDuration = AudioUtil::getDurationFromSampleCountAndRate(
                            kAndroidAudioMinBufferSize, kAndroidAudioSampleRate)
                            .toRawNanoseconds();
-  mMaxBufferDuration = AudioRequestManager::getDurationFromSampleCountAndRate(
+  mMaxBufferDuration = AudioUtil::getDurationFromSampleCountAndRate(
                            bufferSize, kAndroidAudioSampleRate)
                            .toRawNanoseconds();
 

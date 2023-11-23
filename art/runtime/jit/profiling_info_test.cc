@@ -30,6 +30,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "profile/profile_compilation_info.h"
+#include "profile/profile_test_helper.h"
 #include "scoped_thread_state_change-inl.h"
 
 namespace art {
@@ -154,35 +155,6 @@ class ProfileCompilationInfoTest : public CommonRuntimeTest {
     return used_inline_caches.back().get();
   }
 
-  ProfileCompilationInfo::OfflineProfileMethodInfo ConvertProfileMethodInfo(
-        const ProfileMethodInfo& pmi) {
-    ProfileCompilationInfo::InlineCacheMap* ic_map = CreateInlineCacheMap();
-    ProfileCompilationInfo::OfflineProfileMethodInfo offline_pmi(ic_map);
-    SafeMap<DexFile*, uint8_t> dex_map;  // dex files to profile index
-    for (const auto& inline_cache : pmi.inline_caches) {
-      ProfileCompilationInfo::DexPcData& dex_pc_data =
-          ic_map->FindOrAdd(
-              inline_cache.dex_pc, ProfileCompilationInfo::DexPcData(allocator_.get()))->second;
-      if (inline_cache.is_missing_types) {
-        dex_pc_data.SetIsMissingTypes();
-      }
-      for (const auto& class_ref : inline_cache.classes) {
-        uint8_t dex_profile_index = dex_map.FindOrAdd(const_cast<DexFile*>(class_ref.dex_file),
-                                                      static_cast<uint8_t>(dex_map.size()))->second;
-        dex_pc_data.AddClass(dex_profile_index, class_ref.TypeIndex());
-        if (dex_profile_index >= offline_pmi.dex_references.size()) {
-          // This is a new dex.
-          const std::string& dex_key = ProfileCompilationInfo::GetProfileDexFileBaseKey(
-              class_ref.dex_file->GetLocation());
-          offline_pmi.dex_references.emplace_back(dex_key,
-                                                  class_ref.dex_file->GetLocationChecksum(),
-                                                  class_ref.dex_file->NumMethodIds());
-        }
-      }
-    }
-    return offline_pmi;
-  }
-
   // Cannot sizeof the actual arrays so hard code the values here.
   // They should not change anyway.
   static constexpr int kProfileMagicSize = 4;
@@ -236,7 +208,6 @@ TEST_F(ProfileCompilationInfoTest, SaveArtMethods) {
 
   // Check that what we saved is in the profile (methods form Main and Second).
   ProfileCompilationInfo info2;
-  ASSERT_TRUE(profile.GetFile()->ResetOffset());
   ASSERT_TRUE(info2.Load(GetFd(profile)));
   ASSERT_EQ(info2.GetNumberOfMethods(), main_methods.size() + second_methods.size());
   {
@@ -287,12 +258,10 @@ TEST_F(ProfileCompilationInfoTest, SaveArtMethodsWithInlineCaches) {
       ASSERT_TRUE(h.IsHot());
       ASSERT_TRUE(h.IsStartup());
       const ProfileMethodInfo& pmi = profile_methods_map.find(m)->second;
-      std::unique_ptr<ProfileCompilationInfo::OfflineProfileMethodInfo> offline_pmi =
-          info.GetHotMethodInfo(method_ref);
-      ASSERT_TRUE(offline_pmi != nullptr);
-      ProfileCompilationInfo::OfflineProfileMethodInfo converted_pmi =
-          ConvertProfileMethodInfo(pmi);
-      ASSERT_EQ(converted_pmi, *offline_pmi);
+      ProfileCompilationInfo::MethodHotness offline_hotness = info.GetMethodHotness(method_ref);
+      ASSERT_TRUE(offline_hotness.IsHot());
+      ASSERT_TRUE(ProfileTestHelper::EqualInlineCaches(
+                      pmi.inline_caches, method_ref.dex_file, offline_hotness, info));
     }
   }
 }

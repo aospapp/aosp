@@ -32,9 +32,7 @@ import org.junit.runner.RunWith;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class VibrationAttributesTest {
-    private static final int TEST_USAGE_UNKNOWN = AudioAttributes.USAGE_UNKNOWN;
     private static final int TEST_USAGE = AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY;
-    private static final int TEST_USAGE2 = AudioAttributes.USAGE_NOTIFICATION;
 
     private static final int TEST_AMPLITUDE = 100;
     private static final long TEST_TIMING_LONG = 5000;
@@ -56,34 +54,68 @@ public class VibrationAttributesTest {
 
     @Test
     public void testCreate() {
-        AudioAttributes tmp = new AudioAttributes.Builder().setUsage(TEST_USAGE).build();
+        AudioAttributes tmp = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .build();
         VibrationAttributes attr = new VibrationAttributes.Builder(tmp, null).build();
-        assertEquals(attr.getUsage(), VibrationAttributes.USAGE_COMMUNICATION_REQUEST);
+        assertEquals(attr.getUsage(), VibrationAttributes.USAGE_ALARM);
         assertEquals(attr.getUsageClass(), VibrationAttributes.USAGE_CLASS_ALARM);
         assertEquals(attr.getFlags(), 0);
-        assertEquals(attr.getAudioAttributes(), tmp);
+        assertEquals(attr.getAudioUsage(), AudioAttributes.USAGE_ALARM);
+    }
+
+    @Test
+    public void testGetAudioUsageReturnOriginalUsage() {
+        AudioAttributes tmp = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                .build();
+        VibrationAttributes attr = new VibrationAttributes.Builder(tmp, null).build();
+        assertEquals(attr.getUsage(), VibrationAttributes.USAGE_COMMUNICATION_REQUEST);
+        assertEquals(attr.getAudioUsage(), AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY);
+    }
+
+    @Test
+    public void testGetAudioUsageUnknownReturnsBasedOnVibrationUsage() {
+        VibrationAttributes attr = new VibrationAttributes.Builder()
+                .setUsage(VibrationAttributes.USAGE_NOTIFICATION).build();
+        assertEquals(attr.getUsage(), VibrationAttributes.USAGE_NOTIFICATION);
+        assertEquals(attr.getAudioUsage(), AudioAttributes.USAGE_NOTIFICATION);
     }
 
     @Test
     public void testEquals() {
-        AudioAttributes tmp = new AudioAttributes.Builder().setUsage(TEST_USAGE).build();
+        AudioAttributes tmp = createAudioAttributes(TEST_USAGE);
         VibrationAttributes attr = new VibrationAttributes.Builder(tmp, null).build();
         VibrationAttributes attr2 = new VibrationAttributes.Builder(tmp, null).build();
         assertEquals(attr, attr2);
     }
 
     @Test
-    public void testNotEqualsDifferentUsage() {
-        AudioAttributes tmp = new AudioAttributes.Builder().setUsage(TEST_USAGE).build();
+    public void testNotEqualsDifferentAudioUsage() {
+        AudioAttributes tmp = createAudioAttributes(
+                AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT);
         VibrationAttributes attr = new VibrationAttributes.Builder(tmp, null).build();
-        AudioAttributes tmp2 = new AudioAttributes.Builder().setUsage(TEST_USAGE2).build();
+        AudioAttributes tmp2 = createAudioAttributes(
+                AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED);
         VibrationAttributes attr2 = new VibrationAttributes.Builder(tmp2, null).build();
+        assertEquals(attr.getUsage(), attr2.getUsage());
+        assertNotEquals(attr, attr2);
+    }
+
+    @Test
+    public void testNotEqualsDifferentVibrationUsage() {
+        VibrationAttributes attr = new VibrationAttributes.Builder()
+                .setUsage(VibrationAttributes.USAGE_TOUCH)
+                .build();
+        VibrationAttributes attr2 = new VibrationAttributes.Builder()
+                .setUsage(VibrationAttributes.USAGE_NOTIFICATION)
+                .build();
         assertNotEquals(attr, attr2);
     }
 
     @Test
     public void testNotEqualsDifferentFlags() {
-        AudioAttributes tmp = new AudioAttributes.Builder().setUsage(TEST_USAGE).build();
+        AudioAttributes tmp = createAudioAttributes(TEST_USAGE);
         VibrationAttributes attr = new VibrationAttributes.Builder(tmp, null).build();
         VibrationAttributes attr2 = new VibrationAttributes.Builder(tmp, null).setFlags(1, 1)
                 .build();
@@ -92,7 +124,7 @@ public class VibrationAttributesTest {
 
     @Test
     public void testHeuristics() {
-        AudioAttributes tmp = new AudioAttributes.Builder().setUsage(TEST_USAGE_UNKNOWN).build();
+        AudioAttributes tmp = createAudioAttributes(AudioAttributes.USAGE_UNKNOWN);
         VibrationAttributes oneShotLong =
             new VibrationAttributes.Builder(tmp, TEST_ONE_SHOT_LONG).build();
         VibrationAttributes oneShotShort =
@@ -104,10 +136,19 @@ public class VibrationAttributesTest {
         VibrationAttributes prebaked =
             new VibrationAttributes.Builder(tmp, TEST_PREBAKED).build();
         assertEquals(oneShotShort.getUsage(), VibrationAttributes.USAGE_TOUCH);
+        assertEquals(oneShotShort.getAudioUsage(), AudioAttributes.USAGE_ASSISTANCE_SONIFICATION);
         assertEquals(waveformShort.getUsage(), VibrationAttributes.USAGE_TOUCH);
+        assertEquals(waveformShort.getAudioUsage(), AudioAttributes.USAGE_ASSISTANCE_SONIFICATION);
         assertEquals(oneShotLong.getUsage(), VibrationAttributes.USAGE_UNKNOWN);
+        assertEquals(oneShotLong.getAudioUsage(), AudioAttributes.USAGE_UNKNOWN);
         assertEquals(waveformLong.getUsage(), VibrationAttributes.USAGE_UNKNOWN);
+        assertEquals(waveformLong.getAudioUsage(), AudioAttributes.USAGE_UNKNOWN);
         assertEquals(prebaked.getUsage(), VibrationAttributes.USAGE_TOUCH);
+        assertEquals(prebaked.getAudioUsage(), AudioAttributes.USAGE_ASSISTANCE_SONIFICATION);
+    }
+
+    private static AudioAttributes createAudioAttributes(int usage) {
+        return new AudioAttributes.Builder().setUsage(usage).build();
     }
 }
 

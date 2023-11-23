@@ -50,10 +50,13 @@ LOCAL_CFLAGS := \
 LOCAL_C_INCLUDES := \
 	$(MESA_TOP)/src/mapi
 
-LOCAL_EXPORT_C_INCLUDES := \
+LOCAL_EXPORT_C_INCLUDE_DIRS := \
 	$(MESA_TOP)/src/mapi
 
 LOCAL_MODULE := libglapi
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 intermediates := $(call local-generated-sources-dir)

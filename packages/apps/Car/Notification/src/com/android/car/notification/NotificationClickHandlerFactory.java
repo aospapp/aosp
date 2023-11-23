@@ -24,13 +24,17 @@ import android.app.RemoteInput;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.service.notification.NotificationStats;
 import android.util.Log;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.Toast;
+
+import androidx.core.app.NotificationCompat;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.car.assist.CarVoiceInteractionSession;
 import com.android.car.assist.client.CarAssistUtils;
@@ -71,10 +75,17 @@ public class NotificationClickHandlerFactory {
     private CarAssistUtils mCarAssistUtils;
     @Nullable
     private NotificationDataManager mNotificationDataManager;
+    private Handler mMainHandler;
 
     public NotificationClickHandlerFactory(IStatusBarService barService) {
         mBarService = barService;
         mCarAssistUtils = null;
+        mMainHandler = new Handler(Looper.getMainLooper());
+    }
+
+    @VisibleForTesting
+    void setCarAssistUtils(CarAssistUtils carAssistUtils) {
+        mCarAssistUtils = carAssistUtils;
     }
 
     /**
@@ -224,7 +235,25 @@ public class NotificationClickHandlerFactory {
     public View.OnClickListener getMuteClickHandler(
             Button muteButton, AlertEntry messageNotification) {
         return v -> {
-            if (mNotificationDataManager != null) {
+            NotificationCompat.Action action =
+                    CarAssistUtils.getMuteAction(messageNotification.getNotification());
+            Log.d(TAG, action == null ? "Mute action is null, using built-in logic." :
+                    "Mute action is not null, deferring muting behavior to app");
+
+            if (action != null && action.getActionIntent() != null) {
+                try {
+                    action.getActionIntent().send();
+                    // clear all notifications when mute button is clicked.
+                    // once a mute pending intent is provided,
+                    // the mute functionality is fully delegated to the app who will handle
+                    // the mute state and ability to toggle on and off a notification.
+                    // This is necessary to ensure that mute state has one single source of truth.
+                    clearNotification(messageNotification);
+                } catch (PendingIntent.CanceledException e) {
+                    Log.d(TAG, "Could not send pending intent to mute notification "
+                            + e.getLocalizedMessage());
+                }
+            } else if (mNotificationDataManager != null) {
                 mNotificationDataManager.toggleMute(messageNotification);
                 Context context = v.getContext().getApplicationContext();
                 muteButton.setText(
@@ -236,6 +265,14 @@ public class NotificationClickHandlerFactory {
                 Log.d(TAG, "Could not set mute click handler as NotificationDataManager is null");
             }
         };
+    }
+
+    /**
+     * Returns a {@link View.OnClickListener} that should be used for the {@code alertEntry}'s
+     * dismiss button.
+     */
+    public View.OnClickListener getDismissHandler(AlertEntry alertEntry) {
+        return v -> clearNotification(alertEntry);
     }
 
     /**
@@ -310,8 +347,6 @@ public class NotificationClickHandlerFactory {
 
             mBarService.onNotificationClear(
                     alertEntry.getStatusBarNotification().getPackageName(),
-                    alertEntry.getStatusBarNotification().getTag(),
-                    alertEntry.getStatusBarNotification().getId(),
                     alertEntry.getStatusBarNotification().getUser().getIdentifier(),
                     alertEntry.getStatusBarNotification().getKey(),
                     NotificationStats.DISMISSAL_SHADE,
@@ -354,13 +389,8 @@ public class NotificationClickHandlerFactory {
     }
 
     private void showToast(Context context, int resourceId) {
-        Toast toast = Toast.makeText(context, context.getString(resourceId), Toast.LENGTH_LONG);
-        // This flag is needed for the Toast to show up on the active user's screen since
-        // Notifications is part of SystemUI. SystemUI is owned by a system process, which runs in
-        // the background, so without this, the toast will never appear in the foreground.
-        toast.getWindowParams().privateFlags |=
-                WindowManager.LayoutParams.SYSTEM_FLAG_SHOW_FOR_ALL_USERS;
-        toast.show();
+        mMainHandler.post(
+                Toast.makeText(context, context.getString(resourceId), Toast.LENGTH_LONG)::show);
     }
 
     private boolean shouldAutoCancel(AlertEntry alertEntry) {

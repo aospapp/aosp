@@ -42,10 +42,14 @@ func compileWithFallback(env env, cfg *config, originalCmd *command, absWrapperP
 		)
 	}
 
-	firstCmdStdinBuffer := &bytes.Buffer{}
+	getStdin, err := prebufferStdinIfNeeded(env, firstCmd)
+	if err != nil {
+		return 0, wrapErrorwithSourceLocf(err, "prebuffering stdin: %v", err)
+	}
+
 	firstCmdStderrBuffer := &bytes.Buffer{}
 	firstCmdExitCode, err := wrapSubprocessErrorWithSourceLoc(firstCmd,
-		env.run(firstCmd, teeStdinIfNeeded(env, firstCmd, firstCmdStdinBuffer), env.stdout(), io.MultiWriter(env.stderr(), firstCmdStderrBuffer)))
+		env.run(firstCmd, getStdin(), env.stdout(), io.MultiWriter(env.stderr(), firstCmdStderrBuffer)))
 	if err != nil {
 		return 0, err
 	}
@@ -101,5 +105,5 @@ func compileWithFallback(env env, cfg *config, originalCmd *command, absWrapperP
 		EnvUpdates: append(originalCmd.EnvUpdates, prebuiltCompilerPathKey+"="),
 	}
 	return wrapSubprocessErrorWithSourceLoc(fallbackCmd,
-		env.run(fallbackCmd, bytes.NewReader(firstCmdStdinBuffer.Bytes()), env.stdout(), env.stderr()))
+		env.run(fallbackCmd, getStdin(), env.stdout(), env.stderr()))
 }

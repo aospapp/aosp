@@ -18,6 +18,7 @@ import {
   RawQueryArgs,
   RawQueryResult
 } from './protos';
+import {iter, NUM_NULL, slowlyCountRows, STR} from './query_iterator';
 import {TimeSpan} from './time';
 
 export interface LoadingTracker {
@@ -29,6 +30,8 @@ export class NullLoadingTracker implements LoadingTracker {
   beginLoading(): void {}
   endLoading(): void {}
 }
+
+export class QueryError extends Error {}
 
 /**
  * Abstract interface of a trace proccessor.
@@ -70,8 +73,8 @@ export abstract class Engine {
   abstract rawQuery(rawQueryArgs: Uint8Array): Promise<Uint8Array>;
 
   /*
-   * Performs computation of metrics and returns a proto-encoded TraceMetrics
-   * object.
+   * Performs computation of metrics and returns metric result and any errors.
+   * Metric result is a proto binary or text encoded TraceMetrics object.
    */
   abstract rawComputeMetric(computeMetricArgs: Uint8Array): Promise<Uint8Array>;
 
@@ -79,7 +82,17 @@ export abstract class Engine {
    * Shorthand for sending a SQL query to the engine.
    * Deals with {,un}marshalling of request/response args.
    */
-  async query(sqlQuery: string, userQuery = false): Promise<RawQueryResult> {
+  async query(sqlQuery: string): Promise<RawQueryResult> {
+    const result = await this.uncheckedQuery(sqlQuery);
+    if (result.error) {
+      throw new QueryError(`Query error "${sqlQuery}": ${result.error}`);
+    }
+    return result;
+  }
+
+  // This method is for noncritical queries that shouldn't throw an error
+  // on failure. The caller must handle the failure.
+  async uncheckedQuery(sqlQuery: string): Promise<RawQueryResult> {
     this.loadingTracker.beginLoading();
     try {
       const args = new RawQueryArgs();
@@ -88,9 +101,7 @@ export abstract class Engine {
       const argsEncoded = RawQueryArgs.encode(args).finish();
       const respEncoded = await this.rawQuery(argsEncoded);
       const result = RawQueryResult.decode(respEncoded);
-      if (!result.error || userQuery) return result;
-      // Query failed, throw an error since it was not a user query
-      throw new Error(`Query error "${sqlQuery}": ${result.error}`);
+      return result;
     } finally {
       this.loadingTracker.endLoading();
     }
@@ -103,15 +114,20 @@ export abstract class Engine {
   async computeMetric(metrics: string[]): Promise<ComputeMetricResult> {
     const args = new ComputeMetricArgs();
     args.metricNames = metrics;
+    args.format = ComputeMetricArgs.ResultFormat.TEXTPROTO;
     const argsEncoded = ComputeMetricArgs.encode(args).finish();
     const respEncoded = await this.rawComputeMetric(argsEncoded);
-    return ComputeMetricResult.decode(respEncoded);
+    const result = ComputeMetricResult.decode(respEncoded);
+    if (result.error.length > 0) {
+      throw new QueryError(result.error);
+    }
+    return result;
   }
 
   async queryOneRow(query: string): Promise<number[]> {
     const result = await this.query(query);
     const res: number[] = [];
-    if (result.numRecords === 0) return res;
+    if (slowlyCountRows(result) === 0) return res;
     for (const col of result.columns) {
       if (col.longValues!.length === 0) {
         console.error(
@@ -131,7 +147,7 @@ export abstract class Engine {
     if (!this._cpus) {
       const result =
           await this.query('select distinct(cpu) from sched order by cpu;');
-      if (result.numRecords === 0) return [];
+      if (slowlyCountRows(result) === 0) return [];
       this._cpus = result.columns[0].longValues!.map(n => +n);
     }
     return this._cpus;
@@ -160,5 +176,26 @@ export abstract class Engine {
     const query = `select start_ts, end_ts from trace_bounds`;
     const res = (await this.queryOneRow(query));
     return new TimeSpan(res[0] / 1e9, res[1] / 1e9);
+  }
+
+  async getTracingMetadataTimeBounds(): Promise<TimeSpan> {
+    const query = await this.query(`select name, int_value from metadata
+         where name = 'tracing_started_ns' or name = 'tracing_disabled_ns'
+         or name = 'all_data_source_started_ns'`);
+    let startBound = -Infinity;
+    let endBound = Infinity;
+    const it = iter({'name': STR, 'int_value': NUM_NULL}, query);
+    for (; it.valid(); it.next()) {
+      const columnName = it.row.name;
+      const timestamp = it.row.int_value;
+      if (timestamp === null) continue;
+      if (columnName === 'tracing_disabled_ns') {
+        endBound = Math.min(endBound, timestamp / 1e9);
+      } else {
+        startBound = Math.max(startBound, timestamp / 1e9);
+      }
+    }
+
+    return new TimeSpan(startBound, endBound);
   }
 }

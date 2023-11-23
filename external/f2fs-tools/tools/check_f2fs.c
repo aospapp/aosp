@@ -23,7 +23,7 @@
 #define F2FS_IOC_GARBAGE_COLLECT        _IO(F2FS_IOCTL_MAGIC, 6)
 
 #define DB1_PATH "/data/database_file1"
-#define DB2_PATH "/sdcard/Android/data/database_file2"
+#define DB2_PATH "/mnt/androidwritable/0/emulated/0/Android/data/database_file2"
 #define FILE_PATH "/data/testfile"
 
 #define BLOCK 4096
@@ -72,7 +72,7 @@ static int test_atomic_write(char *path)
 		return -1;
 	}
 	printf("\tCheck : Atomic in-memory count: 2\n");
-	run("cat /sys/kernel/debug/f2fs/status | grep atomic");
+	run("cat /sys/kernel/debug/f2fs/status | grep \"atomic IO\"");
 
 	printf("\tCommit  ... \n");
 	ret = ioctl(db, F2FS_IOC_COMMIT_ATOMIC_WRITE);

@@ -22,7 +22,11 @@ import (
 )
 
 func init() {
-	android.RegisterPreSingletonType("overlay", OverlaySingletonFactory)
+	registerOverlayBuildComponents(android.InitRegistrationContext)
+}
+
+func registerOverlayBuildComponents(ctx android.RegistrationContext) {
+	ctx.RegisterPreSingletonType("overlay", OverlaySingletonFactory)
 }
 
 var androidResourceIgnoreFilenames = []string{
@@ -37,8 +41,19 @@ var androidResourceIgnoreFilenames = []string{
 	"*~",
 }
 
+// androidResourceGlob returns the list of files in the given directory, using the standard
+// exclusion patterns for Android resources.
 func androidResourceGlob(ctx android.ModuleContext, dir android.Path) android.Paths {
 	return ctx.GlobFiles(filepath.Join(dir.String(), "**/*"), androidResourceIgnoreFilenames)
+}
+
+// androidResourceGlobList creates a rule to write the list of files in the given directory, using
+// the standard exclusion patterns for Android resources, to the given output file.
+func androidResourceGlobList(ctx android.ModuleContext, dir android.Path,
+	fileListFile android.WritablePath) {
+
+	android.GlobToListFileRule(ctx, filepath.Join(dir.String(), "**/*"),
+		androidResourceIgnoreFilenames, fileListFile)
 }
 
 type overlayType int
@@ -66,13 +81,13 @@ type globbedResourceDir struct {
 	files android.Paths
 }
 
-func overlayResourceGlob(ctx android.ModuleContext, dir android.Path) (res []globbedResourceDir,
+func overlayResourceGlob(ctx android.ModuleContext, a *aapt, dir android.Path) (res []globbedResourceDir,
 	rroDirs []rroDir) {
 
 	overlayData := ctx.Config().Get(overlayDataKey).([]overlayGlobResult)
 
 	// Runtime resource overlays (RRO) may be turned on by the product config for some modules
-	rroEnabled := ctx.Config().EnforceRROForModule(ctx.ModuleName())
+	rroEnabled := a.IsRROEnforced(ctx)
 
 	for _, data := range overlayData {
 		files := data.paths.PathsInDirectory(filepath.Join(data.dir, dir.String()))

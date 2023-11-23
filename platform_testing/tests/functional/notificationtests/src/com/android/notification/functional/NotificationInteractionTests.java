@@ -334,7 +334,7 @@ public class NotificationInteractionTests extends InstrumentationTestCase {
                     .setContentTitle("My notification")
                     .setContentText("Hello World!");
         PendingIntent pi = PendingIntent.getActivity(context, 1,
-                new Intent(Settings.ACTION_SETTINGS), 0);
+                new Intent(Settings.ACTION_SETTINGS), PendingIntent.FLAG_IMMUTABLE);
         mBuilder.setContentIntent(pi);
         mNotificationManager.notify(1, mBuilder.build());
         Thread.sleep(500);

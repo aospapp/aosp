@@ -38,6 +38,8 @@ func CheckBadCompilerFlags(ctx BaseModuleContext, prop string, flags []string) {
 			ctx.PropertyErrorf(prop, "Illegal flag `%s`", flag)
 		} else if flag == "--coverage" {
 			ctx.PropertyErrorf(prop, "Bad flag: `%s`, use native_coverage instead", flag)
+		} else if flag == "-fwhole-program-vtables" {
+			ctx.PropertyErrorf(prop, "Bad flag: `%s`, use whole_program_vtables instead", flag)
 		} else if flag == "-Weverything" {
 			if !ctx.Config().IsEnvTrue("ANDROID_TEMPORARILY_ALLOW_WEVERYTHING") {
 				ctx.PropertyErrorf(prop, "-Weverything is not allowed in Android.bp files.  "+
@@ -102,7 +104,7 @@ func CheckBadLinkerFlags(ctx BaseModuleContext, prop string, flags []string) {
 
 // Check for bad host_ldlibs
 func CheckBadHostLdlibs(ctx ModuleContext, prop string, flags []string) {
-	allowed_ldlibs := ctx.toolchain().AvailableLibraries()
+	allowedLdlibs := ctx.toolchain().AvailableLibraries()
 
 	if !ctx.Host() {
 		panic("Invalid call to CheckBadHostLdlibs")
@@ -114,7 +116,7 @@ func CheckBadHostLdlibs(ctx ModuleContext, prop string, flags []string) {
 		// TODO: Probably should just redo this property to prefix -l in Soong
 		if !strings.HasPrefix(flag, "-l") && !strings.HasPrefix(flag, "-framework") {
 			ctx.PropertyErrorf(prop, "Invalid flag: `%s`, must start with `-l` or `-framework`", flag)
-		} else if !inList(flag, allowed_ldlibs) {
+		} else if !inList(flag, allowedLdlibs) {
 			ctx.PropertyErrorf(prop, "Host library `%s` not available", flag)
 		}
 	}

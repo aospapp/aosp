@@ -15,6 +15,9 @@
  */
 package com.android.bluetooth.sap;
 
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doReturn;
+
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 
@@ -55,6 +58,7 @@ public class SapServiceTest {
                 mTargetContext.getResources().getBoolean(R.bool.profile_supported_sap));
         MockitoAnnotations.initMocks(this);
         TestUtils.setAdapterService(mAdapterService);
+        doReturn(true, false).when(mAdapterService).isStartedProfile(anyString());
         TestUtils.startService(mServiceRule, SapService.class);
         mService = SapService.getSapService();
         Assert.assertNotNull(mService);

@@ -191,7 +191,7 @@ public class FrameworkActionBar extends BridgeActionBar {
 
     // Copied from com.android.internal.view.menu.MenuPopHelper.measureContentWidth()
     private int measureContentWidth(@NonNull ListAdapter adapter) {
-        // Menus don't tend to be long, so this is more sane than it looks.
+        // Menus don't tend to be long, so this is shouldn't be a problem
         int maxWidth = 0;
         View itemView = null;
         int itemType = 0;

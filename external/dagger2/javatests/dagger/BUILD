@@ -15,10 +15,10 @@
 # Description:
 #   A JSR-330 compliant dependency injection system for android and java
 
-package(default_visibility = ["//:src"])
-
 load("//:build_defs.bzl", "DOCLINT_HTML_AND_SYNTAX", "DOCLINT_REFERENCES")
 load("//:test_defs.bzl", "GenJavaTests")
+
+package(default_visibility = ["//:src"])
 
 GenJavaTests(
     name = "core_tests",
@@ -27,7 +27,8 @@ GenJavaTests(
     javacopts = DOCLINT_HTML_AND_SYNTAX + DOCLINT_REFERENCES,
     deps = [
         "//java/dagger:core",
-        "@google_bazel_common//third_party/java/guava",
+        "//java/dagger/internal/guava:collect",
+        "//java/dagger/internal/guava:concurrent",
         "@google_bazel_common//third_party/java/jsr330_inject",
         "@google_bazel_common//third_party/java/junit",
         "@google_bazel_common//third_party/java/truth",

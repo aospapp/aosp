@@ -31,7 +31,17 @@ import java.lang.annotation.Target;
 public @interface RootPermissionTest {
 
     // Denotes the patch level when the test was introduced
-    // TODO : Remove the default value. Need one in the interim whilst we undertake
-    // the effort to annotate the existing tests with a corresponding patch-level.
+    /** @deprecated @see android.platform.test.annotations.AsbSecurityTest */
+    @Deprecated
     String minPatchLevel() default "";
+
+    // Denotes the CVE ID(s), comma-separated, to which this test applies.
+    /** @deprecated @see android.platform.test.annotations.AsbSecurityTest */
+    @Deprecated
+    String cve() default "";
+
+    // Denotes the scope (platform/kernel/vendor) to which this test applies.
+    /** @deprecated @see android.platform.test.annotations.AsbSecurityTest */
+    @Deprecated
+    String scope() default "";
 }

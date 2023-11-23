@@ -21,14 +21,15 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import androidx.annotation.Nullable;
+import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.car.apps.common.util.ViewUtils;
 import com.android.car.dialer.R;
-import com.android.car.dialer.telecom.UiCallManager;
 import com.android.car.dialer.ui.common.ContactResultsLiveData;
 import com.android.car.dialer.ui.common.DialerUtils;
+import com.android.car.dialer.ui.common.OnItemClickedListener;
+import com.android.car.dialer.ui.common.QueryStyle;
 import com.android.car.dialer.ui.view.ContactAvatarOutputlineProvider;
 import com.android.car.telephony.common.Contact;
 import com.android.car.telephony.common.TelecomUtils;
@@ -47,11 +48,13 @@ public class ContactResultViewHolder extends RecyclerView.ViewHolder {
     private final TextView mContactName;
     private final TextView mContactNumber;
     private final ImageView mContactPicture;
-    private final ContactResultsAdapter.OnShowContactDetailListener mOnShowContactDetailListener;
+    @NonNull
+    private final OnItemClickedListener<ContactResultsLiveData.ContactResultListItem>
+            mOnItemClickedListener;
 
-    public ContactResultViewHolder(View view,
-            @Nullable ContactResultsAdapter.OnShowContactDetailListener
-                    onShowContactDetailListener) {
+    public ContactResultViewHolder(
+            View view,
+            @NonNull OnItemClickedListener<ContactResultsLiveData.ContactResultListItem> listener) {
         super(view);
         mContext = view.getContext();
         mContactCard = view.findViewById(R.id.contact_result);
@@ -61,22 +64,25 @@ public class ContactResultViewHolder extends RecyclerView.ViewHolder {
         if (mContactPicture != null) {
             mContactPicture.setOutlineProvider(ContactAvatarOutputlineProvider.get());
         }
-        mOnShowContactDetailListener = onShowContactDetailListener;
+        mOnItemClickedListener = listener;
     }
 
     /**
      * Populates the view that is represented by this ViewHolder with the information in the
      * provided {@link Contact}.
      */
-    public void bindSearchResult(ContactResultsLiveData.ContactResultListItem contactResult) {
+    public void bindSearchResult(ContactResultsLiveData.ContactResultListItem contactResult,
+            Integer sortMethod) {
         Contact contact = contactResult.getContact();
 
-        ViewUtils.setText(mContactName, contact.getDisplayName());
-        TelecomUtils.setContactBitmapAsync(mContext, mContactPicture, contact);
+        ViewUtils.setText(mContactName,
+                TelecomUtils.isSortByFirstName(sortMethod) ? contact.getDisplayName()
+                        : contact.getDisplayNameAlt());
+        TelecomUtils.setContactBitmapAsync(mContext, mContactPicture, contact, sortMethod);
 
         if (DialerUtils.hasContactDetail(itemView.getResources(), contact)) {
             mContactCard.setOnClickListener(
-                    v -> mOnShowContactDetailListener.onShowContactDetail(contact));
+                    view -> mOnItemClickedListener.onItemClicked(contactResult));
         } else {
             itemView.setEnabled(false);
         }
@@ -86,22 +92,28 @@ public class ContactResultViewHolder extends RecyclerView.ViewHolder {
      * Populates the view that is represented by this ViewHolder with the information in the
      * provided {@link Contact}.
      */
-    public void bindTypeDownResult(ContactResultsLiveData.ContactResultListItem contactResult) {
+    public void bindTypeDownResult(
+            ContactResultsLiveData.ContactResultListItem contactResult,
+            Integer sortMethod) {
         Contact contact = contactResult.getContact();
-        String number = contactResult.getNumber();
 
-        ViewUtils.setText(mContactNumber, number);
-        ViewUtils.setText(mContactName, contact.getDisplayName());
+        QueryStyle queryStyle = new QueryStyle(mContext, R.style.TextAppearance_TypeDownListSpan);
+        ViewUtils.setText(mContactNumber,
+                queryStyle.getStringWithQueryInSpecialStyle(contactResult.getNumber(),
+                        contactResult.getSearchQuery()));
+        ViewUtils.setText(mContactName,
+                TelecomUtils.isSortByFirstName(sortMethod) ? contact.getDisplayName()
+                        : contact.getDisplayNameAlt());
         mContactCard.setOnClickListener(
-                v -> UiCallManager.get().placeCall(mContactNumber.getText().toString()));
-        TelecomUtils.setContactBitmapAsync(mContext, mContactPicture, contact);
+                v -> mOnItemClickedListener.onItemClicked(contactResult));
+        TelecomUtils.setContactBitmapAsync(mContext, mContactPicture, contact, sortMethod);
     }
 
     void recycle() {
         itemView.setEnabled(true);
         mContactCard.setOnClickListener(null);
         if (mContactPicture != null) {
-            Glide.with(mContext).clear(mContactPicture);
+            Glide.with(mContext.getApplicationContext()).clear(mContactPicture);
         }
     }
 }

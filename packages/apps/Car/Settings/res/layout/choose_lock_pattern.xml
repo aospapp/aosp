@@ -61,17 +61,8 @@
                 android:id="@+id/title_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="@dimen/choose_title_text_margin_bottom"
                 android:gravity="center"
-                android:text="@string/lockscreen_choose_your_pattern"
                 android:textAppearance="?android:attr/textAppearanceLarge"/>
-
-            <TextView
-                android:id="@+id/description_text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:textAppearance="?android:attr/textAppearanceMedium"/>
 
         </LinearLayout>
     </LinearLayout>

@@ -15,36 +15,35 @@
  */
 package com.android.cts.devicepolicy;
 
+import static com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.FEATURE_MANAGED_USERS;
+
+import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.DoesNotRequireFeature;
+import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresAdditionalFeatures;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
 
 import org.junit.Test;
 
+// We need multi user to be supported in order to create a profile of the user owner.
+@RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
 public class CustomManagedProfileTest extends BaseDevicePolicyTest {
 
     private static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
     private static final String MANAGED_PROFILE_APK = "CtsManagedProfileApp.apk";
 
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-
-        // We need multi user to be supported in order to create a profile of the user owner.
-        mHasFeature = mHasFeature && hasDeviceFeature("android.software.managed_users");
-    }
-
+    @DoesNotRequireFeature
     @Test
     public void testIsProvisioningAllowed() throws Exception {
-        final int primaryUserId = getPrimaryUser();
         // Must install the apk since the test runs in the ManagedProfile apk.
         installAppAsUser(MANAGED_PROFILE_APK, mPrimaryUserId);
         try {
-            if (mHasFeature) {
+            if (mFeaturesCheckerRule.hasRequiredFeatures()) {
                 // Since we assume, in ManagedProfileTest, provisioning has to be successful,
                 // DevicePolicyManager.isProvisioningAllowed must return true
-                assertIsProvisioningAllowed(true, primaryUserId);
+                assertIsProvisioningAllowed(true, mPrimaryUserId);
             } else {
                 // Test the case when feature flag is off
-                assertIsProvisioningAllowed(false, primaryUserId);
+                assertIsProvisioningAllowed(false, mPrimaryUserId);
             }
         } finally {
             getDevice().uninstallPackage(MANAGED_PROFILE_PKG);
@@ -55,6 +54,7 @@ public class CustomManagedProfileTest extends BaseDevicePolicyTest {
             throws DeviceNotAvailableException {
         final String testName = expected ? "testIsProvisioningAllowedTrue"
                 : "testIsProvisioningAllowedFalse";
+        CLog.d("Running test %s on user %d", testName, userId);
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".PreManagedProfileTest", testName, userId);
     }
 }

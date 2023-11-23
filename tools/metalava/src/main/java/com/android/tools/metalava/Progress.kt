@@ -56,8 +56,8 @@ private var lastCpuMillis: Long = -1L
 
 private fun getCpuStats(): String {
     val nowMillis = System.currentTimeMillis()
-    val userMillis = ManagementWrapper.getUserTimeNano() / 1000_000
-    val cpuMillis = ManagementWrapper.getCpuTimeNano() / 1000_000
+    val userMillis = threadMXBean.getCurrentThreadUserTime() / 1000_000
+    val cpuMillis = threadMXBean.getCurrentThreadCpuTime() / 1000_000
 
     if (lastMillis == -1L) {
         lastMillis = nowMillis
@@ -86,7 +86,7 @@ private fun getCpuStats(): String {
 }
 
 private fun getMemoryStats(): String {
-    val mu = ManagementWrapper.getHeapUsage()
+    val mu = memoryMXBean.getHeapMemoryUsage()
 
     return String.format(
         "%dmi %dmu %dmc %dmx",

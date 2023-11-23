@@ -213,6 +213,10 @@ Television device implementations:
 [`android.software.leanback`](
 http://developer.android.com/reference/android/content/pm/PackageManager.html#FEATURE_LEANBACK)
 and `android.hardware.type.television`.
+*   [[3.2.3.1](#3_2_3_1_common_application_intents)/T-0-1]  MUST preload one or
+more applications or service components with an intent handler, for all the
+public intent filter patterns defined by the following application intents
+listed [here](https://developer.android.com/about/versions/11/reference/common-intents-30).
 *   [[3.4](#3_4_web_compatibility).1/T-0-1] MUST provide a complete
 implementation of the `android.webkit.Webview` API.
 

@@ -37,7 +37,7 @@ struct Namespace {
   std::vector<std::string> asan_search_path;
   std::vector<std::string> asan_permitted_path;
   std::map<std::string, Link> links;
-  std::vector<std::string> whitelisted;
+  std::vector<std::string> allowed_libs;
 };
 
 struct Section {

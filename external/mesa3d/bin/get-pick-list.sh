@@ -32,7 +32,7 @@ is_sha_nomination()
 {
 	fixes=`git show --pretty=medium -s $1 | tr -d "\n" | \
 		sed -e 's/'"$2"'/\nfixes:/Ig' | \
-		grep -Eo 'fixes:[a-f0-9]{8,40}'`
+		grep -Eo 'fixes:[a-f0-9]{4,40}'`
 
 	fixes_count=`echo "$fixes" | grep "fixes:" | wc -l`
 	if test $fixes_count -eq 0; then
@@ -143,7 +143,7 @@ do
 	esac
 
 	printf "[ %8s ] " "$tag"
-	git --no-pager show --no-patch --oneline $sha
+	git --no-pager show --no-patch --pretty=oneline $sha
 done
 
 rm -f already_picked

@@ -89,7 +89,7 @@ public class TimeoutResetActivity extends Activity {
                                 0,
                                 new Intent(activity, TimeoutResetActivity.class)
                                         .putExtra(EXTRA_OLD_TIMEOUT, oldTimeout),
-                                0));
+                                PendingIntent.FLAG_MUTABLE_UNAUDITED));
             }
         });
     }

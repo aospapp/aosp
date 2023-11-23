@@ -19,19 +19,34 @@ package com.android.car.dialer.ui.settings;
 import android.os.Bundle;
 
 import androidx.fragment.app.FragmentActivity;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.android.car.dialer.log.L;
+
+import dagger.hilt.android.AndroidEntryPoint;
 
 /**
  * Activity for settings in Dialer
  */
-public class DialerSettingsActivity extends FragmentActivity {
+@AndroidEntryPoint(FragmentActivity.class)
+public class DialerSettingsActivity extends Hilt_DialerSettingsActivity {
     private static final String TAG = "CD.SettingsActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         L.d(TAG, "onCreate");
+
+        LiveData<Boolean> hasHfpDeviceConnectedLiveData = new ViewModelProvider(this)
+                .get(DialerSettingsViewModel.class)
+                .hasHfpDeviceConnected();
+        hasHfpDeviceConnectedLiveData.observe(this, hasHfpDeviceConnected -> {
+            if (!Boolean.TRUE.equals(hasHfpDeviceConnected)) {
+                // Simply finishes settings activity and returns to main activity to show error.
+                finish();
+            }
+        });
 
         if (savedInstanceState == null) {
             getSupportFragmentManager().beginTransaction()

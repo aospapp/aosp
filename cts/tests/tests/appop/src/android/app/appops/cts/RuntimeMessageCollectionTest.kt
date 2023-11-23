@@ -20,7 +20,6 @@ import org.junit.Assert.fail
 import android.app.AppOpsManager
 import android.platform.test.annotations.AppModeFull
 import androidx.test.platform.app.InstrumentationRegistry
-import com.android.internal.util.FrameworkStatsLog.RUNTIME_APP_OP_ACCESS__SAMPLING_STRATEGY__UNIFORM
 import com.google.common.truth.Truth.assertThat
 import org.junit.Before
 import org.junit.Test
@@ -52,7 +51,7 @@ class RuntimeMessageCollectionTest {
 
     @Test
     fun collectAsyncStackTrace() {
-        for (attempt in 0..12) {
+        for (attempt in 0..24) {
             installApk("CtsAppToCollect.apk")
             val start = System.currentTimeMillis()
             runWithShellPermissionIdentity {
@@ -64,9 +63,7 @@ class RuntimeMessageCollectionTest {
 
                 runWithShellPermissionIdentity {
                     val message = appOpsManager.collectRuntimeAppOpAccessMessage()
-                    if (message != null && message.packageName.equals(APP_PKG) &&
-                            message.samplingStrategy !=
-                            RUNTIME_APP_OP_ACCESS__SAMPLING_STRATEGY__UNIFORM) {
+                    if (message != null && message.packageName.equals(APP_PKG)) {
                         assertThat(message.op).isEqualTo(AppOpsManager.OPSTR_READ_CONTACTS)
                         assertThat(message.uid).isEqualTo(appUid)
                         assertThat(message.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)

@@ -16,14 +16,13 @@ package java
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"android/soong/android"
 )
 
 func TestRequired(t *testing.T) {
-	ctx, config := testJava(t, `
+	ctx, _ := testJava(t, `
 		java_library {
 			name: "foo",
 			srcs: ["a.java"],
@@ -32,7 +31,7 @@ func TestRequired(t *testing.T) {
 	`)
 
 	mod := ctx.ModuleForTests("foo", "android_common").Module()
-	entries := android.AndroidMkEntriesForTest(t, config, "", mod)[0]
+	entries := android.AndroidMkEntriesForTest(t, ctx, mod)[0]
 
 	expected := []string{"libfoo"}
 	actual := entries.EntryMap["LOCAL_REQUIRED_MODULES"]
@@ -42,7 +41,7 @@ func TestRequired(t *testing.T) {
 }
 
 func TestHostdex(t *testing.T) {
-	ctx, config := testJava(t, `
+	ctx, _ := testJava(t, `
 		java_library {
 			name: "foo",
 			srcs: ["a.java"],
@@ -51,7 +50,7 @@ func TestHostdex(t *testing.T) {
 	`)
 
 	mod := ctx.ModuleForTests("foo", "android_common").Module()
-	entriesList := android.AndroidMkEntriesForTest(t, config, "", mod)
+	entriesList := android.AndroidMkEntriesForTest(t, ctx, mod)
 	if len(entriesList) != 2 {
 		t.Errorf("two entries are expected, but got %d", len(entriesList))
 	}
@@ -72,7 +71,7 @@ func TestHostdex(t *testing.T) {
 }
 
 func TestHostdexRequired(t *testing.T) {
-	ctx, config := testJava(t, `
+	ctx, _ := testJava(t, `
 		java_library {
 			name: "foo",
 			srcs: ["a.java"],
@@ -82,7 +81,7 @@ func TestHostdexRequired(t *testing.T) {
 	`)
 
 	mod := ctx.ModuleForTests("foo", "android_common").Module()
-	entriesList := android.AndroidMkEntriesForTest(t, config, "", mod)
+	entriesList := android.AndroidMkEntriesForTest(t, ctx, mod)
 	if len(entriesList) != 2 {
 		t.Errorf("two entries are expected, but got %d", len(entriesList))
 	}
@@ -103,7 +102,7 @@ func TestHostdexRequired(t *testing.T) {
 }
 
 func TestHostdexSpecificRequired(t *testing.T) {
-	ctx, config := testJava(t, `
+	ctx, _ := testJava(t, `
 		java_library {
 			name: "foo",
 			srcs: ["a.java"],
@@ -117,7 +116,7 @@ func TestHostdexSpecificRequired(t *testing.T) {
 	`)
 
 	mod := ctx.ModuleForTests("foo", "android_common").Module()
-	entriesList := android.AndroidMkEntriesForTest(t, config, "", mod)
+	entriesList := android.AndroidMkEntriesForTest(t, ctx, mod)
 	if len(entriesList) != 2 {
 		t.Errorf("two entries are expected, but got %d", len(entriesList))
 	}
@@ -135,37 +134,75 @@ func TestHostdexSpecificRequired(t *testing.T) {
 	}
 }
 
-func TestDistWithTag(t *testing.T) {
-	ctx, config := testJava(t, `
-		java_library {
-			name: "foo_without_tag",
+func TestJavaSdkLibrary_RequireXmlPermissionFile(t *testing.T) {
+	result := android.GroupFixturePreparers(
+		prepareForJavaTest,
+		PrepareForTestWithJavaSdkLibraryFiles,
+		FixtureWithLastReleaseApis("foo-shared_library", "foo-no_shared_library"),
+	).RunTestWithBp(t, `
+		java_sdk_library {
+			name: "foo-shared_library",
 			srcs: ["a.java"],
-			compile_dex: true,
-			dist: {
-				targets: ["hi"],
-			},
 		}
-		java_library {
-			name: "foo_with_tag",
+		java_sdk_library {
+			name: "foo-no_shared_library",
 			srcs: ["a.java"],
+			shared_library: false,
+		}
+		`)
+
+	// Verify the existence of internal modules
+	result.ModuleForTests("foo-shared_library.xml", "android_common")
+
+	testCases := []struct {
+		moduleName string
+		expected   []string
+	}{
+		{"foo-shared_library", []string{"foo-shared_library.xml"}},
+		{"foo-no_shared_library", nil},
+	}
+	for _, tc := range testCases {
+		mod := result.ModuleForTests(tc.moduleName, "android_common").Module()
+		entries := android.AndroidMkEntriesForTest(t, result.TestContext, mod)[0]
+		actual := entries.EntryMap["LOCAL_REQUIRED_MODULES"]
+		if !reflect.DeepEqual(tc.expected, actual) {
+			t.Errorf("Unexpected required modules - expected: %q, actual: %q", tc.expected, actual)
+		}
+	}
+}
+
+func TestImportSoongDexJar(t *testing.T) {
+	result := PrepareForTestWithJavaDefaultModules.RunTestWithBp(t, `
+		java_import {
+			name: "my-java-import",
+			jars: ["a.jar"],
+			prefer: true,
 			compile_dex: true,
-			dist: {
-				targets: ["hi"],
-				tag: ".jar",
-			},
 		}
 	`)
 
-	without_tag_entries := android.AndroidMkEntriesForTest(t, config, "", ctx.ModuleForTests("foo_without_tag", "android_common").Module())
-	with_tag_entries := android.AndroidMkEntriesForTest(t, config, "", ctx.ModuleForTests("foo_with_tag", "android_common").Module())
+	mod := result.Module("my-java-import", "android_common")
+	entries := android.AndroidMkEntriesForTest(t, result.TestContext, mod)[0]
+	expectedSoongDexJar := "out/soong/.intermediates/my-java-import/android_common/dex/my-java-import.jar"
+	actualSoongDexJar := entries.EntryMap["LOCAL_SOONG_DEX_JAR"]
 
-	if len(without_tag_entries) != 2 || len(with_tag_entries) != 2 {
-		t.Errorf("two mk entries per module expected, got %d and %d", len(without_tag_entries), len(with_tag_entries))
-	}
-	if !with_tag_entries[0].DistFile.Valid() || !strings.Contains(with_tag_entries[0].DistFile.String(), "/javac/foo_with_tag.jar") {
-		t.Errorf("expected classes.jar DistFile, got %v", with_tag_entries[0].DistFile)
-	}
-	if without_tag_entries[0].DistFile.Valid() {
-		t.Errorf("did not expect explicit DistFile, got %v", without_tag_entries[0].DistFile)
+	android.AssertStringPathsRelativeToTopEquals(t, "LOCAL_SOONG_DEX_JAR", result.Config, []string{expectedSoongDexJar}, actualSoongDexJar)
+}
+
+func TestAndroidTestHelperApp_LocalDisableTestConfig(t *testing.T) {
+	ctx, _ := testJava(t, `
+		android_test_helper_app {
+			name: "foo",
+			srcs: ["a.java"],
+		}
+	`)
+
+	mod := ctx.ModuleForTests("foo", "android_common").Module()
+	entries := android.AndroidMkEntriesForTest(t, ctx, mod)[0]
+
+	expected := []string{"true"}
+	actual := entries.EntryMap["LOCAL_DISABLE_TEST_CONFIG"]
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("Unexpected flag value - expected: %q, actual: %q", expected, actual)
 	}
 }

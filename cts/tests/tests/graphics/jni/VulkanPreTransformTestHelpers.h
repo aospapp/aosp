@@ -27,8 +27,7 @@ typedef enum VkTestResult {
     VK_TEST_ERROR = -1,
     VK_TEST_SUCCESS = 0,
     VK_TEST_PHYSICAL_DEVICE_NOT_EXISTED = 1,
-    VK_TEST_SURFACE_FORMAT_NOT_SUPPORTED = 2,
-    VK_TEST_SUCCESS_SUBOPTIMAL = 3,
+    VK_TEST_SUCCESS_SUBOPTIMAL = 2,
 } VkTestResult;
 
 class DeviceInfo {
@@ -58,7 +57,8 @@ public:
     ~SwapchainInfo();
     VkTestResult init(bool setPreTransform, int* outPreTransformHint);
     VkFormat format() const { return mFormat; }
-    VkExtent2D displaySize() const { return mDisplaySize; }
+    VkExtent2D surfaceSize() const { return mSurfaceSize; }
+    VkExtent2D imageSize() const { return mImageSize; }
     VkSwapchainKHR swapchain() const { return mSwapchain; }
     uint32_t swapchainLength() const { return mSwapchainLength; }
 
@@ -66,7 +66,8 @@ private:
     const DeviceInfo* const mDeviceInfo;
 
     VkFormat mFormat;
-    VkExtent2D mDisplaySize;
+    VkExtent2D mSurfaceSize;
+    VkExtent2D mImageSize;
     VkSwapchainKHR mSwapchain;
     uint32_t mSwapchainLength;
 };

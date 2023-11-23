@@ -187,6 +187,31 @@ public class MeasuredTextTest {
         assertEquals(twoCharRect, out);
     }
 
+    @Test
+    public void testGetBounds_RTL() {
+        Paint paint = new Paint();
+        AssetManager am = InstrumentationRegistry.getTargetContext().getAssets();
+        Typeface typeface = Typeface.createFromAsset(am, "fonts/measurement/bbox.ttf");
+        paint.setTypeface(typeface);
+        paint.setTextSize(100f);  // Make 1em = 100px
+        String text = "\u0028";  // U+0028 is 1em x 1em in LTR and 3em x 3em in RTL.
+        Rect ltrRect = new Rect();
+        Rect rtlRect = new Rect();
+
+        new MeasuredText.Builder(text.toCharArray())
+                .appendStyleRun(paint, text.length(), false)
+                .build()
+                .getBounds(0, 1, ltrRect);
+        new MeasuredText.Builder(text.toCharArray())
+                .appendStyleRun(paint, text.length(), true)
+                .build()
+                .getBounds(0, 1, rtlRect);
+
+
+        assertEquals(new Rect(0, -100, 100, 0), ltrRect);
+        assertEquals(new Rect(0, -300, 300, 0), rtlRect);
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void testGetBounds_StartSmallerThanZero() {
         String text = "Hello, World";

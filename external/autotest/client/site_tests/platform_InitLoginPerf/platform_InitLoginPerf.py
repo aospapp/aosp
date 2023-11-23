@@ -14,7 +14,6 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 
 RE_ATTESTATION = 'Prepared successfully \((\d+)ms\)'
-RE_OWNERSHIP = 'Taking TPM ownership took (\d+)ms'
 BOOT_TIMES_CMD = 'bootstat_summary'
 BOOT_TIMES_DUMP_NAME = 'bootstat_summary'
 
@@ -24,7 +23,9 @@ def is_attestation_prepared():
     @return: Attestation readiness status - True/False.
 
     """
-    return cryptohome.get_tpm_more_status().get('attestation_prepared', False)
+    return cryptohome.get_tpm_attestation_status().get(
+            'prepared_for_enrollment', False)
+
 
 def get_bootstat_timestamp(name, occurrence):
     """Gets the timestamp in ms of the given timestamp name and occurrence
@@ -178,7 +179,7 @@ class platform_InitLoginPerf(test.test):
                                     expected_value=True,
                                     timeout_sec=timeout):
             logging.debug('tpm_more_status: %r',
-                          cryptohome.get_tpm_more_status())
+                          cryptohome.get_tpm_attestation_status())
             raise error.TestFail('Timeout waiting for attestation_prepared')
 
     def get_init_durations(self):
@@ -188,24 +189,18 @@ class platform_InitLoginPerf(test.test):
                                    syslog.
 
         """
-        # Grep syslog for AttestationReady and ownership lines
+        # Grep syslog for AttestationReady line
         attestation_line = ''
-        ownership_line = ''
         with open('/var/log/messages', 'r') as syslog:
             for ln in syslog:
                 if 'Attestation: Prepared successfully' in ln:
                     attestation_line = ln
-                elif 'Taking TPM ownership took' in ln:
-                    ownership_line = ln
         logging.debug('Attestation prepared: %r', attestation_line)
-        logging.debug('Ownership done: %r', ownership_line)
-        if (not attestation_line) or (not ownership_line):
+        if (not attestation_line):
             raise error.TestFail('Could not find duration lines in syslog')
 
         self.results['attestation-duration'] = get_duration(RE_ATTESTATION,
                                                             attestation_line)
-        self.results['ownership-duration'] = get_duration(RE_OWNERSHIP,
-                                                          ownership_line)
 
     def run_post_login(self):
         """Run post-login steps.

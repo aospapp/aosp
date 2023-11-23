@@ -15,6 +15,9 @@ limitations under the License.
 
 #include "tensorflow/core/kernels/lookup_util.h"
 
+#include "tensorflow/core/framework/dataset.h"
+#include "tensorflow/core/framework/function_handle_cache.h"
+#include "tensorflow/core/framework/op_requires.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/lib/core/errors.h"
@@ -74,7 +77,7 @@ class TextFileLineIterator
   //   delimiter.
   Status Init(const string& filename, int64 vocab_size, char delimiter,
               DataType key_dtype, int64 key_index, DataType value_dtype,
-              int64 value_index, Env* env) {
+              int64 value_index, int64 offset, Env* env) {
     filename_ = filename;
     vocab_size_ = vocab_size;
     delimiter_ = delimiter;
@@ -90,6 +93,7 @@ class TextFileLineIterator
     input_buffer_.reset(new io::InputBuffer(file_.get(), kInputBufferSize));
     valid_ = true;
     next_id_ = 0;
+    offset_ = offset;
     ignore_split_ = std::max(key_index_, value_index_) < 0;
     Next();
     return status_;
@@ -130,7 +134,8 @@ class TextFileLineIterator
     std::vector<string> tokens;
     if (!ignore_split_) {
       tokens = str_util::Split(line, delimiter_);
-      if (std::max(key_index_, value_index_) >= tokens.size()) {
+      if (static_cast<size_t>(std::max(key_index_, value_index_)) >=
+          tokens.size()) {
         status_ = errors::InvalidArgument(
             "Invalid number of columns in ", filename_, " line ", next_id_,
             " (", line, ") : expected ", std::max(key_index_, value_index_),
@@ -139,6 +144,7 @@ class TextFileLineIterator
         return;
       }
     }
+
     status_ = SetValue(line, tokens, key_index_, &key_);
     if (!status_.ok()) {
       valid_ = false;
@@ -182,6 +188,7 @@ class TextFileLineIterator
   int64 value_index_;
   Env* env_;
   int64 next_id_;
+  int64 offset_;
   int64 vocab_size_;
   string filename_;
   char delimiter_;
@@ -195,7 +202,7 @@ class TextFileLineIterator
   Status SetValue(const string& line, const std::vector<string>& tokens,
                   int64 index, Tensor* tensor) {
     if (index == kLineNumber) {
-      tensor->flat<int64>()(0) = next_id_;
+      tensor->flat<int64>()(0) = next_id_ + offset_;
       return Status::OK();
     }
     const string& token = (index == kWholeLine) ? line : tokens[index];
@@ -208,7 +215,7 @@ class TextFileLineIterator
           return errors::InvalidArgument("Field ", token, " in line ", next_id_,
                                          " is not a valid int32.");
         }
-        tensor->flat<int32>()(0) = value;
+        tensor->flat<int32>()(0) = value + offset_;
       } break;
       case DT_INT64: {
         int64 value;
@@ -348,7 +355,7 @@ Status CheckTableDataTypes(const LookupInterface& table, DataType key_dtype,
 // Helper function to initialize an InitializableLookupTable from a text file.
 Status InitializeTableFromTextFile(const string& filename, int64 vocab_size,
                                    char delimiter, int32 key_index,
-                                   int32 value_index, Env* env,
+                                   int32 value_index, int64 offset, Env* env,
                                    InitializableLookupTable* table) {
   if (key_index == kLineNumber && table->key_dtype() != DT_INT64) {
     return errors::InvalidArgument(
@@ -376,7 +383,8 @@ Status InitializeTableFromTextFile(const string& filename, int64 vocab_size,
 
   TextFileLineIterator iter;
   TF_RETURN_IF_ERROR(iter.Init(filename, vocab_size, delimiter, key_dtype,
-                               key_index, value_dtype, value_index, env));
+                               key_index, value_dtype, value_index, offset,
+                               env));
   // For initialization from files, ignore if the table is already
   // initialized. The table shared name should contain the filename to
   // avoid trying to initialize the same table from the same file at the same
@@ -388,6 +396,105 @@ Status InitializeTableFromTextFile(const string& filename, int64 vocab_size,
     return Status::OK();
   }
   return s;
+}
+
+class DatasetIterator : public InitializableLookupTable::InitTableIterator {
+ public:
+  explicit DatasetIterator(data::DatasetBase* dataset) : dataset_(dataset) {}
+
+  ~DatasetIterator() override {}
+
+  Status Init(OpKernelContext* ctx) {
+    data::IteratorContext::Params params(ctx);
+    function_handle_cache_ =
+        absl::make_unique<data::FunctionHandleCache>(params.flr);
+    params.function_handle_cache = function_handle_cache_.get();
+    params.resource_mgr = &resource_mgr_;
+    cancellation_manager_ =
+        absl::make_unique<CancellationManager>(ctx->cancellation_manager());
+    params.cancellation_manager = cancellation_manager_.get();
+    iterator_ctx_ = absl::make_unique<data::IteratorContext>(std::move(params));
+    TF_RETURN_IF_ERROR(dataset_->MakeIterator(iterator_ctx_.get(), nullptr,
+                                              "LookupTable", &iterator_));
+    Next();
+    return Status::OK();
+  }
+
+  void Next() override {
+    bool end_of_input;
+    tensors_.clear();
+    status_ = iterator_->GetNext(iterator_ctx_.get(), &tensors_, &end_of_input);
+    if (status_.ok() && end_of_input) {
+      status_ = errors::OutOfRange("end of iterator");
+    }
+  }
+
+  bool Valid() const override { return status_.ok(); }
+
+  const Tensor& keys() const override { return tensors_[0]; }
+
+  const Tensor& values() const override { return tensors_[1]; }
+
+  Status status() const override { return status_; }
+
+  int64 total_size() const override {
+    int64 size = dataset_->Cardinality();
+    if (size < 0) {
+      return 0;
+    }
+    return size;
+  }
+
+ private:
+  data::DatasetBase* dataset_;  // not owned.
+  std::unique_ptr<data::IteratorContext> iterator_ctx_;
+  std::unique_ptr<data::FunctionHandleCache> function_handle_cache_;
+  ResourceMgr resource_mgr_;
+  std::unique_ptr<CancellationManager> cancellation_manager_;
+  std::unique_ptr<data::IteratorBase> iterator_;
+  std::vector<Tensor> tensors_;
+  Status status_;
+};
+
+void InitializeTableFromDataset(OpKernelContext* ctx,
+                                data::DatasetBase* dataset,
+                                InitializableLookupTable* table,
+                                AsyncOpKernel::DoneCallback done) {
+  // Construct the cleanup before `iter` below so that `iter` is destroyed
+  // before calling `done`.
+  auto cleanup = gtl::MakeCleanup([done = std::move(done)]() { done(); });
+  // Assert that the dataset types match up to that expected in the table.
+  const auto& dataset_types = dataset->output_dtypes();
+  OP_REQUIRES(
+      ctx, dataset_types.size() == 2,
+      errors::InvalidArgument("Dataset should have two output types only"));
+  OP_REQUIRES(ctx, dataset_types[0] == table->key_dtype(),
+              errors::InvalidArgument(
+                  "Key dtype expected: ", table->key_dtype(),
+                  " but obtained: ", dataset_types[0], " from the dataset"));
+  OP_REQUIRES(ctx, dataset_types[1] == table->value_dtype(),
+              errors::InvalidArgument(
+                  "Value dtype expected: ", table->value_dtype(),
+                  " but obtained: ", dataset_types[1], " from the dataset"));
+  // Assert that the dataset output shapes are scalars.
+  const auto& dataset_shapes = dataset->output_shapes();
+  OP_REQUIRES(
+      ctx, dataset_shapes.size() == 2,
+      errors::InvalidArgument("Dataset should have two output shapes only"));
+  OP_REQUIRES(ctx, dataset_shapes[0].IsCompatibleWith(PartialTensorShape({})),
+              errors::InvalidArgument("Expected scalar for key. Obtained: ",
+                                      dataset_shapes[0].DebugString()));
+  OP_REQUIRES(ctx, dataset_shapes[1].IsCompatibleWith(PartialTensorShape({})),
+              errors::InvalidArgument("Expected scalar for key. Obtained: ",
+                                      dataset_shapes[1].DebugString()));
+  DatasetIterator iter(dataset);
+  OP_REQUIRES_OK(ctx, iter.Init(ctx));
+  Status s = table->Initialize(iter);
+  if (errors::IsFailedPrecondition(s) && table->is_initialized()) {
+    LOG(INFO) << "Table already initialized from dataset.";
+    return;
+  }
+  ctx->SetStatus(s);
 }
 
 }  // namespace lookup

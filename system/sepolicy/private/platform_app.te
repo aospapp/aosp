@@ -66,11 +66,7 @@ allow platform_app timezone_service:service_manager find;
 allow platform_app app_api_service:service_manager find;
 allow platform_app system_api_service:service_manager find;
 allow platform_app vr_manager_service:service_manager find;
-allow platform_app gpu_service:service_manager find;
 allow platform_app stats_service:service_manager find;
-
-# Allow platform apps to interact with gpuservice
-binder_call(platform_app, gpuservice)
 
 # Allow platform apps to log via statsd.
 binder_call(platform_app, statsd)
@@ -91,8 +87,20 @@ allow platform_app system_server:udp_socket {
 # allow platform apps to connect to the property service
 set_prop(platform_app, test_boot_reason_prop)
 
+# allow platform apps to read keyguard.no_require_sim
+get_prop(platform_app, keyguard_config_prop)
+
+# allow platform apps to read qemu.hw.mainkeys
+get_prop(platform_app, qemu_hw_prop)
+
 # allow platform apps to create symbolic link
 allow platform_app app_data_file:lnk_file create_file_perms;
+
+# suppress denials caused by debugfs_tracing
+dontaudit platform_app debugfs_tracing:file rw_file_perms;
+
+# Allow platform apps to act as Perfetto producers.
+perfetto_producer(platform_app)
 
 ###
 ### Neverallow rules

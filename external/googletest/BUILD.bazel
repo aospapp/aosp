@@ -36,14 +36,30 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
+exports_files(["LICENSE"])
+
 config_setting(
     name = "windows",
-    constraint_values = ["@bazel_tools//platforms:windows"],
+    constraint_values = ["@platforms//os:windows"],
+)
+
+config_setting(
+    name = "msvc_compiler",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "msvc-cl",
+    },
+    visibility = [":__subpackages__"],
 )
 
 config_setting(
     name = "has_absl",
     values = {"define": "absl=1"},
+)
+
+config_setting(
+    name = "ios",
+    values = {"apple_platform_type": "ios"},
+    visibility = [":__subpackages__"],
 )
 
 # Library that defines the FRIEND_TEST macro.
@@ -76,6 +92,10 @@ cc_library(
         "googlemock/include/gmock/*.h",
     ]),
     copts = select({
+        ":ios": [
+            "-xobjective-c++",
+            "-pthread",
+        ],
         ":windows": [],
         "//conditions:default": ["-pthread"],
     }),
@@ -103,6 +123,7 @@ cc_library(
             "@com_google_absl//absl/debugging:stacktrace",
             "@com_google_absl//absl/debugging:symbolize",
             "@com_google_absl//absl/strings",
+            "@com_google_absl//absl/types:any",
             "@com_google_absl//absl/types:optional",
             "@com_google_absl//absl/types:variant",
         ],

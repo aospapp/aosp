@@ -51,6 +51,12 @@ class VariableLengthStructField : public PacketField {
 
   virtual void GenValidator(std::ostream&) const override;
 
+  virtual std::string GetRustDataType() const override;
+
+  void GenRustGetter(std::ostream&, Size, Size) const  override;
+
+  void GenRustWriter(std::ostream& s, Size start_offset, Size end_offset) const override;
+
  private:
   std::string type_name_;
 };

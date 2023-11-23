@@ -1,9 +1,13 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Facade to access the display-related functionality."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import logging
 import multiprocessing
 import numpy
@@ -21,6 +25,7 @@ from autotest_lib.client.cros.graphics import graphics_utils
 from autotest_lib.client.cros.multimedia import facade_resource
 from autotest_lib.client.cros.multimedia import image_generator
 from autotest_lib.client.cros.power import sys_power
+from six.moves import range
 from telemetry.internal.browser import web_contents
 
 class TimeoutException(Exception):
@@ -463,7 +468,7 @@ class DisplayFacadeNative(object):
             url_pattern = '.svg'
 
         tabs = self._resource.get_tabs()
-        for i in xrange(0, len(tabs)):
+        for i in range(0, len(tabs)):
             if url_pattern in tabs[i].url:
                 data = tabs[i].Screenshot(timeout=5)
                 # Flip the colors from BGR to RGB.
@@ -682,7 +687,7 @@ class DisplayFacadeNative(object):
         """
         path = self.CALIBRATION_IMAGE_PATH
         self._image_generator.generate_image(resolution[0], resolution[1], path)
-        os.chmod(path, 0644)
+        os.chmod(path, 0o644)
         tab_descriptor = self.load_url('file://%s' % path)
         return tab_descriptor
 

@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -30,7 +30,7 @@ public class Poc18_06 extends SecurityTestCase {
      * CVE-2018-5884
      */
     @Test
-    @SecurityTest(minPatchLevel = "2018-06")
+    @AsbSecurityTest(cveBugId = 74235510)
     public void testPocCVE_2018_5884() throws Exception {
         String wfd_service = AdbUtils.runCommandLine(
                 "pm list package com.qualcomm.wfd.service", getDevice());
@@ -46,7 +46,7 @@ public class Poc18_06 extends SecurityTestCase {
      *  b/73172817
      */
     @Test
-    @SecurityTest
+    @AsbSecurityTest(cveBugId = 73172817)
     public void testPocCVE_2018_9344() throws Exception {
         AdbUtils.runPocAssertNoCrashes("CVE-2018-9344", getDevice(),
                 "android\\.hardware\\.cas@\\d+?\\.\\d+?-service");

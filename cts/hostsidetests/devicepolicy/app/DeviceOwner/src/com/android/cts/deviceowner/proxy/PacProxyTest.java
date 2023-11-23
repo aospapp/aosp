@@ -78,6 +78,15 @@ public class PacProxyTest extends BaseProxyTest {
       "}";
 
   /**
+   * PAC file that uses locale-specific string manipulations.
+   */
+  private static final String STRING_CASE_PAC = "function FindProxyForURL(url, host) {" +
+      "  if (\"hElLo\".toUpperCase() != \"HELLO\") return \"PROXY failed:8080\";" +
+      "  if (\"hElLo\".toLowerCase() != \"hello\") return \"PROXY failed:8080\";" +
+      "  return \"PROXY passed:8080\";" +
+      "}";
+
+  /**
    * Wait for the PacFileServer to tell us it has had a successful
    * HTTP request and responded with the PAC file we set.
    */
@@ -259,5 +268,23 @@ public class PacProxyTest extends BaseProxyTest {
     list = selector.select(uri);
     assertEquals("Incorrect URL should return DIRECT",
         newArrayList(Proxy.NO_PROXY), list);
+  }
+
+  /**
+   * Test a PAC file with toUpperCase/toLowerCase manipulations.
+   */
+  public void testStringCase() throws Exception {
+    mPacServer.setPacFile(STRING_CASE_PAC);
+    setPacURLAndWaitForDownload();
+
+    waitForSetProxySysProp();
+
+    URI uri = new URI("http://testhost/");
+
+    ProxySelector selector = ProxySelector.getDefault();
+    List<Proxy> list = selector.select(uri);
+    assertEquals("Correct URL returns proxy",
+        newArrayList(new Proxy(Type.HTTP, InetSocketAddress.createUnresolved("passed", 8080))),
+        list);
   }
 }

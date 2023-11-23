@@ -99,7 +99,7 @@ app_info {
   uses_permissions: "android.permission.GET_APP_OPS_STATS"
   uses_permissions: "android.permission.MANAGE_APP_OPS_MODES"
   uses_permissions: "android.permission.VIBRATE"
-  uses_permissions: "android.permission.MANAGE_ACTIVITY_STACKS"
+  uses_permissions: "android.permission.MANAGE_ACTIVITY_TASKS"
   uses_permissions: "android.permission.START_TASKS_FROM_RECENTS"
   uses_permissions: "android.permission.ACTIVITY_EMBEDDING"
   uses_permissions: "android.permission.CONNECTIVITY_INTERNAL"

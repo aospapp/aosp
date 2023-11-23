@@ -89,6 +89,8 @@ public class CtsControlsServiceTest {
                 mControlsService.buildSwitch(false)).build());
         expectedControls.add(new Control.StatelessBuilder(
                 mControlsService.buildGate(false)).build());
+        expectedControls.add(new Control.StatelessBuilder(
+                mControlsService.buildCamera(true)).build());
 
         assertControlsList(loadedControls, expectedControls);
     }

@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Możesz zainstalować certyfikaty z pliku PKCS#12 z rozszerzeniem %1$s lub %2$s, który znajduje się w pamięci zewnętrznej."</string>
     <string name="allow_button" msgid="3030990695030371561">"Wybierz"</string>
     <string name="deny_button" msgid="3766539809121892584">"Odmów"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Wczytuję certyfikaty…"</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"Aplikacja %s sprawdza dostępność certifikatu…"</string>
 </resources>

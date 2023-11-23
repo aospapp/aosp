@@ -16,13 +16,14 @@
 
 package android.net.dhcp;
 
-import android.net.util.FdEventsReader;
 import android.os.Handler;
 import android.system.Os;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import com.android.net.module.util.FdEventsReader;
 
 import java.io.FileDescriptor;
 import java.net.Inet4Address;

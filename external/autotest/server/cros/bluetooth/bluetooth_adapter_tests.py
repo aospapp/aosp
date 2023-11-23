@@ -1,54 +1,130 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Server side bluetooth adapter subtests."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from datetime import datetime, timedelta
 import errno
 import functools
-import httplib
+import six.moves.http_client
 import inspect
 import logging
+import multiprocessing
 import os
 import re
-from socket import error as SocketError
+import socket
+import threading
 import time
 
-import bluetooth_test_utils
-
+import common
 from autotest_lib.client.bin import utils
 from autotest_lib.client.bin.input import input_event_recorder as recorder
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros.bluetooth import bluetooth_socket
 from autotest_lib.client.cros.chameleon import chameleon
+from autotest_lib.server.cros.bluetooth import bluetooth_peer_update
+from autotest_lib.server.cros.bluetooth import bluetooth_test_utils
 from autotest_lib.server import test
 
 from autotest_lib.client.bin.input.linux_input import (
-        BTN_LEFT, BTN_RIGHT, EV_KEY, EV_REL, REL_X, REL_Y, REL_WHEEL)
+        BTN_LEFT, BTN_RIGHT, EV_KEY, EV_REL, REL_X, REL_Y, REL_WHEEL,
+        REL_WHEEL_HI_RES, KEY_PLAYCD, KEY_PAUSECD, KEY_STOPCD, KEY_NEXTSONG,
+        KEY_PREVIOUSSONG)
 from autotest_lib.server.cros.bluetooth.bluetooth_gatt_client_utils import (
         GATT_ClientFacade, GATT_Application, GATT_HIDApplication)
 from autotest_lib.server.cros.multimedia import remote_facade_factory
+import six
+from six.moves import map
+from six.moves import range
+from six.moves import zip
 
 
 Event = recorder.Event
+
+CHIPSET_TO_VIDPID = { 'BRCM-4354':[('0x002d','0x4354')],
+                      'MVL-8897':[('0x02df','0x912d')],
+                      'MVL-8997':[('0x1b4b','0x2b42')],
+                      'QCA-9462': [('0x168c', '0x0034')],
+                      'QCA-6174A-5':[('0x168c','0x003e')],
+                      'QCA-6174A-3':[('0x271','0x050a')],   # UART
+                      'Intel-AX200':[('0x8086', '0x2723')], # CcP2
+                      'Intel-AX201':[('0x8086','0x02f0')],  # HrP2
+                      'Intel-AC9260':[('0x8086','0x2526')], # ThP2
+                      'Intel-AC9560':[('0x8086','0x31dc'),  # JfP2
+                                      ('0x8086','0x9df0')],
+                      'Intel-AC7260':[('0x8086','0x08b1'),  # WP2
+                                      ('0x8086','0x08b2')],
+                      'Intel-AC7265':[('0x8086','0x095a'),  # StP2
+                                      ('0x8086','0x095b')],
+                      'Realtek-RTL8822C-USB':[('0x10ec','0xc822')] }
+
+# We have a number of chipsets that are no longer supported. Known issues
+# related to firmware will be ignored on these devices (b/169328792).
+UNSUPPORTED_CHIPSETS = [
+        'BRCM-4354', 'MVL-8897', 'MVL-8997', 'Intel-AC7260', 'Intel-AC7265'
+]
 
 # Location of data traces relative to this (bluetooth_adapter_tests.py) file
 BT_ADAPTER_TEST_PATH = os.path.dirname(__file__)
 TRACE_LOCATION = os.path.join(BT_ADAPTER_TEST_PATH, 'input_traces/keyboard')
 
+RESUME_DELTA = -5
+
 # Delay binding the methods since host is only available at run time.
 SUPPORTED_DEVICE_TYPES = {
-    'MOUSE': lambda chameleon: chameleon.get_bluetooth_hid_mouse,
-    'KEYBOARD': lambda chameleon: chameleon.get_bluetooth_hid_keyboard,
-    'BLE_MOUSE': lambda chameleon: chameleon.get_ble_mouse,
-    'BLE_KEYBOARD': lambda chameleon: chameleon.get_ble_keyboard,
-    'A2DP_SINK': lambda chameleon: chameleon.get_bluetooth_a2dp_sink,
-
+    'MOUSE': lambda btpeer: btpeer.get_bluetooth_hid_mouse,
+    'KEYBOARD': lambda btpeer: btpeer.get_bluetooth_hid_keyboard,
+    'BLE_MOUSE': lambda btpeer: btpeer.get_ble_mouse,
+    'BLE_KEYBOARD': lambda btpeer: btpeer.get_ble_keyboard,
+    # Tester allows us to test DUT's discoverability, etc. from a peer
+    'BLUETOOTH_TESTER': lambda btpeer: btpeer.get_bluetooth_tester,
     # This is a base object that does not emulate any Bluetooth device.
     # This object is preferred when only a pure XMLRPC server is needed
+    # on the btpeer host, e.g., to perform servod methods.
+    'BLUETOOTH_BASE': lambda btpeer: btpeer.get_bluetooth_base,
     # on the chameleon host, e.g., to perform servod methods.
     'BLUETOOTH_BASE': lambda chameleon: chameleon.get_bluetooth_base,
+    # A phone device that supports Bluetooth
+    'BLE_PHONE': lambda chameleon: chameleon.get_ble_phone,
+    # A Bluetooth audio device emulating a headphone
+    'BLUETOOTH_AUDIO': lambda chameleon: chameleon.get_bluetooth_audio,
 }
+
+COMMON_FAILURES = {
+        'Freeing adapter /org/bluez/hci': 'adapter_freed',
+        '/var/spool/crash/bluetoothd': 'bluetoothd_crashed',
+}
+
+# TODO(b/150898182) - Don't run some tests on tablet form factors
+# This list was generated by looking for tablet models on Goldeneye and removing
+# the ones that were not launched
+TABLET_MODELS = ['kakadu', 'kodama', 'krane', 'dru', 'druwl', 'dumo']
+
+# TODO(b/161005264) - Some tests rely on software rotation to pass, so we must
+# know which models don't use software rotation. Use a static list until we can
+# query the bluez API instead. Extended advertising is supported on platforms
+# on 4.19 and 5.4, with HrP2, JfP2, CcP2, RTL8822C, or QCN3991 chipsets.
+EXT_ADV_MODELS = ['ezkinil', 'trembyle', 'drawcia', 'drawlat', 'drawman',
+                  'maglia', 'magolor', 'sarien', 'arcada', 'akemi',
+                  'drallion', 'drallion360', 'hatch', 'stryke', 'helios',
+                  'dragonair', 'dratini', 'duffy', 'jinlon', 'kaisa',
+                  'kindred', 'kled', 'puff', 'kohaku', 'nightfury', 'morphius',
+                  'lazor', 'trogdor']
+
+# TODO(b/158336394) Realtek: Powers down during suspend due to high power usage
+#                            during S3.
+# TODO(b/168152910) Marvell: Powers down during suspend due to flakiness when
+#                            entering suspend.  This will also skip the tests
+#                            for Veyron (which don't power down right now) but
+#                            reconnect tests are still enabled for that platform
+#                            to check for suspend stability.
+SUSPEND_POWER_DOWN_CHIPSETS = ['Realtek-RTL8822C-USB', 'MVL-8897', 'MVL-8997']
 
 
 def method_name():
@@ -86,10 +162,10 @@ def _run_method(method, method_name, *args, **kwargs):
     return result
 
 
-def get_bluetooth_emulated_device(chameleon, device_type):
+def get_bluetooth_emulated_device(btpeer, device_type):
     """Get the bluetooth emulated device object.
 
-    @param chameleon: the chameleon host
+    @param btpeer: the Bluetooth peer device
     @param device_type : the bluetooth device type, e.g., 'MOUSE'
 
     @returns: the bluetooth device object
@@ -118,7 +194,7 @@ def get_bluetooth_emulated_device(chameleon, device_type):
         step and retry the device method. The remediation steps are
          1) re-creating the serial device.
          2) reset (powercycle) the bluetooth dongle.
-         3) reboot chameleond host.
+         3) reboot Bluetooth peer.
         If the device method still fails after these steps, we fail the test
 
         The default values exist for uses of this function before the options
@@ -148,7 +224,7 @@ def get_bluetooth_emulated_device(chameleon, device_type):
 
             logging.error('%s failed the %s time. Attempting to %s',
                           method_name,i,description)
-            if not fix_serial_device(chameleon, device, action):
+            if not fix_serial_device(btpeer, device, action):
                 logging.info('%s failed', description)
             else:
                 logging.info('%s successful', description)
@@ -167,10 +243,10 @@ def get_bluetooth_emulated_device(chameleon, device_type):
                               device_type)
 
     # Get the bluetooth device object and query some important properties.
-    device = SUPPORTED_DEVICE_TYPES[device_type](chameleon)()
+    device = SUPPORTED_DEVICE_TYPES[device_type](btpeer)()
 
     # Get some properties of the kit
-    # NOTE: Strings updated here must be kept in sync with Chameleon.
+    # NOTE: Strings updated here must be kept in sync with Btpeer.
     device._capabilities = _retry_device_method('GetCapabilities')
     device._transports = device._capabilities["CAP_TRANSPORTS"]
     device._is_le_only = ("TRANSPORT_LE" in device._transports and
@@ -197,27 +273,27 @@ def get_bluetooth_emulated_device(chameleon, device_type):
     device.class_of_service = _retry_device_method('GetClassOfService',
                                                    class_falsy_values)
     if device._is_le_only:
-      parsed_class_of_service = device.class_of_service
+        parsed_class_of_service = device.class_of_service
     else:
-      parsed_class_of_service = "0x%04X" % device.class_of_service
+        parsed_class_of_service = "0x%04X" % device.class_of_service
     logging.info('class of service: %s', parsed_class_of_service)
 
     device.class_of_device = _retry_device_method('GetClassOfDevice',
                                                   class_falsy_values)
     # Class of device is None for LE-only devices. Don't fail or parse it.
     if device._is_le_only:
-      parsed_class_of_device = device.class_of_device
+        parsed_class_of_device = device.class_of_device
     else:
-      parsed_class_of_device = "0x%04X" % device.class_of_device
+        parsed_class_of_device = "0x%04X" % device.class_of_device
     logging.info('class of device: %s', parsed_class_of_device)
 
-    device.device_type = _retry_device_method('GetHIDDeviceType')
+    device.device_type = _retry_device_method('GetDeviceType')
     logging.info('device type: %s', device.device_type)
 
     device.authentication_mode = None
     if not device._is_le_only:
-      device.authentication_mode = _retry_device_method('GetAuthenticationMode')
-      logging.info('authentication mode: %s', device.authentication_mode)
+        device.authentication_mode = _retry_device_method('GetAuthenticationMode')
+        logging.info('authentication mode: %s', device.authentication_mode)
 
     device.port = _retry_device_method('GetPort')
     logging.info('serial port: %s\n', device.port)
@@ -264,8 +340,8 @@ def _check_device_init(device, operation):
     logging.info('The device is created successfully after %s.', operation)
     return True
 
-def _reboot_chameleon(chameleon, device):
-    """ Reboot chameleond host
+def _reboot_btpeer(btpeer, device):
+    """ Reboot Bluetooth peer device.
 
     Also power cycle the device since reboot may not do that.."""
 
@@ -279,11 +355,11 @@ def _reboot_chameleon(chameleon, device):
     logging.info("Powercycling the device")
     device.PowerCycle()
     time.sleep(RESET_SLEEP_SECS)
-    logging.info('rebooting chameleon...')
-    chameleon.reboot()
+    logging.info('rebooting Bluetooth peer...')
+    btpeer.reboot()
 
-    # Every chameleon reboot would take a bit more than REBOOT_SLEEP_SECS.
-    # Sleep REBOOT_SLEEP_SECS and then begin probing the chameleon board.
+    # Every btpeer reboot would take a bit more than REBOOT_SLEEP_SECS.
+    # Sleep REBOOT_SLEEP_SECS and then begin probing the btpeer board.
     time.sleep(REBOOT_SLEEP_SECS)
     return _check_device_init(device, 'reboot')
 
@@ -320,21 +396,37 @@ def _is_successful(result, legal_falsy_values=[]):
     return truthiness_of_result or result in legal_falsy_values
 
 
-def fix_serial_device(chameleon, device, operation='reset'):
+def _flag_common_failures(instance):
+    """Checks if a common failure has occurred during the test run
+
+    Scans system logs for known signs of failure. If a failure is discovered,
+    it is added to the test results, to make it easier to identify common root
+    causes from Stainless
+    """
+
+    for fail_tag, fail_log in COMMON_FAILURES.items():
+        if instance.bluetooth_facade.messages_find(fail_tag):
+            logging.error('Detected failure tag: %s', fail_tag)
+            # We mark this instance's results with the discovered failure
+            if type(instance.results) is dict:
+                instance.results[fail_log] = True
+
+
+def fix_serial_device(btpeer, device, operation='reset'):
     """Fix the serial device.
 
     This function tries to fix the serial device by
     (1) re-creating a serial device, or
     (2) power cycling the usb port to which device is connected
-    (3) rebooting the chameleon board.
+    (3) rebooting the Bluetooth peeer
 
     Argument operation determine which of the steps above are perform
 
-    Note that rebooting the chameleon board or reseting the device will remove
+    Note that rebooting the btpeer board or resetting the device will remove
     the state on the peripheral which might cause test failures. Please use
     reset/reboot only before or after a test.
 
-    @param chameleon: the chameleon host
+    @param btpeer: the Bluetooth peer
     @param device: the bluetooth device.
     @param operation: Recovery operation to perform 'recreate/reset/reboot'
 
@@ -363,9 +455,9 @@ def fix_serial_device(chameleon, device, operation='reset'):
         return _reset_device_power(device)
 
     elif operation == 'reboot':
-        # Reboot the chameleon host.
-        # The device is power cycled before rebooting chameleon host
-        return _reboot_chameleon(chameleon, device)
+        # Reboot the Bluetooth peer device.
+        # The device is power cycled before rebooting Bluetooth peer device
+        return _reboot_btpeer(btpeer, device)
 
     else:
         logging.error('fix_serial_device Invalid operation %s', operation)
@@ -398,13 +490,13 @@ def retry(test_method, instance, *args, **kwargs):
     time.sleep(1)
 
 
-    if not hasattr(instance, 'use_chameleon'):
+    if not hasattr(instance, 'use_btpeer'):
         return _is_successful(_run_method(test_method, test_method.__name__,
                                           instance, *args, **kwargs))
     for device_type in SUPPORTED_DEVICE_TYPES:
         for device in getattr(instance, 'devices')[device_type]:
-            #fix_serial_device in 'recreate' mode doesn't require chameleon
-            #so just pass None for convinent.
+            #fix_serial_device in 'recreate' mode doesn't require btpeer
+            #so just pass None for convenient.
             if not fix_serial_device(None, device, "recreate"):
                 return False
 
@@ -413,7 +505,9 @@ def retry(test_method, instance, *args, **kwargs):
                                       instance, *args, **kwargs))
 
 
-def _test_retry_and_log(test_method_or_retry_flag):
+def test_retry_and_log(test_method_or_retry_flag,
+                       messages_start=True,
+                       messages_stop=True):
     """A decorator that logs test results, collects error messages, and retries
        on request.
 
@@ -421,13 +515,17 @@ def _test_retry_and_log(test_method_or_retry_flag):
         There are some possibilities of this argument:
         1. the test_method to conduct and retry: should retry the test_method.
             This occurs with
-            @_test_retry_and_log
+            @test_retry_and_log
         2. the retry flag is True. Should retry the test_method.
             This occurs with
-            @_test_retry_and_log(True)
+            @test_retry_and_log(True)
         3. the retry flag is False. Do not retry the test_method.
             This occurs with
-            @_test_retry_and_log(False)
+            @test_retry_and_log(False)
+
+    @param messages_start: Start collecting messages before running the test
+    @param messages_stop: Stop collecting messages after running the test and
+                          analyze the results.
 
     @returns: a wrapper of the test_method with test log. The retry mechanism
         would depend on the retry flag.
@@ -452,28 +550,72 @@ def _test_retry_and_log(test_method_or_retry_flag):
 
             """
             instance.results = None
-            if callable(test_method_or_retry_flag) or test_method_or_retry_flag:
-                test_result = retry(test_method, instance, *args, **kwargs)
-            else:
-                test_result = test_method(instance, *args, **kwargs)
+            fail_msg = None
+            test_result = False
+            should_raise = hasattr(instance, 'fail_fast') and instance.fail_fast
 
-            if test_result:
-                logging.info('[*** passed: %s]', test_method.__name__)
-            else:
-                fail_msg = '[--- failed: %s (%s)]' % (test_method.__name__,
-                                                      str(instance.results))
+            instance.last_test_method = test_method.__name__
+            syslog_captured = False
+
+            try:
+                if messages_start:
+                    # Grab /var/log/messages output during test run
+                    instance.bluetooth_facade.messages_start()
+
+                if callable(test_method_or_retry_flag
+                            ) or test_method_or_retry_flag:
+                    test_result = retry(test_method, instance, *args, **kwargs)
+                else:
+                    test_result = test_method(instance, *args, **kwargs)
+
+                if messages_stop:
+                    syslog_captured = instance.bluetooth_facade.messages_stop()
+
+                if test_result:
+                    logging.info('[*** passed: {}]'.format(
+                            test_method.__name__))
+                else:
+                    if syslog_captured:
+                        _flag_common_failures(instance)
+                    fail_msg = '[--- failed: {} ({})]'.format(
+                            test_method.__name__, str(instance.results))
+                    logging.error(fail_msg)
+                    instance.fails.append(fail_msg)
+            # Log TestError and TestNA and let the quicktest wrapper catch it.
+            # Those errors should skip out of the testcase entirely.
+            except error.TestNAError as e:
+                fail_msg = '[--- TESTNA {} ({})]'.format(
+                        test_method.__name__, str(e))
+                logging.error(fail_msg)
+                raise
+            except error.TestError as e:
+                fail_msg = '[--- ERROR {} ({})]'.format(
+                        test_method.__name__, str(e))
+                logging.error(fail_msg)
+                raise
+            except error.TestFail as e:
+                fail_msg = '[--- failed {} ({})]'.format(
+                        test_method.__name__, str(e))
                 logging.error(fail_msg)
                 instance.fails.append(fail_msg)
+                should_raise = True
+
+            # Check whether we should fail fast
+            if fail_msg and should_raise:
+                logging.info('Fail fast')
+                raise error.TestFail(instance.fails)
+
             return test_result
+
         return wrapper
 
     if callable(test_method_or_retry_flag):
         # If the decorator function comes with no argument like
-        # @_test_retry_and_log
+        # @test_retry_and_log
         return decorator(test_method_or_retry_flag)
     else:
         # If the decorator function comes with an argument like
-        # @_test_retry_and_log(False)
+        # @test_retry_and_log(False)
         return decorator
 
 
@@ -512,11 +654,14 @@ class BluetoothAdapterTests(test.test):
     ADAPTER_ACTION_SLEEP_SECS = 1
     ADAPTER_PAIRING_TIMEOUT_SECS = 60
     ADAPTER_CONNECTION_TIMEOUT_SECS = 30
+    # Wait after connect for input device to be ready for use
+    ADAPTER_HID_INPUT_DELAY = 5
     ADAPTER_DISCONNECTION_TIMEOUT_SECS = 30
     ADAPTER_PAIRING_POLLING_SLEEP_SECS = 3
     ADAPTER_DISCOVER_TIMEOUT_SECS = 60          # 30 seconds too short sometimes
     ADAPTER_DISCOVER_POLLING_SLEEP_SECS = 1
     ADAPTER_DISCOVER_NAME_TIMEOUT_SECS = 30
+    ADAPTER_WAKE_ENABLE_TIMEOUT_SECS = 30
 
     ADAPTER_WAIT_DEFAULT_TIMEOUT_SECS = 10
     ADAPTER_POLLING_DEFAULT_SLEEP_SECS = 1
@@ -531,6 +676,12 @@ class BluetoothAdapterTests(test.test):
 
     # Default suspend time in seconds for suspend resume.
     SUSPEND_TIME_SECS=10
+    SUSPEND_ENTER_SECS=10
+    RESUME_TIME_SECS=30
+    RESUME_INTERNAL_TIMEOUT_SECS = 180
+
+    # Minimum RSSI required for peer devices during testing
+    MIN_RSSI = -70
 
     # hci0 is the default hci device if there is no external bluetooth dongle.
     EXPECTED_HCI = 'hci0'
@@ -539,19 +690,18 @@ class BluetoothAdapterTests(test.test):
     CLASS_OF_DEVICE_MASK = 0x001FFF
 
     # Constants about advertising.
-    DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS = 1280
-    DAFAULT_MAX_ADVERTISEMENT_INTERVAL_MS = 1280
+    DAFAULT_MIN_ADVERTISEMENT_INTERVAL_MS = 181.25
+    DAFAULT_MAX_ADVERTISEMENT_INTERVAL_MS = 181.25
     ADVERTISING_INTERVAL_UNIT = 0.625
 
     # Error messages about advertising dbus methods.
     ERROR_FAILED_TO_REGISTER_ADVERTISEMENT = (
-            'org.bluez.Error.Failed: Failed to register advertisement')
+            'org.bluez.Error.NotPermitted: Maximum advertisements reached')
     ERROR_INVALID_ADVERTISING_INTERVALS = (
             'org.bluez.Error.InvalidArguments: Invalid arguments')
 
     # Supported profiles by chrome os.
     SUPPORTED_UUIDS = {
-            'HSP_AG_UUID': '00001112-0000-1000-8000-00805f9b34fb',
             'GATT_UUID': '00001801-0000-1000-8000-00805f9b34fb',
             'A2DP_SOURCE_UUID': '0000110a-0000-1000-8000-00805f9b34fb',
             'HFP_AG_UUID': '0000111f-0000-1000-8000-00805f9b34fb',
@@ -559,46 +709,100 @@ class BluetoothAdapterTests(test.test):
             'GAP_UUID': '00001800-0000-1000-8000-00805f9b34fb'}
 
     # Board list for name/ID test check. These devices don't need to be tested
-    REFERENCE_BOARDS = ['rambi', 'nyan', 'oak', 'reef', 'yorp', 'bip']
+    REFERENCE_BOARDS = [
+            'rambi', 'nyan', 'oak', 'reef', 'yorp', 'bip', 'volteer',
+            'volteer2'
+    ]
 
     # Path for btmon logs
     BTMON_DIR_LOG_PATH = '/var/log/btmon'
 
-    def group_chameleons_type(self):
-        """Group all chameleons by the type of their detected device."""
+    # Path for usbmon logs
+    USBMON_DIR_LOG_PATH = '/var/log/usbmon'
 
-        # Use previously created chameleon_group instead of creating new
-        if len(self.chameleon_group_copy) > 0:
-            logging.info('Using previously created chameleon group')
+    # The agent capability of various device types.
+    AGENT_CAPABILITY = {
+            'BLUETOOTH_AUDIO': 'NoInputNoOutput',
+    }
+
+    def assert_on_fail(self, result, raiseNA=False):
+        """ If the called function returns a false-like value, raise an error.
+
+        Call test methods (i.e. with @test_retry_and_log) wrapped with this
+        function and failures will raise instead of continuing the test.
+
+        For example:
+            self.assert_on_fail(self.test_pairing(...))
+
+        @param result: Result of test method called.
+        @param raiseNA: Whether to raise TestNAError instead of TestFail
+
+        @raises error.TestNAError
+        @raises error.TestFail
+        """
+        if not result:
+            failure_msg = 'Assert on fail: {}'.format(self.last_test_method)
+            logging.error(failure_msg)
+            if raiseNA:
+                raise error.TestNAError(failure_msg)
+            else:
+                raise error.TestFail(failure_msg)
+
+
+    # TODO(b/131170539) remove when sarien/arcada no longer have _signed
+    # postfix
+    def get_base_platform_name(self):
+        """Returns the DUT platform name
+
+        If the DUT is a DVT device, _signed or _unsigned may be appended
+            to the device name, which we should ignore in our BT tests
+
+        @returns: String name of the DUT's platform with _signed or
+                _unsigned removed
+        """
+
+        platform = self.host.get_platform()
+
+        return platform.replace('_signed', '').replace('_unsigned', '')
+
+
+    def group_btpeers_type(self):
+        """Group all Bluetooth peers by the type of their detected device."""
+
+        # Use previously created btpeer_group instead of creating new
+        if len(self.btpeer_group_copy) > 0:
+            logging.info('Using previously created btpeer group')
             for device_type in SUPPORTED_DEVICE_TYPES:
-                self.chameleon_group[device_type] = \
-                    self.chameleon_group_copy[device_type][:]
+                self.btpeer_group[device_type] = \
+                    self.btpeer_group_copy[device_type][:]
             return
 
-        # Create new chameleon_group
+        # Create new btpeer_group
         for device_type in SUPPORTED_DEVICE_TYPES:
-            self.chameleon_group[device_type] = list()
-            # Create copy of chameleon_group
-            self.chameleon_group_copy[device_type] = list()
+            self.btpeer_group[device_type] = list()
+            # Create copy of btpeer_group
+            self.btpeer_group_copy[device_type] = list()
 
-        for idx,chameleon in enumerate(self.host.chameleon_list):
+        for idx, btpeer in enumerate(self.host.btpeer_list):
             for device_type,gen_device_func in SUPPORTED_DEVICE_TYPES.items():
                 try:
-                    device = gen_device_func(chameleon)()
+                    device = gen_device_func(btpeer)()
                     if device.CheckSerialConnection():
-                        self.chameleon_group[device_type].append(chameleon)
-                        logging.info('%d-th chameleon find device %s', \
+                        self.btpeer_group[device_type].append(btpeer)
+                        logging.info('%d-th btpeer find device %s', \
                                      idx, device_type)
-                        # Create copy of chameleon_group
-                        self.chameleon_group_copy[device_type].append(chameleon)
+                        # Create copy of btpeer_group
+                        self.btpeer_group_copy[device_type].append(btpeer)
                 except:
                     logging.debug('Error with initializing %s on %d-th'
-                                  'chameleon', device_type, idx)
-            if len(self.chameleon_group[device_type]) == 0:
-                logging.error('No device is detected on %d-th chameleon', idx)
+                                  'btpeer', device_type, idx)
+            if len(self.btpeer_group[device_type]) == 0:
+                logging.error('No device is detected on %d-th btpeer', idx)
+
+        logging.debug("self.bt_group is %s",self.btpeer_group)
 
 
-    def wait_for_device(self, device):
+    def wait_for_device(self, device, timeout=10):
         """Waits for device to become available again
 
         We reset raspberry pi peer between tests. This method helps us wait to
@@ -628,14 +832,15 @@ class BluetoothAdapterTests(test.test):
 
         try:
             utils.poll_for_condition(condition=is_device_ready,
-                                     desc='wait_for_device')
+                                     desc='wait_for_device',
+                                     timeout=timeout)
 
         except utils.TimeoutError as e:
             raise error.TestError('Peer is not available after waiting')
 
 
     def clear_raspi_device(self, device):
-        """Clears a device on a raspi chameleon by resetting bluetooth stack
+        """Clears a device on a raspi peer by resetting bluetooth stack
 
         @param device: proxy object of peripheral device
         """
@@ -643,7 +848,7 @@ class BluetoothAdapterTests(test.test):
         try:
             device.ResetStack()
 
-        except SocketError as e:
+        except socket.error as e:
             # Ignore conn reset, expected during stack reset
             if e.errno != errno.ECONNRESET:
                 raise
@@ -653,7 +858,7 @@ class BluetoothAdapterTests(test.test):
             if str(errno.ECONNRESET) not in str(e):
                 raise
 
-        except httplib.BadStatusLine as e:
+        except six.moves.http_client.BadStatusLine as e:
             # BadStatusLine occurs occasionally when chameleon
             # is restarted. We ignore it here
             logging.error('Ignoring badstatusline exception')
@@ -662,18 +867,27 @@ class BluetoothAdapterTests(test.test):
         # Catch generic Fault exception by rpc server, ignore
         # method not available as it indicates platform didn't
         # support method and that's ok
-        except Exception, e:
+        except Exception as e:
             if not (e.__class__.__name__ == 'Fault' and
                 'is not supported' in str(e)):
                 raise
 
         # Ensure device is back online before continuing
-        self.wait_for_device(device)
+        self.wait_for_device(device, timeout=30)
 
+    def device_set_powered(self, device, powered):
+        """Set raspi BT powered state.
+
+        @param powered: Powered state to set on Raspi.
+        """
+        if powered:
+            device.AdapterPowerOn()
+        else:
+            device.AdapterPowerOff()
 
     def get_device_rasp(self, device_num, on_start=True):
-        """Get all bluetooth device objects from chameleons.
-        This method should be called only after group_chameleons_type
+        """Get all bluetooth device objects from Bluetooth peer devices
+        This method should be called only after group_btpeers_type
         @param device_num : dict of {device_type:number}, to specify the number
                             of device needed for each device_type.
 
@@ -683,39 +897,34 @@ class BluetoothAdapterTests(test.test):
         @returns: True if Success.
         """
 
+        logging.info("in get_device_rasp %s onstart %s", device_num, on_start)
+        total_num_devices = sum(device_num.values())
+        if total_num_devices > len(self.host.btpeer_list):
+            logging.error(
+                    'Total number of devices %s is greater than the'
+                    ' number of Bluetooth peers %s', total_num_devices,
+                    len(self.host.btpeer_list))
+            return False
+
         for device_type, number in device_num.items():
-            if len(self.chameleon_group[device_type]) < number:
-                logging.error('Number of chameleon with device type'
+            total_num_devices += number
+            if len(self.btpeer_group[device_type]) < number:
+                logging.error('Number of Bluetooth peers with device type'
                       '%s is %d, which is less then needed %d', device_type,
-                      len(self.chameleon_group[device_type]), number)
+                      len(self.btpeer_group[device_type]), number)
                 return False
 
-            for chameleon in self.chameleon_group[device_type][:number]:
-                device = get_bluetooth_emulated_device(chameleon, device_type)
-
-                # Re-fresh device to clean state if test is starting
-                if on_start:
-                    self.clear_raspi_device(device)
-
-                try:
-                    # Tell generic chameleon to bind to this device type
-                    device.SpecifyDeviceType(device_type)
-
-                # Catch generic Fault exception by rpc server, ignore method not
-                # available as it indicates platform didn't support method and
-                # that's ok
-                except Exception, e:
-                    if not (e.__class__.__name__ == 'Fault' and
-                        'is not supported' in str(e)):
-                        raise
+            for btpeer in self.btpeer_group[device_type][:number]:
+                logging.info("getting emulated %s", device_type)
+                device = self.reset_device(btpeer, device_type, on_start)
 
                 self.devices[device_type].append(device)
 
-                # Remove this chameleon from chameleon_group since it is already
+                # Remove this btpeer from btpeer_group since it is already
                 # configured as a specific device
                 for temp_device in SUPPORTED_DEVICE_TYPES:
-                    if chameleon in self.chameleon_group[temp_device]:
-                        self.chameleon_group[temp_device].remove(chameleon)
+                    if btpeer in self.btpeer_group[temp_device]:
+                        self.btpeer_group[temp_device].remove(btpeer)
 
         return True
 
@@ -731,37 +940,54 @@ class BluetoothAdapterTests(test.test):
         @returns: the bluetooth device object
 
         """
-        self.devices[device_type].append(get_bluetooth_emulated_device(\
-                                    self.host.chameleon, device_type))
 
-        # Re-fresh device to clean state if test is starting
-        if on_start:
-            self.clear_raspi_device(self.devices[device_type][-1])
-
-        try:
-            # Tell generic chameleon to bind to this device type
-            self.devices[device_type][-1].SpecifyDeviceType(device_type)
-
-        # Catch generic Fault exception by rpc server, ignore method not
-        # available as it indicates platform didn't support method and that's
-        # ok
-        except Exception, e:
-            if not (e.__class__.__name__ == 'Fault' and
-                'is not supported' in str(e)):
-                raise
+        self.devices[device_type].append(
+                self.reset_device(self.host.btpeer, device_type, on_start))
 
         return self.devices[device_type][-1]
 
 
-    def is_device_available(self, chameleon, device_type):
-        """Determines if the named device is available on the linked chameleon
+    def reset_device(self, peer, device_type, clear_device=True):
+        """Reset the peer device in order to be used as a different type.
+
+        @param peer: the peer device to reset with new device type
+        @param device_type : the new bluetooth device type, e.g., 'MOUSE'
+        @param clear_device: whether to clear the device state
+
+        @returns: the bluetooth device object
+
+        """
+        device = get_bluetooth_emulated_device(peer, device_type)
+
+        # Re-fresh device to clean state if test is starting
+        if clear_device:
+            self.clear_raspi_device(device)
+
+        try:
+            # Tell generic chameleon to bind to this device type
+            device.SpecifyDeviceType(device_type)
+
+        # Catch generic Fault exception by rpc server, ignore method not
+        # available as it indicates platform didn't support method and that's
+        # ok
+        except Exception as e:
+            if not (e.__class__.__name__ == 'Fault' and
+                    'is not supported' in str(e)):
+                logging.error("got exception %s", str(e))
+                raise
+
+        return device
+
+
+    def is_device_available(self, btpeer, device_type):
+        """Determines if the named device is available on the linked peer
 
         @param device_type: the bluetooth HID device type, e.g., 'MOUSE'
 
         @returns: True if it is able to resolve the device, false otherwise
         """
 
-        device = SUPPORTED_DEVICE_TYPES[device_type](chameleon)()
+        device = SUPPORTED_DEVICE_TYPES[device_type](btpeer)()
         try:
             # The proxy prevents us from checking if the object is None directly
             # so instead we call a fast method that any peripheral must support.
@@ -775,18 +1001,19 @@ class BluetoothAdapterTests(test.test):
 
 
     def list_devices_available(self):
-        """Queries which devices are available on chameleon/s
+        """Queries which devices are available on btpeer(s)
 
         @returns: dict mapping HID device types to number of supporting peers
                   available, e.g. {'MOUSE':1, 'KEYBOARD':1}
         """
         devices_available = {}
         for device_type in SUPPORTED_DEVICE_TYPES:
-            for chameleon in self.host.chameleon_list:
-                if self.is_device_available(chameleon, device_type):
+            for btpeer in self.host.btpeer_list:
+                if self.is_device_available(btpeer, device_type):
                     devices_available[device_type] = \
                         devices_available.get(device_type, 0) + 1
 
+        logging.debug("devices available are %s", devices_available)
         return devices_available
 
 
@@ -794,15 +1021,23 @@ class BluetoothAdapterTests(test.test):
         """Suspend the DUT for a while and then resume.
 
         @param suspend_time: the suspend time in secs
+        @raises errors.TestFail if the device reboots during suspend
 
         """
-        logging.info('The DUT suspends for %d seconds...', suspend_time)
-        try:
-            self.host.suspend(suspend_time=suspend_time)
-        except error.AutoservSuspendError:
-            logging.error('The DUT did not suspend for %d seconds', suspend_time)
-            pass
-        logging.info('The DUT is waken up.')
+        boot_id = self.host.get_boot_id()
+        suspend = self.suspend_async(suspend_time=suspend_time)
+        start_time = self.bluetooth_facade.get_device_time()
+
+        # Give the system some time to enter suspend
+        self.test_suspend_and_wait_for_sleep(
+                suspend, sleep_timeout=self.SUSPEND_ENTER_SECS)
+
+        # Wait for resume - since we're not testing suspend itself, we are
+        # lenient with the resume time here
+        self.test_wait_for_resume(boot_id,
+                                  suspend,
+                                  resume_timeout=suspend_time,
+                                  test_start_time=start_time)
 
 
     def reboot(self):
@@ -812,19 +1047,29 @@ class BluetoothAdapterTests(test.test):
         # We need to recreate the bluetooth_facade after a reboot.
         # Delete the proxy first so it won't delete the old one, which
         # invokes disconnection, after creating the new one.
-        del self.factory
-        del self.bluetooth_facade
-        del self.input_facade
-        self.factory = remote_facade_factory.RemoteFacadeFactory(self.host,
-                       disable_arc=True)
-        self.bluetooth_facade = self.factory.create_bluetooth_hid_facade()
+        if hasattr(self, 'factory'):
+            del self.factory
+        if hasattr(self, 'bluetooth_facade'):
+            del self.bluetooth_facade
+        if hasattr(self, 'input_facade'):
+            del self.input_facade
+        self.factory = remote_facade_factory.RemoteFacadeFactory(
+                self.host, disable_arc=True, no_chrome=not self.start_browser)
+        self.bluetooth_facade = self.factory.create_bluetooth_facade()
         self.input_facade = self.factory.create_input_facade()
 
         # Re-enable debugging verbose since Chrome will set it to
         # default(disable).
         self.enable_disable_debug_log(enable=True)
 
+        # Re-disable cellular
+        self.enable_disable_cellular(enable=False)
+
+        # Re-disable ui
+        self.enable_disable_ui(enable=False)
+
         self.start_new_btmon()
+        self.start_new_usbmon()
 
 
     def _wait_till_condition_holds(self, func, method_name,
@@ -928,9 +1173,177 @@ class BluetoothAdapterTests(test.test):
             instance.fails = original_fails
         return test_result
 
+
+    def start_agent(self, device):
+        """Start the pairing agent of the device if applicable.
+
+        @param device: the peer device
+        """
+        dev_type = device.GetDeviceType()
+        capability = self.AGENT_CAPABILITY.get(dev_type)
+        if capability:
+            device.StartPairingAgent(capability)
+
+
+    def stop_agent(self, device):
+        """Stop the pairing agent of the device if applicable.
+
+        @param device: the peer device
+        """
+        dev_type = device.GetDeviceType()
+        capability = self.AGENT_CAPABILITY.get(dev_type)
+        if capability:
+            device.StopPairingAgent()
+
+
     # -------------------------------------------------------------------
     # Adater standalone tests
     # -------------------------------------------------------------------
+
+
+    def service_exists(self, service_name):
+        """Checks if a service exists on the DUT
+
+        @param service_name: name of the service
+
+        @returns: True if service status can be queried, else False
+        """
+
+        status_cmd = 'initctl status {}'.format(service_name)
+        try:
+            # Querying the status of a non-existent service throws an
+            # AutoservRunError exception.  If no exception is thrown, we know
+            # the service exists
+            self.host.run(status_cmd)
+
+        except error.AutoservRunError:
+            return False
+
+        return True
+
+
+    def service_enabled(self, service_name):
+        """Checks if a service is running on the DUT
+
+        @param service_name: name of the service
+
+        @throws: AutoservRunError is thrown if there is no service with the
+                provided name installed on the DUT.
+
+        @returns: True if service is currently running, else False
+        """
+
+        status_cmd = 'initctl status {}'.format(service_name)
+        output = self.host.run(status_cmd).stdout
+
+        return 'start/running' in output
+
+
+    def _initctl_services(self, services, command):
+        """Use initctl to control service on the DUT
+
+        @param services: list of string service names
+        @param command: initctl command on the services
+                        'start': to start the service
+                        'stop': to stop the service
+                        'restart': to restart the service
+
+        @returns: True if services were set successfully, else False
+        """
+        for service in services:
+            # Some platforms will not support all services. In these cases,
+            # no need to fail, since they won't interfere with our tests
+            if not self.service_exists(service):
+                logging.debug('Service %s does not exist on DUT', service)
+                continue
+
+            # A sample call to enable or disable a service is as follows:
+            # "initctl stop modemfwd"
+            if command in ['start', 'stop']:
+                enable = command == 'start'
+                if self.service_enabled(service) != enable:
+                    self.host.run('initctl {} {}'.format(command, service))
+
+                if self.service_enabled(service) != enable:
+                    logging.error('Failed to set initctl service to state %d',
+                                  enable)
+                    return False
+
+                if enable:
+                    logging.info('Service {} enabled'.format(service))
+                else:
+                    logging.info('Service {} disabled'.format(service))
+
+            elif command == 'restart':
+                if self.service_enabled(service):
+                    self.host.run('initctl {} {}'.format(command, service))
+                else:
+                    # Just start a stopped job.
+                    self.host.run('initctl {} {}'.format('start', service))
+                logging.info('Service {} restarted'.format(service))
+
+            else:
+                logging.error('unknown command {} on services {}'.format(
+                              command, services))
+                return False
+
+        return True
+
+
+    def enable_disable_services(self, services, enable):
+        """Enable or disable service on the DUT
+
+        @param services: list of string service names
+        @param enable: True to enable services, False to disable
+
+        @returns: True if services were set successfully, else False
+        """
+        command = 'start' if enable else 'stop'
+        return self._initctl_services(services, command)
+
+
+    def enable_disable_cellular(self, enable):
+        """Enable cellular services on the DUT
+
+        @param enable: True to enable cellular services
+                       False to disable cellular services
+
+        @returns: True if services were set successfully, else False
+        """
+        cellular_services = ['modemmanager', 'modemfwd']
+
+        return self.enable_disable_services(cellular_services, enable)
+
+
+    def enable_disable_ui(self, enable):
+        """Enable UI service on the DUT
+
+        @param enable: True to enable UI services
+                       False to disable UI services
+
+        @returns: True if services were set successfully, else False
+        """
+        ui_services = ['ui']
+
+        return self.enable_disable_services(ui_services, enable)
+
+
+    def restart_services(self, services):
+        """Restart a service on the DUT
+
+        @param services: the services, e.g., ['cras',]
+
+        @returns: True if services were set successfully, else False
+        """
+        return self._initctl_services(services, 'restart')
+
+
+    def restart_cras(self):
+        """Restart the cras service on the DUT
+
+        @returns: True if cras was restart successfully, else False
+        """
+        return self.restart_services(['cras', ])
 
 
     def enable_disable_debug_log(self, enable):
@@ -957,38 +1370,78 @@ class BluetoothAdapterTests(test.test):
         self.host.run_background('btmon -SAw %s/%s' % (self.BTMON_DIR_LOG_PATH,
                                                        file_name))
 
+    def start_new_usbmon(self):
+        """ Start a new USBMON process and save the log """
+
+        # Kill all usbmon process before creating a new one
+        self.host.run('pkill tcpdump || true')
+
+        # Make sure the directory exists
+        self.host.run('mkdir -p %s' % self.USBMON_DIR_LOG_PATH)
+
+        # Time format. Ex, 2020_02_20_17_52_45
+        now = time.strftime("%Y_%m_%d_%H_%M_%S")
+        file_name = 'usbmon_%s' % now
+        self.host.run_background('tcpdump -i usbmon0 -w %s/%s' %
+                                 (self.USBMON_DIR_LOG_PATH, file_name))
+
 
     def log_message(self, msg):
         """ Write a string to log."""
         self.bluetooth_facade.log_message(msg)
 
+    def is_wrt_supported(self):
+        """ Check if Bluetooth adapter support WRT logs. """
+        return self.bluetooth_facade.is_wrt_supported()
 
-    @_test_retry_and_log
+    def enable_wrt_logs(self):
+        """ Enable WRT logs from Intel Adapters."""
+        return self.bluetooth_facade.enable_wrt_logs()
+
+    def collect_wrt_logs(self):
+        """ Collect WRT logs from Intel Adapters."""
+        return self.bluetooth_facade.collect_wrt_logs()
+
+    def get_num_connected_devices(self):
+        """ Return number of remote devices currently connected to the DUT.
+
+        @returns: The number of devices known to bluez with the Connected
+            property active
+        """
+
+        num_connected_devices = 0
+        for dev in self.bluetooth_facade.get_devices():
+            if dev and dev.get('Connected', 0):
+                num_connected_devices += 1
+
+        return num_connected_devices
+
+    @test_retry_and_log
     def test_bluetoothd_running(self):
         """Test that bluetoothd is running."""
         return self.bluetooth_facade.is_bluetoothd_running()
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_start_bluetoothd(self):
         """Test that bluetoothd could be started successfully."""
         return self.bluetooth_facade.start_bluetoothd()
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_stop_bluetoothd(self):
         """Test that bluetoothd could be stopped successfully."""
         return self.bluetooth_facade.stop_bluetoothd()
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_has_adapter(self):
         """Verify that there is an adapter. This will return True only if both
         the kernel and bluetooth daemon see the adapter.
         """
         return self.bluetooth_facade.has_adapter()
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_adapter_work_state(self):
         """Test that the bluetooth adapter is in the correct working state.
 
@@ -1005,8 +1458,47 @@ class BluetoothAdapterTests(test.test):
                 'hci': hci}
         return all(self.results.values())
 
+    @test_retry_and_log(False)
+    def test_adapter_wake_enabled(self):
+        """Test that the bluetooth adapter is wakeup enabled.
+        """
+        wake_enabled = self._wait_for_condition(
+                self.bluetooth_facade.is_wake_enabled, method_name(),
+                timeout=self.ADAPTER_WAKE_ENABLE_TIMEOUT_SECS)
 
-    @_test_retry_and_log
+        self.results = { 'wake_enabled': wake_enabled }
+        return any(self.results.values())
+
+    @test_retry_and_log(False)
+    def test_device_wake_allowed(self, device_address):
+        """Test that given device can wake the system."""
+        self.results = {
+                'Wake allowed':
+                self.bluetooth_facade.get_device_property(
+                        device_address, 'WakeAllowed')
+        }
+
+        return all(self.results.values())
+
+    @test_retry_and_log(False)
+    def test_device_wake_not_allowed(self, device_address):
+        """Test that given device cannot wake the system."""
+        self.results = {
+                'Wake not allowed':
+                not self.bluetooth_facade.get_device_property(
+                        device_address, 'WakeAllowed')
+        }
+
+        return all(self.results.values())
+
+    @test_retry_and_log(False)
+    def test_adapter_set_wake_disabled(self):
+        """Disable wake and verify it was written. """
+        success = self.bluetooth_facade.set_wake_enabled(False)
+        self.results = { 'disable_wake': success }
+        return all(self.results.values())
+
+    @test_retry_and_log
     def test_power_on_adapter(self):
         """Test that the adapter could be powered on successfully."""
         power_on = self.bluetooth_facade.set_powered(True)
@@ -1017,7 +1509,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_power_off_adapter(self):
         """Test that the adapter could be powered off successfully."""
         power_off = self.bluetooth_facade.set_powered(False)
@@ -1031,7 +1523,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_reset_on_adapter(self):
         """Test that the adapter could be reset on successfully.
 
@@ -1046,7 +1538,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_reset_off_adapter(self):
         """Test that the adapter could be reset off successfully.
 
@@ -1064,7 +1556,64 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log
+    def test_is_powered_off(self):
+        """Check if the adapter is powered off."""
+        is_powered_off = not self.bluetooth_facade.is_powered_on()
+        self.results = {'is_powered_off': is_powered_off}
+        return all(self.results.values())
+
+
+    @test_retry_and_log(False)
+    def test_is_facade_valid(self):
+        """Checks whether the bluetooth facade is in a good state.
+
+        If bluetoothd restarts (i.e. due to a crash), the object proxies will no
+        longer be valid (because the session will be closed). Check whether the
+        session failed and wait for a new session if it did.
+        """
+        initially_ok = self.bluetooth_facade.is_bluetoothd_valid()
+        bluez_started = initially_ok or self.bluetooth_facade.start_bluetoothd()
+
+        self.results = {
+                'initially_ok': initially_ok,
+                'bluez_started': bluez_started
+        }
+        return all(self.results.values())
+
+
+    @test_retry_and_log(False)
+    def test_is_adapter_valid(self):
+        """Verify the bluetooth adapter is retrievable at test start
+
+        @raises: error.TestNAError if we fail to retrieve the adapter on
+                    an unsupported chipset
+                 error.TestFail if we fail to retrieve the adapter on any other
+                    platform
+
+        @returns: True if the adapter was located properly
+        """
+
+        if not self.bluetooth_facade.has_adapter():
+            logging.error('No adapter available, rebooting to recover')
+
+            self.reboot()
+
+            chipset = self.get_chipset_name()
+
+            if not chipset:
+                raise error.TestFail('Unknown adapter is missing')
+
+            # A missing adapter is a rare but known issue on several platforms
+            # that have no vendor support (b/169328792). Since there is no fix
+            # possible, we forgive these failures by raising a TestNA.
+            if chipset in UNSUPPORTED_CHIPSETS:
+                raise error.TestNAError('Unsupported adapter is missing')
+
+            raise error.TestFail('Adapter is missing')
+
+        return True
+
+    @test_retry_and_log
     def test_UUIDs(self):
         """Test that basic profiles are supported."""
         adapter_UUIDs = self.bluetooth_facade.get_UUIDs()
@@ -1073,7 +1622,7 @@ class BluetoothAdapterTests(test.test):
         return not bool(self.results)
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_start_discovery(self):
         """Test that the adapter could start discovery."""
         start_discovery, _ = self.bluetooth_facade.start_discovery()
@@ -1085,7 +1634,7 @@ class BluetoothAdapterTests(test.test):
                 'is_discovering': is_discovering}
         return all(self.results.values())
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_is_discovering(self):
         """Test that the adapter is already discovering."""
         is_discovering = self._wait_for_condition(
@@ -1094,9 +1643,12 @@ class BluetoothAdapterTests(test.test):
         self.results = {'is_discovering': is_discovering}
         return all(self.results.values())
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_stop_discovery(self):
         """Test that the adapter could stop discovery."""
+        if not self.bluetooth_facade.is_discovering():
+            return True
+
         stop_discovery, _ = self.bluetooth_facade.stop_discovery()
         is_not_discovering = self._wait_for_condition(
                 lambda: not self.bluetooth_facade.is_discovering(),
@@ -1108,7 +1660,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_discoverable(self):
         """Test that the adapter could be set discoverable."""
         set_discoverable = self.bluetooth_facade.set_discoverable(True)
@@ -1120,7 +1672,7 @@ class BluetoothAdapterTests(test.test):
                 'is_discoverable': is_discoverable}
         return all(self.results.values())
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_is_discoverable(self):
         """Test that the adapter is discoverable."""
         is_discoverable = self._wait_for_condition(
@@ -1133,7 +1685,7 @@ class BluetoothAdapterTests(test.test):
     def _test_timeout_property(self, set_property, check_property, set_timeout,
                               get_timeout, property_name,
                               timeout_values = [0, 60, 180]):
-        """Common method to test (Discoverable/Pairable)Timeout property.
+        """Common method to test (Discoverable/Pairable)Timeout .
 
         This is used to test
         - DiscoverableTimeout property
@@ -1267,7 +1819,7 @@ class BluetoothAdapterTests(test.test):
             set_timeout(default_timeout)
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_discoverable_timeout(self, timeout_values = [0, 60, 180]):
         """Test adapter dbus property DiscoverableTimeout."""
         return self._test_timeout_property(
@@ -1278,7 +1830,7 @@ class BluetoothAdapterTests(test.test):
             property_name = 'discoverable',
             timeout_values = timeout_values)
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_pairable_timeout(self, timeout_values = [0, 60, 180]):
         """Test adapter dbus property PairableTimeout."""
         return self._test_timeout_property(
@@ -1290,7 +1842,7 @@ class BluetoothAdapterTests(test.test):
             timeout_values = timeout_values)
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_nondiscoverable(self):
         """Test that the adapter could be set non-discoverable."""
         set_nondiscoverable = self.bluetooth_facade.set_discoverable(False)
@@ -1304,7 +1856,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_pairable(self):
         """Test that the adapter could be set pairable."""
         set_pairable = self.bluetooth_facade.set_pairable(True)
@@ -1317,7 +1869,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_nonpairable(self):
         """Test that the adapter could be set non-pairable."""
         set_nonpairable = self.bluetooth_facade.set_pairable(False)
@@ -1330,17 +1882,14 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_check_valid_adapter_id(self):
         """Fail if the Bluetooth ID is not in the correct format.
 
         @returns True if adapter ID follows expected format, False otherwise
         """
 
-        # Boards which only support bluetooth version 3 and below
-        BLUETOOTH_3_BOARDS = ['x86-mario', 'x86-zgb']
-
-        device = self.host.get_platform()
+        device = self.get_base_platform_name()
         adapter_info = self.get_adapter_properties()
 
         # Don't complete test if this is a reference board
@@ -1350,10 +1899,9 @@ class BluetoothAdapterTests(test.test):
         modalias = adapter_info['Modalias']
         logging.debug('Saw Bluetooth ID of: %s', modalias)
 
-        if device in BLUETOOTH_3_BOARDS:
-            bt_format = 'bluetooth:v00E0p24..d0300'
-        else:
-            bt_format = 'bluetooth:v00E0p24..d0400'
+        # Valid Device ID is:
+        # <00E0(Google)>/<C405(Chrome OS)>/<non-zero versionNumber>
+        bt_format = 'bluetooth:v00E0pC405d(?!0000)'
 
         if not re.match(bt_format, modalias):
             return False
@@ -1361,14 +1909,14 @@ class BluetoothAdapterTests(test.test):
         return True
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_check_valid_alias(self):
         """Fail if the Bluetooth alias is not in the correct format.
 
         @returns True if adapter alias follows expected format, False otherwise
         """
 
-        device = self.host.get_platform()
+        device = self.get_base_platform_name()
         adapter_info = self.get_adapter_properties()
 
         # Don't complete test if this is a reference board
@@ -1380,10 +1928,17 @@ class BluetoothAdapterTests(test.test):
 
         device_type = self.host.get_board_type().lower()
         alias_format = '%s_[a-z0-9]{4}' % device_type
-        if not re.match(alias_format, alias.lower()):
-            return False
 
-        return True
+        self.results = {}
+
+        alias_was_correct = True
+        if not re.match(alias_format, alias.lower()):
+            alias_was_correct = False
+            logging.info('unexpected alias %s found', alias)
+            self.results['alias_found'] = alias
+
+        self.results['alias_was_correct'] = alias_was_correct
+        return all(self.results.values())
 
 
     # -------------------------------------------------------------------
@@ -1391,25 +1946,38 @@ class BluetoothAdapterTests(test.test):
     # -------------------------------------------------------------------
 
 
-    @_test_retry_and_log(False)
-    def test_discover_device(self, device_address):
+    @test_retry_and_log(False)
+    def test_discover_device(self,
+                             device_address,
+                             start_discovery=True,
+                             stop_discovery=True):
         """Test that the adapter could discover the specified device address.
 
         @param device_address: Address of the device.
+        @param start_discovery: Whether to start discovery. Set to False if you
+                                call start_discovery before calling this.
+        @param stop_discovery: Whether to stop discovery at the end. If this is
+                               set to False, make sure to call
+                               test_stop_discovery afterwards.
 
         @returns: True if the device is found. False otherwise.
 
         """
         has_device_initially = False
-        start_discovery = False
+        discovery_stopped = False
+        is_not_discovering = False
         device_discovered = False
+        # If start discovery is not set, discovery must already be started
+        discovery_started = not start_discovery
         has_device = self.bluetooth_facade.has_device
 
         if has_device(device_address):
             has_device_initially = True
         else:
-            start_discovery, _ = self.bluetooth_facade.start_discovery()
             if start_discovery:
+                discovery_started = self.bluetooth_facade.start_discovery()
+
+            if discovery_started:
                 try:
                     utils.poll_for_condition(
                             condition=(lambda: has_device(device_address)),
@@ -1428,22 +1996,33 @@ class BluetoothAdapterTests(test.test):
                 except:
                     logging.error('test_discover_device: unexpected error')
 
+            if start_discovery and stop_discovery:
+                discovery_stopped, _ = self.bluetooth_facade.stop_discovery()
+                is_not_discovering = self._wait_for_condition(
+                        lambda: not self.bluetooth_facade.is_discovering(),
+                        method_name())
+
         self.results = {
                 'has_device_initially': has_device_initially,
-                'start_discovery': start_discovery,
+                'should_start_discovery': start_discovery,
+                'should_stop_discovery': stop_discovery,
+                'start_discovery': discovery_started,
+                'stop_discovery': discovery_stopped,
+                'is_not_discovering': is_not_discovering,
                 'device_discovered': device_discovered}
-        return has_device_initially or device_discovered
+
+        # Make sure a discovered device properly started and stopped discovery
+        device_found = device_discovered and discovery_started and (
+                discovery_stopped and is_not_discovering
+                if stop_discovery else True)
+
+        return has_device_initially or device_found
+
 
     def _test_discover_by_device(self, device):
-        device_discovered = device.Discover(self.bluetooth_facade.address)
+        return device.Discover(self.bluetooth_facade.address)
 
-        self.results = {
-                'device_discovered': device_discovered
-        }
-
-        return all(self.results.values())
-
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False, messages_start=False, messages_stop=False)
     def test_discover_by_device(self, device):
         """Test that the device could discover the adapter address.
 
@@ -1451,9 +2030,36 @@ class BluetoothAdapterTests(test.test):
 
         @returns: True if the adapter is found by the device.
         """
-        return self._test_discover_by_device(device)
+        adapter_discovered = False
+        discover_by_device = self._test_discover_by_device
+        discovered_initially = discover_by_device(device)
 
-    @_test_retry_and_log(False)
+        if not discovered_initially:
+            try:
+                utils.poll_for_condition(
+                        condition=(lambda: discover_by_device(device)),
+                        timeout=self.ADAPTER_DISCOVER_TIMEOUT_SECS,
+                        sleep_interval=
+                        self.ADAPTER_DISCOVER_POLLING_SLEEP_SECS,
+                        desc='Waiting for adapter to be discovered')
+                adapter_discovered = True
+            except utils.TimeoutError as e:
+                logging.error('test_discover_by_device: %s', e)
+            except Exception as e:
+                logging.error('test_discover_by_device: %s', e)
+                err = ('bluetoothd probably crashed.'
+                       'Check out /var/log/messages')
+                logging.error(err)
+            except:
+                logging.error('test_discover_by_device: unexpected error')
+
+        self.results = {
+            'adapter_discovered_initially': discovered_initially,
+            'adapter_discovered': adapter_discovered
+        }
+        return any(self.results.values())
+
+    @test_retry_and_log(False, messages_start=False, messages_stop=False)
     def test_discover_by_device_fails(self, device):
         """Test that the device could not discover the adapter address.
 
@@ -1461,9 +2067,12 @@ class BluetoothAdapterTests(test.test):
 
         @returns False if the adapter is found by the device.
         """
-        return not self._test_discover_by_device(device)
+        self.results = {
+                'adapter_discovered': self._test_discover_by_device(device)
+        }
+        return not any(self.results.values())
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False, messages_start=False, messages_stop=False)
     def test_device_set_discoverable(self, device, discoverable):
         """Test that we could set the peer device to discoverable. """
         try:
@@ -1473,7 +2082,7 @@ class BluetoothAdapterTests(test.test):
 
         return True
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_pairing(self, device_address, pin, trusted=True):
         """Test that the adapter could pair with the device successfully.
 
@@ -1505,10 +2114,19 @@ class BluetoothAdapterTests(test.test):
             return (self.bluetooth_facade.get_connection_info(device_address)
                     is not None)
 
+        def _verify_connected():
+            """Verify the device is connected.
+
+            @returns: True if the device is connected, False otherwise.
+            """
+            return self.bluetooth_facade.device_is_connected(device_address)
 
         has_device = False
         paired = False
+        connected = False
         connection_info_retrievable = False
+        connected_devices = self.get_num_connected_devices()
+
         if self.bluetooth_facade.has_device(device_address):
             has_device = True
             try:
@@ -1524,15 +2142,19 @@ class BluetoothAdapterTests(test.test):
                 logging.error('test_pairing: unexpected error')
 
             connection_info_retrievable = _verify_connection_info()
+            connected = _verify_connected()
 
         self.results = {
                 'has_device': has_device,
                 'paired': paired,
-                'connection_info_retrievable': connection_info_retrievable}
+                'connected': connected,
+                'connection_info_retrievable': connection_info_retrievable,
+                'connection_num': connected_devices + 1
+        }
+
         return all(self.results.values())
 
-
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_remove_pairing(self, device_address):
         """Test that the adapter could remove the paired device.
 
@@ -1583,7 +2205,7 @@ class BluetoothAdapterTests(test.test):
         return actual_trusted == trusted
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_connection_by_adapter(self, device_address):
         """Test that the adapter of dut could connect to the device successfully
 
@@ -1625,7 +2247,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_disconnection_by_adapter(self, device_address):
         """Test that the adapter of dut could disconnect the device successfully
 
@@ -1655,7 +2277,7 @@ class BluetoothAdapterTests(test.test):
         return result
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_connection_by_device(self, device):
         """Test that the device could connect to the adapter successfully.
 
@@ -1676,8 +2298,8 @@ class BluetoothAdapterTests(test.test):
         connection_by_device = False
         adapter_address = self.bluetooth_facade.address
         try:
-            device.ConnectToRemoteAddress(adapter_address)
-            connection_by_device = True
+            connection_by_device = device.ConnectToRemoteAddress(
+                adapter_address)
         except Exception as e:
             logging.error('%s (device): %s', method_name, e)
         except:
@@ -1692,6 +2314,10 @@ class BluetoothAdapterTests(test.test):
                     timeout=self.ADAPTER_CONNECTION_TIMEOUT_SECS,
                     desc=('Waiting for connection from %s' % device_address))
             connection_seen_by_adapter = True
+
+            # Although the connect may be complete, it can take a few
+            # seconds for the input device to be ready for use
+            time.sleep(self.ADAPTER_HID_INPUT_DELAY)
         except utils.TimeoutError as e:
             logging.error('%s (adapter): %s', method_name, e)
         except:
@@ -1702,28 +2328,33 @@ class BluetoothAdapterTests(test.test):
                 'connection_seen_by_adapter': connection_seen_by_adapter}
         return all(self.results.values())
 
-    @_test_retry_and_log
+    @test_retry_and_log(True, messages_start=False, messages_stop=False)
     def test_connection_by_device_only(self, device, adapter_address):
-      """Test that the device could connect to adapter successfully.
+        """Test that the device could connect to adapter successfully.
 
-      This is a modified version of test_connection_by_device that only
-      communicates with the peer device and not the host (in case the host is
-      suspended for example).
+        This is a modified version of test_connection_by_device that only
+        communicates with the peer device and not the host (in case the host is
+        suspended for example).
 
-      @param device: the bluetooth peer device
-      @param adapter_address: address of the adapter
+        @param device: the bluetooth peer device
+        @param adapter_address: address of the adapter
 
-      @returns: True if the connection was established by the device or False.
-      """
-      connected = device.ConnectToRemoteAddress(adapter_address)
-      self.results = {
-          'connection_by_device': connected
-      }
+        @returns: True if the connection was established by the device or False.
+        """
+        connected = device.ConnectToRemoteAddress(adapter_address)
+        if connected:
+            # Although the connect may be complete, it can take a few
+            # seconds for the input device to be ready for use
+            time.sleep(self.ADAPTER_HID_INPUT_DELAY)
 
-      return all(self.results.values())
+        self.results = {
+            'connection_by_device': connected
+        }
+
+        return all(self.results.values())
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_disconnection_by_device(self, device):
         """Test that the device could disconnect the adapter successfully.
 
@@ -1772,7 +2403,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_device_is_connected(self, device_address):
         """Test that device address given is currently connected.
 
@@ -1812,7 +2443,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_device_is_not_connected(self, device_address):
         """Test that device address given is NOT currently connected.
 
@@ -1855,7 +2486,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_device_is_paired(self, device_address):
         """Test that the device address given is currently paired.
 
@@ -1907,7 +2538,7 @@ class BluetoothAdapterTests(test.test):
         return bool(self.discovered_device_name)
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_device_name(self, device_address, expected_device_name):
         """Test that the device name discovered by the adapter is correct.
 
@@ -1935,7 +2566,7 @@ class BluetoothAdapterTests(test.test):
         return self.discovered_device_name == expected_device_name
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_device_class_of_service(self, device_address,
                                      expected_class_of_service):
         """Test that the discovered device class of service is as expected.
@@ -1960,7 +2591,7 @@ class BluetoothAdapterTests(test.test):
         return discovered_class_of_service == expected_class_of_service
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_device_class_of_device(self, device_address,
                                     expected_class_of_device):
         """Test that the discovered device class of device is as expected.
@@ -2041,7 +2672,7 @@ class BluetoothAdapterTests(test.test):
         return logging_timespan
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_check_duration_and_intervals(self, min_adv_interval_ms,
                                           max_adv_interval_ms,
                                           number_advertisements):
@@ -2113,11 +2744,11 @@ class BluetoothAdapterTests(test.test):
         expected_timespan = duration * number_advertisements
 
         check_duration = True
-        for manufacturer_id, values in adv_timestamps.iteritems():
+        for manufacturer_id, values in six.iteritems(adv_timestamps):
             logging.debug('manufacturer_id %s: %s', manufacturer_id, values)
             timespans = [values[i] - values[i - 1]
-                         for i in xrange(1, len(values))]
-            errors = [timespans[i] for i in xrange(len(timespans))
+                         for i in range(1, len(values))]
+            errors = [timespans[i] for i in range(len(timespans))
                       if not within_tolerance(expected_timespan, timespans[i])]
             logging.debug('timespans: %s', timespans)
             logging.debug('errors: %s', errors)
@@ -2189,7 +2820,74 @@ class BluetoothAdapterTests(test.test):
         return min_adv_interval_ms_found, max_adv_interval_ms_found
 
 
-    @_test_retry_and_log(False)
+    def _verify_scan_response_data(self, adv_data):
+        """Verify advertisement's scan response data is correct
+
+        Unlike the other fixed advertising fields, Scan Response Data is set
+        in a tag-value data format. This function helps verify the data format
+        for specific tag values to ensure scan response was propagated correctly
+
+        @param adv_data: Dictionary defining advertising fields to be registered
+                with bluetoothd daemon's RegisterAdvertisement interface
+
+        @returns: True if all Registered Scan Response tags were located in
+                btmon trace, False otherwise
+        """
+
+        scan_rsp = adv_data.get('ScanResponseData')
+        if not scan_rsp:
+            return True
+
+        for tag, data in scan_rsp.items():
+            # Validate 16 bit Service Data tag
+            if int(tag, 16) == 0x16:
+                # First two bytes of data are endian-corrected UUID, followed
+                # by service data
+                uuid = '%x%x' % (data[1], data[0])
+                data_str = ''.join(
+                        ['%02x' % data[i] for i in range(2, len(data))])
+
+                # Service data has the following format in btmon trace:
+                # Service Data (UUID 0xfef3): 01020304
+                search_str = 'Service Data (UUID 0x{}): {}'.format(
+                        uuid, data_str)
+
+                # Fail if data can't be located in btmon trace
+                if not self.bluetooth_le_facade.btmon_find(search_str):
+                    return False
+
+        return True
+
+    def test_advertising_flags(self, flag_strs=[]):
+        """Verify that advertising flags are set in registered advertisement
+
+        Each flag has a specific descriptor that appears in btmon trace. This
+        simple checker validates that the desired flag descriptors appear in
+        btmon trace when the advertisement was registered.
+
+        @param flag_strs: Flag string descriptors expected in btmon trace
+
+        #returns: True if all flag descriptors were located, False otherwise
+        """
+
+        for flag_str in flag_strs:
+            if not self.bluetooth_le_facade.btmon_find(flag_str):
+                logging.info(
+                        'Flag descriptor not located: {}'.format(flag_str))
+                return False
+
+        return True
+
+    def ext_adv_enabled(self):
+        """ Check if platform supports extended advertising
+
+        @returns True if extended advertising is supported, else False
+        """
+        platform = self.get_base_platform_name()
+        return platform in EXT_ADV_MODELS
+
+
+    @test_retry_and_log(False)
     def test_register_advertisement(self, advertisement_data, instance_id,
                                     min_adv_interval_ms, max_adv_interval_ms):
         """Verify that an advertisement is registered correctly.
@@ -2229,6 +2927,7 @@ class BluetoothAdapterTests(test.test):
 
         # Verify that the manufacturer data could be found.
         manufacturer_data = advertisement_data.get('ManufacturerData', '')
+        manufacturer_data_found = True
         for manufacturer_id in manufacturer_data:
             # The 'not assigned' text below means the manufacturer id
             # is not actually assigned to any real manufacturer.
@@ -2255,16 +2954,25 @@ class BluetoothAdapterTests(test.test):
             # A service data looks like
             #   Service Data (UUID 0x9999): 0001020304
             # while uuid is '9999' and data is [0x00, 0x01, 0x02, 0x03, 0x04]
-            data_str = ''.join(map(lambda n: '%02x' % n, data))
+            data_str = ''.join(['%02x' % n for n in data])
             if not self.bluetooth_le_facade.btmon_find(
                     'Service Data (UUID 0x%s): %s' % (uuid, data_str)):
                 service_data_found = False
                 break
 
-        # Verify that the advertising intervals are correct.
-        min_adv_interval_ms_found, max_adv_interval_ms_found = (
-                self._verify_advertising_intervals(min_adv_interval_ms,
-                                                   max_adv_interval_ms))
+        # Broadcast advertisements are overwritten in some kernel versions to
+        # be more aggressive. Verify that the advertising intervals are correct
+        # if this mode is not used
+        if advertisement_data.get('Type') != 'broadcast':
+            min_adv_interval_ms_found, max_adv_interval_ms_found = (
+                    self._verify_advertising_intervals(min_adv_interval_ms,
+                                                       max_adv_interval_ms))
+
+        else:
+            min_adv_interval_ms_found = True
+            max_adv_interval_ms_found = True
+
+        scan_rsp_correct = self._verify_scan_response_data(advertisement_data)
 
         # Verify advertising is enabled.
         advertising_enabled = self.bluetooth_le_facade.btmon_find(
@@ -2277,12 +2985,13 @@ class BluetoothAdapterTests(test.test):
                 'service_data_found': service_data_found,
                 'min_adv_interval_ms_found': min_adv_interval_ms_found,
                 'max_adv_interval_ms_found': max_adv_interval_ms_found,
+                'scan_rsp_correct': scan_rsp_correct,
                 'advertising_enabled': advertising_enabled,
         }
         return all(self.results.values())
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_fail_to_register_advertisement(self, advertisement_data,
                                             min_adv_interval_ms,
                                             max_adv_interval_ms):
@@ -2316,26 +3025,35 @@ class BluetoothAdapterTests(test.test):
         advertisement_not_added = not self.bluetooth_le_facade.btmon_find(
                 'Advertising Added:')
 
-        # Verify that the advertising intervals are correct.
-        min_adv_interval_ms_found, max_adv_interval_ms_found = (
-                self._verify_advertising_intervals(min_adv_interval_ms,
-                                                   max_adv_interval_ms))
-
-        # Verify advertising remains enabled.
-        advertising_enabled = self.bluetooth_le_facade.btmon_find(
-                'Advertising: Enabled (0x01)')
-
         self.results = {
                 'failed_to_register_error': failed_to_register_error,
                 'advertisement_not_added': advertisement_not_added,
+        }
+
+        # If the registration fails and extended advertising is available,
+        # there will be no events in btmon. Therefore, we only run this part of
+        # the test if extended advertising is not available, indicating that
+        # software advertisement rotation is being used.
+        if not self.ext_adv_enabled():
+            # Verify that the advertising intervals are correct.
+            min_adv_interval_ms_found, max_adv_interval_ms_found = (
+                    self._verify_advertising_intervals(min_adv_interval_ms,
+                                                       max_adv_interval_ms))
+
+            # Verify advertising remains enabled.
+            advertising_enabled = self.bluetooth_le_facade.btmon_find(
+                    'Advertising: Enabled (0x01)')
+
+            self.results.update({
                 'min_adv_interval_ms_found': min_adv_interval_ms_found,
                 'max_adv_interval_ms_found': max_adv_interval_ms_found,
                 'advertising_enabled': advertising_enabled,
-        }
+            })
+
         return all(self.results.values())
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_unregister_advertisement(self, advertisement_data, instance_id,
                                       advertising_disabled):
         """Verify that an advertisement is unregistered correctly.
@@ -2394,7 +3112,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_set_advertising_intervals(self, min_adv_interval_ms,
                                        max_adv_interval_ms):
         """Verify that new advertising intervals are set correctly.
@@ -2426,7 +3144,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_fail_to_set_advertising_intervals(
             self, invalid_min_adv_interval_ms, invalid_max_adv_interval_ms,
             orig_min_adv_interval_ms, orig_max_adv_interval_ms):
@@ -2500,7 +3218,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_check_advertising_intervals(self, min_adv_interval_ms,
                                          max_adv_interval_ms):
         """Verify that the advertising intervals are as expected.
@@ -2526,7 +3244,7 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_reset_advertising(self, instance_ids=[]):
         """Verify that advertising is reset correctly.
 
@@ -2588,6 +3306,65 @@ class BluetoothAdapterTests(test.test):
                 'advertisement_removed': advertisement_removed,
                 'reset_advertising_intervals': reset_advertising_intervals,
                 'advertising_disabled': advertising_disabled,
+        }
+        return all(self.results.values())
+
+
+    @test_retry_and_log(False)
+    def test_receive_advertisement(self, address=None, UUID=None, timeout=10):
+        """Verifies that we receive an advertisement with specific contents
+
+        Since test_discover_device only uses the existence of a device dbus path
+        to indicate when a device is discovered, it is not adequate if we want
+        to verify that we have received an advertisement from a device. This
+        test monitors btmon around a discovery instance and searches for the
+        relevant advertising report.
+
+        @param address: String address of peer
+        @param UUID: String of hex data
+        @param timeout: seconds to listen for traffic
+
+        @returns True if report was located, otherwise False
+        """
+
+        def _discover_devices():
+            self.test_start_discovery()
+            time.sleep(timeout)
+            self.test_stop_discovery()
+
+        # Run discovery, record btmon log
+        self._get_btmon_log(_discover_devices)
+
+        # Grab all logs received
+        btmon_log = '\n'.join(self.bluetooth_le_facade.btmon_get('', ''))
+
+        desired_strs = []
+
+        if address is not None:
+            desired_strs.append('Address: {}'.format(address))
+
+        if UUID is not None:
+            desired_strs.append('({})'.format(UUID))
+
+        # Split btmon events by HCI and MGMT delimiters
+        event_delimiter = '|'.join(['@ MGMT', '> HCI', '< HCI'])
+        btmon_events = re.split(event_delimiter, btmon_log)
+
+        features_located = False
+
+        for event_str in btmon_events:
+            if 'Advertising Report' not in event_str:
+                continue
+
+            for desired_str in desired_strs:
+                if desired_str not in event_str:
+                    break
+
+            else:
+                features_located = True
+
+        self.results = {
+                'features_located': features_located,
         }
         return all(self.results.values())
 
@@ -2684,7 +3461,7 @@ class BluetoothAdapterTests(test.test):
         return strs
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_service_resolved(self, address):
         """Test that the services under device address can be resolved
 
@@ -2699,7 +3476,7 @@ class BluetoothAdapterTests(test.test):
                                         method_name())
 
 
-    @_test_retry_and_log(False)
+    @test_retry_and_log(False)
     def test_gatt_browse(self, address):
         """Test that the GATT client can get the attributes correctly
 
@@ -2736,12 +3513,7 @@ class BluetoothAdapterTests(test.test):
         return True
 
 
-    # -------------------------------------------------------------------
-    # Bluetooth mouse related tests
-    # -------------------------------------------------------------------
-
-
-    def _record_input_events(self, device, gesture):
+    def _record_input_events(self, device, gesture, address=None):
         """Record the input events.
 
         @param device: the bluetooth HID device.
@@ -2750,16 +3522,21 @@ class BluetoothAdapterTests(test.test):
         @returns: the input events received on the DUT.
 
         """
-        self.input_facade.initialize_input_recorder(device.name)
-        self.input_facade.start_input_recorder()
+        self.input_facade.initialize_input_recorder(device.name, uniq=address)
+        self.input_facade.start_input_recorder(device.name)
         time.sleep(self.HID_REPORT_SLEEP_SECS)
         gesture()
         time.sleep(self.HID_REPORT_SLEEP_SECS)
-        self.input_facade.stop_input_recorder()
+        self.input_facade.stop_input_recorder(device.name)
         time.sleep(self.HID_REPORT_SLEEP_SECS)
-        event_values = self.input_facade.get_input_events()
+        event_values = self.input_facade.get_input_events(device.name)
         events = [Event(*ev) for ev in event_values]
         return events
+
+
+    # -------------------------------------------------------------------
+    # Bluetooth mouse related tests
+    # -------------------------------------------------------------------
 
 
     def _test_mouse_click(self, device, button):
@@ -2779,7 +3556,9 @@ class BluetoothAdapterTests(test.test):
         else:
             raise error.TestError('Button (%s) is not valid.' % button)
 
-        actual_events = self._record_input_events(device, gesture)
+        actual_events = self._record_input_events(device,
+                                                  gesture,
+                                                  address=device.address)
 
         linux_input_button = {'LEFT': BTN_LEFT, 'RIGHT': BTN_RIGHT}
         expected_events = [
@@ -2793,12 +3572,12 @@ class BluetoothAdapterTests(test.test):
                 recorder.SYN_EVENT]
 
         self.results = {
-                'actual_events': map(str, actual_events),
-                'expected_events': map(str, expected_events)}
+                'actual_events': list(map(str, actual_events)),
+                'expected_events': list(map(str, expected_events))}
         return actual_events == expected_events
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_mouse_left_click(self, device):
         """Test that the mouse left click events could be received correctly.
 
@@ -2811,7 +3590,7 @@ class BluetoothAdapterTests(test.test):
         return self._test_mouse_click(device, 'LEFT')
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_mouse_right_click(self, device):
         """Test that the mouse right click events could be received correctly.
 
@@ -2836,19 +3615,21 @@ class BluetoothAdapterTests(test.test):
 
         """
         gesture = lambda: device.Move(delta_x, delta_y)
-        actual_events = self._record_input_events(device, gesture)
+        actual_events = self._record_input_events(device,
+                                                  gesture,
+                                                  address=device.address)
 
         events_x = [Event(EV_REL, REL_X, delta_x)] if delta_x else []
         events_y = [Event(EV_REL, REL_Y, delta_y)] if delta_y else []
         expected_events = events_x + events_y + [recorder.SYN_EVENT]
 
         self.results = {
-                'actual_events': map(str, actual_events),
-                'expected_events': map(str, expected_events)}
+                'actual_events': list(map(str, actual_events)),
+                'expected_events': list(map(str, expected_events))}
         return actual_events == expected_events
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_mouse_move_in_x(self, device, delta_x):
         """Test that the mouse move events in x could be received correctly.
 
@@ -2862,7 +3643,7 @@ class BluetoothAdapterTests(test.test):
         return self._test_mouse_move(device, delta_x=delta_x)
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_mouse_move_in_y(self, device, delta_y):
         """Test that the mouse move events in y could be received correctly.
 
@@ -2876,7 +3657,7 @@ class BluetoothAdapterTests(test.test):
         return self._test_mouse_move(device, delta_y=delta_y)
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_mouse_move_in_xy(self, device, delta_x, delta_y):
         """Test that the mouse move events could be received correctly.
 
@@ -2902,15 +3683,24 @@ class BluetoothAdapterTests(test.test):
 
         """
         gesture = lambda: device.Scroll(units)
-        actual_events = self._record_input_events(device, gesture)
+        recorded_events = self._record_input_events(device,
+                                                    gesture,
+                                                    address=device.address)
+
+        # Since high-speed scrolling events are inserted after they are passed
+        # through bluetooth module, we ignore these events since they are
+        # irrelevant for us
+        scroll_events = [ev for ev in recorded_events
+                            if ev.code != REL_WHEEL_HI_RES]
+
         expected_events = [Event(EV_REL, REL_WHEEL, units), recorder.SYN_EVENT]
         self.results = {
-                'actual_events': map(str, actual_events),
-                'expected_events': map(str, expected_events)}
-        return actual_events == expected_events
+                'scroll_events': list(map(str, scroll_events)),
+                'expected_events': list(map(str, expected_events))}
+        return scroll_events == expected_events
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_mouse_scroll_down(self, device, delta_y):
         """Test that the mouse wheel events could be received correctly.
 
@@ -2929,7 +3719,7 @@ class BluetoothAdapterTests(test.test):
                                   delta_y)
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_mouse_scroll_up(self, device, delta_y):
         """Test that the mouse wheel events could be received correctly.
 
@@ -2948,7 +3738,7 @@ class BluetoothAdapterTests(test.test):
                                   delta_y)
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_mouse_click_and_drag(self, device, delta_x, delta_y):
         """Test that the mouse click-and-drag events could be received
         correctly.
@@ -2962,7 +3752,9 @@ class BluetoothAdapterTests(test.test):
 
         """
         gesture = lambda: device.ClickAndDrag(delta_x, delta_y)
-        actual_events = self._record_input_events(device, gesture)
+        actual_events = self._record_input_events(device,
+                                                  gesture,
+                                                  address=device.address)
 
         button = 'LEFT'
         expected_events = (
@@ -2980,8 +3772,8 @@ class BluetoothAdapterTests(test.test):
                  recorder.SYN_EVENT])
 
         self.results = {
-                'actual_events': map(str, actual_events),
-                'expected_events': map(str, expected_events)}
+                'actual_events': list(map(str, actual_events)),
+                'expected_events': list(map(str, expected_events))}
         return actual_events == expected_events
 
 
@@ -2990,7 +3782,7 @@ class BluetoothAdapterTests(test.test):
     # -------------------------------------------------------------------
 
     # TODO may be deprecated as stated in b:140515628
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_keyboard_input_from_string(self, device, string_to_send):
         """Test that the keyboard's key events could be received correctly.
 
@@ -3004,7 +3796,9 @@ class BluetoothAdapterTests(test.test):
 
         gesture = lambda: device.KeyboardSendString(string_to_send)
 
-        actual_events = self._record_input_events(device, gesture)
+        actual_events = self._record_input_events(device,
+                                                  gesture,
+                                                  address=device.address)
 
         resulting_string = bluetooth_test_utils.reconstruct_string(
                            actual_events)
@@ -3012,7 +3806,7 @@ class BluetoothAdapterTests(test.test):
         return string_to_send == resulting_string
 
 
-    @_test_retry_and_log
+    @test_retry_and_log
     def test_keyboard_input_from_trace(self, device, trace_name):
         """ Tests that keyboard events can be transmitted and received correctly
 
@@ -3023,6 +3817,8 @@ class BluetoothAdapterTests(test.test):
         @returns: true if the recorded output matches the expected output
                   false otherwise
         """
+        length_correct = True
+        content_correct = True
 
         # Read data from trace I/O files
         input_trace = bluetooth_test_utils.parse_trace_file(os.path.join(
@@ -3040,22 +3836,33 @@ class BluetoothAdapterTests(test.test):
 
         # Create and run this trace as a gesture
         gesture = lambda: device.KeyboardSendTrace(input_scan_codes)
-        rec_events = self._record_input_events(device, gesture)
+        rec_events = self._record_input_events(device,
+                                               gesture,
+                                               address=device.address)
 
         # Filter out any input events that were not from the keyboard
         rec_key_events = [ev for ev in rec_events if ev.type == EV_KEY]
 
         # Fail if we didn't record the correct number of events
         if len(rec_key_events) != len(input_scan_codes):
-            return False
+            logging.info('Expected {} events, received {}'.format(
+                    len(input_scan_codes), len(rec_key_events)))
+            length_correct = False
 
         for idx, predicted in enumerate(predicted_events):
             recorded = rec_key_events[idx]
 
             if not predicted == recorded:
-                return False
+                content_correct = False
+                break
 
-        return True
+        self.results = {
+            'received_events': len(rec_key_events) > 0,
+            'length_correct': length_correct,
+            'content_correct': content_correct,
+        }
+
+        return all(self.results)
 
 
     def is_newer_kernel_version(self, version, minimum_version):
@@ -3093,20 +3900,56 @@ class BluetoothAdapterTests(test.test):
             msg = 'Test not supported on this kernel version'
 
         if not self.is_newer_kernel_version(kernel_version, minimum_version):
-            logging.debug('Kernel version check failed. Exiting the test')
+            logging.info('Kernel version check failed: %s', msg)
             raise error.TestNAError(msg)
 
         logging.debug('Kernel version check passed')
 
 
     # -------------------------------------------------------------------
+    # Bluetooth AVRCP related test
+    # -------------------------------------------------------------------
+
+
+    @test_retry_and_log
+    def test_avrcp_event(self, device, generator, avrcp_event):
+        """Tests that AVRCP events can be transmitted and received correctly
+
+        @param device: the meta device containing a Bluetooth AVRCP capable
+                       audio device.
+        @param generator: the peer device generator/function which trigger
+                          the AVRCP event.
+        @param avrcp_event: the AVRCP event to test.
+
+        @returns: true if the recorded output matches the expected output
+                  false otherwise
+        """
+        logging.debug('AVRCP Event Test, Event: %s', avrcp_event)
+        linux_input_button = {'play': KEY_PLAYCD, 'pause': KEY_PAUSECD,
+                              'stop': KEY_STOPCD, 'next': KEY_NEXTSONG,
+                              'previous': KEY_PREVIOUSSONG}
+        expected_event = [
+                # Button down
+                Event(EV_KEY, linux_input_button[avrcp_event], 1),
+                recorder.SYN_EVENT,
+                # Button up
+                Event(EV_KEY, linux_input_button[avrcp_event], 0),
+                recorder.SYN_EVENT]
+
+        gesture = lambda: generator(avrcp_event)
+        actual_event = self._record_input_events(device, gesture)
+
+        return actual_event == expected_event
+
+
+    # -------------------------------------------------------------------
     # Servod related tests
     # -------------------------------------------------------------------
 
-    @_test_retry_and_log
-    def test_power_consumption(self, max_power_mw):
+    @test_retry_and_log
+    def test_power_consumption(self, device, max_power_mw):
         """Test the average power consumption."""
-        power_mw = self.device.servod.MeasurePowerConsumption()
+        power_mw = device.servod.MeasurePowerConsumption()
         self.results = {'power_mw': power_mw}
 
         if (power_mw is None):
@@ -3120,12 +3963,11 @@ class BluetoothAdapterTests(test.test):
         return power_mw <= max_power_mw
 
 
-    @_test_retry_and_log
-    def test_start_notify(self, address, uuid, cccd_value):
+    @test_retry_and_log
+    def test_start_notify(self, object_path, cccd_value):
         """Test that a notification can be started on a characteristic
 
-        @param address: The MAC address of the remote device.
-        @param uuid: The uuid of the characteristic.
+        @param object_path: the object path of the characteristic.
         @param cccd_value: Possible CCCD values include
                0x00 - inferred from the remote characteristic's properties
                0x01 - notification
@@ -3134,11 +3976,15 @@ class BluetoothAdapterTests(test.test):
         @returns: The test results.
 
         """
+        if object_path is None:
+            logging.error('Invalid object path')
+            return False
+
         start_notify = self.bluetooth_facade.start_notify(
-            address, uuid, cccd_value)
+            object_path, cccd_value)
         is_notifying = self._wait_for_condition(
             lambda: self.bluetooth_facade.is_notifying(
-                address, uuid), method_name())
+                object_path), method_name())
 
         self.results = {
             'start_notify': start_notify,
@@ -3147,20 +3993,23 @@ class BluetoothAdapterTests(test.test):
         return all(self.results.values())
 
 
-    @_test_retry_and_log
-    def test_stop_notify(self, address, uuid):
+    @test_retry_and_log
+    def test_stop_notify(self, object_path):
         """Test that a notification can be stopped on a characteristic
 
-        @param address: The MAC address of the remote device.
-        @param uuid: The uuid of the characteristic.
+        @param object_path: the object path of the characteristic.
 
         @returns: The test results.
 
         """
-        stop_notify = self.bluetooth_facade.stop_notify(address, uuid)
+        if object_path is None:
+            logging.error('Invalid object path')
+            return False
+
+        stop_notify = self.bluetooth_facade.stop_notify(object_path)
         is_not_notifying = self._wait_for_condition(
             lambda: not self.bluetooth_facade.is_notifying(
-                address, uuid), method_name())
+                object_path), method_name())
 
         self.results = {
             'stop_notify': stop_notify,
@@ -3168,6 +4017,313 @@ class BluetoothAdapterTests(test.test):
 
         return all(self.results.values())
 
+
+    @test_retry_and_log(False)
+    def test_set_discovery_filter(self, filter):
+        """Test set discovery filter"""
+
+        return self.bluetooth_facade.set_discovery_filter(filter)
+
+
+    @test_retry_and_log(False)
+    def test_set_le_connection_parameters(self, address, parameters):
+        """Test set LE connection parameters"""
+
+        return self.bluetooth_facade.set_le_connection_parameters(
+            address, parameters)
+
+
+    @test_retry_and_log(False)
+    def test_get_connection_info(self, address):
+        """Test that connection info to device is retrievable."""
+
+        return (self.bluetooth_facade.get_connection_info(address)
+                is not None)
+
+
+    @test_retry_and_log(False, messages_stop=False)
+    def test_suspend_and_wait_for_sleep(self, suspend, sleep_timeout):
+        """ Suspend the device and wait until it is sleeping.
+
+        @param suspend: Sub-process that does the actual suspend call.
+        @param sleep_timeout time limit in seconds to allow the host sleep.
+
+        @return True if host is asleep within a short timeout, False otherwise.
+        """
+        suspend.start()
+        try:
+            self.host.test_wait_for_sleep(sleep_timeout)
+        except Exception as e:
+            suspend.join()
+            self.results = {'exception': str(e)}
+            return False
+
+        return True
+
+
+    @test_retry_and_log(False, messages_start=False)
+    def test_wait_for_resume(self,
+                             boot_id,
+                             suspend,
+                             resume_timeout,
+                             test_start_time,
+                             resume_slack=RESUME_DELTA,
+                             fail_on_timeout=False,
+                             fail_early_wake=True):
+        """ Wait for device to resume from suspend.
+
+        @param boot_id: Current boot id
+        @param suspend: Sub-process that does actual suspend call.
+        @param resume_timeout: Expect device to resume in given timeout.
+        @param test_start_time: When was this test started? (device time)
+        @param resume_slack: Allow some slack on resume timeout.
+        @param fail_on_timeout: Fails if timeout is reached
+        @param fail_early_wake: Fails if timeout isn't reached
+
+        @return True if suspend sub-process completed without error.
+        """
+        success = False
+        results = {}
+
+        def _check_timeout(delta):
+            if delta > timedelta(seconds=resume_timeout):
+                return not fail_on_timeout
+            else:
+                return not fail_early_wake
+
+        def _check_suspend_attempt_or_raise(test_start, wake_at):
+            """Make sure suspend attempt was recent or raise TestNA.
+
+            If we're looking at a previous suspend attempt, it means the test
+            didn't trigger a suspend properly (i.e. no powerd call)
+
+            @param test_start: When we started the test.
+            @param wake_at: When powerd suspend resumed.
+
+            @raises: error.TestNAError if found suspend occurred before we
+                     started the test.
+            """
+            # If the last suspend attempt was before we started the test, it's
+            # probably not a recent attempt.
+            if wake_at < test_start:
+                raise error.TestNAError(
+                        'No recent suspend attempt found. '
+                        'Started test at {} but last suspend ended at {}'.
+                        format(test_start, wake_at))
+
+            return True
+
+        def _check_retcode_or_raise(retcode):
+            """Make sure powerd return was successful.
+
+            @param retcode: Return code of powerd_suspend.
+
+            @raises: error.TestNAError if failed suspend due to non-BT
+            @return: False if BT woke us, True otherwise
+            """
+            if retcode:
+                if self.bluetooth_facade.bt_caused_last_resume():
+                    return False
+                else:
+                    raise error.TestNAError(
+                            'Failed suspend due to non-BT wake')
+
+            return True
+
+        # Sometimes it takes longer to resume from suspend; give some leeway
+        resume_timeout = resume_timeout + resume_slack
+        results['resume timeout'] = resume_timeout
+        try:
+            start = datetime.now()
+
+            # Wait for resume needs to wait longer in case device rebooted.
+            # Otherwise, the test will fail with errno 111 (connection refused)
+            self.host.test_wait_for_resume(
+                boot_id, resume_timeout=self.RESUME_INTERNAL_TIMEOUT_SECS)
+
+            results['device accessible on resume'] = True
+
+            # As of now, a timeout in test_wait_for_resume doesn't raise. Start
+            # by first measuring the delta until network is back up to the dut.
+            network_delta = datetime.now() - start
+
+            # Use powerd logs to see how much time we actually spent in suspend
+            # If the network went down during suspend, we will have spent less
+            # time in suspend than expected. If we can't find info via powerd,
+            # we can use measured time instead.
+            info = self.bluetooth_facade.find_last_suspend_via_powerd_logs()
+            if info:
+                (start_suspend_at, end_suspend_at, retcode) = info
+                actual_delta = end_suspend_at - start_suspend_at
+                results['powerd time to resume'] = actual_delta.total_seconds()
+                results['powerd retcode'] = retcode
+
+                # Resume is successful if suspend occurred correctly and woke up
+                # within the timeout. One significant caveat is that we only
+                # fail here if BT blocked suspend, not if we woke spuriously.
+                # This is by design (we depend on the timeout to check for
+                # spurious wakeup).
+                success = _check_suspend_attempt_or_raise(
+                        test_start_time,
+                        end_suspend_at) and _check_retcode_or_raise(
+                                retcode) and _check_timeout(actual_delta)
+            else:
+                results['time to resume'] = network_delta.total_seconds()
+                success = _check_timeout(network_delta)
+        except error.TestFail as e:
+            results['device accessible on resume'] = False
+            success = False
+            logging.error('wait_for_resume: %s', e)
+
+            # If the resume failed due to a reboot, raise the testFail and exit
+            # early from the test
+            if 'client rebooted' in str(e):
+                raise
+        finally:
+            suspend.join()
+
+        results['success'] = success
+        results['suspend exit code'] = suspend.exitcode
+        self.results = results
+
+        return all([success, suspend.exitcode == 0])
+
+
+    def suspend_async(self, suspend_time, expect_bt_wake=False):
+        """ Suspend asynchronously and return process for joining
+
+        @param suspend_time: how long to stay in suspend
+        @param expect_bt_wake: Whether we expect bluetooth to wake us from
+            suspend. If true, we expect this resume will occur early
+
+        @returns multiprocessing.Process object with suspend task
+        """
+
+        def _action_suspend():
+            try:
+                self.bluetooth_facade.do_suspend(suspend_time, expect_bt_wake)
+            except socket.error as e:
+                # Socket errors may occur after suspend if the underlying
+                # connection is lost during suspend (happens if usb-ethernet
+                # disconnects and reconnects on resume). Catch all these errors
+                # and swallow them.
+                logging.warning(
+                        'Socket error on suspend. Swallowing error: %s',
+                        str(e))
+            return 0
+
+        proc = multiprocessing.Process(target=_action_suspend)
+        proc.daemon = True
+        return proc
+
+
+    def device_connect_async(self,
+                             device_type,
+                             device,
+                             adapter_address,
+                             delay_wake=1,
+                             should_wake=True):
+        """ Connects peer device asynchronously with DUT.
+
+        This function uses a thread instead of a subprocess so that the test
+        result is stored for the test. Otherwise, the test connection was
+        sometimes failing but the test itself was passing.
+
+        @param device_type: The device type (used to check if it's LE)
+        @param device: the meta device with the peer device
+        @param adapter_address: the address of the adapter
+        @param delay_wake: delay wakeup by this many seconds
+        @param should_wake: Should this cause a wakeup?
+
+        @returns threading.Thread object with device connect task
+        """
+
+        def _action_device_connect():
+            time.sleep(delay_wake)
+            if 'BLE' in device_type:
+                # LE reconnects by advertising (dut controller will create LE
+                # connection, not the peer device)
+                self.test_device_set_discoverable(device, True)
+            else:
+                # Classic requires peer to initiate a connection to wake up the
+                # dut
+                connect_func = self.test_connection_by_device_only
+                if should_wake:
+                    connect_func(device, adapter_address)
+                else:
+                    # If we're not expecting wake, this connect attempt will
+                    # probably fail.
+                    self.ignore_failure(connect_func, device, adapter_address)
+
+        thread = threading.Thread(target=_action_device_connect)
+        return thread
+
+
+    @test_retry_and_log(False)
+    def test_hid_device_created(self, device_address):
+        """ Tests that the hid device is created before using it for tests.
+
+        @param device_address: Address of peripheral device
+        """
+        device_found = self.bluetooth_facade.wait_for_hid_device(
+                device_address)
+        self.results = {
+                'device_found': device_found
+        }
+        return all(self.results.values())
+
+
+    @test_retry_and_log
+    def test_battery_reporting(self, device):
+        """ Tests that battery reporting through GATT can be received
+
+        @param device: the meta device containing a Bluetooth device
+
+        @returns: true if battery reporting is received
+        """
+
+        percentage = self.bluetooth_facade.get_battery_property(
+                device.address, 'Percentage')
+
+        return percentage > 0
+
+    def _apply_new_adapter_alias(self, alias):
+        """ Sets new system alias and applies discoverable setting
+
+        @param alias: string alias to be applied to Adapter->Alias property
+        """
+
+        # Set Adapter's Alias property
+        self.bluetooth_facade.set_adapter_alias(alias)
+
+        # Set discoverable setting on
+        self.bluetooth_facade.set_discoverable(True)
+
+    @test_retry_and_log(False)
+    def test_set_adapter_alias(self, alias):
+        """ Validates that a new adapter alias is applied correctly
+
+        @param alias: string alias to be applied to Adapter->Alias property
+
+        @returns: True if the applied alias is properly applied in btmon trace
+        """
+
+        orig_alias = self.get_adapter_properties()['Alias']
+        self.bluetooth_le_facade = self.bluetooth_facade
+
+        # 1. Capture btmon logs around alias set operation
+        self._get_btmon_log(lambda: self._apply_new_adapter_alias(alias))
+
+        # 2. Verify that name appears in btmon trace with the following format:
+        # "Name (complete): Chromebook_BA0E" as appears in EIR data set
+        expected_alias_str = 'Name (complete): ' + alias
+        alias_found = self.bluetooth_facade.btmon_find(expected_alias_str)
+
+        # 3. Re-apply previous bluez alias as other tests expect default
+        self.bluetooth_facade.set_adapter_alias(orig_alias)
+
+        self.results = {'alias_found': alias_found}
+        return all(self.results.values())
 
     # -------------------------------------------------------------------
     # Autotest methods
@@ -3186,6 +4342,7 @@ class BluetoothAdapterTests(test.test):
 
         # Some tests may instantiate a peripheral device for testing.
         self.devices = dict()
+        self.shared_peers = []
         for device_type in SUPPORTED_DEVICE_TYPES:
             self.devices[device_type] = list()
 
@@ -3193,18 +4350,183 @@ class BluetoothAdapterTests(test.test):
         self.count_advertisements = 0
 
 
-    def check_chameleon(self):
-        """Check the existence of chameleon_host.
+    def update_btpeer(self):
+        """ Check and update the chameleond bundle on Bluetooth peer
+        Latest chameleond bundle and git commit is stored in the google cloud
+        This function compares the git commit of the Bluetooth peers and update
+        the peer if the commit does not match
 
-        The chameleon_host is specified in --args as follows
-
-        (cr) $ test_that --args "chameleon_host=$CHAMELEON_IP" "$DUT_IP" <test>
+        @returns True: If all peer are updated to (or currently) in latest
+                       commit. False if any update fails
 
         """
-        logging.debug('labels: %s', self.host.get_labels())
-        if self.host.chameleon is None:
-            raise error.TestError('Have to specify chameleon_host IP.')
+        def _update_btpeer():
+            status = {}
+            for peer in self.host.btpeer_list:
+                status[peer] = {}
+                status[peer]['update_needed'] = \
+                    bluetooth_peer_update.is_update_needed(peer, commit)
 
+            logging.debug(status)
+            if not any([v['update_needed'] for v in status.values()]):
+                logging.info('No peer needed update')
+                return True
+            logging.debug('Atleast one peer needs update')
+
+            if not bluetooth_peer_update.download_installation_files(self.host,
+                                                                     commit):
+                logging.error('Unable to download installation files ')
+                return False
+
+            # TODO(b:160782273) Make this parallel
+            for peer in self.host.btpeer_list:
+                if status[peer]['update_needed']:
+                    status[peer]['updated'], status[peer]['reason'] = \
+                        bluetooth_peer_update.update_peer(peer, commit)
+
+            for peer, v in status.items():
+                if not v['update_needed']:
+                    logging.debug('peer %s did not need update', str(peer.host))
+                elif not v['updated']:
+                    logging.error('update peer %s failed %s', str(peer.host),
+                                  v['reason'])
+                else:
+                    logging.debug('peer %s updated successfully',
+                                  str(peer.host))
+
+            return all([v['updated'] for v in status.values()
+                        if v['update_needed']])
+
+        try:
+            commit = None
+            (_, commit) = bluetooth_peer_update.get_latest_commit()
+            if commit is None:
+                logging.error('Unable to get current commit')
+                return False
+
+            return _update_btpeer()
+        except Exception as e:
+            logging.error('Exception %s in update_btpeer', str(e))
+            return False
+        finally:
+            if not bluetooth_peer_update.cleanup(self.host, commit):
+                logging.error('Update peer cleanup failed')
+
+
+    def get_chipset_name(self):
+        """ Get the name of BT/WiFi chipset on this host
+
+        @returns chipset name if successful else ''
+        """
+        (vid,pid) = self.bluetooth_facade.get_wlan_vid_pid()
+        logging.debug('Bluetooth module vid pid is %s %s', vid, pid)
+        if vid is None or pid is None:
+            # Controllers that aren't WLAN+BT combo chips does not expose
+            # Vendor ID/Product ID. Use alternate method.
+            # This will return one of ['WCN3991', ''] or a string containing
+            # the name of chipset read from DUT
+            return self.bluetooth_facade.get_bt_module_name()
+        for name, l in CHIPSET_TO_VIDPID.items():
+            if (vid, pid) in l:
+                return name
+        return ''
+
+
+    def verify_device_rssi(self, address_list):
+        """ Test device rssi is over required threshold.
+
+        @param address_list: List of peer devices to verify address for
+
+        @raises error.TestNA if any device isn't found or RSSI is too low
+        """
+        try:
+            self.test_start_discovery()
+            for device_address in address_list:
+                # The RSSI property is only maintained while discovery is
+                # enabled.  Stopping discovery removes the property. Thus, look
+                # up the RSSI without modifying discovery state.
+                found = self.test_discover_device(device_address,
+                                                  start_discovery=False,
+                                                  stop_discovery=False)
+                rssi = self.bluetooth_facade.get_device_property(
+                        device_address, 'RSSI')
+
+                if not found:
+                    logging.info('Failing with TEST_NA as peer %s was not'
+                                  ' discovered', device_address)
+                    raise error.TestNAError(
+                            'Peer {} not discovered'.format(device_address))
+
+                if not rssi or rssi < self.MIN_RSSI:
+                    logging.info('Failing with TEST_NA since RSSI (%s) is low ',
+                                  rssi)
+                    raise error.TestNAError(
+                            'Peer {} RSSI is too low: {}'.format(
+                                    device_address, rssi))
+
+                logging.info('Peer {} RSSI {}'.format(device_address, rssi))
+        finally:
+            self.test_stop_discovery()
+
+
+    def verify_controller_capability(self, required_roles=[],
+                                     test_type=''):
+        """Raise an exception if required role support isn't present
+
+        @param required_roles: List of test role requirements in
+                               ["central", "peripheral", "central-peripheral"]
+
+        @raises: error.TestFail if device does not meet requirements
+                                AND test_type is 'AVL'
+                 error.TestNA if device does not meet requirements
+                                and test_type is not 'AVL'
+        """
+
+        adapter_props = self.get_adapter_properties()
+
+        supported_roles = adapter_props.get('Roles', [])
+
+        for req in required_roles:
+            if req not in supported_roles:
+                # We don't meet requirements, throw error
+                msg = 'Role requirement {} not in supported modes {}'.format(
+                      req, supported_roles)
+
+                if test_type == 'AVL':
+                    raise error.TestFail(msg)
+
+                logging.info('Failing with TEST_NA due to %s', msg)
+                raise error.TestNAError(msg)
+
+
+    def set_fail_fast(self, args_dict, default=False):
+        """Set whether the test should fail fast if running into any problem
+
+        By default it should not fail fast so that a batch test can continue
+        running the rest after a failure in one test
+
+        :param args_dict: the arguments passed int from the command line
+        :param default: the default value when the flag is missing from the
+                        args_dict
+
+        """
+        flag_name = 'fail_fast'
+        if args_dict and flag_name in args_dict:
+            self.fail_fast = bool(args_dict[flag_name].lower() == 'true')
+        else:
+            self.fail_fast = default
+
+
+    def assert_discover_and_pair(self, device):
+        """ Discovers and pairs given device. Automatically connects too.
+
+        If any of the test expressions fail, it will raise an error so only call
+        this function as a setup for a test.
+        """
+        self.assert_on_fail(self.test_device_set_discoverable(device, True))
+        self.assert_on_fail(self.test_discover_device(device.address))
+        self.assert_on_fail(
+                self.test_pairing(device.address, device.pin, trusted=True))
 
     def run_once(self, *args, **kwargs):
         """This method should be implemented by children classes.
@@ -3212,7 +4534,7 @@ class BluetoothAdapterTests(test.test):
         Typically, the run_once() method would look like:
 
         factory = remote_facade_factory.RemoteFacadeFactory(host)
-        self.bluetooth_facade = factory.create_bluetooth_hid_facade()
+        self.bluetooth_facade = factory.create_bluetooth_facade()
 
         self.test_bluetoothd_running()
         # ...
@@ -3234,13 +4556,23 @@ class BluetoothAdapterTests(test.test):
                            or the end of the test(END).
         """
 
-        if test_state is 'END':
+        if test_state == 'END':
             # Disable all the bluetooth debug logs
             self.enable_disable_debug_log(enable=False)
+
+            # Re-enable cellular services
+            self.enable_disable_cellular(enable=True)
+
+            # Re-enable ui
+            self.enable_disable_ui(enable=True)
 
             if hasattr(self, 'host'):
                 # Stop btmon process
                 self.host.run('pkill btmon || true')
+
+                #Stop tcpdump usbmon process
+                self.host.run('pkill tcpdump || true')
+
 
         # Close the device properly if a device is instantiated.
         # Note: do not write something like the following statements
@@ -3255,7 +4587,7 @@ class BluetoothAdapterTests(test.test):
                     device.Close()
 
                     # Power cycle BT device if we're in the middle of a test
-                    if test_state is 'MID':
+                    if test_state == 'MID':
                         device.PowerCycle()
 
         self.devices = dict()

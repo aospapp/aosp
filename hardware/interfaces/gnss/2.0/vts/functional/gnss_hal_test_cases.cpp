@@ -62,6 +62,15 @@ TEST_P(GnssHalTest, TestGnssMeasurementExtension) {
     auto gnssMeasurement_1_0 = gnss_hal_->getExtensionGnssMeasurement();
     ASSERT_TRUE(gnssMeasurement_2_0.isOk() && gnssMeasurement_1_1.isOk() &&
                 gnssMeasurement_1_0.isOk());
+
+    // CDD does not require Android Automotive OS devices to support
+    // GnssMeasurements.
+    if (Utils::isAutomotiveDevice()) {
+        ALOGI("Test GnssMeasurementExtension skipped. Android Automotive OS deice is not required "
+              "to support GNSS measurements.");
+        return;
+    }
+
     sp<IGnssMeasurement_2_0> iGnssMeas_2_0 = gnssMeasurement_2_0;
     sp<IGnssMeasurement_1_1> iGnssMeas_1_1 = gnssMeasurement_1_1;
     sp<IGnssMeasurement_1_0> iGnssMeas_1_0 = gnssMeasurement_1_0;
@@ -394,7 +403,9 @@ TEST_P(GnssHalTest, TestGnssDataElapsedRealtimeFlags) {
 }
 
 TEST_P(GnssHalTest, TestGnssLocationElapsedRealtime) {
-    StartAndCheckFirstLocation(/* strict= */ true);
+    StartAndCheckFirstLocation(/* strict= */ true,
+                               /* min_interval_msec= */ 1000,
+                               /* low_power_mode= */ false);
 
     ASSERT_TRUE((int)gnss_cb_->last_location_.elapsedRealtime.flags <=
                 (int)(ElapsedRealtimeFlags::HAS_TIMESTAMP_NS |
@@ -410,7 +421,9 @@ TEST_P(GnssHalTest, TestGnssLocationElapsedRealtime) {
 
 // This test only verify that injectBestLocation_2_0 does not crash.
 TEST_P(GnssHalTest, TestInjectBestLocation_2_0) {
-    StartAndCheckFirstLocation(/* strict= */ true);
+    StartAndCheckFirstLocation(/* strict= */ true,
+                               /* min_interval_msec= */ 1000,
+                               /* low_power_mode= */ false);
     gnss_hal_->injectBestLocation_2_0(gnss_cb_->last_location_);
     StopAndClearLocations();
 }
@@ -451,10 +464,10 @@ TEST_P(GnssHalTest, GetLocationLowPower) {
     gnss_cb_->location_cbq_.reset();
 
     // Start of Low Power Mode test
-    SetPositionMode(kMinIntervalMsec, kLowPowerMode);
-
     // Don't expect true - as without AGPS access
-    if (!StartAndCheckFirstLocation(/* strict= */ false)) {
+    if (!StartAndCheckFirstLocation(/* strict= */ false,
+                                    /* min_interval_msec= */ kMinIntervalMsec,
+                                    /* low_power_mode= */ kLowPowerMode)) {
         ALOGW("GetLocationLowPower test - no first low power location received.");
     }
 

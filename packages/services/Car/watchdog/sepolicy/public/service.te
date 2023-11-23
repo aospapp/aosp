@@ -1,2 +1,0 @@
-# Car watchdog server
-type carwatchdogd_service, service_manager_type;

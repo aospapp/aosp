@@ -14,6 +14,16 @@
 //  limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "external_sl4a_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-GPL-2.0
+    default_applicable_licenses: ["external_sl4a_license"],
+}
+
 android_test_helper_app {
     name: "sl4a",
 
@@ -56,6 +66,9 @@ android_test_helper_app {
     },
 
     jni_libs: ["libcom_googlecode_android_scripting_Exec"],
+
+    min_sdk_version: "30",
+    target_sdk_version: "31",
 }
 
 java_import {

@@ -40,7 +40,7 @@ class firmware_Cr50WilcoRmaFactoryMode(Cr50Test):
 
         # Switch to dev mode and open CCD, so the test has access to gsctool
         # and bpforce.
-        self.fast_open(enable_testlab=True)
+        self.fast_ccd_open(enable_testlab=True)
         self.switcher.setup_mode('dev')
 
         # Keep track of whether Cr50 is in factory mode to minimize cleanup.
@@ -66,7 +66,7 @@ class firmware_Cr50WilcoRmaFactoryMode(Cr50Test):
             True if Cr50 is in the requested state, False otherwise
         """
         if state not in ('enable', 'disable'):
-            raise error.TestError('Invalid factory mode state %s', state)
+            raise error.TestError('Invalid factory mode state %s' % state)
         enable = state == 'enable'
 
         if self._in_factory_mode == enable:

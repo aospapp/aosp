@@ -53,28 +53,15 @@ public class WifiTest extends AndroidTestCase {
     // Shared WifiManager instance.
     private WifiManager mWifiManager;
 
-    // Original setting of WifiManager.isWifiEnabled() before setup.
-    private boolean mWifiEnabled;
-
     @Override
     public void setUp() throws Exception {
         super.setUp();
         mWifiConfigCreator = new WifiConfigCreator(getContext());
         mWifiManager = (WifiManager) getContext().getSystemService(Context.WIFI_SERVICE);
-        mWifiEnabled = mWifiManager.isWifiEnabled();
-        if (!mWifiEnabled) {
+        if (!mWifiManager.isWifiEnabled()) {
             SystemUtil.runShellCommand("svc wifi enable");
             awaitWifiEnabledState(true);
         }
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        if (!mWifiEnabled) {
-            SystemUtil.runShellCommand("svc wifi disable");
-            awaitWifiEnabledState(false);
-        }
-        super.tearDown();
     }
 
     /**

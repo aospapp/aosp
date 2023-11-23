@@ -25,6 +25,8 @@
 
 package java.lang;
 
+// Android-removed: Unsupported @HotSpotIntrinsicCandidate annotation.
+// import jdk.internal.HotSpotIntrinsicCandidate;
 import libcore.util.HexEncoding;
 
 /**
@@ -41,7 +43,7 @@ import libcore.util.HexEncoding;
  * @author  Nakul Saraiya
  * @author  Joseph D. Darcy
  * @see     java.lang.Number
- * @since   JDK1.1
+ * @since   1.1
  */
 public final class Byte extends Number implements Comparable<Byte> {
 
@@ -100,6 +102,8 @@ public final class Byte extends Number implements Comparable<Byte> {
      * @return a {@code Byte} instance representing {@code b}.
      * @since  1.5
      */
+    // Android-removed: Unsupported @HotSpotIntrinsicCandidate annotation.
+    // @HotSpotIntrinsicCandidate
     public static Byte valueOf(byte b) {
         final int offset = 128;
         return ByteCache.cache[(int)b + offset];
@@ -296,7 +300,13 @@ public final class Byte extends Number implements Comparable<Byte> {
      *
      * @param value     the value to be represented by the
      *                  {@code Byte}.
+     *
+     * @deprecated
+     * It is rarely appropriate to use this constructor. The static factory
+     * {@link #valueOf(byte)} is generally a better choice, as it is
+     * likely to yield significantly better space and time performance.
      */
+    @Deprecated(since="9")
     public Byte(byte value) {
         this.value = value;
     }
@@ -310,10 +320,16 @@ public final class Byte extends Number implements Comparable<Byte> {
      *
      * @param s         the {@code String} to be converted to a
      *                  {@code Byte}
-     * @throws           NumberFormatException If the {@code String}
+     * @throws          NumberFormatException if the {@code String}
      *                  does not contain a parsable {@code byte}.
-     * @see        java.lang.Byte#parseByte(java.lang.String, int)
+     *
+     * @deprecated
+     * It is rarely appropriate to use this constructor.
+     * Use {@link #parseByte(String)} to convert a string to a
+     * {@code byte} primitive, or use {@link #valueOf(String)}
+     * to convert a string to a {@code Byte} object.
      */
+    @Deprecated(since="9")
     public Byte(String s) throws NumberFormatException {
         this.value = parseByte(s, 10);
     }
@@ -322,6 +338,8 @@ public final class Byte extends Number implements Comparable<Byte> {
      * Returns the value of this {@code Byte} as a
      * {@code byte}.
      */
+    // Android-removed: Unsupported @HotSpotIntrinsicCandidate annotation.
+    // @HotSpotIntrinsicCandidate
     public byte byteValue() {
         return value;
     }
@@ -458,6 +476,22 @@ public final class Byte extends Number implements Comparable<Byte> {
      */
     public static int compare(byte x, byte y) {
         return x - y;
+    }
+
+    /**
+     * Compares two {@code byte} values numerically treating the values
+     * as unsigned.
+     *
+     * @param  x the first {@code byte} to compare
+     * @param  y the second {@code byte} to compare
+     * @return the value {@code 0} if {@code x == y}; a value less
+     *         than {@code 0} if {@code x < y} as unsigned values; and
+     *         a value greater than {@code 0} if {@code x > y} as
+     *         unsigned values
+     * @since 9
+     */
+    public static int compareUnsigned(byte x, byte y) {
+        return Byte.toUnsignedInt(x) - Byte.toUnsignedInt(y);
     }
 
     /**

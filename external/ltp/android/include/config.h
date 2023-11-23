@@ -262,7 +262,7 @@
 #define HAVE_PIDFD_OPEN 1
 
 /* Define to 1 if you have the `pidfd_send_signal' function. */
-/* #undef HAVE_PIDFD_SEND_SIGNAL */
+#define HAVE_PIDFD_SEND_SIGNAL 1
 
 /* Define to 1 if you have the `pkey_mprotect' function. */
 /* #undef HAVE_PKEY_MPROTECT */

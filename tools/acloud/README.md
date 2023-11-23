@@ -51,12 +51,10 @@ instance (running on a virtual machine in the cloud) and local instance
 (running on your local host) use cases. You also have the option to use
 a locally built image or an image from the Android Build servers.
 
-**Disclaimer: Creation of a cuttlefish local instance is not formally supported, please use at your own risk.**
-
 Here's a quick cheat-sheet for the 4 use cases:
 
 * Remote instance using an Android Build image (LKGB (Last Known Good Build)
-for cuttlefish phone target in the branch of your repo, default aosp master
+for cuttlefish phone target in the branch of your repo, default aosp main (master)
 if we can't determine it)
 
 > $ acloud create
@@ -79,10 +77,10 @@ target and/or build id (e.g. `--branch my_branch`). Acloud will assume the
 following if they're not specified:
 
 * `--branch`: The branch of the repo you're running the acloud command in, e.g.
-in an aosp repo on the master branch, acloud will infer the aosp-master branch.
+in an aosp repo on the master branch, acloud will infer the aosp-main (aosp-master) branch.
 
 * `--build-target`: Defaults to the phone target for cuttlefish (e.g.
-aosp\_cf\_x86\_phone-userdebug in aosp-master).
+aosp\_cf\_x86\_phone-userdebug in aosp-main (aosp-master)).
 
 * `--build-id`: Default to the Last Known Good Build (LKGB) id for the branch and
 target set from above.
@@ -223,4 +221,4 @@ Cheatsheet:
 
 If you have any questions or feedback, contact [acloud@google.com](mailto:acloud@google.com).
 
-If you have any bugs or feature requests, [go/acloud-bug](http://go/acloud-bug).
+If you have any bugs or feature requests email them to [buganizer-system+419709@google.com](mailto:buganizer-system+419709@google.com)

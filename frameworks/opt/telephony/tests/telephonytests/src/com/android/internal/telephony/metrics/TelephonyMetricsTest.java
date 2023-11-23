@@ -29,6 +29,7 @@ import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_D
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_GATEWAY;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_IFNAME;
 import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_PCSCF_ADDRESS;
+import static com.android.internal.telephony.dataconnection.LinkBandwidthEstimator.NUM_SIGNAL_LEVEL;
 import static com.android.internal.telephony.nano.TelephonyProto.PdpType.PDP_TYPE_IPV4V6;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -59,8 +60,11 @@ import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.SmsResponse;
 import com.android.internal.telephony.TelephonyTest;
 import com.android.internal.telephony.UUSInfo;
+import com.android.internal.telephony.dataconnection.LinkBandwidthEstimator;
 import com.android.internal.telephony.nano.TelephonyProto;
+import com.android.internal.telephony.nano.TelephonyProto.BandwidthEstimatorStats;
 import com.android.internal.telephony.nano.TelephonyProto.ImsConnectionState;
+import com.android.internal.telephony.nano.TelephonyProto.NrMode;
 import com.android.internal.telephony.nano.TelephonyProto.RadioAccessTechnology;
 import com.android.internal.telephony.nano.TelephonyProto.SmsSession;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyCallSession;
@@ -73,6 +77,7 @@ import com.android.internal.telephony.nano.TelephonyProto.TelephonyServiceState;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyServiceState.FrequencyRange;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyServiceState.NrState;
 import com.android.internal.telephony.nano.TelephonyProto.TelephonyServiceState.RoamingType;
+import com.android.internal.telephony.nano.TelephonyProto.TelephonySettings.RilNetworkMode;
 
 import org.junit.After;
 import org.junit.Before;
@@ -419,6 +424,36 @@ public class TelephonyMetricsTest extends TelephonyTest {
         assertTrue(log.callSessions[0].events[1].settings.isEnhanced4GLteModeEnabled);
     }
 
+    // Test multiple events impacting TelephonySettings.
+    @Test
+    @SmallTest
+    public void testTelephonySettingsEvents() throws Exception {
+        mMetrics.writeImsSetFeatureValue(mPhone.getPhoneId(),
+                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE, 1);
+        mMetrics.writeSetPreferredNetworkType(mPhone.getPhoneId(),
+                TelephonyManager.NETWORK_MODE_LTE_ONLY);
+        mMetrics.writeImsSetFeatureValue(mPhone.getPhoneId(),
+                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN, 1);
+
+        TelephonyLog log = buildProto();
+
+        assertEquals(3, log.events.length);
+        assertTrue(log.events[0].settings.isEnhanced4GLteModeEnabled);
+        assertFalse(log.events[0].settings.isWifiCallingEnabled);
+        assertEquals(log.events[0].settings.preferredNetworkMode,
+                RilNetworkMode.NETWORK_MODE_UNKNOWN);
+        assertTrue(log.events[1].settings.isEnhanced4GLteModeEnabled);
+        assertFalse(log.events[1].settings.isWifiCallingEnabled);
+        assertEquals(log.events[1].settings.preferredNetworkMode,
+                RilNetworkMode.NETWORK_MODE_LTE_ONLY);
+        assertTrue(log.events[2].settings.isEnhanced4GLteModeEnabled);
+        assertTrue(log.events[2].settings.isWifiCallingEnabled);
+        assertEquals(log.events[2].settings.preferredNetworkMode,
+                RilNetworkMode.NETWORK_MODE_LTE_ONLY);
+    }
+
     // Test write on ims call handover event
     @Test
     @SmallTest
@@ -506,7 +541,7 @@ public class TelephonyMetricsTest extends TelephonyTest {
     public void testWriteOnSetupDataCallResponse() throws Exception {
         DataCallResponse response = new DataCallResponse.Builder()
                 .setCause(5)
-                .setSuggestedRetryTime(6)
+                .setRetryDurationMillis(6)
                 .setId(7)
                 .setLinkStatus(8)
                 .setProtocolType(ApnSetting.PROTOCOL_IPV4V6)
@@ -536,7 +571,7 @@ public class TelephonyMetricsTest extends TelephonyTest {
         assertEquals(6, respProto.suggestedRetryTimeMillis);
         assertEquals(7, respProto.call.cid);
         assertEquals(PDP_TYPE_IPV4V6, respProto.call.type);
-        assertEquals(FAKE_IFNAME, respProto.call.iframe);
+        assertEquals(FAKE_IFNAME, respProto.call.ifname);
     }
 
     // Test write on deactivate data call response
@@ -560,14 +595,17 @@ public class TelephonyMetricsTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testWriteRilSendSms() throws Exception {
-        mMetrics.writeRilSendSms(mPhone.getPhoneId(), 1, 2, 1);
-        mMetrics.writeRilSendSms(mPhone.getPhoneId(), 4, 5, 2);
+        long fakeMessageId1 = 123123L;
+        long fakeMessageId2 = -987L;
 
-        SmsResponse response = new SmsResponse(0, null, 123);
+        mMetrics.writeRilSendSms(mPhone.getPhoneId(), 1, 2, 1, fakeMessageId1);
+        mMetrics.writeRilSendSms(mPhone.getPhoneId(), 4, 5, 2, fakeMessageId2);
+
+        SmsResponse response = new SmsResponse(0, null, 123, fakeMessageId1);
 
         mMetrics.writeOnRilSolicitedResponse(mPhone.getPhoneId(), 1, 0, RIL_REQUEST_SEND_SMS,
                 response);
-        response = new SmsResponse(0, null, 456);
+        response = new SmsResponse(0, null, 456, fakeMessageId2);
         mMetrics.writeOnRilSolicitedResponse(mPhone.getPhoneId(), 4, 0, RIL_REQUEST_SEND_SMS,
                 response);
         TelephonyLog log = buildProto();
@@ -583,21 +621,25 @@ public class TelephonyMetricsTest extends TelephonyTest {
         assertEquals(1, events[0].rilRequestId);
         assertEquals(2, events[0].tech);
         assertEquals(1, events[0].format);
+        assertEquals(fakeMessageId1, events[0].messageId);
 
         assertEquals(SmsSession.Event.Type.SMS_SEND, events[1].type);
         assertEquals(4, events[1].rilRequestId);
         assertEquals(5, events[1].tech);
         assertEquals(2, events[1].format);
+        assertEquals(fakeMessageId2, events[1].messageId);
 
         assertEquals(SmsSession.Event.Type.SMS_SEND_RESULT, events[2].type);
         assertEquals(1, events[2].rilRequestId);
         assertEquals(1, events[2].error);
         assertEquals(123, events[2].errorCode);
+        assertEquals(fakeMessageId1, events[2].messageId);
 
         assertEquals(SmsSession.Event.Type.SMS_SEND_RESULT, events[3].type);
         assertEquals(4, events[3].rilRequestId);
         assertEquals(1, events[3].error);
         assertEquals(456, events[3].errorCode);
+        assertEquals(fakeMessageId2, events[3].messageId);
     }
 
     // Test write phone state
@@ -833,5 +875,40 @@ public class TelephonyMetricsTest extends TelephonyTest {
         assertEquals(false, event.imsCapabilities.voiceOverLte);
         assertEquals(false, event.imsCapabilities.videoOverLte);
         assertEquals(false, event.imsCapabilities.utOverLte);
+    }
+
+
+    // Test write Bandwidth Stats
+    @Test
+    @SmallTest
+    public void testWriteBandwidthStats() throws Exception {
+        addBandwidthStats(LinkBandwidthEstimator.LINK_TX, TelephonyManager.NETWORK_TYPE_LTE,
+                NrMode.NR_NSA_MMWAVE);
+        addBandwidthStats(LinkBandwidthEstimator.LINK_RX, TelephonyManager.NETWORK_TYPE_LTE,
+                NrMode.NR_NSA_MMWAVE);
+        addBandwidthStats(LinkBandwidthEstimator.LINK_RX, TelephonyManager.NETWORK_TYPE_NR,
+                NrMode.NR_SA_MMWAVE);
+        TelephonyLog log = buildProto();
+
+        BandwidthEstimatorStats stats = log.bandwidthEstimatorStats;
+        assertEquals(1, stats.perRatTx.length);
+        assertEquals(2, stats.perRatRx.length);
+        assertEquals(TelephonyManager.NETWORK_TYPE_LTE, stats.perRatTx[0].rat);
+        assertEquals(NrMode.NR_NSA_MMWAVE, stats.perRatTx[0].nrMode);
+        assertEquals(NUM_SIGNAL_LEVEL - 1, stats.perRatTx[0].perLevel.length);
+        assertEquals(2, stats.perRatTx[0].perLevel[0].count);
+        assertEquals(0, stats.perRatTx[0].perLevel[0].signalLevel);
+        assertEquals(400_000, stats.perRatTx[0].perLevel[0].avgBwKbps);
+        assertEquals(40, stats.perRatTx[0].perLevel[0].staticBwErrorPercent);
+        assertEquals(30, stats.perRatTx[0].perLevel[0].bwEstErrorPercent);
+    }
+
+    private void addBandwidthStats(int link, int dataRat, int nrMode) {
+        for (int i = 0; i < NUM_SIGNAL_LEVEL - 1; i++) {
+            mMetrics.writeBandwidthStats(link, dataRat, nrMode,
+                    i, 20, 30, 300_000);
+            mMetrics.writeBandwidthStats(link, dataRat, nrMode,
+                    i, 40, 50, 500_000);
+        }
     }
 }

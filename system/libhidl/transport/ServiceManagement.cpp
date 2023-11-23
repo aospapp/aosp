@@ -87,7 +87,7 @@ static void waitForHwServiceManager() {
 static std::string binaryName() {
     std::ifstream ifs("/proc/self/cmdline");
     std::string cmdline;
-    if (!ifs.is_open()) {
+    if (!ifs) {
         return "";
     }
     ifs >> cmdline;
@@ -106,7 +106,7 @@ static std::string packageWithoutVersion(const std::string& packageAndVersion) {
     return packageAndVersion.substr(0, at);
 }
 
-static void tryShortenProcessName(const std::string& descriptor) {
+__attribute__((noinline)) static void tryShortenProcessName(const std::string& descriptor) {
     const static std::string kTasks = "/proc/self/task/";
 
     // make sure that this binary name is in the same package
@@ -135,17 +135,17 @@ static void tryShortenProcessName(const std::string& descriptor) {
         if (dp->d_name[0] == '.') continue;
 
         std::fstream fs(kTasks + dp->d_name + "/comm");
-        if (!fs.is_open()) {
+        if (!fs) {
             ALOGI("Could not rename process, failed read comm for %s.", dp->d_name);
             continue;
         }
 
         std::string oldComm;
-        fs >> oldComm;
+        if (!(fs >> oldComm)) continue;
 
         // don't rename if it already has an explicit name
         if (base::StartsWith(descriptor, oldComm)) {
-            fs.seekg(0, fs.beg);
+            if (!fs.seekg(0, fs.beg)) continue;
             fs << newName;
         }
     }
@@ -153,45 +153,41 @@ static void tryShortenProcessName(const std::string& descriptor) {
 
 namespace details {
 
-/*
- * Returns the age of the current process by reading /proc/self/stat and comparing starttime to the
- * current time. This is useful for measuring how long it took a HAL to register itself.
- */
-static long getProcessAgeMs() {
-    constexpr const int PROCFS_STAT_STARTTIME_INDEX = 21;
-    std::string content;
-    android::base::ReadFileToString("/proc/self/stat", &content, false);
-    auto stats = android::base::Split(content, " ");
-    if (stats.size() <= PROCFS_STAT_STARTTIME_INDEX) {
-        LOG(INFO) << "Could not read starttime from /proc/self/stat";
-        return -1;
-    }
-    const std::string& startTimeString = stats[PROCFS_STAT_STARTTIME_INDEX];
-    static const int64_t ticksPerSecond = sysconf(_SC_CLK_TCK);
-    const int64_t uptime = android::uptimeMillis();
+#ifdef ENFORCE_VINTF_MANIFEST
+static constexpr bool kEnforceVintfManifest = true;
+#else
+static constexpr bool kEnforceVintfManifest = false;
+#endif
 
-    unsigned long long startTimeInClockTicks = 0;
-    if (android::base::ParseUint(startTimeString, &startTimeInClockTicks)) {
-        long startTimeMs = 1000ULL * startTimeInClockTicks / ticksPerSecond;
-        return uptime - startTimeMs;
+static bool* getTrebleTestingOverridePtr() {
+    static bool gTrebleTestingOverride = false;
+    return &gTrebleTestingOverride;
+}
+
+void setTrebleTestingOverride(bool testingOverride) {
+    *getTrebleTestingOverridePtr() = testingOverride;
+}
+
+static bool isDebuggable() {
+    static bool debuggable = base::GetBoolProperty("ro.debuggable", false);
+    return debuggable;
+}
+
+static inline bool isTrebleTestingOverride() {
+    if (kEnforceVintfManifest && !isDebuggable()) {
+        // don't allow testing override in production
+        return false;
     }
-    return -1;
+
+    return *getTrebleTestingOverridePtr();
 }
 
 static void onRegistrationImpl(const std::string& descriptor, const std::string& instanceName) {
-    long halStartDelay = getProcessAgeMs();
-    if (halStartDelay >= 0) {
-        // The "start delay" printed here is an estimate of how long it took the HAL to go from
-        // process creation to registering itself as a HAL.  Actual start time could be longer
-        // because the process might not have joined the threadpool yet, so it might not be ready to
-        // process transactions.
-        LOG(INFO) << "Registered " << descriptor << "/" << instanceName << " (start delay of "
-                  << halStartDelay << "ms)";
-    }
-
+    LOG(INFO) << "Registered " << descriptor << "/" << instanceName;
     tryShortenProcessName(descriptor);
 }
 
+// only used by prebuilts - should be able to remove
 void onRegistration(const std::string& packageName, const std::string& interfaceName,
                     const std::string& instanceName) {
     return onRegistrationImpl(packageName + "::" + interfaceName, instanceName);
@@ -363,8 +359,7 @@ struct PassthroughServiceManager : IServiceManager1_1 {
 
         dlerror(); // clear
 
-        static std::string halLibPathVndkSp = android::base::StringPrintf(
-            HAL_LIBRARY_PATH_VNDK_SP_FOR_VERSION, details::getVndkVersionStr().c_str());
+        static std::string halLibPathVndkSp = details::getVndkSpHwPath();
         std::vector<std::string> paths = {
             HAL_LIBRARY_PATH_ODM, HAL_LIBRARY_PATH_VENDOR, halLibPathVndkSp,
 #ifndef __ANDROID_VNDK__
@@ -372,10 +367,7 @@ struct PassthroughServiceManager : IServiceManager1_1 {
 #endif
         };
 
-#ifdef LIBHIDL_TARGET_DEBUGGABLE
-        const char* env = std::getenv("TREBLE_TESTING_OVERRIDE");
-        const bool trebleTestingOverride = env && !strcmp(env, "true");
-        if (trebleTestingOverride) {
+        if (details::isTrebleTestingOverride()) {
             // Load HAL implementations that are statically linked
             handle = dlopen(nullptr, dlMode);
             if (handle == nullptr) {
@@ -386,7 +378,6 @@ struct PassthroughServiceManager : IServiceManager1_1 {
                 return;
             }
         }
-#endif
 
         for (const std::string& path : paths) {
             std::vector<std::string> libs = findFiles(path, prefix, ".so");
@@ -425,18 +416,27 @@ struct PassthroughServiceManager : IServiceManager1_1 {
             *(void **)(&generator) = dlsym(handle, sym.c_str());
             if(!generator) {
                 const char* error = dlerror();
-                LOG(ERROR) << "Passthrough lookup opened " << lib
-                           << " but could not find symbol " << sym << ": "
-                           << (error == nullptr ? "unknown error" : error);
-                dlclose(handle);
-                return true;
+                LOG(ERROR) << "Passthrough lookup opened " << lib << " but could not find symbol "
+                           << sym << ": " << (error == nullptr ? "unknown error" : error)
+                           << ". Keeping library open.";
+
+                // dlclose too problematic in multi-threaded environment
+                // dlclose(handle);
+
+                return true;  // continue
             }
 
             ret = (*generator)(name.c_str());
 
             if (ret == nullptr) {
-                dlclose(handle);
-                return true; // this module doesn't provide this instance name
+                LOG(ERROR) << "Could not find instance '" << name.c_str() << "' in library " << lib
+                           << ". Keeping library open.";
+
+                // dlclose too problematic in multi-threaded environment
+                // dlclose(handle);
+
+                // this module doesn't provide this particular instance
+                return true;  // continue
             }
 
             // Actual fqname might be a subclass.
@@ -485,10 +485,8 @@ struct PassthroughServiceManager : IServiceManager1_1 {
     Return<void> debugDump(debugDump_cb _hidl_cb) override {
         using Arch = ::android::hidl::base::V1_0::DebugInfo::Architecture;
         using std::literals::string_literals::operator""s;
-        static std::string halLibPathVndkSp64 = android::base::StringPrintf(
-            HAL_LIBRARY_PATH_VNDK_SP_64BIT_FOR_VERSION, details::getVndkVersionStr().c_str());
-        static std::string halLibPathVndkSp32 = android::base::StringPrintf(
-            HAL_LIBRARY_PATH_VNDK_SP_32BIT_FOR_VERSION, details::getVndkVersionStr().c_str());
+        static std::string halLibPathVndkSp64 = details::getVndkSpHwPath("lib64");
+        static std::string halLibPathVndkSp32 = details::getVndkSpHwPath("lib");
         static std::vector<std::pair<Arch, std::vector<const char*>>> sAllPaths{
             {Arch::IS_64BIT,
              {
@@ -737,28 +735,6 @@ bool handleCastError(const Return<bool>& castReturn, const std::string& descript
     return false;
 }
 
-#ifdef ENFORCE_VINTF_MANIFEST
-static constexpr bool kEnforceVintfManifest = true;
-#else
-static constexpr bool kEnforceVintfManifest = false;
-#endif
-
-#ifdef LIBHIDL_TARGET_DEBUGGABLE
-static constexpr bool kDebuggable = true;
-#else
-static constexpr bool kDebuggable = false;
-#endif
-
-static inline bool isTrebleTestingOverride() {
-    if (kEnforceVintfManifest && !kDebuggable) {
-        // don't allow testing override in production
-        return false;
-    }
-
-    const char* env = std::getenv("TREBLE_TESTING_OVERRIDE");
-    return env && !strcmp(env, "true");
-}
-
 sp<::android::hidl::base::V1_0::IBase> getRawServiceInternal(const std::string& descriptor,
                                                              const std::string& instance,
                                                              bool retry, bool getStub) {
@@ -789,7 +765,7 @@ sp<::android::hidl::base::V1_0::IBase> getRawServiceInternal(const std::string& 
     const bool vintfHwbinder = (transport == Transport::HWBINDER);
     const bool vintfPassthru = (transport == Transport::PASSTHROUGH);
     const bool trebleTestingOverride = isTrebleTestingOverride();
-    const bool allowLegacy = !kEnforceVintfManifest || (trebleTestingOverride && kDebuggable);
+    const bool allowLegacy = !kEnforceVintfManifest || (trebleTestingOverride && isDebuggable());
     const bool vintfLegacy = (transport == Transport::EMPTY) && allowLegacy;
 
     if (!kEnforceVintfManifest) {
@@ -871,7 +847,13 @@ status_t registerAsServiceInternal(const sp<IBase>& service, const std::string& 
 
     if (kEnforceVintfManifest && !isTrebleTestingOverride()) {
         using Transport = IServiceManager1_0::Transport;
-        Transport transport = sm->getTransport(descriptor, name);
+        Return<Transport> transport = sm->getTransport(descriptor, name);
+
+        if (!transport.isOk()) {
+            LOG(ERROR) << "Could not get transport for " << descriptor << "/" << name << ": "
+                       << transport.description();
+            return UNKNOWN_ERROR;
+        }
 
         if (transport != Transport::HWBINDER) {
             LOG(ERROR) << "Service " << descriptor << "/" << name

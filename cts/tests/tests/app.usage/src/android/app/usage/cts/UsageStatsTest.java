@@ -33,7 +33,6 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.usage.cts.ITestReceiver;
 import android.app.usage.EventStats;
 import android.app.usage.UsageEvents;
 import android.app.usage.UsageEvents.Event;
@@ -47,9 +46,13 @@ import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.SystemClock;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
 import android.provider.Settings;
+import android.server.wm.WindowManagerState;
+import android.server.wm.WindowManagerStateHelper;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.Until;
@@ -57,6 +60,7 @@ import android.text.format.DateUtils;
 import android.util.Log;
 import android.util.SparseArray;
 import android.util.SparseLongArray;
+import android.view.KeyEvent;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -111,12 +115,21 @@ public class UsageStatsTest {
 
     private static final String DELETE_SHELL_COMMAND = "settings delete global ";
 
+    private static final String JOBSCHEDULER_RUN_SHELL_COMMAND = "cmd jobscheduler run";
+
     private static final String TEST_APP_PKG = "android.app.usage.cts.test1";
     private static final String TEST_APP_CLASS = "android.app.usage.cts.test1.SomeActivity";
     private static final String TEST_APP_CLASS_LOCUS
             = "android.app.usage.cts.test1.SomeActivityWithLocus";
     private static final String TEST_APP_CLASS_SERVICE
             = "android.app.usage.cts.test1.TestService";
+    private static final String TEST_APP2_PKG = "android.app.usage.cts.test2";
+    private static final String TEST_APP2_CLASS_FINISHING_TASK_ROOT =
+            "android.app.usage.cts.test2.FinishingTaskRootActivity";
+    private static final String TEST_APP2_CLASS_PIP =
+            "android.app.usage.cts.test2.PipActivity";
+    private static final ComponentName TEST_APP2_PIP_COMPONENT = new ComponentName(TEST_APP2_PKG,
+            TEST_APP2_CLASS_PIP);
 
     private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
     private static final long MINUTE = TimeUnit.MINUTES.toMillis(1);
@@ -137,6 +150,10 @@ public class UsageStatsTest {
     private String mTargetPackage;
     private String mCachedUsageSourceSetting;
     private String mCachedEnableRestrictedBucketSetting;
+    private int mOtherUser;
+    private Context mOtherUserContext;
+    private UsageStatsManager mOtherUsageStats;
+    private WindowManagerStateHelper mWMStateHelper;
 
     @Before
     public void setUp() throws Exception {
@@ -147,6 +164,8 @@ public class UsageStatsTest {
                 Context.USAGE_STATS_SERVICE);
         mKeyguardManager = mContext.getSystemService(KeyguardManager.class);
         mTargetPackage = mContext.getPackageName();
+
+        mWMStateHelper = new WindowManagerStateHelper();
 
         assumeTrue("App Standby not enabled on device", AppStandbyUtils.isAppStandbyEnabled());
         setAppOpsMode("allow");
@@ -164,7 +183,14 @@ public class UsageStatsTest {
         setSetting(Settings.Global.ENABLE_RESTRICTED_BUCKET, mCachedEnableRestrictedBucketSetting);
         // Force stop test package to avoid any running test code from carrying over to the next run
         SystemUtil.runWithShellPermissionIdentity(() -> mAm.forceStopPackage(TEST_APP_PKG));
+        SystemUtil.runWithShellPermissionIdentity(() -> mAm.forceStopPackage(TEST_APP2_PKG));
         mUiDevice.pressHome();
+        // Destroy the other user if created
+        if (mOtherUser != 0) {
+            stopUser(mOtherUser, true, true);
+            removeUser(mOtherUser);
+            mOtherUser = 0;
+        }
     }
 
     private static void assertLessThan(long left, long right) {
@@ -199,22 +225,108 @@ public class UsageStatsTest {
     private void launchSubActivity(Class<? extends Activity> clazz) {
         final Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.setClassName(mTargetPackage, clazz.getName());
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
         mUiDevice.wait(Until.hasObject(By.clazz(clazz)), TIMEOUT);
     }
 
-    private void launchTestActivity(String pkgName, String className) {
-        Intent intent = new Intent();
+    private Intent createTestActivityIntent(String pkgName, String className) {
+        final Intent intent = new Intent();
         intent.setClassName(pkgName, className);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        mContext.startActivity(intent);
+        return intent;
+    }
+
+    private void launchTestActivity(String pkgName, String className) {
+        mContext.startActivity(createTestActivityIntent(pkgName, className));
         mUiDevice.wait(Until.hasObject(By.clazz(pkgName, className)), TIMEOUT);
     }
 
     private void launchSubActivities(Class<? extends Activity>[] activityClasses) {
         for (Class<? extends Activity> clazz : activityClasses) {
             launchSubActivity(clazz);
+        }
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testLastTimeAnyComponentUsed_launchActivityShouldBeDetected() throws Exception {
+        mUiDevice.wakeUp();
+        dismissKeyguard(); // also want to start out with the keyguard dismissed.
+
+        final long startTime = System.currentTimeMillis();
+        launchSubActivity(Activities.ActivityOne.class);
+        final long endTime = System.currentTimeMillis();
+
+        verifyLastTimeAnyComponentUsedWithinRange(startTime, endTime, mTargetPackage);
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testLastTimeAnyComponentUsed_bindServiceShouldBeDetected() throws Exception {
+        mUiDevice.wakeUp();
+        dismissKeyguard(); // also want to start out with the keyguard dismissed.
+
+        final long startTime = System.currentTimeMillis();
+        bindToTestService();
+        final long endTime = System.currentTimeMillis();
+
+        verifyLastTimeAnyComponentUsedWithinRange(startTime, endTime, TEST_APP_PKG);
+    }
+
+    private void verifyLastTimeAnyComponentUsedWithinRange(
+            long startTime, long endTime, String targetPackage) {
+        final Map<String, UsageStats> map = mUsageStatsManager.queryAndAggregateUsageStats(
+                startTime, endTime);
+        final UsageStats stats = map.get(targetPackage);
+        assertNotNull(stats);
+        final long lastTimeAnyComponentUsed = stats.getLastTimeAnyComponentUsed();
+        assertLessThan(startTime, lastTimeAnyComponentUsed);
+        assertLessThan(lastTimeAnyComponentUsed, endTime);
+
+        SystemUtil.runWithShellPermissionIdentity(()-> {
+            final long lastDayAnyComponentUsedGlobal =
+                    mUsageStatsManager.getLastTimeAnyComponentUsed(targetPackage) / DAY;
+            assertLessThanOrEqual(startTime / DAY, lastDayAnyComponentUsedGlobal);
+            assertLessThanOrEqual(lastDayAnyComponentUsedGlobal, endTime / DAY);
+        });
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testLastTimeAnyComponentUsed_JobServiceShouldBeIgnored() throws Exception {
+        mUiDevice.wakeUp();
+        dismissKeyguard(); // also want to start out with the keyguard dismissed.
+
+        final long startTime = System.currentTimeMillis();
+        runJobImmediately();
+        waitUntil(TestJob.hasJobStarted, /* expected */ true);
+
+        final Map<String, UsageStats> map = mUsageStatsManager.queryAndAggregateUsageStats(
+                startTime, System.currentTimeMillis());
+        final UsageStats stats = map.get(mTargetPackage);
+        if (stats != null) {
+            final long lastTimeAnyComponentUsed = stats.getLastTimeAnyComponentUsed();
+            // Check that the usage is NOT detected.
+            assertLessThanOrEqual(lastTimeAnyComponentUsed, startTime);
+        }
+
+        SystemUtil.runWithShellPermissionIdentity(()-> {
+            final long lastDayAnyComponentUsedGlobal =
+                    mUsageStatsManager.getLastTimeAnyComponentUsed(mTargetPackage) / DAY;
+            // Check that the usage is NOT detected.
+            assertLessThanOrEqual(lastDayAnyComponentUsedGlobal, startTime / DAY);
+        });
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testLastTimeAnyComponentUsedGlobal_withoutPermission() throws Exception {
+        try{
+            mUsageStatsManager.getLastTimeAnyComponentUsed(mTargetPackage);
+            fail("Query across users should require INTERACT_ACROSS_USERS permission");
+        } catch (SecurityException se) {
+            // Expected
         }
     }
 
@@ -228,6 +340,7 @@ public class UsageStatsTest {
                 Activities.ActivityThree.class,
         };
         mUiDevice.wakeUp();
+        dismissKeyguard(); // also want to start out with the keyguard dismissed.
 
         final long startTime = System.currentTimeMillis();
         // Launch the series of Activities.
@@ -575,7 +688,7 @@ public class UsageStatsTest {
                         .setContentTitle("My notification")
                         .setContentText("Hello World!");
         final PendingIntent pi = PendingIntent.getActivity(mContext, 1,
-                new Intent(Settings.ACTION_SETTINGS), 0);
+                new Intent(Settings.ACTION_SETTINGS), PendingIntent.FLAG_IMMUTABLE);
         mBuilder.setContentIntent(pi);
         mNotificationManager.notify(1, mBuilder.build());
         Thread.sleep(500);
@@ -684,6 +797,59 @@ public class UsageStatsTest {
         fail("Couldn't find a user unlocked event.");
     }
 
+    @AppModeFull(reason = "No usage stats access in instant apps")
+    @Test
+    public void testCrossUserQuery_withPermission() throws Exception {
+        assumeTrue(UserManager.supportsMultipleUsers());
+        final long startTime = System.currentTimeMillis();
+        // Create user
+        final int userId = createUser("Test User");
+        startUser(userId, true);
+        installExistingPackageAsUser(mContext.getPackageName(), userId);
+
+        // Query as Shell
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            final UserHandle otherUser = UserHandle.of(userId);
+            final Context userContext = mContext.createContextAsUser(otherUser, 0);
+
+            final UsageStatsManager usmOther = userContext.getSystemService(
+                    UsageStatsManager.class);
+
+            waitUntil(() -> {
+                final List<UsageStats> stats = usmOther.queryUsageStats(
+                        UsageStatsManager.INTERVAL_DAILY, startTime, System.currentTimeMillis());
+                return stats.isEmpty();
+            }, false);
+        });
+        // user cleanup done in @After
+    }
+
+    @AppModeFull(reason = "No usage stats access in instant apps")
+    @Test
+    public void testCrossUserQuery_withoutPermission() throws Exception {
+        assumeTrue(UserManager.supportsMultipleUsers());
+        final long startTime = System.currentTimeMillis();
+        // Create user
+        final int userId = createUser("Test User");
+        startUser(userId, true);
+        installExistingPackageAsUser(mContext.getPackageName(), userId);
+
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            mOtherUserContext = mContext.createContextAsUser(UserHandle.of(userId), 0);
+            mOtherUsageStats = mOtherUserContext.getSystemService(UsageStatsManager.class);
+        });
+
+        try {
+            mOtherUsageStats.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime,
+                    System.currentTimeMillis());
+            fail("Query across users should require INTERACT_ACROSS_USERS permission");
+        } catch (SecurityException se) {
+            // Expected
+        }
+
+        // user cleanup done in @After
+    }
+
     // TODO(148887416): get this test to work for instant apps
     @AppModeFull(reason = "Test APK Activity not found when installed as an instant app")
     @Test
@@ -737,26 +903,6 @@ public class UsageStatsTest {
         assertEquals("Activity launch didn't bring RESTRICTED app into ACTIVE bucket",
                 UsageStatsManager.STANDBY_BUCKET_ACTIVE,
                 mUsageStatsManager.getAppStandbyBucket(mTargetPackage));
-    }
-
-    /** Confirm the default value of {@link Settings.Global.ENABLE_RESTRICTED_BUCKET}. */
-    // TODO(148887416): get this test to work for instant apps
-    @AppModeFull(reason = "Test APK Activity not found when installed as an instant app")
-    @Test
-    public void testDefaultEnableRestrictedBucketOff() throws Exception {
-        setSetting(Settings.Global.ENABLE_RESTRICTED_BUCKET, null);
-
-        launchSubActivity(TaskRootActivity.class);
-        assertEquals("Activity launch didn't bring app up to ACTIVE bucket",
-                UsageStatsManager.STANDBY_BUCKET_ACTIVE,
-                mUsageStatsManager.getAppStandbyBucket(mTargetPackage));
-
-        // User force shouldn't have to deal with the timeout.
-        setStandByBucket(mTargetPackage, "restricted");
-        assertNotEquals("User was able to force into RESTRICTED bucket when bucket disabled",
-                UsageStatsManager.STANDBY_BUCKET_RESTRICTED,
-                mUsageStatsManager.getAppStandbyBucket(mTargetPackage));
-
     }
 
     // TODO(148887416): get this test to work for instant apps
@@ -841,10 +987,20 @@ public class UsageStatsTest {
             Event.KEYGUARD_HIDDEN
     };
 
-    private long getEvents(int[] whichEvents, long startTime, List<Event> out) {
+    private static final int[] PAUSED_EVENT = new int[] {
+            Event.ACTIVITY_PAUSED
+    };
+
+    private static final int[] STOPPED_EVENT = new int[] {
+            Event.ACTIVITY_STOPPED
+    };
+
+    private long getEvents(int[] whichEvents, long startTime, List<Event> out, String packageName) {
         final long endTime = System.currentTimeMillis();
-        if (DEBUG) Log.i(TAG, "Looking for events " + Arrays.toString(whichEvents)
-                + " between " + startTime + " and " + endTime);
+        if (DEBUG) {
+            Log.i(TAG, "Looking for events " + Arrays.toString(whichEvents)
+                    + " between " + startTime + " and " + endTime);
+        }
         UsageEvents events = mUsageStatsManager.queryEvents(startTime, endTime);
 
         long latestTime = 0;
@@ -856,6 +1012,10 @@ public class UsageStatsTest {
             final int ev = event.getEventType();
             for (int which : whichEvents) {
                 if (ev == which) {
+                    if (packageName != null && !packageName.equals(event.getPackageName())) {
+                        break;
+                    }
+
                     if (out != null) {
                         out.add(event);
                     }
@@ -872,12 +1032,18 @@ public class UsageStatsTest {
         return latestTime;
     }
 
+
     private ArrayList<Event> waitForEventCount(int[] whichEvents, long startTime, int count) {
+        return waitForEventCount(whichEvents, startTime, count, null);
+    }
+
+    private ArrayList<Event> waitForEventCount(int[] whichEvents, long startTime, int count,
+            String packageName) {
         final ArrayList<Event> events = new ArrayList<>();
-        final long endTime = SystemClock.uptimeMillis() + 2000;
+        final long endTime = SystemClock.uptimeMillis() + TIMEOUT;
         do {
             events.clear();
-            getEvents(whichEvents, startTime, events);
+            getEvents(whichEvents, startTime, events, packageName);
             if (events.size() == count) {
                 return events;
             }
@@ -1069,11 +1235,11 @@ public class UsageStatsTest {
             ArrayList<Event> events;
 
             // Determine time to start looking for events.
-            final long startTime = getEvents(ALL_EVENTS, 0, null) + 1;
+            final long startTime = getEvents(ALL_EVENTS, 0, null, null) + 1;
             SparseArray<AggrAllEventsData> baseAggr = getAggrEventData();
 
             // First test -- put device to sleep and make sure we see this event.
-            mUiDevice.sleep();
+            sleepDevice();
 
             // Do we have one event, going in to non-interactive mode?
             events = waitForEventCount(INTERACTIVE_EVENTS, startTime, 1);
@@ -1285,14 +1451,36 @@ public class UsageStatsTest {
         setUsageSourceSetting(Integer.toString(UsageStatsManager.USAGE_SOURCE_CURRENT_ACTIVITY));
         launchSubActivity(TaskRootActivity.class);
         // Usage should be attributed to the test app package
-        assertAppOrTokenUsed(TaskRootActivity.TEST_APP_PKG, true);
+        assertAppOrTokenUsed(TaskRootActivity.TEST_APP_PKG, true, TIMEOUT);
 
         SystemUtil.runWithShellPermissionIdentity(() -> mAm.forceStopPackage(TEST_APP_PKG));
 
         setUsageSourceSetting(Integer.toString(UsageStatsManager.USAGE_SOURCE_TASK_ROOT_ACTIVITY));
         launchSubActivity(TaskRootActivity.class);
         // Usage should be attributed to this package
-        assertAppOrTokenUsed(mTargetPackage, true);
+        assertAppOrTokenUsed(mTargetPackage, true, TIMEOUT);
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testTaskRootAttribution_finishingTaskRoot() throws Exception {
+        setUsageSourceSetting(Integer.toString(UsageStatsManager.USAGE_SOURCE_TASK_ROOT_ACTIVITY));
+        mUiDevice.wakeUp();
+        dismissKeyguard(); // also want to start out with the keyguard dismissed.
+
+        launchTestActivity(TEST_APP2_PKG, TEST_APP2_CLASS_FINISHING_TASK_ROOT);
+        // Wait until the nested activity gets started
+        mUiDevice.wait(Until.hasObject(By.clazz(TEST_APP_PKG, TEST_APP_CLASS)), TIMEOUT);
+
+        // Usage should be attributed to the task root app package
+        assertAppOrTokenUsed(TEST_APP_PKG, false, TIMEOUT);
+        assertAppOrTokenUsed(TEST_APP2_PKG, true, TIMEOUT);
+        SystemUtil.runWithShellPermissionIdentity(() -> mAm.forceStopPackage(TEST_APP_PKG));
+        mUiDevice.wait(Until.gone(By.clazz(TEST_APP_PKG, TEST_APP_CLASS)), TIMEOUT);
+
+        // Usage should no longer be tracked
+        assertAppOrTokenUsed(TEST_APP_PKG, false, TIMEOUT);
+        assertAppOrTokenUsed(TEST_APP2_PKG, false, TIMEOUT);
     }
 
     @AppModeInstant
@@ -1356,11 +1544,7 @@ public class UsageStatsTest {
 
         final long startTime = System.currentTimeMillis();
 
-        Intent intent = new Intent();
-        intent.setClassName(TEST_APP_PKG, TEST_APP_CLASS);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        mContext.startActivity(intent);
-        mUiDevice.wait(Until.hasObject(By.clazz(TEST_APP_PKG, TEST_APP_CLASS)), TIMEOUT);
+        launchTestActivity(TEST_APP_PKG, TEST_APP_CLASS);
         SystemClock.sleep(500);
 
         // Destroy the activity
@@ -1399,6 +1583,124 @@ public class UsageStatsTest {
 
     @AppModeFull(reason = "No usage events access in instant apps")
     @Test
+    public void testPipActivity() throws Exception {
+        assumeTrue("Test cannot run without Picture in Picture support",
+                mContext.getPackageManager().hasSystemFeature(
+                        PackageManager.FEATURE_PICTURE_IN_PICTURE));
+        mUiDevice.wakeUp();
+        dismissKeyguard(); // also want to start out with the keyguard dismissed.
+        mUiDevice.pressHome();
+
+        final long startTime = System.currentTimeMillis();
+
+        launchTestActivity(TEST_APP2_PKG, TEST_APP2_CLASS_PIP);
+        SystemClock.sleep(500);
+
+        // TEST_APP_PKG should take focus, pausing the TEST_APP2_CLASS_PIP activity.
+        launchTestActivity(TEST_APP_PKG, TEST_APP_CLASS);
+        SystemClock.sleep(500);
+
+        mWMStateHelper.waitForActivityState(TEST_APP2_PIP_COMPONENT,
+                WindowManagerState.STATE_PAUSED);
+
+        mWMStateHelper.assertActivityDisplayed(TEST_APP2_PIP_COMPONENT);
+        mWMStateHelper.assertNotFocusedActivity("Pip activity should not be in focus",
+                TEST_APP2_PIP_COMPONENT);
+
+        final long endTime = System.currentTimeMillis();
+        final UsageEvents events = mUsageStatsManager.queryEvents(startTime, endTime);
+
+        int resumes = 0;
+        int pauses = 0;
+        int stops = 0;
+
+        while (events.hasNextEvent()) {
+            final UsageEvents.Event event = new UsageEvents.Event();
+            assertTrue(events.getNextEvent(event));
+
+            if(TEST_APP2_PKG.equals(event.getPackageName())) {
+                switch (event.mEventType) {
+                    case Event.ACTIVITY_RESUMED:
+                        assertNotNull("ACTIVITY_RESUMED event Task Root should not be null",
+                                event.getTaskRootPackageName());
+                        resumes++;
+                        break;
+                    case Event.ACTIVITY_PAUSED:
+                        assertNotNull("ACTIVITY_PAUSED event Task Root should not be null",
+                                event.getTaskRootPackageName());
+                        pauses++;
+                        break;
+                    case Event.ACTIVITY_STOPPED:
+                        assertNotNull("ACTIVITY_STOPPED event Task Root should not be null",
+                                event.getTaskRootPackageName());
+                        stops++;
+                        break;
+                }
+            }
+        }
+        assertEquals("Unexpected number of activity resumes", 1, resumes);
+        assertEquals("Unexpected number of activity pauses", 1, pauses);
+        assertEquals("Unexpected number of activity stops", 0, stops);
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
+    public void testPipActivity_StopToPause() throws Exception {
+        assumeTrue("Test cannot run without Picture in Picture support",
+                mContext.getPackageManager().hasSystemFeature(
+                        PackageManager.FEATURE_PICTURE_IN_PICTURE));
+        mUiDevice.wakeUp();
+        dismissKeyguard(); // also want to start out with the keyguard dismissed.
+        mUiDevice.pressHome();
+
+        launchTestActivity(TEST_APP2_PKG, TEST_APP2_CLASS_PIP);
+        SystemClock.sleep(500);
+
+        // TEST_APP_PKG should take focus, pausing the TEST_APP2_CLASS_PIP activity.
+        launchTestActivity(TEST_APP_PKG, TEST_APP_CLASS);
+        SystemClock.sleep(500);
+
+        mWMStateHelper.assertActivityDisplayed(TEST_APP2_PIP_COMPONENT);
+        mWMStateHelper.assertNotFocusedActivity("Pip activity should not be in focus",
+                TEST_APP2_PIP_COMPONENT);
+
+        // Sleeping the device should cause the Pip activity to stop.
+        final long sleepTime = System.currentTimeMillis();
+        sleepDevice();
+        mWMStateHelper.waitForActivityState(TEST_APP2_PIP_COMPONENT,
+                WindowManagerState.STATE_STOPPED);
+
+        // Pip activity stop should show up in UsageStats.
+        final ArrayList<Event> stoppedEvent = waitForEventCount(STOPPED_EVENT, sleepTime, 1,
+                TEST_APP2_PKG);
+        assertEquals(Event.ACTIVITY_STOPPED, stoppedEvent.get(0).getEventType());
+
+        // Waking the device should cause the stopped Pip to return to the paused state.
+        final long wakeTime = System.currentTimeMillis();
+        mUiDevice.wakeUp();
+        dismissKeyguard();
+        mWMStateHelper.waitForActivityState(TEST_APP2_PIP_COMPONENT,
+                WindowManagerState.STATE_PAUSED);
+
+        mWMStateHelper.assertActivityDisplayed(TEST_APP2_PIP_COMPONENT);
+        mWMStateHelper.assertNotFocusedActivity("Pip activity should not be in focus",
+                TEST_APP2_PIP_COMPONENT);
+
+        // Sleeping the device should cause the Pip activity to stop again.
+        final long secondSleepTime = System.currentTimeMillis();
+        sleepDevice();
+        mWMStateHelper.waitForActivityState(TEST_APP2_PIP_COMPONENT,
+                WindowManagerState.STATE_STOPPED);
+
+        // Pip activity stop should show up in UsageStats again.
+        final ArrayList<Event> secondStoppedEvent = waitForEventCount(STOPPED_EVENT,
+                secondSleepTime, 1,
+                TEST_APP2_PKG);
+        assertEquals(Event.ACTIVITY_STOPPED, secondStoppedEvent.get(0).getEventType());
+    }
+
+    @AppModeFull(reason = "No usage events access in instant apps")
+    @Test
     public void testLocusIdEventsVisibility() throws Exception {
         final long startTime = System.currentTimeMillis();
         startAndDestroyActivityWithLocus();
@@ -1411,11 +1713,7 @@ public class UsageStatsTest {
     }
 
     private void startAndDestroyActivityWithLocus() {
-        Intent intent = new Intent();
-        intent.setClassName(TEST_APP_PKG, TEST_APP_CLASS_LOCUS);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        mContext.startActivity(intent);
-        mUiDevice.wait(Until.hasObject(By.clazz(TEST_APP_PKG, TEST_APP_CLASS_LOCUS)), TIMEOUT);
+        launchTestActivity(TEST_APP_PKG, TEST_APP_CLASS_LOCUS);
         SystemClock.sleep(500);
 
         // Destroy the activity
@@ -1445,20 +1743,21 @@ public class UsageStatsTest {
 
     /**
      * Assert on an app or token's usage state.
+     *
      * @param entity name of the app or token
      * @param expected expected usage state, true for in use, false for not in use
      */
-    private void assertAppOrTokenUsed(String entity, boolean expected) throws IOException {
-        final String activeUsages = executeShellCmd("dumpsys usagestats apptimelimit actives");
-        final String[] actives = activeUsages.split("\n");
-        boolean found = false;
+    private void assertAppOrTokenUsed(String entity, boolean expected, long timeout)
+            throws IOException {
+        final long realtimeTimeout = SystemClock.elapsedRealtime() + timeout;
+        String activeUsages;
+        boolean found;
+        do {
+            activeUsages = executeShellCmd("dumpsys usagestats apptimelimit actives");
+            final String[] actives = activeUsages.split("\n");
+            found = Arrays.asList(actives).contains(entity);
+        } while (found != expected && SystemClock.elapsedRealtime() <= realtimeTimeout);
 
-        for (String active : actives) {
-            if (active.equals(entity)) {
-                found = true;
-                break;
-            }
-        }
         if (expected) {
             assertTrue(entity + " not found in list of active activities and tokens\n"
                     + activeUsages, found);
@@ -1470,7 +1769,7 @@ public class UsageStatsTest {
 
     private void dismissKeyguard() throws Exception {
         if (mKeyguardManager.isKeyguardLocked()) {
-            final long startTime = getEvents(KEYGUARD_EVENTS, 0, null) + 1;
+            final long startTime = getEvents(KEYGUARD_EVENTS, 0, null, null) + 1;
             executeShellCmd("wm dismiss-keyguard");
             final ArrayList<Event> events = waitForEventCount(KEYGUARD_EVENTS, startTime, 1);
             assertEquals(Event.KEYGUARD_HIDDEN, events.get(0).getEventType());
@@ -1516,8 +1815,88 @@ public class UsageStatsTest {
         }
     }
 
+    private void runJobImmediately() throws Exception {
+        TestJob.schedule(mContext);
+        executeShellCmd(JOBSCHEDULER_RUN_SHELL_COMMAND
+                + " " + mContext.getPackageName()
+                + " " + TestJob.TEST_JOB_ID);
+    }
+
     private boolean isAppInactiveAsPermissionlessApp(String pkg) throws Exception {
         final ITestReceiver testService = bindToTestService();
         return testService.isAppInactive(pkg);
+    }
+
+    private int createUser(String name) throws Exception {
+        final String output = executeShellCmd(
+                "pm create-user " + name);
+        if (output.startsWith("Success")) {
+            return mOtherUser = Integer.parseInt(output.substring(output.lastIndexOf(" ")).trim());
+        }
+        throw new IllegalStateException(String.format("Failed to create user: %s", output));
+    }
+
+    private boolean removeUser(final int userId) throws Exception {
+        final String output = executeShellCmd(String.format("pm remove-user %s", userId));
+        if (output.startsWith("Error")) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean startUser(int userId, boolean waitFlag) throws Exception {
+        String cmd = "am start-user " + (waitFlag ? "-w " : "") + userId;
+
+        final String output = executeShellCmd(cmd);
+        if (output.startsWith("Error")) {
+            return false;
+        }
+        if (waitFlag) {
+            String state = executeShellCmd("am get-started-user-state " + userId);
+            if (!state.contains("RUNNING_UNLOCKED")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean stopUser(int userId, boolean waitFlag, boolean forceFlag)
+            throws Exception {
+        StringBuilder cmd = new StringBuilder("am stop-user ");
+        if (waitFlag) {
+            cmd.append("-w ");
+        }
+        if (forceFlag) {
+            cmd.append("-f ");
+        }
+        cmd.append(userId);
+
+        final String output = executeShellCmd(cmd.toString());
+        if (output.contains("Error: Can't stop system user")) {
+            return false;
+        }
+        return true;
+    }
+
+    private void installExistingPackageAsUser(String packageName, int userId)
+            throws Exception {
+        executeShellCmd(
+                String.format("pm install-existing --user %d --wait %s", userId, packageName));
+    }
+
+    private void sleepDevice() throws Exception {
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            mUiDevice.pressKeyCode(KeyEvent.KEYCODE_SLEEP);
+        } else {
+            mUiDevice.sleep();
+        }
+
+        waitUntil(() -> {
+            try {
+                return mUiDevice.isScreenOn();
+            } catch(Exception e) {
+                return true;
+            }
+        }, false);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2018-2020, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -9,19 +9,20 @@
 
 #include <lib/utils_def.h>
 #include <lib/xlat_tables/xlat_tables_defs.h>
-#include <plat/arm/board/common/board_css_def.h>
-#include <plat/arm/board/common/v2m_def.h>
 #include <plat/arm/common/arm_def.h>
 #include <plat/arm/common/arm_spm_def.h>
 #include <plat/arm/css/common/css_def.h>
-#include <plat/arm/soc/common/soc_css_def.h>
 #include <plat/common/common_def.h>
 
-#define PLATFORM_CORE_COUNT		(PLAT_ARM_CLUSTER_COUNT *	\
-					CSS_SGI_MAX_CPUS_PER_CLUSTER * \
+#define PLATFORM_CORE_COUNT		(CSS_SGI_CHIP_COUNT *		\
+					PLAT_ARM_CLUSTER_COUNT *	\
+					CSS_SGI_MAX_CPUS_PER_CLUSTER *	\
 					CSS_SGI_MAX_PE_PER_CPU)
 
 #define PLAT_ARM_TRUSTED_SRAM_SIZE	0x00040000	/* 256 KB */
+
+/* Remote chip address offset (4TB per chip) */
+#define CSS_SGI_REMOTE_CHIP_MEM_OFFSET(n)	((ULL(1) << 42) * (n))
 
 /*
  * PLAT_ARM_MMAP_ENTRIES depends on the number of entries in the
@@ -34,15 +35,15 @@
 #  define PLAT_SP_IMAGE_MMAP_REGIONS	7
 #  define PLAT_SP_IMAGE_MAX_XLAT_TABLES	10
 # else
-#  define PLAT_ARM_MMAP_ENTRIES		8
-#  define MAX_XLAT_TABLES		5
+#  define PLAT_ARM_MMAP_ENTRIES		(5 + ((CSS_SGI_CHIP_COUNT - 1) * 3))
+#  define MAX_XLAT_TABLES		(6 + ((CSS_SGI_CHIP_COUNT - 1) * 3))
 # endif
 #elif defined(IMAGE_BL32)
 # define PLAT_ARM_MMAP_ENTRIES		8
 # define MAX_XLAT_TABLES		5
 #elif !USE_ROMLIB
 # define PLAT_ARM_MMAP_ENTRIES		11
-# define MAX_XLAT_TABLES		5
+# define MAX_XLAT_TABLES		7
 #else
 # define PLAT_ARM_MMAP_ENTRIES		12
 # define MAX_XLAT_TABLES		6
@@ -52,7 +53,7 @@
  * PLAT_ARM_MAX_BL1_RW_SIZE is calculated using the current BL1 RW debug size
  * plus a little space for growth.
  */
-#define PLAT_ARM_MAX_BL1_RW_SIZE	0xB000
+#define PLAT_ARM_MAX_BL1_RW_SIZE	0xC000
 
 /*
  * PLAT_ARM_MAX_ROMLIB_RW_SIZE is define to use a full page
@@ -73,7 +74,7 @@
 #if TRUSTED_BOARD_BOOT
 # define PLAT_ARM_MAX_BL2_SIZE		0x1D000
 #else
-# define PLAT_ARM_MAX_BL2_SIZE		0x11000
+# define PLAT_ARM_MAX_BL2_SIZE		0x14000
 #endif
 
 /*
@@ -119,6 +120,9 @@
 #define PLAT_ARM_NSRAM_BASE		0x06000000
 #define PLAT_ARM_NSRAM_SIZE		0x00080000	/* 512KB */
 
+#define PLAT_ARM_DRAM2_BASE		ULL(0x8080000000)
+#define PLAT_ARM_DRAM2_SIZE		ULL(0x180000000)
+
 #define PLAT_ARM_G1S_IRQ_PROPS(grp)	CSS_G1S_IRQ_PROPS(grp)
 #define PLAT_ARM_G0_IRQ_PROPS(grp)	ARM_G0_IRQ_PROPS(grp)
 
@@ -129,10 +133,29 @@
 					CSS_SGI_DEVICE_SIZE,	\
 					MT_DEVICE | MT_RW | MT_SECURE)
 
-/* GIC related constants */
-#define PLAT_ARM_GICD_BASE		0x30000000
-#define PLAT_ARM_GICC_BASE		0x2C000000
-#define PLAT_ARM_GICR_BASE		0x300C0000
+#define ARM_MAP_SHARED_RAM_REMOTE_CHIP(n)					\
+			MAP_REGION_FLAT(					\
+				CSS_SGI_REMOTE_CHIP_MEM_OFFSET(n) +		\
+				ARM_SHARED_RAM_BASE,				\
+				ARM_SHARED_RAM_SIZE,				\
+				MT_NON_CACHEABLE | MT_RW | MT_SECURE		\
+			)
+
+#define CSS_SGI_MAP_DEVICE_REMOTE_CHIP(n)					\
+			MAP_REGION_FLAT(					\
+				CSS_SGI_REMOTE_CHIP_MEM_OFFSET(n) +		\
+				CSS_SGI_DEVICE_BASE,				\
+				CSS_SGI_DEVICE_SIZE,				\
+				MT_DEVICE | MT_RW | MT_SECURE			\
+			)
+
+#define SOC_CSS_MAP_DEVICE_REMOTE_CHIP(n)					\
+			MAP_REGION_FLAT(					\
+				CSS_SGI_REMOTE_CHIP_MEM_OFFSET(n) +		\
+				SOC_CSS_DEVICE_BASE,				\
+				SOC_CSS_DEVICE_SIZE,				\
+				MT_DEVICE | MT_RW | MT_SECURE			\
+			)
 
 /* Map the secure region for access from S-EL0 */
 #define PLAT_ARM_SECURE_MAP_DEVICE	MAP_REGION_FLAT(	\
@@ -211,5 +234,8 @@
 /*Secure Watchdog Constants */
 #define SBSA_SECURE_WDOG_BASE		UL(0x2A480000)
 #define SBSA_SECURE_WDOG_TIMEOUT	UL(100)
+
+/* Number of SCMI channels on the platform */
+#define PLAT_ARM_SCMI_CHANNEL_COUNT	CSS_SGI_CHIP_COUNT
 
 #endif /* SGI_BASE_PLATFORM_DEF_H */

@@ -41,5 +41,15 @@ class CustomFieldFixedSize : public ScalarField {
 
   virtual void GenValidator(std::ostream&) const override;
 
+  virtual void GenStringRepresentation(std::ostream& s, std::string accessor) const override;
+
+  void GenRustGetter(std::ostream& s, Size start_offset, Size end_offset) const override;
+
+  void GenRustWriter(std::ostream& s, Size start_offset, Size end_offset) const override;
+
+  virtual std::string GetRustDataType() const override;
+
+  virtual std::string GetRustParseDataType() const override;
+
   std::string type_name_;
 };

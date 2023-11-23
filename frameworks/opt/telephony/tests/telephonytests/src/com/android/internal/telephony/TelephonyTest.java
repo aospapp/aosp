@@ -31,6 +31,7 @@ import static org.mockito.Mockito.eq;
 import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.app.IActivityManager;
+import android.app.KeyguardManager;
 import android.app.usage.NetworkStatsManager;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -40,7 +41,13 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.location.LocationManager;
 import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
+import android.net.vcn.VcnManager;
+import android.net.vcn.VcnNetworkPolicyResult;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -51,14 +58,17 @@ import android.os.MessageQueue;
 import android.os.RegistrantList;
 import android.os.ServiceManager;
 import android.os.UserManager;
-import android.permission.PermissionManager;
+import android.permission.LegacyPermissionManager;
 import android.provider.BlockedNumberContract;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.CarrierConfigManager;
+import android.telephony.CellIdentity;
+import android.telephony.CellLocation;
 import android.telephony.NetworkRegistrationInfo;
 import android.telephony.ServiceState;
+import android.telephony.SignalStrength;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.TelephonyRegistryManager;
@@ -78,28 +88,34 @@ import com.android.internal.telephony.cdma.CdmaSubscriptionSourceManager;
 import com.android.internal.telephony.cdma.EriManager;
 import com.android.internal.telephony.dataconnection.DataEnabledOverride;
 import com.android.internal.telephony.dataconnection.DataEnabledSettings;
+import com.android.internal.telephony.dataconnection.DataThrottler;
 import com.android.internal.telephony.dataconnection.DcTracker;
+import com.android.internal.telephony.dataconnection.LinkBandwidthEstimator;
 import com.android.internal.telephony.dataconnection.TransportManager;
 import com.android.internal.telephony.emergency.EmergencyNumberTracker;
 import com.android.internal.telephony.imsphone.ImsExternalCallTracker;
 import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.internal.telephony.imsphone.ImsPhoneCallTracker;
+import com.android.internal.telephony.metrics.ImsStats;
 import com.android.internal.telephony.metrics.MetricsCollector;
 import com.android.internal.telephony.metrics.PersistAtomsStorage;
+import com.android.internal.telephony.metrics.SmsStats;
 import com.android.internal.telephony.metrics.VoiceCallSessionStats;
 import com.android.internal.telephony.test.SimulatedCommands;
 import com.android.internal.telephony.test.SimulatedCommandsVerifier;
 import com.android.internal.telephony.uicc.IccCardStatus;
 import com.android.internal.telephony.uicc.IccRecords;
 import com.android.internal.telephony.uicc.IsimUiccRecords;
+import com.android.internal.telephony.uicc.PinStorage;
 import com.android.internal.telephony.uicc.RuimRecords;
 import com.android.internal.telephony.uicc.SIMRecords;
 import com.android.internal.telephony.uicc.UiccCard;
 import com.android.internal.telephony.uicc.UiccCardApplication;
 import com.android.internal.telephony.uicc.UiccController;
 import com.android.internal.telephony.uicc.UiccProfile;
+import com.android.internal.telephony.uicc.UiccSlot;
 import com.android.server.pm.PackageManagerService;
-import com.android.server.pm.permission.PermissionManagerService;
+import com.android.server.pm.permission.LegacyPermissionManagerService;
 
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -195,7 +211,7 @@ public abstract class TelephonyTest {
     @Mock
     protected PackageManagerService mMockPackageManager;
     @Mock
-    protected PermissionManagerService mMockPermissionManager;
+    protected LegacyPermissionManagerService mMockLegacyPermissionManager;
 
     protected NetworkRegistrationInfo mNetworkRegistrationInfo =
             new NetworkRegistrationInfo.Builder()
@@ -294,6 +310,28 @@ public abstract class TelephonyTest {
     protected PersistAtomsStorage mPersistAtomsStorage;
     @Mock
     protected MetricsCollector mMetricsCollector;
+    @Mock
+    protected SmsStats mSmsStats;
+    @Mock
+    protected DataThrottler mDataThrottler;
+    @Mock
+    protected SignalStrength mSignalStrength;
+    @Mock
+    protected WifiManager mWifiManager;
+    @Mock
+    protected WifiInfo mWifiInfo;
+    @Mock
+    protected ImsStats mImsStats;
+    @Mock
+    protected LinkBandwidthEstimator mLinkBandwidthEstimator;
+    @Mock
+    protected PinStorage mPinStorage;
+    @Mock
+    protected LocationManager mLocationManager;
+    @Mock
+    protected CellIdentity mCellIdentity;
+    @Mock
+    protected CellLocation mCellLocation;
 
     protected ActivityManager mActivityManager;
     protected ImsCallProfile mImsCallProfile;
@@ -306,6 +344,8 @@ public abstract class TelephonyTest {
     protected AppOpsManager mAppOpsManager;
     protected CarrierConfigManager mCarrierConfigManager;
     protected UserManager mUserManager;
+    protected KeyguardManager mKeyguardManager;
+    protected VcnManager mVcnManager;
     protected SimulatedCommands mSimulatedCommands;
     protected ContextFixture mContextFixture;
     protected Context mContext;
@@ -317,7 +357,6 @@ public abstract class TelephonyTest {
     protected List<TestableLooper> mTestableLoopers = new ArrayList<>();
     protected TestableLooper mTestableLooper;
 
-    protected HashMap<Integer, ImsManager> mImsManagerInstances = new HashMap<>();
     private HashMap<InstanceKey, Object> mOldInstances = new HashMap<InstanceKey, Object>();
 
     private LinkedList<InstanceKey> mInstanceKeys = new LinkedList<InstanceKey>();
@@ -416,6 +455,9 @@ public abstract class TelephonyTest {
         MockitoAnnotations.initMocks(this);
         TelephonyManager.disableServiceHandleCaching();
         SubscriptionController.disableCaching();
+        // For testing do not allow Log.WTF as it can cause test process to crash
+        Log.setWtfHandler((tagString, what, system) -> Log.d(TAG, "WTF captured, ignoring. Tag: "
+                + tagString + ", exception: " + what));
 
         mPhones = new Phone[] {mPhone};
         mImsCallProfile = new ImsCallProfile();
@@ -446,6 +488,9 @@ public abstract class TelephonyTest {
         mCarrierConfigManager =
                 (CarrierConfigManager) mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE);
         mUserManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
+        mKeyguardManager = (KeyguardManager) mContext.getSystemService(Context.KEYGUARD_SERVICE);
+        mVcnManager = mContext.getSystemService(VcnManager.class);
+        mLocationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
 
         //mTelephonyComponentFactory
         doReturn(mTelephonyComponentFactory).when(mTelephonyComponentFactory).inject(anyString());
@@ -498,6 +543,8 @@ public abstract class TelephonyTest {
                 .makeDataEnabledSettings(nullable(Phone.class));
         doReturn(mEriManager).when(mTelephonyComponentFactory)
                 .makeEriManager(nullable(Phone.class), anyInt());
+        doReturn(mLinkBandwidthEstimator).when(mTelephonyComponentFactory)
+                .makeLinkBandwidthEstimator(nullable(Phone.class));
 
         //mPhone
         doReturn(mContext).when(mPhone).getContext();
@@ -522,9 +569,15 @@ public abstract class TelephonyTest {
         doReturn(mDataEnabledSettings).when(mPhone).getDataEnabledSettings();
         doReturn(mDcTracker).when(mPhone).getDcTracker(anyInt());
         doReturn(mCarrierPrivilegesTracker).when(mPhone).getCarrierPrivilegesTracker();
+        doReturn(mSignalStrength).when(mPhone).getSignalStrength();
         doReturn(mVoiceCallSessionStats).when(mPhone).getVoiceCallSessionStats();
         doReturn(mVoiceCallSessionStats).when(mImsPhone).getVoiceCallSessionStats();
+        doReturn(mSmsStats).when(mPhone).getSmsStats();
+        doReturn(mImsStats).when(mImsPhone).getImsStats();
         mIccSmsInterfaceManager.mDispatchersController = mSmsDispatchersController;
+        doReturn(mLinkBandwidthEstimator).when(mPhone).getLinkBandwidthEstimator();
+        doReturn(mCellIdentity).when(mPhone).getCurrentCellIdentity();
+        doReturn(mCellLocation).when(mCellIdentity).asCellLocation();
 
         //mUiccController
         doReturn(mUiccCardApplication3gpp).when(mUiccController).getUiccCardApplication(anyInt(),
@@ -533,6 +586,7 @@ public abstract class TelephonyTest {
                 eq(UiccController.APP_FAM_3GPP2));
         doReturn(mUiccCardApplicationIms).when(mUiccController).getUiccCardApplication(anyInt(),
                 eq(UiccController.APP_FAM_IMS));
+        doReturn(mUiccCard).when(mUiccController).getUiccCard(anyInt());
 
         doAnswer(new Answer<IccRecords>() {
             public IccRecords answer(InvocationOnMock invocation) {
@@ -549,6 +603,8 @@ public abstract class TelephonyTest {
                 }
             }
         }).when(mUiccController).getIccRecords(anyInt(), anyInt());
+        doReturn(new UiccSlot[] {}).when(mUiccController).getUiccSlots();
+        doReturn(mPinStorage).when(mUiccController).getPinStorage();
 
         //UiccCardApplication
         doReturn(mSimRecords).when(mUiccCardApplication3gpp).getIccRecords();
@@ -582,7 +638,6 @@ public abstract class TelephonyTest {
         doReturn(ServiceState.RIL_RADIO_TECHNOLOGY_UMTS).when(mServiceState).
                 getRilDataRadioTechnology();
         doReturn(mPhone).when(mCT).getPhone();
-        mImsManagerInstances.put(mPhone.getPhoneId(), mImsManager);
         doReturn(mImsEcbm).when(mImsManager).getEcbmInterface();
         doReturn(mPhone).when(mInboundSmsHandler).getPhone();
         doReturn(mImsCallProfile).when(mImsCall).getCallProfile();
@@ -600,8 +655,8 @@ public abstract class TelephonyTest {
         mSST.mRestrictedState = mRestrictedState;
         mServiceManagerMockedServices.put("connectivity_metrics_logger", mConnMetLoggerBinder);
         mServiceManagerMockedServices.put("package", mMockPackageManager);
-        mServiceManagerMockedServices.put("permissionmgr", mMockPermissionManager);
-        logd("mMockPermissionManager replaced");
+        mServiceManagerMockedServices.put("legacy_permission", mMockLegacyPermissionManager);
+        logd("mMockLegacyPermissionManager replaced");
         doReturn(new int[]{AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
                 AccessNetworkConstants.TRANSPORT_TYPE_WLAN})
                 .when(mTransportManager).getAvailableTransports();
@@ -613,6 +668,18 @@ public abstract class TelephonyTest {
         doReturn(mNetworkRegistrationInfo).when(mServiceState).getNetworkRegistrationInfo(
                 anyInt(), anyInt());
         doReturn(new HalVersion(1, 4)).when(mPhone).getHalVersion();
+        doReturn(2).when(mSignalStrength).getLevel();
+
+        // WiFi
+        doReturn(mWifiInfo).when(mWifiManager).getConnectionInfo();
+        doReturn(2).when(mWifiManager).calculateSignalLevel(anyInt());
+        doReturn(4).when(mWifiManager).getMaxSignalLevel();
+
+        doAnswer(invocation -> {
+            NetworkCapabilities nc = invocation.getArgument(0);
+            return new VcnNetworkPolicyResult(
+                    false /* isTearDownRequested */, nc);
+        }).when(mVcnManager).applyVcnNetworkPolicy(any(), any());
 
         //SIM
         doReturn(1).when(mTelephonyManager).getSimCount();
@@ -631,6 +698,8 @@ public abstract class TelephonyTest {
         Settings.Global.putInt(resolver, Settings.Global.DEVICE_PROVISIONED, 1);
         Settings.Global.putInt(resolver,
                 Settings.Global.DEVICE_PROVISIONING_MOBILE_DATA_ENABLED, 1);
+        doReturn(mDataThrottler).when(mDcTracker).getDataThrottler();
+        doReturn(-1L).when(mDataThrottler).getRetryTime(anyInt());
 
         // CellularNetworkValidator
         doReturn(SubscriptionManager.INVALID_PHONE_INDEX)
@@ -640,6 +709,7 @@ public abstract class TelephonyTest {
         // Metrics
         doReturn(null).when(mContext).getFileStreamPath(anyString());
         doReturn(mPersistAtomsStorage).when(mMetricsCollector).getAtomsStorage();
+        doReturn(mWifiManager).when(mContext).getSystemService(eq(Context.WIFI_SERVICE));
 
         //Use reflection to mock singletons
         replaceInstance(CallManager.class, "INSTANCE", null, mCallManager);
@@ -647,7 +717,6 @@ public abstract class TelephonyTest {
                 mTelephonyComponentFactory);
         replaceInstance(UiccController.class, "mInstance", null, mUiccController);
         replaceInstance(CdmaSubscriptionSourceManager.class, "sInstance", null, mCdmaSSM);
-        replaceInstance(ImsManager.class, "sImsManagerInstances", null, mImsManagerInstances);
         replaceInstance(SubscriptionController.class, "sInstance", null, mSubscriptionController);
         replaceInstance(ProxyController.class, "sProxyController", null, mProxyController);
         replaceInstance(ActivityManager.class, "IActivityManagerSingleton", null,
@@ -796,12 +865,21 @@ public abstract class TelephonyTest {
 
         // TelephonyPermissions uses a SystemAPI to check if the calling package meets any of the
         // generic requirements for device identifier access (currently READ_PRIVILEGED_PHONE_STATE,
-        // appop, and device / profile owner checks. This sets up the PermissionManager to return
+        // appop, and device / profile owner checks). This sets up the PermissionManager to return
         // that access requirements are met.
         setIdentifierAccess(true);
-        PermissionManager permissionManager = new PermissionManager(mContext, null,
-                mMockPermissionManager);
-        doReturn(permissionManager).when(mContext).getSystemService(eq(Context.PERMISSION_SERVICE));
+        LegacyPermissionManager legacyPermissionManager =
+                new LegacyPermissionManager(mMockLegacyPermissionManager);
+        doReturn(legacyPermissionManager).when(mContext)
+                .getSystemService(Context.LEGACY_PERMISSION_SERVICE);
+        // Also make sure all appop checks fails, to not interfere tests. Tests should explicitly
+        // mock AppOpManager to return allowed/default mode. Note by default a mock returns 0 which
+        // is MODE_ALLOWED, hence this setup is necessary.
+        doReturn(AppOpsManager.MODE_IGNORED).when(mAppOpsManager).noteOpNoThrow(
+                /* op= */ anyString(), /* uid= */ anyInt(),
+                /* packageName= */ nullable(String.class),
+                /* attributionTag= */ nullable(String.class),
+                /* message= */ nullable(String.class));
 
         // TelephonyPermissions queries DeviceConfig to determine if the identifier access
         // restrictions should be enabled; this results in a NPE when DeviceConfig uses
@@ -828,9 +906,13 @@ public abstract class TelephonyTest {
 
     protected void setIdentifierAccess(boolean hasAccess) {
         doReturn(hasAccess ? PackageManager.PERMISSION_GRANTED
-                : PackageManager.PERMISSION_DENIED).when(
-                mMockPermissionManager).checkDeviceIdentifierAccess(any(), any(), any(), anyInt(),
-                anyInt());
+                : PackageManager.PERMISSION_DENIED).when(mMockLegacyPermissionManager)
+                .checkDeviceIdentifierAccess(any(), any(), any(), anyInt(), anyInt());
+    }
+
+    protected void setPhoneNumberAccess(int value) {
+        doReturn(value).when(mMockLegacyPermissionManager).checkPhoneNumberAccess(any(), any(),
+                any(), anyInt(), anyInt());
     }
 
     protected void setCarrierPrivileges(boolean hasCarrierPrivileges) {
@@ -846,6 +928,19 @@ public abstract class TelephonyTest {
         doReturn(hasCarrierPrivileges ? TelephonyManager.CARRIER_PRIVILEGE_STATUS_HAS_ACCESS
                 : TelephonyManager.CARRIER_PRIVILEGE_STATUS_NO_ACCESS).when(
                 mockTelephonyManager).getCarrierPrivilegeStatus(anyInt());
+    }
+
+    protected final void waitForDelayedHandlerAction(Handler h, long delayMillis,
+            long timeoutMillis) {
+        final CountDownLatch lock = new CountDownLatch(1);
+        h.postDelayed(lock::countDown, delayMillis);
+        while (lock.getCount() > 0) {
+            try {
+                lock.await(delayMillis + timeoutMillis, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                // do nothing
+            }
+        }
     }
 
     protected final void waitForHandlerAction(Handler h, long timeoutMillis) {

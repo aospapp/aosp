@@ -57,7 +57,6 @@ import android.service.euicc.IOtaStatusChangedCallback;
 import android.service.euicc.IRetainSubscriptionsForFactoryResetCallback;
 import android.service.euicc.ISwitchToSubscriptionCallback;
 import android.service.euicc.IUpdateSubscriptionNicknameCallback;
-import android.telephony.PackageChangeReceiver;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.UiccCardInfo;
@@ -70,6 +69,7 @@ import android.util.ArraySet;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.PackageChangeReceiver;
 import com.android.internal.telephony.util.TelephonyUtils;
 import com.android.internal.util.IState;
 import com.android.internal.util.State;
@@ -404,6 +404,8 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
 
         start();
 
+        // All app package changes could trigger the package monitor receiver. It is not limited to
+        // apps extended from EuiccService.
         mPackageMonitor.register(mContext, null /* thread */, null /* user */);
         mContext.registerReceiver(
                 mUserUnlockedReceiver, new IntentFilter(Intent.ACTION_USER_UNLOCKED));
@@ -555,10 +557,10 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
                 mSelectedComponent = findBestComponent();
                 if (mSelectedComponent != null) {
                     transitionTo(mAvailableState);
+                    updateSubscriptionInfoListForAllAccessibleEuiccs();
                 } else if (getCurrentState() != mUnavailableState) {
                     transitionTo(mUnavailableState);
                 }
-                updateSubscriptionInfoListForAllAccessibleEuiccs();
                 return HANDLED;
             } else if (isEuiccCommand(message.what)) {
                 BaseEuiccCommandCallback callback = getCallback(message);
@@ -651,11 +653,16 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
                 if (bestComponent == null) {
                     isSameComponent = mSelectedComponent != null;
                 } else {
+                    // Checks whether the bound component is the same as the best component. If it
+                    // is not, set isSameComponent to false and the connector will bind the best
+                    // component instead.
                     isSameComponent = mSelectedComponent == null
                             || Objects.equals(new ComponentName(bestComponent.packageName,
                             bestComponent.name),
                         new ComponentName(mSelectedComponent.packageName, mSelectedComponent.name));
                 }
+                // Checks whether the bound component is impacted by the package changes. If it is,
+                // change the forceRebind to true so the connector will re-bind the component.
                 boolean forceRebind = bestComponent != null
                         && Objects.equals(bestComponent.packageName, affectedPackage);
                 if (!isSameComponent || forceRebind) {
@@ -666,8 +673,8 @@ public class EuiccConnector extends StateMachine implements ServiceConnection {
                     } else {
                         transitionTo(mBindingState);
                     }
+                    updateSubscriptionInfoListForAllAccessibleEuiccs();
                 }
-                updateSubscriptionInfoListForAllAccessibleEuiccs();
                 return HANDLED;
             } else if (message.what == CMD_CONNECT_TIMEOUT) {
                 transitionTo(mAvailableState);

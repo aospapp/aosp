@@ -19,35 +19,44 @@ package com.android.documentsui;
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 import android.content.res.Resources;
+import android.content.res.TypedArray;
 import android.graphics.Outline;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewOutlineProvider;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.FrameLayout;
 
+import androidx.annotation.ColorRes;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
 
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.base.UserId;
 import com.android.documentsui.dirlist.AnimationView;
+import com.android.documentsui.util.VersionUtils;
 
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.appbar.CollapsingToolbarLayout;
-import com.google.android.material.tabs.TabLayout;
 
 import java.util.function.IntConsumer;
 
 /**
  * A facade over the portions of the app and drawer toolbars.
  */
-public class NavigationViewManager {
+public class NavigationViewManager implements AppBarLayout.OnOffsetChangedListener {
 
     private static final String TAG = "NavigationViewManager";
 
     private final DrawerController mDrawer;
     private final Toolbar mToolbar;
+    private final BaseActivity mActivity;
+    private final View mHeader;
     private final State mState;
     private final NavigationViewManager.Environment mEnv;
     private final Breadcrumb mBreadcrumb;
@@ -55,8 +64,12 @@ public class NavigationViewManager {
     private final View mSearchBarView;
     private final CollapsingToolbarLayout mCollapsingBarLayout;
     private final Drawable mDefaultActionBarBackground;
+    private final ViewOutlineProvider mDefaultOutlineProvider;
     private final ViewOutlineProvider mSearchBarOutlineProvider;
     private final boolean mShowSearchBar;
+
+    private boolean mIsActionModeActivated = false;
+    private @ColorRes int mDefaultStatusBarColorResId;
 
     public NavigationViewManager(
             BaseActivity activity,
@@ -67,7 +80,9 @@ public class NavigationViewManager {
             View tabLayoutContainer,
             UserIdManager userIdManager) {
 
+        mActivity = activity;
         mToolbar = activity.findViewById(R.id.toolbar);
+        mHeader = activity.findViewById(R.id.directory_header);
         mDrawer = drawer;
         mState = state;
         mEnv = env;
@@ -85,7 +100,17 @@ public class NavigationViewManager {
         mSearchBarView = activity.findViewById(R.id.searchbar_title);
         mCollapsingBarLayout = activity.findViewById(R.id.collapsing_toolbar);
         mDefaultActionBarBackground = mToolbar.getBackground();
+        mDefaultOutlineProvider = mToolbar.getOutlineProvider();
         mShowSearchBar = activity.getResources().getBoolean(R.bool.show_search_bar);
+
+        final int[] styledAttrs = {android.R.attr.statusBarColor};
+        TypedArray a = mActivity.obtainStyledAttributes(styledAttrs);
+        mDefaultStatusBarColorResId = a.getResourceId(0, -1);
+        if (mDefaultStatusBarColorResId == -1) {
+            Log.w(TAG, "Retrieve statusBarColorResId from theme failed, assigned default");
+            mDefaultStatusBarColorResId = R.color.app_background_color;
+        }
+        a.recycle();
 
         final Resources resources = mToolbar.getResources();
         final int radius = resources.getDimensionPixelSize(R.dimen.search_bar_radius);
@@ -100,6 +125,36 @@ public class NavigationViewManager {
                         view.getWidth() - marginEnd, view.getHeight(), radius);
             }
         };
+    }
+
+    @Override
+    public void onOffsetChanged(AppBarLayout appBarLayout, int offset) {
+        if (!VersionUtils.isAtLeastS()) {
+            return;
+        }
+
+        // For S+ Only. Change toolbar color dynamically based on scroll offset.
+        // Usually this can be done in xml using app:contentScrim and app:statusBarScrim, however
+        // in our case since we also put directory_header.xml inside the CollapsingToolbarLayout,
+        // the scrim will also cover the directory header. Long term need to think about how to
+        // move directory_header out of the AppBarLayout.
+
+        Window window = mActivity.getWindow();
+        View actionBar = window.getDecorView().findViewById(R.id.action_mode_bar);
+        int dynamicHeaderColor = ContextCompat.getColor(mActivity,
+                offset == 0 ? mDefaultStatusBarColorResId : R.color.color_surface_header);
+        if (actionBar != null) {
+            // Action bar needs to be updated separately for selection mode.
+            actionBar.setBackgroundColor(dynamicHeaderColor);
+        }
+
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        window.setStatusBarColor(dynamicHeaderColor);
+        if (shouldShowSearchBar()) {
+            // Do not change search bar background.
+        } else {
+            mToolbar.setBackground(new ColorDrawable(dynamicHeaderColor));
+        }
     }
 
     public void setSearchBarClickListener(View.OnClickListener listener) {
@@ -136,6 +191,11 @@ public class NavigationViewManager {
 
     public UserId getSelectedUser() {
         return mProfileTabs.getSelectedUser();
+    }
+
+    public void setActionModeActivated(boolean actionModeActivated) {
+        mIsActionModeActivated = actionModeActivated;
+        update();
     }
 
     public void update() {
@@ -177,30 +237,57 @@ public class NavigationViewManager {
 
         AppBarLayout.LayoutParams lp =
                 (AppBarLayout.LayoutParams) mCollapsingBarLayout.getLayoutParams();
-        if (shouldShowSearchBar()) {
-            lp.setScrollFlags(AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL
-                            | AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS
-                            | AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS_COLLAPSED);
-        } else {
-            lp.setScrollFlags(AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL
-                            | AppBarLayout.LayoutParams.SCROLL_FLAG_EXIT_UNTIL_COLLAPSED);
-        }
+        lp.setScrollFlags(AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL
+                | AppBarLayout.LayoutParams.SCROLL_FLAG_EXIT_UNTIL_COLLAPSED);
         mCollapsingBarLayout.setLayoutParams(lp);
     }
 
     private void updateToolbar() {
-        if (shouldShowSearchBar()) {
-            mToolbar.setBackgroundResource(R.drawable.search_bar_background);
-            mToolbar.setOutlineProvider(mSearchBarOutlineProvider);
-        } else {
-            mToolbar.setBackground(mDefaultActionBarBackground);
-            mToolbar.setOutlineProvider(null);
+        if (mCollapsingBarLayout == null) {
+            // Tablet mode does not use CollapsingBarLayout
+            // (res/layout-sw720dp/directory_app_bar.xml or res/layout/fixed_layout.xml)
+            if (shouldShowSearchBar()) {
+                mToolbar.setBackgroundResource(R.drawable.search_bar_background);
+                mToolbar.setOutlineProvider(mSearchBarOutlineProvider);
+            } else {
+                mToolbar.setBackground(mDefaultActionBarBackground);
+                mToolbar.setOutlineProvider(null);
+            }
+            return;
         }
 
-        if (mCollapsingBarLayout != null) {
-            View overlayBackground =
-                    mCollapsingBarLayout.findViewById(R.id.toolbar_background_layout);
-            overlayBackground.setVisibility(shouldShowSearchBar() ? View.GONE : View.VISIBLE);
+        CollapsingToolbarLayout.LayoutParams toolbarLayoutParams =
+                (CollapsingToolbarLayout.LayoutParams) mToolbar.getLayoutParams();
+
+        int headerTopOffset = 0;
+        if (shouldShowSearchBar() && !mIsActionModeActivated) {
+            mToolbar.setBackgroundResource(R.drawable.search_bar_background);
+            mToolbar.setOutlineProvider(mSearchBarOutlineProvider);
+            int searchBarMargin = mToolbar.getResources().getDimensionPixelSize(
+                    R.dimen.search_bar_margin);
+            toolbarLayoutParams.setMargins(searchBarMargin, searchBarMargin, searchBarMargin,
+                    searchBarMargin);
+            mToolbar.setLayoutParams(toolbarLayoutParams);
+            mToolbar.setElevation(
+                    mToolbar.getResources().getDimensionPixelSize(R.dimen.search_bar_elevation));
+            headerTopOffset = toolbarLayoutParams.height + searchBarMargin * 2;
+        } else {
+            mToolbar.setBackground(mDefaultActionBarBackground);
+            mToolbar.setOutlineProvider(mDefaultOutlineProvider);
+            int actionBarMargin = mToolbar.getResources().getDimensionPixelSize(
+                    R.dimen.action_bar_margin);
+            toolbarLayoutParams.setMargins(0, 0, 0, /* bottom= */ actionBarMargin);
+            mToolbar.setLayoutParams(toolbarLayoutParams);
+            mToolbar.setElevation(
+                    mToolbar.getResources().getDimensionPixelSize(R.dimen.action_bar_elevation));
+            headerTopOffset = toolbarLayoutParams.height + actionBarMargin;
+        }
+
+        if (!mIsActionModeActivated) {
+            FrameLayout.LayoutParams headerLayoutParams =
+                    (FrameLayout.LayoutParams) mHeader.getLayoutParams();
+            headerLayoutParams.setMargins(0, /* top= */ headerTopOffset, 0, 0);
+            mHeader.setLayoutParams(headerLayoutParams);
         }
     }
 
@@ -209,7 +296,8 @@ public class NavigationViewManager {
     }
 
     // Hamburger if drawer is present, else sad nullness.
-    private @Nullable Drawable getActionBarIcon() {
+    private @Nullable
+    Drawable getActionBarIcon() {
         if (mDrawer.isPresent()) {
             return mToolbar.getContext().getDrawable(R.drawable.ic_hamburger);
         } else {
@@ -223,16 +311,23 @@ public class NavigationViewManager {
 
     interface Breadcrumb {
         void setup(Environment env, State state, IntConsumer listener);
+
         void show(boolean visibility);
+
         void postUpdate();
     }
 
     interface Environment {
-        @Deprecated  // Use CommonAddones#getCurrentRoot
+        @Deprecated
+            // Use CommonAddones#getCurrentRoot
         RootInfo getCurrentRoot();
+
         String getDrawerTitle();
-        @Deprecated  // Use CommonAddones#refreshCurrentRootAndDirectory
+
+        @Deprecated
+            // Use CommonAddones#refreshCurrentRootAndDirectory
         void refreshCurrentRootAndDirectory(int animation);
+
         boolean isSearchExpanded();
     }
 }

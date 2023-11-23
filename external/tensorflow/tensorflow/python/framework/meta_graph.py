@@ -161,12 +161,17 @@ def ops_used_by_graph_def(graph_def):
       functions_to_process.append(name_to_function[op])
     used_ops.add(op)
 
-  for node in graph_def.node:
+  def process_node(node):
     mark_op_as_used(node.op)
+    if node.op in ["PartitionedCall", "StatefulPartitionedCall"]:
+      mark_op_as_used(node.attr["f"].func.name)
+
+  for node in graph_def.node:
+    process_node(node)
   while functions_to_process:
     fun = functions_to_process.pop()
     for node in fun.node_def:
-      mark_op_as_used(node.op)
+      process_node(node)
 
   return [op for op in used_ops if op not in name_to_function]
 
@@ -1045,7 +1050,7 @@ def export_scoped_meta_graph(filename=None,
       name, _ = os.path.splitext(filename)
       debug_filename = "{name}{ext}".format(name=name, ext=".debug")
 
-      # Gets the operation from the graph by the name. Exludes variable nodes,
+      # Gets the operation from the graph by the name. Excludes variable nodes,
       # so only the nodes in the frozen models are included.
       # TODO(liufengdb): fix this for functions.
       ops_to_export = []

@@ -33,3 +33,9 @@ Device implementations MUST satisfy the following requirements:
         is available on the device.
     *   [C-0-7] MUST allow running Instant Apps to be accessed from the Recents
         function if the Recents function is available on the device.
+
+If device implementations support Instant Apps, they:
+
+*   [C-1-1] MUST preload one or more applications or service components
+    with an intent handler for the intents listed in the SDK [here](https://developer.android.com/topic/google-play-instant/instant-app-intents)
+    and make the intents visible for Instant Apps.

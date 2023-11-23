@@ -36,7 +36,7 @@ public abstract class IntentTestBase extends ActivityManagerTestBase {
      */
     public void cleanUp(List<ComponentName> activitiesInUsedInTest) throws Exception {
         launchHomeActivityNoWait();
-        removeStacksWithActivityTypes(ALL_ACTIVITY_TYPE_BUT_HOME);
+        removeRootTasksWithActivityTypes(ALL_ACTIVITY_TYPE_BUT_HOME);
 
         this.getWmState().waitForWithAmState(
                 state -> state.containsNoneOf(activitiesInUsedInTest),

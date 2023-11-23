@@ -1195,7 +1195,7 @@ public class VectorDrawable_Delegate {
                     if (shaderDelegate != null) {
                         // If there is a shader, apply the local transformation to make sure
                         // the gradient is transformed to match the viewport
-                        shaderDelegate.setLocalMatrix(mFinalPathMatrix.native_instance);
+                        shaderDelegate.setLocalMatrix(mFinalPathMatrix.ni());
                         shaderDelegate.setAlpha(fullPath.mFillAlpha);
                     }
 

@@ -9,6 +9,8 @@ set(DEQP_VK_SPIRV_ASSEMBLY_SRCS
 	vktSpvAsmCrossStageInterfaceTests.hpp
 	vktSpvAsm16bitStorageTests.cpp
 	vktSpvAsm16bitStorageTests.hpp
+	vktSpvAsmEmptyStructTests.cpp
+	vktSpvAsmEmptyStructTests.hpp
 	vktSpvAsmFloatControlsTests.cpp
 	vktSpvAsmFloatControlsTests.hpp
 	vktSpvAsmFromHlslTests.cpp
@@ -35,10 +37,14 @@ set(DEQP_VK_SPIRV_ASSEMBLY_SRCS
 	vktSpvAsmPointerParameterTests.hpp
 	vktSpvAsmSignedIntCompareTests.cpp
 	vktSpvAsmSignedIntCompareTests.hpp
+	vktSpvAsmSignedOpTests.hpp
+	vktSpvAsmSignedOpTests.cpp
 	vktSpvAsm64bitCompareTests.cpp
 	vktSpvAsm64bitCompareTests.hpp
 	vktSpvAsmTypeTests.cpp
 	vktSpvAsmTypeTests.hpp
+	vktSpvAsmTerminateInvocationTests.cpp
+	vktSpvAsmTerminateInvocationTests.hpp
 	vktSpvAsmTests.cpp
 	vktSpvAsmTests.hpp
 	vktSpvAsmUtils.cpp
@@ -63,8 +69,12 @@ set(DEQP_VK_SPIRV_ASSEMBLY_SRCS
 	vktSpvAsmNonSemanticInfoTests.hpp
 	vktSpvAsmPtrAccessChainTests.cpp
 	vktSpvAsmPtrAccessChainTests.hpp
+	vktSpvAsmVectorShuffleTests.cpp
+	vktSpvAsmVectorShuffleTests.hpp
 	vktSpvAsmFloatControlsExtensionlessTests.cpp
 	vktSpvAsmFloatControlsExtensionlessTests.hpp
+	vktSpvAsmTrinaryMinMaxTests.cpp
+	vktSpvAsmTrinaryMinMaxTests.hpp
 	)
 
 set(DEQP_VK_SPIRV_ASSEMBLY_LIBS

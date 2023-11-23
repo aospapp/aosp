@@ -185,7 +185,7 @@ bool MemoryStream::CheckContainer(ErrorPtr* error) const {
 bool MemoryStream::WaitForData(AccessMode mode,
                                const base::Callback<void(AccessMode)>& callback,
                                ErrorPtr* /* error */) {
-  MessageLoop::current()->PostTask(FROM_HERE, base::Bind(callback, mode));
+  MessageLoop::current()->PostTask(FROM_HERE, base::BindOnce(callback, mode));
   return true;
 }
 

@@ -27,7 +27,7 @@ class policy_ArcDisableScreenshots(
 
         """
         if case:
-            e_msg = 'ARC++ Sceenshot Taken when it should not have been'
+            e_msg = 'ARC++ Screenshot Taken when it should not have been'
         else:
             e_msg = 'ARC++ Screenshot was blocked when it should not have been'
 
@@ -75,6 +75,6 @@ class policy_ArcDisableScreenshots(
                'DisableScreenshots': case}
         self.setup_case(user_policies=pol,
                         arc_mode='enabled',
-                        use_clouddpc_test=True)
+                        use_clouddpc_test=False)
 
         self.verify_policy(case)

@@ -30,6 +30,8 @@
 
 #include "btif_common.h"
 #include "btif_util.h"
+#include "main/shim/le_scanning_manager.h"
+#include "main/shim/shim.h"
 
 #include <hardware/bt_gatt.h>
 
@@ -94,7 +96,7 @@ void bta_batch_scan_threshold_cb(tBTM_BLE_REF_VALUE ref_value) {
   SCAN_CBACK_IN_JNI(batchscan_threshold_cb, ref_value);
 }
 
-void bta_batch_scan_reports_cb(int client_id, tBTA_STATUS status,
+void bta_batch_scan_reports_cb(int client_id, tBTM_STATUS status,
                                uint8_t report_format, uint8_t num_records,
                                std::vector<uint8_t> data) {
   SCAN_CBACK_IN_JNI(batchscan_reports_cb, client_id, status, report_format,
@@ -102,7 +104,7 @@ void bta_batch_scan_reports_cb(int client_id, tBTA_STATUS status,
 }
 
 void bta_scan_results_cb_impl(RawAddress bd_addr, tBT_DEVICE_TYPE device_type,
-                              int8_t rssi, uint8_t addr_type,
+                              int8_t rssi, tBLE_ADDR_TYPE addr_type,
                               uint16_t ble_evt_type, uint8_t ble_primary_phy,
                               uint8_t ble_secondary_phy,
                               uint8_t ble_advertising_sid, int8_t ble_tx_power,
@@ -128,8 +130,7 @@ void bta_scan_results_cb_impl(RawAddress bd_addr, tBT_DEVICE_TYPE device_type,
         if (remote_name_len > BD_NAME_LEN + 1 ||
             (remote_name_len == BD_NAME_LEN + 1 &&
              p_eir_remote_name[BD_NAME_LEN] != '\0')) {
-          LOG_INFO(LOG_TAG,
-                   "%s dropping invalid packet - device name too long: %d",
+          LOG_INFO("%s dropping invalid packet - device name too long: %d",
                    __func__, remote_name_len);
           return;
         }
@@ -139,8 +140,8 @@ void bta_scan_results_cb_impl(RawAddress bd_addr, tBT_DEVICE_TYPE device_type,
         if (remote_name_len < BD_NAME_LEN + 1)
           bdname.name[remote_name_len] = '\0';
 
-        LOG_VERBOSE(LOG_TAG, "%s BLE device name=%s len=%d dev_type=%d",
-                    __func__, bdname.name, remote_name_len, device_type);
+        LOG_VERBOSE("%s BLE device name=%s len=%d dev_type=%d", __func__,
+                    bdname.name, remote_name_len, device_type);
         btif_dm_update_ble_remote_properties(bd_addr, bdname.name, device_type);
       }
     }
@@ -205,13 +206,15 @@ void bta_cback(tBTA_GATTC_EVT, tBTA_GATTC*) {}
 class BleScannerInterfaceImpl : public BleScannerInterface {
   ~BleScannerInterfaceImpl() override{};
 
-  void RegisterScanner(RegisterCallback cb) override {
+  void RegisterScanner(const bluetooth::Uuid& app_uuid,
+                       RegisterCallback cb) override {
     do_in_main_thread(FROM_HERE,
                       Bind(
                           [](RegisterCallback cb) {
                             BTA_GATTC_AppRegister(
                                 bta_cback,
-                                jni_thread_wrapper(FROM_HERE, std::move(cb)));
+                                jni_thread_wrapper(FROM_HERE, std::move(cb)),
+                                false);
                           },
                           std::move(cb)));
   }
@@ -310,7 +313,8 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
                        int addr_type, int discard_rule, Callback cb) override {
     do_in_main_thread(
         FROM_HERE, base::Bind(&BTM_BleEnableBatchScan, scan_mode, scan_interval,
-                              scan_window, discard_rule, addr_type,
+                              scan_window, discard_rule,
+                              static_cast<tBLE_ADDR_TYPE>(addr_type),
                               jni_thread_wrapper(FROM_HERE, cb)));
   }
 
@@ -320,9 +324,10 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
   }
 
   void BatchscanReadReports(int client_if, int scan_mode) override {
-    do_in_main_thread(FROM_HERE,
-                      base::Bind(&BTM_BleReadScanReports, (uint8_t)scan_mode,
-                                 Bind(bta_batch_scan_reports_cb, client_if)));
+    do_in_main_thread(
+        FROM_HERE,
+        base::Bind(&BTM_BleReadScanReports, (tBLE_SCAN_MODE)scan_mode,
+                   Bind(bta_batch_scan_reports_cb, client_if)));
   }
 
   void StartSync(uint8_t sid, RawAddress address, uint16_t skip,
@@ -330,6 +335,10 @@ class BleScannerInterfaceImpl : public BleScannerInterface {
                  SyncLostCb lost_cb) override {}
 
   void StopSync(uint16_t handle) override {}
+
+  void RegisterCallbacks(ScanningCallbacks* callbacks) {
+    // For GD only
+  }
 };
 
 BleScannerInterface* btLeScannerInstance = nullptr;
@@ -337,8 +346,11 @@ BleScannerInterface* btLeScannerInstance = nullptr;
 }  // namespace
 
 BleScannerInterface* get_ble_scanner_instance() {
-  if (btLeScannerInstance == nullptr)
+  if (bluetooth::shim::is_gd_scanning_enabled()) {
+    LOG_INFO("Use gd le scanner");
+    return bluetooth::shim::get_ble_scanner_instance();
+  } else if (btLeScannerInstance == nullptr) {
     btLeScannerInstance = new BleScannerInterfaceImpl();
-
+  }
   return btLeScannerInstance;
 }

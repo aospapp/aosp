@@ -27,7 +27,7 @@
 #include "core/AudioGlobal.h"
 #include <aaudio/AAudioTesting.h>
 #include <math.h>
-#include <system/audio-base.h>
+#include <system/audio.h>
 #include <assert.h>
 
 #include "utility/AAudioUtilities.h"
@@ -134,6 +134,12 @@ audio_format_t AAudioConvert_aaudioToAndroidDataFormat(aaudio_format_t aaudioFor
     case AAUDIO_FORMAT_PCM_FLOAT:
         androidFormat = AUDIO_FORMAT_PCM_FLOAT;
         break;
+    case AAUDIO_FORMAT_PCM_I24_PACKED:
+        androidFormat = AUDIO_FORMAT_PCM_24_BIT_PACKED;
+        break;
+    case AAUDIO_FORMAT_PCM_I32:
+        androidFormat = AUDIO_FORMAT_PCM_32_BIT;
+        break;
     default:
         androidFormat = AUDIO_FORMAT_INVALID;
         ALOGE("%s() 0x%08X unrecognized", __func__, aaudioFormat);
@@ -153,6 +159,12 @@ aaudio_format_t AAudioConvert_androidToAAudioDataFormat(audio_format_t androidFo
         break;
     case AUDIO_FORMAT_PCM_FLOAT:
         aaudioFormat = AAUDIO_FORMAT_PCM_FLOAT;
+        break;
+    case AUDIO_FORMAT_PCM_24_BIT_PACKED:
+        aaudioFormat = AAUDIO_FORMAT_PCM_I24_PACKED;
+        break;
+    case AUDIO_FORMAT_PCM_32_BIT:
+        aaudioFormat = AAUDIO_FORMAT_PCM_I32;
         break;
     default:
         aaudioFormat = AAUDIO_FORMAT_INVALID;
@@ -231,7 +243,8 @@ audio_flags_mask_t AAudioConvert_allowCapturePolicyToAudioFlagsMask(
         case AAUDIO_ALLOW_CAPTURE_BY_SYSTEM:
             return AUDIO_FLAG_NO_MEDIA_PROJECTION;
         case AAUDIO_ALLOW_CAPTURE_BY_NONE:
-            return AUDIO_FLAG_NO_MEDIA_PROJECTION | AUDIO_FLAG_NO_SYSTEM_CAPTURE;
+            return static_cast<audio_flags_mask_t>(
+                    AUDIO_FLAG_NO_MEDIA_PROJECTION | AUDIO_FLAG_NO_SYSTEM_CAPTURE);
         default:
             ALOGE("%s() 0x%08X unrecognized", __func__, policy);
             return AUDIO_FLAG_NONE; //

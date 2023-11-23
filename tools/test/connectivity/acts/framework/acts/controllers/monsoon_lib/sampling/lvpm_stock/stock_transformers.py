@@ -94,7 +94,7 @@ class PacketCollector(SourceTransformer):
             if data is None:
                 continue
             time_after_read = time.time()
-            time_data = struct.pack('dd', time_after_read - self.start_time,
+            time_data = struct.pack('dd', time_after_read,
                                     time_after_read - time_before_read)
             buffer[index] = time_data + data
 
@@ -169,7 +169,7 @@ class PacketReader(ParallelTransformer):
         for i, packet in enumerate(buffer):
             time_bytes_size = struct.calcsize('dd')
             # Unpacks the two time.time() values sent by PacketCollector.
-            time_since_start, time_of_read = struct.unpack(
+            time_of_read, time_since_last_read = struct.unpack(
                 'dd', packet[:time_bytes_size])
             packet = packet[time_bytes_size:]
             # Magic number explanation:
@@ -182,7 +182,7 @@ class PacketReader(ParallelTransformer):
                 buffer[i] = None
                 continue
 
-            buffer[i] = Packet(packet, time_since_start, time_of_read)
+            buffer[i] = Packet(packet, time_of_read, time_since_last_read)
 
         return buffer
 
@@ -272,6 +272,7 @@ class LvpmReading(object):
                 [0] Main Current
                 [1] USB Current
                 [2] Aux Current
+                [3] Main Voltage
             time_of_reading: The time the reading was received.
         """
         self._reading_list = reading_list
@@ -290,6 +291,10 @@ class LvpmReading(object):
         return self._reading_list[2]
 
     @property
+    def main_voltage(self):
+        return self._reading_list[3]
+
+    @property
     def sample_time(self):
         return self._time_of_reading
 
@@ -298,6 +303,7 @@ class LvpmReading(object):
             self.main_current + other.main_current,
             self.usb_current + other.usb_current,
             self.aux_current + other.aux_current,
+            self.main_voltage + other.main_voltage,
         ]
         sample_time = self.sample_time + other.sample_time
 
@@ -308,6 +314,7 @@ class LvpmReading(object):
             self.main_current / other,
             self.usb_current / other,
             self.aux_current / other,
+            self.main_voltage / other,
         ]
         sample_time = self.sample_time / other
 
@@ -369,6 +376,12 @@ class CalibrationApplier(ParallelTransformer):
                 measurements[:, channel] & 1,
                 ((measurements[:, channel] & ~1) - coarse_zero) * coarse_scale,
                 (measurements[:, channel] - fine_zero) * fine_scale)
+
+        # The magic number 0.000125 is documented at
+        # http://wiki/Main/MonsoonProtocol#Data_response
+        # It represents how many volts represents each tick in the sample
+        # packet.
+        readings[:, 3] = measurements[:, 3] * 0.000125
 
         for i in range(len(buffer.samples)):
             buffer.samples[i] = LvpmReading(

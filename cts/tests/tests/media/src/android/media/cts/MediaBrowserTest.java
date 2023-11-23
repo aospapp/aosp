@@ -54,6 +54,14 @@ public class MediaBrowserTest extends InstrumentationTestCase {
 
     private MediaBrowser mMediaBrowser;
 
+    @Override
+    public void tearDown() {
+        if (mMediaBrowser != null) {
+            mMediaBrowser.disconnect();
+            mMediaBrowser = null;
+        }
+    }
+
     public void testMediaBrowser() {
         resetCallbacks();
         createMediaBrowser(TEST_BROWSER_SERVICE);
@@ -76,6 +84,40 @@ public class MediaBrowserTest extends InstrumentationTestCase {
                 return !mMediaBrowser.isConnected();
             }
         }.run();
+    }
+
+    public void testThrowingISEWhileNotConnected() {
+        resetCallbacks();
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+        assertEquals(false, mMediaBrowser.isConnected());
+
+        try {
+            mMediaBrowser.getExtras();
+            fail();
+        } catch (IllegalStateException e) {
+            // Expected
+        }
+
+        try {
+            mMediaBrowser.getRoot();
+            fail();
+        } catch (IllegalStateException e) {
+            // Expected
+        }
+
+        try {
+            mMediaBrowser.getServiceComponent();
+            fail();
+        } catch (IllegalStateException e) {
+            // Expected
+        }
+
+        try {
+            mMediaBrowser.getSessionToken();
+            fail();
+        } catch (IllegalStateException e) {
+            // Expected
+        }
     }
 
     public void testConnectTwice() {
@@ -165,17 +207,6 @@ public class MediaBrowserTest extends InstrumentationTestCase {
         assertEquals(0, mConnectionCallback.mConnectionSuspendedCount);
     }
 
-    public void testGetServiceComponentBeforeConnection() {
-        resetCallbacks();
-        createMediaBrowser(TEST_BROWSER_SERVICE);
-        try {
-            ComponentName serviceComponent = mMediaBrowser.getServiceComponent();
-            fail();
-        } catch (IllegalStateException e) {
-            // expected
-        }
-    }
-
     public void testSubscribe() {
         resetCallbacks();
         createMediaBrowser(TEST_BROWSER_SERVICE);
@@ -210,6 +241,43 @@ public class MediaBrowserTest extends InstrumentationTestCase {
         }
         // onChildrenLoaded should not be called.
         assertEquals(0, mSubscriptionCallback.mChildrenLoadedCount);
+    }
+
+    public void testSubscribeWithIllegalArguments() {
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+
+        try {
+            final String nullMediaId = null;
+            mMediaBrowser.subscribe(nullMediaId, mSubscriptionCallback);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            final String emptyMediaId = "";
+            mMediaBrowser.subscribe(emptyMediaId, mSubscriptionCallback);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            final MediaBrowser.SubscriptionCallback nullCallback = null;
+            mMediaBrowser.subscribe(StubMediaBrowserService.MEDIA_ID_ROOT, nullCallback);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            final Bundle nullOptions = null;
+            mMediaBrowser.subscribe(StubMediaBrowserService.MEDIA_ID_ROOT, nullOptions,
+                    mSubscriptionCallback);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
     }
 
     public void testSubscribeWithOptions() {
@@ -317,6 +385,34 @@ public class MediaBrowserTest extends InstrumentationTestCase {
         assertEquals(0, mSubscriptionCallback.mChildrenLoadedCount);
         assertEquals(0, mSubscriptionCallback.mChildrenLoadedWithOptionCount);
         assertNull(mSubscriptionCallback.mLastParentId);
+    }
+
+    public void testUnsubscribeWithIllegalArguments() {
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+
+        try {
+            final String nullMediaId = null;
+            mMediaBrowser.unsubscribe(nullMediaId);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            final String emptyMediaId = "";
+            mMediaBrowser.unsubscribe(emptyMediaId);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            final MediaBrowser.SubscriptionCallback nullCallback = null;
+            mMediaBrowser.unsubscribe(StubMediaBrowserService.MEDIA_ID_ROOT, nullCallback);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
     }
 
     public void testUnsubscribeForMultipleSubscriptions() {
@@ -438,6 +534,53 @@ public class MediaBrowserTest extends InstrumentationTestCase {
 
         assertEquals(StubMediaBrowserService.MEDIA_ID_CHILDREN[0],
                 mItemCallback.mLastMediaItem.getMediaId());
+    }
+
+    public void testGetItemThrowsIAE() {
+        resetCallbacks();
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+
+        try {
+            // Calling getItem() with empty mediaId will throw IAE.
+            mMediaBrowser.getItem("",  mItemCallback);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            // Calling getItem() with null mediaId will throw IAE.
+            mMediaBrowser.getItem(null,  mItemCallback);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+
+        try {
+            // Calling getItem() with null itemCallback will throw IAE.
+            mMediaBrowser.getItem("media_id",  null);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
+    }
+
+    public void testGetItemWhileNotConnected() {
+        resetCallbacks();
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+
+        final String mediaId = "test_media_id";
+        mMediaBrowser.getItem(mediaId, mItemCallback);
+
+        // Calling getItem while not connected will invoke ItemCallback.onError().
+        new PollingCheck(TIME_OUT_MS) {
+            @Override
+            protected boolean check() {
+                return mItemCallback.mLastErrorId != null;
+            }
+        }.run();
+
+        assertEquals(mItemCallback.mLastErrorId, mediaId);
     }
 
     public void testGetItemFailure() {
@@ -566,7 +709,7 @@ public class MediaBrowserTest extends InstrumentationTestCase {
             mLastErrorId = id;
             mLastOptions = options;
         }
-}
+    }
 
     private static class StubItemCallback extends MediaBrowser.ItemCallback {
         private volatile MediaBrowser.MediaItem mLastMediaItem;

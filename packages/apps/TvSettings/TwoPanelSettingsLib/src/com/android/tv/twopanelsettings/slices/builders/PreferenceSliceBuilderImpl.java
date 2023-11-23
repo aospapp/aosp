@@ -40,9 +40,12 @@ import static androidx.slice.core.SliceHints.SUBTYPE_MILLIS;
 
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.BUTTONSTYLE;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_ACTION_ID;
+import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_ADD_INFO_STATUS;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PAGE_ID;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFERENCE_INFO_IMAGE;
+import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFERENCE_INFO_SUMMARY;
 import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFERENCE_INFO_TEXT;
+import static com.android.tv.twopanelsettings.slices.SlicesConstants.EXTRA_PREFERENCE_INFO_TITLE_ICON;
 
 import android.net.Uri;
 
@@ -77,6 +80,7 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
     public static final String TYPE_FOCUSED_PREFERENCE = "TYPE_FOCUSED_PREFERENCE";
     public static final String TYPE_PREFERENCE_EMBEDDED = "TYPE_PREFERENCE_EMBEDDED";
     public static final String TYPE_PREFERENCE_RADIO = "TYPE_PREFERENCE_RADIO";
+    public static final String TYPE_REDIRECTED_SLICE_URI = "TYPE_REDIRECTED_SLICE_URI";
     public static final String TAG_TARGET_URI = "TAG_TARGET_URI";
     public static final String TAG_KEY = "TAG_KEY";
     public static final String TAG_RADIO_GROUP = "TAG_RADIO_GROUP";
@@ -88,6 +92,9 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
     public static final String SUBTYPE_IS_ENABLED = "SUBTYPE_IS_ENABLED";
     public static final String SUBTYPE_IS_SELECTABLE = "SUBTYPE_IS_SELECTABLE";
     public static final String SUBTYPE_INFO_PREFERENCE = "SUBTYPE_INFO_PREFERENCE";
+    public static final String SUBTYPE_SEEKBAR_MIN = "SUBTYPE_SEEKBAR_MIN";
+    public static final String SUBTYPE_SEEKBAR_MAX = "SUBTYPE_SEEKBAR_MAX";
+    public static final String SUBTYPE_SEEKBAR_VALUE = "SUBTYPE_SEEKBAR_VALUE";
 
     /**
      *
@@ -157,6 +164,15 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
     public void setEmbeddedPreference(@NonNull RowBuilder builder) {
         addRow(builder, TYPE_PREFERENCE_EMBEDDED);
     }
+
+    /**
+     * Set the redirected slice uri.
+     * @param redirectedSliceUri the new redirected slice uri
+     */
+    public void setRedirectedSliceUri(CharSequence redirectedSliceUri) {
+        addRow(new RowBuilder().setTitle(redirectedSliceUri), TYPE_REDIRECTED_SLICE_URI);
+    }
+
     /**
      * Add a row to list builder.
      */
@@ -229,11 +245,17 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
         private SliceItem mKeyItem;
         private SliceItem mIconNeedsToBeProcessedItem;
         private SliceItem mButtonStyleItem;
+        private SliceItem mSeekbarMinItem;
+        private SliceItem mSeekbarMaxItem;
+        private SliceItem mSeekbarValueItem;
         private SliceItem mIsEnabledItem;
         private SliceItem mIsSelectableItem;
+        private SliceItem mIsAddingInfoStatusItem;
         private SliceItem mRadioGroupItem;
         private SliceItem mInfoTextItem;
         private SliceItem mInfoImageItem;
+        private SliceItem mInfoTitleIconItem;
+        private SliceItem mInfoSummaryItem;
 
         /**
          *
@@ -305,12 +327,25 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
             if (builder.getInfoText() != null) {
                 setInfoText(builder.getInfoText());
             }
+            if (builder.getInfoTitle() != null) {
+                setInfoTitle(builder.getInfoTitle());
+            }
+            if (builder.getInfoSummary() != null) {
+                setInfoSummary(builder.getInfoSummary());
+            }
+            if (builder.getInfoTitleIcon() != null) {
+                setInfoTitleIcon(builder.getInfoTitleIcon());
+            }
             if (builder.getInfoImage() != null) {
                 setInfoImage(builder.getInfoImage());
             }
             setButtonStyle(builder.getButtonStyle());
+            setSeekbarMin(builder.getSeekbarMin());
+            setSeekbarMax(builder.getSeekbarMax());
+            setSeekbarValue(builder.getSeekbarValue());
             setEnabled(builder.isEnabled());
             setSelectable(builder.isSelectable());
+            setAddInfoStatus(builder.addInfoStatus());
             List<Object> endItems = builder.getEndItems();
             List<Integer> endTypes = builder.getEndTypes();
             List<Boolean> endLoads = builder.getEndLoads();
@@ -451,6 +486,30 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
         }
 
         /**
+         * Set minimum value of the seekbar.
+         */
+        public void setSeekbarMin(int value) {
+            mSeekbarMinItem = new SliceItem(
+                    value, FORMAT_INT, SUBTYPE_SEEKBAR_MIN, new String[]{});
+        }
+
+        /**
+         * Set maximum value of the seekbar.
+         */
+        public void setSeekbarMax(int value) {
+            mSeekbarMaxItem = new SliceItem(
+                    value, FORMAT_INT, SUBTYPE_SEEKBAR_MAX, new String[]{});
+        }
+
+        /**
+         * Set progress value of the seekbar.
+         */
+        public void setSeekbarValue(int value) {
+            mSeekbarValueItem = new SliceItem(
+                    value, FORMAT_INT, SUBTYPE_SEEKBAR_VALUE, new String[]{});
+        }
+
+        /**
          *
          */
         public void setRadioGroup(CharSequence radioGroup) {
@@ -471,18 +530,37 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
                     selectable ? 1 : 0, FORMAT_INT, SUBTYPE_IS_SELECTABLE, new String[]{});
         }
 
+        public void setAddInfoStatus(boolean addInfoStatus) {
+            mIsAddingInfoStatusItem = new SliceItem(
+                    addInfoStatus ? 1 : 0, FORMAT_INT, EXTRA_ADD_INFO_STATUS, new String[]{});
+        }
+
         public void setKey(CharSequence key) {
             mKeyItem = new SliceItem(key, FORMAT_TEXT, TAG_KEY, new String[] {HINT_KEYWORDS});
         }
 
         public void setInfoText(CharSequence infoText) {
-            mInfoTextItem = new SliceItem(
-                    infoText, FORMAT_TEXT, EXTRA_PREFERENCE_INFO_TEXT, new String[]{});
+            setInfoTitle(infoText);
         }
 
         public void setInfoImage(IconCompat infoImage) {
             mInfoImageItem = new SliceItem(
                     infoImage, FORMAT_IMAGE, EXTRA_PREFERENCE_INFO_IMAGE, new String[]{});
+        }
+
+        public void setInfoTitleIcon(IconCompat infoImage) {
+            mInfoTitleIconItem = new SliceItem(
+                    infoImage, FORMAT_IMAGE, EXTRA_PREFERENCE_INFO_TITLE_ICON, new String[]{});
+        }
+
+        public void setInfoTitle(CharSequence infoTitle) {
+            mInfoTextItem = new SliceItem(
+                    infoTitle, FORMAT_TEXT, EXTRA_PREFERENCE_INFO_TEXT, new String[]{});
+        }
+
+        public void setInfoSummary(CharSequence infoSummary) {
+            mInfoSummaryItem = new SliceItem(
+                    infoSummary, FORMAT_TEXT, EXTRA_PREFERENCE_INFO_SUMMARY, new String[]{});
         }
 
         /**
@@ -603,6 +681,24 @@ public class PreferenceSliceBuilderImpl extends TemplateBuilderImpl {
             }
             if (mPageIdItem != null) {
                 b.addItem(mPageIdItem);
+            }
+            if (mInfoTitleIconItem != null) {
+                b.addItem(mInfoTitleIconItem);
+            }
+            if (mInfoSummaryItem != null) {
+                b.addItem(mInfoSummaryItem);
+            }
+            if (mIsAddingInfoStatusItem != null) {
+                b.addItem(mIsAddingInfoStatusItem);
+            }
+            if (mSeekbarMinItem != null) {
+                b.addItem(mSeekbarMinItem);
+            }
+            if (mSeekbarMaxItem != null) {
+                b.addItem(mSeekbarMaxItem);
+            }
+            if (mSeekbarValueItem != null) {
+                b.addItem(mSeekbarValueItem);
             }
             for (int i = 0; i < mEndItems.size(); i++) {
                 Slice item = mEndItems.get(i);

@@ -50,6 +50,7 @@
 #define WLAN_FC_STYPE_AUTH		11
 #define WLAN_FC_STYPE_DEAUTH		12
 #define WLAN_FC_STYPE_ACTION		13
+#define WLAN_FC_STYPE_ACTION_NO_ACK	14
 
 /* control */
 #define WLAN_FC_STYPE_PSPOLL		10
@@ -84,6 +85,7 @@
 #define WLAN_AUTH_FILS_SK		4
 #define WLAN_AUTH_FILS_SK_PFS		5
 #define WLAN_AUTH_FILS_PK		6
+#define WLAN_AUTH_PASN			7
 #define WLAN_AUTH_LEAP			128
 
 #define WLAN_AUTH_CHALLENGE_LEN 128
@@ -204,7 +206,9 @@
 #define WLAN_STATUS_FILS_AUTHENTICATION_FAILURE 112
 #define WLAN_STATUS_UNKNOWN_AUTHENTICATION_SERVER 113
 #define WLAN_STATUS_UNKNOWN_PASSWORD_IDENTIFIER 123
+#define WLAN_STATUS_DENIED_HE_NOT_SUPPORTED 124
 #define WLAN_STATUS_SAE_HASH_TO_ELEMENT 126
+#define WLAN_STATUS_SAE_PK 127
 
 /* Reason codes (IEEE Std 802.11-2016, 9.4.1.7, Table 9-45) */
 #define WLAN_REASON_UNSPECIFIED 1
@@ -430,7 +434,7 @@
 #define WLAN_EID_VHT_OPERATION 192
 #define WLAN_EID_VHT_EXTENDED_BSS_LOAD 193
 #define WLAN_EID_VHT_WIDE_BW_CHSWITCH  194
-#define WLAN_EID_VHT_TRANSMIT_POWER_ENVELOPE 195
+#define WLAN_EID_TRANSMIT_POWER_ENVELOPE 195
 #define WLAN_EID_VHT_CHANNEL_SWITCH_WRAPPER 196
 #define WLAN_EID_VHT_AID 197
 #define WLAN_EID_VHT_QUIET_CHANNEL 198
@@ -441,7 +445,10 @@
 #define WLAN_EID_DEVICE_LOCATION 204
 #define WLAN_EID_WHITE_SPACE_MAP 205
 #define WLAN_EID_FTM_PARAMETERS 206
+#define WLAN_EID_S1G_BCN_COMPAT 213
+#define WLAN_EID_S1G_CAPABILITIES 217
 #define WLAN_EID_VENDOR_SPECIFIC 221
+#define WLAN_EID_S1G_OPERATION 232
 #define WLAN_EID_CAG_NUMBER 237
 #define WLAN_EID_AP_CSN 239
 #define WLAN_EID_FILS_INDICATION 240
@@ -473,10 +480,14 @@
 #define WLAN_EID_EXT_SPATIAL_REUSE 39
 #define WLAN_EID_EXT_OCV_OCI 54
 #define WLAN_EID_EXT_SHORT_SSID_LIST 58
+#define WLAN_EID_EXT_HE_6GHZ_BAND_CAP 59
 #define WLAN_EID_EXT_EDMG_CAPABILITIES 61
 #define WLAN_EID_EXT_EDMG_OPERATION 62
+#define WLAN_EID_EXT_MSCS_DESCRIPTOR 88
+#define WLAN_EID_EXT_TCLAS_MASK 89
 #define WLAN_EID_EXT_REJECTED_GROUPS 92
 #define WLAN_EID_EXT_ANTI_CLOGGING_TOKEN 93
+#define WLAN_EID_EXT_PASN_PARAMS 100
 
 /* Extended Capabilities field */
 #define WLAN_EXT_CAPAB_20_40_COEX 0
@@ -520,7 +531,6 @@
 #define WLAN_EXT_CAPAB_TDLS_PROHIBITED 38
 #define WLAN_EXT_CAPAB_TDLS_CHANNEL_SWITCH_PROHIBITED 39
 #define WLAN_EXT_CAPAB_REJECT_UNADMITTED_FRAME 40
-#define WLAN_EXT_CAPAB_
 /* 41-43 - Service Interval Granularity */
 #define WLAN_EXT_CAPAB_IDENTIFIER_LOCATION 44
 #define WLAN_EXT_CAPAB_U_APSD_COEX 45
@@ -541,7 +551,6 @@
 #define WLAN_EXT_CAPAB_PROT_QLOAD_REPORT 60
 #define WLAN_EXT_CAPAB_TDLS_WIDER_BW 61
 #define WLAN_EXT_CAPAB_OPMODE_NOTIF 62
-#define WLAN_EXT_CAPAB_
 /* 63-64 - Max Number of MSDUs In A-MSDU */
 #define WLAN_EXT_CAPAB_CHANNEL_SCHEDULE_MGMT 65
 #define WLAN_EXT_CAPAB_GEODB_INBAND_ENABLING_SIGNAL 66
@@ -559,11 +568,17 @@
 #define WLAN_EXT_CAPAB_SAE_PW_ID 81
 #define WLAN_EXT_CAPAB_SAE_PW_ID_EXCLUSIVELY 82
 #define WLAN_EXT_CAPAB_BEACON_PROTECTION 84
+#define WLAN_EXT_CAPAB_MSCS 85
+#define WLAN_EXT_CAPAB_SAE_PK_EXCLUSIVELY 88
 
 /* Extended RSN Capabilities */
 /* bits 0-3: Field length (n-1) */
 #define WLAN_RSNX_CAPAB_PROTECTED_TWT 4
 #define WLAN_RSNX_CAPAB_SAE_H2E 5
+#define WLAN_RSNX_CAPAB_SAE_PK 6
+#define WLAN_RSNX_CAPAB_SECURE_LTF 8
+#define WLAN_RSNX_CAPAB_SECURE_RTT 9
+#define WLAN_RSNX_CAPAB_PROT_RANGE_NEG 10
 
 /* Action frame categories (IEEE Std 802.11-2016, 9.4.1.11, Table 9-76) */
 #define WLAN_ACTION_SPECTRUM_MGMT 0
@@ -589,6 +604,7 @@
 #define WLAN_ACTION_UNPROTECTED_DMG 20
 #define WLAN_ACTION_VHT 21
 #define WLAN_ACTION_FILS 26
+#define WLAN_ACTION_PROTECTED_FTM 34
 #define WLAN_ACTION_VENDOR_SPECIFIC_PROTECTED 126
 #define WLAN_ACTION_VENDOR_SPECIFIC 127
 /* Note: 128-255 used to report errors by setting category | 0x80 */
@@ -629,6 +645,7 @@
 #define WLAN_PA_FTM_REQUEST 32
 #define WLAN_PA_FTM 33
 #define WLAN_PA_FILS_DISCOVERY 34
+#define WLAN_PA_LOCATION_MEASUREMENT_REPORT 47
 
 /* Protected Dual of Public Action frames (IEEE Std 802.11-2016, 9.6.11,
  * Table 9-332) */
@@ -685,6 +702,11 @@
 #define WLAN_RRM_LINK_MEASUREMENT_REPORT 3
 #define WLAN_RRM_NEIGHBOR_REPORT_REQUEST 4
 #define WLAN_RRM_NEIGHBOR_REPORT_RESPONSE 5
+
+/* Protected Fine Timing Frame Action Field value */
+#define WLAN_PROT_FTM_REQUEST 1
+#define WLAN_PROT_FTM 2
+#define WLAN_PROT_FTM_REPORT 3
 
 /* Radio Measurement capabilities (from RM Enabled Capabilities element)
  * IEEE Std 802.11-2016, 9.4.2.45, Table 9-157 */
@@ -1324,6 +1346,8 @@ struct ieee80211_ampe_ie {
 #define MULTI_AP_OUI_TYPE 0x1B
 #define DPP_CC_IE_VENDOR_TYPE 0x506f9a1e
 #define DPP_CC_OUI_TYPE 0x1e
+#define SAE_PK_IE_VENDOR_TYPE 0x506f9a1f
+#define SAE_PK_OUI_TYPE 0x1f
 
 #define MULTI_AP_SUB_ELEM_TYPE 0x06
 #define MULTI_AP_TEAR_DOWN BIT(4)
@@ -2155,11 +2179,52 @@ struct ieee80211_he_operation {
 	le32 he_oper_params; /* HE Operation Parameters[3] and
 			      * BSS Color Information[1] */
 	le16 he_mcs_nss_set;
-	u8 vht_op_info_chwidth;
-	u8 vht_op_info_chan_center_freq_seg0_idx;
-	u8 vht_op_info_chan_center_freq_seg1_idx;
-	/* Followed by conditional MaxBSSID Indicator subfield (u8) */
+	/* Followed by conditional VHT Operation Information (3 octets),
+	 * Max Co-Hosted BSSID Indicator subfield (1 octet), and/or 6 GHz
+	 * Operation Information subfield (5 octets). */
 } STRUCT_PACKED;
+
+/* IEEE P802.11ax/D6.0, Figure 9-787k - 6 GHz Operation Information field */
+struct ieee80211_he_6ghz_oper_info {
+	u8 primary_chan;
+	u8 control;
+	u8 chan_center_freq_seg0;
+	u8 chan_center_freq_seg1;
+	u8 min_rate;
+} STRUCT_PACKED;
+
+#define HE_6GHZ_OPER_INFO_CTRL_CHAN_WIDTH_MASK	(BIT(0) | BIT(1))
+#define HE_6GHZ_OPER_INFO_CTRL_DUP_BEACON	BIT(2)
+
+/* IEEE P802.11ax/D6.0, 9.4.2.261 HE 6 GHz Band Capabilities element */
+struct ieee80211_he_6ghz_band_cap {
+	 /* Minimum MPDU Start Spacing B0..B2
+	  * Maximum A-MPDU Length Exponent B3..B5
+	  * Maximum MPDU Length B6..B7 */
+	le16 capab;
+} STRUCT_PACKED;
+
+#define HE_6GHZ_BAND_CAP_MIN_MPDU_START              (BIT(0) | BIT(1) | BIT(2))
+#define HE_6GHZ_BAND_CAP_MAX_AMPDU_LEN_EXP_16K       BIT(3)
+#define HE_6GHZ_BAND_CAP_MAX_AMPDU_LEN_EXP_32K       BIT(4)
+#define HE_6GHZ_BAND_CAP_MAX_AMPDU_LEN_EXP_64K       (BIT(3) | BIT(4))
+#define HE_6GHZ_BAND_CAP_MAX_AMPDU_LEN_EXP_128K      BIT(5)
+#define HE_6GHZ_BAND_CAP_MAX_AMPDU_LEN_EXP_256K      (BIT(3) | BIT(5))
+#define HE_6GHZ_BAND_CAP_MAX_AMPDU_LEN_EXP_512K      (BIT(4) | BIT(5))
+#define HE_6GHZ_BAND_CAP_MAX_AMPDU_LEN_EXP_1024K     (BIT(3) | BIT(4) | BIT(5))
+#define HE_6GHZ_BAND_CAP_MAX_AMPDU_LEN_EXP_MASK      (BIT(3) | BIT(4) | BIT(5))
+#define HE_6GHZ_BAND_CAP_MAX_AMPDU_LEN_EXP_SHIFT     3
+#define HE_6GHZ_BAND_CAP_MAX_MPDU_LEN_7991           BIT(6)
+#define HE_6GHZ_BAND_CAP_MAX_MPDU_LEN_11454          BIT(7)
+#define HE_6GHZ_BAND_CAP_MAX_MPDU_LEN_MASK           (BIT(6) | BIT(7))
+#define HE_6GHZ_BAND_CAP_MAX_MPDU_LEN_SHIFT	     6
+#define HE_6GHZ_BAND_CAP_SMPS_MASK                   (BIT(9) | BIT(10))
+#define HE_6GHZ_BAND_CAP_SMPS_STATIC                 0
+#define HE_6GHZ_BAND_CAP_SMPS_DYNAMIC                BIT(9)
+#define HE_6GHZ_BAND_CAP_SMPS_DISABLED               (BIT(9) | BIT(10))
+#define HE_6GHZ_BAND_CAP_RD_RESPONDER                BIT(11)
+#define HE_6GHZ_BAND_CAP_RX_ANTPAT_CONS              BIT(12)
+#define HE_6GHZ_BAND_CAP_TX_ANTPAT_CONS              BIT(13)
 
 /*
  * IEEE P802.11ax/D4.0, 9.4.2.246 Spatial Reuse Parameter Set element
@@ -2319,5 +2384,73 @@ enum edmg_bw_config {
 
 /* DPP Public Action frame identifiers - OUI_WFA */
 #define DPP_OUI_TYPE 0x1A
+
+/* Robust AV streaming Action field values */
+enum robust_av_streaming_action {
+	ROBUST_AV_SCS_REQ = 0,
+	ROBUST_AV_SCS_RESP = 1,
+	ROBUST_AV_GROUP_MEMBERSHIP_REQ = 2,
+	ROBUST_AV_GROUP_MEMBERSHIP_RESP = 3,
+	ROBUST_AV_MSCS_REQ = 4,
+	ROBUST_AV_MSCS_RESP = 5,
+};
+
+enum scs_request_type {
+	SCS_REQ_ADD = 0,
+	SCS_REQ_REMOVE = 1,
+	SCS_REQ_CHANGE = 2,
+};
+
+/* Optional subelement IDs for MSCS Descriptor element */
+enum mscs_description_subelem {
+	MCSC_SUBELEM_STATUS = 1,
+};
+
+/*
+ * IEEE Std 802.11ai-2016, 9.6.8.36 FILS Discovery frame format,
+ * Figure 9-687b - FILS Discovery Frame Control subfield format
+ */
+#define FD_FRAME_CTL_CAP_PRESENT			((u16) BIT(5))
+#define FD_FRAME_CTL_SHORT_SSID_PRESENT			((u16) BIT(6))
+#define FD_FRAME_CTL_AP_CSN_PRESENT			((u16) BIT(7))
+#define FD_FRAME_CTL_ANO_PRESENT			((u16) BIT(8))
+#define FD_FRAME_CTL_FREQ_SEG1_PRESENT			((u16) BIT(9))
+#define FD_FRAME_CTL_PRI_CHAN_PRESENT			((u16) BIT(10))
+#define FD_FRAME_CTL_RSN_INFO_PRESENT			((u16) BIT(11))
+#define FD_FRAME_CTL_LENGTH_PRESENT			((u16) BIT(12))
+#define FD_FRAME_CTL_MD_PRESENT				((u16) BIT(13))
+
+/*
+ * IEEE Std 802.11ai-2016, 9.6.8.36 FILS Discovery frame format,
+ * Figure 9-687c - FD Capability subfield format
+ */
+#define FD_CAP_ESS					BIT(0)
+#define FD_CAP_PRIVACY					BIT(1)
+#define FD_CAP_MULTI_BSSID_PRESENT			BIT(9)
+
+#define FD_CAP_BSS_CHWIDTH_20				0
+#define FD_CAP_BSS_CHWIDTH_40				1
+#define FD_CAP_BSS_CHWIDTH_80				2
+#define FD_CAP_BSS_CHWIDTH_160_80_80			3
+#define FD_CAP_BSS_CHWIDTH_SHIFT			2
+
+#define FD_CAP_NSS_1					0
+#define FD_CAP_NSS_2					1
+#define FD_CAP_NSS_3					2
+#define FD_CAP_NSS_4					3
+#define FD_CAP_NSS_5_8					4
+#define FD_CAP_NSS_SHIFT				5
+
+#define FD_CAP_PHY_INDEX_HR_DSSS			0
+#define FD_CAP_PHY_INDEX_ERP_OFDM			1
+#define FD_CAP_PHY_INDEX_HT				2
+#define FD_CAP_PHY_INDEX_VHT				3
+#define FD_CAP_PHY_INDEX_HE				4 /* P802.11ax */
+#define FD_CAP_PHY_INDEX_SHIFT				10
+
+/*
+ * IEEE P802.11ax/D8.0 26.17.2.3.2, AP behavior for fast passive scanning
+ */
+#define FD_MAX_INTERVAL_6GHZ                  20 /* TUs */
 
 #endif /* IEEE802_11_DEFS_H */

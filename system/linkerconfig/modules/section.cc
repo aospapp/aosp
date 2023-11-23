@@ -31,6 +31,7 @@ using android::base::Result;
 namespace android {
 namespace linkerconfig {
 namespace modules {
+
 void Section::WriteConfig(ConfigWriter& writer) {
   writer.WriteLine("[" + name_ + "]");
 
@@ -59,7 +60,17 @@ void Section::WriteConfig(ConfigWriter& writer) {
   }
 }
 
-Result<void> Section::Resolve(const BaseContext& ctx) {
+// Resolve() resolves require/provide constraints between namespaces.
+// When foo.AddProvides({"libfoo.so"}) and bar.AddRequires({"libfoo.so"}),
+// then Resolve() creates a linke between foo and bar:
+//   foo.GetLink("bar").AddSharedLib({"libfoo.so"}).
+//
+// When a referenced lib is not provided by existing namespaces,
+// it searches the lib in available apexes <apex_providers>
+// and available aliases <lib_providers>, If found, new namespace is added.
+Result<void> Section::Resolve(const BaseContext& ctx,
+                              const LibProviders& lib_providers) {
+  // libs provided by existing namespaces
   std::unordered_map<std::string, std::string> providers;
   for (auto& ns : namespaces_) {
     for (const auto& lib : ns.GetProvides()) {
@@ -74,40 +85,59 @@ Result<void> Section::Resolve(const BaseContext& ctx) {
     }
   }
 
-  std::unordered_map<std::string, ApexInfo> candidates_providers;
+  // libs provided by apexes
+  std::unordered_map<std::string, ApexInfo> apex_providers;
   for (const auto& apex : ctx.GetApexModules()) {
     for (const auto& lib : apex.provide_libs) {
-      candidates_providers[lib] = apex;
+      apex_providers[lib] = apex;
     }
   }
 
+  // add a new namespace if not found
+  auto add_namespace = [&](auto name, auto builder) {
+    for (auto& ns : namespaces_) {
+      if (ns.GetName() == name) {
+        // it's there, we don't need to create a new one.
+        return;
+      }
+    }
+    auto new_ns = builder();
+    // Update providing library map from the new namespace
+    for (const auto& new_lib : new_ns.GetProvides()) {
+      if (providers.find(new_lib) == providers.end()) {
+        providers[new_lib] = new_ns.GetName();
+      }
+    }
+    namespaces_.push_back(std::move(new_ns));
+  };
+
   // Reserve enough space for namespace vector which can be increased maximum as
-  // much as available APEX modules. Appending new namespaces without reserving
+  // much as potential providers. Appending new namespaces without reserving
   // enough space from iteration can crash the process.
-  namespaces_.reserve(namespaces_.size() + ctx.GetApexModules().size());
+  namespaces_.reserve(namespaces_.size() + ctx.GetApexModules().size() +
+                      lib_providers.size());
 
   auto iter = namespaces_.begin();
   do {
     auto& ns = *iter;
     for (const auto& lib : ns.GetRequires()) {
+      // Search the required library in existing namespaces first <providers>,
+      // then the available apexes <apex_providers>,
+      // then the available aliases <lib_providers>
       if (auto it = providers.find(lib); it != providers.end()) {
-        // If required library can be provided by existing namespaces, link to
-        // the namespace.
         ns.GetLink(it->second).AddSharedLib(lib);
-      } else if (auto it = candidates_providers.find(lib);
-                 it != candidates_providers.end()) {
-        // If required library can be provided by a APEX module, create a new
-        // namespace with the APEX and add it to this section.
-        auto new_ns = ctx.BuildApexNamespace(it->second, false);
-
-        // Update providing library map from the new namespace
-        for (const auto& new_lib : new_ns.GetProvides()) {
-          if (providers.find(new_lib) == providers.end()) {
-            providers[new_lib] = new_ns.GetName();
-          }
-        }
-        ns.GetLink(new_ns.GetName()).AddSharedLib(lib);
-        namespaces_.push_back(std::move(new_ns));
+      } else if (auto it = apex_providers.find(lib); it != apex_providers.end()) {
+        ns.GetLink(it->second.namespace_name).AddSharedLib(lib);
+        // Add a new namespace for the apex
+        add_namespace(it->second.namespace_name, [&]() {
+          return ctx.BuildApexNamespace(it->second, false);
+        });
+      } else if (auto it = lib_providers.find(lib); it != lib_providers.end()) {
+        // Alias is expanded to <shared_libs>.
+        // For example, ":vndk" is expanded to the list of VNDK-Core/VNDK-Sp libraries
+        ns.GetLink(it->second.ns).AddSharedLib(it->second.shared_libs);
+        // Add a new namespace for the alias
+        add_namespace(it->second.ns, it->second.ns_builder);
       } else if (ctx.IsStrictMode()) {
         return Errorf(
             "not found: {} is required by {} in [{}]", lib, ns.GetName(), name_);

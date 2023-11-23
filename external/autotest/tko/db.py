@@ -797,21 +797,6 @@ class db_sql(object):
                     commit=commit)
 
 
-    def find_test(self, job_idx, testname, subdir):
-        """Find a test by name.
-
-        @param job_idx: The job index.
-        @param testname: The test name.
-        @param subdir: The test sub directory under the job directory.
-        """
-        where = {'job_idx': job_idx , 'test': testname, 'subdir': subdir}
-        rows = self.select('test_idx', 'tko_tests', where)
-        if rows:
-            return rows[0][0]
-        else:
-            return None
-
-
     def find_tests(self, job_idx):
         """Find all tests by job index.
 
@@ -837,25 +822,6 @@ class db_sql(object):
             return rows[0][0]
         else:
             return None
-
-
-    def get_child_tests_by_parent_task_id(self, parent_task_id):
-        """Get the child tests by a parent task id.
-
-        @param parent_task_id: A string parent task id in tko_task_references.
-        @return: A list of view dicts, which has key 'test_name' and 'status'.
-        """
-        if not parent_task_id:
-            raise ValueError('no parent_task_id supplied')
-        rows = self.select('tko_job_idx', 'tko_task_references',
-                           {'parent_task_id': parent_task_id})
-        tko_job_ids = [str(r[0]) for r in rows]
-        if not tko_job_ids:
-            return []
-        fields = ['test_name', 'status']
-        where = 'job_idx in (%s)' % ', '.join(tko_job_ids)
-        rows = self.select(', '.join(fields), 'tko_test_view_2', where)
-        return [{'test_name': r[0], 'status': r[1]} for r in rows]
 
 
 def db(*args, **dargs):

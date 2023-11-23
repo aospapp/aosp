@@ -17,10 +17,28 @@
 #ifndef LIBGAV1_SRC_DSP_CDEF_H_
 #define LIBGAV1_SRC_DSP_CDEF_H_
 
+// Pull in LIBGAV1_DspXXX defines representing the implementation status
+// of each function. The resulting value of each can be used by each module to
+// determine whether an implementation is needed at compile time.
+// IWYU pragma: begin_exports
+
+// ARM:
+#include "src/dsp/arm/cdef_neon.h"
+
+// x86:
+// Note includes should be sorted in logical order avx2/avx/sse4, etc.
+// The order of includes is important as each tests for a superior version
+// before setting the base.
+// clang-format off
+#include "src/dsp/x86/cdef_avx2.h"
+#include "src/dsp/x86/cdef_sse4.h"
+// clang-format on
+// IWYU pragma: end_exports
+
 namespace libgav1 {
 namespace dsp {
 
-// Initializes Dsp::cdef_direction and cdef::filter. This function is not
+// Initializes Dsp::cdef_direction and Dsp::cdef_filters. This function is not
 // thread-safe.
 void CdefInit_C();
 

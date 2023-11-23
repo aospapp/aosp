@@ -29,11 +29,12 @@ import android.telephony.mbms.DownloadRequest;
 import android.telephony.mbms.FileServiceInfo;
 import android.telephony.mbms.MbmsErrors;
 
+import org.junit.Test;
+
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.junit.Test;
 
 public class MbmsDownloadSessionTest extends MbmsDownloadTestBase {
 
@@ -87,6 +88,15 @@ public class MbmsDownloadSessionTest extends MbmsDownloadTestBase {
         // Make sure that the middleware got the call to close
         List<Bundle> closeCalls = getMiddlewareCalls(CtsDownloadService.METHOD_CLOSE);
         assertEquals(1, closeCalls.size());
+    }
+
+    @Test
+    public void testAddServiceAnnouncementFile() throws Exception {
+        byte[] sampleAnnouncementFile = "<xml></xml>".getBytes();
+        mDownloadSession.addServiceAnnouncement(sampleAnnouncementFile);
+        List<Bundle> addServiceAnnouncementCalls =
+                getMiddlewareCalls(CtsDownloadService.METHOD_ADD_SERVICE_ANNOUNCEMENT);
+        assertEquals(1, addServiceAnnouncementCalls.size());
     }
 
     @Test
@@ -232,5 +242,21 @@ public class MbmsDownloadSessionTest extends MbmsDownloadTestBase {
         mDownloadSession.requestUpdateFileServices(Collections.emptyList());
         assertEquals(MbmsErrors.GeneralErrors.ERROR_MIDDLEWARE_TEMPORARILY_UNAVAILABLE,
                 mCallback.waitOnError().arg1);
+    }
+
+    @Test
+    public void testMaxServiceAnnouncementSize() throws Exception {
+        byte[] sampleAnnouncementFile =
+                new byte[MbmsDownloadSession.getMaximumServiceAnnouncementSize() + 1];
+        Arrays.fill(sampleAnnouncementFile, (byte) 0b10101010);
+        try {
+            mDownloadSession.addServiceAnnouncement(sampleAnnouncementFile);
+            fail("Expected IllegalArgumentException due to size constraints");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+        List<Bundle> addServiceAnnouncementCalls =
+                getMiddlewareCalls(CtsDownloadService.METHOD_ADD_SERVICE_ANNOUNCEMENT);
+        assertEquals(0, addServiceAnnouncementCalls.size());
     }
 }

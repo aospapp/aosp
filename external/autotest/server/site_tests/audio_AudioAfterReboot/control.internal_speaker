@@ -15,7 +15,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:chameleon_audio_unstable"
+ATTRIBUTES = "suite:audio_essential"
 DEPENDENCIES = 'audio_box'
 JOB_RETRIES = 2
 

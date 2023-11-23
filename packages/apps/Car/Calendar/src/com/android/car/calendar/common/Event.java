@@ -20,6 +20,9 @@ import com.android.car.calendar.common.Dialer.NumberAndAccess;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
+
+import javax.annotation.Nullable;
 
 /**
  * An immutable value representing a calendar event. Should contain only details that are relevant
@@ -34,9 +37,7 @@ public final class Event {
         NONE,
     }
 
-    /**
-     * The details required for display of the calendar indicator.
-     */
+    /** The details required for display of the calendar indicator. */
     public static class CalendarDetails {
         private final String mName;
         private final int mColor;
@@ -53,6 +54,19 @@ public final class Event {
         public String getName() {
             return mName;
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            CalendarDetails that = (CalendarDetails) o;
+            return mColor == that.mColor && mName.equals(that.mName);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(mName, mColor);
+        }
     }
 
     private final boolean mAllDay;
@@ -62,8 +76,8 @@ public final class Event {
     private final Instant mDayEndInstant;
     private final String mTitle;
     private final Status mStatus;
-    private final String mLocation;
-    private final NumberAndAccess mNumberAndAccess;
+    @Nullable private final String mLocation;
+    @Nullable private final NumberAndAccess mNumberAndAccess;
     private final CalendarDetails mCalendarDetails;
 
     Event(
@@ -74,8 +88,8 @@ public final class Event {
             Instant dayEndInstant,
             String title,
             Status status,
-            String location,
-            NumberAndAccess numberAndAccess,
+            @Nullable String location,
+            @Nullable NumberAndAccess numberAndAccess,
             CalendarDetails calendarDetails) {
         mAllDay = allDay;
         mStartInstant = startInstant;
@@ -109,6 +123,7 @@ public final class Event {
         return mTitle;
     }
 
+    @Nullable
     public NumberAndAccess getNumberAndAccess() {
         return mNumberAndAccess;
     }
@@ -117,6 +132,7 @@ public final class Event {
         return mCalendarDetails;
     }
 
+    @Nullable
     public String getLocation() {
         return mLocation;
     }
@@ -131,5 +147,37 @@ public final class Event {
 
     public Duration getDuration() {
         return Duration.between(getStartInstant(), getEndInstant());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Event event = (Event) o;
+        return mAllDay == event.mAllDay
+                && mStartInstant.equals(event.mStartInstant)
+                && mDayStartInstant.equals(event.mDayStartInstant)
+                && mEndInstant.equals(event.mEndInstant)
+                && mDayEndInstant.equals(event.mDayEndInstant)
+                && mTitle.equals(event.mTitle)
+                && mStatus == event.mStatus
+                && Objects.equals(mLocation, event.mLocation)
+                && Objects.equals(mNumberAndAccess, event.mNumberAndAccess)
+                && mCalendarDetails.equals(event.mCalendarDetails);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                mAllDay,
+                mStartInstant,
+                mDayStartInstant,
+                mEndInstant,
+                mDayEndInstant,
+                mTitle,
+                mStatus,
+                mLocation,
+                mNumberAndAccess,
+                mCalendarDetails);
     }
 }

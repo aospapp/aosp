@@ -22,8 +22,8 @@ import static android.net.dhcp.DhcpLease.inet4AddrToString;
 import static com.android.net.module.util.Inet4AddressUtils.inet4AddressToIntHTH;
 import static com.android.net.module.util.Inet4AddressUtils.intToInet4AddressHTH;
 import static com.android.net.module.util.Inet4AddressUtils.prefixLengthToV4NetmaskIntHTH;
-import static com.android.server.util.NetworkStackConstants.IPV4_ADDR_ANY;
-import static com.android.server.util.NetworkStackConstants.IPV4_ADDR_BITS;
+import static com.android.net.module.util.NetworkStackConstants.IPV4_ADDR_ANY;
+import static com.android.net.module.util.NetworkStackConstants.IPV4_ADDR_BITS;
 
 import static java.lang.Math.min;
 

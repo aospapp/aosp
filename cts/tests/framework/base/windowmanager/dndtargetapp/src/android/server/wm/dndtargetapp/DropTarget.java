@@ -25,9 +25,12 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.server.wm.TestLogClient;
+import android.view.ContentInfo;
 import android.view.DragAndDropPermissions;
 import android.view.DragEvent;
+import android.view.OnReceiveContentListener;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 public class DropTarget extends Activity {
@@ -66,6 +69,12 @@ public class DropTarget extends Activity {
         setUpDropTarget("request_write", new OnDragUriWriteListener());
         setUpDropTarget("request_read_nested", new OnDragUriReadPrefixListener());
         setUpDropTarget("request_take_persistable", new OnDragUriTakePersistableListener());
+        setUpDropTarget("textview_on_receive_content_listener",
+                new UriReadOnReceiveContentListener());
+        setUpDropTarget("edittext_on_receive_content_listener",
+                new UriReadOnReceiveContentListener());
+        setUpDropTarget("linearlayout_on_receive_content_listener",
+                new UriReadOnReceiveContentListener());
     }
 
     private void setUpDropTarget(String mode, OnDragUriListener listener) {
@@ -75,6 +84,35 @@ public class DropTarget extends Activity {
         mTextView = (TextView)findViewById(R.id.drag_target);
         mTextView.setText(mode);
         mTextView.setOnDragListener(listener);
+    }
+
+    private void setUpDropTarget(String mode, OnReceiveContentListener listener) {
+        if (!mode.equals(getIntent().getStringExtra("mode"))) {
+            return;
+        }
+        TextView defaultDropTarget = findViewById(R.id.drag_target);
+        String typeOfViewToTest = mode.substring(0, mode.indexOf('_'));
+        View dropTarget;
+        switch (typeOfViewToTest) {
+            case "textview":
+                mTextView = defaultDropTarget;
+                dropTarget = mTextView;
+                break;
+            case "edittext":
+                defaultDropTarget.setVisibility(View.GONE);
+                mTextView = findViewById(R.id.editable_drag_target);
+                dropTarget = mTextView;
+                break;
+            case "linearlayout":
+                defaultDropTarget.setVisibility(View.GONE);
+                mTextView = findViewById(R.id.textview_in_drag_target);
+                dropTarget = findViewById(R.id.linearlayout_drag_target);
+                break;
+            default: throw new IllegalArgumentException("Invalid mode: " + mode);
+        }
+        mTextView.setText(mode);
+        dropTarget.setVisibility(View.VISIBLE);
+        dropTarget.setOnReceiveContentListener(new String[] {"text/*", "image/*"}, listener);
     }
 
     private String checkExtraValue(DragEvent event) {
@@ -304,6 +342,35 @@ public class DropTarget extends Activity {
             getContentResolver().releasePersistableUriPermission(
                     uri, View.DRAG_FLAG_GLOBAL_URI_READ);
             return RESULT_OK;
+        }
+    }
+
+    private class UriReadOnReceiveContentListener implements OnReceiveContentListener {
+        @Override
+        public ContentInfo onReceiveContent(View view, ContentInfo payload) {
+            String result;
+            try {
+                result = accessContent(payload.getClip().getItemAt(0).getUri());
+            } catch (SecurityException e) {
+                result = RESULT_EXCEPTION;
+                logResult(RESULT_KEY_DETAILS, e.getMessage());
+            }
+            logResult(RESULT_KEY_DROP_RESULT, result);
+            return null;
+        }
+
+        private String accessContent(Uri uri) {
+            try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+                if (cursor == null) {
+                    return "Null Cursor";
+                }
+                cursor.moveToPosition(0);
+                String value = cursor.getString(0);
+                if (!MAGIC_VALUE.equals(value)) {
+                    return "Wrong value: " + value;
+                }
+                return RESULT_OK;
+            }
         }
     }
 }

@@ -17,11 +17,9 @@
 package com.android.server.telecom.tests;
 
 import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.TestCase.assertNull;
-
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
 
 import android.app.UiModeManager;
 
@@ -32,7 +30,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mock;
 
 @RunWith(JUnit4.class)
 public class CarModeTrackerTest extends TelecomTestCase {
@@ -101,6 +98,17 @@ public class CarModeTrackerTest extends TelecomTestCase {
         assertEquals(1, mCarModeTracker.getCarModeApps().size());
         assertEquals(CAR_MODE_APP1_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
         assertEquals(CAR_MODE_APP1_PACKAGE_NAME, mCarModeTracker.getCarModeApps().get(0));
+    }
+
+    /**
+     * Ensure that we don't keep a package around after it's been removed from the device
+     */
+    @Test
+    public void testForceExitCarMode() {
+        testEnterCarModeBasic();
+        mCarModeTracker.forceRemove(CAR_MODE_APP1_PACKAGE_NAME);
+        assertFalse(mCarModeTracker.isInCarMode());
+        assertNull(mCarModeTracker.getCurrentCarModePackage());
     }
 
     /**
@@ -213,5 +221,110 @@ public class CarModeTrackerTest extends TelecomTestCase {
         mCarModeTracker.handleExitCarMode(UiModeManager.DEFAULT_PRIORITY,
                 CAR_MODE_APP3_PACKAGE_NAME);
         assertNull(mCarModeTracker.getCurrentCarModePackage());
+    }
+
+    /**
+     * Verifies that setting automotive projection by itself works.
+     */
+    @Test
+    public void testSetAutomotiveProjectionBasic() {
+        mCarModeTracker.handleSetAutomotiveProjection(CAR_MODE_APP1_PACKAGE_NAME);
+        assertEquals(CAR_MODE_APP1_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
+        // We should be tracking our car mode app.
+        assertEquals(1, mCarModeTracker.getCarModeApps().size());
+        assertTrue(mCarModeTracker.isInCarMode());
+    }
+
+    /**
+     * Verifies that if we set automotive projection more than once with the same package, nothing
+     * changes.
+     */
+    @Test
+    public void testSetAutomotiveProjectionMultipleTimes() {
+        mCarModeTracker.handleSetAutomotiveProjection(CAR_MODE_APP1_PACKAGE_NAME);
+        mCarModeTracker.handleSetAutomotiveProjection(CAR_MODE_APP1_PACKAGE_NAME);
+        // Should still only have one app.
+        assertEquals(1, mCarModeTracker.getCarModeApps().size());
+        assertTrue(mCarModeTracker.isInCarMode());
+        // It should be the same one.
+        assertEquals(CAR_MODE_APP1_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
+    }
+
+    /**
+     * Verifies that if we set automotive projection more than once, the new package overrides.
+     */
+    @Test
+    public void testSetAutomotiveProjectionMultipleTimesDifferentPackages() {
+        mCarModeTracker.handleSetAutomotiveProjection(CAR_MODE_APP1_PACKAGE_NAME);
+        mCarModeTracker.handleSetAutomotiveProjection(CAR_MODE_APP2_PACKAGE_NAME);
+        // Should still only have one app.
+        assertEquals(1, mCarModeTracker.getCarModeApps().size());
+        assertTrue(mCarModeTracker.isInCarMode());
+        // It should be the newer one.
+        assertEquals(CAR_MODE_APP2_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
+    }
+
+    /**
+     * Verifies that releasing automotive projection works as expected.
+     */
+    @Test
+    public void testReleaseAutomotiveProjectionBasic() {
+        // Releasing before something's set shouldn't break anything.
+        mCarModeTracker.handleReleaseAutomotiveProjection();
+        assertEquals(0, mCarModeTracker.getCarModeApps().size());
+        assertFalse(mCarModeTracker.isInCarMode());
+
+        mCarModeTracker.handleSetAutomotiveProjection(CAR_MODE_APP1_PACKAGE_NAME);
+        mCarModeTracker.handleReleaseAutomotiveProjection();
+        // Should be gone now.
+        assertEquals(0, mCarModeTracker.getCarModeApps().size());
+        assertFalse(mCarModeTracker.isInCarMode());
+    }
+
+    /**
+     * Verifies that setting automotive projection overrides but doesn't overwrite car mode apps.
+     */
+    @Test
+    public void testAutomotiveProjectionOverridesCarMode() {
+        mCarModeTracker.handleEnterCarMode(50, CAR_MODE_APP1_PACKAGE_NAME);
+        mCarModeTracker.handleSetAutomotiveProjection(CAR_MODE_APP4_PACKAGE_NAME);
+
+        // Should have two apps now, the car mode and the automotive projection one.
+        assertEquals(2, mCarModeTracker.getCarModeApps().size());
+        assertTrue(mCarModeTracker.isInCarMode());
+
+        // Automotive projection takes priority.
+        assertEquals(CAR_MODE_APP4_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
+
+        // If we add another car mode app, automotive projection still has priority.
+        mCarModeTracker.handleEnterCarMode(Integer.MAX_VALUE, CAR_MODE_APP2_PACKAGE_NAME);
+        assertEquals(3, mCarModeTracker.getCarModeApps().size());
+        assertTrue(mCarModeTracker.isInCarMode());
+        assertEquals(CAR_MODE_APP4_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
+
+        // If we release automotive projection, we go back to the prioritized list of plain car
+        // mode apps.
+        mCarModeTracker.handleReleaseAutomotiveProjection();
+        assertEquals(2, mCarModeTracker.getCarModeApps().size());
+        assertTrue(mCarModeTracker.isInCarMode());
+        assertEquals(CAR_MODE_APP2_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
+
+        // Make sure we didn't mess with the first app that was added.
+        mCarModeTracker.handleExitCarMode(Integer.MAX_VALUE, CAR_MODE_APP2_PACKAGE_NAME);
+        assertEquals(1, mCarModeTracker.getCarModeApps().size());
+        assertTrue(mCarModeTracker.isInCarMode());
+        assertEquals(CAR_MODE_APP1_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
+    }
+
+    /**
+     * Verifies that releasing automotive projection doesn't interfere with plain car mode apps.
+     */
+    @Test
+    public void testReleaseAutomotiveProjectionNoopForCarModeApps() {
+        mCarModeTracker.handleEnterCarMode(50, CAR_MODE_APP1_PACKAGE_NAME);
+        mCarModeTracker.handleReleaseAutomotiveProjection();
+        assertEquals(1, mCarModeTracker.getCarModeApps().size());
+        assertTrue(mCarModeTracker.isInCarMode());
+        assertEquals(CAR_MODE_APP1_PACKAGE_NAME, mCarModeTracker.getCurrentCarModePackage());
     }
 }

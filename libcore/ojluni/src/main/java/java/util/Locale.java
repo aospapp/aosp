@@ -2750,24 +2750,6 @@ public final class Locale implements Cloneable, Serializable {
     }
     */
 
-    // BEGIN Android-added: adjustLanguageCode(), for internal use only.
-    /** @hide for internal use only. */
-    public static String adjustLanguageCode(String languageCode) {
-        String adjusted = languageCode.toLowerCase(Locale.US);
-        // Map new language codes to the obsolete language
-        // codes so the correct resource bundles will be used.
-        if (languageCode.equals("he")) {
-            adjusted = "iw";
-        } else if (languageCode.equals("id")) {
-            adjusted = "in";
-        } else if (languageCode.equals("yi")) {
-            adjusted = "ji";
-        }
-
-        return adjusted;
-    }
-    // END Android-added: adjustLanguageCode(), for internal use only.
-
     /**
      * Enum for locale categories.  These locale categories are used to get/set
      * the default locale for the specific functionality represented by the

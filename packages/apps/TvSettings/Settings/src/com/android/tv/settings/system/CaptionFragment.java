@@ -32,7 +32,6 @@ import androidx.preference.PreferenceGroup;
 import androidx.preference.TwoStatePreference;
 
 import com.android.internal.app.LocalePicker;
-import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
 import com.android.tv.settings.SettingsPreferenceFragment;
@@ -267,11 +266,6 @@ public class CaptionFragment extends SettingsPreferenceFragment implements
     private void setCaptionsTextSize(String textSize) {
         Settings.Secure.putFloat(getContext().getContentResolver(),
                 Settings.Secure.ACCESSIBILITY_CAPTIONING_FONT_SCALE, Float.parseFloat(textSize));
-    }
-
-    @Override
-    public int getMetricsCategory() {
-        return MetricsProto.MetricsEvent.ACCESSIBILITY_CAPTION_PROPERTIES;
     }
 
     @Override

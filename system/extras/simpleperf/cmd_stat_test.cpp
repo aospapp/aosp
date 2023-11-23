@@ -35,7 +35,9 @@ static std::unique_ptr<Command> StatCmd() {
   return CreateCommandInstance("stat");
 }
 
-TEST(stat_cmd, no_options) { ASSERT_TRUE(StatCmd()->Run({"sleep", "1"})); }
+TEST(stat_cmd, no_options) {
+  ASSERT_TRUE(StatCmd()->Run({"sleep", "1"}));
+}
 
 TEST(stat_cmd, event_option) {
   ASSERT_TRUE(StatCmd()->Run({"-e", "cpu-clock,task-clock", "sleep", "1"}));
@@ -50,8 +52,7 @@ TEST(stat_cmd, verbose_option) {
 }
 
 TEST(stat_cmd, tracepoint_event) {
-  TEST_IN_ROOT(ASSERT_TRUE(
-      StatCmd()->Run({"-a", "-e", "sched:sched_switch", "sleep", "1"})));
+  TEST_IN_ROOT(ASSERT_TRUE(StatCmd()->Run({"-a", "-e", "sched:sched_switch", "sleep", "1"})));
 }
 
 TEST(stat_cmd, rN_event) {
@@ -86,25 +87,23 @@ TEST(stat_cmd, pmu_event) {
     GTEST_LOG_(INFO) << "Omit arch " << GetBuildArch();
     return;
   }
-  TEST_IN_ROOT(ASSERT_TRUE(
-      StatCmd()->Run({"-a", "-e", event_string, "sleep", "1"})));
+  TEST_IN_ROOT(ASSERT_TRUE(StatCmd()->Run({"-a", "-e", event_string, "sleep", "1"})));
 }
 
 TEST(stat_cmd, event_modifier) {
   TEST_REQUIRE_HW_COUNTER();
-  ASSERT_TRUE(
-      StatCmd()->Run({"-e", "cpu-cycles:u,cpu-cycles:k", "sleep", "1"}));
+  ASSERT_TRUE(StatCmd()->Run({"-e", "cpu-cycles:u,cpu-cycles:k", "sleep", "1"}));
 }
 
 void RunWorkloadFunction() {
   while (true) {
-    for (volatile int i = 0; i < 10000; ++i);
+    for (volatile int i = 0; i < 10000; ++i)
+      ;
     usleep(1);
   }
 }
 
-void CreateProcesses(size_t count,
-                     std::vector<std::unique_ptr<Workload>>* workloads) {
+void CreateProcesses(size_t count, std::vector<std::unique_ptr<Workload>>* workloads) {
   workloads->clear();
   // Create workloads run longer than profiling time.
   for (size_t i = 0; i < count; ++i) {
@@ -119,8 +118,8 @@ void CreateProcesses(size_t count,
 TEST(stat_cmd, existing_processes) {
   std::vector<std::unique_ptr<Workload>> workloads;
   CreateProcesses(2, &workloads);
-  std::string pid_list = android::base::StringPrintf(
-      "%d,%d", workloads[0]->GetPid(), workloads[1]->GetPid());
+  std::string pid_list =
+      android::base::StringPrintf("%d,%d", workloads[0]->GetPid(), workloads[1]->GetPid());
   ASSERT_TRUE(StatCmd()->Run({"-p", pid_list, "sleep", "1"}));
 }
 
@@ -128,8 +127,8 @@ TEST(stat_cmd, existing_threads) {
   std::vector<std::unique_ptr<Workload>> workloads;
   CreateProcesses(2, &workloads);
   // Process id can be used as thread id in linux.
-  std::string tid_list = android::base::StringPrintf(
-      "%d,%d", workloads[0]->GetPid(), workloads[1]->GetPid());
+  std::string tid_list =
+      android::base::StringPrintf("%d,%d", workloads[0]->GetPid(), workloads[1]->GetPid());
   ASSERT_TRUE(StatCmd()->Run({"-t", tid_list, "sleep", "1"}));
 }
 
@@ -140,8 +139,7 @@ TEST(stat_cmd, no_monitored_threads) {
 
 TEST(stat_cmd, group_option) {
   TEST_REQUIRE_HW_COUNTER();
-  ASSERT_TRUE(
-      StatCmd()->Run({"--group", "cpu-clock,page-faults", "sleep", "1"}));
+  ASSERT_TRUE(StatCmd()->Run({"--group", "cpu-clock,page-faults", "sleep", "1"}));
   ASSERT_TRUE(StatCmd()->Run({"--group", "cpu-cycles,instructions", "--group",
                               "cpu-cycles:u,instructions:u", "--group",
                               "cpu-cycles:k,instructions:k", "sleep", "1"}));
@@ -150,8 +148,8 @@ TEST(stat_cmd, group_option) {
 TEST(stat_cmd, auto_generated_summary) {
   TEST_REQUIRE_HW_COUNTER();
   TemporaryFile tmp_file;
-  ASSERT_TRUE(StatCmd()->Run({"--group", "instructions:u,instructions:k", "-o",
-                              tmp_file.path, "sleep", "1"}));
+  ASSERT_TRUE(StatCmd()->Run(
+      {"--group", "instructions:u,instructions:k", "-o", tmp_file.path, "sleep", "1"}));
   std::string s;
   ASSERT_TRUE(android::base::ReadFileToString(tmp_file.path, &s));
   size_t pos = s.find("instructions:u");
@@ -164,24 +162,22 @@ TEST(stat_cmd, auto_generated_summary) {
 }
 
 TEST(stat_cmd, duration_option) {
-  ASSERT_TRUE(
-      StatCmd()->Run({"--duration", "1.2", "-p", std::to_string(getpid()), "--in-app"}));
+  ASSERT_TRUE(StatCmd()->Run({"--duration", "1.2", "-p", std::to_string(getpid()), "--in-app"}));
   ASSERT_TRUE(StatCmd()->Run({"--duration", "1", "sleep", "2"}));
 }
 
 TEST(stat_cmd, interval_option) {
   TemporaryFile tmp_file;
-  ASSERT_TRUE(
-    StatCmd()->Run({"--interval", "500.0", "--duration", "1.2", "-o",
-          tmp_file.path, "sleep", "2"}));
+  ASSERT_TRUE(StatCmd()->Run(
+      {"--interval", "500.0", "--duration", "1.2", "-o", tmp_file.path, "sleep", "2"}));
   std::string s;
   ASSERT_TRUE(android::base::ReadFileToString(tmp_file.path, &s));
   size_t count = 0;
   size_t pos = 0;
   std::string subs = "statistics:";
-  while((pos = s.find(subs, pos)) != s.npos) {
+  while ((pos = s.find(subs, pos)) != s.npos) {
     pos += subs.size();
-    ++count ;
+    ++count;
   }
   ASSERT_EQ(count, 2UL);
 }
@@ -192,8 +188,8 @@ TEST(stat_cmd, interval_option_in_system_wide) {
 
 TEST(stat_cmd, interval_only_values_option) {
   ASSERT_TRUE(StatCmd()->Run({"--interval", "500", "--interval-only-values", "sleep", "2"}));
-  TEST_IN_ROOT(ASSERT_TRUE(StatCmd()->Run({"-a", "--interval", "100", "--interval-only-values",
-                                           "--duration", "0.3"})));
+  TEST_IN_ROOT(ASSERT_TRUE(
+      StatCmd()->Run({"-a", "--interval", "100", "--interval-only-values", "--duration", "0.3"})));
 }
 
 TEST(stat_cmd, no_modifier_for_clock_events) {
@@ -221,7 +217,8 @@ TEST(stat_cmd, stop_when_no_more_targets) {
     sleep(1);
   });
   thread.detach();
-  while (tid == 0);
+  while (tid == 0)
+    ;
   ASSERT_TRUE(StatCmd()->Run({"-t", std::to_string(tid), "--in-app"}));
 }
 
@@ -253,8 +250,8 @@ TEST(stat_cmd, calculating_cpu_frequency) {
     if (line.find("task-clock") != std::string::npos) {
       ASSERT_EQ(sscanf(line.c_str(), "%lf(ms)", &task_clock_in_ms), 1);
     } else if (line.find("cpu-cycles") != std::string::npos) {
-      ASSERT_EQ(sscanf(line.c_str(), "%" SCNu64 ",cpu-cycles,%lf", &cpu_cycle_count,
-                       &cpu_frequency), 2);
+      ASSERT_EQ(
+          sscanf(line.c_str(), "%" SCNu64 ",cpu-cycles,%lf", &cpu_cycle_count, &cpu_frequency), 2);
     }
   }
   ASSERT_NE(task_clock_in_ms, 0.0f);
@@ -276,10 +273,12 @@ TEST(stat_cmd, set_comm_in_another_thread) {
     std::thread child([&]() {
       child_tid = gettid();
       // stay on a cpu to make the monitored events of the child thread on that cpu.
-      while (!stop_child) {}
+      while (!stop_child) {
+      }
     });
 
-    while (child_tid == 0) {}
+    while (child_tid == 0) {
+    }
 
     {
       EventSelectionSet set(true);
@@ -345,6 +344,11 @@ TEST(stat_cmd, per_core_option) {
   TEST_IN_ROOT(StatCmd()->Run({"--per-core", "-a", "--duration", "0.1"}));
 }
 
+TEST(stat_cmd, sort_option) {
+  ASSERT_TRUE(
+      StatCmd()->Run({"--per-thread", "--per-core", "--sort", "cpu,count", "sleep", "0.1"}));
+}
+
 TEST(stat_cmd, counter_sum) {
   PerfCounter counter;
   counter.value = 1;
@@ -371,30 +375,44 @@ TEST(stat_cmd, counter_sum) {
 
 class StatCmdSummaryBuilderTest : public ::testing::Test {
  protected:
-  void AddCounter(int event_id, pid_t tid, int cpu, int value, int time_enabled, int time_running) {
-    if (thread_map_.count(tid) == 0) {
-      ThreadInfo& thread = thread_map_[tid];
-      thread.pid = thread.tid = tid;
-      thread.name = "thread" + std::to_string(tid);
+  struct CounterArg {
+    int event_id = 0;
+    int tid = 0;
+    int cpu = 0;
+    int value = 1;
+    int time_enabled = 1;
+    int time_running = 1;
+  };
+
+  void SetUp() override { sort_keys_ = {"count_per_thread", "tid", "cpu", "count"}; }
+
+  void AddCounter(const CounterArg& arg) {
+    if (thread_map_.count(arg.tid) == 0) {
+      ThreadInfo& thread = thread_map_[arg.tid];
+      thread.pid = thread.tid = arg.tid;
+      thread.name = "thread" + std::to_string(arg.tid);
     }
-    if (event_id >= counters_.size()) {
-      counters_.resize(event_id + 1);
-      counters_[event_id].group_id = 0;
-      counters_[event_id].event_name = "event" + std::to_string(event_id);
+    if (arg.event_id >= counters_.size()) {
+      counters_.resize(arg.event_id + 1);
+      counters_[arg.event_id].group_id = 0;
+      counters_[arg.event_id].event_name = "event" + std::to_string(arg.event_id);
     }
-    CountersInfo& info = counters_[event_id];
+    CountersInfo& info = counters_[arg.event_id];
     info.counters.resize(info.counters.size() + 1);
     CounterInfo& counter = info.counters.back();
-    counter.tid = tid;
-    counter.cpu = cpu;
+    counter.tid = arg.tid;
+    counter.cpu = arg.cpu;
     counter.counter.id = 0;
-    counter.counter.value = value;
-    counter.counter.time_enabled = time_enabled;
-    counter.counter.time_running = time_running;
+    counter.counter.value = arg.value;
+    counter.counter.time_enabled = arg.time_enabled;
+    counter.counter.time_running = arg.time_running;
   }
 
   std::vector<CounterSummary> BuildSummary(bool report_per_thread, bool report_per_core) {
-    CounterSummaryBuilder builder(report_per_thread, report_per_core, false, thread_map_);
+    std::optional<SummaryComparator> comparator =
+        BuildSummaryComparator(sort_keys_, report_per_thread, report_per_core);
+    CounterSummaryBuilder builder(report_per_thread, report_per_core, false, thread_map_,
+                                  comparator);
     for (auto& info : counters_) {
       builder.AddCountersForOneEventType(info);
     }
@@ -403,11 +421,12 @@ class StatCmdSummaryBuilderTest : public ::testing::Test {
 
   std::unordered_map<pid_t, ThreadInfo> thread_map_;
   std::vector<CountersInfo> counters_;
+  std::vector<std::string> sort_keys_;
 };
 
 TEST_F(StatCmdSummaryBuilderTest, multiple_events) {
-  AddCounter(0, 0, 0, 1, 1, 1);
-  AddCounter(1, 0, 0, 2, 2, 2);
+  AddCounter({.event_id = 0, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.event_id = 1, .value = 2, .time_enabled = 2, .time_running = 2});
   std::vector<CounterSummary> summaries = BuildSummary(false, false);
   ASSERT_EQ(summaries.size(), 2);
   ASSERT_EQ(summaries[0].type_name, "event0");
@@ -419,10 +438,10 @@ TEST_F(StatCmdSummaryBuilderTest, multiple_events) {
 }
 
 TEST_F(StatCmdSummaryBuilderTest, default_aggregate) {
-  AddCounter(0, 0, 0, 1, 1, 1);
-  AddCounter(0, 0, 1, 1, 1, 1);
-  AddCounter(0, 1, 0, 1, 1, 1);
-  AddCounter(0, 1, 1, 2, 2, 1);
+  AddCounter({.tid = 0, .cpu = 0, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 0, .cpu = 1, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 1, .cpu = 0, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 1, .cpu = 1, .value = 2, .time_enabled = 2, .time_running = 1});
   std::vector<CounterSummary> summaries = BuildSummary(false, false);
   ASSERT_EQ(summaries.size(), 1);
   ASSERT_EQ(summaries[0].count, 5);
@@ -430,10 +449,10 @@ TEST_F(StatCmdSummaryBuilderTest, default_aggregate) {
 }
 
 TEST_F(StatCmdSummaryBuilderTest, per_thread_aggregate) {
-  AddCounter(0, 0, 0, 1, 1, 1);
-  AddCounter(0, 0, 1, 1, 1, 1);
-  AddCounter(0, 1, 0, 1, 1, 1);
-  AddCounter(0, 1, 1, 2, 2, 1);
+  AddCounter({.tid = 0, .cpu = 0, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 0, .cpu = 1, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 1, .cpu = 0, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 1, .cpu = 1, .value = 2, .time_enabled = 2, .time_running = 1});
   std::vector<CounterSummary> summaries = BuildSummary(true, false);
   ASSERT_EQ(summaries.size(), 2);
   ASSERT_EQ(summaries[0].thread->tid, 1);
@@ -447,45 +466,86 @@ TEST_F(StatCmdSummaryBuilderTest, per_thread_aggregate) {
 }
 
 TEST_F(StatCmdSummaryBuilderTest, per_core_aggregate) {
-  AddCounter(0, 0, 0, 1, 1, 1);
-  AddCounter(0, 0, 1, 1, 1, 1);
-  AddCounter(0, 1, 0, 1, 1, 1);
-  AddCounter(0, 1, 1, 2, 2, 1);
+  AddCounter({.tid = 0, .cpu = 0, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 0, .cpu = 1, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 1, .cpu = 0, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 1, .cpu = 1, .value = 2, .time_enabled = 2, .time_running = 1});
   std::vector<CounterSummary> summaries = BuildSummary(false, true);
-  ASSERT_EQ(summaries.size(), 2);
   ASSERT_TRUE(summaries[0].thread == nullptr);
-  ASSERT_EQ(summaries[0].cpu, 1);
-  ASSERT_EQ(summaries[0].count, 3);
-  ASSERT_NEAR(summaries[0].scale, 1.5, 1e-5);
+  ASSERT_EQ(summaries[0].cpu, 0);
+  ASSERT_EQ(summaries[0].count, 2);
+  ASSERT_NEAR(summaries[0].scale, 1.0, 1e-5);
+  ASSERT_EQ(summaries.size(), 2);
   ASSERT_TRUE(summaries[1].thread == nullptr);
-  ASSERT_EQ(summaries[1].cpu, 0);
-  ASSERT_EQ(summaries[1].count, 2);
-  ASSERT_NEAR(summaries[1].scale, 1.0, 1e-5);
+  ASSERT_EQ(summaries[1].cpu, 1);
+  ASSERT_EQ(summaries[1].count, 3);
+  ASSERT_NEAR(summaries[1].scale, 1.5, 1e-5);
 }
 
 TEST_F(StatCmdSummaryBuilderTest, per_thread_core_aggregate) {
-  AddCounter(0, 0, 0, 1, 1, 1);
-  AddCounter(0, 0, 1, 2, 1, 1);
-  AddCounter(0, 1, 0, 3, 1, 1);
-  AddCounter(0, 1, 1, 4, 2, 1);
+  AddCounter({.tid = 0, .cpu = 0, .value = 1, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 0, .cpu = 1, .value = 2, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 1, .cpu = 0, .value = 3, .time_enabled = 1, .time_running = 1});
+  AddCounter({.tid = 1, .cpu = 1, .value = 4, .time_enabled = 2, .time_running = 1});
   std::vector<CounterSummary> summaries = BuildSummary(true, true);
   ASSERT_EQ(summaries.size(), 4);
   ASSERT_EQ(summaries[0].thread->tid, 1);
-  ASSERT_EQ(summaries[0].cpu, 1);
-  ASSERT_EQ(summaries[0].count, 4);
-  ASSERT_NEAR(summaries[0].scale, 2.0, 1e-5);
+  ASSERT_EQ(summaries[0].cpu, 0);
+  ASSERT_EQ(summaries[0].count, 3);
+  ASSERT_NEAR(summaries[0].scale, 1.0, 1e-5);
   ASSERT_EQ(summaries[1].thread->tid, 1);
-  ASSERT_EQ(summaries[1].cpu, 0);
-  ASSERT_EQ(summaries[1].count, 3);
-  ASSERT_NEAR(summaries[1].scale, 1.0, 1e-5);
+  ASSERT_EQ(summaries[1].cpu, 1);
+  ASSERT_EQ(summaries[1].count, 4);
+  ASSERT_NEAR(summaries[1].scale, 2.0, 1e-5);
   ASSERT_EQ(summaries[2].thread->tid, 0);
-  ASSERT_EQ(summaries[2].cpu, 1);
-  ASSERT_EQ(summaries[2].count, 2);
+  ASSERT_EQ(summaries[2].cpu, 0);
+  ASSERT_EQ(summaries[2].count, 1);
   ASSERT_NEAR(summaries[2].scale, 1.0, 1e-5);
   ASSERT_EQ(summaries[3].thread->tid, 0);
-  ASSERT_EQ(summaries[3].cpu, 0);
-  ASSERT_EQ(summaries[3].count, 1);
+  ASSERT_EQ(summaries[3].cpu, 1);
+  ASSERT_EQ(summaries[3].count, 2);
   ASSERT_NEAR(summaries[3].scale, 1.0, 1e-5);
+}
+
+TEST_F(StatCmdSummaryBuilderTest, sort_key_count) {
+  sort_keys_ = {"count"};
+  AddCounter({.tid = 0, .cpu = 0, .value = 1});
+  AddCounter({.tid = 1, .cpu = 1, .value = 2});
+  std::vector<CounterSummary> summaries = BuildSummary(true, true);
+  ASSERT_EQ(summaries[0].count, 2);
+  ASSERT_EQ(summaries[1].count, 1);
+}
+
+TEST_F(StatCmdSummaryBuilderTest, sort_key_count_per_thread) {
+  sort_keys_ = {"count_per_thread", "count"};
+  AddCounter({.tid = 0, .cpu = 0, .value = 1});
+  AddCounter({.tid = 0, .cpu = 1, .value = 5});
+  AddCounter({.tid = 1, .cpu = 0, .value = 3});
+  std::vector<CounterSummary> summaries = BuildSummary(true, true);
+  ASSERT_EQ(summaries[0].count, 5);
+  ASSERT_EQ(summaries[1].count, 1);
+  ASSERT_EQ(summaries[2].count, 3);
+}
+
+TEST_F(StatCmdSummaryBuilderTest, sort_key_cpu) {
+  sort_keys_ = {"cpu"};
+  AddCounter({.tid = 0, .cpu = 1, .value = 2});
+  AddCounter({.tid = 1, .cpu = 0, .value = 1});
+  std::vector<CounterSummary> summaries = BuildSummary(false, true);
+  ASSERT_EQ(summaries[0].cpu, 0);
+  ASSERT_EQ(summaries[1].cpu, 1);
+}
+
+TEST_F(StatCmdSummaryBuilderTest, sort_key_pid_tid_name) {
+  AddCounter({.tid = 0, .cpu = 0, .value = 1});
+  AddCounter({.tid = 1, .cpu = 0, .value = 2});
+
+  for (auto& key : std::vector<std::string>({"tid", "pid", "comm"})) {
+    sort_keys_ = {key};
+    std::vector<CounterSummary> summaries = BuildSummary(true, false);
+    ASSERT_EQ(summaries[0].count, 1) << "key = " << key;
+    ASSERT_EQ(summaries[1].count, 2) << "key = " << key;
+  }
 }
 
 class StatCmdSummariesTest : public ::testing::Test {

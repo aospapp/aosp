@@ -18,10 +18,11 @@
                   xmlns:settings="http://schemas.android.com/apk/res-auto"
                   android:title="@string/account_sync_title"
                   android:key="@string/psk_account_sync_details">
-    <Preference
+    <com.android.car.ui.preference.CarUiTwoActionIconPreference
         android:key="@string/pk_account_details_with_sync"
         android:selectable="false"
-        settings:controller="com.android.car.settings.accounts.AccountDetailsWithSyncStatusPreferenceController"/>
+        settings:controller="com.android.car.settings.accounts.AccountDetailsWithSyncStatusPreferenceController"
+        settings:showChevron="false"/>
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_account_sync_details"
         settings:controller="com.android.car.settings.accounts.AccountSyncDetailsPreferenceController"/>

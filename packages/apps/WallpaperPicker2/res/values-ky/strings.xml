@@ -32,10 +32,10 @@
     <string name="home_screen_message" msgid="106444102822522813">"Башкы экран"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"Кулпуланган экран"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"Башкы жана кулпуланган экран"</string>
-    <string name="set_wallpaper_dialog_message" msgid="6114951028768599417">"Тушкагаз орнотуу"</string>
+    <string name="set_wallpaper_dialog_message" msgid="2110475703996853076">"Тушкагазды төмөнкүгө коюу:"</string>
     <string name="set_wallpaper_home_screen_destination" msgid="7315594722013109354">"Башкы экран"</string>
     <string name="set_wallpaper_lock_screen_destination" msgid="6224685559375417945">"Кулпуланган экран"</string>
-    <string name="set_wallpaper_both_destination" msgid="6967226064958263939">"Башкы экран жана кулпуланган экран"</string>
+    <string name="set_wallpaper_both_destination" msgid="233216830256235288">"Башкы экран жана кулпуланган экран"</string>
     <string name="no_backup_image_wallpaper_label" msgid="6316627676107284851">"Алмаштырма тушкагаз сүрөтү"</string>
     <string name="permission_needed_explanation" msgid="139166837541426823">"Учурдагы тушкагазды бул жерден көрсөтүү үчүн <xliff:g id="APP_NAME">%1$s</xliff:g> колдонмосуна түзмөгүңүздүн сактагычын колдонуу мүмкүнчүлүгү керек."</string>
     <string name="permission_needed_explanation_go_to_settings" msgid="3923551582092599609">"Учурдагы тушкагазды бул жерден көрсөтүү үчүн Тушкагаздар колдонмосу түзмөгүңүздүн сактагычын колдонуу мүмкүнчүлүгүн алышы керек.\n\nБул жөндөөнү өзгөртүү үчүн Тушкагаздар колдонмосу жөнүндө маалыматтын \"Уруксаттар\" бөлүмүнө өтүңүз."</string>
@@ -47,7 +47,7 @@
     <string name="start_rotation_dialog_wifi_only_option_message" msgid="3126269859713666225">"Келечекте тушкагаздар Wi-Fi аркылуу гана жүктөлүп алынсын"</string>
     <string name="start_rotation_dialog_continue" msgid="276678987852274872">"Улантуу"</string>
     <string name="start_rotation_progress_message" msgid="7872623873682262083">"Биринчи тушкагаз жүктөлүп алынууда…"</string>
-    <string name="start_rotation_error_message" msgid="3053799836719618972">"Биринчи тушкагаз жүктөлүп алынбай жатат. Тармак жөндөөлөрүңүздү текшерип, кайра аракет кылыңыз."</string>
+    <string name="start_rotation_error_message" msgid="3053799836719618972">"Биринчи тушкагаз жүктөлүп алынбай жатат. Тармак жөндөөлөрүңүздү текшерип, кайталап көрүңүз."</string>
     <string name="start_rotation_dialog_body" msgid="7903554799046364916">"Тушкагаз күн сайын автоматтык түрдө алмашып турат"</string>
     <string name="settings_button_label" msgid="8724734130079207955">"Жөндөөлөр"</string>
     <string name="explore" msgid="7468719504199497281">"Изилдөө"</string>
@@ -55,7 +55,7 @@
     <string name="wallpaper_disabled_message" msgid="7309484130562148185">"Бул түзмөктө тушкагазды жөндөө өчүрүлгөн"</string>
     <string name="wallpaper_disabled_by_administrator_message" msgid="1551430406714747884">"Тушкагазды жөндөө администраторуңуз тарабынан өчүрүлгөн"</string>
     <string name="wallpaper_set_successfully_message" msgid="2958998799111688578">"Тушкагаз ийгиликтүү орнотулду"</string>
-    <string name="wallpapers_unavailable_offline_message" msgid="8136405438621689532">"Тушкагаздарды көрүү үчүн Интернетке туташуу керек. Интернетке туташып туруп, кайра аракет кылыңыз."</string>
+    <string name="wallpapers_unavailable_offline_message" msgid="8136405438621689532">"Тушкагаздарды көрүү үчүн Интернетке туташуу керек. Интернетке туташып туруп, кайталап көрүңүз."</string>
     <string name="currently_set_home_wallpaper_thumbnail" msgid="4022381436821898917">"Башкы экрандын учурда коюлган тушкагаз эскизи"</string>
     <string name="currently_set_lock_wallpaper_thumbnail" msgid="2094209303934569997">"Кулпуланган экрандын учурда коюлган тушкагаз эскизи"</string>
     <string name="currently_set_wallpaper_thumbnail" msgid="8651887838745545107">"Учурда коюлган тушкагаз эскизи"</string>
@@ -66,8 +66,6 @@
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"Күнүмдүк тушкагазды жаңыртуу"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"Күнүмдүк тушкагаз жаңыртылууда…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"Күнүмдүк тушкагаз жаңыртылбай калды. Интернетке туташууңузду текшерип, дагы бир жолу аракет кылыңыз."</string>
-    <string name="collapse_attribution_panel" msgid="4367971404848122275">"Тушкагаздын маалымат панелин жыйыштыруу"</string>
-    <string name="expand_attribution_panel" msgid="6975094181456095915">"Тушкагаздын маалымат панелин жайып көрсөтүү"</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"Түзмөктөгү тушкагаздар"</string>
     <string name="on_device_wallpapers_category_title_desktop" msgid="316919420410065369">"Түзмөктө"</string>
     <string name="on_device_wallpaper_title" msgid="5262564748034629524">"Android тушкагазы"</string>
@@ -80,4 +78,24 @@
     <string name="center_crop_wallpaper_position" msgid="1681980019815343348">"Ортосуна тууралап кесүү"</string>
     <string name="stretch_wallpaper_position" msgid="5002680983147456935">"Чоюу"</string>
     <string name="preview" msgid="1774602101743861071">"Алдын ала көрүү"</string>
+    <string name="tab_info" msgid="818614080690111416">"Маалымат"</string>
+    <string name="tab_customize" msgid="2533745409174959960">"Ыңгайлаштыруу"</string>
+    <string name="configure_wallpaper" msgid="849882179182976621">"Жөндөөлөр…"</string>
+    <string name="delete_live_wallpaper" msgid="589212696102662329">"Жок кылуу"</string>
+    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"Бул тушкагаз телефонуңуздан өчүрүлсүнбү?"</string>
+    <string name="bottom_action_bar_back" msgid="8237013112999946725">"Артка"</string>
+    <string name="bottom_action_bar_edit" msgid="1214742990893082138">"Түзөтүү"</string>
+    <string name="bottom_action_bar_download" msgid="3983122338076389421">"Жүктөп алуу"</string>
+    <string name="bottom_action_bar_slideshow_wallpaper" msgid="509770525179533154">"Тушкагазды слайдшоу катары көрсөтүү"</string>
+    <string name="bottom_action_bar_apply" msgid="2983308349819178932">"Колдонуу"</string>
+    <string name="accessibility_preview_pager" msgid="1839869637405028575">"<xliff:g id="ID_2">%2$d</xliff:g> ичинен <xliff:g id="ID_1">%1$d</xliff:g>-барак"</string>
+    <string name="next_page_content_description" msgid="6268461446679584152">"Кийинки"</string>
+    <string name="previous_page_content_description" msgid="1138597031571078429">"Мурунку"</string>
+    <string name="wallpaper_title" msgid="6754214682228331092">"Тушкагаз"</string>
+    <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"Тушкагазды алдын ала көрүү"</string>
+    <string name="collection_not_exist_msg" msgid="3504852962885064842">"Мындай жыйнак жок"</string>
+    <string name="hide_ui_preview_text" msgid="6766076482511252295">"Алдын ала көрүү экранын жашыруу"</string>
+    <string name="show_ui_preview_text" msgid="5993063062417070806">"Алдын ала көрүү экранын көрсөтүү"</string>
+    <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"Тушкагазды өзгөртүү"</string>
+    <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"Кулпуланган экрандын тушкагазын көрүү"</string>
 </resources>

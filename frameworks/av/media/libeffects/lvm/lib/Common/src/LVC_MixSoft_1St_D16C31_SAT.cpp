@@ -19,6 +19,7 @@
    INCLUDE FILES
 ***********************************************************************************/
 
+#include <string.h>
 #include "LVC_Mixer_Private.h"
 #include "VectorArithmetic.h"
 #include "ScalarArithmetic.h"
@@ -27,39 +28,35 @@
    DEFINITIONS
 ***********************************************************************************/
 
-#define TRUE          1
-#define FALSE         0
+#define TRUE 1
+#define FALSE 0
 
 /**********************************************************************************
    FUNCTION LVMixer3_MIXSOFT_1ST_D16C31_SAT
 ***********************************************************************************/
-void LVC_MixSoft_1St_D16C31_SAT( LVMixer3_1St_FLOAT_st *ptrInstance,
-                                  const LVM_FLOAT             *src,
-                                        LVM_FLOAT             *dst,
-                                        LVM_INT16             n)
-{
-    char        HardMixing = TRUE;
-    LVM_FLOAT   TargetGain;
-    Mix_Private_FLOAT_st  *pInstance = \
-                          (Mix_Private_FLOAT_st *)(ptrInstance->MixerStream[0].PrivateParams);
+void LVC_MixSoft_1St_D16C31_SAT(LVMixer3_1St_FLOAT_st* ptrInstance, const LVM_FLOAT* src,
+                                LVM_FLOAT* dst, LVM_INT16 n) {
+    char HardMixing = TRUE;
+    LVM_FLOAT TargetGain;
+    Mix_Private_FLOAT_st* pInstance =
+            (Mix_Private_FLOAT_st*)(ptrInstance->MixerStream[0].PrivateParams);
 
-    if(n <= 0)    return;
+    if (n <= 0) return;
 
     /******************************************************************************
        SOFT MIXING
     *******************************************************************************/
-    if (pInstance->Current != pInstance->Target)
-    {
-        if(pInstance->Delta == 1.0f){
+    if (pInstance->Current != pInstance->Target) {
+        if (pInstance->Delta == 1.0f) {
             pInstance->Current = pInstance->Target;
             TargetGain = pInstance->Target;
             LVC_Mixer_SetTarget(&(ptrInstance->MixerStream[0]), TargetGain);
-        }else if (Abs_Float(pInstance->Current - pInstance->Target) < pInstance->Delta){
+        } else if (Abs_Float(pInstance->Current - pInstance->Target) < pInstance->Delta) {
             pInstance->Current = pInstance->Target; /* Difference is not significant anymore. \
                                                        Make them equal. */
             TargetGain = pInstance->Target;
             LVC_Mixer_SetTarget(&(ptrInstance->MixerStream[0]), TargetGain);
-        }else{
+        } else {
             /* Soft mixing has to be applied */
             HardMixing = FALSE;
             LVC_Core_MixSoft_1St_D16C31_WRA(&(ptrInstance->MixerStream[0]), src, dst, n);
@@ -70,39 +67,37 @@ void LVC_MixSoft_1St_D16C31_SAT( LVMixer3_1St_FLOAT_st *ptrInstance,
        HARD MIXING
     *******************************************************************************/
 
-    if (HardMixing){
+    if (HardMixing) {
         if (pInstance->Target == 0)
-            LoadConst_Float(0.0, dst, n);
+            memset(dst, 0, n * sizeof(*dst));
         else {
             if ((pInstance->Target) != 1.0f)
                 Mult3s_Float(src, (pInstance->Target), dst, n);
-            else if(src != dst)
+            else if (src != dst)
                 Copy_Float(src, dst, n);
         }
-
     }
 
     /******************************************************************************
        CALL BACK
     *******************************************************************************/
 
-    if (ptrInstance->MixerStream[0].CallbackSet){
-        if (Abs_Float(pInstance->Current - pInstance->Target) < pInstance->Delta){
+    if (ptrInstance->MixerStream[0].CallbackSet) {
+        if (Abs_Float(pInstance->Current - pInstance->Target) < pInstance->Delta) {
             pInstance->Current = pInstance->Target; /* Difference is not significant anymore. \
                                                        Make them equal. */
             TargetGain = pInstance->Target;
             LVC_Mixer_SetTarget(ptrInstance->MixerStream, TargetGain);
             ptrInstance->MixerStream[0].CallbackSet = FALSE;
-            if (ptrInstance->MixerStream[0].pCallBack != 0){
-                (*ptrInstance->MixerStream[0].pCallBack) ( \
-                                                ptrInstance->MixerStream[0].pCallbackHandle,
-                                                ptrInstance->MixerStream[0].pGeneralPurpose,
-                                                ptrInstance->MixerStream[0].CallbackParam );
+            if (ptrInstance->MixerStream[0].pCallBack != 0) {
+                (*ptrInstance->MixerStream[0].pCallBack)(
+                        ptrInstance->MixerStream[0].pCallbackHandle,
+                        ptrInstance->MixerStream[0].pGeneralPurpose,
+                        ptrInstance->MixerStream[0].CallbackParam);
             }
         }
     }
 }
-#ifdef SUPPORT_MC
 /*
  * FUNCTION:       LVC_MixSoft_Mc_D16C31_SAT
  *
@@ -120,40 +115,32 @@ void LVC_MixSoft_1St_D16C31_SAT( LVMixer3_1St_FLOAT_st *ptrInstance,
  *  void
  *
  */
-void LVC_MixSoft_Mc_D16C31_SAT(LVMixer3_1St_FLOAT_st *ptrInstance,
-                                  const LVM_FLOAT      *src,
-                                        LVM_FLOAT      *dst,
-                                        LVM_INT16      NrFrames,
-                                        LVM_INT16      NrChannels)
-{
-    char        HardMixing = TRUE;
-    LVM_FLOAT   TargetGain;
-    Mix_Private_FLOAT_st  *pInstance = \
-                          (Mix_Private_FLOAT_st *)(ptrInstance->MixerStream[0].PrivateParams);
+void LVC_MixSoft_Mc_D16C31_SAT(LVMixer3_1St_FLOAT_st* ptrInstance, const LVM_FLOAT* src,
+                               LVM_FLOAT* dst, LVM_INT16 NrFrames, LVM_INT16 NrChannels) {
+    char HardMixing = TRUE;
+    LVM_FLOAT TargetGain;
+    Mix_Private_FLOAT_st* pInstance =
+            (Mix_Private_FLOAT_st*)(ptrInstance->MixerStream[0].PrivateParams);
 
-    if (NrFrames <= 0)    return;
+    if (NrFrames <= 0) return;
 
     /******************************************************************************
        SOFT MIXING
     *******************************************************************************/
-    if (pInstance->Current != pInstance->Target)
-    {
+    if (pInstance->Current != pInstance->Target) {
         if (pInstance->Delta == 1.0f) {
             pInstance->Current = pInstance->Target;
             TargetGain = pInstance->Target;
             LVC_Mixer_SetTarget(&(ptrInstance->MixerStream[0]), TargetGain);
-        }else if (Abs_Float(pInstance->Current - pInstance->Target) < pInstance->Delta) {
+        } else if (Abs_Float(pInstance->Current - pInstance->Target) < pInstance->Delta) {
             pInstance->Current = pInstance->Target; /* Difference is not significant anymore. \
                                                        Make them equal. */
             TargetGain = pInstance->Target;
             LVC_Mixer_SetTarget(&(ptrInstance->MixerStream[0]), TargetGain);
-        }else{
+        } else {
             /* Soft mixing has to be applied */
             HardMixing = FALSE;
-            LVC_Core_MixSoft_Mc_D16C31_WRA(&(ptrInstance->MixerStream[0]),
-                                           src,
-                                           dst,
-                                           NrFrames,
+            LVC_Core_MixSoft_Mc_D16C31_WRA(&(ptrInstance->MixerStream[0]), src, dst, NrFrames,
                                            NrChannels);
         }
     }
@@ -164,14 +151,13 @@ void LVC_MixSoft_Mc_D16C31_SAT(LVMixer3_1St_FLOAT_st *ptrInstance,
 
     if (HardMixing) {
         if (pInstance->Target == 0)
-            LoadConst_Float(0.0, dst, NrFrames * NrChannels);
+            memset(dst, 0, NrFrames * NrChannels * sizeof(*dst));
         else {
             if ((pInstance->Target) != 1.0f)
                 Mult3s_Float(src, (pInstance->Target), dst, NrFrames * NrChannels);
             else if (src != dst)
                 Copy_Float(src, dst, NrFrames * NrChannels);
         }
-
     }
 
     /******************************************************************************
@@ -186,15 +172,13 @@ void LVC_MixSoft_Mc_D16C31_SAT(LVMixer3_1St_FLOAT_st *ptrInstance,
             LVC_Mixer_SetTarget(ptrInstance->MixerStream, TargetGain);
             ptrInstance->MixerStream[0].CallbackSet = FALSE;
             if (ptrInstance->MixerStream[0].pCallBack != 0) {
-                (*ptrInstance->MixerStream[0].pCallBack) (\
-                                                ptrInstance->MixerStream[0].pCallbackHandle,
-                                                ptrInstance->MixerStream[0].pGeneralPurpose,
-                                                ptrInstance->MixerStream[0].CallbackParam);
+                (*ptrInstance->MixerStream[0].pCallBack)(
+                        ptrInstance->MixerStream[0].pCallbackHandle,
+                        ptrInstance->MixerStream[0].pGeneralPurpose,
+                        ptrInstance->MixerStream[0].CallbackParam);
             }
         }
     }
 }
-
-#endif
 
 /**********************************************************************************/

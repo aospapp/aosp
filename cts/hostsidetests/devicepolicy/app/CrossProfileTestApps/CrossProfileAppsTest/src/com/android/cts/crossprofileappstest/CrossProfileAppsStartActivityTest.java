@@ -19,6 +19,8 @@ import static android.Manifest.permission.INTERACT_ACROSS_PROFILES;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static junit.framework.Assert.assertNotNull;
 
 import static org.junit.Assert.assertEquals;
@@ -62,7 +64,7 @@ public class CrossProfileAppsStartActivityTest {
             "com.android.cts.crossprofileappstest:id/user_textview";
     private static final String ID_USER_TEXTVIEW_NONMAIN =
             "com.android.cts.crossprofileappstest:id/user_textview_nonmain";
-    private static final long TIMEOUT_WAIT_UI = TimeUnit.SECONDS.toMillis(10);
+    private static final long TIMEOUT_WAIT_UI = TimeUnit.SECONDS.toMillis(15);
 
     private CrossProfileApps mCrossProfileApps;
     private UserHandle mTargetUser;
@@ -273,6 +275,23 @@ public class CrossProfileAppsStartActivityTest {
                     String.valueOf(mUserSerialNumber), textView.getText());
         } catch (Exception e) {
             fail("unable to start cross-profile activity in the same task: " + e);
+        }
+    }
+
+    @Test
+    public void testStartActivityIntent_crossProfile_returnsResult() throws Exception {
+        try {
+            mContext.startActivity(new Intent()
+                    .setComponent(CrossProfileResultCheckerActivity.buildComponentName(mContext))
+                    .putExtra(CrossProfileResultCheckerActivity.TARGET_USER_EXTRA, mTargetUser));
+
+            final UiObject2 textView = mDevice.wait(
+                    Until.findObject(
+                            By.text(CrossProfileResultCheckerActivity.SUCCESS_MESSAGE)),
+                    TIMEOUT_WAIT_UI);
+            assertThat(textView).isNotNull();
+        } catch (Exception e) {
+            fail("unable to start cross-profile activity to obtain a returned result: " + e);
         }
     }
 

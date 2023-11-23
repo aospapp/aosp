@@ -15,6 +15,8 @@
  */
 package android.assist.cts;
 
+import static android.assist.common.Utils.SHOW_SESSION_FLAGS_TO_SET;
+
 import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
 import android.content.Intent;
@@ -66,5 +68,24 @@ public class ExtraAssistDataTest extends AssistTestBase {
         int actualUid = mAssistBundle.getInt(Intent.EXTRA_ASSIST_UID);
         assertWithMessage("Wrong value for EXTRA_ASSIST_UID").that(actualUid)
                 .isEqualTo(expectedUid);
+    }
+
+    @Test
+    public void testAssistContentAndDataNullWhenNoFlagsToShowSession() throws Exception {
+        if (mActivityManager.isLowRamDevice()) {
+            Log.d(TAG, "Not running assist tests on low-RAM device.");
+            return;
+        }
+        startTest(TEST_CASE_TYPE);
+        waitForAssistantToBeReady();
+        start3pApp(TEST_CASE_TYPE);
+
+        Bundle bundle = new Bundle();
+        bundle.putInt(SHOW_SESSION_FLAGS_TO_SET, 0);
+        final AutoResetLatch latch = startSession(bundle);
+        waitForContext(latch);
+
+        verifyActivityIdNullness(/* isActivityIdNull = */ false);
+        verifyAssistDataNullness(true, true, true, true);
     }
 }

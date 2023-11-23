@@ -19,10 +19,12 @@
 #include <atomic>
 #include <type_traits>
 
+#include "perfetto/base/compiler.h"
 #include "perfetto/base/logging.h"
+#include "perfetto/protozero/message_arena.h"
 #include "perfetto/protozero/message_handle.h"
 
-#if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
+#if !PERFETTO_IS_LITTLE_ENDIAN()
 // The memcpy() for float and double below needs to be adjusted if we want to
 // support big endian CPUs. There doesn't seem to be a compelling need today.
 #error Unimplemented for big endian archs.
@@ -38,14 +40,11 @@ std::atomic<uint32_t> g_generation;
 
 }  // namespace
 
-// static
-constexpr uint32_t Message::kMaxNestingDepth;
-
 // Do NOT put any code in the constructor or use default initialization.
-// Use the Reset() method below instead. See the header for the reason why.
+// Use the Reset() method below instead.
 
 // This method is called to initialize both root and nested messages.
-void Message::Reset(ScatteredStreamWriter* stream_writer) {
+void Message::Reset(ScatteredStreamWriter* stream_writer, MessageArena* arena) {
 // Older versions of libstdcxx don't have is_trivially_constructible.
 #if !defined(__GLIBCXX__) || __GLIBCXX__ >= 20170516
   static_assert(std::is_trivially_constructible<Message>::value,
@@ -54,19 +53,12 @@ void Message::Reset(ScatteredStreamWriter* stream_writer) {
 
   static_assert(std::is_trivially_destructible<Message>::value,
                 "Message must be trivially destructible");
-
-  static_assert(
-      sizeof(Message::nested_messages_arena_) >=
-          kMaxNestingDepth *
-              (sizeof(Message) - sizeof(Message::nested_messages_arena_)),
-      "Message::nested_messages_arena_ is too small");
-
   stream_writer_ = stream_writer;
+  arena_ = arena;
   size_ = 0;
   size_field_ = nullptr;
   size_already_written_ = 0;
   nested_message_ = nullptr;
-  nesting_depth_ = 0;
   finalized_ = false;
 #if PERFETTO_DCHECK_IS_ON()
   handle_ = nullptr;
@@ -147,7 +139,7 @@ uint32_t Message::Finalize() {
   return size_;
 }
 
-void Message::BeginNestedMessageInternal(uint32_t field_id, Message* message) {
+Message* Message::BeginNestedMessageInternal(uint32_t field_id) {
   if (nested_message_)
     EndNestedMessage();
 
@@ -157,20 +149,22 @@ void Message::BeginNestedMessageInternal(uint32_t field_id, Message* message) {
       proto_utils::MakeTagLengthDelimited(field_id), data);
   WriteToStream(data, data_end);
 
-  message->Reset(stream_writer_);
-  PERFETTO_CHECK(nesting_depth_ < kMaxNestingDepth);
-  message->nesting_depth_ = nesting_depth_ + 1;
+  Message* message = arena_->NewMessage();
+  message->Reset(stream_writer_, arena_);
 
   // The length of the nested message cannot be known upfront. So right now
   // just reserve the bytes to encode the size after the nested message is done.
   message->set_size_field(
       stream_writer_->ReserveBytes(proto_utils::kMessageLengthFieldSize));
   size_ += proto_utils::kMessageLengthFieldSize;
+
   nested_message_ = message;
+  return message;
 }
 
 void Message::EndNestedMessage() {
   size_ += nested_message_->Finalize();
+  arena_->DeleteLastMessage(nested_message_);
   nested_message_ = nullptr;
 }
 

@@ -25,7 +25,8 @@
 #include "actions/actions_model_generated.h"
 #include "actions/types.h"
 #include "annotator/types.h"
-#include "utils/flatbuffers.h"
+#include "utils/flatbuffers/flatbuffers.h"
+#include "utils/flatbuffers/mutable.h"
 #include "utils/utf8/unicodetext.h"
 #include "utils/utf8/unilib.h"
 
@@ -33,12 +34,12 @@ namespace libtextclassifier3 {
 
 // Fills an action suggestion from a template.
 void FillSuggestionFromSpec(const ActionSuggestionSpec* action,
-                            ReflectiveFlatbuffer* entity_data,
+                            MutableFlatbuffer* entity_data,
                             ActionSuggestion* suggestion);
 
 // Creates text replies from capturing matches.
 void SuggestTextRepliesFromCapturingMatch(
-    const ReflectiveFlatbufferBuilder* entity_data_builder,
+    const MutableFlatbufferBuilder* entity_data_builder,
     const RulesModel_::RuleActionSpec_::RuleCapturingGroup* group,
     const UnicodeText& match_text, const std::string& smart_reply_action_type,
     std::vector<ActionSuggestion>* actions);
@@ -48,6 +49,11 @@ UnicodeText NormalizeMatchText(
     const UniLib& unilib,
     const RulesModel_::RuleActionSpec_::RuleCapturingGroup* group,
     StringPiece match_text);
+
+UnicodeText NormalizeMatchText(
+    const UniLib& unilib,
+    const RulesModel_::RuleActionSpec_::RuleCapturingGroup* group,
+    const UnicodeText match_text);
 
 // Fills the fields in an annotation from a capturing match.
 bool FillAnnotationFromCapturingMatch(
@@ -60,7 +66,11 @@ bool FillAnnotationFromCapturingMatch(
 // Parses and sets values from the text and merges fixed data.
 bool MergeEntityDataFromCapturingMatch(
     const RulesModel_::RuleActionSpec_::RuleCapturingGroup* group,
-    StringPiece match_text, ReflectiveFlatbuffer* buffer);
+    StringPiece match_text, MutableFlatbuffer* buffer);
+
+// Changes datetime classifications to a time type if no date component is
+// present. Modifies classifications in-place.
+void ConvertDatetimeToTime(std::vector<AnnotatedSpan>* annotations);
 
 }  // namespace libtextclassifier3
 

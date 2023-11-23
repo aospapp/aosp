@@ -20,7 +20,9 @@ import java.util.Arrays;
  * has to be taken about the probe data array of type <code>boolean[]</code>
  * which can be modified.
  */
-public final class ExecutionData {
+// BEGIN android-change
+public final class ExecutionData implements IExecutionData {
+// END android-change
 
 	private final long id;
 
@@ -81,15 +83,43 @@ public final class ExecutionData {
 		return name;
 	}
 
+	// BEGIN android-change
 	/**
-	 * Returns the execution data probes. A value of <code>true</code> indicates
-	 * that the corresponding probe was executed.
+	 * Returns a copy of the current probe values.
+	 *
+	 * @return copy of the probe array
+	 */
+	public boolean[] getProbesCopy() {
+		return Arrays.copyOf(probes, probes.length);
+	}
+
+	/**
+	 * The number of probes in this ExecutionData.
+	 *
+	 * @return the number of probes
+	 */
+	public int getProbeCount() {
+		return probes.length;
+	}
+
+	/**
+	 * Returns the execution data probe for a given index. A value of
+	 * <code>true</code> indicates that the corresponding probe was
+	 * executed.
 	 * 
 	 * @return probe data
 	 */
-	public boolean[] getProbes() {
-		return probes;
+	public boolean getProbe(final int index) {
+		return probes[index];
 	}
+
+	/**
+	 * Sets the execution data probe for a given index to <code>true</code>.
+	 */
+	public void setProbe(final int index) {
+		probes[index] = true;
+	}
+	// END android-change
 
 	/**
 	 * Sets all probes to <code>false</code>.
@@ -127,7 +157,9 @@ public final class ExecutionData {
 	 * @param other
 	 *            execution data to merge
 	 */
-	public void merge(final ExecutionData other) {
+	// BEGIN android-change
+	public void merge(final IExecutionData other) {
+	// END android-change
 		merge(other, true);
 	}
 
@@ -154,10 +186,12 @@ public final class ExecutionData {
 	 * @param flag
 	 *            merge mode
 	 */
-	public void merge(final ExecutionData other, final boolean flag) {
+	public void merge(final IExecutionData other, final boolean flag) {
+		// BEGIN android-change
 		assertCompatibility(other.getId(), other.getName(),
-				other.getProbes().length);
-		final boolean[] otherData = other.getProbes();
+				other.getProbeCount());
+		final boolean[] otherData = other.getProbesCopy();
+		// END android-change
 		for (int i = 0; i < probes.length; i++) {
 			if (otherData[i]) {
 				probes[i] = flag;

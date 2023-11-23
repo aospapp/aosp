@@ -14,8 +14,12 @@ use std::str::FromStr;
 
 use libc::EPERM;
 
-use sys_util::Error as SysError;
-use sys_util::{ioctl_with_mut_ref, ioctl_with_ref, ioctl_with_val};
+use base::Error as SysError;
+use base::FileReadWriteVolatile;
+use base::{
+    ioctl_with_mut_ref, ioctl_with_ref, ioctl_with_val, volatile_impl, AsRawDescriptor,
+    FromRawDescriptor, IoctlNr, RawDescriptor,
+};
 
 #[derive(Debug)]
 pub enum Error {
@@ -170,8 +174,8 @@ pub struct Tap {
 }
 
 impl Tap {
-    pub unsafe fn from_raw_fd(fd: RawFd) -> Result<Tap> {
-        let tap_file = File::from_raw_fd(fd);
+    pub unsafe fn from_raw_descriptor(fd: RawDescriptor) -> Result<Tap> {
+        let tap_file = File::from_raw_descriptor(fd);
 
         // Get the interface name since we will need it for some ioctls.
         let mut ifreq: net_sys::ifreq = Default::default();
@@ -187,13 +191,54 @@ impl Tap {
             if_flags: ifreq.ifr_ifru.ifru_flags,
         })
     }
+
+    fn create_tap_with_ifreq(ifreq: &mut net_sys::ifreq) -> Result<Tap> {
+        // Open calls are safe because we give a constant nul-terminated
+        // string and verify the result.
+        let fd = unsafe {
+            libc::open(
+                b"/dev/net/tun\0".as_ptr() as *const c_char,
+                libc::O_RDWR | libc::O_NONBLOCK | libc::O_CLOEXEC,
+            )
+        };
+        if fd < 0 {
+            return Err(Error::OpenTun(SysError::last()));
+        }
+
+        // We just checked that the fd is valid.
+        let tuntap = unsafe { File::from_raw_descriptor(fd) };
+        // ioctl is safe since we call it with a valid tap fd and check the return
+        // value.
+        let ret = unsafe { ioctl_with_mut_ref(&tuntap, net_sys::TUNSETIFF(), ifreq) };
+
+        if ret < 0 {
+            let error = SysError::last();
+
+            // In a non-root, test environment, we won't have permission to call this; allow
+            if !(cfg!(test) && error.errno() == EPERM) {
+                return Err(Error::CreateTap(error));
+            }
+        }
+
+        // Safe since only the name is accessed, and it's copied out.
+        Ok(Tap {
+            tap_file: tuntap,
+            if_name: unsafe { ifreq.ifr_ifrn.ifrn_name },
+            if_flags: unsafe { ifreq.ifr_ifru.ifru_flags },
+        })
+    }
 }
 
-pub trait TapT: Read + Write + AsRawFd + Send + Sized {
+pub trait TapT: FileReadWriteVolatile + Read + Write + AsRawDescriptor + Send + Sized {
     /// Create a new tap interface. Set the `vnet_hdr` flag to true to allow offloading on this tap,
     /// which will add an extra 12 byte virtio net header to incoming frames. Offloading cannot
     /// be used if `vnet_hdr` is false.
-    fn new(vnet_hdr: bool) -> Result<Self>;
+    /// set 'multi_vq' to ture, if tap have multi virt queue pairs
+    fn new(vnet_hdr: bool, multi_vq: bool) -> Result<Self>;
+
+    /// Change the origin tap into multiqueue taps, this means create other taps based on the
+    /// origin tap.
+    fn into_mq_taps(self, vq_pairs: u16) -> Result<Vec<Self>>;
 
     /// Get the host-side IP address for the tap interface.
     fn ip_addr(&self) -> Result<net::Ipv4Addr>;
@@ -229,22 +274,7 @@ pub trait TapT: Read + Write + AsRawFd + Send + Sized {
 }
 
 impl TapT for Tap {
-    fn new(vnet_hdr: bool) -> Result<Tap> {
-        // Open calls are safe because we give a constant nul-terminated
-        // string and verify the result.
-        let fd = unsafe {
-            libc::open(
-                b"/dev/net/tun\0".as_ptr() as *const c_char,
-                libc::O_RDWR | libc::O_NONBLOCK | libc::O_CLOEXEC,
-            )
-        };
-        if fd < 0 {
-            return Err(Error::OpenTun(SysError::last()));
-        }
-
-        // We just checked that the fd is valid.
-        let tuntap = unsafe { File::from_raw_fd(fd) };
-
+    fn new(vnet_hdr: bool, multi_vq: bool) -> Result<Tap> {
         const TUNTAP_DEV_FORMAT: &[u8; 8usize] = b"vmtap%d\0";
 
         // This is pretty messy because of the unions used by ifreq. Since we
@@ -261,27 +291,34 @@ impl TapT for Tap {
                 | net_sys::IFF_NO_PI
                 | if vnet_hdr { net_sys::IFF_VNET_HDR } else { 0 })
                 as c_short;
-        }
-
-        // ioctl is safe since we call it with a valid tap fd and check the return
-        // value.
-        let ret = unsafe { ioctl_with_mut_ref(&tuntap, net_sys::TUNSETIFF(), &mut ifreq) };
-
-        if ret < 0 {
-            let error = SysError::last();
-
-            // In a non-root, test environment, we won't have permission to call this; allow
-            if !(cfg!(test) && error.errno() == EPERM) {
-                return Err(Error::CreateTap(error));
+            if multi_vq {
+                ifreq.ifr_ifru.ifru_flags |= net_sys::IFF_MULTI_QUEUE as c_short;
             }
         }
 
-        // Safe since only the name is accessed, and it's copied out.
-        Ok(Tap {
-            tap_file: tuntap,
-            if_name: unsafe { ifreq.ifr_ifrn.ifrn_name },
-            if_flags: unsafe { ifreq.ifr_ifru.ifru_flags },
-        })
+        Tap::create_tap_with_ifreq(&mut ifreq)
+    }
+
+    fn into_mq_taps(self, vq_pairs: u16) -> Result<Vec<Tap>> {
+        let mut taps: Vec<Tap> = Vec::new();
+
+        if vq_pairs <= 1 {
+            taps.push(self);
+            return Ok(taps);
+        }
+
+        // Add other socket into the origin tap interface
+        for _ in 0..vq_pairs - 1 {
+            let mut ifreq = self.get_ifreq();
+            let tap = Tap::create_tap_with_ifreq(&mut ifreq)?;
+
+            tap.enable()?;
+
+            taps.push(tap);
+        }
+
+        taps.insert(0, self);
+        Ok(taps)
     }
 
     fn ip_addr(&self) -> Result<net::Ipv4Addr> {
@@ -290,7 +327,7 @@ impl TapT for Tap {
 
         // ioctl is safe. Called with a valid sock fd, and we check the return.
         let ret = unsafe {
-            ioctl_with_mut_ref(&sock, net_sys::sockios::SIOCGIFADDR as c_ulong, &mut ifreq)
+            ioctl_with_mut_ref(&sock, net_sys::sockios::SIOCGIFADDR as IoctlNr, &mut ifreq)
         };
         if ret < 0 {
             return Err(Error::IoctlError(SysError::last()));
@@ -311,7 +348,7 @@ impl TapT for Tap {
 
         // ioctl is safe. Called with a valid sock fd, and we check the return.
         let ret =
-            unsafe { ioctl_with_ref(&sock, net_sys::sockios::SIOCSIFADDR as c_ulong, &ifreq) };
+            unsafe { ioctl_with_ref(&sock, net_sys::sockios::SIOCSIFADDR as IoctlNr, &ifreq) };
         if ret < 0 {
             return Err(Error::IoctlError(SysError::last()));
         }
@@ -327,7 +364,7 @@ impl TapT for Tap {
         let ret = unsafe {
             ioctl_with_mut_ref(
                 &sock,
-                net_sys::sockios::SIOCGIFNETMASK as c_ulong,
+                net_sys::sockios::SIOCGIFNETMASK as IoctlNr,
                 &mut ifreq,
             )
         };
@@ -350,7 +387,7 @@ impl TapT for Tap {
 
         // ioctl is safe. Called with a valid sock fd, and we check the return.
         let ret =
-            unsafe { ioctl_with_ref(&sock, net_sys::sockios::SIOCSIFNETMASK as c_ulong, &ifreq) };
+            unsafe { ioctl_with_ref(&sock, net_sys::sockios::SIOCSIFNETMASK as IoctlNr, &ifreq) };
         if ret < 0 {
             return Err(Error::IoctlError(SysError::last()));
         }
@@ -366,7 +403,7 @@ impl TapT for Tap {
         let ret = unsafe {
             ioctl_with_mut_ref(
                 &sock,
-                net_sys::sockios::SIOCGIFHWADDR as c_ulong,
+                net_sys::sockios::SIOCGIFHWADDR as IoctlNr,
                 &mut ifreq,
             )
         };
@@ -394,7 +431,7 @@ impl TapT for Tap {
 
         // ioctl is safe. Called with a valid sock fd, and we check the return.
         let ret =
-            unsafe { ioctl_with_ref(&sock, net_sys::sockios::SIOCSIFHWADDR as c_ulong, &ifreq) };
+            unsafe { ioctl_with_ref(&sock, net_sys::sockios::SIOCSIFHWADDR as IoctlNr, &ifreq) };
         if ret < 0 {
             return Err(Error::IoctlError(SysError::last()));
         }
@@ -422,7 +459,7 @@ impl TapT for Tap {
 
         // ioctl is safe. Called with a valid sock fd, and we check the return.
         let ret =
-            unsafe { ioctl_with_ref(&sock, net_sys::sockios::SIOCSIFFLAGS as c_ulong, &ifreq) };
+            unsafe { ioctl_with_ref(&sock, net_sys::sockios::SIOCSIFFLAGS as IoctlNr, &ifreq) };
         if ret < 0 {
             return Err(Error::IoctlError(SysError::last()));
         }
@@ -480,9 +517,17 @@ impl Write for Tap {
 
 impl AsRawFd for Tap {
     fn as_raw_fd(&self) -> RawFd {
-        self.tap_file.as_raw_fd()
+        self.tap_file.as_raw_descriptor()
     }
 }
+
+impl AsRawDescriptor for Tap {
+    fn as_raw_descriptor(&self) -> RawDescriptor {
+        self.tap_file.as_raw_descriptor()
+    }
+}
+
+volatile_impl!(Tap);
 
 pub mod fakes {
     use super::*;
@@ -496,7 +541,7 @@ pub mod fakes {
     }
 
     impl TapT for FakeTap {
-        fn new(_: bool) -> Result<FakeTap> {
+        fn new(_: bool, _: bool) -> Result<FakeTap> {
             Ok(FakeTap {
                 tap_file: OpenOptions::new()
                     .read(true)
@@ -505,6 +550,10 @@ pub mod fakes {
                     .open(TMP_FILE)
                     .unwrap(),
             })
+        }
+
+        fn into_mq_taps(self, _vq_pairs: u16) -> Result<Vec<FakeTap>> {
+            Ok(Vec::new())
         }
 
         fn ip_addr(&self) -> Result<net::Ipv4Addr> {
@@ -577,9 +626,16 @@ pub mod fakes {
 
     impl AsRawFd for FakeTap {
         fn as_raw_fd(&self) -> RawFd {
-            self.tap_file.as_raw_fd()
+            self.tap_file.as_raw_descriptor()
         }
     }
+
+    impl AsRawDescriptor for FakeTap {
+        fn as_raw_descriptor(&self) -> RawDescriptor {
+            self.tap_file.as_raw_descriptor()
+        }
+    }
+    volatile_impl!(FakeTap);
 }
 
 #[cfg(test)]
@@ -596,12 +652,12 @@ mod tests {
 
     #[test]
     fn tap_create() {
-        Tap::new(true).unwrap();
+        Tap::new(true, false).unwrap();
     }
 
     #[test]
     fn tap_configure() {
-        let tap = Tap::new(true).unwrap();
+        let tap = Tap::new(true, false).unwrap();
         let ip_addr: net::Ipv4Addr = "100.115.92.5".parse().unwrap();
         let netmask: net::Ipv4Addr = "255.255.255.252".parse().unwrap();
         let mac_addr: MacAddress = "a2:06:b9:3d:68:4d".parse().unwrap();
@@ -621,14 +677,14 @@ mod tests {
     #[ignore]
     fn root_only_tests() {
         // This line will fail to provide an initialized FD if the test is not run as root.
-        let tap = Tap::new(true).unwrap();
+        let tap = Tap::new(true, false).unwrap();
         tap.set_vnet_hdr_size(16).unwrap();
         tap.set_offload(0).unwrap();
     }
 
     #[test]
     fn tap_enable() {
-        let tap = Tap::new(true).unwrap();
+        let tap = Tap::new(true, false).unwrap();
 
         let ret = tap.enable();
         assert_ok_or_perm_denied(ret);

@@ -57,4 +57,37 @@ public class ByteTest extends junit.framework.TestCase {
             assertEquals(b, Long.valueOf(b).byteValue());
         }
     }
+
+    public void testCompareUnsigned() {
+        // Ascending order of unsigned(value)
+        final byte a = 0;
+        final byte b = 3;
+        final byte y = -2; // 254
+        final byte z = -1; // 255
+
+        assertTrue(Byte.compareUnsigned(a, b) < 0);
+        assertTrue(Byte.compareUnsigned(a, y) < 0);
+        assertTrue(Byte.compareUnsigned(a, z) < 0);
+        assertTrue(Byte.compareUnsigned(b, y) < 0);
+        assertTrue(Byte.compareUnsigned(b, z) < 0);
+        assertTrue(Byte.compareUnsigned(y, z) < 0);
+
+        assertTrue(Byte.compareUnsigned(b, a) > 0);
+        assertTrue(Byte.compareUnsigned(y, a) > 0);
+        assertTrue(Byte.compareUnsigned(y, b) > 0);
+        assertTrue(Byte.compareUnsigned(z, a) > 0);
+        assertTrue(Byte.compareUnsigned(z, b) > 0);
+        assertTrue(Byte.compareUnsigned(z, y) > 0);
+
+        assertTrue(Byte.compareUnsigned(a, a) == 0);
+        assertTrue(Byte.compareUnsigned(b, b) == 0);
+        assertTrue(Byte.compareUnsigned(y, y) == 0);
+        assertTrue(Byte.compareUnsigned(z, z) == 0);
+
+        assertTrue(Byte.compareUnsigned(Byte.MIN_VALUE, (byte)128) == 0);
+        assertTrue(Byte.compareUnsigned(Byte.MAX_VALUE, (byte)127) == 0);
+        assertTrue(Byte.compareUnsigned(Byte.MIN_VALUE, Byte.MAX_VALUE) > 0);
+        assertTrue(Byte.compareUnsigned(Byte.MIN_VALUE, z) < 0);
+        assertTrue(Byte.compareUnsigned(Byte.MAX_VALUE, z) < 0);
+    }
 }

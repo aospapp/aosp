@@ -36,10 +36,12 @@ public boolean valid() { throw new RuntimeException("Stub!"); }
 
 public native void sync() throws java.io.SyncFailedException;
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public int getInt$() { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public void setInt$(int fd) { throw new RuntimeException("Stub!"); }
 
 public long getOwnerId$() { throw new RuntimeException("Stub!"); }

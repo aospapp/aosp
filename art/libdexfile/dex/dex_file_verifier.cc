@@ -448,15 +448,11 @@ bool DexFileVerifier::VerifyTypeDescriptor(dex::TypeIndex idx,
   // All sources of the `idx` have already been checked in CheckIntraSection().
   DCHECK_LT(idx.index_, header_->type_ids_size_);
 
-  auto err_fn = [&](const char* descriptor) {
-    ErrorStringPrintf("%s: '%s'", error_msg, descriptor);
-  };
-
   char cached_char = verified_type_descriptors_[idx.index_];
   if (cached_char != 0) {
     if (!extra_check(cached_char)) {
       const char* descriptor = dex_file_->StringByTypeIdx(idx);
-      err_fn(descriptor);
+      ErrorStringPrintf("%s: '%s'", error_msg, descriptor);
       return false;
     }
     return true;
@@ -464,13 +460,13 @@ bool DexFileVerifier::VerifyTypeDescriptor(dex::TypeIndex idx,
 
   const char* descriptor = dex_file_->StringByTypeIdx(idx);
   if (UNLIKELY(!IsValidDescriptor(descriptor))) {
-    err_fn(descriptor);
+    ErrorStringPrintf("%s: '%s'", error_msg, descriptor);
     return false;
   }
   verified_type_descriptors_[idx.index_] = descriptor[0];
 
   if (!extra_check(descriptor[0])) {
-    err_fn(descriptor);
+    ErrorStringPrintf("%s: '%s'", error_msg, descriptor);
     return false;
   }
   return true;
@@ -671,7 +667,7 @@ bool DexFileVerifier::CheckMap() {
   uint32_t data_items_left = header_->data_size_;
   uint32_t used_bits = 0;
 
-  // Sanity check the size of the map list.
+  // Check the validity of the size of the map list.
   if (!CheckListSize(item, count, sizeof(dex::MapItem), "map size")) {
     return false;
   }
@@ -1728,7 +1724,7 @@ bool DexFileVerifier::CheckIntraStringDataItem() {
 }
 
 bool DexFileVerifier::CheckIntraDebugInfoItem() {
-  DECODE_UNSIGNED_CHECKED_FROM(ptr_, dummy);
+  DECODE_UNSIGNED_CHECKED_FROM(ptr_, unused_line_start);
   DECODE_UNSIGNED_CHECKED_FROM(ptr_, parameters_size);
   if (UNLIKELY(parameters_size > 65536)) {
     ErrorStringPrintf("Invalid parameters_size: %x", parameters_size);
@@ -1752,11 +1748,11 @@ bool DexFileVerifier::CheckIntraDebugInfoItem() {
         return true;
       }
       case DexFile::DBG_ADVANCE_PC: {
-        DECODE_UNSIGNED_CHECKED_FROM(ptr_, advance_pc_dummy);
+        DECODE_UNSIGNED_CHECKED_FROM(ptr_, unused_advance_pc);
         break;
       }
       case DexFile::DBG_ADVANCE_LINE: {
-        DECODE_SIGNED_CHECKED_FROM(ptr_, advance_line_dummy);
+        DECODE_SIGNED_CHECKED_FROM(ptr_, unused_advance_line);
         break;
       }
       case DexFile::DBG_START_LOCAL: {
@@ -2273,7 +2269,7 @@ bool DexFileVerifier::CheckIntraDataSection(size_t offset, uint32_t count) {
   size_t data_start = header_->data_off_;
   size_t data_end = data_start + header_->data_size_;
 
-  // Sanity check the offset of the section.
+  // Check the validity of the offset of the section.
   if (UNLIKELY((offset < data_start) || (offset > data_end))) {
     ErrorStringPrintf("Bad offset for data subsection: %zx", offset);
     return false;
@@ -2762,16 +2758,16 @@ bool DexFileVerifier::CheckInterClassDefItem() {
 
       // Check that a class is defined after its super class (if the
       // latter is defined in the same Dex file).
-      const dex::ClassDef* superclass_def = dex_file_->FindClassDef(item->superclass_idx_);
-      if (superclass_def != nullptr) {
+      uint16_t superclass_idx = item->superclass_idx_.index_;
+      if (defined_classes_[superclass_idx]) {
         // The superclass is defined in this Dex file.
-        if (superclass_def > item) {
+        if (&dex_file_->GetClassDef(defined_class_indexes_[superclass_idx]) > item) {
           // ClassDef item for super class appearing after the class' ClassDef item.
           ErrorStringPrintf("Invalid class definition ordering:"
                             " class with type idx: '%d' defined before"
                             " superclass with type idx: '%d'",
                             item->class_idx_.index_,
-                            item->superclass_idx_.index_);
+                            superclass_idx);
           return false;
         }
       }
@@ -2800,17 +2796,16 @@ bool DexFileVerifier::CheckInterClassDefItem() {
 
         // Check that a class is defined after the interfaces it implements
         // (if they are defined in the same Dex file).
-        const dex::ClassDef* interface_def =
-            dex_file_->FindClassDef(interfaces->GetTypeItem(i).type_idx_);
-        if (interface_def != nullptr) {
+        uint16_t interface_idx = interfaces->GetTypeItem(i).type_idx_.index_;
+        if (defined_classes_[interface_idx]) {
           // The interface is defined in this Dex file.
-          if (interface_def > item) {
+          if (&dex_file_->GetClassDef(defined_class_indexes_[interface_idx]) > item) {
             // ClassDef item for interface appearing after the class' ClassDef item.
             ErrorStringPrintf("Invalid class definition ordering:"
                               " class with type idx: '%d' defined before"
                               " implemented interface with type idx: '%d'",
                               item->class_idx_.index_,
-                              interfaces->GetTypeItem(i).type_idx_.index_);
+                              interface_idx);
             return false;
           }
         }

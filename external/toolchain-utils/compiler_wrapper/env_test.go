@@ -7,6 +7,7 @@ package main
 import (
 	"bytes"
 	"flag"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -161,6 +162,79 @@ func TestProcessEnvRunCmdDeleteEnv(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestNewProcessEnvResolvesPwdAwayProperly(t *testing.T) {
+	// This test cannot be t.Parallel(), since it modifies our environment.
+	const envPwd = "PWD"
+
+	oldEnvPwd := os.Getenv(envPwd)
+	defer func() {
+		if oldEnvPwd == "" {
+			os.Unsetenv(envPwd)
+		} else {
+			os.Setenv(envPwd, oldEnvPwd)
+		}
+	}()
+
+	os.Unsetenv(envPwd)
+
+	initialWd, err := os.Getwd()
+	if initialWd == "/proc/self/cwd" {
+		t.Fatalf("Working directory should never be %q when env is unset", initialWd)
+	}
+
+	defer func() {
+		if err := os.Chdir(initialWd); err != nil {
+			t.Errorf("Changing back to %q failed: %v", initialWd, err)
+		}
+	}()
+
+	tempDir, err := ioutil.TempDir("", "wrapper_env_test")
+	if err != nil {
+		t.Fatalf("Failed making temp dir: %v", err)
+	}
+
+	// Nothing we can do if this breaks, unfortunately.
+	defer os.RemoveAll(tempDir)
+
+	tempDirLink := tempDir + ".symlink"
+	if err := os.Symlink(tempDir, tempDirLink); err != nil {
+		t.Fatalf("Failed creating symlink %q => %q: %v", tempDirLink, tempDir, err)
+	}
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Failed chdir'ing to tempdir at %q: %v", tempDirLink, err)
+	}
+
+	if err := os.Setenv(envPwd, tempDirLink); err != nil {
+		t.Fatalf("Failed setting pwd to tempdir at %q: %v", tempDirLink, err)
+	}
+
+	// Ensure that we don't resolve symlinks if they're present in our CWD somehow, except for
+	// /proc/self/cwd, which tells us nothing about where we are.
+	env, err := newProcessEnv()
+	if err != nil {
+		t.Fatalf("Failed making a new env: %v", err)
+	}
+
+	if wd := env.getwd(); wd != tempDirLink {
+		t.Errorf("Environment setup had a wd of %q; wanted %q", wd, tempDirLink)
+	}
+
+	const cwdLink = "/proc/self/cwd"
+	if err := os.Setenv(envPwd, cwdLink); err != nil {
+		t.Fatalf("Failed setting pwd to /proc/self/cwd: %v", err)
+	}
+
+	env, err = newProcessEnv()
+	if err != nil {
+		t.Fatalf("Failed making a new env: %v", err)
+	}
+
+	if wd := env.getwd(); wd != tempDir {
+		t.Errorf("Environment setup had a wd of %q; wanted %q", cwdLink, tempDir)
+	}
 }
 
 func execEcho(ctx *testContext, cmd *command) {

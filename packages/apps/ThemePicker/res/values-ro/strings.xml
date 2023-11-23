@@ -17,18 +17,20 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6995669566699638946">"Stiluri și imagini de fundal"</string>
+    <string name="app_name" msgid="1647136562008520313">"Imagine de fundal și stil"</string>
     <string name="theme_title" msgid="2144932106319405101">"Stil"</string>
     <string name="clock_title" msgid="2126046720254613991">"Ceas"</string>
-    <string name="grid_title" msgid="2825094404523390773">"Grilă"</string>
-    <string name="wallpaper_title" msgid="6952635398953194544">"Imagine de fundal"</string>
+    <string name="grid_title" msgid="1688173478777254123">"Grilă aplicații"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"Aplicați"</string>
     <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"Atingeți pentru a modifica"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"Păstrați imaginea de fundal actuală"</string>
     <string name="apply_btn" msgid="7965877231041987336">"Aplicați"</string>
-    <string name="accessibility_preview_pager" msgid="3548503287402185430">"Pagina <xliff:g id="ID_1">%1$d</xliff:g> din <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="next_page_content_description" msgid="5290226604542300962">"Înainte"</string>
-    <string name="previous_page_content_description" msgid="6025726405430262788">"Înapoi"</string>
+    <string name="theme_preview_card_content_description" msgid="5989222908619535533">"Previzualizarea stilului"</string>
+    <string name="grid_preview_card_content_description" msgid="8449383777584714842">"Previzualizarea grilei"</string>
+    <string name="font_preview_content_description" msgid="128230439293337891">"Previzualizarea fontului"</string>
+    <string name="icon_preview_content_description" msgid="7761101284351952890">"Previzualizarea pictogramei"</string>
+    <string name="color_preview_content_description" msgid="4879120462082058124">"Previzualizarea culorii"</string>
+    <string name="shape_preview_content_description" msgid="6479487796176550432">"Previzualizarea formei"</string>
     <string name="option_applied_description" msgid="5022305212078053534">"S-a aplicat <xliff:g id="ID_1">%1$s</xliff:g> acum"</string>
     <string name="option_applied_previewed_description" msgid="5269654286638446858">"<xliff:g id="ID_1">%1$s</xliff:g>, aplicată și previzualizată acum"</string>
     <string name="option_previewed_description" msgid="3467217598865047661">"<xliff:g id="ID_1">%1$s</xliff:g>, previzualizată acum"</string>
@@ -41,12 +43,15 @@
     <string name="preview_name_wallpaper" msgid="1738652462949531828">"Imagine de fundal"</string>
     <string name="font_card_title" msgid="2343292653502548685">"ABC • abc • 123"</string>
     <string name="font_card_body" msgid="6790525594503904468">"Adăugați fonturile preferate pe fiecare ecran"</string>
+    <string name="grid_options_title" msgid="7071930966989877023">"Alegeți o dimensiune de grilă"</string>
     <string name="grid_title_pattern" msgid="9188866567612607806">"<xliff:g id="ID_1">%1$d</xliff:g> x <xliff:g id="ID_2">%2$d</xliff:g>"</string>
-    <string name="applied_theme_msg" msgid="7348498271552054431">"S-a aplicat stilul"</string>
-    <string name="applied_clock_msg" msgid="1938218786265793285">"S-a aplicat ceasul"</string>
+    <string name="applied_theme_msg" msgid="3749018706366796244">"Stilul a fost setat"</string>
+    <string name="applied_clock_msg" msgid="1303338016701443767">"Ceasul a fost setat"</string>
+    <string name="applied_grid_msg" msgid="3250499654436933034">"Grila a fost setată"</string>
     <string name="apply_theme_error_msg" msgid="791364062636538317">"A apărut o problemă la aplicarea stilului"</string>
     <string name="custom_theme_next" msgid="6235420097213197301">"Înainte"</string>
     <string name="custom_theme_previous" msgid="4941132112640503022">"Înapoi"</string>
+    <string name="custom_theme" msgid="1618351922263478163">"Personalizat"</string>
     <string name="custom_theme_title" msgid="2192300350332693631">"<xliff:g id="ID_1">%1$d</xliff:g> personalizat"</string>
     <string name="custom_theme_fragment_title" msgid="6615547284702040280">"Stil personalizat"</string>
     <string name="custom_theme_delete" msgid="4744494663184126202">"Ștergeți"</string>
@@ -66,4 +71,16 @@
     <string name="no_thanks" msgid="7286616980115687627">"Nu, mulțumesc"</string>
     <string name="clock_preview_content_description" msgid="5460561185905717460">"Previzualizarea ceasului <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="something_went_wrong" msgid="529840112449799117">"Hopa! Ceva nu a funcționat cum trebuie."</string>
+    <string name="theme_preview_icons_section_title" msgid="7064768910744000643">"Culoare/pictograme"</string>
+    <string name="style_info_description" msgid="2612473574431003251">"Previzualizați fontul, pictogramele, forma aplicației și culoarea"</string>
+    <string name="accessibility_custom_font_title" msgid="966867359157303705">"Font personalizat"</string>
+    <string name="accessibility_custom_icon_title" msgid="5753297905849062296">"Pictogramă personalizată"</string>
+    <string name="accessibility_custom_color_title" msgid="4124246598886320663">"Culoare personalizată"</string>
+    <string name="accessibility_custom_shape_title" msgid="7708408259374643129">"Formă personalizată"</string>
+    <string name="accessibility_custom_name_title" msgid="5494460518085463262">"Numele stilului personalizat"</string>
+    <string name="mode_title" msgid="2394873501427436055">"Temă întunecată"</string>
+    <string name="mode_disabled_msg" msgid="9196245518435936512">"Dezactivat temporar de Economisirea bateriei"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"Pictograme tematice"</string>
+    <string name="beta_title" msgid="8703819523760746458">"Beta"</string>
+    <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"Schimbați grila de aplicații"</string>
 </resources>

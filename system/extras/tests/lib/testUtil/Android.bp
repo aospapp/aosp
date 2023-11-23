@@ -14,10 +14,22 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_extras_tests_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_extras_tests_license"],
+}
+
 cc_library_static {
     name: "libtestUtil",
     srcs: ["testUtil.c"],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     export_include_dirs: ["include"],
     shared_libs: [
         "libcutils",

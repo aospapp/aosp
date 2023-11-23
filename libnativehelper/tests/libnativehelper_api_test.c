@@ -19,7 +19,7 @@
 #include "nativehelper/JniInvocation.h"
 #include "nativehelper/toStringArray.h"
 
-int main() {
+int libnativehelper_api_test_main() {
   // The test here is that the headers are properly guarded to support
   // compilation with a C compiler.
   return 0;

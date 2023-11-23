@@ -19,6 +19,8 @@ package com.android.internal.telephony;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_ACKNOWLEDGE_INCOMING_GSM_SMS_WITH_PDU;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_ALLOW_DATA;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_CDMA_GET_SUBSCRIPTION_SOURCE;
+import static com.android.internal.telephony.RILConstants.RIL_REQUEST_CDMA_SEND_SMS;
+import static com.android.internal.telephony.RILConstants.RIL_REQUEST_CDMA_SEND_SMS_EXPECT_MORE;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_CHANGE_SIM_PIN;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_CHANGE_SIM_PIN2;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_CONFERENCE;
@@ -41,6 +43,7 @@ import static com.android.internal.telephony.RILConstants.RIL_REQUEST_GET_HARDWA
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_GET_IMSI;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_GET_RADIO_CAPABILITY;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_GET_SIM_STATUS;
+import static com.android.internal.telephony.RILConstants.RIL_REQUEST_GET_SLICING_CONFIG;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_GET_SMSC_ADDRESS;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_GET_UICC_APPLICATIONS_ENABLEMENT;
 import static com.android.internal.telephony.RILConstants.RIL_REQUEST_HANGUP;
@@ -110,9 +113,9 @@ import android.hardware.radio.V1_0.NvWriteItem;
 import android.hardware.radio.V1_0.RadioError;
 import android.hardware.radio.V1_0.RadioResponseInfo;
 import android.hardware.radio.V1_0.RadioResponseType;
+import android.hardware.radio.V1_0.RadioTechnologyFamily;
 import android.hardware.radio.V1_0.SmsWriteArgs;
-import android.hardware.radio.V1_5.IRadio;
-import android.hardware.radio.deprecated.V1_0.IOemHook;
+import android.hardware.radio.V1_6.IRadio;
 import android.net.ConnectivityManager;
 import android.net.InetAddresses;
 import android.net.LinkAddress;
@@ -145,6 +148,7 @@ import android.telephony.CellSignalStrengthNr;
 import android.telephony.CellSignalStrengthTdscdma;
 import android.telephony.CellSignalStrengthWcdma;
 import android.telephony.NetworkScanRequest;
+import android.telephony.RadioAccessFamily;
 import android.telephony.RadioAccessSpecifier;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
@@ -153,6 +157,10 @@ import android.telephony.TelephonyManager;
 import android.telephony.data.ApnSetting;
 import android.telephony.data.DataCallResponse;
 import android.telephony.data.DataProfile;
+import android.telephony.data.EpsQos;
+import android.telephony.data.QosBearerFilter;
+import android.telephony.data.QosBearerSession;
+import android.telephony.data.TrafficDescriptor;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 
@@ -167,6 +175,9 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -191,8 +202,6 @@ public class RILTest extends TelephonyTest {
     private TelephonyManager mTelephonyManager;
     @Mock
     private IRadio mRadioProxy;
-    @Mock
-    private IOemHook mOemHookProxy;
 
     private HalVersion mRadioVersionV10 = new HalVersion(1, 0);
     private HalVersion mRadioVersionV11 = new HalVersion(1, 1);
@@ -200,6 +209,7 @@ public class RILTest extends TelephonyTest {
     private HalVersion mRadioVersionV13 = new HalVersion(1, 3);
     private HalVersion mRadioVersionV14 = new HalVersion(1, 4);
     private HalVersion mRadioVersionV15 = new HalVersion(1, 5);
+    private HalVersion mRadioVersionV16 = new HalVersion(1, 6);
 
     private RIL mRILInstance;
     private RIL mRILUnderTest;
@@ -266,7 +276,7 @@ public class RILTest extends TelephonyTest {
     private static final int MAX_CONNS = 3;
     private static final int WAIT_TIME = 10;
     private static final boolean APN_ENABLED = true;
-    private static final int SUPPORTED_APNT_YPES_BITMAK = 123456;
+    private static final int SUPPORTED_APN_TYPES_BITMASK = 123456;
     private static final int ROAMING_PROTOCOL = ApnSetting.PROTOCOL_IPV6;
     private static final int BEARER_BITMASK = 123123;
     private static final int MTU = 1234;
@@ -298,11 +308,11 @@ public class RILTest extends TelephonyTest {
         doReturn(powerManager).when(context).getSystemService(Context.POWER_SERVICE);
         doReturn(new ApplicationInfo()).when(context).getApplicationInfo();
 
-        mRILInstance = new RIL(context, RILConstants.PREFERRED_NETWORK_MODE,
+        mRILInstance = new RIL(context,
+                RadioAccessFamily.getRafFromNetworkType(RILConstants.PREFERRED_NETWORK_MODE),
             Phone.PREFERRED_CDMA_SUBSCRIPTION, 0);
         mRILUnderTest = spy(mRILInstance);
         doReturn(mRadioProxy).when(mRILUnderTest).getRadioProxy(any());
-        doReturn(mOemHookProxy).when(mRILUnderTest).getOemHookProxy(any());
 
         try {
             replaceInstance(RIL.class, "mRadioVersion", mRILUnderTest, mRadioVersionV10);
@@ -707,6 +717,29 @@ public class RILTest extends TelephonyTest {
 
     @FlakyTest
     @Test
+    public void testSetRadioPower_1_6() throws Exception {
+        boolean on = true, forEmergencyCall = false, preferredForEmergencyCall = false;
+
+        // Use Radio HAL v1.6
+        try {
+            replaceInstance(RIL.class, "mRadioVersion", mRILUnderTest, mRadioVersionV16);
+        } catch (Exception e) {
+        }
+
+        mRILUnderTest.setRadioPower(
+                on, forEmergencyCall, preferredForEmergencyCall, obtainMessage());
+        verify(mRadioProxy)
+                .setRadioPower_1_6(
+                        mSerialNumberCaptor.capture(),
+                        eq(on),
+                        eq(forEmergencyCall),
+                        eq(preferredForEmergencyCall));
+        verifyRILResponse_1_6(
+                mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_RADIO_POWER);
+    }
+
+    @FlakyTest
+    @Test
     public void testSendDtmf() throws Exception {
         char c = 'c';
         mRILUnderTest.sendDtmf(c, obtainMessage());
@@ -729,6 +762,24 @@ public class RILTest extends TelephonyTest {
 
     @FlakyTest
     @Test
+    public void testSendSMS_1_6() throws Exception {
+        // Use Radio HAL v1.6
+        try {
+            replaceInstance(RIL.class, "mRadioVersion", mRILUnderTest, mRadioVersionV16);
+        } catch (Exception e) {
+        }
+        String smscPdu = "smscPdu";
+        String pdu = "pdu";
+        GsmSmsMessage msg = new GsmSmsMessage();
+        msg.smscPdu = smscPdu;
+        msg.pdu = pdu;
+        mRILUnderTest.sendSMS(smscPdu, pdu, obtainMessage());
+        verify(mRadioProxy).sendSms_1_6(mSerialNumberCaptor.capture(), eq(msg));
+        verifyRILResponse(mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_SEND_SMS);
+    }
+
+    @FlakyTest
+    @Test
     public void testSendSMSExpectMore() throws Exception {
         String smscPdu = "smscPdu";
         String pdu = "pdu";
@@ -739,6 +790,93 @@ public class RILTest extends TelephonyTest {
         verify(mRadioProxy).sendSMSExpectMore(mSerialNumberCaptor.capture(), eq(msg));
         verifyRILResponse(
                 mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_SEND_SMS_EXPECT_MORE);
+    }
+
+    @FlakyTest
+    @Test
+    public void testSendSMSExpectMore_1_6() throws Exception {
+        // Use Radio HAL v1.6
+        try {
+            replaceInstance(RIL.class, "mRadioVersion", mRILUnderTest, mRadioVersionV16);
+        } catch (Exception e) {
+        }
+        String smscPdu = "smscPdu";
+        String pdu = "pdu";
+        GsmSmsMessage msg = new GsmSmsMessage();
+        msg.smscPdu = smscPdu;
+        msg.pdu = pdu;
+        mRILUnderTest.sendSMSExpectMore(smscPdu, pdu, obtainMessage());
+        verify(mRadioProxy).sendSmsExpectMore_1_6(mSerialNumberCaptor.capture(), eq(msg));
+        verifyRILResponse(
+                mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_SEND_SMS_EXPECT_MORE);
+    }
+
+    @FlakyTest
+    @Test
+    public void testSendCdmaSMS_1_6() throws Exception {
+        // Use Radio HAL v1.6
+        try {
+            replaceInstance(RIL.class, "mRadioVersion", mRILUnderTest, mRadioVersionV16);
+        } catch (Exception e) {
+        }
+        byte[] pdu = "000010020000000000000000000000000000000000".getBytes();
+        CdmaSmsMessage msg = new CdmaSmsMessage();
+        constructCdmaSendSmsRilRequest(msg, pdu);
+        mRILUnderTest.sendCdmaSms(pdu, obtainMessage());
+        verify(mRadioProxy).sendCdmaSms_1_6(mSerialNumberCaptor.capture(), eq(msg));
+        verifyRILResponse(mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_CDMA_SEND_SMS);
+    }
+
+    @FlakyTest
+    @Test
+    public void testSendCdmaSMSExpectMore_1_6() throws Exception {
+        // Use Radio HAL v1.6
+        try {
+            replaceInstance(RIL.class, "mRadioVersion", mRILUnderTest, mRadioVersionV16);
+        } catch (Exception e) {
+        }
+        byte[] pdu = "000010020000000000000000000000000000000000".getBytes();
+        CdmaSmsMessage msg = new CdmaSmsMessage();
+        constructCdmaSendSmsRilRequest(msg, pdu);
+        mRILUnderTest.sendCdmaSMSExpectMore(pdu, obtainMessage());
+        verify(mRadioProxy).sendCdmaSmsExpectMore_1_6(mSerialNumberCaptor.capture(), eq(msg));
+        verifyRILResponse(mRILUnderTest, mSerialNumberCaptor.getValue(),
+                RIL_REQUEST_CDMA_SEND_SMS_EXPECT_MORE);
+    }
+
+    private void constructCdmaSendSmsRilRequest(CdmaSmsMessage msg, byte[] pdu) {
+        int addrNbrOfDigits;
+        int subaddrNbrOfDigits;
+        int bearerDataLength;
+        ByteArrayInputStream bais = new ByteArrayInputStream(pdu);
+        DataInputStream dis = new DataInputStream(bais);
+
+        try {
+            msg.teleserviceId = dis.readInt(); // teleServiceId
+            msg.isServicePresent = (byte) dis.readInt() == 1 ? true : false; // servicePresent
+            msg.serviceCategory = dis.readInt(); // serviceCategory
+            msg.address.digitMode = dis.read();  // address digit mode
+            msg.address.numberMode = dis.read(); // address number mode
+            msg.address.numberType = dis.read(); // address number type
+            msg.address.numberPlan = dis.read(); // address number plan
+            addrNbrOfDigits = (byte) dis.read();
+            for (int i = 0; i < addrNbrOfDigits; i++) {
+                msg.address.digits.add(dis.readByte()); // address_orig_bytes[i]
+            }
+            msg.subAddress.subaddressType = dis.read(); //subaddressType
+            msg.subAddress.odd = (byte) dis.read() == 1 ? true : false; //subaddr odd
+            subaddrNbrOfDigits = (byte) dis.read();
+            for (int i = 0; i < subaddrNbrOfDigits; i++) {
+                msg.subAddress.digits.add(dis.readByte()); //subaddr_orig_bytes[i]
+            }
+
+            bearerDataLength = dis.read();
+            for (int i = 0; i < bearerDataLength; i++) {
+                msg.bearerData.add(dis.readByte()); //bearerData[i]
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 
     @FlakyTest
@@ -928,13 +1066,13 @@ public class RILTest extends TelephonyTest {
         gsmMsg.pdu = pdu;
 
         ImsSmsMessage firstMsg = new ImsSmsMessage();
-        firstMsg.tech = RILConstants.GSM_PHONE;
+        firstMsg.tech = RadioTechnologyFamily.THREE_GPP;
         firstMsg.retry = false;
         firstMsg.messageRef = 0;
         firstMsg.gsmMessage.add(gsmMsg);
 
         ImsSmsMessage retryMsg = new ImsSmsMessage();
-        retryMsg.tech = RILConstants.GSM_PHONE;
+        retryMsg.tech = RadioTechnologyFamily.THREE_GPP;
         retryMsg.retry = true;
         retryMsg.messageRef = 0;
         retryMsg.gsmMessage.add(gsmMsg);
@@ -963,13 +1101,13 @@ public class RILTest extends TelephonyTest {
         CdmaSmsMessage cdmaMsg = new CdmaSmsMessage();
 
         ImsSmsMessage firstMsg = new ImsSmsMessage();
-        firstMsg.tech = RILConstants.CDMA_PHONE;
+        firstMsg.tech = RadioTechnologyFamily.THREE_GPP2;
         firstMsg.retry = false;
         firstMsg.messageRef = 0;
         firstMsg.cdmaMessage.add(cdmaMsg);
 
         ImsSmsMessage retryMsg = new ImsSmsMessage();
-        retryMsg.tech = RILConstants.CDMA_PHONE;
+        retryMsg.tech = RadioTechnologyFamily.THREE_GPP2;
         retryMsg.retry = true;
         retryMsg.messageRef = 0;
         retryMsg.cdmaMessage.add(cdmaMsg);
@@ -1241,22 +1379,6 @@ public class RILTest extends TelephonyTest {
                 mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_GET_BARRING_INFO);
     }
 
-    @Test
-    public void testInvokeOemRilRequestStrings() throws Exception {
-        String[] strings = new String[]{"a", "b", "c"};
-        mRILUnderTest.invokeOemRilRequestStrings(strings, obtainMessage());
-        verify(mOemHookProxy).sendRequestStrings(
-                mSerialNumberCaptor.capture(), eq(new ArrayList<>(Arrays.asList(strings))));
-    }
-
-    @Test
-    public void testInvokeOemRilRequestRaw() throws Exception {
-        byte[] data = new byte[]{1, 2, 3};
-        mRILUnderTest.invokeOemRilRequestRaw(data, obtainMessage());
-        verify(mOemHookProxy).sendRequestRaw(
-                mSerialNumberCaptor.capture(), eq(mRILUnderTest.primitiveArrayToArrayList(data)));
-    }
-
     private Message obtainMessage() {
         return mRILUnderTest.getRilHandler().obtainMessage();
     }
@@ -1273,6 +1395,23 @@ public class RILTest extends TelephonyTest {
         assertTrue(ril.getWakeLock(RIL.FOR_WAKELOCK).isHeld());
 
         ril.processResponseDone(rr, responseInfo, null);
+        assertEquals(0, ril.getRilRequestList().size());
+        assertFalse(ril.getWakeLock(RIL.FOR_WAKELOCK).isHeld());
+    }
+
+    private static void verifyRILResponse_1_6(RIL ril, int serial, int requestType) {
+        android.hardware.radio.V1_6.RadioResponseInfo responseInfo =
+                createFakeRadioResponseInfo_1_6(
+                        serial, RadioError.NONE, RadioResponseType.SOLICITED);
+
+        RILRequest rr = ril.processResponse_1_6(responseInfo);
+        assertNotNull(rr);
+
+        assertEquals(serial, rr.getSerial());
+        assertEquals(requestType, rr.getRequest());
+        assertTrue(ril.getWakeLock(RIL.FOR_WAKELOCK).isHeld());
+
+        ril.processResponseDone_1_6(rr, responseInfo, null);
         assertEquals(0, ril.getRilRequestList().size());
         assertFalse(ril.getWakeLock(RIL.FOR_WAKELOCK).isHeld());
     }
@@ -1316,6 +1455,16 @@ public class RILTest extends TelephonyTest {
 
     private static RadioResponseInfo createFakeRadioResponseInfo(int serial, int error, int type) {
         RadioResponseInfo respInfo = new RadioResponseInfo();
+        respInfo.serial = serial;
+        respInfo.error = error;
+        respInfo.type = type;
+        return respInfo;
+    }
+
+    private static android.hardware.radio.V1_6.RadioResponseInfo createFakeRadioResponseInfo_1_6(
+            int serial, int error, int type) {
+        android.hardware.radio.V1_6.RadioResponseInfo respInfo =
+                new android.hardware.radio.V1_6.RadioResponseInfo();
         respInfo.serial = serial;
         respInfo.error = error;
         respInfo.type = type;
@@ -1994,7 +2143,7 @@ public class RILTest extends TelephonyTest {
 
         DataCallResponse response = new DataCallResponse.Builder()
                 .setCause(0)
-                .setSuggestedRetryTime(-1)
+                .setRetryDurationMillis(-1L)
                 .setId(0)
                 .setLinkStatus(2)
                 .setProtocolType(ApnSetting.PROTOCOL_IPV4V6)
@@ -2013,6 +2162,8 @@ public class RILTest extends TelephonyTest {
                 .setMtu(1500)
                 .setMtuV4(1500)
                 .setMtuV6(1500)
+                .setQosBearerSessions(new ArrayList<>())
+                .setTrafficDescriptors(new ArrayList<>())
                 .build();
 
         assertEquals(response, RIL.convertDataCallResult(result10));
@@ -2067,7 +2218,7 @@ public class RILTest extends TelephonyTest {
 
         response = new DataCallResponse.Builder()
                 .setCause(0)
-                .setSuggestedRetryTime(-1)
+                .setRetryDurationMillis(-1L)
                 .setId(0)
                 .setLinkStatus(2)
                 .setProtocolType(ApnSetting.PROTOCOL_IPV4V6)
@@ -2086,9 +2237,138 @@ public class RILTest extends TelephonyTest {
                 .setMtu(3000)
                 .setMtuV4(1500)
                 .setMtuV6(3000)
+                .setQosBearerSessions(new ArrayList<>())
+                .setTrafficDescriptors(new ArrayList<>())
                 .build();
 
         assertEquals(response, RIL.convertDataCallResult(result15));
+
+        // Test V1.6 SetupDataCallResult
+        android.hardware.radio.V1_6.SetupDataCallResult result16 =
+                new android.hardware.radio.V1_6.SetupDataCallResult();
+        result16.cause = android.hardware.radio.V1_4.DataCallFailCause.NONE;
+        result16.suggestedRetryTime = -1;
+        result16.cid = 0;
+        result16.active = android.hardware.radio.V1_4.DataConnActiveStatus.ACTIVE;
+        result16.type = android.hardware.radio.V1_4.PdpProtocolType.IPV4V6;
+        result16.ifname = "ifname";
+
+        result16.addresses = new ArrayList<>(Arrays.asList(la1, la2));
+        result16.dnses = new ArrayList<>(Arrays.asList("10.0.2.3", "fd00:976a::9"));
+        result16.gateways = new ArrayList<>(Arrays.asList("10.0.2.15", "fe80::2"));
+        result16.pcscf = new ArrayList<>(Arrays.asList(
+                "fd00:976a:c206:20::6", "fd00:976a:c206:20::9", "fd00:976a:c202:1d::9"));
+        result16.mtuV4 = 1500;
+        result16.mtuV6 = 3000;
+        result16.handoverFailureMode = android.hardware.radio.V1_6.HandoverFailureMode.LEGACY;
+
+        // Build android.hardware.radio.V1_6.EpsQos
+        android.hardware.radio.V1_6.EpsQos halEpsQos = new android.hardware.radio.V1_6.EpsQos();
+        halEpsQos.qci = 4;
+        halEpsQos.downlink.maxBitrateKbps = 4;
+        halEpsQos.downlink.guaranteedBitrateKbps = 7;
+        halEpsQos.uplink.maxBitrateKbps = 5;
+        halEpsQos.uplink.guaranteedBitrateKbps = 8;
+
+        result16.defaultQos.eps(halEpsQos);
+
+        // android.hardware.radio.V1_6.PortRange
+        android.hardware.radio.V1_6.PortRange localPort =
+                new android.hardware.radio.V1_6.PortRange();
+        android.hardware.radio.V1_6.PortRange remotePort =
+                new android.hardware.radio.V1_6.PortRange();
+        localPort.start = 123;
+        localPort.end = 123;
+        remotePort.start = 223;
+        remotePort.end = 223;
+
+        // android.hardware.radio.V1_6.QosFilter
+        android.hardware.radio.V1_6.QosFilter halQosFilter =
+                new android.hardware.radio.V1_6.QosFilter();
+        halQosFilter.localAddresses = new ArrayList<>(Arrays.asList("122.22.22.22"));
+        halQosFilter.remoteAddresses = new ArrayList<>(Arrays.asList("144.44.44.44"));
+        halQosFilter.localPort.range(localPort);
+        halQosFilter.remotePort.range(remotePort);
+        halQosFilter.protocol = android.hardware.radio.V1_6.QosProtocol.UDP;
+        halQosFilter.tos.value((byte)7);
+        halQosFilter.flowLabel.value(987);
+        halQosFilter.spi.value(678);
+        halQosFilter.direction = android.hardware.radio.V1_6.QosFilterDirection.BIDIRECTIONAL;
+        halQosFilter.precedence = 45;
+
+        // android.hardware.radio.V1_6.QosSession
+        android.hardware.radio.V1_6.QosSession halQosSession =
+                new android.hardware.radio.V1_6.QosSession();
+        halQosSession.qosSessionId = 1234;
+        halQosSession.qos.eps(halEpsQos);
+        halQosSession.qosFilters = new ArrayList<>(Arrays.asList(halQosFilter));
+
+        result16.qosSessions = new ArrayList<>(Arrays.asList(halQosSession));
+
+        EpsQos epsQos = new EpsQos(halEpsQos);
+        QosBearerFilter qosFilter = new QosBearerFilter(
+                Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress("122.22.22.22"), 32)),
+                Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress("144.44.44.44"), 32)),
+                new QosBearerFilter.PortRange(123, 123), new QosBearerFilter.PortRange(223, 223),
+                QosBearerFilter.QOS_PROTOCOL_UDP, 7, 987, 678,
+                QosBearerFilter.QOS_FILTER_DIRECTION_BIDIRECTIONAL, 45);
+        ArrayList<QosBearerFilter> qosFilters = new ArrayList<>();
+        ArrayList<QosBearerSession> qosSessions = new ArrayList<>();
+        qosFilters.add(qosFilter);
+        QosBearerSession qosSession = new QosBearerSession(1234, epsQos, qosFilters);
+        qosSessions.add(qosSession);
+
+        // android.hardware.radio.V1_6.TrafficDescriptor
+        android.hardware.radio.V1_6.TrafficDescriptor halTrafficDescriptor =
+                new android.hardware.radio.V1_6.TrafficDescriptor();
+        android.hardware.radio.V1_6.OptionalDnn halDnn =
+                new android.hardware.radio.V1_6.OptionalDnn();
+        halDnn.value("DNN");
+
+        android.hardware.radio.V1_6.OptionalOsAppId halOsAppId =
+                new android.hardware.radio.V1_6.OptionalOsAppId();
+        android.hardware.radio.V1_6.OsAppId osAppId = new android.hardware.radio.V1_6.OsAppId();
+        byte[] osAppIdArray = {1, 2, 3, 4};
+        osAppId.osAppId = mRILUnderTest.primitiveArrayToArrayList(osAppIdArray);
+        halOsAppId.value(osAppId);
+
+        halTrafficDescriptor.dnn = halDnn;
+        halTrafficDescriptor.osAppId = halOsAppId;
+        result16.trafficDescriptors = new ArrayList<>(Arrays.asList(halTrafficDescriptor));
+
+        List<TrafficDescriptor> trafficDescriptors = Arrays.asList(
+                new TrafficDescriptor("DNN", osAppIdArray));
+
+        response = new DataCallResponse.Builder()
+                .setCause(0)
+                .setRetryDurationMillis(-1L)
+                .setId(0)
+                .setLinkStatus(2)
+                .setProtocolType(ApnSetting.PROTOCOL_IPV4V6)
+                .setInterfaceName("ifname")
+                .setAddresses(Arrays.asList(
+                        new LinkAddress(InetAddresses.parseNumericAddress("10.0.2.15"), 32),
+                        new LinkAddress("2607:fb90:a620:651d:eabe:f8da:c107:44be/64")))
+                .setDnsAddresses(Arrays.asList(InetAddresses.parseNumericAddress("10.0.2.3"),
+                        InetAddresses.parseNumericAddress("fd00:976a::9")))
+                .setGatewayAddresses(Arrays.asList(InetAddresses.parseNumericAddress("10.0.2.15"),
+                        InetAddresses.parseNumericAddress("fe80::2")))
+                .setPcscfAddresses(Arrays.asList(
+                        InetAddresses.parseNumericAddress("fd00:976a:c206:20::6"),
+                        InetAddresses.parseNumericAddress("fd00:976a:c206:20::9"),
+                        InetAddresses.parseNumericAddress("fd00:976a:c202:1d::9")))
+                .setMtu(3000)
+                .setMtuV4(1500)
+                .setMtuV6(3000)
+                .setHandoverFailureMode(DataCallResponse.HANDOVER_FAILURE_MODE_LEGACY)
+                .setDefaultQos(epsQos)
+                .setQosBearerSessions(qosSessions)
+                .setTrafficDescriptors(trafficDescriptors)
+                .build();
+
+        assertEquals(response, RIL.convertDataCallResult(result16));
     }
 
     @Test
@@ -2334,7 +2614,7 @@ public class RILTest extends TelephonyTest {
                 .setMaxConnections(MAX_CONNS)
                 .setWaitTime(WAIT_TIME)
                 .enable(APN_ENABLED)
-                .setSupportedApnTypesBitmask(SUPPORTED_APNT_YPES_BITMAK)
+                .setSupportedApnTypesBitmask(SUPPORTED_APN_TYPES_BITMASK)
                 .setRoamingProtocolType(ROAMING_PROTOCOL)
                 .setBearerBitmask(BEARER_BITMASK)
                 .setMtu(MTU)
@@ -2343,7 +2623,8 @@ public class RILTest extends TelephonyTest {
                 .build();
 
         mRILUnderTest.setupDataCall(AccessNetworkConstants.AccessNetworkType.EUTRAN, dp, false,
-                false, 0, null, obtainMessage());
+                false, 0, null,
+                DataCallResponse.PDU_SESSION_ID_NOT_SET, null, null, true, obtainMessage());
         ArgumentCaptor<DataProfileInfo> dpiCaptor = ArgumentCaptor.forClass(DataProfileInfo.class);
         verify(mRadioProxy).setupDataCall(
                 mSerialNumberCaptor.capture(), eq(AccessNetworkConstants.AccessNetworkType.EUTRAN),
@@ -2362,7 +2643,7 @@ public class RILTest extends TelephonyTest {
         assertEquals(MAX_CONNS, dpi.maxConns);
         assertEquals(WAIT_TIME, dpi.waitTime);
         assertEquals(APN_ENABLED, dpi.enabled);
-        assertEquals(SUPPORTED_APNT_YPES_BITMAK, dpi.supportedApnTypesBitmap);
+        assertEquals(SUPPORTED_APN_TYPES_BITMASK, dpi.supportedApnTypesBitmap);
         assertEquals(ROAMING_PROTOCOL, ApnSetting.getProtocolIntFromString(dpi.protocol));
         assertEquals(
                 BEARER_BITMASK,
@@ -2521,5 +2802,19 @@ public class RILTest extends TelephonyTest {
         // try to set a greater HalVersion will not success
         mRILUnderTest.setCompatVersion(testRequest, RIL.RADIO_HAL_VERSION_1_5);
         assertEquals(RIL.RADIO_HAL_VERSION_1_3, mRILUnderTest.getCompatVersion(testRequest));
+    }
+
+    @FlakyTest
+    @Test
+    public void testGetSlicingConfig() throws Exception {
+        // Use Radio HAL v1.6
+        try {
+            replaceInstance(RIL.class, "mRadioVersion", mRILUnderTest, mRadioVersionV16);
+        } catch (Exception e) {
+        }
+        mRILUnderTest.getSlicingConfig(obtainMessage());
+        verify(mRadioProxy).getSlicingConfig(mSerialNumberCaptor.capture());
+        verifyRILResponse_1_6(
+                mRILUnderTest, mSerialNumberCaptor.getValue(), RIL_REQUEST_GET_SLICING_CONFIG);
     }
 }

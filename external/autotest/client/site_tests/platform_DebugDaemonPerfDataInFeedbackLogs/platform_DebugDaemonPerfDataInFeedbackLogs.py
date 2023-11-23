@@ -69,8 +69,8 @@ class platform_DebugDaemonPerfDataInFeedbackLogs(test.test):
 
         # Use 180-sec timeout because GetBigFeedbackLogs runs arc-bugreport,
         # which takes a while to finish.
-        debugd_util.iface().GetBigFeedbackLogs(dbus.types.UnixFd(pipe_w),
-                                               signature='h', timeout=180)
+        debugd_util.iface().GetBigFeedbackLogs(dbus.types.UnixFd(pipe_w), '',
+                                               signature='hs', timeout=180)
 
         # pipe_w is dup()'d in calling dbus. Close in this process.
         os.close(pipe_w)

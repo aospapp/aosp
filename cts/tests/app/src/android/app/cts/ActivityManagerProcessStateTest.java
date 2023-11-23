@@ -19,18 +19,26 @@ package android.app.cts;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_ALL;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_ALL_IMPLICIT;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_FOREGROUND_LOCATION;
+import static android.app.ActivityManager.PROCESS_CAPABILITY_NETWORK;
 import static android.app.ActivityManager.PROCESS_CAPABILITY_NONE;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND_SERVICE;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE;
 import static android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
+import static android.app.stubs.LocalForegroundService.ACTION_START_FGS_RESULT;
+import static android.app.stubs.LocalForegroundServiceSticky.ACTION_RESTART_FGS_STICKY_RESULT;
+
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertTrue;
+import static junit.framework.Assert.fail;
 
 import android.accessibilityservice.AccessibilityService;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.app.Instrumentation;
+import android.app.Service;
 import android.app.cts.android.app.cts.tools.ServiceConnectionHandler;
 import android.app.cts.android.app.cts.tools.ServiceProcessController;
 import android.app.cts.android.app.cts.tools.SyncOrderedBroadcast;
@@ -39,32 +47,48 @@ import android.app.cts.android.app.cts.tools.WaitForBroadcast;
 import android.app.cts.android.app.cts.tools.WatchUidRunner;
 import android.app.stubs.CommandReceiver;
 import android.app.stubs.LocalForegroundServiceLocation;
+import android.app.stubs.LocalForegroundServiceSticky;
 import android.app.stubs.ScreenOnActivity;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
-import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.UserHandle;
 import android.permission.cts.PermissionUtils;
+import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowManagerState;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiSelector;
-import android.test.InstrumentationTestCase;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.AmMonitor;
 import com.android.compatibility.common.util.SystemUtil;
 
-public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+
+@RunWith(AndroidJUnit4.class)
+@Presubmit
+public class ActivityManagerProcessStateTest {
     private static final String TAG = ActivityManagerProcessStateTest.class.getName();
 
     private static final String STUB_PACKAGE_NAME = "android.app.stubs";
@@ -78,6 +102,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
     private static final int WAIT_TIME = 10000;
     private static final int WAITFOR_MSEC = 10000;
+    private static final int WAITFOR_ORDERED_BROADCAST_DRAINED = 60000;
     // A secondary test activity from another APK.
     static final String SIMPLE_PACKAGE_NAME = "com.android.cts.launcherapps.simpleapp";
     static final String SIMPLE_SERVICE = ".SimpleService";
@@ -104,6 +129,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
     static final String ACTION_STOP_FOREGROUND = "com.android.test.action.STOP_FOREGROUND";
     static final String ACTION_START_THEN_FG = "com.android.test.action.START_THEN_FG";
     static final String ACTION_STOP_SERVICE = "com.android.test.action.STOP";
+    static final String ACTION_FINISH = "com.android.test.action.FINISH";
 
     private static final int TEMP_WHITELIST_DURATION_MS = 2000;
 
@@ -123,11 +149,9 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
     private ApplicationInfo[] mAppInfo;
     private WatchUidRunner[] mWatchers;
 
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mInstrumentation = getInstrumentation();
+    @Before
+    public void setUp() throws Exception {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mContext = mInstrumentation.getContext();
         mTargetContext = mInstrumentation.getTargetContext();
         mServiceIntent = new Intent();
@@ -151,6 +175,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         CtsAppTestUtils.turnScreenOn(mInstrumentation, mContext);
         removeTestAppFromWhitelists();
         mAppCount = 0;
+        drainOrderedBroadcastQueue();
         // Make sure we are in Home screen before starting the test
         mInstrumentation.getUiAutomation().performGlobalAction(
                 AccessibilityService.GLOBAL_ACTION_HOME);
@@ -162,6 +187,24 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
                 am.forceStopPackage(pkgName);
             });
         }
+    }
+
+    /**
+     * Drain the ordered broadcast queue, it'll be useful when the test runs in secondary user
+     * which is just created prior to the testing, the ordered broadcast queue could be clogged.
+     */
+    private void drainOrderedBroadcastQueue() throws Exception {
+        final CountDownLatch latch = new CountDownLatch(1);
+        final BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                latch.countDown();
+            }
+        };
+        CommandReceiver.sendCommandWithResultReceiver(mContext, CommandReceiver.COMMAND_EMPTY,
+                STUB_PACKAGE_NAME, STUB_PACKAGE_NAME, 0, null, receiver);
+        latch.await(WAITFOR_ORDERED_BROADCAST_DRAINED, TimeUnit.MILLISECONDS);
+        Log.i(TAG, "Ordered broadcast queue drained");
     }
 
     /**
@@ -249,6 +292,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
     /**
      * Test basic state changes as processes go up and down due to services running in them.
      */
+    @Test
     public void testUidImportanceListener() throws Exception {
         final Parcel data = Parcel.obtain();
         ServiceConnectionHandler conn = new ServiceConnectionHandler(mContext, mServiceIntent,
@@ -421,6 +465,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
      * Test that background check correctly prevents idle services from running but allows
      * whitelisted apps to bypass the check.
      */
+    @Test
     public void testBackgroundCheckService() throws Exception {
         final Parcel data = Parcel.obtain();
         Intent serviceIntent = new Intent();
@@ -453,6 +498,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         WatchUidRunner uidWatcher = new WatchUidRunner(mInstrumentation, appInfo.uid,
                 WAIT_TIME);
 
+        final int userId = UserHandle.getUserId(appInfo.uid);
+
         // First kill the process to start out in a stable state.
         mContext.stopService(serviceIntent);
         conn.bind();
@@ -472,7 +519,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         // And wait for the uid report to be gone.
         uidWatcher.waitFor(WatchUidRunner.CMD_GONE, null);
 
-        String cmd = "appops set " + SIMPLE_PACKAGE_NAME + " RUN_IN_BACKGROUND deny";
+        String cmd = "appops set --user " + userId + " "
+                + SIMPLE_PACKAGE_NAME + " RUN_IN_BACKGROUND deny";
         String result = SystemUtil.runShellCommand(mInstrumentation, cmd);
 
         // This is a side-effect of the app op command.
@@ -480,7 +528,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         uidWatcher.expect(WatchUidRunner.CMD_PROCSTATE, "NONE");
 
         // We don't want to wait for the uid to actually go idle, we can force it now.
-        cmd = "am make-uid-idle " + SIMPLE_PACKAGE_NAME;
+        cmd = "am make-uid-idle --user " + userId + " " + SIMPLE_PACKAGE_NAME;
         result = SystemUtil.runShellCommand(mInstrumentation, cmd);
 
         // Make sure app is not yet on whitelist
@@ -503,8 +551,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             }
 
             // Put app on temporary whitelist to see if this allows the service start.
-            cmd = String.format("cmd deviceidle tempwhitelist -d %d %s",
-                    TEMP_WHITELIST_DURATION_MS, SIMPLE_PACKAGE_NAME);
+            cmd = String.format("cmd deviceidle tempwhitelist -u %d -d %d %s",
+                    userId, TEMP_WHITELIST_DURATION_MS, SIMPLE_PACKAGE_NAME);
             result = SystemUtil.runShellCommand(mInstrumentation, cmd);
 
             // Try starting the service now that the app is whitelisted...  should work!
@@ -524,14 +572,14 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             uidWatcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
 
             CtsAppTestUtils.executeShellCmd(mInstrumentation,
-                    "cmd deviceidle tempwhitelist -r " + SIMPLE_PACKAGE_NAME);
+                    "cmd deviceidle tempwhitelist -u " + userId + " -r " + SIMPLE_PACKAGE_NAME);
 
             // Going off the temp whitelist causes a spurious proc state report...  that's
             // not ideal, but okay.
             uidWatcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_EMPTY);
 
             // We don't want to wait for the uid to actually go idle, we can force it now.
-            cmd = "am make-uid-idle " + SIMPLE_PACKAGE_NAME;
+            cmd = "am make-uid-idle --user " + userId + " " + SIMPLE_PACKAGE_NAME;
             result = SystemUtil.runShellCommand(mInstrumentation, cmd);
 
             uidWatcher.expect(WatchUidRunner.CMD_IDLE, null);
@@ -572,7 +620,8 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             uidWatcher.finish();
 
-            cmd = "appops set " + SIMPLE_PACKAGE_NAME + " RUN_IN_BACKGROUND allow";
+            cmd = "appops set --user " + userId + " "
+                    + SIMPLE_PACKAGE_NAME + " RUN_IN_BACKGROUND allow";
             result = SystemUtil.runShellCommand(mInstrumentation, cmd);
             cmd = "cmd deviceidle whitelist -" + SIMPLE_PACKAGE_NAME;
             result = SystemUtil.runShellCommand(mInstrumentation, cmd);
@@ -588,6 +637,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
      * Test that background check behaves correctly after a process is no longer foreground: first
      * allowing a service to be started, then stopped by the system when idle.
      */
+    @Test
     public void testBackgroundCheckStopsService() throws Exception {
         final Parcel data = Parcel.obtain();
         ServiceConnectionHandler conn = new ServiceConnectionHandler(mContext, mServiceIntent,
@@ -759,6 +809,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
      * Test the background check doesn't allow services to be started from broadcasts except when in
      * the correct states.
      */
+    @Test
     public void testBackgroundCheckBroadcastService() throws Exception {
         final Intent broadcastIntent = new Intent();
         broadcastIntent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
@@ -894,6 +945,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
     /**
      * Test that background check does allow services to be started from activities.
      */
+    @Test
     public void testBackgroundCheckActivityService() throws Exception {
         final Intent activityIntent = new Intent();
         activityIntent.setClassName(SIMPLE_PACKAGE_NAME,
@@ -983,6 +1035,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
     /**
      * Test that the foreground service app op does prevent the foreground state.
      */
+    @Test
     public void testForegroundServiceAppOp() throws Exception {
         PermissionUtils.grantPermission(
                 STUB_PACKAGE_NAME, android.Manifest.permission.PACKAGE_USAGE_STATS);
@@ -1143,6 +1196,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
      * Verify that an app under background restrictions has its foreground services demoted to
      * ordinary service state when it is no longer the top app.
      */
+    @Test
     public void testBgRestrictedForegroundService() throws Exception {
         final Intent activityIntent = new Intent()
                 .setClassName(SIMPLE_PACKAGE_NAME,
@@ -1152,7 +1206,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         PermissionUtils.grantPermission(
                 STUB_PACKAGE_NAME, android.Manifest.permission.PACKAGE_USAGE_STATS);
         final ServiceProcessController controller = new ServiceProcessController(mContext,
-                getInstrumentation(), STUB_PACKAGE_NAME, mAllProcesses, WAIT_TIME);
+                mInstrumentation, STUB_PACKAGE_NAME, mAllProcesses, WAIT_TIME);
         final WatchUidRunner uidWatcher = controller.getUidWatcher();
 
         final Intent homeIntent = new Intent()
@@ -1219,21 +1273,13 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             return true;
         }
 
-        // Most types of devices need to support this.
-        int mode = mContext.getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_TYPE_MASK;
-        if (mode != Configuration.UI_MODE_TYPE_WATCH
-                && mode != Configuration.UI_MODE_TYPE_APPLIANCE) {
-            // Most devices must support the can't save state feature.
-            throw new IllegalStateException("Devices that are not watches or appliances must "
-                    + "support FEATURE_CANT_SAVE_STATE");
-        }
         return false;
     }
 
     /**
      * Test that a single "can't save state" app has the proper process management semantics.
      */
+    @Test
     public void testCantSaveStateLaunchAndBackground() throws Exception {
         if (!supportsCantSaveState()) {
             return;
@@ -1340,11 +1386,12 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             device.waitForIdle();
 
             // Exit activity, check to see if we are now cached.
-            mInstrumentation.getUiAutomation().performGlobalAction(
-                    AccessibilityService.GLOBAL_ACTION_BACK);
-            // Hit back again in case the notification curtain is open
-            mInstrumentation.getUiAutomation().performGlobalAction(
-                    AccessibilityService.GLOBAL_ACTION_BACK);
+            final Intent finishIntent = new Intent();
+            finishIntent.setPackage(CANT_SAVE_STATE_1_PACKAGE_NAME);
+            finishIntent.setAction(ACTION_FINISH);
+            finishIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            finishIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            mTargetContext.startActivity(finishIntent);
 
             // Wait for process to become cached
             uidCachedListener.waitForValue(
@@ -1373,6 +1420,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
     /**
      * Test that switching between two "can't save state" apps is handled properly.
      */
+    @Test
     public void testCantSaveStateLaunchAndSwitch() throws Exception {
         if (!supportsCantSaveState()) {
             return;
@@ -1505,14 +1553,17 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             uid1Watcher.waitFor(WatchUidRunner.CMD_UNCACHED, null);
             uid1Watcher.expect(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_TOP);
 
-            // Exit activity, check to see if we are now cached.
             waitForAppFocus(CANT_SAVE_STATE_1_PACKAGE_NAME, WAIT_TIME);
             device.waitForIdle();
-            mInstrumentation.getUiAutomation().performGlobalAction(
-                    AccessibilityService.GLOBAL_ACTION_BACK);
-            // Hit back again in case the notification curtain is open
-            mInstrumentation.getUiAutomation().performGlobalAction(
-                    AccessibilityService.GLOBAL_ACTION_BACK);
+
+            // Exit activity, check to see if we are now cached.
+            final Intent finishIntent = new Intent();
+            finishIntent.setPackage(CANT_SAVE_STATE_1_PACKAGE_NAME);
+            finishIntent.setAction(ACTION_FINISH);
+            finishIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            finishIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            mTargetContext.startActivity(finishIntent);
+
             uid1Watcher.expect(WatchUidRunner.CMD_CACHED, null);
             uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_CACHED_RECENT);
 
@@ -1535,6 +1586,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
      *
      * @throws Exception
      */
+    @Test
     public void testCycleFgs() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP1, 0);
@@ -1595,6 +1647,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
      *
      * @throws Exception
      */
+    @Test
     public void testCycleFgsTriangle() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP1, 0);
@@ -1681,6 +1734,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
      *
      * @throws Exception
      */
+    @Test
     public void testCycleFgsTriangleBiDi() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP1, 0);
@@ -1762,6 +1816,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
      * client to service.
      * @throws Exception
      */
+    @Test
     public void testFgsLocationBind() throws Exception {
         setupWatchers(3);
 
@@ -1796,7 +1851,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
 
             mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_FOREGROUND_LOCATION
+                    new Integer(PROCESS_CAPABILITY_NETWORK | PROCESS_CAPABILITY_FOREGROUND_LOCATION
                             | PROCESS_CAPABILITY_ALL_IMPLICIT));
 
             // Bind App 0 -> App 1, verify doesn't include capability.
@@ -1805,7 +1860,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             // Verify app1 does NOT have capability.
             mWatchers[1].waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_ALL_IMPLICIT));
+                    new Integer(PROCESS_CAPABILITY_ALL_IMPLICIT | PROCESS_CAPABILITY_NETWORK));
 
             // Bind App 0 -> App 2, include capability.
             bundle = new Bundle();
@@ -1815,7 +1870,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             // Verify app2 has FOREGROUND_LOCATION capability.
             mWatchers[2].waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_FOREGROUND_LOCATION
+                    new Integer(PROCESS_CAPABILITY_FOREGROUND_LOCATION | PROCESS_CAPABILITY_NETWORK
                             | PROCESS_CAPABILITY_ALL_IMPLICIT));
 
             // Back down to foreground service
@@ -1825,7 +1880,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             // Verify app0 does NOT have FOREGROUND_LOCATION capability.
             mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE,
                     WatchUidRunner.STATE_FG_SERVICE,
-                    new Integer(PROCESS_CAPABILITY_ALL_IMPLICIT));
+                    new Integer(PROCESS_CAPABILITY_ALL_IMPLICIT | PROCESS_CAPABILITY_NETWORK));
 
             // Remove foreground service as well
             CommandReceiver.sendCommand(mContext,
@@ -1850,6 +1905,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
      * Bound app should be TOP w/flag and BTOP without flag.
      * @throws Exception
      */
+    @Test
     public void testTopBind() throws Exception {
         setupWatchers(2);
 
@@ -1863,7 +1919,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             CommandReceiver.sendCommand(mContext, CommandReceiver.COMMAND_BIND_SERVICE,
                     STUB_PACKAGE_NAME, mAppInfo[0].packageName, 0, null);
             mWatchers[0].waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_BOUND_TOP,
-                    new Integer(PROCESS_CAPABILITY_NONE));
+                    new Integer(PROCESS_CAPABILITY_NETWORK));
 
             // Bind Stub -> App 1, include capability (TOP)
             Bundle bundle = new Bundle();
@@ -1896,6 +1952,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         return monitor.waitForActivity();
     }
 
+    @Test
     public void testCycleTop() throws Exception {
         ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
                 PACKAGE_NAME_APP1, 0);
@@ -2033,6 +2090,7 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testCycleFgAppAndAlert() throws Exception {
         ApplicationInfo stubInfo = mContext.getPackageManager().getApplicationInfo(
                 STUB_PACKAGE_NAME, 0);
@@ -2152,5 +2210,234 @@ public class ActivityManagerProcessStateTest extends InstrumentationTestCase {
             uid2Watcher.finish();
             uid3Watcher.finish();
         }
+    }
+
+    /**
+     * Test FGS compatibility with START_STICKY flag.
+     * @throws Exception
+     */
+    @Test
+    public void testFgsSticky1() throws Exception {
+        // For START_STICKY, service is restarted, Service.onStartCommand is called with a null
+        // intent.
+        testFgsStickyInternal(Service.START_STICKY, ACTION_RESTART_FGS_STICKY_RESULT,
+                (uidWatcher, waiter) -> {
+                    // After restart, the FGS still has its while-in-use capabilities.
+                    uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                            WatchUidRunner.STATE_FG_SERVICE,
+                            new Integer(PROCESS_CAPABILITY_ALL));
+                    waiter.doWait(WAITFOR_MSEC);
+                });
+    }
+
+    /**
+     * Test FGS compatibility with START_REDELIVER_INTENT flag.
+     * @throws Exception
+     */
+    @Test
+    public void testFgsSticky2() throws Exception {
+        // For START_REDELIVER_INTENT, service is restarted, Service.onStartCommand is called with
+        // the same intent as previous service start.
+        testFgsStickyInternal(Service.START_REDELIVER_INTENT, ACTION_START_FGS_RESULT,
+                (uidWatcher, waiter) -> {
+                    // After restart, the FGS still has its while-in-use capabilities.
+                    uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                            WatchUidRunner.STATE_FG_SERVICE,
+                            new Integer(PROCESS_CAPABILITY_ALL));
+                    waiter.doWait(WAITFOR_MSEC);
+                });
+    }
+
+    /**
+     * Test FGS compatibility with START_NOT_STICKY flag.
+     * @throws Exception
+     */
+    @Test
+    public void testFgsSticky3() throws Exception {
+        // For START_NOT_STICKY, service does not restart and Service.onStartCommand is not called
+        // again.
+        testFgsStickyInternal(Service.START_NOT_STICKY, ACTION_RESTART_FGS_STICKY_RESULT,
+                (uidWatcher, waiter) -> {
+                    try {
+                        uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                                WatchUidRunner.STATE_FG_SERVICE);
+                        fail("Not-Sticky service should not restart after kill");
+                    } catch (Exception e) {
+                    }
+                    try {
+                        waiter.doWait(WAITFOR_MSEC);
+                        fail("Not-Sticky service should not call onStartCommand after kill");
+                    } catch (Exception e) {
+                    }
+                });
+
+        testFgsStickyInternal(Service.START_NOT_STICKY, ACTION_START_FGS_RESULT,
+                (uidWatcher, waiter) -> {
+                    try {
+                        uidWatcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                                WatchUidRunner.STATE_FG_SERVICE);
+                        fail("Not-Sticky service should not restart after kill");
+                    } catch (Exception e) {
+                    }
+                    try {
+                        waiter.doWait(WAITFOR_MSEC);
+                        fail("Not-Sticky service should not call onStartCommand after kill");
+                    } catch (Exception e) {
+                    }
+                });
+    }
+
+    @Test
+    public void testForegroundService_malformedNotificationExtras() throws Exception {
+        PermissionUtils.grantPermission(
+                STUB_PACKAGE_NAME, android.Manifest.permission.PACKAGE_USAGE_STATS);
+        // Use default timeout value 5000
+        final ServiceProcessController controller = new ServiceProcessController(mContext,
+                mInstrumentation, STUB_PACKAGE_NAME, mAllProcesses);
+
+        ApplicationInfo appInfo = mContext.getPackageManager().getApplicationInfo(
+                SIMPLE_PACKAGE_NAME, 0);
+        UidImportanceListener uidGoneListener = new UidImportanceListener(mContext,
+                appInfo.uid, IMPORTANCE_CACHED, WAIT_TIME);
+        uidGoneListener.register();
+
+        ActivityManager am = mContext.getSystemService(ActivityManager.class);
+
+        try {
+            controller.ensureProcessGone();
+
+            // Do initial setup.
+            controller.makeUidIdle();
+            controller.removeFromWhitelist();
+            controller.setAppOpMode(AppOpsManager.OPSTR_START_FOREGROUND, "allow");
+
+            // Put app on whitelist, to allow service to run.
+            controller.addToWhitelist();
+
+            // Add a bad extra to the FGS notification and try to start the service
+            // keep key in sync with com.android.cts.launcherapps.simpleapp.SimpleService
+            mServiceStartForegroundIntent.putExtra("NotifExtras", true);
+            mContext.startService(mServiceStartForegroundIntent);
+
+            // Make sure we crashed the process
+            uidGoneListener.waitForValue(IMPORTANCE_GONE, IMPORTANCE_GONE);
+            assertEquals(IMPORTANCE_GONE, am.getPackageImportance(SIMPLE_PACKAGE_NAME));
+        } finally {
+            mContext.stopService(mServiceStartForegroundIntent);
+            controller.cleanup();
+            controller.setAppOpMode(AppOpsManager.OPSTR_START_FOREGROUND, "ignore");
+            controller.removeFromWhitelist();
+        }
+    }
+
+    private void testFgsStickyInternal(int stickyFlag, String waitForBroadcastAction,
+            BiConsumer<WatchUidRunner, WaitForBroadcast> checkKillResult) throws Exception {
+        ApplicationInfo app1Info = mContext.getPackageManager().getApplicationInfo(
+                PACKAGE_NAME_APP1, 0);
+        WatchUidRunner uid1Watcher = new WatchUidRunner(mInstrumentation, app1Info.uid,
+                WAITFOR_MSEC);
+        AmMonitor monitor = new AmMonitor(mInstrumentation,
+                new String[]{AmMonitor.WAIT_FOR_EARLY_ANR, AmMonitor.WAIT_FOR_ANR});
+        try {
+            // Start an activity in app1 to put app1 in TOP state, so the FGS it started can have
+            // while-in-use capabilities.
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_ACTIVITY,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, null);
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE,
+                    WatchUidRunner.STATE_TOP,
+                    new Integer(PROCESS_CAPABILITY_ALL));
+
+            WaitForBroadcast waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
+            waiter.prepare(ACTION_START_FGS_RESULT);
+            Bundle extras = new Bundle();
+            extras.putInt(LocalForegroundServiceSticky.STICKY_FLAG, stickyFlag);
+            CommandReceiver.sendCommand(mContext,
+                    CommandReceiver.COMMAND_START_FOREGROUND_SERVICE_STICKY,
+                    PACKAGE_NAME_APP1, PACKAGE_NAME_APP1, 0, extras);
+
+            // Launch home activity, so the activity in app1 will be stopped, app1 now only has FGS,
+            // we're not "finishing" the activity because removing a task could result in service
+            // restart.
+            final Intent homeIntent = new Intent();
+            homeIntent.setAction(Intent.ACTION_MAIN);
+            homeIntent.addCategory(Intent.CATEGORY_HOME);
+            homeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            mTargetContext.startActivity(homeIntent);
+
+            // The FGS has all while-in-use capabilities.
+            uid1Watcher.waitFor(WatchUidRunner.CMD_PROCSTATE, WatchUidRunner.STATE_FG_SERVICE,
+                    new Integer(PROCESS_CAPABILITY_ALL));
+            waiter.doWait(WAITFOR_MSEC);
+
+            waiter = new WaitForBroadcast(mInstrumentation.getTargetContext());
+            waiter.prepare(waitForBroadcastAction);
+            CtsAppTestUtils.executeShellCmd(mInstrumentation,
+                    "am crash " + PACKAGE_NAME_APP1);
+            monitor.waitFor(AmMonitor.WAIT_FOR_CRASHED, WAITFOR_MSEC);
+            monitor.sendCommand(AmMonitor.CMD_KILL);
+            checkKillResult.accept(uid1Watcher, waiter);
+        } finally {
+            final ActivityManager am = mContext.getSystemService(ActivityManager.class);
+            SystemUtil.runWithShellPermissionIdentity(() -> {
+                am.forceStopPackage(PACKAGE_NAME_APP1);
+            });
+            uid1Watcher.finish();
+            monitor.finish();
+        }
+    }
+
+    // Copied from android.test.InstrumentationTestCase
+    /**
+     * Utility method for launching an activity.
+     *
+     * <p>The {@link Intent} used to launch the Activity is:
+     *  action = {@link Intent#ACTION_MAIN}
+     *  extras = null, unless a custom bundle is provided here
+     * All other fields are null or empty.
+     *
+     * <p><b>NOTE:</b> The parameter <i>pkg</i> must refer to the package identifier of the
+     * package hosting the activity to be launched, which is specified in the AndroidManifest.xml
+     * file.  This is not necessarily the same as the java package name.
+     *
+     * @param pkg The package hosting the activity to be launched.
+     * @param activityCls The activity class to launch.
+     * @param extras Optional extra stuff to pass to the activity.
+     * @return The activity, or null if non launched.
+     */
+    public final <T extends Activity> T launchActivity(
+            String pkg,
+            Class<T> activityCls,
+            Bundle extras) {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        if (extras != null) {
+            intent.putExtras(extras);
+        }
+        return launchActivityWithIntent(pkg, activityCls, intent);
+    }
+
+    // Copied from android.test.InstrumentationTestCase
+    /**
+     * Utility method for launching an activity with a specific Intent.
+     *
+     * <p><b>NOTE:</b> The parameter <i>pkg</i> must refer to the package identifier of the
+     * package hosting the activity to be launched, which is specified in the AndroidManifest.xml
+     * file.  This is not necessarily the same as the java package name.
+     *
+     * @param pkg The package hosting the activity to be launched.
+     * @param activityCls The activity class to launch.
+     * @param intent The intent to launch with
+     * @return The activity, or null if non launched.
+     */
+    @SuppressWarnings("unchecked")
+    public final <T extends Activity> T launchActivityWithIntent(
+            String pkg,
+            Class<T> activityCls,
+            Intent intent) {
+        intent.setClassName(pkg, activityCls.getName());
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        T activity = (T) mInstrumentation.startActivitySync(intent);
+        mInstrumentation.waitForIdleSync();
+        return activity;
     }
 }

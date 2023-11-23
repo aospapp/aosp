@@ -102,13 +102,19 @@ public class ResourceConverter {
              */
             for (int j = 0; j < node.getChildNodes().getLength(); j++) {
                 Node child = node.getChildNodes().item(j);
+                String toAdd = null;
                 if ("ns1:g".equals(child.getNodeName())) {
-                    valueBuilder.append(child.getFirstChild().getNodeValue());
+                    toAdd = child.getFirstChild().getNodeValue();
                 } else {
-                    valueBuilder.append(child.getNodeValue());
+                    toAdd = child.getNodeValue();
                 }
+                // Replace all tab, newline and multi indentations.
+                toAdd = toAdd.replaceAll("[\n\t]", "");
+                toAdd = toAdd.replaceAll("[ ]+", " ");
+                valueBuilder.append(toAdd);
             }
-            toReturn.put(name, valueBuilder.toString());
+            String finalString = valueBuilder.toString().trim();
+            toReturn.put(name, finalString);
         }
         return toReturn;
     }

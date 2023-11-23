@@ -61,6 +61,8 @@ if [ "$HOST" == "Linux" ]; then
     OS="linux-x86"
 elif [ "$HOST" == "Darwin" ]; then
     OS="darwin-x86"
+    # Bundled java is for linux so use host JDK on Darwin
+    JAVA_BINARY=java
 else
     echo "Unrecognized OS"
     exit
@@ -84,21 +86,18 @@ if [ -z ${VTS_ROOT} ]; then
     VTS_ROOT="$(dirname $(realpath $0))/../.."
 fi;
 
-JAR_DIR=${VTS_ROOT}/android-vts/tools
-# TODO(b/149249068): Remove vts10-tradefed* after all VTS tests are converted
-JARS="tradefed
-  loganalysis
-  hosttestlib
-  compatibility-host-util
-  compatibility-host-util-tests
-  vts-tradefed
-  vts-tradefed-tests
-  compatibility-common-util-tests
-  compatibility-tradefed-tests"
+if [ -z ${JAVA_BINARY} ]; then
+      JAVA_BINARY=${VTS_ROOT}/android-vts/jdk/bin/java
+fi;
 
-for JAR in $JARS; do
-    checkFile ${JAR_DIR}/${JAR}.jar
-    JAR_PATH=${JAR_PATH}:${JAR_DIR}/${JAR}.jar
+if [ ! -f "${JAVA_BINARY}" ]; then
+      JAVA_BINARY=java
+fi
+
+JAR_DIR=${VTS_ROOT}/android-vts/tools
+
+for JAR in ${JAR_DIR}/*.jar; do
+    JAR_PATH=${JAR_PATH}:${JAR}
 done
 JAR_PATH=${JAR_PATH:1} # Strip off leading ':'
 
@@ -132,4 +131,4 @@ for j in $(find ${VTS_ROOT}/android-vts/testcases -type f -name '*.jar'); do
 done
 
 VTS_TESTCASES=${VTS_ROOT}/android-vts/testcases/
-VTS_TESTCASES=${VTS_TESTCASES} java $RDBG_FLAG -Xmx4096m -XX:+HeapDumpOnOutOfMemoryError -cp ${JAR_PATH} -DVTS_ROOT=${VTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
+VTS_TESTCASES=${VTS_TESTCASES} ${JAVA_BINARY} $RDBG_FLAG -Xmx4096m -XX:+HeapDumpOnOutOfMemoryError -cp ${JAR_PATH} -DVTS_ROOT=${VTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"

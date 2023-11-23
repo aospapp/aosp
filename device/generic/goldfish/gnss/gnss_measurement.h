@@ -26,11 +26,13 @@ namespace ahg20 = ahg::V2_0;
 namespace ahg11 = ahg::V1_1;
 namespace ahg10 = ahg::V1_0;
 using GnssMeasurementStatus10 = ahg10::IGnssMeasurement::GnssMeasurementStatus;
+using GnssData20 = ahg20::IGnssMeasurementCallback::GnssData;
 
 using ::android::sp;
 using ::android::hardware::Return;
 
 struct GnssMeasurement20 : public ahg20::IGnssMeasurement {
+    GnssMeasurement20();
     ~GnssMeasurement20();
 
     // Methods from V2_0::IGnssMeasurement follow.
@@ -51,7 +53,10 @@ private:
     sp<ahg20::IGnssMeasurementCallback> m_callback;
     std::thread                         m_thread;
     std::atomic<bool>                   m_isRunning;
+    int                                 m_gnssDataIndex = 0;
     mutable std::mutex                  m_mtx;
+
+    std::vector<GnssData20>             m_gnssData;
 };
 
 }  // namespace goldfish

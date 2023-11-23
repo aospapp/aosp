@@ -26,18 +26,6 @@
     <string name="media_app_title" msgid="94717597743776797">"මාධ්‍ය"</string>
     <string name="search_hint" msgid="5401750426238148416">"ගීත, කලාකරුවන් සහ තවත් දේ සොයන්න..."</string>
     <string name="fragment_playback_title" msgid="5014481549024607614">"දැන් වාදනය වේ"</string>
-    <string name="default_error_message" msgid="6365377134388091079">"යම් දෙයක් වැරදියි. පසුව උත්සාහ කරන්න."</string>
-    <string name="error_code_app_error" msgid="1726372057192704809">"දැන් එය කළ නොහැක"</string>
-    <string name="error_code_not_supported" msgid="1435878548411799387">"මෙම යෙදුමට එය කළ නොහැක"</string>
-    <string name="error_code_authentication_expired" msgid="905154133202017052">"මෙම යෙදුම භාවිත කිරීමට පුරන්න"</string>
-    <string name="error_code_premium_account_required" msgid="4736461331592855166">"පාරිතෝෂික ප්‍රවේශය අවශ්‍යයි"</string>
-    <string name="error_code_concurrent_stream_limit" msgid="1279573243715957403">"ඕනෑවට වඩා උපාංග මත සවන් දීම"</string>
-    <string name="error_code_parental_control_restricted" msgid="5222841294702530806">"එම අන්තර්ගතය අවහිර කර ඇත"</string>
-    <string name="error_code_not_available_in_region" msgid="4106605584926645567">"එම අන්තර්ගතය මෙතැනින් ලබා ගත නොහැක"</string>
-    <string name="error_code_content_already_playing" msgid="8050972499898729459">"දැනටමත් එම අන්තර්ගතය වාදනය කරයි"</string>
-    <string name="error_code_skip_limit_reached" msgid="8926507875025988831">"තවත් ඛණ්ඩ මඟ හැරිය නොහැක"</string>
-    <string name="error_code_action_aborted" msgid="3889734248905737169">"අවසන් කිරීමට නොහැකි විය. නැවත උත්සාහ කරන්න."</string>
-    <string name="error_code_end_of_queue" msgid="2842652212154074468">"වෙන කිසිවක් පෝලිමේ නැත"</string>
     <string name="service_notification_title" msgid="8085444675783592744">"මාධ්‍ය වෙත සබැඳීම"</string>
     <string name="menu_item_sound_settings_title" msgid="58887078120809669">"ශබ්ද සැකසීම්"</string>
     <string name="menu_item_app_selector_title" msgid="4587248991114338595">"යෙදුම් මාරු කරන්න"</string>

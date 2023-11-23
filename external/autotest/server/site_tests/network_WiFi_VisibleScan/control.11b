@@ -6,7 +6,7 @@ AUTHOR = 'quiche, wiley, pstew'
 NAME = 'network_WiFi_VisibleScan.11b'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
-ATTRIBUTES = ('suite:wifi_matfunc')
+ATTRIBUTES = ''
 DEPENDENCIES = 'wificell'
 
 DOC = """

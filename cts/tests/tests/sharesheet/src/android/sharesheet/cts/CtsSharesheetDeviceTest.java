@@ -35,11 +35,13 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
+import android.graphics.Point;
 import android.graphics.drawable.Icon;
 import android.os.Bundle;
 import android.service.chooser.ChooserTarget;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
+import android.support.test.uiautomator.StaleObjectException;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
@@ -101,6 +103,8 @@ public class CtsSharesheetDeviceTest {
 
     private Set<ComponentName> mTargetsToExclude;
 
+    private boolean mMeetsResolutionRequirements;
+
     /**
      * To validate Sharesheet API and API behavior works as intended UI test sare required. It is
      * impossible to know the how the Sharesheet UI will be modified by end partners so these tests
@@ -128,6 +132,10 @@ public class CtsSharesheetDeviceTest {
 
         mDevice = UiDevice.getInstance(mInstrumentation);
         mAutomation = mInstrumentation.getUiAutomation();
+
+        // The the device resolution is too low skip the unneeded init
+        mMeetsResolutionRequirements = meetsResolutionRequirements();
+        if (!mMeetsResolutionRequirements) return;
 
         mActivityManager = mContext.getSystemService(ActivityManager.class);
         mShortcutManager = mContext.getSystemService(ShortcutManager.class);
@@ -199,6 +207,7 @@ public class CtsSharesheetDeviceTest {
      */
     @Test
     public void bulkTest1() {
+        if (!mMeetsResolutionRequirements) return; // Skip test if resolution is too low
         try {
             launchSharesheet(createShareIntent(false /* do not test preview */,
                     0 /* do not test EIIs */,
@@ -208,7 +217,7 @@ public class CtsSharesheetDeviceTest {
             showsApplicationLabel();
             showsAppAndActivityLabel();
             showsAppAndIntentFilterLabel();
-            isChooserTargetServiceDirectShareEnabled();
+            isChooserTargetServiceDirectShareDisabled();
 
             // Must be run last, partial completion closes the Sharesheet
             firesIntentSenderWithExtraChosenComponent();
@@ -223,6 +232,7 @@ public class CtsSharesheetDeviceTest {
 
     @Test
     public void bulkTest2() {
+        if (!mMeetsResolutionRequirements) return; // Skip test if resolution is too low
         try {
             addShortcuts(1);
             launchSharesheet(createShareIntent(false /* do not test preview */,
@@ -248,6 +258,7 @@ public class CtsSharesheetDeviceTest {
      */
     @Test
     public void contentPreviewTest() {
+        if (!mMeetsResolutionRequirements) return; // Skip test if resolution is too low
         try {
             launchSharesheet(createShareIntent(true /* test content preview */,
                     0 /* do not test EIIs */,
@@ -399,19 +410,16 @@ public class CtsSharesheetDeviceTest {
     /**
      * Tests API behavior compliance for ChooserTargetService
      */
-    public void isChooserTargetServiceDirectShareEnabled() {
+    public void isChooserTargetServiceDirectShareDisabled() {
         // ChooserTargets can take time to load. To account for this:
         // * All non-test ChooserTargetServices shouldn't be loaded because of blacklist
         // * waitAndAssert operations have lengthy timeout periods
         // * Last time to run in suite so prior operations reduce wait time
 
-        if (mActivityManager.isLowRamDevice()) {
-            // Ensure direct share is disabled on low ram devices
-            waitAndAssertNoTextContains(mChooserTargetServiceLabel);
-        } else {
-            // Ensure direct share is enabled
-            waitAndAssertTextContains(mChooserTargetServiceLabel);
-        }
+
+    	// ChooserTargetService was deprecated as of API level 30, results should not
+    	// appear in the list of results.
+    	waitAndAssertNoTextContains(mChooserTargetServiceLabel);
     }
 
     /**
@@ -430,6 +438,26 @@ public class CtsSharesheetDeviceTest {
     /*
     Setup methods
      */
+
+    /**
+     * Included CTS tests can fail for resolutions that are too small. This is because
+     * the tests check for visibility of UI elements that are hidden below certain resolutions.
+     * Ensure that the device under test has the min necessary screen height in dp. Tests do not
+     * fail at any width at or above the CDD minimum of 320dp.
+     *
+     * Tests have different failure heights:
+     * bulkTest1, bulkTest2 fail below ~680 dp in height
+     * contentPreviewTest fails below ~640dp in height
+     *
+     * For safety, check against screen height some buffer on the worst case: 700dp. Most new
+     * consumer devices have a height above this.
+     *
+     * @return if min resolution requirements are met
+     */
+    private boolean meetsResolutionRequirements() {
+        final Point displaySizeDp = mDevice.getDisplaySizeDp();
+        return displaySizeDp.y >= 700; // dp
+    }
 
     public void addShortcuts(int size) {
         mShortcutManager.addDynamicShortcuts(createShortcuts(size));
@@ -477,7 +505,13 @@ public class CtsSharesheetDeviceTest {
 
     private boolean isSharesheetVisible() {
         // This method intentionally does not wait, looks to see if visible on method call
-        return mDevice.findObject(By.pkg(mSharesheetPkg).depth(0)) != null;
+        try {
+            return mDevice.findObject(By.pkg(mSharesheetPkg).depth(0)) != null;
+        } catch (StaleObjectException e) {
+            // If we get a StaleObjectException, it means that the underlying View has
+            // already been destroyed, meaning the sharesheet is no longer visible.
+            return false;
+        }
     }
 
     private Intent createMatchingIntent() {
@@ -501,7 +535,7 @@ public class CtsSharesheetDeviceTest {
                 mContext,
                 9384 /* number not relevant */ ,
                 new Intent(ACTION_INTENT_SENDER_FIRED_ON_CLICK),
-                PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
         Intent shareIntent = Intent.createChooser(intent, null, pi.getIntentSender());
 

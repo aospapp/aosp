@@ -14,6 +14,7 @@
 
 service iorapd /system/bin/iorapd
     class main
+    disabled
     user iorapd
     group iorapd
     capabilities DAC_READ_SEARCH
@@ -28,3 +29,10 @@ on property:ro.iorapd.enable=false
 on post-fs-data
     # Create directory for iorapd (see iorapd_data_file in selinux file_contexts).
     mkdir /data/misc/iorapd/ 0750 iorapd system
+
+# Start iorapd when either prefetching or tracing is enabled.
+on property:persist.device_config.runtime_native_boot.iorap_perfetto_enable=true && property:ro.iorapd.enable=true
+    start iorapd
+
+on property:persist.device_config.runtime_native_boot.iorap_readahead_enable=true && property:ro.iorapd.enable=true
+    start iorapd

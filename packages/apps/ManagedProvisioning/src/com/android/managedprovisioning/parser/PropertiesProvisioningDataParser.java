@@ -27,6 +27,7 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_AD
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCALE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCAL_TIME;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_TIME_ZONE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_USE_MOBILE_DATA;
@@ -67,8 +68,8 @@ import androidx.annotation.VisibleForTesting;
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
 import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.StoreUtils;
-import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.PackageDownloadInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.WifiInfo;
@@ -92,19 +93,23 @@ import java.util.Properties;
 @VisibleForTesting
 public class PropertiesProvisioningDataParser implements ProvisioningDataParser {
 
-    private final Utils mUtils;
+    private final ParserUtils mParserUtils;
     private final Context mContext;
     private final ManagedProvisioningSharedPreferences mSharedPreferences;
+    private final SettingsFacade mSettingsFacade;
 
-    PropertiesProvisioningDataParser(Context context, Utils utils) {
-        this(context, utils, new ManagedProvisioningSharedPreferences(context));
+    PropertiesProvisioningDataParser(Context context, ParserUtils parserUtils,
+            SettingsFacade settingsFacade) {
+        this(context, parserUtils, settingsFacade,
+                new ManagedProvisioningSharedPreferences(context));
     }
 
     @VisibleForTesting
-    PropertiesProvisioningDataParser(Context context, Utils utils,
-            ManagedProvisioningSharedPreferences sharedPreferences) {
+    PropertiesProvisioningDataParser(Context context, ParserUtils parserUtils,
+            SettingsFacade settingsFacade, ManagedProvisioningSharedPreferences sharedPreferences) {
         mContext = checkNotNull(context);
-        mUtils = checkNotNull(utils);
+        mParserUtils = checkNotNull(parserUtils);
+        mSettingsFacade = checkNotNull(settingsFacade);
         mSharedPreferences = checkNotNull(sharedPreferences);
     }
 
@@ -141,7 +146,8 @@ public class PropertiesProvisioningDataParser implements ProvisioningDataParser 
                         .setProvisioningId(mSharedPreferences.incrementAndGetProvisioningId())
                         .setStartedByTrustedSource(true)
                         .setIsNfc(true)
-                        .setProvisioningAction(mUtils.mapIntentToDpmAction(nfcIntent))
+                        .setProvisioningAction(mParserUtils.extractProvisioningAction(
+                                nfcIntent, mSettingsFacade, mContext))
                         .setDeviceAdminPackageName(
                                 getPropertyFromLongName(
                                         props, EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME));
@@ -181,8 +187,13 @@ public class PropertiesProvisioningDataParser implements ProvisioningDataParser 
                         props, EXTRA_PROVISIONING_USE_MOBILE_DATA)) != null) {
                     builder.setUseMobileData(Boolean.parseBoolean(s));
                 }
-                builder.setIsOrganizationOwnedProvisioning(
-                        mUtils.isOrganizationOwnedProvisioning(nfcIntent));
+                if ((s = getPropertyFromLongName(
+                        props, EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT)) != null) {
+                    builder.setDeviceOwnerPermissionGrantOptOut(Boolean.parseBoolean(s));
+                }
+                builder.setIsOrganizationOwnedProvisioning(true);
+                // TODO(b/177849035): Remove NFC-specific logic
+                builder.setReturnBeforePolicyCompliance(true);
                 ProvisionLogger.logi("End processing Nfc Payload.");
                 return builder.build();
             } catch (IOException e) {

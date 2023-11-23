@@ -642,7 +642,8 @@ public:
      * \retval C2_REFUSED   no permission to complete the allocation
      * \retval C2_BAD_VALUE capacity or usage are not supported (invalid) (caller error)
      * \retval C2_OMITTED   this allocator does not support 1D allocations
-     * \retval C2_CORRUPTED some unknown, unrecoverable error occured during allocation (unexpected)
+     * \retval C2_CORRUPTED some unknown, unrecoverable error occurred during allocation
+     *                      (unexpected)
      */
     virtual c2_status_t newLinearAllocation(
             uint32_t capacity __unused, C2MemoryUsage usage __unused,
@@ -666,7 +667,8 @@ public:
      * \retval C2_REFUSED   no permission to recreate the allocation
      * \retval C2_BAD_VALUE invalid handle (caller error)
      * \retval C2_OMITTED   this allocator does not support 1D allocations
-     * \retval C2_CORRUPTED some unknown, unrecoverable error occured during allocation (unexpected)
+     * \retval C2_CORRUPTED some unknown, unrecoverable error occurred during allocation
+     *                      (unexpected)
      */
     virtual c2_status_t priorLinearAllocation(
             const C2Handle *handle __unused,
@@ -699,7 +701,8 @@ public:
      * \retval C2_REFUSED   no permission to complete the allocation
      * \retval C2_BAD_VALUE width, height, format or usage are not supported (invalid) (caller error)
      * \retval C2_OMITTED   this allocator does not support 2D allocations
-     * \retval C2_CORRUPTED some unknown, unrecoverable error occured during allocation (unexpected)
+     * \retval C2_CORRUPTED some unknown, unrecoverable error occurred during allocation
+     *                      (unexpected)
      */
     virtual c2_status_t newGraphicAllocation(
             uint32_t width __unused, uint32_t height __unused, uint32_t format __unused,
@@ -724,7 +727,8 @@ public:
      * \retval C2_REFUSED   no permission to recreate the allocation
      * \retval C2_BAD_VALUE invalid handle (caller error)
      * \retval C2_OMITTED   this allocator does not support 2D allocations
-     * \retval C2_CORRUPTED some unknown, unrecoverable error occured during recreation (unexpected)
+     * \retval C2_CORRUPTED some unknown, unrecoverable error occurred during recreation
+     *                      (unexpected)
      */
     virtual c2_status_t priorGraphicAllocation(
             const C2Handle *handle __unused,
@@ -734,6 +738,22 @@ public:
     }
 
     virtual ~C2Allocator() = default;
+
+    /**
+     * Returns a true if the handle looks valid for this allocator.
+     *
+     * It does not actually validate that the handle represents a valid allocation (by this
+     * allocator), only that the handle could have been returned by this allocator. As such,
+     * multiple allocators may return true for looksValid for the same handle.
+     *
+     * This method MUST be "non-blocking", MUST not access kernel and/or device drivers, and
+     * return within 1us.
+     *
+     * \param handle      the handle for an existing allocation (possibly from another
+     *                    allocator)
+     */
+    virtual bool checkHandle(const C2Handle *const handle) const = 0;
+
 protected:
     C2Allocator() = default;
 };
@@ -878,6 +898,12 @@ public:
      * Obtains a linear writeable block of given |capacity| and |usage|. If successful, the
      * block is stored in |block|. Otherwise, |block| is set to 'nullptr'.
      *
+     * \note The returned buffer may have a larger capacity than requested. In this case the
+     * larger (returned) capacity may be fully used.
+     *
+     * \note There is no guarantee on the alignedness of the returned block. The only guarantee is
+     * that its capacity is equal to or larger than the requested capacity.
+     *
      * \param capacity the size of requested block.
      * \param usage    the memory usage info for the requested block. Returned blocks will be
      *                 optimized for this usage, but may be used with any usage. One exception:
@@ -892,7 +918,8 @@ public:
      * \retval C2_REFUSED   no permission to complete any required allocation
      * \retval C2_BAD_VALUE capacity or usage are not supported (invalid) (caller error)
      * \retval C2_OMITTED   this pool does not support linear blocks
-     * \retval C2_CORRUPTED some unknown, unrecoverable error occured during operation (unexpected)
+     * \retval C2_CORRUPTED some unknown, unrecoverable error occurred during operation
+     *                      (unexpected)
      */
     virtual c2_status_t fetchLinearBlock(
             uint32_t capacity __unused, C2MemoryUsage usage __unused,
@@ -904,6 +931,12 @@ public:
     /**
      * Obtains a circular writeable block of given |capacity| and |usage|. If successful, the
      * block is stored in |block|. Otherwise, |block| is set to 'nullptr'.
+     *
+     * \note The returned buffer may have a larger capacity than requested. In this case the
+     * larger (returned) capacity may be fully used.
+     *
+     * \note There is no guarantee on the alignedness of the returned block. The only guarantee is
+     * that its capacity is equal to or larger than the requested capacity.
      *
      * \param capacity the size of requested circular block. (note: the size of the obtained
      *                 block could be slightly larger, e.g. to accommodate any system-required
@@ -921,7 +954,8 @@ public:
      * \retval C2_REFUSED   no permission to complete any required allocation
      * \retval C2_BAD_VALUE capacity or usage are not supported (invalid) (caller error)
      * \retval C2_OMITTED   this pool does not support circular blocks
-     * \retval C2_CORRUPTED some unknown, unrecoverable error occured during operation (unexpected)
+     * \retval C2_CORRUPTED some unknown, unrecoverable error occurred during operation
+     *                      (unexpected)
      */
     virtual c2_status_t fetchCircularBlock(
             uint32_t capacity __unused, C2MemoryUsage usage __unused,
@@ -933,6 +967,12 @@ public:
     /**
      * Obtains a 2D graphic block of given |width|, |height|, |format| and |usage|. If successful,
      * the block is stored in |block|. Otherwise, |block| is set to 'nullptr'.
+     *
+     * \note The returned buffer may have a larger capacity (width and height) than requested. In
+     * this case the larger (returned) capacity may be fully used.
+     *
+     * \note There is no guarantee on the alignedness of the returned block. The only guarantee is
+     * that its capacity is equal to or larger than the requested capacity (width and height).
      *
      * \param width  the width of requested block (the obtained block could be slightly larger, e.g.
      *               to accommodate any system-required alignment)
@@ -953,7 +993,8 @@ public:
      * \retval C2_BAD_VALUE width, height, format or usage are not supported (invalid) (caller
      *                      error)
      * \retval C2_OMITTED   this pool does not support 2D blocks
-     * \retval C2_CORRUPTED some unknown, unrecoverable error occured during operation (unexpected)
+     * \retval C2_CORRUPTED some unknown, unrecoverable error occurred during operation
+     *                      (unexpected)
      */
     virtual c2_status_t fetchGraphicBlock(
             uint32_t width __unused, uint32_t height __unused, uint32_t format __unused,
@@ -964,6 +1005,102 @@ public:
     }
 
     virtual ~C2BlockPool() = default;
+
+    /**
+     * Blocking fetch for linear block. Obtains a linear writable block of given |capacity|
+     * and |usage|. If a block can be successfully obtained, the block is stored in |block|,
+     * |fence| is set to a null-fence and C2_OK is returned.
+     *
+     * If a block cannot be temporarily obtained, |block| is set to nullptr, a waitable fence
+     * is stored into |fence| and C2_BLOCKING is returned.
+     *
+     * Otherwise, |block| is set to nullptr and |fence| is set to a null-fence. The waitable
+     * fence is signalled when the temporary restriction on fetch is lifted.
+     * e.g. more memory is available to fetch because some meomory or prior blocks were released.
+     *
+     * \note The returned buffer may have a larger capacity than requested. In this case the
+     * larger (returned) capacity may be fully used.
+     *
+     * \note There is no guarantee on the alignedness of the returned block. The only guarantee is
+     * that its capacity is equal to or larger than the requested capacity.
+     *
+     * \param capacity the size of requested block.
+     * \param usage    the memory usage info for the requested block. Returned blocks will be
+     *                 optimized for this usage, but may be used with any usage. One exception:
+     *                 protected blocks/buffers can only be used in a protected scenario.
+     * \param block    pointer to where the obtained block shall be stored on success. nullptr will
+     *                 be stored here on failure
+     * \param fence    pointer to where the fence shall be stored on C2_BLOCKING error.
+     *
+     * \retval C2_OK        the operation was successful
+     * \retval C2_NO_MEMORY not enough memory to complete any required allocation
+     * \retval C2_TIMED_OUT the operation timed out
+     * \retval C2_BLOCKING  the operation is blocked
+     * \retval C2_REFUSED   no permission to complete any required allocation
+     * \retval C2_BAD_VALUE capacity or usage are not supported (invalid) (caller error)
+     * \retval C2_OMITTED   this pool does not support linear blocks nor fence.
+     * \retval C2_CORRUPTED some unknown, unrecoverable error occurred during operation
+     *                      (unexpected)
+     */
+    virtual c2_status_t fetchLinearBlock(
+            uint32_t capacity __unused, C2MemoryUsage usage __unused,
+            std::shared_ptr<C2LinearBlock> *block /* nonnull */,
+            C2Fence *fence /* nonnull */) {
+        *block = nullptr;
+        (void) fence;
+        return C2_OMITTED;
+    }
+
+    /**
+     * Blocking fetch for 2D graphic block. Obtains a 2D graphic writable block of given |capacity|
+     * and |usage|. If a block can be successfully obtained, the block is stored in |block|,
+     * |fence| is set to a null-fence and C2_OK is returned.
+     *
+     * If a block cannot be temporarily obtained, |block| is set to nullptr, a waitable fence
+     * is stored into |fence| and C2_BLOCKING is returned.
+     *
+     * Otherwise, |block| is set to nullptr and |fence| is set to a null-fence. The waitable
+     * fence is signalled when the temporary restriction on fetch is lifted.
+     * e.g. more memory is available to fetch because some meomory or prior blocks were released.
+     *
+     * \note The returned buffer may have a larger capacity (width and height) than requested. In
+     * this case the larger (returned) capacity may be fully used.
+     *
+     * \note There is no guarantee on the alignedness of the returned block. The only guarantee is
+     * that its capacity is equal to or larger than the requested capacity (width and height).
+     *
+     * \param width  the width of requested block (the obtained block could be slightly larger, e.g.
+     *               to accommodate any system-required alignment)
+     * \param height the height of requested block (the obtained block could be slightly larger,
+     *               e.g. to accommodate any system-required alignment)
+     * \param format the pixel format of requested block. This could be a vendor specific format.
+     * \param usage  the memory usage info for the requested block. Returned blocks will be
+     *               optimized for this usage, but may be used with any usage. One exception:
+     *               protected blocks/buffers can only be used in a protected scenario.
+     * \param block  pointer to where the obtained block shall be stored on success. nullptr
+     *               will be stored here on failure
+     * \param fence  pointer to where the fence shall be stored on C2_BLOCKING error.
+     *
+     * \retval C2_OK        the operation was successful
+     * \retval C2_NO_MEMORY not enough memory to complete any required allocation
+     * \retval C2_TIMED_OUT the operation timed out
+     * \retval C2_BLOCKING  the operation is blocked
+     * \retval C2_REFUSED   no permission to complete any required allocation
+     * \retval C2_BAD_VALUE width, height, format or usage are not supported (invalid) (caller
+     *                      error)
+     * \retval C2_OMITTED   this pool does not support 2D blocks
+     * \retval C2_CORRUPTED some unknown, unrecoverable error occurred during operation
+     *                      (unexpected)
+     */
+    virtual c2_status_t fetchGraphicBlock(
+            uint32_t width __unused, uint32_t height __unused, uint32_t format __unused,
+            C2MemoryUsage usage __unused,
+            std::shared_ptr<C2GraphicBlock> *block /* nonnull */,
+            C2Fence *fence /* nonnull */) {
+        *block = nullptr;
+        (void) fence;
+        return C2_OMITTED;
+    }
 protected:
     C2BlockPool() = default;
 };
@@ -2156,9 +2293,12 @@ private:
 };
 
 /**
- * An extension of C2Info objects that can contain arbitrary buffer data.
+ * A const metadata object that can contain arbitrary buffer data.
  *
- * \note This object is not describable and contains opaque data.
+ * This object is not an actual C2Info and is not attached to buffers (C2Buffer), but rather to
+ * frames (C2FrameData). It is not describable via C2ParamDescriptor.
+ *
+ * C2InfoBuffer is a const object that can be allocated on stack and is copiable.
  */
 class C2InfoBuffer {
 public:
@@ -2167,14 +2307,65 @@ public:
      *
      * \return the parameter index.
      */
-    const C2Param::Index index() const;
+    const C2Param::Index index() const { return mIndex; }
 
     /**
      * Gets the buffer's data.
      *
      * \return the buffer's data.
      */
-    const C2BufferData data() const;
+    const C2BufferData data() const { return mData; }
+
+    /// Returns a clone of this as a global info buffer.
+    C2InfoBuffer asGlobal() const {
+        C2Param::Index index = mIndex;
+        index.convertToGlobal();
+        return C2InfoBuffer(index, mData);
+    }
+
+    /// Returns a clone of this as a port info buffer.
+    C2InfoBuffer asPort(bool output) const {
+        C2Param::Index index = mIndex;
+        index.convertToPort(output);
+        return C2InfoBuffer(index, mData);
+    }
+
+    /// Returns a clone of this as a stream info buffer.
+    C2InfoBuffer asStream(bool output, unsigned stream) const {
+        C2Param::Index index = mIndex;
+        index.convertToStream(output, stream);
+        return C2InfoBuffer(index, mData);
+    }
+
+    /**
+     * Creates a global info buffer containing a single linear block.
+     *
+     * \param index the core parameter index of this info buffer.
+     * \param block the content of the info buffer.
+     *
+     * \return shared pointer to the created info buffer.
+     */
+    static C2InfoBuffer CreateLinearBuffer(C2Param::CoreIndex index, const C2ConstLinearBlock &block);
+
+    /**
+     * Creates a global info buffer containing a single graphic block.
+     *
+     * \param index the core parameter index of this info buffer.
+     * \param block the content of the info buffer.
+     *
+     * \return shared pointer to the created info buffer.
+     */
+    static C2InfoBuffer CreateGraphicBuffer(C2Param::CoreIndex index, const C2ConstGraphicBlock &block);
+
+protected:
+    // no public constructor
+    explicit C2InfoBuffer(C2Param::Index index, const std::vector<C2ConstLinearBlock> &blocks);
+    explicit C2InfoBuffer(C2Param::Index index, const std::vector<C2ConstGraphicBlock> &blocks);
+
+private:
+    C2Param::Index mIndex;
+    C2BufferData mData;
+    explicit C2InfoBuffer(C2Param::Index index, const C2BufferData &data);
 };
 
 /// @}

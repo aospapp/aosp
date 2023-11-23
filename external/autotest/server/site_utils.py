@@ -1,12 +1,17 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import collections
 import contextlib
 import grp
-import httplib
+import six.moves.http_client
 import json
 import logging
 import os
@@ -14,7 +19,9 @@ import random
 import re
 import time
 import traceback
-import urllib2
+from six.moves import filter
+from six.moves import range
+from six.moves import urllib
 
 import common
 from autotest_lib.client.bin.result_tools import utils as result_utils
@@ -224,7 +231,7 @@ def get_sheriffs(lab_only=False):
         except (ValueError, IOError) as e:
             logging.warning('could not parse sheriff from url %s%s: %s',
                              _CHROMIUM_BUILD_URL, sheriff_js, str(e))
-        except (urllib2.URLError, httplib.HTTPException) as e:
+        except (urllib.error.URLError, six.moves.http_client.HTTPException) as e:
             logging.warning('unexpected error reading from url "%s%s": %s',
                              _CHROMIUM_BUILD_URL, sheriff_js, str(e))
         else:
@@ -261,7 +268,7 @@ def _get_lab_status(status_url):
     retry_waittime = 1
     for _ in range(_MAX_LAB_STATUS_ATTEMPTS):
         try:
-            response = urllib2.urlopen(status_url)
+            response = urllib.request.urlopen(status_url)
         except IOError as e:
             logging.debug('Error occurred when grabbing the lab status: %s.',
                           e)
@@ -400,7 +407,7 @@ def get_test_views_from_tko(suite_job_id, tko):
 
     """
     views = tko.run('get_detailed_test_views', afe_job_id=suite_job_id)
-    relevant_views = filter(job_status.view_is_relevant, views)
+    relevant_views = list(filter(job_status.view_is_relevant, views))
     if not relevant_views:
         raise Exception('Failed to retrieve job results.')
 
@@ -452,39 +459,6 @@ def get_data_key(prefix, suite, build, board):
             % data_key_dict)
 
 
-def setup_logging(logfile=None, prefix=False):
-    """Setup basic logging with all logging info stripped.
-
-    Calls to logging will only show the message. No severity is logged.
-
-    @param logfile: If specified dump output to a file as well.
-    @param prefix: Flag for log prefix. Set to True to add prefix to log
-        entries to include timestamp and log level. Default is False.
-    """
-    # TODO (xixuan): Delete this code when finishing replacing run_suite.py &
-    # abort_suite.py in skylab.
-    # Remove all existing handlers. client/common_lib/logging_config adds
-    # a StreamHandler to logger when modules are imported, e.g.,
-    # autotest_lib.client.bin.utils. A new StreamHandler will be added here to
-    # log only messages, not severity.
-    logging.getLogger().handlers = []
-
-    if prefix:
-        log_format = '%(asctime)s %(levelname)-5s| %(message)s'
-    else:
-        log_format = '%(message)s'
-
-    screen_handler = logging.StreamHandler()
-    screen_handler.setFormatter(logging.Formatter(log_format))
-    logging.getLogger().addHandler(screen_handler)
-    logging.getLogger().setLevel(logging.INFO)
-    if logfile:
-        file_handler = logging.FileHandler(logfile)
-        file_handler.setFormatter(logging.Formatter(log_format))
-        file_handler.setLevel(logging.DEBUG)
-        logging.getLogger().addHandler(file_handler)
-
-
 def is_shard():
     """Determines if this instance is running as a shard.
 
@@ -504,7 +478,7 @@ def get_global_afe_hostname():
 def is_restricted_user(username):
     """Determines if a user is in a restricted group.
 
-    User in restricted group only have access to master.
+    User in restricted group only have access to main.
 
     @param username: A string, representing a username.
 
@@ -551,10 +525,10 @@ def get_special_task_exec_path(hostname, task_id, task_name, time_requested):
 
     This method returns different paths depending on where a
     the task ran:
-        * Master: hosts/hostname/task_id-task_type
-        * Shard: Master_path/time_created
+        * main: hosts/hostname/task_id-task_type
+        * Shard: main_path/time_created
     This is to work around the fact that a shard can fail independent
-    of the master, and be replaced by another shard that has the same
+    of the main, and be replaced by another shard that has the same
     hosts. Without the time_created stamp the logs of the tasks running
     on the second shard will clobber the logs from the first in google
     storage, because task ids are not globally unique.
@@ -568,7 +542,7 @@ def get_special_task_exec_path(hostname, task_id, task_name, time_requested):
     """
     results_path = 'hosts/%s/%s-%s' % (hostname, task_id, task_name.lower())
 
-    # If we do this on the master it will break backward compatibility,
+    # If we do this on the main it will break backward compatibility,
     # as there are tasks that currently don't have timestamps. If a host
     # or job has been sent to a shard, the rpc for that host/job will
     # be redirected to the shard, so this global_config check will happen
@@ -580,7 +554,7 @@ def get_special_task_exec_path(hostname, task_id, task_name, time_requested):
     # in case this shard fails. The simplest uid is the job_id, however
     # in rare cases tasks do not have jobs associated with them (eg:
     # frontend verify), so just use the creation timestamp. The clocks
-    # between a shard and master should always be in sync. Any discrepancies
+    # between a shard and main should always be in sync. Any discrepancies
     # will be brought to our attention in the form of job timeouts.
     uid = time_requested.strftime('%Y%d%m%H%M%S')
 

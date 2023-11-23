@@ -12,25 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsWriteExternalStorageApp",
     defaults: ["cts_support_defaults"],
     sdk_version: "test_current",
     static_libs: [
         "CtsWriteExternalStorageWriteGiftLib",
+        "androidx.appcompat_appcompat",
         "androidx.test.rules",
         "compatibility-device-util-axt",
     ],
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
     srcs: ["src/**/*.java"],
     exclude_srcs: ["src/com/android/cts/writeexternalstorageapp/WriteGiftTest.java"],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -40,7 +44,7 @@ java_library {
     srcs: ["src/com/android/cts/writeexternalstorageapp/WriteGiftTest.java"],
     static_libs: ["CtsExternalStorageTestLib"],
     libs: [
-        "android.test.base.stubs",
-        "android.test.runner.stubs",
+        "android.test.base",
+        "android.test.runner",
     ],
 }

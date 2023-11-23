@@ -8,8 +8,8 @@
 #include <memory>
 #include <string>
 
-#include <base/macros.h>
 #include <base/location.h>
+#include <base/macros.h>
 #include <brillo/brillo_export.h>
 
 namespace brillo {
@@ -110,6 +110,7 @@ class BRILLO_EXPORT Error {
   // Human-readable error message.
   std::string message_;
   // Error origin in the source code.
+  // TODO(crbug.com/980935): Consider dropping this.
   base::Location location_;
   // Pointer to inner error, if any. This forms a chain of errors.
   ErrorPtr inner_error_;

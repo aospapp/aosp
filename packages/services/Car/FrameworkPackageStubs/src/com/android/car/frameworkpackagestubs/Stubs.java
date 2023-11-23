@@ -17,6 +17,7 @@
 package com.android.car.frameworkpackagestubs;
 
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.widget.Toast;
 
@@ -74,6 +75,11 @@ public final class Stubs {
     public static class CalendarStub extends BaseActivity { }
 
     /**
+     * Stub activity for Contacts events.
+     */
+    public static class ContactsStub extends BaseActivity { }
+
+    /**
      * Stub activity for Desk Clock events.
      */
     public static class DeskClockStub extends BaseActivity { }
@@ -112,4 +118,17 @@ public final class Stubs {
      * Stub activity for webview setting.
      */
     public static class WebViewSettingsStub extends BaseActivity { }
+
+    /**
+     * Stub activity for picture in picture settings.
+     */
+    public static class PictureInPictureSettingsStub extends BaseActivity {
+        @Override
+        protected CharSequence getMessage() {
+            if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+                return getResources().getString(R.string.pip_not_supported);
+            }
+            return super.getMessage();
+        }
+    }
 }

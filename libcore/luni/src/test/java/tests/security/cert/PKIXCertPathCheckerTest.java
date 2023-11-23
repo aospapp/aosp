@@ -74,21 +74,24 @@ public class PKIXCertPathCheckerTest extends TestCase {
         PKIXCertPathChecker pc = TestUtils.getTestCertPathChecker();
         pc.getSupportedExtensions();
     }
-    public final void testCheck() throws CertPathValidatorException {
+    public final void testCheck_Cert_Collection() throws CertPathValidatorException {
         PKIXCertPathChecker pc = TestUtils.getTestCertPathChecker();
-        pc.check(new MyCertificate("", null), new HashSet<String>());
+        pc.check(new MyCertificate("", null), new HashSet<>());
     }
 
-    class MyPKIXCertPathChecker extends PKIXCertPathChecker {
+    public final void testCheck_Cert() throws CertPathValidatorException {
+        PKIXCertPathChecker pc = TestUtils.getTestCertPathChecker();
+        pc.check(new MyCertificate("", null));
+    }
+
+    private static class MyPKIXCertPathChecker extends PKIXCertPathChecker {
 
         public MyPKIXCertPathChecker() {
             super();
         }
 
         @Override
-        public void check(Certificate cert,
-                Collection<String> unresolvedCritExts)
-        throws CertPathValidatorException {
+        public void check(Certificate cert, Collection<String> unresolvedCritExts) {
         }
 
         @Override
@@ -97,14 +100,12 @@ public class PKIXCertPathCheckerTest extends TestCase {
         }
 
         @Override
-        public void init(boolean forward) throws CertPathValidatorException {
+        public void init(boolean forward) {
         }
 
         @Override
         public boolean isForwardCheckingSupported() {
             return false;
         }
-
     }
-
 }

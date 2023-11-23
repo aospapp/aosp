@@ -16,18 +16,22 @@
 
 package com.android.managedprovisioning;
 
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.os.BaseBundle;
 import android.os.PersistableBundle;
+import android.os.RemoteException;
+import android.support.test.uiautomator.UiDevice;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import com.android.managedprovisioning.preprovisioning.EncryptionController;
+import com.android.managedprovisioning.preprovisioning.PostEncryptionActivity;
 
 import java.lang.reflect.Array;
 import java.util.Objects;
 import java.util.Set;
-
-import static junit.framework.Assert.assertFalse;
-import static junit.framework.Assert.assertTrue;
 
 public class TestUtils extends AndroidTestCase {
     @SmallTest
@@ -154,5 +158,18 @@ public class TestUtils extends AndroidTestCase {
         nestedBundle.putStringArray("string_array", new String[] { "Hello", "World" } );
         adminExtras.putPersistableBundle("persistable_bundle", nestedBundle);
         return adminExtras;
+    }
+
+    public static void wakeupDeviceAndPressHome(UiDevice uiDevice) throws RemoteException {
+        uiDevice.wakeUp();
+        uiDevice.pressMenu();
+        uiDevice.pressHome();
+    }
+
+    public static EncryptionController createEncryptionController(
+            Context context) {
+        return EncryptionController.getInstance(
+                context,
+                new ComponentName(context, PostEncryptionActivity.class));
     }
 }

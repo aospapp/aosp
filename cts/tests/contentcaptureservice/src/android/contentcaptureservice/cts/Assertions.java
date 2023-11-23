@@ -30,6 +30,7 @@ import static android.view.contentcapture.ContentCaptureEvent.TYPE_VIEW_TREE_APP
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.app.assist.ActivityId;
 import android.content.ComponentName;
 import android.content.LocusId;
 import android.contentcaptureservice.cts.CtsContentCaptureService.Session;
@@ -103,6 +104,13 @@ final class Assertions {
                 .that(session.context.getLocusId()).isNull();
         assertWithMessage("context for session %s should not have extras", session)
                 .that(session.context.getExtras()).isNull();
+        final ActivityId activityId = session.context.getActivityId();
+        assertWithMessage("context for session %s should have ActivityIds", session)
+                .that(activityId).isNotNull();
+        assertWithMessage("wrong task id for session %s", session)
+                .that(activityId.getTaskId()).isEqualTo(activity.getRealTaskId());
+        assertWithMessage("context for session %s should have ActivityId", session)
+                .that(activityId.getToken()).isNotNull();
     }
 
     /**
@@ -118,6 +126,9 @@ final class Assertions {
                 .that(session.context.getTaskId()).isEqualTo(0);
         assertWithMessage("context for session %s should not have flags", session)
                 .that(session.context.getFlags()).isEqualTo(0);
+        final ActivityId activityId = session.context.getActivityId();
+        assertWithMessage("context for session %s should not have ActivityIds", session)
+                .that(activityId).isNull();
     }
 
     /**

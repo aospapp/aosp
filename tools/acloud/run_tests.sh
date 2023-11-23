@@ -14,6 +14,8 @@ function get_python_path() {
         "dateutil"
         "google-api-python-client"
         "oauth2client"
+        "uritemplates"
+        "rsa"
     )
     for lib in ${third_party_libs[*]};
     do
@@ -27,8 +29,8 @@ function print_summary() {
     local test_results=$1
     local tmp_dir=$(mktemp -d)
     local rc_file=${ACLOUD_DIR}/.coveragerc
-    PYTHONPATH=$(get_python_path) python -m coverage report -m
-    PYTHONPATH=$(get_python_path) python -m coverage html -d $tmp_dir --rcfile=$rc_file
+    PYTHONPATH=$(get_python_path) python3 -m coverage report -m
+    PYTHONPATH=$(get_python_path) python3 -m coverage html -d $tmp_dir --rcfile=$rc_file
     echo "coverage report available at file://${tmp_dir}/index.html"
 
     if [[ $test_results -eq 0 ]]; then
@@ -41,16 +43,16 @@ function print_summary() {
 function run_unittests() {
     local specified_tests=$@
     local rc=0
-    local run_cmd="python -m coverage run --append"
+    local run_cmd="python3 -m coverage run --append"
 
     # clear previously collected coverage data.
-    PYTHONPATH=$(get_python_path) python -m coverage erase
+    PYTHONPATH=$(get_python_path) python3 -m coverage erase
 
     # Get all unit tests under tools/acloud.
     local all_tests=$(find $ACLOUD_DIR -type f -name "*_test.py" ! -name "acloud_test.py");
     local tests_to_run=$all_tests
 
-    # Filter out the tests if specifed.
+    # Filter out the tests if specified.
     if [[ ! -z $specified_tests ]]; then
         tests_to_run=()
         for t in $all_tests;
@@ -78,16 +80,20 @@ function run_unittests() {
 }
 
 function check_env() {
-    if [ -z "$ANDROID_BUILD_TOP" ]; then
-        echo "Missing ANDROID_BUILD_TOP env variable. Run 'lunch' first."
+    if [ -z "$ANDROID_HOST_OUT" ]; then
+        echo "Missing ANDROID_HOST_OUT env variable. Run 'lunch' first."
+        exit 1
+    fi
+    if [ ! -f "$ANDROID_HOST_OUT/bin/aprotoc" ]; then
+        echo "Missing aprotoc. Run 'm aprotoc' first."
         exit 1
     fi
 
     local missing_py_packages=false
     for py_lib in {coverage,mock};
     do
-        if ! pip list | grep $py_lib &> /dev/null; then
-            echo "Missing required python package: $py_lib (pip install $py_lib)"
+        if ! python3 -m pip list | grep $py_lib &> /dev/null; then
+            echo "Missing required python package: $py_lib (python3 -m pip install $py_lib)"
             missing_py_packages=true
         fi
     done
@@ -98,7 +104,7 @@ function check_env() {
 
 function gen_proto_py() {
     # Use aprotoc to generate python proto files.
-    local protoc_cmd=$ANDROID_BUILD_TOP/prebuilts/misc/linux-x86/protobuf/aprotoc
+    local protoc_cmd=$ANDROID_HOST_OUT/bin/aprotoc
     pushd $ACLOUD_DIR &> /dev/null
     $protoc_cmd internal/proto/*.proto --python_out=./
     touch internal/proto/__init__.py

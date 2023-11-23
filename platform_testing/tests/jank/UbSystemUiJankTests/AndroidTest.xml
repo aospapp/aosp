@@ -23,7 +23,7 @@
     </target_preparer>
 
     <option name="test-tag" value="UbSystemUiJankTests" />
-    <test class="com.android.tradefed.testtype.InstrumentationTest" >
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.platform.systemui.tests.jank" />
         <option name="runner" value="android.test.InstrumentationTestRunner" />
         <option name="hidden-api-checks" value="false" />

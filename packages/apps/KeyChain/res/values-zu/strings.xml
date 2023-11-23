@@ -23,5 +23,5 @@
     <string name="install_new_cert_message" msgid="4451971501142085495">"Ungafaka izitifiketi kusuka efayeleni le-PKCS#12 ngesandiso se-%1$s noma se-%2$s esibekwe esilondolozini sangaphandle."</string>
     <string name="allow_button" msgid="3030990695030371561">"Khetha"</string>
     <string name="deny_button" msgid="3766539809121892584">"Nqaba"</string>
-    <string name="loading_certs_message" msgid="814752048905775439">"Ilayisha izitifiketi..."</string>
+    <string name="loading_certs_message" msgid="2152223341043639547">"I-%s ihlola isitifiketi…"</string>
 </resources>

@@ -172,6 +172,8 @@ const char *GetComponentRole(bool isEncoder, const char *mime) {
             "audio_decoder.ac4", "audio_encoder.ac4" },
         { MEDIA_MIMETYPE_IMAGE_ANDROID_HEIC,
             "image_decoder.heic", "image_encoder.heic" },
+        { MEDIA_MIMETYPE_IMAGE_AVIF,
+            "image_decoder.avif", "image_encoder.avif" },
     };
 
     static const size_t kNumMimeToRole =
@@ -354,7 +356,7 @@ bool IsFlexibleColorFormat(
     DescribeColorFormat2Params describeParams;
     InitOMXParams(&describeParams);
     describeParams.eColorFormat = (OMX_COLOR_FORMATTYPE)colorFormat;
-    // reasonable dummy values
+    // reasonable initial values (that will be overwritten)
     describeParams.nFrameWidth = 128;
     describeParams.nFrameHeight = 128;
     describeParams.nStride = 128;

@@ -38,14 +38,14 @@
 #define BGT60TR24C_NUM_REGISTERS        0x60
 
 /* Oslo Calibration */
-#define CAL_FILE "/persist/oslo/oslo.cal"
+#define CAL_FILE "/mnt/vendor/persist/oslo/oslo.cal"
 #define CAL_MODES_MAX 10
 #define CAL_INVALID_MODE -1
 #define CAL_MODE_IS_VALID(x) (x >= 0 && x < CAL_MODES_MAX)
 #define CAL_VERSION_DEFAULT 1.0f
 
 /* Transmit power */
-#define TX_CAL_FILE "/persist/oslo/tx_power.cal"
+#define TX_CAL_FILE "/mnt/vendor/persist/oslo/tx_power.cal"
 
 typedef enum {
     INJECT_MODE_OFF = 0,

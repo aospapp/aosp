@@ -1,13 +1,24 @@
 {
-  "presubmit-devicepolicy": [
+  "presubmit-large": [
     {
       "name": "CtsDevicePolicyManagerTestCases",
       "options": [
         {
-          "exclude-annotation": "android.platform.test.annotations.FlakyTest"
+          "include-annotation": "com.android.cts.devicepolicy.annotations.PermissionsTest"
         },
         {
-          "exclude-annotation": "android.platform.test.annotations.LargeTest"
+          "exclude-annotation": "android.platform.test.annotations.FlakyTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsDevicePolicyManagerTestCases",
+      "options": [
+        {
+          "include-annotation": "com.android.cts.devicepolicy.annotations.LockSettingsTest"
+        },
+        {
+          "exclude-annotation": "android.platform.test.annotations.FlakyTest"
         }
       ]
     }

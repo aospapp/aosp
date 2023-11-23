@@ -26,7 +26,12 @@ import android.util.Log;
  * result by the 4x4 color matrix as performed by
  * rsMatrixMultiply() and writing it to the output after
  * conversion back to {@link Element#U8_4}.
+ *
+ * @deprecated Renderscript has been deprecated in API level 31. Please refer to the <a
+ * href="https://developer.android.com/guide/topics/renderscript/migration-guide">migration
+ * guide</a> for the proposed alternatives.
  **/
+@Deprecated
 public class ScriptIntrinsicColorMatrix extends ScriptIntrinsic {
     private final Matrix4f mMatrix = new Matrix4f();
     private final Float4 mAdd = new Float4();

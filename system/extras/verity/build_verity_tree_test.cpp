@@ -101,6 +101,18 @@ TEST_F(BuildVerityTreeTest, HashSingleLevel) {
             HashTreeBuilder::BytesArrayToString(builder->root_hash()));
 }
 
+TEST_F(BuildVerityTreeTest, HashSingleLevel_blake2b256) {
+  std::vector<unsigned char> data(128 * 4096, 0x0);
+
+  builder.reset(
+      new HashTreeBuilder(4096, HashTreeBuilder::HashFunction("blake2b-256")));
+
+  GenerateHashTree(data, salt_hex);
+  ASSERT_EQ(1u, verity_tree().size());
+  ASSERT_EQ("6d5b006af5308523f7db6956c60b2650ff3e7edab1e2194cc8ee19b1a1398c03",
+            HashTreeBuilder::BytesArrayToString(builder->root_hash()));
+}
+
 TEST_F(BuildVerityTreeTest, HashMultipleLevels) {
   std::vector<unsigned char> data(129 * 4096, 0xff);
 

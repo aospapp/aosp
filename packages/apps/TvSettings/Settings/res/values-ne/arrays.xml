@@ -34,7 +34,7 @@
     <item msgid="8711655845733997688">"कदापि होइन"</item>
   </string-array>
   <string-array name="captioning_typeface_selector_titles">
-    <item msgid="890926483922346934">"पूर्वनिर्धारित"</item>
+    <item msgid="890926483922346934">"डिफल्ट"</item>
     <item msgid="3343022995357433227">"Sans-serif"</item>
     <item msgid="5638318073828379963">"Sans-serif condensed"</item>
     <item msgid="7195810992054707804">"सन्स-सेरिफ मोनोस्पेस"</item>
@@ -63,6 +63,12 @@
     <item msgid="6571958570070138850">"५०%"</item>
     <item msgid="8127599536762217559">"७५%"</item>
     <item msgid="4680121960387090302">"१००%"</item>
+  </string-array>
+  <string-array name="font_scale_entries">
+    <item msgid="6953338104484431184">"सानो"</item>
+    <item msgid="3988732129988118066">"डिफल्ट"</item>
+    <item msgid="366536516474422757">"ठुलो"</item>
+    <item msgid="2224819763437549790">"सबैभन्दा ठुलो"</item>
   </string-array>
   <string-array name="wifi_peap_phase2_entries">
     <item msgid="5504589898033185752">"कुनै पनि होइन"</item>

@@ -19,12 +19,16 @@
 # pylint: disable=protected-access
 # pylint: disable=line-too-long
 
+import os
 import unittest
 
 from unittest import mock
 
 import atest_error
+import constants
+import module_info
 import test_runner_handler
+import unittest_constants as uc
 
 from metrics import metrics
 from test_finders import test_info
@@ -119,29 +123,32 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
             test_runner_handler.get_test_runner_reqs(empty_module_info,
                                                      test_infos))
 
+    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch.object(metrics, 'RunnerFinishEvent')
     def test_run_all_tests(self, _mock_runner_finish):
         """Test that the return value as we expected."""
         results_dir = ""
         extra_args = {}
+        mod_info = module_info.ModuleInfo(
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
         # Tests both run_tests return 0
         test_infos = [MODULE_INFO_A, MODULE_INFO_A_AGAIN]
         self.assertEqual(
             0,
             test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args)[0])
+                results_dir, test_infos, extra_args, mod_info)[0])
         # Tests both run_tests return 1
         test_infos = [MODULE_INFO_B, MODULE_INFO_B_AGAIN]
         self.assertEqual(
             1,
             test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args)[0])
+                results_dir, test_infos, extra_args, mod_info)[0])
         # Tests with on run_tests return 0, the other return 1
         test_infos = [MODULE_INFO_A, MODULE_INFO_B]
         self.assertEqual(
             1,
             test_runner_handler.run_all_tests(
-                results_dir, test_infos, extra_args)[0])
+                results_dir, test_infos, extra_args, mod_info)[0])
 
 if __name__ == '__main__':
     unittest.main()

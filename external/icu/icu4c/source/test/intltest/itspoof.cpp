@@ -340,8 +340,6 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalStdioFilePointer, FILE, fclose);
 //                 verify that it transforms correctly in a skeleton.
 //
 void IntlTestSpoof::testConfData() {
-    // Android patch: b/145129186 Disable failing tests
-    #ifndef ANDROID
     char buffer[2000];
     if (getUnidataPath(buffer) == NULL) {
         errln("Skipping test spoof/testConfData. Unable to find path to source/data/unidata/.");
@@ -422,7 +420,6 @@ void IntlTestSpoof::testConfData() {
             break;
         }
     }
-    #endif /* ANDROID */
 }
 
 

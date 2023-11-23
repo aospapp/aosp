@@ -5,7 +5,7 @@
 NAME = "platform_CorruptRootfs"
 AUTHOR = "chromeos-kernel,taysom"
 ATTRIBUTES = "suite:kernel_daily_regression"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"

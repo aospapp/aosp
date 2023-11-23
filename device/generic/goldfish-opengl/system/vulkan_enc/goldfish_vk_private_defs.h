@@ -85,16 +85,15 @@ typedef VkResult (VKAPI_PTR *PFN_vkGetSwapchainGrallocUsage2ANDROID)(VkDevice de
 typedef VkResult (VKAPI_PTR *PFN_vkAcquireImageANDROID)(VkDevice device, VkImage image, int nativeFenceFd, VkSemaphore semaphore, VkFence fence);
 typedef VkResult (VKAPI_PTR *PFN_vkQueueSignalReleaseImageANDROID)(VkQueue queue, uint32_t waitSemaphoreCount, const VkSemaphore* pWaitSemaphores, VkImage image, int* pNativeFenceFd);
 
-#define VK_GOOGLE_address_space 1
-
 typedef VkResult (VKAPI_PTR *PFN_vkMapMemoryIntoAddressSpaceGOOGLE)(VkDevice device, VkDeviceMemory memory, uint64_t* pAddress);
 
-#define VK_GOOGLE_color_buffer 1
-#define VK_GOOGLE_COLOR_BUFFER_EXTENSION_NUMBER 219
+#define VK_GOOGLE_gfxstream 1
+#define VK_GOOGLE_GFXSTREAM_EXTENSION_NUMBER 386
 
-#define VK_GOOGLE_COLOR_BUFFER_ENUM(type,id)    ((type)(1000000000 + (1000 * (VK_GOOGLE_COLOR_BUFFER_EXTENSION_NUMBER - 1)) + (id)))
-#define VK_STRUCTURE_TYPE_IMPORT_COLOR_BUFFER_GOOGLE   VK_GOOGLE_COLOR_BUFFER_ENUM(VkStructureType, 0)
-#define VK_STRUCTURE_TYPE_IMPORT_PHYSICAL_ADDRESS_GOOGLE   VK_GOOGLE_COLOR_BUFFER_ENUM(VkStructureType, 1)
+#define VK_GOOGLE_GFXSTREAM_ENUM(type,id)    ((type)(1000000000 + (1000 * (VK_GOOGLE_GFXSTREAM_EXTENSION_NUMBER - 1)) + (id)))
+#define VK_STRUCTURE_TYPE_IMPORT_COLOR_BUFFER_GOOGLE   VK_GOOGLE_GFXSTREAM_ENUM(VkStructureType, 0)
+#define VK_STRUCTURE_TYPE_IMPORT_PHYSICAL_ADDRESS_GOOGLE   VK_GOOGLE_GFXSTREAM_ENUM(VkStructureType, 1)
+#define VK_STRUCTURE_TYPE_IMPORT_BUFFER_GOOGLE   VK_GOOGLE_GFXSTREAM_ENUM(VkStructureType, 2)
 
 typedef struct {
     VkStructureType sType; // must be VK_STRUCTURE_TYPE_IMPORT_COLOR_BUFFER_GOOGLE
@@ -112,14 +111,16 @@ typedef struct {
     uint32_t tilingParameter;
 } VkImportPhysicalAddressGOOGLE;
 
+typedef struct {
+    VkStructureType sType; // must be VK_STRUCTURE_TYPE_IMPORT_BUFFER_GOOGLE
+    const void* pNext;
+    uint32_t buffer;
+} VkImportBufferGOOGLE;
+
 typedef VkResult (VKAPI_PTR *PFN_vkRegisterImageColorBufferGOOGLE)(VkDevice device, VkImage image, uint32_t colorBuffer);
 typedef VkResult (VKAPI_PTR *PFN_vkRegisterBufferColorBufferGOOGLE)(VkDevice device, VkBuffer image, uint32_t colorBuffer);
 
-#define VK_GOOGLE_address_space_info 1
-
 typedef VkResult (VKAPI_PTR *PFN_vkGetMemoryHostAddressInfoGOOGLE)(VkDevice device, VkDeviceMemory memory, uint64_t* pAddress, uint64_t* pSize);
-
-#define VK_GOOGLE_free_memory_sync 1
 
 typedef VkResult (VKAPI_PTR *PFN_vkFreeMemorySyncGOOGLE)(VkDevice device, VkDeviceMemory memory, const VkAllocationCallbacks* pAllocationCallbacks);
 
@@ -275,6 +276,13 @@ enum AHardwareBuffer_Format {
      *   OpenGL ES: GL_STENCIL_INDEX8
      */
     AHARDWAREBUFFER_FORMAT_S8_UINT                  = 0x35,
+    /**
+     * YUV 420 888 format.
+     * Must have an even width and height. Can be accessed in OpenGL
+     * shaders through an external sampler. Does not support mip-maps
+     * cube-maps or multi-layered textures.
+     */
+    AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420             = 0x23,
 };
 /**
  * Buffer usage flags, specifying how the buffer will be accessed.
@@ -438,8 +446,6 @@ typedef void (VKAPI_PTR *PFN_vkCommandBufferHostSyncGOOGLE)(
     uint32_t needHostSync,
     uint32_t sequenceNumber);
 
-#define VK_GOOGLE_create_resources_with_requirements 1
-
 typedef void (VKAPI_PTR *PFN_vkCreateImageWithRequirementsGOOGLE)(
     VkDevice device, const VkImageCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkImage* pImage, VkMemoryRequirements* pMemoryRequirements);
 
@@ -470,6 +476,13 @@ typedef struct VkBufferCollectionImageCreateInfoFUCHSIA {
     uint32_t                     index;
 } VkBufferCollectionImageCreateInfoFUCHSIA;
 
+typedef struct VkBufferCollectionBufferCreateInfoFUCHSIA {
+    VkStructureType              sType;
+    const void*                  pNext;
+    VkBufferCollectionFUCHSIA    collection;
+    uint32_t                     index;
+} VkBufferCollectionBufferCreateInfoFUCHSIA;
+
 typedef struct VkBufferCollectionPropertiesFUCHSIA {
     VkStructureType    sType;
     void*              pNext;
@@ -481,12 +494,22 @@ typedef struct VkBufferCollectionPropertiesFUCHSIA {
     ((VkStructureType)1001004004)
 #define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_IMAGE_CREATE_INFO_FUCHSIA \
     ((VkStructureType)1001004005)
+#define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_BUFFER_CREATE_INFO_FUCHSIA \
+    ((VkStructureType)1001004008)
 #endif  // VK_FUCHSIA_buffer_collection
 
 #ifndef VK_FUCHSIA_external_memory
 #define VK_FUCHSIA_external_memory 1
 #define VK_FUCHSIA_EXTERNAL_MEMORY_SPEC_VERSION 1
 #define VK_FUCHSIA_EXTERNAL_MEMORY_EXTENSION_NAME "VK_FUCHSIA_external_memory"
+
+typedef struct VkBufferConstraintsInfoFUCHSIA {
+    VkStructureType sType;
+    const void* pNext;
+    const VkBufferCreateInfo* pBufferCreateInfo;
+    VkFormatFeatureFlags requiredFormatFeatures;
+    uint32_t minCount;
+} VkBufferConstraintsInfoFUCHSIA;
 
 typedef struct VkImportMemoryZirconHandleInfoFUCHSIA {
     VkStructureType                       sType;
@@ -508,13 +531,45 @@ typedef struct VkMemoryGetZirconHandleInfoFUCHSIA {
     VkExternalMemoryHandleTypeFlagBits    handleType;
 } VkMemoryGetZirconHandleInfoFUCHSIA;
 
+#define VK_STRUCTURE_TYPE_BUFFER_COLLECTION_BUFFER_CREATE_INFO_FUCHSIA \
+    ((VkStructureType)1001004008)
+
+#if VK_HEADER_VERSION < 174
+#define VK_STRUCTURE_TYPE_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA \
+    ((VkStructureType)1000364000)
+#define VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA \
+    ((VkExternalMemoryHandleTypeFlagBits)0x00000800)
+#endif
+
+// Deprecated
 #define VK_STRUCTURE_TYPE_TEMP_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA \
     ((VkStructureType)1001005000)
-#define VK_STRUCTURE_TYPE_TEMP_MEMORY_ZIRCON_HANDLE_PROPERTIES_FUCHSIA \
-    ((VkStructureType)1001005001)
 #define VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA \
     ((VkExternalMemoryHandleTypeFlagBits)0x00100000)
+
+#else // VK_FUCHSIA_external_memory
+
+// For backward compatibility
+#if VK_HEADER_VERSION >= 174
+#define VK_STRUCTURE_TYPE_TEMP_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA \
+    ((VkStructureType)1001005000)
+#define VK_EXTERNAL_MEMORY_HANDLE_TYPE_TEMP_ZIRCON_VMO_BIT_FUCHSIA \
+    ((VkExternalMemoryHandleTypeFlagBits)0x00100000)
+#endif  // VK_HEADER_VERSION >= 174
+
+// For forward compatibility
+#ifndef VK_STRUCTURE_TYPE_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA
+#define VK_STRUCTURE_TYPE_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA ((VkStructureType)1000364000)
+#endif  // VK_STRUCTURE_TYPE_IMPORT_MEMORY_ZIRCON_HANDLE_INFO_FUCHSIA
+
+// For forward compatibility
+#ifndef VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA
+#define VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA \
+    ((VkExternalMemoryHandleTypeFlagBits)0x00000800)
+#endif  // VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA
+
 #endif  // VK_FUCHSIA_external_memory
+
 
 #ifndef VK_FUCHSIA_external_semaphore
 #define VK_FUCHSIA_external_semaphore 1
@@ -527,7 +582,11 @@ typedef struct VkImportSemaphoreZirconHandleInfoFUCHSIA {
     VkSemaphore                              semaphore;
     VkSemaphoreImportFlags                   flags;
     VkExternalSemaphoreHandleTypeFlagBits    handleType;
+#if VK_HEADER_VERSION < 174
     uint32_t                                 handle;
+#else // VK_HEADER_VERSION >= 174
+    uint32_t                                 zirconHandle;
+#endif // VK_HEADER_VERSION < 174
 } VkImportSemaphoreZirconHandleInfoFUCHSIA;
 
 typedef struct VkSemaphoreGetZirconHandleInfoFUCHSIA {
@@ -537,15 +596,88 @@ typedef struct VkSemaphoreGetZirconHandleInfoFUCHSIA {
     VkExternalSemaphoreHandleTypeFlagBits    handleType;
 } VkSemaphoreGetZirconHandleInfoFUCHSIA;
 
+#if VK_HEADER_VERSION < 174
+#define VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA \
+    ((VkExternalMemoryHandleTypeFlagBits)0x00000080)
+#endif
+
+// Deprecated
 #define VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA \
     ((VkExternalSemaphoreHandleTypeFlagBits)0x00100000)
+
+#else // VK_FUCHSIA_external_semaphore
+
+// For backward compatibility
+#if VK_HEADER_VERSION >= 174
+#define VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA \
+    ((VkExternalSemaphoreHandleTypeFlagBits)0x00100000)
+#endif  // VK_HEADER_VERSION >= 174
+
+// For forward compatibility
+#ifndef VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA
+#define VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA \
+    ((VkExternalMemoryHandleTypeFlagBits)0x00000080)
+#endif  // VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TEMP_ZIRCON_EVENT_BIT_FUCHSIA
+
 #endif  // VK_FUCHSIA_external_semaphore
+
 
 // VulkanStream features
 #define VULKAN_STREAM_FEATURE_NULL_OPTIONAL_STRINGS_BIT (1 << 0)
 #define VULKAN_STREAM_FEATURE_IGNORED_HANDLES_BIT (1 << 1)
+#define VULKAN_STREAM_FEATURE_SHADER_FLOAT16_INT8_BIT (1 << 2)
+#define VULKAN_STREAM_FEATURE_QUEUE_SUBMIT_WITH_COMMANDS_BIT (1 << 3)
 
 #define VK_YCBCR_CONVERSION_DO_NOTHING ((VkSamplerYcbcrConversion)0x1111111111111111)
+
+// Stuff we advertised but didn't define the structs for it yet because
+// we also needed to update our vulkan headers and xml
+
+#ifndef VK_VERSION_1_2
+
+typedef struct VkPhysicalDeviceShaderFloat16Int8Features {
+    VkStructureType    sType;
+    void*              pNext;
+    VkBool32           shaderFloat16;
+    VkBool32           shaderInt8;
+} VkPhysicalDeviceShaderFloat16Int8Features;
+
+
+#define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES \
+    ((VkStructureType)1000082000)
+
+#endif
+
+#define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR \
+    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES
+
+#define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR \
+    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES
+
+#ifndef VK_KHR_shader_float16_int8
+
+#define VK_KHR_shader_float16_int8 1
+#define VK_KHR_SHADER_FLOAT16_INT8_SPEC_VERSION 1
+#define VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME "VK_KHR_shader_float16_int8"
+typedef VkPhysicalDeviceShaderFloat16Int8Features VkPhysicalDeviceShaderFloat16Int8FeaturesKHR;
+typedef VkPhysicalDeviceShaderFloat16Int8Features VkPhysicalDeviceFloat16Int8FeaturesKHR;
+
+#endif
+
+#define VK_GOOGLE_gfxstream 1
+
+typedef void (VKAPI_PTR *PFN_vkQueueHostSyncGOOGLE)(
+    VkQueue queue, uint32_t needHostSync, uint32_t sequenceNumber);
+typedef void (VKAPI_PTR *PFN_vkQueueSubmitAsyncGOOGLE)(
+    VkQueue queue, uint32_t submitCount, const VkSubmitInfo* pSubmits, VkFence fence);
+typedef void (VKAPI_PTR *PFN_vkQueueWaitIdleAsyncGOOGLE)(VkQueue queue);
+typedef void (VKAPI_PTR *PFN_vkQueueBindSparseAsyncGOOGLE)(
+    VkQueue queue, uint32_t bindInfoCount, const VkBindSparseInfo* pBindInfo, VkFence fence);
+
+typedef VkResult (VKAPI_PTR *PFN_vkGetLinearImageLayoutGOOGLE)(VkDevice device, VkFormat format, VkDeviceSize* pOffset, VkDeviceSize* pRowPitchAlignment);
+
+typedef void (VKAPI_PTR *PFN_vkQueueFlushCommandsGOOGLE)(VkQueue queue, VkDeviceSize dataSize, const void* pData);
+typedef void (VKAPI_PTR *PFN_vkQueueCommitDescriptorSetUpdatesGOOGLE)(VkQueue queue, uint32_t descriptorPoolCount, const VkDescriptorPool* pDescriptorPools, uint32_t descriptorSetCount, const VkDescriptorSetLayout* pDescriptorSetLayouts, const uint64_t* pDescriptorSetPoolIds, const uint32_t* pDescriptorSetWhichPool, const uint32_t* pDescriptorSetPendingAllocation, const uint32_t* pDescriptorWriteStartingIndices, uint32_t pendingDescriptorWriteCount, const VkWriteDescriptorSet* pPendingDescriptorWrites);
 
 #ifdef __cplusplus
 } // extern "C"
@@ -557,6 +689,12 @@ template<class T, typename F>
 bool arrayany(const T* arr, uint32_t begin, uint32_t end, const F& func) {
     const T* e = arr + end;
     return std::find_if(arr + begin, e, func) != e;
+}
+
+#define DEFINE_ALIAS_FUNCTION(ORIGINAL_FN, ALIAS_FN) \
+template <typename... Args> \
+inline auto ALIAS_FN(Args&&... args) -> decltype(ORIGINAL_FN(std::forward<Args>(args)...)) { \
+  return ORIGINAL_FN(std::forward<Args>(args)...); \
 }
 
 #endif

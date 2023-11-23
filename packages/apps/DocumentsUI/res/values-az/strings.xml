@@ -16,6 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="missing_rename_error" msgid="9098952207447981103">"Bunun adını dəyişməlisiniz"</string>
+    <string name="add_folder_name_error" msgid="6014615052491406810">"Qovluq adı əlavə etməlisiniz"</string>
     <string name="files_label" msgid="771781190045103748">"Fayllar"</string>
     <string name="downloads_label" msgid="5462789470049501103">"Endirilənlər"</string>
     <!-- no translation found for app_label (8089292432455111409) -->
@@ -278,4 +280,6 @@
     <string name="work_tab" msgid="7265359366883747413">"İş"</string>
     <string name="a11y_work" msgid="7504431382825242153">"İş"</string>
     <string name="drag_from_another_app" msgid="8310249276199969905">"Başqa tətbiqdən faylları köçürə bilməzsiniz."</string>
+    <string name="grid_mode_showing" msgid="2803166871485028508">"Tor rejimində göstərilir."</string>
+    <string name="list_mode_showing" msgid="1225413902295895166">"Siyahı rejimində göstərilir."</string>
 </resources>

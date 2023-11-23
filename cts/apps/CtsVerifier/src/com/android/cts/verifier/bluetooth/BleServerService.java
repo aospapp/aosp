@@ -119,6 +119,8 @@ public class BleServerService extends Service {
             "com.android.cts.verifier.bluetooth.BLE_ADVERTISE_UNSUPPORTED";
     public static final String BLE_ADD_SERVICE_FAIL =
             "com.android.cts.verifier.bluetooth.BLE_ADD_SERVICE_FAIL";
+    public static final String BLE_SERVICE_CHANGED_INDICATION =
+            "com.android.cts.verifier.bluetooth.BLE_SERVICE_CHANGED_INDICATION";
 
     private static final UUID SERVICE_UUID =
             UUID.fromString("00009999-0000-1000-8000-00805f9b34fb");
@@ -137,6 +139,8 @@ public class BleServerService extends Service {
             UUID.fromString("00009995-0000-1000-8000-00805f9b34fb");
     private static final UUID SERVICE_UUID_INCLUDED =
             UUID.fromString("00009994-0000-1000-8000-00805f9b34fb");
+    private static final UUID SERVICE_UUID_SERVICE_CHANGED =
+            UUID.fromString("00009993-0000-1000-8000-00805f9b34fb");
 
     // Variable for registration permission of Characteristic
     private static final UUID CHARACTERISTIC_NO_READ_UUID =
@@ -190,6 +194,12 @@ public class BleServerService extends Service {
     private static final UUID UPDATE_CHARACTERISTIC_UUID_15 =
             UUID.fromString("00009955-0000-1000-8000-00805f9b34fb");
 
+    // Variable for registration characteristic of service changed service
+    private static final UUID SERVICE_CHANGED_CONTROL_CHARACTERISTIC_UUID =
+            UUID.fromString("00009949-0000-1000-8000-00805f9b34fb");
+    private static final UUID SERVICE_CHANGED_CHARACTERISTIC_UUID =
+            UUID.fromString("00009948-0000-1000-8000-00805f9b34fb");
+
     private static final UUID UPDATE_DESCRIPTOR_UUID =
             UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
@@ -225,6 +235,7 @@ public class BleServerService extends Service {
     private String mMtuTestReceivedData;
     private Runnable mResetValuesTask;
     private BluetoothGattService mAdditionalNotificationService;
+    private BluetoothGattService mServiceChangedService;
 
     // Task to notify failure of starting secure test.
     //   Secure test calls BluetoothDevice#createBond() when devices were not paired.
@@ -247,6 +258,7 @@ public class BleServerService extends Service {
 
         mService = createService();
         mAdditionalNotificationService = createAdditionalNotificationService();
+        mServiceChangedService = createServiceChangedService();
 
         mDevice = null;
         mReliableWriteValue = "";
@@ -586,6 +598,16 @@ public class BleServerService extends Service {
         resetValues();
     }
 
+    private void notifyServiceChangedIndication() {
+        if (DEBUG) {
+            Log.d(TAG, "notifyServiceChangedIndication");
+        }
+        Intent intent = new Intent(BLE_SERVICE_CHANGED_INDICATION);
+        sendBroadcast(intent);
+
+        resetValues();
+    }
+
     private BluetoothGattCharacteristic getCharacteristic(UUID uuid) {
         BluetoothGattCharacteristic characteristic = mService.getCharacteristic(uuid);
         if (characteristic == null) {
@@ -605,6 +627,17 @@ public class BleServerService extends Service {
             }
         }
         return descriptor;
+    }
+
+    private BluetoothGattService createServiceChangedService() {
+        BluetoothGattService service =
+                new BluetoothGattService(SERVICE_UUID_SERVICE_CHANGED, BluetoothGattService.SERVICE_TYPE_PRIMARY);
+
+        BluetoothGattCharacteristic dummyCharacteristic =
+                new BluetoothGattCharacteristic(SERVICE_CHANGED_CHARACTERISTIC_UUID, 0x02, 0x02);
+
+        service.addCharacteristic(dummyCharacteristic);
+        return service;
     }
 
     /**
@@ -806,6 +839,11 @@ public class BleServerService extends Service {
         notiCharacteristic.setValue(NOTIFY_VALUE);
         service.addCharacteristic(notiCharacteristic);
 
+        // Add new Characteristics (Service change control)
+        BluetoothGattCharacteristic controlCharacteristic =
+                new BluetoothGattCharacteristic(SERVICE_CHANGED_CONTROL_CHARACTERISTIC_UUID, 0x08, 0x10);
+        service.addCharacteristic(controlCharacteristic);
+
         return service;
     }
 
@@ -925,6 +963,8 @@ public class BleServerService extends Service {
                     mService.addService(service);
                     mGattServer.addService(mAdditionalNotificationService);
                 } else if (uuid.equals(mAdditionalNotificationService.getUuid())) {
+                    mGattServer.addService(mServiceChangedService);
+                } else if (uuid.equals(mServiceChangedService.getUuid())) {
                     // all services added
                     notifyServiceAdded();
                 } else {
@@ -1007,10 +1047,21 @@ public class BleServerService extends Service {
                     case DESCRIPTOR_READ_NO_PERMISSION:
                         notifyDescriptorReadRequestWithoutPermission();
                         break;
+                    case BleClientService.SERVICE_CHANGED_VALUE:
+                        notifyServiceChangedIndication();
+                        break;
                 }
                 if (responseNeeded) {
                     mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
                 }
+                return;
+            }
+
+            if (characteristic.getUuid().equals(SERVICE_CHANGED_CONTROL_CHARACTERISTIC_UUID)) {
+                if (responseNeeded) {
+                    mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
+                }
+                mGattServer.removeService(mServiceChangedService);
                 return;
             }
 

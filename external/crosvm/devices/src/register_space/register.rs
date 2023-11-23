@@ -2,15 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std;
 use std::boxed::Box;
 use std::cmp::{max, min, Ord, Ordering, PartialOrd};
 use std::mem::size_of;
 use std::sync::{Arc, MutexGuard};
 use sync::Mutex;
 
+use base::error;
 use data_model::DataInit;
-use sys_util::error;
 
 /// Type of offset in the register space.
 pub type RegisterOffset = u64;
@@ -448,7 +447,7 @@ mod tests {
 
     #[test]
     fn static_register_interface_test() {
-        let r: Box<RegisterInterface> = Box::new(static_register! {
+        let r: Box<dyn RegisterInterface> = Box::new(static_register! {
             ty: u8,
             offset: 3,
             value: 32,

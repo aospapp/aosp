@@ -6,6 +6,7 @@ if(EXISTS "${trout_NATIVE_VHAL_ROOT_DIR}")
   set(trout_NAVTIVE_VHAL_LIBRARIES "vhal_default_impl_lib")
 
   set(trout_NAVTIVE_VHAL_COMMON_INCLUDE_DIRS
+      "${trout_NATIVE_VHAL_ROOT_DIR}"
       "${trout_NATIVE_VHAL_ROOT_DIR}/common/include"
       "${trout_NATIVE_VHAL_ROOT_DIR}/common/include/vhal_v2_0")
   set(trout_NAVTIVE_VHAL_IMPL_INCLUDE_DIRS "${trout_NATIVE_VHAL_ROOT_DIR}/impl")

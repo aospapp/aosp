@@ -43,7 +43,7 @@ public class ObjectStreamClassTest extends TestCaseWithRules {
     @Rule
     public TestRule switchTargetSdkVersionRule = SwitchTargetSdkVersionRule.getInstance();
 
-    static class DummyClass implements Serializable {
+    static class FakeClass implements Serializable {
         private static final long serialVersionUID = 999999999999999L;
 
         long bam = 999L;
@@ -61,16 +61,16 @@ public class ObjectStreamClassTest extends TestCaseWithRules {
     public void test_forClass() {
         // Need to test during serialization to be sure an instance is
         // returned
-        ObjectStreamClass osc = ObjectStreamClass.lookup(DummyClass.class);
+        ObjectStreamClass osc = ObjectStreamClass.lookup(FakeClass.class);
         assertEquals("forClass returned an object: " + osc.forClass(),
-                DummyClass.class, osc.forClass());
+                FakeClass.class, osc.forClass());
     }
 
     /**
      * java.io.ObjectStreamClass#getField(java.lang.String)
      */
     public void test_getFieldLjava_lang_String() {
-        ObjectStreamClass osc = ObjectStreamClass.lookup(DummyClass.class);
+        ObjectStreamClass osc = ObjectStreamClass.lookup(FakeClass.class);
         assertEquals("getField did not return correct field", 'J', osc
                 .getField("bam").getTypeCode());
         assertNull("getField did not null for non-existent field", osc
@@ -81,7 +81,7 @@ public class ObjectStreamClassTest extends TestCaseWithRules {
      * java.io.ObjectStreamClass#getFields()
      */
     public void test_getFields() {
-        ObjectStreamClass osc = ObjectStreamClass.lookup(DummyClass.class);
+        ObjectStreamClass osc = ObjectStreamClass.lookup(FakeClass.class);
         ObjectStreamField[] osfArray = osc.getFields();
         assertTrue(
                 "Array of fields should be of length 2 but is instead of length: "
@@ -92,10 +92,10 @@ public class ObjectStreamClassTest extends TestCaseWithRules {
      * java.io.ObjectStreamClass#getName()
      */
     public void test_getName() {
-        ObjectStreamClass osc = ObjectStreamClass.lookup(DummyClass.class);
+        ObjectStreamClass osc = ObjectStreamClass.lookup(FakeClass.class);
         assertEquals(
                 "getName returned incorrect name: " + osc.getName(),
-                "org.apache.harmony.tests.java.io.ObjectStreamClassTest$DummyClass",
+                "org.apache.harmony.tests.java.io.ObjectStreamClassTest$FakeClass",
                 osc.getName());
     }
 
@@ -103,10 +103,10 @@ public class ObjectStreamClassTest extends TestCaseWithRules {
      * java.io.ObjectStreamClass#getSerialVersionUID()
      */
     public void test_getSerialVersionUID() {
-        ObjectStreamClass osc = ObjectStreamClass.lookup(DummyClass.class);
+        ObjectStreamClass osc = ObjectStreamClass.lookup(FakeClass.class);
         assertTrue("getSerialversionUID returned incorrect uid: "
                 + osc.getSerialVersionUID() + " instead of "
-                + DummyClass.getUID(), osc.getSerialVersionUID() == DummyClass
+                + FakeClass.getUID(), osc.getSerialVersionUID() == FakeClass
                 .getUID());
     }
 
@@ -128,10 +128,10 @@ public class ObjectStreamClassTest extends TestCaseWithRules {
      * java.io.ObjectStreamClass#lookup(java.lang.Class)
      */
     public void test_lookupLjava_lang_Class() {
-        ObjectStreamClass osc = ObjectStreamClass.lookup(DummyClass.class);
+        ObjectStreamClass osc = ObjectStreamClass.lookup(FakeClass.class);
         assertEquals(
                 "lookup returned wrong class: " + osc.getName(),
-                "org.apache.harmony.tests.java.io.ObjectStreamClassTest$DummyClass",
+                "org.apache.harmony.tests.java.io.ObjectStreamClassTest$FakeClass",
                 osc.getName());
     }
 
@@ -139,7 +139,7 @@ public class ObjectStreamClassTest extends TestCaseWithRules {
      * java.io.ObjectStreamClass#toString()
      */
     public void test_toString() {
-        ObjectStreamClass osc = ObjectStreamClass.lookup(DummyClass.class);
+        ObjectStreamClass osc = ObjectStreamClass.lookup(FakeClass.class);
         String oscString = osc.toString();
 
         // The previous test was more specific than the spec so it was replaced
@@ -213,9 +213,9 @@ public class ObjectStreamClassTest extends TestCaseWithRules {
     public void test_lookupAnyLjava_lang_Class() {
         // Test for method java.io.ObjectStreamClass
         // java.io.ObjectStreamClass.lookupAny(java.lang.Class)
-        ObjectStreamClass osc = ObjectStreamClass.lookupAny(DummyClass.class);
+        ObjectStreamClass osc = ObjectStreamClass.lookupAny(FakeClass.class);
         assertEquals("lookup returned wrong class: " + osc.getName(),
-                "org.apache.harmony.tests.java.io.ObjectStreamClassTest$DummyClass", osc
+                "org.apache.harmony.tests.java.io.ObjectStreamClassTest$FakeClass", osc
                 .getName());
 
         osc = ObjectStreamClass.lookupAny(NonSerialzableClass.class);

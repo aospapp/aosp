@@ -67,7 +67,7 @@ std::vector<std::shared_ptr<FontFamily>> getFontFamilies(const std::string& font
             }
         }
 
-        std::vector<Font> fonts;
+        std::vector<std::shared_ptr<Font>> fonts;
         for (xmlNode* fontNode = familyNode->children; fontNode; fontNode = fontNode->next) {
             if (xmlStrcmp(fontNode->name, (const xmlChar*)"font") != 0) {
                 continue;
@@ -124,7 +124,7 @@ std::shared_ptr<FontCollection> buildFontCollection(const std::string& filePath)
 
 std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath) {
     auto font = std::make_shared<FreeTypeMinikinFontForTest>(getTestFontPath(filePath));
-    std::vector<Font> fonts;
+    std::vector<std::shared_ptr<Font>> fonts;
     fonts.push_back(Font::Builder(font).build());
     return std::make_shared<FontFamily>(std::move(fonts));
 }
@@ -132,7 +132,7 @@ std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath) {
 std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath, const std::string& lang,
                                             bool isCustomFallback) {
     auto font = std::make_shared<FreeTypeMinikinFontForTest>(getTestFontPath(filePath));
-    std::vector<Font> fonts;
+    std::vector<std::shared_ptr<Font>> fonts;
     fonts.push_back(Font::Builder(font).build());
     return std::make_shared<FontFamily>(LocaleListCache::getId(lang), FamilyVariant::DEFAULT,
                                         std::move(fonts), isCustomFallback);

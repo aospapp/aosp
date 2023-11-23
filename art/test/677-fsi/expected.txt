@@ -1,2 +1,0 @@
-oat file has dex code, but APK has uncompressed dex code
-Hello World

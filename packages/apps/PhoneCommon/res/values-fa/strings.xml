@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="description_dialpad_back" msgid="6948371942814365471">"پیمایش به عقب"</string>
+    <string name="description_dialpad_back" msgid="6948371942814365471">"پیمایش به‌عقب"</string>
     <string name="description_dialpad_overflow" msgid="386545562915853251">"گزینه‌های بیشتر"</string>
     <string name="description_delete_button" msgid="3440492396168418449">"کلید پس‌بَر"</string>
     <string name="description_image_button_plus" msgid="5473715983314974482">"به‌علاوه"</string>

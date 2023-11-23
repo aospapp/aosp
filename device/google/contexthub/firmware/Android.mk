@@ -21,6 +21,9 @@ ifneq ($(NANOHUB_OS_PATH),)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanohub_os
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD SPDX-license-identifier-MIT SPDX-license-identifier-NCSA
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := \
@@ -60,6 +63,9 @@ include $(BUILD_NANOHUB_OS_STATIC_LIBRARY)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := nanohub_bl
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD SPDX-license-identifier-MIT SPDX-license-identifier-NCSA
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 
 LOCAL_SRC_FILES := \
     os/core/bl.c   \
@@ -80,6 +86,9 @@ include $(BUILD_NANOHUB_BL_EXECUTABLE)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := nanohub_os
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD SPDX-license-identifier-MIT SPDX-license-identifier-NCSA
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 
 LOCAL_CFLAGS := \
     -DPLATFORM_HW_VER=0 \

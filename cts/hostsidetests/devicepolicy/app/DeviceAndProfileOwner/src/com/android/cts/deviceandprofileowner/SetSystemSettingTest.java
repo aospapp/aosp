@@ -56,7 +56,7 @@ public class SetSystemSettingTest extends BaseDeviceAdminTest {
     }
   }
 
-  public void testSetSystemSettingsFailsForNonWhitelistedSettings() throws Exception {
+  public void testSetSystemSettingsFailsForNotAllowedSettings() throws Exception {
     try {
       mDevicePolicyManager.setSystemSetting(ADMIN_RECEIVER_COMPONENT,
           Settings.System.TEXT_AUTO_REPLACE, "0");

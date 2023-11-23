@@ -25,6 +25,7 @@ import android.annotation.IntDef;
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.os.Bundle;
+import android.os.UserManager;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.analytics.DeferredMetricsReader;
@@ -49,10 +50,12 @@ public final class FinalizationController {
     static final int PROVISIONING_FINALIZED_RESULT_NO_CHILD_ACTIVITY_LAUNCHED = 1;
     static final int PROVISIONING_FINALIZED_RESULT_CHILD_ACTIVITY_LAUNCHED = 2;
     static final int PROVISIONING_FINALIZED_RESULT_SKIPPED = 3;
+    static final int PROVISIONING_FINALIZED_RESULT_WAIT_FOR_WORK_PROFILE_AVAILABLE = 4;
     @IntDef({
             PROVISIONING_FINALIZED_RESULT_NO_CHILD_ACTIVITY_LAUNCHED,
             PROVISIONING_FINALIZED_RESULT_CHILD_ACTIVITY_LAUNCHED,
-            PROVISIONING_FINALIZED_RESULT_SKIPPED})
+            PROVISIONING_FINALIZED_RESULT_SKIPPED,
+            PROVISIONING_FINALIZED_RESULT_WAIT_FOR_WORK_PROFILE_AVAILABLE})
     @interface ProvisioningFinalizedResult {}
 
     private static final int DPC_SETUP_REQUEST_CODE = 1;
@@ -122,9 +125,7 @@ public final class FinalizationController {
     final PrimaryProfileFinalizationHelper getPrimaryProfileFinalizationHelper(
             ProvisioningParams params) {
         return new PrimaryProfileFinalizationHelper(params.accountToMigrate,
-                params.keepAccountMigrated, mUtils.getManagedProfile(mActivity),
-                params.inferDeviceAdminPackageName(), mUtils,
-                mUtils.isAdminIntegratedFlow(params));
+                mUtils.getManagedProfile(mActivity), params.inferDeviceAdminPackageName());
     }
 
     /**
@@ -158,30 +159,21 @@ public final class FinalizationController {
             return;
         }
 
-        if (!mFinalizationControllerLogic.isReadyForFinalization(params)) {
-            return;
-        }
-
         mProvisioningFinalizedResult = PROVISIONING_FINALIZED_RESULT_NO_CHILD_ACTIVITY_LAUNCHED;
-        if (mUtils.isAdminIntegratedFlow(params)) {
-            // Don't send ACTION_PROFILE_PROVISIONING_COMPLETE broadcast to DPC or launch DPC by
-            // ACTION_PROVISIONING_SUCCESSFUL intent if it's admin integrated flow.
-            if (mUtils.isDeviceOwnerAction(params.provisioningAction)) {
-                mProvisioningIntentProvider.launchFinalizationScreenForResult(mActivity, params,
-                        FINAL_SCREEN_REQUEST_CODE);
+        if (params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
+            UserManager userManager = mActivity.getSystemService(UserManager.class);
+            if (!userManager.isUserUnlocked(mUtils.getManagedProfile(mActivity))) {
                 mProvisioningFinalizedResult =
-                        PROVISIONING_FINALIZED_RESULT_CHILD_ACTIVITY_LAUNCHED;
-            }
-        } else {
-            if (params.provisioningAction.equals(ACTION_PROVISION_MANAGED_PROFILE)) {
+                        PROVISIONING_FINALIZED_RESULT_WAIT_FOR_WORK_PROFILE_AVAILABLE;
+            } else {
                 mProvisioningFinalizedResult =
                         mFinalizationControllerLogic.notifyDpcManagedProfile(
                                 params, DPC_SETUP_REQUEST_CODE);
-            } else {
-                mProvisioningFinalizedResult =
-                        mFinalizationControllerLogic.notifyDpcManagedDeviceOrUser(
-                                params, DPC_SETUP_REQUEST_CODE);
             }
+        } else {
+            mProvisioningFinalizedResult =
+                    mFinalizationControllerLogic.notifyDpcManagedDeviceOrUser(
+                            params, DPC_SETUP_REQUEST_CODE);
         }
     }
 

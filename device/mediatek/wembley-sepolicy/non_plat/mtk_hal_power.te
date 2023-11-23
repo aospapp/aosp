@@ -6,14 +6,6 @@ type mtk_hal_power_exec, exec_type, file_type, vendor_file_type;
 
 # hwbinder access
 init_daemon_domain(mtk_hal_power)
-hwbinder_use(mtk_hal_power);
-
-get_prop(mtk_hal_power, hwservicemanager_prop)
-allow mtk_hal_power hal_power_hwservice:hwservice_manager { add find };
-allow mtk_hal_power hidl_base_hwservice:hwservice_manager add;
-
-add_hwservice(mtk_hal_power, mtk_hal_power_hwservice)
-allow hal_power_client mtk_hal_power_hwservice:hwservice_manager find;
 
 hal_server_domain(mtk_hal_power, hal_power);
 hal_server_domain(mtk_hal_power, hal_wifi);
@@ -72,7 +64,7 @@ allow mtk_hal_power proc_net:file w_file_perms;
 allow mtk_hal_power mediacodec:dir r_dir_perms;
 allow mtk_hal_power mediacodec:file r_file_perms;
 
-set_prop(mtk_hal_power, mtk_thermal_config_prop)
+set_prop(mtk_hal_power, vendor_mtk_thermal_config_prop)
 
 # Date : 2018/03/16
 # Operation: SQC
@@ -127,7 +119,7 @@ allow mtk_hal_power debugfs_eara_thermal:file { getattr open write read };
 # Date : 2019/05/22
 # Operation: SQC
 # Purpose : Allow powerHAL to access prop
-set_prop(mtk_hal_power, mtk_powerhal_prop)
+set_prop(mtk_hal_power, vendor_mtk_powerhal_prop)
 
 # Date : 2019/05/29
 # Operation: SQC
@@ -140,7 +132,7 @@ allowxperm mtk_hal_power self:udp_socket ioctl priv_sock_ioctls;
 # Date : W19.20
 # Operation : MTK power hal migration
 # Purpose : MTK power hal interface permission
-set_prop(mtk_hal_power, mtk_powerhal_prop)
+set_prop(mtk_hal_power, vendor_mtk_powerhal_prop)
 
 # Date : 2019/09/05
 # Operation: SQC
@@ -161,6 +153,14 @@ allow mtk_hal_power sysfs_fbt_cpu:dir r_dir_perms;
 allow mtk_hal_power sysfs_fbt_cpu:file rw_file_perms;
 allow mtk_hal_power sysfs_fbt_fteh:dir r_dir_perms;
 allow mtk_hal_power sysfs_fbt_fteh:file rw_file_perms;
+allow mtk_hal_power sysfs_xgf:dir r_dir_perms;
+allow mtk_hal_power sysfs_xgf:file rw_file_perms;
+allow mtk_hal_power sysfs_fpsgo:dir r_dir_perms;
+allow mtk_hal_power sysfs_fpsgo:file rw_file_perms;
+allow mtk_hal_power sysfs_gbe:dir r_dir_perms;
+allow mtk_hal_power sysfs_gbe:file rw_file_perms;
+allow mtk_hal_power gbe_native:dir r_dir_perms;
+allow mtk_hal_power gbe_native:file r_file_perms;
 
 # Date : 2019/09/17
 # Operation: SQC
@@ -175,3 +175,37 @@ allow mtk_hal_power sysfs_pftch_qos:file rw_file_perms;
 # Purpose : Add f2fs permission
 allow mtk_hal_power sysfs_fs_f2fs:dir r_dir_perms;
 allow mtk_hal_power sysfs_fs_f2fs:file rw_file_perms;
+
+# Date : 2019/09/19
+# Operation: SQC
+# Purpose : Add task turbo
+allow mtk_hal_power sysfs_task_turbo:dir r_dir_perms;
+allow mtk_hal_power sysfs_task_turbo:file rw_file_perms;
+
+# Date : 2019/09/23
+# Operation: SQC
+# Purpose : Allow powerHAL to access touch boost
+allow mtk_hal_power sysfs_change_rate:file rw_file_perms;
+
+
+# Date : 2019/10/16
+# Operation: SQC
+allow mtk_hal_power sysfs_ext4_disable_barrier:file write;
+allow mtk_hal_power block_device:dir search;
+
+# Date : 2019/11/14
+# Operation: SQC
+# Purpose : Allow powerhal to control MCDI
+allow mtk_hal_power proc_cpuidle:dir r_dir_perms;
+allow mtk_hal_power proc_cpuidle:file rw_file_perms;
+
+# Date : 2020/06/12
+# Operation: SQC
+# Purpose : Allow powerhal to control mali power policy
+allow mtk_hal_power sysfs_mali_power_policy:file rw_file_perms;
+
+# Date : 2020/06/12
+# Operation: SQC
+# Purpose : Allow powerhal to control displowpower
+allow mtk_hal_power proc_displowpower:dir r_dir_perms;
+allow mtk_hal_power proc_displowpower:file rw_file_perms;

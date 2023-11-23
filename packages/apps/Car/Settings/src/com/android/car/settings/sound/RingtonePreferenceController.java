@@ -16,41 +16,34 @@
 
 package com.android.car.settings.sound;
 
-import android.app.Activity;
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
-import android.os.UserHandle;
+import android.os.Bundle;
 
-import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.Fragment;
 
-import com.android.car.settings.common.ActivityResultCallback;
 import com.android.car.settings.common.FragmentController;
-import com.android.car.settings.common.Logger;
 import com.android.car.settings.common.PreferenceController;
 
 /** Business logic for changing the default ringtone. */
-public class RingtonePreferenceController extends
-        PreferenceController<RingtonePreference> implements ActivityResultCallback {
+public class RingtonePreferenceController extends PreferenceController<RingtonePreference> {
 
-    private static final Logger LOG = new Logger(RingtonePreferenceController.class);
-    @VisibleForTesting
-    static final int REQUEST_CODE = 16;
-
-    // We use a user context so that default ringtones can differ per user.
-    private final Context mUserContext;
+    private RingtoneManager mRingtoneManager;
 
     public RingtonePreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController,
             CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mUserContext = createPackageContextAsUser(getContext(), UserHandle.myUserId());
+        mRingtoneManager = new RingtoneManager(context);
+    }
+
+    @Override
+    protected void onCreateInternal() {
+        mRingtoneManager.setType(getPreference().getRingtoneType());
     }
 
     @Override
@@ -62,67 +55,40 @@ public class RingtonePreferenceController extends
     protected void updateState(RingtonePreference preference) {
         Uri ringtoneUri = RingtoneManager.getActualDefaultRingtoneUri(getContext(),
                 getPreference().getRingtoneType());
-        preference.setSummary(Ringtone.getTitle(getContext(), ringtoneUri, /* followSettingsUri= */
-                false, /* allowRemote= */ true));
+        // If this URI cannot be found by the ringtone manager, set the URI to be null.
+        if (mRingtoneManager.getRingtonePosition(ringtoneUri) < 0) {
+            ringtoneUri = null;
+        }
+        preference.setSummary(Ringtone.getTitle(getContext(), ringtoneUri,
+                /* followSettingsUri= */ false, /* allowRemote= */ true));
     }
 
     @Override
     protected boolean handlePreferenceClicked(RingtonePreference preference) {
-        onPrepareRingtonePickerIntent(preference, preference.getIntent());
-        getFragmentController().startActivityForResult(preference.getIntent(), REQUEST_CODE, this);
+        getFragmentController().launchFragment(createRingtonePickerFragment(preference));
         return true;
     }
 
-    @Override
-    public void processActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        if (requestCode == REQUEST_CODE) {
-            if (resultCode != Activity.RESULT_OK || data == null) {
-                return;
-            }
-
-            Uri ringtoneUri = data.getParcelableExtra(
-                    RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
-            RingtoneManager.setActualDefaultRingtoneUri(mUserContext,
-                    getPreference().getRingtoneType(), ringtoneUri);
-            refreshUi();
-        }
-    }
-
     /**
-     * Prepares the intent to launch the ringtone picker. This can be modified
+     * Prepares the fragment to launch the ringtone picker. This can be modified
      * to adjust the parameters of the ringtone picker.
      */
-    private void onPrepareRingtonePickerIntent(RingtonePreference ringtonePreference,
-            Intent ringtonePickerIntent) {
-        Uri currentRingtone = RingtoneManager.getActualDefaultRingtoneUri(mUserContext,
-                ringtonePreference.getRingtoneType());
-        ringtonePickerIntent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
-                currentRingtone);
-
-        ringtonePickerIntent.putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE,
-                ringtonePreference.getTitle());
-        ringtonePickerIntent.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE,
-                ringtonePreference.getRingtoneType());
-        ringtonePickerIntent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT,
+    private Fragment createRingtonePickerFragment(RingtonePreference ringtonePreference) {
+        Fragment fragment = new RingtonePickerFragment();
+        Bundle args = fragment.getArguments();
+        if (args == null) {
+            args = new Bundle();
+            fragment.setArguments(args);
+        }
+        args.putCharSequence(RingtoneManager.EXTRA_RINGTONE_TITLE, ringtonePreference.getTitle());
+        args.putInt(RingtoneManager.EXTRA_RINGTONE_TYPE, ringtonePreference.getRingtoneType());
+        args.putBoolean(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT,
                 ringtonePreference.getShowSilent());
 
-        // Since we are picking the default ringtone, no need to show system default.
-        ringtonePickerIntent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, false);
         // Allow playback in external activity.
-        ringtonePickerIntent.putExtra(RingtoneManager.EXTRA_RINGTONE_AUDIO_ATTRIBUTES_FLAGS,
+        args.putInt(RingtoneManager.EXTRA_RINGTONE_AUDIO_ATTRIBUTES_FLAGS,
                 AudioAttributes.FLAG_BYPASS_INTERRUPTION_POLICY);
-    }
 
-    /**
-     * Returns a context created from the given context for the given user, or null if it fails.
-     */
-    private Context createPackageContextAsUser(Context context, int userId) {
-        try {
-            return context.createPackageContextAsUser(
-                    context.getPackageName(), /* flags= */ 0, UserHandle.of(userId));
-        } catch (PackageManager.NameNotFoundException e) {
-            LOG.e("Failed to create user context", e);
-        }
-        return null;
+        return fragment;
     }
 }

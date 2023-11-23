@@ -229,9 +229,11 @@ class CommandExecuter(object):
     kwargs['return_output'] = True
     return self.RunCommandGeneric(*args, **kwargs)
 
-  def RemoteAccessInitCommand(self, chromeos_root, machine):
+  def RemoteAccessInitCommand(self, chromeos_root, machine, port=None):
     command = ''
     command += '\nset -- --remote=' + machine
+    if port:
+      command += ' --ssh_port=' + port
     command += '\n. ' + chromeos_root + '/src/scripts/common.sh'
     command += '\n. ' + chromeos_root + '/src/scripts/remote_access.sh'
     command += '\nTMP=$(mktemp -d)'
@@ -240,10 +242,9 @@ class CommandExecuter(object):
     return command
 
   def WriteToTempShFile(self, contents):
-    # TODO(crbug.com/1048938): use encoding='utf-8' when all dependencies have
-    # migrated to python 3.
     with tempfile.NamedTemporaryFile(
-        'w', delete=False, prefix=os.uname()[1], suffix='.sh') as f:
+        'w', encoding='utf-8', delete=False, prefix=os.uname()[1],
+        suffix='.sh') as f:
       f.write('#!/bin/bash\n')
       f.write(contents)
       f.flush()
@@ -286,12 +287,16 @@ class CommandExecuter(object):
         sys.exit(1)
     chromeos_root = os.path.expanduser(chromeos_root)
 
+    port = None
+    if ':' in machine:
+      machine, port = machine.split(':')
     # Write all commands to a file.
     command_file = self.WriteToTempShFile(cmd)
     retval = self.CopyFiles(
         command_file,
         command_file,
         dest_machine=machine,
+        dest_port=port,
         command_terminator=command_terminator,
         chromeos_root=chromeos_root,
         dest_cros=True,
@@ -303,7 +308,7 @@ class CommandExecuter(object):
                              ' Is the machine up?')
       return (retval, '', '')
 
-    command = self.RemoteAccessInitCommand(chromeos_root, machine)
+    command = self.RemoteAccessInitCommand(chromeos_root, machine, port)
     command += '\nremote_sh bash %s' % command_file
     command += '\nl_retval=$?; echo "$REMOTE_OUT"; exit $l_retval'
     retval = self.RunCommandGeneric(
@@ -314,8 +319,8 @@ class CommandExecuter(object):
         terminated_timeout=terminated_timeout,
         print_to_console=print_to_console)
     if return_output:
-      connect_signature = (
-          'Initiating first contact with remote host\n' + 'Connection OK\n')
+      connect_signature = ('Initiating first contact with remote host\n' +
+                           'Connection OK\n')
       connect_signature_re = re.compile(connect_signature)
       modded_retval = list(retval)
       modded_retval[1] = connect_signature_re.sub('', retval[1])
@@ -367,10 +372,9 @@ class CommandExecuter(object):
     if self.logger:
       self.logger.LogCmd(command, print_to_console=print_to_console)
 
-    # TODO(crbug.com/1048938): use encoding='utf-8' when all dependencies have
-    # migrated to python 3.
     with tempfile.NamedTemporaryFile(
         'w',
+        encoding='utf-8',
         delete=False,
         dir=os.path.join(chromeos_root, 'src/scripts'),
         suffix='.sh',
@@ -383,7 +387,7 @@ class CommandExecuter(object):
     command_file = f.name
     os.chmod(command_file, 0o777)
 
-    # if return_output is set, run a dummy command first to make sure that
+    # if return_output is set, run a test command first to make sure that
     # the chroot already exists. We want the final returned output to skip
     # the output from chroot creation steps.
     if return_output:
@@ -451,7 +455,9 @@ class CommandExecuter(object):
                 src,
                 dest,
                 src_machine=None,
+                src_port=None,
                 dest_machine=None,
+                dest_port=None,
                 src_user=None,
                 dest_user=None,
                 recursive=True,
@@ -477,30 +483,34 @@ class CommandExecuter(object):
         sys.exit(1)
       if src_cros:
         cros_machine = src_machine
+        cros_port = src_port
+        host_machine = dest_machine
+        host_user = dest_user
       else:
         cros_machine = dest_machine
+        cros_port = dest_port
+        host_machine = src_machine
+        host_user = src_user
 
-      command = self.RemoteAccessInitCommand(chromeos_root, cros_machine)
-      ssh_command = (
-          'ssh -p ${FLAGS_ssh_port}' + ' -o StrictHostKeyChecking=no' +
-          ' -o UserKnownHostsFile=$(mktemp)' + ' -i $TMP_PRIVATE_KEY')
+      command = self.RemoteAccessInitCommand(chromeos_root, cros_machine,
+                                             cros_port)
+      ssh_command = ('ssh -o StrictHostKeyChecking=no' +
+                     ' -o UserKnownHostsFile=$(mktemp)' +
+                     ' -i $TMP_PRIVATE_KEY')
+      if cros_port:
+        ssh_command += ' -p %s' % cros_port
       rsync_prefix = '\nrsync -r -e "%s" ' % ssh_command
       if dest_cros:
-        command += rsync_prefix + '%s root@%s:%s' % (src, dest_machine, dest)
-        return self.RunCommand(
-            command,
-            machine=src_machine,
-            username=src_user,
-            command_terminator=command_terminator,
-            print_to_console=print_to_console)
+        command += rsync_prefix + '%s root@%s:%s' % (src, cros_machine, dest)
       else:
-        command += rsync_prefix + 'root@%s:%s %s' % (src_machine, src, dest)
-        return self.RunCommand(
-            command,
-            machine=dest_machine,
-            username=dest_user,
-            command_terminator=command_terminator,
-            print_to_console=print_to_console)
+        command += rsync_prefix + 'root@%s:%s %s' % (cros_machine, src, dest)
+
+      return self.RunCommand(
+          command,
+          machine=host_machine,
+          username=host_user,
+          command_terminator=command_terminator,
+          print_to_console=print_to_console)
 
     if dest_machine == src_machine:
       command = 'rsync -a %s %s' % (src, dest)

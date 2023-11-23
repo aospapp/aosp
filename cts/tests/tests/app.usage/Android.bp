@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsUsageStatsTestCases",
     defaults: ["cts_defaults"],
@@ -25,14 +29,13 @@ android_test {
         "ub-uiautomator",
     ],
     libs: [
-        "android.test.base.stubs",
-        "android.test.runner.stubs",
+        "android.test.base",
+        "android.test.runner",
     ],
-    srcs: ["src/**/*.java", "TestApp1/**/*.java", "TestApp1/**/*.aidl"],
+    srcs: ["src/**/*.java", "TestApp1/**/*.java", "TestApp1/**/*.aidl", "TestApp2/**/*.java"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

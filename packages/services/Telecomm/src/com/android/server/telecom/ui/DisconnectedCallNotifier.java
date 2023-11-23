@@ -333,7 +333,8 @@ public class DisconnectedCallNotifier extends CallsManagerListenerBase {
             UserHandle userHandle) {
         Intent intent = new Intent(action, data, mContext, TelecomBroadcastReceiver.class);
         intent.putExtra(TelecomBroadcastIntentProcessor.EXTRA_USERHANDLE, userHandle);
-        return PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        return PendingIntent.getBroadcast(mContext, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private boolean canRespondViaSms(@NonNull CallInfo call) {
@@ -354,7 +355,7 @@ public class DisconnectedCallNotifier extends CallsManagerListenerBase {
         TaskStackBuilder taskStackBuilder = TaskStackBuilder.create(mContext);
         taskStackBuilder.addNextIntent(intent);
 
-        return taskStackBuilder.getPendingIntent(0, 0, null, userHandle);
+        return taskStackBuilder.getPendingIntent(0, PendingIntent.FLAG_IMMUTABLE, null, userHandle);
     }
 
     /**

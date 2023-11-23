@@ -83,7 +83,8 @@ public static final java.text.DateFormat getDateTimeInstance(int dateStyle, int 
 
 public static final java.text.DateFormat getInstance() { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public static final void set24HourTimePref(java.lang.Boolean is24Hour) { throw new RuntimeException("Stub!"); }
 
 public static java.util.Locale[] getAvailableLocales() { throw new RuntimeException("Stub!"); }

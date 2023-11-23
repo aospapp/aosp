@@ -20,9 +20,9 @@ class firmware_Cr50DevMode(Cr50Test):
 
     def run_once(self):
         """Check cr50 can see dev mode correctly."""
-        self.enter_mode_after_checking_tpm_state('normal')
+        self.enter_mode_after_checking_cr50_state('normal')
         self.check_dev_mode(False)
-        self.enter_mode_after_checking_tpm_state('dev')
+        self.enter_mode_after_checking_cr50_state('dev')
         self.check_dev_mode(True)
-        self.enter_mode_after_checking_tpm_state('normal')
+        self.enter_mode_after_checking_cr50_state('normal')
         self.check_dev_mode(False)

@@ -14,6 +14,8 @@ ifneq ($(TARGET_BOARD_AUTO),true)
                        power.c \
 
     LOCAL_MODULE:= power.$(TARGET_BOARD_PLATFORM)
+    LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+    LOCAL_LICENSE_CONDITIONS:= notice
     LOCAL_MODULE_TAGS := optional
     LOCAL_CFLAGS += -Wno-unused-parameter
     include $(BUILD_SHARED_LIBRARY)

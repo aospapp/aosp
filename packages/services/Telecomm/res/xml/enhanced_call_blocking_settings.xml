@@ -41,8 +41,4 @@
         android:persistent="false"
         android:defaultValue="false"/>
     <!--Add divider to separate this enhanced call blocking settings from other settings-->
-    <Preference
-        android:key="enhanced_call_blocking_divider"
-        android:persistent="false"
-        android:layout="@xml/layout_divider"/>
 </PreferenceScreen>

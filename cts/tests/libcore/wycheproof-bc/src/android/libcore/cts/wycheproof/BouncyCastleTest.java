@@ -16,7 +16,7 @@
 
 package android.libcore.cts.wycheproof;
 
-import com.android.org.bouncycastle.jce.provider.BouncyCastleProvider;
+import com.android.internal.org.bouncycastle.jce.provider.BouncyCastleProvider;
 import com.google.security.wycheproof.AesGcmTest;
 import com.google.security.wycheproof.BasicTest;
 import com.google.security.wycheproof.CipherInputStreamTest;

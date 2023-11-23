@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="cmas_presidential_level_alert" msgid="6968323372438785870">"Alerta de emergência crítica"</string>
+    <string name="alerts_header_summary" msgid="8898082819299479687">"O telemóvel pode enviar-lhe alertas, como instruções de evacuação, durante desastres naturais. Este serviço é uma colaboração entre a National Emergency Management Agency (Agência Nacional de Gestão de Emergências da Coreia do Sul), os fornecedores de rede e os fabricantes de dispositivos.\n\nPode não receber alertas se houver um problema com o seu dispositivo ou se as condições de rede forem fracas."</string>
 </resources>

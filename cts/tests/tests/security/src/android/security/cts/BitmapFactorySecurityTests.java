@@ -18,7 +18,7 @@ package android.security.cts;
 
 import android.graphics.BitmapFactory;
 import android.os.ParcelFileDescriptor;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 
 import java.io.File;
@@ -30,7 +30,6 @@ import java.lang.Exception;
 
 import android.security.cts.R;
 
-@SecurityTest
 public class BitmapFactorySecurityTests extends AndroidTestCase {
     private FileDescriptor getResource(int resId) {
         try {
@@ -58,7 +57,7 @@ public class BitmapFactorySecurityTests extends AndroidTestCase {
     /**
      * Verifies that decoding a corrupt ICO does crash.
      */
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 38116746)
     public void test_android_bug_38116746() {
         FileDescriptor exploitImage = getResource(R.raw.bug_38116746);
         try {
@@ -74,7 +73,7 @@ public class BitmapFactorySecurityTests extends AndroidTestCase {
     /**
      * Verifies that decoding a corrupt BMP does crash.
      */
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 37627194)
     public void test_android_bug_37627194() {
         FileDescriptor exploitImage = getResource(R.raw.bug_37627194);
         try {
@@ -84,7 +83,7 @@ public class BitmapFactorySecurityTests extends AndroidTestCase {
         }
     }
 
-    @SecurityTest
+    @AsbSecurityTest(cveBugId = 156261521)
     public void test_android_bug_156261521() {
         // Previously decoding this would crash.
         FileDescriptor exploitImage = getResource(R.raw.bug_156261521);

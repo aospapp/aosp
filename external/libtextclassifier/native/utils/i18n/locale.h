@@ -60,6 +60,10 @@ class Locale {
                                    const std::vector<Locale>& supported_locales,
                                    bool default_value);
 
+  bool operator==(const Locale& locale) const;
+  bool operator!=(const Locale& locale) const;
+  bool operator<(const Locale& locale) const;
+
  private:
   Locale(const std::string& language, const std::string& script,
          const std::string& region)

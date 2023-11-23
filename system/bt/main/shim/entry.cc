@@ -14,123 +14,129 @@
  * limitations under the License.
  */
 
+#include "gd/btaa/activity_attribution.h"
+#include "gd/hci/controller.h"
+#include "gd/hci/hci_layer.h"
+#include "gd/hci/le_advertising_manager.h"
+#include "gd/hci/le_scanning_manager.h"
+#include "gd/hci/vendor_specific_event_manager.h"
+#include "gd/neighbor/connectability.h"
+#include "gd/neighbor/discoverability.h"
+#include "gd/neighbor/inquiry.h"
+#include "gd/neighbor/name.h"
+#include "gd/neighbor/page.h"
+#include "gd/os/handler.h"
+#include "gd/security/security_module.h"
+#include "gd/shim/dumpsys.h"
+#include "gd/storage/storage_module.h"
+
+#include "hci/acl_manager.h"
+
 #include "main/shim/entry.h"
-#include "osi/include/future.h"
-#include "osi/include/log.h"
+#include "main/shim/stack.h"
 
-#include "hci/controller.h"
-#include "hci/hci_layer.h"
-#include "hci/le_advertising_manager.h"
-#include "hci/le_scanning_manager.h"
-#include "main/shim/btm.h"
-#include "neighbor/connectability.h"
-#include "neighbor/discoverability.h"
-#include "neighbor/inquiry.h"
-#include "neighbor/name.h"
-#include "neighbor/page.h"
-#include "os/handler.h"
-#include "security/security_module.h"
-#include "shim/dumpsys.h"
-#include "shim/l2cap.h"
-#include "shim/stack.h"
-#include "stack_manager.h"
-#include "storage/legacy.h"
+namespace bluetooth {
+namespace shim {
 
-using bluetooth::shim::GetGabeldorscheStack;
+os::Handler* GetGdShimHandler() { return Stack::GetInstance()->GetHandler(); }
 
-extern bluetooth::shim::Btm shim_btm;
-
-future_t* bluetooth::shim::StartGabeldorscheStack() {
-  GetGabeldorscheStack()->Start();
-  shim_btm.RegisterInquiryCallbacks();
-  return (future_t*)nullptr;
-}
-
-future_t* bluetooth::shim::StopGabeldorscheStack() {
-  GetGabeldorscheStack()->Stop();
-  return (future_t*)nullptr;
-}
-
-bluetooth::os::Handler* bluetooth::shim::GetGdShimHandler() {
-  return bluetooth::shim::GetDumpsys()->GetGdShimHandler();
-}
-
-bluetooth::hci::LeAdvertisingManager* bluetooth::shim::GetAdvertising() {
-  return GetGabeldorscheStack()
+hci::LeAdvertisingManager* GetAdvertising() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::hci::LeAdvertisingManager>();
+      ->GetInstance<hci::LeAdvertisingManager>();
 }
 
-bluetooth::hci::Controller* bluetooth::shim::GetController() {
-  return GetGabeldorscheStack()
+hci::Controller* GetController() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::hci::Controller>();
+      ->GetInstance<hci::Controller>();
 }
 
-bluetooth::neighbor::ConnectabilityModule*
-bluetooth::shim::GetConnectability() {
-  return GetGabeldorscheStack()
+neighbor::ConnectabilityModule* GetConnectability() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::neighbor::ConnectabilityModule>();
+      ->GetInstance<neighbor::ConnectabilityModule>();
 }
 
-bluetooth::neighbor::DiscoverabilityModule*
-bluetooth::shim::GetDiscoverability() {
-  return GetGabeldorscheStack()
+neighbor::DiscoverabilityModule* GetDiscoverability() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::neighbor::DiscoverabilityModule>();
+      ->GetInstance<neighbor::DiscoverabilityModule>();
 }
 
-bluetooth::shim::Dumpsys* bluetooth::shim::GetDumpsys() {
-  return GetGabeldorscheStack()
-      ->GetStackManager()
-      ->GetInstance<bluetooth::shim::Dumpsys>();
+Dumpsys* GetDumpsys() {
+  return Stack::GetInstance()->GetStackManager()->GetInstance<Dumpsys>();
 }
 
-bluetooth::neighbor::InquiryModule* bluetooth::shim::GetInquiry() {
-  return GetGabeldorscheStack()
+neighbor::InquiryModule* GetInquiry() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::neighbor::InquiryModule>();
+      ->GetInstance<neighbor::InquiryModule>();
 }
 
-bluetooth::hci::HciLayer* bluetooth::shim::GetHciLayer() {
-  return GetGabeldorscheStack()
-      ->GetStackManager()
-      ->GetInstance<bluetooth::hci::HciLayer>();
+hci::HciLayer* GetHciLayer() {
+  return Stack::GetInstance()->GetStackManager()->GetInstance<hci::HciLayer>();
 }
 
-bluetooth::shim::L2cap* bluetooth::shim::GetL2cap() {
-  return GetGabeldorscheStack()
+l2cap::classic::L2capClassicModule* GetL2capClassicModule() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::shim::L2cap>();
+      ->GetInstance<bluetooth::l2cap::classic::L2capClassicModule>();
 }
 
-bluetooth::neighbor::NameModule* bluetooth::shim::GetName() {
-  return GetGabeldorscheStack()
+bluetooth::l2cap::le::L2capLeModule* GetL2capLeModule() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::neighbor::NameModule>();
+      ->GetInstance<bluetooth::l2cap::le::L2capLeModule>();
 }
 
-bluetooth::neighbor::PageModule* bluetooth::shim::GetPage() {
-  return GetGabeldorscheStack()
+neighbor::NameModule* GetName() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::neighbor::PageModule>();
+      ->GetInstance<neighbor::NameModule>();
 }
 
-bluetooth::hci::LeScanningManager* bluetooth::shim::GetScanning() {
-  return GetGabeldorscheStack()
+neighbor::PageModule* GetPage() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::hci::LeScanningManager>();
+      ->GetInstance<neighbor::PageModule>();
 }
 
-bluetooth::security::SecurityModule* bluetooth::shim::GetSecurityModule() {
-  return GetGabeldorscheStack()
+hci::LeScanningManager* GetScanning() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::security::SecurityModule>();
+      ->GetInstance<hci::LeScanningManager>();
 }
 
-bluetooth::storage::LegacyModule* bluetooth::shim::GetStorage() {
-  return GetGabeldorscheStack()
+security::SecurityModule* GetSecurityModule() {
+  return Stack::GetInstance()
       ->GetStackManager()
-      ->GetInstance<bluetooth::storage::LegacyModule>();
+      ->GetInstance<security::SecurityModule>();
 }
+
+storage::StorageModule* GetStorage() {
+  return Stack::GetInstance()
+      ->GetStackManager()
+      ->GetInstance<storage::StorageModule>();
+}
+
+hci::AclManager* GetAclManager() {
+  return Stack::GetInstance()
+      ->GetStackManager()
+      ->GetInstance<hci::AclManager>();
+}
+
+hci::VendorSpecificEventManager* GetVendorSpecificEventManager() {
+  return Stack::GetInstance()
+      ->GetStackManager()
+      ->GetInstance<hci::VendorSpecificEventManager>();
+}
+
+activity_attribution::ActivityAttribution* GetActivityAttribution() {
+  return Stack::GetInstance()
+      ->GetStackManager()
+      ->GetInstance<activity_attribution::ActivityAttribution>();
+}
+
+}  // namespace shim
+}  // namespace bluetooth

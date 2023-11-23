@@ -22,18 +22,15 @@
  *
  ******************************************************************************/
 
+#include <cstdint>
 #include <cstring>
 
-#include "bta_ag_api.h"
-#include "bta_ag_int.h"
-#include "bta_api.h"
-#include "bta_dm_api.h"
-#include "bta_sys.h"
-#include "btif_config.h"
-#include "l2c_api.h"
-#include "osi/include/osi.h"
-#include "port_api.h"
-#include "utl.h"
+#include "bta/ag/bta_ag_int.h"
+#include "bta/include/bta_dm_api.h"
+#include "btif/include/btif_config.h"
+#include "osi/include/osi.h"  // UNUSED_ATTR
+#include "stack/include/l2c_api.h"
+#include "stack/include/port_api.h"
 
 /*****************************************************************************
  *  Constants
@@ -102,8 +99,8 @@ static void bta_ag_cback_open(tBTA_AG_SCB* p_scb, const RawAddress& bd_addr,
 void bta_ag_register(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data) {
   /* initialize control block */
   p_scb->reg_services = data.api_register.services;
-  p_scb->serv_sec_mask = data.api_register.sec_mask;
   p_scb->features = data.api_register.features;
+  p_scb->masked_features = data.api_register.features;
   p_scb->app_id = data.api_register.app_id;
 
   /* create SDP records */
@@ -175,7 +172,6 @@ void bta_ag_start_dereg(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data) {
  ******************************************************************************/
 void bta_ag_start_open(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data) {
   p_scb->peer_addr = data.api_open.bd_addr;
-  p_scb->cli_sec_mask = data.api_open.sec_mask;
   p_scb->open_services = p_scb->reg_services;
 
   /* Check if RFCOMM has any incoming connection to avoid collision. */
@@ -184,7 +180,7 @@ void bta_ag_start_open(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data) {
     /* Let the incoming connection goes through.                        */
     /* Issue collision for this scb for now.                            */
     /* We will decide what to do when we find incoming connetion later. */
-    bta_ag_collision_cback(0, BTA_ID_AG, 0, p_scb->peer_addr);
+    bta_ag_collision_cback(BTA_SYS_CONN_OPEN, BTA_ID_AG, 0, p_scb->peer_addr);
     return;
   }
 
@@ -366,6 +362,7 @@ void bta_ag_rfc_close(tBTA_AG_SCB* p_scb,
   /* reinitialize stuff */
   p_scb->conn_service = 0;
   p_scb->peer_features = 0;
+  p_scb->masked_features = p_scb->features;
   p_scb->peer_codecs = BTA_AG_CODEC_CVSD;
   p_scb->sco_codec = BTA_AG_CODEC_CVSD;
   /* Clear these flags upon SLC teardown */

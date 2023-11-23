@@ -77,6 +77,17 @@ message CameraDeviceInfo {
         repeated int32 black_level_pattern = 1;
     }
 
+    message MultiResolutionStreamConfigurations {
+        message MultiResolutionStreamConfig {
+            optional int32 format = 1;
+            optional int32 width = 2;
+            optional int32 height = 3;
+            optional string cameraId = 4;
+            optional bool input = 5;
+        }
+        repeated MultiResolutionStreamConfig availableMultiResolutionConfigurations = 1;
+    }
+
     optional string cameraId = 1;
 
     // Start of codegen fields
@@ -106,6 +117,8 @@ message CameraDeviceInfo {
     repeated Size android_jpeg_availableThumbnailSizes = 524288;
     optional int32 android_lens_facing = 589824;
     optional int32 android_lens_poseReference = 589825;
+    optional float android_lens_distortionMaximumResolution = 589826;
+    optional float android_lens_intrinsicCalibrationMaximumResolution = 589827;
     repeated float android_lens_info_availableApertures = 655360;
     repeated float android_lens_info_availableFilterDensities = 655361;
     repeated float android_lens_info_availableFocalLengths = 655362;
@@ -126,6 +139,11 @@ message CameraDeviceInfo {
     optional int32 android_scaler_croppingType = 917506;
     repeated MandatoryStreamCombination android_scaler_mandatoryStreamCombinations = 917507;
     repeated MandatoryStreamCombination android_scaler_mandatoryConcurrentStreamCombinations = 917508;
+    repeated int32 android_scaler_availableRotateAndCropModes = 917509;
+    optional Size android_scaler_defaultSecureImageSize = 917510;
+    optional MultiResolutionStreamConfigurations android_scaler_multiResolutionStreamConfigurationMap = 917511;
+    optional StreamConfigurations android_scaler_streamConfigurationMapMaximumResolution = 917512;
+    repeated MandatoryStreamCombination android_scaler_mandatoryMaximumResolutionStreamCombinations = 917513;
     optional int32 android_sensor_referenceIlluminant1 = 983040;
     optional int32 android_sensor_referenceIlluminant2 = 983041;
     optional ColorSpaceTransform android_sensor_calibrationTransform1 = 983042;
@@ -150,6 +168,10 @@ message CameraDeviceInfo {
     optional int32 android_sensor_info_timestampSource = 1048584;
     optional bool android_sensor_info_lensShadingApplied = 1048585;
     optional Rect android_sensor_info_preCorrectionActiveArraySize = 1048586;
+    optional Rect android_sensor_info_activeArraySizeMaximumResolution = 1048587;
+    optional Size android_sensor_info_pixelArraySizeMaximumResolution = 1048588;
+    optional Rect android_sensor_info_preCorrectionActiveArraySizeMaximumResolution = 1048589;
+    optional Size android_sensor_info_binningFactor = 1048590;
     repeated int32 android_shading_availableModes = 1114112;
     repeated int32 android_statistics_info_availableFaceDetectModes = 1245184;
     optional int32 android_statistics_info_maxFaceCount = 1245185;

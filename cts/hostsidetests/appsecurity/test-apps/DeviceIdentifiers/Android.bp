@@ -14,19 +14,24 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsAccessDeviceIdentifiers",
     defaults: ["cts_support_defaults"],
     static_libs: [
         "androidx.test.rules",
         "compatibility-device-util-axt",
+        "platform-test-annotations",
     ],
-    libs: ["android.test.base.stubs"],
+    libs: ["android.test.base"],
     srcs: ["src/**/*.java"],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "sts",
     ],
     optimize: {
         enabled: false,

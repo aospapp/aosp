@@ -120,6 +120,15 @@ public class HceReaderTestActivity extends PassFailButtons.TestListActivity {
                         getString(R.string.nfc_hce_other_conflicting_prefix_aids_reader),
                         ConflictingNonPaymentPrefixEmulatorActivity.buildReaderIntent(this), null));
             }
+
+            adapter.add(TestListItem.newTest(this, R.string.nfc_screen_on_only_offhost_reader,
+                    getString(R.string.nfc_screen_on_only_offhost_reader),
+                    ScreenOnOnlyOffHostEmulatorActivity.buildReaderIntent(this), null));
+
+            adapter.add(TestListItem.newTest(this, R.string.nfc_screen_off_hce_payment_reader,
+                    getString(R.string.nfc_screen_off_hce_payment_reader),
+                    ScreenOffPaymentEmulatorActivity.buildReaderIntent(this), null));
+
         }
 
         setTestListAdapter(adapter);

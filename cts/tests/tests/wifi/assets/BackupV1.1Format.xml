@@ -8,8 +8,8 @@
 <string name="SSID">&quot;TestSsid1&quot;</string>
 <null name="PreSharedKey" />
 <string-array name="WEPKeys" num="4">
-<item value="&quot;WepAscii1&quot;" />
-<item value="&quot;WepAscii2&quot;" />
+<item value="&quot;WepAscii12345&quot;" />
+<item value="&quot;WepAs&quot;" />
 <item value="45342312ab" />
 <item value="45342312ab45342312ab34ac12" />
 </string-array>

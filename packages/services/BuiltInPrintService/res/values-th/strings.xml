@@ -71,7 +71,11 @@
     <string name="accept" msgid="4426153292469698134">"ยอมรับ"</string>
     <string name="reject" msgid="24751635160440693">"ปฏิเสธ"</string>
     <string name="connections" msgid="8895413761760117180">"การเชื่อมต่อ"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"บริการการพิมพ์เริ่มต้นไม่พบเครื่องพิมพ์ Wi-Fi Direct"</string>
+    <string name="disable_wifi_direct" msgid="4824677957241687577">"ปิดใช้ Wi-Fi Direct"</string>
     <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"บริการการพิมพ์เริ่มต้นต้องมีสิทธิ์เข้าถึงตำแหน่งเพื่อหาอุปกรณ์ที่อยู่ใกล้เคียง"</string>
     <string name="fix" msgid="7784394272611365393">"ตรวจสอบสิทธิ์"</string>
+    <string name="wifi_direct_location_rationale" msgid="5084311320511965454">"บริการการพิมพ์เริ่มต้นต้องเปิดใช้บริการตำแหน่งเพื่อหาอุปกรณ์ที่อยู่ใกล้เคียง"</string>
+    <string name="enable_location" msgid="3627841004298863140">"เปิดใช้ตำแหน่ง"</string>
     <string name="print" msgid="7851318072404916362">"พิมพ์"</string>
 </resources>

@@ -10,7 +10,7 @@ PURPOSE = "Verify deep sleep"
 ATTRIBUTES = "suite:faft_cr50_pvt, suite:faft_cr50_prepvt"
 TIME = "LONG"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo"
+DEPENDENCIES = "servo_state:WORKING"
 
 DOC = """
 Cr50 should enter deep sleep every time the system goes into S3. Run

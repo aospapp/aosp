@@ -18,4 +18,7 @@
     <!-- The maximum waiting time in seconds for location to perform
          device based geo-fencing -->
     <integer name="max_location_waiting_time">120</integer>
+
+    <!-- Whether to compare message service category when deduping messages -->
+    <bool name="duplicate_compare_service_category">false</bool>
 </resources>

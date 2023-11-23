@@ -58,6 +58,10 @@ public class FillContentLayout extends FrameLayout {
   }
 
   private void init(Context context, AttributeSet attrs, int defStyleAttr) {
+    if (isInEditMode()) {
+      return;
+    }
+
     TypedArray a =
         context.obtainStyledAttributes(attrs, R.styleable.SudFillContentLayout, defStyleAttr, 0);
 

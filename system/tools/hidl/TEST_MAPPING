@@ -1,16 +1,10 @@
 {
   "presubmit": [
     {
-      "name": "hidl-gen-host_test",
-      "host": true
+      "name": "hidl_test"
     },
     {
-      "name": "libhidl-gen-host-utils_test",
-      "host": true
-    },
-    {
-      "name": "libhidl-gen-utils_test",
-      "host": true
+      "name": "hidl_test_java"
     },
     {
       "name": "libhidl-gen-utils_test"

@@ -49,36 +49,50 @@ class InputFacadeRemoteAdapter(object):
         self._input_proxy.blocking_playback_of_default_file(input_type,
                                                             filename)
 
-    def initialize_input_recorder(self, device_name):
+    def initialize_input_recorder(self, device_name, uniq=None):
         """Initialize an input event recorder object.
 
         @param device_name: the name of the input device to record.
 
         """
-        self._input_proxy.initialize_input_recorder(device_name)
+        self._input_proxy.initialize_input_recorder(device_name, uniq)
 
-    def clear_input_events(self):
-        """Clear the event list."""
-        self._input_proxy.clear_input_events()
+    def clear_input_events(self, device_name):
+        """Clear the event list.
 
+        @param device_name: the name of the input device to record.
 
-    def start_input_recorder(self):
-        """Start the recording thread."""
-        self._input_proxy.start_input_recorder()
-
-
-    def stop_input_recorder(self):
-        """Stop the recording thread."""
-        self._input_proxy.stop_input_recorder()
+        """
+        self._input_proxy.clear_input_events(device_name)
 
 
-    def get_input_events(self):
+    def start_input_recorder(self, device_name):
+        """Start the recording thread.
+
+        @param device_name: the name of the input device to record.
+
+        """
+        self._input_proxy.start_input_recorder(device_name)
+
+
+    def stop_input_recorder(self, device_name):
+        """Stop the recording thread.
+
+        @param device_name: the name of the input device to record.
+
+        """
+        self._input_proxy.stop_input_recorder(device_name)
+
+
+    def get_input_events(self, device_name):
         """Get the bluetooth device events.
+
+        @param device_name: the name of the input device to record.
 
         @returns: the recorded input events.
 
         """
-        return json.loads(self._input_proxy.get_input_events())
+        return json.loads(self._input_proxy.get_input_events(device_name))
 
 
     def press_keys(self, key_list):

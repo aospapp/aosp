@@ -20,6 +20,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include <minikin/Layout.h>
+
 namespace minikin {
 
 float getRunAdvance(const float* advances, const uint16_t* buf, size_t start, size_t count,
@@ -27,6 +29,10 @@ float getRunAdvance(const float* advances, const uint16_t* buf, size_t start, si
 
 size_t getOffsetForAdvance(const float* advances, const uint16_t* buf, size_t start, size_t count,
                            float advance);
+
+void getBounds(const U16StringPiece& str, const Range& range, Bidi bidiFlags,
+               const MinikinPaint& paint, StartHyphenEdit startHyphen, EndHyphenEdit endHyphen,
+               MinikinRect* out);
 
 }  // namespace minikin
 

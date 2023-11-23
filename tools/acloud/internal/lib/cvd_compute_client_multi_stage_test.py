@@ -20,7 +20,8 @@ import glob
 import os
 import subprocess
 import unittest
-import mock
+
+from unittest import mock
 
 from acloud.create import avd_spec
 from acloud.internal import constants
@@ -31,8 +32,6 @@ from acloud.internal.lib import gcompute_client
 from acloud.internal.lib import utils
 from acloud.internal.lib.ssh import Ssh
 from acloud.list import list as list_instances
-
-from acloud.internal.lib.cvd_compute_client_multi_stage import _ProcessBuild
 
 
 class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
@@ -82,8 +81,13 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
 
     def setUp(self):
         """Set up the test."""
-        super(CvdComputeClientTest, self).setUp()
+        super().setUp()
         self.Patch(cvd_compute_client_multi_stage.CvdComputeClient, "InitResourceHandle")
+        self.Patch(cvd_compute_client_multi_stage.CvdComputeClient, "_VerifyZoneByQuota",
+                   return_value=True)
+        self.Patch(cvd_compute_client_multi_stage.CvdComputeClient,
+                   "_ArgSupportInLaunchCVD",
+                   return_value=True)
         self.Patch(android_build_client.AndroidBuildClient, "InitResourceHandle")
         self.Patch(android_build_client.AndroidBuildClient, "DownloadArtifact")
         self.Patch(list_instances, "GetInstancesFromInstanceNames", return_value=mock.MagicMock())
@@ -94,45 +98,43 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
         self.cvd_compute_client_multi_stage = cvd_compute_client_multi_stage.CvdComputeClient(
             self._GetFakeConfig(), mock.MagicMock(), gpu=self.GPU)
         self.args = mock.MagicMock()
-        self.args.local_image = None
+        self.args.local_image = constants.FIND_IN_BUILD_ENV
+        self.args.local_system_image = None
         self.args.config_file = ""
         self.args.avd_type = constants.TYPE_CF
         self.args.flavor = "phone"
         self.args.adb_port = None
-        self.args.hw_property = "cpu:2,resolution:1080x1920,dpi:240,memory:4g"
+        self.args.hw_property = "cpu:2,resolution:1080x1920,dpi:240,memory:4g,disk:10g"
+        self.args.num_avds_per_instance = 2
+        self.args.remote_host = False
+        self.args.launch_args = self.LAUNCH_ARGS
 
     # pylint: disable=protected-access
-    @mock.patch.object(utils, "GetBuildEnvironmentVariable", return_value="fake_env")
+    @mock.patch.object(utils, "GetBuildEnvironmentVariable", return_value="fake_env_cf_x86")
     @mock.patch.object(glob, "glob", return_value=["fake.img"])
     def testGetLaunchCvdArgs(self, _mock_check_img, _mock_env):
         """test GetLaunchCvdArgs."""
         # test GetLaunchCvdArgs with avd_spec
         fake_avd_spec = avd_spec.AVDSpec(self.args)
-        expeted_args = ['-x_res=1080', '-y_res=1920', '-dpi=240', '-cpus=2',
-                        '-memory_mb=4096', '--setupwizard_mode=REQUIRED',
-                        '-gpu_mode=drm_virgl']
+        expeted_args = ["-config=phone", "-x_res=1080", "-y_res=1920", "-dpi=240",
+                        "-data_policy=always_create", "-blank_data_image_mb=10240",
+                        "-cpus=2", "-memory_mb=4096", "-num_instances=2",
+                        "--setupwizard_mode=REQUIRED",
+                        "-undefok=report_anonymous_usage_stats,config",
+                        "-report_anonymous_usage_stats=y"]
         launch_cvd_args = self.cvd_compute_client_multi_stage._GetLaunchCvdArgs(fake_avd_spec)
         self.assertEqual(launch_cvd_args, expeted_args)
 
         # test GetLaunchCvdArgs without avd_spec
-        expeted_args = ['-x_res=720', '-y_res=1280', '-dpi=160',
-                        '--setupwizard_mode=REQUIRED', '-gpu_mode=drm_virgl']
+        expeted_args = ["-x_res=720", "-y_res=1280", "-dpi=160",
+                        "--setupwizard_mode=REQUIRED",
+                        "-undefok=report_anonymous_usage_stats,config",
+                        "-report_anonymous_usage_stats=y"]
         launch_cvd_args = self.cvd_compute_client_multi_stage._GetLaunchCvdArgs(
             avd_spec=None)
         self.assertEqual(launch_cvd_args, expeted_args)
 
-    # pylint: disable=protected-access
-    def testProcessBuild(self):
-        """Test creating "cuttlefish build" strings."""
-        self.assertEqual(_ProcessBuild(build_id="123", branch="abc", build_target="def"), "123/def")
-        self.assertEqual(_ProcessBuild(build_id=None, branch="abc", build_target="def"), "abc/def")
-        self.assertEqual(_ProcessBuild(build_id="123", branch=None, build_target="def"), "123/def")
-        self.assertEqual(_ProcessBuild(build_id="123", branch="abc", build_target=None), "123")
-        self.assertEqual(_ProcessBuild(build_id=None, branch="abc", build_target=None), "abc")
-        self.assertEqual(_ProcessBuild(build_id="123", branch=None, build_target=None), "123")
-        self.assertEqual(_ProcessBuild(build_id=None, branch=None, build_target=None), None)
-
-    @mock.patch.object(utils, "GetBuildEnvironmentVariable", return_value="fake_env")
+    @mock.patch.object(utils, "GetBuildEnvironmentVariable", return_value="fake_env_cf_x86")
     @mock.patch.object(glob, "glob", return_value=["fake.img"])
     @mock.patch.object(gcompute_client.ComputeClient, "CompareMachineSize",
                        return_value=1)
@@ -157,10 +159,12 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
 
         created_subprocess = mock.MagicMock()
         created_subprocess.stdout = mock.MagicMock()
-        created_subprocess.stdout.readline = mock.MagicMock(return_value='')
+        created_subprocess.stdout.readline = mock.MagicMock(return_value=b"")
         created_subprocess.poll = mock.MagicMock(return_value=0)
         created_subprocess.returncode = 0
         created_subprocess.communicate = mock.MagicMock(return_value=('', ''))
+        self.Patch(cvd_compute_client_multi_stage.CvdComputeClient,
+                   "_RecordBuildInfo")
         self.Patch(subprocess, "Popen", return_value=created_subprocess)
         self.Patch(subprocess, "check_call")
         self.Patch(os, "chmod")
@@ -219,6 +223,57 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
             extra_scopes=self.EXTRA_SCOPES,
             gpu=self.GPU,
             tags=None)
+
+    def testRecordBuildInfo(self):
+        """Test RecordBuildInfo"""
+        build_id = "build_id"
+        build_target = "build_target"
+        system_build_id = "system_id"
+        system_build_target = "system_target"
+        kernel_build_id = "kernel_id"
+        kernel_build_target = "kernel_target"
+        fake_avd_spec = mock.MagicMock()
+        fake_avd_spec.image_source = constants.IMAGE_SRC_REMOTE
+        fake_avd_spec.remote_image = {constants.BUILD_ID: build_id,
+                                      constants.BUILD_TARGET: build_target}
+        fake_avd_spec.system_build_info = {constants.BUILD_ID: system_build_id,
+                                           constants.BUILD_TARGET: system_build_target}
+        fake_avd_spec.kernel_build_info = {constants.BUILD_ID: kernel_build_id,
+                                           constants.BUILD_TARGET: kernel_build_target}
+        expected_metadata = dict()
+        expected_metadata.update(self.METADATA)
+        expected_metadata.update({"build_id": build_id})
+        expected_metadata.update({"build_target": build_target})
+        expected_metadata.update({"system_build_id": system_build_id})
+        expected_metadata.update({"system_build_target": system_build_target})
+        expected_metadata.update({"kernel_build_id": kernel_build_id})
+        expected_metadata.update({"kernel_build_target": kernel_build_target})
+
+        # Test record metadata with avd_spec for acloud create
+        self.cvd_compute_client_multi_stage._RecordBuildInfo(
+            fake_avd_spec, build_id=None, build_target=None, system_build_id=None,
+            system_build_target=None, kernel_build_id=None, kernel_build_target=None)
+        self.assertEqual(self.cvd_compute_client_multi_stage._metadata, expected_metadata)
+
+        # Test record metadata with build info for acloud create_cf
+        self.cvd_compute_client_multi_stage._RecordBuildInfo(
+            None, build_id, build_target, system_build_id, system_build_target,
+            kernel_build_id, kernel_build_target)
+        self.assertEqual(self.cvd_compute_client_multi_stage._metadata, expected_metadata)
+
+    def testSetStage(self):
+        """Test SetStage"""
+        device_stage = "fake_stage"
+        self.cvd_compute_client_multi_stage.SetStage(device_stage)
+        self.assertEqual(self.cvd_compute_client_multi_stage.stage,
+                         device_stage)
+
+    def testArgSupportInLaunchCVD(self):
+        """Test ArgSupportInLaunchCVD"""
+        self.Patch(Ssh, "GetCmdOutput", return_value="-config (Config)")
+        self.assertTrue(
+            self.cvd_compute_client_multi_stage._ArgSupportInLaunchCVD(
+                "-config"))
 
 
 if __name__ == "__main__":

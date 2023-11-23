@@ -52,20 +52,20 @@ static const uint8_t rd_thresh_block_size_factor[BLOCK_SIZES_ALL] = {
   2, 3, 3, 4, 6, 6, 8, 12, 12, 16, 24, 24, 32, 48, 48, 64, 4, 4, 8, 8, 16, 16
 };
 
-static const int use_intra_ext_tx_for_txsize[EXT_TX_SETS_INTRA][EXT_TX_SIZES] =
-    {
-      { 1, 1, 1, 1 },  // unused
-      { 1, 1, 0, 0 },
-      { 0, 0, 1, 0 },
-    };
+static const int use_intra_ext_tx_for_txsize[EXT_TX_SETS_INTRA]
+                                            [EXT_TX_SIZES] = {
+                                              { 1, 1, 1, 1 },  // unused
+                                              { 1, 1, 0, 0 },
+                                              { 0, 0, 1, 0 },
+                                            };
 
-static const int use_inter_ext_tx_for_txsize[EXT_TX_SETS_INTER][EXT_TX_SIZES] =
-    {
-      { 1, 1, 1, 1 },  // unused
-      { 1, 1, 0, 0 },
-      { 0, 0, 1, 0 },
-      { 0, 0, 0, 1 },
-    };
+static const int use_inter_ext_tx_for_txsize[EXT_TX_SETS_INTER]
+                                            [EXT_TX_SIZES] = {
+                                              { 1, 1, 1, 1 },  // unused
+                                              { 1, 1, 0, 0 },
+                                              { 0, 0, 1, 0 },
+                                              { 0, 1, 1, 1 },
+                                            };
 
 static const int av1_ext_tx_set_idx_to_type[2][AOMMAX(EXT_TX_SETS_INTRA,
                                                       EXT_TX_SETS_INTER)] = {
@@ -278,7 +278,7 @@ void av1_fill_mode_rates(AV1_COMMON *const cm, MACROBLOCK *x,
       av1_cost_tokens_from_cdf(x->compound_type_cost[i],
                                fc->compound_type_cdf[i], NULL);
     for (i = 0; i < BLOCK_SIZES_ALL; ++i) {
-      if (get_interinter_wedge_bits(i)) {
+      if (av1_is_wedge_used(i)) {
         av1_cost_tokens_from_cdf(x->wedge_idx_cost[i], fc->wedge_idx_cdf[i],
                                  NULL);
       }
@@ -312,14 +312,11 @@ void av1_fill_mode_rates(AV1_COMMON *const cm, MACROBLOCK *x,
 }
 
 // Values are now correlated to quantizer.
-static int sad_per_bit16lut_8[QINDEX_RANGE];
-static int sad_per_bit4lut_8[QINDEX_RANGE];
-static int sad_per_bit16lut_10[QINDEX_RANGE];
-static int sad_per_bit4lut_10[QINDEX_RANGE];
-static int sad_per_bit16lut_12[QINDEX_RANGE];
-static int sad_per_bit4lut_12[QINDEX_RANGE];
+static int sad_per_bit_lut_8[QINDEX_RANGE];
+static int sad_per_bit_lut_10[QINDEX_RANGE];
+static int sad_per_bit_lut_12[QINDEX_RANGE];
 
-static void init_me_luts_bd(int *bit16lut, int *bit4lut, int range,
+static void init_me_luts_bd(int *bit16lut, int range,
                             aom_bit_depth_t bit_depth) {
   int i;
   // Initialize the sad lut tables using a formulaic calculation for now.
@@ -328,27 +325,23 @@ static void init_me_luts_bd(int *bit16lut, int *bit4lut, int range,
   for (i = 0; i < range; i++) {
     const double q = av1_convert_qindex_to_q(i, bit_depth);
     bit16lut[i] = (int)(0.0418 * q + 2.4107);
-    bit4lut[i] = (int)(0.063 * q + 2.742);
   }
 }
 
 void av1_init_me_luts(void) {
-  init_me_luts_bd(sad_per_bit16lut_8, sad_per_bit4lut_8, QINDEX_RANGE,
-                  AOM_BITS_8);
-  init_me_luts_bd(sad_per_bit16lut_10, sad_per_bit4lut_10, QINDEX_RANGE,
-                  AOM_BITS_10);
-  init_me_luts_bd(sad_per_bit16lut_12, sad_per_bit4lut_12, QINDEX_RANGE,
-                  AOM_BITS_12);
+  init_me_luts_bd(sad_per_bit_lut_8, QINDEX_RANGE, AOM_BITS_8);
+  init_me_luts_bd(sad_per_bit_lut_10, QINDEX_RANGE, AOM_BITS_10);
+  init_me_luts_bd(sad_per_bit_lut_12, QINDEX_RANGE, AOM_BITS_12);
 }
 
 static const int rd_boost_factor[16] = { 64, 32, 32, 32, 24, 16, 12, 12,
                                          8,  8,  4,  4,  2,  2,  1,  0 };
-static const int rd_frame_type_factor[FRAME_UPDATE_TYPES] = {
-  128, 144, 128, 128, 144, 144, 128
-};
+static const int rd_frame_type_factor[FRAME_UPDATE_TYPES] = { 128, 144, 128,
+                                                              128, 144, 144,
+                                                              128 };
 
 int av1_compute_rd_mult_based_on_qindex(const AV1_COMP *cpi, int qindex) {
-  const int q = av1_dc_quant_Q3(qindex, 0, cpi->common.seq_params.bit_depth);
+  const int q = av1_dc_quant_QTX(qindex, 0, cpi->common.seq_params.bit_depth);
   int rdmult = q * q;
   rdmult = rdmult * 3 + (rdmult * 2 / 3);
   switch (cpi->common.seq_params.bit_depth) {
@@ -364,9 +357,9 @@ int av1_compute_rd_mult_based_on_qindex(const AV1_COMP *cpi, int qindex) {
 
 int av1_compute_rd_mult(const AV1_COMP *cpi, int qindex) {
   int64_t rdmult = av1_compute_rd_mult_based_on_qindex(cpi, qindex);
-  if (cpi->oxcf.pass == 2 &&
+  if (is_stat_consumption_stage(cpi) &&
       (cpi->common.current_frame.frame_type != KEY_FRAME)) {
-    const GF_GROUP *const gf_group = &cpi->twopass.gf_group;
+    const GF_GROUP *const gf_group = &cpi->gf_group;
     const FRAME_UPDATE_TYPE frame_type = gf_group->update_type[gf_group->index];
     const int boost_index = AOMMIN(15, (cpi->rc.gfu_boost / 100));
 
@@ -376,26 +369,46 @@ int av1_compute_rd_mult(const AV1_COMP *cpi, int qindex) {
   return (int)rdmult;
 }
 
+int av1_get_deltaq_offset(const AV1_COMP *cpi, int qindex, double beta) {
+  assert(beta > 0.0);
+  int q = av1_dc_quant_QTX(qindex, 0, cpi->common.seq_params.bit_depth);
+  int newq = (int)rint(q / sqrt(beta));
+  int orig_qindex = qindex;
+  if (newq < q) {
+    do {
+      qindex--;
+      q = av1_dc_quant_QTX(qindex, 0, cpi->common.seq_params.bit_depth);
+    } while (newq < q && qindex > 0);
+  } else {
+    do {
+      qindex++;
+      q = av1_dc_quant_QTX(qindex, 0, cpi->common.seq_params.bit_depth);
+    } while (newq > q && qindex < MAXQ);
+  }
+  return qindex - orig_qindex;
+}
+
 int av1_get_adaptive_rdmult(const AV1_COMP *cpi, double beta) {
+  assert(beta > 0.0);
   const AV1_COMMON *cm = &cpi->common;
-  int64_t q =
-      av1_dc_quant_Q3(cm->base_qindex, 0, cpi->common.seq_params.bit_depth);
+  int64_t q = av1_dc_quant_QTX(cm->quant_params.base_qindex, 0,
+                               cm->seq_params.bit_depth);
   int64_t rdmult = 0;
 
-  switch (cpi->common.seq_params.bit_depth) {
+  switch (cm->seq_params.bit_depth) {
     case AOM_BITS_8: rdmult = (int)((88 * q * q / beta) / 24); break;
     case AOM_BITS_10:
       rdmult = ROUND_POWER_OF_TWO((int)((88 * q * q / beta) / 24), 4);
       break;
     default:
-      assert(cpi->common.seq_params.bit_depth == AOM_BITS_12);
+      assert(cm->seq_params.bit_depth == AOM_BITS_12);
       rdmult = ROUND_POWER_OF_TWO((int)((88 * q * q / beta) / 24), 8);
       break;
   }
 
-  if (cpi->oxcf.pass == 2 &&
-      (cpi->common.current_frame.frame_type != KEY_FRAME)) {
-    const GF_GROUP *const gf_group = &cpi->twopass.gf_group;
+  if (is_stat_consumption_stage(cpi) &&
+      (cm->current_frame.frame_type != KEY_FRAME)) {
+    const GF_GROUP *const gf_group = &cpi->gf_group;
     const FRAME_UPDATE_TYPE frame_type = gf_group->update_type[gf_group->index];
     const int boost_index = AOMMIN(15, (cpi->rc.gfu_boost / 100));
 
@@ -409,9 +422,13 @@ int av1_get_adaptive_rdmult(const AV1_COMP *cpi, double beta) {
 static int compute_rd_thresh_factor(int qindex, aom_bit_depth_t bit_depth) {
   double q;
   switch (bit_depth) {
-    case AOM_BITS_8: q = av1_dc_quant_Q3(qindex, 0, AOM_BITS_8) / 4.0; break;
-    case AOM_BITS_10: q = av1_dc_quant_Q3(qindex, 0, AOM_BITS_10) / 16.0; break;
-    case AOM_BITS_12: q = av1_dc_quant_Q3(qindex, 0, AOM_BITS_12) / 64.0; break;
+    case AOM_BITS_8: q = av1_dc_quant_QTX(qindex, 0, AOM_BITS_8) / 4.0; break;
+    case AOM_BITS_10:
+      q = av1_dc_quant_QTX(qindex, 0, AOM_BITS_10) / 16.0;
+      break;
+    case AOM_BITS_12:
+      q = av1_dc_quant_QTX(qindex, 0, AOM_BITS_12) / 64.0;
+      break;
     default:
       assert(0 && "bit_depth should be AOM_BITS_8, AOM_BITS_10 or AOM_BITS_12");
       return -1;
@@ -422,18 +439,9 @@ static int compute_rd_thresh_factor(int qindex, aom_bit_depth_t bit_depth) {
 
 void av1_initialize_me_consts(const AV1_COMP *cpi, MACROBLOCK *x, int qindex) {
   switch (cpi->common.seq_params.bit_depth) {
-    case AOM_BITS_8:
-      x->sadperbit16 = sad_per_bit16lut_8[qindex];
-      x->sadperbit4 = sad_per_bit4lut_8[qindex];
-      break;
-    case AOM_BITS_10:
-      x->sadperbit16 = sad_per_bit16lut_10[qindex];
-      x->sadperbit4 = sad_per_bit4lut_10[qindex];
-      break;
-    case AOM_BITS_12:
-      x->sadperbit16 = sad_per_bit16lut_12[qindex];
-      x->sadperbit4 = sad_per_bit4lut_12[qindex];
-      break;
+    case AOM_BITS_8: x->sadperbit = sad_per_bit_lut_8[qindex]; break;
+    case AOM_BITS_10: x->sadperbit = sad_per_bit_lut_10[qindex]; break;
+    case AOM_BITS_12: x->sadperbit = sad_per_bit_lut_12[qindex]; break;
     default:
       assert(0 && "bit_depth should be AOM_BITS_8, AOM_BITS_10 or AOM_BITS_12");
   }
@@ -443,10 +451,10 @@ static void set_block_thresholds(const AV1_COMMON *cm, RD_OPT *rd) {
   int i, bsize, segment_id;
 
   for (segment_id = 0; segment_id < MAX_SEGMENTS; ++segment_id) {
-    const int qindex =
-        clamp(av1_get_qindex(&cm->seg, segment_id, cm->base_qindex) +
-                  cm->y_dc_delta_q,
-              0, MAXQ);
+    const int qindex = clamp(
+        av1_get_qindex(&cm->seg, segment_id, cm->quant_params.base_qindex) +
+            cm->quant_params.y_dc_delta_q,
+        0, MAXQ);
     const int q = compute_rd_thresh_factor(qindex, cm->seq_params.bit_depth);
 
     for (bsize = 0; bsize < BLOCK_SIZES_ALL; ++bsize) {
@@ -525,8 +533,9 @@ void av1_fill_coeff_costs(MACROBLOCK *x, FRAME_CONTEXT *fc,
         int br_rate[BR_CDF_SIZE];
         int prev_cost = 0;
         int i, j;
-        av1_cost_tokens_from_cdf(br_rate, fc->coeff_br_cdf[tx_size][plane][ctx],
-                                 NULL);
+        av1_cost_tokens_from_cdf(
+            br_rate, fc->coeff_br_cdf[AOMMIN(tx_size, TX_32X32)][plane][ctx],
+            NULL);
         // printf("br_rate: ");
         // for(j = 0; j < BR_CDF_SIZE; j++)
         //  printf("%4d ", br_rate[j]);
@@ -555,15 +564,21 @@ void av1_fill_coeff_costs(MACROBLOCK *x, FRAME_CONTEXT *fc,
   }
 }
 
-void av1_initialize_cost_tables(const AV1_COMMON *const cm, MACROBLOCK *x) {
-  if (cm->cur_frame_force_integer_mv) {
-    av1_build_nmv_cost_table(x->nmv_vec_cost, x->nmvcost, &cm->fc->nmvc,
+void av1_fill_mv_costs(const FRAME_CONTEXT *fc, int integer_mv, int usehp,
+                       MACROBLOCK *x) {
+  x->nmvcost[0] = &x->nmv_costs[0][MV_MAX];
+  x->nmvcost[1] = &x->nmv_costs[1][MV_MAX];
+  x->nmvcost_hp[0] = &x->nmv_costs_hp[0][MV_MAX];
+  x->nmvcost_hp[1] = &x->nmv_costs_hp[1][MV_MAX];
+  if (integer_mv) {
+    av1_build_nmv_cost_table(x->nmv_vec_cost, x->nmvcost, &fc->nmvc,
                              MV_SUBPEL_NONE);
+    x->mv_cost_stack = (int **)&x->nmvcost;
   } else {
+    int *(*src)[2] = usehp ? &x->nmvcost_hp : &x->nmvcost;
+    x->mv_cost_stack = *src;
     av1_build_nmv_cost_table(
-        x->nmv_vec_cost,
-        cm->allow_high_precision_mv ? x->nmvcost_hp : x->nmvcost, &cm->fc->nmvc,
-        cm->allow_high_precision_mv);
+        x->nmv_vec_cost, usehp ? x->nmvcost_hp : x->nmvcost, &fc->nmvc, usehp);
   }
 }
 
@@ -574,29 +589,37 @@ void av1_initialize_rd_consts(AV1_COMP *cpi) {
 
   aom_clear_system_state();
 
-  rd->RDMULT = av1_compute_rd_mult(cpi, cm->base_qindex + cm->y_dc_delta_q);
+  rd->RDMULT = av1_compute_rd_mult(
+      cpi, cm->quant_params.base_qindex + cm->quant_params.y_dc_delta_q);
 
   set_error_per_bit(x, rd->RDMULT);
 
   set_block_thresholds(cm, rd);
 
-  av1_initialize_cost_tables(cm, x);
+  if ((!cpi->sf.rt_sf.use_nonrd_pick_mode &&
+       cpi->oxcf.mv_cost_upd_freq != COST_UPD_OFF) ||
+      frame_is_intra_only(cm) || (cm->current_frame.frame_number & 0x07) == 1)
+    av1_fill_mv_costs(cm->fc, cm->features.cur_frame_force_integer_mv,
+                      cm->features.allow_high_precision_mv, x);
 
-  if (frame_is_intra_only(cm) && cm->allow_screen_content_tools &&
-      cpi->oxcf.pass != 1) {
-    int *dvcost[2] = { &cpi->dv_cost[0][MV_MAX], &cpi->dv_cost[1][MV_MAX] };
-    av1_build_nmv_cost_table(cpi->dv_joint_cost, dvcost, &cm->fc->ndvc,
+  if (!cpi->sf.rt_sf.use_nonrd_pick_mode && frame_is_intra_only(cm) &&
+      cm->features.allow_screen_content_tools &&
+      !is_stat_generation_stage(cpi)) {
+    IntraBCMVCosts *const dv_costs = &cpi->dv_costs;
+    int *dvcost[2] = { &dv_costs->mv_component[0][MV_MAX],
+                       &dv_costs->mv_component[1][MV_MAX] };
+    av1_build_nmv_cost_table(dv_costs->joint_mv, dvcost, &cm->fc->ndvc,
                              MV_SUBPEL_NONE);
   }
 
-  if (cpi->oxcf.pass != 1) {
+  if (!is_stat_generation_stage(cpi)) {
     for (int i = 0; i < TRANS_TYPES; ++i)
       // IDENTITY: 1 bit
       // TRANSLATION: 3 bits
       // ROTZOOM: 2 bits
       // AFFINE: 3 bits
-      cpi->gmtype_cost[i] = (1 + (i > 0 ? (i == ROTZOOM ? 1 : 2) : 0))
-                            << AV1_PROB_COST_SHIFT;
+      cpi->gm_info.type_cost[i] = (1 + (i > 0 ? (i == ROTZOOM ? 1 : 2) : 0))
+                                  << AV1_PROB_COST_SHIFT;
   }
 }
 
@@ -710,7 +733,7 @@ static double interp_bicubic(const double *p, int p_stride, double x,
 */
 
 static const uint8_t bsize_curvfit_model_cat_lookup[BLOCK_SIZES_ALL] = {
-  0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 0, 0, 1, 1, 2, 2
+  0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 1, 1, 2, 2, 3, 3
 };
 
 static int sse_norm_curvfit_model_cat_lookup(double sse_norm) {
@@ -795,9 +818,9 @@ static const double surffit_rate_params[9][4] = {
   },
 };
 
-static const double surffit_dist_params[7] = {
-  1.475844, 4.328362, -5.680233, -0.500994, 0.554585, 4.839478, -0.695837
-};
+static const double surffit_dist_params[7] = { 1.475844,  4.328362, -5.680233,
+                                               -0.500994, 0.554585, 4.839478,
+                                               -0.695837 };
 
 static void rate_surffit_model_params_lookup(BLOCK_SIZE bsize, double xm,
                                              double *rpar) {
@@ -829,66 +852,66 @@ static const double interp_rgrid_curv[4][65] = {
   {
       0.000000,    0.000000,    0.000000,    0.000000,    0.000000,
       0.000000,    0.000000,    0.000000,    0.000000,    0.000000,
-      0.000000,    23.801499,   28.387688,   33.388795,   42.298282,
-      41.525408,   51.597692,   49.566271,   54.632979,   60.321507,
-      67.730678,   75.766165,   85.324032,   96.600012,   120.839562,
-      173.917577,  255.974908,  354.107573,  458.063476,  562.345966,
-      668.568424,  772.072881,  878.598490,  982.202274,  1082.708946,
-      1188.037853, 1287.702240, 1395.588773, 1490.825830, 1584.231230,
-      1691.386090, 1766.822555, 1869.630904, 1926.743565, 2002.949495,
-      2047.431137, 2138.486068, 2154.743767, 2209.242472, 2277.593051,
-      2290.996432, 2307.452938, 2343.567091, 2397.654644, 2469.425868,
-      2558.591037, 2664.860422, 2787.944296, 2927.552932, 3083.396602,
-      3255.185579, 3442.630134, 3645.440541, 3863.327072, 4096.000000,
+      0.000000,    118.257702,  120.210658,  121.434853,  122.100487,
+      122.377758,  122.436865,  72.290102,   96.974289,   101.652727,
+      126.830141,  140.417377,  157.644879,  184.315291,  215.823873,
+      262.300169,  335.919859,  420.624173,  519.185032,  619.854243,
+      726.053595,  827.663369,  933.127475,  1037.988755, 1138.839609,
+      1233.342933, 1333.508064, 1428.760126, 1533.396364, 1616.952052,
+      1744.539319, 1803.413586, 1951.466618, 1994.227838, 2086.031680,
+      2148.635443, 2239.068450, 2222.590637, 2338.859809, 2402.929011,
+      2418.727875, 2435.342670, 2471.159469, 2523.187446, 2591.183827,
+      2674.905840, 2774.110714, 2888.555675, 3017.997952, 3162.194773,
+      3320.903365, 3493.880956, 3680.884773, 3881.672045, 4096.000000,
   },
   {
       0.000000,    0.000000,    0.000000,    0.000000,    0.000000,
       0.000000,    0.000000,    0.000000,    0.000000,    0.000000,
-      0.000000,    8.998436,    9.439592,    9.731837,    10.865931,
-      11.561347,   12.578139,   14.205101,   16.770584,   19.094853,
-      21.330863,   23.298907,   26.901921,   34.501017,   57.891733,
-      112.234763,  194.853189,  288.302032,  380.499422,  472.625309,
-      560.226809,  647.928463,  734.155122,  817.489721,  906.265783,
-      999.260562,  1094.489206, 1197.062998, 1293.296825, 1378.926484,
-      1472.760990, 1552.663779, 1635.196884, 1692.451951, 1759.741063,
-      1822.162720, 1916.515921, 1966.686071, 2031.647506, 2033.700134,
-      2087.847688, 2161.688858, 2242.536028, 2334.023491, 2436.337802,
-      2549.665519, 2674.193198, 2810.107395, 2957.594666, 3116.841567,
-      3288.034655, 3471.360486, 3667.005616, 3875.156602, 4096.000000,
+      0.000000,    13.087244,   15.919735,   25.930313,   24.412411,
+      28.567417,   29.924194,   30.857010,   32.742979,   36.382570,
+      39.210386,   42.265690,   47.378572,   57.014850,   82.740067,
+      137.346562,  219.968084,  316.781856,  415.643773,  516.706538,
+      614.914364,  714.303763,  815.512135,  911.210485,  1008.501528,
+      1109.787854, 1213.772279, 1322.922561, 1414.752579, 1510.505641,
+      1615.741888, 1697.989032, 1780.123933, 1847.453790, 1913.742309,
+      1960.828122, 2047.500168, 2085.454095, 2129.230668, 2158.171824,
+      2182.231724, 2217.684864, 2269.589211, 2337.264824, 2420.618694,
+      2519.557814, 2633.989178, 2763.819779, 2908.956609, 3069.306660,
+      3244.776927, 3435.274401, 3640.706076, 3860.978945, 4096.000000,
   },
   {
       0.000000,    0.000000,    0.000000,    0.000000,    0.000000,
       0.000000,    0.000000,    0.000000,    0.000000,    0.000000,
-      0.000000,    2.377584,    2.557185,    2.732445,    2.851114,
-      3.281800,    3.765589,    4.342578,    5.145582,    5.611038,
-      6.642238,    7.945977,    11.800522,   17.346624,   37.501413,
-      87.216800,   165.860942,  253.865564,  332.039345,  408.518863,
-      478.120452,  547.268590,  616.067676,  680.022540,  753.863541,
-      834.529973,  919.489191,  1008.264989, 1092.230318, 1173.971886,
-      1249.514122, 1330.510941, 1399.523249, 1466.923387, 1530.533471,
-      1586.515722, 1695.197774, 1746.648696, 1837.136959, 1909.075485,
-      1975.074651, 2060.159200, 2155.335095, 2259.762505, 2373.710437,
-      2497.447898, 2631.243895, 2775.367434, 2930.087523, 3095.673170,
-      3272.393380, 3460.517161, 3660.313520, 3872.051464, 4096.000000,
+      0.000000,    4.656893,    5.123633,    5.594132,    6.162376,
+      6.918433,    7.768444,    8.739415,    10.105862,   11.477328,
+      13.236604,   15.421030,   19.093623,   25.801871,   46.724612,
+      98.841054,   181.113466,  272.586364,  359.499769,  445.546343,
+      525.944439,  605.188743,  681.793483,  756.668359,  838.486885,
+      926.950356,  1015.482542, 1113.353926, 1204.897193, 1288.871992,
+      1373.464145, 1455.746628, 1527.796460, 1588.475066, 1658.144771,
+      1710.302500, 1807.563351, 1863.197608, 1927.281616, 1964.450872,
+      2022.719898, 2100.041145, 2185.205712, 2280.993936, 2387.616216,
+      2505.282950, 2634.204540, 2774.591385, 2926.653884, 3090.602436,
+      3266.647443, 3454.999303, 3655.868416, 3869.465182, 4096.000000,
   },
   {
       0.000000,    0.000000,    0.000000,    0.000000,    0.000000,
       0.000000,    0.000000,    0.000000,    0.000000,    0.000000,
-      0.000000,    0.296997,    0.342545,    0.403097,    0.472889,
-      0.614483,    0.842937,    1.050824,    1.326663,    1.717750,
-      2.530591,    3.582302,    6.995373,    9.973335,    24.042464,
-      56.598240,   113.680735,  180.018689,  231.050567,  266.101082,
-      294.957934,  323.326511,  349.434429,  380.443211,  408.171987,
-      441.214916,  475.716772,  512.900000,  551.186939,  592.364455,
-      624.527378,  661.940693,  679.185473,  724.800679,  764.781792,
-      873.050019,  950.299001,  939.292954,  1052.406153, 1033.893184,
-      1112.182406, 1219.174326, 1337.296681, 1471.648357, 1622.492809,
-      1790.093491, 1974.713858, 2176.617364, 2396.067465, 2633.327614,
-      2888.661266, 3162.331876, 3454.602899, 3765.737789, 4096.000000,
+      0.000000,    0.337370,    0.391916,    0.468839,    0.566334,
+      0.762564,    1.069225,    1.384361,    1.787581,    2.293948,
+      3.251909,    4.412991,    8.050068,    11.606073,   27.668092,
+      65.227758,   128.463938,  202.097653,  262.715851,  312.464873,
+      355.601398,  400.609054,  447.201352,  495.761568,  552.871938,
+      619.067625,  691.984883,  773.753288,  860.628503,  946.262808,
+      1019.805896, 1106.061360, 1178.422145, 1244.852258, 1302.173987,
+      1399.650266, 1548.092912, 1545.928652, 1670.817500, 1694.523823,
+      1779.195362, 1882.155494, 1990.662097, 2108.325181, 2235.456119,
+      2372.366287, 2519.367059, 2676.769812, 2844.885918, 3024.026754,
+      3214.503695, 3416.628115, 3630.711389, 3857.064892, 4096.000000,
   },
 };
 
-static const double interp_dgrid_curv[2][65] = {
+static const double interp_dgrid_curv[3][65] = {
   {
       16.000000, 15.962891, 15.925174, 15.886888, 15.848074, 15.808770,
       15.769015, 15.728850, 15.688313, 15.647445, 15.606284, 15.564870,
@@ -945,65 +968,62 @@ static void get_entropy_contexts_plane(BLOCK_SIZE plane_bsize,
                                        const struct macroblockd_plane *pd,
                                        ENTROPY_CONTEXT t_above[MAX_MIB_SIZE],
                                        ENTROPY_CONTEXT t_left[MAX_MIB_SIZE]) {
-  const int num_4x4_w = block_size_wide[plane_bsize] >> tx_size_wide_log2[0];
-  const int num_4x4_h = block_size_high[plane_bsize] >> tx_size_high_log2[0];
-  const ENTROPY_CONTEXT *const above = pd->above_context;
-  const ENTROPY_CONTEXT *const left = pd->left_context;
+  const int num_4x4_w = mi_size_wide[plane_bsize];
+  const int num_4x4_h = mi_size_high[plane_bsize];
+  const ENTROPY_CONTEXT *const above = pd->above_entropy_context;
+  const ENTROPY_CONTEXT *const left = pd->left_entropy_context;
 
   memcpy(t_above, above, sizeof(ENTROPY_CONTEXT) * num_4x4_w);
   memcpy(t_left, left, sizeof(ENTROPY_CONTEXT) * num_4x4_h);
 }
 
-void av1_get_entropy_contexts(BLOCK_SIZE bsize,
+void av1_get_entropy_contexts(BLOCK_SIZE plane_bsize,
                               const struct macroblockd_plane *pd,
                               ENTROPY_CONTEXT t_above[MAX_MIB_SIZE],
                               ENTROPY_CONTEXT t_left[MAX_MIB_SIZE]) {
-  const BLOCK_SIZE plane_bsize =
-      get_plane_block_size(bsize, pd->subsampling_x, pd->subsampling_y);
+  assert(plane_bsize < BLOCK_SIZES_ALL);
   get_entropy_contexts_plane(plane_bsize, pd, t_above, t_left);
 }
 
 void av1_mv_pred(const AV1_COMP *cpi, MACROBLOCK *x, uint8_t *ref_y_buffer,
                  int ref_y_stride, int ref_frame, BLOCK_SIZE block_size) {
-  int i;
-  int zero_seen = 0;
-  int best_sad = INT_MAX;
-  int this_sad = INT_MAX;
-  int max_mv = 0;
-  uint8_t *src_y_ptr = x->plane[0].src.buf;
-  uint8_t *ref_y_ptr;
-  MV pred_mv[MAX_MV_REF_CANDIDATES + 1];
-  int num_mv_refs = 0;
   const MV_REFERENCE_FRAME ref_frames[2] = { ref_frame, NONE_FRAME };
   const int_mv ref_mv =
       av1_get_ref_mv_from_stack(0, ref_frames, 0, x->mbmi_ext);
   const int_mv ref_mv1 =
       av1_get_ref_mv_from_stack(0, ref_frames, 1, x->mbmi_ext);
-
+  MV pred_mv[MAX_MV_REF_CANDIDATES + 1];
+  int num_mv_refs = 0;
   pred_mv[num_mv_refs++] = ref_mv.as_mv;
   if (ref_mv.as_int != ref_mv1.as_int) {
     pred_mv[num_mv_refs++] = ref_mv1.as_mv;
   }
-  if (cpi->sf.adaptive_motion_search && block_size < x->max_partition_size)
+  if (cpi->sf.mv_sf.adaptive_motion_search &&
+      block_size < x->max_partition_size) {
     pred_mv[num_mv_refs++] = x->pred_mv[ref_frame];
+  }
 
   assert(num_mv_refs <= (int)(sizeof(pred_mv) / sizeof(pred_mv[0])));
 
+  const uint8_t *const src_y_ptr = x->plane[0].src.buf;
+  int zero_seen = 0;
+  int best_sad = INT_MAX;
+  int max_mv = 0;
   // Get the sad for each candidate reference mv.
-  for (i = 0; i < num_mv_refs; ++i) {
+  for (int i = 0; i < num_mv_refs; ++i) {
     const MV *this_mv = &pred_mv[i];
-    int fp_row, fp_col;
-    fp_row = (this_mv->row + 3 + (this_mv->row >= 0)) >> 3;
-    fp_col = (this_mv->col + 3 + (this_mv->col >= 0)) >> 3;
+    const int fp_row = (this_mv->row + 3 + (this_mv->row >= 0)) >> 3;
+    const int fp_col = (this_mv->col + 3 + (this_mv->col >= 0)) >> 3;
     max_mv = AOMMAX(max_mv, AOMMAX(abs(this_mv->row), abs(this_mv->col)) >> 3);
 
     if (fp_row == 0 && fp_col == 0 && zero_seen) continue;
     zero_seen |= (fp_row == 0 && fp_col == 0);
 
-    ref_y_ptr = &ref_y_buffer[ref_y_stride * fp_row + fp_col];
+    const uint8_t *const ref_y_ptr =
+        &ref_y_buffer[ref_y_stride * fp_row + fp_col];
     // Find sad for current vector.
-    this_sad = cpi->fn_ptr[block_size].sdf(src_y_ptr, x->plane[0].src.stride,
-                                           ref_y_ptr, ref_y_stride);
+    const int this_sad = cpi->fn_ptr[block_size].sdf(
+        src_y_ptr, x->plane[0].src.stride, ref_y_ptr, ref_y_stride);
     // Note if it is the best so far.
     if (this_sad < best_sad) {
       best_sad = this_sad;
@@ -1017,39 +1037,25 @@ void av1_mv_pred(const AV1_COMP *cpi, MACROBLOCK *x, uint8_t *ref_y_buffer,
 
 void av1_setup_pred_block(const MACROBLOCKD *xd,
                           struct buf_2d dst[MAX_MB_PLANE],
-                          const YV12_BUFFER_CONFIG *src, int mi_row, int mi_col,
+                          const YV12_BUFFER_CONFIG *src,
                           const struct scale_factors *scale,
                           const struct scale_factors *scale_uv,
                           const int num_planes) {
-  int i;
-
   dst[0].buf = src->y_buffer;
   dst[0].stride = src->y_stride;
   dst[1].buf = src->u_buffer;
   dst[2].buf = src->v_buffer;
   dst[1].stride = dst[2].stride = src->uv_stride;
 
-  for (i = 0; i < num_planes; ++i) {
+  const int mi_row = xd->mi_row;
+  const int mi_col = xd->mi_col;
+  for (int i = 0; i < num_planes; ++i) {
     setup_pred_plane(dst + i, xd->mi[0]->sb_type, dst[i].buf,
                      i ? src->uv_crop_width : src->y_crop_width,
                      i ? src->uv_crop_height : src->y_crop_height,
                      dst[i].stride, mi_row, mi_col, i ? scale_uv : scale,
                      xd->plane[i].subsampling_x, xd->plane[i].subsampling_y);
   }
-}
-
-int av1_raster_block_offset(BLOCK_SIZE plane_bsize, int raster_block,
-                            int stride) {
-  const int bw = mi_size_wide_log2[plane_bsize];
-  const int y = 4 * (raster_block >> bw);
-  const int x = 4 * (raster_block & ((1 << bw) - 1));
-  return y * stride + x;
-}
-
-int16_t *av1_raster_block_offset_int16(BLOCK_SIZE plane_bsize, int raster_block,
-                                       int16_t *base) {
-  const int stride = block_size_wide[plane_bsize];
-  return base + av1_raster_block_offset(plane_bsize, raster_block, stride);
 }
 
 YV12_BUFFER_CONFIG *av1_get_scaled_ref_frame(const AV1_COMP *cpi,
@@ -1062,9 +1068,9 @@ YV12_BUFFER_CONFIG *av1_get_scaled_ref_frame(const AV1_COMP *cpi,
                                                        : NULL;
 }
 
-int av1_get_switchable_rate(const AV1_COMMON *const cm, MACROBLOCK *x,
-                            const MACROBLOCKD *xd) {
-  if (cm->interp_filter == SWITCHABLE) {
+int av1_get_switchable_rate(const MACROBLOCK *x, const MACROBLOCKD *xd,
+                            InterpFilter interp_filter) {
+  if (interp_filter == SWITCHABLE) {
     const MB_MODE_INFO *const mbmi = xd->mi[0];
     int inter_filter_cost = 0;
     int dir;
@@ -1082,234 +1088,231 @@ int av1_get_switchable_rate(const AV1_COMMON *const cm, MACROBLOCK *x,
 }
 
 void av1_set_rd_speed_thresholds(AV1_COMP *cpi) {
-  int i;
   RD_OPT *const rd = &cpi->rd;
-  SPEED_FEATURES *const sf = &cpi->sf;
 
   // Set baseline threshold values.
-  for (i = 0; i < MAX_MODES; ++i) rd->thresh_mult[i] = cpi->oxcf.mode == 0;
+  av1_zero(rd->thresh_mult);
 
-  if (sf->adaptive_rd_thresh) {
-    rd->thresh_mult[THR_NEARESTMV] = 300;
-    rd->thresh_mult[THR_NEARESTL2] = 300;
-    rd->thresh_mult[THR_NEARESTL3] = 300;
-    rd->thresh_mult[THR_NEARESTB] = 300;
-    rd->thresh_mult[THR_NEARESTA2] = 300;
-    rd->thresh_mult[THR_NEARESTA] = 300;
-    rd->thresh_mult[THR_NEARESTG] = 300;
-  } else {
-    rd->thresh_mult[THR_NEARESTMV] = 0;
-    rd->thresh_mult[THR_NEARESTL2] = 0;
-    rd->thresh_mult[THR_NEARESTL3] = 100;
-    rd->thresh_mult[THR_NEARESTB] = 0;
-    rd->thresh_mult[THR_NEARESTA2] = 0;
-    rd->thresh_mult[THR_NEARESTA] = 0;
-    rd->thresh_mult[THR_NEARESTG] = 0;
-  }
+  rd->thresh_mult[THR_NEARESTMV] = 300;
+  rd->thresh_mult[THR_NEARESTL2] = 300;
+  rd->thresh_mult[THR_NEARESTL3] = 300;
+  rd->thresh_mult[THR_NEARESTB] = 300;
+  rd->thresh_mult[THR_NEARESTA2] = 300;
+  rd->thresh_mult[THR_NEARESTA] = 300;
+  rd->thresh_mult[THR_NEARESTG] = 300;
 
-  rd->thresh_mult[THR_NEWMV] += 1000;
-  rd->thresh_mult[THR_NEWL2] += 1000;
-  rd->thresh_mult[THR_NEWL3] += 1000;
-  rd->thresh_mult[THR_NEWB] += 1000;
+  rd->thresh_mult[THR_NEWMV] = 1000;
+  rd->thresh_mult[THR_NEWL2] = 1000;
+  rd->thresh_mult[THR_NEWL3] = 1000;
+  rd->thresh_mult[THR_NEWB] = 1000;
   rd->thresh_mult[THR_NEWA2] = 1100;
-  rd->thresh_mult[THR_NEWA] += 1000;
-  rd->thresh_mult[THR_NEWG] += 1000;
+  rd->thresh_mult[THR_NEWA] = 1000;
+  rd->thresh_mult[THR_NEWG] = 1000;
 
-  rd->thresh_mult[THR_NEARMV] += 1000;
-  rd->thresh_mult[THR_NEARL2] += 1000;
-  rd->thresh_mult[THR_NEARL3] += 1000;
-  rd->thresh_mult[THR_NEARB] += 1000;
+  rd->thresh_mult[THR_NEARMV] = 1000;
+  rd->thresh_mult[THR_NEARL2] = 1000;
+  rd->thresh_mult[THR_NEARL3] = 1000;
+  rd->thresh_mult[THR_NEARB] = 1000;
   rd->thresh_mult[THR_NEARA2] = 1000;
-  rd->thresh_mult[THR_NEARA] += 1000;
-  rd->thresh_mult[THR_NEARG] += 1000;
+  rd->thresh_mult[THR_NEARA] = 1000;
+  rd->thresh_mult[THR_NEARG] = 1000;
 
-  rd->thresh_mult[THR_GLOBALMV] += 2200;
-  rd->thresh_mult[THR_GLOBALL2] += 2000;
-  rd->thresh_mult[THR_GLOBALL3] += 2000;
-  rd->thresh_mult[THR_GLOBALB] += 2400;
+  rd->thresh_mult[THR_GLOBALMV] = 2200;
+  rd->thresh_mult[THR_GLOBALL2] = 2000;
+  rd->thresh_mult[THR_GLOBALL3] = 2000;
+  rd->thresh_mult[THR_GLOBALB] = 2400;
   rd->thresh_mult[THR_GLOBALA2] = 2000;
-  rd->thresh_mult[THR_GLOBALG] += 2000;
-  rd->thresh_mult[THR_GLOBALA] += 2400;
+  rd->thresh_mult[THR_GLOBALG] = 2000;
+  rd->thresh_mult[THR_GLOBALA] = 2400;
 
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLA] += 1100;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL2A] += 1000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL3A] += 800;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTGA] += 900;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLB] += 1000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL2B] += 1000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL3B] += 1000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTGB] += 1000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLA2] += 1000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL2A2] += 1000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL3A2] += 1000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTGA2] += 1000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLA] = 1100;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL2A] = 1000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL3A] = 800;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTGA] = 900;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLB] = 1000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL2B] = 1000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL3B] = 1000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTGB] = 1000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLA2] = 1000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL2A2] = 1000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTL3A2] = 1000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTGA2] = 1000;
 
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLL2] += 2000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLL3] += 2000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLG] += 2000;
-  rd->thresh_mult[THR_COMP_NEAREST_NEARESTBA] += 2000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLL2] = 2000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLL3] = 2000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTLG] = 2000;
+  rd->thresh_mult[THR_COMP_NEAREST_NEARESTBA] = 2000;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARLA] += 1200;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWLA] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTLA] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWLA] += 1530;
-  rd->thresh_mult[THR_COMP_NEW_NEARLA] += 1870;
-  rd->thresh_mult[THR_COMP_NEW_NEWLA] += 2400;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLA] += 2750;
+  rd->thresh_mult[THR_COMP_NEAR_NEARLA] = 1200;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWLA] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTLA] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWLA] = 1530;
+  rd->thresh_mult[THR_COMP_NEW_NEARLA] = 1870;
+  rd->thresh_mult[THR_COMP_NEW_NEWLA] = 2400;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLA] = 2750;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARL2A] += 1200;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWL2A] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTL2A] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWL2A] += 1870;
-  rd->thresh_mult[THR_COMP_NEW_NEARL2A] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWL2A] += 1800;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL2A] += 2500;
+  rd->thresh_mult[THR_COMP_NEAR_NEARL2A] = 1200;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWL2A] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTL2A] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWL2A] = 1870;
+  rd->thresh_mult[THR_COMP_NEW_NEARL2A] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWL2A] = 1800;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL2A] = 2500;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARL3A] += 1200;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWL3A] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTL3A] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWL3A] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEARL3A] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWL3A] += 2000;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL3A] += 3000;
+  rd->thresh_mult[THR_COMP_NEAR_NEARL3A] = 1200;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWL3A] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTL3A] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWL3A] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEARL3A] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWL3A] = 2000;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL3A] = 3000;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARGA] += 1320;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWGA] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTGA] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWGA] += 2040;
-  rd->thresh_mult[THR_COMP_NEW_NEARGA] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWGA] += 2000;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALGA] += 2250;
+  rd->thresh_mult[THR_COMP_NEAR_NEARGA] = 1320;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWGA] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTGA] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWGA] = 2040;
+  rd->thresh_mult[THR_COMP_NEW_NEARGA] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWGA] = 2000;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALGA] = 2250;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARLB] += 1200;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWLB] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTLB] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWLB] += 1360;
-  rd->thresh_mult[THR_COMP_NEW_NEARLB] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWLB] += 2400;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLB] += 2250;
+  rd->thresh_mult[THR_COMP_NEAR_NEARLB] = 1200;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWLB] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTLB] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWLB] = 1360;
+  rd->thresh_mult[THR_COMP_NEW_NEARLB] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWLB] = 2400;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLB] = 2250;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARL2B] += 1200;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWL2B] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTL2B] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWL2B] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEARL2B] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWL2B] += 2000;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL2B] += 2500;
+  rd->thresh_mult[THR_COMP_NEAR_NEARL2B] = 1200;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWL2B] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTL2B] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWL2B] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEARL2B] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWL2B] = 2000;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL2B] = 2500;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARL3B] += 1200;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWL3B] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTL3B] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWL3B] += 1870;
-  rd->thresh_mult[THR_COMP_NEW_NEARL3B] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWL3B] += 2000;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL3B] += 2500;
+  rd->thresh_mult[THR_COMP_NEAR_NEARL3B] = 1200;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWL3B] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTL3B] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWL3B] = 1870;
+  rd->thresh_mult[THR_COMP_NEW_NEARL3B] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWL3B] = 2000;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL3B] = 2500;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARGB] += 1200;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWGB] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTGB] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWGB] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEARGB] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWGB] += 2000;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALGB] += 2500;
+  rd->thresh_mult[THR_COMP_NEAR_NEARGB] = 1200;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWGB] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTGB] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWGB] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEARGB] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWGB] = 2000;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALGB] = 2500;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARLA2] += 1200;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWLA2] += 1800;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTLA2] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWLA2] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEARLA2] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWLA2] += 2000;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLA2] += 2500;
+  rd->thresh_mult[THR_COMP_NEAR_NEARLA2] = 1200;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWLA2] = 1800;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTLA2] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWLA2] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEARLA2] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWLA2] = 2000;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLA2] = 2500;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARL2A2] += 1200;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWL2A2] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTL2A2] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWL2A2] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEARL2A2] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWL2A2] += 2000;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL2A2] += 2500;
+  rd->thresh_mult[THR_COMP_NEAR_NEARL2A2] = 1200;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWL2A2] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTL2A2] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWL2A2] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEARL2A2] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWL2A2] = 2000;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL2A2] = 2500;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARL3A2] += 1440;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWL3A2] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTL3A2] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWL3A2] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEARL3A2] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWL3A2] += 2000;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL3A2] += 2500;
+  rd->thresh_mult[THR_COMP_NEAR_NEARL3A2] = 1440;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWL3A2] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTL3A2] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWL3A2] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEARL3A2] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWL3A2] = 2000;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALL3A2] = 2500;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARGA2] += 1200;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWGA2] += 1500;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTGA2] += 1500;
-  rd->thresh_mult[THR_COMP_NEAR_NEWGA2] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEARGA2] += 1700;
-  rd->thresh_mult[THR_COMP_NEW_NEWGA2] += 2000;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALGA2] += 2750;
+  rd->thresh_mult[THR_COMP_NEAR_NEARGA2] = 1200;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWGA2] = 1500;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTGA2] = 1500;
+  rd->thresh_mult[THR_COMP_NEAR_NEWGA2] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEARGA2] = 1700;
+  rd->thresh_mult[THR_COMP_NEW_NEWGA2] = 2000;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALGA2] = 2750;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARLL2] += 1600;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWLL2] += 2000;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTLL2] += 2000;
-  rd->thresh_mult[THR_COMP_NEAR_NEWLL2] += 2640;
-  rd->thresh_mult[THR_COMP_NEW_NEARLL2] += 2200;
-  rd->thresh_mult[THR_COMP_NEW_NEWLL2] += 2400;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLL2] += 3200;
+  rd->thresh_mult[THR_COMP_NEAR_NEARLL2] = 1600;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWLL2] = 2000;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTLL2] = 2000;
+  rd->thresh_mult[THR_COMP_NEAR_NEWLL2] = 2640;
+  rd->thresh_mult[THR_COMP_NEW_NEARLL2] = 2200;
+  rd->thresh_mult[THR_COMP_NEW_NEWLL2] = 2400;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLL2] = 3200;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARLL3] += 1600;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWLL3] += 2000;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTLL3] += 1800;
-  rd->thresh_mult[THR_COMP_NEAR_NEWLL3] += 2200;
-  rd->thresh_mult[THR_COMP_NEW_NEARLL3] += 2200;
-  rd->thresh_mult[THR_COMP_NEW_NEWLL3] += 2400;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLL3] += 3200;
+  rd->thresh_mult[THR_COMP_NEAR_NEARLL3] = 1600;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWLL3] = 2000;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTLL3] = 1800;
+  rd->thresh_mult[THR_COMP_NEAR_NEWLL3] = 2200;
+  rd->thresh_mult[THR_COMP_NEW_NEARLL3] = 2200;
+  rd->thresh_mult[THR_COMP_NEW_NEWLL3] = 2400;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLL3] = 3200;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARLG] += 1760;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWLG] += 2400;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTLG] += 2000;
-  rd->thresh_mult[THR_COMP_NEAR_NEWLG] += 1760;
-  rd->thresh_mult[THR_COMP_NEW_NEARLG] += 2640;
-  rd->thresh_mult[THR_COMP_NEW_NEWLG] += 2400;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLG] += 3200;
+  rd->thresh_mult[THR_COMP_NEAR_NEARLG] = 1760;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWLG] = 2400;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTLG] = 2000;
+  rd->thresh_mult[THR_COMP_NEAR_NEWLG] = 1760;
+  rd->thresh_mult[THR_COMP_NEW_NEARLG] = 2640;
+  rd->thresh_mult[THR_COMP_NEW_NEWLG] = 2400;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALLG] = 3200;
 
-  rd->thresh_mult[THR_COMP_NEAR_NEARBA] += 1600;
-  rd->thresh_mult[THR_COMP_NEAREST_NEWBA] += 2000;
-  rd->thresh_mult[THR_COMP_NEW_NEARESTBA] += 2000;
-  rd->thresh_mult[THR_COMP_NEAR_NEWBA] += 2200;
-  rd->thresh_mult[THR_COMP_NEW_NEARBA] += 1980;
-  rd->thresh_mult[THR_COMP_NEW_NEWBA] += 2640;
-  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALBA] += 3200;
+  rd->thresh_mult[THR_COMP_NEAR_NEARBA] = 1600;
+  rd->thresh_mult[THR_COMP_NEAREST_NEWBA] = 2000;
+  rd->thresh_mult[THR_COMP_NEW_NEARESTBA] = 2000;
+  rd->thresh_mult[THR_COMP_NEAR_NEWBA] = 2200;
+  rd->thresh_mult[THR_COMP_NEW_NEARBA] = 1980;
+  rd->thresh_mult[THR_COMP_NEW_NEWBA] = 2640;
+  rd->thresh_mult[THR_COMP_GLOBAL_GLOBALBA] = 3200;
 
-  rd->thresh_mult[THR_DC] += 1000;
-  rd->thresh_mult[THR_PAETH] += 1000;
-  rd->thresh_mult[THR_SMOOTH] += 2200;
-  rd->thresh_mult[THR_SMOOTH_V] += 2000;
-  rd->thresh_mult[THR_SMOOTH_H] += 2000;
-  rd->thresh_mult[THR_H_PRED] += 2000;
-  rd->thresh_mult[THR_V_PRED] += 1800;
-  rd->thresh_mult[THR_D135_PRED] += 2500;
-  rd->thresh_mult[THR_D203_PRED] += 2000;
-  rd->thresh_mult[THR_D157_PRED] += 2500;
-  rd->thresh_mult[THR_D67_PRED] += 2000;
-  rd->thresh_mult[THR_D113_PRED] += 2500;
-  rd->thresh_mult[THR_D45_PRED] += 2500;
+  rd->thresh_mult[THR_DC] = 1000;
+  rd->thresh_mult[THR_PAETH] = 1000;
+  rd->thresh_mult[THR_SMOOTH] = 2200;
+  rd->thresh_mult[THR_SMOOTH_V] = 2000;
+  rd->thresh_mult[THR_SMOOTH_H] = 2000;
+  rd->thresh_mult[THR_H_PRED] = 2000;
+  rd->thresh_mult[THR_V_PRED] = 1800;
+  rd->thresh_mult[THR_D135_PRED] = 2500;
+  rd->thresh_mult[THR_D203_PRED] = 2000;
+  rd->thresh_mult[THR_D157_PRED] = 2500;
+  rd->thresh_mult[THR_D67_PRED] = 2000;
+  rd->thresh_mult[THR_D113_PRED] = 2500;
+  rd->thresh_mult[THR_D45_PRED] = 2500;
 }
 
 void av1_update_rd_thresh_fact(const AV1_COMMON *const cm,
-                               int (*factor_buf)[MAX_MODES], int rd_thresh,
-                               int bsize, int best_mode_index) {
-  if (rd_thresh > 0) {
-    const int top_mode = MAX_MODES;
-    int mode;
-    for (mode = 0; mode < top_mode; ++mode) {
-      const BLOCK_SIZE min_size = AOMMAX(bsize - 1, BLOCK_4X4);
-      const BLOCK_SIZE max_size =
-          AOMMIN(bsize + 2, (int)cm->seq_params.sb_size);
-      BLOCK_SIZE bs;
-      for (bs = min_size; bs <= max_size; ++bs) {
-        int *const fact = &factor_buf[bs][mode];
-        if (mode == best_mode_index) {
-          *fact -= (*fact >> 4);
-        } else {
-          *fact = AOMMIN(*fact + RD_THRESH_INC, rd_thresh * RD_THRESH_MAX_FACT);
-        }
+                               int (*factor_buf)[MAX_MODES],
+                               int use_adaptive_rd_thresh, BLOCK_SIZE bsize,
+                               THR_MODES best_mode_index) {
+  assert(use_adaptive_rd_thresh > 0);
+  const THR_MODES top_mode = MAX_MODES;
+  const int max_rd_thresh_factor = use_adaptive_rd_thresh * RD_THRESH_MAX_FACT;
+
+  const int bsize_is_1_to_4 = bsize > cm->seq_params.sb_size;
+  BLOCK_SIZE min_size, max_size;
+  if (bsize_is_1_to_4) {
+    // This part handles block sizes with 1:4 and 4:1 aspect ratios
+    // TODO(any): Experiment with threshold update for parent/child blocks
+    min_size = bsize;
+    max_size = bsize;
+  } else {
+    min_size = AOMMAX(bsize - 2, BLOCK_4X4);
+    max_size = AOMMIN(bsize + 2, (int)cm->seq_params.sb_size);
+  }
+
+  for (THR_MODES mode = 0; mode < top_mode; ++mode) {
+    for (BLOCK_SIZE bs = min_size; bs <= max_size; ++bs) {
+      int *const fact = &factor_buf[bs][mode];
+      if (mode == best_mode_index) {
+        *fact -= (*fact >> RD_THRESH_LOG_DEC_FACTOR);
+      } else {
+        *fact = AOMMIN(*fact + RD_THRESH_INC, max_rd_thresh_factor);
       }
     }
   }
@@ -1317,7 +1320,7 @@ void av1_update_rd_thresh_fact(const AV1_COMMON *const cm,
 
 int av1_get_intra_cost_penalty(int qindex, int qdelta,
                                aom_bit_depth_t bit_depth) {
-  const int q = av1_dc_quant_Q3(qindex, qdelta, bit_depth);
+  const int q = av1_dc_quant_QTX(qindex, qdelta, bit_depth);
   switch (bit_depth) {
     case AOM_BITS_8: return 20 * q;
     case AOM_BITS_10: return 5 * q;

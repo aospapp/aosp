@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-vts_config {
-    name: "VtsTreblePlatformVersionTest",
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 python_test_host {
@@ -41,5 +41,8 @@ python_test_host {
             enabled: true,
             embedded_launcher: true,
         }
-    }
+    },
+    test_options: {
+        unit_test: false,
+    },
 }

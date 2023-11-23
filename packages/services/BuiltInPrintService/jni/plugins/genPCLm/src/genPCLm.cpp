@@ -60,9 +60,8 @@ static ubyte *shiftStripByLeftMargin(ubyte *ptrToStrip, sint32 currSourceWidth,
 
     if (destColorSpace == grayScale) {
         scanLineWidth = currMediaWidth;
-
         // Allocate a full strip
-        newStrip = (ubyte *) malloc(scanLineWidth * currStripHeight);
+        newStrip = (ubyte *) malloc((scanLineWidth * currStripHeight) + leftMargin);
         memset(newStrip, 0xff, scanLineWidth * currStripHeight);
         for (int i = 0; i < numLinesThisCall; i++) {
             toPtr = newStrip + leftMargin + (i * currMediaWidth);
@@ -73,7 +72,7 @@ static ubyte *shiftStripByLeftMargin(ubyte *ptrToStrip, sint32 currSourceWidth,
         scanLineWidth = currMediaWidth * 3;
         sint32 srcScanlineWidth = currSourceWidth * 3;
         sint32 shiftAmount = leftMargin * 3;
-        newStrip = (ubyte *) malloc(scanLineWidth * currStripHeight);
+        newStrip = (ubyte *) malloc((scanLineWidth * currStripHeight) + shiftAmount);
         memset(newStrip, 0xff, scanLineWidth * currStripHeight);
         for (int i = 0; i < numLinesThisCall; i++) {
             toPtr = newStrip + shiftAmount + (i * scanLineWidth);

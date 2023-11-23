@@ -34,7 +34,7 @@
     <item msgid="6432134534714673873">"Hora de les Muntanyes - Chihuahua"</item>
     <item msgid="7629345735485663968">"Hora central - Tamaulipas"</item>
     <item msgid="3874729044260979505">"Hora de les Muntanyes - Sonora"</item>
-    <item msgid="1106209575683600471">"Hora de l\'Àfrica Oriental"</item>
+    <item msgid="1106209575683600471">"Hora de l\'Àfrica oriental"</item>
     <item msgid="6538017087072480128">"Hora estàndard de l\'Atlàntic"</item>
     <item msgid="6758957851822881177">"Hora estàndard de l\'Atlàntic"</item>
     <item msgid="2477556470536619081">"Hora de l’Est d’Europa"</item>
@@ -44,7 +44,7 @@
   </string-array>
   <string-array name="backup_country_names">
     <item msgid="9141777876082196578">"Sint Maarten"</item>
-    <item msgid="5330962017221568054">"Carib neerlandès"</item>
+    <item msgid="5330962017221568054">"Antilles Neerlandeses"</item>
     <item msgid="1465164631761814300">"Curaçao"</item>
     <item msgid="8972081011408691260">"Sudan del Sud"</item>
   </string-array>

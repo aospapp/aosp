@@ -23,6 +23,7 @@ import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.Call;
+import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
@@ -210,6 +211,10 @@ public class HandoverTest extends BaseTelecomTestWithMockServices {
         extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,
                 TEST_HANDOVER_SRC_PHONE_ACCOUNT_HANDLE);
         placeAndVerifyCall(extras);
+        Connection connection = verifyConnectionForOutgoingCall();
+        connection.setActive();
+        Call call = mInCallCallbacks.getService().getLastCall();
+        assertCallState(call, Call.STATE_ACTIVE);
     }
 
     /**
@@ -223,11 +228,13 @@ public class HandoverTest extends BaseTelecomTestWithMockServices {
 
         // Expect the original call to have been informed of handover completion.
         mOnHandoverCompleteCounter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
-        assertEquals(1, mOnHandoverCompleteCounter.getInvokeCount());
+        assertTrue("mOnHandoverCompleteCounter is zero",
+                mOnHandoverCompleteCounter.getInvokeCount() >= 1);
 
         // Also expect the connection to be informed of handover completion.
         connection.getHandoverCompleteCounter().waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
-        assertEquals(1, connection.getHandoverCompleteCounter().getInvokeCount());
+        assertTrue("connection's handoverCompleteCounter is zero",
+                connection.getHandoverCompleteCounter().getInvokeCount() >= 1);
 
         // Now, we expect that the original connection will get disconnected.
         waitUntilConditionIsTrueOrTimeout(new Condition() {

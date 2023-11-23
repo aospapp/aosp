@@ -1,6 +1,3 @@
-from __future__ import print_function, division, absolute_import
-from fontTools.misc.py23 import *
-
 import os
 import unittest
 import struct
@@ -239,6 +236,58 @@ class TTGlyphPenTest(TestCase):
 
         with self.assertRaises(struct.error):
             compositeGlyph.compile({'a': baseGlyph})
+
+    def assertGlyphBoundsEqual(self, glyph, bounds):
+        self.assertEqual((glyph.xMin, glyph.yMin, glyph.xMax, glyph.yMax), bounds)
+
+    def test_round_float_coordinates_and_component_offsets(self):
+        glyphSet = {}
+        pen = TTGlyphPen(glyphSet)
+
+        pen.moveTo((0, 0))
+        pen.lineTo((0, 1))
+        pen.lineTo((367.6, 0))
+        pen.closePath()
+        simpleGlyph = pen.glyph()
+
+        simpleGlyph.recalcBounds(glyphSet)
+        self.assertGlyphBoundsEqual(simpleGlyph, (0, 0, 368, 1))
+
+        componentName = 'a'
+        glyphSet[componentName] = simpleGlyph
+
+        pen.addComponent(componentName, (1, 0, 0, 1, -86.4, 0))
+        compositeGlyph = pen.glyph()
+
+        compositeGlyph.recalcBounds(glyphSet)
+        self.assertGlyphBoundsEqual(compositeGlyph, (-86, 0, 282, 1))
+
+    def test_scaled_component_bounds(self):
+        glyphSet = {}
+
+        pen = TTGlyphPen(glyphSet)
+        pen.moveTo((-231, 939))
+        pen.lineTo((-55, 939))
+        pen.lineTo((-55, 745))
+        pen.lineTo((-231, 745))
+        pen.closePath()
+        glyphSet["gravecomb"] = gravecomb = pen.glyph()
+
+        pen = TTGlyphPen(glyphSet)
+        pen.moveTo((-278, 939))
+        pen.lineTo((8, 939))
+        pen.lineTo((8, 745))
+        pen.lineTo((-278, 745))
+        pen.closePath()
+        glyphSet["circumflexcomb"] = circumflexcomb = pen.glyph()
+
+        pen = TTGlyphPen(glyphSet)
+        pen.addComponent("circumflexcomb", (1, 0, 0, 1, 0, 0))
+        pen.addComponent("gravecomb", (0.9, 0, 0, 0.9, 198, 180))
+        glyphSet["uni0302_uni0300"] = uni0302_uni0300 = pen.glyph()
+
+        uni0302_uni0300.recalcBounds(glyphSet)
+        self.assertGlyphBoundsEqual(uni0302_uni0300, (-278, 745, 148, 1025))
 
 
 class _TestGlyph(object):

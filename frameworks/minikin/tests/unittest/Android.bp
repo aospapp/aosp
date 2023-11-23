@@ -14,6 +14,10 @@
 
 // see how_to_run.txt for instructions on running these tests
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test {
     name: "minikin_tests",
     test_suites: ["device-tests"],
@@ -41,12 +45,15 @@ cc_test {
     srcs: [
         "AndroidLineBreakerHelperTest.cpp",
         "BidiUtilsTest.cpp",
+        "BufferTest.cpp",
+        "BoundsCacheTest.cpp",
         "CmapCoverageTest.cpp",
         "EmojiTest.cpp",
         "FontTest.cpp",
         "FontCollectionTest.cpp",
         "FontCollectionItemizeTest.cpp",
         "FontFamilyTest.cpp",
+        "FontFileParserTest.cpp",
         "FontLanguageListCacheTest.cpp",
         "FontUtilsTest.cpp",
         "HasherTest.cpp",

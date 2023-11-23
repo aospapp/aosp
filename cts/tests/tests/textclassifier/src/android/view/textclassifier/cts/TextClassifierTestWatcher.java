@@ -17,6 +17,8 @@ package android.view.textclassifier.cts;
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
+import android.content.Context;
+import android.provider.DeviceConfig;
 import android.support.test.uiautomator.UiDevice;
 import android.text.TextUtils;
 import android.util.Log;
@@ -24,7 +26,9 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.core.app.ApplicationProvider;
 
+import com.android.compatibility.common.util.DeviceConfigStateManager;
 import com.android.compatibility.common.util.SafeCleanerRule;
 
 import org.junit.rules.TestWatcher;
@@ -46,6 +50,7 @@ final class TextClassifierTestWatcher extends TestWatcher {
     // TODO: Use default value defined in TextClassificationConstants when TestApi is ready
     private static final String DEFAULT_TEXT_CLASSIFIER_SERVICE_PACKAGE_OVERRIDE = null;
     private static final boolean SYSTEM_TEXT_CLASSIFIER_ENABLED_DEFAULT = true;
+    private static final String DEVICECONFIG_NAME_SPACE = "textclassifier";
 
     private String mOriginalOverrideService;
     private boolean mOriginalSystemTextClassifierEnabled;
@@ -57,13 +62,12 @@ final class TextClassifierTestWatcher extends TestWatcher {
     @Override
     protected void starting(Description description) {
         super.starting(description);
-        prepareDevice();
         // get original settings
         mOriginalOverrideService = getOriginalOverrideService();
         mOriginalSystemTextClassifierEnabled = isSystemTextClassifierEnabled();
 
         // set system TextClassifier enabled
-        runShellCommand("device_config put textclassifier system_textclassifier_enabled true");
+        setAndAssertSystemTextclassifierEnabledSetIfNeeded(true);
 
         setService();
     }
@@ -72,8 +76,7 @@ final class TextClassifierTestWatcher extends TestWatcher {
     protected void finished(Description description) {
         super.finished(description);
         // restore original settings
-        runShellCommand("device_config put textclassifier system_textclassifier_enabled "
-                + mOriginalSystemTextClassifierEnabled);
+        setAndAssertSystemTextclassifierEnabledSetIfNeeded(mOriginalSystemTextClassifierEnabled);
         // restore service and make sure service disconnected.
         // clear the static values.
         try {
@@ -128,15 +131,6 @@ final class TextClassifierTestWatcher extends TestWatcher {
         clearServiceWatcher();
     }
 
-    private void prepareDevice() {
-        Log.v(TAG, "prepareDevice()");
-        // Unlock screen.
-        runShellCommand("input keyevent KEYCODE_WAKEUP");
-
-        // Dismiss keyguard, in case it's set as "Swipe to unlock".
-        runShellCommand("wm dismiss-keyguard");
-    }
-
     @Nullable
     private String getOriginalOverrideService() {
         final String deviceConfigSetting = runShellCommand(
@@ -159,8 +153,8 @@ final class TextClassifierTestWatcher extends TestWatcher {
     private void setService() {
         setServiceWatcher();
         // set the test service
-        runShellCommand("device_config put textclassifier textclassifier_service_package_override "
-                + CtsTextClassifierService.MY_PACKAGE);
+        setAndAssertServicePackageOverrideSetIfNeeded(CtsTextClassifierService.MY_PACKAGE);
+
         // Wait for the current bound TCS to be unbounded.
         try {
             Thread.sleep(1_000);
@@ -171,9 +165,29 @@ final class TextClassifierTestWatcher extends TestWatcher {
 
     private void resetOriginalService() {
         Log.d(TAG, "reset to " + mOriginalOverrideService);
-        runShellCommand(
-                "device_config put textclassifier textclassifier_service_package_override "
-                        + mOriginalOverrideService);
+        setAndAssertServicePackageOverrideSetIfNeeded(mOriginalOverrideService);
+    }
+
+    private void setAndAssertSystemTextclassifierEnabledSetIfNeeded(boolean value) {
+        boolean currentValue = isSystemTextClassifierEnabled();
+        if (currentValue != value) {
+            final Context context = ApplicationProvider.getApplicationContext();
+            DeviceConfigStateManager stateManager =
+                    new DeviceConfigStateManager(context, DEVICECONFIG_NAME_SPACE,
+                            "system_textclassifier_enabled");
+            stateManager.set(Boolean.toString(value));
+        }
+    }
+
+    private void setAndAssertServicePackageOverrideSetIfNeeded(String value) {
+        String currentValue = getOriginalOverrideService();
+        if (!TextUtils.equals(currentValue, value)) {
+            final Context context = ApplicationProvider.getApplicationContext();
+            DeviceConfigStateManager stateManager =
+                    new DeviceConfigStateManager(context, DEVICECONFIG_NAME_SPACE,
+                            "textclassifier_service_package_override");
+            stateManager.set(value);
+        }
     }
 
     private void resetService() throws InterruptedException {

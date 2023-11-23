@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 #  Copyright 2011 Sybren A. Stüvel <sybren@stuvel.eu>
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,13 +15,12 @@
 """Unittest for saving and loading keys."""
 
 import base64
-import mock
 import os.path
 import pickle
 import unittest
 import warnings
+from unittest import mock
 
-from rsa._compat import range
 import rsa.key
 
 B64PRIV_DER = b'MC4CAQACBQDeKYlRAgMBAAECBQDHn4npAgMA/icCAwDfxwIDANcXAgInbwIDAMZt'

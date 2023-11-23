@@ -128,6 +128,11 @@ class CameraMetadata: public Parcelable {
     bool isEmpty() const;
 
     /**
+     * Return the allocated camera metadata buffer size in bytes.
+     */
+    size_t bufferSize() const;
+
+    /**
      * Sort metadata buffer for faster find
      */
     status_t sort();
@@ -236,6 +241,11 @@ class CameraMetadata: public Parcelable {
      */
     static status_t getTagFromName(const char *name,
             const VendorTagDescriptor* vTags, uint32_t *tag);
+
+    /**
+     * Return the current vendor tag id associated with this metadata.
+     */
+    metadata_vendor_id_t getVendorId();
 
   private:
     camera_metadata_t *mBuffer;

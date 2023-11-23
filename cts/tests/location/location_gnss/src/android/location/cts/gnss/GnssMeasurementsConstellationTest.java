@@ -25,7 +25,6 @@ import android.location.cts.common.TestGnssMeasurementListener;
 import android.location.cts.common.TestLocationListener;
 import android.location.cts.common.TestLocationManager;
 import android.location.cts.common.TestMeasurementUtil;
-import android.os.Build;
 import android.util.Log;
 
 import java.util.List;
@@ -36,15 +35,9 @@ import java.util.List;
  * Test steps:
  * 1. Register a listener for {@link GnssMeasurementsEvent}s and location updates.
  * 2. Check {@link GnssMeasurementsEvent} status: if the status is not
- *    {@link GnssMeasurementsEvent#STATUS_READY}, the test will be skipped because one of the
- *    following reasons:
- *          2.1 the device does not support the feature,
- *          2.2 GPS is disabled in the device,
- *          // TODO: This is true only for cts, for verifier mode we need to modify
- *                   TestGnssMeasurementListener to fail the test.
- *          2.3 Location is disabled in the device.
- * 3. If no {@link GnssMeasurementsEvent} is received then test is skipped in cts mode and fails in
- *    cts verifier mode.
+ *    {@link GnssMeasurementsEvent#STATUS_READY}, the test will be skipped if the device does not
+ *    support the feature,
+ * 3. If no {@link GnssMeasurementsEvent} is received then the test fails.
  * 4. Check if one of the received measurements has constellation other than GPS.
  */
 public class GnssMeasurementsConstellationTest extends GnssTestCase {
@@ -79,9 +72,12 @@ public class GnssMeasurementsConstellationTest extends GnssTestCase {
      */
     public void testGnssMultiConstellationSupported() throws Exception {
         // Checks if GPS hardware feature is present, skips test (pass) if not
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(Build.VERSION_CODES.N,
-                mTestLocationManager,
-                TAG)) {
+        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
+            return;
+        }
+
+        if (TestMeasurementUtil.isAutomotiveDevice(getContext())) {
+            Log.i(TAG, "Test is being skipped because the system has the AUTOMOTIVE feature.");
             return;
         }
 
@@ -94,9 +90,6 @@ public class GnssMeasurementsConstellationTest extends GnssTestCase {
         mTestLocationManager.requestLocationUpdates(mLocationListener);
 
         mMeasurementListener.await();
-        if (!mMeasurementListener.verifyStatus()) {
-            return;
-        }
 
         List<GnssMeasurementsEvent> events = mMeasurementListener.getEvents();
         Log.i(TAG, "Number of GnssMeasurement events received = " + events.size());

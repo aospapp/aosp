@@ -52,6 +52,9 @@ libmm-vidpp-inc          += $(vidpp-inc)
 libmm-vidpp-inc          += frameworks/av/include/media/stagefright
 
 LOCAL_MODULE                    := libOmxVdpp
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
+LOCAL_NOTICE_FILE               := $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_TAGS               := optional
 LOCAL_CFLAGS                    := $(libOmxVdpp-def)
 LOCAL_C_INCLUDES                += $(libmm-vidpp-inc)

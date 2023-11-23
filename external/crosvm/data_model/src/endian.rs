@@ -30,14 +30,16 @@
 //!   assert_ne!(b_trans, l_trans);
 //! ```
 
-use assertions::const_assert;
 use std::mem::{align_of, size_of};
+
+use assertions::const_assert;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::DataInit;
 
 macro_rules! endian_type {
     ($old_type:ident, $new_type:ident, $to_new:ident, $from_new:ident) => {
-        /// An unsigned integer type of with an explicit endianness.
+        /// An integer type of with an explicit endianness.
         ///
         /// See module level documentation for examples.
         #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
@@ -69,9 +71,9 @@ macro_rules! endian_type {
             }
         }
 
-        impl Into<$old_type> for $new_type {
-            fn into(self) -> $old_type {
-                $old_type::$from_new(self.0)
+        impl From<$new_type> for $old_type {
+            fn from(v: $new_type) -> $old_type {
+                $old_type::$from_new(v.0)
             }
         }
 
@@ -80,17 +82,43 @@ macro_rules! endian_type {
                 $new_type($old_type::$to_new(v))
             }
         }
+
+        impl Serialize for $new_type {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                self.to_native().serialize(serializer)
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $new_type {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                Ok($old_type::deserialize(deserializer)?.into())
+            }
+        }
     };
 }
 
 endian_type!(u16, Le16, to_le, from_le);
+endian_type!(i16, SLe16, to_le, from_le);
 endian_type!(u32, Le32, to_le, from_le);
+endian_type!(i32, SLe32, to_le, from_le);
 endian_type!(u64, Le64, to_le, from_le);
+endian_type!(i64, SLe64, to_le, from_le);
 endian_type!(usize, LeSize, to_le, from_le);
+endian_type!(isize, SLeSize, to_le, from_le);
 endian_type!(u16, Be16, to_be, from_be);
+endian_type!(i16, SBe16, to_be, from_be);
 endian_type!(u32, Be32, to_be, from_be);
+endian_type!(i32, SBe32, to_be, from_be);
 endian_type!(u64, Be64, to_be, from_be);
+endian_type!(i64, SBe64, to_be, from_be);
 endian_type!(usize, BeSize, to_be, from_be);
+endian_type!(isize, SBeSize, to_be, from_be);
 
 #[cfg(test)]
 mod tests {
@@ -133,11 +161,19 @@ mod tests {
     }
 
     endian_test!(u16, Le16, test_le16, NATIVE_LITTLE);
+    endian_test!(i16, SLe16, test_sle16, NATIVE_LITTLE);
     endian_test!(u32, Le32, test_le32, NATIVE_LITTLE);
+    endian_test!(i32, SLe32, test_sle32, NATIVE_LITTLE);
     endian_test!(u64, Le64, test_le64, NATIVE_LITTLE);
+    endian_test!(i64, SLe64, test_sle64, NATIVE_LITTLE);
     endian_test!(usize, LeSize, test_le_size, NATIVE_LITTLE);
+    endian_test!(isize, SLeSize, test_sle_size, NATIVE_LITTLE);
     endian_test!(u16, Be16, test_be16, NATIVE_BIG);
+    endian_test!(i16, SBe16, test_sbe16, NATIVE_BIG);
     endian_test!(u32, Be32, test_be32, NATIVE_BIG);
+    endian_test!(i32, SBe32, test_sbe32, NATIVE_BIG);
     endian_test!(u64, Be64, test_be64, NATIVE_BIG);
+    endian_test!(i64, SBe64, test_sbe64, NATIVE_BIG);
     endian_test!(usize, BeSize, test_be_size, NATIVE_BIG);
+    endian_test!(isize, SBeSize, test_sbe_size, NATIVE_BIG);
 }

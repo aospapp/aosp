@@ -33,6 +33,8 @@ const Uuid PRIMARY_SERVICE = Uuid::From16Bit(GATT_UUID_PRI_SERVICE);
 const Uuid SECONDARY_SERVICE = Uuid::From16Bit(GATT_UUID_SEC_SERVICE);
 const Uuid INCLUDE = Uuid::From16Bit(GATT_UUID_INCLUDE_SERVICE);
 const Uuid CHARACTERISTIC = Uuid::From16Bit(GATT_UUID_CHAR_DECLARE);
+const Uuid CHARACTERISTIC_EXTENDED_PROPERTIES =
+    Uuid::From16Bit(GATT_UUID_CHAR_EXT_PROP);
 
 Uuid SERVICE_1_UUID = Uuid::FromString("1800");
 Uuid SERVICE_2_UUID = Uuid::FromString("1801");
@@ -49,6 +51,10 @@ TEST(GattDatabaseTest, serialize_deserialize_binary_test) {
   builder.AddIncludedService(0x0002, SERVICE_2_UUID, 0x0010, 0x001f);
   builder.AddCharacteristic(0x0003, 0x0004, SERVICE_1_CHAR_1_UUID, 0x02);
   builder.AddDescriptor(0x0005, SERVICE_1_CHAR_1_DESC_1_UUID);
+  builder.AddDescriptor(0x0006, CHARACTERISTIC_EXTENDED_PROPERTIES);
+
+  // Set value of only «Characteristic Extended Properties» descriptor
+  builder.SetValueOfDescriptors({0x0001});
 
   Database db = builder.Build();
   std::vector<StoredAttribute> serialized = db.Serialize();
@@ -82,6 +88,11 @@ TEST(GattDatabaseTest, serialize_deserialize_binary_test) {
   // Descriptor
   EXPECT_EQ(serialized[4].handle, 0x0005);
   EXPECT_EQ(serialized[4].type, SERVICE_1_CHAR_1_DESC_1_UUID);
+
+  // Characteristic Extended Properties Descriptor
+  EXPECT_EQ(serialized[5].handle, 0x0006);
+  EXPECT_EQ(serialized[5].type, CHARACTERISTIC_EXTENDED_PROPERTIES);
+  EXPECT_EQ(serialized[5].value.characteristic_extended_properties, 0x0001);
 }
 
 /* This test makes sure that Service represented in StoredAttribute have proper
@@ -148,8 +159,8 @@ TEST(GattCacheTest, stored_attribute_to_binary_included_service_test) {
   EXPECT_EQ(memcmp(binary_form, &attr, len), 0);
 }
 
-/* This test makes sure that Characteristic represented in StoredAttribute have
- * proper binary format. */
+/* This test makes sure that «Characteristic Extended Properties» descriptor
+ * represented in StoredAttribute have proper binary format. */
 TEST(GattCacheTest, stored_attribute_to_binary_characteristic_test) {
   StoredAttribute attr;
 
@@ -198,6 +209,74 @@ TEST(GattCacheTest, stored_attribute_to_binary_descriptor_test) {
       /* type */ 0x00, 0x00, 0x29, 0x02, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB,
       /* clear padding    */ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  // clang-format on
+
+  // useful for debugging:
+  // LOG(ERROR) << " " << base::HexEncode(&attr, len);
+  EXPECT_EQ(memcmp(binary_form, &attr, len), 0);
+}
+
+// Example from Bluetooth SPEC V5.2, Vol 3, Part G, APPENDIX B
+TEST(GattDatabaseTest, hash_test) {
+  DatabaseBuilder builder;
+  builder.AddService(0x0001, 0x0005, Uuid::From16Bit(0x1800), true);
+  builder.AddService(0x0006, 0x000D, Uuid::From16Bit(0x1801), true);
+  builder.AddService(0x000E, 0x0013, Uuid::From16Bit(0x1808), true);
+  builder.AddService(0x0014, 0xFFFF, Uuid::From16Bit(0x180F), false);
+
+  builder.AddCharacteristic(0x0002, 0x0003, Uuid::From16Bit(0x2A00), 0x0A);
+  builder.AddCharacteristic(0x0004, 0x0005, Uuid::From16Bit(0x2A01), 0x02);
+
+  builder.AddCharacteristic(0x0007, 0x0008, Uuid::From16Bit(0x2A05), 0x20);
+  builder.AddDescriptor(0x0009, Uuid::From16Bit(0x2902));
+  builder.AddCharacteristic(0x000A, 0x000B, Uuid::From16Bit(0x2B29), 0x0A);
+  builder.AddCharacteristic(0x000C, 0x000D, Uuid::From16Bit(0x2B2A), 0x02);
+
+  builder.AddIncludedService(0x000F, Uuid::From16Bit(0x180F), 0x0014, 0x0016);
+  builder.AddCharacteristic(0x0010, 0x0011, Uuid::From16Bit(0x2A18), 0xA2);
+  builder.AddDescriptor(0x0012, Uuid::From16Bit(0x2902));
+  builder.AddDescriptor(0x0013, Uuid::From16Bit(0x2900));
+
+  builder.AddCharacteristic(0x0015, 0x0016, Uuid::From16Bit(0x2A19), 0x02);
+
+  // set characteristic extended properties descriptor values
+  std::vector<uint16_t> descriptorValues = {0x0000};
+  builder.SetValueOfDescriptors(descriptorValues);
+
+  Database db = builder.Build();
+
+  // Big endian example from Bluetooth SPEC V5.2, Vol 3, Part G, APPENDIX B
+  Octet16 expected_hash{0xF1, 0xCA, 0x2D, 0x48, 0xEC, 0xF5, 0x8B, 0xAC,
+                        0x8A, 0x88, 0x30, 0xBB, 0xB9, 0xFB, 0xA9, 0x90};
+
+  Octet16 hash = db.Hash();
+  // Convert output hash from little endian to big endian
+  std::reverse(hash.begin(), hash.end());
+
+  EXPECT_EQ(hash, expected_hash);
+}
+
+/* This test makes sure that Descriptor represented in StoredAttribute have
+ * proper binary format. */
+TEST(GattCacheTest,
+     stored_attribute_to_binary_characteristic_extended_properties_test) {
+  StoredAttribute attr;
+
+  /* make sure padding at end of union is cleared */
+  memset(&attr, 0, sizeof(attr));
+
+  attr = {.handle = 0x0003,
+          .type = Uuid::FromString("2900"),
+          .value = {.characteristic_extended_properties = 0x0001}};
+
+  constexpr size_t len = sizeof(StoredAttribute);
+  // clang-format off
+  uint8_t binary_form[len] = {
+      /*handle */ 0x03, 0x00,
+      /* type */ 0x00, 0x00, 0x29, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB,
+      /* characteristic extended properties */ 0x01, 0x00,
+      /* clear padding    */ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                             0x00, 0x00, 0x00, 0x00};
   // clang-format on
 
   // useful for debugging:

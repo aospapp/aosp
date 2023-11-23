@@ -45,12 +45,12 @@ class SystemProperties {
     Handle(const Handle&) = delete;
     Handle& operator=(const Handle&) = delete;
 
-    Handle(Handle&&);
-    Handle& operator=(Handle&&);
+    Handle(Handle&&) noexcept;
+    Handle& operator=(Handle&&) noexcept;
 
     friend class SystemProperties;
     ~Handle();
-    operator bool();
+    explicit operator bool();
 
    private:
     explicit Handle(SystemProperties* system_properties, std::string property);

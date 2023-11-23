@@ -33,10 +33,17 @@ class FixedScalarField : public FixedField {
 
   virtual std::string GetDataType() const override;
 
+  virtual void GenStringRepresentation(std::ostream& s, std::string accessor) const override;
+
+  void GenValue(std::ostream& s) const;
+
   static const std::string field_type;
 
+  void GenRustGetter(std::ostream& s, Size start_offset, Size end_offset) const override;
+
+  void GenRustWriter(std::ostream& s, Size start_offset, Size end_offset) const override;
+
  private:
-  void GenValue(std::ostream& s) const;
 
   const int64_t value_;
 };

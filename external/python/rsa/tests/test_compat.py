@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 #  Copyright 2011 Sybren A. Stüvel <sybren@stuvel.eu>
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +15,7 @@
 import unittest
 import struct
 
-from rsa._compat import byte, is_bytes, range, xor_bytes
+from rsa._compat import byte, xor_bytes
 
 
 class TestByte(unittest.TestCase):
@@ -26,7 +24,7 @@ class TestByte(unittest.TestCase):
     def test_byte(self):
         for i in range(256):
             byt = byte(i)
-            self.assertTrue(is_bytes(byt))
+            self.assertIsInstance(byt, bytes)
             self.assertEqual(ord(byt), i)
 
     def test_raises_StructError_on_overflow(self):

@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <android-base/logging.h>
 #include <cutils/misc.h>
@@ -50,6 +51,10 @@ static const char DRIVER_MODULE_TAG[] = WIFI_DRIVER_MODULE_NAME " ";
 static const char DRIVER_MODULE_PATH[] = WIFI_DRIVER_MODULE_PATH;
 static const char DRIVER_MODULE_ARG[] = WIFI_DRIVER_MODULE_ARG;
 static const char MODULE_FILE[] = "/proc/modules";
+#endif
+
+#ifdef WIFI_DRIVER_STATE_CTRL_PARAM
+int kDriverStateAccessRetrySleepMillis = 200;
 #endif
 
 static int insmod(const char *filename, const char *args) {
@@ -94,8 +99,22 @@ int wifi_change_driver_state(const char *state) {
   int len;
   int fd;
   int ret = 0;
+  struct timespec req;
+  req.tv_sec = 0;
+  req.tv_nsec = kDriverStateAccessRetrySleepMillis * 1000000L;
+  int count = 5; /* wait at most 1 second for completion. */
 
   if (!state) return -1;
+  do {
+    if (access(WIFI_DRIVER_STATE_CTRL_PARAM, W_OK) == 0)
+      break;
+    nanosleep(&req, (struct timespec *)NULL);
+  } while (--count > 0);
+  if (count == 0) {
+    PLOG(ERROR) << "Failed to access driver state control param "
+                << strerror(errno) << ", " << errno;
+    return -1;
+  }
   fd = TEMP_FAILURE_RETRY(open(WIFI_DRIVER_STATE_CTRL_PARAM, O_WRONLY));
   if (fd < 0) {
     PLOG(ERROR) << "Failed to open driver state control param";

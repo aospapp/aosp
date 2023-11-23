@@ -17,7 +17,7 @@
 package android.appsecurity.cts;
 
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import org.junit.After;
 import org.junit.Before;
@@ -42,7 +42,7 @@ public class LocationPolicyTest extends BaseAppSecurityTest {
     }
 
     @Test
-    @SecurityTest
+    @AsbSecurityTest(cveBugId = 148414207)
     public void testLocationPolicyPermissions() throws Exception {
         new InstallMultiple(true).addFile(TEST_APK).run();
         Utils.runDeviceTests(

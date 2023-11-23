@@ -21,14 +21,20 @@ class firmware_PDConnect(FirmwareTest):
     """
     version = 1
     CONNECT_ITERATIONS = 10
-    def _test_connect(self, port_pair):
+    def _test_connect(self, port_pair, dts_mode):
         """Tests disconnect/connect sequence
 
         @param port_pair: list of 2 connected PD devices
+        @param dts_mode: the test is under DTS mode?
         """
         # Delay in seconds between disconnect and connect commands
-        RECONNECT_DELAY = 2
+        RECONNECT_DELAY = 10
         for dev in port_pair:
+            if dts_mode and not dev.is_pdtester:
+                logging.info('If DUT in DTS mode, it is always connected. '
+                             'Unable to set it disconnected; skip this item.')
+                continue
+
             for attempt in xrange(self.CONNECT_ITERATIONS):
                 logging.info('Disconnect/Connect iteration %d', attempt)
                 try:
@@ -38,9 +44,9 @@ class firmware_PDConnect(FirmwareTest):
                     logging.warn('Device does not support disconnect/connect')
                     break
 
-    def initialize(self, host, cmdline_args, flip_cc=False):
+    def initialize(self, host, cmdline_args, flip_cc=False, dts_mode=False):
         super(firmware_PDConnect, self).initialize(host, cmdline_args)
-        self.setup_pdtester(flip_cc)
+        self.setup_pdtester(flip_cc, dts_mode)
         # Only run in normal mode
         self.switcher.setup_mode('normal')
         self.usbpd.enable_console_channel('usbpd')
@@ -51,7 +57,7 @@ class firmware_PDConnect(FirmwareTest):
         super(firmware_PDConnect, self).cleanup()
 
 
-    def run_once(self):
+    def run_once(self, dts_mode=False):
         """Exectue disconnect/connect sequence test
 
         """
@@ -65,7 +71,7 @@ class firmware_PDConnect(FirmwareTest):
             raise error.TestFail('No PD connection found!')
 
         # Test disconnect/connect sequences
-        self._test_connect(port_pair)
+        self._test_connect(port_pair, dts_mode)
 
         # Swap power roles (if possible). Note the pr swap is attempted
         # for both devices in the connection. This ensures that a device
@@ -83,7 +89,7 @@ class firmware_PDConnect(FirmwareTest):
         if swappable_dev:
             try:
                 # Power role has been swapped, retest.
-                self._test_connect(port_pair)
+                self._test_connect(port_pair, dts_mode)
             finally:
                 # Swap power role again, back to the original
                 if not swappable_dev.pr_swap():

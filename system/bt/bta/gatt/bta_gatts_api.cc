@@ -22,16 +22,20 @@
  *
  ******************************************************************************/
 
-#include "bt_target.h"
-
 #include <base/bind.h>
-#include <string.h>
+#include <base/location.h>
+#include <cstdint>
+#include <memory>
+#include <vector>
 
-#include "bt_common.h"
-#include "bta_gatt_api.h"
-#include "bta_gatts_int.h"
-#include "bta_sys.h"
-#include "stack/include/btu.h"
+#include "bt_target.h"  // Must be first to define build configuration
+
+#include "bta/gatt/bta_gatts_int.h"
+#include "osi/include/allocator.h"
+#include "stack/include/btu.h"  // do_in_main_thread
+#include "types/bluetooth/uuid.h"
+#include "types/bt_transport.h"
+#include "types/raw_address.h"
 
 /*****************************************************************************
  *  Constants
@@ -57,7 +61,7 @@ void BTA_GATTS_Disable(void) {
     return;
   }
 
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
   p_buf->event = BTA_GATTS_API_DISABLE_EVT;
   bta_sys_sendmsg(p_buf);
   bta_sys_deregister(BTA_ID_GATTS);
@@ -77,7 +81,7 @@ void BTA_GATTS_Disable(void) {
  *
  ******************************************************************************/
 void BTA_GATTS_AppRegister(const bluetooth::Uuid& app_uuid,
-                           tBTA_GATTS_CBACK* p_cback) {
+                           tBTA_GATTS_CBACK* p_cback, bool eatt_support) {
   tBTA_GATTS_API_REG* p_buf =
       (tBTA_GATTS_API_REG*)osi_malloc(sizeof(tBTA_GATTS_API_REG));
 
@@ -88,6 +92,7 @@ void BTA_GATTS_AppRegister(const bluetooth::Uuid& app_uuid,
   p_buf->hdr.event = BTA_GATTS_API_REG_EVT;
   p_buf->app_uuid = app_uuid;
   p_buf->p_cback = p_cback;
+  p_buf->eatt_support = eatt_support;
 
   bta_sys_sendmsg(p_buf);
 }
@@ -132,7 +137,8 @@ void bta_gatts_add_service_impl(tGATT_IF server_if,
     return;
   }
 
-  uint16_t status = GATTS_AddService(server_if, service.data(), service.size());
+  tGATT_STATUS status =
+      GATTS_AddService(server_if, service.data(), service.size());
   if (status != GATT_SERVICE_STARTED) {
     memset(&bta_gatts_cb.srvc_cb[srvc_idx], 0, sizeof(tBTA_GATTS_SRVC_CB));
     LOG(ERROR) << __func__ << ": service creation failed.";
@@ -187,7 +193,7 @@ extern void BTA_GATTS_AddService(tGATT_IF server_if,
  *
  ******************************************************************************/
 void BTA_GATTS_DeleteService(uint16_t service_id) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
 
   p_buf->event = BTA_GATTS_API_DEL_SRVC_EVT;
   p_buf->layer_specific = service_id;
@@ -207,7 +213,7 @@ void BTA_GATTS_DeleteService(uint16_t service_id) {
  *
  ******************************************************************************/
 void BTA_GATTS_StopService(uint16_t service_id) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
 
   p_buf->event = BTA_GATTS_API_STOP_SRVC_EVT;
   p_buf->layer_specific = service_id;
@@ -297,7 +303,7 @@ void BTA_GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id, tGATT_STATUS status,
  *
  ******************************************************************************/
 void BTA_GATTS_Open(tGATT_IF server_if, const RawAddress& remote_bda,
-                    bool is_direct, tGATT_TRANSPORT transport) {
+                    bool is_direct, tBT_TRANSPORT transport) {
   tBTA_GATTS_API_OPEN* p_buf =
       (tBTA_GATTS_API_OPEN*)osi_malloc(sizeof(tBTA_GATTS_API_OPEN));
 
@@ -349,7 +355,7 @@ void BTA_GATTS_CancelOpen(tGATT_IF server_if, const RawAddress& remote_bda,
  *
  ******************************************************************************/
 void BTA_GATTS_Close(uint16_t conn_id) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
 
   p_buf->event = BTA_GATTS_API_CLOSE_EVT;
   p_buf->layer_specific = conn_id;

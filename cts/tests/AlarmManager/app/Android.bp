@@ -12,14 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "AlarmTestApp",
     defaults: ["cts_support_defaults"],
     sdk_version: "current",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
     srcs: ["src/**/*.java"],
     dex_preopt: {

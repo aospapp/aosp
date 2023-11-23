@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="inspector_title" msgid="1924760928091740238">"מאפיינים"</string>
     <string name="inspector_load_error" msgid="7522190243413249291">"לא ניתן היה לטעון את פרטי הקובץ"</string>
-    <string name="inspector_debug_section" msgid="2576052661505700421">"מידע על ניפוי באגים (פיתוח בלבד)"</string>
+    <string name="inspector_debug_section" msgid="2576052661505700421">"מידע על ניפוי באגים (מפתחים בלבד)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"‏סוג המטא נתונים של קובץ ה-RAW: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
     <string name="inspector_metadata_section" msgid="6077622515328240575">"פרטי הקבצים"</string>
     <string name="handler_app_file_opens_with" msgid="5272329600389613550">"אפשר לפתוח קבצים מהסוג הזה באמצעות"</string>
@@ -35,12 +35,12 @@
     <string name="metadata_aperture" msgid="6538741952698935357">"צמצם"</string>
     <string name="metadata_shutter_speed" msgid="8204739885103326131">"מהירות תריס"</string>
     <string name="metadata_duration" msgid="3115494422055472715">"משך"</string>
-    <string name="metadata_date_time" msgid="1090351199248114406">"צולם ב-"</string>
+    <string name="metadata_date_time" msgid="1090351199248114406">"תאריך צילום:"</string>
     <string name="metadata_focal_length" msgid="3440735161407699893">"אורך מוקד"</string>
     <string name="metadata_focal_format" msgid="8542211707962355623">"<xliff:g id="LENGTH">%1$.2f </xliff:g> מ\"מ"</string>
     <string name="metadata_iso_speed_ratings" msgid="1699781252899759058">"‏רגישות לאור (שווה ערך ל-ISO)"</string>
     <string name="metadata_iso_format" msgid="4153285204012694861">"ISO <xliff:g id="ISO_SPEED">%1$d</xliff:g>‎"</string>
-    <string name="metadata_artist" msgid="8972421485694988540">"אמן"</string>
+    <string name="metadata_artist" msgid="8972421485694988540">"אומן"</string>
     <string name="metadata_composer" msgid="4696926808308256056">"מלחין"</string>
     <string name="metadata_album" msgid="1661699531214720236">"אלבום"</string>
     <string name="metadata_address" msgid="1849921023707744640">"מיקום"</string>

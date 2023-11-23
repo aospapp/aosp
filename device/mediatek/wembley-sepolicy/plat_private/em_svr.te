@@ -55,14 +55,5 @@ allow em_svr self:capability { chown fsetid };
 allow em_svr shell_exec:file rx_file_perms;
 
 # Date: WK1812
-# Purpose: add for power battery charge/PMU
-allow em_svr toolbox_exec:file { getattr execute read open execute_no_trans };
-
-# Date: WK1812
 # Purpose: sys file access
 allow em_svr sysfs:dir { open read };
-
-# Date: WK1822
-# Purpose: battery temprature setting
-allow em_svr sysfs_batteryinfo:dir search;
-

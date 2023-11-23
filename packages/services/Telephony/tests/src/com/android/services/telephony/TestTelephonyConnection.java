@@ -16,28 +16,42 @@
 
 package com.android.services.telephony;
 
+import android.content.AttributionSource;
+import android.content.ContentResolver;
+import android.os.Process;
+import android.os.UserHandle;
+import android.telephony.TelephonyManager;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.notNull;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.VideoProfile;
+import android.telephony.CarrierConfigManager;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
+import com.android.ims.ImsCall;
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.emergency.EmergencyNumberTracker;
+import com.android.internal.telephony.imsphone.ImsExternalConnection;
+import com.android.internal.telephony.imsphone.ImsPhoneConnection;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,19 +72,51 @@ public class TestTelephonyConnection extends TelephonyConnection {
     Context mMockContext;
 
     @Mock
+    ContentResolver mMockContentResolver;
+
+    @Mock
     Resources mMockResources;
+
+    @Mock
+    TelephonyManager mMockTelephonyManager;
 
     @Mock
     EmergencyNumberTracker mEmergencyNumberTracker;
 
+    @Mock
+    ImsPhoneConnection mImsPhoneConnection;
+
+    @Mock
+    ImsExternalConnection mImsExternalConnection;
+
+    @Mock
+    ImsCall mImsCall;
+
+    @Mock
+    TelecomAccountRegistry mTelecomAccountRegistry;
+
+    @Mock
+    CarrierConfigManager mCarrierConfigManager;
+
+    private boolean mIsImsConnection;
+    private boolean mIsImsExternalConnection;
+    private boolean mIsConferenceSupported = true;
     private Phone mMockPhone;
     private int mNotifyPhoneAccountChangedCount = 0;
     private List<String> mLastConnectionEvents = new ArrayList<>();
     private List<Bundle> mLastConnectionEventExtras = new ArrayList<>();
+    private Object mLock = new Object();
+    private PersistableBundle mCarrierConfig = new PersistableBundle();
 
     @Override
     public com.android.internal.telephony.Connection getOriginalConnection() {
-        return mMockRadioConnection;
+        if (mIsImsExternalConnection) {
+            return mImsExternalConnection;
+        } else if (mIsImsConnection) {
+            return mImsPhoneConnection;
+        } else {
+            return mMockRadioConnection;
+        }
     }
 
     @Override
@@ -82,16 +128,25 @@ public class TestTelephonyConnection extends TelephonyConnection {
         super(null, null, android.telecom.Call.Details.DIRECTION_INCOMING);
         MockitoAnnotations.initMocks(this);
 
+        AttributionSource attributionSource = new AttributionSource.Builder(
+                Process.myUid()).build();
+
+        mIsImsConnection = false;
+        mIsImsExternalConnection = false;
         mMockPhone = mock(Phone.class);
         mMockContext = mock(Context.class);
+        mMockTelephonyManager = mock(TelephonyManager.class);
         mOriginalConnection = mMockRadioConnection;
         // Set up mMockRadioConnection and mMockPhone to contain an active call
         when(mMockRadioConnection.getState()).thenReturn(Call.State.ACTIVE);
         when(mOriginalConnection.getState()).thenReturn(Call.State.ACTIVE);
         when(mMockRadioConnection.getAudioCodec()).thenReturn(
                 android.telecom.Connection.AUDIO_CODEC_AMR);
+        when(mImsPhoneConnection.getAudioCodec()).thenReturn(
+                android.telecom.Connection.AUDIO_CODEC_AMR);
         when(mMockRadioConnection.getCall()).thenReturn(mMockCall);
         when(mMockRadioConnection.getPhoneType()).thenReturn(PhoneConstants.PHONE_TYPE_IMS);
+        when(mImsPhoneConnection.getPhoneType()).thenReturn(PhoneConstants.PHONE_TYPE_IMS);
         doNothing().when(mMockRadioConnection).addListener(any(Connection.Listener.class));
         doNothing().when(mMockRadioConnection).addPostDialListener(
                 any(Connection.PostDialListener.class));
@@ -101,21 +156,33 @@ public class TestTelephonyConnection extends TelephonyConnection {
         when(mMockPhone.getContext()).thenReturn(mMockContext);
         when(mMockPhone.getCurrentSubscriberUris()).thenReturn(null);
         when(mMockContext.getResources()).thenReturn(mMockResources);
+        when(mMockContext.getContentResolver()).thenReturn(mMockContentResolver);
+        when(mMockContext.getSystemService(Context.TELEPHONY_SERVICE))
+                .thenReturn(mMockTelephonyManager);
+        when(mMockContext.getAttributionSource()).thenReturn(attributionSource);
+        when(mMockContentResolver.getUserId()).thenReturn(UserHandle.USER_CURRENT);
+        when(mMockContentResolver.getAttributionSource()).thenReturn(attributionSource);
         when(mMockResources.getBoolean(anyInt())).thenReturn(false);
         when(mMockPhone.getDefaultPhone()).thenReturn(mMockPhone);
         when(mMockPhone.getPhoneType()).thenReturn(PhoneConstants.PHONE_TYPE_IMS);
         when(mMockCall.getState()).thenReturn(Call.State.ACTIVE);
         when(mMockCall.getPhone()).thenReturn(mMockPhone);
+        when(mMockPhone.getDefaultPhone()).thenReturn(mMockPhone);
+        when(mImsPhoneConnection.getImsCall()).thenReturn(mImsCall);
+        when(mTelecomAccountRegistry.isMergeCallSupported(notNull(PhoneAccountHandle.class)))
+                .thenReturn(mIsConferenceSupported);
+        when(mTelecomAccountRegistry.isMergeImsCallSupported(notNull(PhoneAccountHandle.class)))
+                .thenReturn(mIsImsConnection);
+        when(mTelecomAccountRegistry
+                .isVideoConferencingSupported(notNull(PhoneAccountHandle.class))).thenReturn(false);
+        when(mTelecomAccountRegistry
+                .isMergeOfWifiCallsAllowedWhenVoWifiOff(notNull(PhoneAccountHandle.class)))
+                .thenReturn(false);
         try {
             doNothing().when(mMockCall).hangup();
         } catch (CallStateException e) {
             e.printStackTrace();
         }
-    }
-
-    @Override
-    public boolean isConferenceSupported() {
-        return true;
     }
 
     public void setMockPhone(Phone newPhone) {
@@ -151,7 +218,14 @@ public class TestTelephonyConnection extends TelephonyConnection {
     public PersistableBundle getCarrierConfig() {
         // Depends on PhoneGlobals for context in TelephonyConnection, do not implement during
         // testing.
-        return new PersistableBundle();
+        return mCarrierConfig;
+    }
+
+    @Override
+    public void refreshConferenceSupported() {
+        if (mIsImsConnection) {
+            super.refreshConferenceSupported();
+        }
     }
 
     @Override
@@ -165,8 +239,36 @@ public class TestTelephonyConnection extends TelephonyConnection {
     }
 
     @Override
-    void refreshConferenceSupported() {
-        // Requires ImsManager dependencies, do not implement during testing.
+    public void setConferenceSupported(boolean conferenceSupported) {
+        mIsConferenceSupported = conferenceSupported;
+    }
+
+    @Override
+    public boolean isConferenceSupported() {
+        return mIsConferenceSupported;
+    }
+
+    @Override
+    public TelecomAccountRegistry getTelecomAccountRegistry(Context context) {
+        return mTelecomAccountRegistry;
+    }
+
+    public void setIsVideoCall(boolean isVideoCall) {
+        if (isVideoCall) {
+            setVideoState(VideoProfile.STATE_TX_ENABLED);
+        } else {
+            setVideoState(VideoProfile.STATE_AUDIO_ONLY);
+        }
+    }
+
+    public void setWasVideoCall(boolean wasVideoCall) {
+        when(mImsCall.wasVideoCall()).thenReturn(wasVideoCall);
+    }
+
+    @Override
+    boolean isWfcEnabled(Phone phone) {
+        // Requires ImsManager dependencies, mock for test.
+        return true;
     }
 
     public int getNotifyPhoneAccountChangedCount() {
@@ -179,5 +281,28 @@ public class TestTelephonyConnection extends TelephonyConnection {
 
     public List<Bundle> getLastConnectionEventExtras() {
         return mLastConnectionEventExtras;
+    }
+
+    public void setIsImsConnection(boolean isImsConnection) {
+        mIsImsConnection = isImsConnection;
+        when(mTelecomAccountRegistry.isMergeImsCallSupported(notNull(PhoneAccountHandle.class)))
+                .thenReturn(isImsConnection && mIsConferenceSupported);
+    }
+
+    public void setIsImsExternalConnection(boolean isExternalConnection) {
+        mIsImsExternalConnection = isExternalConnection;
+    }
+
+    public void setDownGradeVideoCall(boolean downgrade) {
+        PersistableBundle bundle = new PersistableBundle();
+        bundle.putBoolean(CarrierConfigManager.KEY_TREAT_DOWNGRADED_VIDEO_CALLS_AS_VIDEO_CALLS_BOOL,
+                downgrade);
+        when(mMockContext.getSystemService(Context.CARRIER_CONFIG_SERVICE))
+                .thenReturn(mCarrierConfigManager);
+        when(mCarrierConfigManager.getConfigForSubId(anyInt())).thenReturn(bundle);
+    }
+
+    public PersistableBundle getCarrierConfigBundle() {
+        return mCarrierConfig;
     }
 }

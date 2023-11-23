@@ -53,13 +53,14 @@ Tokenizer BuildTokenizer(const UniLib* unilib,
 
 int AddRuleClassificationResult(const std::string& collection,
                                 const ModeFlag& enabled_modes,
-                                GrammarModelT* model) {
+                                float priority_score, GrammarModelT* model) {
   const int result_id = model->rule_classification_result.size();
   model->rule_classification_result.emplace_back(new RuleClassificationResultT);
   RuleClassificationResultT* result =
       model->rule_classification_result.back().get();
   result->collection_name = collection;
   result->enabled_modes = enabled_modes;
+  result->priority_score = priority_score;
   return result_id;
 }
 

@@ -12,6 +12,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["external_wayland_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "external_wayland_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-MIT",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "COPYING",
+    ],
+}
+
 cc_defaults {
     name: "wayland_defaults",
 
@@ -25,6 +56,7 @@ cc_defaults {
         "-Wno-cast-qual",
         "-Wno-pointer-arith",
         "-Wno-unused-parameter",
+        "-Wno-unused-variable",
     ],
 }
 
@@ -35,29 +67,30 @@ filegroup {
     ],
 }
 
-// Generate wayland-version.h
-genrule {
-    name: "wayland_version_header",
-    cmd: "$(location gen_wayland_version_header.sh) $(location configure.ac) < $(in) > $(out)",
-    srcs: ["src/wayland-version.h.in"],
-    out: ["wayland-version.h"],
-    tool_files: ["gen_wayland_version_header.sh", "configure.ac"],
-}
-
 // Build wayland_scanner, used to generate code
 cc_binary_host {
     name: "wayland_scanner",
     defaults: ["wayland_defaults"],
-    srcs: ["src/scanner.c", "src/wayland-util.c"],
-    cflags: ["-Wall", "-Werror"],
+    srcs: [
+        "src/scanner.c",
+        "src/wayland-util.c",
+    ],
     static_libs: ["libexpat"],
-    generated_headers: ["wayland_version_header"],
 }
 
-// Generate protocol source files used by both client and server
+// Generate protocol source files used by both client and server (static)
 genrule {
-    name: "wayland_core_protocol_sources",
-    cmd: "$(location wayland_scanner) code < $(in) > $(out)",
+    name: "wayland_core_protocol_sources_static",
+    cmd: "$(location wayland_scanner) -s private-code < $(in) > $(out)",
+    srcs: [":wayland_core_protocol"],
+    out: ["wayland-protocol.c"],
+    tools: ["wayland_scanner"],
+}
+
+// Generate protocol source files used by both client and server (shared)
+genrule {
+    name: "wayland_core_protocol_sources_shared",
+    cmd: "$(location wayland_scanner) -s public-code < $(in) > $(out)",
     srcs: [":wayland_core_protocol"],
     out: ["wayland-protocol.c"],
     tools: ["wayland_scanner"],
@@ -66,7 +99,7 @@ genrule {
 // Generate protocol header files used by the client
 genrule {
     name: "wayland_core_client_protocol_headers",
-    cmd: "$(location wayland_scanner) client-header < $(in) > $(out)",
+    cmd: "$(location wayland_scanner) -s client-header < $(in) > $(out)",
     srcs: [":wayland_core_protocol"],
     out: ["wayland-client-protocol.h"],
     tools: ["wayland_scanner"],
@@ -75,37 +108,52 @@ genrule {
 // Generate protocol header files used by the server
 genrule {
     name: "wayland_core_server_protocol_headers",
-    cmd: "$(location wayland_scanner) server-header < $(in) > $(out)",
+    cmd: "$(location wayland_scanner) -s server-header < $(in) > $(out)",
     srcs: [":wayland_core_protocol"],
     out: ["wayland-server-protocol.h"],
     tools: ["wayland_scanner"],
 }
 
 // Build wayland_client
-cc_library_static {
-    name: "libwayland_client",
-    vendor_available: true,
-    host_supported: true,
+cc_defaults {
+    name: "libwayland_client_defaults",
     defaults: ["wayland_defaults"],
     srcs: [
-       "src/connection.c",
-       "src/wayland-client.c",
-       "src/wayland-os.c",
-       "src/wayland-util.c",
+        "src/connection.c",
+        "src/wayland-client.c",
+        "src/wayland-os.c",
+        "src/wayland-util.c",
     ],
-    cflags: ["-Wall", "-Werror"],
-    generated_sources: ["wayland_core_protocol_sources"],
     static_libs: ["libffi"],
     local_include_dirs: ["src"],
     generated_headers: [
-        "wayland_version_header",
-        "wayland_core_client_protocol_headers"
+        "wayland_core_client_protocol_headers",
     ],
     export_include_dirs: ["src"],
     export_generated_headers: [
-        "wayland_version_header",
-        "wayland_core_client_protocol_headers"
+        "wayland_core_client_protocol_headers",
     ],
+}
+cc_library_static {
+    name: "libwayland_client_static",
+    vendor_available: true,
+    defaults: ["libwayland_client_defaults"],
+    generated_sources: ["wayland_core_protocol_sources_static"],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+}
+cc_library_host_shared {
+    name: "libwayland_client",
+    defaults: ["libwayland_client_defaults"],
+    generated_sources: ["wayland_core_protocol_sources_shared"],
+    target: {
+        linux_glibc_x86: {
+            // libffi broken on x86, see b/162610242
+            enabled: false,
+        },
+    },
 }
 
 // Build wayland_server
@@ -122,17 +170,14 @@ cc_library_static {
         "src/wayland-shm.c",
         "src/event-loop.c",
     ],
-    cflags: ["-Wall", "-Werror"],
-    generated_sources: ["wayland_core_protocol_sources"],
+    generated_sources: ["wayland_core_protocol_sources_static"],
     static_libs: ["libffi"],
     local_include_dirs: ["src"],
     generated_headers: [
-        "wayland_version_header",
         "wayland_core_server_protocol_headers",
     ],
     export_include_dirs: ["src"],
     export_generated_headers: [
-        "wayland_version_header",
         "wayland_core_server_protocol_headers",
     ],
 }

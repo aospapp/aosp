@@ -16,10 +16,7 @@
 
 package com.android.car.dialer.storage;
 
-import android.content.Context;
-
 import androidx.room.Database;
-import androidx.room.Room;
 import androidx.room.RoomDatabase;
 import androidx.room.TypeConverters;
 
@@ -30,18 +27,4 @@ public abstract class FavoriteNumberDatabase extends RoomDatabase {
 
     /** Returns the data access object to interact with the favorite number database. */
     public abstract FavoriteNumberDao favoriteNumberDao();
-
-    private static volatile FavoriteNumberDatabase sFavoriteNumberDatabase;
-
-    static FavoriteNumberDatabase getDatabase(final Context context) {
-        if (sFavoriteNumberDatabase == null) {
-            synchronized (FavoriteNumberDatabase.class) {
-                if (sFavoriteNumberDatabase == null) {
-                    sFavoriteNumberDatabase = Room.databaseBuilder(context.getApplicationContext(),
-                            FavoriteNumberDatabase.class, "favorite_number_database").build();
-                }
-            }
-        }
-        return sFavoriteNumberDatabase;
-    }
 }

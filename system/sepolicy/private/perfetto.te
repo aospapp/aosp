@@ -1,5 +1,5 @@
 # Perfetto command-line client. Can be used only from the domains that are
-# explicitly whitelisted with a domain_auto_trans(X, perfetto_exec, perfetto).
+# explicitly allowlisted with a domain_auto_trans(X, perfetto_exec, perfetto).
 # This command line client accesses the privileged socket of the traced
 # daemon.
 
@@ -24,11 +24,16 @@ binder_use(perfetto)
 binder_call(perfetto, system_server)
 allow perfetto dropbox_service:service_manager find;
 
-# Allow perfetto to read the trace config from statsd and shell
+# Allow perfetto to read the trace config from /data/misc/perfetto-configs.
+# shell and adb can write files into that directory.
+allow perfetto perfetto_configs_data_file:dir r_dir_perms;
+allow perfetto perfetto_configs_data_file:file r_file_perms;
+
+# Allow perfetto to read the trace config from statsd, mm_events and shell
 # (both root and non-root) on stdin and also to write the resulting trace to
 # stdout.
-allow perfetto { statsd shell su }:fd use;
-allow perfetto { statsd shell su }:fifo_file { getattr read write };
+allow perfetto { statsd mm_events shell su }:fd use;
+allow perfetto { statsd mm_events shell su }:fifo_file { getattr read write };
 
 # Allow to communicate use, read and write over the adb connection.
 allow perfetto adbd:fd use;
@@ -82,6 +87,7 @@ neverallow perfetto {
   -vendor_data_file
   -zoneinfo_data_file
   -perfetto_traces_data_file
+  -perfetto_configs_data_file
   with_native_coverage(`-method_trace_data_file')
 }:dir *;
 neverallow perfetto { system_data_file -perfetto_traces_data_file }:dir ~{ getattr search };
@@ -91,5 +97,6 @@ neverallow perfetto {
   data_file_type
   -zoneinfo_data_file
   -perfetto_traces_data_file
+  -perfetto_configs_data_file
   with_native_coverage(`-method_trace_data_file')
 }:file ~write;

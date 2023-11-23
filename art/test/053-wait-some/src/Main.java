@@ -42,6 +42,7 @@ public class Main {
                 ie.printStackTrace(System.out);
             }
 
+            long total_extra_delay = 0;
             for (long delay : DELAYS) {
                 System.out.println("Waiting for " + delay + "ms...");
 
@@ -57,15 +58,19 @@ public class Main {
                 boolean showTime = timing;
 
                 if (! timing) {
-                    long epsilon = delay / 10;
-                    if (epsilon > 50) {
-                        epsilon = 50;
-                    }
-
-                    long min = delay - epsilon;
+                    // Allow a random scheduling delay of up to 600 msecs.
+                    // That value is empirically determined from failure logs.
+                    // We seem to get very occasional very long delays on host, perhaps due
+                    // to getting paged out.
+                    final long epsilon = 600;
+                    long min = delay - 1;
                     long max = delay + epsilon;
+                    total_extra_delay += elapsed - delay;
 
                     if (elapsed < min) {
+                        // This can legitimately happen due to premature wake-ups.
+                        // This seems rare and unexpected enough in practice that we should
+                        // still report.
                         System.out.println("  Elapsed time was too short");
                         showTime = true;
                     } else if (elapsed > max) {
@@ -79,6 +84,10 @@ public class Main {
                     System.out.println("  Wall clock elapsed "
                             + elapsed + "ms");
                 }
+            }
+            if (total_extra_delay > 1000) {
+                System.out.println("  Total unrequested delay of " + total_extra_delay
+                    + "msecs was too long");
             }
         }
     }

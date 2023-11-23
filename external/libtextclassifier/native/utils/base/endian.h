@@ -53,8 +53,8 @@ namespace libtextclassifier3 {
 #define bswap_64(x) OSSwapInt64(x)
 #endif  // !defined(bswap_16)
 #else
-#define GG_LONGLONG(x) x##LL
-#define GG_ULONGLONG(x) x##ULL
+#define int64_t {x} x##LL
+#define uint64_t {x} x##ULL
 static inline uint16 bswap_16(uint16 x) {
   return (uint16)(((x & 0xFF) << 8) | ((x & 0xFF00) >> 8));  // NOLINT
 }
@@ -65,14 +65,12 @@ static inline uint32 bswap_32(uint32 x) {
 }
 #define bswap_32(x) bswap_32(x)
 static inline uint64 bswap_64(uint64 x) {
-  return (((x & GG_ULONGLONG(0xFF)) << 56) |
-          ((x & GG_ULONGLONG(0xFF00)) << 40) |
-          ((x & GG_ULONGLONG(0xFF0000)) << 24) |
-          ((x & GG_ULONGLONG(0xFF000000)) << 8) |
-          ((x & GG_ULONGLONG(0xFF00000000)) >> 8) |
-          ((x & GG_ULONGLONG(0xFF0000000000)) >> 24) |
-          ((x & GG_ULONGLONG(0xFF000000000000)) >> 40) |
-          ((x & GG_ULONGLONG(0xFF00000000000000)) >> 56));
+  return (((x & uint64_t{0xFF}) << 56) | ((x & uint64_t{0xFF00}) << 40) |
+          ((x & uint64_t{0xFF0000}) << 24) | ((x & uint64_t{0xFF000000}) << 8) |
+          ((x & uint64_t{0xFF00000000}) >> 8) |
+          ((x & uint64_t{0xFF0000000000}) >> 24) |
+          ((x & uint64_t{0xFF000000000000}) >> 40) |
+          ((x & uint64_t{0xFF00000000000000}) >> 56));
 }
 #define bswap_64(x) bswap_64(x)
 #endif

@@ -36,7 +36,7 @@
 #include <inttypes.h>
 #include <netinet/in.h>
 
-#ifndef __ANDROID_APEX__
+#ifdef ENABLE_CRYPTO
 #include "HlsSampleDecryptor.h"
 #endif
 
@@ -55,10 +55,10 @@ ElementaryStreamQueue::ElementaryStreamQueue(Mode mode, uint32_t flags)
     // Create the decryptor anyway since we don't know the use-case unless key is provided
     // Won't decrypt if key info not available (e.g., scanner/extractor just parsing ts files)
     mSampleDecryptor = isSampleEncrypted() ?
-#ifdef __ANDROID_APEX__
-        new SampleDecryptor
-#else
+#ifdef ENABLE_CRYPTO
         new HlsSampleDecryptor
+#else
+        new SampleDecryptor
 #endif
         : NULL;
 }
@@ -172,29 +172,26 @@ static unsigned parseAC3SyncFrame(
         return 0;
     }
 
-    unsigned bsmod __unused = bits.getBits(3);
+    bits.skipBits(3); // bsmod
     unsigned acmod = bits.getBits(3);
-    unsigned cmixlev __unused = 0;
-    unsigned surmixlev __unused = 0;
-    unsigned dsurmod __unused = 0;
 
     if ((acmod & 1) > 0 && acmod != 1) {
         if (bits.numBitsLeft() < 2) {
             return 0;
         }
-        cmixlev = bits.getBits(2);
+        bits.skipBits(2); //cmixlev
     }
     if ((acmod & 4) > 0) {
         if (bits.numBitsLeft() < 2) {
             return 0;
         }
-        surmixlev = bits.getBits(2);
+        bits.skipBits(2); //surmixlev
     }
     if (acmod == 2) {
         if (bits.numBitsLeft() < 2) {
             return 0;
         }
-        dsurmod = bits.getBits(2);
+        bits.skipBits(2); //dsurmod
     }
 
     if (bits.numBitsLeft() < 1) {
@@ -269,7 +266,7 @@ static unsigned parseEAC3SyncFrame(
         samplingRate = samplingRateTable2[fscod2];
     } else {
         samplingRate = samplingRateTable[fscod];
-        unsigned numblkscod __unused = bits.getBits(2);
+        bits.skipBits(2); // numblkscod
     }
 
     unsigned acmod = bits.getBits(3);
@@ -1087,7 +1084,7 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitPCMAudio() {
     }
     unsigned numAUs = bits.getBits(8);
     bits.skipBits(8);
-    unsigned quantization_word_length __unused = bits.getBits(2);
+    bits.skipBits(2); // quantization_word_length
     unsigned audio_sampling_frequency = bits.getBits(3);
     unsigned num_channels = bits.getBits(3);
 
@@ -1433,7 +1430,13 @@ sp<ABuffer> ElementaryStreamQueue::dequeueAccessUnitH264() {
                 if (mSampleDecryptor != NULL && (nalType == 1 || nalType == 5)) {
                     uint8_t *nalData = mBuffer->data() + pos.nalOffset;
                     size_t newSize = mSampleDecryptor->processNal(nalData, pos.nalSize);
-                    // Note: the data can shrink due to unescaping
+                    // Note: the data can shrink due to unescaping, but it can never grow
+                    if (newSize > pos.nalSize) {
+                        // don't log unless verbose, since this can get called a lot if
+                        // the caller is trying to resynchronize
+                        ALOGV("expected sample size < %u, got %zu", pos.nalSize, newSize);
+                        return NULL;
+                    }
                     memcpy(accessUnit->data() + dstOffset + 4,
                             nalData,
                             newSize);

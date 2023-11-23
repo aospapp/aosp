@@ -1,5 +1,0 @@
-{
-    "platform": "banjo",
-    "parent": "rambi",
-    "spi_voltage": "pp3300"
-}

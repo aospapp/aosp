@@ -261,7 +261,7 @@ public class VideoDatabase {
                     }
                 }
             }
-            // add dummy movies to illustrate action deep link in search detail
+            // add stub movies to illustrate action deep link in search detail
             // Android TV Search requires that the media’s title, MIME type, production year,
             // and duration all match exactly to those found from Google’s servers.
             addMovieForDeepLink(mHelperContext.getString(R.string.noah_title),
@@ -307,7 +307,7 @@ public class VideoDatabase {
         }
 
         /**
-         * Add an entry to the database for dummy deep link.
+         * Add an entry to the database for stub deep link.
          *
          * @return rowId or -1 if failed
          */

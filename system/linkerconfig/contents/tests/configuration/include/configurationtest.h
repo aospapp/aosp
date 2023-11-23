@@ -50,7 +50,8 @@ inline void ValidateAllNamespacesAreVisible(const Section& section) {
 
 inline void ValidateNamespace(const Namespace& target_namespace, const Section& parent_section) {
   EXPECT_FALSE(target_namespace.name.empty()) << "Namespace name should not be empty";
-  EXPECT_FALSE(target_namespace.search_path.empty() && target_namespace.permitted_path.empty())
+  EXPECT_FALSE(target_namespace.name != "default" && target_namespace.search_path.empty() &&
+               target_namespace.permitted_path.empty())
       << "Search path or permitted path should be defined in namespace " << target_namespace.name
       << " from section " << parent_section.name;
 }

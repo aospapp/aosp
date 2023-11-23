@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 #include <limits.h>
+#include <math.h>
+#include <stdint.h>
 #include <sys/param.h>
 
 #include <memory>
@@ -416,6 +418,39 @@ TEST(FormatConverterOpsTest, StereoTo51S16LECenter) {
   }
 }
 
+// Test Quad to 5.1 conversion. S16_LE.
+TEST(FormatConverterOpsTest, QuadTo51S16LE) {
+  const size_t frames = 4096;
+  const size_t in_ch = 4;
+  const size_t out_ch = 6;
+  const unsigned int fl_quad = 0;
+  const unsigned int fr_quad = 1;
+  const unsigned int rl_quad = 2;
+  const unsigned int rr_quad = 3;
+
+  const unsigned int fl_51 = 0;
+  const unsigned int fr_51 = 1;
+  const unsigned int center_51 = 2;
+  const unsigned int lfe_51 = 3;
+  const unsigned int rl_51 = 4;
+  const unsigned int rr_51 = 5;
+
+  S16LEPtr src = CreateS16LE(frames * in_ch);
+  S16LEPtr dst = CreateS16LE(frames * out_ch);
+
+  size_t ret = s16_quad_to_51(fl_51, fr_51, rl_51, rr_51, (uint8_t*)src.get(),
+                              frames, (uint8_t*)dst.get());
+  EXPECT_EQ(ret, frames);
+  for (size_t i = 0; i < frames; ++i) {
+    EXPECT_EQ(0, dst[i * 6 + center_51]);
+    EXPECT_EQ(0, dst[i * 6 + lfe_51]);
+    EXPECT_EQ(src[i * 4 + fl_quad], dst[i * 6 + fl_51]);
+    EXPECT_EQ(src[i * 4 + fr_quad], dst[i * 6 + fr_51]);
+    EXPECT_EQ(src[i * 4 + rl_quad], dst[i * 6 + rl_51]);
+    EXPECT_EQ(src[i * 4 + rr_quad], dst[i * 6 + rr_51]);
+  }
+}
+
 // Test Stereo to 5.1 conversion.  S16_LE, LeftRight.
 TEST(FormatConverterOpsTest, StereoTo51S16LELeftRight) {
   const size_t frames = 4096;
@@ -477,7 +512,7 @@ TEST(FormatConverterOpsTest, _51ToStereoS16LE) {
   const size_t out_ch = 2;
   const size_t left = 0;
   const size_t right = 1;
-  const size_t center = 4;
+  const size_t center = 2;
 
   S16LEPtr src = CreateS16LE(frames * in_ch);
   S16LEPtr dst = CreateS16LE(frames * out_ch);
@@ -486,11 +521,58 @@ TEST(FormatConverterOpsTest, _51ToStereoS16LE) {
       s16_51_to_stereo((uint8_t*)src.get(), frames, (uint8_t*)dst.get());
   EXPECT_EQ(ret, frames);
 
+  /* Use the normalized_factor from the left channel = 1 / (|1| + |0.707|)
+   * to prevent mixing overflow.
+   */
+  const float normalized_factor = 0.585;
+
   for (size_t i = 0; i < frames; ++i) {
-    int16_t half_center = src[i * 6 + center] / 2;
-    EXPECT_EQ(S16AddAndClip(src[i * 6 + left], half_center), dst[i * 2 + left]);
-    EXPECT_EQ(S16AddAndClip(src[i * 6 + right], half_center),
-              dst[i * 2 + right]);
+    int16_t half_center = src[i * 6 + center] * 0.707 * normalized_factor;
+    int16_t l = normalized_factor * src[i * 6 + left] + half_center;
+    int16_t r = normalized_factor * src[i * 6 + right] + half_center;
+
+    EXPECT_EQ(l, dst[i * 2 + left]);
+    EXPECT_EQ(r, dst[i * 2 + right]);
+  }
+}
+
+// Test 5.1 to Quad conversion.  S16_LE.
+TEST(FormatConverterOpsTest, _51ToQuadS16LE) {
+  const size_t frames = 4096;
+  const size_t in_ch = 6;
+  const size_t out_ch = 4;
+  const unsigned int fl_quad = 0;
+  const unsigned int fr_quad = 1;
+  const unsigned int rl_quad = 2;
+  const unsigned int rr_quad = 3;
+
+  const unsigned int fl_51 = 0;
+  const unsigned int fr_51 = 1;
+  const unsigned int center_51 = 2;
+  const unsigned int lfe_51 = 3;
+  const unsigned int rl_51 = 4;
+  const unsigned int rr_51 = 5;
+
+  S16LEPtr src = CreateS16LE(frames * in_ch);
+  S16LEPtr dst = CreateS16LE(frames * out_ch);
+
+  size_t ret = s16_51_to_quad((uint8_t*)src.get(), frames, (uint8_t*)dst.get());
+  EXPECT_EQ(ret, frames);
+
+  /* Use normalized_factor from the left channel = 1 / (|1| + |0.707| + |0.5|)
+   * to prevent overflow. */
+  const float normalized_factor = 0.453;
+  for (size_t i = 0; i < frames; ++i) {
+    int16_t half_center = src[i * 6 + center_51] * 0.707 * normalized_factor;
+    int16_t lfe = src[6 * i + lfe_51] * 0.5 * normalized_factor;
+    int16_t fl = normalized_factor * src[6 * i + fl_51] + half_center + lfe;
+    int16_t fr = normalized_factor * src[6 * i + fr_51] + half_center + lfe;
+    int16_t rl = normalized_factor * src[6 * i + rl_51] + lfe;
+    int16_t rr = normalized_factor * src[6 * i + rr_51] + lfe;
+    EXPECT_EQ(fl, dst[4 * i + fl_quad]);
+    EXPECT_EQ(fr, dst[4 * i + fr_quad]);
+    EXPECT_EQ(rl, dst[4 * i + rl_quad]);
+    EXPECT_EQ(rr, dst[4 * i + rr_quad]);
   }
 }
 
@@ -619,12 +701,42 @@ TEST(FormatConverterOpsTest, StereoTo3chS16LE) {
   EXPECT_EQ(ret, frames);
 
   for (size_t i = 0; i < frames; ++i) {
+    int32_t sum = 0;
     for (size_t k = 0; k < in_ch; ++k)
-      src[i * in_ch + k] /= in_ch;
-    for (size_t k = 1; k < in_ch; ++k)
-      src[i * in_ch + 0] += src[i * in_ch + k];
+      sum += (int32_t)src[i * in_ch + k];
+    src[i * in_ch + 0] = (int16_t)(sum / (int32_t)in_ch);
   }
   for (size_t i = 0; i < frames; ++i) {
+    for (size_t k = 0; k < out_ch; ++k)
+      EXPECT_EQ(src[i * in_ch + 0], dst[i * out_ch + k]);
+  }
+}
+
+// Test 6ch to 8ch conversion.  S16_LE.
+TEST(FormatConverterOpsTest, 6chTo8chS16LE) {
+  const size_t frames = 65536;
+  const size_t in_ch = 6;
+  const size_t out_ch = 8;
+  struct cras_audio_format fmt = {
+      .format = SND_PCM_FORMAT_S16_LE,
+      .frame_rate = 48000,
+      .num_channels = 8,
+  };
+
+  S16LEPtr src = CreateS16LE(frames * in_ch);
+  S16LEPtr dst = CreateS16LE(frames * out_ch);
+  for (size_t i = 0; i < frames; ++i) {
+    for (size_t k = 0; k < in_ch; k++) {
+      src[i * in_ch + k] = (k == 0) ? (INT16_MIN + (int16_t)i) : 0;
+    }
+  }
+
+  size_t ret = s16_default_all_to_all(&fmt, in_ch, out_ch, (uint8_t*)src.get(),
+                                      frames, (uint8_t*)dst.get());
+  EXPECT_EQ(ret, frames);
+
+  for (size_t i = 0; i < frames; ++i) {
+    src[i * in_ch + 0] /= (int16_t)in_ch;
     for (size_t k = 0; k < out_ch; ++k)
       EXPECT_EQ(src[i * in_ch + 0], dst[i * out_ch + k]);
   }
@@ -672,6 +784,65 @@ TEST(FormatConverterOpsTest, ConvertChannelsS16LE) {
         exp += mtx[i][k] * src[fr * in_ch + k];
       exp = MIN(MAX(exp, SHRT_MIN), SHRT_MAX);
       EXPECT_EQ(exp, dst[fr * out_ch + i]);
+    }
+  }
+}
+
+// Test Stereo to 20ch conversion.  S16_LE.
+TEST(FormatConverterOpsTest, TwoToTwentyS16LE) {
+  const size_t frames = 4096;
+  const size_t in_ch = 2;
+  const size_t out_ch = 20;
+  struct cras_audio_format fmt = {
+      .format = SND_PCM_FORMAT_S16_LE,
+      .frame_rate = 48000,
+      .num_channels = 20,
+  };
+
+  S16LEPtr src = CreateS16LE(frames * in_ch);
+  S16LEPtr dst = CreateS16LE(frames * out_ch);
+
+  size_t ret = s16_some_to_some(&fmt, in_ch, out_ch, (uint8_t*)src.get(),
+                                frames, (uint8_t*)dst.get());
+  EXPECT_EQ(ret, frames);
+
+  for (size_t i = 0; i < frames; ++i) {
+    size_t k;
+    // Input channles should be directly copied over.
+    for (k = 0; k < in_ch; ++k) {
+        EXPECT_EQ(src[i * in_ch + k], dst[i * out_ch + k]);
+    }
+    // The rest should be zeroed.
+    for (; k < out_ch; ++k) {
+        EXPECT_EQ(0, dst[i * out_ch + k]);
+    }
+
+  }
+}
+
+// Test 20ch to Stereo.  S16_LE.
+TEST(FormatConverterOpsTest, TwentyToTwoS16LE) {
+  const size_t frames = 4096;
+  const size_t in_ch = 20;
+  const size_t out_ch = 2;
+  struct cras_audio_format fmt = {
+      .format = SND_PCM_FORMAT_S16_LE,
+      .frame_rate = 48000,
+      .num_channels = 2,
+  };
+
+  S16LEPtr src = CreateS16LE(frames * in_ch);
+  S16LEPtr dst = CreateS16LE(frames * out_ch);
+
+  size_t ret = s16_some_to_some(&fmt, in_ch, out_ch, (uint8_t*)src.get(),
+                                frames, (uint8_t*)dst.get());
+  EXPECT_EQ(ret, frames);
+
+  for (size_t i = 0; i < frames; ++i) {
+    size_t k;
+    // Input channles should be directly copied over.
+    for (k = 0; k < out_ch; ++k) {
+        EXPECT_EQ(src[i * in_ch + k], dst[i * out_ch + k]);
     }
   }
 }

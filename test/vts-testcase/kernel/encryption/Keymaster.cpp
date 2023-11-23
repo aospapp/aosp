@@ -21,151 +21,145 @@
 #include "Keymaster.h"
 
 #include <android-base/logging.h>
-#include <keymasterV4_1/authorization_set.h>
-#include <keymasterV4_1/keymaster_utils.h>
+
+#include <aidl/android/hardware/security/keymint/SecurityLevel.h>
+#include <aidl/android/system/keystore2/Domain.h>
+#include <aidl/android/system/keystore2/EphemeralStorageKeyResponse.h>
+#include <aidl/android/system/keystore2/KeyDescriptor.h>
+
+// Keep these in sync with system/security/keystore2/src/keystore2_main.rs
+static constexpr const char keystore2_service_name[] =
+    "android.system.keystore2.IKeystoreService/default";
+
+// Keep this in sync with system/sepolicy/private/keystore2_key_contexts
+static constexpr const int ROOT_NAMESPACE = 0;
 
 namespace android {
 namespace kernel {
 
-using ::android::hardware::hidl_string;
-using ::android::hardware::hidl_vec;
-using ::android::hardware::keymaster::V4_0::SecurityLevel;
+static void zeroize_vector(std::vector<uint8_t>& vec) {
+  // Not secure, but doesn't really matter since this is just test code.
+  memset(vec.data(), 0, vec.size());
+}
+
+static bool logKeystore2ExceptionIfPresent(::ndk::ScopedAStatus& rc,
+                                           const std::string& func_name) {
+  if (rc.isOk()) return false;
+
+  auto exception_code = rc.getExceptionCode();
+  if (exception_code == EX_SERVICE_SPECIFIC) {
+    LOG(ERROR) << "keystore2 Keystore " << func_name
+               << " returned service specific error: "
+               << rc.getServiceSpecificError();
+  } else {
+    LOG(ERROR) << "keystore2 Communication with Keystore " << func_name
+               << " failed error: " << exception_code;
+  }
+  return true;
+}
 
 Keymaster::Keymaster() {
-  auto devices = KmDevice::enumerateAvailableDevices();
-  for (auto& dev : devices) {
-    // Do not use StrongBox for device encryption / credential encryption.  If a
-    // security chip is present it will have Weaver, which already strengthens
-    // CE.  We get no additional benefit from using StrongBox here, so skip it.
-    if (dev->halVersion().securityLevel != SecurityLevel::STRONGBOX) {
-      mDevice = std::move(dev);
-      break;
-    }
+  ::ndk::SpAIBinder binder(AServiceManager_getService(keystore2_service_name));
+  auto keystore2Service = ks2::IKeystoreService::fromBinder(binder);
+
+  if (!keystore2Service) {
+    LOG(ERROR) << "Vold unable to connect to keystore2.";
+    return;
   }
-  if (!mDevice) return;
-  auto& version = mDevice->halVersion();
-  LOG(INFO) << "Using " << version.keymasterName << " from "
-            << version.authorName << " for encryption.  Security level: "
-            << toString(version.securityLevel)
-            << ", HAL: " << mDevice->descriptor() << "/"
-            << mDevice->instanceName();
+
+  /*
+   * There are only two options available to vold for the SecurityLevel:
+   * TRUSTED_ENVIRONMENT (TEE) and STRONGBOX. We don't use STRONGBOX because if
+   * a TEE is present it will have Weaver, which already strengthens CE, so
+   * there's no additional benefit from using StrongBox.
+   *
+   * The picture is slightly more complicated because Keystore2 reports a
+   * SOFTWARE instance as a TEE instance when there isn't a TEE instance
+   * available, but in that case, a STRONGBOX instance won't be available
+   * either, so we'll still be doing the best we can.
+   */
+  auto rc = keystore2Service->getSecurityLevel(
+      km::SecurityLevel::TRUSTED_ENVIRONMENT, &securityLevel);
+  if (logKeystore2ExceptionIfPresent(rc, "getSecurityLevel"))
+    LOG(ERROR) << "Vold unable to get security level from keystore2.";
 }
 
 bool Keymaster::generateKey(const km::AuthorizationSet& inParams,
                             std::string* key) {
-  km::ErrorCode km_error;
-  auto hidlCb = [&](km::ErrorCode ret, const hidl_vec<uint8_t>& keyBlob,
-                    const km::KeyCharacteristics& /*ignored*/) {
-    km_error = ret;
-    if (km_error != km::ErrorCode::OK) return;
-    if (key)
-      key->assign(reinterpret_cast<const char*>(&keyBlob[0]), keyBlob.size());
+  ks2::KeyDescriptor in_key = {
+      .domain = ks2::Domain::BLOB,
+      .alias = std::nullopt,
+      .nspace = ROOT_NAMESPACE,
+      .blob = std::nullopt,
   };
+  ks2::KeyMetadata keyMetadata;
+  auto rc = securityLevel->generateKey(
+      in_key, std::nullopt, inParams.vector_data(), 0, {}, &keyMetadata);
 
-  auto error = mDevice->generateKey(inParams.hidl_data(), hidlCb);
-  if (!error.isOk()) {
-    LOG(ERROR) << "generate_key failed: " << error.description();
+  if (logKeystore2ExceptionIfPresent(rc, "generateKey")) return false;
+
+  if (keyMetadata.key.blob == std::nullopt) {
+    LOG(ERROR) << "keystore2 generated key blob was null";
     return false;
   }
-  if (km_error != km::ErrorCode::OK) {
-    LOG(ERROR) << "generate_key failed, code " << int32_t(km_error);
-    return false;
-  }
+  if (key)
+    *key =
+        std::string(keyMetadata.key.blob->begin(), keyMetadata.key.blob->end());
+
+  zeroize_vector(keyMetadata.key.blob.value());
   return true;
 }
 
 bool Keymaster::importKey(const km::AuthorizationSet& inParams,
-                          km::KeyFormat format, const std::string& key,
-                          std::string* outKeyBlob) {
-  km::ErrorCode km_error;
-  auto hidlCb = [&](km::ErrorCode ret, const hidl_vec<uint8_t>& keyBlob,
-                    const km::KeyCharacteristics& /*ignored*/) {
-    km_error = ret;
-    if (km_error != km::ErrorCode::OK) return;
-    if (outKeyBlob)
-      outKeyBlob->assign(reinterpret_cast<const char*>(&keyBlob[0]),
-                         keyBlob.size());
+                          const std::string& key, std::string* outKeyBlob) {
+  ks2::KeyDescriptor key_desc = {
+      .domain = ks2::Domain::BLOB,
+      .alias = std::nullopt,
+      .nspace = ROOT_NAMESPACE,
+      .blob = std::nullopt,
   };
-  hidl_vec<uint8_t> hidlKey;
-  hidlKey.setToExternal(
-      const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(key.data())),
-      static_cast<size_t>(key.size()));
+  std::vector<uint8_t> key_vec(key.begin(), key.end());
+  ks2::KeyMetadata keyMetadata;
+  auto rc = securityLevel->importKey(
+      key_desc, std::nullopt, inParams.vector_data(), 0, key_vec, &keyMetadata);
 
-  auto error =
-      mDevice->importKey(inParams.hidl_data(), format, hidlKey, hidlCb);
-  if (!error.isOk()) {
-    LOG(ERROR) << "importKey failed: " << error.description();
+  if (logKeystore2ExceptionIfPresent(rc, "importKey")) return false;
+
+  if (keyMetadata.key.blob == std::nullopt) {
+    LOG(ERROR) << "keystore2 imported key blob was null";
     return false;
   }
-  if (km_error != km::ErrorCode::OK) {
-    LOG(ERROR) << "importKey failed, code " << int32_t(km_error);
-    return false;
-  }
+
+  if (outKeyBlob)
+    *outKeyBlob =
+        std::string(keyMetadata.key.blob->begin(), keyMetadata.key.blob->end());
+
   return true;
 }
 
 bool Keymaster::exportKey(const std::string& kmKey, std::string* key) {
-  auto kmKeyBlob =
-      km::support::blob2hidlVec(std::string(kmKey.data(), kmKey.size()));
-  km::ErrorCode km_error;
-  auto hidlCb = [&](km::ErrorCode ret,
-                    const hidl_vec<uint8_t>& exportedKeyBlob) {
-    km_error = ret;
-    if (km_error != km::ErrorCode::OK) return;
-    if (key)
-      key->assign(reinterpret_cast<const char*>(&exportedKeyBlob[0]),
-                  exportedKeyBlob.size());
+  bool ret = false;
+  ks2::KeyDescriptor storageKey = {
+      .domain = ks2::Domain::BLOB,
+      .alias = std::nullopt,
+      .nspace = ROOT_NAMESPACE,
   };
-  auto error =
-      mDevice->exportKey(km::KeyFormat::RAW, kmKeyBlob, {}, {}, hidlCb);
-  if (!error.isOk()) {
-    LOG(ERROR) << "export_key failed: " << error.description();
-    return false;
-  }
-  if (km_error != km::ErrorCode::OK) {
-    LOG(ERROR) << "export_key failed, code " << int32_t(km_error);
-    return false;
-  }
-  return true;
-}
+  storageKey.blob =
+      std::make_optional<std::vector<uint8_t>>(kmKey.begin(), kmKey.end());
+  ks2::EphemeralStorageKeyResponse ephemeral_key_response;
+  auto rc = securityLevel->convertStorageKeyToEphemeral(
+      storageKey, &ephemeral_key_response);
 
-bool Keymaster::deleteKey(const std::string& key) {
-  auto keyBlob = km::support::blob2hidlVec(key);
-  auto error = mDevice->deleteKey(keyBlob);
-  if (!error.isOk()) {
-    LOG(ERROR) << "delete_key failed: " << error.description();
-    return false;
-  }
-  if (error != km::ErrorCode::OK) {
-    LOG(ERROR) << "delete_key failed, code " << int32_t(km::ErrorCode(error));
-    return false;
-  }
-  return true;
-}
+  if (logKeystore2ExceptionIfPresent(rc, "exportKey")) goto out;
+  if (key)
+    *key = std::string(ephemeral_key_response.ephemeralKey.begin(),
+                       ephemeral_key_response.ephemeralKey.end());
 
-bool Keymaster::upgradeKey(const std::string& oldKey,
-                           const km::AuthorizationSet& inParams,
-                           std::string* newKey) {
-  auto oldKeyBlob = km::support::blob2hidlVec(oldKey);
-  km::ErrorCode km_error;
-  auto hidlCb = [&](km::ErrorCode ret,
-                    const hidl_vec<uint8_t>& upgradedKeyBlob) {
-    km_error = ret;
-    if (km_error != km::ErrorCode::OK) return;
-    if (newKey)
-      newKey->assign(reinterpret_cast<const char*>(&upgradedKeyBlob[0]),
-                     upgradedKeyBlob.size());
-  };
-  auto error = mDevice->upgradeKey(oldKeyBlob, inParams.hidl_data(), hidlCb);
-  if (!error.isOk()) {
-    LOG(ERROR) << "upgrade_key failed: " << error.description();
-    return false;
-  }
-  if (km_error != km::ErrorCode::OK) {
-    LOG(ERROR) << "upgrade_key failed, code " << int32_t(km_error);
-    return false;
-  }
-  return true;
+  ret = true;
+out:
+  zeroize_vector(ephemeral_key_response.ephemeralKey);
+  zeroize_vector(storageKey.blob.value());
+  return ret;
 }
 
 }  // namespace kernel

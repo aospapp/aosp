@@ -18,7 +18,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-DEPENDENCIES = "servo, fingerprint"
+DEPENDENCIES = "servo_state:WORKING, fingerprint"
 JOB_RETRIES = 0
 
 # This test uses futility and dev keys from autotest/files/server/cros/faft.

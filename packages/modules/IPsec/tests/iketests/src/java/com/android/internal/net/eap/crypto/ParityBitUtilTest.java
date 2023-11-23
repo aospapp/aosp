@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.internal.net.eap.crypto;
+package com.android.internal.net.eap.test.crypto;
 
 import static com.android.internal.net.TestUtils.hexStringToByteArray;
 

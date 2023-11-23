@@ -170,7 +170,7 @@ public class MediaSession2ServiceTest {
             StubMediaSession2Service.setTestInjector(new StubMediaSession2Service.TestInjector() {
                 @Override
                 MediaSession2 onGetSession(ControllerInfo controllerInfo) {
-                    // Add dummy call for preventing this from being missed by CTS coverage.
+                    // Add fake call for preventing this from being missed by CTS coverage.
                     super.onGetSession(controllerInfo);
                     return testSession;
                 }
@@ -374,7 +374,7 @@ public class MediaSession2ServiceTest {
         testSession.setPlaybackActive(false);
         assertTrue(latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
 
-        // Add dummy call for preventing this from being missed by CTS coverage.
+        // Add fake call for preventing this from being missed by CTS coverage.
         if (StubMediaSession2Service.getInstance() != null) {
             ((MediaSession2Service) StubMediaSession2Service.getInstance())
                     .onUpdateNotification(null);

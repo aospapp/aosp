@@ -16,14 +16,11 @@
 
 package com.android.certinstaller;
 
-import android.app.ActivityTaskManager;
-import android.app.IActivityTaskManager;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.os.UserManager;
 import android.preference.PreferenceActivity;
 import android.provider.DocumentsContract;
@@ -192,20 +189,12 @@ public class CertInstallerMain extends PreferenceActivity {
         }
         installIntent.putExtras(intent);
 
-        try {
-            // The referrer is passed as an extra because the launched-from package needs to be
-            // obtained here and not in the CertInstaller.
-            // It is also safe to add the referrer as an extra because the CertInstaller activity
-            // is not exported, which means it cannot be called from other apps.
-            IActivityTaskManager activityTaskManager = ActivityTaskManager.getService();
-            installIntent.putExtra(Intent.EXTRA_REFERRER,
-                    activityTaskManager.getLaunchedFromPackage(getActivityToken()));
-            startActivityForResult(installIntent, REQUEST_INSTALL);
-        } catch (RemoteException e) {
-            Log.v(TAG, "Could not talk to activity manager.", e);
-            Toast.makeText(this, R.string.cert_temp_error, Toast.LENGTH_LONG).show();
-            finish();
-        }
+        // The referrer is passed as an extra because the launched-from package needs to be
+        // obtained here and not in the CertInstaller.
+        // It is also safe to add the referrer as an extra because the CertInstaller activity
+        // is not exported, which means it cannot be called from other apps.
+        installIntent.putExtra(Intent.EXTRA_REFERRER, getLaunchedFromPackage());
+        startActivityForResult(installIntent, REQUEST_INSTALL);
     }
 
     private void startInstallActivity(String mimeType, Uri uri) {

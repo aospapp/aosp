@@ -26,7 +26,6 @@ import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.PersistableBundle;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -42,12 +41,14 @@ import com.google.android.setupcompat.template.FooterBarMixin;
 import com.google.android.setupcompat.template.FooterButton;
 import com.google.android.setupcompat.template.StatusBarMixin;
 import com.google.android.setupcompat.template.SystemNavBarMixin;
+import com.google.android.setupcompat.util.BuildCompatUtils;
+import com.google.android.setupcompat.util.Logger;
 import com.google.android.setupcompat.util.WizardManagerHelper;
 
 /** A templatization layout with consistent style used in Setup Wizard or app itself. */
 public class PartnerCustomizationLayout extends TemplateLayout {
-  // Log tags can have at most 23 characters on N or before.
-  private static final String TAG = "PartnerCustomizedLayout";
+
+  private static final Logger LOG = new Logger("PartnerCustomizationLayout");
 
   /**
    * Attribute indicating whether usage of partner theme resources is allowed. This corresponds to
@@ -55,6 +56,18 @@ public class PartnerCustomizationLayout extends TemplateLayout {
    * this is always overridden to true.
    */
   private boolean usePartnerResourceAttr;
+
+  /**
+   * Attribute indicating whether using full dynamic colors or not. This corresponds to the {@code
+   * app:sucFullDynamicColor} XML attribute.
+   */
+  private boolean useFullDynamicColorAttr;
+
+  /**
+   * Attribute indicating whether usage of dynamic is allowed. This corresponds to the existence of
+   * {@code app:sucFullDynamicColor} XML attribute.
+   */
+  private boolean useDynamicColor;
 
   private Activity activity;
 
@@ -83,6 +96,9 @@ public class PartnerCustomizationLayout extends TemplateLayout {
   }
 
   private void init(AttributeSet attrs, int defStyleAttr) {
+    if (isInEditMode()) {
+      return;
+    }
 
     TypedArray a =
         getContext()
@@ -132,15 +148,13 @@ public class PartnerCustomizationLayout extends TemplateLayout {
   @Override
   protected void onBeforeTemplateInflated(AttributeSet attrs, int defStyleAttr) {
 
-    boolean isSetupFlow;
-
     // Sets default value to true since this timing
     // before PartnerCustomization members initialization
     usePartnerResourceAttr = true;
 
     activity = lookupActivityFromContext(getContext());
 
-    isSetupFlow = WizardManagerHelper.isAnySetupWizard(activity.getIntent());
+    boolean isSetupFlow = WizardManagerHelper.isAnySetupWizard(activity.getIntent());
 
     TypedArray a =
         getContext()
@@ -149,27 +163,32 @@ public class PartnerCustomizationLayout extends TemplateLayout {
 
     if (!a.hasValue(R.styleable.SucPartnerCustomizationLayout_sucUsePartnerResource)) {
       // TODO: Enable Log.WTF after other client already set sucUsePartnerResource.
-      Log.e(TAG, "Attribute sucUsePartnerResource not found in " + activity.getComponentName());
+      LOG.e("Attribute sucUsePartnerResource not found in " + activity.getComponentName());
     }
 
     usePartnerResourceAttr =
         isSetupFlow
             || a.getBoolean(R.styleable.SucPartnerCustomizationLayout_sucUsePartnerResource, true);
 
+    useDynamicColor = a.hasValue(R.styleable.SucPartnerCustomizationLayout_sucFullDynamicColor);
+    useFullDynamicColorAttr =
+        a.getBoolean(R.styleable.SucPartnerCustomizationLayout_sucFullDynamicColor, false);
+
     a.recycle();
 
-    if (Log.isLoggable(TAG, Log.DEBUG)) {
-      Log.d(
-          TAG,
-          "activity="
-              + activity.getClass().getSimpleName()
-              + " isSetupFlow="
-              + isSetupFlow
-              + " enablePartnerResourceLoading="
-              + enablePartnerResourceLoading()
-              + " usePartnerResourceAttr="
-              + usePartnerResourceAttr);
-    }
+    LOG.atDebug(
+        "activity="
+            + activity.getClass().getSimpleName()
+            + " isSetupFlow="
+            + isSetupFlow
+            + " enablePartnerResourceLoading="
+            + enablePartnerResourceLoading()
+            + " usePartnerResourceAttr="
+            + usePartnerResourceAttr
+            + " useDynamicColor="
+            + useDynamicColor
+            + " useFullDynamicColorAttr="
+            + useFullDynamicColorAttr);
   }
 
   @Override
@@ -216,7 +235,7 @@ public class PartnerCustomizationLayout extends TemplateLayout {
     }
   }
 
-  private static Activity lookupActivityFromContext(Context context) {
+  public static Activity lookupActivityFromContext(Context context) {
     if (context instanceof Activity) {
       return (Activity) context;
     } else if (context instanceof ContextWrapper) {
@@ -251,5 +270,31 @@ public class PartnerCustomizationLayout extends TemplateLayout {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Returns {@code true} if the current layout/activity applies dynamic color. Otherwise, returns
+   * {@code false}.
+   */
+  public boolean shouldApplyDynamicColor() {
+    if (!useDynamicColor) {
+      return false;
+    }
+    if (!BuildCompatUtils.isAtLeastS()) {
+      return false;
+    }
+    if (!PartnerConfigHelper.get(getContext()).isAvailable()) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Returns {@code true} if the current layout/activity applies full dynamic color. Otherwise,
+   * returns {@code false}. This method combines the result of {@link #shouldApplyDynamicColor()}
+   * and the value of the {@code app:sucFullDynamicColor}.
+   */
+  public boolean useFullDynamicColor() {
+    return shouldApplyDynamicColor() && useFullDynamicColorAttr;
   }
 }

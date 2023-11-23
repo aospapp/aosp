@@ -28,7 +28,7 @@
 #include "dd_pipe.h"
 
 #include "util/u_dump.h"
-#include "util/u_format.h"
+#include "util/format/u_format.h"
 #include "util/u_framebuffer.h"
 #include "util/u_helpers.h"
 #include "util/u_inlines.h"
@@ -51,13 +51,13 @@ dd_get_debug_filename_and_mkdir(char *buf, size_t buflen, bool verbose)
       strcpy(proc_name, "unknown");
    }
 
-   util_snprintf(dir, sizeof(dir), "%s/"DD_DIR, debug_get_option("HOME", "."));
+   snprintf(dir, sizeof(dir), "%s/"DD_DIR, debug_get_option("HOME", "."));
 
    if (mkdir(dir, 0774) && errno != EEXIST)
       fprintf(stderr, "dd: can't create a directory (%i)\n", errno);
 
-   util_snprintf(buf, buflen, "%s/%s_%u_%08u", dir, proc_name, getpid(),
-                 p_atomic_inc_return(&index) - 1);
+   snprintf(buf, buflen, "%s/%s_%u_%08u", dir, proc_name, getpid(),
+            (unsigned int)p_atomic_inc_return(&index) - 1);
 
    if (verbose)
       fprintf(stderr, "dd: dumping to file %s\n", buf);
@@ -515,6 +515,9 @@ dd_dump_clear(struct dd_draw_state *dstate, struct call_clear *info, FILE *f)
 {
    fprintf(f, "%s:\n", __func__+8);
    DUMP_M(uint, info, buffers);
+   fprintf(f, "  scissor_state: %d,%d %d,%d\n",
+              info->scissor_state.minx, info->scissor_state.miny,
+              info->scissor_state.maxx, info->scissor_state.maxy);
    DUMP_M_ADDR(color_union, info, color);
    DUMP_M(double, info, depth);
    DUMP_M(hex, info, stencil);
@@ -1086,9 +1089,9 @@ dd_thread_main(void *input)
    const char *process_name = util_get_process_name();
    if (process_name) {
       char threadname[16];
-      util_snprintf(threadname, sizeof(threadname), "%.*s:ddbg",
-                    (int)MIN2(strlen(process_name), sizeof(threadname) - 6),
-                    process_name);
+      snprintf(threadname, sizeof(threadname), "%.*s:ddbg",
+               (int)MIN2(strlen(process_name), sizeof(threadname) - 6),
+               process_name);
       u_thread_setname(threadname);
    }
 
@@ -1103,7 +1106,7 @@ dd_thread_main(void *input)
       if (dctx->api_stalled)
          cnd_signal(&dctx->cond);
 
-      if (list_empty(&records)) {
+      if (list_is_empty(&records)) {
          if (dctx->kill_thread)
             break;
 
@@ -1184,7 +1187,7 @@ dd_add_record(struct dd_context *dctx, struct dd_draw_record *record)
       dctx->api_stalled = false;
    }
 
-   if (list_empty(&dctx->records))
+   if (list_is_empty(&dctx->records))
       cnd_signal(&dctx->cond);
 
    list_addtail(&record->list, &dctx->records);
@@ -1397,7 +1400,7 @@ dd_context_blit(struct pipe_context *_pipe, const struct pipe_blit_info *info)
    dd_after_draw(dctx, record);
 }
 
-static boolean
+static bool
 dd_context_generate_mipmap(struct pipe_context *_pipe,
                            struct pipe_resource *res,
                            enum pipe_format format,
@@ -1409,7 +1412,7 @@ dd_context_generate_mipmap(struct pipe_context *_pipe,
    struct dd_context *dctx = dd_context(_pipe);
    struct pipe_context *pipe = dctx->pipe;
    struct dd_draw_record *record = dd_create_record(dctx);
-   boolean result;
+   bool result;
 
    record->call.type = CALL_GENERATE_MIPMAP;
    record->call.info.generate_mipmap.res = NULL;
@@ -1430,7 +1433,7 @@ dd_context_generate_mipmap(struct pipe_context *_pipe,
 static void
 dd_context_get_query_result_resource(struct pipe_context *_pipe,
                                      struct pipe_query *query,
-                                     boolean wait,
+                                     bool wait,
                                      enum pipe_query_value_type result_type,
                                      int index,
                                      struct pipe_resource *resource,
@@ -1478,7 +1481,7 @@ dd_context_flush_resource(struct pipe_context *_pipe,
 }
 
 static void
-dd_context_clear(struct pipe_context *_pipe, unsigned buffers,
+dd_context_clear(struct pipe_context *_pipe, unsigned buffers, const struct pipe_scissor_state *scissor_state,
                  const union pipe_color_union *color, double depth,
                  unsigned stencil)
 {
@@ -1488,12 +1491,14 @@ dd_context_clear(struct pipe_context *_pipe, unsigned buffers,
 
    record->call.type = CALL_CLEAR;
    record->call.info.clear.buffers = buffers;
+   if (scissor_state)
+      record->call.info.clear.scissor_state = *scissor_state;
    record->call.info.clear.color = *color;
    record->call.info.clear.depth = depth;
    record->call.info.clear.stencil = stencil;
 
    dd_before_draw(dctx, record);
-   pipe->clear(pipe, buffers, color, depth, stencil);
+   pipe->clear(pipe, buffers, scissor_state, color, depth, stencil);
    dd_after_draw(dctx, record);
 }
 

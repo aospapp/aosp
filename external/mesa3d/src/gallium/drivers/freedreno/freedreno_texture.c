@@ -75,10 +75,12 @@ static void set_sampler_views(struct fd_texture_stateobj *tex,
 		struct pipe_sampler_view *view = views ? views[i] : NULL;
 		unsigned p = i + start;
 		pipe_sampler_view_reference(&tex->textures[p], view);
-		if (tex->textures[p])
+		if (tex->textures[p]) {
+			fd_resource_set_usage(tex->textures[p]->texture, FD_DIRTY_TEX);
 			tex->valid_textures |= (1 << p);
-		else
+		} else {
 			tex->valid_textures &= ~(1 << p);
+		}
 	}
 
 	tex->num_textures = util_last_bit(tex->valid_textures);
@@ -165,7 +167,7 @@ fd_setup_border_colors(struct fd_texture_stateobj *tex, void *ptr,
 				} else {
 					bcolor32[desc->swizzle[j]] = fui(sampler->border_color.f[j]);
 					bcolor[desc->swizzle[j]] =
-						util_float_to_half(sampler->border_color.f[j]);
+						_mesa_float_to_half(sampler->border_color.f[j]);
 				}
 			}
 		}

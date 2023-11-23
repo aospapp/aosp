@@ -2,6 +2,8 @@
 # Copyright 2008 Google Inc. All Rights Reserved.
 #
 
+from __future__ import print_function
+
 import os
 from autotest_lib.frontend.afe import rpc_client_lib
 from autotest_lib.frontend.afe.json_rpc import proxy
@@ -36,7 +38,7 @@ class rpc_comm(object):
         self.web_server = get_autotest_server(web_server)
         try:
             self.proxy = self._connect(rpc_path)
-        except rpc_client_lib.AuthError, s:
+        except rpc_client_lib.AuthError as s:
             raise AuthError(s)
 
 
@@ -51,11 +53,11 @@ class rpc_comm(object):
 
     def run(self, op, *args, **data):
         if 'AUTOTEST_CLI_DEBUG' in os.environ:
-            print self.web_server, op, args, data
+            print(self.web_server, op, args, data)
         function = getattr(self.proxy, op)
         result = function(*args, **data)
         if 'AUTOTEST_CLI_DEBUG' in os.environ:
-            print 'result:', result
+            print('result:', result)
         return result
 
 

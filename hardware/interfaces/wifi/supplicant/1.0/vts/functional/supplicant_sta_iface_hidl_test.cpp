@@ -22,9 +22,11 @@
 #include <VtsCoreUtil.h>
 #include <android/hardware/wifi/1.0/IWifi.h>
 #include <android/hardware/wifi/supplicant/1.0/ISupplicantStaIface.h>
+#include <android/hardware/wifi/supplicant/1.4/ISupplicantStaIface.h>
 
 #include "supplicant_hidl_call_util.h"
 #include "supplicant_hidl_test_utils.h"
+#include <cutils/properties.h>
 
 using ::android::sp;
 using ::android::hardware::hidl_array;
@@ -61,41 +63,32 @@ constexpr char kTestRadioWorkName[] = "TestRadioWork";
 constexpr uint32_t kTestRadioWorkFrequency = 2412;
 constexpr uint32_t kTestRadioWorkTimeout = 8;
 constexpr uint32_t kTestRadioWorkId = 16;
-constexpr int8_t kTestCountryCode[] = {'U', 'S'};
+int8_t kTestCountryCode[] = {'U', 'S'};
 constexpr uint8_t kTestWpsDeviceType[] = {[0 ... 7] = 0x01};
 constexpr uint16_t kTestWpsConfigMethods = 0xffff;
 }  // namespace
 
-class SupplicantStaIfaceHidlTest
-    : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {
+class SupplicantStaIfaceHidlTest : public SupplicantHidlTestBaseV1_0 {
    public:
     virtual void SetUp() override {
-        wifi_instance_name_ = std::get<0>(GetParam());
-        supplicant_instance_name_ = std::get<1>(GetParam());
-        stopSupplicant(wifi_instance_name_);
-        startSupplicantAndWaitForHidlService(wifi_instance_name_,
-                                             supplicant_instance_name_);
-        isP2pOn_ =
-            testing::deviceSupportsFeature("android.hardware.wifi.direct");
-        supplicant_ = getSupplicant(supplicant_instance_name_, isP2pOn_);
-        EXPECT_TRUE(turnOnExcessiveLogging(supplicant_));
+        SupplicantHidlTestBaseV1_0::SetUp();
         sta_iface_ = getSupplicantStaIface(supplicant_);
         ASSERT_NE(sta_iface_.get(), nullptr);
+
+        v1_4 = ::android::hardware::wifi::supplicant::V1_4::
+            ISupplicantStaIface::castFrom(sta_iface_);
 
         memcpy(mac_addr_.data(), kTestMacAddr, mac_addr_.size());
     }
 
-    virtual void TearDown() override { stopSupplicant(wifi_instance_name_); }
-
    protected:
     bool isP2pOn_ = false;
-    sp<ISupplicant> supplicant_;
+    sp<::android::hardware::wifi::supplicant::V1_4::ISupplicantStaIface> v1_4 =
+        nullptr;
     // ISupplicantStaIface object used for all tests in this fixture.
     sp<ISupplicantStaIface> sta_iface_;
     // MAC address to use for various tests.
     std::array<uint8_t, 6> mac_addr_;
-    std::string wifi_instance_name_;
-    std::string supplicant_instance_name_;
 };
 
 class IfaceCallback : public ISupplicantStaIfaceCallback {
@@ -177,8 +170,8 @@ class IfaceCallback : public ISupplicantStaIfaceCallback {
  * successfully created.
  */
 TEST_P(SupplicantStaIfaceHidlTest, Create) {
-    stopSupplicant(wifi_instance_name_);
-    startSupplicantAndWaitForHidlService(wifi_instance_name_,
+    stopSupplicant(wifi_v1_0_instance_name_);
+    startSupplicantAndWaitForHidlService(wifi_v1_0_instance_name_,
                                          supplicant_instance_name_);
     EXPECT_NE(nullptr, getSupplicantStaIface(
                            getSupplicant(supplicant_instance_name_, isP2pOn_))
@@ -189,10 +182,14 @@ TEST_P(SupplicantStaIfaceHidlTest, Create) {
  * RegisterCallback
  */
 TEST_P(SupplicantStaIfaceHidlTest, RegisterCallback) {
-    sta_iface_->registerCallback(
-        new IfaceCallback(), [](const SupplicantStatus& status) {
-            EXPECT_EQ(SupplicantStatusCode::SUCCESS, status.code);
-        });
+    // This API is deprecated from v1.4 HAL.
+    SupplicantStatusCode expectedCode =
+        (nullptr != v1_4) ? SupplicantStatusCode::FAILURE_UNKNOWN
+                          : SupplicantStatusCode::SUCCESS;
+    sta_iface_->registerCallback(new IfaceCallback(),
+                                 [&](const SupplicantStatus& status) {
+                                     EXPECT_EQ(expectedCode, status.code);
+                                 });
 }
 
 /*
@@ -448,6 +445,10 @@ TEST_P(SupplicantStaIfaceHidlTest, SetSuspendModeEnabled) {
  * SetCountryCode.
  */
 TEST_P(SupplicantStaIfaceHidlTest, SetCountryCode) {
+    std::array<char, PROPERTY_VALUE_MAX> buffer;
+    property_get("ro.boot.wificountrycode", buffer.data(), "US");
+    kTestCountryCode[0] = buffer.data()[0];
+    kTestCountryCode[1] = buffer.data()[1];
     sta_iface_->setCountryCode(
         kTestCountryCode, [](const SupplicantStatus& status) {
             EXPECT_EQ(SupplicantStatusCode::SUCCESS, status.code);
@@ -552,6 +553,7 @@ TEST_P(SupplicantStaIfaceHidlTest, RemoveExtRadioWork) {
         HIDL_INVOKE(sta_iface_, removeExtRadioWork, kTestRadioWorkId).code);
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(SupplicantStaIfaceHidlTest);
 INSTANTIATE_TEST_CASE_P(
     PerInstance, SupplicantStaIfaceHidlTest,
     testing::Combine(

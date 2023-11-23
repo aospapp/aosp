@@ -25,6 +25,7 @@ import android.content.pm.PackageManager;
 import android.os.UserManager;
 
 import androidx.annotation.CallSuper;
+import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
 import com.android.car.settings.common.FragmentController;
@@ -56,6 +57,15 @@ public abstract class BluetoothPreferenceController<V extends Preference> extend
         mUserManager = UserManager.get(context);
     }
 
+    @VisibleForTesting
+    BluetoothPreferenceController(Context context, String preferenceKey,
+            FragmentController fragmentController, CarUxRestrictions uxRestrictions,
+            LocalBluetoothManager localBluetoothManager, UserManager userManager) {
+        super(context, preferenceKey, fragmentController, uxRestrictions);
+        mBluetoothManager = localBluetoothManager;
+        mUserManager = userManager;
+    }
+
     /** Returns a {@link UserManager} retrieved with the controller context. **/
     protected final UserManager getUserManager() {
         return mUserManager;
@@ -76,7 +86,7 @@ public abstract class BluetoothPreferenceController<V extends Preference> extend
             return UNSUPPORTED_ON_DEVICE;
         }
         if (mUserManager.hasUserRestriction(DISALLOW_BLUETOOTH)) {
-            return DISABLED_FOR_USER;
+            return DISABLED_FOR_PROFILE;
         }
         return BluetoothAdapter.getDefaultAdapter().isEnabled() ? AVAILABLE
                 : CONDITIONALLY_UNAVAILABLE;

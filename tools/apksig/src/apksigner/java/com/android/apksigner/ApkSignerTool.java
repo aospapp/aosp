@@ -25,8 +25,6 @@ import com.android.apksig.apk.MinSdkVersionException;
 import com.android.apksig.util.DataSource;
 import com.android.apksig.util.DataSources;
 
-import org.conscrypt.OpenSSLProvider;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -80,7 +78,9 @@ public class ApkSignerTool {
             return;
         }
 
+        // BEGIN-AOSP
         addProviders();
+        // END-AOSP
 
         String cmd = params[0];
         try {
@@ -113,18 +113,20 @@ public class ApkSignerTool {
         }
     }
 
+    // BEGIN-AOSP
     /**
      * Adds additional security providers to add support for signature algorithms not covered by
      * the default providers.
      */
     private static void addProviders() {
         try {
-            Security.addProvider(new OpenSSLProvider());
+            Security.addProvider(new org.conscrypt.OpenSSLProvider());
         } catch (UnsatisfiedLinkError e) {
             // This is expected if the library path does not include the native conscrypt library;
             // the default providers support all but PSS algorithms.
         }
     }
+    // END-AOSP
 
     private static void sign(String[] params) throws Exception {
         if (params.length == 0) {
@@ -147,8 +149,9 @@ public class ApkSignerTool {
         int maxSdkVersion = Integer.MAX_VALUE;
         List<SignerParams> signers = new ArrayList<>(1);
         SignerParams signerParams = new SignerParams();
-        SignerParams sourceStampSignerParams = new SignerParams();
         SigningCertificateLineage lineage = null;
+        SignerParams sourceStampSignerParams = new SignerParams();
+        SigningCertificateLineage sourceStampLineage = null;
         List<ProviderInstallSpec> providers = new ArrayList<>();
         ProviderInstallSpec providerParams = new ProviderInstallSpec();
         OptionsParser optionsParser = new OptionsParser(params);
@@ -156,6 +159,8 @@ public class ApkSignerTool {
         String optionOriginalForm = null;
         boolean v4SigningFlagFound = false;
         boolean sourceStampFlagFound = false;
+        boolean deterministicDsaSigning = false;
+        boolean otherSignersSignaturesPreserved = false;
         while ((optionName = optionsParser.nextOption()) != null) {
             optionOriginalForm = optionsParser.getOptionOriginalForm();
             if (("help".equals(optionName)) || ("h".equals(optionName))) {
@@ -252,6 +257,14 @@ public class ApkSignerTool {
             } else if ("stamp-signer".equals(optionName)) {
                 sourceStampFlagFound = true;
                 sourceStampSignerParams = processSignerParams(optionsParser);
+            } else if ("stamp-lineage".equals(optionName)) {
+                File stampLineageFile = new File(
+                        optionsParser.getRequiredValue("Stamp Lineage File"));
+                sourceStampLineage = getLineageFromInputFile(stampLineageFile);
+            } else if ("deterministic-dsa-signing".equals(optionName)) {
+                deterministicDsaSigning = optionsParser.getOptionalBooleanValue(false);
+            } else if ("append-signature".equals(optionName)) {
+                otherSignersSignaturesPreserved = optionsParser.getOptionalBooleanValue(true);
             } else {
                 throw new ParameterException(
                         "Unsupported option: " + optionOriginalForm + ". See --help for supported"
@@ -308,7 +321,8 @@ public class ApkSignerTool {
             for (SignerParams signer : signers) {
                 signerNumber++;
                 signer.setName("signer #" + signerNumber);
-                ApkSigner.SignerConfig signerConfig = getSignerConfig(signer, passwordRetriever);
+                ApkSigner.SignerConfig signerConfig = getSignerConfig(signer, passwordRetriever,
+                        deterministicDsaSigning);
                 if (signerConfig == null) {
                     return;
                 }
@@ -317,7 +331,8 @@ public class ApkSignerTool {
             if (sourceStampFlagFound) {
                 sourceStampSignerParams.setName("stamp signer");
                 sourceStampSignerConfig =
-                        getSignerConfig(sourceStampSignerParams, passwordRetriever);
+                        getSignerConfig(sourceStampSignerParams, passwordRetriever,
+                                deterministicDsaSigning);
                 if (sourceStampSignerConfig == null) {
                     return;
                 }
@@ -338,7 +353,7 @@ public class ApkSignerTool {
                 new ApkSigner.Builder(signerConfigs)
                         .setInputApk(inputApk)
                         .setOutputApk(tmpOutputApk)
-                        .setOtherSignersSignaturesPreserved(false)
+                        .setOtherSignersSignaturesPreserved(otherSignersSignaturesPreserved)
                         .setV1SigningEnabled(v1SigningEnabled)
                         .setV2SigningEnabled(v2SigningEnabled)
                         .setV3SigningEnabled(v3SigningEnabled)
@@ -358,7 +373,8 @@ public class ApkSignerTool {
             apkSignerBuilder.setV4SignatureOutputFile(outputV4SignatureFile);
         }
         if (sourceStampSignerConfig != null) {
-            apkSignerBuilder.setSourceStampSignerConfig(sourceStampSignerConfig);
+            apkSignerBuilder.setSourceStampSignerConfig(sourceStampSignerConfig)
+                    .setSourceStampSigningCertificateLineage(sourceStampLineage);
         }
         ApkSigner apkSigner = apkSignerBuilder.build();
         try {
@@ -383,8 +399,8 @@ public class ApkSignerTool {
         }
     }
 
-    private static ApkSigner.SignerConfig getSignerConfig(
-            SignerParams signer, PasswordRetriever passwordRetriever) {
+    private static ApkSigner.SignerConfig getSignerConfig(SignerParams signer,
+            PasswordRetriever passwordRetriever, boolean deterministicDsaSigning) {
         try {
             signer.loadPrivateKeyAndCerts(passwordRetriever);
         } catch (ParameterException e) {
@@ -416,7 +432,8 @@ public class ApkSignerTool {
         }
         ApkSigner.SignerConfig signerConfig =
                 new ApkSigner.SignerConfig.Builder(
-                        v1SigBasename, signer.getPrivateKey(), signer.getCerts())
+                        v1SigBasename, signer.getPrivateKey(), signer.getCerts(),
+                        deterministicDsaSigning)
                         .build();
         return signerConfig;
     }
@@ -435,10 +452,12 @@ public class ApkSignerTool {
         boolean printCerts = false;
         boolean verbose = false;
         boolean warningsTreatedAsErrors = false;
+        boolean verifySourceStamp = false;
         File v4SignatureFile = null;
         OptionsParser optionsParser = new OptionsParser(params);
         String optionName;
         String optionOriginalForm = null;
+        String sourceCertDigest = null;
         while ((optionName = optionsParser.nextOption()) != null) {
             optionOriginalForm = optionsParser.getOptionOriginalForm();
             if ("min-sdk-version".equals(optionName)) {
@@ -461,6 +480,11 @@ public class ApkSignerTool {
                         "Input V4 Signature File"));
             } else if ("in".equals(optionName)) {
                 inputApk = new File(optionsParser.getRequiredValue("Input APK file"));
+            } else if ("verify-source-stamp".equals(optionName)) {
+                verifySourceStamp = optionsParser.getOptionalBooleanValue(true);
+            } else if ("stamp-cert-digest".equals(optionName)) {
+                sourceCertDigest = optionsParser.getRequiredValue(
+                        "Expected source stamp certificate digest");
             } else {
                 throw new ParameterException(
                         "Unsupported option: " + optionOriginalForm + ". See --help for supported"
@@ -513,7 +537,9 @@ public class ApkSignerTool {
         ApkVerifier apkVerifier = apkVerifierBuilder.build();
         ApkVerifier.Result result;
         try {
-            result = apkVerifier.verify();
+            result = verifySourceStamp
+                    ? apkVerifier.verifySourceStamp(sourceCertDigest)
+                    : apkVerifier.verify();
         } catch (MinSdkVersionException e) {
             String msg = e.getMessage();
             if (!msg.endsWith(".")) {
@@ -524,8 +550,9 @@ public class ApkSignerTool {
                             + ". Use --min-sdk-version to override",
                     e);
         }
-        boolean verified = result.isVerified();
 
+        boolean verified = result.isVerified();
+        ApkVerifier.Result.SourceStampInfo sourceStampInfo = result.getSourceStampInfo();
         boolean warningsEncountered = false;
         if (verified) {
             List<X509Certificate> signerCerts = result.getSignerCertificates();
@@ -544,13 +571,19 @@ public class ApkSignerTool {
                         "Verified using v4 scheme (APK Signature Scheme v4): "
                                 + result.isVerifiedUsingV4Scheme());
                 System.out.println("Verified for SourceStamp: " + result.isSourceStampVerified());
-                System.out.println("Number of signers: " + signerCerts.size());
+                if (!verifySourceStamp) {
+                    System.out.println("Number of signers: " + signerCerts.size());
+                }
             }
             if (printCerts) {
                 int signerNumber = 0;
                 for (X509Certificate signerCert : signerCerts) {
                     signerNumber++;
                     printCertificate(signerCert, "Signer #" + signerNumber, verbose);
+                }
+                if (sourceStampInfo != null) {
+                    printCertificate(sourceStampInfo.getCertificate(), "Source Stamp Signer",
+                            verbose);
                 }
             }
         } else {
@@ -562,7 +595,7 @@ public class ApkSignerTool {
         }
 
         @SuppressWarnings("resource") // false positive -- this resource is not opened here
-        PrintStream warningsOut = warningsTreatedAsErrors ? System.err : System.out;
+                PrintStream warningsOut = warningsTreatedAsErrors ? System.err : System.out;
         for (ApkVerifier.IssueWithParams warning : result.getWarnings()) {
             warningsEncountered = true;
             warningsOut.println("WARNING: " + warning);
@@ -602,7 +635,6 @@ public class ApkSignerTool {
             }
         }
 
-        ApkVerifier.Result.SourceStampInfo sourceStampInfo = result.getSourceStampInfo();
         if (sourceStampInfo != null) {
             for (ApkVerifier.IssueWithParams error : sourceStampInfo.getErrors()) {
                 System.err.println("ERROR: SourceStamp: " + error);
@@ -961,10 +993,10 @@ public class ApkSignerTool {
 
     private static void printUsage(String page) {
         try (BufferedReader in =
-                new BufferedReader(
-                        new InputStreamReader(
-                                ApkSignerTool.class.getResourceAsStream(page),
-                                StandardCharsets.UTF_8))) {
+                     new BufferedReader(
+                             new InputStreamReader(
+                                     ApkSignerTool.class.getResourceAsStream(page),
+                                     StandardCharsets.UTF_8))) {
             String line;
             while ((line = in.readLine()) != null) {
                 System.out.println(line);
@@ -981,7 +1013,6 @@ public class ApkSignerTool {
      * @param name    the name to be used to identify the certificate.
      * @param verbose boolean indicating whether public key details from the certificate should be
      *                displayed.
-     *
      * @throws NoSuchAlgorithmException     if an instance of MD5, SHA-1, or SHA-256 cannot be
      *                                      obtained.
      * @throws CertificateEncodingException if an error is encountered when encoding the
@@ -1071,10 +1102,19 @@ public class ApkSignerTool {
             }
             Provider provider;
             if (constructorParam != null) {
-                // Single-arg Provider constructor
-                provider =
-                        (Provider) providerClass.getConstructor(String.class)
-                                .newInstance(constructorParam);
+                try {
+                    // Single-arg Provider constructor
+                    provider =
+                            (Provider) providerClass.getConstructor(String.class)
+                                    .newInstance(constructorParam);
+                } catch (NoSuchMethodException e) {
+                    // Starting from JDK 9 the single-arg constructor accepting the configuration
+                    // has been replaced by a configure(String) method to be invoked after
+                    // instantiating the Provider with the no-arg constructor.
+                    provider = (Provider) providerClass.getConstructor().newInstance();
+                    provider = (Provider) providerClass.getMethod("configure", String.class)
+                            .invoke(provider, constructorParam);
+                }
             } else {
                 // No-arg Provider constructor
                 provider = (Provider) providerClass.getConstructor().newInstance();

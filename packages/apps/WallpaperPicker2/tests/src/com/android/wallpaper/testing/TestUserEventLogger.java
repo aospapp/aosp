@@ -15,6 +15,8 @@
  */
 package com.android.wallpaper.testing;
 
+import android.content.Intent;
+
 import com.android.wallpaper.module.UserEventLogger;
 import com.android.wallpaper.module.WallpaperPersister.WallpaperPosition;
 
@@ -66,7 +68,7 @@ public class TestUserEventLogger implements UserEventLogger {
     }
 
     @Override
-    public void logAppLaunched() {
+    public void logAppLaunched(Intent launchSource) {
         // Do nothing.
     }
 
@@ -121,6 +123,11 @@ public class TestUserEventLogger implements UserEventLogger {
 
     @Override
     public void logLiveWallpaperCustomizeSelected(String collectionId, String wallpaperId) {
+        // No-op
+    }
+
+    @Override
+    public void logSnapshot() {
         // No-op
     }
 

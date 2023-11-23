@@ -33,7 +33,7 @@ public class PropertyExpander {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public static java.lang.String expand(java.lang.String value)
             throws sun.security.util.PropertyExpander.ExpandException {
         throw new RuntimeException("Stub!");

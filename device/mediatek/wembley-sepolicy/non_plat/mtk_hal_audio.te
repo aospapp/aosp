@@ -9,6 +9,7 @@ hal_client_domain(mtk_hal_audio, hal_allocator)
 hwbinder_use(mtk_hal_audio)
 wakelock_use(mtk_hal_audio);
 
+add_hwservice(mtk_hal_audio, mtk_hal_bluetooth_audio_hwservice)
 allow mtk_hal_audio ion_device:chr_file r_file_perms;
 
 allow mtk_hal_audio system_file:dir { open read };
@@ -88,7 +89,7 @@ allow mtk_hal_audio sdcard_type:file append;
 # Data : WK14.39
 # Operation : Migration
 # Purpose : dump for debug
-allow mtk_hal_audio audiohal_prop:property_service set;
+set_prop(mtk_hal_audio, vendor_mtk_audiohal_prop)
 
 # Date : WK14.40
 # Operation : Migration
@@ -172,9 +173,7 @@ allow mtk_hal_audio tmpfs:dir search;
 # Purpose: Dump debug info
 allow mtk_hal_audio debugfs_binder:dir search;
 allow mtk_hal_audio kmsg_device:chr_file { open write };
-allow mtk_hal_audio property_socket:sock_file write;
 allow mtk_hal_audio fuse:file rw_file_perms;
-allow mtk_hal_audio init:unix_stream_socket connectto;
 
 # Date : WK16.27
 # Operation : Migration
@@ -192,7 +191,7 @@ allow mtk_hal_audio sdcard_type:file { create_file_perms };
 # Purpose: Allow to access ged for gralloc_extra functions
 allow mtk_hal_audio proc_ged:file rw_file_perms;
 
-set_prop(mtk_hal_audio,hwservicemanager_prop);
+set_prop(mtk_hal_audio, hwservicemanager_prop)
 allow mtk_hal_audio storage_file:dir search;
 
 # Fix bootup violation
@@ -213,9 +212,8 @@ binder_call(mtk_hal_audio,audiocmdservice_atci);
 
 
 # Add for control PowerHAL
-allow mtk_hal_audio mtk_hal_power_hwservice:hwservice_manager find;
-binder_call(mtk_hal_audio, mtk_hal_power)
-binder_call(mtk_hal_audio, merged_hal_service)
+hal_client_domain(mtk_hal_audio, hal_power)
+
 # cm4 smartpa
 allow mtk_hal_audio audio_ipi_device:chr_file { read write ioctl open };
 allow mtk_hal_audio audio_scp_device:chr_file r_file_perms;
@@ -235,3 +233,25 @@ allow mtk_hal_audio sysfs_dt_firmware_android:dir search;
 # Operation: adsp
 allow mtk_hal_audio adsp_device:file rw_file_perms;
 allow mtk_hal_audio adsp_device:chr_file rw_file_perms;
+
+# Date : 2020/3/21
+# Operation: audio dptx
+allow mtk_hal_audio dri_device:chr_file rw_file_perms;
+allow mtk_hal_audio gpu_device:dir search;
+
+allow mtk_hal_audio mtk_hal_bluetooth_audio_hwservice:hwservice_manager find;
+
+# Date : WK20.26
+allow mtk_hal_audio sysfs_dt_firmware_android:file r_file_perms;
+allow mtk_hal_audio metadata_file:dir search;
+allow mtk_hal_audio nvdata_file:dir create_dir_perms;
+
+# Date : WK20.29
+# Purpose: no trigger avc log when call nvram api
+dontaudit mtk_hal_audio gsi_metadata_file:dir search;
+
+# Date : WK20.29
+# Operation : Migration
+# Purpose : SoundTrigger Hal for tablet
+allow mtk_hal_audio adsp_misc_device:chr_file rw_file_perms;
+allow mtk_hal_audio self:netlink_kobject_uevent_socket getopt;

@@ -59,10 +59,10 @@ class FavoriteContactViewHolder extends RecyclerView.ViewHolder {
     /**
      * Binds view with favorite contact.
      */
-    public void onBind(@NonNull Contact contact) {
+    public void bind(@NonNull Contact contact, Integer sortMethod) {
         Context context = itemView.getContext();
-        String displayName = contact.getDisplayName();
-        mTitle.setText(displayName);
+        mTitle.setText(TelecomUtils.isSortByFirstName(sortMethod) ? contact.getDisplayName()
+                : contact.getDisplayNameAlt());
 
         List<PhoneNumber> contactPhoneNumbers = contact.getNumbers();
         if (contactPhoneNumbers.isEmpty()) {
@@ -84,7 +84,7 @@ class FavoriteContactViewHolder extends RecyclerView.ViewHolder {
         }
         mText.setText(secondaryText);
 
-        TelecomUtils.setContactBitmapAsync(context, mIcon, contact);
+        TelecomUtils.setContactBitmapAsync(context, mIcon, contact, sortMethod);
     }
 
     public void onBind(@NonNull Header header) {

@@ -90,10 +90,20 @@ class touch_UpdateErrors(touch_playback_test_base.touch_playback_test_base):
         if not hw_id:
             raise error.TestError('%s has no valid hw_id!' % input_type)
 
+        updater_name = 'touch-firmware-update'
         start_line = self._find_logs_start_line()
-        log_cmd = 'tail -n +%s /var/log/messages | grep -i touch' % start_line
+        # Null characters sometimes slip into /var/log/messages, causing grep to
+        # treat it as a binary file (and output "binary file matches" rather
+        # than the matching text). --text forces grep to treat it as text file.
+        log_cmd = (r'tail -n +%s /var/log/messages '
+                   r"| grep --text -i '\(%s\|chromeos-touch-update\)'") % (
+                           start_line, updater_name)
 
-        pass_terms = ['touch-firmware-update.*%s' % hw_id ]
+        pass_terms = [
+                '%s.*%s' % (updater_name, hw_id),
+                r'chromeos-touch-update\[[[:digit:]]\+\]: Running updater for '
+                r'.* ([[:xdigit:]]\+:%s)$' % hw_id
+        ]
 
         fail_terms = ['error[^s]', 'err[^a-z]']
         ignore_terms = ['touchview','autotest']
@@ -103,16 +113,23 @@ class touch_UpdateErrors(touch_playback_test_base.touch_playback_test_base):
             log_cmd += ' | grep -v -i %s' % term
 
         # Check for key terms in touch logs.
+        found_pass_term = False
         for term in pass_terms + fail_terms:
-            search_cmd = '%s | grep -i %s' % (log_cmd, term)
+            search_cmd = "%s | grep -i '%s'" % (log_cmd, term)
             log_entries = utils.run(search_cmd, ignore_status=True).stdout
             if term in fail_terms and len(log_entries) > 0:
                 error_msg = log_entries.split('\n')[0]
                 error_msg = error_msg[error_msg.find(term)+len(term):].strip()
                 raise error.TestFail(error_msg)
-            if term in pass_terms and len(log_entries) == 0:
-                logging.info('Did not find "%s"!', term)
-                raise error.TestFail('Touch firmware did not attempt update.')
+            if term in pass_terms and len(log_entries) > 0:
+                logging.info('Matched "%s" on these pass terms: "%s"', term,
+                             log_entries)
+                found_pass_term = True
+
+        if not found_pass_term:
+            logging.info('Did not find any pass terms! (looked for "%s")',
+                         '", "'.join(pass_terms))
+            raise error.TestFail('Touch firmware did not attempt update.')
 
     def run_once(self, input_type='touchpad'):
         """Entry point of this test."""

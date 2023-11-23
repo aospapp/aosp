@@ -15,25 +15,20 @@
  */
 
 #include <nos/NuggetClient.h>
-
 #include <limits>
-
 #include <nos/transport.h>
-
 #include <application.h>
 
 namespace nos {
 
-NuggetClient::NuggetClient()
-    : NuggetClient("") {
+NuggetClient::NuggetClient(const std::string& name)
+    : device_name_(name), open_(false) {
 }
 
-NuggetClient::NuggetClient(const std::string& device_name)
-    : device_name_(device_name), open_(false) {
+NuggetClient::NuggetClient(const char* name, uint32_t config)
+    : device_name_(name ? name : ""), open_(false) {
+  device_ = { .config = config };
 }
-
-NuggetClient::NuggetClient(const char* device_name)
-    : device_name_(device_name ? device_name : ""), open_(false) {}
 
 NuggetClient::~NuggetClient() {
   Close();
@@ -87,6 +82,14 @@ uint32_t NuggetClient::CallApp(uint32_t appId, uint16_t arg,
   }
 
   return status_code;
+}
+
+uint32_t NuggetClient::Reset() const {
+
+  if (!open_)
+    return APP_ERROR_NOT_READY;
+
+  return device_.ops.reset(device_.ctx);
 }
 
 nos_device* NuggetClient::Device() {

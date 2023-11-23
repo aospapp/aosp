@@ -40,6 +40,17 @@ props {
 }
 props {
     owner: Platform
+    module: "android.legacy"
+    prop {
+        api_name: "legacy_prop"
+        type: String
+        scope: Public
+        access: Readonly
+        prop_name: "legacy_prop"
+    }
+}
+props {
+    owner: Platform
     module: "android.platprop"
     prop {
         api_name: "prop1"
@@ -47,13 +58,6 @@ props {
         scope: Public
         access: ReadWrite
         prop_name: "prop1"
-    }
-    prop {
-        api_name: "prop2"
-        type: String
-        scope: Internal
-        access: Readonly
-        prop_name: "ro.prop2"
     }
     prop {
         api_name: "prop3"
@@ -74,6 +78,18 @@ props {
 
 constexpr const char* kCurrentApi =
     R"(
+props {
+    owner: Platform
+    module: "android.legacy"
+    prop {
+        api_name: "new_prop"
+        type: String
+        scope: Public
+        access: Readonly
+        prop_name: "new_prop"
+        legacy_prop_name: "legacy_prop"
+    }
+}
 props {
     owner: Platform
     module: "android.platprop"
@@ -114,28 +130,32 @@ constexpr const char* kInvalidCurrentApi =
     R"(
 props {
     owner: Platform
-    module: "android.platprop"
+    module: "android.legacy"
     prop {
-        api_name: "prop2"
-        type: Double
+        api_name: "legacy_prop"
+        type: String
         scope: Public
         access: Readonly
-        prop_name: "ro.prop2.a"
+        prop_name: "legacy_prop"
     }
+}
+props {
+    prop {
+        api_name: "prop1"
+        type: Integer
+        scope: Public
+        access: Readonly
+        prop_name: "prop1"
+    }
+    owner: Platform
+    module: "android.platprop"
     prop {
         api_name: "prop3"
         type: Boolean
-        scope: Internal
-        access: Readonly
-        integer_as_bool: true,
-        prop_name: "ctl.start$prop3"
-    }
-    prop {
-        api_name: "prop4"
-        type: Boolean
-        scope: Internal
+        scope: Public
         access: ReadWrite
-        prop_name: "prop4"
+        integer_as_bool: true
+        prop_name: "ctl.start$prop3"
     }
 }
 )";
@@ -174,11 +194,8 @@ TEST(SyspropTest, ApiCheckerTest) {
   EXPECT_FALSE(res.ok());
 
   EXPECT_EQ(res.error().message(),
-            "Prop prop1 has been removed\n"
-            "Accessibility of prop prop3 has become more restrictive\n"
-            "Scope of prop prop3 has become more restrictive\n"
+            "Type of prop prop1 has been changed\n"
+            "Accessibility of prop prop1 has become more restrictive\n"
             "Integer-as-bool of prop prop3 has been changed\n"
-            "Type of prop prop4 has been changed\n"
-            "Scope of prop prop4 has become more restrictive\n"
-            "Underlying property of prop prop4 has been changed\n");
+            "Prop prop4 has been removed\n");
 }

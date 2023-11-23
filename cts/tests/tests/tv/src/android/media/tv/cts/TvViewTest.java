@@ -59,7 +59,7 @@ public class TvViewTest extends ActivityInstrumentationTestCase2<TvViewStubActiv
     private TvInputInfo mFaultyStubInfo;
     private final MockCallback mCallback = new MockCallback();
 
-    private static class MockCallback extends TvInputCallback {
+    public static class MockCallback extends TvInputCallback {
         private final Map<String, Boolean> mVideoAvailableMap = new ArrayMap<>();
         private final Map<String, SparseIntArray> mSelectedTrackGenerationMap = new ArrayMap<>();
         private final Map<String, Integer> mTracksGenerationMap = new ArrayMap<>();

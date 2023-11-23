@@ -33,7 +33,6 @@
 #include <android/hardware/tests/inheritance/1.0/IParent.h>
 #include <android/hardware/tests/memory/1.0/IMemoryTest.h>
 #include <android/hardware/tests/multithread/1.0/IMultithread.h>
-#include <android/hardware/tests/safeunion/1.0/IOtherInterface.h>
 #include <android/hardware/tests/safeunion/1.0/ISafeUnion.h>
 #include <android/hardware/tests/safeunion/cpp/1.0/ICppSafeUnion.h>
 #include <android/hardware/tests/trie/1.0/ITrie.h>
@@ -133,7 +132,6 @@ using ::android::hardware::tests::inheritance::V1_0::IParent;
 using ::android::hardware::tests::memory::V1_0::IMemoryTest;
 using ::android::hardware::tests::multithread::V1_0::IMultithread;
 using ::android::hardware::tests::safeunion::cpp::V1_0::ICppSafeUnion;
-using ::android::hardware::tests::safeunion::V1_0::IOtherInterface;
 using ::android::hardware::tests::safeunion::V1_0::ISafeUnion;
 using ::android::hardware::tests::trie::V1_0::ITrie;
 using ::android::hardware::tests::trie::V1_0::TrieNode;
@@ -309,16 +307,6 @@ struct Complicated : public IComplicated {
 
 private:
     int32_t mCookie;
-};
-
-struct OtherInterface : public IOtherInterface {
-    Return<void> concatTwoStrings(const hidl_string& a, const hidl_string& b,
-                                  concatTwoStrings_cb _hidl_cb) override {
-        hidl_string result = std::string(a) + std::string(b);
-        _hidl_cb(result);
-
-        return Void();
-    }
 };
 
 struct ServiceNotification : public IServiceNotification {
@@ -722,13 +710,7 @@ TEST_F(HidlTest, ServiceListManifestByInterfaceTest) {
                                                    ASSERT_EQ(1, registered.size());
                                                    EXPECT_EQ("default", registered[0]);
                                                }));
-    // vendor service (this is required on all devices)
-    EXPECT_OK(
-        manager->listManifestByInterface("android.hardware.configstore@1.0::ISurfaceFlingerConfigs",
-                                         [](const hidl_vec<hidl_string>& registered) {
-                                             ASSERT_EQ(1, registered.size());
-                                             EXPECT_EQ("default", registered[0]);
-                                         }));
+
     // test service that will never be in a manifest
     EXPECT_OK(manager->listManifestByInterface(
         IParent::descriptor,
@@ -1654,7 +1636,7 @@ TEST_F(HidlTest, BazStructWithInterfaceTest) {
     swi.array = testArray;
     swi.oneString = testString;
     swi.vectorOfStrings = testStrings;
-    swi.dummy = baz;
+    swi.iface = baz;
 
     EXPECT_OK(baz->haveSomeStructWithInterface(swi, [&](const IBaz::StructWithInterface& swiBack) {
         EXPECT_EQ(42, swiBack.number);
@@ -1665,9 +1647,7 @@ TEST_F(HidlTest, BazStructWithInterfaceTest) {
         EXPECT_EQ(testString, std::string(swiBack.oneString));
         EXPECT_EQ(testStrings, swiBack.vectorOfStrings);
 
-        EXPECT_TRUE(interfacesEqual(swi.dummy, swiBack.dummy));
-        EXPECT_OK(swiBack.dummy->someBoolVectorMethod(
-            testVector, [&](const hidl_vec<bool>& result) { EXPECT_EQ(goldenResult, result); }));
+        EXPECT_TRUE(interfacesEqual(swi.iface, swiBack.iface));
     }));
 }
 
@@ -1895,7 +1875,7 @@ TEST_F(HidlTest, EmptyTransactionTest) {
     sp<IBinder> binder = ::android::hardware::toBinder(bar);
 
     Parcel request, reply;
-    EXPECT_EQ(::android::BAD_TYPE, binder->transact(2 /*someBoolMethod*/, request, &reply));
+    EXPECT_EQ(::android::BAD_TYPE, binder->transact(3 /*someBoolMethod*/, request, &reply));
 
     EXPECT_OK(bar->ping());  // still works
 }
@@ -1910,7 +1890,7 @@ TEST_F(HidlTest, WrongDescriptorTest) {
     Parcel request, reply;
     // wrong descriptor
     EXPECT_EQ(::android::OK, request.writeInterfaceToken("not a real descriptor"));
-    EXPECT_EQ(::android::BAD_TYPE, binder->transact(2 /*someBoolMethod*/, request, &reply));
+    EXPECT_EQ(::android::BAD_TYPE, binder->transact(3 /*someBoolMethod*/, request, &reply));
 
     EXPECT_OK(bar->ping());  // still works
 }
@@ -1926,7 +1906,7 @@ TEST_F(HidlTest, TwowayMethodOnewayEnabledTest) {
     EXPECT_EQ(::android::OK, request.writeInterfaceToken(IBaz::descriptor));
     EXPECT_EQ(::android::OK, request.writeInt64(1234));
     // IBaz::doThatAndReturnSomething is two-way but we call it using FLAG_ONEWAY.
-    EXPECT_EQ(::android::OK, binder->transact(18 /*doThatAndReturnSomething*/, request, &reply,
+    EXPECT_EQ(::android::OK, binder->transact(19 /*doThatAndReturnSomething*/, request, &reply,
                                               IBinder::FLAG_ONEWAY));
 
     ::android::hardware::Status status;
@@ -1958,7 +1938,7 @@ TEST_F(HidlTest, OnewayMethodOnewayDisabledTest) {
             // sends an empty reply for two-way transactions if the transaction itself
             // did not send a reply.
             ::android::OK,
-            binder->transact(17 /*doThis*/, request, &reply, 0 /* Not FLAG_ONEWAY */));
+            binder->transact(18 /*doThis*/, request, &reply, 0 /* Not FLAG_ONEWAY */));
     if (gHidlEnvironment->enableDelayMeasurementTests) {
         // IBaz::doThis is oneway, should return instantly.
         EXPECT_LT(systemTime() - now, ONEWAY_TOLERANCE_NS);
@@ -2149,7 +2129,7 @@ TEST_F(HidlTest, SafeUnionUninit) {
 }
 
 TEST_F(HidlTest, SafeUnionMoveConstructorTest) {
-    sp<IOtherInterface> otherInterface = new OtherInterface();
+    sp<SimpleChild> otherInterface = new SimpleChild();
     ASSERT_EQ(1, otherInterface->getStrongCount());
 
     InterfaceTypeSafeUnion safeUnion;
@@ -2178,7 +2158,7 @@ TEST_F(HidlTest, SafeUnionCopyAssignmentTest) {
 }
 
 TEST_F(HidlTest, SafeUnionMoveAssignmentTest) {
-    sp<IOtherInterface> otherInterface = new OtherInterface();
+    sp<SimpleChild> otherInterface = new SimpleChild();
     ASSERT_EQ(1, otherInterface->getStrongCount());
 
     InterfaceTypeSafeUnion safeUnion;
@@ -2249,10 +2229,6 @@ TEST_F(HidlTest, SafeUnionInterfaceTest) {
     const std::string testStringA = "Hello";
     const std::string testStringB = "World";
 
-    const std::string serviceName = "otherinterface";
-    sp<IOtherInterface> otherInterface = new OtherInterface();
-    EXPECT_EQ(::android::OK, otherInterface->registerAsService(serviceName));
-
     EXPECT_OK(
         safeunionInterface->newInterfaceTypeSafeUnion([&](const InterfaceTypeSafeUnion& safeUnion) {
             EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::noinit,
@@ -2268,15 +2244,13 @@ TEST_F(HidlTest, SafeUnionInterfaceTest) {
                     }
 
                     EXPECT_OK(safeunionInterface->setInterfaceC(
-                        safeUnion, otherInterface, [&](const InterfaceTypeSafeUnion& safeUnion) {
-                            EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::c,
-                                      safeUnion.getDiscriminator());
+                            safeUnion, manager, [&](const InterfaceTypeSafeUnion& safeUnion) {
+                                EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::c,
+                                          safeUnion.getDiscriminator());
 
-                            EXPECT_OK(safeUnion.c()->concatTwoStrings(
-                                testStringA, testStringB, [&](const hidl_string& result) {
-                                    EXPECT_EQ(testStringA + testStringB, std::string(result));
-                                }));
-                        }));
+                                using ::android::hardware::interfacesEqual;
+                                EXPECT_TRUE(interfacesEqual(safeUnion.c(), manager));
+                            }));
                 }));
 
             EXPECT_OK(safeunionInterface->setInterfaceD(
@@ -2505,7 +2479,7 @@ TEST_F(HidlTest, SafeUnionEqualityTest) {
 }
 
 TEST_F(HidlTest, SafeUnionSimpleDestructorTest) {
-    sp<IOtherInterface> otherInterface = new OtherInterface();
+    sp<SimpleChild> otherInterface = new SimpleChild();
     ASSERT_EQ(1, otherInterface->getStrongCount());
 
     {
@@ -2518,7 +2492,7 @@ TEST_F(HidlTest, SafeUnionSimpleDestructorTest) {
 }
 
 TEST_F(HidlTest, SafeUnionSwitchActiveComponentsDestructorTest) {
-    sp<IOtherInterface> otherInterface = new OtherInterface();
+    sp<SimpleChild> otherInterface = new SimpleChild();
     ASSERT_EQ(1, otherInterface->getStrongCount());
 
     InterfaceTypeSafeUnion safeUnion;
@@ -2662,7 +2636,7 @@ static void usage(const char *me) {
 }
 
 int main(int argc, char **argv) {
-    setenv("TREBLE_TESTING_OVERRIDE", "true", true);
+    android::hardware::details::setTrebleTestingOverride(true);
 
     const char *me = argv[0];
     bool b = false;

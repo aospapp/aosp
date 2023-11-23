@@ -18,7 +18,7 @@ package com.android.cts.tzdata;
 
 import static org.junit.Assert.assertArrayEquals;
 
-import libcore.timezone.TzDataSetVersion;
+import com.android.i18n.timezone.TzDataSetVersion;
 import libcore.timezone.testing.ZoneInfoTestHelper;
 
 import com.android.timezone.distro.DistroVersion;

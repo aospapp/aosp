@@ -22,6 +22,7 @@
 
 #include <utils/List.h>
 #include <utils/RefBase.h>
+#include <utils/String8.h>
 
 namespace android {
 
@@ -31,6 +32,7 @@ struct AMessage;
 struct AAVCAssembler : public ARTPAssembler {
     explicit AAVCAssembler(const sp<AMessage> &notify);
 
+    typedef List<sp<ABuffer> > Queue;
 protected:
     virtual ~AAVCAssembler();
 
@@ -45,14 +47,27 @@ private:
     bool mNextExpectedSeqNoValid;
     uint32_t mNextExpectedSeqNo;
     bool mAccessUnitDamaged;
+    bool mFirstIFrameProvided;
+    int32_t mLastCvo;
+    uint64_t mLastIFrameProvidedAtMs;
+    int64_t mLastRtpTimeJitterDataUs;
+    int32_t mWidth;
+    int32_t mHeight;
     List<sp<ABuffer> > mNALUnits;
 
+    int32_t addNack(const sp<ARTPSource> &source);
+    void checkSpsUpdated(const sp<ABuffer> &buffer);
+    void checkIFrameProvided(const sp<ABuffer> &buffer);
+    bool dropFramesUntilIframe(const sp<ABuffer> &buffer);
     AssemblyStatus addNALUnit(const sp<ARTPSource> &source);
     void addSingleNALUnit(const sp<ABuffer> &buffer);
     AssemblyStatus addFragmentedNALUnit(List<sp<ABuffer> > *queue);
     bool addSingleTimeAggregationPacket(const sp<ABuffer> &buffer);
 
     void submitAccessUnit();
+
+    int32_t pickStartSeq(const Queue *q, uint32_t first, int64_t play, int64_t jit);
+    int32_t deleteUnitUnderSeq(Queue *q, uint32_t seq);
 
     DISALLOW_EVIL_CONSTRUCTORS(AAVCAssembler);
 };

@@ -16,15 +16,16 @@
 package android.media.cts;
 
 import android.content.res.AssetFileDescriptor;
-import android.content.res.Resources;
 import android.media.MediaRecorder;
 import android.media.MediaPlayer;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
+import java.io.File;
 import java.util.Random;
 
 /**
@@ -44,6 +45,7 @@ import java.util.Random;
 public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubActivity> {
     private static final String TAG = "MediaRandomTest";
 
+    static final String mInpPrefix = WorkDir.getMediaDirString();
     private static final String OUTPUT_FILE =
                 Environment.getExternalStorageDirectory().toString() + "/record.3gp";
 
@@ -53,7 +55,6 @@ public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubA
     private MediaRecorder mRecorder;
     private MediaPlayer mPlayer;
     private SurfaceHolder mSurfaceHolder;
-    private Resources mResources;
 
     // Modified across multiple threads
     private volatile boolean mMediaServerDied;
@@ -66,7 +67,6 @@ public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubA
         getInstrumentation().waitForIdleSync();
         mMediaServerDied = false;
         mSurfaceHolder = getActivity().getSurfaceHolder();
-        mResources = getInstrumentation().getTargetContext().getResources();
         try {
             // Running this on UI thread make sure that
             // onError callback can be received.
@@ -162,8 +162,12 @@ public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubA
         super("android.media.cts", MediaStubActivity.class);
     }
 
-    private void loadSource(int resid) throws Exception {
-        AssetFileDescriptor afd = mResources.openRawResourceFd(resid);
+    private void loadSource(final String res) throws Exception {
+        Preconditions.assertTestFileExists(mInpPrefix + res);
+        File inpFile = new File(mInpPrefix + res);
+        ParcelFileDescriptor parcelFD =
+                ParcelFileDescriptor.open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
+        AssetFileDescriptor afd = new AssetFileDescriptor(parcelFD, 0, parcelFD.getStatSize());
         try {
             mPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(),
                     afd.getLength());
@@ -172,18 +176,22 @@ public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubA
         }
     }
     public void testPlayerRandomActionAV1() throws Exception {
-        testPlayerRandomAction(R.raw.video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz);
+        testPlayerRandomAction(
+                "video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz.webm");
     }
     public void testPlayerRandomActionH264() throws Exception {
-        testPlayerRandomAction(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
+        testPlayerRandomAction(
+                "video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
     }
     public void testPlayerRandomActionHEVC() throws Exception {
-        testPlayerRandomAction(R.raw.video_480x360_mp4_hevc_650kbps_30fps_aac_stereo_128kbps_48000hz);
+        testPlayerRandomAction(
+                "video_480x360_mp4_hevc_650kbps_30fps_aac_stereo_128kbps_48000hz.mp4");
     }
     public void testPlayerRandomActionMpeg2() throws Exception {
-        testPlayerRandomAction(R.raw.video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz);
+        testPlayerRandomAction(
+                "video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz.mp4");
     }
-    private void testPlayerRandomAction(int resid) throws Exception {
+    private void testPlayerRandomAction(final String res) throws Exception {
         Watchdog watchdog = new Watchdog(5000);
         try {
             mPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
@@ -197,7 +205,7 @@ public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubA
                     return true;
                 }
             });
-            loadSource(resid);
+            loadSource(res);
             mPlayer.setDisplay(mSurfaceHolder);
             mPlayer.prepare();
             mPlayer.start();

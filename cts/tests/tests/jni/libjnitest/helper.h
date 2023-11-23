@@ -60,6 +60,26 @@ char *failure(const char *format, ...) __attribute__((format(printf, 1, 2)));
  */
 char *runJniTests(JNIEnv *env, ...);
 
+/**
+ * Register JNI native methods.
+ *
+ * @param env the JNI environment
+ * @param className the class registering native methods
+ * @param methods an array of methods
+ * @param numMethods the number of methods in the array
+ */
+int registerJniMethods(JNIEnv* env, const char* className, const JNINativeMethod* methods,
+                       int numMethods);
+
+/**
+ * Constructs an exception of the specified class name with the provided message.
+ *
+ * @param env the JNI environment
+ * @param className the class of the exception to construct
+ * @param message the message associated with the constructed exception
+ */
+void throwException(JNIEnv* env, const char* className, const char* message);
+
 #ifdef __cplusplus
 }
 #endif

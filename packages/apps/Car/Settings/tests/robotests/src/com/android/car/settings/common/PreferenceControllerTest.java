@@ -17,16 +17,11 @@
 package com.android.car.settings.common;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
-import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
-import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 import static com.android.car.settings.common.PreferenceController.UNSUPPORTED_ON_DEVICE;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertThrows;
 
@@ -56,10 +51,6 @@ import java.util.Set;
 @RunWith(RobolectricTestRunner.class)
 public class PreferenceControllerTest {
 
-    private static final CarUxRestrictions LIMIT_STRINGS_UX_RESTRICTIONS =
-            new CarUxRestrictions.Builder(/* reqOpt= */ true,
-                    CarUxRestrictions.UX_RESTRICTIONS_LIMIT_STRING_LENGTH, /* timestamp= */
-                    0).build();
     private static final CarUxRestrictions NO_SETUP_UX_RESTRICTIONS =
             new CarUxRestrictions.Builder(/* reqOpt= */ true,
                     CarUxRestrictions.UX_RESTRICTIONS_NO_SETUP, /* timestamp= */ 0).build();
@@ -134,23 +125,6 @@ public class PreferenceControllerTest {
         mController.onUxRestrictionsChanged(NO_SETUP_UX_RESTRICTIONS);
 
         assertThat(mController.getUxRestrictions()).isEqualTo(NO_SETUP_UX_RESTRICTIONS);
-    }
-
-    @Test
-    public void onUxRestrictionsChanged_created_available_updatesState() {
-        mControllerHelper.markState(Lifecycle.State.CREATED);
-
-        mController.onUxRestrictionsChanged(LIMIT_STRINGS_UX_RESTRICTIONS);
-
-        // onCreate, onUxRestrictionsChanged.
-        assertThat(mController.getUpdateStateCallCount()).isEqualTo(2);
-    }
-
-    @Test
-    public void onUxRestrictionsChanged_notCreated_available_doesNotUpdateState() {
-        mController.onUxRestrictionsChanged(LIMIT_STRINGS_UX_RESTRICTIONS);
-
-        assertThat(mController.getUpdateStateCallCount()).isEqualTo(0);
     }
 
     @Test
@@ -238,69 +212,6 @@ public class PreferenceControllerTest {
     }
 
     @Test
-    public void refreshUi_notCreated_doesNothing() {
-        mController.refreshUi();
-
-        verify(mPreference, never()).setVisible(anyBoolean());
-        assertThat(mController.getUpdateStateCallCount()).isEqualTo(0);
-    }
-
-    @Test
-    public void refreshUi_created_available_preferenceShownAndEnabled() {
-        mControllerHelper.markState(Lifecycle.State.CREATED);
-        reset(mPreference);
-
-        mController.refreshUi();
-
-        verify(mPreference).setVisible(true);
-        verify(mPreference).setEnabled(true);
-    }
-
-    @Test
-    public void refreshUi_created_availableForViewing_preferenceShownAndDisabled() {
-        mController.setAvailabilityStatus(AVAILABLE_FOR_VIEWING);
-        mControllerHelper.markState(Lifecycle.State.CREATED);
-        reset(mPreference);
-
-        mController.refreshUi();
-
-        verify(mPreference).setVisible(true);
-        verify(mPreference).setEnabled(false);
-    }
-
-    @Test
-    public void refreshUi_created_notAvailable_preferenceHidden() {
-        mController.setAvailabilityStatus(CONDITIONALLY_UNAVAILABLE);
-        mControllerHelper.markState(Lifecycle.State.CREATED);
-        reset(mPreference);
-
-        mController.refreshUi();
-
-        verify(mPreference).setVisible(false);
-    }
-
-    @Test
-    public void refreshUi_created_available_updatesState() {
-        mControllerHelper.markState(Lifecycle.State.CREATED);
-
-        mController.refreshUi();
-
-        // onCreate, refreshUi.
-        assertThat(mController.getUpdateStateCallCount()).isEqualTo(2);
-        assertThat(mController.getUpdateStateArg()).isEqualTo(mPreference);
-    }
-
-    @Test
-    public void refreshUi_created_notAvailable_doesNotUpdateState() {
-        mController.setAvailabilityStatus(CONDITIONALLY_UNAVAILABLE);
-        mControllerHelper.markState(Lifecycle.State.CREATED);
-
-        mController.refreshUi();
-
-        assertThat(mController.getUpdateStateCallCount()).isEqualTo(0);
-    }
-
-    @Test
     public void lifecycle_unsupportedOnDevice_doesNotCallSubclassHooks() {
         mController.setAvailabilityStatus(UNSUPPORTED_ON_DEVICE);
         mControllerHelper.markState(Lifecycle.State.STARTED);
@@ -330,25 +241,10 @@ public class PreferenceControllerTest {
     }
 
     @Test
-    public void onCreate_available_updatesState() {
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_CREATE);
-
-        assertThat(mController.getUpdateStateCallCount()).isEqualTo(1);
-    }
-
-    @Test
     public void onStart_callsSubclassHook() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
 
         assertThat(mController.getOnStartInternalCallCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void onStart_available_updatesState() {
-        mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
-
-        // onCreate, onStart.
-        assertThat(mController.getUpdateStateCallCount()).isEqualTo(2);
     }
 
     @Test

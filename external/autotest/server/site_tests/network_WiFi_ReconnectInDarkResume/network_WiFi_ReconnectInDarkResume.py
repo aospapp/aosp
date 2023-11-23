@@ -95,7 +95,7 @@ class network_WiFi_ReconnectInDarkResume(
                             ssid=reconnect_ap_ssid, channel=1))
 
                     # Wait long enough for the NIC on the DUT to perform a net
-                    # detect scan, discover the AP with the white-listed SSID,
+                    # detect scan, discover the AP with the allowlisted SSID,
                     # wake up in dark resume, connect, then suspend again.
                     time.sleep(wifi_client.NET_DETECT_SCAN_WAIT_TIME_SECONDS +
                                wifi_client.DARK_RESUME_WAIT_TIME_SECONDS)

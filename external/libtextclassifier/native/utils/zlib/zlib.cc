@@ -16,33 +16,26 @@
 
 #include "utils/zlib/zlib.h"
 
-#include "utils/flatbuffers.h"
+#include "utils/base/logging.h"
+#include "utils/flatbuffers/flatbuffers.h"
 
 namespace libtextclassifier3 {
 
-std::unique_ptr<ZlibDecompressor> ZlibDecompressor::Instance(
-    const unsigned char* dictionary, const unsigned int dictionary_size) {
-  std::unique_ptr<ZlibDecompressor> result(
-      new ZlibDecompressor(dictionary, dictionary_size));
+std::unique_ptr<ZlibDecompressor> ZlibDecompressor::Instance() {
+  std::unique_ptr<ZlibDecompressor> result(new ZlibDecompressor());
   if (!result->initialized_) {
     result.reset();
   }
   return result;
 }
 
-ZlibDecompressor::ZlibDecompressor(const unsigned char* dictionary,
-                                   const unsigned int dictionary_size) {
+ZlibDecompressor::ZlibDecompressor() {
   memset(&stream_, 0, sizeof(stream_));
   stream_.zalloc = Z_NULL;
   stream_.zfree = Z_NULL;
   initialized_ = false;
   if (inflateInit(&stream_) != Z_OK) {
     TC3_LOG(ERROR) << "Could not initialize decompressor.";
-    return;
-  }
-  if (dictionary != nullptr &&
-      inflateSetDictionary(&stream_, dictionary, dictionary_size) != Z_OK) {
-    TC3_LOG(ERROR) << "Could not set dictionary.";
     return;
   }
   initialized_ = true;
@@ -61,7 +54,8 @@ bool ZlibDecompressor::Decompress(const uint8* buffer, const int buffer_size,
     return false;
   }
   out->resize(uncompressed_size);
-  stream_.next_in = reinterpret_cast<const Bytef*>(buffer);
+  stream_.next_in =
+      const_cast<z_const Bytef*>(reinterpret_cast<const Bytef*>(buffer));
   stream_.avail_in = buffer_size;
   stream_.next_out = reinterpret_cast<Bytef*>(const_cast<char*>(out->c_str()));
   stream_.avail_out = uncompressed_size;
@@ -110,19 +104,15 @@ bool ZlibDecompressor::MaybeDecompressOptionallyCompressedBuffer(
   return MaybeDecompress(compressed_buffer, out);
 }
 
-std::unique_ptr<ZlibCompressor> ZlibCompressor::Instance(
-    const unsigned char* dictionary, const unsigned int dictionary_size) {
-  std::unique_ptr<ZlibCompressor> result(
-      new ZlibCompressor(dictionary, dictionary_size));
+std::unique_ptr<ZlibCompressor> ZlibCompressor::Instance() {
+  std::unique_ptr<ZlibCompressor> result(new ZlibCompressor());
   if (!result->initialized_) {
     result.reset();
   }
   return result;
 }
 
-ZlibCompressor::ZlibCompressor(const unsigned char* dictionary,
-                               const unsigned int dictionary_size,
-                               const int level, const int tmp_buffer_size) {
+ZlibCompressor::ZlibCompressor(const int level, const int tmp_buffer_size) {
   memset(&stream_, 0, sizeof(stream_));
   stream_.zalloc = Z_NULL;
   stream_.zfree = Z_NULL;
@@ -131,11 +121,6 @@ ZlibCompressor::ZlibCompressor(const unsigned char* dictionary,
   initialized_ = false;
   if (deflateInit(&stream_, level) != Z_OK) {
     TC3_LOG(ERROR) << "Could not initialize compressor.";
-    return;
-  }
-  if (dictionary != nullptr &&
-      deflateSetDictionary(&stream_, dictionary, dictionary_size) != Z_OK) {
-    TC3_LOG(ERROR) << "Could not set dictionary.";
     return;
   }
   initialized_ = true;
@@ -147,8 +132,8 @@ void ZlibCompressor::Compress(const std::string& uncompressed_content,
                               CompressedBufferT* out) {
   out->uncompressed_size = uncompressed_content.size();
   out->buffer.clear();
-  stream_.next_in =
-      reinterpret_cast<const Bytef*>(uncompressed_content.c_str());
+  stream_.next_in = const_cast<z_const Bytef*>(
+      reinterpret_cast<const Bytef*>(uncompressed_content.c_str()));
   stream_.avail_in = uncompressed_content.size();
   stream_.next_out = buffer_.get();
   stream_.avail_out = buffer_size_;
@@ -175,16 +160,6 @@ void ZlibCompressor::Compress(const std::string& uncompressed_content,
       break;
     }
   } while (status == Z_OK);
-}
-
-bool ZlibCompressor::GetDictionary(std::vector<unsigned char>* dictionary) {
-  // Retrieve first the size of the dictionary.
-  unsigned int size;
-  if (deflateGetDictionary(&stream_, /*dictionary=*/Z_NULL, &size) != Z_OK) {
-    return false;
-  }
-  dictionary->resize(size);
-  return deflateGetDictionary(&stream_, dictionary->data(), &size) == Z_OK;
 }
 
 }  // namespace libtextclassifier3

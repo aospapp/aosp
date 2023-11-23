@@ -16,6 +16,7 @@
 
 #include <keymaster/contexts/pure_soft_keymaster_context.h>
 
+#include <assert.h>
 #include <memory>
 
 #include <openssl/aes.h>
@@ -33,6 +34,7 @@
 #include <keymaster/km_openssl/aes_key.h>
 #include <keymaster/km_openssl/asymmetric_key.h>
 #include <keymaster/km_openssl/attestation_utils.h>
+#include <keymaster/km_openssl/certificate_utils.h>
 #include <keymaster/km_openssl/ec_key_factory.h>
 #include <keymaster/km_openssl/hmac_key.h>
 #include <keymaster/km_openssl/openssl_err.h>
@@ -46,27 +48,41 @@
 
 #include <keymaster/contexts/soft_attestation_cert.h>
 
-using std::unique_ptr;
-
 namespace keymaster {
 
-PureSoftKeymasterContext::PureSoftKeymasterContext(keymaster_security_level_t security_level)
-    : rsa_factory_(new RsaKeyFactory(this)), ec_factory_(new EcKeyFactory(this)),
-      aes_factory_(new AesKeyFactory(this, this)),
-      tdes_factory_(new TripleDesKeyFactory(this, this)),
-      hmac_factory_(new HmacKeyFactory(this, this)), os_version_(0), os_patchlevel_(0),
-      soft_keymaster_enforcement_(64, 64), security_level_(security_level) {}
+PureSoftKeymasterContext::PureSoftKeymasterContext(KmVersion version,
+                                                   keymaster_security_level_t security_level)
+
+    : SoftAttestationContext(version),
+      rsa_factory_(new RsaKeyFactory(*this /* blob_maker */, *this /* context */)),
+      ec_factory_(new EcKeyFactory(*this /* blob_maker */, *this /* context */)),
+      aes_factory_(new AesKeyFactory(*this /* blob_maker */, *this /* random_source */)),
+      tdes_factory_(new TripleDesKeyFactory(*this /* blob_maker */, *this /* random_source */)),
+      hmac_factory_(new HmacKeyFactory(*this /* blob_maker */, *this /* random_source */)),
+      os_version_(0), os_patchlevel_(0), soft_keymaster_enforcement_(64, 64),
+      security_level_(security_level) {
+    // We're pretending to be some sort of secure hardware which supports secure key storage,
+    // this must only be used for testing.
+    if (security_level != KM_SECURITY_LEVEL_SOFTWARE) {
+        pure_soft_secure_key_storage_ = std::make_unique<PureSoftSecureKeyStorage>(64);
+    }
+    if (version >= KmVersion::KEYMINT_1) {
+        pure_soft_remote_provisioning_context_ =
+            std::make_unique<PureSoftRemoteProvisioningContext>();
+    }
+}
 
 PureSoftKeymasterContext::~PureSoftKeymasterContext() {}
 
 keymaster_error_t PureSoftKeymasterContext::SetSystemVersion(uint32_t os_version,
-                                                         uint32_t os_patchlevel) {
+                                                             uint32_t os_patchlevel) {
     os_version_ = os_version;
     os_patchlevel_ = os_patchlevel;
     return KM_ERROR_OK;
 }
 
-void PureSoftKeymasterContext::GetSystemVersion(uint32_t* os_version, uint32_t* os_patchlevel) const {
+void PureSoftKeymasterContext::GetSystemVersion(uint32_t* os_version,
+                                                uint32_t* os_patchlevel) const {
     *os_version = os_version_;
     *os_patchlevel = os_patchlevel_;
 }
@@ -98,10 +114,9 @@ PureSoftKeymasterContext::GetSupportedAlgorithms(size_t* algorithms_count) const
 }
 
 OperationFactory* PureSoftKeymasterContext::GetOperationFactory(keymaster_algorithm_t algorithm,
-                                                            keymaster_purpose_t purpose) const {
+                                                                keymaster_purpose_t purpose) const {
     KeyFactory* key_factory = GetKeyFactory(algorithm);
-    if (!key_factory)
-        return nullptr;
+    if (!key_factory) return nullptr;
     return key_factory->GetOperationFactory(purpose);
 }
 
@@ -111,8 +126,17 @@ keymaster_error_t PureSoftKeymasterContext::CreateKeyBlob(const AuthorizationSet
                                                           KeymasterKeyBlob* blob,
                                                           AuthorizationSet* hw_enforced,
                                                           AuthorizationSet* sw_enforced) const {
+    // Check whether the key blob can be securely stored by pure software secure key storage.
+    bool canStoreBySecureKeyStorageIfRequired = false;
+    if (GetSecurityLevel() != KM_SECURITY_LEVEL_SOFTWARE &&
+        pure_soft_secure_key_storage_ != nullptr) {
+        pure_soft_secure_key_storage_->HasSlot(&canStoreBySecureKeyStorageIfRequired);
+    }
+
+    bool needStoreBySecureKeyStorage = false;
     if (key_description.GetTagValue(TAG_ROLLBACK_RESISTANCE)) {
-        return KM_ERROR_ROLLBACK_RESISTANCE_UNAVAILABLE;
+        needStoreBySecureKeyStorage = true;
+        if (!canStoreBySecureKeyStorageIfRequired) return KM_ERROR_ROLLBACK_RESISTANCE_UNAVAILABLE;
     }
 
     if (GetSecurityLevel() != KM_SECURITY_LEVEL_SOFTWARE) {
@@ -143,7 +167,16 @@ keymaster_error_t PureSoftKeymasterContext::CreateKeyBlob(const AuthorizationSet
             case KM_TAG_OS_PATCHLEVEL:
             case KM_TAG_EARLY_BOOT_ONLY:
             case KM_TAG_UNLOCKED_DEVICE_REQUIRED:
+            case KM_TAG_RSA_OAEP_MGF_DIGEST:
+            case KM_TAG_ROLLBACK_RESISTANCE:
                 hw_enforced->push_back(entry);
+                break;
+            case KM_TAG_USAGE_COUNT_LIMIT:
+                // Enforce single use key with usage count limit = 1 into secure key storage.
+                if (canStoreBySecureKeyStorageIfRequired && entry.integer == 1) {
+                    needStoreBySecureKeyStorage = true;
+                    hw_enforced->push_back(entry);
+                }
                 break;
             default:
                 break;
@@ -154,23 +187,34 @@ keymaster_error_t PureSoftKeymasterContext::CreateKeyBlob(const AuthorizationSet
     keymaster_error_t error = SetKeyBlobAuthorizations(key_description, origin, os_version_,
                                                        os_patchlevel_, hw_enforced, sw_enforced);
     if (error != KM_ERROR_OK) return error;
+    error =
+        ExtendKeyBlobAuthorizations(hw_enforced, sw_enforced, vendor_patchlevel_, boot_patchlevel_);
+    if (error != KM_ERROR_OK) return error;
 
     AuthorizationSet hidden;
     error = BuildHiddenAuthorizations(key_description, &hidden, softwareRootOfTrust);
     if (error != KM_ERROR_OK) return error;
 
-    return SerializeIntegrityAssuredBlob(key_material, hidden, *hw_enforced, *sw_enforced, blob);
+    error = SerializeIntegrityAssuredBlob(key_material, hidden, *hw_enforced, *sw_enforced, blob);
+    if (error != KM_ERROR_OK) return error;
+
+    // Pretend to be some sort of secure hardware that can securely store the key blob.
+    if (!needStoreBySecureKeyStorage) return KM_ERROR_OK;
+    km_id_t keyid;
+    if (!soft_keymaster_enforcement_.CreateKeyId(*blob, &keyid)) return KM_ERROR_UNKNOWN_ERROR;
+    assert(needStoreBySecureKeyStorage && canStoreBySecureKeyStorageIfRequired);
+    return pure_soft_secure_key_storage_->WriteKey(keyid, *blob);
 }
 
 keymaster_error_t PureSoftKeymasterContext::UpgradeKeyBlob(const KeymasterKeyBlob& key_to_upgrade,
-                                                       const AuthorizationSet& upgrade_params,
-                                                       KeymasterKeyBlob* upgraded_key) const {
+                                                           const AuthorizationSet& upgrade_params,
+                                                           KeymasterKeyBlob* upgraded_key) const {
     UniquePtr<Key> key;
     keymaster_error_t error = ParseKeyBlob(key_to_upgrade, upgrade_params, &key);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
-    return UpgradeSoftKeyBlob(key, os_version_, os_patchlevel_, upgrade_params, upgraded_key);
+    return FullUpgradeSoftKeyBlob(key, os_version_, os_patchlevel_, vendor_patchlevel_,
+                                  boot_patchlevel_, upgrade_params, upgraded_key);
 }
 
 keymaster_error_t PureSoftKeymasterContext::ParseKeyBlob(const KeymasterKeyBlob& blob,
@@ -203,7 +247,7 @@ keymaster_error_t PureSoftKeymasterContext::ParseKeyBlob(const KeymasterKeyBlob&
     KeymasterKeyBlob key_material;
     keymaster_error_t error;
 
-    auto constructKey = [&, this] () mutable -> keymaster_error_t {
+    auto constructKey = [&, this]() mutable -> keymaster_error_t {
         // GetKeyFactory
         if (error != KM_ERROR_OK) return error;
         keymaster_algorithm_t algorithm;
@@ -211,6 +255,20 @@ keymaster_error_t PureSoftKeymasterContext::ParseKeyBlob(const KeymasterKeyBlob&
             !sw_enforced.GetTagValue(TAG_ALGORITHM, &algorithm)) {
             return KM_ERROR_INVALID_ARGUMENT;
         }
+
+        // Pretend to be some sort of secure hardware that can securely store
+        // the key blob. Check the key blob is still securely stored now.
+        if (hw_enforced.Contains(KM_TAG_ROLLBACK_RESISTANCE) ||
+            hw_enforced.Contains(KM_TAG_USAGE_COUNT_LIMIT)) {
+            if (pure_soft_secure_key_storage_ == nullptr) return KM_ERROR_INVALID_KEY_BLOB;
+            km_id_t keyid;
+            bool exists;
+            if (!soft_keymaster_enforcement_.CreateKeyId(blob, &keyid))
+                return KM_ERROR_INVALID_KEY_BLOB;
+            error = pure_soft_secure_key_storage_->KeyExists(keyid, &exists);
+            if (error != KM_ERROR_OK || !exists) return KM_ERROR_INVALID_KEY_BLOB;
+        }
+
         auto factory = GetKeyFactory(algorithm);
         return factory->LoadKey(move(key_material), additional_params, move(hw_enforced),
                                 move(sw_enforced), key);
@@ -218,71 +276,114 @@ keymaster_error_t PureSoftKeymasterContext::ParseKeyBlob(const KeymasterKeyBlob&
 
     AuthorizationSet hidden;
     error = BuildHiddenAuthorizations(additional_params, &hidden, softwareRootOfTrust);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
     // Assume it's an integrity-assured blob (new software-only blob, or new keymaster0-backed
     // blob).
-    error = DeserializeIntegrityAssuredBlob(blob, hidden, &key_material, &hw_enforced, &sw_enforced);
-    if (error != KM_ERROR_INVALID_KEY_BLOB)
-        return constructKey();
+    error =
+        DeserializeIntegrityAssuredBlob(blob, hidden, &key_material, &hw_enforced, &sw_enforced);
+    if (error != KM_ERROR_INVALID_KEY_BLOB) return constructKey();
 
-    // Wasn't an integrity-assured blob.  Maybe it's an OCB-encrypted blob.
-    error = ParseOcbAuthEncryptedBlob(blob, hidden, &key_material, &hw_enforced, &sw_enforced);
-    if (error == KM_ERROR_OK)
-        LOG_D("Parsed an old keymaster1 software key", 0);
-    if (error != KM_ERROR_INVALID_KEY_BLOB)
-        return constructKey();
+    // Wasn't an integrity-assured blob.  Maybe it's an auth-encrypted blob.
+    error = ParseAuthEncryptedBlob(blob, hidden, &key_material, &hw_enforced, &sw_enforced);
+    if (error == KM_ERROR_OK) LOG_D("Parsed an old keymaster1 software key", 0);
+    if (error != KM_ERROR_INVALID_KEY_BLOB) return constructKey();
 
-    // Wasn't an OCB-encrypted blob.  Maybe it's an old softkeymaster blob.
+    // Wasn't an auth-encrypted blob.  Maybe it's an old softkeymaster blob.
     error = ParseOldSoftkeymasterBlob(blob, &key_material, &hw_enforced, &sw_enforced);
-    if (error == KM_ERROR_OK)
-        LOG_D("Parsed an old sofkeymaster key", 0);
+    if (error == KM_ERROR_OK) LOG_D("Parsed an old sofkeymaster key", 0);
 
     return constructKey();
 }
 
-keymaster_error_t PureSoftKeymasterContext::DeleteKey(const KeymasterKeyBlob& /* blob */) const {
-    // Nothing to do for software-only contexts.
+keymaster_error_t PureSoftKeymasterContext::DeleteKey(const KeymasterKeyBlob& blob) const {
+    // Pretend to be some secure hardware with secure storage.
+    if (GetSecurityLevel() != KM_SECURITY_LEVEL_SOFTWARE &&
+        pure_soft_secure_key_storage_ != nullptr) {
+        km_id_t keyid;
+        if (!soft_keymaster_enforcement_.CreateKeyId(blob, &keyid)) return KM_ERROR_UNKNOWN_ERROR;
+        return pure_soft_secure_key_storage_->DeleteKey(keyid);
+    }
+
+    // Otherwise, nothing to do for software-only contexts.
     return KM_ERROR_OK;
 }
 
 keymaster_error_t PureSoftKeymasterContext::DeleteAllKeys() const {
+    // Pretend to be some secure hardware with secure storage.
+    if (GetSecurityLevel() != KM_SECURITY_LEVEL_SOFTWARE &&
+        pure_soft_secure_key_storage_ != nullptr) {
+        return pure_soft_secure_key_storage_->DeleteAllKeys();
+    }
+
+    // Otherwise, nothing to do for software-only contexts.
     return KM_ERROR_OK;
 }
 
 keymaster_error_t PureSoftKeymasterContext::AddRngEntropy(const uint8_t* buf, size_t length) const {
+    if (length > 2 * 1024) {
+        // At most 2KiB is allowed to be added at once.
+        return KM_ERROR_INVALID_INPUT_LENGTH;
+    }
     // XXX TODO according to boringssl openssl/rand.h RAND_add is deprecated and does
     // nothing
     RAND_add(buf, length, 0 /* Don't assume any entropy is added to the pool. */);
     return KM_ERROR_OK;
 }
 
-keymaster_error_t PureSoftKeymasterContext::GenerateAttestation(const Key& key,
-                                      const AuthorizationSet& attest_params,
-                                      CertChainPtr* cert_chain) const {
+CertificateChain
+PureSoftKeymasterContext::GenerateAttestation(const Key& key,                         //
+                                              const AuthorizationSet& attest_params,  //
+                                              UniquePtr<Key> attest_key,
+                                              const KeymasterBlob& issuer_subject,
+                                              keymaster_error_t* error) const {
+    if (!error) return {};
+    *error = KM_ERROR_OK;
 
-    keymaster_error_t error = KM_ERROR_OK;
     keymaster_algorithm_t key_algorithm;
     if (!key.authorizations().GetTagValue(TAG_ALGORITHM, &key_algorithm)) {
-        return KM_ERROR_UNKNOWN_ERROR;
+        *error = KM_ERROR_UNKNOWN_ERROR;
+        return {};
     }
 
-    if ((key_algorithm != KM_ALGORITHM_RSA && key_algorithm != KM_ALGORITHM_EC))
-        return KM_ERROR_INCOMPATIBLE_ALGORITHM;
+    if ((key_algorithm != KM_ALGORITHM_RSA && key_algorithm != KM_ALGORITHM_EC)) {
+        *error = KM_ERROR_INCOMPATIBLE_ALGORITHM;
+        return {};
+    }
+
+    if (attest_params.GetTagValue(TAG_DEVICE_UNIQUE_ATTESTATION)) {
+        *error = KM_ERROR_UNIMPLEMENTED;
+        return {};
+    }
+    // We have established that the given key has the correct algorithm, and because this is the
+    // SoftKeymasterContext we can assume that the Key is an AsymmetricKey. So we can downcast.
+    const AsymmetricKey& asymmetric_key = static_cast<const AsymmetricKey&>(key);
+
+    AttestKeyInfo attest_key_info(attest_key, &issuer_subject, error);
+    if (*error != KM_ERROR_OK) return {};
+
+    return generate_attestation(asymmetric_key, attest_params, move(attest_key_info), *this, error);
+}
+
+CertificateChain PureSoftKeymasterContext::GenerateSelfSignedCertificate(
+    const Key& key, const AuthorizationSet& cert_params, bool fake_signature,
+    keymaster_error_t* error) const {
+    keymaster_algorithm_t key_algorithm;
+    if (!key.authorizations().GetTagValue(TAG_ALGORITHM, &key_algorithm)) {
+        *error = KM_ERROR_UNKNOWN_ERROR;
+        return {};
+    }
+
+    if ((key_algorithm != KM_ALGORITHM_RSA && key_algorithm != KM_ALGORITHM_EC)) {
+        *error = KM_ERROR_INCOMPATIBLE_ALGORITHM;
+        return {};
+    }
 
     // We have established that the given key has the correct algorithm, and because this is the
     // SoftKeymasterContext we can assume that the Key is an AsymmetricKey. So we can downcast.
     const AsymmetricKey& asymmetric_key = static_cast<const AsymmetricKey&>(key);
 
-    auto attestation_chain = getAttestationChain(key_algorithm, &error);
-    if (error != KM_ERROR_OK) return error;
-
-    auto attestation_key = getAttestationKey(key_algorithm, &error);
-    if (error != KM_ERROR_OK) return error;
-
-    return generate_attestation(asymmetric_key, attest_params,
-            *attestation_chain, *attestation_key, *this, cert_chain);
+    return generate_self_signed_cert(asymmetric_key, cert_params, fake_signature, error);
 }
 
 static keymaster_error_t TranslateAuthorizationSetError(AuthorizationSet::Error err) {
@@ -423,7 +524,7 @@ keymaster_error_t PureSoftKeymasterContext::UnwrapKey(
                                             wrapped_key_description.data_length)
                              .build();
     if (update_params.is_valid() != AuthorizationSet::Error::OK) {
-        return TranslateAuthorizationSetError(transit_key_authorizations.is_valid());
+        return TranslateAuthorizationSetError(update_params.is_valid());
     }
 
     error = aes_operation->Update(update_params, encrypted_key, &update_outparams, &plaintext,
@@ -444,16 +545,17 @@ keymaster_error_t PureSoftKeymasterContext::UnwrapKey(
     return error;
 }
 
-keymaster_error_t PureSoftKeymasterContext::GetVerifiedBootParams(
-    keymaster_blob_t* verified_boot_key, keymaster_blob_t* verified_boot_hash,
-    keymaster_verified_boot_t* verified_boot_state, bool* device_locked) const {
-    // TODO(swillden): See if there might be some sort of vbmeta data in goldfish/cuttlefish.
+const AttestationContext::VerifiedBootParams*
+PureSoftKeymasterContext::GetVerifiedBootParams(keymaster_error_t* error) const {
+    static VerifiedBootParams params;
     static std::string fake_vb_key(32, 0);
-    *verified_boot_key = {reinterpret_cast<uint8_t*>(fake_vb_key.data()), fake_vb_key.size()};
-    *verified_boot_hash = {reinterpret_cast<uint8_t*>(fake_vb_key.data()), fake_vb_key.size()};
-    *verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED;
-    *device_locked = false;
-    return KM_ERROR_OK;
+    params.verified_boot_key = {reinterpret_cast<uint8_t*>(fake_vb_key.data()), fake_vb_key.size()};
+    params.verified_boot_hash = {reinterpret_cast<uint8_t*>(fake_vb_key.data()),
+                                 fake_vb_key.size()};
+    params.verified_boot_state = KM_VERIFIED_BOOT_UNVERIFIED;
+    params.device_locked = false;
+    *error = KM_ERROR_OK;
+    return &params;
 }
 
 }  // namespace keymaster

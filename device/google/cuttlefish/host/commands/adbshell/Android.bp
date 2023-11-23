@@ -13,6 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_binary_host {
     name: "adbshell",
     srcs: [
@@ -29,5 +33,5 @@ cc_binary_host {
         "libcuttlefish_host_config",
         "libjsoncpp",
     ],
-    defaults: ["cuttlefish_host_only"],
+    defaults: ["cuttlefish_buildhost_only"],
 }

@@ -50,9 +50,9 @@
     <event name="hey"/>
 
     <enum name="foo">
-        <entry name="first" value="0" summary="this is the first"/>
-        <entry name="second" value="1" summary="this is the second"/>
-        <entry name="third" value="2" since="2" summary="this is the third"/>
+	<entry name="first" value="0" summary="this is the first"/>
+	<entry name="second" value="1" summary="this is the second"/>
+	<entry name="third" value="2" since="2" summary="this is the third"/>
     </enum>
   </interface>
 </protocol>

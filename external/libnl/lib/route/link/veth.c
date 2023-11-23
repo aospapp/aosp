@@ -32,6 +32,7 @@
 #include <netlink/route/link/veth.h>
 
 #include <linux/if_link.h>
+#include <linux/veth.h>
 
 static struct nla_policy veth_policy[VETH_INFO_MAX+1] = {
 	[VETH_INFO_PEER]	= { .minlen = sizeof(struct ifinfomsg) },
@@ -45,7 +46,7 @@ static int veth_parse(struct rtnl_link *link, struct nlattr *data,
 	struct rtnl_link *peer = link->l_info;
 	int err;
 
-	NL_DBG(3, "Parsing veth link info");
+	NL_DBG(3, "Parsing veth link info\n");
 
 	if ((err = nla_parse_nested(tb, VETH_INFO_MAX, data, veth_policy)) < 0)
 		goto errout;
@@ -62,8 +63,8 @@ static int veth_parse(struct rtnl_link *link, struct nlattr *data,
 		peer->l_index = ifi->ifi_index;
 		peer->l_flags = ifi->ifi_flags;
 		peer->l_change = ifi->ifi_change;
-		err = nla_parse(peer_tb, IFLA_MAX,
-				nla_data(nla_peer) + sizeof(struct ifinfomsg),
+		err = nla_parse(peer_tb, IFLA_MAX, (struct nlattr *)
+		                ((char *) nla_data(nla_peer) + sizeof(struct ifinfomsg)),
 				nla_len(nla_peer) - sizeof(struct ifinfomsg),
 				rtln_link_policy);
 		if (err < 0)
@@ -281,10 +282,10 @@ int rtnl_link_veth_add(struct nl_sock *sock, const char *name,
 		return -NLE_NOMEM;
 	peer = link->l_info;
 
-	if (name && peer_name) {
+	if (name)
 		rtnl_link_set_name(link, name);
+	if (peer_name)
 		rtnl_link_set_name(peer, peer_name);
-	}
 
 	rtnl_link_set_ns_pid(peer, pid);
 	err = rtnl_link_add(sock, link, NLM_F_CREATE | NLM_F_EXCL);

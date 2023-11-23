@@ -17,7 +17,7 @@
 package dalvik.system;
 
 /**
- * Dummy class used during JNI initialization.  The JNI functions want
+ * Fake class used during JNI initialization.  The JNI functions want
  * to be able to create objects, and the VM needs to discard the references
  * when the function returns.  That gets a little weird when we're
  * calling JNI functions from the C main(), and there's no Java stack frame
@@ -33,7 +33,7 @@ package dalvik.system;
 class NativeStart {
     private NativeStart() {}
 
-    private static native void main(String[] dummy);
+    private static native void main(String[] fake);
 
     private static native void run();
 }

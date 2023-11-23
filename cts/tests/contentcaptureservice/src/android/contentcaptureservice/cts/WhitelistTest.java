@@ -16,26 +16,33 @@
 
 package android.contentcaptureservice.cts;
 
+import static android.contentcaptureservice.cts.Helper.EXTRA_VERIFY_RESULT;
 import static android.contentcaptureservice.cts.Helper.MY_PACKAGE;
 import static android.contentcaptureservice.cts.Helper.NO_ACTIVITIES;
 import static android.contentcaptureservice.cts.Helper.NO_PACKAGES;
-import static android.contentcaptureservice.cts.Helper.read;
 import static android.contentcaptureservice.cts.Helper.sContext;
 import static android.contentcaptureservice.cts.Helper.toSet;
-import static android.contentcaptureservice.cts.OutOfProcessActivity.ACTION_CHECK_MANAGER_AND_FINISH;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.app.PendingIntent;
 import android.content.ComponentName;
+import android.content.Intent;
+import android.os.IBinder;
+import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.service.contentcapture.ContentCaptureService;
+import android.support.test.uiautomator.UiDevice;
 
 import androidx.annotation.NonNull;
+import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.rule.ServiceTestRule;
+
+import com.android.compatibility.common.util.BlockingBroadcastReceiver;
 
 import org.junit.Ignore;
 import org.junit.Test;
 
-import java.io.File;
 import java.util.Set;
 
 /**
@@ -46,6 +53,8 @@ import java.util.Set;
  */
 @AppModeFull(reason = "BlankWithTitleActivityTest is enough")
 public class WhitelistTest extends AbstractContentCaptureIntegrationActivityLessTest {
+    public final ServiceTestRule mServiceRule = new ServiceTestRule();
+    private UiDevice mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
 
     @Ignore("will be whitelisted 'lite'")
     @Test
@@ -82,8 +91,19 @@ public class WhitelistTest extends AbstractContentCaptureIntegrationActivityLess
     }
 
     @Test
-    public void testRinseAndRepeat() throws Exception {
+    public void testWhitelisted_byService_alreadyRunning() throws Exception {
+        IOutOfProcessDataSharingService service = getDataShareService();
 
+        enableService(toSet(MY_PACKAGE), NO_ACTIVITIES);
+
+        // Wait for update to propagate
+        mUiDevice.waitForIdle();
+
+        assertContentCaptureManagerAvailable(service, true);
+    }
+
+    @Test
+    public void testRinseAndRepeat() throws Exception {
         // Right package
         final CtsContentCaptureService service = enableService(toSet(MY_PACKAGE), NO_ACTIVITIES);
         assertWhitelisted(service);
@@ -106,12 +126,39 @@ public class WhitelistTest extends AbstractContentCaptureIntegrationActivityLess
         launchActivityAndAssert(service, /* expectHasManager= */ false);
     }
 
-    private void launchActivityAndAssert(@NonNull CtsContentCaptureService service,
-            boolean expectHasManager) throws Exception {
-        OutOfProcessActivity.startActivity(sContext, ACTION_CHECK_MANAGER_AND_FINISH);
-        final File startedMarker = OutOfProcessActivity.waitActivityStarted(sContext);
+    private void assertContentCaptureManagerAvailable(IOutOfProcessDataSharingService service,
+            boolean isAvailable) throws Exception {
         try {
-            final String result = read(startedMarker);
+            assertThat(service.isContentCaptureManagerAvailable()).isEqualTo(isAvailable);
+        } finally {
+            OutOfProcessActivity.killOutOfProcessActivity();
+        }
+    }
+
+    private void launchActivityAndAssert(@NonNull CtsContentCaptureService service,
+            boolean expectHasManager) {
+        final String actionActivityFinish =
+                "ACTION_ACTIVITY_FINISH_" + SystemClock.uptimeMillis();
+        final BlockingBroadcastReceiver receiver =
+                new BlockingBroadcastReceiver(sContext, actionActivityFinish);
+        receiver.register();
+
+        final PendingIntent pendingIntent =
+                PendingIntent.getBroadcast(
+                        sContext,
+                        0,
+                        new Intent(actionActivityFinish),
+                        PendingIntent.FLAG_MUTABLE);
+        OutOfProcessActivity.launchOutOfProcessActivity(pendingIntent,
+                OutOfProcessActivity.ACTION_CHECK_MANAGER_AND_FINISH,
+                OutOfProcessActivity.EXTRA_FINISH_BROADCAST);
+
+        try {
+            // Wait received result
+            final Intent intent = receiver.awaitForBroadcast();
+            assertThat(intent).isNotNull();
+
+            String result = intent.getStringExtra(EXTRA_VERIFY_RESULT);
             if (expectHasManager) {
                 assertThat(result).startsWith(OutOfProcessActivity.HAS_MANAGER);
             } else {
@@ -122,6 +169,18 @@ public class WhitelistTest extends AbstractContentCaptureIntegrationActivityLess
             // CaptureOptions state in the application context
             service.setIgnoreOrphanSessionEvents(true); //
             OutOfProcessActivity.killOutOfProcessActivity();
+            // unregister receiver
+            receiver.unregisterQuietly();
         }
+    }
+
+    private IOutOfProcessDataSharingService getDataShareService() throws Exception {
+        Intent outsideService = new Intent();
+        outsideService.setComponent(new ComponentName(
+                "android.contentcaptureservice.cts",
+                "android.contentcaptureservice.cts.OutOfProcessDataSharingService"
+        ));
+        IBinder service = mServiceRule.bindService(outsideService);
+        return IOutOfProcessDataSharingService.Stub.asInterface(service);
     }
 }

@@ -11,98 +11,126 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Verifies android.scaler.cropRegion param works."""
 
+
+import logging
 import os.path
-import its.caps
-import its.device
-import its.image
-import its.objects
-import its.target
-import numpy
 
-NAME = os.path.basename(__file__).split(".")[0]
-# A list of 5 regions, specified in normalized (x,y,w,h) coords.
-# The regions correspond to: TL, TR, BL, BR, CENT
-REGIONS = [(0.0, 0.0, 0.5, 0.5),
-           (0.5, 0.0, 0.5, 0.5),
-           (0.0, 0.5, 0.5, 0.5),
-           (0.5, 0.5, 0.5, 0.5),
-           (0.25, 0.25, 0.5, 0.5)]
+from mobly import test_runner
+import numpy as np
+
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import image_processing_utils
+import its_session_utils
+import target_exposure_utils
+
+# 5 regions specified in normalized (x, y, w, h) coords.
+CROP_REGIONS = [(0.0, 0.0, 0.5, 0.5),  # top-left
+                (0.5, 0.0, 0.5, 0.5),  # top-right
+                (0.0, 0.5, 0.5, 0.5),  # bottom-left
+                (0.5, 0.5, 0.5, 0.5),  # bottom-right
+                (0.25, 0.25, 0.5, 0.5)]  # center
+MIN_DIGITAL_ZOOM_THRESH = 2
+NAME = os.path.splitext(os.path.basename(__file__))[0]
 
 
-def main():
-    """Test that crop regions work."""
+class CropRegionsTest(its_base_test.ItsBaseTest):
+  """Test that crop regions works."""
 
-    with its.device.ItsSession() as cam:
-        props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.compute_target_exposure(props) and
-                             its.caps.freeform_crop(props) and
-                             its.caps.per_frame_control(props))
+  def test_crop_regions(self):
+    logging.debug('Starting %s', NAME)
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      log_path = self.log_path
 
-        a = props["android.sensor.info.activeArraySize"]
-        ax, ay = a["left"], a["top"]
-        aw, ah = a["right"] - a["left"], a["bottom"] - a["top"]
-        e, s = its.target.get_target_exposure_combos(cam)["minSensitivity"]
-        print "Active sensor region (%d,%d %dx%d)" % (ax, ay, aw, ah)
+      # check SKIP conditions
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.compute_target_exposure(props) and
+          camera_properties_utils.freeform_crop(props) and
+          camera_properties_utils.per_frame_control(props))
 
-        # Uses a 2x digital zoom.
-        assert its.objects.get_max_digital_zoom(props) >= 2
+      # Load chart for scene
+      its_session_utils.load_scene(
+          cam, props, self.scene, self.tablet, self.chart_distance)
 
-        # Capture a full frame.
-        req = its.objects.manual_capture_request(s, e)
-        cap_full = cam.do_capture(req)
-        img_full = its.image.convert_capture_to_rgb_image(cap_full)
-        wfull, hfull = cap_full["width"], cap_full["height"]
-        its.image.write_image(
-                img_full, "%s_full_%dx%d.jpg" % (NAME, wfull, hfull))
+      a = props['android.sensor.info.activeArraySize']
+      ax, ay = a['left'], a['top']
+      aw, ah = a['right'] - a['left'], a['bottom'] - a['top']
+      e, s = target_exposure_utils.get_target_exposure_combos(
+          props, cam)['minSensitivity']
+      logging.debug('Active sensor region (%d,%d %dx%d)', ax, ay, aw, ah)
 
-        # Capture a burst of crop region frames.
-        # Note that each region is 1/2x1/2 of the full frame, and is digitally
-        # zoomed into the full size output image, so must be downscaled (below)
-        # by 2x when compared to a tile of the full image.
-        reqs = []
-        for x, y, w, h in REGIONS:
-            req = its.objects.manual_capture_request(s, e)
-            req["android.scaler.cropRegion"] = {
-                    "top": int(ah * y),
-                    "left": int(aw * x),
-                    "right": int(aw * (x + w)),
-                    "bottom": int(ah * (y + h))}
-            reqs.append(req)
-        caps_regions = cam.do_capture(reqs)
-        match_failed = False
-        for i, cap in enumerate(caps_regions):
-            a = cap["metadata"]["android.scaler.cropRegion"]
-            ax, ay = a["left"], a["top"]
-            aw, ah = a["right"] - a["left"], a["bottom"] - a["top"]
+      # Uses a 2x digital zoom.
+      max_digital_zoom = capture_request_utils.get_max_digital_zoom(props)
+      e_msg = 'Max digital zoom: %d, THRESH: %d' % (max_digital_zoom,
+                                                    MIN_DIGITAL_ZOOM_THRESH)
+      assert max_digital_zoom >= MIN_DIGITAL_ZOOM_THRESH, e_msg
 
-            # Match this crop image against each of the five regions of
-            # the full image, to find the best match (which should be
-            # the region that corresponds to this crop image).
-            img_crop = its.image.convert_capture_to_rgb_image(cap)
-            img_crop = its.image.downscale_image(img_crop, 2)
-            its.image.write_image(img_crop, "%s_crop%d.jpg" % (NAME, i))
-            min_diff = None
-            min_diff_region = None
-            for j, (x, y, w, h) in enumerate(REGIONS):
-                tile_full = its.image.get_image_patch(img_full, x, y, w, h)
-                wtest = min(tile_full.shape[1], aw)
-                htest = min(tile_full.shape[0], ah)
-                tile_full = tile_full[0:htest:, 0:wtest:, ::]
-                tile_crop = img_crop[0:htest:, 0:wtest:, ::]
-                its.image.write_image(
-                        tile_full, "%s_fullregion%d.jpg" % (NAME, j))
-                diff = numpy.fabs(tile_full - tile_crop).mean()
-                if min_diff is None or diff < min_diff:
-                    min_diff = diff
-                    min_diff_region = j
-            if i != min_diff_region:
-                match_failed = True
-            print "Crop image %d (%d,%d %dx%d) best match with region %d"%(
-                    i, ax, ay, aw, ah, min_diff_region)
+      # Capture a full frame.
+      req = capture_request_utils.manual_capture_request(s, e)
+      cap_full = cam.do_capture(req)
+      img_full = image_processing_utils.convert_capture_to_rgb_image(cap_full)
+      wfull, hfull = cap_full['width'], cap_full['height']
+      image_processing_utils.write_image(img_full, '%s_full_%dx%d.jpg' % (
+          os.path.join(log_path, NAME), wfull, hfull))
 
-        assert not match_failed
+      # Capture a burst of crop region frames.
+      # Note that each region is 1/2x1/2 of the full frame, and is digitally
+      # zoomed into the full size output image, so must be downscaled (below)
+      # by 2x when compared to a tile of the full image.
+      reqs = []
+      for x, y, w, h in CROP_REGIONS:
+        req = capture_request_utils.manual_capture_request(s, e)
+        req['android.scaler.cropRegion'] = {
+            'top': int(ah * y),
+            'left': int(aw * x),
+            'right': int(aw * (x + w)),
+            'bottom': int(ah * (y + h))}
+        reqs.append(req)
+      caps_regions = cam.do_capture(reqs)
+      match_failed = False
+      for i, cap in enumerate(caps_regions):
+        a = cap['metadata']['android.scaler.cropRegion']
+        ax, ay = a['left'], a['top']
+        aw, ah = a['right'] - a['left'], a['bottom'] - a['top']
 
-if __name__ == "__main__":
-    main()
+        # Match this crop image against each of the five regions of
+        # the full image, to find the best match (which should be
+        # the region that corresponds to this crop image).
+        img_crop = image_processing_utils.convert_capture_to_rgb_image(cap)
+        img_crop = image_processing_utils.downscale_image(img_crop, 2)
+        image_processing_utils.write_image(img_crop, '%s_crop%d.jpg' % (
+            os.path.join(log_path, NAME), i))
+        min_diff = None
+        min_diff_region = None
+        for j, (x, y, w, h) in enumerate(CROP_REGIONS):
+          tile_full = image_processing_utils.get_image_patch(
+              img_full, x, y, w, h)
+          wtest = min(tile_full.shape[1], aw)
+          htest = min(tile_full.shape[0], ah)
+          tile_full = tile_full[0:htest:, 0:wtest:, ::]
+          tile_crop = img_crop[0:htest:, 0:wtest:, ::]
+          image_processing_utils.write_image(
+              tile_full, '%s_fullregion%d.jpg' % (
+                  os.path.join(log_path, NAME), j))
+          diff = np.fabs(tile_full - tile_crop).mean()
+          if min_diff is None or diff < min_diff:
+            min_diff = diff
+            min_diff_region = j
+        if i != min_diff_region:
+          match_failed = True
+        logging.debug('Crop image %d (%d,%d %dx%d) best match with region %d',
+                      i, ax, ay, aw, ah, min_diff_region)
+
+    assert not match_failed
+
+if __name__ == '__main__':
+  test_runner.main()
 

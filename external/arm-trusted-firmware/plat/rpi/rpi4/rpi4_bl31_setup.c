@@ -17,6 +17,7 @@
 #include <lib/xlat_tables/xlat_tables_v2.h>
 #include <plat/common/platform.h>
 #include <common/fdt_fixup.h>
+#include <common/fdt_wrappers.h>
 #include <libfdt.h>
 
 #include <drivers/arm/gicv2.h>
@@ -132,14 +133,8 @@ void bl31_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 	/* Early GPU firmware revisions need a little break here. */
 	ldelay(100000);
 
-	/*
-	 * Initialize the console to provide early debug support.
-	 * We rely on the GPU firmware to have initialised the UART correctly,
-	 * as the baud base clock rate differs across GPU firmware revisions.
-	 * Providing a base clock of 0 lets the 16550 UART init routine skip
-	 * the initial enablement and baud rate setup.
-	 */
-	rpi3_console_init(0);
+	/* Initialize the console to provide early debug support. */
+	rpi3_console_init();
 
 	bl33_image_ep_info.pc = plat_get_ns_image_entrypoint();
 	bl33_image_ep_info.spsr = rpi3_get_spsr_for_bl33_entry();
@@ -206,13 +201,6 @@ void bl31_plat_arch_setup(void)
 	enable_mmu_el3(0);
 }
 
-static uint32_t dtb_size(const void *dtb)
-{
-	const uint32_t *dtb_header = dtb;
-
-	return fdt32_to_cpu(dtb_header[1]);
-}
-
 static void rpi4_prepare_dtb(void)
 {
 	void *dtb = (void *)rpi4_get_dtb_address();
@@ -256,7 +244,7 @@ static void rpi4_prepare_dtb(void)
 	if (ret < 0)
 		ERROR("Failed to pack Device Tree at %p: error %d\n", dtb, ret);
 
-	clean_dcache_range((uintptr_t)dtb, dtb_size(dtb));
+	clean_dcache_range((uintptr_t)dtb, fdt_blob_size(dtb));
 	INFO("Changed device tree to advertise PSCI.\n");
 }
 

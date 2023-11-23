@@ -257,13 +257,14 @@ class firmware_ECThermal(FirmwareTest):
         """
         logging.info("Stressing DUT with %d threads...", threads)
         self.faft_client.system.run_shell_command('pkill dd')
-        stress_cmd = 'dd if=/dev/urandom of=/dev/null bs=1M &'
+        stress_cmd = 'dd if=/dev/urandom of=/dev/null bs=1M'
         # Grep for [d]d instead of dd to prevent getting the PID of grep
         # itself.
         pid_cmd = "ps -ef | grep '[d]d if=/dev/urandom' | awk '{print $2}'"
+        block = False
         self._stress_pid = list()
         for _ in xrange(threads):
-            self.faft_client.system.run_shell_command(stress_cmd)
+            self.faft_client.system.run_shell_command(stress_cmd, block)
         lines = self.faft_client.system.run_shell_command_get_output(
                     pid_cmd)
         for line in lines:

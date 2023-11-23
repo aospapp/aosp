@@ -16,6 +16,8 @@
 
 package com.android.calllogbackup;
 
+import static android.provider.CallLog.Calls.MISSED_REASON_NOT_MISSED;
+
 import android.app.backup.BackupAgent;
 import android.app.backup.BackupDataInput;
 import android.app.backup.BackupDataOutput;
@@ -78,6 +80,7 @@ public class CallLogBackupAgent extends BackupAgent {
         int callBlockReason = Calls.BLOCK_REASON_NOT_BLOCKED;
         String callScreeningAppName = null;
         String callScreeningComponentName = null;
+        long missedReason = MISSED_REASON_NOT_MISSED;
 
         @Override
         public String toString() {
@@ -102,11 +105,9 @@ public class CallLogBackupAgent extends BackupAgent {
 
     private static final String TAG = "CallLogBackupAgent";
 
-    private static final String USER_FULL_DATA_BACKUP_AWARE = "user_full_data_backup_aware";
-
     /** Current version of CallLogBackup. Used to track the backup format. */
     @VisibleForTesting
-    static final int VERSION = 1007;
+    static final int VERSION = 1008;
     /** Version indicating that there exists no previous backup entry. */
     @VisibleForTesting
     static final int VERSION_NO_PREVIOUS_STATE = 0;
@@ -137,21 +138,14 @@ public class CallLogBackupAgent extends BackupAgent {
         CallLog.Calls.ADD_FOR_ALL_USERS,
         CallLog.Calls.BLOCK_REASON,
         CallLog.Calls.CALL_SCREENING_APP_NAME,
-        CallLog.Calls.CALL_SCREENING_COMPONENT_NAME
+        CallLog.Calls.CALL_SCREENING_COMPONENT_NAME,
+        CallLog.Calls.MISSED_REASON
     };
 
     /** ${inheritDoc} */
     @Override
     public void onBackup(ParcelFileDescriptor oldStateDescriptor, BackupDataOutput data,
             ParcelFileDescriptor newStateDescriptor) throws IOException {
-
-        if (shouldPreventBackup(this)) {
-            if (isDebug()) {
-                Log.d(TAG, "Skipping onBackup");
-            }
-            return;
-        }
-
         // Get the list of the previous calls IDs which were backed up.
         DataInputStream dataInput = new DataInputStream(
                 new FileInputStream(oldStateDescriptor.getFileDescriptor()));
@@ -270,7 +264,8 @@ public class CallLogBackupAgent extends BackupAgent {
             (int) call.duration, dataUsage, addForAllUsers, null, true /* isRead */,
             call.callBlockReason /*callBlockReason*/,
             call.callScreeningAppName /*callScreeningAppName*/,
-            call.callScreeningComponentName /*callScreeningComponentName*/);
+            call.callScreeningComponentName /*callScreeningComponentName*/,
+            call.missedReason);
     }
 
     @VisibleForTesting
@@ -386,6 +381,9 @@ public class CallLogBackupAgent extends BackupAgent {
                 readString(dataInput);
                 readInteger(dataInput);
             }
+            if (version >= 1008) {
+                call.missedReason = dataInput.readLong();
+            }
             return call;
         } catch (IOException e) {
             Log.e(TAG, "Error reading call data for " + callId, e);
@@ -419,6 +417,8 @@ public class CallLogBackupAgent extends BackupAgent {
             .getString(cursor.getColumnIndex(CallLog.Calls.CALL_SCREENING_APP_NAME));
         call.callScreeningComponentName = cursor
             .getString(cursor.getColumnIndex(CallLog.Calls.CALL_SCREENING_COMPONENT_NAME));
+        call.missedReason = cursor
+            .getInt(cursor.getColumnIndex(CallLog.Calls.MISSED_REASON));
         return call;
     }
 
@@ -463,6 +463,8 @@ public class CallLogBackupAgent extends BackupAgent {
             writeString(data, "");
             writeString(data, "");
             writeInteger(data, null);
+
+            data.writeLong(call.missedReason);
 
             data.flush();
 
@@ -584,12 +586,6 @@ public class CallLogBackupAgent extends BackupAgent {
         } catch (IOException e) {
             Log.e(TAG, "Failed to remove call: " + callId, e);
         }
-    }
-
-    static boolean shouldPreventBackup(Context context) {
-        // Check to see that the user is full-data aware before performing calllog backup.
-        return Settings.Secure.getInt(
-                context.getContentResolver(), USER_FULL_DATA_BACKUP_AWARE, 0) == 0;
     }
 
     private static boolean isDebug() {
